@@ -27,6 +27,7 @@ Gemini API (Nano Banana Pro) を使用したキャラクター画像生成機能
 
 - docs/reference/gemini_image_generation_guide.md を参照
 - 子供ごとに異なるキャラクターテーマ
+- favicon もGemini API (Nano Banana Pro) で自動生成する（アプリアイコン）
 
 ### 成果・結果
 
