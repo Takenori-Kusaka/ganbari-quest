@@ -2,7 +2,7 @@
 
 ### ステータス
 
-`In Progress`
+`Done`
 
 ---
 
