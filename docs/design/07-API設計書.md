@@ -35,6 +35,8 @@
 | POST | /api/v1/points/convert | ポイント変換 | PIN |
 | GET | /api/v1/status/[childId] | ステータス取得 | 不要 |
 | GET | /api/v1/evaluations/[childId] | 評価履歴取得 | 不要 |
+| GET | /api/v1/login-bonus/[childId] | ログインボーナス状態取得 | 不要 |
+| POST | /api/v1/login-bonus/[childId]/claim | ログインボーナス受取 | 不要 |
 | POST | /api/v1/auth/pin/verify | PIN認証 | 不要 |
 | POST | /api/v1/auth/pin/setup | PIN初期設定 | 不要(初回のみ) |
 | PATCH | /api/v1/activities/[id]/visibility | 活動表示/非表示切替 | PIN |
@@ -177,9 +179,22 @@ const createActivitySchema = z.object({
   "childId": 1,
   "activityId": 3,
   "activityName": "しょっきをはこんだ",
-  "points": 5,
+  "basePoints": 5,
+  "streakDays": 3,
+  "streakBonus": 2,
+  "totalPoints": 7,
   "recordedAt": "2026-02-19T18:30:00Z",
   "cancelableUntil": "2026-02-19T18:30:05Z"
+}
+```
+
+**エラー (409 Conflict):**
+```json
+{
+  "error": {
+    "code": "ALREADY_RECORDED",
+    "message": "きょうはもうやったよ！"
+  }
 }
 ```
 
@@ -321,7 +336,63 @@ const convertPointsSchema = z.object({
 }
 ```
 
-### 3.6 認証関連
+### 3.6 ログインボーナス関連
+
+#### GET /api/v1/login-bonus/[childId]
+
+ログインボーナスの状態を取得する。
+
+**レスポンス:**
+```json
+{
+  "childId": 1,
+  "claimedToday": false,
+  "consecutiveLoginDays": 5,
+  "lastClaimedAt": "2026-02-18T07:00:00Z"
+}
+```
+
+#### POST /api/v1/login-bonus/[childId]/claim
+
+ログインボーナスを受け取る（1日1回）。
+
+**レスポンス (201 Created):**
+```json
+{
+  "childId": 1,
+  "rank": "中吉",
+  "basePoints": 7,
+  "consecutiveLoginDays": 6,
+  "multiplier": 1.0,
+  "totalPoints": 7,
+  "message": "中吉！7ポイントゲット！"
+}
+```
+
+**連続ログイン倍率適用時 (3日連続):**
+```json
+{
+  "childId": 1,
+  "rank": "小吉",
+  "basePoints": 5,
+  "consecutiveLoginDays": 3,
+  "multiplier": 1.5,
+  "totalPoints": 8,
+  "message": "小吉！3にちれんぞくで1.5ばい！8ポイントゲット！"
+}
+```
+
+**エラー (409):**
+```json
+{
+  "error": {
+    "code": "ALREADY_CLAIMED",
+    "message": "きょうのボーナスはもうもらったよ！"
+  }
+}
+```
+
+### 3.7 認証関連
 
 #### POST /api/v1/auth/pin/verify
 
@@ -364,7 +435,7 @@ PIN認証を行う。
 }
 ```
 
-### 3.7 ヘルスチェック
+### 3.8 ヘルスチェック
 
 #### GET /api/health
 
@@ -398,6 +469,8 @@ PIN認証を行う。
 |--------|--------------|------|
 | VALIDATION_ERROR | 400 | リクエストバリデーション失敗 |
 | CANCEL_EXPIRED | 400 | キャンセル期限超過 |
+| ALREADY_RECORDED | 409 | 同日同活動の重複記録 |
+| ALREADY_CLAIMED | 409 | ログインボーナス受取済み |
 | INSUFFICIENT_POINTS | 400 | ポイント残高不足 |
 | INVALID_PIN | 401 | PIN不一致 |
 | UNAUTHORIZED | 401 | 認証が必要 |
