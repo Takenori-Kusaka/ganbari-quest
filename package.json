@@ -26,19 +26,21 @@
 		"db:seed": "tsx src/lib/server/db/seed.ts"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-node": "^5.0.0",
-		"@sveltejs/kit": "^2.50.2",
-		"@sveltejs/vite-plugin-svelte": "^6.2.4",
-		"@types/better-sqlite3": "^7.6.0",
 		"@biomejs/biome": "^1.9.0",
 		"@playwright/test": "^1.50.0",
 		"@sveltejs/adapter-auto": "^7.0.0",
+		"@sveltejs/adapter-node": "^5.0.0",
+		"@sveltejs/kit": "^2.50.2",
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@tailwindcss/vite": "^4.2.0",
 		"@testing-library/svelte": "^5.2.0",
+		"@types/better-sqlite3": "^7.6.0",
 		"@vitest/coverage-v8": "^3.0.0",
 		"drizzle-kit": "^0.30.0",
 		"jsdom": "^26.0.0",
 		"svelte": "^5.51.0",
 		"svelte-check": "^4.3.6",
+		"tailwindcss": "^4.2.0",
 		"tsx": "^4.19.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1",
@@ -46,8 +48,8 @@
 	},
 	"dependencies": {
 		"@ark-ui/svelte": "^5.0.0",
-		"better-sqlite3": "^11.0.0",
 		"bcrypt": "^5.1.0",
+		"better-sqlite3": "^11.0.0",
 		"drizzle-orm": "^0.39.0",
 		"zod": "^3.24.0"
 	}
