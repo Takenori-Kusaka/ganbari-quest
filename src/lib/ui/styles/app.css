@@ -39,9 +39,9 @@
 	/* ---- Category Colors ---- */
 	--color-cat-undou: #4caf50;
 	--color-cat-benkyou: #2196f3;
-	--color-cat-otetsudai: #ff9800;
-	--color-cat-comm: #9c27b0;
-	--color-cat-seikatsu: #ffeb3b;
+	--color-cat-seikatsu: #ff9800;
+	--color-cat-kouryuu: #9c27b0;
+	--color-cat-souzou: #e91e63;
 }
 
 /* ============================================================
