@@ -1,0 +1,200 @@
+@import 'tailwindcss';
+
+/* ============================================================
+   がんばりクエスト デザイントークン
+   See: docs/design/06-UI設計書.md §2
+   ============================================================ */
+
+@theme {
+	/* ---- Spacing ---- */
+	--spacing-xs: 4px;
+	--spacing-sm: 8px;
+	--spacing-md: 16px;
+	--spacing-lg: 24px;
+	--spacing-xl: 32px;
+	--spacing-2xl: 48px;
+
+	/* ---- Border Radius ---- */
+	--radius-sm: 8px;
+	--radius-md: 16px;
+	--radius-lg: 24px;
+	--radius-full: 9999px;
+
+	/* ---- Font Size ---- */
+	--font-size-hero: 3rem;
+	--font-size-xl: 1.5rem;
+	--font-size-lg: 1.25rem;
+	--font-size-md: 1rem;
+	--font-size-sm: 0.875rem;
+
+	/* ---- Common Colors ---- */
+	--color-bg: #fffdf7;
+	--color-text: #2d2d2d;
+	--color-text-muted: #8b8b8b;
+	--color-success: #4caf50;
+	--color-warning: #ff9800;
+	--color-danger: #f44336;
+	--color-point: #ffd700;
+
+	/* ---- Category Colors ---- */
+	--color-cat-undou: #4caf50;
+	--color-cat-benkyou: #2196f3;
+	--color-cat-otetsudai: #ff9800;
+	--color-cat-comm: #9c27b0;
+	--color-cat-seikatsu: #ffeb3b;
+}
+
+/* ============================================================
+   Theme System (CSS custom properties on [data-theme])
+   ============================================================ */
+
+:root,
+[data-theme='pink'] {
+	--theme-primary: #ff69b4;
+	--theme-secondary: #ffb6c1;
+	--theme-accent: #ff1493;
+	--theme-bg: #fff0f5;
+	--theme-nav: #ffe4e1;
+}
+
+[data-theme='blue'] {
+	--theme-primary: #4fc3f7;
+	--theme-secondary: #81d4fa;
+	--theme-accent: #039be5;
+	--theme-bg: #e3f2fd;
+	--theme-nav: #bbdefb;
+}
+
+[data-theme='admin'] {
+	--theme-primary: #5c6bc0;
+	--theme-secondary: #9fa8da;
+	--theme-accent: #3949ab;
+	--theme-bg: #f5f5f5;
+	--theme-nav: #e8eaf6;
+}
+
+/* ============================================================
+   Base Styles
+   ============================================================ */
+
+html {
+	font-family: 'Noto Sans JP', sans-serif;
+	background-color: var(--color-bg);
+	color: var(--color-text);
+	-webkit-tap-highlight-color: transparent;
+}
+
+body {
+	margin: 0;
+	min-height: 100dvh;
+}
+
+/* ============================================================
+   Tap Feedback (4歳児向けUI - 即座のフィードバック)
+   ============================================================ */
+
+.tap-target {
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+	transition: transform 0.15s ease;
+}
+
+.tap-target:active {
+	transform: scale(0.95);
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+
+@keyframes bounce-in {
+	0% {
+		transform: scale(0);
+		opacity: 0;
+	}
+	50% {
+		transform: scale(1.15);
+	}
+	100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+
+@keyframes point-pop {
+	0% {
+		transform: scale(0.5) translateY(20px);
+		opacity: 0;
+	}
+	60% {
+		transform: scale(1.2) translateY(-5px);
+	}
+	100% {
+		transform: scale(1) translateY(0);
+		opacity: 1;
+	}
+}
+
+@keyframes spin-in {
+	0% {
+		transform: rotateY(0deg);
+	}
+	100% {
+		transform: rotateY(720deg);
+	}
+}
+
+@keyframes shimmer {
+	0% {
+		background-position: -200% center;
+	}
+	100% {
+		background-position: 200% center;
+	}
+}
+
+@keyframes flame-appear {
+	0% {
+		transform: scale(0) translateY(10px);
+		opacity: 0;
+	}
+	100% {
+		transform: scale(1) translateY(0);
+		opacity: 1;
+	}
+}
+
+.animate-bounce-in {
+	animation: bounce-in 0.5s ease-out forwards;
+}
+
+.animate-point-pop {
+	animation: point-pop 0.6s ease-out forwards;
+}
+
+.animate-spin-in {
+	animation: spin-in 1.5s ease-in-out forwards;
+}
+
+.animate-shimmer {
+	background: linear-gradient(
+		90deg,
+		transparent 25%,
+		rgba(255, 215, 0, 0.3) 50%,
+		transparent 75%
+	);
+	background-size: 200% 100%;
+	animation: shimmer 2s infinite;
+}
+
+.animate-flame {
+	animation: flame-appear 0.3s ease-out forwards;
+}
+
+/* Staggered flame animation for streaks */
+.animate-flame:nth-child(1) { animation-delay: 0s; }
+.animate-flame:nth-child(2) { animation-delay: 0.1s; }
+.animate-flame:nth-child(3) { animation-delay: 0.2s; }
+.animate-flame:nth-child(4) { animation-delay: 0.3s; }
+.animate-flame:nth-child(5) { animation-delay: 0.4s; }
