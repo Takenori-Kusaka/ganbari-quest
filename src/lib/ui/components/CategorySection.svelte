@@ -11,9 +11,9 @@
 	const categoryColors: Record<string, string> = {
 		うんどう: 'var(--color-cat-undou)',
 		べんきょう: 'var(--color-cat-benkyou)',
-		おてつだい: 'var(--color-cat-otetsudai)',
-		コミュニケーション: 'var(--color-cat-comm)',
 		せいかつ: 'var(--color-cat-seikatsu)',
+		こうりゅう: 'var(--color-cat-kouryuu)',
+		そうぞう: 'var(--color-cat-souzou)',
 	};
 
 	const color = $derived(categoryColors[category] ?? 'var(--theme-primary)');

@@ -105,22 +105,22 @@ function seed() {
 				ageMax: null,
 				sortOrder: 7,
 			},
-			// おてつだい
+			// そうぞう
 			{
-				name: 'しょっきをはこんだ',
-				category: 'おてつだい',
-				icon: '🍽️',
+				name: 'おえかきした',
+				category: 'そうぞう',
+				icon: '🎨',
 				basePoints: 5,
-				ageMin: 3,
+				ageMin: null,
 				ageMax: null,
 				sortOrder: 8,
 			},
 			{
-				name: 'かたづけた',
-				category: 'おてつだい',
-				icon: '🧹',
+				name: 'こうさくした',
+				category: 'そうぞう',
+				icon: '✂️',
 				basePoints: 5,
-				ageMin: null,
+				ageMin: 3,
 				ageMax: null,
 				sortOrder: 9,
 			},
@@ -152,10 +152,10 @@ function seed() {
 				ageMax: 6,
 				sortOrder: 12,
 			},
-			// コミュニケーション
+			// こうりゅう
 			{
 				name: 'ともだちとあそんだ',
-				category: 'コミュニケーション',
+				category: 'こうりゅう',
 				icon: '🤝',
 				basePoints: 5,
 				ageMin: 3,
@@ -164,7 +164,7 @@ function seed() {
 			},
 			{
 				name: 'あいさつした',
-				category: 'コミュニケーション',
+				category: 'こうりゅう',
 				icon: '👋',
 				basePoints: 3,
 				ageMin: null,
@@ -173,7 +173,7 @@ function seed() {
 			},
 			{
 				name: 'はっぴょうかいでがんばった',
-				category: 'コミュニケーション',
+				category: 'こうりゅう',
 				icon: '🎤',
 				basePoints: 20,
 				ageMin: 3,
@@ -199,15 +199,9 @@ function seed() {
 		const benchmarksData: (typeof schema.marketBenchmarks.$inferInsert)[] = [
 			{ age: 4, category: 'うんどう', mean: 30.0, stdDev: 10.0, source: '暫定値' },
 			{ age: 4, category: 'べんきょう', mean: 20.0, stdDev: 8.0, source: '暫定値' },
-			{ age: 4, category: 'おてつだい', mean: 25.0, stdDev: 9.0, source: '暫定値' },
-			{
-				age: 4,
-				category: 'コミュニケーション',
-				mean: 25.0,
-				stdDev: 10.0,
-				source: '暫定値',
-			},
 			{ age: 4, category: 'せいかつ', mean: 35.0, stdDev: 8.0, source: '暫定値' },
+			{ age: 4, category: 'こうりゅう', mean: 25.0, stdDev: 10.0, source: '暫定値' },
+			{ age: 4, category: 'そうぞう', mean: 25.0, stdDev: 9.0, source: '暫定値' },
 		];
 
 		db.insert(schema.marketBenchmarks).values(benchmarksData).run();
@@ -224,9 +218,9 @@ function seed() {
 		const statusesData: (typeof schema.statuses.$inferInsert)[] = [
 			{ childId: 1, category: 'うんどう', value: 30.0 },
 			{ childId: 1, category: 'べんきょう', value: 20.0 },
-			{ childId: 1, category: 'おてつだい', value: 25.0 },
-			{ childId: 1, category: 'コミュニケーション', value: 25.0 },
 			{ childId: 1, category: 'せいかつ', value: 35.0 },
+			{ childId: 1, category: 'こうりゅう', value: 25.0 },
+			{ childId: 1, category: 'そうぞう', value: 25.0 },
 		];
 
 		db.insert(schema.statuses).values(statusesData).run();
