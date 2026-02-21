@@ -33,14 +33,23 @@
 			"trailingCommas": "all"
 		}
 	},
+	"overrides": [
+		{
+			"include": ["**/*.svelte"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnusedVariables": "off",
+						"noUnusedImports": "off"
+					},
+					"style": {
+						"useConst": "off"
+					}
+				}
+			}
+		}
+	],
 	"files": {
-		"ignore": [
-			"node_modules",
-			".svelte-kit",
-			"build",
-			"coverage",
-			"test-results",
-			"*.db"
-		]
+		"ignore": ["node_modules", ".svelte-kit", "build", "coverage", "test-results", "*.db"]
 	}
 }
