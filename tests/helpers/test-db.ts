@@ -142,24 +142,69 @@ export function createTestDb() {
 	return { sqlite, db, schema };
 }
 
+/** テスト用の認証設定を挿入する */
+export function seedAuthSettings(db: ReturnType<typeof drizzle>, pinHash: string) {
+	db.insert(schema.settings)
+		.values([
+			{ key: 'pin_hash', value: pinHash },
+			{ key: 'session_token', value: '' },
+			{ key: 'session_expires_at', value: '' },
+			{ key: 'pin_failed_attempts', value: '0' },
+			{ key: 'pin_locked_until', value: '' },
+		])
+		.run();
+}
+
 /** テスト用の子供と活動を挿入する */
 export function seedTestData(db: ReturnType<typeof drizzle>) {
 	// 子供
-	db.insert(schema.children)
-		.values({ nickname: 'テストちゃん', age: 4, theme: 'pink' })
-		.run();
+	db.insert(schema.children).values({ nickname: 'テストちゃん', age: 4, theme: 'pink' }).run();
 
 	// 活動マスタ
 	const activitiesData = [
 		{ name: 'たいそうした', category: 'うんどう', icon: '🤸', basePoints: 5, sortOrder: 1 },
 		{ name: 'おそとであそんだ', category: 'うんどう', icon: '🏃', basePoints: 5, sortOrder: 2 },
-		{ name: 'すいみんぐ', category: 'うんどう', icon: '🏊', basePoints: 10, ageMin: 3, sortOrder: 3 },
-		{ name: 'ひらがなれんしゅう', category: 'べんきょう', icon: '✏️', basePoints: 5, ageMin: 3, sortOrder: 4 },
+		{
+			name: 'すいみんぐ',
+			category: 'うんどう',
+			icon: '🏊',
+			basePoints: 10,
+			ageMin: 3,
+			sortOrder: 3,
+		},
+		{
+			name: 'ひらがなれんしゅう',
+			category: 'べんきょう',
+			icon: '✏️',
+			basePoints: 5,
+			ageMin: 3,
+			sortOrder: 4,
+		},
 		{ name: 'おかたづけした', category: 'せいかつ', icon: '🧹', basePoints: 5, sortOrder: 5 },
 		{ name: 'おえかきした', category: 'そうぞう', icon: '🎨', basePoints: 5, sortOrder: 6 },
-		{ name: 'おともだちとあそんだ', category: 'こうりゅう', icon: '🤝', basePoints: 5, sortOrder: 7 },
-		{ name: '5さいいじょう活動', category: 'べんきょう', icon: '📚', basePoints: 5, ageMin: 5, sortOrder: 8 },
-		{ name: '非表示活動', category: 'うんどう', icon: '❌', basePoints: 5, isVisible: 0, sortOrder: 99 },
+		{
+			name: 'おともだちとあそんだ',
+			category: 'こうりゅう',
+			icon: '🤝',
+			basePoints: 5,
+			sortOrder: 7,
+		},
+		{
+			name: '5さいいじょう活動',
+			category: 'べんきょう',
+			icon: '📚',
+			basePoints: 5,
+			ageMin: 5,
+			sortOrder: 8,
+		},
+		{
+			name: '非表示活動',
+			category: 'うんどう',
+			icon: '❌',
+			basePoints: 5,
+			isVisible: 0,
+			sortOrder: 99,
+		},
 	];
 
 	for (const a of activitiesData) {
