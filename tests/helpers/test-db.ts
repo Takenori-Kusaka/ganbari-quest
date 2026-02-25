@@ -133,6 +133,30 @@ const SQL_CREATE_TABLES = `
 	);
 	CREATE UNIQUE INDEX idx_login_bonuses_child_date
 		ON login_bonuses(child_id, login_date);
+
+	CREATE TABLE achievements (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		description TEXT,
+		icon TEXT NOT NULL,
+		category TEXT,
+		condition_type TEXT NOT NULL,
+		condition_value INTEGER NOT NULL,
+		bonus_points INTEGER NOT NULL,
+		rarity TEXT NOT NULL DEFAULT 'common',
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE child_achievements (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		achievement_id INTEGER NOT NULL REFERENCES achievements(id),
+		unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_child_achievements_unique
+		ON child_achievements(child_id, achievement_id);
 `;
 
 export function createTestDb() {

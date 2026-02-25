@@ -256,3 +256,45 @@ export const loginBonuses = sqliteTable(
 		),
 	],
 );
+
+// ============================================================
+// achievements - 実績マスタ
+// ============================================================
+export const achievements = sqliteTable('achievements', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	code: text('code').notNull().unique(),
+	name: text('name').notNull(),
+	description: text('description'),
+	icon: text('icon').notNull(),
+	category: text('category'),
+	conditionType: text('condition_type').notNull(),
+	conditionValue: integer('condition_value').notNull(),
+	bonusPoints: integer('bonus_points').notNull(),
+	rarity: text('rarity').notNull().default('common'),
+	sortOrder: integer('sort_order').notNull().default(0),
+	createdAt: text('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================
+// child_achievements - 実績解除履歴
+// ============================================================
+export const childAchievements = sqliteTable(
+	'child_achievements',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		achievementId: integer('achievement_id')
+			.notNull()
+			.references(() => achievements.id),
+		unlockedAt: text('unlocked_at')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_child_achievements_unique').on(table.childId, table.achievementId),
+	],
+);
