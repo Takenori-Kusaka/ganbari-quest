@@ -2,6 +2,7 @@
 // 初期データ投入スクリプト
 // Usage: npx tsx src/lib/server/db/seed.ts
 
+import bcrypt from 'bcrypt';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
@@ -234,16 +235,17 @@ function seed() {
 	// ============================================================
 	const existingSettings = db.select().from(schema.settings).all();
 	if (existingSettings.length === 0) {
+		const defaultPinHash = bcrypt.hashSync('1234', 10);
 		db.insert(schema.settings)
 			.values([
-				{ key: 'pin_hash', value: '' },
+				{ key: 'pin_hash', value: defaultPinHash },
 				{ key: 'session_token', value: '' },
 				{ key: 'session_expires_at', value: '' },
 				{ key: 'pin_failed_attempts', value: '0' },
 				{ key: 'pin_locked_until', value: '' },
 			])
 			.run();
-		console.log('  ✓ settings: PIN auth defaults');
+		console.log('  ✓ settings: PIN auth defaults (デフォルトPIN: 1234)');
 	} else {
 		console.log('  - settings: already seeded');
 	}
