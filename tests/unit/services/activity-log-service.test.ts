@@ -18,6 +18,7 @@ const CREATE_TABLES = `
 		age INTEGER NOT NULL,
 		birth_date TEXT,
 		theme TEXT NOT NULL DEFAULT 'pink',
+		ui_mode TEXT NOT NULL DEFAULT 'kinder',
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);

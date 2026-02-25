@@ -74,6 +74,45 @@
 }
 
 /* ============================================================
+   Age Tier System (年齢帯別CSS変数)
+   ============================================================ */
+
+[data-age-tier='baby'] {
+	--age-tap-size: 120px;
+	--age-font-scale: 1.5;
+	--age-border-radius: var(--radius-lg);
+	--age-icon-size: 4rem;
+}
+
+[data-age-tier='kinder'] {
+	--age-tap-size: 80px;
+	--age-font-scale: 1.2;
+	--age-border-radius: var(--radius-md);
+	--age-icon-size: 3rem;
+}
+
+[data-age-tier='lower'] {
+	--age-tap-size: 56px;
+	--age-font-scale: 1;
+	--age-border-radius: var(--radius-md);
+	--age-icon-size: 2.5rem;
+}
+
+[data-age-tier='upper'] {
+	--age-tap-size: 48px;
+	--age-font-scale: 1;
+	--age-border-radius: var(--radius-sm);
+	--age-icon-size: 2rem;
+}
+
+[data-age-tier='teen'] {
+	--age-tap-size: 44px;
+	--age-font-scale: 1;
+	--age-border-radius: var(--radius-sm);
+	--age-icon-size: 1.75rem;
+}
+
+/* ============================================================
    Base Styles
    ============================================================ */
 

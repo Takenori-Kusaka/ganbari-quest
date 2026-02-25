@@ -1,3 +1,4 @@
+import { UI_MODES } from '$lib/domain/validation/age-tier';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getChildStatus } from '$lib/server/services/status-service';
@@ -20,6 +21,7 @@ export const load: LayoutServerLoad = ({ cookies, url }) => {
 			level: 1,
 			levelTitle: 'かけだし',
 			allChildren: getAllChildren(),
+			uiMode: 'kinder' as const,
 		};
 	}
 
@@ -28,6 +30,18 @@ export const load: LayoutServerLoad = ({ cookies, url }) => {
 	if (!child) {
 		cookies.delete('selectedChildId', { path: '/' });
 		redirect(302, '/switch');
+	}
+
+	const uiMode = child.uiMode ?? 'kinder';
+
+	// 年齢帯不一致チェック: 異なるモードのルートにアクセスした場合リダイレクト
+	const pathSegment = url.pathname.split('/')[1];
+	if (
+		pathSegment &&
+		UI_MODES.includes(pathSegment as (typeof UI_MODES)[number]) &&
+		pathSegment !== uiMode
+	) {
+		redirect(302, `/${uiMode}/home`);
 	}
 
 	const balanceResult = getPointBalance(childId);
@@ -43,5 +57,6 @@ export const load: LayoutServerLoad = ({ cookies, url }) => {
 		level,
 		levelTitle,
 		allChildren: getAllChildren(),
+		uiMode,
 	};
 };

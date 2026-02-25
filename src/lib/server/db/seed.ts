@@ -28,9 +28,10 @@ function seed() {
 				nickname: 'おじょうさま',
 				age: 4,
 				theme: 'pink',
+			uiMode: 'kinder',
 			})
 			.run();
-		console.log('  ✓ children: おじょうさま (4歳)');
+		console.log('  ✓ children: おじょうさま (4歳, kinder)');
 	} else {
 		console.log('  - children: already seeded');
 	}
