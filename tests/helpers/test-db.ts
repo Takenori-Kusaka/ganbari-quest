@@ -157,6 +157,20 @@ const SQL_CREATE_TABLES = `
 	);
 	CREATE UNIQUE INDEX idx_child_achievements_unique
 		ON child_achievements(child_id, achievement_id);
+
+	CREATE TABLE special_rewards (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		granted_by INTEGER,
+		title TEXT NOT NULL,
+		description TEXT,
+		points INTEGER NOT NULL,
+		icon TEXT,
+		category TEXT NOT NULL,
+		granted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_special_rewards_child
+		ON special_rewards(child_id, granted_at);
 `;
 
 export function createTestDb() {

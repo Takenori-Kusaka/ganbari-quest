@@ -298,3 +298,28 @@ export const childAchievements = sqliteTable(
 		uniqueIndex('idx_child_achievements_unique').on(table.childId, table.achievementId),
 	],
 );
+
+// ============================================================
+// special_rewards - 特別報酬
+// ============================================================
+export const specialRewards = sqliteTable(
+	'special_rewards',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		grantedBy: integer('granted_by'),
+		title: text('title').notNull(),
+		description: text('description'),
+		points: integer('points').notNull(),
+		icon: text('icon'),
+		category: text('category').notNull(),
+		grantedAt: text('granted_at')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		index('idx_special_rewards_child').on(table.childId, table.grantedAt),
+	],
+);
