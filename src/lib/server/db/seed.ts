@@ -232,6 +232,32 @@ function seed() {
 	}
 
 	// ============================================================
+	// 初期実績マスタ（12件）
+	// ============================================================
+	const existingAchievements = db.select().from(schema.achievements).all();
+	if (existingAchievements.length === 0) {
+		const achievementsData: (typeof schema.achievements.$inferInsert)[] = [
+			{ code: 'first_activity', name: 'はじめてのきろく', description: 'はじめてかつどうをきろくした！', icon: '🌟', category: null, conditionType: 'total_activities', conditionValue: 1, bonusPoints: 10, rarity: 'common', sortOrder: 1 },
+			{ code: 'streak_3', name: '3にちれんぞく', description: '3にちれんぞくでかつどうした！', icon: '🔥', category: null, conditionType: 'streak_days', conditionValue: 3, bonusPoints: 20, rarity: 'common', sortOrder: 2 },
+			{ code: 'streak_7', name: '7にちれんぞく', description: '1しゅうかんれんぞくでかつどうした！', icon: '💪', category: null, conditionType: 'streak_days', conditionValue: 7, bonusPoints: 50, rarity: 'rare', sortOrder: 3 },
+			{ code: 'streak_30', name: '30にちれんぞく', description: '1かげつれんぞくでかつどうした！', icon: '👑', category: null, conditionType: 'streak_days', conditionValue: 30, bonusPoints: 200, rarity: 'epic', sortOrder: 4 },
+			{ code: 'activities_10', name: '10かいきろく', description: '10かいかつどうをきろくした！', icon: '📝', category: null, conditionType: 'total_activities', conditionValue: 10, bonusPoints: 30, rarity: 'common', sortOrder: 5 },
+			{ code: 'activities_50', name: '50かいきろく', description: '50かいかつどうをきろくした！', icon: '📚', category: null, conditionType: 'total_activities', conditionValue: 50, bonusPoints: 100, rarity: 'rare', sortOrder: 6 },
+			{ code: 'activities_100', name: '100かいきろく', description: '100かいかつどうをきろくした！', icon: '🏆', category: null, conditionType: 'total_activities', conditionValue: 100, bonusPoints: 300, rarity: 'epic', sortOrder: 7 },
+			{ code: 'all_categories', name: 'ぜんぶのカテゴリ', description: '1にちですべてのカテゴリをきろくした！', icon: '🌈', category: null, conditionType: 'all_categories', conditionValue: 1, bonusPoints: 50, rarity: 'rare', sortOrder: 8 },
+			{ code: 'level_5', name: 'レベル5とうたつ', description: 'レベル5になった！', icon: '⭐', category: null, conditionType: 'level_reach', conditionValue: 5, bonusPoints: 100, rarity: 'rare', sortOrder: 9 },
+			{ code: 'level_10', name: 'さいきょうレベル', description: 'レベル10になった！すごい！', icon: '💎', category: null, conditionType: 'level_reach', conditionValue: 10, bonusPoints: 500, rarity: 'legendary', sortOrder: 10 },
+			{ code: 'points_100', name: '100ポイントたっせい', description: 'ごうけい100ポイントたまった！', icon: '💰', category: null, conditionType: 'total_points', conditionValue: 100, bonusPoints: 30, rarity: 'common', sortOrder: 11 },
+			{ code: 'points_1000', name: '1000ポイントたっせい', description: 'ごうけい1000ポイントたまった！', icon: '🤑', category: null, conditionType: 'total_points', conditionValue: 1000, bonusPoints: 200, rarity: 'epic', sortOrder: 12 },
+		];
+
+		db.insert(schema.achievements).values(achievementsData).run();
+		console.log(`  ✓ achievements: ${achievementsData.length} items`);
+	} else {
+		console.log('  - achievements: already seeded');
+	}
+
+	// ============================================================
 	// 初期設定（PIN認証用）
 	// ============================================================
 	const existingSettings = db.select().from(schema.settings).all();

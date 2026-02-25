@@ -6,6 +6,10 @@ import {
 	todayDate,
 	CANCEL_WINDOW_MS,
 } from '$lib/domain/validation/activity';
+import {
+	checkAndUnlockAchievements,
+	type UnlockedAchievement,
+} from '$lib/server/services/achievement-service';
 
 export interface RecordActivityResult {
 	id: number;
@@ -18,6 +22,7 @@ export interface RecordActivityResult {
 	totalPoints: number;
 	recordedAt: string;
 	cancelableUntil: string;
+	unlockedAchievements: UnlockedAchievement[];
 }
 
 export interface ActivityLogEntry {
@@ -102,6 +107,9 @@ export function recordActivity(
 
 	const cancelableUntil = new Date(Date.now() + CANCEL_WINDOW_MS).toISOString();
 
+	// 実績チェック
+	const unlockedAchievements = checkAndUnlockAchievements(childId);
+
 	return {
 		id: log.id,
 		childId,
@@ -113,6 +121,7 @@ export function recordActivity(
 		totalPoints,
 		recordedAt: now,
 		cancelableUntil,
+		unlockedAchievements,
 	};
 }
 
