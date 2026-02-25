@@ -3,7 +3,7 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 
 // ---- テスト用インメモリDB ----
@@ -15,6 +15,7 @@ const SQL_TABLES = `
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
 		theme TEXT NOT NULL DEFAULT 'pink',
+		ui_mode TEXT NOT NULL DEFAULT 'kinder',
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
@@ -115,11 +116,11 @@ vi.mock('$lib/server/db/client', () => ({
 // activity-repo は client.ts の db を import しているため上のモックで対応
 
 import {
+	createActivity,
 	getActivities,
 	getActivityById,
-	createActivity,
-	updateActivity,
 	setActivityVisibility,
+	updateActivity,
 } from '../../../src/lib/server/services/activity-service';
 
 beforeAll(() => {
@@ -139,22 +140,43 @@ function resetDb() {
 	sqlite.exec('DELETE FROM activities');
 	sqlite.exec('DELETE FROM children');
 	// Reset autoincrement
-	sqlite.exec("DELETE FROM sqlite_sequence WHERE name IN ('children', 'activities', 'activity_logs', 'point_ledger')");
+	sqlite.exec(
+		"DELETE FROM sqlite_sequence WHERE name IN ('children', 'activities', 'activity_logs', 'point_ledger')",
+	);
 }
 
 function seedBase() {
 	resetDb();
-	testDb.insert(schema.children)
-		.values({ nickname: 'テストちゃん', age: 4, theme: 'pink' })
-		.run();
+	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4, theme: 'pink' }).run();
 
 	const act = [
 		{ name: 'たいそうした', category: 'うんどう', icon: '🤸', basePoints: 5, sortOrder: 1 },
 		{ name: 'おそとであそんだ', category: 'うんどう', icon: '🏃', basePoints: 5, sortOrder: 2 },
-		{ name: 'すいみんぐ', category: 'うんどう', icon: '🏊', basePoints: 10, ageMin: 5, sortOrder: 3 },
-		{ name: 'ひらがなれんしゅう', category: 'べんきょう', icon: '✏️', basePoints: 5, ageMin: 3, sortOrder: 4 },
+		{
+			name: 'すいみんぐ',
+			category: 'うんどう',
+			icon: '🏊',
+			basePoints: 10,
+			ageMin: 5,
+			sortOrder: 3,
+		},
+		{
+			name: 'ひらがなれんしゅう',
+			category: 'べんきょう',
+			icon: '✏️',
+			basePoints: 5,
+			ageMin: 3,
+			sortOrder: 4,
+		},
 		{ name: 'おかたづけした', category: 'せいかつ', icon: '🧹', basePoints: 5, sortOrder: 5 },
-		{ name: '非表示活動', category: 'うんどう', icon: '❌', basePoints: 5, isVisible: 0, sortOrder: 99 },
+		{
+			name: '非表示活動',
+			category: 'うんどう',
+			icon: '❌',
+			basePoints: 5,
+			isVisible: 0,
+			sortOrder: 99,
+		},
 	];
 	for (const a of act) {
 		testDb.insert(schema.activities).values(a).run();
@@ -218,18 +240,18 @@ describe('activity-service', () => {
 	it('UT-ACT-07: 活動更新（正常）', () => {
 		const updated = updateActivity(1, { name: 'ラジオたいそう' });
 		expect(updated).toBeDefined();
-		expect(updated!.name).toBe('ラジオたいそう');
+		expect(updated?.name).toBe('ラジオたいそう');
 	});
 
 	// UT-ACT-08: 活動表示/非表示切替
 	it('UT-ACT-08: 活動表示/非表示切替', () => {
 		const hidden = setActivityVisibility(1, false);
 		expect(hidden).toBeDefined();
-		expect(hidden!.isVisible).toBe(0);
+		expect(hidden?.isVisible).toBe(0);
 
 		const shown = setActivityVisibility(1, true);
 		expect(shown).toBeDefined();
-		expect(shown!.isVisible).toBe(1);
+		expect(shown?.isVisible).toBe(1);
 	});
 
 	// UT-ACT-09: 年齢範囲フィルタ
@@ -244,7 +266,7 @@ describe('activity-service', () => {
 	it('getActivityById: 存在する活動を返す', () => {
 		const result = getActivityById(1);
 		expect(result).toBeDefined();
-		expect(result!.name).toBe('たいそうした');
+		expect(result?.name).toBe('たいそうした');
 	});
 
 	it('getActivityById: 存在しない場合は undefined', () => {

@@ -1,4 +1,4 @@
-import { getAllChildren } from '$lib/server/services/child-service';
+import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -23,6 +23,8 @@ export const actions: Actions = {
 			maxAge: 60 * 60 * 24 * 365,
 		});
 
-		redirect(303, '/home');
+		const child = getChildById(Number(childId));
+		const uiMode = child?.uiMode ?? 'kinder';
+		redirect(303, `/${uiMode}/home`);
 	},
 };

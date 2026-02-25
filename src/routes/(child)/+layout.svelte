@@ -5,9 +5,16 @@ import Header from '$lib/ui/components/Header.svelte';
 let { data, children } = $props();
 
 const theme = $derived(data.child?.theme ?? 'pink');
+const uiMode = $derived(data.uiMode ?? 'kinder');
+const navItems = $derived([
+	{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
+	{ href: `/${uiMode}/history`, icon: '📋', label: 'きろく' },
+	{ href: `/${uiMode}/status`, icon: '⭐', label: 'つよさ' },
+	{ href: '/switch', icon: '👤', label: 'きりかえ' },
+]);
 </script>
 
-<div data-theme={theme} class="min-h-dvh bg-[var(--theme-bg)]">
+<div data-theme={theme} data-age-tier={uiMode} class="min-h-dvh bg-[var(--theme-bg)]">
 	{#if data.child}
 		<Header nickname={data.child.nickname} totalPoints={data.balance} level={data.level} />
 	{/if}
@@ -16,5 +23,5 @@ const theme = $derived(data.child?.theme ?? 'pink');
 		{@render children()}
 	</main>
 
-	<BottomNav />
+	<BottomNav items={navItems} />
 </div>

@@ -21,6 +21,7 @@ export const children = sqliteTable('children', {
 	age: integer('age').notNull(),
 	birthDate: text('birth_date'),
 	theme: text('theme').notNull().default('pink'),
+	uiMode: text('ui_mode').notNull().default('kinder'),
 	createdAt: text('created_at')
 		.notNull()
 		.default(sql`CURRENT_TIMESTAMP`),
