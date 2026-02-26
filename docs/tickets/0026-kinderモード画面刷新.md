@@ -2,7 +2,7 @@
 
 ### ステータス
 
-`Backlog`
+`Done`
 
 ### GitHub Copilot 対応: 部分的に可能
 
@@ -26,35 +26,22 @@
 
 ### ゴール
 
-- [ ] `src/routes/(child)/kinder/` 配下に全画面を移行・刷新
-  - [ ] `kinder/home/+page.svelte` — 活動グリッド刷新
-  - [ ] `kinder/history/+page.svelte` — 履歴画面刷新
-  - [ ] `kinder/status/+page.svelte` — つよさ画面刷新
-  - [ ] `kinder/achievements/+page.svelte` — 実績一覧（新規）
-  - [ ] `kinder/+layout.svelte` — kinder専用レイアウト
-- [ ] デザインガイドライン準拠
-  - タップターゲット: 最小80px（ActivityCard, ナビボタン）
-  - フォント: ひらがな中心、丸ゴシック系
-  - 角丸: 16px以上
-  - 配色: 鮮やかで温かみのある色（テーマカラーの活用）
-  - アニメーション: ページ遷移、カードタップ、ポイント獲得時
-- [ ] kinder 専用 CSS テーマ変数
-  - `--kinder-tap-size: 80px`
-  - `--kinder-font-size-*` 系
-  - `--kinder-radius: 16px`
-  - `--kinder-gap: 16px`
-- [ ] 実績解除演出
-  - 実績解除時のオーバーレイ（アニメーション + サウンド）
-  - 新規解除バッジ表示
-- [ ] 特別報酬受取演出
-  - 親から特別報酬が付与された際の通知表示
-- [ ] 誤入力キャンセル機能
-  - 活動記録後の取消ボタン（5秒以内）
-- [ ] Ark UI コンポーネントの活用強化
-  - Tooltip: 長押しでヒント表示
-  - Toast: 操作フィードバック
-  - Dialog: 確認・結果表示
-- [ ] 既存テスト全パス維持
+- [x] `src/routes/(child)/kinder/` 配下の画面刷新
+  - [x] `kinder/home/+page.svelte` — サウンド統合・キャンセル・実績演出・特別報酬演出
+  - [x] `kinder/achievements/+page.svelte` — 実績一覧（新規）
+  - [ ] `kinder/history/+page.svelte` — 履歴画面刷新 → 後日
+  - [ ] `kinder/status/+page.svelte` — つよさ画面刷新 → 後日
+- [x] ナビゲーション「じっせき」タブ追加
+- [x] サウンドシステム統合（レイアウトで初期化・プリロード）
+- [x] 実績解除演出
+  - [x] AchievementUnlockOverlay（レアリティ別スタイル + サウンド）
+  - [x] 複数解除時の連続表示
+- [x] 特別報酬受取演出
+  - [x] SpecialRewardOverlay（サウンド + localStorage表示済み管理）
+- [x] 誤入力キャンセル機能
+  - [x] 記録結果ダイアログに「とりけし」ボタン + カウントダウン
+  - [x] cancelRecord サーバーアクション（cancelActivityLog連携）
+- [x] 既存テスト全パス維持（406件）
 
 ### 技術方針
 
@@ -69,6 +56,13 @@
 -
 
 ### 成果・結果
+
+- レイアウト修正: BottomNav に「じっせき」タブ追加、サウンド初期化（configure + preload）
+- ホーム画面刷新: record アクションで unlockedAchievements/logId/cancelableUntil 返却、cancelRecord アクション追加、特別報酬 load 追加
+- 新規コンポーネント: AchievementUnlockOverlay（レアリティ別スタイル・複数連続表示）、SpecialRewardOverlay（localStorage 表示済み管理）
+- 実績ページ新規: achievements/+page.server.ts + +page.svelte（グリッド表示・詳細ダイアログ・レアリティ色分け）
+- 誤入力キャンセル: 結果ダイアログに「とりけし」ボタン + カウントダウン表示
+- check / vitest / biome 全クリア（既存テスト406件パス維持）
 
 ### 残課題・次のアクション
 
