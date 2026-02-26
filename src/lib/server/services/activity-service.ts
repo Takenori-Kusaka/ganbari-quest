@@ -1,7 +1,7 @@
-import { eq, and, lte, gte, or, isNull } from 'drizzle-orm';
+import type { Category, GradeLevel, Source } from '$lib/domain/validation/activity';
 import { db } from '$lib/server/db';
 import { activities } from '$lib/server/db/schema';
-import type { Category } from '$lib/domain/validation/activity';
+import { and, eq, gte, isNull, lte, or } from 'drizzle-orm';
 
 export interface CreateActivityInput {
 	name: string;
@@ -10,6 +10,10 @@ export interface CreateActivityInput {
 	basePoints: number;
 	ageMin: number | null;
 	ageMax: number | null;
+	source?: Source;
+	gradeLevel?: GradeLevel | null;
+	subcategory?: string | null;
+	description?: string | null;
 }
 
 export interface ActivityFilter {
@@ -32,12 +36,8 @@ export function getActivities(filter?: ActivityFilter) {
 	}
 
 	if (filter?.childAge != null) {
-		conditions.push(
-			or(isNull(activities.ageMin), lte(activities.ageMin, filter.childAge)),
-		);
-		conditions.push(
-			or(isNull(activities.ageMax), gte(activities.ageMax, filter.childAge)),
-		);
+		conditions.push(or(isNull(activities.ageMin), lte(activities.ageMin, filter.childAge)));
+		conditions.push(or(isNull(activities.ageMax), gte(activities.ageMax, filter.childAge)));
 	}
 
 	if (conditions.length > 0) {
