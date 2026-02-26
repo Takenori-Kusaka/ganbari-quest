@@ -1,14 +1,23 @@
 import { z } from 'zod';
 
-export const CATEGORIES = [
-	'うんどう',
-	'べんきょう',
-	'せいかつ',
-	'こうりゅう',
-	'そうぞう',
-] as const;
+export const CATEGORIES = ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう'] as const;
 
 export type Category = (typeof CATEGORIES)[number];
+
+export const GRADE_LEVELS = [
+	'baby',
+	'kinder',
+	'elementary_lower',
+	'elementary_upper',
+	'middle_school',
+	'high_school',
+] as const;
+
+export type GradeLevel = (typeof GRADE_LEVELS)[number];
+
+export const SOURCES = ['seed', 'curriculum', 'custom', 'parent'] as const;
+
+export type Source = (typeof SOURCES)[number];
 
 export const createActivitySchema = z.object({
 	name: z.string().min(1).max(50),
@@ -17,6 +26,10 @@ export const createActivitySchema = z.object({
 	basePoints: z.number().int().min(1).max(100),
 	ageMin: z.number().int().min(0).max(20).nullable(),
 	ageMax: z.number().int().min(0).max(20).nullable(),
+	source: z.enum(SOURCES).optional(),
+	gradeLevel: z.enum(GRADE_LEVELS).nullable().optional(),
+	subcategory: z.string().max(50).nullable().optional(),
+	description: z.string().max(200).nullable().optional(),
 });
 
 export const updateActivitySchema = createActivitySchema.partial();

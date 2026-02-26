@@ -2,15 +2,8 @@
 // がんばりクエスト Drizzle ORM スキーマ定義
 // See: docs/design/08-データベース設計書.md
 
-import {
-	index,
-	integer,
-	real,
-	sqliteTable,
-	text,
-	uniqueIndex,
-} from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ============================================================
 // children - 子供マスタ
@@ -22,12 +15,8 @@ export const children = sqliteTable('children', {
 	birthDate: text('birth_date'),
 	theme: text('theme').notNull().default('pink'),
 	uiMode: text('ui_mode').notNull().default('kinder'),
-	createdAt: text('created_at')
-		.notNull()
-		.default(sql`CURRENT_TIMESTAMP`),
-	updatedAt: text('updated_at')
-		.notNull()
-		.default(sql`CURRENT_TIMESTAMP`),
+	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // ============================================================
@@ -44,9 +33,11 @@ export const activities = sqliteTable('activities', {
 	isVisible: integer('is_visible').notNull().default(1),
 	dailyLimit: integer('daily_limit'),
 	sortOrder: integer('sort_order').notNull().default(0),
-	createdAt: text('created_at')
-		.notNull()
-		.default(sql`CURRENT_TIMESTAMP`),
+	source: text('source').notNull().default('seed'),
+	gradeLevel: text('grade_level'),
+	subcategory: text('subcategory'),
+	description: text('description'),
+	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // ============================================================
@@ -66,9 +57,7 @@ export const activityLogs = sqliteTable(
 		streakDays: integer('streak_days').notNull().default(1),
 		streakBonus: integer('streak_bonus').notNull().default(0),
 		recordedDate: text('recorded_date').notNull(),
-		recordedAt: text('recorded_at')
-			.notNull()
-			.default(sql`CURRENT_TIMESTAMP`),
+		recordedAt: text('recorded_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 		cancelled: integer('cancelled').notNull().default(0),
 	},
 	(table) => [
@@ -77,16 +66,9 @@ export const activityLogs = sqliteTable(
 			table.activityId,
 			table.recordedDate,
 		),
-		index('idx_activity_logs_child_date').on(
-			table.childId,
-			table.recordedDate,
-		),
+		index('idx_activity_logs_child_date').on(table.childId, table.recordedDate),
 		index('idx_activity_logs_activity').on(table.activityId),
-		index('idx_activity_logs_streak').on(
-			table.childId,
-			table.activityId,
-			table.recordedDate,
-		),
+		index('idx_activity_logs_streak').on(table.childId, table.activityId, table.recordedDate),
 	],
 );
 
@@ -104,13 +86,9 @@ export const pointLedger = sqliteTable(
 		type: text('type').notNull(),
 		description: text('description'),
 		referenceId: integer('reference_id'),
-		createdAt: text('created_at')
-			.notNull()
-			.default(sql`CURRENT_TIMESTAMP`),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [
-		index('idx_point_ledger_child').on(table.childId, table.createdAt),
-	],
+	(table) => [index('idx_point_ledger_child').on(table.childId, table.createdAt)],
 );
 
 // ============================================================
@@ -125,16 +103,9 @@ export const statuses = sqliteTable(
 			.references(() => children.id),
 		category: text('category').notNull(),
 		value: real('value').notNull().default(0.0),
-		updatedAt: text('updated_at')
-			.notNull()
-			.default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [
-		uniqueIndex('idx_statuses_child_category').on(
-			table.childId,
-			table.category,
-		),
-	],
+	(table) => [uniqueIndex('idx_statuses_child_category').on(table.childId, table.category)],
 );
 
 // ============================================================
@@ -151,16 +122,10 @@ export const statusHistory = sqliteTable(
 		value: real('value').notNull(),
 		changeAmount: real('change_amount').notNull(),
 		changeType: text('change_type').notNull(),
-		recordedAt: text('recorded_at')
-			.notNull()
-			.default(sql`CURRENT_TIMESTAMP`),
+		recordedAt: text('recorded_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
 	(table) => [
-		index('idx_status_history_child_cat').on(
-			table.childId,
-			table.category,
-			table.recordedAt,
-		),
+		index('idx_status_history_child_cat').on(table.childId, table.category, table.recordedAt),
 	],
 );
 
@@ -176,9 +141,7 @@ export const evaluations = sqliteTable('evaluations', {
 	weekEnd: text('week_end').notNull(),
 	scoresJson: text('scores_json').notNull(),
 	bonusPoints: integer('bonus_points').notNull().default(0),
-	createdAt: text('created_at')
-		.notNull()
-		.default(sql`CURRENT_TIMESTAMP`),
+	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // ============================================================
@@ -193,13 +156,9 @@ export const marketBenchmarks = sqliteTable(
 		mean: real('mean').notNull(),
 		stdDev: real('std_dev').notNull(),
 		source: text('source'),
-		updatedAt: text('updated_at')
-			.notNull()
-			.default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [
-		uniqueIndex('idx_benchmarks_age_category').on(table.age, table.category),
-	],
+	(table) => [uniqueIndex('idx_benchmarks_age_category').on(table.age, table.category)],
 );
 
 // ============================================================
@@ -208,9 +167,7 @@ export const marketBenchmarks = sqliteTable(
 export const settings = sqliteTable('settings', {
 	key: text('key').primaryKey(),
 	value: text('value').notNull(),
-	updatedAt: text('updated_at')
-		.notNull()
-		.default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // ============================================================
@@ -224,9 +181,7 @@ export const characterImages = sqliteTable('character_images', {
 	type: text('type').notNull(),
 	filePath: text('file_path').notNull(),
 	promptHash: text('prompt_hash'),
-	generatedAt: text('generated_at')
-		.notNull()
-		.default(sql`CURRENT_TIMESTAMP`),
+	generatedAt: text('generated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // ============================================================
@@ -245,16 +200,9 @@ export const loginBonuses = sqliteTable(
 		multiplier: real('multiplier').notNull().default(1.0),
 		totalPoints: integer('total_points').notNull(),
 		consecutiveDays: integer('consecutive_days').notNull().default(1),
-		createdAt: text('created_at')
-			.notNull()
-			.default(sql`CURRENT_TIMESTAMP`),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [
-		uniqueIndex('idx_login_bonuses_child_date').on(
-			table.childId,
-			table.loginDate,
-		),
-	],
+	(table) => [uniqueIndex('idx_login_bonuses_child_date').on(table.childId, table.loginDate)],
 );
 
 // ============================================================
@@ -272,9 +220,7 @@ export const achievements = sqliteTable('achievements', {
 	bonusPoints: integer('bonus_points').notNull(),
 	rarity: text('rarity').notNull().default('common'),
 	sortOrder: integer('sort_order').notNull().default(0),
-	createdAt: text('created_at')
-		.notNull()
-		.default(sql`CURRENT_TIMESTAMP`),
+	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // ============================================================
@@ -290,13 +236,9 @@ export const childAchievements = sqliteTable(
 		achievementId: integer('achievement_id')
 			.notNull()
 			.references(() => achievements.id),
-		unlockedAt: text('unlocked_at')
-			.notNull()
-			.default(sql`CURRENT_TIMESTAMP`),
+		unlockedAt: text('unlocked_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [
-		uniqueIndex('idx_child_achievements_unique').on(table.childId, table.achievementId),
-	],
+	(table) => [uniqueIndex('idx_child_achievements_unique').on(table.childId, table.achievementId)],
 );
 
 // ============================================================
@@ -315,11 +257,7 @@ export const specialRewards = sqliteTable(
 		points: integer('points').notNull(),
 		icon: text('icon'),
 		category: text('category').notNull(),
-		grantedAt: text('granted_at')
-			.notNull()
-			.default(sql`CURRENT_TIMESTAMP`),
+		grantedAt: text('granted_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [
-		index('idx_special_rewards_child').on(table.childId, table.grantedAt),
-	],
+	(table) => [index('idx_special_rewards_child').on(table.childId, table.grantedAt)],
 );

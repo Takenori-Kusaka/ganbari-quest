@@ -1,16 +1,16 @@
 // tests/unit/domain/activity-validation.test.ts
 // 活動バリデーションスキーマのユニットテスト
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-	createActivitySchema,
-	updateActivitySchema,
-	recordActivitySchema,
+	CANCEL_WINDOW_MS,
 	activitiesQuerySchema,
 	activityLogsQuerySchema,
 	calcStreakBonus,
+	createActivitySchema,
+	recordActivitySchema,
 	todayDate,
-	CANCEL_WINDOW_MS,
+	updateActivitySchema,
 } from '../../../src/lib/domain/validation/activity';
 
 describe('createActivitySchema', () => {

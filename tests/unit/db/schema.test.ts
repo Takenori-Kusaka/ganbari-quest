@@ -40,6 +40,10 @@ beforeAll(() => {
 			is_visible INTEGER NOT NULL DEFAULT 1,
 			daily_limit INTEGER,
 			sort_order INTEGER NOT NULL DEFAULT 0,
+			source TEXT NOT NULL DEFAULT 'seed',
+			grade_level TEXT,
+			subcategory TEXT,
+			description TEXT,
 			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 
