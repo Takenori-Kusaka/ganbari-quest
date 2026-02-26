@@ -1,11 +1,12 @@
 <script lang="ts">
-	interface Props {
-		nickname: string;
-		totalPoints: number;
-		level?: number;
-	}
+interface Props {
+	nickname: string;
+	totalPoints: number;
+	level?: number;
+	showLevel?: boolean;
+}
 
-	let { nickname, totalPoints, level }: Props = $props();
+let { nickname, totalPoints, level, showLevel = true }: Props = $props();
 </script>
 
 <header
@@ -15,7 +16,7 @@
 	<div class="flex items-center gap-[var(--spacing-sm)]">
 		<span class="text-2xl" aria-hidden="true">👤</span>
 		<span class="font-bold text-lg">{nickname}</span>
-		{#if level != null}
+		{#if showLevel && level != null}
 			<span class="text-sm opacity-80">Lv.{level}</span>
 		{/if}
 	</div>

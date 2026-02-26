@@ -1,28 +1,29 @@
 <script lang="ts">
-	import { page } from '$app/state';
+import { page } from '$app/state';
 
-	interface NavItem {
-		href: string;
-		icon: string;
-		label: string;
-	}
+interface NavItem {
+	href: string;
+	icon: string;
+	label: string;
+}
 
-	interface Props {
-		items?: NavItem[];
-	}
+interface Props {
+	items?: NavItem[];
+	iconOnly?: boolean;
+}
 
-	const defaultItems: NavItem[] = [
-		{ href: '/home', icon: '🏠', label: 'ホーム' },
-		{ href: '/history', icon: '📋', label: 'きろく' },
-		{ href: '/status', icon: '⭐', label: 'つよさ' },
-		{ href: '/switch', icon: '👤', label: 'きりかえ' },
-	];
+const defaultItems: NavItem[] = [
+	{ href: '/home', icon: '🏠', label: 'ホーム' },
+	{ href: '/history', icon: '📋', label: 'きろく' },
+	{ href: '/status', icon: '⭐', label: 'つよさ' },
+	{ href: '/switch', icon: '👤', label: 'きりかえ' },
+];
 
-	let { items = defaultItems }: Props = $props();
+let { items = defaultItems, iconOnly = false }: Props = $props();
 
-	function isActive(href: string): boolean {
-		return page.url.pathname.startsWith(href);
-	}
+function isActive(href: string): boolean {
+	return page.url.pathname.startsWith(href);
+}
 </script>
 
 <nav
@@ -37,9 +38,12 @@
 				transition-colors min-h-16
 				{isActive(item.href) ? 'text-[var(--theme-primary)] font-bold' : 'text-[var(--color-text-muted)]'}"
 			aria-current={isActive(item.href) ? 'page' : undefined}
+			aria-label={iconOnly ? item.label : undefined}
 		>
-			<span class="text-2xl" aria-hidden="true">{item.icon}</span>
-			<span class="text-xs">{item.label}</span>
+			<span class="{iconOnly ? 'text-3xl' : 'text-2xl'}" aria-hidden="true">{item.icon}</span>
+			{#if !iconOnly}
+				<span class="text-xs">{item.label}</span>
+			{/if}
 		</a>
 	{/each}
 </nav>
