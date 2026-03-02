@@ -1,7 +1,9 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { CATEGORIES } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
+import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import OmikujiOverlay from '$lib/ui/components/OmikujiOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
@@ -9,18 +11,14 @@ import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
-// Category colors for card borders
-const categoryColors: Record<string, string> = {
-	うんどう: 'var(--color-cat-undou)',
-	べんきょう: 'var(--color-cat-benkyou)',
-	せいかつ: 'var(--color-cat-seikatsu)',
-	こうりゅう: 'var(--color-cat-kouryuu)',
-	そうぞう: 'var(--color-cat-souzou)',
-};
+// Error state
+let errorMessage = $state('');
 
 // Record result overlay
 let resultOpen = $state(false);
+let resultName = $state('');
 let resultIcon = $state('');
+let resultPoints = $state(0);
 let resultLogId = $state(0);
 let cancelCountdown = $state(0);
 let cancelTimerId = $state<ReturnType<typeof setInterval> | null>(null);
@@ -46,6 +44,14 @@ let bonusData = $state<{
 	consecutiveDays: number;
 } | null>(null);
 let bonusClaiming = $state(false);
+
+// Group activities by category (same as kinder)
+const activitiesByCategory = $derived(
+	CATEGORIES.map((cat) => ({
+		category: cat,
+		items: data.activities.filter((a) => a.category === cat),
+	})).filter((g) => g.items.length > 0),
+);
 
 function startCancelCountdown(until: string) {
 	const remaining = Math.max(0, Math.floor((new Date(until).getTime() - Date.now()) / 1000));
@@ -120,13 +126,28 @@ $effect(() => {
 		checkSpecialReward();
 	}
 });
+
+const categoryColors: Record<string, string> = {
+	うんどう: 'var(--color-cat-undou)',
+	べんきょう: 'var(--color-cat-benkyou)',
+	せいかつ: 'var(--color-cat-seikatsu)',
+	こうりゅう: 'var(--color-cat-kouryuu)',
+	そうぞう: 'var(--color-cat-souzou)',
+};
 </script>
 
 <svelte:head>
 	<title>ホーム - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
+<div class="baby-page">
+	<!-- Error toast -->
+	{#if errorMessage}
+		<div class="baby-error-toast animate-bounce-in">
+			{errorMessage}
+		</div>
+	{/if}
+
 	<!-- Login bonus auto-claim (hidden) -->
 	{#if bonusClaiming && !omikujiOpen}
 		<form
@@ -155,96 +176,113 @@ $effect(() => {
 		{(() => { if (typeof document !== 'undefined') { document.getElementById('claim-bonus-btn')?.click(); } return ''; })()}
 	{/if}
 
-	<!-- Baby activity grid: 1-tap instant record -->
-	<div class="grid grid-cols-3 gap-[var(--spacing-md)] justify-items-center">
-		{#each data.activities as activity (activity.id)}
-			{@const completed = data.todayRecorded.includes(activity.id)}
-			{@const borderColor = categoryColors[activity.category] ?? 'var(--theme-primary)'}
-			{#if completed}
-				<div
-					class="w-[var(--age-tap-size)] h-[var(--age-tap-size)] rounded-[var(--age-border-radius)]
-						bg-white shadow-sm border-3 opacity-40 flex items-center justify-center relative"
-					style="border-color: {borderColor};"
-				>
-					<span class="text-[var(--age-icon-size)]">{activity.icon}</span>
-					<span class="absolute top-1 right-1 text-lg">✅</span>
-				</div>
-			{:else}
-				<form
-					method="POST"
-					action="?/record"
-					use:enhance={() => {
-						soundService.ensureContext();
-						soundService.play('tap');
-						return async ({ result }) => {
-							if (result.type === 'success' && result.data && 'success' in result.data) {
-								const d = result.data as {
-									logId: number;
-									activityName: string;
-									totalPoints: number;
-									streakDays: number;
-									streakBonus: number;
-									cancelableUntil: string;
-									unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
-								};
-								resultIcon = activity.icon;
-								resultLogId = d.logId;
-								unlockedAchievements = d.unlockedAchievements ?? [];
-								startCancelCountdown(d.cancelableUntil);
-								soundService.play('record-complete');
-								resultOpen = true;
-							}
-						};
-					}}
-				>
-					<input type="hidden" name="activityId" value={activity.id} />
-					<button
-						type="submit"
-						class="tap-target w-[var(--age-tap-size)] h-[var(--age-tap-size)] rounded-[var(--age-border-radius)]
-							bg-white shadow-md border-3 flex items-center justify-center
-							active:scale-95 transition-transform"
-						style="border-color: {borderColor};"
+	<!-- Activity grid by category (same layout as kinder, but 1-tap instant record) -->
+	{#each activitiesByCategory as group (group.category)}
+		<CategorySection category={group.category}>
+			{#each group.items as activity (activity.id)}
+				{@const completed = data.todayRecorded.includes(activity.id)}
+				{@const borderColor = categoryColors[activity.category] ?? 'var(--theme-primary)'}
+				{#if completed}
+					<div
+						class="baby-card baby-card--done tap-target"
+						aria-label="{activity.name}（きろくずみ）"
 					>
-						<span class="text-[var(--age-icon-size)]">{activity.icon}</span>
-					</button>
-				</form>
-			{/if}
-		{/each}
-	</div>
+						<span class="baby-card__done-badge animate-bounce-in">💮</span>
+						<span class="baby-card__icon baby-card__icon--faded">{activity.icon}</span>
+						<span class="baby-card__name baby-card__name--faded">{activity.name}</span>
+					</div>
+				{:else}
+					<form
+						method="POST"
+						action="?/record"
+						use:enhance={() => {
+							soundService.ensureContext();
+							soundService.play('tap');
+							return async ({ result }) => {
+								if (result.type === 'success' && result.data && 'success' in result.data) {
+									const d = result.data as {
+										logId: number;
+										activityName: string;
+										totalPoints: number;
+										streakDays: number;
+										streakBonus: number;
+										cancelableUntil: string;
+										unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
+									};
+									resultIcon = activity.icon;
+									resultName = d.activityName;
+									resultPoints = d.totalPoints;
+									resultLogId = d.logId;
+									unlockedAchievements = d.unlockedAchievements ?? [];
+									startCancelCountdown(d.cancelableUntil);
+									soundService.play('record-complete');
+									resultOpen = true;
+								} else if (result.type === 'failure' && result.data && 'error' in result.data) {
+									errorMessage = String(result.data.error);
+									soundService.play('error');
+									setTimeout(() => { errorMessage = ''; }, 3000);
+									invalidateAll();
+								} else {
+									invalidateAll();
+								}
+							};
+						}}
+					>
+						<input type="hidden" name="activityId" value={activity.id} />
+						<button
+							type="submit"
+							class="baby-card baby-card--active tap-target"
+							style="border-color: {borderColor};"
+							aria-label="{activity.name}をきろくする"
+						>
+							<span class="baby-card__icon">{activity.icon}</span>
+							<span class="baby-card__name">{activity.name}</span>
+						</button>
+					</form>
+				{/if}
+			{/each}
+		</CategorySection>
+	{/each}
 
 	{#if data.activities.length === 0}
-		<div class="flex flex-col items-center justify-center py-[var(--spacing-2xl)]">
-			<span class="text-6xl">📋</span>
+		<div class="baby-empty">
+			<span class="baby-empty__icon">📋</span>
+			<p class="baby-empty__text">かつどうがまだないよ</p>
+			<p class="baby-empty__sub">おやにおねがいしてね</p>
 		</div>
 	{/if}
 </div>
 
-<!-- Record result overlay (baby: icon-only, big animation) -->
+<!-- Record result overlay -->
 <Dialog bind:open={resultOpen} closable={false} title="">
-	<div class="flex flex-col items-center gap-[var(--spacing-lg)] text-center py-[var(--spacing-lg)]">
+	<div class="baby-result">
 		{#if cancelledMessage}
-			<span class="text-6xl">↩️</span>
+			<span class="baby-result__emoji">↩️</span>
+			<p class="baby-result__text">とりけしました</p>
 			<button
-				class="tap-target w-full py-4 rounded-[var(--age-border-radius)] bg-gray-200 font-bold text-lg"
+				type="button"
+				class="tap-target baby-result__btn baby-result__btn--close"
 				onclick={() => {
 					cancelledMessage = false;
 					resultOpen = false;
 					invalidateAll();
 				}}
 			>
-				✕
+				とじる
 			</button>
 		{:else}
-			<span class="text-7xl animate-bounce-in">{resultIcon}</span>
-			<span class="text-5xl animate-point-pop">⭐</span>
+			<span class="baby-result__emoji animate-bounce-in">{resultIcon}</span>
+			<p class="baby-result__text">{resultName}をきろくしたよ！</p>
+			<div class="animate-point-pop">
+				<p class="baby-result__points">+{resultPoints} ポイント！</p>
+			</div>
 
-			<div class="flex gap-[var(--spacing-sm)] w-full">
-				<!-- Cancel (small, for parent) -->
+			<div class="baby-result__actions">
 				{#if cancelCountdown > 0}
 					<form
 						method="POST"
 						action="?/cancelRecord"
-						class="shrink-0"
+						class="baby-result__cancel-form"
 						use:enhance={() => {
 							return async ({ result }) => {
 								if (result.type === 'success' && result.data && 'cancelled' in result.data) {
@@ -258,17 +296,18 @@ $effect(() => {
 						<input type="hidden" name="logId" value={resultLogId} />
 						<button
 							type="submit"
-							class="tap-target px-3 py-4 rounded-[var(--radius-md)] bg-gray-200 text-[var(--color-text-muted)] text-xs"
+							class="tap-target baby-result__btn baby-result__btn--cancel"
 						>
-							↩ {cancelCountdown}
+							とりけし ({cancelCountdown}s)
 						</button>
 					</form>
 				{/if}
 				<button
-					class="tap-target flex-1 py-4 rounded-[var(--age-border-radius)] bg-[var(--theme-primary)] text-white font-bold text-2xl"
+					type="button"
+					class="tap-target baby-result__btn baby-result__btn--ok"
 					onclick={handleResultClose}
 				>
-					👍
+					やったね！
 				</button>
 			</div>
 		{/if}
@@ -307,3 +346,182 @@ $effect(() => {
 		onClose={handleOmikujiClose}
 	/>
 {/if}
+
+<style>
+	.baby-page {
+		padding: 4px 8px;
+	}
+
+	/* Activity card - matches ActivityCard component style */
+	.baby-card {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 2px;
+		width: 100%;
+		aspect-ratio: 4 / 5;
+		min-height: 60px;
+		border-radius: 16px;
+		border: 2px solid;
+		transition: all 0.15s ease;
+	}
+
+	.baby-card--active {
+		background: white;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		cursor: pointer;
+	}
+
+	.baby-card--active:hover {
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+	}
+
+	.baby-card--active:active {
+		transform: scale(0.95);
+	}
+
+	.baby-card--done {
+		background: #fffbeb;
+		border-color: #fbbf24;
+		box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.3);
+	}
+
+	.baby-card__icon {
+		font-size: 1.875rem; /* text-3xl */
+		line-height: 1;
+	}
+
+	.baby-card__icon--faded {
+		opacity: 0.4;
+	}
+
+	.baby-card__name {
+		font-size: 10px;
+		font-weight: 700;
+		line-height: 1.2;
+		text-align: center;
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+	}
+
+	.baby-card__name--faded {
+		opacity: 0.4;
+	}
+
+	.baby-card__done-badge {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.875rem;
+		opacity: 0.8;
+		z-index: 1;
+	}
+
+	/* Empty state */
+	.baby-empty {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 48px 0;
+		color: var(--color-text-muted);
+	}
+
+	.baby-empty__icon {
+		font-size: 2.5rem;
+		margin-bottom: 16px;
+	}
+
+	.baby-empty__text {
+		font-size: 1.125rem;
+		font-weight: 700;
+	}
+
+	.baby-empty__sub {
+		font-size: 0.875rem;
+	}
+
+	/* Result overlay */
+	.baby-result {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 16px;
+		text-align: center;
+		padding: 16px 0;
+	}
+
+	.baby-result__emoji {
+		font-size: 3.5rem;
+	}
+
+	.baby-result__text {
+		font-size: 1.125rem;
+		font-weight: 700;
+	}
+
+	.baby-result__points {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--color-point);
+	}
+
+	.baby-result__actions {
+		display: flex;
+		gap: 8px;
+		width: 100%;
+	}
+
+	.baby-result__cancel-form {
+		flex: 1;
+	}
+
+	.baby-result__btn {
+		width: 100%;
+		padding: 14px 12px;
+		border-radius: 12px;
+		font-weight: 700;
+		font-size: 1.125rem;
+		border: none;
+		cursor: pointer;
+	}
+
+	.baby-result__btn--ok {
+		flex: 1;
+		background: var(--theme-primary);
+		color: white;
+	}
+
+	.baby-result__btn--cancel {
+		background: #e5e7eb;
+		color: var(--color-text-muted);
+		font-size: 0.875rem;
+	}
+
+	.baby-result__btn--close {
+		background: #e5e7eb;
+	}
+
+	/* Error toast */
+	.baby-error-toast {
+		position: fixed;
+		top: 64px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 50;
+		background: #ef4444;
+		color: white;
+		padding: 8px 16px;
+		border-radius: 8px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+		font-size: 0.875rem;
+		font-weight: 700;
+	}
+</style>

@@ -17,6 +17,7 @@ const SQL_TABLES = `
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'kinder',
+		avatar_url TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
@@ -59,16 +60,35 @@ const SQL_TABLES = `
 		condition_type TEXT NOT NULL, condition_value INTEGER NOT NULL,
 		bonus_points INTEGER NOT NULL, rarity TEXT NOT NULL DEFAULT 'common',
 		sort_order INTEGER NOT NULL DEFAULT 0,
+		repeatable INTEGER NOT NULL DEFAULT 0,
+		milestone_values TEXT,
+		is_milestone INTEGER NOT NULL DEFAULT 0,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE child_achievements (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
 		achievement_id INTEGER NOT NULL REFERENCES achievements(id),
+		milestone_value INTEGER,
 		unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE UNIQUE INDEX idx_child_achievements_unique
-		ON child_achievements(child_id, achievement_id);
+		ON child_achievements(child_id, achievement_id, milestone_value);
+	CREATE TABLE statuses (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		category TEXT NOT NULL, value REAL NOT NULL DEFAULT 0.0,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category);
+	CREATE TABLE status_history (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		category TEXT NOT NULL, value REAL NOT NULL,
+		change_amount REAL NOT NULL, change_type TEXT NOT NULL,
+		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_status_history_child_cat ON status_history(child_id, category, recorded_at);
 `;
 
 vi.mock('$lib/server/db', () => ({
@@ -101,12 +121,15 @@ afterAll(() => {
 });
 
 function resetDb() {
+	sqlite.exec('DELETE FROM status_history');
+	sqlite.exec('DELETE FROM statuses');
+	sqlite.exec('DELETE FROM child_achievements');
 	sqlite.exec('DELETE FROM point_ledger');
 	sqlite.exec('DELETE FROM activity_logs');
 	sqlite.exec('DELETE FROM activities');
 	sqlite.exec('DELETE FROM children');
 	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','activity_logs','point_ledger')",
+		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','activity_logs','point_ledger','statuses','status_history','child_achievements')",
 	);
 }
 

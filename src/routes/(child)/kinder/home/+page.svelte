@@ -27,6 +27,9 @@ let resultData = $state<{
 	cancelableUntil: string;
 } | null>(null);
 
+// Error state
+let errorMessage = $state('');
+
 // Cancel state
 let cancelCountdown = $state(0);
 let cancelTimerId = $state<ReturnType<typeof setInterval> | null>(null);
@@ -157,7 +160,14 @@ $effect(() => {
 	<title>ホーム - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
+<div class="px-[var(--spacing-sm)] py-1">
+	<!-- Error toast -->
+	{#if errorMessage}
+		<div class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold animate-bounce-in">
+			{errorMessage}
+		</div>
+	{/if}
+
 	<!-- Login bonus auto-claim form (hidden) -->
 	{#if bonusClaiming && !omikujiOpen}
 		<form
@@ -187,6 +197,31 @@ $effect(() => {
 		{(() => { if (typeof document !== 'undefined') { document.getElementById('claim-bonus-btn')?.click(); } return ''; })()}
 	{/if}
 
+	<!-- Checklist shortcut -->
+	{#if data.hasChecklists}
+		<a
+			href="/checklist"
+			class="flex items-center justify-between w-full px-[var(--spacing-md)] py-[var(--spacing-sm)] mb-[var(--spacing-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] tap-target"
+		>
+			<div class="flex items-center gap-[var(--spacing-sm)]">
+				<span class="text-2xl">📋</span>
+				<span class="font-bold">もちものチェック</span>
+			</div>
+			{#if data.checklistProgress}
+				<div class="flex items-center gap-[var(--spacing-xs)]">
+					{#if data.checklistProgress.allDone}
+						<span class="text-sm font-bold text-[var(--theme-accent)]">✅ かんりょう！</span>
+					{:else}
+						<span class="text-sm text-[var(--color-text-muted)]">
+							{data.checklistProgress.checkedCount}/{data.checklistProgress.totalCount}
+						</span>
+					{/if}
+					<span class="text-[var(--color-text-muted)]">›</span>
+				</div>
+			{/if}
+		</a>
+	{/if}
+
 	<!-- Activity grid by category -->
 	{#each activitiesByCategory as group (group.category)}
 		<CategorySection category={group.category}>
@@ -212,14 +247,14 @@ $effect(() => {
 </div>
 
 <!-- Confirm dialog -->
-<Dialog bind:open={confirmOpen} title="">
+<Dialog bind:open={confirmOpen} closable={false} title="">
 	{#if selectedActivity}
 		<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center">
 			<span class="text-5xl">{selectedActivity.icon}</span>
 			<p class="text-lg font-bold">{selectedActivity.name}を<br />きろくする？</p>
 			<div class="flex gap-[var(--spacing-sm)] w-full">
 				<button
-					class="tap-target flex-1 py-3 rounded-[var(--radius-md)] bg-gray-200 font-bold"
+					class="tap-target flex-1 py-4 rounded-[var(--radius-md)] bg-gray-200 font-bold text-lg"
 					onclick={handleConfirmClose}
 				>
 					やめる
@@ -229,8 +264,9 @@ $effect(() => {
 					action="?/record"
 					class="flex-1"
 					use:enhance={() => {
-						confirmOpen = false;
+						soundService.ensureContext();
 						return async ({ result }) => {
+							confirmOpen = false;
 							if (result.type === 'success' && result.data && 'success' in result.data) {
 								const d = result.data as {
 									logId: number;
@@ -253,6 +289,13 @@ $effect(() => {
 								startCancelCountdown(d.cancelableUntil);
 								soundService.play('record-complete');
 								resultOpen = true;
+							} else if (result.type === 'failure' && result.data && 'error' in result.data) {
+								errorMessage = String(result.data.error);
+								soundService.play('error');
+								setTimeout(() => { errorMessage = ''; }, 3000);
+								invalidateAll();
+							} else {
+								invalidateAll();
 							}
 							selectedActivity = null;
 						};
@@ -261,7 +304,7 @@ $effect(() => {
 					<input type="hidden" name="activityId" value={selectedActivity.id} />
 					<button
 						type="submit"
-						class="tap-target w-full py-3 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold"
+						class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg"
 					>
 						きろく！
 					</button>

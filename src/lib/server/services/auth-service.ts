@@ -90,6 +90,32 @@ export function setupPin(pin: string): void {
 	resetFailedAttempts();
 }
 
+// --- PIN変更 ---
+export function changePin(
+	currentPin: string,
+	newPin: string,
+): { success: true } | { error: 'INVALID_CURRENT_PIN' } | { error: 'LOCKED_OUT'; lockedUntil: string } {
+	// ロックアウトチェック
+	const lockedUntil = getSetting('pin_locked_until');
+	if (lockedUntil && new Date(lockedUntil) > new Date()) {
+		return { error: 'LOCKED_OUT', lockedUntil };
+	}
+
+	// 現在のPIN検証
+	const pinHash = getSetting('pin_hash');
+	if (!pinHash || !bcrypt.compareSync(currentPin, pinHash)) {
+		incrementFailedAttempts();
+		return { error: 'INVALID_CURRENT_PIN' };
+	}
+
+	// 新しいPINを設定
+	const newHash = bcrypt.hashSync(newPin, 10);
+	setSetting('pin_hash', newHash);
+	resetFailedAttempts();
+
+	return { success: true };
+}
+
 // --- 内部ヘルパー ---
 function incrementFailedAttempts(): void {
 	const current = Number(getSetting('pin_failed_attempts') ?? '0');
