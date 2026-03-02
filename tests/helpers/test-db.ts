@@ -13,6 +13,7 @@ const SQL_CREATE_TABLES = `
 		birth_date TEXT,
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'kinder',
+		avatar_url TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
@@ -150,6 +151,9 @@ const SQL_CREATE_TABLES = `
 		bonus_points INTEGER NOT NULL,
 		rarity TEXT NOT NULL DEFAULT 'common',
 		sort_order INTEGER NOT NULL DEFAULT 0,
+		repeatable INTEGER NOT NULL DEFAULT 0,
+		milestone_values TEXT,
+		is_milestone INTEGER NOT NULL DEFAULT 0,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -157,10 +161,11 @@ const SQL_CREATE_TABLES = `
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
 		achievement_id INTEGER NOT NULL REFERENCES achievements(id),
+		milestone_value INTEGER,
 		unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE UNIQUE INDEX idx_child_achievements_unique
-		ON child_achievements(child_id, achievement_id);
+		ON child_achievements(child_id, achievement_id, milestone_value);
 
 	CREATE TABLE special_rewards (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -175,6 +180,56 @@ const SQL_CREATE_TABLES = `
 	);
 	CREATE INDEX idx_special_rewards_child
 		ON special_rewards(child_id, granted_at);
+
+	CREATE TABLE checklist_templates (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		name TEXT NOT NULL,
+		icon TEXT NOT NULL DEFAULT '📋',
+		points_per_item INTEGER NOT NULL DEFAULT 2,
+		completion_bonus INTEGER NOT NULL DEFAULT 5,
+		is_active INTEGER NOT NULL DEFAULT 1,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE checklist_template_items (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		template_id INTEGER NOT NULL REFERENCES checklist_templates(id),
+		name TEXT NOT NULL,
+		icon TEXT NOT NULL DEFAULT '🏫',
+		frequency TEXT NOT NULL DEFAULT 'daily',
+		direction TEXT NOT NULL DEFAULT 'bring',
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_checklist_items_template
+		ON checklist_template_items(template_id);
+
+	CREATE TABLE checklist_logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		template_id INTEGER NOT NULL REFERENCES checklist_templates(id),
+		checked_date TEXT NOT NULL,
+		items_json TEXT NOT NULL DEFAULT '[]',
+		completed_all INTEGER NOT NULL DEFAULT 0,
+		points_awarded INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_checklist_logs_unique_daily
+		ON checklist_logs(child_id, template_id, checked_date);
+
+	CREATE TABLE checklist_overrides (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		target_date TEXT NOT NULL,
+		action TEXT NOT NULL,
+		item_name TEXT NOT NULL,
+		icon TEXT NOT NULL DEFAULT '📦',
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_checklist_overrides_child_date
+		ON checklist_overrides(child_id, target_date);
 `;
 
 export function createTestDb() {

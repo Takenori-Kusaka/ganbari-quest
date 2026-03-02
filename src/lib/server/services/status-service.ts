@@ -2,22 +2,21 @@
 // ステータス管理サービス層
 
 import { CATEGORIES } from '$lib/domain/validation/activity';
-import type { Category } from '$lib/domain/validation/activity';
 import {
-	calcLevel,
-	calcExpToNextLevel,
-	calcDeviationScore,
-	calcStars,
 	calcCharacterType,
+	calcDeviationScore,
+	calcExpToNextLevel,
+	calcLevel,
+	calcStars,
 	calcTrend,
 } from '$lib/domain/validation/status';
 import {
-	findStatuses,
 	findBenchmark,
 	findChildById,
 	findRecentStatusHistory,
-	upsertStatus,
+	findStatuses,
 	insertStatusHistory,
+	upsertStatus,
 } from '$lib/server/db/status-repo';
 
 export interface StatusDetail {
@@ -37,9 +36,7 @@ export interface ChildStatus {
 }
 
 /** 子供のステータスを取得 */
-export function getChildStatus(
-	childId: number,
-): ChildStatus | { error: 'NOT_FOUND' } {
+export function getChildStatus(childId: number): ChildStatus | { error: 'NOT_FOUND' } {
 	const child = findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
@@ -64,10 +61,7 @@ export function getChildStatus(
 
 		// 直近の変動履歴からトレンド判定
 		const history = findRecentStatusHistory(childId, cat, 2);
-		const recentChange =
-			history.length >= 2
-				? history[0]!.changeAmount
-				: 0;
+		const recentChange = history.length >= 2 ? (history[0]?.changeAmount ?? 0) : 0;
 		const trend = calcTrend(recentChange);
 
 		statusMap[cat] = { value: Math.round(value * 10) / 10, deviationScore, stars, trend };
@@ -103,9 +97,7 @@ export function updateStatus(
 	const child = findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' as const };
 
-	const currentStatus = findStatuses(childId).find(
-		(s) => s.category === category,
-	);
+	const currentStatus = findStatuses(childId).find((s) => s.category === category);
 	const currentValue = currentStatus?.value ?? 0;
 	const newValue = Math.max(0, Math.min(100, currentValue + changeAmount));
 

@@ -49,7 +49,7 @@ describe('age-tier validation', () => {
 		it('年齢帯は重複なく連続している', () => {
 			const modes = UI_MODES.map((m) => AGE_TIER_CONFIG[m]);
 			for (let i = 1; i < modes.length; i++) {
-				expect(modes[i]?.ageMin).toBe(modes[i - 1]?.ageMax + 1);
+				expect(modes[i]?.ageMin).toBe((modes[i - 1]?.ageMax ?? 0) + 1);
 			}
 		});
 	});

@@ -2,9 +2,9 @@ import { CATEGORIES } from '$lib/domain/validation/activity';
 import { db } from '$lib/server/db';
 import {
 	findAllAchievements,
-	findUnlockedAchievementIds,
 	findUnlockedAchievements,
 	insertChildAchievement,
+	isAchievementUnlocked,
 } from '$lib/server/db/achievement-repo';
 import { getBalance } from '$lib/server/db/point-repo';
 import { activities, activityLogs, pointLedger } from '$lib/server/db/schema';
@@ -20,6 +20,13 @@ export interface UnlockedAchievement {
 	icon: string;
 	bonusPoints: number;
 	rarity: string;
+	milestoneValue: number | null;
+}
+
+export interface MilestoneInfo {
+	value: number;
+	unlocked: boolean;
+	unlockedAt: string | null;
 }
 
 export interface AchievementWithStatus {
@@ -34,7 +41,15 @@ export interface AchievementWithStatus {
 	bonusPoints: number;
 	rarity: string;
 	sortOrder: number;
+	repeatable: boolean;
+	isMilestone: boolean;
+	milestones: MilestoneInfo[];
+	highestUnlockedMilestone: number | null;
+	nextMilestone: number | null;
 	unlockedAt: string | null;
+	currentProgress: number;
+	conditionLabel: string;
+	liveStreak: number | null;
 }
 
 // --- 実績チェック + 解除 ---
@@ -42,44 +57,90 @@ export interface AchievementWithStatus {
 /** 全条件をチェックし、新規達成した実績を返す */
 export function checkAndUnlockAchievements(childId: number): UnlockedAchievement[] {
 	const allAchievements = findAllAchievements();
-	const unlockedIds = findUnlockedAchievementIds(childId);
 	const newlyUnlocked: UnlockedAchievement[] = [];
 
 	for (const achievement of allAchievements) {
-		// 既に解除済みならスキップ
-		if (unlockedIds.has(achievement.id)) continue;
+		// ライフイベントは手動付与のみ
+		if (achievement.conditionType === 'milestone_event') continue;
 
-		// 条件を評価
-		const met = evaluateCondition(
-			childId,
-			achievement.conditionType,
-			achievement.conditionValue,
-			achievement.category,
-		);
+		if (achievement.repeatable && achievement.milestoneValues) {
+			// 繰り返し型: 各マイルストーンをチェック
+			const milestones: number[] = JSON.parse(achievement.milestoneValues);
+			for (const milestone of milestones) {
+				if (isAchievementUnlocked(childId, achievement.id, milestone)) continue;
 
-		if (met) {
-			// 実績解除
-			insertChildAchievement(childId, achievement.id);
-
-			// ポイント付与
-			db.insert(pointLedger)
-				.values({
+				const met = evaluateCondition(
 					childId,
-					amount: achievement.bonusPoints,
-					type: 'achievement',
-					description: `${achievement.name}をたっせい！`,
-					referenceId: achievement.id,
-				})
-				.run();
+					achievement.conditionType,
+					milestone,
+					achievement.category,
+				);
 
-			newlyUnlocked.push({
-				achievementId: achievement.id,
-				code: achievement.code,
-				name: achievement.name,
-				icon: achievement.icon,
-				bonusPoints: achievement.bonusPoints,
-				rarity: achievement.rarity,
-			});
+				if (met) {
+					insertChildAchievement(childId, achievement.id, milestone);
+
+					// ポイント計算: マイルストーンインデックスに応じて増加
+					const milestoneIndex = milestones.indexOf(milestone);
+					const points = achievement.bonusPoints * (milestoneIndex + 1);
+
+					db.insert(pointLedger)
+						.values({
+							childId,
+							amount: points,
+							type: 'achievement',
+							description: `${achievement.name} ${milestone}たっせい！`,
+							referenceId: achievement.id,
+						})
+						.run();
+
+					newlyUnlocked.push({
+						achievementId: achievement.id,
+						code: achievement.code,
+						name: achievement.name,
+						icon: achievement.icon,
+						bonusPoints: points,
+						rarity: getMilestoneRarity(milestoneIndex, milestones.length),
+						milestoneValue: milestone,
+					});
+				} else {
+					// 下位マイルストーン未達なら上位もスキップ
+					break;
+				}
+			}
+		} else {
+			// 一度きり型
+			if (isAchievementUnlocked(childId, achievement.id, null)) continue;
+
+			const met = evaluateCondition(
+				childId,
+				achievement.conditionType,
+				achievement.conditionValue,
+				achievement.category,
+			);
+
+			if (met) {
+				insertChildAchievement(childId, achievement.id, null);
+
+				db.insert(pointLedger)
+					.values({
+						childId,
+						amount: achievement.bonusPoints,
+						type: 'achievement',
+						description: `${achievement.name}をたっせい！`,
+						referenceId: achievement.id,
+					})
+					.run();
+
+				newlyUnlocked.push({
+					achievementId: achievement.id,
+					code: achievement.code,
+					name: achievement.name,
+					icon: achievement.icon,
+					bonusPoints: achievement.bonusPoints,
+					rarity: achievement.rarity,
+					milestoneValue: null,
+				});
+			}
 		}
 	}
 
@@ -88,54 +149,141 @@ export function checkAndUnlockAchievements(childId: number): UnlockedAchievement
 
 // --- 一覧取得 ---
 
-/** 全実績一覧（解除状態付き） */
+/** 全実績一覧（解除状態・現在進捗・条件ラベル付き） */
 export function getChildAchievements(childId: number): AchievementWithStatus[] {
 	const allAchievements = findAllAchievements();
 	const unlocked = findUnlockedAchievements(childId);
-	const unlockedMap = new Map(unlocked.map((u) => [u.achievementId, u.unlockedAt]));
 
-	return allAchievements.map((a) => ({
-		id: a.id,
-		code: a.code,
-		name: a.name,
-		description: a.description,
-		icon: a.icon,
-		category: a.category,
-		conditionType: a.conditionType,
-		conditionValue: a.conditionValue,
-		bonusPoints: a.bonusPoints,
-		rarity: a.rarity,
-		sortOrder: a.sortOrder,
-		unlockedAt: unlockedMap.get(a.id) ?? null,
-	}));
+	// streak_days タイプのために現在のライブ連続日数を1回だけ計算
+	const hasStreakType = allAchievements.some((a) => a.conditionType === 'streak_days');
+	const liveStreakValue = hasStreakType ? getCurrentStreakDays(childId) : 0;
+
+	return allAchievements.map((a) => {
+		const isRepeatable = a.repeatable === 1;
+		const isLifeMilestone = a.isMilestone === 1;
+		const milestoneValues: number[] = a.milestoneValues ? JSON.parse(a.milestoneValues) : [];
+
+		// このachievementの解除記録をフィルタ
+		const achievementUnlocks = unlocked.filter((u) => u.achievementId === a.id);
+
+		let milestones: MilestoneInfo[] = [];
+		let highestUnlockedMilestone: number | null = null;
+		let nextMilestone: number | null = null;
+		let unlockedAt: string | null = null;
+
+		if (isRepeatable && milestoneValues.length > 0) {
+			milestones = milestoneValues.map((v) => {
+				const record = achievementUnlocks.find((u) => u.milestoneValue === v);
+				return { value: v, unlocked: !!record, unlockedAt: record?.unlockedAt ?? null };
+			});
+
+			const unlockedMilestones = milestones.filter((m) => m.unlocked);
+			if (unlockedMilestones.length > 0) {
+				highestUnlockedMilestone = unlockedMilestones[unlockedMilestones.length - 1]!.value;
+				unlockedAt = unlockedMilestones[unlockedMilestones.length - 1]!.unlockedAt;
+			}
+
+			const firstLocked = milestones.find((m) => !m.unlocked);
+			nextMilestone = firstLocked?.value ?? null;
+		} else {
+			// 一度きり or ライフイベント
+			const record = achievementUnlocks.find((u) => u.milestoneValue == null);
+			unlockedAt = record?.unlockedAt ?? null;
+		}
+
+		const progress = getCurrentProgress(childId, a.conditionType, a.category);
+		const targetValue = nextMilestone ?? a.conditionValue;
+
+		return {
+			id: a.id,
+			code: a.code,
+			name: a.name,
+			description: a.description,
+			icon: a.icon,
+			category: a.category,
+			conditionType: a.conditionType,
+			conditionValue: targetValue,
+			bonusPoints: a.bonusPoints,
+			rarity: a.rarity,
+			sortOrder: a.sortOrder,
+			repeatable: isRepeatable,
+			isMilestone: isLifeMilestone,
+			milestones,
+			highestUnlockedMilestone,
+			nextMilestone,
+			unlockedAt,
+			currentProgress: progress,
+			conditionLabel: getConditionLabel(a.conditionType, targetValue, highestUnlockedMilestone),
+			liveStreak: a.conditionType === 'streak_days' ? liveStreakValue : null,
+		};
+	});
 }
 
-// --- 条件判定（内部） ---
+// --- ライフイベント手動付与 ---
 
-function evaluateCondition(
+export function grantLifeEvent(
+	childId: number,
+	achievementId: number,
+): { success: true; bonusPoints: number } | { error: string } {
+	const allAchievements = findAllAchievements();
+	const achievement = allAchievements.find((a) => a.id === achievementId);
+	if (!achievement) return { error: 'ACHIEVEMENT_NOT_FOUND' };
+	if (achievement.isMilestone !== 1) return { error: 'NOT_A_LIFE_EVENT' };
+	if (isAchievementUnlocked(childId, achievementId, null)) return { error: 'ALREADY_UNLOCKED' };
+
+	insertChildAchievement(childId, achievementId, null);
+
+	db.insert(pointLedger)
+		.values({
+			childId,
+			amount: achievement.bonusPoints,
+			type: 'achievement',
+			description: `${achievement.name}おめでとう！`,
+			referenceId: achievement.id,
+		})
+		.run();
+
+	return { success: true, bonusPoints: achievement.bonusPoints };
+}
+
+// --- マイルストーンレアリティ計算 ---
+
+function getMilestoneRarity(index: number, total: number): string {
+	const ratio = (index + 1) / total;
+	if (ratio >= 0.9) return 'legendary';
+	if (ratio >= 0.6) return 'epic';
+	if (ratio >= 0.3) return 'rare';
+	return 'common';
+}
+
+// --- 進捗取得・条件ラベル ---
+
+/** 条件タイプに応じた現在の進捗値を取得 */
+function getCurrentProgress(
 	childId: number,
 	conditionType: string,
-	conditionValue: number,
 	_category: string | null,
-): boolean {
+): number {
 	switch (conditionType) {
 		case 'streak_days':
-			return checkStreakDays(childId, conditionValue);
+			return getMaxStreakDays(childId);
 		case 'total_activities':
-			return checkTotalActivities(childId, conditionValue);
+			return getTotalActivityCount(childId);
 		case 'all_categories':
-			return checkAllCategories(childId);
+			return getMaxCategoryCountInDay(childId);
 		case 'level_reach':
-			return checkLevelReach(childId, conditionValue);
+			return getCurrentLevel(childId);
 		case 'total_points':
-			return checkTotalPoints(childId, conditionValue);
+			return getBalance(childId);
+		case 'milestone_event':
+			return 0;
 		default:
-			return false;
+			return 0;
 	}
 }
 
-/** 最大連続日数を計算 */
-function checkStreakDays(childId: number, requiredDays: number): boolean {
+/** 最大連続日数を取得 */
+function getMaxStreakDays(childId: number): number {
 	const rows = db
 		.select({ recordedDate: activityLogs.recordedDate })
 		.from(activityLogs)
@@ -144,7 +292,7 @@ function checkStreakDays(childId: number, requiredDays: number): boolean {
 		.orderBy(activityLogs.recordedDate)
 		.all();
 
-	if (rows.length === 0) return false;
+	if (rows.length === 0) return 0;
 
 	let maxStreak = 1;
 	let currentStreak = 1;
@@ -162,23 +310,128 @@ function checkStreakDays(childId: number, requiredDays: number): boolean {
 		}
 	}
 
-	return maxStreak >= requiredDays;
+	return maxStreak;
 }
 
-/** 累計活動記録数をチェック */
-function checkTotalActivities(childId: number, requiredCount: number): boolean {
+/** 現在のライブ連続日数を取得（最大ではなく、今日/昨日からの連続） */
+function getCurrentStreakDays(childId: number): number {
+	const rows = db
+		.select({ recordedDate: activityLogs.recordedDate })
+		.from(activityLogs)
+		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.groupBy(activityLogs.recordedDate)
+		.orderBy(activityLogs.recordedDate)
+		.all();
+
+	if (rows.length === 0) return 0;
+
+	const today = new Date().toISOString().slice(0, 10);
+	const lastRecorded = rows[rows.length - 1]?.recordedDate;
+
+	const lastDate = new Date(`${lastRecorded}T00:00:00Z`);
+	const todayDate = new Date(`${today}T00:00:00Z`);
+	const daysSinceLastRecord = (todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
+	if (daysSinceLastRecord > 1) return 0;
+
+	let streak = 1;
+	for (let i = rows.length - 2; i >= 0; i--) {
+		const curr = new Date(`${rows[i + 1]?.recordedDate}T00:00:00Z`);
+		const prev = new Date(`${rows[i]?.recordedDate}T00:00:00Z`);
+		const diffDays = (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24);
+		if (diffDays === 1) {
+			streak++;
+		} else {
+			break;
+		}
+	}
+
+	return streak;
+}
+
+/** 累計活動数を取得 */
+function getTotalActivityCount(childId: number): number {
 	const result = db
 		.select({ total: count() })
 		.from(activityLogs)
 		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
 		.get();
+	return result?.total ?? 0;
+}
 
-	return (result?.total ?? 0) >= requiredCount;
+/** 1日で最大何カテゴリ記録したかを取得 */
+function getMaxCategoryCountInDay(childId: number): number {
+	const rows = db
+		.select({
+			recordedDate: activityLogs.recordedDate,
+			categoryCount: countDistinct(activities.category),
+		})
+		.from(activityLogs)
+		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.groupBy(activityLogs.recordedDate)
+		.all();
+
+	return rows.reduce((max, r) => Math.max(max, r.categoryCount), 0);
+}
+
+/** 現在レベルを取得 */
+function getCurrentLevel(childId: number): number {
+	const status = getChildStatus(childId);
+	if ('error' in status) return 0;
+	return status.level;
+}
+
+/** 条件タイプと値から子供向けの説明テキストを生成 */
+function getConditionLabel(
+	conditionType: string,
+	conditionValue: number,
+	highestUnlocked: number | null,
+): string {
+	const prefix = highestUnlocked != null ? `つぎ: ` : '';
+	switch (conditionType) {
+		case 'streak_days':
+			return `${prefix}${conditionValue}にちれんぞくでかつどう`;
+		case 'total_activities':
+			return `${prefix}ぜんぶで${conditionValue}かいかつどう`;
+		case 'all_categories':
+			return '1にちでぜんぶのカテゴリをきろく';
+		case 'level_reach':
+			return `${prefix}レベル${conditionValue}にとうたつ`;
+		case 'total_points':
+			return `${prefix}${conditionValue}ポイントためる`;
+		case 'milestone_event':
+			return 'おやがきろくしてくれるよ';
+		default:
+			return '';
+	}
+}
+
+// --- 条件判定（内部） ---
+
+function evaluateCondition(
+	childId: number,
+	conditionType: string,
+	conditionValue: number,
+	_category: string | null,
+): boolean {
+	switch (conditionType) {
+		case 'streak_days':
+			return getMaxStreakDays(childId) >= conditionValue;
+		case 'total_activities':
+			return getTotalActivityCount(childId) >= conditionValue;
+		case 'all_categories':
+			return checkAllCategories(childId);
+		case 'level_reach':
+			return getCurrentLevel(childId) >= conditionValue;
+		case 'total_points':
+			return getBalance(childId) >= conditionValue;
+		default:
+			return false;
+	}
 }
 
 /** 全5カテゴリに記録がある日が存在するかチェック */
 function checkAllCategories(childId: number): boolean {
-	// 各日ごとに記録されたカテゴリ数を集計
 	const rows = db
 		.select({
 			recordedDate: activityLogs.recordedDate,
@@ -191,18 +444,4 @@ function checkAllCategories(childId: number): boolean {
 		.all();
 
 	return rows.some((r) => r.categoryCount >= CATEGORIES.length);
-}
-
-/** レベル到達チェック */
-function checkLevelReach(childId: number, requiredLevel: number): boolean {
-	const status = getChildStatus(childId);
-	if ('error' in status) return false;
-	return status.level >= requiredLevel;
-}
-
-/** 累計ポイントチェック（point_ledger の正の合計） */
-function checkTotalPoints(childId: number, requiredPoints: number): boolean {
-	// 実績ポイント自体を除いた累計で判定すると循環するため、全合計で判定
-	const balance = getBalance(childId);
-	return balance >= requiredPoints;
 }

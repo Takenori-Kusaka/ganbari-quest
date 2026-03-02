@@ -10,6 +10,10 @@ import {
 	checkAndUnlockAchievements,
 	type UnlockedAchievement,
 } from '$lib/server/services/achievement-service';
+import { updateStatus } from '$lib/server/services/status-service';
+
+/** 1回の活動記録あたりのステータス増加量 */
+const STATUS_PER_ACTIVITY = 0.3;
 
 export interface RecordActivityResult {
 	id: number;
@@ -73,6 +77,19 @@ export function recordActivity(
 
 	if (existing) return { error: 'ALREADY_RECORDED' };
 
+	// Delete any cancelled records for the same (child, activity, date)
+	// so the UNIQUE constraint doesn't block re-recording
+	db.delete(activityLogs)
+		.where(
+			and(
+				eq(activityLogs.childId, childId),
+				eq(activityLogs.activityId, activityId),
+				eq(activityLogs.recordedDate, today),
+				eq(activityLogs.cancelled, 1),
+			),
+		)
+		.run();
+
 	// Calculate streak: find consecutive days of same activity
 	const streakDays = calculateStreak(childId, activityId, today);
 	const streakBonus = calcStreakBonus(streakDays);
@@ -80,19 +97,27 @@ export function recordActivity(
 
 	// Insert activity log
 	const now = new Date().toISOString();
-	const log = db
-		.insert(activityLogs)
-		.values({
-			childId,
-			activityId,
-			points: activity.basePoints,
-			streakDays,
-			streakBonus,
-			recordedDate: today,
-			recordedAt: now,
-		})
-		.returning()
-		.get();
+	let log: typeof activityLogs.$inferSelect;
+	try {
+		log = db
+			.insert(activityLogs)
+			.values({
+				childId,
+				activityId,
+				points: activity.basePoints,
+				streakDays,
+				streakBonus,
+				recordedDate: today,
+				recordedAt: now,
+			})
+			.returning()
+			.get();
+	} catch (e: unknown) {
+		if (e instanceof Error && e.message.includes('UNIQUE constraint failed')) {
+			return { error: 'ALREADY_RECORDED' as const };
+		}
+		throw e;
+	}
 
 	// Insert point ledger entry
 	db.insert(pointLedger)
@@ -104,6 +129,9 @@ export function recordActivity(
 			referenceId: log.id,
 		})
 		.run();
+
+	// ステータスを即時更新（カテゴリに対応するステータスを増加）
+	updateStatus(childId, activity.category, STATUS_PER_ACTIVITY, 'activity_record');
 
 	const cancelableUntil = new Date(Date.now() + CANCEL_WINDOW_MS).toISOString();
 
@@ -139,6 +167,12 @@ export function cancelActivityLog(
 	}
 
 	const totalPoints = log.points + log.streakBonus;
+
+	// 活動のカテゴリを取得してステータスを戻す
+	const activity = db.select().from(activities).where(eq(activities.id, log.activityId)).get();
+	if (activity) {
+		updateStatus(log.childId, activity.category, -STATUS_PER_ACTIVITY, 'activity_cancel');
+	}
 
 	// Mark as cancelled
 	db.update(activityLogs).set({ cancelled: 1 }).where(eq(activityLogs.id, logId)).run();

@@ -24,15 +24,15 @@ function seed() {
 	// ============================================================
 	const existingChildren = db.select().from(schema.children).all();
 	if (existingChildren.length === 0) {
-		db.insert(schema.children)
-			.values({
-				nickname: 'おじょうさま',
-				age: 4,
-				theme: 'pink',
-				uiMode: 'kinder',
-			})
-			.run();
-		console.log('  ✓ children: おじょうさま (4歳, kinder)');
+		const childrenData: (typeof schema.children.$inferInsert)[] = [
+			{ nickname: 'ゆうきちゃん', age: 4, theme: 'pink', uiMode: 'kinder' },
+			{ nickname: 'ひなたちゃん', age: 1, theme: 'pink', uiMode: 'baby' },
+			{ nickname: 'そうたくん', age: 7, theme: 'blue', uiMode: 'kinder' },
+			{ nickname: 'あおいちゃん', age: 11, theme: 'blue', uiMode: 'kinder' },
+			{ nickname: 'はるとくん', age: 14, theme: 'blue', uiMode: 'kinder' },
+		];
+		db.insert(schema.children).values(childrenData).run();
+		console.log(`  ✓ children: ${childrenData.length} children (baby/kinder/elementary/middle_school)`);
 	} else {
 		console.log('  - children: already seeded');
 	}
@@ -502,6 +502,19 @@ function seed() {
 				description: '健康な生活のリズムを身に付ける',
 				sortOrder: s(),
 			},
+			{
+				name: 'もちものチェックした',
+				category: 'せいかつ',
+				icon: '✅',
+				basePoints: 5,
+				ageMin: 3,
+				ageMax: 5,
+				source: 'seed',
+				gradeLevel: 'kinder',
+				subcategory: '準備',
+				description: 'あしたのもちものをたしかめた',
+				sortOrder: s(),
+			},
 			// こうりゅう
 			{
 				name: 'ともだちとあそんだ',
@@ -849,6 +862,19 @@ function seed() {
 				description: '持ち物の準備・整理整頓',
 				sortOrder: s(),
 			},
+			{
+				name: 'あしたのじゅんびした',
+				category: 'せいかつ',
+				icon: '✅',
+				basePoints: 5,
+				ageMin: 6,
+				ageMax: 9,
+				source: 'seed',
+				gradeLevel: 'elementary_lower',
+				subcategory: '準備',
+				description: 'ランドセルの中身・持ち物を確認した',
+				sortOrder: s(),
+			},
 			// こうりゅう
 			{
 				name: 'あいさつ・へんじ',
@@ -1181,6 +1207,19 @@ function seed() {
 				gradeLevel: 'elementary_upper',
 				subcategory: '家庭科',
 				description: '生活時間の有効な使い方',
+				sortOrder: s(),
+			},
+			{
+				name: '明日の準備・持ち物チェック',
+				category: 'せいかつ',
+				icon: '✅',
+				basePoints: 5,
+				ageMin: 10,
+				ageMax: 12,
+				source: 'seed',
+				gradeLevel: 'elementary_upper',
+				subcategory: '準備',
+				description: '時間割を確認し必要な持ち物を揃えた',
 				sortOrder: s(),
 			},
 			// こうりゅう
@@ -1541,6 +1580,19 @@ function seed() {
 				gradeLevel: 'middle_school',
 				subcategory: '技術家庭',
 				description: '消費生活と環境への配慮',
+				sortOrder: s(),
+			},
+			{
+				name: '明日の準備・提出物チェック',
+				category: 'せいかつ',
+				icon: '✅',
+				basePoints: 5,
+				ageMin: 13,
+				ageMax: 15,
+				source: 'seed',
+				gradeLevel: 'middle_school',
+				subcategory: '準備',
+				description: '時間割・提出物・部活の準備を確認した',
 				sortOrder: s(),
 			},
 			// こうりゅう
@@ -2041,29 +2093,34 @@ function seed() {
 	// ============================================================
 	const existingStatuses = db.select().from(schema.statuses).all();
 	if (existingStatuses.length === 0) {
-		const statusesData: (typeof schema.statuses.$inferInsert)[] = [
-			{ childId: 1, category: 'うんどう', value: 30.0 },
-			{ childId: 1, category: 'べんきょう', value: 20.0 },
-			{ childId: 1, category: 'せいかつ', value: 35.0 },
-			{ childId: 1, category: 'こうりゅう', value: 25.0 },
-			{ childId: 1, category: 'そうぞう', value: 25.0 },
-		];
+		const categories = ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう'] as const;
+		const allChildren = db.select().from(schema.children).all();
+		const statusesData: (typeof schema.statuses.$inferInsert)[] = [];
+		const baseValues: Record<string, number> = {
+			うんどう: 30.0, べんきょう: 20.0, せいかつ: 35.0, こうりゅう: 25.0, そうぞう: 25.0,
+		};
+		for (const child of allChildren) {
+			for (const cat of categories) {
+				statusesData.push({ childId: child.id, category: cat, value: baseValues[cat] });
+			}
+		}
 
 		db.insert(schema.statuses).values(statusesData).run();
-		console.log(`  ✓ statuses: ${statusesData.length} items`);
+		console.log(`  ✓ statuses: ${statusesData.length} items (${allChildren.length} children × ${categories.length} categories)`);
 	} else {
 		console.log('  - statuses: already seeded');
 	}
 
 	// ============================================================
-	// 初期実績マスタ（12件）
+	// 初期実績マスタ（マイルストーン型 + ライフイベント）
 	// ============================================================
 	const existingAchievements = db.select().from(schema.achievements).all();
 	if (existingAchievements.length === 0) {
 		const achievementsData: (typeof schema.achievements.$inferInsert)[] = [
+			// --- はじめのいっぽ（一度きり） ---
 			{
-				code: 'first_activity',
-				name: 'はじめてのきろく',
+				code: 'first_step',
+				name: 'はじめのいっぽ',
 				description: 'はじめてかつどうをきろくした！',
 				icon: '🌟',
 				category: null,
@@ -2072,143 +2129,115 @@ function seed() {
 				bonusPoints: 10,
 				rarity: 'common',
 				sortOrder: 1,
+				repeatable: 0,
 			},
+			// --- れんぞくチャレンジ（繰り返し・マイルストーン） ---
 			{
-				code: 'streak_3',
-				name: '3にちれんぞく',
-				description: '3にちれんぞくでかつどうした！',
+				code: 'streak_master',
+				name: 'れんぞくチャレンジ',
+				description: 'まいにちれんぞくでかつどうしよう！',
 				icon: '🔥',
 				category: null,
 				conditionType: 'streak_days',
 				conditionValue: 3,
-				bonusPoints: 20,
+				bonusPoints: 10,
 				rarity: 'common',
 				sortOrder: 2,
+				repeatable: 1,
+				milestoneValues: JSON.stringify([3, 5, 7, 10, 14, 21, 30, 60, 90, 180, 365]),
 			},
+			// --- かつどうマスター（繰り返し・マイルストーン） ---
 			{
-				code: 'streak_7',
-				name: '7にちれんぞく',
-				description: '1しゅうかんれんぞくでかつどうした！',
-				icon: '💪',
-				category: null,
-				conditionType: 'streak_days',
-				conditionValue: 7,
-				bonusPoints: 50,
-				rarity: 'rare',
-				sortOrder: 3,
-			},
-			{
-				code: 'streak_30',
-				name: '30にちれんぞく',
-				description: '1かげつれんぞくでかつどうした！',
-				icon: '👑',
-				category: null,
-				conditionType: 'streak_days',
-				conditionValue: 30,
-				bonusPoints: 200,
-				rarity: 'epic',
-				sortOrder: 4,
-			},
-			{
-				code: 'activities_10',
-				name: '10かいきろく',
-				description: '10かいかつどうをきろくした！',
+				code: 'activity_master',
+				name: 'かつどうマスター',
+				description: 'たくさんかつどうをきろくしよう！',
 				icon: '📝',
 				category: null,
 				conditionType: 'total_activities',
 				conditionValue: 10,
-				bonusPoints: 30,
+				bonusPoints: 10,
 				rarity: 'common',
-				sortOrder: 5,
+				sortOrder: 3,
+				repeatable: 1,
+				milestoneValues: JSON.stringify([10, 30, 50, 100, 200, 500, 1000]),
 			},
+			// --- カテゴリたんけん（一度きり） ---
 			{
-				code: 'activities_50',
-				name: '50かいきろく',
-				description: '50かいかつどうをきろくした！',
-				icon: '📚',
-				category: null,
-				conditionType: 'total_activities',
-				conditionValue: 50,
-				bonusPoints: 100,
-				rarity: 'rare',
-				sortOrder: 6,
-			},
-			{
-				code: 'activities_100',
-				name: '100かいきろく',
-				description: '100かいかつどうをきろくした！',
-				icon: '🏆',
-				category: null,
-				conditionType: 'total_activities',
-				conditionValue: 100,
-				bonusPoints: 300,
-				rarity: 'epic',
-				sortOrder: 7,
-			},
-			{
-				code: 'all_categories',
-				name: 'ぜんぶのカテゴリ',
-				description: '1にちですべてのカテゴリをきろくした！',
+				code: 'category_explorer',
+				name: 'カテゴリたんけん',
+				description: '1にちでぜんぶのカテゴリをきろくした！',
 				icon: '🌈',
 				category: null,
 				conditionType: 'all_categories',
 				conditionValue: 1,
 				bonusPoints: 50,
 				rarity: 'rare',
-				sortOrder: 8,
+				sortOrder: 4,
+				repeatable: 0,
 			},
+			// --- レベルアップ（繰り返し・マイルストーン） ---
 			{
-				code: 'level_5',
-				name: 'レベル5とうたつ',
-				description: 'レベル5になった！',
+				code: 'level_climber',
+				name: 'レベルアップ',
+				description: 'レベルをあげよう！',
 				icon: '⭐',
 				category: null,
 				conditionType: 'level_reach',
-				conditionValue: 5,
-				bonusPoints: 100,
-				rarity: 'rare',
-				sortOrder: 9,
+				conditionValue: 3,
+				bonusPoints: 20,
+				rarity: 'common',
+				sortOrder: 5,
+				repeatable: 1,
+				milestoneValues: JSON.stringify([3, 5, 7, 10]),
 			},
+			// --- ポイントコレクター（繰り返し・マイルストーン） ---
 			{
-				code: 'level_10',
-				name: 'さいきょうレベル',
-				description: 'レベル10になった！すごい！',
-				icon: '💎',
-				category: null,
-				conditionType: 'level_reach',
-				conditionValue: 10,
-				bonusPoints: 500,
-				rarity: 'legendary',
-				sortOrder: 10,
-			},
-			{
-				code: 'points_100',
-				name: '100ポイントたっせい',
-				description: 'ごうけい100ポイントたまった！',
+				code: 'point_collector',
+				name: 'ポイントコレクター',
+				description: 'ポイントをたくさんためよう！',
 				icon: '💰',
 				category: null,
 				conditionType: 'total_points',
 				conditionValue: 100,
-				bonusPoints: 30,
+				bonusPoints: 10,
 				rarity: 'common',
-				sortOrder: 11,
+				sortOrder: 6,
+				repeatable: 1,
+				milestoneValues: JSON.stringify([100, 500, 1000, 5000, 10000]),
+			},
+			// --- ライフイベント（手動付与） ---
+			{
+				code: 'kindergarten_grad',
+				name: 'ほいくえんそつえん',
+				description: 'ほいくえんをそつえんした！おめでとう！',
+				icon: '🎓',
+				category: null,
+				conditionType: 'milestone_event',
+				conditionValue: 0,
+				bonusPoints: 500,
+				rarity: 'legendary',
+				sortOrder: 100,
+				repeatable: 0,
+				isMilestone: 1,
 			},
 			{
-				code: 'points_1000',
-				name: '1000ポイントたっせい',
-				description: 'ごうけい1000ポイントたまった！',
-				icon: '🤑',
+				code: 'elementary_grad',
+				name: 'しょうがっこうそつぎょう',
+				description: 'しょうがっこうをそつぎょうした！おめでとう！',
+				icon: '🎓',
 				category: null,
-				conditionType: 'total_points',
-				conditionValue: 1000,
-				bonusPoints: 200,
-				rarity: 'epic',
-				sortOrder: 12,
+				conditionType: 'milestone_event',
+				conditionValue: 0,
+				bonusPoints: 1000,
+				rarity: 'legendary',
+				sortOrder: 101,
+				repeatable: 0,
+				isMilestone: 1,
 			},
 		];
 
 		db.insert(schema.achievements).values(achievementsData).run();
-		console.log(`  ✓ achievements: ${achievementsData.length} items`);
+		console.log(`  ✓ achievements: ${achievementsData.length} items (milestone-based)`);
 	} else {
 		console.log('  - achievements: already seeded');
 	}

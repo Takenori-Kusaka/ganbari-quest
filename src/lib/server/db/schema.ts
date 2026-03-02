@@ -15,6 +15,7 @@ export const children = sqliteTable('children', {
 	birthDate: text('birth_date'),
 	theme: text('theme').notNull().default('pink'),
 	uiMode: text('ui_mode').notNull().default('kinder'),
+	avatarUrl: text('avatar_url'),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -220,6 +221,9 @@ export const achievements = sqliteTable('achievements', {
 	bonusPoints: integer('bonus_points').notNull(),
 	rarity: text('rarity').notNull().default('common'),
 	sortOrder: integer('sort_order').notNull().default(0),
+	repeatable: integer('repeatable').notNull().default(0),
+	milestoneValues: text('milestone_values'),
+	isMilestone: integer('is_milestone').notNull().default(0),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -236,9 +240,16 @@ export const childAchievements = sqliteTable(
 		achievementId: integer('achievement_id')
 			.notNull()
 			.references(() => achievements.id),
+		milestoneValue: integer('milestone_value'),
 		unlockedAt: text('unlocked_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [uniqueIndex('idx_child_achievements_unique').on(table.childId, table.achievementId)],
+	(table) => [
+		uniqueIndex('idx_child_achievements_unique').on(
+			table.childId,
+			table.achievementId,
+			table.milestoneValue,
+		),
+	],
 );
 
 // ============================================================
@@ -260,4 +271,88 @@ export const specialRewards = sqliteTable(
 		grantedAt: text('granted_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
 	(table) => [index('idx_special_rewards_child').on(table.childId, table.grantedAt)],
+);
+
+// ============================================================
+// checklist_templates - チェックリストテンプレート
+// ============================================================
+export const checklistTemplates = sqliteTable('checklist_templates', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	childId: integer('child_id')
+		.notNull()
+		.references(() => children.id),
+	name: text('name').notNull(),
+	icon: text('icon').notNull().default('📋'),
+	pointsPerItem: integer('points_per_item').notNull().default(2),
+	completionBonus: integer('completion_bonus').notNull().default(5),
+	isActive: integer('is_active').notNull().default(1),
+	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================
+// checklist_template_items - チェックリストアイテム
+// ============================================================
+export const checklistTemplateItems = sqliteTable(
+	'checklist_template_items',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		templateId: integer('template_id')
+			.notNull()
+			.references(() => checklistTemplates.id),
+		name: text('name').notNull(),
+		icon: text('icon').notNull().default('🏫'),
+		frequency: text('frequency').notNull().default('daily'),
+		direction: text('direction').notNull().default('bring'),
+		sortOrder: integer('sort_order').notNull().default(0),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [index('idx_checklist_items_template').on(table.templateId)],
+);
+
+// ============================================================
+// checklist_logs - チェックリスト日次記録
+// ============================================================
+export const checklistLogs = sqliteTable(
+	'checklist_logs',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		templateId: integer('template_id')
+			.notNull()
+			.references(() => checklistTemplates.id),
+		checkedDate: text('checked_date').notNull(),
+		itemsJson: text('items_json').notNull().default('[]'),
+		completedAll: integer('completed_all').notNull().default(0),
+		pointsAwarded: integer('points_awarded').notNull().default(0),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_checklist_logs_unique_daily').on(
+			table.childId,
+			table.templateId,
+			table.checkedDate,
+		),
+	],
+);
+
+// ============================================================
+// checklist_overrides - 日付別アイテム追加/除外
+// ============================================================
+export const checklistOverrides = sqliteTable(
+	'checklist_overrides',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		targetDate: text('target_date').notNull(),
+		action: text('action').notNull(),
+		itemName: text('item_name').notNull(),
+		icon: text('icon').notNull().default('📦'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [index('idx_checklist_overrides_child_date').on(table.childId, table.targetDate)],
 );
