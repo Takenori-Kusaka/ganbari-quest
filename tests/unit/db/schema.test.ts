@@ -25,6 +25,7 @@ beforeAll(() => {
 			birth_date TEXT,
 			theme TEXT NOT NULL DEFAULT 'pink',
 			ui_mode TEXT NOT NULL DEFAULT 'kinder',
+			avatar_url TEXT,
 			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);

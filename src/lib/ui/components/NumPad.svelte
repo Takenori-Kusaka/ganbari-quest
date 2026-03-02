@@ -27,18 +27,22 @@
 	}
 </script>
 
-<div class="grid grid-cols-3 gap-[var(--spacing-sm)] max-w-xs mx-auto" role="group" aria-label="すうじパッド">
+<div
+	class="numpad-grid mx-auto"
+	role="group"
+	aria-label="すうじパッド"
+>
 	{#each keys as row}
 		{#each row as key}
 			<button
-				class="tap-target w-16 h-16 rounded-[var(--radius-md)] text-xl font-bold
-					flex items-center justify-center transition-colors
+				type="button"
+				class="tap-target numpad-btn
 					{key === 'OK'
-						? 'bg-[var(--theme-primary)] text-white'
+						? 'numpad-btn--ok'
 						: key === '←'
-							? 'bg-gray-200 text-[var(--color-text)]'
-							: 'bg-white border-2 border-gray-200 text-[var(--color-text)]'}
-					{disabled ? 'opacity-50 pointer-events-none' : 'hover:brightness-95'}"
+							? 'numpad-btn--delete'
+							: 'numpad-btn--digit'}
+					{disabled ? 'opacity-50 pointer-events-none' : ''}"
 				{disabled}
 				aria-label={key === '←' ? 'けす' : key === 'OK' ? 'けってい' : key}
 				onclick={() => handleKey(key)}
@@ -48,3 +52,46 @@
 		{/each}
 	{/each}
 </div>
+
+<style>
+	.numpad-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 64px);
+		gap: 8px;
+		justify-content: center;
+	}
+
+	.numpad-btn {
+		width: 64px;
+		height: 64px;
+		border-radius: 16px;
+		font-size: 1.25rem;
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: filter 0.15s ease;
+		cursor: pointer;
+		border: none;
+	}
+
+	.numpad-btn:not(:disabled):hover {
+		filter: brightness(0.95);
+	}
+
+	.numpad-btn--digit {
+		background: white;
+		border: 2px solid #e5e7eb;
+		color: var(--color-text, #2d2d2d);
+	}
+
+	.numpad-btn--delete {
+		background: #e5e7eb;
+		color: var(--color-text, #2d2d2d);
+	}
+
+	.numpad-btn--ok {
+		background: var(--theme-primary, #5c6bc0);
+		color: white;
+	}
+</style>

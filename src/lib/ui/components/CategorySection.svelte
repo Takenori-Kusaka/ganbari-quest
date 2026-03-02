@@ -19,18 +19,18 @@
 	const color = $derived(categoryColors[category] ?? 'var(--theme-primary)');
 </script>
 
-<section class="mb-[var(--spacing-lg)]">
+<section class="mb-[var(--spacing-sm)]">
 	<h2
-		class="flex items-center gap-[var(--spacing-sm)] mb-[var(--spacing-sm)] px-[var(--spacing-sm)]"
+		class="flex items-center gap-1 mb-1 px-1"
 	>
 		<span
-			class="w-1.5 h-6 rounded-[var(--radius-full)]"
+			class="w-1 h-4 rounded-[var(--radius-full)]"
 			style="background-color: {color};"
 			aria-hidden="true"
 		></span>
-		<span class="text-sm font-bold text-[var(--color-text-muted)]">{category}</span>
+		<span class="text-xs font-bold text-[var(--color-text-muted)]">{category}</span>
 	</h2>
-	<div class="flex flex-wrap gap-[var(--spacing-sm)] px-[var(--spacing-sm)]">
+	<div class="grid grid-cols-[repeat(auto-fill,minmax(70px,1fr))] gap-1 px-1">
 		{@render children()}
 	</div>
 </section>

@@ -4,9 +4,10 @@ interface Props {
 	totalPoints: number;
 	level?: number;
 	showLevel?: boolean;
+	avatarUrl?: string | null;
 }
 
-let { nickname, totalPoints, level, showLevel = true }: Props = $props();
+let { nickname, totalPoints, level, showLevel = true, avatarUrl }: Props = $props();
 </script>
 
 <header
@@ -14,7 +15,15 @@ let { nickname, totalPoints, level, showLevel = true }: Props = $props();
 		bg-[var(--theme-primary)] text-white shadow-md"
 >
 	<div class="flex items-center gap-[var(--spacing-sm)]">
-		<span class="text-2xl" aria-hidden="true">👤</span>
+		{#if avatarUrl}
+			<img
+				src={avatarUrl}
+				alt={nickname}
+				class="w-8 h-8 rounded-full object-cover border-2 border-white/50"
+			/>
+		{:else}
+			<span class="text-2xl" aria-hidden="true">👤</span>
+		{/if}
 		<span class="font-bold text-lg">{nickname}</span>
 		{#if showLevel && level != null}
 			<span class="text-sm opacity-80">Lv.{level}</span>

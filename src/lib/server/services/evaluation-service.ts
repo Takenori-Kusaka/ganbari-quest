@@ -13,18 +13,18 @@ import { updateStatus } from '$lib/server/services/status-service';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 
 /**
- * ステータス増加量を活動回数から算出
- * 週間活動回数 >= 7 → +3.0
- * 週間活動回数 >= 5 → +2.0
- * 週間活動回数 >= 3 → +1.0
- * 週間活動回数 >= 1 → +0.5
+ * 週次評価ボーナスを活動回数から算出
+ * （活動記録ごとに即時+0.3が付くため、週次はボーナスのみ）
+ * 週間活動回数 >= 7 → +1.0
+ * 週間活動回数 >= 5 → +0.5
+ * 週間活動回数 >= 3 → +0.3
+ * 週間活動回数 >= 1 → +0.0（即時更新分で十分）
  * 週間活動回数 == 0 → +0.0
  */
 export function calcStatusIncrease(activityCount: number): number {
-	if (activityCount >= 7) return 3.0;
-	if (activityCount >= 5) return 2.0;
-	if (activityCount >= 3) return 1.0;
-	if (activityCount >= 1) return 0.5;
+	if (activityCount >= 7) return 1.0;
+	if (activityCount >= 5) return 0.5;
+	if (activityCount >= 3) return 0.3;
 	return 0;
 }
 

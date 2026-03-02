@@ -6,6 +6,9 @@ let { data } = $props();
 const themeColors: Record<string, { bg: string; border: string }> = {
 	pink: { bg: '#fff0f5', border: '#ff69b4' },
 	blue: { bg: '#e3f2fd', border: '#4fc3f7' },
+	green: { bg: '#e8f5e9', border: '#66bb6a' },
+	orange: { bg: '#fff3e0', border: '#ffa726' },
+	purple: { bg: '#f3e5f5', border: '#ab47bc' },
 };
 
 const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
@@ -28,7 +31,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 		<div class="flex flex-col gap-[var(--spacing-md)]">
 			{#each data.children as child (child.id)}
 				{@const colors = themeColors[child.theme] ?? defaultTheme}
-				<form method="POST" use:enhance>
+				<form method="POST" action="?/select" use:enhance>
 					<input type="hidden" name="childId" value={child.id} />
 					<button
 						type="submit"
@@ -36,10 +39,21 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 							rounded-[var(--radius-lg)] shadow-sm border-2 transition-shadow hover:shadow-md"
 						style="background-color: {colors.bg}; border-color: {colors.border};"
 					>
-						<span class="text-4xl">👤</span>
+						{#if child.avatarUrl}
+							<img
+								src={child.avatarUrl}
+								alt={child.nickname}
+								class="w-12 h-12 rounded-full object-cover border-2"
+								style="border-color: {colors.border};"
+							/>
+						{:else}
+							<span class="text-4xl">👤</span>
+						{/if}
 						<div class="flex-1 text-left">
 							<p class="text-lg font-bold">{child.nickname}</p>
-							<p class="text-sm text-[var(--color-text-muted)]">{child.age}さい</p>
+							<p class="text-sm text-[var(--color-text-muted)]">
+								{child.age}さい
+							</p>
 						</div>
 						<span class="text-2xl" aria-hidden="true">▶</span>
 					</button>
@@ -47,4 +61,15 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 			{/each}
 		</div>
 	{/if}
+
+	<!-- Parent admin link -->
+	<div class="mt-[var(--spacing-2xl)] flex justify-center">
+		<a
+			href="/login"
+			class="text-sm text-[var(--color-text-muted)] hover:text-[var(--theme-primary)] transition-colors py-2 px-4"
+		>
+			🔒 おやのかんりがめん
+		</a>
+	</div>
+
 </div>

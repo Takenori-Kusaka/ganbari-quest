@@ -1,3 +1,4 @@
+import { dev } from '$app/environment';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -8,7 +9,7 @@ export const load: PageServerLoad = () => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, cookies }) => {
+	select: async ({ request, cookies }) => {
 		const formData = await request.formData();
 		const childId = formData.get('childId');
 
@@ -26,5 +27,34 @@ export const actions: Actions = {
 		const child = getChildById(Number(childId));
 		const uiMode = child?.uiMode ?? 'kinder';
 		redirect(303, `/${uiMode}/home`);
+	},
+
+	resetChild: async ({ request }) => {
+		if (!dev) {
+			return { error: 'Not available in production' };
+		}
+
+		const formData = await request.formData();
+		const childId = Number(formData.get('childId'));
+
+		if (!childId) {
+			return { error: 'Invalid childId' };
+		}
+
+		// Dynamic import to avoid bundling debug code in production
+		const { db } = await import('$lib/server/db/client');
+		const { activityLogs, pointLedger, loginBonuses, childAchievements } = await import('$lib/server/db/schema');
+		const { eq } = await import('drizzle-orm');
+
+		// Clear activity logs
+		db.delete(activityLogs).where(eq(activityLogs.childId, childId)).run();
+		// Clear point ledger
+		db.delete(pointLedger).where(eq(pointLedger.childId, childId)).run();
+		// Clear login bonuses
+		db.delete(loginBonuses).where(eq(loginBonuses.childId, childId)).run();
+		// Clear achievements
+		db.delete(childAchievements).where(eq(childAchievements.childId, childId)).run();
+
+		return { reset: true, childId };
 	},
 };

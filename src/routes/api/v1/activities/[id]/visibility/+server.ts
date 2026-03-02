@@ -1,10 +1,7 @@
+import { notFound, validationError } from '$lib/server/errors';
+import { getActivityById, setActivityVisibility } from '$lib/server/services/activity-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import {
-	getActivityById,
-	setActivityVisibility,
-} from '$lib/server/services/activity-service';
-import { notFound, validationError } from '$lib/server/errors';
 
 export const PATCH: RequestHandler = async ({ params, request }) => {
 	const id = Number(params.id);

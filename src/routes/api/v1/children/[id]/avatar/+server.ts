@@ -1,0 +1,63 @@
+import { json, error } from '@sveltejs/kit';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { db } from '$lib/server/db';
+import { children } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
+import type { RequestHandler } from './$types';
+
+const UPLOAD_DIR = join(process.cwd(), 'static', 'uploads', 'avatars');
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+function ensureDir(dir: string) {
+	if (!existsSync(dir)) {
+		mkdirSync(dir, { recursive: true });
+	}
+}
+
+export const POST: RequestHandler = async ({ params, request }) => {
+	const childId = Number(params.id);
+	if (!childId || Number.isNaN(childId)) {
+		throw error(400, { message: '不正なIDです' });
+	}
+
+	const child = db.select().from(children).where(eq(children.id, childId)).get();
+	if (!child) {
+		throw error(404, { message: '子供が見つかりません' });
+	}
+
+	const formData = await request.formData();
+	const file = formData.get('avatar');
+
+	if (!(file instanceof File) || file.size === 0) {
+		throw error(400, { message: 'ファイルを選択してください' });
+	}
+
+	if (!ALLOWED_TYPES.includes(file.type)) {
+		throw error(400, { message: 'JPEG、PNG、WebP形式のみアップロードできます' });
+	}
+
+	if (file.size > MAX_FILE_SIZE) {
+		throw error(400, { message: 'ファイルサイズは5MB以下にしてください' });
+	}
+
+	ensureDir(UPLOAD_DIR);
+
+	// ファイル名: avatar-{childId}-{timestamp}.{ext}
+	const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+	const fileName = `avatar-${childId}-${Date.now()}.${ext}`;
+	const filePath = join(UPLOAD_DIR, fileName);
+	const publicUrl = `/uploads/avatars/${fileName}`;
+
+	const buffer = Buffer.from(await file.arrayBuffer());
+	writeFileSync(filePath, buffer);
+
+	// DB更新
+	db.update(children)
+		.set({ avatarUrl: publicUrl, updatedAt: new Date().toISOString() })
+		.where(eq(children.id, childId))
+		.run();
+
+	return json({ avatarUrl: publicUrl });
+};

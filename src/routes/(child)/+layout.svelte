@@ -9,22 +9,13 @@ let { data, children } = $props();
 
 const theme = $derived(data.child?.theme ?? 'pink');
 const uiMode = $derived(data.uiMode ?? 'kinder');
-const isBaby = $derived(uiMode === 'baby');
-const navItems = $derived(
-	isBaby
-		? [
-				{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
-				{ href: `/${uiMode}/history`, icon: '📋', label: 'きろく' },
-				{ href: '/switch', icon: '👤', label: 'きりかえ' },
-			]
-		: [
-				{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
-				{ href: `/${uiMode}/history`, icon: '📋', label: 'きろく' },
-				{ href: `/${uiMode}/status`, icon: '⭐', label: 'つよさ' },
-				{ href: `/${uiMode}/achievements`, icon: '🏆', label: 'じっせき' },
-				{ href: '/switch', icon: '👤', label: 'きりかえ' },
-			],
-);
+const navItems = $derived([
+	{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
+	{ href: `/${uiMode}/history`, icon: '📋', label: 'きろく' },
+	{ href: `/${uiMode}/status`, icon: '⭐', label: 'つよさ' },
+	{ href: `/${uiMode}/achievements`, icon: '🏆', label: 'じっせき' },
+	{ href: '/switch', icon: '👤', label: 'きりかえ' },
+]);
 
 // サウンドシステム初期化
 onMount(() => {
@@ -39,12 +30,12 @@ onMount(() => {
 
 <div data-theme={theme} data-age-tier={uiMode} class="min-h-dvh bg-[var(--theme-bg)]">
 	{#if data.child}
-		<Header nickname={data.child.nickname} totalPoints={data.balance} level={data.level} showLevel={!isBaby} />
+		<Header nickname={data.child.nickname} totalPoints={data.balance} level={data.level} showLevel={true} avatarUrl={data.child.avatarUrl} />
 	{/if}
 
 	<main class="pb-20 pt-[var(--spacing-sm)]">
 		{@render children()}
 	</main>
 
-	<BottomNav items={navItems} iconOnly={isBaby} />
+	<BottomNav items={navItems} />
 </div>
