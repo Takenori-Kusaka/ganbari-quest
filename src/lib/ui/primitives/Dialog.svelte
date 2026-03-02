@@ -24,9 +24,9 @@
 		<ArkDialog.Backdrop
 			class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity"
 		/>
-		<ArkDialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-[var(--spacing-md)]">
+		<ArkDialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-[var(--spacing-md)]">
 			<ArkDialog.Content
-				class="bg-white rounded-[var(--radius-lg)] shadow-xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-[var(--spacing-lg)]"
+				class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--spacing-lg)]"
 			>
 				{#if title}
 					<ArkDialog.Title class="text-xl font-bold mb-[var(--spacing-md)]">

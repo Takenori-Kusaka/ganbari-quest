@@ -5,16 +5,24 @@ import Progress from '$lib/ui/primitives/Progress.svelte';
 
 let { data } = $props();
 
-const characterEmojis: Record<string, string> = {
-	hero: '🦸',
-	normal: '😊',
-	ganbari: '💪',
+/** レベル別アイコン */
+const levelEmojis: Record<number, string> = {
+	1: '🌱', 2: '💪', 3: '⚡', 4: '🔥', 5: '⭐',
+	6: '🗡️', 7: '🏆', 8: '✨', 9: '👑', 10: '🌟',
 };
 
-const characterLabels: Record<string, string> = {
-	hero: 'ヒーロータイプ',
-	normal: 'ふつうタイプ',
-	ganbari: 'がんばりタイプ',
+/** レベル別はげましメッセージ */
+const levelMessages: Record<number, string> = {
+	1: 'まだまだこれから！どんどんつよくなろう！',
+	2: 'がんばってるね！このちょうしでいこう！',
+	3: 'わくわくしてきた！どんどんいこう！',
+	4: 'つよくなってきた！もっといけるよ！',
+	5: 'すごい！ヒーローになったよ！',
+	6: 'とてもすごい！ぼうけんのたつじんだ！',
+	7: 'チャンピオンだ！みんなのあこがれだよ！',
+	8: 'きせきをおこしているよ！すばらしい！',
+	9: 'せかいいちつよい！でんせつだ！',
+	10: 'かみさまレベル！これいじょうはない！',
 };
 
 const trendIcons: Record<string, string> = {
@@ -28,7 +36,6 @@ const expBarValue = $derived(() => {
 	if (!data.status) return 0;
 	const level = data.status.level;
 	if (level >= 10) return 100;
-	// Current progress within level: (avgStatus - levelMinAvg) / 10 * 100
 	const totalExp = Object.values(data.status.statuses).reduce((sum, s) => sum + s.value, 0);
 	const avgStatus = totalExp / CATEGORIES.length;
 	const levelMinAvg = (level - 1) * 10;
@@ -42,25 +49,19 @@ const expBarValue = $derived(() => {
 
 <div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
 	{#if data.status}
-		<!-- Character type -->
-		<div class="flex flex-col items-center gap-[var(--spacing-sm)] mb-[var(--spacing-lg)]">
-			<span class="text-6xl">
-				{characterEmojis[data.status.characterType] ?? '😊'}
-			</span>
-			<p class="text-sm font-bold text-[var(--color-text-muted)]">
-				{characterLabels[data.status.characterType] ?? 'ふつうタイプ'}
-			</p>
-		</div>
-
-		<!-- Level & exp -->
+		<!-- Level + title (unified) -->
 		<div class="bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm mb-[var(--spacing-lg)]">
-			<div class="flex justify-between items-center mb-[var(--spacing-sm)]">
-				<div>
-					<span class="text-2xl font-bold">Lv.{data.status.level}</span>
-					<span class="text-sm text-[var(--color-text-muted)] ml-[var(--spacing-xs)]">
-						{data.status.levelTitle}
-					</span>
-				</div>
+			<div class="flex flex-col items-center gap-[var(--spacing-xs)] mb-[var(--spacing-md)]">
+				<span class="text-5xl">
+					{levelEmojis[data.status.level] ?? '⭐'}
+				</span>
+				<p class="text-2xl font-bold">Lv.{data.status.level}</p>
+				<p class="text-sm font-bold" style="color: var(--theme-accent);">
+					{data.status.levelTitle}
+				</p>
+				<p class="text-xs" style="color: var(--color-text-muted); text-align: center;">
+					{levelMessages[data.status.level] ?? ''}
+				</p>
 			</div>
 			<div class="mb-1">
 				<Progress value={expBarValue()} max={100} color="var(--color-point)" size="md" />

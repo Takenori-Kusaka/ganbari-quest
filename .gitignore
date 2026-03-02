@@ -36,6 +36,9 @@ test-results.json
 # Drizzle
 drizzle/meta/
 
+# Generated images (Gemini API)
+static/generated/
+
 # Misc
 *.log
 *.tsbuildinfo

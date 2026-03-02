@@ -15,6 +15,7 @@ const SQL_TABLES = `
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'kinder',
+		avatar_url TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
@@ -173,28 +174,25 @@ function addLog(childId: number, activityId: number, date: string) {
 }
 
 describe('calcStatusIncrease', () => {
-	it('7回以上で+3.0', () => {
-		expect(calcStatusIncrease(7)).toBe(3.0);
-		expect(calcStatusIncrease(10)).toBe(3.0);
+	it('7回以上で+1.0（週次ボーナス）', () => {
+		expect(calcStatusIncrease(7)).toBe(1.0);
+		expect(calcStatusIncrease(10)).toBe(1.0);
 	});
 
-	it('5-6回で+2.0', () => {
-		expect(calcStatusIncrease(5)).toBe(2.0);
-		expect(calcStatusIncrease(6)).toBe(2.0);
+	it('5-6回で+0.5', () => {
+		expect(calcStatusIncrease(5)).toBe(0.5);
+		expect(calcStatusIncrease(6)).toBe(0.5);
 	});
 
-	it('3-4回で+1.0', () => {
-		expect(calcStatusIncrease(3)).toBe(1.0);
-		expect(calcStatusIncrease(4)).toBe(1.0);
+	it('3-4回で+0.3', () => {
+		expect(calcStatusIncrease(3)).toBe(0.3);
+		expect(calcStatusIncrease(4)).toBe(0.3);
 	});
 
-	it('1-2回で+0.5', () => {
-		expect(calcStatusIncrease(1)).toBe(0.5);
-		expect(calcStatusIncrease(2)).toBe(0.5);
-	});
-
-	it('0回で0', () => {
+	it('0-2回で0（即時更新分で十分）', () => {
 		expect(calcStatusIncrease(0)).toBe(0);
+		expect(calcStatusIncrease(1)).toBe(0);
+		expect(calcStatusIncrease(2)).toBe(0);
 	});
 });
 
@@ -286,10 +284,10 @@ describe('evaluateChild', () => {
 		const result = evaluateChild(1, '2026-02-16', '2026-02-22');
 		expect(result.bonusPoints).toBe(20); // 5カテゴリ活動ボーナス
 
-		// 各カテゴリ +0.5（1回活動）
+		// 各カテゴリ1回→週次ボーナスなし（即時更新分で十分）
 		for (const cat of Object.values(result.categoryScores)) {
 			expect(cat.count).toBe(1);
-			expect(cat.statusIncrease).toBe(0.5);
+			expect(cat.statusIncrease).toBe(0);
 		}
 	});
 
@@ -300,7 +298,7 @@ describe('evaluateChild', () => {
 
 		const result = evaluateChild(1, '2026-02-16', '2026-02-22');
 		expect(result.categoryScores['うんどう']!.count).toBe(7);
-		expect(result.categoryScores['うんどう']!.statusIncrease).toBe(3.0);
+		expect(result.categoryScores['うんどう']!.statusIncrease).toBe(1.0); // 週次ボーナス
 	});
 });
 

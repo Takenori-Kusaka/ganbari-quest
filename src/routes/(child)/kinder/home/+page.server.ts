@@ -4,10 +4,16 @@ import {
 	recordActivity,
 } from '$lib/server/services/activity-log-service';
 import { getActivities } from '$lib/server/services/activity-service';
+import { getChecklistsForChild } from '$lib/server/services/checklist-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getChildSpecialRewards } from '$lib/server/services/special-reward-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+
+function todayDate(): string {
+	const now = new Date();
+	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const { child } = await parent();
@@ -17,6 +23,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 			todayRecorded: [],
 			loginBonusStatus: null,
 			latestReward: null,
+			hasChecklists: false,
+			checklistProgress: null,
 		};
 
 	const activities = getActivities({ childAge: child.age });
@@ -28,11 +36,24 @@ export const load: PageServerLoad = async ({ parent }) => {
 	const rewardResult = getChildSpecialRewards(child.id);
 	const latestReward = rewardResult.rewards.length > 0 ? (rewardResult.rewards[0] ?? null) : null;
 
+	// チェックリスト進捗
+	const checklists = getChecklistsForChild(child.id, todayDate());
+	const hasChecklists = checklists.length > 0;
+	const checklistProgress = hasChecklists
+		? {
+				checkedCount: checklists.reduce((sum, c) => sum + c.checkedCount, 0),
+				totalCount: checklists.reduce((sum, c) => sum + c.totalCount, 0),
+				allDone: checklists.every((c) => c.completedAll),
+			}
+		: null;
+
 	return {
 		activities,
 		todayRecorded,
 		loginBonusStatus: bonusStatus,
 		latestReward,
+		hasChecklists,
+		checklistProgress,
 	};
 };
 

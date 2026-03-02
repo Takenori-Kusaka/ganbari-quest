@@ -65,6 +65,30 @@
 	--theme-nav: #bbdefb;
 }
 
+[data-theme='green'] {
+	--theme-primary: #66bb6a;
+	--theme-secondary: #a5d6a7;
+	--theme-accent: #388e3c;
+	--theme-bg: #e8f5e9;
+	--theme-nav: #c8e6c9;
+}
+
+[data-theme='orange'] {
+	--theme-primary: #ffa726;
+	--theme-secondary: #ffcc80;
+	--theme-accent: #f57c00;
+	--theme-bg: #fff3e0;
+	--theme-nav: #ffe0b2;
+}
+
+[data-theme='purple'] {
+	--theme-primary: #ab47bc;
+	--theme-secondary: #ce93d8;
+	--theme-accent: #7b1fa2;
+	--theme-bg: #f3e5f5;
+	--theme-nav: #e1bee7;
+}
+
 [data-theme='admin'] {
 	--theme-primary: #5c6bc0;
 	--theme-secondary: #9fa8da;

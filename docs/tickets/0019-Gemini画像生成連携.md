@@ -2,7 +2,7 @@
 
 ### ステータス
 
-`Backlog`
+`Done`
 
 ---
 
@@ -16,12 +16,15 @@ Gemini API (Nano Banana Pro) を使用したキャラクター画像生成機能
 
 ### ゴール
 
-- [ ] `$lib/server/services/image-service.ts`
-- [ ] Gemini API クライアント実装
-- [ ] キャラクター生成プロンプトテンプレート
-- [ ] 生成画像のキャッシュ・保存ロジック
-- [ ] .env への GEMINI_API_KEY 設定
-- [ ] フォールバック画像（API失敗時）
+- [x] `$lib/server/services/image-service.ts` — メインサービス（生成・キャッシュ・フォールバック）
+- [x] Gemini API クライアント実装（@google/generative-ai SDK）
+- [x] キャラクター生成プロンプトテンプレート（image-prompt.ts）
+- [x] 生成画像のキャッシュ・保存ロジック（character_images テーブル + static/generated/）
+- [x] .env への GEMINI_API_KEY 設定（.env.example 既存）
+- [x] フォールバック画像（API失敗時はSVGプレースホルダー）
+- [x] favicon SVG（static/favicon.svg）+ app.html リンク追加
+- [x] API エンドポイント（POST /api/v1/images）
+- [x] 親管理画面にアバター生成ボタン追加
 
 ### 作業メモ
 
@@ -31,5 +34,15 @@ Gemini API (Nano Banana Pro) を使用したキャラクター画像生成機能
 
 ### 成果・結果
 
+- `image-service.ts`: Gemini API による画像生成 + DB キャッシュ + SVG フォールバック
+- `image-prompt.ts`: キャラクタータイプ別・テーマ色別のプロンプトテンプレート
+- `POST /api/v1/images`: avatar/favicon 生成エンドポイント
+- `static/favicon.svg`: がんばりクエスト星キャラクターアイコン
+- 親管理画面の子供詳細からアバター生成が可能
+
 ### 残課題・次のアクション
+
+- 実際の GEMINI_API_KEY 設定後の動作確認
+- 子供画面でのキャラクター表示（現在はHeader avatarUrlのみ）
+- キャラクターのバリエーション増加（レベルアップ時の再生成）
 
