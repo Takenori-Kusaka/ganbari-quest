@@ -39,6 +39,9 @@ drizzle/meta/
 # Generated images (Gemini API)
 static/generated/
 
+# User uploads (avatars etc.)
+static/uploads/
+
 # Misc
 *.log
 *.tsbuildinfo
