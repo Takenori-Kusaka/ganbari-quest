@@ -6,7 +6,20 @@ import { children } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
-const UPLOAD_DIR = join(process.cwd(), 'static', 'uploads', 'avatars');
+// bodyサイズ制限を10MBに引き上げ（写真アップロード用）
+export const config = {
+	body: {
+		maxSize: '10m',
+	},
+};
+
+// adapter-node serves static files from 'client/' directory in production
+const UPLOAD_DIR = join(
+	process.cwd(),
+	process.env.NODE_ENV === 'production' ? 'client' : 'static',
+	'uploads',
+	'avatars',
+);
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 

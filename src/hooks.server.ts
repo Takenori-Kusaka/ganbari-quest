@@ -1,8 +1,11 @@
 import { SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from '$lib/domain/validation/auth';
+import { logger } from '$lib/server/logger';
 import { validateSession } from '$lib/server/services/auth-service';
-import { type Handle, redirect } from '@sveltejs/kit';
+import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
 
 export const handle: Handle = async ({ event, resolve }) => {
+	const start = Date.now();
+
 	// 1) セッションCookieからトークン取得
 	const sessionToken = event.cookies.get(SESSION_COOKIE_NAME);
 
@@ -29,18 +32,38 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.authenticated = authenticated;
 
 	// 4) (parent) グループのルート保護
-	//    (parent) はグルーピングルートなので URL には現れない
-	//    /admin/* は認証必須、/login は未認証でもアクセス可能
 	const path = event.url.pathname;
 
 	if (path.startsWith('/admin') && !authenticated) {
 		redirect(302, '/login');
 	}
 
-	// 認証済みで /login にアクセスした場合は /admin にリダイレクト
 	if (path === '/login' && authenticated) {
 		redirect(302, '/admin');
 	}
 
-	return resolve(event);
+	const response = await resolve(event);
+
+	// 5) リクエストログ（静的ファイルは除外）
+	if (!path.startsWith('/_app/') && !path.startsWith('/favicon')) {
+		logger.request(event.request.method, path, response.status, Date.now() - start);
+	}
+
+	return response;
+};
+
+// サーバーエラーハンドラ: 500エラーの詳細をログに記録
+export const handleError: HandleServerError = ({ error, event, status, message }) => {
+	const method = event.request.method;
+	const path = event.url.pathname;
+
+	logger.error(`[${status}] ${method} ${path}: ${message}`, {
+		method,
+		path,
+		status,
+		error: error instanceof Error ? error.message : String(error),
+		stack: error instanceof Error ? error.stack : undefined,
+	});
+
+	return { message: 'Internal Server Error' };
 };
