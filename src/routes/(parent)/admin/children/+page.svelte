@@ -34,9 +34,19 @@ async function generateAvatar(childId: number) {
 	}
 }
 
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024; // 5MB
+
 async function uploadAvatar(childId: number, file: File) {
 	uploading = true;
 	uploadResult = null;
+
+	if (file.size > MAX_UPLOAD_SIZE) {
+		const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+		uploadResult = { error: `ファイルサイズが大きすぎます（${sizeMB}MB）。5MB以下の画像を選択してください` };
+		uploading = false;
+		return;
+	}
+
 	try {
 		const formData = new FormData();
 		formData.append('avatar', file);
@@ -44,11 +54,14 @@ async function uploadAvatar(childId: number, file: File) {
 			method: 'POST',
 			body: formData,
 		});
-		const json = await res.json();
 		if (res.ok) {
+			const json = await res.json();
 			uploadResult = { avatarUrl: json.avatarUrl };
+		} else if (res.status === 500) {
+			uploadResult = { error: 'サーバーエラーが発生しました。画像が大きすぎる可能性があります。5MB以下のJPEG/PNG/WebPを選択してください' };
 		} else {
-			uploadResult = { error: json.error?.message ?? 'アップロードに失敗しました' };
+			const json = await res.json().catch(() => null);
+			uploadResult = { error: json?.message ?? 'アップロードに失敗しました' };
 		}
 	} catch {
 		uploadResult = { error: 'ネットワークエラーが発生しました' };
