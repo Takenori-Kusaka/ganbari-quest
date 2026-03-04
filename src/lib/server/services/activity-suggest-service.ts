@@ -3,6 +3,7 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { CATEGORIES } from '$lib/domain/validation/activity';
+import { joinIcon } from '$lib/domain/icon-utils';
 import { logger } from '$lib/server/logger';
 
 interface SuggestedActivity {
@@ -69,8 +70,13 @@ async function suggestWithGemini(client: GoogleGenerativeAI, text: string): Prom
 - 8: 時間がかかること（宿題、習い事の練習）
 - 10: 特別なチャレンジ（発表、大会参加）
 
+アイコンは「メインアイコン」と「サブアイコン」の2つで構成します。
+- mainIcon: 活動の主な対象を表す絵文字（例: お風呂→🛁、歯→🪥）
+- subIcon: 活動の動作や状態を表す絵文字（例: 掃除→🧹、水→💧）、不要ならnull
+例: お風呂掃除→mainIcon:"🛁",subIcon:"🧹"、歯みがき→mainIcon:"🪥",subIcon:null
+
 以下のJSON形式のみで回答（説明不要）:
-{"name": "短い活動名（ひらがな中心、10文字以内）", "category": "カテゴリ名", "icon": "最適な絵文字1つ", "basePoints": 数値}`;
+{"name": "短い活動名（ひらがな中心、10文字以内）", "category": "カテゴリ名", "mainIcon": "メイン絵文字", "subIcon": "サブ絵文字またはnull", "basePoints": 数値}`;
 
 	const result = await model.generateContent(prompt);
 	const responseText = result.response.text();
@@ -87,10 +93,15 @@ async function suggestWithGemini(client: GoogleGenerativeAI, text: string): Prom
 	const category = CATEGORIES.includes(parsed.category) ? parsed.category : 'せいかつ';
 	const basePoints = [3, 5, 8, 10].includes(parsed.basePoints) ? parsed.basePoints : 5;
 
+	// 複合アイコン対応: mainIcon+subIcon → icon、後方互換で parsed.icon もフォールバック
+	const mainIcon = String(parsed.mainIcon ?? parsed.icon ?? '📝');
+	const subIcon = parsed.subIcon ? String(parsed.subIcon) : null;
+	const icon = joinIcon(mainIcon, subIcon);
+
 	return {
 		name: String(parsed.name ?? text).slice(0, 50),
 		category,
-		icon: String(parsed.icon ?? '📝').slice(0, 4),
+		icon,
 		basePoints,
 	};
 }

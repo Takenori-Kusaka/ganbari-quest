@@ -134,6 +134,7 @@ function seed() {
 				gradeLevel: 'baby',
 				subcategory: '食事',
 				description: '食事・離乳食を食べる',
+				dailyLimit: 3,
 				sortOrder: s(),
 			},
 			{
@@ -152,7 +153,7 @@ function seed() {
 			{
 				name: 'てをあらった',
 				category: 'せいかつ',
-				icon: '🧼',
+				icon: '🤲💧',
 				basePoints: 3,
 				ageMin: 1,
 				ageMax: 2,
@@ -160,6 +161,7 @@ function seed() {
 				gradeLevel: 'baby',
 				subcategory: '清潔',
 				description: '手洗いの習慣づけ',
+				dailyLimit: 3,
 				sortOrder: s(),
 			},
 			// こうりゅう
@@ -429,6 +431,7 @@ function seed() {
 				gradeLevel: 'kinder',
 				subcategory: '清潔',
 				description: '身の回りを清潔にする',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
@@ -442,12 +445,13 @@ function seed() {
 				gradeLevel: 'kinder',
 				subcategory: '食事',
 				description: '食べることを楽しみ残さず食べる',
+				dailyLimit: 3,
 				sortOrder: s(),
 			},
 			{
 				name: 'おかたづけした',
 				category: 'せいかつ',
-				icon: '🧹',
+				icon: '🧹✨',
 				basePoints: 3,
 				ageMin: 3,
 				ageMax: 5,
@@ -455,12 +459,13 @@ function seed() {
 				gradeLevel: 'kinder',
 				subcategory: '整頓',
 				description: '生活の場を整える',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
 				name: 'てあらい・うがいした',
 				category: 'せいかつ',
-				icon: '💧',
+				icon: '🤲💧',
 				basePoints: 3,
 				ageMin: 3,
 				ageMax: 5,
@@ -468,6 +473,7 @@ function seed() {
 				gradeLevel: 'kinder',
 				subcategory: '清潔',
 				description: '病気の予防に必要な活動を進んで行う',
+				dailyLimit: 3,
 				sortOrder: s(),
 			},
 			{
@@ -486,7 +492,7 @@ function seed() {
 			{
 				name: 'もちものチェックした',
 				category: 'せいかつ',
-				icon: '✅',
+				icon: '🎒✅',
 				basePoints: 5,
 				ageMin: 3,
 				ageMax: 5,
@@ -521,6 +527,7 @@ function seed() {
 				gradeLevel: 'kinder',
 				subcategory: '挨拶',
 				description: '親しみをもって日常のあいさつをする',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
@@ -802,6 +809,7 @@ function seed() {
 				gradeLevel: 'elementary_lower',
 				subcategory: '清潔',
 				description: '健康な生活のリズム・清潔習慣',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
@@ -828,6 +836,7 @@ function seed() {
 				gradeLevel: 'elementary_lower',
 				subcategory: '家庭生活',
 				description: '家庭での自分の役割を果たす',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
@@ -841,12 +850,13 @@ function seed() {
 				gradeLevel: 'elementary_lower',
 				subcategory: '整頓',
 				description: '持ち物の準備・整理整頓',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
 				name: 'あしたのじゅんびした',
 				category: 'せいかつ',
-				icon: '✅',
+				icon: '🎒📝',
 				basePoints: 5,
 				ageMin: 6,
 				ageMax: 9,
@@ -868,6 +878,7 @@ function seed() {
 				gradeLevel: 'elementary_lower',
 				subcategory: '挨拶',
 				description: '気持ちのよい挨拶と返事',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
@@ -1136,6 +1147,7 @@ function seed() {
 				gradeLevel: 'elementary_upper',
 				subcategory: '家庭科',
 				description: 'ゆでる・いためる調理の実践',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
@@ -1162,6 +1174,7 @@ function seed() {
 				gradeLevel: 'elementary_upper',
 				subcategory: '家庭科',
 				description: '快適な住まい方・季節の工夫',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
@@ -1175,6 +1188,7 @@ function seed() {
 				gradeLevel: 'elementary_upper',
 				subcategory: '家庭科',
 				description: '家庭生活の仕事と役割分担',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
@@ -1215,6 +1229,7 @@ function seed() {
 				gradeLevel: 'elementary_upper',
 				subcategory: '礼儀',
 				description: '時と場に応じた適切な言葉遣い',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
@@ -1522,6 +1537,7 @@ function seed() {
 				gradeLevel: 'middle_school',
 				subcategory: '技術家庭',
 				description: '家庭の仕事を計画的に分担する',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
@@ -1882,6 +1898,7 @@ function seed() {
 				gradeLevel: 'high_school',
 				subcategory: '家庭科',
 				description: '自立した生活者として家事を計画・実践',
+				dailyLimit: 2,
 				sortOrder: s(),
 			},
 			{
@@ -2047,11 +2064,11 @@ function seed() {
 			// 家事・生活スキル（追加活動）
 			// ============================
 			// 料理・食事まわり（kinder）
-			{ name: 'おさらあらい', category: 'せいかつ', icon: '🍽️', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: 'お皿やコップを洗う', sortOrder: s() },
-			{ name: 'テーブルをふく', category: 'せいかつ', icon: '🧽', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '食事の前後にテーブルを拭く', sortOrder: s() },
-			{ name: 'りょうりのおてつだい', category: 'せいかつ', icon: '🍳', basePoints: 8, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '料理を手伝う', sortOrder: s() },
+			{ name: 'おさらあらい', category: 'せいかつ', icon: '🍽️💧', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: 'お皿やコップを洗う', dailyLimit: 3, sortOrder: s() },
+			{ name: 'テーブルをふく', category: 'せいかつ', icon: '🧽', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '食事の前後にテーブルを拭く', dailyLimit: 3, sortOrder: s() },
+			{ name: 'りょうりのおてつだい', category: 'せいかつ', icon: '🍳', basePoints: 8, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '料理を手伝う', dailyLimit: 2, sortOrder: s() },
 			// 料理・食事まわり（elementary以上）
-			{ name: '皿洗い', category: 'せいかつ', icon: '🍽️', basePoints: 5, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '食器を洗う', sortOrder: s() },
+			{ name: '皿洗い', category: 'せいかつ', icon: '🍽️', basePoints: 5, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '食器を洗う', dailyLimit: 3, sortOrder: s() },
 			{ name: '料理する', category: 'せいかつ', icon: '🍳', basePoints: 8, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '料理を作る', sortOrder: s() },
 			{ name: '献立を考える', category: 'せいかつ', icon: '📝', basePoints: 8, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '食事の献立を考える', sortOrder: s() },
 			{ name: '冷蔵庫を整理する', category: 'せいかつ', icon: '🧊', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '冷蔵庫・冷凍庫の中を整理する', sortOrder: s() },
@@ -2062,25 +2079,25 @@ function seed() {
 			// 洗濯まわり（elementary以上）
 			{ name: '洗濯物をたたむ', category: 'せいかつ', icon: '👕', basePoints: 3, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物をたたむ', sortOrder: s() },
 			{ name: '洗濯物を干す', category: 'せいかつ', icon: '🧺', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物を干す', sortOrder: s() },
-			{ name: '洗濯をする', category: 'せいかつ', icon: '🫧', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '洗濯', description: '洗濯機に洗剤を入れて洗濯する', sortOrder: s() },
-			{ name: 'くつを洗う', category: 'せいかつ', icon: '👟', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '靴をブラシで洗う', sortOrder: s() },
+			{ name: '洗濯をする', category: 'せいかつ', icon: '👕🫧', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '洗濯', description: '洗濯機に洗剤を入れて洗濯する', sortOrder: s() },
+			{ name: 'くつを洗う', category: 'せいかつ', icon: '👟💧', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '靴をブラシで洗う', sortOrder: s() },
 
 			// 掃除・片付け（kinder）
-			{ name: 'おへやをそうじする', category: 'せいかつ', icon: '🧹', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '自分の部屋やリビングを掃除する', sortOrder: s() },
-			{ name: 'くつをそろえる', category: 'せいかつ', icon: '👟', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '玄関の靴をそろえる', sortOrder: s() },
+			{ name: 'おへやをそうじする', category: 'せいかつ', icon: '🧹🏠', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '自分の部屋やリビングを掃除する', sortOrder: s() },
+			{ name: 'くつをそろえる', category: 'せいかつ', icon: '👟', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '玄関の靴をそろえる', dailyLimit: 2, sortOrder: s() },
 			// 掃除・片付け（elementary以上）
-			{ name: '部屋を掃除する', category: 'せいかつ', icon: '🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '掃除機をかけたり拭き掃除する', sortOrder: s() },
-			{ name: 'お風呂を掃除する', category: 'せいかつ', icon: '🛁', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '浴槽や床を洗う', sortOrder: s() },
-			{ name: 'トイレを掃除する', category: 'せいかつ', icon: '🚽', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'トイレの便器や床を掃除する', sortOrder: s() },
-			{ name: '洗面台を掃除する', category: 'せいかつ', icon: '🪥', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '洗面台のボウルや鏡を掃除する', sortOrder: s() },
-			{ name: '玄関を掃除する', category: 'せいかつ', icon: '🚪', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '玄関の掃き掃除や靴の片付け', sortOrder: s() },
+			{ name: '部屋を掃除する', category: 'せいかつ', icon: '🧹🏠', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '掃除機をかけたり拭き掃除する', sortOrder: s() },
+			{ name: 'お風呂を掃除する', category: 'せいかつ', icon: '🛁🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '浴槽や床を洗う', sortOrder: s() },
+			{ name: 'トイレを掃除する', category: 'せいかつ', icon: '🚽🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'トイレの便器や床を掃除する', sortOrder: s() },
+			{ name: '洗面台を掃除する', category: 'せいかつ', icon: '🪥🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '洗面台のボウルや鏡を掃除する', sortOrder: s() },
+			{ name: '玄関を掃除する', category: 'せいかつ', icon: '🚪🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '玄関の掃き掃除や靴の片付け', sortOrder: s() },
 			{ name: 'ゴミを出す', category: 'せいかつ', icon: '🗑️', basePoints: 3, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'ゴミをまとめて収集場所に出す', sortOrder: s() },
 
 			// 生活・その他
 			{ name: 'おふとんをたたむ', category: 'せいかつ', icon: '🛏️', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '起きた後に布団を畳む', sortOrder: s() },
 			{ name: 'かいものにいく', category: 'せいかつ', icon: '🛒', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '買い物', description: '家族と一緒に買い物に行く', sortOrder: s() },
 			{ name: '買い物をする', category: 'せいかつ', icon: '🛒', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '買い物', description: '食材や日用品の買い物をする', sortOrder: s() },
-			{ name: '水やりをする', category: 'せいかつ', icon: '🌱', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '植物や花に水をあげる', sortOrder: s() },
+			{ name: '水やりをする', category: 'せいかつ', icon: '🌱💧', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '植物や花に水をあげる', dailyLimit: 2, sortOrder: s() },
 			{ name: 'おたよりをわたす', category: 'せいかつ', icon: '📨', basePoints: 3, ageMin: 3, ageMax: 9, source: 'seed', gradeLevel: 'kinder', subcategory: '準備', description: '保育園・学校からの手紙を親に渡す', sortOrder: s() },
 		];
 
@@ -2090,10 +2107,10 @@ function seed() {
 		// 既存DBに家事活動が未追加の場合、追加する
 		const existingNames = new Set(existingActivities.map((a) => a.name));
 		const choreActivities: (typeof schema.activities.$inferInsert)[] = [
-			{ name: 'おさらあらい', category: 'せいかつ', icon: '🍽️', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: 'お皿やコップを洗う', sortOrder: 200 },
-			{ name: 'テーブルをふく', category: 'せいかつ', icon: '🧽', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '食事の前後にテーブルを拭く', sortOrder: 201 },
-			{ name: 'りょうりのおてつだい', category: 'せいかつ', icon: '🍳', basePoints: 8, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '料理を手伝う', sortOrder: 202 },
-			{ name: '皿洗い', category: 'せいかつ', icon: '🍽️', basePoints: 5, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '食器を洗う', sortOrder: 203 },
+			{ name: 'おさらあらい', category: 'せいかつ', icon: '🍽️💧', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: 'お皿やコップを洗う', dailyLimit: 3, sortOrder: 200 },
+			{ name: 'テーブルをふく', category: 'せいかつ', icon: '🧽', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '食事の前後にテーブルを拭く', dailyLimit: 3, sortOrder: 201 },
+			{ name: 'りょうりのおてつだい', category: 'せいかつ', icon: '🍳', basePoints: 8, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '料理を手伝う', dailyLimit: 2, sortOrder: 202 },
+			{ name: '皿洗い', category: 'せいかつ', icon: '🍽️', basePoints: 5, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '食器を洗う', dailyLimit: 3, sortOrder: 203 },
 			{ name: '料理する', category: 'せいかつ', icon: '🍳', basePoints: 8, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '料理を作る', sortOrder: 204 },
 			{ name: '献立を考える', category: 'せいかつ', icon: '📝', basePoints: 8, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '食事の献立を考える', sortOrder: 205 },
 			{ name: '冷蔵庫を整理する', category: 'せいかつ', icon: '🧊', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '冷蔵庫・冷凍庫の中を整理する', sortOrder: 206 },
@@ -2101,20 +2118,20 @@ function seed() {
 			{ name: 'せんたくものをしまう', category: 'せいかつ', icon: '🧺', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '洗濯', description: '洗濯物をタンスにしまう', sortOrder: 208 },
 			{ name: '洗濯物をたたむ', category: 'せいかつ', icon: '👕', basePoints: 3, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物をたたむ', sortOrder: 209 },
 			{ name: '洗濯物を干す', category: 'せいかつ', icon: '🧺', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物を干す', sortOrder: 210 },
-			{ name: '洗濯をする', category: 'せいかつ', icon: '🫧', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '洗濯', description: '洗濯機に洗剤を入れて洗濯する', sortOrder: 211 },
-			{ name: 'くつを洗う', category: 'せいかつ', icon: '👟', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '靴をブラシで洗う', sortOrder: 212 },
-			{ name: 'おへやをそうじする', category: 'せいかつ', icon: '🧹', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '自分の部屋やリビングを掃除する', sortOrder: 213 },
-			{ name: 'くつをそろえる', category: 'せいかつ', icon: '👟', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '玄関の靴をそろえる', sortOrder: 214 },
-			{ name: '部屋を掃除する', category: 'せいかつ', icon: '🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '掃除機をかけたり拭き掃除する', sortOrder: 215 },
-			{ name: 'お風呂を掃除する', category: 'せいかつ', icon: '🛁', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '浴槽や床を洗う', sortOrder: 216 },
-			{ name: 'トイレを掃除する', category: 'せいかつ', icon: '🚽', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'トイレの便器や床を掃除する', sortOrder: 217 },
-			{ name: '洗面台を掃除する', category: 'せいかつ', icon: '🪥', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '洗面台のボウルや鏡を掃除する', sortOrder: 218 },
-			{ name: '玄関を掃除する', category: 'せいかつ', icon: '🚪', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '玄関の掃き掃除や靴の片付け', sortOrder: 219 },
+			{ name: '洗濯をする', category: 'せいかつ', icon: '👕🫧', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '洗濯', description: '洗濯機に洗剤を入れて洗濯する', sortOrder: 211 },
+			{ name: 'くつを洗う', category: 'せいかつ', icon: '👟💧', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '靴をブラシで洗う', sortOrder: 212 },
+			{ name: 'おへやをそうじする', category: 'せいかつ', icon: '🧹🏠', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '自分の部屋やリビングを掃除する', sortOrder: 213 },
+			{ name: 'くつをそろえる', category: 'せいかつ', icon: '👟', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '玄関の靴をそろえる', dailyLimit: 2, sortOrder: 214 },
+			{ name: '部屋を掃除する', category: 'せいかつ', icon: '🧹🏠', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '掃除機をかけたり拭き掃除する', sortOrder: 215 },
+			{ name: 'お風呂を掃除する', category: 'せいかつ', icon: '🛁🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '浴槽や床を洗う', sortOrder: 216 },
+			{ name: 'トイレを掃除する', category: 'せいかつ', icon: '🚽🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'トイレの便器や床を掃除する', sortOrder: 217 },
+			{ name: '洗面台を掃除する', category: 'せいかつ', icon: '🪥🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '洗面台のボウルや鏡を掃除する', sortOrder: 218 },
+			{ name: '玄関を掃除する', category: 'せいかつ', icon: '🚪🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '玄関の掃き掃除や靴の片付け', sortOrder: 219 },
 			{ name: 'ゴミを出す', category: 'せいかつ', icon: '🗑️', basePoints: 3, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'ゴミをまとめて収集場所に出す', sortOrder: 220 },
 			{ name: 'おふとんをたたむ', category: 'せいかつ', icon: '🛏️', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '起きた後に布団を畳む', sortOrder: 221 },
 			{ name: 'かいものにいく', category: 'せいかつ', icon: '🛒', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '買い物', description: '家族と一緒に買い物に行く', sortOrder: 222 },
 			{ name: '買い物をする', category: 'せいかつ', icon: '🛒', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '買い物', description: '食材や日用品の買い物をする', sortOrder: 223 },
-			{ name: '水やりをする', category: 'せいかつ', icon: '🌱', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '植物や花に水をあげる', sortOrder: 224 },
+			{ name: '水やりをする', category: 'せいかつ', icon: '🌱💧', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '植物や花に水をあげる', dailyLimit: 2, sortOrder: 224 },
 			{ name: 'おたよりをわたす', category: 'せいかつ', icon: '📨', basePoints: 3, ageMin: 3, ageMax: 9, source: 'seed', gradeLevel: 'kinder', subcategory: '準備', description: '保育園・学校からの手紙を親に渡す', sortOrder: 225 },
 		];
 		const newActivities = choreActivities.filter((a) => !existingNames.has(a.name));

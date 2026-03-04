@@ -1,4 +1,6 @@
 <script lang="ts">
+	import CompoundIcon from './CompoundIcon.svelte';
+
 	interface Props {
 		icon: string;
 		name: string;
@@ -42,7 +44,7 @@
 		</div>
 	{/if}
 
-	<span class="text-3xl {completed ? 'opacity-40' : ''}" aria-hidden="true">{icon}</span>
+	<CompoundIcon {icon} size="lg" faded={completed} />
 	<span class="text-[10px] font-bold leading-tight text-center line-clamp-2 {completed ? 'opacity-40' : ''}">{name}</span>
 
 	{#if streakDays >= 2}

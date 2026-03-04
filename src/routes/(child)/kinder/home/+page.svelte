@@ -4,6 +4,7 @@ import { invalidateAll } from '$app/navigation';
 import { CATEGORIES } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
+import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import OmikujiOverlay from '$lib/ui/components/OmikujiOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
@@ -266,7 +267,7 @@ $effect(() => {
 <Dialog bind:open={confirmOpen} closable={false} title="">
 	{#if selectedActivity}
 		<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center">
-			<span class="text-5xl">{selectedActivity.icon}</span>
+			<CompoundIcon icon={selectedActivity.icon} size="xl" />
 			<p class="text-lg font-bold">{selectedActivity.name}を<br />きろくする？</p>
 			<div class="flex gap-[var(--spacing-sm)] w-full">
 				<button

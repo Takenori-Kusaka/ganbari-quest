@@ -1,5 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { splitIcon, joinIcon } from '$lib/domain/icon-utils';
+import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 
 let { data } = $props();
 
@@ -14,7 +16,9 @@ let aiError = $state('');
 // フォーム入力値
 let formName = $state('');
 let formCategory = $state('うんどう');
-let formIcon = $state('🤸');
+let formMainIcon = $state('🤸');
+let formSubIcon = $state('');
+const formIcon = $derived(joinIcon(formMainIcon, formSubIcon || null));
 let formPoints = $state(5);
 let formAgeMin = $state('');
 let formAgeMax = $state('');
@@ -24,7 +28,9 @@ let formDailyLimit = $state<string>('');
 let editingId = $state<number | null>(null);
 let editName = $state('');
 let editCategory = $state('');
-let editIcon = $state('');
+let editMainIcon = $state('');
+let editSubIcon = $state('');
+const editIcon = $derived(joinIcon(editMainIcon, editSubIcon || null));
 let editPoints = $state(5);
 let editAgeMin = $state('');
 let editAgeMax = $state('');
@@ -36,7 +42,9 @@ function startEdit(activity: typeof data.activities[0]) {
 	editingId = activity.id;
 	editName = activity.name;
 	editCategory = activity.category;
-	editIcon = activity.icon;
+	const parsed = splitIcon(activity.icon);
+	editMainIcon = parsed.main;
+	editSubIcon = parsed.sub ?? '';
 	editPoints = activity.basePoints;
 	editAgeMin = activity.ageMin != null ? String(activity.ageMin) : '';
 	editAgeMax = activity.ageMax != null ? String(activity.ageMax) : '';
@@ -124,11 +132,14 @@ const pointGuide = [
 ];
 
 /** カテゴリ変更時にアイコンを先頭候補に設定 */
+/** サブアイコンのプリセット候補 */
+const SUB_ICON_PRESETS = ['🧹', '💧', '✨', '🎯', '📝', '🔥', '⭐', '🎵', '💪', '🧠', '❤️', '🌟', '🎁', '🏠', '👆', '🤲'];
+
 function onCategoryChange(cat: string) {
 	formCategory = cat;
 	const info = categoryInfo[cat];
 	if (info && info.icons[0]) {
-		formIcon = info.icons[0];
+		formMainIcon = info.icons[0];
 	}
 }
 
@@ -147,7 +158,9 @@ async function suggestFromAI() {
 		if (res.ok) {
 			formName = json.name ?? aiInput;
 			formCategory = json.category ?? 'せいかつ';
-			formIcon = json.icon ?? '📝';
+			const aiParsed = splitIcon(json.icon ?? '📝');
+			formMainIcon = aiParsed.main;
+			formSubIcon = aiParsed.sub ?? '';
 			formPoints = json.basePoints ?? 5;
 			aiMode = false;
 			showAddForm = true;
@@ -226,7 +239,8 @@ async function suggestFromAI() {
 						showAddForm = false;
 						formName = '';
 						formCategory = 'うんどう';
-						formIcon = '🤸';
+						formMainIcon = '🤸';
+						formSubIcon = '';
 						formPoints = 5;
 						formAgeMin = '';
 						formAgeMax = '';
@@ -273,30 +287,55 @@ async function suggestFromAI() {
 
 			<!-- アイコン選択 -->
 			<div>
-				<span class="block text-xs font-bold text-gray-500 mb-1">アイコン</span>
+				<span class="block text-xs font-bold text-gray-500 mb-1">メインアイコン</span>
 				{#if categoryInfo[formCategory]?.icons}
 					<div class="flex flex-wrap gap-1 mb-2">
-						{#each categoryInfo[formCategory]?.icons ?? [] as icon}
+						{#each categoryInfo[formCategory]?.icons ?? [] as ic}
 							<button
 								type="button"
 								class="w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-colors
-									{formIcon === icon ? 'bg-blue-100 ring-2 ring-blue-400' : 'bg-gray-50 hover:bg-gray-100'}"
-								onclick={() => formIcon = icon}
+									{formMainIcon === ic ? 'bg-blue-100 ring-2 ring-blue-400' : 'bg-gray-50 hover:bg-gray-100'}"
+								onclick={() => formMainIcon = ic}
 							>
-								{icon}
+								{ic}
 							</button>
 						{/each}
 					</div>
 				{/if}
-				<input type="hidden" name="icon" value={formIcon} />
-				<p class="text-xs text-gray-400">選択: {formIcon}　（上から選ぶか、絵文字を直接入力できます:
-					<input
-						type="text"
-						class="w-10 px-1 border rounded text-center text-sm inline-block"
-						value={formIcon}
-						oninput={(e) => { const v = (e.target as HTMLInputElement).value; if (v) formIcon = v; }}
-					/>）
+				<p class="text-xs text-gray-400 mb-3">直接入力:
+					<input type="text" class="w-10 px-1 border rounded text-center text-sm inline-block"
+						value={formMainIcon}
+						oninput={(e) => { const v = (e.target as HTMLInputElement).value; if (v) formMainIcon = v; }}
+					/>
 				</p>
+
+				<span class="block text-xs font-bold text-gray-500 mb-1">サブアイコン（任意）</span>
+				<div class="flex flex-wrap gap-1 mb-2">
+					<button type="button"
+						class="w-9 h-9 rounded-lg text-xs flex items-center justify-center transition-colors
+							{formSubIcon === '' ? 'bg-blue-100 ring-2 ring-blue-400' : 'bg-gray-50 hover:bg-gray-100'}"
+						onclick={() => formSubIcon = ''}
+					>なし</button>
+					{#each SUB_ICON_PRESETS as ic}
+						<button type="button"
+							class="w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-colors
+								{formSubIcon === ic ? 'bg-blue-100 ring-2 ring-blue-400' : 'bg-gray-50 hover:bg-gray-100'}"
+							onclick={() => formSubIcon = ic}
+						>{ic}</button>
+					{/each}
+				</div>
+				<p class="text-xs text-gray-400 mb-2">直接入力:
+					<input type="text" class="w-10 px-1 border rounded text-center text-sm inline-block"
+						value={formSubIcon}
+						oninput={(e) => { formSubIcon = (e.target as HTMLInputElement).value; }}
+					/>
+				</p>
+
+				<div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+					<span class="text-xs text-gray-400">プレビュー:</span>
+					<CompoundIcon icon={formIcon} size="lg" />
+				</div>
+				<input type="hidden" name="icon" value={formIcon} />
 			</div>
 
 			<!-- ポイント -->
@@ -400,7 +439,7 @@ async function suggestFromAI() {
 		{#each filteredActivities as activity (activity.id)}
 			<div class="bg-white rounded-lg shadow-sm {activity.isVisible ? '' : 'opacity-50'}">
 				<div class="px-3 py-2 flex items-center gap-3">
-					<span class="text-xl">{activity.icon}</span>
+					<CompoundIcon icon={activity.icon} size="md" />
 					<div class="flex-1 min-w-0">
 						<p class="text-sm font-bold text-gray-700 truncate">{activity.name}</p>
 						<p class="text-xs text-gray-400">
@@ -457,10 +496,28 @@ async function suggestFromAI() {
 									<span class="text-xs font-bold text-gray-500">名前</span>
 									<input type="text" name="name" bind:value={editName} required class="w-full px-2 py-1.5 border rounded text-sm" />
 								</label>
-								<label class="block">
+								<div>
 									<span class="text-xs font-bold text-gray-500">アイコン</span>
-									<input type="text" name="icon" bind:value={editIcon} class="w-14 px-2 py-1.5 border rounded text-sm text-center" />
-								</label>
+									<div class="flex gap-1 items-center mt-0.5">
+										<input type="text" class="w-10 px-1 py-1.5 border rounded text-sm text-center"
+											value={editMainIcon}
+											oninput={(e) => { const v = (e.target as HTMLInputElement).value; if (v) editMainIcon = v; }}
+										/>
+										<span class="text-xs text-gray-400">+</span>
+										<input type="text" class="w-10 px-1 py-1.5 border rounded text-sm text-center" placeholder="サブ"
+											value={editSubIcon}
+											oninput={(e) => { editSubIcon = (e.target as HTMLInputElement).value; }}
+										/>
+										<CompoundIcon icon={editIcon} size="md" />
+									</div>
+									<div class="flex flex-wrap gap-0.5 mt-1">
+										<button type="button" class="w-7 h-7 rounded text-xs flex items-center justify-center {editSubIcon === '' ? 'bg-blue-100' : 'bg-gray-50 hover:bg-gray-100'}" onclick={() => editSubIcon = ''}>なし</button>
+										{#each SUB_ICON_PRESETS.slice(0, 8) as ic}
+											<button type="button" class="w-7 h-7 rounded text-sm flex items-center justify-center {editSubIcon === ic ? 'bg-blue-100' : 'bg-gray-50 hover:bg-gray-100'}" onclick={() => editSubIcon = ic}>{ic}</button>
+										{/each}
+									</div>
+									<input type="hidden" name="icon" value={editIcon} />
+								</div>
 							</div>
 							<div class="grid grid-cols-2 gap-2">
 								<label class="block">

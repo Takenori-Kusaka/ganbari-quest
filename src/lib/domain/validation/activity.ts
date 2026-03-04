@@ -22,7 +22,14 @@ export type Source = (typeof SOURCES)[number];
 export const createActivitySchema = z.object({
 	name: z.string().min(1).max(50),
 	category: z.enum(CATEGORIES),
-	icon: z.string().min(1),
+	icon: z.string().min(1).refine(
+		(val) => {
+			const seg = new Intl.Segmenter('ja', { granularity: 'grapheme' });
+			const count = [...seg.segment(val)].length;
+			return count >= 1 && count <= 2;
+		},
+		{ message: 'アイコンは1〜2つの絵文字で指定してください' },
+	),
 	basePoints: z.number().int().min(1).max(100),
 	ageMin: z.number().int().min(0).max(20).nullable(),
 	ageMax: z.number().int().min(0).max(20).nullable(),

@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { CATEGORIES } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
+import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import OmikujiOverlay from '$lib/ui/components/OmikujiOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
@@ -204,7 +205,7 @@ const categoryColors: Record<string, string> = {
 						aria-label="{activity.name}（きろくずみ）"
 					>
 						<span class="baby-card__done-badge animate-bounce-in">💮</span>
-						<span class="baby-card__icon baby-card__icon--faded">{activity.icon}</span>
+						<CompoundIcon icon={activity.icon} size="lg" faded={true} />
 						<span class="baby-card__name baby-card__name--faded">{activity.name}</span>
 					</div>
 				{:else}
@@ -254,7 +255,7 @@ const categoryColors: Record<string, string> = {
 							{#if actCount > 0}
 								<span class="baby-card__count-badge">{actCount}</span>
 							{/if}
-							<span class="baby-card__icon">{activity.icon}</span>
+							<CompoundIcon icon={activity.icon} size="lg" />
 							<span class="baby-card__name">{activity.name}</span>
 						</button>
 					</form>
@@ -290,7 +291,7 @@ const categoryColors: Record<string, string> = {
 				とじる
 			</button>
 		{:else}
-			<span class="baby-result__emoji animate-bounce-in">{resultIcon}</span>
+			<span class="animate-bounce-in"><CompoundIcon icon={resultIcon} size="xl" /></span>
 			<p class="baby-result__text">{resultName}をきろくしたよ！</p>
 			<div class="animate-point-pop">
 				<p class="baby-result__points">+{resultPoints} ポイント！</p>
