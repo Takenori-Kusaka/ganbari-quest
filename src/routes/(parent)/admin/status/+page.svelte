@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 
 let { data, form } = $props();
 
@@ -18,6 +19,9 @@ const categoryLabels: Record<string, { label: string; icon: string }> = {
 	そうぞう: { label: 'そうぞう', icon: '🎨' },
 };
 
+// スライダー操作中の値を追跡（カテゴリ名 → 現在値）
+let sliderValues: Record<string, number> = $state({});
+
 function starText(stars: number): string {
 	return '★'.repeat(stars) + '☆'.repeat(5 - stars);
 }
@@ -27,7 +31,7 @@ function starText(stars: number): string {
 	<title>ステータス管理 - がんばりクエスト管理</title>
 </svelte:head>
 
-<div class="max-w-2xl mx-auto">
+<div class="space-y-6">
 	<h2 class="text-xl font-bold text-gray-700 mb-6">📊 ステータス管理</h2>
 
 	<!-- 子供選択 -->
@@ -43,6 +47,7 @@ function starText(stars: number): string {
 					onclick={() => {
 						selectedChildId = child.id;
 						editSuccess = false;
+						sliderValues = {};
 					}}
 				>
 					{child.nickname}
@@ -55,19 +60,11 @@ function starText(stars: number): string {
 
 		{#if selectedChild?.status}
 			{#if editSuccess}
-				<div
-					class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-sm text-green-700"
-				>
-					ステータスを更新しました
-				</div>
+				<SuccessAlert message="ステータスを更新しました" />
 			{/if}
 
 			{#if form?.error}
-				<div
-					class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-700"
-				>
-					{form.error}
-				</div>
+				<ErrorAlert message={form.error} severity="warning" action="fix_input" />
 			{/if}
 
 			<!-- レベル情報 -->
@@ -94,6 +91,11 @@ function starText(stars: number): string {
 					{@const catInfo = categoryLabels[category] ?? { label: category, icon: '📌' }}
 					{@const stat = selectedChild.status.statuses[category]}
 					{#if stat}
+						{@const maxVal = selectedChild.status?.maxValue ?? 100}
+						{@const sliderStep = maxVal > 100 ? 1 : 0.5}
+						{@const currentVal = sliderValues[category] ?? stat.value}
+						{@const diff = currentVal - stat.value}
+						{@const hasChanged = Math.abs(diff) >= 0.5}
 						<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
 							<div class="flex items-center justify-between mb-2">
 								<div class="flex items-center gap-2">
@@ -111,34 +113,50 @@ function starText(stars: number): string {
 									return async ({ result }) => {
 										if (result.type === 'success') {
 											editSuccess = true;
+											delete sliderValues[category];
 											await invalidateAll();
 										}
 									};
 								}}
-								class="flex items-center gap-3"
+								class="space-y-2"
 							>
 								<input type="hidden" name="childId" value={selectedChildId} />
 								<input type="hidden" name="category" value={category} />
-								<div class="flex-1">
+								<div>
 									<input
 										type="range"
 										name="value"
 										min="0"
-										max="100"
-										step="0.5"
-										value={stat.value}
-										class="w-full"
+										max={maxVal}
+										step={sliderStep}
+										value={currentVal}
+										oninput={(e) => {
+											sliderValues[category] = Number(e.currentTarget.value);
+										}}
+										class="w-full accent-blue-500"
 									/>
 								</div>
-								<span class="text-sm font-bold text-gray-600 w-12 text-right">
-									{stat.value}
-								</span>
-								<button
-									type="submit"
-									class="px-3 py-1 bg-blue-500 text-white text-sm font-bold rounded-lg hover:bg-blue-600 transition-colors"
-								>
-									保存
-								</button>
+								<div class="flex items-center justify-between">
+									<div>
+										<span class="text-2xl font-bold text-gray-700">{currentVal}</span>
+										<span class="text-sm text-gray-400"> / {maxVal}</span>
+										{#if hasChanged}
+											<span class="ml-2 text-sm font-bold {diff > 0 ? 'text-green-500' : 'text-red-500'}">
+												{diff > 0 ? '+' : ''}{diff.toFixed(1)}
+											</span>
+										{/if}
+									</div>
+									<button
+										type="submit"
+										disabled={!hasChanged}
+										class="px-4 py-1.5 text-sm font-bold rounded-lg transition-colors
+											{hasChanged
+											? 'bg-blue-500 text-white hover:bg-blue-600'
+											: 'bg-gray-200 text-gray-400 cursor-not-allowed'}"
+									>
+										保存
+									</button>
+								</div>
 							</form>
 						</div>
 					{/if}

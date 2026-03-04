@@ -214,24 +214,25 @@ describe('status-service', () => {
 		}
 	});
 
-	it('ステータスは100を超えない', () => {
-		updateStatus(1, 'うんどう', 95.0, 'weekly');
-		const updated = updateStatus(1, 'うんどう', 20.0, 'weekly');
+	it('ステータスは年齢別maxを超えない（age=4 → max=350）', () => {
+		updateStatus(1, 'うんどう', 300.0, 'weekly');
+		const updated = updateStatus(1, 'うんどう', 100.0, 'weekly');
 		if (updated && !('error' in updated)) {
-			expect(updated.value).toBe(100);
+			expect(updated.value).toBe(350);
 		}
 	});
 
-	it('レベルがステータス平均で決まる', () => {
-		// 全カテゴリを50に設定 → 平均50 → レベル6
+	it('レベルがステータス平均の正規化値で決まる（age=4, max=350）', () => {
+		// 全カテゴリを175に設定 → 平均175 → 正規化 175/350*100=50 → レベル6
 		for (const cat of ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう']) {
-			updateStatus(1, cat, 50, 'test');
+			updateStatus(1, cat, 175, 'test');
 		}
 
 		const result = getChildStatus(1);
 		if (!('error' in result)) {
 			expect(result.level).toBe(6);
 			expect(result.levelTitle).toBe('すごうでアドベンチャー');
+			expect(result.maxValue).toBe(350);
 		}
 	});
 

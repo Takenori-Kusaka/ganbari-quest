@@ -6,6 +6,7 @@ import {
 	SESSION_REFRESH_THRESHOLD_MS,
 } from '$lib/domain/validation/auth';
 import { getSetting, getSettings, setSetting } from '$lib/server/db/settings-repo';
+import { logger } from '$lib/server/logger';
 import bcrypt from 'bcrypt';
 
 // --- 型定義 ---
@@ -33,6 +34,7 @@ export function login(pin: string): LoginResult {
 	// 2) ロックアウトチェック
 	const lockedUntil = getSetting('pin_locked_until');
 	if (lockedUntil && new Date(lockedUntil) > new Date()) {
+		logger.warn('[AUTH] ロックアウト中のログイン試行', { context: { lockedUntil } });
 		return { error: 'LOCKED_OUT', lockedUntil };
 	}
 
@@ -40,6 +42,7 @@ export function login(pin: string): LoginResult {
 	const isValid = bcrypt.compareSync(pin, pinHash);
 	if (!isValid) {
 		incrementFailedAttempts();
+		logger.warn('[AUTH] PIN認証失敗');
 		return { error: 'INVALID_PIN' };
 	}
 
@@ -98,6 +101,7 @@ export function changePin(
 	// ロックアウトチェック
 	const lockedUntil = getSetting('pin_locked_until');
 	if (lockedUntil && new Date(lockedUntil) > new Date()) {
+		logger.warn('[AUTH] ロックアウト中のPIN変更試行', { context: { lockedUntil } });
 		return { error: 'LOCKED_OUT', lockedUntil };
 	}
 
@@ -105,6 +109,7 @@ export function changePin(
 	const pinHash = getSetting('pin_hash');
 	if (!pinHash || !bcrypt.compareSync(currentPin, pinHash)) {
 		incrementFailedAttempts();
+		logger.warn('[AUTH] PIN変更: 現在のPIN認証失敗');
 		return { error: 'INVALID_CURRENT_PIN' };
 	}
 
@@ -113,6 +118,7 @@ export function changePin(
 	setSetting('pin_hash', newHash);
 	resetFailedAttempts();
 
+	logger.info('[AUTH] PIN変更完了');
 	return { success: true };
 }
 
@@ -125,6 +131,7 @@ function incrementFailedAttempts(): void {
 	if (next >= MAX_FAILED_ATTEMPTS) {
 		const lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS).toISOString();
 		setSetting('pin_locked_until', lockedUntil);
+		logger.warn(`[AUTH] ロックアウト発動: ${next}回連続失敗`, { context: { attempts: next, lockedUntil } });
 	}
 }
 

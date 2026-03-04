@@ -6,6 +6,7 @@ import {
 	todayDate,
 	CANCEL_WINDOW_MS,
 } from '$lib/domain/validation/activity';
+import { logger } from '$lib/server/logger';
 import {
 	checkAndUnlockAchievements,
 	type UnlockedAchievement,
@@ -50,7 +51,11 @@ export interface ActivityLogSummary {
 export function recordActivity(
 	childId: number,
 	activityId: number,
-): RecordActivityResult | { error: 'ALREADY_RECORDED' } | { error: 'NOT_FOUND'; target: string } {
+):
+	| RecordActivityResult
+	| { error: 'ALREADY_RECORDED' }
+	| { error: 'DAILY_LIMIT_REACHED' }
+	| { error: 'NOT_FOUND'; target: string } {
 	const today = todayDate();
 
 	// Verify child exists
@@ -61,8 +66,8 @@ export function recordActivity(
 	const activity = db.select().from(activities).where(eq(activities.id, activityId)).get();
 	if (!activity) return { error: 'NOT_FOUND', target: 'activity' };
 
-	// Check daily limit (unique constraint: child_id + activity_id + recorded_date)
-	const existing = db
+	// Count today's active records for this child+activity
+	const todayRecords = db
 		.select()
 		.from(activityLogs)
 		.where(
@@ -73,51 +78,38 @@ export function recordActivity(
 				eq(activityLogs.cancelled, 0),
 			),
 		)
-		.get();
+		.all();
+	const todayCount = todayRecords.length;
 
-	if (existing) return { error: 'ALREADY_RECORDED' };
+	// Check daily limit: null=1回, 0=無制限, N=N回
+	const effectiveLimit = activity.dailyLimit ?? 1;
+	if (effectiveLimit !== 0 && todayCount >= effectiveLimit) {
+		return effectiveLimit === 1
+			? { error: 'ALREADY_RECORDED' as const }
+			: { error: 'DAILY_LIMIT_REACHED' as const };
+	}
 
-	// Delete any cancelled records for the same (child, activity, date)
-	// so the UNIQUE constraint doesn't block re-recording
-	db.delete(activityLogs)
-		.where(
-			and(
-				eq(activityLogs.childId, childId),
-				eq(activityLogs.activityId, activityId),
-				eq(activityLogs.recordedDate, today),
-				eq(activityLogs.cancelled, 1),
-			),
-		)
-		.run();
-
-	// Calculate streak: find consecutive days of same activity
-	const streakDays = calculateStreak(childId, activityId, today);
-	const streakBonus = calcStreakBonus(streakDays);
+	// Streak: only award on first record of the day
+	const isFirstToday = todayCount === 0;
+	const streakDays = isFirstToday ? calculateStreak(childId, activityId, today) : 1;
+	const streakBonus = isFirstToday ? calcStreakBonus(streakDays) : 0;
 	const totalPoints = activity.basePoints + streakBonus;
 
 	// Insert activity log
 	const now = new Date().toISOString();
-	let log: typeof activityLogs.$inferSelect;
-	try {
-		log = db
-			.insert(activityLogs)
-			.values({
-				childId,
-				activityId,
-				points: activity.basePoints,
-				streakDays,
-				streakBonus,
-				recordedDate: today,
-				recordedAt: now,
-			})
-			.returning()
-			.get();
-	} catch (e: unknown) {
-		if (e instanceof Error && e.message.includes('UNIQUE constraint failed')) {
-			return { error: 'ALREADY_RECORDED' as const };
-		}
-		throw e;
-	}
+	const log = db
+		.insert(activityLogs)
+		.values({
+			childId,
+			activityId,
+			points: activity.basePoints,
+			streakDays,
+			streakBonus,
+			recordedDate: today,
+			recordedAt: now,
+		})
+		.returning()
+		.get();
 
 	// Insert point ledger entry
 	db.insert(pointLedger)
@@ -135,8 +127,8 @@ export function recordActivity(
 
 	const cancelableUntil = new Date(Date.now() + CANCEL_WINDOW_MS).toISOString();
 
-	// 実績チェック
-	const unlockedAchievements = checkAndUnlockAchievements(childId);
+	// 実績チェック（初回のみ）
+	const unlockedAchievements = isFirstToday ? checkAndUnlockAchievements(childId) : [];
 
 	return {
 		id: log.id,
@@ -249,11 +241,16 @@ export function getActivityLogs(
 	};
 }
 
-/** Get today's recorded activity IDs for a child (for UI completed state). */
-export function getTodayRecordedActivityIds(childId: number): number[] {
+/** Get today's recorded activity counts for a child (for UI completed/badge state). */
+export function getTodayRecordedActivityCounts(
+	childId: number,
+): { activityId: number; count: number }[] {
 	const today = todayDate();
 	const rows = db
-		.select({ activityId: activityLogs.activityId })
+		.select({
+			activityId: activityLogs.activityId,
+			count: sql<number>`count(*)`.as('count'),
+		})
 		.from(activityLogs)
 		.where(
 			and(
@@ -262,9 +259,15 @@ export function getTodayRecordedActivityIds(childId: number): number[] {
 				eq(activityLogs.cancelled, 0),
 			),
 		)
+		.groupBy(activityLogs.activityId)
 		.all();
 
-	return rows.map((r) => r.activityId);
+	return rows;
+}
+
+/** Get today's recorded activity IDs for a child (backward-compatible wrapper). */
+export function getTodayRecordedActivityIds(childId: number): number[] {
+	return getTodayRecordedActivityCounts(childId).map((r) => r.activityId);
 }
 
 /** Calculate streak (consecutive days including today). */

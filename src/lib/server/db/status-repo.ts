@@ -37,7 +37,7 @@ export function upsertStatus(
 	value: number,
 ) {
 	const existing = findStatus(childId, category);
-	const clampedValue = Math.max(0, Math.min(100, value));
+	const clampedValue = Math.max(0, value);
 	const now = new Date().toISOString();
 
 	if (existing) {

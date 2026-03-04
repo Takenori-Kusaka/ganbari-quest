@@ -1,3 +1,4 @@
+import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { convertPoints, getPointBalance } from '$lib/server/services/point-service';
 import { fail } from '@sveltejs/kit';
@@ -7,6 +8,9 @@ export const load: PageServerLoad = () => {
 	const children = getAllChildren();
 	const childrenWithBalance = children.map((child) => {
 		const balance = getPointBalance(child.id);
+		if ('error' in balance) {
+			logger.warn('[admin/points] ポイント取得フォールバック', { context: { childId: child.id, error: balance.error } });
+		}
 		return {
 			...child,
 			balance: 'error' in balance ? null : balance,

@@ -30,6 +30,7 @@ export const createActivitySchema = z.object({
 	gradeLevel: z.enum(GRADE_LEVELS).nullable().optional(),
 	subcategory: z.string().max(50).nullable().optional(),
 	description: z.string().max(200).nullable().optional(),
+	dailyLimit: z.number().int().min(0).max(99).nullable().optional(),
 });
 
 export const updateActivitySchema = createActivitySchema.partial();

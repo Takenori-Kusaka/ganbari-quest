@@ -20,6 +20,7 @@ let { nickname, totalPoints, level, showLevel = true, avatarUrl }: Props = $prop
 				src={avatarUrl}
 				alt={nickname}
 				class="w-8 h-8 rounded-full object-cover border-2 border-white/50"
+				loading="lazy"
 			/>
 		{:else}
 			<span class="text-2xl" aria-hidden="true">👤</span>

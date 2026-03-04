@@ -5,6 +5,7 @@ let { data } = $props();
 
 let showAddForm = $state(false);
 let filterCategory = $state('');
+let searchQuery = $state('');
 let aiMode = $state(false);
 let aiInput = $state('');
 let aiLoading = $state(false);
@@ -17,10 +18,53 @@ let formIcon = $state('🤸');
 let formPoints = $state(5);
 let formAgeMin = $state('');
 let formAgeMax = $state('');
+let formDailyLimit = $state<string>('');
 
-const filteredActivities = $derived(
-	filterCategory ? data.activities.filter((a) => a.category === filterCategory) : data.activities,
-);
+// 編集・削除状態
+let editingId = $state<number | null>(null);
+let editName = $state('');
+let editCategory = $state('');
+let editIcon = $state('');
+let editPoints = $state(5);
+let editAgeMin = $state('');
+let editAgeMax = $state('');
+let editDailyLimit = $state<string>('');
+let deleteConfirmId = $state<number | null>(null);
+let actionMessage = $state('');
+
+function startEdit(activity: typeof data.activities[0]) {
+	editingId = activity.id;
+	editName = activity.name;
+	editCategory = activity.category;
+	editIcon = activity.icon;
+	editPoints = activity.basePoints;
+	editAgeMin = activity.ageMin != null ? String(activity.ageMin) : '';
+	editAgeMax = activity.ageMax != null ? String(activity.ageMax) : '';
+	editDailyLimit = activity.dailyLimit != null ? String(activity.dailyLimit) : '';
+	deleteConfirmId = null;
+}
+
+function cancelEdit() {
+	editingId = null;
+}
+
+function dailyLimitLabel(val: number | null): string {
+	if (val === null) return '1回/日';
+	if (val === 0) return '無制限';
+	return `${val}回/日`;
+}
+
+const filteredActivities = $derived.by(() => {
+	let result = data.activities;
+	if (filterCategory) {
+		result = result.filter((a) => a.category === filterCategory);
+	}
+	if (searchQuery.trim()) {
+		const q = searchQuery.trim().toLowerCase();
+		result = result.filter((a) => a.name.toLowerCase().includes(q));
+	}
+	return result;
+});
 
 /** カテゴリ別の説明とアイコン候補 */
 const categoryInfo: Record<string, { label: string; desc: string; icons: string[] }> = {
@@ -186,6 +230,7 @@ async function suggestFromAI() {
 						formPoints = 5;
 						formAgeMin = '';
 						formAgeMax = '';
+						formDailyLimit = '';
 					}
 					await update();
 				};
@@ -286,11 +331,41 @@ async function suggestFromAI() {
 				</div>
 			</div>
 
+			<!-- 1日の回数制限 -->
+			<div>
+				<span class="block text-xs font-bold text-gray-500 mb-1">1日の回数制限</span>
+				<div class="flex gap-1">
+					{#each [{ val: '', label: '1回' }, { val: '2', label: '2回' }, { val: '3', label: '3回' }, { val: '0', label: '無制限' }] as opt}
+						<button
+							type="button"
+							class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors
+								{formDailyLimit === opt.val ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+							onclick={() => formDailyLimit = opt.val}
+						>
+							{opt.label}
+						</button>
+					{/each}
+				</div>
+				<p class="text-xs text-gray-400 mt-1">「無制限」なら何回でも記録できます</p>
+				<input type="hidden" name="dailyLimit" value={formDailyLimit} />
+			</div>
+
 			<button type="submit" class="w-full py-2 bg-green-500 text-white rounded-lg font-bold text-sm hover:bg-green-600 transition-colors">
 				{formIcon} {formName || '活動'} を追加する
 			</button>
 		</form>
 	{/if}
+
+	<!-- Search -->
+	<div class="relative">
+		<input
+			type="search"
+			bind:value={searchQuery}
+			placeholder="活動名で検索..."
+			class="w-full px-3 py-2 pl-9 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+		/>
+		<span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+	</div>
 
 	<!-- Filter -->
 	<div class="flex gap-2 flex-wrap">
@@ -313,31 +388,176 @@ async function suggestFromAI() {
 		{/each}
 	</div>
 
+	<!-- Action message -->
+	{#if actionMessage}
+		<div class="bg-amber-50 border border-amber-200 text-amber-700 px-3 py-2 rounded-lg text-sm">
+			{actionMessage}
+		</div>
+	{/if}
+
 	<!-- Activity List -->
 	<div class="space-y-1">
 		{#each filteredActivities as activity (activity.id)}
-			<div class="bg-white rounded-lg px-3 py-2 shadow-sm flex items-center gap-3 {activity.isVisible ? '' : 'opacity-50'}">
-				<span class="text-xl">{activity.icon}</span>
-				<div class="flex-1 min-w-0">
-					<p class="text-sm font-bold text-gray-700 truncate">{activity.name}</p>
-					<p class="text-xs text-gray-400">
-						{activity.category} / {activity.basePoints}P
-						{#if activity.ageMin != null || activity.ageMax != null}
-							/ {activity.ageMin ?? 0}-{activity.ageMax ?? 18}歳
-						{/if}
-					</p>
+			<div class="bg-white rounded-lg shadow-sm {activity.isVisible ? '' : 'opacity-50'}">
+				<div class="px-3 py-2 flex items-center gap-3">
+					<span class="text-xl">{activity.icon}</span>
+					<div class="flex-1 min-w-0">
+						<p class="text-sm font-bold text-gray-700 truncate">{activity.name}</p>
+						<p class="text-xs text-gray-400">
+							{activity.category} / {activity.basePoints}P
+							{#if activity.dailyLimit !== null}
+								/ {dailyLimitLabel(activity.dailyLimit)}
+							{/if}
+							{#if activity.ageMin != null || activity.ageMax != null}
+								/ {activity.ageMin ?? 0}-{activity.ageMax ?? 18}歳
+							{/if}
+						</p>
+					</div>
+					<div class="flex gap-1">
+						<button
+							type="button"
+							class="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+							onclick={() => editingId === activity.id ? cancelEdit() : startEdit(activity)}
+						>
+							{editingId === activity.id ? '閉じる' : '編集'}
+						</button>
+						<form method="POST" action="?/toggleVisibility" use:enhance>
+							<input type="hidden" name="id" value={activity.id} />
+							<input type="hidden" name="visible" value={activity.isVisible ? 'false' : 'true'} />
+							<button
+								type="submit"
+								class="px-2 py-1 rounded text-xs font-bold transition-colors
+									{activity.isVisible ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}"
+							>
+								{activity.isVisible ? '表示' : '非表示'}
+							</button>
+						</form>
+					</div>
 				</div>
-				<form method="POST" action="?/toggleVisibility" use:enhance>
-					<input type="hidden" name="id" value={activity.id} />
-					<input type="hidden" name="visible" value={activity.isVisible ? 'false' : 'true'} />
-					<button
-						type="submit"
-						class="px-3 py-1 rounded text-xs font-bold transition-colors
-							{activity.isVisible ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}"
-					>
-						{activity.isVisible ? '表示中' : '非表示'}
-					</button>
-				</form>
+
+				<!-- Inline edit form -->
+				{#if editingId === activity.id}
+					<div class="border-t px-3 py-3 space-y-3 bg-gray-50 rounded-b-lg">
+						<form
+							method="POST"
+							action="?/edit"
+							use:enhance={() => {
+								return async ({ result, update }) => {
+									if (result.type === 'success') {
+										editingId = null;
+									}
+									await update();
+								};
+							}}
+							class="space-y-3"
+						>
+							<input type="hidden" name="id" value={activity.id} />
+							<div class="grid grid-cols-[1fr,auto] gap-2">
+								<label class="block">
+									<span class="text-xs font-bold text-gray-500">名前</span>
+									<input type="text" name="name" bind:value={editName} required class="w-full px-2 py-1.5 border rounded text-sm" />
+								</label>
+								<label class="block">
+									<span class="text-xs font-bold text-gray-500">アイコン</span>
+									<input type="text" name="icon" bind:value={editIcon} class="w-14 px-2 py-1.5 border rounded text-sm text-center" />
+								</label>
+							</div>
+							<div class="grid grid-cols-2 gap-2">
+								<label class="block">
+									<span class="text-xs font-bold text-gray-500">カテゴリ</span>
+									<select name="category" bind:value={editCategory} class="w-full px-2 py-1.5 border rounded text-sm">
+										{#each data.categories as cat}
+											<option value={cat}>{cat}</option>
+										{/each}
+									</select>
+								</label>
+								<label class="block">
+									<span class="text-xs font-bold text-gray-500">ポイント</span>
+									<input type="number" name="basePoints" bind:value={editPoints} min="1" max="100" class="w-full px-2 py-1.5 border rounded text-sm" />
+								</label>
+							</div>
+							<div class="grid grid-cols-2 gap-2">
+								<label class="block">
+									<span class="text-xs font-bold text-gray-500">対象年齢（下限）</span>
+									<input type="number" name="ageMin" bind:value={editAgeMin} min="0" max="18" class="w-full px-2 py-1.5 border rounded text-sm" placeholder="なし" />
+								</label>
+								<label class="block">
+									<span class="text-xs font-bold text-gray-500">対象年齢（上限）</span>
+									<input type="number" name="ageMax" bind:value={editAgeMax} min="0" max="18" class="w-full px-2 py-1.5 border rounded text-sm" placeholder="なし" />
+								</label>
+							</div>
+							<!-- dailyLimit -->
+							<div>
+								<span class="text-xs font-bold text-gray-500">1日の回数制限</span>
+								<div class="flex gap-1 mt-1">
+									{#each [{ val: '', label: '1回' }, { val: '2', label: '2回' }, { val: '3', label: '3回' }, { val: '0', label: '無制限' }] as opt}
+										<button
+											type="button"
+											class="flex-1 py-1 rounded text-xs font-bold transition-colors
+												{editDailyLimit === opt.val ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+											onclick={() => editDailyLimit = opt.val}
+										>
+											{opt.label}
+										</button>
+									{/each}
+								</div>
+								<input type="hidden" name="dailyLimit" value={editDailyLimit} />
+							</div>
+							<div class="flex gap-2">
+								<button type="submit" class="flex-1 py-2 bg-blue-500 text-white rounded-lg font-bold text-sm hover:bg-blue-600 transition-colors">
+									保存
+								</button>
+								<button
+									type="button"
+									class="px-4 py-2 bg-red-100 text-red-600 rounded-lg font-bold text-sm hover:bg-red-200 transition-colors"
+									onclick={() => deleteConfirmId = deleteConfirmId === activity.id ? null : activity.id}
+								>
+									削除
+								</button>
+							</div>
+						</form>
+
+						<!-- Delete confirmation -->
+						{#if deleteConfirmId === activity.id}
+							<div class="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+								<p class="text-sm text-red-700 font-bold">本当に削除しますか？</p>
+								<p class="text-xs text-red-500">記録がある場合は削除できません（非表示をご利用ください）</p>
+								<div class="flex gap-2">
+									<form
+										method="POST"
+										action="?/delete"
+										class="flex-1"
+										use:enhance={() => {
+											return async ({ result, update }) => {
+												if (result.type === 'success') {
+													editingId = null;
+													deleteConfirmId = null;
+												} else if (result.type === 'failure' && result.data && 'hasLogs' in result.data) {
+													actionMessage = String(result.data.error);
+													deleteConfirmId = null;
+													setTimeout(() => { actionMessage = ''; }, 5000);
+												}
+												await update();
+											};
+										}}
+									>
+										<input type="hidden" name="id" value={activity.id} />
+										<button type="submit" class="w-full py-2 bg-red-500 text-white rounded-lg font-bold text-sm hover:bg-red-600 transition-colors">
+											削除する
+										</button>
+									</form>
+									<button
+										type="button"
+										class="flex-1 py-2 bg-gray-200 rounded-lg font-bold text-sm hover:bg-gray-300 transition-colors"
+										onclick={() => deleteConfirmId = null}
+									>
+										キャンセル
+									</button>
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		{/each}
 	</div>

@@ -96,6 +96,36 @@ export function calcTrend(
 	return 'stable';
 }
 
+/** 年齢別ステータス最大値テーブル */
+export const AGE_MAX_TABLE: { age: number; maxValue: number }[] = [
+	{ age: 1, maxValue: 50 },
+	{ age: 2, maxValue: 100 },
+	{ age: 3, maxValue: 200 },
+	{ age: 4, maxValue: 350 },
+	{ age: 5, maxValue: 500 },
+	{ age: 6, maxValue: 800 },
+	{ age: 7, maxValue: 1100 },
+	{ age: 8, maxValue: 1500 },
+	{ age: 9, maxValue: 2000 },
+	{ age: 10, maxValue: 2500 },
+	{ age: 11, maxValue: 3000 },
+	{ age: 12, maxValue: 3500 },
+	{ age: 13, maxValue: 4200 },
+	{ age: 14, maxValue: 4900 },
+	{ age: 15, maxValue: 5600 },
+	{ age: 16, maxValue: 6300 },
+	{ age: 17, maxValue: 7100 },
+	{ age: 18, maxValue: 8000 },
+];
+
+/** 年齢に応じたステータス最大値を取得 */
+export function getMaxForAge(age: number): number {
+	const entry = AGE_MAX_TABLE.find((e) => e.age === age);
+	if (entry) return entry.maxValue;
+	if (age < 1) return AGE_MAX_TABLE[0]!.maxValue;
+	return AGE_MAX_TABLE[AGE_MAX_TABLE.length - 1]!.maxValue;
+}
+
 /** ステータスクエリスキーマ */
 export const statusQuerySchema = z.object({
 	childId: z.coerce.number().int().positive(),

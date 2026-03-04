@@ -1,4 +1,5 @@
 <script lang="ts">
+import { page } from '$app/stores';
 import type { Snippet } from 'svelte';
 
 interface Props {
@@ -40,9 +41,14 @@ const navItems = [
 	<nav class="bg-white border-b border-gray-100 px-4 py-2 overflow-x-auto">
 		<div class="max-w-4xl mx-auto flex gap-1">
 			{#each navItems as item}
+				{@const isActive = $page.url.pathname === item.href || (item.href !== '/admin' && $page.url.pathname.startsWith(item.href))}
 				<a
 					href={item.href}
-					class="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors whitespace-nowrap"
+					class="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap
+						{isActive
+						? 'bg-blue-100 text-blue-700'
+						: 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'}"
+					aria-current={isActive ? 'page' : undefined}
 				>
 					<span aria-hidden="true">{item.icon}</span>
 					{item.label}

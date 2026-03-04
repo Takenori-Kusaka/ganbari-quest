@@ -35,7 +35,11 @@ let { data } = $props();
 						href="/admin/children?id={child.id}"
 						class="bg-white rounded-xl p-4 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow"
 					>
-						<span class="text-3xl">👤</span>
+						{#if child.avatarUrl}
+							<img src={child.avatarUrl} alt={child.nickname} class="w-10 h-10 rounded-full object-cover" loading="lazy" />
+						{:else}
+							<span class="text-3xl">👤</span>
+						{/if}
 						<div class="flex-1">
 							<p class="font-bold text-gray-700">{child.nickname}</p>
 							<p class="text-sm text-gray-400">{child.age}歳 / {child.uiMode} / Lv.{child.level}</p>

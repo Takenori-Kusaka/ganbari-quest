@@ -56,6 +56,21 @@ let bonusData = $state<{
 } | null>(null);
 let bonusClaiming = $state(false);
 
+// Build recorded counts map: activityId → count
+const recordedMap = $derived(
+	new Map(data.todayRecorded.map((r) => [r.activityId, r.count])),
+);
+
+function getCount(activityId: number): number {
+	return recordedMap.get(activityId) ?? 0;
+}
+
+function isCompleted(activity: { id: number; dailyLimit: number | null }): boolean {
+	const limit = activity.dailyLimit ?? 1;
+	if (limit === 0) return false; // unlimited
+	return getCount(activity.id) >= limit;
+}
+
 // Group activities by category
 const activitiesByCategory = $derived(
 	CATEGORIES.map((cat) => ({
@@ -230,7 +245,8 @@ $effect(() => {
 					icon={activity.icon}
 					name={activity.name}
 					category={activity.category}
-					completed={data.todayRecorded.includes(activity.id)}
+					completed={isCompleted(activity)}
+					count={getCount(activity.id)}
 					onclick={() => handleActivityTap(activity)}
 				/>
 			{/each}

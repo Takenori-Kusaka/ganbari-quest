@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 
 let { form } = $props();
 
@@ -11,7 +12,7 @@ let submitting = $state(false);
 	<title>せってい - がんばりクエスト管理</title>
 </svelte:head>
 
-<div class="max-w-md mx-auto">
+<div class="space-y-6">
 	<h2 class="text-xl font-bold text-gray-700 mb-6">せってい</h2>
 
 	<!-- PIN変更 -->
@@ -19,15 +20,11 @@ let submitting = $state(false);
 		<h3 class="text-lg font-bold text-gray-700 mb-4">🔒 PINコード変更</h3>
 
 		{#if success}
-			<div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-sm text-green-700">
-				PINコードを変更しました
-			</div>
+			<SuccessAlert message="PINコードを変更しました" />
 		{/if}
 
 		{#if form?.error}
-			<div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-700">
-				{form.error}
-			</div>
+			<ErrorAlert message={form.error} severity="warning" action="fix_input" />
 		{/if}
 
 		<form
