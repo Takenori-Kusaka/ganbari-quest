@@ -6,6 +6,7 @@ import {
 	getAllChildren,
 	removeChild,
 } from '$lib/server/services/child-service';
+import { logger } from '$lib/server/logger';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
@@ -18,6 +19,12 @@ export const load: PageServerLoad = ({ url }) => {
 	const childrenSummary = children.map((child) => {
 		const balance = getPointBalance(child.id);
 		const status = getChildStatus(child.id);
+		if ('error' in balance) {
+			logger.warn('[admin/children] ポイント取得フォールバック', { context: { childId: child.id, error: balance.error } });
+		}
+		if ('error' in status) {
+			logger.warn('[admin/children] ステータス取得フォールバック', { context: { childId: child.id, error: status.error } });
+		}
 		return {
 			...child,
 			balance: 'error' in balance ? 0 : balance.balance,
@@ -35,6 +42,13 @@ export const load: PageServerLoad = ({ url }) => {
 			const status = getChildStatus(id);
 			const logs = getActivityLogs(id, {});
 			const achievements = getChildAchievements(id);
+
+			if ('error' in balance) {
+				logger.warn('[admin/children] 詳細ポイント取得フォールバック', { context: { childId: id, error: balance.error } });
+			}
+			if ('error' in status) {
+				logger.warn('[admin/children] 詳細ステータス取得フォールバック', { context: { childId: id, error: status.error } });
+			}
 
 			selectedChild = {
 				...child,

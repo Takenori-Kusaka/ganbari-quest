@@ -9,6 +9,7 @@ import {
 	calcLevel,
 	calcStars,
 	calcTrend,
+	getMaxForAge,
 } from '$lib/domain/validation/status';
 import {
 	findBenchmark,
@@ -31,6 +32,7 @@ export interface ChildStatus {
 	level: number;
 	levelTitle: string;
 	expToNextLevel: number;
+	maxValue: number;
 	statuses: Record<string, StatusDetail>;
 	characterType: string;
 }
@@ -40,6 +42,7 @@ export function getChildStatus(childId: number): ChildStatus | { error: 'NOT_FOU
 	const child = findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
+	const maxValue = getMaxForAge(child.age);
 	const statusRows = findStatuses(childId);
 	const statusMap: Record<string, StatusDetail> = {};
 
@@ -71,8 +74,10 @@ export function getChildStatus(childId: number): ChildStatus | { error: 'NOT_FOU
 	}
 
 	const avgStatus = categoryCount > 0 ? totalValue / categoryCount : 0;
-	const { level, title } = calcLevel(avgStatus);
-	const expToNextLevel = calcExpToNextLevel(avgStatus);
+	// 年齢別max値で正規化してからレベル判定（LEVEL_TABLEは0-100前提）
+	const normalizedAvg = maxValue > 0 ? (avgStatus / maxValue) * 100 : 0;
+	const { level, title } = calcLevel(normalizedAvg);
+	const expToNextLevel = calcExpToNextLevel(normalizedAvg);
 
 	const avgDeviation = categoryCount > 0 ? totalDeviation / categoryCount : 50;
 	const characterType = calcCharacterType(avgDeviation);
@@ -82,6 +87,7 @@ export function getChildStatus(childId: number): ChildStatus | { error: 'NOT_FOU
 		level,
 		levelTitle: title,
 		expToNextLevel: Math.round(expToNextLevel * 10) / 10,
+		maxValue,
 		statuses: statusMap,
 		characterType,
 	};
@@ -97,9 +103,10 @@ export function updateStatus(
 	const child = findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' as const };
 
+	const maxValue = getMaxForAge(child.age);
 	const currentStatus = findStatuses(childId).find((s) => s.category === category);
 	const currentValue = currentStatus?.value ?? 0;
-	const newValue = Math.max(0, Math.min(100, currentValue + changeAmount));
+	const newValue = Math.max(0, Math.min(maxValue, currentValue + changeAmount));
 
 	const updated = upsertStatus(childId, category, newValue);
 

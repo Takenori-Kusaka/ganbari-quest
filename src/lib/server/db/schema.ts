@@ -62,7 +62,7 @@ export const activityLogs = sqliteTable(
 		cancelled: integer('cancelled').notNull().default(0),
 	},
 	(table) => [
-		uniqueIndex('idx_activity_logs_unique_daily').on(
+		index('idx_activity_logs_daily').on(
 			table.childId,
 			table.activityId,
 			table.recordedDate,

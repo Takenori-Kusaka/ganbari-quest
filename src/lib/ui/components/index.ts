@@ -1,4 +1,6 @@
 export { default as ActivityCard } from './ActivityCard.svelte';
+export { default as ErrorAlert } from './ErrorAlert.svelte';
+export { default as SuccessAlert } from './SuccessAlert.svelte';
 export { default as BottomNav } from './BottomNav.svelte';
 export { default as CategorySection } from './CategorySection.svelte';
 export { default as Header } from './Header.svelte';

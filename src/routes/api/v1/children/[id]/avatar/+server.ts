@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { db } from '$lib/server/db';
 import { children } from '$lib/server/db/schema';
+import { logger } from '$lib/server/logger';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
@@ -63,14 +64,23 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	const filePath = join(UPLOAD_DIR, fileName);
 	const publicUrl = `/uploads/avatars/${fileName}`;
 
-	const buffer = Buffer.from(await file.arrayBuffer());
-	writeFileSync(filePath, buffer);
+	try {
+		const buffer = Buffer.from(await file.arrayBuffer());
+		writeFileSync(filePath, buffer);
 
-	// DB更新
-	db.update(children)
-		.set({ avatarUrl: publicUrl, updatedAt: new Date().toISOString() })
-		.where(eq(children.id, childId))
-		.run();
+		// DB更新
+		db.update(children)
+			.set({ avatarUrl: publicUrl, updatedAt: new Date().toISOString() })
+			.where(eq(children.id, childId))
+			.run();
+	} catch (err) {
+		logger.error('[avatar] アバター保存失敗', {
+			error: err instanceof Error ? err.message : String(err),
+			stack: err instanceof Error ? err.stack : undefined,
+			context: { childId, fileName, filePath },
+		});
+		throw error(500, { message: 'アバターの保存に失敗しました' });
+	}
 
 	return json({ avatarUrl: publicUrl });
 };

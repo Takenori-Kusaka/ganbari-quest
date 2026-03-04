@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { db } from '$lib/server/db/client';
 import { characterImages, children } from '$lib/server/db/schema';
+import { logger } from '$lib/server/logger';
 import { buildAvatarPrompt, buildFaviconPrompt } from './image-prompt';
 
 const GENERATED_DIR = join(process.cwd(), 'static', 'generated');
@@ -57,7 +58,10 @@ async function generateImageWithGemini(prompt: string): Promise<Buffer | null> {
 		}
 		return null;
 	} catch (err) {
-		console.error('[image-service] Gemini API error:', err);
+		logger.error('[image-service] Gemini API error', {
+			error: err instanceof Error ? err.message : String(err),
+			stack: err instanceof Error ? err.stack : undefined,
+		});
 		return null;
 	}
 }

@@ -1,31 +1,19 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { eq, desc } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { evaluations, children } from '$lib/server/db/schema';
 import { notFound, validationError } from '$lib/server/errors';
+import { getAllChildren } from '$lib/server/services/child-service';
+import { getChildEvaluations } from '$lib/server/services/evaluation-service';
 
 export const GET: RequestHandler = async ({ params, url }) => {
 	const childId = Number(params.childId);
 	if (Number.isNaN(childId)) return validationError('IDが不正です');
 
-	const child = db.select().from(children).where(eq(children.id, childId)).get();
+	const children = getAllChildren();
+	const child = children.find((c) => c.id === childId);
 	if (!child) return notFound('こどもがみつかりません');
 
 	const limit = Number(url.searchParams.get('limit') ?? '10');
+	const evaluations = getChildEvaluations(childId, limit);
 
-	const results = db
-		.select()
-		.from(evaluations)
-		.where(eq(evaluations.childId, childId))
-		.orderBy(desc(evaluations.createdAt))
-		.limit(limit)
-		.all();
-
-	return json({
-		evaluations: results.map((e) => ({
-			...e,
-			scores: JSON.parse(e.scoresJson),
-		})),
-	});
+	return json({ evaluations });
 };

@@ -3,6 +3,7 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { CATEGORIES } from '$lib/domain/validation/activity';
+import { logger } from '$lib/server/logger';
 
 interface SuggestedActivity {
 	name: string;
@@ -35,7 +36,11 @@ export async function suggestActivity(text: string): Promise<SuggestedActivity> 
 		try {
 			return await suggestWithGemini(client, text);
 		} catch (e) {
-			console.error('Gemini activity suggestion failed, using fallback:', e);
+			logger.error('[activity-suggest] Gemini API失敗、フォールバック使用', {
+				error: e instanceof Error ? e.message : String(e),
+				stack: e instanceof Error ? e.stack : undefined,
+				context: { text },
+			});
 		}
 	}
 

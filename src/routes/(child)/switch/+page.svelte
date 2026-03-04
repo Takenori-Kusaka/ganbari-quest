@@ -45,6 +45,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 								alt={child.nickname}
 								class="w-12 h-12 rounded-full object-cover border-2"
 								style="border-color: {colors.border};"
+								loading="lazy"
 							/>
 						{:else}
 							<span class="text-4xl">👤</span>

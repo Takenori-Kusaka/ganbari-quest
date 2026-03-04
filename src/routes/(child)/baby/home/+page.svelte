@@ -45,6 +45,21 @@ let bonusData = $state<{
 } | null>(null);
 let bonusClaiming = $state(false);
 
+// Build recorded counts map: activityId → count
+const recordedMap = $derived(
+	new Map(data.todayRecorded.map((r) => [r.activityId, r.count])),
+);
+
+function getCount(activityId: number): number {
+	return recordedMap.get(activityId) ?? 0;
+}
+
+function isCompleted(activity: { id: number; dailyLimit: number | null }): boolean {
+	const limit = activity.dailyLimit ?? 1;
+	if (limit === 0) return false; // unlimited
+	return getCount(activity.id) >= limit;
+}
+
 // Group activities by category (same as kinder)
 const activitiesByCategory = $derived(
 	CATEGORIES.map((cat) => ({
@@ -180,8 +195,9 @@ const categoryColors: Record<string, string> = {
 	{#each activitiesByCategory as group (group.category)}
 		<CategorySection category={group.category}>
 			{#each group.items as activity (activity.id)}
-				{@const completed = data.todayRecorded.includes(activity.id)}
+				{@const completed = isCompleted(activity)}
 				{@const borderColor = categoryColors[activity.category] ?? 'var(--theme-primary)'}
+				{@const actCount = getCount(activity.id)}
 				{#if completed}
 					<div
 						class="baby-card baby-card--done tap-target"
@@ -235,6 +251,9 @@ const categoryColors: Record<string, string> = {
 							style="border-color: {borderColor};"
 							aria-label="{activity.name}をきろくする"
 						>
+							{#if actCount > 0}
+								<span class="baby-card__count-badge">{actCount}</span>
+							{/if}
 							<span class="baby-card__icon">{activity.icon}</span>
 							<span class="baby-card__name">{activity.name}</span>
 						</button>
@@ -422,6 +441,24 @@ const categoryColors: Record<string, string> = {
 		font-size: 1.875rem;
 		opacity: 0.8;
 		z-index: 1;
+	}
+
+	.baby-card__count-badge {
+		position: absolute;
+		top: -4px;
+		right: -4px;
+		z-index: 10;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		background: #3b82f6;
+		color: white;
+		font-size: 10px;
+		font-weight: 700;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 	}
 
 	/* Empty state */

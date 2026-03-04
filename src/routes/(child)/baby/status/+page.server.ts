@@ -1,4 +1,5 @@
 import { evaluateChild, getWeekRange, runDailyDecay } from '$lib/server/services/evaluation-service';
+import { logger } from '$lib/server/logger';
 import { getChildStatus } from '$lib/server/services/status-service';
 import { db } from '$lib/server/db';
 import { evaluations, statusHistory } from '$lib/server/db/schema';
@@ -52,7 +53,10 @@ export const load: PageServerLoad = async ({ parent }) => {
 	ensureStatusUpToDate(child.id);
 
 	const result = getChildStatus(child.id);
-	if ('error' in result) return { status: null };
+	if ('error' in result) {
+		logger.warn('[baby/status] ステータス取得フォールバック', { context: { childId: child.id, error: result.error } });
+		return { status: null };
+	}
 
 	return { status: result };
 };

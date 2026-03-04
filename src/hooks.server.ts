@@ -1,6 +1,7 @@
 import { SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from '$lib/domain/validation/auth';
 import { logger } from '$lib/server/logger';
 import { validateSession } from '$lib/server/services/auth-service';
+import { isSetupRequired } from '$lib/server/services/setup-service';
 import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
 
 export const handle: Handle = async ({ event, resolve }) => {
@@ -31,8 +32,24 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// 3) event.locals にセット
 	event.locals.authenticated = authenticated;
 
-	// 4) (parent) グループのルート保護
+	// 4) ルート保護
 	const path = event.url.pathname;
+
+	// セットアップ未完了時は /setup へリダイレクト
+	if (
+		!path.startsWith('/setup') &&
+		!path.startsWith('/_app') &&
+		!path.startsWith('/favicon')
+	) {
+		if (isSetupRequired()) {
+			redirect(302, '/setup');
+		}
+	}
+
+	// セットアップ完了済みなら /setup へのアクセスをブロック
+	if (path.startsWith('/setup') && !isSetupRequired()) {
+		redirect(302, '/');
+	}
 
 	if (path.startsWith('/admin') && !authenticated) {
 		redirect(302, '/login');

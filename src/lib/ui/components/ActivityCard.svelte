@@ -4,11 +4,12 @@
 		name: string;
 		category: string;
 		completed?: boolean;
+		count?: number;
 		streakDays?: number;
 		onclick?: () => void;
 	}
 
-	let { icon, name, category, completed = false, streakDays = 0, onclick }: Props = $props();
+	let { icon, name, category, completed = false, count = 0, streakDays = 0, onclick }: Props = $props();
 
 	const categoryColors: Record<string, string> = {
 		うんどう: 'var(--color-cat-undou)',
@@ -34,6 +35,10 @@
 	{#if completed}
 		<div class="absolute inset-0 flex items-center justify-center z-10" aria-hidden="true">
 			<span class="text-3xl opacity-80 animate-bounce-in">💮</span>
+		</div>
+	{:else if count > 0}
+		<div class="absolute -top-1 -right-1 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] font-bold shadow-sm" aria-label="{count}かいきろくずみ">
+			{count}
 		</div>
 	{/if}
 

@@ -1,7 +1,7 @@
 // src/lib/server/db/evaluation-repo.ts
 // 週次評価関連のリポジトリ層
 
-import { eq, and, gte, lte, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, sql, desc } from 'drizzle-orm';
 import { db } from './client';
 import { activityLogs, activities, evaluations, children } from './schema';
 
@@ -45,6 +45,17 @@ export function insertEvaluation(input: {
 /** 全子供を取得 */
 export function findAllChildren() {
 	return db.select().from(children).all();
+}
+
+/** 子供の評価履歴を取得 */
+export function findEvaluationsByChild(childId: number, limit: number) {
+	return db
+		.select()
+		.from(evaluations)
+		.where(eq(evaluations.childId, childId))
+		.orderBy(desc(evaluations.createdAt))
+		.limit(limit)
+		.all();
 }
 
 /** 子供の最終活動日をカテゴリ別に取得 */

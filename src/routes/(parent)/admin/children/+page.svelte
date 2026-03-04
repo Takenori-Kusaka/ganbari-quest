@@ -232,7 +232,11 @@ function handleFileSelect(childId: number, event: Event) {
 							href="/admin/children?id={child.id}"
 							class="flex items-center gap-4 flex-1 {data.selectedChild?.id === child.id ? 'font-bold' : ''}"
 						>
-							<span class="text-3xl">👤</span>
+							{#if child.avatarUrl}
+								<img src={child.avatarUrl} alt={child.nickname} class="w-10 h-10 rounded-full object-cover" loading="lazy" />
+							{:else}
+								<span class="text-3xl">👤</span>
+							{/if}
 							<div class="flex-1">
 								<p class="font-bold text-gray-700">{child.nickname}</p>
 								<p class="text-sm text-gray-400">{child.age}歳 / {child.uiMode} / Lv.{child.level}</p>
@@ -297,7 +301,7 @@ function handleFileSelect(childId: number, event: Event) {
 					<img
 						src={uploadResult?.avatarUrl ?? generateResult?.filePath ?? child.avatarUrl}
 						alt={child.nickname}
-						class="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+						class="w-16 h-16 rounded-full object-cover border-2 border-gray-200" loading="lazy"
 					/>
 				{:else}
 					<span class="text-4xl">👤</span>

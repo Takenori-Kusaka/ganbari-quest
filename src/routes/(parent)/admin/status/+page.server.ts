@@ -1,4 +1,5 @@
 import { CATEGORIES } from '$lib/domain/validation/activity';
+import { getMaxForAge } from '$lib/domain/validation/status';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getChildStatus, updateStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
@@ -29,14 +30,15 @@ export const actions = {
 			return fail(400, { error: '必須項目が不足しています' });
 		}
 
-		if (Number.isNaN(newValue) || newValue < 0 || newValue > 100) {
-			return fail(400, { error: '値は0〜100の範囲で入力してください' });
-		}
-
 		// 現在のステータスを取得して差分計算
 		const currentStatus = getChildStatus(childId);
 		if ('error' in currentStatus) {
 			return fail(404, { error: '子供が見つかりません' });
+		}
+
+		const maxForAge = currentStatus.maxValue;
+		if (Number.isNaN(newValue) || newValue < 0 || newValue > maxForAge) {
+			return fail(400, { error: `値は0〜${maxForAge}の範囲で入力してください` });
 		}
 
 		const currentValue = currentStatus.statuses[category]?.value ?? 0;

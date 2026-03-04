@@ -1,6 +1,6 @@
 import {
 	cancelActivityLog,
-	getTodayRecordedActivityIds,
+	getTodayRecordedActivityCounts,
 	recordActivity,
 } from '$lib/server/services/activity-log-service';
 import { getActivities } from '$lib/server/services/activity-service';
@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 		};
 
 	const activities = getActivities({ childAge: child.age });
-	const todayRecorded = getTodayRecordedActivityIds(child.id);
+	const todayRecorded = getTodayRecordedActivityCounts(child.id);
 	const loginBonusStatus = getLoginBonusStatus(child.id);
 	const bonusStatus = 'error' in loginBonusStatus ? null : loginBonusStatus;
 
@@ -71,6 +71,9 @@ export const actions: Actions = {
 		if ('error' in result) {
 			if (result.error === 'ALREADY_RECORDED') {
 				return fail(409, { error: 'きょうはもうきろくしたよ！' });
+			}
+			if (result.error === 'DAILY_LIMIT_REACHED') {
+				return fail(409, { error: 'きょうはこれいじょうきろくできないよ' });
 			}
 			return fail(404, { error: 'みつかりません' });
 		}

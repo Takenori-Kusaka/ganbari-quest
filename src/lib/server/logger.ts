@@ -15,6 +15,7 @@ interface LogEntry {
 	durationMs?: number;
 	error?: string;
 	stack?: string;
+	context?: Record<string, unknown>;
 }
 
 const LOG_DIR = join(process.cwd(), 'data', 'logs');

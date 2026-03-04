@@ -1,7 +1,7 @@
 import type { Category, GradeLevel, Source } from '$lib/domain/validation/activity';
 import { db } from '$lib/server/db';
-import { activities } from '$lib/server/db/schema';
-import { and, eq, gte, isNull, lte, or } from 'drizzle-orm';
+import { activities, activityLogs } from '$lib/server/db/schema';
+import { and, count, eq, gte, isNull, lte, or } from 'drizzle-orm';
 
 export interface CreateActivityInput {
 	name: string;
@@ -14,6 +14,7 @@ export interface CreateActivityInput {
 	gradeLevel?: GradeLevel | null;
 	subcategory?: string | null;
 	description?: string | null;
+	dailyLimit?: number | null;
 }
 
 export interface ActivityFilter {
@@ -66,4 +67,17 @@ export function setActivityVisibility(id: number, visible: boolean) {
 		.where(eq(activities.id, id))
 		.returning()
 		.get();
+}
+
+export function deleteActivity(id: number) {
+	return db.delete(activities).where(eq(activities.id, id)).returning().get();
+}
+
+export function hasActivityLogs(activityId: number): boolean {
+	const result = db
+		.select({ cnt: count() })
+		.from(activityLogs)
+		.where(eq(activityLogs.activityId, activityId))
+		.get();
+	return (result?.cnt ?? 0) > 0;
 }

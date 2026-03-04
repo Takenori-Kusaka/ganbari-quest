@@ -3,6 +3,7 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { eq, and } from 'drizzle-orm';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 import { calcStreakBonus } from '../../../src/lib/domain/validation/activity';
@@ -51,7 +52,7 @@ const CREATE_TABLES = `
 		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		cancelled INTEGER NOT NULL DEFAULT 0
 	);
-	CREATE UNIQUE INDEX idx_activity_logs_unique_daily ON activity_logs(child_id, activity_id, recorded_date);
+	CREATE INDEX idx_activity_logs_daily ON activity_logs(child_id, activity_id, recorded_date);
 	CREATE INDEX idx_activity_logs_child_date ON activity_logs(child_id, recorded_date);
 	CREATE TABLE point_ledger (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,7 +142,7 @@ describe('活動記録の挿入', () => {
 		expect(log.cancelled).toBe(0);
 	});
 
-	it('同日同活動の重複はユニーク制約違反', () => {
+	it('同日同活動の複数記録が可能（dailyLimit制御はサービス層）', () => {
 		db.insert(schema.activityLogs)
 			.values({
 				childId: 1,
@@ -151,16 +152,24 @@ describe('活動記録の挿入', () => {
 			})
 			.run();
 
-		expect(() => {
-			db.insert(schema.activityLogs)
-				.values({
-					childId: 1,
-					activityId: 1,
-					points: 5,
-					recordedDate: '2026-02-20',
-				})
-				.run();
-		}).toThrow();
+		const log2 = db
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 1,
+				points: 5,
+				recordedDate: '2026-02-20',
+			})
+			.returning()
+			.get();
+
+		expect(log2.activityId).toBe(1);
+
+		const logs = db
+			.select()
+			.from(schema.activityLogs)
+			.all();
+		expect(logs).toHaveLength(2);
 	});
 
 	it('別活動なら同日に記録可能', () => {
@@ -270,30 +279,29 @@ describe('キャンセル', () => {
 		expect(updated!.cancelled).toBe(1);
 	});
 
-	it('キャンセル後はユニーク制約の対象外（DBレベルでは制約あり）', () => {
-		// Note: DB level unique constraint includes cancelled records
-		// Business logic should check cancelled=0 in service layer
+	it('キャンセル後も再記録が可能', () => {
 		db.insert(schema.activityLogs)
 			.values({
 				childId: 1,
 				activityId: 1,
 				points: 5,
 				recordedDate: '2026-02-20',
+				cancelled: 1,
 			})
 			.run();
 
-		// Unique index prevents duplicate even for cancelled records
-		// This is by design - the service layer handles re-recording logic
-		expect(() => {
-			db.insert(schema.activityLogs)
-				.values({
-					childId: 1,
-					activityId: 1,
-					points: 5,
-					recordedDate: '2026-02-20',
-				})
-				.run();
-		}).toThrow();
+		const log2 = db
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 1,
+				points: 5,
+				recordedDate: '2026-02-20',
+			})
+			.returning()
+			.get();
+
+		expect(log2.cancelled).toBe(0);
 	});
 });
 
@@ -351,5 +359,64 @@ describe('ポイント台帳', () => {
 		const ledger = db.select().from(schema.pointLedger).all();
 		const total = ledger.reduce((sum, e) => sum + e.amount, 0);
 		expect(total).toBe(0);
+	});
+});
+
+describe('dailyLimit（DB層テスト）', () => {
+	it('dailyLimit=nullの活動はデフォルト値', () => {
+		const activity = db
+			.select()
+			.from(schema.activities)
+			.get();
+		expect(activity!.dailyLimit).toBeNull();
+	});
+
+	it('dailyLimit=2の活動を作成・取得', () => {
+		db.insert(schema.activities)
+			.values({ name: 'はみがき', category: 'せいかつ', icon: '🪥', basePoints: 3, dailyLimit: 2 })
+			.run();
+
+		const activities = db
+			.select()
+			.from(schema.activities)
+			.all();
+		const hamigaki = activities.find((a) => a.name === 'はみがき');
+		expect(hamigaki!.dailyLimit).toBe(2);
+	});
+
+	it('dailyLimit=0（無制限）の活動を作成・取得', () => {
+		db.insert(schema.activities)
+			.values({ name: 'おそうじ', category: 'せいかつ', icon: '🧹', basePoints: 3, dailyLimit: 0 })
+			.run();
+
+		const activities = db
+			.select()
+			.from(schema.activities)
+			.all();
+		const osouji = activities.find((a) => a.name === 'おそうじ');
+		expect(osouji!.dailyLimit).toBe(0);
+	});
+
+	it('dailyLimit=2の活動で同日に2回記録が可能', () => {
+		db.insert(schema.activities)
+			.values({ name: 'はみがき2', category: 'せいかつ', icon: '🪥', basePoints: 3, dailyLimit: 2 })
+			.run();
+
+		const activities = db.select().from(schema.activities).all();
+		const act = activities.find((a) => a.name === 'はみがき2')!;
+
+		db.insert(schema.activityLogs)
+			.values({ childId: 1, activityId: act.id, points: 3, recordedDate: '2026-02-20' })
+			.run();
+		db.insert(schema.activityLogs)
+			.values({ childId: 1, activityId: act.id, points: 3, recordedDate: '2026-02-20' })
+			.run();
+
+		const logs = db
+			.select()
+			.from(schema.activityLogs)
+			.where(and(eq(schema.activityLogs.activityId, act.id), eq(schema.activityLogs.recordedDate, '2026-02-20')))
+			.all();
+		expect(logs).toHaveLength(2);
 	});
 });

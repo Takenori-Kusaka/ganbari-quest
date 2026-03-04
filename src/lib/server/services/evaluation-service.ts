@@ -7,6 +7,7 @@ import {
 	countActivitiesByCategory,
 	insertEvaluation,
 	findAllChildren,
+	findEvaluationsByChild,
 	findLastActivityDateByCategory,
 } from '$lib/server/db/evaluation-repo';
 import { updateStatus } from '$lib/server/services/status-service';
@@ -134,6 +135,15 @@ export function runWeeklyEvaluation(
 	return allChildren.map((child) =>
 		evaluateChild(child.id, weekStart, weekEnd),
 	);
+}
+
+/** 子供の評価履歴を取得 */
+export function getChildEvaluations(childId: number, limit = 10) {
+	const results = findEvaluationsByChild(childId, limit);
+	return results.map((e) => ({
+		...e,
+		scores: JSON.parse(e.scoresJson),
+	}));
 }
 
 /** 日次ステータス減少処理 */

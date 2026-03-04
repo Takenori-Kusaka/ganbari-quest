@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 
 let { data, form } = $props();
 
@@ -14,7 +15,7 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 	<title>じっせき管理 - がんばりクエスト管理</title>
 </svelte:head>
 
-<div class="max-w-2xl mx-auto">
+<div class="space-y-6">
 	<h2 class="text-xl font-bold text-gray-700 mb-6">🏆 じっせき管理</h2>
 
 	<!-- 子供選択 -->
@@ -47,19 +48,11 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 				</p>
 
 				{#if grantSuccess}
-					<div
-						class="bg-green-50 border border-green-200 rounded-lg p-3 mb-3 text-sm text-green-700"
-					>
-						ライフイベントを付与しました！
-					</div>
+					<SuccessAlert message="ライフイベントを付与しました！" />
 				{/if}
 
 				{#if form?.error}
-					<div
-						class="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 text-sm text-red-700"
-					>
-						{form.error}
-					</div>
+					<ErrorAlert message={form.error} severity="warning" />
 				{/if}
 
 				<div class="flex flex-col gap-2">

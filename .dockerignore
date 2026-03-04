@@ -1,0 +1,12 @@
+node_modules
+build
+.svelte-kit
+data/*.db*
+static/uploads/*
+static/generated/*
+*.log
+.env
+.git
+docs
+tests
+sound

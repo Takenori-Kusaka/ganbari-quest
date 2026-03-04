@@ -35,10 +35,13 @@ const expBarValue = $derived(() => {
 	if (!data.status) return 0;
 	const level = data.status.level;
 	if (level >= 10) return 100;
+	const maxValue = data.status.maxValue;
 	const totalExp = Object.values(data.status.statuses).reduce((sum, s) => sum + s.value, 0);
 	const avgStatus = totalExp / CATEGORIES.length;
+	// 年齢別max値で正規化してからレベル内の進捗を計算
+	const normalizedAvg = maxValue > 0 ? (avgStatus / maxValue) * 100 : 0;
 	const levelMinAvg = (level - 1) * 10;
-	return Math.min(100, Math.max(0, ((avgStatus - levelMinAvg) / 10) * 100));
+	return Math.min(100, Math.max(0, ((normalizedAvg - levelMinAvg) / 10) * 100));
 });
 </script>
 
@@ -87,6 +90,7 @@ const expBarValue = $derived(() => {
 							<StatusBar
 								category={cat}
 								value={status.value}
+								maxValue={data.status.maxValue}
 								stars={status.stars}
 							/>
 							<div class="status-bars__trend">
