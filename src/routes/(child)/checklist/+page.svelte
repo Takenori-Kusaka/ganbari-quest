@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -100,7 +101,7 @@ function handleCompleteClose() {
 								<span class="text-2xl flex-shrink-0 {item.checked ? 'opacity-100' : 'opacity-30'}">
 									{item.checked ? '✅' : '☐'}
 								</span>
-								<span class="text-xl flex-shrink-0">{item.icon}</span>
+								<span class="flex-shrink-0"><CompoundIcon icon={item.icon} size="md" /></span>
 								<span class="flex-1 font-medium {item.checked ? 'line-through text-[var(--color-text-muted)]' : ''}">
 									{item.name}
 								</span>

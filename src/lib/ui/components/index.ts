@@ -1,4 +1,5 @@
 export { default as ActivityCard } from './ActivityCard.svelte';
+export { default as CompoundIcon } from './CompoundIcon.svelte';
 export { default as ErrorAlert } from './ErrorAlert.svelte';
 export { default as SuccessAlert } from './SuccessAlert.svelte';
 export { default as BottomNav } from './BottomNav.svelte';
