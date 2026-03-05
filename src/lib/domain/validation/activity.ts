@@ -69,10 +69,8 @@ export function calcStreakBonus(consecutiveDays: number): number {
 	return Math.min(consecutiveDays - 1, 10);
 }
 
-/** Get today's date in YYYY-MM-DD format */
-export function todayDate(): string {
-	return new Date().toISOString().slice(0, 10);
-}
+/** Get today's date in YYYY-MM-DD format (JST) */
+export { todayDateJST as todayDate } from '$lib/domain/date-utils';
 
 /** Cancel window in milliseconds (5 seconds) */
 export const CANCEL_WINDOW_MS = 5000;

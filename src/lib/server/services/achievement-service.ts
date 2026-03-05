@@ -1,4 +1,5 @@
 import { CATEGORIES } from '$lib/domain/validation/activity';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { db } from '$lib/server/db';
 import {
 	findAllAchievements,
@@ -325,12 +326,12 @@ function getCurrentStreakDays(childId: number): number {
 
 	if (rows.length === 0) return 0;
 
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const lastRecorded = rows[rows.length - 1]?.recordedDate;
 
 	const lastDate = new Date(`${lastRecorded}T00:00:00Z`);
-	const todayDate = new Date(`${today}T00:00:00Z`);
-	const daysSinceLastRecord = (todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
+	const todayDateObj = new Date(`${today}T00:00:00Z`);
+	const daysSinceLastRecord = (todayDateObj.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
 	if (daysSinceLastRecord > 1) return 0;
 
 	let streak = 1;

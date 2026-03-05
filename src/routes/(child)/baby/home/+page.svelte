@@ -15,6 +15,9 @@ let { data } = $props();
 // Error state
 let errorMessage = $state('');
 
+// Submitting state (多重送信防止)
+let submitting = $state(false);
+
 // Record result overlay
 let resultOpen = $state(false);
 let resultName = $state('');
@@ -213,9 +216,12 @@ const categoryColors: Record<string, string> = {
 						method="POST"
 						action="?/record"
 						use:enhance={() => {
+							if (submitting) return ({ update }) => update();
+							submitting = true;
 							soundService.ensureContext();
 							soundService.play('tap');
 							return async ({ result }) => {
+								submitting = false;
 								if (result.type === 'success' && result.data && 'success' in result.data) {
 									const d = result.data as {
 										logId: number;
@@ -248,6 +254,7 @@ const categoryColors: Record<string, string> = {
 						<input type="hidden" name="activityId" value={activity.id} />
 						<button
 							type="submit"
+							disabled={submitting}
 							class="baby-card baby-card--active tap-target"
 							style="border-color: {borderColor};"
 							aria-label="{activity.name}をきろくする"

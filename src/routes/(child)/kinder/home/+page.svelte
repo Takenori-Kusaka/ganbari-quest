@@ -31,6 +31,9 @@ let resultData = $state<{
 // Error state
 let errorMessage = $state('');
 
+// Submitting state (多重送信防止)
+let submitting = $state(false);
+
 // Cancel state
 let cancelCountdown = $state(0);
 let cancelTimerId = $state<ReturnType<typeof setInterval> | null>(null);
@@ -281,8 +284,11 @@ $effect(() => {
 					action="?/record"
 					class="flex-1"
 					use:enhance={() => {
+						if (submitting) return ({ update }) => update();
+						submitting = true;
 						soundService.ensureContext();
 						return async ({ result }) => {
+							submitting = false;
 							confirmOpen = false;
 							if (result.type === 'success' && result.data && 'success' in result.data) {
 								const d = result.data as {
