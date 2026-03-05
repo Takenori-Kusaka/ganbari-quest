@@ -3,6 +3,7 @@ import {
 	findTemplateItems,
 	findTemplatesByChild,
 } from '$lib/server/db/checklist-repo';
+import { todayDateJST } from '$lib/domain/date-utils';
 import {
 	addOverride,
 	addTemplateItem,
@@ -16,11 +17,6 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-function todayDate(): string {
-	const now = new Date();
-	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
-
 export const load: PageServerLoad = () => {
 	const children = getAllChildren();
 
@@ -30,7 +26,7 @@ export const load: PageServerLoad = () => {
 			...tpl,
 			items: findTemplateItems(tpl.id),
 		}));
-		const overrides = findOverrides(child.id, todayDate());
+		const overrides = findOverrides(child.id, todayDateJST());
 		return {
 			...child,
 			templates: templatesWithItems,
@@ -38,7 +34,7 @@ export const load: PageServerLoad = () => {
 		};
 	});
 
-	return { children: childrenWithChecklists, today: todayDate() };
+	return { children: childrenWithChecklists, today: todayDateJST() };
 };
 
 export const actions: Actions = {

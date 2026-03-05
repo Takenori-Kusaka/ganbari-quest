@@ -2,6 +2,7 @@
 // 週次評価・日次ステータス減少サービス
 
 import { CATEGORIES } from '$lib/domain/validation/activity';
+import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
 import { calcDecay } from '$lib/domain/validation/status';
 import {
 	countActivitiesByCategory,
@@ -151,7 +152,7 @@ export function runDailyDecay(today?: string): {
 	childId: number;
 	decays: { category: string; amount: number }[];
 }[] {
-	const todayStr = today ?? new Date().toISOString().slice(0, 10);
+	const todayStr = today ?? todayDateJST();
 	const allChildren = findAllChildren();
 	const results: {
 		childId: number;

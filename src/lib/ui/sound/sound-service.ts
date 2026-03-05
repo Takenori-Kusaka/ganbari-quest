@@ -65,21 +65,31 @@ export class SoundService {
 	/** サウンドを再生 */
 	play(soundId: SoundId): void {
 		if (this._muted) return;
-		if (!this.context || !this.gainNode) return;
+		if (!this.context || !this.gainNode) {
+			this.ensureContext();
+			if (!this.context || !this.gainNode) return;
+		}
 		if (this._enabledSounds.size > 0 && !this._enabledSounds.has(soundId)) return;
 
 		const buffer = this.buffers.get(soundId);
 		if (!buffer) return;
 
-		// suspended 状態の場合は resume
-		if (this.context.state === 'suspended') {
-			this.context.resume();
-		}
+		const ctx = this.context;
+		const gain = this.gainNode;
 
-		const source = this.context.createBufferSource();
-		source.buffer = buffer;
-		source.connect(this.gainNode);
-		source.start(0);
+		const doPlay = () => {
+			const source = ctx.createBufferSource();
+			source.buffer = buffer;
+			source.connect(gain);
+			source.start(0);
+		};
+
+		// suspended 状態の場合は resume 完了後に再生
+		if (ctx.state === 'suspended') {
+			ctx.resume().then(doPlay);
+		} else {
+			doPlay();
+		}
 	}
 
 	/** 音量設定 (0.0 - 1.0) */

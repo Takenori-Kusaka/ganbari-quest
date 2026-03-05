@@ -1,17 +1,13 @@
+import { todayDateJST } from '$lib/domain/date-utils';
 import { getChecklistsForChild, toggleCheckItem } from '$lib/server/services/checklist-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-
-function todayDate(): string {
-	const now = new Date();
-	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const { child } = await parent();
 	if (!child) return { checklists: [] };
 
-	const today = todayDate();
+	const today = todayDateJST();
 	const checklists = getChecklistsForChild(child.id, today);
 
 	return { checklists };
@@ -29,7 +25,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
-		const today = todayDate();
+		const today = todayDateJST();
 		const result = toggleCheckItem(childId, templateId, itemId, today, checked);
 
 		if ('error' in result) {

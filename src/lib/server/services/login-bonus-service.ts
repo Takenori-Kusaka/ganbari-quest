@@ -14,17 +14,13 @@ import {
 } from '$lib/server/db/login-bonus-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 
-/** 今日の日付をYYYY-MM-DD形式で取得 */
-function todayDate(): string {
-	return new Date().toISOString().slice(0, 10);
-}
+import { todayDateJST, prevDateJST } from '$lib/domain/date-utils';
+
+/** 今日の日付をYYYY-MM-DD形式で取得 (JST) */
+const todayDate = todayDateJST;
 
 /** 前日の日付をYYYY-MM-DD形式で取得 */
-function prevDate(dateStr: string): string {
-	const d = new Date(dateStr);
-	d.setDate(d.getDate() - 1);
-	return d.toISOString().slice(0, 10);
-}
+const prevDate = prevDateJST;
 
 /** 連続ログイン日数を計算 */
 export function calculateConsecutiveDays(
