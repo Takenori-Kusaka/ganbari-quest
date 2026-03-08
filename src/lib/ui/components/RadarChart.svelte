@@ -19,11 +19,11 @@
 	let { categories, size = 300 }: Props = $props();
 
 	const LEVELS = [25, 50, 75, 100];
-	const padding = $derived(size * 0.4);
+	const padding = $derived(size * 0.28);
 	const viewBoxSize = $derived(size + padding * 2);
 	const center = $derived(size / 2);
-	const maxRadius = $derived(size * 0.30);
-	const labelRadius = $derived(size * 0.42);
+	const maxRadius = $derived(size * 0.33);
+	const labelRadius = $derived(size * 0.45);
 
 	const categoryColors: Record<string, string> = {
 		うんどう: '#4caf50',
