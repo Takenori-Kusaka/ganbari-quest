@@ -7,7 +7,7 @@ import { getActivities } from '$lib/server/services/activity-service';
 import { checkBirthdayStatus, submitBirthdayReview, HEALTH_CHECK_ITEMS } from '$lib/server/services/birthday-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
-import { getChildSpecialRewards } from '$lib/server/services/special-reward-service';
+import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -29,8 +29,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 	const loginBonusStatus = getLoginBonusStatus(child.id);
 	const bonusStatus = 'error' in loginBonusStatus ? null : loginBonusStatus;
 
-	const rewardResult = getChildSpecialRewards(child.id);
-	const latestReward = rewardResult.rewards.length > 0 ? (rewardResult.rewards[0] ?? null) : null;
+	// 未表示の特別報酬を取得
+	const latestReward = getUnshownReward(child.id);
 
 	// 誕生日ステータス
 	const birthdayRaw = checkBirthdayStatus(child.id);

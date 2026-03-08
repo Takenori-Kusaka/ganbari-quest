@@ -34,7 +34,8 @@ const SQL_TABLES = `
 		title TEXT NOT NULL, description TEXT,
 		points INTEGER NOT NULL, icon TEXT,
 		category TEXT NOT NULL,
-		granted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		granted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		shown_at TEXT
 	);
 	CREATE INDEX idx_special_rewards_child ON special_rewards(child_id, granted_at);
 	CREATE TABLE settings (
@@ -57,7 +58,9 @@ vi.mock('$lib/server/db/client', () => ({
 import {
 	getChildSpecialRewards,
 	getRewardTemplates,
+	getUnshownReward,
 	grantSpecialReward,
+	markRewardShown,
 	saveRewardTemplates,
 } from '../../../src/lib/server/services/special-reward-service';
 
@@ -198,6 +201,60 @@ describe('getChildSpecialRewards', () => {
 		// 最新が先頭
 		expect(result.rewards[0]?.title).toBe('2番目');
 		expect(result.rewards[1]?.title).toBe('1番目');
+	});
+});
+
+describe('getUnshownReward / markRewardShown', () => {
+	beforeEach(() => {
+		seedBase();
+	});
+
+	it('未表示報酬がない場合nullを返す', () => {
+		const result = getUnshownReward(1);
+		expect(result).toBeNull();
+	});
+
+	it('未表示の報酬を1件返す', () => {
+		grantSpecialReward({ childId: 1, title: 'テスト100点', points: 100, category: 'academic' });
+		const result = getUnshownReward(1);
+		expect(result).not.toBeNull();
+		expect(result!.title).toBe('テスト100点');
+	});
+
+	it('表示済みにした報酬は返さない', () => {
+		const reward = grantSpecialReward({ childId: 1, title: 'テスト100点', points: 100, category: 'academic' });
+		if (!('error' in reward)) {
+			markRewardShown(reward.id);
+		}
+		const result = getUnshownReward(1);
+		expect(result).toBeNull();
+	});
+
+	it('複数の報酬がある場合、未表示のものだけ返す', () => {
+		const r1 = grantSpecialReward({ childId: 1, title: '1回目', points: 50, category: 'academic' });
+		grantSpecialReward({ childId: 1, title: '2回目', points: 100, category: 'sports' });
+
+		// 1回目を表示済みにする
+		if (!('error' in r1)) {
+			markRewardShown(r1.id);
+		}
+
+		const result = getUnshownReward(1);
+		expect(result).not.toBeNull();
+		expect(result!.title).toBe('2回目');
+	});
+
+	it('新しいごほうびを付与すると再度表示される', () => {
+		const r1 = grantSpecialReward({ childId: 1, title: '1回目', points: 50, category: 'academic' });
+		if (!('error' in r1)) {
+			markRewardShown(r1.id);
+		}
+
+		// 新しい報酬を付与
+		grantSpecialReward({ childId: 1, title: '2回目', points: 100, category: 'sports' });
+		const result = getUnshownReward(1);
+		expect(result).not.toBeNull();
+		expect(result!.title).toBe('2回目');
 	});
 });
 

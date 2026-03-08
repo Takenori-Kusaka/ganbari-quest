@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { specialRewards } from '$lib/server/db/schema';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 
 /** 特別報酬を記録 */
 export function insertSpecialReward(input: {
@@ -23,4 +23,25 @@ export function findSpecialRewards(childId: number) {
 		.where(eq(specialRewards.childId, childId))
 		.orderBy(desc(specialRewards.grantedAt))
 		.all();
+}
+
+/** 子供の未表示の特別報酬を1件取得 */
+export function findUnshownReward(childId: number) {
+	return db
+		.select()
+		.from(specialRewards)
+		.where(and(eq(specialRewards.childId, childId), isNull(specialRewards.shownAt)))
+		.orderBy(desc(specialRewards.grantedAt))
+		.limit(1)
+		.get();
+}
+
+/** 特別報酬を表示済みにする */
+export function markRewardShown(rewardId: number) {
+	return db
+		.update(specialRewards)
+		.set({ shownAt: new Date().toISOString() })
+		.where(eq(specialRewards.id, rewardId))
+		.returning()
+		.get();
 }
