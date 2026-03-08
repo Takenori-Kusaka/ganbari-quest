@@ -1,17 +1,19 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { convertPoints } from '$lib/server/services/point-service';
-import { convertPointsSchema } from '$lib/domain/validation/point';
+import { convertPointsSchema, ConvertMode } from '$lib/domain/validation/point';
 import { apiError, validationError } from '$lib/server/errors';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
-	const parsed = convertPointsSchema.safeParse(body);
+	// mode が未指定の場合はプリセットとして扱う（後方互換）
+	const input = { mode: ConvertMode.PRESET, ...body };
+	const parsed = convertPointsSchema.safeParse(input);
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
 	}
 
-	const result = convertPoints(parsed.data.childId, parsed.data.amount);
+	const result = convertPoints(parsed.data.childId, parsed.data.amount, parsed.data.mode);
 
 	if ('error' in result) {
 		if (result.error === 'NOT_FOUND') {
