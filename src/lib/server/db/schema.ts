@@ -269,6 +269,7 @@ export const specialRewards = sqliteTable(
 		icon: text('icon'),
 		category: text('category').notNull(),
 		grantedAt: text('granted_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		shownAt: text('shown_at'),
 	},
 	(table) => [index('idx_special_rewards_child').on(table.childId, table.grantedAt)],
 );
