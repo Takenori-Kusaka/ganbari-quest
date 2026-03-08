@@ -2,7 +2,12 @@ import type { RewardCategory } from '$lib/domain/validation/special-reward';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
 import { findChildById, insertPointEntry } from '$lib/server/db/point-repo';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
-import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
+import {
+	findSpecialRewards,
+	findUnshownReward,
+	insertSpecialReward,
+	markRewardShown as markRewardShownRepo,
+} from '$lib/server/db/special-reward-repo';
 
 // --- 型定義 ---
 
@@ -98,6 +103,30 @@ export function getChildSpecialRewards(childId: number): {
 	});
 
 	return { rewards, totalPoints };
+}
+
+// --- 未表示報酬取得 ---
+
+export function getUnshownReward(childId: number): SpecialRewardResult | null {
+	const row = findUnshownReward(childId);
+	if (!row) return null;
+	return {
+		id: row.id,
+		childId: row.childId,
+		title: row.title,
+		description: row.description,
+		points: row.points,
+		icon: row.icon,
+		category: row.category,
+		grantedAt: row.grantedAt,
+	};
+}
+
+// --- 報酬表示済みマーク ---
+
+export function markRewardShown(rewardId: number): boolean {
+	const result = markRewardShownRepo(rewardId);
+	return !!result;
 }
 
 // --- テンプレート管理 ---

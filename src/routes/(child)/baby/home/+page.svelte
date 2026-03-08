@@ -45,7 +45,6 @@ let unlockedAchievements = $state<
 
 // Special reward overlay
 let rewardOpen = $state(false);
-let seenRewardId = $state<number | null>(null);
 
 // Login bonus state
 let omikujiOpen = $state(false);
@@ -162,22 +161,17 @@ function handleOmikujiClose() {
 }
 
 function checkSpecialReward() {
-	if (data.latestReward && data.latestReward.id !== seenRewardId) {
-		const lastSeenKey = 'ganbari-last-seen-reward';
-		const lastSeen = typeof window !== 'undefined' ? localStorage.getItem(lastSeenKey) : null;
-		if (lastSeen !== String(data.latestReward.id)) {
-			rewardOpen = true;
-		}
+	if (data.latestReward && !rewardOpen) {
+		rewardOpen = true;
 	}
 }
 
-function handleRewardClose() {
+async function handleRewardClose() {
 	if (data.latestReward) {
-		seenRewardId = data.latestReward.id;
 		try {
-			localStorage.setItem('ganbari-last-seen-reward', String(data.latestReward.id));
+			await fetch(`/api/v1/special-rewards/${data.latestReward.id}/shown`, { method: 'POST' });
 		} catch {
-			// localStorage unavailable
+			// API error - ignore
 		}
 	}
 	rewardOpen = false;
