@@ -19,11 +19,11 @@
 	let { categories, size = 300 }: Props = $props();
 
 	const LEVELS = [25, 50, 75, 100];
-	const padding = $derived(size * 0.2);
+	const padding = $derived(size * 0.4);
 	const viewBoxSize = $derived(size + padding * 2);
 	const center = $derived(size / 2);
-	const maxRadius = $derived(size * 0.35);
-	const labelRadius = $derived(size * 0.47);
+	const maxRadius = $derived(size * 0.30);
+	const labelRadius = $derived(size * 0.42);
 
 	const categoryColors: Record<string, string> = {
 		うんどう: '#4caf50',
@@ -97,6 +97,7 @@
 	viewBox="{-padding} {-padding} {viewBoxSize} {viewBoxSize}"
 	width="100%"
 	style="max-width: {viewBoxSize}px;"
+	overflow="visible"
 	role="img"
 	aria-label="ステータスレーダーチャート"
 >
