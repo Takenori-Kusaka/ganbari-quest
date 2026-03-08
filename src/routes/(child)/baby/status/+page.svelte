@@ -54,6 +54,7 @@ const radarCategories = $derived(
 					name: cat,
 					value: s?.value ?? 0,
 					maxValue: data.status!.maxValue,
+					deviationScore: s?.deviationScore ?? 50,
 					stars: s?.stars ?? 0,
 					trend: (s?.trend ?? 'stable') as 'up' | 'down' | 'stable',
 				};

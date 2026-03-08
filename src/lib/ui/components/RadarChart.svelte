@@ -6,6 +6,7 @@
 		name: string;
 		value: number;
 		maxValue: number;
+		deviationScore: number;
 		stars: number;
 		trend: 'up' | 'down' | 'stable';
 	}
@@ -18,6 +19,8 @@
 	let { categories, size = 300 }: Props = $props();
 
 	const LEVELS = [25, 50, 75, 100];
+	const padding = $derived(size * 0.2);
+	const viewBoxSize = $derived(size + padding * 2);
 	const center = $derived(size / 2);
 	const maxRadius = $derived(size * 0.35);
 	const labelRadius = $derived(size * 0.47);
@@ -36,9 +39,15 @@
 		stable: '➡️',
 	};
 
-	// Normalize values to 0-100 percentage
+	// Normalize deviation scores to visually meaningful 0-100 percentage
+	// Map deviation score range [20, 70] → [0%, 100%] so stars align with chart size:
+	//   1★ (<42)  → <44%   2★ (42-49) → 44-58%
+	//   3★ (50-57) → 60-74%  4★ (58-64) → 76-88%  5★ (65+) → 90%+
 	const normalizedValues = $derived(
-		categories.map((c) => (c.maxValue > 0 ? Math.min(100, (c.value / c.maxValue) * 100) : 0)),
+		categories.map((c) => {
+			const ds = c.deviationScore;
+			return Math.min(100, Math.max(5, ((ds - 20) / 50) * 100));
+		}),
 	);
 
 	// Animated values
@@ -85,9 +94,9 @@
 </script>
 
 <svg
-	viewBox="0 0 {size} {size}"
+	viewBox="{-padding} {-padding} {viewBoxSize} {viewBoxSize}"
 	width="100%"
-	style="max-width: {size}px;"
+	style="max-width: {viewBoxSize}px;"
 	role="img"
 	aria-label="ステータスレーダーチャート"
 >
