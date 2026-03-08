@@ -195,30 +195,69 @@ describe('status-service', () => {
 	it('ステータス更新が正常に動作する', () => {
 		const updated = updateStatus(1, 'うんどう', 5.0, 'weekly');
 		expect(updated).toBeDefined();
-		if (updated && !('error' in updated)) {
-			expect(updated.value).toBe(5.0);
+		expect('error' in updated).toBe(false);
+
+		// getChildStatus で値を確認
+		const status = getChildStatus(1);
+		if (!('error' in status)) {
+			expect(status.statuses['うんどう']!.value).toBe(5.0);
 		}
 
 		// 累積更新
-		const updated2 = updateStatus(1, 'うんどう', 3.0, 'weekly');
-		if (updated2 && !('error' in updated2)) {
-			expect(updated2.value).toBe(8.0);
+		updateStatus(1, 'うんどう', 3.0, 'weekly');
+		const status2 = getChildStatus(1);
+		if (!('error' in status2)) {
+			expect(status2.statuses['うんどう']!.value).toBe(8.0);
 		}
 	});
 
 	it('ステータスは0未満にならない', () => {
 		updateStatus(1, 'うんどう', 5.0, 'weekly');
-		const updated = updateStatus(1, 'うんどう', -10.0, 'decay');
-		if (updated && !('error' in updated)) {
-			expect(updated.value).toBe(0);
+		updateStatus(1, 'うんどう', -10.0, 'decay');
+		const status = getChildStatus(1);
+		if (!('error' in status)) {
+			expect(status.statuses['うんどう']!.value).toBe(0);
 		}
 	});
 
 	it('ステータスは年齢別maxを超えない（age=4 → max=350）', () => {
 		updateStatus(1, 'うんどう', 300.0, 'weekly');
-		const updated = updateStatus(1, 'うんどう', 100.0, 'weekly');
-		if (updated && !('error' in updated)) {
-			expect(updated.value).toBe(350);
+		updateStatus(1, 'うんどう', 100.0, 'weekly');
+		const status = getChildStatus(1);
+		if (!('error' in status)) {
+			expect(status.statuses['うんどう']!.value).toBe(350);
+		}
+	});
+
+	it('レベルアップ時にlevelUp情報が返る', () => {
+		// 全カテゴリを34に設定 → 平均34 → 正規化 34/350*100≈9.7 → レベル1
+		for (const cat of ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう']) {
+			updateStatus(1, cat, 34, 'test');
+		}
+		const before = getChildStatus(1);
+		if (!('error' in before)) {
+			expect(before.level).toBe(1);
+		}
+
+		// うんどう+2 → [36,34,34,34,34] 平均34.4 → 正規化9.83 → レベル1（変化なし）
+		const result = updateStatus(1, 'うんどう', 2, 'test');
+		if (!('error' in result)) {
+			expect(result.levelUp).toBeNull();
+		}
+
+		// べんきょう+2 → [36,36,34,34,34] 平均34.8 → 正規化9.94 → レベル1
+		const result2 = updateStatus(1, 'べんきょう', 2, 'test');
+		if (!('error' in result2)) {
+			expect(result2.levelUp).toBeNull();
+		}
+
+		// せいかつ+2 → [36,36,36,34,34] 平均35.2 → 正規化10.06 → レベル2！
+		const levelUpResult = updateStatus(1, 'せいかつ', 2, 'test');
+		if (!('error' in levelUpResult)) {
+			expect(levelUpResult.levelUp).not.toBeNull();
+			expect(levelUpResult.levelUp!.oldLevel).toBe(1);
+			expect(levelUpResult.levelUp!.newLevel).toBe(2);
+			expect(levelUpResult.levelUp!.newTitle).toBe('がんばりルーキー');
 		}
 	});
 

@@ -5,6 +5,7 @@ import { tick } from 'svelte';
 import { CATEGORIES } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
+import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import BirthdayReviewOverlay from '$lib/ui/components/BirthdayReviewOverlay.svelte';
 import BirthdayResultOverlay from '$lib/ui/components/BirthdayResultOverlay.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
@@ -86,6 +87,15 @@ let missionResult = $state<{
 	bonusAwarded: number;
 } | null>(null);
 
+// Level up overlay state
+let levelUpOpen = $state(false);
+let levelUpData = $state<{
+	oldLevel: number;
+	oldTitle: string;
+	newLevel: number;
+	newTitle: string;
+} | null>(null);
+
 // Build recorded counts map: activityId → count
 const recordedMap = $derived(
 	new Map(data.todayRecorded.map((r) => [r.activityId, r.count])),
@@ -140,7 +150,22 @@ function handleResultClose() {
 	resultOpen = false;
 	missionResult = null;
 
-	// 実績解除があれば表示
+	// レベルアップがあれば先に表示
+	if (levelUpData) {
+		levelUpOpen = true;
+	} else if (unlockedAchievements.length > 0) {
+		achievementOpen = true;
+	} else {
+		resultData = null;
+		invalidateAll();
+	}
+}
+
+function handleLevelUpClose() {
+	levelUpOpen = false;
+	levelUpData = null;
+
+	// 次に実績解除があれば表示
 	if (unlockedAchievements.length > 0) {
 		achievementOpen = true;
 	} else {
@@ -401,6 +426,7 @@ function handleBirthdayResultClose() {
 										totalNewBonus: number;
 									} | null;
 									missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
+									levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string } | null;
 								};
 								resultData = {
 									logId: d.logId,
@@ -413,6 +439,7 @@ function handleBirthdayResultClose() {
 								};
 								unlockedAchievements = d.unlockedAchievements ?? [];
 								missionResult = d.missionComplete ?? null;
+								levelUpData = d.levelUp ?? null;
 								startCancelCountdown(d.cancelableUntil);
 								soundService.play('record-complete');
 								resultOpen = true;
@@ -535,6 +562,15 @@ function handleBirthdayResultClose() {
 		</div>
 	{/if}
 </Dialog>
+
+<!-- Level up overlay -->
+{#if levelUpData}
+	<LevelUpOverlay
+		bind:open={levelUpOpen}
+		levelUp={levelUpData}
+		onClose={handleLevelUpClose}
+	/>
+{/if}
 
 <!-- Achievement unlock overlay -->
 {#if unlockedAchievements.length > 0}
