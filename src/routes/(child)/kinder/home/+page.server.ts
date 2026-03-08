@@ -104,6 +104,7 @@ export const actions: Actions = {
 			unlockedAchievements: result.unlockedAchievements,
 			comboBonus: result.comboBonus,
 			missionComplete: result.missionComplete,
+			levelUp: result.levelUp,
 		};
 	},
 

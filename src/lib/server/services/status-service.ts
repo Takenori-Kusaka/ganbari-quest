@@ -93,22 +93,41 @@ export function getChildStatus(childId: number): ChildStatus | { error: 'NOT_FOU
 	};
 }
 
+export interface LevelUpInfo {
+	oldLevel: number;
+	oldTitle: string;
+	newLevel: number;
+	newTitle: string;
+}
+
 /** ステータスを更新する（週次評価から呼ばれる） */
 export function updateStatus(
 	childId: number,
 	category: string,
 	changeAmount: number,
 	changeType: string,
-) {
+): { error: 'NOT_FOUND' } | { levelUp: LevelUpInfo | null } {
 	const child = findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' as const };
 
 	const maxValue = getMaxForAge(child.age);
-	const currentStatus = findStatuses(childId).find((s) => s.category === category);
+	const allStatuses = findStatuses(childId);
+
+	// 更新前のレベルを計算
+	const beforeValues = CATEGORIES.map((cat) => {
+		const row = allStatuses.find((s) => s.category === cat);
+		return row?.value ?? 0;
+	});
+	const beforeAvg = beforeValues.reduce((a, b) => a + b, 0) / CATEGORIES.length;
+	const beforeNormalized = maxValue > 0 ? (beforeAvg / maxValue) * 100 : 0;
+	const beforeLevel = calcLevel(beforeNormalized);
+
+	// ステータス値を更新
+	const currentStatus = allStatuses.find((s) => s.category === category);
 	const currentValue = currentStatus?.value ?? 0;
 	const newValue = Math.max(0, Math.min(maxValue, currentValue + changeAmount));
 
-	const updated = upsertStatus(childId, category, newValue);
+	upsertStatus(childId, category, newValue);
 
 	insertStatusHistory({
 		childId,
@@ -118,5 +137,19 @@ export function updateStatus(
 		changeType,
 	});
 
-	return updated;
+	// 更新後のレベルを計算
+	const afterValues = CATEGORIES.map((cat) => {
+		if (cat === category) return newValue;
+		const row = allStatuses.find((s) => s.category === cat);
+		return row?.value ?? 0;
+	});
+	const afterAvg = afterValues.reduce((a, b) => a + b, 0) / CATEGORIES.length;
+	const afterNormalized = maxValue > 0 ? (afterAvg / maxValue) * 100 : 0;
+	const afterLevel = calcLevel(afterNormalized);
+
+	const levelUp = afterLevel.level > beforeLevel.level
+		? { oldLevel: beforeLevel.level, oldTitle: beforeLevel.title, newLevel: afterLevel.level, newTitle: afterLevel.title }
+		: null;
+
+	return { levelUp };
 }

@@ -11,7 +11,7 @@ import {
 	checkAndUnlockAchievements,
 	type UnlockedAchievement,
 } from '$lib/server/services/achievement-service';
-import { updateStatus } from '$lib/server/services/status-service';
+import { updateStatus, type LevelUpInfo } from '$lib/server/services/status-service';
 import { checkAndGrantCombo, type ComboResult } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 
@@ -32,6 +32,7 @@ export interface RecordActivityResult {
 	unlockedAchievements: UnlockedAchievement[];
 	comboBonus: ComboResult | null;
 	missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
+	levelUp: LevelUpInfo | null;
 }
 
 export interface ActivityLogEntry {
@@ -127,7 +128,8 @@ export function recordActivity(
 		.run();
 
 	// ステータスを即時更新（カテゴリに対応するステータスを増加）
-	updateStatus(childId, activity.category, STATUS_PER_ACTIVITY, 'activity_record');
+	const statusResult = updateStatus(childId, activity.category, STATUS_PER_ACTIVITY, 'activity_record');
+	const levelUp = (!('error' in statusResult) && statusResult.levelUp) ? statusResult.levelUp : null;
 
 	const cancelableUntil = new Date(Date.now() + CANCEL_WINDOW_MS).toISOString();
 
@@ -154,6 +156,7 @@ export function recordActivity(
 		unlockedAchievements,
 		comboBonus: comboBonus.totalNewBonus > 0 ? comboBonus : null,
 		missionComplete: missionResult.missionCompleted ? missionResult : null,
+		levelUp,
 	};
 }
 
