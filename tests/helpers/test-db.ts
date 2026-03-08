@@ -230,6 +230,23 @@ const SQL_CREATE_TABLES = `
 	);
 	CREATE INDEX idx_checklist_overrides_child_date
 		ON checklist_overrides(child_id, target_date);
+
+	CREATE TABLE birthday_reviews (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		review_year INTEGER NOT NULL,
+		age_at_review INTEGER NOT NULL,
+		health_checks TEXT NOT NULL DEFAULT '{}',
+		aspiration_text TEXT,
+		aspiration_categories TEXT NOT NULL DEFAULT '{}',
+		base_points INTEGER NOT NULL DEFAULT 0,
+		health_points INTEGER NOT NULL DEFAULT 0,
+		aspiration_points INTEGER NOT NULL DEFAULT 0,
+		total_points INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_birthday_reviews_unique
+		ON birthday_reviews(child_id, review_year);
 `;
 
 export function createTestDb() {

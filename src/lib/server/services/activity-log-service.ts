@@ -12,6 +12,8 @@ import {
 	type UnlockedAchievement,
 } from '$lib/server/services/achievement-service';
 import { updateStatus } from '$lib/server/services/status-service';
+import { checkAndGrantCombo, type ComboResult } from '$lib/server/services/combo-service';
+import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 
 /** 1回の活動記録あたりのステータス増加量 */
 const STATUS_PER_ACTIVITY = 0.3;
@@ -28,6 +30,8 @@ export interface RecordActivityResult {
 	recordedAt: string;
 	cancelableUntil: string;
 	unlockedAchievements: UnlockedAchievement[];
+	comboBonus: ComboResult | null;
+	missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 }
 
 export interface ActivityLogEntry {
@@ -130,6 +134,12 @@ export function recordActivity(
 	// 実績チェック（初回のみ）
 	const unlockedAchievements = isFirstToday ? checkAndUnlockAchievements(childId) : [];
 
+	// コンボボーナスチェック
+	const comboBonus = checkAndGrantCombo(childId, today);
+
+	// デイリーミッション判定
+	const missionResult = checkMissionCompletion(childId, activityId);
+
 	return {
 		id: log.id,
 		childId,
@@ -142,6 +152,8 @@ export function recordActivity(
 		recordedAt: now,
 		cancelableUntil,
 		unlockedAchievements,
+		comboBonus: comboBonus.totalNewBonus > 0 ? comboBonus : null,
+		missionComplete: missionResult.missionCompleted ? missionResult : null,
 	};
 }
 

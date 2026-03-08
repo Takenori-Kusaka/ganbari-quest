@@ -89,6 +89,16 @@ const SQL_TABLES = `
 		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX idx_status_history_child_cat ON status_history(child_id, category, recorded_at);
+	CREATE TABLE daily_missions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		mission_date TEXT NOT NULL,
+		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		completed INTEGER NOT NULL DEFAULT 0,
+		completed_at TEXT,
+		UNIQUE(child_id, mission_date, activity_id)
+	);
+	CREATE INDEX idx_daily_missions_child_date ON daily_missions(child_id, mission_date);
 `;
 
 vi.mock('$lib/server/db', () => ({

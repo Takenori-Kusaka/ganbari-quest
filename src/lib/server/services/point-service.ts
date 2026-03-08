@@ -7,7 +7,7 @@ import {
 	insertPointEntry,
 	findChildById,
 } from '$lib/server/db/point-repo';
-import { POINTS_PER_CONVERT_UNIT } from '$lib/domain/validation/point';
+import { POINTS_PER_CONVERT_UNIT, type ConvertMode } from '$lib/domain/validation/point';
 
 export interface PointBalance {
 	childId: number;
@@ -55,10 +55,19 @@ export function getPointHistory(
 	return { history };
 }
 
-/** ポイントをお小遣いに変換（500P単位） */
+/** 変換モード別の説明文サフィックス */
+function convertDescription(amount: number, mode: ConvertMode): string {
+	const base = `${amount}ポイントをおこづかいにかえました`;
+	if (mode === 'manual') return `${base}（手動入力）`;
+	if (mode === 'receipt') return `${base}（領収書読み取り）`;
+	return base;
+}
+
+/** ポイントをお小遣いに変換 */
 export function convertPoints(
 	childId: number,
 	amount: number,
+	mode: ConvertMode = 'preset',
 ): ConvertResult | { error: 'NOT_FOUND' } | { error: 'INSUFFICIENT_POINTS' } {
 	const child = findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
@@ -68,18 +77,20 @@ export function convertPoints(
 		return { error: 'INSUFFICIENT_POINTS' };
 	}
 
+	const description = convertDescription(amount, mode);
+
 	// ポイント消費エントリを台帳に記録（マイナス値）
 	insertPointEntry({
 		childId,
 		amount: -amount,
 		type: 'convert',
-		description: `${amount}ポイントをおこづかいにかえました`,
+		description,
 	});
 
 	const remainingBalance = balance - amount;
 
 	return {
-		message: `${amount}ポイントをおこづかいにかえました`,
+		message: description,
 		convertedAmount: amount,
 		remainingBalance,
 	};

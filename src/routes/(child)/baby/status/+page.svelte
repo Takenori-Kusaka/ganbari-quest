@@ -1,9 +1,12 @@
 <script lang="ts">
 import { CATEGORIES } from '$lib/domain/validation/activity';
+import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
 import Progress from '$lib/ui/primitives/Progress.svelte';
 
 let { data } = $props();
+
+let detailOpen = $state(false);
 
 /** レベル別アイコン */
 const levelEmojis: Record<number, string> = {
@@ -38,11 +41,25 @@ const expBarValue = $derived(() => {
 	const maxValue = data.status.maxValue;
 	const totalExp = Object.values(data.status.statuses).reduce((sum, s) => sum + s.value, 0);
 	const avgStatus = totalExp / CATEGORIES.length;
-	// 年齢別max値で正規化してからレベル内の進捗を計算
 	const normalizedAvg = maxValue > 0 ? (avgStatus / maxValue) * 100 : 0;
 	const levelMinAvg = (level - 1) * 10;
 	return Math.min(100, Math.max(0, ((normalizedAvg - levelMinAvg) / 10) * 100));
 });
+
+const radarCategories = $derived(
+	data.status
+		? CATEGORIES.map((cat) => {
+				const s = data.status!.statuses[cat];
+				return {
+					name: cat,
+					value: s?.value ?? 0,
+					maxValue: data.status!.maxValue,
+					stars: s?.stars ?? 0,
+					trend: (s?.trend ?? 'stable') as 'up' | 'down' | 'stable',
+				};
+			})
+		: [],
+);
 </script>
 
 <svelte:head>
@@ -51,7 +68,7 @@ const expBarValue = $derived(() => {
 
 <div class="status-page">
 	{#if data.status}
-		<!-- Level + title (unified) -->
+		<!-- Level + title -->
 		<div class="status-level">
 			<div class="status-level__center">
 				<span class="status-level__emoji">
@@ -79,29 +96,44 @@ const expBarValue = $derived(() => {
 			{/if}
 		</div>
 
-		<!-- Status bars -->
-		<div class="status-bars">
-			<h2 class="status-bars__title">ステータス</h2>
-			<div class="status-bars__list">
-				{#each CATEGORIES as cat (cat)}
-					{@const status = data.status.statuses[cat]}
-					{#if status}
-						<div>
-							<StatusBar
-								category={cat}
-								value={status.value}
-								maxValue={data.status.maxValue}
-								stars={status.stars}
-							/>
-							<div class="status-bars__trend">
-								<span class="status-bars__trend-icon">
-									{trendIcons[status.trend] ?? '➡️'}
-								</span>
-							</div>
-						</div>
-					{/if}
-				{/each}
+		<!-- Radar chart -->
+		<div class="status-radar">
+			<h2 class="status-radar__title">ステータス</h2>
+			<div class="status-radar__chart">
+				<RadarChart categories={radarCategories} size={280} />
 			</div>
+		</div>
+
+		<!-- Collapsible detail -->
+		<div class="status-detail">
+			<button
+				class="status-detail__toggle"
+				onclick={() => { detailOpen = !detailOpen; }}
+			>
+				<span>{detailOpen ? '▼' : '▶'} くわしくみる</span>
+			</button>
+			{#if detailOpen}
+				<div class="status-detail__content">
+					{#each CATEGORIES as cat (cat)}
+						{@const status = data.status.statuses[cat]}
+						{#if status}
+							<div>
+								<StatusBar
+									category={cat}
+									value={status.value}
+									maxValue={data.status.maxValue}
+									stars={status.stars}
+								/>
+								<div class="status-bars__trend">
+									<span class="status-bars__trend-icon">
+										{trendIcons[status.trend] ?? '➡️'}
+									</span>
+								</div>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{:else}
 		<div class="status-empty">
@@ -116,7 +148,6 @@ const expBarValue = $derived(() => {
 		padding: 4px 16px;
 	}
 
-	/* Level (unified) */
 	.status-level {
 		background: white;
 		border-radius: 16px;
@@ -133,56 +164,56 @@ const expBarValue = $derived(() => {
 		margin-bottom: 16px;
 	}
 
-	.status-level__emoji {
-		font-size: 3rem;
-	}
+	.status-level__emoji { font-size: 3rem; }
+	.status-level__num { font-size: 1.5rem; font-weight: 700; }
+	.status-level__title { font-size: 0.875rem; font-weight: 700; color: var(--theme-accent); }
+	.status-level__message { font-size: 0.75rem; color: var(--color-text-muted); text-align: center; }
+	.status-level__next { font-size: 0.75rem; color: var(--color-text-muted); text-align: right; }
+	.status-level__max { font-size: 0.75rem; color: var(--color-point); text-align: right; font-weight: 700; }
 
-	.status-level__num {
-		font-size: 1.5rem;
-		font-weight: 700;
-	}
-
-	.status-level__title {
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--theme-accent);
-	}
-
-	.status-level__message {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-		text-align: center;
-	}
-
-	.status-level__next {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-		text-align: right;
-	}
-
-	.status-level__max {
-		font-size: 0.75rem;
-		color: var(--color-point);
-		text-align: right;
-		font-weight: 700;
-	}
-
-	/* Status bars */
-	.status-bars {
+	.status-radar {
 		background: white;
 		border-radius: 16px;
 		padding: 16px;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		margin-bottom: 12px;
 	}
 
-	.status-bars__title {
+	.status-radar__title {
 		font-size: 0.875rem;
 		font-weight: 700;
 		color: var(--color-text-muted);
-		margin-bottom: 16px;
+		margin-bottom: 8px;
 	}
 
-	.status-bars__list {
+	.status-radar__chart {
+		display: flex;
+		justify-content: center;
+	}
+
+	.status-detail {
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		overflow: hidden;
+	}
+
+	.status-detail__toggle {
+		width: 100%;
+		padding: 16px;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		font-size: 0.875rem;
+		font-weight: 700;
+		color: var(--color-text-muted);
+		background: none;
+		border: none;
+		cursor: pointer;
+	}
+
+	.status-detail__content {
+		padding: 0 16px 16px;
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
@@ -201,7 +232,6 @@ const expBarValue = $derived(() => {
 		color: var(--color-text-muted);
 	}
 
-	/* Empty */
 	.status-empty {
 		display: flex;
 		flex-direction: column;
@@ -210,12 +240,6 @@ const expBarValue = $derived(() => {
 		color: var(--color-text-muted);
 	}
 
-	.status-empty__icon {
-		font-size: 2.5rem;
-		margin-bottom: 8px;
-	}
-
-	.status-empty__text {
-		font-weight: 700;
-	}
+	.status-empty__icon { font-size: 2.5rem; margin-bottom: 8px; }
+	.status-empty__text { font-weight: 700; }
 </style>

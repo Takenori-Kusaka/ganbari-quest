@@ -271,4 +271,40 @@ describe('point-service', () => {
 			expect(convertEntry!.amount).toBe(-500);
 		}
 	});
+
+	// 自由入力モード
+	it('手動入力モードで1P単位の変換ができる', () => {
+		addPoints(1, 700, 'activity', 'テスト');
+
+		const result = convertPoints(1, 123, 'manual');
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.convertedAmount).toBe(123);
+			expect(result.remainingBalance).toBe(577);
+			expect(result.message).toContain('手動入力');
+		}
+	});
+
+	it('領収書モードで変換できる', () => {
+		addPoints(1, 1000, 'activity', 'テスト');
+
+		const result = convertPoints(1, 648, 'receipt');
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.convertedAmount).toBe(648);
+			expect(result.remainingBalance).toBe(352);
+			expect(result.message).toContain('領収書読み取り');
+		}
+	});
+
+	it('プリセットモード（デフォルト）の説明文にサフィックスがない', () => {
+		addPoints(1, 600, 'activity', 'テスト');
+
+		const result = convertPoints(1, 500);
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.message).not.toContain('手動入力');
+			expect(result.message).not.toContain('領収書');
+		}
+	});
 });

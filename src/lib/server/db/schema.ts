@@ -356,3 +356,52 @@ export const checklistOverrides = sqliteTable(
 	},
 	(table) => [index('idx_checklist_overrides_child_date').on(table.childId, table.targetDate)],
 );
+
+// ============================================================
+// birthday_reviews - 誕生日振り返り記録
+// ============================================================
+export const birthdayReviews = sqliteTable(
+	'birthday_reviews',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		reviewYear: integer('review_year').notNull(),
+		ageAtReview: integer('age_at_review').notNull(),
+		healthChecks: text('health_checks').notNull().default('{}'),
+		aspirationText: text('aspiration_text'),
+		aspirationCategories: text('aspiration_categories').notNull().default('{}'),
+		basePoints: integer('base_points').notNull().default(0),
+		healthPoints: integer('health_points').notNull().default(0),
+		aspirationPoints: integer('aspiration_points').notNull().default(0),
+		totalPoints: integer('total_points').notNull().default(0),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_birthday_reviews_unique').on(table.childId, table.reviewYear),
+	],
+);
+
+// ============================================================
+// dailyMissions - デイリーミッション
+// ============================================================
+export const dailyMissions = sqliteTable(
+	'daily_missions',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		missionDate: text('mission_date').notNull(),
+		activityId: integer('activity_id')
+			.notNull()
+			.references(() => activities.id),
+		completed: integer('completed').notNull().default(0),
+		completedAt: text('completed_at'),
+	},
+	(table) => [
+		uniqueIndex('idx_daily_missions_unique').on(table.childId, table.missionDate, table.activityId),
+		index('idx_daily_missions_child_date').on(table.childId, table.missionDate),
+	],
+);
