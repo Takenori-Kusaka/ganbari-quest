@@ -119,7 +119,7 @@ describe('偏差値→プロット正規化', () => {
 
 describe('SVG座標計算', () => {
 	const center = 150; // size=300 → center=150
-	const maxRadius = 99; // size*0.33=99
+	const maxRadius = 120; // size*0.40=120
 
 	it('頂点0（上方向）のアングルは-π/2', () => {
 		const angle = getAngle(0);
@@ -189,28 +189,25 @@ describe('SVG座標計算', () => {
 });
 
 describe('viewBox計算', () => {
-	it('size=300 → padding=84, viewBox="-84 -84 468 468"', () => {
+	it('padding=60固定, size=300 → viewBox="-60 -60 420 420"', () => {
+		const padding = 60;
 		const size = 300;
-		const padding = size * 0.28;
 		const viewBoxSize = size + padding * 2;
-		expect(padding).toBeCloseTo(84);
-		expect(viewBoxSize).toBeCloseTo(468);
+		expect(viewBoxSize).toBe(420);
 	});
 
-	it('size=240 → padding=67.2, viewBox適切', () => {
+	it('padding=60固定, size=240 → viewBox="-60 -60 360 360"', () => {
+		const padding = 60;
 		const size = 240;
-		const padding = size * 0.28;
 		const viewBoxSize = size + padding * 2;
-		expect(padding).toBeCloseTo(67.2);
-		expect(viewBoxSize).toBeCloseTo(374.4);
+		expect(viewBoxSize).toBe(360);
 	});
 
-	it('size=360 → padding=100.8, viewBox適切', () => {
+	it('padding=60固定, size=360 → viewBox="-60 -60 480 480"', () => {
+		const padding = 60;
 		const size = 360;
-		const padding = size * 0.28;
 		const viewBoxSize = size + padding * 2;
-		expect(padding).toBeCloseTo(100.8);
-		expect(viewBoxSize).toBeCloseTo(561.6);
+		expect(viewBoxSize).toBe(480);
 	});
 });
 
