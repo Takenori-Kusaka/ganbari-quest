@@ -20,28 +20,47 @@ async function selectChild(page: Page) {
 	await page.waitForURL(/\/(kinder|baby)\/home/);
 }
 
-// ヘルパー: ログインボーナスのおみくじオーバーレイが出ていたら閉じる
+// ヘルパー: ログインボーナスのおみくじオーバーレイや各種オーバーレイを閉じる
 async function dismissOverlays(page: Page) {
-	// おみくじオーバーレイを閉じる（表示されている場合）
-	try {
-		const closeBtn = page.getByRole('button', { name: /とじる|閉じる|OK/ });
-		await closeBtn.waitFor({ timeout: 3000 });
-		await closeBtn.click();
-		await page.waitForTimeout(500);
-	} catch {
-		// オーバーレイが表示されていなければスキップ
+	// おみくじオーバーレイを閉じる（演出の ?マーク → ランク表示 → ボタン の流れ）
+	// まず演出中の ?マーク が出ているか短時間チェック
+	const hasOmikuji = await page.getByText('きょうのうんせい').isVisible().catch(() => false);
+	if (hasOmikuji) {
+		try {
+			const omikujiBtn = page.getByRole('button', { name: /タップしてすすむ/ });
+			await omikujiBtn.waitFor({ timeout: 4000 });
+			await omikujiBtn.click();
+			await page.waitForTimeout(500);
+		} catch {
+			// ボタンが出なかった場合
+		}
 	}
-	// 特別報酬オーバーレイも閉じる
+	// 誕生日レビューオーバーレイを閉じる
 	try {
-		const closeBtn = page.getByRole('button', { name: /とじる|閉じる|OK/ });
-		await closeBtn.waitFor({ timeout: 1000 });
-		await closeBtn.click();
-		await page.waitForTimeout(300);
+		const birthdayBtn = page.getByRole('button', { name: /はじめる/ });
+		if (await birthdayBtn.isVisible().catch(() => false)) {
+			await page.keyboard.press('Escape');
+			await page.waitForTimeout(300);
+		}
 	} catch {
 		// なければスキップ
 	}
-	// invalidateAll() の完了を待つ（networkidle は 404 リクエストで安定しないため fixed wait）
-	await page.waitForTimeout(500);
+	// 特別報酬や汎用オーバーレイを閉じる（おみくじ後に遅延表示されることがある）
+	for (let i = 0; i < 3; i++) {
+		await page.waitForTimeout(400);
+		try {
+			const closeBtn = page.getByRole('button', { name: /とじる|閉じる|OK|やったー/ });
+			if (await closeBtn.isVisible().catch(() => false)) {
+				await closeBtn.click();
+				await page.waitForTimeout(300);
+			} else {
+				break;
+			}
+		} catch {
+			break;
+		}
+	}
+	await page.waitForTimeout(300);
 }
 
 // ヘルパー: 子供を選択してオーバーレイを閉じた状態にする
@@ -146,6 +165,9 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 // 4. UC-01: 活動記録フロー（確認ダイアログ → 記録 → 完了）
 // ============================================================
 test.describe('UC-01: 活動記録フロー', () => {
+	// DB を変更するテストが含まれるため直列実行
+	test.describe.configure({ mode: 'serial' });
+
 	test.beforeEach(async ({ page }) => {
 		await selectChildAndDismiss(page);
 	});
@@ -182,7 +204,10 @@ test.describe('UC-01: 活動記録フロー', () => {
 		const recorded = await recordAnyActivity(page);
 		expect(recorded).toBe(true);
 
-		await expect(page.getByRole('button', { name: /とりけし/ })).toBeVisible();
+		// 結果ダイアログが開いている状態を確認
+		await expect(page.getByText(/きろくしたよ！/).first()).toBeVisible({ timeout: 3000 });
+		// キャンセルウィンドウ(5秒)内にキャンセルボタンが表示される
+		await expect(page.getByRole('button', { name: /とりけし/ })).toBeVisible({ timeout: 3000 });
 	});
 });
 
@@ -241,9 +266,9 @@ test.describe('UC-04: ステータス確認', () => {
 		await page.goto('/kinder/status');
 
 		// レベル表示（ヘッダーとメインの2箇所にあるので main 内を指定）
-		await expect(page.getByRole('main').getByText(/Lv\./)).toBeVisible();
-		// キャラクタータイプ
-		await expect(page.getByText(/タイプ/)).toBeVisible();
+		await expect(page.getByRole('main').getByText(/Lv\./).first()).toBeVisible();
+		// ステータスセクション見出し
+		await expect(page.getByRole('heading', { name: 'ステータス' })).toBeVisible();
 	});
 });
 
@@ -256,7 +281,7 @@ test.describe('実績画面', () => {
 		await page.goto('/kinder/achievements');
 		await expect(page).toHaveURL(/\/kinder\/achievements/);
 
-		await expect(page.getByText(/かいほう/)).toBeVisible();
+		await expect(page.getByText(/たっせい/)).toBeVisible();
 	});
 });
 

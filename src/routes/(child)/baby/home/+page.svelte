@@ -1,8 +1,11 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { tick } from 'svelte';
 import { CATEGORIES } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
+import BirthdayReviewOverlay from '$lib/ui/components/BirthdayReviewOverlay.svelte';
+import BirthdayResultOverlay from '$lib/ui/components/BirthdayResultOverlay.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import OmikujiOverlay from '$lib/ui/components/OmikujiOverlay.svelte';
@@ -24,6 +27,11 @@ let resultName = $state('');
 let resultIcon = $state('');
 let resultPoints = $state(0);
 let resultLogId = $state(0);
+let resultComboBonus = $state<{
+	categoryCombo: { category: string; name: string; bonus: number }[];
+	crossCategoryCombo: { name: string; bonus: number } | null;
+	totalNewBonus: number;
+} | null>(null);
 let cancelCountdown = $state(0);
 let cancelTimerId = $state<ReturnType<typeof setInterval> | null>(null);
 let cancelledMessage = $state(false);
@@ -48,6 +56,25 @@ let bonusData = $state<{
 	consecutiveDays: number;
 } | null>(null);
 let bonusClaiming = $state(false);
+
+// Birthday review state
+let birthdayOpen = $state(false);
+let birthdayResultOpen = $state(false);
+let birthdayResult = $state<{
+	basePoints: number;
+	healthPoints: number;
+	aspirationPoints: number;
+	totalPoints: number;
+} | null>(null);
+let birthdaySubmitting = $state(false);
+let birthdayFormData = $state<{ healthChecks: string; aspirationText: string } | null>(null);
+
+// Mission complete result state
+let missionResult = $state<{
+	missionCompleted: boolean;
+	allComplete: boolean;
+	bonusAwarded: number;
+} | null>(null);
 
 // Build recorded counts map: activityId → count
 const recordedMap = $derived(
@@ -90,6 +117,7 @@ function handleResultClose() {
 	if (cancelTimerId) clearInterval(cancelTimerId);
 	cancelTimerId = null;
 	resultOpen = false;
+	missionResult = null;
 
 	if (unlockedAchievements.length > 0) {
 		achievementOpen = true;
@@ -136,6 +164,9 @@ function handleRewardClose() {
 $effect(() => {
 	if (data.loginBonusStatus && !data.loginBonusStatus.claimedToday && !bonusClaiming) {
 		bonusClaiming = true;
+		tick().then(() => {
+			document.getElementById('claim-bonus-btn')?.click();
+		});
 	}
 });
 
@@ -145,6 +176,38 @@ $effect(() => {
 		checkSpecialReward();
 	}
 });
+
+// Auto-show birthday review
+$effect(() => {
+	if (
+		data.birthdayStatus &&
+		data.birthdayStatus.isBirthday &&
+		!data.birthdayStatus.alreadyReviewed &&
+		!bonusClaiming &&
+		!omikujiOpen &&
+		!birthdayOpen &&
+		!birthdayResultOpen
+	) {
+		birthdayOpen = true;
+	}
+});
+
+function handleBirthdaySubmit(submitData: { healthChecks: Record<string, boolean>; aspirationText: string }) {
+	birthdayFormData = {
+		healthChecks: JSON.stringify(submitData.healthChecks),
+		aspirationText: submitData.aspirationText,
+	};
+	birthdaySubmitting = true;
+	tick().then(() => {
+		document.getElementById('birthday-submit-btn')?.click();
+	});
+}
+
+function handleBirthdayResultClose() {
+	birthdayResultOpen = false;
+	birthdayResult = null;
+	invalidateAll();
+}
 
 const categoryColors: Record<string, string> = {
 	うんどう: 'var(--color-cat-undou)',
@@ -192,7 +255,39 @@ const categoryColors: Record<string, string> = {
 		>
 			<button type="submit" id="claim-bonus-btn">claim</button>
 		</form>
-		{(() => { if (typeof document !== 'undefined') { document.getElementById('claim-bonus-btn')?.click(); } return ''; })()}
+	{/if}
+
+	<!-- Daily missions -->
+	{#if data.dailyMissions && data.dailyMissions.missions.length > 0}
+		<div class="baby-mission-card">
+			<div class="baby-mission-card__header">
+				<span class="baby-mission-card__icon">🎯</span>
+				<span class="baby-mission-card__title">きょうのミッション</span>
+				<span class="baby-mission-card__count">
+					{data.dailyMissions.completedCount}/{data.dailyMissions.missions.length}
+				</span>
+			</div>
+			<div class="baby-mission-card__body">
+				{#each data.dailyMissions.missions as mission (mission.id)}
+					<div class="baby-mission-card__item">
+						<span class="baby-mission-card__check">{mission.completed ? '✅' : '⬜'}</span>
+						<span class="baby-mission-card__activity-icon">{mission.activityIcon}</span>
+						<span class="baby-mission-card__name" class:baby-mission-card__name--done={mission.completed}>
+							{mission.activityName}
+						</span>
+					</div>
+				{/each}
+				{#if data.dailyMissions.allComplete}
+					<div class="baby-mission-card__complete">
+						🎉 ミッションコンプリート！ +{data.dailyMissions.bonusAwarded}P
+					</div>
+				{:else if data.dailyMissions.bonusAwarded > 0}
+					<div class="baby-mission-card__bonus">
+						ボーナス +{data.dailyMissions.bonusAwarded}P
+					</div>
+				{/if}
+			</div>
+		</div>
 	{/if}
 
 	<!-- Activity grid by category (same layout as kinder, but 1-tap instant record) -->
@@ -231,12 +326,20 @@ const categoryColors: Record<string, string> = {
 										streakBonus: number;
 										cancelableUntil: string;
 										unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
+										comboBonus: {
+											categoryCombo: { category: string; name: string; bonus: number }[];
+											crossCategoryCombo: { name: string; bonus: number } | null;
+											totalNewBonus: number;
+										} | null;
+										missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 									};
 									resultIcon = activity.icon;
 									resultName = d.activityName;
 									resultPoints = d.totalPoints;
 									resultLogId = d.logId;
+									resultComboBonus = d.comboBonus ?? null;
 									unlockedAchievements = d.unlockedAchievements ?? [];
+									missionResult = d.missionComplete ?? null;
 									startCancelCountdown(d.cancelableUntil);
 									soundService.play('record-complete');
 									resultOpen = true;
@@ -303,6 +406,29 @@ const categoryColors: Record<string, string> = {
 			<div class="animate-point-pop">
 				<p class="baby-result__points">+{resultPoints} ポイント！</p>
 			</div>
+			{#if resultComboBonus}
+				<div class="baby-result__combo">
+					{#each resultComboBonus.categoryCombo as cc}
+						<p class="baby-result__combo-text">{cc.name}コンボ！ +{cc.bonus}P</p>
+					{/each}
+					{#if resultComboBonus.crossCategoryCombo}
+						<p class="baby-result__combo-cross">{resultComboBonus.crossCategoryCombo.name}！ +{resultComboBonus.crossCategoryCombo.bonus}P</p>
+					{/if}
+				</div>
+			{/if}
+			{#if missionResult}
+				<div class="baby-result__mission">
+					<p class="baby-result__mission-text">
+						🎯 ミッションたっせい！
+						{#if missionResult.bonusAwarded > 0}
+							+{missionResult.bonusAwarded}P
+						{/if}
+					</p>
+					{#if missionResult.allComplete}
+						<p class="baby-result__mission-complete">🎉 ぜんぶクリア！</p>
+					{/if}
+				</div>
+			{/if}
 
 			<div class="baby-result__actions">
 				{#if cancelCountdown > 0}
@@ -371,6 +497,62 @@ const categoryColors: Record<string, string> = {
 		totalPoints={bonusData.totalPoints}
 		consecutiveDays={bonusData.consecutiveDays}
 		onClose={handleOmikujiClose}
+	/>
+{/if}
+
+<!-- Birthday review hidden form -->
+{#if birthdaySubmitting && birthdayFormData}
+	<form
+		method="POST"
+		action="?/submitBirthday"
+		use:enhance={() => {
+			return async ({ result }) => {
+				birthdaySubmitting = false;
+				if (result.type === 'success' && result.data && 'birthdayReview' in result.data) {
+					const d = result.data as { basePoints: number; healthPoints: number; aspirationPoints: number; totalPoints: number };
+					birthdayOpen = false;
+					birthdayResult = {
+						basePoints: d.basePoints,
+						healthPoints: d.healthPoints,
+						aspirationPoints: d.aspirationPoints,
+						totalPoints: d.totalPoints,
+					};
+					birthdayResultOpen = true;
+					soundService.play('record-complete');
+				} else {
+					birthdayOpen = false;
+					invalidateAll();
+				}
+			};
+		}}
+		class="hidden"
+	>
+		<input type="hidden" name="healthChecks" value={birthdayFormData.healthChecks} />
+		<input type="hidden" name="aspirationText" value={birthdayFormData.aspirationText} />
+		<button type="submit" id="birthday-submit-btn">submit</button>
+	</form>
+{/if}
+
+<!-- Birthday review overlay -->
+{#if data.birthdayStatus}
+	<BirthdayReviewOverlay
+		bind:open={birthdayOpen}
+		childAge={data.birthdayStatus.childAge}
+		healthCheckItems={data.healthCheckItems}
+		onSubmit={handleBirthdaySubmit}
+	/>
+{/if}
+
+<!-- Birthday result overlay -->
+{#if birthdayResult}
+	<BirthdayResultOverlay
+		bind:open={birthdayResultOpen}
+		childAge={data.birthdayStatus?.childAge ?? 0}
+		basePoints={birthdayResult.basePoints}
+		healthPoints={birthdayResult.healthPoints}
+		aspirationPoints={birthdayResult.aspirationPoints}
+		totalPoints={birthdayResult.totalPoints}
+		onClose={handleBirthdayResultClose}
 	/>
 {/if}
 
@@ -552,6 +734,131 @@ const categoryColors: Record<string, string> = {
 
 	.baby-result__btn--close {
 		background: #e5e7eb;
+	}
+
+	.baby-result__combo {
+		background: #fff7ed;
+		border-radius: 12px;
+		padding: 8px 12px;
+		width: 100%;
+	}
+
+	.baby-result__combo-text {
+		font-size: 0.875rem;
+		font-weight: 700;
+		color: var(--theme-accent, #f59e0b);
+	}
+
+	.baby-result__combo-cross {
+		font-size: 0.875rem;
+		font-weight: 700;
+		color: var(--color-point, #3b82f6);
+	}
+
+	/* Mission card */
+	.baby-mission-card {
+		margin-bottom: 8px;
+		border-radius: 16px;
+		background: white;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		border: 1px solid var(--color-border);
+		overflow: hidden;
+	}
+
+	.baby-mission-card__header {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 8px 12px 4px;
+	}
+
+	.baby-mission-card__icon {
+		font-size: 1.125rem;
+	}
+
+	.baby-mission-card__title {
+		font-weight: 700;
+		font-size: 0.875rem;
+	}
+
+	.baby-mission-card__count {
+		margin-left: auto;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	.baby-mission-card__body {
+		padding: 0 12px 8px;
+	}
+
+	.baby-mission-card__item {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 3px 0;
+	}
+
+	.baby-mission-card__check {
+		font-size: 1.125rem;
+		width: 24px;
+		text-align: center;
+	}
+
+	.baby-mission-card__activity-icon {
+		font-size: 1.125rem;
+	}
+
+	.baby-mission-card__name {
+		font-size: 0.875rem;
+		font-weight: 700;
+	}
+
+	.baby-mission-card__name--done {
+		text-decoration: line-through;
+		color: var(--color-text-muted);
+		font-weight: 400;
+	}
+
+	.baby-mission-card__complete {
+		text-align: center;
+		margin-top: 4px;
+		padding: 4px;
+		border-radius: 8px;
+		background: var(--theme-bg);
+		font-size: 0.875rem;
+		font-weight: 700;
+		color: var(--theme-accent);
+	}
+
+	.baby-mission-card__bonus {
+		text-align: center;
+		margin-top: 4px;
+		padding: 4px;
+		border-radius: 8px;
+		background: var(--theme-bg);
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--color-text-muted);
+	}
+
+	/* Mission result in dialog */
+	.baby-result__mission {
+		background: #fffbeb;
+		border-radius: 12px;
+		padding: 8px 12px;
+		width: 100%;
+	}
+
+	.baby-result__mission-text {
+		font-size: 0.875rem;
+		font-weight: 700;
+		color: #d97706;
+	}
+
+	.baby-result__mission-complete {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: #b45309;
 	}
 
 	/* Error toast */

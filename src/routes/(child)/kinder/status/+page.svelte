@@ -1,9 +1,12 @@
 <script lang="ts">
 import { CATEGORIES } from '$lib/domain/validation/activity';
+import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
 import Progress from '$lib/ui/primitives/Progress.svelte';
 
 let { data } = $props();
+
+let detailOpen = $state(false);
 
 /** レベル別アイコン */
 const levelEmojis: Record<number, string> = {
@@ -39,11 +42,26 @@ const expBarValue = $derived(() => {
 	const maxValue = data.status.maxValue;
 	const totalExp = Object.values(data.status.statuses).reduce((sum, s) => sum + s.value, 0);
 	const avgStatus = totalExp / CATEGORIES.length;
-	// 年齢別max値で正規化してからレベル内の進捗を計算
 	const normalizedAvg = maxValue > 0 ? (avgStatus / maxValue) * 100 : 0;
 	const levelMinAvg = (level - 1) * 10;
 	return Math.min(100, Math.max(0, ((normalizedAvg - levelMinAvg) / 10) * 100));
 });
+
+// Prepare radar chart data
+const radarCategories = $derived(
+	data.status
+		? CATEGORIES.map((cat) => {
+				const s = data.status!.statuses[cat];
+				return {
+					name: cat,
+					value: s?.value ?? 0,
+					maxValue: data.status!.maxValue,
+					stars: s?.stars ?? 0,
+					trend: (s?.trend ?? 'stable') as 'up' | 'down' | 'stable',
+				};
+			})
+		: [],
+);
 </script>
 
 <svelte:head>
@@ -52,7 +70,7 @@ const expBarValue = $derived(() => {
 
 <div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
 	{#if data.status}
-		<!-- Level + title (unified) -->
+		<!-- Level + title -->
 		<div class="bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm mb-[var(--spacing-lg)]">
 			<div class="flex flex-col items-center gap-[var(--spacing-xs)] mb-[var(--spacing-md)]">
 				<span class="text-5xl">
@@ -80,29 +98,44 @@ const expBarValue = $derived(() => {
 			{/if}
 		</div>
 
-		<!-- Status bars -->
-		<div class="bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm">
-			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--spacing-md)]">ステータス</h2>
-			<div class="flex flex-col gap-[var(--spacing-md)]">
-				{#each CATEGORIES as cat (cat)}
-					{@const status = data.status.statuses[cat]}
-					{#if status}
-						<div>
-							<StatusBar
-								category={cat}
-								value={status.value}
-								maxValue={data.status.maxValue}
-								stars={status.stars}
-							/>
-							<div class="flex justify-between items-center mt-1 px-1">
-								<span class="text-xs text-[var(--color-text-muted)]">
-									{trendIcons[status.trend] ?? '➡️'}
-								</span>
-							</div>
-						</div>
-					{/if}
-				{/each}
+		<!-- Radar chart -->
+		<div class="bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm mb-[var(--spacing-md)]">
+			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--spacing-sm)]">ステータス</h2>
+			<div class="flex justify-center">
+				<RadarChart categories={radarCategories} size={300} />
 			</div>
+		</div>
+
+		<!-- Collapsible detail -->
+		<div class="bg-white rounded-[var(--radius-md)] shadow-sm overflow-hidden">
+			<button
+				class="w-full p-[var(--spacing-md)] flex items-center justify-between text-sm font-bold text-[var(--color-text-muted)]"
+				onclick={() => { detailOpen = !detailOpen; }}
+			>
+				<span>{detailOpen ? '▼' : '▶'} くわしくみる</span>
+			</button>
+			{#if detailOpen}
+				<div class="px-[var(--spacing-md)] pb-[var(--spacing-md)] flex flex-col gap-[var(--spacing-md)]">
+					{#each CATEGORIES as cat (cat)}
+						{@const status = data.status.statuses[cat]}
+						{#if status}
+							<div>
+								<StatusBar
+									category={cat}
+									value={status.value}
+									maxValue={data.status.maxValue}
+									stars={status.stars}
+								/>
+								<div class="flex justify-between items-center mt-1 px-1">
+									<span class="text-xs text-[var(--color-text-muted)]">
+										{trendIcons[status.trend] ?? '➡️'}
+									</span>
+								</div>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{:else}
 		<div class="flex flex-col items-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">

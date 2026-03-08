@@ -328,6 +328,59 @@ describe('API-PNT-05: POST /api/v1/points/convert (insufficient)', () => {
 });
 
 // ===================================================================
+// API-PNT-03b: POST /api/v1/points/convert → 自由入力モード
+// ===================================================================
+describe('API-PNT-03b: POST /api/v1/points/convert (manual mode)', () => {
+	it('手動入力で1P単位の変換ができる (200)', async () => {
+		addPoints(1, 700, 'activity', 'テスト');
+
+		const event = createMockEvent({
+			method: 'POST',
+			url: '/api/v1/points/convert',
+			body: { childId: 1, amount: 123, mode: 'manual' },
+		});
+		const res = await POST_CONVERT(event);
+		expect(res.status).toBe(200);
+
+		const body = await jsonBody(res);
+		expect(body.convertedAmount).toBe(123);
+		expect(body.remainingBalance).toBe(577);
+		expect(body.message).toContain('手動入力');
+	});
+
+	it('領収書モードで変換できる (200)', async () => {
+		addPoints(1, 1000, 'activity', 'テスト');
+
+		const event = createMockEvent({
+			method: 'POST',
+			url: '/api/v1/points/convert',
+			body: { childId: 1, amount: 648, mode: 'receipt' },
+		});
+		const res = await POST_CONVERT(event);
+		expect(res.status).toBe(200);
+
+		const body = await jsonBody(res);
+		expect(body.convertedAmount).toBe(648);
+		expect(body.message).toContain('領収書読み取り');
+	});
+
+	it('mode未指定はプリセットとして扱う（後方互換）', async () => {
+		addPoints(1, 700, 'activity', 'テスト');
+
+		const event = createMockEvent({
+			method: 'POST',
+			url: '/api/v1/points/convert',
+			body: { childId: 1, amount: 500 },
+		});
+		const res = await POST_CONVERT(event);
+		expect(res.status).toBe(200);
+
+		const body = await jsonBody(res);
+		expect(body.convertedAmount).toBe(500);
+	});
+});
+
+// ===================================================================
 // API-PNT-06: POST /api/v1/points/convert → 500P単位以外 (400)
 // ===================================================================
 describe('API-PNT-06: POST /api/v1/points/convert (invalid amount)', () => {

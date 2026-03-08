@@ -56,3 +56,13 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 
 - 対象: NUCサーバー (Windows) `ssh kusaka-server@192.168.68.79`
 - 認証: 親の管理画面のみPINコード、子供画面は認証なし（LAN内限定）
+
+## Auto Mode ガイドライン
+
+Auto mode (`claude --enable-auto-mode`) 使用時でも以下は必ず確認を求めること:
+
+- `git push` / `git push --force` など本番リポジトリへの反映
+- 本番サーバーへのデプロイ（ssh 経由の操作）
+- DB のスキーマ変更（`drizzle-kit push`）やデータ削除
+- `.env` や認証情報に関わるファイルの変更
+- `rm -rf` 等の破壊的なファイル操作

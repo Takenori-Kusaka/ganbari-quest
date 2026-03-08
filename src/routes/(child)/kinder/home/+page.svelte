@@ -1,9 +1,12 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { tick } from 'svelte';
 import { CATEGORIES } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
+import BirthdayReviewOverlay from '$lib/ui/components/BirthdayReviewOverlay.svelte';
+import BirthdayResultOverlay from '$lib/ui/components/BirthdayResultOverlay.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import OmikujiOverlay from '$lib/ui/components/OmikujiOverlay.svelte';
@@ -26,6 +29,11 @@ let resultData = $state<{
 	streakDays: number;
 	streakBonus: number;
 	cancelableUntil: string;
+	comboBonus: {
+		categoryCombo: { category: string; name: string; bonus: number }[];
+		crossCategoryCombo: { name: string; bonus: number } | null;
+		totalNewBonus: number;
+	} | null;
 } | null>(null);
 
 // Error state
@@ -59,6 +67,24 @@ let bonusData = $state<{
 	consecutiveDays: number;
 } | null>(null);
 let bonusClaiming = $state(false);
+
+// Birthday review state
+let birthdayOpen = $state(false);
+let birthdayResultOpen = $state(false);
+let birthdayResult = $state<{
+	basePoints: number;
+	healthPoints: number;
+	aspirationPoints: number;
+	totalPoints: number;
+} | null>(null);
+let birthdaySubmitting = $state(false);
+
+// Mission complete result state
+let missionResult = $state<{
+	missionCompleted: boolean;
+	allComplete: boolean;
+	bonusAwarded: number;
+} | null>(null);
 
 // Build recorded counts map: activityId → count
 const recordedMap = $derived(
@@ -112,6 +138,7 @@ function handleResultClose() {
 	if (cancelTimerId) clearInterval(cancelTimerId);
 	cancelTimerId = null;
 	resultOpen = false;
+	missionResult = null;
 
 	// 実績解除があれば表示
 	if (unlockedAchievements.length > 0) {
@@ -164,6 +191,10 @@ function handleRewardClose() {
 $effect(() => {
 	if (data.loginBonusStatus && !data.loginBonusStatus.claimedToday && !bonusClaiming) {
 		bonusClaiming = true;
+		// Wait for DOM update then auto-submit the hidden form
+		tick().then(() => {
+			document.getElementById('claim-bonus-btn')?.click();
+		});
 	}
 });
 
@@ -173,6 +204,40 @@ $effect(() => {
 		checkSpecialReward();
 	}
 });
+
+// Auto-show birthday review if it's birthday and not yet reviewed
+$effect(() => {
+	if (
+		data.birthdayStatus &&
+		data.birthdayStatus.isBirthday &&
+		!data.birthdayStatus.alreadyReviewed &&
+		!bonusClaiming &&
+		!omikujiOpen &&
+		!birthdayOpen &&
+		!birthdayResultOpen
+	) {
+		birthdayOpen = true;
+	}
+});
+
+let birthdayFormData = $state<{ healthChecks: string; aspirationText: string } | null>(null);
+
+function handleBirthdaySubmit(submitData: { healthChecks: Record<string, boolean>; aspirationText: string }) {
+	birthdayFormData = {
+		healthChecks: JSON.stringify(submitData.healthChecks),
+		aspirationText: submitData.aspirationText,
+	};
+	birthdaySubmitting = true;
+	tick().then(() => {
+		document.getElementById('birthday-submit-btn')?.click();
+	});
+}
+
+function handleBirthdayResultClose() {
+	birthdayResultOpen = false;
+	birthdayResult = null;
+	invalidateAll();
+}
 </script>
 
 <svelte:head>
@@ -212,8 +277,6 @@ $effect(() => {
 		>
 			<button type="submit" id="claim-bonus-btn">claim</button>
 		</form>
-		<!-- Auto-submit -->
-		{(() => { if (typeof document !== 'undefined') { document.getElementById('claim-bonus-btn')?.click(); } return ''; })()}
 	{/if}
 
 	<!-- Checklist shortcut -->
@@ -239,6 +302,39 @@ $effect(() => {
 				</div>
 			{/if}
 		</a>
+	{/if}
+
+	<!-- Daily missions -->
+	{#if data.dailyMissions && data.dailyMissions.missions.length > 0}
+		<div class="mb-[var(--spacing-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
+			<div class="flex items-center gap-[var(--spacing-xs)] px-[var(--spacing-md)] pt-[var(--spacing-sm)] pb-1">
+				<span class="text-lg">🎯</span>
+				<span class="font-bold text-sm">きょうのミッション</span>
+				<span class="text-xs text-[var(--color-text-muted)] ml-auto">
+					{data.dailyMissions.completedCount}/{data.dailyMissions.missions.length}
+				</span>
+			</div>
+			<div class="px-[var(--spacing-md)] pb-[var(--spacing-sm)]">
+				{#each data.dailyMissions.missions as mission (mission.id)}
+					<div class="flex items-center gap-[var(--spacing-sm)] py-1">
+						<span class="text-lg w-6 text-center">{mission.completed ? '✅' : '⬜'}</span>
+						<span class="text-lg">{mission.activityIcon}</span>
+						<span class="text-sm {mission.completed ? 'line-through text-[var(--color-text-muted)]' : 'font-bold'}">
+							{mission.activityName}
+						</span>
+					</div>
+				{/each}
+				{#if data.dailyMissions.allComplete}
+					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-[var(--theme-bg)]">
+						<span class="text-sm font-bold text-[var(--theme-accent)]">🎉 ミッションコンプリート！ +{data.dailyMissions.bonusAwarded}P</span>
+					</div>
+				{:else if data.dailyMissions.bonusAwarded > 0}
+					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-[var(--theme-bg)]">
+						<span class="text-xs font-bold text-[var(--color-text-muted)]">ボーナス +{data.dailyMissions.bonusAwarded}P</span>
+					</div>
+				{/if}
+			</div>
+		</div>
 	{/if}
 
 	<!-- Activity grid by category -->
@@ -299,6 +395,12 @@ $effect(() => {
 									streakBonus: number;
 									cancelableUntil: string;
 									unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
+									comboBonus: {
+										categoryCombo: { category: string; name: string; bonus: number }[];
+										crossCategoryCombo: { name: string; bonus: number } | null;
+										totalNewBonus: number;
+									} | null;
+									missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 								};
 								resultData = {
 									logId: d.logId,
@@ -307,8 +409,10 @@ $effect(() => {
 									streakDays: d.streakDays,
 									streakBonus: d.streakBonus,
 									cancelableUntil: d.cancelableUntil,
+									comboBonus: d.comboBonus ?? null,
 								};
 								unlockedAchievements = d.unlockedAchievements ?? [];
+								missionResult = d.missionComplete ?? null;
 								startCancelCountdown(d.cancelableUntil);
 								soundService.play('record-complete');
 								resultOpen = true;
@@ -365,6 +469,33 @@ $effect(() => {
 					<p class="text-sm text-[var(--theme-accent)]">
 						{resultData.streakDays}にちれんぞく！ +{resultData.streakBonus}ボーナス
 					</p>
+				{/if}
+				{#if resultData.comboBonus}
+					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+						{#each resultData.comboBonus.categoryCombo as cc}
+							<p class="text-sm font-bold text-[var(--theme-accent)]">
+								{cc.name}コンボ！（{cc.category}） +{cc.bonus}P
+							</p>
+						{/each}
+						{#if resultData.comboBonus.crossCategoryCombo}
+							<p class="text-sm font-bold text-[var(--color-point)]">
+								{resultData.comboBonus.crossCategoryCombo.name}！ +{resultData.comboBonus.crossCategoryCombo.bonus}P
+							</p>
+						{/if}
+					</div>
+				{/if}
+				{#if missionResult}
+					<div class="bg-amber-50 rounded-[var(--radius-md)] px-3 py-2 w-full">
+						<p class="text-sm font-bold text-amber-600">
+							🎯 ミッションたっせい！
+							{#if missionResult.bonusAwarded > 0}
+								+{missionResult.bonusAwarded}P
+							{/if}
+						</p>
+						{#if missionResult.allComplete}
+							<p class="text-xs font-bold text-amber-500">🎉 ぜんぶクリア！</p>
+						{/if}
+					</div>
 				{/if}
 
 				<div class="flex gap-[var(--spacing-sm)] w-full mt-[var(--spacing-sm)]">
@@ -435,5 +566,61 @@ $effect(() => {
 		totalPoints={bonusData.totalPoints}
 		consecutiveDays={bonusData.consecutiveDays}
 		onClose={handleOmikujiClose}
+	/>
+{/if}
+
+<!-- Birthday review hidden form -->
+{#if birthdaySubmitting && birthdayFormData}
+	<form
+		method="POST"
+		action="?/submitBirthday"
+		use:enhance={() => {
+			return async ({ result }) => {
+				birthdaySubmitting = false;
+				if (result.type === 'success' && result.data && 'birthdayReview' in result.data) {
+					const d = result.data as { basePoints: number; healthPoints: number; aspirationPoints: number; totalPoints: number };
+					birthdayOpen = false;
+					birthdayResult = {
+						basePoints: d.basePoints,
+						healthPoints: d.healthPoints,
+						aspirationPoints: d.aspirationPoints,
+						totalPoints: d.totalPoints,
+					};
+					birthdayResultOpen = true;
+					soundService.play('record-complete');
+				} else {
+					birthdayOpen = false;
+					invalidateAll();
+				}
+			};
+		}}
+		class="hidden"
+	>
+		<input type="hidden" name="healthChecks" value={birthdayFormData.healthChecks} />
+		<input type="hidden" name="aspirationText" value={birthdayFormData.aspirationText} />
+		<button type="submit" id="birthday-submit-btn">submit</button>
+	</form>
+{/if}
+
+<!-- Birthday review overlay -->
+{#if data.birthdayStatus}
+	<BirthdayReviewOverlay
+		bind:open={birthdayOpen}
+		childAge={data.birthdayStatus.childAge}
+		healthCheckItems={data.healthCheckItems}
+		onSubmit={handleBirthdaySubmit}
+	/>
+{/if}
+
+<!-- Birthday result overlay -->
+{#if birthdayResult}
+	<BirthdayResultOverlay
+		bind:open={birthdayResultOpen}
+		childAge={data.birthdayStatus?.childAge ?? 0}
+		basePoints={birthdayResult.basePoints}
+		healthPoints={birthdayResult.healthPoints}
+		aspirationPoints={birthdayResult.aspirationPoints}
+		totalPoints={birthdayResult.totalPoints}
+		onClose={handleBirthdayResultClose}
 	/>
 {/if}
