@@ -33,6 +33,8 @@ let resultData = $state<{
 	comboBonus: {
 		categoryCombo: { category: string; name: string; bonus: number }[];
 		crossCategoryCombo: { name: string; bonus: number } | null;
+		miniCombo: { uniqueCount: number; bonus: number } | null;
+		hints: { message: string }[];
 		totalNewBonus: number;
 	} | null;
 } | null>(null);
@@ -415,6 +417,8 @@ function handleBirthdayResultClose() {
 									comboBonus: {
 										categoryCombo: { category: string; name: string; bonus: number }[];
 										crossCategoryCombo: { name: string; bonus: number } | null;
+										miniCombo: { uniqueCount: number; bonus: number } | null;
+										hints: { message: string }[];
 										totalNewBonus: number;
 									} | null;
 									missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;

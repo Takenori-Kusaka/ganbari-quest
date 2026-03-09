@@ -346,6 +346,8 @@ const categoryColors: Record<string, string> = {
 										comboBonus: {
 											categoryCombo: { category: string; name: string; bonus: number }[];
 											crossCategoryCombo: { name: string; bonus: number } | null;
+											miniCombo: { uniqueCount: number; bonus: number } | null;
+											hints: { message: string }[];
 											totalNewBonus: number;
 										} | null;
 										missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
@@ -781,6 +783,12 @@ const categoryColors: Record<string, string> = {
 		font-size: 0.875rem;
 		font-weight: 700;
 		color: var(--color-point, #3b82f6);
+	}
+
+	.baby-result__combo-hint {
+		font-size: 0.75rem;
+		color: #9ca3af;
+		margin-top: 2px;
 	}
 
 	/* Mission card */
