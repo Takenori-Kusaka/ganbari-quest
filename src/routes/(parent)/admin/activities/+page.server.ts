@@ -47,6 +47,8 @@ export const actions: Actions = {
 		const ageMax = formData.get('ageMax') ? Number(formData.get('ageMax')) : null;
 		const dailyLimitRaw = formData.get('dailyLimit');
 		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null;
+		const nameKana = String(formData.get('nameKana') ?? '').trim() || null;
+		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
 
 		if (!name) return fail(400, { error: '名前を入力してください' });
 		if (!CATEGORIES.includes(category as (typeof CATEGORIES)[number])) {
@@ -63,6 +65,8 @@ export const actions: Actions = {
 				ageMax,
 				dailyLimit,
 				source: 'parent',
+				nameKana,
+				nameKanji,
 			});
 			return { created: true };
 		} catch (e) {
@@ -86,6 +90,8 @@ export const actions: Actions = {
 		const ageMax = formData.get('ageMax') ? Number(formData.get('ageMax')) : null;
 		const dailyLimitRaw = formData.get('dailyLimit');
 		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null;
+		const nameKana = String(formData.get('nameKana') ?? '').trim() || null;
+		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
 
 		if (!id) return fail(400, { error: 'IDが必要です' });
 		if (!name) return fail(400, { error: '名前を入力してください' });
@@ -102,6 +108,8 @@ export const actions: Actions = {
 				ageMin,
 				ageMax,
 				dailyLimit,
+				nameKana,
+				nameKanji,
 			});
 			return { edited: true };
 		} catch (e) {
