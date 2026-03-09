@@ -38,6 +38,8 @@ export const activities = sqliteTable('activities', {
 	gradeLevel: text('grade_level'),
 	subcategory: text('subcategory'),
 	description: text('description'),
+	nameKana: text('name_kana'),
+	nameKanji: text('name_kanji'),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 

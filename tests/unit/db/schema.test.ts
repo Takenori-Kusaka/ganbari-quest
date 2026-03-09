@@ -45,6 +45,8 @@ beforeAll(() => {
 			grade_level TEXT,
 			subcategory TEXT,
 			description TEXT,
+		name_kana TEXT,
+		name_kanji TEXT,
 			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 

@@ -23,6 +23,8 @@ let formPoints = $state(5);
 let formAgeMin = $state('');
 let formAgeMax = $state('');
 let formDailyLimit = $state<string>('');
+let formNameKana = $state('');
+let formNameKanji = $state('');
 
 // 編集・削除状態
 let editingId = $state<number | null>(null);
@@ -35,6 +37,8 @@ let editPoints = $state(5);
 let editAgeMin = $state('');
 let editAgeMax = $state('');
 let editDailyLimit = $state<string>('');
+let editNameKana = $state('');
+let editNameKanji = $state('');
 let deleteConfirmId = $state<number | null>(null);
 let actionMessage = $state('');
 
@@ -49,6 +53,8 @@ function startEdit(activity: typeof data.activities[0]) {
 	editAgeMin = activity.ageMin != null ? String(activity.ageMin) : '';
 	editAgeMax = activity.ageMax != null ? String(activity.ageMax) : '';
 	editDailyLimit = activity.dailyLimit != null ? String(activity.dailyLimit) : '';
+	editNameKana = activity.nameKana ?? '';
+	editNameKanji = activity.nameKanji ?? '';
 	deleteConfirmId = null;
 }
 
@@ -245,6 +251,8 @@ async function suggestFromAI() {
 						formAgeMin = '';
 						formAgeMax = '';
 						formDailyLimit = '';
+						formNameKana = '';
+						formNameKanji = '';
 					}
 					await update();
 				};
@@ -387,6 +395,27 @@ async function suggestFromAI() {
 				</div>
 				<p class="text-xs text-gray-400 mt-1">「無制限」なら何回でも記録できます</p>
 				<input type="hidden" name="dailyLimit" value={formDailyLimit} />
+			</div>
+
+
+			<!-- ひらがな・漢字表記 -->
+			<div>
+				<span class="block text-xs font-bold text-gray-500 mb-1">ひらがな表記（省略可）</span>
+				<input
+					type="text" name="nameKana" bind:value={formNameKana}
+					class="w-full px-3 py-2 border rounded-lg text-sm"
+					placeholder="例: おかたづけした"
+				/>
+				<p class="text-xs text-gray-400 mt-1">6歳未満の子供に表示する名前</p>
+			</div>
+			<div>
+				<span class="block text-xs font-bold text-gray-500 mb-1">漢字表記（省略可）</span>
+				<input
+					type="text" name="nameKanji" bind:value={formNameKanji}
+					class="w-full px-3 py-2 border rounded-lg text-sm"
+					placeholder="例: お片付けをした"
+				/>
+				<p class="text-xs text-gray-400 mt-1">6歳以上の子供に表示する名前</p>
 			</div>
 
 			<button type="submit" class="w-full py-2 bg-green-500 text-white rounded-lg font-bold text-sm hover:bg-green-600 transition-colors">
@@ -559,6 +588,18 @@ async function suggestFromAI() {
 									{/each}
 								</div>
 								<input type="hidden" name="dailyLimit" value={editDailyLimit} />
+							</div>
+
+							<!-- ひらがな・漢字表記 -->
+							<div class="grid grid-cols-2 gap-2">
+								<label class="block">
+									<span class="text-xs font-bold text-gray-500">ひらがな表記</span>
+									<input type="text" name="nameKana" bind:value={editNameKana} class="w-full px-2 py-1.5 border rounded text-sm" placeholder="省略可" />
+								</label>
+								<label class="block">
+									<span class="text-xs font-bold text-gray-500">漢字表記</span>
+									<input type="text" name="nameKanji" bind:value={editNameKanji} class="w-full px-2 py-1.5 border rounded text-sm" placeholder="省略可" />
+								</label>
 							</div>
 							<div class="flex gap-2">
 								<button type="submit" class="flex-1 py-2 bg-blue-500 text-white rounded-lg font-bold text-sm hover:bg-blue-600 transition-colors">

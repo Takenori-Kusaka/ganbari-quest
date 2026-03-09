@@ -5,6 +5,7 @@ import {
 	calcStreakBonus,
 	todayDate,
 	CANCEL_WINDOW_MS,
+	getActivityDisplayName,
 } from '$lib/domain/validation/activity';
 import { logger } from '$lib/server/logger';
 import {
@@ -146,7 +147,7 @@ export function recordActivity(
 		id: log.id,
 		childId,
 		activityId,
-		activityName: activity.name,
+		activityName: getActivityDisplayName(activity, child.age),
 		basePoints: activity.basePoints,
 		streakDays,
 		streakBonus,

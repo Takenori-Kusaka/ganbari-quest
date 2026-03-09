@@ -4,6 +4,7 @@ import {
 	recordActivity,
 } from '$lib/server/services/activity-log-service';
 import { getActivities } from '$lib/server/services/activity-service';
+import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { getChecklistsForChild } from '$lib/server/services/checklist-service';
 import { checkBirthdayStatus, submitBirthdayReview, HEALTH_CHECK_ITEMS } from '$lib/server/services/birthday-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
@@ -32,7 +33,11 @@ export const load: PageServerLoad = async ({ parent }) => {
 			dailyMissions: null,
 		};
 
-	const activities = getActivities({ childAge: child.age });
+	const rawActivities = getActivities({ childAge: child.age });
+	const activities = rawActivities.map((a) => ({
+		...a,
+		displayName: getActivityDisplayName(a, child.age),
+	}));
 	const todayRecorded = getTodayRecordedActivityCounts(child.id);
 	const loginBonusStatus = getLoginBonusStatus(child.id);
 	const bonusStatus = 'error' in loginBonusStatus ? null : loginBonusStatus;

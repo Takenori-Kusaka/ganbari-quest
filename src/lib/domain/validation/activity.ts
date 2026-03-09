@@ -38,6 +38,8 @@ export const createActivitySchema = z.object({
 	subcategory: z.string().max(50).nullable().optional(),
 	description: z.string().max(200).nullable().optional(),
 	dailyLimit: z.number().int().min(0).max(99).nullable().optional(),
+	nameKana: z.string().max(50).nullable().optional(),
+	nameKanji: z.string().max(50).nullable().optional(),
 });
 
 export const updateActivitySchema = createActivitySchema.partial();
@@ -62,6 +64,23 @@ export const activitiesQuerySchema = z.object({
 		.transform((v) => v === 'true')
 		.optional(),
 });
+
+/** 漢字表記に切り替える年齢閾値（小学1年生以上） */
+export const KANJI_AGE_THRESHOLD = 6;
+
+/** 子供の年齢に応じた活動の表示名を返す */
+export function getActivityDisplayName(
+	activity: { name: string; nameKana?: string | null; nameKanji?: string | null },
+	childAge: number,
+): string {
+	if (childAge >= KANJI_AGE_THRESHOLD && activity.nameKanji) {
+		return activity.nameKanji;
+	}
+	if (childAge < KANJI_AGE_THRESHOLD && activity.nameKana) {
+		return activity.nameKana;
+	}
+	return activity.name;
+}
 
 /** Calculate streak bonus: min(consecutiveDays - 1, 10) */
 export function calcStreakBonus(consecutiveDays: number): number {
