@@ -272,6 +272,8 @@ function getCurrentProgress(
 			return getTotalActivityCount(childId);
 		case 'all_categories':
 			return getMaxCategoryCountInDay(childId);
+		case 'category_complete':
+			return getDistinctCategoryCount(childId);
 		case 'level_reach':
 			return getCurrentLevel(childId);
 		case 'total_points':
@@ -396,6 +398,8 @@ function getConditionLabel(
 			return `${prefix}ぜんぶで${conditionValue}かいかつどう`;
 		case 'all_categories':
 			return '1にちでぜんぶのカテゴリをきろく';
+		case 'category_complete':
+			return `${prefix}${conditionValue}カテゴリのかつどうをやる`;
 		case 'level_reach':
 			return `${prefix}レベル${conditionValue}にとうたつ`;
 		case 'total_points':
@@ -422,6 +426,8 @@ function evaluateCondition(
 			return getTotalActivityCount(childId) >= conditionValue;
 		case 'all_categories':
 			return checkAllCategories(childId);
+		case 'category_complete':
+			return getDistinctCategoryCount(childId) >= conditionValue;
 		case 'level_reach':
 			return getCurrentLevel(childId) >= conditionValue;
 		case 'total_points':
@@ -429,6 +435,20 @@ function evaluateCondition(
 		default:
 			return false;
 	}
+}
+
+/** 累計で記録した異なるカテゴリ数を取得 */
+function getDistinctCategoryCount(childId: number): number {
+	const result = db
+		.select({
+			count: countDistinct(activities.category),
+		})
+		.from(activityLogs)
+		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.get();
+
+	return result?.count ?? 0;
 }
 
 /** 全5カテゴリに記録がある日が存在するかチェック */

@@ -2233,7 +2233,22 @@ function seed() {
 				rarity: 'common',
 				sortOrder: 3,
 				repeatable: 1,
-				milestoneValues: JSON.stringify([10, 30, 50, 100, 200, 500, 1000]),
+				milestoneValues: JSON.stringify([10, 20, 30, 50, 100, 200, 500, 1000]),
+			},
+			// --- カテゴリたんけんか（繰り返し・マイルストーン） ---
+			{
+				code: 'category_scout',
+				name: 'カテゴリたんけんか',
+				description: 'いろんなカテゴリのかつどうをやってみよう！',
+				icon: '🧭',
+				category: null,
+				conditionType: 'category_complete',
+				conditionValue: 2,
+				bonusPoints: 15,
+				rarity: 'common',
+				sortOrder: 4,
+				repeatable: 1,
+				milestoneValues: JSON.stringify([2, 3, 5]),
 			},
 			// --- カテゴリたんけん（一度きり） ---
 			{
@@ -2246,7 +2261,7 @@ function seed() {
 				conditionValue: 1,
 				bonusPoints: 50,
 				rarity: 'rare',
-				sortOrder: 4,
+				sortOrder: 5,
 				repeatable: 0,
 			},
 			// --- レベルアップ（繰り返し・マイルストーン） ---
@@ -2260,7 +2275,7 @@ function seed() {
 				conditionValue: 3,
 				bonusPoints: 20,
 				rarity: 'common',
-				sortOrder: 5,
+				sortOrder: 6,
 				repeatable: 1,
 				milestoneValues: JSON.stringify([3, 5, 7, 10]),
 			},
@@ -2275,9 +2290,9 @@ function seed() {
 				conditionValue: 100,
 				bonusPoints: 10,
 				rarity: 'common',
-				sortOrder: 6,
+				sortOrder: 7,
 				repeatable: 1,
-				milestoneValues: JSON.stringify([100, 500, 1000, 5000, 10000]),
+				milestoneValues: JSON.stringify([100, 200, 300, 500, 1000, 5000, 10000]),
 			},
 			// --- ライフイベント（手動付与） ---
 			{
