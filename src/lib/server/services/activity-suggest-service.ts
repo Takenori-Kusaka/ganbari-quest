@@ -11,6 +11,8 @@ interface SuggestedActivity {
 	category: (typeof CATEGORIES)[number];
 	icon: string;
 	basePoints: number;
+	nameKana: string | null;
+	nameKanji: string | null;
 }
 
 const CATEGORY_ICONS: Record<string, string[]> = {
@@ -75,8 +77,13 @@ async function suggestWithGemini(client: GoogleGenerativeAI, text: string): Prom
 - subIcon: 活動の動作や状態を表す絵文字（例: 掃除→🧹、水→💧）、不要ならnull
 例: お風呂掃除→mainIcon:"🛁",subIcon:"🧹"、歯みがき→mainIcon:"🪥",subIcon:null
 
+活動名は3つの表記を返してください:
+- name: デフォルト表示名（ひらがな中心、10文字以内）
+- nameKana: 小さい子向けのひらがな表記（漢字を含まない）。nameと同じならnull
+- nameKanji: 小学生以上向けの漢字表記。nameと同じならnull
+
 以下のJSON形式のみで回答（説明不要）:
-{"name": "短い活動名（ひらがな中心、10文字以内）", "category": "カテゴリ名", "mainIcon": "メイン絵文字", "subIcon": "サブ絵文字またはnull", "basePoints": 数値}`;
+{"name": "活動名", "nameKana": "ひらがな表記またはnull", "nameKanji": "漢字表記またはnull", "category": "カテゴリ名", "mainIcon": "メイン絵文字", "subIcon": "サブ絵文字またはnull", "basePoints": 数値}`;
 
 	const result = await model.generateContent(prompt);
 	const responseText = result.response.text();
@@ -103,6 +110,8 @@ async function suggestWithGemini(client: GoogleGenerativeAI, text: string): Prom
 		category,
 		icon,
 		basePoints,
+		nameKana: parsed.nameKana ? String(parsed.nameKana).slice(0, 50) : null,
+		nameKanji: parsed.nameKanji ? String(parsed.nameKanji).slice(0, 50) : null,
 	};
 }
 
@@ -127,6 +136,8 @@ function suggestByKeywords(text: string): SuggestedActivity {
 					category: rule.category,
 					icon: icons[0]!,
 					basePoints: rule.points,
+					nameKana: null,
+					nameKanji: null,
 				};
 			}
 		}
@@ -138,5 +149,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 		category: 'せいかつ',
 		icon: '📝',
 		basePoints: 5,
+		nameKana: null,
+		nameKanji: null,
 	};
 }
