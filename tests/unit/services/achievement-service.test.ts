@@ -220,6 +220,18 @@ function seedAchievements() {
 				milestoneValues: JSON.stringify([10, 30, 50]),
 			},
 			{
+				code: 'category_scout',
+				name: 'カテゴリたんけんか',
+				icon: '🧭',
+				conditionType: 'category_complete',
+				conditionValue: 2,
+				bonusPoints: 15,
+				rarity: 'common',
+				sortOrder: 4,
+				repeatable: 1,
+				milestoneValues: JSON.stringify([2, 3, 5]),
+			},
+			{
 				code: 'category_explorer',
 				name: 'カテゴリたんけん',
 				icon: '🌈',
@@ -227,7 +239,7 @@ function seedAchievements() {
 				conditionValue: 1,
 				bonusPoints: 50,
 				rarity: 'rare',
-				sortOrder: 4,
+				sortOrder: 5,
 				repeatable: 0,
 			},
 			{
@@ -442,7 +454,7 @@ describe('getChildAchievements', () => {
 
 	it('全実績一覧を返す', () => {
 		const achievements = getChildAchievements(1);
-		expect(achievements).toHaveLength(6);
+		expect(achievements).toHaveLength(7);
 	});
 
 	it('未解除の実績は unlockedAt が null', () => {
@@ -510,5 +522,54 @@ describe('getChildAchievements', () => {
 		const grad = achievements.find((a) => a.code === 'kindergarten_grad');
 		expect(grad?.isMilestone).toBe(true);
 		expect(grad?.conditionType).toBe('milestone_event');
+	});
+});
+
+describe('category_scout (カテゴリたんけんか)', () => {
+	beforeEach(() => {
+		seedBase();
+		seedAchievements();
+	});
+
+	it('2カテゴリの活動で category_scout M=2 を解除する', () => {
+		// うんどう + べんきょう の2カテゴリ
+		testDb.insert(schema.activityLogs).values({
+			childId: 1, activityId: 1, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
+		}).run();
+		testDb.insert(schema.activityLogs).values({
+			childId: 1, activityId: 2, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
+		}).run();
+
+		const unlocked = checkAndUnlockAchievements(1);
+		const scout = unlocked.find((a) => a.code === 'category_scout');
+		expect(scout).toBeDefined();
+		expect(scout?.milestoneValue).toBe(2);
+	});
+
+	it('1カテゴリのみでは category_scout は解除されない', () => {
+		testDb.insert(schema.activityLogs).values({
+			childId: 1, activityId: 1, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
+		}).run();
+
+		const unlocked = checkAndUnlockAchievements(1);
+		const scout = unlocked.find((a) => a.code === 'category_scout');
+		expect(scout).toBeUndefined();
+	});
+
+	it('3カテゴリで M=2 と M=3 を同時解除する', () => {
+		testDb.insert(schema.activityLogs).values({
+			childId: 1, activityId: 1, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
+		}).run();
+		testDb.insert(schema.activityLogs).values({
+			childId: 1, activityId: 2, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
+		}).run();
+		testDb.insert(schema.activityLogs).values({
+			childId: 1, activityId: 3, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
+		}).run();
+
+		const unlocked = checkAndUnlockAchievements(1);
+		const scouts = unlocked.filter((a) => a.code === 'category_scout');
+		expect(scouts).toHaveLength(2);
+		expect(scouts.map((s) => s.milestoneValue).sort()).toEqual([2, 3]);
 	});
 });
