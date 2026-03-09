@@ -284,6 +284,56 @@ describe('combo-service', () => {
 		expect(result.totalNewBonus).toBe(0);
 	});
 
+	it('異なるカテゴリで各1種 → ミニコンボ +1P（カテゴリコンボなし・クロスなし条件）', () => {
+		// ミニコンボはカテゴリコンボもクロスカテゴリコンボもない場合に発動
+		// ただしにとうりゅう(2カテゴリ)が発動するため、このケースではミニコンボは出ない
+		seedActivity(1, 'ランニング', 'うんどう');
+		seedActivity(2, 'さんすう', 'べんきょう');
+		addLog(1, 1, TODAY);
+		addLog(1, 2, TODAY);
+
+		const result = checkAndGrantCombo(1, TODAY);
+		// クロスカテゴリ(にとうりゅう)が発動 → ミニコンボは出ない
+		expect(result.crossCategoryCombo).not.toBeNull();
+		expect(result.miniCombo).toBeNull();
+	});
+
+	it('同カテゴリ2種類（カテゴリコンボあり）→ ミニコンボは出ない', () => {
+		seedActivity(1, 'ランニング', 'うんどう');
+		seedActivity(2, 'サッカー', 'うんどう');
+		addLog(1, 1, TODAY);
+		addLog(1, 2, TODAY);
+
+		const result = checkAndGrantCombo(1, TODAY);
+		expect(result.categoryCombo).toHaveLength(1);
+		expect(result.miniCombo).toBeNull();
+	});
+
+	it('1種類のみ → ミニコンボなし・ヒント表示', () => {
+		seedActivity(1, 'ランニング', 'うんどう');
+		addLog(1, 1, TODAY);
+
+		const result = checkAndGrantCombo(1, TODAY);
+		expect(result.miniCombo).toBeNull();
+		expect(result.hints.some((h) => h.message.includes('ミニコンボ'))).toBe(true);
+	});
+
+	it('カテゴリコンボまであと1つのヒント', () => {
+		seedActivity(1, 'ランニング', 'うんどう');
+		addLog(1, 1, TODAY);
+
+		const result = checkAndGrantCombo(1, TODAY);
+		expect(result.hints.some((h) => h.message.includes('ダブルコンボ'))).toBe(true);
+	});
+
+	it('クロスカテゴリまであと1つのヒント', () => {
+		seedActivity(1, 'ランニング', 'うんどう');
+		addLog(1, 1, TODAY);
+
+		const result = checkAndGrantCombo(1, TODAY);
+		expect(result.hints.some((h) => h.message.includes('にとうりゅう'))).toBe(true);
+	});
+
 	it('同じ活動を複数回実行してもコンボにならない', () => {
 		seedActivity(1, 'ランニング', 'うんどう');
 		addLog(1, 1, TODAY);
