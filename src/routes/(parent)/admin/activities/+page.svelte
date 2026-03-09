@@ -168,6 +168,8 @@ async function suggestFromAI() {
 			formMainIcon = aiParsed.main;
 			formSubIcon = aiParsed.sub ?? '';
 			formPoints = json.basePoints ?? 5;
+			formNameKana = json.nameKana ?? '';
+			formNameKanji = json.nameKanji ?? '';
 			aiMode = false;
 			showAddForm = true;
 		} else {
