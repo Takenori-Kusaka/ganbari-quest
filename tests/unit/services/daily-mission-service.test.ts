@@ -162,6 +162,69 @@ describe('getTodayMissions', () => {
 	});
 });
 
+describe('利用履歴ベースのミッション生成', () => {
+	beforeEach(() => {
+		resetDb();
+		seedChild();
+		seedActivities();
+	});
+
+	it('直近7日で記録した活動が確実枠として含まれる', () => {
+		// activity_logs に「おかたづけ」(id=5) を直近で記録
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 5,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: '2026-03-07',
+			})
+			.run();
+
+		// 多数回試行して、記録済み活動がミッションに含まれる確率を確認
+		let includesRecorded = 0;
+		const trials = 20;
+		for (let i = 0; i < trials; i++) {
+			sqlite.exec('DELETE FROM daily_missions');
+			const result = getTodayMissions(1);
+			if (result.missions.some((m) => m.activityId === 5)) {
+				includesRecorded++;
+			}
+		}
+		// 確実枠があるので高確率で含まれるはず（20回中15回以上）
+		expect(includesRecorded).toBeGreaterThanOrEqual(15);
+	});
+
+	it('利用履歴がない場合もミッションが3つ生成される', () => {
+		// activity_logsが空の状態（新規ユーザ）
+		const result = getTodayMissions(1);
+		expect(result.missions).toHaveLength(3);
+	});
+
+	it('全ての活動を記録済みでもミッションが3つ生成される', () => {
+		// 全活動を記録済みにする
+		const allActs = testDb.select().from(schema.activities).all();
+		for (const a of allActs) {
+			testDb
+				.insert(schema.activityLogs)
+				.values({
+					childId: 1,
+					activityId: a.id,
+					points: 5,
+					streakDays: 1,
+					streakBonus: 0,
+					recordedDate: '2026-03-07',
+				})
+				.run();
+		}
+
+		const result = getTodayMissions(1);
+		expect(result.missions).toHaveLength(3);
+	});
+});
+
 describe('checkMissionCompletion', () => {
 	beforeEach(() => {
 		resetDb();

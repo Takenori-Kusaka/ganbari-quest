@@ -154,7 +154,8 @@ export function recordActivity(
 		recordedAt: now,
 		cancelableUntil,
 		unlockedAchievements,
-		comboBonus: comboBonus.totalNewBonus > 0 ? comboBonus : null,
+		comboBonus:
+			comboBonus.totalNewBonus > 0 || comboBonus.hints.length > 0 ? comboBonus : null,
 		missionComplete: missionResult.missionCompleted ? missionResult : null,
 		levelUp,
 	};

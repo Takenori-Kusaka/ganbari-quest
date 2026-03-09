@@ -1,9 +1,15 @@
 // src/lib/server/services/daily-mission-service.ts
 // デイリーミッション — 毎日3つのミッションを自動生成し、達成でボーナス付与
 
-import { eq, and, ne } from 'drizzle-orm';
+import { eq, and, ne, desc, gte } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { dailyMissions, activities, pointLedger, children } from '$lib/server/db/schema';
+import {
+	dailyMissions,
+	activities,
+	activityLogs,
+	pointLedger,
+	children,
+} from '$lib/server/db/schema';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { CATEGORIES } from '$lib/domain/validation/activity';
 
@@ -189,7 +195,14 @@ export function checkMissionCompletion(
 }
 
 /**
- * ミッション生成
+ * ミッション生成（利用履歴ベースのアルゴリズム）
+ *
+ * 3枠の配分:
+ * 1. 確実枠: 直近7日で記録した活動から（達成しやすい）
+ * 2. チャレンジ枠: 過去に記録したが最近やっていない活動から
+ * 3. 探検枠: 未経験の活動からランダム（新しい活動への誘導）
+ *
+ * フォールバック: 履歴が不足する場合はカテゴリ分散のランダム選出
  */
 function generateMissions(childId: number, date: string): void {
 	const child = db.select().from(children).where(eq(children.id, childId)).get();
@@ -209,14 +222,6 @@ function generateMissions(childId: number, date: string): void {
 
 	if (allActivities.length === 0) return;
 
-	// カテゴリ別にグループ化
-	const byCategory = new Map<string, typeof allActivities>();
-	for (const a of allActivities) {
-		const list = byCategory.get(a.category) ?? [];
-		list.push(a);
-		byCategory.set(a.category, list);
-	}
-
 	// 前日のミッションを取得（同じ組み合わせを避ける）
 	const yesterday = getPreviousDate(date);
 	const prevMissions = db
@@ -226,24 +231,97 @@ function generateMissions(childId: number, date: string): void {
 		.all();
 	const prevIds = new Set(prevMissions.map((m) => m.activityId));
 
-	// 異なるカテゴリから1つずつ選出
-	const availableCategories = CATEGORIES.filter((c) => byCategory.has(c));
-	const shuffledCategories = shuffle(availableCategories);
+	// 利用履歴を取得
+	const sevenDaysAgo = getNDaysAgo(date, 7);
+	const recentLogs = db
+		.select({ activityId: activityLogs.activityId })
+		.from(activityLogs)
+		.where(
+			and(
+				eq(activityLogs.childId, childId),
+				gte(activityLogs.recordedDate, sevenDaysAgo),
+				eq(activityLogs.cancelled, 0),
+			),
+		)
+		.all();
+	const recentActivityIds = new Set(recentLogs.map((l) => l.activityId));
+
+	const allLogs = db
+		.select({ activityId: activityLogs.activityId })
+		.from(activityLogs)
+		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.all();
+	const allRecordedIds = new Set(allLogs.map((l) => l.activityId));
+
+	const allActivityIds = new Set(allActivities.map((a) => a.id));
+
+	// 3つのプール分類
+	const recentPool = allActivities.filter(
+		(a) => recentActivityIds.has(a.id) && !prevIds.has(a.id),
+	);
+	const challengePool = allActivities.filter(
+		(a) => allRecordedIds.has(a.id) && !recentActivityIds.has(a.id) && !prevIds.has(a.id),
+	);
+	const explorerPool = allActivities.filter(
+		(a) => !allRecordedIds.has(a.id) && !prevIds.has(a.id),
+	);
+
 	const selected: number[] = [];
 
-	for (const cat of shuffledCategories) {
-		if (selected.length >= MISSION_COUNT) break;
-		const catActivities = byCategory.get(cat) ?? [];
-		// 前日と異なる活動を優先
-		const preferred = catActivities.filter((a) => !prevIds.has(a.id));
-		const pool = preferred.length > 0 ? preferred : catActivities;
-		const pick = pool[Math.floor(Math.random() * pool.length)];
-		if (pick && !selected.includes(pick.id)) {
-			selected.push(pick.id);
+	// 1. 確実枠: 直近7日で記録した活動から
+	if (recentPool.length > 0) {
+		const pick = pickRandom(recentPool);
+		if (pick) selected.push(pick.id);
+	}
+
+	// 2. チャレンジ枠: 過去に記録したが最近やっていない活動から
+	if (challengePool.length > 0 && selected.length < MISSION_COUNT) {
+		const remaining = challengePool.filter((a) => !selected.includes(a.id));
+		const pick = pickRandom(remaining);
+		if (pick) selected.push(pick.id);
+	}
+
+	// 3. 探検枠: 未経験の活動からランダム
+	if (explorerPool.length > 0 && selected.length < MISSION_COUNT) {
+		const remaining = explorerPool.filter((a) => !selected.includes(a.id));
+		const pick = pickRandom(remaining);
+		if (pick) selected.push(pick.id);
+	}
+
+	// フォールバック: 3つに満たない場合、カテゴリ分散でランダム補充
+	if (selected.length < MISSION_COUNT) {
+		const byCategory = new Map<string, typeof allActivities>();
+		for (const a of allActivities) {
+			if (selected.includes(a.id)) continue;
+			const list = byCategory.get(a.category) ?? [];
+			list.push(a);
+			byCategory.set(a.category, list);
+		}
+
+		// 未選出のカテゴリを優先（カテゴリ分散を保証）
+		const selectedCategories = new Set(
+			selected
+				.map((id) => allActivities.find((a) => a.id === id)?.category)
+				.filter(Boolean),
+		);
+		const unselectedCategories = shuffle(
+			CATEGORIES.filter((c) => byCategory.has(c) && !selectedCategories.has(c)),
+		);
+		const alreadySelectedCategories = shuffle(
+			CATEGORIES.filter((c) => byCategory.has(c) && selectedCategories.has(c)),
+		);
+		const remainingCategories = [...unselectedCategories, ...alreadySelectedCategories];
+
+		for (const cat of remainingCategories) {
+			if (selected.length >= MISSION_COUNT) break;
+			const catActivities = byCategory.get(cat) ?? [];
+			const pool = catActivities.filter((a) => !selected.includes(a.id));
+			const pick = pickRandom(pool);
+			if (pick) selected.push(pick.id);
 		}
 	}
 
-	// 3つに満たない場合、残りからランダムに補充
+	// さらに不足する場合、全活動からランダム補充
 	if (selected.length < MISSION_COUNT) {
 		const remaining = allActivities.filter((a) => !selected.includes(a.id));
 		const shuffled = shuffle(remaining);
@@ -261,6 +339,11 @@ function generateMissions(childId: number, date: string): void {
 	}
 }
 
+function pickRandom<T>(arr: T[]): T | undefined {
+	if (arr.length === 0) return undefined;
+	return arr[Math.floor(Math.random() * arr.length)];
+}
+
 function shuffle<T>(arr: T[]): T[] {
 	const a = [...arr];
 	for (let i = a.length - 1; i > 0; i--) {
@@ -273,5 +356,11 @@ function shuffle<T>(arr: T[]): T[] {
 function getPreviousDate(dateStr: string): string {
 	const d = new Date(dateStr + 'T00:00:00');
 	d.setDate(d.getDate() - 1);
+	return d.toISOString().slice(0, 10);
+}
+
+function getNDaysAgo(dateStr: string, n: number): string {
+	const d = new Date(dateStr + 'T00:00:00');
+	d.setDate(d.getDate() - n);
 	return d.toISOString().slice(0, 10);
 }

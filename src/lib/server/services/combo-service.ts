@@ -12,6 +12,9 @@ const CATEGORY_COMBO_TABLE = [
 	{ minCount: 2, name: 'ダブル', bonus: 2 },
 ] as const;
 
+/** Mini combo: カテゴリ問わず2種類以上の活動で+1P（カテゴリコンボ未発生時のみ） */
+const MINI_COMBO_BONUS = 1;
+
 /** Cross-category combo bonus table */
 const CROSS_CATEGORY_TABLE = [
 	{ minCount: 5, name: 'パーフェクト', bonus: 30 },
@@ -33,9 +36,20 @@ export interface CrossCategoryCombo {
 	bonus: number;
 }
 
+export interface MiniCombo {
+	uniqueCount: number;
+	bonus: number;
+}
+
+export interface ComboHint {
+	message: string;
+}
+
 export interface ComboResult {
 	categoryCombo: CategoryComboEntry[];
 	crossCategoryCombo: CrossCategoryCombo | null;
+	miniCombo: MiniCombo | null;
+	hints: ComboHint[];
 	totalNewBonus: number;
 }
 
@@ -110,6 +124,14 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 		totalDesiredBonus += crossCategoryCombo.bonus;
 	}
 
+	// Mini combo: カテゴリ問わず2種類以上で+1P（他のコンボが未発生時のみ）
+	const totalUniqueActivities = new Set(todayLogs.map((l) => l.activityId)).size;
+	let miniCombo: MiniCombo | null = null;
+	if (totalUniqueActivities >= 2 && categoryCombo.length === 0 && !crossCategoryCombo) {
+		miniCombo = { uniqueCount: totalUniqueActivities, bonus: MINI_COMBO_BONUS };
+		totalDesiredBonus += MINI_COMBO_BONUS;
+	}
+
 	// Get already-granted combo bonus for today (match by description prefix with date)
 	const comboBonusPrefix = `[${date}]`;
 	const alreadyGranted = db
@@ -132,6 +154,9 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 	// Grant the difference
 	if (newBonus > 0) {
 		const parts: string[] = [];
+		if (miniCombo) {
+			parts.push('ミニコンボ');
+		}
 		for (const cc of categoryCombo) {
 			parts.push(`${cc.name}コンボ(${cc.category})`);
 		}
@@ -150,9 +175,57 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 			.run();
 	}
 
+	// Generate combo hints
+	const hints = generateComboHints(byCat, totalUniqueActivities);
+
 	return {
 		categoryCombo,
 		crossCategoryCombo,
+		miniCombo: newBonus > 0 ? miniCombo : null,
+		hints,
 		totalNewBonus: newBonus,
 	};
+}
+
+/**
+ * コンボ予告ヒントを生成
+ */
+function generateComboHints(
+	byCat: Map<string, Set<number>>,
+	totalUnique: number,
+): ComboHint[] {
+	const hints: ComboHint[] = [];
+
+	// カテゴリコンボのヒント
+	for (const [category, activityIds] of byCat) {
+		const count = activityIds.size;
+		for (const entry of CATEGORY_COMBO_TABLE) {
+			if (count === entry.minCount - 1) {
+				hints.push({
+					message: `あと1つで${entry.name}コンボ(${category})！`,
+				});
+				break;
+			}
+		}
+	}
+
+	// クロスカテゴリのヒント
+	const catCount = byCat.size;
+	for (const entry of CROSS_CATEGORY_TABLE) {
+		if (catCount === entry.minCount - 1) {
+			hints.push({
+				message: `あと1カテゴリで${entry.name}！`,
+			});
+			break;
+		}
+	}
+
+	// ミニコンボのヒント（活動1種のみの場合）
+	if (totalUnique === 1 && byCat.size === 1) {
+		hints.push({
+			message: 'もう1つやるとミニコンボ！',
+		});
+	}
+
+	return hints;
 }
