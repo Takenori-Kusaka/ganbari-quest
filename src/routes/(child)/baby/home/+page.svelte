@@ -317,11 +317,11 @@ const categoryColors: Record<string, string> = {
 				{#if completed}
 					<div
 						class="baby-card baby-card--done tap-target"
-						aria-label="{activity.name}（きろくずみ）"
+						aria-label="{activity.displayName}（きろくずみ）"
 					>
 						<span class="baby-card__done-badge animate-bounce-in">💮</span>
 						<CompoundIcon icon={activity.icon} size="lg" faded={true} />
-						<span class="baby-card__name baby-card__name--faded">{activity.name}</span>
+						<span class="baby-card__name baby-card__name--faded">{activity.displayName}</span>
 					</div>
 				{:else}
 					<form
@@ -381,13 +381,13 @@ const categoryColors: Record<string, string> = {
 							disabled={submitting}
 							class="baby-card baby-card--active tap-target"
 							style="border-color: {borderColor};"
-							aria-label="{activity.name}をきろくする"
+							aria-label="{activity.displayName}をきろくする"
 						>
 							{#if actCount > 0}
 								<span class="baby-card__count-badge">{actCount}</span>
 							{/if}
 							<CompoundIcon icon={activity.icon} size="lg" />
-							<span class="baby-card__name">{activity.name}</span>
+							<span class="baby-card__name">{activity.displayName}</span>
 						</button>
 					</form>
 				{/if}

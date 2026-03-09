@@ -15,6 +15,8 @@ export interface CreateActivityInput {
 	subcategory?: string | null;
 	description?: string | null;
 	dailyLimit?: number | null;
+	nameKana?: string | null;
+	nameKanji?: string | null;
 }
 
 export interface ActivityFilter {

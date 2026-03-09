@@ -362,7 +362,7 @@ function handleBirthdayResultClose() {
 			{#each group.items as activity (activity.id)}
 				<ActivityCard
 					icon={activity.icon}
-					name={activity.name}
+					name={activity.displayName}
 					category={activity.category}
 					completed={isCompleted(activity)}
 					count={getCount(activity.id)}

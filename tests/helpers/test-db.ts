@@ -33,6 +33,8 @@ const SQL_CREATE_TABLES = `
 		grade_level TEXT,
 		subcategory TEXT,
 		description TEXT,
+		name_kana TEXT,
+		name_kanji TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -176,7 +178,8 @@ const SQL_CREATE_TABLES = `
 		points INTEGER NOT NULL,
 		icon TEXT,
 		category TEXT NOT NULL,
-		granted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		granted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		shown_at TEXT
 	);
 	CREATE INDEX idx_special_rewards_child
 		ON special_rewards(child_id, granted_at);
@@ -247,6 +250,19 @@ const SQL_CREATE_TABLES = `
 	);
 	CREATE UNIQUE INDEX idx_birthday_reviews_unique
 		ON birthday_reviews(child_id, review_year);
+
+	CREATE TABLE daily_missions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		mission_date TEXT NOT NULL,
+		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		completed INTEGER NOT NULL DEFAULT 0,
+		completed_at TEXT
+	);
+	CREATE UNIQUE INDEX idx_daily_missions_unique
+		ON daily_missions(child_id, mission_date, activity_id);
+	CREATE INDEX idx_daily_missions_child_date
+		ON daily_missions(child_id, mission_date);
 `;
 
 export function createTestDb() {
