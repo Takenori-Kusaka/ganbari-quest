@@ -184,5 +184,10 @@ if (existingTitles.cnt === 0) {
 	console.log(`  SKIP: titles already seeded (${existingTitles.cnt} items)`);
 }
 
+// WAL checkpoint + VACUUM to fix rootpage after schema changes
+console.log('  Running WAL checkpoint + VACUUM...');
+db.pragma('wal_checkpoint(TRUNCATE)');
+db.exec('VACUUM');
+
 db.close();
 console.log('Done.');
