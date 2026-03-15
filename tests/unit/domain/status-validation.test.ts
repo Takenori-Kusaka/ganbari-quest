@@ -11,6 +11,7 @@ import {
 	calcDecay,
 	calcTrend,
 	getAgeCoefficient,
+	getComparisonLabel,
 	LEVEL_TABLE,
 } from '../../../src/lib/domain/validation/status';
 
@@ -191,5 +192,33 @@ describe('LEVEL_TABLE', () => {
 		for (let i = 0; i < 10; i++) {
 			expect(LEVEL_TABLE[i]!.level).toBe(i + 1);
 		}
+	});
+});
+
+describe('getComparisonLabel', () => {
+	it('偏差値65以上は最高ラベル', () => {
+		const result = getComparisonLabel(65);
+		expect(result.text).toBe('みんなよりすっごくすごい！');
+		expect(result.emoji).toBe('🌟');
+	});
+
+	it('偏差値58-64はすごいラベル', () => {
+		expect(getComparisonLabel(58).text).toBe('みんなよりすごい！');
+		expect(getComparisonLabel(64).text).toBe('みんなよりすごい！');
+	});
+
+	it('偏差値50-57は平均ラベル', () => {
+		expect(getComparisonLabel(50).text).toBe('みんなとおなじくらい');
+		expect(getComparisonLabel(57).text).toBe('みんなとおなじくらい');
+	});
+
+	it('偏差値42-49は励ましラベル', () => {
+		expect(getComparisonLabel(42).text).toBe('もうちょっとがんばろう！');
+		expect(getComparisonLabel(49).text).toBe('もうちょっとがんばろう！');
+	});
+
+	it('偏差値41以下は応援ラベル', () => {
+		expect(getComparisonLabel(41).text).toBe('いっしょにがんばろう！');
+		expect(getComparisonLabel(30).emoji).toBe('🌱');
 	});
 });
