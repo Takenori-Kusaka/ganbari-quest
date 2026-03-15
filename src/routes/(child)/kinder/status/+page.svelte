@@ -1,5 +1,6 @@
 <script lang="ts">
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import { getComparisonLabel } from '$lib/domain/validation/status';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
 import Progress from '$lib/ui/primitives/Progress.svelte';
@@ -126,6 +127,7 @@ const radarCategories = $derived(
 					{#each CATEGORY_DEFS as catDef (catDef.id)}
 						{@const status = data.status.statuses[catDef.id]}
 						{#if status}
+							{@const comparison = getComparisonLabel(status.deviationScore)}
 							<div>
 								<StatusBar
 									categoryId={catDef.id}
@@ -134,6 +136,9 @@ const radarCategories = $derived(
 									stars={status.stars}
 								/>
 								<div class="flex justify-between items-center mt-1 px-1">
+									<span class="text-xs" style="color: var(--theme-accent);">
+										{comparison.emoji} {comparison.text}
+									</span>
 									<span class="text-xs text-[var(--color-text-muted)]">
 										{trendIcons[status.trend] ?? '➡️'}
 									</span>
