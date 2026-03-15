@@ -6,13 +6,14 @@ import { getCategoryByName } from '$lib/domain/validation/activity';
 import { joinIcon } from '$lib/domain/icon-utils';
 import { logger } from '$lib/server/logger';
 
-interface SuggestedActivity {
+export interface SuggestedActivity {
 	name: string;
 	categoryId: number;
 	icon: string;
 	basePoints: number;
 	nameKana: string | null;
 	nameKanji: string | null;
+	source: 'gemini' | 'fallback';
 }
 
 const CATEGORY_ICONS: Record<string, string[]> = {
@@ -23,12 +24,84 @@ const CATEGORY_ICONS: Record<string, string[]> = {
 	'そうぞう': ['🎨', '✂️', '🎹', '🎸', '📷', '🏗️', '🧩', '🎤'],
 };
 
+/** キーワード→アイコンの詳細マッピング */
+const KEYWORD_ICONS: Record<string, string> = {
+	'サッカー': '⚽', 'さっかー': '⚽',
+	'野球': '⚾', 'やきゅう': '⚾',
+	'水泳': '🏊', 'すいえい': '🏊', 'プール': '🏊',
+	'自転車': '🚴', 'じてんしゃ': '🚴',
+	'テニス': '🎾', 'てにす': '🎾',
+	'バスケ': '🏀', 'ばすけ': '🏀',
+	'体操': '🤸', 'たいそう': '🤸',
+	'なわとび': '🪢', '縄跳び': '🪢',
+	'散歩': '🚶', 'さんぽ': '🚶',
+	'ダンス': '💃', 'だんす': '💃',
+	'柔道': '🥋', 'じゅうどう': '🥋', '空手': '🥋', 'からて': '🥋',
+	'ピアノ': '🎹', 'ぴあの': '🎹',
+	'ギター': '🎸', 'ぎたー': '🎸',
+	'歌': '🎤', 'うた': '🎤', '合唱': '🎤',
+	'読書': '📖', 'どくしょ': '📖', '本': '📖', 'ほん': '📖',
+	'算数': '🔢', 'さんすう': '🔢', '計算': '🔢', 'けいさん': '🔢',
+	'英語': '🇦', 'えいご': '🇦',
+	'ひらがな': '✏️', 'カタカナ': '✏️',
+	'宿題': '📝', 'しゅくだい': '📝',
+	'歯みがき': '🪥', 'はみがき': '🪥', '歯磨き': '🪥',
+	'片付け': '🧹', 'かたづけ': '🧹', 'おかたづけ': '🧹',
+	'掃除': '🧹', 'そうじ': '🧹',
+	'洗濯': '🧺', 'せんたく': '🧺',
+	'料理': '🍳', 'りょうり': '🍳',
+	'お風呂': '🛁', 'おふろ': '🛁',
+	'着替え': '👕', 'きがえ': '👕',
+	'ごはん': '🍽️',
+	'お絵描き': '🎨', 'おえかき': '🎨', '絵': '🎨',
+	'工作': '✂️', 'こうさく': '✂️',
+	'折り紙': '🪭', 'おりがみ': '🪭',
+	'ブロック': '🧩', 'ぶろっく': '🧩', 'レゴ': '🧩',
+	'粘土': '🏗️', 'ねんど': '🏗️',
+	'あいさつ': '👋', '挨拶': '👋',
+	'ありがとう': '🙏', 'お礼': '🙏',
+};
+
 function getGeminiClient(): GoogleGenerativeAI | null {
 	const apiKey = process.env.GEMINI_API_KEY;
 	if (!apiKey || apiKey === 'your_gemini_api_key_here') {
 		return null;
 	}
 	return new GoogleGenerativeAI(apiKey);
+}
+
+/** JSONをレスポンスから安全に抽出 */
+function extractJson(text: string): unknown {
+	// 1. ```json ... ``` コードブロックを探す
+	const codeBlock = text.match(/```json\s*([\s\S]*?)\s*```/);
+	if (codeBlock?.[1]) {
+		return JSON.parse(codeBlock[1]);
+	}
+
+	// 2. ブラケットマッチングで最初の完全なJSONオブジェクトを抽出
+	const start = text.indexOf('{');
+	if (start === -1) return null;
+	let depth = 0;
+	for (let i = start; i < text.length; i++) {
+		if (text[i] === '{') depth++;
+		else if (text[i] === '}') {
+			depth--;
+			if (depth === 0) {
+				return JSON.parse(text.slice(start, i + 1));
+			}
+		}
+	}
+	return null;
+}
+
+/** テキストがひらがな・カタカナのみかを判定 */
+function isKanaOnly(text: string): boolean {
+	return /^[\u3040-\u309F\u30A0-\u30FF\u30FC\u3000-\u3002\uFF01-\uFF5Eー・、。\s]+$/.test(text);
+}
+
+/** テキストに漢字が含まれるか */
+function hasKanji(text: string): boolean {
+	return /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(text);
 }
 
 /** 自然言語テキストから活動情報を推定 */
@@ -77,42 +150,45 @@ async function suggestWithGemini(client: GoogleGenerativeAI, text: string): Prom
 - subIcon: 活動の動作や状態を表す絵文字（例: 掃除→🧹、水→💧）、不要ならnull
 例: お風呂掃除→mainIcon:"🛁",subIcon:"🧹"、歯みがき→mainIcon:"🪥",subIcon:null
 
-活動名は3つの表記を返してください:
+活動名は3つの表記を必ずすべて返してください（省略禁止）:
 - name: デフォルト表示名（ひらがな中心、10文字以内）
-- nameKana: 小さい子向けのひらがな表記（漢字を含まない）。nameと同じならnull
-- nameKanji: 小学生以上向けの漢字表記。nameと同じならnull
+- nameKana: 小さい子向けの全ひらがな表記（漢字・カタカナを含まない）
+- nameKanji: 小学生以上向けの漢字混じり表記
+
+重要: nameKana と nameKanji は name と同じ内容でも必ず値を返してください。nullにしないでください。
 
 以下のJSON形式のみで回答（説明不要）:
-{"name": "活動名", "nameKana": "ひらがな表記またはnull", "nameKanji": "漢字表記またはnull", "category": "カテゴリ名", "mainIcon": "メイン絵文字", "subIcon": "サブ絵文字またはnull", "basePoints": 数値}`;
+{"name": "活動名", "nameKana": "ひらがな表記", "nameKanji": "漢字表記", "category": "カテゴリ名", "mainIcon": "メイン絵文字", "subIcon": "サブ絵文字またはnull", "basePoints": 数値}`;
 
 	const result = await model.generateContent(prompt);
 	const responseText = result.response.text();
 
-	// JSONを抽出
-	const jsonMatch = responseText.match(/\{[^}]+\}/);
-	if (!jsonMatch) {
-		throw new Error('No JSON in Gemini response');
+	// JSONを安全に抽出
+	const parsed = extractJson(responseText);
+	if (!parsed || typeof parsed !== 'object') {
+		throw new Error('No valid JSON in Gemini response');
 	}
 
-	const parsed = JSON.parse(jsonMatch[0]);
+	const obj = parsed as Record<string, unknown>;
 
 	// バリデーション
-	const catDef = getCategoryByName(parsed.category);
+	const catDef = getCategoryByName(String(obj.category ?? ''));
 	const categoryId = catDef?.id ?? 3; // デフォルト: せいかつ
-	const basePoints = [3, 5, 8, 10].includes(parsed.basePoints) ? parsed.basePoints : 5;
+	const basePoints = [3, 5, 8, 10].includes(Number(obj.basePoints)) ? Number(obj.basePoints) : 5;
 
-	// 複合アイコン対応: mainIcon+subIcon → icon、後方互換で parsed.icon もフォールバック
-	const mainIcon = String(parsed.mainIcon ?? parsed.icon ?? '📝');
-	const subIcon = parsed.subIcon ? String(parsed.subIcon) : null;
+	// 複合アイコン対応: mainIcon+subIcon → icon
+	const mainIcon = String(obj.mainIcon ?? obj.icon ?? '📝');
+	const subIcon = obj.subIcon ? String(obj.subIcon) : null;
 	const icon = joinIcon(mainIcon, subIcon);
 
 	return {
-		name: String(parsed.name ?? text).slice(0, 50),
+		name: String(obj.name ?? text).slice(0, 50),
 		categoryId,
 		icon,
 		basePoints,
-		nameKana: parsed.nameKana ? String(parsed.nameKana).slice(0, 50) : null,
-		nameKanji: parsed.nameKanji ? String(parsed.nameKanji).slice(0, 50) : null,
+		nameKana: obj.nameKana ? String(obj.nameKana).slice(0, 50) : null,
+		nameKanji: obj.nameKanji ? String(obj.nameKanji).slice(0, 50) : null,
+		source: 'gemini',
 	};
 }
 
@@ -120,37 +196,80 @@ async function suggestWithGemini(client: GoogleGenerativeAI, text: string): Prom
 function suggestByKeywords(text: string): SuggestedActivity {
 	const lower = text.toLowerCase();
 
-	const rules: { keywords: string[]; categoryName: string; categoryId: number; points: number }[] = [
-		{ keywords: ['走', 'はし', 'ボール', 'サッカー', '水泳', 'すいえい', '体操', 'たいそう', 'なわとび', 'プール', '散歩', 'さんぽ', '自転車', 'じてんしゃ', 'ダンス', 'スポーツ'], categoryName: 'うんどう', categoryId: 1, points: 5 },
-		{ keywords: ['読', 'よ', '書', 'か', '計算', 'けいさん', 'ひらがな', 'カタカナ', '宿題', 'しゅくだい', '勉強', 'べんきょう', '英語', 'えいご', 'ピアノ', '算数', 'さんすう', '本'], categoryName: 'べんきょう', categoryId: 2, points: 5 },
-		{ keywords: ['歯', 'は', 'みがき', '片付', 'かたづ', '着替', 'きが', '手伝', 'てつだ', '洗', 'あら', '掃除', 'そうじ', 'ごはん', 'お風呂', 'ふろ', '靴', 'くつ'], categoryName: 'せいかつ', categoryId: 3, points: 3 },
-		{ keywords: ['あいさつ', '友達', 'ともだち', 'ありがとう', 'ごめん', '遊', 'あそ', '話', 'はな', 'お礼', 'おれい', '仲良', 'なかよ'], categoryName: 'こうりゅう', categoryId: 4, points: 3 },
-		{ keywords: ['絵', 'え', 'お絵描き', '工作', 'こうさく', '音楽', 'おんがく', '歌', 'うた', '折り紙', 'おりがみ', '作', 'つく', 'ブロック', '粘土', 'ねんど', '料理', 'りょうり'], categoryName: 'そうぞう', categoryId: 5, points: 5 },
+	const rules: { keywords: string[]; categoryName: string; categoryId: number; basePoints: number }[] = [
+		{ keywords: ['走', 'はし', 'かけっこ', 'ボール', 'サッカー', 'さっかー', '水泳', 'すいえい', '体操', 'たいそう', 'なわとび', 'プール', '散歩', 'さんぽ', '自転車', 'じてんしゃ', 'ダンス', 'だんす', 'スポーツ', 'すぽーつ', '柔道', 'じゅうどう', '空手', 'からて', 'バスケ', 'ばすけ', '野球', 'やきゅう', 'テニス', 'てにす'], categoryName: 'うんどう', categoryId: 1, basePoints: 5 },
+		{ keywords: ['読書', 'どくしょ', '計算', 'けいさん', 'ひらがな', 'カタカナ', '宿題', 'しゅくだい', '勉強', 'べんきょう', '英語', 'えいご', '算数', 'さんすう', '漢字', 'かんじ', 'ドリル', 'どりる', '九九', 'くく'], categoryName: 'べんきょう', categoryId: 2, basePoints: 5 },
+		{ keywords: ['歯', 'はみがき', 'みがき', '片付', 'かたづ', '着替', 'きが', '手伝', 'てつだ', '洗', 'あら', '掃除', 'そうじ', 'ごはん', 'お風呂', 'おふろ', 'ふろ', '靴', 'くつ', '布団', 'ふとん', 'トイレ', 'といれ', '水やり', 'みずやり'], categoryName: 'せいかつ', categoryId: 3, basePoints: 3 },
+		{ keywords: ['あいさつ', '挨拶', '友達', 'ともだち', 'ありがとう', 'ごめん', '遊', 'あそ', '話', 'はな', 'お礼', 'おれい', '仲良', 'なかよ', '手紙', 'てがみ', 'おてがみ', '先生', 'せんせい'], categoryName: 'こうりゅう', categoryId: 4, basePoints: 3 },
+		{ keywords: ['絵', 'え', 'お絵描き', 'おえかき', '工作', 'こうさく', '音楽', 'おんがく', '歌', 'うた', '折り紙', 'おりがみ', '作', 'つく', 'ブロック', 'ぶろっく', '粘土', 'ねんど', '料理', 'りょうり', 'ピアノ', 'ぴあの', 'ギター', 'ぎたー'], categoryName: 'そうぞう', categoryId: 5, basePoints: 5 },
 	];
 
-	for (const rule of rules) {
+	// スコアリング: 各カテゴリのヒット数を数えて最高スコアを選択
+	const scores = rules.map((rule) => {
+		let score = 0;
 		for (const kw of rule.keywords) {
-			if (lower.includes(kw)) {
-				const icons = CATEGORY_ICONS[rule.categoryName] ?? ['📝'];
-				return {
-					name: text.slice(0, 50),
-					categoryId: rule.categoryId,
-					icon: icons[0]!,
-					basePoints: rule.points,
-					nameKana: null,
-					nameKanji: null,
-				};
-			}
+			if (lower.includes(kw)) score++;
+		}
+		return { ...rule, score };
+	});
+
+	scores.sort((a, b) => b.score - a.score);
+	const best = scores[0]!;
+
+	// マッチしなかった場合のデフォルト
+	if (best.score === 0) {
+		return {
+			name: text.slice(0, 50),
+			categoryId: 3,
+			icon: '📝',
+			basePoints: 5,
+			...inferNames(text),
+			source: 'fallback',
+		};
+	}
+
+	// キーワード別アイコンを探す
+	let icon = CATEGORY_ICONS[best.categoryName]?.[0] ?? '📝';
+	for (const [kw, ic] of Object.entries(KEYWORD_ICONS)) {
+		if (lower.includes(kw.toLowerCase())) {
+			icon = ic;
+			break;
 		}
 	}
 
-	// デフォルト
+	// ポイント細分化: 習い事系は8P
+	const practiceKeywords = ['ピアノ', 'ぴあの', 'ギター', 'ぎたー', '水泳', 'すいえい', '柔道', 'じゅうどう', '空手', 'からて', 'バレエ', 'ばれえ', '英語', 'えいご'];
+	let points = best.basePoints;
+	for (const kw of practiceKeywords) {
+		if (lower.includes(kw.toLowerCase())) {
+			points = 8;
+			break;
+		}
+	}
+
 	return {
 		name: text.slice(0, 50),
-		categoryId: 3, // せいかつ
-		icon: '📝',
-		basePoints: 5,
-		nameKana: null,
-		nameKanji: null,
+		categoryId: best.categoryId,
+		icon,
+		basePoints: points,
+		...inferNames(text),
+		source: 'fallback',
 	};
+}
+
+/** 入力テキストからnameKana/nameKanjiを推定 */
+function inferNames(text: string): { nameKana: string | null; nameKanji: string | null } {
+	const trimmed = text.trim().slice(0, 50);
+
+	if (isKanaOnly(trimmed)) {
+		// ひらがな・カタカナのみ → nameKana として設定
+		return { nameKana: trimmed, nameKanji: null };
+	}
+
+	if (hasKanji(trimmed)) {
+		// 漢字を含む → nameKanji として設定
+		return { nameKana: null, nameKanji: trimmed };
+	}
+
+	return { nameKana: null, nameKanji: null };
 }

@@ -13,6 +13,7 @@ let aiMode = $state(false);
 let aiInput = $state('');
 let aiLoading = $state(false);
 let aiError = $state('');
+let aiPreview = $state<{ name: string; categoryId: number; icon: string; basePoints: number; nameKana: string | null; nameKanji: string | null; source: string } | null>(null);
 
 // フォーム入力値
 let formName = $state('');
@@ -160,6 +161,7 @@ async function suggestFromAI() {
 	if (!aiInput.trim()) return;
 	aiLoading = true;
 	aiError = '';
+	aiPreview = null;
 	try {
 		const res = await fetch('/api/v1/activities/suggest', {
 			method: 'POST',
@@ -168,16 +170,7 @@ async function suggestFromAI() {
 		});
 		const json = await res.json();
 		if (res.ok) {
-			formName = json.name ?? aiInput;
-			formCategoryId = json.categoryId ?? 3;
-			const aiParsed = splitIcon(json.icon ?? '📝');
-			formMainIcon = aiParsed.main;
-			formSubIcon = aiParsed.sub ?? '';
-			formPoints = json.basePoints ?? 5;
-			formNameKana = json.nameKana ?? '';
-			formNameKanji = json.nameKanji ?? '';
-			aiMode = false;
-			showAddForm = true;
+			aiPreview = json;
 		} else {
 			aiError = json.error?.message ?? '推定に失敗しました';
 		}
@@ -186,6 +179,22 @@ async function suggestFromAI() {
 	} finally {
 		aiLoading = false;
 	}
+}
+
+/** プレビューの提案を採用してフォームに反映 */
+function acceptPreview() {
+	if (!aiPreview) return;
+	formName = aiPreview.name;
+	formCategoryId = aiPreview.categoryId;
+	const aiParsed = splitIcon(aiPreview.icon ?? '📝');
+	formMainIcon = aiParsed.main;
+	formSubIcon = aiParsed.sub ?? '';
+	formPoints = aiPreview.basePoints;
+	formNameKana = aiPreview.nameKana ?? '';
+	formNameKanji = aiPreview.nameKanji ?? '';
+	aiMode = false;
+	aiPreview = null;
+	showAddForm = true;
 }
 </script>
 
@@ -238,6 +247,47 @@ async function suggestFromAI() {
 			</div>
 			{#if aiError}
 				<p class="text-red-500 text-sm">{aiError}</p>
+			{/if}
+
+			<!-- AI提案プレビュー -->
+			{#if aiPreview}
+				<div class="bg-white rounded-lg p-3 space-y-2 border border-purple-200">
+					{#if aiPreview.source === 'fallback'}
+						<p class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">AI APIが利用できなかったため、キーワードベースで推定しました</p>
+					{/if}
+					<div class="flex items-center gap-3">
+						<CompoundIcon icon={aiPreview.icon} size="lg" />
+						<div class="flex-1">
+							<p class="font-bold text-gray-700">{aiPreview.name}</p>
+							<p class="text-xs text-gray-400">
+								{getCategoryById(aiPreview.categoryId)?.name ?? ''} / {aiPreview.basePoints}P
+							</p>
+							{#if aiPreview.nameKana || aiPreview.nameKanji}
+								<p class="text-xs text-gray-400 mt-0.5">
+									{#if aiPreview.nameKana}ひらがな: {aiPreview.nameKana}{/if}
+									{#if aiPreview.nameKana && aiPreview.nameKanji} / {/if}
+									{#if aiPreview.nameKanji}漢字: {aiPreview.nameKanji}{/if}
+								</p>
+							{/if}
+						</div>
+					</div>
+					<div class="flex gap-2">
+						<button
+							type="button"
+							class="flex-1 py-2 bg-green-500 text-white rounded-lg font-bold text-sm hover:bg-green-600 transition-colors"
+							onclick={acceptPreview}
+						>
+							この内容で追加フォームを開く
+						</button>
+						<button
+							type="button"
+							class="px-4 py-2 bg-gray-200 rounded-lg font-bold text-sm hover:bg-gray-300 transition-colors"
+							onclick={() => aiPreview = null}
+						>
+							やり直す
+						</button>
+					</div>
+				</div>
 			{/if}
 		</div>
 	{/if}
