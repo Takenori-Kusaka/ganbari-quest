@@ -10,6 +10,20 @@ let sqlite: InstanceType<typeof Database>;
 let testDb: ReturnType<typeof drizzle>;
 
 const SQL_TABLES = `
+	CREATE TABLE categories (
+		id INTEGER PRIMARY KEY,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		icon TEXT,
+		color TEXT
+	);
+
+	INSERT INTO categories VALUES (1, 'undou', 'うんどう', '🏃', '#FF6B6B');
+	INSERT INTO categories VALUES (2, 'benkyou', 'べんきょう', '📚', '#4ECDC4');
+	INSERT INTO categories VALUES (3, 'seikatsu', 'せいかつ', '🏠', '#FFE66D');
+	INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
+	INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
+
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
@@ -21,7 +35,7 @@ const SQL_TABLES = `
 	);
 	CREATE TABLE activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL, category TEXT NOT NULL, icon TEXT NOT NULL,
+		name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), icon TEXT NOT NULL,
 		base_points INTEGER NOT NULL DEFAULT 5,
 		age_min INTEGER, age_max INTEGER,
 		is_visible INTEGER NOT NULL DEFAULT 1,
@@ -95,10 +109,10 @@ function seedChild() {
 		.run();
 }
 
-function seedActivity(id: number, name: string, category: string) {
+function seedActivity(id: number, name: string, categoryId: number) {
 	testDb
 		.insert(schema.activities)
-		.values({ name, category, icon: '🏃', basePoints: 5 })
+		.values({ name, categoryId, icon: '🏃', basePoints: 5 })
 		.run();
 }
 
@@ -123,7 +137,7 @@ describe('combo-service', () => {
 	});
 
 	it('1種類のみ → コンボなし', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
+		seedActivity(1, 'ランニング', 1);
 		addLog(1, 1, TODAY);
 
 		const result = checkAndGrantCombo(1, TODAY);
@@ -133,8 +147,8 @@ describe('combo-service', () => {
 	});
 
 	it('同一カテゴリ2種類 → ダブルコンボ +2P', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
-		seedActivity(2, 'サッカー', 'うんどう');
+		seedActivity(1, 'ランニング', 1);
+		seedActivity(2, 'サッカー', 1);
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 
@@ -147,9 +161,9 @@ describe('combo-service', () => {
 	});
 
 	it('同一カテゴリ3種類 → トリプルコンボ +5P', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
-		seedActivity(2, 'サッカー', 'うんどう');
-		seedActivity(3, 'すいえい', 'うんどう');
+		seedActivity(1, 'ランニング', 1);
+		seedActivity(2, 'サッカー', 1);
+		seedActivity(3, 'すいえい', 1);
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 		addLog(1, 3, TODAY);
@@ -162,10 +176,10 @@ describe('combo-service', () => {
 	});
 
 	it('同一カテゴリ4種類 → スーパーコンボ +10P', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
-		seedActivity(2, 'サッカー', 'うんどう');
-		seedActivity(3, 'すいえい', 'うんどう');
-		seedActivity(4, 'たいそう', 'うんどう');
+		seedActivity(1, 'ランニング', 1);
+		seedActivity(2, 'サッカー', 1);
+		seedActivity(3, 'すいえい', 1);
+		seedActivity(4, 'たいそう', 1);
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 		addLog(1, 3, TODAY);
@@ -179,8 +193,8 @@ describe('combo-service', () => {
 	});
 
 	it('2カテゴリ横断 → にとうりゅう +3P', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
-		seedActivity(2, 'さんすう', 'べんきょう');
+		seedActivity(1, 'ランニング', 1);
+		seedActivity(2, 'さんすう', 2);
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 
@@ -193,9 +207,9 @@ describe('combo-service', () => {
 	});
 
 	it('3カテゴリ横断 → さんみいったい +8P', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
-		seedActivity(2, 'さんすう', 'べんきょう');
-		seedActivity(3, 'はみがき', 'せいかつ');
+		seedActivity(1, 'ランニング', 1);
+		seedActivity(2, 'さんすう', 2);
+		seedActivity(3, 'はみがき', 3);
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 		addLog(1, 3, TODAY);
@@ -207,11 +221,11 @@ describe('combo-service', () => {
 	});
 
 	it('5カテゴリ横断 → パーフェクト +30P', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
-		seedActivity(2, 'さんすう', 'べんきょう');
-		seedActivity(3, 'はみがき', 'せいかつ');
-		seedActivity(4, 'あいさつ', 'こうりゅう');
-		seedActivity(5, 'おえかき', 'そうぞう');
+		seedActivity(1, 'ランニング', 1);
+		seedActivity(2, 'さんすう', 2);
+		seedActivity(3, 'はみがき', 3);
+		seedActivity(4, 'あいさつ', 4);
+		seedActivity(5, 'おえかき', 5);
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 		addLog(1, 3, TODAY);
@@ -225,9 +239,9 @@ describe('combo-service', () => {
 	});
 
 	it('カテゴリコンボ + クロスカテゴリコンボの複合', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
-		seedActivity(2, 'サッカー', 'うんどう');
-		seedActivity(3, 'さんすう', 'べんきょう');
+		seedActivity(1, 'ランニング', 1);
+		seedActivity(2, 'サッカー', 1);
+		seedActivity(3, 'さんすう', 2);
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 		addLog(1, 3, TODAY);
@@ -243,9 +257,9 @@ describe('combo-service', () => {
 	});
 
 	it('差分付与: 2回目の呼び出しで既存ボーナスを差し引く', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
-		seedActivity(2, 'サッカー', 'うんどう');
-		seedActivity(3, 'すいえい', 'うんどう');
+		seedActivity(1, 'ランニング', 1);
+		seedActivity(2, 'サッカー', 1);
+		seedActivity(3, 'すいえい', 1);
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 
@@ -264,8 +278,8 @@ describe('combo-service', () => {
 	});
 
 	it('キャンセル済みの活動はカウントしない', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
-		seedActivity(2, 'サッカー', 'うんどう');
+		seedActivity(1, 'ランニング', 1);
+		seedActivity(2, 'サッカー', 1);
 		addLog(1, 1, TODAY);
 		// Add cancelled log
 		testDb
@@ -289,8 +303,8 @@ describe('combo-service', () => {
 	it('異なるカテゴリで各1種 → ミニコンボ +1P（カテゴリコンボなし・クロスなし条件）', () => {
 		// ミニコンボはカテゴリコンボもクロスカテゴリコンボもない場合に発動
 		// ただしにとうりゅう(2カテゴリ)が発動するため、このケースではミニコンボは出ない
-		seedActivity(1, 'ランニング', 'うんどう');
-		seedActivity(2, 'さんすう', 'べんきょう');
+		seedActivity(1, 'ランニング', 1);
+		seedActivity(2, 'さんすう', 2);
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 
@@ -301,8 +315,8 @@ describe('combo-service', () => {
 	});
 
 	it('同カテゴリ2種類（カテゴリコンボあり）→ ミニコンボは出ない', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
-		seedActivity(2, 'サッカー', 'うんどう');
+		seedActivity(1, 'ランニング', 1);
+		seedActivity(2, 'サッカー', 1);
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 
@@ -312,7 +326,7 @@ describe('combo-service', () => {
 	});
 
 	it('1種類のみ → ミニコンボなし・ヒント表示', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
+		seedActivity(1, 'ランニング', 1);
 		addLog(1, 1, TODAY);
 
 		const result = checkAndGrantCombo(1, TODAY);
@@ -321,7 +335,7 @@ describe('combo-service', () => {
 	});
 
 	it('カテゴリコンボまであと1つのヒント', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
+		seedActivity(1, 'ランニング', 1);
 		addLog(1, 1, TODAY);
 
 		const result = checkAndGrantCombo(1, TODAY);
@@ -329,7 +343,7 @@ describe('combo-service', () => {
 	});
 
 	it('クロスカテゴリまであと1つのヒント', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
+		seedActivity(1, 'ランニング', 1);
 		addLog(1, 1, TODAY);
 
 		const result = checkAndGrantCombo(1, TODAY);
@@ -337,7 +351,7 @@ describe('combo-service', () => {
 	});
 
 	it('同じ活動を複数回実行してもコンボにならない', () => {
-		seedActivity(1, 'ランニング', 'うんどう');
+		seedActivity(1, 'ランニング', 1);
 		addLog(1, 1, TODAY);
 		addLog(1, 1, TODAY); // same activity twice
 

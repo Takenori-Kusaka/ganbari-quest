@@ -3,6 +3,7 @@
 	import { cubicOut } from 'svelte/easing';
 
 	interface CategoryData {
+		categoryId: number;
 		name: string;
 		value: number;
 		maxValue: number;
@@ -25,12 +26,12 @@
 	const maxRadius = $derived(size * 0.40);
 	const labelRadius = $derived(size * 0.52);
 
-	const categoryColors: Record<string, string> = {
-		うんどう: '#4caf50',
-		べんきょう: '#2196f3',
-		せいかつ: '#ff9800',
-		こうりゅう: '#9c27b0',
-		そうぞう: '#e91e63',
+	const chartColors: Record<number, string> = {
+		1: '#4caf50',  // うんどう
+		2: '#2196f3',  // べんきょう
+		3: '#ff9800',  // せいかつ
+		4: '#9c27b0',  // こうりゅう
+		5: '#e91e63',  // そうぞう
 	};
 
 	const trendIcons: Record<string, string> = {
@@ -140,14 +141,14 @@
 	<!-- Data points -->
 	{#each $animatedValues as val, i}
 		{@const p = getPoint(i, val, maxRadius)}
-		{@const color = categoryColors[categories[i]?.name ?? ''] ?? 'var(--theme-primary)'}
+		{@const color = chartColors[categories[i]?.categoryId ?? 0] ?? 'var(--theme-primary)'}
 		<circle cx={p.x} cy={p.y} r="4" fill={color} stroke="white" stroke-width="1.5" />
 	{/each}
 
 	<!-- Labels -->
 	{#each categories as cat, i}
 		{@const lp = getPoint(i, 100, labelRadius)}
-		{@const color = categoryColors[cat.name] ?? '#666'}
+		{@const color = chartColors[cat.categoryId] ?? '#666'}
 		{@const anchor = i === 0 ? 'middle' : i < 3 ? 'start' : 'end'}
 		{@const dy = i === 0 ? -8 : i === 2 || i === 3 ? 16 : 0}
 		<text

@@ -1,5 +1,5 @@
 <script lang="ts">
-import { CATEGORIES } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
 import Progress from '$lib/ui/primitives/Progress.svelte';
@@ -41,7 +41,7 @@ const expBarValue = $derived(() => {
 	if (level >= 10) return 100;
 	const maxValue = data.status.maxValue;
 	const totalExp = Object.values(data.status.statuses).reduce((sum, s) => sum + s.value, 0);
-	const avgStatus = totalExp / CATEGORIES.length;
+	const avgStatus = totalExp / CATEGORY_DEFS.length;
 	const normalizedAvg = maxValue > 0 ? (avgStatus / maxValue) * 100 : 0;
 	const levelMinAvg = (level - 1) * 10;
 	return Math.min(100, Math.max(0, ((normalizedAvg - levelMinAvg) / 10) * 100));
@@ -50,10 +50,11 @@ const expBarValue = $derived(() => {
 // Prepare radar chart data
 const radarCategories = $derived(
 	data.status
-		? CATEGORIES.map((cat) => {
-				const s = data.status!.statuses[cat];
+		? CATEGORY_DEFS.map((catDef) => {
+				const s = data.status!.statuses[catDef.id];
 				return {
-					name: cat,
+					categoryId: catDef.id,
+					name: catDef.name,
 					value: s?.value ?? 0,
 					maxValue: data.status!.maxValue,
 					deviationScore: s?.deviationScore ?? 50,
@@ -117,12 +118,12 @@ const radarCategories = $derived(
 			</button>
 			{#if detailOpen}
 				<div class="px-[var(--spacing-md)] pb-[var(--spacing-md)] flex flex-col gap-[var(--spacing-md)]">
-					{#each CATEGORIES as cat (cat)}
-						{@const status = data.status.statuses[cat]}
+					{#each CATEGORY_DEFS as catDef (catDef.id)}
+						{@const status = data.status.statuses[catDef.id]}
 						{#if status}
 							<div>
 								<StatusBar
-									category={cat}
+									categoryId={catDef.id}
 									value={status.value}
 									maxValue={data.status.maxValue}
 									stars={status.stars}

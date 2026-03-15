@@ -13,7 +13,7 @@ export function countActivitiesByCategory(
 ) {
 	return db
 		.select({
-			category: activities.category,
+			categoryId: activities.categoryId,
 			count: sql<number>`count(*)`,
 			totalPoints: sql<number>`sum(${activityLogs.points})`,
 		})
@@ -27,7 +27,7 @@ export function countActivitiesByCategory(
 				lte(activityLogs.recordedDate, weekEnd),
 			),
 		)
-		.groupBy(activities.category)
+		.groupBy(activities.categoryId)
 		.all();
 }
 
@@ -62,7 +62,7 @@ export function findEvaluationsByChild(childId: number, limit: number) {
 export function findLastActivityDateByCategory(childId: number) {
 	return db
 		.select({
-			category: activities.category,
+			categoryId: activities.categoryId,
 			lastDate: sql<string>`max(${activityLogs.recordedDate})`,
 		})
 		.from(activityLogs)
@@ -70,6 +70,6 @@ export function findLastActivityDateByCategory(childId: number) {
 		.where(
 			and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)),
 		)
-		.groupBy(activities.category)
+		.groupBy(activities.categoryId)
 		.all();
 }

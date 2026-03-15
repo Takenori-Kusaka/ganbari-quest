@@ -1,7 +1,7 @@
 // src/lib/server/services/evaluation-service.ts
 // 週次評価・日次ステータス減少サービス
 
-import { CATEGORIES } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
 import { calcDecay } from '$lib/domain/validation/status';
 import {
@@ -70,7 +70,7 @@ export interface EvaluationResult {
 	childId: number;
 	weekStart: string;
 	weekEnd: string;
-	categoryScores: Record<string, { count: number; points: number; statusIncrease: number }>;
+	categoryScores: Record<number, { count: number; points: number; statusIncrease: number }>;
 	bonusPoints: number;
 }
 
@@ -83,21 +83,21 @@ export function evaluateChild(
 	const activityCounts = countActivitiesByCategory(childId, weekStart, weekEnd);
 
 	const categoryScores: Record<
-		string,
+		number,
 		{ count: number; points: number; statusIncrease: number }
 	> = {};
 
-	for (const cat of CATEGORIES) {
-		const row = activityCounts.find((a) => a.category === cat);
+	for (const catDef of CATEGORY_DEFS) {
+		const row = activityCounts.find((a) => a.categoryId === catDef.id);
 		const count = row?.count ?? 0;
 		const points = row?.totalPoints ?? 0;
 		const statusIncrease = calcStatusIncrease(count);
 
-		categoryScores[cat] = { count, points, statusIncrease };
+		categoryScores[catDef.id] = { count, points, statusIncrease };
 
 		// ステータス更新
 		if (statusIncrease > 0) {
-			updateStatus(childId, cat, statusIncrease, 'weekly_evaluation');
+			updateStatus(childId, catDef.id, statusIncrease, 'weekly_evaluation');
 		}
 	}
 
@@ -150,21 +150,21 @@ export function getChildEvaluations(childId: number, limit = 10) {
 /** 日次ステータス減少処理 */
 export function runDailyDecay(today?: string): {
 	childId: number;
-	decays: { category: string; amount: number }[];
+	decays: { categoryId: number; amount: number }[];
 }[] {
 	const todayStr = today ?? todayDateJST();
 	const allChildren = findAllChildren();
 	const results: {
 		childId: number;
-		decays: { category: string; amount: number }[];
+		decays: { categoryId: number; amount: number }[];
 	}[] = [];
 
 	for (const child of allChildren) {
 		const lastActivityDates = findLastActivityDateByCategory(child.id);
-		const decays: { category: string; amount: number }[] = [];
+		const decays: { categoryId: number; amount: number }[] = [];
 
-		for (const cat of CATEGORIES) {
-			const row = lastActivityDates.find((r) => r.category === cat);
+		for (const catDef of CATEGORY_DEFS) {
+			const row = lastActivityDates.find((r) => r.categoryId === catDef.id);
 			if (!row?.lastDate) continue;
 
 			const lastDate = new Date(row.lastDate);
@@ -175,8 +175,8 @@ export function runDailyDecay(today?: string): {
 			if (daysSince > 0) {
 				const decayAmount = calcDecay(daysSince, child.age);
 				if (decayAmount > 0) {
-					updateStatus(child.id, cat, -decayAmount, 'daily_decay');
-					decays.push({ category: cat, amount: decayAmount });
+					updateStatus(child.id, catDef.id, -decayAmount, 'daily_decay');
+					decays.push({ categoryId: catDef.id, amount: decayAmount });
 				}
 			}
 		}

@@ -11,16 +11,10 @@ let editSuccess = $state(false);
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
-const categoryLabels: Record<string, { label: string; icon: string }> = {
-	うんどう: { label: 'うんどう', icon: '🏃' },
-	べんきょう: { label: 'べんきょう', icon: '📚' },
-	せいかつ: { label: 'せいかつ', icon: '🏠' },
-	こうりゅう: { label: 'こうりゅう', icon: '🤝' },
-	そうぞう: { label: 'そうぞう', icon: '🎨' },
-};
+
 
 // スライダー操作中の値を追跡（カテゴリ名 → 現在値）
-let sliderValues: Record<string, number> = $state({});
+let sliderValues: Record<number, number> = $state({});
 
 function starText(stars: number): string {
 	return '★'.repeat(stars) + '☆'.repeat(5 - stars);
@@ -87,20 +81,20 @@ function starText(stars: number): string {
 
 			<!-- カテゴリ別ステータス -->
 			<div class="flex flex-col gap-3">
-				{#each data.categories as category (category)}
-					{@const catInfo = categoryLabels[category] ?? { label: category, icon: '📌' }}
-					{@const stat = selectedChild.status.statuses[category]}
+				{#each data.categoryDefs as catDef (catDef.id)}
+					
+					{@const stat = selectedChild.status.statuses[catDef.id]}
 					{#if stat}
 						{@const maxVal = selectedChild.status?.maxValue ?? 100}
 						{@const sliderStep = maxVal > 100 ? 1 : 0.5}
-						{@const currentVal = sliderValues[category] ?? stat.value}
+						{@const currentVal = sliderValues[catDef.id] ?? stat.value}
 						{@const diff = currentVal - stat.value}
 						{@const hasChanged = Math.abs(diff) >= 0.5}
 						<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
 							<div class="flex items-center justify-between mb-2">
 								<div class="flex items-center gap-2">
-									<span class="text-xl">{catInfo.icon}</span>
-									<span class="font-bold text-gray-700">{catInfo.label}</span>
+									<span class="text-xl">{catDef.icon}</span>
+									<span class="font-bold text-gray-700">{catDef.name}</span>
 								</div>
 								<span class="text-sm text-yellow-500">{starText(stat.stars)}</span>
 							</div>
@@ -113,7 +107,7 @@ function starText(stars: number): string {
 									return async ({ result }) => {
 										if (result.type === 'success') {
 											editSuccess = true;
-											delete sliderValues[category];
+											delete sliderValues[catDef.id];
 											await invalidateAll();
 										}
 									};
@@ -121,7 +115,7 @@ function starText(stars: number): string {
 								class="space-y-2"
 							>
 								<input type="hidden" name="childId" value={selectedChildId} />
-								<input type="hidden" name="category" value={category} />
+								<input type="hidden" name="categoryId" value={catDef.id} />
 								<div>
 									<input
 										type="range"
@@ -131,7 +125,7 @@ function starText(stars: number): string {
 										step={sliderStep}
 										value={currentVal}
 										oninput={(e) => {
-											sliderValues[category] = Number(e.currentTarget.value);
+											sliderValues[catDef.id] = Number(e.currentTarget.value);
 										}}
 										class="w-full accent-blue-500"
 									/>

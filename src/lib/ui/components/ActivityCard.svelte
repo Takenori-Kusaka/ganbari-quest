@@ -1,27 +1,20 @@
 <script lang="ts">
 	import CompoundIcon from './CompoundIcon.svelte';
+	import { getCategoryById } from '$lib/domain/validation/activity';
 
 	interface Props {
 		icon: string;
 		name: string;
-		category: string;
+		categoryId: number;
 		completed?: boolean;
 		count?: number;
 		streakDays?: number;
 		onclick?: () => void;
 	}
 
-	let { icon, name, category, completed = false, count = 0, streakDays = 0, onclick }: Props = $props();
+	let { icon, name, categoryId, completed = false, count = 0, streakDays = 0, onclick }: Props = $props();
 
-	const categoryColors: Record<string, string> = {
-		うんどう: 'var(--color-cat-undou)',
-		べんきょう: 'var(--color-cat-benkyou)',
-		せいかつ: 'var(--color-cat-seikatsu)',
-		こうりゅう: 'var(--color-cat-kouryuu)',
-		そうぞう: 'var(--color-cat-souzou)',
-	};
-
-	const borderColor = $derived(categoryColors[category] ?? 'var(--theme-primary)');
+	const borderColor = $derived(getCategoryById(categoryId)?.color ?? 'var(--theme-primary)');
 </script>
 
 <button

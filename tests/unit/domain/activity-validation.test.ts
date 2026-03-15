@@ -17,7 +17,7 @@ describe('createActivitySchema', () => {
 	it('有効な入力を受け入れる', () => {
 		const result = createActivitySchema.safeParse({
 			name: 'たいそうした',
-			category: 'うんどう',
+			categoryId: 1,
 			icon: '🤸',
 			basePoints: 5,
 			ageMin: null,
@@ -29,7 +29,7 @@ describe('createActivitySchema', () => {
 	it('name が空文字だとエラー', () => {
 		const result = createActivitySchema.safeParse({
 			name: '',
-			category: 'うんどう',
+			categoryId: 1,
 			icon: '🤸',
 			basePoints: 5,
 			ageMin: null,
@@ -41,7 +41,7 @@ describe('createActivitySchema', () => {
 	it('name が50文字を超えるとエラー', () => {
 		const result = createActivitySchema.safeParse({
 			name: 'あ'.repeat(51),
-			category: 'うんどう',
+			categoryId: 1,
 			icon: '🤸',
 			basePoints: 5,
 			ageMin: null,
@@ -53,7 +53,7 @@ describe('createActivitySchema', () => {
 	it('不正なカテゴリはエラー', () => {
 		const result = createActivitySchema.safeParse({
 			name: 'テスト',
-			category: 'まほう',
+			categoryId: 99,
 			icon: '✨',
 			basePoints: 5,
 			ageMin: null,
@@ -65,7 +65,7 @@ describe('createActivitySchema', () => {
 	it('basePoints が0以下だとエラー', () => {
 		const result = createActivitySchema.safeParse({
 			name: 'テスト',
-			category: 'うんどう',
+			categoryId: 1,
 			icon: '🤸',
 			basePoints: 0,
 			ageMin: null,
@@ -77,7 +77,7 @@ describe('createActivitySchema', () => {
 	it('basePoints が100を超えるとエラー', () => {
 		const result = createActivitySchema.safeParse({
 			name: 'テスト',
-			category: 'うんどう',
+			categoryId: 1,
 			icon: '🤸',
 			basePoints: 101,
 			ageMin: null,
@@ -140,7 +140,7 @@ describe('activitiesQuerySchema', () => {
 	});
 
 	it('category フィルタを受け入れる', () => {
-		const result = activitiesQuerySchema.safeParse({ category: 'うんどう' });
+		const result = activitiesQuerySchema.safeParse({ categoryId: 1 });
 		expect(result.success).toBe(true);
 	});
 
