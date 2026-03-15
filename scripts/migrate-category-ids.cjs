@@ -227,6 +227,12 @@ try {
   db.exec('COMMIT');
   console.log('\n[migrate-category-ids] ✅ Migration completed successfully!');
 
+  // WAL checkpoint + VACUUM to rebuild rootpages after table recreation
+  console.log('  Running WAL checkpoint + VACUUM...');
+  db.pragma('wal_checkpoint(TRUNCATE)');
+  db.exec('VACUUM');
+  console.log('  ✓ VACUUM completed');
+
   // Re-enable FK and verify
   db.pragma('foreign_keys = ON');
   const fkCheck = db.prepare('PRAGMA foreign_key_check').all();
