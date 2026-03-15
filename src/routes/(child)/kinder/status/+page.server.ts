@@ -1,6 +1,7 @@
 import { evaluateChild, getWeekRange, runDailyDecay } from '$lib/server/services/evaluation-service';
 import { logger } from '$lib/server/logger';
 import { getChildStatus } from '$lib/server/services/status-service';
+import { checkAndUnlockTitles } from '$lib/server/services/title-service';
 import { db } from '$lib/server/db';
 import { evaluations, statusHistory } from '$lib/server/db/schema';
 import { and, eq, like } from 'drizzle-orm';
@@ -62,6 +63,9 @@ export const load: PageServerLoad = async ({ parent }) => {
 		logger.warn('[kinder/status] ステータス取得フォールバック', { context: { childId: child.id, error: result.error } });
 		return { status: null };
 	}
+
+	// 偏差値ベースの称号チェック（ステータスページ表示時のみ）
+	checkAndUnlockTitles(child.id);
 
 	return { status: result };
 };

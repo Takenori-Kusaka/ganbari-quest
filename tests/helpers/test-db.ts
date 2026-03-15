@@ -20,6 +20,20 @@ const SQL_CREATE_TABLES = `
 	INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
 	INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
 
+	CREATE TABLE titles (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		description TEXT,
+		icon TEXT NOT NULL,
+		condition_type TEXT NOT NULL,
+		condition_value INTEGER NOT NULL,
+		condition_extra TEXT,
+		rarity TEXT NOT NULL DEFAULT 'common',
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL,
@@ -28,6 +42,7 @@ const SQL_CREATE_TABLES = `
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'kinder',
 		avatar_url TEXT,
+		active_title_id INTEGER,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
@@ -277,6 +292,15 @@ const SQL_CREATE_TABLES = `
 		ON daily_missions(child_id, mission_date, activity_id);
 	CREATE INDEX idx_daily_missions_child_date
 		ON daily_missions(child_id, mission_date);
+
+	CREATE TABLE child_titles (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		title_id INTEGER NOT NULL REFERENCES titles(id),
+		unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_child_titles_unique
+		ON child_titles(child_id, title_id);
 `;
 
 export function createTestDb() {
