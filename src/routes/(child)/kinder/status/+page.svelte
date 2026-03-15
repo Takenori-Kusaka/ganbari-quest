@@ -82,6 +82,11 @@ const radarCategories = $derived(
 				<p class="text-sm font-bold" style="color: var(--theme-accent);">
 					{data.status.levelTitle}
 				</p>
+				{#if data.activeTitle}
+					<p class="text-xs font-bold" style="color: var(--color-point);">
+						{data.activeTitle.icon} {data.activeTitle.name}
+					</p>
+				{/if}
 				<p class="text-xs" style="color: var(--color-text-muted); text-align: center;">
 					{levelMessages[data.status.level] ?? ''}
 				</p>
@@ -139,6 +144,16 @@ const radarCategories = $derived(
 				</div>
 			{/if}
 		</div>
+
+		<!-- Title collection link -->
+		<a
+			href="/kinder/titles"
+			class="mt-[var(--spacing-md)] block bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm text-center"
+		>
+			<span class="text-2xl">🏅</span>
+			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">しょうごうコレクション</p>
+			<p class="text-xs text-[var(--color-text-muted)]">とくべつなしょうごうをあつめよう！</p>
+		</a>
 	{:else}
 		<div class="flex flex-col items-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--spacing-sm)]">⭐</span>

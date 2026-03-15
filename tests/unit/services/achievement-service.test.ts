@@ -31,6 +31,7 @@ const SQL_TABLES = `
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'kinder',
 		avatar_url TEXT,
+		active_title_id INTEGER,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
