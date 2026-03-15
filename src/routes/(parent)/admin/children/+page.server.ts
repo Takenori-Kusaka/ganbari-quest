@@ -1,5 +1,6 @@
 import { getChildAchievements } from '$lib/server/services/achievement-service';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
+import { getBirthdayReviews } from '$lib/server/services/birthday-service';
 import {
 	addChild,
 	editChild,
@@ -50,6 +51,8 @@ export const load: PageServerLoad = ({ url }) => {
 				logger.warn('[admin/children] 詳細ステータス取得フォールバック', { context: { childId: id, error: status.error } });
 			}
 
+			const birthdayReviews = getBirthdayReviews(id);
+
 			selectedChild = {
 				...child,
 				balance: 'error' in balance ? null : balance,
@@ -57,6 +60,7 @@ export const load: PageServerLoad = ({ url }) => {
 				recentLogs: 'error' in logs ? [] : logs.logs.slice(0, 20),
 				logSummary: 'error' in logs ? null : logs.summary,
 				achievements: achievements,
+				birthdayReviews,
 			};
 		}
 	}

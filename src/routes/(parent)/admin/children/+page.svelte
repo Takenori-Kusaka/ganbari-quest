@@ -419,6 +419,29 @@ function handleFileSelect(childId: number, event: Event) {
 					</div>
 				</div>
 			{/if}
+
+			<!-- Birthday Reviews -->
+			{#if child.birthdayReviews && child.birthdayReviews.length > 0}
+				<div>
+					<h4 class="font-bold text-gray-600 mb-2">🎂 誕生日ふりかえり</h4>
+					<div class="space-y-2">
+						{#each child.birthdayReviews as review}
+							<div class="bg-pink-50 rounded-lg p-3 text-sm">
+								<div class="flex items-center justify-between mb-1">
+									<span class="font-bold">{review.reviewYear}年（{review.ageAtReview}歳）</span>
+									<span class="text-amber-600 font-bold">+{review.totalPoints}P</span>
+								</div>
+								{#if review.aspirationText}
+									<p class="text-gray-600 text-xs">🌟 {review.aspirationText}</p>
+								{/if}
+								<p class="text-gray-400 text-xs mt-1">
+									基本:{review.basePoints}P / 健康:{review.healthPoints}P / 目標:{review.aspirationPoints}P
+								</p>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		</section>
 	{/if}
 </div>

@@ -154,6 +154,16 @@ const radarCategories = $derived(
 			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">しょうごうコレクション</p>
 			<p class="text-xs text-[var(--color-text-muted)]">とくべつなしょうごうをあつめよう！</p>
 		</a>
+
+		<!-- Memories link -->
+		<a
+			href="/kinder/memories"
+			class="mt-[var(--spacing-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm text-center"
+		>
+			<span class="text-2xl">📖</span>
+			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">おもいで</p>
+			<p class="text-xs text-[var(--color-text-muted)]">おたんじょうびのふりかえりをみよう！</p>
+		</a>
 	{:else}
 		<div class="flex flex-col items-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--spacing-sm)]">⭐</span>
