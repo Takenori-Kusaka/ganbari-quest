@@ -3,7 +3,7 @@
 // Usage: npx tsx src/lib/server/db/seed.ts
 
 import Database from 'better-sqlite3';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 
@@ -2183,20 +2183,90 @@ function seed() {
 	}
 
 	// ============================================================
-	// 初期市場ベンチマーク（4歳児・暫定値）
+	// 初期市場ベンチマーク（3〜12歳）
 	// ============================================================
-	const existingBenchmarks = db.select().from(schema.marketBenchmarks).all();
-	if (existingBenchmarks.length === 0) {
-		const benchmarksData: (typeof schema.marketBenchmarks.$inferInsert)[] = [
-			{ age: 4, categoryId: 1, mean: 30.0, stdDev: 10.0, source: '暫定値' },
-			{ age: 4, categoryId: 2, mean: 20.0, stdDev: 8.0, source: '暫定値' },
-			{ age: 4, categoryId: 3, mean: 35.0, stdDev: 8.0, source: '暫定値' },
-			{ age: 4, categoryId: 4, mean: 25.0, stdDev: 10.0, source: '暫定値' },
-			{ age: 4, categoryId: 5, mean: 25.0, stdDev: 9.0, source: '暫定値' },
-		];
+	const benchmarksData: (typeof schema.marketBenchmarks.$inferInsert)[] = [
+		// age 3 (maxValue: 200)
+		{ age: 3, categoryId: 1, mean: 15.0, stdDev: 5.0, source: '推定値' },
+		{ age: 3, categoryId: 2, mean: 10.0, stdDev: 4.0, source: '推定値' },
+		{ age: 3, categoryId: 3, mean: 20.0, stdDev: 5.0, source: '推定値' },
+		{ age: 3, categoryId: 4, mean: 12.0, stdDev: 5.0, source: '推定値' },
+		{ age: 3, categoryId: 5, mean: 12.0, stdDev: 4.0, source: '推定値' },
+		// age 4 (maxValue: 350)
+		{ age: 4, categoryId: 1, mean: 30.0, stdDev: 10.0, source: '推定値' },
+		{ age: 4, categoryId: 2, mean: 20.0, stdDev: 8.0, source: '推定値' },
+		{ age: 4, categoryId: 3, mean: 35.0, stdDev: 8.0, source: '推定値' },
+		{ age: 4, categoryId: 4, mean: 25.0, stdDev: 10.0, source: '推定値' },
+		{ age: 4, categoryId: 5, mean: 25.0, stdDev: 9.0, source: '推定値' },
+		// age 5 (maxValue: 500)
+		{ age: 5, categoryId: 1, mean: 50.0, stdDev: 15.0, source: '推定値' },
+		{ age: 5, categoryId: 2, mean: 35.0, stdDev: 12.0, source: '推定値' },
+		{ age: 5, categoryId: 3, mean: 55.0, stdDev: 12.0, source: '推定値' },
+		{ age: 5, categoryId: 4, mean: 40.0, stdDev: 14.0, source: '推定値' },
+		{ age: 5, categoryId: 5, mean: 40.0, stdDev: 13.0, source: '推定値' },
+		// age 6 (maxValue: 800)
+		{ age: 6, categoryId: 1, mean: 80.0, stdDev: 25.0, source: '推定値' },
+		{ age: 6, categoryId: 2, mean: 60.0, stdDev: 20.0, source: '推定値' },
+		{ age: 6, categoryId: 3, mean: 90.0, stdDev: 20.0, source: '推定値' },
+		{ age: 6, categoryId: 4, mean: 65.0, stdDev: 22.0, source: '推定値' },
+		{ age: 6, categoryId: 5, mean: 65.0, stdDev: 20.0, source: '推定値' },
+		// age 7 (maxValue: 1100)
+		{ age: 7, categoryId: 1, mean: 120.0, stdDev: 35.0, source: '推定値' },
+		{ age: 7, categoryId: 2, mean: 90.0, stdDev: 28.0, source: '推定値' },
+		{ age: 7, categoryId: 3, mean: 130.0, stdDev: 28.0, source: '推定値' },
+		{ age: 7, categoryId: 4, mean: 95.0, stdDev: 30.0, source: '推定値' },
+		{ age: 7, categoryId: 5, mean: 95.0, stdDev: 28.0, source: '推定値' },
+		// age 8 (maxValue: 1500)
+		{ age: 8, categoryId: 1, mean: 160.0, stdDev: 45.0, source: '推定値' },
+		{ age: 8, categoryId: 2, mean: 130.0, stdDev: 38.0, source: '推定値' },
+		{ age: 8, categoryId: 3, mean: 180.0, stdDev: 38.0, source: '推定値' },
+		{ age: 8, categoryId: 4, mean: 130.0, stdDev: 40.0, source: '推定値' },
+		{ age: 8, categoryId: 5, mean: 130.0, stdDev: 35.0, source: '推定値' },
+		// age 9 (maxValue: 2000)
+		{ age: 9, categoryId: 1, mean: 220.0, stdDev: 60.0, source: '推定値' },
+		{ age: 9, categoryId: 2, mean: 180.0, stdDev: 50.0, source: '推定値' },
+		{ age: 9, categoryId: 3, mean: 250.0, stdDev: 50.0, source: '推定値' },
+		{ age: 9, categoryId: 4, mean: 180.0, stdDev: 55.0, source: '推定値' },
+		{ age: 9, categoryId: 5, mean: 180.0, stdDev: 48.0, source: '推定値' },
+		// age 10 (maxValue: 2500)
+		{ age: 10, categoryId: 1, mean: 280.0, stdDev: 75.0, source: '推定値' },
+		{ age: 10, categoryId: 2, mean: 240.0, stdDev: 62.0, source: '推定値' },
+		{ age: 10, categoryId: 3, mean: 320.0, stdDev: 60.0, source: '推定値' },
+		{ age: 10, categoryId: 4, mean: 230.0, stdDev: 65.0, source: '推定値' },
+		{ age: 10, categoryId: 5, mean: 230.0, stdDev: 58.0, source: '推定値' },
+		// age 11 (maxValue: 3000)
+		{ age: 11, categoryId: 1, mean: 340.0, stdDev: 85.0, source: '推定値' },
+		{ age: 11, categoryId: 2, mean: 300.0, stdDev: 75.0, source: '推定値' },
+		{ age: 11, categoryId: 3, mean: 400.0, stdDev: 70.0, source: '推定値' },
+		{ age: 11, categoryId: 4, mean: 280.0, stdDev: 75.0, source: '推定値' },
+		{ age: 11, categoryId: 5, mean: 280.0, stdDev: 68.0, source: '推定値' },
+		// age 12 (maxValue: 3500)
+		{ age: 12, categoryId: 1, mean: 400.0, stdDev: 95.0, source: '推定値' },
+		{ age: 12, categoryId: 2, mean: 360.0, stdDev: 85.0, source: '推定値' },
+		{ age: 12, categoryId: 3, mean: 480.0, stdDev: 80.0, source: '推定値' },
+		{ age: 12, categoryId: 4, mean: 340.0, stdDev: 85.0, source: '推定値' },
+		{ age: 12, categoryId: 5, mean: 340.0, stdDev: 78.0, source: '推定値' },
+	];
 
-		db.insert(schema.marketBenchmarks).values(benchmarksData).run();
-		console.log(`  ✓ market_benchmarks: ${benchmarksData.length} items`);
+	let benchmarkInserted = 0;
+	for (const row of benchmarksData) {
+		const existing = db
+			.select({ id: schema.marketBenchmarks.id })
+			.from(schema.marketBenchmarks)
+			.where(
+				and(
+					eq(schema.marketBenchmarks.age, row.age!),
+					eq(schema.marketBenchmarks.categoryId, row.categoryId!),
+				),
+			)
+			.get();
+		if (!existing) {
+			db.insert(schema.marketBenchmarks).values(row).run();
+			benchmarkInserted++;
+		}
+	}
+	if (benchmarkInserted > 0) {
+		console.log(`  ✓ market_benchmarks: ${benchmarkInserted} items added`);
 	} else {
 		console.log('  - market_benchmarks: already seeded');
 	}

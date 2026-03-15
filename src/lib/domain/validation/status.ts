@@ -65,6 +65,15 @@ export function calcCharacterType(avgDeviationScore: number): string {
 	return 'ganbari';
 }
 
+/** 偏差値から比較ラベル（子供向け） */
+export function getComparisonLabel(deviationScore: number): { text: string; emoji: string } {
+	if (deviationScore >= 65) return { text: 'みんなよりすっごくすごい！', emoji: '🌟' };
+	if (deviationScore >= 58) return { text: 'みんなよりすごい！', emoji: '✨' };
+	if (deviationScore >= 50) return { text: 'みんなとおなじくらい', emoji: '😊' };
+	if (deviationScore >= 42) return { text: 'もうちょっとがんばろう！', emoji: '💪' };
+	return { text: 'いっしょにがんばろう！', emoji: '🌱' };
+}
+
 /** 年齢係数（ステータス減少用） */
 export function getAgeCoefficient(age: number): number {
 	if (age <= 6) return 0.3;

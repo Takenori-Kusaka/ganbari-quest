@@ -100,6 +100,40 @@ export function findBenchmark(age: number, categoryId: number) {
 		.get();
 }
 
+/** 全ベンチマークを取得（年齢・カテゴリ順） */
+export function findAllBenchmarks() {
+	return db
+		.select()
+		.from(marketBenchmarks)
+		.orderBy(marketBenchmarks.age, marketBenchmarks.categoryId)
+		.all();
+}
+
+/** ベンチマークをupsert */
+export function upsertBenchmark(
+	age: number,
+	categoryId: number,
+	mean: number,
+	stdDev: number,
+	source: string,
+) {
+	const existing = findBenchmark(age, categoryId);
+	const now = new Date().toISOString();
+	if (existing) {
+		return db
+			.update(marketBenchmarks)
+			.set({ mean, stdDev, source, updatedAt: now })
+			.where(eq(marketBenchmarks.id, existing.id))
+			.returning()
+			.get();
+	}
+	return db
+		.insert(marketBenchmarks)
+		.values({ age, categoryId, mean, stdDev, source })
+		.returning()
+		.get();
+}
+
 /** 子供の存在確認（年齢も取得） */
 export function findChildById(id: number) {
 	return db.select().from(children).where(eq(children.id, id)).get();
