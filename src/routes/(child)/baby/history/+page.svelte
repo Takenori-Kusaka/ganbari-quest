@@ -2,6 +2,8 @@
 import { goto } from '$app/navigation';
 import Tabs from '$lib/ui/primitives/Tabs.svelte';
 
+import { getCategoryById } from '$lib/domain/validation/activity';
+
 let { data } = $props();
 
 const tabItems = [
@@ -34,13 +36,7 @@ function formatDate(dateStr: string): string {
 	return `${month}がつ${day}にち（${weekday}）`;
 }
 
-const categoryColors: Record<string, string> = {
-	うんどう: 'var(--color-cat-undou)',
-	べんきょう: 'var(--color-cat-benkyou)',
-	せいかつ: 'var(--color-cat-seikatsu)',
-	こうりゅう: 'var(--color-cat-kouryuu)',
-	そうぞう: 'var(--color-cat-souzou)',
-};
+
 </script>
 
 <svelte:head>
@@ -65,9 +61,9 @@ const categoryColors: Record<string, string> = {
 						{#each Object.entries(data.summary.byCategory) as [cat, info]}
 							<span
 								class="history-summary__cat-badge"
-								style="background-color: {categoryColors[cat] ?? 'var(--theme-primary)'};"
+								style="background-color: {getCategoryById(Number(cat))?.color ?? 'var(--theme-primary)'};"
 							>
-								{cat} {info.count}かい
+								{getCategoryById(Number(cat))?.name ?? cat} {info.count}かい
 							</span>
 						{/each}
 					</div>
@@ -95,9 +91,9 @@ const categoryColors: Record<string, string> = {
 										<p class="history-log__cat">
 											<span
 												class="history-log__cat-dot"
-												style="background-color: {categoryColors[log.category] ?? 'var(--theme-primary)'};"
+												style="background-color: {getCategoryById(log.categoryId)?.color ?? 'var(--theme-primary)'};"
 											></span>
-											{log.category}
+											{getCategoryById(log.categoryId)?.name ?? ""}
 										</p>
 									</div>
 									<div class="history-log__points">

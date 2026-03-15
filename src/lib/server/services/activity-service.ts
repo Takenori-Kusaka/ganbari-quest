@@ -1,11 +1,11 @@
-import type { Category, GradeLevel, Source } from '$lib/domain/validation/activity';
+import type { GradeLevel, Source } from '$lib/domain/validation/activity';
 import { db } from '$lib/server/db';
 import { activities, activityLogs } from '$lib/server/db/schema';
 import { and, count, eq, gte, isNull, lte, or } from 'drizzle-orm';
 
 export interface CreateActivityInput {
 	name: string;
-	category: Category;
+	categoryId: number;
 	icon: string;
 	basePoints: number;
 	ageMin: number | null;
@@ -21,7 +21,7 @@ export interface CreateActivityInput {
 
 export interface ActivityFilter {
 	childAge?: number;
-	category?: Category;
+	categoryId?: number;
 	includeHidden?: boolean;
 }
 
@@ -30,8 +30,8 @@ export function getActivities(filter?: ActivityFilter) {
 
 	const conditions = [];
 
-	if (filter?.category) {
-		conditions.push(eq(activities.category, filter.category));
+	if (filter?.categoryId) {
+		conditions.push(eq(activities.categoryId, filter.categoryId));
 	}
 
 	if (!filter?.includeHidden) {

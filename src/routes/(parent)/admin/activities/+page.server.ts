@@ -1,4 +1,4 @@
-import { CATEGORIES } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { logger } from '$lib/server/logger';
 import {
 	createActivity,
@@ -13,7 +13,7 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => {
 	const activities = getActivities({ includeHidden: true });
-	return { activities, categories: CATEGORIES };
+	return { activities, categoryDefs: CATEGORY_DEFS };
 };
 
 export const actions: Actions = {
@@ -40,7 +40,7 @@ export const actions: Actions = {
 	create: async ({ request }) => {
 		const formData = await request.formData();
 		const name = String(formData.get('name') ?? '').trim();
-		const category = String(formData.get('category') ?? '');
+		const categoryId = Number(formData.get('categoryId') ?? 0);
 		const icon = String(formData.get('icon') ?? '📝');
 		const basePoints = Number(formData.get('basePoints') ?? 5);
 		const ageMin = formData.get('ageMin') ? Number(formData.get('ageMin')) : null;
@@ -51,14 +51,14 @@ export const actions: Actions = {
 		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
 
 		if (!name) return fail(400, { error: '名前を入力してください' });
-		if (!CATEGORIES.includes(category as (typeof CATEGORIES)[number])) {
+		if (!categoryId || categoryId < 1 || categoryId > 5) {
 			return fail(400, { error: 'カテゴリを選択してください' });
 		}
 
 		try {
 			createActivity({
 				name,
-				category: category as (typeof CATEGORIES)[number],
+				categoryId,
 				icon,
 				basePoints,
 				ageMin,
@@ -73,7 +73,7 @@ export const actions: Actions = {
 			logger.error('[admin/activities] 活動追加失敗', {
 				error: e instanceof Error ? e.message : String(e),
 				stack: e instanceof Error ? e.stack : undefined,
-				context: { name, category },
+				context: { name, categoryId },
 			});
 			return fail(500, { error: '追加に失敗しました' });
 		}
@@ -83,7 +83,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const id = Number(formData.get('id'));
 		const name = String(formData.get('name') ?? '').trim();
-		const category = String(formData.get('category') ?? '');
+		const categoryId = Number(formData.get('categoryId') ?? 0);
 		const icon = String(formData.get('icon') ?? '📝');
 		const basePoints = Number(formData.get('basePoints') ?? 5);
 		const ageMin = formData.get('ageMin') ? Number(formData.get('ageMin')) : null;
@@ -95,14 +95,14 @@ export const actions: Actions = {
 
 		if (!id) return fail(400, { error: 'IDが必要です' });
 		if (!name) return fail(400, { error: '名前を入力してください' });
-		if (!CATEGORIES.includes(category as (typeof CATEGORIES)[number])) {
+		if (!categoryId || categoryId < 1 || categoryId > 5) {
 			return fail(400, { error: 'カテゴリを選択してください' });
 		}
 
 		try {
 			updateActivity(id, {
 				name,
-				category: category as (typeof CATEGORIES)[number],
+				categoryId,
 				icon,
 				basePoints,
 				ageMin,

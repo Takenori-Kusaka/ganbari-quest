@@ -11,6 +11,20 @@ let sqlite: InstanceType<typeof Database>;
 let testDb: ReturnType<typeof drizzle>;
 
 const SQL_TABLES = `
+	CREATE TABLE categories (
+		id INTEGER PRIMARY KEY,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		icon TEXT,
+		color TEXT
+	);
+
+	INSERT INTO categories VALUES (1, 'undou', 'うんどう', '🏃', '#FF6B6B');
+	INSERT INTO categories VALUES (2, 'benkyou', 'べんきょう', '📚', '#4ECDC4');
+	INSERT INTO categories VALUES (3, 'seikatsu', 'せいかつ', '🏠', '#FFE66D');
+	INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
+	INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
+
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
@@ -22,7 +36,7 @@ const SQL_TABLES = `
 	);
 	CREATE TABLE activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL, category TEXT NOT NULL, icon TEXT NOT NULL,
+		name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), icon TEXT NOT NULL,
 		base_points INTEGER NOT NULL DEFAULT 5,
 		age_min INTEGER, age_max INTEGER,
 		is_visible INTEGER NOT NULL DEFAULT 1,
@@ -56,24 +70,24 @@ const SQL_TABLES = `
 	CREATE TABLE statuses (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category TEXT NOT NULL, value REAL NOT NULL DEFAULT 0.0,
+		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL DEFAULT 0.0,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category);
+	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
 	CREATE TABLE status_history (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category TEXT NOT NULL, value REAL NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL,
 		change_amount REAL NOT NULL, change_type TEXT NOT NULL,
 		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE market_benchmarks (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		age INTEGER NOT NULL, category TEXT NOT NULL,
+		age INTEGER NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id),
 		mean REAL NOT NULL, std_dev REAL NOT NULL,
 		source TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks(age, category);
+	CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks(age, category_id);
 	CREATE TABLE achievements (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		code TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
@@ -147,11 +161,11 @@ function seedBase() {
 
 	// 活動マスタ（5カテゴリ分）
 	const acts = [
-		{ name: 'たいそう', category: 'うんどう', icon: '🤸', basePoints: 5, sortOrder: 1 },
-		{ name: 'えほん', category: 'べんきょう', icon: '📖', basePoints: 5, sortOrder: 2 },
-		{ name: 'おえかき', category: 'そうぞう', icon: '🎨', basePoints: 5, sortOrder: 3 },
-		{ name: 'はみがき', category: 'せいかつ', icon: '🪥', basePoints: 3, sortOrder: 4 },
-		{ name: 'あいさつ', category: 'こうりゅう', icon: '👋', basePoints: 3, sortOrder: 5 },
+		{ name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5, sortOrder: 1 },
+		{ name: 'えほん', categoryId: 2, icon: '📖', basePoints: 5, sortOrder: 2 },
+		{ name: 'おえかき', categoryId: 5, icon: '🎨', basePoints: 5, sortOrder: 3 },
+		{ name: 'はみがき', categoryId: 3, icon: '🪥', basePoints: 3, sortOrder: 4 },
+		{ name: 'あいさつ', categoryId: 4, icon: '👋', basePoints: 3, sortOrder: 5 },
 	];
 	for (const a of acts) {
 		testDb.insert(schema.activities).values(a).run();
@@ -159,11 +173,11 @@ function seedBase() {
 
 	// ベンチマーク
 	const benchmarks = [
-		{ age: 4, category: 'うんどう', mean: 30.0, stdDev: 10.0 },
-		{ age: 4, category: 'べんきょう', mean: 20.0, stdDev: 8.0 },
-		{ age: 4, category: 'そうぞう', mean: 25.0, stdDev: 9.0 },
-		{ age: 4, category: 'せいかつ', mean: 35.0, stdDev: 8.0 },
-		{ age: 4, category: 'こうりゅう', mean: 25.0, stdDev: 10.0 },
+		{ age: 4, categoryId: 1, mean: 30.0, stdDev: 10.0 },
+		{ age: 4, categoryId: 2, mean: 20.0, stdDev: 8.0 },
+		{ age: 4, categoryId: 5, mean: 25.0, stdDev: 9.0 },
+		{ age: 4, categoryId: 3, mean: 35.0, stdDev: 8.0 },
+		{ age: 4, categoryId: 4, mean: 25.0, stdDev: 10.0 },
 	];
 	for (const b of benchmarks) {
 		testDb.insert(schema.marketBenchmarks).values(b).run();
@@ -171,11 +185,11 @@ function seedBase() {
 
 	// ステータス初期値
 	const statuses = [
-		{ childId: 1, category: 'うんどう', value: 30.0 },
-		{ childId: 1, category: 'べんきょう', value: 20.0 },
-		{ childId: 1, category: 'そうぞう', value: 25.0 },
-		{ childId: 1, category: 'せいかつ', value: 35.0 },
-		{ childId: 1, category: 'こうりゅう', value: 25.0 },
+		{ childId: 1, categoryId: 1, value: 30.0 },
+		{ childId: 1, categoryId: 2, value: 20.0 },
+		{ childId: 1, categoryId: 5, value: 25.0 },
+		{ childId: 1, categoryId: 3, value: 35.0 },
+		{ childId: 1, categoryId: 4, value: 25.0 },
 	];
 	for (const s of statuses) {
 		testDb.insert(schema.statuses).values(s).run();

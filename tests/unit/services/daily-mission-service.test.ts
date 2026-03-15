@@ -10,6 +10,20 @@ let sqlite: InstanceType<typeof Database>;
 let testDb: ReturnType<typeof drizzle>;
 
 const SQL_TABLES = `
+	CREATE TABLE categories (
+		id INTEGER PRIMARY KEY,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		icon TEXT,
+		color TEXT
+	);
+
+	INSERT INTO categories VALUES (1, 'undou', 'うんどう', '🏃', '#FF6B6B');
+	INSERT INTO categories VALUES (2, 'benkyou', 'べんきょう', '📚', '#4ECDC4');
+	INSERT INTO categories VALUES (3, 'seikatsu', 'せいかつ', '🏠', '#FFE66D');
+	INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
+	INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
+
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
@@ -21,7 +35,7 @@ const SQL_TABLES = `
 	);
 	CREATE TABLE activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL, category TEXT NOT NULL, icon TEXT NOT NULL,
+		name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), icon TEXT NOT NULL,
 		base_points INTEGER NOT NULL DEFAULT 5,
 		age_min INTEGER, age_max INTEGER,
 		is_visible INTEGER NOT NULL DEFAULT 1,
@@ -110,13 +124,13 @@ function seedChild() {
 function seedActivities() {
 	// 5カテゴリにそれぞれ1つ以上の活動
 	const items = [
-		{ name: 'たいそう', category: 'うんどう', icon: '🏃' },
-		{ name: 'かけっこ', category: 'うんどう', icon: '🏃' },
-		{ name: 'おべんきょう', category: 'べんきょう', icon: '📚' },
-		{ name: 'ひらがな', category: 'べんきょう', icon: '✏️' },
-		{ name: 'おかたづけ', category: 'せいかつ', icon: '🧹' },
-		{ name: 'あいさつ', category: 'こうりゅう', icon: '👋' },
-		{ name: 'おえかき', category: 'そうぞう', icon: '🎨' },
+		{ name: 'たいそう', categoryId: 1, icon: '🏃' },
+		{ name: 'かけっこ', categoryId: 1, icon: '🏃' },
+		{ name: 'おべんきょう', categoryId: 2, icon: '📚' },
+		{ name: 'ひらがな', categoryId: 2, icon: '✏️' },
+		{ name: 'おかたづけ', categoryId: 3, icon: '🧹' },
+		{ name: 'あいさつ', categoryId: 4, icon: '👋' },
+		{ name: 'おえかき', categoryId: 5, icon: '🎨' },
 	];
 	for (const item of items) {
 		testDb.insert(schema.activities).values({ ...item, basePoints: 5 }).run();
@@ -151,14 +165,14 @@ describe('getTodayMissions', () => {
 		for (const mission of result.missions) {
 			expect(mission.activityName).toBeTruthy();
 			expect(mission.activityIcon).toBeTruthy();
-			expect(mission.category).toBeTruthy();
+			expect(mission.categoryId).toBeTruthy();
 			expect(mission.completed).toBe(false);
 		}
 	});
 
 	it('異なるカテゴリから選出される（可能な限り）', () => {
 		const result = getTodayMissions(1);
-		const categories = new Set(result.missions.map((m) => m.category));
+		const categories = new Set(result.missions.map((m) => m.categoryId));
 		// 5カテゴリあるので3つは別カテゴリから来るはず
 		expect(categories.size).toBe(3);
 	});
@@ -236,7 +250,7 @@ describe('checkMissionCompletion', () => {
 
 	it('ミッションに含まれる活動を記録すると達成になる', () => {
 		const missions = getTodayMissions(1);
-		const firstMissionActivityId = missions.missions[0].activityId;
+		const firstMissionActivityId = missions.missions[0]!.activityId;
 
 		const result = checkMissionCompletion(1, firstMissionActivityId);
 		expect(result.missionCompleted).toBe(true);
@@ -261,17 +275,17 @@ describe('checkMissionCompletion', () => {
 
 	it('2つ達成で+5Pボーナス', () => {
 		const missions = getTodayMissions(1);
-		checkMissionCompletion(1, missions.missions[0].activityId);
-		const result2 = checkMissionCompletion(1, missions.missions[1].activityId);
+		checkMissionCompletion(1, missions.missions[0]!.activityId);
+		const result2 = checkMissionCompletion(1, missions.missions[1]!.activityId);
 		expect(result2.bonusAwarded).toBe(5);
 		expect(result2.allComplete).toBe(false);
 	});
 
 	it('3つ達成で+20Pボーナス（差分で+15P追加付与）', () => {
 		const missions = getTodayMissions(1);
-		checkMissionCompletion(1, missions.missions[0].activityId);
-		checkMissionCompletion(1, missions.missions[1].activityId);
-		const result3 = checkMissionCompletion(1, missions.missions[2].activityId);
+		checkMissionCompletion(1, missions.missions[0]!.activityId);
+		checkMissionCompletion(1, missions.missions[1]!.activityId);
+		const result3 = checkMissionCompletion(1, missions.missions[2]!.activityId);
 		expect(result3.allComplete).toBe(true);
 		// 2/3で5P付与済み、3/3で20P。差分は15P
 		expect(result3.bonusAwarded).toBe(15);
@@ -279,7 +293,7 @@ describe('checkMissionCompletion', () => {
 
 	it('同じ活動を2回達成しても二重計上されない', () => {
 		const missions = getTodayMissions(1);
-		const firstId = missions.missions[0].activityId;
+		const firstId = missions.missions[0]!.activityId;
 
 		const result1 = checkMissionCompletion(1, firstId);
 		expect(result1.missionCompleted).toBe(true);

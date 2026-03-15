@@ -2,7 +2,7 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { tick } from 'svelte';
-import { CATEGORIES } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import BirthdayReviewOverlay from '$lib/ui/components/BirthdayReviewOverlay.svelte';
@@ -29,7 +29,7 @@ let resultIcon = $state('');
 let resultPoints = $state(0);
 let resultLogId = $state(0);
 let resultComboBonus = $state<{
-	categoryCombo: { category: string; name: string; bonus: number }[];
+	categoryCombo: { categoryId: number; name: string; bonus: number }[];
 	crossCategoryCombo: { name: string; bonus: number } | null;
 	totalNewBonus: number;
 } | null>(null);
@@ -102,9 +102,9 @@ function isCompleted(activity: { id: number; dailyLimit: number | null }): boole
 
 // Group activities by category (same as kinder)
 const activitiesByCategory = $derived(
-	CATEGORIES.map((cat) => ({
-		category: cat,
-		items: data.activities.filter((a) => a.category === cat),
+	CATEGORY_DEFS.map((catDef) => ({
+		categoryId: catDef.id,
+		items: data.activities.filter((a) => a.categoryId === catDef.id),
 	})).filter((g) => g.items.length > 0),
 );
 
@@ -226,13 +226,7 @@ function handleBirthdayResultClose() {
 	invalidateAll();
 }
 
-const categoryColors: Record<string, string> = {
-	うんどう: 'var(--color-cat-undou)',
-	べんきょう: 'var(--color-cat-benkyou)',
-	せいかつ: 'var(--color-cat-seikatsu)',
-	こうりゅう: 'var(--color-cat-kouryuu)',
-	そうぞう: 'var(--color-cat-souzou)',
-};
+
 </script>
 
 <svelte:head>
@@ -308,11 +302,11 @@ const categoryColors: Record<string, string> = {
 	{/if}
 
 	<!-- Activity grid by category (same layout as kinder, but 1-tap instant record) -->
-	{#each activitiesByCategory as group (group.category)}
-		<CategorySection category={group.category}>
+	{#each activitiesByCategory as group (group.categoryId)}
+		<CategorySection categoryId={group.categoryId}>
 			{#each group.items as activity (activity.id)}
 				{@const completed = isCompleted(activity)}
-				{@const borderColor = categoryColors[activity.category] ?? 'var(--theme-primary)'}
+				{@const borderColor = getCategoryById(activity.categoryId)?.color ?? 'var(--theme-primary)'}
 				{@const actCount = getCount(activity.id)}
 				{#if completed}
 					<div
@@ -344,7 +338,7 @@ const categoryColors: Record<string, string> = {
 										cancelableUntil: string;
 										unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
 										comboBonus: {
-											categoryCombo: { category: string; name: string; bonus: number }[];
+											categoryCombo: { categoryId: number; name: string; bonus: number }[];
 											crossCategoryCombo: { name: string; bonus: number } | null;
 											miniCombo: { uniqueCount: number; bonus: number } | null;
 											hints: { message: string }[];

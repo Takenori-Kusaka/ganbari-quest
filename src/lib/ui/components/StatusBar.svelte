@@ -1,29 +1,24 @@
 <script lang="ts">
 	import Progress from '$lib/ui/primitives/Progress.svelte';
+	import { getCategoryById } from '$lib/domain/validation/activity';
 
 	interface Props {
-		category: string;
+		categoryId: number;
 		value: number;
 		maxValue?: number;
 		stars?: number;
 	}
 
-	let { category, value, maxValue = 100, stars = 0 }: Props = $props();
+	let { categoryId, value, maxValue = 100, stars = 0 }: Props = $props();
 
-	const categoryColors: Record<string, string> = {
-		うんどう: 'var(--color-cat-undou)',
-		べんきょう: 'var(--color-cat-benkyou)',
-		せいかつ: 'var(--color-cat-seikatsu)',
-		こうりゅう: 'var(--color-cat-kouryuu)',
-		そうぞう: 'var(--color-cat-souzou)',
-	};
-
-	const color = $derived(categoryColors[category] ?? 'var(--theme-primary)');
+	const catDef = $derived(getCategoryById(categoryId));
+	const color = $derived(catDef?.color ?? 'var(--theme-primary)');
+	const categoryName = $derived(catDef?.name ?? '');
 	const starText = $derived('★'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars)));
 </script>
 
 <div class="flex items-center gap-[var(--spacing-sm)]">
-	<span class="w-24 text-sm font-bold shrink-0 truncate">{category}</span>
+	<span class="w-24 text-sm font-bold shrink-0 truncate">{categoryName}</span>
 	<div class="flex-1">
 		<Progress {value} max={maxValue} {color} size="md" />
 	</div>

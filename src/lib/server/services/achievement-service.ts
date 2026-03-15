@@ -1,4 +1,4 @@
-import { CATEGORIES } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { db } from '$lib/server/db';
 import {
@@ -366,7 +366,7 @@ function getMaxCategoryCountInDay(childId: number): number {
 	const rows = db
 		.select({
 			recordedDate: activityLogs.recordedDate,
-			categoryCount: countDistinct(activities.category),
+			categoryCount: countDistinct(activities.categoryId),
 		})
 		.from(activityLogs)
 		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
@@ -441,7 +441,7 @@ function evaluateCondition(
 function getDistinctCategoryCount(childId: number): number {
 	const result = db
 		.select({
-			count: countDistinct(activities.category),
+			count: countDistinct(activities.categoryId),
 		})
 		.from(activityLogs)
 		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
@@ -456,7 +456,7 @@ function checkAllCategories(childId: number): boolean {
 	const rows = db
 		.select({
 			recordedDate: activityLogs.recordedDate,
-			categoryCount: countDistinct(activities.category),
+			categoryCount: countDistinct(activities.categoryId),
 		})
 		.from(activityLogs)
 		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
@@ -464,5 +464,5 @@ function checkAllCategories(childId: number): boolean {
 		.groupBy(activityLogs.recordedDate)
 		.all();
 
-	return rows.some((r) => r.categoryCount >= CATEGORIES.length);
+	return rows.some((r) => r.categoryCount >= CATEGORY_DEFS.length);
 }

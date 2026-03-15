@@ -1,12 +1,13 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { splitIcon, joinIcon } from '$lib/domain/icon-utils';
+import { getCategoryById, CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 
 let { data } = $props();
 
 let showAddForm = $state(false);
-let filterCategory = $state('');
+let filterCategoryId = $state(0);
 let searchQuery = $state('');
 let aiMode = $state(false);
 let aiInput = $state('');
@@ -15,7 +16,7 @@ let aiError = $state('');
 
 // フォーム入力値
 let formName = $state('');
-let formCategory = $state('うんどう');
+let formCategoryId = $state(1);
 let formMainIcon = $state('🤸');
 let formSubIcon = $state('');
 const formIcon = $derived(joinIcon(formMainIcon, formSubIcon || null));
@@ -29,7 +30,7 @@ let formNameKanji = $state('');
 // 編集・削除状態
 let editingId = $state<number | null>(null);
 let editName = $state('');
-let editCategory = $state('');
+let editCategoryId = $state(0);
 let editMainIcon = $state('');
 let editSubIcon = $state('');
 const editIcon = $derived(joinIcon(editMainIcon, editSubIcon || null));
@@ -45,7 +46,7 @@ let actionMessage = $state('');
 function startEdit(activity: typeof data.activities[0]) {
 	editingId = activity.id;
 	editName = activity.name;
-	editCategory = activity.category;
+	editCategoryId = activity.categoryId;
 	const parsed = splitIcon(activity.icon);
 	editMainIcon = parsed.main;
 	editSubIcon = parsed.sub ?? '';
@@ -70,8 +71,8 @@ function dailyLimitLabel(val: number | null): string {
 
 const filteredActivities = $derived.by(() => {
 	let result = data.activities;
-	if (filterCategory) {
-		result = result.filter((a) => a.category === filterCategory);
+	if (filterCategoryId) {
+		result = result.filter((a) => a.categoryId === filterCategoryId);
 	}
 	if (searchQuery.trim()) {
 		const q = searchQuery.trim().toLowerCase();
@@ -141,9 +142,10 @@ const pointGuide = [
 /** サブアイコンのプリセット候補 */
 const SUB_ICON_PRESETS = ['🧹', '💧', '✨', '🎯', '📝', '🔥', '⭐', '🎵', '💪', '🧠', '❤️', '🌟', '🎁', '🏠', '👆', '🤲'];
 
-function onCategoryChange(cat: string) {
-	formCategory = cat;
-	const info = categoryInfo[cat];
+function onCategoryChange(catId: number) {
+	formCategoryId = catId;
+	const catDef = getCategoryById(catId);
+	const info = catDef ? categoryInfo[catDef.name] : undefined;
 	if (info && info.icons[0]) {
 		formMainIcon = info.icons[0];
 	}
@@ -163,7 +165,7 @@ async function suggestFromAI() {
 		const json = await res.json();
 		if (res.ok) {
 			formName = json.name ?? aiInput;
-			formCategory = json.category ?? 'せいかつ';
+			formCategoryId = json.categoryId ?? 3;
 			const aiParsed = splitIcon(json.icon ?? '📝');
 			formMainIcon = aiParsed.main;
 			formSubIcon = aiParsed.sub ?? '';
@@ -246,7 +248,7 @@ async function suggestFromAI() {
 					if (result.type === 'success') {
 						showAddForm = false;
 						formName = '';
-						formCategory = 'うんどう';
+						formCategoryId = 1;
 						formMainIcon = '🤸';
 						formSubIcon = '';
 						formPoints = 5;
@@ -277,30 +279,30 @@ async function suggestFromAI() {
 			<div>
 				<span class="block text-xs font-bold text-gray-500 mb-1">カテゴリ</span>
 				<div class="grid grid-cols-5 gap-1">
-					{#each data.categories as cat}
-						{@const info = categoryInfo[cat]}
+					{#each data.categoryDefs as catDef}
+						{@const info = categoryInfo[catDef.name]}
 						<button
 							type="button"
 							class="px-2 py-2 rounded-lg text-xs font-bold transition-colors text-center
-								{formCategory === cat ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
-							onclick={() => onCategoryChange(cat)}
+								{formCategoryId === catDef.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+							onclick={() => onCategoryChange(catDef.id)}
 						>
-							{info?.icons[0] ?? '📝'} {cat}
+							{info?.icons[0] ?? '📝'} {catDef.name}
 						</button>
 					{/each}
 				</div>
-				{#if categoryInfo[formCategory]?.desc}
-					<p class="text-xs text-gray-400 mt-1">{categoryInfo[formCategory]?.desc}</p>
+				{#if categoryInfo[getCategoryById(formCategoryId)?.name ?? '']?.desc}
+					<p class="text-xs text-gray-400 mt-1">{categoryInfo[getCategoryById(formCategoryId)?.name ?? '']?.desc}</p>
 				{/if}
-				<input type="hidden" name="category" value={formCategory} />
+				<input type="hidden" name="categoryId" value={formCategoryId} />
 			</div>
 
 			<!-- アイコン選択 -->
 			<div>
 				<span class="block text-xs font-bold text-gray-500 mb-1">メインアイコン</span>
-				{#if categoryInfo[formCategory]?.icons}
+				{#if categoryInfo[getCategoryById(formCategoryId)?.name ?? '']?.icons}
 					<div class="flex flex-wrap gap-1 mb-2">
-						{#each categoryInfo[formCategory]?.icons ?? [] as ic}
+						{#each categoryInfo[getCategoryById(formCategoryId)?.name ?? '']?.icons ?? [] as ic}
 							<button
 								type="button"
 								class="w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-colors
@@ -441,19 +443,19 @@ async function suggestFromAI() {
 	<div class="flex gap-2 flex-wrap">
 		<button
 			class="px-3 py-1 rounded-full text-xs font-bold transition-colors
-				{filterCategory === '' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
-			onclick={() => filterCategory = ''}
+				{filterCategoryId === 0 ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+			onclick={() => filterCategoryId = 0}
 		>
 			すべて ({data.activities.length})
 		</button>
-		{#each data.categories as cat}
-			{@const count = data.activities.filter(a => a.category === cat).length}
+		{#each data.categoryDefs as catDef}
+			{@const count = data.activities.filter(a => a.categoryId === catDef.id).length}
 			<button
 				class="px-3 py-1 rounded-full text-xs font-bold transition-colors
-					{filterCategory === cat ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
-				onclick={() => filterCategory = cat}
+					{filterCategoryId === catDef.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+				onclick={() => filterCategoryId = catDef.id}
 			>
-				{cat} ({count})
+				{catDef.name} ({count})
 			</button>
 		{/each}
 	</div>
@@ -474,7 +476,7 @@ async function suggestFromAI() {
 					<div class="flex-1 min-w-0">
 						<p class="text-sm font-bold text-gray-700 truncate">{activity.name}</p>
 						<p class="text-xs text-gray-400">
-							{activity.category} / {activity.basePoints}P
+							{getCategoryById(activity.categoryId)?.name ?? ''} / {activity.basePoints}P
 							{#if activity.dailyLimit !== null}
 								/ {dailyLimitLabel(activity.dailyLimit)}
 							{/if}
@@ -553,9 +555,9 @@ async function suggestFromAI() {
 							<div class="grid grid-cols-2 gap-2">
 								<label class="block">
 									<span class="text-xs font-bold text-gray-500">カテゴリ</span>
-									<select name="category" bind:value={editCategory} class="w-full px-2 py-1.5 border rounded text-sm">
-										{#each data.categories as cat}
-											<option value={cat}>{cat}</option>
+									<select name="categoryId" bind:value={editCategoryId} class="w-full px-2 py-1.5 border rounded text-sm">
+										{#each data.categoryDefs as catDef}
+											<option value={catDef.id}>{catDef.name}</option>
 										{/each}
 									</select>
 								</label>

@@ -12,6 +12,20 @@ let sqlite: InstanceType<typeof Database>;
 let testDb: ReturnType<typeof drizzle>;
 
 const SQL_TABLES = `
+	CREATE TABLE categories (
+		id INTEGER PRIMARY KEY,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		icon TEXT,
+		color TEXT
+	);
+
+	INSERT INTO categories VALUES (1, 'undou', 'うんどう', '🏃', '#FF6B6B');
+	INSERT INTO categories VALUES (2, 'benkyou', 'べんきょう', '📚', '#4ECDC4');
+	INSERT INTO categories VALUES (3, 'seikatsu', 'せいかつ', '🏠', '#FFE66D');
+	INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
+	INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
+
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
@@ -23,7 +37,7 @@ const SQL_TABLES = `
 	);
 	CREATE TABLE activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL, category TEXT NOT NULL, icon TEXT NOT NULL,
+		name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), icon TEXT NOT NULL,
 		base_points INTEGER NOT NULL DEFAULT 5,
 		age_min INTEGER, age_max INTEGER,
 		is_visible INTEGER NOT NULL DEFAULT 1,
@@ -79,18 +93,18 @@ const SQL_TABLES = `
 	CREATE TABLE statuses (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category TEXT NOT NULL, value REAL NOT NULL DEFAULT 0.0,
+		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL DEFAULT 0.0,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category);
+	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
 	CREATE TABLE status_history (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category TEXT NOT NULL, value REAL NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL,
 		change_amount REAL NOT NULL, change_type TEXT NOT NULL,
 		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE INDEX idx_status_history_child_cat ON status_history(child_id, category, recorded_at);
+	CREATE INDEX idx_status_history_child_cat ON status_history(child_id, category_id, recorded_at);
 	CREATE TABLE daily_missions (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
@@ -149,13 +163,13 @@ function seedBasic() {
 	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4 }).run();
 	testDb
 		.insert(schema.activities)
-		.values({ name: 'たいそう', category: 'うんどう', icon: '🤸', basePoints: 5, sortOrder: 1 })
+		.values({ name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5, sortOrder: 1 })
 		.run();
 	testDb
 		.insert(schema.activities)
 		.values({
 			name: 'ひらがな',
-			category: 'べんきょう',
+			categoryId: 2,
 			icon: '✏️',
 			basePoints: 5,
 			ageMin: 3,
@@ -475,8 +489,8 @@ describe('API-LOG-06: GET /api/v1/activity-logs?childId=1', () => {
 
 		expect(body.summary.totalCount).toBe(2);
 		expect(body.summary.totalPoints).toBe(10);
-		expect(body.summary.byCategory.うんどう).toEqual({ count: 1, points: 5 });
-		expect(body.summary.byCategory.べんきょう).toEqual({ count: 1, points: 5 });
+		expect(body.summary.byCategory[1]).toEqual({ count: 1, points: 5 });
+		expect(body.summary.byCategory[2]).toEqual({ count: 1, points: 5 });
 	});
 });
 

@@ -40,7 +40,7 @@ export interface ActivityLogEntry {
 	id: number;
 	activityName: string;
 	activityIcon: string;
-	category: string;
+	categoryId: number;
 	points: number;
 	streakDays: number;
 	streakBonus: number;
@@ -50,7 +50,7 @@ export interface ActivityLogEntry {
 export interface ActivityLogSummary {
 	totalCount: number;
 	totalPoints: number;
-	byCategory: Record<string, { count: number; points: number }>;
+	byCategory: Record<number, { count: number; points: number }>;
 }
 
 /** Record an activity for a child. Enforces daily limit and streak calculation. */
@@ -129,7 +129,7 @@ export function recordActivity(
 		.run();
 
 	// ステータスを即時更新（カテゴリに対応するステータスを増加）
-	const statusResult = updateStatus(childId, activity.category, STATUS_PER_ACTIVITY, 'activity_record');
+	const statusResult = updateStatus(childId, activity.categoryId, STATUS_PER_ACTIVITY, 'activity_record');
 	const levelUp = (!('error' in statusResult) && statusResult.levelUp) ? statusResult.levelUp : null;
 
 	const cancelableUntil = new Date(Date.now() + CANCEL_WINDOW_MS).toISOString();
@@ -180,7 +180,7 @@ export function cancelActivityLog(
 	// 活動のカテゴリを取得してステータスを戻す
 	const activity = db.select().from(activities).where(eq(activities.id, log.activityId)).get();
 	if (activity) {
-		updateStatus(log.childId, activity.category, -STATUS_PER_ACTIVITY, 'activity_cancel');
+		updateStatus(log.childId, activity.categoryId, -STATUS_PER_ACTIVITY, 'activity_cancel');
 	}
 
 	// Mark as cancelled
@@ -222,7 +222,7 @@ export function getActivityLogs(
 			id: activityLogs.id,
 			activityName: activities.name,
 			activityIcon: activities.icon,
-			category: activities.category,
+			categoryId: activities.categoryId,
 			points: activityLogs.points,
 			streakDays: activityLogs.streakDays,
 			streakBonus: activityLogs.streakBonus,
@@ -235,7 +235,7 @@ export function getActivityLogs(
 		.all();
 
 	// Build summary
-	const byCategory: Record<string, { count: number; points: number }> = {};
+	const byCategory: Record<number, { count: number; points: number }> = {};
 	let totalCount = 0;
 	let totalPoints = 0;
 
@@ -244,10 +244,10 @@ export function getActivityLogs(
 		const rowTotal = row.points + row.streakBonus;
 		totalPoints += rowTotal;
 
-		if (!byCategory[row.category]) {
-			byCategory[row.category] = { count: 0, points: 0 };
+		if (!byCategory[row.categoryId]) {
+			byCategory[row.categoryId] = { count: 0, points: 0 };
 		}
-		const cat = byCategory[row.category]!;
+		const cat = byCategory[row.categoryId]!;
 		cat.count++;
 		cat.points += rowTotal;
 	}
