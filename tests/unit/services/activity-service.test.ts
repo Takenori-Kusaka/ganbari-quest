@@ -117,6 +117,16 @@ const SQL_TABLES = `
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE UNIQUE INDEX idx_login_bonuses_child_date ON login_bonuses(child_id, login_date);
+	CREATE TABLE daily_missions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		mission_date TEXT NOT NULL,
+		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		completed INTEGER NOT NULL DEFAULT 0,
+		completed_at TEXT,
+		UNIQUE(child_id, mission_date, activity_id)
+	);
+	CREATE INDEX idx_daily_missions_child_date ON daily_missions(child_id, mission_date);
 `;
 
 // vi.mock で db モジュールを差し替え
@@ -136,8 +146,11 @@ vi.mock('$lib/server/db/client', () => ({
 
 import {
 	createActivity,
+	deleteActivityWithCleanup,
 	getActivities,
 	getActivityById,
+	getActivityLogCounts,
+	hasActivityLogs,
 	setActivityVisibility,
 	updateActivity,
 } from '../../../src/lib/server/services/activity-service';
@@ -154,13 +167,14 @@ afterAll(() => {
 });
 
 function resetDb() {
+	sqlite.exec('DELETE FROM daily_missions');
 	sqlite.exec('DELETE FROM point_ledger');
 	sqlite.exec('DELETE FROM activity_logs');
 	sqlite.exec('DELETE FROM activities');
 	sqlite.exec('DELETE FROM children');
 	// Reset autoincrement
 	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children', 'activities', 'activity_logs', 'point_ledger')",
+		"DELETE FROM sqlite_sequence WHERE name IN ('children', 'activities', 'activity_logs', 'point_ledger', 'daily_missions')",
 	);
 }
 
@@ -291,5 +305,57 @@ describe('activity-service', () => {
 	it('getActivityById: 存在しない場合は undefined', () => {
 		const result = getActivityById(999);
 		expect(result).toBeUndefined();
+	});
+
+	it('hasActivityLogs: ログなしの活動はfalse', () => {
+		expect(hasActivityLogs(1)).toBe(false);
+	});
+
+	it('hasActivityLogs: ログありの活動はtrue', () => {
+		testDb.insert(schema.activityLogs).values({
+			childId: 1, activityId: 1, points: 5,
+			streakDays: 1, streakBonus: 0, recordedDate: '2026-03-15',
+		}).run();
+		expect(hasActivityLogs(1)).toBe(true);
+	});
+
+	it('getActivityLogCounts: 活動ごとのログ件数を返す', () => {
+		testDb.insert(schema.activityLogs).values({
+			childId: 1, activityId: 1, points: 5,
+			streakDays: 1, streakBonus: 0, recordedDate: '2026-03-14',
+		}).run();
+		testDb.insert(schema.activityLogs).values({
+			childId: 1, activityId: 1, points: 5,
+			streakDays: 2, streakBonus: 0, recordedDate: '2026-03-15',
+		}).run();
+		testDb.insert(schema.activityLogs).values({
+			childId: 1, activityId: 2, points: 5,
+			streakDays: 1, streakBonus: 0, recordedDate: '2026-03-15',
+		}).run();
+
+		const counts = getActivityLogCounts();
+		expect(counts[1]).toBe(2);
+		expect(counts[2]).toBe(1);
+		expect(counts[3]).toBeUndefined();
+	});
+
+	it('deleteActivityWithCleanup: ログなしの活動を物理削除できる', () => {
+		const before = getActivities({ includeHidden: true });
+		expect(before.length).toBe(6);
+
+		deleteActivityWithCleanup(6); // 非表示活動
+		const after = getActivities({ includeHidden: true });
+		expect(after.length).toBe(5);
+		expect(after.find(a => a.id === 6)).toBeUndefined();
+	});
+
+	it('deleteActivityWithCleanup: daily_missionsも一緒に削除される', () => {
+		testDb.insert(schema.dailyMissions).values({
+			childId: 1, missionDate: '2026-03-15', activityId: 1,
+		}).run();
+
+		// daily_missionsが存在する状態で削除
+		deleteActivityWithCleanup(1);
+		expect(getActivityById(1)).toBeUndefined();
 	});
 });
