@@ -69,8 +69,10 @@ function dailyLimitLabel(val: number | null): string {
 	return `${val}回/日`;
 }
 
+let showHidden = $state(false);
+
 const filteredActivities = $derived.by(() => {
-	let result = data.activities;
+	let result = data.activities.filter((a) => a.isVisible);
 	if (filterCategoryId) {
 		result = result.filter((a) => a.categoryId === filterCategoryId);
 	}
@@ -80,6 +82,8 @@ const filteredActivities = $derived.by(() => {
 	}
 	return result;
 });
+
+const hiddenActivities = $derived(data.activities.filter((a) => !a.isVisible));
 
 /** カテゴリ別の説明とアイコン候補 */
 const categoryInfo: Record<string, { label: string; desc: string; icons: string[] }> = {
@@ -446,10 +450,10 @@ async function suggestFromAI() {
 				{filterCategoryId === 0 ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
 			onclick={() => filterCategoryId = 0}
 		>
-			すべて ({data.activities.length})
+			すべて ({data.activities.filter(a => a.isVisible).length})
 		</button>
 		{#each data.categoryDefs as catDef}
-			{@const count = data.activities.filter(a => a.categoryId === catDef.id).length}
+			{@const count = data.activities.filter(a => a.categoryId === catDef.id && a.isVisible).length}
 			<button
 				class="px-3 py-1 rounded-full text-xs font-bold transition-colors
 					{filterCategoryId === catDef.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
@@ -621,9 +625,15 @@ async function suggestFromAI() {
 
 						<!-- Delete confirmation -->
 						{#if deleteConfirmId === activity.id}
+							{@const logCount = data.logCounts[activity.id] ?? 0}
 							<div class="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
-								<p class="text-sm text-red-700 font-bold">本当に削除しますか？</p>
-								<p class="text-xs text-red-500">記録がある場合は削除できません（非表示をご利用ください）</p>
+								{#if logCount > 0}
+									<p class="text-sm text-amber-700 font-bold">この活動には {logCount} 件の記録があります</p>
+									<p class="text-xs text-amber-600">記録を保護するため、完全削除ではなく「非表示」にします。非表示の活動は子供の画面に表示されなくなりますが、過去の記録はそのまま残ります。</p>
+								{:else}
+									<p class="text-sm text-red-700 font-bold">本当に削除しますか？</p>
+									<p class="text-xs text-red-500">この活動は完全に削除されます。この操作は取り消せません。</p>
+								{/if}
 								<div class="flex gap-2">
 									<form
 										method="POST"
@@ -634,18 +644,18 @@ async function suggestFromAI() {
 												if (result.type === 'success') {
 													editingId = null;
 													deleteConfirmId = null;
-												} else if (result.type === 'failure' && result.data && 'hasLogs' in result.data) {
-													actionMessage = String(result.data.error);
-													deleteConfirmId = null;
-													setTimeout(() => { actionMessage = ''; }, 5000);
+													if (result.data && 'hidden' in result.data) {
+														actionMessage = '記録があるため非表示にしました';
+														setTimeout(() => { actionMessage = ''; }, 5000);
+													}
 												}
 												await update();
 											};
 										}}
 									>
 										<input type="hidden" name="id" value={activity.id} />
-										<button type="submit" class="w-full py-2 bg-red-500 text-white rounded-lg font-bold text-sm hover:bg-red-600 transition-colors">
-											削除する
+										<button type="submit" class="w-full py-2 {logCount > 0 ? 'bg-amber-500 hover:bg-amber-600' : 'bg-red-500 hover:bg-red-600'} text-white rounded-lg font-bold text-sm transition-colors">
+											{logCount > 0 ? '非表示にする' : '削除する'}
 										</button>
 									</form>
 									<button
@@ -663,4 +673,70 @@ async function suggestFromAI() {
 			</div>
 		{/each}
 	</div>
+
+	<!-- Hidden activities section -->
+	{#if hiddenActivities.length > 0}
+		<div class="mt-6">
+			<button
+				type="button"
+				class="w-full flex items-center justify-between px-4 py-3 bg-gray-100 rounded-lg text-sm font-bold text-gray-500 hover:bg-gray-200 transition-colors"
+				onclick={() => showHidden = !showHidden}
+			>
+				<span>非表示の活動 ({hiddenActivities.length}件)</span>
+				<span class="text-xs">{showHidden ? '▲ 閉じる' : '▼ 開く'}</span>
+			</button>
+			{#if showHidden}
+				<div class="mt-2 space-y-1">
+					{#each hiddenActivities as activity (activity.id)}
+						{@const logCount = data.logCounts[activity.id] ?? 0}
+						<div class="bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+							<div class="px-3 py-2 flex items-center gap-3">
+								<div class="opacity-50">
+									<CompoundIcon icon={activity.icon} size="md" />
+								</div>
+								<div class="flex-1 min-w-0">
+									<p class="text-sm font-bold text-gray-400 truncate">{activity.name}</p>
+									<p class="text-xs text-gray-400">
+										{getCategoryById(activity.categoryId)?.name ?? ''} / {activity.basePoints}P
+										{#if logCount > 0}
+											/ 記録 {logCount}件
+										{/if}
+									</p>
+								</div>
+								<div class="flex gap-1">
+									<form method="POST" action="?/toggleVisibility" use:enhance>
+										<input type="hidden" name="id" value={activity.id} />
+										<input type="hidden" name="visible" value="true" />
+										<button
+											type="submit"
+											class="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+										>
+											復活
+										</button>
+									</form>
+									{#if logCount === 0}
+										<form
+											method="POST"
+											action="?/delete"
+											use:enhance={() => {
+												return async ({ update }) => { await update(); };
+											}}
+										>
+											<input type="hidden" name="id" value={activity.id} />
+											<button
+												type="submit"
+												class="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+											>
+												完全削除
+											</button>
+										</form>
+									{/if}
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
 </div>
