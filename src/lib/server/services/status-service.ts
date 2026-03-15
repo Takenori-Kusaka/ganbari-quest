@@ -1,7 +1,7 @@
 // src/lib/server/services/status-service.ts
 // ステータス管理サービス層
 
-import { CATEGORIES } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import {
 	calcCharacterType,
 	calcDeviationScore,
@@ -33,7 +33,7 @@ export interface ChildStatus {
 	levelTitle: string;
 	expToNextLevel: number;
 	maxValue: number;
-	statuses: Record<string, StatusDetail>;
+	statuses: Record<number, StatusDetail>;
 	characterType: string;
 }
 
@@ -44,18 +44,18 @@ export function getChildStatus(childId: number): ChildStatus | { error: 'NOT_FOU
 
 	const maxValue = getMaxForAge(child.age);
 	const statusRows = findStatuses(childId);
-	const statusMap: Record<string, StatusDetail> = {};
+	const statusMap: Record<number, StatusDetail> = {};
 
 	let totalValue = 0;
 	let totalDeviation = 0;
 	let categoryCount = 0;
 
-	for (const cat of CATEGORIES) {
-		const row = statusRows.find((s) => s.category === cat);
+	for (const catDef of CATEGORY_DEFS) {
+		const row = statusRows.find((s) => s.categoryId === catDef.id);
 		const value = row?.value ?? 0;
 
 		// 市場比較（ベンチマーク）
-		const benchmark = findBenchmark(child.age, cat);
+		const benchmark = findBenchmark(child.age, catDef.id);
 		const deviationScore = benchmark
 			? calcDeviationScore(value, benchmark.mean, benchmark.stdDev)
 			: 50; // ベンチマークがない場合は平均
@@ -63,11 +63,11 @@ export function getChildStatus(childId: number): ChildStatus | { error: 'NOT_FOU
 		const stars = calcStars(deviationScore);
 
 		// 直近の変動履歴からトレンド判定
-		const history = findRecentStatusHistory(childId, cat, 2);
+		const history = findRecentStatusHistory(childId, catDef.id, 2);
 		const recentChange = history.length >= 2 ? (history[0]?.changeAmount ?? 0) : 0;
 		const trend = calcTrend(recentChange);
 
-		statusMap[cat] = { value: Math.round(value * 10) / 10, deviationScore, stars, trend };
+		statusMap[catDef.id] = { value: Math.round(value * 10) / 10, deviationScore, stars, trend };
 		totalValue += value;
 		totalDeviation += deviationScore;
 		categoryCount++;
@@ -103,7 +103,7 @@ export interface LevelUpInfo {
 /** ステータスを更新する（週次評価から呼ばれる） */
 export function updateStatus(
 	childId: number,
-	category: string,
+	categoryId: number,
 	changeAmount: number,
 	changeType: string,
 ): { error: 'NOT_FOUND' } | { levelUp: LevelUpInfo | null } {
@@ -114,36 +114,36 @@ export function updateStatus(
 	const allStatuses = findStatuses(childId);
 
 	// 更新前のレベルを計算
-	const beforeValues = CATEGORIES.map((cat) => {
-		const row = allStatuses.find((s) => s.category === cat);
+	const beforeValues = CATEGORY_DEFS.map((catDef) => {
+		const row = allStatuses.find((s) => s.categoryId === catDef.id);
 		return row?.value ?? 0;
 	});
-	const beforeAvg = beforeValues.reduce((a, b) => a + b, 0) / CATEGORIES.length;
+	const beforeAvg = beforeValues.reduce((a, b) => a + b, 0) / CATEGORY_DEFS.length;
 	const beforeNormalized = maxValue > 0 ? (beforeAvg / maxValue) * 100 : 0;
 	const beforeLevel = calcLevel(beforeNormalized);
 
 	// ステータス値を更新
-	const currentStatus = allStatuses.find((s) => s.category === category);
+	const currentStatus = allStatuses.find((s) => s.categoryId === categoryId);
 	const currentValue = currentStatus?.value ?? 0;
 	const newValue = Math.max(0, Math.min(maxValue, currentValue + changeAmount));
 
-	upsertStatus(childId, category, newValue);
+	upsertStatus(childId, categoryId, newValue);
 
 	insertStatusHistory({
 		childId,
-		category,
+		categoryId,
 		value: newValue,
 		changeAmount,
 		changeType,
 	});
 
 	// 更新後のレベルを計算
-	const afterValues = CATEGORIES.map((cat) => {
-		if (cat === category) return newValue;
-		const row = allStatuses.find((s) => s.category === cat);
+	const afterValues = CATEGORY_DEFS.map((catDef) => {
+		if (catDef.id === categoryId) return newValue;
+		const row = allStatuses.find((s) => s.categoryId === catDef.id);
 		return row?.value ?? 0;
 	});
-	const afterAvg = afterValues.reduce((a, b) => a + b, 0) / CATEGORIES.length;
+	const afterAvg = afterValues.reduce((a, b) => a + b, 0) / CATEGORY_DEFS.length;
 	const afterNormalized = maxValue > 0 ? (afterAvg / maxValue) * 100 : 0;
 	const afterLevel = calcLevel(afterNormalized);
 

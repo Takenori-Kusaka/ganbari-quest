@@ -32,7 +32,7 @@ function seed() {
 			// うんどう
 			{
 				name: 'はいはいした',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🐣',
 				basePoints: 3,
 				ageMin: 0,
@@ -45,7 +45,7 @@ function seed() {
 			},
 			{
 				name: 'あんよした',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '👣',
 				basePoints: 5,
 				ageMin: 0,
@@ -58,7 +58,7 @@ function seed() {
 			},
 			{
 				name: 'おそとにでた',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🌿',
 				basePoints: 3,
 				ageMin: 0,
@@ -71,7 +71,7 @@ function seed() {
 			},
 			{
 				name: 'からだをうごかした',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🤸',
 				basePoints: 3,
 				ageMin: 0,
@@ -85,7 +85,7 @@ function seed() {
 			// べんきょう
 			{
 				name: 'えほんをみた',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📖',
 				basePoints: 3,
 				ageMin: 0,
@@ -98,7 +98,7 @@ function seed() {
 			},
 			{
 				name: 'おうたをきいた',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🎵',
 				basePoints: 3,
 				ageMin: 0,
@@ -111,7 +111,7 @@ function seed() {
 			},
 			{
 				name: 'ことばをまねた',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🗣️',
 				basePoints: 3,
 				ageMin: 0,
@@ -125,7 +125,7 @@ function seed() {
 			// せいかつ
 			{
 				name: 'ごはんをたべた',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🍚',
 				basePoints: 3,
 				ageMin: 0,
@@ -139,7 +139,7 @@ function seed() {
 			},
 			{
 				name: 'ねんねできた',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '😴',
 				basePoints: 3,
 				ageMin: 0,
@@ -152,7 +152,7 @@ function seed() {
 			},
 			{
 				name: 'てをあらった',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🤲💧',
 				basePoints: 3,
 				ageMin: 1,
@@ -167,7 +167,7 @@ function seed() {
 			// こうりゅう
 			{
 				name: 'にこにこした',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '😊',
 				basePoints: 3,
 				ageMin: 0,
@@ -180,7 +180,7 @@ function seed() {
 			},
 			{
 				name: 'バイバイした',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '👋',
 				basePoints: 3,
 				ageMin: 0,
@@ -193,7 +193,7 @@ function seed() {
 			},
 			{
 				name: 'いないいないばあ',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🙈',
 				basePoints: 3,
 				ageMin: 0,
@@ -207,7 +207,7 @@ function seed() {
 			// そうぞう
 			{
 				name: 'おもちゃであそんだ',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🧸',
 				basePoints: 3,
 				ageMin: 0,
@@ -220,7 +220,7 @@ function seed() {
 			},
 			{
 				name: 'おとをならした',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🔔',
 				basePoints: 3,
 				ageMin: 0,
@@ -233,7 +233,7 @@ function seed() {
 			},
 			{
 				name: 'てあそびした',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '✋',
 				basePoints: 3,
 				ageMin: 0,
@@ -251,7 +251,7 @@ function seed() {
 			// うんどう
 			{
 				name: 'たいそうした',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: 3,
@@ -264,7 +264,7 @@ function seed() {
 			},
 			{
 				name: 'おそとであそんだ',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏃',
 				basePoints: 5,
 				ageMin: 3,
@@ -277,7 +277,7 @@ function seed() {
 			},
 			{
 				name: 'すいみんぐ',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏊',
 				basePoints: 10,
 				ageMin: 3,
@@ -290,7 +290,7 @@ function seed() {
 			},
 			{
 				name: 'ボールあそび',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '⚽',
 				basePoints: 5,
 				ageMin: 3,
@@ -303,7 +303,7 @@ function seed() {
 			},
 			{
 				name: 'おにごっこ',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏷️',
 				basePoints: 5,
 				ageMin: 3,
@@ -316,7 +316,7 @@ function seed() {
 			},
 			{
 				name: 'なわとびれんしゅう',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🪢',
 				basePoints: 10,
 				ageMin: 4,
@@ -330,7 +330,7 @@ function seed() {
 			// べんきょう
 			{
 				name: 'ひらがなれんしゅう',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '✏️',
 				basePoints: 5,
 				ageMin: 3,
@@ -343,7 +343,7 @@ function seed() {
 			},
 			{
 				name: 'すうじをかぞえた',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🔢',
 				basePoints: 5,
 				ageMin: 3,
@@ -356,7 +356,7 @@ function seed() {
 			},
 			{
 				name: 'えほんをよんだ',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📖',
 				basePoints: 5,
 				ageMin: 3,
@@ -369,7 +369,7 @@ function seed() {
 			},
 			{
 				name: 'としょかんにいった',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🏛️',
 				basePoints: 10,
 				ageMin: 3,
@@ -382,7 +382,7 @@ function seed() {
 			},
 			{
 				name: 'しぜんをかんさつした',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🔍',
 				basePoints: 5,
 				ageMin: 3,
@@ -395,7 +395,7 @@ function seed() {
 			},
 			{
 				name: 'どうぶつ・しょくぶつのおせわ',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🌱',
 				basePoints: 5,
 				ageMin: 3,
@@ -409,7 +409,7 @@ function seed() {
 			// せいかつ
 			{
 				name: 'おきがえした',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '👗',
 				basePoints: 3,
 				ageMin: 3,
@@ -422,7 +422,7 @@ function seed() {
 			},
 			{
 				name: 'はみがきした',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🪥',
 				basePoints: 3,
 				ageMin: 3,
@@ -436,7 +436,7 @@ function seed() {
 			},
 			{
 				name: 'ごはんをぜんぶたべた',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🍚',
 				basePoints: 3,
 				ageMin: 3,
@@ -450,7 +450,7 @@ function seed() {
 			},
 			{
 				name: 'おかたづけした',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🧹✨',
 				basePoints: 3,
 				ageMin: 3,
@@ -464,7 +464,7 @@ function seed() {
 			},
 			{
 				name: 'てあらい・うがいした',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🤲💧',
 				basePoints: 3,
 				ageMin: 3,
@@ -478,7 +478,7 @@ function seed() {
 			},
 			{
 				name: 'はやねはやおきした',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '⏰',
 				basePoints: 3,
 				ageMin: 3,
@@ -491,7 +491,7 @@ function seed() {
 			},
 			{
 				name: 'もちものチェックした',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🎒✅',
 				basePoints: 5,
 				ageMin: 3,
@@ -505,7 +505,7 @@ function seed() {
 			// こうりゅう
 			{
 				name: 'ともだちとあそんだ',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🤝',
 				basePoints: 5,
 				ageMin: 3,
@@ -518,7 +518,7 @@ function seed() {
 			},
 			{
 				name: 'あいさつした',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '👋',
 				basePoints: 3,
 				ageMin: 3,
@@ -532,7 +532,7 @@ function seed() {
 			},
 			{
 				name: 'じぶんのきもちをつたえた',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '💬',
 				basePoints: 5,
 				ageMin: 3,
@@ -545,7 +545,7 @@ function seed() {
 			},
 			{
 				name: 'おやくそくをまもった',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '✅',
 				basePoints: 5,
 				ageMin: 3,
@@ -559,7 +559,7 @@ function seed() {
 			// そうぞう
 			{
 				name: 'おえかきした',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎨',
 				basePoints: 5,
 				ageMin: 3,
@@ -572,7 +572,7 @@ function seed() {
 			},
 			{
 				name: 'こうさくした',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '✂️',
 				basePoints: 5,
 				ageMin: 3,
@@ -585,7 +585,7 @@ function seed() {
 			},
 			{
 				name: 'うたをうたった',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎤',
 				basePoints: 5,
 				ageMin: 3,
@@ -598,7 +598,7 @@ function seed() {
 			},
 			{
 				name: 'がっきであそんだ',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🥁',
 				basePoints: 5,
 				ageMin: 3,
@@ -611,7 +611,7 @@ function seed() {
 			},
 			{
 				name: 'ダンス・おどり',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '💃',
 				basePoints: 5,
 				ageMin: 3,
@@ -624,7 +624,7 @@ function seed() {
 			},
 			{
 				name: 'ごっこあそび',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎭',
 				basePoints: 5,
 				ageMin: 3,
@@ -642,7 +642,7 @@ function seed() {
 			// うんどう
 			{
 				name: 'たいそう・ストレッチ',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: 6,
@@ -655,7 +655,7 @@ function seed() {
 			},
 			{
 				name: 'かけっこ・おにごっこ',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏃',
 				basePoints: 5,
 				ageMin: 6,
@@ -668,7 +668,7 @@ function seed() {
 			},
 			{
 				name: 'なわとび',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🪢',
 				basePoints: 5,
 				ageMin: 6,
@@ -681,7 +681,7 @@ function seed() {
 			},
 			{
 				name: 'マットうんどう',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🤾',
 				basePoints: 10,
 				ageMin: 6,
@@ -694,7 +694,7 @@ function seed() {
 			},
 			{
 				name: 'みずあそび・プール',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏊',
 				basePoints: 10,
 				ageMin: 6,
@@ -707,7 +707,7 @@ function seed() {
 			},
 			{
 				name: 'ボールゲーム',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '⚽',
 				basePoints: 5,
 				ageMin: 6,
@@ -721,7 +721,7 @@ function seed() {
 			// べんきょう
 			{
 				name: 'こくごドリル',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '✏️',
 				basePoints: 5,
 				ageMin: 6,
@@ -734,7 +734,7 @@ function seed() {
 			},
 			{
 				name: 'さんすうドリル',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🔢',
 				basePoints: 5,
 				ageMin: 6,
@@ -747,7 +747,7 @@ function seed() {
 			},
 			{
 				name: 'どくしょ（20ぷん）',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📖',
 				basePoints: 5,
 				ageMin: 6,
@@ -760,7 +760,7 @@ function seed() {
 			},
 			{
 				name: 'しぜんかんさつ',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🔍',
 				basePoints: 5,
 				ageMin: 6,
@@ -773,7 +773,7 @@ function seed() {
 			},
 			{
 				name: 'どうぶつ・しょくぶつのせわ',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🌱',
 				basePoints: 5,
 				ageMin: 6,
@@ -786,7 +786,7 @@ function seed() {
 			},
 			{
 				name: 'にっきをかいた',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📝',
 				basePoints: 5,
 				ageMin: 6,
@@ -800,7 +800,7 @@ function seed() {
 			// せいかつ
 			{
 				name: 'はみがき・せいけつ',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🪥',
 				basePoints: 3,
 				ageMin: 6,
@@ -814,7 +814,7 @@ function seed() {
 			},
 			{
 				name: 'はやねはやおき',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '⏰',
 				basePoints: 3,
 				ageMin: 6,
@@ -827,7 +827,7 @@ function seed() {
 			},
 			{
 				name: 'おてつだいした',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🏠',
 				basePoints: 5,
 				ageMin: 6,
@@ -841,7 +841,7 @@ function seed() {
 			},
 			{
 				name: 'じぶんのもちものをせいり',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🎒',
 				basePoints: 3,
 				ageMin: 6,
@@ -855,7 +855,7 @@ function seed() {
 			},
 			{
 				name: 'あしたのじゅんびした',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🎒📝',
 				basePoints: 5,
 				ageMin: 6,
@@ -869,7 +869,7 @@ function seed() {
 			// こうりゅう
 			{
 				name: 'あいさつ・へんじ',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '👋',
 				basePoints: 3,
 				ageMin: 6,
@@ -883,7 +883,7 @@ function seed() {
 			},
 			{
 				name: 'ともだちとなかよくした',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🤝',
 				basePoints: 5,
 				ageMin: 6,
@@ -896,7 +896,7 @@ function seed() {
 			},
 			{
 				name: 'じぶんのかんがえをはなした',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '💬',
 				basePoints: 5,
 				ageMin: 6,
@@ -910,7 +910,7 @@ function seed() {
 			// そうぞう
 			{
 				name: 'リズムあそび・ダンス',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '💃',
 				basePoints: 5,
 				ageMin: 6,
@@ -923,7 +923,7 @@ function seed() {
 			},
 			{
 				name: 'おえかき・ずがこうさく',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎨',
 				basePoints: 5,
 				ageMin: 6,
@@ -936,7 +936,7 @@ function seed() {
 			},
 			{
 				name: 'こうさく',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '✂️',
 				basePoints: 5,
 				ageMin: 6,
@@ -949,7 +949,7 @@ function seed() {
 			},
 			{
 				name: 'うた・がっき',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎵',
 				basePoints: 5,
 				ageMin: 6,
@@ -962,7 +962,7 @@ function seed() {
 			},
 			{
 				name: 'おんがくをきいた',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎧',
 				basePoints: 3,
 				ageMin: 6,
@@ -980,7 +980,7 @@ function seed() {
 			// うんどう
 			{
 				name: '体つくり運動',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏋️',
 				basePoints: 5,
 				ageMin: 10,
@@ -993,7 +993,7 @@ function seed() {
 			},
 			{
 				name: '短距離走・リレー',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏃',
 				basePoints: 10,
 				ageMin: 10,
@@ -1006,7 +1006,7 @@ function seed() {
 			},
 			{
 				name: 'マット・跳び箱運動',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🤾',
 				basePoints: 10,
 				ageMin: 10,
@@ -1019,7 +1019,7 @@ function seed() {
 			},
 			{
 				name: '水泳（クロール・平泳ぎ）',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏊',
 				basePoints: 10,
 				ageMin: 10,
@@ -1032,7 +1032,7 @@ function seed() {
 			},
 			{
 				name: 'ボール運動',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '⚽',
 				basePoints: 5,
 				ageMin: 10,
@@ -1045,7 +1045,7 @@ function seed() {
 			},
 			{
 				name: 'なわとびチャレンジ',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🪢',
 				basePoints: 10,
 				ageMin: 10,
@@ -1059,7 +1059,7 @@ function seed() {
 			// べんきょう
 			{
 				name: '国語の自主学習',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📝',
 				basePoints: 5,
 				ageMin: 10,
@@ -1072,7 +1072,7 @@ function seed() {
 			},
 			{
 				name: '算数の自主学習',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🔢',
 				basePoints: 5,
 				ageMin: 10,
@@ -1085,7 +1085,7 @@ function seed() {
 			},
 			{
 				name: '読書（30分以上）',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📖',
 				basePoints: 5,
 				ageMin: 10,
@@ -1098,7 +1098,7 @@ function seed() {
 			},
 			{
 				name: '理科の観察・実験記録',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🔬',
 				basePoints: 10,
 				ageMin: 10,
@@ -1111,7 +1111,7 @@ function seed() {
 			},
 			{
 				name: '社会科の調べ学習',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🗺️',
 				basePoints: 10,
 				ageMin: 10,
@@ -1124,7 +1124,7 @@ function seed() {
 			},
 			{
 				name: '英語の練習',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🌍',
 				basePoints: 5,
 				ageMin: 10,
@@ -1138,7 +1138,7 @@ function seed() {
 			// せいかつ
 			{
 				name: '調理実習・料理のお手伝い',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🍳',
 				basePoints: 10,
 				ageMin: 10,
@@ -1152,7 +1152,7 @@ function seed() {
 			},
 			{
 				name: '洗濯・ボタン付け',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🧵',
 				basePoints: 10,
 				ageMin: 10,
@@ -1165,7 +1165,7 @@ function seed() {
 			},
 			{
 				name: '整理整頓・掃除',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🧹',
 				basePoints: 5,
 				ageMin: 10,
@@ -1179,7 +1179,7 @@ function seed() {
 			},
 			{
 				name: '家庭の仕事を分担',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🏠',
 				basePoints: 5,
 				ageMin: 10,
@@ -1193,7 +1193,7 @@ function seed() {
 			},
 			{
 				name: '時間の使い方を工夫',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '⏰',
 				basePoints: 5,
 				ageMin: 10,
@@ -1206,7 +1206,7 @@ function seed() {
 			},
 			{
 				name: '明日の準備・持ち物チェック',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '✅',
 				basePoints: 5,
 				ageMin: 10,
@@ -1220,7 +1220,7 @@ function seed() {
 			// こうりゅう
 			{
 				name: 'あいさつ・言葉遣い',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '👋',
 				basePoints: 3,
 				ageMin: 10,
@@ -1234,7 +1234,7 @@ function seed() {
 			},
 			{
 				name: '友達と協力して活動',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🤝',
 				basePoints: 5,
 				ageMin: 10,
@@ -1247,7 +1247,7 @@ function seed() {
 			},
 			{
 				name: '委員会・係活動への貢献',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '📋',
 				basePoints: 10,
 				ageMin: 10,
@@ -1260,7 +1260,7 @@ function seed() {
 			},
 			{
 				name: '地域の人への感謝',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🙏',
 				basePoints: 5,
 				ageMin: 10,
@@ -1274,7 +1274,7 @@ function seed() {
 			// そうぞう
 			{
 				name: '絵画・デザイン制作',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎨',
 				basePoints: 10,
 				ageMin: 10,
@@ -1287,7 +1287,7 @@ function seed() {
 			},
 			{
 				name: '工作・ものづくり',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🔨',
 				basePoints: 10,
 				ageMin: 10,
@@ -1300,7 +1300,7 @@ function seed() {
 			},
 			{
 				name: '合奏・楽器練習',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎹',
 				basePoints: 10,
 				ageMin: 10,
@@ -1313,7 +1313,7 @@ function seed() {
 			},
 			{
 				name: '表現・フォークダンス',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '💃',
 				basePoints: 10,
 				ageMin: 10,
@@ -1326,7 +1326,7 @@ function seed() {
 			},
 			{
 				name: '裁縫・布を使った制作',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🧵',
 				basePoints: 10,
 				ageMin: 10,
@@ -1344,7 +1344,7 @@ function seed() {
 			// うんどう
 			{
 				name: '体力トレーニング',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏋️',
 				basePoints: 10,
 				ageMin: 13,
@@ -1357,7 +1357,7 @@ function seed() {
 			},
 			{
 				name: 'ランニング・陸上練習',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏃',
 				basePoints: 10,
 				ageMin: 13,
@@ -1370,7 +1370,7 @@ function seed() {
 			},
 			{
 				name: '水泳練習',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏊',
 				basePoints: 10,
 				ageMin: 13,
@@ -1383,7 +1383,7 @@ function seed() {
 			},
 			{
 				name: '球技の練習',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '⚽',
 				basePoints: 10,
 				ageMin: 13,
@@ -1396,7 +1396,7 @@ function seed() {
 			},
 			{
 				name: '武道の練習',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🥋',
 				basePoints: 10,
 				ageMin: 13,
@@ -1409,7 +1409,7 @@ function seed() {
 			},
 			{
 				name: '部活動の練習',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏅',
 				basePoints: 15,
 				ageMin: 13,
@@ -1423,7 +1423,7 @@ function seed() {
 			// べんきょう
 			{
 				name: '国語の家庭学習',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📝',
 				basePoints: 5,
 				ageMin: 13,
@@ -1436,7 +1436,7 @@ function seed() {
 			},
 			{
 				name: '数学の家庭学習',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📐',
 				basePoints: 5,
 				ageMin: 13,
@@ -1449,7 +1449,7 @@ function seed() {
 			},
 			{
 				name: '英語の家庭学習',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🌍',
 				basePoints: 5,
 				ageMin: 13,
@@ -1462,7 +1462,7 @@ function seed() {
 			},
 			{
 				name: '理科の自主学習',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🔬',
 				basePoints: 10,
 				ageMin: 13,
@@ -1475,7 +1475,7 @@ function seed() {
 			},
 			{
 				name: '社会の自主学習',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📚',
 				basePoints: 5,
 				ageMin: 13,
@@ -1488,7 +1488,7 @@ function seed() {
 			},
 			{
 				name: '読書（1時間）',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📖',
 				basePoints: 10,
 				ageMin: 13,
@@ -1501,7 +1501,7 @@ function seed() {
 			},
 			{
 				name: 'テスト勉強',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🎯',
 				basePoints: 15,
 				ageMin: 13,
@@ -1515,7 +1515,7 @@ function seed() {
 			// せいかつ
 			{
 				name: '調理実習の復習',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🍳',
 				basePoints: 10,
 				ageMin: 13,
@@ -1528,7 +1528,7 @@ function seed() {
 			},
 			{
 				name: '家事の分担・実践',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🏠',
 				basePoints: 5,
 				ageMin: 13,
@@ -1542,7 +1542,7 @@ function seed() {
 			},
 			{
 				name: '衣服の管理・手入れ',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '👕',
 				basePoints: 5,
 				ageMin: 13,
@@ -1555,7 +1555,7 @@ function seed() {
 			},
 			{
 				name: '健康管理・生活改善',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🩺',
 				basePoints: 5,
 				ageMin: 13,
@@ -1568,7 +1568,7 @@ function seed() {
 			},
 			{
 				name: '金銭管理の実践',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '💰',
 				basePoints: 10,
 				ageMin: 13,
@@ -1581,7 +1581,7 @@ function seed() {
 			},
 			{
 				name: '明日の準備・提出物チェック',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '✅',
 				basePoints: 5,
 				ageMin: 13,
@@ -1595,7 +1595,7 @@ function seed() {
 			// こうりゅう
 			{
 				name: '礼儀正しい言動',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🤝',
 				basePoints: 3,
 				ageMin: 13,
@@ -1608,7 +1608,7 @@ function seed() {
 			},
 			{
 				name: '友人との協力活動',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '👥',
 				basePoints: 5,
 				ageMin: 13,
@@ -1621,7 +1621,7 @@ function seed() {
 			},
 			{
 				name: '地域ボランティア',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🌐',
 				basePoints: 15,
 				ageMin: 13,
@@ -1634,7 +1634,7 @@ function seed() {
 			},
 			{
 				name: '進路について考えた',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🎓',
 				basePoints: 10,
 				ageMin: 13,
@@ -1648,7 +1648,7 @@ function seed() {
 			// そうぞう
 			{
 				name: '美術作品の制作',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎨',
 				basePoints: 10,
 				ageMin: 13,
@@ -1661,7 +1661,7 @@ function seed() {
 			},
 			{
 				name: '音楽の練習（歌唱・器楽）',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎵',
 				basePoints: 10,
 				ageMin: 13,
@@ -1674,7 +1674,7 @@ function seed() {
 			},
 			{
 				name: '技術ものづくり',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🔧',
 				basePoints: 10,
 				ageMin: 13,
@@ -1687,7 +1687,7 @@ function seed() {
 			},
 			{
 				name: 'ダンス・創作表現',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '💃',
 				basePoints: 10,
 				ageMin: 13,
@@ -1700,7 +1700,7 @@ function seed() {
 			},
 			{
 				name: '作文・レポート執筆',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '✍️',
 				basePoints: 10,
 				ageMin: 13,
@@ -1718,7 +1718,7 @@ function seed() {
 			// うんどう
 			{
 				name: '体力づくり・筋トレ',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏋️',
 				basePoints: 10,
 				ageMin: 16,
@@ -1731,7 +1731,7 @@ function seed() {
 			},
 			{
 				name: 'ランニング・ジョギング',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏃',
 				basePoints: 10,
 				ageMin: 16,
@@ -1744,7 +1744,7 @@ function seed() {
 			},
 			{
 				name: '球技・スポーツ活動',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '⚽',
 				basePoints: 10,
 				ageMin: 16,
@@ -1757,7 +1757,7 @@ function seed() {
 			},
 			{
 				name: '武道・ダンス',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🥋',
 				basePoints: 10,
 				ageMin: 16,
@@ -1770,7 +1770,7 @@ function seed() {
 			},
 			{
 				name: '部活動・クラブ活動',
-				category: 'うんどう',
+				categoryId: 1,
 				icon: '🏅',
 				basePoints: 15,
 				ageMin: 16,
@@ -1784,7 +1784,7 @@ function seed() {
 			// べんきょう
 			{
 				name: '国語の自主学習（高校）',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📝',
 				basePoints: 5,
 				ageMin: 16,
@@ -1797,7 +1797,7 @@ function seed() {
 			},
 			{
 				name: '数学の自主学習',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📐',
 				basePoints: 5,
 				ageMin: 16,
@@ -1810,7 +1810,7 @@ function seed() {
 			},
 			{
 				name: '英語の自主学習（高校）',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🌍',
 				basePoints: 5,
 				ageMin: 16,
@@ -1823,7 +1823,7 @@ function seed() {
 			},
 			{
 				name: '理科の自主学習（高校）',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🔬',
 				basePoints: 10,
 				ageMin: 16,
@@ -1836,7 +1836,7 @@ function seed() {
 			},
 			{
 				name: '社会科の自主学習（高校）',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📚',
 				basePoints: 5,
 				ageMin: 16,
@@ -1849,7 +1849,7 @@ function seed() {
 			},
 			{
 				name: '読書・論文読解',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '📖',
 				basePoints: 10,
 				ageMin: 16,
@@ -1862,7 +1862,7 @@ function seed() {
 			},
 			{
 				name: '受験勉強・模試対策',
-				category: 'べんきょう',
+				categoryId: 2,
 				icon: '🎯',
 				basePoints: 15,
 				ageMin: 16,
@@ -1876,7 +1876,7 @@ function seed() {
 			// せいかつ
 			{
 				name: '食事の自立（献立・調理）',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🍳',
 				basePoints: 10,
 				ageMin: 16,
@@ -1889,7 +1889,7 @@ function seed() {
 			},
 			{
 				name: '家事の自立的実践',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🏠',
 				basePoints: 5,
 				ageMin: 16,
@@ -1903,7 +1903,7 @@ function seed() {
 			},
 			{
 				name: '金銭管理・消費行動',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '💰',
 				basePoints: 10,
 				ageMin: 16,
@@ -1916,7 +1916,7 @@ function seed() {
 			},
 			{
 				name: '健康管理・ストレス対処',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '🩺',
 				basePoints: 5,
 				ageMin: 16,
@@ -1929,7 +1929,7 @@ function seed() {
 			},
 			{
 				name: '環境に配慮した生活',
-				category: 'せいかつ',
+				categoryId: 3,
 				icon: '♻️',
 				basePoints: 5,
 				ageMin: 16,
@@ -1943,7 +1943,7 @@ function seed() {
 			// こうりゅう
 			{
 				name: '社会貢献・ボランティア',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🌐',
 				basePoints: 15,
 				ageMin: 16,
@@ -1956,7 +1956,7 @@ function seed() {
 			},
 			{
 				name: '進路研究・キャリア設計',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🎓',
 				basePoints: 10,
 				ageMin: 16,
@@ -1969,7 +1969,7 @@ function seed() {
 			},
 			{
 				name: 'プレゼンテーション',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🎤',
 				basePoints: 15,
 				ageMin: 16,
@@ -1982,7 +1982,7 @@ function seed() {
 			},
 			{
 				name: '異文化交流・国際理解',
-				category: 'こうりゅう',
+				categoryId: 4,
 				icon: '🌏',
 				basePoints: 10,
 				ageMin: 16,
@@ -1996,7 +1996,7 @@ function seed() {
 			// そうぞう
 			{
 				name: '美術・デザイン制作',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎨',
 				basePoints: 10,
 				ageMin: 16,
@@ -2009,7 +2009,7 @@ function seed() {
 			},
 			{
 				name: '音楽活動（歌唱・楽器・作曲）',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '🎵',
 				basePoints: 10,
 				ageMin: 16,
@@ -2022,7 +2022,7 @@ function seed() {
 			},
 			{
 				name: '創作文・小論文執筆',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '✍️',
 				basePoints: 10,
 				ageMin: 16,
@@ -2035,7 +2035,7 @@ function seed() {
 			},
 			{
 				name: 'プログラミング・情報制作',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '💻',
 				basePoints: 15,
 				ageMin: 16,
@@ -2048,7 +2048,7 @@ function seed() {
 			},
 			{
 				name: '探究レポート・研究発表',
-				category: 'そうぞう',
+				categoryId: 5,
 				icon: '📊',
 				basePoints: 20,
 				ageMin: 16,
@@ -2064,41 +2064,41 @@ function seed() {
 			// 家事・生活スキル（追加活動）
 			// ============================
 			// 料理・食事まわり（kinder）
-			{ name: 'おさらあらい', category: 'せいかつ', icon: '🍽️💧', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: 'お皿やコップを洗う', dailyLimit: 3, sortOrder: s() },
-			{ name: 'テーブルをふく', category: 'せいかつ', icon: '🧽', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '食事の前後にテーブルを拭く', dailyLimit: 3, sortOrder: s() },
-			{ name: 'りょうりのおてつだい', category: 'せいかつ', icon: '🍳', basePoints: 8, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '料理を手伝う', dailyLimit: 2, sortOrder: s() },
+			{ name: 'おさらあらい', categoryId: 3, icon: '🍽️💧', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: 'お皿やコップを洗う', dailyLimit: 3, sortOrder: s() },
+			{ name: 'テーブルをふく', categoryId: 3, icon: '🧽', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '食事の前後にテーブルを拭く', dailyLimit: 3, sortOrder: s() },
+			{ name: 'りょうりのおてつだい', categoryId: 3, icon: '🍳', basePoints: 8, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '料理を手伝う', dailyLimit: 2, sortOrder: s() },
 			// 料理・食事まわり（elementary以上）
-			{ name: '皿洗い', category: 'せいかつ', icon: '🍽️', basePoints: 5, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '食器を洗う', dailyLimit: 3, sortOrder: s() },
-			{ name: '料理する', category: 'せいかつ', icon: '🍳', basePoints: 8, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '料理を作る', sortOrder: s() },
-			{ name: '献立を考える', category: 'せいかつ', icon: '📝', basePoints: 8, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '食事の献立を考える', sortOrder: s() },
-			{ name: '冷蔵庫を整理する', category: 'せいかつ', icon: '🧊', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '冷蔵庫・冷凍庫の中を整理する', sortOrder: s() },
+			{ name: '皿洗い', categoryId: 3, icon: '🍽️', basePoints: 5, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '食器を洗う', dailyLimit: 3, sortOrder: s() },
+			{ name: '料理する', categoryId: 3, icon: '🍳', basePoints: 8, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '料理を作る', sortOrder: s() },
+			{ name: '献立を考える', categoryId: 3, icon: '📝', basePoints: 8, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '食事の献立を考える', sortOrder: s() },
+			{ name: '冷蔵庫を整理する', categoryId: 3, icon: '🧊', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '冷蔵庫・冷凍庫の中を整理する', sortOrder: s() },
 
 			// 洗濯まわり（kinder）
-			{ name: 'せんたくものをたたむ', category: 'せいかつ', icon: '👕', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '洗濯', description: '洗濯物をたたむ', sortOrder: s() },
-			{ name: 'せんたくものをしまう', category: 'せいかつ', icon: '🧺', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '洗濯', description: '洗濯物をタンスにしまう', sortOrder: s() },
+			{ name: 'せんたくものをたたむ', categoryId: 3, icon: '👕', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '洗濯', description: '洗濯物をたたむ', sortOrder: s() },
+			{ name: 'せんたくものをしまう', categoryId: 3, icon: '🧺', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '洗濯', description: '洗濯物をタンスにしまう', sortOrder: s() },
 			// 洗濯まわり（elementary以上）
-			{ name: '洗濯物をたたむ', category: 'せいかつ', icon: '👕', basePoints: 3, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物をたたむ', sortOrder: s() },
-			{ name: '洗濯物を干す', category: 'せいかつ', icon: '🧺', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物を干す', sortOrder: s() },
-			{ name: '洗濯をする', category: 'せいかつ', icon: '👕🫧', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '洗濯', description: '洗濯機に洗剤を入れて洗濯する', sortOrder: s() },
-			{ name: 'くつを洗う', category: 'せいかつ', icon: '👟💧', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '靴をブラシで洗う', sortOrder: s() },
+			{ name: '洗濯物をたたむ', categoryId: 3, icon: '👕', basePoints: 3, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物をたたむ', sortOrder: s() },
+			{ name: '洗濯物を干す', categoryId: 3, icon: '🧺', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物を干す', sortOrder: s() },
+			{ name: '洗濯をする', categoryId: 3, icon: '👕🫧', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '洗濯', description: '洗濯機に洗剤を入れて洗濯する', sortOrder: s() },
+			{ name: 'くつを洗う', categoryId: 3, icon: '👟💧', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '靴をブラシで洗う', sortOrder: s() },
 
 			// 掃除・片付け（kinder）
-			{ name: 'おへやをそうじする', category: 'せいかつ', icon: '🧹🏠', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '自分の部屋やリビングを掃除する', sortOrder: s() },
-			{ name: 'くつをそろえる', category: 'せいかつ', icon: '👟', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '玄関の靴をそろえる', dailyLimit: 2, sortOrder: s() },
+			{ name: 'おへやをそうじする', categoryId: 3, icon: '🧹🏠', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '自分の部屋やリビングを掃除する', sortOrder: s() },
+			{ name: 'くつをそろえる', categoryId: 3, icon: '👟', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '玄関の靴をそろえる', dailyLimit: 2, sortOrder: s() },
 			// 掃除・片付け（elementary以上）
-			{ name: '部屋を掃除する', category: 'せいかつ', icon: '🧹🏠', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '掃除機をかけたり拭き掃除する', sortOrder: s() },
-			{ name: 'お風呂を掃除する', category: 'せいかつ', icon: '🛁🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '浴槽や床を洗う', sortOrder: s() },
-			{ name: 'トイレを掃除する', category: 'せいかつ', icon: '🚽🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'トイレの便器や床を掃除する', sortOrder: s() },
-			{ name: '洗面台を掃除する', category: 'せいかつ', icon: '🪥🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '洗面台のボウルや鏡を掃除する', sortOrder: s() },
-			{ name: '玄関を掃除する', category: 'せいかつ', icon: '🚪🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '玄関の掃き掃除や靴の片付け', sortOrder: s() },
-			{ name: 'ゴミを出す', category: 'せいかつ', icon: '🗑️', basePoints: 3, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'ゴミをまとめて収集場所に出す', sortOrder: s() },
+			{ name: '部屋を掃除する', categoryId: 3, icon: '🧹🏠', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '掃除機をかけたり拭き掃除する', sortOrder: s() },
+			{ name: 'お風呂を掃除する', categoryId: 3, icon: '🛁🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '浴槽や床を洗う', sortOrder: s() },
+			{ name: 'トイレを掃除する', categoryId: 3, icon: '🚽🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'トイレの便器や床を掃除する', sortOrder: s() },
+			{ name: '洗面台を掃除する', categoryId: 3, icon: '🪥🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '洗面台のボウルや鏡を掃除する', sortOrder: s() },
+			{ name: '玄関を掃除する', categoryId: 3, icon: '🚪🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '玄関の掃き掃除や靴の片付け', sortOrder: s() },
+			{ name: 'ゴミを出す', categoryId: 3, icon: '🗑️', basePoints: 3, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'ゴミをまとめて収集場所に出す', sortOrder: s() },
 
 			// 生活・その他
-			{ name: 'おふとんをたたむ', category: 'せいかつ', icon: '🛏️', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '起きた後に布団を畳む', sortOrder: s() },
-			{ name: 'かいものにいく', category: 'せいかつ', icon: '🛒', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '買い物', description: '家族と一緒に買い物に行く', sortOrder: s() },
-			{ name: '買い物をする', category: 'せいかつ', icon: '🛒', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '買い物', description: '食材や日用品の買い物をする', sortOrder: s() },
-			{ name: '水やりをする', category: 'せいかつ', icon: '🌱💧', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '植物や花に水をあげる', dailyLimit: 2, sortOrder: s() },
-			{ name: 'おたよりをわたす', category: 'せいかつ', icon: '📨', basePoints: 3, ageMin: 3, ageMax: 9, source: 'seed', gradeLevel: 'kinder', subcategory: '準備', description: '保育園・学校からの手紙を親に渡す', sortOrder: s() },
+			{ name: 'おふとんをたたむ', categoryId: 3, icon: '🛏️', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '起きた後に布団を畳む', sortOrder: s() },
+			{ name: 'かいものにいく', categoryId: 3, icon: '🛒', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '買い物', description: '家族と一緒に買い物に行く', sortOrder: s() },
+			{ name: '買い物をする', categoryId: 3, icon: '🛒', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '買い物', description: '食材や日用品の買い物をする', sortOrder: s() },
+			{ name: '水やりをする', categoryId: 3, icon: '🌱💧', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '植物や花に水をあげる', dailyLimit: 2, sortOrder: s() },
+			{ name: 'おたよりをわたす', categoryId: 3, icon: '📨', basePoints: 3, ageMin: 3, ageMax: 9, source: 'seed', gradeLevel: 'kinder', subcategory: '準備', description: '保育園・学校からの手紙を親に渡す', sortOrder: s() },
 		];
 
 		db.insert(schema.activities).values(activitiesData).run();
@@ -2107,32 +2107,32 @@ function seed() {
 		// 既存DBに家事活動が未追加の場合、追加する
 		const existingNames = new Set(existingActivities.map((a) => a.name));
 		const choreActivities: (typeof schema.activities.$inferInsert)[] = [
-			{ name: 'おさらあらい', category: 'せいかつ', icon: '🍽️💧', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: 'お皿やコップを洗う', dailyLimit: 3, sortOrder: 200 },
-			{ name: 'テーブルをふく', category: 'せいかつ', icon: '🧽', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '食事の前後にテーブルを拭く', dailyLimit: 3, sortOrder: 201 },
-			{ name: 'りょうりのおてつだい', category: 'せいかつ', icon: '🍳', basePoints: 8, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '料理を手伝う', dailyLimit: 2, sortOrder: 202 },
-			{ name: '皿洗い', category: 'せいかつ', icon: '🍽️', basePoints: 5, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '食器を洗う', dailyLimit: 3, sortOrder: 203 },
-			{ name: '料理する', category: 'せいかつ', icon: '🍳', basePoints: 8, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '料理を作る', sortOrder: 204 },
-			{ name: '献立を考える', category: 'せいかつ', icon: '📝', basePoints: 8, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '食事の献立を考える', sortOrder: 205 },
-			{ name: '冷蔵庫を整理する', category: 'せいかつ', icon: '🧊', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '冷蔵庫・冷凍庫の中を整理する', sortOrder: 206 },
-			{ name: 'せんたくものをたたむ', category: 'せいかつ', icon: '👕', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '洗濯', description: '洗濯物をたたむ', sortOrder: 207 },
-			{ name: 'せんたくものをしまう', category: 'せいかつ', icon: '🧺', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '洗濯', description: '洗濯物をタンスにしまう', sortOrder: 208 },
-			{ name: '洗濯物をたたむ', category: 'せいかつ', icon: '👕', basePoints: 3, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物をたたむ', sortOrder: 209 },
-			{ name: '洗濯物を干す', category: 'せいかつ', icon: '🧺', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物を干す', sortOrder: 210 },
-			{ name: '洗濯をする', category: 'せいかつ', icon: '👕🫧', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '洗濯', description: '洗濯機に洗剤を入れて洗濯する', sortOrder: 211 },
-			{ name: 'くつを洗う', category: 'せいかつ', icon: '👟💧', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '靴をブラシで洗う', sortOrder: 212 },
-			{ name: 'おへやをそうじする', category: 'せいかつ', icon: '🧹🏠', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '自分の部屋やリビングを掃除する', sortOrder: 213 },
-			{ name: 'くつをそろえる', category: 'せいかつ', icon: '👟', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '玄関の靴をそろえる', dailyLimit: 2, sortOrder: 214 },
-			{ name: '部屋を掃除する', category: 'せいかつ', icon: '🧹🏠', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '掃除機をかけたり拭き掃除する', sortOrder: 215 },
-			{ name: 'お風呂を掃除する', category: 'せいかつ', icon: '🛁🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '浴槽や床を洗う', sortOrder: 216 },
-			{ name: 'トイレを掃除する', category: 'せいかつ', icon: '🚽🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'トイレの便器や床を掃除する', sortOrder: 217 },
-			{ name: '洗面台を掃除する', category: 'せいかつ', icon: '🪥🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '洗面台のボウルや鏡を掃除する', sortOrder: 218 },
-			{ name: '玄関を掃除する', category: 'せいかつ', icon: '🚪🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '玄関の掃き掃除や靴の片付け', sortOrder: 219 },
-			{ name: 'ゴミを出す', category: 'せいかつ', icon: '🗑️', basePoints: 3, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'ゴミをまとめて収集場所に出す', sortOrder: 220 },
-			{ name: 'おふとんをたたむ', category: 'せいかつ', icon: '🛏️', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '起きた後に布団を畳む', sortOrder: 221 },
-			{ name: 'かいものにいく', category: 'せいかつ', icon: '🛒', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '買い物', description: '家族と一緒に買い物に行く', sortOrder: 222 },
-			{ name: '買い物をする', category: 'せいかつ', icon: '🛒', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '買い物', description: '食材や日用品の買い物をする', sortOrder: 223 },
-			{ name: '水やりをする', category: 'せいかつ', icon: '🌱💧', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '植物や花に水をあげる', dailyLimit: 2, sortOrder: 224 },
-			{ name: 'おたよりをわたす', category: 'せいかつ', icon: '📨', basePoints: 3, ageMin: 3, ageMax: 9, source: 'seed', gradeLevel: 'kinder', subcategory: '準備', description: '保育園・学校からの手紙を親に渡す', sortOrder: 225 },
+			{ name: 'おさらあらい', categoryId: 3, icon: '🍽️💧', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: 'お皿やコップを洗う', dailyLimit: 3, sortOrder: 200 },
+			{ name: 'テーブルをふく', categoryId: 3, icon: '🧽', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '食事の前後にテーブルを拭く', dailyLimit: 3, sortOrder: 201 },
+			{ name: 'りょうりのおてつだい', categoryId: 3, icon: '🍳', basePoints: 8, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '食事', description: '料理を手伝う', dailyLimit: 2, sortOrder: 202 },
+			{ name: '皿洗い', categoryId: 3, icon: '🍽️', basePoints: 5, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '食器を洗う', dailyLimit: 3, sortOrder: 203 },
+			{ name: '料理する', categoryId: 3, icon: '🍳', basePoints: 8, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '食事', description: '料理を作る', sortOrder: 204 },
+			{ name: '献立を考える', categoryId: 3, icon: '📝', basePoints: 8, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '食事の献立を考える', sortOrder: 205 },
+			{ name: '冷蔵庫を整理する', categoryId: 3, icon: '🧊', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '食事', description: '冷蔵庫・冷凍庫の中を整理する', sortOrder: 206 },
+			{ name: 'せんたくものをたたむ', categoryId: 3, icon: '👕', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '洗濯', description: '洗濯物をたたむ', sortOrder: 207 },
+			{ name: 'せんたくものをしまう', categoryId: 3, icon: '🧺', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '洗濯', description: '洗濯物をタンスにしまう', sortOrder: 208 },
+			{ name: '洗濯物をたたむ', categoryId: 3, icon: '👕', basePoints: 3, ageMin: 6, ageMax: 9, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物をたたむ', sortOrder: 209 },
+			{ name: '洗濯物を干す', categoryId: 3, icon: '🧺', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '洗濯物を干す', sortOrder: 210 },
+			{ name: '洗濯をする', categoryId: 3, icon: '👕🫧', basePoints: 5, ageMin: 10, ageMax: 18, source: 'seed', gradeLevel: 'elementary_upper', subcategory: '洗濯', description: '洗濯機に洗剤を入れて洗濯する', sortOrder: 211 },
+			{ name: 'くつを洗う', categoryId: 3, icon: '👟💧', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '洗濯', description: '靴をブラシで洗う', sortOrder: 212 },
+			{ name: 'おへやをそうじする', categoryId: 3, icon: '🧹🏠', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '自分の部屋やリビングを掃除する', sortOrder: 213 },
+			{ name: 'くつをそろえる', categoryId: 3, icon: '👟', basePoints: 3, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '掃除', description: '玄関の靴をそろえる', dailyLimit: 2, sortOrder: 214 },
+			{ name: '部屋を掃除する', categoryId: 3, icon: '🧹🏠', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '掃除機をかけたり拭き掃除する', sortOrder: 215 },
+			{ name: 'お風呂を掃除する', categoryId: 3, icon: '🛁🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '浴槽や床を洗う', sortOrder: 216 },
+			{ name: 'トイレを掃除する', categoryId: 3, icon: '🚽🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'トイレの便器や床を掃除する', sortOrder: 217 },
+			{ name: '洗面台を掃除する', categoryId: 3, icon: '🪥🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '洗面台のボウルや鏡を掃除する', sortOrder: 218 },
+			{ name: '玄関を掃除する', categoryId: 3, icon: '🚪🧹', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: '玄関の掃き掃除や靴の片付け', sortOrder: 219 },
+			{ name: 'ゴミを出す', categoryId: 3, icon: '🗑️', basePoints: 3, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '掃除', description: 'ゴミをまとめて収集場所に出す', sortOrder: 220 },
+			{ name: 'おふとんをたたむ', categoryId: 3, icon: '🛏️', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '起きた後に布団を畳む', sortOrder: 221 },
+			{ name: 'かいものにいく', categoryId: 3, icon: '🛒', basePoints: 5, ageMin: 3, ageMax: 5, source: 'seed', gradeLevel: 'kinder', subcategory: '買い物', description: '家族と一緒に買い物に行く', sortOrder: 222 },
+			{ name: '買い物をする', categoryId: 3, icon: '🛒', basePoints: 5, ageMin: 6, ageMax: 18, source: 'seed', gradeLevel: 'elementary_lower', subcategory: '買い物', description: '食材や日用品の買い物をする', sortOrder: 223 },
+			{ name: '水やりをする', categoryId: 3, icon: '🌱💧', basePoints: 3, ageMin: 3, ageMax: 18, source: 'seed', gradeLevel: 'kinder', subcategory: '生活', description: '植物や花に水をあげる', dailyLimit: 2, sortOrder: 224 },
+			{ name: 'おたよりをわたす', categoryId: 3, icon: '📨', basePoints: 3, ageMin: 3, ageMax: 9, source: 'seed', gradeLevel: 'kinder', subcategory: '準備', description: '保育園・学校からの手紙を親に渡す', sortOrder: 225 },
 		];
 		const newActivities = choreActivities.filter((a) => !existingNames.has(a.name));
 		if (newActivities.length > 0) {
@@ -2149,11 +2149,11 @@ function seed() {
 	const existingBenchmarks = db.select().from(schema.marketBenchmarks).all();
 	if (existingBenchmarks.length === 0) {
 		const benchmarksData: (typeof schema.marketBenchmarks.$inferInsert)[] = [
-			{ age: 4, category: 'うんどう', mean: 30.0, stdDev: 10.0, source: '暫定値' },
-			{ age: 4, category: 'べんきょう', mean: 20.0, stdDev: 8.0, source: '暫定値' },
-			{ age: 4, category: 'せいかつ', mean: 35.0, stdDev: 8.0, source: '暫定値' },
-			{ age: 4, category: 'こうりゅう', mean: 25.0, stdDev: 10.0, source: '暫定値' },
-			{ age: 4, category: 'そうぞう', mean: 25.0, stdDev: 9.0, source: '暫定値' },
+			{ age: 4, categoryId: 1, mean: 30.0, stdDev: 10.0, source: '暫定値' },
+			{ age: 4, categoryId: 2, mean: 20.0, stdDev: 8.0, source: '暫定値' },
+			{ age: 4, categoryId: 3, mean: 35.0, stdDev: 8.0, source: '暫定値' },
+			{ age: 4, categoryId: 4, mean: 25.0, stdDev: 10.0, source: '暫定値' },
+			{ age: 4, categoryId: 5, mean: 25.0, stdDev: 9.0, source: '暫定値' },
 		];
 
 		db.insert(schema.marketBenchmarks).values(benchmarksData).run();
@@ -2167,20 +2167,19 @@ function seed() {
 	// ============================================================
 	const existingStatuses = db.select().from(schema.statuses).all();
 	if (existingStatuses.length === 0) {
-		const categories = ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう'] as const;
 		const allChildren = db.select().from(schema.children).all();
 		const statusesData: (typeof schema.statuses.$inferInsert)[] = [];
-		const baseValues: Record<string, number> = {
-			うんどう: 30.0, べんきょう: 20.0, せいかつ: 35.0, こうりゅう: 25.0, そうぞう: 25.0,
+		const baseValues: Record<number, number> = {
+			1: 30.0, 2: 20.0, 3: 35.0, 4: 25.0, 5: 25.0,
 		};
 		for (const child of allChildren) {
-			for (const cat of categories) {
-				statusesData.push({ childId: child.id, category: cat, value: baseValues[cat] });
+			for (const catId of [1, 2, 3, 4, 5]) {
+				statusesData.push({ childId: child.id, categoryId: catId, value: baseValues[catId] });
 			}
 		}
 
 		db.insert(schema.statuses).values(statusesData).run();
-		console.log(`  ✓ statuses: ${statusesData.length} items (${allChildren.length} children × ${categories.length} categories)`);
+		console.log(`  ✓ statuses: ${statusesData.length} items (${allChildren.length} children × 5 categories)`);
 	} else {
 		console.log('  - statuses: already seeded');
 	}

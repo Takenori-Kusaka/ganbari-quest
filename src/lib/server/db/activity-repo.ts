@@ -4,7 +4,6 @@
 import { eq, and, lte, gte, or, isNull, desc } from 'drizzle-orm';
 import { db } from './client';
 import { activities, activityLogs, children, pointLedger } from './schema';
-import type { Category } from '$lib/domain/validation/activity';
 
 // ============================================================
 // Activity Filter
@@ -12,7 +11,7 @@ import type { Category } from '$lib/domain/validation/activity';
 
 export interface ActivityFilter {
 	childAge?: number;
-	category?: Category;
+	categoryId?: number;
 	includeHidden?: boolean;
 }
 
@@ -21,8 +20,8 @@ export function findActivities(filter?: ActivityFilter) {
 
 	const conditions = [];
 
-	if (filter?.category) {
-		conditions.push(eq(activities.category, filter.category));
+	if (filter?.categoryId) {
+		conditions.push(eq(activities.categoryId, filter.categoryId));
 	}
 
 	if (!filter?.includeHidden) {
@@ -51,7 +50,7 @@ export function findActivityById(id: number) {
 
 export function insertActivity(input: {
 	name: string;
-	category: Category;
+	categoryId: number;
 	icon: string;
 	basePoints: number;
 	ageMin: number | null;
@@ -64,7 +63,7 @@ export function updateActivity(
 	id: number,
 	input: Partial<{
 		name: string;
-		category: Category;
+		categoryId: number;
 		icon: string;
 		basePoints: number;
 		ageMin: number | null;
@@ -166,7 +165,7 @@ export function findActivityLogs(
 			id: activityLogs.id,
 			activityName: activities.name,
 			activityIcon: activities.icon,
-			category: activities.category,
+			categoryId: activities.categoryId,
 			points: activityLogs.points,
 			streakDays: activityLogs.streakDays,
 			streakBonus: activityLogs.streakBonus,

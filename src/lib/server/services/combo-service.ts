@@ -4,6 +4,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { activityLogs, activities, pointLedger } from '$lib/server/db/schema';
+import { getCategoryById } from '$lib/domain/validation/activity';
 
 /** Category combo bonus table */
 const CATEGORY_COMBO_TABLE = [
@@ -24,7 +25,7 @@ const CROSS_CATEGORY_TABLE = [
 ] as const;
 
 export interface CategoryComboEntry {
-	category: string;
+	categoryId: number;
 	uniqueCount: number;
 	name: string;
 	bonus: number;
@@ -80,7 +81,7 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 	const todayLogs = db
 		.select({
 			activityId: activityLogs.activityId,
-			category: activities.category,
+			categoryId: activities.categoryId,
 		})
 		.from(activityLogs)
 		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
@@ -93,23 +94,23 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 		)
 		.all();
 
-	// Group unique activity IDs by category
-	const byCat = new Map<string, Set<number>>();
+	// Group unique activity IDs by categoryId
+	const byCat = new Map<number, Set<number>>();
 	for (const log of todayLogs) {
-		const set = byCat.get(log.category) ?? new Set();
+		const set = byCat.get(log.categoryId) ?? new Set();
 		set.add(log.activityId);
-		byCat.set(log.category, set);
+		byCat.set(log.categoryId, set);
 	}
 
 	// Calculate category combo bonuses
 	let totalDesiredBonus = 0;
 	const categoryCombo: CategoryComboEntry[] = [];
 
-	for (const [category, activityIds] of byCat) {
+	for (const [categoryId, activityIds] of byCat) {
 		const result = calcCategoryComboBonus(activityIds.size);
 		if (result) {
 			categoryCombo.push({
-				category,
+				categoryId,
 				uniqueCount: activityIds.size,
 				name: result.name,
 				bonus: result.bonus,
@@ -158,7 +159,8 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 			parts.push('ミニコンボ');
 		}
 		for (const cc of categoryCombo) {
-			parts.push(`${cc.name}コンボ(${cc.category})`);
+			const catName = getCategoryById(cc.categoryId)?.name ?? String(cc.categoryId);
+			parts.push(`${cc.name}コンボ(${catName})`);
 		}
 		if (crossCategoryCombo) {
 			parts.push(crossCategoryCombo.name);
@@ -191,18 +193,19 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
  * コンボ予告ヒントを生成
  */
 function generateComboHints(
-	byCat: Map<string, Set<number>>,
+	byCat: Map<number, Set<number>>,
 	totalUnique: number,
 ): ComboHint[] {
 	const hints: ComboHint[] = [];
 
 	// カテゴリコンボのヒント
-	for (const [category, activityIds] of byCat) {
+	for (const [categoryId, activityIds] of byCat) {
 		const count = activityIds.size;
+		const catName = getCategoryById(categoryId)?.name ?? String(categoryId);
 		for (const entry of CATEGORY_COMBO_TABLE) {
 			if (count === entry.minCount - 1) {
 				hints.push({
-					message: `あと1つで${entry.name}コンボ(${category})！`,
+					message: `あと1つで${entry.name}コンボ(${catName})！`,
 				});
 				break;
 			}

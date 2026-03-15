@@ -10,7 +10,6 @@ import {
 	children,
 	activityLogs,
 } from './schema';
-import type { Category } from '$lib/domain/validation/activity';
 
 /** 子供の全ステータスを取得 */
 export function findStatuses(childId: number) {
@@ -22,21 +21,21 @@ export function findStatuses(childId: number) {
 }
 
 /** カテゴリ別のステータスを取得 */
-export function findStatus(childId: number, category: string) {
+export function findStatus(childId: number, categoryId: number) {
 	return db
 		.select()
 		.from(statuses)
-		.where(and(eq(statuses.childId, childId), eq(statuses.category, category)))
+		.where(and(eq(statuses.childId, childId), eq(statuses.categoryId, categoryId)))
 		.get();
 }
 
 /** ステータスを更新（upsert） */
 export function upsertStatus(
 	childId: number,
-	category: string,
+	categoryId: number,
 	value: number,
 ) {
-	const existing = findStatus(childId, category);
+	const existing = findStatus(childId, categoryId);
 	const clampedValue = Math.max(0, value);
 	const now = new Date().toISOString();
 
@@ -51,7 +50,7 @@ export function upsertStatus(
 
 	return db
 		.insert(statuses)
-		.values({ childId, category, value: clampedValue, updatedAt: now })
+		.values({ childId, categoryId, value: clampedValue, updatedAt: now })
 		.returning()
 		.get();
 }
@@ -59,7 +58,7 @@ export function upsertStatus(
 /** ステータス変動履歴を追加 */
 export function insertStatusHistory(input: {
 	childId: number;
-	category: string;
+	categoryId: number;
 	value: number;
 	changeAmount: number;
 	changeType: string;
@@ -70,7 +69,7 @@ export function insertStatusHistory(input: {
 /** 直近のステータス変動を取得 */
 export function findRecentStatusHistory(
 	childId: number,
-	category: string,
+	categoryId: number,
 	limit: number = 7,
 ) {
 	return db
@@ -79,7 +78,7 @@ export function findRecentStatusHistory(
 		.where(
 			and(
 				eq(statusHistory.childId, childId),
-				eq(statusHistory.category, category),
+				eq(statusHistory.categoryId, categoryId),
 			),
 		)
 		.orderBy(desc(statusHistory.recordedAt))
@@ -88,14 +87,14 @@ export function findRecentStatusHistory(
 }
 
 /** 市場ベンチマークを取得 */
-export function findBenchmark(age: number, category: string) {
+export function findBenchmark(age: number, categoryId: number) {
 	return db
 		.select()
 		.from(marketBenchmarks)
 		.where(
 			and(
 				eq(marketBenchmarks.age, age),
-				eq(marketBenchmarks.category, category),
+				eq(marketBenchmarks.categoryId, categoryId),
 			),
 		)
 		.get();

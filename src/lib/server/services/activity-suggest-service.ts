@@ -2,13 +2,13 @@
 // 自然言語から活動情報を推定するサービス
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { CATEGORIES } from '$lib/domain/validation/activity';
+import { getCategoryByName } from '$lib/domain/validation/activity';
 import { joinIcon } from '$lib/domain/icon-utils';
 import { logger } from '$lib/server/logger';
 
 interface SuggestedActivity {
 	name: string;
-	category: (typeof CATEGORIES)[number];
+	categoryId: number;
 	icon: string;
 	basePoints: number;
 	nameKana: string | null;
@@ -97,7 +97,8 @@ async function suggestWithGemini(client: GoogleGenerativeAI, text: string): Prom
 	const parsed = JSON.parse(jsonMatch[0]);
 
 	// バリデーション
-	const category = CATEGORIES.includes(parsed.category) ? parsed.category : 'せいかつ';
+	const catDef = getCategoryByName(parsed.category);
+	const categoryId = catDef?.id ?? 3; // デフォルト: せいかつ
 	const basePoints = [3, 5, 8, 10].includes(parsed.basePoints) ? parsed.basePoints : 5;
 
 	// 複合アイコン対応: mainIcon+subIcon → icon、後方互換で parsed.icon もフォールバック
@@ -107,7 +108,7 @@ async function suggestWithGemini(client: GoogleGenerativeAI, text: string): Prom
 
 	return {
 		name: String(parsed.name ?? text).slice(0, 50),
-		category,
+		categoryId,
 		icon,
 		basePoints,
 		nameKana: parsed.nameKana ? String(parsed.nameKana).slice(0, 50) : null,
@@ -119,21 +120,21 @@ async function suggestWithGemini(client: GoogleGenerativeAI, text: string): Prom
 function suggestByKeywords(text: string): SuggestedActivity {
 	const lower = text.toLowerCase();
 
-	const rules: { keywords: string[]; category: (typeof CATEGORIES)[number]; points: number }[] = [
-		{ keywords: ['走', 'はし', 'ボール', 'サッカー', '水泳', 'すいえい', '体操', 'たいそう', 'なわとび', 'プール', '散歩', 'さんぽ', '自転車', 'じてんしゃ', 'ダンス', 'スポーツ'], category: 'うんどう', points: 5 },
-		{ keywords: ['読', 'よ', '書', 'か', '計算', 'けいさん', 'ひらがな', 'カタカナ', '宿題', 'しゅくだい', '勉強', 'べんきょう', '英語', 'えいご', 'ピアノ', '算数', 'さんすう', '本'], category: 'べんきょう', points: 5 },
-		{ keywords: ['歯', 'は', 'みがき', '片付', 'かたづ', '着替', 'きが', '手伝', 'てつだ', '洗', 'あら', '掃除', 'そうじ', 'ごはん', 'お風呂', 'ふろ', '靴', 'くつ'], category: 'せいかつ', points: 3 },
-		{ keywords: ['あいさつ', '友達', 'ともだち', 'ありがとう', 'ごめん', '遊', 'あそ', '話', 'はな', 'お礼', 'おれい', '仲良', 'なかよ'], category: 'こうりゅう', points: 3 },
-		{ keywords: ['絵', 'え', 'お絵描き', '工作', 'こうさく', '音楽', 'おんがく', '歌', 'うた', '折り紙', 'おりがみ', '作', 'つく', 'ブロック', '粘土', 'ねんど', '料理', 'りょうり'], category: 'そうぞう', points: 5 },
+	const rules: { keywords: string[]; categoryName: string; categoryId: number; points: number }[] = [
+		{ keywords: ['走', 'はし', 'ボール', 'サッカー', '水泳', 'すいえい', '体操', 'たいそう', 'なわとび', 'プール', '散歩', 'さんぽ', '自転車', 'じてんしゃ', 'ダンス', 'スポーツ'], categoryName: 'うんどう', categoryId: 1, points: 5 },
+		{ keywords: ['読', 'よ', '書', 'か', '計算', 'けいさん', 'ひらがな', 'カタカナ', '宿題', 'しゅくだい', '勉強', 'べんきょう', '英語', 'えいご', 'ピアノ', '算数', 'さんすう', '本'], categoryName: 'べんきょう', categoryId: 2, points: 5 },
+		{ keywords: ['歯', 'は', 'みがき', '片付', 'かたづ', '着替', 'きが', '手伝', 'てつだ', '洗', 'あら', '掃除', 'そうじ', 'ごはん', 'お風呂', 'ふろ', '靴', 'くつ'], categoryName: 'せいかつ', categoryId: 3, points: 3 },
+		{ keywords: ['あいさつ', '友達', 'ともだち', 'ありがとう', 'ごめん', '遊', 'あそ', '話', 'はな', 'お礼', 'おれい', '仲良', 'なかよ'], categoryName: 'こうりゅう', categoryId: 4, points: 3 },
+		{ keywords: ['絵', 'え', 'お絵描き', '工作', 'こうさく', '音楽', 'おんがく', '歌', 'うた', '折り紙', 'おりがみ', '作', 'つく', 'ブロック', '粘土', 'ねんど', '料理', 'りょうり'], categoryName: 'そうぞう', categoryId: 5, points: 5 },
 	];
 
 	for (const rule of rules) {
 		for (const kw of rule.keywords) {
 			if (lower.includes(kw)) {
-				const icons = CATEGORY_ICONS[rule.category] ?? ['📝'];
+				const icons = CATEGORY_ICONS[rule.categoryName] ?? ['📝'];
 				return {
 					name: text.slice(0, 50),
-					category: rule.category,
+					categoryId: rule.categoryId,
 					icon: icons[0]!,
 					basePoints: rule.points,
 					nameKana: null,
@@ -146,7 +147,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 	// デフォルト
 	return {
 		name: text.slice(0, 50),
-		category: 'せいかつ',
+		categoryId: 3, // せいかつ
 		icon: '📝',
 		basePoints: 5,
 		nameKana: null,

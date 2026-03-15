@@ -10,6 +10,20 @@ let sqlite: InstanceType<typeof Database>;
 let testDb: ReturnType<typeof drizzle>;
 
 const SQL_TABLES = `
+	CREATE TABLE categories (
+		id INTEGER PRIMARY KEY,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		icon TEXT,
+		color TEXT
+	);
+
+	INSERT INTO categories VALUES (1, 'undou', 'うんどう', '🏃', '#FF6B6B');
+	INSERT INTO categories VALUES (2, 'benkyou', 'べんきょう', '📚', '#4ECDC4');
+	INSERT INTO categories VALUES (3, 'seikatsu', 'せいかつ', '🏠', '#FFE66D');
+	INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
+	INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
+
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
@@ -21,7 +35,7 @@ const SQL_TABLES = `
 	);
 	CREATE TABLE activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL, category TEXT NOT NULL, icon TEXT NOT NULL,
+		name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), icon TEXT NOT NULL,
 		base_points INTEGER NOT NULL DEFAULT 5,
 		age_min INTEGER, age_max INTEGER,
 		is_visible INTEGER NOT NULL DEFAULT 1,
@@ -53,14 +67,14 @@ const SQL_TABLES = `
 	CREATE TABLE statuses (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category TEXT NOT NULL, value REAL NOT NULL DEFAULT 0.0,
+		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL DEFAULT 0.0,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category);
+	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
 	CREATE TABLE status_history (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category TEXT NOT NULL, value REAL NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL,
 		change_amount REAL NOT NULL, change_type TEXT NOT NULL,
 		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
@@ -73,11 +87,11 @@ const SQL_TABLES = `
 	);
 	CREATE TABLE market_benchmarks (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		age INTEGER NOT NULL, category TEXT NOT NULL,
+		age INTEGER NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id),
 		mean REAL NOT NULL, std_dev REAL NOT NULL,
 		source TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks(age, category);
+	CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks(age, category_id);
 	CREATE TABLE settings (
 		key TEXT PRIMARY KEY, value TEXT NOT NULL,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

@@ -13,6 +13,20 @@ let db: ReturnType<typeof drizzle>;
 
 // SQL for creating tables (same as schema.test.ts)
 const CREATE_TABLES = `
+	CREATE TABLE categories (
+		id INTEGER PRIMARY KEY,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		icon TEXT,
+		color TEXT
+	);
+
+	INSERT INTO categories VALUES (1, 'undou', 'うんどう', '🏃', '#FF6B6B');
+	INSERT INTO categories VALUES (2, 'benkyou', 'べんきょう', '📚', '#4ECDC4');
+	INSERT INTO categories VALUES (3, 'seikatsu', 'せいかつ', '🏠', '#FFE66D');
+	INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
+	INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
+
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL,
@@ -27,7 +41,7 @@ const CREATE_TABLES = `
 	CREATE TABLE activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
-		category TEXT NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id),
 		icon TEXT NOT NULL,
 		base_points INTEGER NOT NULL DEFAULT 5,
 		age_min INTEGER,
@@ -91,10 +105,10 @@ beforeEach(() => {
 		.values({ nickname: 'テスト子', age: 4 })
 		.run();
 	db.insert(schema.activities)
-		.values({ name: 'たいそう', category: 'うんどう', icon: '🤸', basePoints: 5 })
+		.values({ name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5 })
 		.run();
 	db.insert(schema.activities)
-		.values({ name: 'えほん', category: 'べんきょう', icon: '📖', basePoints: 5 })
+		.values({ name: 'えほん', categoryId: 2, icon: '📖', basePoints: 5 })
 		.run();
 });
 
@@ -375,7 +389,7 @@ describe('dailyLimit（DB層テスト）', () => {
 
 	it('dailyLimit=2の活動を作成・取得', () => {
 		db.insert(schema.activities)
-			.values({ name: 'はみがき', category: 'せいかつ', icon: '🪥', basePoints: 3, dailyLimit: 2 })
+			.values({ name: 'はみがき', categoryId: 3, icon: '🪥', basePoints: 3, dailyLimit: 2 })
 			.run();
 
 		const activities = db
@@ -388,7 +402,7 @@ describe('dailyLimit（DB層テスト）', () => {
 
 	it('dailyLimit=0（無制限）の活動を作成・取得', () => {
 		db.insert(schema.activities)
-			.values({ name: 'おそうじ', category: 'せいかつ', icon: '🧹', basePoints: 3, dailyLimit: 0 })
+			.values({ name: 'おそうじ', categoryId: 3, icon: '🧹', basePoints: 3, dailyLimit: 0 })
 			.run();
 
 		const activities = db
@@ -401,7 +415,7 @@ describe('dailyLimit（DB層テスト）', () => {
 
 	it('dailyLimit=2の活動で同日に2回記録が可能', () => {
 		db.insert(schema.activities)
-			.values({ name: 'はみがき2', category: 'せいかつ', icon: '🪥', basePoints: 3, dailyLimit: 2 })
+			.values({ name: 'はみがき2', categoryId: 3, icon: '🪥', basePoints: 3, dailyLimit: 2 })
 			.run();
 
 		const activities = db.select().from(schema.activities).all();

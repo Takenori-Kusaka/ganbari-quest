@@ -11,7 +11,7 @@ import {
 	children,
 } from '$lib/server/db/schema';
 import { todayDateJST } from '$lib/domain/date-utils';
-import { CATEGORIES } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 
 const MISSION_COUNT = 3;
 
@@ -26,7 +26,7 @@ export interface DailyMission {
 	activityId: number;
 	activityName: string;
 	activityIcon: string;
-	category: string;
+	categoryId: number;
 	completed: boolean;
 }
 
@@ -51,7 +51,7 @@ export function getTodayMissions(childId: number): DailyMissionStatus {
 			completed: dailyMissions.completed,
 			activityName: activities.name,
 			activityIcon: activities.icon,
-			category: activities.category,
+			categoryId: activities.categoryId,
 		})
 		.from(dailyMissions)
 		.innerJoin(activities, eq(dailyMissions.activityId, activities.id))
@@ -68,7 +68,7 @@ export function getTodayMissions(childId: number): DailyMissionStatus {
 				completed: dailyMissions.completed,
 				activityName: activities.name,
 				activityIcon: activities.icon,
-				category: activities.category,
+				categoryId: activities.categoryId,
 			})
 			.from(dailyMissions)
 			.innerJoin(activities, eq(dailyMissions.activityId, activities.id))
@@ -97,7 +97,7 @@ export function getTodayMissions(childId: number): DailyMissionStatus {
 			activityId: m.activityId,
 			activityName: m.activityName,
 			activityIcon: m.activityIcon,
-			category: m.category,
+			categoryId: m.categoryId,
 			completed: m.completed === 1,
 		})),
 		completedCount,
@@ -290,31 +290,32 @@ function generateMissions(childId: number, date: string): void {
 
 	// フォールバック: 3つに満たない場合、カテゴリ分散でランダム補充
 	if (selected.length < MISSION_COUNT) {
-		const byCategory = new Map<string, typeof allActivities>();
+		const byCategory = new Map<number, typeof allActivities>();
 		for (const a of allActivities) {
 			if (selected.includes(a.id)) continue;
-			const list = byCategory.get(a.category) ?? [];
+			const list = byCategory.get(a.categoryId) ?? [];
 			list.push(a);
-			byCategory.set(a.category, list);
+			byCategory.set(a.categoryId, list);
 		}
 
 		// 未選出のカテゴリを優先（カテゴリ分散を保証）
-		const selectedCategories = new Set(
+		const selectedCategoryIds = new Set(
 			selected
-				.map((id) => allActivities.find((a) => a.id === id)?.category)
-				.filter(Boolean),
+				.map((id) => allActivities.find((a) => a.id === id)?.categoryId)
+				.filter((v): v is number => v != null),
 		);
+		const allCategoryIds = CATEGORY_DEFS.map((c) => c.id);
 		const unselectedCategories = shuffle(
-			CATEGORIES.filter((c) => byCategory.has(c) && !selectedCategories.has(c)),
+			allCategoryIds.filter((cid) => byCategory.has(cid) && !selectedCategoryIds.has(cid)),
 		);
 		const alreadySelectedCategories = shuffle(
-			CATEGORIES.filter((c) => byCategory.has(c) && selectedCategories.has(c)),
+			allCategoryIds.filter((cid) => byCategory.has(cid) && selectedCategoryIds.has(cid)),
 		);
 		const remainingCategories = [...unselectedCategories, ...alreadySelectedCategories];
 
-		for (const cat of remainingCategories) {
+		for (const catId of remainingCategories) {
 			if (selected.length >= MISSION_COUNT) break;
-			const catActivities = byCategory.get(cat) ?? [];
+			const catActivities = byCategory.get(catId) ?? [];
 			const pool = catActivities.filter((a) => !selected.includes(a.id));
 			const pick = pickRandom(pool);
 			if (pick) selected.push(pick.id);

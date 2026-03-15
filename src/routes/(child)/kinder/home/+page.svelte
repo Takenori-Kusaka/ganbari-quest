@@ -2,7 +2,7 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { tick } from 'svelte';
-import { CATEGORIES } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
@@ -31,7 +31,7 @@ let resultData = $state<{
 	streakBonus: number;
 	cancelableUntil: string;
 	comboBonus: {
-		categoryCombo: { category: string; name: string; bonus: number }[];
+		categoryCombo: { categoryId: number; name: string; bonus: number }[];
 		crossCategoryCombo: { name: string; bonus: number } | null;
 		miniCombo: { uniqueCount: number; bonus: number } | null;
 		hints: { message: string }[];
@@ -114,9 +114,9 @@ function isCompleted(activity: { id: number; dailyLimit: number | null }): boole
 
 // Group activities by category
 const activitiesByCategory = $derived(
-	CATEGORIES.map((cat) => ({
-		category: cat,
-		items: data.activities.filter((a) => a.category === cat),
+	CATEGORY_DEFS.map((catDef) => ({
+		categoryId: catDef.id,
+		items: data.activities.filter((a) => a.categoryId === catDef.id),
 	})).filter((g) => g.items.length > 0),
 );
 
@@ -357,13 +357,13 @@ function handleBirthdayResultClose() {
 	{/if}
 
 	<!-- Activity grid by category -->
-	{#each activitiesByCategory as group (group.category)}
-		<CategorySection category={group.category}>
+	{#each activitiesByCategory as group (group.categoryId)}
+		<CategorySection categoryId={group.categoryId}>
 			{#each group.items as activity (activity.id)}
 				<ActivityCard
 					icon={activity.icon}
 					name={activity.displayName}
-					category={activity.category}
+					categoryId={activity.categoryId}
 					completed={isCompleted(activity)}
 					count={getCount(activity.id)}
 					onclick={() => handleActivityTap(activity)}
@@ -415,7 +415,7 @@ function handleBirthdayResultClose() {
 									cancelableUntil: string;
 									unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
 									comboBonus: {
-										categoryCombo: { category: string; name: string; bonus: number }[];
+										categoryCombo: { categoryId: number; name: string; bonus: number }[];
 										crossCategoryCombo: { name: string; bonus: number } | null;
 										miniCombo: { uniqueCount: number; bonus: number } | null;
 										hints: { message: string }[];
@@ -497,7 +497,7 @@ function handleBirthdayResultClose() {
 					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
 						{#each resultData.comboBonus.categoryCombo as cc}
 							<p class="text-sm font-bold text-[var(--theme-accent)]">
-								{cc.name}コンボ！（{cc.category}） +{cc.bonus}P
+								{cc.name}コンボ！（{getCategoryById(cc.categoryId)?.name ?? ''}） +{cc.bonus}P
 							</p>
 						{/each}
 						{#if resultData.comboBonus.crossCategoryCombo}

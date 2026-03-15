@@ -1,6 +1,4 @@
 import { z } from 'zod';
-import { CATEGORIES } from './activity';
-import type { Category } from './activity';
 
 /** レベルテーブル */
 export const LEVEL_TABLE: {

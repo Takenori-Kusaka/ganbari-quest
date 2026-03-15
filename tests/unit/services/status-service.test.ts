@@ -10,6 +10,20 @@ let sqlite: InstanceType<typeof Database>;
 let testDb: ReturnType<typeof drizzle>;
 
 const SQL_TABLES = `
+	CREATE TABLE categories (
+		id INTEGER PRIMARY KEY,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		icon TEXT,
+		color TEXT
+	);
+
+	INSERT INTO categories VALUES (1, 'undou', 'うんどう', '🏃', '#FF6B6B');
+	INSERT INTO categories VALUES (2, 'benkyou', 'べんきょう', '📚', '#4ECDC4');
+	INSERT INTO categories VALUES (3, 'seikatsu', 'せいかつ', '🏠', '#FFE66D');
+	INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
+	INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
+
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
@@ -21,7 +35,7 @@ const SQL_TABLES = `
 	);
 	CREATE TABLE activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL, category TEXT NOT NULL, icon TEXT NOT NULL,
+		name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), icon TEXT NOT NULL,
 		base_points INTEGER NOT NULL DEFAULT 5,
 		age_min INTEGER, age_max INTEGER,
 		is_visible INTEGER NOT NULL DEFAULT 1,
@@ -54,18 +68,18 @@ const SQL_TABLES = `
 	CREATE TABLE statuses (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category TEXT NOT NULL, value REAL NOT NULL DEFAULT 0.0,
+		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL DEFAULT 0.0,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category);
+	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
 	CREATE TABLE status_history (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category TEXT NOT NULL, value REAL NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL,
 		change_amount REAL NOT NULL, change_type TEXT NOT NULL,
 		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE INDEX idx_status_history_child_cat ON status_history(child_id, category, recorded_at);
+	CREATE INDEX idx_status_history_child_cat ON status_history(child_id, category_id, recorded_at);
 	CREATE TABLE evaluations (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
@@ -75,11 +89,11 @@ const SQL_TABLES = `
 	);
 	CREATE TABLE market_benchmarks (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		age INTEGER NOT NULL, category TEXT NOT NULL,
+		age INTEGER NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id),
 		mean REAL NOT NULL, std_dev REAL NOT NULL,
 		source TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks(age, category);
+	CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks(age, category_id);
 	CREATE TABLE settings (
 		key TEXT PRIMARY KEY, value TEXT NOT NULL,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -143,10 +157,9 @@ function seedChild() {
 }
 
 function seedBenchmarks() {
-	const categories = ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう'];
-	for (const cat of categories) {
+	for (const catId of [1, 2, 3, 4, 5]) {
 		testDb.insert(schema.marketBenchmarks)
-			.values({ age: 4, category: cat, mean: 50, stdDev: 10, source: 'test' })
+			.values({ age: 4, categoryId: catId, mean: 50, stdDev: 10, source: 'test' })
 			.run();
 	}
 }
@@ -169,72 +182,72 @@ describe('status-service', () => {
 			expect(result.level).toBe(1);
 			expect(result.levelTitle).toBe('はじめのぼうけんしゃ');
 			expect(Object.keys(result.statuses).length).toBe(5);
-			expect(result.statuses['うんどう']!.value).toBe(0);
+			expect(result.statuses[1]!.value).toBe(0);
 		}
 	});
 
 	it('ベンチマークなしの場合、偏差値50を返す', () => {
 		const result = getChildStatus(1);
 		if (!('error' in result)) {
-			expect(result.statuses['うんどう']!.deviationScore).toBe(50);
-			expect(result.statuses['うんどう']!.stars).toBe(3);
+			expect(result.statuses[1]!.deviationScore).toBe(50);
+			expect(result.statuses[1]!.stars).toBe(3);
 		}
 	});
 
 	it('ベンチマークありの場合、偏差値を正しく計算する', () => {
 		seedBenchmarks();
 		// うんどう = 70, mean = 50, stdDev = 10 → 偏差値 (70-50)/10*10+50 = 70
-		updateStatus(1, 'うんどう', 70, 'test');
+		updateStatus(1, 1, 70, 'test');
 
 		const result = getChildStatus(1);
 		if (!('error' in result)) {
-			expect(result.statuses['うんどう']!.value).toBe(70);
-			expect(result.statuses['うんどう']!.deviationScore).toBe(70);
-			expect(result.statuses['うんどう']!.stars).toBe(5);
+			expect(result.statuses[1]!.value).toBe(70);
+			expect(result.statuses[1]!.deviationScore).toBe(70);
+			expect(result.statuses[1]!.stars).toBe(5);
 		}
 	});
 
 	it('ステータス更新が正常に動作する', () => {
-		const updated = updateStatus(1, 'うんどう', 5.0, 'weekly');
+		const updated = updateStatus(1, 1, 5.0, 'weekly');
 		expect(updated).toBeDefined();
 		expect('error' in updated).toBe(false);
 
 		// getChildStatus で値を確認
 		const status = getChildStatus(1);
 		if (!('error' in status)) {
-			expect(status.statuses['うんどう']!.value).toBe(5.0);
+			expect(status.statuses[1]!.value).toBe(5.0);
 		}
 
 		// 累積更新
-		updateStatus(1, 'うんどう', 3.0, 'weekly');
+		updateStatus(1, 1, 3.0, 'weekly');
 		const status2 = getChildStatus(1);
 		if (!('error' in status2)) {
-			expect(status2.statuses['うんどう']!.value).toBe(8.0);
+			expect(status2.statuses[1]!.value).toBe(8.0);
 		}
 	});
 
 	it('ステータスは0未満にならない', () => {
-		updateStatus(1, 'うんどう', 5.0, 'weekly');
-		updateStatus(1, 'うんどう', -10.0, 'decay');
+		updateStatus(1, 1, 5.0, 'weekly');
+		updateStatus(1, 1, -10.0, 'decay');
 		const status = getChildStatus(1);
 		if (!('error' in status)) {
-			expect(status.statuses['うんどう']!.value).toBe(0);
+			expect(status.statuses[1]!.value).toBe(0);
 		}
 	});
 
 	it('ステータスは年齢別maxを超えない（age=4 → max=350）', () => {
-		updateStatus(1, 'うんどう', 300.0, 'weekly');
-		updateStatus(1, 'うんどう', 100.0, 'weekly');
+		updateStatus(1, 1, 300.0, 'weekly');
+		updateStatus(1, 1, 100.0, 'weekly');
 		const status = getChildStatus(1);
 		if (!('error' in status)) {
-			expect(status.statuses['うんどう']!.value).toBe(350);
+			expect(status.statuses[1]!.value).toBe(350);
 		}
 	});
 
 	it('レベルアップ時にlevelUp情報が返る', () => {
 		// 全カテゴリを34に設定 → 平均34 → 正規化 34/350*100≈9.7 → レベル1
-		for (const cat of ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう']) {
-			updateStatus(1, cat, 34, 'test');
+		for (const catId of [1, 2, 3, 4, 5]) {
+			updateStatus(1, catId, 34, 'test');
 		}
 		const before = getChildStatus(1);
 		if (!('error' in before)) {
@@ -242,19 +255,19 @@ describe('status-service', () => {
 		}
 
 		// うんどう+2 → [36,34,34,34,34] 平均34.4 → 正規化9.83 → レベル1（変化なし）
-		const result = updateStatus(1, 'うんどう', 2, 'test');
+		const result = updateStatus(1, 1, 2, 'test');
 		if (!('error' in result)) {
 			expect(result.levelUp).toBeNull();
 		}
 
 		// べんきょう+2 → [36,36,34,34,34] 平均34.8 → 正規化9.94 → レベル1
-		const result2 = updateStatus(1, 'べんきょう', 2, 'test');
+		const result2 = updateStatus(1, 2, 2, 'test');
 		if (!('error' in result2)) {
 			expect(result2.levelUp).toBeNull();
 		}
 
 		// せいかつ+2 → [36,36,36,34,34] 平均35.2 → 正規化10.06 → レベル2！
-		const levelUpResult = updateStatus(1, 'せいかつ', 2, 'test');
+		const levelUpResult = updateStatus(1, 3, 2, 'test');
 		if (!('error' in levelUpResult)) {
 			expect(levelUpResult.levelUp).not.toBeNull();
 			expect(levelUpResult.levelUp!.oldLevel).toBe(1);
@@ -265,8 +278,8 @@ describe('status-service', () => {
 
 	it('レベルがステータス平均の正規化値で決まる（age=4, max=350）', () => {
 		// 全カテゴリを175に設定 → 平均175 → 正規化 175/350*100=50 → レベル6
-		for (const cat of ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう']) {
-			updateStatus(1, cat, 175, 'test');
+		for (const catId of [1, 2, 3, 4, 5]) {
+			updateStatus(1, catId, 175, 'test');
 		}
 
 		const result = getChildStatus(1);
@@ -280,8 +293,8 @@ describe('status-service', () => {
 	it('キャラクタータイプが偏差値平均で決まる', () => {
 		seedBenchmarks();
 		// 全カテゴリを70に → 偏差値70 → hero
-		for (const cat of ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう']) {
-			updateStatus(1, cat, 70, 'test');
+		for (const catId of [1, 2, 3, 4, 5]) {
+			updateStatus(1, catId, 70, 'test');
 		}
 
 		const result = getChildStatus(1);
@@ -291,7 +304,7 @@ describe('status-service', () => {
 	});
 
 	it('存在しない子供のステータス更新はNOT_FOUND', () => {
-		const result = updateStatus(999, 'うんどう', 5.0, 'weekly');
+		const result = updateStatus(999, 1, 5.0, 'weekly');
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 });

@@ -6,6 +6,17 @@ import { sql } from 'drizzle-orm';
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ============================================================
+// categories - カテゴリマスタ
+// ============================================================
+export const categories = sqliteTable('categories', {
+	id: integer('id').primaryKey(),
+	code: text('code').notNull().unique(),
+	name: text('name').notNull(),
+	icon: text('icon'),
+	color: text('color'),
+});
+
+// ============================================================
 // children - 子供マスタ
 // ============================================================
 export const children = sqliteTable('children', {
@@ -26,7 +37,9 @@ export const children = sqliteTable('children', {
 export const activities = sqliteTable('activities', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	name: text('name').notNull(),
-	category: text('category').notNull(),
+	categoryId: integer('category_id')
+		.notNull()
+		.references(() => categories.id),
 	icon: text('icon').notNull(),
 	basePoints: integer('base_points').notNull().default(5),
 	ageMin: integer('age_min'),
@@ -104,11 +117,13 @@ export const statuses = sqliteTable(
 		childId: integer('child_id')
 			.notNull()
 			.references(() => children.id),
-		category: text('category').notNull(),
+		categoryId: integer('category_id')
+			.notNull()
+			.references(() => categories.id),
 		value: real('value').notNull().default(0.0),
 		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [uniqueIndex('idx_statuses_child_category').on(table.childId, table.category)],
+	(table) => [uniqueIndex('idx_statuses_child_category').on(table.childId, table.categoryId)],
 );
 
 // ============================================================
@@ -121,14 +136,16 @@ export const statusHistory = sqliteTable(
 		childId: integer('child_id')
 			.notNull()
 			.references(() => children.id),
-		category: text('category').notNull(),
+		categoryId: integer('category_id')
+			.notNull()
+			.references(() => categories.id),
 		value: real('value').notNull(),
 		changeAmount: real('change_amount').notNull(),
 		changeType: text('change_type').notNull(),
 		recordedAt: text('recorded_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
 	(table) => [
-		index('idx_status_history_child_cat').on(table.childId, table.category, table.recordedAt),
+		index('idx_status_history_child_cat').on(table.childId, table.categoryId, table.recordedAt),
 	],
 );
 
@@ -155,13 +172,15 @@ export const marketBenchmarks = sqliteTable(
 	{
 		id: integer('id').primaryKey({ autoIncrement: true }),
 		age: integer('age').notNull(),
-		category: text('category').notNull(),
+		categoryId: integer('category_id')
+			.notNull()
+			.references(() => categories.id),
 		mean: real('mean').notNull(),
 		stdDev: real('std_dev').notNull(),
 		source: text('source'),
 		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [uniqueIndex('idx_benchmarks_age_category').on(table.age, table.category)],
+	(table) => [uniqueIndex('idx_benchmarks_age_category').on(table.age, table.categoryId)],
 );
 
 // ============================================================

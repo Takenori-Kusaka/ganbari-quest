@@ -10,6 +10,20 @@ let sqlite: InstanceType<typeof Database>;
 let testDb: ReturnType<typeof drizzle>;
 
 const SQL_TABLES = `
+	CREATE TABLE categories (
+		id INTEGER PRIMARY KEY,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		icon TEXT,
+		color TEXT
+	);
+
+	INSERT INTO categories VALUES (1, 'undou', 'うんどう', '🏃', '#FF6B6B');
+	INSERT INTO categories VALUES (2, 'benkyou', 'べんきょう', '📚', '#4ECDC4');
+	INSERT INTO categories VALUES (3, 'seikatsu', 'せいかつ', '🏠', '#FFE66D');
+	INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
+	INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
+
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
@@ -21,7 +35,7 @@ const SQL_TABLES = `
 	);
 	CREATE TABLE activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL, category TEXT NOT NULL, icon TEXT NOT NULL,
+		name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), icon TEXT NOT NULL,
 		base_points INTEGER NOT NULL DEFAULT 5,
 		age_min INTEGER, age_max INTEGER,
 		is_visible INTEGER NOT NULL DEFAULT 1,
@@ -56,18 +70,18 @@ const SQL_TABLES = `
 	CREATE TABLE statuses (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category TEXT NOT NULL, value REAL NOT NULL DEFAULT 0.0,
+		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL DEFAULT 0.0,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category);
+	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
 	CREATE TABLE status_history (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category TEXT NOT NULL, value REAL NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL,
 		change_amount REAL NOT NULL, change_type TEXT NOT NULL,
 		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE INDEX idx_status_history_child_cat ON status_history(child_id, category, recorded_at);
+	CREATE INDEX idx_status_history_child_cat ON status_history(child_id, category_id, recorded_at);
 	CREATE TABLE evaluations (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
@@ -77,11 +91,11 @@ const SQL_TABLES = `
 	);
 	CREATE TABLE market_benchmarks (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		age INTEGER NOT NULL, category TEXT NOT NULL,
+		age INTEGER NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id),
 		mean REAL NOT NULL, std_dev REAL NOT NULL,
 		source TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks(age, category);
+	CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks(age, category_id);
 	CREATE TABLE settings (
 		key TEXT PRIMARY KEY, value TEXT NOT NULL,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -151,11 +165,11 @@ function seedBase() {
 
 	// 5カテゴリに1つずつ活動を用意
 	const acts = [
-		{ name: 'たいそう', category: 'うんどう', icon: '🤸', basePoints: 5, sortOrder: 1 },
-		{ name: 'ひらがな', category: 'べんきょう', icon: '✏️', basePoints: 5, sortOrder: 2 },
-		{ name: 'おかたづけ', category: 'せいかつ', icon: '🧹', basePoints: 5, sortOrder: 3 },
-		{ name: 'おともだち', category: 'こうりゅう', icon: '🤝', basePoints: 5, sortOrder: 4 },
-		{ name: 'おえかき', category: 'そうぞう', icon: '🎨', basePoints: 5, sortOrder: 5 },
+		{ name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5, sortOrder: 1 },
+		{ name: 'ひらがな', categoryId: 2, icon: '✏️', basePoints: 5, sortOrder: 2 },
+		{ name: 'おかたづけ', categoryId: 3, icon: '🧹', basePoints: 5, sortOrder: 3 },
+		{ name: 'おともだち', categoryId: 4, icon: '🤝', basePoints: 5, sortOrder: 4 },
+		{ name: 'おえかき', categoryId: 5, icon: '🎨', basePoints: 5, sortOrder: 5 },
 	];
 	for (const a of acts) {
 		testDb.insert(schema.activities).values(a).run();
@@ -299,8 +313,8 @@ describe('evaluateChild', () => {
 		}
 
 		const result = evaluateChild(1, '2026-02-16', '2026-02-22');
-		expect(result.categoryScores['うんどう']!.count).toBe(7);
-		expect(result.categoryScores['うんどう']!.statusIncrease).toBe(1.0); // 週次ボーナス
+		expect(result.categoryScores[1]!.count).toBe(7);
+		expect(result.categoryScores[1]!.statusIncrease).toBe(1.0); // 週次ボーナス
 	});
 });
 
@@ -318,7 +332,7 @@ describe('runDailyDecay', () => {
 		addLog(1, 1, '2026-02-19'); // 2日前にうんどう
 
 		const results = runDailyDecay('2026-02-21');
-		const decay = results[0]!.decays.find((d) => d.category === 'うんどう');
+		const decay = results[0]!.decays.find((d) => d.categoryId === 1);
 		expect(decay).toBeDefined();
 		expect(decay!.amount).toBeGreaterThan(0);
 	});

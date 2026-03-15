@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
 	const result = getActivities({
 		childAge,
-		category: parsed.data.category,
+		categoryId: parsed.data.categoryId,
 		includeHidden: parsed.data.includeHidden,
 	});
 
