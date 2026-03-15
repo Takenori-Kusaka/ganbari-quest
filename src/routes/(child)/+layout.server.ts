@@ -2,6 +2,7 @@ import { UI_MODES } from '$lib/domain/validation/age-tier';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getChildStatus } from '$lib/server/services/status-service';
+import { getActiveTitle } from '$lib/server/services/title-service';
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
@@ -51,11 +52,14 @@ export const load: LayoutServerLoad = ({ cookies, url }) => {
 	const level = 'error' in statusResult ? 1 : statusResult.level;
 	const levelTitle = 'error' in statusResult ? 'かけだし' : statusResult.levelTitle;
 
+	const activeTitle = getActiveTitle(childId);
+
 	return {
 		child,
 		balance,
 		level,
 		levelTitle,
+		activeTitle,
 		allChildren: getAllChildren(),
 		uiMode,
 	};

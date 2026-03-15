@@ -17,6 +17,23 @@ export const categories = sqliteTable('categories', {
 });
 
 // ============================================================
+// titles - 称号マスタ
+// ============================================================
+export const titles = sqliteTable('titles', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	code: text('code').notNull().unique(),
+	name: text('name').notNull(),
+	description: text('description'),
+	icon: text('icon').notNull(),
+	conditionType: text('condition_type').notNull(),
+	conditionValue: integer('condition_value').notNull(),
+	conditionExtra: text('condition_extra'),
+	rarity: text('rarity').notNull().default('common'),
+	sortOrder: integer('sort_order').notNull().default(0),
+	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================
 // children - 子供マスタ
 // ============================================================
 export const children = sqliteTable('children', {
@@ -27,6 +44,7 @@ export const children = sqliteTable('children', {
 	theme: text('theme').notNull().default('pink'),
 	uiMode: text('ui_mode').notNull().default('kinder'),
 	avatarUrl: text('avatar_url'),
+	activeTitleId: integer('active_title_id'),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -426,4 +444,22 @@ export const dailyMissions = sqliteTable(
 		uniqueIndex('idx_daily_missions_unique').on(table.childId, table.missionDate, table.activityId),
 		index('idx_daily_missions_child_date').on(table.childId, table.missionDate),
 	],
+);
+
+// ============================================================
+// child_titles - 称号解除履歴
+// ============================================================
+export const childTitles = sqliteTable(
+	'child_titles',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		titleId: integer('title_id')
+			.notNull()
+			.references(() => titles.id),
+		unlockedAt: text('unlocked_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [uniqueIndex('idx_child_titles_unique').on(table.childId, table.titleId)],
 );
