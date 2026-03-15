@@ -2,8 +2,9 @@ import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { logger } from '$lib/server/logger';
 import {
 	createActivity,
-	deleteActivity,
+	deleteActivityWithCleanup,
 	getActivities,
+	getActivityLogCounts,
 	hasActivityLogs,
 	setActivityVisibility,
 	updateActivity,
@@ -13,7 +14,8 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => {
 	const activities = getActivities({ includeHidden: true });
-	return { activities, categoryDefs: CATEGORY_DEFS };
+	const logCounts = getActivityLogCounts();
+	return { activities, categoryDefs: CATEGORY_DEFS, logCounts };
 };
 
 export const actions: Actions = {
@@ -128,12 +130,13 @@ export const actions: Actions = {
 
 		if (!id) return fail(400, { error: 'IDが必要です' });
 
-		if (hasActivityLogs(id)) {
-			return fail(409, { error: '記録があるため削除できません。「非表示」をご利用ください。', hasLogs: true });
-		}
-
 		try {
-			deleteActivity(id);
+			if (hasActivityLogs(id)) {
+				setActivityVisibility(id, false);
+				return { hidden: true };
+			}
+
+			deleteActivityWithCleanup(id);
 			return { deleted: true };
 		} catch (e) {
 			logger.error('[admin/activities] 活動削除失敗', {

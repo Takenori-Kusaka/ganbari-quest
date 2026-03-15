@@ -1,6 +1,6 @@
 import type { GradeLevel, Source } from '$lib/domain/validation/activity';
 import { db } from '$lib/server/db';
-import { activities, activityLogs } from '$lib/server/db/schema';
+import { activities, activityLogs, dailyMissions } from '$lib/server/db/schema';
 import { and, count, eq, gte, isNull, lte, or } from 'drizzle-orm';
 
 export interface CreateActivityInput {
@@ -82,4 +82,23 @@ export function hasActivityLogs(activityId: number): boolean {
 		.where(eq(activityLogs.activityId, activityId))
 		.get();
 	return (result?.cnt ?? 0) > 0;
+}
+
+export function getActivityLogCounts(): Record<number, number> {
+	const rows = db
+		.select({ activityId: activityLogs.activityId, cnt: count() })
+		.from(activityLogs)
+		.where(eq(activityLogs.cancelled, 0))
+		.groupBy(activityLogs.activityId)
+		.all();
+	const result: Record<number, number> = {};
+	for (const row of rows) {
+		result[row.activityId] = row.cnt;
+	}
+	return result;
+}
+
+export function deleteActivityWithCleanup(id: number) {
+	db.delete(dailyMissions).where(eq(dailyMissions.activityId, id)).run();
+	return db.delete(activities).where(eq(activities.id, id)).returning().get();
 }
