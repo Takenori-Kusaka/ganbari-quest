@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { invalidateAll } from '$app/navigation';
+import { navigating } from '$app/stores';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 import { SOUND_TIER_CONFIG, loadSoundSettings, soundService } from '$lib/ui/sound';
@@ -45,7 +46,15 @@ onMount(() => {
 	{/if}
 
 	<main class="pb-20 pt-[var(--spacing-sm)]">
-		{@render children()}
+		{#if $navigating}
+			<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)] flex flex-col gap-[var(--spacing-md)]">
+				<div class="skeleton-block h-32 rounded-[var(--radius-md)]"></div>
+				<div class="skeleton-block h-20 rounded-[var(--radius-md)]"></div>
+				<div class="skeleton-block h-20 rounded-[var(--radius-md)]"></div>
+			</div>
+		{:else}
+			{@render children()}
+		{/if}
 	</main>
 
 	<BottomNav items={navItems} />
