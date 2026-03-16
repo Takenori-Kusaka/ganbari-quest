@@ -43,6 +43,9 @@ const SQL_CREATE_TABLES = `
 		ui_mode TEXT NOT NULL DEFAULT 'kinder',
 		avatar_url TEXT,
 		active_title_id INTEGER,
+		active_avatar_bg INTEGER,
+		active_avatar_frame INTEGER,
+		active_avatar_effect INTEGER,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
@@ -292,6 +295,32 @@ const SQL_CREATE_TABLES = `
 		ON daily_missions(child_id, mission_date, activity_id);
 	CREATE INDEX idx_daily_missions_child_date
 		ON daily_missions(child_id, mission_date);
+
+	CREATE TABLE avatar_items (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		description TEXT,
+		category TEXT NOT NULL,
+		icon TEXT NOT NULL,
+		css_value TEXT NOT NULL,
+		price INTEGER NOT NULL DEFAULT 0,
+		unlock_type TEXT NOT NULL DEFAULT 'purchase',
+		unlock_condition TEXT,
+		rarity TEXT NOT NULL DEFAULT 'common',
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		is_active INTEGER NOT NULL DEFAULT 1,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE child_avatar_items (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		avatar_item_id INTEGER NOT NULL REFERENCES avatar_items(id),
+		acquired_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_child_avatar_items_unique
+		ON child_avatar_items(child_id, avatar_item_id);
 
 	CREATE TABLE child_titles (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

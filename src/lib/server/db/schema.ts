@@ -45,6 +45,9 @@ export const children = sqliteTable('children', {
 	uiMode: text('ui_mode').notNull().default('kinder'),
 	avatarUrl: text('avatar_url'),
 	activeTitleId: integer('active_title_id'),
+	activeAvatarBg: integer('active_avatar_bg'),
+	activeAvatarFrame: integer('active_avatar_frame'),
+	activeAvatarEffect: integer('active_avatar_effect'),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -444,6 +447,44 @@ export const dailyMissions = sqliteTable(
 		uniqueIndex('idx_daily_missions_unique').on(table.childId, table.missionDate, table.activityId),
 		index('idx_daily_missions_child_date').on(table.childId, table.missionDate),
 	],
+);
+
+// ============================================================
+// avatar_items - きせかえアイテムマスタ
+// ============================================================
+export const avatarItems = sqliteTable('avatar_items', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	code: text('code').notNull().unique(),
+	name: text('name').notNull(),
+	description: text('description'),
+	category: text('category').notNull(), // 'background' | 'frame' | 'effect'
+	icon: text('icon').notNull(),
+	cssValue: text('css_value').notNull(),
+	price: integer('price').notNull().default(0),
+	unlockType: text('unlock_type').notNull().default('purchase'), // 'purchase' | 'level' | 'achievement' | 'free'
+	unlockCondition: text('unlock_condition'), // JSON: { level: 5 } etc.
+	rarity: text('rarity').notNull().default('common'),
+	sortOrder: integer('sort_order').notNull().default(0),
+	isActive: integer('is_active').notNull().default(1),
+	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================
+// child_avatar_items - きせかえアイテム所持
+// ============================================================
+export const childAvatarItems = sqliteTable(
+	'child_avatar_items',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		avatarItemId: integer('avatar_item_id')
+			.notNull()
+			.references(() => avatarItems.id),
+		acquiredAt: text('acquired_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [uniqueIndex('idx_child_avatar_items_unique').on(table.childId, table.avatarItemId)],
 );
 
 // ============================================================
