@@ -2185,67 +2185,75 @@ function seed() {
 	// ============================================================
 	// 初期市場ベンチマーク（3〜12歳）
 	// ============================================================
+	// ベンチマークデータ設計根拠:
+	// - せいかつ(3): 日常習慣は幼児期から蓄積が早く、全年齢で最高値
+	// - うんどう(1): 粗大運動→巧緻運動と着実に発達（文科省体力テスト参考）
+	// - べんきょう(2): 就学前は低め、6歳(小学校入学)以降に加速（学習指導要領準拠）
+	// - こうりゅう(4): 幼児期は基礎的、学童期にピアグループ形成で加速
+	// - そうぞう(5): 幼児期に豊かな想像力、学童期は型の習得期で緩やか
+	// stdDevは平均の28-33%（年齢が上がるほど個人差拡大）
+	const S = '発達段階モデル推定';
 	const benchmarksData: (typeof schema.marketBenchmarks.$inferInsert)[] = [
-		// age 3 (maxValue: 200)
-		{ age: 3, categoryId: 1, mean: 15.0, stdDev: 5.0, source: '推定値' },
-		{ age: 3, categoryId: 2, mean: 10.0, stdDev: 4.0, source: '推定値' },
-		{ age: 3, categoryId: 3, mean: 20.0, stdDev: 5.0, source: '推定値' },
-		{ age: 3, categoryId: 4, mean: 12.0, stdDev: 5.0, source: '推定値' },
-		{ age: 3, categoryId: 5, mean: 12.0, stdDev: 4.0, source: '推定値' },
-		// age 4 (maxValue: 350)
-		{ age: 4, categoryId: 1, mean: 30.0, stdDev: 10.0, source: '推定値' },
-		{ age: 4, categoryId: 2, mean: 20.0, stdDev: 8.0, source: '推定値' },
-		{ age: 4, categoryId: 3, mean: 35.0, stdDev: 8.0, source: '推定値' },
-		{ age: 4, categoryId: 4, mean: 25.0, stdDev: 10.0, source: '推定値' },
-		{ age: 4, categoryId: 5, mean: 25.0, stdDev: 9.0, source: '推定値' },
-		// age 5 (maxValue: 500)
-		{ age: 5, categoryId: 1, mean: 50.0, stdDev: 15.0, source: '推定値' },
-		{ age: 5, categoryId: 2, mean: 35.0, stdDev: 12.0, source: '推定値' },
-		{ age: 5, categoryId: 3, mean: 55.0, stdDev: 12.0, source: '推定値' },
-		{ age: 5, categoryId: 4, mean: 40.0, stdDev: 14.0, source: '推定値' },
-		{ age: 5, categoryId: 5, mean: 40.0, stdDev: 13.0, source: '推定値' },
-		// age 6 (maxValue: 800)
-		{ age: 6, categoryId: 1, mean: 80.0, stdDev: 25.0, source: '推定値' },
-		{ age: 6, categoryId: 2, mean: 60.0, stdDev: 20.0, source: '推定値' },
-		{ age: 6, categoryId: 3, mean: 90.0, stdDev: 20.0, source: '推定値' },
-		{ age: 6, categoryId: 4, mean: 65.0, stdDev: 22.0, source: '推定値' },
-		{ age: 6, categoryId: 5, mean: 65.0, stdDev: 20.0, source: '推定値' },
-		// age 7 (maxValue: 1100)
-		{ age: 7, categoryId: 1, mean: 120.0, stdDev: 35.0, source: '推定値' },
-		{ age: 7, categoryId: 2, mean: 90.0, stdDev: 28.0, source: '推定値' },
-		{ age: 7, categoryId: 3, mean: 130.0, stdDev: 28.0, source: '推定値' },
-		{ age: 7, categoryId: 4, mean: 95.0, stdDev: 30.0, source: '推定値' },
-		{ age: 7, categoryId: 5, mean: 95.0, stdDev: 28.0, source: '推定値' },
-		// age 8 (maxValue: 1500)
-		{ age: 8, categoryId: 1, mean: 160.0, stdDev: 45.0, source: '推定値' },
-		{ age: 8, categoryId: 2, mean: 130.0, stdDev: 38.0, source: '推定値' },
-		{ age: 8, categoryId: 3, mean: 180.0, stdDev: 38.0, source: '推定値' },
-		{ age: 8, categoryId: 4, mean: 130.0, stdDev: 40.0, source: '推定値' },
-		{ age: 8, categoryId: 5, mean: 130.0, stdDev: 35.0, source: '推定値' },
-		// age 9 (maxValue: 2000)
-		{ age: 9, categoryId: 1, mean: 220.0, stdDev: 60.0, source: '推定値' },
-		{ age: 9, categoryId: 2, mean: 180.0, stdDev: 50.0, source: '推定値' },
-		{ age: 9, categoryId: 3, mean: 250.0, stdDev: 50.0, source: '推定値' },
-		{ age: 9, categoryId: 4, mean: 180.0, stdDev: 55.0, source: '推定値' },
-		{ age: 9, categoryId: 5, mean: 180.0, stdDev: 48.0, source: '推定値' },
-		// age 10 (maxValue: 2500)
-		{ age: 10, categoryId: 1, mean: 280.0, stdDev: 75.0, source: '推定値' },
-		{ age: 10, categoryId: 2, mean: 240.0, stdDev: 62.0, source: '推定値' },
-		{ age: 10, categoryId: 3, mean: 320.0, stdDev: 60.0, source: '推定値' },
-		{ age: 10, categoryId: 4, mean: 230.0, stdDev: 65.0, source: '推定値' },
-		{ age: 10, categoryId: 5, mean: 230.0, stdDev: 58.0, source: '推定値' },
-		// age 11 (maxValue: 3000)
-		{ age: 11, categoryId: 1, mean: 340.0, stdDev: 85.0, source: '推定値' },
-		{ age: 11, categoryId: 2, mean: 300.0, stdDev: 75.0, source: '推定値' },
-		{ age: 11, categoryId: 3, mean: 400.0, stdDev: 70.0, source: '推定値' },
-		{ age: 11, categoryId: 4, mean: 280.0, stdDev: 75.0, source: '推定値' },
-		{ age: 11, categoryId: 5, mean: 280.0, stdDev: 68.0, source: '推定値' },
-		// age 12 (maxValue: 3500)
-		{ age: 12, categoryId: 1, mean: 400.0, stdDev: 95.0, source: '推定値' },
-		{ age: 12, categoryId: 2, mean: 360.0, stdDev: 85.0, source: '推定値' },
-		{ age: 12, categoryId: 3, mean: 480.0, stdDev: 80.0, source: '推定値' },
-		{ age: 12, categoryId: 4, mean: 340.0, stdDev: 85.0, source: '推定値' },
-		{ age: 12, categoryId: 5, mean: 340.0, stdDev: 78.0, source: '推定値' },
+		// age 3 (maxValue: 200) — 基本的生活習慣の形成期
+		{ age: 3, categoryId: 1, mean: 16.0, stdDev: 5.0, source: S },
+		{ age: 3, categoryId: 2, mean: 8.0, stdDev: 3.0, source: S },
+		{ age: 3, categoryId: 3, mean: 22.0, stdDev: 6.0, source: S },
+		{ age: 3, categoryId: 4, mean: 12.0, stdDev: 4.0, source: S },
+		{ age: 3, categoryId: 5, mean: 14.0, stdDev: 4.5, source: S },
+		// age 4 (maxValue: 350) — 運動機能の発達・社会性の芽生え
+		{ age: 4, categoryId: 1, mean: 30.0, stdDev: 9.0, source: S },
+		{ age: 4, categoryId: 2, mean: 18.0, stdDev: 6.0, source: S },
+		{ age: 4, categoryId: 3, mean: 38.0, stdDev: 10.0, source: S },
+		{ age: 4, categoryId: 4, mean: 24.0, stdDev: 8.0, source: S },
+		{ age: 4, categoryId: 5, mean: 28.0, stdDev: 8.0, source: S },
+		// age 5 (maxValue: 500) — 就学準備期・協調性の発達
+		{ age: 5, categoryId: 1, mean: 52.0, stdDev: 15.0, source: S },
+		{ age: 5, categoryId: 2, mean: 32.0, stdDev: 10.0, source: S },
+		{ age: 5, categoryId: 3, mean: 60.0, stdDev: 16.0, source: S },
+		{ age: 5, categoryId: 4, mean: 40.0, stdDev: 12.0, source: S },
+		{ age: 5, categoryId: 5, mean: 42.0, stdDev: 12.0, source: S },
+		// age 6 (maxValue: 800) — 小学校入学・学習活動の開始
+		{ age: 6, categoryId: 1, mean: 85.0, stdDev: 25.0, source: S },
+		{ age: 6, categoryId: 2, mean: 65.0, stdDev: 20.0, source: S },
+		{ age: 6, categoryId: 3, mean: 95.0, stdDev: 25.0, source: S },
+		{ age: 6, categoryId: 4, mean: 62.0, stdDev: 18.0, source: S },
+		{ age: 6, categoryId: 5, mean: 58.0, stdDev: 17.0, source: S },
+		// age 7 (maxValue: 1100) — 学習習慣の定着・友人関係の深化
+		{ age: 7, categoryId: 1, mean: 122.0, stdDev: 36.0, source: S },
+		{ age: 7, categoryId: 2, mean: 105.0, stdDev: 32.0, source: S },
+		{ age: 7, categoryId: 3, mean: 138.0, stdDev: 36.0, source: S },
+		{ age: 7, categoryId: 4, mean: 95.0, stdDev: 28.0, source: S },
+		{ age: 7, categoryId: 5, mean: 82.0, stdDev: 24.0, source: S },
+		// age 8 (maxValue: 1500) — 論理的思考の発達・ギャングエイジ
+		{ age: 8, categoryId: 1, mean: 168.0, stdDev: 50.0, source: S },
+		{ age: 8, categoryId: 2, mean: 152.0, stdDev: 46.0, source: S },
+		{ age: 8, categoryId: 3, mean: 188.0, stdDev: 48.0, source: S },
+		{ age: 8, categoryId: 4, mean: 140.0, stdDev: 42.0, source: S },
+		{ age: 8, categoryId: 5, mean: 112.0, stdDev: 33.0, source: S },
+		// age 9 (maxValue: 2000) — 抽象的思考・集団活動の充実
+		{ age: 9, categoryId: 1, mean: 222.0, stdDev: 66.0, source: S },
+		{ age: 9, categoryId: 2, mean: 205.0, stdDev: 62.0, source: S },
+		{ age: 9, categoryId: 3, mean: 248.0, stdDev: 62.0, source: S },
+		{ age: 9, categoryId: 4, mean: 192.0, stdDev: 58.0, source: S },
+		{ age: 9, categoryId: 5, mean: 148.0, stdDev: 44.0, source: S },
+		// age 10 (maxValue: 2500) — 自律性の確立・高次思考力
+		{ age: 10, categoryId: 1, mean: 282.0, stdDev: 85.0, source: S },
+		{ age: 10, categoryId: 2, mean: 265.0, stdDev: 80.0, source: S },
+		{ age: 10, categoryId: 3, mean: 315.0, stdDev: 78.0, source: S },
+		{ age: 10, categoryId: 4, mean: 248.0, stdDev: 75.0, source: S },
+		{ age: 10, categoryId: 5, mean: 192.0, stdDev: 58.0, source: S },
+		// age 11 (maxValue: 3000) — 思春期前期・自己表現の発達
+		{ age: 11, categoryId: 1, mean: 348.0, stdDev: 105.0, source: S },
+		{ age: 11, categoryId: 2, mean: 330.0, stdDev: 100.0, source: S },
+		{ age: 11, categoryId: 3, mean: 390.0, stdDev: 95.0, source: S },
+		{ age: 11, categoryId: 4, mean: 308.0, stdDev: 92.0, source: S },
+		{ age: 11, categoryId: 5, mean: 245.0, stdDev: 74.0, source: S },
+		// age 12 (maxValue: 3500) — 思春期・自立と協働
+		{ age: 12, categoryId: 1, mean: 418.0, stdDev: 125.0, source: S },
+		{ age: 12, categoryId: 2, mean: 400.0, stdDev: 120.0, source: S },
+		{ age: 12, categoryId: 3, mean: 470.0, stdDev: 115.0, source: S },
+		{ age: 12, categoryId: 4, mean: 372.0, stdDev: 112.0, source: S },
+		{ age: 12, categoryId: 5, mean: 302.0, stdDev: 90.0, source: S },
 	];
 
 	let benchmarkInserted = 0;

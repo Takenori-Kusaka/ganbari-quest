@@ -28,8 +28,8 @@ Docker化により、`docker compose up` だけで動作する環境を提供し
 - [x] `docker-compose.yml` を作成（app + バインドマウント）
 - [x] SQLiteデータベースをDockerボリュームにマウント（永続化）
 - [x] uploadsディレクトリをDockerボリュームにマウント（アバター画像永続化）
-- [ ] バックアップスクリプトがコンテナ内から実行可能であること
-- [ ] Google Driveバックアップが維持されること（サービスアカウントキーのマウント）
+- [x] バックアップスクリプトがコンテナ内から実行可能であること
+- [x] Google Driveバックアップが維持されること（サービスアカウントキーのマウント）
 - [x] GitHub Actions に `docker build` テストジョブを追加
 - [x] NUCサーバーのデプロイをDockerコンテナ起動方式に移行
 - [x] `docker compose up -d` で初回起動時にseedが自動実行される仕組み
@@ -141,8 +141,24 @@ docker-build:
 - `.docker/config.json` の `credsStore: "desktop"` はSSHセッションから認証エラーになるため削除が必要
 - SvelteKit postbuild分析がサーバモジュール（better-sqlite3等）をimportするため、ビルド時に `mkdir -p data` が必要
 
-### 残課題・次のアクション
+### バックアップDocker統合（2026-03-16）
+
+**方式:** 2つのバックアップ方法を提供
+
+1. **ホスト実行（推奨）:** `backup-db.bat` をWindowsタスクスケジューラで定期実行
+   - data/ がバインドマウントされているため、ホストから直接 `node scripts/backup-db.cjs` で実行可能
+   - `backup-db.bat` をDocker対応パス（`C:\Docker\ganbari-quest`）に更新済み
+
+2. **コンテナ実行（オプション）:** `docker compose --profile backup up -d`
+   - docker-compose.yml に `backup` サービスを追加（crondベース、毎日3:00 JST）
+   - `backup-db.cjs` と `backup-to-gdrive.cjs` をバインドマウントで読み込み
+   - GDrive環境変数は `.env` ファイル経由で注入
+
+**GDrive対応:**
+- `backup-db.cjs` の `BACKUP_POST_HOOK` で `node scripts/backup-to-gdrive.cjs` を呼び出し可能
+- OAuthリフレッシュトークンは `.env` に記載（`GDRIVE_CLIENT_ID`, `GDRIVE_CLIENT_SECRET`, `GDRIVE_REFRESH_TOKEN`, `GDRIVE_FOLDER_ID`）
+
+### 今後の検討事項
 
 - Docker Hub / GitHub Container Registry へのイメージ公開（OSS化後）
-- Watchtower等による自動更新の検討
-- バックアップスクリプトの `docker exec` 対応（現在はホストから直接ファイルアクセス可能）
+- Watchtower等による自動更新
