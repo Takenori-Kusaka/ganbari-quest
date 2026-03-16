@@ -13,6 +13,31 @@ const sqlite = new Database(DATABASE_URL);
 sqlite.pragma('journal_mode = WAL');
 // Enable foreign key constraints
 sqlite.pragma('foreign_keys = ON');
+// Lock wait timeout (5 seconds) to avoid SQLITE_BUSY on concurrent access
+sqlite.pragma('busy_timeout = 5000');
+// More frequent WAL auto-checkpoint (every 100 pages instead of default 1000)
+sqlite.pragma('wal_autocheckpoint = 100');
+// NORMAL sync is sufficient in WAL mode (good balance of safety + performance)
+sqlite.pragma('synchronous = NORMAL');
 
 export const db = drizzle(sqlite, { schema });
 export type Database = typeof db;
+
+// Expose raw sqlite handle for shutdown checkpoint
+export const rawSqlite = sqlite;
+
+// Graceful shutdown: flush WAL and close DB on SIGTERM / SIGINT
+function gracefulShutdown(signal: string) {
+	console.log(`[SHUTDOWN] ${signal} received, flushing WAL and closing DB...`);
+	try {
+		sqlite.pragma('wal_checkpoint(TRUNCATE)');
+		sqlite.close();
+		console.log('[SHUTDOWN] DB closed cleanly.');
+	} catch (e) {
+		console.error('[SHUTDOWN] Error closing DB:', e);
+	}
+	process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

@@ -17,6 +17,7 @@ services:
     env_file:
       - path: .env
         required: false
+    stop_grace_period: 15s
     restart: unless-stopped
 
   # Scheduled backup service (runs daily at 3:00 AM JST)
