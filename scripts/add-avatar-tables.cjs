@@ -100,7 +100,7 @@ const insertAll = db.transaction(() => {
 	for (const item of avatarItems) {
 		const existing = checkItem.get(item.code);
 		if (!existing) {
-			insertItem.run(item);
+			insertItem.run({ unlock_condition: null, ...item });
 			inserted++;
 		}
 	}
