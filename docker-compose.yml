@@ -19,6 +19,33 @@ services:
         required: false
     restart: unless-stopped
 
+  # Scheduled backup service (runs daily at 3:00 AM JST)
+  # Enable: docker compose --profile backup up -d
+  backup:
+    build: .
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        echo "0 3 * * * cd /app && node scripts/backup-db.cjs >> /proc/1/fd/1 2>&1" | crontab -
+        echo "[Backup] Cron scheduled: daily 3:00 AM JST"
+        crond -f
+    volumes:
+      - ./data:/app/data
+      - ./scripts/backup-db.cjs:/app/scripts/backup-db.cjs:ro
+      - ./scripts/backup-to-gdrive.cjs:/app/scripts/backup-to-gdrive.cjs:ro
+    environment:
+      - DATABASE_URL=./data/ganbari-quest.db
+      - BACKUP_DIR=./data/backups
+      - BACKUP_RETENTION=10
+      - TZ=Asia/Tokyo
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
+    profiles:
+      - backup
+
   # Optional: Caddy reverse proxy for HTTPS
   # Uncomment and create a Caddyfile to enable
   # caddy:

@@ -1,5 +1,5 @@
 <script lang="ts">
-import { page } from '$app/stores';
+import { page, navigating } from '$app/stores';
 import type { Snippet } from 'svelte';
 
 interface Props {
@@ -59,6 +59,15 @@ const navItems = [
 
 	<!-- Main content -->
 	<main class="max-w-4xl mx-auto p-4">
-		{@render children()}
+		{#if $navigating}
+			<div class="flex flex-col gap-4">
+				<div class="skeleton-block h-10 w-48 rounded-lg"></div>
+				<div class="skeleton-block h-24 rounded-lg"></div>
+				<div class="skeleton-block h-24 rounded-lg"></div>
+				<div class="skeleton-block h-24 rounded-lg"></div>
+			</div>
+		{:else}
+			{@render children()}
+		{/if}
 	</main>
 </div>
