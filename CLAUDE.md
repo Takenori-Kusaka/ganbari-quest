@@ -55,7 +55,28 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 ## Deploy
 
 - 対象: NUCサーバー (Windows) `ssh kusaka-server@192.168.68.79`
+- Docker: `C:\Docker\ganbari-quest`
+- DB: `C:\Docker\ganbari-quest\data\ganbari-quest.db`（SQLite WALモード）
 - 認証: 親の管理画面のみPINコード、子供画面は認証なし（LAN内限定）
+
+### デプロイ手順（必ずこの順序で実行）
+
+SQLite WAL破損防止のため、**必ず stop → migrate → build → up の順序**で実施すること。
+`docker compose up -d` だけで済ませると、コンテナ再作成時にWAL不整合でDB破損するリスクがある（#0099 障害）。
+
+```bash
+# 1. コンテナを安全に停止（graceful shutdown で WAL flush）
+ssh kusaka-server@192.168.68.79 "cd C:\Docker\ganbari-quest && docker compose stop app"
+
+# 2. DBマイグレーションがある場合はここで実行（コンテナ停止中＝競合なし）
+ssh kusaka-server@192.168.68.79 "cd C:\Docker\ganbari-quest && node scripts/add-xxx.cjs data/ganbari-quest.db"
+
+# 3. pull → ビルド → 起動
+ssh kusaka-server@192.168.68.79 "cd C:\Docker\ganbari-quest && git pull && docker compose build && docker compose up -d"
+
+# 4. 動作確認
+ssh kusaka-server@192.168.68.79 "curl -s http://localhost:3000/api/health"
+```
 
 ## Auto Mode ガイドライン
 
