@@ -504,3 +504,64 @@ export const childTitles = sqliteTable(
 	},
 	(table) => [uniqueIndex('idx_child_titles_unique').on(table.childId, table.titleId)],
 );
+
+// ============================================================
+// career_fields - 職業分野マスタ
+// ============================================================
+export const careerFields = sqliteTable('career_fields', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	name: text('name').notNull(),
+	description: text('description'),
+	icon: text('icon'),
+	relatedCategories: text('related_categories').notNull().default('[]'),
+	recommendedActivities: text('recommended_activities').notNull().default('[]'),
+	minAge: integer('min_age').notNull().default(6),
+	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================
+// career_plans - キャリアプラン
+// ============================================================
+export const careerPlans = sqliteTable(
+	'career_plans',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		careerFieldId: integer('career_field_id').references(() => careerFields.id),
+		dreamText: text('dream_text'),
+		mandalaChart: text('mandala_chart').notNull().default('{}'),
+		timeline3y: text('timeline_3y'),
+		timeline5y: text('timeline_5y'),
+		timeline10y: text('timeline_10y'),
+		targetStatuses: text('target_statuses').notNull().default('{}'),
+		version: integer('version').notNull().default(1),
+		isActive: integer('is_active').notNull().default(1),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		index('idx_career_plans_child').on(table.childId, table.isActive),
+	],
+);
+
+// ============================================================
+// career_plan_history - プラン更新履歴
+// ============================================================
+export const careerPlanHistory = sqliteTable(
+	'career_plan_history',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		careerPlanId: integer('career_plan_id')
+			.notNull()
+			.references(() => careerPlans.id),
+		action: text('action').notNull(),
+		pointsEarned: integer('points_earned').notNull().default(0),
+		snapshot: text('snapshot').notNull().default('{}'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		index('idx_career_plan_history_plan').on(table.careerPlanId),
+	],
+);
