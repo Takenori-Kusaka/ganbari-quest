@@ -1,13 +1,16 @@
 <script lang="ts">
+import AvatarDisplay from '$lib/ui/components/AvatarDisplay.svelte';
+
 interface Props {
 	nickname: string;
 	totalPoints: number;
 	level?: number;
 	showLevel?: boolean;
 	avatarUrl?: string | null;
+	avatarConfig?: { bgCss: string; frameCss: string; effectClass: string } | null;
 }
 
-let { nickname, totalPoints, level, showLevel = true, avatarUrl }: Props = $props();
+let { nickname, totalPoints, level, showLevel = true, avatarUrl, avatarConfig }: Props = $props();
 </script>
 
 <header
@@ -15,16 +18,14 @@ let { nickname, totalPoints, level, showLevel = true, avatarUrl }: Props = $prop
 		bg-[var(--theme-primary)] text-white shadow-md"
 >
 	<div class="flex items-center gap-[var(--spacing-sm)]">
-		{#if avatarUrl}
-			<img
-				src={avatarUrl}
-				alt={nickname}
-				class="w-8 h-8 rounded-full object-cover border-2 border-white/50"
-				loading="lazy"
-			/>
-		{:else}
-			<span class="text-2xl" aria-hidden="true">👤</span>
-		{/if}
+		<AvatarDisplay
+			{nickname}
+			{avatarUrl}
+			bgCss={avatarConfig?.bgCss ?? '#ffffff'}
+			frameCss={avatarConfig?.frameCss ?? '2px solid rgba(255,255,255,0.5)'}
+			effectClass={avatarConfig?.effectClass ?? ''}
+			size="sm"
+		/>
 		<span class="font-bold text-lg">{nickname}</span>
 		{#if showLevel && level != null}
 			<span class="text-sm opacity-80">Lv.{level}</span>

@@ -160,6 +160,16 @@ const radarCategories = $derived(
 			<p class="text-xs text-[var(--color-text-muted)]">とくべつなしょうごうをあつめよう！</p>
 		</a>
 
+		<!-- Shop link -->
+		<a
+			href="/kinder/shop"
+			class="mt-[var(--spacing-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm text-center"
+		>
+			<span class="text-2xl">🛒</span>
+			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">きせかえショップ</p>
+			<p class="text-xs text-[var(--color-text-muted)]">アバターをかっこよくしよう！</p>
+		</a>
+
 		<!-- Memories link -->
 		<a
 			href="/kinder/memories"
