@@ -330,6 +330,46 @@ const SQL_CREATE_TABLES = `
 	);
 	CREATE UNIQUE INDEX idx_child_titles_unique
 		ON child_titles(child_id, title_id);
+
+	CREATE TABLE career_fields (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		description TEXT,
+		icon TEXT,
+		related_categories TEXT NOT NULL DEFAULT '[]',
+		recommended_activities TEXT NOT NULL DEFAULT '[]',
+		min_age INTEGER NOT NULL DEFAULT 6,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE career_plans (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		career_field_id INTEGER REFERENCES career_fields(id),
+		dream_text TEXT,
+		mandala_chart TEXT NOT NULL DEFAULT '{}',
+		timeline_3y TEXT,
+		timeline_5y TEXT,
+		timeline_10y TEXT,
+		target_statuses TEXT NOT NULL DEFAULT '{}',
+		version INTEGER NOT NULL DEFAULT 1,
+		is_active INTEGER NOT NULL DEFAULT 1,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_career_plans_child
+		ON career_plans(child_id, is_active);
+
+	CREATE TABLE career_plan_history (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		career_plan_id INTEGER NOT NULL REFERENCES career_plans(id),
+		action TEXT NOT NULL,
+		points_earned INTEGER NOT NULL DEFAULT 0,
+		snapshot TEXT NOT NULL DEFAULT '{}',
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_career_plan_history_plan
+		ON career_plan_history(career_plan_id);
 `;
 
 export function createTestDb() {
