@@ -2,7 +2,7 @@
 
 ### ステータス
 
-`Open`
+`Done`
 
 ### メタ情報
 
@@ -50,13 +50,13 @@ Docker化（#0040）への移行以降、Google Driveへの自動バックアッ
 
 ### ゴール
 
-- [x] 即時対応: 手動でローカルバックアップを実行（GDriveはトークン期限切れで要再認証）
+- [x] 即時対応: 手動でローカル+GDriveバックアップを実行
 - [x] docker-compose.yml の backup サービスを修正（backup-to-gdrive.cjs直接実行、scripts/全マウント、.env required: true、retention 7）
 - [x] backup-to-gdrive.cjs: DATABASE_URL/BACKUP_DIR 環境変数対応
 - [x] googleapis パッケージをプロジェクト依存に追加
-- [ ] GDrive リフレッシュトークン再取得（`node scripts/gdrive-auth-setup.cjs` で再認証が必要）
-- [ ] backup プロファイルでの起動確認（`docker compose --profile backup up -d`）
-- [ ] 再発防止: バックアップ失敗時の通知メカニズム
+- [x] GDrive リフレッシュトークン再取得（gdrive-auth-setup.cjs で再認証完了）
+- [x] backup プロファイルでの起動確認（`docker compose --profile backup up -d` で稼働中）
+- [ ] 再発防止: バックアップ失敗時の通知メカニズム（別チケットで対応）
 
 ### 対応方針
 
