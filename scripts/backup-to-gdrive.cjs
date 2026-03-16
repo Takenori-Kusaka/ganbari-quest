@@ -33,11 +33,14 @@ if (fs.existsSync(envPath)) {
   }
 }
 
-const DB_DIR = path.join(__dirname, '..', 'data');
-const DB_PATH = path.join(DB_DIR, 'ganbari-quest.db');
-const BACKUP_DIR = path.join(DB_DIR, 'backups');
-const MAX_LOCAL_BACKUPS = 10;
-const MAX_GDRIVE_BACKUPS = 30;
+const DB_PATH = process.env.DATABASE_URL
+  ? path.resolve(process.env.DATABASE_URL)
+  : path.join(__dirname, '..', 'data', 'ganbari-quest.db');
+const BACKUP_DIR = process.env.BACKUP_DIR
+  ? path.resolve(process.env.BACKUP_DIR)
+  : path.join(path.dirname(DB_PATH), 'backups');
+const MAX_LOCAL_BACKUPS = 7;
+const MAX_GDRIVE_BACKUPS = 7;
 
 async function main() {
   console.log('=== Ganbari Quest Backup ===');

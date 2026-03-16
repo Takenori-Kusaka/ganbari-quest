@@ -28,21 +28,20 @@ services:
     command:
       - -c
       - |
-        echo "0 3 * * * cd /app && node scripts/backup-db.cjs >> /proc/1/fd/1 2>&1" | crontab -
-        echo "[Backup] Cron scheduled: daily 3:00 AM JST"
+        echo "0 3 * * * cd /app && node scripts/backup-to-gdrive.cjs >> /proc/1/fd/1 2>&1" | crontab -
+        echo "[Backup] Cron scheduled: daily 3:00 AM JST (local + GDrive)"
         crond -f
     volumes:
       - ./data:/app/data
-      - ./scripts/backup-db.cjs:/app/scripts/backup-db.cjs:ro
-      - ./scripts/backup-to-gdrive.cjs:/app/scripts/backup-to-gdrive.cjs:ro
+      - ./scripts:/app/scripts:ro
     environment:
       - DATABASE_URL=./data/ganbari-quest.db
       - BACKUP_DIR=./data/backups
-      - BACKUP_RETENTION=10
+      - BACKUP_RETENTION=7
       - TZ=Asia/Tokyo
     env_file:
       - path: .env
-        required: false
+        required: true
     restart: unless-stopped
     profiles:
       - backup
