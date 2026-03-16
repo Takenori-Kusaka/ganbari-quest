@@ -1,9 +1,12 @@
 // scripts/add-benchmarks.cjs
-// #0047 市場比較機能 — ベンチマークデータ拡充（3〜12歳）
+// #0047 市場比較機能 — テーブルスキーマ移行 + ベンチマークデータ拡充（3〜12歳）
 //
 // 使い方:
 //   node scripts/add-benchmarks.cjs [DBパス]
 //   デフォルト: ./data/ganbari-quest.db
+//
+// 本番DBの旧スキーマ (category TEXT) → 新スキーマ (category_id INTEGER) へ移行し、
+// 3〜12歳のベンチマークデータを投入する。
 
 const Database = require('better-sqlite3');
 const path = require('path');
@@ -14,6 +17,69 @@ console.log(`DB: ${dbPath}`);
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 
+// カテゴリ名 → ID マッピング
+const CATEGORY_MAP = {
+	'うんどう': 1,
+	'べんきょう': 2,
+	'せいかつ': 3,
+	'こうりゅう': 4,
+	'そうぞう': 5,
+};
+
+// Step 1: スキーマ移行（category TEXT → category_id INTEGER）
+const columns = db.pragma('table_info(market_benchmarks)');
+const hasOldSchema = columns.some((c) => c.name === 'category' && c.type === 'TEXT');
+const hasNewSchema = columns.some((c) => c.name === 'category_id');
+
+if (hasOldSchema && !hasNewSchema) {
+	console.log('スキーマ移行: category TEXT → category_id INTEGER');
+
+	// 既存データを取得
+	const oldRows = db.prepare('SELECT * FROM market_benchmarks').all();
+	console.log(`  既存データ: ${oldRows.length}件`);
+
+	db.exec('DROP TABLE market_benchmarks');
+	db.exec(`
+		CREATE TABLE market_benchmarks (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			age INTEGER NOT NULL,
+			category_id INTEGER NOT NULL,
+			mean REAL NOT NULL,
+			std_dev REAL NOT NULL,
+			source TEXT,
+			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`);
+	db.exec('CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks (age, category_id)');
+
+	// 旧データを新スキーマで再投入
+	const insertMigrated = db.prepare(
+		'INSERT INTO market_benchmarks (age, category_id, mean, std_dev, source) VALUES (?, ?, ?, ?, ?)',
+	);
+	let migrated = 0;
+	for (const row of oldRows) {
+		const catId = CATEGORY_MAP[row.category];
+		if (catId) {
+			insertMigrated.run(row.age, catId, row.mean, row.std_dev, row.source);
+			migrated++;
+		} else {
+			console.log(`  スキップ（不明カテゴリ）: ${row.category}`);
+		}
+	}
+	console.log(`  移行完了: ${migrated}件`);
+
+	// VACUUM でページ整合性を確保
+	db.exec('VACUUM');
+	console.log('  VACUUM完了');
+} else if (hasNewSchema) {
+	console.log('スキーマ移行: 不要（新スキーマ済み）');
+} else {
+	console.log('警告: 予期しないスキーマ構造です');
+	db.close();
+	process.exit(1);
+}
+
+// Step 2: ベンチマークデータ拡充
 const benchmarks = [
 	// age 3
 	{ age: 3, category_id: 1, mean: 15.0, std_dev: 5.0, source: '推定値' },
@@ -21,6 +87,12 @@ const benchmarks = [
 	{ age: 3, category_id: 3, mean: 20.0, std_dev: 5.0, source: '推定値' },
 	{ age: 3, category_id: 4, mean: 12.0, std_dev: 5.0, source: '推定値' },
 	{ age: 3, category_id: 5, mean: 12.0, std_dev: 4.0, source: '推定値' },
+	// age 4 (既存データ更新)
+	{ age: 4, category_id: 1, mean: 30.0, std_dev: 10.0, source: '推定値' },
+	{ age: 4, category_id: 2, mean: 20.0, std_dev: 8.0, source: '推定値' },
+	{ age: 4, category_id: 3, mean: 35.0, std_dev: 8.0, source: '推定値' },
+	{ age: 4, category_id: 4, mean: 25.0, std_dev: 10.0, source: '推定値' },
+	{ age: 4, category_id: 5, mean: 25.0, std_dev: 9.0, source: '推定値' },
 	// age 5
 	{ age: 5, category_id: 1, mean: 50.0, std_dev: 15.0, source: '推定値' },
 	{ age: 5, category_id: 2, mean: 35.0, std_dev: 12.0, source: '推定値' },
@@ -90,7 +162,7 @@ const insertAll = db.transaction(() => {
 });
 
 insertAll();
-console.log(`  ベンチマーク: ${inserted}件追加 (既存スキップ: ${benchmarks.length - inserted}件)`);
+console.log(`ベンチマーク: ${inserted}件追加 (既存スキップ: ${benchmarks.length - inserted}件)`);
 
 db.pragma('wal_checkpoint(TRUNCATE)');
 db.close();
