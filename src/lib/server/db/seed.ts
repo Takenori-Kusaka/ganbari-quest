@@ -2566,6 +2566,43 @@ function seed() {
 		console.log('  - reward_templates: already seeded');
 	}
 
+	// ============================================================
+	// きせかえアイテム（19件）
+	// ============================================================
+	const existingAvatarItems = db.select().from(schema.avatarItems).all();
+	if (existingAvatarItems.length === 0) {
+		const avatarItemsData: (typeof schema.avatarItems.$inferInsert)[] = [
+			// --- background ---
+			{ code: 'bg_default', name: 'しろ', category: 'background', icon: '⬜', cssValue: '#ffffff', price: 0, unlockType: 'free', rarity: 'common', sortOrder: 1 },
+			{ code: 'bg_sakura', name: 'さくらいろ', category: 'background', icon: '🌸', cssValue: 'linear-gradient(135deg, #fce4ec, #f8bbd0)', price: 100, unlockType: 'purchase', rarity: 'common', sortOrder: 2 },
+			{ code: 'bg_sky', name: 'そらいろ', category: 'background', icon: '☁️', cssValue: 'linear-gradient(135deg, #e3f2fd, #90caf9)', price: 100, unlockType: 'purchase', rarity: 'common', sortOrder: 3 },
+			{ code: 'bg_sunset', name: 'ゆうやけ', category: 'background', icon: '🌅', cssValue: 'linear-gradient(135deg, #fff3e0, #ffcc80, #ff8a65)', price: 200, unlockType: 'purchase', rarity: 'rare', sortOrder: 4 },
+			{ code: 'bg_rainbow', name: 'にじいろ', category: 'background', icon: '🌈', cssValue: 'linear-gradient(135deg, #ffcdd2, #fff9c4, #c8e6c9, #bbdefb, #e1bee7)', price: 300, unlockType: 'purchase', rarity: 'rare', sortOrder: 5 },
+			{ code: 'bg_galaxy', name: 'うちゅう', category: 'background', icon: '🌌', cssValue: 'linear-gradient(135deg, #1a237e, #4a148c, #880e4f)', price: 500, unlockType: 'purchase', rarity: 'epic', sortOrder: 6 },
+			{ code: 'bg_gold', name: 'おうごん', category: 'background', icon: '👑', cssValue: 'linear-gradient(135deg, #ffd54f, #ffb300, #ff8f00)', price: 500, unlockType: 'purchase', rarity: 'epic', sortOrder: 7 },
+			{ code: 'bg_legend', name: 'でんせつ', category: 'background', icon: '🌟', cssValue: 'linear-gradient(135deg, #e8eaf6, #c5cae9, #9fa8da, #7986cb)', price: 0, unlockType: 'level', unlockCondition: '{"level":10}', rarity: 'legendary', sortOrder: 8 },
+			// --- frame ---
+			{ code: 'frame_default', name: 'ふつう', category: 'frame', icon: '⬜', cssValue: '2px solid #bdbdbd', price: 0, unlockType: 'free', rarity: 'common', sortOrder: 1 },
+			{ code: 'frame_star', name: 'ほし', category: 'frame', icon: '⭐', cssValue: '3px solid #ffd700', price: 150, unlockType: 'purchase', rarity: 'common', sortOrder: 2 },
+			{ code: 'frame_heart', name: 'はーと', category: 'frame', icon: '💖', cssValue: '3px solid #ff69b4', price: 150, unlockType: 'purchase', rarity: 'common', sortOrder: 3 },
+			{ code: 'frame_fire', name: 'ほのお', category: 'frame', icon: '🔥', cssValue: '3px solid #ff5722', price: 300, unlockType: 'purchase', rarity: 'rare', sortOrder: 4 },
+			{ code: 'frame_diamond', name: 'ダイヤ', category: 'frame', icon: '💎', cssValue: '3px solid #00bcd4', price: 500, unlockType: 'purchase', rarity: 'epic', sortOrder: 5 },
+			{ code: 'frame_crown', name: 'おうかん', category: 'frame', icon: '👑', cssValue: '3px double #ffd700', price: 0, unlockType: 'level', unlockCondition: '{"level":8}', rarity: 'legendary', sortOrder: 6 },
+			// --- effect ---
+			{ code: 'effect_none', name: 'なし', category: 'effect', icon: '➖', cssValue: '', price: 0, unlockType: 'free', rarity: 'common', sortOrder: 1 },
+			{ code: 'effect_sparkle', name: 'キラキラ', category: 'effect', icon: '✨', cssValue: 'sparkle', price: 200, unlockType: 'purchase', rarity: 'rare', sortOrder: 2 },
+			{ code: 'effect_pulse', name: 'ドキドキ', category: 'effect', icon: '💓', cssValue: 'pulse', price: 200, unlockType: 'purchase', rarity: 'rare', sortOrder: 3 },
+			{ code: 'effect_glow', name: 'かがやき', category: 'effect', icon: '🔆', cssValue: 'glow', price: 400, unlockType: 'purchase', rarity: 'epic', sortOrder: 4 },
+			{ code: 'effect_rainbow', name: 'にじ', category: 'effect', icon: '🌈', cssValue: 'rainbow', price: 0, unlockType: 'level', unlockCondition: '{"level":7}', rarity: 'legendary', sortOrder: 5 },
+		];
+		for (const item of avatarItemsData) {
+			db.insert(schema.avatarItems).values(item).run();
+		}
+		console.log(`  ✓ avatar_items: ${avatarItemsData.length} items`);
+	} else {
+		console.log(`  - avatar_items: already seeded (${existingAvatarItems.length})`);
+	}
+
 	console.log('Seeding complete!');
 }
 

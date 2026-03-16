@@ -41,6 +41,9 @@ beforeAll(() => {
 			ui_mode TEXT NOT NULL DEFAULT 'kinder',
 			avatar_url TEXT,
 			active_title_id INTEGER,
+			active_avatar_bg INTEGER,
+			active_avatar_frame INTEGER,
+			active_avatar_effect INTEGER,
 			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
