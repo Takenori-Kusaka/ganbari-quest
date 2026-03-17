@@ -62,7 +62,7 @@ const SQL_TABLES = `
 		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		cancelled INTEGER NOT NULL DEFAULT 0
 	);
-	CREATE UNIQUE INDEX idx_activity_logs_unique_daily ON activity_logs(child_id, activity_id, recorded_date);
+	CREATE INDEX idx_activity_logs_daily ON activity_logs(child_id, activity_id, recorded_date);
 	CREATE TABLE point_ledger (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
