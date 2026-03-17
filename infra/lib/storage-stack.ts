@@ -1,11 +1,13 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import type { Construct } from 'constructs';
 
 export class StorageStack extends cdk.Stack {
 	public readonly table: dynamodb.TableV2;
 	public readonly assetsBucket: s3.Bucket;
+	public readonly repository: ecr.Repository;
 
 	constructor(scope: Construct, id: string, props?: cdk.StackProps) {
 		super(scope, id, props);
@@ -47,8 +49,21 @@ export class StorageStack extends cdk.Stack {
 			],
 		});
 
+		// --- ECR Repository for Lambda container image ---
+		this.repository = new ecr.Repository(this, 'AppRepo', {
+			repositoryName: 'ganbari-quest',
+			removalPolicy: cdk.RemovalPolicy.RETAIN,
+			lifecycleRules: [
+				{
+					maxImageCount: 5,
+					description: 'Keep only 5 most recent images',
+				},
+			],
+		});
+
 		// --- Outputs ---
 		new cdk.CfnOutput(this, 'TableName', { value: this.table.tableName! });
 		new cdk.CfnOutput(this, 'AssetsBucketName', { value: this.assetsBucket.bucketName });
+		new cdk.CfnOutput(this, 'EcrRepositoryUri', { value: this.repository.repositoryUri });
 	}
 }

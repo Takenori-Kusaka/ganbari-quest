@@ -16,6 +16,7 @@ concurrency:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: ganbari-quest
+  LAMBDA_FUNCTION: ganbari-quest-app
 
 jobs:
   test:
@@ -50,43 +51,57 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
-
       - name: Install CDK dependencies
         working-directory: infra/
         run: npm ci
 
-      - name: CDK Deploy (infra first)
+      # Phase 1: Deploy Storage stack (ECR repo, DynamoDB, S3)
+      - name: CDK Deploy Storage
         working-directory: infra/
-        run: npx cdk deploy --all --require-approval never --outputs-file cdk-outputs.json
+        run: npx cdk deploy GanbariQuestStorage --require-approval never
 
-      - name: Build and push Docker image to ECR
+      # Phase 2: Build and push Docker image to ECR
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Build and push Docker image
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -f Dockerfile.lambda -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker build -f Dockerfile.lambda \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
+      # Phase 3: Deploy Compute + Network stacks (Lambda, CloudFront)
+      - name: CDK Deploy all stacks
+        working-directory: infra/
+        run: npx cdk deploy --all --require-approval never --outputs-file cdk-outputs.json
+
+      # Phase 4: Update Lambda to use the new image
       - name: Update Lambda function image
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           aws lambda update-function-code \
-            --function-name ganbari-quest-app \
+            --function-name $LAMBDA_FUNCTION \
             --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             --region $AWS_REGION
 
       - name: Wait for Lambda update
         run: |
           aws lambda wait function-updated \
-            --function-name ganbari-quest-app \
+            --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
 
       - name: Show deployment outputs
         working-directory: infra/
+        if: always()
         run: cat cdk-outputs.json 2>/dev/null || echo "No outputs file"
