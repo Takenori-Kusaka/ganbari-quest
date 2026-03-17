@@ -27,6 +27,7 @@ const compute = new ComputeStack(app, `${appName}Compute`, {
 	description: 'Lambda (SvelteKit) + API Gateway for Ganbari Quest',
 	table: storage.table,
 	assetsBucket: storage.assetsBucket,
+	repository: storage.repository,
 });
 
 new NetworkStack(app, `${appName}Network`, {

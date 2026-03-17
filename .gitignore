@@ -42,6 +42,9 @@ static/generated/
 # User uploads (avatars etc.)
 static/uploads/
 
+# CDK
+infra/cdk.out/
+
 # Misc
 *.log
 *.tsbuildinfo
