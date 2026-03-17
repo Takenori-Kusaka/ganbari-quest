@@ -17,6 +17,8 @@ env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: ganbari-quest
   LAMBDA_FUNCTION: ganbari-quest-app
+  DOMAIN_NAME: ganbari-quest.com
+  CERTIFICATE_ARN: arn:aws:acm:us-east-1:443370718249:certificate/a278b058-8798-4793-ba1f-3f3de2a0b837
 
 jobs:
   test:
@@ -59,7 +61,10 @@ jobs:
       # Phase 1: Deploy Storage stack (ECR repo, DynamoDB, S3)
       - name: CDK Deploy Storage
         working-directory: infra/
-        run: npx cdk deploy GanbariQuestStorage --require-approval never
+        run: >-
+          npx cdk deploy GanbariQuestStorage --require-approval never
+          -c domainName=${{ env.DOMAIN_NAME }}
+          -c certificateArn=${{ env.CERTIFICATE_ARN }}
 
       # Phase 2: Build and push Docker image to ECR (ARM64 for Graviton2)
       - name: Login to Amazon ECR
@@ -90,7 +95,10 @@ jobs:
       # Phase 3: Deploy Compute + Network stacks (Lambda, CloudFront)
       - name: CDK Deploy all stacks
         working-directory: infra/
-        run: npx cdk deploy --all --require-approval never --outputs-file cdk-outputs.json
+        run: >-
+          npx cdk deploy --all --require-approval never --outputs-file cdk-outputs.json
+          -c domainName=${{ env.DOMAIN_NAME }}
+          -c certificateArn=${{ env.CERTIFICATE_ARN }}
 
       # Phase 4: Update Lambda to use the new image
       - name: Update Lambda function image
