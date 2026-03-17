@@ -22,12 +22,10 @@ export const LEVEL_TABLE: {
 /** 平均ステータスからレベルを算出 */
 export function calcLevel(avgStatus: number): { level: number; title: string } {
 	const clamped = Math.max(0, Math.min(100, avgStatus));
-	const entry = LEVEL_TABLE.find(
-		(e) => clamped >= e.minAvg && clamped <= e.maxAvg,
-	);
+	const entry = LEVEL_TABLE.find((e) => clamped >= e.minAvg && clamped <= e.maxAvg);
 	return entry
 		? { level: entry.level, title: entry.title }
-		: { level: 1, title: LEVEL_TABLE[0]!.title };
+		: { level: 1, title: LEVEL_TABLE[0]?.title };
 }
 
 /** 次のレベルまでに必要なステータスポイント */
@@ -40,11 +38,7 @@ export function calcExpToNextLevel(avgStatus: number): number {
 }
 
 /** 偏差値計算: (個人値 - 平均) / 標準偏差 × 10 + 50 */
-export function calcDeviationScore(
-	value: number,
-	mean: number,
-	stdDev: number,
-): number {
+export function calcDeviationScore(value: number, mean: number, stdDev: number): number {
 	if (stdDev === 0) return 50;
 	return Math.round(((value - mean) / stdDev) * 10 + 50);
 }
@@ -83,10 +77,7 @@ export function getAgeCoefficient(age: number): number {
 }
 
 /** ステータス減少計算 */
-export function calcDecay(
-	daysSinceActivity: number,
-	age: number,
-): number {
+export function calcDecay(daysSinceActivity: number, age: number): number {
 	if (daysSinceActivity <= 0) return 0;
 	const coeff = getAgeCoefficient(age);
 	const baseDecay = coeff * 0.1;
@@ -95,9 +86,7 @@ export function calcDecay(
 }
 
 /** トレンド判定 */
-export function calcTrend(
-	recentChange: number,
-): 'up' | 'down' | 'stable' {
+export function calcTrend(recentChange: number): 'up' | 'down' | 'stable' {
 	if (recentChange > 0.5) return 'up';
 	if (recentChange < -0.5) return 'down';
 	return 'stable';
@@ -129,8 +118,8 @@ export const AGE_MAX_TABLE: { age: number; maxValue: number }[] = [
 export function getMaxForAge(age: number): number {
 	const entry = AGE_MAX_TABLE.find((e) => e.age === age);
 	if (entry) return entry.maxValue;
-	if (age < 1) return AGE_MAX_TABLE[0]!.maxValue;
-	return AGE_MAX_TABLE[AGE_MAX_TABLE.length - 1]!.maxValue;
+	if (age < 1) return AGE_MAX_TABLE[0]?.maxValue;
+	return AGE_MAX_TABLE[AGE_MAX_TABLE.length - 1]?.maxValue;
 }
 
 /** ステータスクエリスキーマ */

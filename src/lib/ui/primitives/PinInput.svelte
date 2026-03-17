@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { PinInput as ArkPinInput } from '@ark-ui/svelte/pin-input';
+import { PinInput as ArkPinInput } from '@ark-ui/svelte/pin-input';
 
-	interface Props {
-		length?: number;
-		mask?: boolean;
-		onComplete?: (details: { value: string[]; valueAsString: string }) => void;
-	}
+interface Props {
+	length?: number;
+	mask?: boolean;
+	onComplete?: (details: { value: string[]; valueAsString: string }) => void;
+}
 
-	let { length = 6, mask = true, onComplete }: Props = $props();
+let { length = 6, mask = true, onComplete }: Props = $props();
 
-	function handleValueComplete(details: { value: string[]; valueAsString: string }) {
-		onComplete?.(details);
-	}
+function handleValueComplete(details: { value: string[]; valueAsString: string }) {
+	onComplete?.(details);
+}
 </script>
 
 <ArkPinInput.Root

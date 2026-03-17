@@ -1,9 +1,9 @@
 // src/lib/server/db/career-repo.ts
 // キャリアプランニング関連のリポジトリ層
 
-import { eq, and, desc, lte } from 'drizzle-orm';
+import { and, desc, eq, lte } from 'drizzle-orm';
 import { db } from './client';
-import { careerFields, careerPlans, careerPlanHistory, pointLedger } from './schema';
+import { careerFields, careerPlanHistory, careerPlans, pointLedger } from './schema';
 
 // ============================================================
 // 職業分野マスタ
@@ -145,10 +145,7 @@ export function findLatestHistoryByAction(careerPlanId: number, action: string) 
 		.select()
 		.from(careerPlanHistory)
 		.where(
-			and(
-				eq(careerPlanHistory.careerPlanId, careerPlanId),
-				eq(careerPlanHistory.action, action),
-			),
+			and(eq(careerPlanHistory.careerPlanId, careerPlanId), eq(careerPlanHistory.action, action)),
 		)
 		.orderBy(desc(careerPlanHistory.createdAt))
 		.limit(1)

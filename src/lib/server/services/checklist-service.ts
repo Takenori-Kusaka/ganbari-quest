@@ -2,19 +2,19 @@
 // チェックリスト サービス層
 
 import {
-	findTemplatesByChild,
+	deleteOverride,
+	deleteTemplate,
+	deleteTemplateItem,
+	findOverrides,
 	findTemplateById,
 	findTemplateItems,
+	findTemplatesByChild,
 	findTodayLog,
-	upsertLog,
-	findOverrides,
-	insertTemplate,
-	updateTemplate,
-	deleteTemplate,
-	insertTemplateItem,
-	deleteTemplateItem,
 	insertOverride,
-	deleteOverride,
+	insertTemplate,
+	insertTemplateItem,
+	updateTemplate,
+	upsertLog,
 } from '$lib/server/db/checklist-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 
@@ -51,7 +51,7 @@ export interface TodayChecklist {
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'] as const;
 
 function getDayOfWeek(dateStr: string): string {
-	const d = new Date(dateStr + 'T00:00:00Z');
+	const d = new Date(`${dateStr}T00:00:00Z`);
 	return DAY_NAMES[d.getUTCDay()]!;
 }
 
@@ -142,10 +142,7 @@ export function getTodayChecklist(
 /**
  * 子供のアクティブなテンプレート一覧と当日チェックリストを取得する。
  */
-export function getChecklistsForChild(
-	childId: number,
-	date: string,
-): TodayChecklist[] {
+export function getChecklistsForChild(childId: number, date: string): TodayChecklist[] {
 	const templates = findTemplatesByChild(childId);
 	const results: TodayChecklist[] = [];
 
@@ -271,7 +268,13 @@ export function createTemplate(input: {
 
 export function editTemplate(
 	id: number,
-	input: { name?: string; icon?: string; pointsPerItem?: number; completionBonus?: number; isActive?: number },
+	input: {
+		name?: string;
+		icon?: string;
+		pointsPerItem?: number;
+		completionBonus?: number;
+		isActive?: number;
+	},
 ) {
 	return updateTemplate(id, input);
 }

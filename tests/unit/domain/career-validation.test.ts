@@ -3,11 +3,11 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-	mandalaChartSchema,
-	createCareerPlanSchema,
-	getCareerUiMode,
-	createEmptyMandalaChart,
 	CAREER_POINTS,
+	createCareerPlanSchema,
+	createEmptyMandalaChart,
+	getCareerUiMode,
+	mandalaChartSchema,
 } from '../../../src/lib/domain/validation/career';
 
 describe('career-validation', () => {

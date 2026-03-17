@@ -316,26 +316,54 @@ describe('activity-service', () => {
 	});
 
 	it('hasActivityLogs: ログありの活動はtrue', () => {
-		testDb.insert(schema.activityLogs).values({
-			childId: 1, activityId: 1, points: 5,
-			streakDays: 1, streakBonus: 0, recordedDate: '2026-03-15',
-		}).run();
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 1,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: '2026-03-15',
+			})
+			.run();
 		expect(hasActivityLogs(1)).toBe(true);
 	});
 
 	it('getActivityLogCounts: 活動ごとのログ件数を返す', () => {
-		testDb.insert(schema.activityLogs).values({
-			childId: 1, activityId: 1, points: 5,
-			streakDays: 1, streakBonus: 0, recordedDate: '2026-03-14',
-		}).run();
-		testDb.insert(schema.activityLogs).values({
-			childId: 1, activityId: 1, points: 5,
-			streakDays: 2, streakBonus: 0, recordedDate: '2026-03-15',
-		}).run();
-		testDb.insert(schema.activityLogs).values({
-			childId: 1, activityId: 2, points: 5,
-			streakDays: 1, streakBonus: 0, recordedDate: '2026-03-15',
-		}).run();
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 1,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: '2026-03-14',
+			})
+			.run();
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 1,
+				points: 5,
+				streakDays: 2,
+				streakBonus: 0,
+				recordedDate: '2026-03-15',
+			})
+			.run();
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 2,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: '2026-03-15',
+			})
+			.run();
 
 		const counts = getActivityLogCounts();
 		expect(counts[1]).toBe(2);
@@ -350,13 +378,18 @@ describe('activity-service', () => {
 		deleteActivityWithCleanup(6); // 非表示活動
 		const after = getActivities({ includeHidden: true });
 		expect(after.length).toBe(5);
-		expect(after.find(a => a.id === 6)).toBeUndefined();
+		expect(after.find((a) => a.id === 6)).toBeUndefined();
 	});
 
 	it('deleteActivityWithCleanup: daily_missionsも一緒に削除される', () => {
-		testDb.insert(schema.dailyMissions).values({
-			childId: 1, missionDate: '2026-03-15', activityId: 1,
-		}).run();
+		testDb
+			.insert(schema.dailyMissions)
+			.values({
+				childId: 1,
+				missionDate: '2026-03-15',
+				activityId: 1,
+			})
+			.run();
 
 		// daily_missionsが存在する状態で削除
 		deleteActivityWithCleanup(1);

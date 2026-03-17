@@ -1,5 +1,5 @@
-import { json } from '@sveltejs/kit';
 import { getCareerFields } from '$lib/server/services/career-service';
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url }) => {

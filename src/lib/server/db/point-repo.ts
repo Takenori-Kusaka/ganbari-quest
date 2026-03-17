@@ -1,9 +1,9 @@
 // src/lib/server/db/point-repo.ts
 // ポイント関連のリポジトリ層
 
-import { eq, desc, sum } from 'drizzle-orm';
+import { desc, eq, sum } from 'drizzle-orm';
 import { db } from './client';
-import { pointLedger, children } from './schema';
+import { children, pointLedger } from './schema';
 
 /** ポイント残高を取得（point_ledgerのamount合計） */
 export function getBalance(childId: number): number {
@@ -17,10 +17,7 @@ export function getBalance(childId: number): number {
 }
 
 /** ポイント履歴を取得 */
-export function findPointHistory(
-	childId: number,
-	options: { limit: number; offset: number },
-) {
+export function findPointHistory(childId: number, options: { limit: number; offset: number }) {
 	return db
 		.select()
 		.from(pointLedger)

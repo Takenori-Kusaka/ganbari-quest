@@ -1,18 +1,18 @@
 // src/lib/server/services/evaluation-service.ts
 // 週次評価・日次ステータス減少サービス
 
+import { todayDateJST } from '$lib/domain/date-utils';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
-import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
 import { calcDecay } from '$lib/domain/validation/status';
 import {
 	countActivitiesByCategory,
-	insertEvaluation,
 	findAllChildren,
 	findEvaluationsByChild,
 	findLastActivityDateByCategory,
+	insertEvaluation,
 } from '$lib/server/db/evaluation-repo';
-import { updateStatus } from '$lib/server/services/status-service';
 import { insertPointEntry } from '$lib/server/db/point-repo';
+import { updateStatus } from '$lib/server/services/status-service';
 
 /**
  * 週次評価ボーナスを活動回数から算出
@@ -34,9 +34,7 @@ export function calcStatusIncrease(activityCount: number): number {
 export function calcEvaluationBonus(
 	categoryScores: Record<string, { count: number; points: number }>,
 ): number {
-	const activeCats = Object.values(categoryScores).filter(
-		(s) => s.count > 0,
-	).length;
+	const activeCats = Object.values(categoryScores).filter((s) => s.count > 0).length;
 
 	// 全カテゴリ活動ボーナス
 	if (activeCats >= 5) return 20;
@@ -82,10 +80,8 @@ export function evaluateChild(
 ): EvaluationResult {
 	const activityCounts = countActivitiesByCategory(childId, weekStart, weekEnd);
 
-	const categoryScores: Record<
-		number,
-		{ count: number; points: number; statusIncrease: number }
-	> = {};
+	const categoryScores: Record<number, { count: number; points: number; statusIncrease: number }> =
+		{};
 
 	for (const catDef of CATEGORY_DEFS) {
 		const row = activityCounts.find((a) => a.categoryId === catDef.id);
@@ -127,15 +123,11 @@ export function evaluateChild(
 }
 
 /** 全子供の週次評価を一括実行 */
-export function runWeeklyEvaluation(
-	date?: Date,
-): EvaluationResult[] {
+export function runWeeklyEvaluation(date?: Date): EvaluationResult[] {
 	const { weekStart, weekEnd } = getWeekRange(date);
 	const allChildren = findAllChildren();
 
-	return allChildren.map((child) =>
-		evaluateChild(child.id, weekStart, weekEnd),
-	);
+	return allChildren.map((child) => evaluateChild(child.id, weekStart, weekEnd));
 }
 
 /** 子供の評価履歴を取得 */

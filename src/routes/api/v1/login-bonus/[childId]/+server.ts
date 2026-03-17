@@ -1,7 +1,7 @@
+import { notFound, validationError } from '$lib/server/errors';
+import { getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
-import { notFound, validationError } from '$lib/server/errors';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const childId = Number(params.childId);

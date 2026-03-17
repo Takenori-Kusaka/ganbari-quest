@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { children, childTitles, titles } from '$lib/server/db/schema';
+import { childTitles, children, titles } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
 
 /** 全称号マスタを取得 */
@@ -46,9 +46,5 @@ export function getActiveTitleId(childId: number): number | null {
 
 /** アクティブ称号を設定（nullで解除） */
 export function setActiveTitleId(childId: number, titleId: number | null) {
-	return db
-		.update(children)
-		.set({ activeTitleId: titleId })
-		.where(eq(children.id, childId))
-		.run();
+	return db.update(children).set({ activeTitleId: titleId }).where(eq(children.id, childId)).run();
 }

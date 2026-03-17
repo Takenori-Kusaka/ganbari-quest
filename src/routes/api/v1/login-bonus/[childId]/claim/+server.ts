@@ -1,7 +1,7 @@
+import { apiError, validationError } from '$lib/server/errors';
+import { claimLoginBonus } from '$lib/server/services/login-bonus-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { claimLoginBonus } from '$lib/server/services/login-bonus-service';
-import { apiError, validationError } from '$lib/server/errors';
 
 export const POST: RequestHandler = async ({ params }) => {
 	const childId = Number(params.childId);

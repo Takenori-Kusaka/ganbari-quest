@@ -1,23 +1,13 @@
 // src/lib/server/db/status-repo.ts
 // ステータス関連のリポジトリ層
 
-import { eq, and, desc, max } from 'drizzle-orm';
+import { and, desc, eq, max } from 'drizzle-orm';
 import { db } from './client';
-import {
-	statuses,
-	statusHistory,
-	marketBenchmarks,
-	children,
-	activityLogs,
-} from './schema';
+import { activityLogs, children, marketBenchmarks, statusHistory, statuses } from './schema';
 
 /** 子供の全ステータスを取得 */
 export function findStatuses(childId: number) {
-	return db
-		.select()
-		.from(statuses)
-		.where(eq(statuses.childId, childId))
-		.all();
+	return db.select().from(statuses).where(eq(statuses.childId, childId)).all();
 }
 
 /** カテゴリ別のステータスを取得 */
@@ -30,11 +20,7 @@ export function findStatus(childId: number, categoryId: number) {
 }
 
 /** ステータスを更新（upsert） */
-export function upsertStatus(
-	childId: number,
-	categoryId: number,
-	value: number,
-) {
+export function upsertStatus(childId: number, categoryId: number, value: number) {
 	const existing = findStatus(childId, categoryId);
 	const clampedValue = Math.max(0, value);
 	const now = new Date().toISOString();
@@ -67,20 +53,11 @@ export function insertStatusHistory(input: {
 }
 
 /** 直近のステータス変動を取得 */
-export function findRecentStatusHistory(
-	childId: number,
-	categoryId: number,
-	limit: number = 7,
-) {
+export function findRecentStatusHistory(childId: number, categoryId: number, limit = 7) {
 	return db
 		.select()
 		.from(statusHistory)
-		.where(
-			and(
-				eq(statusHistory.childId, childId),
-				eq(statusHistory.categoryId, categoryId),
-			),
-		)
+		.where(and(eq(statusHistory.childId, childId), eq(statusHistory.categoryId, categoryId)))
 		.orderBy(desc(statusHistory.recordedAt))
 		.limit(limit)
 		.all();
@@ -91,12 +68,7 @@ export function findBenchmark(age: number, categoryId: number) {
 	return db
 		.select()
 		.from(marketBenchmarks)
-		.where(
-			and(
-				eq(marketBenchmarks.age, age),
-				eq(marketBenchmarks.categoryId, categoryId),
-			),
-		)
+		.where(and(eq(marketBenchmarks.age, age), eq(marketBenchmarks.categoryId, categoryId)))
 		.get();
 }
 

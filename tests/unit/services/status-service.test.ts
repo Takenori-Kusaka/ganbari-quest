@@ -3,7 +3,7 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 
 let sqlite: InstanceType<typeof Database>;
@@ -121,16 +121,17 @@ const SQL_TABLES = `
 `;
 
 vi.mock('$lib/server/db', () => ({
-	get db() { return testDb; },
+	get db() {
+		return testDb;
+	},
 }));
 vi.mock('$lib/server/db/client', () => ({
-	get db() { return testDb; },
+	get db() {
+		return testDb;
+	},
 }));
 
-import {
-	getChildStatus,
-	updateStatus,
-} from '../../../src/lib/server/services/status-service';
+import { getChildStatus, updateStatus } from '../../../src/lib/server/services/status-service';
 
 beforeAll(() => {
 	sqlite = new Database(':memory:');
@@ -155,14 +156,13 @@ function resetDb() {
 
 function seedChild() {
 	resetDb();
-	testDb.insert(schema.children)
-		.values({ nickname: 'テストちゃん', age: 4, theme: 'pink' })
-		.run();
+	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4, theme: 'pink' }).run();
 }
 
 function seedBenchmarks() {
 	for (const catId of [1, 2, 3, 4, 5]) {
-		testDb.insert(schema.marketBenchmarks)
+		testDb
+			.insert(schema.marketBenchmarks)
 			.values({ age: 4, categoryId: catId, mean: 50, stdDev: 10, source: 'test' })
 			.run();
 	}
@@ -186,15 +186,15 @@ describe('status-service', () => {
 			expect(result.level).toBe(1);
 			expect(result.levelTitle).toBe('はじめのぼうけんしゃ');
 			expect(Object.keys(result.statuses).length).toBe(5);
-			expect(result.statuses[1]!.value).toBe(0);
+			expect(result.statuses[1]?.value).toBe(0);
 		}
 	});
 
 	it('ベンチマークなしの場合、偏差値50を返す', () => {
 		const result = getChildStatus(1);
 		if (!('error' in result)) {
-			expect(result.statuses[1]!.deviationScore).toBe(50);
-			expect(result.statuses[1]!.stars).toBe(3);
+			expect(result.statuses[1]?.deviationScore).toBe(50);
+			expect(result.statuses[1]?.stars).toBe(3);
 		}
 	});
 
@@ -205,9 +205,9 @@ describe('status-service', () => {
 
 		const result = getChildStatus(1);
 		if (!('error' in result)) {
-			expect(result.statuses[1]!.value).toBe(70);
-			expect(result.statuses[1]!.deviationScore).toBe(70);
-			expect(result.statuses[1]!.stars).toBe(5);
+			expect(result.statuses[1]?.value).toBe(70);
+			expect(result.statuses[1]?.deviationScore).toBe(70);
+			expect(result.statuses[1]?.stars).toBe(5);
 		}
 	});
 
@@ -219,14 +219,14 @@ describe('status-service', () => {
 		// getChildStatus で値を確認
 		const status = getChildStatus(1);
 		if (!('error' in status)) {
-			expect(status.statuses[1]!.value).toBe(5.0);
+			expect(status.statuses[1]?.value).toBe(5.0);
 		}
 
 		// 累積更新
 		updateStatus(1, 1, 3.0, 'weekly');
 		const status2 = getChildStatus(1);
 		if (!('error' in status2)) {
-			expect(status2.statuses[1]!.value).toBe(8.0);
+			expect(status2.statuses[1]?.value).toBe(8.0);
 		}
 	});
 
@@ -235,7 +235,7 @@ describe('status-service', () => {
 		updateStatus(1, 1, -10.0, 'decay');
 		const status = getChildStatus(1);
 		if (!('error' in status)) {
-			expect(status.statuses[1]!.value).toBe(0);
+			expect(status.statuses[1]?.value).toBe(0);
 		}
 	});
 
@@ -244,7 +244,7 @@ describe('status-service', () => {
 		updateStatus(1, 1, 100.0, 'weekly');
 		const status = getChildStatus(1);
 		if (!('error' in status)) {
-			expect(status.statuses[1]!.value).toBe(350);
+			expect(status.statuses[1]?.value).toBe(350);
 		}
 	});
 
@@ -274,9 +274,9 @@ describe('status-service', () => {
 		const levelUpResult = updateStatus(1, 3, 2, 'test');
 		if (!('error' in levelUpResult)) {
 			expect(levelUpResult.levelUp).not.toBeNull();
-			expect(levelUpResult.levelUp!.oldLevel).toBe(1);
-			expect(levelUpResult.levelUp!.newLevel).toBe(2);
-			expect(levelUpResult.levelUp!.newTitle).toBe('がんばりルーキー');
+			expect(levelUpResult.levelUp?.oldLevel).toBe(1);
+			expect(levelUpResult.levelUp?.newLevel).toBe(2);
+			expect(levelUpResult.levelUp?.newTitle).toBe('がんばりルーキー');
 		}
 	});
 

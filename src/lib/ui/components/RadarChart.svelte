@@ -1,97 +1,100 @@
 <script lang="ts">
-	import { tweened } from 'svelte/motion';
-	import { cubicOut } from 'svelte/easing';
+import { cubicOut } from 'svelte/easing';
+import { tweened } from 'svelte/motion';
 
-	interface CategoryData {
-		categoryId: number;
-		name: string;
-		value: number;
-		maxValue: number;
-		deviationScore: number;
-		stars: number;
-		trend: 'up' | 'down' | 'stable';
-	}
+interface CategoryData {
+	categoryId: number;
+	name: string;
+	value: number;
+	maxValue: number;
+	deviationScore: number;
+	stars: number;
+	trend: 'up' | 'down' | 'stable';
+}
 
-	interface Props {
-		categories: CategoryData[];
-		size?: number;
-	}
+interface Props {
+	categories: CategoryData[];
+	size?: number;
+}
 
-	let { categories, size = 300 }: Props = $props();
+let { categories, size = 300 }: Props = $props();
 
-	const LEVELS = [25, 50, 75, 100];
-	const padding = 60;
-	const viewBoxSize = $derived(size + padding * 2);
-	const center = $derived(size / 2);
-	const maxRadius = $derived(size * 0.40);
-	const labelRadius = $derived(size * 0.52);
+const LEVELS = [25, 50, 75, 100];
+const padding = 60;
+const viewBoxSize = $derived(size + padding * 2);
+const center = $derived(size / 2);
+const maxRadius = $derived(size * 0.4);
+const labelRadius = $derived(size * 0.52);
 
-	const chartColors: Record<number, string> = {
-		1: '#4caf50',  // うんどう
-		2: '#2196f3',  // べんきょう
-		3: '#ff9800',  // せいかつ
-		4: '#9c27b0',  // こうりゅう
-		5: '#e91e63',  // そうぞう
-	};
+const chartColors: Record<number, string> = {
+	1: '#4caf50', // うんどう
+	2: '#2196f3', // べんきょう
+	3: '#ff9800', // せいかつ
+	4: '#9c27b0', // こうりゅう
+	5: '#e91e63', // そうぞう
+};
 
-	const trendIcons: Record<string, string> = {
-		up: '📈',
-		down: '📉',
-		stable: '➡️',
-	};
+const trendIcons: Record<string, string> = {
+	up: '📈',
+	down: '📉',
+	stable: '➡️',
+};
 
-	// Normalize deviation scores to visually meaningful 0-100 percentage
-	// Map deviation score range [20, 70] → [0%, 100%] so stars align with chart size:
-	//   1★ (<42)  → <44%   2★ (42-49) → 44-58%
-	//   3★ (50-57) → 60-74%  4★ (58-64) → 76-88%  5★ (65+) → 90%+
-	const normalizedValues = $derived(
-		categories.map((c) => {
-			const ds = c.deviationScore;
-			return Math.min(100, Math.max(5, ((ds - 20) / 50) * 100));
-		}),
-	);
+// Normalize deviation scores to visually meaningful 0-100 percentage
+// Map deviation score range [20, 70] → [0%, 100%] so stars align with chart size:
+//   1★ (<42)  → <44%   2★ (42-49) → 44-58%
+//   3★ (50-57) → 60-74%  4★ (58-64) → 76-88%  5★ (65+) → 90%+
+const normalizedValues = $derived(
+	categories.map((c) => {
+		const ds = c.deviationScore;
+		return Math.min(100, Math.max(5, ((ds - 20) / 50) * 100));
+	}),
+);
 
-	// Animated values
-	const animatedValues = tweened(categories.map(() => 0), {
+// Animated values
+const animatedValues = tweened(
+	categories.map(() => 0),
+	{
 		duration: 800,
 		easing: cubicOut,
-	});
+	},
+);
 
-	$effect(() => {
-		animatedValues.set(normalizedValues);
-	});
+$effect(() => {
+	animatedValues.set(normalizedValues);
+});
 
-	// SVG coordinate helpers
-	function getAngle(index: number): number {
-		return (Math.PI * 2 * index) / 5 - Math.PI / 2;
-	}
+// SVG coordinate helpers
+function getAngle(index: number): number {
+	return (Math.PI * 2 * index) / 5 - Math.PI / 2;
+}
 
-	function getPoint(index: number, pct: number, radius: number): { x: number; y: number } {
-		const angle = getAngle(index);
-		const r = (pct / 100) * radius;
-		return {
-			x: center + r * Math.cos(angle),
-			y: center + r * Math.sin(angle),
-		};
-	}
+function getPoint(index: number, pct: number, radius: number): { x: number; y: number } {
+	const angle = getAngle(index);
+	const r = (pct / 100) * radius;
+	return {
+		x: center + r * Math.cos(angle),
+		y: center + r * Math.sin(angle),
+	};
+}
 
-	function polygonPoints(values: number[], radius: number): string {
-		return values
-			.map((v, i) => {
-				const p = getPoint(i, v, radius);
-				return `${p.x},${p.y}`;
-			})
-			.join(' ');
-	}
-
-	function gridPolygon(pct: number): string {
-		return Array.from({ length: 5 }, (_, i) => {
-			const p = getPoint(i, pct, maxRadius);
+function polygonPoints(values: number[], radius: number): string {
+	return values
+		.map((v, i) => {
+			const p = getPoint(i, v, radius);
 			return `${p.x},${p.y}`;
-		}).join(' ');
-	}
+		})
+		.join(' ');
+}
 
-	const starText = (stars: number) => '★'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars));
+function gridPolygon(pct: number): string {
+	return Array.from({ length: 5 }, (_, i) => {
+		const p = getPoint(i, pct, maxRadius);
+		return `${p.x},${p.y}`;
+	}).join(' ');
+}
+
+const starText = (stars: number) => '★'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars));
 </script>
 
 <svg

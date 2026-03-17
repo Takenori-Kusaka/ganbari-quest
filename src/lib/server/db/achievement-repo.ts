@@ -41,19 +41,21 @@ export function isAchievementUnlocked(
 	achievementId: number,
 	milestoneValue: number | null,
 ): boolean {
-	const condition = milestoneValue != null
-		? and(
-			eq(childAchievements.childId, childId),
-			eq(childAchievements.achievementId, achievementId),
-			eq(childAchievements.milestoneValue, milestoneValue),
-		)
-		: and(
-			eq(childAchievements.childId, childId),
-			eq(childAchievements.achievementId, achievementId),
-			isNull(childAchievements.milestoneValue),
-		);
+	const condition =
+		milestoneValue != null
+			? and(
+					eq(childAchievements.childId, childId),
+					eq(childAchievements.achievementId, achievementId),
+					eq(childAchievements.milestoneValue, milestoneValue),
+				)
+			: and(
+					eq(childAchievements.childId, childId),
+					eq(childAchievements.achievementId, achievementId),
+					isNull(childAchievements.milestoneValue),
+				);
 
-	const row = db.select({ id: childAchievements.id })
+	const row = db
+		.select({ id: childAchievements.id })
 		.from(childAchievements)
 		.where(condition)
 		.get();
@@ -66,7 +68,8 @@ export function insertChildAchievement(
 	achievementId: number,
 	milestoneValue?: number | null,
 ) {
-	return db.insert(childAchievements)
+	return db
+		.insert(childAchievements)
 		.values({ childId, achievementId, milestoneValue: milestoneValue ?? null })
 		.returning()
 		.get();

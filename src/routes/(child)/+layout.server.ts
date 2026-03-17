@@ -1,8 +1,8 @@
 import { UI_MODES } from '$lib/domain/validation/age-tier';
+import { checkAndUnlockItems, getAvatarConfig } from '$lib/server/services/avatar-service';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getChildStatus } from '$lib/server/services/status-service';
-import { getAvatarConfig, checkAndUnlockItems } from '$lib/server/services/avatar-service';
 import { getActiveTitle } from '$lib/server/services/title-service';
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';

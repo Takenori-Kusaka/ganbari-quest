@@ -3,8 +3,7 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { sql } from 'drizzle-orm';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 
 let sqlite: InstanceType<typeof Database>;
@@ -299,9 +298,7 @@ describe('statuses テーブル', () => {
 
 	it('同じ子供・カテゴリの組み合わせはユニーク制約違反', () => {
 		expect(() => {
-			db.insert(schema.statuses)
-				.values({ childId: 1, categoryId: 1, value: 50.0 })
-				.run();
+			db.insert(schema.statuses).values({ childId: 1, categoryId: 1, value: 50.0 }).run();
 		}).toThrow();
 	});
 });

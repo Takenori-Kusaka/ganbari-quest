@@ -1,7 +1,7 @@
+import { notFound, validationError } from '$lib/server/errors';
+import { getPointBalance } from '$lib/server/services/point-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getPointBalance } from '$lib/server/services/point-service';
-import { notFound, validationError } from '$lib/server/errors';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const childId = Number(params.childId);

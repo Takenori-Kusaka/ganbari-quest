@@ -1,13 +1,17 @@
+import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import {
 	cancelActivityLog,
 	getTodayRecordedActivityCounts,
 	recordActivity,
 } from '$lib/server/services/activity-log-service';
 import { getActivities } from '$lib/server/services/activity-service';
-import { getActivityDisplayName } from '$lib/domain/validation/activity';
-import { checkBirthdayStatus, submitBirthdayReview, HEALTH_CHECK_ITEMS } from '$lib/server/services/birthday-service';
-import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
+import {
+	HEALTH_CHECK_ITEMS,
+	checkBirthdayStatus,
+	submitBirthdayReview,
+} from '$lib/server/services/birthday-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
+import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';

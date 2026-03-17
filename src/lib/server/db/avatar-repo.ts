@@ -1,10 +1,10 @@
 // src/lib/server/db/avatar-repo.ts
 // きせかえアバター リポジトリ層
 
+import type { AvatarCategory } from '$lib/domain/validation/avatar';
 import { db } from '$lib/server/db';
 import { avatarItems, childAvatarItems, children } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
-import type { AvatarCategory } from '$lib/domain/validation/avatar';
 
 /** 全アイテムマスタを取得 */
 export function findAllAvatarItems() {
@@ -48,20 +48,14 @@ export function isItemOwned(childId: number, itemId: number): boolean {
 	const row = db
 		.select({ id: childAvatarItems.id })
 		.from(childAvatarItems)
-		.where(
-			and(eq(childAvatarItems.childId, childId), eq(childAvatarItems.avatarItemId, itemId)),
-		)
+		.where(and(eq(childAvatarItems.childId, childId), eq(childAvatarItems.avatarItemId, itemId)))
 		.get();
 	return !!row;
 }
 
 /** アイテム付与 */
 export function insertChildAvatarItem(childId: number, itemId: number) {
-	return db
-		.insert(childAvatarItems)
-		.values({ childId, avatarItemId: itemId })
-		.returning()
-		.get();
+	return db.insert(childAvatarItems).values({ childId, avatarItemId: itemId }).returning().get();
 }
 
 /** 装備中のアバター設定を取得 */
@@ -83,12 +77,11 @@ export function getActiveAvatarIds(childId: number) {
 }
 
 /** 装備変更 */
-export function setActiveAvatar(
-	childId: number,
-	category: AvatarCategory,
-	itemId: number | null,
-) {
-	const fieldMap: Record<AvatarCategory, 'activeAvatarBg' | 'activeAvatarFrame' | 'activeAvatarEffect'> = {
+export function setActiveAvatar(childId: number, category: AvatarCategory, itemId: number | null) {
+	const fieldMap: Record<
+		AvatarCategory,
+		'activeAvatarBg' | 'activeAvatarFrame' | 'activeAvatarEffect'
+	> = {
 		background: 'activeAvatarBg',
 		frame: 'activeAvatarFrame',
 		effect: 'activeAvatarEffect',

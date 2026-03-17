@@ -1,7 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { splitIcon, joinIcon } from '$lib/domain/icon-utils';
-import { getCategoryById, CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import { joinIcon, splitIcon } from '$lib/domain/icon-utils';
+import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 
 let { data } = $props();
@@ -13,7 +13,15 @@ let aiMode = $state(false);
 let aiInput = $state('');
 let aiLoading = $state(false);
 let aiError = $state('');
-let aiPreview = $state<{ name: string; categoryId: number; icon: string; basePoints: number; nameKana: string | null; nameKanji: string | null; source: string } | null>(null);
+let aiPreview = $state<{
+	name: string;
+	categoryId: number;
+	icon: string;
+	basePoints: number;
+	nameKana: string | null;
+	nameKanji: string | null;
+	source: string;
+} | null>(null);
 
 // フォーム入力値
 let formName = $state('');
@@ -44,7 +52,7 @@ let editNameKanji = $state('');
 let deleteConfirmId = $state<number | null>(null);
 let actionMessage = $state('');
 
-function startEdit(activity: typeof data.activities[0]) {
+function startEdit(activity: (typeof data.activities)[0]) {
 	editingId = activity.id;
 	editName = activity.name;
 	editCategoryId = activity.categoryId;
@@ -145,13 +153,30 @@ const pointGuide = [
 
 /** カテゴリ変更時にアイコンを先頭候補に設定 */
 /** サブアイコンのプリセット候補 */
-const SUB_ICON_PRESETS = ['🧹', '💧', '✨', '🎯', '📝', '🔥', '⭐', '🎵', '💪', '🧠', '❤️', '🌟', '🎁', '🏠', '👆', '🤲'];
+const SUB_ICON_PRESETS = [
+	'🧹',
+	'💧',
+	'✨',
+	'🎯',
+	'📝',
+	'🔥',
+	'⭐',
+	'🎵',
+	'💪',
+	'🧠',
+	'❤️',
+	'🌟',
+	'🎁',
+	'🏠',
+	'👆',
+	'🤲',
+];
 
 function onCategoryChange(catId: number) {
 	formCategoryId = catId;
 	const catDef = getCategoryById(catId);
 	const info = catDef ? categoryInfo[catDef.name] : undefined;
-	if (info && info.icons[0]) {
+	if (info?.icons[0]) {
 		formMainIcon = info.icons[0];
 	}
 }

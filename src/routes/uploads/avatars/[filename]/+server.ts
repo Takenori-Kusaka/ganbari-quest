@@ -1,8 +1,8 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { extname, join } from 'node:path';
 // Dynamic file server for uploaded avatars
 // adapter-node only serves build-time static files, so runtime uploads need a route
 import { error } from '@sveltejs/kit';
-import { existsSync, readFileSync } from 'node:fs';
-import { join, extname } from 'node:path';
 import type { RequestHandler } from './$types';
 
 const UPLOAD_DIR = join(

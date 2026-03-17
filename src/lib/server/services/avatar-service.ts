@@ -162,7 +162,7 @@ export function getAvatarConfig(childId: number): AvatarConfig {
 	}
 	if (activeIds.effectId) {
 		const item = findAvatarItemById(activeIds.effectId);
-		if (item && item.cssValue) effectClass = `avatar-effect-${item.cssValue}`;
+		if (item?.cssValue) effectClass = `avatar-effect-${item.cssValue}`;
 	}
 
 	return { bgCss, frameCss, effectClass };

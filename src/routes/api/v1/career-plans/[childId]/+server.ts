@@ -1,11 +1,11 @@
-import { json, error } from '@sveltejs/kit';
 import { createCareerPlanSchema, updateCareerPlanSchema } from '$lib/domain/validation/career';
+import { findChildById } from '$lib/server/db/point-repo';
 import {
-	getActiveCareerPlan,
 	createCareerPlan,
+	getActiveCareerPlan,
 	updateCareerPlanWithPoints,
 } from '$lib/server/services/career-service';
-import { findChildById } from '$lib/server/db/point-repo';
+import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 /** GET /api/v1/career-plans/:childId — アクティブプラン取得 */
@@ -94,8 +94,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	return json({
 		plan: {
 			...result.plan,
-			mandalaChart: JSON.parse(result.plan!.mandalaChart),
-			targetStatuses: JSON.parse(result.plan!.targetStatuses),
+			mandalaChart: JSON.parse(result.plan?.mandalaChart),
+			targetStatuses: JSON.parse(result.plan?.targetStatuses),
 		},
 		pointsAwarded: result.pointsAwarded,
 	});

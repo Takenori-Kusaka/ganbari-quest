@@ -1,47 +1,47 @@
 <script lang="ts">
-	import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
-	interface HealthCheckItem {
-		key: string;
-		label: string;
-		icon: string;
+interface HealthCheckItem {
+	key: string;
+	label: string;
+	icon: string;
+}
+
+interface Props {
+	open: boolean;
+	childAge: number;
+	healthCheckItems: HealthCheckItem[];
+	onSubmit: (data: {
+		healthChecks: Record<string, boolean>;
+		aspirationText: string;
+	}) => void;
+	onClose?: () => void;
+}
+
+let { open = $bindable(), childAge, healthCheckItems, onSubmit, onClose }: Props = $props();
+
+let step = $state<'intro' | 'health' | 'aspiration' | 'confirm'>('intro');
+let healthChecks = $state<Record<string, boolean>>({});
+let aspirationText = $state('');
+
+// Reset state when overlay opens
+$effect(() => {
+	if (open) {
+		step = 'intro';
+		healthChecks = {};
+		aspirationText = '';
 	}
+});
 
-	interface Props {
-		open: boolean;
-		childAge: number;
-		healthCheckItems: HealthCheckItem[];
-		onSubmit: (data: {
-			healthChecks: Record<string, boolean>;
-			aspirationText: string;
-		}) => void;
-		onClose?: () => void;
-	}
+function toggleCheck(key: string) {
+	healthChecks = { ...healthChecks, [key]: !healthChecks[key] };
+}
 
-	let { open = $bindable(), childAge, healthCheckItems, onSubmit, onClose }: Props = $props();
+function handleSubmit() {
+	onSubmit({ healthChecks, aspirationText });
+}
 
-	let step = $state<'intro' | 'health' | 'aspiration' | 'confirm'>('intro');
-	let healthChecks = $state<Record<string, boolean>>({});
-	let aspirationText = $state('');
-
-	// Reset state when overlay opens
-	$effect(() => {
-		if (open) {
-			step = 'intro';
-			healthChecks = {};
-			aspirationText = '';
-		}
-	});
-
-	function toggleCheck(key: string) {
-		healthChecks = { ...healthChecks, [key]: !healthChecks[key] };
-	}
-
-	function handleSubmit() {
-		onSubmit({ healthChecks, aspirationText });
-	}
-
-	const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length);
+const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length);
 </script>
 
 <Dialog bind:open closable={false} title="">

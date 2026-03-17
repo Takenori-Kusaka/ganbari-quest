@@ -35,8 +35,6 @@ function formatDate(dateStr: string): string {
 	const weekday = weekdays[d.getDay()];
 	return `${month}がつ${day}にち（${weekday}）`;
 }
-
-
 </script>
 
 <svelte:head>

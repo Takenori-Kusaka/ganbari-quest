@@ -38,18 +38,24 @@ const maxConvertable = $derived(selectedChild?.balance?.convertableAmount ?? 0);
 
 const manualAmount = $derived(Math.floor(Number(manualInput) || 0));
 const manualValid = $derived(manualAmount >= 1 && manualAmount <= currentBalance);
-const receiptValid = $derived(receiptConfirmed && receiptAmount >= 1 && receiptAmount <= currentBalance);
+const receiptValid = $derived(
+	receiptConfirmed && receiptAmount >= 1 && receiptAmount <= currentBalance,
+);
 
 const effectiveAmount = $derived(
-	convertMode === 'preset' ? presetAmount
-	: convertMode === 'receipt' ? receiptAmount
-	: manualAmount
+	convertMode === 'preset'
+		? presetAmount
+		: convertMode === 'receipt'
+			? receiptAmount
+			: manualAmount,
 );
 const effectiveMode = $derived(convertMode);
 const canSubmit = $derived(
-	convertMode === 'preset' ? maxConvertable >= 500
-	: convertMode === 'receipt' ? receiptValid
-	: manualValid
+	convertMode === 'preset'
+		? maxConvertable >= 500
+		: convertMode === 'receipt'
+			? receiptValid
+			: manualValid,
 );
 
 function resetReceipt() {

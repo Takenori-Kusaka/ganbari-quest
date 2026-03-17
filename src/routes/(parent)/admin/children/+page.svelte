@@ -42,7 +42,9 @@ async function uploadAvatar(childId: number, file: File) {
 
 	if (file.size > MAX_UPLOAD_SIZE) {
 		const sizeMB = (file.size / 1024 / 1024).toFixed(1);
-		uploadResult = { error: `ファイルサイズが大きすぎます（${sizeMB}MB）。5MB以下の画像を選択してください` };
+		uploadResult = {
+			error: `ファイルサイズが大きすぎます（${sizeMB}MB）。5MB以下の画像を選択してください`,
+		};
 		uploading = false;
 		return;
 	}
@@ -58,7 +60,10 @@ async function uploadAvatar(childId: number, file: File) {
 			const json = await res.json();
 			uploadResult = { avatarUrl: json.avatarUrl };
 		} else if (res.status === 500) {
-			uploadResult = { error: 'サーバーエラーが発生しました。画像が大きすぎる可能性があります。5MB以下のJPEG/PNG/WebPを選択してください' };
+			uploadResult = {
+				error:
+					'サーバーエラーが発生しました。画像が大きすぎる可能性があります。5MB以下のJPEG/PNG/WebPを選択してください',
+			};
 		} else {
 			const json = await res.json().catch(() => null);
 			uploadResult = { error: json?.message ?? 'アップロードに失敗しました' };

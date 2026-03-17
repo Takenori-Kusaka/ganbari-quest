@@ -1,16 +1,12 @@
 // src/lib/server/db/evaluation-repo.ts
 // 週次評価関連のリポジトリ層
 
-import { eq, and, gte, lte, sql, desc } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { db } from './client';
-import { activityLogs, activities, evaluations, children } from './schema';
+import { activities, activityLogs, children, evaluations } from './schema';
 
 /** 指定期間のカテゴリ別活動回数を集計 */
-export function countActivitiesByCategory(
-	childId: number,
-	weekStart: string,
-	weekEnd: string,
-) {
+export function countActivitiesByCategory(childId: number, weekStart: string, weekEnd: string) {
 	return db
 		.select({
 			categoryId: activities.categoryId,
@@ -67,9 +63,7 @@ export function findLastActivityDateByCategory(childId: number) {
 		})
 		.from(activityLogs)
 		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
-		.where(
-			and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)),
-		)
+		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
 		.groupBy(activities.categoryId)
 		.all();
 }

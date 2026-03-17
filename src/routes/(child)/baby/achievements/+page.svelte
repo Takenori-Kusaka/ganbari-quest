@@ -33,7 +33,10 @@ function isUnlocked(achievement: (typeof data.achievements)[number]): boolean {
 function progressPercent(achievement: (typeof data.achievements)[number]): number {
 	if (!achievement.repeatable && achievement.unlockedAt) return 100;
 	if (achievement.conditionValue <= 0) return 0;
-	return Math.min(100, Math.round((achievement.currentProgress / achievement.conditionValue) * 100));
+	return Math.min(
+		100,
+		Math.round((achievement.currentProgress / achievement.conditionValue) * 100),
+	);
 }
 
 function progressText(achievement: (typeof data.achievements)[number]): string {

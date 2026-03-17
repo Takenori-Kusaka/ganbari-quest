@@ -1,10 +1,10 @@
 // src/lib/server/services/birthday-service.ts
 // 誕生日イベント・振り返り機能
 
-import { eq, and } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { children, birthdayReviews, pointLedger } from '$lib/server/db/schema';
 import { todayDateJST } from '$lib/domain/date-utils';
+import { db } from '$lib/server/db';
+import { birthdayReviews, children, pointLedger } from '$lib/server/db/schema';
+import { and, eq } from 'drizzle-orm';
 
 /** Health check items */
 export const HEALTH_CHECK_ITEMS = [
@@ -53,11 +53,16 @@ export function checkBirthdayStatus(childId: number): BirthdayStatus | { error: 
 	if (!child) return { error: 'NOT_FOUND' };
 
 	if (!child.birthDate) {
-		return { isBirthday: false, alreadyReviewed: false, daysUntilBirthday: null, childAge: child.age };
+		return {
+			isBirthday: false,
+			alreadyReviewed: false,
+			daysUntilBirthday: null,
+			childAge: child.age,
+		};
 	}
 
 	const today = todayDateJST();
-	const todayDate = new Date(today + 'T00:00:00Z');
+	const todayDate = new Date(`${today}T00:00:00Z`);
 	const thisYear = todayDate.getUTCFullYear();
 
 	// This year's birthday
@@ -85,7 +90,9 @@ export function checkBirthdayStatus(childId: number): BirthdayStatus | { error: 
 	} else {
 		// Already past this year, calculate next year
 		const nextBirthday = new Date(`${thisYear + 1}-${birthMonth}-${birthDay}T00:00:00Z`);
-		daysUntilBirthday = Math.round((nextBirthday.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+		daysUntilBirthday = Math.round(
+			(nextBirthday.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24),
+		);
 	}
 
 	return {
@@ -102,12 +109,16 @@ export function checkBirthdayStatus(childId: number): BirthdayStatus | { error: 
 export function submitBirthdayReview(
 	childId: number,
 	input: ReviewInput,
-): ReviewResult | { error: 'NOT_FOUND' } | { error: 'ALREADY_REVIEWED' } | { error: 'NOT_BIRTHDAY' } {
+):
+	| ReviewResult
+	| { error: 'NOT_FOUND' }
+	| { error: 'ALREADY_REVIEWED' }
+	| { error: 'NOT_BIRTHDAY' } {
 	const child = db.select().from(children).where(eq(children.id, childId)).get();
 	if (!child) return { error: 'NOT_FOUND' };
 
 	const today = todayDateJST();
-	const thisYear = new Date(today + 'T00:00:00Z').getUTCFullYear();
+	const thisYear = new Date(`${today}T00:00:00Z`).getUTCFullYear();
 
 	// Check for existing review
 	const existing = db

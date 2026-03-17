@@ -1,9 +1,9 @@
 import {
+	deleteChild,
 	findAllChildren,
 	findChildById,
 	insertChild,
 	updateChild,
-	deleteChild,
 } from '$lib/server/db/child-repo';
 
 export function getAllChildren() {

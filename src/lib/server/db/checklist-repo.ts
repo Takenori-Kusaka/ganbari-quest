@@ -1,30 +1,30 @@
 // src/lib/server/db/checklist-repo.ts
 // チェックリスト リポジトリ層
 
-import { eq, and } from 'drizzle-orm';
 import { db } from '$lib/server/db/client';
 import {
-	checklistTemplates,
-	checklistTemplateItems,
 	checklistLogs,
 	checklistOverrides,
+	checklistTemplateItems,
+	checklistTemplates,
 } from '$lib/server/db/schema';
+import { and, eq } from 'drizzle-orm';
 
 // ============================================================
 // Templates
 // ============================================================
 
 export function findTemplatesByChild(childId: number, includeInactive = false) {
-	const rows = db.select().from(checklistTemplates)
+	const rows = db
+		.select()
+		.from(checklistTemplates)
 		.where(eq(checklistTemplates.childId, childId))
 		.all();
 	return includeInactive ? rows : rows.filter((r) => r.isActive === 1);
 }
 
 export function findTemplateById(id: number) {
-	return db.select().from(checklistTemplates)
-		.where(eq(checklistTemplates.id, id))
-		.get();
+	return db.select().from(checklistTemplates).where(eq(checklistTemplates.id, id)).get();
 }
 
 export function insertTemplate(input: typeof checklistTemplates.$inferInsert) {
@@ -32,7 +32,8 @@ export function insertTemplate(input: typeof checklistTemplates.$inferInsert) {
 }
 
 export function updateTemplate(id: number, input: Partial<typeof checklistTemplates.$inferInsert>) {
-	return db.update(checklistTemplates)
+	return db
+		.update(checklistTemplates)
 		.set({ ...input, updatedAt: new Date().toISOString() })
 		.where(eq(checklistTemplates.id, id))
 		.returning()
@@ -50,7 +51,9 @@ export function deleteTemplate(id: number) {
 // ============================================================
 
 export function findTemplateItems(templateId: number) {
-	return db.select().from(checklistTemplateItems)
+	return db
+		.select()
+		.from(checklistTemplateItems)
 		.where(eq(checklistTemplateItems.templateId, templateId))
 		.orderBy(checklistTemplateItems.sortOrder)
 		.all();
@@ -69,7 +72,9 @@ export function deleteTemplateItem(id: number) {
 // ============================================================
 
 export function findTodayLog(childId: number, templateId: number, date: string) {
-	return db.select().from(checklistLogs)
+	return db
+		.select()
+		.from(checklistLogs)
 		.where(
 			and(
 				eq(checklistLogs.childId, childId),
@@ -90,7 +95,8 @@ export function upsertLog(input: {
 }) {
 	const existing = findTodayLog(input.childId, input.templateId, input.checkedDate);
 	if (existing) {
-		return db.update(checklistLogs)
+		return db
+			.update(checklistLogs)
 			.set({
 				itemsJson: input.itemsJson,
 				completedAll: input.completedAll,
@@ -108,13 +114,10 @@ export function upsertLog(input: {
 // ============================================================
 
 export function findOverrides(childId: number, date: string) {
-	return db.select().from(checklistOverrides)
-		.where(
-			and(
-				eq(checklistOverrides.childId, childId),
-				eq(checklistOverrides.targetDate, date),
-			),
-		)
+	return db
+		.select()
+		.from(checklistOverrides)
+		.where(and(eq(checklistOverrides.childId, childId), eq(checklistOverrides.targetDate, date)))
 		.all();
 }
 

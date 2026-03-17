@@ -3,7 +3,7 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 
 let sqlite: InstanceType<typeof Database>;
@@ -43,21 +43,23 @@ const SQL_TABLES = `
 `;
 
 vi.mock('$lib/server/db', () => ({
-	get db() { return testDb; },
+	get db() {
+		return testDb;
+	},
 }));
 vi.mock('$lib/server/db/client', () => ({
-	get db() { return testDb; },
+	get db() {
+		return testDb;
+	},
 }));
 
 import {
+	OMIKUJI_RANKS,
+	calcLoginBonusPoints,
 	drawOmikuji,
 	getLoginMultiplier,
-	calcLoginBonusPoints,
-	OMIKUJI_RANKS,
 } from '../../../src/lib/domain/validation/login-bonus';
-import {
-	calculateConsecutiveDays,
-} from '../../../src/lib/server/services/login-bonus-service';
+import { calculateConsecutiveDays } from '../../../src/lib/server/services/login-bonus-service';
 
 beforeAll(() => {
 	sqlite = new Database(':memory:');
@@ -81,13 +83,12 @@ function resetDb() {
 
 function seedChild() {
 	resetDb();
-	testDb.insert(schema.children)
-		.values({ nickname: 'テストちゃん', age: 4, theme: 'pink' })
-		.run();
+	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4, theme: 'pink' }).run();
 }
 
-function addBonus(childId: number, date: string, consecutiveDays: number = 1) {
-	testDb.insert(schema.loginBonuses)
+function addBonus(childId: number, date: string, consecutiveDays = 1) {
+	testDb
+		.insert(schema.loginBonuses)
 		.values({
 			childId,
 			loginDate: date,

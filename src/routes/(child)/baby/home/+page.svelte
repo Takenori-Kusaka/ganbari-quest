@@ -1,18 +1,18 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
-import { tick } from 'svelte';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
-import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
-import BirthdayReviewOverlay from '$lib/ui/components/BirthdayReviewOverlay.svelte';
 import BirthdayResultOverlay from '$lib/ui/components/BirthdayResultOverlay.svelte';
-import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import BirthdayReviewOverlay from '$lib/ui/components/BirthdayReviewOverlay.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
+import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import OmikujiOverlay from '$lib/ui/components/OmikujiOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
+import { tick } from 'svelte';
 
 let { data } = $props();
 
@@ -86,9 +86,7 @@ let levelUpData = $state<{
 } | null>(null);
 
 // Build recorded counts map: activityId → count
-const recordedMap = $derived(
-	new Map(data.todayRecorded.map((r) => [r.activityId, r.count])),
-);
+const recordedMap = $derived(new Map(data.todayRecorded.map((r) => [r.activityId, r.count])));
 
 function getCount(activityId: number): number {
 	return recordedMap.get(activityId) ?? 0;
@@ -197,8 +195,7 @@ $effect(() => {
 // Auto-show birthday review
 $effect(() => {
 	if (
-		data.birthdayStatus &&
-		data.birthdayStatus.isBirthday &&
+		data.birthdayStatus?.isBirthday &&
 		!data.birthdayStatus.alreadyReviewed &&
 		!bonusClaiming &&
 		!omikujiOpen &&
@@ -209,7 +206,10 @@ $effect(() => {
 	}
 });
 
-function handleBirthdaySubmit(submitData: { healthChecks: Record<string, boolean>; aspirationText: string }) {
+function handleBirthdaySubmit(submitData: {
+	healthChecks: Record<string, boolean>;
+	aspirationText: string;
+}) {
 	birthdayFormData = {
 		healthChecks: JSON.stringify(submitData.healthChecks),
 		aspirationText: submitData.aspirationText,
@@ -225,8 +225,6 @@ function handleBirthdayResultClose() {
 	birthdayResult = null;
 	invalidateAll();
 }
-
-
 </script>
 
 <svelte:head>

@@ -1,7 +1,6 @@
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
-import { getMaxForAge } from '$lib/domain/validation/status';
-import { getAllChildren } from '$lib/server/services/child-service';
 import { findAllBenchmarks, upsertBenchmark } from '$lib/server/db/status-repo';
+import { getAllChildren } from '$lib/server/services/child-service';
 import { getChildStatus, updateStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';

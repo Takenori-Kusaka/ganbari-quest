@@ -1,22 +1,22 @@
 <script lang="ts">
-	import { Dialog as ArkDialog } from '@ark-ui/svelte/dialog';
-	import { Portal } from '@ark-ui/svelte/portal';
-	import type { Snippet } from 'svelte';
+import { Dialog as ArkDialog } from '@ark-ui/svelte/dialog';
+import { Portal } from '@ark-ui/svelte/portal';
+import type { Snippet } from 'svelte';
 
-	interface Props {
-		open: boolean;
-		onOpenChange?: (details: { open: boolean }) => void;
-		children: Snippet;
-		title?: string;
-		closable?: boolean;
-	}
+interface Props {
+	open: boolean;
+	onOpenChange?: (details: { open: boolean }) => void;
+	children: Snippet;
+	title?: string;
+	closable?: boolean;
+}
 
-	let { open = $bindable(), onOpenChange, children, title, closable = true }: Props = $props();
+let { open = $bindable(), onOpenChange, children, title, closable = true }: Props = $props();
 
-	function handleOpenChange(details: { open: boolean }) {
-		open = details.open;
-		onOpenChange?.(details);
-	}
+function handleOpenChange(details: { open: boolean }) {
+	open = details.open;
+	onOpenChange?.(details);
+}
 </script>
 
 <ArkDialog.Root {open} onOpenChange={handleOpenChange} closeOnInteractOutside={closable}>

@@ -1,7 +1,12 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
-import { CATEGORY_LABELS, CATEGORY_ICONS, RARITY_LABELS, type AvatarCategory } from '$lib/domain/validation/avatar';
+import {
+	type AvatarCategory,
+	CATEGORY_ICONS,
+	CATEGORY_LABELS,
+	RARITY_LABELS,
+} from '$lib/domain/validation/avatar';
 import AvatarDisplay from '$lib/ui/components/AvatarDisplay.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
