@@ -72,7 +72,7 @@ describe('career-service', () => {
 		it('全職業分野を取得できる', () => {
 			const fields = getCareerFields();
 			expect(fields).toHaveLength(3);
-			expect(fields[0].name).toBe('かがくしゃ');
+			expect(fields[0]!.name).toBe('かがくしゃ');
 		});
 
 		it('年齢フィルタで絞り込める', () => {
@@ -146,7 +146,7 @@ describe('career-service', () => {
 			const active = getActiveCareerPlan(childId);
 			expect(active).not.toBeNull();
 			expect(active?.careerFieldId).toBe(2);
-			expect(JSON.parse(active?.mandalaChart).center).toBe('プラン2');
+			expect(JSON.parse(active!.mandalaChart).center).toBe('プラン2');
 		});
 	});
 

@@ -174,7 +174,7 @@ describe('purchaseItem', () => {
 
 		// bg_sakura (price=100)
 		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		const result = avatarService.purchaseItem(1, sakura?.id);
+		const result = avatarService.purchaseItem(1, sakura!.id);
 		expect(result).toEqual({ success: true });
 
 		const items = avatarService.getShopItems(1);
@@ -185,7 +185,7 @@ describe('purchaseItem', () => {
 		const { avatarService } = await setupWithData();
 		// ポイントなし
 		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		const result = avatarService.purchaseItem(1, sakura?.id);
+		const result = avatarService.purchaseItem(1, sakura!.id);
 		expect(result).toEqual({ error: 'INSUFFICIENT_POINTS' });
 	});
 
@@ -194,15 +194,15 @@ describe('purchaseItem', () => {
 		seedPointBalance(db, 1, 1000);
 
 		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		avatarService.purchaseItem(1, sakura?.id);
-		const result = avatarService.purchaseItem(1, sakura?.id);
+		avatarService.purchaseItem(1, sakura!.id);
+		const result = avatarService.purchaseItem(1, sakura!.id);
 		expect(result).toEqual({ error: 'ALREADY_OWNED' });
 	});
 
 	it('ロック中でエラー', async () => {
 		const { avatarService } = await setupWithData();
 		const legend = avatarService.getShopItems(1).find((i) => i.code === 'bg_legend');
-		const result = avatarService.purchaseItem(1, legend?.id);
+		const result = avatarService.purchaseItem(1, legend!.id);
 		expect(result).toEqual({ error: 'LOCKED' });
 	});
 
@@ -220,9 +220,9 @@ describe('equipItem', () => {
 		seedPointBalance(db, 1, 500);
 
 		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		avatarService.purchaseItem(1, sakura?.id);
+		avatarService.purchaseItem(1, sakura!.id);
 
-		const result = avatarService.equipItem(1, 'background', sakura?.id);
+		const result = avatarService.equipItem(1, 'background', sakura!.id);
 		expect(result).toEqual({ success: true });
 
 		const config = avatarService.getAvatarConfig(1);
@@ -232,7 +232,7 @@ describe('equipItem', () => {
 	it('未所持アイテムは装備不可', async () => {
 		const { avatarService } = await setupWithData();
 		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		const result = avatarService.equipItem(1, 'background', sakura?.id);
+		const result = avatarService.equipItem(1, 'background', sakura!.id);
 		expect(result).toEqual({ error: 'NOT_OWNED' });
 	});
 

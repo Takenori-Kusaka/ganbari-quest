@@ -506,7 +506,7 @@ describe('getChildAchievements', () => {
 	it('sortOrder 順に並ぶ', () => {
 		const achievements = getChildAchievements(1);
 		for (let i = 1; i < achievements.length; i++) {
-			expect(achievements[i]?.sortOrder).toBeGreaterThanOrEqual(achievements[i - 1]?.sortOrder);
+			expect(achievements[i]!.sortOrder).toBeGreaterThanOrEqual(achievements[i - 1]!.sortOrder);
 		}
 	});
 

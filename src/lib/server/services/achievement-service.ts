@@ -180,8 +180,8 @@ export function getChildAchievements(childId: number): AchievementWithStatus[] {
 
 			const unlockedMilestones = milestones.filter((m) => m.unlocked);
 			if (unlockedMilestones.length > 0) {
-				highestUnlockedMilestone = unlockedMilestones[unlockedMilestones.length - 1]?.value;
-				unlockedAt = unlockedMilestones[unlockedMilestones.length - 1]?.unlockedAt;
+				highestUnlockedMilestone = unlockedMilestones[unlockedMilestones.length - 1]?.value ?? null;
+				unlockedAt = unlockedMilestones[unlockedMilestones.length - 1]?.unlockedAt ?? null;
 			}
 
 			const firstLocked = milestones.find((m) => !m.unlocked);
