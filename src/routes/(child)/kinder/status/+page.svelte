@@ -11,8 +11,16 @@ let detailOpen = $state(false);
 
 /** レベル別アイコン */
 const levelEmojis: Record<number, string> = {
-	1: '🌱', 2: '💪', 3: '⚡', 4: '🔥', 5: '⭐',
-	6: '🗡️', 7: '🏆', 8: '✨', 9: '👑', 10: '🌟',
+	1: '🌱',
+	2: '💪',
+	3: '⚡',
+	4: '🔥',
+	5: '⭐',
+	6: '🗡️',
+	7: '🏆',
+	8: '✨',
+	9: '👑',
+	10: '🌟',
 };
 
 /** レベル別はげましメッセージ */
@@ -52,12 +60,12 @@ const expBarValue = $derived(() => {
 const radarCategories = $derived(
 	data.status
 		? CATEGORY_DEFS.map((catDef) => {
-				const s = data.status!.statuses[catDef.id];
+				const s = data.status?.statuses[catDef.id];
 				return {
 					categoryId: catDef.id,
 					name: catDef.name,
 					value: s?.value ?? 0,
-					maxValue: data.status!.maxValue,
+					maxValue: data.status?.maxValue,
 					deviationScore: s?.deviationScore ?? 50,
 					stars: s?.stars ?? 0,
 					trend: (s?.trend ?? 'stable') as 'up' | 'down' | 'stable',

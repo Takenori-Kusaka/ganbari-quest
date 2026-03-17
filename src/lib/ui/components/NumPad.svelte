@@ -1,30 +1,30 @@
 <script lang="ts">
-	interface Props {
-		onInput: (digit: string) => void;
-		onDelete: () => void;
-		onSubmit: () => void;
-		disabled?: boolean;
+interface Props {
+	onInput: (digit: string) => void;
+	onDelete: () => void;
+	onSubmit: () => void;
+	disabled?: boolean;
+}
+
+let { onInput, onDelete, onSubmit, disabled = false }: Props = $props();
+
+const keys = [
+	['1', '2', '3'],
+	['4', '5', '6'],
+	['7', '8', '9'],
+	['←', '0', 'OK'],
+];
+
+function handleKey(key: string) {
+	if (disabled) return;
+	if (key === '←') {
+		onDelete();
+	} else if (key === 'OK') {
+		onSubmit();
+	} else {
+		onInput(key);
 	}
-
-	let { onInput, onDelete, onSubmit, disabled = false }: Props = $props();
-
-	const keys = [
-		['1', '2', '3'],
-		['4', '5', '6'],
-		['7', '8', '9'],
-		['←', '0', 'OK'],
-	];
-
-	function handleKey(key: string) {
-		if (disabled) return;
-		if (key === '←') {
-			onDelete();
-		} else if (key === 'OK') {
-			onSubmit();
-		} else {
-			onInput(key);
-		}
-	}
+}
 </script>
 
 <div

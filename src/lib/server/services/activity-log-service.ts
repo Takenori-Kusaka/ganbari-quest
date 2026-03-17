@@ -1,20 +1,19 @@
-import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { activityLogs, activities, pointLedger, children } from '$lib/server/db/schema';
 import {
-	calcStreakBonus,
-	todayDate,
 	CANCEL_WINDOW_MS,
+	calcStreakBonus,
 	getActivityDisplayName,
+	todayDate,
 } from '$lib/domain/validation/activity';
-import { logger } from '$lib/server/logger';
+import { db } from '$lib/server/db';
+import { activities, activityLogs, children, pointLedger } from '$lib/server/db/schema';
 import {
-	checkAndUnlockAchievements,
 	type UnlockedAchievement,
+	checkAndUnlockAchievements,
 } from '$lib/server/services/achievement-service';
-import { updateStatus, type LevelUpInfo } from '$lib/server/services/status-service';
-import { checkAndGrantCombo, type ComboResult } from '$lib/server/services/combo-service';
+import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
+import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 
 /** 1回の活動記録あたりのステータス増加量 */
 const STATUS_PER_ACTIVITY = 0.3;
@@ -129,8 +128,13 @@ export function recordActivity(
 		.run();
 
 	// ステータスを即時更新（カテゴリに対応するステータスを増加）
-	const statusResult = updateStatus(childId, activity.categoryId, STATUS_PER_ACTIVITY, 'activity_record');
-	const levelUp = (!('error' in statusResult) && statusResult.levelUp) ? statusResult.levelUp : null;
+	const statusResult = updateStatus(
+		childId,
+		activity.categoryId,
+		STATUS_PER_ACTIVITY,
+		'activity_record',
+	);
+	const levelUp = !('error' in statusResult) && statusResult.levelUp ? statusResult.levelUp : null;
 
 	const cancelableUntil = new Date(Date.now() + CANCEL_WINDOW_MS).toISOString();
 
@@ -155,8 +159,7 @@ export function recordActivity(
 		recordedAt: now,
 		cancelableUntil,
 		unlockedAchievements,
-		comboBonus:
-			comboBonus.totalNewBonus > 0 || comboBonus.hints.length > 0 ? comboBonus : null,
+		comboBonus: comboBonus.totalNewBonus > 0 || comboBonus.hints.length > 0 ? comboBonus : null,
 		missionComplete: missionResult.missionCompleted ? missionResult : null,
 		levelUp,
 	};
@@ -205,10 +208,7 @@ export function getActivityLogs(
 	childId: number,
 	options: { from?: string; to?: string } = {},
 ): { logs: ActivityLogEntry[]; summary: ActivityLogSummary } {
-	const conditions = [
-		eq(activityLogs.childId, childId),
-		eq(activityLogs.cancelled, 0),
-	];
+	const conditions = [eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)];
 
 	if (options.from) {
 		conditions.push(gte(activityLogs.recordedDate, options.from));
@@ -323,7 +323,7 @@ function calculateStreak(childId: number, activityId: number, today: string): nu
 
 /** Get previous date string (YYYY-MM-DD). */
 function prevDate(dateStr: string): string {
-	const d = new Date(dateStr + 'T00:00:00Z');
+	const d = new Date(`${dateStr}T00:00:00Z`);
 	d.setUTCDate(d.getUTCDate() - 1);
 	return d.toISOString().slice(0, 10);
 }

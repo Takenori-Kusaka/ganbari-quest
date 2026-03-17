@@ -1,5 +1,10 @@
 <script lang="ts">
-let { timeline3y = $bindable(''), timeline5y = $bindable(''), timeline10y = $bindable(''), readonly = false }: {
+let {
+	timeline3y = $bindable(''),
+	timeline5y = $bindable(''),
+	timeline10y = $bindable(''),
+	readonly = false,
+}: {
 	timeline3y: string;
 	timeline5y: string;
 	timeline10y: string;
@@ -9,7 +14,12 @@ let { timeline3y = $bindable(''), timeline5y = $bindable(''), timeline10y = $bin
 const milestones = [
 	{ label: '3ねんご', emoji: '🌱', bind: () => timeline3y, set: (v: string) => (timeline3y = v) },
 	{ label: '5ねんご', emoji: '🌿', bind: () => timeline5y, set: (v: string) => (timeline5y = v) },
-	{ label: '10ねんご', emoji: '🌳', bind: () => timeline10y, set: (v: string) => (timeline10y = v) },
+	{
+		label: '10ねんご',
+		emoji: '🌳',
+		bind: () => timeline10y,
+		set: (v: string) => (timeline10y = v),
+	},
 ];
 </script>
 

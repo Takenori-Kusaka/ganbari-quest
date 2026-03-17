@@ -11,7 +11,15 @@ let { data } = $props();
 let completeOpen = $state(false);
 let completeData = $state<{ templateName: string; pointsAwarded: number } | null>(null);
 
-const DAY_NAMES = ['にちようび', 'げつようび', 'かようび', 'すいようび', 'もくようび', 'きんようび', 'どようび'];
+const DAY_NAMES = [
+	'にちようび',
+	'げつようび',
+	'かようび',
+	'すいようび',
+	'もくようび',
+	'きんようび',
+	'どようび',
+];
 
 const todayDayName = $derived(DAY_NAMES[new Date().getDay()]);
 

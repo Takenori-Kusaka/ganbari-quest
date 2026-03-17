@@ -506,7 +506,7 @@ describe('getChildAchievements', () => {
 	it('sortOrder 順に並ぶ', () => {
 		const achievements = getChildAchievements(1);
 		for (let i = 1; i < achievements.length; i++) {
-			expect(achievements[i]!.sortOrder).toBeGreaterThanOrEqual(achievements[i - 1]!.sortOrder);
+			expect(achievements[i]?.sortOrder).toBeGreaterThanOrEqual(achievements[i - 1]?.sortOrder);
 		}
 	});
 
@@ -553,12 +553,28 @@ describe('category_scout (カテゴリたんけんか)', () => {
 
 	it('2カテゴリの活動で category_scout M=2 を解除する', () => {
 		// うんどう + べんきょう の2カテゴリ
-		testDb.insert(schema.activityLogs).values({
-			childId: 1, activityId: 1, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
-		}).run();
-		testDb.insert(schema.activityLogs).values({
-			childId: 1, activityId: 2, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
-		}).run();
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 1,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: '2026-03-01',
+			})
+			.run();
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 2,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: '2026-03-01',
+			})
+			.run();
 
 		const unlocked = checkAndUnlockAchievements(1);
 		const scout = unlocked.find((a) => a.code === 'category_scout');
@@ -567,9 +583,17 @@ describe('category_scout (カテゴリたんけんか)', () => {
 	});
 
 	it('1カテゴリのみでは category_scout は解除されない', () => {
-		testDb.insert(schema.activityLogs).values({
-			childId: 1, activityId: 1, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
-		}).run();
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 1,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: '2026-03-01',
+			})
+			.run();
 
 		const unlocked = checkAndUnlockAchievements(1);
 		const scout = unlocked.find((a) => a.code === 'category_scout');
@@ -577,15 +601,39 @@ describe('category_scout (カテゴリたんけんか)', () => {
 	});
 
 	it('3カテゴリで M=2 と M=3 を同時解除する', () => {
-		testDb.insert(schema.activityLogs).values({
-			childId: 1, activityId: 1, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
-		}).run();
-		testDb.insert(schema.activityLogs).values({
-			childId: 1, activityId: 2, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
-		}).run();
-		testDb.insert(schema.activityLogs).values({
-			childId: 1, activityId: 3, points: 5, streakDays: 1, streakBonus: 0, recordedDate: '2026-03-01',
-		}).run();
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 1,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: '2026-03-01',
+			})
+			.run();
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 2,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: '2026-03-01',
+			})
+			.run();
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 3,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: '2026-03-01',
+			})
+			.run();
 
 		const unlocked = checkAndUnlockAchievements(1);
 		const scouts = unlocked.filter((a) => a.code === 'category_scout');

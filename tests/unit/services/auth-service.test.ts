@@ -29,13 +29,13 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
+import { getSetting } from '../../../src/lib/server/db/settings-repo';
 import {
 	login,
 	logout,
 	setupPin,
 	validateSession,
 } from '../../../src/lib/server/services/auth-service';
-import { getSetting } from '../../../src/lib/server/db/settings-repo';
 
 const DEFAULT_PIN = '1234';
 let defaultPinHash: string;

@@ -1,7 +1,7 @@
 <script lang="ts">
-import type { UiMode } from '$lib/domain/validation/age-tier';
 import { invalidateAll } from '$app/navigation';
 import { navigating } from '$app/stores';
+import type { UiMode } from '$lib/domain/validation/age-tier';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 import { SOUND_TIER_CONFIG, loadSoundSettings, soundService } from '$lib/ui/sound';

@@ -1,6 +1,6 @@
 <script lang="ts">
-import MandalaChart from '$lib/features/career/components/MandalaChart.svelte';
 import { createEmptyMandalaChart } from '$lib/domain/validation/career';
+import MandalaChart from '$lib/features/career/components/MandalaChart.svelte';
 
 let { data } = $props();
 

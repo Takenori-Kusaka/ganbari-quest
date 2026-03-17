@@ -44,9 +44,6 @@ export function getLoginMultiplier(consecutiveDays: number): number {
 }
 
 /** 最終ポイントを計算（base × multiplier, 切り捨て） */
-export function calcLoginBonusPoints(
-	basePoints: number,
-	multiplier: number,
-): number {
+export function calcLoginBonusPoints(basePoints: number, multiplier: number): number {
 	return Math.floor(basePoints * multiplier);
 }

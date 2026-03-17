@@ -222,11 +222,16 @@ describe('getUnshownReward / markRewardShown', () => {
 		grantSpecialReward({ childId: 1, title: 'テスト100点', points: 100, category: 'academic' });
 		const result = getUnshownReward(1);
 		expect(result).not.toBeNull();
-		expect(result!.title).toBe('テスト100点');
+		expect(result?.title).toBe('テスト100点');
 	});
 
 	it('表示済みにした報酬は返さない', () => {
-		const reward = grantSpecialReward({ childId: 1, title: 'テスト100点', points: 100, category: 'academic' });
+		const reward = grantSpecialReward({
+			childId: 1,
+			title: 'テスト100点',
+			points: 100,
+			category: 'academic',
+		});
 		if (!('error' in reward)) {
 			markRewardShown(reward.id);
 		}
@@ -245,7 +250,7 @@ describe('getUnshownReward / markRewardShown', () => {
 
 		const result = getUnshownReward(1);
 		expect(result).not.toBeNull();
-		expect(result!.title).toBe('2回目');
+		expect(result?.title).toBe('2回目');
 	});
 
 	it('新しいごほうびを付与すると再度表示される', () => {
@@ -258,7 +263,7 @@ describe('getUnshownReward / markRewardShown', () => {
 		grantSpecialReward({ childId: 1, title: '2回目', points: 100, category: 'sports' });
 		const result = getUnshownReward(1);
 		expect(result).not.toBeNull();
-		expect(result!.title).toBe('2回目');
+		expect(result?.title).toBe('2回目');
 	});
 });
 

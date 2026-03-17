@@ -1,12 +1,12 @@
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import {
-	getActivityById,
-	updateActivity,
-	setActivityVisibility,
-} from '$lib/server/services/activity-service';
 import { updateActivitySchema } from '$lib/domain/validation/activity';
 import { notFound, validationError } from '$lib/server/errors';
+import {
+	getActivityById,
+	setActivityVisibility,
+	updateActivity,
+} from '$lib/server/services/activity-service';
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const id = Number(params.id);

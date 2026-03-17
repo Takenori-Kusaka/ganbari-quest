@@ -1,5 +1,5 @@
-import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { todayDateJST } from '$lib/domain/date-utils';
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { db } from '$lib/server/db';
 import {
 	findAllAchievements,
@@ -180,8 +180,8 @@ export function getChildAchievements(childId: number): AchievementWithStatus[] {
 
 			const unlockedMilestones = milestones.filter((m) => m.unlocked);
 			if (unlockedMilestones.length > 0) {
-				highestUnlockedMilestone = unlockedMilestones[unlockedMilestones.length - 1]!.value;
-				unlockedAt = unlockedMilestones[unlockedMilestones.length - 1]!.unlockedAt;
+				highestUnlockedMilestone = unlockedMilestones[unlockedMilestones.length - 1]?.value;
+				unlockedAt = unlockedMilestones[unlockedMilestones.length - 1]?.unlockedAt;
 			}
 
 			const firstLocked = milestones.find((m) => !m.unlocked);
@@ -390,7 +390,7 @@ function getConditionLabel(
 	conditionValue: number,
 	highestUnlocked: number | null,
 ): string {
-	const prefix = highestUnlocked != null ? `つぎ: ` : '';
+	const prefix = highestUnlocked != null ? 'つぎ: ' : '';
 	switch (conditionType) {
 		case 'streak_days':
 			return `${prefix}${conditionValue}にちれんぞくでかつどう`;

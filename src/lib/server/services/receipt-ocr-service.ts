@@ -1,8 +1,8 @@
 // src/lib/server/services/receipt-ocr-service.ts
 // 領収書画像からGemini Vision APIで金額を読み取るサービス
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '$lib/server/logger';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface ReceiptOcrResult {
 	amount: number;

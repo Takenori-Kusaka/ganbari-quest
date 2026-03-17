@@ -1,8 +1,8 @@
 <script lang="ts">
-	import '$lib/ui/styles/app.css';
-	import NavigationProgress from '$lib/ui/components/NavigationProgress.svelte';
+import '$lib/ui/styles/app.css';
+import NavigationProgress from '$lib/ui/components/NavigationProgress.svelte';
 
-	let { children } = $props();
+let { children } = $props();
 </script>
 
 <svelte:head>

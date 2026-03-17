@@ -1,7 +1,11 @@
 <script lang="ts">
 import type { CareerField } from '../types';
 
-let { fields, selectedId = $bindable(null), onselect }: {
+let {
+	fields,
+	selectedId = $bindable(null),
+	onselect,
+}: {
 	fields: CareerField[];
 	selectedId: number | null;
 	onselect?: (field: CareerField) => void;

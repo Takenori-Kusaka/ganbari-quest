@@ -147,9 +147,15 @@ export function updateStatus(
 	const afterNormalized = maxValue > 0 ? (afterAvg / maxValue) * 100 : 0;
 	const afterLevel = calcLevel(afterNormalized);
 
-	const levelUp = afterLevel.level > beforeLevel.level
-		? { oldLevel: beforeLevel.level, oldTitle: beforeLevel.title, newLevel: afterLevel.level, newTitle: afterLevel.title }
-		: null;
+	const levelUp =
+		afterLevel.level > beforeLevel.level
+			? {
+					oldLevel: beforeLevel.level,
+					oldTitle: beforeLevel.title,
+					newLevel: afterLevel.level,
+					newTitle: afterLevel.title,
+				}
+			: null;
 
 	return { levelUp };
 }

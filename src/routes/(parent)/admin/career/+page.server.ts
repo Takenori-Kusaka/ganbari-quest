@@ -1,4 +1,4 @@
-import { getCareerFields, getActiveCareerPlan } from '$lib/server/services/career-service';
+import { getActiveCareerPlan, getCareerFields } from '$lib/server/services/career-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import type { PageServerLoad } from './$types';
 

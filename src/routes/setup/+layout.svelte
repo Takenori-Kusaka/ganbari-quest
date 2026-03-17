@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+import { page } from '$app/stores';
 
-	let { children } = $props();
+let { children } = $props();
 
-	const steps = [
-		{ path: '/setup', label: 'PIN設定' },
-		{ path: '/setup/children', label: '子供登録' },
-		{ path: '/setup/complete', label: '完了' },
-	];
+const steps = [
+	{ path: '/setup', label: 'PIN設定' },
+	{ path: '/setup/children', label: '子供登録' },
+	{ path: '/setup/complete', label: '完了' },
+];
 
-	const currentStepIndex = $derived(
-		Math.max(
-			steps.findIndex((s) => $page.url.pathname === s.path),
-			0,
-		),
-	);
+const currentStepIndex = $derived(
+	Math.max(
+		steps.findIndex((s) => $page.url.pathname === s.path),
+		0,
+	),
+);
 </script>
 
 <div class="setup-page">

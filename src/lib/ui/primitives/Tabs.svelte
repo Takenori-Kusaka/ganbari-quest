@@ -1,26 +1,25 @@
 <script lang="ts">
-	import { Tabs as ArkTabs } from '@ark-ui/svelte/tabs';
-	import type { Snippet } from 'svelte';
+import { Tabs as ArkTabs } from '@ark-ui/svelte/tabs';
+import type { Snippet } from 'svelte';
 
-	interface TabItem {
-		value: string;
-		label: string;
-	}
+interface TabItem {
+	value: string;
+	label: string;
+}
 
-	interface Props {
-		items: TabItem[];
-		value?: string;
-		onValueChange?: (details: { value: string }) => void;
-		children: Snippet<[string]>;
-	}
+interface Props {
+	items: TabItem[];
+	value?: string;
+	onValueChange?: (details: { value: string }) => void;
+	children: Snippet<[string]>;
+}
 
-	let { items, value = $bindable(items[0]?.value ?? ''), onValueChange, children }: Props =
-		$props();
+let { items, value = $bindable(items[0]?.value ?? ''), onValueChange, children }: Props = $props();
 
-	function handleValueChange(details: { value: string }) {
-		value = details.value;
-		onValueChange?.(details);
-	}
+function handleValueChange(details: { value: string }) {
+	value = details.value;
+	onValueChange?.(details);
+}
 </script>
 
 <ArkTabs.Root {value} onValueChange={handleValueChange}>

@@ -57,7 +57,7 @@ $effect(() => {
 
 		// Count up animation
 		const timer = setTimeout(() => {
-			displayLevel = levelUp!.newLevel;
+			displayLevel = levelUp?.newLevel;
 			setTimeout(() => {
 				showTitle = true;
 				animating = false;

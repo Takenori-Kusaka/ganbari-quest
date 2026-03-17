@@ -5,7 +5,7 @@
 // 純粋なロジック（正規化・座標計算）をテストする。
 // 目視確認は baby/kinder 画面で実施。
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // --- 正規化ロジック ---
 // RadarChart.svelte の $derived と同等のロジック

@@ -33,8 +33,8 @@ export function buildAvatarPrompt(params: {
 	level: number;
 }): string {
 	const { nickname, age, theme, characterType, level } = params;
-	const characterHint = CHARACTER_HINTS[characterType] ?? CHARACTER_HINTS['beginner'];
-	const colorHint = THEME_COLORS[theme] ?? THEME_COLORS['pink'];
+	const characterHint = CHARACTER_HINTS[characterType] ?? CHARACTER_HINTS.beginner;
+	const colorHint = THEME_COLORS[theme] ?? THEME_COLORS.pink;
 
 	return `Generate a cute, child-friendly anime-style character avatar for a gamification app.
 

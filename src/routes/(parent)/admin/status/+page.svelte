@@ -11,8 +11,6 @@ let editSuccess = $state(false);
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
-
-
 // スライダー操作中の値を追跡（カテゴリ名 → 現在値）
 let sliderValues: Record<number, number> = $state({});
 let benchmarkAge = $state(4);
@@ -22,9 +20,7 @@ function starText(stars: number): string {
 	return '★'.repeat(stars) + '☆'.repeat(5 - stars);
 }
 
-const benchmarksForAge = $derived(
-	data.benchmarks.filter((b) => b.age === benchmarkAge),
-);
+const benchmarksForAge = $derived(data.benchmarks.filter((b) => b.age === benchmarkAge));
 </script>
 
 <svelte:head>

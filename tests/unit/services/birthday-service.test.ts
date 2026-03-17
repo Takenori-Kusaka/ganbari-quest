@@ -2,9 +2,9 @@
 // 誕生日イベント・振り返り機能のユニットテスト
 
 import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 
 let sqlite: InstanceType<typeof Database>;
@@ -73,10 +73,10 @@ vi.mock('$lib/domain/date-utils', () => ({
 }));
 
 import {
-	checkBirthdayStatus,
-	submitBirthdayReview,
-	getBirthdayReviews,
 	HEALTH_CHECK_ITEMS,
+	checkBirthdayStatus,
+	getBirthdayReviews,
+	submitBirthdayReview,
 } from '../../../src/lib/server/services/birthday-service';
 
 beforeAll(() => {
@@ -262,8 +262,8 @@ describe('submitBirthdayReview', () => {
 			.where(eq(schema.pointLedger.type, 'birthday_bonus'))
 			.all();
 		expect(ledger).toHaveLength(1);
-		expect(ledger[0]!.type).toBe('birthday_bonus');
-		expect(ledger[0]!.amount).toBeGreaterThan(0);
+		expect(ledger[0]?.type).toBe('birthday_bonus');
+		expect(ledger[0]?.amount).toBeGreaterThan(0);
 	});
 
 	it('同年の二重レビューはALREADY_REVIEWEDエラー', () => {
@@ -291,8 +291,8 @@ describe('getBirthdayReviews', () => {
 
 		const reviews = getBirthdayReviews(1);
 		expect(reviews).toHaveLength(2);
-		expect(reviews[0]!.reviewYear).toBe(2025);
-		expect(reviews[1]!.reviewYear).toBe(2026);
+		expect(reviews[0]?.reviewYear).toBe(2025);
+		expect(reviews[1]?.reviewYear).toBe(2026);
 	});
 
 	it('レビューがなければ空配列を返す', () => {

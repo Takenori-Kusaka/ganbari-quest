@@ -1,14 +1,8 @@
+import { activityLogsQuerySchema, recordActivitySchema } from '$lib/domain/validation/activity';
+import { apiError, validationError } from '$lib/server/errors';
+import { getActivityLogs, recordActivity } from '$lib/server/services/activity-log-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import {
-	recordActivity,
-	getActivityLogs,
-} from '$lib/server/services/activity-log-service';
-import {
-	recordActivitySchema,
-	activityLogsQuerySchema,
-} from '$lib/domain/validation/activity';
-import { apiError, validationError } from '$lib/server/errors';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
@@ -24,7 +18,10 @@ export const POST: RequestHandler = async ({ request }) => {
 			return apiError('ALREADY_RECORDED', 'きょうはもうやったよ！');
 		}
 		if (result.error === 'NOT_FOUND') {
-			return apiError('NOT_FOUND', `${result.target === 'child' ? 'こども' : 'かつどう'}がみつかりません`);
+			return apiError(
+				'NOT_FOUND',
+				`${result.target === 'child' ? 'こども' : 'かつどう'}がみつかりません`,
+			);
 		}
 	}
 
@@ -32,9 +29,7 @@ export const POST: RequestHandler = async ({ request }) => {
 };
 
 export const GET: RequestHandler = async ({ url }) => {
-	const parsed = activityLogsQuerySchema.safeParse(
-		Object.fromEntries(url.searchParams),
-	);
+	const parsed = activityLogsQuerySchema.safeParse(Object.fromEntries(url.searchParams));
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
 	}
@@ -43,7 +38,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
 	// Calculate date range from period if from/to not specified
 	let dateFrom = from;
-	let dateTo = to;
+	const dateTo = to;
 
 	if (!dateFrom) {
 		const now = new Date();

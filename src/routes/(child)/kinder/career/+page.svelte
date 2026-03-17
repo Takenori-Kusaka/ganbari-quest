@@ -1,8 +1,8 @@
 <script lang="ts">
-import CareerFieldSelector from '$lib/features/career/components/CareerFieldSelector.svelte';
-import MandalaChart from '$lib/features/career/components/MandalaChart.svelte';
-import CareerTimeline from '$lib/features/career/components/CareerTimeline.svelte';
 import { createEmptyMandalaChart } from '$lib/domain/validation/career';
+import CareerFieldSelector from '$lib/features/career/components/CareerFieldSelector.svelte';
+import CareerTimeline from '$lib/features/career/components/CareerTimeline.svelte';
+import MandalaChart from '$lib/features/career/components/MandalaChart.svelte';
 import type { CareerField, MandalaChart as MandalaChartType } from '$lib/features/career/types';
 
 let { data } = $props();

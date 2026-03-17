@@ -3,7 +3,7 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 
 let sqlite: InstanceType<typeof Database>;
@@ -107,17 +107,11 @@ function resetDb() {
 }
 
 function seedChild() {
-	testDb
-		.insert(schema.children)
-		.values({ nickname: 'テストちゃん', age: 4, theme: 'pink' })
-		.run();
+	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4, theme: 'pink' }).run();
 }
 
-function seedActivity(id: number, name: string, categoryId: number) {
-	testDb
-		.insert(schema.activities)
-		.values({ name, categoryId, icon: '🏃', basePoints: 5 })
-		.run();
+function seedActivity(_id: number, name: string, categoryId: number) {
+	testDb.insert(schema.activities).values({ name, categoryId, icon: '🏃', basePoints: 5 }).run();
 }
 
 function addLog(childId: number, activityId: number, date: string) {
@@ -158,8 +152,8 @@ describe('combo-service', () => {
 
 		const result = checkAndGrantCombo(1, TODAY);
 		expect(result.categoryCombo).toHaveLength(1);
-		expect(result.categoryCombo[0]!.name).toBe('ダブル');
-		expect(result.categoryCombo[0]!.bonus).toBe(2);
+		expect(result.categoryCombo[0]?.name).toBe('ダブル');
+		expect(result.categoryCombo[0]?.bonus).toBe(2);
 		expect(result.crossCategoryCombo).toBeNull();
 		expect(result.totalNewBonus).toBe(2);
 	});
@@ -174,8 +168,8 @@ describe('combo-service', () => {
 
 		const result = checkAndGrantCombo(1, TODAY);
 		expect(result.categoryCombo).toHaveLength(1);
-		expect(result.categoryCombo[0]!.name).toBe('トリプル');
-		expect(result.categoryCombo[0]!.bonus).toBe(5);
+		expect(result.categoryCombo[0]?.name).toBe('トリプル');
+		expect(result.categoryCombo[0]?.bonus).toBe(5);
 		expect(result.totalNewBonus).toBe(5);
 	});
 
@@ -191,8 +185,8 @@ describe('combo-service', () => {
 
 		const result = checkAndGrantCombo(1, TODAY);
 		expect(result.categoryCombo).toHaveLength(1);
-		expect(result.categoryCombo[0]!.name).toBe('スーパー');
-		expect(result.categoryCombo[0]!.bonus).toBe(10);
+		expect(result.categoryCombo[0]?.name).toBe('スーパー');
+		expect(result.categoryCombo[0]?.bonus).toBe(10);
 		expect(result.totalNewBonus).toBe(10);
 	});
 
@@ -205,8 +199,8 @@ describe('combo-service', () => {
 		const result = checkAndGrantCombo(1, TODAY);
 		expect(result.categoryCombo).toHaveLength(0); // each category has only 1 unique
 		expect(result.crossCategoryCombo).not.toBeNull();
-		expect(result.crossCategoryCombo!.name).toBe('にとうりゅう');
-		expect(result.crossCategoryCombo!.bonus).toBe(3);
+		expect(result.crossCategoryCombo?.name).toBe('にとうりゅう');
+		expect(result.crossCategoryCombo?.bonus).toBe(3);
 		expect(result.totalNewBonus).toBe(3);
 	});
 
@@ -219,8 +213,8 @@ describe('combo-service', () => {
 		addLog(1, 3, TODAY);
 
 		const result = checkAndGrantCombo(1, TODAY);
-		expect(result.crossCategoryCombo!.name).toBe('さんみいったい');
-		expect(result.crossCategoryCombo!.bonus).toBe(8);
+		expect(result.crossCategoryCombo?.name).toBe('さんみいったい');
+		expect(result.crossCategoryCombo?.bonus).toBe(8);
 		expect(result.totalNewBonus).toBe(8);
 	});
 
@@ -237,8 +231,8 @@ describe('combo-service', () => {
 		addLog(1, 5, TODAY);
 
 		const result = checkAndGrantCombo(1, TODAY);
-		expect(result.crossCategoryCombo!.name).toBe('パーフェクト');
-		expect(result.crossCategoryCombo!.bonus).toBe(30);
+		expect(result.crossCategoryCombo?.name).toBe('パーフェクト');
+		expect(result.crossCategoryCombo?.bonus).toBe(30);
 		expect(result.totalNewBonus).toBe(30);
 	});
 
@@ -253,9 +247,9 @@ describe('combo-service', () => {
 		const result = checkAndGrantCombo(1, TODAY);
 		// Category combo: うんどう x2 = ダブル +2
 		expect(result.categoryCombo).toHaveLength(1);
-		expect(result.categoryCombo[0]!.bonus).toBe(2);
+		expect(result.categoryCombo[0]?.bonus).toBe(2);
 		// Cross-category: 2 categories = にとうりゅう +3
-		expect(result.crossCategoryCombo!.bonus).toBe(3);
+		expect(result.crossCategoryCombo?.bonus).toBe(3);
 		// Total: 2 + 3 = 5
 		expect(result.totalNewBonus).toBe(5);
 	});
@@ -276,8 +270,8 @@ describe('combo-service', () => {
 
 		// 2nd call: トリプル +5 total, but 2 already granted → +3 new
 		const second = checkAndGrantCombo(1, TODAY);
-		expect(second.categoryCombo[0]!.name).toBe('トリプル');
-		expect(second.categoryCombo[0]!.bonus).toBe(5);
+		expect(second.categoryCombo[0]?.name).toBe('トリプル');
+		expect(second.categoryCombo[0]?.bonus).toBe(5);
 		expect(second.totalNewBonus).toBe(3); // 5 - 2 = 3
 	});
 

@@ -1,20 +1,28 @@
 <script lang="ts">
-	import CompoundIcon from './CompoundIcon.svelte';
-	import { getCategoryById } from '$lib/domain/validation/activity';
+import { getCategoryById } from '$lib/domain/validation/activity';
+import CompoundIcon from './CompoundIcon.svelte';
 
-	interface Props {
-		icon: string;
-		name: string;
-		categoryId: number;
-		completed?: boolean;
-		count?: number;
-		streakDays?: number;
-		onclick?: () => void;
-	}
+interface Props {
+	icon: string;
+	name: string;
+	categoryId: number;
+	completed?: boolean;
+	count?: number;
+	streakDays?: number;
+	onclick?: () => void;
+}
 
-	let { icon, name, categoryId, completed = false, count = 0, streakDays = 0, onclick }: Props = $props();
+let {
+	icon,
+	name,
+	categoryId,
+	completed = false,
+	count = 0,
+	streakDays = 0,
+	onclick,
+}: Props = $props();
 
-	const borderColor = $derived(getCategoryById(categoryId)?.color ?? 'var(--theme-primary)');
+const borderColor = $derived(getCategoryById(categoryId)?.color ?? 'var(--theme-primary)');
 </script>
 
 <button

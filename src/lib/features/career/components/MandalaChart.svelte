@@ -1,7 +1,10 @@
 <script lang="ts">
 import type { MandalaChart } from '../types';
 
-let { chart = $bindable(), readonly = false }: {
+let {
+	chart = $bindable(),
+	readonly = false,
+}: {
 	chart: MandalaChart;
 	readonly: boolean;
 } = $props();

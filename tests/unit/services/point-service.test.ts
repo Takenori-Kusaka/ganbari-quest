@@ -3,7 +3,7 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 
 let sqlite: InstanceType<typeof Database>;
@@ -130,9 +130,9 @@ vi.mock('$lib/server/db/client', () => ({
 }));
 
 import {
+	convertPoints,
 	getPointBalance,
 	getPointHistory,
-	convertPoints,
 } from '../../../src/lib/server/services/point-service';
 
 beforeAll(() => {
@@ -154,15 +154,11 @@ function resetDb() {
 
 function seedChild() {
 	resetDb();
-	testDb.insert(schema.children)
-		.values({ nickname: 'テストちゃん', age: 4, theme: 'pink' })
-		.run();
+	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4, theme: 'pink' }).run();
 }
 
 function addPoints(childId: number, amount: number, type: string, description: string) {
-	testDb.insert(schema.pointLedger)
-		.values({ childId, amount, type, description })
-		.run();
+	testDb.insert(schema.pointLedger).values({ childId, amount, type, description }).run();
 }
 
 describe('point-service', () => {
@@ -288,7 +284,7 @@ describe('point-service', () => {
 		if (!('error' in history)) {
 			const convertEntry = history.history.find((h) => h.type === 'convert');
 			expect(convertEntry).toBeDefined();
-			expect(convertEntry!.amount).toBe(-500);
+			expect(convertEntry?.amount).toBe(-500);
 		}
 	});
 

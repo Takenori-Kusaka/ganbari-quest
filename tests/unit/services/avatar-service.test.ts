@@ -1,13 +1,15 @@
 // tests/unit/services/avatar-service.test.ts
 // きせかえアバターサービスのテスト
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createTestDb, seedTestData } from '../../helpers/test-db';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
+import { createTestDb, seedTestData } from '../../helpers/test-db';
 
 // モック: db モジュール
 vi.mock('$lib/server/db', () => ({ db: null as ReturnType<typeof createTestDb>['db'] | null }));
-vi.mock('$lib/server/db/client', () => ({ db: null as ReturnType<typeof createTestDb>['db'] | null }));
+vi.mock('$lib/server/db/client', () => ({
+	db: null as ReturnType<typeof createTestDb>['db'] | null,
+}));
 
 import * as dbModule from '$lib/server/db';
 import * as dbClientModule from '$lib/server/db/client';
@@ -16,14 +18,95 @@ let testDbInstance: ReturnType<typeof createTestDb>;
 
 function seedAvatarItems(db: ReturnType<typeof createTestDb>['db']) {
 	const items = [
-		{ code: 'bg_default', name: 'しろ', category: 'background', icon: '⬜', cssValue: '#ffffff', price: 0, unlockType: 'free', rarity: 'common', sortOrder: 1 },
-		{ code: 'bg_sakura', name: 'さくらいろ', category: 'background', icon: '🌸', cssValue: 'linear-gradient(135deg, #fce4ec, #f8bbd0)', price: 100, unlockType: 'purchase', rarity: 'common', sortOrder: 2 },
-		{ code: 'bg_galaxy', name: 'うちゅう', category: 'background', icon: '🌌', cssValue: 'linear-gradient(135deg, #1a237e, #4a148c)', price: 500, unlockType: 'purchase', rarity: 'epic', sortOrder: 3 },
-		{ code: 'bg_legend', name: 'でんせつ', category: 'background', icon: '🌟', cssValue: 'linear-gradient(135deg, #e8eaf6, #7986cb)', price: 0, unlockType: 'level', unlockCondition: '{"level":10}', rarity: 'legendary', sortOrder: 4 },
-		{ code: 'frame_default', name: 'ふつう', category: 'frame', icon: '⬜', cssValue: '2px solid #bdbdbd', price: 0, unlockType: 'free', rarity: 'common', sortOrder: 1 },
-		{ code: 'frame_star', name: 'ほし', category: 'frame', icon: '⭐', cssValue: '3px solid #ffd700', price: 150, unlockType: 'purchase', rarity: 'common', sortOrder: 2 },
-		{ code: 'effect_none', name: 'なし', category: 'effect', icon: '➖', cssValue: '', price: 0, unlockType: 'free', rarity: 'common', sortOrder: 1 },
-		{ code: 'effect_sparkle', name: 'キラキラ', category: 'effect', icon: '✨', cssValue: 'sparkle', price: 200, unlockType: 'purchase', rarity: 'rare', sortOrder: 2 },
+		{
+			code: 'bg_default',
+			name: 'しろ',
+			category: 'background',
+			icon: '⬜',
+			cssValue: '#ffffff',
+			price: 0,
+			unlockType: 'free',
+			rarity: 'common',
+			sortOrder: 1,
+		},
+		{
+			code: 'bg_sakura',
+			name: 'さくらいろ',
+			category: 'background',
+			icon: '🌸',
+			cssValue: 'linear-gradient(135deg, #fce4ec, #f8bbd0)',
+			price: 100,
+			unlockType: 'purchase',
+			rarity: 'common',
+			sortOrder: 2,
+		},
+		{
+			code: 'bg_galaxy',
+			name: 'うちゅう',
+			category: 'background',
+			icon: '🌌',
+			cssValue: 'linear-gradient(135deg, #1a237e, #4a148c)',
+			price: 500,
+			unlockType: 'purchase',
+			rarity: 'epic',
+			sortOrder: 3,
+		},
+		{
+			code: 'bg_legend',
+			name: 'でんせつ',
+			category: 'background',
+			icon: '🌟',
+			cssValue: 'linear-gradient(135deg, #e8eaf6, #7986cb)',
+			price: 0,
+			unlockType: 'level',
+			unlockCondition: '{"level":10}',
+			rarity: 'legendary',
+			sortOrder: 4,
+		},
+		{
+			code: 'frame_default',
+			name: 'ふつう',
+			category: 'frame',
+			icon: '⬜',
+			cssValue: '2px solid #bdbdbd',
+			price: 0,
+			unlockType: 'free',
+			rarity: 'common',
+			sortOrder: 1,
+		},
+		{
+			code: 'frame_star',
+			name: 'ほし',
+			category: 'frame',
+			icon: '⭐',
+			cssValue: '3px solid #ffd700',
+			price: 150,
+			unlockType: 'purchase',
+			rarity: 'common',
+			sortOrder: 2,
+		},
+		{
+			code: 'effect_none',
+			name: 'なし',
+			category: 'effect',
+			icon: '➖',
+			cssValue: '',
+			price: 0,
+			unlockType: 'free',
+			rarity: 'common',
+			sortOrder: 1,
+		},
+		{
+			code: 'effect_sparkle',
+			name: 'キラキラ',
+			category: 'effect',
+			icon: '✨',
+			cssValue: 'sparkle',
+			price: 200,
+			unlockType: 'purchase',
+			rarity: 'rare',
+			sortOrder: 2,
+		},
 	];
 
 	for (const item of items) {
@@ -33,15 +116,23 @@ function seedAvatarItems(db: ReturnType<typeof createTestDb>['db']) {
 	return items;
 }
 
-function seedPointBalance(db: ReturnType<typeof createTestDb>['db'], childId: number, amount: number) {
-	db.insert(schema.pointLedger).values({ childId, amount, type: 'test', description: 'テスト' }).run();
+function seedPointBalance(
+	db: ReturnType<typeof createTestDb>['db'],
+	childId: number,
+	amount: number,
+) {
+	db.insert(schema.pointLedger)
+		.values({ childId, amount, type: 'test', description: 'テスト' })
+		.run();
 }
 
 function seedStatuses(db: ReturnType<typeof createTestDb>['db'], childId: number) {
 	// ステータスとベンチマーク（偏差値計算に必要）
 	for (let catId = 1; catId <= 5; catId++) {
 		db.insert(schema.statuses).values({ childId, categoryId: catId, value: 50 }).run();
-		db.insert(schema.marketBenchmarks).values({ age: 4, categoryId: catId, mean: 50, stdDev: 10, source: 'test' }).run();
+		db.insert(schema.marketBenchmarks)
+			.values({ age: 4, categoryId: catId, mean: 50, stdDev: 10, source: 'test' })
+			.run();
 	}
 }
 
@@ -83,7 +174,7 @@ describe('purchaseItem', () => {
 
 		// bg_sakura (price=100)
 		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		const result = avatarService.purchaseItem(1, sakura!.id);
+		const result = avatarService.purchaseItem(1, sakura?.id);
 		expect(result).toEqual({ success: true });
 
 		const items = avatarService.getShopItems(1);
@@ -94,7 +185,7 @@ describe('purchaseItem', () => {
 		const { avatarService } = await setupWithData();
 		// ポイントなし
 		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		const result = avatarService.purchaseItem(1, sakura!.id);
+		const result = avatarService.purchaseItem(1, sakura?.id);
 		expect(result).toEqual({ error: 'INSUFFICIENT_POINTS' });
 	});
 
@@ -103,15 +194,15 @@ describe('purchaseItem', () => {
 		seedPointBalance(db, 1, 1000);
 
 		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		avatarService.purchaseItem(1, sakura!.id);
-		const result = avatarService.purchaseItem(1, sakura!.id);
+		avatarService.purchaseItem(1, sakura?.id);
+		const result = avatarService.purchaseItem(1, sakura?.id);
 		expect(result).toEqual({ error: 'ALREADY_OWNED' });
 	});
 
 	it('ロック中でエラー', async () => {
 		const { avatarService } = await setupWithData();
 		const legend = avatarService.getShopItems(1).find((i) => i.code === 'bg_legend');
-		const result = avatarService.purchaseItem(1, legend!.id);
+		const result = avatarService.purchaseItem(1, legend?.id);
 		expect(result).toEqual({ error: 'LOCKED' });
 	});
 
@@ -129,9 +220,9 @@ describe('equipItem', () => {
 		seedPointBalance(db, 1, 500);
 
 		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		avatarService.purchaseItem(1, sakura!.id);
+		avatarService.purchaseItem(1, sakura?.id);
 
-		const result = avatarService.equipItem(1, 'background', sakura!.id);
+		const result = avatarService.equipItem(1, 'background', sakura?.id);
 		expect(result).toEqual({ success: true });
 
 		const config = avatarService.getAvatarConfig(1);
@@ -141,7 +232,7 @@ describe('equipItem', () => {
 	it('未所持アイテムは装備不可', async () => {
 		const { avatarService } = await setupWithData();
 		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		const result = avatarService.equipItem(1, 'background', sakura!.id);
+		const result = avatarService.equipItem(1, 'background', sakura?.id);
 		expect(result).toEqual({ error: 'NOT_OWNED' });
 	});
 

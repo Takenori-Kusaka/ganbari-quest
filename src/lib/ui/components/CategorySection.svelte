@@ -1,17 +1,17 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-	import { getCategoryById } from '$lib/domain/validation/activity';
+import { getCategoryById } from '$lib/domain/validation/activity';
+import type { Snippet } from 'svelte';
 
-	interface Props {
-		categoryId: number;
-		children: Snippet;
-	}
+interface Props {
+	categoryId: number;
+	children: Snippet;
+}
 
-	let { categoryId, children }: Props = $props();
+let { categoryId, children }: Props = $props();
 
-	const catDef = $derived(getCategoryById(categoryId));
-	const color = $derived(catDef?.color ?? 'var(--theme-primary)');
-	const name = $derived(catDef?.name ?? '');
+const catDef = $derived(getCategoryById(categoryId));
+const color = $derived(catDef?.color ?? 'var(--theme-primary)');
+const name = $derived(catDef?.name ?? '');
 </script>
 
 <section class="mb-[var(--spacing-sm)]">

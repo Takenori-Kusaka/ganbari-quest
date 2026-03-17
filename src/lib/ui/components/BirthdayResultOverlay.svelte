@@ -1,30 +1,37 @@
 <script lang="ts">
-	import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
-	interface Props {
-		open: boolean;
-		childAge: number;
-		basePoints: number;
-		healthPoints: number;
-		aspirationPoints: number;
-		totalPoints: number;
-		onClose?: () => void;
+interface Props {
+	open: boolean;
+	childAge: number;
+	basePoints: number;
+	healthPoints: number;
+	aspirationPoints: number;
+	totalPoints: number;
+	onClose?: () => void;
+}
+
+let {
+	open = $bindable(),
+	childAge,
+	basePoints,
+	healthPoints,
+	aspirationPoints,
+	totalPoints,
+	onClose,
+}: Props = $props();
+
+let revealed = $state(false);
+
+$effect(() => {
+	if (open) {
+		revealed = false;
+		const timer = setTimeout(() => {
+			revealed = true;
+		}, 1000);
+		return () => clearTimeout(timer);
 	}
-
-	let { open = $bindable(), childAge, basePoints, healthPoints, aspirationPoints, totalPoints, onClose }: Props =
-		$props();
-
-	let revealed = $state(false);
-
-	$effect(() => {
-		if (open) {
-			revealed = false;
-			const timer = setTimeout(() => {
-				revealed = true;
-			}, 1000);
-			return () => clearTimeout(timer);
-		}
-	});
+});
 </script>
 
 <Dialog bind:open closable={false} title="">

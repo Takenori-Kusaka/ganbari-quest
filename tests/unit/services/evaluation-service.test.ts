@@ -3,7 +3,7 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 
 let sqlite: InstanceType<typeof Database>;
@@ -123,17 +123,21 @@ const SQL_TABLES = `
 `;
 
 vi.mock('$lib/server/db', () => ({
-	get db() { return testDb; },
+	get db() {
+		return testDb;
+	},
 }));
 vi.mock('$lib/server/db/client', () => ({
-	get db() { return testDb; },
+	get db() {
+		return testDb;
+	},
 }));
 
 import {
-	calcStatusIncrease,
 	calcEvaluationBonus,
-	getWeekRange,
+	calcStatusIncrease,
 	evaluateChild,
+	getWeekRange,
 	runDailyDecay,
 } from '../../../src/lib/server/services/evaluation-service';
 
@@ -163,9 +167,7 @@ function resetDb() {
 
 function seedBase() {
 	resetDb();
-	testDb.insert(schema.children)
-		.values({ nickname: 'テストちゃん', age: 4, theme: 'pink' })
-		.run();
+	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4, theme: 'pink' }).run();
 
 	// 5カテゴリに1つずつ活動を用意
 	const acts = [
@@ -181,7 +183,8 @@ function seedBase() {
 }
 
 function addLog(childId: number, activityId: number, date: string) {
-	testDb.insert(schema.activityLogs)
+	testDb
+		.insert(schema.activityLogs)
 		.values({
 			childId,
 			activityId,
@@ -219,44 +222,44 @@ describe('calcStatusIncrease', () => {
 describe('calcEvaluationBonus', () => {
 	it('5カテゴリ活動で20P', () => {
 		const scores = {
-			'うんどう': { count: 1, points: 5 },
-			'べんきょう': { count: 1, points: 5 },
-			'せいかつ': { count: 1, points: 5 },
-			'こうりゅう': { count: 1, points: 5 },
-			'そうぞう': { count: 1, points: 5 },
+			うんどう: { count: 1, points: 5 },
+			べんきょう: { count: 1, points: 5 },
+			せいかつ: { count: 1, points: 5 },
+			こうりゅう: { count: 1, points: 5 },
+			そうぞう: { count: 1, points: 5 },
 		};
 		expect(calcEvaluationBonus(scores)).toBe(20);
 	});
 
 	it('4カテゴリ活動で10P', () => {
 		const scores = {
-			'うんどう': { count: 1, points: 5 },
-			'べんきょう': { count: 1, points: 5 },
-			'せいかつ': { count: 1, points: 5 },
-			'こうりゅう': { count: 1, points: 5 },
-			'そうぞう': { count: 0, points: 0 },
+			うんどう: { count: 1, points: 5 },
+			べんきょう: { count: 1, points: 5 },
+			せいかつ: { count: 1, points: 5 },
+			こうりゅう: { count: 1, points: 5 },
+			そうぞう: { count: 0, points: 0 },
 		};
 		expect(calcEvaluationBonus(scores)).toBe(10);
 	});
 
 	it('3カテゴリ活動で5P', () => {
 		const scores = {
-			'うんどう': { count: 1, points: 5 },
-			'べんきょう': { count: 1, points: 5 },
-			'せいかつ': { count: 1, points: 5 },
-			'こうりゅう': { count: 0, points: 0 },
-			'そうぞう': { count: 0, points: 0 },
+			うんどう: { count: 1, points: 5 },
+			べんきょう: { count: 1, points: 5 },
+			せいかつ: { count: 1, points: 5 },
+			こうりゅう: { count: 0, points: 0 },
+			そうぞう: { count: 0, points: 0 },
 		};
 		expect(calcEvaluationBonus(scores)).toBe(5);
 	});
 
 	it('2カテゴリ以下は0P', () => {
 		const scores = {
-			'うんどう': { count: 1, points: 5 },
-			'べんきょう': { count: 1, points: 5 },
-			'せいかつ': { count: 0, points: 0 },
-			'こうりゅう': { count: 0, points: 0 },
-			'そうぞう': { count: 0, points: 0 },
+			うんどう: { count: 1, points: 5 },
+			べんきょう: { count: 1, points: 5 },
+			せいかつ: { count: 0, points: 0 },
+			こうりゅう: { count: 0, points: 0 },
+			そうぞう: { count: 0, points: 0 },
 		};
 		expect(calcEvaluationBonus(scores)).toBe(0);
 	});
@@ -317,8 +320,8 @@ describe('evaluateChild', () => {
 		}
 
 		const result = evaluateChild(1, '2026-02-16', '2026-02-22');
-		expect(result.categoryScores[1]!.count).toBe(7);
-		expect(result.categoryScores[1]!.statusIncrease).toBe(1.0); // 週次ボーナス
+		expect(result.categoryScores[1]?.count).toBe(7);
+		expect(result.categoryScores[1]?.statusIncrease).toBe(1.0); // 週次ボーナス
 	});
 });
 
@@ -329,15 +332,15 @@ describe('runDailyDecay', () => {
 
 	it('活動履歴なしの場合は減少なし', () => {
 		const results = runDailyDecay('2026-02-21');
-		expect(results[0]!.decays.length).toBe(0);
+		expect(results[0]?.decays.length).toBe(0);
 	});
 
 	it('前日に活動があれば減少が発生', () => {
 		addLog(1, 1, '2026-02-19'); // 2日前にうんどう
 
 		const results = runDailyDecay('2026-02-21');
-		const decay = results[0]!.decays.find((d) => d.categoryId === 1);
+		const decay = results[0]?.decays.find((d) => d.categoryId === 1);
 		expect(decay).toBeDefined();
-		expect(decay!.amount).toBeGreaterThan(0);
+		expect(decay?.amount).toBeGreaterThan(0);
 	});
 });

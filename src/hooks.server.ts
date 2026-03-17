@@ -36,11 +36,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const path = event.url.pathname;
 
 	// セットアップ未完了時は /setup へリダイレクト
-	if (
-		!path.startsWith('/setup') &&
-		!path.startsWith('/_app') &&
-		!path.startsWith('/favicon')
-	) {
+	if (!path.startsWith('/setup') && !path.startsWith('/_app') && !path.startsWith('/favicon')) {
 		if (isSetupRequired()) {
 			redirect(302, '/setup');
 		}

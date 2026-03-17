@@ -1,26 +1,21 @@
 // src/lib/server/db/login-bonus-repo.ts
 // ログインボーナスのリポジトリ層
 
-import { eq, and, desc } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { db } from './client';
-import { loginBonuses, children } from './schema';
+import { children, loginBonuses } from './schema';
 
 /** 今日のログインボーナスを取得 */
 export function findTodayBonus(childId: number, today: string) {
 	return db
 		.select()
 		.from(loginBonuses)
-		.where(
-			and(
-				eq(loginBonuses.childId, childId),
-				eq(loginBonuses.loginDate, today),
-			),
-		)
+		.where(and(eq(loginBonuses.childId, childId), eq(loginBonuses.loginDate, today)))
 		.get();
 }
 
 /** 直近のログインボーナスを取得（連続日数計算用） */
-export function findRecentBonuses(childId: number, limit: number = 60) {
+export function findRecentBonuses(childId: number, limit = 60) {
 	return db
 		.select()
 		.from(loginBonuses)

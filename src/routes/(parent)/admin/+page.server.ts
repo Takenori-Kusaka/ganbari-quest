@@ -11,10 +11,14 @@ export const load: PageServerLoad = () => {
 		const balance = getPointBalance(child.id);
 		const status = getChildStatus(child.id);
 		if ('error' in balance) {
-			logger.warn('[admin] ポイント取得フォールバック', { context: { childId: child.id, error: balance.error } });
+			logger.warn('[admin] ポイント取得フォールバック', {
+				context: { childId: child.id, error: balance.error },
+			});
 		}
 		if ('error' in status) {
-			logger.warn('[admin] ステータス取得フォールバック', { context: { childId: child.id, error: status.error } });
+			logger.warn('[admin] ステータス取得フォールバック', {
+				context: { childId: child.id, error: status.error },
+			});
 		}
 		return {
 			...child,

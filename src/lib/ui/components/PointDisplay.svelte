@@ -1,18 +1,18 @@
 <script lang="ts">
-	interface Props {
-		points: number;
-		label?: string;
-		size?: 'sm' | 'md' | 'lg';
-		animated?: boolean;
-	}
+interface Props {
+	points: number;
+	label?: string;
+	size?: 'sm' | 'md' | 'lg';
+	animated?: boolean;
+}
 
-	let { points, label, size = 'md', animated = false }: Props = $props();
+let { points, label, size = 'md', animated = false }: Props = $props();
 
-	const sizeClasses = {
-		sm: 'text-lg',
-		md: 'text-2xl',
-		lg: 'text-hero',
-	};
+const sizeClasses = {
+	sm: 'text-lg',
+	md: 'text-2xl',
+	lg: 'text-hero',
+};
 </script>
 
 <div

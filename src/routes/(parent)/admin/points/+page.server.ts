@@ -1,7 +1,7 @@
+import { ConvertMode } from '$lib/domain/validation/point';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { convertPoints, getPointBalance } from '$lib/server/services/point-service';
-import { ConvertMode } from '$lib/domain/validation/point';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -10,7 +10,9 @@ export const load: PageServerLoad = () => {
 	const childrenWithBalance = children.map((child) => {
 		const balance = getPointBalance(child.id);
 		if ('error' in balance) {
-			logger.warn('[admin/points] ポイント取得フォールバック', { context: { childId: child.id, error: balance.error } });
+			logger.warn('[admin/points] ポイント取得フォールバック', {
+				context: { childId: child.id, error: balance.error },
+			});
 		}
 		return {
 			...child,

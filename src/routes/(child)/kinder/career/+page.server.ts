@@ -1,4 +1,4 @@
-import { getCareerFields, getActiveCareerPlan } from '$lib/server/services/career-service';
+import { getActiveCareerPlan, getCareerFields } from '$lib/server/services/career-service';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ parent }) => {

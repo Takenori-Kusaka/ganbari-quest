@@ -97,7 +97,10 @@ export function setupPin(pin: string): void {
 export function changePin(
 	currentPin: string,
 	newPin: string,
-): { success: true } | { error: 'INVALID_CURRENT_PIN' } | { error: 'LOCKED_OUT'; lockedUntil: string } {
+):
+	| { success: true }
+	| { error: 'INVALID_CURRENT_PIN' }
+	| { error: 'LOCKED_OUT'; lockedUntil: string } {
 	// ロックアウトチェック
 	const lockedUntil = getSetting('pin_locked_until');
 	if (lockedUntil && new Date(lockedUntil) > new Date()) {
@@ -131,7 +134,9 @@ function incrementFailedAttempts(): void {
 	if (next >= MAX_FAILED_ATTEMPTS) {
 		const lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS).toISOString();
 		setSetting('pin_locked_until', lockedUntil);
-		logger.warn(`[AUTH] ロックアウト発動: ${next}回連続失敗`, { context: { attempts: next, lockedUntil } });
+		logger.warn(`[AUTH] ロックアウト発動: ${next}回連続失敗`, {
+			context: { attempts: next, lockedUntil },
+		});
 	}
 }
 

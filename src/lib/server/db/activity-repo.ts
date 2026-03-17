@@ -1,7 +1,7 @@
 // src/lib/server/db/activity-repo.ts
 // 活動関連のリポジトリ層（DBアクセス）
 
-import { eq, and, lte, gte, or, isNull, desc } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lte, or } from 'drizzle-orm';
 import { db } from './client';
 import { activities, activityLogs, children, pointLedger } from './schema';
 
@@ -29,12 +29,8 @@ export function findActivities(filter?: ActivityFilter) {
 	}
 
 	if (filter?.childAge != null) {
-		conditions.push(
-			or(isNull(activities.ageMin), lte(activities.ageMin, filter.childAge)),
-		);
-		conditions.push(
-			or(isNull(activities.ageMax), gte(activities.ageMax, filter.childAge)),
-		);
+		conditions.push(or(isNull(activities.ageMin), lte(activities.ageMin, filter.childAge)));
+		conditions.push(or(isNull(activities.ageMax), gte(activities.ageMax, filter.childAge)));
 	}
 
 	if (conditions.length > 0) {
@@ -144,14 +140,8 @@ export function markActivityLogCancelled(id: number) {
 	db.update(activityLogs).set({ cancelled: 1 }).where(eq(activityLogs.id, id)).run();
 }
 
-export function findActivityLogs(
-	childId: number,
-	options: { from?: string; to?: string } = {},
-) {
-	const conditions = [
-		eq(activityLogs.childId, childId),
-		eq(activityLogs.cancelled, 0),
-	];
+export function findActivityLogs(childId: number, options: { from?: string; to?: string } = {}) {
+	const conditions = [eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)];
 
 	if (options.from) {
 		conditions.push(gte(activityLogs.recordedDate, options.from));

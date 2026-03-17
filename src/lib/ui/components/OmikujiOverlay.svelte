@@ -1,47 +1,54 @@
 <script lang="ts">
-	import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
-	interface Props {
-		open: boolean;
-		rank: string;
-		basePoints: number;
-		multiplier: number;
-		totalPoints: number;
-		consecutiveDays: number;
-		onClose?: () => void;
+interface Props {
+	open: boolean;
+	rank: string;
+	basePoints: number;
+	multiplier: number;
+	totalPoints: number;
+	consecutiveDays: number;
+	onClose?: () => void;
+}
+
+let {
+	open = $bindable(),
+	rank,
+	basePoints,
+	multiplier,
+	totalPoints,
+	consecutiveDays,
+	onClose,
+}: Props = $props();
+
+let revealed = $state(false);
+
+const rankEffects: Record<string, { bg: string; particle: string }> = {
+	大大吉: { bg: 'bg-gradient-to-b from-yellow-300 to-amber-500', particle: '✨🌟💫' },
+	大吉: { bg: 'bg-gradient-to-b from-purple-300 to-pink-400', particle: '🌈✨' },
+	中吉: { bg: 'bg-gradient-to-b from-blue-200 to-indigo-300', particle: '⭐' },
+	小吉: { bg: 'bg-gradient-to-b from-green-200 to-teal-300', particle: '🍀' },
+	吉: { bg: 'bg-gradient-to-b from-sky-100 to-blue-200', particle: '' },
+	末吉: { bg: 'bg-gradient-to-b from-gray-100 to-gray-200', particle: '' },
+};
+
+const defaultEffect = { bg: 'bg-gradient-to-b from-sky-100 to-blue-200', particle: '' };
+const currentEffect = $derived(rankEffects[rank] ?? defaultEffect);
+
+$effect(() => {
+	if (open) {
+		revealed = false;
+		const timer = setTimeout(() => {
+			revealed = true;
+		}, 1500);
+		return () => clearTimeout(timer);
 	}
+});
 
-	let { open = $bindable(), rank, basePoints, multiplier, totalPoints, consecutiveDays, onClose }: Props =
-		$props();
-
-	let revealed = $state(false);
-
-	const rankEffects: Record<string, { bg: string; particle: string }> = {
-		大大吉: { bg: 'bg-gradient-to-b from-yellow-300 to-amber-500', particle: '✨🌟💫' },
-		大吉: { bg: 'bg-gradient-to-b from-purple-300 to-pink-400', particle: '🌈✨' },
-		中吉: { bg: 'bg-gradient-to-b from-blue-200 to-indigo-300', particle: '⭐' },
-		小吉: { bg: 'bg-gradient-to-b from-green-200 to-teal-300', particle: '🍀' },
-		吉: { bg: 'bg-gradient-to-b from-sky-100 to-blue-200', particle: '' },
-		末吉: { bg: 'bg-gradient-to-b from-gray-100 to-gray-200', particle: '' },
-	};
-
-	const defaultEffect = { bg: 'bg-gradient-to-b from-sky-100 to-blue-200', particle: '' };
-	const currentEffect = $derived(rankEffects[rank] ?? defaultEffect);
-
-	$effect(() => {
-		if (open) {
-			revealed = false;
-			const timer = setTimeout(() => {
-				revealed = true;
-			}, 1500);
-			return () => clearTimeout(timer);
-		}
-	});
-
-	function handleClose() {
-		open = false;
-		onClose?.();
-	}
+function handleClose() {
+	open = false;
+	onClose?.();
+}
 </script>
 
 <Dialog bind:open closable={false} title="">

@@ -4,16 +4,16 @@
 import { CAREER_POINTS } from '$lib/domain/validation/career';
 import type { CreateCareerPlanInput, UpdateCareerPlanInput } from '$lib/domain/validation/career';
 import {
-	findAllCareerFields,
-	findCareerFieldsByAge,
-	findCareerFieldById,
-	findActiveCareerPlan,
-	insertCareerPlan,
-	updateCareerPlan as updateCareerPlanRepo,
 	deactivateCareerPlans,
-	insertCareerPlanHistory,
+	findActiveCareerPlan,
+	findAllCareerFields,
+	findCareerFieldById,
+	findCareerFieldsByAge,
 	findLatestHistoryByAction,
+	insertCareerPlan,
+	insertCareerPlanHistory,
 	insertCareerPointEntry,
+	updateCareerPlan as updateCareerPlanRepo,
 } from '$lib/server/db/career-repo';
 
 // ============================================================
@@ -100,7 +100,11 @@ export function createCareerPlan(childId: number, input: CreateCareerPlanInput) 
 }
 
 /** プラン更新 + 条件付きポイント付与（月1回制限） */
-export function updateCareerPlanWithPoints(planId: number, childId: number, input: UpdateCareerPlanInput) {
+export function updateCareerPlanWithPoints(
+	planId: number,
+	childId: number,
+	input: UpdateCareerPlanInput,
+) {
 	const existing = findActiveCareerPlan(childId);
 	if (!existing || existing.id !== planId) {
 		throw new Error('Active career plan not found');
@@ -111,7 +115,8 @@ export function updateCareerPlanWithPoints(planId: number, childId: number, inpu
 	};
 	if (input.careerFieldId !== undefined) updateData.careerFieldId = input.careerFieldId;
 	if (input.dreamText !== undefined) updateData.dreamText = input.dreamText;
-	if (input.mandalaChart !== undefined) updateData.mandalaChart = JSON.stringify(input.mandalaChart);
+	if (input.mandalaChart !== undefined)
+		updateData.mandalaChart = JSON.stringify(input.mandalaChart);
 	if (input.timeline3y !== undefined) updateData.timeline3y = input.timeline3y;
 	if (input.timeline5y !== undefined) updateData.timeline5y = input.timeline5y;
 	if (input.timeline10y !== undefined) updateData.timeline10y = input.timeline10y;
@@ -122,13 +127,29 @@ export function updateCareerPlanWithPoints(planId: number, childId: number, inpu
 
 	// マンダラ更新ポイント（月1回制限）
 	if (input.mandalaChart) {
-		const pts = awardMonthlyPoints(planId, childId, 'mandala_update', CAREER_POINTS.MANDALA_UPDATE, 'マンダラチャートを更新');
+		const pts = awardMonthlyPoints(
+			planId,
+			childId,
+			'mandala_update',
+			CAREER_POINTS.MANDALA_UPDATE,
+			'マンダラチャートを更新',
+		);
 		totalPoints += pts;
 	}
 
 	// タイムライン更新ポイント（月1回制限）
-	if (input.timeline3y !== undefined || input.timeline5y !== undefined || input.timeline10y !== undefined) {
-		const pts = awardMonthlyPoints(planId, childId, 'timeline_update', CAREER_POINTS.TIMELINE_UPDATE, 'タイムラインを更新');
+	if (
+		input.timeline3y !== undefined ||
+		input.timeline5y !== undefined ||
+		input.timeline10y !== undefined
+	) {
+		const pts = awardMonthlyPoints(
+			planId,
+			childId,
+			'timeline_update',
+			CAREER_POINTS.TIMELINE_UPDATE,
+			'タイムラインを更新',
+		);
 		totalPoints += pts;
 	}
 

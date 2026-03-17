@@ -40,7 +40,9 @@ beforeEach(() => {
 	testDbInstance.sqlite.exec('DELETE FROM activities');
 	testDbInstance.sqlite.exec('DELETE FROM children');
 	// AUTOINCREMENT シーケンスリセット
-	testDbInstance.sqlite.exec("DELETE FROM sqlite_sequence WHERE name IN ('children', 'activities', 'career_fields', 'career_plans', 'career_plan_history', 'point_ledger')");
+	testDbInstance.sqlite.exec(
+		"DELETE FROM sqlite_sequence WHERE name IN ('children', 'activities', 'career_fields', 'career_plans', 'career_plan_history', 'point_ledger')",
+	);
 	testDbInstance.sqlite.pragma('foreign_keys = ON');
 
 	// テストデータ投入
@@ -61,8 +63,9 @@ beforeEach(() => {
 // 動的インポート（モック適用後）
 const { getCareerFields, getActiveCareerPlan, createCareerPlan, updateCareerPlanWithPoints } =
 	await import('../../../src/lib/server/services/career-service');
-const { findAllCareerFields, findCareerFieldsByAge } =
-	await import('../../../src/lib/server/db/career-repo');
+const { findAllCareerFields, findCareerFieldsByAge } = await import(
+	'../../../src/lib/server/db/career-repo'
+);
 
 describe('career-service', () => {
 	describe('getCareerFields', () => {
@@ -135,15 +138,15 @@ describe('career-service', () => {
 			});
 
 			// 2回目
-			const result = createCareerPlan(childId, {
+			const _result = createCareerPlan(childId, {
 				careerFieldId: 2,
 				mandalaChart: { center: 'プラン2', surrounding: [] },
 			});
 
 			const active = getActiveCareerPlan(childId);
 			expect(active).not.toBeNull();
-			expect(active!.careerFieldId).toBe(2);
-			expect(JSON.parse(active!.mandalaChart).center).toBe('プラン2');
+			expect(active?.careerFieldId).toBe(2);
+			expect(JSON.parse(active?.mandalaChart).center).toBe('プラン2');
 		});
 	});
 
@@ -162,9 +165,9 @@ describe('career-service', () => {
 
 			const plan = getActiveCareerPlan(childId);
 			expect(plan).not.toBeNull();
-			expect(plan!.dreamText).toBe('かがくしゃ');
-			expect(plan!.careerField).not.toBeNull();
-			expect(plan!.careerField!.name).toBe('かがくしゃ');
+			expect(plan?.dreamText).toBe('かがくしゃ');
+			expect(plan?.careerField).not.toBeNull();
+			expect(plan?.careerField?.name).toBe('かがくしゃ');
 		});
 	});
 
@@ -217,7 +220,7 @@ describe('career-service', () => {
 				dreamText: '夢を変更',
 			});
 
-			expect(updated.plan!.version).toBe(2);
+			expect(updated.plan?.version).toBe(2);
 		});
 	});
 });

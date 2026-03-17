@@ -1,17 +1,17 @@
 // src/lib/server/services/daily-mission-service.ts
 // デイリーミッション — 毎日3つのミッションを自動生成し、達成でボーナス付与
 
-import { eq, and, ne, desc, gte } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import {
-	dailyMissions,
-	activities,
-	activityLogs,
-	pointLedger,
-	children,
-} from '$lib/server/db/schema';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import { db } from '$lib/server/db';
+import {
+	activities,
+	activityLogs,
+	children,
+	dailyMissions,
+	pointLedger,
+} from '$lib/server/db/schema';
+import { and, eq, gte } from 'drizzle-orm';
 
 const MISSION_COUNT = 3;
 
@@ -253,18 +253,14 @@ function generateMissions(childId: number, date: string): void {
 		.all();
 	const allRecordedIds = new Set(allLogs.map((l) => l.activityId));
 
-	const allActivityIds = new Set(allActivities.map((a) => a.id));
+	const _allActivityIds = new Set(allActivities.map((a) => a.id));
 
 	// 3つのプール分類
-	const recentPool = allActivities.filter(
-		(a) => recentActivityIds.has(a.id) && !prevIds.has(a.id),
-	);
+	const recentPool = allActivities.filter((a) => recentActivityIds.has(a.id) && !prevIds.has(a.id));
 	const challengePool = allActivities.filter(
 		(a) => allRecordedIds.has(a.id) && !recentActivityIds.has(a.id) && !prevIds.has(a.id),
 	);
-	const explorerPool = allActivities.filter(
-		(a) => !allRecordedIds.has(a.id) && !prevIds.has(a.id),
-	);
+	const explorerPool = allActivities.filter((a) => !allRecordedIds.has(a.id) && !prevIds.has(a.id));
 
 	const selected: number[] = [];
 
@@ -334,9 +330,7 @@ function generateMissions(childId: number, date: string): void {
 
 	// DB に挿入
 	for (const activityId of selected) {
-		db.insert(dailyMissions)
-			.values({ childId, missionDate: date, activityId })
-			.run();
+		db.insert(dailyMissions).values({ childId, missionDate: date, activityId }).run();
 	}
 }
 
@@ -355,13 +349,13 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function getPreviousDate(dateStr: string): string {
-	const d = new Date(dateStr + 'T00:00:00');
+	const d = new Date(`${dateStr}T00:00:00`);
 	d.setDate(d.getDate() - 1);
 	return d.toISOString().slice(0, 10);
 }
 
 function getNDaysAgo(dateStr: string, n: number): string {
-	const d = new Date(dateStr + 'T00:00:00');
+	const d = new Date(`${dateStr}T00:00:00`);
 	d.setDate(d.getDate() - n);
 	return d.toISOString().slice(0, 10);
 }

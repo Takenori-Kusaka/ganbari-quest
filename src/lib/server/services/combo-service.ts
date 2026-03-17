@@ -1,10 +1,10 @@
 // src/lib/server/services/combo-service.ts
 // コンボボーナスシステム - 同日の複数活動にボーナスを付与
 
-import { eq, and, sql } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { activityLogs, activities, pointLedger } from '$lib/server/db/schema';
 import { getCategoryById } from '$lib/domain/validation/activity';
+import { db } from '$lib/server/db';
+import { activities, activityLogs, pointLedger } from '$lib/server/db/schema';
+import { and, eq, sql } from 'drizzle-orm';
 
 /** Category combo bonus table */
 const CATEGORY_COMBO_TABLE = [
@@ -144,7 +144,7 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 			and(
 				eq(pointLedger.childId, childId),
 				eq(pointLedger.type, 'combo_bonus'),
-				sql`${pointLedger.description} LIKE ${comboBonusPrefix + '%'}`,
+				sql`${pointLedger.description} LIKE ${`${comboBonusPrefix}%`}`,
 			),
 		)
 		.get();
@@ -192,10 +192,7 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 /**
  * コンボ予告ヒントを生成
  */
-function generateComboHints(
-	byCat: Map<number, Set<number>>,
-	totalUnique: number,
-): ComboHint[] {
+function generateComboHints(byCat: Map<number, Set<number>>, totalUnique: number): ComboHint[] {
 	const hints: ComboHint[] = [];
 
 	// カテゴリコンボのヒント

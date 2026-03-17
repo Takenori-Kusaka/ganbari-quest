@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { ErrorAlert } from '$lib/ui/components';
-	import { PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '$lib/domain/validation/auth';
+import { enhance } from '$app/forms';
+import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/domain/validation/auth';
+import { ErrorAlert } from '$lib/ui/components';
 
-	let { form } = $props();
-	let submitting = $state(false);
+let { form } = $props();
+let submitting = $state(false);
 </script>
 
 <svelte:head>

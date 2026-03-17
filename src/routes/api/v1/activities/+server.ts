@@ -1,20 +1,12 @@
+import { activitiesQuerySchema, createActivitySchema } from '$lib/domain/validation/activity';
+import { findChildById } from '$lib/server/db/activity-repo';
+import { validationError } from '$lib/server/errors';
+import { createActivity, getActivities } from '$lib/server/services/activity-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import {
-	getActivities,
-	createActivity,
-} from '$lib/server/services/activity-service';
-import {
-	activitiesQuerySchema,
-	createActivitySchema,
-} from '$lib/domain/validation/activity';
-import { validationError } from '$lib/server/errors';
-import { findChildById } from '$lib/server/db/activity-repo';
 
 export const GET: RequestHandler = async ({ url }) => {
-	const parsed = activitiesQuerySchema.safeParse(
-		Object.fromEntries(url.searchParams),
-	);
+	const parsed = activitiesQuerySchema.safeParse(Object.fromEntries(url.searchParams));
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
 	}

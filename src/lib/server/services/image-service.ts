@@ -1,14 +1,14 @@
 // src/lib/server/services/image-service.ts
 // Gemini API を使ったキャラクター画像生成サービス
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { eq, and } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { db } from '$lib/server/db/client';
 import { characterImages, children } from '$lib/server/db/schema';
 import { logger } from '$lib/server/logger';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { and, eq } from 'drizzle-orm';
 import { buildAvatarPrompt, buildFaviconPrompt } from './image-prompt';
 
 const GENERATED_DIR = join(process.cwd(), 'static', 'generated');
@@ -50,8 +50,7 @@ async function generateImageWithGemini(prompt: string): Promise<Buffer | null> {
 		if (!candidate?.content?.parts) return null;
 
 		for (const part of candidate.content.parts) {
-			const inlineData = (part as { inlineData?: { mimeType: string; data: string } })
-				.inlineData;
+			const inlineData = (part as { inlineData?: { mimeType: string; data: string } }).inlineData;
 			if (inlineData?.data) {
 				return Buffer.from(inlineData.data, 'base64');
 			}
@@ -75,7 +74,7 @@ function generateFallbackAvatar(nickname: string, theme: string): Buffer {
 		purple: { bg: '#f3e5f5', fg: '#7b1fa2' },
 		orange: { bg: '#fff3e0', fg: '#f57c00' },
 	};
-	const { bg, fg } = colors[theme] ?? colors['pink']!;
+	const { bg, fg } = colors[theme] ?? colors.pink!;
 	const initial = nickname.charAt(0);
 
 	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">

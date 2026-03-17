@@ -2,11 +2,11 @@
 // 活動記録サービスのユニットテスト
 
 import Database from 'better-sqlite3';
+import { and, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { eq, and } from 'drizzle-orm';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import * as schema from '../../../src/lib/server/db/schema';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { calcStreakBonus } from '../../../src/lib/domain/validation/activity';
+import * as schema from '../../../src/lib/server/db/schema';
 
 let sqlite: InstanceType<typeof Database>;
 let db: ReturnType<typeof drizzle>;
@@ -105,9 +105,7 @@ beforeEach(() => {
 	sqlite.exec('DELETE FROM sqlite_sequence');
 
 	// Insert test data
-	db.insert(schema.children)
-		.values({ nickname: 'テスト子', age: 4 })
-		.run();
+	db.insert(schema.children).values({ nickname: 'テスト子', age: 4 }).run();
 	db.insert(schema.activities)
 		.values({ name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5 })
 		.run();
@@ -185,10 +183,7 @@ describe('活動記録の挿入', () => {
 
 		expect(log2.activityId).toBe(1);
 
-		const logs = db
-			.select()
-			.from(schema.activityLogs)
-			.all();
+		const logs = db.select().from(schema.activityLogs).all();
 		expect(logs).toHaveLength(2);
 	});
 
@@ -269,18 +264,18 @@ describe('連続日数の記録', () => {
 			.all();
 
 		expect(logs).toHaveLength(3);
-		expect(logs[0]!.streakDays).toBe(1);
-		expect(logs[0]!.streakBonus).toBe(0);
-		expect(logs[1]!.streakDays).toBe(2);
-		expect(logs[1]!.streakBonus).toBe(1);
-		expect(logs[2]!.streakDays).toBe(3);
-		expect(logs[2]!.streakBonus).toBe(2);
+		expect(logs[0]?.streakDays).toBe(1);
+		expect(logs[0]?.streakBonus).toBe(0);
+		expect(logs[1]?.streakDays).toBe(2);
+		expect(logs[1]?.streakBonus).toBe(1);
+		expect(logs[2]?.streakDays).toBe(3);
+		expect(logs[2]?.streakBonus).toBe(2);
 	});
 });
 
 describe('キャンセル', () => {
 	it('キャンセルフラグを立てられる', () => {
-		const log = db
+		const _log = db
 			.insert(schema.activityLogs)
 			.values({
 				childId: 1,
@@ -291,12 +286,10 @@ describe('キャンセル', () => {
 			.returning()
 			.get();
 
-		db.update(schema.activityLogs)
-			.set({ cancelled: 1 })
-			.run();
+		db.update(schema.activityLogs).set({ cancelled: 1 }).run();
 
 		const updated = db.select().from(schema.activityLogs).get();
-		expect(updated!.cancelled).toBe(1);
+		expect(updated?.cancelled).toBe(1);
 	});
 
 	it('キャンセル後も再記録が可能', () => {
@@ -352,8 +345,8 @@ describe('ポイント台帳', () => {
 
 		const ledger = db.select().from(schema.pointLedger).all();
 		expect(ledger).toHaveLength(1);
-		expect(ledger[0]!.amount).toBe(7);
-		expect(ledger[0]!.type).toBe('activity');
+		expect(ledger[0]?.amount).toBe(7);
+		expect(ledger[0]?.type).toBe('activity');
 	});
 
 	it('キャンセルでマイナスポイントが記録される', () => {
@@ -384,11 +377,8 @@ describe('ポイント台帳', () => {
 
 describe('dailyLimit（DB層テスト）', () => {
 	it('dailyLimit=nullの活動はデフォルト値', () => {
-		const activity = db
-			.select()
-			.from(schema.activities)
-			.get();
-		expect(activity!.dailyLimit).toBeNull();
+		const activity = db.select().from(schema.activities).get();
+		expect(activity?.dailyLimit).toBeNull();
 	});
 
 	it('dailyLimit=2の活動を作成・取得', () => {
@@ -396,12 +386,9 @@ describe('dailyLimit（DB層テスト）', () => {
 			.values({ name: 'はみがき', categoryId: 3, icon: '🪥', basePoints: 3, dailyLimit: 2 })
 			.run();
 
-		const activities = db
-			.select()
-			.from(schema.activities)
-			.all();
+		const activities = db.select().from(schema.activities).all();
 		const hamigaki = activities.find((a) => a.name === 'はみがき');
-		expect(hamigaki!.dailyLimit).toBe(2);
+		expect(hamigaki?.dailyLimit).toBe(2);
 	});
 
 	it('dailyLimit=0（無制限）の活動を作成・取得', () => {
@@ -409,12 +396,9 @@ describe('dailyLimit（DB層テスト）', () => {
 			.values({ name: 'おそうじ', categoryId: 3, icon: '🧹', basePoints: 3, dailyLimit: 0 })
 			.run();
 
-		const activities = db
-			.select()
-			.from(schema.activities)
-			.all();
+		const activities = db.select().from(schema.activities).all();
 		const osouji = activities.find((a) => a.name === 'おそうじ');
-		expect(osouji!.dailyLimit).toBe(0);
+		expect(osouji?.dailyLimit).toBe(0);
 	});
 
 	it('dailyLimit=2の活動で同日に2回記録が可能', () => {
@@ -435,7 +419,12 @@ describe('dailyLimit（DB層テスト）', () => {
 		const logs = db
 			.select()
 			.from(schema.activityLogs)
-			.where(and(eq(schema.activityLogs.activityId, act.id), eq(schema.activityLogs.recordedDate, '2026-02-20')))
+			.where(
+				and(
+					eq(schema.activityLogs.activityId, act.id),
+					eq(schema.activityLogs.recordedDate, '2026-02-20'),
+				),
+			)
 			.all();
 		expect(logs).toHaveLength(2);
 	});

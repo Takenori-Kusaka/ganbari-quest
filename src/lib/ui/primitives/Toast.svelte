@@ -1,25 +1,25 @@
 <script lang="ts" module>
-	interface ToastItem {
-		id: number;
-		title: string;
-		description?: string;
-		type: 'success' | 'error' | 'info';
-	}
+interface ToastItem {
+	id: number;
+	title: string;
+	description?: string;
+	type: 'success' | 'error' | 'info';
+}
 
-	let toasts = $state<ToastItem[]>([]);
-	let nextId = 0;
+let toasts = $state<ToastItem[]>([]);
+let nextId = 0;
 
-	export function showToast(
-		title: string,
-		description?: string,
-		type: 'success' | 'error' | 'info' = 'success',
-	) {
-		const id = nextId++;
-		toasts.push({ id, title, description, type });
-		setTimeout(() => {
-			toasts = toasts.filter((t) => t.id !== id);
-		}, 3000);
-	}
+export function showToast(
+	title: string,
+	description?: string,
+	type: 'success' | 'error' | 'info' = 'success',
+) {
+	const id = nextId++;
+	toasts.push({ id, title, description, type });
+	setTimeout(() => {
+		toasts = toasts.filter((t) => t.id !== id);
+	}, 3000);
+}
 </script>
 
 <script lang="ts">

@@ -1,11 +1,15 @@
 // POST /api/v1/images - Generate avatar or favicon
 // GET /api/v1/images?type=favicon - Get favicon path
 
+import { notFound, validationError } from '$lib/server/errors';
+import {
+	generateAvatar,
+	generateFavicon,
+	getFaviconPath,
+} from '$lib/server/services/image-service';
+import { getChildStatus } from '$lib/server/services/status-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { generateAvatar, generateFavicon, getFaviconPath } from '$lib/server/services/image-service';
-import { getChildStatus } from '$lib/server/services/status-service';
-import { apiError, validationError, notFound } from '$lib/server/errors';
 
 export const GET: RequestHandler = async ({ url }) => {
 	const type = url.searchParams.get('type');

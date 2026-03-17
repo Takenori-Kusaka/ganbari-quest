@@ -1,20 +1,20 @@
 <script lang="ts">
-	import Progress from '$lib/ui/primitives/Progress.svelte';
-	import { getCategoryById } from '$lib/domain/validation/activity';
+import { getCategoryById } from '$lib/domain/validation/activity';
+import Progress from '$lib/ui/primitives/Progress.svelte';
 
-	interface Props {
-		categoryId: number;
-		value: number;
-		maxValue?: number;
-		stars?: number;
-	}
+interface Props {
+	categoryId: number;
+	value: number;
+	maxValue?: number;
+	stars?: number;
+}
 
-	let { categoryId, value, maxValue = 100, stars = 0 }: Props = $props();
+let { categoryId, value, maxValue = 100, stars = 0 }: Props = $props();
 
-	const catDef = $derived(getCategoryById(categoryId));
-	const color = $derived(catDef?.color ?? 'var(--theme-primary)');
-	const categoryName = $derived(catDef?.name ?? '');
-	const starText = $derived('★'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars)));
+const catDef = $derived(getCategoryById(categoryId));
+const color = $derived(catDef?.color ?? 'var(--theme-primary)');
+const categoryName = $derived(catDef?.name ?? '');
+const starText = $derived('★'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars)));
 </script>
 
 <div class="flex items-center gap-[var(--spacing-sm)]">

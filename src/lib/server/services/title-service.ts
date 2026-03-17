@@ -2,6 +2,8 @@
 // 称号コレクションサービス層
 
 import { db } from '$lib/server/db';
+import { titles } from '$lib/server/db/schema';
+import { activityLogs } from '$lib/server/db/schema';
 import {
 	findAllTitles,
 	findUnlockedTitles,
@@ -10,9 +12,7 @@ import {
 	isTitleUnlocked,
 	setActiveTitleId,
 } from '$lib/server/db/title-repo';
-import { titles } from '$lib/server/db/schema';
 import { getChildStatus } from '$lib/server/services/status-service';
-import { activityLogs } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
 
 // --- 型定義 ---
@@ -205,9 +205,7 @@ function getCurrentProgress(
 		case 'all_categories_deviation': {
 			// 全カテゴリの偏差値のうち最低値を進捗として返す
 			const categoryIds = [1, 2, 3, 4, 5];
-			const deviations = categoryIds.map(
-				(catId) => status.statuses[catId]?.deviationScore ?? 0,
-			);
+			const deviations = categoryIds.map((catId) => status.statuses[catId]?.deviationScore ?? 0);
 			current = Math.min(...deviations);
 			break;
 		}

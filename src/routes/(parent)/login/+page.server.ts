@@ -1,11 +1,11 @@
-import { fail, redirect } from '@sveltejs/kit';
-import type { Actions, PageServerLoad } from './$types';
-import { login } from '$lib/server/services/auth-service';
 import {
 	SESSION_COOKIE_NAME,
 	SESSION_MAX_AGE_SECONDS,
 	pinSchema,
 } from '$lib/domain/validation/auth';
+import { login } from '$lib/server/services/auth-service';
+import { fail, redirect } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => {
 	return {};
