@@ -37,7 +37,6 @@ export class ComputeStack extends cdk.Stack {
 			memorySize: 512,
 			timeout: cdk.Duration.seconds(30),
 			architecture: lambda.Architecture.ARM_64,
-			reservedConcurrentExecutions: 5,
 			environment: {
 				TABLE_NAME: props.table.tableName!,
 				ASSETS_BUCKET: props.assetsBucket.bucketName,
