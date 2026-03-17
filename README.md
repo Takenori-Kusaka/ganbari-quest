@@ -1,63 +1,93 @@
-# がんばりクエスト
+<h1 align="center">
+  がんばりクエスト
+</h1>
 
-子供の日々の活動をゲーミフィケーションで動機付けし、成長を可視化する家庭内専用Webアプリケーション。
+<p align="center">
+  <strong>子供の「がんばり」をRPGに変える — 家庭内ゲーミフィケーションWebアプリ</strong>
+</p>
 
-## 主な特徴
+<p align="center">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
+  <img src="https://img.shields.io/badge/SvelteKit-2-FF3E00?logo=svelte&logoColor=white" alt="SvelteKit 2">
+  <img src="https://img.shields.io/badge/Svelte-5_(Runes)-FF3E00?logo=svelte&logoColor=white" alt="Svelte 5">
+  <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white" alt="TypeScript strict">
+  <img src="https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white" alt="SQLite">
+  <img src="https://img.shields.io/badge/tests-606_passing-brightgreen" alt="Tests">
+</p>
 
-- **ゲーミフィケーション**: レベルアップ、ステータス表示、実績解除でやる気を引き出す
-- **簡単操作**: 最大2タップで活動を記録できるUI
-- **年齢対応**: 0〜18歳まで、年齢に応じた活動を自動表示（学習指導要領準拠）
-- **ポイントシステム**: 活動に応じたポイント付与でお小遣い管理にも
-- **子供別ページ**: テーマカラーやUIモードで個性を表現
-- **親の管理画面**: PIN認証で保護された設定・管理機能
+<p align="center">
+  <a href="./README.en.md">English</a> | 日本語
+</p>
 
-## クイックスタート
+---
 
-```bash
-# 1. クローン
-git clone https://github.com/your-username/ganbari-quest.git
-cd ganbari-quest
+## 特徴
 
-# 2. セットアップ
-npm install
-cp .env.example .env
-
-# 3. 起動
-npm run dev
-```
-
-初回アクセス時にセットアップウィザードが表示されます。PINコードの設定と子供の登録を行ってください。
+- **RPG風ゲーミフィケーション** — レベルアップ、ステータス5種、称号コレクション、コンボボーナスで日々の活動を冒険に
+- **年齢対応UI** — 0歳（baby）〜15歳（teen）まで、成長に合わせてUIモードが自動変化
+- **簡単操作** — 最大2タップで活動記録。デイリーミッション、チェックリストで習慣化
+- **偏差値比較** — 発達心理学に基づく市場ベンチマークで「うちの子の強み」を可視化
+- **家庭内完結** — LAN内で動作、外部通信なし。子供のデータは家族だけのもの
+- **きせかえアバター** — ポイントで背景・フレーム・エフェクトを購入してカスタマイズ
+- **キャリアプランニング** — マンダラチャートで将来の夢を構造化（大谷翔平方式）
+- **セルフホスト可能** — Docker一発で自宅サーバーに展開。OSSだからコードも完全透明
 
 ## 技術スタック
 
-| 項目 | 技術 |
-|------|------|
+| カテゴリ | 技術 |
+|---------|------|
 | フレームワーク | SvelteKit 2 + Svelte 5 (Runes) |
-| UIライブラリ | Ark UI Svelte + Tailwind CSS |
-| データベース | SQLite + Drizzle ORM |
-| 画像生成 | Gemini API（任意） |
-| テスト | Vitest + Playwright |
+| UI | Ark UI Svelte (Headless) + 独自デザインシステム |
+| データベース | SQLite (WAL) + Drizzle ORM |
+| テスト | Vitest (606件) + Playwright |
 | Lint/Format | Biome |
 | 言語 | TypeScript (strict) |
+| インフラ | Docker + Node.js 22 |
+
+## クイックスタート
+
+### Docker（推奨）
+
+```bash
+git clone https://github.com/Takenori-Kusaka/ganbari-quest.git
+cd ganbari-quest
+docker compose up -d
+```
+
+`http://localhost:3000` にアクセス。初回はセットアップウィザードが表示されます。
+
+### ローカル開発
+
+```bash
+git clone https://github.com/Takenori-Kusaka/ganbari-quest.git
+cd ganbari-quest
+npm install
+cp .env.example .env
+npm run dev
+```
+
+`http://localhost:5173` で開発サーバーが起動します。
 
 ## ディレクトリ構成
 
 ```
 ganbari-quest/
 ├── src/
-│   ├── routes/           # SvelteKit ファイルベースルーティング
-│   ├── lib/
-│   │   ├── ui/           # UIコンポーネント
-│   │   ├── features/     # 機能単位のロジック
-│   │   ├── domain/       # ドメインモデル・バリデーション
-│   │   └── server/       # DB・サービス層（server only）
-│   └── hooks.server.ts   # 認証・リダイレクト
+│   ├── routes/             # SvelteKit ファイルベースルーティング
+│   │   ├── (child)/        # 子供向けページ (baby/kinder/teen)
+│   │   ├── (parent)/       # 親の管理画面 (PIN認証付き)
+│   │   └── api/            # REST API エンドポイント
+│   └── lib/
+│       ├── ui/             # Ark UI ラッパ + 共通コンポーネント
+│       ├── features/       # 機能単位 (career, avatar 等)
+│       ├── domain/         # ドメインモデル・バリデーション
+│       └── server/         # DB・サービス層 (server only)
 ├── docs/
-│   ├── design/           # 設計ドキュメント
-│   ├── tickets/          # 開発チケット
-│   └── reference/        # 参考資料
-├── tests/                # テストコード
-└── static/               # 静的ファイル
+│   ├── design/             # 設計ドキュメント (12本)
+│   └── tickets/            # 開発チケット (100+)
+├── scripts/                # マイグレーション・バックアップ
+├── tests/                  # ユニットテスト (32ファイル)
+└── docker-compose.yml
 ```
 
 ## 環境変数
@@ -67,23 +97,27 @@ ganbari-quest/
 | 変数 | 必須 | 説明 |
 |------|------|------|
 | `DATABASE_URL` | Yes | SQLiteデータベースのパス |
-| `HOST` | No | バインドするホスト（デフォルト: `0.0.0.0`） |
+| `HOST` | No | バインドホスト（デフォルト: `0.0.0.0`） |
 | `PORT` | No | ポート番号（デフォルト: `3000`） |
-| `ORIGIN` | No | アプリのURL（未設定時は自動検出） |
-| `GEMINI_API_KEY` | No | アバター画像生成用（Gemini API） |
+| `ORIGIN` | No | アプリのURL |
+| `GEMINI_API_KEY` | No | アバター画像AI生成用 |
+| `GDRIVE_*` | No | Google Driveバックアップ用 |
 
-## 開発
+## 開発コマンド
 
 ```bash
-npm run dev          # 開発サーバー起動
+npm run dev          # 開発サーバー
 npm run build        # プロダクションビルド
-npx vitest           # ユニットテスト
+npx vitest run       # ユニットテスト (606件)
 npx playwright test  # E2Eテスト
 npx biome check .    # Lint
+npx drizzle-kit push # DBマイグレーション
 ```
 
-詳細は [CONTRIBUTING.md](./CONTRIBUTING.md) を参照してください。
+## コントリビュート
+
+バグ報告・機能提案・PRを歓迎します。詳細は [CONTRIBUTING.md](./CONTRIBUTING.md) を参照してください。
 
 ## ライセンス
 
-[MIT License](./LICENSE)
+[AGPL-3.0](./LICENSE) — 個人利用・セルフホスト・改造は自由です。

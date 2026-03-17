@@ -7,7 +7,7 @@
 		"type": "git",
 		"url": "https://github.com/kokor-djp/ganbari-quest.git"
 	},
-	"license": "MIT",
+	"license": "AGPL-3.0-only",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
