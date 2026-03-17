@@ -46,6 +46,16 @@ export class StorageStack extends cdk.Stack {
 					prefix: 'backups/',
 					expiration: cdk.Duration.days(30),
 				},
+				{
+					id: 'archive-logs-to-glacier',
+					prefix: 'logs/',
+					transitions: [
+						{
+							storageClass: s3.StorageClass.GLACIER,
+							transitionAfter: cdk.Duration.days(1),
+						},
+					],
+				},
 			],
 		});
 
@@ -55,8 +65,8 @@ export class StorageStack extends cdk.Stack {
 			removalPolicy: cdk.RemovalPolicy.RETAIN,
 			lifecycleRules: [
 				{
-					maxImageCount: 5,
-					description: 'Keep only 5 most recent images',
+					maxImageCount: 3,
+					description: 'Keep only 3 most recent images',
 				},
 			],
 		});
