@@ -40,6 +40,7 @@ export class ComputeStack extends cdk.Stack {
 			environment: {
 				TABLE_NAME: props.table.tableName!,
 				ASSETS_BUCKET: props.assetsBucket.bucketName,
+				DATABASE_URL: '/tmp/ganbari-quest.db',
 				AWS_LWA_PORT: '3000',
 				PORT: '3000',
 				HOST: '0.0.0.0',
