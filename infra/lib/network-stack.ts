@@ -12,6 +12,7 @@ export interface NetworkStackProps extends cdk.StackProps {
 	functionUrl: lambda.FunctionUrl;
 	assetsBucket: s3.Bucket;
 	domainName?: string;
+	certificateArn?: string;
 }
 
 export class NetworkStack extends cdk.Stack {
@@ -23,25 +24,24 @@ export class NetworkStack extends cdk.Stack {
 		// Parse Lambda Function URL to get the hostname
 		const fnUrlDomain = cdk.Fn.select(2, cdk.Fn.split('/', props.functionUrl.url));
 
-		// --- Route 53 + ACM (only when domainName is provided) ---
+		// --- Route 53 + ACM (use existing resources) ---
 		let hostedZone: route53.IHostedZone | undefined;
 		let certificate: acm.ICertificate | undefined;
 
 		if (props.domainName) {
-			hostedZone = new route53.HostedZone(this, 'HostedZone', {
-				zoneName: props.domainName,
-			});
-
-			certificate = new acm.Certificate(this, 'Certificate', {
+			// Lookup existing hosted zone (created manually in Route53)
+			hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
 				domainName: props.domainName,
-				subjectAlternativeNames: [`*.${props.domainName}`],
-				validation: acm.CertificateValidation.fromDns(hostedZone),
 			});
 
-			new cdk.CfnOutput(this, 'NameServers', {
-				value: cdk.Fn.join(', ', hostedZone.hostedZoneNameServers!),
-				description: 'Set these NS records at your domain registrar',
-			});
+			// Use existing ACM certificate (created and validated manually)
+			if (props.certificateArn) {
+				certificate = acm.Certificate.fromCertificateArn(
+					this,
+					'Certificate',
+					props.certificateArn,
+				);
+			}
 		}
 
 		// --- CloudFront Distribution ---
@@ -73,15 +73,13 @@ export class NetworkStack extends cdk.Stack {
 					}),
 				},
 			},
-			// Custom domain settings (applied only when domain is provided)
+			// Custom domain settings (applied only when domain + certificate are provided)
 			...(props.domainName && certificate
 				? {
 						domainNames: [props.domainName, `www.${props.domainName}`],
 						certificate,
 					}
 				: {}),
-			// Japan-focused geo restriction (optional, uncomment to enable)
-			// geoRestriction: cloudfront.GeoRestriction.allowlist('JP'),
 			priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
 			httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
 		});
