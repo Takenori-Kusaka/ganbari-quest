@@ -32,6 +32,18 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 - Lint: `npx biome check .`
 - DB マイグレーション: `npx drizzle-kit push`
 
+### コミット前チェック（必須）
+
+コミット前に以下を**すべて**実行し、エラーがないことを確認すること:
+
+1. `npx biome check .` — lint エラーなし
+2. `npx svelte-check` — 型エラーなし
+3. `npx vitest run` — ユニットテスト全通過
+4. `npx playwright test` — E2Eテスト全通過
+
+特にE2Eテストはスキーマ変更・シードデータ変更・ルーティング変更時に壊れやすい。
+DBスキーマを変更した場合は `tests/e2e/global-setup.ts` のテストデータ投入も更新すること。
+
 ## Things Not To Do
 
 - `src/routes` 配下のページコンポーネントにビジネスロジックを書かない。

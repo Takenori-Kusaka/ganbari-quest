@@ -2935,10 +2935,14 @@ function seed() {
 			}
 		}
 
-		db.insert(schema.statuses).values(statusesData).run();
-		console.log(
-			`  ✓ statuses: ${statusesData.length} items (${allChildren.length} children × 5 categories)`,
-		);
+		if (statusesData.length > 0) {
+			db.insert(schema.statuses).values(statusesData).run();
+			console.log(
+				`  ✓ statuses: ${statusesData.length} items (${allChildren.length} children × 5 categories)`,
+			);
+		} else {
+			console.log('  - statuses: skipped (no children yet)');
+		}
 	} else {
 		console.log('  - statuses: already seeded');
 	}

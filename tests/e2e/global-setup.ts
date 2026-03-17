@@ -19,7 +19,9 @@ export default async function globalSetup() {
 	if (!fs.existsSync(DB_PATH)) {
 		// DB が存在しない場合のみ新規作成
 		console.log('[E2E Setup]   No DB found, creating fresh database...');
-		execSync('npx drizzle-kit push', { stdio: 'pipe', cwd: process.cwd() });
+		execSync('npx drizzle-kit push --force', { stdio: 'pipe', cwd: process.cwd() });
+		console.log('[E2E Setup]   Inserting categories...');
+		execSync('npx tsx scripts/migrate-local.ts', { stdio: 'pipe', cwd: process.cwd() });
 		console.log('[E2E Setup]   Running seed script...');
 		execSync('npx tsx src/lib/server/db/seed.ts', { stdio: 'pipe', cwd: process.cwd() });
 	} else {
@@ -31,19 +33,103 @@ export default async function globalSetup() {
 		}
 	}
 
-	// テスト用クリーンアップ: 今日の活動記録を削除（記録テストの安定化）
+	// E2E テストに必須: PIN設定 + テスト用子供の存在確認・作成
 	try {
 		const Database = (await import('better-sqlite3')).default;
 		const db = new Database(DB_PATH);
+
+		// PIN 設定がなければ作成（テスト用PIN: 1234）
+		const pinRow = db.prepare("SELECT value FROM settings WHERE key = 'pin_hash'").get() as
+			| { value: string }
+			| undefined;
+		if (!pinRow || !pinRow.value) {
+			const bcrypt = (await import('bcrypt')).default;
+			const hash = await bcrypt.hash('1234', 10);
+			db.prepare(
+				"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('pin_hash', ?, datetime('now'))",
+			).run(hash);
+			// session 関連の設定も初期化
+			for (const key of [
+				'session_token',
+				'session_expires_at',
+				'pin_failed_attempts',
+				'pin_locked_until',
+			]) {
+				db.prepare(
+					"INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES (?, '', datetime('now'))",
+				).run(key);
+			}
+			console.log('[E2E Setup]   Created test PIN (1234).');
+		}
+
+		// テスト用子供がいなければ作成
+		const childCount = db.prepare('SELECT count(*) as c FROM children').get() as { c: number };
+		if (childCount.c === 0) {
+			db.prepare(
+				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('ゆうきちゃん', 4, 'pink', 'kinder')",
+			).run();
+			db.prepare(
+				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('てすとくん', 1, 'pink', 'baby')",
+			).run();
+
+			// ステータス初期化
+			for (const childId of [1, 2]) {
+				for (const catId of [1, 2, 3, 4, 5]) {
+					db.prepare(
+						'INSERT OR IGNORE INTO statuses (child_id, category_id, value) VALUES (?, ?, 25.0)',
+					).run(childId, catId);
+				}
+			}
+			console.log('[E2E Setup]   Created test children (ゆうきちゃん, てすとくん).');
+		}
+
+		// チェックリストテンプレートがなければ作成（チェックリストテストの安定化）
+		const kinderChild = db
+			.prepare("SELECT id FROM children WHERE ui_mode = 'kinder' LIMIT 1")
+			.get() as { id: number } | undefined;
+		if (kinderChild) {
+			const tmplCount = db
+				.prepare('SELECT count(*) as c FROM checklist_templates WHERE child_id = ?')
+				.get(kinderChild.id) as { c: number };
+			if (tmplCount.c === 0) {
+				db.prepare(
+					"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus) VALUES (?, 'がっこう', '🏫', 2, 5)",
+				).run(kinderChild.id);
+				const tmplId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
+				const items: [string, string][] = [
+					['ハンカチ', '🤧'],
+					['ティッシュ', '🧻'],
+					['すいとう', '🧴'],
+					['れんらくちょう', '📒'],
+				];
+				for (const [i, [itemName, itemIcon]] of items.entries()) {
+					db.prepare(
+						'INSERT INTO checklist_template_items (template_id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
+					).run(tmplId, itemName, itemIcon, i);
+				}
+				console.log('[E2E Setup]   Created checklist template (がっこう).');
+			}
+		}
+
+		// テスト用クリーンアップ: 今日の活動記録を削除（記録テストの安定化）
 		const deleted = db
 			.prepare("DELETE FROM activity_logs WHERE recorded_date = date('now', 'localtime')")
 			.run();
 		if (deleted.changes > 0) {
 			console.log(`[E2E Setup]   Cleaned ${deleted.changes} activity log(s) from today.`);
 		}
+
+		// 今日のログインボーナスを削除（ログインボーナステストの安定化）
+		const deletedBonus = db
+			.prepare("DELETE FROM login_bonuses WHERE login_date = date('now', 'localtime')")
+			.run();
+		if (deletedBonus.changes > 0) {
+			console.log(`[E2E Setup]   Cleaned ${deletedBonus.changes} login bonus(es) from today.`);
+		}
+
 		db.close();
-	} catch {
-		console.log('[E2E Setup]   Activity log cleanup skipped (DB may be locked).');
+	} catch (e) {
+		console.log('[E2E Setup]   Test data setup error:', e);
 	}
 
 	console.log('[E2E Setup] Database ready.');
