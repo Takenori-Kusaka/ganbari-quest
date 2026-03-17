@@ -1,6 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
+import * as backup from 'aws-cdk-lib/aws-backup';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as events from 'aws-cdk-lib/aws-events';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import type { Construct } from 'constructs';
 
@@ -19,7 +21,7 @@ export class StorageStack extends cdk.Stack {
 			sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
 			billing: dynamodb.Billing.onDemand(),
 			removalPolicy: cdk.RemovalPolicy.RETAIN,
-			pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+			pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: false },
 			globalSecondaryIndexes: [
 				{
 					indexName: 'GSI1',
@@ -32,6 +34,28 @@ export class StorageStack extends cdk.Stack {
 					sortKey: { name: 'GSI2SK', type: dynamodb.AttributeType.STRING },
 				},
 			],
+		});
+
+		// --- AWS Backup: Daily backup with 3-day retention (cheaper than PITR) ---
+		const vault = new backup.BackupVault(this, 'BackupVault', {
+			backupVaultName: 'ganbari-quest-vault',
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		});
+
+		const plan = new backup.BackupPlan(this, 'BackupPlan', {
+			backupPlanName: 'ganbari-quest-daily',
+			backupPlanRules: [
+				new backup.BackupPlanRule({
+					ruleName: 'daily-3day-retention',
+					scheduleExpression: events.Schedule.cron({ hour: '18', minute: '0' }),
+					deleteAfter: cdk.Duration.days(3),
+					backupVault: vault,
+				}),
+			],
+		});
+
+		plan.addSelection('DynamoDB', {
+			resources: [backup.BackupResource.fromDynamoDbTable(this.table)],
 		});
 
 		// --- S3: Avatar images & backups ---
