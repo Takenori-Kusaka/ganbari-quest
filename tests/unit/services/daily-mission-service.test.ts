@@ -257,7 +257,7 @@ describe('checkMissionCompletion', () => {
 
 	it('ミッションに含まれる活動を記録すると達成になる', () => {
 		const missions = getTodayMissions(1);
-		const firstMissionActivityId = missions.missions[0]?.activityId;
+		const firstMissionActivityId = missions.missions[0]!.activityId;
 
 		const result = checkMissionCompletion(1, firstMissionActivityId);
 		expect(result.missionCompleted).toBe(true);
@@ -282,17 +282,17 @@ describe('checkMissionCompletion', () => {
 
 	it('2つ達成で+5Pボーナス', () => {
 		const missions = getTodayMissions(1);
-		checkMissionCompletion(1, missions.missions[0]?.activityId);
-		const result2 = checkMissionCompletion(1, missions.missions[1]?.activityId);
+		checkMissionCompletion(1, missions.missions[0]!.activityId);
+		const result2 = checkMissionCompletion(1, missions.missions[1]!.activityId);
 		expect(result2.bonusAwarded).toBe(5);
 		expect(result2.allComplete).toBe(false);
 	});
 
 	it('3つ達成で+20Pボーナス（差分で+15P追加付与）', () => {
 		const missions = getTodayMissions(1);
-		checkMissionCompletion(1, missions.missions[0]?.activityId);
-		checkMissionCompletion(1, missions.missions[1]?.activityId);
-		const result3 = checkMissionCompletion(1, missions.missions[2]?.activityId);
+		checkMissionCompletion(1, missions.missions[0]!.activityId);
+		checkMissionCompletion(1, missions.missions[1]!.activityId);
+		const result3 = checkMissionCompletion(1, missions.missions[2]!.activityId);
 		expect(result3.allComplete).toBe(true);
 		// 2/3で5P付与済み、3/3で20P。差分は15P
 		expect(result3.bonusAwarded).toBe(15);
@@ -300,7 +300,7 @@ describe('checkMissionCompletion', () => {
 
 	it('同じ活動を2回達成しても二重計上されない', () => {
 		const missions = getTodayMissions(1);
-		const firstId = missions.missions[0]?.activityId;
+		const firstId = missions.missions[0]!.activityId;
 
 		const result1 = checkMissionCompletion(1, firstId);
 		expect(result1.missionCompleted).toBe(true);

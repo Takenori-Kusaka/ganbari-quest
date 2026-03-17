@@ -39,13 +39,15 @@ function handleGoalInput(index: number, e: Event) {
 
 function handleActionInput(goalIdx: number, actionIdx: number, e: Event) {
 	const target = e.target as HTMLInputElement;
-	if (!chart.surrounding[goalIdx].actions[actionIdx]) {
+	const goal = chart.surrounding[goalIdx];
+	if (!goal) return;
+	if (!goal.actions[actionIdx]) {
 		// パディング
-		while (chart.surrounding[goalIdx].actions.length <= actionIdx) {
-			chart.surrounding[goalIdx].actions.push('');
+		while (goal.actions.length <= actionIdx) {
+			goal.actions.push('');
 		}
 	}
-	chart.surrounding[goalIdx].actions[actionIdx] = target.value;
+	goal.actions[actionIdx] = target.value;
 }
 
 function selectGoal(index: number) {
