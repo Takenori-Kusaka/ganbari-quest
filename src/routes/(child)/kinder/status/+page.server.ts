@@ -1,5 +1,4 @@
-import { db } from '$lib/server/db';
-import { evaluations, statusHistory } from '$lib/server/db/schema';
+import { findWeekEvaluation, hasDecayRunToday } from '$lib/server/db/evaluation-repo';
 import { logger } from '$lib/server/logger';
 import {
 	evaluateChild,
@@ -8,7 +7,6 @@ import {
 } from '$lib/server/services/evaluation-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import { checkAndUnlockTitles } from '$lib/server/services/title-service';
-import { and, eq, like } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
 /** 今日の日付文字列 (YYYY-MM-DD) */
@@ -21,29 +19,13 @@ function ensureStatusUpToDate(childId: number) {
 	const today = todayStr();
 
 	// 日次衰退: 同じ日に既に実行済みかチェック
-	const decayAlreadyRun = db
-		.select({ id: statusHistory.id })
-		.from(statusHistory)
-		.where(
-			and(
-				eq(statusHistory.childId, childId),
-				eq(statusHistory.changeType, 'daily_decay'),
-				like(statusHistory.recordedAt, `${today}%`),
-			),
-		)
-		.get();
-
-	if (!decayAlreadyRun) {
+	if (!hasDecayRunToday(childId, today)) {
 		runDailyDecay(today);
 	}
 
 	// 先週分の週次評価が未実行なら実行
 	const { weekStart, weekEnd } = getWeekRange(new Date());
-	const existing = db
-		.select({ id: evaluations.id })
-		.from(evaluations)
-		.where(and(eq(evaluations.childId, childId), eq(evaluations.weekStart, weekStart)))
-		.get();
+	const existing = findWeekEvaluation(childId, weekStart);
 
 	if (!existing) {
 		evaluateChild(childId, weekStart, weekEnd);

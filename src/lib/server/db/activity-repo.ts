@@ -1,9 +1,9 @@
 // src/lib/server/db/activity-repo.ts
 // 活動関連のリポジトリ層（DBアクセス）
 
-import { and, desc, eq, gte, isNull, lte, or } from 'drizzle-orm';
+import { and, count, countDistinct, desc, eq, gte, isNull, lte, or, sql } from 'drizzle-orm';
 import { db } from './client';
-import { activities, activityLogs, children, pointLedger } from './schema';
+import { activities, activityLogs, children, dailyMissions, pointLedger } from './schema';
 
 // ============================================================
 // Activity Filter
@@ -76,6 +76,37 @@ export function setActivityVisibility(id: number, visible: boolean) {
 		.where(eq(activities.id, id))
 		.returning()
 		.get();
+}
+
+export function deleteActivity(id: number) {
+	return db.delete(activities).where(eq(activities.id, id)).returning().get();
+}
+
+export function hasActivityLogs(activityId: number): boolean {
+	const result = db
+		.select({ cnt: count() })
+		.from(activityLogs)
+		.where(eq(activityLogs.activityId, activityId))
+		.get();
+	return (result?.cnt ?? 0) > 0;
+}
+
+export function getActivityLogCounts(): Record<number, number> {
+	const rows = db
+		.select({ activityId: activityLogs.activityId, cnt: count() })
+		.from(activityLogs)
+		.where(eq(activityLogs.cancelled, 0))
+		.groupBy(activityLogs.activityId)
+		.all();
+	const result: Record<number, number> = {};
+	for (const row of rows) {
+		result[row.activityId] = row.cnt;
+	}
+	return result;
+}
+
+export function deleteDailyMissionsByActivity(activityId: number) {
+	db.delete(dailyMissions).where(eq(dailyMissions.activityId, activityId)).run();
 }
 
 // ============================================================
@@ -168,6 +199,43 @@ export function findActivityLogs(childId: number, options: { from?: string; to?:
 		.all();
 }
 
+export function countTodayActiveRecords(childId: number, activityId: number, date: string): number {
+	const rows = db
+		.select()
+		.from(activityLogs)
+		.where(
+			and(
+				eq(activityLogs.childId, childId),
+				eq(activityLogs.activityId, activityId),
+				eq(activityLogs.recordedDate, date),
+				eq(activityLogs.cancelled, 0),
+			),
+		)
+		.all();
+	return rows.length;
+}
+
+export function getTodayActivityCountsByChild(
+	childId: number,
+	date: string,
+): { activityId: number; count: number }[] {
+	return db
+		.select({
+			activityId: activityLogs.activityId,
+			count: sql<number>`count(*)`.as('count'),
+		})
+		.from(activityLogs)
+		.where(
+			and(
+				eq(activityLogs.childId, childId),
+				eq(activityLogs.recordedDate, date),
+				eq(activityLogs.cancelled, 0),
+			),
+		)
+		.groupBy(activityLogs.activityId)
+		.all();
+}
+
 export function findTodayRecordedActivityIds(childId: number, today: string): number[] {
 	const rows = db
 		.select({ activityId: activityLogs.activityId })
@@ -185,6 +253,95 @@ export function findTodayRecordedActivityIds(childId: number, today: string): nu
 }
 
 // ============================================================
+// Aggregation Queries (for achievement/title/combo services)
+// ============================================================
+
+/** 子供の活動記録日（重複除去・昇順）を取得 */
+export function findDistinctRecordedDates(childId: number): { recordedDate: string }[] {
+	return db
+		.select({ recordedDate: activityLogs.recordedDate })
+		.from(activityLogs)
+		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.groupBy(activityLogs.recordedDate)
+		.orderBy(activityLogs.recordedDate)
+		.all();
+}
+
+/** 子供の累計活動記録数（キャンセル除外） */
+export function countActiveActivityLogs(childId: number): number {
+	const result = db
+		.select({ total: count() })
+		.from(activityLogs)
+		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.get();
+	return result?.total ?? 0;
+}
+
+/** 日別カテゴリ数を取得（achievement: all_categories 判定用） */
+export function getCategoryCountsByDate(
+	childId: number,
+): { recordedDate: string; categoryCount: number }[] {
+	return db
+		.select({
+			recordedDate: activityLogs.recordedDate,
+			categoryCount: countDistinct(activities.categoryId),
+		})
+		.from(activityLogs)
+		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.groupBy(activityLogs.recordedDate)
+		.all();
+}
+
+/** 累計で記録した異なるカテゴリ数 */
+export function countDistinctCategories(childId: number): number {
+	const result = db
+		.select({ count: countDistinct(activities.categoryId) })
+		.from(activityLogs)
+		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.get();
+	return result?.count ?? 0;
+}
+
+/** 今日のログ（活動ID+カテゴリID付き）を取得（combo-service用） */
+export function findTodayLogsWithCategory(childId: number, date: string) {
+	return db
+		.select({
+			activityId: activityLogs.activityId,
+			categoryId: activities.categoryId,
+		})
+		.from(activityLogs)
+		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.where(
+			and(
+				eq(activityLogs.childId, childId),
+				eq(activityLogs.recordedDate, date),
+				eq(activityLogs.cancelled, 0),
+			),
+		)
+		.all();
+}
+
+/** コンボボーナス既付与額を取得（combo-service用） */
+export function getComboPointsGranted(childId: number, descriptionPrefix: string): number {
+	const result = db
+		.select({
+			total: sql<number>`coalesce(sum(amount), 0)`.as('total'),
+		})
+		.from(pointLedger)
+		.where(
+			and(
+				eq(pointLedger.childId, childId),
+				eq(pointLedger.type, 'combo_bonus'),
+				sql`${pointLedger.description} LIKE ${`${descriptionPrefix}%`}`,
+			),
+		)
+		.get();
+	return result?.total ?? 0;
+}
+
+// ============================================================
 // Point Ledger
 // ============================================================
 
@@ -193,7 +350,7 @@ export function insertPointLedger(input: {
 	amount: number;
 	type: string;
 	description: string;
-	referenceId: number;
+	referenceId?: number;
 }) {
 	db.insert(pointLedger).values(input).run();
 }

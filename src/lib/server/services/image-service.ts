@@ -4,11 +4,14 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { db } from '$lib/server/db/client';
-import { characterImages, children } from '$lib/server/db/schema';
+import {
+	findCachedImage,
+	findChildForImage,
+	insertCharacterImage,
+	updateChildAvatarUrl,
+} from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { and, eq } from 'drizzle-orm';
 import { buildAvatarPrompt, buildFaviconPrompt } from './image-prompt';
 
 const GENERATED_DIR = join(process.cwd(), 'static', 'generated');
@@ -113,7 +116,7 @@ export async function generateAvatar(
 		level: number;
 	},
 ): Promise<GenerateAvatarResult | { error: string }> {
-	const child = db.select().from(children).where(eq(children.id, childId)).get();
+	const child = findChildForImage(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
 	ensureDir(GENERATED_DIR);
@@ -128,17 +131,7 @@ export async function generateAvatar(
 	const promptHash = hashPrompt(prompt);
 
 	// Check cache
-	const cached = db
-		.select()
-		.from(characterImages)
-		.where(
-			and(
-				eq(characterImages.childId, childId),
-				eq(characterImages.type, 'avatar'),
-				eq(characterImages.promptHash, promptHash),
-			),
-		)
-		.get();
+	const cached = findCachedImage(childId, 'avatar', promptHash);
 
 	if (cached && existsSync(join(process.cwd(), 'static', cached.filePath))) {
 		return { filePath: `/${cached.filePath}`, isGenerated: true };
@@ -163,27 +156,17 @@ export async function generateAvatar(
 	}
 
 	// Save to DB
-	db.insert(characterImages)
-		.values({
-			childId,
-			type: 'avatar',
-			filePath,
-			promptHash,
-		})
-		.run();
+	insertCharacterImage({ childId, type: 'avatar', filePath, promptHash });
 
 	// Update child avatarUrl
-	db.update(children)
-		.set({ avatarUrl: `/${filePath}`, updatedAt: new Date().toISOString() })
-		.where(eq(children.id, childId))
-		.run();
+	updateChildAvatarUrl(childId, `/${filePath}`);
 
 	return { filePath: `/${filePath}`, isGenerated };
 }
 
 /** 子供の現在のアバターURLを取得（未生成ならnull） */
 export function getAvatarUrl(childId: number): string | null {
-	const child = db.select().from(children).where(eq(children.id, childId)).get();
+	const child = findChildForImage(childId);
 	return child?.avatarUrl ?? null;
 }
 

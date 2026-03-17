@@ -1,11 +1,10 @@
 // src/lib/server/services/title-service.ts
 // 称号コレクションサービス層
 
-import { db } from '$lib/server/db';
-import { titles } from '$lib/server/db/schema';
-import { activityLogs } from '$lib/server/db/schema';
+import { findDistinctRecordedDates } from '$lib/server/db/activity-repo';
 import {
 	findAllTitles,
+	findTitleById,
 	findUnlockedTitles,
 	getActiveTitleId,
 	insertChildTitle,
@@ -13,7 +12,6 @@ import {
 	setActiveTitleId,
 } from '$lib/server/db/title-repo';
 import { getChildStatus } from '$lib/server/services/status-service';
-import { and, eq } from 'drizzle-orm';
 
 // --- 型定義 ---
 
@@ -131,7 +129,7 @@ export function getActiveTitle(childId: number): ActiveTitleInfo | null {
 	const titleId = getActiveTitleId(childId);
 	if (titleId === null) return null;
 
-	const title = db.select().from(titles).where(eq(titles.id, titleId)).get();
+	const title = findTitleById(titleId);
 	if (!title) return null;
 
 	return {
@@ -219,14 +217,7 @@ function getCurrentProgress(
 
 /** 最大連続日数を取得 */
 function getMaxStreakDays(childId: number): number {
-	const rows = db
-		.select({ recordedDate: activityLogs.recordedDate })
-		.from(activityLogs)
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
-		.groupBy(activityLogs.recordedDate)
-		.orderBy(activityLogs.recordedDate)
-		.all();
-
+	const rows = findDistinctRecordedDates(childId);
 	if (rows.length === 0) return 0;
 
 	let maxStreak = 1;

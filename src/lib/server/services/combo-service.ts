@@ -2,9 +2,11 @@
 // コンボボーナスシステム - 同日の複数活動にボーナスを付与
 
 import { getCategoryById } from '$lib/domain/validation/activity';
-import { db } from '$lib/server/db';
-import { activities, activityLogs, pointLedger } from '$lib/server/db/schema';
-import { and, eq, sql } from 'drizzle-orm';
+import {
+	findTodayLogsWithCategory,
+	getComboPointsGranted,
+	insertPointLedger,
+} from '$lib/server/db/activity-repo';
 
 /** Category combo bonus table */
 const CATEGORY_COMBO_TABLE = [
@@ -78,21 +80,7 @@ function calcCrossCategoryBonus(categoryCount: number): CrossCategoryCombo | nul
  */
 export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 	// Get today's active logs with category info
-	const todayLogs = db
-		.select({
-			activityId: activityLogs.activityId,
-			categoryId: activities.categoryId,
-		})
-		.from(activityLogs)
-		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
-		.where(
-			and(
-				eq(activityLogs.childId, childId),
-				eq(activityLogs.recordedDate, date),
-				eq(activityLogs.cancelled, 0),
-			),
-		)
-		.all();
+	const todayLogs = findTodayLogsWithCategory(childId, date);
 
 	// Group unique activity IDs by categoryId
 	const byCat = new Map<number, Set<number>>();
@@ -135,21 +123,7 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 
 	// Get already-granted combo bonus for today (match by description prefix with date)
 	const comboBonusPrefix = `[${date}]`;
-	const alreadyGranted = db
-		.select({
-			total: sql<number>`coalesce(sum(amount), 0)`.as('total'),
-		})
-		.from(pointLedger)
-		.where(
-			and(
-				eq(pointLedger.childId, childId),
-				eq(pointLedger.type, 'combo_bonus'),
-				sql`${pointLedger.description} LIKE ${`${comboBonusPrefix}%`}`,
-			),
-		)
-		.get();
-
-	const alreadyAmount = alreadyGranted?.total ?? 0;
+	const alreadyAmount = getComboPointsGranted(childId, comboBonusPrefix);
 	const newBonus = Math.max(0, totalDesiredBonus - alreadyAmount);
 
 	// Grant the difference
@@ -167,14 +141,12 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 		}
 		const description = `${comboBonusPrefix} ${parts.join('・')} +${newBonus}`;
 
-		db.insert(pointLedger)
-			.values({
-				childId,
-				amount: newBonus,
-				type: 'combo_bonus',
-				description,
-			})
-			.run();
+		insertPointLedger({
+			childId,
+			amount: newBonus,
+			type: 'combo_bonus',
+			description,
+		});
 	}
 
 	// Generate combo hints
