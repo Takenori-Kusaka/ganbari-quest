@@ -14,8 +14,9 @@ const env: cdk.Environment = {
 
 const appName = 'GanbariQuest';
 
-// Optional: custom domain (deploy with -c domainName=ganbari-quest.com)
+// Custom domain (deploy with -c domainName=ganbari-quest.com -c certificateArn=arn:...)
 const domainName = app.node.tryGetContext('domainName') as string | undefined;
+const certificateArn = app.node.tryGetContext('certificateArn') as string | undefined;
 
 const storage = new StorageStack(app, `${appName}Storage`, {
 	env,
@@ -36,6 +37,7 @@ new NetworkStack(app, `${appName}Network`, {
 	functionUrl: compute.functionUrl,
 	assetsBucket: storage.assetsBucket,
 	domainName,
+	certificateArn,
 });
 
 app.synth();
