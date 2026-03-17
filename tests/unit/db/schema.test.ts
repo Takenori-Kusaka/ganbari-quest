@@ -78,7 +78,7 @@ beforeAll(() => {
 			recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			cancelled INTEGER NOT NULL DEFAULT 0
 		);
-		CREATE UNIQUE INDEX idx_activity_logs_unique_daily ON activity_logs(child_id, activity_id, recorded_date);
+		CREATE INDEX idx_activity_logs_daily ON activity_logs(child_id, activity_id, recorded_date);
 		CREATE INDEX idx_activity_logs_child_date ON activity_logs(child_id, recorded_date);
 		CREATE INDEX idx_activity_logs_activity ON activity_logs(activity_id);
 		CREATE INDEX idx_activity_logs_streak ON activity_logs(child_id, activity_id, recorded_date);
@@ -234,17 +234,18 @@ describe('activity_logs テーブル', () => {
 		expect(result.cancelled).toBe(0);
 	});
 
-	it('同じ日に同じ活動を記録するとユニーク制約違反', () => {
-		expect(() => {
-			db.insert(schema.activityLogs)
-				.values({
-					childId: 1,
-					activityId: 1,
-					points: 5,
-					recordedDate: '2026-02-20',
-				})
-				.run();
-		}).toThrow();
+	it('同じ日に同じ活動を複数回記録できる（dailyLimit対応）', () => {
+		const result = db
+			.insert(schema.activityLogs)
+			.values({
+				childId: 1,
+				activityId: 1,
+				points: 5,
+				recordedDate: '2026-02-20',
+			})
+			.returning()
+			.get();
+		expect(result.id).toBe(2);
 	});
 
 	it('別の日なら同じ活動を記録できる', () => {
