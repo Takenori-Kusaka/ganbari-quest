@@ -3,6 +3,7 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { SQL_CREATE_TABLES } from './create-tables';
 import * as schema from './schema';
 
 const DATABASE_URL = process.env.DATABASE_URL ?? './data/ganbari-quest.db';
@@ -19,6 +20,20 @@ sqlite.pragma('busy_timeout = 5000');
 sqlite.pragma('wal_autocheckpoint = 100');
 // NORMAL sync is sufficient in WAL mode (good balance of safety + performance)
 sqlite.pragma('synchronous = NORMAL');
+
+// --- Lambda cold-start auto-initialization ---
+// On Lambda, DATABASE_URL points to /tmp (ephemeral). Create tables on first access.
+// This is a TEMPORARY measure until DynamoDB migration is complete.
+if (process.env.AWS_LAMBDA_FUNCTION_NAME) {
+	const tableExists = sqlite
+		.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='categories'")
+		.get();
+	if (!tableExists) {
+		console.log('[LAMBDA-INIT] Empty database detected, creating tables + categories...');
+		sqlite.exec(SQL_CREATE_TABLES);
+		console.log('[LAMBDA-INIT] Schema initialized. App will start in setup wizard mode.');
+	}
+}
 
 export const db = drizzle(sqlite, { schema });
 export type Database = typeof db;

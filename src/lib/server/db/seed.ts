@@ -3449,5 +3449,12 @@ function seed() {
 	console.log('Seeding complete!');
 }
 
-seed();
-sqlite.close();
+// Export for programmatic use (e.g. Lambda cold-start init)
+export { seed, db as seedDb };
+
+// Only auto-run when executed directly as a CLI script
+const isDirectRun = process.argv[1]?.endsWith('seed.ts') || process.argv[1]?.endsWith('seed.js');
+if (isDirectRun) {
+	seed();
+	sqlite.close();
+}
