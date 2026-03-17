@@ -53,6 +53,14 @@ SaaS版の顧客認証基盤として、OAuth（Google/Apple Sign-In）を実装
 - [ ] デバイス登録・識別メカニズムの確定
 - [ ] マルチテナントコンテキスト切替の設計
 
+**Phase A': ライセンス管理設計（本チケットのスコープ）**
+- [ ] ライセンスキー体系の設計（形式・発行・検証フロー）
+- [ ] サインアップフロー設計（OAuth → ライセンスキー入力 → テナント作成）
+- [ ] ライセンスとテナント・ユーザーの紐付けモデル設計
+- [ ] DynamoDB ライセンス管理スキーマ設計
+- [ ] 買い切り / サブスク両対応の課金状態管理設計
+- [ ] Stripe Webhook → ライセンス発行・更新の連携設計
+
 **Phase B: 認証基盤実装**
 - [ ] Cognito User Pool + Google/Apple Identity Provider設定
 - [ ] OAuth認証フロー実装（SvelteKit側）
@@ -122,8 +130,8 @@ hooks.server.ts:
 **Cookie 衝突の問題:**
 ```
 同一ブラウザのCookie空間:
-  ├─ cognito_jwt: 親のOAuthトークン（有効期限1時間）
-  ├─ refresh_token: 親のリフレッシュトークン（有効期限30日）
+  ├─ cognito_jwt: OAuth IDトークン（有効期限1日）
+  ├─ refresh_token: リフレッシュトークン（有効期限30日）
   ├─ device_token: デバイス登録トークン（永続）
   └─ selectedChildId: 子供選択（現行踏襲）
 
@@ -208,7 +216,8 @@ hooks.server.ts:
    → テナント選択
 3. Context = { tenant_id, role: "owner"/"parent" } 発行
 4. /admin にアクセス → hooks: role ∈ {owner, parent} → 許可
-5. 個人デバイスなので Context 寿命は長め（24時間 + リフレッシュ）
+5. 個人デバイスなので Context 寿命は長め（24時間）
+   ※ Identity 自体は Refresh Token(30日) で自動維持
 ```
 
 **UC3: ティーンの子供 — 自分のスマホ**
@@ -431,8 +440,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 | 要素 | 現行（ローカル版） | SaaS版（二層モデル） |
 |------|-------------------|---------------------|
 | 認証方式 | PIN（bcrypt, 4-6桁） | OAuth (Google/Apple) + デバイストークン + PIN |
-| セッション | UUID Cookie (1年) | Identity Cookie (JWT) + Context Cookie (短命) |
-| 認可 | `authenticated` boolean のみ | ロール×ルート マトリクス |
+| セッション | UUID Cookie (1年) | ID Token (24h) + Refresh Token (30日) + Context Cookie (短命) |
+| 再ログイン間隔 | 1年 | 30日（Refresh Token 期限） |
+| 認可 | `authenticated` boolean のみ | ロール×ルート マトリクス + ライセンス状態 |
 | ロール | なし（親 or 子の2択） | owner / parent / child / viewer |
 | ロール格納 | — | DynamoDB メンバーシップ（テナント別） |
 | 子供アクセス | 認証なし（LAN 内信頼） | デバイストークン + 子供選択 |
@@ -448,6 +458,434 @@ export const handle: Handle = async ({ event, resolve }) => {
 - **デバイストークン失効**: owner がメンバー管理画面から即時無効化可能
 - **ブルートフォース**: PIN試行は現行同様5回でロックアウト（15分）
 
+#### ライセンス無効時の強制サインアウト
+
+ライセンスが無効になったユーザーはサービスを利用できない。これを 2 つのタイミングで制御する。
+
+**タイミング A: トークンリフレッシュ時（最大 24 時間以内に検知）**
+
+ID Token の有効期限は 24 時間なので、どんなに遅くとも 24 時間以内に Refresh Token による更新が発生する。このタイミングでライセンスを検証する。
+
+```typescript
+// hooks.server.ts 内のトークンリフレッシュ処理
+async function refreshIdentityToken(
+  refreshToken: string,
+  tenantId: string
+): { idToken: string } | { redirect: string } {
+  // 1. Cognito に Refresh Token を送って新しい ID Token を取得
+  const newTokens = await cognito.initiateAuth({
+    AuthFlow: 'REFRESH_TOKEN_AUTH',
+    AuthParameters: { REFRESH_TOKEN: refreshToken },
+  });
+
+  // 2. ライセンス検証（リフレッシュのたびに実行）
+  const licenseStatus = await validateLicense(tenantId);
+
+  if (licenseStatus === 'expired' || licenseStatus === 'invalid') {
+    // ライセンス無効 → 全 Cookie を削除してログイン画面へ
+    return {
+      redirect: '/login?reason=license_expired',
+    };
+  }
+
+  // 3. ライセンス有効 → 新しい ID Token を返却
+  return { idToken: newTokens.IdToken };
+}
+```
+
+**タイミング B: Context 発行時（即座に検知）**
+
+Context Cookie が期限切れして再発行する際も、ライセンスを検証する（既存の `issueContext()` に組み込み済み）。
+
+**強制サインアウトの動作:**
+
+```
+ライセンス無効検知時:
+  1. identity_token (ID Token) Cookie を削除
+  2. refresh_token Cookie を削除
+  3. context_token Cookie を削除
+  4. /login?reason=license_expired へリダイレクト
+  5. ログイン画面にメッセージ表示:
+     「ご利用期間が終了しました。続けてご利用いただくには、
+       プランの更新またはライセンスの再発行をお願いします。」
+     + [プランを更新する] [ライセンスを再発行する] ボタン
+
+  ※ device_token は削除しない（デバイス登録はライセンスとは無関。
+     ライセンス復活後に再登録の手間を省く）
+```
+
+**ライセンス状態別のログイン可否:**
+
+| ライセンス状態 | ログイン | トークンリフレッシュ | ユーザーへの表示 |
+|--------------|---------|--------------------|------------------|
+| `active` | ✅ | ✅ | 通常利用 |
+| `cancelled` (残り期間内) | ✅ | ✅ | 「○月○日にプランが終了します」バナー |
+| `suspended` | ✅ | ✅ | 「お支払いに問題があります」バナー + 読み取り専用 |
+| `expired` | ❌ | ❌ → 強制サインアウト | /login?reason=license_expired |
+| `grace_period` | ❌ | ❌ → 強制サインアウト | /login?reason=license_expired |
+| `terminated` | ❌ | ❌ → 強制サインアウト | /login?reason=account_deleted |
+| `revoked` | ❌ | ❌ → 強制サインアウト | /login?reason=license_revoked |
+| テナント未所属 | ✅ (認証のみ) | ✅ | /onboarding/license へ誘導 |
+
+---
+
+### ライセンスキー管理設計
+
+サインアップは **誰でも自由に** 行えるが、サービスの利用開始には **ライセンスキー** が必要。これにより決済と認証を分離し、キャンペーン・フリートライアル・買い切り・サブスクなど多様な販売形態に柔軟に対応する。
+
+#### サインアップ → 利用開始フロー
+
+```
+[ユーザー]
+    │
+    ├── 1. OAuth サインアップ（Google / Apple）
+    │      → Cognito にユーザー作成
+    │      → Identity 確立（user_id, email）
+    │      → この時点ではテナント未所属・サービス利用不可
+    │
+    ├── 2. ライセンスキー入力画面
+    │      → /onboarding/license
+    │      → キーの入手経路:
+    │         a) Stripe 決済完了後に自動発行（メール + 画面表示）
+    │         b) キャンペーンコード（運営が事前生成）
+    │         c) 既存ユーザーからの招待（家族共有用とは別）
+    │
+    ├── 3. ライセンスキー検証
+    │      → サーバーサイドで検証:
+    │         ・キーの存在確認
+    │         ・有効期限チェック
+    │         ・利用回数上限チェック（買い切り: 1回, キャンペーン: N回）
+    │         ・既にアクティベート済みでないか
+    │
+    └── 4. テナント作成 + ライセンス紐付け
+           → テナント自動生成（owner ロール付与）
+           → ライセンスをテナントに紐付け
+           → Context 発行 → /admin へリダイレクト
+```
+
+**家族メンバー参加の場合:**
+```
+OAuth サインアップ → 招待コード入力（#0066 既存の共有フロー）
+→ 既存テナントに参加（ライセンスキー不要 = テナントのライセンスを共用）
+```
+
+#### ライセンスキーの体系
+
+| 項目 | 仕様 |
+|------|------|
+| 形式 | `GQ-XXXX-XXXX-XXXX-XXXX`（20文字、英数大文字、ハイフン区切り） |
+| 生成 | サーバーサイドで暗号論的乱数（`crypto.randomUUID()` ベース） |
+| 一意性 | DynamoDB PK で保証 |
+| 大文字小文字 | 入力時は大文字に正規化（ユーザビリティ） |
+| 有効期限 | タイプにより異なる（下表参照） |
+
+| ライセンスタイプ | 有効期限 | 利用可能回数 | 発行元 | 用途 |
+|----------------|---------|-------------|--------|------|
+| `subscription_monthly` | 月次自動更新 | 1 | Stripe Webhook | 月額サブスク |
+| `subscription_yearly` | 年次自動更新 | 1 | Stripe Webhook | 年額サブスク |
+| `perpetual` | 無期限 | 1 | Stripe Webhook | 買い切り |
+| `trial` | 30日 | 1 | サインアップ時自動 | 無料トライアル |
+| `campaign` | 発行者指定 | N（発行者指定） | 管理者手動 or API | キャンペーン |
+| `gift` | 発行者指定 | 1 | 管理者手動 | プレゼント・謝礼 |
+
+#### ライセンスキーの不正利用防止
+
+**原則: 1キー = 1アクティベーション**
+
+ライセンスキーの流出・転売を防止するため、以下の制御を行う。
+
+| 制御 | 詳細 |
+|------|------|
+| アクティベート上限 | 買い切り・サブスク・トライアル・ギフト = 1回。キャンペーンのみ N 回（発行者指定） |
+| アクティベート時の紐付け | アクティベートしたユーザーの user_id, email, OAuth provider をライセンスに記録 |
+| アクティベート済みキーの拒否 | `current_activations >= max_activations` なら「このキーは既に使用済みです」と表示 |
+| ブルートフォース防止 | ライセンスキー入力は IP 単位で5回/時間に制限。アカウント単位で10回/日 |
+| キー形式の難読性 | 20桁英数大文字 → 総当たりパターン数 $36^{16} \approx 7.96 \times 10^{24}$。ブルートフォースは事実上不可能 |
+
+#### ライセンスキーの再発行フロー
+
+有効期限切れやキー紛失時に、本人確認を経て新しいライセンスキーを発行する。旧キーは自動的に失効する。
+
+**再発行フロー:**
+```
+[ユーザー] → /billing/reissue
+    │
+    ├── 1. 本人確認（以下のいずれか）
+    │      a) OAuth ログイン済み（Identity Cookie あり）
+    │         → email がライセンスの activated_by_email と一致
+    │      b) OAuth セッションなし（Cookie 切れ等）
+    │         → メールアドレス入力 + Email 一時コード認証
+    │
+    ├── 2. 過去のライセンス情報確認
+    │      → 以下のうち1つ以上を照合:
+    │         ・過去のライセンスキー（先頭 or 末尾4桁でも可）
+    │         ・ Stripe の決済メールの受信確認（メールアドレス一致）
+    │         ・テナント名（家族名）の一致
+    │
+    ├── 3. Email 一時コード認証（必須）
+    │      → 登録済みメールアドレスに6桁数字コードを送信
+    │      → 有効期限: 10分
+    │      → 試行制限: 3回（超過で30分ロックアウト）
+    │
+    └── 4. 新ライセンスキー発行
+           → 旧キーの status を 'revoked' に変更
+           → 新キーを生成（同じ type, plan を継承）
+           → テナントの LICENSE レコードを新キーに更新
+           → ユーザーにメール + 画面で新キーを通知
+           → 再発行履歴を記録（監査ログ）
+```
+
+**再発行時のセキュリティ考慮:**
+
+| リスク | 対策 |
+|--------|------|
+| 第三者による再発行試行 | Email 一時コード必須 → メールアクセス権がない限り不可能 |
+| メールアカウント乗っ取り | OAuth provider 側のセキュリティに依存（MFA推奨） |
+| 再発行の悪用（繰り返し発行） | 再発行は30日に1回まで。それ以上はサポート経由 |
+| 旧キーでのアクセス試行 | 即座に revoked 状態をチェックして拒否 |
+| 監査証跡 | 全ての再発行リクエストを IP・タイムスタンプ付きで記録 |
+
+**Email 一時コードの実装:**
+
+```typescript
+// SES (Simple Email Service) 経由で送信（AWS 無料枠: 62,000通/月）
+async function sendVerificationCode(email: string): void {
+  const code = crypto.randomInt(100000, 999999).toString(); // 6桁数字
+  const hashedCode = await hash(code); // bcrypt or SHA-256 + salt
+  
+  await dynamodb.put({
+    PK: `VERIFY#${email}`,
+    SK: `CODE#${Date.now()}`,
+    hashed_code: hashedCode,
+    expires_at: Date.now() + 10 * 60 * 1000, // 10分
+    attempts: 0,
+    max_attempts: 3,
+    ttl: Math.floor(Date.now() / 1000) + 3600, // DynamoDB TTL: 1時間後に自動削除
+  });
+
+  await ses.sendEmail({
+    to: email,
+    subject: '【がんばりクエスト】ライセンスキー再発行 確認コード',
+    body: `確認コード: ${code}\n\nこのコードは10分間有効です。`,
+  });
+}
+```
+
+#### DynamoDB スキーマ（ライセンス管理）
+
+**License テーブル（メインテーブル内）:**
+
+| PK | SK | Attributes | 用途 |
+|----|-----|-----------|------|
+| `LICENSE#GQ-XXXX-...` | `META` | type, plan, status, expires_at, max_activations, current_activations, created_at, stripe_subscription_id | ライセンス本体 |
+| `LICENSE#GQ-XXXX-...` | `ACTIVATION#t1` | tenant_id, activated_by, activated_at, activated_by_email, activated_by_provider | アクティベーション履歴 |
+| `LICENSE#GQ-XXXX-...` | `REISSUE#2026-03-17T...` | old_license_key, new_license_key, reason, verified_by, ip_address, requested_at | 再発行履歴（監査ログ） |
+| `TENANT#t1` | `LICENSE` | license_key, plan, status, expires_at, stripe_customer_id, stripe_subscription_id | テナントのライセンス状態（読み取り最適化用） |
+| `USER#u1` | `LICENSES` | owned_licenses: [key1, key2, ...] | ユーザーが購入したライセンス一覧 |
+
+**GSI:**
+| GSI | PK | SK | 用途 |
+|-----|----|----|------|
+| GSI-StripeSubscription | stripe_subscription_id | — | Stripe Webhook からのライセンス逆引き |
+| GSI-LicenseExpiry | status | expires_at | 期限切れライセンスのバッチ処理 |
+
+#### ライセンス状態遷移
+
+```
+[created] ─── アクティベート ──→ [active]
+                                    │
+                     ┌───────────────┼───────────────┐
+                     ▼               ▼               ▼
+              [expired]        [suspended]      [cancelled]
+              (期限切れ)       (支払い失敗)     (解約申請)
+                     │               │               │
+                     │          支払い回復            │
+                     │          ──→ [active]         │
+                     │                               │
+                     └───────────────┬───────────────┘
+                                     ▼
+                               [grace_period]
+                               (30日猶予)
+                                     │
+                                     ▼
+                                [terminated]
+                               (データ削除)
+
+               》 再発行時の分岐:
+               [active] ─── 再発行申請 ──→ [revoked](旧キー) + [active](新キー)
+               [expired] ── 再発行申請 ──→ [revoked](旧キー) + [active](新キー)
+```
+
+| 状態 | サービス利用 | データ保持 | 遷移条件 |
+|------|-------------|-----------|----------|
+| `created` | ❌ | — | ライセンス発行直後（未アクティベート） |
+| `active` | ✅ | ✅ | アクティベート済み、有効期限内 |
+| `expired` | ❌ | ✅（30日） | サブスク有効期限切れ（自動更新失敗含む） |
+| `suspended` | ❌（読み取り専用） | ✅ | Stripe 支払い失敗（リトライ中） |
+| `cancelled` | ✅（期間終了まで） | ✅ | ユーザーが解約申請。残り期間は利用可能 |
+| `revoked` | ❌ | ✅（新キーに継承） | 再発行により旧キーが失効。データは新キーのテナントに継承 |
+| `grace_period` | ❌（読み取り専用） | ✅ | expired/cancelled から30日間の猶予 |
+| `terminated` | ❌ | ❌（削除） | 猶予期間終了。Phase D のデータ破棄実行 |
+
+#### 買い切り vs サブスク の統一的な処理
+
+```typescript
+// ライセンス検証ミドルウェア（hooks.server.ts に統合）
+async function validateLicense(tenantId: string): LicenseStatus {
+  const tenantLicense = await getTenantLicense(tenantId);
+  
+  switch (tenantLicense.type) {
+    case 'perpetual':
+      // 買い切り: status が active なら永久有効
+      return tenantLicense.status === 'active' ? 'valid' : 'invalid';
+    
+    case 'subscription_monthly':
+    case 'subscription_yearly':
+      // サブスク: status + 有効期限チェック
+      if (tenantLicense.status === 'active' && tenantLicense.expires_at > Date.now()) {
+        return 'valid';
+      }
+      if (tenantLicense.status === 'cancelled' && tenantLicense.expires_at > Date.now()) {
+        return 'valid'; // 解約済みだが残り期間内
+      }
+      if (tenantLicense.status === 'suspended') {
+        return 'read_only'; // 支払い失敗中は読み取り専用
+      }
+      return 'expired';
+    
+    case 'trial':
+      // トライアル: 期限チェックのみ
+      return tenantLicense.expires_at > Date.now() ? 'valid' : 'expired';
+    
+    case 'campaign':
+    case 'gift':
+      // キャンペーン/ギフト: active かつ期限内
+      return (tenantLicense.status === 'active' && tenantLicense.expires_at > Date.now())
+        ? 'valid' : 'expired';
+  }
+}
+```
+
+#### Stripe 連携フロー
+
+**サブスク購入:**
+```
+1. ユーザーが料金プラン選択 → Stripe Checkout Session 作成
+2. Stripe 決済画面でカード入力・決済
+3. Stripe Webhook: checkout.session.completed
+   → Lambda: ライセンスキー生成 + DynamoDB 登録
+   → ユーザーにメール送信（ライセンスキー記載）
+4. ユーザーがサインアップ画面でライセンスキー入力
+   → テナント作成 → 利用開始
+```
+
+**サブスク更新（自動）:**
+```
+Stripe Webhook: invoice.paid
+  → LICENSE の expires_at を次の更新日に延長
+  → TENANT#t1 LICENSE の expires_at も同期更新
+```
+
+**支払い失敗:**
+```
+Stripe Webhook: invoice.payment_failed
+  → LICENSE の status を 'suspended' に変更
+  → ユーザーにメール通知（支払い方法の更新を依頼）
+  → Stripe のスマートリトライに任せる（通常3回、2週間以内）
+```
+
+**支払い回復:**
+```
+Stripe Webhook: invoice.paid（リトライ成功時）
+  → LICENSE の status を 'active' に復帰
+  → ユーザーにメール通知（復旧のお知らせ）
+```
+
+**解約:**
+```
+Stripe Webhook: customer.subscription.deleted
+  → LICENSE の status を 'expired' に変更
+  → grace_period（30日）タイマー開始
+  → Phase D のデータ破棄フローへ
+```
+
+**買い切り購入:**
+```
+1. Stripe Checkout Session（mode: 'payment'、subscription ではない）
+2. Stripe Webhook: checkout.session.completed
+   → ライセンスキー生成（type: 'perpetual', expires_at: null）
+   → メール送信
+3. 以降、Stripe との定期連携なし（更新不要）
+```
+
+#### 二層セッションモデルへの統合
+
+ライセンス検証は **Context 発行時** に行う:
+
+```typescript
+// Context 発行フロー（改訂版）
+async function issueContext(identity: Identity, tenantId: string) {
+  // 1. メンバーシップ確認（既存: G3 対応）
+  const membership = await getMembership(tenantId, identity.user_id);
+  if (!membership) throw new UnauthorizedError('Not a member of this tenant');
+
+  // 2. ライセンス検証（新規追加）
+  const licenseStatus = await validateLicense(tenantId);
+  if (licenseStatus === 'expired' || licenseStatus === 'invalid') {
+    // 期限切れ → /billing/renew へリダイレクト
+    throw new LicenseExpiredError(tenantId);
+  }
+
+  // 3. Context Cookie 発行
+  return {
+    tenant_id: tenantId,
+    role: membership.role,
+    license_status: licenseStatus, // 'valid' | 'read_only'
+    child_id: membership.role === 'child' ? membership.child_id : null,
+  };
+}
+```
+
+`license_status: 'read_only'` の場合、書き込み系 API（POST/PUT/DELETE）を一律拒否し、読み取りのみ許可する。これにより支払い失敗中もデータは閲覧可能で、ユーザー体験を保つ。
+
+#### 認可マトリクス拡張（ライセンス状態別）
+
+| ルート | active | read_only (suspended) | expired | terminated |
+|--------|--------|----------------------|---------|------------|
+| `/child/*`（表示） | ✅ | ✅ | ❌ → /billing/renew | ❌ → /signup |
+| `/child/*`（POST） | ✅ | ❌ → エラー表示 | ❌ | ❌ |
+| `/admin/*` | ✅ | ✅（閲覧のみ） | ❌ → /billing/renew | ❌ → /signup |
+| `/admin/billing/*` | ✅ | ✅ | ✅（更新促進） | ❌ |
+| `/api/v1/*`（GET） | ✅ | ✅ | ❌ 403 | ❌ 403 |
+| `/api/v1/*`（POST/PUT/DELETE） | ✅ | ❌ 403 | ❌ 403 | ❌ 403 |
+
+#### キャンペーン・フリーライセンスの運用例
+
+| シナリオ | ライセンスタイプ | 設定 | 発行方法 |
+|---------|----------------|------|----------|
+| 新規ユーザー全員に30日無料 | `trial` | expires_at: +30日, max_activations: 1 | サインアップ時自動発行 |
+| Twitter キャンペーン | `campaign` | expires_at: +90日, max_activations: 100 | 管理者が1キー発行（共有型） |
+| インフルエンサー提供 | `gift` | expires_at: +1年, max_activations: 1 | 管理者が個別発行 |
+| β版テスター | `campaign` | expires_at: +6ヶ月, plan: ファミリー | 管理者が個別発行 |
+| 紹介プログラム | `gift` | expires_at: +3ヶ月, plan: ベーシック | 紹介完了時に自動発行 |
+
+#### コスト管理への寄与
+
+ライセンスとテナントの紐付けにより、以下のコスト分析が可能:
+
+```typescript
+// 管理者ダッシュボード用クエリ例
+// GSI-LicenseExpiry で取得可能なメトリクス:
+
+// アクティブライセンス数（= 課金中テナント数）
+// プラン別分布（Free / Basic / Family）
+// MRR (Monthly Recurring Revenue) 計算
+// チャーン率（cancelled / 全体）
+// トライアル→有料転換率
+```
+
+---
+
 ### 残課題・次のアクション
 
 - [ ] 二層セッションモデルのプロトタイプ実装（ローカル版で検証可能）
@@ -458,4 +896,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 - [ ] Apple Sign-In の実装要件調査（App Store 審査要件との整合性）
 - [ ] デバイストークンの暗号化方式選定（JWT署名 vs DB紐付け）
 - [ ] Context Cookie 寿命のユーザビリティテスト（親モード30分は短すぎないか）
+- [ ] ライセンスキー再発行フローの UI/UX 設計（/billing/reissue）
+- [ ] SES による Email 一時コード送信の実装・テンプレート設計
 - [ ] ティーン向け OAuth フローの未成年保護対応（Google Family Link 等との干渉確認）
