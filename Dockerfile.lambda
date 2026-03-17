@@ -1,0 +1,33 @@
+# Lambda Web Adapter: converts Lambda events to HTTP requests
+FROM public.ecr.aws/awsguru/aws-lambda-web-adapter:0.8.4 AS adapter
+
+# Stage 1: Dependencies
+FROM node:22-alpine AS deps
+RUN apk add --no-cache python3 make g++
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+# Stage 2: Build SvelteKit
+FROM deps AS build
+COPY . .
+RUN mkdir -p data && npm run build
+
+# Stage 3: Lambda runtime
+FROM node:22-alpine AS runtime
+COPY --from=adapter /lambda-adapter /opt/extensions/
+WORKDIR /app
+
+# Copy SvelteKit build output + production dependencies
+COPY --from=build /app/build/ ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./
+
+# Lambda Web Adapter settings
+ENV PORT=3000
+ENV HOST=0.0.0.0
+ENV AWS_LWA_PORT=3000
+ENV AWS_LWA_READINESS_CHECK_PATH=/api/health
+ENV NODE_ENV=production
+
+CMD ["node", "index.js"]
