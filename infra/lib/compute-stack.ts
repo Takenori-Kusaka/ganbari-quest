@@ -56,7 +56,7 @@ export class ComputeStack extends cdk.Stack {
 		// Lambda Function URL (public, CloudFront will be in front)
 		this.functionUrl = this.fn.addFunctionUrl({
 			authType: lambda.FunctionUrlAuthType.NONE,
-			invokeMode: lambda.InvokeMode.RESPONSE_STREAM,
+			invokeMode: lambda.InvokeMode.BUFFERED,
 		});
 
 		// --- Log archiving: CloudWatch Logs → Firehose → S3 (Glacier) ---
