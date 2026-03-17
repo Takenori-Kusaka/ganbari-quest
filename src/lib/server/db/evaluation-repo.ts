@@ -1,9 +1,9 @@
 // src/lib/server/db/evaluation-repo.ts
 // 週次評価関連のリポジトリ層
 
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm';
 import { db } from './client';
-import { activities, activityLogs, children, evaluations } from './schema';
+import { activities, activityLogs, children, evaluations, statusHistory } from './schema';
 
 /** 指定期間のカテゴリ別活動回数を集計 */
 export function countActivitiesByCategory(childId: number, weekStart: string, weekEnd: string) {
@@ -52,6 +52,31 @@ export function findEvaluationsByChild(childId: number, limit: number) {
 		.orderBy(desc(evaluations.createdAt))
 		.limit(limit)
 		.all();
+}
+
+/** 指定日にdaily_decayが既に実行されたか確認 */
+export function hasDecayRunToday(childId: number, today: string): boolean {
+	const row = db
+		.select({ id: statusHistory.id })
+		.from(statusHistory)
+		.where(
+			and(
+				eq(statusHistory.childId, childId),
+				eq(statusHistory.changeType, 'daily_decay'),
+				like(statusHistory.recordedAt, `${today}%`),
+			),
+		)
+		.get();
+	return !!row;
+}
+
+/** 指定週の評価が存在するか確認 */
+export function findWeekEvaluation(childId: number, weekStart: string) {
+	return db
+		.select({ id: evaluations.id })
+		.from(evaluations)
+		.where(and(eq(evaluations.childId, childId), eq(evaluations.weekStart, weekStart)))
+		.get();
 }
 
 /** 子供の最終活動日をカテゴリ別に取得 */

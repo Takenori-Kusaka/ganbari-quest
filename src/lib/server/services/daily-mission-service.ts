@@ -3,15 +3,20 @@
 
 import { todayDateJST } from '$lib/domain/date-utils';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
-import { db } from '$lib/server/db';
+import { insertPointLedger } from '$lib/server/db/activity-repo';
 import {
-	activities,
-	activityLogs,
-	children,
-	dailyMissions,
-	pointLedger,
-} from '$lib/server/db/schema';
-import { and, eq, gte } from 'drizzle-orm';
+	findAllMissionStatuses,
+	findAllRecordedActivityIds,
+	findChildForMission,
+	findMissionBonusRecord,
+	findMissionByActivity,
+	findPreviousDayMissionIds,
+	findRecentActivityIds,
+	findTodayMissions,
+	findVisibleActivities,
+	insertDailyMission,
+	markMissionCompleted,
+} from '$lib/server/db/daily-mission-repo';
 
 const MISSION_COUNT = 3;
 
@@ -44,52 +49,18 @@ export function getTodayMissions(childId: number): DailyMissionStatus {
 	const today = todayDateJST();
 
 	// 既存のミッションを確認
-	let missions = db
-		.select({
-			id: dailyMissions.id,
-			activityId: dailyMissions.activityId,
-			completed: dailyMissions.completed,
-			activityName: activities.name,
-			activityIcon: activities.icon,
-			categoryId: activities.categoryId,
-		})
-		.from(dailyMissions)
-		.innerJoin(activities, eq(dailyMissions.activityId, activities.id))
-		.where(and(eq(dailyMissions.childId, childId), eq(dailyMissions.missionDate, today)))
-		.all();
+	let missions = findTodayMissions(childId, today);
 
 	// なければ生成
 	if (missions.length === 0) {
 		generateMissions(childId, today);
-		missions = db
-			.select({
-				id: dailyMissions.id,
-				activityId: dailyMissions.activityId,
-				completed: dailyMissions.completed,
-				activityName: activities.name,
-				activityIcon: activities.icon,
-				categoryId: activities.categoryId,
-			})
-			.from(dailyMissions)
-			.innerJoin(activities, eq(dailyMissions.activityId, activities.id))
-			.where(and(eq(dailyMissions.childId, childId), eq(dailyMissions.missionDate, today)))
-			.all();
+		missions = findTodayMissions(childId, today);
 	}
 
 	const completedCount = missions.filter((m) => m.completed === 1).length;
 
 	// 既に付与されたボーナスを確認
-	const bonusRecord = db
-		.select({ amount: pointLedger.amount })
-		.from(pointLedger)
-		.where(
-			and(
-				eq(pointLedger.childId, childId),
-				eq(pointLedger.type, 'daily_mission'),
-				eq(pointLedger.description, `[${today}] ミッションボーナス`),
-			),
-		)
-		.get();
+	const bonusRecord = findMissionBonusRecord(childId, `[${today}] ミッションボーナス`);
 
 	return {
 		missions: missions.map((m) => ({
@@ -116,34 +87,17 @@ export function checkMissionCompletion(
 	const today = todayDateJST();
 
 	// このactivityIdがミッションに含まれるか
-	const mission = db
-		.select({ id: dailyMissions.id, completed: dailyMissions.completed })
-		.from(dailyMissions)
-		.where(
-			and(
-				eq(dailyMissions.childId, childId),
-				eq(dailyMissions.missionDate, today),
-				eq(dailyMissions.activityId, activityId),
-			),
-		)
-		.get();
+	const mission = findMissionByActivity(childId, today, activityId);
 
 	if (!mission || mission.completed === 1) {
 		return { missionCompleted: false, allComplete: false, bonusAwarded: 0 };
 	}
 
 	// ミッション達成
-	db.update(dailyMissions)
-		.set({ completed: 1, completedAt: new Date().toISOString() })
-		.where(eq(dailyMissions.id, mission.id))
-		.run();
+	markMissionCompleted(mission.id);
 
 	// 全ミッションの達成状況を確認
-	const allMissions = db
-		.select({ completed: dailyMissions.completed })
-		.from(dailyMissions)
-		.where(and(eq(dailyMissions.childId, childId), eq(dailyMissions.missionDate, today)))
-		.all();
+	const allMissions = findAllMissionStatuses(childId, today);
 
 	const completedCount = allMissions.filter((m) => m.completed === 1).length;
 	const allComplete = completedCount >= MISSION_COUNT;
@@ -154,39 +108,25 @@ export function checkMissionCompletion(
 
 	if (bonus > 0) {
 		// 既に付与済みか確認
-		const existing = db
-			.select({ amount: pointLedger.amount })
-			.from(pointLedger)
-			.where(
-				and(
-					eq(pointLedger.childId, childId),
-					eq(pointLedger.type, 'daily_mission'),
-					eq(pointLedger.description, `[${today}] ミッションボーナス`),
-				),
-			)
-			.get();
+		const existing = findMissionBonusRecord(childId, `[${today}] ミッションボーナス`);
 
 		if (!existing) {
-			db.insert(pointLedger)
-				.values({
-					childId,
-					amount: bonus,
-					type: 'daily_mission',
-					description: `[${today}] ミッションボーナス`,
-				})
-				.run();
+			insertPointLedger({
+				childId,
+				amount: bonus,
+				type: 'daily_mission',
+				description: `[${today}] ミッションボーナス`,
+			});
 			bonusAwarded = bonus;
 		} else if (existing.amount < bonus) {
 			// 2/3→3/3 のように追加ボーナスが発生
 			const diff = bonus - existing.amount;
-			db.insert(pointLedger)
-				.values({
-					childId,
-					amount: diff,
-					type: 'daily_mission',
-					description: `[${today}] ミッションコンプリートボーナス`,
-				})
-				.run();
+			insertPointLedger({
+				childId,
+				amount: diff,
+				type: 'daily_mission',
+				description: `[${today}] ミッションコンプリートボーナス`,
+			});
 			bonusAwarded = diff;
 		}
 	}
@@ -196,64 +136,28 @@ export function checkMissionCompletion(
 
 /**
  * ミッション生成（利用履歴ベースのアルゴリズム）
- *
- * 3枠の配分:
- * 1. 確実枠: 直近7日で記録した活動から（達成しやすい）
- * 2. チャレンジ枠: 過去に記録したが最近やっていない活動から
- * 3. 探検枠: 未経験の活動からランダム（新しい活動への誘導）
- *
- * フォールバック: 履歴が不足する場合はカテゴリ分散のランダム選出
  */
 function generateMissions(childId: number, date: string): void {
-	const child = db.select().from(children).where(eq(children.id, childId)).get();
+	const child = findChildForMission(childId);
 	if (!child) return;
 
 	// 対象年齢の表示可能な活動を取得
-	const allActivities = db
-		.select()
-		.from(activities)
-		.where(eq(activities.isVisible, 1))
-		.all()
-		.filter((a) => {
-			if (a.ageMin !== null && child.age < a.ageMin) return false;
-			if (a.ageMax !== null && child.age > a.ageMax) return false;
-			return true;
-		});
+	const allActivities = findVisibleActivities().filter((a) => {
+		if (a.ageMin !== null && child.age < a.ageMin) return false;
+		if (a.ageMax !== null && child.age > a.ageMax) return false;
+		return true;
+	});
 
 	if (allActivities.length === 0) return;
 
 	// 前日のミッションを取得（同じ組み合わせを避ける）
 	const yesterday = getPreviousDate(date);
-	const prevMissions = db
-		.select({ activityId: dailyMissions.activityId })
-		.from(dailyMissions)
-		.where(and(eq(dailyMissions.childId, childId), eq(dailyMissions.missionDate, yesterday)))
-		.all();
-	const prevIds = new Set(prevMissions.map((m) => m.activityId));
+	const prevIds = new Set(findPreviousDayMissionIds(childId, yesterday));
 
 	// 利用履歴を取得
 	const sevenDaysAgo = getNDaysAgo(date, 7);
-	const recentLogs = db
-		.select({ activityId: activityLogs.activityId })
-		.from(activityLogs)
-		.where(
-			and(
-				eq(activityLogs.childId, childId),
-				gte(activityLogs.recordedDate, sevenDaysAgo),
-				eq(activityLogs.cancelled, 0),
-			),
-		)
-		.all();
-	const recentActivityIds = new Set(recentLogs.map((l) => l.activityId));
-
-	const allLogs = db
-		.select({ activityId: activityLogs.activityId })
-		.from(activityLogs)
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
-		.all();
-	const allRecordedIds = new Set(allLogs.map((l) => l.activityId));
-
-	const _allActivityIds = new Set(allActivities.map((a) => a.id));
+	const recentActivityIds = new Set(findRecentActivityIds(childId, sevenDaysAgo));
+	const allRecordedIds = new Set(findAllRecordedActivityIds(childId));
 
 	// 3つのプール分類
 	const recentPool = allActivities.filter((a) => recentActivityIds.has(a.id) && !prevIds.has(a.id));
@@ -330,7 +234,7 @@ function generateMissions(childId: number, date: string): void {
 
 	// DB に挿入
 	for (const activityId of selected) {
-		db.insert(dailyMissions).values({ childId, missionDate: date, activityId }).run();
+		insertDailyMission(childId, date, activityId);
 	}
 }
 
