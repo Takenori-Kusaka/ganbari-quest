@@ -35,7 +35,7 @@ ENV PORT=3000
 ENV HOST=0.0.0.0
 ENV AWS_LWA_PORT=3000
 ENV AWS_LWA_READINESS_CHECK_PATH=/api/health
-ENV AWS_LWA_INVOKE_MODE=response_stream
+ENV AWS_LWA_INVOKE_MODE=buffered
 ENV NODE_ENV=production
 
 CMD ["node", "index.js"]
