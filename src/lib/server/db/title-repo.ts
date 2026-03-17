@@ -7,6 +7,11 @@ export function findAllTitles() {
 	return db.select().from(titles).all();
 }
 
+/** IDで称号を取得 */
+export function findTitleById(id: number) {
+	return db.select().from(titles).where(eq(titles.id, id)).get();
+}
+
 /** 子供の解除済み称号を取得 */
 export function findUnlockedTitles(childId: number) {
 	return db

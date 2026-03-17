@@ -2,9 +2,12 @@
 // 誕生日イベント・振り返り機能
 
 import { todayDateJST } from '$lib/domain/date-utils';
-import { db } from '$lib/server/db';
-import { birthdayReviews, children, pointLedger } from '$lib/server/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { findChildById, insertPointLedger } from '$lib/server/db/activity-repo';
+import {
+	findBirthdayReviewByYear,
+	findBirthdayReviews,
+	insertBirthdayReview,
+} from '$lib/server/db/birthday-repo';
 
 /** Health check items */
 export const HEALTH_CHECK_ITEMS = [
@@ -49,7 +52,7 @@ export interface ReviewResult {
  * Check if today is within the birthday event window for a child.
  */
 export function checkBirthdayStatus(childId: number): BirthdayStatus | { error: 'NOT_FOUND' } {
-	const child = db.select().from(children).where(eq(children.id, childId)).get();
+	const child = findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
 	if (!child.birthDate) {
@@ -77,11 +80,7 @@ export function checkBirthdayStatus(childId: number): BirthdayStatus | { error: 
 	const isBirthday = diffDays >= 0 && diffDays <= GRACE_DAYS;
 
 	// Check if already reviewed this year
-	const existing = db
-		.select({ id: birthdayReviews.id })
-		.from(birthdayReviews)
-		.where(and(eq(birthdayReviews.childId, childId), eq(birthdayReviews.reviewYear, thisYear)))
-		.get();
+	const existing = findBirthdayReviewByYear(childId, thisYear);
 
 	// Days until next birthday
 	let daysUntilBirthday: number | null = null;
@@ -114,18 +113,14 @@ export function submitBirthdayReview(
 	| { error: 'NOT_FOUND' }
 	| { error: 'ALREADY_REVIEWED' }
 	| { error: 'NOT_BIRTHDAY' } {
-	const child = db.select().from(children).where(eq(children.id, childId)).get();
+	const child = findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
 	const today = todayDateJST();
 	const thisYear = new Date(`${today}T00:00:00Z`).getUTCFullYear();
 
 	// Check for existing review
-	const existing = db
-		.select({ id: birthdayReviews.id })
-		.from(birthdayReviews)
-		.where(and(eq(birthdayReviews.childId, childId), eq(birthdayReviews.reviewYear, thisYear)))
-		.get();
+	const existing = findBirthdayReviewByYear(childId, thisYear);
 	if (existing) return { error: 'ALREADY_REVIEWED' };
 
 	// Calculate points
@@ -148,33 +143,27 @@ export function submitBirthdayReview(
 	const totalPoints = basePoints + healthPoints + aspirationPoints;
 
 	// Insert review
-	const review = db
-		.insert(birthdayReviews)
-		.values({
-			childId,
-			reviewYear: thisYear,
-			ageAtReview: child.age,
-			healthChecks: JSON.stringify(input.healthChecks),
-			aspirationText: input.aspirationText ?? null,
-			aspirationCategories: JSON.stringify(input.aspirationCategories ?? {}),
-			basePoints,
-			healthPoints,
-			aspirationPoints,
-			totalPoints,
-		})
-		.returning()
-		.get();
+	const review = insertBirthdayReview({
+		childId,
+		reviewYear: thisYear,
+		ageAtReview: child.age,
+		healthChecks: JSON.stringify(input.healthChecks),
+		aspirationText: input.aspirationText ?? null,
+		aspirationCategories: JSON.stringify(input.aspirationCategories ?? {}),
+		basePoints,
+		healthPoints,
+		aspirationPoints,
+		totalPoints,
+	});
 
 	// Grant points via ledger
-	db.insert(pointLedger)
-		.values({
-			childId,
-			amount: totalPoints,
-			type: 'birthday_bonus',
-			description: `${child.age}さいのおたんじょうび！ +${totalPoints}P`,
-			referenceId: review.id,
-		})
-		.run();
+	insertPointLedger({
+		childId,
+		amount: totalPoints,
+		type: 'birthday_bonus',
+		description: `${child.age}さいのおたんじょうび！ +${totalPoints}P`,
+		referenceId: review.id,
+	});
 
 	return {
 		id: review.id,
@@ -189,10 +178,5 @@ export function submitBirthdayReview(
  * Get past birthday reviews for a child.
  */
 export function getBirthdayReviews(childId: number) {
-	return db
-		.select()
-		.from(birthdayReviews)
-		.where(eq(birthdayReviews.childId, childId))
-		.orderBy(birthdayReviews.reviewYear)
-		.all();
+	return findBirthdayReviews(childId);
 }

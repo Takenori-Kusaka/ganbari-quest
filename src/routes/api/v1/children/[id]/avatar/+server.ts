@@ -1,10 +1,9 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { db } from '$lib/server/db';
-import { children } from '$lib/server/db/schema';
+import { findChildById } from '$lib/server/db/activity-repo';
+import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
 import { error, json } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 // bodyサイズ制限を10MBに引き上げ（写真アップロード用）
@@ -36,7 +35,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		throw error(400, { message: '不正なIDです' });
 	}
 
-	const child = db.select().from(children).where(eq(children.id, childId)).get();
+	const child = findChildById(childId);
 	if (!child) {
 		throw error(404, { message: '子供が見つかりません' });
 	}
@@ -69,10 +68,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		writeFileSync(filePath, buffer);
 
 		// DB更新
-		db.update(children)
-			.set({ avatarUrl: publicUrl, updatedAt: new Date().toISOString() })
-			.where(eq(children.id, childId))
-			.run();
+		updateChildAvatarUrl(childId, publicUrl);
 	} catch (err) {
 		logger.error('[avatar] アバター保存失敗', {
 			error: err instanceof Error ? err.message : String(err),

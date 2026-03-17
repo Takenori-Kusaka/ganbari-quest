@@ -1,16 +1,20 @@
 import { todayDateJST } from '$lib/domain/date-utils';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
-import { db } from '$lib/server/db';
 import {
 	findAllAchievements,
 	findUnlockedAchievements,
 	insertChildAchievement,
 	isAchievementUnlocked,
 } from '$lib/server/db/achievement-repo';
+import {
+	countActiveActivityLogs,
+	countDistinctCategories,
+	findDistinctRecordedDates,
+	getCategoryCountsByDate,
+	insertPointLedger,
+} from '$lib/server/db/activity-repo';
 import { getBalance } from '$lib/server/db/point-repo';
-import { activities, activityLogs, pointLedger } from '$lib/server/db/schema';
 import { getChildStatus } from '$lib/server/services/status-service';
-import { and, count, countDistinct, eq } from 'drizzle-orm';
 
 // --- 型定義 ---
 
@@ -84,15 +88,13 @@ export function checkAndUnlockAchievements(childId: number): UnlockedAchievement
 					const milestoneIndex = milestones.indexOf(milestone);
 					const points = achievement.bonusPoints * (milestoneIndex + 1);
 
-					db.insert(pointLedger)
-						.values({
-							childId,
-							amount: points,
-							type: 'achievement',
-							description: `${achievement.name} ${milestone}たっせい！`,
-							referenceId: achievement.id,
-						})
-						.run();
+					insertPointLedger({
+						childId,
+						amount: points,
+						type: 'achievement',
+						description: `${achievement.name} ${milestone}たっせい！`,
+						referenceId: achievement.id,
+					});
 
 					newlyUnlocked.push({
 						achievementId: achievement.id,
@@ -122,15 +124,13 @@ export function checkAndUnlockAchievements(childId: number): UnlockedAchievement
 			if (met) {
 				insertChildAchievement(childId, achievement.id, null);
 
-				db.insert(pointLedger)
-					.values({
-						childId,
-						amount: achievement.bonusPoints,
-						type: 'achievement',
-						description: `${achievement.name}をたっせい！`,
-						referenceId: achievement.id,
-					})
-					.run();
+				insertPointLedger({
+					childId,
+					amount: achievement.bonusPoints,
+					type: 'achievement',
+					description: `${achievement.name}をたっせい！`,
+					referenceId: achievement.id,
+				});
 
 				newlyUnlocked.push({
 					achievementId: achievement.id,
@@ -234,15 +234,13 @@ export function grantLifeEvent(
 
 	insertChildAchievement(childId, achievementId, null);
 
-	db.insert(pointLedger)
-		.values({
-			childId,
-			amount: achievement.bonusPoints,
-			type: 'achievement',
-			description: `${achievement.name}おめでとう！`,
-			referenceId: achievement.id,
-		})
-		.run();
+	insertPointLedger({
+		childId,
+		amount: achievement.bonusPoints,
+		type: 'achievement',
+		description: `${achievement.name}おめでとう！`,
+		referenceId: achievement.id,
+	});
 
 	return { success: true, bonusPoints: achievement.bonusPoints };
 }
@@ -287,14 +285,7 @@ function getCurrentProgress(
 
 /** 最大連続日数を取得 */
 function getMaxStreakDays(childId: number): number {
-	const rows = db
-		.select({ recordedDate: activityLogs.recordedDate })
-		.from(activityLogs)
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
-		.groupBy(activityLogs.recordedDate)
-		.orderBy(activityLogs.recordedDate)
-		.all();
-
+	const rows = findDistinctRecordedDates(childId);
 	if (rows.length === 0) return 0;
 
 	let maxStreak = 1;
@@ -318,14 +309,7 @@ function getMaxStreakDays(childId: number): number {
 
 /** 現在のライブ連続日数を取得（最大ではなく、今日/昨日からの連続） */
 function getCurrentStreakDays(childId: number): number {
-	const rows = db
-		.select({ recordedDate: activityLogs.recordedDate })
-		.from(activityLogs)
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
-		.groupBy(activityLogs.recordedDate)
-		.orderBy(activityLogs.recordedDate)
-		.all();
-
+	const rows = findDistinctRecordedDates(childId);
 	if (rows.length === 0) return 0;
 
 	const today = todayDateJST();
@@ -353,27 +337,12 @@ function getCurrentStreakDays(childId: number): number {
 
 /** 累計活動数を取得 */
 function getTotalActivityCount(childId: number): number {
-	const result = db
-		.select({ total: count() })
-		.from(activityLogs)
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
-		.get();
-	return result?.total ?? 0;
+	return countActiveActivityLogs(childId);
 }
 
 /** 1日で最大何カテゴリ記録したかを取得 */
 function getMaxCategoryCountInDay(childId: number): number {
-	const rows = db
-		.select({
-			recordedDate: activityLogs.recordedDate,
-			categoryCount: countDistinct(activities.categoryId),
-		})
-		.from(activityLogs)
-		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
-		.groupBy(activityLogs.recordedDate)
-		.all();
-
+	const rows = getCategoryCountsByDate(childId);
 	return rows.reduce((max, r) => Math.max(max, r.categoryCount), 0);
 }
 
@@ -439,30 +408,11 @@ function evaluateCondition(
 
 /** 累計で記録した異なるカテゴリ数を取得 */
 function getDistinctCategoryCount(childId: number): number {
-	const result = db
-		.select({
-			count: countDistinct(activities.categoryId),
-		})
-		.from(activityLogs)
-		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
-		.get();
-
-	return result?.count ?? 0;
+	return countDistinctCategories(childId);
 }
 
 /** 全5カテゴリに記録がある日が存在するかチェック */
 function checkAllCategories(childId: number): boolean {
-	const rows = db
-		.select({
-			recordedDate: activityLogs.recordedDate,
-			categoryCount: countDistinct(activities.categoryId),
-		})
-		.from(activityLogs)
-		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
-		.groupBy(activityLogs.recordedDate)
-		.all();
-
+	const rows = getCategoryCountsByDate(childId);
 	return rows.some((r) => r.categoryCount >= CATEGORY_DEFS.length);
 }
