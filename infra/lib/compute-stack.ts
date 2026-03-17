@@ -8,33 +8,20 @@ import type { Construct } from 'constructs';
 export interface ComputeStackProps extends cdk.StackProps {
 	table: dynamodb.TableV2;
 	assetsBucket: s3.Bucket;
+	repository: ecr.Repository;
 }
 
 export class ComputeStack extends cdk.Stack {
 	public readonly fn: lambda.Function;
 	public readonly functionUrl: lambda.FunctionUrl;
-	public readonly repository: ecr.Repository;
 
 	constructor(scope: Construct, id: string, props: ComputeStackProps) {
 		super(scope, id, props);
 
-		// --- ECR Repository for Lambda container image ---
-		this.repository = new ecr.Repository(this, 'AppRepo', {
-			repositoryName: 'ganbari-quest',
-			removalPolicy: cdk.RemovalPolicy.RETAIN,
-			lifecycleRules: [
-				{
-					maxImageCount: 5,
-					description: 'Keep only 5 most recent images',
-				},
-			],
-		});
-
 		// --- Lambda: SvelteKit via Lambda Web Adapter ---
-		// First deploy: use placeholder image. GitHub Actions will push the real image.
 		this.fn = new lambda.DockerImageFunction(this, 'SvelteKitFn', {
 			functionName: 'ganbari-quest-app',
-			code: lambda.DockerImageCode.fromEcr(this.repository, {
+			code: lambda.DockerImageCode.fromEcr(props.repository, {
 				tagOrDigest: 'latest',
 			}),
 			memorySize: 512,
@@ -63,6 +50,5 @@ export class ComputeStack extends cdk.Stack {
 		// --- Outputs ---
 		new cdk.CfnOutput(this, 'FunctionUrl', { value: this.functionUrl.url });
 		new cdk.CfnOutput(this, 'FunctionName', { value: this.fn.functionName });
-		new cdk.CfnOutput(this, 'EcrRepositoryUri', { value: this.repository.repositoryUri });
 	}
 }
