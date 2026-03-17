@@ -1,18 +1,18 @@
 // tests/unit/domain/status-validation.test.ts
 // ステータス計算ロジックのユニットテスト
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-	calcLevel,
-	calcExpToNextLevel,
-	calcDeviationScore,
-	calcStars,
+	LEVEL_TABLE,
 	calcCharacterType,
 	calcDecay,
+	calcDeviationScore,
+	calcExpToNextLevel,
+	calcLevel,
+	calcStars,
 	calcTrend,
 	getAgeCoefficient,
 	getComparisonLabel,
-	LEVEL_TABLE,
 } from '../../../src/lib/domain/validation/status';
 
 describe('calcLevel', () => {
@@ -190,7 +190,7 @@ describe('LEVEL_TABLE', () => {
 
 	it('レベル1から10まで連続', () => {
 		for (let i = 0; i < 10; i++) {
-			expect(LEVEL_TABLE[i]!.level).toBe(i + 1);
+			expect(LEVEL_TABLE[i]?.level).toBe(i + 1);
 		}
 	});
 });

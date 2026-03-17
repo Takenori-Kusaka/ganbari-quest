@@ -1,7 +1,7 @@
 // tests/unit/services/activity-suggest-service.test.ts
 // AI活動提案サービスのユニットテスト（フォールバック+JSON抽出）
 
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Gemini APIをモックして常にnullを返す（フォールバックをテスト）
 vi.mock('@google/generative-ai', () => ({
@@ -13,7 +13,7 @@ vi.mock('$lib/server/logger', () => ({
 
 // GEMINI_API_KEY を未設定にしてフォールバック経由にする
 beforeAll(() => {
-	delete process.env.GEMINI_API_KEY;
+	process.env.GEMINI_API_KEY = undefined;
 });
 
 import { suggestActivity } from '../../../src/lib/server/services/activity-suggest-service';
@@ -88,4 +88,3 @@ describe('suggestActivity (fallback)', () => {
 		expect(result.source).toBe('fallback');
 	});
 });
-

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import { enhance } from '$app/forms';
+import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 
-	let { data, form } = $props();
-	let submitting = $state(false);
-	let addSuccess = $state(false);
+let { data, form } = $props();
+let submitting = $state(false);
+let addSuccess = $state(false);
 </script>
 
 <svelte:head>

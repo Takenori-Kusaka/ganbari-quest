@@ -98,11 +98,7 @@ export const activityLogs = sqliteTable(
 		cancelled: integer('cancelled').notNull().default(0),
 	},
 	(table) => [
-		index('idx_activity_logs_daily').on(
-			table.childId,
-			table.activityId,
-			table.recordedDate,
-		),
+		index('idx_activity_logs_daily').on(table.childId, table.activityId, table.recordedDate),
 		index('idx_activity_logs_child_date').on(table.childId, table.recordedDate),
 		index('idx_activity_logs_activity').on(table.activityId),
 		index('idx_activity_logs_streak').on(table.childId, table.activityId, table.recordedDate),
@@ -421,9 +417,7 @@ export const birthdayReviews = sqliteTable(
 		totalPoints: integer('total_points').notNull().default(0),
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [
-		uniqueIndex('idx_birthday_reviews_unique').on(table.childId, table.reviewYear),
-	],
+	(table) => [uniqueIndex('idx_birthday_reviews_unique').on(table.childId, table.reviewYear)],
 );
 
 // ============================================================
@@ -541,9 +535,7 @@ export const careerPlans = sqliteTable(
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [
-		index('idx_career_plans_child').on(table.childId, table.isActive),
-	],
+	(table) => [index('idx_career_plans_child').on(table.childId, table.isActive)],
 );
 
 // ============================================================
@@ -561,7 +553,5 @@ export const careerPlanHistory = sqliteTable(
 		snapshot: text('snapshot').notNull().default('{}'),
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [
-		index('idx_career_plan_history_plan').on(table.careerPlanId),
-	],
+	(table) => [index('idx_career_plan_history_plan').on(table.careerPlanId)],
 );

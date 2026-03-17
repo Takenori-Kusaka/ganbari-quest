@@ -1,7 +1,7 @@
+import { apiError, validationError } from '$lib/server/errors';
+import { ocrReceipt } from '$lib/server/services/receipt-ocr-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { ocrReceipt } from '$lib/server/services/receipt-ocr-service';
-import { validationError, apiError } from '$lib/server/errors';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -30,10 +30,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (result.error === 'NO_API_KEY') {
 			return apiError('INTERNAL_ERROR', 'Gemini API key is not configured');
 		}
-		return json(
-			{ error: { code: 'OCR_FAILED', message: result.message } },
-			{ status: 422 },
-		);
+		return json({ error: { code: 'OCR_FAILED', message: result.message } }, { status: 422 });
 	}
 
 	return json(result);

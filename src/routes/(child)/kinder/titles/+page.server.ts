@@ -1,4 +1,4 @@
-import { getChildTitles, setActiveTitle, getActiveTitle } from '$lib/server/services/title-service';
+import { getActiveTitle, getChildTitles, setActiveTitle } from '$lib/server/services/title-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 

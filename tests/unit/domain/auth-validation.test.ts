@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+	MAX_FAILED_ATTEMPTS,
+	PIN_MAX_LENGTH,
+	PIN_MIN_LENGTH,
+	SESSION_COOKIE_NAME,
+	SESSION_MAX_AGE_SECONDS,
 	loginSchema,
 	pinSchema,
-	PIN_MIN_LENGTH,
-	PIN_MAX_LENGTH,
-	MAX_FAILED_ATTEMPTS,
-	SESSION_MAX_AGE_SECONDS,
-	SESSION_COOKIE_NAME,
 } from '../../../src/lib/domain/validation/auth';
 
 describe('pinSchema', () => {

@@ -1,7 +1,7 @@
+import { apiError, validationError } from '$lib/server/errors';
+import { cancelActivityLog } from '$lib/server/services/activity-log-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { cancelActivityLog } from '$lib/server/services/activity-log-service';
-import { apiError, validationError } from '$lib/server/errors';
 
 export const DELETE: RequestHandler = async ({ params }) => {
 	const id = Number(params.id);

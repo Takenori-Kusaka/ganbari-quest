@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 /* ============================================================
    がんばりクエスト デザイントークン
@@ -49,7 +49,7 @@
    ============================================================ */
 
 :root,
-[data-theme='pink'] {
+[data-theme="pink"] {
 	--theme-primary: #ff69b4;
 	--theme-secondary: #ffb6c1;
 	--theme-accent: #ff1493;
@@ -57,7 +57,7 @@
 	--theme-nav: #ffe4e1;
 }
 
-[data-theme='blue'] {
+[data-theme="blue"] {
 	--theme-primary: #4fc3f7;
 	--theme-secondary: #81d4fa;
 	--theme-accent: #039be5;
@@ -65,7 +65,7 @@
 	--theme-nav: #bbdefb;
 }
 
-[data-theme='green'] {
+[data-theme="green"] {
 	--theme-primary: #66bb6a;
 	--theme-secondary: #a5d6a7;
 	--theme-accent: #388e3c;
@@ -73,7 +73,7 @@
 	--theme-nav: #c8e6c9;
 }
 
-[data-theme='orange'] {
+[data-theme="orange"] {
 	--theme-primary: #ffa726;
 	--theme-secondary: #ffcc80;
 	--theme-accent: #f57c00;
@@ -81,7 +81,7 @@
 	--theme-nav: #ffe0b2;
 }
 
-[data-theme='purple'] {
+[data-theme="purple"] {
 	--theme-primary: #ab47bc;
 	--theme-secondary: #ce93d8;
 	--theme-accent: #7b1fa2;
@@ -89,7 +89,7 @@
 	--theme-nav: #e1bee7;
 }
 
-[data-theme='admin'] {
+[data-theme="admin"] {
 	--theme-primary: #5c6bc0;
 	--theme-secondary: #9fa8da;
 	--theme-accent: #3949ab;
@@ -101,35 +101,35 @@
    Age Tier System (年齢帯別CSS変数)
    ============================================================ */
 
-[data-age-tier='baby'] {
+[data-age-tier="baby"] {
 	--age-tap-size: 120px;
 	--age-font-scale: 1.5;
 	--age-border-radius: var(--radius-lg);
 	--age-icon-size: 4rem;
 }
 
-[data-age-tier='kinder'] {
+[data-age-tier="kinder"] {
 	--age-tap-size: 80px;
 	--age-font-scale: 1.2;
 	--age-border-radius: var(--radius-md);
 	--age-icon-size: 3rem;
 }
 
-[data-age-tier='lower'] {
+[data-age-tier="lower"] {
 	--age-tap-size: 56px;
 	--age-font-scale: 1;
 	--age-border-radius: var(--radius-md);
 	--age-icon-size: 2.5rem;
 }
 
-[data-age-tier='upper'] {
+[data-age-tier="upper"] {
 	--age-tap-size: 48px;
 	--age-font-scale: 1;
 	--age-border-radius: var(--radius-sm);
 	--age-icon-size: 2rem;
 }
 
-[data-age-tier='teen'] {
+[data-age-tier="teen"] {
 	--age-tap-size: 44px;
 	--age-font-scale: 1;
 	--age-border-radius: var(--radius-sm);
@@ -141,7 +141,7 @@
    ============================================================ */
 
 html {
-	font-family: 'Noto Sans JP', sans-serif;
+	font-family: "Noto Sans JP", sans-serif;
 	background-color: var(--color-bg);
 	color: var(--color-text);
 	-webkit-tap-highlight-color: transparent;
@@ -241,12 +241,7 @@ body {
 }
 
 .animate-shimmer {
-	background: linear-gradient(
-		90deg,
-		transparent 25%,
-		rgba(255, 215, 0, 0.3) 50%,
-		transparent 75%
-	);
+	background: linear-gradient(90deg, transparent 25%, rgba(255, 215, 0, 0.3) 50%, transparent 75%);
 	background-size: 200% 100%;
 	animation: shimmer 2s infinite;
 }
@@ -256,11 +251,21 @@ body {
 }
 
 /* Staggered flame animation for streaks */
-.animate-flame:nth-child(1) { animation-delay: 0s; }
-.animate-flame:nth-child(2) { animation-delay: 0.1s; }
-.animate-flame:nth-child(3) { animation-delay: 0.2s; }
-.animate-flame:nth-child(4) { animation-delay: 0.3s; }
-.animate-flame:nth-child(5) { animation-delay: 0.4s; }
+.animate-flame:nth-child(1) {
+	animation-delay: 0s;
+}
+.animate-flame:nth-child(2) {
+	animation-delay: 0.1s;
+}
+.animate-flame:nth-child(3) {
+	animation-delay: 0.2s;
+}
+.animate-flame:nth-child(4) {
+	animation-delay: 0.3s;
+}
+.animate-flame:nth-child(5) {
+	animation-delay: 0.4s;
+}
 
 /* Skeleton loading block */
 .skeleton-block {
@@ -270,6 +275,10 @@ body {
 }
 
 @keyframes skeleton-shimmer {
-	0% { background-position: 200% 0; }
-	100% { background-position: -200% 0; }
+	0% {
+		background-position: 200% 0;
+	}
+	100% {
+		background-position: -200% 0;
+	}
 }

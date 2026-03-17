@@ -4,7 +4,7 @@
 // Environment variables:
 //   DATABASE_URL       - Path to SQLite database (default: ./data/ganbari-quest.db)
 //   BACKUP_DIR         - Backup destination directory (default: ./data/backups/)
-//   BACKUP_RETENTION   - Number of backups to keep (default: 10)
+//   BACKUP_RETENTION   - Number of backups to keep (default: 7)
 //   BACKUP_POST_HOOK   - Command to run after backup (receives backup path as argument)
 //
 // Examples:
@@ -39,7 +39,7 @@ const DB_PATH = process.env.DATABASE_URL
 const BACKUP_DIR = process.env.BACKUP_DIR
   ? path.resolve(process.env.BACKUP_DIR)
   : path.join(path.dirname(DB_PATH), 'backups');
-const MAX_BACKUPS = Number(process.env.BACKUP_RETENTION) || 10;
+const MAX_BACKUPS = Number(process.env.BACKUP_RETENTION) || 7;
 const POST_HOOK = process.env.BACKUP_POST_HOOK || '';
 
 async function main() {

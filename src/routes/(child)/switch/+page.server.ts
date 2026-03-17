@@ -44,7 +44,9 @@ export const actions: Actions = {
 
 		// Dynamic import to avoid bundling debug code in production
 		const { db } = await import('$lib/server/db/client');
-		const { activityLogs, pointLedger, loginBonuses, childAchievements } = await import('$lib/server/db/schema');
+		const { activityLogs, pointLedger, loginBonuses, childAchievements } = await import(
+			'$lib/server/db/schema'
+		);
 		const { eq } = await import('drizzle-orm');
 
 		// Clear activity logs

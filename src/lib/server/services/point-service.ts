@@ -1,13 +1,13 @@
 // src/lib/server/services/point-service.ts
 // ポイント管理サービス層
 
+import { type ConvertMode, POINTS_PER_CONVERT_UNIT } from '$lib/domain/validation/point';
 import {
-	getBalance,
-	findPointHistory,
-	insertPointEntry,
 	findChildById,
+	findPointHistory,
+	getBalance,
+	insertPointEntry,
 } from '$lib/server/db/point-repo';
-import { POINTS_PER_CONVERT_UNIT, type ConvertMode } from '$lib/domain/validation/point';
 
 export interface PointBalance {
 	childId: number;
@@ -23,17 +23,14 @@ export interface ConvertResult {
 }
 
 /** ポイント残高を取得 */
-export function getPointBalance(
-	childId: number,
-): PointBalance | { error: 'NOT_FOUND' } {
+export function getPointBalance(childId: number): PointBalance | { error: 'NOT_FOUND' } {
 	const child = findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
 	const balance = getBalance(childId);
 	const unit = POINTS_PER_CONVERT_UNIT;
 	const convertableAmount = Math.floor(balance / unit) * unit;
-	const nextConvertAt =
-		balance >= unit ? balance : unit;
+	const nextConvertAt = balance >= unit ? balance : unit;
 
 	return {
 		childId,

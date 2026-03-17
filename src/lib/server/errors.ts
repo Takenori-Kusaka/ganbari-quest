@@ -1,5 +1,5 @@
-import { json } from '@sveltejs/kit';
 import { logger } from '$lib/server/logger';
+import { json } from '@sveltejs/kit';
 
 export type ErrorCode =
 	| 'VALIDATION_ERROR'
@@ -93,11 +93,7 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 	},
 };
 
-export function apiError(
-	code: ErrorCode,
-	message: string,
-	context?: Record<string, unknown>,
-) {
+export function apiError(code: ErrorCode, message: string, context?: Record<string, unknown>) {
 	const def = ERROR_DEFINITIONS[code];
 	if (def.status >= 500) {
 		logger.error(`[API] ${code}: ${message}`, { context });

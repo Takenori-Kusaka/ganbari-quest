@@ -1,5 +1,5 @@
 <script lang="ts">
-import { page, navigating } from '$app/stores';
+import { navigating, page } from '$app/stores';
 import type { Snippet } from 'svelte';
 
 interface Props {

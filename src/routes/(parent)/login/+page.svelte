@@ -1,29 +1,29 @@
 <script lang="ts">
-	import NumPad from '$lib/ui/components/NumPad.svelte';
-	import { enhance } from '$app/forms';
-	import { PIN_MAX_LENGTH } from '$lib/domain/validation/auth';
+import { enhance } from '$app/forms';
+import { PIN_MAX_LENGTH } from '$lib/domain/validation/auth';
+import NumPad from '$lib/ui/components/NumPad.svelte';
 
-	let { form } = $props();
+let { form } = $props();
 
-	let pin = $state('');
-	let loading = $state(false);
-	let formEl: HTMLFormElement | undefined = $state();
+let pin = $state('');
+let loading = $state(false);
+let formEl: HTMLFormElement | undefined = $state();
 
-	function handleInput(digit: string) {
-		if (pin.length < PIN_MAX_LENGTH) {
-			pin += digit;
-		}
+function handleInput(digit: string) {
+	if (pin.length < PIN_MAX_LENGTH) {
+		pin += digit;
 	}
+}
 
-	function handleDelete() {
-		pin = pin.slice(0, -1);
-	}
+function handleDelete() {
+	pin = pin.slice(0, -1);
+}
 
-	function handleSubmit() {
-		if (pin.length >= 4 && formEl) {
-			formEl.requestSubmit();
-		}
+function handleSubmit() {
+	if (pin.length >= 4 && formEl) {
+		formEl.requestSubmit();
 	}
+}
 </script>
 
 <div data-theme="admin" class="login-page">

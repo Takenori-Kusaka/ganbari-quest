@@ -2,19 +2,19 @@
 // ログインボーナスサービス層
 
 import {
+	calcLoginBonusPoints,
 	drawOmikuji,
 	getLoginMultiplier,
-	calcLoginBonusPoints,
 } from '$lib/domain/validation/login-bonus';
 import {
-	findTodayBonus,
-	findRecentBonuses,
-	insertLoginBonus,
 	findChildById,
+	findRecentBonuses,
+	findTodayBonus,
+	insertLoginBonus,
 } from '$lib/server/db/login-bonus-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 
-import { todayDateJST, prevDateJST } from '$lib/domain/date-utils';
+import { prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 
 /** 今日の日付をYYYY-MM-DD形式で取得 (JST) */
 const todayDate = todayDateJST;
@@ -23,10 +23,7 @@ const todayDate = todayDateJST;
 const prevDate = prevDateJST;
 
 /** 連続ログイン日数を計算 */
-export function calculateConsecutiveDays(
-	childId: number,
-	today: string,
-): number {
+export function calculateConsecutiveDays(childId: number, today: string): number {
 	const bonuses = findRecentBonuses(childId, 60);
 
 	if (bonuses.length === 0) return 1;
@@ -66,9 +63,7 @@ export interface ClaimResult {
 }
 
 /** ログインボーナスの状態を取得 */
-export function getLoginBonusStatus(
-	childId: number,
-): LoginBonusStatus | { error: 'NOT_FOUND' } {
+export function getLoginBonusStatus(childId: number): LoginBonusStatus | { error: 'NOT_FOUND' } {
 	const child = findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
@@ -89,10 +84,7 @@ export function getLoginBonusStatus(
 /** ログインボーナスを受け取る */
 export function claimLoginBonus(
 	childId: number,
-):
-	| ClaimResult
-	| { error: 'NOT_FOUND' }
-	| { error: 'ALREADY_CLAIMED' } {
+): ClaimResult | { error: 'NOT_FOUND' } | { error: 'ALREADY_CLAIMED' } {
 	const child = findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 

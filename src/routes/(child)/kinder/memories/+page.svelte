@@ -1,36 +1,36 @@
 <script lang="ts">
-	import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
-	let { data } = $props();
+let { data } = $props();
 
-	let detailOpen = $state(false);
-	let selectedReview = $state<(typeof data.reviews)[number] | null>(null);
+let detailOpen = $state(false);
+let selectedReview = $state<(typeof data.reviews)[number] | null>(null);
 
-	const healthLabels: Record<string, { label: string; icon: string }> = {
-		no_injury: { label: 'おおきなけがをしなかった', icon: '🩹' },
-		no_cold: { label: 'かぜをあまりひかなかった', icon: '🤧' },
-		played_outside: { label: 'たくさんそとであそんだ', icon: '🌞' },
-		ate_well: { label: 'すききらいなくたべられた', icon: '🍽️' },
-		slept_well: { label: 'はやねはやおきができた', icon: '😴' },
-	};
+const healthLabels: Record<string, { label: string; icon: string }> = {
+	no_injury: { label: 'おおきなけがをしなかった', icon: '🩹' },
+	no_cold: { label: 'かぜをあまりひかなかった', icon: '🤧' },
+	played_outside: { label: 'たくさんそとであそんだ', icon: '🌞' },
+	ate_well: { label: 'すききらいなくたべられた', icon: '🍽️' },
+	slept_well: { label: 'はやねはやおきができた', icon: '😴' },
+};
 
-	function parseHealthChecks(json: string): Record<string, boolean> {
-		try {
-			return JSON.parse(json);
-		} catch {
-			return {};
-		}
+function parseHealthChecks(json: string): Record<string, boolean> {
+	try {
+		return JSON.parse(json);
+	} catch {
+		return {};
 	}
+}
 
-	function getCheckedCount(review: (typeof data.reviews)[number]): number {
-		const checks = parseHealthChecks(review.healthChecks);
-		return Object.values(checks).filter(Boolean).length;
-	}
+function getCheckedCount(review: (typeof data.reviews)[number]): number {
+	const checks = parseHealthChecks(review.healthChecks);
+	return Object.values(checks).filter(Boolean).length;
+}
 
-	function handleTap(review: (typeof data.reviews)[number]) {
-		selectedReview = review;
-		detailOpen = true;
-	}
+function handleTap(review: (typeof data.reviews)[number]) {
+	selectedReview = review;
+	detailOpen = true;
+}
 </script>
 
 <svelte:head>

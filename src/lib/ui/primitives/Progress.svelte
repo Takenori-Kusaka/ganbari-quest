@@ -1,21 +1,21 @@
 <script lang="ts">
-	import { Progress as ArkProgress } from '@ark-ui/svelte/progress';
+import { Progress as ArkProgress } from '@ark-ui/svelte/progress';
 
-	interface Props {
-		value: number;
-		max?: number;
-		label?: string;
-		color?: string;
-		size?: 'sm' | 'md' | 'lg';
-	}
+interface Props {
+	value: number;
+	max?: number;
+	label?: string;
+	color?: string;
+	size?: 'sm' | 'md' | 'lg';
+}
 
-	let { value, max = 100, label, color = 'var(--theme-primary)', size = 'md' }: Props = $props();
+let { value, max = 100, label, color = 'var(--theme-primary)', size = 'md' }: Props = $props();
 
-	const heightClasses = {
-		sm: 'h-2',
-		md: 'h-4',
-		lg: 'h-6',
-	};
+const heightClasses = {
+	sm: 'h-2',
+	md: 'h-4',
+	lg: 'h-6',
+};
 </script>
 
 <ArkProgress.Root {value} {max} class="w-full">

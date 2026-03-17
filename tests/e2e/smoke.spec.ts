@@ -24,7 +24,10 @@ async function selectChild(page: Page) {
 async function dismissOverlays(page: Page) {
 	// おみくじオーバーレイを閉じる（演出の ?マーク → ランク表示 → ボタン の流れ）
 	// まず演出中の ?マーク が出ているか短時間チェック
-	const hasOmikuji = await page.getByText('きょうのうんせい').isVisible().catch(() => false);
+	const hasOmikuji = await page
+		.getByText('きょうのうんせい')
+		.isVisible()
+		.catch(() => false);
 	if (hasOmikuji) {
 		try {
 			const omikujiBtn = page.getByRole('button', { name: /タップしてすすむ/ });
@@ -97,7 +100,9 @@ async function recordAnyActivity(page: Page): Promise<boolean> {
 			return true;
 		} catch {
 			// ALREADY_RECORDED（並列テストが先に記録済み）→ 確認ダイアログが閉じるのを待って次へ
-			await expect(page.getByText('きろくする？')).not.toBeVisible({ timeout: 1000 }).catch(() => {});
+			await expect(page.getByText('きろくする？'))
+				.not.toBeVisible({ timeout: 1000 })
+				.catch(() => {});
 		}
 	}
 	return false;

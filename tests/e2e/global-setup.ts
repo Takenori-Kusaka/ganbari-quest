@@ -35,7 +35,9 @@ export default async function globalSetup() {
 	try {
 		const Database = (await import('better-sqlite3')).default;
 		const db = new Database(DB_PATH);
-		const deleted = db.prepare("DELETE FROM activity_logs WHERE recorded_date = date('now', 'localtime')").run();
+		const deleted = db
+			.prepare("DELETE FROM activity_logs WHERE recorded_date = date('now', 'localtime')")
+			.run();
 		if (deleted.changes > 0) {
 			console.log(`[E2E Setup]   Cleaned ${deleted.changes} activity log(s) from today.`);
 		}

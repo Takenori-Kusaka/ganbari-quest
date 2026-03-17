@@ -1,10 +1,10 @@
 <script lang="ts">
-	interface Props {
-		days: number;
-		bonusPoints: number;
-	}
+interface Props {
+	days: number;
+	bonusPoints: number;
+}
 
-	let { days, bonusPoints }: Props = $props();
+let { days, bonusPoints }: Props = $props();
 </script>
 
 {#if days >= 2}

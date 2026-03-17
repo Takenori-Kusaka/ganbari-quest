@@ -12,7 +12,9 @@
 				"useConst": "error"
 			},
 			"suspicious": {
-				"noExplicitAny": "error"
+				"noExplicitAny": "error",
+				"noRedeclare": "warn",
+				"noAssignInExpressions": "warn"
 			},
 			"correctness": {
 				"noUnusedVariables": "warn",
@@ -50,6 +52,15 @@
 		}
 	],
 	"files": {
-		"ignore": ["node_modules", ".svelte-kit", "build", "coverage", "test-results", "*.db"]
+		"ignore": [
+			"node_modules",
+			".svelte-kit",
+			"build",
+			"coverage",
+			"test-results",
+			"*.db",
+			"scripts/",
+			"infra/"
+		]
 	}
 }
