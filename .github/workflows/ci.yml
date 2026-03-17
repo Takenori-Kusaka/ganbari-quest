@@ -37,5 +37,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Docker image
+      - name: Build Docker image (NUC)
         run: docker build -t ganbari-quest:test .
+
+      - name: Build Lambda Docker image (AWS)
+        run: docker build -f Dockerfile.lambda -t ganbari-quest-lambda:test .
