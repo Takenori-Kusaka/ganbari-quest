@@ -101,23 +101,30 @@ export class ComputeStack extends cdk.Stack {
 			},
 		});
 
-		// CloudWatch Logs → Firehose subscription role
+		// CloudWatch Logs → Firehose subscription role (inline policy to avoid race condition)
 		const subscriptionRole = new iam.Role(this, 'CWLogsToFirehoseRole', {
 			assumedBy: new iam.ServicePrincipal(`logs.${this.region}.amazonaws.com`),
+			inlinePolicies: {
+				FirehoseAccess: new iam.PolicyDocument({
+					statements: [
+						new iam.PolicyStatement({
+							actions: ['firehose:PutRecord', 'firehose:PutRecordBatch'],
+							resources: [stream.attrArn],
+						}),
+					],
+				}),
+			},
 		});
-		subscriptionRole.addToPolicy(
-			new iam.PolicyStatement({
-				actions: ['firehose:PutRecord', 'firehose:PutRecordBatch'],
-				resources: [stream.attrArn],
-			}),
-		);
 
 		// Subscription filter: all log events → Firehose
-		new logs.CfnSubscriptionFilter(this, 'LogArchiveSubscription', {
+		const subscription = new logs.CfnSubscriptionFilter(this, 'LogArchiveSubscription', {
 			logGroupName: logGroup.logGroupName,
 			filterPattern: '',
 			destinationArn: stream.attrArn,
 			roleArn: subscriptionRole.roleArn,
 		});
+		// Ensure IAM role + Firehose are fully created before subscription
+		subscription.node.addDependency(subscriptionRole);
+		subscription.node.addDependency(stream);
 	}
 }
