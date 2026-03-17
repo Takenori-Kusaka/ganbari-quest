@@ -53,7 +53,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	const body = await request.json();
 	const parsed = createCareerPlanSchema.safeParse(body);
 	if (!parsed.success) {
-		throw error(400, { message: parsed.error.issues[0].message });
+		throw error(400, { message: parsed.error.issues[0]?.message ?? 'バリデーションエラー' });
 	}
 
 	const result = createCareerPlan(childId, parsed.data);
@@ -86,7 +86,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	const body = await request.json();
 	const parsed = updateCareerPlanSchema.safeParse(body);
 	if (!parsed.success) {
-		throw error(400, { message: parsed.error.issues[0].message });
+		throw error(400, { message: parsed.error.issues[0]?.message ?? 'バリデーションエラー' });
 	}
 
 	const result = updateCareerPlanWithPoints(existing.id, childId, parsed.data);

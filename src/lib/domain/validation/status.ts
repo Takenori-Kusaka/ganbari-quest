@@ -25,7 +25,7 @@ export function calcLevel(avgStatus: number): { level: number; title: string } {
 	const entry = LEVEL_TABLE.find((e) => clamped >= e.minAvg && clamped <= e.maxAvg);
 	return entry
 		? { level: entry.level, title: entry.title }
-		: { level: 1, title: LEVEL_TABLE[0]?.title };
+		: { level: 1, title: LEVEL_TABLE[0]?.title ?? '' };
 }
 
 /** 次のレベルまでに必要なステータスポイント */
@@ -118,8 +118,8 @@ export const AGE_MAX_TABLE: { age: number; maxValue: number }[] = [
 export function getMaxForAge(age: number): number {
 	const entry = AGE_MAX_TABLE.find((e) => e.age === age);
 	if (entry) return entry.maxValue;
-	if (age < 1) return AGE_MAX_TABLE[0]?.maxValue;
-	return AGE_MAX_TABLE[AGE_MAX_TABLE.length - 1]?.maxValue;
+	if (age < 1) return AGE_MAX_TABLE[0]?.maxValue ?? 0;
+	return AGE_MAX_TABLE[AGE_MAX_TABLE.length - 1]?.maxValue ?? 0;
 }
 
 /** ステータスクエリスキーマ */

@@ -18,8 +18,8 @@ export function splitIcon(icon: string): ParsedIcon {
 	if (!icon) return { main: '', sub: null };
 	const segments = [...segmenter.segment(icon)];
 	return {
-		main: segments[0]?.segment,
-		sub: segments.length >= 2 ? segments[1]?.segment : null,
+		main: segments[0]?.segment ?? '',
+		sub: segments.length >= 2 ? (segments[1]?.segment ?? null) : null,
 	};
 }
 
