@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { StorageStack } from '../lib/storage-stack';
+import { AuthStack } from '../lib/auth-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { NetworkStack } from '../lib/network-stack';
+import { StorageStack } from '../lib/storage-stack';
 
 const app = new cdk.App();
 
@@ -23,12 +24,26 @@ const storage = new StorageStack(app, `${appName}Storage`, {
 	description: 'DynamoDB + S3 for Ganbari Quest',
 });
 
+// Google OAuth credentials (deploy with -c googleClientId=... -c googleClientSecret=...)
+const googleClientId = app.node.tryGetContext('googleClientId') as string | undefined;
+const googleClientSecret = app.node.tryGetContext('googleClientSecret') as string | undefined;
+
+const auth = new AuthStack(app, `${appName}Auth`, {
+	env,
+	description: 'Cognito User Pool for Ganbari Quest',
+	googleClientId,
+	googleClientSecret,
+	appDomain: domainName,
+});
+
 const compute = new ComputeStack(app, `${appName}Compute`, {
 	env,
 	description: 'Lambda (SvelteKit) + API Gateway for Ganbari Quest',
 	table: storage.table,
 	assetsBucket: storage.assetsBucket,
 	repository: storage.repository,
+	userPoolId: auth.userPool.userPoolId,
+	userPoolClientId: auth.userPoolClient.userPoolClientId,
 });
 
 new NetworkStack(app, `${appName}Network`, {
