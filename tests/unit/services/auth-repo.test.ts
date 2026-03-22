@@ -37,9 +37,7 @@ describe('auth-repo: User', () => {
 			],
 		});
 
-		const { findUserByEmail } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { findUserByEmail } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const user = await findUserByEmail('parent@example.com');
 
 		expect(user).toBeDefined();
@@ -51,9 +49,7 @@ describe('auth-repo: User', () => {
 	it('findUserByEmail — ユーザーが見つからない場合', async () => {
 		mockSend.mockResolvedValue({ Items: [] });
 
-		const { findUserByEmail } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { findUserByEmail } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const user = await findUserByEmail('unknown@example.com');
 
 		expect(user).toBeUndefined();
@@ -72,9 +68,7 @@ describe('auth-repo: User', () => {
 			},
 		});
 
-		const { findUserById } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { findUserById } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const user = await findUserById('u-xyz');
 
 		expect(user).toBeDefined();
@@ -84,9 +78,7 @@ describe('auth-repo: User', () => {
 	it('findUserById — ユーザーが見つからない場合', async () => {
 		mockSend.mockResolvedValue({ Item: undefined });
 
-		const { findUserById } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { findUserById } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const user = await findUserById('u-nonexistent');
 
 		expect(user).toBeUndefined();
@@ -95,9 +87,7 @@ describe('auth-repo: User', () => {
 	it('createUser — Profile と Email lookup を作成する', async () => {
 		mockSend.mockResolvedValue({});
 
-		const { createUser } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { createUser } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const user = await createUser({
 			email: 'new@example.com',
 			provider: 'google',
@@ -128,9 +118,7 @@ describe('auth-repo: Tenant', () => {
 			},
 		});
 
-		const { findTenantById } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { findTenantById } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const tenant = await findTenantById('t-family');
 
 		expect(tenant?.name).toBe('田中家');
@@ -140,9 +128,7 @@ describe('auth-repo: Tenant', () => {
 	it('createTenant — テナントを作成する', async () => {
 		mockSend.mockResolvedValue({});
 
-		const { createTenant } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { createTenant } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const tenant = await createTenant({ name: '佐藤家' });
 
 		expect(tenant.tenantId).toMatch(/^t-[0-9a-f-]+$/);
@@ -166,9 +152,7 @@ describe('auth-repo: Tenant', () => {
 			})
 			.mockResolvedValueOnce({});
 
-		const { updateTenantStatus } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { updateTenantStatus } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		await updateTenantStatus('t-1', 'suspended');
 
 		expect(mockSend).toHaveBeenCalledTimes(2);
@@ -177,9 +161,7 @@ describe('auth-repo: Tenant', () => {
 	it('updateTenantStatus — テナントが存在しない場合は何もしない', async () => {
 		mockSend.mockResolvedValue({ Item: undefined });
 
-		const { updateTenantStatus } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { updateTenantStatus } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		await updateTenantStatus('t-nonexistent', 'suspended');
 
 		// Get のみで Put はしない
@@ -200,9 +182,7 @@ describe('auth-repo: Membership', () => {
 			},
 		});
 
-		const { findMembership } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { findMembership } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const m = await findMembership('u-1', 't-1');
 
 		expect(m?.role).toBe('owner');
@@ -216,9 +196,7 @@ describe('auth-repo: Membership', () => {
 			],
 		});
 
-		const { findUserTenants } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { findUserTenants } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const memberships = await findUserTenants('u-1');
 
 		expect(memberships).toHaveLength(2);
@@ -234,9 +212,7 @@ describe('auth-repo: Membership', () => {
 			],
 		});
 
-		const { findTenantMembers } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { findTenantMembers } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const members = await findTenantMembers('t-1');
 
 		expect(members).toHaveLength(2);
@@ -245,9 +221,7 @@ describe('auth-repo: Membership', () => {
 	it('createMembership — 双方向書き込み（Tenant側 + User側）', async () => {
 		mockSend.mockResolvedValue({});
 
-		const { createMembership } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { createMembership } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const m = await createMembership({
 			userId: 'u-new',
 			tenantId: 't-target',
@@ -266,9 +240,7 @@ describe('auth-repo: Membership', () => {
 	it('deleteMembership — 双方向削除（Tenant側 + User側）', async () => {
 		mockSend.mockResolvedValue({});
 
-		const { deleteMembership } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { deleteMembership } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		await deleteMembership('u-leave', 't-old');
 
 		// 2回の DeleteCommand
@@ -290,9 +262,7 @@ describe('auth-repo: DeviceToken', () => {
 			},
 		});
 
-		const { findDeviceToken } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { findDeviceToken } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const token = await findDeviceToken('d-tablet');
 
 		expect(token?.status).toBe('active');
@@ -302,9 +272,7 @@ describe('auth-repo: DeviceToken', () => {
 	it('findDeviceToken — 見つからない場合', async () => {
 		mockSend.mockResolvedValue({ Item: undefined });
 
-		const { findDeviceToken } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { findDeviceToken } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const token = await findDeviceToken('d-unknown');
 
 		expect(token).toBeUndefined();
@@ -313,9 +281,7 @@ describe('auth-repo: DeviceToken', () => {
 	it('createDeviceToken — Device + Tenant-device の双方向書き込み', async () => {
 		mockSend.mockResolvedValue({});
 
-		const { createDeviceToken } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { createDeviceToken } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const token = await createDeviceToken({
 			tenantId: 't-1',
 			registeredBy: 'u-owner',
@@ -343,9 +309,7 @@ describe('auth-repo: DeviceToken', () => {
 			})
 			.mockResolvedValue({});
 
-		const { revokeDeviceToken } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { revokeDeviceToken } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		await revokeDeviceToken('d-revoke-me');
 
 		// Get(1回) + Put×2(Device + Tenant-device) = 3回
@@ -355,9 +319,7 @@ describe('auth-repo: DeviceToken', () => {
 	it('revokeDeviceToken — 存在しない場合は何もしない', async () => {
 		mockSend.mockResolvedValue({ Item: undefined });
 
-		const { revokeDeviceToken } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { revokeDeviceToken } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		await revokeDeviceToken('d-nonexistent');
 
 		// Get のみ
@@ -384,9 +346,7 @@ describe('auth-repo: DeviceToken', () => {
 			],
 		});
 
-		const { findTenantDevices } = await import(
-			'../../../src/lib/server/db/dynamodb/auth-repo'
-		);
+		const { findTenantDevices } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const devices = await findTenantDevices('t-1');
 
 		expect(devices).toHaveLength(2);

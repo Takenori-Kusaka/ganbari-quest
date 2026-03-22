@@ -286,7 +286,7 @@ describe('hooks.server.ts handle（結合テスト）', () => {
 			const response = await handle({ event, resolve } as any);
 
 			expect(response.status).toBe(200);
-			expect(event.locals.identity?.type).toBe('device');
+			expect((event.locals.identity as Identity | null)?.type).toBe('device');
 		});
 
 		it('Context なし（テナント未選択）→ /auth/select-tenant にリダイレクト', async () => {

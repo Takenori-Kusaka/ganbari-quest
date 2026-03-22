@@ -58,6 +58,7 @@
 			"build",
 			"coverage",
 			"test-results",
+			"test-results.json",
 			"*.db",
 			"scripts/",
 			"infra/",

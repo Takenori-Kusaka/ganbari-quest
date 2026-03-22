@@ -48,7 +48,7 @@ describe('verifyIdentityToken', () => {
 				token_use: 'id',
 			},
 			protectedHeader: { alg: 'RS256' },
-		// biome-ignore lint/suspicious/noExplicitAny: jose mock type
+			// biome-ignore lint/suspicious/noExplicitAny: jose mock type
 		} as any);
 
 		const { verifyIdentityToken } = await import(
@@ -73,7 +73,7 @@ describe('verifyIdentityToken', () => {
 				aud: 'test-client-id',
 			},
 			protectedHeader: { alg: 'RS256' },
-		// biome-ignore lint/suspicious/noExplicitAny: jose mock type
+			// biome-ignore lint/suspicious/noExplicitAny: jose mock type
 		} as any);
 
 		const { verifyIdentityToken } = await import(
@@ -107,9 +107,7 @@ describe('verifyIdentityToken', () => {
 	});
 
 	it('issuer が不正な場合 null を返す', async () => {
-		mockJwtVerify.mockRejectedValue(
-			new Error('unexpected "iss" claim value'),
-		);
+		mockJwtVerify.mockRejectedValue(new Error('unexpected "iss" claim value'));
 
 		const { verifyIdentityToken } = await import(
 			'../../../src/lib/server/auth/providers/cognito-jwt'
@@ -120,9 +118,7 @@ describe('verifyIdentityToken', () => {
 	});
 
 	it('audience が不正な場合 null を返す', async () => {
-		mockJwtVerify.mockRejectedValue(
-			new Error('unexpected "aud" claim value'),
-		);
+		mockJwtVerify.mockRejectedValue(new Error('unexpected "aud" claim value'));
 
 		const { verifyIdentityToken } = await import(
 			'../../../src/lib/server/auth/providers/cognito-jwt'
@@ -154,7 +150,7 @@ describe('verifyIdentityToken', () => {
 				aud: 'test-client-id',
 			},
 			protectedHeader: { alg: 'RS256' },
-		// biome-ignore lint/suspicious/noExplicitAny: jose mock type
+			// biome-ignore lint/suspicious/noExplicitAny: jose mock type
 		} as any);
 
 		const { verifyIdentityToken } = await import(

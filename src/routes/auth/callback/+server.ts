@@ -1,12 +1,12 @@
 // /auth/callback — Cognito OAuth コールバック
 // Authorization Code を受け取り、トークン交換して Cookie にセット
 
-import { logger } from '$lib/server/logger';
 import {
 	exchangeCodeForTokens,
 	setIdentityCookie,
 	verifyOAuthState,
 } from '$lib/server/auth/providers/cognito-oauth';
+import { logger } from '$lib/server/logger';
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
