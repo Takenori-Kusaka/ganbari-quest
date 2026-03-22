@@ -2,8 +2,6 @@
 // Gemini API を使ったキャラクター画像生成サービス
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
 	findCachedImage,
 	findChildForImage,
@@ -11,17 +9,9 @@ import {
 	updateChildAvatarUrl,
 } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
+import { fileExists, saveFile } from '$lib/server/storage';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildAvatarPrompt, buildFaviconPrompt } from './image-prompt';
-
-const GENERATED_DIR = join(process.cwd(), 'static', 'generated');
-const FALLBACK_DIR = join(process.cwd(), 'static');
-
-function ensureDir(dir: string) {
-	if (!existsSync(dir)) {
-		mkdirSync(dir, { recursive: true });
-	}
-}
 
 function getGeminiClient(): GoogleGenerativeAI | null {
 	const apiKey = process.env.GEMINI_API_KEY;
@@ -119,8 +109,6 @@ export async function generateAvatar(
 	const child = await findChildForImage(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
-	ensureDir(GENERATED_DIR);
-
 	const prompt = buildAvatarPrompt({
 		nickname: child.nickname,
 		age: child.age,
@@ -133,7 +121,7 @@ export async function generateAvatar(
 	// Check cache
 	const cached = await findCachedImage(childId, 'avatar', promptHash);
 
-	if (cached && existsSync(join(process.cwd(), 'static', cached.filePath))) {
+	if (cached && (await fileExists(cached.filePath))) {
 		return { filePath: `/${cached.filePath}`, isGenerated: true };
 	}
 
@@ -145,13 +133,13 @@ export async function generateAvatar(
 
 	if (imageData) {
 		filePath = `generated/${fileName}.png`;
-		writeFileSync(join(GENERATED_DIR, `${fileName}.png`), imageData);
+		await saveFile(filePath, imageData, 'image/png');
 		isGenerated = true;
 	} else {
 		// Fallback SVG
 		filePath = `generated/${fileName}.svg`;
 		const fallback = generateFallbackAvatar(child.nickname, child.theme);
-		writeFileSync(join(GENERATED_DIR, `${fileName}.svg`), fallback);
+		await saveFile(filePath, fallback, 'image/svg+xml');
 		isGenerated = false;
 	}
 
@@ -175,16 +163,11 @@ export async function generateFavicon(): Promise<{
 	filePath: string;
 	isGenerated: boolean;
 }> {
-	ensureDir(GENERATED_DIR);
-
-	const faviconPng = join(GENERATED_DIR, 'favicon.png');
-	const faviconSvg = join(FALLBACK_DIR, 'favicon.svg');
-
 	// Check if already generated
-	if (existsSync(faviconPng)) {
+	if (await fileExists('generated/favicon.png')) {
 		return { filePath: '/generated/favicon.png', isGenerated: true };
 	}
-	if (existsSync(faviconSvg)) {
+	if (await fileExists('favicon.svg')) {
 		return { filePath: '/favicon.svg', isGenerated: false };
 	}
 
@@ -192,22 +175,19 @@ export async function generateFavicon(): Promise<{
 	const imageData = await generateImageWithGemini(prompt);
 
 	if (imageData) {
-		writeFileSync(faviconPng, imageData);
+		await saveFile('generated/favicon.png', imageData, 'image/png');
 		return { filePath: '/generated/favicon.png', isGenerated: true };
 	}
 
 	// Fallback SVG
 	const fallback = generateFallbackFavicon();
-	writeFileSync(faviconSvg, fallback);
+	await saveFile('favicon.svg', fallback, 'image/svg+xml');
 	return { filePath: '/favicon.svg', isGenerated: false };
 }
 
 /** favicon の現在パスを取得 */
-export function getFaviconPath(): string {
-	const faviconPng = join(GENERATED_DIR, 'favicon.png');
-	const faviconSvg = join(FALLBACK_DIR, 'favicon.svg');
-
-	if (existsSync(faviconPng)) return '/generated/favicon.png';
-	if (existsSync(faviconSvg)) return '/favicon.svg';
+export async function getFaviconPath(): Promise<string> {
+	if (await fileExists('generated/favicon.png')) return '/generated/favicon.png';
+	if (await fileExists('favicon.svg')) return '/favicon.svg';
 	return '';
 }

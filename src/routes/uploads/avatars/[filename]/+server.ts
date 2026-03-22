@@ -1,25 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { extname, join } from 'node:path';
 // Dynamic file server for uploaded avatars
-// adapter-node only serves build-time static files, so runtime uploads need a route
+// Serves from local filesystem (NUC) or S3 (Lambda)
+import { readFile } from '$lib/server/storage';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-const UPLOAD_DIR = join(
-	process.cwd(),
-	process.env.NODE_ENV === 'production' ? 'client' : 'static',
-	'uploads',
-	'avatars',
-);
-
-const MIME_TYPES: Record<string, string> = {
-	'.jpg': 'image/jpeg',
-	'.jpeg': 'image/jpeg',
-	'.png': 'image/png',
-	'.webp': 'image/webp',
-};
-
-export const GET: RequestHandler = ({ params }) => {
+export const GET: RequestHandler = async ({ params }) => {
 	const filename = params.filename;
 
 	// Prevent path traversal
@@ -27,19 +12,14 @@ export const GET: RequestHandler = ({ params }) => {
 		throw error(400, 'Invalid filename');
 	}
 
-	const filePath = join(UPLOAD_DIR, filename);
-
-	if (!existsSync(filePath)) {
+	const result = await readFile(`uploads/avatars/${filename}`);
+	if (!result) {
 		throw error(404, 'File not found');
 	}
 
-	const ext = extname(filename).toLowerCase();
-	const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
-	const data = readFileSync(filePath);
-
-	return new Response(data, {
+	return new Response(new Uint8Array(result.data), {
 		headers: {
-			'Content-Type': contentType,
+			'Content-Type': result.contentType,
 			'Cache-Control': 'public, max-age=31536000, immutable',
 		},
 	});
