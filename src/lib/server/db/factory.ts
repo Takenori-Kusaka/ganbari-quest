@@ -1,6 +1,7 @@
 // src/lib/server/db/factory.ts
 // DATA_SOURCE 環境変数による SQLite / DynamoDB バックエンド切り替え
 
+import * as dynamoStorageRepo from './dynamodb/storage-repo';
 import * as dynamoAchievementRepo from './dynamodb/achievement-repo';
 import * as dynamoActivityRepo from './dynamodb/activity-repo';
 import * as dynamoAvatarRepo from './dynamodb/avatar-repo';
@@ -32,7 +33,9 @@ import type { IPointRepo } from './interfaces/point-repo.interface';
 import type { ISettingsRepo } from './interfaces/settings-repo.interface';
 import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interface';
 import type { IStatusRepo } from './interfaces/status-repo.interface';
+import type { IStorageRepo } from './interfaces/storage.interface';
 import type { ITitleRepo } from './interfaces/title-repo.interface';
+import * as sqliteStorageRepo from './sqlite/storage-repo';
 import * as sqliteAchievementRepo from './sqlite/achievement-repo';
 import * as sqliteActivityRepo from './sqlite/activity-repo';
 import * as sqliteAvatarRepo from './sqlite/avatar-repo';
@@ -66,6 +69,7 @@ export interface Repositories {
 	settings: ISettingsRepo;
 	specialReward: ISpecialRewardRepo;
 	status: IStatusRepo;
+	storage: IStorageRepo;
 	title: ITitleRepo;
 }
 
@@ -92,6 +96,7 @@ export function getRepos(): Repositories {
 			settings: dynamoSettingsRepo,
 			specialReward: dynamoSpecialRewardRepo,
 			status: dynamoStatusRepo,
+			storage: dynamoStorageRepo,
 			title: dynamoTitleRepo,
 		};
 		_repos = repos;
@@ -114,6 +119,7 @@ export function getRepos(): Repositories {
 		settings: sqliteSettingsRepo,
 		specialReward: sqliteSpecialRewardRepo,
 		status: sqliteStatusRepo,
+		storage: sqliteStorageRepo,
 		title: sqliteTitleRepo,
 	};
 	_repos = repos;
