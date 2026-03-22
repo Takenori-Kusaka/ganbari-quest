@@ -1,0 +1,22 @@
+// src/lib/server/auth/factory.ts
+// AUTH_MODE 環境変数による AuthProvider 切り替え
+
+import { LocalAuthProvider } from './providers/local';
+import type { AuthMode, AuthProvider } from './types';
+
+let _provider: AuthProvider | null = null;
+
+export function getAuthProvider(): AuthProvider {
+	if (_provider) return _provider;
+
+	const mode = (process.env.AUTH_MODE ?? 'local') as AuthMode;
+
+	if (mode === 'cognito') {
+		throw new Error(
+			'Cognito auth provider is not yet implemented. Set AUTH_MODE=local or omit it.',
+		);
+	}
+
+	_provider = new LocalAuthProvider();
+	return _provider;
+}
