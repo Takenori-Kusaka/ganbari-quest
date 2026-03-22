@@ -375,3 +375,290 @@ test.describe('#0082: レーダーチャート', () => {
 		await expect(svg).toBeVisible();
 	});
 });
+
+// ============================================================
+// #0122: アバターアップロード (ファイルアップロード正常系)
+// ★ Lambda BODY_SIZE_LIMIT 問題で検出漏れした領域
+// ============================================================
+test.describe('#0122: アバターアップロード', () => {
+	/** 最小限の有効 JPEG バイナリ */
+	function createMinimalJpeg(): Buffer {
+		return Buffer.from([
+			0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00,
+			0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xdb, 0x00, 0x43, 0x00, 0x08, 0x06, 0x06, 0x07, 0x06,
+			0x05, 0x08, 0x07, 0x07, 0x07, 0x09, 0x09, 0x08, 0x0a, 0x0c, 0x14, 0x0d, 0x0c, 0x0b, 0x0b,
+			0x0c, 0x19, 0x12, 0x13, 0x0f, 0x14, 0x1d, 0x1a, 0x1f, 0x1e, 0x1d, 0x1a, 0x1c, 0x1c, 0x20,
+			0x24, 0x2e, 0x27, 0x20, 0x22, 0x2c, 0x23, 0x1c, 0x1c, 0x28, 0x37, 0x29, 0x2c, 0x30, 0x31,
+			0x34, 0x34, 0x34, 0x1f, 0x27, 0x39, 0x3d, 0x38, 0x32, 0x3c, 0x2e, 0x33, 0x34, 0x32, 0xff,
+			0xc0, 0x00, 0x0b, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x11, 0x00, 0xff, 0xc4, 0x00,
+			0x1f, 0x00, 0x00, 0x01, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+			0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00, 0x7b, 0x94, 0x11, 0x00, 0x00,
+			0x00, 0x00, 0xff, 0xd9,
+		]);
+	}
+
+	test('有効なJPEGファイルでアバターをアップロードできる', async ({ request }) => {
+		const jpegData = createMinimalJpeg();
+		const res = await request.post('/api/v1/children/1/avatar', {
+			multipart: {
+				avatar: {
+					name: 'test-avatar.jpg',
+					mimeType: 'image/jpeg',
+					buffer: jpegData,
+				},
+			},
+		});
+		expect(res.status()).toBe(200);
+		const body = await res.json();
+		expect(body.avatarUrl).toBeDefined();
+		expect(body.avatarUrl).toMatch(/\/uploads\/avatars\/avatar-1-\d+\.jpg/);
+	});
+
+	test('アップロードしたアバター画像を取得できる', async ({ request }) => {
+		const jpegData = createMinimalJpeg();
+		const uploadRes = await request.post('/api/v1/children/1/avatar', {
+			multipart: {
+				avatar: {
+					name: 'test.jpg',
+					mimeType: 'image/jpeg',
+					buffer: jpegData,
+				},
+			},
+		});
+		expect(uploadRes.status()).toBe(200);
+		const { avatarUrl } = await uploadRes.json();
+
+		const getRes = await request.get(avatarUrl);
+		expect(getRes.status()).toBe(200);
+		expect(getRes.headers()['content-type']).toMatch(/image\/jpeg/);
+	});
+
+	test('ファイルなしで400エラー', async ({ request }) => {
+		const res = await request.post('/api/v1/children/1/avatar', {
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+		});
+		expect(res.status()).toBe(400);
+	});
+
+	test('不正なMIMEタイプで400エラー', async ({ request }) => {
+		const res = await request.post('/api/v1/children/1/avatar', {
+			multipart: {
+				avatar: {
+					name: 'test.gif',
+					mimeType: 'image/gif',
+					buffer: Buffer.from('GIF89a'),
+				},
+			},
+		});
+		expect(res.status()).toBe(400);
+	});
+
+	test('存在しない子供のアバターアップロードで404', async ({ request }) => {
+		const jpegData = createMinimalJpeg();
+		const res = await request.post('/api/v1/children/999/avatar', {
+			multipart: {
+				avatar: {
+					name: 'test.jpg',
+					mimeType: 'image/jpeg',
+					buffer: jpegData,
+				},
+			},
+		});
+		expect(res.status()).toBe(404);
+	});
+});
+
+// ============================================================
+// API 正常系テスト — 全 POST/PUT/PATCH/DELETE エンドポイント
+// ★ 正常パスの網羅的カバレッジ
+// ============================================================
+test.describe('API 正常系: 活動記録', () => {
+	test('活動を記録してログが返る', async ({ request }) => {
+		const activitiesRes = await request.get('/api/v1/activities?childId=1');
+		const { activities } = await activitiesRes.json();
+		expect(activities.length).toBeGreaterThan(0);
+
+		const activityId = activities[0].id;
+		const res = await request.post('/api/v1/activity-logs', {
+			data: { childId: 1, activityId },
+		});
+		// 201(成功) or 409(既に記録済み)
+		expect([201, 409]).toContain(res.status());
+	});
+
+	test('活動ログを取得できる', async ({ request }) => {
+		const res = await request.get('/api/v1/activity-logs?childId=1&period=week');
+		expect(res.status()).toBe(200);
+		const body = await res.json();
+		expect(body.logs).toBeDefined();
+	});
+});
+
+test.describe('API 正常系: 活動マスタ', () => {
+	test('活動を新規作成できる', async ({ request }) => {
+		const res = await request.post('/api/v1/activities', {
+			data: {
+				name: 'E2Eテスト活動',
+				icon: '🧪',
+				basePoints: 5,
+				categoryId: 1,
+				ageMin: null,
+				ageMax: null,
+			},
+		});
+		expect(res.status()).toBe(201);
+		const body = await res.json();
+		expect(body.name).toBe('E2Eテスト活動');
+		expect(body.id).toBeDefined();
+	});
+
+	test('活動の表示切替ができる', async ({ request }) => {
+		// 活動ID 1の現在状態を取得
+		const getRes = await request.get('/api/v1/activities/1');
+		const original = await getRes.json();
+
+		// 表示状態を切り替え
+		const res = await request.patch('/api/v1/activities/1/visibility', {
+			data: { isVisible: !original.isVisible },
+		});
+		expect(res.status()).toBe(200);
+
+		// 元に戻す
+		await request.patch('/api/v1/activities/1/visibility', {
+			data: { isVisible: original.isVisible },
+		});
+	});
+});
+
+test.describe('API 正常系: ポイント', () => {
+	test('ポイント残高が取得できる', async ({ request }) => {
+		const res = await request.get('/api/v1/points/1');
+		expect(res.status()).toBe(200);
+		const body = await res.json();
+		expect(typeof body.balance).toBe('number');
+	});
+
+	test('ポイント履歴が取得できる', async ({ request }) => {
+		const res = await request.get('/api/v1/points/1/history');
+		expect(res.status()).toBe(200);
+		const body = await res.json();
+		expect(body.history).toBeDefined();
+		expect(Array.isArray(body.history)).toBe(true);
+	});
+});
+
+test.describe('API 正常系: ログインボーナス', () => {
+	test('ログインボーナスを請求できる', async ({ request }) => {
+		const res = await request.post('/api/v1/login-bonus/1/claim');
+		// 201(成功) or 409(既に請求済み)
+		expect([201, 409]).toContain(res.status());
+	});
+
+	test('ログインボーナス状態が取得できる', async ({ request }) => {
+		const res = await request.get('/api/v1/login-bonus/1');
+		expect(res.status()).toBe(200);
+	});
+});
+
+test.describe('API 正常系: 実績', () => {
+	test('実績一覧が取得できる', async ({ request }) => {
+		const res = await request.get('/api/v1/achievements/1');
+		expect(res.status()).toBe(200);
+		const body = await res.json();
+		expect(body.achievements).toBeDefined();
+		expect(Array.isArray(body.achievements)).toBe(true);
+	});
+});
+
+test.describe('API 正常系: 週次評価', () => {
+	test('週次評価が取得できる', async ({ request }) => {
+		const res = await request.get('/api/v1/evaluations/1');
+		expect(res.status()).toBe(200);
+	});
+});
+
+test.describe('API 正常系: キャリア', () => {
+	test('キャリア分野一覧が取得できる', async ({ request }) => {
+		const res = await request.get('/api/v1/career-fields');
+		expect(res.status()).toBe(200);
+		const body = await res.json();
+		expect(body.careerFields).toBeDefined();
+		expect(Array.isArray(body.careerFields)).toBe(true);
+	});
+
+	test('キャリアプランの取得ができる', async ({ request }) => {
+		const res = await request.get('/api/v1/career-plans/1');
+		// 200(プランあり) or 200(plan: null)
+		expect(res.status()).toBe(200);
+	});
+});
+
+test.describe('API 正常系: 認証', () => {
+	test('ログイン（正しいPIN）が成功する', async ({ request }) => {
+		const res = await request.post('/api/v1/auth/login', {
+			data: { pin: '1234' },
+		});
+		expect(res.status()).toBe(200);
+		const body = await res.json();
+		expect(body.message).toBeDefined();
+	});
+
+	test('ログアウトが成功する', async ({ request }) => {
+		const res = await request.post('/api/v1/auth/logout');
+		expect(res.status()).toBe(200);
+	});
+
+	test('不正なPINでログイン失敗', async ({ request }) => {
+		const res = await request.post('/api/v1/auth/login', {
+			data: { pin: '0000' },
+		});
+		expect(res.status()).toBe(401);
+	});
+});
+
+test.describe('API 正常系: 画像', () => {
+	test('favicon パスが取得できる', async ({ request }) => {
+		const res = await request.get('/api/v1/images?type=favicon');
+		expect(res.status()).toBe(200);
+		const body = await res.json();
+		expect('faviconPath' in body).toBe(true);
+	});
+
+	test('不正なtypeパラメータで400', async ({ request }) => {
+		const res = await request.get('/api/v1/images?type=invalid');
+		expect(res.status()).toBe(400);
+	});
+});
+
+test.describe('API 正常系: OCRレシート', () => {
+	test('image/mimeType 未指定で400', async ({ request }) => {
+		const res = await request.post('/api/v1/points/ocr-receipt', {
+			data: {},
+		});
+		expect(res.status()).toBe(400);
+	});
+
+	test('不正なMIMEタイプで400', async ({ request }) => {
+		const res = await request.post('/api/v1/points/ocr-receipt', {
+			data: { image: 'base64data', mimeType: 'text/plain' },
+		});
+		expect(res.status()).toBe(400);
+	});
+});
+
+test.describe('API 正常系: 活動サジェスト', () => {
+	test('空テキストで400', async ({ request }) => {
+		const res = await request.post('/api/v1/activities/suggest', {
+			data: { text: '' },
+		});
+		expect(res.status()).toBe(400);
+	});
+
+	test('長すぎるテキストで400', async ({ request }) => {
+		const res = await request.post('/api/v1/activities/suggest', {
+			data: { text: 'x'.repeat(201) },
+		});
+		expect(res.status()).toBe(400);
+	});
+});
