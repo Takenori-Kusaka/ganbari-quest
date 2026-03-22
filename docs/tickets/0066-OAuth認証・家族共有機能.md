@@ -74,6 +74,9 @@ SaaS版の顧客認証基盤として、OAuth（Google/Apple Sign-In）を実装
 - [ ] 二層セッションの hooks.server.ts 実装
 - [ ] 認可ミドルウェア（ロール×ルート制御）
 - [ ] デバイストークン発行・検証API
+- [ ] 公開 API エンドポイントの JWT 検証ガード実装（署名・iss・aud・exp・token_use）
+- [ ] 運用 API（`/api/internal/*`）の API キー + IP 許可リスト認証実装
+- [ ] JWT 検証失敗時の統一エラーレスポンス実装（401/403）
 
 **Phase C: 家族共有機能**
 - [ ] 家族共有メカニズム設計・実装
@@ -666,6 +669,108 @@ export const handle: Handle = async ({ event, resolve }) => {
 - **デバイストークン失効**: owner がメンバー管理画面から即時無効化可能
 - **ブルートフォース**: PIN試行は現行同様5回でロックアウト（15分）
 
+#### API エンドポイントの JWT 検証・認可ガード
+
+ログイン関連を除く**すべての公開 API エンドポイント**（`/api/v1/*`）では、リクエスト処理前に JWT 検証と認可チェックを**必須**とする。これにより、トークンなし・無効トークン・権限不足のリクエストを確実にブロックする。
+
+**JWT 検証フロー（hooks.server.ts の `resolveIdentity` 内で実行）:**
+
+```typescript
+async function verifyJWT(token: string): VerifiedToken {
+  // 1. 署名検証 — Cognito JWKS エンドポイントの公開鍵で RS256 署名を検証
+  //    JWKS はキャッシュ（TTL: 24時間）し、キーローテーション時に再取得
+  const decoded = await jwtVerify(token, jwksClient.getSigningKey, {
+    algorithms: ['RS256'],
+  });
+
+  // 2. 発行者 (iss) 検証 — 自テナントの Cognito User Pool であることを確認
+  if (decoded.iss !== `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`) {
+    throw new InvalidTokenError('Invalid issuer');
+  }
+
+  // 3. 対象者 (aud) 検証 — 自アプリの Client ID と一致することを確認
+  if (decoded.aud !== cognitoClientId) {
+    throw new InvalidTokenError('Invalid audience');
+  }
+
+  // 4. 有効期限 (exp) 検証 — 期限切れトークンを拒否
+  if (decoded.exp < Math.floor(Date.now() / 1000)) {
+    throw new TokenExpiredError('Token expired');
+  }
+
+  // 5. トークン使用目的 (token_use) 検証 — id トークンであることを確認
+  if (decoded.token_use !== 'id') {
+    throw new InvalidTokenError('Invalid token_use');
+  }
+
+  return decoded;
+}
+```
+
+**代替案: Cognito API によるトークン検証**
+
+上記のローカル JWKS 検証の代わりに、Cognito の `GetUser` API や `UserInfo` エンドポイントにトークンを送って検証する方式も選択肢となる。Cognito が JWT の発行元であるため、Cognito 自身に検証を委譲するのは自然なアプローチ。
+
+| 方式 | メリット | デメリット |
+|------|---------|-----------|
+| ローカル JWKS 検証 | レイテンシ低（ネットワーク不要）、Cognito 障害に強い | JWKS キャッシュ管理が必要、キーローテーション対応 |
+| Cognito API 検証 | 実装がシンプル、常に最新のトークン状態を反映 | リクエストごとに API コール、Cognito 障害時に全API停止 |
+
+→ **実装時に有識者と協議して決定する。** パフォーマンス要件やインフラ構成に応じてどちらが適切か判断。ハイブリッド（初回は Cognito API、以降はキャッシュ付きローカル検証）も検討の余地あり。
+
+**エンドポイント分類と認証方式:**
+
+| 分類 | パス例 | 認証方式 | JWT検証 | 備考 |
+|------|--------|---------|---------|------|
+| 公開 API（顧客向け） | `/api/v1/activities/*`, `/api/v1/children/*` | JWT (Identity Cookie) + Context | ✅ 必須 | 認可マトリクスに従いロール制御 |
+| ログイン・サインアップ | `/api/v1/auth/login`, `/api/v1/auth/callback` | なし（トークン発行側） | ❌ 除外 | OAuth コールバック、トークン発行 |
+| デバイストークン検証 | `/api/v1/auth/device` | device_token Cookie | ❌ 別方式 | JWT ではなくサーバー署名検証 |
+| ヘルスチェック | `/api/health` | なし | ❌ 除外 | ロードバランサー・監視用 |
+| Stripe Webhook | `/api/webhooks/stripe` | Stripe 署名検証 | ❌ 別方式 | `stripe.webhooks.constructEvent()` で検証 |
+| 運用 API（内部） | `/api/internal/*` | API キー + IP 許可リスト | ❌ 別方式 | 管理者ツール・バッチ処理用 |
+| バックドア（開発） | `/api/debug/*` | 本番では無効化 | ❌ 不要 | `NODE_ENV !== 'production'` でのみ有効 |
+
+**JWT 検証失敗時のレスポンス:**
+
+| 状況 | HTTP ステータス | レスポンスボディ | クライアント動作 |
+|------|----------------|-----------------|----------------|
+| トークンなし | 401 Unauthorized | `{ error: 'authentication_required' }` | ログイン画面へリダイレクト |
+| 署名不正 | 401 Unauthorized | `{ error: 'invalid_token' }` | トークン破棄 → 再ログイン |
+| 有効期限切れ | 401 Unauthorized | `{ error: 'token_expired' }` | Refresh Token で自動更新 → リトライ |
+| ロール不足 | 403 Forbidden | `{ error: 'insufficient_permissions' }` | 権限不足メッセージ表示 |
+| ライセンス無効 | 403 Forbidden | `{ error: 'license_expired' }` | /billing/renew へ誘導 |
+
+**運用 API・内部エンドポイントの認証（JWT 以外）:**
+
+```typescript
+// 運用 API は API キー + IP 許可リストで保護
+// JWT とは独立した認証経路（顧客用トークンでアクセスさせない）
+async function verifyInternalAccess(event: RequestEvent): void {
+  // 1. API キー検証（Authorization: Bearer <api_key>）
+  const apiKey = event.request.headers.get('Authorization')?.replace('Bearer ', '');
+  if (!apiKey || !await validateApiKey(apiKey)) {
+    throw error(401, 'Invalid API key');
+  }
+
+  // 2. IP 許可リスト検証
+  const clientIP = event.getClientAddress();
+  if (!isAllowedIP(clientIP)) {
+    throw error(403, 'Access denied from this IP');
+  }
+
+  // 3. 監査ログ記録（誰が・いつ・どこから）
+  await logInternalAccess(apiKey, clientIP, event.url.pathname);
+}
+```
+
+**AUTH_MODE 別の JWT 検証適用:**
+
+| AUTH_MODE | `/api/v1/*` の認証 | `/api/internal/*` の認証 |
+|-----------|-------------------|-------------------------|
+| `none` | スキップ（全許可） | スキップ |
+| `basic` | PIN セッション Cookie 検証 | 環境変数の API キー |
+| `cognito` | JWT 検証（全項目） | API キー + IP 許可リスト |
+
 #### ライセンス無効時の強制サインアウト
 
 ライセンスが無効になったユーザーはサービスを利用できない。これを 2 つのタイミングで制御する。
@@ -1111,4 +1216,8 @@ async function issueContext(identity: Identity, tenantId: string) {
 - [ ] AUTH_MODE 環境変数の Docker / docker-compose.yml への組み込み
 - [ ] DATA_SOURCE（#0111）と AUTH_MODE の組み合わせマトリクス検証
 - [ ] 各 AUTH_MODE ごとの E2E テストシナリオ設計
+- [ ] JWT 検証ミドルウェアの実装 — JWKS キャッシュ戦略、キーローテーション対応
+- [ ] API エンドポイントの認証バイパス一覧の明示的管理（ホワイトリスト方式）
+- [ ] 運用 API（`/api/internal/*`）の API キー発行・ローテーション運用設計
+- [ ] Stripe Webhook 署名検証の実装（`constructEvent` + シークレットローテーション）
 - [ ] ティーン向け OAuth フローの未成年保護対応（Google Family Link 等との干渉確認）
