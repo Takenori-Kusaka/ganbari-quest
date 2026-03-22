@@ -22,9 +22,9 @@ sqlite.pragma('wal_autocheckpoint = 100');
 sqlite.pragma('synchronous = NORMAL');
 
 // --- Lambda cold-start auto-initialization ---
-// On Lambda, DATABASE_URL points to /tmp (ephemeral). Create tables on first access.
-// This is a TEMPORARY measure until DynamoDB migration is complete.
-if (process.env.AWS_LAMBDA_FUNCTION_NAME) {
+// On Lambda with SQLite backend, DATABASE_URL points to /tmp (ephemeral).
+// Skip when DATA_SOURCE=dynamodb (DynamoDB handles its own persistence).
+if (process.env.AWS_LAMBDA_FUNCTION_NAME && (process.env.DATA_SOURCE ?? 'sqlite') === 'sqlite') {
 	const tableExists = sqlite
 		.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='categories'")
 		.get();
