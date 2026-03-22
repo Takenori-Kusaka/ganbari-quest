@@ -20,6 +20,7 @@ interface LogEntry {
 
 const LOG_DIR = join(process.cwd(), 'data', 'logs');
 const isProduction = process.env.NODE_ENV === 'production';
+const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 
 function ensureLogDir() {
 	if (!existsSync(LOG_DIR)) {
@@ -52,8 +53,8 @@ function writeLog(entry: LogEntry) {
 		console.log(msg);
 	}
 
-	// File output (production only to avoid dev noise)
-	if (isProduction) {
+	// File output (production only, skip on Lambda — CloudWatch Logs handles it)
+	if (isProduction && !isLambda) {
 		try {
 			ensureLogDir();
 			appendFileSync(getLogFileName(), `${formatEntry(entry)}\n`);

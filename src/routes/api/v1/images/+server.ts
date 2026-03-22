@@ -15,7 +15,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	const type = url.searchParams.get('type');
 
 	if (type === 'favicon') {
-		const path = getFaviconPath();
+		const path = await getFaviconPath();
 		return json({ faviconPath: path || null });
 	}
 

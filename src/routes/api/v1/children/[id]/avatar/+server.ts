@@ -1,8 +1,7 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
+import { saveFile } from '$lib/server/storage';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -13,21 +12,8 @@ export const config = {
 	},
 };
 
-// adapter-node serves static files from 'client/' directory in production
-const UPLOAD_DIR = join(
-	process.cwd(),
-	process.env.NODE_ENV === 'production' ? 'client' : 'static',
-	'uploads',
-	'avatars',
-);
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-function ensureDir(dir: string) {
-	if (!existsSync(dir)) {
-		mkdirSync(dir, { recursive: true });
-	}
-}
 
 export const POST: RequestHandler = async ({ params, request }) => {
 	const childId = Number(params.id);
@@ -55,17 +41,15 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		throw error(400, { message: 'ファイルサイズは5MB以下にしてください' });
 	}
 
-	ensureDir(UPLOAD_DIR);
-
 	// ファイル名: avatar-{childId}-{timestamp}.{ext}
 	const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
 	const fileName = `avatar-${childId}-${Date.now()}.${ext}`;
-	const filePath = join(UPLOAD_DIR, fileName);
+	const storageKey = `uploads/avatars/${fileName}`;
 	const publicUrl = `/uploads/avatars/${fileName}`;
 
 	try {
 		const buffer = Buffer.from(await file.arrayBuffer());
-		writeFileSync(filePath, buffer);
+		await saveFile(storageKey, buffer, file.type);
 
 		// DB更新
 		await updateChildAvatarUrl(childId, publicUrl);
@@ -73,7 +57,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		logger.error('[avatar] アバター保存失敗', {
 			error: err instanceof Error ? err.message : String(err),
 			stack: err instanceof Error ? err.stack : undefined,
-			context: { childId, fileName, filePath },
+			context: { childId, fileName },
 		});
 		throw error(500, { message: 'アバターの保存に失敗しました' });
 	}
