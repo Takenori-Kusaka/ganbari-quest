@@ -1,38 +1,22 @@
-import { SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from '$lib/domain/validation/auth';
+import { getAuthProvider } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
-import { validateSession } from '$lib/server/services/auth-service';
 import { isSetupRequired } from '$lib/server/services/setup-service';
 import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
+
+const provider = getAuthProvider();
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const start = Date.now();
 
-	// 1) セッションCookieからトークン取得
-	const sessionToken = event.cookies.get(SESSION_COOKIE_NAME);
+	// 1) 二層セッション解決
+	const identity = await provider.resolveIdentity(event);
+	const context = await provider.resolveContext(event, identity);
 
-	// 2) セッション検証
-	let authenticated = false;
-	if (sessionToken) {
-		const result = await validateSession(sessionToken);
-		if (result.valid) {
-			authenticated = true;
-			// セッションがリフレッシュされた場合、Cookieも更新
-			if (result.refreshed) {
-				event.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
-					path: '/',
-					httpOnly: true,
-					sameSite: 'lax',
-					secure: false,
-					maxAge: SESSION_MAX_AGE_SECONDS,
-				});
-			}
-		}
-	}
+	event.locals.authenticated = identity !== null;
+	event.locals.identity = identity;
+	event.locals.context = context;
 
-	// 3) event.locals にセット
-	event.locals.authenticated = authenticated;
-
-	// 4) ルート保護
+	// 2) ルート保護
 	const path = event.url.pathname;
 
 	// セットアップ未完了時は /setup へリダイレクト
@@ -52,17 +36,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 		redirect(302, '/');
 	}
 
-	if (path.startsWith('/admin') && !authenticated) {
-		redirect(302, '/login');
-	}
-
-	if (path === '/login' && authenticated) {
-		redirect(302, '/admin');
+	// 認可チェック（Provider 固有のルート保護）
+	const authResult = provider.authorize(path, identity, context);
+	if (!authResult.allowed) {
+		redirect(302, authResult.redirect);
 	}
 
 	const response = await resolve(event);
 
-	// 5) リクエストログ（静的ファイルは除外）
+	// 3) リクエストログ（静的ファイルは除外）
 	if (!path.startsWith('/_app/') && !path.startsWith('/favicon')) {
 		logger.request(event.request.method, path, response.status, Date.now() - start);
 	}

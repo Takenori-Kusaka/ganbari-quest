@@ -18,3 +18,4 @@ export type { ISpecialRewardRepo } from './special-reward-repo.interface';
 export type { IStatusRepo } from './status-repo.interface';
 export type { IStorageRepo } from './storage.interface';
 export type { ITitleRepo } from './title-repo.interface';
+export type { IAuthRepo } from './auth-repo.interface';

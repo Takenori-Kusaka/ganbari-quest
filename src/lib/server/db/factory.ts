@@ -3,6 +3,7 @@
 
 import * as dynamoAchievementRepo from './dynamodb/achievement-repo';
 import * as dynamoActivityRepo from './dynamodb/activity-repo';
+import * as dynamoAuthRepo from './dynamodb/auth-repo';
 import * as dynamoAvatarRepo from './dynamodb/avatar-repo';
 import * as dynamoBirthdayRepo from './dynamodb/birthday-repo';
 import * as dynamoCareerRepo from './dynamodb/career-repo';
@@ -20,6 +21,7 @@ import * as dynamoStorageRepo from './dynamodb/storage-repo';
 import * as dynamoTitleRepo from './dynamodb/title-repo';
 import type { IAchievementRepo } from './interfaces/achievement-repo.interface';
 import type { IActivityRepo } from './interfaces/activity-repo.interface';
+import type { IAuthRepo } from './interfaces/auth-repo.interface';
 import type { IAvatarRepo } from './interfaces/avatar-repo.interface';
 import type { IBirthdayRepo } from './interfaces/birthday-repo.interface';
 import type { ICareerRepo } from './interfaces/career-repo.interface';
@@ -37,6 +39,7 @@ import type { IStorageRepo } from './interfaces/storage.interface';
 import type { ITitleRepo } from './interfaces/title-repo.interface';
 import * as sqliteAchievementRepo from './sqlite/achievement-repo';
 import * as sqliteActivityRepo from './sqlite/activity-repo';
+import * as sqliteAuthRepo from './sqlite/auth-repo';
 import * as sqliteAvatarRepo from './sqlite/avatar-repo';
 import * as sqliteBirthdayRepo from './sqlite/birthday-repo';
 import * as sqliteCareerRepo from './sqlite/career-repo';
@@ -54,6 +57,7 @@ import * as sqliteStorageRepo from './sqlite/storage-repo';
 import * as sqliteTitleRepo from './sqlite/title-repo';
 
 export interface Repositories {
+	auth: IAuthRepo;
 	achievement: IAchievementRepo;
 	activity: IActivityRepo;
 	avatar: IAvatarRepo;
@@ -81,6 +85,7 @@ export function getRepos(): Repositories {
 	const dataSource = process.env.DATA_SOURCE ?? 'sqlite';
 	if (dataSource === 'dynamodb') {
 		const repos: Repositories = {
+			auth: dynamoAuthRepo,
 			achievement: dynamoAchievementRepo,
 			activity: dynamoActivityRepo,
 			avatar: dynamoAvatarRepo,
@@ -104,6 +109,7 @@ export function getRepos(): Repositories {
 	}
 
 	const repos: Repositories = {
+		auth: sqliteAuthRepo,
 		achievement: sqliteAchievementRepo,
 		activity: sqliteActivityRepo,
 		avatar: sqliteAvatarRepo,

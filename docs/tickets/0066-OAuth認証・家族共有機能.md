@@ -2,7 +2,7 @@
 
 ### ステータス
 
-`Backlog`
+`In Progress`
 
 ### メタ情報
 
@@ -43,6 +43,13 @@ SaaS版の顧客認証基盤として、OAuth（Google/Apple Sign-In）を実装
 | UC1-a | 共用タブレットで親が管理画面に一時切替 | 共用タブレット | PIN or OAuth再認証 | parent mode（タイムアウトでchild modeに復帰） |
 | UC1-b | 共用タブレットにもう一人の親がアクセス | 共用タブレット | OAuth切替 | parent mode |
 
+**ローカル展開シナリオ（AUTH_MODE による分岐）:**
+| UC | シナリオ | AUTH_MODE | 認証方式 | 想定環境 |
+|----|---------|-----------|---------|---------|
+| UC-L1 | 自宅NUCサーバーで家族だけが利用 | `none` | 認証なし（現行動作） | LAN内、外部非公開 |
+| UC-L2 | 自宅LANで最低限の認証を付けたい | `basic` | ベーシック認証（ID/PW環境変数） | LAN内、簡易保護 |
+| UC-L3 | AWS SaaS版として不特定多数に提供 | `cognito` | OAuth (Google/Apple) + 二層セッション | インターネット公開 |
+
 ### ゴール
 
 **Phase A: 設計完了（本チケットのスコープ）**
@@ -78,6 +85,15 @@ SaaS版の顧客認証基盤として、OAuth（Google/Apple Sign-In）を実装
 - [ ] 契約終了時のデータ破棄フロー
 - [ ] 30日猶予期間の実装
 - [ ] バックアップ削除の自動化
+
+**Phase E: ローカル/AWS デュアルモード対応**
+- [ ] 認証プロバイダー抽象化レイヤー設計（AuthProvider インターフェース）
+- [ ] AUTH_MODE 環境変数による認証モード切替（none / basic / cognito）
+- [ ] ローカルモード（認証なし）の実装 — 現行動作の維持
+- [ ] ベーシック認証モード実装 — LAN 内保護用
+- [ ] Cognito モード実装 — SaaS 版フルOAuth
+- [ ] hooks.server.ts のモード別分岐設計
+- [ ] テスト戦略（各モードごとの E2E テスト）
 
 ---
 
@@ -448,6 +464,198 @@ export const handle: Handle = async ({ event, resolve }) => {
 | 子供アクセス | 認証なし（LAN 内信頼） | デバイストークン + 子供選択 |
 | テナント | 単一家庭 | 複数家庭（ユーザーが複数テナントに所属可能） |
 | モード切替 | なし | 親モード ⇔ 子供モード（タイムアウト付き） |
+
+---
+
+### ローカル/AWS デュアルモード認証設計（Phase E）
+
+#### 背景
+
+本アプリは以下の 2 つのデプロイ形態を**同一コードベース**でサポートする必要がある:
+
+1. **ローカル版**: 自宅 NUC サーバー等に Docker でデプロイ。LAN 内の家族だけが利用。認証不要 or 簡易認証で十分。
+2. **SaaS版 (AWS)**: インターネットに公開。不特定多数のユーザーが OAuth で認証し、テナント単位で分離。
+
+これらを環境変数 `AUTH_MODE` で切り替え、認証プロバイダーを抽象化することで実現する。
+
+#### AUTH_MODE 環境変数
+
+```bash
+# .env で設定
+AUTH_MODE=none     # 認証なし（現行ローカル版の動作を維持）
+AUTH_MODE=basic    # ベーシック認証（LAN 内簡易保護）
+AUTH_MODE=cognito  # OAuth + Cognito（SaaS版フル機能）
+```
+
+| AUTH_MODE | 認証方式 | セッション管理 | テナント | ライセンス | 想定環境 |
+|-----------|---------|---------------|---------|-----------|---------|
+| `none` | なし | 不要 | 単一（暗黙） | 不要 | 自宅 NUC, Docker, LAN 内限定 |
+| `basic` | HTTP Basic 認証 | Cookie (現行方式) | 単一（暗黙） | 不要 | LAN 内、簡易保護が必要な場合 |
+| `cognito` | OAuth (Google/Apple) | 二層モデル (Identity + Context) | マルチテナント | 必要 | AWS SaaS, インターネット公開 |
+
+#### 認証プロバイダー抽象化（AuthProvider インターフェース）
+
+`DATA_SOURCE` パターン（#0111）と同様に、Strategy パターンで認証ロジックを切り替える。
+
+```typescript
+// $lib/server/auth/types.ts
+
+/** 認証プロバイダーの共通インターフェース */
+interface AuthProvider {
+  /** リクエストから Identity を解決する */
+  resolveIdentity(event: RequestEvent): Promise<Identity | null>;
+
+  /** リクエストから Context を解決する */
+  resolveContext(event: RequestEvent, identity: Identity | null): Promise<AuthContext | null>;
+
+  /** 認可チェック */
+  authorize(path: string, identity: Identity | null, context: AuthContext | null): AuthResult;
+}
+
+/** 各モードの Identity 型 */
+type Identity =
+  | { type: 'anonymous' }                              // none モード
+  | { type: 'basic'; username: string }                 // basic モード
+  | { type: 'oauth'; user_id: string; email: string }   // cognito モード
+  | { type: 'device'; device_id: string }               // cognito モード（共用デバイス）
+  | { type: 'pin'; session_id: string };                 // none/basic モード（現行PIN認証）
+```
+
+#### 各モードの実装概要
+
+**1. NoneAuthProvider（AUTH_MODE=none）**
+
+現行のローカル版動作をそのまま維持。認証チェックをスキップし、全ルートにアクセス可能。
+
+```typescript
+// $lib/server/auth/providers/none.ts
+class NoneAuthProvider implements AuthProvider {
+  async resolveIdentity(): Promise<Identity> {
+    return { type: 'anonymous' };
+  }
+
+  async resolveContext(): Promise<AuthContext> {
+    // 単一テナント・全権限
+    return { tenant_id: 'local', role: 'owner', license_status: 'valid' };
+  }
+
+  authorize(): AuthResult {
+    return { allowed: true }; // 全ルート許可
+  }
+}
+```
+
+**2. BasicAuthProvider（AUTH_MODE=basic）**
+
+環境変数で設定した ID/PW による簡易認証。管理画面（/admin）へのアクセスにのみ認証を要求し、子供画面は現行通り認証なし。
+
+```typescript
+// $lib/server/auth/providers/basic.ts
+
+// 環境変数:
+// BASIC_AUTH_USERNAME=admin
+// BASIC_AUTH_PASSWORD=<ハッシュ済みパスワード>
+
+class BasicAuthProvider implements AuthProvider {
+  async resolveIdentity(event: RequestEvent): Promise<Identity | null> {
+    // 現行の PIN セッション Cookie があればそれを使用
+    const session = event.cookies.get('session_id');
+    if (session && await validateSession(session)) {
+      return { type: 'pin', session_id: session };
+    }
+    return null;
+  }
+
+  authorize(path: string, identity: Identity | null): AuthResult {
+    // 子供画面は認証不要（現行動作維持）
+    if (path.startsWith('/child') || path.startsWith('/api/v1')) {
+      return { allowed: true };
+    }
+    // 管理画面は PIN セッション必須
+    if (!identity || identity.type !== 'pin') {
+      return { allowed: false, redirect: '/parent/pin' };
+    }
+    return { allowed: true };
+  }
+}
+```
+
+**3. CognitoAuthProvider（AUTH_MODE=cognito）**
+
+本チケットで設計済みの二層セッションモデルをフル実装。OAuth + デバイストークン + Context Cookie。
+
+```typescript
+// $lib/server/auth/providers/cognito.ts
+class CognitoAuthProvider implements AuthProvider {
+  // 既存の二層セッションモデル設計をそのまま適用
+  // resolveIdentity → OAuth トークン or デバイストークン
+  // resolveContext  → DynamoDB メンバーシップ + ライセンス検証
+  // authorize       → ロール×ルート マトリクス + ライセンス状態
+}
+```
+
+#### hooks.server.ts のモード分岐
+
+```typescript
+// src/hooks.server.ts
+import { env } from '$env/dynamic/private';
+import type { AuthProvider } from '$lib/server/auth/types';
+
+function createAuthProvider(): AuthProvider {
+  switch (env.AUTH_MODE) {
+    case 'none':
+      return new NoneAuthProvider();
+    case 'basic':
+      return new BasicAuthProvider();
+    case 'cognito':
+      return new CognitoAuthProvider();
+    default:
+      // デフォルトは none（後方互換性）
+      return new NoneAuthProvider();
+  }
+}
+
+const authProvider = createAuthProvider();
+
+export const handle: Handle = async ({ event, resolve }) => {
+  const identity = await authProvider.resolveIdentity(event);
+  const context = await authProvider.resolveContext(event, identity);
+
+  event.locals.identity = identity;
+  event.locals.context = context;
+
+  const authResult = authProvider.authorize(event.url.pathname, identity, context);
+  if (!authResult.allowed) {
+    if (authResult.status === 403) {
+      return new Response(null, { status: 403 });
+    }
+    redirect(302, authResult.redirect);
+  }
+
+  return resolve(event);
+};
+```
+
+#### モード別機能マトリクス
+
+| 機能 | none | basic | cognito |
+|------|------|-------|---------|
+| 子供画面アクセス | 認証なし | 認証なし | デバイストークン or OAuth |
+| 管理画面アクセス | 認証なし | PIN認証（現行） | OAuth + ロール認可 |
+| マルチテナント | ❌（単一家庭） | ❌（単一家庭） | ✅ |
+| 家族共有・招待 | ❌ | ❌ | ✅（QRコード） |
+| ライセンス管理 | ❌ | ❌ | ✅ |
+| ロール制御 | ❌（全権） | 親/子の2択（現行） | owner/parent/child/viewer |
+| DB | SQLite | SQLite | DynamoDB |
+| デプロイ先 | Docker / bare metal | Docker / bare metal | AWS (Lambda + CloudFront) |
+
+#### ローカル版とSaaS版の共存原則
+
+1. **AUTH_MODE 未設定時は `none` がデフォルト** — 既存ユーザー（NUC 運用）の動作を壊さない
+2. **認証ロジック以外のコード（UI・ドメイン・API）は共通** — 認証プロバイダーの差し替えのみ
+3. **DB 抽象化（#0111 DATA_SOURCE）と組み合わせ** — `AUTH_MODE=none` + `DATA_SOURCE=sqlite` がローカル版、`AUTH_MODE=cognito` + `DATA_SOURCE=dynamodb` がSaaS版
+4. **ビルド時ではなく実行時に切替** — 同一 Docker イメージで環境変数のみ変更して動作モードを切替可能
+5. **basic モードは中間ステップ** — ローカル版に最低限の認証を付けたい場合の選択肢。SaaS移行への段階的ステップとしても機能
 
 ### セキュリティ考慮事項
 
@@ -898,4 +1106,9 @@ async function issueContext(identity: Identity, tenantId: string) {
 - [ ] Context Cookie 寿命のユーザビリティテスト（親モード30分は短すぎないか）
 - [ ] ライセンスキー再発行フローの UI/UX 設計（/billing/reissue）
 - [ ] SES による Email 一時コード送信の実装・テンプレート設計
+- [ ] AuthProvider インターフェース設計と NoneAuthProvider の実装（現行動作の抽象化）
+- [ ] BasicAuthProvider の設計 — 環境変数によるID/PW設定、PIN認証との統合
+- [ ] AUTH_MODE 環境変数の Docker / docker-compose.yml への組み込み
+- [ ] DATA_SOURCE（#0111）と AUTH_MODE の組み合わせマトリクス検証
+- [ ] 各 AUTH_MODE ごとの E2E テストシナリオ設計
 - [ ] ティーン向け OAuth フローの未成年保護対応（Google Family Link 等との干渉確認）
