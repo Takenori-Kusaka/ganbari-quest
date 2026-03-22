@@ -73,12 +73,12 @@ export interface EvaluationResult {
 }
 
 /** 子供1人分の週次評価を実行 */
-export function evaluateChild(
+export async function evaluateChild(
 	childId: number,
 	weekStart: string,
 	weekEnd: string,
-): EvaluationResult {
-	const activityCounts = countActivitiesByCategory(childId, weekStart, weekEnd);
+): Promise<EvaluationResult> {
+	const activityCounts = await countActivitiesByCategory(childId, weekStart, weekEnd);
 
 	const categoryScores: Record<number, { count: number; points: number; statusIncrease: number }> =
 		{};
@@ -93,7 +93,7 @@ export function evaluateChild(
 
 		// ステータス更新
 		if (statusIncrease > 0) {
-			updateStatus(childId, catDef.id, statusIncrease, 'weekly_evaluation');
+			await updateStatus(childId, catDef.id, statusIncrease, 'weekly_evaluation');
 		}
 	}
 
@@ -101,7 +101,7 @@ export function evaluateChild(
 	const bonusPoints = calcEvaluationBonus(categoryScores);
 
 	// 評価結果保存
-	insertEvaluation({
+	await insertEvaluation({
 		childId,
 		weekStart,
 		weekEnd,
@@ -111,7 +111,7 @@ export function evaluateChild(
 
 	// ボーナスポイント付与
 	if (bonusPoints > 0) {
-		insertPointEntry({
+		await insertPointEntry({
 			childId,
 			amount: bonusPoints,
 			type: 'weekly_bonus',
@@ -123,16 +123,20 @@ export function evaluateChild(
 }
 
 /** 全子供の週次評価を一括実行 */
-export function runWeeklyEvaluation(date?: Date): EvaluationResult[] {
+export async function runWeeklyEvaluation(date?: Date): Promise<EvaluationResult[]> {
 	const { weekStart, weekEnd } = getWeekRange(date);
-	const allChildren = findAllChildren();
+	const allChildren = await findAllChildren();
 
-	return allChildren.map((child) => evaluateChild(child.id, weekStart, weekEnd));
+	const results: EvaluationResult[] = [];
+	for (const child of allChildren) {
+		results.push(await evaluateChild(child.id, weekStart, weekEnd));
+	}
+	return results;
 }
 
 /** 子供の評価履歴を取得 */
-export function getChildEvaluations(childId: number, limit = 10) {
-	const results = findEvaluationsByChild(childId, limit);
+export async function getChildEvaluations(childId: number, limit = 10) {
+	const results = await findEvaluationsByChild(childId, limit);
 	return results.map((e) => ({
 		...e,
 		scores: JSON.parse(e.scoresJson),
@@ -140,19 +144,21 @@ export function getChildEvaluations(childId: number, limit = 10) {
 }
 
 /** 日次ステータス減少処理 */
-export function runDailyDecay(today?: string): {
-	childId: number;
-	decays: { categoryId: number; amount: number }[];
-}[] {
+export async function runDailyDecay(today?: string): Promise<
+	{
+		childId: number;
+		decays: { categoryId: number; amount: number }[];
+	}[]
+> {
 	const todayStr = today ?? todayDateJST();
-	const allChildren = findAllChildren();
+	const allChildren = await findAllChildren();
 	const results: {
 		childId: number;
 		decays: { categoryId: number; amount: number }[];
 	}[] = [];
 
 	for (const child of allChildren) {
-		const lastActivityDates = findLastActivityDateByCategory(child.id);
+		const lastActivityDates = await findLastActivityDateByCategory(child.id);
 		const decays: { categoryId: number; amount: number }[] = [];
 
 		for (const catDef of CATEGORY_DEFS) {
@@ -167,7 +173,7 @@ export function runDailyDecay(today?: string): {
 			if (daysSince > 0) {
 				const decayAmount = calcDecay(daysSince, child.age);
 				if (decayAmount > 0) {
-					updateStatus(child.id, catDef.id, -decayAmount, 'daily_decay');
+					await updateStatus(child.id, catDef.id, -decayAmount, 'daily_decay');
 					decays.push({ categoryId: catDef.id, amount: decayAmount });
 				}
 			}

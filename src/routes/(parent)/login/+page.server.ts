@@ -25,7 +25,7 @@ export const actions: Actions = {
 		}
 
 		// 認証
-		const result = login(parsed.data);
+		const result = await login(parsed.data);
 
 		if ('error' in result) {
 			if (result.error === 'LOCKED_OUT') {

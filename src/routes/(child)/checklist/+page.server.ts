@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 	if (!child) return { checklists: [] };
 
 	const today = todayDateJST();
-	const checklists = getChecklistsForChild(child.id, today);
+	const checklists = await getChecklistsForChild(child.id, today);
 
 	return { checklists };
 };
@@ -26,7 +26,7 @@ export const actions: Actions = {
 		}
 
 		const today = todayDateJST();
-		const result = toggleCheckItem(childId, templateId, itemId, today, checked);
+		const result = await toggleCheckItem(childId, templateId, itemId, today, checked);
 
 		if ('error' in result) {
 			return fail(404, { error: 'みつかりません' });

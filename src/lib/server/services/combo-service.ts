@@ -78,9 +78,9 @@ function calcCrossCategoryBonus(categoryCount: number): CrossCategoryCombo | nul
  * Check today's combo state and grant any new bonus points.
  * Returns the combo result with only the newly granted bonus amount.
  */
-export function checkAndGrantCombo(childId: number, date: string): ComboResult {
+export async function checkAndGrantCombo(childId: number, date: string): Promise<ComboResult> {
 	// Get today's active logs with category info
-	const todayLogs = findTodayLogsWithCategory(childId, date);
+	const todayLogs = await findTodayLogsWithCategory(childId, date);
 
 	// Group unique activity IDs by categoryId
 	const byCat = new Map<number, Set<number>>();
@@ -123,7 +123,7 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 
 	// Get already-granted combo bonus for today (match by description prefix with date)
 	const comboBonusPrefix = `[${date}]`;
-	const alreadyAmount = getComboPointsGranted(childId, comboBonusPrefix);
+	const alreadyAmount = await getComboPointsGranted(childId, comboBonusPrefix);
 	const newBonus = Math.max(0, totalDesiredBonus - alreadyAmount);
 
 	// Grant the difference
@@ -141,7 +141,7 @@ export function checkAndGrantCombo(childId: number, date: string): ComboResult {
 		}
 		const description = `${comboBonusPrefix} ${parts.join('・')} +${newBonus}`;
 
-		insertPointLedger({
+		await insertPointLedger({
 			childId,
 			amount: newBonus,
 			type: 'combo_bonus',

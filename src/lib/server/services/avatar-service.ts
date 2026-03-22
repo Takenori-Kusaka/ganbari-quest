@@ -45,15 +45,15 @@ export interface AvatarConfig {
 // --- ショップ一覧 ---
 
 /** 全アイテム（所持状態・装備状態・購入可否付き） */
-export function getShopItems(childId: number): AvatarItemWithStatus[] {
-	const allItems = findAllAvatarItems();
-	const owned = findOwnedItems(childId);
+export async function getShopItems(childId: number): Promise<AvatarItemWithStatus[]> {
+	const allItems = await findAllAvatarItems();
+	const owned = await findOwnedItems(childId);
 	const ownedSet = new Set(owned.map((o) => o.avatarItemId));
-	const activeIds = getActiveAvatarIds(childId);
-	const balance = getBalance(childId);
+	const activeIds = await getActiveAvatarIds(childId);
+	const balance = await getBalance(childId);
 
 	// レベル取得（ロック判定用）
-	const statusResult = getChildStatus(childId);
+	const statusResult = await getChildStatus(childId);
 	const level = 'error' in statusResult ? 1 : statusResult.level;
 
 	return allItems.map((item) => {
@@ -90,27 +90,27 @@ export function getShopItems(childId: number): AvatarItemWithStatus[] {
 
 // --- 購入 ---
 
-export function purchaseItem(
+export async function purchaseItem(
 	childId: number,
 	itemId: number,
-): { success: true } | { error: string } {
-	const item = findAvatarItemById(itemId);
+): Promise<{ success: true } | { error: string }> {
+	const item = await findAvatarItemById(itemId);
 	if (!item) return { error: 'NOT_FOUND' };
-	if (isItemOwned(childId, itemId)) return { error: 'ALREADY_OWNED' };
+	if (await isItemOwned(childId, itemId)) return { error: 'ALREADY_OWNED' };
 
 	// ロックチェック
-	const statusResult = getChildStatus(childId);
+	const statusResult = await getChildStatus(childId);
 	const level = 'error' in statusResult ? 1 : statusResult.level;
 	const { locked } = checkLockStatus(item, level);
 	if (locked) return { error: 'LOCKED' };
 
 	// ポイントチェック
 	if (item.price > 0) {
-		const balance = getBalance(childId);
+		const balance = await getBalance(childId);
 		if (balance < item.price) return { error: 'INSUFFICIENT_POINTS' };
 
 		// ポイント消費
-		insertPointEntry({
+		await insertPointEntry({
 			childId,
 			amount: -item.price,
 			type: 'avatar_purchase',
@@ -118,50 +118,50 @@ export function purchaseItem(
 		});
 	}
 
-	insertChildAvatarItem(childId, itemId);
+	await insertChildAvatarItem(childId, itemId);
 	return { success: true };
 }
 
 // --- 装備 ---
 
-export function equipItem(
+export async function equipItem(
 	childId: number,
 	category: AvatarCategory,
 	itemId: number | null,
-): { success: true } | { error: string } {
+): Promise<{ success: true } | { error: string }> {
 	if (itemId !== null) {
-		if (!isItemOwned(childId, itemId)) {
+		if (!(await isItemOwned(childId, itemId))) {
 			return { error: 'NOT_OWNED' };
 		}
-		const item = findAvatarItemById(itemId);
+		const item = await findAvatarItemById(itemId);
 		if (!item || item.category !== category) {
 			return { error: 'CATEGORY_MISMATCH' };
 		}
 	}
-	setActiveAvatar(childId, category, itemId);
+	await setActiveAvatar(childId, category, itemId);
 	return { success: true };
 }
 
 // --- アバター設定取得 ---
 
 /** 装備中アイテムのCSS値を返す */
-export function getAvatarConfig(childId: number): AvatarConfig {
-	const activeIds = getActiveAvatarIds(childId);
+export async function getAvatarConfig(childId: number): Promise<AvatarConfig> {
+	const activeIds = await getActiveAvatarIds(childId);
 
 	let bgCss = '#ffffff';
 	let frameCss = '2px solid #bdbdbd';
 	let effectClass = '';
 
 	if (activeIds.bgId) {
-		const item = findAvatarItemById(activeIds.bgId);
+		const item = await findAvatarItemById(activeIds.bgId);
 		if (item) bgCss = item.cssValue;
 	}
 	if (activeIds.frameId) {
-		const item = findAvatarItemById(activeIds.frameId);
+		const item = await findAvatarItemById(activeIds.frameId);
 		if (item) frameCss = item.cssValue;
 	}
 	if (activeIds.effectId) {
-		const item = findAvatarItemById(activeIds.effectId);
+		const item = await findAvatarItemById(activeIds.effectId);
 		if (item?.cssValue) effectClass = `avatar-effect-${item.cssValue}`;
 	}
 
@@ -170,24 +170,24 @@ export function getAvatarConfig(childId: number): AvatarConfig {
 
 // --- レベル/実績によるアイテム自動解放 ---
 
-export function checkAndUnlockItems(childId: number): string[] {
-	const allItems = findAllAvatarItems();
-	const statusResult = getChildStatus(childId);
+export async function checkAndUnlockItems(childId: number): Promise<string[]> {
+	const allItems = await findAllAvatarItems();
+	const statusResult = await getChildStatus(childId);
 	const level = 'error' in statusResult ? 1 : statusResult.level;
 	const newlyUnlocked: string[] = [];
 
 	for (const item of allItems) {
-		if (item.unlockType === 'free' && !isItemOwned(childId, item.id)) {
+		if (item.unlockType === 'free' && !(await isItemOwned(childId, item.id))) {
 			// 無料アイテムは自動付与
-			insertChildAvatarItem(childId, item.id);
+			await insertChildAvatarItem(childId, item.id);
 			continue;
 		}
 		if (item.unlockType !== 'level') continue;
-		if (isItemOwned(childId, item.id)) continue;
+		if (await isItemOwned(childId, item.id)) continue;
 
 		const condition = item.unlockCondition ? JSON.parse(item.unlockCondition) : null;
 		if (condition?.level && level >= condition.level) {
-			insertChildAvatarItem(childId, item.id);
+			await insertChildAvatarItem(childId, item.id);
 			newlyUnlocked.push(item.name);
 		}
 	}

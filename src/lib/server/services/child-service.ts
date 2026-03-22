@@ -6,30 +6,30 @@ import {
 	updateChild,
 } from '$lib/server/db/child-repo';
 
-export function getAllChildren() {
-	return findAllChildren();
+export async function getAllChildren() {
+	return await findAllChildren();
 }
 
-export function getChildById(id: number) {
-	return findChildById(id);
+export async function getChildById(id: number) {
+	return await findChildById(id);
 }
 
-export function addChild(input: {
+export async function addChild(input: {
 	nickname: string;
 	age: number;
 	theme?: string;
 	uiMode?: string;
 }) {
-	return insertChild(input);
+	return await insertChild(input);
 }
 
-export function editChild(
+export async function editChild(
 	id: number,
 	input: { nickname?: string; age?: number; theme?: string; uiMode?: string },
 ) {
-	return updateChild(id, input);
+	return await updateChild(id, input);
 }
 
-export function removeChild(id: number) {
-	return deleteChild(id);
+export async function removeChild(id: number) {
+	return await deleteChild(id);
 }

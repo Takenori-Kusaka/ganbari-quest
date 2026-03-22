@@ -25,7 +25,7 @@ export const actions = {
 			return fail(400, { error: '新しいPINが一致しません' });
 		}
 
-		const result = changePin(currentPin, newPin);
+		const result = await changePin(currentPin, newPin);
 		if ('error' in result) {
 			if (result.error === 'INVALID_CURRENT_PIN') {
 				return fail(400, { error: '現在のPINが正しくありません' });

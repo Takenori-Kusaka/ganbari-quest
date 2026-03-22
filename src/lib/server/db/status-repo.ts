@@ -1,125 +1,41 @@
-// src/lib/server/db/status-repo.ts
-// ステータス関連のリポジトリ層
+// src/lib/server/db/status-repo.ts — Facade (delegates to factory)
 
-import { and, desc, eq, max } from 'drizzle-orm';
-import { db } from './client';
-import { activityLogs, children, marketBenchmarks, statusHistory, statuses } from './schema';
+import { getRepos } from './factory';
+import type { InsertStatusHistoryInput } from './types';
 
-/** 子供の全ステータスを取得 */
-export function findStatuses(childId: number) {
-	return db.select().from(statuses).where(eq(statuses.childId, childId)).all();
+export async function findStatuses(childId: number) {
+	return getRepos().status.findStatuses(childId);
 }
-
-/** カテゴリ別のステータスを取得 */
-export function findStatus(childId: number, categoryId: number) {
-	return db
-		.select()
-		.from(statuses)
-		.where(and(eq(statuses.childId, childId), eq(statuses.categoryId, categoryId)))
-		.get();
+export async function findStatus(childId: number, categoryId: number) {
+	return getRepos().status.findStatus(childId, categoryId);
 }
-
-/** ステータスを更新（upsert） */
-export function upsertStatus(childId: number, categoryId: number, value: number) {
-	const existing = findStatus(childId, categoryId);
-	const clampedValue = Math.max(0, value);
-	const now = new Date().toISOString();
-
-	if (existing) {
-		return db
-			.update(statuses)
-			.set({ value: clampedValue, updatedAt: now })
-			.where(eq(statuses.id, existing.id))
-			.returning()
-			.get();
-	}
-
-	return db
-		.insert(statuses)
-		.values({ childId, categoryId, value: clampedValue, updatedAt: now })
-		.returning()
-		.get();
+export async function upsertStatus(childId: number, categoryId: number, value: number) {
+	return getRepos().status.upsertStatus(childId, categoryId, value);
 }
-
-/** ステータス変動履歴を追加 */
-export function insertStatusHistory(input: {
-	childId: number;
-	categoryId: number;
-	value: number;
-	changeAmount: number;
-	changeType: string;
-}) {
-	return db.insert(statusHistory).values(input).returning().get();
+export async function insertStatusHistory(input: InsertStatusHistoryInput) {
+	return getRepos().status.insertStatusHistory(input);
 }
-
-/** 直近のステータス変動を取得 */
-export function findRecentStatusHistory(childId: number, categoryId: number, limit = 7) {
-	return db
-		.select()
-		.from(statusHistory)
-		.where(and(eq(statusHistory.childId, childId), eq(statusHistory.categoryId, categoryId)))
-		.orderBy(desc(statusHistory.recordedAt))
-		.limit(limit)
-		.all();
+export async function findRecentStatusHistory(childId: number, categoryId: number, limit = 7) {
+	return getRepos().status.findRecentStatusHistory(childId, categoryId, limit);
 }
-
-/** 市場ベンチマークを取得 */
-export function findBenchmark(age: number, categoryId: number) {
-	return db
-		.select()
-		.from(marketBenchmarks)
-		.where(and(eq(marketBenchmarks.age, age), eq(marketBenchmarks.categoryId, categoryId)))
-		.get();
+export async function findBenchmark(age: number, categoryId: number) {
+	return getRepos().status.findBenchmark(age, categoryId);
 }
-
-/** 全ベンチマークを取得（年齢・カテゴリ順） */
-export function findAllBenchmarks() {
-	return db
-		.select()
-		.from(marketBenchmarks)
-		.orderBy(marketBenchmarks.age, marketBenchmarks.categoryId)
-		.all();
+export async function findAllBenchmarks() {
+	return getRepos().status.findAllBenchmarks();
 }
-
-/** ベンチマークをupsert */
-export function upsertBenchmark(
+export async function upsertBenchmark(
 	age: number,
 	categoryId: number,
 	mean: number,
 	stdDev: number,
 	source: string,
 ) {
-	const existing = findBenchmark(age, categoryId);
-	const now = new Date().toISOString();
-	if (existing) {
-		return db
-			.update(marketBenchmarks)
-			.set({ mean, stdDev, source, updatedAt: now })
-			.where(eq(marketBenchmarks.id, existing.id))
-			.returning()
-			.get();
-	}
-	return db
-		.insert(marketBenchmarks)
-		.values({ age, categoryId, mean, stdDev, source })
-		.returning()
-		.get();
+	return getRepos().status.upsertBenchmark(age, categoryId, mean, stdDev, source);
 }
-
-/** 子供の存在確認（年齢も取得） */
-export function findChildById(id: number) {
-	return db.select().from(children).where(eq(children.id, id)).get();
+export async function findChildById(id: number) {
+	return getRepos().status.findChildById(id);
 }
-
-/** カテゴリ別の最終活動日を取得 */
-export function findLastActivityDates(childId: number) {
-	return db
-		.select({
-			category: activityLogs.activityId,
-			lastDate: max(activityLogs.recordedDate),
-		})
-		.from(activityLogs)
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
-		.groupBy(activityLogs.activityId)
-		.all();
+export async function findLastActivityDates(childId: number) {
+	return getRepos().status.findLastActivityDates(childId);
 }

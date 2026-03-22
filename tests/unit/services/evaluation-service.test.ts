@@ -286,8 +286,8 @@ describe('evaluateChild', () => {
 		seedBase();
 	});
 
-	it('活動なしの週は全カテゴリ0', () => {
-		const result = evaluateChild(1, '2026-02-16', '2026-02-22');
+	it('活動なしの週は全カテゴリ0', async () => {
+		const result = await evaluateChild(1, '2026-02-16', '2026-02-22');
 		expect(result.childId).toBe(1);
 		expect(result.bonusPoints).toBe(0);
 		for (const cat of Object.values(result.categoryScores)) {
@@ -296,7 +296,7 @@ describe('evaluateChild', () => {
 		}
 	});
 
-	it('各カテゴリ1回ずつ活動で全カテゴリボーナス', () => {
+	it('各カテゴリ1回ずつ活動で全カテゴリボーナス', async () => {
 		// 月〜金に各カテゴリ1回ずつ
 		addLog(1, 1, '2026-02-16'); // うんどう
 		addLog(1, 2, '2026-02-17'); // べんきょう
@@ -304,7 +304,7 @@ describe('evaluateChild', () => {
 		addLog(1, 4, '2026-02-19'); // こうりゅう
 		addLog(1, 5, '2026-02-20'); // そうぞう
 
-		const result = evaluateChild(1, '2026-02-16', '2026-02-22');
+		const result = await evaluateChild(1, '2026-02-16', '2026-02-22');
 		expect(result.bonusPoints).toBe(20); // 5カテゴリ活動ボーナス
 
 		// 各カテゴリ1回→週次ボーナスなし（即時更新分で十分）
@@ -314,12 +314,12 @@ describe('evaluateChild', () => {
 		}
 	});
 
-	it('1カテゴリ7回でステータス+3.0', () => {
+	it('1カテゴリ7回でステータス+3.0', async () => {
 		for (let i = 16; i <= 22; i++) {
 			addLog(1, 1, `2026-02-${i}`); // うんどう毎日
 		}
 
-		const result = evaluateChild(1, '2026-02-16', '2026-02-22');
+		const result = await evaluateChild(1, '2026-02-16', '2026-02-22');
 		expect(result.categoryScores[1]?.count).toBe(7);
 		expect(result.categoryScores[1]?.statusIncrease).toBe(1.0); // 週次ボーナス
 	});
@@ -330,15 +330,15 @@ describe('runDailyDecay', () => {
 		seedBase();
 	});
 
-	it('活動履歴なしの場合は減少なし', () => {
-		const results = runDailyDecay('2026-02-21');
+	it('活動履歴なしの場合は減少なし', async () => {
+		const results = await runDailyDecay('2026-02-21');
 		expect(results[0]?.decays.length).toBe(0);
 	});
 
-	it('前日に活動があれば減少が発生', () => {
+	it('前日に活動があれば減少が発生', async () => {
 		addLog(1, 1, '2026-02-19'); // 2日前にうんどう
 
-		const results = runDailyDecay('2026-02-21');
+		const results = await runDailyDecay('2026-02-21');
 		const decay = results[0]?.decays.find((d) => d.categoryId === 1);
 		expect(decay).toBeDefined();
 		expect(decay?.amount).toBeGreaterThan(0);

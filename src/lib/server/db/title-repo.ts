@@ -1,55 +1,25 @@
-import { db } from '$lib/server/db';
-import { childTitles, children, titles } from '$lib/server/db/schema';
-import { and, eq } from 'drizzle-orm';
+// src/lib/server/db/title-repo.ts — Facade (delegates to factory)
 
-/** 全称号マスタを取得 */
-export function findAllTitles() {
-	return db.select().from(titles).all();
+import { getRepos } from './factory';
+
+export async function findAllTitles() {
+	return getRepos().title.findAllTitles();
 }
-
-/** IDで称号を取得 */
-export function findTitleById(id: number) {
-	return db.select().from(titles).where(eq(titles.id, id)).get();
+export async function findTitleById(id: number) {
+	return getRepos().title.findTitleById(id);
 }
-
-/** 子供の解除済み称号を取得 */
-export function findUnlockedTitles(childId: number) {
-	return db
-		.select({
-			titleId: childTitles.titleId,
-			unlockedAt: childTitles.unlockedAt,
-		})
-		.from(childTitles)
-		.where(eq(childTitles.childId, childId))
-		.all();
+export async function findUnlockedTitles(childId: number) {
+	return getRepos().title.findUnlockedTitles(childId);
 }
-
-/** 特定の称号が解除済みか確認 */
-export function isTitleUnlocked(childId: number, titleId: number): boolean {
-	const row = db
-		.select({ id: childTitles.id })
-		.from(childTitles)
-		.where(and(eq(childTitles.childId, childId), eq(childTitles.titleId, titleId)))
-		.get();
-	return !!row;
+export async function isTitleUnlocked(childId: number, titleId: number) {
+	return getRepos().title.isTitleUnlocked(childId, titleId);
 }
-
-/** 称号解除を記録 */
-export function insertChildTitle(childId: number, titleId: number) {
-	return db.insert(childTitles).values({ childId, titleId }).returning().get();
+export async function insertChildTitle(childId: number, titleId: number) {
+	return getRepos().title.insertChildTitle(childId, titleId);
 }
-
-/** アクティブ称号IDを取得 */
-export function getActiveTitleId(childId: number): number | null {
-	const child = db
-		.select({ activeTitleId: children.activeTitleId })
-		.from(children)
-		.where(eq(children.id, childId))
-		.get();
-	return child?.activeTitleId ?? null;
+export async function getActiveTitleId(childId: number) {
+	return getRepos().title.getActiveTitleId(childId);
 }
-
-/** アクティブ称号を設定（nullで解除） */
-export function setActiveTitleId(childId: number, titleId: number | null) {
-	return db.update(children).set({ activeTitleId: titleId }).where(eq(children.id, childId)).run();
+export async function setActiveTitleId(childId: number, titleId: number | null) {
+	return getRepos().title.setActiveTitleId(childId, titleId);
 }

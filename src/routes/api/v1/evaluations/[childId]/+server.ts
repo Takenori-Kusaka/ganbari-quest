@@ -8,12 +8,12 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	const childId = Number(params.childId);
 	if (Number.isNaN(childId)) return validationError('IDが不正です');
 
-	const children = getAllChildren();
+	const children = await getAllChildren();
 	const child = children.find((c) => c.id === childId);
 	if (!child) return notFound('こどもがみつかりません');
 
 	const limit = Number(url.searchParams.get('limit') ?? '10');
-	const evaluations = getChildEvaluations(childId, limit);
+	const evaluations = await getChildEvaluations(childId, limit);
 
 	return json({ evaluations });
 };

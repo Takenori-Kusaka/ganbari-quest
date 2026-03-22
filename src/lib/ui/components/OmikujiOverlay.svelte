@@ -1,5 +1,6 @@
 <script lang="ts">
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { soundService } from '$lib/ui/sound';
 
 interface Props {
 	open: boolean;
@@ -38,8 +39,15 @@ const currentEffect = $derived(rankEffects[rank] ?? defaultEffect);
 $effect(() => {
 	if (open) {
 		revealed = false;
+
+		// おみくじ回転音を再生
+		soundService.play('omikuji-roll');
+
 		const timer = setTimeout(() => {
 			revealed = true;
+
+			// 結果表示音を再生
+			soundService.play('omikuji-result');
 		}, 1500);
 		return () => clearTimeout(timer);
 	}

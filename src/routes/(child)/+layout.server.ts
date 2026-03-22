@@ -7,7 +7,7 @@ import { getActiveTitle } from '$lib/server/services/title-service';
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = ({ cookies, url }) => {
+export const load: LayoutServerLoad = async ({ cookies, url }) => {
 	const childIdStr = cookies.get('selectedChildId');
 
 	// /switch ページは子供未選択でもアクセス可能（無限リダイレクト防止）
@@ -22,13 +22,13 @@ export const load: LayoutServerLoad = ({ cookies, url }) => {
 			balance: 0,
 			level: 1,
 			levelTitle: 'かけだし',
-			allChildren: getAllChildren(),
+			allChildren: await getAllChildren(),
 			uiMode: 'kinder' as const,
 		};
 	}
 
 	const childId = Number(childIdStr);
-	const child = getChildById(childId);
+	const child = await getChildById(childId);
 	if (!child) {
 		cookies.delete('selectedChildId', { path: '/' });
 		redirect(302, '/switch');
@@ -46,18 +46,18 @@ export const load: LayoutServerLoad = ({ cookies, url }) => {
 		redirect(302, `/${uiMode}/home`);
 	}
 
-	const balanceResult = getPointBalance(childId);
+	const balanceResult = await getPointBalance(childId);
 	const balance = 'error' in balanceResult ? 0 : balanceResult.balance;
 
-	const statusResult = getChildStatus(childId);
+	const statusResult = await getChildStatus(childId);
 	const level = 'error' in statusResult ? 1 : statusResult.level;
 	const levelTitle = 'error' in statusResult ? 'かけだし' : statusResult.levelTitle;
 
-	const activeTitle = getActiveTitle(childId);
+	const activeTitle = await getActiveTitle(childId);
 
 	// きせかえアバター: 無料・レベル条件アイテムの自動解放
-	checkAndUnlockItems(childId);
-	const avatarConfig = getAvatarConfig(childId);
+	await checkAndUnlockItems(childId);
+	const avatarConfig = await getAvatarConfig(childId);
 
 	return {
 		child,
@@ -66,7 +66,7 @@ export const load: LayoutServerLoad = ({ cookies, url }) => {
 		levelTitle,
 		activeTitle,
 		avatarConfig,
-		allChildren: getAllChildren(),
+		allChildren: await getAllChildren(),
 		uiMode,
 	};
 };

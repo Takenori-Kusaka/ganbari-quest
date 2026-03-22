@@ -10,6 +10,6 @@ export const GET: RequestHandler = async ({ params }) => {
 		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
 	}
 
-	const achievements = getChildAchievements(parsed.data.childId);
+	const achievements = await getChildAchievements(parsed.data.childId);
 	return json({ achievements });
 };

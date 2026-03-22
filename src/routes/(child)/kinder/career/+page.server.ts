@@ -5,8 +5,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 	const { child } = await parent();
 	if (!child) return { plan: null, careerFields: [] };
 
-	const plan = getActiveCareerPlan(child.id);
-	const careerFields = getCareerFields(child.age);
+	const plan = await getActiveCareerPlan(child.id);
+	const careerFields = await getCareerFields(child.age);
 
 	// JSON文字列を解析
 	const fields = careerFields.map((f) => ({

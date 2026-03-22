@@ -43,13 +43,13 @@ const TEMPLATES_KEY = 'reward_templates';
 
 // --- 特別報酬付与 ---
 
-export function grantSpecialReward(
+export async function grantSpecialReward(
 	data: GrantInput,
-): SpecialRewardResult | { error: 'NOT_FOUND'; target: string } {
-	const child = findChildById(data.childId);
+): Promise<SpecialRewardResult | { error: 'NOT_FOUND'; target: string }> {
+	const child = await findChildById(data.childId);
 	if (!child) return { error: 'NOT_FOUND', target: 'child' };
 
-	const reward = insertSpecialReward({
+	const reward = await insertSpecialReward({
 		childId: data.childId,
 		grantedBy: data.grantedBy ?? null,
 		title: data.title,
@@ -59,7 +59,7 @@ export function grantSpecialReward(
 		category: data.category,
 	});
 
-	insertPointEntry({
+	await insertPointEntry({
 		childId: data.childId,
 		amount: data.points,
 		type: 'special_reward',
@@ -81,11 +81,11 @@ export function grantSpecialReward(
 
 // --- 履歴取得 ---
 
-export function getChildSpecialRewards(childId: number): {
+export async function getChildSpecialRewards(childId: number): Promise<{
 	rewards: SpecialRewardResult[];
 	totalPoints: number;
-} {
-	const rows = findSpecialRewards(childId);
+}> {
+	const rows = await findSpecialRewards(childId);
 
 	let totalPoints = 0;
 	const rewards: SpecialRewardResult[] = rows.map((r) => {
@@ -107,8 +107,8 @@ export function getChildSpecialRewards(childId: number): {
 
 // --- 未表示報酬取得 ---
 
-export function getUnshownReward(childId: number): SpecialRewardResult | null {
-	const row = findUnshownReward(childId);
+export async function getUnshownReward(childId: number): Promise<SpecialRewardResult | null> {
+	const row = await findUnshownReward(childId);
 	if (!row) return null;
 	return {
 		id: row.id,
@@ -124,15 +124,15 @@ export function getUnshownReward(childId: number): SpecialRewardResult | null {
 
 // --- 報酬表示済みマーク ---
 
-export function markRewardShown(rewardId: number): boolean {
-	const result = markRewardShownRepo(rewardId);
+export async function markRewardShown(rewardId: number): Promise<boolean> {
+	const result = await markRewardShownRepo(rewardId);
 	return !!result;
 }
 
 // --- テンプレート管理 ---
 
-export function getRewardTemplates(): RewardTemplate[] {
-	const json = getSetting(TEMPLATES_KEY);
+export async function getRewardTemplates(): Promise<RewardTemplate[]> {
+	const json = await getSetting(TEMPLATES_KEY);
 	if (!json) return [];
 
 	const parsed = rewardTemplatesArraySchema.safeParse(JSON.parse(json));
@@ -141,6 +141,6 @@ export function getRewardTemplates(): RewardTemplate[] {
 	return parsed.data;
 }
 
-export function saveRewardTemplates(templates: RewardTemplate[]): void {
-	setSetting(TEMPLATES_KEY, JSON.stringify(templates));
+export async function saveRewardTemplates(templates: RewardTemplate[]): Promise<void> {
+	await setSetting(TEMPLATES_KEY, JSON.stringify(templates));
 }

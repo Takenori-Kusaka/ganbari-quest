@@ -7,7 +7,7 @@ export const POST: RequestHandler = async ({ params }) => {
 	const childId = Number(params.childId);
 	if (Number.isNaN(childId)) return validationError('IDが不正です');
 
-	const result = claimLoginBonus(childId);
+	const result = await claimLoginBonus(childId);
 
 	if ('error' in result) {
 		if (result.error === 'NOT_FOUND') {

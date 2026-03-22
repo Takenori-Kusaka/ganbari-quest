@@ -3,8 +3,8 @@ import { getAllChildren, getChildById } from '$lib/server/services/child-service
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
-	const children = getAllChildren();
+export const load: PageServerLoad = async () => {
+	const children = await getAllChildren();
 	return { children };
 };
 
@@ -25,7 +25,7 @@ export const actions: Actions = {
 			maxAge: 60 * 60 * 24 * 365,
 		});
 
-		const child = getChildById(Number(childId));
+		const child = await getChildById(Number(childId));
 		const uiMode = child?.uiMode ?? 'kinder';
 		redirect(303, `/${uiMode}/home`);
 	},

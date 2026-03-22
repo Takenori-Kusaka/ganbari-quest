@@ -33,39 +33,39 @@ export interface ActivityFilter {
 	includeHidden?: boolean;
 }
 
-export function getActivities(filter?: ActivityFilter) {
-	return findActivities(filter);
+export async function getActivities(filter?: ActivityFilter) {
+	return await findActivities(filter);
 }
 
-export function getActivityById(id: number) {
-	return findActivityById(id);
+export async function getActivityById(id: number) {
+	return await findActivityById(id);
 }
 
-export function createActivity(input: CreateActivityInput) {
-	return insertActivity(input);
+export async function createActivity(input: CreateActivityInput) {
+	return await insertActivity(input);
 }
 
-export function updateActivity(id: number, input: Partial<CreateActivityInput>) {
-	return updateActivityRepo(id, input);
+export async function updateActivity(id: number, input: Partial<CreateActivityInput>) {
+	return await updateActivityRepo(id, input);
 }
 
-export function setActivityVisibility(id: number, visible: boolean) {
-	return setActivityVisibilityRepo(id, visible);
+export async function setActivityVisibility(id: number, visible: boolean) {
+	return await setActivityVisibilityRepo(id, visible);
 }
 
-export function deleteActivity(id: number) {
-	return deleteActivityRepo(id);
+export async function deleteActivity(id: number) {
+	return await deleteActivityRepo(id);
 }
 
-export function hasActivityLogs(activityId: number): boolean {
-	return hasActivityLogsRepo(activityId);
+export async function hasActivityLogs(activityId: number): Promise<boolean> {
+	return await hasActivityLogsRepo(activityId);
 }
 
-export function getActivityLogCounts(): Record<number, number> {
-	return getActivityLogCountsRepo();
+export async function getActivityLogCounts(): Promise<Record<number, number>> {
+	return await getActivityLogCountsRepo();
 }
 
-export function deleteActivityWithCleanup(id: number) {
-	deleteDailyMissionsByActivity(id);
-	return deleteActivityRepo(id);
+export async function deleteActivityWithCleanup(id: number) {
+	await deleteDailyMissionsByActivity(id);
+	return await deleteActivityRepo(id);
 }

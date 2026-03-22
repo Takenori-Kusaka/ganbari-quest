@@ -167,8 +167,8 @@ describe('point-service', () => {
 	});
 
 	// 残高取得
-	it('ポイント残高0を返す（初期状態）', () => {
-		const result = getPointBalance(1);
+	it('ポイント残高0を返す（初期状態）', async () => {
+		const result = await getPointBalance(1);
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.balance).toBe(0);
@@ -176,12 +176,12 @@ describe('point-service', () => {
 		}
 	});
 
-	it('ポイント残高を正しく計算する', () => {
+	it('ポイント残高を正しく計算する', async () => {
 		addPoints(1, 100, 'activity', 'テスト活動');
 		addPoints(1, 200, 'activity', 'テスト活動2');
 		addPoints(1, -50, 'cancel', 'キャンセル');
 
-		const result = getPointBalance(1);
+		const result = await getPointBalance(1);
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.balance).toBe(250);
@@ -189,10 +189,10 @@ describe('point-service', () => {
 		}
 	});
 
-	it('変換可能額を正しく計算する（500P単位）', () => {
+	it('変換可能額を正しく計算する（500P単位）', async () => {
 		addPoints(1, 1250, 'activity', '大量ポイント');
 
-		const result = getPointBalance(1);
+		const result = await getPointBalance(1);
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.balance).toBe(1250);
@@ -200,46 +200,48 @@ describe('point-service', () => {
 		}
 	});
 
-	it('存在しない子供のポイント残高はNOT_FOUND', () => {
-		const result = getPointBalance(999);
+	it('存在しない子供のポイント残高はNOT_FOUND', async () => {
+		const result = await getPointBalance(999);
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
 	// 履歴取得
-	it('ポイント履歴を取得する', () => {
+	it('ポイント履歴を取得する', async () => {
 		addPoints(1, 100, 'activity', '活動1');
 		addPoints(1, 200, 'activity', '活動2');
 		addPoints(1, 50, 'login_bonus', 'ログインボーナス');
 
-		const result = getPointHistory(1, { limit: 50, offset: 0 });
+		const result = await getPointHistory(1, { limit: 50, offset: 0 });
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
-			expect(result.history.length).toBe(3);
+			const history = await result.history;
+			expect(history.length).toBe(3);
 		}
 	});
 
-	it('履歴のlimit/offsetが動作する', () => {
+	it('履歴のlimit/offsetが動作する', async () => {
 		addPoints(1, 10, 'activity', '1');
 		addPoints(1, 20, 'activity', '2');
 		addPoints(1, 30, 'activity', '3');
 
-		const result = getPointHistory(1, { limit: 2, offset: 0 });
+		const result = await getPointHistory(1, { limit: 2, offset: 0 });
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
-			expect(result.history.length).toBe(2);
+			const history = await result.history;
+			expect(history.length).toBe(2);
 		}
 	});
 
-	it('存在しない子供の履歴はNOT_FOUND', () => {
-		const result = getPointHistory(999, { limit: 50, offset: 0 });
+	it('存在しない子供の履歴はNOT_FOUND', async () => {
+		const result = await getPointHistory(999, { limit: 50, offset: 0 });
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
 	// ポイント変換
-	it('ポイントを正常に変換できる（500P）', () => {
+	it('ポイントを正常に変換できる（500P）', async () => {
 		addPoints(1, 700, 'activity', 'テスト');
 
-		const result = convertPoints(1, 500);
+		const result = await convertPoints(1, 500);
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.convertedAmount).toBe(500);
@@ -247,28 +249,28 @@ describe('point-service', () => {
 		}
 
 		// 残高確認
-		const balance = getPointBalance(1);
+		const balance = await getPointBalance(1);
 		if (!('error' in balance)) {
 			expect(balance.balance).toBe(200);
 		}
 	});
 
-	it('残高不足時はINSUFFICIENT_POINTSエラー', () => {
+	it('残高不足時はINSUFFICIENT_POINTSエラー', async () => {
 		addPoints(1, 300, 'activity', 'テスト');
 
-		const result = convertPoints(1, 500);
+		const result = await convertPoints(1, 500);
 		expect(result).toEqual({ error: 'INSUFFICIENT_POINTS' });
 	});
 
-	it('存在しない子供の変換はNOT_FOUND', () => {
-		const result = convertPoints(999, 500);
+	it('存在しない子供の変換はNOT_FOUND', async () => {
+		const result = await convertPoints(999, 500);
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
-	it('1000P変換が正常に動作する', () => {
+	it('1000P変換が正常に動作する', async () => {
 		addPoints(1, 1500, 'activity', '大量');
 
-		const result = convertPoints(1, 1000);
+		const result = await convertPoints(1, 1000);
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.convertedAmount).toBe(1000);
@@ -276,23 +278,24 @@ describe('point-service', () => {
 		}
 	});
 
-	it('変換後に履歴にconvertエントリが追加される', () => {
+	it('変換後に履歴にconvertエントリが追加される', async () => {
 		addPoints(1, 600, 'activity', 'テスト');
-		convertPoints(1, 500);
+		await convertPoints(1, 500);
 
-		const history = getPointHistory(1, { limit: 50, offset: 0 });
-		if (!('error' in history)) {
-			const convertEntry = history.history.find((h) => h.type === 'convert');
+		const historyResult = await getPointHistory(1, { limit: 50, offset: 0 });
+		if (!('error' in historyResult)) {
+			const historyList = await historyResult.history;
+			const convertEntry = historyList.find((h: { type: string }) => h.type === 'convert');
 			expect(convertEntry).toBeDefined();
 			expect(convertEntry?.amount).toBe(-500);
 		}
 	});
 
 	// 自由入力モード
-	it('手動入力モードで1P単位の変換ができる', () => {
+	it('手動入力モードで1P単位の変換ができる', async () => {
 		addPoints(1, 700, 'activity', 'テスト');
 
-		const result = convertPoints(1, 123, 'manual');
+		const result = await convertPoints(1, 123, 'manual');
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.convertedAmount).toBe(123);
@@ -301,10 +304,10 @@ describe('point-service', () => {
 		}
 	});
 
-	it('領収書モードで変換できる', () => {
+	it('領収書モードで変換できる', async () => {
 		addPoints(1, 1000, 'activity', 'テスト');
 
-		const result = convertPoints(1, 648, 'receipt');
+		const result = await convertPoints(1, 648, 'receipt');
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.convertedAmount).toBe(648);
@@ -313,10 +316,10 @@ describe('point-service', () => {
 		}
 	});
 
-	it('プリセットモード（デフォルト）の説明文にサフィックスがない', () => {
+	it('プリセットモード（デフォルト）の説明文にサフィックスがない', async () => {
 		addPoints(1, 600, 'activity', 'テスト');
 
-		const result = convertPoints(1, 500);
+		const result = await convertPoints(1, 500);
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.message).not.toContain('手動入力');

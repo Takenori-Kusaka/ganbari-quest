@@ -3,14 +3,14 @@ import { addChild, getAllChildren } from '$lib/server/services/child-service';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
+export const load: PageServerLoad = async () => {
 	// PIN not set -> go back to step 1
-	const pinHash = getSetting('pin_hash');
+	const pinHash = await getSetting('pin_hash');
 	if (!pinHash) {
 		redirect(302, '/setup');
 	}
 
-	const children = getAllChildren();
+	const children = await getAllChildren();
 	return { children };
 };
 
@@ -29,12 +29,12 @@ export const actions: Actions = {
 			return fail(400, { error: '年齢は0〜18で入力してください' });
 		}
 
-		addChild({ nickname, age, theme, uiMode });
+		await addChild({ nickname, age, theme, uiMode });
 		return { success: true };
 	},
 
 	next: async () => {
-		const children = getAllChildren();
+		const children = await getAllChildren();
 		if (children.length === 0) {
 			return fail(400, { error: '1人以上の子供を登録してください' });
 		}

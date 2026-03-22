@@ -7,18 +7,20 @@ import {
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
-	const children = getAllChildren();
-	const templates = getRewardTemplates();
+export const load: PageServerLoad = async () => {
+	const children = await getAllChildren();
+	const templates = await getRewardTemplates();
 
-	const childrenWithRewards = children.map((child) => {
-		const rewards = getChildSpecialRewards(child.id);
-		return {
-			...child,
-			rewardCount: rewards.rewards.length,
-			totalRewardPoints: rewards.totalPoints,
-		};
-	});
+	const childrenWithRewards = await Promise.all(
+		children.map(async (child) => {
+			const rewards = await getChildSpecialRewards(child.id);
+			return {
+				...child,
+				rewardCount: rewards.rewards.length,
+				totalRewardPoints: rewards.totalPoints,
+			};
+		}),
+	);
 
 	return { children: childrenWithRewards, templates };
 };
@@ -36,7 +38,7 @@ export const actions: Actions = {
 		if (!title) return fail(400, { error: 'タイトルを入力してください' });
 		if (points <= 0 || points > 10000) return fail(400, { error: 'ポイントは1〜10000の範囲です' });
 
-		const result = grantSpecialReward({ childId, title, points, icon, category });
+		const result = await grantSpecialReward({ childId, title, points, icon, category });
 		if ('error' in result) {
 			return fail(400, { error: result.error });
 		}

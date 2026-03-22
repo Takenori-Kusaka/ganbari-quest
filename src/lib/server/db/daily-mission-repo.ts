@@ -1,121 +1,37 @@
-// src/lib/server/db/daily-mission-repo.ts
-// デイリーミッション関連のリポジトリ層
+// src/lib/server/db/daily-mission-repo.ts — Facade (delegates to factory)
 
-import { and, eq, gte } from 'drizzle-orm';
-import { db } from './client';
-import { activities, activityLogs, children, dailyMissions, pointLedger } from './schema';
+import { getRepos } from './factory';
 
-/** 今日のミッション一覧を取得（活動情報JOIN） */
-export function findTodayMissions(childId: number, date: string) {
-	return db
-		.select({
-			id: dailyMissions.id,
-			activityId: dailyMissions.activityId,
-			completed: dailyMissions.completed,
-			activityName: activities.name,
-			activityIcon: activities.icon,
-			categoryId: activities.categoryId,
-		})
-		.from(dailyMissions)
-		.innerJoin(activities, eq(dailyMissions.activityId, activities.id))
-		.where(and(eq(dailyMissions.childId, childId), eq(dailyMissions.missionDate, date)))
-		.all();
+export async function findTodayMissions(childId: number, date: string) {
+	return getRepos().dailyMission.findTodayMissions(childId, date);
 }
-
-/** ミッションボーナス既付与レコードを取得 */
-export function findMissionBonusRecord(childId: number, description: string) {
-	return db
-		.select({ amount: pointLedger.amount })
-		.from(pointLedger)
-		.where(
-			and(
-				eq(pointLedger.childId, childId),
-				eq(pointLedger.type, 'daily_mission'),
-				eq(pointLedger.description, description),
-			),
-		)
-		.get();
+export async function findMissionBonusRecord(childId: number, description: string) {
+	return getRepos().dailyMission.findMissionBonusRecord(childId, description);
 }
-
-/** 特定活動のミッションを取得 */
-export function findMissionByActivity(childId: number, date: string, activityId: number) {
-	return db
-		.select({ id: dailyMissions.id, completed: dailyMissions.completed })
-		.from(dailyMissions)
-		.where(
-			and(
-				eq(dailyMissions.childId, childId),
-				eq(dailyMissions.missionDate, date),
-				eq(dailyMissions.activityId, activityId),
-			),
-		)
-		.get();
+export async function findMissionByActivity(childId: number, date: string, activityId: number) {
+	return getRepos().dailyMission.findMissionByActivity(childId, date, activityId);
 }
-
-/** ミッションを達成済みにする */
-export function markMissionCompleted(missionId: number) {
-	db.update(dailyMissions)
-		.set({ completed: 1, completedAt: new Date().toISOString() })
-		.where(eq(dailyMissions.id, missionId))
-		.run();
+export async function markMissionCompleted(missionId: number) {
+	return getRepos().dailyMission.markMissionCompleted(missionId);
 }
-
-/** 今日の全ミッションの完了状態を取得 */
-export function findAllMissionStatuses(childId: number, date: string) {
-	return db
-		.select({ completed: dailyMissions.completed })
-		.from(dailyMissions)
-		.where(and(eq(dailyMissions.childId, childId), eq(dailyMissions.missionDate, date)))
-		.all();
+export async function findAllMissionStatuses(childId: number, date: string) {
+	return getRepos().dailyMission.findAllMissionStatuses(childId, date);
 }
-
-/** 子供情報を取得 */
-export function findChildForMission(childId: number) {
-	return db.select().from(children).where(eq(children.id, childId)).get();
+export async function findChildForMission(childId: number) {
+	return getRepos().dailyMission.findChildForMission(childId);
 }
-
-/** 表示可能な全活動を取得 */
-export function findVisibleActivities() {
-	return db.select().from(activities).where(eq(activities.isVisible, 1)).all();
+export async function findVisibleActivities() {
+	return getRepos().dailyMission.findVisibleActivities();
 }
-
-/** 前日のミッション活動IDを取得 */
-export function findPreviousDayMissionIds(childId: number, date: string) {
-	return db
-		.select({ activityId: dailyMissions.activityId })
-		.from(dailyMissions)
-		.where(and(eq(dailyMissions.childId, childId), eq(dailyMissions.missionDate, date)))
-		.all()
-		.map((m) => m.activityId);
+export async function findPreviousDayMissionIds(childId: number, date: string) {
+	return getRepos().dailyMission.findPreviousDayMissionIds(childId, date);
 }
-
-/** 直近N日間の活動記録のactivityIdを取得 */
-export function findRecentActivityIds(childId: number, sinceDate: string) {
-	return db
-		.select({ activityId: activityLogs.activityId })
-		.from(activityLogs)
-		.where(
-			and(
-				eq(activityLogs.childId, childId),
-				gte(activityLogs.recordedDate, sinceDate),
-				eq(activityLogs.cancelled, 0),
-			),
-		)
-		.all()
-		.map((l) => l.activityId);
+export async function findRecentActivityIds(childId: number, sinceDate: string) {
+	return getRepos().dailyMission.findRecentActivityIds(childId, sinceDate);
 }
-
-/** 全期間の活動記録のactivityIdを取得 */
-export function findAllRecordedActivityIds(childId: number) {
-	return db
-		.select({ activityId: activityLogs.activityId })
-		.from(activityLogs)
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
-		.all()
-		.map((l) => l.activityId);
+export async function findAllRecordedActivityIds(childId: number) {
+	return getRepos().dailyMission.findAllRecordedActivityIds(childId);
 }
-
-/** ミッションを挿入 */
-export function insertDailyMission(childId: number, date: string, activityId: number) {
-	db.insert(dailyMissions).values({ childId, missionDate: date, activityId }).run();
+export async function insertDailyMission(childId: number, date: string, activityId: number) {
+	return getRepos().dailyMission.insertDailyMission(childId, date, activityId);
 }

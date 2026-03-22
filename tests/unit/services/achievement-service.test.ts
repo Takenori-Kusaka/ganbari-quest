@@ -296,7 +296,7 @@ describe('checkAndUnlockAchievements', () => {
 		seedAchievements();
 	});
 
-	it('初回活動で first_step を解除する', () => {
+	it('初回活動で first_step を解除する', async () => {
 		testDb
 			.insert(schema.activityLogs)
 			.values({
@@ -309,7 +309,7 @@ describe('checkAndUnlockAchievements', () => {
 			})
 			.run();
 
-		const unlocked = checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1);
 
 		expect(unlocked.length).toBeGreaterThanOrEqual(1);
 		const firstStep = unlocked.find((a) => a.code === 'first_step');
@@ -318,7 +318,7 @@ describe('checkAndUnlockAchievements', () => {
 		expect(firstStep?.milestoneValue).toBeNull();
 	});
 
-	it('解除時にポイント台帳に achievement エントリが追加される', () => {
+	it('解除時にポイント台帳に achievement エントリが追加される', async () => {
 		testDb
 			.insert(schema.activityLogs)
 			.values({
@@ -329,7 +329,7 @@ describe('checkAndUnlockAchievements', () => {
 			})
 			.run();
 
-		checkAndUnlockAchievements(1);
+		await checkAndUnlockAchievements(1);
 
 		const ledger = testDb.select().from(schema.pointLedger).all();
 		const achievementEntries = ledger.filter((e) => e.type === 'achievement');
@@ -337,7 +337,7 @@ describe('checkAndUnlockAchievements', () => {
 		expect(achievementEntries[0]?.amount).toBe(10);
 	});
 
-	it('既に解除済みの一度きり実績は重複解除しない', () => {
+	it('既に解除済みの一度きり実績は重複解除しない', async () => {
 		testDb
 			.insert(schema.activityLogs)
 			.values({
@@ -348,19 +348,19 @@ describe('checkAndUnlockAchievements', () => {
 			})
 			.run();
 
-		const first = checkAndUnlockAchievements(1);
+		const first = await checkAndUnlockAchievements(1);
 		expect(first.map((a) => a.code)).toContain('first_step');
 
-		const second = checkAndUnlockAchievements(1);
+		const second = await checkAndUnlockAchievements(1);
 		expect(second.map((a) => a.code)).not.toContain('first_step');
 	});
 
-	it('条件未達成なら解除しない', () => {
-		const unlocked = checkAndUnlockAchievements(1);
+	it('条件未達成なら解除しない', async () => {
+		const unlocked = await checkAndUnlockAchievements(1);
 		expect(unlocked).toHaveLength(0);
 	});
 
-	it('3日連続で streak_master のマイルストーン3を解除する', () => {
+	it('3日連続で streak_master のマイルストーン3を解除する', async () => {
 		const dates = ['2026-02-23', '2026-02-24', '2026-02-25'];
 		for (const date of dates) {
 			testDb
@@ -374,14 +374,14 @@ describe('checkAndUnlockAchievements', () => {
 				.run();
 		}
 
-		const unlocked = checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1);
 		const streak = unlocked.find((a) => a.code === 'streak_master');
 		expect(streak).toBeDefined();
 		expect(streak?.milestoneValue).toBe(3);
 		expect(streak?.bonusPoints).toBe(10); // base * (index 0 + 1)
 	});
 
-	it('全カテゴリ記録で category_explorer を解除する', () => {
+	it('全カテゴリ記録で category_explorer を解除する', async () => {
 		for (let i = 1; i <= 5; i++) {
 			testDb
 				.insert(schema.activityLogs)
@@ -394,13 +394,13 @@ describe('checkAndUnlockAchievements', () => {
 				.run();
 		}
 
-		const unlocked = checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1);
 		const allCat = unlocked.find((a) => a.code === 'category_explorer');
 		expect(allCat).toBeDefined();
 		expect(allCat?.bonusPoints).toBe(50);
 	});
 
-	it('累計ポイントで point_collector マイルストーン100を解除する', () => {
+	it('累計ポイントで point_collector マイルストーン100を解除する', async () => {
 		testDb
 			.insert(schema.pointLedger)
 			.values({ childId: 1, amount: 100, type: 'activity', description: 'テスト' })
@@ -415,14 +415,14 @@ describe('checkAndUnlockAchievements', () => {
 			})
 			.run();
 
-		const unlocked = checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1);
 		const points = unlocked.find((a) => a.code === 'point_collector');
 		expect(points).toBeDefined();
 		expect(points?.milestoneValue).toBe(100);
 		expect(points?.bonusPoints).toBe(10); // base * 1
 	});
 
-	it('ライフイベント（milestone_event）は自動解除されない', () => {
+	it('ライフイベント（milestone_event）は自動解除されない', async () => {
 		testDb
 			.insert(schema.activityLogs)
 			.values({
@@ -433,12 +433,12 @@ describe('checkAndUnlockAchievements', () => {
 			})
 			.run();
 
-		const unlocked = checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1);
 		const lifeEvent = unlocked.find((a) => a.code === 'kindergarten_grad');
 		expect(lifeEvent).toBeUndefined();
 	});
 
-	it('繰り返し実績は次のマイルストーンも解除できる', () => {
+	it('繰り返し実績は次のマイルストーンも解除できる', async () => {
 		// 5日連続分の活動記録
 		const dates = ['2026-02-21', '2026-02-22', '2026-02-23', '2026-02-24', '2026-02-25'];
 		for (const date of dates) {
@@ -454,13 +454,13 @@ describe('checkAndUnlockAchievements', () => {
 		}
 
 		// 1回目: milestone 3 と 5 を解除
-		const first = checkAndUnlockAchievements(1);
+		const first = await checkAndUnlockAchievements(1);
 		const streakUnlocks = first.filter((a) => a.code === 'streak_master');
 		expect(streakUnlocks.length).toBe(2);
 		expect(streakUnlocks.map((a) => a.milestoneValue).sort()).toEqual([3, 5]);
 
 		// 2回目: 重複しない
-		const second = checkAndUnlockAchievements(1);
+		const second = await checkAndUnlockAchievements(1);
 		const streakSecond = second.filter((a) => a.code === 'streak_master');
 		expect(streakSecond).toHaveLength(0);
 	});
@@ -472,17 +472,17 @@ describe('getChildAchievements', () => {
 		seedAchievements();
 	});
 
-	it('全実績一覧を返す', () => {
-		const achievements = getChildAchievements(1);
+	it('全実績一覧を返す', async () => {
+		const achievements = await getChildAchievements(1);
 		expect(achievements).toHaveLength(7);
 	});
 
-	it('未解除の実績は unlockedAt が null', () => {
-		const achievements = getChildAchievements(1);
+	it('未解除の実績は unlockedAt が null', async () => {
+		const achievements = await getChildAchievements(1);
 		expect(achievements.every((a) => a.unlockedAt === null)).toBe(true);
 	});
 
-	it('解除済みの一度きり実績には unlockedAt が設定される', () => {
+	it('解除済みの一度きり実績には unlockedAt が設定される', async () => {
 		testDb
 			.insert(schema.activityLogs)
 			.values({
@@ -492,9 +492,9 @@ describe('getChildAchievements', () => {
 				recordedDate: '2026-02-25',
 			})
 			.run();
-		checkAndUnlockAchievements(1);
+		await checkAndUnlockAchievements(1);
 
-		const achievements = getChildAchievements(1);
+		const achievements = await getChildAchievements(1);
 		const firstStep = achievements.find((a) => a.code === 'first_step');
 		expect(firstStep?.unlockedAt).not.toBeNull();
 
@@ -503,15 +503,15 @@ describe('getChildAchievements', () => {
 		expect(activityMaster?.unlockedAt).toBeNull();
 	});
 
-	it('sortOrder 順に並ぶ', () => {
-		const achievements = getChildAchievements(1);
+	it('sortOrder 順に並ぶ', async () => {
+		const achievements = await getChildAchievements(1);
 		for (let i = 1; i < achievements.length; i++) {
 			expect(achievements[i]!.sortOrder).toBeGreaterThanOrEqual(achievements[i - 1]!.sortOrder);
 		}
 	});
 
-	it('繰り返し実績にはマイルストーン情報が含まれる', () => {
-		const achievements = getChildAchievements(1);
+	it('繰り返し実績にはマイルストーン情報が含まれる', async () => {
+		const achievements = await getChildAchievements(1);
 		const streak = achievements.find((a) => a.code === 'streak_master');
 		expect(streak?.repeatable).toBe(true);
 		expect(streak?.milestones).toHaveLength(3); // [3,5,7]
@@ -520,7 +520,7 @@ describe('getChildAchievements', () => {
 		expect(streak?.nextMilestone).toBe(3);
 	});
 
-	it('マイルストーン解除後は次のマイルストーンが表示される', () => {
+	it('マイルストーン解除後は次のマイルストーンが表示される', async () => {
 		// 3日連続
 		for (const d of ['2026-02-23', '2026-02-24', '2026-02-25']) {
 			testDb
@@ -528,17 +528,17 @@ describe('getChildAchievements', () => {
 				.values({ childId: 1, activityId: 1, points: 5, recordedDate: d })
 				.run();
 		}
-		checkAndUnlockAchievements(1);
+		await checkAndUnlockAchievements(1);
 
-		const achievements = getChildAchievements(1);
+		const achievements = await getChildAchievements(1);
 		const streak = achievements.find((a) => a.code === 'streak_master');
 		expect(streak?.highestUnlockedMilestone).toBe(3);
 		expect(streak?.nextMilestone).toBe(5);
 		expect(streak?.milestones[0]?.unlocked).toBe(true);
 	});
 
-	it('ライフイベントは isMilestone=true で返される', () => {
-		const achievements = getChildAchievements(1);
+	it('ライフイベントは isMilestone=true で返される', async () => {
+		const achievements = await getChildAchievements(1);
 		const grad = achievements.find((a) => a.code === 'kindergarten_grad');
 		expect(grad?.isMilestone).toBe(true);
 		expect(grad?.conditionType).toBe('milestone_event');
@@ -551,7 +551,7 @@ describe('category_scout (カテゴリたんけんか)', () => {
 		seedAchievements();
 	});
 
-	it('2カテゴリの活動で category_scout M=2 を解除する', () => {
+	it('2カテゴリの活動で category_scout M=2 を解除する', async () => {
 		// うんどう + べんきょう の2カテゴリ
 		testDb
 			.insert(schema.activityLogs)
@@ -576,13 +576,13 @@ describe('category_scout (カテゴリたんけんか)', () => {
 			})
 			.run();
 
-		const unlocked = checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1);
 		const scout = unlocked.find((a) => a.code === 'category_scout');
 		expect(scout).toBeDefined();
 		expect(scout?.milestoneValue).toBe(2);
 	});
 
-	it('1カテゴリのみでは category_scout は解除されない', () => {
+	it('1カテゴリのみでは category_scout は解除されない', async () => {
 		testDb
 			.insert(schema.activityLogs)
 			.values({
@@ -595,12 +595,12 @@ describe('category_scout (カテゴリたんけんか)', () => {
 			})
 			.run();
 
-		const unlocked = checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1);
 		const scout = unlocked.find((a) => a.code === 'category_scout');
 		expect(scout).toBeUndefined();
 	});
 
-	it('3カテゴリで M=2 と M=3 を同時解除する', () => {
+	it('3カテゴリで M=2 と M=3 を同時解除する', async () => {
 		testDb
 			.insert(schema.activityLogs)
 			.values({
@@ -635,7 +635,7 @@ describe('category_scout (カテゴリたんけんか)', () => {
 			})
 			.run();
 
-		const unlocked = checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1);
 		const scouts = unlocked.filter((a) => a.code === 'category_scout');
 		expect(scouts).toHaveLength(2);
 		expect(scouts.map((s) => s.milestoneValue).sort()).toEqual([2, 3]);

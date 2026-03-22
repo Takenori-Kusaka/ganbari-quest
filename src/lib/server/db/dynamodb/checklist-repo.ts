@@ -1,0 +1,399 @@
+// src/lib/server/db/dynamodb/checklist-repo.ts
+// DynamoDB implementation of IChecklistRepo
+
+import {
+	DeleteCommand,
+	GetCommand,
+	PutCommand,
+	QueryCommand,
+	ScanCommand,
+	UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
+import type {
+	ChecklistLog,
+	ChecklistOverride,
+	ChecklistTemplate,
+	ChecklistTemplateItem,
+	InsertChecklistOverrideInput,
+	InsertChecklistTemplateInput,
+	InsertChecklistTemplateItemInput,
+	UpdateChecklistTemplateInput,
+	UpsertChecklistLogInput,
+} from '../types';
+import { TABLE_NAME, getDocClient } from './client';
+import { nextId } from './counter';
+import {
+	ENTITY_NAMES,
+	checklistItemKey,
+	checklistItemPrefix,
+	checklistLogKey,
+	checklistOverrideDatePrefix,
+	checklistOverrideKey,
+	checklistTemplateKey,
+	checklistTemplatePrefix,
+	childPK,
+} from './keys';
+
+function stripKeys<T extends Record<string, unknown>>(
+	item: T,
+): Omit<T, 'PK' | 'SK' | 'GSI2PK' | 'GSI2SK'> {
+	const { PK, SK, GSI2PK, GSI2SK, ...rest } = item;
+	return rest;
+}
+
+// ============================================================
+// Templates
+// ============================================================
+
+export async function findTemplatesByChild(
+	childId: number,
+	includeInactive?: boolean,
+): Promise<ChecklistTemplate[]> {
+	const result = await getDocClient().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': childPK(childId),
+				':prefix': checklistTemplatePrefix(),
+			},
+		}),
+	);
+
+	let items = (result.Items ?? []).map((item) => stripKeys(item) as unknown as ChecklistTemplate);
+
+	if (!includeInactive) {
+		items = items.filter((t) => t.isActive === 1);
+	}
+
+	return items;
+}
+
+export async function findTemplateById(id: number): Promise<ChecklistTemplate | undefined> {
+	// Need to scan since we don't know childId
+	let lastKey: Record<string, unknown> | undefined;
+
+	do {
+		const result = await getDocClient().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression: 'begins_with(SK, :prefix) AND id = :id',
+				ExpressionAttributeValues: {
+					':prefix': checklistTemplatePrefix(),
+					':id': id,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		if (result.Items && result.Items.length > 0) {
+			return stripKeys(result.Items[0] as Record<string, unknown>) as unknown as ChecklistTemplate;
+		}
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
+
+	return undefined;
+}
+
+export async function insertTemplate(
+	input: InsertChecklistTemplateInput,
+): Promise<ChecklistTemplate> {
+	const id = await nextId(ENTITY_NAMES.checklistTemplate);
+	const now = new Date().toISOString();
+
+	const template: ChecklistTemplate = {
+		id,
+		childId: input.childId,
+		name: input.name,
+		icon: input.icon ?? '📋',
+		pointsPerItem: input.pointsPerItem ?? 5,
+		completionBonus: input.completionBonus ?? 10,
+		isActive: input.isActive ?? 1,
+		createdAt: now,
+		updatedAt: now,
+	};
+
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...checklistTemplateKey(input.childId, id),
+				...template,
+			},
+		}),
+	);
+
+	return template;
+}
+
+export async function updateTemplate(
+	id: number,
+	input: UpdateChecklistTemplateInput,
+): Promise<ChecklistTemplate | undefined> {
+	const existing = await findTemplateById(id);
+	if (!existing) return undefined;
+
+	const updates: string[] = ['#updatedAt = :updatedAt'];
+	const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
+	const values: Record<string, unknown> = { ':updatedAt': new Date().toISOString() };
+
+	const fields = ['name', 'icon', 'pointsPerItem', 'completionBonus', 'isActive'] as const;
+	for (const field of fields) {
+		if (input[field] !== undefined) {
+			updates.push(`#${field} = :${field}`);
+			names[`#${field}`] = field;
+			values[`:${field}`] = input[field];
+		}
+	}
+
+	const result = await getDocClient().send(
+		new UpdateCommand({
+			TableName: TABLE_NAME,
+			Key: checklistTemplateKey(existing.childId, id),
+			UpdateExpression: `SET ${updates.join(', ')}`,
+			ExpressionAttributeNames: names,
+			ExpressionAttributeValues: values,
+			ReturnValues: 'ALL_NEW',
+		}),
+	);
+
+	if (!result.Attributes) return undefined;
+	return stripKeys(result.Attributes) as unknown as ChecklistTemplate;
+}
+
+export async function deleteTemplate(id: number): Promise<void> {
+	const existing = await findTemplateById(id);
+	if (!existing) return;
+
+	await getDocClient().send(
+		new DeleteCommand({
+			TableName: TABLE_NAME,
+			Key: checklistTemplateKey(existing.childId, id),
+		}),
+	);
+}
+
+// ============================================================
+// Template items
+// ============================================================
+
+export async function findTemplateItems(templateId: number): Promise<ChecklistTemplateItem[]> {
+	const result = await getDocClient().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': `CKTPL#${templateId}`,
+				':prefix': checklistItemPrefix(),
+			},
+		}),
+	);
+
+	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as ChecklistTemplateItem);
+}
+
+export async function insertTemplateItem(
+	input: InsertChecklistTemplateItemInput,
+): Promise<ChecklistTemplateItem> {
+	const id = await nextId(ENTITY_NAMES.checklistItem);
+	const now = new Date().toISOString();
+	const sortOrder = input.sortOrder ?? 0;
+
+	const item: ChecklistTemplateItem = {
+		id,
+		templateId: input.templateId,
+		name: input.name,
+		icon: input.icon ?? '✅',
+		frequency: input.frequency ?? 'daily',
+		direction: input.direction ?? 'morning',
+		sortOrder,
+		createdAt: now,
+	};
+
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...checklistItemKey(input.templateId, sortOrder, id),
+				...item,
+			},
+		}),
+	);
+
+	return item;
+}
+
+export async function deleteTemplateItem(id: number): Promise<void> {
+	// Scan to find the item since we don't have templateId/sortOrder
+	let lastKey: Record<string, unknown> | undefined;
+
+	do {
+		const result = await getDocClient().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression: 'begins_with(SK, :prefix) AND id = :id',
+				ExpressionAttributeValues: {
+					':prefix': checklistItemPrefix(),
+					':id': id,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		if (result.Items && result.Items.length > 0) {
+			const item = result.Items[0]!;
+			await getDocClient().send(
+				new DeleteCommand({
+					TableName: TABLE_NAME,
+					Key: { PK: item.PK, SK: item.SK },
+				}),
+			);
+			return;
+		}
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
+}
+
+// ============================================================
+// Logs
+// ============================================================
+
+export async function findTodayLog(
+	childId: number,
+	templateId: number,
+	date: string,
+): Promise<ChecklistLog | undefined> {
+	const result = await getDocClient().send(
+		new GetCommand({
+			TableName: TABLE_NAME,
+			Key: checklistLogKey(childId, templateId, date),
+		}),
+	);
+
+	if (!result.Item) return undefined;
+	return stripKeys(result.Item) as unknown as ChecklistLog;
+}
+
+export async function upsertLog(input: UpsertChecklistLogInput): Promise<ChecklistLog> {
+	const existing = await findTodayLog(input.childId, input.templateId, input.checkedDate);
+
+	if (existing) {
+		const result = await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: checklistLogKey(input.childId, input.templateId, input.checkedDate),
+				UpdateExpression:
+					'SET itemsJson = :itemsJson, completedAll = :completedAll, pointsAwarded = :pointsAwarded',
+				ExpressionAttributeValues: {
+					':itemsJson': input.itemsJson,
+					':completedAll': input.completedAll,
+					':pointsAwarded': input.pointsAwarded,
+				},
+				ReturnValues: 'ALL_NEW',
+			}),
+		);
+		return stripKeys(result.Attributes!) as unknown as ChecklistLog;
+	}
+
+	const id = await nextId(ENTITY_NAMES.checklistLog);
+	const now = new Date().toISOString();
+
+	const log: ChecklistLog = {
+		id,
+		childId: input.childId,
+		templateId: input.templateId,
+		checkedDate: input.checkedDate,
+		itemsJson: input.itemsJson,
+		completedAll: input.completedAll,
+		pointsAwarded: input.pointsAwarded,
+		createdAt: now,
+	};
+
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...checklistLogKey(input.childId, input.templateId, input.checkedDate),
+				...log,
+			},
+		}),
+	);
+
+	return log;
+}
+
+// ============================================================
+// Overrides
+// ============================================================
+
+export async function findOverrides(childId: number, date: string): Promise<ChecklistOverride[]> {
+	const result = await getDocClient().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': childPK(childId),
+				':prefix': checklistOverrideDatePrefix(date),
+			},
+		}),
+	);
+
+	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as ChecklistOverride);
+}
+
+export async function insertOverride(
+	input: InsertChecklistOverrideInput,
+): Promise<ChecklistOverride> {
+	const id = await nextId(ENTITY_NAMES.checklistOverride);
+	const now = new Date().toISOString();
+
+	const override: ChecklistOverride = {
+		id,
+		childId: input.childId,
+		targetDate: input.targetDate,
+		action: input.action,
+		itemName: input.itemName,
+		icon: input.icon ?? '✅',
+		createdAt: now,
+	};
+
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...checklistOverrideKey(input.childId, input.targetDate, id),
+				...override,
+			},
+		}),
+	);
+
+	return override;
+}
+
+export async function deleteOverride(id: number): Promise<void> {
+	// Scan to find the override
+	let lastKey: Record<string, unknown> | undefined;
+
+	do {
+		const result = await getDocClient().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression: 'begins_with(SK, :prefix) AND id = :id',
+				ExpressionAttributeValues: {
+					':prefix': 'CKOVER#',
+					':id': id,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		if (result.Items && result.Items.length > 0) {
+			const item = result.Items[0]!;
+			await getDocClient().send(
+				new DeleteCommand({
+					TableName: TABLE_NAME,
+					Key: { PK: item.PK, SK: item.SK },
+				}),
+			);
+			return;
+		}
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
+}

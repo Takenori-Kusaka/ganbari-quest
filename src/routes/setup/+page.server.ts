@@ -4,9 +4,9 @@ import { setupPin } from '$lib/server/services/auth-service';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
+export const load: PageServerLoad = async () => {
 	// PIN already set -> skip to step 2
-	const pinHash = getSetting('pin_hash');
+	const pinHash = await getSetting('pin_hash');
 	if (pinHash) {
 		redirect(302, '/setup/children');
 	}
@@ -28,7 +28,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'PINが一致しません' });
 		}
 
-		setupPin(parsed.data);
+		await setupPin(parsed.data);
 		redirect(302, '/setup/children');
 	},
 };

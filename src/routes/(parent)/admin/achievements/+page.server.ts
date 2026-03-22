@@ -4,22 +4,24 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
-	const children = getAllChildren();
-	const allAchievements = findAllAchievements();
+export const load: PageServerLoad = async () => {
+	const children = await getAllChildren();
+	const allAchievements = await findAllAchievements();
 
-	const childrenWithAchievements = children.map((child) => {
-		const achievements = getChildAchievements(child.id);
-		const unlockedCount = achievements.filter(
-			(a) => a.unlockedAt !== null || a.highestUnlockedMilestone !== null,
-		).length;
-		return {
-			...child,
-			achievements,
-			unlockedCount,
-			totalCount: achievements.length,
-		};
-	});
+	const childrenWithAchievements = await Promise.all(
+		children.map(async (child) => {
+			const achievements = await getChildAchievements(child.id);
+			const unlockedCount = achievements.filter(
+				(a) => a.unlockedAt !== null || a.highestUnlockedMilestone !== null,
+			).length;
+			return {
+				...child,
+				achievements,
+				unlockedCount,
+				totalCount: achievements.length,
+			};
+		}),
+	);
 
 	// ライフイベント実績一覧
 	const lifeEvents = allAchievements.filter((a) => a.isMilestone === 1);
@@ -37,7 +39,7 @@ export const actions = {
 			return fail(400, { error: '子供と実績を選択してください' });
 		}
 
-		const result = grantLifeEvent(childId, achievementId);
+		const result = await grantLifeEvent(childId, achievementId);
 		if ('error' in result) {
 			const messages: Record<string, string> = {
 				ACHIEVEMENT_NOT_FOUND: '実績が見つかりません',

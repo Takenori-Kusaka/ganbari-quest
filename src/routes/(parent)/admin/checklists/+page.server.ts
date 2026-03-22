@@ -17,22 +17,26 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
-	const children = getAllChildren();
+export const load: PageServerLoad = async () => {
+	const children = await getAllChildren();
 
-	const childrenWithChecklists = children.map((child) => {
-		const templates = findTemplatesByChild(child.id, true);
-		const templatesWithItems = templates.map((tpl) => ({
-			...tpl,
-			items: findTemplateItems(tpl.id),
-		}));
-		const overrides = findOverrides(child.id, todayDateJST());
-		return {
-			...child,
-			templates: templatesWithItems,
-			overrides,
-		};
-	});
+	const childrenWithChecklists = await Promise.all(
+		children.map(async (child) => {
+			const templates = await findTemplatesByChild(child.id, true);
+			const templatesWithItems = await Promise.all(
+				templates.map(async (tpl) => ({
+					...tpl,
+					items: await findTemplateItems(tpl.id),
+				})),
+			);
+			const overrides = await findOverrides(child.id, todayDateJST());
+			return {
+				...child,
+				templates: templatesWithItems,
+				overrides,
+			};
+		}),
+	);
 
 	return { children: childrenWithChecklists, today: todayDateJST() };
 };
@@ -47,7 +51,7 @@ export const actions: Actions = {
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!name) return fail(400, { error: '名前を入力してください' });
 
-		createTemplate({ childId, name, icon });
+		await createTemplate({ childId, name, icon });
 		return { success: true };
 	},
 
@@ -58,7 +62,7 @@ export const actions: Actions = {
 
 		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
 
-		editTemplate(templateId, { isActive: isActive ? 0 : 1 });
+		await editTemplate(templateId, { isActive: isActive ? 0 : 1 });
 		return { success: true };
 	},
 
@@ -68,7 +72,7 @@ export const actions: Actions = {
 
 		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
 
-		removeTemplate(templateId);
+		await removeTemplate(templateId);
 		return { success: true };
 	},
 
@@ -83,7 +87,7 @@ export const actions: Actions = {
 		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
 		if (!name) return fail(400, { error: 'アイテム名を入力してください' });
 
-		addTemplateItem({ templateId, name, icon, frequency, direction });
+		await addTemplateItem({ templateId, name, icon, frequency, direction });
 		return { success: true };
 	},
 
@@ -93,7 +97,7 @@ export const actions: Actions = {
 
 		if (!itemId) return fail(400, { error: 'アイテムIDが不正です' });
 
-		removeTemplateItem(itemId);
+		await removeTemplateItem(itemId);
 		return { success: true };
 	},
 
@@ -109,7 +113,7 @@ export const actions: Actions = {
 		if (!targetDate) return fail(400, { error: '日付を入力してください' });
 		if (!itemName) return fail(400, { error: 'アイテム名を入力してください' });
 
-		addOverride({ childId, targetDate, action, itemName, icon });
+		await addOverride({ childId, targetDate, action, itemName, icon });
 		return { success: true };
 	},
 
@@ -119,7 +123,7 @@ export const actions: Actions = {
 
 		if (!overrideId) return fail(400, { error: 'オーバーライドIDが不正です' });
 
-		removeOverride(overrideId);
+		await removeOverride(overrideId);
 		return { success: true };
 	},
 };

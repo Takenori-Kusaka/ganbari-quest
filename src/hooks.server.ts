@@ -13,7 +13,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// 2) セッション検証
 	let authenticated = false;
 	if (sessionToken) {
-		const result = validateSession(sessionToken);
+		const result = await validateSession(sessionToken);
 		if (result.valid) {
 			authenticated = true;
 			// セッションがリフレッシュされた場合、Cookieも更新
@@ -42,13 +42,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		!path.startsWith('/favicon') &&
 		!path.startsWith('/api/health')
 	) {
-		if (isSetupRequired()) {
+		if (await isSetupRequired()) {
 			redirect(302, '/setup');
 		}
 	}
 
 	// セットアップ完了済みなら /setup へのアクセスをブロック
-	if (path.startsWith('/setup') && !isSetupRequired()) {
+	if (path.startsWith('/setup') && !(await isSetupRequired())) {
 		redirect(302, '/');
 	}
 

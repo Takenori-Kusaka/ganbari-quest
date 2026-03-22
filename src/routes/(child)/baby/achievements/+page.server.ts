@@ -5,6 +5,6 @@ export const load: PageServerLoad = async ({ parent }) => {
 	const { child } = await parent();
 	if (!child) return { achievements: [] };
 
-	const achievements = getChildAchievements(child.id);
+	const achievements = await getChildAchievements(child.id);
 	return { achievements };
 };

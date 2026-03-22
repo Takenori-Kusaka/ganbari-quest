@@ -38,12 +38,14 @@ export interface ChildStatus {
 }
 
 /** 子供のステータスを取得 */
-export function getChildStatus(childId: number): ChildStatus | { error: 'NOT_FOUND' } {
-	const child = findChildById(childId);
+export async function getChildStatus(
+	childId: number,
+): Promise<ChildStatus | { error: 'NOT_FOUND' }> {
+	const child = await findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
 	const maxValue = getMaxForAge(child.age);
-	const statusRows = findStatuses(childId);
+	const statusRows = await findStatuses(childId);
 	const statusMap: Record<number, StatusDetail> = {};
 
 	let totalValue = 0;
@@ -55,7 +57,7 @@ export function getChildStatus(childId: number): ChildStatus | { error: 'NOT_FOU
 		const value = row?.value ?? 0;
 
 		// 市場比較（ベンチマーク）
-		const benchmark = findBenchmark(child.age, catDef.id);
+		const benchmark = await findBenchmark(child.age, catDef.id);
 		const deviationScore = benchmark
 			? calcDeviationScore(value, benchmark.mean, benchmark.stdDev)
 			: 50; // ベンチマークがない場合は平均
@@ -63,7 +65,7 @@ export function getChildStatus(childId: number): ChildStatus | { error: 'NOT_FOU
 		const stars = calcStars(deviationScore);
 
 		// 直近の変動履歴からトレンド判定
-		const history = findRecentStatusHistory(childId, catDef.id, 2);
+		const history = await findRecentStatusHistory(childId, catDef.id, 2);
 		const recentChange = history.length >= 2 ? (history[0]?.changeAmount ?? 0) : 0;
 		const trend = calcTrend(recentChange);
 
@@ -101,17 +103,17 @@ export interface LevelUpInfo {
 }
 
 /** ステータスを更新する（週次評価から呼ばれる） */
-export function updateStatus(
+export async function updateStatus(
 	childId: number,
 	categoryId: number,
 	changeAmount: number,
 	changeType: string,
-): { error: 'NOT_FOUND' } | { levelUp: LevelUpInfo | null } {
-	const child = findChildById(childId);
+): Promise<{ error: 'NOT_FOUND' } | { levelUp: LevelUpInfo | null }> {
+	const child = await findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' as const };
 
 	const maxValue = getMaxForAge(child.age);
-	const allStatuses = findStatuses(childId);
+	const allStatuses = await findStatuses(childId);
 
 	// 更新前のレベルを計算
 	const beforeValues = CATEGORY_DEFS.map((catDef) => {
@@ -127,9 +129,9 @@ export function updateStatus(
 	const currentValue = currentStatus?.value ?? 0;
 	const newValue = Math.max(0, Math.min(maxValue, currentValue + changeAmount));
 
-	upsertStatus(childId, categoryId, newValue);
+	await upsertStatus(childId, categoryId, newValue);
 
-	insertStatusHistory({
+	await insertStatusHistory({
 		childId,
 		categoryId,
 		value: newValue,

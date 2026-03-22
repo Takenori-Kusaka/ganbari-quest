@@ -1,44 +1,17 @@
-// src/lib/server/db/login-bonus-repo.ts
-// ログインボーナスのリポジトリ層
+// src/lib/server/db/login-bonus-repo.ts — Facade (delegates to factory)
 
-import { and, desc, eq } from 'drizzle-orm';
-import { db } from './client';
-import { children, loginBonuses } from './schema';
+import { getRepos } from './factory';
+import type { InsertLoginBonusInput } from './types';
 
-/** 今日のログインボーナスを取得 */
-export function findTodayBonus(childId: number, today: string) {
-	return db
-		.select()
-		.from(loginBonuses)
-		.where(and(eq(loginBonuses.childId, childId), eq(loginBonuses.loginDate, today)))
-		.get();
+export async function findTodayBonus(childId: number, today: string) {
+	return getRepos().loginBonus.findTodayBonus(childId, today);
 }
-
-/** 直近のログインボーナスを取得（連続日数計算用） */
-export function findRecentBonuses(childId: number, limit = 60) {
-	return db
-		.select()
-		.from(loginBonuses)
-		.where(eq(loginBonuses.childId, childId))
-		.orderBy(desc(loginBonuses.loginDate))
-		.limit(limit)
-		.all();
+export async function findRecentBonuses(childId: number, limit = 60) {
+	return getRepos().loginBonus.findRecentBonuses(childId, limit);
 }
-
-/** ログインボーナスを挿入 */
-export function insertLoginBonus(input: {
-	childId: number;
-	loginDate: string;
-	rank: string;
-	basePoints: number;
-	multiplier: number;
-	totalPoints: number;
-	consecutiveDays: number;
-}) {
-	return db.insert(loginBonuses).values(input).returning().get();
+export async function insertLoginBonus(input: InsertLoginBonusInput) {
+	return getRepos().loginBonus.insertLoginBonus(input);
 }
-
-/** 子供の存在確認 */
-export function findChildById(id: number) {
-	return db.select().from(children).where(eq(children.id, id)).get();
+export async function findChildById(id: number) {
+	return getRepos().loginBonus.findChildById(id);
 }
