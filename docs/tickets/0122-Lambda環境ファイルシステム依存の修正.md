@@ -48,8 +48,11 @@ S3バケット（`ASSETS_BUCKET` 環境変数）はCDKで構築済み、Lambda I
 - [x] Lambda環境でアバターアップロードが成功する
 - [x] Lambda環境でアバター画像が正しく配信される
 - [x] Lambda環境でログ書き込みエラーが発生しない
-- [x] 本番E2Eテストで500/404エラーがゼロ（21テスト全通過）
-- [x] NUC環境の既存動作に影響なし（ローカルE2E 142テスト全通過）
+- [x] 本番E2Eテストで500/404エラーがゼロ（42テスト全通過）
+- [x] NUC環境の既存動作に影響なし（ローカルE2E 234テスト全通過）
+- [x] BODY_SIZE_LIMIT=10MB を Lambda 環境変数に追加（adapter-node の512KBデフォルト制限回避）
+- [x] storage-repo.ts の Windows パス互換修正（`path.dirname()` 使用）
+- [x] ストレージを interface/factory パターンに統一（repo層と一貫性）
 
 ## 依存チケット
 
