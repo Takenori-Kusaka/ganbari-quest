@@ -16,11 +16,11 @@ export const load: PageServerLoad = async ({ parent }) => {
 	if (!child) return { items: [], balance: 0, avatarConfig: null };
 
 	// 自動解放チェック（無料・レベル条件）
-	checkAndUnlockItems(child.id);
+	await checkAndUnlockItems(child.id);
 
-	const items = getShopItems(child.id);
-	const balance = getBalance(child.id);
-	const avatarConfig = getAvatarConfig(child.id);
+	const items = await getShopItems(child.id);
+	const balance = await getBalance(child.id);
+	const avatarConfig = await getAvatarConfig(child.id);
 	return { items, balance, avatarConfig };
 };
 
@@ -33,7 +33,7 @@ export const actions: Actions = {
 		const itemId = Number(formData.get('itemId'));
 		if (!itemId) return fail(400, { error: 'アイテムが選択されていません' });
 
-		const result = purchaseItem(childId, itemId);
+		const result = await purchaseItem(childId, itemId);
 		if ('error' in result) {
 			const messages: Record<string, string> = {
 				NOT_FOUND: 'アイテムが見つかりません',
@@ -56,7 +56,7 @@ export const actions: Actions = {
 			return fail(400, { error: '無効なリクエストです' });
 		}
 
-		const result = equipItem(childId, category as AvatarCategory, itemId);
+		const result = await equipItem(childId, category as AvatarCategory, itemId);
 		if ('error' in result) return fail(400, { error: result.error });
 		return { success: true, equipped: true };
 	},
@@ -70,7 +70,7 @@ export const actions: Actions = {
 			return fail(400, { error: '無効なカテゴリです' });
 		}
 
-		equipItem(childId, category as AvatarCategory, null);
+		await equipItem(childId, category as AvatarCategory, null);
 		return { success: true, unequipped: true };
 	},
 };

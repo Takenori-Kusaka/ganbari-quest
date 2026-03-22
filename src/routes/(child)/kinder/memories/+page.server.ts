@@ -5,6 +5,6 @@ export const load: PageServerLoad = async ({ parent }) => {
 	const { child } = await parent();
 	if (!child) return { reviews: [] };
 
-	const reviews = getBirthdayReviews(child.id);
+	const reviews = await getBirthdayReviews(child.id);
 	return { reviews };
 };

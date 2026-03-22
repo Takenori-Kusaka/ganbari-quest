@@ -116,7 +116,7 @@ export async function generateAvatar(
 		level: number;
 	},
 ): Promise<GenerateAvatarResult | { error: string }> {
-	const child = findChildForImage(childId);
+	const child = await findChildForImage(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
 	ensureDir(GENERATED_DIR);
@@ -131,7 +131,7 @@ export async function generateAvatar(
 	const promptHash = hashPrompt(prompt);
 
 	// Check cache
-	const cached = findCachedImage(childId, 'avatar', promptHash);
+	const cached = await findCachedImage(childId, 'avatar', promptHash);
 
 	if (cached && existsSync(join(process.cwd(), 'static', cached.filePath))) {
 		return { filePath: `/${cached.filePath}`, isGenerated: true };
@@ -156,17 +156,17 @@ export async function generateAvatar(
 	}
 
 	// Save to DB
-	insertCharacterImage({ childId, type: 'avatar', filePath, promptHash });
+	await insertCharacterImage({ childId, type: 'avatar', filePath, promptHash });
 
 	// Update child avatarUrl
-	updateChildAvatarUrl(childId, `/${filePath}`);
+	await updateChildAvatarUrl(childId, `/${filePath}`);
 
 	return { filePath: `/${filePath}`, isGenerated };
 }
 
 /** 子供の現在のアバターURLを取得（未生成ならnull） */
-export function getAvatarUrl(childId: number): string | null {
-	const child = findChildForImage(childId);
+export async function getAvatarUrl(childId: number): Promise<string | null> {
+	const child = await findChildForImage(childId);
 	return child?.avatarUrl ?? null;
 }
 

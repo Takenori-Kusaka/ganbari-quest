@@ -5,18 +5,20 @@ import { getChildStatus, updateStatus } from '$lib/server/services/status-servic
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
-	const children = getAllChildren();
+export const load: PageServerLoad = async () => {
+	const children = await getAllChildren();
 
-	const childrenWithStatus = children.map((child) => {
-		const status = getChildStatus(child.id);
-		return {
-			...child,
-			status: 'error' in status ? null : status,
-		};
-	});
+	const childrenWithStatus = await Promise.all(
+		children.map(async (child) => {
+			const status = await getChildStatus(child.id);
+			return {
+				...child,
+				status: 'error' in status ? null : status,
+			};
+		}),
+	);
 
-	const benchmarks = findAllBenchmarks();
+	const benchmarks = await findAllBenchmarks();
 
 	return { children: childrenWithStatus, categoryDefs: CATEGORY_DEFS, benchmarks };
 };
@@ -33,7 +35,7 @@ export const actions = {
 		}
 
 		// 現在のステータスを取得して差分計算
-		const currentStatus = getChildStatus(childId);
+		const currentStatus = await getChildStatus(childId);
 		if ('error' in currentStatus) {
 			return fail(404, { error: '子供が見つかりません' });
 		}
@@ -50,7 +52,7 @@ export const actions = {
 			return { success: true, noChange: true };
 		}
 
-		updateStatus(childId, categoryId, changeAmount, 'admin_edit');
+		await updateStatus(childId, categoryId, changeAmount, 'admin_edit');
 
 		return { success: true, categoryId, newValue };
 	},
@@ -68,7 +70,7 @@ export const actions = {
 			return fail(400, { error: '平均は0以上、標準偏差は0より大きい値を入力してください' });
 		}
 
-		upsertBenchmark(age, categoryId, mean, stdDev, '管理画面');
+		await upsertBenchmark(age, categoryId, mean, stdDev, '管理画面');
 		return { success: true, benchmarkUpdated: true };
 	},
 } satisfies Actions;

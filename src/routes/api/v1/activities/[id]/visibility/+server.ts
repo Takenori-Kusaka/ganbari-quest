@@ -7,7 +7,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 	const id = Number(params.id);
 	if (Number.isNaN(id)) return validationError('IDが不正です');
 
-	const existing = getActivityById(id);
+	const existing = await getActivityById(id);
 	if (!existing) return notFound('かつどうがみつかりません');
 
 	const body = await request.json();
@@ -15,6 +15,6 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		return validationError('isVisible は true/false で指定してください');
 	}
 
-	const updated = setActivityVisibility(id, body.isVisible);
+	const updated = await setActivityVisibility(id, body.isVisible);
 	return json(updated);
 };

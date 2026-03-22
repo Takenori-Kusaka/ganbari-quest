@@ -6,7 +6,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	const ageParam = url.searchParams.get('age');
 	const age = ageParam ? Number(ageParam) : undefined;
 
-	const careerFields = getCareerFields(age);
+	const careerFields = await getCareerFields(age);
 
 	// JSON文字列を解析して返す
 	const fields = careerFields.map((f) => ({

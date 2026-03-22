@@ -145,22 +145,22 @@ beforeEach(() => {
 describe('getShopItems', () => {
 	it('全アイテムを所持状態付きで返す', async () => {
 		const { avatarService } = await setupWithData();
-		const items = avatarService.getShopItems(1);
+		const items = await avatarService.getShopItems(1);
 		expect(items.length).toBe(8);
 		expect(items.every((i) => typeof i.owned === 'boolean')).toBe(true);
 	});
 
 	it('無料アイテムは自動付与後にowned=true', async () => {
 		const { avatarService } = await setupWithData();
-		avatarService.checkAndUnlockItems(1);
-		const items = avatarService.getShopItems(1);
+		await avatarService.checkAndUnlockItems(1);
+		const items = await avatarService.getShopItems(1);
 		const freeItems = items.filter((i) => i.unlockType === 'free');
 		expect(freeItems.every((i) => i.owned)).toBe(true);
 	});
 
 	it('レベルロックアイテムはlocked=true', async () => {
 		const { avatarService } = await setupWithData();
-		const items = avatarService.getShopItems(1);
+		const items = await avatarService.getShopItems(1);
 		const legend = items.find((i) => i.code === 'bg_legend');
 		expect(legend?.locked).toBe(true);
 		expect(legend?.lockReason).toContain('レベル10');
@@ -173,19 +173,19 @@ describe('purchaseItem', () => {
 		seedPointBalance(db, 1, 500);
 
 		// bg_sakura (price=100)
-		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		const result = avatarService.purchaseItem(1, sakura!.id);
+		const sakura = (await avatarService.getShopItems(1)).find((i) => i.code === 'bg_sakura');
+		const result = await avatarService.purchaseItem(1, sakura!.id);
 		expect(result).toEqual({ success: true });
 
-		const items = avatarService.getShopItems(1);
+		const items = await avatarService.getShopItems(1);
 		expect(items.find((i) => i.code === 'bg_sakura')?.owned).toBe(true);
 	});
 
 	it('ポイント不足でエラー', async () => {
 		const { avatarService } = await setupWithData();
 		// ポイントなし
-		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		const result = avatarService.purchaseItem(1, sakura!.id);
+		const sakura = (await avatarService.getShopItems(1)).find((i) => i.code === 'bg_sakura');
+		const result = await avatarService.purchaseItem(1, sakura!.id);
 		expect(result).toEqual({ error: 'INSUFFICIENT_POINTS' });
 	});
 
@@ -193,22 +193,22 @@ describe('purchaseItem', () => {
 		const { avatarService, db } = await setupWithData();
 		seedPointBalance(db, 1, 1000);
 
-		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		avatarService.purchaseItem(1, sakura!.id);
-		const result = avatarService.purchaseItem(1, sakura!.id);
+		const sakura = (await avatarService.getShopItems(1)).find((i) => i.code === 'bg_sakura');
+		await avatarService.purchaseItem(1, sakura!.id);
+		const result = await avatarService.purchaseItem(1, sakura!.id);
 		expect(result).toEqual({ error: 'ALREADY_OWNED' });
 	});
 
 	it('ロック中でエラー', async () => {
 		const { avatarService } = await setupWithData();
-		const legend = avatarService.getShopItems(1).find((i) => i.code === 'bg_legend');
-		const result = avatarService.purchaseItem(1, legend!.id);
+		const legend = (await avatarService.getShopItems(1)).find((i) => i.code === 'bg_legend');
+		const result = await avatarService.purchaseItem(1, legend!.id);
 		expect(result).toEqual({ error: 'LOCKED' });
 	});
 
 	it('存在しないアイテムでエラー', async () => {
 		const { avatarService } = await setupWithData();
-		const result = avatarService.purchaseItem(1, 9999);
+		const result = await avatarService.purchaseItem(1, 9999);
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 });
@@ -216,32 +216,32 @@ describe('purchaseItem', () => {
 describe('equipItem', () => {
 	it('所持済みアイテムを装備できる', async () => {
 		const { avatarService, db } = await setupWithData();
-		avatarService.checkAndUnlockItems(1); // 無料アイテム付与
+		await avatarService.checkAndUnlockItems(1); // 無料アイテム付与
 		seedPointBalance(db, 1, 500);
 
-		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		avatarService.purchaseItem(1, sakura!.id);
+		const sakura = (await avatarService.getShopItems(1)).find((i) => i.code === 'bg_sakura');
+		await avatarService.purchaseItem(1, sakura!.id);
 
-		const result = avatarService.equipItem(1, 'background', sakura!.id);
+		const result = await avatarService.equipItem(1, 'background', sakura!.id);
 		expect(result).toEqual({ success: true });
 
-		const config = avatarService.getAvatarConfig(1);
+		const config = await avatarService.getAvatarConfig(1);
 		expect(config.bgCss).toContain('#fce4ec');
 	});
 
 	it('未所持アイテムは装備不可', async () => {
 		const { avatarService } = await setupWithData();
-		const sakura = avatarService.getShopItems(1).find((i) => i.code === 'bg_sakura');
-		const result = avatarService.equipItem(1, 'background', sakura!.id);
+		const sakura = (await avatarService.getShopItems(1)).find((i) => i.code === 'bg_sakura');
+		const result = await avatarService.equipItem(1, 'background', sakura!.id);
 		expect(result).toEqual({ error: 'NOT_OWNED' });
 	});
 
 	it('nullで装備解除（デフォルトに戻る）', async () => {
 		const { avatarService } = await setupWithData();
-		const result = avatarService.equipItem(1, 'background', null);
+		const result = await avatarService.equipItem(1, 'background', null);
 		expect(result).toEqual({ success: true });
 
-		const config = avatarService.getAvatarConfig(1);
+		const config = await avatarService.getAvatarConfig(1);
 		expect(config.bgCss).toBe('#ffffff');
 	});
 });
@@ -249,7 +249,7 @@ describe('equipItem', () => {
 describe('getAvatarConfig', () => {
 	it('未装備時はデフォルト値を返す', async () => {
 		const { avatarService } = await setupWithData();
-		const config = avatarService.getAvatarConfig(1);
+		const config = await avatarService.getAvatarConfig(1);
 		expect(config.bgCss).toBe('#ffffff');
 		expect(config.frameCss).toBe('2px solid #bdbdbd');
 		expect(config.effectClass).toBe('');
@@ -259,9 +259,9 @@ describe('getAvatarConfig', () => {
 describe('checkAndUnlockItems', () => {
 	it('無料アイテムを自動付与する', async () => {
 		const { avatarService } = await setupWithData();
-		avatarService.checkAndUnlockItems(1);
+		await avatarService.checkAndUnlockItems(1);
 
-		const items = avatarService.getShopItems(1);
+		const items = await avatarService.getShopItems(1);
 		const freeItems = items.filter((i) => i.unlockType === 'free');
 		expect(freeItems.length).toBeGreaterThan(0);
 		expect(freeItems.every((i) => i.owned)).toBe(true);

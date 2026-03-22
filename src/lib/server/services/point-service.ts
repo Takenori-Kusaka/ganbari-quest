@@ -23,11 +23,13 @@ export interface ConvertResult {
 }
 
 /** ポイント残高を取得 */
-export function getPointBalance(childId: number): PointBalance | { error: 'NOT_FOUND' } {
-	const child = findChildById(childId);
+export async function getPointBalance(
+	childId: number,
+): Promise<PointBalance | { error: 'NOT_FOUND' }> {
+	const child = await findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
-	const balance = getBalance(childId);
+	const balance = await getBalance(childId);
 	const unit = POINTS_PER_CONVERT_UNIT;
 	const convertableAmount = Math.floor(balance / unit) * unit;
 	const nextConvertAt = balance >= unit ? balance : unit;
@@ -41,14 +43,14 @@ export function getPointBalance(childId: number): PointBalance | { error: 'NOT_F
 }
 
 /** ポイント履歴を取得 */
-export function getPointHistory(
+export async function getPointHistory(
 	childId: number,
 	options: { limit: number; offset: number },
-): { history: ReturnType<typeof findPointHistory> } | { error: 'NOT_FOUND' } {
-	const child = findChildById(childId);
+): Promise<{ history: Awaited<ReturnType<typeof findPointHistory>> } | { error: 'NOT_FOUND' }> {
+	const child = await findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
-	const history = findPointHistory(childId, options);
+	const history = await findPointHistory(childId, options);
 	return { history };
 }
 
@@ -61,15 +63,15 @@ function convertDescription(amount: number, mode: ConvertMode): string {
 }
 
 /** ポイントをお小遣いに変換 */
-export function convertPoints(
+export async function convertPoints(
 	childId: number,
 	amount: number,
 	mode: ConvertMode = 'preset',
-): ConvertResult | { error: 'NOT_FOUND' } | { error: 'INSUFFICIENT_POINTS' } {
-	const child = findChildById(childId);
+): Promise<ConvertResult | { error: 'NOT_FOUND' } | { error: 'INSUFFICIENT_POINTS' }> {
+	const child = await findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
-	const balance = getBalance(childId);
+	const balance = await getBalance(childId);
 	if (balance < amount) {
 		return { error: 'INSUFFICIENT_POINTS' };
 	}
@@ -77,7 +79,7 @@ export function convertPoints(
 	const description = convertDescription(amount, mode);
 
 	// ポイント消費エントリを台帳に記録（マイナス値）
-	insertPointEntry({
+	await insertPointEntry({
 		childId,
 		amount: -amount,
 		type: 'convert',

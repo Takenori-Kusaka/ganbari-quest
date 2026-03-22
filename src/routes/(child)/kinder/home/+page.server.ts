@@ -37,20 +37,20 @@ export const load: PageServerLoad = async ({ parent }) => {
 			dailyMissions: null,
 		};
 
-	const rawActivities = getActivities({ childAge: child.age });
+	const rawActivities = await getActivities({ childAge: child.age });
 	const activities = rawActivities.map((a) => ({
 		...a,
 		displayName: getActivityDisplayName(a, child.age),
 	}));
-	const todayRecorded = getTodayRecordedActivityCounts(child.id);
-	const loginBonusStatus = getLoginBonusStatus(child.id);
+	const todayRecorded = await getTodayRecordedActivityCounts(child.id);
+	const loginBonusStatus = await getLoginBonusStatus(child.id);
 	const bonusStatus = 'error' in loginBonusStatus ? null : loginBonusStatus;
 
 	// 未表示の特別報酬を取得
-	const latestReward = getUnshownReward(child.id);
+	const latestReward = await getUnshownReward(child.id);
 
 	// チェックリスト進捗
-	const checklists = getChecklistsForChild(child.id, todayDate());
+	const checklists = await getChecklistsForChild(child.id, todayDate());
 	const hasChecklists = checklists.length > 0;
 	const checklistProgress = hasChecklists
 		? {
@@ -61,11 +61,11 @@ export const load: PageServerLoad = async ({ parent }) => {
 		: null;
 
 	// 誕生日ステータス
-	const birthdayRaw = checkBirthdayStatus(child.id);
+	const birthdayRaw = await checkBirthdayStatus(child.id);
 	const birthdayStatus = 'error' in birthdayRaw ? null : birthdayRaw;
 
 	// デイリーミッション
-	const dailyMissions = getTodayMissions(child.id);
+	const dailyMissions = await getTodayMissions(child.id);
 
 	return {
 		activities,
@@ -90,7 +90,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
-		const result = recordActivity(childId, activityId);
+		const result = await recordActivity(childId, activityId);
 		if ('error' in result) {
 			if (result.error === 'ALREADY_RECORDED') {
 				return fail(409, { error: 'きょうはもうきろくしたよ！' });
@@ -125,7 +125,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
-		const result = cancelActivityLog(logId);
+		const result = await cancelActivityLog(logId);
 		if ('error' in result) {
 			if (result.error === 'CANCEL_EXPIRED') {
 				return fail(410, { error: 'とりけしじかんがすぎたよ' });
@@ -153,7 +153,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'データが不正です' });
 		}
 
-		const result = submitBirthdayReview(childId, { healthChecks, aspirationText });
+		const result = await submitBirthdayReview(childId, { healthChecks, aspirationText });
 		if ('error' in result) {
 			if (result.error === 'ALREADY_REVIEWED') {
 				return fail(409, { error: 'もうふりかえりしたよ！' });
@@ -177,7 +177,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
-		const result = claimLoginBonus(childId);
+		const result = await claimLoginBonus(childId);
 		if ('error' in result) {
 			if (result.error === 'ALREADY_CLAIMED') {
 				return fail(409, { error: 'きょうのボーナスはもうもらったよ！' });

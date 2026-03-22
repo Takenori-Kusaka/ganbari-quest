@@ -8,7 +8,7 @@ export const POST: RequestHandler = async ({ params }) => {
 		error(400, 'Invalid reward ID');
 	}
 
-	const success = markRewardShown(rewardId);
+	const success = await markRewardShown(rewardId);
 	if (!success) {
 		error(404, 'Reward not found');
 	}

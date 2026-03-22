@@ -6,8 +6,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 	const { child } = await parent();
 	if (!child) return { titles: [], activeTitle: null };
 
-	const titles = getChildTitles(child.id);
-	const activeTitle = getActiveTitle(child.id);
+	const titles = await getChildTitles(child.id);
+	const activeTitle = await getActiveTitle(child.id);
 	return { titles, activeTitle };
 };
 
@@ -20,7 +20,7 @@ export const actions: Actions = {
 		const titleId = Number(formData.get('titleId'));
 		if (!titleId) return fail(400);
 
-		const result = setActiveTitle(childId, titleId);
+		const result = await setActiveTitle(childId, titleId);
 		if ('error' in result) return fail(400, { error: result.error });
 		return { success: true };
 	},
@@ -28,7 +28,7 @@ export const actions: Actions = {
 		const childId = Number(cookies.get('selectedChildId'));
 		if (!childId) return fail(401);
 
-		setActiveTitle(childId, null);
+		await setActiveTitle(childId, null);
 		return { success: true };
 	},
 };

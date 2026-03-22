@@ -13,11 +13,11 @@ export const GET: RequestHandler = async ({ url }) => {
 
 	let childAge: number | undefined;
 	if (parsed.data.childId) {
-		const child = findChildById(parsed.data.childId);
+		const child = await findChildById(parsed.data.childId);
 		if (child) childAge = child.age;
 	}
 
-	const result = getActivities({
+	const result = await getActivities({
 		childAge,
 		categoryId: parsed.data.categoryId,
 		includeHidden: parsed.data.includeHidden,
@@ -33,6 +33,6 @@ export const POST: RequestHandler = async ({ request }) => {
 		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
 	}
 
-	const activity = createActivity(parsed.data);
+	const activity = await createActivity(parsed.data);
 	return json(activity, { status: 201 });
 };

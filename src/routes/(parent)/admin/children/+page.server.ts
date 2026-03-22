@@ -13,40 +13,42 @@ import { getChildStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ url }) => {
-	const children = getAllChildren();
+export const load: PageServerLoad = async ({ url }) => {
+	const children = await getAllChildren();
 	const selectedId = url.searchParams.get('id');
 
-	const childrenSummary = children.map((child) => {
-		const balance = getPointBalance(child.id);
-		const status = getChildStatus(child.id);
-		if ('error' in balance) {
-			logger.warn('[admin/children] ポイント取得フォールバック', {
-				context: { childId: child.id, error: balance.error },
-			});
-		}
-		if ('error' in status) {
-			logger.warn('[admin/children] ステータス取得フォールバック', {
-				context: { childId: child.id, error: status.error },
-			});
-		}
-		return {
-			...child,
-			balance: 'error' in balance ? 0 : balance.balance,
-			level: 'error' in status ? 1 : status.level,
-			levelTitle: 'error' in status ? '' : status.levelTitle,
-		};
-	});
+	const childrenSummary = await Promise.all(
+		children.map(async (child) => {
+			const balance = await getPointBalance(child.id);
+			const status = await getChildStatus(child.id);
+			if ('error' in balance) {
+				logger.warn('[admin/children] ポイント取得フォールバック', {
+					context: { childId: child.id, error: balance.error },
+				});
+			}
+			if ('error' in status) {
+				logger.warn('[admin/children] ステータス取得フォールバック', {
+					context: { childId: child.id, error: status.error },
+				});
+			}
+			return {
+				...child,
+				balance: 'error' in balance ? 0 : balance.balance,
+				level: 'error' in status ? 1 : status.level,
+				levelTitle: 'error' in status ? '' : status.levelTitle,
+			};
+		}),
+	);
 
 	let selectedChild = null;
 	if (selectedId) {
 		const id = Number(selectedId);
 		const child = children.find((c) => c.id === id);
 		if (child) {
-			const balance = getPointBalance(id);
-			const status = getChildStatus(id);
-			const logs = getActivityLogs(id, {});
-			const achievements = getChildAchievements(id);
+			const balance = await getPointBalance(id);
+			const status = await getChildStatus(id);
+			const logs = await getActivityLogs(id, {});
+			const achievements = await getChildAchievements(id);
 
 			if ('error' in balance) {
 				logger.warn('[admin/children] 詳細ポイント取得フォールバック', {
@@ -59,7 +61,7 @@ export const load: PageServerLoad = ({ url }) => {
 				});
 			}
 
-			const birthdayReviews = getBirthdayReviews(id);
+			const birthdayReviews = await getBirthdayReviews(id);
 
 			selectedChild = {
 				...child,
@@ -90,7 +92,7 @@ export const actions: Actions = {
 			return fail(400, { error: '年齢は0〜18で入力してください' });
 		}
 
-		const child = addChild({ nickname, age, theme });
+		const child = await addChild({ nickname, age, theme });
 		return { success: true, addedChild: child };
 	},
 
@@ -110,7 +112,7 @@ export const actions: Actions = {
 		if (!Number.isNaN(age) && age >= 0 && age <= 18) updates.age = age;
 		if (theme) updates.theme = theme;
 
-		editChild(childId, updates);
+		await editChild(childId, updates);
 		return { success: true, editedChildId: childId };
 	},
 
@@ -122,7 +124,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'IDが不正です' });
 		}
 
-		removeChild(childId);
+		await removeChild(childId);
 		return { success: true, removedChildId: childId };
 	},
 };

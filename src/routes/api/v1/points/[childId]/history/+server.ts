@@ -13,7 +13,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
 	}
 
-	const result = getPointHistory(childId, parsed.data);
+	const result = await getPointHistory(childId, parsed.data);
 	if ('error' in result) {
 		return notFound('こどもがみつかりません');
 	}

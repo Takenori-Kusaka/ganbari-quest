@@ -8,7 +8,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
-	const templates = getRewardTemplates();
+	const templates = await getRewardTemplates();
 	return json({ templates });
 };
 
@@ -20,6 +20,6 @@ export const PUT: RequestHandler = async ({ request }) => {
 		return validationError(parsed.error.issues[0]?.message ?? 'テンプレートデータが不正です');
 	}
 
-	saveRewardTemplates(parsed.data);
+	await saveRewardTemplates(parsed.data);
 	return json({ templates: parsed.data });
 };
