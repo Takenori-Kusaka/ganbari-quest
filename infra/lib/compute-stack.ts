@@ -38,6 +38,8 @@ export class ComputeStack extends cdk.Stack {
 			timeout: cdk.Duration.seconds(30),
 			architecture: lambda.Architecture.ARM_64,
 			environment: {
+				DATA_SOURCE: 'dynamodb',
+				DYNAMODB_TABLE: props.table.tableName!,
 				TABLE_NAME: props.table.tableName!,
 				ASSETS_BUCKET: props.assetsBucket.bucketName,
 				DATABASE_URL: '/tmp/ganbari-quest.db',
