@@ -44,6 +44,27 @@ export class NetworkStack extends cdk.Stack {
 			}
 		}
 
+		// --- CloudFront Function: encode slash in query strings ---
+		// SvelteKit form actions use ?/action-name pattern, but Lambda Function URL
+		// rejects forward slashes in query strings. This function encodes them.
+		const queryFixFn = new cloudfront.Function(this, 'QuerySlashEncodeFn', {
+			functionName: 'ganbari-quest-query-slash-encode',
+			code: cloudfront.FunctionCode.fromInline(`
+function handler(event) {
+  var request = event.request;
+  var qs = request.querystring;
+  var newQs = {};
+  for (var key in qs) {
+    var encodedKey = key.replace(/\\//g, '%2F');
+    newQs[encodedKey] = qs[key];
+  }
+  request.querystring = newQs;
+  return request;
+}
+			`),
+			runtime: cloudfront.FunctionRuntime.JS_2_0,
+		});
+
 		// --- CloudFront Distribution ---
 		const lambdaOrigin = new origins.HttpOrigin(fnUrlDomain, {
 			protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
@@ -58,6 +79,12 @@ export class NetworkStack extends cdk.Stack {
 				originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
 				allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
 				responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+				functionAssociations: [
+					{
+						function: queryFixFn,
+						eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+					},
+				],
 			},
 			additionalBehaviors: {
 				'/_app/*': {

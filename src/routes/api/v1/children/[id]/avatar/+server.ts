@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		throw error(400, { message: '不正なIDです' });
 	}
 
-	const child = findChildById(childId);
+	const child = await findChildById(childId);
 	if (!child) {
 		throw error(404, { message: '子供が見つかりません' });
 	}
@@ -68,7 +68,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		writeFileSync(filePath, buffer);
 
 		// DB更新
-		updateChildAvatarUrl(childId, publicUrl);
+		await updateChildAvatarUrl(childId, publicUrl);
 	} catch (err) {
 		logger.error('[avatar] アバター保存失敗', {
 			error: err instanceof Error ? err.message : String(err),
