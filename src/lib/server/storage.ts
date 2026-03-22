@@ -44,9 +44,7 @@ export async function saveFile(key: string, data: Buffer, contentType: string): 
 }
 
 /** Read a file from storage (local FS or S3). Returns null if not found. */
-export async function readFile(
-	key: string,
-): Promise<{ data: Buffer; contentType: string } | null> {
+export async function readFile(key: string): Promise<{ data: Buffer; contentType: string } | null> {
 	if (isS3Mode()) {
 		try {
 			const { GetObjectCommand } = await import('@aws-sdk/client-s3');

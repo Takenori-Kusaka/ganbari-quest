@@ -12,13 +12,29 @@ let {
 } = $props();
 
 const milestones = [
-	{ label: '3ねんご', emoji: '🌱', bind: () => timeline3y, set: (v: string) => (timeline3y = v) },
-	{ label: '5ねんご', emoji: '🌿', bind: () => timeline5y, set: (v: string) => (timeline5y = v) },
+	{
+		label: '3ねんご',
+		emoji: '🌱',
+		bind: () => timeline3y,
+		set: (v: string) => {
+			timeline3y = v;
+		},
+	},
+	{
+		label: '5ねんご',
+		emoji: '🌿',
+		bind: () => timeline5y,
+		set: (v: string) => {
+			timeline5y = v;
+		},
+	},
 	{
 		label: '10ねんご',
 		emoji: '🌳',
 		bind: () => timeline10y,
-		set: (v: string) => (timeline10y = v),
+		set: (v: string) => {
+			timeline10y = v;
+		},
 	},
 ];
 </script>

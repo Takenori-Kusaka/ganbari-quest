@@ -36,7 +36,7 @@ if (process.env.AWS_LAMBDA_FUNCTION_NAME && (process.env.DATA_SOURCE ?? 'sqlite'
 }
 
 export const db = drizzle(sqlite, { schema });
-export type Database = typeof db;
+export type DrizzleDatabase = typeof db;
 
 // Expose raw sqlite handle for shutdown checkpoint
 export const rawSqlite = sqlite;
