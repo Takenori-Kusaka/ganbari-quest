@@ -1,9 +1,10 @@
-import { getAuthProvider } from '$lib/server/auth/factory';
+import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { isSetupRequired } from '$lib/server/services/setup-service';
 import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
 
 const provider = getAuthProvider();
+const authMode = getAuthMode();
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const start = Date.now();
@@ -19,21 +20,23 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// 2) ルート保護
 	const path = event.url.pathname;
 
-	// セットアップ未完了時は /setup へリダイレクト
-	if (
-		!path.startsWith('/setup') &&
-		!path.startsWith('/_app') &&
-		!path.startsWith('/favicon') &&
-		!path.startsWith('/api/health')
-	) {
-		if (await isSetupRequired()) {
-			redirect(302, '/setup');
+	// セットアップチェック（local モードのみ — Cognito モードでは PIN セットアップ不要）
+	if (authMode === 'local') {
+		if (
+			!path.startsWith('/setup') &&
+			!path.startsWith('/_app') &&
+			!path.startsWith('/favicon') &&
+			!path.startsWith('/api/health')
+		) {
+			if (await isSetupRequired()) {
+				redirect(302, '/setup');
+			}
 		}
-	}
 
-	// セットアップ完了済みなら /setup へのアクセスをブロック
-	if (path.startsWith('/setup') && !(await isSetupRequired())) {
-		redirect(302, '/');
+		// セットアップ完了済みなら /setup へのアクセスをブロック
+		if (path.startsWith('/setup') && !(await isSetupRequired())) {
+			redirect(302, '/');
+		}
 	}
 
 	// 認可チェック（Provider 固有のルート保護）
