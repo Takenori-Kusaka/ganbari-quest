@@ -12,9 +12,9 @@ import {
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
-	const activities = getActivities({ includeHidden: true });
-	const logCounts = getActivityLogCounts();
+export const load: PageServerLoad = async () => {
+	const activities = await getActivities({ includeHidden: true });
+	const logCounts = await getActivityLogCounts();
 	return { activities, categoryDefs: CATEGORY_DEFS, logCounts };
 };
 
@@ -27,7 +27,7 @@ export const actions: Actions = {
 		if (!id) return fail(400, { error: 'IDが必要です' });
 
 		try {
-			setActivityVisibility(id, visible);
+			await setActivityVisibility(id, visible);
 			return { success: true };
 		} catch (e) {
 			logger.error('[admin/activities] 表示切替失敗', {
@@ -58,7 +58,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			createActivity({
+			await createActivity({
 				name,
 				categoryId,
 				icon,
@@ -102,7 +102,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			updateActivity(id, {
+			await updateActivity(id, {
 				name,
 				categoryId,
 				icon,
@@ -131,12 +131,12 @@ export const actions: Actions = {
 		if (!id) return fail(400, { error: 'IDが必要です' });
 
 		try {
-			if (hasActivityLogs(id)) {
-				setActivityVisibility(id, false);
+			if (await hasActivityLogs(id)) {
+				await setActivityVisibility(id, false);
 				return { hidden: true };
 			}
 
-			deleteActivityWithCleanup(id);
+			await deleteActivityWithCleanup(id);
 			return { deleted: true };
 		} catch (e) {
 			logger.error('[admin/activities] 活動削除失敗', {

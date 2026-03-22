@@ -1,44 +1,17 @@
-// src/lib/server/db/image-repo.ts
-// キャラクター画像関連のリポジトリ層
+// src/lib/server/db/image-repo.ts — Facade (delegates to factory)
 
-import { and, eq } from 'drizzle-orm';
-import { db } from './client';
-import { characterImages, children } from './schema';
+import { getRepos } from './factory';
+import type { InsertCharacterImageInput } from './types';
 
-/** キャッシュされた画像を取得 */
-export function findCachedImage(childId: number, type: string, promptHash: string) {
-	return db
-		.select()
-		.from(characterImages)
-		.where(
-			and(
-				eq(characterImages.childId, childId),
-				eq(characterImages.type, type),
-				eq(characterImages.promptHash, promptHash),
-			),
-		)
-		.get();
+export async function findCachedImage(childId: number, type: string, promptHash: string) {
+	return getRepos().image.findCachedImage(childId, type, promptHash);
 }
-
-/** 画像レコードを挿入 */
-export function insertCharacterImage(input: {
-	childId: number;
-	type: string;
-	filePath: string;
-	promptHash: string;
-}) {
-	db.insert(characterImages).values(input).run();
+export async function insertCharacterImage(input: InsertCharacterImageInput) {
+	return getRepos().image.insertCharacterImage(input);
 }
-
-/** 子供のアバターURLを更新 */
-export function updateChildAvatarUrl(childId: number, avatarUrl: string) {
-	db.update(children)
-		.set({ avatarUrl, updatedAt: new Date().toISOString() })
-		.where(eq(children.id, childId))
-		.run();
+export async function updateChildAvatarUrl(childId: number, avatarUrl: string) {
+	return getRepos().image.updateChildAvatarUrl(childId, avatarUrl);
 }
-
-/** 子供情報を取得 */
-export function findChildForImage(childId: number) {
-	return db.select().from(children).where(eq(children.id, childId)).get();
+export async function findChildForImage(childId: number) {
+	return getRepos().image.findChildForImage(childId);
 }

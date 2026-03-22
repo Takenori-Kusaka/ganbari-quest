@@ -16,7 +16,7 @@ export const GET: RequestHandler = async ({ params }) => {
 		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
 	}
 
-	const result = getChildSpecialRewards(parsed.data.childId);
+	const result = await getChildSpecialRewards(parsed.data.childId);
 	return json(result);
 };
 
@@ -31,7 +31,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
 		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
 	}
 
-	const result = grantSpecialReward(parsed.data);
+	const result = await grantSpecialReward(parsed.data);
 
 	if ('error' in result) {
 		if (result.error === 'NOT_FOUND') {

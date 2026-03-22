@@ -1,47 +1,17 @@
-import { db } from '$lib/server/db';
-import { specialRewards } from '$lib/server/db/schema';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+// src/lib/server/db/special-reward-repo.ts — Facade (delegates to factory)
 
-/** 特別報酬を記録 */
-export function insertSpecialReward(input: {
-	childId: number;
-	grantedBy?: number | null;
-	title: string;
-	description?: string;
-	points: number;
-	icon?: string;
-	category: string;
-}) {
-	return db.insert(specialRewards).values(input).returning().get();
+import { getRepos } from './factory';
+import type { InsertSpecialRewardInput } from './types';
+
+export async function insertSpecialReward(input: InsertSpecialRewardInput) {
+	return getRepos().specialReward.insertSpecialReward(input);
 }
-
-/** 子供の特別報酬履歴を取得（降順） */
-export function findSpecialRewards(childId: number) {
-	return db
-		.select()
-		.from(specialRewards)
-		.where(eq(specialRewards.childId, childId))
-		.orderBy(desc(specialRewards.grantedAt))
-		.all();
+export async function findSpecialRewards(childId: number) {
+	return getRepos().specialReward.findSpecialRewards(childId);
 }
-
-/** 子供の未表示の特別報酬を1件取得 */
-export function findUnshownReward(childId: number) {
-	return db
-		.select()
-		.from(specialRewards)
-		.where(and(eq(specialRewards.childId, childId), isNull(specialRewards.shownAt)))
-		.orderBy(desc(specialRewards.grantedAt))
-		.limit(1)
-		.get();
+export async function findUnshownReward(childId: number) {
+	return getRepos().specialReward.findUnshownReward(childId);
 }
-
-/** 特別報酬を表示済みにする */
-export function markRewardShown(rewardId: number) {
-	return db
-		.update(specialRewards)
-		.set({ shownAt: new Date().toISOString() })
-		.where(eq(specialRewards.id, rewardId))
-		.returning()
-		.get();
+export async function markRewardShown(rewardId: number) {
+	return getRepos().specialReward.markRewardShown(rewardId);
 }

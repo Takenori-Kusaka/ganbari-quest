@@ -15,7 +15,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		return validationError(parsed.error.issues[0]?.message ?? 'PINが不正です');
 	}
 
-	const result = login(parsed.data.pin);
+	const result = await login(parsed.data.pin);
 
 	if ('error' in result) {
 		if (result.error === 'LOCKED_OUT') {

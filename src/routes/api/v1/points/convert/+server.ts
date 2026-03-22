@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
 	}
 
-	const result = convertPoints(parsed.data.childId, parsed.data.amount, parsed.data.mode);
+	const result = await convertPoints(parsed.data.childId, parsed.data.amount, parsed.data.mode);
 
 	if ('error' in result) {
 		if (result.error === 'NOT_FOUND') {

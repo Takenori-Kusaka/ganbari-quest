@@ -15,20 +15,20 @@ function todayStr(): string {
 }
 
 /** ステータスページ表示時に、未実行の評価を自動実行する */
-function ensureStatusUpToDate(childId: number) {
+async function ensureStatusUpToDate(childId: number) {
 	const today = todayStr();
 
 	// 日次衰退: 同じ日に既に実行済みかチェック
-	if (!hasDecayRunToday(childId, today)) {
-		runDailyDecay(today);
+	if (!(await hasDecayRunToday(childId, today))) {
+		await runDailyDecay(today);
 	}
 
 	// 先週分の週次評価が未実行なら実行
 	const { weekStart, weekEnd } = getWeekRange(new Date());
-	const existing = findWeekEvaluation(childId, weekStart);
+	const existing = await findWeekEvaluation(childId, weekStart);
 
 	if (!existing) {
-		evaluateChild(childId, weekStart, weekEnd);
+		await evaluateChild(childId, weekStart, weekEnd);
 	}
 }
 
@@ -37,9 +37,9 @@ export const load: PageServerLoad = async ({ parent }) => {
 	if (!child) return { status: null };
 
 	// ステータスを最新化
-	ensureStatusUpToDate(child.id);
+	await ensureStatusUpToDate(child.id);
 
-	const result = getChildStatus(child.id);
+	const result = await getChildStatus(child.id);
 	if ('error' in result) {
 		logger.warn('[kinder/status] ステータス取得フォールバック', {
 			context: { childId: child.id, error: result.error },
@@ -48,7 +48,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 	}
 
 	// 偏差値ベースの称号チェック（ステータスページ表示時のみ）
-	checkAndUnlockTitles(child.id);
+	await checkAndUnlockTitles(child.id);
 
 	return { status: result };
 };

@@ -60,8 +60,8 @@ export interface AchievementWithStatus {
 // --- 実績チェック + 解除 ---
 
 /** 全条件をチェックし、新規達成した実績を返す */
-export function checkAndUnlockAchievements(childId: number): UnlockedAchievement[] {
-	const allAchievements = findAllAchievements();
+export async function checkAndUnlockAchievements(childId: number): Promise<UnlockedAchievement[]> {
+	const allAchievements = await findAllAchievements();
 	const newlyUnlocked: UnlockedAchievement[] = [];
 
 	for (const achievement of allAchievements) {
@@ -72,9 +72,9 @@ export function checkAndUnlockAchievements(childId: number): UnlockedAchievement
 			// 繰り返し型: 各マイルストーンをチェック
 			const milestones: number[] = JSON.parse(achievement.milestoneValues);
 			for (const milestone of milestones) {
-				if (isAchievementUnlocked(childId, achievement.id, milestone)) continue;
+				if (await isAchievementUnlocked(childId, achievement.id, milestone)) continue;
 
-				const met = evaluateCondition(
+				const met = await evaluateCondition(
 					childId,
 					achievement.conditionType,
 					milestone,
@@ -82,13 +82,13 @@ export function checkAndUnlockAchievements(childId: number): UnlockedAchievement
 				);
 
 				if (met) {
-					insertChildAchievement(childId, achievement.id, milestone);
+					await insertChildAchievement(childId, achievement.id, milestone);
 
 					// ポイント計算: マイルストーンインデックスに応じて増加
 					const milestoneIndex = milestones.indexOf(milestone);
 					const points = achievement.bonusPoints * (milestoneIndex + 1);
 
-					insertPointLedger({
+					await insertPointLedger({
 						childId,
 						amount: points,
 						type: 'achievement',
@@ -112,9 +112,9 @@ export function checkAndUnlockAchievements(childId: number): UnlockedAchievement
 			}
 		} else {
 			// 一度きり型
-			if (isAchievementUnlocked(childId, achievement.id, null)) continue;
+			if (await isAchievementUnlocked(childId, achievement.id, null)) continue;
 
-			const met = evaluateCondition(
+			const met = await evaluateCondition(
 				childId,
 				achievement.conditionType,
 				achievement.conditionValue,
@@ -122,9 +122,9 @@ export function checkAndUnlockAchievements(childId: number): UnlockedAchievement
 			);
 
 			if (met) {
-				insertChildAchievement(childId, achievement.id, null);
+				await insertChildAchievement(childId, achievement.id, null);
 
-				insertPointLedger({
+				await insertPointLedger({
 					childId,
 					amount: achievement.bonusPoints,
 					type: 'achievement',
@@ -151,15 +151,16 @@ export function checkAndUnlockAchievements(childId: number): UnlockedAchievement
 // --- 一覧取得 ---
 
 /** 全実績一覧（解除状態・現在進捗・条件ラベル付き） */
-export function getChildAchievements(childId: number): AchievementWithStatus[] {
-	const allAchievements = findAllAchievements();
-	const unlocked = findUnlockedAchievements(childId);
+export async function getChildAchievements(childId: number): Promise<AchievementWithStatus[]> {
+	const allAchievements = await findAllAchievements();
+	const unlocked = await findUnlockedAchievements(childId);
 
 	// streak_days タイプのために現在のライブ連続日数を1回だけ計算
 	const hasStreakType = allAchievements.some((a) => a.conditionType === 'streak_days');
-	const liveStreakValue = hasStreakType ? getCurrentStreakDays(childId) : 0;
+	const liveStreakValue = hasStreakType ? await getCurrentStreakDays(childId) : 0;
 
-	return allAchievements.map((a) => {
+	const results: AchievementWithStatus[] = [];
+	for (const a of allAchievements) {
 		const isRepeatable = a.repeatable === 1;
 		const isLifeMilestone = a.isMilestone === 1;
 		const milestoneValues: number[] = a.milestoneValues ? JSON.parse(a.milestoneValues) : [];
@@ -192,10 +193,10 @@ export function getChildAchievements(childId: number): AchievementWithStatus[] {
 			unlockedAt = record?.unlockedAt ?? null;
 		}
 
-		const progress = getCurrentProgress(childId, a.conditionType, a.category);
+		const progress = await getCurrentProgress(childId, a.conditionType, a.category);
 		const targetValue = nextMilestone ?? a.conditionValue;
 
-		return {
+		results.push({
 			id: a.id,
 			code: a.code,
 			name: a.name,
@@ -216,25 +217,28 @@ export function getChildAchievements(childId: number): AchievementWithStatus[] {
 			currentProgress: progress,
 			conditionLabel: getConditionLabel(a.conditionType, targetValue, highestUnlockedMilestone),
 			liveStreak: a.conditionType === 'streak_days' ? liveStreakValue : null,
-		};
-	});
+		});
+	}
+
+	return results;
 }
 
 // --- ライフイベント手動付与 ---
 
-export function grantLifeEvent(
+export async function grantLifeEvent(
 	childId: number,
 	achievementId: number,
-): { success: true; bonusPoints: number } | { error: string } {
-	const allAchievements = findAllAchievements();
+): Promise<{ success: true; bonusPoints: number } | { error: string }> {
+	const allAchievements = await findAllAchievements();
 	const achievement = allAchievements.find((a) => a.id === achievementId);
 	if (!achievement) return { error: 'ACHIEVEMENT_NOT_FOUND' };
 	if (achievement.isMilestone !== 1) return { error: 'NOT_A_LIFE_EVENT' };
-	if (isAchievementUnlocked(childId, achievementId, null)) return { error: 'ALREADY_UNLOCKED' };
+	if (await isAchievementUnlocked(childId, achievementId, null))
+		return { error: 'ALREADY_UNLOCKED' };
 
-	insertChildAchievement(childId, achievementId, null);
+	await insertChildAchievement(childId, achievementId, null);
 
-	insertPointLedger({
+	await insertPointLedger({
 		childId,
 		amount: achievement.bonusPoints,
 		type: 'achievement',
@@ -258,24 +262,24 @@ function getMilestoneRarity(index: number, total: number): string {
 // --- 進捗取得・条件ラベル ---
 
 /** 条件タイプに応じた現在の進捗値を取得 */
-function getCurrentProgress(
+async function getCurrentProgress(
 	childId: number,
 	conditionType: string,
 	_category: string | null,
-): number {
+): Promise<number> {
 	switch (conditionType) {
 		case 'streak_days':
-			return getMaxStreakDays(childId);
+			return await getMaxStreakDays(childId);
 		case 'total_activities':
-			return getTotalActivityCount(childId);
+			return await getTotalActivityCount(childId);
 		case 'all_categories':
-			return getMaxCategoryCountInDay(childId);
+			return await getMaxCategoryCountInDay(childId);
 		case 'category_complete':
-			return getDistinctCategoryCount(childId);
+			return await getDistinctCategoryCount(childId);
 		case 'level_reach':
-			return getCurrentLevel(childId);
+			return await getCurrentLevel(childId);
 		case 'total_points':
-			return getBalance(childId);
+			return await getBalance(childId);
 		case 'milestone_event':
 			return 0;
 		default:
@@ -284,8 +288,8 @@ function getCurrentProgress(
 }
 
 /** 最大連続日数を取得 */
-function getMaxStreakDays(childId: number): number {
-	const rows = findDistinctRecordedDates(childId);
+async function getMaxStreakDays(childId: number): Promise<number> {
+	const rows = await findDistinctRecordedDates(childId);
 	if (rows.length === 0) return 0;
 
 	let maxStreak = 1;
@@ -308,8 +312,8 @@ function getMaxStreakDays(childId: number): number {
 }
 
 /** 現在のライブ連続日数を取得（最大ではなく、今日/昨日からの連続） */
-function getCurrentStreakDays(childId: number): number {
-	const rows = findDistinctRecordedDates(childId);
+async function getCurrentStreakDays(childId: number): Promise<number> {
+	const rows = await findDistinctRecordedDates(childId);
 	if (rows.length === 0) return 0;
 
 	const today = todayDateJST();
@@ -336,19 +340,19 @@ function getCurrentStreakDays(childId: number): number {
 }
 
 /** 累計活動数を取得 */
-function getTotalActivityCount(childId: number): number {
-	return countActiveActivityLogs(childId);
+async function getTotalActivityCount(childId: number): Promise<number> {
+	return await countActiveActivityLogs(childId);
 }
 
 /** 1日で最大何カテゴリ記録したかを取得 */
-function getMaxCategoryCountInDay(childId: number): number {
-	const rows = getCategoryCountsByDate(childId);
+async function getMaxCategoryCountInDay(childId: number): Promise<number> {
+	const rows = await getCategoryCountsByDate(childId);
 	return rows.reduce((max, r) => Math.max(max, r.categoryCount), 0);
 }
 
 /** 現在レベルを取得 */
-function getCurrentLevel(childId: number): number {
-	const status = getChildStatus(childId);
+async function getCurrentLevel(childId: number): Promise<number> {
+	const status = await getChildStatus(childId);
 	if ('error' in status) return 0;
 	return status.level;
 }
@@ -382,37 +386,37 @@ function getConditionLabel(
 
 // --- 条件判定（内部） ---
 
-function evaluateCondition(
+async function evaluateCondition(
 	childId: number,
 	conditionType: string,
 	conditionValue: number,
 	_category: string | null,
-): boolean {
+): Promise<boolean> {
 	switch (conditionType) {
 		case 'streak_days':
-			return getMaxStreakDays(childId) >= conditionValue;
+			return (await getMaxStreakDays(childId)) >= conditionValue;
 		case 'total_activities':
-			return getTotalActivityCount(childId) >= conditionValue;
+			return (await getTotalActivityCount(childId)) >= conditionValue;
 		case 'all_categories':
-			return checkAllCategories(childId);
+			return await checkAllCategories(childId);
 		case 'category_complete':
-			return getDistinctCategoryCount(childId) >= conditionValue;
+			return (await getDistinctCategoryCount(childId)) >= conditionValue;
 		case 'level_reach':
-			return getCurrentLevel(childId) >= conditionValue;
+			return (await getCurrentLevel(childId)) >= conditionValue;
 		case 'total_points':
-			return getBalance(childId) >= conditionValue;
+			return (await getBalance(childId)) >= conditionValue;
 		default:
 			return false;
 	}
 }
 
 /** 累計で記録した異なるカテゴリ数を取得 */
-function getDistinctCategoryCount(childId: number): number {
-	return countDistinctCategories(childId);
+async function getDistinctCategoryCount(childId: number): Promise<number> {
+	return await countDistinctCategories(childId);
 }
 
 /** 全5カテゴリに記録がある日が存在するかチェック */
-function checkAllCategories(childId: number): boolean {
-	const rows = getCategoryCountsByDate(childId);
+async function checkAllCategories(childId: number): Promise<boolean> {
+	const rows = await getCategoryCountsByDate(childId);
 	return rows.some((r) => r.categoryCount >= CATEGORY_DEFS.length);
 }

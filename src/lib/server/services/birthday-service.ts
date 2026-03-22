@@ -51,8 +51,10 @@ export interface ReviewResult {
 /**
  * Check if today is within the birthday event window for a child.
  */
-export function checkBirthdayStatus(childId: number): BirthdayStatus | { error: 'NOT_FOUND' } {
-	const child = findChildById(childId);
+export async function checkBirthdayStatus(
+	childId: number,
+): Promise<BirthdayStatus | { error: 'NOT_FOUND' }> {
+	const child = await findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
 	if (!child.birthDate) {
@@ -80,7 +82,7 @@ export function checkBirthdayStatus(childId: number): BirthdayStatus | { error: 
 	const isBirthday = diffDays >= 0 && diffDays <= GRACE_DAYS;
 
 	// Check if already reviewed this year
-	const existing = findBirthdayReviewByYear(childId, thisYear);
+	const existing = await findBirthdayReviewByYear(childId, thisYear);
 
 	// Days until next birthday
 	let daysUntilBirthday: number | null = null;
@@ -105,22 +107,20 @@ export function checkBirthdayStatus(childId: number): BirthdayStatus | { error: 
 /**
  * Submit birthday review and grant points.
  */
-export function submitBirthdayReview(
+export async function submitBirthdayReview(
 	childId: number,
 	input: ReviewInput,
-):
-	| ReviewResult
-	| { error: 'NOT_FOUND' }
-	| { error: 'ALREADY_REVIEWED' }
-	| { error: 'NOT_BIRTHDAY' } {
-	const child = findChildById(childId);
+): Promise<
+	ReviewResult | { error: 'NOT_FOUND' } | { error: 'ALREADY_REVIEWED' } | { error: 'NOT_BIRTHDAY' }
+> {
+	const child = await findChildById(childId);
 	if (!child) return { error: 'NOT_FOUND' };
 
 	const today = todayDateJST();
 	const thisYear = new Date(`${today}T00:00:00Z`).getUTCFullYear();
 
 	// Check for existing review
-	const existing = findBirthdayReviewByYear(childId, thisYear);
+	const existing = await findBirthdayReviewByYear(childId, thisYear);
 	if (existing) return { error: 'ALREADY_REVIEWED' };
 
 	// Calculate points
@@ -143,7 +143,7 @@ export function submitBirthdayReview(
 	const totalPoints = basePoints + healthPoints + aspirationPoints;
 
 	// Insert review
-	const review = insertBirthdayReview({
+	const review = await insertBirthdayReview({
 		childId,
 		reviewYear: thisYear,
 		ageAtReview: child.age,
@@ -157,7 +157,7 @@ export function submitBirthdayReview(
 	});
 
 	// Grant points via ledger
-	insertPointLedger({
+	await insertPointLedger({
 		childId,
 		amount: totalPoints,
 		type: 'birthday_bonus',
@@ -177,6 +177,6 @@ export function submitBirthdayReview(
 /**
  * Get past birthday reviews for a child.
  */
-export function getBirthdayReviews(childId: number) {
-	return findBirthdayReviews(childId);
+export async function getBirthdayReviews(childId: number) {
+	return await findBirthdayReviews(childId);
 }

@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ parent, url }) => {
 
 	const period = url.searchParams.get('period') ?? 'week';
 	const { from, to } = getDateRange(period);
-	const result = getActivityLogs(child.id, { from, to });
+	const result = await getActivityLogs(child.id, { from, to });
 
 	return {
 		logs: result.logs,

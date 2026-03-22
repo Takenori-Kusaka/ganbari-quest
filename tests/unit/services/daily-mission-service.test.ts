@@ -151,24 +151,24 @@ describe('getTodayMissions', () => {
 		seedActivities();
 	});
 
-	it('3つのミッションを自動生成する', () => {
-		const result = getTodayMissions(1);
+	it('3つのミッションを自動生成する', async () => {
+		const result = await getTodayMissions(1);
 		expect(result.missions).toHaveLength(3);
 		expect(result.completedCount).toBe(0);
 		expect(result.allComplete).toBe(false);
 		expect(result.bonusAwarded).toBe(0);
 	});
 
-	it('2回呼んでも同じミッションが返る', () => {
-		const first = getTodayMissions(1);
-		const second = getTodayMissions(1);
+	it('2回呼んでも同じミッションが返る', async () => {
+		const first = await getTodayMissions(1);
+		const second = await getTodayMissions(1);
 		expect(first.missions.map((m) => m.activityId)).toEqual(
 			second.missions.map((m) => m.activityId),
 		);
 	});
 
-	it('各ミッションに活動名・アイコン・カテゴリが含まれる', () => {
-		const result = getTodayMissions(1);
+	it('各ミッションに活動名・アイコン・カテゴリが含まれる', async () => {
+		const result = await getTodayMissions(1);
 		for (const mission of result.missions) {
 			expect(mission.activityName).toBeTruthy();
 			expect(mission.activityIcon).toBeTruthy();
@@ -177,8 +177,8 @@ describe('getTodayMissions', () => {
 		}
 	});
 
-	it('異なるカテゴリから選出される（可能な限り）', () => {
-		const result = getTodayMissions(1);
+	it('異なるカテゴリから選出される（可能な限り）', async () => {
+		const result = await getTodayMissions(1);
 		const categories = new Set(result.missions.map((m) => m.categoryId));
 		// 5カテゴリあるので3つは別カテゴリから来るはず
 		expect(categories.size).toBe(3);
@@ -192,7 +192,7 @@ describe('利用履歴ベースのミッション生成', () => {
 		seedActivities();
 	});
 
-	it('直近7日で記録した活動が確実枠として含まれる', () => {
+	it('直近7日で記録した活動が確実枠として含まれる', async () => {
 		// activity_logs に「おかたづけ」(id=5) を直近で記録
 		testDb
 			.insert(schema.activityLogs)
@@ -211,7 +211,7 @@ describe('利用履歴ベースのミッション生成', () => {
 		const trials = 20;
 		for (let i = 0; i < trials; i++) {
 			sqlite.exec('DELETE FROM daily_missions');
-			const result = getTodayMissions(1);
+			const result = await getTodayMissions(1);
 			if (result.missions.some((m) => m.activityId === 5)) {
 				includesRecorded++;
 			}
@@ -220,13 +220,13 @@ describe('利用履歴ベースのミッション生成', () => {
 		expect(includesRecorded).toBeGreaterThanOrEqual(15);
 	});
 
-	it('利用履歴がない場合もミッションが3つ生成される', () => {
+	it('利用履歴がない場合もミッションが3つ生成される', async () => {
 		// activity_logsが空の状態（新規ユーザ）
-		const result = getTodayMissions(1);
+		const result = await getTodayMissions(1);
 		expect(result.missions).toHaveLength(3);
 	});
 
-	it('全ての活動を記録済みでもミッションが3つ生成される', () => {
+	it('全ての活動を記録済みでもミッションが3つ生成される', async () => {
 		// 全活動を記録済みにする
 		const allActs = testDb.select().from(schema.activities).all();
 		for (const a of allActs) {
@@ -243,7 +243,7 @@ describe('利用履歴ベースのミッション生成', () => {
 				.run();
 		}
 
-		const result = getTodayMissions(1);
+		const result = await getTodayMissions(1);
 		expect(result.missions).toHaveLength(3);
 	});
 });
@@ -255,20 +255,20 @@ describe('checkMissionCompletion', () => {
 		seedActivities();
 	});
 
-	it('ミッションに含まれる活動を記録すると達成になる', () => {
-		const missions = getTodayMissions(1);
+	it('ミッションに含まれる活動を記録すると達成になる', async () => {
+		const missions = await getTodayMissions(1);
 		const firstMissionActivityId = missions.missions[0]!.activityId;
 
-		const result = checkMissionCompletion(1, firstMissionActivityId);
+		const result = await checkMissionCompletion(1, firstMissionActivityId);
 		expect(result.missionCompleted).toBe(true);
 
 		// 再取得して完了状態を確認
-		const updated = getTodayMissions(1);
+		const updated = await getTodayMissions(1);
 		expect(updated.completedCount).toBe(1);
 	});
 
-	it('ミッションに含まれない活動は影響しない', () => {
-		const missions = getTodayMissions(1);
+	it('ミッションに含まれない活動は影響しない', async () => {
+		const missions = await getTodayMissions(1);
 		const missionActivityIds = new Set(missions.missions.map((m) => m.activityId));
 
 		// ミッションに含まれない活動を探す
@@ -276,36 +276,36 @@ describe('checkMissionCompletion', () => {
 		const nonMissionActivity = allActivities.find((a) => !missionActivityIds.has(a.id));
 		if (!nonMissionActivity) return; // all activities are in missions
 
-		const result = checkMissionCompletion(1, nonMissionActivity.id);
+		const result = await checkMissionCompletion(1, nonMissionActivity.id);
 		expect(result.missionCompleted).toBe(false);
 	});
 
-	it('2つ達成で+5Pボーナス', () => {
-		const missions = getTodayMissions(1);
-		checkMissionCompletion(1, missions.missions[0]!.activityId);
-		const result2 = checkMissionCompletion(1, missions.missions[1]!.activityId);
+	it('2つ達成で+5Pボーナス', async () => {
+		const missions = await getTodayMissions(1);
+		await checkMissionCompletion(1, missions.missions[0]!.activityId);
+		const result2 = await checkMissionCompletion(1, missions.missions[1]!.activityId);
 		expect(result2.bonusAwarded).toBe(5);
 		expect(result2.allComplete).toBe(false);
 	});
 
-	it('3つ達成で+20Pボーナス（差分で+15P追加付与）', () => {
-		const missions = getTodayMissions(1);
-		checkMissionCompletion(1, missions.missions[0]!.activityId);
-		checkMissionCompletion(1, missions.missions[1]!.activityId);
-		const result3 = checkMissionCompletion(1, missions.missions[2]!.activityId);
+	it('3つ達成で+20Pボーナス（差分で+15P追加付与）', async () => {
+		const missions = await getTodayMissions(1);
+		await checkMissionCompletion(1, missions.missions[0]!.activityId);
+		await checkMissionCompletion(1, missions.missions[1]!.activityId);
+		const result3 = await checkMissionCompletion(1, missions.missions[2]!.activityId);
 		expect(result3.allComplete).toBe(true);
 		// 2/3で5P付与済み、3/3で20P。差分は15P
 		expect(result3.bonusAwarded).toBe(15);
 	});
 
-	it('同じ活動を2回達成しても二重計上されない', () => {
-		const missions = getTodayMissions(1);
+	it('同じ活動を2回達成しても二重計上されない', async () => {
+		const missions = await getTodayMissions(1);
 		const firstId = missions.missions[0]!.activityId;
 
-		const result1 = checkMissionCompletion(1, firstId);
+		const result1 = await checkMissionCompletion(1, firstId);
 		expect(result1.missionCompleted).toBe(true);
 
-		const result2 = checkMissionCompletion(1, firstId);
+		const result2 = await checkMissionCompletion(1, firstId);
 		expect(result2.missionCompleted).toBe(false);
 	});
 });

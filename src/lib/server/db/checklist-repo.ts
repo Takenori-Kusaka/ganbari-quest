@@ -1,130 +1,57 @@
-// src/lib/server/db/checklist-repo.ts
-// チェックリスト リポジトリ層
+// src/lib/server/db/checklist-repo.ts — Facade (delegates to factory)
 
-import { db } from '$lib/server/db/client';
-import {
-	checklistLogs,
-	checklistOverrides,
-	checklistTemplateItems,
-	checklistTemplates,
-} from '$lib/server/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { getRepos } from './factory';
+import type {
+	InsertChecklistOverrideInput,
+	InsertChecklistTemplateInput,
+	InsertChecklistTemplateItemInput,
+	UpdateChecklistTemplateInput,
+	UpsertChecklistLogInput,
+} from './types';
 
-// ============================================================
 // Templates
-// ============================================================
-
-export function findTemplatesByChild(childId: number, includeInactive = false) {
-	const rows = db
-		.select()
-		.from(checklistTemplates)
-		.where(eq(checklistTemplates.childId, childId))
-		.all();
-	return includeInactive ? rows : rows.filter((r) => r.isActive === 1);
+export async function findTemplatesByChild(childId: number, includeInactive = false) {
+	return getRepos().checklist.findTemplatesByChild(childId, includeInactive);
+}
+export async function findTemplateById(id: number) {
+	return getRepos().checklist.findTemplateById(id);
+}
+export async function insertTemplate(input: InsertChecklistTemplateInput) {
+	return getRepos().checklist.insertTemplate(input);
+}
+export async function updateTemplate(id: number, input: UpdateChecklistTemplateInput) {
+	return getRepos().checklist.updateTemplate(id, input);
+}
+export async function deleteTemplate(id: number) {
+	return getRepos().checklist.deleteTemplate(id);
 }
 
-export function findTemplateById(id: number) {
-	return db.select().from(checklistTemplates).where(eq(checklistTemplates.id, id)).get();
+// Template items
+export async function findTemplateItems(templateId: number) {
+	return getRepos().checklist.findTemplateItems(templateId);
+}
+export async function insertTemplateItem(input: InsertChecklistTemplateItemInput) {
+	return getRepos().checklist.insertTemplateItem(input);
+}
+export async function deleteTemplateItem(id: number) {
+	return getRepos().checklist.deleteTemplateItem(id);
 }
 
-export function insertTemplate(input: typeof checklistTemplates.$inferInsert) {
-	return db.insert(checklistTemplates).values(input).returning().get();
+// Logs
+export async function findTodayLog(childId: number, templateId: number, date: string) {
+	return getRepos().checklist.findTodayLog(childId, templateId, date);
+}
+export async function upsertLog(input: UpsertChecklistLogInput) {
+	return getRepos().checklist.upsertLog(input);
 }
 
-export function updateTemplate(id: number, input: Partial<typeof checklistTemplates.$inferInsert>) {
-	return db
-		.update(checklistTemplates)
-		.set({ ...input, updatedAt: new Date().toISOString() })
-		.where(eq(checklistTemplates.id, id))
-		.returning()
-		.get();
+// Overrides
+export async function findOverrides(childId: number, date: string) {
+	return getRepos().checklist.findOverrides(childId, date);
 }
-
-export function deleteTemplate(id: number) {
-	db.delete(checklistTemplateItems).where(eq(checklistTemplateItems.templateId, id)).run();
-	db.delete(checklistLogs).where(eq(checklistLogs.templateId, id)).run();
-	db.delete(checklistTemplates).where(eq(checklistTemplates.id, id)).run();
+export async function insertOverride(input: InsertChecklistOverrideInput) {
+	return getRepos().checklist.insertOverride(input);
 }
-
-// ============================================================
-// Template Items
-// ============================================================
-
-export function findTemplateItems(templateId: number) {
-	return db
-		.select()
-		.from(checklistTemplateItems)
-		.where(eq(checklistTemplateItems.templateId, templateId))
-		.orderBy(checklistTemplateItems.sortOrder)
-		.all();
-}
-
-export function insertTemplateItem(input: typeof checklistTemplateItems.$inferInsert) {
-	return db.insert(checklistTemplateItems).values(input).returning().get();
-}
-
-export function deleteTemplateItem(id: number) {
-	db.delete(checklistTemplateItems).where(eq(checklistTemplateItems.id, id)).run();
-}
-
-// ============================================================
-// Logs (daily check records)
-// ============================================================
-
-export function findTodayLog(childId: number, templateId: number, date: string) {
-	return db
-		.select()
-		.from(checklistLogs)
-		.where(
-			and(
-				eq(checklistLogs.childId, childId),
-				eq(checklistLogs.templateId, templateId),
-				eq(checklistLogs.checkedDate, date),
-			),
-		)
-		.get();
-}
-
-export function upsertLog(input: {
-	childId: number;
-	templateId: number;
-	checkedDate: string;
-	itemsJson: string;
-	completedAll: number;
-	pointsAwarded: number;
-}) {
-	const existing = findTodayLog(input.childId, input.templateId, input.checkedDate);
-	if (existing) {
-		return db
-			.update(checklistLogs)
-			.set({
-				itemsJson: input.itemsJson,
-				completedAll: input.completedAll,
-				pointsAwarded: input.pointsAwarded,
-			})
-			.where(eq(checklistLogs.id, existing.id))
-			.returning()
-			.get();
-	}
-	return db.insert(checklistLogs).values(input).returning().get();
-}
-
-// ============================================================
-// Overrides (one-off items)
-// ============================================================
-
-export function findOverrides(childId: number, date: string) {
-	return db
-		.select()
-		.from(checklistOverrides)
-		.where(and(eq(checklistOverrides.childId, childId), eq(checklistOverrides.targetDate, date)))
-		.all();
-}
-
-export function insertOverride(input: typeof checklistOverrides.$inferInsert) {
-	return db.insert(checklistOverrides).values(input).returning().get();
-}
-
-export function deleteOverride(id: number) {
-	db.delete(checklistOverrides).where(eq(checklistOverrides.id, id)).run();
+export async function deleteOverride(id: number) {
+	return getRepos().checklist.deleteOverride(id);
 }

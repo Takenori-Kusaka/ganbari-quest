@@ -3,10 +3,10 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
+export const load: PageServerLoad = async () => {
 	// Guard: setup not complete -> redirect back
-	const pinHash = getSetting('pin_hash');
-	const children = getAllChildren();
+	const pinHash = await getSetting('pin_hash');
+	const children = await getAllChildren();
 
 	if (!pinHash) {
 		redirect(302, '/setup');

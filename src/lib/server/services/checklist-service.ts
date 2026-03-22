@@ -64,17 +64,17 @@ function getDayOfWeek(dateStr: string): string {
  * テンプレートの frequency + overrides で当日に必要なアイテムを決定し、
  * チェック記録があれば反映する。
  */
-export function getTodayChecklist(
+export async function getTodayChecklist(
 	childId: number,
 	templateId: number,
 	date: string,
-): TodayChecklist | { error: 'NOT_FOUND'; target: string } {
-	const template = findTemplateById(templateId);
+): Promise<TodayChecklist | { error: 'NOT_FOUND'; target: string }> {
+	const template = await findTemplateById(templateId);
 	if (!template) return { error: 'NOT_FOUND', target: 'template' };
 	if (template.childId !== childId) return { error: 'NOT_FOUND', target: 'template' };
 
 	const dayOfWeek = getDayOfWeek(date);
-	const allItems = findTemplateItems(templateId);
+	const allItems = await findTemplateItems(templateId);
 
 	// 1. daily + 当該曜日のアイテムをフィルタ
 	const todayTemplateItems = allItems.filter(
@@ -82,7 +82,7 @@ export function getTodayChecklist(
 	);
 
 	// 2. overrides 適用
-	const overrides = findOverrides(childId, date);
+	const overrides = await findOverrides(childId, date);
 	const removeNames = new Set(
 		overrides.filter((o) => o.action === 'remove').map((o) => o.itemName),
 	);
@@ -111,7 +111,7 @@ export function getTodayChecklist(
 	}
 
 	// 5. 本日のチェック記録を照会して反映
-	const log = findTodayLog(childId, templateId, date);
+	const log = await findTodayLog(childId, templateId, date);
 	const checkedItemIds: number[] = log ? JSON.parse(log.itemsJson) : [];
 	const checkedSet = new Set(checkedItemIds);
 
@@ -142,12 +142,15 @@ export function getTodayChecklist(
 /**
  * 子供のアクティブなテンプレート一覧と当日チェックリストを取得する。
  */
-export function getChecklistsForChild(childId: number, date: string): TodayChecklist[] {
-	const templates = findTemplatesByChild(childId);
+export async function getChecklistsForChild(
+	childId: number,
+	date: string,
+): Promise<TodayChecklist[]> {
+	const templates = await findTemplatesByChild(childId);
 	const results: TodayChecklist[] = [];
 
 	for (const tpl of templates) {
-		const checklist = getTodayChecklist(childId, tpl.id, date);
+		const checklist = await getTodayChecklist(childId, tpl.id, date);
 		if ('error' in checklist) continue;
 		results.push(checklist);
 	}
@@ -171,19 +174,19 @@ export interface CheckItemResult {
  * アイテムをチェック/アンチェックする。
  * 全完了時にポイントを付与する。
  */
-export function toggleCheckItem(
+export async function toggleCheckItem(
 	childId: number,
 	templateId: number,
 	itemId: number,
 	date: string,
 	checked: boolean,
-): CheckItemResult | { error: 'NOT_FOUND'; target: string } {
-	const template = findTemplateById(templateId);
+): Promise<CheckItemResult | { error: 'NOT_FOUND'; target: string }> {
+	const template = await findTemplateById(templateId);
 	if (!template) return { error: 'NOT_FOUND', target: 'template' };
 	if (template.childId !== childId) return { error: 'NOT_FOUND', target: 'template' };
 
 	// 現在のチェックリストを取得
-	const checklist = getTodayChecklist(childId, templateId, date);
+	const checklist = await getTodayChecklist(childId, templateId, date);
 	if ('error' in checklist) return checklist;
 
 	// アイテムの存在確認
@@ -207,7 +210,7 @@ export function toggleCheckItem(
 	}
 
 	// ログを更新
-	upsertLog({
+	await upsertLog({
 		childId,
 		templateId,
 		checkedDate: date,
@@ -218,7 +221,7 @@ export function toggleCheckItem(
 
 	// 全完了時にポイント台帳に記録
 	if (newlyCompleted) {
-		insertPointEntry({
+		await insertPointEntry({
 			childId,
 			amount: pointsAwarded,
 			type: 'checklist',
@@ -228,7 +231,7 @@ export function toggleCheckItem(
 		// 全完了から戻った場合、ポイントを取り消す
 		const previousPoints = checklist.pointsAwarded;
 		if (previousPoints > 0) {
-			insertPointEntry({
+			await insertPointEntry({
 				childId,
 				amount: -previousPoints,
 				type: 'checklist_cancel',
@@ -250,14 +253,14 @@ export function toggleCheckItem(
 // テンプレート管理（親画面用）
 // ============================================================
 
-export function createTemplate(input: {
+export async function createTemplate(input: {
 	childId: number;
 	name: string;
 	icon?: string;
 	pointsPerItem?: number;
 	completionBonus?: number;
 }) {
-	return insertTemplate({
+	return await insertTemplate({
 		childId: input.childId,
 		name: input.name,
 		icon: input.icon ?? '📋',
@@ -266,7 +269,7 @@ export function createTemplate(input: {
 	});
 }
 
-export function editTemplate(
+export async function editTemplate(
 	id: number,
 	input: {
 		name?: string;
@@ -276,14 +279,14 @@ export function editTemplate(
 		isActive?: number;
 	},
 ) {
-	return updateTemplate(id, input);
+	return await updateTemplate(id, input);
 }
 
-export function removeTemplate(id: number) {
-	deleteTemplate(id);
+export async function removeTemplate(id: number) {
+	await deleteTemplate(id);
 }
 
-export function addTemplateItem(input: {
+export async function addTemplateItem(input: {
 	templateId: number;
 	name: string;
 	icon?: string;
@@ -291,7 +294,7 @@ export function addTemplateItem(input: {
 	direction?: string;
 	sortOrder?: number;
 }) {
-	return insertTemplateItem({
+	return await insertTemplateItem({
 		templateId: input.templateId,
 		name: input.name,
 		icon: input.icon ?? '🏫',
@@ -301,18 +304,18 @@ export function addTemplateItem(input: {
 	});
 }
 
-export function removeTemplateItem(id: number) {
-	deleteTemplateItem(id);
+export async function removeTemplateItem(id: number) {
+	await deleteTemplateItem(id);
 }
 
-export function addOverride(input: {
+export async function addOverride(input: {
 	childId: number;
 	targetDate: string;
 	action: string;
 	itemName: string;
 	icon?: string;
 }) {
-	return insertOverride({
+	return await insertOverride({
 		childId: input.childId,
 		targetDate: input.targetDate,
 		action: input.action,
@@ -321,6 +324,6 @@ export function addOverride(input: {
 	});
 }
 
-export function removeOverride(id: number) {
-	deleteOverride(id);
+export async function removeOverride(id: number) {
+	await deleteOverride(id);
 }

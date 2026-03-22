@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ params }) => {
 	const id = Number(params.id);
 	if (Number.isNaN(id)) return validationError('IDが不正です');
 
-	const activity = getActivityById(id);
+	const activity = await getActivityById(id);
 	if (!activity) return notFound('かつどうがみつかりません');
 
 	return json(activity);
@@ -22,7 +22,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 	const id = Number(params.id);
 	if (Number.isNaN(id)) return validationError('IDが不正です');
 
-	const existing = getActivityById(id);
+	const existing = await getActivityById(id);
 	if (!existing) return notFound('かつどうがみつかりません');
 
 	const body = await request.json();
@@ -31,7 +31,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
 	}
 
-	const updated = updateActivity(id, parsed.data);
+	const updated = await updateActivity(id, parsed.data);
 	return json(updated);
 };
 
@@ -39,10 +39,10 @@ export const DELETE: RequestHandler = async ({ params }) => {
 	const id = Number(params.id);
 	if (Number.isNaN(id)) return validationError('IDが不正です');
 
-	const existing = getActivityById(id);
+	const existing = await getActivityById(id);
 	if (!existing) return notFound('かつどうがみつかりません');
 
 	// Soft delete: set visibility to false
-	setActivityVisibility(id, false);
+	await setActivityVisibility(id, false);
 	return json({ message: '非表示にしました' });
 };

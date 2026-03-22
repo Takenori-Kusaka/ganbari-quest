@@ -15,10 +15,10 @@ export const GET: RequestHandler = async ({ params }) => {
 		throw error(400, { message: '不正な子供IDです' });
 	}
 
-	const child = findChildById(childId);
+	const child = await findChildById(childId);
 	if (!child) throw error(404, { message: '子供が見つかりません' });
 
-	const plan = getActiveCareerPlan(childId);
+	const plan = await getActiveCareerPlan(childId);
 
 	if (!plan) {
 		return json({ plan: null });
@@ -47,7 +47,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		throw error(400, { message: '不正な子供IDです' });
 	}
 
-	const child = findChildById(childId);
+	const child = await findChildById(childId);
 	if (!child) throw error(404, { message: '子供が見つかりません' });
 
 	const body = await request.json();
@@ -56,7 +56,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		throw error(400, { message: parsed.error.issues[0]?.message ?? 'バリデーションエラー' });
 	}
 
-	const result = createCareerPlan(childId, parsed.data);
+	const result = await createCareerPlan(childId, parsed.data);
 
 	return json({
 		plan: {
@@ -75,10 +75,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		throw error(400, { message: '不正な子供IDです' });
 	}
 
-	const child = findChildById(childId);
+	const child = await findChildById(childId);
 	if (!child) throw error(404, { message: '子供が見つかりません' });
 
-	const existing = getActiveCareerPlan(childId);
+	const existing = await getActiveCareerPlan(childId);
 	if (!existing) {
 		throw error(404, { message: 'アクティブなキャリアプランがありません' });
 	}
@@ -89,13 +89,13 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		throw error(400, { message: parsed.error.issues[0]?.message ?? 'バリデーションエラー' });
 	}
 
-	const result = updateCareerPlanWithPoints(existing.id, childId, parsed.data);
+	const result = await updateCareerPlanWithPoints(existing.id, childId, parsed.data);
 
 	return json({
 		plan: {
 			...result.plan,
-			mandalaChart: JSON.parse(result.plan?.mandalaChart),
-			targetStatuses: JSON.parse(result.plan?.targetStatuses),
+			mandalaChart: JSON.parse(result.plan?.mandalaChart ?? '{}'),
+			targetStatuses: JSON.parse(result.plan?.targetStatuses ?? '{}'),
 		},
 		pointsAwarded: result.pointsAwarded,
 	});

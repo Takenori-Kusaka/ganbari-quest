@@ -5,20 +5,22 @@ import { convertPoints, getPointBalance } from '$lib/server/services/point-servi
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
-	const children = getAllChildren();
-	const childrenWithBalance = children.map((child) => {
-		const balance = getPointBalance(child.id);
-		if ('error' in balance) {
-			logger.warn('[admin/points] ポイント取得フォールバック', {
-				context: { childId: child.id, error: balance.error },
-			});
-		}
-		return {
-			...child,
-			balance: 'error' in balance ? null : balance,
-		};
-	});
+export const load: PageServerLoad = async () => {
+	const children = await getAllChildren();
+	const childrenWithBalance = await Promise.all(
+		children.map(async (child) => {
+			const balance = await getPointBalance(child.id);
+			if ('error' in balance) {
+				logger.warn('[admin/points] ポイント取得フォールバック', {
+					context: { childId: child.id, error: balance.error },
+				});
+			}
+			return {
+				...child,
+				balance: 'error' in balance ? null : balance,
+			};
+		}),
+	);
 	return { children: childrenWithBalance };
 };
 
@@ -42,7 +44,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'ポイントは500単位で変換できます' });
 		}
 
-		const result = convertPoints(childId, amount, mode as ConvertMode);
+		const result = await convertPoints(childId, amount, mode as ConvertMode);
 		if ('error' in result) {
 			const messages: Record<string, string> = {
 				NOT_FOUND: 'こどもが見つかりません',

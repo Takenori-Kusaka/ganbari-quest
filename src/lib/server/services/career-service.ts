@@ -21,16 +21,16 @@ import {
 // ============================================================
 
 /** 職業分野一覧を取得（年齢フィルタあり） */
-export function getCareerFields(age?: number) {
+export async function getCareerFields(age?: number) {
 	if (age !== undefined) {
-		return findCareerFieldsByAge(age);
+		return await findCareerFieldsByAge(age);
 	}
-	return findAllCareerFields();
+	return await findAllCareerFields();
 }
 
 /** 職業分野を1件取得 */
-export function getCareerField(id: number) {
-	return findCareerFieldById(id);
+export async function getCareerField(id: number) {
+	return await findCareerFieldById(id);
 }
 
 // ============================================================
@@ -38,20 +38,20 @@ export function getCareerField(id: number) {
 // ============================================================
 
 /** アクティブなプランを取得（職業分野情報付き） */
-export function getActiveCareerPlan(childId: number) {
-	const plan = findActiveCareerPlan(childId);
+export async function getActiveCareerPlan(childId: number) {
+	const plan = await findActiveCareerPlan(childId);
 	if (!plan) return null;
 
-	const field = plan.careerFieldId ? findCareerFieldById(plan.careerFieldId) : null;
+	const field = plan.careerFieldId ? await findCareerFieldById(plan.careerFieldId) : null;
 	return { ...plan, careerField: field };
 }
 
 /** 新規プラン作成 + ポイント付与 */
-export function createCareerPlan(childId: number, input: CreateCareerPlanInput) {
+export async function createCareerPlan(childId: number, input: CreateCareerPlanInput) {
 	// 既存のアクティブプランを非アクティブ化
-	deactivateCareerPlans(childId);
+	await deactivateCareerPlans(childId);
 
-	const plan = insertCareerPlan({
+	const plan = await insertCareerPlan({
 		childId,
 		careerFieldId: input.careerFieldId,
 		dreamText: input.dreamText,
@@ -65,13 +65,13 @@ export function createCareerPlan(childId: number, input: CreateCareerPlanInput) 
 
 	// マンダラチャート作成ポイント
 	if (input.mandalaChart?.center) {
-		insertCareerPointEntry({
+		await insertCareerPointEntry({
 			childId,
 			amount: CAREER_POINTS.MANDALA_CREATE,
 			description: 'マンダラチャートを作成',
 			referenceId: plan.id,
 		});
-		insertCareerPlanHistory({
+		await insertCareerPlanHistory({
 			careerPlanId: plan.id,
 			action: 'mandala_create',
 			pointsEarned: CAREER_POINTS.MANDALA_CREATE,
@@ -82,13 +82,13 @@ export function createCareerPlan(childId: number, input: CreateCareerPlanInput) 
 
 	// タイムライン設定ポイント
 	if (input.timeline3y || input.timeline5y || input.timeline10y) {
-		insertCareerPointEntry({
+		await insertCareerPointEntry({
 			childId,
 			amount: CAREER_POINTS.TIMELINE_CREATE,
 			description: 'みらいのタイムラインを設定',
 			referenceId: plan.id,
 		});
-		insertCareerPlanHistory({
+		await insertCareerPlanHistory({
 			careerPlanId: plan.id,
 			action: 'timeline_create',
 			pointsEarned: CAREER_POINTS.TIMELINE_CREATE,
@@ -100,12 +100,12 @@ export function createCareerPlan(childId: number, input: CreateCareerPlanInput) 
 }
 
 /** プラン更新 + 条件付きポイント付与（月1回制限） */
-export function updateCareerPlanWithPoints(
+export async function updateCareerPlanWithPoints(
 	planId: number,
 	childId: number,
 	input: UpdateCareerPlanInput,
 ) {
-	const existing = findActiveCareerPlan(childId);
+	const existing = await findActiveCareerPlan(childId);
 	if (!existing || existing.id !== planId) {
 		throw new Error('Active career plan not found');
 	}
@@ -121,13 +121,13 @@ export function updateCareerPlanWithPoints(
 	if (input.timeline5y !== undefined) updateData.timeline5y = input.timeline5y;
 	if (input.timeline10y !== undefined) updateData.timeline10y = input.timeline10y;
 
-	const plan = updateCareerPlanRepo(planId, updateData);
+	const plan = await updateCareerPlanRepo(planId, updateData);
 
 	let totalPoints = 0;
 
 	// マンダラ更新ポイント（月1回制限）
 	if (input.mandalaChart) {
-		const pts = awardMonthlyPoints(
+		const pts = await awardMonthlyPoints(
 			planId,
 			childId,
 			'mandala_update',
@@ -143,7 +143,7 @@ export function updateCareerPlanWithPoints(
 		input.timeline5y !== undefined ||
 		input.timeline10y !== undefined
 	) {
-		const pts = awardMonthlyPoints(
+		const pts = await awardMonthlyPoints(
 			planId,
 			childId,
 			'timeline_update',
@@ -161,14 +161,14 @@ export function updateCareerPlanWithPoints(
 // ============================================================
 
 /** 月1回制限付きポイント付与。付与した場合はポイント額を、制限内なら0を返す */
-function awardMonthlyPoints(
+async function awardMonthlyPoints(
 	planId: number,
 	childId: number,
 	action: string,
 	points: number,
 	description: string,
-): number {
-	const latest = findLatestHistoryByAction(planId, action);
+): Promise<number> {
+	const latest = await findLatestHistoryByAction(planId, action);
 
 	if (latest) {
 		// 同月チェック (YYYY-MM 比較)
@@ -176,7 +176,7 @@ function awardMonthlyPoints(
 		const currentMonth = new Date().toISOString().slice(0, 7);
 		if (latestMonth === currentMonth) {
 			// 今月すでに付与済み
-			insertCareerPlanHistory({
+			await insertCareerPlanHistory({
 				careerPlanId: planId,
 				action,
 				pointsEarned: 0,
@@ -185,13 +185,13 @@ function awardMonthlyPoints(
 		}
 	}
 
-	insertCareerPointEntry({
+	await insertCareerPointEntry({
 		childId,
 		amount: points,
 		description,
 		referenceId: planId,
 	});
-	insertCareerPlanHistory({
+	await insertCareerPlanHistory({
 		careerPlanId: planId,
 		action,
 		pointsEarned: points,

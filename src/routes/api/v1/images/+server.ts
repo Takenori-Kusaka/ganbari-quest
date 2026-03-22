@@ -36,7 +36,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			return validationError('childId を指定してください');
 		}
 
-		const status = getChildStatus(childId);
+		const status = await getChildStatus(childId);
 		if ('error' in status) {
 			return notFound('子供が見つかりません');
 		}

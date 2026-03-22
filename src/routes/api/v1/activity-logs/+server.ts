@@ -11,7 +11,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
 	}
 
-	const result = recordActivity(parsed.data.childId, parsed.data.activityId);
+	const result = await recordActivity(parsed.data.childId, parsed.data.activityId);
 
 	if ('error' in result) {
 		if (result.error === 'ALREADY_RECORDED') {
@@ -60,6 +60,6 @@ export const GET: RequestHandler = async ({ url }) => {
 		}
 	}
 
-	const result = getActivityLogs(childId, { from: dateFrom, to: dateTo });
+	const result = await getActivityLogs(childId, { from: dateFrom, to: dateTo });
 	return json(result);
 };
