@@ -16,12 +16,16 @@ dist/
 *.db-journal
 *.db-shm
 *.db-wal
+*.db.bak.*
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# Claude Code
+.claude/settings.local.json
 
 # OS
 .DS_Store
