@@ -7,6 +7,11 @@ import type { AuthMode, AuthProvider } from './types';
 
 let _provider: AuthProvider | null = null;
 
+/** 現在の認証モードを取得 */
+export function getAuthMode(): AuthMode {
+	return (process.env.AUTH_MODE ?? 'local') as AuthMode;
+}
+
 export function getAuthProvider(): AuthProvider {
 	if (_provider) return _provider;
 
