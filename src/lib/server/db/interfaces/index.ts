@@ -16,4 +16,5 @@ export type { IPointRepo } from './point-repo.interface';
 export type { ISettingsRepo } from './settings-repo.interface';
 export type { ISpecialRewardRepo } from './special-reward-repo.interface';
 export type { IStatusRepo } from './status-repo.interface';
+export type { IStorageRepo } from './storage.interface';
 export type { ITitleRepo } from './title-repo.interface';
