@@ -242,7 +242,7 @@ function migrateChildAchievements(db: InstanceType<typeof Database>): Record<str
 	const rows = db.prepare('SELECT * FROM child_achievements').all() as Record<string, unknown>[];
 	return rows.map((r) => ({
 		PK: `CHILD#${r.child_id}`,
-		SK: `ACHV#${padId(r.achievement_id as number)}`,
+		SK: `ACHV#${padId(r.achievement_id as number)}#${r.milestone_value != null ? String(r.milestone_value) : '0'}`,
 		id: r.id,
 		childId: r.child_id,
 		achievementId: r.achievement_id,

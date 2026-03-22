@@ -173,11 +173,16 @@ export function achievementKey(achievementId: number): DynamoKey {
 	};
 }
 
-/** Child achievement: PK=CHILD#<cId>, SK=ACHV#<achvId> */
-export function childAchievementKey(childId: number, achievementId: number): DynamoKey {
+/** Child achievement: PK=CHILD#<cId>, SK=ACHV#<achvId>#<milestone> */
+export function childAchievementKey(
+	childId: number,
+	achievementId: number,
+	milestoneValue?: number | null,
+): DynamoKey {
+	const ms = milestoneValue != null ? String(milestoneValue) : '0';
 	return {
 		PK: `${PREFIX.CHILD}#${childId}`,
-		SK: `ACHV#${padId(achievementId)}`,
+		SK: `ACHV#${padId(achievementId)}#${ms}`,
 	};
 }
 
