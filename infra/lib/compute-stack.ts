@@ -47,6 +47,7 @@ export class ComputeStack extends cdk.Stack {
 				PORT: '3000',
 				HOST: '0.0.0.0',
 				NODE_ENV: 'production',
+				BODY_SIZE_LIMIT: '10485760',
 			},
 		});
 		this.fn.node.addDependency(logGroup);

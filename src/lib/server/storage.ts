@@ -6,9 +6,7 @@ export async function saveFile(key: string, data: Buffer, contentType: string): 
 	return getRepos().storage.saveFile(key, data, contentType);
 }
 
-export async function readFile(
-	key: string,
-): Promise<{ data: Buffer; contentType: string } | null> {
+export async function readFile(key: string): Promise<{ data: Buffer; contentType: string } | null> {
 	return getRepos().storage.readFile(key);
 }
 
