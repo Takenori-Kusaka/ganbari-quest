@@ -12,6 +12,10 @@ export interface ComputeStackProps extends cdk.StackProps {
 	table: dynamodb.TableV2;
 	assetsBucket: s3.Bucket;
 	repository: ecr.Repository;
+	/** Cognito User Pool ID */
+	userPoolId?: string;
+	/** Cognito User Pool Client ID */
+	userPoolClientId?: string;
 }
 
 export class ComputeStack extends cdk.Stack {
@@ -48,6 +52,9 @@ export class ComputeStack extends cdk.Stack {
 				HOST: '0.0.0.0',
 				NODE_ENV: 'production',
 				BODY_SIZE_LIMIT: '10485760',
+				AUTH_MODE: 'cognito',
+				...(props.userPoolId && { COGNITO_USER_POOL_ID: props.userPoolId }),
+				...(props.userPoolClientId && { COGNITO_CLIENT_ID: props.userPoolClientId }),
 			},
 		});
 		this.fn.node.addDependency(logGroup);
