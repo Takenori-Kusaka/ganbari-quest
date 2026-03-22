@@ -5,13 +5,6 @@ import { saveFile } from '$lib/server/storage';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-// bodyサイズ制限を10MBに引き上げ（写真アップロード用）
-export const config = {
-	body: {
-		maxSize: '10m',
-	},
-};
-
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
