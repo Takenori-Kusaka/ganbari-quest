@@ -32,7 +32,7 @@ export function drawOmikuji(): (typeof OMIKUJI_RANKS)[number] {
 	}
 
 	// フォールバック（到達しないはず）
-	return OMIKUJI_RANKS[OMIKUJI_RANKS.length - 1]!;
+	return OMIKUJI_RANKS[OMIKUJI_RANKS.length - 1] as (typeof OMIKUJI_RANKS)[number];
 }
 
 /** 連続ログイン日数から倍率を算出 */
