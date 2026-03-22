@@ -104,46 +104,14 @@ export async function isAchievementUnlocked(
 	achievementId: number,
 	milestoneValue: number | null,
 ): Promise<boolean> {
-	// First check by direct key lookup
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childAchievementKey(childId, achievementId),
+			Key: childAchievementKey(childId, achievementId, milestoneValue),
 		}),
 	);
 
-	if (!result.Item) return false;
-
-	// For non-milestone achievements, just check existence
-	if (milestoneValue == null) {
-		return (result.Item.milestoneValue as number | null) == null;
-	}
-
-	// For milestone achievements, the key includes only childId and achievementId.
-	// We need to query all child achievements for this achievementId and check milestoneValue.
-	const pk = childPK(childId);
-	const prefix = childAchievementPrefix();
-
-	const queryResult = await getDocClient().send(
-		new QueryCommand({
-			TableName: TABLE_NAME,
-			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-			FilterExpression: '#achievementId = :achievementId AND #milestoneValue = :milestoneValue',
-			ExpressionAttributeNames: {
-				'#achievementId': 'achievementId',
-				'#milestoneValue': 'milestoneValue',
-			},
-			ExpressionAttributeValues: {
-				':pk': pk,
-				':prefix': prefix,
-				':achievementId': achievementId,
-				':milestoneValue': milestoneValue,
-			},
-			Limit: 1,
-		}),
-	);
-
-	return (queryResult.Items ?? []).length > 0;
+	return !!result.Item;
 }
 
 /** 実績解除を記録（マイルストーン値付き） */
@@ -163,7 +131,7 @@ export async function insertChildAchievement(
 		unlockedAt: now,
 	};
 
-	const key = childAchievementKey(childId, achievementId);
+	const key = childAchievementKey(childId, achievementId, milestoneValue);
 
 	await getDocClient().send(
 		new PutCommand({
