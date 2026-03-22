@@ -59,7 +59,7 @@ function createMockEvent(cookies: Record<string, string> = {}) {
 			delete: vi.fn((name: string) => cookieStore.delete(name)),
 		},
 		url: new URL('http://localhost/admin'),
-	// biome-ignore lint/suspicious/noExplicitAny: RequestEvent mock
+		// biome-ignore lint/suspicious/noExplicitAny: RequestEvent mock
 	} as any;
 }
 

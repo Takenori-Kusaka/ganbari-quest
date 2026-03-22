@@ -1,10 +1,7 @@
 // /auth/logout — Cognito セッション破棄
 // Cookie 削除 + Cognito Hosted UI ログアウトへリダイレクト
 
-import {
-	CONTEXT_COOKIE_NAME,
-	IDENTITY_COOKIE_NAME,
-} from '$lib/domain/validation/auth';
+import { CONTEXT_COOKIE_NAME, IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { buildLogoutUrl } from '$lib/server/auth/providers/cognito-oauth';
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
