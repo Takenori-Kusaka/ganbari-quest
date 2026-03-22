@@ -2,7 +2,7 @@
 // ローカルファイルシステム（NUC）向けストレージ実装
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { FileData, IStorageRepo } from '../interfaces/storage.interface';
 
 const MIME_TYPES: Record<string, string> = {
@@ -19,7 +19,7 @@ function getBaseDir(): string {
 
 export const saveFile: IStorageRepo['saveFile'] = async (key, data, _contentType) => {
 	const fullPath = join(process.cwd(), 'static', key);
-	const dir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+	const dir = dirname(fullPath);
 	if (!existsSync(dir)) {
 		mkdirSync(dir, { recursive: true });
 	}
