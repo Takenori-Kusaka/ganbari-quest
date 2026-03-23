@@ -75,9 +75,15 @@ test.describe('PIN 認証 API（後方互換）', () => {
 test.describe('OAuth ルート', () => {
 	test('/auth/callback — code なしでリダイレクト', async ({ page }) => {
 		await page.goto('/auth/callback');
-		// /auth/login, /login, / のいずれかにリダイレクト
+		// local モードでは /auth/login → /admin にリダイレクトされる
+		// cognito モードでは /auth/login にリダイレクト
 		const url = page.url();
-		expect(url.includes('/auth') || url.includes('/login') || url.endsWith('/')).toBeTruthy();
+		expect(
+			url.includes('/auth') ||
+				url.includes('/login') ||
+				url.includes('/admin') ||
+				url.endsWith('/'),
+		).toBeTruthy();
 	});
 
 	test('/auth/logout GET — Cookie 削除してリダイレクト', async ({ request }) => {

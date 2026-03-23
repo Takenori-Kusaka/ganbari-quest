@@ -1,0 +1,38 @@
+// playwright.cognito-dev.config.ts
+// AUTH_MODE=cognito + COGNITO_DEV_MODE=true でのE2Eテスト
+// 実行: npx playwright test --config playwright.cognito-dev.config.ts
+
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+	testDir: 'tests/e2e',
+	testMatch: 'cognito-auth.spec.ts',
+	fullyParallel: true,
+	forbidOnly: !!process.env.CI,
+	retries: process.env.CI ? 2 : 0,
+	workers: 1,
+	reporter: [['list'], ['html', { open: 'never' }]],
+	use: {
+		baseURL: 'http://localhost:5174',
+		trace: 'on-first-retry',
+		screenshot: 'only-on-failure',
+	},
+	projects: [
+		{
+			name: 'cognito-dev',
+			use: {
+				...devices['Desktop Chrome'],
+				viewport: { width: 1280, height: 800 },
+			},
+		},
+	],
+	webServer: {
+		command:
+			process.platform === 'win32'
+				? 'set AUTH_MODE=cognito&& set COGNITO_DEV_MODE=true&& npm run dev -- --port 5174'
+				: 'AUTH_MODE=cognito COGNITO_DEV_MODE=true npm run dev -- --port 5174',
+		port: 5174,
+		reuseExistingServer: !process.env.CI,
+		timeout: 30_000,
+	},
+});
