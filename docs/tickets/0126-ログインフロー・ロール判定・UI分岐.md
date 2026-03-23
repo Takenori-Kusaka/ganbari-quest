@@ -2,7 +2,7 @@
 
 ### ステータス
 
-`Ready`
+`In Progress`
 
 ### メタ情報
 
