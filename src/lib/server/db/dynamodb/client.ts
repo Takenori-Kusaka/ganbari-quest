@@ -7,8 +7,8 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 /** Table name from environment (matches CDK StorageStack output) */
 export const TABLE_NAME = process.env.DYNAMODB_TABLE ?? process.env.TABLE_NAME ?? 'ganbari-quest';
 
-/** AWS region (default: Tokyo) */
-const REGION = process.env.AWS_REGION ?? 'ap-northeast-1';
+/** AWS region (default: us-east-1, matches CDK deployment) */
+const REGION = process.env.AWS_REGION ?? 'us-east-1';
 
 /** Optional endpoint for DynamoDB Local (local development) */
 const ENDPOINT = process.env.DYNAMODB_ENDPOINT;
