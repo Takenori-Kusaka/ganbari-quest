@@ -65,7 +65,7 @@ export class CognitoAuthProvider implements AuthProvider {
 
 	/**
 	 * DynamoDB メンバーシップから Context を再発行
-	 * #0123: 1ユーザー=1家族グループ（複数テナント所属なし）
+	 * メンバーシップがなければ初回ログインとして自動プロビジョニングする
 	 */
 	private async issueContextFromMembership(
 		event: RequestEvent,
@@ -74,14 +74,24 @@ export class CognitoAuthProvider implements AuthProvider {
 		try {
 			if (identity.type !== 'cognito') return null;
 
+			const repos = getRepos();
+
 			// メンバーシップから取得（1ユーザー=1テナント）
-			const memberships = await getRepos().auth.findUserTenants(identity.userId);
-			if (memberships.length === 0) return null;
+			let memberships = await repos.auth.findUserTenants(identity.userId);
+
+			// 初回ログイン: AuthUser + Tenant + Membership を自動作成
+			if (memberships.length === 0) {
+				logger.info('[AUTH] First login detected, auto-provisioning', {
+					context: { userId: identity.userId, email: identity.email },
+				});
+				const membership = await this.provisionNewUser(identity);
+				if (!membership) return null;
+				memberships = [membership];
+			}
 
 			const membership = memberships[0];
 			if (!membership) return null;
 
-			// ライセンス状態の取得（将来実装、現在は active 固定）
 			const context: AuthContext = {
 				tenantId: membership.tenantId,
 				role: membership.role,
@@ -96,6 +106,68 @@ export class CognitoAuthProvider implements AuthProvider {
 		}
 
 		return null;
+	}
+
+	/**
+	 * 初回ログインユーザーのプロビジョニング
+	 * AuthUser → Tenant → Membership を作成し、owner ロールを付与
+	 */
+	private async provisionNewUser(
+		identity: Extract<Identity, { type: 'cognito' }>,
+	): Promise<import('$lib/server/auth/entities').Membership | null> {
+		try {
+			const repos = getRepos();
+
+			// AuthUser が既にあるか確認（別経路で作成済みの場合）
+			let user = await repos.auth.findUserById(identity.userId);
+			if (!user) {
+				user = await repos.auth.createUser({
+					email: identity.email,
+					provider: 'cognito',
+				});
+				// Cognito sub と内部 userId が異なるため、Cognito sub でも引けるよう保存
+				// createUser は内部 u-<uuid> を生成するが、Cognito sub を userId として使いたい
+				// → findUserByEmail で逆引きする
+			}
+
+			// Email で既存ユーザーを検索（createUser が別IDを振る場合の対応）
+			const existingUser = await repos.auth.findUserByEmail(identity.email);
+
+			const effectiveUserId = existingUser?.userId ?? user.userId;
+
+			// 既にテナントに所属していないか再確認
+			const existing = await repos.auth.findUserTenants(effectiveUserId);
+			if (existing.length > 0) return existing[0] ?? null;
+
+			// Tenant 作成（家族名はメールアドレスのローカル部から仮名を生成）
+			const familyName = identity.email.split('@')[0] ?? 'family';
+			const tenant = await repos.auth.createTenant({
+				name: `${familyName}の家族`,
+				ownerId: effectiveUserId,
+			});
+
+			// Membership 作成（初回ユーザーは owner）
+			const membership = await repos.auth.createMembership({
+				userId: effectiveUserId,
+				tenantId: tenant.tenantId,
+				role: 'owner',
+			});
+
+			logger.info('[AUTH] Auto-provisioned new user', {
+				context: {
+					userId: effectiveUserId,
+					tenantId: tenant.tenantId,
+					role: 'owner',
+				},
+			});
+
+			return membership;
+		} catch (e) {
+			logger.error('[AUTH] Failed to provision new user', {
+				error: e instanceof Error ? e.message : String(e),
+			});
+			return null;
+		}
 	}
 
 	private setContextCookie(event: RequestEvent, context: AuthContext): void {
