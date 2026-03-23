@@ -7,10 +7,9 @@ import type { AuthContext } from './types';
 
 /** Context トークンの有効期限（秒） */
 export const CONTEXT_TTL = {
-	parent: 30 * 60, // 親モード: 30分
+	parent: 30 * 60, // 親モード（共用アカウント）: 30分
 	owner: 24 * 60 * 60, // owner: 24時間
 	child: 24 * 60 * 60, // 子供モード: 24時間
-	viewer: 24 * 60 * 60, // 閲覧者: 24時間
 } as const;
 
 /**

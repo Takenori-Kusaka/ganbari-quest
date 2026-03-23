@@ -39,15 +39,3 @@ export const createMembership: IAuthRepo['createMembership'] = async () => {
 export const deleteMembership: IAuthRepo['deleteMembership'] = async () => {
 	throw new Error(NOT_SUPPORTED);
 };
-export const findDeviceToken: IAuthRepo['findDeviceToken'] = async () => {
-	throw new Error(NOT_SUPPORTED);
-};
-export const createDeviceToken: IAuthRepo['createDeviceToken'] = async () => {
-	throw new Error(NOT_SUPPORTED);
-};
-export const revokeDeviceToken: IAuthRepo['revokeDeviceToken'] = async () => {
-	throw new Error(NOT_SUPPORTED);
-};
-export const findTenantDevices: IAuthRepo['findTenantDevices'] = async () => {
-	throw new Error(NOT_SUPPORTED);
-};

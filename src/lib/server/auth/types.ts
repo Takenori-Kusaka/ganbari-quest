@@ -6,14 +6,14 @@ import type { RequestEvent } from '@sveltejs/kit';
 /** 認証モードの切り替え（DATA_SOURCE パターンと同様） */
 export type AuthMode = 'local' | 'cognito';
 
-/** テナント内ロール */
-export type Role = 'owner' | 'parent' | 'child' | 'viewer';
+/** テナント内ロール（#0123: viewer 廃止） */
+export type Role = 'owner' | 'parent' | 'child';
 
-/** Layer 1: Identity（誰であるか） */
-export type Identity =
-	| { type: 'pin'; sessionId: string }
-	| { type: 'oauth'; userId: string; email: string }
-	| { type: 'device'; deviceId: string; tenantId: string };
+/** Layer 1: Identity（誰であるか）
+ * - local: LAN内認証なし（NUC/Docker）
+ * - cognito: Cognito Email/Password + MFA（AWS SaaS）
+ */
+export type Identity = { type: 'local' } | { type: 'cognito'; userId: string; email: string };
 
 /** Layer 2: Context（何として操作しているか） */
 export interface AuthContext {
