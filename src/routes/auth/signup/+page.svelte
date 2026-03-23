@@ -52,6 +52,7 @@ $effect(() => {
 				class="signup-form"
 			>
 				<input type="hidden" name="email" value={email} />
+				<input type="hidden" name="password" value={password} />
 
 				<p class="confirm-description">
 					<strong>{email}</strong> に確認コードを送信しました。<br />
@@ -90,7 +91,6 @@ $effect(() => {
 					loading = true;
 					return async ({ update }) => {
 						loading = false;
-						password = '';
 						passwordConfirm = '';
 						await update({ reset: false });
 					};

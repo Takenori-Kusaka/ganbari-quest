@@ -1,8 +1,14 @@
 // /auth/signup — ユーザー登録
-// Cognito SignUp + メール認証コード確認
+// Cognito SignUp + メール認証コード確認 + 確認後の自動ログイン
 
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
-import { confirmSignUp, signUpWithCognito } from '$lib/server/auth/providers/cognito-direct-auth';
+import {
+	authenticateWithCognito,
+	confirmSignUp,
+	signUpWithCognito,
+} from '$lib/server/auth/providers/cognito-direct-auth';
+import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
+import { logger } from '$lib/server/logger';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -56,21 +62,53 @@ export const actions: Actions = {
 		redirect(302, '/auth/login?registered=true');
 	},
 
-	confirm: async ({ request }) => {
+	confirm: async ({ request, cookies }) => {
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
 		const code = formData.get('code') as string;
+		const password = formData.get('password') as string;
 
 		if (!email || !code) {
 			return fail(400, { error: '確認コードを入力してください', email, confirmStep: true });
 		}
 
-		const result = await confirmSignUp(email, code);
+		const confirmResult = await confirmSignUp(email, code);
 
-		if (!result.success) {
-			return fail(400, { error: result.message, email, confirmStep: true });
+		if (!confirmResult.success) {
+			return fail(400, { error: confirmResult.message, email, confirmStep: true });
 		}
 
+		// 確認成功 → パスワードがあれば自動ログインを試みる
+		if (password) {
+			const loginResult = await autoLogin(email, password, cookies);
+			if (loginResult === 'ok') {
+				redirect(302, '/admin');
+			}
+		}
+
+		// 自動ログインできなかった場合はログインページへ
 		redirect(302, '/auth/login?registered=true');
 	},
 };
+
+/** 確認後の自動ログイン（失敗してもエラーにしない） */
+async function autoLogin(
+	email: string,
+	password: string,
+	cookies: import('@sveltejs/kit').Cookies,
+): Promise<'ok' | 'fallback'> {
+	try {
+		const result = await authenticateWithCognito(email, password);
+		if (result.success) {
+			setIdentityCookie(cookies, result.idToken);
+			return 'ok';
+		}
+		// MFA チャレンジやエラーの場合はフォールバック
+		return 'fallback';
+	} catch (e) {
+		logger.warn('[AUTH] Auto-login after signup failed', {
+			context: { error: e instanceof Error ? e.message : String(e) },
+		});
+		return 'fallback';
+	}
+}
