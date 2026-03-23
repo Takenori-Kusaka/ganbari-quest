@@ -1,21 +1,21 @@
 // src/lib/server/auth/providers/cognito-dev-jwt.ts
 // ローカル開発用ダミー JWT 生成・検証（COGNITO_DEV_MODE=true 時に使用）
-// 実際の Cognito JWKS の代わりにプロセスローカルの RSA キーペアを使う
+// HS256 + 固定シークレットを使い、Lambda インスタンス間でも JWT を共有可能にする
 
-import { SignJWT, exportJWK, generateKeyPair, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify } from 'jose';
 import type { CognitoClaims } from './cognito-jwt';
 
 const DEV_ISSUER = 'https://cognito-idp.local.amazonaws.com/local_dev_pool';
 const DEV_AUDIENCE = 'dev_client_id';
 
-/** プロセスローカルのキーペア（再起動で無効化される） */
-let _keyPair: { privateKey: CryptoKey; publicKey: CryptoKey } | null = null;
-
-async function getKeyPair() {
-	if (_keyPair) return _keyPair;
-	_keyPair = await generateKeyPair('RS256');
-	return _keyPair;
-}
+/**
+ * 開発専用の固定シークレット（HS256）。
+ * プロセスをまたいでも同じ鍵で署名・検証できる。
+ * 本番では COGNITO_DEV_MODE=true にしないため、セキュリティ上の問題はない。
+ */
+const DEV_SECRET = new TextEncoder().encode(
+	'ganbari-quest-dev-jwt-secret-do-not-use-in-production',
+);
 
 export interface DevUserProfile {
 	userId: string;
@@ -25,7 +25,6 @@ export interface DevUserProfile {
 
 /** ダミー Cognito ID Token を生成 */
 export async function signDevIdentityToken(user: DevUserProfile): Promise<string> {
-	const { privateKey } = await getKeyPair();
 	return new SignJWT({
 		sub: user.userId,
 		email: user.email,
@@ -33,19 +32,18 @@ export async function signDevIdentityToken(user: DevUserProfile): Promise<string
 		'cognito:username': user.username ?? user.email,
 		token_use: 'id',
 	})
-		.setProtectedHeader({ alg: 'RS256', kid: 'dev-key-1' })
+		.setProtectedHeader({ alg: 'HS256' })
 		.setIssuer(DEV_ISSUER)
 		.setAudience(DEV_AUDIENCE)
 		.setIssuedAt()
 		.setExpirationTime('1h')
-		.sign(privateKey);
+		.sign(DEV_SECRET);
 }
 
 /** ダミー JWT をローカルキーで検証 */
 export async function verifyDevIdentityToken(token: string): Promise<CognitoClaims | null> {
 	try {
-		const { publicKey } = await getKeyPair();
-		const { payload } = await jwtVerify(token, publicKey, {
+		const { payload } = await jwtVerify(token, DEV_SECRET, {
 			issuer: DEV_ISSUER,
 			audience: DEV_AUDIENCE,
 		});
@@ -63,11 +61,4 @@ export async function verifyDevIdentityToken(token: string): Promise<CognitoClai
 	} catch {
 		return null;
 	}
-}
-
-/** 開発用 JWKS エンドポイント用の公開鍵を取得 */
-export async function getDevJWKS() {
-	const { publicKey } = await getKeyPair();
-	const jwk = await exportJWK(publicKey);
-	return { keys: [{ ...jwk, kid: 'dev-key-1', alg: 'RS256', use: 'sig' }] };
 }

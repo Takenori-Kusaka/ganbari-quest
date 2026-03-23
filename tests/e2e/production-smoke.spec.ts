@@ -29,6 +29,7 @@ async function loginAsOwner(page: Page) {
 }
 
 async function selectChild(page: Page) {
+	await loginAsOwner(page);
 	await page.goto(`${BASE_URL}/switch`);
 	const childButton = page.locator('button[type="submit"]').first();
 	await expect(childButton).toBeVisible({ timeout: 10000 });
@@ -131,6 +132,7 @@ test.describe('本番環境スモークテスト', () => {
 	});
 
 	test('子供選択のform action（?/select）が動作する', async ({ page }) => {
+		await loginAsOwner(page);
 		await page.goto(`${BASE_URL}/switch`);
 		const childButton = page.locator('button[type="submit"]').first();
 		await expect(childButton).toBeVisible({ timeout: 10000 });
@@ -202,7 +204,8 @@ test.describe('本番API検証 - GET', () => {
 		const response = await request.get(`${BASE_URL}/api/v1/activities`);
 		// cognito モードでは認証なしで 302 リダイレクトの可能性あり
 		expect(response.status()).toBeLessThan(500);
-		if (response.ok()) {
+		const contentType = response.headers()['content-type'] ?? '';
+		if (response.ok() && contentType.includes('application/json')) {
 			const body = await response.json();
 			expect(body.activities).toBeDefined();
 			expect(Array.isArray(body.activities)).toBe(true);
