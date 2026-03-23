@@ -17,7 +17,7 @@ export interface CognitoClaims {
 function getCognitoConfig() {
 	const userPoolId = process.env.COGNITO_USER_POOL_ID;
 	const clientId = process.env.COGNITO_CLIENT_ID;
-	const region = process.env.AWS_REGION ?? 'ap-northeast-1';
+	const region = process.env.AWS_REGION ?? 'us-east-1';
 
 	if (!userPoolId || !clientId) {
 		throw new Error(

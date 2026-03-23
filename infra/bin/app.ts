@@ -24,15 +24,9 @@ const storage = new StorageStack(app, `${appName}Storage`, {
 	description: 'DynamoDB + S3 for Ganbari Quest',
 });
 
-// Google OAuth credentials (deploy with -c googleClientId=... -c googleClientSecret=...)
-const googleClientId = app.node.tryGetContext('googleClientId') as string | undefined;
-const googleClientSecret = app.node.tryGetContext('googleClientSecret') as string | undefined;
-
 const auth = new AuthStack(app, `${appName}Auth`, {
 	env,
 	description: 'Cognito User Pool for Ganbari Quest',
-	googleClientId,
-	googleClientSecret,
 	appDomain: domainName,
 });
 
