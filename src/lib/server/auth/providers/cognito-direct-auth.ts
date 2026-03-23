@@ -16,7 +16,7 @@ interface CognitoDirectAuthConfig {
 
 function getConfig(): CognitoDirectAuthConfig {
 	const clientId = process.env.COGNITO_CLIENT_ID;
-	const region = process.env.AWS_REGION ?? 'ap-northeast-1';
+	const region = process.env.AWS_REGION ?? 'us-east-1';
 
 	if (!clientId) {
 		throw new Error('COGNITO_CLIENT_ID must be set when AUTH_MODE=cognito');
