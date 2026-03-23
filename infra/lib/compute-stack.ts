@@ -6,16 +6,13 @@ import * as firehose from 'aws-cdk-lib/aws-kinesisfirehose';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 
 export interface ComputeStackProps extends cdk.StackProps {
 	table: dynamodb.TableV2;
 	assetsBucket: s3.Bucket;
 	repository: ecr.Repository;
-	/** Cognito User Pool ID */
-	userPoolId?: string;
-	/** Cognito User Pool Client ID */
-	userPoolClientId?: string;
 }
 
 export class ComputeStack extends cdk.Stack {
@@ -31,6 +28,16 @@ export class ComputeStack extends cdk.Stack {
 			retention: logs.RetentionDays.THREE_DAYS,
 			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
+
+		// --- Cognito 設定を SSM から取得（cross-stack export を回避） ---
+		const cognitoUserPoolId = ssm.StringParameter.valueForStringParameter(
+			this,
+			'/ganbari-quest/cognito/user-pool-id',
+		);
+		const cognitoClientId = ssm.StringParameter.valueForStringParameter(
+			this,
+			'/ganbari-quest/cognito/client-id',
+		);
 
 		// --- Lambda: SvelteKit via Lambda Web Adapter ---
 		this.fn = new lambda.DockerImageFunction(this, 'SvelteKitFn', {
@@ -54,8 +61,8 @@ export class ComputeStack extends cdk.Stack {
 				BODY_SIZE_LIMIT: '10485760',
 				AUTH_MODE: 'cognito',
 				COGNITO_DEV_MODE: 'true',
-				...(props.userPoolId && { COGNITO_USER_POOL_ID: props.userPoolId }),
-				...(props.userPoolClientId && { COGNITO_CLIENT_ID: props.userPoolClientId }),
+				COGNITO_USER_POOL_ID: cognitoUserPoolId,
+				COGNITO_CLIENT_ID: cognitoClientId,
 			},
 		});
 		this.fn.node.addDependency(logGroup);

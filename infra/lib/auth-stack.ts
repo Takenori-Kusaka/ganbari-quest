@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 
 export interface AuthStackProps extends cdk.StackProps {
@@ -44,8 +45,9 @@ export class AuthStack extends cdk.Stack {
 		});
 
 		// --- User Pool Client (パブリッククライアント、USER_PASSWORD_AUTH) ---
-		this.userPoolClient = this.userPool.addClient('AppClient', {
-			userPoolClientName: 'ganbari-quest-app',
+		// 新しい論理ID 'PublicClient' を使い、旧 'AppClient' の export への依存を回避
+		this.userPoolClient = this.userPool.addClient('PublicClient', {
+			userPoolClientName: 'ganbari-quest-public',
 			generateSecret: false, // InitiateAuth (USER_PASSWORD_AUTH) はパブリッククライアント必須
 			authFlows: {
 				userPassword: true, // cognito-direct-auth.ts の USER_PASSWORD_AUTH
@@ -56,14 +58,22 @@ export class AuthStack extends cdk.Stack {
 			refreshTokenValidity: cdk.Duration.days(30),
 		});
 
-		// --- Outputs ---
+		// --- SSM Parameters (スタック間依存の切り離し) ---
+		new ssm.StringParameter(this, 'UserPoolIdParam', {
+			parameterName: '/ganbari-quest/cognito/user-pool-id',
+			stringValue: this.userPool.userPoolId,
+		});
+		new ssm.StringParameter(this, 'UserPoolClientIdParam', {
+			parameterName: '/ganbari-quest/cognito/client-id',
+			stringValue: this.userPoolClient.userPoolClientId,
+		});
+
+		// --- Outputs (参考用、cross-stack reference には使わない) ---
 		new cdk.CfnOutput(this, 'UserPoolId', {
 			value: this.userPool.userPoolId,
-			exportName: 'GanbariQuestUserPoolId',
 		});
 		new cdk.CfnOutput(this, 'UserPoolClientId', {
 			value: this.userPoolClient.userPoolClientId,
-			exportName: 'GanbariQuestUserPoolClientId',
 		});
 	}
 }
