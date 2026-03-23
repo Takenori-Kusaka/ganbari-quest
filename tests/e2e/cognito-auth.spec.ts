@@ -30,7 +30,7 @@ test.describe('正常ログイン', () => {
 	test('owner でログインすると /admin にリダイレクトされる', async ({ page }) => {
 		await page.goto('/auth/login');
 		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await expect(page).toHaveURL(/\/admin/);
 	});
@@ -38,7 +38,7 @@ test.describe('正常ログイン', () => {
 	test('parent でログインすると /admin にリダイレクトされる', async ({ page }) => {
 		await page.goto('/auth/login');
 		await page.getByLabel('メールアドレス').fill('parent@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Parent2026');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await expect(page).toHaveURL(/\/admin/);
 	});
@@ -46,7 +46,7 @@ test.describe('正常ログイン', () => {
 	test('child でログインすると /switch にリダイレクトされる', async ({ page }) => {
 		await page.goto('/auth/login');
 		await page.getByLabel('メールアドレス').fill('child@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Child2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await expect(page).toHaveURL(/\/switch/);
 	});
@@ -67,7 +67,7 @@ test.describe('ログイン失敗', () => {
 	test('存在しないメールアドレスでエラーが表示される', async ({ page }) => {
 		await page.goto('/auth/login');
 		await page.getByLabel('メールアドレス').fill('nobody@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await expect(page.getByText('メールアドレスまたはパスワードが正しくありません')).toBeVisible();
 	});
@@ -100,7 +100,7 @@ test.describe('ロール別アクセス制御', () => {
 		// child でログイン
 		await page.goto('/auth/login');
 		await page.getByLabel('メールアドレス').fill('child@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Child2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await page.waitForURL(/\/switch/);
 
@@ -113,7 +113,7 @@ test.describe('ロール別アクセス制御', () => {
 	test('owner ロールで /admin にアクセスできる', async ({ page }) => {
 		await page.goto('/auth/login');
 		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await page.waitForURL(/\/admin/);
 
@@ -131,7 +131,7 @@ test.describe('ログアウト', () => {
 		// まずログイン
 		await page.goto('/auth/login');
 		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await page.waitForURL(/\/admin/);
 
@@ -146,7 +146,7 @@ test.describe('ログアウト', () => {
 		// ログイン
 		await page.goto('/auth/login');
 		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await page.waitForURL(/\/admin/);
 
@@ -168,7 +168,7 @@ test.describe('セッション継続', () => {
 		// ログイン
 		await page.goto('/auth/login');
 		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await page.waitForURL(/\/admin/);
 
@@ -183,7 +183,7 @@ test.describe('セッション継続', () => {
 		// ログイン
 		await page.goto('/auth/login');
 		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await page.waitForURL(/\/admin/);
 
