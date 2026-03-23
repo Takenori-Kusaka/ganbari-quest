@@ -58,16 +58,15 @@ let confirmStep = $derived(form?.confirmStep ?? false);
 						name="code"
 						type="text"
 						bind:value={code}
-						placeholder="000000"
+						placeholder="123456"
 						required
-						maxlength="6"
-						pattern="[0-9]{6}"
 						inputmode="numeric"
+						autocomplete="one-time-code"
 						class="form-input code-input"
 					/>
 				</div>
 
-				<button type="submit" disabled={loading || code.length !== 6} class="signup-button">
+				<button type="submit" disabled={loading || code.length < 1} class="signup-button">
 					{#if loading}
 						確認中...
 					{:else}

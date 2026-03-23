@@ -37,6 +37,12 @@ export class AuthStack extends cdk.Stack {
 				requireSymbols: false, // ユーザビリティ優先
 			},
 			accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+			userVerification: {
+				emailSubject: 'がんばりクエスト — メールアドレスの確認',
+				emailBody:
+					'がんばりクエストへのご登録ありがとうございます。\n\n確認コード: {####}\n\nこのコードをアプリの確認画面に入力してください。',
+				emailStyle: cognito.VerificationEmailStyle.CODE,
+			},
 			customAttributes: {
 				tenantId: new cognito.StringAttribute({ mutable: true }),
 				role: new cognito.StringAttribute({ mutable: true }),
