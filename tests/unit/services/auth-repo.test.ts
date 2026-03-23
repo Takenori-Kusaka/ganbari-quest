@@ -191,9 +191,7 @@ describe('auth-repo: Membership', () => {
 
 	it('findUserTenants — ユーザーのテナント一覧', async () => {
 		mockSend.mockResolvedValue({
-			Items: [
-				{ userId: 'u-1', tenantId: 't-A', role: 'owner', joinedAt: '2024-01-01' },
-			],
+			Items: [{ userId: 'u-1', tenantId: 't-A', role: 'owner', joinedAt: '2024-01-01' }],
 		});
 
 		const { findUserTenants } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
