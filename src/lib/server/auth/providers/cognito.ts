@@ -1,11 +1,7 @@
 // src/lib/server/auth/providers/cognito.ts
-// CognitoAuthProvider — OAuth + デバイストークン + 二層セッション
+// CognitoAuthProvider — Email/Password + MFA + マルチテナント (#0123)
 
-import {
-	CONTEXT_COOKIE_NAME,
-	DEVICE_COOKIE_NAME,
-	IDENTITY_COOKIE_NAME,
-} from '$lib/domain/validation/auth';
+import { CONTEXT_COOKIE_NAME, IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import type { RequestEvent } from '@sveltejs/kit';
@@ -17,45 +13,25 @@ import { verifyIdentityToken } from './cognito-jwt';
 export class CognitoAuthProvider implements AuthProvider {
 	/**
 	 * Layer 1: Identity 解決
-	 * 優先順: identity_token (OAuth JWT) > device_token
+	 * Cognito JWT（identity_token Cookie）から Identity を取得
 	 */
 	async resolveIdentity(event: RequestEvent): Promise<Identity | null> {
-		// 1. OAuth Identity Token（Cognito JWT）
 		const idToken = event.cookies.get(IDENTITY_COOKIE_NAME);
-		if (idToken) {
-			try {
-				const claims = await verifyIdentityToken(idToken);
-				if (claims) {
-					return {
-						type: 'oauth',
-						userId: claims.sub,
-						email: claims.email,
-					};
-				}
-			} catch (e) {
-				logger.warn('[AUTH] Identity token verification failed', {
-					context: { error: e instanceof Error ? e.message : String(e) },
-				});
-			}
-		}
+		if (!idToken) return null;
 
-		// 2. Device Token
-		const deviceToken = event.cookies.get(DEVICE_COOKIE_NAME);
-		if (deviceToken) {
-			try {
-				const device = await getRepos().auth.findDeviceToken(deviceToken);
-				if (device && device.status === 'active') {
-					return {
-						type: 'device',
-						deviceId: device.deviceId,
-						tenantId: device.tenantId,
-					};
-				}
-			} catch (e) {
-				logger.warn('[AUTH] Device token lookup failed', {
-					context: { error: e instanceof Error ? e.message : String(e) },
-				});
+		try {
+			const claims = await verifyIdentityToken(idToken);
+			if (claims) {
+				return {
+					type: 'cognito',
+					userId: claims.sub,
+					email: claims.email,
+				};
 			}
+		} catch (e) {
+			logger.warn('[AUTH] Identity token verification failed', {
+				context: { error: e instanceof Error ? e.message : String(e) },
+			});
 		}
 
 		return null;
@@ -89,41 +65,30 @@ export class CognitoAuthProvider implements AuthProvider {
 
 	/**
 	 * DynamoDB メンバーシップから Context を再発行
+	 * #0123: 1ユーザー=1家族グループ（複数テナント所属なし）
 	 */
 	private async issueContextFromMembership(
 		event: RequestEvent,
 		identity: Identity,
 	): Promise<AuthContext | null> {
 		try {
-			if (identity.type === 'device') {
-				// デバイストークン → テナントは固定、ロールは child
-				const context: AuthContext = {
-					tenantId: identity.tenantId,
-					role: 'child',
-					licenseStatus: 'active', // デバイスアクセスではライセンスチェック省略
-				};
-				this.setContextCookie(event, context);
-				return context;
-			}
+			if (identity.type !== 'cognito') return null;
 
-			if (identity.type === 'oauth') {
-				// OAuth → メンバーシップから取得
-				const memberships = await getRepos().auth.findUserTenants(identity.userId);
-				if (memberships.length === 0) return null; // テナント未所属
+			// メンバーシップから取得（1ユーザー=1テナント）
+			const memberships = await getRepos().auth.findUserTenants(identity.userId);
+			if (memberships.length === 0) return null;
 
-				// 単一テナントの場合は自動選択、複数の場合は最初のテナント
-				// （テナント選択画面は別途実装）
-				const membership = memberships[0]!;
+			const membership = memberships[0];
+			if (!membership) return null;
 
-				// ライセンス状態の取得（将来実装、現在は active 固定）
-				const context: AuthContext = {
-					tenantId: membership.tenantId,
-					role: membership.role,
-					licenseStatus: 'active',
-				};
-				this.setContextCookie(event, context);
-				return context;
-			}
+			// ライセンス状態の取得（将来実装、現在は active 固定）
+			const context: AuthContext = {
+				tenantId: membership.tenantId,
+				role: membership.role,
+				licenseStatus: 'active',
+			};
+			this.setContextCookie(event, context);
+			return context;
 		} catch (e) {
 			logger.error('[AUTH] Failed to issue context from membership', {
 				error: e instanceof Error ? e.message : String(e),

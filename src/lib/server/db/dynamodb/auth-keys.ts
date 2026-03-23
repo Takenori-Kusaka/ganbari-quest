@@ -1,13 +1,13 @@
 // src/lib/server/db/dynamodb/auth-keys.ts
 // Auth エンティティ用キー定義（テナントプレフィックス付き）
 // 既存の keys.ts とは独立。Auth エンティティは初めからマルチテナント対応。
+// #0123: DeviceToken 廃止（共用アカウントに置き換え）
 
 import type { DynamoKey } from './keys';
 
 const AUTH_PREFIX = {
 	USER: 'USER',
 	TENANT: 'TENANT',
-	DEVICE: 'DEVICE',
 } as const;
 
 // ============================================================
@@ -43,18 +43,27 @@ export function tenantMemberKey(tenantId: string, userId: string): DynamoKey {
 	return { PK: `${AUTH_PREFIX.TENANT}#${tenantId}`, SK: `MEMBER#${userId}` };
 }
 
-/** Tenant-device: PK=TENANT#<tenantId>, SK=DEVICE#<deviceId> */
-export function tenantDeviceKey(tenantId: string, deviceId: string): DynamoKey {
-	return { PK: `${AUTH_PREFIX.TENANT}#${tenantId}`, SK: `${AUTH_PREFIX.DEVICE}#${deviceId}` };
+// ============================================================
+// License keys
+// ============================================================
+
+/** License: PK=LICENSE#<licenseKey>, SK=META */
+export function licenseKey(key: string): DynamoKey {
+	return { PK: `LICENSE#${key}`, SK: 'META' };
+}
+
+/** Tenant license: PK=TENANT#<tenantId>, SK=LICENSE */
+export function tenantLicenseKey(tenantId: string): DynamoKey {
+	return { PK: `${AUTH_PREFIX.TENANT}#${tenantId}`, SK: 'LICENSE' };
 }
 
 // ============================================================
-// Device keys
+// Invite keys
 // ============================================================
 
-/** Device token: PK=DEVICE#<deviceId>, SK=META */
-export function deviceKey(deviceId: string): DynamoKey {
-	return { PK: `${AUTH_PREFIX.DEVICE}#${deviceId}`, SK: 'META' };
+/** Invite: PK=INVITE#<inviteCode>, SK=META */
+export function inviteKey(inviteCode: string): DynamoKey {
+	return { PK: `INVITE#${inviteCode}`, SK: 'META' };
 }
 
 // ============================================================
@@ -73,9 +82,6 @@ export function tenantPartition(tenantId: string): string {
 
 /** Tenant member SK prefix: MEMBER# */
 export const MEMBER_SK_PREFIX = 'MEMBER#';
-
-/** Tenant device SK prefix: DEVICE# */
-export const DEVICE_SK_PREFIX = 'DEVICE#';
 
 /** User tenant SK prefix: TENANT# */
 export const USER_TENANT_SK_PREFIX = 'TENANT#';

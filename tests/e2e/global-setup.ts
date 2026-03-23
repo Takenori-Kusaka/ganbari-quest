@@ -33,12 +33,13 @@ export default async function globalSetup() {
 		}
 	}
 
-	// E2E テストに必須: PIN設定 + テスト用子供の存在確認・作成
+	// E2E テストに必須: テスト用子供の存在確認・作成
+	// (#0123: PIN認証廃止 — local モードは認証なし)
 	try {
 		const Database = (await import('better-sqlite3')).default;
 		const db = new Database(DB_PATH);
 
-		// PIN 設定がなければ作成（テスト用PIN: 1234）
+		// 後方互換: PIN 設定がまだ使われているルートのために残す
 		const pinRow = db.prepare("SELECT value FROM settings WHERE key = 'pin_hash'").get() as
 			| { value: string }
 			| undefined;
@@ -48,7 +49,6 @@ export default async function globalSetup() {
 			db.prepare(
 				"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('pin_hash', ?, datetime('now'))",
 			).run(hash);
-			// session 関連の設定も初期化
 			for (const key of [
 				'session_token',
 				'session_expires_at',
@@ -59,7 +59,7 @@ export default async function globalSetup() {
 					"INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES (?, '', datetime('now'))",
 				).run(key);
 			}
-			console.log('[E2E Setup]   Created test PIN (1234).');
+			console.log('[E2E Setup]   Created test PIN (1234) for backward compat.');
 		}
 
 		// テスト用子供がいなければ作成

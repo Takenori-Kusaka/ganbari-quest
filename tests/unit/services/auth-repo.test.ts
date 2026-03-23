@@ -1,5 +1,5 @@
 // tests/unit/services/auth-repo.test.ts
-// DynamoDB auth-repo のユニットテスト
+// DynamoDB auth-repo のユニットテスト (#0123: DeviceToken廃止)
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -29,7 +29,7 @@ describe('auth-repo: User', () => {
 					SK: 'EMAIL#parent@example.com',
 					userId: 'u-abc',
 					email: 'parent@example.com',
-					provider: 'google',
+					provider: 'cognito',
 					displayName: 'Parent',
 					createdAt: '2024-01-01T00:00:00Z',
 					updatedAt: '2024-01-01T00:00:00Z',
@@ -43,7 +43,7 @@ describe('auth-repo: User', () => {
 		expect(user).toBeDefined();
 		expect(user?.userId).toBe('u-abc');
 		expect(user?.email).toBe('parent@example.com');
-		expect(user?.provider).toBe('google');
+		expect(user?.provider).toBe('cognito');
 	});
 
 	it('findUserByEmail — ユーザーが見つからない場合', async () => {
@@ -62,7 +62,7 @@ describe('auth-repo: User', () => {
 				SK: 'PROFILE',
 				userId: 'u-xyz',
 				email: 'test@example.com',
-				provider: 'google',
+				provider: 'cognito',
 				createdAt: '2024-01-01T00:00:00Z',
 				updatedAt: '2024-01-01T00:00:00Z',
 			},
@@ -90,16 +90,15 @@ describe('auth-repo: User', () => {
 		const { createUser } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const user = await createUser({
 			email: 'new@example.com',
-			provider: 'google',
+			provider: 'cognito',
 			displayName: 'New User',
 		});
 
 		expect(user.userId).toMatch(/^u-[0-9a-f-]+$/);
 		expect(user.email).toBe('new@example.com');
-		expect(user.provider).toBe('google');
+		expect(user.provider).toBe('cognito');
 		expect(user.displayName).toBe('New User');
 		expect(user.createdAt).toBeDefined();
-		// 2回の PutCommand: Profile + Email lookup
 		expect(mockSend).toHaveBeenCalledTimes(2);
 	});
 });
@@ -112,6 +111,7 @@ describe('auth-repo: Tenant', () => {
 				SK: 'META',
 				tenantId: 't-family',
 				name: '田中家',
+				ownerId: 'u-owner',
 				status: 'active',
 				createdAt: '2024-01-01T00:00:00Z',
 				updatedAt: '2024-01-01T00:00:00Z',
@@ -129,10 +129,11 @@ describe('auth-repo: Tenant', () => {
 		mockSend.mockResolvedValue({});
 
 		const { createTenant } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
-		const tenant = await createTenant({ name: '佐藤家' });
+		const tenant = await createTenant({ name: '佐藤家', ownerId: 'u-owner' });
 
 		expect(tenant.tenantId).toMatch(/^t-[0-9a-f-]+$/);
 		expect(tenant.name).toBe('佐藤家');
+		expect(tenant.ownerId).toBe('u-owner');
 		expect(tenant.status).toBe('active');
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
@@ -145,6 +146,7 @@ describe('auth-repo: Tenant', () => {
 					SK: 'META',
 					tenantId: 't-1',
 					name: 'Test',
+					ownerId: 'u-1',
 					status: 'active',
 					createdAt: '2024-01-01T00:00:00Z',
 					updatedAt: '2024-01-01T00:00:00Z',
@@ -164,7 +166,6 @@ describe('auth-repo: Tenant', () => {
 		const { updateTenantStatus } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		await updateTenantStatus('t-nonexistent', 'suspended');
 
-		// Get のみで Put はしない
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
 });
@@ -192,16 +193,14 @@ describe('auth-repo: Membership', () => {
 		mockSend.mockResolvedValue({
 			Items: [
 				{ userId: 'u-1', tenantId: 't-A', role: 'owner', joinedAt: '2024-01-01' },
-				{ userId: 'u-1', tenantId: 't-B', role: 'viewer', joinedAt: '2024-06-01' },
 			],
 		});
 
 		const { findUserTenants } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		const memberships = await findUserTenants('u-1');
 
-		expect(memberships).toHaveLength(2);
+		expect(memberships).toHaveLength(1);
 		expect(memberships[0]?.tenantId).toBe('t-A');
-		expect(memberships[1]?.role).toBe('viewer');
 	});
 
 	it('findTenantMembers — テナントのメンバー一覧', async () => {
@@ -233,7 +232,6 @@ describe('auth-repo: Membership', () => {
 		expect(m.tenantId).toBe('t-target');
 		expect(m.role).toBe('parent');
 		expect(m.invitedBy).toBe('u-owner');
-		// Tenant側 + User側 = 2回の PutCommand
 		expect(mockSend).toHaveBeenCalledTimes(2);
 	});
 
@@ -243,114 +241,6 @@ describe('auth-repo: Membership', () => {
 		const { deleteMembership } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
 		await deleteMembership('u-leave', 't-old');
 
-		// 2回の DeleteCommand
 		expect(mockSend).toHaveBeenCalledTimes(2);
-	});
-});
-
-describe('auth-repo: DeviceToken', () => {
-	it('findDeviceToken — デバイストークンが見つかる場合', async () => {
-		mockSend.mockResolvedValue({
-			Item: {
-				PK: 'DEVICE#d-tablet',
-				SK: 'META',
-				deviceId: 'd-tablet',
-				tenantId: 't-1',
-				registeredBy: 'u-owner',
-				status: 'active',
-				createdAt: '2024-01-01T00:00:00Z',
-			},
-		});
-
-		const { findDeviceToken } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
-		const token = await findDeviceToken('d-tablet');
-
-		expect(token?.status).toBe('active');
-		expect(token?.tenantId).toBe('t-1');
-	});
-
-	it('findDeviceToken — 見つからない場合', async () => {
-		mockSend.mockResolvedValue({ Item: undefined });
-
-		const { findDeviceToken } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
-		const token = await findDeviceToken('d-unknown');
-
-		expect(token).toBeUndefined();
-	});
-
-	it('createDeviceToken — Device + Tenant-device の双方向書き込み', async () => {
-		mockSend.mockResolvedValue({});
-
-		const { createDeviceToken } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
-		const token = await createDeviceToken({
-			tenantId: 't-1',
-			registeredBy: 'u-owner',
-		});
-
-		expect(token.deviceId).toMatch(/^d-[0-9a-f-]+$/);
-		expect(token.status).toBe('active');
-		// Device lookup + Tenant-device reference = 2回
-		expect(mockSend).toHaveBeenCalledTimes(2);
-	});
-
-	it('revokeDeviceToken — ステータスを revoked に更新する', async () => {
-		// findDeviceToken の結果
-		mockSend
-			.mockResolvedValueOnce({
-				Item: {
-					PK: 'DEVICE#d-revoke-me',
-					SK: 'META',
-					deviceId: 'd-revoke-me',
-					tenantId: 't-1',
-					registeredBy: 'u-owner',
-					status: 'active',
-					createdAt: '2024-01-01T00:00:00Z',
-				},
-			})
-			.mockResolvedValue({});
-
-		const { revokeDeviceToken } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
-		await revokeDeviceToken('d-revoke-me');
-
-		// Get(1回) + Put×2(Device + Tenant-device) = 3回
-		expect(mockSend).toHaveBeenCalledTimes(3);
-	});
-
-	it('revokeDeviceToken — 存在しない場合は何もしない', async () => {
-		mockSend.mockResolvedValue({ Item: undefined });
-
-		const { revokeDeviceToken } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
-		await revokeDeviceToken('d-nonexistent');
-
-		// Get のみ
-		expect(mockSend).toHaveBeenCalledTimes(1);
-	});
-
-	it('findTenantDevices — テナントのデバイス一覧', async () => {
-		mockSend.mockResolvedValue({
-			Items: [
-				{
-					deviceId: 'd-1',
-					tenantId: 't-1',
-					registeredBy: 'u-1',
-					status: 'active',
-					createdAt: '2024-01-01',
-				},
-				{
-					deviceId: 'd-2',
-					tenantId: 't-1',
-					registeredBy: 'u-1',
-					status: 'revoked',
-					createdAt: '2024-02-01',
-				},
-			],
-		});
-
-		const { findTenantDevices } = await import('../../../src/lib/server/db/dynamodb/auth-repo');
-		const devices = await findTenantDevices('t-1');
-
-		expect(devices).toHaveLength(2);
-		expect(devices[0]?.status).toBe('active');
-		expect(devices[1]?.status).toBe('revoked');
 	});
 });
