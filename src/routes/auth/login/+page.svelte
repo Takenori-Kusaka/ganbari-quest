@@ -81,9 +81,9 @@ let loading = $state(false);
 				<details>
 					<summary>テスト用アカウント</summary>
 					<ul class="dev-accounts">
-						<li><code>owner@example.com</code> / <code>password123</code> (管理者)</li>
-						<li><code>parent@example.com</code> / <code>password123</code> (親)</li>
-						<li><code>child@example.com</code> / <code>password123</code> (子供)</li>
+						<li><code>owner@example.com</code> / <code>Gq!Dev#Owner2026x</code> (管理者)</li>
+						<li><code>parent@example.com</code> / <code>Gq!Dev#Parent2026</code> (親)</li>
+						<li><code>child@example.com</code> / <code>Gq!Dev#Child2026x</code> (子供)</li>
 					</ul>
 				</details>
 			</div>
