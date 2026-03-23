@@ -64,7 +64,9 @@ async function savePlan() {
 		const result = await res.json();
 		if (result.pointsAwarded > 0) {
 			pointsMessage = `+${result.pointsAwarded}pt ゲット！`;
-			setTimeout(() => (pointsMessage = ''), 3000);
+			setTimeout(() => {
+				pointsMessage = '';
+			}, 3000);
 		}
 
 		// データを反映
