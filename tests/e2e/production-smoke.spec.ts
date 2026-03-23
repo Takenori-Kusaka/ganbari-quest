@@ -21,7 +21,7 @@ async function loginAsOwner(page: Page) {
 	const emailInput = page.getByLabel('メールアドレス');
 	if (await emailInput.isVisible({ timeout: 5000 }).catch(() => false)) {
 		await emailInput.fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await page.waitForURL(/\/admin/, { timeout: 10000 });
 	}
@@ -90,7 +90,7 @@ test.describe('本番環境 - 認証', () => {
 	test('ダミーユーザーでログインできる', async ({ page }) => {
 		await page.goto(`${BASE_URL}/auth/login`);
 		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('password123');
+		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await expect(page).toHaveURL(/\/admin/, { timeout: 10000 });
 	});
