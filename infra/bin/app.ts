@@ -24,20 +24,19 @@ const storage = new StorageStack(app, `${appName}Storage`, {
 	description: 'DynamoDB + S3 for Ganbari Quest',
 });
 
-const auth = new AuthStack(app, `${appName}Auth`, {
+new AuthStack(app, `${appName}Auth`, {
 	env,
 	description: 'Cognito User Pool for Ganbari Quest',
 	appDomain: domainName,
 });
 
+// ComputeStack は SSM パラメータ経由で Cognito 設定を取得（cross-stack export 回避）
 const compute = new ComputeStack(app, `${appName}Compute`, {
 	env,
 	description: 'Lambda (SvelteKit) + API Gateway for Ganbari Quest',
 	table: storage.table,
 	assetsBucket: storage.assetsBucket,
 	repository: storage.repository,
-	userPoolId: auth.userPool.userPoolId,
-	userPoolClientId: auth.userPoolClient.userPoolClientId,
 });
 
 new NetworkStack(app, `${appName}Network`, {
