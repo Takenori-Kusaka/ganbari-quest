@@ -66,7 +66,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 	<!-- Parent admin link -->
 	<div class="mt-[var(--spacing-2xl)] flex justify-center">
 		<a
-			href="/login"
+			href={data.adminLink}
 			class="text-sm text-[var(--color-text-muted)] hover:text-[var(--theme-primary)] transition-colors py-2 px-4"
 		>
 			🔒 おやのかんりがめん

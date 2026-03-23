@@ -39,6 +39,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
+	// cognito モードで旧 /login（PIN画面）にアクセスした場合 → /auth/login へ
+	if (authMode === 'cognito' && path === '/login') {
+		redirect(302, '/auth/login');
+	}
+
 	// 認可チェック（Provider 固有のルート保護）
 	const authResult = provider.authorize(path, identity, context);
 	if (!authResult.allowed) {
