@@ -1,11 +1,15 @@
 import { dev } from '$app/environment';
+import { getAuthMode } from '$lib/server/auth/factory';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
 	const children = await getAllChildren();
-	return { children };
+	const authMode = getAuthMode();
+	// local モードは認証不要なので直接 /admin、cognito モードは /auth/login
+	const adminLink = authMode === 'cognito' ? '/auth/login' : '/admin';
+	return { children, adminLink };
 };
 
 export const actions: Actions = {
