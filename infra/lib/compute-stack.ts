@@ -53,6 +53,7 @@ export class ComputeStack extends cdk.Stack {
 				NODE_ENV: 'production',
 				BODY_SIZE_LIMIT: '10485760',
 				AUTH_MODE: 'cognito',
+				COGNITO_DEV_MODE: 'true',
 				...(props.userPoolId && { COGNITO_USER_POOL_ID: props.userPoolId }),
 				...(props.userPoolClientId && { COGNITO_CLIENT_ID: props.userPoolClientId }),
 			},
