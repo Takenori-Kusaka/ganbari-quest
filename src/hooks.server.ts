@@ -20,7 +20,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// 2) ルート保護
 	const path = event.url.pathname;
 
-	// セットアップチェック（local モードのみ — Cognito モードでは PIN セットアップ不要）
+	// セットアップチェック（local モードのみ — 子供が未登録ならセットアップへ）
 	if (authMode === 'local') {
 		if (
 			!path.startsWith('/setup') &&

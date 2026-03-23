@@ -1,18 +1,16 @@
 // tests/unit/services/cognito-provider.test.ts
-// CognitoAuthProvider のユニットテスト
+// CognitoAuthProvider のユニットテスト (#0123: DeviceToken廃止, oauth→cognito)
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
 
 // --- モック定義 ---
 
-const mockFindDeviceToken = vi.fn();
 const mockFindUserTenants = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		auth: {
-			findDeviceToken: mockFindDeviceToken,
 			findUserTenants: mockFindUserTenants,
 		},
 	}),
@@ -34,14 +32,13 @@ vi.mock('$lib/server/logger', () => ({
 // Context token モック
 vi.mock('$lib/server/auth/context-token', () => ({
 	signContext: vi.fn(() => 'mock-signed-context-token'),
-	verifyContext: vi.fn(() => null), // デフォルトで期限切れ（null）
+	verifyContext: vi.fn(() => null),
 	getContextMaxAge: vi.fn(() => 86400),
 }));
 
 vi.mock('$lib/domain/validation/auth', () => ({
 	IDENTITY_COOKIE_NAME: 'identity_token',
 	CONTEXT_COOKIE_NAME: 'context_token',
-	DEVICE_COOKIE_NAME: 'device_token',
 }));
 
 import { verifyContext } from '$lib/server/auth/context-token';
@@ -73,7 +70,7 @@ afterEach(() => {
 
 describe('CognitoAuthProvider', () => {
 	describe('resolveIdentity', () => {
-		it('Identity Token (OAuth JWT) から Identity を解決する', async () => {
+		it('Identity Token (JWT) から Identity を解決する', async () => {
 			mockVerifyIdentityToken.mockResolvedValue({
 				sub: 'u-abc-123',
 				email: 'parent@example.com',
@@ -88,94 +85,14 @@ describe('CognitoAuthProvider', () => {
 			const identity = await provider.resolveIdentity(event);
 
 			expect(identity).toEqual({
-				type: 'oauth',
+				type: 'cognito',
 				userId: 'u-abc-123',
 				email: 'parent@example.com',
 			});
 			expect(mockVerifyIdentityToken).toHaveBeenCalledWith('valid-jwt');
 		});
 
-		it('Identity Token がない場合、Device Token にフォールバックする', async () => {
-			mockFindDeviceToken.mockResolvedValue({
-				deviceId: 'd-tablet-1',
-				tenantId: 't-family-1',
-				status: 'active',
-			});
-
-			const { CognitoAuthProvider } = await import(
-				'../../../src/lib/server/auth/providers/cognito'
-			);
-			const provider = new CognitoAuthProvider();
-			const event = createMockEvent({ device_token: 'd-tablet-1' });
-
-			const identity = await provider.resolveIdentity(event);
-
-			expect(identity).toEqual({
-				type: 'device',
-				deviceId: 'd-tablet-1',
-				tenantId: 't-family-1',
-			});
-		});
-
-		it('Identity Token の検証失敗時、Device Token にフォールバックする', async () => {
-			mockVerifyIdentityToken.mockResolvedValue(null);
-			mockFindDeviceToken.mockResolvedValue({
-				deviceId: 'd-tablet-2',
-				tenantId: 't-family-2',
-				status: 'active',
-			});
-
-			const { CognitoAuthProvider } = await import(
-				'../../../src/lib/server/auth/providers/cognito'
-			);
-			const provider = new CognitoAuthProvider();
-			const event = createMockEvent({
-				identity_token: 'invalid-jwt',
-				device_token: 'd-tablet-2',
-			});
-
-			const identity = await provider.resolveIdentity(event);
-
-			expect(identity).toEqual({
-				type: 'device',
-				deviceId: 'd-tablet-2',
-				tenantId: 't-family-2',
-			});
-		});
-
-		it('Device Token が revoked の場合 null を返す', async () => {
-			mockFindDeviceToken.mockResolvedValue({
-				deviceId: 'd-revoked',
-				tenantId: 't-family-1',
-				status: 'revoked',
-			});
-
-			const { CognitoAuthProvider } = await import(
-				'../../../src/lib/server/auth/providers/cognito'
-			);
-			const provider = new CognitoAuthProvider();
-			const event = createMockEvent({ device_token: 'd-revoked' });
-
-			const identity = await provider.resolveIdentity(event);
-
-			expect(identity).toBeNull();
-		});
-
-		it('Device Token が存在しない場合 null を返す', async () => {
-			mockFindDeviceToken.mockResolvedValue(undefined);
-
-			const { CognitoAuthProvider } = await import(
-				'../../../src/lib/server/auth/providers/cognito'
-			);
-			const provider = new CognitoAuthProvider();
-			const event = createMockEvent({ device_token: 'd-unknown' });
-
-			const identity = await provider.resolveIdentity(event);
-
-			expect(identity).toBeNull();
-		});
-
-		it('Cookie が何もない場合 null を返す', async () => {
+		it('Identity Token がない場合 null を返す', async () => {
 			const { CognitoAuthProvider } = await import(
 				'../../../src/lib/server/auth/providers/cognito'
 			);
@@ -187,70 +104,32 @@ describe('CognitoAuthProvider', () => {
 			expect(identity).toBeNull();
 		});
 
-		it('Identity Token 検証で例外が発生しても Device Token にフォールバックする', async () => {
-			mockVerifyIdentityToken.mockRejectedValue(new Error('network error'));
-			mockFindDeviceToken.mockResolvedValue({
-				deviceId: 'd-fallback',
-				tenantId: 't-family-3',
-				status: 'active',
-			});
+		it('Identity Token の検証失敗時 null を返す', async () => {
+			mockVerifyIdentityToken.mockResolvedValue(null);
 
 			const { CognitoAuthProvider } = await import(
 				'../../../src/lib/server/auth/providers/cognito'
 			);
 			const provider = new CognitoAuthProvider();
-			const event = createMockEvent({
-				identity_token: 'jwt-with-error',
-				device_token: 'd-fallback',
-			});
-
-			const identity = await provider.resolveIdentity(event);
-
-			expect(identity).toEqual({
-				type: 'device',
-				deviceId: 'd-fallback',
-				tenantId: 't-family-3',
-			});
-		});
-
-		it('Device Token 検索で例外が発生した場合 null を返す', async () => {
-			mockFindDeviceToken.mockRejectedValue(new Error('DynamoDB error'));
-
-			const { CognitoAuthProvider } = await import(
-				'../../../src/lib/server/auth/providers/cognito'
-			);
-			const provider = new CognitoAuthProvider();
-			const event = createMockEvent({ device_token: 'd-error' });
+			const event = createMockEvent({ identity_token: 'invalid-jwt' });
 
 			const identity = await provider.resolveIdentity(event);
 
 			expect(identity).toBeNull();
 		});
 
-		it('Identity Token が優先される（両方ある場合）', async () => {
-			mockVerifyIdentityToken.mockResolvedValue({
-				sub: 'u-priority',
-				email: 'priority@example.com',
-			});
-			mockFindDeviceToken.mockResolvedValue({
-				deviceId: 'd-should-not-use',
-				tenantId: 't-family-99',
-				status: 'active',
-			});
+		it('Identity Token 検証で例外が発生しても null を返す', async () => {
+			mockVerifyIdentityToken.mockRejectedValue(new Error('network error'));
 
 			const { CognitoAuthProvider } = await import(
 				'../../../src/lib/server/auth/providers/cognito'
 			);
 			const provider = new CognitoAuthProvider();
-			const event = createMockEvent({
-				identity_token: 'valid-jwt',
-				device_token: 'd-should-not-use',
-			});
+			const event = createMockEvent({ identity_token: 'jwt-with-error' });
 
 			const identity = await provider.resolveIdentity(event);
 
-			expect(identity?.type).toBe('oauth');
-			expect(mockFindDeviceToken).not.toHaveBeenCalled();
+			expect(identity).toBeNull();
 		});
 	});
 
@@ -279,17 +158,16 @@ describe('CognitoAuthProvider', () => {
 				'../../../src/lib/server/auth/providers/cognito'
 			);
 			const provider = new CognitoAuthProvider();
-			const identity: Identity = { type: 'oauth', userId: 'u-1', email: 'a@b.com' };
+			const identity: Identity = { type: 'cognito', userId: 'u-1', email: 'a@b.com' };
 			const event = createMockEvent({ context_token: 'valid-context-token' });
 
 			const context = await provider.resolveContext(event, identity);
 
 			expect(context).toEqual(storedContext);
-			// メンバーシップ検索はしない
 			expect(mockFindUserTenants).not.toHaveBeenCalled();
 		});
 
-		it('Context Token がない場合、メンバーシップから Context を発行する（OAuth）', async () => {
+		it('Context Token がない場合、メンバーシップから Context を発行する', async () => {
 			mockVerifyContext.mockReturnValue(null);
 			mockFindUserTenants.mockResolvedValue([
 				{ userId: 'u-member', tenantId: 't-family-A', role: 'owner', joinedAt: '2024-01-01' },
@@ -299,7 +177,11 @@ describe('CognitoAuthProvider', () => {
 				'../../../src/lib/server/auth/providers/cognito'
 			);
 			const provider = new CognitoAuthProvider();
-			const identity: Identity = { type: 'oauth', userId: 'u-member', email: 'owner@family.com' };
+			const identity: Identity = {
+				type: 'cognito',
+				userId: 'u-member',
+				email: 'owner@family.com',
+			};
 			const event = createMockEvent({});
 
 			const context = await provider.resolveContext(event, identity);
@@ -310,11 +192,10 @@ describe('CognitoAuthProvider', () => {
 				licenseStatus: 'active',
 			});
 			expect(mockFindUserTenants).toHaveBeenCalledWith('u-member');
-			// Context Cookie が設定される
 			expect(event.cookies.set).toHaveBeenCalled();
 		});
 
-		it('OAuth ユーザーがテナント未所属の場合 null を返す', async () => {
+		it('Cognito ユーザーがテナント未所属の場合 null を返す', async () => {
 			mockVerifyContext.mockReturnValue(null);
 			mockFindUserTenants.mockResolvedValue([]);
 
@@ -322,7 +203,11 @@ describe('CognitoAuthProvider', () => {
 				'../../../src/lib/server/auth/providers/cognito'
 			);
 			const provider = new CognitoAuthProvider();
-			const identity: Identity = { type: 'oauth', userId: 'u-orphan', email: 'no-tenant@x.com' };
+			const identity: Identity = {
+				type: 'cognito',
+				userId: 'u-orphan',
+				email: 'no-tenant@x.com',
+			};
 			const event = createMockEvent({});
 
 			const context = await provider.resolveContext(event, identity);
@@ -330,44 +215,26 @@ describe('CognitoAuthProvider', () => {
 			expect(context).toBeNull();
 		});
 
-		it('Device Token の場合、テナント固定で child ロールを返す', async () => {
-			mockVerifyContext.mockReturnValue(null);
-
-			const { CognitoAuthProvider } = await import(
-				'../../../src/lib/server/auth/providers/cognito'
-			);
-			const provider = new CognitoAuthProvider();
-			const identity: Identity = { type: 'device', deviceId: 'd-1', tenantId: 't-device-tenant' };
-			const event = createMockEvent({});
-
-			const context = await provider.resolveContext(event, identity);
-
-			expect(context).toEqual({
-				tenantId: 't-device-tenant',
-				role: 'child',
-				licenseStatus: 'active',
-			});
-			// Device の場合メンバーシップ検索しない
-			expect(mockFindUserTenants).not.toHaveBeenCalled();
-		});
-
-		it('複数テナントの場合、最初のテナントを自動選択する', async () => {
+		it('1ユーザー=1テナント: 最初のテナントを自動選択する', async () => {
 			mockVerifyContext.mockReturnValue(null);
 			mockFindUserTenants.mockResolvedValue([
-				{ userId: 'u-multi', tenantId: 't-first', role: 'parent', joinedAt: '2024-01-01' },
-				{ userId: 'u-multi', tenantId: 't-second', role: 'viewer', joinedAt: '2024-06-01' },
+				{ userId: 'u-single', tenantId: 't-only', role: 'parent', joinedAt: '2024-01-01' },
 			]);
 
 			const { CognitoAuthProvider } = await import(
 				'../../../src/lib/server/auth/providers/cognito'
 			);
 			const provider = new CognitoAuthProvider();
-			const identity: Identity = { type: 'oauth', userId: 'u-multi', email: 'multi@example.com' };
+			const identity: Identity = {
+				type: 'cognito',
+				userId: 'u-single',
+				email: 'single@example.com',
+			};
 			const event = createMockEvent({});
 
 			const context = await provider.resolveContext(event, identity);
 
-			expect(context?.tenantId).toBe('t-first');
+			expect(context?.tenantId).toBe('t-only');
 			expect(context?.role).toBe('parent');
 		});
 
@@ -379,7 +246,7 @@ describe('CognitoAuthProvider', () => {
 				'../../../src/lib/server/auth/providers/cognito'
 			);
 			const provider = new CognitoAuthProvider();
-			const identity: Identity = { type: 'oauth', userId: 'u-err', email: 'err@x.com' };
+			const identity: Identity = { type: 'cognito', userId: 'u-err', email: 'err@x.com' };
 			const event = createMockEvent({});
 
 			const context = await provider.resolveContext(event, identity);
@@ -388,7 +255,7 @@ describe('CognitoAuthProvider', () => {
 		});
 
 		it('Context Token が期限切れの場合、メンバーシップから再発行する', async () => {
-			mockVerifyContext.mockReturnValue(null); // 期限切れ
+			mockVerifyContext.mockReturnValue(null);
 			mockFindUserTenants.mockResolvedValue([
 				{ userId: 'u-expired', tenantId: 't-reissue', role: 'owner', joinedAt: '2024-01-01' },
 			]);
@@ -398,7 +265,7 @@ describe('CognitoAuthProvider', () => {
 			);
 			const provider = new CognitoAuthProvider();
 			const identity: Identity = {
-				type: 'oauth',
+				type: 'cognito',
 				userId: 'u-expired',
 				email: 'expired@x.com',
 			};
@@ -417,7 +284,7 @@ describe('CognitoAuthProvider', () => {
 				'../../../src/lib/server/auth/providers/cognito'
 			);
 			const provider = new CognitoAuthProvider();
-			const identity: Identity = { type: 'oauth', userId: 'u-1', email: 'a@b.com' };
+			const identity: Identity = { type: 'cognito', userId: 'u-1', email: 'a@b.com' };
 			const context: AuthContext = { tenantId: 't-1', role: 'owner', licenseStatus: 'active' };
 
 			const result = provider.authorize('/admin', identity, context);
@@ -425,7 +292,7 @@ describe('CognitoAuthProvider', () => {
 			expect(result).toEqual({ allowed: true });
 		});
 
-		it('未認証で /admin は /login にリダイレクト', async () => {
+		it('未認証で /admin は /auth/login にリダイレクト', async () => {
 			const { CognitoAuthProvider } = await import(
 				'../../../src/lib/server/auth/providers/cognito'
 			);
@@ -435,7 +302,7 @@ describe('CognitoAuthProvider', () => {
 
 			expect(result.allowed).toBe(false);
 			if (!result.allowed) {
-				expect(result.redirect).toBe('/login');
+				expect(result.redirect).toBe('/auth/login');
 			}
 		});
 	});

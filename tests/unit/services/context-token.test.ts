@@ -1,5 +1,5 @@
 // tests/unit/services/context-token.test.ts
-// Context トークン署名/検証のユニットテスト
+// Context トークン署名/検証のユニットテスト (#0123: viewer廃止)
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -68,7 +68,6 @@ describe('Context Token', () => {
 		it('期限切れトークンは null を返す', () => {
 			const token = signContext(ownerContext);
 
-			// 25時間後にジャンプ
 			vi.useFakeTimers();
 			vi.setSystemTime(Date.now() + 25 * 60 * 60 * 1000);
 
@@ -90,11 +89,6 @@ describe('Context Token', () => {
 
 		it('child は 24時間', () => {
 			expect(getContextMaxAge(childContext)).toBe(24 * 60 * 60);
-		});
-
-		it('viewer は 24時間', () => {
-			const viewerCtx: AuthContext = { tenantId: 't-1', role: 'viewer', licenseStatus: 'active' };
-			expect(getContextMaxAge(viewerCtx)).toBe(24 * 60 * 60);
 		});
 	});
 });

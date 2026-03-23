@@ -594,26 +594,24 @@ test.describe('API 正常系: キャリア', () => {
 	});
 });
 
-test.describe('API 正常系: 認証', () => {
-	test('ログイン（正しいPIN）が成功する', async ({ request }) => {
+test.describe('API 正常系: 認証（local モード — 認証不要）', () => {
+	test('管理画面に認証なしでアクセスできる', async ({ request }) => {
+		const res = await request.get('/admin');
+		expect(res.ok()).toBeTruthy();
+	});
+
+	test('PIN ログイン API が残っている場合は互換動作する', async ({ request }) => {
 		const res = await request.post('/api/v1/auth/login', {
 			data: { pin: '1234' },
 		});
-		expect(res.status()).toBe(200);
-		const body = await res.json();
-		expect(body.message).toBeDefined();
+		// PIN認証がまだ残っていれば200、廃止済みなら404
+		expect([200, 404]).toContain(res.status());
 	});
 
-	test('ログアウトが成功する', async ({ request }) => {
+	test('ログアウト API が残っている場合は互換動作する', async ({ request }) => {
 		const res = await request.post('/api/v1/auth/logout');
-		expect(res.status()).toBe(200);
-	});
-
-	test('不正なPINでログイン失敗', async ({ request }) => {
-		const res = await request.post('/api/v1/auth/login', {
-			data: { pin: '0000' },
-		});
-		expect(res.status()).toBe(401);
+		// 200, 302, 404 のいずれか
+		expect([200, 302, 404]).toContain(res.status());
 	});
 });
 

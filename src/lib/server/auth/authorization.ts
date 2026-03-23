@@ -1,5 +1,5 @@
 // src/lib/server/auth/authorization.ts
-// ロール × ルート 認可マトリクス
+// ロール × ルート 認可マトリクス (#0123: viewer廃止, device廃止)
 
 import type { AuthContext, AuthResult, Identity, Role } from './types';
 
@@ -7,8 +7,6 @@ interface RouteRule {
 	pattern: string;
 	/** 許可するロール。空配列 = 認証不要 */
 	roles: Role[];
-	/** デバイストークン（Identity type=device）でもアクセス可能か */
-	allowDevice?: boolean;
 	/** owner 限定ルート */
 	ownerOnly?: boolean;
 	/** 未認証時のリダイレクト先 */
@@ -19,54 +17,45 @@ interface RouteRule {
 
 /**
  * ルート保護ルール（上から順にマッチング、最初に一致したルールを適用）
- * #0066 チケットの認可マトリクスに基づく
+ * #0123 チケットの認可マトリクスに基づく
  */
 const ROUTE_RULES: RouteRule[] = [
-	// 課金管理 — owner のみ
+	// ライセンス管理 — owner + parent
 	{
-		pattern: '/admin/billing',
-		roles: ['owner'],
-		ownerOnly: true,
-		unauthRedirect: '/login',
+		pattern: '/admin/license',
+		roles: ['owner', 'parent'],
+		unauthRedirect: '/auth/login',
 		forbiddenRedirect: '/admin',
 	},
-	// メンバー管理 — owner + parent（parent は閲覧のみだがルートレベルでは許可）
+	// メンバー管理 — owner + parent
 	{
 		pattern: '/admin/members',
 		roles: ['owner', 'parent'],
-		unauthRedirect: '/login',
+		unauthRedirect: '/auth/login',
 		forbiddenRedirect: '/admin',
 	},
 	// 管理画面全般 — owner + parent
 	{
 		pattern: '/admin',
 		roles: ['owner', 'parent'],
-		unauthRedirect: '/login',
-		forbiddenRedirect: '/child/switch',
+		unauthRedirect: '/auth/login',
+		forbiddenRedirect: '/child',
 	},
-	// 子供画面 — 全ロール + デバイストークン
+	// 子供画面 — 全ロール
 	{
 		pattern: '/child',
-		roles: ['owner', 'parent', 'child', 'viewer'],
-		allowDevice: true,
-		unauthRedirect: '/login',
-	},
-	// 課金 API — owner のみ
-	{
-		pattern: '/api/v1/billing',
-		roles: ['owner'],
-		ownerOnly: true,
+		roles: ['owner', 'parent', 'child'],
+		unauthRedirect: '/auth/login',
 	},
 	// 管理 API — owner + parent
 	{
 		pattern: '/api/v1/admin',
 		roles: ['owner', 'parent'],
 	},
-	// 子供 API — 全ロール + デバイストークン
+	// 子供 API — 全ロール
 	{
 		pattern: '/api/v1',
-		roles: ['owner', 'parent', 'child', 'viewer'],
-		allowDevice: true,
+		roles: ['owner', 'parent', 'child'],
 	},
 ];
 
@@ -81,8 +70,8 @@ export function authorizeCognito(
 ): AuthResult {
 	// 公開ルート（認証不要）
 	if (isPublicRoute(path)) {
-		// 認証済みで /login にアクセスしたら適切な画面へ
-		if (path.startsWith('/login') && identity && context) {
+		// 認証済みで /auth/login にアクセスしたら適切な画面へ
+		if (path.startsWith('/auth/login') && identity && context) {
 			const redirect = context.role === 'child' ? '/child' : '/admin';
 			return { allowed: false, redirect };
 		}
@@ -92,16 +81,16 @@ export function authorizeCognito(
 	// 認証チェック
 	if (!identity) {
 		const rule = findMatchingRule(path);
-		return { allowed: false, redirect: rule?.unauthRedirect ?? '/login', status: 401 };
+		return { allowed: false, redirect: rule?.unauthRedirect ?? '/auth/login', status: 401 };
 	}
 
-	// Context がない場合（テナント未選択）
+	// Context がない場合（テナント未所属）
 	if (!context) {
 		// オンボーディング系ルートは Context なしでもアクセス可能
 		if (path.startsWith('/onboarding') || path.startsWith('/auth')) {
 			return { allowed: true };
 		}
-		return { allowed: false, redirect: '/auth/select-tenant' };
+		return { allowed: false, redirect: '/auth/login' };
 	}
 
 	// ライセンス状態チェック
@@ -111,11 +100,6 @@ export function authorizeCognito(
 	// ルール検索
 	const rule = findMatchingRule(path);
 	if (!rule) return { allowed: true };
-
-	// デバイストークンチェック
-	if (identity.type === 'device' && !rule.allowDevice) {
-		return { allowed: false, redirect: '/child/switch', status: 403 };
-	}
 
 	// ロールチェック
 	if (rule.roles.length > 0 && !rule.roles.includes(context.role)) {
@@ -136,9 +120,9 @@ function findMatchingRule(path: string): RouteRule | undefined {
 function isPublicRoute(path: string): boolean {
 	return (
 		path === '/' ||
-		path.startsWith('/login') ||
 		path.startsWith('/auth') ||
-		path.startsWith('/onboarding') ||
+		path.startsWith('/pricing') ||
+		path.startsWith('/switch') ||
 		path.startsWith('/setup') ||
 		path.startsWith('/_app') ||
 		path.startsWith('/favicon') ||
@@ -154,11 +138,11 @@ function checkLicenseAccess(path: string, context: AuthContext): AuthResult {
 	}
 
 	if (licenseStatus === 'expired') {
-		// 課金ページは期限切れでもアクセス可能（更新促進）
-		if (path.startsWith('/admin/billing') || path.startsWith('/api/v1/billing')) {
+		// ライセンス管理ページは期限切れでもアクセス可能（更新促進）
+		if (path.startsWith('/admin/license') || path.startsWith('/api/v1/admin/license')) {
 			return { allowed: true };
 		}
-		return { allowed: false, redirect: '/admin/billing?reason=expired' };
+		return { allowed: false, redirect: '/admin/license?reason=expired' };
 	}
 
 	if (licenseStatus === 'suspended') {

@@ -1,13 +1,13 @@
 // src/lib/server/auth/entities.ts
-// マルチテナント認証エンティティの型定義
+// マルチテナント認証エンティティの型定義 (#0123)
 
 import type { Role } from './types';
 
-/** OAuth ユーザー（Cognito 連携） */
+/** Cognito ユーザー（Email/Password 認証） */
 export interface AuthUser {
 	userId: string;
 	email: string;
-	provider: 'google' | 'apple' | 'device';
+	provider: 'cognito';
 	displayName?: string;
 	createdAt: string;
 	updatedAt: string;
@@ -15,24 +15,29 @@ export interface AuthUser {
 
 export interface CreateUserInput {
 	email: string;
-	provider: 'google' | 'apple' | 'device';
+	provider: 'cognito';
 	displayName?: string;
 }
 
-/** テナント（家庭） */
+/** テナント（家族グループ） */
 export interface Tenant {
 	tenantId: string;
 	name: string;
+	ownerId: string;
 	status: 'active' | 'suspended' | 'grace_period' | 'terminated';
+	licenseKey?: string;
+	plan?: 'monthly' | 'yearly' | 'lifetime';
 	createdAt: string;
 	updatedAt: string;
 }
 
 export interface CreateTenantInput {
 	name: string;
+	ownerId: string;
+	licenseKey?: string;
 }
 
-/** メンバーシップ（ユーザー × テナント） */
+/** メンバーシップ（ユーザー × テナント、1ユーザー=1テナント） */
 export interface Membership {
 	userId: string;
 	tenantId: string;
@@ -46,18 +51,4 @@ export interface CreateMembershipInput {
 	tenantId: string;
 	role: Role;
 	invitedBy?: string;
-}
-
-/** デバイストークン（共用タブレット登録） */
-export interface DeviceToken {
-	deviceId: string;
-	tenantId: string;
-	registeredBy: string;
-	status: 'active' | 'revoked';
-	createdAt: string;
-}
-
-export interface CreateDeviceTokenInput {
-	tenantId: string;
-	registeredBy: string;
 }

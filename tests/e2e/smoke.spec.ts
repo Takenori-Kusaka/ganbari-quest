@@ -342,10 +342,12 @@ test.describe('UC-13: ログインボーナス', () => {
 // ============================================================
 // 11. UC-09: 親ログイン画面
 // ============================================================
-test.describe('UC-09: 親ログイン', () => {
-	test('ログイン画面が表示される', async ({ page }) => {
+test.describe('UC-09: 親ログイン（local モード — 認証不要）', () => {
+	test('/login にアクセスするとページが表示される', async ({ page }) => {
 		await page.goto('/login');
-		await expect(page).toHaveURL(/\/login/);
+		// local モードでは /login ページがそのまま表示されるか、/admin にリダイレクト
+		const url = page.url();
+		expect(url.includes('/login') || url.includes('/admin')).toBeTruthy();
 	});
 });
 

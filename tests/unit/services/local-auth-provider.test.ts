@@ -1,5 +1,5 @@
 // tests/unit/services/local-auth-provider.test.ts
-// LocalAuthProvider の authorize() ロジックテスト
+// LocalAuthProvider のテスト（#0123: PIN廃止、常に認証済み）
 
 import { describe, expect, it } from 'vitest';
 import { LocalAuthProvider } from '../../../src/lib/server/auth/providers/local';
@@ -7,106 +7,85 @@ import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
 
 const provider = new LocalAuthProvider();
 
-const pinIdentity: Identity = { type: 'pin', sessionId: 'test-session-id' };
+const localIdentity: Identity = { type: 'local' };
 const localContext: AuthContext = {
 	tenantId: 'local',
 	role: 'owner',
 	licenseStatus: 'none',
 };
 
-describe('LocalAuthProvider.authorize', () => {
-	describe('未認証ユーザー', () => {
-		it('/admin は /login にリダイレクト', () => {
-			const result = provider.authorize('/admin', null, null);
-			expect(result).toEqual({ allowed: false, redirect: '/login' });
-		});
-
-		it('/admin/children は /login にリダイレクト', () => {
-			const result = provider.authorize('/admin/children', null, null);
-			expect(result).toEqual({ allowed: false, redirect: '/login' });
-		});
-
-		it('/admin/settings は /login にリダイレクト', () => {
-			const result = provider.authorize('/admin/settings', null, null);
-			expect(result).toEqual({ allowed: false, redirect: '/login' });
-		});
-
-		it('/ はアクセス可能', () => {
-			const result = provider.authorize('/', null, null);
-			expect(result).toEqual({ allowed: true });
-		});
-
-		it('/login はアクセス可能', () => {
-			const result = provider.authorize('/login', null, null);
-			expect(result).toEqual({ allowed: true });
-		});
-
-		it('/baby はアクセス可能（子供画面は認証不要）', () => {
-			const result = provider.authorize('/baby', null, null);
-			expect(result).toEqual({ allowed: true });
-		});
-
-		it('/kinder はアクセス可能', () => {
-			const result = provider.authorize('/kinder', null, null);
-			expect(result).toEqual({ allowed: true });
-		});
-
-		it('/api/v1/activities はアクセス可能', () => {
-			const result = provider.authorize('/api/v1/activities', null, null);
-			expect(result).toEqual({ allowed: true });
-		});
-
-		it('/api/health はアクセス可能', () => {
-			const result = provider.authorize('/api/health', null, null);
-			expect(result).toEqual({ allowed: true });
-		});
-
-		it('/setup はアクセス可能', () => {
-			const result = provider.authorize('/setup', null, null);
-			expect(result).toEqual({ allowed: true });
-		});
-	});
-
-	describe('認証済みユーザー', () => {
+describe('LocalAuthProvider', () => {
+	describe('authorize — 全ルート許可', () => {
 		it('/admin はアクセス可能', () => {
-			const result = provider.authorize('/admin', pinIdentity, localContext);
+			const result = provider.authorize('/admin', localIdentity, localContext);
 			expect(result).toEqual({ allowed: true });
 		});
 
 		it('/admin/children はアクセス可能', () => {
-			const result = provider.authorize('/admin/children', pinIdentity, localContext);
+			const result = provider.authorize('/admin/children', localIdentity, localContext);
 			expect(result).toEqual({ allowed: true });
 		});
 
-		it('/login は /admin にリダイレクト', () => {
-			const result = provider.authorize('/login', pinIdentity, localContext);
-			expect(result).toEqual({ allowed: false, redirect: '/admin' });
+		it('/admin/settings はアクセス可能', () => {
+			const result = provider.authorize('/admin/settings', localIdentity, localContext);
+			expect(result).toEqual({ allowed: true });
 		});
 
 		it('/ はアクセス可能', () => {
-			const result = provider.authorize('/', pinIdentity, localContext);
+			const result = provider.authorize('/', localIdentity, localContext);
 			expect(result).toEqual({ allowed: true });
 		});
 
 		it('/baby はアクセス可能', () => {
-			const result = provider.authorize('/baby', pinIdentity, localContext);
+			const result = provider.authorize('/baby', localIdentity, localContext);
 			expect(result).toEqual({ allowed: true });
 		});
 
-		it('/api/v1/auth/login はアクセス可能', () => {
-			const result = provider.authorize('/api/v1/auth/login', pinIdentity, localContext);
+		it('/kinder はアクセス可能', () => {
+			const result = provider.authorize('/kinder', localIdentity, localContext);
+			expect(result).toEqual({ allowed: true });
+		});
+
+		it('/api/v1/activities はアクセス可能', () => {
+			const result = provider.authorize('/api/v1/activities', localIdentity, localContext);
+			expect(result).toEqual({ allowed: true });
+		});
+
+		it('/api/health はアクセス可能', () => {
+			const result = provider.authorize('/api/health', localIdentity, localContext);
+			expect(result).toEqual({ allowed: true });
+		});
+
+		it('/setup はアクセス可能', () => {
+			const result = provider.authorize('/setup', localIdentity, localContext);
+			expect(result).toEqual({ allowed: true });
+		});
+
+		it('null identity でもアクセス可能（local は常に許可）', () => {
+			const result = provider.authorize('/admin', null, null);
 			expect(result).toEqual({ allowed: true });
 		});
 	});
 
-	describe('resolveContext（同期テスト）', () => {
-		it('identity が null なら context も null', async () => {
-			const context = await provider.resolveContext({} as never, null);
-			expect(context).toBeNull();
+	describe('resolveIdentity', () => {
+		it('常に local Identity を返す', async () => {
+			const identity = await provider.resolveIdentity({} as never);
+			expect(identity).toEqual({ type: 'local' });
+		});
+	});
+
+	describe('resolveContext', () => {
+		it('常に local/owner コンテキストを返す', async () => {
+			const context = await provider.resolveContext({} as never, localIdentity);
+			expect(context).toEqual({
+				tenantId: 'local',
+				role: 'owner',
+				licenseStatus: 'none',
+			});
 		});
 
-		it('PIN identity なら local/owner コンテキスト', async () => {
-			const context = await provider.resolveContext({} as never, pinIdentity);
+		it('identity が null でも local/owner コンテキストを返す', async () => {
+			const context = await provider.resolveContext({} as never, null);
 			expect(context).toEqual({
 				tenantId: 'local',
 				role: 'owner',

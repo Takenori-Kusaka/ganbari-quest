@@ -1,17 +1,14 @@
 // src/lib/server/db/dynamodb/auth-repo.ts
-// DynamoDB implementation of IAuthRepo
+// DynamoDB implementation of IAuthRepo (#0123: DeviceToken 廃止)
 
 import { randomUUID } from 'node:crypto';
-import type { AuthUser, DeviceToken, Membership, Tenant } from '$lib/server/auth/entities';
+import type { AuthUser, Membership, Tenant } from '$lib/server/auth/entities';
 import type { Role } from '$lib/server/auth/types';
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { IAuthRepo } from '../interfaces/auth-repo.interface';
 import {
-	DEVICE_SK_PREFIX,
 	MEMBER_SK_PREFIX,
 	USER_TENANT_SK_PREFIX,
-	deviceKey,
-	tenantDeviceKey,
 	tenantKey,
 	tenantMemberKey,
 	tenantPartition,
@@ -100,7 +97,9 @@ export const createTenant: IAuthRepo['createTenant'] = async (input) => {
 	const tenant: Tenant = {
 		tenantId,
 		name: input.name,
+		ownerId: input.ownerId,
 		status: 'active',
+		licenseKey: input.licenseKey,
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -210,79 +209,6 @@ export const deleteMembership: IAuthRepo['deleteMembership'] = async (userId, te
 };
 
 // ============================================================
-// DeviceToken
-// ============================================================
-
-export const findDeviceToken: IAuthRepo['findDeviceToken'] = async (deviceId) => {
-	const result = await doc().send(
-		new GetCommand({ TableName: TABLE_NAME, Key: deviceKey(deviceId) }),
-	);
-	if (!result.Item) return undefined;
-	return itemToDeviceToken(result.Item);
-};
-
-export const createDeviceToken: IAuthRepo['createDeviceToken'] = async (input) => {
-	const deviceId = `d-${randomUUID()}`;
-	const now = new Date().toISOString();
-	const token: DeviceToken = {
-		deviceId,
-		tenantId: input.tenantId,
-		registeredBy: input.registeredBy,
-		status: 'active',
-		createdAt: now,
-	};
-
-	// Device lookup item
-	await doc().send(
-		new PutCommand({
-			TableName: TABLE_NAME,
-			Item: { ...deviceKey(deviceId), ...token },
-		}),
-	);
-
-	// Tenant-device reference
-	await doc().send(
-		new PutCommand({
-			TableName: TABLE_NAME,
-			Item: { ...tenantDeviceKey(input.tenantId, deviceId), ...token },
-		}),
-	);
-
-	return token;
-};
-
-export const revokeDeviceToken: IAuthRepo['revokeDeviceToken'] = async (deviceId) => {
-	const existing = await findDeviceToken(deviceId);
-	if (!existing) return;
-
-	const updated = { ...existing, status: 'revoked' as const };
-
-	await doc().send(
-		new PutCommand({ TableName: TABLE_NAME, Item: { ...deviceKey(deviceId), ...updated } }),
-	);
-	await doc().send(
-		new PutCommand({
-			TableName: TABLE_NAME,
-			Item: { ...tenantDeviceKey(existing.tenantId, deviceId), ...updated },
-		}),
-	);
-};
-
-export const findTenantDevices: IAuthRepo['findTenantDevices'] = async (tenantId) => {
-	const result = await doc().send(
-		new QueryCommand({
-			TableName: TABLE_NAME,
-			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-			ExpressionAttributeValues: {
-				':pk': tenantPartition(tenantId),
-				':prefix': DEVICE_SK_PREFIX,
-			},
-		}),
-	);
-	return (result.Items ?? []).map(itemToDeviceToken);
-};
-
-// ============================================================
 // Item → Entity mappers
 // ============================================================
 
@@ -301,7 +227,10 @@ function itemToTenant(item: Record<string, unknown>): Tenant {
 	return {
 		tenantId: item.tenantId as string,
 		name: item.name as string,
+		ownerId: item.ownerId as string,
 		status: item.status as Tenant['status'],
+		licenseKey: item.licenseKey as string | undefined,
+		plan: item.plan as Tenant['plan'],
 		createdAt: item.createdAt as string,
 		updatedAt: item.updatedAt as string,
 	};
@@ -314,15 +243,5 @@ function itemToMembership(item: Record<string, unknown>): Membership {
 		role: item.role as Role,
 		joinedAt: item.joinedAt as string,
 		invitedBy: item.invitedBy as string | undefined,
-	};
-}
-
-function itemToDeviceToken(item: Record<string, unknown>): DeviceToken {
-	return {
-		deviceId: item.deviceId as string,
-		tenantId: item.tenantId as string,
-		registeredBy: item.registeredBy as string,
-		status: item.status as DeviceToken['status'],
-		createdAt: item.createdAt as string,
 	};
 }

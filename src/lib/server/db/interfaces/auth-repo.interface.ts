@@ -1,13 +1,11 @@
 // src/lib/server/db/interfaces/auth-repo.interface.ts
-// マルチテナント認証リポジトリインターフェース
+// マルチテナント認証リポジトリインターフェース (#0123)
 
 import type {
 	AuthUser,
-	CreateDeviceTokenInput,
 	CreateMembershipInput,
 	CreateTenantInput,
 	CreateUserInput,
-	DeviceToken,
 	Membership,
 	Tenant,
 } from '$lib/server/auth/entities';
@@ -29,10 +27,4 @@ export interface IAuthRepo {
 	findTenantMembers(tenantId: string): Promise<Membership[]>;
 	createMembership(input: CreateMembershipInput): Promise<Membership>;
 	deleteMembership(userId: string, tenantId: string): Promise<void>;
-
-	// --- DeviceToken ---
-	findDeviceToken(deviceId: string): Promise<DeviceToken | undefined>;
-	createDeviceToken(input: CreateDeviceTokenInput): Promise<DeviceToken>;
-	revokeDeviceToken(deviceId: string): Promise<void>;
-	findTenantDevices(tenantId: string): Promise<DeviceToken[]>;
 }
