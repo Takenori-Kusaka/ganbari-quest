@@ -20,17 +20,17 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		logger.warn('[AUTH] OAuth callback error', {
 			context: { error, description: url.searchParams.get('error_description') },
 		});
-		redirect(302, '/login?error=oauth_failed');
+		redirect(302, '/auth/login?error=oauth_failed');
 	}
 
 	if (!code || !state) {
-		redirect(302, '/login?error=missing_params');
+		redirect(302, '/auth/login?error=missing_params');
 	}
 
 	// CSRF 検証
 	if (!verifyOAuthState(state, cookies)) {
 		logger.warn('[AUTH] OAuth state mismatch');
-		redirect(302, '/login?error=invalid_state');
+		redirect(302, '/auth/login?error=invalid_state');
 	}
 
 	try {
@@ -46,6 +46,6 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		logger.error('[AUTH] OAuth callback token exchange failed', {
 			error: e instanceof Error ? e.message : String(e),
 		});
-		redirect(302, '/login?error=token_exchange_failed');
+		redirect(302, '/auth/login?error=token_exchange_failed');
 	}
 };
