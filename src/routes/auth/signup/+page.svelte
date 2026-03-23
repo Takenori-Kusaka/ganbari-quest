@@ -10,6 +10,13 @@ let code = $state('');
 let loading = $state(false);
 
 let confirmStep = $derived(form?.confirmStep ?? false);
+
+// form 更新時に email を同期（enhance の form reset で消えるのを防止）
+$effect(() => {
+	if (form?.email) {
+		email = form.email as string;
+	}
+});
 </script>
 
 <svelte:head>
@@ -85,7 +92,7 @@ let confirmStep = $derived(form?.confirmStep ?? false);
 						loading = false;
 						password = '';
 						passwordConfirm = '';
-						await update();
+						await update({ reset: false });
 					};
 				}}
 				class="signup-form"
