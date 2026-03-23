@@ -38,6 +38,10 @@ export class ComputeStack extends cdk.Stack {
 			this,
 			'/ganbari-quest/cognito/client-id',
 		);
+		const contextTokenSecret = ssm.StringParameter.valueForStringParameter(
+			this,
+			'/ganbari-quest/context-token-secret',
+		);
 
 		// --- Lambda: SvelteKit via Lambda Web Adapter ---
 		this.fn = new lambda.DockerImageFunction(this, 'SvelteKitFn', {
@@ -60,9 +64,9 @@ export class ComputeStack extends cdk.Stack {
 				NODE_ENV: 'production',
 				BODY_SIZE_LIMIT: '10485760',
 				AUTH_MODE: 'cognito',
-				COGNITO_DEV_MODE: 'true',
 				COGNITO_USER_POOL_ID: cognitoUserPoolId,
 				COGNITO_CLIENT_ID: cognitoClientId,
+				CONTEXT_TOKEN_SECRET: contextTokenSecret,
 			},
 		});
 		this.fn.node.addDependency(logGroup);
