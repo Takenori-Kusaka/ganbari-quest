@@ -6,7 +6,10 @@ import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	const tenantId = requireTenantId(locals);
+	const tenantId = locals.context?.tenantId;
+	if (!tenantId) {
+		redirect(302, '/auth/login');
+	}
 	const children = await getAllChildren(tenantId);
 	const authMode = getAuthMode();
 	// local モードは認証不要なので直接 /admin、cognito モードは /auth/login
