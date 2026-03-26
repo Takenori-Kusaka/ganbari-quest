@@ -2,7 +2,7 @@
 
 ### ステータス
 
-`In Progress`
+`Done`
 
 ### メタ情報
 
@@ -83,3 +83,9 @@ const userPool = new cognito.UserPool(this, 'GanbariQuestUserPool', {
 3. MFA が有効化でき、SMS/Email OTP で認証できる
 4. JWT に `tenantId` と `role` が含まれる
 5. パスワードリセットフローが動作する
+
+---
+
+### 成果・結果
+
+成果: CDK AuthStack構築済み、Email/Password+MFA対応、JWT検証実装済み

@@ -2,7 +2,7 @@
 
 ### ステータス
 
-`In Progress`
+`Done`
 
 ### メタ情報
 
@@ -1244,3 +1244,9 @@ async function issueContext(identity: Identity, tenantId: string) {
 - [ ] 運用 API（`/api/internal/*`）の API キー発行・ローテーション運用設計
 - [ ] Stripe Webhook 署名検証の実装（`constructEvent` + シークレットローテーション）
 - [ ] ティーン向け OAuth フローの未成年保護対応（Google Family Link 等との干渉確認）
+
+---
+
+### 成果・結果
+
+成果: 設計を#0123で見直し（OAuth→Email/Password）。#0124-#0137で全機能実装済み

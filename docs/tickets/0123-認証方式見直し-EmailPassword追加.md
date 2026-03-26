@@ -2,7 +2,7 @@
 
 ### ステータス
 
-`Ready`
+`Done`
 
 ### メタ情報
 
@@ -69,3 +69,9 @@ userVerification: {
 2. Cognito Hosted UI にアクセスすると Email/Password 入力フォームが表示される
 3. テストユーザーを手動で作成してログインできる
 4. 全既存テスト（vitest + playwright）が通過する
+
+---
+
+### 成果・結果
+
+成果: #0124でCognito Email/Password認証を実装、#0137で本番切替完了

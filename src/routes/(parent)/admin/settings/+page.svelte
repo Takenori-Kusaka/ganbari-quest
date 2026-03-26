@@ -16,6 +16,12 @@ let pointMode = $state<PointUnitMode>(data.pointSettings.mode);
 let pointCurrency = $state<CurrencyCode>(data.pointSettings.currency);
 let pointRate = $state(String(data.pointSettings.rate));
 
+// フィードバック
+let feedbackSuccess = $state(false);
+let feedbackSubmitting = $state(false);
+let feedbackCategory = $state('feature');
+let feedbackText = $state('');
+
 const previewPoints = 100;
 const previewFormatted = $derived(
 	formatPointValue(previewPoints, pointMode, pointCurrency, Number.parseFloat(pointRate) || 1),
@@ -227,5 +233,94 @@ const previewFormatted = $derived(
 				{pointSubmitting ? '保存中...' : 'ポイント設定を保存'}
 			</button>
 		</form>
+	</div>
+
+	<!-- フィードバック -->
+	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+		<h3 class="text-lg font-bold text-gray-700 mb-4">💬 フィードバック・ご意見</h3>
+
+		{#if feedbackSuccess}
+			<SuccessAlert message="フィードバックを送信しました。ありがとうございます！" />
+		{/if}
+
+		{#if form?.feedbackError}
+			<ErrorAlert message={form.feedbackError} severity="warning" action="fix_input" />
+		{/if}
+
+		<form
+			method="POST"
+			action="?/sendFeedback"
+			use:enhance={() => {
+				feedbackSubmitting = true;
+				feedbackSuccess = false;
+				return async ({ result, update }) => {
+					feedbackSubmitting = false;
+					if (result.type === 'success') {
+						feedbackSuccess = true;
+						feedbackText = '';
+						feedbackCategory = 'feature';
+					}
+					await update();
+				};
+			}}
+			class="flex flex-col gap-4"
+		>
+			<div>
+				<label for="feedbackCategory" class="block text-sm font-medium text-gray-600 mb-1">
+					カテゴリ
+				</label>
+				<select
+					id="feedbackCategory"
+					name="category"
+					bind:value={feedbackCategory}
+					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+				>
+					<option value="feature">機能要望</option>
+					<option value="bug">バグ報告</option>
+					<option value="other">その他</option>
+				</select>
+			</div>
+
+			<div>
+				<label for="feedbackText" class="block text-sm font-medium text-gray-600 mb-1">
+					内容
+				</label>
+				<textarea
+					id="feedbackText"
+					name="text"
+					bind:value={feedbackText}
+					rows="4"
+					maxlength="1000"
+					required
+					placeholder="ご意見・ご要望をお聞かせください..."
+					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 resize-y"
+				></textarea>
+				<p class="text-xs text-gray-400 mt-1 text-right">{feedbackText.length}/1000</p>
+			</div>
+
+			<button
+				type="submit"
+				disabled={feedbackSubmitting || feedbackText.length === 0}
+				class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+			>
+				{feedbackSubmitting ? '送信中...' : 'フィードバックを送信'}
+			</button>
+		</form>
+	</div>
+
+	<!-- アプリ情報・リンク -->
+	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+		<h3 class="text-lg font-bold text-gray-700 mb-4">ℹ️ アプリ情報</h3>
+		<ul class="space-y-3 text-sm">
+			<li>
+				<a href="/legal/terms" class="text-blue-500 hover:underline">📄 利用規約</a>
+			</li>
+			<li>
+				<a href="/legal/privacy" class="text-blue-500 hover:underline">🔒 プライバシーポリシー</a>
+			</li>
+			<li>
+				<span class="text-gray-500">バージョン: 1.0.0</span>
+			</li>
+		</ul>
 	</div>
 </div>
