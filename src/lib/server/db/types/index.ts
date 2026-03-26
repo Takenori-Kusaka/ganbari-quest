@@ -560,3 +560,22 @@ export interface CategoryLastDate {
 	categoryId: number;
 	lastDate: string;
 }
+
+// ============================================================
+// Child Activity Preferences (ピン留め)
+// ============================================================
+
+export interface ChildActivityPreference {
+	id: number;
+	childId: number;
+	activityId: number;
+	isPinned: number;
+	pinOrder: number | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface ActivityUsageCount {
+	activityId: number;
+	usageCount: number;
+}

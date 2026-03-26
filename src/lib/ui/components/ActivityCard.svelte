@@ -10,8 +10,10 @@ interface Props {
 	count?: number;
 	streakDays?: number;
 	isMission?: boolean;
+	isPinned?: boolean;
 	triggerHint?: string | null;
 	onclick?: () => void;
+	onlongpress?: () => void;
 }
 
 let {
@@ -22,13 +24,44 @@ let {
 	count = 0,
 	streakDays = 0,
 	isMission = false,
+	isPinned = false,
 	triggerHint,
 	onclick,
+	onlongpress,
 }: Props = $props();
 
 const showMission = $derived(isMission && !completed);
 
 const borderColor = $derived(getCategoryById(categoryId)?.color ?? 'var(--theme-primary)');
+
+// Long press detection
+let pressTimer: ReturnType<typeof setTimeout> | null = null;
+let longPressTriggered = false;
+
+function handlePointerDown() {
+	longPressTriggered = false;
+	pressTimer = setTimeout(() => {
+		longPressTriggered = true;
+		onlongpress?.();
+	}, 500);
+}
+
+function handlePointerUp() {
+	if (pressTimer) {
+		clearTimeout(pressTimer);
+		pressTimer = null;
+	}
+}
+
+function handleClick(e: Event) {
+	if (longPressTriggered) {
+		e.preventDefault();
+		e.stopPropagation();
+		longPressTriggered = false;
+		return;
+	}
+	onclick?.();
+}
 </script>
 
 <button
@@ -39,9 +72,19 @@ const borderColor = $derived(getCategoryById(categoryId)?.color ?? 'var(--theme-
 	class:card-mission={showMission}
 	style={completed ? '' : `border-color: ${showMission ? 'gold' : borderColor};`}
 	disabled={completed}
-	aria-label="{name}{completed ? '（きろくずみ）' : ''}{showMission ? '（ミッション）' : ''}"
-	{onclick}
+	aria-label="{name}{completed ? '（きろくずみ）' : ''}{showMission ? '（ミッション）' : ''}{isPinned ? '（ピンどめ）' : ''}"
+	onclick={handleClick}
+	onpointerdown={handlePointerDown}
+	onpointerup={handlePointerUp}
+	onpointercancel={handlePointerUp}
+	oncontextmenu={(e) => { e.preventDefault(); onlongpress?.(); }}
 >
+	{#if isPinned}
+		<div class="absolute -top-1.5 -right-1.5 z-10" aria-hidden="true">
+			<span class="text-xs">📌</span>
+		</div>
+	{/if}
+
 	{#if showMission}
 		<div class="absolute -top-1.5 -left-1.5 z-10" aria-hidden="true">
 			<span class="text-sm card-mission__star">⭐</span>
