@@ -27,6 +27,10 @@ export interface Tenant {
 	status: 'active' | 'suspended' | 'grace_period' | 'terminated';
 	licenseKey?: string;
 	plan?: 'monthly' | 'yearly' | 'lifetime';
+	stripeCustomerId?: string;
+	stripeSubscriptionId?: string;
+	planExpiresAt?: string;
+	trialUsedAt?: string;
 	createdAt: string;
 	updatedAt: string;
 }

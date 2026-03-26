@@ -20,8 +20,20 @@ export interface IAuthRepo {
 
 	// --- Tenant ---
 	findTenantById(tenantId: string): Promise<Tenant | undefined>;
+	findTenantByStripeCustomerId(stripeCustomerId: string): Promise<Tenant | undefined>;
 	createTenant(input: CreateTenantInput): Promise<Tenant>;
 	updateTenantStatus(tenantId: string, status: Tenant['status']): Promise<void>;
+	updateTenantStripe(
+		tenantId: string,
+		data: {
+			stripeCustomerId?: string;
+			stripeSubscriptionId?: string;
+			plan?: Tenant['plan'];
+			planExpiresAt?: string;
+			trialUsedAt?: string;
+			status?: Tenant['status'];
+		},
+	): Promise<void>;
 
 	// --- Membership ---
 	findMembership(userId: string, tenantId: string): Promise<Membership | undefined>;
