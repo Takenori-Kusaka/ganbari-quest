@@ -5,6 +5,7 @@ import {
 	getTodayRecordedActivityCounts,
 	recordActivity,
 } from '$lib/server/services/activity-log-service';
+import { sortActivitiesWithPreferences } from '$lib/server/services/activity-pin-service';
 import { getActivities } from '$lib/server/services/activity-service';
 import {
 	HEALTH_CHECK_ITEMS,
@@ -32,7 +33,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		};
 
 	const rawActivities = await getActivities(tenantId, { childAge: child.age });
-	const activities = rawActivities.map((a) => ({
+	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
+	const activities = sortedActivities.map((a) => ({
 		...a,
 		displayName: getActivityDisplayName(a, child.age),
 	}));

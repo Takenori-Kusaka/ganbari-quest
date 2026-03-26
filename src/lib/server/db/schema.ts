@@ -556,3 +556,28 @@ export const careerPlanHistory = sqliteTable(
 	},
 	(table) => [index('idx_career_plan_history_plan').on(table.careerPlanId)],
 );
+
+// ============================================================
+// child_activity_preferences - 子供×活動のピン留め設定
+// ============================================================
+export const childActivityPreferences = sqliteTable(
+	'child_activity_preferences',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id, { onDelete: 'cascade' }),
+		activityId: integer('activity_id')
+			.notNull()
+			.references(() => activities.id, { onDelete: 'cascade' }),
+		isPinned: integer('is_pinned').notNull().default(0),
+		pinOrder: integer('pin_order'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_child_activity_prefs_unique').on(table.childId, table.activityId),
+		index('idx_child_activity_prefs_child').on(table.childId),
+		index('idx_child_activity_prefs_pinned').on(table.childId, table.isPinned),
+	],
+);

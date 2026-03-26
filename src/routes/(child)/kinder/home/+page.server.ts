@@ -5,6 +5,8 @@ import {
 	getTodayRecordedActivityCounts,
 	recordActivity,
 } from '$lib/server/services/activity-log-service';
+import { sortActivitiesWithPreferences } from '$lib/server/services/activity-pin-service';
+import { toggleActivityPin } from '$lib/server/services/activity-pin-service';
 import { getActivities } from '$lib/server/services/activity-service';
 import {
 	HEALTH_CHECK_ITEMS,
@@ -40,7 +42,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		};
 
 	const rawActivities = await getActivities(tenantId, { childAge: child.age });
-	const activities = rawActivities.map((a) => ({
+	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
+	const activities = sortedActivities.map((a) => ({
 		...a,
 		displayName: getActivityDisplayName(a, child.age),
 	}));
@@ -209,5 +212,25 @@ export const actions: Actions = {
 			totalPoints: result.totalPoints,
 			consecutiveLoginDays: result.consecutiveLoginDays,
 		};
+	},
+
+	togglePin: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(cookies.get('selectedChildId'));
+		const activityId = Number(formData.get('activityId'));
+		const pinned = formData.get('pinned') === 'true';
+
+		if (Number.isNaN(childId) || Number.isNaN(activityId)) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+
+		try {
+			const result = await toggleActivityPin(childId, activityId, pinned, tenantId);
+			return { success: true, isPinned: result.isPinned };
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'ピン留めに失敗しました';
+			return fail(400, { error: message });
+		}
 	},
 };

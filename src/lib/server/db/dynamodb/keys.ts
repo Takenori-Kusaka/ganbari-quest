@@ -394,6 +394,19 @@ export function dailyMissionDatePrefix(missionDate: string): string {
 	return `MISSION#${missionDate}#`;
 }
 
+/** Activity preference (pin): PK=CHILD#<cId>, SK=ACTPREF#<aId> */
+export function activityPrefKey(childId: number, activityId: number, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `ACTPREF#${padId(activityId)}`,
+	};
+}
+
+/** Activity preference SK prefix */
+export function activityPrefPrefix(): string {
+	return 'ACTPREF#';
+}
+
 /** Birthday review: PK=CHILD#<cId>, SK=BDAY#<year> */
 export function birthdayReviewKey(
 	childId: number,
@@ -570,6 +583,7 @@ export const ENTITY_NAMES = {
 	avatarItem: 'avatarItem',
 	childAvatarItem: 'childAvatarItem',
 	marketBenchmark: 'marketBenchmark',
+	activityPref: 'activityPref',
 } as const;
 
 export type EntityName = (typeof ENTITY_NAMES)[keyof typeof ENTITY_NAMES];
