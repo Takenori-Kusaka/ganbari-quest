@@ -124,7 +124,7 @@ function handleFileSelect(childId: number, event: Event) {
 			class="bg-white rounded-xl p-4 shadow-sm space-y-3"
 		>
 			<h3 class="font-bold text-gray-600">こどもを追加</h3>
-			<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 				<div>
 					<label for="add-nickname" class="block text-xs font-bold text-gray-500 mb-1">ニックネーム</label>
 					<input
@@ -135,6 +135,17 @@ function handleFileSelect(childId: number, event: Event) {
 						placeholder="例: ゆうきちゃん"
 						class="w-full px-3 py-2 border rounded-lg text-sm"
 					/>
+				</div>
+				<div>
+					<label for="add-birthDate" class="block text-xs font-bold text-gray-500 mb-1">たんじょうび</label>
+					<input
+						id="add-birthDate"
+						name="birthDate"
+						type="date"
+						max={new Date().toISOString().split('T')[0]}
+						class="w-full px-3 py-2 border rounded-lg text-sm"
+					/>
+					<p class="text-xs text-gray-400 mt-0.5">設定すると年齢が自動計算されます</p>
 				</div>
 				<div>
 					<label for="add-age" class="block text-xs font-bold text-gray-500 mb-1">年齢</label>
@@ -189,7 +200,7 @@ function handleFileSelect(childId: number, event: Event) {
 						class="space-y-3"
 					>
 						<input type="hidden" name="childId" value={child.id} />
-						<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 							<div>
 								<label for="edit-nickname-{child.id}" class="block text-xs font-bold text-gray-500 mb-1">ニックネーム</label>
 								<input
@@ -201,7 +212,18 @@ function handleFileSelect(childId: number, event: Event) {
 								/>
 							</div>
 							<div>
-								<label for="edit-age-{child.id}" class="block text-xs font-bold text-gray-500 mb-1">年齢</label>
+								<label for="edit-birthDate-{child.id}" class="block text-xs font-bold text-gray-500 mb-1">たんじょうび</label>
+								<input
+									id="edit-birthDate-{child.id}"
+									name="birthDate"
+									type="date"
+									max={new Date().toISOString().split('T')[0]}
+									value={child.birthDate ?? ''}
+									class="w-full px-3 py-2 border rounded-lg text-sm"
+								/>
+							</div>
+							<div>
+								<label for="edit-age-{child.id}" class="block text-xs font-bold text-gray-500 mb-1">年齢{child.birthDate ? '（自動計算）' : ''}</label>
 								<input
 									id="edit-age-{child.id}"
 									name="age"
@@ -209,7 +231,8 @@ function handleFileSelect(childId: number, event: Event) {
 									min="0"
 									max="18"
 									value={child.age}
-									class="w-full px-3 py-2 border rounded-lg text-sm"
+									readonly={!!child.birthDate}
+									class="w-full px-3 py-2 border rounded-lg text-sm {child.birthDate ? 'bg-gray-100 text-gray-500' : ''}"
 								/>
 							</div>
 							<div>

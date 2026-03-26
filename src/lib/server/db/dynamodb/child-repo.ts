@@ -62,7 +62,7 @@ export async function insertChild(input: InsertChildInput, tenantId: string): Pr
 		id,
 		nickname: input.nickname,
 		age: input.age,
-		birthDate: null,
+		birthDate: input.birthDate ?? null,
 		theme: input.theme ?? 'pink',
 		uiMode: input.uiMode ?? (input.age <= 2 ? 'baby' : 'kinder'),
 		avatarUrl: null,
@@ -124,6 +124,11 @@ export async function updateChild(
 		expressionParts.push('#uiMode = :uiMode');
 		expressionNames['#uiMode'] = 'uiMode';
 		expressionValues[':uiMode'] = input.uiMode;
+	}
+	if (input.birthDate !== undefined) {
+		expressionParts.push('#birthDate = :birthDate');
+		expressionNames['#birthDate'] = 'birthDate';
+		expressionValues[':birthDate'] = input.birthDate;
 	}
 
 	try {

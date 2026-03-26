@@ -8,6 +8,17 @@ interface Props {
 
 let { children }: Props = $props();
 
+// bfcache からの復元時にページをリロードしてサーバー認証チェックを発火させる
+$effect(() => {
+	const handlePageShow = (e: PageTransitionEvent) => {
+		if (e.persisted) {
+			window.location.reload();
+		}
+	};
+	window.addEventListener('pageshow', handlePageShow);
+	return () => window.removeEventListener('pageshow', handlePageShow);
+});
+
 const navItems = [
 	{ href: '/admin', label: 'ホーム', icon: '🏠' },
 	{ href: '/admin/children', label: 'こども', icon: '👧' },

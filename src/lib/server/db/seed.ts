@@ -3450,6 +3450,233 @@ function seed() {
 		console.log(`  - avatar_items: already seeded (${existingAvatarItems.length})`);
 	}
 
+	// ============================================================
+	// 職業分野マスタ（キャリアプランニング機能）
+	// ============================================================
+	const existingCareerFields = db.select().from(schema.careerFields).all();
+	if (existingCareerFields.length === 0) {
+		const careerFieldsData: (typeof schema.careerFields.$inferInsert)[] = [
+			// relatedCategories: 1=うんどう, 2=べんきょう, 3=せいかつ, 4=こうりゅう, 5=そうぞう
+			{
+				name: 'かがくしゃ',
+				description: '実験や研究で新しい発見をする',
+				icon: '🔬',
+				relatedCategories: '[2,5]',
+				minAge: 4,
+			},
+			{
+				name: 'おいしゃさん',
+				description: '病気の人を助けて元気にする',
+				icon: '🏥',
+				relatedCategories: '[2,3]',
+				minAge: 4,
+			},
+			{
+				name: 'がかさん',
+				description: '絵を描いてみんなを感動させる',
+				icon: '🎨',
+				relatedCategories: '[5]',
+				minAge: 4,
+			},
+			{
+				name: 'おんがくか',
+				description: '楽器を演奏したり歌を歌ったりする',
+				icon: '🎵',
+				relatedCategories: '[5,4]',
+				minAge: 4,
+			},
+			{
+				name: 'スポーツせんしゅ',
+				description: 'スポーツの大会で活躍する',
+				icon: '⚽',
+				relatedCategories: '[1]',
+				minAge: 4,
+			},
+			{
+				name: 'りょうりにん',
+				description: 'おいしい料理を作ってみんなを笑顔にする',
+				icon: '🍳',
+				relatedCategories: '[3,5]',
+				minAge: 4,
+			},
+			{
+				name: 'せんせい',
+				description: '子供たちに勉強を教えて成長を助ける',
+				icon: '📚',
+				relatedCategories: '[2,4]',
+				minAge: 4,
+			},
+			{
+				name: 'しょうぼうし',
+				description: '火事から人を助け、みんなの安全を守る',
+				icon: '🚒',
+				relatedCategories: '[1,3]',
+				minAge: 4,
+			},
+			{
+				name: 'けいさつかん',
+				description: '悪い人から街を守り、みんなを安全にする',
+				icon: '🚔',
+				relatedCategories: '[1,4]',
+				minAge: 4,
+			},
+			{
+				name: 'うちゅうひこうし',
+				description: '宇宙に行って地球や星を調べる',
+				icon: '🚀',
+				relatedCategories: '[1,2]',
+				minAge: 4,
+			},
+			{
+				name: 'どうぶつのおいしゃさん',
+				description: '動物の病気を治して元気にする',
+				icon: '🐾',
+				relatedCategories: '[2,3]',
+				minAge: 4,
+			},
+			{
+				name: 'パティシエ',
+				description: 'ケーキやお菓子を作ってみんなを幸せにする',
+				icon: '🎂',
+				relatedCategories: '[3,5]',
+				minAge: 4,
+			},
+			{
+				name: 'パイロット',
+				description: '飛行機を運転して世界中を飛び回る',
+				icon: '✈️',
+				relatedCategories: '[1,2]',
+				minAge: 4,
+			},
+			{
+				name: 'かんごし',
+				description: '病院で患者さんのお世話をして元気にする',
+				icon: '💉',
+				relatedCategories: '[3,4]',
+				minAge: 4,
+			},
+			{
+				name: 'ほいくし',
+				description: '小さい子供たちのお世話をして一緒に遊ぶ',
+				icon: '👶',
+				relatedCategories: '[3,4]',
+				minAge: 4,
+			},
+			{
+				name: 'のうかさん',
+				description: '野菜やお米を育ててみんなの食べ物を作る',
+				icon: '🌾',
+				relatedCategories: '[1,3]',
+				minAge: 4,
+			},
+			{
+				name: 'まんがか',
+				description: 'まんがを描いてみんなを楽しませる',
+				icon: '📖',
+				relatedCategories: '[5]',
+				minAge: 4,
+			},
+			{
+				name: 'でんしゃのうんてんし',
+				description: '電車を安全に運転してみんなを届ける',
+				icon: '🚃',
+				relatedCategories: '[1,3]',
+				minAge: 4,
+			},
+			{
+				name: 'おはなやさん',
+				description: 'きれいなお花を選んで素敵にアレンジする',
+				icon: '💐',
+				relatedCategories: '[3,5]',
+				minAge: 4,
+			},
+			{
+				name: 'ケーキやさん',
+				description: 'おいしいケーキやパンを焼いてお店で売る',
+				icon: '🧁',
+				relatedCategories: '[3,5]',
+				minAge: 4,
+			},
+			{
+				name: 'ダンサー',
+				description: '踊りで気持ちを表現してみんなを感動させる',
+				icon: '💃',
+				relatedCategories: '[1,5]',
+				minAge: 4,
+			},
+			{
+				name: 'サッカーせんしゅ',
+				description: 'サッカーの試合で活躍してチームを勝たせる',
+				icon: '⚽',
+				relatedCategories: '[1,4]',
+				minAge: 4,
+			},
+			{
+				name: 'やきゅうせんしゅ',
+				description: '野球の試合でホームランを打つ',
+				icon: '⚾',
+				relatedCategories: '[1,4]',
+				minAge: 4,
+			},
+			{
+				name: 'すいえいせんしゅ',
+				description: 'プールや海で速く泳いで大会で活躍する',
+				icon: '🏊',
+				relatedCategories: '[1]',
+				minAge: 4,
+			},
+			// 専門職（小学生以上向け）
+			{
+				name: 'エンジニア',
+				description: '機械やしくみを作ってみんなの生活を便利にする',
+				icon: '⚙️',
+				relatedCategories: '[2,5]',
+				minAge: 8,
+			},
+			{
+				name: 'プログラマー',
+				description: 'コンピューターに命令を出してアプリやゲームを作る',
+				icon: '💻',
+				relatedCategories: '[2,5]',
+				minAge: 8,
+			},
+			{
+				name: 'デザイナー',
+				description: '服やポスターなど、かっこいいデザインを考える',
+				icon: '✏️',
+				relatedCategories: '[5]',
+				minAge: 8,
+			},
+			{
+				name: 'けんちくか',
+				description: '家やビルの設計をして、すてきな建物を作る',
+				icon: '🏗️',
+				relatedCategories: '[2,5]',
+				minAge: 8,
+			},
+			{
+				name: 'ユーチューバー',
+				description: '動画を作ってたくさんの人に届ける',
+				icon: '📱',
+				relatedCategories: '[4,5]',
+				minAge: 8,
+			},
+			{
+				name: 'ゲームクリエイター',
+				description: 'みんなが楽しめるゲームを考えて作る',
+				icon: '🎮',
+				relatedCategories: '[2,5]',
+				minAge: 8,
+			},
+		];
+		for (const field of careerFieldsData) {
+			db.insert(schema.careerFields).values(field).run();
+		}
+		console.log(`  ✓ career_fields: ${careerFieldsData.length} items`);
+	} else {
+		console.log(`  - career_fields: already seeded (${existingCareerFields.length})`);
+	}
+
 	console.log('Seeding complete!');
 }
 
