@@ -8,6 +8,7 @@ let password = $state('');
 let passwordConfirm = $state('');
 let code = $state('');
 let loading = $state(false);
+let agreed = $state(false);
 
 let confirmStep = $derived(form?.confirmStep ?? false);
 
@@ -142,9 +143,22 @@ $effect(() => {
 					/>
 				</div>
 
+				<div class="agreement-group">
+					<label class="agreement-label">
+						<input
+							type="checkbox"
+							bind:checked={agreed}
+							class="agreement-checkbox"
+						/>
+						<span class="agreement-text">
+							<a href="/legal/terms" target="_blank" rel="noopener">利用規約</a>および<a href="/legal/privacy" target="_blank" rel="noopener">プライバシーポリシー</a>に同意します
+						</span>
+					</label>
+				</div>
+
 				<button
 					type="submit"
-					disabled={loading || !email || !password || !passwordConfirm}
+					disabled={loading || !email || !password || !passwordConfirm || !agreed}
 					class="signup-button"
 				>
 					{#if loading}
@@ -264,6 +278,36 @@ $effect(() => {
 		text-align: center;
 		margin: 0;
 		line-height: 1.6;
+	}
+
+	.agreement-group {
+		margin-top: -4px;
+	}
+
+	.agreement-label {
+		display: flex;
+		align-items: flex-start;
+		gap: 8px;
+		cursor: pointer;
+	}
+
+	.agreement-checkbox {
+		margin-top: 3px;
+		width: 16px;
+		height: 16px;
+		flex-shrink: 0;
+		accent-color: #667eea;
+	}
+
+	.agreement-text {
+		font-size: 0.8rem;
+		color: #64748b;
+		line-height: 1.5;
+	}
+
+	.agreement-text a {
+		color: #667eea;
+		text-decoration: underline;
 	}
 
 	.signup-button {
