@@ -390,6 +390,7 @@ function handleBirthdayResultClose() {
 			<div class="flex gap-[var(--spacing-sm)] w-full">
 				<button
 					class="tap-target flex-1 py-4 rounded-[var(--radius-md)] bg-gray-200 font-bold text-lg"
+					disabled={submitting}
 					onclick={handleConfirmClose}
 				>
 					やめる
@@ -402,6 +403,7 @@ function handleBirthdayResultClose() {
 						if (submitting) return ({ update }) => update();
 						submitting = true;
 						soundService.ensureContext();
+						soundService.play('tap');
 						return async ({ result }) => {
 							submitting = false;
 							confirmOpen = false;
@@ -454,9 +456,16 @@ function handleBirthdayResultClose() {
 					<input type="hidden" name="activityId" value={selectedActivity.id} />
 					<button
 						type="submit"
+						disabled={submitting}
 						class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg"
+						class:activity-btn--pending={submitting}
 					>
-						きろく！
+						{#if submitting}
+							<span class="pending-dot" aria-hidden="true"></span>
+							まってね！
+						{:else}
+							きろく！
+						{/if}
 					</button>
 				</form>
 			</div>
@@ -656,3 +665,30 @@ function handleBirthdayResultClose() {
 		onClose={handleBirthdayResultClose}
 	/>
 {/if}
+
+<style>
+	.activity-btn--pending {
+		animation: btn-pulse 0.8s ease-in-out infinite;
+	}
+
+	@keyframes btn-pulse {
+		0%, 100% { transform: scale(1); }
+		50% { transform: scale(0.97); }
+	}
+
+	.pending-dot {
+		display: inline-block;
+		width: 0.7em;
+		height: 0.7em;
+		border: 2px solid currentColor;
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+		vertical-align: middle;
+		margin-right: 4px;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+</style>

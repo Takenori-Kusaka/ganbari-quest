@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { joinIcon, splitIcon } from '$lib/domain/icon-utils';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
 
 let { data } = $props();
 
@@ -267,9 +268,20 @@ function acceptPreview() {
 					disabled={aiLoading || !aiInput.trim()}
 					onclick={suggestFromAI}
 				>
-					{aiLoading ? '考え中...' : '提案する'}
+					{#if aiLoading}
+					<span class="ai-spinner" aria-hidden="true"></span>
+					考え中...
+				{:else}
+					提案する
+				{/if}
 				</button>
 			</div>
+			{#if aiLoading}
+				<ProgressMessage
+					messages={['AIに聞いています...', 'もうちょっと待ってね...', 'あとすこし...']}
+					intervalMs={3000}
+				/>
+			{/if}
 			{#if aiError}
 				<p class="text-red-500 text-sm">{aiError}</p>
 			{/if}
@@ -815,3 +827,20 @@ function acceptPreview() {
 		</div>
 	{/if}
 </div>
+
+<style>
+	.ai-spinner {
+		display: inline-block;
+		width: 1em;
+		height: 1em;
+		border: 2px solid currentColor;
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+		vertical-align: middle;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+</style>

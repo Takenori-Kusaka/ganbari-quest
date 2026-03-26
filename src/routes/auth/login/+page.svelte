@@ -75,8 +75,9 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 					/>
 				</div>
 
-				<button type="submit" disabled={loading || mfaCode.length !== 6} class="login-button">
+				<button type="submit" disabled={loading || mfaCode.length !== 6} class="login-button" aria-busy={loading}>
 					{#if loading}
+						<span class="btn-spinner" aria-hidden="true"></span>
 						認証中...
 					{:else}
 						認証する
@@ -127,8 +128,9 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 					/>
 				</div>
 
-				<button type="submit" disabled={loading || !email || !password} class="login-button">
+				<button type="submit" disabled={loading || !email || !password} class="login-button" aria-busy={loading}>
 					{#if loading}
+						<span class="btn-spinner" aria-hidden="true"></span>
 						ログイン中...
 					{:else}
 						ログイン
@@ -257,6 +259,10 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 	}
 
 	.login-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
 		padding: 14px;
 		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 		color: white;
@@ -266,6 +272,20 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 		border-radius: 8px;
 		cursor: pointer;
 		transition: opacity 0.15s;
+	}
+
+	.btn-spinner {
+		display: inline-block;
+		width: 1em;
+		height: 1em;
+		border: 2px solid currentColor;
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
 	}
 
 	.login-button:hover:not(:disabled) {

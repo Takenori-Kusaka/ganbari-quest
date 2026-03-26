@@ -2,6 +2,8 @@ export { default as ActivityCard } from './ActivityCard.svelte';
 export { default as CompoundIcon } from './CompoundIcon.svelte';
 export { default as ErrorAlert } from './ErrorAlert.svelte';
 export { default as LevelUpOverlay } from './LevelUpOverlay.svelte';
+export { default as LoadingButton } from './LoadingButton.svelte';
+export { default as ProgressMessage } from './ProgressMessage.svelte';
 export { default as SuccessAlert } from './SuccessAlert.svelte';
 export { default as BottomNav } from './BottomNav.svelte';
 export { default as CategorySection } from './CategorySection.svelte';
