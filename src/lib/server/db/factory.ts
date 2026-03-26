@@ -2,6 +2,7 @@
 // DATA_SOURCE 環境変数による SQLite / DynamoDB バックエンド切り替え
 
 import * as dynamoAchievementRepo from './dynamodb/achievement-repo';
+import * as dynamoActivityPrefRepo from './dynamodb/activity-pref-repo';
 import * as dynamoActivityRepo from './dynamodb/activity-repo';
 import * as dynamoAuthRepo from './dynamodb/auth-repo';
 import * as dynamoAvatarRepo from './dynamodb/avatar-repo';
@@ -20,6 +21,7 @@ import * as dynamoStatusRepo from './dynamodb/status-repo';
 import * as dynamoStorageRepo from './dynamodb/storage-repo';
 import * as dynamoTitleRepo from './dynamodb/title-repo';
 import type { IAchievementRepo } from './interfaces/achievement-repo.interface';
+import type { IActivityPrefRepo } from './interfaces/activity-pref-repo.interface';
 import type { IActivityRepo } from './interfaces/activity-repo.interface';
 import type { IAuthRepo } from './interfaces/auth-repo.interface';
 import type { IAvatarRepo } from './interfaces/avatar-repo.interface';
@@ -38,6 +40,7 @@ import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
 import type { ITitleRepo } from './interfaces/title-repo.interface';
 import * as sqliteAchievementRepo from './sqlite/achievement-repo';
+import * as sqliteActivityPrefRepo from './sqlite/activity-pref-repo';
 import * as sqliteActivityRepo from './sqlite/activity-repo';
 import * as sqliteAuthRepo from './sqlite/auth-repo';
 import * as sqliteAvatarRepo from './sqlite/avatar-repo';
@@ -60,6 +63,7 @@ export interface Repositories {
 	auth: IAuthRepo;
 	achievement: IAchievementRepo;
 	activity: IActivityRepo;
+	activityPref: IActivityPrefRepo;
 	avatar: IAvatarRepo;
 	birthday: IBirthdayRepo;
 	career: ICareerRepo;
@@ -88,6 +92,7 @@ export function getRepos(): Repositories {
 			auth: dynamoAuthRepo,
 			achievement: dynamoAchievementRepo,
 			activity: dynamoActivityRepo,
+			activityPref: dynamoActivityPrefRepo,
 			avatar: dynamoAvatarRepo,
 			birthday: dynamoBirthdayRepo,
 			career: dynamoCareerRepo,
@@ -112,6 +117,7 @@ export function getRepos(): Repositories {
 		auth: sqliteAuthRepo,
 		achievement: sqliteAchievementRepo,
 		activity: sqliteActivityRepo,
+		activityPref: sqliteActivityPrefRepo,
 		avatar: sqliteAvatarRepo,
 		birthday: sqliteBirthdayRepo,
 		career: sqliteCareerRepo,

@@ -21,6 +21,11 @@ let { data } = $props();
 const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
+// Pin context menu state
+let pinMenuOpen = $state(false);
+let pinMenuActivity = $state<{ id: number; name: string; isPinned: boolean } | null>(null);
+let pinSubmitting = $state(false);
+
 // Confirm dialog state
 let confirmOpen = $state(false);
 let selectedActivity = $state<{
@@ -131,6 +136,25 @@ function handleActivityTap(activity: { id: number; name: string; icon: string })
 	soundService.play('tap');
 	selectedActivity = activity;
 	confirmOpen = true;
+}
+
+function handleActivityLongPress(activity: { id: number; name: string; isPinned?: boolean }) {
+	soundService.play('tap');
+	pinMenuActivity = { id: activity.id, name: activity.name, isPinned: !!activity.isPinned };
+	pinMenuOpen = true;
+}
+
+async function handlePinToggle() {
+	if (!pinMenuActivity) return;
+	pinSubmitting = true;
+	const formData = new FormData();
+	formData.set('activityId', String(pinMenuActivity.id));
+	formData.set('pinned', String(!pinMenuActivity.isPinned));
+	const res = await fetch('?/togglePin', { method: 'POST', body: formData });
+	pinSubmitting = false;
+	pinMenuOpen = false;
+	pinMenuActivity = null;
+	await invalidateAll();
 }
 
 function handleConfirmClose() {
@@ -376,8 +400,10 @@ function handleBirthdayResultClose() {
 					completed={isCompleted(activity)}
 					count={getCount(activity.id)}
 					isMission={activity.isMission}
+					isPinned={activity.isPinned}
 					triggerHint={activity.triggerHint}
 					onclick={() => handleActivityTap(activity)}
+					onlongpress={() => handleActivityLongPress(activity)}
 				/>
 			{/each}
 		</CategorySection>
@@ -391,6 +417,35 @@ function handleBirthdayResultClose() {
 		</div>
 	{/if}
 </div>
+
+<!-- Pin context menu -->
+<Dialog bind:open={pinMenuOpen} closable={true} title="">
+	{#if pinMenuActivity}
+		<div class="flex flex-col items-center gap-3 text-center py-2">
+			<p class="text-base font-bold">{pinMenuActivity.name}</p>
+			<button
+				class="tap-target w-full py-3 rounded-[var(--radius-md)] font-bold text-lg
+					{pinMenuActivity.isPinned ? 'bg-gray-200 text-gray-700' : 'bg-amber-100 text-amber-700'}"
+				disabled={pinSubmitting}
+				onclick={handlePinToggle}
+			>
+				{#if pinSubmitting}
+					<span class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
+				{:else if pinMenuActivity.isPinned}
+					📌 ピンどめをはずす
+				{:else}
+					📌 ピンどめする
+				{/if}
+			</button>
+			<button
+				class="tap-target w-full py-2 text-sm text-gray-500"
+				onclick={() => { pinMenuOpen = false; pinMenuActivity = null; }}
+			>
+				とじる
+			</button>
+		</div>
+	{/if}
+</Dialog>
 
 <!-- Confirm dialog -->
 <Dialog bind:open={confirmOpen} closable={false} title="">

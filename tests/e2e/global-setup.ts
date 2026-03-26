@@ -126,6 +126,22 @@ export default async function globalSetup() {
 			}
 		}
 
+		// child_activity_preferences テーブルが存在しなければ作成（#0115 ピン留め機能）
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS child_activity_preferences (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+				activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+				is_pinned INTEGER NOT NULL DEFAULT 0,
+				pin_order INTEGER,
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_child_activity_prefs_unique ON child_activity_preferences(child_id, activity_id);
+			CREATE INDEX IF NOT EXISTS idx_child_activity_prefs_child ON child_activity_preferences(child_id);
+			CREATE INDEX IF NOT EXISTS idx_child_activity_prefs_pinned ON child_activity_preferences(child_id, is_pinned);
+		`);
+
 		// テスト用クリーンアップ: 今日の活動記録を削除（記録テストの安定化）
 		const deleted = db
 			.prepare("DELETE FROM activity_logs WHERE recorded_date = date('now', 'localtime')")
