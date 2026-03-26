@@ -720,3 +720,60 @@ test.describe('#0129: 招待 API', () => {
 		expect([200, 401, 500]).toContain(res.status());
 	});
 });
+
+// ============================================================
+// #0130: ライセンス管理画面
+// ============================================================
+
+test.describe('#0130: ライセンス管理画面', () => {
+	test('ライセンス管理画面が表示される', async ({ page }) => {
+		await page.goto('/admin/license');
+		await expect(page.getByText('ライセンス管理')).toBeVisible();
+		await expect(page.getByText('現在のプラン')).toBeVisible();
+	});
+
+	test('プラン情報が表示される', async ({ page }) => {
+		await page.goto('/admin/license');
+		// プラン名が表示される
+		const planEl = page.locator('main').getByText('無料プラン');
+		await planEl.scrollIntoViewIfNeeded();
+		await expect(planEl).toBeVisible();
+		// ステータスバッジが表示される
+		const statusBadge = page.locator('main').getByText('有効');
+		await expect(statusBadge).toBeVisible();
+	});
+
+	test('ナビゲーションにライセンスリンクがある', async ({ page }) => {
+		await page.goto('/admin');
+		const licenseLink = page.getByRole('link', { name: 'ライセンス' });
+		await expect(licenseLink).toBeVisible();
+	});
+
+	test('プラン管理セクションが表示される', async ({ page }) => {
+		await page.goto('/admin/license');
+		const planSection = page.getByText('プラン管理');
+		await planSection.scrollIntoViewIfNeeded();
+		await expect(planSection).toBeVisible();
+		// Stripe未連携のためボタンはdisabled
+		const changeBtn = page.getByText('プラン変更（準備中）');
+		await changeBtn.scrollIntoViewIfNeeded();
+		await expect(changeBtn).toBeVisible();
+	});
+
+	test('支払い履歴セクションが表示される', async ({ page }) => {
+		await page.goto('/admin/license');
+		const paymentHistory = page.getByText('支払い履歴はまだありません');
+		await paymentHistory.scrollIntoViewIfNeeded();
+		await expect(paymentHistory).toBeVisible();
+	});
+});
+
+test.describe('#0130: ライセンス API', () => {
+	test('ライセンス情報 API が 200 を返す', async ({ request }) => {
+		const res = await request.get('/api/v1/admin/license');
+		expect(res.status()).toBe(200);
+		const data = await res.json();
+		expect(data.license).toBeDefined();
+		expect(data.license.status).toBeDefined();
+	});
+});
