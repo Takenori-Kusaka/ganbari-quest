@@ -50,8 +50,17 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	// デイリーミッション
 	const dailyMissions = await getTodayMissions(child.id, tenantId);
 
+	// ミッション対象の活動IDセット
+	const missionActivityIds = new Set(dailyMissions?.missions.map((m) => m.activityId) ?? []);
+
+	// activitiesにisMissionフラグを付与
+	const activitiesWithMission = activities.map((a) => ({
+		...a,
+		isMission: missionActivityIds.has(a.id),
+	}));
+
 	return {
-		activities,
+		activities: activitiesWithMission,
 		todayRecorded,
 		loginBonusStatus: bonusStatus,
 		latestReward,
