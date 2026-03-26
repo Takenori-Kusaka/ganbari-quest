@@ -328,11 +328,16 @@ function handleFileSelect(childId: number, event: Event) {
 						/>
 					</label>
 					<button
-						class="px-3 py-1.5 bg-purple-500 text-white rounded-lg text-xs font-bold hover:bg-purple-600 transition-colors disabled:opacity-50"
+						class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-500 text-white rounded-lg text-xs font-bold hover:bg-purple-600 transition-colors disabled:opacity-50"
 						disabled={generating}
 						onclick={() => generateAvatar(child.id)}
 					>
-						{generating ? '生成中...' : '✨ AI生成'}
+						{#if generating}
+							<span class="avatar-spinner" aria-hidden="true"></span>
+							生成中...
+						{:else}
+							✨ AI生成
+						{/if}
 					</button>
 				</div>
 			</div>
@@ -450,3 +455,19 @@ function handleFileSelect(childId: number, event: Event) {
 		</section>
 	{/if}
 </div>
+
+<style>
+	.avatar-spinner {
+		display: inline-block;
+		width: 0.8em;
+		height: 0.8em;
+		border: 2px solid currentColor;
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+</style>

@@ -21,6 +21,7 @@ let errorMessage = $state('');
 
 // Submitting state (多重送信防止)
 let submitting = $state(false);
+let pendingActivityId = $state<number | null>(null);
 
 // Record result overlay
 let resultOpen = $state(false);
@@ -322,10 +323,12 @@ function handleBirthdayResultClose() {
 						use:enhance={() => {
 							if (submitting) return ({ update }) => update();
 							submitting = true;
+							pendingActivityId = activity.id;
 							soundService.ensureContext();
 							soundService.play('tap');
 							return async ({ result }) => {
 								submitting = false;
+								pendingActivityId = null;
 								if (result.type === 'success' && result.data && 'success' in result.data) {
 									const d = result.data as {
 										logId: number;
@@ -372,14 +375,20 @@ function handleBirthdayResultClose() {
 							type="submit"
 							disabled={submitting}
 							class="baby-card baby-card--active tap-target"
+							class:baby-card--pending={pendingActivityId === activity.id}
 							style="border-color: {borderColor};"
 							aria-label="{activity.displayName}をきろくする"
 						>
-							{#if actCount > 0}
-								<span class="baby-card__count-badge">{actCount}</span>
+							{#if pendingActivityId === activity.id}
+								<span class="baby-card__spinner" aria-hidden="true"></span>
+								<span class="baby-card__name">まってね！</span>
+							{:else}
+								{#if actCount > 0}
+									<span class="baby-card__count-badge">{actCount}</span>
+								{/if}
+								<CompoundIcon icon={activity.icon} size="lg" />
+								<span class="baby-card__name">{activity.displayName}</span>
 							{/if}
-							<CompoundIcon icon={activity.icon} size="lg" />
-							<span class="baby-card__name">{activity.displayName}</span>
 						</button>
 					</form>
 				{/if}
@@ -887,6 +896,31 @@ function handleBirthdayResultClose() {
 		font-size: 0.75rem;
 		font-weight: 700;
 		color: #b45309;
+	}
+
+	/* Pending state */
+	.baby-card--pending {
+		animation: card-pulse 0.8s ease-in-out infinite;
+		opacity: 0.7;
+	}
+
+	@keyframes card-pulse {
+		0%, 100% { transform: scale(1); }
+		50% { transform: scale(0.97); }
+	}
+
+	.baby-card__spinner {
+		display: inline-block;
+		width: 2rem;
+		height: 2rem;
+		border: 3px solid var(--theme-primary, #6366f1);
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
 	}
 
 	/* Error toast */
