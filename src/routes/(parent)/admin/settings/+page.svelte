@@ -9,6 +9,39 @@ let { data, form } = $props();
 let success = $state(false);
 let submitting = $state(false);
 
+// エクスポート
+let exportLoading = $state(false);
+let exportError = $state('');
+
+async function handleExport() {
+	exportLoading = true;
+	exportError = '';
+	try {
+		const res = await fetch('/api/v1/export');
+		if (!res.ok) {
+			const data = await res.json().catch(() => null);
+			throw new Error(data?.error?.message ?? `エクスポートに失敗しました (${res.status})`);
+		}
+		const blob = await res.blob();
+		const disposition = res.headers.get('Content-Disposition') ?? '';
+		const filenameMatch = disposition.match(/filename="(.+)"/);
+		const filename =
+			filenameMatch?.[1] ?? `ganbari-quest-backup-${new Date().toISOString().split('T')[0]}.json`;
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = filename;
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+		URL.revokeObjectURL(url);
+	} catch (err) {
+		exportError = err instanceof Error ? err.message : 'エクスポートに失敗しました';
+	} finally {
+		exportLoading = false;
+	}
+}
+
 // ポイント表示設定
 let pointSuccess = $state(false);
 let pointSubmitting = $state(false);
@@ -233,6 +266,45 @@ const previewFormatted = $derived(
 				{pointSubmitting ? '保存中...' : 'ポイント設定を保存'}
 			</button>
 		</form>
+	</div>
+
+	<!-- データ管理 -->
+	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+		<h3 class="text-lg font-bold text-gray-700 mb-4">💾 データ管理</h3>
+
+		{#if exportError}
+			<ErrorAlert message={exportError} severity="error" action="retry" />
+		{/if}
+
+		<div class="space-y-4">
+			<div>
+				<p class="text-sm text-gray-600 mb-3">
+					家族のデータをJSONファイルとしてダウンロードできます。バックアップや別環境への移行に使用できます。
+				</p>
+				<div class="bg-gray-50 rounded-lg p-3 mb-3">
+					<p class="text-xs text-gray-500">エクスポート対象:</p>
+					<ul class="text-xs text-gray-500 mt-1 space-y-0.5">
+						<li>子供プロフィール・活動記録・ポイント履歴</li>
+						<li>ステータス・実績・称号・ログインボーナス</li>
+						<li>チェックリスト・キャリアプラン・誕生日振り返り</li>
+						<li>活動マスタ・きせかえアイテム</li>
+					</ul>
+				</div>
+				<button
+					type="button"
+					disabled={exportLoading}
+					onclick={handleExport}
+					class="w-full py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+				>
+					{#if exportLoading}
+						<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
+						エクスポート中...
+					{:else}
+						データをエクスポート
+					{/if}
+				</button>
+			</div>
+		</div>
 	</div>
 
 	<!-- フィードバック -->
