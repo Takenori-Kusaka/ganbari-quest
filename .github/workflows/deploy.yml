@@ -126,6 +126,17 @@ jobs:
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
 
+      # Phase 5: Post-deployment health check
+      - name: Health check
+        run: |
+          echo "Waiting 10s for Lambda cold start..."
+          sleep 10
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ env.DOMAIN_NAME }}/api/health" || echo "000")
+          echo "Health check response: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::warning::Health check returned $STATUS (may need CloudFront cache invalidation)"
+          fi
+
       - name: Show deployment outputs
         working-directory: infra/
         if: always()
