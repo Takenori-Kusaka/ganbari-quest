@@ -121,6 +121,14 @@ export function getActivityDisplayName(
 	return activity.name;
 }
 
+/** 親（大人）向けの表示名: 漢字表記を優先 */
+export function getActivityDisplayNameForAdult(activity: {
+	name: string;
+	nameKanji?: string | null;
+}): string {
+	return activity.nameKanji || activity.name;
+}
+
 /** Calculate streak bonus: min(consecutiveDays - 1, 10) */
 export function calcStreakBonus(consecutiveDays: number): number {
 	if (consecutiveDays < 2) return 0;

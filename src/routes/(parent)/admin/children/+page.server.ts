@@ -14,6 +14,17 @@ import { getChildStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
+function calculateAge(birthDate: string): number {
+	const birth = new Date(birthDate);
+	const today = new Date();
+	let age = today.getFullYear() - birth.getFullYear();
+	const monthDiff = today.getMonth() - birth.getMonth();
+	if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+		age--;
+	}
+	return Math.max(0, Math.min(18, age));
+}
+
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const tenantId = requireTenantId(locals);
 	const children = await getAllChildren(tenantId);
@@ -85,17 +96,37 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const nickname = formData.get('nickname')?.toString().trim();
-		const age = Number(formData.get('age'));
+		const ageStr = formData.get('age')?.toString();
 		const theme = formData.get('theme')?.toString() || 'pink';
+		const birthDate = formData.get('birthDate')?.toString() || null;
 
 		if (!nickname || nickname.length === 0) {
 			return fail(400, { error: 'ニックネームを入力してください' });
 		}
-		if (Number.isNaN(age) || age < 0 || age > 18) {
-			return fail(400, { error: '年齢は0〜18で入力してください' });
+
+		// 誕生日バリデーション
+		if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+			return fail(400, { error: '誕生日の形式が正しくありません（YYYY-MM-DD）' });
+		}
+		if (birthDate && new Date(birthDate) > new Date()) {
+			return fail(400, { error: '未来の日付は設定できません' });
 		}
 
-		const child = await addChild({ nickname, age, theme }, tenantId);
+		// 誕生日から年齢を自動計算、なければ手動入力
+		let age: number;
+		if (birthDate) {
+			age = calculateAge(birthDate);
+		} else {
+			age = Number(ageStr);
+			if (Number.isNaN(age) || age < 0 || age > 18) {
+				return fail(400, { error: '年齢は0〜18で入力してください' });
+			}
+		}
+
+		const child = await addChild(
+			{ nickname, age, theme, birthDate: birthDate ?? undefined },
+			tenantId,
+		);
 		return { success: true, addedChild: child };
 	},
 
@@ -104,17 +135,40 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const childId = Number(formData.get('childId'));
 		const nickname = formData.get('nickname')?.toString().trim();
-		const age = Number(formData.get('age'));
+		const ageStr = formData.get('age')?.toString();
 		const theme = formData.get('theme')?.toString();
+		const birthDate = formData.get('birthDate')?.toString();
 
 		if (Number.isNaN(childId)) {
 			return fail(400, { error: 'IDが不正です' });
 		}
 
-		const updates: Record<string, string | number> = {};
+		// 誕生日バリデーション
+		if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+			return fail(400, { error: '誕生日の形式が正しくありません（YYYY-MM-DD）' });
+		}
+		if (birthDate && new Date(birthDate) > new Date()) {
+			return fail(400, { error: '未来の日付は設定できません' });
+		}
+
+		const updates: Record<string, string | number | null> = {};
 		if (nickname && nickname.length > 0) updates.nickname = nickname;
-		if (!Number.isNaN(age) && age >= 0 && age <= 18) updates.age = age;
 		if (theme) updates.theme = theme;
+
+		// 誕生日 → 年齢自動計算
+		if (birthDate !== undefined) {
+			updates.birthDate = birthDate || null;
+			if (birthDate) {
+				updates.age = calculateAge(birthDate);
+			} else {
+				// 誕生日をクリアした場合は手動年齢を使う
+				const age = Number(ageStr);
+				if (!Number.isNaN(age) && age >= 0 && age <= 18) updates.age = age;
+			}
+		} else {
+			const age = Number(ageStr);
+			if (!Number.isNaN(age) && age >= 0 && age <= 18) updates.age = age;
+		}
 
 		await editChild(childId, updates, tenantId);
 		return { success: true, editedChildId: childId };

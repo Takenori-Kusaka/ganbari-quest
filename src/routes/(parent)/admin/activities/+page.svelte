@@ -1,7 +1,11 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { joinIcon, splitIcon } from '$lib/domain/icon-utils';
-import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
+import {
+	CATEGORY_DEFS,
+	getActivityDisplayNameForAdult,
+	getCategoryById,
+} from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
 
@@ -91,7 +95,12 @@ const filteredActivities = $derived.by(() => {
 	}
 	if (searchQuery.trim()) {
 		const q = searchQuery.trim().toLowerCase();
-		result = result.filter((a) => a.name.toLowerCase().includes(q));
+		result = result.filter(
+			(a) =>
+				a.name.toLowerCase().includes(q) ||
+				a.nameKanji?.toLowerCase().includes(q) ||
+				a.nameKana?.toLowerCase().includes(q),
+		);
 	}
 	return result;
 });
@@ -298,7 +307,7 @@ function acceptPreview() {
 					<div class="flex items-center gap-3">
 						<CompoundIcon icon={aiPreview.icon} size="lg" />
 						<div class="flex-1">
-							<p class="font-bold text-gray-700">{aiPreview.name}</p>
+							<p class="font-bold text-gray-700">{aiPreview.nameKanji || aiPreview.name}</p>
 							<p class="text-xs text-gray-400">
 								{getCategoryById(aiPreview.categoryId)?.name ?? ''} / {aiPreview.basePoints}P
 							</p>
@@ -595,7 +604,7 @@ function acceptPreview() {
 				<div class="px-3 py-2 flex items-center gap-3">
 					<CompoundIcon icon={activity.icon} size="md" />
 					<div class="flex-1 min-w-0">
-						<p class="text-sm font-bold text-gray-700 truncate">{activity.name}</p>
+						<p class="text-sm font-bold text-gray-700 truncate">{getActivityDisplayNameForAdult(activity)}</p>
 						<p class="text-xs text-gray-400">
 							{getCategoryById(activity.categoryId)?.name ?? ''} / {activity.basePoints}P
 							{#if activity.dailyLimit !== null}
@@ -818,7 +827,7 @@ function acceptPreview() {
 									<CompoundIcon icon={activity.icon} size="md" />
 								</div>
 								<div class="flex-1 min-w-0">
-									<p class="text-sm font-bold text-gray-400 truncate">{activity.name}</p>
+									<p class="text-sm font-bold text-gray-400 truncate">{getActivityDisplayNameForAdult(activity)}</p>
 									<p class="text-xs text-gray-400">
 										{getCategoryById(activity.categoryId)?.name ?? ''} / {activity.basePoints}P
 										{#if logCount > 0}

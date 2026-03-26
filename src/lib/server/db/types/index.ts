@@ -372,6 +372,7 @@ export interface InsertChildInput {
 	age: number;
 	theme?: string;
 	uiMode?: string;
+	birthDate?: string;
 }
 
 export interface UpdateChildInput {
@@ -379,6 +380,7 @@ export interface UpdateChildInput {
 	age?: number;
 	theme?: string;
 	uiMode?: string;
+	birthDate?: string | null;
 }
 
 export interface InsertEvaluationInput {

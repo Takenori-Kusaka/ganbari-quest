@@ -107,9 +107,61 @@ const KEYWORD_ICONS: Record<string, string> = {
 	お礼: '🙏',
 };
 
+/** よく使う活動名の漢字↔ひらがな対応表 */
+const NAME_PAIR_TABLE: Record<string, { kana: string; kanji: string }> = {
+	すいえい: { kana: 'すいえい', kanji: '水泳' },
+	水泳: { kana: 'すいえい', kanji: '水泳' },
+	はみがき: { kana: 'はみがき', kanji: '歯みがき' },
+	歯みがき: { kana: 'はみがき', kanji: '歯みがき' },
+	歯磨き: { kana: 'はみがき', kanji: '歯磨き' },
+	おかたづけ: { kana: 'おかたづけ', kanji: 'お片付け' },
+	お片付け: { kana: 'おかたづけ', kanji: 'お片付け' },
+	片付け: { kana: 'かたづけ', kanji: '片付け' },
+	かたづけ: { kana: 'かたづけ', kanji: '片付け' },
+	そうじ: { kana: 'そうじ', kanji: '掃除' },
+	掃除: { kana: 'そうじ', kanji: '掃除' },
+	せんたく: { kana: 'せんたく', kanji: '洗濯' },
+	洗濯: { kana: 'せんたく', kanji: '洗濯' },
+	りょうり: { kana: 'りょうり', kanji: '料理' },
+	料理: { kana: 'りょうり', kanji: '料理' },
+	どくしょ: { kana: 'どくしょ', kanji: '読書' },
+	読書: { kana: 'どくしょ', kanji: '読書' },
+	さんすう: { kana: 'さんすう', kanji: '算数' },
+	算数: { kana: 'さんすう', kanji: '算数' },
+	しゅくだい: { kana: 'しゅくだい', kanji: '宿題' },
+	宿題: { kana: 'しゅくだい', kanji: '宿題' },
+	べんきょう: { kana: 'べんきょう', kanji: '勉強' },
+	勉強: { kana: 'べんきょう', kanji: '勉強' },
+	えいご: { kana: 'えいご', kanji: '英語' },
+	英語: { kana: 'えいご', kanji: '英語' },
+	たいそう: { kana: 'たいそう', kanji: '体操' },
+	体操: { kana: 'たいそう', kanji: '体操' },
+	さんぽ: { kana: 'さんぽ', kanji: '散歩' },
+	散歩: { kana: 'さんぽ', kanji: '散歩' },
+	おえかき: { kana: 'おえかき', kanji: 'お絵描き' },
+	お絵描き: { kana: 'おえかき', kanji: 'お絵描き' },
+	こうさく: { kana: 'こうさく', kanji: '工作' },
+	工作: { kana: 'こうさく', kanji: '工作' },
+	おりがみ: { kana: 'おりがみ', kanji: '折り紙' },
+	折り紙: { kana: 'おりがみ', kanji: '折り紙' },
+	なわとび: { kana: 'なわとび', kanji: '縄跳び' },
+	縄跳び: { kana: 'なわとび', kanji: '縄跳び' },
+	きがえ: { kana: 'きがえ', kanji: '着替え' },
+	着替え: { kana: 'きがえ', kanji: '着替え' },
+	おふろ: { kana: 'おふろ', kanji: 'お風呂' },
+	お風呂: { kana: 'おふろ', kanji: 'お風呂' },
+	じてんしゃ: { kana: 'じてんしゃ', kanji: '自転車' },
+	自転車: { kana: 'じてんしゃ', kanji: '自転車' },
+	あいさつ: { kana: 'あいさつ', kanji: '挨拶' },
+	挨拶: { kana: 'あいさつ', kanji: '挨拶' },
+	ねんど: { kana: 'ねんど', kanji: '粘土' },
+	粘土: { kana: 'ねんど', kanji: '粘土' },
+};
+
 function getGeminiClient(): GoogleGenerativeAI | null {
 	const apiKey = process.env.GEMINI_API_KEY;
 	if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+		logger.warn('[activity-suggest] GEMINI_API_KEY未設定: フォールバックモードで動作');
 		return null;
 	}
 	return new GoogleGenerativeAI(apiKey);
@@ -229,13 +281,15 @@ async function suggestWithGemini(
 	const subIcon = obj.subIcon ? String(obj.subIcon) : null;
 	const icon = joinIcon(mainIcon, subIcon);
 
+	// Gemini が null/空文字を返した場合は inferNames で補完
+	const fallbackNames = inferNames(text);
 	return {
 		name: String(obj.name ?? text).slice(0, 50),
 		categoryId,
 		icon,
 		basePoints,
-		nameKana: obj.nameKana ? String(obj.nameKana).slice(0, 50) : null,
-		nameKanji: obj.nameKanji ? String(obj.nameKanji).slice(0, 50) : null,
+		nameKana: obj.nameKana ? String(obj.nameKana).slice(0, 50) : fallbackNames.nameKana,
+		nameKanji: obj.nameKanji ? String(obj.nameKanji).slice(0, 50) : fallbackNames.nameKanji,
 		source: 'gemini',
 	};
 }
@@ -473,17 +527,33 @@ function suggestByKeywords(text: string): SuggestedActivity {
 	};
 }
 
-/** 入力テキストからnameKana/nameKanjiを推定 */
+/** 入力テキストからnameKana/nameKanjiを推定（NAME_PAIR_TABLE で相互変換） */
 function inferNames(text: string): { nameKana: string | null; nameKanji: string | null } {
 	const trimmed = text.trim().slice(0, 50);
 
+	// NAME_PAIR_TABLE で完全一致 → 両方のペアを返す
+	const pair = NAME_PAIR_TABLE[trimmed];
+	if (pair) {
+		return { nameKana: pair.kana, nameKanji: pair.kanji };
+	}
+
+	// 部分一致: テキストに含まれるキーワードから推定
+	for (const [key, val] of Object.entries(NAME_PAIR_TABLE)) {
+		if (trimmed.includes(key)) {
+			if (isKanaOnly(trimmed)) {
+				return { nameKana: trimmed, nameKanji: val.kanji };
+			}
+			if (hasKanji(trimmed)) {
+				return { nameKana: val.kana, nameKanji: trimmed };
+			}
+		}
+	}
+
 	if (isKanaOnly(trimmed)) {
-		// ひらがな・カタカナのみ → nameKana として設定
 		return { nameKana: trimmed, nameKanji: null };
 	}
 
 	if (hasKanji(trimmed)) {
-		// 漢字を含む → nameKanji として設定
 		return { nameKana: null, nameKanji: trimmed };
 	}
 

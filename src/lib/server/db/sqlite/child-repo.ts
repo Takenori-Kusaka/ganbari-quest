@@ -29,6 +29,7 @@ export async function insertChild(
 		age: number;
 		theme?: string;
 		uiMode?: string;
+		birthDate?: string;
 	},
 	_tenantId: string,
 ) {
@@ -39,6 +40,7 @@ export async function insertChild(
 			age: input.age,
 			theme: input.theme ?? 'pink',
 			uiMode: input.uiMode ?? (input.age <= 2 ? 'baby' : 'kinder'),
+			birthDate: input.birthDate ?? null,
 		})
 		.returning()
 		.get();
@@ -46,7 +48,13 @@ export async function insertChild(
 
 export async function updateChild(
 	id: number,
-	input: { nickname?: string; age?: number; theme?: string; uiMode?: string },
+	input: {
+		nickname?: string;
+		age?: number;
+		theme?: string;
+		uiMode?: string;
+		birthDate?: string | null;
+	},
 	_tenantId: string,
 ) {
 	return db
