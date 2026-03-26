@@ -20,6 +20,11 @@ vi.mock('$lib/server/logger', () => ({
 	},
 }));
 
+vi.mock('$lib/server/security/rate-limiter', () => ({
+	checkApiRateLimit: () => ({ allowed: true, remaining: 99, resetAt: Date.now() + 60000 }),
+	checkAuthRateLimit: () => ({ allowed: true, remaining: 9, resetAt: Date.now() + 60000 }),
+}));
+
 const mockResolveIdentity = vi.fn();
 const mockResolveContext = vi.fn();
 const mockAuthorize = vi.fn();
@@ -55,13 +60,14 @@ vi.mock('@sveltejs/kit', () => ({
 function createMockEvent(path: string) {
 	return {
 		url: new URL(`http://localhost${path}`),
-		request: { method: 'GET' },
+		request: { method: 'GET', headers: new Headers() },
 		locals: {} as Record<string, unknown>,
 		cookies: {
 			get: vi.fn(),
 			set: vi.fn(),
 			delete: vi.fn(),
 		},
+		getClientAddress: () => '127.0.0.1',
 	};
 }
 
@@ -90,6 +96,10 @@ describe('hooks.server.ts handle（結合テスト）', () => {
 		}));
 		vi.mock('$lib/server/logger', () => ({
 			logger: { request: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() },
+		}));
+		vi.mock('$lib/server/security/rate-limiter', () => ({
+			checkApiRateLimit: () => ({ allowed: true, remaining: 99, resetAt: Date.now() + 60000 }),
+			checkAuthRateLimit: () => ({ allowed: true, remaining: 9, resetAt: Date.now() + 60000 }),
 		}));
 		vi.mock('$lib/server/auth/factory', () => ({
 			getAuthProvider: () => ({

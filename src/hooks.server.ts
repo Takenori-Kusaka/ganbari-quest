@@ -1,5 +1,6 @@
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
+import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
 import { isSetupRequired } from '$lib/server/services/setup-service';
 import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
 
@@ -8,6 +9,29 @@ const authMode = getAuthMode();
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const start = Date.now();
+	const path = event.url.pathname;
+
+	// 0) レートリミット（cognito モードのみ、静的ファイル除外）
+	if (authMode === 'cognito' && !path.startsWith('/_app/') && !path.startsWith('/favicon')) {
+		const ip = event.getClientAddress();
+		const isAuthRoute = path.startsWith('/auth/');
+		const { allowed, remaining, resetAt } = isAuthRoute
+			? checkAuthRateLimit(ip)
+			: checkApiRateLimit(ip);
+
+		if (!allowed) {
+			logger.warn(`Rate limit exceeded: ${ip} on ${path}`);
+			const retryAfter = Math.ceil((resetAt - Date.now()) / 1000);
+			return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
+				status: 429,
+				headers: {
+					'Content-Type': 'application/json',
+					'Retry-After': String(retryAfter),
+				},
+			});
+		}
+		event.request.headers.set('X-RateLimit-Remaining', String(remaining));
+	}
 
 	// 1) 二層セッション解決
 	const identity = await provider.resolveIdentity(event);
@@ -18,7 +42,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.context = context;
 
 	// 2) ルート保護
-	const path = event.url.pathname;
 
 	// セットアップチェック（local モードのみ — 子供が未登録ならセットアップへ）
 	if (authMode === 'local') {
@@ -53,7 +76,16 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	const response = await resolve(event);
 
-	// 3) リクエストログ（静的ファイルは除外）
+	// 3) セキュリティヘッダ付与
+	response.headers.set('X-Frame-Options', 'DENY');
+	response.headers.set('X-Content-Type-Options', 'nosniff');
+	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+	response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+	if (authMode === 'cognito') {
+		response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+	}
+
+	// 4) リクエストログ（静的ファイルは除外）
 	if (!path.startsWith('/_app/') && !path.startsWith('/favicon')) {
 		logger.request(event.request.method, path, response.status, Date.now() - start);
 	}
