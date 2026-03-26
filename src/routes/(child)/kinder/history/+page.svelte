@@ -1,10 +1,15 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
+import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import Tabs from '$lib/ui/primitives/Tabs.svelte';
 
 import { getCategoryById } from '$lib/domain/validation/activity';
 
 let { data } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
+const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
 
 const tabItems = [
 	{ value: 'today', label: 'きょう' },
@@ -52,7 +57,7 @@ function formatDate(dateStr: string): string {
 				</div>
 				<div class="flex justify-between items-center">
 					<span class="text-sm text-[var(--color-text-muted)]">ポイント</span>
-					<span class="font-bold text-lg text-[var(--color-point)]">{data.summary.totalPoints}P</span>
+					<span class="font-bold text-lg text-[var(--color-point)]">{fmtBal(data.summary.totalPoints)}</span>
 				</div>
 				{#if Object.keys(data.summary.byCategory).length > 0}
 					<div class="flex flex-wrap gap-[var(--spacing-xs)] mt-[var(--spacing-sm)]">
@@ -95,7 +100,7 @@ function formatDate(dateStr: string): string {
 										</p>
 									</div>
 									<div class="text-right shrink-0">
-										<p class="text-sm font-bold text-[var(--color-point)]">+{log.points + log.streakBonus}P</p>
+										<p class="text-sm font-bold text-[var(--color-point)]">{fmtPts(log.points + log.streakBonus)}</p>
 										{#if log.streakDays >= 2}
 											<p class="text-xs text-[var(--theme-accent)]">{log.streakDays}にちれんぞく</p>
 										{/if}

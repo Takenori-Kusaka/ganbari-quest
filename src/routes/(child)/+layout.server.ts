@@ -1,5 +1,9 @@
+import type { PointSettings } from '$lib/domain/point-display';
+import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
+import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { UI_MODES } from '$lib/domain/validation/age-tier';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { getSettings } from '$lib/server/db/settings-repo';
 import { checkAndUnlockItems, getAvatarConfig } from '$lib/server/services/avatar-service';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { getPointBalance } from '$lib/server/services/point-service';
@@ -26,6 +30,7 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 			levelTitle: 'かけだし',
 			allChildren: await getAllChildren(tenantId),
 			uiMode: 'kinder' as const,
+			pointSettings: DEFAULT_POINT_SETTINGS,
 		};
 	}
 
@@ -61,6 +66,17 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	await checkAndUnlockItems(childId, tenantId);
 	const avatarConfig = await getAvatarConfig(childId, tenantId);
 
+	// ポイント表示設定
+	const pointSettingsRaw = await getSettings(
+		['point_unit_mode', 'point_currency', 'point_rate'],
+		tenantId,
+	);
+	const pointSettings: PointSettings = {
+		mode: (pointSettingsRaw.point_unit_mode as PointUnitMode) ?? DEFAULT_POINT_SETTINGS.mode,
+		currency: (pointSettingsRaw.point_currency as CurrencyCode) ?? DEFAULT_POINT_SETTINGS.currency,
+		rate: Number.parseFloat(pointSettingsRaw.point_rate ?? '') || DEFAULT_POINT_SETTINGS.rate,
+	};
+
 	return {
 		child,
 		balance,
@@ -70,5 +86,6 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		avatarConfig,
 		allChildren: await getAllChildren(tenantId),
 		uiMode,
+		pointSettings,
 	};
 };

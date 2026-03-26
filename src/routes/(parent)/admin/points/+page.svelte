@@ -1,7 +1,13 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 
 let { data } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
+const unit = $derived(getUnitLabel(ps.mode, ps.currency));
+const isCurrencyMode = $derived(ps.mode === 'currency');
 
 let selectedChildId = $state(0);
 $effect(() => {
@@ -126,11 +132,11 @@ async function handleReceiptFile(event: Event) {
 </script>
 
 <svelte:head>
-	<title>ポイント変換 - がんばりクエスト</title>
+	<title>{isCurrencyMode ? '金額を渡す' : 'ポイント変換'} - がんばりクエスト</title>
 </svelte:head>
 
 <div class="space-y-6">
-	<h2 class="text-lg font-bold text-gray-700">ポイント変換</h2>
+	<h2 class="text-lg font-bold text-gray-700">{isCurrencyMode ? '金額を渡す（記録）' : 'ポイント変換'}</h2>
 
 	<!-- Balance Overview -->
 	<div class="grid gap-3">
@@ -149,8 +155,8 @@ async function handleReceiptFile(event: Event) {
 						<p class="font-bold text-gray-700">{child.nickname}</p>
 					</div>
 					<div class="text-right">
-						<p class="text-lg font-bold text-amber-500">{child.balance.balance.toLocaleString()}P</p>
-						<p class="text-xs text-gray-400">変換可能: {child.balance.convertableAmount.toLocaleString()}P</p>
+						<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance.balance)}</p>
+						<p class="text-xs text-gray-400">変換可能: {fmtBal(child.balance.convertableAmount)}</p>
 					</div>
 				</div>
 			{/if}
@@ -176,7 +182,7 @@ async function handleReceiptFile(event: Event) {
 			}}
 			class="bg-white rounded-xl p-6 shadow-sm space-y-4"
 		>
-			<h3 class="font-bold text-gray-700">{selectedChild.nickname}のポイントを変換</h3>
+			<h3 class="font-bold text-gray-700">{selectedChild.nickname}の{isCurrencyMode ? '金額を渡す' : 'ポイントを変換'}</h3>
 			<input type="hidden" name="childId" value={selectedChildId} />
 			<input type="hidden" name="mode" value={effectiveMode} />
 			<input type="hidden" name="amount" value={effectiveAmount} />
@@ -212,7 +218,7 @@ async function handleReceiptFile(event: Event) {
 			<!-- Preset Mode -->
 			{#if convertMode === 'preset'}
 				<div>
-					<span class="block text-sm font-bold text-gray-500 mb-2">変換ポイント数（500P単位）</span>
+					<span class="block text-sm font-bold text-gray-500 mb-2">変換{unit}数（{fmtBal(500)}単位）</span>
 					{#if maxConvertable >= 500}
 						<div class="flex gap-2 flex-wrap">
 							{#each [500, 1000, 1500, 2000] as opt}
@@ -223,20 +229,20 @@ async function handleReceiptFile(event: Event) {
 											{presetAmount === opt ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
 										onclick={() => presetAmount = opt}
 									>
-										{opt.toLocaleString()}P
+										{fmtBal(opt)}
 									</button>
 								{/if}
 							{/each}
 						</div>
 					{:else}
-						<p class="text-sm text-gray-400">500P以上で変換できます（現在 {currentBalance.toLocaleString()}P）</p>
+						<p class="text-sm text-gray-400">{fmtBal(500)}以上で変換できます（現在 {fmtBal(currentBalance)}）</p>
 					{/if}
 				</div>
 
 			<!-- Manual Mode -->
 			{:else if convertMode === 'manual'}
 				<div>
-					<span class="block text-sm font-bold text-gray-500 mb-2">変換ポイント数（1P単位で自由入力）</span>
+					<span class="block text-sm font-bold text-gray-500 mb-2">変換{unit}数（自由入力）</span>
 					<div class="flex items-center gap-2">
 						<input
 							type="number"
@@ -254,7 +260,7 @@ async function handleReceiptFile(event: Event) {
 					</div>
 					<div class="flex items-center justify-between mt-2">
 						<p class="text-xs text-gray-400">
-							1P = 1円 / 残高: {currentBalance.toLocaleString()}P
+							{isCurrencyMode ? '' : '1P = 1円 / '}残高: {fmtBal(currentBalance)}
 						</p>
 						<button
 							type="button"
@@ -363,7 +369,7 @@ async function handleReceiptFile(event: Event) {
 									<p class="text-xs text-center text-gray-400">金額が違う場合は修正できます</p>
 
 									{#if receiptAmount > currentBalance}
-										<p class="text-xs text-red-500 text-center">残高（{currentBalance.toLocaleString()}P）を超えています</p>
+										<p class="text-xs text-red-500 text-center">残高（{fmtBal(currentBalance)}）を超えています</p>
 									{:else}
 										<!-- Confirm button -->
 										{#if !receiptConfirmed}
@@ -402,8 +408,8 @@ async function handleReceiptFile(event: Event) {
 			{#if canSubmit}
 				<div class="bg-amber-50 rounded-lg p-3 text-center">
 					<p class="text-sm text-amber-700">
-						<span class="font-bold text-lg">{effectiveAmount.toLocaleString()}P</span>
-						→ <span class="font-bold text-lg">{effectiveAmount.toLocaleString()}円</span>分のおこづかい
+						<span class="font-bold text-lg">{fmtBal(effectiveAmount)}</span>
+						{#if !isCurrencyMode}→ <span class="font-bold text-lg">{effectiveAmount.toLocaleString()}円</span>分のおこづかい{/if}
 					</p>
 				</div>
 				<button
@@ -415,14 +421,14 @@ async function handleReceiptFile(event: Event) {
 					{#if submitting}
 						変換中...
 					{:else}
-						{effectiveAmount.toLocaleString()}P を変換する
+						{fmtBal(effectiveAmount)} を{isCurrencyMode ? '渡す' : '変換する'}
 					{/if}
 				</button>
 			{/if}
 		</form>
 	{:else if selectedChild}
 		<div class="bg-white rounded-xl p-6 shadow-sm text-center text-gray-400">
-			<p>変換可能なポイントがありません</p>
+			<p>変換可能な{unit}がありません</p>
 		</div>
 	{/if}
 
@@ -430,7 +436,7 @@ async function handleReceiptFile(event: Event) {
 	{#if convertResult}
 		<div class="bg-green-50 rounded-xl p-4 border border-green-200 text-center">
 			<p class="text-green-700 font-bold">{convertResult.message}</p>
-			<p class="text-sm text-green-600 mt-1">残高: {convertResult.remainingBalance.toLocaleString()}P</p>
+			<p class="text-sm text-green-600 mt-1">残高: {fmtBal(convertResult.remainingBalance)}</p>
 		</div>
 	{/if}
 </div>

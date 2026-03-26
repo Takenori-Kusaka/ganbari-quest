@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
@@ -16,6 +17,9 @@ import { soundService } from '$lib/ui/sound';
 import { tick } from 'svelte';
 
 let { data } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
 // Confirm dialog state
 let confirmOpen = $state(false);
@@ -345,11 +349,11 @@ function handleBirthdayResultClose() {
 				{/each}
 				{#if data.dailyMissions.allComplete}
 					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-[var(--theme-bg)]">
-						<span class="text-sm font-bold text-[var(--theme-accent)]">🎉 ミッションコンプリート！ +{data.dailyMissions.bonusAwarded}P</span>
+						<span class="text-sm font-bold text-[var(--theme-accent)]">🎉 ミッションコンプリート！ {fmtPts(data.dailyMissions.bonusAwarded)}</span>
 					</div>
 				{:else if data.dailyMissions.bonusAwarded > 0}
 					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-[var(--theme-bg)]">
-						<span class="text-xs font-bold text-[var(--color-text-muted)]">ボーナス +{data.dailyMissions.bonusAwarded}P</span>
+						<span class="text-xs font-bold text-[var(--color-text-muted)]">ボーナス {fmtPts(data.dailyMissions.bonusAwarded)}</span>
 					</div>
 				{/if}
 			</div>
@@ -496,7 +500,7 @@ function handleBirthdayResultClose() {
 				<span class="text-5xl animate-bounce-in">✅</span>
 				<p class="text-lg font-bold">{resultData.activityName}をきろくしたよ！</p>
 				<div class="animate-point-pop">
-					<p class="text-2xl font-bold text-[var(--color-point)]">+{resultData.totalPoints} ポイント！</p>
+					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.totalPoints)}</p>
 				</div>
 				{#if resultData.streakDays >= 2}
 					<p class="text-sm text-[var(--theme-accent)]">
@@ -507,12 +511,12 @@ function handleBirthdayResultClose() {
 					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
 						{#each resultData.comboBonus.categoryCombo as cc}
 							<p class="text-sm font-bold text-[var(--theme-accent)]">
-								{cc.name}コンボ！（{getCategoryById(cc.categoryId)?.name ?? ''}） +{cc.bonus}P
+								{cc.name}コンボ！（{getCategoryById(cc.categoryId)?.name ?? ''}） {fmtPts(cc.bonus)}
 							</p>
 						{/each}
 						{#if resultData.comboBonus.crossCategoryCombo}
 							<p class="text-sm font-bold text-[var(--color-point)]">
-								{resultData.comboBonus.crossCategoryCombo.name}！ +{resultData.comboBonus.crossCategoryCombo.bonus}P
+								{resultData.comboBonus.crossCategoryCombo.name}！ {fmtPts(resultData.comboBonus.crossCategoryCombo.bonus)}
 							</p>
 						{/if}
 					</div>
@@ -522,7 +526,7 @@ function handleBirthdayResultClose() {
 						<p class="text-sm font-bold text-amber-600">
 							🎯 ミッションたっせい！
 							{#if missionResult.bonusAwarded > 0}
-								+{missionResult.bonusAwarded}P
+								{fmtPts(missionResult.bonusAwarded)}
 							{/if}
 						</p>
 						{#if missionResult.allComplete}

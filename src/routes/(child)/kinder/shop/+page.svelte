@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import {
 	type AvatarCategory,
 	CATEGORY_ICONS,
@@ -11,6 +12,10 @@ import AvatarDisplay from '$lib/ui/components/AvatarDisplay.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 let { data, form } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
+const unit = $derived(getUnitLabel(ps.mode, ps.currency));
 
 type ShopItem = (typeof data.items)[number];
 
@@ -63,7 +68,7 @@ function handleTap(item: ShopItem) {
 		<div class="text-right">
 			<p class="text-xs text-[var(--color-text-muted)]">もちポイント</p>
 			<p class="text-2xl font-bold" style="color: var(--color-point);">
-				{data.balance}<span class="text-sm">pt</span>
+				{fmtBal(data.balance)}
 			</p>
 			<p class="text-xs text-[var(--color-text-muted)] mt-1">
 				{ownedCount} / {data.items.length} しょじ
@@ -121,7 +126,7 @@ function handleTap(item: ShopItem) {
 					{:else if item.locked}
 						<span class="text-[10px] text-[var(--color-text-muted)]">🔒</span>
 					{:else if item.price > 0}
-						<span class="text-[10px] font-bold" style="color: var(--color-point);">{item.price}pt</span>
+						<span class="text-[10px] font-bold" style="color: var(--color-point);">{fmtBal(item.price)}</span>
 					{/if}
 				</button>
 			{/each}
@@ -248,11 +253,11 @@ function handleTap(item: ShopItem) {
 							: 'bg-gray-200 text-[var(--color-text-muted)] cursor-not-allowed'}"
 						style={selectedItem.canPurchase ? 'background: var(--color-point);' : ''}
 					>
-						{selectedItem.price}pt で かう
+						{fmtBal(selectedItem.price)} で かう
 					</button>
 				</form>
 				{#if !selectedItem.canPurchase && data.balance < selectedItem.price}
-					<p class="text-xs text-red-400">ポイントがたりません（あと {selectedItem.price - data.balance}pt）</p>
+					<p class="text-xs text-red-400">{unit}がたりません（あと {fmtBal(selectedItem.price - data.balance)}）</p>
 				{/if}
 			{/if}
 		</div>

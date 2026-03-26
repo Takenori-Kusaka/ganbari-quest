@@ -1,11 +1,15 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { formatPointValueWithSign } from '$lib/domain/point-display';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
 // 完了演出
 let completeOpen = $state(false);
@@ -121,9 +125,9 @@ function handleCompleteClose() {
 				<!-- Footer: points info -->
 				<div class="px-[var(--spacing-md)] py-[var(--spacing-xs)] bg-gray-50 text-center text-sm text-[var(--color-text-muted)]">
 					{#if checklist.completedAll}
-						<span class="text-[var(--theme-accent)] font-bold">🎉 ぜんぶできた！ +{checklist.pointsAwarded}P</span>
+						<span class="text-[var(--theme-accent)] font-bold">🎉 ぜんぶできた！ {fmtPts(checklist.pointsAwarded)}</span>
 					{:else}
-						ぜんぶチェックしたら <span class="font-bold text-[var(--color-point)]">+{checklist.totalCount * checklist.pointsPerItem + checklist.completionBonus}P</span>
+						ぜんぶチェックしたら <span class="font-bold text-[var(--color-point)]">{fmtPts(checklist.totalCount * checklist.pointsPerItem + checklist.completionBonus)}</span>
 					{/if}
 				</div>
 			</div>

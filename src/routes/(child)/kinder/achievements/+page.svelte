@@ -1,7 +1,11 @@
 <script lang="ts">
+import { formatPointValueWithSign } from '$lib/domain/point-display';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 let { data } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
 let detailOpen = $state(false);
 let selectedAchievement = $state<(typeof data.achievements)[number] | null>(null);
@@ -259,7 +263,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 			<div class="flex gap-[var(--spacing-md)] text-sm">
 				<div class="flex flex-col items-center">
 					<span class="font-bold text-[var(--color-point)]"
-						>+{selectedAchievement.bonusPoints}P</span
+						>{fmtPts(selectedAchievement.bonusPoints)}</span
 					>
 					<span class="text-[var(--color-text-muted)]">ボーナス</span>
 				</div>

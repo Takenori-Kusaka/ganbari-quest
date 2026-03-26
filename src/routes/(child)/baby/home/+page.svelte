@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import BirthdayResultOverlay from '$lib/ui/components/BirthdayResultOverlay.svelte';
@@ -15,6 +16,9 @@ import { soundService } from '$lib/ui/sound';
 import { tick } from 'svelte';
 
 let { data } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
 // Error state
 let errorMessage = $state('');
@@ -289,11 +293,11 @@ function handleBirthdayResultClose() {
 				{/each}
 				{#if data.dailyMissions.allComplete}
 					<div class="baby-mission-card__complete">
-						🎉 ミッションコンプリート！ +{data.dailyMissions.bonusAwarded}P
+						🎉 ミッションコンプリート！ {fmtPts(data.dailyMissions.bonusAwarded)}
 					</div>
 				{:else if data.dailyMissions.bonusAwarded > 0}
 					<div class="baby-mission-card__bonus">
-						ボーナス +{data.dailyMissions.bonusAwarded}P
+						ボーナス {fmtPts(data.dailyMissions.bonusAwarded)}
 					</div>
 				{/if}
 			</div>
@@ -431,15 +435,15 @@ function handleBirthdayResultClose() {
 			<span class="animate-bounce-in"><CompoundIcon icon={resultIcon} size="xl" /></span>
 			<p class="baby-result__text">{resultName}をきろくしたよ！</p>
 			<div class="animate-point-pop">
-				<p class="baby-result__points">+{resultPoints} ポイント！</p>
+				<p class="baby-result__points">{fmtPts(resultPoints)}</p>
 			</div>
 			{#if resultComboBonus}
 				<div class="baby-result__combo">
 					{#each resultComboBonus.categoryCombo as cc}
-						<p class="baby-result__combo-text">{cc.name}コンボ！ +{cc.bonus}P</p>
+						<p class="baby-result__combo-text">{cc.name}コンボ！ {fmtPts(cc.bonus)}</p>
 					{/each}
 					{#if resultComboBonus.crossCategoryCombo}
-						<p class="baby-result__combo-cross">{resultComboBonus.crossCategoryCombo.name}！ +{resultComboBonus.crossCategoryCombo.bonus}P</p>
+						<p class="baby-result__combo-cross">{resultComboBonus.crossCategoryCombo.name}！ {fmtPts(resultComboBonus.crossCategoryCombo.bonus)}</p>
 					{/if}
 				</div>
 			{/if}
@@ -448,7 +452,7 @@ function handleBirthdayResultClose() {
 					<p class="baby-result__mission-text">
 						🎯 ミッションたっせい！
 						{#if missionResult.bonusAwarded > 0}
-							+{missionResult.bonusAwarded}P
+							{fmtPts(missionResult.bonusAwarded)}
 						{/if}
 					</p>
 					{#if missionResult.allComplete}

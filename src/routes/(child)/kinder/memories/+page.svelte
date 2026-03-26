@@ -1,7 +1,11 @@
 <script lang="ts">
+import { formatPointValueWithSign } from '$lib/domain/point-display';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 let { data } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
 let detailOpen = $state(false);
 let selectedReview = $state<(typeof data.reviews)[number] | null>(null);
@@ -86,7 +90,7 @@ function handleTap(review: (typeof data.reviews)[number]) {
 						<div class="flex items-center gap-2">
 							<span class="text-sm">💎</span>
 							<span class="text-sm font-bold text-[var(--color-point)]">
-								+{review.totalPoints}P
+								{fmtPts(review.totalPoints)}
 							</span>
 						</div>
 					</div>
@@ -148,23 +152,23 @@ function handleTap(review: (typeof data.reviews)[number]) {
 				<div class="flex flex-col gap-1 text-sm">
 					<div class="flex justify-between">
 						<span>おたんじょうびボーナス</span>
-						<span class="font-bold">+{selectedReview.basePoints}P</span>
+						<span class="font-bold">{fmtPts(selectedReview.basePoints)}</span>
 					</div>
 					{#if selectedReview.healthPoints > 0}
 						<div class="flex justify-between">
 							<span>けんこうポイント</span>
-							<span class="font-bold">+{selectedReview.healthPoints}P</span>
+							<span class="font-bold">{fmtPts(selectedReview.healthPoints)}</span>
 						</div>
 					{/if}
 					{#if selectedReview.aspirationPoints > 0}
 						<div class="flex justify-between">
 							<span>もくひょうポイント</span>
-							<span class="font-bold">+{selectedReview.aspirationPoints}P</span>
+							<span class="font-bold">{fmtPts(selectedReview.aspirationPoints)}</span>
 						</div>
 					{/if}
 					<div class="flex justify-between border-t pt-1 mt-1">
 						<span class="font-bold">ごうけい</span>
-						<span class="font-bold text-[var(--color-point)]">+{selectedReview.totalPoints}P</span>
+						<span class="font-bold text-[var(--color-point)]">{fmtPts(selectedReview.totalPoints)}</span>
 					</div>
 				</div>
 			</div>

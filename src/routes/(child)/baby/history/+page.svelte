@@ -1,10 +1,15 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
+import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import Tabs from '$lib/ui/primitives/Tabs.svelte';
 
 import { getCategoryById } from '$lib/domain/validation/activity';
 
 let { data } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
+const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
 
 const tabItems = [
 	{ value: 'today', label: 'きょう' },
@@ -52,7 +57,7 @@ function formatDate(dateStr: string): string {
 				</div>
 				<div class="history-summary__row">
 					<span class="history-summary__label">ポイント</span>
-					<span class="history-summary__value history-summary__value--point">{data.summary.totalPoints}P</span>
+					<span class="history-summary__value history-summary__value--point">{fmtBal(data.summary.totalPoints)}</span>
 				</div>
 				{#if Object.keys(data.summary.byCategory).length > 0}
 					<div class="history-summary__cats">
@@ -95,7 +100,7 @@ function formatDate(dateStr: string): string {
 										</p>
 									</div>
 									<div class="history-log__points">
-										<p class="history-log__points-value">+{log.points + log.streakBonus}P</p>
+										<p class="history-log__points-value">{fmtPts(log.points + log.streakBonus)}</p>
 										{#if log.streakDays >= 2}
 											<p class="history-log__streak">{log.streakDays}にちれんぞく</p>
 										{/if}
