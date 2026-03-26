@@ -33,7 +33,17 @@ jobs:
 
       - run: npm ci
       - run: npx biome check .
+      - run: npx svelte-check
       - run: npx vitest run
+
+      # E2E tests (local mode)
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+
+      # E2E tests (cognito-dev mode)
+      - run: npx playwright test --config playwright.cognito-dev.config.ts
+
       - run: npm run build
 
   deploy:
