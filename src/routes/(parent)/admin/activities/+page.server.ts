@@ -55,6 +55,7 @@ export const actions: Actions = {
 		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null;
 		const nameKana = String(formData.get('nameKana') ?? '').trim() || null;
 		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
+		const triggerHint = String(formData.get('triggerHint') ?? '').trim() || null;
 
 		if (!name) return fail(400, { error: '名前を入力してください' });
 		if (!categoryId || categoryId < 1 || categoryId > 5) {
@@ -74,6 +75,7 @@ export const actions: Actions = {
 					source: 'parent',
 					nameKana,
 					nameKanji,
+					triggerHint,
 				},
 				tenantId,
 			);
@@ -102,6 +104,7 @@ export const actions: Actions = {
 		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null;
 		const nameKana = String(formData.get('nameKana') ?? '').trim() || null;
 		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
+		const triggerHint = String(formData.get('triggerHint') ?? '').trim() || null;
 
 		if (!id) return fail(400, { error: 'IDが必要です' });
 		if (!name) return fail(400, { error: '名前を入力してください' });
@@ -122,6 +125,7 @@ export const actions: Actions = {
 					dailyLimit,
 					nameKana,
 					nameKanji,
+					triggerHint,
 				},
 				tenantId,
 			);

@@ -36,6 +36,7 @@ let formAgeMax = $state('');
 let formDailyLimit = $state<string>('');
 let formNameKana = $state('');
 let formNameKanji = $state('');
+let formTriggerHint = $state('');
 
 // 編集・削除状態
 let editingId = $state<number | null>(null);
@@ -50,6 +51,7 @@ let editAgeMax = $state('');
 let editDailyLimit = $state<string>('');
 let editNameKana = $state('');
 let editNameKanji = $state('');
+let editTriggerHint = $state('');
 let deleteConfirmId = $state<number | null>(null);
 let actionMessage = $state('');
 
@@ -66,6 +68,7 @@ function startEdit(activity: (typeof data.activities)[0]) {
 	editDailyLimit = activity.dailyLimit != null ? String(activity.dailyLimit) : '';
 	editNameKana = activity.nameKana ?? '';
 	editNameKanji = activity.nameKanji ?? '';
+	editTriggerHint = activity.triggerHint ?? '';
 	deleteConfirmId = null;
 }
 
@@ -348,6 +351,7 @@ function acceptPreview() {
 						formDailyLimit = '';
 						formNameKana = '';
 						formNameKanji = '';
+						formTriggerHint = '';
 					}
 					await update();
 				};
@@ -511,6 +515,17 @@ function acceptPreview() {
 					placeholder="例: お片付けをした"
 				/>
 				<p class="text-xs text-gray-400 mt-1">6歳以上の子供に表示する名前</p>
+			</div>
+
+			<!-- トリガーヒント -->
+			<div>
+				<span class="block text-xs font-bold text-gray-500 mb-1">トリガーヒント（省略可）</span>
+				<input
+					type="text" name="triggerHint" bind:value={formTriggerHint} maxlength="30"
+					class="w-full px-3 py-2 border rounded-lg text-sm"
+					placeholder="例: はみがきが終わったら押してね"
+				/>
+				<p class="text-xs text-gray-400 mt-1">カードに小さく表示される声かけ文（30文字以内）</p>
 			</div>
 
 			<button type="submit" class="w-full py-2 bg-green-500 text-white rounded-lg font-bold text-sm hover:bg-green-600 transition-colors">
@@ -696,6 +711,12 @@ function acceptPreview() {
 									<input type="text" name="nameKanji" bind:value={editNameKanji} class="w-full px-2 py-1.5 border rounded text-sm" placeholder="省略可" />
 								</label>
 							</div>
+							<!-- トリガーヒント -->
+							<label class="block">
+								<span class="text-xs font-bold text-gray-500">子供へのヒント（いつ押すか）</span>
+								<input type="text" name="triggerHint" bind:value={editTriggerHint} maxlength="30" class="w-full px-2 py-1.5 border rounded text-sm" placeholder="はみがきが終わったら押してね" />
+								<span class="text-[10px] text-gray-400">カードの下に小さく表示されます（30文字まで）</span>
+							</label>
 							<div class="flex gap-2">
 								<button type="submit" class="flex-1 py-2 bg-blue-500 text-white rounded-lg font-bold text-sm hover:bg-blue-600 transition-colors">
 									保存

@@ -64,6 +64,7 @@ beforeAll(() => {
 			description TEXT,
 		name_kana TEXT,
 		name_kanji TEXT,
+		trigger_hint TEXT,
 			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 

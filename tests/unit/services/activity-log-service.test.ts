@@ -59,6 +59,7 @@ const CREATE_TABLES = `
 		description TEXT,
 		name_kana TEXT,
 		name_kanji TEXT,
+		trigger_hint TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE activity_logs (
