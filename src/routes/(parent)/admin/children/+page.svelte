@@ -1,7 +1,16 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import {
+	formatPointValue,
+	formatPointValueWithSign,
+	getUnitLabel,
+} from '$lib/domain/point-display';
 
 let { data } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
+const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
 let showAddForm = $state(false);
 let editingChildId = $state<number | null>(null);
@@ -247,7 +256,7 @@ function handleFileSelect(childId: number, event: Event) {
 								<p class="text-sm text-gray-400">{child.age}歳 / {child.uiMode} / Lv.{child.level}</p>
 							</div>
 							<div class="text-right">
-								<p class="text-lg font-bold text-amber-500">{child.balance.toLocaleString()}P</p>
+								<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance)}</p>
 							</div>
 						</a>
 						<div class="flex gap-1">
@@ -362,8 +371,8 @@ function handleFileSelect(childId: number, event: Event) {
 					<p class="text-xs text-gray-500">{child.status?.levelTitle ?? ''}</p>
 				</div>
 				<div class="bg-amber-50 rounded-lg p-3">
-					<p class="text-xl font-bold text-amber-600">{child.balance?.balance?.toLocaleString() ?? 0}P</p>
-					<p class="text-xs text-gray-500">ポイント残高</p>
+					<p class="text-xl font-bold text-amber-600">{fmtBal(child.balance?.balance ?? 0)}</p>
+					<p class="text-xs text-gray-500">{getUnitLabel(ps.mode, ps.currency)}残高</p>
 				</div>
 				<div class="bg-green-50 rounded-lg p-3">
 					<p class="text-xl font-bold text-green-600">{child.logSummary?.totalCount ?? 0}</p>
@@ -404,7 +413,7 @@ function handleFileSelect(childId: number, event: Event) {
 							<div class="flex items-center gap-2 text-sm py-1 border-b border-gray-50">
 								<span>{log.activityIcon}</span>
 								<span class="flex-1 text-gray-600">{log.activityName}</span>
-								<span class="text-amber-500 font-bold">+{log.points}P</span>
+								<span class="text-amber-500 font-bold">{fmtPts(log.points)}</span>
 								<span class="text-xs text-gray-400">{new Date(log.recordedAt).toLocaleDateString('ja-JP')}</span>
 							</div>
 						{/each}
@@ -439,13 +448,13 @@ function handleFileSelect(childId: number, event: Event) {
 							<div class="bg-pink-50 rounded-lg p-3 text-sm">
 								<div class="flex items-center justify-between mb-1">
 									<span class="font-bold">{review.reviewYear}年（{review.ageAtReview}歳）</span>
-									<span class="text-amber-600 font-bold">+{review.totalPoints}P</span>
+									<span class="text-amber-600 font-bold">{fmtPts(review.totalPoints)}</span>
 								</div>
 								{#if review.aspirationText}
 									<p class="text-gray-600 text-xs">🌟 {review.aspirationText}</p>
 								{/if}
 								<p class="text-gray-400 text-xs mt-1">
-									基本:{review.basePoints}P / 健康:{review.healthPoints}P / 目標:{review.aspirationPoints}P
+									基本:{fmtPts(review.basePoints)} / 健康:{fmtPts(review.healthPoints)} / 目標:{fmtPts(review.aspirationPoints)}
 								</p>
 							</div>
 						{/each}

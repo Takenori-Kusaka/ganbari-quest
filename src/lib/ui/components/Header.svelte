@@ -1,4 +1,6 @@
 <script lang="ts">
+import type { PointSettings } from '$lib/domain/point-display';
+import { DEFAULT_POINT_SETTINGS, formatPointValue } from '$lib/domain/point-display';
 import AvatarDisplay from '$lib/ui/components/AvatarDisplay.svelte';
 
 interface Props {
@@ -8,9 +10,23 @@ interface Props {
 	showLevel?: boolean;
 	avatarUrl?: string | null;
 	avatarConfig?: { bgCss: string; frameCss: string; effectClass: string } | null;
+	pointSettings?: PointSettings;
 }
 
-let { nickname, totalPoints, level, showLevel = true, avatarUrl, avatarConfig }: Props = $props();
+let {
+	nickname,
+	totalPoints,
+	level,
+	showLevel = true,
+	avatarUrl,
+	avatarConfig,
+	pointSettings,
+}: Props = $props();
+
+const settings = $derived(pointSettings ?? DEFAULT_POINT_SETTINGS);
+const balanceDisplay = $derived(
+	formatPointValue(totalPoints, settings.mode, settings.currency, settings.rate),
+);
 </script>
 
 <header
@@ -33,6 +49,6 @@ let { nickname, totalPoints, level, showLevel = true, avatarUrl, avatarConfig }:
 	</div>
 	<div class="flex items-center gap-1 font-bold">
 		<span class="text-xl" aria-hidden="true">⭐</span>
-		<span class="text-lg">{totalPoints.toLocaleString()}P</span>
+		<span class="text-lg">{balanceDisplay}</span>
 	</div>
 </header>

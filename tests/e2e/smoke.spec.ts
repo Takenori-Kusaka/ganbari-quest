@@ -200,7 +200,7 @@ test.describe('UC-01: 活動記録フロー', () => {
 		const recorded = await recordAnyActivity(page);
 		expect(recorded).toBe(true);
 
-		await expect(page.getByText(/ポイント！/).first()).toBeVisible();
+		await expect(page.getByText(/\+\d+/).first()).toBeVisible();
 		await expect(page.getByRole('button', { name: 'やったね！' }).first()).toBeVisible();
 	});
 
