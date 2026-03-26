@@ -16,7 +16,15 @@ export const createUser: IAuthRepo['createUser'] = async () => {
 	throw new Error(NOT_SUPPORTED);
 };
 export const findTenantById: IAuthRepo['findTenantById'] = async () => {
-	throw new Error(NOT_SUPPORTED);
+	// local モード用ダミーテナント
+	return {
+		tenantId: 'local',
+		name: 'ローカル家族',
+		ownerId: 'local',
+		status: 'active' as const,
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
+	};
 };
 export const createTenant: IAuthRepo['createTenant'] = async () => {
 	throw new Error(NOT_SUPPORTED);
