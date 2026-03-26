@@ -30,7 +30,7 @@ function stripKeys<T extends Record<string, unknown>>(
 }
 
 /** 全アイテムマスタを取得 */
-export async function findAllAvatarItems(): Promise<AvatarItem[]> {
+export async function findAllAvatarItems(_tenantId: string): Promise<AvatarItem[]> {
 	const result = await getDocClient().send(
 		new ScanCommand({
 			TableName: TABLE_NAME,
@@ -55,7 +55,10 @@ export async function findAllAvatarItems(): Promise<AvatarItem[]> {
 }
 
 /** カテゴリ別アイテム取得 */
-export async function findAvatarItemsByCategory(category: AvatarCategory): Promise<AvatarItem[]> {
+export async function findAvatarItemsByCategory(
+	category: AvatarCategory,
+	_tenantId: string,
+): Promise<AvatarItem[]> {
 	const result = await getDocClient().send(
 		new ScanCommand({
 			TableName: TABLE_NAME,
@@ -80,7 +83,10 @@ export async function findAvatarItemsByCategory(category: AvatarCategory): Promi
 }
 
 /** アイテム単体取得 */
-export async function findAvatarItemById(itemId: number): Promise<AvatarItem | undefined> {
+export async function findAvatarItemById(
+	itemId: number,
+	_tenantId: string,
+): Promise<AvatarItem | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
@@ -95,8 +101,9 @@ export async function findAvatarItemById(itemId: number): Promise<AvatarItem | u
 /** 子供の所持アイテム一覧 */
 export async function findOwnedItems(
 	childId: number,
+	tenantId: string,
 ): Promise<{ avatarItemId: number; acquiredAt: string }[]> {
-	const pk = childPK(childId);
+	const pk = childPK(childId, tenantId);
 	const prefix = childAvatarItemPrefix();
 
 	const result = await getDocClient().send(
@@ -118,11 +125,15 @@ export async function findOwnedItems(
 }
 
 /** 所持チェック */
-export async function isItemOwned(childId: number, itemId: number): Promise<boolean> {
+export async function isItemOwned(
+	childId: number,
+	itemId: number,
+	tenantId: string,
+): Promise<boolean> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childAvatarItemKey(childId, itemId),
+			Key: childAvatarItemKey(childId, itemId, tenantId),
 			ProjectionExpression: 'id',
 		}),
 	);
@@ -134,8 +145,9 @@ export async function isItemOwned(childId: number, itemId: number): Promise<bool
 export async function insertChildAvatarItem(
 	childId: number,
 	itemId: number,
+	tenantId: string,
 ): Promise<ChildAvatarItem> {
-	const id = await nextId(ENTITY_NAMES.childAvatarItem);
+	const id = await nextId(ENTITY_NAMES.childAvatarItem, tenantId);
 	const now = new Date().toISOString();
 
 	const childItem: ChildAvatarItem = {
@@ -145,7 +157,7 @@ export async function insertChildAvatarItem(
 		acquiredAt: now,
 	};
 
-	const key = childAvatarItemKey(childId, itemId);
+	const key = childAvatarItemKey(childId, itemId, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -163,11 +175,12 @@ export async function insertChildAvatarItem(
 /** 装備中のアバター設定を取得 */
 export async function getActiveAvatarIds(
 	childId: number,
+	tenantId: string,
 ): Promise<{ bgId: number | null; frameId: number | null; effectId: number | null }> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(childId),
+			Key: childKey(childId, tenantId),
 			ProjectionExpression: 'activeAvatarBg, activeAvatarFrame, activeAvatarEffect',
 		}),
 	);
@@ -184,6 +197,7 @@ export async function setActiveAvatar(
 	childId: number,
 	category: AvatarCategory,
 	itemId: number | null,
+	tenantId: string,
 ): Promise<void> {
 	const fieldMap: Record<AvatarCategory, string> = {
 		background: 'activeAvatarBg',
@@ -195,7 +209,7 @@ export async function setActiveAvatar(
 	await getDocClient().send(
 		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(childId),
+			Key: childKey(childId, tenantId),
 			UpdateExpression: 'SET #field = :value',
 			ExpressionAttributeNames: { '#field': field },
 			ExpressionAttributeValues: { ':value': itemId },

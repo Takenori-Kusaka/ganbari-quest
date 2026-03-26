@@ -3,6 +3,7 @@ import {
 	SESSION_MAX_AGE_SECONDS,
 	pinSchema,
 } from '$lib/domain/validation/auth';
+import { requireTenantId } from '$lib/server/auth/factory';
 import { login } from '$lib/server/services/auth-service';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -12,7 +13,8 @@ export const load: PageServerLoad = () => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, cookies }) => {
+	default: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const pin = formData.get('pin');
 
@@ -25,7 +27,7 @@ export const actions: Actions = {
 		}
 
 		// 認証
-		const result = await login(parsed.data);
+		const result = await login(parsed.data, tenantId);
 
 		if ('error' in result) {
 			if (result.error === 'LOCKED_OUT') {

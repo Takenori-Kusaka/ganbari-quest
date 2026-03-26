@@ -70,34 +70,38 @@ const { findAllCareerFields, findCareerFieldsByAge } = await import(
 describe('career-service', () => {
 	describe('getCareerFields', () => {
 		it('全職業分野を取得できる', async () => {
-			const fields = await getCareerFields();
+			const fields = await getCareerFields('test-tenant');
 			expect(fields).toHaveLength(3);
-			expect(fields[0]!.name).toBe('かがくしゃ');
+			expect(fields[0]?.name).toBe('かがくしゃ');
 		});
 
 		it('年齢フィルタで絞り込める', async () => {
-			const fields = await getCareerFields(7);
+			const fields = await getCareerFields('test-tenant', 7);
 			// minAge <= 7 のもの: かがくしゃ(6), スポーツ(6) = 2件
 			expect(fields).toHaveLength(2);
 			expect(fields.every((f) => f.minAge <= 7)).toBe(true);
 		});
 
 		it('年齢8以上ならエンジニアも取得', async () => {
-			const fields = await getCareerFields(8);
+			const fields = await getCareerFields('test-tenant', 8);
 			expect(fields).toHaveLength(3);
 		});
 	});
 
 	describe('createCareerPlan', () => {
 		it('マンダラチャート付きでプランを作成すると500pt付与', async () => {
-			const result = await createCareerPlan(childId, {
-				careerFieldId: 1,
-				dreamText: 'かがくしゃになりたい！',
-				mandalaChart: {
-					center: 'かがくしゃになる',
-					surrounding: [{ goal: 'じっけんする', actions: ['かがくのほんをよむ'] }],
+			const result = await createCareerPlan(
+				childId,
+				{
+					careerFieldId: 1,
+					dreamText: 'かがくしゃになりたい！',
+					mandalaChart: {
+						center: 'かがくしゃになる',
+						surrounding: [{ goal: 'じっけんする', actions: ['かがくのほんをよむ'] }],
+					},
 				},
-			});
+				'test-tenant',
+			);
 
 			const plan = await result.plan;
 			expect(plan).toBeDefined();
@@ -107,44 +111,60 @@ describe('career-service', () => {
 		});
 
 		it('タイムライン付きだと追加で300pt', async () => {
-			const result = await createCareerPlan(childId, {
-				careerFieldId: 2,
-				dreamText: 'サッカーせんしゅになる',
-				mandalaChart: {
-					center: 'サッカーせんしゅになる',
-					surrounding: [],
+			const result = await createCareerPlan(
+				childId,
+				{
+					careerFieldId: 2,
+					dreamText: 'サッカーせんしゅになる',
+					mandalaChart: {
+						center: 'サッカーせんしゅになる',
+						surrounding: [],
+					},
+					timeline3y: 'チームでレギュラーになる',
+					timeline5y: 'けんのたいかいにでる',
+					timeline10y: 'プロになる',
 				},
-				timeline3y: 'チームでレギュラーになる',
-				timeline5y: 'けんのたいかいにでる',
-				timeline10y: 'プロになる',
-			});
+				'test-tenant',
+			);
 
 			expect(result.pointsAwarded).toBe(500 + 300);
 		});
 
 		it('マンダラなし・タイムラインなしなら0pt', async () => {
-			const result = await createCareerPlan(childId, {
-				careerFieldId: 1,
-				dreamText: 'まだかんがえちゅう',
-			});
+			const result = await createCareerPlan(
+				childId,
+				{
+					careerFieldId: 1,
+					dreamText: 'まだかんがえちゅう',
+				},
+				'test-tenant',
+			);
 
 			expect(result.pointsAwarded).toBe(0);
 		});
 
 		it('新規プラン作成で既存プランが非アクティブ化', async () => {
 			// 1回目
-			await createCareerPlan(childId, {
-				careerFieldId: 1,
-				mandalaChart: { center: 'プラン1', surrounding: [] },
-			});
+			await createCareerPlan(
+				childId,
+				{
+					careerFieldId: 1,
+					mandalaChart: { center: 'プラン1', surrounding: [] },
+				},
+				'test-tenant',
+			);
 
 			// 2回目
-			const _result = await createCareerPlan(childId, {
-				careerFieldId: 2,
-				mandalaChart: { center: 'プラン2', surrounding: [] },
-			});
+			const _result = await createCareerPlan(
+				childId,
+				{
+					careerFieldId: 2,
+					mandalaChart: { center: 'プラン2', surrounding: [] },
+				},
+				'test-tenant',
+			);
 
-			const active = await getActiveCareerPlan(childId);
+			const active = await getActiveCareerPlan(childId, 'test-tenant');
 			expect(active).not.toBeNull();
 			expect(active?.careerFieldId).toBe(2);
 			expect(JSON.parse(active!.mandalaChart).center).toBe('プラン2');
@@ -153,18 +173,25 @@ describe('career-service', () => {
 
 	describe('getActiveCareerPlan', () => {
 		it('プラン未作成ならnull', async () => {
-			const plan = await getActiveCareerPlan(childId);
+			const plan = await getActiveCareerPlan(childId, 'test-tenant');
 			expect(plan).toBeNull();
 		});
 
 		it('プラン作成後に取得できる', async () => {
-			await createCareerPlan(childId, {
-				careerFieldId: 1,
-				dreamText: 'かがくしゃ',
-				mandalaChart: { center: 'テスト', surrounding: [] },
-			});
+			await createCareerPlan(
+				childId,
+				{
+					careerFieldId: 1,
+					dreamText: 'かがくしゃ',
+					mandalaChart: { center: 'テスト', surrounding: [] },
+				},
+				'test-tenant',
+			);
 
-			const plan = (await getActiveCareerPlan(childId)) as Record<string, unknown> | null;
+			const plan = (await getActiveCareerPlan(childId, 'test-tenant')) as Record<
+				string,
+				unknown
+			> | null;
 			expect(plan).not.toBeNull();
 			expect(plan?.dreamText).toBe('かがくしゃ');
 			const careerField = (await plan?.careerField) as { name: string } | null | undefined;
@@ -175,55 +202,87 @@ describe('career-service', () => {
 
 	describe('updateCareerPlanWithPoints', () => {
 		it('マンダラ更新で月1回100pt', async () => {
-			const created = await createCareerPlan(childId, {
-				careerFieldId: 1,
-				mandalaChart: { center: 'テスト', surrounding: [] },
-			});
+			const created = await createCareerPlan(
+				childId,
+				{
+					careerFieldId: 1,
+					mandalaChart: { center: 'テスト', surrounding: [] },
+				},
+				'test-tenant',
+			);
 			const createdPlan = await created.plan;
 
-			const result = await updateCareerPlanWithPoints(createdPlan.id, childId, {
-				mandalaChart: {
-					center: 'テスト更新',
-					surrounding: [{ goal: '新しいもくひょう', actions: [] }],
+			const result = await updateCareerPlanWithPoints(
+				createdPlan.id,
+				childId,
+				{
+					mandalaChart: {
+						center: 'テスト更新',
+						surrounding: [{ goal: '新しいもくひょう', actions: [] }],
+					},
 				},
-			});
+				'test-tenant',
+			);
 
 			expect(result.pointsAwarded).toBe(100);
 			expect(result.plan).toBeDefined();
 		});
 
 		it('同月2回目のマンダラ更新は0pt', async () => {
-			const created = await createCareerPlan(childId, {
-				careerFieldId: 1,
-				mandalaChart: { center: 'テスト', surrounding: [] },
-			});
+			const created = await createCareerPlan(
+				childId,
+				{
+					careerFieldId: 1,
+					mandalaChart: { center: 'テスト', surrounding: [] },
+				},
+				'test-tenant',
+			);
 			const createdPlan = await created.plan;
 
 			// 1回目の更新
-			await updateCareerPlanWithPoints(createdPlan.id, childId, {
-				mandalaChart: { center: 'テスト更新1', surrounding: [] },
-			});
+			await updateCareerPlanWithPoints(
+				createdPlan.id,
+				childId,
+				{
+					mandalaChart: { center: 'テスト更新1', surrounding: [] },
+				},
+				'test-tenant',
+			);
 
 			// 2回目の更新（同月）
-			const result = await updateCareerPlanWithPoints(createdPlan.id, childId, {
-				mandalaChart: { center: 'テスト更新2', surrounding: [] },
-			});
+			const result = await updateCareerPlanWithPoints(
+				createdPlan.id,
+				childId,
+				{
+					mandalaChart: { center: 'テスト更新2', surrounding: [] },
+				},
+				'test-tenant',
+			);
 
 			expect(result.pointsAwarded).toBe(0);
 		});
 
 		it('バージョンがインクリメントされる', async () => {
-			const created = await createCareerPlan(childId, {
-				careerFieldId: 1,
-				mandalaChart: { center: 'テスト', surrounding: [] },
-			});
+			const created = await createCareerPlan(
+				childId,
+				{
+					careerFieldId: 1,
+					mandalaChart: { center: 'テスト', surrounding: [] },
+				},
+				'test-tenant',
+			);
 			const createdPlan = await created.plan;
 
 			expect(createdPlan.version).toBe(1);
 
-			const updated = await updateCareerPlanWithPoints(createdPlan.id, childId, {
-				dreamText: '夢を変更',
-			});
+			const updated = await updateCareerPlanWithPoints(
+				createdPlan.id,
+				childId,
+				{
+					dreamText: '夢を変更',
+				},
+				'test-tenant',
+			);
 			const updatedPlan = await updated.plan;
 
 			expect(updatedPlan?.version).toBe(2);

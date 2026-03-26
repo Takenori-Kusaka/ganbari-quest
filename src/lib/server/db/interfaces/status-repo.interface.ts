@@ -7,24 +7,41 @@ import type {
 } from '../types';
 
 export interface IStatusRepo {
-	findStatuses(childId: number): Promise<Status[]>;
-	findStatus(childId: number, categoryId: number): Promise<Status | undefined>;
-	upsertStatus(childId: number, categoryId: number, value: number): Promise<Status>;
-	insertStatusHistory(input: InsertStatusHistoryInput): Promise<StatusHistoryEntry>;
+	findStatuses(childId: number, tenantId: string): Promise<Status[]>;
+	findStatus(childId: number, categoryId: number, tenantId: string): Promise<Status | undefined>;
+	upsertStatus(
+		childId: number,
+		categoryId: number,
+		value: number,
+		tenantId: string,
+	): Promise<Status>;
+	insertStatusHistory(
+		input: InsertStatusHistoryInput,
+		tenantId: string,
+	): Promise<StatusHistoryEntry>;
 	findRecentStatusHistory(
 		childId: number,
 		categoryId: number,
+		tenantId: string,
 		limit?: number,
 	): Promise<StatusHistoryEntry[]>;
-	findBenchmark(age: number, categoryId: number): Promise<MarketBenchmark | undefined>;
-	findAllBenchmarks(): Promise<MarketBenchmark[]>;
+	findBenchmark(
+		age: number,
+		categoryId: number,
+		tenantId: string,
+	): Promise<MarketBenchmark | undefined>;
+	findAllBenchmarks(tenantId: string): Promise<MarketBenchmark[]>;
 	upsertBenchmark(
 		age: number,
 		categoryId: number,
 		mean: number,
 		stdDev: number,
 		source: string,
+		tenantId: string,
 	): Promise<MarketBenchmark>;
-	findChildById(id: number): Promise<Child | undefined>;
-	findLastActivityDates(childId: number): Promise<{ category: number; lastDate: string | null }[]>;
+	findChildById(id: number, tenantId: string): Promise<Child | undefined>;
+	findLastActivityDates(
+		childId: number,
+		tenantId: string,
+	): Promise<{ category: number; lastDate: string | null }[]>;
 }

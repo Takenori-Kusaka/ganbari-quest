@@ -10,12 +10,12 @@ import { careerFields, careerPlanHistory, careerPlans, pointLedger } from '../sc
 // ============================================================
 
 /** 全職業分野を取得 */
-export async function findAllCareerFields() {
+export async function findAllCareerFields(_tenantId: string) {
 	return db.select().from(careerFields).orderBy(careerFields.id).all();
 }
 
 /** 年齢に適合する職業分野を取得 */
-export async function findCareerFieldsByAge(age: number) {
+export async function findCareerFieldsByAge(age: number, _tenantId: string) {
 	return db
 		.select()
 		.from(careerFields)
@@ -25,7 +25,7 @@ export async function findCareerFieldsByAge(age: number) {
 }
 
 /** 職業分野を1件取得 */
-export async function findCareerFieldById(id: number) {
+export async function findCareerFieldById(id: number, _tenantId: string) {
 	return db.select().from(careerFields).where(eq(careerFields.id, id)).get();
 }
 
@@ -34,7 +34,7 @@ export async function findCareerFieldById(id: number) {
 // ============================================================
 
 /** アクティブなプランを取得 */
-export async function findActiveCareerPlan(childId: number) {
+export async function findActiveCareerPlan(childId: number, _tenantId: string) {
 	return db
 		.select()
 		.from(careerPlans)
@@ -43,7 +43,7 @@ export async function findActiveCareerPlan(childId: number) {
 }
 
 /** 子供の全プランを取得 */
-export async function findCareerPlansByChildId(childId: number) {
+export async function findCareerPlansByChildId(childId: number, _tenantId: string) {
 	return db
 		.select()
 		.from(careerPlans)
@@ -53,15 +53,18 @@ export async function findCareerPlansByChildId(childId: number) {
 }
 
 /** プラン作成 */
-export async function insertCareerPlan(input: {
-	childId: number;
-	careerFieldId?: number;
-	dreamText?: string;
-	mandalaChart?: string;
-	timeline3y?: string;
-	timeline5y?: string;
-	timeline10y?: string;
-}) {
+export async function insertCareerPlan(
+	input: {
+		childId: number;
+		careerFieldId?: number;
+		dreamText?: string;
+		mandalaChart?: string;
+		timeline3y?: string;
+		timeline5y?: string;
+		timeline10y?: string;
+	},
+	_tenantId: string,
+) {
 	return db
 		.insert(careerPlans)
 		.values({
@@ -89,6 +92,7 @@ export async function updateCareerPlan(
 		timeline10y?: string;
 		version?: number;
 	},
+	_tenantId: string,
 ) {
 	return db
 		.update(careerPlans)
@@ -108,7 +112,7 @@ export async function updateCareerPlan(
 }
 
 /** 既存プランを全て非アクティブ化 */
-export async function deactivateCareerPlans(childId: number) {
+export async function deactivateCareerPlans(childId: number, _tenantId: string) {
 	await db
 		.update(careerPlans)
 		.set({ isActive: 0 })
@@ -121,12 +125,15 @@ export async function deactivateCareerPlans(childId: number) {
 // ============================================================
 
 /** 履歴を挿入 */
-export async function insertCareerPlanHistory(input: {
-	careerPlanId: number;
-	action: string;
-	pointsEarned: number;
-	snapshot?: string;
-}) {
+export async function insertCareerPlanHistory(
+	input: {
+		careerPlanId: number;
+		action: string;
+		pointsEarned: number;
+		snapshot?: string;
+	},
+	_tenantId: string,
+) {
 	return db
 		.insert(careerPlanHistory)
 		.values({
@@ -140,7 +147,11 @@ export async function insertCareerPlanHistory(input: {
 }
 
 /** 指定アクションの最新履歴を取得（月1回制限チェック用） */
-export async function findLatestHistoryByAction(careerPlanId: number, action: string) {
+export async function findLatestHistoryByAction(
+	careerPlanId: number,
+	action: string,
+	_tenantId: string,
+) {
 	return db
 		.select()
 		.from(careerPlanHistory)
@@ -157,12 +168,15 @@ export async function findLatestHistoryByAction(careerPlanId: number, action: st
 // ============================================================
 
 /** キャリアプランのポイントを付与 */
-export async function insertCareerPointEntry(input: {
-	childId: number;
-	amount: number;
-	description: string;
-	referenceId?: number;
-}) {
+export async function insertCareerPointEntry(
+	input: {
+		childId: number;
+		amount: number;
+		description: string;
+		referenceId?: number;
+	},
+	_tenantId: string,
+) {
 	return db
 		.insert(pointLedger)
 		.values({

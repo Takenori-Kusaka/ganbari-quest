@@ -22,19 +22,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// セットアップチェック（local モードのみ — 子供が未登録ならセットアップへ）
 	if (authMode === 'local') {
+		const tenantId = context?.tenantId ?? 'local';
 		if (
 			!path.startsWith('/setup') &&
 			!path.startsWith('/_app') &&
 			!path.startsWith('/favicon') &&
 			!path.startsWith('/api/health')
 		) {
-			if (await isSetupRequired()) {
+			if (await isSetupRequired(tenantId)) {
 				redirect(302, '/setup');
 			}
 		}
 
 		// セットアップ完了済みなら /setup へのアクセスをブロック
-		if (path.startsWith('/setup') && !(await isSetupRequired())) {
+		if (path.startsWith('/setup') && !(await isSetupRequired(tenantId))) {
 			redirect(302, '/');
 		}
 	}

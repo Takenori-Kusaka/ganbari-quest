@@ -3,26 +3,36 @@
 import { getRepos } from './factory';
 import type { InsertStatusHistoryInput } from './types';
 
-export async function findStatuses(childId: number) {
-	return getRepos().status.findStatuses(childId);
+export async function findStatuses(childId: number, tenantId: string) {
+	return getRepos().status.findStatuses(childId, tenantId);
 }
-export async function findStatus(childId: number, categoryId: number) {
-	return getRepos().status.findStatus(childId, categoryId);
+export async function findStatus(childId: number, categoryId: number, tenantId: string) {
+	return getRepos().status.findStatus(childId, categoryId, tenantId);
 }
-export async function upsertStatus(childId: number, categoryId: number, value: number) {
-	return getRepos().status.upsertStatus(childId, categoryId, value);
+export async function upsertStatus(
+	childId: number,
+	categoryId: number,
+	value: number,
+	tenantId: string,
+) {
+	return getRepos().status.upsertStatus(childId, categoryId, value, tenantId);
 }
-export async function insertStatusHistory(input: InsertStatusHistoryInput) {
-	return getRepos().status.insertStatusHistory(input);
+export async function insertStatusHistory(input: InsertStatusHistoryInput, tenantId: string) {
+	return getRepos().status.insertStatusHistory(input, tenantId);
 }
-export async function findRecentStatusHistory(childId: number, categoryId: number, limit = 7) {
-	return getRepos().status.findRecentStatusHistory(childId, categoryId, limit);
+export async function findRecentStatusHistory(
+	childId: number,
+	categoryId: number,
+	tenantId: string,
+	limit = 7,
+) {
+	return getRepos().status.findRecentStatusHistory(childId, categoryId, tenantId, limit);
 }
-export async function findBenchmark(age: number, categoryId: number) {
-	return getRepos().status.findBenchmark(age, categoryId);
+export async function findBenchmark(age: number, categoryId: number, tenantId: string) {
+	return getRepos().status.findBenchmark(age, categoryId, tenantId);
 }
-export async function findAllBenchmarks() {
-	return getRepos().status.findAllBenchmarks();
+export async function findAllBenchmarks(tenantId: string) {
+	return getRepos().status.findAllBenchmarks(tenantId);
 }
 export async function upsertBenchmark(
 	age: number,
@@ -30,12 +40,13 @@ export async function upsertBenchmark(
 	mean: number,
 	stdDev: number,
 	source: string,
+	tenantId: string,
 ) {
-	return getRepos().status.upsertBenchmark(age, categoryId, mean, stdDev, source);
+	return getRepos().status.upsertBenchmark(age, categoryId, mean, stdDev, source, tenantId);
 }
-export async function findChildById(id: number) {
-	return getRepos().status.findChildById(id);
+export async function findChildById(id: number, tenantId: string) {
+	return getRepos().status.findChildById(id, tenantId);
 }
-export async function findLastActivityDates(childId: number) {
-	return getRepos().status.findLastActivityDates(childId);
+export async function findLastActivityDates(childId: number, tenantId: string) {
+	return getRepos().status.findLastActivityDates(childId, tenantId);
 }

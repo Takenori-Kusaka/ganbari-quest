@@ -14,7 +14,11 @@ import {
 // Templates
 // ============================================================
 
-export async function findTemplatesByChild(childId: number, includeInactive = false) {
+export async function findTemplatesByChild(
+	childId: number,
+	_tenantId: string,
+	includeInactive = false,
+) {
 	const rows = db
 		.select()
 		.from(checklistTemplates)
@@ -23,18 +27,21 @@ export async function findTemplatesByChild(childId: number, includeInactive = fa
 	return includeInactive ? rows : rows.filter((r) => r.isActive === 1);
 }
 
-export async function findTemplateById(id: number) {
+export async function findTemplateById(id: number, _tenantId: string) {
 	return db.select().from(checklistTemplates).where(eq(checklistTemplates.id, id)).get();
 }
 
-export async function insertTemplate(input: {
-	childId: number;
-	name: string;
-	icon?: string;
-	pointsPerItem?: number;
-	completionBonus?: number;
-	isActive?: number;
-}) {
+export async function insertTemplate(
+	input: {
+		childId: number;
+		name: string;
+		icon?: string;
+		pointsPerItem?: number;
+		completionBonus?: number;
+		isActive?: number;
+	},
+	_tenantId: string,
+) {
 	return db.insert(checklistTemplates).values(input).returning().get();
 }
 
@@ -47,6 +54,7 @@ export async function updateTemplate(
 		completionBonus?: number;
 		isActive?: number;
 	},
+	_tenantId: string,
 ) {
 	return db
 		.update(checklistTemplates)
@@ -56,7 +64,7 @@ export async function updateTemplate(
 		.get();
 }
 
-export async function deleteTemplate(id: number) {
+export async function deleteTemplate(id: number, _tenantId: string) {
 	db.delete(checklistTemplateItems).where(eq(checklistTemplateItems.templateId, id)).run();
 	db.delete(checklistLogs).where(eq(checklistLogs.templateId, id)).run();
 	db.delete(checklistTemplates).where(eq(checklistTemplates.id, id)).run();
@@ -66,7 +74,7 @@ export async function deleteTemplate(id: number) {
 // Template Items
 // ============================================================
 
-export async function findTemplateItems(templateId: number) {
+export async function findTemplateItems(templateId: number, _tenantId: string) {
 	return db
 		.select()
 		.from(checklistTemplateItems)
@@ -75,18 +83,21 @@ export async function findTemplateItems(templateId: number) {
 		.all();
 }
 
-export async function insertTemplateItem(input: {
-	templateId: number;
-	name: string;
-	icon?: string;
-	frequency?: string;
-	direction?: string;
-	sortOrder?: number;
-}) {
+export async function insertTemplateItem(
+	input: {
+		templateId: number;
+		name: string;
+		icon?: string;
+		frequency?: string;
+		direction?: string;
+		sortOrder?: number;
+	},
+	_tenantId: string,
+) {
 	return db.insert(checklistTemplateItems).values(input).returning().get();
 }
 
-export async function deleteTemplateItem(id: number) {
+export async function deleteTemplateItem(id: number, _tenantId: string) {
 	db.delete(checklistTemplateItems).where(eq(checklistTemplateItems.id, id)).run();
 }
 
@@ -94,7 +105,12 @@ export async function deleteTemplateItem(id: number) {
 // Logs (daily check records)
 // ============================================================
 
-export async function findTodayLog(childId: number, templateId: number, date: string) {
+export async function findTodayLog(
+	childId: number,
+	templateId: number,
+	date: string,
+	_tenantId: string,
+) {
 	return db
 		.select()
 		.from(checklistLogs)
@@ -108,15 +124,23 @@ export async function findTodayLog(childId: number, templateId: number, date: st
 		.get();
 }
 
-export async function upsertLog(input: {
-	childId: number;
-	templateId: number;
-	checkedDate: string;
-	itemsJson: string;
-	completedAll: number;
-	pointsAwarded: number;
-}) {
-	const existing = await findTodayLog(input.childId, input.templateId, input.checkedDate);
+export async function upsertLog(
+	input: {
+		childId: number;
+		templateId: number;
+		checkedDate: string;
+		itemsJson: string;
+		completedAll: number;
+		pointsAwarded: number;
+	},
+	_tenantId: string,
+) {
+	const existing = await findTodayLog(
+		input.childId,
+		input.templateId,
+		input.checkedDate,
+		_tenantId,
+	);
 	if (existing) {
 		return db
 			.update(checklistLogs)
@@ -136,7 +160,7 @@ export async function upsertLog(input: {
 // Overrides (one-off items)
 // ============================================================
 
-export async function findOverrides(childId: number, date: string) {
+export async function findOverrides(childId: number, date: string, _tenantId: string) {
 	return db
 		.select()
 		.from(checklistOverrides)
@@ -144,16 +168,19 @@ export async function findOverrides(childId: number, date: string) {
 		.all();
 }
 
-export async function insertOverride(input: {
-	childId: number;
-	targetDate: string;
-	action: string;
-	itemName: string;
-	icon?: string;
-}) {
+export async function insertOverride(
+	input: {
+		childId: number;
+		targetDate: string;
+		action: string;
+		itemName: string;
+		icon?: string;
+	},
+	_tenantId: string,
+) {
 	return db.insert(checklistOverrides).values(input).returning().get();
 }
 
-export async function deleteOverride(id: number) {
+export async function deleteOverride(id: number, _tenantId: string) {
 	db.delete(checklistOverrides).where(eq(checklistOverrides.id, id)).run();
 }

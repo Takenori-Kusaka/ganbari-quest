@@ -19,11 +19,12 @@ function stripKeys<T extends Record<string, unknown>>(
 export async function findBirthdayReviewByYear(
 	childId: number,
 	year: number,
+	tenantId: string,
 ): Promise<{ id: number } | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: birthdayReviewKey(childId, year),
+			Key: birthdayReviewKey(childId, year, tenantId),
 			ProjectionExpression: 'id',
 		}),
 	);
@@ -35,8 +36,9 @@ export async function findBirthdayReviewByYear(
 /** 誕生日レビューを挿入 */
 export async function insertBirthdayReview(
 	input: InsertBirthdayReviewInput,
+	tenantId: string,
 ): Promise<BirthdayReview> {
-	const id = await nextId(ENTITY_NAMES.birthdayReview);
+	const id = await nextId(ENTITY_NAMES.birthdayReview, tenantId);
 	const now = new Date().toISOString();
 
 	const review: BirthdayReview = {
@@ -54,7 +56,7 @@ export async function insertBirthdayReview(
 		createdAt: now,
 	};
 
-	const key = birthdayReviewKey(input.childId, input.reviewYear);
+	const key = birthdayReviewKey(input.childId, input.reviewYear, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -70,8 +72,11 @@ export async function insertBirthdayReview(
 }
 
 /** 子供の全誕生日レビューを取得（年昇順） */
-export async function findBirthdayReviews(childId: number): Promise<BirthdayReview[]> {
-	const pk = childPK(childId);
+export async function findBirthdayReviews(
+	childId: number,
+	tenantId: string,
+): Promise<BirthdayReview[]> {
+	const pk = childPK(childId, tenantId);
 	const prefix = birthdayReviewPrefix();
 
 	const result = await getDocClient().send(

@@ -1,3 +1,4 @@
+import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { getChildAchievements } from '$lib/server/services/achievement-service';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
@@ -13,14 +14,15 @@ import { getChildStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-	const children = await getAllChildren();
+export const load: PageServerLoad = async ({ url, locals }) => {
+	const tenantId = requireTenantId(locals);
+	const children = await getAllChildren(tenantId);
 	const selectedId = url.searchParams.get('id');
 
 	const childrenSummary = await Promise.all(
 		children.map(async (child) => {
-			const balance = await getPointBalance(child.id);
-			const status = await getChildStatus(child.id);
+			const balance = await getPointBalance(child.id, tenantId);
+			const status = await getChildStatus(child.id, tenantId);
 			if ('error' in balance) {
 				logger.warn('[admin/children] ポイント取得フォールバック', {
 					context: { childId: child.id, error: balance.error },
@@ -45,10 +47,10 @@ export const load: PageServerLoad = async ({ url }) => {
 		const id = Number(selectedId);
 		const child = children.find((c) => c.id === id);
 		if (child) {
-			const balance = await getPointBalance(id);
-			const status = await getChildStatus(id);
-			const logs = await getActivityLogs(id, {});
-			const achievements = await getChildAchievements(id);
+			const balance = await getPointBalance(id, tenantId);
+			const status = await getChildStatus(id, tenantId);
+			const logs = await getActivityLogs(id, tenantId);
+			const achievements = await getChildAchievements(id, tenantId);
 
 			if ('error' in balance) {
 				logger.warn('[admin/children] 詳細ポイント取得フォールバック', {
@@ -61,7 +63,7 @@ export const load: PageServerLoad = async ({ url }) => {
 				});
 			}
 
-			const birthdayReviews = await getBirthdayReviews(id);
+			const birthdayReviews = await getBirthdayReviews(id, tenantId);
 
 			selectedChild = {
 				...child,
@@ -79,7 +81,8 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-	addChild: async ({ request }) => {
+	addChild: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const nickname = formData.get('nickname')?.toString().trim();
 		const age = Number(formData.get('age'));
@@ -92,11 +95,12 @@ export const actions: Actions = {
 			return fail(400, { error: '年齢は0〜18で入力してください' });
 		}
 
-		const child = await addChild({ nickname, age, theme });
+		const child = await addChild({ nickname, age, theme }, tenantId);
 		return { success: true, addedChild: child };
 	},
 
-	editChild: async ({ request }) => {
+	editChild: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const childId = Number(formData.get('childId'));
 		const nickname = formData.get('nickname')?.toString().trim();
@@ -112,11 +116,12 @@ export const actions: Actions = {
 		if (!Number.isNaN(age) && age >= 0 && age <= 18) updates.age = age;
 		if (theme) updates.theme = theme;
 
-		await editChild(childId, updates);
+		await editChild(childId, updates, tenantId);
 		return { success: true, editedChildId: childId };
 	},
 
-	removeChild: async ({ request }) => {
+	removeChild: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const childId = Number(formData.get('childId'));
 
@@ -124,7 +129,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'IDが不正です' });
 		}
 
-		await removeChild(childId);
+		await removeChild(childId, tenantId);
 		return { success: true, removedChildId: childId };
 	},
 };

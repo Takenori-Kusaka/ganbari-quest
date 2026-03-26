@@ -1,11 +1,13 @@
 import { dev } from '$app/environment';
+import { requireTenantId } from '$lib/server/auth/factory';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-	const children = await getAllChildren();
+export const load: PageServerLoad = async ({ locals }) => {
+	const tenantId = requireTenantId(locals);
+	const children = await getAllChildren(tenantId);
 	const authMode = getAuthMode();
 	// local モードは認証不要なので直接 /admin、cognito モードは /auth/login
 	const adminLink = authMode === 'cognito' ? '/auth/login' : '/admin';
@@ -13,7 +15,8 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
-	select: async ({ request, cookies }) => {
+	select: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const childId = formData.get('childId');
 
@@ -29,12 +32,13 @@ export const actions: Actions = {
 			maxAge: 60 * 60 * 24 * 365,
 		});
 
-		const child = await getChildById(Number(childId));
+		const child = await getChildById(Number(childId), tenantId);
 		const uiMode = child?.uiMode ?? 'kinder';
 		redirect(303, `/${uiMode}/home`);
 	},
 
-	resetChild: async ({ request }) => {
+	resetChild: async ({ request, locals }) => {
+		const _tenantId = requireTenantId(locals);
 		if (!dev) {
 			return { error: 'Not available in production' };
 		}

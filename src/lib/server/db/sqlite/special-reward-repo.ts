@@ -3,20 +3,23 @@ import { db } from '../client';
 import { specialRewards } from '../schema';
 
 /** 特別報酬を記録 */
-export async function insertSpecialReward(input: {
-	childId: number;
-	grantedBy?: number | null;
-	title: string;
-	description?: string;
-	points: number;
-	icon?: string;
-	category: string;
-}) {
+export async function insertSpecialReward(
+	input: {
+		childId: number;
+		grantedBy?: number | null;
+		title: string;
+		description?: string;
+		points: number;
+		icon?: string;
+		category: string;
+	},
+	_tenantId: string,
+) {
 	return db.insert(specialRewards).values(input).returning().get();
 }
 
 /** 子供の特別報酬履歴を取得（降順） */
-export async function findSpecialRewards(childId: number) {
+export async function findSpecialRewards(childId: number, _tenantId: string) {
 	return db
 		.select()
 		.from(specialRewards)
@@ -26,7 +29,7 @@ export async function findSpecialRewards(childId: number) {
 }
 
 /** 子供の未表示の特別報酬を1件取得 */
-export async function findUnshownReward(childId: number) {
+export async function findUnshownReward(childId: number, _tenantId: string) {
 	return db
 		.select()
 		.from(specialRewards)
@@ -37,7 +40,7 @@ export async function findUnshownReward(childId: number) {
 }
 
 /** 特別報酬を表示済みにする */
-export async function markRewardShown(rewardId: number) {
+export async function markRewardShown(rewardId: number, _tenantId: string) {
 	return db
 		.update(specialRewards)
 		.set({ shownAt: new Date().toISOString() })

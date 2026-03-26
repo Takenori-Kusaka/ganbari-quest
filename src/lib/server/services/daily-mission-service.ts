@@ -45,22 +45,29 @@ export interface DailyMissionStatus {
 /**
  * 今日のミッションを取得（未生成なら自動生成）
  */
-export async function getTodayMissions(childId: number): Promise<DailyMissionStatus> {
+export async function getTodayMissions(
+	childId: number,
+	tenantId: string,
+): Promise<DailyMissionStatus> {
 	const today = todayDateJST();
 
 	// 既存のミッションを確認
-	let missions = await findTodayMissions(childId, today);
+	let missions = await findTodayMissions(childId, today, tenantId);
 
 	// なければ生成
 	if (missions.length === 0) {
-		await generateMissions(childId, today);
-		missions = await findTodayMissions(childId, today);
+		await generateMissions(childId, today, tenantId);
+		missions = await findTodayMissions(childId, today, tenantId);
 	}
 
 	const completedCount = missions.filter((m) => m.completed === 1).length;
 
 	// 既に付与されたボーナスを確認
-	const bonusRecord = await findMissionBonusRecord(childId, `[${today}] ミッションボーナス`);
+	const bonusRecord = await findMissionBonusRecord(
+		childId,
+		`[${today}] ミッションボーナス`,
+		tenantId,
+	);
 
 	return {
 		missions: missions.map((m) => ({
@@ -83,21 +90,22 @@ export async function getTodayMissions(childId: number): Promise<DailyMissionSta
 export async function checkMissionCompletion(
 	childId: number,
 	activityId: number,
+	tenantId: string,
 ): Promise<{ missionCompleted: boolean; allComplete: boolean; bonusAwarded: number }> {
 	const today = todayDateJST();
 
 	// このactivityIdがミッションに含まれるか
-	const mission = await findMissionByActivity(childId, today, activityId);
+	const mission = await findMissionByActivity(childId, today, activityId, tenantId);
 
 	if (!mission || mission.completed === 1) {
 		return { missionCompleted: false, allComplete: false, bonusAwarded: 0 };
 	}
 
 	// ミッション達成
-	await markMissionCompleted(mission.id);
+	await markMissionCompleted(mission.id, tenantId);
 
 	// 全ミッションの達成状況を確認
-	const allMissions = await findAllMissionStatuses(childId, today);
+	const allMissions = await findAllMissionStatuses(childId, today, tenantId);
 
 	const completedCount = allMissions.filter((m) => m.completed === 1).length;
 	const allComplete = completedCount >= MISSION_COUNT;
@@ -108,25 +116,35 @@ export async function checkMissionCompletion(
 
 	if (bonus > 0) {
 		// 既に付与済みか確認
-		const existing = await findMissionBonusRecord(childId, `[${today}] ミッションボーナス`);
+		const existing = await findMissionBonusRecord(
+			childId,
+			`[${today}] ミッションボーナス`,
+			tenantId,
+		);
 
 		if (!existing) {
-			await insertPointLedger({
-				childId,
-				amount: bonus,
-				type: 'daily_mission',
-				description: `[${today}] ミッションボーナス`,
-			});
+			await insertPointLedger(
+				{
+					childId,
+					amount: bonus,
+					type: 'daily_mission',
+					description: `[${today}] ミッションボーナス`,
+				},
+				tenantId,
+			);
 			bonusAwarded = bonus;
 		} else if (existing.amount < bonus) {
 			// 2/3→3/3 のように追加ボーナスが発生
 			const diff = bonus - existing.amount;
-			await insertPointLedger({
-				childId,
-				amount: diff,
-				type: 'daily_mission',
-				description: `[${today}] ミッションコンプリートボーナス`,
-			});
+			await insertPointLedger(
+				{
+					childId,
+					amount: diff,
+					type: 'daily_mission',
+					description: `[${today}] ミッションコンプリートボーナス`,
+				},
+				tenantId,
+			);
 			bonusAwarded = diff;
 		}
 	}
@@ -137,12 +155,12 @@ export async function checkMissionCompletion(
 /**
  * ミッション生成（利用履歴ベースのアルゴリズム）
  */
-async function generateMissions(childId: number, date: string): Promise<void> {
-	const child = await findChildForMission(childId);
+async function generateMissions(childId: number, date: string, tenantId: string): Promise<void> {
+	const child = await findChildForMission(childId, tenantId);
 	if (!child) return;
 
 	// 対象年齢の表示可能な活動を取得
-	const allVisibleActivities = await findVisibleActivities();
+	const allVisibleActivities = await findVisibleActivities(tenantId);
 	const allActivities = allVisibleActivities.filter((a) => {
 		if (a.ageMin !== null && child.age < a.ageMin) return false;
 		if (a.ageMax !== null && child.age > a.ageMax) return false;
@@ -153,12 +171,12 @@ async function generateMissions(childId: number, date: string): Promise<void> {
 
 	// 前日のミッションを取得（同じ組み合わせを避ける）
 	const yesterday = getPreviousDate(date);
-	const prevIds = new Set(await findPreviousDayMissionIds(childId, yesterday));
+	const prevIds = new Set(await findPreviousDayMissionIds(childId, yesterday, tenantId));
 
 	// 利用履歴を取得
 	const sevenDaysAgo = getNDaysAgo(date, 7);
-	const recentActivityIds = new Set(await findRecentActivityIds(childId, sevenDaysAgo));
-	const allRecordedIds = new Set(await findAllRecordedActivityIds(childId));
+	const recentActivityIds = new Set(await findRecentActivityIds(childId, sevenDaysAgo, tenantId));
+	const allRecordedIds = new Set(await findAllRecordedActivityIds(childId, tenantId));
 
 	// 3つのプール分類
 	const recentPool = allActivities.filter((a) => recentActivityIds.has(a.id) && !prevIds.has(a.id));
@@ -235,7 +253,7 @@ async function generateMissions(childId: number, date: string): Promise<void> {
 
 	// DB に挿入
 	for (const activityId of selected) {
-		await insertDailyMission(childId, date, activityId);
+		await insertDailyMission(childId, date, activityId, tenantId);
 	}
 }
 

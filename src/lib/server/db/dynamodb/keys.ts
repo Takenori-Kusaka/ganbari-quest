@@ -47,29 +47,30 @@ export interface DynamoKeyWithGSI2 extends DynamoKey {
 }
 
 // ============================================================
-// Entity key builders
+// Tenant prefix helper
+// ============================================================
+
+/** Wrap a PK with tenant prefix. */
+export function tenantPK(pk: string, tenantId: string): string {
+	return `T#${tenantId}#${pk}`;
+}
+
+// ============================================================
+// Entity key builders — Tenant-scoped
 // ============================================================
 
 /** Child profile: PK=CHILD#<id>, SK=PROFILE */
-export function childKey(childId: number): DynamoKey {
+export function childKey(childId: number, tenantId: string): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: 'PROFILE',
 	};
 }
 
-/** Category master: PK=CATEGORY#<id>, SK=MASTER */
-export function categoryKey(categoryId: number): DynamoKey {
-	return {
-		PK: `${PREFIX.CATEGORY}#${categoryId}`,
-		SK: 'MASTER',
-	};
-}
-
 /** Activity master: PK=ACTIVITY#<id>, SK=MASTER */
-export function activityKey(activityId: number): DynamoKey {
+export function activityKey(activityId: number, tenantId: string): DynamoKey {
 	return {
-		PK: `${PREFIX.ACTIVITY}#${activityId}`,
+		PK: tenantPK(`${PREFIX.ACTIVITY}#${activityId}`, tenantId),
 		SK: 'MASTER',
 	};
 }
@@ -82,18 +83,24 @@ export function activityKeyWithGSI2(
 	activityId: number,
 	categoryId: number,
 	sortOrder: number,
+	tenantId: string,
 ): DynamoKeyWithGSI2 {
 	return {
-		...activityKey(activityId),
-		GSI2PK: `CAT#${categoryId}`,
+		...activityKey(activityId, tenantId),
+		GSI2PK: tenantPK(`CAT#${categoryId}`, tenantId),
 		GSI2SK: `ACT#${padId(sortOrder)}#${padId(activityId)}`,
 	};
 }
 
 /** Activity log: PK=CHILD#<cId>, SK=LOG#<date>#<id> */
-export function activityLogKey(childId: number, recordedDate: string, logId: number): DynamoKey {
+export function activityLogKey(
+	childId: number,
+	recordedDate: string,
+	logId: number,
+	tenantId: string,
+): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `LOG#${recordedDate}#${padId(logId)}`,
 	};
 }
@@ -109,9 +116,14 @@ export function activityLogDatePrefix(date: string): string {
 }
 
 /** Point ledger entry: PK=CHILD#<cId>, SK=POINT#<ts>#<id> */
-export function pointLedgerKey(childId: number, createdAt: string, ledgerId: number): DynamoKey {
+export function pointLedgerKey(
+	childId: number,
+	createdAt: string,
+	ledgerId: number,
+	tenantId: string,
+): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `POINT#${createdAt}#${padId(ledgerId)}`,
 	};
 }
@@ -122,17 +134,17 @@ export function pointLedgerPrefix(): string {
 }
 
 /** Point balance (aggregated): PK=CHILD#<cId>, SK=BALANCE */
-export function pointBalanceKey(childId: number): DynamoKey {
+export function pointBalanceKey(childId: number, tenantId: string): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: 'BALANCE',
 	};
 }
 
 /** Status: PK=CHILD#<cId>, SK=STATUS#<catId> */
-export function statusKey(childId: number, categoryId: number): DynamoKey {
+export function statusKey(childId: number, categoryId: number, tenantId: string): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `STATUS#${padId(categoryId)}`,
 	};
 }
@@ -148,9 +160,10 @@ export function statusHistoryKey(
 	categoryId: number,
 	recordedAt: string,
 	historyId: number,
+	tenantId: string,
 ): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `STATHIST#${padId(categoryId)}#${recordedAt}#${padId(historyId)}`,
 	};
 }
@@ -165,6 +178,18 @@ export function statusHistoryPrefix(): string {
 	return 'STATHIST#';
 }
 
+// ============================================================
+// Entity key builders — Global (no tenant prefix)
+// ============================================================
+
+/** Category master: PK=CATEGORY#<id>, SK=MASTER */
+export function categoryKey(categoryId: number): DynamoKey {
+	return {
+		PK: `${PREFIX.CATEGORY}#${categoryId}`,
+		SK: 'MASTER',
+	};
+}
+
 /** Achievement master: PK=ACHIEVEMENT#<id>, SK=MASTER */
 export function achievementKey(achievementId: number): DynamoKey {
 	return {
@@ -177,11 +202,12 @@ export function achievementKey(achievementId: number): DynamoKey {
 export function childAchievementKey(
 	childId: number,
 	achievementId: number,
+	tenantId: string,
 	milestoneValue?: number | null,
 ): DynamoKey {
 	const ms = milestoneValue != null ? String(milestoneValue) : '0';
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `ACHV#${padId(achievementId)}#${ms}`,
 	};
 }
@@ -200,9 +226,9 @@ export function titleKey(titleId: number): DynamoKey {
 }
 
 /** Child title: PK=CHILD#<cId>, SK=TITLE#<tId> */
-export function childTitleKey(childId: number, titleId: number): DynamoKey {
+export function childTitleKey(childId: number, titleId: number, tenantId: string): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `TITLE#${padId(titleId)}`,
 	};
 }
@@ -213,9 +239,9 @@ export function childTitlePrefix(): string {
 }
 
 /** Login bonus: PK=CHILD#<cId>, SK=LOGIN#<date> */
-export function loginBonusKey(childId: number, loginDate: string): DynamoKey {
+export function loginBonusKey(childId: number, loginDate: string, tenantId: string): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `LOGIN#${loginDate}`,
 	};
 }
@@ -226,17 +252,17 @@ export function loginBonusPrefix(): string {
 }
 
 /** Setting: PK=SETTING, SK=<key> */
-export function settingKey(key: string): DynamoKey {
+export function settingKey(key: string, tenantId: string): DynamoKey {
 	return {
-		PK: PREFIX.SETTING,
+		PK: tenantPK(PREFIX.SETTING, tenantId),
 		SK: key,
 	};
 }
 
 /** Evaluation: PK=CHILD#<cId>, SK=EVAL#<weekStart> */
-export function evaluationKey(childId: number, weekStart: string): DynamoKey {
+export function evaluationKey(childId: number, weekStart: string, tenantId: string): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `EVAL#${weekStart}`,
 	};
 }
@@ -247,9 +273,14 @@ export function evaluationPrefix(): string {
 }
 
 /** Special reward: PK=CHILD#<cId>, SK=REWARD#<ts>#<id> */
-export function specialRewardKey(childId: number, grantedAt: string, rewardId: number): DynamoKey {
+export function specialRewardKey(
+	childId: number,
+	grantedAt: string,
+	rewardId: number,
+	tenantId: string,
+): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `REWARD#${grantedAt}#${padId(rewardId)}`,
 	};
 }
@@ -260,9 +291,13 @@ export function specialRewardPrefix(): string {
 }
 
 /** Checklist template: PK=CHILD#<cId>, SK=CKTPL#<id> */
-export function checklistTemplateKey(childId: number, templateId: number): DynamoKey {
+export function checklistTemplateKey(
+	childId: number,
+	templateId: number,
+	tenantId: string,
+): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `CKTPL#${padId(templateId)}`,
 	};
 }
@@ -273,9 +308,14 @@ export function checklistTemplatePrefix(): string {
 }
 
 /** Checklist item: PK=CKTPL#<tplId>, SK=ITEM#<sort>#<id> */
-export function checklistItemKey(templateId: number, sortOrder: number, itemId: number): DynamoKey {
+export function checklistItemKey(
+	templateId: number,
+	sortOrder: number,
+	itemId: number,
+	tenantId: string,
+): DynamoKey {
 	return {
-		PK: `${PREFIX.CKTPL}#${templateId}`,
+		PK: tenantPK(`${PREFIX.CKTPL}#${templateId}`, tenantId),
 		SK: `ITEM#${padId(sortOrder)}#${padId(itemId)}`,
 	};
 }
@@ -290,9 +330,10 @@ export function checklistLogKey(
 	childId: number,
 	templateId: number,
 	checkedDate: string,
+	tenantId: string,
 ): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `CKLOG#${padId(templateId)}#${checkedDate}`,
 	};
 }
@@ -312,9 +353,10 @@ export function checklistOverrideKey(
 	childId: number,
 	targetDate: string,
 	overrideId: number,
+	tenantId: string,
 ): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `CKOVER#${targetDate}#${padId(overrideId)}`,
 	};
 }
@@ -334,9 +376,10 @@ export function dailyMissionKey(
 	childId: number,
 	missionDate: string,
 	activityId: number,
+	tenantId: string,
 ): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `MISSION#${missionDate}#${padId(activityId)}`,
 	};
 }
@@ -352,9 +395,13 @@ export function dailyMissionDatePrefix(missionDate: string): string {
 }
 
 /** Birthday review: PK=CHILD#<cId>, SK=BDAY#<year> */
-export function birthdayReviewKey(childId: number, reviewYear: number): DynamoKey {
+export function birthdayReviewKey(
+	childId: number,
+	reviewYear: number,
+	tenantId: string,
+): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `BDAY#${reviewYear}`,
 	};
 }
@@ -365,9 +412,14 @@ export function birthdayReviewPrefix(): string {
 }
 
 /** Character image: PK=CHILD#<cId>, SK=IMG#<type>#<hash> */
-export function characterImageKey(childId: number, type: string, promptHash: string): DynamoKey {
+export function characterImageKey(
+	childId: number,
+	type: string,
+	promptHash: string,
+	tenantId: string,
+): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `IMG#${type}#${promptHash}`,
 	};
 }
@@ -382,7 +434,7 @@ export function characterImageTypePrefix(type: string): string {
 	return `IMG#${type}#`;
 }
 
-/** Career field master: PK=CAREER#<id>, SK=MASTER */
+/** Career field master: PK=CAREER#<id>, SK=MASTER (global) */
 export function careerFieldKey(careerFieldId: number): DynamoKey {
 	return {
 		PK: `${PREFIX.CAREER}#${careerFieldId}`,
@@ -391,9 +443,9 @@ export function careerFieldKey(careerFieldId: number): DynamoKey {
 }
 
 /** Career plan: PK=CHILD#<cId>, SK=CARPLAN#<id> */
-export function careerPlanKey(childId: number, planId: number): DynamoKey {
+export function careerPlanKey(childId: number, planId: number, tenantId: string): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `CARPLAN#${padId(planId)}`,
 	};
 }
@@ -408,9 +460,10 @@ export function careerPlanHistoryKey(
 	planId: number,
 	createdAt: string,
 	historyId: number,
+	tenantId: string,
 ): DynamoKey {
 	return {
-		PK: `${PREFIX.CARPLAN}#${planId}`,
+		PK: tenantPK(`${PREFIX.CARPLAN}#${planId}`, tenantId),
 		SK: `HIST#${createdAt}#${padId(historyId)}`,
 	};
 }
@@ -420,7 +473,7 @@ export function careerPlanHistoryPrefix(): string {
 	return 'HIST#';
 }
 
-/** Avatar item master: PK=AVITEM#<id>, SK=MASTER */
+/** Avatar item master: PK=AVITEM#<id>, SK=MASTER (global) */
 export function avatarItemKey(itemId: number): DynamoKey {
 	return {
 		PK: `${PREFIX.AVITEM}#${itemId}`,
@@ -429,9 +482,9 @@ export function avatarItemKey(itemId: number): DynamoKey {
 }
 
 /** Child avatar item: PK=CHILD#<cId>, SK=AVOWN#<itemId> */
-export function childAvatarItemKey(childId: number, itemId: number): DynamoKey {
+export function childAvatarItemKey(childId: number, itemId: number, tenantId: string): DynamoKey {
 	return {
-		PK: `${PREFIX.CHILD}#${childId}`,
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
 		SK: `AVOWN#${padId(itemId)}`,
 	};
 }
@@ -441,7 +494,7 @@ export function childAvatarItemPrefix(): string {
 	return 'AVOWN#';
 }
 
-/** Market benchmark: PK=BENCH#<age>, SK=CAT#<catId> */
+/** Market benchmark: PK=BENCH#<age>, SK=CAT#<catId> (global) */
 export function marketBenchmarkKey(age: number, categoryId: number): DynamoKey {
 	return {
 		PK: `${PREFIX.BENCH}#${age}`,
@@ -455,9 +508,9 @@ export function marketBenchmarkPrefix(): string {
 }
 
 /** ID counter: PK=COUNTER, SK=<entity> */
-export function counterKey(entity: string): DynamoKey {
+export function counterKey(entity: string, tenantId: string): DynamoKey {
 	return {
-		PK: PREFIX.COUNTER,
+		PK: tenantPK(PREFIX.COUNTER, tenantId),
 		SK: entity,
 	};
 }
@@ -467,8 +520,8 @@ export function counterKey(entity: string): DynamoKey {
 // ============================================================
 
 /** GSI2 partition key for activities by category: CAT#<catId> */
-export function gsi2CategoryPK(categoryId: number): string {
-	return `CAT#${categoryId}`;
+export function gsi2CategoryPK(categoryId: number, tenantId: string): string {
+	return tenantPK(`CAT#${categoryId}`, tenantId);
 }
 
 /** GSI2 sort key for activity ordering: ACT#<sort>#<id> */
@@ -481,8 +534,8 @@ export function gsi2ActivitySK(sortOrder: number, activityId: number): string {
 // ============================================================
 
 /** Build the CHILD partition key: CHILD#<id> */
-export function childPK(childId: number): string {
-	return `${PREFIX.CHILD}#${childId}`;
+export function childPK(childId: number, tenantId: string): string {
+	return tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId);
 }
 
 // ============================================================

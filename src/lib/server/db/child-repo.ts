@@ -3,18 +3,18 @@
 import { getRepos } from './factory';
 import type { InsertChildInput, UpdateChildInput } from './types';
 
-export async function findAllChildren() {
-	return getRepos().child.findAllChildren();
+export async function findAllChildren(tenantId: string) {
+	return getRepos().child.findAllChildren(tenantId);
 }
-export async function findChildById(id: number) {
-	return getRepos().child.findChildById(id);
+export async function findChildById(id: number, tenantId: string) {
+	return getRepos().child.findChildById(id, tenantId);
 }
-export async function insertChild(input: InsertChildInput) {
-	return getRepos().child.insertChild(input);
+export async function insertChild(input: InsertChildInput, tenantId: string) {
+	return getRepos().child.insertChild(input, tenantId);
 }
-export async function updateChild(id: number, input: UpdateChildInput) {
-	return getRepos().child.updateChild(id, input);
+export async function updateChild(id: number, input: UpdateChildInput, tenantId: string) {
+	return getRepos().child.updateChild(id, input, tenantId);
 }
-export async function deleteChild(id: number) {
-	return getRepos().child.deleteChild(id);
+export async function deleteChild(id: number, tenantId: string) {
+	return getRepos().child.deleteChild(id, tenantId);
 }

@@ -309,7 +309,7 @@ describe('checkAndUnlockAchievements', () => {
 			})
 			.run();
 
-		const unlocked = await checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1, 'test-tenant');
 
 		expect(unlocked.length).toBeGreaterThanOrEqual(1);
 		const firstStep = unlocked.find((a) => a.code === 'first_step');
@@ -329,7 +329,7 @@ describe('checkAndUnlockAchievements', () => {
 			})
 			.run();
 
-		await checkAndUnlockAchievements(1);
+		await checkAndUnlockAchievements(1, 'test-tenant');
 
 		const ledger = testDb.select().from(schema.pointLedger).all();
 		const achievementEntries = ledger.filter((e) => e.type === 'achievement');
@@ -348,15 +348,15 @@ describe('checkAndUnlockAchievements', () => {
 			})
 			.run();
 
-		const first = await checkAndUnlockAchievements(1);
+		const first = await checkAndUnlockAchievements(1, 'test-tenant');
 		expect(first.map((a) => a.code)).toContain('first_step');
 
-		const second = await checkAndUnlockAchievements(1);
+		const second = await checkAndUnlockAchievements(1, 'test-tenant');
 		expect(second.map((a) => a.code)).not.toContain('first_step');
 	});
 
 	it('条件未達成なら解除しない', async () => {
-		const unlocked = await checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1, 'test-tenant');
 		expect(unlocked).toHaveLength(0);
 	});
 
@@ -374,7 +374,7 @@ describe('checkAndUnlockAchievements', () => {
 				.run();
 		}
 
-		const unlocked = await checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1, 'test-tenant');
 		const streak = unlocked.find((a) => a.code === 'streak_master');
 		expect(streak).toBeDefined();
 		expect(streak?.milestoneValue).toBe(3);
@@ -394,7 +394,7 @@ describe('checkAndUnlockAchievements', () => {
 				.run();
 		}
 
-		const unlocked = await checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1, 'test-tenant');
 		const allCat = unlocked.find((a) => a.code === 'category_explorer');
 		expect(allCat).toBeDefined();
 		expect(allCat?.bonusPoints).toBe(50);
@@ -415,7 +415,7 @@ describe('checkAndUnlockAchievements', () => {
 			})
 			.run();
 
-		const unlocked = await checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1, 'test-tenant');
 		const points = unlocked.find((a) => a.code === 'point_collector');
 		expect(points).toBeDefined();
 		expect(points?.milestoneValue).toBe(100);
@@ -433,7 +433,7 @@ describe('checkAndUnlockAchievements', () => {
 			})
 			.run();
 
-		const unlocked = await checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1, 'test-tenant');
 		const lifeEvent = unlocked.find((a) => a.code === 'kindergarten_grad');
 		expect(lifeEvent).toBeUndefined();
 	});
@@ -454,13 +454,13 @@ describe('checkAndUnlockAchievements', () => {
 		}
 
 		// 1回目: milestone 3 と 5 を解除
-		const first = await checkAndUnlockAchievements(1);
+		const first = await checkAndUnlockAchievements(1, 'test-tenant');
 		const streakUnlocks = first.filter((a) => a.code === 'streak_master');
 		expect(streakUnlocks.length).toBe(2);
 		expect(streakUnlocks.map((a) => a.milestoneValue).sort()).toEqual([3, 5]);
 
 		// 2回目: 重複しない
-		const second = await checkAndUnlockAchievements(1);
+		const second = await checkAndUnlockAchievements(1, 'test-tenant');
 		const streakSecond = second.filter((a) => a.code === 'streak_master');
 		expect(streakSecond).toHaveLength(0);
 	});
@@ -473,12 +473,12 @@ describe('getChildAchievements', () => {
 	});
 
 	it('全実績一覧を返す', async () => {
-		const achievements = await getChildAchievements(1);
+		const achievements = await getChildAchievements(1, 'test-tenant');
 		expect(achievements).toHaveLength(7);
 	});
 
 	it('未解除の実績は unlockedAt が null', async () => {
-		const achievements = await getChildAchievements(1);
+		const achievements = await getChildAchievements(1, 'test-tenant');
 		expect(achievements.every((a) => a.unlockedAt === null)).toBe(true);
 	});
 
@@ -492,9 +492,9 @@ describe('getChildAchievements', () => {
 				recordedDate: '2026-02-25',
 			})
 			.run();
-		await checkAndUnlockAchievements(1);
+		await checkAndUnlockAchievements(1, 'test-tenant');
 
-		const achievements = await getChildAchievements(1);
+		const achievements = await getChildAchievements(1, 'test-tenant');
 		const firstStep = achievements.find((a) => a.code === 'first_step');
 		expect(firstStep?.unlockedAt).not.toBeNull();
 
@@ -504,14 +504,14 @@ describe('getChildAchievements', () => {
 	});
 
 	it('sortOrder 順に並ぶ', async () => {
-		const achievements = await getChildAchievements(1);
+		const achievements = await getChildAchievements(1, 'test-tenant');
 		for (let i = 1; i < achievements.length; i++) {
-			expect(achievements[i]!.sortOrder).toBeGreaterThanOrEqual(achievements[i - 1]!.sortOrder);
+			expect(achievements[i]?.sortOrder).toBeGreaterThanOrEqual(achievements[i - 1]!.sortOrder);
 		}
 	});
 
 	it('繰り返し実績にはマイルストーン情報が含まれる', async () => {
-		const achievements = await getChildAchievements(1);
+		const achievements = await getChildAchievements(1, 'test-tenant');
 		const streak = achievements.find((a) => a.code === 'streak_master');
 		expect(streak?.repeatable).toBe(true);
 		expect(streak?.milestones).toHaveLength(3); // [3,5,7]
@@ -528,9 +528,9 @@ describe('getChildAchievements', () => {
 				.values({ childId: 1, activityId: 1, points: 5, recordedDate: d })
 				.run();
 		}
-		await checkAndUnlockAchievements(1);
+		await checkAndUnlockAchievements(1, 'test-tenant');
 
-		const achievements = await getChildAchievements(1);
+		const achievements = await getChildAchievements(1, 'test-tenant');
 		const streak = achievements.find((a) => a.code === 'streak_master');
 		expect(streak?.highestUnlockedMilestone).toBe(3);
 		expect(streak?.nextMilestone).toBe(5);
@@ -538,7 +538,7 @@ describe('getChildAchievements', () => {
 	});
 
 	it('ライフイベントは isMilestone=true で返される', async () => {
-		const achievements = await getChildAchievements(1);
+		const achievements = await getChildAchievements(1, 'test-tenant');
 		const grad = achievements.find((a) => a.code === 'kindergarten_grad');
 		expect(grad?.isMilestone).toBe(true);
 		expect(grad?.conditionType).toBe('milestone_event');
@@ -576,7 +576,7 @@ describe('category_scout (カテゴリたんけんか)', () => {
 			})
 			.run();
 
-		const unlocked = await checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1, 'test-tenant');
 		const scout = unlocked.find((a) => a.code === 'category_scout');
 		expect(scout).toBeDefined();
 		expect(scout?.milestoneValue).toBe(2);
@@ -595,7 +595,7 @@ describe('category_scout (カテゴリたんけんか)', () => {
 			})
 			.run();
 
-		const unlocked = await checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1, 'test-tenant');
 		const scout = unlocked.find((a) => a.code === 'category_scout');
 		expect(scout).toBeUndefined();
 	});
@@ -635,7 +635,7 @@ describe('category_scout (カテゴリたんけんか)', () => {
 			})
 			.run();
 
-		const unlocked = await checkAndUnlockAchievements(1);
+		const unlocked = await checkAndUnlockAchievements(1, 'test-tenant');
 		const scouts = unlocked.filter((a) => a.code === 'category_scout');
 		expect(scouts).toHaveLength(2);
 		expect(scouts.map((s) => s.milestoneValue).sort()).toEqual([2, 3]);

@@ -12,49 +12,79 @@ import type {
 
 export interface IActivityRepo {
 	// Activities
-	findActivities(filter?: ActivityFilter): Promise<Activity[]>;
-	findActivityById(id: number): Promise<Activity | undefined>;
-	insertActivity(input: InsertActivityInput): Promise<Activity>;
-	updateActivity(id: number, input: UpdateActivityInput): Promise<Activity | undefined>;
-	setActivityVisibility(id: number, visible: boolean): Promise<Activity | undefined>;
-	deleteActivity(id: number): Promise<Activity | undefined>;
-	hasActivityLogs(activityId: number): Promise<boolean>;
-	getActivityLogCounts(): Promise<Record<number, number>>;
-	deleteDailyMissionsByActivity(activityId: number): Promise<void>;
+	findActivities(tenantId: string, filter?: ActivityFilter): Promise<Activity[]>;
+	findActivityById(id: number, tenantId: string): Promise<Activity | undefined>;
+	insertActivity(input: InsertActivityInput, tenantId: string): Promise<Activity>;
+	updateActivity(
+		id: number,
+		input: UpdateActivityInput,
+		tenantId: string,
+	): Promise<Activity | undefined>;
+	setActivityVisibility(
+		id: number,
+		visible: boolean,
+		tenantId: string,
+	): Promise<Activity | undefined>;
+	deleteActivity(id: number, tenantId: string): Promise<Activity | undefined>;
+	hasActivityLogs(activityId: number, tenantId: string): Promise<boolean>;
+	getActivityLogCounts(tenantId: string): Promise<Record<number, number>>;
+	deleteDailyMissionsByActivity(activityId: number, tenantId: string): Promise<void>;
 
 	// Children (convenience — shared lookup)
-	findChildById(id: number): Promise<Child | undefined>;
+	findChildById(id: number, tenantId: string): Promise<Child | undefined>;
 
 	// Activity Logs
-	findDailyLog(childId: number, activityId: number, date: string): Promise<ActivityLog | undefined>;
-	findStreakLogs(childId: number, activityId: number): Promise<{ recordedDate: string }[]>;
-	insertActivityLog(input: InsertActivityLogInput): Promise<ActivityLog>;
-	findActivityLogById(id: number): Promise<ActivityLog | undefined>;
-	markActivityLogCancelled(id: number): Promise<void>;
+	findDailyLog(
+		childId: number,
+		activityId: number,
+		date: string,
+		tenantId: string,
+	): Promise<ActivityLog | undefined>;
+	findStreakLogs(
+		childId: number,
+		activityId: number,
+		tenantId: string,
+	): Promise<{ recordedDate: string }[]>;
+	insertActivityLog(input: InsertActivityLogInput, tenantId: string): Promise<ActivityLog>;
+	findActivityLogById(id: number, tenantId: string): Promise<ActivityLog | undefined>;
+	markActivityLogCancelled(id: number, tenantId: string): Promise<void>;
 	findActivityLogs(
 		childId: number,
+		tenantId: string,
 		options?: { from?: string; to?: string },
 	): Promise<ActivityLogSummary[]>;
-	countTodayActiveRecords(childId: number, activityId: number, date: string): Promise<number>;
+	countTodayActiveRecords(
+		childId: number,
+		activityId: number,
+		date: string,
+		tenantId: string,
+	): Promise<number>;
 	getTodayActivityCountsByChild(
 		childId: number,
 		date: string,
+		tenantId: string,
 	): Promise<{ activityId: number; count: number }[]>;
-	findTodayRecordedActivityIds(childId: number, today: string): Promise<number[]>;
+	findTodayRecordedActivityIds(childId: number, today: string, tenantId: string): Promise<number[]>;
 
 	// Aggregation queries
-	findDistinctRecordedDates(childId: number): Promise<{ recordedDate: string }[]>;
-	countActiveActivityLogs(childId: number): Promise<number>;
+	findDistinctRecordedDates(childId: number, tenantId: string): Promise<{ recordedDate: string }[]>;
+	countActiveActivityLogs(childId: number, tenantId: string): Promise<number>;
 	getCategoryCountsByDate(
 		childId: number,
+		tenantId: string,
 	): Promise<{ recordedDate: string; categoryCount: number }[]>;
-	countDistinctCategories(childId: number): Promise<number>;
+	countDistinctCategories(childId: number, tenantId: string): Promise<number>;
 	findTodayLogsWithCategory(
 		childId: number,
 		date: string,
+		tenantId: string,
 	): Promise<{ activityId: number; categoryId: number }[]>;
-	getComboPointsGranted(childId: number, descriptionPrefix: string): Promise<number>;
+	getComboPointsGranted(
+		childId: number,
+		descriptionPrefix: string,
+		tenantId: string,
+	): Promise<number>;
 
 	// Point Ledger
-	insertPointLedger(input: InsertPointLedgerInput): Promise<void>;
+	insertPointLedger(input: InsertPointLedgerInput, tenantId: string): Promise<void>;
 }

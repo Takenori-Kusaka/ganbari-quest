@@ -1,3 +1,4 @@
+import { requireTenantId } from '$lib/server/auth/factory';
 import { findWeekEvaluation, hasDecayRunToday } from '$lib/server/db/evaluation-repo';
 import { logger } from '$lib/server/logger';
 import {
@@ -15,31 +16,32 @@ function todayStr(): string {
 }
 
 /** ステータスページ表示時に、未実行の評価を自動実行する */
-async function ensureStatusUpToDate(childId: number) {
+async function ensureStatusUpToDate(childId: number, tenantId: string) {
 	const today = todayStr();
 
 	// 日次衰退: 同じ日に既に実行済みかチェック
-	if (!(await hasDecayRunToday(childId, today))) {
-		await runDailyDecay(today);
+	if (!(await hasDecayRunToday(childId, today, tenantId))) {
+		await runDailyDecay(tenantId, today);
 	}
 
 	// 先週分の週次評価が未実行なら実行
 	const { weekStart, weekEnd } = getWeekRange(new Date());
-	const existing = await findWeekEvaluation(childId, weekStart);
+	const existing = await findWeekEvaluation(childId, weekStart, tenantId);
 
 	if (!existing) {
-		await evaluateChild(childId, weekStart, weekEnd);
+		await evaluateChild(childId, weekStart, weekEnd, tenantId);
 	}
 }
 
-export const load: PageServerLoad = async ({ parent }) => {
+export const load: PageServerLoad = async ({ parent, locals }) => {
+	const tenantId = requireTenantId(locals);
 	const { child } = await parent();
 	if (!child) return { status: null };
 
 	// ステータスを最新化
-	await ensureStatusUpToDate(child.id);
+	await ensureStatusUpToDate(child.id, tenantId);
 
-	const result = await getChildStatus(child.id);
+	const result = await getChildStatus(child.id, tenantId);
 	if ('error' in result) {
 		logger.warn('[kinder/status] ステータス取得フォールバック', {
 			context: { childId: child.id, error: result.error },
@@ -48,7 +50,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 	}
 
 	// 偏差値ベースの称号チェック（ステータスページ表示時のみ）
-	await checkAndUnlockTitles(child.id);
+	await checkAndUnlockTitles(child.id, tenantId);
 
 	return { status: result };
 };

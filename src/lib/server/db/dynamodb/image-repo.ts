@@ -20,8 +20,9 @@ export async function findCachedImage(
 	childId: number,
 	type: string,
 	promptHash: string,
+	tenantId: string,
 ): Promise<CharacterImage | undefined> {
-	const key = characterImageKey(childId, type, promptHash);
+	const key = characterImageKey(childId, type, promptHash, tenantId);
 
 	const result = await getDocClient().send(
 		new GetCommand({
@@ -35,8 +36,11 @@ export async function findCachedImage(
 }
 
 /** 画像レコードを挿入 */
-export async function insertCharacterImage(input: InsertCharacterImageInput): Promise<void> {
-	const id = await nextId(ENTITY_NAMES.characterImage);
+export async function insertCharacterImage(
+	input: InsertCharacterImageInput,
+	tenantId: string,
+): Promise<void> {
+	const id = await nextId(ENTITY_NAMES.characterImage, tenantId);
 	const now = new Date().toISOString();
 
 	const image: CharacterImage = {
@@ -48,7 +52,7 @@ export async function insertCharacterImage(input: InsertCharacterImageInput): Pr
 		generatedAt: now,
 	};
 
-	const key = characterImageKey(input.childId, input.type, input.promptHash);
+	const key = characterImageKey(input.childId, input.type, input.promptHash, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -62,13 +66,17 @@ export async function insertCharacterImage(input: InsertCharacterImageInput): Pr
 }
 
 /** 子供のアバターURLを更新 */
-export async function updateChildAvatarUrl(childId: number, avatarUrl: string): Promise<void> {
+export async function updateChildAvatarUrl(
+	childId: number,
+	avatarUrl: string,
+	tenantId: string,
+): Promise<void> {
 	const now = new Date().toISOString();
 
 	await getDocClient().send(
 		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(childId),
+			Key: childKey(childId, tenantId),
 			UpdateExpression: 'SET #avatarUrl = :avatarUrl, #updatedAt = :updatedAt',
 			ExpressionAttributeNames: {
 				'#avatarUrl': 'avatarUrl',
@@ -83,11 +91,14 @@ export async function updateChildAvatarUrl(childId: number, avatarUrl: string): 
 }
 
 /** 子供情報を取得 */
-export async function findChildForImage(childId: number): Promise<Child | undefined> {
+export async function findChildForImage(
+	childId: number,
+	tenantId: string,
+): Promise<Child | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(childId),
+			Key: childKey(childId, tenantId),
 		}),
 	);
 

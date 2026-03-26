@@ -6,7 +6,7 @@ import { db } from '../client';
 import { activities, activityLogs, children, dailyMissions, pointLedger } from '../schema';
 import type { ActivityFilter } from '../types';
 
-export async function findActivities(filter?: ActivityFilter) {
+export async function findActivities(_tenantId: string, filter?: ActivityFilter) {
 	let query = db.select().from(activities).$dynamic();
 
 	const conditions = [];
@@ -31,18 +31,21 @@ export async function findActivities(filter?: ActivityFilter) {
 	return query.orderBy(activities.sortOrder).all();
 }
 
-export async function findActivityById(id: number) {
+export async function findActivityById(id: number, _tenantId: string) {
 	return db.select().from(activities).where(eq(activities.id, id)).get();
 }
 
-export async function insertActivity(input: {
-	name: string;
-	categoryId: number;
-	icon: string;
-	basePoints: number;
-	ageMin: number | null;
-	ageMax: number | null;
-}) {
+export async function insertActivity(
+	input: {
+		name: string;
+		categoryId: number;
+		icon: string;
+		basePoints: number;
+		ageMin: number | null;
+		ageMax: number | null;
+	},
+	_tenantId: string,
+) {
 	return db.insert(activities).values(input).returning().get();
 }
 
@@ -56,11 +59,12 @@ export async function updateActivity(
 		ageMin: number | null;
 		ageMax: number | null;
 	}>,
+	_tenantId: string,
 ) {
 	return db.update(activities).set(input).where(eq(activities.id, id)).returning().get();
 }
 
-export async function setActivityVisibility(id: number, visible: boolean) {
+export async function setActivityVisibility(id: number, visible: boolean, _tenantId: string) {
 	return db
 		.update(activities)
 		.set({ isVisible: visible ? 1 : 0 })
@@ -69,11 +73,11 @@ export async function setActivityVisibility(id: number, visible: boolean) {
 		.get();
 }
 
-export async function deleteActivity(id: number) {
+export async function deleteActivity(id: number, _tenantId: string) {
 	return db.delete(activities).where(eq(activities.id, id)).returning().get();
 }
 
-export async function hasActivityLogs(activityId: number): Promise<boolean> {
+export async function hasActivityLogs(activityId: number, _tenantId: string): Promise<boolean> {
 	const result = await db
 		.select({ cnt: count() })
 		.from(activityLogs)
@@ -82,7 +86,7 @@ export async function hasActivityLogs(activityId: number): Promise<boolean> {
 	return (result?.cnt ?? 0) > 0;
 }
 
-export async function getActivityLogCounts(): Promise<Record<number, number>> {
+export async function getActivityLogCounts(_tenantId: string): Promise<Record<number, number>> {
 	const rows = await db
 		.select({ activityId: activityLogs.activityId, cnt: count() })
 		.from(activityLogs)
@@ -96,7 +100,7 @@ export async function getActivityLogCounts(): Promise<Record<number, number>> {
 	return result;
 }
 
-export async function deleteDailyMissionsByActivity(activityId: number) {
+export async function deleteDailyMissionsByActivity(activityId: number, _tenantId: string) {
 	db.delete(dailyMissions).where(eq(dailyMissions.activityId, activityId)).run();
 }
 
@@ -104,7 +108,7 @@ export async function deleteDailyMissionsByActivity(activityId: number) {
 // Children
 // ============================================================
 
-export async function findChildById(id: number) {
+export async function findChildById(id: number, _tenantId: string) {
 	return db.select().from(children).where(eq(children.id, id)).get();
 }
 
@@ -112,7 +116,12 @@ export async function findChildById(id: number) {
 // Activity Logs
 // ============================================================
 
-export async function findDailyLog(childId: number, activityId: number, date: string) {
+export async function findDailyLog(
+	childId: number,
+	activityId: number,
+	date: string,
+	_tenantId: string,
+) {
 	return db
 		.select()
 		.from(activityLogs)
@@ -127,7 +136,7 @@ export async function findDailyLog(childId: number, activityId: number, date: st
 		.get();
 }
 
-export async function findStreakLogs(childId: number, activityId: number) {
+export async function findStreakLogs(childId: number, activityId: number, _tenantId: string) {
 	return db
 		.select({ recordedDate: activityLogs.recordedDate })
 		.from(activityLogs)
@@ -142,28 +151,32 @@ export async function findStreakLogs(childId: number, activityId: number) {
 		.all();
 }
 
-export async function insertActivityLog(input: {
-	childId: number;
-	activityId: number;
-	points: number;
-	streakDays: number;
-	streakBonus: number;
-	recordedDate: string;
-	recordedAt: string;
-}) {
+export async function insertActivityLog(
+	input: {
+		childId: number;
+		activityId: number;
+		points: number;
+		streakDays: number;
+		streakBonus: number;
+		recordedDate: string;
+		recordedAt: string;
+	},
+	_tenantId: string,
+) {
 	return db.insert(activityLogs).values(input).returning().get();
 }
 
-export async function findActivityLogById(id: number) {
+export async function findActivityLogById(id: number, _tenantId: string) {
 	return db.select().from(activityLogs).where(eq(activityLogs.id, id)).get();
 }
 
-export async function markActivityLogCancelled(id: number) {
+export async function markActivityLogCancelled(id: number, _tenantId: string) {
 	db.update(activityLogs).set({ cancelled: 1 }).where(eq(activityLogs.id, id)).run();
 }
 
 export async function findActivityLogs(
 	childId: number,
+	_tenantId: string,
 	options: { from?: string; to?: string } = {},
 ) {
 	const conditions = [eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)];
@@ -197,6 +210,7 @@ export async function countTodayActiveRecords(
 	childId: number,
 	activityId: number,
 	date: string,
+	_tenantId: string,
 ): Promise<number> {
 	const rows = await db
 		.select()
@@ -216,6 +230,7 @@ export async function countTodayActiveRecords(
 export async function getTodayActivityCountsByChild(
 	childId: number,
 	date: string,
+	_tenantId: string,
 ): Promise<{ activityId: number; count: number }[]> {
 	return db
 		.select({
@@ -237,6 +252,7 @@ export async function getTodayActivityCountsByChild(
 export async function findTodayRecordedActivityIds(
 	childId: number,
 	today: string,
+	_tenantId: string,
 ): Promise<number[]> {
 	const rows = await db
 		.select({ activityId: activityLogs.activityId })
@@ -260,6 +276,7 @@ export async function findTodayRecordedActivityIds(
 /** 子供の活動記録日（重複除去・昇順）を取得 */
 export async function findDistinctRecordedDates(
 	childId: number,
+	_tenantId: string,
 ): Promise<{ recordedDate: string }[]> {
 	return db
 		.select({ recordedDate: activityLogs.recordedDate })
@@ -271,7 +288,7 @@ export async function findDistinctRecordedDates(
 }
 
 /** 子供の累計活動記録数（キャンセル除外） */
-export async function countActiveActivityLogs(childId: number): Promise<number> {
+export async function countActiveActivityLogs(childId: number, _tenantId: string): Promise<number> {
 	const result = await db
 		.select({ total: count() })
 		.from(activityLogs)
@@ -283,6 +300,7 @@ export async function countActiveActivityLogs(childId: number): Promise<number> 
 /** 日別カテゴリ数を取得（achievement: all_categories 判定用） */
 export async function getCategoryCountsByDate(
 	childId: number,
+	_tenantId: string,
 ): Promise<{ recordedDate: string; categoryCount: number }[]> {
 	return db
 		.select({
@@ -297,7 +315,7 @@ export async function getCategoryCountsByDate(
 }
 
 /** 累計で記録した異なるカテゴリ数 */
-export async function countDistinctCategories(childId: number): Promise<number> {
+export async function countDistinctCategories(childId: number, _tenantId: string): Promise<number> {
 	const result = await db
 		.select({ count: countDistinct(activities.categoryId) })
 		.from(activityLogs)
@@ -308,7 +326,7 @@ export async function countDistinctCategories(childId: number): Promise<number> 
 }
 
 /** 今日のログ（活動ID+カテゴリID付き）を取得（combo-service用） */
-export async function findTodayLogsWithCategory(childId: number, date: string) {
+export async function findTodayLogsWithCategory(childId: number, date: string, _tenantId: string) {
 	return db
 		.select({
 			activityId: activityLogs.activityId,
@@ -330,6 +348,7 @@ export async function findTodayLogsWithCategory(childId: number, date: string) {
 export async function getComboPointsGranted(
 	childId: number,
 	descriptionPrefix: string,
+	_tenantId: string,
 ): Promise<number> {
 	const result = await db
 		.select({
@@ -351,12 +370,15 @@ export async function getComboPointsGranted(
 // Point Ledger
 // ============================================================
 
-export async function insertPointLedger(input: {
-	childId: number;
-	amount: number;
-	type: string;
-	description: string;
-	referenceId?: number;
-}) {
+export async function insertPointLedger(
+	input: {
+		childId: number;
+		amount: number;
+		type: string;
+		description: string;
+		referenceId?: number;
+	},
+	_tenantId: string,
+) {
 	db.insert(pointLedger).values(input).run();
 }

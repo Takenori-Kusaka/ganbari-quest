@@ -65,6 +65,7 @@ export interface ActivityLogSummary {
 export async function recordActivity(
 	childId: number,
 	activityId: number,
+	tenantId: string,
 ): Promise<
 	| RecordActivityResult
 	| { error: 'ALREADY_RECORDED' }
@@ -74,15 +75,15 @@ export async function recordActivity(
 	const today = todayDate();
 
 	// Verify child exists
-	const child = await findChildById(childId);
+	const child = await findChildById(childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND', target: 'child' };
 
 	// Verify activity exists
-	const activity = await findActivityById(activityId);
+	const activity = await findActivityById(activityId, tenantId);
 	if (!activity) return { error: 'NOT_FOUND', target: 'activity' };
 
 	// Count today's active records for this child+activity
-	const todayCount = await countTodayActiveRecords(childId, activityId, today);
+	const todayCount = await countTodayActiveRecords(childId, activityId, today, tenantId);
 
 	// Check daily limit: null=1回, 0=無制限, N=N回
 	const effectiveLimit = activity.dailyLimit ?? 1;
@@ -94,30 +95,36 @@ export async function recordActivity(
 
 	// Streak: only award on first record of the day
 	const isFirstToday = todayCount === 0;
-	const streakDays = isFirstToday ? await calculateStreak(childId, activityId, today) : 1;
+	const streakDays = isFirstToday ? await calculateStreak(childId, activityId, today, tenantId) : 1;
 	const streakBonus = isFirstToday ? calcStreakBonus(streakDays) : 0;
 	const totalPoints = activity.basePoints + streakBonus;
 
 	// Insert activity log
 	const now = new Date().toISOString();
-	const log = await insertActivityLog({
-		childId,
-		activityId,
-		points: activity.basePoints,
-		streakDays,
-		streakBonus,
-		recordedDate: today,
-		recordedAt: now,
-	});
+	const log = await insertActivityLog(
+		{
+			childId,
+			activityId,
+			points: activity.basePoints,
+			streakDays,
+			streakBonus,
+			recordedDate: today,
+			recordedAt: now,
+		},
+		tenantId,
+	);
 
 	// Insert point ledger entry
-	await insertPointLedger({
-		childId,
-		amount: totalPoints,
-		type: 'activity',
-		description: `${activity.name}${streakBonus > 0 ? ` (${streakDays}日連続+${streakBonus})` : ''}`,
-		referenceId: log.id,
-	});
+	await insertPointLedger(
+		{
+			childId,
+			amount: totalPoints,
+			type: 'activity',
+			description: `${activity.name}${streakBonus > 0 ? ` (${streakDays}日連続+${streakBonus})` : ''}`,
+			referenceId: log.id,
+		},
+		tenantId,
+	);
 
 	// ステータスを即時更新（カテゴリに対応するステータスを増加）
 	const statusResult = await updateStatus(
@@ -125,19 +132,22 @@ export async function recordActivity(
 		activity.categoryId,
 		STATUS_PER_ACTIVITY,
 		'activity_record',
+		tenantId,
 	);
 	const levelUp = !('error' in statusResult) && statusResult.levelUp ? statusResult.levelUp : null;
 
 	const cancelableUntil = new Date(Date.now() + CANCEL_WINDOW_MS).toISOString();
 
 	// 実績チェック（初回のみ）
-	const unlockedAchievements = isFirstToday ? await checkAndUnlockAchievements(childId) : [];
+	const unlockedAchievements = isFirstToday
+		? await checkAndUnlockAchievements(childId, tenantId)
+		: [];
 
 	// コンボボーナスチェック
-	const comboBonus = await checkAndGrantCombo(childId, today);
+	const comboBonus = await checkAndGrantCombo(childId, today, tenantId);
 
 	// デイリーミッション判定
-	const missionResult = await checkMissionCompletion(childId, activityId);
+	const missionResult = await checkMissionCompletion(childId, activityId, tenantId);
 
 	return {
 		id: log.id,
@@ -160,8 +170,9 @@ export async function recordActivity(
 /** Cancel an activity record (within cancel window). */
 export async function cancelActivityLog(
 	logId: number,
+	tenantId: string,
 ): Promise<{ refundedPoints: number } | { error: 'NOT_FOUND' } | { error: 'CANCEL_EXPIRED' }> {
-	const log = await findActivityLogById(logId);
+	const log = await findActivityLogById(logId, tenantId);
 	if (!log) return { error: 'NOT_FOUND' };
 	if (log.cancelled) return { error: 'NOT_FOUND' };
 
@@ -173,22 +184,31 @@ export async function cancelActivityLog(
 	const totalPoints = log.points + log.streakBonus;
 
 	// 活動のカテゴリを取得してステータスを戻す
-	const activity = await findActivityById(log.activityId);
+	const activity = await findActivityById(log.activityId, tenantId);
 	if (activity) {
-		await updateStatus(log.childId, activity.categoryId, -STATUS_PER_ACTIVITY, 'activity_cancel');
+		await updateStatus(
+			log.childId,
+			activity.categoryId,
+			-STATUS_PER_ACTIVITY,
+			'activity_cancel',
+			tenantId,
+		);
 	}
 
 	// Mark as cancelled
-	await markActivityLogCancelled(logId);
+	await markActivityLogCancelled(logId, tenantId);
 
 	// Deduct points
-	await insertPointLedger({
-		childId: log.childId,
-		amount: -totalPoints,
-		type: 'cancel',
-		description: 'キャンセル',
-		referenceId: logId,
-	});
+	await insertPointLedger(
+		{
+			childId: log.childId,
+			amount: -totalPoints,
+			type: 'cancel',
+			description: 'キャンセル',
+			referenceId: logId,
+		},
+		tenantId,
+	);
 
 	return { refundedPoints: totalPoints };
 }
@@ -196,9 +216,10 @@ export async function cancelActivityLog(
 /** Get activity logs for a child with filtering. */
 export async function getActivityLogs(
 	childId: number,
+	tenantId: string,
 	options: { from?: string; to?: string } = {},
 ): Promise<{ logs: ActivityLogEntry[]; summary: ActivityLogSummary }> {
-	const rows = await findActivityLogs(childId, options);
+	const rows = await findActivityLogs(childId, tenantId, options);
 
 	// Build summary
 	const byCategory: Record<number, { count: number; points: number }> = {};
@@ -229,14 +250,18 @@ export async function getActivityLogs(
 /** Get today's recorded activity counts for a child (for UI completed/badge state). */
 export async function getTodayRecordedActivityCounts(
 	childId: number,
+	tenantId: string,
 ): Promise<{ activityId: number; count: number }[]> {
 	const today = todayDate();
-	return await getTodayActivityCountsByChild(childId, today);
+	return await getTodayActivityCountsByChild(childId, today, tenantId);
 }
 
 /** Get today's recorded activity IDs for a child (backward-compatible wrapper). */
-export async function getTodayRecordedActivityIds(childId: number): Promise<number[]> {
-	return (await getTodayRecordedActivityCounts(childId)).map((r) => r.activityId);
+export async function getTodayRecordedActivityIds(
+	childId: number,
+	tenantId: string,
+): Promise<number[]> {
+	return (await getTodayRecordedActivityCounts(childId, tenantId)).map((r) => r.activityId);
 }
 
 /** Calculate streak (consecutive days including today). */
@@ -244,9 +269,10 @@ async function calculateStreak(
 	childId: number,
 	activityId: number,
 	today: string,
+	tenantId: string,
 ): Promise<number> {
 	// Get all recorded dates for this child+activity, ordered desc
-	const rows = await findStreakLogs(childId, activityId);
+	const rows = await findStreakLogs(childId, activityId, tenantId);
 
 	if (rows.length === 0) return 1; // First time = day 1
 

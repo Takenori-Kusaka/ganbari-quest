@@ -5,8 +5,9 @@ export interface IImageRepo {
 		childId: number,
 		type: string,
 		promptHash: string,
+		tenantId: string,
 	): Promise<CharacterImage | undefined>;
-	insertCharacterImage(input: InsertCharacterImageInput): Promise<void>;
-	updateChildAvatarUrl(childId: number, avatarUrl: string): Promise<void>;
-	findChildForImage(childId: number): Promise<Child | undefined>;
+	insertCharacterImage(input: InsertCharacterImageInput, tenantId: string): Promise<void>;
+	updateChildAvatarUrl(childId: number, avatarUrl: string, tenantId: string): Promise<void>;
+	findChildForImage(childId: number, tenantId: string): Promise<Child | undefined>;
 }

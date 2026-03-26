@@ -30,6 +30,7 @@ import {
 	childPK,
 	pointBalanceKey,
 	pointLedgerKey,
+	tenantPK,
 } from './keys';
 
 function stripKeys<T extends Record<string, unknown>>(
@@ -66,12 +67,18 @@ export async function findAllCareerFields(): Promise<CareerField[]> {
 	return items.map((item) => stripKeys(item) as unknown as CareerField);
 }
 
-export async function findCareerFieldsByAge(age: number): Promise<CareerField[]> {
+export async function findCareerFieldsByAge(
+	age: number,
+	_tenantId: string,
+): Promise<CareerField[]> {
 	const all = await findAllCareerFields();
 	return all.filter((f) => f.minAge <= age);
 }
 
-export async function findCareerFieldById(id: number): Promise<CareerField | undefined> {
+export async function findCareerFieldById(
+	id: number,
+	_tenantId: string,
+): Promise<CareerField | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
@@ -86,14 +93,17 @@ export async function findCareerFieldById(id: number): Promise<CareerField | und
 // Career plans
 // ============================================================
 
-export async function findActiveCareerPlan(childId: number): Promise<CareerPlan | undefined> {
+export async function findActiveCareerPlan(
+	childId: number,
+	tenantId: string,
+): Promise<CareerPlan | undefined> {
 	const result = await getDocClient().send(
 		new QueryCommand({
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			FilterExpression: 'isActive = :active',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId),
+				':pk': childPK(childId, tenantId),
 				':prefix': careerPlanPrefix(),
 				':active': 1,
 			},
@@ -104,13 +114,16 @@ export async function findActiveCareerPlan(childId: number): Promise<CareerPlan 
 	return stripKeys(result.Items[0] as Record<string, unknown>) as unknown as CareerPlan;
 }
 
-export async function findCareerPlansByChildId(childId: number): Promise<CareerPlan[]> {
+export async function findCareerPlansByChildId(
+	childId: number,
+	tenantId: string,
+): Promise<CareerPlan[]> {
 	const result = await getDocClient().send(
 		new QueryCommand({
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId),
+				':pk': childPK(childId, tenantId),
 				':prefix': careerPlanPrefix(),
 			},
 		}),
@@ -118,8 +131,11 @@ export async function findCareerPlansByChildId(childId: number): Promise<CareerP
 	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as CareerPlan);
 }
 
-export async function insertCareerPlan(input: InsertCareerPlanInput): Promise<CareerPlan> {
-	const id = await nextId(ENTITY_NAMES.careerPlan);
+export async function insertCareerPlan(
+	input: InsertCareerPlanInput,
+	tenantId: string,
+): Promise<CareerPlan> {
+	const id = await nextId(ENTITY_NAMES.careerPlan, tenantId);
 	const now = new Date().toISOString();
 
 	const plan: CareerPlan = {
@@ -142,7 +158,7 @@ export async function insertCareerPlan(input: InsertCareerPlanInput): Promise<Ca
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...careerPlanKey(input.childId, id),
+				...careerPlanKey(input.childId, id, tenantId),
 				...plan,
 			},
 		}),
@@ -154,6 +170,7 @@ export async function insertCareerPlan(input: InsertCareerPlanInput): Promise<Ca
 export async function updateCareerPlan(
 	planId: number,
 	input: UpdateCareerPlanInput,
+	_tenantId: string,
 ): Promise<CareerPlan | undefined> {
 	// First find the plan to get childId
 	const items: Record<string, unknown>[] = [];
@@ -214,14 +231,14 @@ export async function updateCareerPlan(
 	return stripKeys(result.Attributes) as unknown as CareerPlan;
 }
 
-export async function deactivateCareerPlans(childId: number): Promise<void> {
-	const plans = await findCareerPlansByChildId(childId);
+export async function deactivateCareerPlans(childId: number, tenantId: string): Promise<void> {
+	const plans = await findCareerPlansByChildId(childId, tenantId);
 	for (const plan of plans) {
 		if (plan.isActive === 1) {
 			await getDocClient().send(
 				new UpdateCommand({
 					TableName: TABLE_NAME,
-					Key: careerPlanKey(childId, plan.id),
+					Key: careerPlanKey(childId, plan.id, tenantId),
 					UpdateExpression: 'SET isActive = :inactive, updatedAt = :now',
 					ExpressionAttributeValues: {
 						':inactive': 0,
@@ -239,8 +256,9 @@ export async function deactivateCareerPlans(childId: number): Promise<void> {
 
 export async function insertCareerPlanHistory(
 	input: InsertCareerPlanHistoryInput,
+	tenantId: string,
 ): Promise<CareerPlanHistory> {
-	const id = await nextId(ENTITY_NAMES.careerPlanHistory);
+	const id = await nextId(ENTITY_NAMES.careerPlanHistory, tenantId);
 	const now = new Date().toISOString();
 
 	const history: CareerPlanHistory = {
@@ -256,7 +274,7 @@ export async function insertCareerPlanHistory(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...careerPlanHistoryKey(input.careerPlanId, now, id),
+				...careerPlanHistoryKey(input.careerPlanId, now, id, tenantId),
 				...history,
 			},
 		}),
@@ -268,6 +286,7 @@ export async function insertCareerPlanHistory(
 export async function findLatestHistoryByAction(
 	careerPlanId: number,
 	action: string,
+	tenantId: string,
 ): Promise<CareerPlanHistory | undefined> {
 	const result = await getDocClient().send(
 		new QueryCommand({
@@ -276,7 +295,7 @@ export async function findLatestHistoryByAction(
 			FilterExpression: '#action = :action',
 			ExpressionAttributeNames: { '#action': 'action' },
 			ExpressionAttributeValues: {
-				':pk': `CARPLAN#${careerPlanId}`,
+				':pk': tenantPK(`CARPLAN#${careerPlanId}`, tenantId),
 				':prefix': careerPlanHistoryPrefix(),
 				':action': action,
 			},
@@ -295,8 +314,9 @@ export async function findLatestHistoryByAction(
 
 export async function insertCareerPointEntry(
 	input: InsertCareerPointInput,
+	tenantId: string,
 ): Promise<PointLedgerEntry> {
-	const id = await nextId(ENTITY_NAMES.pointLedger);
+	const id = await nextId(ENTITY_NAMES.pointLedger, tenantId);
 	const now = new Date().toISOString();
 
 	const entry: PointLedgerEntry = {
@@ -313,7 +333,7 @@ export async function insertCareerPointEntry(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...pointLedgerKey(input.childId, now, id),
+				...pointLedgerKey(input.childId, now, id, tenantId),
 				...entry,
 			},
 		}),
@@ -323,7 +343,7 @@ export async function insertCareerPointEntry(
 	await getDocClient().send(
 		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Key: pointBalanceKey(input.childId),
+			Key: pointBalanceKey(input.childId, tenantId),
 			UpdateExpression: 'ADD balance :amount',
 			ExpressionAttributeValues: {
 				':amount': input.amount,

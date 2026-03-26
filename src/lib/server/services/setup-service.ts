@@ -5,7 +5,7 @@ import { getAllChildren } from '$lib/server/services/child-service';
  * Setup is required when no children are registered.
  * (#0123: PIN認証廃止 — セットアップは子供登録のみが条件)
  */
-export async function isSetupRequired(): Promise<boolean> {
-	const children = await getAllChildren();
+export async function isSetupRequired(tenantId: string): Promise<boolean> {
+	const children = await getAllChildren(tenantId);
 	return children.length === 0;
 }

@@ -14,10 +14,11 @@ import { counterKey } from './keys';
  *
  * @param entity - Entity name (e.g., 'child', 'activityLog')
  * @param increment - Amount to increment (default: 1)
+ * @param tenantId - Tenant ID for multi-tenant isolation
  * @returns The new counter value after increment
  */
-export async function nextId(entity: EntityName, increment = 1): Promise<number> {
-	const key = counterKey(entity);
+export async function nextId(entity: EntityName, tenantId: string, increment = 1): Promise<number> {
+	const key = counterKey(entity, tenantId);
 	const docClient = getDocClient();
 
 	const result = await docClient.send(
@@ -48,11 +49,12 @@ export async function nextId(entity: EntityName, increment = 1): Promise<number>
  * Returns 0 if the counter does not exist yet.
  *
  * @param entity - Entity name (e.g., 'child', 'activityLog')
+ * @param tenantId - Tenant ID for multi-tenant isolation
  * @returns The current counter value
  */
-export async function currentId(entity: EntityName): Promise<number> {
+export async function currentId(entity: EntityName, tenantId: string): Promise<number> {
 	const { GetCommand } = await import('@aws-sdk/lib-dynamodb');
-	const key = counterKey(entity);
+	const key = counterKey(entity, tenantId);
 	const docClient = getDocClient();
 
 	const result = await docClient.send(
@@ -79,10 +81,15 @@ export async function currentId(entity: EntityName): Promise<number> {
  *
  * @param entity - Entity name (e.g., 'child', 'activityLog')
  * @param value - The value to set the counter to
+ * @param tenantId - Tenant ID for multi-tenant isolation
  */
-export async function seedCounter(entity: EntityName, value: number): Promise<void> {
+export async function seedCounter(
+	entity: EntityName,
+	value: number,
+	tenantId: string,
+): Promise<void> {
 	const { PutCommand } = await import('@aws-sdk/lib-dynamodb');
-	const key = counterKey(entity);
+	const key = counterKey(entity, tenantId);
 	const docClient = getDocClient();
 
 	await docClient.send(
@@ -104,17 +111,19 @@ export async function seedCounter(entity: EntityName, value: number): Promise<vo
  *
  * @param entity - Entity name
  * @param count - Number of IDs to reserve
+ * @param tenantId - Tenant ID for multi-tenant isolation
  * @returns Object with start and end IDs (both inclusive)
  */
 export async function batchNextIds(
 	entity: EntityName,
 	count: number,
+	tenantId: string,
 ): Promise<{ start: number; end: number }> {
 	if (count < 1) {
 		throw new Error(`batchNextIds: count must be >= 1, got ${count}`);
 	}
 
-	const end = await nextId(entity, count);
+	const end = await nextId(entity, tenantId, count);
 	const start = end - count + 1;
 
 	return { start, end };

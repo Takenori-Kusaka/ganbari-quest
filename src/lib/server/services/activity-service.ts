@@ -33,39 +33,43 @@ export interface ActivityFilter {
 	includeHidden?: boolean;
 }
 
-export async function getActivities(filter?: ActivityFilter) {
-	return await findActivities(filter);
+export async function getActivities(tenantId: string, filter?: ActivityFilter) {
+	return await findActivities(tenantId, filter);
 }
 
-export async function getActivityById(id: number) {
-	return await findActivityById(id);
+export async function getActivityById(id: number, tenantId: string) {
+	return await findActivityById(id, tenantId);
 }
 
-export async function createActivity(input: CreateActivityInput) {
-	return await insertActivity(input);
+export async function createActivity(input: CreateActivityInput, tenantId: string) {
+	return await insertActivity(input, tenantId);
 }
 
-export async function updateActivity(id: number, input: Partial<CreateActivityInput>) {
-	return await updateActivityRepo(id, input);
+export async function updateActivity(
+	id: number,
+	input: Partial<CreateActivityInput>,
+	tenantId: string,
+) {
+	return await updateActivityRepo(id, input, tenantId);
 }
 
-export async function setActivityVisibility(id: number, visible: boolean) {
-	return await setActivityVisibilityRepo(id, visible);
+export async function setActivityVisibility(id: number, visible: boolean, tenantId: string) {
+	return await setActivityVisibilityRepo(id, visible, tenantId);
 }
 
-export async function deleteActivity(id: number) {
-	return await deleteActivityRepo(id);
+export async function deleteActivity(id: number, tenantId: string) {
+	return await deleteActivityRepo(id, tenantId);
 }
 
-export async function hasActivityLogs(activityId: number): Promise<boolean> {
-	return await hasActivityLogsRepo(activityId);
+export async function hasActivityLogs(activityId: number, tenantId: string): Promise<boolean> {
+	return await hasActivityLogsRepo(activityId, tenantId);
 }
 
-export async function getActivityLogCounts(): Promise<Record<number, number>> {
-	return await getActivityLogCountsRepo();
+export async function getActivityLogCounts(tenantId: string): Promise<Record<number, number>> {
+	return await getActivityLogCountsRepo(tenantId);
 }
 
-export async function deleteActivityWithCleanup(id: number) {
-	await deleteDailyMissionsByActivity(id);
-	return await deleteActivityRepo(id);
+export async function deleteActivityWithCleanup(id: number, tenantId: string) {
+	await deleteDailyMissionsByActivity(id, tenantId);
+	return await deleteActivityRepo(id, tenantId);
 }

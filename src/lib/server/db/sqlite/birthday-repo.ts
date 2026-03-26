@@ -6,7 +6,7 @@ import { db } from '../client';
 import { birthdayReviews } from '../schema';
 
 /** 指定年の誕生日レビューを取得 */
-export async function findBirthdayReviewByYear(childId: number, year: number) {
+export async function findBirthdayReviewByYear(childId: number, year: number, _tenantId: string) {
 	return db
 		.select({ id: birthdayReviews.id })
 		.from(birthdayReviews)
@@ -15,23 +15,26 @@ export async function findBirthdayReviewByYear(childId: number, year: number) {
 }
 
 /** 誕生日レビューを挿入 */
-export async function insertBirthdayReview(input: {
-	childId: number;
-	reviewYear: number;
-	ageAtReview: number;
-	healthChecks: string;
-	aspirationText: string | null;
-	aspirationCategories: string;
-	basePoints: number;
-	healthPoints: number;
-	aspirationPoints: number;
-	totalPoints: number;
-}) {
+export async function insertBirthdayReview(
+	input: {
+		childId: number;
+		reviewYear: number;
+		ageAtReview: number;
+		healthChecks: string;
+		aspirationText: string | null;
+		aspirationCategories: string;
+		basePoints: number;
+		healthPoints: number;
+		aspirationPoints: number;
+		totalPoints: number;
+	},
+	_tenantId: string,
+) {
 	return db.insert(birthdayReviews).values(input).returning().get();
 }
 
 /** 子供の全誕生日レビューを取得 */
-export async function findBirthdayReviews(childId: number) {
+export async function findBirthdayReviews(childId: number, _tenantId: string) {
 	return db
 		.select()
 		.from(birthdayReviews)

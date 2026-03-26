@@ -1,17 +1,19 @@
 import { activityLogsQuerySchema, recordActivitySchema } from '$lib/domain/validation/activity';
+import { requireTenantId } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { getActivityLogs, recordActivity } from '$lib/server/services/activity-log-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const tenantId = requireTenantId(locals);
 	const body = await request.json();
 	const parsed = recordActivitySchema.safeParse(body);
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
 	}
 
-	const result = await recordActivity(parsed.data.childId, parsed.data.activityId);
+	const result = await recordActivity(parsed.data.childId, parsed.data.activityId, tenantId);
 
 	if ('error' in result) {
 		if (result.error === 'ALREADY_RECORDED') {
@@ -28,7 +30,8 @@ export const POST: RequestHandler = async ({ request }) => {
 	return json(result, { status: 201 });
 };
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
+	const tenantId = requireTenantId(locals);
 	const parsed = activityLogsQuerySchema.safeParse(Object.fromEntries(url.searchParams));
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
@@ -60,6 +63,6 @@ export const GET: RequestHandler = async ({ url }) => {
 		}
 	}
 
-	const result = await getActivityLogs(childId, { from: dateFrom, to: dateTo });
+	const result = await getActivityLogs(childId, tenantId, { from: dateFrom, to: dateTo });
 	return json(result);
 };

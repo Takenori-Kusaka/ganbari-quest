@@ -7,24 +7,25 @@ export async function countActivitiesByCategory(
 	childId: number,
 	weekStart: string,
 	weekEnd: string,
+	tenantId: string,
 ) {
-	return getRepos().evaluation.countActivitiesByCategory(childId, weekStart, weekEnd);
+	return getRepos().evaluation.countActivitiesByCategory(childId, weekStart, weekEnd, tenantId);
 }
-export async function insertEvaluation(input: InsertEvaluationInput) {
-	return getRepos().evaluation.insertEvaluation(input);
+export async function insertEvaluation(input: InsertEvaluationInput, tenantId: string) {
+	return getRepos().evaluation.insertEvaluation(input, tenantId);
 }
-export async function findAllChildren() {
-	return getRepos().evaluation.findAllChildren();
+export async function findAllChildren(tenantId: string) {
+	return getRepos().evaluation.findAllChildren(tenantId);
 }
-export async function findEvaluationsByChild(childId: number, limit: number) {
-	return getRepos().evaluation.findEvaluationsByChild(childId, limit);
+export async function findEvaluationsByChild(childId: number, limit: number, tenantId: string) {
+	return getRepos().evaluation.findEvaluationsByChild(childId, limit, tenantId);
 }
-export async function hasDecayRunToday(childId: number, today: string) {
-	return getRepos().evaluation.hasDecayRunToday(childId, today);
+export async function hasDecayRunToday(childId: number, today: string, tenantId: string) {
+	return getRepos().evaluation.hasDecayRunToday(childId, today, tenantId);
 }
-export async function findWeekEvaluation(childId: number, weekStart: string) {
-	return getRepos().evaluation.findWeekEvaluation(childId, weekStart);
+export async function findWeekEvaluation(childId: number, weekStart: string, tenantId: string) {
+	return getRepos().evaluation.findWeekEvaluation(childId, weekStart, tenantId);
 }
-export async function findLastActivityDateByCategory(childId: number) {
-	return getRepos().evaluation.findLastActivityDateByCategory(childId);
+export async function findLastActivityDateByCategory(childId: number, tenantId: string) {
+	return getRepos().evaluation.findLastActivityDateByCategory(childId, tenantId);
 }

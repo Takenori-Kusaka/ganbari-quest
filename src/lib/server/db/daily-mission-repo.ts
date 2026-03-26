@@ -2,36 +2,50 @@
 
 import { getRepos } from './factory';
 
-export async function findTodayMissions(childId: number, date: string) {
-	return getRepos().dailyMission.findTodayMissions(childId, date);
+export async function findTodayMissions(childId: number, date: string, tenantId: string) {
+	return getRepos().dailyMission.findTodayMissions(childId, date, tenantId);
 }
-export async function findMissionBonusRecord(childId: number, description: string) {
-	return getRepos().dailyMission.findMissionBonusRecord(childId, description);
+export async function findMissionBonusRecord(
+	childId: number,
+	description: string,
+	tenantId: string,
+) {
+	return getRepos().dailyMission.findMissionBonusRecord(childId, description, tenantId);
 }
-export async function findMissionByActivity(childId: number, date: string, activityId: number) {
-	return getRepos().dailyMission.findMissionByActivity(childId, date, activityId);
+export async function findMissionByActivity(
+	childId: number,
+	date: string,
+	activityId: number,
+	tenantId: string,
+) {
+	return getRepos().dailyMission.findMissionByActivity(childId, date, activityId, tenantId);
 }
-export async function markMissionCompleted(missionId: number) {
-	return getRepos().dailyMission.markMissionCompleted(missionId);
+export async function markMissionCompleted(missionId: number, tenantId: string) {
+	return getRepos().dailyMission.markMissionCompleted(missionId, tenantId);
 }
-export async function findAllMissionStatuses(childId: number, date: string) {
-	return getRepos().dailyMission.findAllMissionStatuses(childId, date);
+export async function findAllMissionStatuses(childId: number, date: string, tenantId: string) {
+	return getRepos().dailyMission.findAllMissionStatuses(childId, date, tenantId);
 }
-export async function findChildForMission(childId: number) {
-	return getRepos().dailyMission.findChildForMission(childId);
+export async function findChildForMission(childId: number, tenantId: string) {
+	return getRepos().dailyMission.findChildForMission(childId, tenantId);
 }
-export async function findVisibleActivities() {
-	return getRepos().dailyMission.findVisibleActivities();
+export async function findVisibleActivities(tenantId: string) {
+	return getRepos().dailyMission.findVisibleActivities(tenantId);
 }
-export async function findPreviousDayMissionIds(childId: number, date: string) {
-	return getRepos().dailyMission.findPreviousDayMissionIds(childId, date);
+export async function findPreviousDayMissionIds(childId: number, date: string, tenantId: string) {
+	return getRepos().dailyMission.findPreviousDayMissionIds(childId, date, tenantId);
 }
-export async function findRecentActivityIds(childId: number, sinceDate: string) {
-	return getRepos().dailyMission.findRecentActivityIds(childId, sinceDate);
+export async function findRecentActivityIds(childId: number, sinceDate: string, tenantId: string) {
+	return getRepos().dailyMission.findRecentActivityIds(childId, sinceDate, tenantId);
 }
-export async function findAllRecordedActivityIds(childId: number) {
-	return getRepos().dailyMission.findAllRecordedActivityIds(childId);
+export async function findAllRecordedActivityIds(childId: number, tenantId: string) {
+	return getRepos().dailyMission.findAllRecordedActivityIds(childId, tenantId);
 }
-export async function insertDailyMission(childId: number, date: string, activityId: number) {
-	return getRepos().dailyMission.insertDailyMission(childId, date, activityId);
+export async function insertDailyMission(
+	childId: number,
+	date: string,
+	activityId: number,
+	tenantId: string,
+) {
+	return getRepos().dailyMission.insertDailyMission(childId, date, activityId, tenantId);
 }

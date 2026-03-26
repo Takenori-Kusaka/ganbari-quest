@@ -2,12 +2,12 @@
 
 import { getRepos } from './factory';
 
-export async function getSetting(key: string) {
-	return getRepos().settings.getSetting(key);
+export async function getSetting(key: string, tenantId: string) {
+	return getRepos().settings.getSetting(key, tenantId);
 }
-export async function setSetting(key: string, value: string) {
-	return getRepos().settings.setSetting(key, value);
+export async function setSetting(key: string, value: string, tenantId: string) {
+	return getRepos().settings.setSetting(key, value, tenantId);
 }
-export async function getSettings(keys: string[]) {
-	return getRepos().settings.getSettings(keys);
+export async function getSettings(keys: string[], tenantId: string) {
+	return getRepos().settings.getSettings(keys, tenantId);
 }

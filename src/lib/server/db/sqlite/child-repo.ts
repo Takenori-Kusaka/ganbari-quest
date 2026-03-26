@@ -15,20 +15,23 @@ import {
 	statuses,
 } from '../schema';
 
-export async function findAllChildren() {
+export async function findAllChildren(_tenantId: string) {
 	return db.select().from(children).all();
 }
 
-export async function findChildById(id: number) {
+export async function findChildById(id: number, _tenantId: string) {
 	return db.select().from(children).where(eq(children.id, id)).get();
 }
 
-export async function insertChild(input: {
-	nickname: string;
-	age: number;
-	theme?: string;
-	uiMode?: string;
-}) {
+export async function insertChild(
+	input: {
+		nickname: string;
+		age: number;
+		theme?: string;
+		uiMode?: string;
+	},
+	_tenantId: string,
+) {
 	return db
 		.insert(children)
 		.values({
@@ -44,6 +47,7 @@ export async function insertChild(input: {
 export async function updateChild(
 	id: number,
 	input: { nickname?: string; age?: number; theme?: string; uiMode?: string },
+	_tenantId: string,
 ) {
 	return db
 		.update(children)
@@ -53,7 +57,7 @@ export async function updateChild(
 		.get();
 }
 
-export async function deleteChild(id: number) {
+export async function deleteChild(id: number, _tenantId: string) {
 	// トランザクションで関連データをすべて削除
 	return db.transaction((tx) => {
 		tx.delete(checklistOverrides).where(eq(checklistOverrides.childId, id)).run();

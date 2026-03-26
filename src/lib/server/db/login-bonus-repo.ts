@@ -3,15 +3,15 @@
 import { getRepos } from './factory';
 import type { InsertLoginBonusInput } from './types';
 
-export async function findTodayBonus(childId: number, today: string) {
-	return getRepos().loginBonus.findTodayBonus(childId, today);
+export async function findTodayBonus(childId: number, today: string, tenantId: string) {
+	return getRepos().loginBonus.findTodayBonus(childId, today, tenantId);
 }
-export async function findRecentBonuses(childId: number, limit = 60) {
-	return getRepos().loginBonus.findRecentBonuses(childId, limit);
+export async function findRecentBonuses(childId: number, tenantId: string, limit = 60) {
+	return getRepos().loginBonus.findRecentBonuses(childId, tenantId, limit);
 }
-export async function insertLoginBonus(input: InsertLoginBonusInput) {
-	return getRepos().loginBonus.insertLoginBonus(input);
+export async function insertLoginBonus(input: InsertLoginBonusInput, tenantId: string) {
+	return getRepos().loginBonus.insertLoginBonus(input, tenantId);
 }
-export async function findChildById(id: number) {
-	return getRepos().loginBonus.findChildById(id);
+export async function findChildById(id: number, tenantId: string) {
+	return getRepos().loginBonus.findChildById(id, tenantId);
 }

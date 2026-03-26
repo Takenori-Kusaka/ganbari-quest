@@ -7,7 +7,7 @@ import { db } from '../client';
 import { avatarItems, childAvatarItems, children } from '../schema';
 
 /** 全アイテムマスタを取得 */
-export async function findAllAvatarItems() {
+export async function findAllAvatarItems(_tenantId: string) {
 	return db
 		.select()
 		.from(avatarItems)
@@ -17,7 +17,7 @@ export async function findAllAvatarItems() {
 }
 
 /** カテゴリ別アイテム取得 */
-export async function findAvatarItemsByCategory(category: AvatarCategory) {
+export async function findAvatarItemsByCategory(category: AvatarCategory, _tenantId: string) {
 	return db
 		.select()
 		.from(avatarItems)
@@ -27,12 +27,12 @@ export async function findAvatarItemsByCategory(category: AvatarCategory) {
 }
 
 /** アイテム単体取得 */
-export async function findAvatarItemById(itemId: number) {
+export async function findAvatarItemById(itemId: number, _tenantId: string) {
 	return db.select().from(avatarItems).where(eq(avatarItems.id, itemId)).get();
 }
 
 /** 子供の所持アイテム一覧 */
-export async function findOwnedItems(childId: number) {
+export async function findOwnedItems(childId: number, _tenantId: string) {
 	return db
 		.select({
 			avatarItemId: childAvatarItems.avatarItemId,
@@ -44,7 +44,11 @@ export async function findOwnedItems(childId: number) {
 }
 
 /** 所持チェック */
-export async function isItemOwned(childId: number, itemId: number): Promise<boolean> {
+export async function isItemOwned(
+	childId: number,
+	itemId: number,
+	_tenantId: string,
+): Promise<boolean> {
 	const row = db
 		.select({ id: childAvatarItems.id })
 		.from(childAvatarItems)
@@ -54,12 +58,12 @@ export async function isItemOwned(childId: number, itemId: number): Promise<bool
 }
 
 /** アイテム付与 */
-export async function insertChildAvatarItem(childId: number, itemId: number) {
+export async function insertChildAvatarItem(childId: number, itemId: number, _tenantId: string) {
 	return db.insert(childAvatarItems).values({ childId, avatarItemId: itemId }).returning().get();
 }
 
 /** 装備中のアバター設定を取得 */
-export async function getActiveAvatarIds(childId: number) {
+export async function getActiveAvatarIds(childId: number, _tenantId: string) {
 	const child = db
 		.select({
 			activeAvatarBg: children.activeAvatarBg,
@@ -81,6 +85,7 @@ export async function setActiveAvatar(
 	childId: number,
 	category: AvatarCategory,
 	itemId: number | null,
+	_tenantId: string,
 ) {
 	const fieldMap: Record<
 		AvatarCategory,

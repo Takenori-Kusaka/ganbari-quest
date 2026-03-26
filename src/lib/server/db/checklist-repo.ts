@@ -10,48 +10,64 @@ import type {
 } from './types';
 
 // Templates
-export async function findTemplatesByChild(childId: number, includeInactive = false) {
-	return getRepos().checklist.findTemplatesByChild(childId, includeInactive);
+export async function findTemplatesByChild(
+	childId: number,
+	tenantId: string,
+	includeInactive = false,
+) {
+	return getRepos().checklist.findTemplatesByChild(childId, tenantId, includeInactive);
 }
-export async function findTemplateById(id: number) {
-	return getRepos().checklist.findTemplateById(id);
+export async function findTemplateById(id: number, tenantId: string) {
+	return getRepos().checklist.findTemplateById(id, tenantId);
 }
-export async function insertTemplate(input: InsertChecklistTemplateInput) {
-	return getRepos().checklist.insertTemplate(input);
+export async function insertTemplate(input: InsertChecklistTemplateInput, tenantId: string) {
+	return getRepos().checklist.insertTemplate(input, tenantId);
 }
-export async function updateTemplate(id: number, input: UpdateChecklistTemplateInput) {
-	return getRepos().checklist.updateTemplate(id, input);
+export async function updateTemplate(
+	id: number,
+	input: UpdateChecklistTemplateInput,
+	tenantId: string,
+) {
+	return getRepos().checklist.updateTemplate(id, input, tenantId);
 }
-export async function deleteTemplate(id: number) {
-	return getRepos().checklist.deleteTemplate(id);
+export async function deleteTemplate(id: number, tenantId: string) {
+	return getRepos().checklist.deleteTemplate(id, tenantId);
 }
 
 // Template items
-export async function findTemplateItems(templateId: number) {
-	return getRepos().checklist.findTemplateItems(templateId);
+export async function findTemplateItems(templateId: number, tenantId: string) {
+	return getRepos().checklist.findTemplateItems(templateId, tenantId);
 }
-export async function insertTemplateItem(input: InsertChecklistTemplateItemInput) {
-	return getRepos().checklist.insertTemplateItem(input);
+export async function insertTemplateItem(
+	input: InsertChecklistTemplateItemInput,
+	tenantId: string,
+) {
+	return getRepos().checklist.insertTemplateItem(input, tenantId);
 }
-export async function deleteTemplateItem(id: number) {
-	return getRepos().checklist.deleteTemplateItem(id);
+export async function deleteTemplateItem(id: number, tenantId: string) {
+	return getRepos().checklist.deleteTemplateItem(id, tenantId);
 }
 
 // Logs
-export async function findTodayLog(childId: number, templateId: number, date: string) {
-	return getRepos().checklist.findTodayLog(childId, templateId, date);
+export async function findTodayLog(
+	childId: number,
+	templateId: number,
+	date: string,
+	tenantId: string,
+) {
+	return getRepos().checklist.findTodayLog(childId, templateId, date, tenantId);
 }
-export async function upsertLog(input: UpsertChecklistLogInput) {
-	return getRepos().checklist.upsertLog(input);
+export async function upsertLog(input: UpsertChecklistLogInput, tenantId: string) {
+	return getRepos().checklist.upsertLog(input, tenantId);
 }
 
 // Overrides
-export async function findOverrides(childId: number, date: string) {
-	return getRepos().checklist.findOverrides(childId, date);
+export async function findOverrides(childId: number, date: string, tenantId: string) {
+	return getRepos().checklist.findOverrides(childId, date, tenantId);
 }
-export async function insertOverride(input: InsertChecklistOverrideInput) {
-	return getRepos().checklist.insertOverride(input);
+export async function insertOverride(input: InsertChecklistOverrideInput, tenantId: string) {
+	return getRepos().checklist.insertOverride(input, tenantId);
 }
-export async function deleteOverride(id: number) {
-	return getRepos().checklist.deleteOverride(id);
+export async function deleteOverride(id: number, tenantId: string) {
+	return getRepos().checklist.deleteOverride(id, tenantId);
 }

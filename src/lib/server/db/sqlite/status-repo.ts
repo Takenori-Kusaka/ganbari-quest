@@ -6,12 +6,12 @@ import { db } from '../client';
 import { activityLogs, children, marketBenchmarks, statusHistory, statuses } from '../schema';
 
 /** 子供の全ステータスを取得 */
-export async function findStatuses(childId: number) {
+export async function findStatuses(childId: number, _tenantId: string) {
 	return db.select().from(statuses).where(eq(statuses.childId, childId)).all();
 }
 
 /** カテゴリ別のステータスを取得 */
-export async function findStatus(childId: number, categoryId: number) {
+export async function findStatus(childId: number, categoryId: number, _tenantId: string) {
 	return db
 		.select()
 		.from(statuses)
@@ -20,8 +20,13 @@ export async function findStatus(childId: number, categoryId: number) {
 }
 
 /** ステータスを更新（upsert） */
-export async function upsertStatus(childId: number, categoryId: number, value: number) {
-	const existing = await findStatus(childId, categoryId);
+export async function upsertStatus(
+	childId: number,
+	categoryId: number,
+	value: number,
+	_tenantId: string,
+) {
+	const existing = await findStatus(childId, categoryId, _tenantId);
 	const clampedValue = Math.max(0, value);
 	const now = new Date().toISOString();
 
@@ -42,18 +47,26 @@ export async function upsertStatus(childId: number, categoryId: number, value: n
 }
 
 /** ステータス変動履歴を追加 */
-export async function insertStatusHistory(input: {
-	childId: number;
-	categoryId: number;
-	value: number;
-	changeAmount: number;
-	changeType: string;
-}) {
+export async function insertStatusHistory(
+	input: {
+		childId: number;
+		categoryId: number;
+		value: number;
+		changeAmount: number;
+		changeType: string;
+	},
+	_tenantId: string,
+) {
 	return db.insert(statusHistory).values(input).returning().get();
 }
 
 /** 直近のステータス変動を取得 */
-export async function findRecentStatusHistory(childId: number, categoryId: number, limit = 7) {
+export async function findRecentStatusHistory(
+	childId: number,
+	categoryId: number,
+	_tenantId: string,
+	limit = 7,
+) {
 	return db
 		.select()
 		.from(statusHistory)
@@ -64,7 +77,7 @@ export async function findRecentStatusHistory(childId: number, categoryId: numbe
 }
 
 /** 市場ベンチマークを取得 */
-export async function findBenchmark(age: number, categoryId: number) {
+export async function findBenchmark(age: number, categoryId: number, _tenantId: string) {
 	return db
 		.select()
 		.from(marketBenchmarks)
@@ -73,7 +86,7 @@ export async function findBenchmark(age: number, categoryId: number) {
 }
 
 /** 全ベンチマークを取得（年齢・カテゴリ順） */
-export async function findAllBenchmarks() {
+export async function findAllBenchmarks(_tenantId: string) {
 	return db
 		.select()
 		.from(marketBenchmarks)
@@ -88,8 +101,9 @@ export async function upsertBenchmark(
 	mean: number,
 	stdDev: number,
 	source: string,
+	_tenantId: string,
 ) {
-	const existing = await findBenchmark(age, categoryId);
+	const existing = await findBenchmark(age, categoryId, _tenantId);
 	const now = new Date().toISOString();
 	if (existing) {
 		return db
@@ -107,12 +121,12 @@ export async function upsertBenchmark(
 }
 
 /** 子供の存在確認（年齢も取得） */
-export async function findChildById(id: number) {
+export async function findChildById(id: number, _tenantId: string) {
 	return db.select().from(children).where(eq(children.id, id)).get();
 }
 
 /** カテゴリ別の最終活動日を取得 */
-export async function findLastActivityDates(childId: number) {
+export async function findLastActivityDates(childId: number, _tenantId: string) {
 	return db
 		.select({
 			category: activityLogs.activityId,
