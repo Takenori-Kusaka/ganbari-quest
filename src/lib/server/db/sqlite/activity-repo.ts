@@ -43,6 +43,7 @@ export async function insertActivity(
 		basePoints: number;
 		ageMin: number | null;
 		ageMax: number | null;
+		triggerHint?: string | null;
 	},
 	_tenantId: string,
 ) {
@@ -58,6 +59,7 @@ export async function updateActivity(
 		basePoints: number;
 		ageMin: number | null;
 		ageMax: number | null;
+		triggerHint: string | null;
 	}>,
 	_tenantId: string,
 ) {

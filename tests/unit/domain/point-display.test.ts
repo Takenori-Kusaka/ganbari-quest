@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import {
 	CURRENCY_CODES,
 	CURRENCY_DEFS,
@@ -9,6 +8,7 @@ import {
 	formatWithSettingsAndSign,
 	getUnitLabel,
 } from '$lib/domain/point-display';
+import { describe, expect, it } from 'vitest';
 
 describe('formatPointValue', () => {
 	describe('point mode', () => {
@@ -154,9 +154,7 @@ describe('formatWithSettings', () => {
 	});
 
 	it('works with currency settings', () => {
-		expect(formatWithSettings(100, { mode: 'currency', currency: 'JPY', rate: 1 })).toBe(
-			'100円',
-		);
+		expect(formatWithSettings(100, { mode: 'currency', currency: 'JPY', rate: 1 })).toBe('100円');
 	});
 });
 
@@ -166,9 +164,9 @@ describe('formatWithSettingsAndSign', () => {
 	});
 
 	it('works with currency settings', () => {
-		expect(
-			formatWithSettingsAndSign(5, { mode: 'currency', currency: 'USD', rate: 0.01 }),
-		).toBe('+$0.05');
+		expect(formatWithSettingsAndSign(5, { mode: 'currency', currency: 'USD', rate: 0.01 })).toBe(
+			'+$0.05',
+		);
 	});
 });
 

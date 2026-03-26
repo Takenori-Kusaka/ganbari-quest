@@ -25,6 +25,7 @@ export interface CreateActivityInput {
 	dailyLimit?: number | null;
 	nameKana?: string | null;
 	nameKanji?: string | null;
+	triggerHint?: string | null;
 }
 
 export interface ActivityFilter {

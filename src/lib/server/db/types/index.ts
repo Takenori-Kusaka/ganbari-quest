@@ -46,6 +46,7 @@ export interface Activity {
 	description: string | null;
 	nameKana: string | null;
 	nameKanji: string | null;
+	triggerHint: string | null;
 	createdAt: string;
 }
 
@@ -335,6 +336,7 @@ export interface InsertActivityInput {
 	basePoints: number;
 	ageMin: number | null;
 	ageMax: number | null;
+	triggerHint?: string | null;
 }
 
 export interface UpdateActivityInput {
@@ -344,6 +346,7 @@ export interface UpdateActivityInput {
 	basePoints?: number;
 	ageMin?: number | null;
 	ageMax?: number | null;
+	triggerHint?: string | null;
 }
 
 export interface InsertActivityLogInput {

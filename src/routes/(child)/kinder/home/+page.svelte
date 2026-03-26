@@ -371,6 +371,7 @@ function handleBirthdayResultClose() {
 					completed={isCompleted(activity)}
 					count={getCount(activity.id)}
 					isMission={activity.isMission}
+					triggerHint={activity.triggerHint}
 					onclick={() => handleActivityTap(activity)}
 				/>
 			{/each}

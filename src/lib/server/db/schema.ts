@@ -74,6 +74,7 @@ export const activities = sqliteTable('activities', {
 	description: text('description'),
 	nameKana: text('name_kana'),
 	nameKanji: text('name_kanji'),
+	triggerHint: text('trigger_hint'),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 

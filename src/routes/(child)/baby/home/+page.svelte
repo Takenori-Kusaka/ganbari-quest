@@ -397,6 +397,9 @@ function handleBirthdayResultClose() {
 								{/if}
 								<CompoundIcon icon={activity.icon} size="lg" />
 								<span class="baby-card__name">{activity.displayName}</span>
+								{#if activity.triggerHint}
+									<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{activity.triggerHint}</span>
+								{/if}
 							{/if}
 						</button>
 					</form>

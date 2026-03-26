@@ -180,6 +180,7 @@ export async function insertActivity(
 		description: null,
 		nameKana: null,
 		nameKanji: null,
+		triggerHint: input.triggerHint ?? null,
 		createdAt: now,
 	};
 
@@ -237,6 +238,11 @@ export async function updateActivity(
 		expressionParts.push('#ageMax = :ageMax');
 		expressionNames['#ageMax'] = 'ageMax';
 		expressionValues[':ageMax'] = input.ageMax;
+	}
+	if (input.triggerHint !== undefined) {
+		expressionParts.push('#triggerHint = :triggerHint');
+		expressionNames['#triggerHint'] = 'triggerHint';
+		expressionValues[':triggerHint'] = input.triggerHint;
 	}
 
 	if (expressionParts.length === 0) {

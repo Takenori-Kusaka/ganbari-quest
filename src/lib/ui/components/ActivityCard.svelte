@@ -10,6 +10,7 @@ interface Props {
 	count?: number;
 	streakDays?: number;
 	isMission?: boolean;
+	triggerHint?: string | null;
 	onclick?: () => void;
 }
 
@@ -21,6 +22,7 @@ let {
 	count = 0,
 	streakDays = 0,
 	isMission = false,
+	triggerHint,
 	onclick,
 }: Props = $props();
 
@@ -58,6 +60,9 @@ const borderColor = $derived(getCategoryById(categoryId)?.color ?? 'var(--theme-
 
 	<CompoundIcon {icon} size="lg" faded={completed} />
 	<span class="text-[10px] font-bold leading-tight text-center line-clamp-2 {completed ? 'opacity-40' : ''}">{name}</span>
+	{#if triggerHint && !completed}
+		<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{triggerHint}</span>
+	{/if}
 
 	{#if streakDays >= 2}
 		<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 flex" aria-label="{streakDays}にちれんぞく">
