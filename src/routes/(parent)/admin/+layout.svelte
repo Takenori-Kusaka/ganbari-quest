@@ -18,6 +18,7 @@ const navItems = [
 	{ href: '/admin/achievements', label: 'じっせき', icon: '🏆' },
 	{ href: '/admin/status', label: 'ステータス', icon: '📊' },
 	{ href: '/admin/career', label: 'キャリア', icon: '🌟' },
+	{ href: '/admin/members', label: 'メンバー', icon: '👥' },
 	{ href: '/admin/settings', label: 'せってい', icon: '⚙️' },
 ];
 </script>

@@ -1,9 +1,14 @@
 // src/lib/server/auth/providers/cognito.ts
 // CognitoAuthProvider — Email/Password + MFA + マルチテナント (#0123)
 
-import { CONTEXT_COOKIE_NAME, IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
+import {
+	CONTEXT_COOKIE_NAME,
+	IDENTITY_COOKIE_NAME,
+	INVITE_COOKIE_NAME,
+} from '$lib/domain/validation/auth';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+import { acceptInvite, getInvite } from '$lib/server/services/invite-service';
 import type { RequestEvent } from '@sveltejs/kit';
 import { authorizeCognito } from '../authorization';
 import { getContextMaxAge, signContext, verifyContext } from '../context-token';
@@ -79,14 +84,26 @@ export class CognitoAuthProvider implements AuthProvider {
 			// メンバーシップから取得（1ユーザー=1テナント）
 			let memberships = await repos.auth.findUserTenants(identity.userId);
 
-			// 初回ログイン: AuthUser + Tenant + Membership を自動作成
+			// 初回ログイン: 招待コード or 自動プロビジョニング
 			if (memberships.length === 0) {
-				logger.info('[AUTH] First login detected, auto-provisioning', {
-					context: { userId: identity.userId, email: identity.email },
-				});
-				const membership = await this.provisionNewUser(identity);
-				if (!membership) return null;
-				memberships = [membership];
+				// 招待コード Cookie があれば招待受諾を試行
+				const inviteCode = event.cookies.get(INVITE_COOKIE_NAME);
+				if (inviteCode) {
+					const membership = await this.acceptInviteForUser(event, identity, inviteCode);
+					if (membership) {
+						memberships = [membership];
+					}
+				}
+
+				// 招待受諾失敗 or 招待なし → 新規テナント自動作成
+				if (memberships.length === 0) {
+					logger.info('[AUTH] First login detected, auto-provisioning', {
+						context: { userId: identity.userId, email: identity.email },
+					});
+					const membership = await this.provisionNewUser(identity);
+					if (!membership) return null;
+					memberships = [membership];
+				}
 			}
 
 			const membership = memberships[0];
@@ -106,6 +123,70 @@ export class CognitoAuthProvider implements AuthProvider {
 		}
 
 		return null;
+	}
+
+	/**
+	 * 招待コードによるテナント参加
+	 * AuthUser を確保してから invite-service.acceptInvite を呼ぶ
+	 */
+	private async acceptInviteForUser(
+		event: RequestEvent,
+		identity: Extract<Identity, { type: 'cognito' }>,
+		inviteCode: string,
+	): Promise<import('$lib/server/auth/entities').Membership | null> {
+		try {
+			// 招待の存在・有効性チェック
+			const invite = await getInvite(inviteCode);
+			if (!invite) {
+				logger.warn('[AUTH] Invite not found or expired', {
+					context: { inviteCode },
+				});
+				this.clearInviteCookie(event);
+				return null;
+			}
+
+			// AuthUser を確保（未作成の場合は作成）
+			const repos = getRepos();
+			let user = await repos.auth.findUserById(identity.userId);
+			if (!user) {
+				user = await repos.auth.createUser({
+					email: identity.email,
+					provider: 'cognito',
+				});
+			}
+			const existingUser = await repos.auth.findUserByEmail(identity.email);
+			const effectiveUserId = existingUser?.userId ?? user.userId;
+
+			// 招待受諾
+			const result = await acceptInvite(inviteCode, effectiveUserId);
+
+			// Cookie を消費（成功でも失敗でも消す）
+			this.clearInviteCookie(event);
+
+			if ('error' in result) {
+				logger.warn('[AUTH] Invite acceptance failed', {
+					context: { inviteCode, error: result.error, userId: effectiveUserId },
+				});
+				return null;
+			}
+
+			logger.info('[AUTH] User joined tenant via invite', {
+				context: {
+					userId: effectiveUserId,
+					tenantId: result.membership.tenantId,
+					role: result.membership.role,
+					inviteCode,
+				},
+			});
+
+			return result.membership;
+		} catch (e) {
+			logger.error('[AUTH] Failed to accept invite', {
+				error: e instanceof Error ? e.message : String(e),
+			});
+			this.clearInviteCookie(event);
+			return null;
+		}
 	}
 
 	/**
@@ -179,5 +260,9 @@ export class CognitoAuthProvider implements AuthProvider {
 			secure: true,
 			maxAge: getContextMaxAge(context),
 		});
+	}
+
+	private clearInviteCookie(event: RequestEvent): void {
+		event.cookies.delete(INVITE_COOKIE_NAME, { path: '/' });
 	}
 }

@@ -37,3 +37,12 @@ export const signupSchema = z.object({
 		.string()
 		.regex(/^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/, 'ライセンスキーの形式が不正です'),
 });
+
+// 招待リンク関連
+export const INVITE_COOKIE_NAME = 'invite_code';
+export const INVITE_EXPIRY_DAYS = 7;
+
+export const createInviteSchema = z.object({
+	role: z.enum(['parent', 'child']),
+	childId: z.number().optional(),
+});
