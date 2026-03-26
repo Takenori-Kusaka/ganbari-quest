@@ -75,9 +75,10 @@ $effect(() => {
 					/>
 				</div>
 
-				<button type="submit" disabled={loading || code.length < 1} class="signup-button">
+				<button type="submit" disabled={loading || code.length < 1} class="signup-button" aria-busy={loading}>
 					{#if loading}
-						確認中...
+						<span class="btn-spinner" aria-hidden="true"></span>
+					確認中...
 					{:else}
 						確認する
 					{/if}
@@ -160,9 +161,11 @@ $effect(() => {
 					type="submit"
 					disabled={loading || !email || !password || !passwordConfirm || !agreed}
 					class="signup-button"
+					aria-busy={loading}
 				>
 					{#if loading}
-						登録中...
+						<span class="btn-spinner" aria-hidden="true"></span>
+					登録中...
 					{:else}
 						アカウントを作成
 					{/if}
@@ -310,7 +313,25 @@ $effect(() => {
 		text-decoration: underline;
 	}
 
+	.btn-spinner {
+		display: inline-block;
+		width: 1em;
+		height: 1em;
+		border: 2px solid currentColor;
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+
 	.signup-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
 		padding: 14px;
 		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 		color: white;
