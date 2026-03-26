@@ -31,7 +31,7 @@ export const findUserTenants: IAuthRepo['findUserTenants'] = async () => {
 	throw new Error(NOT_SUPPORTED);
 };
 export const findTenantMembers: IAuthRepo['findTenantMembers'] = async () => {
-	throw new Error(NOT_SUPPORTED);
+	return [];
 };
 export const createMembership: IAuthRepo['createMembership'] = async () => {
 	throw new Error(NOT_SUPPORTED);
@@ -43,11 +43,11 @@ export const createInvite: IAuthRepo['createInvite'] = async () => {
 	throw new Error(NOT_SUPPORTED);
 };
 export const findInviteByCode: IAuthRepo['findInviteByCode'] = async () => {
-	throw new Error(NOT_SUPPORTED);
+	return undefined;
 };
 export const updateInviteStatus: IAuthRepo['updateInviteStatus'] = async () => {
-	throw new Error(NOT_SUPPORTED);
+	// no-op in local mode
 };
 export const findTenantInvites: IAuthRepo['findTenantInvites'] = async () => {
-	throw new Error(NOT_SUPPORTED);
+	return [];
 };
