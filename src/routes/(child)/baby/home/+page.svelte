@@ -307,6 +307,7 @@ function handleBirthdayResultClose() {
 				{@const completed = isCompleted(activity)}
 				{@const borderColor = getCategoryById(activity.categoryId)?.color ?? 'var(--theme-primary)'}
 				{@const actCount = getCount(activity.id)}
+				{@const showMission = activity.isMission && !completed}
 				{#if completed}
 					<div
 						class="baby-card baby-card--done tap-target"
@@ -376,9 +377,13 @@ function handleBirthdayResultClose() {
 							disabled={submitting}
 							class="baby-card baby-card--active tap-target"
 							class:baby-card--pending={pendingActivityId === activity.id}
-							style="border-color: {borderColor};"
-							aria-label="{activity.displayName}をきろくする"
+							class:baby-card--mission={showMission}
+							style="border-color: {showMission ? 'gold' : borderColor};"
+							aria-label="{activity.displayName}をきろくする{showMission ? '（ミッション）' : ''}"
 						>
+							{#if showMission}
+								<span class="baby-card__mission-star" aria-hidden="true">⭐</span>
+							{/if}
 							{#if pendingActivityId === activity.id}
 								<span class="baby-card__spinner" aria-hidden="true"></span>
 								<span class="baby-card__name">まってね！</span>
@@ -896,6 +901,43 @@ function handleBirthdayResultClose() {
 		font-size: 0.75rem;
 		font-weight: 700;
 		color: #b45309;
+	}
+
+	/* Mission state */
+	.baby-card--mission {
+		box-shadow: 0 0 12px rgba(255, 200, 0, 0.5);
+		animation: pulse-gold 2s ease-in-out infinite;
+	}
+
+	@keyframes pulse-gold {
+		0%,
+		100% {
+			box-shadow: 0 0 8px rgba(255, 200, 0, 0.4);
+		}
+		50% {
+			box-shadow: 0 0 20px rgba(255, 200, 0, 0.8);
+		}
+	}
+
+	.baby-card__mission-star {
+		position: absolute;
+		top: -6px;
+		left: -6px;
+		z-index: 10;
+		font-size: 0.875rem;
+		animation: star-twinkle 1.5s ease-in-out infinite;
+	}
+
+	@keyframes star-twinkle {
+		0%,
+		100% {
+			opacity: 0.7;
+			transform: scale(1);
+		}
+		50% {
+			opacity: 1;
+			transform: scale(1.2);
+		}
 	}
 
 	/* Pending state */

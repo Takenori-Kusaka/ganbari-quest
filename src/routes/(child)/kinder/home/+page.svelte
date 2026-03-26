@@ -366,6 +366,7 @@ function handleBirthdayResultClose() {
 					categoryId={activity.categoryId}
 					completed={isCompleted(activity)}
 					count={getCount(activity.id)}
+					isMission={activity.isMission}
 					onclick={() => handleActivityTap(activity)}
 				/>
 			{/each}
