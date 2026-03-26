@@ -1,4 +1,7 @@
+import { CURRENCY_CODES } from '$lib/domain/point-display';
+import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { setSetting } from '$lib/server/db/settings-repo';
 import { changePin } from '$lib/server/services/auth-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions } from './$types';
@@ -38,5 +41,30 @@ export const actions = {
 		}
 
 		return { success: true };
+	},
+	updatePointSettings: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+		const mode = form.get('point_unit_mode')?.toString() ?? 'point';
+		const currency = form.get('point_currency')?.toString() ?? 'JPY';
+		const rateStr = form.get('point_rate')?.toString() ?? '1';
+
+		// Validation
+		if (mode !== 'point' && mode !== 'currency') {
+			return fail(400, { pointError: 'モードが不正です' });
+		}
+		if (!CURRENCY_CODES.includes(currency as CurrencyCode)) {
+			return fail(400, { pointError: '通貨コードが不正です' });
+		}
+		const rate = Number.parseFloat(rateStr);
+		if (Number.isNaN(rate) || rate <= 0 || rate > 10000) {
+			return fail(400, { pointError: 'レートは0より大きく10000以下で入力してください' });
+		}
+
+		await setSetting('point_unit_mode', mode as PointUnitMode, tenantId);
+		await setSetting('point_currency', currency, tenantId);
+		await setSetting('point_rate', String(rate), tenantId);
+
+		return { pointSuccess: true };
 	},
 } satisfies Actions;

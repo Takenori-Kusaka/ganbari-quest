@@ -1,5 +1,11 @@
 <script lang="ts">
+import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
+
 let { data } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
+const unit = $derived(getUnitLabel(ps.mode, ps.currency));
 </script>
 
 <svelte:head>
@@ -15,9 +21,9 @@ let { data } = $props();
 		</div>
 		<div class="bg-white rounded-xl p-4 shadow-sm text-center">
 			<p class="text-2xl font-bold text-amber-500">
-				{data.children.reduce((sum, c) => sum + c.balance, 0).toLocaleString()}
+				{fmtBal(data.children.reduce((sum, c) => sum + c.balance, 0))}
 			</p>
-			<p class="text-xs text-gray-500 mt-1">合計ポイント</p>
+			<p class="text-xs text-gray-500 mt-1">合計{unit}</p>
 		</div>
 	</div>
 
@@ -45,7 +51,7 @@ let { data } = $props();
 							<p class="text-sm text-gray-400">{child.age}歳 / {child.uiMode} / Lv.{child.level}</p>
 						</div>
 						<div class="text-right">
-							<p class="text-lg font-bold text-amber-500">{child.balance.toLocaleString()}P</p>
+							<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance)}</p>
 							<p class="text-xs text-gray-400">{child.levelTitle}</p>
 						</div>
 					</a>
@@ -64,7 +70,7 @@ let { data } = $props();
 			</a>
 			<a href="/admin/points" class="bg-white rounded-xl p-4 shadow-sm text-center hover:shadow-md transition-shadow">
 				<span class="text-2xl block mb-1">⭐</span>
-				<p class="text-sm font-bold text-gray-600">ポイント変換</p>
+				<p class="text-sm font-bold text-gray-600">{ps.mode === 'currency' ? '金額を渡す' : 'ポイント変換'}</p>
 			</a>
 			<a href="/admin/activities" class="bg-white rounded-xl p-4 shadow-sm text-center hover:shadow-md transition-shadow">
 				<span class="text-2xl block mb-1">📋</span>
