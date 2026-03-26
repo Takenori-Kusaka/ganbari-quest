@@ -534,6 +534,21 @@ function acceptPreview() {
 		</form>
 	{/if}
 
+	<!-- 活動紹介フロー -->
+	<a
+		href="/admin/activities/introduce"
+		class="block bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4 hover:shadow-md transition-shadow"
+	>
+		<div class="flex items-center gap-3">
+			<span class="text-2xl">📖</span>
+			<div class="flex-1">
+				<p class="font-bold text-gray-700 text-sm">子供に活動のおしえかた</p>
+				<p class="text-xs text-gray-500 mt-0.5">お子さんと一緒に画面を見ながら、ボタンの使い方を紹介できます</p>
+			</div>
+			<span class="text-gray-400 text-sm">→</span>
+		</div>
+	</a>
+
 	<!-- Search -->
 	<div class="relative">
 		<input
