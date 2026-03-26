@@ -203,10 +203,8 @@ test.describe('公開ルート', () => {
 		expect(page.url()).not.toContain('/error');
 	});
 
-	test('未ログインで /switch にアクセスしてもログインにリダイレクトされない', async ({
-		page,
-	}) => {
-		const response = await page.goto('/switch');
+	test('未ログインで /switch にアクセスしてもログインにリダイレクトされない', async ({ page }) => {
+		await page.goto('/switch');
 		// /switch は公開ルート（認可ではブロックされない）
 		// ただしデータ取得で500になる可能性がある（tenantId不在）
 		// 認可レイヤでは /auth/login にリダイレクトされないことを確認
