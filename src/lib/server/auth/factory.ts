@@ -1,10 +1,11 @@
 // src/lib/server/auth/factory.ts
 // AUTH_MODE 環境変数による AuthProvider 切り替え
 
+import { error } from '@sveltejs/kit';
 import { CognitoAuthProvider } from './providers/cognito';
 import { DevCognitoAuthProvider } from './providers/cognito-dev';
 import { LocalAuthProvider } from './providers/local';
-import type { AuthMode, AuthProvider } from './types';
+import type { AuthMode, AuthProvider, Role } from './types';
 
 let _provider: AuthProvider | null = null;
 
@@ -24,6 +25,29 @@ export function requireTenantId(locals: App.Locals): string {
 		throw new Error('Unauthorized: missing auth context');
 	}
 	return locals.context.tenantId;
+}
+
+/**
+ * child ロールの場合、指定された childId が自分のものであるかチェック。
+ * owner/parent は常に許可。child は context.childId と一致しなければ 403。
+ */
+export function requireChildAccess(locals: App.Locals, requestedChildId: number): void {
+	if (!locals.context) {
+		throw error(401, 'Unauthorized');
+	}
+	if (locals.context.role === 'child' && locals.context.childId !== requestedChildId) {
+		throw error(403, 'Access denied');
+	}
+}
+
+/** ロールが指定のいずれかであることを検証。不一致なら 403。 */
+export function requireRole(locals: App.Locals, allowedRoles: Role[]): void {
+	if (!locals.context) {
+		throw error(401, 'Unauthorized');
+	}
+	if (!allowedRoles.includes(locals.context.role)) {
+		throw error(403, 'Forbidden');
+	}
 }
 
 export function getAuthProvider(): AuthProvider {
