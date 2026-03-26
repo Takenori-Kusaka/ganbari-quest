@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Invite, Membership, Tenant } from '../../../src/lib/server/auth/entities';
 import type { IAuthRepo } from '../../../src/lib/server/db/interfaces/auth-repo.interface';
 
@@ -225,10 +225,7 @@ describe('revokeInvite', () => {
 	});
 
 	it('既に accepted の招待は取り消せない', async () => {
-		inviteStore.set(
-			'rev-3',
-			makePendingInvite({ inviteCode: 'rev-3', status: 'accepted' }),
-		);
+		inviteStore.set('rev-3', makePendingInvite({ inviteCode: 'rev-3', status: 'accepted' }));
 
 		await revokeInvite('rev-3', 't-test');
 		expect(mockAuthRepo.updateInviteStatus).not.toHaveBeenCalled();
