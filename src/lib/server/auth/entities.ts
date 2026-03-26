@@ -52,3 +52,24 @@ export interface CreateMembershipInput {
 	role: Role;
 	invitedBy?: string;
 }
+
+/** 招待リンク */
+export interface Invite {
+	inviteCode: string;
+	tenantId: string;
+	invitedBy: string;
+	role: Role;
+	childId?: number;
+	status: 'pending' | 'accepted' | 'revoked' | 'expired';
+	createdAt: string;
+	expiresAt: string;
+	acceptedBy?: string;
+	acceptedAt?: string;
+}
+
+export interface CreateInviteInput {
+	tenantId: string;
+	invitedBy: string;
+	role: Role;
+	childId?: number;
+}

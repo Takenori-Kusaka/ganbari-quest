@@ -1,0 +1,100 @@
+// src/lib/server/services/invite-service.ts
+// 招待リンクサービス (#0129)
+
+import type { Invite, Membership } from '$lib/server/auth/entities';
+import type { Role } from '$lib/server/auth/types';
+import { getRepos } from '$lib/server/db/factory';
+
+const repos = () => getRepos();
+
+/** 招待リンクを作成する */
+export async function createInvite(
+	tenantId: string,
+	invitedBy: string,
+	role: Role,
+	childId?: number,
+): Promise<Invite> {
+	if (role === 'owner') {
+		throw new Error('ownerロールでの招待はできません');
+	}
+	return repos().auth.createInvite({ tenantId, invitedBy, role, childId });
+}
+
+/** 招待コードで招待を検索。期限切れの場合は自動で expired に更新 */
+export async function getInvite(inviteCode: string): Promise<Invite | null> {
+	const invite = await repos().auth.findInviteByCode(inviteCode);
+	if (!invite) return null;
+
+	if (invite.status !== 'pending') return null;
+
+	// 有効期限チェック
+	if (new Date(invite.expiresAt) < new Date()) {
+		try {
+			await repos().auth.updateInviteStatus(inviteCode, 'expired');
+		} catch {
+			// conditional write failure は無視（既に別ステータスに遷移済み）
+		}
+		return null;
+	}
+
+	return invite;
+}
+
+/** 招待を受諾してテナントに参加 */
+export async function acceptInvite(
+	inviteCode: string,
+	userId: string,
+): Promise<{ membership: Membership } | { error: string }> {
+	const invite = await getInvite(inviteCode);
+	if (!invite) {
+		return { error: 'INVALID_OR_EXPIRED' };
+	}
+
+	// 1ユーザー=1テナント制約チェック
+	const existingTenants = await repos().auth.findUserTenants(userId);
+	if (existingTenants.length > 0) {
+		return { error: 'ALREADY_IN_TENANT' };
+	}
+
+	// テナントの存在確認
+	const tenant = await repos().auth.findTenantById(invite.tenantId);
+	if (!tenant || tenant.status !== 'active') {
+		return { error: 'TENANT_NOT_FOUND' };
+	}
+
+	// メンバーシップ作成
+	const membership = await repos().auth.createMembership({
+		userId,
+		tenantId: invite.tenantId,
+		role: invite.role,
+		invitedBy: invite.invitedBy,
+	});
+
+	// 招待ステータス更新（accepted）
+	try {
+		await repos().auth.updateInviteStatus(inviteCode, 'accepted', userId);
+	} catch {
+		// conditional write failure — 既に受諾済み（race condition）
+		// メンバーシップは作成済みなので続行
+	}
+
+	return { membership };
+}
+
+/** 招待を取り消す */
+export async function revokeInvite(inviteCode: string, tenantId: string): Promise<void> {
+	const invite = await repos().auth.findInviteByCode(inviteCode);
+	if (!invite || invite.tenantId !== tenantId || invite.status !== 'pending') {
+		return;
+	}
+	try {
+		await repos().auth.updateInviteStatus(inviteCode, 'revoked');
+	} catch {
+		// conditional write failure は無視
+	}
+}
+
+/** テナントの招待一覧を取得 */
+export async function listInvites(tenantId: string): Promise<Invite[]> {
+	return repos().auth.findTenantInvites(tenantId);
+}

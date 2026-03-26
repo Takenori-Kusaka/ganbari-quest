@@ -39,3 +39,15 @@ export const createMembership: IAuthRepo['createMembership'] = async () => {
 export const deleteMembership: IAuthRepo['deleteMembership'] = async () => {
 	throw new Error(NOT_SUPPORTED);
 };
+export const createInvite: IAuthRepo['createInvite'] = async () => {
+	throw new Error(NOT_SUPPORTED);
+};
+export const findInviteByCode: IAuthRepo['findInviteByCode'] = async () => {
+	throw new Error(NOT_SUPPORTED);
+};
+export const updateInviteStatus: IAuthRepo['updateInviteStatus'] = async () => {
+	throw new Error(NOT_SUPPORTED);
+};
+export const findTenantInvites: IAuthRepo['findTenantInvites'] = async () => {
+	throw new Error(NOT_SUPPORTED);
+};
