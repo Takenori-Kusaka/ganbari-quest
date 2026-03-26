@@ -85,6 +85,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 	}
 
+	// 認証必要ページはブラウザキャッシュ禁止（ログアウト後の戻るボタン対策）
+	if (path.startsWith('/admin') || path === '/login' || path.startsWith('/auth/')) {
+		response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+		response.headers.set('Pragma', 'no-cache');
+		response.headers.set('Expires', '0');
+	}
+
 	// 4) リクエストログ（静的ファイルは除外）
 	if (!path.startsWith('/_app/') && !path.startsWith('/favicon')) {
 		logger.request(event.request.method, path, response.status, Date.now() - start);

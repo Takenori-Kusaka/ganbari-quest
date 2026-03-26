@@ -71,16 +71,16 @@ describe('suggestActivity (fallback)', () => {
 		expect(result.basePoints).toBe(5);
 	});
 
-	it('ひらがな入力ではnameKanaが設定される', async () => {
+	it('ひらがな入力ではnameKanaが設定され、NAME_PAIR_TABLEでnameKanjiも推定される', async () => {
 		const result = await suggestActivity('おかたづけした');
 		expect(result.nameKana).toBe('おかたづけした');
-		expect(result.nameKanji).toBeNull();
+		expect(result.nameKanji).toBe('お片付け');
 	});
 
-	it('漢字入力ではnameKanjiが設定される', async () => {
+	it('漢字入力ではnameKanjiが設定され、NAME_PAIR_TABLEでnameKanaも推定される', async () => {
 		const result = await suggestActivity('水泳の練習');
 		expect(result.nameKanji).toBe('水泳の練習');
-		expect(result.nameKana).toBeNull();
+		expect(result.nameKana).toBe('すいえい');
 	});
 
 	it('sourceが常にfallbackになる', async () => {

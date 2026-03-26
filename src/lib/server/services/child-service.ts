@@ -20,6 +20,7 @@ export async function addChild(
 		age: number;
 		theme?: string;
 		uiMode?: string;
+		birthDate?: string;
 	},
 	tenantId: string,
 ) {
@@ -28,7 +29,13 @@ export async function addChild(
 
 export async function editChild(
 	id: number,
-	input: { nickname?: string; age?: number; theme?: string; uiMode?: string },
+	input: {
+		nickname?: string;
+		age?: number;
+		theme?: string;
+		uiMode?: string;
+		birthDate?: string | null;
+	},
 	tenantId: string,
 ) {
 	return await updateChild(id, input, tenantId);

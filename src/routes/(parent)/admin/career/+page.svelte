@@ -118,7 +118,7 @@ function toggleChild(childId: number) {
 			{:else if expandedChild === child.id}
 				<div class="border-t border-gray-100 p-4 text-center text-gray-400">
 					<p>まだキャリアプランが作成されていません。</p>
-					<p class="text-xs mt-1">子供がステータス画面の「みらいのゆめ」から作成できます。</p>
+					<p class="text-xs mt-1">子供が「つよさ」画面の「みらいのゆめ」から作成できます。</p>
 				</div>
 			{/if}
 		</div>

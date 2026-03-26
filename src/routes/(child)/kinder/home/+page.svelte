@@ -23,7 +23,12 @@ const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.curren
 
 // Confirm dialog state
 let confirmOpen = $state(false);
-let selectedActivity = $state<{ id: number; name: string; icon: string } | null>(null);
+let selectedActivity = $state<{
+	id: number;
+	name: string;
+	displayName?: string;
+	icon: string;
+} | null>(null);
 
 // Record result overlay
 let resultOpen = $state(false);
@@ -392,7 +397,7 @@ function handleBirthdayResultClose() {
 	{#if selectedActivity}
 		<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center">
 			<CompoundIcon icon={selectedActivity.icon} size="xl" />
-			<p class="text-lg font-bold">{selectedActivity.name}を<br />きろくする？</p>
+			<p class="text-lg font-bold">{selectedActivity.displayName ?? selectedActivity.name}を<br />きろくする？</p>
 			<div class="flex gap-[var(--spacing-sm)] w-full">
 				<button
 					class="tap-target flex-1 py-4 rounded-[var(--radius-md)] bg-gray-200 font-bold text-lg"

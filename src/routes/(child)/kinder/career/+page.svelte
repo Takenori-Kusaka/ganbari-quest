@@ -106,11 +106,19 @@ function startEdit() {
 		<div class="section">
 			<h2 class="section-title">しょうらい、なにになりたい？</h2>
 			<p class="section-desc">すきなおしごとをえらんでね！</p>
-			<CareerFieldSelector
-				fields={data.careerFields}
-				bind:selectedId={selectedFieldId}
-				onselect={handleFieldSelect}
-			/>
+			{#if data.careerFields.length === 0}
+				<div class="text-center py-8">
+					<span class="text-4xl block mb-2">🌟</span>
+					<p class="text-lg font-bold" style="color: var(--color-text)">おしごとをじゅんびちゅう...</p>
+					<p class="text-xs mt-1" style="color: var(--color-text-muted)">おとうさん・おかあさんにおねがいしてね</p>
+				</div>
+			{:else}
+				<CareerFieldSelector
+					fields={data.careerFields}
+					bind:selectedId={selectedFieldId}
+					onselect={handleFieldSelect}
+				/>
+			{/if}
 		</div>
 
 	<!-- ステップ2: マンダラ＋タイムライン編集 -->
