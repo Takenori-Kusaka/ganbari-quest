@@ -754,10 +754,10 @@ test.describe('#0130: ライセンス管理画面', () => {
 		const planSection = page.getByText('プラン管理');
 		await planSection.scrollIntoViewIfNeeded();
 		await expect(planSection).toBeVisible();
-		// Stripe未連携のためボタンはdisabled
-		const changeBtn = page.getByText('プラン変更（準備中）');
-		await changeBtn.scrollIntoViewIfNeeded();
-		await expect(changeBtn).toBeVisible();
+		// Stripe未設定時は準備中メッセージが表示される
+		const prepMessage = page.getByText('決済機能は現在準備中です');
+		await prepMessage.scrollIntoViewIfNeeded();
+		await expect(prepMessage).toBeVisible();
 	});
 
 	test('支払い履歴セクションが表示される', async ({ page }) => {

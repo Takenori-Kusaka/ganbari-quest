@@ -2,13 +2,17 @@
 let { data } = $props();
 
 const license = $derived(data.license);
+const stripeEnabled = $derived(data.stripeEnabled);
+
+let checkoutLoading = $state(false);
+let portalLoading = $state(false);
 
 const planLabel = (plan: string) => {
 	switch (plan) {
 		case 'monthly':
-			return '月額プラン';
+			return '月額プラン（¥500/月）';
 		case 'yearly':
-			return '年額プラン';
+			return '年額プラン（¥5,000/年）';
 		case 'lifetime':
 			return '永久ライセンス';
 		case 'free':
@@ -34,6 +38,40 @@ const statusLabel = (status: string) => {
 };
 
 const status = $derived(statusLabel(license.status));
+const hasSubscription = $derived(!!license.stripeSubscriptionId);
+
+async function startCheckout(planId: 'monthly' | 'yearly') {
+	checkoutLoading = true;
+	try {
+		const res = await fetch('/api/stripe/checkout', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ planId }),
+		});
+		const data = await res.json();
+		if (data.url) {
+			window.location.href = data.url;
+		}
+	} finally {
+		checkoutLoading = false;
+	}
+}
+
+async function openPortal() {
+	portalLoading = true;
+	try {
+		const res = await fetch('/api/stripe/portal', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+		});
+		const data = await res.json();
+		if (data.url) {
+			window.location.href = data.url;
+		}
+	} finally {
+		portalLoading = false;
+	}
+}
 </script>
 
 <svelte:head>
@@ -59,6 +97,15 @@ const status = $derived(statusLabel(license.status));
 					{status.icon} {status.text}
 				</span>
 			</div>
+
+			{#if license.planExpiresAt}
+				<div class="flex items-center justify-between py-2 border-b border-gray-50">
+					<span class="text-sm text-gray-500">有効期限</span>
+					<span class="text-sm text-gray-700">
+						{new Date(license.planExpiresAt).toLocaleDateString('ja-JP')}
+					</span>
+				</div>
+			{/if}
 
 			{#if license.licenseKey}
 				<div class="flex items-center justify-between py-2 border-b border-gray-50">
@@ -98,7 +145,6 @@ const status = $derived(statusLabel(license.status));
 			<p class="text-sm text-orange-700">
 				ライセンスが停止されています。データは保持されていますが、
 				新しい活動の記録やポイントの付与はできません。
-				お支払いを完了するとサービスが再開されます。
 			</p>
 		</section>
 	{:else if license.status === 'terminated'}
@@ -106,46 +152,98 @@ const status = $derived(statusLabel(license.status));
 			<h3 class="text-sm font-semibold text-red-800 mb-1">❌ 解約済み</h3>
 			<p class="text-sm text-red-700">
 				このアカウントは解約されています。データは一定期間保持されますが、
-				その後削除されます。再開をご希望の場合はお問い合わせください。
+				その後削除されます。
 			</p>
 		</section>
 	{/if}
 
-	<!-- 操作ボタン -->
+	<!-- プラン管理 -->
 	<section class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
 		<h3 class="text-lg font-semibold text-gray-600 mb-4">プラン管理</h3>
 
-		<div class="grid gap-3">
-			<button
-				disabled
-				class="w-full px-4 py-3 bg-gray-100 text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed"
-			>
-				プラン変更（準備中）
-			</button>
-			<button
-				disabled
-				class="w-full px-4 py-3 bg-gray-100 text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed"
-			>
-				支払い情報の更新（準備中）
-			</button>
-			<button
-				disabled
-				class="w-full px-4 py-3 bg-gray-100 text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed"
-			>
-				解約（準備中）
-			</button>
-		</div>
+		{#if !stripeEnabled}
+			<p class="text-sm text-gray-400 text-center py-4">
+				決済機能は現在準備中です
+			</p>
+		{:else if hasSubscription}
+			<!-- サブスクリプション有り → Stripe Customer Portal で管理 -->
+			<div class="grid gap-3">
+				<button
+					onclick={openPortal}
+					disabled={portalLoading}
+					class="w-full px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+				>
+					{portalLoading ? '読み込み中...' : 'プラン変更・支払い管理'}
+				</button>
+				<p class="text-xs text-gray-400 text-center">
+					Stripeの管理画面でプラン変更・支払い方法の更新・解約ができます
+				</p>
+			</div>
+		{:else}
+			<!-- サブスクリプション無し → プラン選択 -->
+			<div class="grid gap-4">
+				<div class="border border-blue-200 rounded-lg p-4">
+					<div class="flex items-center justify-between mb-2">
+						<div>
+							<p class="font-semibold text-gray-700">月額プラン</p>
+							<p class="text-sm text-gray-500">全機能利用可能・毎月自動更新</p>
+						</div>
+						<p class="text-xl font-bold text-blue-600">¥500<span class="text-sm font-normal text-gray-500">/月</span></p>
+					</div>
+					<button
+						onclick={() => startCheckout('monthly')}
+						disabled={checkoutLoading}
+						class="w-full px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+					>
+						{checkoutLoading ? '処理中...' : '月額プランで始める'}
+					</button>
+				</div>
 
-		<p class="text-xs text-gray-400 mt-3 text-center">
-			決済機能は近日対応予定です
-		</p>
+				<div class="border border-purple-200 rounded-lg p-4 relative">
+					<span class="absolute -top-2.5 left-4 bg-purple-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+						2ヶ月分お得
+					</span>
+					<div class="flex items-center justify-between mb-2">
+						<div>
+							<p class="font-semibold text-gray-700">年額プラン</p>
+							<p class="text-sm text-gray-500">全機能利用可能・毎年自動更新</p>
+						</div>
+						<p class="text-xl font-bold text-purple-600">¥5,000<span class="text-sm font-normal text-gray-500">/年</span></p>
+					</div>
+					<button
+						onclick={() => startCheckout('yearly')}
+						disabled={checkoutLoading}
+						class="w-full px-4 py-2.5 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+					>
+						{checkoutLoading ? '処理中...' : '年額プランで始める'}
+					</button>
+				</div>
+
+				<p class="text-xs text-gray-400 text-center">
+					7日間の無料トライアル付き・いつでもキャンセル可能
+				</p>
+			</div>
+		{/if}
 	</section>
 
 	<!-- 支払い履歴 -->
 	<section class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
 		<h3 class="text-lg font-semibold text-gray-600 mb-4">支払い履歴</h3>
-		<p class="text-sm text-gray-400 text-center py-4">
-			支払い履歴はまだありません
-		</p>
+		{#if hasSubscription}
+			<p class="text-sm text-gray-500 text-center py-4">
+				支払い履歴はStripeの管理画面でご確認いただけます
+			</p>
+			<button
+				onclick={openPortal}
+				disabled={portalLoading}
+				class="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+			>
+				支払い履歴を確認
+			</button>
+		{:else}
+			<p class="text-sm text-gray-400 text-center py-4">
+				支払い履歴はまだありません
+			</p>
+		{/if}
 	</section>
 </div>

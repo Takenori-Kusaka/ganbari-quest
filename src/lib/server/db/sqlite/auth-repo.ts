@@ -26,11 +26,17 @@ export const findTenantById: IAuthRepo['findTenantById'] = async () => {
 		updatedAt: new Date().toISOString(),
 	};
 };
+export const findTenantByStripeCustomerId: IAuthRepo['findTenantByStripeCustomerId'] = async () => {
+	return undefined;
+};
 export const createTenant: IAuthRepo['createTenant'] = async () => {
 	throw new Error(NOT_SUPPORTED);
 };
 export const updateTenantStatus: IAuthRepo['updateTenantStatus'] = async () => {
 	throw new Error(NOT_SUPPORTED);
+};
+export const updateTenantStripe: IAuthRepo['updateTenantStripe'] = async () => {
+	// no-op in local mode
 };
 export const findMembership: IAuthRepo['findMembership'] = async () => {
 	throw new Error(NOT_SUPPORTED);

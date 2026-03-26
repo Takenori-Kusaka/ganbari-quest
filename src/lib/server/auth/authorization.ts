@@ -127,6 +127,7 @@ function isPublicRoute(path: string): boolean {
 		path.startsWith('/_app') ||
 		path.startsWith('/favicon') ||
 		path.startsWith('/api/health') ||
+		path.startsWith('/api/stripe/webhook') ||
 		path.startsWith('/legal')
 	);
 }
@@ -139,8 +140,13 @@ function checkLicenseAccess(path: string, context: AuthContext): AuthResult {
 	}
 
 	if (licenseStatus === 'expired') {
-		// ライセンス管理ページは期限切れでもアクセス可能（更新促進）
-		if (path.startsWith('/admin/license') || path.startsWith('/api/v1/admin/license')) {
+		// ライセンス管理・決済ページは期限切れでもアクセス可能（更新促進）
+		if (
+			path.startsWith('/admin/license') ||
+			path.startsWith('/api/v1/admin/license') ||
+			path.startsWith('/api/stripe') ||
+			path.startsWith('/pricing')
+		) {
 			return { allowed: true };
 		}
 		return { allowed: false, redirect: '/admin/license?reason=expired' };

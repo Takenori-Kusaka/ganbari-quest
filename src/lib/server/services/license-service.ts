@@ -9,6 +9,9 @@ export interface LicenseInfo {
 	status: Tenant['status'];
 	licenseKey?: string;
 	tenantName: string;
+	stripeCustomerId?: string;
+	stripeSubscriptionId?: string;
+	planExpiresAt?: string;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -24,6 +27,9 @@ export async function getLicenseInfo(tenantId: string): Promise<LicenseInfo | nu
 		status: tenant.status,
 		licenseKey: tenant.licenseKey,
 		tenantName: tenant.name,
+		stripeCustomerId: tenant.stripeCustomerId,
+		stripeSubscriptionId: tenant.stripeSubscriptionId,
+		planExpiresAt: tenant.planExpiresAt,
 		createdAt: tenant.createdAt,
 		updatedAt: tenant.updatedAt,
 	};

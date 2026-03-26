@@ -140,6 +140,70 @@ export const updateTenantStatus: IAuthRepo['updateTenantStatus'] = async (tenant
 	);
 };
 
+export const findTenantByStripeCustomerId: IAuthRepo['findTenantByStripeCustomerId'] = async (
+	stripeCustomerId,
+) => {
+	// GSI1 逆引き: SK=STRIPE_CUS#<customerId>
+	const result = await doc().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			IndexName: GSI.GSI1,
+			KeyConditionExpression: 'SK = :sk',
+			ExpressionAttributeValues: { ':sk': `STRIPE_CUS#${stripeCustomerId}` },
+			Limit: 1,
+		}),
+	);
+	const item = result.Items?.[0];
+	if (!item) return undefined;
+	// The item is a lookup record; fetch the actual tenant
+	const tenantId = item.tenantId as string;
+	return findTenantById(tenantId);
+};
+
+export const updateTenantStripe: IAuthRepo['updateTenantStripe'] = async (tenantId, data) => {
+	const now = new Date().toISOString();
+	const result = await doc().send(
+		new GetCommand({ TableName: TABLE_NAME, Key: tenantKey(tenantId) }),
+	);
+	if (!result.Item) return;
+
+	const oldCustomerId = result.Item.stripeCustomerId as string | undefined;
+	const updated: Record<string, unknown> = { ...result.Item, ...data, updatedAt: now };
+	// Remove undefined values
+	for (const [k, v] of Object.entries(updated)) {
+		if (v === undefined) delete updated[k];
+	}
+
+	await doc().send(new PutCommand({ TableName: TABLE_NAME, Item: updated }));
+
+	// Maintain GSI1 lookup for stripeCustomerId
+	if (data.stripeCustomerId && data.stripeCustomerId !== oldCustomerId) {
+		// Remove old lookup if exists
+		if (oldCustomerId) {
+			await doc().send(
+				new DeleteCommand({
+					TableName: TABLE_NAME,
+					Key: {
+						PK: tenantPartition(tenantId),
+						SK: `STRIPE_CUS#${oldCustomerId}`,
+					},
+				}),
+			);
+		}
+		// Create new lookup
+		await doc().send(
+			new PutCommand({
+				TableName: TABLE_NAME,
+				Item: {
+					PK: tenantPartition(tenantId),
+					SK: `STRIPE_CUS#${data.stripeCustomerId}`,
+					tenantId,
+				},
+			}),
+		);
+	}
+};
+
 // ============================================================
 // Membership
 // ============================================================
@@ -347,6 +411,10 @@ function itemToTenant(item: Record<string, unknown>): Tenant {
 		status: item.status as Tenant['status'],
 		licenseKey: item.licenseKey as string | undefined,
 		plan: item.plan as Tenant['plan'],
+		stripeCustomerId: item.stripeCustomerId as string | undefined,
+		stripeSubscriptionId: item.stripeSubscriptionId as string | undefined,
+		planExpiresAt: item.planExpiresAt as string | undefined,
+		trialUsedAt: item.trialUsedAt as string | undefined,
 		createdAt: item.createdAt as string,
 		updatedAt: item.updatedAt as string,
 	};
