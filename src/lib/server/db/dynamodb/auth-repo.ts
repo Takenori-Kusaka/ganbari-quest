@@ -2,13 +2,23 @@
 // DynamoDB implementation of IAuthRepo (#0123: DeviceToken 廃止)
 
 import { randomUUID } from 'node:crypto';
-import type { AuthUser, Membership, Tenant } from '$lib/server/auth/entities';
+import { INVITE_EXPIRY_DAYS } from '$lib/domain/validation/auth';
+import type { AuthUser, Invite, Membership, Tenant } from '$lib/server/auth/entities';
 import type { Role } from '$lib/server/auth/types';
-import { DeleteCommand, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import {
+	DeleteCommand,
+	GetCommand,
+	PutCommand,
+	QueryCommand,
+	UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import type { IAuthRepo } from '../interfaces/auth-repo.interface';
 import {
+	INVITE_SK_PREFIX,
 	MEMBER_SK_PREFIX,
 	USER_TENANT_SK_PREFIX,
+	inviteKey,
+	tenantInviteKey,
 	tenantKey,
 	tenantMemberKey,
 	tenantPartition,
@@ -209,6 +219,112 @@ export const deleteMembership: IAuthRepo['deleteMembership'] = async (userId, te
 };
 
 // ============================================================
+// Invite
+// ============================================================
+
+export const createInvite: IAuthRepo['createInvite'] = async (input) => {
+	const inviteCode = `inv-${randomUUID()}`;
+	const now = new Date();
+	const expiresAt = new Date(now.getTime() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+	const invite: Invite = {
+		inviteCode,
+		tenantId: input.tenantId,
+		invitedBy: input.invitedBy,
+		role: input.role,
+		childId: input.childId,
+		status: 'pending',
+		createdAt: now.toISOString(),
+		expiresAt: expiresAt.toISOString(),
+	};
+
+	// Primary invite item
+	await doc().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: { ...inviteKey(inviteCode), ...invite },
+		}),
+	);
+
+	// Tenant adjacency item (for listing invites by tenant)
+	await doc().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: { ...tenantInviteKey(input.tenantId, inviteCode), ...invite },
+		}),
+	);
+
+	return invite;
+};
+
+export const findInviteByCode: IAuthRepo['findInviteByCode'] = async (inviteCode) => {
+	const result = await doc().send(
+		new GetCommand({ TableName: TABLE_NAME, Key: inviteKey(inviteCode) }),
+	);
+	if (!result.Item) return undefined;
+	return itemToInvite(result.Item);
+};
+
+export const updateInviteStatus: IAuthRepo['updateInviteStatus'] = async (
+	inviteCode,
+	status,
+	acceptedBy,
+) => {
+	const now = new Date().toISOString();
+
+	// Get current invite to find tenantId for adjacency update
+	const current = await findInviteByCode(inviteCode);
+	if (!current) return;
+
+	const updates: string[] = ['#status = :status', '#updatedAt = :now'];
+	const names: Record<string, string> = { '#status': 'status', '#updatedAt': 'updatedAt' };
+	const values: Record<string, unknown> = { ':status': status, ':now': now };
+
+	if (acceptedBy) {
+		updates.push('acceptedBy = :acceptedBy', 'acceptedAt = :now');
+		values[':acceptedBy'] = acceptedBy;
+	}
+
+	const allValues = { ...values, ':pending': 'pending' };
+
+	// Update primary invite item (conditional on pending to prevent race)
+	await doc().send(
+		new UpdateCommand({
+			TableName: TABLE_NAME,
+			Key: inviteKey(inviteCode),
+			UpdateExpression: `SET ${updates.join(', ')}`,
+			ConditionExpression: '#status = :pending',
+			ExpressionAttributeNames: names,
+			ExpressionAttributeValues: allValues,
+		}),
+	);
+
+	// Update tenant adjacency item
+	await doc().send(
+		new UpdateCommand({
+			TableName: TABLE_NAME,
+			Key: tenantInviteKey(current.tenantId, inviteCode),
+			UpdateExpression: `SET ${updates.join(', ')}`,
+			ExpressionAttributeNames: names,
+			ExpressionAttributeValues: allValues,
+		}),
+	);
+};
+
+export const findTenantInvites: IAuthRepo['findTenantInvites'] = async (tenantId) => {
+	const result = await doc().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': tenantPartition(tenantId),
+				':prefix': INVITE_SK_PREFIX,
+			},
+		}),
+	);
+	return (result.Items ?? []).map(itemToInvite);
+};
+
+// ============================================================
 // Item → Entity mappers
 // ============================================================
 
@@ -243,5 +359,20 @@ function itemToMembership(item: Record<string, unknown>): Membership {
 		role: item.role as Role,
 		joinedAt: item.joinedAt as string,
 		invitedBy: item.invitedBy as string | undefined,
+	};
+}
+
+function itemToInvite(item: Record<string, unknown>): Invite {
+	return {
+		inviteCode: item.inviteCode as string,
+		tenantId: item.tenantId as string,
+		invitedBy: item.invitedBy as string,
+		role: item.role as Role,
+		childId: item.childId as number | undefined,
+		status: item.status as Invite['status'],
+		createdAt: item.createdAt as string,
+		expiresAt: item.expiresAt as string,
+		acceptedBy: item.acceptedBy as string | undefined,
+		acceptedAt: item.acceptedAt as string | undefined,
 	};
 }

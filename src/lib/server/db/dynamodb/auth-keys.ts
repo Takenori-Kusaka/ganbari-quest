@@ -66,6 +66,11 @@ export function inviteKey(inviteCode: string): DynamoKey {
 	return { PK: `INVITE#${inviteCode}`, SK: 'META' };
 }
 
+/** Tenant-invite (tenant 側): PK=TENANT#<tenantId>, SK=INVITE#<inviteCode> */
+export function tenantInviteKey(tenantId: string, inviteCode: string): DynamoKey {
+	return { PK: `${AUTH_PREFIX.TENANT}#${tenantId}`, SK: `INVITE#${inviteCode}` };
+}
+
 // ============================================================
 // Prefix helpers (for queries)
 // ============================================================
@@ -85,3 +90,6 @@ export const MEMBER_SK_PREFIX = 'MEMBER#';
 
 /** User tenant SK prefix: TENANT# */
 export const USER_TENANT_SK_PREFIX = 'TENANT#';
+
+/** Tenant invite SK prefix: INVITE# */
+export const INVITE_SK_PREFIX = 'INVITE#';

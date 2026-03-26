@@ -3,9 +3,11 @@
 
 import type {
 	AuthUser,
+	CreateInviteInput,
 	CreateMembershipInput,
 	CreateTenantInput,
 	CreateUserInput,
+	Invite,
 	Membership,
 	Tenant,
 } from '$lib/server/auth/entities';
@@ -27,4 +29,14 @@ export interface IAuthRepo {
 	findTenantMembers(tenantId: string): Promise<Membership[]>;
 	createMembership(input: CreateMembershipInput): Promise<Membership>;
 	deleteMembership(userId: string, tenantId: string): Promise<void>;
+
+	// --- Invite ---
+	createInvite(input: CreateInviteInput): Promise<Invite>;
+	findInviteByCode(inviteCode: string): Promise<Invite | undefined>;
+	updateInviteStatus(
+		inviteCode: string,
+		status: Invite['status'],
+		acceptedBy?: string,
+	): Promise<void>;
+	findTenantInvites(tenantId: string): Promise<Invite[]>;
 }
