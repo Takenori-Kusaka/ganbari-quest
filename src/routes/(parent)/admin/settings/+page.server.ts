@@ -1,7 +1,9 @@
+import { env } from '$env/dynamic/private';
 import { CURRENCY_CODES } from '$lib/domain/point-display';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { setSetting } from '$lib/server/db/settings-repo';
+import { logger } from '$lib/server/logger';
 import { changePin } from '$lib/server/services/auth-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions } from './$types';
@@ -66,5 +68,54 @@ export const actions = {
 		await setSetting('point_rate', String(rate), tenantId);
 
 		return { pointSuccess: true };
+	},
+	sendFeedback: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+		const category = form.get('category')?.toString() ?? '';
+		const text = form.get('text')?.toString()?.trim() ?? '';
+
+		if (!text || text.length === 0) {
+			return fail(400, { feedbackError: '内容を入力してください' });
+		}
+		if (text.length > 1000) {
+			return fail(400, { feedbackError: '1000文字以内で入力してください' });
+		}
+		if (!['feature', 'bug', 'other'].includes(category)) {
+			return fail(400, { feedbackError: 'カテゴリが不正です' });
+		}
+
+		const categoryLabel = { feature: '機能要望', bug: 'バグ報告', other: 'その他' }[category];
+		const email = locals.identity?.type === 'cognito' ? locals.identity.email : 'local-user';
+
+		// Discord Webhook に送信（設定されている場合）
+		const webhookUrl = env.FEEDBACK_DISCORD_WEBHOOK_URL;
+		if (webhookUrl) {
+			try {
+				await fetch(webhookUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						embeds: [
+							{
+								title: `📬 ${categoryLabel}`,
+								description: text,
+								color: category === 'bug' ? 0xff4444 : 0x4a90d9,
+								fields: [
+									{ name: 'テナント', value: tenantId, inline: true },
+									{ name: '送信者', value: email, inline: true },
+								],
+								timestamp: new Date().toISOString(),
+							},
+						],
+					}),
+				});
+			} catch (e) {
+				logger.error('Discord webhook failed', { error: String(e) });
+			}
+		}
+
+		logger.info(`Feedback received: [${categoryLabel}] from ${email} (${tenantId})`);
+		return { feedbackSuccess: true };
 	},
 } satisfies Actions;
