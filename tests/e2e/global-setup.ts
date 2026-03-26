@@ -16,16 +16,31 @@ export default async function globalSetup() {
 		fs.mkdirSync(dir, { recursive: true });
 	}
 
-	if (!fs.existsSync(DB_PATH)) {
-		// DB が存在しない場合のみ新規作成
-		console.log('[E2E Setup]   No DB found, creating fresh database...');
+	// DB ファイルが存在してもテーブルがなければスキーマを作り直す（CI で vitest が空 DB を生成するケース対策）
+	let needsSchema = !fs.existsSync(DB_PATH);
+	if (!needsSchema) {
+		try {
+			const Database = (await import('better-sqlite3')).default;
+			const db = new Database(DB_PATH);
+			const table = db
+				.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='children'")
+				.get();
+			db.close();
+			if (!table) needsSchema = true;
+		} catch {
+			needsSchema = true;
+		}
+	}
+
+	if (needsSchema) {
+		console.log('[E2E Setup]   Creating/rebuilding database schema...');
 		execSync('npx drizzle-kit push --force', { stdio: 'pipe', cwd: process.cwd() });
 		console.log('[E2E Setup]   Inserting categories...');
 		execSync('npx tsx scripts/migrate-local.ts', { stdio: 'pipe', cwd: process.cwd() });
 		console.log('[E2E Setup]   Running seed script...');
 		execSync('npx tsx src/lib/server/db/seed.ts', { stdio: 'pipe', cwd: process.cwd() });
 	} else {
-		console.log('[E2E Setup]   DB exists, ensuring seed data...');
+		console.log('[E2E Setup]   DB exists with schema, ensuring seed data...');
 		try {
 			execSync('npx tsx src/lib/server/db/seed.ts', { stdio: 'pipe', cwd: process.cwd() });
 		} catch {
