@@ -777,3 +777,42 @@ test.describe('#0130: ライセンス API', () => {
 		expect(data.license.status).toBeDefined();
 	});
 });
+
+// ============================================================
+// #0131 準備: 法的ページ（利用規約・プライバシーポリシー・特定商取引法）
+// ============================================================
+
+test.describe('#0131-prep: 法的ページ', () => {
+	test('利用規約ページが表示される', async ({ page }) => {
+		await page.goto('/legal/terms');
+		await expect(page.getByRole('heading', { name: '利用規約' })).toBeVisible();
+		await expect(page.getByText('第1条')).toBeVisible();
+	});
+
+	test('プライバシーポリシーページが表示される', async ({ page }) => {
+		await page.goto('/legal/privacy');
+		await expect(page.getByRole('heading', { name: 'プライバシーポリシー' })).toBeVisible();
+		await expect(page.getByText('こどもの個人情報保護について')).toBeVisible();
+	});
+
+	test('特定商取引法に基づく表記ページが表示される', async ({ page }) => {
+		await page.goto('/legal/commerce');
+		await expect(page.getByRole('heading', { name: '特定商取引法に基づく表記' })).toBeVisible();
+		await expect(page.getByText('販売事業者')).toBeVisible();
+	});
+
+	test('法的ページ間のナビゲーションが機能する', async ({ page }) => {
+		await page.goto('/legal/terms');
+		await page.getByRole('link', { name: 'プライバシーポリシー' }).first().click();
+		await expect(page.getByRole('heading', { name: 'プライバシーポリシー' })).toBeVisible();
+	});
+
+	test('法的ページは認証なしでアクセスできる', async ({ request }) => {
+		const terms = await request.get('/legal/terms');
+		expect(terms.status()).toBe(200);
+		const privacy = await request.get('/legal/privacy');
+		expect(privacy.status()).toBe(200);
+		const commerce = await request.get('/legal/commerce');
+		expect(commerce.status()).toBe(200);
+	});
+});

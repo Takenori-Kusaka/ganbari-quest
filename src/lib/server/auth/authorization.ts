@@ -126,7 +126,8 @@ function isPublicRoute(path: string): boolean {
 		path.startsWith('/setup') ||
 		path.startsWith('/_app') ||
 		path.startsWith('/favicon') ||
-		path.startsWith('/api/health')
+		path.startsWith('/api/health') ||
+		path.startsWith('/legal')
 	);
 }
 
