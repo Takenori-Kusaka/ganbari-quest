@@ -22,7 +22,7 @@ function stripKeys<T extends Record<string, unknown>>(
 }
 
 /** 全称号マスタを取得 */
-export async function findAllTitles(): Promise<Title[]> {
+export async function findAllTitles(_tenantId: string): Promise<Title[]> {
 	const result = await getDocClient().send(
 		new ScanCommand({
 			TableName: TABLE_NAME,
@@ -38,7 +38,7 @@ export async function findAllTitles(): Promise<Title[]> {
 }
 
 /** IDで称号を取得 */
-export async function findTitleById(id: number): Promise<Title | undefined> {
+export async function findTitleById(id: number, _tenantId: string): Promise<Title | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
@@ -53,8 +53,9 @@ export async function findTitleById(id: number): Promise<Title | undefined> {
 /** 子供の解除済み称号を取得 */
 export async function findUnlockedTitles(
 	childId: number,
+	tenantId: string,
 ): Promise<{ titleId: number; unlockedAt: string }[]> {
-	const pk = childPK(childId);
+	const pk = childPK(childId, tenantId);
 	const prefix = childTitlePrefix();
 
 	const result = await getDocClient().send(
@@ -76,11 +77,15 @@ export async function findUnlockedTitles(
 }
 
 /** 特定の称号が解除済みか確認 */
-export async function isTitleUnlocked(childId: number, titleId: number): Promise<boolean> {
+export async function isTitleUnlocked(
+	childId: number,
+	titleId: number,
+	tenantId: string,
+): Promise<boolean> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childTitleKey(childId, titleId),
+			Key: childTitleKey(childId, titleId, tenantId),
 			ProjectionExpression: 'id',
 		}),
 	);
@@ -89,8 +94,12 @@ export async function isTitleUnlocked(childId: number, titleId: number): Promise
 }
 
 /** 称号解除を記録 */
-export async function insertChildTitle(childId: number, titleId: number): Promise<ChildTitle> {
-	const id = await nextId(ENTITY_NAMES.childTitle);
+export async function insertChildTitle(
+	childId: number,
+	titleId: number,
+	tenantId: string,
+): Promise<ChildTitle> {
+	const id = await nextId(ENTITY_NAMES.childTitle, tenantId);
 	const now = new Date().toISOString();
 
 	const childTitle: ChildTitle = {
@@ -100,7 +109,7 @@ export async function insertChildTitle(childId: number, titleId: number): Promis
 		unlockedAt: now,
 	};
 
-	const key = childTitleKey(childId, titleId);
+	const key = childTitleKey(childId, titleId, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -116,11 +125,11 @@ export async function insertChildTitle(childId: number, titleId: number): Promis
 }
 
 /** アクティブ称号IDを取得 */
-export async function getActiveTitleId(childId: number): Promise<number | null> {
+export async function getActiveTitleId(childId: number, tenantId: string): Promise<number | null> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(childId),
+			Key: childKey(childId, tenantId),
 			ProjectionExpression: 'activeTitleId',
 		}),
 	);
@@ -129,11 +138,15 @@ export async function getActiveTitleId(childId: number): Promise<number | null> 
 }
 
 /** アクティブ称号を設定（nullで解除） */
-export async function setActiveTitleId(childId: number, titleId: number | null): Promise<void> {
+export async function setActiveTitleId(
+	childId: number,
+	titleId: number | null,
+	tenantId: string,
+): Promise<void> {
 	await getDocClient().send(
 		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(childId),
+			Key: childKey(childId, tenantId),
 			UpdateExpression: 'SET #activeTitleId = :titleId',
 			ExpressionAttributeNames: { '#activeTitleId': 'activeTitleId' },
 			ExpressionAttributeValues: { ':titleId': titleId },

@@ -16,7 +16,7 @@ function stripKeys<T extends Record<string, unknown>>(
 }
 
 /** 全実績マスタを取得 */
-export async function findAllAchievements(): Promise<Achievement[]> {
+export async function findAllAchievements(_tenantId: string): Promise<Achievement[]> {
 	const result = await getDocClient().send(
 		new ScanCommand({
 			TableName: TABLE_NAME,
@@ -32,7 +32,10 @@ export async function findAllAchievements(): Promise<Achievement[]> {
 }
 
 /** コードで実績を1件取得 */
-export async function findAchievementByCode(code: string): Promise<Achievement | undefined> {
+export async function findAchievementByCode(
+	code: string,
+	_tenantId: string,
+): Promise<Achievement | undefined> {
 	const result = await getDocClient().send(
 		new ScanCommand({
 			TableName: TABLE_NAME,
@@ -54,8 +57,9 @@ export async function findAchievementByCode(code: string): Promise<Achievement |
 /** 子供の解除済み実績（全レコード、マイルストーン含む）を取得 */
 export async function findUnlockedAchievements(
 	childId: number,
+	tenantId: string,
 ): Promise<{ achievementId: number; milestoneValue: number | null; unlockedAt: string }[]> {
-	const pk = childPK(childId);
+	const pk = childPK(childId, tenantId);
 	const prefix = childAchievementPrefix();
 
 	const result = await getDocClient().send(
@@ -78,8 +82,11 @@ export async function findUnlockedAchievements(
 }
 
 /** 子供の解除済み実績IDセットを取得（非繰り返し実績用） */
-export async function findUnlockedAchievementIds(childId: number): Promise<Set<number>> {
-	const pk = childPK(childId);
+export async function findUnlockedAchievementIds(
+	childId: number,
+	tenantId: string,
+): Promise<Set<number>> {
+	const pk = childPK(childId, tenantId);
 	const prefix = childAchievementPrefix();
 
 	const result = await getDocClient().send(
@@ -103,11 +110,12 @@ export async function isAchievementUnlocked(
 	childId: number,
 	achievementId: number,
 	milestoneValue: number | null,
+	tenantId: string,
 ): Promise<boolean> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childAchievementKey(childId, achievementId, milestoneValue),
+			Key: childAchievementKey(childId, achievementId, tenantId, milestoneValue),
 		}),
 	);
 
@@ -118,9 +126,10 @@ export async function isAchievementUnlocked(
 export async function insertChildAchievement(
 	childId: number,
 	achievementId: number,
+	tenantId: string,
 	milestoneValue?: number | null,
 ): Promise<ChildAchievement> {
-	const id = await nextId(ENTITY_NAMES.childAchievement);
+	const id = await nextId(ENTITY_NAMES.childAchievement, tenantId);
 	const now = new Date().toISOString();
 
 	const achievement: ChildAchievement = {
@@ -131,7 +140,7 @@ export async function insertChildAchievement(
 		unlockedAt: now,
 	};
 
-	const key = childAchievementKey(childId, achievementId, milestoneValue);
+	const key = childAchievementKey(childId, achievementId, tenantId, milestoneValue);
 
 	await getDocClient().send(
 		new PutCommand({

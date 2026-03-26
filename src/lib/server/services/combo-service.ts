@@ -78,9 +78,13 @@ function calcCrossCategoryBonus(categoryCount: number): CrossCategoryCombo | nul
  * Check today's combo state and grant any new bonus points.
  * Returns the combo result with only the newly granted bonus amount.
  */
-export async function checkAndGrantCombo(childId: number, date: string): Promise<ComboResult> {
+export async function checkAndGrantCombo(
+	childId: number,
+	date: string,
+	tenantId: string,
+): Promise<ComboResult> {
 	// Get today's active logs with category info
-	const todayLogs = await findTodayLogsWithCategory(childId, date);
+	const todayLogs = await findTodayLogsWithCategory(childId, date, tenantId);
 
 	// Group unique activity IDs by categoryId
 	const byCat = new Map<number, Set<number>>();
@@ -123,7 +127,7 @@ export async function checkAndGrantCombo(childId: number, date: string): Promise
 
 	// Get already-granted combo bonus for today (match by description prefix with date)
 	const comboBonusPrefix = `[${date}]`;
-	const alreadyAmount = await getComboPointsGranted(childId, comboBonusPrefix);
+	const alreadyAmount = await getComboPointsGranted(childId, comboBonusPrefix, tenantId);
 	const newBonus = Math.max(0, totalDesiredBonus - alreadyAmount);
 
 	// Grant the difference
@@ -141,12 +145,15 @@ export async function checkAndGrantCombo(childId: number, date: string): Promise
 		}
 		const description = `${comboBonusPrefix} ${parts.join('・')} +${newBonus}`;
 
-		await insertPointLedger({
-			childId,
-			amount: newBonus,
-			type: 'combo_bonus',
-			description,
-		});
+		await insertPointLedger(
+			{
+				childId,
+				amount: newBonus,
+				type: 'combo_bonus',
+				description,
+			},
+			tenantId,
+		);
 	}
 
 	// Generate combo hints

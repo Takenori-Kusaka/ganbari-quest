@@ -68,13 +68,14 @@ export async function getTodayChecklist(
 	childId: number,
 	templateId: number,
 	date: string,
+	tenantId: string,
 ): Promise<TodayChecklist | { error: 'NOT_FOUND'; target: string }> {
-	const template = await findTemplateById(templateId);
+	const template = await findTemplateById(templateId, tenantId);
 	if (!template) return { error: 'NOT_FOUND', target: 'template' };
 	if (template.childId !== childId) return { error: 'NOT_FOUND', target: 'template' };
 
 	const dayOfWeek = getDayOfWeek(date);
-	const allItems = await findTemplateItems(templateId);
+	const allItems = await findTemplateItems(templateId, tenantId);
 
 	// 1. daily + 当該曜日のアイテムをフィルタ
 	const todayTemplateItems = allItems.filter(
@@ -82,7 +83,7 @@ export async function getTodayChecklist(
 	);
 
 	// 2. overrides 適用
-	const overrides = await findOverrides(childId, date);
+	const overrides = await findOverrides(childId, date, tenantId);
 	const removeNames = new Set(
 		overrides.filter((o) => o.action === 'remove').map((o) => o.itemName),
 	);
@@ -111,7 +112,7 @@ export async function getTodayChecklist(
 	}
 
 	// 5. 本日のチェック記録を照会して反映
-	const log = await findTodayLog(childId, templateId, date);
+	const log = await findTodayLog(childId, templateId, date, tenantId);
 	const checkedItemIds: number[] = log ? JSON.parse(log.itemsJson) : [];
 	const checkedSet = new Set(checkedItemIds);
 
@@ -145,12 +146,13 @@ export async function getTodayChecklist(
 export async function getChecklistsForChild(
 	childId: number,
 	date: string,
+	tenantId: string,
 ): Promise<TodayChecklist[]> {
-	const templates = await findTemplatesByChild(childId);
+	const templates = await findTemplatesByChild(childId, tenantId, false);
 	const results: TodayChecklist[] = [];
 
 	for (const tpl of templates) {
-		const checklist = await getTodayChecklist(childId, tpl.id, date);
+		const checklist = await getTodayChecklist(childId, tpl.id, date, tenantId);
 		if ('error' in checklist) continue;
 		results.push(checklist);
 	}
@@ -180,13 +182,14 @@ export async function toggleCheckItem(
 	itemId: number,
 	date: string,
 	checked: boolean,
+	tenantId: string,
 ): Promise<CheckItemResult | { error: 'NOT_FOUND'; target: string }> {
-	const template = await findTemplateById(templateId);
+	const template = await findTemplateById(templateId, tenantId);
 	if (!template) return { error: 'NOT_FOUND', target: 'template' };
 	if (template.childId !== childId) return { error: 'NOT_FOUND', target: 'template' };
 
 	// 現在のチェックリストを取得
-	const checklist = await getTodayChecklist(childId, templateId, date);
+	const checklist = await getTodayChecklist(childId, templateId, date, tenantId);
 	if ('error' in checklist) return checklist;
 
 	// アイテムの存在確認
@@ -210,33 +213,42 @@ export async function toggleCheckItem(
 	}
 
 	// ログを更新
-	await upsertLog({
-		childId,
-		templateId,
-		checkedDate: date,
-		itemsJson: JSON.stringify(checkedIds),
-		completedAll: completedAll ? 1 : 0,
-		pointsAwarded,
-	});
+	await upsertLog(
+		{
+			childId,
+			templateId,
+			checkedDate: date,
+			itemsJson: JSON.stringify(checkedIds),
+			completedAll: completedAll ? 1 : 0,
+			pointsAwarded,
+		},
+		tenantId,
+	);
 
 	// 全完了時にポイント台帳に記録
 	if (newlyCompleted) {
-		await insertPointEntry({
-			childId,
-			amount: pointsAwarded,
-			type: 'checklist',
-			description: `${template.name} 全完了！`,
-		});
+		await insertPointEntry(
+			{
+				childId,
+				amount: pointsAwarded,
+				type: 'checklist',
+				description: `${template.name} 全完了！`,
+			},
+			tenantId,
+		);
 	} else if (wasCompletedAll && !completedAll) {
 		// 全完了から戻った場合、ポイントを取り消す
 		const previousPoints = checklist.pointsAwarded;
 		if (previousPoints > 0) {
-			await insertPointEntry({
-				childId,
-				amount: -previousPoints,
-				type: 'checklist_cancel',
-				description: `${template.name} チェック解除`,
-			});
+			await insertPointEntry(
+				{
+					childId,
+					amount: -previousPoints,
+					type: 'checklist_cancel',
+					description: `${template.name} チェック解除`,
+				},
+				tenantId,
+			);
 		}
 	}
 
@@ -253,20 +265,26 @@ export async function toggleCheckItem(
 // テンプレート管理（親画面用）
 // ============================================================
 
-export async function createTemplate(input: {
-	childId: number;
-	name: string;
-	icon?: string;
-	pointsPerItem?: number;
-	completionBonus?: number;
-}) {
-	return await insertTemplate({
-		childId: input.childId,
-		name: input.name,
-		icon: input.icon ?? '📋',
-		pointsPerItem: input.pointsPerItem ?? 2,
-		completionBonus: input.completionBonus ?? 5,
-	});
+export async function createTemplate(
+	input: {
+		childId: number;
+		name: string;
+		icon?: string;
+		pointsPerItem?: number;
+		completionBonus?: number;
+	},
+	tenantId: string,
+) {
+	return await insertTemplate(
+		{
+			childId: input.childId,
+			name: input.name,
+			icon: input.icon ?? '📋',
+			pointsPerItem: input.pointsPerItem ?? 2,
+			completionBonus: input.completionBonus ?? 5,
+		},
+		tenantId,
+	);
 }
 
 export async function editTemplate(
@@ -278,52 +296,65 @@ export async function editTemplate(
 		completionBonus?: number;
 		isActive?: number;
 	},
+	tenantId: string,
 ) {
-	return await updateTemplate(id, input);
+	return await updateTemplate(id, input, tenantId);
 }
 
-export async function removeTemplate(id: number) {
-	await deleteTemplate(id);
+export async function removeTemplate(id: number, tenantId: string) {
+	await deleteTemplate(id, tenantId);
 }
 
-export async function addTemplateItem(input: {
-	templateId: number;
-	name: string;
-	icon?: string;
-	frequency?: string;
-	direction?: string;
-	sortOrder?: number;
-}) {
-	return await insertTemplateItem({
-		templateId: input.templateId,
-		name: input.name,
-		icon: input.icon ?? '🏫',
-		frequency: input.frequency ?? 'daily',
-		direction: input.direction ?? 'bring',
-		sortOrder: input.sortOrder ?? 0,
-	});
+export async function addTemplateItem(
+	input: {
+		templateId: number;
+		name: string;
+		icon?: string;
+		frequency?: string;
+		direction?: string;
+		sortOrder?: number;
+	},
+	tenantId: string,
+) {
+	return await insertTemplateItem(
+		{
+			templateId: input.templateId,
+			name: input.name,
+			icon: input.icon ?? '🏫',
+			frequency: input.frequency ?? 'daily',
+			direction: input.direction ?? 'bring',
+			sortOrder: input.sortOrder ?? 0,
+		},
+		tenantId,
+	);
 }
 
-export async function removeTemplateItem(id: number) {
-	await deleteTemplateItem(id);
+export async function removeTemplateItem(id: number, tenantId: string) {
+	await deleteTemplateItem(id, tenantId);
 }
 
-export async function addOverride(input: {
-	childId: number;
-	targetDate: string;
-	action: string;
-	itemName: string;
-	icon?: string;
-}) {
-	return await insertOverride({
-		childId: input.childId,
-		targetDate: input.targetDate,
-		action: input.action,
-		itemName: input.itemName,
-		icon: input.icon ?? '📦',
-	});
+export async function addOverride(
+	input: {
+		childId: number;
+		targetDate: string;
+		action: string;
+		itemName: string;
+		icon?: string;
+	},
+	tenantId: string,
+) {
+	return await insertOverride(
+		{
+			childId: input.childId,
+			targetDate: input.targetDate,
+			action: input.action,
+			itemName: input.itemName,
+			icon: input.icon ?? '📦',
+		},
+		tenantId,
+	);
 }
 
-export async function removeOverride(id: number) {
-	await deleteOverride(id);
+export async function removeOverride(id: number, tenantId: string) {
+	await deleteOverride(id, tenantId);
 }

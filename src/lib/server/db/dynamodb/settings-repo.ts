@@ -6,24 +6,24 @@ import { TABLE_NAME, getDocClient } from './client';
 import { settingKey } from './keys';
 
 /** 設定値を取得 */
-export async function getSetting(key: string): Promise<string | undefined> {
+export async function getSetting(key: string, tenantId: string): Promise<string | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: settingKey(key),
+			Key: settingKey(key, tenantId),
 		}),
 	);
 	return result.Item?.value as string | undefined;
 }
 
 /** 設定値を更新（upsert） */
-export async function setSetting(key: string, value: string): Promise<void> {
+export async function setSetting(key: string, value: string, tenantId: string): Promise<void> {
 	const now = new Date().toISOString();
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...settingKey(key),
+				...settingKey(key, tenantId),
 				key,
 				value,
 				updatedAt: now,
@@ -33,10 +33,13 @@ export async function setSetting(key: string, value: string): Promise<void> {
 }
 
 /** 複数の設定値を一括取得 */
-export async function getSettings(keys: string[]): Promise<Record<string, string>> {
+export async function getSettings(
+	keys: string[],
+	tenantId: string,
+): Promise<Record<string, string>> {
 	if (keys.length === 0) return {};
 
-	const requestKeys = keys.map((k) => settingKey(k));
+	const requestKeys = keys.map((k) => settingKey(k, tenantId));
 	const result = await getDocClient().send(
 		new BatchGetCommand({
 			RequestItems: {

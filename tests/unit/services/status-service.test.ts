@@ -174,12 +174,12 @@ describe('status-service', () => {
 	});
 
 	it('存在しない子供はNOT_FOUND', async () => {
-		const result = await getChildStatus(999);
+		const result = await getChildStatus(999, 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
 	it('初期状態で全カテゴリ値0のステータスを返す', async () => {
-		const result = await getChildStatus(1);
+		const result = await getChildStatus(1, 'test-tenant');
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.childId).toBe(1);
@@ -191,7 +191,7 @@ describe('status-service', () => {
 	});
 
 	it('ベンチマークなしの場合、偏差値50を返す', async () => {
-		const result = await getChildStatus(1);
+		const result = await getChildStatus(1, 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.statuses[1]?.deviationScore).toBe(50);
 			expect(result.statuses[1]?.stars).toBe(3);
@@ -201,9 +201,9 @@ describe('status-service', () => {
 	it('ベンチマークありの場合、偏差値を正しく計算する', async () => {
 		seedBenchmarks();
 		// うんどう = 70, mean = 50, stdDev = 10 → 偏差値 (70-50)/10*10+50 = 70
-		await updateStatus(1, 1, 70, 'test');
+		await updateStatus(1, 1, 70, 'test', 'test-tenant');
 
-		const result = await getChildStatus(1);
+		const result = await getChildStatus(1, 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.statuses[1]?.value).toBe(70);
 			expect(result.statuses[1]?.deviationScore).toBe(70);
@@ -212,37 +212,37 @@ describe('status-service', () => {
 	});
 
 	it('ステータス更新が正常に動作する', async () => {
-		const updated = await updateStatus(1, 1, 5.0, 'weekly');
+		const updated = await updateStatus(1, 1, 5.0, 'weekly', 'test-tenant');
 		expect(updated).toBeDefined();
 		expect('error' in updated).toBe(false);
 
 		// getChildStatus で値を確認
-		const status = await getChildStatus(1);
+		const status = await getChildStatus(1, 'test-tenant');
 		if (!('error' in status)) {
 			expect(status.statuses[1]?.value).toBe(5.0);
 		}
 
 		// 累積更新
-		await updateStatus(1, 1, 3.0, 'weekly');
-		const status2 = await getChildStatus(1);
+		await updateStatus(1, 1, 3.0, 'weekly', 'test-tenant');
+		const status2 = await getChildStatus(1, 'test-tenant');
 		if (!('error' in status2)) {
 			expect(status2.statuses[1]?.value).toBe(8.0);
 		}
 	});
 
 	it('ステータスは0未満にならない', async () => {
-		await updateStatus(1, 1, 5.0, 'weekly');
-		await updateStatus(1, 1, -10.0, 'decay');
-		const status = await getChildStatus(1);
+		await updateStatus(1, 1, 5.0, 'weekly', 'test-tenant');
+		await updateStatus(1, 1, -10.0, 'decay', 'test-tenant');
+		const status = await getChildStatus(1, 'test-tenant');
 		if (!('error' in status)) {
 			expect(status.statuses[1]?.value).toBe(0);
 		}
 	});
 
 	it('ステータスは年齢別maxを超えない（age=4 → max=350）', async () => {
-		await updateStatus(1, 1, 300.0, 'weekly');
-		await updateStatus(1, 1, 100.0, 'weekly');
-		const status = await getChildStatus(1);
+		await updateStatus(1, 1, 300.0, 'weekly', 'test-tenant');
+		await updateStatus(1, 1, 100.0, 'weekly', 'test-tenant');
+		const status = await getChildStatus(1, 'test-tenant');
 		if (!('error' in status)) {
 			expect(status.statuses[1]?.value).toBe(350);
 		}
@@ -251,27 +251,27 @@ describe('status-service', () => {
 	it('レベルアップ時にlevelUp情報が返る', async () => {
 		// 全カテゴリを34に設定 → 平均34 → 正規化 34/350*100≈9.7 → レベル1
 		for (const catId of [1, 2, 3, 4, 5]) {
-			await updateStatus(1, catId, 34, 'test');
+			await updateStatus(1, catId, 34, 'test', 'test-tenant');
 		}
-		const before = await getChildStatus(1);
+		const before = await getChildStatus(1, 'test-tenant');
 		if (!('error' in before)) {
 			expect(before.level).toBe(1);
 		}
 
 		// うんどう+2 → [36,34,34,34,34] 平均34.4 → 正規化9.83 → レベル1（変化なし）
-		const result = await updateStatus(1, 1, 2, 'test');
+		const result = await updateStatus(1, 1, 2, 'test', 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.levelUp).toBeNull();
 		}
 
 		// べんきょう+2 → [36,36,34,34,34] 平均34.8 → 正規化9.94 → レベル1
-		const result2 = await updateStatus(1, 2, 2, 'test');
+		const result2 = await updateStatus(1, 2, 2, 'test', 'test-tenant');
 		if (!('error' in result2)) {
 			expect(result2.levelUp).toBeNull();
 		}
 
 		// せいかつ+2 → [36,36,36,34,34] 平均35.2 → 正規化10.06 → レベル2！
-		const levelUpResult = await updateStatus(1, 3, 2, 'test');
+		const levelUpResult = await updateStatus(1, 3, 2, 'test', 'test-tenant');
 		if (!('error' in levelUpResult)) {
 			expect(levelUpResult.levelUp).not.toBeNull();
 			expect(levelUpResult.levelUp?.oldLevel).toBe(1);
@@ -283,10 +283,10 @@ describe('status-service', () => {
 	it('レベルがステータス平均の正規化値で決まる（age=4, max=350）', async () => {
 		// 全カテゴリを175に設定 → 平均175 → 正規化 175/350*100=50 → レベル6
 		for (const catId of [1, 2, 3, 4, 5]) {
-			await updateStatus(1, catId, 175, 'test');
+			await updateStatus(1, catId, 175, 'test', 'test-tenant');
 		}
 
-		const result = await getChildStatus(1);
+		const result = await getChildStatus(1, 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.level).toBe(6);
 			expect(result.levelTitle).toBe('すごうでアドベンチャー');
@@ -298,17 +298,17 @@ describe('status-service', () => {
 		seedBenchmarks();
 		// 全カテゴリを70に → 偏差値70 → hero
 		for (const catId of [1, 2, 3, 4, 5]) {
-			await updateStatus(1, catId, 70, 'test');
+			await updateStatus(1, catId, 70, 'test', 'test-tenant');
 		}
 
-		const result = await getChildStatus(1);
+		const result = await getChildStatus(1, 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.characterType).toBe('hero');
 		}
 	});
 
 	it('存在しない子供のステータス更新はNOT_FOUND', async () => {
-		const result = await updateStatus(999, 1, 5.0, 'weekly');
+		const result = await updateStatus(999, 1, 5.0, 'weekly', 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 });

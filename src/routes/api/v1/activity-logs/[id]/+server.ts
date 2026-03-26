@@ -1,13 +1,15 @@
+import { requireTenantId } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { cancelActivityLog } from '$lib/server/services/activity-log-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
+	const tenantId = requireTenantId(locals);
 	const id = Number(params.id);
 	if (Number.isNaN(id)) return validationError('IDが不正です');
 
-	const result = await cancelActivityLog(id);
+	const result = await cancelActivityLog(id, tenantId);
 
 	if ('error' in result) {
 		if (result.error === 'NOT_FOUND') {

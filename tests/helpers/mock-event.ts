@@ -27,7 +27,7 @@ export function createMockEvent(opts: {
 		url: requestUrl,
 		params: opts.params ?? {},
 		route: { id: null },
-		locals: {},
+		locals: { context: { tenantId: 'test-tenant' } },
 		cookies: {
 			get: () => undefined,
 			set: () => {},

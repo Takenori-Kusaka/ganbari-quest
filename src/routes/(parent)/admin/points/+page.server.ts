@@ -1,15 +1,17 @@
 import { ConvertMode } from '$lib/domain/validation/point';
+import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { convertPoints, getPointBalance } from '$lib/server/services/point-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-	const children = await getAllChildren();
+export const load: PageServerLoad = async ({ locals }) => {
+	const tenantId = requireTenantId(locals);
+	const children = await getAllChildren(tenantId);
 	const childrenWithBalance = await Promise.all(
 		children.map(async (child) => {
-			const balance = await getPointBalance(child.id);
+			const balance = await getPointBalance(child.id, tenantId);
 			if ('error' in balance) {
 				logger.warn('[admin/points] ポイント取得フォールバック', {
 					context: { childId: child.id, error: balance.error },
@@ -25,7 +27,8 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
-	convert: async ({ request }) => {
+	convert: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const childId = Number(formData.get('childId'));
 		const amount = Number(formData.get('amount'));
@@ -44,7 +47,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'ポイントは500単位で変換できます' });
 		}
 
-		const result = await convertPoints(childId, amount, mode as ConvertMode);
+		const result = await convertPoints(childId, amount, tenantId, mode as ConvertMode);
 		if ('error' in result) {
 			const messages: Record<string, string> = {
 				NOT_FOUND: 'こどもが見つかりません',

@@ -3,19 +3,21 @@ import {
 	SESSION_MAX_AGE_SECONDS,
 	loginSchema,
 } from '$lib/domain/validation/auth';
+import { requireTenantId } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { login } from '$lib/server/services/auth-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request, cookies }) => {
+export const POST: RequestHandler = async ({ request, cookies, locals }) => {
+	const tenantId = requireTenantId(locals);
 	const body = await request.json();
 	const parsed = loginSchema.safeParse(body);
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? 'PINが不正です');
 	}
 
-	const result = await login(parsed.data.pin);
+	const result = await login(parsed.data.pin, tenantId);
 
 	if ('error' in result) {
 		if (result.error === 'LOCKED_OUT') {

@@ -1,8 +1,8 @@
 import type { Child, InsertLoginBonusInput, LoginBonus } from '../types';
 
 export interface ILoginBonusRepo {
-	findTodayBonus(childId: number, today: string): Promise<LoginBonus | undefined>;
-	findRecentBonuses(childId: number, limit?: number): Promise<LoginBonus[]>;
-	insertLoginBonus(input: InsertLoginBonusInput): Promise<LoginBonus>;
-	findChildById(id: number): Promise<Child | undefined>;
+	findTodayBonus(childId: number, today: string, tenantId: string): Promise<LoginBonus | undefined>;
+	findRecentBonuses(childId: number, tenantId: string, limit?: number): Promise<LoginBonus[]>;
+	insertLoginBonus(input: InsertLoginBonusInput, tenantId: string): Promise<LoginBonus>;
+	findChildById(id: number, tenantId: string): Promise<Child | undefined>;
 }

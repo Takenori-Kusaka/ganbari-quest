@@ -1,16 +1,18 @@
+import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-	const children = await getAllChildren();
+export const load: PageServerLoad = async ({ locals }) => {
+	const tenantId = requireTenantId(locals);
+	const children = await getAllChildren(tenantId);
 
 	const childrenWithStatus = await Promise.all(
 		children.map(async (child) => {
-			const balance = await getPointBalance(child.id);
-			const status = await getChildStatus(child.id);
+			const balance = await getPointBalance(child.id, tenantId);
+			const status = await getChildStatus(child.id, tenantId);
 			if ('error' in balance) {
 				logger.warn('[admin] ポイント取得フォールバック', {
 					context: { childId: child.id, error: balance.error },

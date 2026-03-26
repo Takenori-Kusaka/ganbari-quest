@@ -3,17 +3,17 @@ import { db } from '../client';
 import { achievements, childAchievements } from '../schema';
 
 /** 全実績マスタを取得 */
-export async function findAllAchievements() {
+export async function findAllAchievements(_tenantId: string) {
 	return db.select().from(achievements).all();
 }
 
 /** コードで実績を1件取得 */
-export async function findAchievementByCode(code: string) {
+export async function findAchievementByCode(code: string, _tenantId: string) {
 	return db.select().from(achievements).where(eq(achievements.code, code)).get();
 }
 
 /** 子供の解除済み実績（全レコード、マイルストーン含む）を取得 */
-export async function findUnlockedAchievements(childId: number) {
+export async function findUnlockedAchievements(childId: number, _tenantId: string) {
 	return db
 		.select({
 			achievementId: childAchievements.achievementId,
@@ -26,7 +26,10 @@ export async function findUnlockedAchievements(childId: number) {
 }
 
 /** 子供の解除済み実績IDセットを取得（非繰り返し実績用） */
-export async function findUnlockedAchievementIds(childId: number): Promise<Set<number>> {
+export async function findUnlockedAchievementIds(
+	childId: number,
+	_tenantId: string,
+): Promise<Set<number>> {
 	const rows = db
 		.select({ achievementId: childAchievements.achievementId })
 		.from(childAchievements)
@@ -40,6 +43,7 @@ export async function isAchievementUnlocked(
 	childId: number,
 	achievementId: number,
 	milestoneValue: number | null,
+	_tenantId: string,
 ): Promise<boolean> {
 	const condition =
 		milestoneValue != null
@@ -66,6 +70,7 @@ export async function isAchievementUnlocked(
 export async function insertChildAchievement(
 	childId: number,
 	achievementId: number,
+	_tenantId: string,
 	milestoneValue?: number | null,
 ) {
 	return db

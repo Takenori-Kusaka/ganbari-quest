@@ -287,7 +287,7 @@ describe('evaluateChild', () => {
 	});
 
 	it('活動なしの週は全カテゴリ0', async () => {
-		const result = await evaluateChild(1, '2026-02-16', '2026-02-22');
+		const result = await evaluateChild(1, '2026-02-16', '2026-02-22', 'test-tenant');
 		expect(result.childId).toBe(1);
 		expect(result.bonusPoints).toBe(0);
 		for (const cat of Object.values(result.categoryScores)) {
@@ -304,7 +304,7 @@ describe('evaluateChild', () => {
 		addLog(1, 4, '2026-02-19'); // こうりゅう
 		addLog(1, 5, '2026-02-20'); // そうぞう
 
-		const result = await evaluateChild(1, '2026-02-16', '2026-02-22');
+		const result = await evaluateChild(1, '2026-02-16', '2026-02-22', 'test-tenant');
 		expect(result.bonusPoints).toBe(20); // 5カテゴリ活動ボーナス
 
 		// 各カテゴリ1回→週次ボーナスなし（即時更新分で十分）
@@ -319,7 +319,7 @@ describe('evaluateChild', () => {
 			addLog(1, 1, `2026-02-${i}`); // うんどう毎日
 		}
 
-		const result = await evaluateChild(1, '2026-02-16', '2026-02-22');
+		const result = await evaluateChild(1, '2026-02-16', '2026-02-22', 'test-tenant');
 		expect(result.categoryScores[1]?.count).toBe(7);
 		expect(result.categoryScores[1]?.statusIncrease).toBe(1.0); // 週次ボーナス
 	});
@@ -331,14 +331,14 @@ describe('runDailyDecay', () => {
 	});
 
 	it('活動履歴なしの場合は減少なし', async () => {
-		const results = await runDailyDecay('2026-02-21');
+		const results = await runDailyDecay('test-tenant', '2026-02-21');
 		expect(results[0]?.decays.length).toBe(0);
 	});
 
 	it('前日に活動があれば減少が発生', async () => {
 		addLog(1, 1, '2026-02-19'); // 2日前にうんどう
 
-		const results = await runDailyDecay('2026-02-21');
+		const results = await runDailyDecay('test-tenant', '2026-02-21');
 		const decay = results[0]?.decays.find((d) => d.categoryId === 1);
 		expect(decay).toBeDefined();
 		expect(decay?.amount).toBeGreaterThan(0);

@@ -181,12 +181,12 @@ describe('calculateConsecutiveDays', () => {
 	});
 
 	it('初回は1日', async () => {
-		expect(await calculateConsecutiveDays(1, '2026-02-21')).toBe(1);
+		expect(await calculateConsecutiveDays(1, '2026-02-21', 'test-tenant')).toBe(1);
 	});
 
 	it('連続2日', async () => {
 		addBonus(1, '2026-02-20');
-		expect(await calculateConsecutiveDays(1, '2026-02-21')).toBe(2);
+		expect(await calculateConsecutiveDays(1, '2026-02-21', 'test-tenant')).toBe(2);
 	});
 
 	it('連続5日', async () => {
@@ -195,12 +195,12 @@ describe('calculateConsecutiveDays', () => {
 		addBonus(1, '2026-02-18');
 		addBonus(1, '2026-02-19');
 		addBonus(1, '2026-02-20');
-		expect(await calculateConsecutiveDays(1, '2026-02-21')).toBe(6);
+		expect(await calculateConsecutiveDays(1, '2026-02-21', 'test-tenant')).toBe(6);
 	});
 
 	it('途切れた場合は1日', async () => {
 		addBonus(1, '2026-02-18'); // 3日前
 		// 2/19, 2/20 なし
-		expect(await calculateConsecutiveDays(1, '2026-02-21')).toBe(1);
+		expect(await calculateConsecutiveDays(1, '2026-02-21', 'test-tenant')).toBe(1);
 	});
 });

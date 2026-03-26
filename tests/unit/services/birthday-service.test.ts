@@ -114,13 +114,13 @@ describe('checkBirthdayStatus', () => {
 	});
 
 	it('存在しない子供でNOT_FOUNDエラーを返す', async () => {
-		const result = await checkBirthdayStatus(999);
+		const result = await checkBirthdayStatus(999, 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
 	it('birthDateがnullならisBirthday=false', async () => {
 		seedChild(null);
-		const result = await checkBirthdayStatus(1);
+		const result = await checkBirthdayStatus(1, 'test-tenant');
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.isBirthday).toBe(false);
@@ -129,7 +129,7 @@ describe('checkBirthdayStatus', () => {
 
 	it('誕生日当日ならisBirthday=true', async () => {
 		seedChild('2022-03-08'); // Today is 2026-03-08
-		const result = await checkBirthdayStatus(1);
+		const result = await checkBirthdayStatus(1, 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.isBirthday).toBe(true);
 			expect(result.alreadyReviewed).toBe(false);
@@ -138,7 +138,7 @@ describe('checkBirthdayStatus', () => {
 
 	it('誕生日から3日以内ならisBirthday=true (猶予期間)', async () => {
 		seedChild('2022-03-06'); // Birthday was Mar 6, today is Mar 8 (2 days later)
-		const result = await checkBirthdayStatus(1);
+		const result = await checkBirthdayStatus(1, 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.isBirthday).toBe(true);
 		}
@@ -146,7 +146,7 @@ describe('checkBirthdayStatus', () => {
 
 	it('誕生日から4日後ならisBirthday=false (猶予期間超過)', async () => {
 		seedChild('2022-03-04'); // Birthday was Mar 4, today is Mar 8 (4 days later)
-		const result = await checkBirthdayStatus(1);
+		const result = await checkBirthdayStatus(1, 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.isBirthday).toBe(false);
 		}
@@ -154,7 +154,7 @@ describe('checkBirthdayStatus', () => {
 
 	it('誕生日前ならisBirthday=falseで残り日数を返す', async () => {
 		seedChild('2022-03-15'); // Birthday is Mar 15, today is Mar 8
-		const result = await checkBirthdayStatus(1);
+		const result = await checkBirthdayStatus(1, 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.isBirthday).toBe(false);
 			expect(result.daysUntilBirthday).toBe(7);
@@ -176,7 +176,7 @@ describe('checkBirthdayStatus', () => {
 				totalPoints: 400,
 			})
 			.run();
-		const result = await checkBirthdayStatus(1);
+		const result = await checkBirthdayStatus(1, 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.isBirthday).toBe(true);
 			expect(result.alreadyReviewed).toBe(true);
@@ -191,7 +191,7 @@ describe('submitBirthdayReview', () => {
 	});
 
 	it('存在しない子供でNOT_FOUNDを返す', async () => {
-		const result = await submitBirthdayReview(999, { healthChecks: {} });
+		const result = await submitBirthdayReview(999, { healthChecks: {} }, 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
@@ -202,10 +202,14 @@ describe('submitBirthdayReview', () => {
 			allChecks[item.key] = true;
 		}
 
-		const result = await submitBirthdayReview(1, {
-			healthChecks: allChecks,
-			aspirationText: 'おおきくなったらパイロットになりたい',
-		});
+		const result = await submitBirthdayReview(
+			1,
+			{
+				healthChecks: allChecks,
+				aspirationText: 'おおきくなったらパイロットになりたい',
+			},
+			'test-tenant',
+		);
 
 		if (!('error' in result)) {
 			// base: 4 * 100 = 400
@@ -223,10 +227,14 @@ describe('submitBirthdayReview', () => {
 
 	it('チェック一部 + カテゴリ選択で適切なポイント', async () => {
 		seedChild('2022-03-08', 5);
-		const result = await submitBirthdayReview(1, {
-			healthChecks: { no_injury: true, no_cold: true },
-			aspirationCategories: { category1: 'うんどう' },
-		});
+		const result = await submitBirthdayReview(
+			1,
+			{
+				healthChecks: { no_injury: true, no_cold: true },
+				aspirationCategories: { category1: 'うんどう' },
+			},
+			'test-tenant',
+		);
 
 		if (!('error' in result)) {
 			// base: 5 * 100 = 500
@@ -242,7 +250,7 @@ describe('submitBirthdayReview', () => {
 
 	it('チェックなし・目標なしでも基本ポイントを付与', async () => {
 		seedChild('2022-03-08', 3);
-		const result = await submitBirthdayReview(1, { healthChecks: {} });
+		const result = await submitBirthdayReview(1, { healthChecks: {} }, 'test-tenant');
 
 		if (!('error' in result)) {
 			expect(result.basePoints).toBe(300);
@@ -254,7 +262,7 @@ describe('submitBirthdayReview', () => {
 
 	it('ポイント台帳にbirthday_bonusタイプで記録される', async () => {
 		seedChild('2022-03-08', 4);
-		await submitBirthdayReview(1, { healthChecks: { no_injury: true } });
+		await submitBirthdayReview(1, { healthChecks: { no_injury: true } }, 'test-tenant');
 
 		const ledger = testDb
 			.select()
@@ -268,8 +276,8 @@ describe('submitBirthdayReview', () => {
 
 	it('同年の二重レビューはALREADY_REVIEWEDエラー', async () => {
 		seedChild('2022-03-08', 4);
-		await submitBirthdayReview(1, { healthChecks: {} });
-		const result = await submitBirthdayReview(1, { healthChecks: {} });
+		await submitBirthdayReview(1, { healthChecks: {} }, 'test-tenant');
+		const result = await submitBirthdayReview(1, { healthChecks: {} }, 'test-tenant');
 		expect(result).toEqual({ error: 'ALREADY_REVIEWED' });
 	});
 });
@@ -289,7 +297,7 @@ describe('getBirthdayReviews', () => {
 			])
 			.run();
 
-		const reviews = await getBirthdayReviews(1);
+		const reviews = await getBirthdayReviews(1, 'test-tenant');
 		expect(reviews).toHaveLength(2);
 		expect(reviews[0]?.reviewYear).toBe(2025);
 		expect(reviews[1]?.reviewYear).toBe(2026);
@@ -297,7 +305,7 @@ describe('getBirthdayReviews', () => {
 
 	it('レビューがなければ空配列を返す', async () => {
 		seedChild('2022-03-08', 4);
-		const reviews = await getBirthdayReviews(1);
+		const reviews = await getBirthdayReviews(1, 'test-tenant');
 		expect(reviews).toHaveLength(0);
 	});
 });

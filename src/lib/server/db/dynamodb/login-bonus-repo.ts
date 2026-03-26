@@ -19,11 +19,12 @@ function stripKeys<T extends Record<string, unknown>>(
 export async function findTodayBonus(
 	childId: number,
 	today: string,
+	tenantId: string,
 ): Promise<LoginBonus | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: loginBonusKey(childId, today),
+			Key: loginBonusKey(childId, today, tenantId),
 		}),
 	);
 
@@ -32,8 +33,12 @@ export async function findTodayBonus(
 }
 
 /** 直近のログインボーナスを取得（降順） */
-export async function findRecentBonuses(childId: number, limit = 60): Promise<LoginBonus[]> {
-	const pk = childPK(childId);
+export async function findRecentBonuses(
+	childId: number,
+	tenantId: string,
+	limit = 60,
+): Promise<LoginBonus[]> {
+	const pk = childPK(childId, tenantId);
 	const prefix = loginBonusPrefix();
 
 	const result = await getDocClient().send(
@@ -53,8 +58,11 @@ export async function findRecentBonuses(childId: number, limit = 60): Promise<Lo
 }
 
 /** ログインボーナスを挿入 */
-export async function insertLoginBonus(input: InsertLoginBonusInput): Promise<LoginBonus> {
-	const id = await nextId(ENTITY_NAMES.loginBonus);
+export async function insertLoginBonus(
+	input: InsertLoginBonusInput,
+	tenantId: string,
+): Promise<LoginBonus> {
+	const id = await nextId(ENTITY_NAMES.loginBonus, tenantId);
 	const now = new Date().toISOString();
 
 	const bonus: LoginBonus = {
@@ -69,7 +77,7 @@ export async function insertLoginBonus(input: InsertLoginBonusInput): Promise<Lo
 		createdAt: now,
 	};
 
-	const key = loginBonusKey(input.childId, input.loginDate);
+	const key = loginBonusKey(input.childId, input.loginDate, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -85,11 +93,11 @@ export async function insertLoginBonus(input: InsertLoginBonusInput): Promise<Lo
 }
 
 /** 子供の存在確認 */
-export async function findChildById(id: number): Promise<Child | undefined> {
+export async function findChildById(id: number, tenantId: string): Promise<Child | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(id),
+			Key: childKey(id, tenantId),
 		}),
 	);
 

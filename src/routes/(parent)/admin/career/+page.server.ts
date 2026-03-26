@@ -1,10 +1,12 @@
+import { requireTenantId } from '$lib/server/auth/factory';
 import { getActiveCareerPlan, getCareerFields } from '$lib/server/services/career-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-	const children = await getAllChildren();
-	const allFields = await getCareerFields();
+export const load: PageServerLoad = async ({ locals }) => {
+	const tenantId = requireTenantId(locals);
+	const children = await getAllChildren(tenantId);
+	const allFields = await getCareerFields(tenantId, undefined);
 
 	const fieldsMap = Object.fromEntries(
 		allFields.map((f) => [f.id, { ...f, relatedCategories: JSON.parse(f.relatedCategories) }]),
@@ -12,7 +14,7 @@ export const load: PageServerLoad = async () => {
 
 	const childrenWithPlans = await Promise.all(
 		children.map(async (child) => {
-			const plan = await getActiveCareerPlan(child.id);
+			const plan = await getActiveCareerPlan(child.id, tenantId);
 			return {
 				...child,
 				plan: plan

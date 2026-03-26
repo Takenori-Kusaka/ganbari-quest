@@ -6,7 +6,7 @@ import { db } from '../client';
 import { activities, activityLogs, children, dailyMissions, pointLedger } from '../schema';
 
 /** 今日のミッション一覧を取得（活動情報JOIN） */
-export async function findTodayMissions(childId: number, date: string) {
+export async function findTodayMissions(childId: number, date: string, _tenantId: string) {
 	return db
 		.select({
 			id: dailyMissions.id,
@@ -23,7 +23,11 @@ export async function findTodayMissions(childId: number, date: string) {
 }
 
 /** ミッションボーナス既付与レコードを取得 */
-export async function findMissionBonusRecord(childId: number, description: string) {
+export async function findMissionBonusRecord(
+	childId: number,
+	description: string,
+	_tenantId: string,
+) {
 	return db
 		.select({ amount: pointLedger.amount })
 		.from(pointLedger)
@@ -38,7 +42,12 @@ export async function findMissionBonusRecord(childId: number, description: strin
 }
 
 /** 特定活動のミッションを取得 */
-export async function findMissionByActivity(childId: number, date: string, activityId: number) {
+export async function findMissionByActivity(
+	childId: number,
+	date: string,
+	activityId: number,
+	_tenantId: string,
+) {
 	return db
 		.select({ id: dailyMissions.id, completed: dailyMissions.completed })
 		.from(dailyMissions)
@@ -53,7 +62,7 @@ export async function findMissionByActivity(childId: number, date: string, activ
 }
 
 /** ミッションを達成済みにする */
-export async function markMissionCompleted(missionId: number) {
+export async function markMissionCompleted(missionId: number, _tenantId: string) {
 	db.update(dailyMissions)
 		.set({ completed: 1, completedAt: new Date().toISOString() })
 		.where(eq(dailyMissions.id, missionId))
@@ -61,7 +70,7 @@ export async function markMissionCompleted(missionId: number) {
 }
 
 /** 今日の全ミッションの完了状態を取得 */
-export async function findAllMissionStatuses(childId: number, date: string) {
+export async function findAllMissionStatuses(childId: number, date: string, _tenantId: string) {
 	return db
 		.select({ completed: dailyMissions.completed })
 		.from(dailyMissions)
@@ -70,17 +79,17 @@ export async function findAllMissionStatuses(childId: number, date: string) {
 }
 
 /** 子供情報を取得 */
-export async function findChildForMission(childId: number) {
+export async function findChildForMission(childId: number, _tenantId: string) {
 	return db.select().from(children).where(eq(children.id, childId)).get();
 }
 
 /** 表示可能な全活動を取得 */
-export async function findVisibleActivities() {
+export async function findVisibleActivities(_tenantId: string) {
 	return db.select().from(activities).where(eq(activities.isVisible, 1)).all();
 }
 
 /** 前日のミッション活動IDを取得 */
-export async function findPreviousDayMissionIds(childId: number, date: string) {
+export async function findPreviousDayMissionIds(childId: number, date: string, _tenantId: string) {
 	return db
 		.select({ activityId: dailyMissions.activityId })
 		.from(dailyMissions)
@@ -90,7 +99,7 @@ export async function findPreviousDayMissionIds(childId: number, date: string) {
 }
 
 /** 直近N日間の活動記録のactivityIdを取得 */
-export async function findRecentActivityIds(childId: number, sinceDate: string) {
+export async function findRecentActivityIds(childId: number, sinceDate: string, _tenantId: string) {
 	return db
 		.select({ activityId: activityLogs.activityId })
 		.from(activityLogs)
@@ -106,7 +115,7 @@ export async function findRecentActivityIds(childId: number, sinceDate: string) 
 }
 
 /** 全期間の活動記録のactivityIdを取得 */
-export async function findAllRecordedActivityIds(childId: number) {
+export async function findAllRecordedActivityIds(childId: number, _tenantId: string) {
 	return db
 		.select({ activityId: activityLogs.activityId })
 		.from(activityLogs)
@@ -116,6 +125,11 @@ export async function findAllRecordedActivityIds(childId: number) {
 }
 
 /** ミッションを挿入 */
-export async function insertDailyMission(childId: number, date: string, activityId: number) {
+export async function insertDailyMission(
+	childId: number,
+	date: string,
+	activityId: number,
+	_tenantId: string,
+) {
 	db.insert(dailyMissions).values({ childId, missionDate: date, activityId }).run();
 }

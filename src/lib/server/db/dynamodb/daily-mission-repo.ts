@@ -13,6 +13,7 @@ import { TABLE_NAME, getDocClient } from './client';
 import { nextId } from './counter';
 import {
 	ENTITY_NAMES,
+	activityKey,
 	activityLogPrefix,
 	childKey,
 	childPK,
@@ -20,6 +21,7 @@ import {
 	dailyMissionKey,
 	dailyMissionPrefix,
 	pointLedgerPrefix,
+	tenantPK,
 } from './keys';
 
 function stripKeys<T extends Record<string, unknown>>(
@@ -33,13 +35,14 @@ function stripKeys<T extends Record<string, unknown>>(
 export async function findTodayMissions(
 	childId: number,
 	date: string,
+	tenantId: string,
 ): Promise<DailyMissionWithActivity[]> {
 	const result = await getDocClient().send(
 		new QueryCommand({
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId),
+				':pk': childPK(childId, tenantId),
 				':prefix': dailyMissionDatePrefix(date),
 			},
 		}),
@@ -53,7 +56,7 @@ export async function findTodayMissions(
 		const actResult = await getDocClient().send(
 			new GetCommand({
 				TableName: TABLE_NAME,
-				Key: { PK: `ACTIVITY#${mission.activityId}`, SK: 'MASTER' },
+				Key: activityKey(mission.activityId as number, tenantId),
 			}),
 		);
 		const activity = actResult.Item;
@@ -75,6 +78,7 @@ export async function findTodayMissions(
 export async function findMissionBonusRecord(
 	childId: number,
 	description: string,
+	tenantId: string,
 ): Promise<{ amount: number } | undefined> {
 	const result = await getDocClient().send(
 		new QueryCommand({
@@ -82,7 +86,7 @@ export async function findMissionBonusRecord(
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			FilterExpression: 'description = :desc',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId),
+				':pk': childPK(childId, tenantId),
 				':prefix': pointLedgerPrefix(),
 				':desc': description,
 			},
@@ -91,7 +95,7 @@ export async function findMissionBonusRecord(
 	);
 
 	if (!result.Items || result.Items.length === 0) return undefined;
-	return { amount: result.Items[0]!.amount as number };
+	return { amount: result.Items[0]?.amount as number };
 }
 
 /** 特定活動のミッションを検索 */
@@ -99,11 +103,12 @@ export async function findMissionByActivity(
 	childId: number,
 	date: string,
 	activityId: number,
+	tenantId: string,
 ): Promise<{ id: number; completed: number } | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: dailyMissionKey(childId, date, activityId),
+			Key: dailyMissionKey(childId, date, activityId, tenantId),
 		}),
 	);
 
@@ -115,7 +120,7 @@ export async function findMissionByActivity(
 }
 
 /** ミッションを完了に更新 */
-export async function markMissionCompleted(missionId: number): Promise<void> {
+export async function markMissionCompleted(missionId: number, _tenantId: string): Promise<void> {
 	// Scan to find the mission by id
 	let lastKey: Record<string, unknown> | undefined;
 
@@ -155,13 +160,14 @@ export async function markMissionCompleted(missionId: number): Promise<void> {
 export async function findAllMissionStatuses(
 	childId: number,
 	date: string,
+	tenantId: string,
 ): Promise<{ completed: number }[]> {
 	const result = await getDocClient().send(
 		new QueryCommand({
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId),
+				':pk': childPK(childId, tenantId),
 				':prefix': dailyMissionDatePrefix(date),
 			},
 			ProjectionExpression: 'completed',
@@ -174,11 +180,14 @@ export async function findAllMissionStatuses(
 }
 
 /** ミッション用の子供情報取得 */
-export async function findChildForMission(childId: number): Promise<Child | undefined> {
+export async function findChildForMission(
+	childId: number,
+	tenantId: string,
+): Promise<Child | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(childId),
+			Key: childKey(childId, tenantId),
 		}),
 	);
 
@@ -187,7 +196,7 @@ export async function findChildForMission(childId: number): Promise<Child | unde
 }
 
 /** 表示可能な全活動を取得 */
-export async function findVisibleActivities(): Promise<Activity[]> {
+export async function findVisibleActivities(tenantId: string): Promise<Activity[]> {
 	const items: Record<string, unknown>[] = [];
 	let lastKey: Record<string, unknown> | undefined;
 
@@ -197,7 +206,7 @@ export async function findVisibleActivities(): Promise<Activity[]> {
 				TableName: TABLE_NAME,
 				FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk AND isVisible = :visible',
 				ExpressionAttributeValues: {
-					':prefix': 'ACTIVITY#',
+					':prefix': tenantPK('ACTIVITY#', tenantId),
 					':sk': 'MASTER',
 					':visible': 1,
 				},
@@ -212,13 +221,17 @@ export async function findVisibleActivities(): Promise<Activity[]> {
 }
 
 /** 前日のミッション活動IDリストを取得 */
-export async function findPreviousDayMissionIds(childId: number, date: string): Promise<number[]> {
+export async function findPreviousDayMissionIds(
+	childId: number,
+	date: string,
+	tenantId: string,
+): Promise<number[]> {
 	const result = await getDocClient().send(
 		new QueryCommand({
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId),
+				':pk': childPK(childId, tenantId),
 				':prefix': dailyMissionDatePrefix(date),
 			},
 			ProjectionExpression: 'activityId',
@@ -229,13 +242,17 @@ export async function findPreviousDayMissionIds(childId: number, date: string): 
 }
 
 /** 最近の活動ログの活動IDリストを取得 */
-export async function findRecentActivityIds(childId: number, sinceDate: string): Promise<number[]> {
+export async function findRecentActivityIds(
+	childId: number,
+	sinceDate: string,
+	tenantId: string,
+): Promise<number[]> {
 	const result = await getDocClient().send(
 		new QueryCommand({
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND SK >= :since',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId),
+				':pk': childPK(childId, tenantId),
 				':since': `LOG#${sinceDate}`,
 			},
 		}),
@@ -256,7 +273,10 @@ export async function findRecentActivityIds(childId: number, sinceDate: string):
 }
 
 /** 全活動ログの活動IDリストを取得 */
-export async function findAllRecordedActivityIds(childId: number): Promise<number[]> {
+export async function findAllRecordedActivityIds(
+	childId: number,
+	tenantId: string,
+): Promise<number[]> {
 	const items: Record<string, unknown>[] = [];
 	let lastKey: Record<string, unknown> | undefined;
 
@@ -266,7 +286,7 @@ export async function findAllRecordedActivityIds(childId: number): Promise<numbe
 				TableName: TABLE_NAME,
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				ExpressionAttributeValues: {
-					':pk': childPK(childId),
+					':pk': childPK(childId, tenantId),
 					':prefix': activityLogPrefix(),
 				},
 				ProjectionExpression: 'activityId',
@@ -292,14 +312,15 @@ export async function insertDailyMission(
 	childId: number,
 	date: string,
 	activityId: number,
+	tenantId: string,
 ): Promise<void> {
-	const id = await nextId(ENTITY_NAMES.dailyMission);
+	const id = await nextId(ENTITY_NAMES.dailyMission, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...dailyMissionKey(childId, date, activityId),
+				...dailyMissionKey(childId, date, activityId, tenantId),
 				id,
 				childId,
 				missionDate: date,

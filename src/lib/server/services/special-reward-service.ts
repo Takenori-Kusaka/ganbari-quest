@@ -45,27 +45,34 @@ const TEMPLATES_KEY = 'reward_templates';
 
 export async function grantSpecialReward(
 	data: GrantInput,
+	tenantId: string,
 ): Promise<SpecialRewardResult | { error: 'NOT_FOUND'; target: string }> {
-	const child = await findChildById(data.childId);
+	const child = await findChildById(data.childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND', target: 'child' };
 
-	const reward = await insertSpecialReward({
-		childId: data.childId,
-		grantedBy: data.grantedBy ?? null,
-		title: data.title,
-		description: data.description,
-		points: data.points,
-		icon: data.icon,
-		category: data.category,
-	});
+	const reward = await insertSpecialReward(
+		{
+			childId: data.childId,
+			grantedBy: data.grantedBy ?? null,
+			title: data.title,
+			description: data.description,
+			points: data.points,
+			icon: data.icon,
+			category: data.category,
+		},
+		tenantId,
+	);
 
-	await insertPointEntry({
-		childId: data.childId,
-		amount: data.points,
-		type: 'special_reward',
-		description: data.title,
-		referenceId: reward.id,
-	});
+	await insertPointEntry(
+		{
+			childId: data.childId,
+			amount: data.points,
+			type: 'special_reward',
+			description: data.title,
+			referenceId: reward.id,
+		},
+		tenantId,
+	);
 
 	return {
 		id: reward.id,
@@ -81,11 +88,14 @@ export async function grantSpecialReward(
 
 // --- 履歴取得 ---
 
-export async function getChildSpecialRewards(childId: number): Promise<{
+export async function getChildSpecialRewards(
+	childId: number,
+	tenantId: string,
+): Promise<{
 	rewards: SpecialRewardResult[];
 	totalPoints: number;
 }> {
-	const rows = await findSpecialRewards(childId);
+	const rows = await findSpecialRewards(childId, tenantId);
 
 	let totalPoints = 0;
 	const rewards: SpecialRewardResult[] = rows.map((r) => {
@@ -107,8 +117,11 @@ export async function getChildSpecialRewards(childId: number): Promise<{
 
 // --- 未表示報酬取得 ---
 
-export async function getUnshownReward(childId: number): Promise<SpecialRewardResult | null> {
-	const row = await findUnshownReward(childId);
+export async function getUnshownReward(
+	childId: number,
+	tenantId: string,
+): Promise<SpecialRewardResult | null> {
+	const row = await findUnshownReward(childId, tenantId);
 	if (!row) return null;
 	return {
 		id: row.id,
@@ -124,15 +137,15 @@ export async function getUnshownReward(childId: number): Promise<SpecialRewardRe
 
 // --- 報酬表示済みマーク ---
 
-export async function markRewardShown(rewardId: number): Promise<boolean> {
-	const result = await markRewardShownRepo(rewardId);
+export async function markRewardShown(rewardId: number, tenantId: string): Promise<boolean> {
+	const result = await markRewardShownRepo(rewardId, tenantId);
 	return !!result;
 }
 
 // --- テンプレート管理 ---
 
-export async function getRewardTemplates(): Promise<RewardTemplate[]> {
-	const json = await getSetting(TEMPLATES_KEY);
+export async function getRewardTemplates(tenantId: string): Promise<RewardTemplate[]> {
+	const json = await getSetting(TEMPLATES_KEY, tenantId);
 	if (!json) return [];
 
 	const parsed = rewardTemplatesArraySchema.safeParse(JSON.parse(json));
@@ -141,6 +154,9 @@ export async function getRewardTemplates(): Promise<RewardTemplate[]> {
 	return parsed.data;
 }
 
-export async function saveRewardTemplates(templates: RewardTemplate[]): Promise<void> {
-	await setSetting(TEMPLATES_KEY, JSON.stringify(templates));
+export async function saveRewardTemplates(
+	templates: RewardTemplate[],
+	tenantId: string,
+): Promise<void> {
+	await setSetting(TEMPLATES_KEY, JSON.stringify(templates), tenantId);
 }

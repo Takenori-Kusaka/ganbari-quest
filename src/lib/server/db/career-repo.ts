@@ -9,42 +9,53 @@ import type {
 } from './types';
 
 // Career fields
-export async function findAllCareerFields() {
-	return getRepos().career.findAllCareerFields();
+export async function findAllCareerFields(tenantId: string) {
+	return getRepos().career.findAllCareerFields(tenantId);
 }
-export async function findCareerFieldsByAge(age: number) {
-	return getRepos().career.findCareerFieldsByAge(age);
+export async function findCareerFieldsByAge(age: number, tenantId: string) {
+	return getRepos().career.findCareerFieldsByAge(age, tenantId);
 }
-export async function findCareerFieldById(id: number) {
-	return getRepos().career.findCareerFieldById(id);
+export async function findCareerFieldById(id: number, tenantId: string) {
+	return getRepos().career.findCareerFieldById(id, tenantId);
 }
 
 // Career plans
-export async function findActiveCareerPlan(childId: number) {
-	return getRepos().career.findActiveCareerPlan(childId);
+export async function findActiveCareerPlan(childId: number, tenantId: string) {
+	return getRepos().career.findActiveCareerPlan(childId, tenantId);
 }
-export async function findCareerPlansByChildId(childId: number) {
-	return getRepos().career.findCareerPlansByChildId(childId);
+export async function findCareerPlansByChildId(childId: number, tenantId: string) {
+	return getRepos().career.findCareerPlansByChildId(childId, tenantId);
 }
-export async function insertCareerPlan(input: InsertCareerPlanInput) {
-	return getRepos().career.insertCareerPlan(input);
+export async function insertCareerPlan(input: InsertCareerPlanInput, tenantId: string) {
+	return getRepos().career.insertCareerPlan(input, tenantId);
 }
-export async function updateCareerPlan(planId: number, input: UpdateCareerPlanInput) {
-	return getRepos().career.updateCareerPlan(planId, input);
+export async function updateCareerPlan(
+	planId: number,
+	input: UpdateCareerPlanInput,
+	tenantId: string,
+) {
+	return getRepos().career.updateCareerPlan(planId, input, tenantId);
 }
-export async function deactivateCareerPlans(childId: number) {
-	return getRepos().career.deactivateCareerPlans(childId);
+export async function deactivateCareerPlans(childId: number, tenantId: string) {
+	return getRepos().career.deactivateCareerPlans(childId, tenantId);
 }
 
 // Plan history
-export async function insertCareerPlanHistory(input: InsertCareerPlanHistoryInput) {
-	return getRepos().career.insertCareerPlanHistory(input);
+export async function insertCareerPlanHistory(
+	input: InsertCareerPlanHistoryInput,
+	tenantId: string,
+) {
+	return getRepos().career.insertCareerPlanHistory(input, tenantId);
 }
-export async function findLatestHistoryByAction(careerPlanId: number, action: string) {
-	return getRepos().career.findLatestHistoryByAction(careerPlanId, action);
+export async function findLatestHistoryByAction(
+	careerPlanId: number,
+	action: string,
+	tenantId: string,
+) {
+	return getRepos().career.findLatestHistoryByAction(careerPlanId, action, tenantId);
 }
 
 // Points
-export async function insertCareerPointEntry(input: InsertCareerPointInput) {
-	return getRepos().career.insertCareerPointEntry(input);
+export async function insertCareerPointEntry(input: InsertCareerPointInput, tenantId: string) {
+	return getRepos().career.insertCareerPointEntry(input, tenantId);
 }

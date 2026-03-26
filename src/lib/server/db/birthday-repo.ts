@@ -3,12 +3,12 @@
 import { getRepos } from './factory';
 import type { InsertBirthdayReviewInput } from './types';
 
-export async function findBirthdayReviewByYear(childId: number, year: number) {
-	return getRepos().birthday.findBirthdayReviewByYear(childId, year);
+export async function findBirthdayReviewByYear(childId: number, year: number, tenantId: string) {
+	return getRepos().birthday.findBirthdayReviewByYear(childId, year, tenantId);
 }
-export async function insertBirthdayReview(input: InsertBirthdayReviewInput) {
-	return getRepos().birthday.insertBirthdayReview(input);
+export async function insertBirthdayReview(input: InsertBirthdayReviewInput, tenantId: string) {
+	return getRepos().birthday.insertBirthdayReview(input, tenantId);
 }
-export async function findBirthdayReviews(childId: number) {
-	return getRepos().birthday.findBirthdayReviews(childId);
+export async function findBirthdayReviews(childId: number, tenantId: string) {
+	return getRepos().birthday.findBirthdayReviews(childId, tenantId);
 }

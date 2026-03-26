@@ -23,11 +23,11 @@ function stripKeys<T extends Record<string, unknown>>(
 }
 
 /** ポイント残高を取得 */
-export async function getBalance(childId: number): Promise<number> {
+export async function getBalance(childId: number, tenantId: string): Promise<number> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: pointBalanceKey(childId),
+			Key: pointBalanceKey(childId, tenantId),
 		}),
 	);
 
@@ -38,8 +38,9 @@ export async function getBalance(childId: number): Promise<number> {
 export async function findPointHistory(
 	childId: number,
 	options: { limit: number; offset: number },
+	tenantId: string,
 ): Promise<PointLedgerEntry[]> {
-	const pk = childPK(childId);
+	const pk = childPK(childId, tenantId);
 	const prefix = pointLedgerPrefix();
 
 	// For offset, we need to skip items. Query with larger limit then slice.
@@ -74,8 +75,11 @@ export async function findPointHistory(
 }
 
 /** ポイント台帳にエントリを挿入 + 残高を更新 */
-export async function insertPointEntry(input: InsertPointLedgerInput): Promise<PointLedgerEntry> {
-	const id = await nextId(ENTITY_NAMES.pointLedger);
+export async function insertPointEntry(
+	input: InsertPointLedgerInput,
+	tenantId: string,
+): Promise<PointLedgerEntry> {
+	const id = await nextId(ENTITY_NAMES.pointLedger, tenantId);
 	const now = new Date().toISOString();
 
 	const entry: PointLedgerEntry = {
@@ -88,7 +92,7 @@ export async function insertPointEntry(input: InsertPointLedgerInput): Promise<P
 		createdAt: now,
 	};
 
-	const key = pointLedgerKey(input.childId, now, id);
+	const key = pointLedgerKey(input.childId, now, id, tenantId);
 
 	// Put the ledger entry
 	await getDocClient().send(
@@ -105,7 +109,7 @@ export async function insertPointEntry(input: InsertPointLedgerInput): Promise<P
 	await getDocClient().send(
 		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Key: pointBalanceKey(input.childId),
+			Key: pointBalanceKey(input.childId, tenantId),
 			UpdateExpression: 'ADD #balance :amount',
 			ExpressionAttributeNames: { '#balance': 'balance' },
 			ExpressionAttributeValues: { ':amount': input.amount },
@@ -116,11 +120,11 @@ export async function insertPointEntry(input: InsertPointLedgerInput): Promise<P
 }
 
 /** 子供の存在確認 */
-export async function findChildById(id: number): Promise<Child | undefined> {
+export async function findChildById(id: number, tenantId: string): Promise<Child | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(id),
+			Key: childKey(id, tenantId),
 		}),
 	);
 
