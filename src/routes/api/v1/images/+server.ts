@@ -1,3 +1,4 @@
+import { requireTenantId } from '$lib/server/auth/factory';
 // POST /api/v1/images - Generate avatar or favicon
 // GET /api/v1/images?type=favicon - Get favicon path
 
@@ -11,18 +12,20 @@ import { getChildStatus } from '$lib/server/services/status-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
+	const tenantId = requireTenantId(locals);
 	const type = url.searchParams.get('type');
 
 	if (type === 'favicon') {
-		const path = await getFaviconPath();
+		const path = await getFaviconPath(tenantId);
 		return json({ faviconPath: path || null });
 	}
 
 	return validationError('type パラメータを指定してください（favicon）');
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const tenantId = requireTenantId(locals);
 	const body = await request.json().catch(() => null);
 	if (!body || typeof body !== 'object') {
 		return validationError('リクエストボディが不正です');
@@ -36,15 +39,19 @@ export const POST: RequestHandler = async ({ request }) => {
 			return validationError('childId を指定してください');
 		}
 
-		const status = await getChildStatus(childId);
+		const status = await getChildStatus(childId, tenantId);
 		if ('error' in status) {
 			return notFound('子供が見つかりません');
 		}
 
-		const result = await generateAvatar(childId, {
-			characterType: status.characterType,
-			level: status.level,
-		});
+		const result = await generateAvatar(
+			childId,
+			{
+				characterType: status.characterType,
+				level: status.level,
+			},
+			tenantId,
+		);
 
 		if ('error' in result) {
 			return notFound(result.error);
@@ -57,7 +64,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	if (type === 'favicon') {
-		const result = await generateFavicon();
+		const result = await generateFavicon(tenantId);
 		return json({
 			filePath: result.filePath,
 			isGenerated: result.isGenerated,

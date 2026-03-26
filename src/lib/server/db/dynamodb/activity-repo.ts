@@ -34,6 +34,7 @@ import {
 	childPK,
 	pointLedgerKey,
 	pointLedgerPrefix,
+	tenantPK,
 } from './keys';
 
 // ============================================================
@@ -99,12 +100,15 @@ async function queryAll(
 // ============================================================
 
 /** 全活動を取得（フィルタ対応） */
-export async function findActivities(filter?: ActivityFilter): Promise<Activity[]> {
+export async function findActivities(
+	tenantId: string,
+	filter?: ActivityFilter,
+): Promise<Activity[]> {
 	const items = await scanAll({
 		TableName: TABLE_NAME,
 		FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk',
 		ExpressionAttributeValues: {
-			':prefix': 'ACTIVITY#',
+			':prefix': tenantPK('ACTIVITY#', tenantId),
 			':sk': 'MASTER',
 		},
 	});
@@ -136,11 +140,14 @@ export async function findActivities(filter?: ActivityFilter): Promise<Activity[
 }
 
 /** IDで活動を取得 */
-export async function findActivityById(id: number): Promise<Activity | undefined> {
+export async function findActivityById(
+	id: number,
+	tenantId: string,
+): Promise<Activity | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: activityKey(id),
+			Key: activityKey(id, tenantId),
 		}),
 	);
 
@@ -149,8 +156,11 @@ export async function findActivityById(id: number): Promise<Activity | undefined
 }
 
 /** 活動を作成 */
-export async function insertActivity(input: InsertActivityInput): Promise<Activity> {
-	const id = await nextId(ENTITY_NAMES.activity);
+export async function insertActivity(
+	input: InsertActivityInput,
+	tenantId: string,
+): Promise<Activity> {
+	const id = await nextId(ENTITY_NAMES.activity, tenantId);
 	const now = new Date().toISOString();
 
 	const activity: Activity = {
@@ -173,7 +183,7 @@ export async function insertActivity(input: InsertActivityInput): Promise<Activi
 		createdAt: now,
 	};
 
-	const keys = activityKeyWithGSI2(id, input.categoryId, activity.sortOrder);
+	const keys = activityKeyWithGSI2(id, input.categoryId, activity.sortOrder, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -192,6 +202,7 @@ export async function insertActivity(input: InsertActivityInput): Promise<Activi
 export async function updateActivity(
 	id: number,
 	input: UpdateActivityInput,
+	tenantId: string,
 ): Promise<Activity | undefined> {
 	const expressionParts: string[] = [];
 	const expressionNames: Record<string, string> = {};
@@ -229,14 +240,14 @@ export async function updateActivity(
 	}
 
 	if (expressionParts.length === 0) {
-		return findActivityById(id);
+		return findActivityById(id, tenantId);
 	}
 
 	try {
 		const result = await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: activityKey(id),
+				Key: activityKey(id, tenantId),
 				UpdateExpression: `SET ${expressionParts.join(', ')}`,
 				ExpressionAttributeNames: expressionNames,
 				ExpressionAttributeValues: expressionValues,
@@ -259,12 +270,13 @@ export async function updateActivity(
 export async function setActivityVisibility(
 	id: number,
 	visible: boolean,
+	tenantId: string,
 ): Promise<Activity | undefined> {
 	try {
 		const result = await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: activityKey(id),
+				Key: activityKey(id, tenantId),
 				UpdateExpression: 'SET #isVisible = :isVisible',
 				ExpressionAttributeNames: { '#isVisible': 'isVisible' },
 				ExpressionAttributeValues: { ':isVisible': visible ? 1 : 0 },
@@ -284,14 +296,14 @@ export async function setActivityVisibility(
 }
 
 /** 活動を削除（削除前のアイテムを返す） */
-export async function deleteActivity(id: number): Promise<Activity | undefined> {
-	const existing = await findActivityById(id);
+export async function deleteActivity(id: number, tenantId: string): Promise<Activity | undefined> {
+	const existing = await findActivityById(id, tenantId);
 	if (!existing) return undefined;
 
 	await getDocClient().send(
 		new DeleteCommand({
 			TableName: TABLE_NAME,
-			Key: activityKey(id),
+			Key: activityKey(id, tenantId),
 		}),
 	);
 
@@ -299,7 +311,7 @@ export async function deleteActivity(id: number): Promise<Activity | undefined> 
 }
 
 /** 活動にログが存在するか確認 */
-export async function hasActivityLogs(activityId: number): Promise<boolean> {
+export async function hasActivityLogs(activityId: number, _tenantId: string): Promise<boolean> {
 	// Scan LOG# items filtered by activityId, limit 1 for efficiency
 	const result = await getDocClient().send(
 		new ScanCommand({
@@ -318,7 +330,7 @@ export async function hasActivityLogs(activityId: number): Promise<boolean> {
 }
 
 /** 全活動のログ数を取得（キャンセル除外） */
-export async function getActivityLogCounts(): Promise<Record<number, number>> {
+export async function getActivityLogCounts(_tenantId: string): Promise<Record<number, number>> {
 	const items = await scanAll({
 		TableName: TABLE_NAME,
 		FilterExpression: 'begins_with(SK, :skPrefix) AND #cancelled = :cancelled',
@@ -339,7 +351,10 @@ export async function getActivityLogCounts(): Promise<Record<number, number>> {
 }
 
 /** 特定活動のデイリーミッションを全削除 */
-export async function deleteDailyMissionsByActivity(activityId: number): Promise<void> {
+export async function deleteDailyMissionsByActivity(
+	activityId: number,
+	_tenantId: string,
+): Promise<void> {
 	const items = await scanAll({
 		TableName: TABLE_NAME,
 		FilterExpression: 'begins_with(SK, :skPrefix) AND #activityId = :activityId',
@@ -372,11 +387,11 @@ export async function deleteDailyMissionsByActivity(activityId: number): Promise
 // ============================================================
 
 /** IDで子供を取得 */
-export async function findChildById(id: number): Promise<Child | undefined> {
+export async function findChildById(id: number, tenantId: string): Promise<Child | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(id),
+			Key: childKey(id, tenantId),
 		}),
 	);
 
@@ -393,6 +408,7 @@ export async function findDailyLog(
 	childId: number,
 	activityId: number,
 	date: string,
+	tenantId: string,
 ): Promise<ActivityLog | undefined> {
 	const items = await queryAll({
 		TableName: TABLE_NAME,
@@ -403,21 +419,23 @@ export async function findDailyLog(
 			'#cancelled': 'cancelled',
 		},
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': activityLogDatePrefix(date),
 			':activityId': activityId,
 			':cancelled': 0,
 		},
 	});
 
-	if (items.length === 0) return undefined;
-	return stripKeys(items[0]!) as unknown as ActivityLog;
+	const first = items[0];
+	if (!first) return undefined;
+	return stripKeys(first) as unknown as ActivityLog;
 }
 
 /** 連続記録用ログを取得（キャンセル除外、recordedDate降順） */
 export async function findStreakLogs(
 	childId: number,
 	activityId: number,
+	tenantId: string,
 ): Promise<{ recordedDate: string }[]> {
 	const items = await queryAll({
 		TableName: TABLE_NAME,
@@ -428,7 +446,7 @@ export async function findStreakLogs(
 			'#cancelled': 'cancelled',
 		},
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': activityLogPrefix(),
 			':activityId': activityId,
 			':cancelled': 0,
@@ -444,12 +462,15 @@ export async function findStreakLogs(
  * 活動ログを挿入。
  * JOINを避けるため、activityName, activityIcon, categoryId を非正規化して保存する。
  */
-export async function insertActivityLog(input: InsertActivityLogInput): Promise<ActivityLog> {
-	const id = await nextId(ENTITY_NAMES.activityLog);
-	const keys = activityLogKey(input.childId, input.recordedDate, id);
+export async function insertActivityLog(
+	input: InsertActivityLogInput,
+	tenantId: string,
+): Promise<ActivityLog> {
+	const id = await nextId(ENTITY_NAMES.activityLog, tenantId);
+	const keys = activityLogKey(input.childId, input.recordedDate, id, tenantId);
 
 	// Lookup activity for denormalized fields
-	const activityItem = await findActivityById(input.activityId);
+	const activityItem = await findActivityById(input.activityId, tenantId);
 	const denormalized = {
 		activityName: activityItem?.name ?? '',
 		activityIcon: activityItem?.icon ?? '',
@@ -486,7 +507,10 @@ export async function insertActivityLog(input: InsertActivityLogInput): Promise<
 }
 
 /** IDで活動ログを取得（childId不明のためScanが必要） */
-export async function findActivityLogById(id: number): Promise<ActivityLog | undefined> {
+export async function findActivityLogById(
+	id: number,
+	_tenantId: string,
+): Promise<ActivityLog | undefined> {
 	const result = await getDocClient().send(
 		new ScanCommand({
 			TableName: TABLE_NAME,
@@ -533,7 +557,7 @@ export async function findActivityLogById(id: number): Promise<ActivityLog | und
 }
 
 /** 活動ログをキャンセルにする（idからScanで検索後、Update） */
-export async function markActivityLogCancelled(id: number): Promise<void> {
+export async function markActivityLogCancelled(id: number, _tenantId: string): Promise<void> {
 	// Find the item first by scanning
 	const items = await scanAll({
 		TableName: TABLE_NAME,
@@ -548,7 +572,7 @@ export async function markActivityLogCancelled(id: number): Promise<void> {
 
 	if (items.length === 0) return;
 
-	const key = { PK: items[0]!.PK as string, SK: items[0]!.SK as string };
+	const key = { PK: items[0]?.PK as string, SK: items[0]?.SK as string };
 
 	await getDocClient().send(
 		new UpdateCommand({
@@ -564,6 +588,7 @@ export async function markActivityLogCancelled(id: number): Promise<void> {
 /** 活動ログ一覧を取得（ActivityLogSummary形式、非正規化フィールド使用） */
 export async function findActivityLogs(
 	childId: number,
+	tenantId: string,
 	options: { from?: string; to?: string } = {},
 ): Promise<ActivityLogSummary[]> {
 	const items = await queryAll({
@@ -572,7 +597,7 @@ export async function findActivityLogs(
 		FilterExpression: '#cancelled = :cancelled',
 		ExpressionAttributeNames: { '#cancelled': 'cancelled' },
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': activityLogPrefix(),
 			':cancelled': 0,
 		},
@@ -613,6 +638,7 @@ export async function countTodayActiveRecords(
 	childId: number,
 	activityId: number,
 	date: string,
+	tenantId: string,
 ): Promise<number> {
 	const items = await queryAll({
 		TableName: TABLE_NAME,
@@ -623,7 +649,7 @@ export async function countTodayActiveRecords(
 			'#cancelled': 'cancelled',
 		},
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': activityLogDatePrefix(date),
 			':activityId': activityId,
 			':cancelled': 0,
@@ -638,6 +664,7 @@ export async function countTodayActiveRecords(
 export async function getTodayActivityCountsByChild(
 	childId: number,
 	date: string,
+	tenantId: string,
 ): Promise<{ activityId: number; count: number }[]> {
 	const items = await queryAll({
 		TableName: TABLE_NAME,
@@ -645,7 +672,7 @@ export async function getTodayActivityCountsByChild(
 		FilterExpression: '#cancelled = :cancelled',
 		ExpressionAttributeNames: { '#cancelled': 'cancelled' },
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': activityLogDatePrefix(date),
 			':cancelled': 0,
 		},
@@ -665,6 +692,7 @@ export async function getTodayActivityCountsByChild(
 export async function findTodayRecordedActivityIds(
 	childId: number,
 	today: string,
+	tenantId: string,
 ): Promise<number[]> {
 	const items = await queryAll({
 		TableName: TABLE_NAME,
@@ -672,7 +700,7 @@ export async function findTodayRecordedActivityIds(
 		FilterExpression: '#cancelled = :cancelled',
 		ExpressionAttributeNames: { '#cancelled': 'cancelled' },
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': activityLogDatePrefix(today),
 			':cancelled': 0,
 		},
@@ -689,6 +717,7 @@ export async function findTodayRecordedActivityIds(
 /** 子供の活動記録日（重複除去・昇順） */
 export async function findDistinctRecordedDates(
 	childId: number,
+	tenantId: string,
 ): Promise<{ recordedDate: string }[]> {
 	const items = await queryAll({
 		TableName: TABLE_NAME,
@@ -696,7 +725,7 @@ export async function findDistinctRecordedDates(
 		FilterExpression: '#cancelled = :cancelled',
 		ExpressionAttributeNames: { '#cancelled': 'cancelled' },
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': activityLogPrefix(),
 			':cancelled': 0,
 		},
@@ -715,14 +744,14 @@ export async function findDistinctRecordedDates(
 }
 
 /** 子供の累計活動記録数（キャンセル除外） */
-export async function countActiveActivityLogs(childId: number): Promise<number> {
+export async function countActiveActivityLogs(childId: number, tenantId: string): Promise<number> {
 	const items = await queryAll({
 		TableName: TABLE_NAME,
 		KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
 		FilterExpression: '#cancelled = :cancelled',
 		ExpressionAttributeNames: { '#cancelled': 'cancelled' },
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': activityLogPrefix(),
 			':cancelled': 0,
 		},
@@ -735,6 +764,7 @@ export async function countActiveActivityLogs(childId: number): Promise<number> 
 /** 日別カテゴリ数を取得（achievement: all_categories 判定用） */
 export async function getCategoryCountsByDate(
 	childId: number,
+	tenantId: string,
 ): Promise<{ recordedDate: string; categoryCount: number }[]> {
 	const items = await queryAll({
 		TableName: TABLE_NAME,
@@ -742,7 +772,7 @@ export async function getCategoryCountsByDate(
 		FilterExpression: '#cancelled = :cancelled',
 		ExpressionAttributeNames: { '#cancelled': 'cancelled' },
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': activityLogPrefix(),
 			':cancelled': 0,
 		},
@@ -767,14 +797,14 @@ export async function getCategoryCountsByDate(
 }
 
 /** 累計で記録した異なるカテゴリ数 */
-export async function countDistinctCategories(childId: number): Promise<number> {
+export async function countDistinctCategories(childId: number, tenantId: string): Promise<number> {
 	const items = await queryAll({
 		TableName: TABLE_NAME,
 		KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
 		FilterExpression: '#cancelled = :cancelled',
 		ExpressionAttributeNames: { '#cancelled': 'cancelled' },
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': activityLogPrefix(),
 			':cancelled': 0,
 		},
@@ -793,6 +823,7 @@ export async function countDistinctCategories(childId: number): Promise<number> 
 export async function findTodayLogsWithCategory(
 	childId: number,
 	date: string,
+	tenantId: string,
 ): Promise<{ activityId: number; categoryId: number }[]> {
 	const items = await queryAll({
 		TableName: TABLE_NAME,
@@ -800,7 +831,7 @@ export async function findTodayLogsWithCategory(
 		FilterExpression: '#cancelled = :cancelled',
 		ExpressionAttributeNames: { '#cancelled': 'cancelled' },
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': activityLogDatePrefix(date),
 			':cancelled': 0,
 		},
@@ -817,6 +848,7 @@ export async function findTodayLogsWithCategory(
 export async function getComboPointsGranted(
 	childId: number,
 	descriptionPrefix: string,
+	tenantId: string,
 ): Promise<number> {
 	const items = await queryAll({
 		TableName: TABLE_NAME,
@@ -827,7 +859,7 @@ export async function getComboPointsGranted(
 			'#description': 'description',
 		},
 		ExpressionAttributeValues: {
-			':pk': childPK(childId),
+			':pk': childPK(childId, tenantId),
 			':skPrefix': pointLedgerPrefix(),
 			':type': 'combo_bonus',
 			':descPrefix': descriptionPrefix,
@@ -848,10 +880,13 @@ export async function getComboPointsGranted(
 // ============================================================
 
 /** ポイント台帳にエントリを追加 + 残高を更新 */
-export async function insertPointLedger(input: InsertPointLedgerInput): Promise<void> {
-	const id = await nextId(ENTITY_NAMES.pointLedger);
+export async function insertPointLedger(
+	input: InsertPointLedgerInput,
+	tenantId: string,
+): Promise<void> {
+	const id = await nextId(ENTITY_NAMES.pointLedger, tenantId);
 	const now = new Date().toISOString();
-	const keys = pointLedgerKey(input.childId, now, id);
+	const keys = pointLedgerKey(input.childId, now, id, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({

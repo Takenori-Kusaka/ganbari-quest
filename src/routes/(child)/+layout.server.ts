@@ -1,4 +1,5 @@
 import { UI_MODES } from '$lib/domain/validation/age-tier';
+import { requireTenantId } from '$lib/server/auth/factory';
 import { checkAndUnlockItems, getAvatarConfig } from '$lib/server/services/avatar-service';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { getPointBalance } from '$lib/server/services/point-service';
@@ -7,7 +8,8 @@ import { getActiveTitle } from '$lib/server/services/title-service';
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ cookies, url }) => {
+export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
+	const tenantId = requireTenantId(locals);
 	const childIdStr = cookies.get('selectedChildId');
 
 	// /switch ページは子供未選択でもアクセス可能（無限リダイレクト防止）
@@ -22,13 +24,13 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
 			balance: 0,
 			level: 1,
 			levelTitle: 'かけだし',
-			allChildren: await getAllChildren(),
+			allChildren: await getAllChildren(tenantId),
 			uiMode: 'kinder' as const,
 		};
 	}
 
 	const childId = Number(childIdStr);
-	const child = await getChildById(childId);
+	const child = await getChildById(childId, tenantId);
 	if (!child) {
 		cookies.delete('selectedChildId', { path: '/' });
 		redirect(302, '/switch');
@@ -46,18 +48,18 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
 		redirect(302, `/${uiMode}/home`);
 	}
 
-	const balanceResult = await getPointBalance(childId);
+	const balanceResult = await getPointBalance(childId, tenantId);
 	const balance = 'error' in balanceResult ? 0 : balanceResult.balance;
 
-	const statusResult = await getChildStatus(childId);
+	const statusResult = await getChildStatus(childId, tenantId);
 	const level = 'error' in statusResult ? 1 : statusResult.level;
 	const levelTitle = 'error' in statusResult ? 'かけだし' : statusResult.levelTitle;
 
-	const activeTitle = await getActiveTitle(childId);
+	const activeTitle = await getActiveTitle(childId, tenantId);
 
 	// きせかえアバター: 無料・レベル条件アイテムの自動解放
-	await checkAndUnlockItems(childId);
-	const avatarConfig = await getAvatarConfig(childId);
+	await checkAndUnlockItems(childId, tenantId);
+	const avatarConfig = await getAvatarConfig(childId, tenantId);
 
 	return {
 		child,
@@ -66,7 +68,7 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
 		levelTitle,
 		activeTitle,
 		avatarConfig,
-		allChildren: await getAllChildren(),
+		allChildren: await getAllChildren(tenantId),
 		uiMode,
 	};
 };

@@ -32,6 +32,7 @@ import {
 	checklistTemplateKey,
 	checklistTemplatePrefix,
 	childPK,
+	tenantPK,
 } from './keys';
 
 function stripKeys<T extends Record<string, unknown>>(
@@ -47,6 +48,7 @@ function stripKeys<T extends Record<string, unknown>>(
 
 export async function findTemplatesByChild(
 	childId: number,
+	tenantId: string,
 	includeInactive?: boolean,
 ): Promise<ChecklistTemplate[]> {
 	const result = await getDocClient().send(
@@ -54,7 +56,7 @@ export async function findTemplatesByChild(
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId),
+				':pk': childPK(childId, tenantId),
 				':prefix': checklistTemplatePrefix(),
 			},
 		}),
@@ -69,7 +71,10 @@ export async function findTemplatesByChild(
 	return items;
 }
 
-export async function findTemplateById(id: number): Promise<ChecklistTemplate | undefined> {
+export async function findTemplateById(
+	id: number,
+	_tenantId: string,
+): Promise<ChecklistTemplate | undefined> {
 	// Need to scan since we don't know childId
 	let lastKey: Record<string, unknown> | undefined;
 
@@ -96,8 +101,9 @@ export async function findTemplateById(id: number): Promise<ChecklistTemplate | 
 
 export async function insertTemplate(
 	input: InsertChecklistTemplateInput,
+	tenantId: string,
 ): Promise<ChecklistTemplate> {
-	const id = await nextId(ENTITY_NAMES.checklistTemplate);
+	const id = await nextId(ENTITY_NAMES.checklistTemplate, tenantId);
 	const now = new Date().toISOString();
 
 	const template: ChecklistTemplate = {
@@ -116,7 +122,7 @@ export async function insertTemplate(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...checklistTemplateKey(input.childId, id),
+				...checklistTemplateKey(input.childId, id, tenantId),
 				...template,
 			},
 		}),
@@ -128,8 +134,9 @@ export async function insertTemplate(
 export async function updateTemplate(
 	id: number,
 	input: UpdateChecklistTemplateInput,
+	tenantId: string,
 ): Promise<ChecklistTemplate | undefined> {
-	const existing = await findTemplateById(id);
+	const existing = await findTemplateById(id, tenantId);
 	if (!existing) return undefined;
 
 	const updates: string[] = ['#updatedAt = :updatedAt'];
@@ -148,7 +155,7 @@ export async function updateTemplate(
 	const result = await getDocClient().send(
 		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Key: checklistTemplateKey(existing.childId, id),
+			Key: checklistTemplateKey(existing.childId, id, tenantId),
 			UpdateExpression: `SET ${updates.join(', ')}`,
 			ExpressionAttributeNames: names,
 			ExpressionAttributeValues: values,
@@ -160,14 +167,14 @@ export async function updateTemplate(
 	return stripKeys(result.Attributes) as unknown as ChecklistTemplate;
 }
 
-export async function deleteTemplate(id: number): Promise<void> {
-	const existing = await findTemplateById(id);
+export async function deleteTemplate(id: number, tenantId: string): Promise<void> {
+	const existing = await findTemplateById(id, tenantId);
 	if (!existing) return;
 
 	await getDocClient().send(
 		new DeleteCommand({
 			TableName: TABLE_NAME,
-			Key: checklistTemplateKey(existing.childId, id),
+			Key: checklistTemplateKey(existing.childId, id, tenantId),
 		}),
 	);
 }
@@ -176,13 +183,16 @@ export async function deleteTemplate(id: number): Promise<void> {
 // Template items
 // ============================================================
 
-export async function findTemplateItems(templateId: number): Promise<ChecklistTemplateItem[]> {
+export async function findTemplateItems(
+	templateId: number,
+	tenantId: string,
+): Promise<ChecklistTemplateItem[]> {
 	const result = await getDocClient().send(
 		new QueryCommand({
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': `CKTPL#${templateId}`,
+				':pk': tenantPK(`CKTPL#${templateId}`, tenantId),
 				':prefix': checklistItemPrefix(),
 			},
 		}),
@@ -193,8 +203,9 @@ export async function findTemplateItems(templateId: number): Promise<ChecklistTe
 
 export async function insertTemplateItem(
 	input: InsertChecklistTemplateItemInput,
+	tenantId: string,
 ): Promise<ChecklistTemplateItem> {
-	const id = await nextId(ENTITY_NAMES.checklistItem);
+	const id = await nextId(ENTITY_NAMES.checklistItem, tenantId);
 	const now = new Date().toISOString();
 	const sortOrder = input.sortOrder ?? 0;
 
@@ -213,7 +224,7 @@ export async function insertTemplateItem(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...checklistItemKey(input.templateId, sortOrder, id),
+				...checklistItemKey(input.templateId, sortOrder, id, tenantId),
 				...item,
 			},
 		}),
@@ -222,7 +233,7 @@ export async function insertTemplateItem(
 	return item;
 }
 
-export async function deleteTemplateItem(id: number): Promise<void> {
+export async function deleteTemplateItem(id: number, _tenantId: string): Promise<void> {
 	// Scan to find the item since we don't have templateId/sortOrder
 	let lastKey: Record<string, unknown> | undefined;
 
@@ -260,11 +271,12 @@ export async function findTodayLog(
 	childId: number,
 	templateId: number,
 	date: string,
+	tenantId: string,
 ): Promise<ChecklistLog | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: checklistLogKey(childId, templateId, date),
+			Key: checklistLogKey(childId, templateId, date, tenantId),
 		}),
 	);
 
@@ -272,14 +284,17 @@ export async function findTodayLog(
 	return stripKeys(result.Item) as unknown as ChecklistLog;
 }
 
-export async function upsertLog(input: UpsertChecklistLogInput): Promise<ChecklistLog> {
-	const existing = await findTodayLog(input.childId, input.templateId, input.checkedDate);
+export async function upsertLog(
+	input: UpsertChecklistLogInput,
+	tenantId: string,
+): Promise<ChecklistLog> {
+	const existing = await findTodayLog(input.childId, input.templateId, input.checkedDate, tenantId);
 
 	if (existing) {
 		const result = await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: checklistLogKey(input.childId, input.templateId, input.checkedDate),
+				Key: checklistLogKey(input.childId, input.templateId, input.checkedDate, tenantId),
 				UpdateExpression:
 					'SET itemsJson = :itemsJson, completedAll = :completedAll, pointsAwarded = :pointsAwarded',
 				ExpressionAttributeValues: {
@@ -293,7 +308,7 @@ export async function upsertLog(input: UpsertChecklistLogInput): Promise<Checkli
 		return stripKeys(result.Attributes!) as unknown as ChecklistLog;
 	}
 
-	const id = await nextId(ENTITY_NAMES.checklistLog);
+	const id = await nextId(ENTITY_NAMES.checklistLog, tenantId);
 	const now = new Date().toISOString();
 
 	const log: ChecklistLog = {
@@ -311,7 +326,7 @@ export async function upsertLog(input: UpsertChecklistLogInput): Promise<Checkli
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...checklistLogKey(input.childId, input.templateId, input.checkedDate),
+				...checklistLogKey(input.childId, input.templateId, input.checkedDate, tenantId),
 				...log,
 			},
 		}),
@@ -324,13 +339,17 @@ export async function upsertLog(input: UpsertChecklistLogInput): Promise<Checkli
 // Overrides
 // ============================================================
 
-export async function findOverrides(childId: number, date: string): Promise<ChecklistOverride[]> {
+export async function findOverrides(
+	childId: number,
+	date: string,
+	tenantId: string,
+): Promise<ChecklistOverride[]> {
 	const result = await getDocClient().send(
 		new QueryCommand({
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId),
+				':pk': childPK(childId, tenantId),
 				':prefix': checklistOverrideDatePrefix(date),
 			},
 		}),
@@ -341,8 +360,9 @@ export async function findOverrides(childId: number, date: string): Promise<Chec
 
 export async function insertOverride(
 	input: InsertChecklistOverrideInput,
+	tenantId: string,
 ): Promise<ChecklistOverride> {
-	const id = await nextId(ENTITY_NAMES.checklistOverride);
+	const id = await nextId(ENTITY_NAMES.checklistOverride, tenantId);
 	const now = new Date().toISOString();
 
 	const override: ChecklistOverride = {
@@ -359,7 +379,7 @@ export async function insertOverride(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...checklistOverrideKey(input.childId, input.targetDate, id),
+				...checklistOverrideKey(input.childId, input.targetDate, id, tenantId),
 				...override,
 			},
 		}),

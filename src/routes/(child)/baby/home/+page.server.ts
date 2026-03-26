@@ -1,4 +1,5 @@
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
+import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	cancelActivityLog,
 	getTodayRecordedActivityCounts,
@@ -16,7 +17,8 @@ import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ parent }) => {
+export const load: PageServerLoad = async ({ parent, locals }) => {
+	const tenantId = requireTenantId(locals);
 	const { child } = await parent();
 	if (!child)
 		return {
@@ -29,24 +31,24 @@ export const load: PageServerLoad = async ({ parent }) => {
 			dailyMissions: null,
 		};
 
-	const rawActivities = await getActivities({ childAge: child.age });
+	const rawActivities = await getActivities(tenantId, { childAge: child.age });
 	const activities = rawActivities.map((a) => ({
 		...a,
 		displayName: getActivityDisplayName(a, child.age),
 	}));
-	const todayRecorded = await getTodayRecordedActivityCounts(child.id);
-	const loginBonusStatus = await getLoginBonusStatus(child.id);
+	const todayRecorded = await getTodayRecordedActivityCounts(child.id, tenantId);
+	const loginBonusStatus = await getLoginBonusStatus(child.id, tenantId);
 	const bonusStatus = 'error' in loginBonusStatus ? null : loginBonusStatus;
 
 	// 未表示の特別報酬を取得
-	const latestReward = await getUnshownReward(child.id);
+	const latestReward = await getUnshownReward(child.id, tenantId);
 
 	// 誕生日ステータス
-	const birthdayRaw = await checkBirthdayStatus(child.id);
+	const birthdayRaw = await checkBirthdayStatus(child.id, tenantId);
 	const birthdayStatus = 'error' in birthdayRaw ? null : birthdayRaw;
 
 	// デイリーミッション
-	const dailyMissions = await getTodayMissions(child.id);
+	const dailyMissions = await getTodayMissions(child.id, tenantId);
 
 	return {
 		activities,
@@ -60,7 +62,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 };
 
 export const actions: Actions = {
-	record: async ({ request, cookies }) => {
+	record: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const childId = Number(cookies.get('selectedChildId'));
 		const activityId = Number(formData.get('activityId'));
@@ -69,7 +72,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
-		const result = await recordActivity(childId, activityId);
+		const result = await recordActivity(childId, activityId, tenantId);
 		if ('error' in result) {
 			if (result.error === 'ALREADY_RECORDED') {
 				return fail(409, { error: 'もうきろくしたよ' });
@@ -96,7 +99,8 @@ export const actions: Actions = {
 		};
 	},
 
-	cancelRecord: async ({ request, cookies }) => {
+	cancelRecord: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const childId = Number(cookies.get('selectedChildId'));
 		const logId = Number(formData.get('logId'));
@@ -105,7 +109,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
-		const result = await cancelActivityLog(logId);
+		const result = await cancelActivityLog(logId, tenantId);
 		if ('error' in result) {
 			if (result.error === 'CANCEL_EXPIRED') {
 				return fail(410, { error: 'とりけしできません' });
@@ -116,7 +120,8 @@ export const actions: Actions = {
 		return { success: true, cancelled: true, refundedPoints: result.refundedPoints };
 	},
 
-	submitBirthday: async ({ request, cookies }) => {
+	submitBirthday: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const childId = Number(cookies.get('selectedChildId'));
 		if (Number.isNaN(childId)) {
 			return fail(400, { error: 'パラメータが不正です' });
@@ -133,7 +138,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'データが不正です' });
 		}
 
-		const result = await submitBirthdayReview(childId, { healthChecks, aspirationText });
+		const result = await submitBirthdayReview(childId, { healthChecks, aspirationText }, tenantId);
 		if ('error' in result) {
 			if (result.error === 'ALREADY_REVIEWED') {
 				return fail(409, { error: 'もうふりかえりしたよ！' });
@@ -151,13 +156,14 @@ export const actions: Actions = {
 		};
 	},
 
-	claimBonus: async ({ cookies }) => {
+	claimBonus: async ({ cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const childId = Number(cookies.get('selectedChildId'));
 		if (Number.isNaN(childId)) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
-		const result = await claimLoginBonus(childId);
+		const result = await claimLoginBonus(childId, tenantId);
 		if ('error' in result) {
 			if (result.error === 'ALREADY_CLAIMED') {
 				return fail(409, { error: 'もうもらったよ' });

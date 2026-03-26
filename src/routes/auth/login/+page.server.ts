@@ -16,6 +16,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	const _tenantId = locals.context?.tenantId;
 	const authMode = getAuthMode();
 
 	// local モードではログイン不要 → /admin へ
@@ -35,7 +36,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	login: async ({ request, cookies }) => {
+	login: async ({ request, cookies, locals }) => {
+		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
 		const password = formData.get('password') as string;
@@ -53,7 +55,8 @@ export const actions: Actions = {
 		return handleCognitoLogin(email, password, cookies);
 	},
 
-	mfa: async ({ request, cookies }) => {
+	mfa: async ({ request, cookies, locals }) => {
+		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const session = formData.get('session') as string;
 		const mfaCode = formData.get('mfaCode') as string;

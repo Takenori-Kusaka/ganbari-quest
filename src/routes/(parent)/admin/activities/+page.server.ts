@@ -1,4 +1,5 @@
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
 	createActivity,
@@ -12,14 +13,16 @@ import {
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-	const activities = await getActivities({ includeHidden: true });
-	const logCounts = await getActivityLogCounts();
+export const load: PageServerLoad = async ({ locals }) => {
+	const tenantId = requireTenantId(locals);
+	const activities = await getActivities(tenantId, { includeHidden: true });
+	const logCounts = await getActivityLogCounts(tenantId);
 	return { activities, categoryDefs: CATEGORY_DEFS, logCounts };
 };
 
 export const actions: Actions = {
-	toggleVisibility: async ({ request }) => {
+	toggleVisibility: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const id = Number(formData.get('id'));
 		const visible = formData.get('visible') === 'true';
@@ -27,7 +30,7 @@ export const actions: Actions = {
 		if (!id) return fail(400, { error: 'IDが必要です' });
 
 		try {
-			await setActivityVisibility(id, visible);
+			await setActivityVisibility(id, visible, tenantId);
 			return { success: true };
 		} catch (e) {
 			logger.error('[admin/activities] 表示切替失敗', {
@@ -39,7 +42,8 @@ export const actions: Actions = {
 		}
 	},
 
-	create: async ({ request }) => {
+	create: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const name = String(formData.get('name') ?? '').trim();
 		const categoryId = Number(formData.get('categoryId') ?? 0);
@@ -58,18 +62,21 @@ export const actions: Actions = {
 		}
 
 		try {
-			await createActivity({
-				name,
-				categoryId,
-				icon,
-				basePoints,
-				ageMin,
-				ageMax,
-				dailyLimit,
-				source: 'parent',
-				nameKana,
-				nameKanji,
-			});
+			await createActivity(
+				{
+					name,
+					categoryId,
+					icon,
+					basePoints,
+					ageMin,
+					ageMax,
+					dailyLimit,
+					source: 'parent',
+					nameKana,
+					nameKanji,
+				},
+				tenantId,
+			);
 			return { created: true };
 		} catch (e) {
 			logger.error('[admin/activities] 活動追加失敗', {
@@ -81,7 +88,8 @@ export const actions: Actions = {
 		}
 	},
 
-	edit: async ({ request }) => {
+	edit: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const id = Number(formData.get('id'));
 		const name = String(formData.get('name') ?? '').trim();
@@ -102,17 +110,21 @@ export const actions: Actions = {
 		}
 
 		try {
-			await updateActivity(id, {
-				name,
-				categoryId,
-				icon,
-				basePoints,
-				ageMin,
-				ageMax,
-				dailyLimit,
-				nameKana,
-				nameKanji,
-			});
+			await updateActivity(
+				id,
+				{
+					name,
+					categoryId,
+					icon,
+					basePoints,
+					ageMin,
+					ageMax,
+					dailyLimit,
+					nameKana,
+					nameKanji,
+				},
+				tenantId,
+			);
 			return { edited: true };
 		} catch (e) {
 			logger.error('[admin/activities] 活動編集失敗', {
@@ -124,19 +136,20 @@ export const actions: Actions = {
 		}
 	},
 
-	delete: async ({ request }) => {
+	delete: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const id = Number(formData.get('id'));
 
 		if (!id) return fail(400, { error: 'IDが必要です' });
 
 		try {
-			if (await hasActivityLogs(id)) {
-				await setActivityVisibility(id, false);
+			if (await hasActivityLogs(id, tenantId)) {
+				await setActivityVisibility(id, false, tenantId);
 				return { hidden: true };
 			}
 
-			await deleteActivityWithCleanup(id);
+			await deleteActivityWithCleanup(id, tenantId);
 			return { deleted: true };
 		} catch (e) {
 			logger.error('[admin/activities] 活動削除失敗', {

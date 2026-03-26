@@ -18,6 +18,14 @@ export function isCognitoDevMode(): boolean {
 	return process.env.COGNITO_DEV_MODE === 'true';
 }
 
+/** 認証済みルートから tenantId を安全に取得。未認証ならエラー。 */
+export function requireTenantId(locals: App.Locals): string {
+	if (!locals.context) {
+		throw new Error('Unauthorized: missing auth context');
+	}
+	return locals.context.tenantId;
+}
+
 export function getAuthProvider(): AuthProvider {
 	if (_provider) return _provider;
 

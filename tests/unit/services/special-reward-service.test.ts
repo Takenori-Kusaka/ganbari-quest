@@ -100,12 +100,15 @@ describe('grantSpecialReward', () => {
 	});
 
 	it('正常に特別報酬を付与できる', async () => {
-		const result = await grantSpecialReward({
-			childId: 1,
-			title: 'テスト100点',
-			points: 100,
-			category: 'academic',
-		});
+		const result = await grantSpecialReward(
+			{
+				childId: 1,
+				title: 'テスト100点',
+				points: 100,
+				category: 'academic',
+			},
+			'test-tenant',
+		);
 
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
@@ -119,14 +122,17 @@ describe('grantSpecialReward', () => {
 	});
 
 	it('オプションフィールド付きで付与できる', async () => {
-		const result = await grantSpecialReward({
-			childId: 1,
-			title: '漢字検定合格',
-			description: '漢字検定10級に合格！',
-			points: 200,
-			icon: '📜',
-			category: 'academic',
-		});
+		const result = await grantSpecialReward(
+			{
+				childId: 1,
+				title: '漢字検定合格',
+				description: '漢字検定10級に合格！',
+				points: 200,
+				icon: '📜',
+				category: 'academic',
+			},
+			'test-tenant',
+		);
 
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
@@ -136,12 +142,15 @@ describe('grantSpecialReward', () => {
 	});
 
 	it('ポイント台帳に special_reward エントリが追加される', async () => {
-		await grantSpecialReward({
-			childId: 1,
-			title: 'テスト満点',
-			points: 50,
-			category: 'academic',
-		});
+		await grantSpecialReward(
+			{
+				childId: 1,
+				title: 'テスト満点',
+				points: 50,
+				category: 'academic',
+			},
+			'test-tenant',
+		);
 
 		const ledger = testDb.select().from(schema.pointLedger).all();
 		expect(ledger).toHaveLength(1);
@@ -151,12 +160,15 @@ describe('grantSpecialReward', () => {
 	});
 
 	it('存在しない子供にはエラーを返す', async () => {
-		const result = await grantSpecialReward({
-			childId: 999,
-			title: 'テスト',
-			points: 50,
-			category: 'other',
-		});
+		const result = await grantSpecialReward(
+			{
+				childId: 999,
+				title: 'テスト',
+				points: 50,
+				category: 'other',
+			},
+			'test-tenant',
+		);
 
 		expect('error' in result).toBe(true);
 		if ('error' in result) {
@@ -166,8 +178,14 @@ describe('grantSpecialReward', () => {
 	});
 
 	it('複数回付与できる', async () => {
-		await grantSpecialReward({ childId: 1, title: '1回目', points: 50, category: 'academic' });
-		await grantSpecialReward({ childId: 1, title: '2回目', points: 100, category: 'sports' });
+		await grantSpecialReward(
+			{ childId: 1, title: '1回目', points: 50, category: 'academic' },
+			'test-tenant',
+		);
+		await grantSpecialReward(
+			{ childId: 1, title: '2回目', points: 100, category: 'sports' },
+			'test-tenant',
+		);
 
 		const ledger = testDb.select().from(schema.pointLedger).all();
 		expect(ledger).toHaveLength(2);
@@ -183,30 +201,42 @@ describe('getChildSpecialRewards', () => {
 	});
 
 	it('空の履歴を返す', async () => {
-		const result = await getChildSpecialRewards(1);
+		const result = await getChildSpecialRewards(1, 'test-tenant');
 		expect(result.rewards).toHaveLength(0);
 		expect(result.totalPoints).toBe(0);
 	});
 
 	it('付与した報酬の履歴を返す', async () => {
-		await grantSpecialReward({
-			childId: 1,
-			title: 'テスト満点',
-			points: 100,
-			category: 'academic',
-		});
-		await grantSpecialReward({ childId: 1, title: '大会入賞', points: 150, category: 'sports' });
+		await grantSpecialReward(
+			{
+				childId: 1,
+				title: 'テスト満点',
+				points: 100,
+				category: 'academic',
+			},
+			'test-tenant',
+		);
+		await grantSpecialReward(
+			{ childId: 1, title: '大会入賞', points: 150, category: 'sports' },
+			'test-tenant',
+		);
 
-		const result = await getChildSpecialRewards(1);
+		const result = await getChildSpecialRewards(1, 'test-tenant');
 		expect(result.rewards).toHaveLength(2);
 		expect(result.totalPoints).toBe(250);
 	});
 
 	it('降順で返される', async () => {
-		await grantSpecialReward({ childId: 1, title: '1番目', points: 50, category: 'other' });
-		await grantSpecialReward({ childId: 1, title: '2番目', points: 100, category: 'other' });
+		await grantSpecialReward(
+			{ childId: 1, title: '1番目', points: 50, category: 'other' },
+			'test-tenant',
+		);
+		await grantSpecialReward(
+			{ childId: 1, title: '2番目', points: 100, category: 'other' },
+			'test-tenant',
+		);
 
-		const result = await getChildSpecialRewards(1);
+		const result = await getChildSpecialRewards(1, 'test-tenant');
 		// 最新が先頭
 		expect(result.rewards[0]?.title).toBe('2番目');
 		expect(result.rewards[1]?.title).toBe('1番目');
@@ -219,69 +249,87 @@ describe('getUnshownReward / markRewardShown', () => {
 	});
 
 	it('未表示報酬がない場合nullを返す', async () => {
-		const result = await getUnshownReward(1);
+		const result = await getUnshownReward(1, 'test-tenant');
 		expect(result).toBeNull();
 	});
 
 	it('未表示の報酬を1件返す', async () => {
-		await grantSpecialReward({
-			childId: 1,
-			title: 'テスト100点',
-			points: 100,
-			category: 'academic',
-		});
-		const result = await getUnshownReward(1);
+		await grantSpecialReward(
+			{
+				childId: 1,
+				title: 'テスト100点',
+				points: 100,
+				category: 'academic',
+			},
+			'test-tenant',
+		);
+		const result = await getUnshownReward(1, 'test-tenant');
 		expect(result).not.toBeNull();
 		expect(result?.title).toBe('テスト100点');
 	});
 
 	it('表示済みにした報酬は返さない', async () => {
-		const reward = await grantSpecialReward({
-			childId: 1,
-			title: 'テスト100点',
-			points: 100,
-			category: 'academic',
-		});
+		const reward = await grantSpecialReward(
+			{
+				childId: 1,
+				title: 'テスト100点',
+				points: 100,
+				category: 'academic',
+			},
+			'test-tenant',
+		);
 		if (!('error' in reward)) {
-			await markRewardShown(reward.id);
+			await markRewardShown(reward.id, 'test-tenant');
 		}
-		const result = await getUnshownReward(1);
+		const result = await getUnshownReward(1, 'test-tenant');
 		expect(result).toBeNull();
 	});
 
 	it('複数の報酬がある場合、未表示のものだけ返す', async () => {
-		const r1 = await grantSpecialReward({
-			childId: 1,
-			title: '1回目',
-			points: 50,
-			category: 'academic',
-		});
-		await grantSpecialReward({ childId: 1, title: '2回目', points: 100, category: 'sports' });
+		const r1 = await grantSpecialReward(
+			{
+				childId: 1,
+				title: '1回目',
+				points: 50,
+				category: 'academic',
+			},
+			'test-tenant',
+		);
+		await grantSpecialReward(
+			{ childId: 1, title: '2回目', points: 100, category: 'sports' },
+			'test-tenant',
+		);
 
 		// 1回目を表示済みにする
 		if (!('error' in r1)) {
-			await markRewardShown(r1.id);
+			await markRewardShown(r1.id, 'test-tenant');
 		}
 
-		const result = await getUnshownReward(1);
+		const result = await getUnshownReward(1, 'test-tenant');
 		expect(result).not.toBeNull();
 		expect(result?.title).toBe('2回目');
 	});
 
 	it('新しいごほうびを付与すると再度表示される', async () => {
-		const r1 = await grantSpecialReward({
-			childId: 1,
-			title: '1回目',
-			points: 50,
-			category: 'academic',
-		});
+		const r1 = await grantSpecialReward(
+			{
+				childId: 1,
+				title: '1回目',
+				points: 50,
+				category: 'academic',
+			},
+			'test-tenant',
+		);
 		if (!('error' in r1)) {
-			await markRewardShown(r1.id);
+			await markRewardShown(r1.id, 'test-tenant');
 		}
 
 		// 新しい報酬を付与
-		await grantSpecialReward({ childId: 1, title: '2回目', points: 100, category: 'sports' });
-		const result = await getUnshownReward(1);
+		await grantSpecialReward(
+			{ childId: 1, title: '2回目', points: 100, category: 'sports' },
+			'test-tenant',
+		);
+		const result = await getUnshownReward(1, 'test-tenant');
 		expect(result).not.toBeNull();
 		expect(result?.title).toBe('2回目');
 	});
@@ -293,7 +341,7 @@ describe('getRewardTemplates / saveRewardTemplates', () => {
 	});
 
 	it('テンプレート未設定時は空配列を返す', async () => {
-		const templates = await getRewardTemplates();
+		const templates = await getRewardTemplates('test-tenant');
 		expect(templates).toEqual([]);
 	});
 
@@ -303,22 +351,28 @@ describe('getRewardTemplates / saveRewardTemplates', () => {
 			{ title: '大会入賞', points: 150, icon: '🏆', category: 'sports' as const },
 		];
 
-		await saveRewardTemplates(data);
-		const templates = await getRewardTemplates();
+		await saveRewardTemplates(data, 'test-tenant');
+		const templates = await getRewardTemplates('test-tenant');
 		expect(templates).toHaveLength(2);
 		expect(templates[0]?.title).toBe('テスト100点');
 		expect(templates[1]?.category).toBe('sports');
 	});
 
 	it('テンプレートを上書きできる', async () => {
-		await saveRewardTemplates([{ title: '旧テンプレ', points: 50, category: 'other' as const }]);
+		await saveRewardTemplates(
+			[{ title: '旧テンプレ', points: 50, category: 'other' as const }],
+			'test-tenant',
+		);
 
-		await saveRewardTemplates([
-			{ title: '新テンプレ1', points: 100, category: 'academic' as const },
-			{ title: '新テンプレ2', points: 200, category: 'sports' as const },
-		]);
+		await saveRewardTemplates(
+			[
+				{ title: '新テンプレ1', points: 100, category: 'academic' as const },
+				{ title: '新テンプレ2', points: 200, category: 'sports' as const },
+			],
+			'test-tenant',
+		);
 
-		const templates = await getRewardTemplates();
+		const templates = await getRewardTemplates('test-tenant');
 		expect(templates).toHaveLength(2);
 		expect(templates[0]?.title).toBe('新テンプレ1');
 	});

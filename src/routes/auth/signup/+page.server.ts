@@ -13,6 +13,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	const _tenantId = locals.context?.tenantId;
 	const authMode = getAuthMode();
 
 	// local モードやdevモードでは登録不要
@@ -29,7 +30,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	signup: async ({ request }) => {
+	signup: async ({ request, locals }) => {
+		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
 		const password = formData.get('password') as string;
@@ -62,7 +64,8 @@ export const actions: Actions = {
 		redirect(302, '/auth/login?registered=true');
 	},
 
-	confirm: async ({ request, cookies }) => {
+	confirm: async ({ request, cookies, locals }) => {
+		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
 		const code = formData.get('code') as string;

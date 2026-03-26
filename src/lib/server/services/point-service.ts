@@ -25,11 +25,12 @@ export interface ConvertResult {
 /** ポイント残高を取得 */
 export async function getPointBalance(
 	childId: number,
+	tenantId: string,
 ): Promise<PointBalance | { error: 'NOT_FOUND' }> {
-	const child = await findChildById(childId);
+	const child = await findChildById(childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND' };
 
-	const balance = await getBalance(childId);
+	const balance = await getBalance(childId, tenantId);
 	const unit = POINTS_PER_CONVERT_UNIT;
 	const convertableAmount = Math.floor(balance / unit) * unit;
 	const nextConvertAt = balance >= unit ? balance : unit;
@@ -46,11 +47,12 @@ export async function getPointBalance(
 export async function getPointHistory(
 	childId: number,
 	options: { limit: number; offset: number },
+	tenantId: string,
 ): Promise<{ history: Awaited<ReturnType<typeof findPointHistory>> } | { error: 'NOT_FOUND' }> {
-	const child = await findChildById(childId);
+	const child = await findChildById(childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND' };
 
-	const history = await findPointHistory(childId, options);
+	const history = await findPointHistory(childId, options, tenantId);
 	return { history };
 }
 
@@ -66,12 +68,13 @@ function convertDescription(amount: number, mode: ConvertMode): string {
 export async function convertPoints(
 	childId: number,
 	amount: number,
+	tenantId: string,
 	mode: ConvertMode = 'preset',
 ): Promise<ConvertResult | { error: 'NOT_FOUND' } | { error: 'INSUFFICIENT_POINTS' }> {
-	const child = await findChildById(childId);
+	const child = await findChildById(childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND' };
 
-	const balance = await getBalance(childId);
+	const balance = await getBalance(childId, tenantId);
 	if (balance < amount) {
 		return { error: 'INSUFFICIENT_POINTS' };
 	}
@@ -79,12 +82,15 @@ export async function convertPoints(
 	const description = convertDescription(amount, mode);
 
 	// ポイント消費エントリを台帳に記録（マイナス値）
-	await insertPointEntry({
-		childId,
-		amount: -amount,
-		type: 'convert',
-		description,
-	});
+	await insertPointEntry(
+		{
+			childId,
+			amount: -amount,
+			type: 'convert',
+			description,
+		},
+		tenantId,
+	);
 
 	const remainingBalance = balance - amount;
 

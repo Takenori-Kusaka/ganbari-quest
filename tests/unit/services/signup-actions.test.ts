@@ -66,6 +66,9 @@ function createMockCookies() {
 	};
 }
 
+/** Mock locals (context is null for unauthenticated signup) */
+const mockLocals = { authenticated: false, identity: null, context: null };
+
 // ============================================================
 // signup action
 // ============================================================
@@ -74,7 +77,7 @@ describe('signup action', () => {
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
 		const request = createRequest({ email: '', password: '', passwordConfirm: '' });
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
-		const result = await (actions.signup as any)({ request });
+		const result = await (actions.signup as any)({ request, locals: mockLocals });
 
 		expect(result.status).toBe(400);
 		expect(result.data.error).toContain('全ての項目');
@@ -88,7 +91,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Different1',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
-		const result = await (actions.signup as any)({ request });
+		const result = await (actions.signup as any)({ request, locals: mockLocals });
 
 		expect(result.status).toBe(400);
 		expect(result.data.error).toContain('パスワードが一致しません');
@@ -102,7 +105,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Short1',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
-		const result = await (actions.signup as any)({ request });
+		const result = await (actions.signup as any)({ request, locals: mockLocals });
 
 		expect(result.status).toBe(400);
 		expect(result.data.error).toContain('8文字以上');
@@ -118,7 +121,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Password1',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
-		const result = await (actions.signup as any)({ request });
+		const result = await (actions.signup as any)({ request, locals: mockLocals });
 
 		// 成功レスポンス（fail ではない）
 		expect(result.confirmStep).toBe(true);
@@ -139,7 +142,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Password1',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
-		const result = await (actions.signup as any)({ request });
+		const result = await (actions.signup as any)({ request, locals: mockLocals });
 
 		expect(result.status).toBe(400);
 		expect(result.data.error).toContain('既に登録されています');
@@ -156,7 +159,7 @@ describe('confirm action', () => {
 		const request = createRequest({ email: '', code: '' });
 		const cookies = createMockCookies();
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
-		const result = await (actions.confirm as any)({ request, cookies });
+		const result = await (actions.confirm as any)({ request, cookies, locals: mockLocals });
 
 		expect(result.status).toBe(400);
 		expect(result.data.confirmStep).toBe(true);
@@ -176,7 +179,7 @@ describe('confirm action', () => {
 		});
 		const cookies = createMockCookies();
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
-		const result = await (actions.confirm as any)({ request, cookies });
+		const result = await (actions.confirm as any)({ request, cookies, locals: mockLocals });
 
 		expect(result.status).toBe(400);
 		expect(result.data.error).toContain('確認コード');
@@ -202,7 +205,7 @@ describe('confirm action', () => {
 
 		try {
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
-			await (actions.confirm as any)({ request, cookies });
+			await (actions.confirm as any)({ request, cookies, locals: mockLocals });
 			// redirect は throw されるのでここには来ないはず
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
@@ -227,7 +230,7 @@ describe('confirm action', () => {
 
 		try {
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
-			await (actions.confirm as any)({ request, cookies });
+			await (actions.confirm as any)({ request, cookies, locals: mockLocals });
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
@@ -256,7 +259,7 @@ describe('confirm action', () => {
 
 		try {
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
-			await (actions.confirm as any)({ request, cookies });
+			await (actions.confirm as any)({ request, cookies, locals: mockLocals });
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
@@ -284,7 +287,7 @@ describe('confirm action', () => {
 
 		try {
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
-			await (actions.confirm as any)({ request, cookies });
+			await (actions.confirm as any)({ request, cookies, locals: mockLocals });
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);

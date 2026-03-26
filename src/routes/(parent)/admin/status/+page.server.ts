@@ -1,16 +1,18 @@
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllBenchmarks, upsertBenchmark } from '$lib/server/db/status-repo';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getChildStatus, updateStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-	const children = await getAllChildren();
+export const load: PageServerLoad = async ({ locals }) => {
+	const tenantId = requireTenantId(locals);
+	const children = await getAllChildren(tenantId);
 
 	const childrenWithStatus = await Promise.all(
 		children.map(async (child) => {
-			const status = await getChildStatus(child.id);
+			const status = await getChildStatus(child.id, tenantId);
 			return {
 				...child,
 				status: 'error' in status ? null : status,
@@ -18,13 +20,14 @@ export const load: PageServerLoad = async () => {
 		}),
 	);
 
-	const benchmarks = await findAllBenchmarks();
+	const benchmarks = await findAllBenchmarks(tenantId);
 
 	return { children: childrenWithStatus, categoryDefs: CATEGORY_DEFS, benchmarks };
 };
 
 export const actions = {
-	updateStatus: async ({ request }) => {
+	updateStatus: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 		const childId = Number(form.get('childId'));
 		const categoryId = Number(form.get('categoryId'));
@@ -35,7 +38,7 @@ export const actions = {
 		}
 
 		// 現在のステータスを取得して差分計算
-		const currentStatus = await getChildStatus(childId);
+		const currentStatus = await getChildStatus(childId, tenantId);
 		if ('error' in currentStatus) {
 			return fail(404, { error: '子供が見つかりません' });
 		}
@@ -52,11 +55,12 @@ export const actions = {
 			return { success: true, noChange: true };
 		}
 
-		await updateStatus(childId, categoryId, changeAmount, 'admin_edit');
+		await updateStatus(childId, categoryId, changeAmount, 'admin_edit', tenantId);
 
 		return { success: true, categoryId, newValue };
 	},
-	updateBenchmark: async ({ request }) => {
+	updateBenchmark: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 		const age = Number(form.get('age'));
 		const categoryId = Number(form.get('categoryId'));
@@ -70,7 +74,7 @@ export const actions = {
 			return fail(400, { error: '平均は0以上、標準偏差は0より大きい値を入力してください' });
 		}
 
-		await upsertBenchmark(age, categoryId, mean, stdDev, '管理画面');
+		await upsertBenchmark(age, categoryId, mean, stdDev, '管理画面', tenantId);
 		return { success: true, benchmarkUpdated: true };
 	},
 } satisfies Actions;

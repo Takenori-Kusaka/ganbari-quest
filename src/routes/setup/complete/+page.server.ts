@@ -1,12 +1,14 @@
+import { requireTenantId } from '$lib/server/auth/factory';
 import { getSetting } from '$lib/server/db/settings-repo';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ locals }) => {
+	const tenantId = requireTenantId(locals);
 	// Guard: setup not complete -> redirect back
-	const pinHash = await getSetting('pin_hash');
-	const children = await getAllChildren();
+	const pinHash = await getSetting('pin_hash', tenantId);
+	const children = await getAllChildren(tenantId);
 
 	if (!pinHash) {
 		redirect(302, '/setup');

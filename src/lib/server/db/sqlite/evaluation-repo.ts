@@ -10,6 +10,7 @@ export async function countActivitiesByCategory(
 	childId: number,
 	weekStart: string,
 	weekEnd: string,
+	_tenantId: string,
 ) {
 	return db
 		.select({
@@ -32,23 +33,26 @@ export async function countActivitiesByCategory(
 }
 
 /** 評価結果を保存 */
-export async function insertEvaluation(input: {
-	childId: number;
-	weekStart: string;
-	weekEnd: string;
-	scoresJson: string;
-	bonusPoints: number;
-}) {
+export async function insertEvaluation(
+	input: {
+		childId: number;
+		weekStart: string;
+		weekEnd: string;
+		scoresJson: string;
+		bonusPoints: number;
+	},
+	_tenantId: string,
+) {
 	return db.insert(evaluations).values(input).returning().get();
 }
 
 /** 全子供を取得 */
-export async function findAllChildren() {
+export async function findAllChildren(_tenantId: string) {
 	return db.select().from(children).all();
 }
 
 /** 子供の評価履歴を取得 */
-export async function findEvaluationsByChild(childId: number, limit: number) {
+export async function findEvaluationsByChild(childId: number, limit: number, _tenantId: string) {
 	return db
 		.select()
 		.from(evaluations)
@@ -59,7 +63,11 @@ export async function findEvaluationsByChild(childId: number, limit: number) {
 }
 
 /** 指定日にdaily_decayが既に実行されたか確認 */
-export async function hasDecayRunToday(childId: number, today: string): Promise<boolean> {
+export async function hasDecayRunToday(
+	childId: number,
+	today: string,
+	_tenantId: string,
+): Promise<boolean> {
 	const row = db
 		.select({ id: statusHistory.id })
 		.from(statusHistory)
@@ -75,7 +83,7 @@ export async function hasDecayRunToday(childId: number, today: string): Promise<
 }
 
 /** 指定週の評価が存在するか確認 */
-export async function findWeekEvaluation(childId: number, weekStart: string) {
+export async function findWeekEvaluation(childId: number, weekStart: string, _tenantId: string) {
 	return db
 		.select({ id: evaluations.id })
 		.from(evaluations)
@@ -84,7 +92,7 @@ export async function findWeekEvaluation(childId: number, weekStart: string) {
 }
 
 /** 子供の最終活動日をカテゴリ別に取得 */
-export async function findLastActivityDateByCategory(childId: number) {
+export async function findLastActivityDateByCategory(childId: number, _tenantId: string) {
 	return db
 		.select({
 			categoryId: activities.categoryId,

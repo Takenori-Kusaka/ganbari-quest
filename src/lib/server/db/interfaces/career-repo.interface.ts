@@ -10,25 +10,36 @@ import type {
 } from '../types';
 
 export interface ICareerRepo {
-	// Career fields
-	findAllCareerFields(): Promise<CareerField[]>;
-	findCareerFieldsByAge(age: number): Promise<CareerField[]>;
-	findCareerFieldById(id: number): Promise<CareerField | undefined>;
+	// Career fields (global)
+	findAllCareerFields(tenantId: string): Promise<CareerField[]>;
+	findCareerFieldsByAge(age: number, tenantId: string): Promise<CareerField[]>;
+	findCareerFieldById(id: number, tenantId: string): Promise<CareerField | undefined>;
 
 	// Career plans
-	findActiveCareerPlan(childId: number): Promise<CareerPlan | undefined>;
-	findCareerPlansByChildId(childId: number): Promise<CareerPlan[]>;
-	insertCareerPlan(input: InsertCareerPlanInput): Promise<CareerPlan>;
-	updateCareerPlan(planId: number, input: UpdateCareerPlanInput): Promise<CareerPlan | undefined>;
-	deactivateCareerPlans(childId: number): Promise<void>;
+	findActiveCareerPlan(childId: number, tenantId: string): Promise<CareerPlan | undefined>;
+	findCareerPlansByChildId(childId: number, tenantId: string): Promise<CareerPlan[]>;
+	insertCareerPlan(input: InsertCareerPlanInput, tenantId: string): Promise<CareerPlan>;
+	updateCareerPlan(
+		planId: number,
+		input: UpdateCareerPlanInput,
+		tenantId: string,
+	): Promise<CareerPlan | undefined>;
+	deactivateCareerPlans(childId: number, tenantId: string): Promise<void>;
 
 	// Plan history
-	insertCareerPlanHistory(input: InsertCareerPlanHistoryInput): Promise<CareerPlanHistory>;
+	insertCareerPlanHistory(
+		input: InsertCareerPlanHistoryInput,
+		tenantId: string,
+	): Promise<CareerPlanHistory>;
 	findLatestHistoryByAction(
 		careerPlanId: number,
 		action: string,
+		tenantId: string,
 	): Promise<CareerPlanHistory | undefined>;
 
 	// Points
-	insertCareerPointEntry(input: InsertCareerPointInput): Promise<PointLedgerEntry>;
+	insertCareerPointEntry(
+		input: InsertCareerPointInput,
+		tenantId: string,
+	): Promise<PointLedgerEntry>;
 }

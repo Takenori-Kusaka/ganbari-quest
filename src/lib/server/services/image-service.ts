@@ -105,8 +105,9 @@ export async function generateAvatar(
 		characterType: string;
 		level: number;
 	},
+	tenantId: string,
 ): Promise<GenerateAvatarResult | { error: string }> {
-	const child = await findChildForImage(childId);
+	const child = await findChildForImage(childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND' };
 
 	const prompt = buildAvatarPrompt({
@@ -119,7 +120,7 @@ export async function generateAvatar(
 	const promptHash = hashPrompt(prompt);
 
 	// Check cache
-	const cached = await findCachedImage(childId, 'avatar', promptHash);
+	const cached = await findCachedImage(childId, 'avatar', promptHash, tenantId);
 
 	if (cached && (await fileExists(cached.filePath))) {
 		return { filePath: `/${cached.filePath}`, isGenerated: true };
@@ -144,22 +145,22 @@ export async function generateAvatar(
 	}
 
 	// Save to DB
-	await insertCharacterImage({ childId, type: 'avatar', filePath, promptHash });
+	await insertCharacterImage({ childId, type: 'avatar', filePath, promptHash }, tenantId);
 
 	// Update child avatarUrl
-	await updateChildAvatarUrl(childId, `/${filePath}`);
+	await updateChildAvatarUrl(childId, `/${filePath}`, tenantId);
 
 	return { filePath: `/${filePath}`, isGenerated };
 }
 
 /** 子供の現在のアバターURLを取得（未生成ならnull） */
-export async function getAvatarUrl(childId: number): Promise<string | null> {
-	const child = await findChildForImage(childId);
+export async function getAvatarUrl(childId: number, tenantId: string): Promise<string | null> {
+	const child = await findChildForImage(childId, tenantId);
 	return child?.avatarUrl ?? null;
 }
 
 /** favicon を生成（またはキャッシュから取得） */
-export async function generateFavicon(): Promise<{
+export async function generateFavicon(_tenantId: string): Promise<{
 	filePath: string;
 	isGenerated: boolean;
 }> {
@@ -186,7 +187,7 @@ export async function generateFavicon(): Promise<{
 }
 
 /** favicon の現在パスを取得 */
-export async function getFaviconPath(): Promise<string> {
+export async function getFaviconPath(_tenantId: string): Promise<string> {
 	if (await fileExists('generated/favicon.png')) return '/generated/favicon.png';
 	if (await fileExists('favicon.svg')) return '/favicon.svg';
 	return '';

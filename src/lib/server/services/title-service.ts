@@ -49,20 +49,23 @@ export interface ActiveTitleInfo {
 // --- 称号チェック + 解除 ---
 
 /** 全条件をチェックし、新規解除した称号を返す */
-export async function checkAndUnlockTitles(childId: number): Promise<UnlockedTitle[]> {
-	const allTitles = await findAllTitles();
+export async function checkAndUnlockTitles(
+	childId: number,
+	tenantId: string,
+): Promise<UnlockedTitle[]> {
+	const allTitles = await findAllTitles(tenantId);
 	const newlyUnlocked: UnlockedTitle[] = [];
 
 	// ステータスデータを1回だけ取得
-	const statusResult = await getChildStatus(childId);
+	const statusResult = await getChildStatus(childId, tenantId);
 	if ('error' in statusResult) return newlyUnlocked;
 
 	for (const title of allTitles) {
-		if (await isTitleUnlocked(childId, title.id)) continue;
+		if (await isTitleUnlocked(childId, title.id, tenantId)) continue;
 
-		const met = await evaluateCondition(childId, title, statusResult);
+		const met = await evaluateCondition(childId, title, statusResult, tenantId);
 		if (met) {
-			await insertChildTitle(childId, title.id);
+			await insertChildTitle(childId, title.id, tenantId);
 			newlyUnlocked.push({
 				titleId: title.id,
 				code: title.code,
@@ -77,15 +80,18 @@ export async function checkAndUnlockTitles(childId: number): Promise<UnlockedTit
 }
 
 /** 全称号一覧（解除状態+進捗付き）を返す */
-export async function getChildTitles(childId: number): Promise<TitleWithStatus[]> {
-	const allTitles = await findAllTitles();
-	const unlocked = await findUnlockedTitles(childId);
-	const activeTitleId = await getActiveTitleId(childId);
+export async function getChildTitles(
+	childId: number,
+	tenantId: string,
+): Promise<TitleWithStatus[]> {
+	const allTitles = await findAllTitles(tenantId);
+	const unlocked = await findUnlockedTitles(childId, tenantId);
+	const activeTitleId = await getActiveTitleId(childId, tenantId);
 
 	const unlockedMap = new Map(unlocked.map((u) => [u.titleId, u.unlockedAt]));
 
 	// ステータスデータを取得（進捗計算用）
-	const statusResult = await getChildStatus(childId);
+	const statusResult = await getChildStatus(childId, tenantId);
 	const status = 'error' in statusResult ? null : statusResult;
 
 	const results: TitleWithStatus[] = [];
@@ -111,6 +117,7 @@ export async function getChildTitles(childId: number): Promise<TitleWithStatus[]
 						title.conditionValue,
 						extra,
 						status,
+						tenantId,
 					)
 				: 0,
 		});
@@ -123,22 +130,26 @@ export async function getChildTitles(childId: number): Promise<TitleWithStatus[]
 export async function setActiveTitle(
 	childId: number,
 	titleId: number | null,
+	tenantId: string,
 ): Promise<{ success: true } | { error: string }> {
 	if (titleId !== null) {
-		if (!(await isTitleUnlocked(childId, titleId))) {
+		if (!(await isTitleUnlocked(childId, titleId, tenantId))) {
 			return { error: 'TITLE_NOT_UNLOCKED' };
 		}
 	}
-	await setActiveTitleId(childId, titleId);
+	await setActiveTitleId(childId, titleId, tenantId);
 	return { success: true };
 }
 
 /** アクティブ称号の情報を返す */
-export async function getActiveTitle(childId: number): Promise<ActiveTitleInfo | null> {
-	const titleId = await getActiveTitleId(childId);
+export async function getActiveTitle(
+	childId: number,
+	tenantId: string,
+): Promise<ActiveTitleInfo | null> {
+	const titleId = await getActiveTitleId(childId, tenantId);
 	if (titleId === null) return null;
 
-	const title = await findTitleById(titleId);
+	const title = await findTitleById(titleId, tenantId);
 	if (!title) return null;
 
 	return {
@@ -160,6 +171,7 @@ async function evaluateCondition(
 	childId: number,
 	title: { conditionType: string; conditionValue: number; conditionExtra: string | null },
 	status: StatusResult,
+	tenantId: string,
 ): Promise<boolean> {
 	const extra = title.conditionExtra ? JSON.parse(title.conditionExtra) : null;
 
@@ -171,7 +183,7 @@ async function evaluateCondition(
 			return catStatus ? catStatus.deviationScore >= title.conditionValue : false;
 		}
 		case 'streak_days':
-			return (await getMaxStreakDays(childId)) >= title.conditionValue;
+			return (await getMaxStreakDays(childId, tenantId)) >= title.conditionValue;
 		case 'level_reach':
 			return status.level >= title.conditionValue;
 		case 'all_categories_deviation': {
@@ -192,6 +204,7 @@ async function getCurrentProgress(
 	conditionValue: number,
 	extra: Record<string, unknown> | null,
 	status: StatusResult,
+	tenantId: string,
 ): Promise<number> {
 	let current = 0;
 
@@ -204,7 +217,7 @@ async function getCurrentProgress(
 			break;
 		}
 		case 'streak_days':
-			current = await getMaxStreakDays(childId);
+			current = await getMaxStreakDays(childId, tenantId);
 			break;
 		case 'level_reach':
 			current = status.level;
@@ -225,8 +238,8 @@ async function getCurrentProgress(
 }
 
 /** 最大連続日数を取得 */
-async function getMaxStreakDays(childId: number): Promise<number> {
-	const rows = await findDistinctRecordedDates(childId);
+async function getMaxStreakDays(childId: number, tenantId: string): Promise<number> {
+	const rows = await findDistinctRecordedDates(childId, tenantId);
 	if (rows.length === 0) return 0;
 
 	let maxStreak = 1;

@@ -12,7 +12,7 @@ import {
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
 import { TABLE_NAME, getDocClient } from './client';
 import { nextId } from './counter';
-import { ENTITY_NAMES, childKey, childPK } from './keys';
+import { ENTITY_NAMES, childKey, childPK, tenantPK } from './keys';
 
 /** Strip PK/SK/GSI keys from a DynamoDB item */
 function stripKeys<T extends Record<string, unknown>>(
@@ -23,14 +23,14 @@ function stripKeys<T extends Record<string, unknown>>(
 }
 
 /** 全ての子供を取得 */
-export async function findAllChildren(): Promise<Child[]> {
+export async function findAllChildren(tenantId: string): Promise<Child[]> {
 	// Scan for all CHILD#* items with SK=PROFILE
 	const result = await getDocClient().send(
 		new ScanCommand({
 			TableName: TABLE_NAME,
 			FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk',
 			ExpressionAttributeValues: {
-				':prefix': 'CHILD#',
+				':prefix': tenantPK('CHILD#', tenantId),
 				':sk': 'PROFILE',
 			},
 		}),
@@ -41,11 +41,11 @@ export async function findAllChildren(): Promise<Child[]> {
 }
 
 /** IDで子供を取得 */
-export async function findChildById(id: number): Promise<Child | undefined> {
+export async function findChildById(id: number, tenantId: string): Promise<Child | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(id),
+			Key: childKey(id, tenantId),
 		}),
 	);
 
@@ -54,8 +54,8 @@ export async function findChildById(id: number): Promise<Child | undefined> {
 }
 
 /** 子供を作成 */
-export async function insertChild(input: InsertChildInput): Promise<Child> {
-	const id = await nextId(ENTITY_NAMES.child);
+export async function insertChild(input: InsertChildInput, tenantId: string): Promise<Child> {
+	const id = await nextId(ENTITY_NAMES.child, tenantId);
 	const now = new Date().toISOString();
 
 	const child: Child = {
@@ -78,7 +78,7 @@ export async function insertChild(input: InsertChildInput): Promise<Child> {
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...childKey(id),
+				...childKey(id, tenantId),
 				...child,
 			},
 		}),
@@ -88,7 +88,11 @@ export async function insertChild(input: InsertChildInput): Promise<Child> {
 }
 
 /** 子供を更新 */
-export async function updateChild(id: number, input: UpdateChildInput): Promise<Child | undefined> {
+export async function updateChild(
+	id: number,
+	input: UpdateChildInput,
+	tenantId: string,
+): Promise<Child | undefined> {
 	// Build update expression dynamically from provided fields
 	const expressionParts: string[] = [];
 	const expressionNames: Record<string, string> = {};
@@ -126,7 +130,7 @@ export async function updateChild(id: number, input: UpdateChildInput): Promise<
 		const result = await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: childKey(id),
+				Key: childKey(id, tenantId),
 				UpdateExpression: `SET ${expressionParts.join(', ')}`,
 				ExpressionAttributeNames: expressionNames,
 				ExpressionAttributeValues: expressionValues,
@@ -146,8 +150,8 @@ export async function updateChild(id: number, input: UpdateChildInput): Promise<
 }
 
 /** 子供と関連データをすべて削除 */
-export async function deleteChild(id: number): Promise<void> {
-	const pk = childPK(id);
+export async function deleteChild(id: number, tenantId: string): Promise<void> {
+	const pk = childPK(id, tenantId);
 
 	// Query all items under the child's partition key
 	let lastKey: Record<string, unknown> | undefined;

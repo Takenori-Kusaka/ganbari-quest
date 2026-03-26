@@ -1,16 +1,18 @@
+import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllAchievements } from '$lib/server/db/achievement-repo';
 import { getChildAchievements, grantLifeEvent } from '$lib/server/services/achievement-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-	const children = await getAllChildren();
-	const allAchievements = await findAllAchievements();
+export const load: PageServerLoad = async ({ locals }) => {
+	const tenantId = requireTenantId(locals);
+	const children = await getAllChildren(tenantId);
+	const allAchievements = await findAllAchievements(tenantId);
 
 	const childrenWithAchievements = await Promise.all(
 		children.map(async (child) => {
-			const achievements = await getChildAchievements(child.id);
+			const achievements = await getChildAchievements(child.id, tenantId);
 			const unlockedCount = achievements.filter(
 				(a) => a.unlockedAt !== null || a.highestUnlockedMilestone !== null,
 			).length;
@@ -30,7 +32,8 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions = {
-	grantLifeEvent: async ({ request }) => {
+	grantLifeEvent: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 		const childId = Number(form.get('childId'));
 		const achievementId = Number(form.get('achievementId'));
@@ -39,7 +42,7 @@ export const actions = {
 			return fail(400, { error: '子供と実績を選択してください' });
 		}
 
-		const result = await grantLifeEvent(childId, achievementId);
+		const result = await grantLifeEvent(childId, achievementId, tenantId);
 		if ('error' in result) {
 			const messages: Record<string, string> = {
 				ACHIEVEMENT_NOT_FOUND: '実績が見つかりません',

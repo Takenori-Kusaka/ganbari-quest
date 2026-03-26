@@ -39,8 +39,8 @@ function stripKeys<T extends Record<string, unknown>>(
 }
 
 /** 子供の全ステータスを取得 */
-export async function findStatuses(childId: number): Promise<Status[]> {
-	const pk = childPK(childId);
+export async function findStatuses(childId: number, tenantId: string): Promise<Status[]> {
+	const pk = childPK(childId, tenantId);
 	const prefix = statusPrefix();
 
 	const result = await getDocClient().send(
@@ -58,11 +58,15 @@ export async function findStatuses(childId: number): Promise<Status[]> {
 }
 
 /** カテゴリ別のステータスを取得 */
-export async function findStatus(childId: number, categoryId: number): Promise<Status | undefined> {
+export async function findStatus(
+	childId: number,
+	categoryId: number,
+	tenantId: string,
+): Promise<Status | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: statusKey(childId, categoryId),
+			Key: statusKey(childId, categoryId, tenantId),
 		}),
 	);
 
@@ -75,16 +79,17 @@ export async function upsertStatus(
 	childId: number,
 	categoryId: number,
 	value: number,
+	tenantId: string,
 ): Promise<Status> {
 	const clampedValue = Math.max(0, value);
 	const now = new Date().toISOString();
-	const existing = await findStatus(childId, categoryId);
+	const existing = await findStatus(childId, categoryId, tenantId);
 
 	if (existing) {
 		const result = await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: statusKey(childId, categoryId),
+				Key: statusKey(childId, categoryId, tenantId),
 				UpdateExpression: 'SET #value = :value, #updatedAt = :updatedAt',
 				ExpressionAttributeNames: {
 					'#value': 'value',
@@ -101,7 +106,7 @@ export async function upsertStatus(
 		return stripKeys(result.Attributes as Record<string, unknown>) as unknown as Status;
 	}
 
-	const id = await nextId(ENTITY_NAMES.status);
+	const id = await nextId(ENTITY_NAMES.status, tenantId);
 	const status: Status = {
 		id,
 		childId,
@@ -114,7 +119,7 @@ export async function upsertStatus(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...statusKey(childId, categoryId),
+				...statusKey(childId, categoryId, tenantId),
 				...status,
 			},
 		}),
@@ -126,8 +131,9 @@ export async function upsertStatus(
 /** ステータス変動履歴を追加 */
 export async function insertStatusHistory(
 	input: InsertStatusHistoryInput,
+	tenantId: string,
 ): Promise<StatusHistoryEntry> {
-	const id = await nextId(ENTITY_NAMES.statusHistory);
+	const id = await nextId(ENTITY_NAMES.statusHistory, tenantId);
 	const now = new Date().toISOString();
 
 	const entry: StatusHistoryEntry = {
@@ -140,7 +146,7 @@ export async function insertStatusHistory(
 		recordedAt: now,
 	};
 
-	const key = statusHistoryKey(input.childId, input.categoryId, now, id);
+	const key = statusHistoryKey(input.childId, input.categoryId, now, id, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -159,9 +165,10 @@ export async function insertStatusHistory(
 export async function findRecentStatusHistory(
 	childId: number,
 	categoryId: number,
+	tenantId: string,
 	limit = 7,
 ): Promise<StatusHistoryEntry[]> {
-	const pk = childPK(childId);
+	const pk = childPK(childId, tenantId);
 	const prefix = statusHistoryByCategoryPrefix(categoryId);
 
 	const result = await getDocClient().send(
@@ -180,10 +187,11 @@ export async function findRecentStatusHistory(
 	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as StatusHistoryEntry);
 }
 
-/** 市場ベンチマークを取得 */
+/** 市場ベンチマークを取得 (global) */
 export async function findBenchmark(
 	age: number,
 	categoryId: number,
+	_tenantId: string,
 ): Promise<MarketBenchmark | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
@@ -196,8 +204,8 @@ export async function findBenchmark(
 	return stripKeys(result.Item) as unknown as MarketBenchmark;
 }
 
-/** 全ベンチマークを取得 */
-export async function findAllBenchmarks(): Promise<MarketBenchmark[]> {
+/** 全ベンチマークを取得 (global) */
+export async function findAllBenchmarks(_tenantId: string): Promise<MarketBenchmark[]> {
 	const result = await getDocClient().send(
 		new ScanCommand({
 			TableName: TABLE_NAME,
@@ -212,16 +220,17 @@ export async function findAllBenchmarks(): Promise<MarketBenchmark[]> {
 	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as MarketBenchmark);
 }
 
-/** ベンチマークをupsert */
+/** ベンチマークをupsert (global) */
 export async function upsertBenchmark(
 	age: number,
 	categoryId: number,
 	mean: number,
 	stdDev: number,
 	source: string,
+	_tenantId: string,
 ): Promise<MarketBenchmark> {
 	const now = new Date().toISOString();
-	const existing = await findBenchmark(age, categoryId);
+	const existing = await findBenchmark(age, categoryId, _tenantId);
 
 	if (existing) {
 		const result = await getDocClient().send(
@@ -249,7 +258,7 @@ export async function upsertBenchmark(
 		return stripKeys(result.Attributes as Record<string, unknown>) as unknown as MarketBenchmark;
 	}
 
-	const id = await nextId(ENTITY_NAMES.marketBenchmark);
+	const id = await nextId(ENTITY_NAMES.marketBenchmark, _tenantId);
 	const benchmark: MarketBenchmark = {
 		id,
 		age,
@@ -274,11 +283,11 @@ export async function upsertBenchmark(
 }
 
 /** 子供の存在確認（年齢も取得） */
-export async function findChildById(id: number): Promise<Child | undefined> {
+export async function findChildById(id: number, tenantId: string): Promise<Child | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(id),
+			Key: childKey(id, tenantId),
 		}),
 	);
 
@@ -289,8 +298,9 @@ export async function findChildById(id: number): Promise<Child | undefined> {
 /** カテゴリ別の最終活動日を取得 */
 export async function findLastActivityDates(
 	childId: number,
+	tenantId: string,
 ): Promise<{ category: number; lastDate: string | null }[]> {
-	const pk = childPK(childId);
+	const pk = childPK(childId, tenantId);
 	const prefix = activityLogPrefix();
 
 	// Query all activity logs for this child

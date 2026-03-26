@@ -1,9 +1,11 @@
+import { requireTenantId } from '$lib/server/auth/factory';
 import { changePin } from '$lib/server/services/auth-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions } from './$types';
 
 export const actions = {
-	changePin: async ({ request }) => {
+	changePin: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 		const currentPin = form.get('currentPin')?.toString() ?? '';
 		const newPin = form.get('newPin')?.toString() ?? '';
@@ -25,7 +27,7 @@ export const actions = {
 			return fail(400, { error: '新しいPINが一致しません' });
 		}
 
-		const result = await changePin(currentPin, newPin);
+		const result = await changePin(currentPin, newPin, tenantId);
 		if ('error' in result) {
 			if (result.error === 'INVALID_CURRENT_PIN') {
 				return fail(400, { error: '現在のPINが正しくありません' });

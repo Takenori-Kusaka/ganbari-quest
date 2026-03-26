@@ -1,3 +1,4 @@
+import { requireTenantId } from '$lib/server/auth/factory';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
@@ -8,13 +9,14 @@ import type { RequestHandler } from './$types';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-export const POST: RequestHandler = async ({ params, request }) => {
+export const POST: RequestHandler = async ({ params, request, locals }) => {
+	const tenantId = requireTenantId(locals);
 	const childId = Number(params.id);
 	if (!childId || Number.isNaN(childId)) {
 		throw error(400, { message: '不正なIDです' });
 	}
 
-	const child = await findChildById(childId);
+	const child = await findChildById(childId, tenantId);
 	if (!child) {
 		throw error(404, { message: '子供が見つかりません' });
 	}
@@ -45,7 +47,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		await saveFile(storageKey, buffer, file.type);
 
 		// DB更新
-		await updateChildAvatarUrl(childId, publicUrl);
+		await updateChildAvatarUrl(childId, publicUrl, tenantId);
 	} catch (err) {
 		logger.error('[avatar] アバター保存失敗', {
 			error: err instanceof Error ? err.message : String(err),

@@ -16,8 +16,11 @@ function stripKeys<T extends Record<string, unknown>>(
 }
 
 /** 特別報酬を記録 */
-export async function insertSpecialReward(input: InsertSpecialRewardInput): Promise<SpecialReward> {
-	const id = await nextId(ENTITY_NAMES.specialReward);
+export async function insertSpecialReward(
+	input: InsertSpecialRewardInput,
+	tenantId: string,
+): Promise<SpecialReward> {
+	const id = await nextId(ENTITY_NAMES.specialReward, tenantId);
 	const now = new Date().toISOString();
 
 	const reward: SpecialReward = {
@@ -33,7 +36,7 @@ export async function insertSpecialReward(input: InsertSpecialRewardInput): Prom
 		shownAt: null,
 	};
 
-	const key = specialRewardKey(input.childId, now, id);
+	const key = specialRewardKey(input.childId, now, id, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -49,8 +52,11 @@ export async function insertSpecialReward(input: InsertSpecialRewardInput): Prom
 }
 
 /** 子供の特別報酬履歴を取得（降順） */
-export async function findSpecialRewards(childId: number): Promise<SpecialReward[]> {
-	const pk = childPK(childId);
+export async function findSpecialRewards(
+	childId: number,
+	tenantId: string,
+): Promise<SpecialReward[]> {
+	const pk = childPK(childId, tenantId);
 	const prefix = specialRewardPrefix();
 
 	const items: SpecialReward[] = [];
@@ -80,8 +86,11 @@ export async function findSpecialRewards(childId: number): Promise<SpecialReward
 }
 
 /** 子供の未表示の特別報酬を1件取得 */
-export async function findUnshownReward(childId: number): Promise<SpecialReward | undefined> {
-	const pk = childPK(childId);
+export async function findUnshownReward(
+	childId: number,
+	tenantId: string,
+): Promise<SpecialReward | undefined> {
+	const pk = childPK(childId, tenantId);
 	const prefix = specialRewardPrefix();
 
 	// Query all rewards for this child (descending), filter for unshown
@@ -106,7 +115,10 @@ export async function findUnshownReward(childId: number): Promise<SpecialReward 
 }
 
 /** 特別報酬を表示済みにする */
-export async function markRewardShown(rewardId: number): Promise<SpecialReward | undefined> {
+export async function markRewardShown(
+	rewardId: number,
+	_tenantId: string,
+): Promise<SpecialReward | undefined> {
 	// Since we don't know the PK/SK for a given rewardId, we need to scan for it
 	const result = await getDocClient().send(
 		new ScanCommand({
