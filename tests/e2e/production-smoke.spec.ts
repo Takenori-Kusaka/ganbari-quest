@@ -1,13 +1,15 @@
 // tests/e2e/production-smoke.spec.ts
 // 本番環境（ganbari-quest.com）に対するスモークテスト
-// 実行: npx playwright test --config tests/e2e/production.config.ts
-// AUTH_MODE=cognito + COGNITO_DEV_MODE=true を前提
+// 実行: npx playwright test --config playwright.production.config.ts
+// AUTH_MODE=cognito を前提
 
 import { expect, test } from '@playwright/test';
 
 type Page = import('@playwright/test').Page;
 
-const BASE_URL = 'https://ganbari-quest.com';
+const BASE_URL = process.env.E2E_BASE_URL || 'https://ganbari-quest.com';
+const TEST_EMAIL = process.env.E2E_TEST_EMAIL || 'owner@example.com';
+const TEST_PASSWORD = process.env.E2E_TEST_PASSWORD || 'Gq!Dev#Owner2026x';
 
 // ============================================================
 // ヘルパー
@@ -20,8 +22,8 @@ async function loginAsOwner(page: Page) {
 	// ログインフォームが表示されるか確認
 	const emailInput = page.getByLabel('メールアドレス');
 	if (await emailInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-		await emailInput.fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
+		await emailInput.fill(TEST_EMAIL);
+		await page.getByLabel('パスワード').fill(TEST_PASSWORD);
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await page.waitForURL(/\/admin/, { timeout: 10000 });
 	}
@@ -87,17 +89,17 @@ test.describe('本番環境 - 認証', () => {
 		await expect(page.getByLabel('パスワード')).toBeVisible();
 	});
 
-	test('ダミーユーザーでログインできる', async ({ page }) => {
+	test('テストユーザーでログインできる', async ({ page }) => {
 		await page.goto(`${BASE_URL}/auth/login`);
-		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
+		await page.getByLabel('メールアドレス').fill(TEST_EMAIL);
+		await page.getByLabel('パスワード').fill(TEST_PASSWORD);
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await expect(page).toHaveURL(/\/admin/, { timeout: 10000 });
 	});
 
 	test('不正なパスワードでログインできない', async ({ page }) => {
 		await page.goto(`${BASE_URL}/auth/login`);
-		await page.getByLabel('メールアドレス').fill('owner@example.com');
+		await page.getByLabel('メールアドレス').fill(TEST_EMAIL);
 		await page.getByLabel('パスワード').fill('wrongpassword');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await expect(page.getByText('メールアドレスまたはパスワードが正しくありません')).toBeVisible({
