@@ -1,7 +1,7 @@
 // src/lib/domain/validation/avatar.ts
 // きせかえアバター ドメイン定義
 
-export const AVATAR_CATEGORIES = ['background', 'frame', 'effect', 'sound'] as const;
+export const AVATAR_CATEGORIES = ['background', 'frame', 'effect', 'sound', 'celebration'] as const;
 export type AvatarCategory = (typeof AVATAR_CATEGORIES)[number];
 
 export const AVATAR_RARITIES = ['common', 'rare', 'epic', 'legendary'] as const;
@@ -26,6 +26,7 @@ export const CATEGORY_LABELS: Record<AvatarCategory, string> = {
 	frame: 'わく',
 	effect: 'エフェクト',
 	sound: 'きろくおん',
+	celebration: 'たっせいえんしゅつ',
 };
 
 export const CATEGORY_ICONS: Record<AvatarCategory, string> = {
@@ -33,4 +34,5 @@ export const CATEGORY_ICONS: Record<AvatarCategory, string> = {
 	frame: '🖼️',
 	effect: '✨',
 	sound: '🔔',
+	celebration: '🎆',
 };

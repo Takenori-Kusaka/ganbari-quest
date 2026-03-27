@@ -9,6 +9,8 @@ import {
 	RARITY_LABELS,
 } from '$lib/domain/validation/avatar';
 import AvatarDisplay from '$lib/ui/components/AvatarDisplay.svelte';
+import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
+import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -22,9 +24,21 @@ type ShopItem = (typeof data.items)[number];
 
 let selectedItem = $state<ShopItem | null>(null);
 let dialogOpen = $state(false);
-let activeTab = $state<AvatarCategory>('background');
+let activeTab = $state<AvatarCategory>('sound');
 
-const tabCategories: AvatarCategory[] = ['background', 'frame', 'effect', 'sound'];
+const tabGroups = [
+	{
+		label: 'たいけん',
+		icon: '🎵',
+		categories: ['sound', 'celebration'] as AvatarCategory[],
+	},
+	{
+		label: 'みため',
+		icon: '👤',
+		categories: ['background', 'frame', 'effect'] as AvatarCategory[],
+	},
+];
+let activeGroup = $state(0);
 const filteredItems = $derived(data.items.filter((i) => i.category === activeTab));
 const ownedCount = $derived(data.items.filter((i) => i.owned).length);
 
@@ -57,10 +71,19 @@ function previewSound(path: string) {
 	previewAudio.volume = 0.6;
 	previewAudio.play();
 }
+
+let celebPreview = $state<CelebrationType | null>(null);
+function previewCelebration(cssValue: string) {
+	celebPreview = null;
+	// Force re-render by toggling off then on
+	requestAnimationFrame(() => {
+		celebPreview = cssValue as CelebrationType;
+	});
+}
 </script>
 
 <svelte:head>
-	<title>きせかえショップ - がんばりクエスト</title>
+	<title>ごほうびショップ - がんばりクエスト</title>
 </svelte:head>
 
 <div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
@@ -96,16 +119,33 @@ function previewSound(path: string) {
 		</div>
 	{/if}
 
-	<!-- Category tabs -->
-	<div class="flex gap-1 mb-[var(--spacing-md)]">
-		{#each tabCategories as cat (cat)}
+	<!-- Group tabs (たいけん / みため) -->
+	<div class="flex gap-2 mb-2">
+		{#each tabGroups as group, idx (group.label)}
 			<button
 				type="button"
-				class="flex-1 px-2 py-2 rounded-[var(--radius-md)] text-sm font-bold transition-colors
-					{activeTab === cat
+				class="flex-1 px-3 py-2 rounded-t-[var(--radius-md)] text-sm font-bold transition-colors
+					{activeGroup === idx
 					? 'text-white'
-					: 'bg-white text-[var(--color-text-muted)] border border-gray-200'}"
-				style={activeTab === cat ? 'background: var(--theme-accent);' : ''}
+					: 'bg-gray-100 text-[var(--color-text-muted)]'}"
+				style={activeGroup === idx ? 'background: var(--theme-accent);' : ''}
+				onclick={() => { soundService.play('tap'); activeGroup = idx; activeTab = group.categories[0]!; }}
+			>
+				{group.icon} {group.label}
+			</button>
+		{/each}
+	</div>
+
+	<!-- Category sub-tabs -->
+	<div class="flex gap-1 mb-[var(--spacing-md)]">
+		{#each tabGroups[activeGroup]?.categories ?? [] as cat (cat)}
+			<button
+				type="button"
+				class="flex-1 px-2 py-2 rounded-[var(--radius-md)] text-xs font-bold transition-colors
+					{activeTab === cat
+					? 'bg-white shadow-sm border border-gray-200'
+					: 'bg-gray-50 text-[var(--color-text-muted)]'}"
+				style={activeTab === cat ? 'color: var(--theme-accent);' : ''}
 				onclick={() => { soundService.play('tap'); activeTab = cat; }}
 			>
 				{CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
@@ -196,6 +236,24 @@ function previewSound(path: string) {
 				>
 					🔊 ためしにきく
 				</button>
+			{/if}
+
+			<!-- Celebration preview -->
+			{#if selectedItem.category === 'celebration' && selectedItem.cssValue && (selectedItem.owned || !selectedItem.locked)}
+				<div class="flex flex-col items-center gap-2">
+					<button
+						type="button"
+						class="px-4 py-2 rounded-full text-sm font-bold bg-purple-50 text-purple-600 border border-purple-200"
+						onclick={() => previewCelebration(selectedItem!.cssValue)}
+					>
+						🎆 ためしにみる
+					</button>
+					{#if celebPreview}
+						<div class="relative w-24 h-24 flex items-center justify-center">
+							<CelebrationEffect type={celebPreview} />
+						</div>
+					{/if}
+				</div>
 			{/if}
 
 			<!-- Lock reason -->

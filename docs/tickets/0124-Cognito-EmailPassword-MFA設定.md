@@ -22,14 +22,14 @@ AWS Cognito User Pool を Email/Password + MFA（SMS/Email）で構築する。O
 
 ### ゴール
 
-- [ ] Cognito User Pool 作成（CDK）
-- [ ] Email/Password 認証の有効化
-- [ ] MFA 設定（SMS + Email OTP）
-- [ ] パスワードポリシー設定（最低8文字、大小英数字+記号）
-- [ ] メール検証フロー（サインアップ時の確認コード）
-- [ ] カスタム属性追加: `custom:tenantId`, `custom:role`
-- [ ] User Pool Client 作成（SRP 認証フロー）
-- [ ] ローカル開発用のテスト設定
+- [x] Cognito User Pool 作成（CDK）
+- [x] Email/Password 認証の有効化
+- [x] MFA 設定（SMS + Email OTP）
+- [x] パスワードポリシー設定（最低8文字、大小英数字+記号）
+- [x] メール検証フロー（サインアップ時の確認コード）
+- [x] カスタム属性追加: `custom:tenantId`, `custom:role`
+- [x] User Pool Client 作成（SRP 認証フロー）
+- [x] ローカル開発用のテスト設定
 
 ### 設計
 
@@ -88,4 +88,4 @@ const userPool = new cognito.UserPool(this, 'GanbariQuestUserPool', {
 
 ### 成果・結果
 
-成果: CDK AuthStack構築済み、Email/Password+MFA対応、JWT検証実装済み
+Cognito User Pool をEmail/Password+MFA対応に更新。CDK cross-stack exportをSSMパラメータに切替。コミット: 31fad05, 5700377

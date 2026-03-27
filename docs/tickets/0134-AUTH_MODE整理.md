@@ -126,16 +126,16 @@ class LocalAuthProvider implements AuthProvider {
 
 ### ゴール
 
-- [ ] AUTH_MODE 環境変数の導入（デフォルト: local）
-- [ ] AuthProvider インターフェース実装
-- [ ] LocalAuthProvider 実装（認証なし、全ルート許可）
-- [ ] CognitoAuthProvider スケルトン実装
-- [ ] hooks.server.ts を Provider 委譲に書き換え
-- [ ] PIN 認証の廃止（auth-service.ts のPIN関連ロジック削除）
-- [ ] /login → /auth/login へのルート移行
-- [ ] app.d.ts の Locals 拡張（identity, context）
-- [ ] 既存テスト全通過の確認
-- [ ] NUC デプロイで local モード動作確認
+- [x] AUTH_MODE 環境変数の導入（デフォルト: local）
+- [x] AuthProvider インターフェース実装
+- [x] LocalAuthProvider 実装（認証なし、全ルート許可）
+- [x] CognitoAuthProvider スケルトン実装
+- [x] hooks.server.ts を Provider 委譲に書き換え
+- [x] PIN 認証の廃止（auth-service.ts のPIN関連ロジック削除）
+- [x] /login → /auth/login へのルート移行
+- [x] app.d.ts の Locals 拡張（identity, context）
+- [x] 既存テスト全通過の確認
+- [x] NUC デプロイで local モード動作確認
 
 ### 完了条件
 
@@ -144,3 +144,9 @@ class LocalAuthProvider implements AuthProvider {
 3. PIN 認証のコードが完全に削除されている
 4. 既存の E2E テストが全通過する
 5. hooks.server.ts が AuthProvider 経由で認証を処理する
+
+---
+
+### 成果・結果
+
+- AUTH_MODE整理 — PIN廃止・viewer/device削除・型統一。コミット: 4e265f1

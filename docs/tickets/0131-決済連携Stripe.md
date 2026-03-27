@@ -77,20 +77,20 @@ Stripe Japan を使用して、ライセンスキーの購入（一括/サブス
 
 ### ゴール
 
-- [ ] Stripe アカウント設定（Stripe Japan）
-- [ ] 料金プラン（Product + Price）作成
-- [ ] 料金プランページ UI（/pricing）
-- [ ] Checkout Session 作成 API（POST /api/stripe/checkout）
-- [ ] Webhook エンドポイント（POST /api/stripe/webhook）
-- [ ] Webhook 署名検証
-- [ ] ライセンスキー生成ロジック
-- [ ] ライセンスキーメール送信（SES）
-- [ ] サブスク更新処理（invoice.paid）
-- [ ] 課金失敗処理（invoice.payment_failed）
-- [ ] Stripe Customer Portal 連携
-- [ ] コンビニ決済・PayPay の有効化設定
-- [ ] ユニットテスト（Webhook 処理）
-- [ ] Stripe CLI を使ったローカルテスト
+- [x] Stripe アカウント設定（Stripe Japan）
+- [x] 料金プラン（Product + Price）作成
+- [x] 料金プランページ UI（/pricing）
+- [x] Checkout Session 作成 API（POST /api/stripe/checkout）
+- [x] Webhook エンドポイント（POST /api/stripe/webhook）
+- [x] Webhook 署名検証
+- [x] ライセンスキー生成ロジック
+- [x] ライセンスキーメール送信（SES）
+- [x] サブスク更新処理（invoice.paid）
+- [x] 課金失敗処理（invoice.payment_failed）
+- [x] Stripe Customer Portal 連携
+- [x] コンビニ決済・PayPay の有効化設定
+- [x] ユニットテスト（Webhook 処理）
+- [x] Stripe CLI を使ったローカルテスト
 
 ### 技術詳細
 
@@ -125,3 +125,9 @@ const session = await stripe.checkout.sessions.create({
 4. 課金失敗時に猶予期間 → ライセンス停止が動作する
 5. コンビニ決済 / PayPay で支払いできる
 6. Stripe Customer Portal でプラン変更・支払い情報更新ができる
+
+---
+
+### 成果・結果
+
+Stripe決済統合 -- Checkout Session・Webhook・Customer Portal + 料金ページ。コミット: e982b64, d9779b8

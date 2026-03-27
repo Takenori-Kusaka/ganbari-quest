@@ -2,12 +2,17 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
+import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
+import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
+const celebEffect = $derived(
+	(data.avatarConfig?.celebrationEffect ?? 'default') as CelebrationType,
+);
 const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
@@ -149,7 +154,9 @@ function handleCompleteClose() {
 <Dialog bind:open={completeOpen} closable={false} title="">
 	{#if completeData}
 		<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center py-[var(--spacing-md)]">
-			<span class="text-5xl animate-bounce-in">🎉</span>
+			<div class="relative w-24 h-24 flex items-center justify-center">
+				<CelebrationEffect type={celebEffect} />
+			</div>
 			<p class="text-lg font-bold">{completeData.templateName}<br />ぜんぶできたよ！</p>
 			<div class="animate-point-pop">
 				<p class="text-2xl font-bold text-[var(--color-point)]">+{completeData.pointsAwarded} ポイント！</p>

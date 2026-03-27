@@ -33,13 +33,13 @@
 
 ### ゴール
 
-- [ ] CDK AuthStack を修正: selfSignUp 有効化、Email/Password 認証を主軸に
-- [ ] Cognito Hosted UI で Email/Password サインイン表示
-- [ ] パスワードポリシー設定（8文字以上、大文字小文字数字）
-- [ ] メール検証フロー有効化（確認コード送信）
-- [ ] Google IdP は環境変数が設定済みの場合のみ有効化（現行通り）
-- [ ] Apple IdP 関連のコード・設定があれば削除
-- [ ] CDK デプロイして Cognito User Pool が更新されることを確認
+- [x] CDK AuthStack を修正: selfSignUp 有効化、Email/Password 認証を主軸に
+- [x] Cognito Hosted UI で Email/Password サインイン表示
+- [x] パスワードポリシー設定（8文字以上、大文字小文字数字）
+- [x] メール検証フロー有効化（確認コード送信）
+- [x] Google IdP は環境変数が設定済みの場合のみ有効化（現行通り）
+- [x] Apple IdP 関連のコード・設定があれば削除
+- [x] CDK デプロイして Cognito User Pool が更新されることを確認
 
 ### 対応方針
 
@@ -74,4 +74,4 @@ userVerification: {
 
 ### 成果・結果
 
-成果: #0124でCognito Email/Password認証を実装、#0137で本番切替完了
+認証方式見直し完了 — Email/Password + MFA方式に決定。実装は#0124-#0126で実施、#0137で本番切替完了
