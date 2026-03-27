@@ -181,13 +181,14 @@ export async function getActiveAvatarIds(
 	frameId: number | null;
 	effectId: number | null;
 	soundId: number | null;
+	celebrationId: number | null;
 }> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
 			Key: childKey(childId, tenantId),
 			ProjectionExpression:
-				'activeAvatarBg, activeAvatarFrame, activeAvatarEffect, activeAvatarSound',
+				'activeAvatarBg, activeAvatarFrame, activeAvatarEffect, activeAvatarSound, activeAvatarCelebration',
 		}),
 	);
 
@@ -196,6 +197,7 @@ export async function getActiveAvatarIds(
 		frameId: (result.Item?.activeAvatarFrame as number | null) ?? null,
 		effectId: (result.Item?.activeAvatarEffect as number | null) ?? null,
 		soundId: (result.Item?.activeAvatarSound as number | null) ?? null,
+		celebrationId: (result.Item?.activeAvatarCelebration as number | null) ?? null,
 	};
 }
 
@@ -211,6 +213,7 @@ export async function setActiveAvatar(
 		frame: 'activeAvatarFrame',
 		effect: 'activeAvatarEffect',
 		sound: 'activeAvatarSound',
+		celebration: 'activeAvatarCelebration',
 	};
 	const field = fieldMap[category];
 

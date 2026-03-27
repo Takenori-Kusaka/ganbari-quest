@@ -8,6 +8,8 @@ import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import BirthdayResultOverlay from '$lib/ui/components/BirthdayResultOverlay.svelte';
 import BirthdayReviewOverlay from '$lib/ui/components/BirthdayReviewOverlay.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
+import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
+import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import OmikujiOverlay from '$lib/ui/components/OmikujiOverlay.svelte';
@@ -18,6 +20,9 @@ import { tick } from 'svelte';
 
 let { data } = $props();
 
+const celebEffect = $derived(
+	(data.avatarConfig?.celebrationEffect ?? 'default') as CelebrationType,
+);
 const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
@@ -559,7 +564,9 @@ function handleBirthdayResultClose() {
 					とじる
 				</button>
 			{:else}
-				<span class="text-5xl animate-bounce-in">✅</span>
+				<div class="relative w-24 h-24 flex items-center justify-center">
+					<CelebrationEffect type={celebEffect} />
+				</div>
 				<p class="text-lg font-bold">{resultData.activityName}をきろくしたよ！</p>
 				<div class="animate-point-pop">
 					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.totalPoints)}</p>

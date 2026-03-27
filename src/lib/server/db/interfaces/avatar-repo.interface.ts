@@ -23,6 +23,7 @@ export interface IAvatarRepo {
 		frameId: number | null;
 		effectId: number | null;
 		soundId: number | null;
+		celebrationId: number | null;
 	}>;
 	setActiveAvatar(
 		childId: number,
