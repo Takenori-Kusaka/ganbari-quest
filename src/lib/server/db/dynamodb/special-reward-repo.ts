@@ -135,7 +135,7 @@ export async function markRewardShown(
 	const items = result.Items ?? [];
 	if (items.length === 0) return undefined;
 
-	const item = items[0]!;
+	const item = items[0] as Record<string, unknown>;
 	const pk = item.PK as string;
 	const sk = item.SK as string;
 	const now = new Date().toISOString();

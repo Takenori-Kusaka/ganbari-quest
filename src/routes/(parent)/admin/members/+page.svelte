@@ -51,7 +51,9 @@ async function revokeInvite(code: string) {
 async function copyLink() {
 	await navigator.clipboard.writeText(inviteLink);
 	copied = true;
-	setTimeout(() => (copied = false), 2000);
+	setTimeout(() => {
+		copied = false;
+	}, 2000);
 }
 
 const roleLabel = (role: string) => {

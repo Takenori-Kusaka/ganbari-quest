@@ -469,7 +469,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 	});
 
 	scores.sort((a, b) => b.score - a.score);
-	const best = scores[0]!;
+	const best = scores[0] as (typeof scores)[0];
 
 	// マッチしなかった場合のデフォルト
 	if (best.score === 0) {
