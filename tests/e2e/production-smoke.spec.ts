@@ -23,11 +23,29 @@ async function loginAsOwner(page: Page) {
 	// ログインフォームが表示されるか確認
 	const emailInput = page.getByLabel('メールアドレス');
 	if (await emailInput.isVisible({ timeout: 10000 }).catch(() => false)) {
-		await emailInput.fill(TEST_EMAIL);
-		await page.getByLabel('パスワード').fill(TEST_PASSWORD);
-		// ボタンがenabledになるのを待つ（Svelte 5のリアクティビティ反映待ち）
+		// Svelte 5 ハイドレーション完了を待つ（SSRされたHTMLにJSが適用されるまで）
+		await page
+			.waitForFunction(
+				() =>
+					document
+						.querySelector('button[type="submit"]')
+						?.getAttribute('class')
+						?.includes('svelte'),
+				{ timeout: 10000 },
+			)
+			.catch(() => {});
+
+		// type() で1文字ずつ入力（fill()はハイドレーション前だとbind:valueが反応しない場合がある）
+		await emailInput.click();
+		await emailInput.fill('');
+		await emailInput.type(TEST_EMAIL, { delay: 10 });
+		const passwordInput = page.getByLabel('パスワード');
+		await passwordInput.click();
+		await passwordInput.type(TEST_PASSWORD, { delay: 10 });
+
+		// ボタンがenabledになるのを待つ
 		const loginBtn = page.getByRole('button', { name: 'ログイン' });
-		await expect(loginBtn).toBeEnabled({ timeout: 5000 });
+		await expect(loginBtn).toBeEnabled({ timeout: 10000 });
 		await loginBtn.click();
 		await page.waitForURL(/\/admin/, { timeout: 30000 });
 	}
@@ -95,14 +113,8 @@ test.describe('本番環境 - 認証', () => {
 	});
 
 	test('テストユーザーでログインできる', async ({ page }) => {
-		await page.goto(`${BASE_URL}/auth/login`);
-		await page.waitForLoadState('networkidle');
-		await page.getByLabel('メールアドレス').fill(TEST_EMAIL);
-		await page.getByLabel('パスワード').fill(TEST_PASSWORD);
-		const loginBtn = page.getByRole('button', { name: 'ログイン' });
-		await expect(loginBtn).toBeEnabled({ timeout: 5000 });
-		await loginBtn.click();
-		await expect(page).toHaveURL(/\/admin/, { timeout: 30000 });
+		await loginAsOwner(page);
+		await expect(page).toHaveURL(/\/admin/, { timeout: 5000 });
 	});
 
 	test('不正なパスワードでログインできない', async ({ page }) => {
