@@ -19,7 +19,8 @@
 		"strictPropertyInitialization": false,
 		"outDir": "./cdk.out",
 		"rootDir": ".",
-		"skipLibCheck": true
+		"skipLibCheck": true,
+		"types": ["node"]
 	},
 	"include": ["bin/**/*.ts", "lib/**/*.ts"],
 	"exclude": ["node_modules", "cdk.out"]
