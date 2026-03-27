@@ -9,6 +9,8 @@ import {
 	RARITY_LABELS,
 } from '$lib/domain/validation/avatar';
 import AvatarDisplay from '$lib/ui/components/AvatarDisplay.svelte';
+import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
+import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -24,7 +26,7 @@ let selectedItem = $state<ShopItem | null>(null);
 let dialogOpen = $state(false);
 let activeTab = $state<AvatarCategory>('background');
 
-const tabCategories: AvatarCategory[] = ['background', 'frame', 'effect', 'sound'];
+const tabCategories: AvatarCategory[] = ['background', 'frame', 'effect', 'sound', 'celebration'];
 const filteredItems = $derived(data.items.filter((i) => i.category === activeTab));
 const ownedCount = $derived(data.items.filter((i) => i.owned).length);
 
@@ -56,6 +58,15 @@ function previewSound(path: string) {
 	previewAudio = new Audio(path);
 	previewAudio.volume = 0.6;
 	previewAudio.play();
+}
+
+let celebPreview = $state<CelebrationType | null>(null);
+function previewCelebration(cssValue: string) {
+	celebPreview = null;
+	// Force re-render by toggling off then on
+	requestAnimationFrame(() => {
+		celebPreview = cssValue as CelebrationType;
+	});
 }
 </script>
 
@@ -196,6 +207,24 @@ function previewSound(path: string) {
 				>
 					🔊 ためしにきく
 				</button>
+			{/if}
+
+			<!-- Celebration preview -->
+			{#if selectedItem.category === 'celebration' && selectedItem.cssValue && (selectedItem.owned || !selectedItem.locked)}
+				<div class="flex flex-col items-center gap-2">
+					<button
+						type="button"
+						class="px-4 py-2 rounded-full text-sm font-bold bg-purple-50 text-purple-600 border border-purple-200"
+						onclick={() => previewCelebration(selectedItem!.cssValue)}
+					>
+						🎆 ためしにみる
+					</button>
+					{#if celebPreview}
+						<div class="relative w-24 h-24 flex items-center justify-center">
+							<CelebrationEffect type={celebPreview} />
+						</div>
+					{/if}
+				</div>
 			{/if}
 
 			<!-- Lock reason -->
