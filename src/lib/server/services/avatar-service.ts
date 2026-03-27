@@ -41,6 +41,7 @@ export interface AvatarConfig {
 	frameCss: string;
 	effectClass: string;
 	customSoundPath: string | null;
+	celebrationEffect: string;
 }
 
 // --- ショップ一覧 ---
@@ -66,7 +67,8 @@ export async function getShopItems(
 			(item.category === 'background' && activeIds.bgId === item.id) ||
 			(item.category === 'frame' && activeIds.frameId === item.id) ||
 			(item.category === 'effect' && activeIds.effectId === item.id) ||
-			(item.category === 'sound' && activeIds.soundId === item.id);
+			(item.category === 'sound' && activeIds.soundId === item.id) ||
+			(item.category === 'celebration' && activeIds.celebrationId === item.id);
 
 		const { locked, lockReason } = checkLockStatus(item, level);
 		const canPurchase = !isOwned && !locked && item.price > 0 && balance >= item.price;
@@ -162,6 +164,7 @@ export async function getAvatarConfig(childId: number, tenantId: string): Promis
 	let frameCss = '2px solid #bdbdbd';
 	let effectClass = '';
 	let customSoundPath: string | null = null;
+	let celebrationEffect = 'default';
 
 	if (activeIds.bgId) {
 		const item = await findAvatarItemById(activeIds.bgId, tenantId);
@@ -179,8 +182,12 @@ export async function getAvatarConfig(childId: number, tenantId: string): Promis
 		const item = await findAvatarItemById(activeIds.soundId, tenantId);
 		if (item?.cssValue) customSoundPath = item.cssValue;
 	}
+	if (activeIds.celebrationId) {
+		const item = await findAvatarItemById(activeIds.celebrationId, tenantId);
+		if (item?.cssValue) celebrationEffect = item.cssValue;
+	}
 
-	return { bgCss, frameCss, effectClass, customSoundPath };
+	return { bgCss, frameCss, effectClass, customSoundPath, celebrationEffect };
 }
 
 // --- レベル/実績によるアイテム自動解放 ---
