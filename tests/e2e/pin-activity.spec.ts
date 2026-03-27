@@ -69,7 +69,8 @@ async function dismissOverlays(page: Page) {
 
 /** 右クリックで contextmenu を発火してピンメニューを開く */
 async function openPinMenu(card: import('@playwright/test').Locator) {
-	await card.click({ button: 'right' });
+	// force: true — 完了済み(disabled)カードでもピン留め操作は可能
+	await card.click({ button: 'right', force: true });
 }
 
 /** 最初の未完了（disabled でない）活動カードを取得 */
