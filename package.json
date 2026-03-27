@@ -59,7 +59,7 @@
 	"dependencies": {
 		"@ark-ui/svelte": "^5.20.0",
 		"@aws-sdk/client-cognito-identity-provider": "^3.1014.0",
-		"@aws-sdk/client-dynamodb": "^3.1011.0",
+		"@aws-sdk/client-dynamodb": "^3.1018.0",
 		"@aws-sdk/client-s3": "^3.1014.0",
 		"@aws-sdk/lib-dynamodb": "^3.1011.0",
 		"@google/generative-ai": "^0.24.1",
