@@ -70,6 +70,7 @@ export async function getActiveAvatarIds(childId: number, _tenantId: string) {
 			activeAvatarFrame: children.activeAvatarFrame,
 			activeAvatarEffect: children.activeAvatarEffect,
 			activeAvatarSound: children.activeAvatarSound,
+			activeAvatarCelebration: children.activeAvatarCelebration,
 		})
 		.from(children)
 		.where(eq(children.id, childId))
@@ -79,6 +80,7 @@ export async function getActiveAvatarIds(childId: number, _tenantId: string) {
 		frameId: child?.activeAvatarFrame ?? null,
 		effectId: child?.activeAvatarEffect ?? null,
 		soundId: child?.activeAvatarSound ?? null,
+		celebrationId: child?.activeAvatarCelebration ?? null,
 	};
 }
 
@@ -91,12 +93,17 @@ export async function setActiveAvatar(
 ) {
 	const fieldMap: Record<
 		AvatarCategory,
-		'activeAvatarBg' | 'activeAvatarFrame' | 'activeAvatarEffect' | 'activeAvatarSound'
+		| 'activeAvatarBg'
+		| 'activeAvatarFrame'
+		| 'activeAvatarEffect'
+		| 'activeAvatarSound'
+		| 'activeAvatarCelebration'
 	> = {
 		background: 'activeAvatarBg',
 		frame: 'activeAvatarFrame',
 		effect: 'activeAvatarEffect',
 		sound: 'activeAvatarSound',
+		celebration: 'activeAvatarCelebration',
 	};
 	const field = fieldMap[category];
 	await db
