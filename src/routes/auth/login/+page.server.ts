@@ -12,6 +12,7 @@ import {
 	respondToMfaChallenge,
 } from '$lib/server/auth/providers/cognito-direct-auth';
 import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
+import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -104,7 +105,7 @@ async function handleDevLogin(
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: false,
+		secure: COOKIE_SECURE,
 		maxAge: 60 * 60,
 	});
 

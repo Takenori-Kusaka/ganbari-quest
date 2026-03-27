@@ -10,4 +10,6 @@ export interface IStorageRepo {
 	saveFile(key: string, data: Buffer, contentType: string): Promise<void>;
 	readFile(key: string): Promise<FileData | null>;
 	fileExists(key: string): Promise<boolean>;
+	deleteFile(key: string): Promise<void>;
+	listFiles(prefix: string): Promise<string[]>;
 }
