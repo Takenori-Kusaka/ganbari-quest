@@ -17,8 +17,8 @@ const fmtPts = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.r
 	<header class="sticky top-10 z-30 bg-white/80 backdrop-blur border-b border-gray-200 px-4 py-3">
 		<div class="max-w-4xl mx-auto flex items-center justify-between">
 			<div class="flex items-center gap-2">
-				<Logo variant="symbol" size={28} />
-				<h1 class="text-lg font-bold text-gray-700">がんばりクエスト 管理</h1>
+				<Logo variant="compact" />
+				<span class="text-xs font-medium text-gray-400 border border-gray-300 rounded px-1.5 py-0.5">管理</span>
 			</div>
 			<a
 				href="/demo"
