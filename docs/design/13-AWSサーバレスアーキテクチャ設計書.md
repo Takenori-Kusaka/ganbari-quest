@@ -172,21 +172,32 @@
 ## 4. デプロイパイプライン
 
 ```
-[GitHub main branch push]
+[GitHub main branch push / v*.*.* tag push]
     │
-    ├── [CI: lint + test + build]
+    ├── [test] lint + svelte-check + vitest + E2E(local) + E2E(cognito-dev) + build
     │
-    └── [Deploy]
-         ├── AWS OIDC認証
-         ├── ECR ログイン
-         ├── CDK deploy (インフラ)
-         ├── Docker build → ECR push
-         └── Lambda関数イメージ更新
+    ├── [deploy]
+    │    ├── バージョン判定（tag → semver / main → dev-<sha>）
+    │    ├── AWS OIDC認証
+    │    ├── CDK deploy Storage
+    │    ├── Docker build (ARM64) → ECR push（sha + version + latest タグ）
+    │    ├── CDK deploy all
+    │    ├── Lambda 関数イメージ更新 + wait
+    │    ├── ヘルスチェック（5回リトライ、失敗時 exit 1）
+    │    └── ロールバック（ヘルスチェック失敗時、前イメージに自動復旧）
+    │
+    ├── [e2e-production] 本番E2Eスモークテスト（Cognito認証）
+    │
+    ├── [release] ※tag push時のみ: GitHub Release自動生成（リリースノート）
+    │
+    └── [notify] Discord通知（成功/失敗、バージョン、コミット情報）
 ```
 
 - 認証: GitHub OIDC → IAM Role（長期キー不要）
 - リージョン: us-east-1
 - 並行制御: `concurrency` で同時デプロイ防止
+- バージョニング: Git tag (`v*.*.*`) でセマンティックバージョン管理、main push は dev ビルド
+- 自動更新: Dependabot（GitHub Actions + npm + infra npm の3エコシステム週次更新）
 
 ## 5. セキュリティ（WAFなし構成）
 
@@ -234,9 +245,13 @@ infra/
 └── cdk.json
 
 Dockerfile.lambda        # Lambda Web Adapter用
-.github/workflows/
-├── ci.yml               # テスト・ビルド
-└── deploy.yml           # AWS デプロイ（Storage CDK → Docker/ECR → CDK all → Lambda update）
+.github/
+├── workflows/
+│   ├── ci.yml           # テスト・ビルド（main push / PR）
+│   ├── deploy.yml       # AWS デプロイ（test → deploy → e2e → release → notify）
+│   └── pages.yml        # GitHub Pages LP デプロイ（site/ 変更時）
+├── dependabot.yml       # 依存パッケージ自動更新（Actions + npm + infra）
+└── release.yml          # リリースノートカテゴリ設定
 ```
 
 ## 8. 完了済み移行
@@ -269,3 +284,5 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 2026-03-27 | AuthStack 追加、Cognito 認証統合反映、移行計画を完了済みに更新 |
 | 2026-03-27 | OpsStack 追加（監視・アラート・コスト防衛）、ECR lifecycle 更新 |
 | 2026-03-27 | 障害対応基盤追加（CloudFrontエラーページ・Health通知・メンテナンスモード） |
+| 2026-03-27 | デプロイパイプライン改善（タグトリガー・ヘルスチェック強化・ロールバック・Release/通知・Dependabot） |
+| 2026-03-27 | GitHub Pages LP デプロイワークフロー追加 |
