@@ -1,6 +1,7 @@
 import { dev } from '$app/environment';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAuthMode } from '$lib/server/auth/factory';
+import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -31,7 +32,7 @@ export const actions: Actions = {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'lax',
-			secure: false,
+			secure: COOKIE_SECURE,
 			maxAge: 60 * 60 * 24 * 365,
 		});
 

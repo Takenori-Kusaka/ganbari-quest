@@ -13,3 +13,11 @@ export async function readFile(key: string): Promise<{ data: Buffer; contentType
 export async function fileExists(key: string): Promise<boolean> {
 	return getRepos().storage.fileExists(key);
 }
+
+export async function deleteFile(key: string): Promise<void> {
+	return getRepos().storage.deleteFile(key);
+}
+
+export async function listFiles(prefix: string): Promise<string[]> {
+	return getRepos().storage.listFiles(prefix);
+}
