@@ -7,11 +7,21 @@ import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
 const provider = getAuthProvider();
 const authMode = getAuthMode();
 
+const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
+
 export const handle: Handle = async ({ event, resolve }) => {
 	const start = Date.now();
 	const path = event.url.pathname;
 
-	// 0) レートリミット（cognito モードのみ、静的ファイル除外）
+	// 0-a) メンテナンスモード（Lambda環境変数で切替）
+	if (MAINTENANCE_MODE && path !== '/api/health') {
+		return new Response(JSON.stringify({ status: 'maintenance', message: 'メンテナンス中です' }), {
+			status: 503,
+			headers: { 'Content-Type': 'application/json', 'Retry-After': '600' },
+		});
+	}
+
+	// 0-b) レートリミット（cognito モードのみ、静的ファイル除外）
 	if (authMode === 'cognito' && !path.startsWith('/_app/') && !path.startsWith('/favicon')) {
 		const ip = event.getClientAddress();
 		const isAuthRoute = path.startsWith('/auth/');

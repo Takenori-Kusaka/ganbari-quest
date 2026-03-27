@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
@@ -6,6 +7,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import type { Construct } from 'constructs';
 
 export interface NetworkStackProps extends cdk.StackProps {
@@ -65,6 +67,9 @@ function handler(event) {
 			runtime: cloudfront.FunctionRuntime.JS_2_0,
 		});
 
+		// --- S3 Origin for error pages (served from S3 even when Lambda is down) ---
+		const s3ErrorOrigin = origins.S3BucketOrigin.withOriginAccessControl(props.assetsBucket);
+
 		// --- CloudFront Distribution ---
 		const lambdaOrigin = new origins.HttpOrigin(fnUrlDomain, {
 			protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
@@ -99,7 +104,38 @@ function handler(event) {
 						enableAcceptEncodingBrotli: true,
 					}),
 				},
+				'/error/*': {
+					origin: s3ErrorOrigin,
+					viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+					cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+				},
 			},
+			errorResponses: [
+				{
+					httpStatus: 500,
+					responsePagePath: '/error/500.html',
+					responseHttpStatus: 500,
+					ttl: cdk.Duration.seconds(30),
+				},
+				{
+					httpStatus: 502,
+					responsePagePath: '/error/502.html',
+					responseHttpStatus: 502,
+					ttl: cdk.Duration.seconds(30),
+				},
+				{
+					httpStatus: 503,
+					responsePagePath: '/error/503.html',
+					responseHttpStatus: 503,
+					ttl: cdk.Duration.seconds(60),
+				},
+				{
+					httpStatus: 504,
+					responsePagePath: '/error/504.html',
+					responseHttpStatus: 504,
+					ttl: cdk.Duration.seconds(30),
+				},
+			],
 			// Custom domain settings (applied only when domain + certificate are provided)
 			...(props.domainName && certificate
 				? {
@@ -109,6 +145,13 @@ function handler(event) {
 				: {}),
 			priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
 			httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
+		});
+
+		// --- Deploy error pages to S3 ---
+		new s3deploy.BucketDeployment(this, 'ErrorPagesDeploy', {
+			sources: [s3deploy.Source.asset(path.join(__dirname, '../error-pages'))],
+			destinationBucket: props.assetsBucket,
+			destinationKeyPrefix: 'error',
 		});
 
 		// --- Route 53 Alias Records ---
