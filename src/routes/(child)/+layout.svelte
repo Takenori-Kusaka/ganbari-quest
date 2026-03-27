@@ -11,6 +11,12 @@ let { data, children } = $props();
 
 const theme = $derived(data.child?.theme ?? 'pink');
 const uiMode = $derived(data.uiMode ?? 'kinder');
+const customSoundPath = $derived(data.avatarConfig?.customSoundPath ?? null);
+
+// きろくおん設定がデータ更新で変わったら反映
+$effect(() => {
+	soundService.setCustomRecordSound(customSoundPath);
+});
 const navItems = $derived([
 	{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
 	{ href: `/${uiMode}/history`, icon: '📋', label: 'きろく' },
@@ -27,6 +33,8 @@ onMount(() => {
 	if (config) {
 		soundService.preload(config.enabledSounds);
 	}
+	// きろくおんカスタム設定
+	soundService.setCustomRecordSound(data.avatarConfig?.customSoundPath ?? null);
 
 	// 1分間隔で自動リロード（親の変更を反映）
 	const autoReloadTimer = setInterval(() => {
