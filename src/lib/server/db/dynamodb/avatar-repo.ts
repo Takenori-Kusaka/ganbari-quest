@@ -176,12 +176,18 @@ export async function insertChildAvatarItem(
 export async function getActiveAvatarIds(
 	childId: number,
 	tenantId: string,
-): Promise<{ bgId: number | null; frameId: number | null; effectId: number | null }> {
+): Promise<{
+	bgId: number | null;
+	frameId: number | null;
+	effectId: number | null;
+	soundId: number | null;
+}> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
 			Key: childKey(childId, tenantId),
-			ProjectionExpression: 'activeAvatarBg, activeAvatarFrame, activeAvatarEffect',
+			ProjectionExpression:
+				'activeAvatarBg, activeAvatarFrame, activeAvatarEffect, activeAvatarSound',
 		}),
 	);
 
@@ -189,6 +195,7 @@ export async function getActiveAvatarIds(
 		bgId: (result.Item?.activeAvatarBg as number | null) ?? null,
 		frameId: (result.Item?.activeAvatarFrame as number | null) ?? null,
 		effectId: (result.Item?.activeAvatarEffect as number | null) ?? null,
+		soundId: (result.Item?.activeAvatarSound as number | null) ?? null,
 	};
 }
 
@@ -203,6 +210,7 @@ export async function setActiveAvatar(
 		background: 'activeAvatarBg',
 		frame: 'activeAvatarFrame',
 		effect: 'activeAvatarEffect',
+		sound: 'activeAvatarSound',
 	};
 	const field = fieldMap[category];
 

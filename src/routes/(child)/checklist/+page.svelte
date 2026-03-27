@@ -89,7 +89,7 @@ function handleCompleteClose() {
 											newlyCompleted: boolean;
 										};
 										if (d.newlyCompleted) {
-											soundService.play('record-complete');
+											soundService.playRecordComplete();
 											completeData = {
 												templateName: checklist.templateName,
 												pointsAwarded: d.pointsAwarded,

@@ -231,7 +231,12 @@ export async function getChildAchievements(
 			nextMilestone,
 			unlockedAt,
 			currentProgress: progress,
-			conditionLabel: getConditionLabel(a.conditionType, targetValue, highestUnlockedMilestone, a.category),
+			conditionLabel: getConditionLabel(
+				a.conditionType,
+				targetValue,
+				highestUnlockedMilestone,
+				a.category,
+			),
 			liveStreak: a.conditionType === 'streak_days' ? liveStreakValue : null,
 		});
 	}

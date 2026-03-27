@@ -362,7 +362,7 @@ function handleBirthdayResultClose() {
 									missionResult = d.missionComplete ?? null;
 								levelUpData = d.levelUp ?? null;
 									startCancelCountdown(d.cancelableUntil);
-									soundService.play('record-complete');
+									soundService.playRecordComplete();
 									setTimeout(() => soundService.play('point-gain'), 300);
 									resultOpen = true;
 								} else if (result.type === 'failure' && result.data && 'error' in result.data) {
@@ -562,7 +562,7 @@ function handleBirthdayResultClose() {
 						totalPoints: d.totalPoints,
 					};
 					birthdayResultOpen = true;
-					soundService.play('record-complete');
+					soundService.playRecordComplete();
 				} else {
 					birthdayOpen = false;
 					invalidateAll();
