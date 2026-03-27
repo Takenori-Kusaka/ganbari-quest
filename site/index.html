@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>がんばりクエスト — 子供の「がんばり」をRPGに変える</title>
+<meta name="description" content="がんばりクエストは、子供の日常活動をRPG風ゲーミフィケーションで動機づけする家庭内Webアプリです。レベルアップ、称号、コンボで毎日を冒険に。">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --blue-600:#3878B8;--blue-500:#5BA3E6;--blue-100:#e8f4fd;
+  --gold-500:#FFCC00;--gold-400:#FFE44D;
+  --gray-900:#1e293b;--gray-700:#334155;--gray-500:#64748b;--gray-300:#cbd5e1;--gray-100:#f1f5f9;--gray-50:#f8fafc;
+  --radius:12px;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',system-ui,sans-serif;color:var(--gray-700);line-height:1.7}
+a{color:var(--blue-600);text-decoration:none}
+a:hover{text-decoration:underline}
+img{max-width:100%;height:auto}
+
+/* Header */
+.header{background:#fff;border-bottom:1px solid var(--gray-300);padding:12px 16px;position:sticky;top:0;z-index:50}
+.header-inner{max-width:1080px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.1rem;color:var(--gray-900);text-decoration:none}
+.logo img{width:32px;height:32px}
+.header-nav{display:flex;gap:20px;align-items:center}
+.header-nav a{font-size:.9rem;color:var(--gray-500)}
+.header-nav a:hover{color:var(--gray-900)}
+.btn{display:inline-block;padding:10px 24px;border-radius:2rem;font-size:.95rem;font-weight:600;transition:all .2s;text-decoration:none}
+.btn-primary{background:linear-gradient(135deg,var(--blue-500),var(--blue-600));color:#fff;box-shadow:0 2px 8px rgba(56,120,184,.3)}
+.btn-primary:hover{box-shadow:0 4px 16px rgba(56,120,184,.4);text-decoration:none;transform:translateY(-1px)}
+.btn-outline{border:2px solid var(--blue-600);color:var(--blue-600)}
+.btn-outline:hover{background:var(--blue-100);text-decoration:none}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,var(--blue-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:80px 16px 60px;text-align:center}
+.hero h1{font-size:2.5rem;font-weight:800;color:var(--gray-900);margin-bottom:16px;line-height:1.3}
+.hero h1 span{color:var(--blue-600)}
+.hero-sub{font-size:1.15rem;color:var(--gray-500);margin-bottom:32px;max-width:600px;margin-left:auto;margin-right:auto}
+.hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
+.hero-badges{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#fff;border:1px solid var(--gray-300);border-radius:2rem;font-size:.8rem;color:var(--gray-500)}
+
+/* Section */
+.section{padding:64px 16px}
+.section-inner{max-width:1080px;margin:0 auto}
+.section-title{font-size:1.8rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:12px}
+.section-desc{text-align:center;color:var(--gray-500);margin-bottom:48px;font-size:1rem}
+.bg-white{background:#fff}
+.bg-gray{background:var(--gray-50)}
+
+/* Features */
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
+.feature-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px;transition:box-shadow .2s}
+.feature-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.feature-icon{font-size:2rem;margin-bottom:12px}
+.feature-card h3{font-size:1.1rem;font-weight:600;color:var(--gray-900);margin-bottom:8px}
+.feature-card p{font-size:.9rem;color:var(--gray-500);line-height:1.6}
+
+/* Age Modes */
+.age-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px}
+.age-card{text-align:center;background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px;transition:box-shadow .2s}
+.age-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.age-emoji{font-size:3rem;margin-bottom:12px}
+.age-card h3{font-size:1rem;font-weight:600;color:var(--gray-900);margin-bottom:4px}
+.age-range{font-size:.85rem;color:var(--blue-600);font-weight:600;margin-bottom:8px}
+.age-card p{font-size:.85rem;color:var(--gray-500)}
+
+/* Setup */
+.setup-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:32px}
+.setup-option{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:32px 24px}
+.setup-option h3{font-size:1.2rem;font-weight:600;color:var(--gray-900);margin-bottom:8px}
+.setup-label{display:inline-block;padding:4px 12px;border-radius:2rem;font-size:.75rem;font-weight:600;margin-bottom:16px}
+.label-free{background:#dcfce7;color:#166534}
+.label-paid{background:#fef3c7;color:#92400e}
+.setup-option p{font-size:.9rem;color:var(--gray-500);margin-bottom:16px}
+.setup-code{background:var(--gray-900);color:#e2e8f0;padding:16px;border-radius:8px;font-family:monospace;font-size:.85rem;overflow-x:auto;margin-bottom:16px}
+
+/* FAQ */
+.faq-list{max-width:720px;margin:0 auto}
+.faq-item{border-bottom:1px solid var(--gray-300);padding:20px 0}
+.faq-item summary{font-size:1rem;font-weight:600;color:var(--gray-900);cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.faq-item summary::before{content:"Q.";color:var(--blue-600);font-weight:700;font-size:1.1rem}
+.faq-item[open] summary{margin-bottom:12px}
+.faq-answer{font-size:.9rem;color:var(--gray-500);padding-left:28px;line-height:1.7}
+
+/* Footer */
+.footer{background:var(--gray-900);color:#94a3b8;padding:40px 16px}
+.footer-inner{max-width:1080px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:24px}
+.footer-brand h3{color:#fff;font-size:1rem;margin-bottom:8px}
+.footer-brand p{font-size:.85rem}
+.footer-links h4{color:#e2e8f0;font-size:.85rem;margin-bottom:8px}
+.footer-links a{display:block;font-size:.85rem;color:#94a3b8;margin-bottom:4px}
+.footer-links a:hover{color:#fff}
+.footer-copy{border-top:1px solid #334155;margin-top:32px;padding-top:16px;text-align:center;font-size:.75rem}
+
+@media(max-width:640px){
+  .hero h1{font-size:1.8rem}
+  .header-nav{gap:12px}
+  .header-nav a{font-size:.8rem}
+  .hero-cta{flex-direction:column;align-items:center}
+  .footer-inner{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <a href="#" class="logo">
+      <img src="favicon.svg" alt="">
+      がんばりクエスト
+    </a>
+    <nav class="header-nav">
+      <a href="#features">機能</a>
+      <a href="#age-modes">年齢対応</a>
+      <a href="#setup">はじめ方</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://ganbari-quest.com/auth/login" class="btn btn-primary">ログイン</a>
+    </nav>
+  </div>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <h1>子供の「<span>がんばり</span>」を<br>RPGに変える</h1>
+  <p class="hero-sub">
+    毎日の活動がレベルアップに。ポイント、称号、コンボで<br>
+    子供のやる気を引き出す家庭内ゲーミフィケーションアプリ
+  </p>
+  <div class="hero-cta">
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
+    <a href="https://github.com/Takenori-Kusaka/ganbari-quest" class="btn btn-outline">GitHub</a>
+  </div>
+  <div class="hero-badges">
+    <span class="badge">&#x2705; 完全無料</span>
+    <span class="badge">&#x1F512; データは家族だけのもの</span>
+    <span class="badge">&#x1F4F1; スマホ対応</span>
+    <span class="badge">&#x1F310; セルフホスト可</span>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section bg-white" id="features">
+  <div class="section-inner">
+    <h2 class="section-title">主な機能</h2>
+    <p class="section-desc">子供の成長を楽しくサポートする仕組みが揃っています</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">&#x2694;&#xFE0F;</div>
+        <h3>RPG風ゲーミフィケーション</h3>
+        <p>活動するとポイント獲得、経験値でレベルアップ。5種のステータスが成長し、称号をコレクション。毎日が冒険になります。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F525;</div>
+        <h3>コンボ&デイリーミッション</h3>
+        <p>連続日数でコンボボーナス発生。毎日のミッションで達成感。習慣化を楽しくサポートします。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4CA;</div>
+        <h3>レーダーチャート分析</h3>
+        <p>知力・体力・創造力・社会性・生活力の5軸で子供の成長を可視化。年齢別ベンチマークとの比較で「うちの子の強み」がわかります。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F3AD;</div>
+        <h3>きせかえアバター</h3>
+        <p>ポイントで背景・フレーム・エフェクトを購入してカスタマイズ。自分だけのアバターで個性を表現できます。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x2705;</div>
+        <h3>チェックリスト</h3>
+        <p>朝の準備、帰宅後のルーティンなど、忘れ物チェックリストで自立をサポート。完了でポイントも獲得。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F3AF;</div>
+        <h3>キャリアプランニング</h3>
+        <p>マンダラチャートで将来の夢を構造化（大谷翔平方式）。目標から逆算して今日の活動につなげます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Age Modes -->
+<section class="section bg-gray" id="age-modes">
+  <div class="section-inner">
+    <h2 class="section-title">年齢に合わせたUI</h2>
+    <p class="section-desc">0歳から15歳まで、成長に合わせてUIが自動変化します</p>
+    <div class="age-grid">
+      <div class="age-card">
+        <div class="age-emoji">&#x1F476;</div>
+        <h3>babyモード</h3>
+        <div class="age-range">0〜2歳</div>
+        <p>大きなアイコン、シンプルな表示。親が操作して記録するモード。</p>
+      </div>
+      <div class="age-card">
+        <div class="age-emoji">&#x1F9D2;</div>
+        <h3>kinderモード</h3>
+        <div class="age-range">3〜6歳</div>
+        <p>ひらがな表示、大きなボタン。子供自身がタップして記録できます。</p>
+      </div>
+      <div class="age-card">
+        <div class="age-emoji">&#x1F466;</div>
+        <h3>lowerモード</h3>
+        <div class="age-range">7〜9歳</div>
+        <p>漢字交じり、詳細表示。自分で活動を選んで記録。実績やコンボを楽しめます。</p>
+      </div>
+      <div class="age-card">
+        <div class="age-emoji">&#x1F9D1;</div>
+        <h3>teenモード</h3>
+        <div class="age-range">10〜15歳</div>
+        <p>フル機能。キャリアプランニング、マンダラチャート、詳細な統計情報を利用できます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Setup -->
+<section class="section bg-white" id="setup">
+  <div class="section-inner">
+    <h2 class="section-title">はじめ方</h2>
+    <p class="section-desc">2つの方法で利用できます</p>
+    <div class="setup-grid">
+      <div class="setup-option">
+        <h3>&#x2601;&#xFE0F; SaaS版（おすすめ）</h3>
+        <span class="setup-label label-free">無料</span>
+        <p>インストール不要。ブラウザからすぐに使えます。データはAWS上に安全に保存されます。</p>
+        <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で登録する</a>
+      </div>
+      <div class="setup-option">
+        <h3>&#x1F4E6; セルフホスト版</h3>
+        <span class="setup-label label-free">無料・OSS</span>
+        <p>自宅サーバーやNASで動作。データは完全にあなたの管理下に。Dockerで簡単に起動できます。</p>
+        <div class="setup-code">
+          git clone https://github.com/Takenori-Kusaka/ganbari-quest.git<br>
+          cd ganbari-quest<br>
+          docker compose up -d
+        </div>
+        <a href="https://github.com/Takenori-Kusaka/ganbari-quest" class="btn btn-outline">GitHubで詳細を見る</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section bg-gray" id="faq">
+  <div class="section-inner">
+    <h2 class="section-title">よくある質問</h2>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>本当に無料ですか？</summary>
+        <div class="faq-answer">はい。SaaS版・セルフホスト版ともに完全無料です。将来的にプレミアム機能を追加する場合がありますが、基本機能は永久無料です。</div>
+      </details>
+      <details class="faq-item">
+        <summary>子供のデータは安全ですか？</summary>
+        <div class="faq-answer">SaaS版はAWS（Amazon Web Services）上でTLS暗号化通信・AES-256暗号化保存されます。セルフホスト版はご自身の環境で完全に管理できます。第三者へのデータ販売・共有は一切行いません。</div>
+      </details>
+      <details class="faq-item">
+        <summary>何歳から使えますか？</summary>
+        <div class="faq-answer">0歳から使えます。babyモードでは親が記録し、kinderモード（3歳〜）からは子供自身が操作できます。年齢に合わせてUIが自動的に変化します。</div>
+      </details>
+      <details class="faq-item">
+        <summary>スマートフォンで使えますか？</summary>
+        <div class="faq-answer">はい。Webアプリなのでブラウザから利用できます。PWA対応なので、ホーム画面に追加すればネイティブアプリのように使えます。</div>
+      </details>
+      <details class="faq-item">
+        <summary>兄弟・姉妹で使えますか？</summary>
+        <div class="faq-answer">はい。1つの家族グループに複数の子供を登録できます。それぞれ独立したプロフィール・レベル・実績を持ちます。</div>
+      </details>
+      <details class="faq-item">
+        <summary>オープンソースですか？</summary>
+        <div class="faq-answer">はい。AGPL-3.0ライセンスで公開しています。コードの閲覧・改変・セルフホストは自由です。コントリビュートも歓迎します。</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <h3>がんばりクエスト</h3>
+      <p>子供の「がんばり」をRPGに変える<br>家庭内ゲーミフィケーションアプリ</p>
+    </div>
+    <div class="footer-links">
+      <h4>リンク</h4>
+      <a href="https://github.com/Takenori-Kusaka/ganbari-quest">GitHub</a>
+      <a href="https://github.com/sponsors/Takenori-Kusaka">Sponsor</a>
+      <a href="https://ganbari-quest.com/auth/login">ログイン</a>
+    </div>
+    <div class="footer-links">
+      <h4>法的情報</h4>
+      <a href="https://ganbari-quest.com/legal/terms">利用規約</a>
+      <a href="https://ganbari-quest.com/legal/privacy">プライバシーポリシー</a>
+      <a href="https://ganbari-quest.com/legal/sla">SLA</a>
+      <a href="https://ganbari-quest.com/legal/commerce">特定商取引法</a>
+    </div>
+  </div>
+  <div class="footer-copy">
+    <p>&copy; 2026 がんばりクエスト. All rights reserved.</p>
+  </div>
+</footer>
+
+</body>
+</html>

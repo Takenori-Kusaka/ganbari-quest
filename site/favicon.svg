@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="sg" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#5BA3E6"/>
+      <stop offset="100%" stop-color="#3878B8"/>
+    </linearGradient>
+    <linearGradient id="st" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#FFE44D"/>
+      <stop offset="100%" stop-color="#FFCC00"/>
+    </linearGradient>
+    <filter id="ds" x="-5%" y="-5%" width="115%" height="115%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  <!-- Shield -->
+  <path d="M128 18 L218 52 C220 53 222 55 222 58 L222 126 C222 180 136 228 128 238 C120 228 34 180 34 126 L34 58 C34 55 36 53 38 52 Z"
+        fill="url(#sg)" filter="url(#ds)"/>
+  <!-- Shield border -->
+  <path d="M128 18 L218 52 C220 53 222 55 222 58 L222 126 C222 180 136 228 128 238 C120 228 34 180 34 126 L34 58 C34 55 36 53 38 52 Z"
+        fill="none" stroke="#2A6BA8" stroke-width="5"/>
+  <!-- Inner highlight -->
+  <path d="M128 38 L200 64 L200 124 C200 168 140 210 128 220 C116 210 56 168 56 124 L56 64 Z"
+        fill="rgba(255,255,255,0.1)"/>
+  <!-- Star -->
+  <polygon points="128,62 144,106 192,110 155,140 166,186 128,162 90,186 101,140 64,110 112,106"
+           fill="url(#st)" stroke="#D4A800" stroke-width="2.5"/>
+  <!-- Star highlight -->
+  <polygon points="128,72 140,106 176,109 149,133 157,170 128,152 99,170 107,133 80,109 116,106"
+           fill="rgba(255,255,255,0.2)"/>
+</svg>
