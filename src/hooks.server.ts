@@ -44,6 +44,22 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// 1) 二層セッション解決
+	// デモモード: /demo 以下は認証不要、ダミーコンテキストをセット
+	if (path.startsWith('/demo')) {
+		event.locals.authenticated = false;
+		event.locals.identity = null;
+		event.locals.context = {
+			tenantId: 'demo',
+			role: 'owner',
+			licenseStatus: 'active',
+		};
+		const response = await resolve(event);
+		if (!path.startsWith('/_app/') && !path.startsWith('/favicon')) {
+			logger.request(event.request.method, path, response.status, Date.now() - start);
+		}
+		return response;
+	}
+
 	const identity = await provider.resolveIdentity(event);
 	const context = await provider.resolveContext(event, identity);
 

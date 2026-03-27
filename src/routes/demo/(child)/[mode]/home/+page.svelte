@@ -1,0 +1,216 @@
+<script lang="ts">
+import { enhance } from '$app/forms';
+import { invalidateAll } from '$app/navigation';
+import { formatPointValueWithSign } from '$lib/domain/point-display';
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
+import CategorySection from '$lib/ui/components/CategorySection.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
+
+let { data } = $props();
+
+const ps = $derived(data.pointSettings);
+const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
+
+// Build recorded counts map
+const recordedMap = $derived(
+	new Map(
+		data.todayRecorded.map((r: { activityId: number; count: number }) => [r.activityId, r.count]),
+	),
+);
+
+function getCount(activityId: number): number {
+	return recordedMap.get(activityId) ?? 0;
+}
+
+function isCompleted(activity: { id: number; dailyLimit: number | null }): boolean {
+	const limit = activity.dailyLimit ?? 1;
+	if (limit === 0) return false;
+	return getCount(activity.id) >= limit;
+}
+
+// Group activities by category
+const activitiesByCategory = $derived(
+	CATEGORY_DEFS.map((catDef) => ({
+		categoryId: catDef.id,
+		items: data.activities.filter((a: { categoryId: number }) => a.categoryId === catDef.id),
+	})).filter((g) => g.items.length > 0),
+);
+
+// Confirm dialog state
+let confirmOpen = $state(false);
+let selectedActivity = $state<{
+	id: number;
+	name: string;
+	displayName?: string;
+	icon: string;
+} | null>(null);
+let submitting = $state(false);
+
+// Result state
+let resultOpen = $state(false);
+let resultData = $state<{ activityName: string; totalPoints: number; streakDays: number } | null>(
+	null,
+);
+
+function handleActivityTap(activity: {
+	id: number;
+	name: string;
+	displayName?: string;
+	icon: string;
+}) {
+	selectedActivity = activity;
+	confirmOpen = true;
+}
+
+function handleConfirmClose() {
+	confirmOpen = false;
+	selectedActivity = null;
+}
+
+function handleResultClose() {
+	resultOpen = false;
+	resultData = null;
+}
+</script>
+
+<svelte:head>
+	<title>ホーム - がんばりクエスト デモ</title>
+</svelte:head>
+
+<div class="px-[var(--spacing-sm)] py-1">
+	<!-- Checklist shortcut -->
+	{#if data.hasChecklists}
+		<div
+			class="flex items-center justify-between w-full px-[var(--spacing-md)] py-[var(--spacing-sm)] mb-[var(--spacing-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)]"
+		>
+			<div class="flex items-center gap-[var(--spacing-sm)]">
+				<span class="text-2xl">📋</span>
+				<span class="font-bold">もちものチェック</span>
+			</div>
+			{#if data.checklistProgress}
+				<div class="flex items-center gap-[var(--spacing-xs)]">
+					{#if data.checklistProgress.allDone}
+						<span class="text-sm font-bold text-[var(--theme-accent)]">✅ かんりょう！</span>
+					{:else}
+						<span class="text-sm text-[var(--color-text-muted)]">
+							{data.checklistProgress.checkedCount}/{data.checklistProgress.totalCount}
+						</span>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- Daily missions -->
+	{#if data.dailyMissions && data.dailyMissions.missions.length > 0}
+		<div class="mb-[var(--spacing-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
+			<div class="flex items-center gap-[var(--spacing-xs)] px-[var(--spacing-md)] pt-[var(--spacing-sm)] pb-1">
+				<span class="text-lg">🎯</span>
+				<span class="font-bold text-sm">きょうのミッション</span>
+				<span class="text-xs text-[var(--color-text-muted)] ml-auto">
+					{data.dailyMissions.completedCount}/{data.dailyMissions.missions.length}
+				</span>
+			</div>
+			<div class="px-[var(--spacing-md)] pb-[var(--spacing-sm)]">
+				{#each data.dailyMissions.missions as mission (mission.id)}
+					<div class="flex items-center gap-[var(--spacing-sm)] py-1">
+						<span class="text-lg w-6 text-center">{mission.completed ? '✅' : '⬜'}</span>
+						<span class="text-lg">{mission.activityIcon}</span>
+						<span class="text-sm {mission.completed ? 'line-through text-[var(--color-text-muted)]' : 'font-bold'}">
+							{mission.activityName}
+						</span>
+					</div>
+				{/each}
+				{#if data.dailyMissions.allComplete}
+					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-[var(--theme-bg)]">
+						<span class="text-sm font-bold text-[var(--theme-accent)]">🎉 ミッションコンプリート！ {fmtPts(data.dailyMissions.bonusAwarded)}</span>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
+
+	<!-- Activity grid by category -->
+	{#each activitiesByCategory as group (group.categoryId)}
+		<CategorySection categoryId={group.categoryId} itemCount={group.items.length}>
+			{#each group.items as activity (activity.id)}
+				<ActivityCard
+					icon={activity.icon}
+					name={activity.displayName}
+					categoryId={activity.categoryId}
+					completed={isCompleted(activity)}
+					count={getCount(activity.id)}
+					isMission={activity.isMission}
+					onclick={() => handleActivityTap(activity)}
+				/>
+			{/each}
+		</CategorySection>
+	{/each}
+
+	{#if data.activities.length === 0}
+		<div class="flex flex-col items-center justify-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-[var(--spacing-md)]">📋</span>
+			<p class="text-[var(--font-md)]">かつどうがまだありません</p>
+		</div>
+	{/if}
+</div>
+
+<!-- Confirm dialog -->
+<Dialog bind:open={confirmOpen} title="きろくする？" onOpenChange={({ open }) => { if (!open) handleConfirmClose(); }}>
+	{#if selectedActivity}
+		<div class="text-center py-4">
+			<span class="text-5xl block mb-3">{selectedActivity.icon}</span>
+			<p class="text-lg font-bold mb-4">{selectedActivity.displayName ?? selectedActivity.name}</p>
+			<form
+				method="POST"
+				action="?/record"
+				use:enhance={() => {
+					submitting = true;
+					return async ({ result }) => {
+						submitting = false;
+						confirmOpen = false;
+						if (result.type === 'success' && result.data) {
+							const d = result.data as { activityName: string; totalPoints: number; streakDays: number };
+							resultData = d;
+							resultOpen = true;
+						}
+					};
+				}}
+			>
+				<input type="hidden" name="activityId" value={selectedActivity.id} />
+				<button
+					type="submit"
+					disabled={submitting}
+					class="w-full py-3 bg-[var(--theme-accent)] text-white font-bold rounded-[var(--radius-lg)] text-lg disabled:opacity-50"
+				>
+					{submitting ? 'きろくちゅう...' : 'きろくする！'}
+				</button>
+			</form>
+		</div>
+	{/if}
+</Dialog>
+
+<!-- Result dialog -->
+<Dialog bind:open={resultOpen} title="きろくしたよ！" onOpenChange={({ open }) => { if (!open) handleResultClose(); }}>
+	{#if resultData}
+		<div class="text-center py-4">
+			<p class="text-3xl font-bold text-[var(--color-point)] mb-2">
+				{fmtPts(resultData.totalPoints)}
+			</p>
+			<p class="text-sm text-[var(--color-text-muted)]">
+				{resultData.streakDays}日れんぞく！
+			</p>
+			<p class="text-xs text-amber-500 mt-3">
+				（デモモード：データは保存されません）
+			</p>
+			<button
+				type="button"
+				onclick={handleResultClose}
+				class="mt-4 w-full py-2 bg-[var(--theme-accent)] text-white font-bold rounded-[var(--radius-lg)]"
+			>
+				とじる
+			</button>
+		</div>
+	{/if}
+</Dialog>
