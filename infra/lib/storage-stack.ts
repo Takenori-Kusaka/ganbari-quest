@@ -89,8 +89,13 @@ export class StorageStack extends cdk.Stack {
 			removalPolicy: cdk.RemovalPolicy.RETAIN,
 			lifecycleRules: [
 				{
-					maxImageCount: 3,
-					description: 'Keep only 3 most recent images',
+					maxImageCount: 10,
+					description: 'Keep 10 most recent images for rollback (~2 weeks)',
+				},
+				{
+					tagStatus: ecr.TagStatus.UNTAGGED,
+					maxImageAge: cdk.Duration.days(1),
+					description: 'Delete untagged images after 1 day',
 				},
 			],
 		});

@@ -4,6 +4,7 @@ import * as cdk from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { NetworkStack } from '../lib/network-stack';
+import { OpsStack } from '../lib/ops-stack';
 import { StorageStack } from '../lib/storage-stack';
 
 const app = new cdk.App();
@@ -39,13 +40,24 @@ const compute = new ComputeStack(app, `${appName}Compute`, {
 	repository: storage.repository,
 });
 
-new NetworkStack(app, `${appName}Network`, {
+const network = new NetworkStack(app, `${appName}Network`, {
 	env,
 	description: 'CloudFront + Route53 + ACM for Ganbari Quest',
 	functionUrl: compute.functionUrl,
 	assetsBucket: storage.assetsBucket,
 	domainName,
 	certificateArn,
+});
+
+// OpsStack: 監視・アラート + コスト防衛 (deploy with -c opsEmail=you@example.com)
+const opsEmail = app.node.tryGetContext('opsEmail') as string | undefined;
+new OpsStack(app, `${appName}Ops`, {
+	env,
+	description: 'Monitoring, Alerts, Budgets, Cost Management for Ganbari Quest',
+	lambdaFn: compute.fn,
+	table: storage.table,
+	distribution: network.distribution,
+	opsEmail,
 });
 
 app.synth();

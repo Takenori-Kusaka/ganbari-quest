@@ -43,5 +43,7 @@ export const GET: RequestHandler = async () => {
 		timestamp: new Date().toISOString(),
 		version: '0.1.0',
 		dataSource: DATA_SOURCE,
+		region: process.env.AWS_REGION ?? 'local',
+		uptime: Math.floor(process.uptime()),
 	});
 };
