@@ -67,6 +67,7 @@ export class ComputeStack extends cdk.Stack {
 				COGNITO_USER_POOL_ID: cognitoUserPoolId,
 				COGNITO_CLIENT_ID: cognitoClientId,
 				CONTEXT_TOKEN_SECRET: contextTokenSecret,
+				MAINTENANCE_MODE: 'false',
 			},
 		});
 		this.fn.node.addDependency(logGroup);

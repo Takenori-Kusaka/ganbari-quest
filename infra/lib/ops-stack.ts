@@ -5,6 +5,8 @@ import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as ce from 'aws-cdk-lib/aws-ce';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as events_targets from 'aws-cdk-lib/aws-events-targets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
@@ -327,6 +329,23 @@ export class OpsStack extends cdk.Stack {
 				threshold: 1,
 			});
 		}
+
+		// ================================================================
+		// 6. AWS Health → EventBridge → SNS (AWS障害の自動通知)
+		// ================================================================
+		new events.Rule(this, 'AwsHealthAlert', {
+			ruleName: 'ganbari-quest-aws-health',
+			description: 'AWS Health: 使用中サービスの障害・計画メンテナンス通知',
+			eventPattern: {
+				source: ['aws.health'],
+				detailType: ['AWS Health Event'],
+				detail: {
+					service: ['LAMBDA', 'DYNAMODB', 'CLOUDFRONT', 'COGNITO', 'S3'],
+					eventTypeCategory: ['issue', 'scheduledChange'],
+				},
+			},
+			targets: [new events_targets.SnsTopic(opsTopic)],
+		});
 
 		// ================================================================
 		// Outputs

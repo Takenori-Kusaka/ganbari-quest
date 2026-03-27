@@ -136,6 +136,11 @@
 - モニタータイプ: DIMENSIONAL (SERVICE)
 - 通知閾値: $1以上の異常
 
+**AWS Health EventBridge:**
+- 対象サービス: LAMBDA, DYNAMODB, CLOUDFRONT, COGNITO, S3
+- イベントカテゴリ: issue（障害）, scheduledChange（計画メンテ）
+- 通知先: SNS Topic（OpsAlerts）
+
 ### 3.5 NetworkStack
 
 **CloudFront:**
@@ -145,8 +150,15 @@
 - `/_app/*`: SvelteKitの静的アセット
   - 365日キャッシュ（immutable）
   - Gzip + Brotli圧縮
+- `/error/*`: S3 エラーページ（OAC経由、Lambda障害時でもS3から配信）
+- カスタムエラーレスポンス: 500/502/503/504 → S3の子供向けエラーページ
 - Price Class: PriceClass_100（北米+欧州+アジア）
 - HTTP/2 + HTTP/3
+
+**メンテナンスモード:**
+- Lambda 環境変数 `MAINTENANCE_MODE=true` で切替
+- 全リクエスト（`/api/health` 除く）が 503 を返す
+- CloudFront が 503 → S3 メンテページ（`/error/503.html`）に差し替え
 
 **Route 53（ドメイン設定時のみ）:**
 - ホストゾーン作成
@@ -214,8 +226,9 @@ infra/
 │   ├── storage-stack.ts  # DynamoDB + S3 + ECR + AWS Backup
 │   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
 │   ├── compute-stack.ts  # Lambda + Function URL
-│   ├── network-stack.ts  # CloudFront + Route53 + ACM
-│   └── ops-stack.ts      # CloudWatch Alarms/Dashboard + Budgets + Cost Anomaly
+│   ├── network-stack.ts  # CloudFront + Route53 + ACM + S3エラーページ
+│   └── ops-stack.ts      # CloudWatch Alarms/Dashboard + Budgets + Cost Anomaly + Health通知
+├── error-pages/            # CloudFrontカスタムエラーページHTML（S3にデプロイ）
 ├── package.json
 ├── tsconfig.json
 └── cdk.json
@@ -255,3 +268,4 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 2026-02-19 | 初版作成 |
 | 2026-03-27 | AuthStack 追加、Cognito 認証統合反映、移行計画を完了済みに更新 |
 | 2026-03-27 | OpsStack 追加（監視・アラート・コスト防衛）、ECR lifecycle 更新 |
+| 2026-03-27 | 障害対応基盤追加（CloudFrontエラーページ・Health通知・メンテナンスモード） |
