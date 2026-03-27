@@ -157,7 +157,7 @@ docker compose logs backup --tail 50
 
 ### 成果・結果
 
-Docker GDriveバックアップ復旧。コミット: 0e46fcf
+Docker GDriveバックアップ復旧完了。コミット: 0e46fcf
 
 ### 残課題・次のアクション
 

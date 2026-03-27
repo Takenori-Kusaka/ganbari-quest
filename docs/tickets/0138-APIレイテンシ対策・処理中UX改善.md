@@ -98,34 +98,34 @@ Lambda コールドスタート時は SSR 自体が遅延する。
 
 #### 子供画面（kinder / baby）
 
-- [ ] 活動ボタンの `pending` 状態用 CSS アニメーションを追加（`animate-pending`）
-- [ ] kinder 画面: ボタンタップ後に「まってね！」オーバーレイ or ボタン内スピナー表示
-- [ ] baby 画面: カードタップ後にローディングインジケーター表示
-- [ ] サーバーエラー時はボタンを復帰させ `ErrorAlert` を表示（既存コンポーネント再利用）
+- [x] 活動ボタンの `pending` 状態用 CSS アニメーションを追加（`animate-pending`）
+- [x] kinder 画面: ボタンタップ後に「まってね！」オーバーレイ or ボタン内スピナー表示
+- [x] baby 画面: カードタップ後にローディングインジケーター表示
+- [x] サーバーエラー時はボタンを復帰させ `ErrorAlert` を表示（既存コンポーネント再利用）
 
 #### 共通コンポーネント
 
-- [ ] `$lib/ui/components/LoadingButton.svelte` を作成
+- [x] `$lib/ui/components/LoadingButton.svelte` を作成
   - `loading: boolean`, `loadingText?: string`, `disabled?: boolean` props
   - スピナー内蔵ボタン（子供向け・管理向け両対応）
-- [ ] `$lib/ui/components/ProgressMessage.svelte` を作成
+- [x] `$lib/ui/components/ProgressMessage.svelte` を作成
   - `messages: string[]`, `intervalMs?: number` props
   - 時間経過でメッセージを自動切替
   - タイムアウト後にコールバックを発火
 
 #### 管理画面
 
-- [ ] 活動追加・編集フォームの送信ボタンを `LoadingButton` に差し替え
-- [ ] AI活動提案ボタンを `ProgressMessage` + `LoadingButton` で置き換え
-- [ ] こども管理ページのアバター生成ボタンを `LoadingButton` に差し替え
+- [x] 活動追加・編集フォームの送信ボタンを `LoadingButton` に差し替え
+- [x] AI活動提案ボタンを `ProgressMessage` + `LoadingButton` で置き換え
+- [x] こども管理ページのアバター生成ボタンを `LoadingButton` に差し替え
 
 #### 認証画面
 
-- [ ] ログイン・サインアップフォームの送信ボタンを `LoadingButton` に統一
+- [x] ログイン・サインアップフォームの送信ボタンを `LoadingButton` に統一
 
 #### グローバル
 
-- [ ] `NavigationProgress` のバーを子供テーマ色（`--theme-accent`）で塗り、子供画面での視認性を向上
+- [x] `NavigationProgress` のバーを子供テーマ色（`--theme-accent`）で塗り、子供画面での視認性を向上
 
 ### 実装メモ
 
@@ -195,15 +195,17 @@ Lambda コールドスタート時は SSR 自体が遅延する。
 
 ### テスト観点
 
-- [ ] ユニットテスト: `ProgressMessage` のメッセージ切替ロジック（タイマーモック）
-- [ ] 操作テスト: 活動ボタンタップ後にボタンが `disabled` になることを E2E で確認
-- [ ] 操作テスト: 送信中に二重送信ができないことを E2E で確認
+- [x] ユニットテスト: `ProgressMessage` のメッセージ切替ロジック（タイマーモック）
+- [x] 操作テスト: 活動ボタンタップ後にボタンが `disabled` になることを E2E で確認
+- [x] 操作テスト: 送信中に二重送信ができないことを E2E で確認
 
 ### 作業メモ
 
 - 
 
 ### 成果・結果
+
+処理中UX改善完了 — LoadingButton/ProgressMessage + 全画面スピナー追加。コミット: 8760d90
 
 - LoadingButton / ProgressMessage 共通コンポーネント作成
 - 子供画面（kinder/baby）に即時フィードバック（スピナー＋まってね！アニメ）追加
