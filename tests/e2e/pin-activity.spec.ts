@@ -93,6 +93,9 @@ function getUnpinButton(page: Page) {
 
 test.describe
 	.serial('#0115: ピン留め機能', () => {
+		// CI 環境では serial テスト間のページ遷移 + overlay dismiss で時間がかかる
+		test.setTimeout(60_000);
+
 		test('長押し（右クリック）でピンメニューが表示される', async ({ page }) => {
 			await selectKinderChild(page);
 			await dismissOverlays(page);
