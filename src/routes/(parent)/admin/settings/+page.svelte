@@ -157,7 +157,7 @@ const previewFormatted = $derived(
 	</div>
 
 	<!-- ポイント表示設定 -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+	<div id="point-settings" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">💰 ポイント表示設定</h3>
 
 		{#if pointSuccess}
