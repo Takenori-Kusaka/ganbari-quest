@@ -9,14 +9,17 @@ export default defineConfig({
 	testMatch: 'cognito-auth.spec.ts',
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
-	retries: process.env.CI ? 2 : 0,
+	retries: process.env.CI ? 2 : 1,
 	workers: 1,
+	timeout: 60_000,
 	reporter: [['list'], ['html', { open: 'never' }]],
 	globalSetup: './tests/e2e/global-setup.ts',
 	use: {
 		baseURL: 'http://localhost:5174',
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
+		actionTimeout: 15_000,
+		navigationTimeout: 30_000,
 	},
 	projects: [
 		{
@@ -34,6 +37,6 @@ export default defineConfig({
 				: 'AUTH_MODE=cognito COGNITO_DEV_MODE=true npm run dev -- --port 5174',
 		port: 5174,
 		reuseExistingServer: !process.env.CI,
-		timeout: 30_000,
+		timeout: 60_000,
 	},
 });

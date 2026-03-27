@@ -39,14 +39,13 @@ const ROUTE_RULES: RouteRule[] = [
 		pattern: '/admin',
 		roles: ['owner', 'parent'],
 		unauthRedirect: '/auth/login',
-		forbiddenRedirect: '/child',
+		forbiddenRedirect: '/switch',
 	},
-	// 子供画面 — 全ロール
-	{
-		pattern: '/child',
-		roles: ['owner', 'parent', 'child'],
-		unauthRedirect: '/auth/login',
-	},
+	// 子供画面 — 全ロール（/switch, /kinder/*, /baby/*, /checklist/*）
+	{ pattern: '/switch', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
+	{ pattern: '/kinder', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
+	{ pattern: '/baby', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
+	{ pattern: '/checklist', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
 	// 管理 API — owner + parent
 	{
 		pattern: '/api/v1/admin',
@@ -72,7 +71,7 @@ export function authorizeCognito(
 	if (isPublicRoute(path)) {
 		// 認証済みで /auth/login にアクセスしたら適切な画面へ
 		if (path.startsWith('/auth/login') && identity && context) {
-			const redirect = context.role === 'child' ? '/child' : '/admin';
+			const redirect = context.role === 'child' ? '/switch' : '/admin';
 			return { allowed: false, redirect };
 		}
 		return { allowed: true };
@@ -105,7 +104,7 @@ export function authorizeCognito(
 	if (rule.roles.length > 0 && !rule.roles.includes(context.role)) {
 		return {
 			allowed: false,
-			redirect: rule.forbiddenRedirect ?? '/child',
+			redirect: rule.forbiddenRedirect ?? '/switch',
 			status: 403,
 		};
 	}

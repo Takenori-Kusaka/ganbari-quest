@@ -8,6 +8,7 @@ const provider = getAuthProvider();
 const authMode = getAuthMode();
 
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
+const COGNITO_DEV_MODE = process.env.COGNITO_DEV_MODE === 'true';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const start = Date.now();
@@ -21,8 +22,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		});
 	}
 
-	// 0-b) レートリミット（cognito モードのみ、静的ファイル除外）
-	if (authMode === 'cognito' && !path.startsWith('/_app/') && !path.startsWith('/favicon')) {
+	// 0-b) レートリミット（cognito 本番モードのみ、dev モードは除外）
+	if (
+		authMode === 'cognito' &&
+		!COGNITO_DEV_MODE &&
+		!path.startsWith('/_app/') &&
+		!path.startsWith('/favicon')
+	) {
 		const ip = event.getClientAddress();
 		const isAuthRoute = path.startsWith('/auth/');
 		const { allowed, remaining, resetAt } = isAuthRoute
