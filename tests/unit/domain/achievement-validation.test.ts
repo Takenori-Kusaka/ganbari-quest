@@ -11,8 +11,8 @@ import {
 } from '../../../src/lib/domain/validation/achievement';
 
 describe('CONDITION_TYPES', () => {
-	it('6種類の条件タイプが定義されている', () => {
-		expect(CONDITION_TYPES).toHaveLength(6);
+	it('10種類の条件タイプが定義されている', () => {
+		expect(CONDITION_TYPES).toHaveLength(10);
 	});
 
 	it.each([
@@ -22,6 +22,10 @@ describe('CONDITION_TYPES', () => {
 		'all_categories',
 		'level_reach',
 		'total_points',
+		'category_activities',
+		'first_combo',
+		'first_mission',
+		'first_purchase',
 	])('%s が含まれる', (type) => {
 		expect(CONDITION_TYPES).toContain(type);
 	});

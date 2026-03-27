@@ -119,6 +119,20 @@ export async function getComboPointsGranted(
 ) {
 	return getRepos().activity.getComboPointsGranted(childId, descriptionPrefix, tenantId);
 }
+export async function countActiveActivityLogsByCategory(
+	childId: number,
+	categoryId: number,
+	tenantId: string,
+) {
+	return getRepos().activity.countActiveActivityLogsByCategory(childId, categoryId, tenantId);
+}
+export async function countPointLedgerEntriesByType(
+	childId: number,
+	type: string,
+	tenantId: string,
+) {
+	return getRepos().activity.countPointLedgerEntriesByType(childId, type, tenantId);
+}
 
 // Point Ledger
 export async function insertPointLedger(input: InsertPointLedgerInput, tenantId: string) {

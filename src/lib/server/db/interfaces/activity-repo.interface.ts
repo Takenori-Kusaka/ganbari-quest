@@ -84,6 +84,16 @@ export interface IActivityRepo {
 		descriptionPrefix: string,
 		tenantId: string,
 	): Promise<number>;
+	countActiveActivityLogsByCategory(
+		childId: number,
+		categoryId: number,
+		tenantId: string,
+	): Promise<number>;
+	countPointLedgerEntriesByType(
+		childId: number,
+		type: string,
+		tenantId: string,
+	): Promise<number>;
 
 	// Point Ledger
 	insertPointLedger(input: InsertPointLedgerInput, tenantId: string): Promise<void>;

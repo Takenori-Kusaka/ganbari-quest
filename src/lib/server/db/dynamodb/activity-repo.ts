@@ -881,6 +881,51 @@ export async function getComboPointsGranted(
 	return total;
 }
 
+/** カテゴリ別の累計活動記録数（キャンセル除外） */
+export async function countActiveActivityLogsByCategory(
+	childId: number,
+	categoryId: number,
+	tenantId: string,
+): Promise<number> {
+	const items = await queryAll({
+		TableName: TABLE_NAME,
+		KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+		FilterExpression: '#cancelled = :cancelled AND categoryId = :catId',
+		ExpressionAttributeNames: { '#cancelled': 'cancelled' },
+		ExpressionAttributeValues: {
+			':pk': childPK(childId, tenantId),
+			':skPrefix': activityLogPrefix(),
+			':cancelled': 0,
+			':catId': categoryId,
+		},
+		ProjectionExpression: 'PK',
+	});
+
+	return items.length;
+}
+
+/** 指定タイプのポイント台帳エントリ数を取得 */
+export async function countPointLedgerEntriesByType(
+	childId: number,
+	type: string,
+	tenantId: string,
+): Promise<number> {
+	const items = await queryAll({
+		TableName: TABLE_NAME,
+		KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+		FilterExpression: '#type = :type',
+		ExpressionAttributeNames: { '#type': 'type' },
+		ExpressionAttributeValues: {
+			':pk': childPK(childId, tenantId),
+			':skPrefix': pointLedgerPrefix(),
+			':type': type,
+		},
+		ProjectionExpression: 'PK',
+	});
+
+	return items.length;
+}
+
 // ============================================================
 // Point Ledger
 // ============================================================

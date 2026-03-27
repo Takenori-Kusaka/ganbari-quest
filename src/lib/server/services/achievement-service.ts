@@ -8,7 +8,9 @@ import {
 } from '$lib/server/db/achievement-repo';
 import {
 	countActiveActivityLogs,
+	countActiveActivityLogsByCategory,
 	countDistinctCategories,
+	countPointLedgerEntriesByType,
 	findDistinctRecordedDates,
 	getCategoryCountsByDate,
 	insertPointLedger,
@@ -229,7 +231,7 @@ export async function getChildAchievements(
 			nextMilestone,
 			unlockedAt,
 			currentProgress: progress,
-			conditionLabel: getConditionLabel(a.conditionType, targetValue, highestUnlockedMilestone),
+			conditionLabel: getConditionLabel(a.conditionType, targetValue, highestUnlockedMilestone, a.category),
 			liveStreak: a.conditionType === 'streak_days' ? liveStreakValue : null,
 		});
 	}
@@ -283,7 +285,7 @@ function getMilestoneRarity(index: number, total: number): string {
 async function getCurrentProgress(
 	childId: number,
 	conditionType: string,
-	_category: string | null,
+	category: string | null,
 	tenantId: string,
 ): Promise<number> {
 	switch (conditionType) {
@@ -299,6 +301,17 @@ async function getCurrentProgress(
 			return await getCurrentLevel(childId, tenantId);
 		case 'total_points':
 			return await getBalance(childId, tenantId);
+		case 'category_activities': {
+			const catId = getCategoryIdFromCode(category);
+			if (catId == null) return 0;
+			return await countActiveActivityLogsByCategory(childId, catId, tenantId);
+		}
+		case 'first_combo':
+			return await countPointLedgerEntriesByType(childId, 'combo_bonus', tenantId);
+		case 'first_mission':
+			return await countPointLedgerEntriesByType(childId, 'daily_mission', tenantId);
+		case 'first_purchase':
+			return await countPointLedgerEntriesByType(childId, 'avatar_purchase', tenantId);
 		case 'milestone_event':
 			return 0;
 		default:
@@ -376,11 +389,26 @@ async function getCurrentLevel(childId: number, tenantId: string): Promise<numbe
 	return status.level;
 }
 
+/** カテゴリコードからカテゴリIDを取得 */
+function getCategoryIdFromCode(code: string | null): number | null {
+	if (!code) return null;
+	const cat = CATEGORY_DEFS.find((c) => c.code === code);
+	return cat?.id ?? null;
+}
+
+/** カテゴリコードから表示名を取得 */
+function getCategoryNameFromCode(code: string | null): string {
+	if (!code) return '';
+	const cat = CATEGORY_DEFS.find((c) => c.code === code);
+	return cat?.name ?? '';
+}
+
 /** 条件タイプと値から子供向けの説明テキストを生成 */
 function getConditionLabel(
 	conditionType: string,
 	conditionValue: number,
 	highestUnlocked: number | null,
+	category?: string | null,
 ): string {
 	const prefix = highestUnlocked != null ? 'つぎ: ' : '';
 	switch (conditionType) {
@@ -396,6 +424,16 @@ function getConditionLabel(
 			return `${prefix}レベル${conditionValue}にとうたつ`;
 		case 'total_points':
 			return `${prefix}${conditionValue}ポイントためる`;
+		case 'category_activities': {
+			const catName = getCategoryNameFromCode(category ?? null);
+			return `${prefix}${catName}を${conditionValue}かい`;
+		}
+		case 'first_combo':
+			return 'コンボボーナスをもらう';
+		case 'first_mission':
+			return 'ミッションをたっせいする';
+		case 'first_purchase':
+			return 'ショップでおかいものする';
 		case 'milestone_event':
 			return 'おやがきろくしてくれるよ';
 		default:
@@ -409,7 +447,7 @@ async function evaluateCondition(
 	childId: number,
 	conditionType: string,
 	conditionValue: number,
-	_category: string | null,
+	category: string | null,
 	tenantId: string,
 ): Promise<boolean> {
 	switch (conditionType) {
@@ -425,6 +463,17 @@ async function evaluateCondition(
 			return (await getCurrentLevel(childId, tenantId)) >= conditionValue;
 		case 'total_points':
 			return (await getBalance(childId, tenantId)) >= conditionValue;
+		case 'category_activities': {
+			const catId = getCategoryIdFromCode(category);
+			if (catId == null) return false;
+			return (await countActiveActivityLogsByCategory(childId, catId, tenantId)) >= conditionValue;
+		}
+		case 'first_combo':
+			return (await countPointLedgerEntriesByType(childId, 'combo_bonus', tenantId)) >= 1;
+		case 'first_mission':
+			return (await countPointLedgerEntriesByType(childId, 'daily_mission', tenantId)) >= 1;
+		case 'first_purchase':
+			return (await countPointLedgerEntriesByType(childId, 'avatar_purchase', tenantId)) >= 1;
 		default:
 			return false;
 	}

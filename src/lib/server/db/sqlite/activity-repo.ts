@@ -368,6 +368,41 @@ export async function getComboPointsGranted(
 	return result?.total ?? 0;
 }
 
+/** カテゴリ別の累計活動記録数（キャンセル除外） */
+export async function countActiveActivityLogsByCategory(
+	childId: number,
+	categoryId: number,
+	_tenantId: string,
+): Promise<number> {
+	const result = await db
+		.select({ total: count() })
+		.from(activityLogs)
+		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.where(
+			and(
+				eq(activityLogs.childId, childId),
+				eq(activityLogs.cancelled, 0),
+				eq(activities.categoryId, categoryId),
+			),
+		)
+		.get();
+	return result?.total ?? 0;
+}
+
+/** 指定タイプのポイント台帳エントリ数を取得 */
+export async function countPointLedgerEntriesByType(
+	childId: number,
+	type: string,
+	_tenantId: string,
+): Promise<number> {
+	const result = await db
+		.select({ total: count() })
+		.from(pointLedger)
+		.where(and(eq(pointLedger.childId, childId), eq(pointLedger.type, type)))
+		.get();
+	return result?.total ?? 0;
+}
+
 // ============================================================
 // Point Ledger
 // ============================================================
