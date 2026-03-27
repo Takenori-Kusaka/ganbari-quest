@@ -12,7 +12,6 @@ import type { Construct } from 'constructs';
 
 export interface NetworkStackProps extends cdk.StackProps {
 	functionUrl: lambda.FunctionUrl;
-	assetsBucket: s3.Bucket;
 	domainName?: string;
 	certificateArn?: string;
 }
@@ -67,8 +66,17 @@ function handler(event) {
 			runtime: cloudfront.FunctionRuntime.JS_2_0,
 		});
 
+		// --- S3 error pages bucket (Network-local to avoid cross-stack cycle) ---
+		const errorPagesBucket = new s3.Bucket(this, 'ErrorPagesBucket', {
+			bucketName: `ganbari-quest-error-pages-${this.account}`,
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+			autoDeleteObjects: true,
+			blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+			encryption: s3.BucketEncryption.S3_MANAGED,
+		});
+
 		// --- S3 Origin for error pages (served from S3 even when Lambda is down) ---
-		const s3ErrorOrigin = origins.S3BucketOrigin.withOriginAccessControl(props.assetsBucket);
+		const s3ErrorOrigin = origins.S3BucketOrigin.withOriginAccessControl(errorPagesBucket);
 
 		// --- CloudFront Distribution ---
 		const lambdaOrigin = new origins.HttpOrigin(fnUrlDomain, {
@@ -150,7 +158,7 @@ function handler(event) {
 		// --- Deploy error pages to S3 ---
 		new s3deploy.BucketDeployment(this, 'ErrorPagesDeploy', {
 			sources: [s3deploy.Source.asset(path.join(__dirname, '../error-pages'))],
-			destinationBucket: props.assetsBucket,
+			destinationBucket: errorPagesBucket,
 			destinationKeyPrefix: 'error',
 		});
 
