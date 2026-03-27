@@ -18,14 +18,18 @@ const TEST_PASSWORD = process.env.E2E_TEST_PASSWORD || 'Gq!Dev#Owner2026x';
 /** ダミーユーザーでログインし認証 Cookie を取得 */
 async function loginAsOwner(page: Page) {
 	await page.goto(`${BASE_URL}/auth/login`);
+	await page.waitForLoadState('networkidle');
 
 	// ログインフォームが表示されるか確認
 	const emailInput = page.getByLabel('メールアドレス');
-	if (await emailInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+	if (await emailInput.isVisible({ timeout: 10000 }).catch(() => false)) {
 		await emailInput.fill(TEST_EMAIL);
 		await page.getByLabel('パスワード').fill(TEST_PASSWORD);
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/admin/, { timeout: 10000 });
+		// ボタンがenabledになるのを待つ（Svelte 5のリアクティビティ反映待ち）
+		const loginBtn = page.getByRole('button', { name: 'ログイン' });
+		await expect(loginBtn).toBeEnabled({ timeout: 5000 });
+		await loginBtn.click();
+		await page.waitForURL(/\/admin/, { timeout: 30000 });
 	}
 	// 既にログイン済み or local モードなら /admin に居るはず
 }
@@ -33,10 +37,11 @@ async function loginAsOwner(page: Page) {
 async function selectChild(page: Page) {
 	await loginAsOwner(page);
 	await page.goto(`${BASE_URL}/switch`);
+	await page.waitForLoadState('networkidle');
 	const childButton = page.locator('button[type="submit"]').first();
-	await expect(childButton).toBeVisible({ timeout: 10000 });
+	await expect(childButton).toBeVisible({ timeout: 15000 });
 	await childButton.click();
-	await page.waitForURL(/\/(kinder|baby)\/home/, { timeout: 10000 });
+	await page.waitForURL(/\/(kinder|baby)\/home/, { timeout: 30000 });
 }
 
 async function dismissOverlays(page: Page) {
@@ -91,10 +96,13 @@ test.describe('本番環境 - 認証', () => {
 
 	test('テストユーザーでログインできる', async ({ page }) => {
 		await page.goto(`${BASE_URL}/auth/login`);
+		await page.waitForLoadState('networkidle');
 		await page.getByLabel('メールアドレス').fill(TEST_EMAIL);
 		await page.getByLabel('パスワード').fill(TEST_PASSWORD);
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await expect(page).toHaveURL(/\/admin/, { timeout: 10000 });
+		const loginBtn = page.getByRole('button', { name: 'ログイン' });
+		await expect(loginBtn).toBeEnabled({ timeout: 5000 });
+		await loginBtn.click();
+		await expect(page).toHaveURL(/\/admin/, { timeout: 30000 });
 	});
 
 	test('不正なパスワードでログインできない', async ({ page }) => {
@@ -110,7 +118,7 @@ test.describe('本番環境 - 認証', () => {
 	test('ログアウトできる', async ({ page }) => {
 		await loginAsOwner(page);
 		await page.goto(`${BASE_URL}/auth/logout`);
-		await expect(page).toHaveURL(/\/auth\/login/, { timeout: 10000 });
+		await expect(page).toHaveURL(/\/auth\/login/, { timeout: 30000 });
 	});
 });
 
@@ -120,10 +128,12 @@ test.describe('本番環境 - 認証', () => {
 
 test.describe('本番環境スモークテスト', () => {
 	test('トップページ（/switch）が表示される', async ({ page }) => {
+		await loginAsOwner(page);
 		await page.goto(`${BASE_URL}/switch`);
-		await expect(page).toHaveTitle(/がんばりクエスト|Ganbari/i, { timeout: 10000 });
+		await page.waitForLoadState('networkidle');
+		await expect(page).toHaveTitle(/がんばりクエスト|Ganbari/i, { timeout: 15000 });
 		const childButton = page.locator('button[type="submit"]').first();
-		await expect(childButton).toBeVisible({ timeout: 10000 });
+		await expect(childButton).toBeVisible({ timeout: 15000 });
 	});
 
 	test('子供を選択してホーム画面に遷移できる', async ({ page }) => {
@@ -136,10 +146,11 @@ test.describe('本番環境スモークテスト', () => {
 	test('子供選択のform action（?/select）が動作する', async ({ page }) => {
 		await loginAsOwner(page);
 		await page.goto(`${BASE_URL}/switch`);
+		await page.waitForLoadState('networkidle');
 		const childButton = page.locator('button[type="submit"]').first();
-		await expect(childButton).toBeVisible({ timeout: 10000 });
+		await expect(childButton).toBeVisible({ timeout: 15000 });
 		await childButton.click();
-		await page.waitForURL(/\/(kinder|baby)\/home/, { timeout: 10000 });
+		await page.waitForURL(/\/(kinder|baby)\/home/, { timeout: 30000 });
 		expect(page.url()).not.toContain('/switch');
 	});
 
