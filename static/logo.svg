@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 120" width="480" height="120">
+  <defs>
+    <linearGradient id="sg" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#5BA3E6"/>
+      <stop offset="100%" stop-color="#3878B8"/>
+    </linearGradient>
+    <linearGradient id="st" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#FFE44D"/>
+      <stop offset="100%" stop-color="#FFCC00"/>
+    </linearGradient>
+  </defs>
+  <!-- Shield symbol (scaled to fit 100x100 area, offset 10,10) -->
+  <g transform="translate(10,8) scale(0.41)">
+    <path d="M128 18 L218 52 C220 53 222 55 222 58 L222 126 C222 180 136 228 128 238 C120 228 34 180 34 126 L34 58 C34 55 36 53 38 52 Z"
+          fill="url(#sg)"/>
+    <path d="M128 18 L218 52 C220 53 222 55 222 58 L222 126 C222 180 136 228 128 238 C120 228 34 180 34 126 L34 58 C34 55 36 53 38 52 Z"
+          fill="none" stroke="#2A6BA8" stroke-width="6"/>
+    <polygon points="128,62 144,106 192,110 155,140 166,186 128,162 90,186 101,140 64,110 112,106"
+             fill="url(#st)" stroke="#D4A800" stroke-width="3"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="124" y="72" font-family="'Rounded Mplus 1c', 'Hiragino Maru Gothic Pro', 'BIZ UDPGothic', sans-serif"
+        font-size="42" font-weight="700" fill="#2D2D2D" letter-spacing="2">
+    がんばりクエスト
+  </text>
+  <!-- Subtitle -->
+  <text x="126" y="98" font-family="'Rounded Mplus 1c', 'Hiragino Maru Gothic Pro', 'BIZ UDPGothic', sans-serif"
+        font-size="14" font-weight="400" fill="#8B8B8B" letter-spacing="1">
+    こどもの がんばりを ぼうけんに
+  </text>
+</svg>

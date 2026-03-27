@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { PIN_MAX_LENGTH } from '$lib/domain/validation/auth';
+import Logo from '$lib/ui/components/Logo.svelte';
 import NumPad from '$lib/ui/components/NumPad.svelte';
 
 let { form } = $props();
@@ -33,7 +34,7 @@ function handleSubmit() {
 	</a>
 
 	<div class="login-header">
-		<div class="login-icon">👨‍👩‍👧</div>
+		<Logo variant="symbol" size={56} />
 		<h1 class="login-title">おとうさん・おかあさんの<br />ページだよ</h1>
 		<p class="login-hint">
 			ここから先はおとうさん・おかあさんに<br />
@@ -111,11 +112,6 @@ function handleSubmit() {
 	.login-header {
 		text-align: center;
 		margin-bottom: 32px;
-	}
-
-	.login-icon {
-		font-size: 3.5rem;
-		margin-bottom: 12px;
 	}
 
 	.login-title {
