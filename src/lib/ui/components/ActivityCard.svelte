@@ -1,11 +1,19 @@
 <script lang="ts">
+import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from './CompoundIcon.svelte';
+
+const ICON_SIZE_MAP: Record<CardSize, 'md' | 'lg' | 'xl'> = {
+	small: 'md',
+	medium: 'lg',
+	large: 'xl',
+};
 
 interface Props {
 	icon: string;
 	name: string;
 	categoryId: number;
+	cardSize?: CardSize;
 	completed?: boolean;
 	count?: number;
 	streakDays?: number;
@@ -20,6 +28,7 @@ let {
 	icon,
 	name,
 	categoryId,
+	cardSize = 'medium',
 	completed = false,
 	count = 0,
 	streakDays = 0,
@@ -29,6 +38,9 @@ let {
 	onclick,
 	onlongpress,
 }: Props = $props();
+
+const iconSize = $derived(ICON_SIZE_MAP[cardSize]);
+const textSize = $derived(CARD_SIZE_CSS[cardSize].textSize);
 
 const showMission = $derived(isMission && !completed);
 
@@ -101,8 +113,8 @@ function handleClick(e: Event) {
 		</div>
 	{/if}
 
-	<CompoundIcon {icon} size="lg" faded={completed} />
-	<span class="text-[10px] font-bold leading-tight text-center line-clamp-2 {completed ? 'opacity-40' : ''}">{name}</span>
+	<CompoundIcon {icon} size={iconSize} faded={completed} />
+	<span class="font-bold leading-tight text-center line-clamp-2 {completed ? 'opacity-40' : ''}" style="font-size: {textSize};">{name}</span>
 	{#if triggerHint && !completed}
 		<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{triggerHint}</span>
 	{/if}

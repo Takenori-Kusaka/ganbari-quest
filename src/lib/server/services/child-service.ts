@@ -37,6 +37,7 @@ export async function editChild(
 		theme?: string;
 		uiMode?: string;
 		birthDate?: string | null;
+		displayConfig?: string | null;
 	},
 	tenantId: string,
 ) {

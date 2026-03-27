@@ -70,6 +70,7 @@ export async function insertChild(input: InsertChildInput, tenantId: string): Pr
 		activeAvatarBg: null,
 		activeAvatarFrame: null,
 		activeAvatarEffect: null,
+		displayConfig: null,
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -129,6 +130,11 @@ export async function updateChild(
 		expressionParts.push('#birthDate = :birthDate');
 		expressionNames['#birthDate'] = 'birthDate';
 		expressionValues[':birthDate'] = input.birthDate;
+	}
+	if (input.displayConfig !== undefined) {
+		expressionParts.push('#displayConfig = :displayConfig');
+		expressionNames['#displayConfig'] = 'displayConfig';
+		expressionValues[':displayConfig'] = input.displayConfig;
 	}
 
 	try {
