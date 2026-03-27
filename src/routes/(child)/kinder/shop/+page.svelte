@@ -24,9 +24,21 @@ type ShopItem = (typeof data.items)[number];
 
 let selectedItem = $state<ShopItem | null>(null);
 let dialogOpen = $state(false);
-let activeTab = $state<AvatarCategory>('background');
+let activeTab = $state<AvatarCategory>('sound');
 
-const tabCategories: AvatarCategory[] = ['background', 'frame', 'effect', 'sound', 'celebration'];
+const tabGroups = [
+	{
+		label: 'たいけん',
+		icon: '🎵',
+		categories: ['sound', 'celebration'] as AvatarCategory[],
+	},
+	{
+		label: 'みため',
+		icon: '👤',
+		categories: ['background', 'frame', 'effect'] as AvatarCategory[],
+	},
+];
+let activeGroup = $state(0);
 const filteredItems = $derived(data.items.filter((i) => i.category === activeTab));
 const ownedCount = $derived(data.items.filter((i) => i.owned).length);
 
@@ -71,7 +83,7 @@ function previewCelebration(cssValue: string) {
 </script>
 
 <svelte:head>
-	<title>きせかえショップ - がんばりクエスト</title>
+	<title>ごほうびショップ - がんばりクエスト</title>
 </svelte:head>
 
 <div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
@@ -107,16 +119,33 @@ function previewCelebration(cssValue: string) {
 		</div>
 	{/if}
 
-	<!-- Category tabs -->
-	<div class="flex gap-1 mb-[var(--spacing-md)]">
-		{#each tabCategories as cat (cat)}
+	<!-- Group tabs (たいけん / みため) -->
+	<div class="flex gap-2 mb-2">
+		{#each tabGroups as group, idx (group.label)}
 			<button
 				type="button"
-				class="flex-1 px-2 py-2 rounded-[var(--radius-md)] text-sm font-bold transition-colors
-					{activeTab === cat
+				class="flex-1 px-3 py-2 rounded-t-[var(--radius-md)] text-sm font-bold transition-colors
+					{activeGroup === idx
 					? 'text-white'
-					: 'bg-white text-[var(--color-text-muted)] border border-gray-200'}"
-				style={activeTab === cat ? 'background: var(--theme-accent);' : ''}
+					: 'bg-gray-100 text-[var(--color-text-muted)]'}"
+				style={activeGroup === idx ? 'background: var(--theme-accent);' : ''}
+				onclick={() => { soundService.play('tap'); activeGroup = idx; activeTab = group.categories[0]!; }}
+			>
+				{group.icon} {group.label}
+			</button>
+		{/each}
+	</div>
+
+	<!-- Category sub-tabs -->
+	<div class="flex gap-1 mb-[var(--spacing-md)]">
+		{#each tabGroups[activeGroup]?.categories ?? [] as cat (cat)}
+			<button
+				type="button"
+				class="flex-1 px-2 py-2 rounded-[var(--radius-md)] text-xs font-bold transition-colors
+					{activeTab === cat
+					? 'bg-white shadow-sm border border-gray-200'
+					: 'bg-gray-50 text-[var(--color-text-muted)]'}"
+				style={activeTab === cat ? 'color: var(--theme-accent);' : ''}
 				onclick={() => { soundService.play('tap'); activeTab = cat; }}
 			>
 				{CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}

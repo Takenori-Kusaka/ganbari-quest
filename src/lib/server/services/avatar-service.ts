@@ -123,7 +123,7 @@ export async function purchaseItem(
 				childId,
 				amount: -item.price,
 				type: 'avatar_purchase',
-				description: `きせかえ「${item.name}」を購入`,
+				description: `ごほうび「${item.name}」を購入`,
 			},
 			tenantId,
 		);
