@@ -123,7 +123,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Phase 2.5: Clean up failed stacks (ROLLBACK_COMPLETE cannot be updated, must be deleted first)
+      # Phase 2.5: Clean up failed stacks and orphaned resources
       - name: Cleanup failed stacks
         continue-on-error: true
         run: |
@@ -134,6 +134,11 @@ jobs:
               aws cloudformation delete-stack --stack-name "$stack"
               aws cloudformation wait stack-delete-complete --stack-name "$stack" || true
             fi
+          done
+          # Delete orphaned Cost Anomaly Monitors (left by failed OpsStack deploys)
+          for arn in $(aws ce get-anomaly-monitors --query 'AnomalyMonitors[?contains(MonitorName,`ganbari`) || contains(MonitorName,`gq-cost`)].MonitorArn' --output text 2>/dev/null); do
+            echo "Deleting orphaned anomaly monitor: $arn"
+            aws ce delete-anomaly-monitor --monitor-arn "$arn" 2>/dev/null || true
           done
 
       # Phase 3: Deploy Compute + Network stacks (Lambda, CloudFront)
