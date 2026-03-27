@@ -1,6 +1,7 @@
 <script lang="ts">
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
@@ -23,6 +24,7 @@ const rarityLabel: Record<string, string> = {
 };
 
 function handleTap(achievement: (typeof data.achievements)[number]) {
+	soundService.play('tap');
 	selectedAchievement = achievement;
 	detailOpen = true;
 }

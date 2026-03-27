@@ -10,6 +10,7 @@ import {
 } from '$lib/domain/validation/avatar';
 import AvatarDisplay from '$lib/ui/components/AvatarDisplay.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { soundService } from '$lib/ui/sound';
 
 let { data, form } = $props();
 
@@ -41,6 +42,7 @@ const rarityBg: Record<string, string> = {
 };
 
 function handleTap(item: ShopItem) {
+	soundService.play('tap');
 	selectedItem = item;
 	dialogOpen = true;
 }
@@ -93,7 +95,7 @@ function handleTap(item: ShopItem) {
 					? 'text-white'
 					: 'bg-white text-[var(--color-text-muted)] border border-gray-200'}"
 				style={activeTab === cat ? 'background: var(--theme-accent);' : ''}
-				onclick={() => { activeTab = cat; }}
+				onclick={() => { soundService.play('tap'); activeTab = cat; }}
 			>
 				{CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
 			</button>
@@ -213,6 +215,7 @@ function handleTap(item: ShopItem) {
 						use:enhance={() => {
 							return async ({ result }) => {
 								if (result.type === 'success') {
+									soundService.play('record-complete');
 									dialogOpen = false;
 									await invalidateAll();
 								}
@@ -237,6 +240,7 @@ function handleTap(item: ShopItem) {
 					use:enhance={() => {
 						return async ({ result }) => {
 							if (result.type === 'success') {
+								soundService.play('purchase');
 								dialogOpen = false;
 								await invalidateAll();
 							}

@@ -1,5 +1,6 @@
 <script lang="ts">
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
@@ -30,6 +31,7 @@ const rarityLabel: Record<string, string> = {
 };
 
 function handleTap(title: (typeof data.titles)[number]) {
+	soundService.play('tap');
 	selectedTitle = title;
 	detailOpen = true;
 }

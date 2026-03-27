@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { playSound } from '$lib/ui/sound/play-sound';
 
 let { data } = $props();
 
@@ -35,6 +36,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 					<input type="hidden" name="childId" value={child.id} />
 					<button
 						type="submit"
+						use:playSound={'tap'}
 						class="tap-target w-full flex items-center gap-[var(--spacing-md)] p-[var(--spacing-md)]
 							rounded-[var(--radius-lg)] shadow-sm border-2 transition-shadow hover:shadow-md"
 						style="background-color: {colors.bg}; border-color: {colors.border};"

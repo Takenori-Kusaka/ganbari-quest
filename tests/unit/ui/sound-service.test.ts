@@ -7,14 +7,15 @@ import { SOUND_DEFS, SOUND_IDS, SOUND_TIER_CONFIG } from '../../../src/lib/ui/so
 // --- 定数テスト ---
 
 describe('SOUND_IDS', () => {
-	it('9種類のサウンドIDが定義されている', () => {
-		expect(SOUND_IDS).toHaveLength(9);
+	it('10種類のサウンドIDが定義されている', () => {
+		expect(SOUND_IDS).toHaveLength(10);
 	});
 
 	it.each([
 		'tap',
 		'record-complete',
 		'point-gain',
+		'purchase',
 		'achievement-unlock',
 		'level-up',
 		'error',

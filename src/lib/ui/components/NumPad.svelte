@@ -1,4 +1,6 @@
 <script lang="ts">
+import { playSound } from '$lib/ui/sound/play-sound';
+
 interface Props {
 	onInput: (digit: string) => void;
 	onDelete: () => void;
@@ -36,6 +38,7 @@ function handleKey(key: string) {
 		{#each row as key}
 			<button
 				type="button"
+				use:playSound={'tap'}
 				class="tap-target numpad-btn
 					{key === 'OK'
 						? 'numpad-btn--ok'

@@ -4,6 +4,7 @@ import CareerFieldSelector from '$lib/features/career/components/CareerFieldSele
 import CareerTimeline from '$lib/features/career/components/CareerTimeline.svelte';
 import MandalaChart from '$lib/features/career/components/MandalaChart.svelte';
 import type { CareerField, MandalaChart as MandalaChartType } from '$lib/features/career/types';
+import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
@@ -27,6 +28,7 @@ let selectedField = $derived(
 );
 
 async function handleFieldSelect(field: CareerField) {
+	soundService.play('tap');
 	selectedFieldId = field.id;
 	dreamText = `${field.name}になりたい！`;
 	mandalaChart = createEmptyMandalaChart();
@@ -62,6 +64,7 @@ async function savePlan() {
 		}
 
 		const result = await res.json();
+		soundService.play('record-complete');
 		if (result.pointsAwarded > 0) {
 			pointsMessage = `+${result.pointsAwarded}pt ゲット！`;
 			setTimeout(() => {
