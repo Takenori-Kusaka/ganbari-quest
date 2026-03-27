@@ -69,13 +69,20 @@ async function dismissOverlays(page: Page) {
 
 /** 右クリックで contextmenu を発火してピンメニューを開く */
 async function openPinMenu(card: import('@playwright/test').Locator) {
-	// force: true — 完了済み(disabled)カードでもピン留め操作は可能
-	await card.click({ button: 'right', force: true });
+	await card.click({ button: 'right' });
 }
 
 /** 最初の未完了（disabled でない）活動カードを取得 */
 function getFirstEnabledCard(page: Page) {
 	return page.locator('button.tap-target:not([disabled])').first();
+}
+
+/** 最初の未完了カードの aria-label からアクティビティ名を取得 */
+async function getFirstEnabledCardName(page: Page): Promise<string> {
+	const card = getFirstEnabledCard(page);
+	const label = await card.getAttribute('aria-label');
+	// aria-label は "たいそうした" や "たいそうした（ミッション）" の形式
+	return label?.replace(/（.*）/g, '').trim() ?? '';
 }
 
 /** ピンメニュー内の「ピンどめする」ボタン */
@@ -96,6 +103,9 @@ test.describe
 	.serial('#0115: ピン留め機能', () => {
 		// CI 環境では serial テスト間のページ遷移 + overlay dismiss で時間がかかる
 		test.setTimeout(60_000);
+
+		// テスト間で共有: ピン留め対象の活動名（未完了カードを動的に選択）
+		let pinnedActivityName = '';
 
 		test('長押し（右クリック）でピンメニューが表示される', async ({ page }) => {
 			await selectKinderChild(page);
@@ -119,8 +129,9 @@ test.describe
 			await selectKinderChild(page);
 			await dismissOverlays(page);
 
-			// 「たいそうした」をピン留め
-			const targetCard = page.getByRole('button', { name: 'たいそうした' });
+			// 未完了の活動カードを動的に選択してピン留め
+			pinnedActivityName = await getFirstEnabledCardName(page);
+			const targetCard = getFirstEnabledCard(page);
 			await expect(targetCard).toBeVisible();
 			await openPinMenu(targetCard);
 
@@ -133,23 +144,24 @@ test.describe
 			await page.waitForTimeout(1000);
 
 			// ピン留め済みカードが表示される
-			const pinnedCard = page.getByRole('button', { name: /たいそうした.*ピンどめ/ });
+			const pinnedCard = page.locator(
+				`button.tap-target[aria-label*="${pinnedActivityName}"][aria-label*="ピンどめ"]`,
+			);
 			await expect(pinnedCard).toBeVisible({ timeout: 5000 });
 		});
 
 		test('ピン留めした活動がカテゴリ先頭に表示される', async ({ page }) => {
-			// 前のテストで「たいそうした」がピン留み済み
 			await selectKinderChild(page);
 			await dismissOverlays(page);
 
-			// 「うんどう」カテゴリの最初の未完了カードがピン留め済みの「たいそうした」であること
+			// ピン留め済みカードが存在すること
 			const pinnedCard = page.locator('button.tap-target[aria-label*="ピンどめ"]').first();
+			await expect(pinnedCard).toBeVisible({ timeout: 5000 });
 			const label = await pinnedCard.getAttribute('aria-label');
-			expect(label).toContain('たいそうした');
+			expect(label).toContain(pinnedActivityName);
 		});
 
 		test('区切り線がピン留め活動と非ピン留め活動の間に表示される', async ({ page }) => {
-			// 前のテストで「たいそうした」がピン留み済み
 			await selectKinderChild(page);
 			await dismissOverlays(page);
 
@@ -162,8 +174,8 @@ test.describe
 			await selectKinderChild(page);
 			await dismissOverlays(page);
 
-			// ピン留め済み「たいそうした」を右クリック
-			const pinnedCard = page.getByRole('button', { name: /たいそうした.*ピンどめ/ });
+			// ピン留め済みカードを右クリック
+			const pinnedCard = page.locator('button.tap-target[aria-label*="ピンどめ"]').first();
 			await expect(pinnedCard).toBeVisible({ timeout: 5000 });
 			await openPinMenu(pinnedCard);
 
