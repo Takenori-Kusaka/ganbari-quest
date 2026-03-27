@@ -3,7 +3,6 @@ import * as budgets from 'aws-cdk-lib/aws-budgets';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
-import * as ce from 'aws-cdk-lib/aws-ce';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as events_targets from 'aws-cdk-lib/aws-events-targets';
@@ -313,22 +312,10 @@ export class OpsStack extends cdk.Stack {
 
 		// ================================================================
 		// 5. Cost Anomaly Detection
+		// TODO: 孤立リソース問題が解消されたら CfnAnomalyMonitor を再追加する
+		// AWS CE AnomalyMonitor は CloudFormation ロールバック後も非同期で2分以上残存し、
+		// 次のデプロイで AlreadyExists エラーを引き起こすため一時除外
 		// ================================================================
-		const monitor = new ce.CfnAnomalyMonitor(this, 'CostAnomalyMonitorV3', {
-			monitorName: `gq-anomaly-${this.account}`,
-			monitorType: 'DIMENSIONAL',
-			monitorDimension: 'SERVICE',
-		});
-
-		if (opsEmail) {
-			new ce.CfnAnomalySubscription(this, 'CostAnomalySubscription', {
-				subscriptionName: 'ganbari-quest-anomaly-alerts',
-				monitorArnList: [monitor.attrMonitorArn],
-				frequency: 'IMMEDIATE',
-				subscribers: [{ type: 'EMAIL', address: opsEmail }],
-				threshold: 1,
-			});
-		}
 
 		// ================================================================
 		// 6. AWS Health → EventBridge → SNS (AWS障害の自動通知)
