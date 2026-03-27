@@ -2951,8 +2951,7 @@ function seed() {
 	// 初期実績マスタ（マイルストーン型 + ライフイベント）
 	// ============================================================
 	const existingAchievements = db.select().from(schema.achievements).all();
-	if (existingAchievements.length === 0) {
-		const achievementsData: (typeof schema.achievements.$inferInsert)[] = [
+	const achievementsData: (typeof schema.achievements.$inferInsert)[] = [
 			// --- はじめのいっぽ（一度きり） ---
 			{
 				code: 'first_step',
@@ -3056,6 +3055,117 @@ function seed() {
 				repeatable: 1,
 				milestoneValues: JSON.stringify([100, 200, 300, 500, 1000, 5000, 10000]),
 			},
+			// --- カテゴリ別達成（繰り返し・マイルストーン） ---
+			{
+				code: 'exercise_fan',
+				name: 'うんどうがんばった',
+				description: 'うんどうのかつどうをたくさんやろう！',
+				icon: '🏃',
+				category: 'undou',
+				conditionType: 'category_activities',
+				conditionValue: 10,
+				bonusPoints: 10,
+				rarity: 'common',
+				sortOrder: 10,
+				repeatable: 1,
+				milestoneValues: JSON.stringify([10, 30, 50, 100]),
+			},
+			{
+				code: 'study_fan',
+				name: 'べんきょうがんばった',
+				description: 'べんきょうのかつどうをたくさんやろう！',
+				icon: '📚',
+				category: 'benkyou',
+				conditionType: 'category_activities',
+				conditionValue: 10,
+				bonusPoints: 10,
+				rarity: 'common',
+				sortOrder: 11,
+				repeatable: 1,
+				milestoneValues: JSON.stringify([10, 30, 50, 100]),
+			},
+			{
+				code: 'life_fan',
+				name: 'せいかつマスター',
+				description: 'せいかつのかつどうをたくさんやろう！',
+				icon: '🏠',
+				category: 'seikatsu',
+				conditionType: 'category_activities',
+				conditionValue: 10,
+				bonusPoints: 10,
+				rarity: 'common',
+				sortOrder: 12,
+				repeatable: 1,
+				milestoneValues: JSON.stringify([10, 30, 50, 100]),
+			},
+			{
+				code: 'social_fan',
+				name: 'こうりゅうのたつじん',
+				description: 'こうりゅうのかつどうをたくさんやろう！',
+				icon: '🤝',
+				category: 'kouryuu',
+				conditionType: 'category_activities',
+				conditionValue: 10,
+				bonusPoints: 10,
+				rarity: 'common',
+				sortOrder: 13,
+				repeatable: 1,
+				milestoneValues: JSON.stringify([10, 30, 50, 100]),
+			},
+			{
+				code: 'creative_fan',
+				name: 'そうぞうのてんさい',
+				description: 'そうぞうのかつどうをたくさんやろう！',
+				icon: '🎨',
+				category: 'souzou',
+				conditionType: 'category_activities',
+				conditionValue: 10,
+				bonusPoints: 10,
+				rarity: 'common',
+				sortOrder: 14,
+				repeatable: 1,
+				milestoneValues: JSON.stringify([10, 30, 50, 100]),
+			},
+			// --- 初体験系（一度きり） ---
+			{
+				code: 'first_combo',
+				name: 'はじめてのコンボ',
+				description: 'コンボボーナスをはじめてもらった！',
+				icon: '💥',
+				category: null,
+				conditionType: 'first_combo',
+				conditionValue: 1,
+				bonusPoints: 15,
+				rarity: 'common',
+				sortOrder: 20,
+				repeatable: 0,
+			},
+			{
+				code: 'first_mission',
+				name: 'はじめてのミッション',
+				description: 'ミッションをはじめてたっせいした！',
+				icon: '🎯',
+				category: null,
+				conditionType: 'first_mission',
+				conditionValue: 1,
+				bonusPoints: 15,
+				rarity: 'common',
+				sortOrder: 21,
+				repeatable: 0,
+			},
+			{
+				code: 'first_purchase',
+				name: 'はじめてのおかいもの',
+				description: 'ショップではじめておかいものした！',
+				icon: '🛒',
+				category: null,
+				conditionType: 'first_purchase',
+				conditionValue: 1,
+				bonusPoints: 15,
+				rarity: 'common',
+				sortOrder: 22,
+				repeatable: 0,
+			},
 			// --- ライフイベント（手動付与） ---
 			{
 				code: 'kindergarten_grad',
@@ -3085,12 +3195,23 @@ function seed() {
 				repeatable: 0,
 				isMilestone: 1,
 			},
-		];
+	];
 
+	if (existingAchievements.length === 0) {
 		db.insert(schema.achievements).values(achievementsData).run();
 		console.log(`  ✓ achievements: ${achievementsData.length} items (milestone-based)`);
 	} else {
-		console.log('  - achievements: already seeded');
+		// 既存DBに不足している実績を追加（マイグレーション）
+		const existingCodes = new Set(existingAchievements.map((a) => a.code));
+		const missingAchievements = achievementsData.filter((a) => !existingCodes.has(a.code));
+		if (missingAchievements.length > 0) {
+			db.insert(schema.achievements).values(missingAchievements).run();
+			console.log(
+				`  ✓ achievements: added ${missingAchievements.length} new (${missingAchievements.map((a) => a.code).join(', ')})`,
+			);
+		} else {
+			console.log('  - achievements: already seeded');
+		}
 	}
 
 	// ============================================================

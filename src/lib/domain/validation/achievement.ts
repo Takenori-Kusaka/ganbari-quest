@@ -8,6 +8,10 @@ export const CONDITION_TYPES = [
 	'all_categories',
 	'level_reach',
 	'total_points',
+	'category_activities',
+	'first_combo',
+	'first_mission',
+	'first_purchase',
 ] as const;
 export type ConditionType = (typeof CONDITION_TYPES)[number];
 
