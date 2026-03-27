@@ -21,6 +21,7 @@ const SQL_TABLES = `
 		active_avatar_bg INTEGER,
 		active_avatar_frame INTEGER,
 		active_avatar_effect INTEGER,
+		active_avatar_sound INTEGER,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);

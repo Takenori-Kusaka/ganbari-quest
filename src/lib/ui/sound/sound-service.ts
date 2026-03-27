@@ -92,6 +92,66 @@ export class SoundService {
 		}
 	}
 
+	/** カスタムサウンドパスを設定（記録完了音の差し替え用） */
+	private _customRecordSoundPath: string | null = null;
+	private _customRecordBuffer: AudioBuffer | null = null;
+
+	setCustomRecordSound(path: string | null): void {
+		if (this._customRecordSoundPath === path) return;
+		this._customRecordSoundPath = path;
+		this._customRecordBuffer = null;
+		if (path) {
+			this.loadCustomSound(path);
+		}
+	}
+
+	private async loadCustomSound(path: string): Promise<void> {
+		this.ensureContext();
+		if (!this.context) return;
+		try {
+			const response = await fetch(path);
+			if (!response.ok) return;
+			const arrayBuffer = await response.arrayBuffer();
+			const audioBuffer = await this.context.decodeAudioData(arrayBuffer);
+			if (this._customRecordSoundPath === path) {
+				this._customRecordBuffer = audioBuffer;
+			}
+		} catch {
+			// Load failed — will fall back to default sound
+		}
+	}
+
+	/** 記録完了音を再生（カスタム設定があればそちら優先） */
+	playRecordComplete(): void {
+		if (this._muted) return;
+		if (!this.context || !this.gainNode) {
+			this.ensureContext();
+			if (!this.context || !this.gainNode) return;
+		}
+
+		const buffer = this._customRecordBuffer ?? this.buffers.get('record-complete');
+		if (!buffer) {
+			this.play('record-complete');
+			return;
+		}
+
+		const ctx = this.context;
+		const gain = this.gainNode;
+
+		const doPlay = () => {
+			const source = ctx.createBufferSource();
+			source.buffer = buffer;
+			source.connect(gain);
+			source.start(0);
+		};
+
+		if (ctx.state === 'suspended') {
+			ctx.resume().then(doPlay);
+		} else {
+			doPlay();
+		}
+	}
+
 	/** 音量設定 (0.0 - 1.0) */
 	setVolume(volume: number): void {
 		this._volume = Math.max(0, Math.min(1, volume));

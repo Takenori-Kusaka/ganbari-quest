@@ -40,6 +40,7 @@ export interface AvatarConfig {
 	bgCss: string;
 	frameCss: string;
 	effectClass: string;
+	customSoundPath: string | null;
 }
 
 // --- ショップ一覧 ---
@@ -64,7 +65,8 @@ export async function getShopItems(
 		const isEquipped =
 			(item.category === 'background' && activeIds.bgId === item.id) ||
 			(item.category === 'frame' && activeIds.frameId === item.id) ||
-			(item.category === 'effect' && activeIds.effectId === item.id);
+			(item.category === 'effect' && activeIds.effectId === item.id) ||
+			(item.category === 'sound' && activeIds.soundId === item.id);
 
 		const { locked, lockReason } = checkLockStatus(item, level);
 		const canPurchase = !isOwned && !locked && item.price > 0 && balance >= item.price;
@@ -159,6 +161,7 @@ export async function getAvatarConfig(childId: number, tenantId: string): Promis
 	let bgCss = '#ffffff';
 	let frameCss = '2px solid #bdbdbd';
 	let effectClass = '';
+	let customSoundPath: string | null = null;
 
 	if (activeIds.bgId) {
 		const item = await findAvatarItemById(activeIds.bgId, tenantId);
@@ -172,8 +175,12 @@ export async function getAvatarConfig(childId: number, tenantId: string): Promis
 		const item = await findAvatarItemById(activeIds.effectId, tenantId);
 		if (item?.cssValue) effectClass = `avatar-effect-${item.cssValue}`;
 	}
+	if (activeIds.soundId) {
+		const item = await findAvatarItemById(activeIds.soundId, tenantId);
+		if (item?.cssValue) customSoundPath = item.cssValue;
+	}
 
-	return { bgCss, frameCss, effectClass };
+	return { bgCss, frameCss, effectClass, customSoundPath };
 }
 
 // --- レベル/実績によるアイテム自動解放 ---

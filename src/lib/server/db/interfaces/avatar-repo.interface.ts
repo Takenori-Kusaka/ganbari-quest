@@ -22,6 +22,7 @@ export interface IAvatarRepo {
 		bgId: number | null;
 		frameId: number | null;
 		effectId: number | null;
+		soundId: number | null;
 	}>;
 	setActiveAvatar(
 		childId: number,

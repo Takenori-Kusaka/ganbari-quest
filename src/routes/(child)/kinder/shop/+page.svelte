@@ -24,7 +24,7 @@ let selectedItem = $state<ShopItem | null>(null);
 let dialogOpen = $state(false);
 let activeTab = $state<AvatarCategory>('background');
 
-const tabCategories: AvatarCategory[] = ['background', 'frame', 'effect'];
+const tabCategories: AvatarCategory[] = ['background', 'frame', 'effect', 'sound'];
 const filteredItems = $derived(data.items.filter((i) => i.category === activeTab));
 const ownedCount = $derived(data.items.filter((i) => i.owned).length);
 
@@ -45,6 +45,17 @@ function handleTap(item: ShopItem) {
 	soundService.play('tap');
 	selectedItem = item;
 	dialogOpen = true;
+}
+
+let previewAudio: HTMLAudioElement | null = null;
+function previewSound(path: string) {
+	if (previewAudio) {
+		previewAudio.pause();
+		previewAudio = null;
+	}
+	previewAudio = new Audio(path);
+	previewAudio.volume = 0.6;
+	previewAudio.play();
 }
 </script>
 
@@ -175,6 +186,17 @@ function handleTap(item: ShopItem) {
 			<span class="text-xs font-bold px-3 py-1 rounded-full {bg} {border} border">
 				{RARITY_LABELS[selectedItem.rarity as keyof typeof RARITY_LABELS] ?? 'ふつう'}
 			</span>
+
+			<!-- Sound preview -->
+			{#if selectedItem.category === 'sound' && selectedItem.cssValue && (selectedItem.owned || !selectedItem.locked)}
+				<button
+					type="button"
+					class="px-4 py-2 rounded-full text-sm font-bold bg-blue-50 text-blue-600 border border-blue-200"
+					onclick={() => previewSound(selectedItem!.cssValue)}
+				>
+					🔊 ためしにきく
+				</button>
+			{/if}
 
 			<!-- Lock reason -->
 			{#if selectedItem.locked && !selectedItem.owned}
