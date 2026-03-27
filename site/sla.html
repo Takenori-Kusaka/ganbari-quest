@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>サービスレベル合意（SLA） - がんばりクエスト</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--blue-600:#3878B8;--gray-900:#1e293b;--gray-700:#334155;--gray-500:#64748b;--gray-300:#cbd5e1;--gray-50:#f8fafc}
+body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',system-ui,sans-serif;color:var(--gray-700);line-height:1.8;background:var(--gray-50)}
+a{color:var(--blue-600);text-decoration:none}
+a:hover{text-decoration:underline}
+.header{background:#fff;border-bottom:1px solid var(--gray-300);padding:12px 16px;position:sticky;top:0;z-index:10}
+.header-inner{max-width:800px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.logo{font-size:1rem;font-weight:700;color:var(--gray-900);text-decoration:none}
+.nav{display:flex;gap:16px}
+.nav a{font-size:.8rem;color:var(--gray-500)}
+.nav a:hover{color:var(--gray-700)}
+.main{max-width:800px;width:100%;margin:0 auto;padding:32px 16px}
+.doc{background:#fff;border-radius:12px;padding:32px 24px;border:1px solid #e2e8f0}
+.doc h1{font-size:1.5rem;font-weight:700;color:var(--gray-900);margin:0 0 8px}
+.meta{font-size:.8rem;color:#94a3b8;margin:0 0 24px}
+.intro{font-size:.9rem;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid #e2e8f0}
+.doc h2{font-size:1.1rem;font-weight:600;color:var(--gray-900);margin:32px 0 12px}
+.doc section{margin-bottom:8px}
+.doc p{font-size:.9rem;margin:8px 0}
+.doc ol,.doc ul{font-size:.9rem;padding-left:24px;margin:8px 0}
+.doc li{margin:6px 0}
+.effective{margin-top:40px;padding-top:24px;border-top:1px solid #e2e8f0;text-align:right}
+.effective p{font-size:.85rem;color:var(--gray-500);margin:4px 0}
+.footer{background:#fff;border-top:1px solid var(--gray-300);padding:16px;text-align:center}
+.footer p{font-size:.75rem;color:#94a3b8;margin:0 0 8px}
+.footer-links{display:flex;gap:16px;justify-content:center}
+.footer-links a{font-size:.75rem;color:var(--gray-500)}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <a href="index.html" class="logo">がんばりクエスト</a>
+    <nav class="nav">
+      <a href="terms.html">利用規約</a>
+      <a href="privacy.html">プライバシーポリシー</a>
+      <a href="sla.html">SLA</a>
+    </nav>
+  </div>
+</header>
+
+<main class="main">
+<article class="doc">
+  <h1>サービスレベル合意（SLA）</h1>
+  <p class="meta">最終更新日: 2026年3月27日</p>
+
+  <p class="intro">
+    本文書は、がんばりクエスト（以下「本サービス」）のサービスレベル目標を定めるものです。個人開発のサービスとして、現実的かつ誠実なコミットメントを示すことを目的としています。
+  </p>
+
+  <section>
+    <h2>第1条（適用範囲）</h2>
+    <ol>
+      <li>本SLAは、本サービスのSaaS版（https://ganbari-quest.com）に適用されます。</li>
+      <li>セルフホスト版（利用者自身の環境で動作するもの）には適用されません。</li>
+      <li>本SLAは、運営者が合理的な努力により達成を目指す目標であり、法的な保証を構成するものではありません。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>第2条（サービス可用性）</h2>
+    <ol>
+      <li>運営者は、本サービスの月間可用性 <strong>99.5%</strong> を目標とします（月間約3.6時間の計画外ダウンタイムに相当）。</li>
+      <li>以下は計画外ダウンタイムに含みません。
+        <ul>
+          <li>事前に通知された計画メンテナンス</li>
+          <li>天災・戦争等の不可抗力による停止</li>
+          <li>クラウド基盤の障害</li>
+          <li>利用者側の環境に起因する接続障害</li>
+        </ul>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>第3条（計画メンテナンス）</h2>
+    <ol>
+      <li>運営者は、本サービスの改善・保守のため、計画的なメンテナンスを実施することがあります。</li>
+      <li>計画メンテナンスは原則として以下の条件で実施します。
+        <ul>
+          <li>頻度: 月1回以内</li>
+          <li>時間帯: 日本時間 2:00〜5:00（利用の少ない深夜帯）</li>
+          <li>事前通知: 48時間前までにメールまたはアプリ内通知</li>
+        </ul>
+      </li>
+      <li>緊急のセキュリティパッチ等、事前通知なく実施する場合があります。この場合は可能な限り速やかに通知します。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>第4条（データ保護）</h2>
+    <p>運営者は、利用者のデータを保護するために以下の措置を講じています。</p>
+    <ul>
+      <li>日次の自動バックアップを実施しています。</li>
+      <li>全ての通信はTLS 1.2以上で暗号化されます。</li>
+      <li>保存データはAES-256で暗号化されます。</li>
+      <li>障害発生時の復旧目標時間は4時間以内です。</li>
+      <li>データの復旧時点目標は24時間以内（日次バックアップ間隔）です。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>第5条（障害通知）</h2>
+    <ol>
+      <li>サービス障害が発生した場合、運営者はアプリ画面上のメンテナンスページ表示および登録メールアドレスへの通知（重大障害時）により利用者にお知らせします。</li>
+      <li>障害の検知は自動監視システムにより行われ、障害発生時は速やかに対応を開始します。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>第6条（サポート対応）</h2>
+    <p>お問い合わせは<a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a>にて24時間受け付けています。初回応答は48時間以内（営業日ベース）を目標としています。対応言語は日本語です。</p>
+    <p>個人運営のため、応答が遅れる場合があります。ご理解をお願いいたします。</p>
+  </section>
+
+  <section>
+    <h2>第7条（免責事項）</h2>
+    <ol>
+      <li>本サービスは個人開発によるものであり、エンタープライズ向けサービスと同等の可用性を保証するものではありません。</li>
+      <li>本SLAに定める目標値を達成できなかった場合でも、運営者は損害賠償義務を負いません。</li>
+      <li>本SLAの内容は、サービスの改善に伴い変更される場合があります。重要な変更がある場合は事前に通知します。</li>
+    </ol>
+  </section>
+
+  <div class="effective">
+    <p>制定日: 2026年3月27日</p>
+    <p>がんばりクエスト運営者</p>
+  </div>
+</article>
+</main>
+
+<footer class="footer">
+  <p>&copy; 2026 がんばりクエスト</p>
+  <div class="footer-links">
+    <a href="index.html">トップページ</a>
+    <a href="https://ganbari-quest.com/auth/login">ログイン</a>
+  </div>
+</footer>
+
+</body>
+</html>

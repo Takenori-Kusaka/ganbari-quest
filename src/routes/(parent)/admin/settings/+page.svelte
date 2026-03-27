@@ -385,10 +385,10 @@ const previewFormatted = $derived(
 		<h3 class="text-lg font-bold text-gray-700 mb-4">ℹ️ アプリ情報</h3>
 		<ul class="space-y-3 text-sm">
 			<li>
-				<a href="/legal/terms" class="text-blue-500 hover:underline">📄 利用規約</a>
+				<a href="https://takenori-kusaka.github.io/ganbari-quest/terms.html" target="_blank" rel="noopener" class="text-blue-500 hover:underline">📄 利用規約</a>
 			</li>
 			<li>
-				<a href="/legal/privacy" class="text-blue-500 hover:underline">🔒 プライバシーポリシー</a>
+				<a href="https://takenori-kusaka.github.io/ganbari-quest/privacy.html" target="_blank" rel="noopener" class="text-blue-500 hover:underline">🔒 プライバシーポリシー</a>
 			</li>
 			<li>
 				<span class="text-gray-500">バージョン: 1.0.0</span>

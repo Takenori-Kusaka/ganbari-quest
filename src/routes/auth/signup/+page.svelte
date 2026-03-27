@@ -153,7 +153,7 @@ $effect(() => {
 							class="agreement-checkbox"
 						/>
 						<span class="agreement-text">
-							<a href="/legal/terms" target="_blank" rel="noopener">利用規約</a>および<a href="/legal/privacy" target="_blank" rel="noopener">プライバシーポリシー</a>に同意します
+							<a href="https://takenori-kusaka.github.io/ganbari-quest/terms.html" target="_blank" rel="noopener">利用規約</a>および<a href="https://takenori-kusaka.github.io/ganbari-quest/privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>に同意します
 						</span>
 					</label>
 				</div>
