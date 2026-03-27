@@ -123,9 +123,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Phase 2.5: Clean up ROLLBACK_COMPLETE stacks and orphaned resources
+      # Phase 2.5: Clean up failed stacks (ROLLBACK_COMPLETE cannot be updated, must be deleted first)
       - name: Cleanup failed stacks
-        working-directory: infra/
         continue-on-error: true
         run: |
           for stack in GanbariQuestOps GanbariQuestNetwork GanbariQuestCompute GanbariQuestAuth; do
@@ -135,10 +134,6 @@ jobs:
               aws cloudformation delete-stack --stack-name "$stack"
               aws cloudformation wait stack-delete-complete --stack-name "$stack" || true
             fi
-          done
-          # Delete orphaned Cost Anomaly Monitor if exists
-          aws ce get-anomaly-monitors --query 'AnomalyMonitors[?MonitorName==`ganbari-quest-cost-anomaly`].MonitorArn' --output text 2>/dev/null | while read arn; do
-            [ -n "$arn" ] && [ "$arn" != "None" ] && aws ce delete-anomaly-monitor --monitor-arn "$arn" && echo "Deleted orphaned anomaly monitor: $arn"
           done
 
       # Phase 3: Deploy Compute + Network stacks (Lambda, CloudFront)

@@ -314,8 +314,8 @@ export class OpsStack extends cdk.Stack {
 		// ================================================================
 		// 5. Cost Anomaly Detection
 		// ================================================================
-		const monitor = new ce.CfnAnomalyMonitor(this, 'CostAnomalyMonitor', {
-			monitorName: 'ganbari-quest-cost-anomaly',
+		const monitor = new ce.CfnAnomalyMonitor(this, 'CostAnomalyMonitorV2', {
+			monitorName: 'gq-cost-anomaly-v2',
 			monitorType: 'DIMENSIONAL',
 			monitorDimension: 'SERVICE',
 		});
