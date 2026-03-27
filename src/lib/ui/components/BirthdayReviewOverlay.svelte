@@ -1,5 +1,6 @@
 <script lang="ts">
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { soundService } from '$lib/ui/sound';
 
 interface HealthCheckItem {
 	key: string;
@@ -60,7 +61,7 @@ const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length
 			</p>
 			<button
 				class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg mt-[var(--spacing-sm)]"
-				onclick={() => { step = 'health'; }}
+				onclick={() => { soundService.play('tap'); step = 'health'; }}
 			>
 				はじめる！
 			</button>
@@ -97,13 +98,13 @@ const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length
 			<div class="flex gap-[var(--spacing-sm)] w-full mt-[var(--spacing-xs)]">
 				<button
 					class="tap-target flex-1 py-3 rounded-[var(--radius-md)] bg-gray-200 font-bold"
-					onclick={() => { step = 'intro'; }}
+					onclick={() => { soundService.play('tap'); step = 'intro'; }}
 				>
 					もどる
 				</button>
 				<button
 					class="tap-target flex-1 py-3 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold"
-					onclick={() => { step = 'aspiration'; }}
+					onclick={() => { soundService.play('tap'); step = 'aspiration'; }}
 				>
 					つぎへ
 				</button>
@@ -126,13 +127,13 @@ const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length
 			<div class="flex gap-[var(--spacing-sm)] w-full mt-[var(--spacing-xs)]">
 				<button
 					class="tap-target flex-1 py-3 rounded-[var(--radius-md)] bg-gray-200 font-bold"
-					onclick={() => { step = 'health'; }}
+					onclick={() => { soundService.play('tap'); step = 'health'; }}
 				>
 					もどる
 				</button>
 				<button
 					class="tap-target flex-1 py-3 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold"
-					onclick={() => { step = 'confirm'; }}
+					onclick={() => { soundService.play('tap'); step = 'confirm'; }}
 				>
 					かくにん
 				</button>
@@ -159,7 +160,7 @@ const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length
 			<div class="flex gap-[var(--spacing-sm)] w-full mt-[var(--spacing-xs)]">
 				<button
 					class="tap-target flex-1 py-3 rounded-[var(--radius-md)] bg-gray-200 font-bold"
-					onclick={() => { step = 'aspiration'; }}
+					onclick={() => { soundService.play('tap'); step = 'aspiration'; }}
 				>
 					もどる
 				</button>

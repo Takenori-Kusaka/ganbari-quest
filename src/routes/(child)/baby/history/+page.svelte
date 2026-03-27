@@ -2,6 +2,7 @@
 import { goto } from '$app/navigation';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import Tabs from '$lib/ui/primitives/Tabs.svelte';
+import { soundService } from '$lib/ui/sound';
 
 import { getCategoryById } from '$lib/domain/validation/activity';
 
@@ -18,6 +19,7 @@ const tabItems = [
 ];
 
 function handleTabChange(details: { value: string }) {
+	soundService.play('tap');
 	goto(`?period=${details.value}`, { replaceState: true, keepFocus: true });
 }
 

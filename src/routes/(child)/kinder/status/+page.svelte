@@ -4,6 +4,7 @@ import { getComparisonLabel } from '$lib/domain/validation/status';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
 import Progress from '$lib/ui/primitives/Progress.svelte';
+import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
@@ -126,7 +127,7 @@ const radarCategories = $derived(
 		<div class="bg-white rounded-[var(--radius-md)] shadow-sm overflow-hidden">
 			<button
 				class="w-full p-[var(--spacing-md)] flex items-center justify-between text-sm font-bold text-[var(--color-text-muted)]"
-				onclick={() => { detailOpen = !detailOpen; }}
+				onclick={() => { soundService.play('tap'); detailOpen = !detailOpen; }}
 			>
 				<span>{detailOpen ? '▼' : '▶'} くわしくみる</span>
 			</button>
