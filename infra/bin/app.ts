@@ -44,7 +44,6 @@ const network = new NetworkStack(app, `${appName}Network`, {
 	env,
 	description: 'CloudFront + Route53 + ACM for Ganbari Quest',
 	functionUrl: compute.functionUrl,
-	assetsBucket: storage.assetsBucket,
 	domainName,
 	certificateArn,
 });
