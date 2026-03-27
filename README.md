@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/sponsors/Takenori-Kusaka"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=github" alt="Sponsor"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
   <img src="https://img.shields.io/badge/SvelteKit-2-FF3E00?logo=svelte&logoColor=white" alt="SvelteKit 2">
   <img src="https://img.shields.io/badge/Svelte-5_(Runes)-FF3E00?logo=svelte&logoColor=white" alt="Svelte 5">
@@ -117,6 +118,10 @@ npx drizzle-kit push # DBマイグレーション
 ## コントリビュート
 
 バグ報告・機能提案・PRを歓迎します。詳細は [CONTRIBUTING.md](./CONTRIBUTING.md) を参照してください。
+
+## サポート
+
+がんばりクエストの開発を応援していただける方は [GitHub Sponsors](https://github.com/sponsors/Takenori-Kusaka) からご支援ください。
 
 ## ライセンス
 
