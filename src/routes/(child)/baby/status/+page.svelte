@@ -3,6 +3,7 @@ import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
 import Progress from '$lib/ui/primitives/Progress.svelte';
+import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
@@ -118,7 +119,7 @@ const radarCategories = $derived(
 		<div class="status-detail">
 			<button
 				class="status-detail__toggle"
-				onclick={() => { detailOpen = !detailOpen; }}
+				onclick={() => { soundService.play('tap'); detailOpen = !detailOpen; }}
 			>
 				<span>{detailOpen ? '▼' : '▶'} くわしくみる</span>
 			</button>

@@ -506,6 +506,7 @@ function handleBirthdayResultClose() {
 								levelUpData = d.levelUp ?? null;
 								startCancelCountdown(d.cancelableUntil);
 								soundService.play('record-complete');
+								setTimeout(() => soundService.play('point-gain'), 300);
 								resultOpen = true;
 							} else if (result.type === 'failure' && result.data && 'error' in result.data) {
 								errorMessage = String(result.data.error);

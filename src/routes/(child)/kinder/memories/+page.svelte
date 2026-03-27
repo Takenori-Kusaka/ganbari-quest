@@ -1,6 +1,7 @@
 <script lang="ts">
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
@@ -32,6 +33,7 @@ function getCheckedCount(review: (typeof data.reviews)[number]): number {
 }
 
 function handleTap(review: (typeof data.reviews)[number]) {
+	soundService.play('tap');
 	selectedReview = review;
 	detailOpen = true;
 }
