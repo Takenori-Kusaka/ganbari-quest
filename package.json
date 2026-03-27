@@ -39,7 +39,7 @@
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/adapter-node": "^5.0.0",
 		"@sveltejs/kit": "^2.50.2",
-		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tailwindcss/vite": "^4.2.0",
 		"@testing-library/svelte": "^5.2.0",
 		"@types/bcrypt": "^6.0.0",
