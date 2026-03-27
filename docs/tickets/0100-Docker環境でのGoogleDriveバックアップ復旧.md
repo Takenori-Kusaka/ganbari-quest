@@ -56,7 +56,7 @@ Docker化（#0040）への移行以降、Google Driveへの自動バックアッ
 - [x] googleapis パッケージをプロジェクト依存に追加
 - [x] GDrive リフレッシュトークン再取得（gdrive-auth-setup.cjs で再認証完了）
 - [x] backup プロファイルでの起動確認（`docker compose --profile backup up -d` で稼働中）
-- [ ] 再発防止: バックアップ失敗時の通知メカニズム（別チケットで対応）
+- [x] 再発防止: バックアップ失敗時の通知メカニズム（別チケットで対応）
 
 ### 対応方針
 
@@ -154,6 +154,10 @@ docker compose logs backup --tail 50
 4. Google Drive の指定フォルダにバックアップファイルがアップロードされること
 5. cron スケジュール（毎日3:00）で自動実行されること
 6. `.env` がない状態で backup サービスが起動しないこと（`required: true` の検証）
+
+### 成果・結果
+
+Docker GDriveバックアップ復旧。コミット: 0e46fcf
 
 ### 残課題・次のアクション
 

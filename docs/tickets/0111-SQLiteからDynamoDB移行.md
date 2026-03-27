@@ -106,15 +106,20 @@ $lib/server/db/
 
 ## 完了条件
 
-- [ ] リポジトリインターフェース抽出完了
-- [ ] `DATA_SOURCE=sqlite` で全既存テスト（vitest + E2E）通過
-- [ ] DynamoDBシングルテーブル設計ドキュメント作成
-- [ ] DynamoDBリポジトリ実装完了
-- [ ] `DATA_SOURCE=dynamodb` でユニットテスト通過（DynamoDB Local使用）
-- [ ] CDKにDynamoDBテーブル定義追加
-- [ ] データ移行スクリプト作成・実行
-- [ ] Lambda環境で正常動作確認
-- [ ] #0064 の「SQLite → DynamoDB 移行」ゴールをDoneに更新
+- [x] リポジトリインターフェース抽出完了
+- [x] `DATA_SOURCE=sqlite` で全既存テスト（vitest + E2E）通過
+- [x] DynamoDBシングルテーブル設計ドキュメント作成
+- [x] DynamoDBリポジトリ実装完了
+- [x] `DATA_SOURCE=dynamodb` でユニットテスト通過（DynamoDB Local使用）
+- [x] CDKにDynamoDBテーブル定義追加
+- [x] データ移行スクリプト作成・実行
+- [x] Lambda環境で正常動作確認
+- [x] #0064 の「SQLite → DynamoDB 移行」ゴールをDoneに更新
+
+## 成果・結果
+
+- SQLite→DynamoDBマルチバックエンド移行 Phase 1-6完了
+- コミット: 4717145, 1374c6b, ea7e5da, 2d34180, 7ae928a, cad177c
 
 ## 見積もり
 

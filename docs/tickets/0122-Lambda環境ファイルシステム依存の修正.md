@@ -54,6 +54,11 @@ S3バケット（`ASSETS_BUCKET` 環境変数）はCDKで構築済み、Lambda I
 - [x] storage-repo.ts の Windows パス互換修正（`path.dirname()` 使用）
 - [x] ストレージを interface/factory パターンに統一（repo層と一貫性）
 
+## 成果・結果
+
+- Lambda環境のファイルシステム依存をS3ストレージに移行
+- コミット: fe30167, ca5f7ef, 5827eb9, cee0b7d, e8b0f56
+
 ## 依存チケット
 
 - #0111 SQLite → DynamoDB移行（完了）
