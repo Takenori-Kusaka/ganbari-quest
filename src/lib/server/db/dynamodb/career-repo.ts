@@ -194,7 +194,7 @@ export async function updateCareerPlan(
 
 	if (items.length === 0) return undefined;
 
-	const existing = items[0]!;
+	const existing = items[0] as Record<string, unknown>;
 	const updates: string[] = ['#updatedAt = :updatedAt'];
 	const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
 	const values: Record<string, unknown> = { ':updatedAt': new Date().toISOString() };

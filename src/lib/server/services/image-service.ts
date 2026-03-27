@@ -67,7 +67,7 @@ function generateFallbackAvatar(nickname: string, theme: string): Buffer {
 		purple: { bg: '#f3e5f5', fg: '#7b1fa2' },
 		orange: { bg: '#fff3e0', fg: '#f57c00' },
 	};
-	const { bg, fg } = colors[theme] ?? colors.pink!;
+	const { bg, fg } = colors[theme] ?? (colors.pink as { bg: string; fg: string });
 	const initial = nickname.charAt(0);
 
 	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">

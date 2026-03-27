@@ -52,7 +52,7 @@ const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'] as const;
 
 function getDayOfWeek(dateStr: string): string {
 	const d = new Date(`${dateStr}T00:00:00Z`);
-	return DAY_NAMES[d.getUTCDay()]!;
+	return DAY_NAMES[d.getUTCDay()] as string;
 }
 
 // ============================================================
