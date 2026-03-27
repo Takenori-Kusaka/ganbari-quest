@@ -20,7 +20,7 @@ $effect(() => {
 	return () => window.removeEventListener('pageshow', handlePageShow);
 });
 
-const navItems = [
+const allNavItems = [
 	{ href: '/admin', label: 'ホーム', icon: '🏠' },
 	{ href: '/admin/children', label: 'こども', icon: '👧' },
 	{ href: '/admin/activities', label: 'かつどう', icon: '📋' },
@@ -31,9 +31,16 @@ const navItems = [
 	{ href: '/admin/status', label: 'ステータス', icon: '📊' },
 	{ href: '/admin/career', label: 'キャリア', icon: '🌟' },
 	{ href: '/admin/members', label: 'メンバー', icon: '👥' },
-	{ href: '/admin/license', label: 'ライセンス', icon: '🔑' },
+	{ href: '/admin/license', label: 'ライセンス', icon: '🔑', authOnly: true },
 	{ href: '/admin/settings', label: 'せってい', icon: '⚙️' },
 ];
+
+const authMode = $derived($page.data.authMode as string);
+const navItems = $derived(
+	authMode === 'local'
+		? allNavItems.filter((item) => !item.authOnly)
+		: allNavItems,
+);
 </script>
 
 <div data-theme="admin" class="min-h-dvh bg-gradient-to-b from-blue-50 to-blue-100">
