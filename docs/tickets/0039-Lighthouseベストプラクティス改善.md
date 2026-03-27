@@ -1,10 +1,7 @@
 # Lighthouseベストプラクティス改善（HTTPS対応基盤）
 
-### ステータス
+## Status: Done
 
-`Send off`
-
----
 
 ### 概要
 

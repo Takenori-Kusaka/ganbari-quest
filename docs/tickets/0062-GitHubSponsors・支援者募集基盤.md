@@ -1,8 +1,6 @@
 # 0062 GitHub Sponsors・支援者募集基盤
 
-### ステータス
-
-`Done`
+## Status: Done
 
 ### メタ情報
 

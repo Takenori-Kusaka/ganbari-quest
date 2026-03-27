@@ -1,8 +1,6 @@
 # 0076 LP・HP・Discord構築
 
-### ステータス
-
-`Backlog`
+## Status: Backlog
 
 ### メタ情報
 

@@ -1,10 +1,7 @@
 # Androidランチャーアプリ
 
-### ステータス
+## Status: Done
 
-`Send Off`
-
----
 
 ### 概要
 

@@ -1,6 +1,6 @@
 # #0111 SQLite → DynamoDB 移行
 
-## ステータス: Done
+## Status: Done
 ## 優先度: 高
 ## 種別: アーキテクチャ移行
 

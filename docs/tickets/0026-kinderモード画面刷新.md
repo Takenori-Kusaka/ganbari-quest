@@ -1,8 +1,6 @@
 # kinderモード画面刷新
 
-### ステータス
-
-`Done`
+## Status: Done
 
 ### GitHub Copilot 対応: 部分的に可能
 

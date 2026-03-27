@@ -1,8 +1,6 @@
 # 0060 GitHub Pagesデモサイト・チュートリアル
 
-### ステータス
-
-`Done`
+## Status: Done
 
 ### メタ情報
 

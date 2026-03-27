@@ -1,8 +1,6 @@
 # 0131 決済連携（Stripe Checkout + Billing）
 
-### ステータス
-
-`Done`
+## Status: Done
 
 ### メタ情報
 

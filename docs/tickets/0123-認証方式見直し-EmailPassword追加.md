@@ -1,8 +1,6 @@
 # 0123 認証方式見直し — Email/Password 追加・Apple 除外
 
-### ステータス
-
-`Done`
+## Status: Done
 
 ### メタ情報
 
