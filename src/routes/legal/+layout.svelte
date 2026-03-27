@@ -20,6 +20,7 @@ let { children }: Props = $props();
 				<a href="/legal/terms">利用規約</a>
 				<a href="/legal/privacy">プライバシーポリシー</a>
 				<a href="/legal/commerce">特定商取引法</a>
+				<a href="/legal/sla">SLA</a>
 			</nav>
 		</div>
 	</header>
