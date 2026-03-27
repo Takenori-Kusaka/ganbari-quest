@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import Logo from '$lib/ui/components/Logo.svelte';
 
 let { data, form } = $props();
 
@@ -24,7 +25,7 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 <div class="login-page">
 	<div class="login-card">
 		<div class="login-header">
-			<div class="login-icon">🏰</div>
+			<Logo variant="symbol" size={64} />
 			<h1 class="login-title">がんばりクエスト</h1>
 			<p class="login-subtitle">{mfaStep ? 'MFA認証' : 'ログイン'}</p>
 		</div>
@@ -182,11 +183,6 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 	.login-header {
 		text-align: center;
 		margin-bottom: 32px;
-	}
-
-	.login-icon {
-		font-size: 3rem;
-		margin-bottom: 8px;
 	}
 
 	.login-title {

@@ -1,5 +1,6 @@
 <script lang="ts">
 import { navigating, page } from '$app/stores';
+import Logo from '$lib/ui/components/Logo.svelte';
 import type { Snippet } from 'svelte';
 
 interface Props {
@@ -39,7 +40,10 @@ const navItems = [
 	<!-- Admin Header -->
 	<header class="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-gray-200 px-4 py-3">
 		<div class="max-w-4xl mx-auto flex items-center justify-between">
-			<h1 class="text-lg font-bold text-gray-700">がんばりクエスト 管理</h1>
+			<div class="flex items-center gap-2">
+				<Logo variant="symbol" size={28} />
+				<h1 class="text-lg font-bold text-gray-700">がんばりクエスト 管理</h1>
+			</div>
 			<form method="POST" action="/api/v1/auth/logout">
 				<button
 					type="submit"

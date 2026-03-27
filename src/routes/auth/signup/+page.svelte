@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import Logo from '$lib/ui/components/Logo.svelte';
 
 let { form } = $props();
 
@@ -27,7 +28,7 @@ $effect(() => {
 <div class="signup-page">
 	<div class="signup-card">
 		<div class="signup-header">
-			<div class="signup-icon">🏰</div>
+			<Logo variant="symbol" size={64} />
 			<h1 class="signup-title">がんばりクエスト</h1>
 			<p class="signup-subtitle">{confirmStep ? 'メール認証' : 'アカウント登録'}</p>
 		</div>
@@ -201,11 +202,6 @@ $effect(() => {
 	.signup-header {
 		text-align: center;
 		margin-bottom: 32px;
-	}
-
-	.signup-icon {
-		font-size: 3rem;
-		margin-bottom: 8px;
 	}
 
 	.signup-title {
