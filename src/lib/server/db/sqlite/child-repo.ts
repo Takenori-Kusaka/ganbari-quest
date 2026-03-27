@@ -54,6 +54,7 @@ export async function updateChild(
 		theme?: string;
 		uiMode?: string;
 		birthDate?: string | null;
+		displayConfig?: string | null;
 	},
 	_tenantId: string,
 ) {

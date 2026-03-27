@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { parseDisplayConfig } from '$lib/domain/display-config';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
@@ -25,6 +26,8 @@ const celebEffect = $derived(
 );
 const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
+
+const displayConfig = $derived(parseDisplayConfig(data.child?.displayConfig, data.child?.age ?? 4));
 
 // Pin context menu state
 let pinMenuOpen = $state(false);
@@ -396,12 +399,19 @@ function handleBirthdayResultClose() {
 
 	<!-- Activity grid by category -->
 	{#each activitiesByCategory as group (group.categoryId)}
-		<CategorySection categoryId={group.categoryId}>
+		<CategorySection
+			categoryId={group.categoryId}
+			cardSize={displayConfig.cardSize}
+			itemsPerCategory={displayConfig.itemsPerCategory}
+			collapsible={displayConfig.collapsible}
+			itemCount={group.items.length}
+		>
 			{#each group.items as activity (activity.id)}
 				<ActivityCard
 					icon={activity.icon}
 					name={activity.displayName}
 					categoryId={activity.categoryId}
+					cardSize={displayConfig.cardSize}
 					completed={isCompleted(activity)}
 					count={getCount(activity.id)}
 					isMission={activity.isMission}
