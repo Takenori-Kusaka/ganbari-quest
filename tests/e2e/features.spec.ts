@@ -743,10 +743,10 @@ test.describe('#0130: ライセンス管理画面', () => {
 		await expect(statusBadge).toBeVisible();
 	});
 
-	test('ナビゲーションにライセンスリンクがある', async ({ page }) => {
+	test('ローカルモードではナビゲーションにライセンスリンクが非表示', async ({ page }) => {
 		await page.goto('/admin');
 		const licenseLink = page.getByRole('link', { name: 'ライセンス' });
-		await expect(licenseLink).toBeVisible();
+		await expect(licenseLink).not.toBeVisible();
 	});
 
 	test('プラン管理セクションが表示される', async ({ page }) => {
