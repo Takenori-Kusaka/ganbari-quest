@@ -2899,8 +2899,8 @@ function seed() {
 			.from(schema.marketBenchmarks)
 			.where(
 				and(
-					eq(schema.marketBenchmarks.age, row.age!),
-					eq(schema.marketBenchmarks.categoryId, row.categoryId!),
+					eq(schema.marketBenchmarks.age, row.age as number),
+					eq(schema.marketBenchmarks.categoryId, row.categoryId as number),
 				),
 			)
 			.get();

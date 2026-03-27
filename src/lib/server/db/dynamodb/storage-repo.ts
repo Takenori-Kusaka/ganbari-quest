@@ -86,5 +86,5 @@ export const listFiles: IStorageRepo['listFiles'] = async (prefix) => {
 			Prefix: prefix,
 		}),
 	);
-	return (result.Contents ?? []).map((obj) => obj.Key!).filter(Boolean);
+	return (result.Contents ?? []).map((obj) => obj.Key as string).filter(Boolean);
 };

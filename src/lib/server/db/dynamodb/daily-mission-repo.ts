@@ -138,7 +138,7 @@ export async function markMissionCompleted(missionId: number, _tenantId: string)
 		);
 
 		if (result.Items && result.Items.length > 0) {
-			const item = result.Items[0]!;
+			const item = result.Items[0] as Record<string, unknown>;
 			await getDocClient().send(
 				new UpdateCommand({
 					TableName: TABLE_NAME,

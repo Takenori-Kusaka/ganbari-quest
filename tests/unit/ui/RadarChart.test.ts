@@ -155,7 +155,9 @@ describe('SVG座標計算', () => {
 	it('5頂点は等間隔に配置される（72°ずつ）', () => {
 		const angles = Array.from({ length: 5 }, (_, i) => getAngle(i));
 		for (let i = 0; i < 5; i++) {
-			const diff = angles[(i + 1) % 5]! - angles[i]!;
+			const a = angles[(i + 1) % 5] as number;
+			const b = angles[i] as number;
+			const diff = a - b;
 			// 72度 = 2π/5 ≈ 1.2566
 			const expected = (2 * Math.PI) / 5;
 			// ラップアラウンド対応

@@ -250,7 +250,7 @@ export async function deleteTemplateItem(id: number, _tenantId: string): Promise
 			}),
 		);
 		if (result.Items && result.Items.length > 0) {
-			const item = result.Items[0]!;
+			const item = result.Items[0] as Record<string, unknown>;
 			await getDocClient().send(
 				new DeleteCommand({
 					TableName: TABLE_NAME,
@@ -305,7 +305,7 @@ export async function upsertLog(
 				ReturnValues: 'ALL_NEW',
 			}),
 		);
-		return stripKeys(result.Attributes!) as unknown as ChecklistLog;
+		return stripKeys(result.Attributes as Record<string, unknown>) as unknown as ChecklistLog;
 	}
 
 	const id = await nextId(ENTITY_NAMES.checklistLog, tenantId);
@@ -405,7 +405,7 @@ export async function deleteOverride(id: number): Promise<void> {
 			}),
 		);
 		if (result.Items && result.Items.length > 0) {
-			const item = result.Items[0]!;
+			const item = result.Items[0] as Record<string, unknown>;
 			await getDocClient().send(
 				new DeleteCommand({
 					TableName: TABLE_NAME,
