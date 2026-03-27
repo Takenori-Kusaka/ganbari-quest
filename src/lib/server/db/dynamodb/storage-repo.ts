@@ -65,3 +65,26 @@ export const fileExists: IStorageRepo['fileExists'] = async (key) => {
 		return false;
 	}
 };
+
+export const deleteFile: IStorageRepo['deleteFile'] = async (key) => {
+	const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+	const client = await getS3Client();
+	await client.send(
+		new DeleteObjectCommand({
+			Bucket: ASSETS_BUCKET,
+			Key: key,
+		}),
+	);
+};
+
+export const listFiles: IStorageRepo['listFiles'] = async (prefix) => {
+	const { ListObjectsV2Command } = await import('@aws-sdk/client-s3');
+	const client = await getS3Client();
+	const result = await client.send(
+		new ListObjectsV2Command({
+			Bucket: ASSETS_BUCKET,
+			Prefix: prefix,
+		}),
+	);
+	return (result.Contents ?? []).map((obj) => obj.Key!).filter(Boolean);
+};

@@ -3,6 +3,7 @@
 // 実際の AWS Cognito なしでログイン/認可フローをテスト可能にする
 
 import { CONTEXT_COOKIE_NAME, IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
+import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
 import type { RequestEvent } from '@sveltejs/kit';
 import { authorizeCognito } from '../authorization';
@@ -118,7 +119,7 @@ export class DevCognitoAuthProvider implements AuthProvider {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'lax',
-			secure: false,
+			secure: COOKIE_SECURE,
 			maxAge: getContextMaxAge(context),
 		});
 

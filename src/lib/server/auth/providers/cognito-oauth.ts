@@ -3,6 +3,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
+import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
 import type { Cookies } from '@sveltejs/kit';
 
@@ -50,7 +51,7 @@ export function buildAuthorizeUrl(cookies: Cookies): string {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax' as const,
-		secure: process.env.NODE_ENV === 'production',
+		secure: COOKIE_SECURE,
 		maxAge: 600, // 10分
 	};
 	cookies.set(STATE_COOKIE, state, cookieOpts);
@@ -145,7 +146,7 @@ export function setIdentityCookie(cookies: Cookies, idToken: string): void {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: process.env.NODE_ENV === 'production',
+		secure: COOKIE_SECURE,
 		maxAge: 60 * 60, // 1時間（Cognito ID Token の有効期限に合わせる）
 	});
 }
