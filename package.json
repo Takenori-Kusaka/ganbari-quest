@@ -50,7 +50,7 @@
 		"sharp": "^0.34.5",
 		"svelte": "^5.55.0",
 		"svelte-check": "^4.3.6",
-		"tailwindcss": "^4.2.0",
+		"tailwindcss": "^4.2.2",
 		"tsx": "^4.19.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1",
