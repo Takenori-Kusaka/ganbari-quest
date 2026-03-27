@@ -406,7 +406,12 @@ function handleBirthdayResultClose() {
 			collapsible={displayConfig.collapsible}
 			itemCount={group.items.length}
 		>
-			{#each group.items as activity (activity.id)}
+			{#each group.items as activity, i (activity.id)}
+				{#if i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
+					<div class="col-span-full flex items-center gap-2 my-0.5" aria-hidden="true" data-testid="pin-separator">
+						<div class="flex-1 border-t border-dashed border-gray-300"></div>
+					</div>
+				{/if}
 				<ActivityCard
 					icon={activity.icon}
 					name={activity.displayName}
