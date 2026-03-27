@@ -2,14 +2,31 @@
 // Cognito dev モードの認証 E2E テスト
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts
 
+import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
+
+/** ログインページに遷移し、フォームの表示を待つ */
+async function gotoLogin(page: Page) {
+	await page.goto('/auth/login');
+	await page.waitForLoadState('networkidle');
+	await page.getByLabel('メールアドレス').waitFor({ state: 'visible', timeout: 15_000 });
+}
+
+/** ログイン操作を実行し、指定URLへのリダイレクトを待つ */
+async function loginAs(page: Page, email: string, password: string, expectedUrl: RegExp) {
+	await gotoLogin(page);
+	await page.getByLabel('メールアドレス').fill(email);
+	await page.getByLabel('パスワード').fill(password);
+	await page.getByRole('button', { name: 'ログイン' }).click();
+	await page.waitForURL(expectedUrl, { timeout: 30_000 });
+}
 
 // ============================================================
 // 1. ログインページ表示
 // ============================================================
 test.describe('ログインページ', () => {
 	test('ログインフォームが表示される', async ({ page }) => {
-		await page.goto('/auth/login');
+		await gotoLogin(page);
 		await expect(page.getByRole('heading', { name: 'がんばりクエスト' })).toBeVisible();
 		await expect(page.getByLabel('メールアドレス')).toBeVisible();
 		await expect(page.getByLabel('パスワード')).toBeVisible();
@@ -17,7 +34,7 @@ test.describe('ログインページ', () => {
 	});
 
 	test('テスト用アカウントのヒントが表示される（devモード）', async ({ page }) => {
-		await page.goto('/auth/login');
+		await gotoLogin(page);
 		const details = page.getByText('テスト用アカウント');
 		await expect(details).toBeVisible();
 	});
@@ -28,27 +45,15 @@ test.describe('ログインページ', () => {
 // ============================================================
 test.describe('正常ログイン', () => {
 	test('owner でログインすると /admin にリダイレクトされる', async ({ page }) => {
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await expect(page).toHaveURL(/\/admin/);
+		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
 	});
 
 	test('parent でログインすると /admin にリダイレクトされる', async ({ page }) => {
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('parent@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Parent2026');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await expect(page).toHaveURL(/\/admin/);
+		await loginAs(page, 'parent@example.com', 'Gq!Dev#Parent2026', /\/admin/);
 	});
 
 	test('child でログインすると /switch にリダイレクトされる', async ({ page }) => {
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('child@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Child2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await expect(page).toHaveURL(/\/switch/);
+		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
 	});
 });
 
@@ -57,7 +62,7 @@ test.describe('正常ログイン', () => {
 // ============================================================
 test.describe('ログイン失敗', () => {
 	test('不正なパスワードでエラーが表示される', async ({ page }) => {
-		await page.goto('/auth/login');
+		await gotoLogin(page);
 		await page.getByLabel('メールアドレス').fill('owner@example.com');
 		await page.getByLabel('パスワード').fill('wrongpassword');
 		await page.getByRole('button', { name: 'ログイン' }).click();
@@ -65,7 +70,7 @@ test.describe('ログイン失敗', () => {
 	});
 
 	test('存在しないメールアドレスでエラーが表示される', async ({ page }) => {
-		await page.goto('/auth/login');
+		await gotoLogin(page);
 		await page.getByLabel('メールアドレス').fill('nobody@example.com');
 		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
@@ -85,8 +90,6 @@ test.describe('認可チェック', () => {
 	});
 
 	test('未ログインで /api/v1/activities は 401 相当のリダイレクト', async ({ request }) => {
-		// API は Cookie なしでアクセスすると認可で弾かれる
-		// ただし /switch, /auth は公開ルートなので OK
 		const res = await request.get('/api/health');
 		expect(res.ok()).toBeTruthy();
 	});
@@ -96,28 +99,14 @@ test.describe('認可チェック', () => {
 // 5. ロール別アクセス制御
 // ============================================================
 test.describe('ロール別アクセス制御', () => {
-	test('child ロールで /admin にアクセスすると /child にリダイレクトされる', async ({ page }) => {
-		// child でログイン
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('child@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Child2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/switch/);
-
-		// /admin にアクセス試行
+	test('child ロールで /admin にアクセスすると /switch にリダイレクトされる', async ({ page }) => {
+		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
 		await page.goto('/admin');
-		// child は /admin アクセス不可 → /child にリダイレクト
-		await expect(page).toHaveURL(/\/child/);
+		await expect(page).toHaveURL(/\/switch/);
 	});
 
 	test('owner ロールで /admin にアクセスできる', async ({ page }) => {
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/admin/);
-
-		// /admin に直接アクセスしても残る
+		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
 		await page.goto('/admin');
 		await expect(page).toHaveURL(/\/admin/);
 	});
@@ -128,14 +117,7 @@ test.describe('ロール別アクセス制御', () => {
 // ============================================================
 test.describe('ログアウト', () => {
 	test('ログアウト後に /auth/login にリダイレクトされる', async ({ page }) => {
-		// まずログイン
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/admin/);
-
-		// ログアウト
+		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
 		await page.goto('/auth/logout');
 		await expect(page).toHaveURL(/\/auth\/login/);
 	});
@@ -143,18 +125,9 @@ test.describe('ログアウト', () => {
 	test('ログアウト後に /admin にアクセスすると /auth/login にリダイレクトされる', async ({
 		page,
 	}) => {
-		// ログイン
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/admin/);
-
-		// ログアウト
+		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
 		await page.goto('/auth/logout');
 		await page.waitForURL(/\/auth\/login/);
-
-		// /admin にアクセス → リダイレクト
 		await page.goto('/admin');
 		await expect(page).toHaveURL(/\/auth\/login/);
 	});
@@ -165,14 +138,7 @@ test.describe('ログアウト', () => {
 // ============================================================
 test.describe('セッション継続', () => {
 	test('ログイン後にリロードしても認証が維持される', async ({ page }) => {
-		// ログイン
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/admin/);
-
-		// リロード
+		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
 		await page.reload();
 		await expect(page).toHaveURL(/\/admin/);
 	});
@@ -180,14 +146,7 @@ test.describe('セッション継続', () => {
 	test('ログイン済みで /auth/login にアクセスすると /admin にリダイレクトされる', async ({
 		page,
 	}) => {
-		// ログイン
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/admin/);
-
-		// /auth/login にアクセス → 既にログイン済みなのでリダイレクト
+		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
 		await page.goto('/auth/login');
 		await expect(page).toHaveURL(/\/admin/);
 	});
@@ -199,15 +158,11 @@ test.describe('セッション継続', () => {
 test.describe('公開ルート', () => {
 	test('未ログインで / にアクセスできる', async ({ page }) => {
 		await page.goto('/');
-		// トップページはリダイレクト or 表示される（500 にならない）
 		expect(page.url()).not.toContain('/error');
 	});
 
 	test('未ログインで /switch にアクセスしてもログインにリダイレクトされない', async ({ page }) => {
 		await page.goto('/switch');
-		// /switch は公開ルート（認可ではブロックされない）
-		// ただしデータ取得で500になる可能性がある（tenantId不在）
-		// 認可レイヤでは /auth/login にリダイレクトされないことを確認
 		expect(page.url()).not.toContain('/auth/login');
 	});
 
@@ -231,8 +186,7 @@ test.describe('サインアップ', () => {
 	});
 
 	test('devモードではサインアップリンクが非表示', async ({ page }) => {
-		await page.goto('/auth/login');
-		// devモードではサインアップリンクは非表示（実運用モードのみ表示）
+		await gotoLogin(page);
 		const signupLink = page.getByRole('link', { name: /アカウントをお持ちでない/ });
 		await expect(signupLink).not.toBeVisible();
 	});
@@ -243,23 +197,13 @@ test.describe('サインアップ', () => {
 // ============================================================
 test.describe('parent ロール詳細', () => {
 	test('parent ロールで /admin/license にアクセスできる', async ({ page }) => {
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('parent@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Parent2026');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/admin/);
-
+		await loginAs(page, 'parent@example.com', 'Gq!Dev#Parent2026', /\/admin/);
 		await page.goto('/admin/license');
 		await expect(page).toHaveURL(/\/admin\/license/);
 	});
 
 	test('parent ロールで /admin/members にアクセスできる', async ({ page }) => {
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('parent@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Parent2026');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/admin/);
-
+		await loginAs(page, 'parent@example.com', 'Gq!Dev#Parent2026', /\/admin/);
 		await page.goto('/admin/members');
 		await expect(page).toHaveURL(/\/admin\/members/);
 	});
@@ -270,52 +214,29 @@ test.describe('parent ロール詳細', () => {
 // ============================================================
 test.describe('child ロール詳細', () => {
 	test('child ロールで /admin/license にアクセスできない', async ({ page }) => {
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('child@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Child2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/switch/);
-
+		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
 		await page.goto('/admin/license');
-		// child は /admin 系アクセス不可 → /child にリダイレクト
-		await expect(page).toHaveURL(/\/child/);
+		await expect(page).toHaveURL(/\/switch/);
 	});
 
 	test('child ロールで /admin/members にアクセスできない', async ({ page }) => {
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('child@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Child2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/switch/);
-
+		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
 		await page.goto('/admin/members');
-		await expect(page).toHaveURL(/\/child/);
+		await expect(page).toHaveURL(/\/switch/);
 	});
 
 	test('child ロールで /switch にアクセスできる', async ({ page }) => {
-		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('child@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Child2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/switch/);
-
-		// /switch は公開ルートなのでアクセス可
+		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
 		await page.goto('/switch');
 		await expect(page).toHaveURL(/\/switch/);
 	});
 
-	test('child ログイン済みで /auth/login にアクセスすると /child にリダイレクトされる', async ({
+	test('child ログイン済みで /auth/login にアクセスすると /switch にリダイレクトされる', async ({
 		page,
 	}) => {
+		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
 		await page.goto('/auth/login');
-		await page.getByLabel('メールアドレス').fill('child@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Child2026x');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-		await page.waitForURL(/\/switch/);
-
-		await page.goto('/auth/login');
-		// child でログイン済みなので /child にリダイレクト
-		await expect(page).toHaveURL(/\/child/);
+		await expect(page).toHaveURL(/\/switch/);
 	});
 });
 
@@ -337,10 +258,10 @@ test.describe('未ログイン時の保護ルート', () => {
 		await expect(page).toHaveURL(/\/auth\/login/);
 	});
 
-	test('未ログインで /child/1/kinder/home にアクセスすると /auth/login にリダイレクトされる', async ({
+	test('未ログインで /kinder/home にアクセスすると /auth/login にリダイレクトされる', async ({
 		page,
 	}) => {
-		await page.goto('/child/1/kinder/home');
+		await page.goto('/kinder/home');
 		await expect(page).toHaveURL(/\/auth\/login/);
 	});
 });

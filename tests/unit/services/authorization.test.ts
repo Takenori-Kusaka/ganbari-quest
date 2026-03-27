@@ -47,9 +47,9 @@ describe('authorizeCognito', () => {
 			expect(result).toEqual({ allowed: false, redirect: '/admin' });
 		});
 
-		it('認証済み child が /auth/login にアクセス → /child リダイレクト', () => {
+		it('認証済み child が /auth/login にアクセス → /switch リダイレクト', () => {
 			const result = authorizeCognito('/auth/login', cognitoIdentity, childContext);
-			expect(result).toEqual({ allowed: false, redirect: '/child' });
+			expect(result).toEqual({ allowed: false, redirect: '/switch' });
 		});
 	});
 
@@ -66,9 +66,9 @@ describe('authorizeCognito', () => {
 			});
 		});
 
-		it('child は /child にリダイレクト', () => {
+		it('child は /switch にリダイレクト', () => {
 			const result = authorizeCognito('/admin', cognitoIdentity, childContext);
-			expect(result).toEqual({ allowed: false, redirect: '/child', status: 403 });
+			expect(result).toEqual({ allowed: false, redirect: '/switch', status: 403 });
 		});
 
 		it('未認証は /auth/login にリダイレクト', () => {
@@ -96,21 +96,21 @@ describe('authorizeCognito', () => {
 		});
 	});
 
-	describe('/child ルート — 全ロール', () => {
+	describe('/kinder ルート — 全ロール', () => {
 		it('child はアクセス可能', () => {
-			expect(authorizeCognito('/child', cognitoIdentity, childContext)).toEqual({
+			expect(authorizeCognito('/kinder/home', cognitoIdentity, childContext)).toEqual({
 				allowed: true,
 			});
 		});
 
 		it('owner もアクセス可能', () => {
-			expect(authorizeCognito('/child', cognitoIdentity, ownerContext)).toEqual({
+			expect(authorizeCognito('/kinder/home', cognitoIdentity, ownerContext)).toEqual({
 				allowed: true,
 			});
 		});
 
 		it('parent もアクセス可能', () => {
-			expect(authorizeCognito('/child', cognitoIdentity, parentContext)).toEqual({
+			expect(authorizeCognito('/kinder/home', cognitoIdentity, parentContext)).toEqual({
 				allowed: true,
 			});
 		});
@@ -125,7 +125,7 @@ describe('authorizeCognito', () => {
 
 		it('/api/v1/admin — child は 403', () => {
 			const result = authorizeCognito('/api/v1/admin/children', cognitoIdentity, childContext);
-			expect(result).toEqual({ allowed: false, redirect: '/child', status: 403 });
+			expect(result).toEqual({ allowed: false, redirect: '/switch', status: 403 });
 		});
 
 		it('/api/v1/activities — child アクセス可能', () => {

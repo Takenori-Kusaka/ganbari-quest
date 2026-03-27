@@ -52,14 +52,14 @@ describe('authorizeCognito', () => {
 			if (!result.allowed) expect(result.redirect).toBe('/admin');
 		});
 
-		it('認証済みで /auth/login → role に応じてリダイレクト（child → /child）', () => {
+		it('認証済みで /auth/login → role に応じてリダイレクト（child → /switch）', () => {
 			const result = authorizeCognito(
 				'/auth/login',
 				cognitoIdentity(),
 				makeContext({ role: 'child' }),
 			);
 			expect(result.allowed).toBe(false);
-			if (!result.allowed) expect(result.redirect).toBe('/child');
+			if (!result.allowed) expect(result.redirect).toBe('/switch');
 		});
 	});
 
@@ -72,7 +72,7 @@ describe('authorizeCognito', () => {
 			'/admin/settings',
 			'/admin/license',
 			'/admin/members',
-			'/child/1',
+			'/kinder/home',
 			'/api/v1/activities',
 			'/api/v1/admin/license',
 		];
@@ -130,7 +130,7 @@ describe('authorizeCognito', () => {
 				expect(authorizeCognito('/admin/members', id, ctx).allowed).toBe(true);
 			});
 			it('/child/1 にアクセス可能', () => {
-				expect(authorizeCognito('/child/1', id, ctx).allowed).toBe(true);
+				expect(authorizeCognito('/kinder/home', id, ctx).allowed).toBe(true);
 			});
 			it('/api/v1/activities にアクセス可能', () => {
 				expect(authorizeCognito('/api/v1/activities', id, ctx).allowed).toBe(true);
@@ -154,7 +154,7 @@ describe('authorizeCognito', () => {
 				expect(authorizeCognito('/admin/members', id, ctx).allowed).toBe(true);
 			});
 			it('/child/1 にアクセス可能', () => {
-				expect(authorizeCognito('/child/1', id, ctx).allowed).toBe(true);
+				expect(authorizeCognito('/kinder/home', id, ctx).allowed).toBe(true);
 			});
 			it('/api/v1/activities にアクセス可能', () => {
 				expect(authorizeCognito('/api/v1/activities', id, ctx).allowed).toBe(true);
@@ -165,10 +165,10 @@ describe('authorizeCognito', () => {
 			const ctx = makeContext({ role: 'child', childId: 1 });
 			const id = cognitoIdentity();
 
-			it('/admin にアクセス不可（→ /child にリダイレクト）', () => {
+			it('/admin にアクセス不可（→ /switch にリダイレクト）', () => {
 				const result = authorizeCognito('/admin', id, ctx);
 				expect(result.allowed).toBe(false);
-				if (!result.allowed) expect(result.redirect).toBe('/child');
+				if (!result.allowed) expect(result.redirect).toBe('/switch');
 			});
 			it('/admin/settings にアクセス不可', () => {
 				const result = authorizeCognito('/admin/settings', id, ctx);
@@ -184,7 +184,7 @@ describe('authorizeCognito', () => {
 				expect(result.allowed).toBe(false);
 			});
 			it('/child/1 にアクセス可能', () => {
-				expect(authorizeCognito('/child/1', id, ctx).allowed).toBe(true);
+				expect(authorizeCognito('/kinder/home', id, ctx).allowed).toBe(true);
 			});
 			it('/api/v1/activities にアクセス可能', () => {
 				expect(authorizeCognito('/api/v1/activities', id, ctx).allowed).toBe(true);
@@ -205,7 +205,7 @@ describe('authorizeCognito', () => {
 		it('active: 全ルートアクセス可能', () => {
 			const ctx = makeContext({ licenseStatus: 'active' });
 			expect(authorizeCognito('/admin', id, ctx).allowed).toBe(true);
-			expect(authorizeCognito('/child/1', id, ctx).allowed).toBe(true);
+			expect(authorizeCognito('/kinder/home', id, ctx).allowed).toBe(true);
 		});
 
 		it('none: 全ルートアクセス可能', () => {
@@ -237,7 +237,7 @@ describe('authorizeCognito', () => {
 
 		it('expired: 子供画面も制限', () => {
 			const ctx = makeContext({ licenseStatus: 'expired' });
-			const result = authorizeCognito('/child/1', id, ctx);
+			const result = authorizeCognito('/kinder/home', id, ctx);
 			expect(result.allowed).toBe(false);
 			if (!result.allowed) expect(result.redirect).toBe('/admin/license?reason=expired');
 		});
@@ -245,7 +245,7 @@ describe('authorizeCognito', () => {
 		it('suspended: 全ルートアクセス可能（読み取り専用は API レイヤで制御）', () => {
 			const ctx = makeContext({ licenseStatus: 'suspended' });
 			expect(authorizeCognito('/admin', id, ctx).allowed).toBe(true);
-			expect(authorizeCognito('/child/1', id, ctx).allowed).toBe(true);
+			expect(authorizeCognito('/kinder/home', id, ctx).allowed).toBe(true);
 		});
 	});
 });
