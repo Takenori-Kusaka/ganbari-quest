@@ -37,9 +37,7 @@ const allNavItems = [
 
 const authMode = $derived($page.data.authMode as string);
 const navItems = $derived(
-	authMode === 'local'
-		? allNavItems.filter((item) => !item.authOnly)
-		: allNavItems,
+	authMode === 'local' ? allNavItems.filter((item) => !item.authOnly) : allNavItems,
 );
 </script>
 
