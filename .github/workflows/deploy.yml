@@ -3,11 +3,13 @@ name: Deploy to AWS (Production)
 on:
   push:
     branches: [main]
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
 
 permissions:
   id-token: write
-  contents: read
+  contents: write
 
 concurrency:
   group: deploy-production
@@ -50,6 +52,9 @@ jobs:
     needs: test
     runs-on: ubuntu-24.04-arm
     environment: production
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      image-tag: ${{ steps.version.outputs.image-tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -57,6 +62,22 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "image-tag=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "is-release=true" >> "$GITHUB_OUTPUT"
+          else
+            VERSION="dev-$(echo ${{ github.sha }} | cut -c1-7)"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "image-tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "is-release=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Deploying version: $VERSION"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -88,7 +109,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.lambda
@@ -96,6 +117,7 @@ jobs:
           push: true
           tags: |
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.version.outputs.image-tag }}
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           provenance: false
           cache-from: type=gha
@@ -126,16 +148,50 @@ jobs:
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
 
-      # Phase 5: Post-deployment health check
+      # Phase 5: Post-deployment health check (with retry)
       - name: Health check
+        id: healthcheck
         run: |
           echo "Waiting 10s for Lambda cold start..."
           sleep 10
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ env.DOMAIN_NAME }}/api/health" || echo "000")
-          echo "Health check response: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "::warning::Health check returned $STATUS (may need CloudFront cache invalidation)"
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ env.DOMAIN_NAME }}/api/health" || echo "000")
+            echo "Attempt $i: status=$STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 5 attempts (last status: $STATUS)"
+          exit 1
+
+      # Phase 5b: Rollback on health check failure
+      - name: Rollback on failure
+        if: failure() && steps.healthcheck.outcome == 'failure'
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          echo "Deployment failed, rolling back to previous image..."
+          PREVIOUS_DIGEST=$(aws ecr describe-images \
+            --repository-name $ECR_REPOSITORY \
+            --query 'sort_by(imageDetails,&imagePushedAt)[-2].imageDigest' \
+            --output text \
+            --region $AWS_REGION)
+          if [ "$PREVIOUS_DIGEST" = "None" ] || [ -z "$PREVIOUS_DIGEST" ]; then
+            echo "No previous image found, cannot rollback"
+            exit 1
           fi
+          echo "Rolling back to image digest: $PREVIOUS_DIGEST"
+          aws lambda update-function-code \
+            --function-name $LAMBDA_FUNCTION \
+            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY@$PREVIOUS_DIGEST \
+            --region $AWS_REGION
+          aws lambda wait function-updated \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION
+          echo "Rollback complete"
 
       - name: Show deployment outputs
         working-directory: infra/
@@ -145,7 +201,7 @@ jobs:
   e2e-production:
     needs: deploy
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     environment: production
     steps:
       - uses: actions/checkout@v4
@@ -177,3 +233,61 @@ jobs:
           name: e2e-production-results
           path: test-results/
           retention-days: 14
+
+  release:
+    needs: [deploy, e2e-production]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            ## Deploy Info
+            - **Version**: ${{ github.ref_name }}
+            - **Commit**: ${{ github.sha }}
+            - **Docker Image**: `${{ needs.deploy.outputs.image-tag }}`
+            - **Deploy Date**: ${{ github.event.head_commit.timestamp }}
+
+  notify:
+    needs: [deploy, e2e-production]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify deployment result (Discord)
+        if: vars.DISCORD_WEBHOOK_URL != ''
+        env:
+          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          STATUS: ${{ needs.deploy.result }}
+          E2E_STATUS: ${{ needs.e2e-production.result }}
+          VERSION: ${{ needs.deploy.outputs.version }}
+        run: |
+          if [ "$STATUS" = "success" ] && [ "$E2E_STATUS" != "failure" ]; then
+            COLOR=3066993
+            TITLE="Deploy Success"
+            DESC="Version \`$VERSION\` deployed to production"
+          else
+            COLOR=15158332
+            TITLE="Deploy Failed"
+            DESC="Version \`$VERSION\` deployment failed (deploy: $STATUS, e2e: $E2E_STATUS)"
+          fi
+          curl -s -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"$TITLE\",
+                \"description\": \"$DESC\",
+                \"color\": $COLOR,
+                \"fields\": [
+                  {\"name\": \"Commit\", \"value\": \"\`$(echo ${{ github.sha }} | cut -c1-7)\`\", \"inline\": true},
+                  {\"name\": \"Author\", \"value\": \"${{ github.actor }}\", \"inline\": true},
+                  {\"name\": \"Branch/Tag\", \"value\": \"${{ github.ref_name }}\", \"inline\": true}
+                ]
+              }]
+            }"
