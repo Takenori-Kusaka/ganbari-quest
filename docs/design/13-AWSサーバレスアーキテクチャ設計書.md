@@ -28,6 +28,7 @@
 | `GanbariQuestAuth` | Cognito User Pool, User Pool Client, SSM Parameters | なし |
 | `GanbariQuestCompute` | Lambda (Docker), Function URL | Storage, Auth |
 | `GanbariQuestNetwork` | CloudFront, Route 53, ACM | Compute |
+| `GanbariQuestOps` | CloudWatch Alarms/Dashboard, SNS, Budgets, Cost Anomaly Detection | Compute, Storage, Network |
 
 ### 3.1 StorageStack
 
@@ -98,10 +99,44 @@
 - Cold start: ~500ms（許容範囲）
 
 **ECRリポジトリ:**
-- イメージ保持: 最新5つ
+- イメージ保持: 最新10個（ロールバック用 ~2週間分）
+- 未タグイメージ: 1日で自動削除
 - GitHub ActionsからCI/CDでpush
 
-### 3.3 NetworkStack
+### 3.4 OpsStack（監視・コスト防衛）
+
+**SNS 通知基盤:**
+- トピック名: `ganbari-quest-ops-alerts`
+- サブスクリプション: メール（`-c opsEmail=xxx` で指定）
+
+**CloudWatch Alarms（9/10 無料枠使用）:**
+
+| # | アラーム名 | メトリクス | 閾値 | 優先度 |
+|---|----------|-----------|------|--------|
+| 1 | Lambda-Errors | Lambda Errors | ≥ 3回/5分 | P0 |
+| 2 | Lambda-Throttles | Lambda Throttles | ≥ 1回/5分 | P0 |
+| 3 | Lambda-Duration-p99 | Lambda Duration | ≥ 10秒 | P1 |
+| 4 | Lambda-Concurrent | ConcurrentExecutions | ≥ 50 | P1 |
+| 5 | DynamoDB-Throttles | ThrottledRequests | ≥ 1回/5分 | P1 |
+| 6 | DynamoDB-SystemErrors | SystemErrors | ≥ 1回/5分 | P0 |
+| 7 | Lambda-URL-5xx | Url5xxCount | ≥ 5回/5分 | P0 |
+| 8 | Lambda-URL-4xx-Spike | Url4xxCount | ≥ 50回/5分 | P1 |
+| 9 | CloudFront-5xx | 5xxErrorRate | ≥ 5% | P0 |
+
+**CloudWatch Dashboard:** `ganbari-quest-ops`
+- Lambda: Invocations/Errors, Duration p50/p99, Throttles/Concurrent
+- DynamoDB: Read/Write Capacity Units
+- Alarm Status: SingleValueWidget
+
+**AWS Budgets:**
+- 月額予算: $5
+- 3段階アラート: 実績50%, 実績80%, 予測100%超過
+
+**Cost Anomaly Detection:**
+- モニタータイプ: DIMENSIONAL (SERVICE)
+- 通知閾値: $1以上の異常
+
+### 3.5 NetworkStack
 
 **CloudFront:**
 - デフォルト動作: Lambda Function URL (SSR + API)
@@ -150,7 +185,10 @@
 | Geo制限 | CloudFront（日本のみ、オプション） | 無料 |
 | Lambda認可 | Cognito JWT検証 + ロールベース認可 | 無料 |
 | DynamoDB制限 | オンデマンド上限設定 | 無料 |
-| CloudWatch | Lambda実行数の異常アラート | 最小構成 |
+| CloudWatch Alarms | 9アラーム（Lambda/DynamoDB/CloudFront） | 無料枠10個中9個使用 |
+| CloudWatch Dashboard | 運用ダッシュボード | 無料枠3個中1個使用 |
+| AWS Budgets | $5/月予算・3段階アラート | 無料枠2個中1個使用 |
+| Cost Anomaly Detection | ML異常検知 | 完全無料 |
 
 ## 6. コスト試算（月額）
 
@@ -176,7 +214,8 @@ infra/
 │   ├── storage-stack.ts  # DynamoDB + S3 + ECR + AWS Backup
 │   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
 │   ├── compute-stack.ts  # Lambda + Function URL
-│   └── network-stack.ts  # CloudFront + Route53 + ACM
+│   ├── network-stack.ts  # CloudFront + Route53 + ACM
+│   └── ops-stack.ts      # CloudWatch Alarms/Dashboard + Budgets + Cost Anomaly
 ├── package.json
 ├── tsconfig.json
 └── cdk.json
@@ -215,3 +254,4 @@ Dockerfile.lambda        # Lambda Web Adapter用
 |------|------|
 | 2026-02-19 | 初版作成 |
 | 2026-03-27 | AuthStack 追加、Cognito 認証統合反映、移行計画を完了済みに更新 |
+| 2026-03-27 | OpsStack 追加（監視・アラート・コスト防衛）、ECR lifecycle 更新 |
