@@ -15,7 +15,7 @@
     │                                     │
     │                                     ├── [DynamoDB (メインDB)]
     │                                     ├── [S3 (アバター・バックアップ)]
-    │                                     └── [Cognito (認証)] ※Phase 2
+    │                                     └── [Cognito (認証)]
     │
 [Route 53] → CloudFront（独自ドメイン + ACM証明書）
 ```
@@ -25,7 +25,8 @@
 | スタック | リソース | 依存 |
 |---------|---------|------|
 | `GanbariQuestStorage` | DynamoDB テーブル, S3 バケット, ECR リポジトリ | なし |
-| `GanbariQuestCompute` | Lambda (Docker), Function URL | Storage |
+| `GanbariQuestAuth` | Cognito User Pool, User Pool Client, SSM Parameters | なし |
+| `GanbariQuestCompute` | Lambda (Docker), Function URL | Storage, Auth |
 | `GanbariQuestNetwork` | CloudFront, Route 53, ACM | Compute |
 
 ### 3.1 StorageStack
@@ -49,7 +50,7 @@
 
 **設定:**
 - 課金: オンデマンド（従量課金、Free Tier 25 RCU/WCU含む）
-- Point-in-Time Recovery: 有効（データ復旧用）
+- Point-in-Time Recovery: 無効（AWS Backup で日次3日保持に代替）
 - 削除保護: RETAIN
 
 **S3バケット:**
@@ -57,7 +58,31 @@
 - バックアップ: `backups/{date}/` （30日で自動削除）
 - パブリックアクセス: 完全ブロック
 
-### 3.2 ComputeStack
+### 3.2 AuthStack
+
+**Cognito User Pool:**
+- プール名: `ganbari-quest-users`
+- サインイン: Email + Password
+- MFA: OPTIONAL（TOTP 対応）
+- パスワードポリシー: 8文字以上、大小英字+数字必須
+- Email 自動検証（確認コード方式）
+- カスタム属性: `tenantId`, `role`
+- アカウント回復: Email のみ
+- 削除保護: RETAIN
+
+**User Pool Client:**
+- クライアント名: `ganbari-quest-public`
+- クライアントシークレット: なし（パブリッククライアント）
+- 認証フロー: USER_PASSWORD_AUTH, USER_SRP_AUTH
+- アクセストークン有効期限: 1時間
+- ID トークン有効期限: 1時間
+- リフレッシュトークン有効期限: 30日
+
+**SSM Parameters（スタック間連携用）:**
+- `/ganbari-quest/cognito/user-pool-id`
+- `/ganbari-quest/cognito/client-id`
+
+### 3.3 ComputeStack
 
 **Lambda:**
 - ランタイム: Docker (Node.js 22 + Lambda Web Adapter)
@@ -123,7 +148,7 @@
 | HTTPS強制 | CloudFront redirect | 無料 |
 | セキュリティヘッダ | CloudFront ResponseHeadersPolicy | 無料 |
 | Geo制限 | CloudFront（日本のみ、オプション） | 無料 |
-| Lambda認可 | Cognito JWT検証（Phase 2） | 無料 |
+| Lambda認可 | Cognito JWT検証 + ロールベース認可 | 無料 |
 | DynamoDB制限 | オンデマンド上限設定 | 無料 |
 | CloudWatch | Lambda実行数の異常アラート | 最小構成 |
 
@@ -148,7 +173,8 @@
 infra/
 ├── bin/app.ts           # CDKエントリポイント
 ├── lib/
-│   ├── storage-stack.ts  # DynamoDB + S3 + ECR
+│   ├── storage-stack.ts  # DynamoDB + S3 + ECR + AWS Backup
+│   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
 │   ├── compute-stack.ts  # Lambda + Function URL
 │   └── network-stack.ts  # CloudFront + Route53 + ACM
 ├── package.json
@@ -158,24 +184,34 @@ infra/
 Dockerfile.lambda        # Lambda Web Adapter用
 .github/workflows/
 ├── ci.yml               # テスト・ビルド
-└── deploy.yml           # AWS デプロイ
+└── deploy.yml           # AWS デプロイ（Storage CDK → Docker/ECR → CDK all → Lambda update）
 ```
 
-## 8. 移行計画
+## 8. 完了済み移行
 
-### Phase 1: インフラ構築（本チケット）
-- [x] CDKプロジェクト作成
-- [x] GitHub Actionsデプロイパイプライン
-- [x] Lambda Dockerfile
-- [ ] ドメイン取得 + Route 53 設定
-- [ ] CDK bootstrap + 初回デプロイ
+### Phase 1: インフラ構築 ✅
+- CDKプロジェクト作成・初回デプロイ
+- GitHub ActionsデプロイパイプライN
+- Lambda Dockerfile + Lambda Web Adapter
+- ドメイン取得 + Route 53 + CloudFront + ACM
 
-### Phase 2: データ層移行
-- SQLite → DynamoDB リポジトリ層の抽象化
-- DynamoDB対応のサービス層実装
-- データマイグレーションスクリプト
+### Phase 2: データ層移行 ✅
+- SQLite / DynamoDB デュアルバックエンド構成
+- リポジトリインターフェース抽象化（17ファイル）
+- テナント分離（全層に tenantId 必須化）
 
-### Phase 3: 認証統合（#0066）
-- Cognito User Pool 設定
-- OAuth認証フロー実装
-- Lambda Authorizer 追加
+### Phase 3: 認証統合 ✅
+- Cognito User Pool 設定（AuthStack）
+- 二層認証（Identity JWT + Context Token）
+- ロールベース認可（owner/parent/child）
+- レートリミッター
+- 招待システム + マルチテナント
+
+---
+
+## 9. 更新履歴
+
+| 日付 | 内容 |
+|------|------|
+| 2026-02-19 | 初版作成 |
+| 2026-03-27 | AuthStack 追加、Cognito 認証統合反映、移行計画を完了済みに更新 |
