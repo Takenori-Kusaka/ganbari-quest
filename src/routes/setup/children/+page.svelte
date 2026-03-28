@@ -80,6 +80,21 @@ let addSuccess = $state(false);
 	</div>
 
 	<div>
+		<label for="birthDate" class="block text-sm font-medium text-gray-600 mb-1">
+			たんじょうび
+			<span class="text-xs text-gray-400 ml-1">（任意）</span>
+		</label>
+		<input
+			type="date"
+			id="birthDate"
+			name="birthDate"
+			max={new Date().toISOString().split('T')[0]}
+			class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+		/>
+		<p class="text-xs text-gray-400 mt-1">入力すると年齢が自動計算されます</p>
+	</div>
+
+	<div>
 		<label for="age" class="block text-sm font-medium text-gray-600 mb-1">年齢</label>
 		<input
 			type="number"
