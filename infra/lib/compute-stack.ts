@@ -43,6 +43,9 @@ export class ComputeStack extends cdk.Stack {
 			'/ganbari-quest/context-token-secret',
 		);
 
+		// --- Discord Webhook URL（CDK context 経由で GitHub Actions Secrets から取得） ---
+		const feedbackDiscordWebhookUrl = this.node.tryGetContext('feedbackDiscordWebhookUrl') ?? '';
+
 		// --- Lambda: SvelteKit via Lambda Web Adapter ---
 		this.fn = new lambda.DockerImageFunction(this, 'SvelteKitFn', {
 			functionName: 'ganbari-quest-app',
@@ -68,6 +71,9 @@ export class ComputeStack extends cdk.Stack {
 				COGNITO_CLIENT_ID: cognitoClientId,
 				CONTEXT_TOKEN_SECRET: contextTokenSecret,
 				MAINTENANCE_MODE: 'false',
+				...(feedbackDiscordWebhookUrl
+					? { FEEDBACK_DISCORD_WEBHOOK_URL: feedbackDiscordWebhookUrl }
+					: {}),
 			},
 		});
 		this.fn.node.addDependency(logGroup);

@@ -148,6 +148,7 @@ jobs:
           npx cdk deploy --all --require-approval never --outputs-file cdk-outputs.json
           -c domainName=${{ env.DOMAIN_NAME }}
           -c certificateArn=${{ env.CERTIFICATE_ARN }}
+          -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
 
       # Phase 4: Update Lambda to use the new image
       - name: Update Lambda function image
