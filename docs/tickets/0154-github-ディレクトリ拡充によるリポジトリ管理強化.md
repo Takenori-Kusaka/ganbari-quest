@@ -1,6 +1,6 @@
 # #0154 .github ディレクトリ拡充によるリポジトリ管理強化
 
-## Status: Ready
+## Status: Done
 ## 優先度: 中
 ## 種別: DevOps / リポジトリ整備
 
@@ -225,16 +225,16 @@ infra/                               @Takenori-Kusaka
 ## 受け入れ条件
 
 ### Phase 1
-- [ ] `SECURITY.md` が作成され、GitHub の「Security」タブに「View security policy」が表示される
-- [ ] PR 作成時に自動でテンプレートが挿入される
-- [ ] Issue 作成時にバグ報告 / 機能要望のどちらかを選択するダイアログが表示される
-- [ ] 空テキストでの Issue 作成がブロックされる（`config.yml` による）
+- [x] `SECURITY.md` が作成され、GitHub の「Security」タブに「View security policy」が表示される
+- [x] PR 作成時に自動でテンプレートが挿入される
+- [x] Issue 作成時にバグ報告 / 機能要望のどちらかを選択するダイアログが表示される
+- [x] 空テキストでの Issue 作成がブロックされる（`config.yml` による）
 
 ### Phase 2
-- [ ] main への push/PR 時に CodeQL が実行され、結果が「Security」タブに表示される
-- [ ] npm パッケージを追加する PR に自動で依存関係レビューコメントが付く
-- [ ] `src/lib/server/` の変更を含む PR に `@Takenori-Kusaka` が自動追加される
-- [ ] PR に変更ファイルに応じたラベルが自動付与される
+- [x] main への push/PR 時に CodeQL が実行され、結果が「Security」タブに表示される
+- [x] npm パッケージを追加する PR に自動で依存関係レビューコメントが付く
+- [x] `src/lib/server/` の変更を含む PR に `@Takenori-Kusaka` が自動追加される
+- [x] PR に変更ファイルに応じたラベルが自動付与される
 
 ---
 
