@@ -98,9 +98,7 @@ function handleClick(e: Event) {
 	{/if}
 
 	{#if showMission}
-		<div class="absolute -top-1.5 -left-1.5 z-10" aria-hidden="true">
-			<span class="text-sm card-mission__star">⭐</span>
-		</div>
+		<div class="card-mission__sparkle" aria-hidden="true"></div>
 	{/if}
 
 	{#if completed}
@@ -129,34 +127,62 @@ function handleClick(e: Event) {
 </button>
 
 <style>
+	/* Holographic rainbow border (#0170) */
 	.card-mission {
-		box-shadow: 0 0 12px rgba(255, 200, 0, 0.5);
-		animation: pulse-gold 2s ease-in-out infinite;
+		position: relative;
+		border-color: transparent !important;
+		background-clip: padding-box;
+		animation: breathing-glow 2s ease-in-out infinite;
 	}
 
-	@keyframes pulse-gold {
-		0%,
-		100% {
-			box-shadow: 0 0 8px rgba(255, 200, 0, 0.4);
-		}
-		50% {
-			box-shadow: 0 0 20px rgba(255, 200, 0, 0.8);
-		}
+	.card-mission::before {
+		content: '';
+		position: absolute;
+		inset: -2px;
+		border-radius: inherit;
+		background: linear-gradient(
+			135deg,
+			#ff6b6b, #ffd93d, #6bcb77, #4d96ff, #ff6b6b
+		);
+		background-size: 300% 300%;
+		animation: holo-border 3s linear infinite;
+		z-index: -1;
 	}
 
-	.card-mission__star {
-		animation: star-twinkle 1.5s ease-in-out infinite;
+	/* Shine sweep on tap (#0170) */
+	.card-mission::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.6) 50%, transparent 60%);
+		opacity: 0;
+		pointer-events: none;
+		z-index: 5;
 	}
 
-	@keyframes star-twinkle {
-		0%,
-		100% {
-			opacity: 0.7;
-			transform: scale(1);
-		}
-		50% {
-			opacity: 1;
-			transform: scale(1.2);
-		}
+	.card-mission:active::after {
+		opacity: 1;
+		animation: card-shine 0.3s ease-out forwards;
 	}
+
+	/* Sparkle particles (#0170) */
+	.card-mission__sparkle {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		overflow: visible;
+		z-index: 10;
+	}
+
+	.card-mission__sparkle::before,
+	.card-mission__sparkle::after {
+		content: '✦';
+		position: absolute;
+		font-size: 0.6rem;
+		color: gold;
+		animation: sparkle-float 2s ease-in-out infinite;
+	}
+	.card-mission__sparkle::before { top: -4px; left: -4px; animation-delay: 0s; }
+	.card-mission__sparkle::after  { top: -4px; right: -4px; animation-delay: 0.5s; }
 </style>
