@@ -15,7 +15,7 @@ const color = $derived(catDef?.color ?? 'var(--theme-primary)');
 const categoryName = $derived(catDef?.name ?? '');
 </script>
 
-<div class="flex items-center gap-[var(--spacing-sm)]">
+<div class="flex items-center gap-[var(--sp-sm)]">
 	<span class="w-24 text-sm font-bold shrink-0 truncate">{categoryName}</span>
 	<div class="flex-1">
 		<Progress {value} max={maxValue} {color} size="md" />

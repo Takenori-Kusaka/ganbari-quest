@@ -97,7 +97,7 @@ function startEdit() {
 	<title>みらいのゆめ - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
+<div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	<h1 class="page-title">みらいのゆめ</h1>
 
 	{#if pointsMessage}
@@ -192,33 +192,33 @@ function startEdit() {
 		text-align: center;
 		font-size: var(--font-xl);
 		font-weight: 800;
-		margin-bottom: var(--spacing-md);
+		margin-bottom: var(--sp-md);
 	}
 	.section {
 		background: white;
 		border-radius: var(--radius-md);
-		padding: var(--spacing-md);
-		margin-bottom: var(--spacing-md);
+		padding: var(--sp-md);
+		margin-bottom: var(--sp-md);
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
 	.section-title {
 		font-size: var(--font-lg);
 		font-weight: 700;
-		margin: 0 0 var(--spacing-xs);
+		margin: 0 0 var(--sp-xs);
 	}
 	.section-desc {
 		font-size: var(--font-sm);
 		color: #6b7280;
-		margin: 0 0 var(--spacing-md);
+		margin: 0 0 var(--sp-md);
 	}
 	.selected-field-banner {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-sm);
 		background: linear-gradient(135deg, #fef3c7, #fde68a);
-		padding: var(--spacing-sm) var(--spacing-md);
+		padding: var(--sp-sm) var(--sp-md);
 		border-radius: var(--radius-md);
-		margin-bottom: var(--spacing-md);
+		margin-bottom: var(--sp-md);
 	}
 	.field-icon {
 		font-size: 1.5rem;
@@ -229,7 +229,7 @@ function startEdit() {
 	}
 	.change-btn {
 		font-size: var(--font-xs);
-		padding: var(--spacing-xs) var(--spacing-sm);
+		padding: var(--sp-xs) var(--sp-sm);
 		background: white;
 		border: 1px solid #d1d5db;
 		border-radius: var(--radius-sm);
@@ -237,10 +237,10 @@ function startEdit() {
 	}
 	.save-area, .edit-area {
 		text-align: center;
-		margin-bottom: var(--spacing-xl);
+		margin-bottom: var(--sp-xl);
 	}
 	.save-btn {
-		padding: var(--spacing-sm) var(--spacing-xl);
+		padding: var(--sp-sm) var(--sp-xl);
 		background: linear-gradient(135deg, #6366f1, #8b5cf6);
 		color: white;
 		border: none;
@@ -255,7 +255,7 @@ function startEdit() {
 		cursor: not-allowed;
 	}
 	.edit-btn {
-		padding: var(--spacing-sm) var(--spacing-xl);
+		padding: var(--sp-sm) var(--sp-xl);
 		background: white;
 		color: var(--color-primary, #6366f1);
 		border: 2px solid var(--color-primary, #6366f1);
@@ -266,12 +266,12 @@ function startEdit() {
 	}
 	.points-toast {
 		position: fixed;
-		top: var(--spacing-lg);
+		top: var(--sp-lg);
 		left: 50%;
 		transform: translateX(-50%);
 		background: linear-gradient(135deg, #fbbf24, #f59e0b);
 		color: white;
-		padding: var(--spacing-sm) var(--spacing-lg);
+		padding: var(--sp-sm) var(--sp-lg);
 		border-radius: var(--radius-lg);
 		font-weight: 800;
 		font-size: var(--font-lg);

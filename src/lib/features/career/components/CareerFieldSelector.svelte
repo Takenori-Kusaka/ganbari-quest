@@ -34,14 +34,14 @@ function handleSelect(field: CareerField) {
 	.career-field-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: var(--spacing-sm);
+		gap: var(--sp-sm);
 	}
 	.career-field-card {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-sm);
+		gap: var(--sp-xs);
+		padding: var(--sp-sm);
 		border-radius: var(--radius-md);
 		border: 2px solid var(--color-border, #e5e7eb);
 		background: white;

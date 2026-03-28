@@ -30,10 +30,10 @@ const balanceDisplay = $derived(
 </script>
 
 <header
-	class="sticky top-0 z-30 flex items-center justify-between px-[var(--spacing-md)] py-[var(--spacing-sm)]
+	class="sticky top-0 z-30 flex items-center justify-between px-[var(--sp-md)] py-[var(--sp-sm)]
 		bg-[var(--theme-primary)] text-white shadow-md"
 >
-	<div class="flex items-center gap-[var(--spacing-sm)]">
+	<div class="flex items-center gap-[var(--sp-sm)]">
 		<AvatarDisplay
 			{nickname}
 			{avatarUrl}

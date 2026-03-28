@@ -34,9 +34,9 @@ const navItems = $derived([
 		/>
 	{/if}
 
-	<main class="pb-20 pt-[var(--spacing-sm)]">
+	<main class="pb-20 pt-[var(--sp-sm)]">
 		{#if $navigating}
-			<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)] flex flex-col gap-[var(--spacing-md)]">
+			<div class="px-[var(--sp-md)] py-[var(--sp-sm)] flex flex-col gap-[var(--sp-md)]">
 				<div class="skeleton-block h-32 rounded-[var(--radius-md)]"></div>
 				<div class="skeleton-block h-20 rounded-[var(--radius-md)]"></div>
 				<div class="skeleton-block h-20 rounded-[var(--radius-md)]"></div>

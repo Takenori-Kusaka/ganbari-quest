@@ -31,23 +31,23 @@ function formatDate(dateStr: string): string {
 	<title>きろく - がんばりクエスト デモ</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
-	<h2 class="text-lg font-bold mb-[var(--spacing-md)]">きろく</h2>
+<div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
+	<h2 class="text-lg font-bold mb-[var(--sp-md)]">きろく</h2>
 
 	{#if data.logs.length === 0}
-		<div class="flex flex-col items-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
-			<span class="text-4xl mb-[var(--spacing-sm)]">📋</span>
+		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-[var(--sp-sm)]">📋</span>
 			<p class="font-bold">きろくがまだないよ</p>
 		</div>
 	{:else}
 		{#each groupedLogs() as [date, logs] (date)}
-			<div class="mb-[var(--spacing-md)]">
-				<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--spacing-xs)]">
+			<div class="mb-[var(--sp-md)]">
+				<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-xs)]">
 					{formatDate(date)}
 				</h3>
 				<div class="flex flex-col gap-1">
 					{#each logs as log (log.id)}
-						<div class="flex items-center gap-[var(--spacing-sm)] py-2 px-[var(--spacing-sm)] bg-white rounded-[var(--radius-md)] shadow-sm">
+						<div class="flex items-center gap-[var(--sp-sm)] py-2 px-[var(--sp-sm)] bg-white rounded-[var(--radius-md)] shadow-sm">
 							<span class="text-2xl">{log.activityIcon}</span>
 							<div class="flex-1 min-w-0">
 								<p class="font-bold text-sm truncate">{log.activityName}</p>

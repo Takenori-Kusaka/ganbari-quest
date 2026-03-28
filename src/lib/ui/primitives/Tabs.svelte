@@ -40,7 +40,7 @@ function handleValueChange(details: { value: string }) {
 	</ArkTabs.List>
 
 	{#each items as item (item.value)}
-		<ArkTabs.Content value={item.value} class="mt-[var(--spacing-md)]">
+		<ArkTabs.Content value={item.value} class="mt-[var(--sp-md)]">
 			{@render children(item.value)}
 		</ArkTabs.Content>
 	{/each}
