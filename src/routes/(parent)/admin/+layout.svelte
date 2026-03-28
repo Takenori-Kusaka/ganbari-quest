@@ -20,25 +20,18 @@ $effect(() => {
 	return () => window.removeEventListener('pageshow', handlePageShow);
 });
 
-const allNavItems = [
+const primaryNavItems = [
 	{ href: '/admin', label: 'ホーム', icon: '🏠' },
+	{ href: '/admin/activities', label: '活動', icon: '📋' },
 	{ href: '/admin/children', label: 'こども', icon: '👧' },
-	{ href: '/admin/activities', label: 'かつどう', icon: '📋' },
-	{ href: '/admin/checklists', label: 'もちもの', icon: '✅' },
-	{ href: '/admin/rewards', label: 'ごほうび', icon: '🎁' },
 	{ href: '/admin/points', label: 'ポイント', icon: '⭐' },
-	{ href: '/admin/achievements', label: 'じっせき', icon: '🏆' },
-	{ href: '/admin/status', label: 'ステータス', icon: '📊' },
-	{ href: '/admin/career', label: 'キャリア', icon: '🌟' },
-	{ href: '/admin/members', label: 'メンバー', icon: '👥' },
-	{ href: '/admin/license', label: 'ライセンス', icon: '🔑', authOnly: true },
-	{ href: '/admin/settings', label: 'せってい', icon: '⚙️' },
+	{ href: '/admin/settings', label: '設定', icon: '⚙️' },
 ];
 
-const authMode = $derived($page.data.authMode as string);
-const navItems = $derived(
-	authMode === 'local' ? allNavItems.filter((item) => !item.authOnly) : allNavItems,
-);
+function isNavActive(itemHref: string, currentPath: string): boolean {
+	if (itemHref === '/admin') return currentPath === '/admin';
+	return currentPath.startsWith(itemHref);
+}
 </script>
 
 <div data-theme="admin" class="min-h-dvh bg-gradient-to-b from-blue-50 to-blue-100">
@@ -60,14 +53,14 @@ const navItems = $derived(
 		</div>
 	</header>
 
-	<!-- Admin Navigation -->
-	<nav class="bg-white border-b border-gray-100 px-4 py-2 overflow-x-auto">
+	<!-- Desktop Navigation (≥768px) -->
+	<nav class="hidden md:block bg-white border-b border-gray-100 px-4 py-2">
 		<div class="max-w-4xl mx-auto flex gap-1">
-			{#each navItems as item}
-				{@const isActive = $page.url.pathname === item.href || (item.href !== '/admin' && $page.url.pathname.startsWith(item.href))}
+			{#each primaryNavItems as item}
+				{@const isActive = isNavActive(item.href, $page.url.pathname)}
 				<a
 					href={item.href}
-					class="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap
+					class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap
 						{isActive
 						? 'bg-blue-100 text-blue-700'
 						: 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'}"
@@ -81,7 +74,7 @@ const navItems = $derived(
 	</nav>
 
 	<!-- Main content -->
-	<main class="max-w-4xl mx-auto p-4">
+	<main class="max-w-4xl mx-auto p-4 pb-24 md:pb-4">
 		{#if $navigating}
 			<div class="flex flex-col gap-4">
 				<div class="skeleton-block h-10 w-48 rounded-lg"></div>
@@ -93,4 +86,22 @@ const navItems = $derived(
 			{@render children()}
 		{/if}
 	</main>
+
+	<!-- Mobile Bottom Navigation (<768px) -->
+	<nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 safe-area-bottom" aria-label="メインナビゲーション">
+		<div class="flex justify-around items-center h-16">
+			{#each primaryNavItems as item}
+				{@const isActive = isNavActive(item.href, $page.url.pathname)}
+				<a
+					href={item.href}
+					class="flex flex-col items-center justify-center gap-0.5 w-16 h-full transition-colors
+						{isActive ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}"
+					aria-current={isActive ? 'page' : undefined}
+				>
+					<span class="text-xl" aria-hidden="true">{item.icon}</span>
+					<span class="text-[10px] font-medium leading-none">{item.label}</span>
+				</a>
+			{/each}
+		</div>
+	</nav>
 </div>
