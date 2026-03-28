@@ -1,0 +1,47 @@
+"area: frontend":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/routes/**"
+          - "src/lib/ui/**"
+          - "src/lib/features/**"
+
+"area: backend":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/lib/server/**"
+          - "src/routes/api/**"
+
+"area: database":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/lib/server/db/**"
+          - "drizzle/**"
+          - "scripts/**"
+
+"area: infra":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "infra/**"
+          - ".github/workflows/**"
+          - "Dockerfile"
+          - "docker-compose*.yml"
+
+"area: tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tests/**"
+
+"area: docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "*.md"
+
+"area: config":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "package.json"
+          - "biome.json"
+          - "tsconfig.json"
+          - "svelte.config.js"
+          - "vite.config.ts"

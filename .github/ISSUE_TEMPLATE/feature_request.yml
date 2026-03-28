@@ -1,0 +1,52 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for your suggestion! Please describe your idea below.
+
+  - type: textarea
+    id: usecase
+    attributes:
+      label: Use case
+      description: What problem does this solve? Who benefits from it?
+      placeholder: |
+        As a parent, I want to ...
+        As a child user, I want to ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe how you'd like this feature to work.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: age-group
+    attributes:
+      label: Target age group
+      description: Which age group is this most relevant for?
+      options:
+        - Baby (0-2 years)
+        - Kinder (3-6 years)
+        - All ages
+        - Parent/Admin only
+        - Not applicable
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you considered any alternative solutions or workarounds?
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Any other information, mockups, or screenshots.
