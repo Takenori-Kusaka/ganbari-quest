@@ -1,30 +1,77 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
   <defs>
-    <linearGradient id="sg" x1="0.5" y1="0" x2="0.5" y2="1">
+    <linearGradient id="cape" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3878B8"/>
+      <stop offset="100%" stop-color="#2A5F9E"/>
+    </linearGradient>
+    <linearGradient id="helmet" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#5BA3E6"/>
       <stop offset="100%" stop-color="#3878B8"/>
     </linearGradient>
-    <linearGradient id="st" x1="0.5" y1="0" x2="0.5" y2="1">
+    <linearGradient id="gold" x1="0.5" y1="0" x2="0.5" y2="1">
       <stop offset="0%" stop-color="#FFE44D"/>
       <stop offset="100%" stop-color="#FFCC00"/>
     </linearGradient>
-    <filter id="ds" x="-5%" y="-5%" width="115%" height="115%">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/>
-    </filter>
+    <linearGradient id="skin" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#FFE0B2"/>
+      <stop offset="100%" stop-color="#FFCC80"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E8F4FD"/>
+      <stop offset="100%" stop-color="#D4ECFB"/>
+    </linearGradient>
   </defs>
-  <!-- Shield -->
-  <path d="M128 18 L218 52 C220 53 222 55 222 58 L222 126 C222 180 136 228 128 238 C120 228 34 180 34 126 L34 58 C34 55 36 53 38 52 Z"
-        fill="url(#sg)" filter="url(#ds)"/>
-  <!-- Shield border -->
-  <path d="M128 18 L218 52 C220 53 222 55 222 58 L222 126 C222 180 136 228 128 238 C120 228 34 180 34 126 L34 58 C34 55 36 53 38 52 Z"
-        fill="none" stroke="#2A6BA8" stroke-width="5"/>
-  <!-- Inner highlight -->
-  <path d="M128 38 L200 64 L200 124 C200 168 140 210 128 220 C116 210 56 168 56 124 L56 64 Z"
-        fill="rgba(255,255,255,0.1)"/>
-  <!-- Star -->
-  <polygon points="128,62 144,106 192,110 155,140 166,186 128,162 90,186 101,140 64,110 112,106"
-           fill="url(#st)" stroke="#D4A800" stroke-width="2.5"/>
-  <!-- Star highlight -->
-  <polygon points="128,72 140,106 176,109 149,133 157,170 128,152 99,170 107,133 80,109 116,106"
-           fill="rgba(255,255,255,0.2)"/>
+  <!-- Soft rounded square background -->
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#bg)"/>
+  <!-- Cape (behind body) -->
+  <path d="M96,130 Q78,165 82,200 Q88,195 100,188 L128,175 L156,188 Q168,195 174,200 Q178,165 160,130Z" fill="url(#cape)" opacity="0.85"/>
+  <!-- Body / tunic -->
+  <path d="M104,120 Q100,140 102,165 L128,172 L154,165 Q156,140 152,120Z" fill="#F5E6C8"/>
+  <!-- Star emblem on chest -->
+  <polygon points="128,132 132,124 140,123 135,118 136,110 128,114 120,110 121,118 116,123 124,124" fill="url(#gold)"/>
+  <!-- Left arm -->
+  <path d="M104,125 Q88,115 82,98" fill="none" stroke="url(#skin)" stroke-width="10" stroke-linecap="round"/>
+  <!-- Right arm (holding wand) -->
+  <path d="M152,125 Q168,110 172,95" fill="none" stroke="url(#skin)" stroke-width="10" stroke-linecap="round"/>
+  <!-- Left hand -->
+  <circle cx="80" cy="96" r="7" fill="url(#skin)"/>
+  <!-- Right hand -->
+  <circle cx="173" cy="93" r="7" fill="url(#skin)"/>
+  <!-- Wand -->
+  <line x1="173" y1="93" x2="185" y2="52" stroke="#8D6E63" stroke-width="4" stroke-linecap="round"/>
+  <!-- Wand star -->
+  <polygon points="185,42 189,32 198,30 191,24 193,14 185,19 177,14 179,24 172,30 181,32" fill="url(#gold)"/>
+  <!-- Wand glow -->
+  <circle cx="185" cy="30" r="18" fill="#FFCC00" opacity="0.15"/>
+  <!-- Head -->
+  <circle cx="128" cy="82" r="28" fill="url(#skin)"/>
+  <!-- Helmet base -->
+  <path d="M100,78 Q100,50 128,45 Q156,50 156,78 Q148,72 128,70 Q108,72 100,78Z" fill="url(#helmet)"/>
+  <!-- Helmet band -->
+  <rect x="100" y="74" width="56" height="6" rx="3" fill="url(#gold)"/>
+  <!-- Helmet star -->
+  <polygon points="128,52 131,44 138,43 133,39 134,32 128,36 122,32 123,39 118,43 125,44" fill="url(#gold)"/>
+  <!-- Eyes -->
+  <ellipse cx="118" cy="85" rx="4.5" ry="5" fill="#333"/>
+  <ellipse cx="138" cy="85" rx="4.5" ry="5" fill="#333"/>
+  <!-- Eye highlights -->
+  <circle cx="116" cy="83" r="2" fill="white"/>
+  <circle cx="136" cy="83" r="2" fill="white"/>
+  <!-- Blush -->
+  <ellipse cx="108" cy="92" rx="6" ry="3.5" fill="#FFAB91" opacity="0.45"/>
+  <ellipse cx="148" cy="92" rx="6" ry="3.5" fill="#FFAB91" opacity="0.45"/>
+  <!-- Smile -->
+  <path d="M120,96 Q128,104 136,96" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Small sparkles -->
+  <g fill="#FFCC00" opacity="0.7">
+    <polygon points="60,68 62,62 68,60 62,58 60,52 58,58 52,60 58,62"/>
+    <polygon points="200,72 202,66 208,64 202,62 200,56 198,62 192,64 198,66"/>
+    <circle cx="72" cy="140" r="3"/>
+    <circle cx="188" cy="145" r="2.5"/>
+  </g>
+  <!-- Small stars around -->
+  <g fill="#5BA3E6" opacity="0.4">
+    <polygon points="50,120 52,116 56,115 52,113 50,109 48,113 44,115 48,116"/>
+    <polygon points="205,118 207,114 211,113 207,111 205,107 203,111 199,113 203,114"/>
+  </g>
 </svg>
