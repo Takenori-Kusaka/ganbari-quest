@@ -1,0 +1,73 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please fill out the details below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect to happen?
+      placeholder: |
+        Expected: ...
+        Actual: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Go to ...
+        2. Click on ...
+        3. See error
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: Where are you running the app?
+      options:
+        - AWS Lambda (ganbari-quest.com)
+        - Docker (NUC / self-hosted)
+        - Local development (npm run dev)
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser / Device
+      description: e.g., Chrome 120 / iPhone Safari / iPad
+      placeholder: Chrome 120 on Android
+
+  - type: dropdown
+    id: user-type
+    attributes:
+      label: Which screen?
+      options:
+        - Child screen (Kinder)
+        - Child screen (Baby)
+        - Parent admin screen
+        - Other
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain the problem.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Any other information that might help.

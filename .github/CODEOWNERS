@@ -1,0 +1,9 @@
+# Default: all files
+*                                    @Takenori-Kusaka
+
+# Server-side (security-critical)
+src/lib/server/                      @Takenori-Kusaka
+
+# Infrastructure (cost impact)
+infra/                               @Takenori-Kusaka
+.github/workflows/deploy.yml         @Takenori-Kusaka
