@@ -114,6 +114,15 @@ export class CognitoAuthProvider implements AuthProvider {
 				role: membership.role,
 				licenseStatus: 'active',
 			};
+
+			// child ロールの場合、userId から childId を解決 (#0156)
+			if (membership.role === 'child') {
+				const child = await repos.child.findChildByUserId(identity.userId, membership.tenantId);
+				if (child) {
+					context.childId = child.id;
+				}
+			}
+
 			this.setContextCookie(event, context);
 			return context;
 		} catch (e) {

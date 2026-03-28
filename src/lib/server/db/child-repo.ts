@@ -9,6 +9,9 @@ export async function findAllChildren(tenantId: string) {
 export async function findChildById(id: number, tenantId: string) {
 	return getRepos().child.findChildById(id, tenantId);
 }
+export async function findChildByUserId(userId: string, tenantId: string) {
+	return getRepos().child.findChildByUserId(userId, tenantId);
+}
 export async function insertChild(input: InsertChildInput, tenantId: string) {
 	return getRepos().child.insertChild(input, tenantId);
 }

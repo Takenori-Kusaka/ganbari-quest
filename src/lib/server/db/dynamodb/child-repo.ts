@@ -40,6 +40,28 @@ export async function findAllChildren(tenantId: string): Promise<Child[]> {
 	return items.map((item) => stripKeys(item) as unknown as Child);
 }
 
+/** userIdで子供を取得（招待紐づけ用） */
+export async function findChildByUserId(
+	userId: string,
+	tenantId: string,
+): Promise<Child | undefined> {
+	const result = await getDocClient().send(
+		new ScanCommand({
+			TableName: TABLE_NAME,
+			FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk AND userId = :userId',
+			ExpressionAttributeValues: {
+				':prefix': tenantPK('CHILD#', tenantId),
+				':sk': 'PROFILE',
+				':userId': userId,
+			},
+		}),
+	);
+
+	const item = result.Items?.[0];
+	if (!item) return undefined;
+	return stripKeys(item) as unknown as Child;
+}
+
 /** IDで子供を取得 */
 export async function findChildById(id: number, tenantId: string): Promise<Child | undefined> {
 	const result = await getDocClient().send(
@@ -71,6 +93,7 @@ export async function insertChild(input: InsertChildInput, tenantId: string): Pr
 		activeAvatarFrame: null,
 		activeAvatarEffect: null,
 		displayConfig: null,
+		userId: null,
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -135,6 +158,11 @@ export async function updateChild(
 		expressionParts.push('#displayConfig = :displayConfig');
 		expressionNames['#displayConfig'] = 'displayConfig';
 		expressionValues[':displayConfig'] = input.displayConfig;
+	}
+	if (input.userId !== undefined) {
+		expressionParts.push('#userId = :userId');
+		expressionNames['#userId'] = 'userId';
+		expressionValues[':userId'] = input.userId;
 	}
 
 	try {

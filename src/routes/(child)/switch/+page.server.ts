@@ -11,7 +11,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 	if (!tenantId) {
 		redirect(302, '/auth/login');
 	}
-	const children = await getAllChildren(tenantId);
+
+	let children = await getAllChildren(tenantId);
+
+	// child ロールで childId が紐づけ済みの場合、自分のプロフィールのみ表示 (#0156)
+	if (locals.context?.role === 'child' && locals.context.childId) {
+		children = children.filter((c) => c.id === locals.context?.childId);
+	}
+
 	const authMode = getAuthMode();
 	// local モードは認証不要なので直接 /admin、cognito モードは /auth/login
 	const adminLink = authMode === 'cognito' ? '/auth/login' : '/admin';
@@ -26,6 +33,13 @@ export const actions: Actions = {
 
 		if (!childId) {
 			return { error: 'こどもをえらんでね' };
+		}
+
+		// child ロールは紐づけ済みの自分のプロフィールのみ選択可 (#0156)
+		if (locals.context?.role === 'child' && locals.context.childId) {
+			if (Number(childId) !== locals.context.childId) {
+				return { error: 'このプロフィールは選べません' };
+			}
 		}
 
 		cookies.set('selectedChildId', String(childId), {

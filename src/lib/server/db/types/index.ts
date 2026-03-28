@@ -26,6 +26,7 @@ export interface Child {
 	activeAvatarFrame: number | null;
 	activeAvatarEffect: number | null;
 	displayConfig: string | null;
+	userId: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -383,6 +384,7 @@ export interface UpdateChildInput {
 	uiMode?: string;
 	birthDate?: string | null;
 	displayConfig?: string | null;
+	userId?: string | null;
 }
 
 export interface InsertEvaluationInput {

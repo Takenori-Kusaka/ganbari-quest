@@ -14,7 +14,13 @@ import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	const tenantId = requireTenantId(locals);
-	const childIdStr = cookies.get('selectedChildId');
+	let childIdStr = cookies.get('selectedChildId');
+
+	// context.childId がある場合（招待紐づけ済みの child ロール）は自動選択 (#0156)
+	if (!childIdStr && locals.context?.childId) {
+		childIdStr = String(locals.context.childId);
+		cookies.set('selectedChildId', childIdStr, { path: '/', httpOnly: false, sameSite: 'lax' });
+	}
 
 	// /switch ページは子供未選択でもアクセス可能（無限リダイレクト防止）
 	if (!childIdStr && url.pathname !== '/switch') {

@@ -23,6 +23,10 @@ export async function findChildById(id: number, _tenantId: string) {
 	return db.select().from(children).where(eq(children.id, id)).get();
 }
 
+export async function findChildByUserId(userId: string, _tenantId: string) {
+	return db.select().from(children).where(eq(children.userId, userId)).get();
+}
+
 export async function insertChild(
 	input: {
 		nickname: string;

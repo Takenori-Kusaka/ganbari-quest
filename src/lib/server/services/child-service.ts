@@ -2,6 +2,7 @@ import {
 	deleteChild,
 	findAllChildren,
 	findChildById,
+	findChildByUserId,
 	insertChild,
 	updateChild,
 } from '$lib/server/db/child-repo';
@@ -14,6 +15,10 @@ export async function getAllChildren(tenantId: string) {
 
 export async function getChildById(id: number, tenantId: string) {
 	return await findChildById(id, tenantId);
+}
+
+export async function getChildByUserId(userId: string, tenantId: string) {
+	return await findChildByUserId(userId, tenantId);
 }
 
 export async function addChild(
