@@ -80,7 +80,6 @@ function generateFallbackAvatar(nickname: string, theme: string): Buffer {
 	return Buffer.from(svg, 'utf-8');
 }
 
-
 export interface GenerateAvatarResult {
 	filePath: string;
 	isGenerated: boolean;
