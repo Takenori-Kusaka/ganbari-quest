@@ -32,7 +32,7 @@ export function showToast(
 	<div class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-80">
 		{#each toasts as toast (toast.id)}
 			<div
-				class="bg-white shadow-lg rounded-[var(--radius-md)] px-[var(--spacing-md)] py-[var(--spacing-sm)] flex items-center gap-[var(--spacing-sm)] border-l-4 animate-bounce-in
+				class="bg-white shadow-lg rounded-[var(--radius-md)] px-[var(--sp-md)] py-[var(--sp-sm)] flex items-center gap-[var(--sp-sm)] border-l-4 animate-bounce-in
 					{toast.type === 'success' ? 'border-l-[var(--color-success)]' : ''}
 					{toast.type === 'error' ? 'border-l-[var(--color-danger)]' : ''}
 					{toast.type === 'info' ? 'border-l-[var(--theme-primary)]' : ''}"

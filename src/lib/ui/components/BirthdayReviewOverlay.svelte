@@ -46,7 +46,7 @@ const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length
 </script>
 
 <Dialog bind:open closable={false} title="">
-	<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center py-[var(--spacing-sm)]">
+	<div class="flex flex-col items-center gap-[var(--sp-md)] text-center py-[var(--sp-sm)]">
 		{#if step === 'intro'}
 			<!-- Birthday greeting -->
 			<div class="text-6xl animate-bounce-in">🎂</div>
@@ -60,7 +60,7 @@ const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length
 				いっしょにふりかえりをしよう
 			</p>
 			<button
-				class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg mt-[var(--spacing-sm)]"
+				class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg mt-[var(--sp-sm)]"
 				onclick={() => { soundService.play('tap'); step = 'health'; }}
 			>
 				はじめる！
@@ -73,10 +73,10 @@ const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length
 				このいちねん、できたことにタップしよう！
 			</p>
 
-			<div class="flex flex-col gap-[var(--spacing-xs)] w-full">
+			<div class="flex flex-col gap-[var(--sp-xs)] w-full">
 				{#each healthCheckItems as item (item.key)}
 					<button
-						class="flex items-center gap-[var(--spacing-sm)] w-full px-3 py-3 rounded-[var(--radius-md)] text-left transition-all tap-target
+						class="flex items-center gap-[var(--sp-sm)] w-full px-3 py-3 rounded-[var(--radius-md)] text-left transition-all tap-target
 							{healthChecks[item.key] ? 'bg-green-100 border-2 border-green-400' : 'bg-gray-50 border-2 border-transparent'}"
 						onclick={() => toggleCheck(item.key)}
 					>
@@ -95,7 +95,7 @@ const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length
 				</p>
 			{/if}
 
-			<div class="flex gap-[var(--spacing-sm)] w-full mt-[var(--spacing-xs)]">
+			<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-xs)]">
 				<button
 					class="tap-target flex-1 py-3 rounded-[var(--radius-md)] bg-gray-200 font-bold"
 					onclick={() => { soundService.play('tap'); step = 'intro'; }}
@@ -124,7 +124,7 @@ const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length
 				bind:value={aspirationText}
 			></textarea>
 
-			<div class="flex gap-[var(--spacing-sm)] w-full mt-[var(--spacing-xs)]">
+			<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-xs)]">
 				<button
 					class="tap-target flex-1 py-3 rounded-[var(--radius-md)] bg-gray-200 font-bold"
 					onclick={() => { soundService.play('tap'); step = 'health'; }}
@@ -157,7 +157,7 @@ const checkedCount = $derived(Object.values(healthChecks).filter(Boolean).length
 				{/if}
 			</div>
 
-			<div class="flex gap-[var(--spacing-sm)] w-full mt-[var(--spacing-xs)]">
+			<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-xs)]">
 				<button
 					class="tap-target flex-1 py-3 rounded-[var(--radius-md)] bg-gray-200 font-bold"
 					onclick={() => { soundService.play('tap'); step = 'aspiration'; }}

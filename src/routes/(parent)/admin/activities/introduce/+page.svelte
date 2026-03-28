@@ -28,10 +28,10 @@ function finish() {
 </script>
 
 <svelte:head>
-	<title>活動のおしえかた</title>
+	<title>活動紹介スライド - がんばりクエスト管理</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col">
+<div class="min-h-full bg-gradient-to-b from-blue-50 to-white flex flex-col">
 	{#if total === 0}
 		<div class="flex-1 flex flex-col items-center justify-center p-6">
 			<span class="text-5xl mb-4">📋</span>
@@ -74,24 +74,24 @@ function finish() {
 
 			<!-- Trigger hint balloon -->
 			{#if activity.triggerHint}
-				<div class="mt-6 max-w-xs w-full">
+				<div class="mt-6 w-72">
 					<div class="relative bg-orange-50 border-2 border-orange-200 rounded-2xl px-5 py-4 text-center">
 						<div class="absolute -top-2.5 left-1/2 -translate-x-1/2 w-4 h-4 bg-orange-50 border-l-2 border-t-2 border-orange-200 rotate-45"></div>
-						<p class="text-xs text-orange-400 font-bold mb-1">こどもに おしえてね</p>
+						<p class="text-xs text-orange-400 font-bold mb-1">つかいかたを みせてあげてね</p>
 						<p class="text-lg font-bold text-orange-600 leading-snug">
 							「{activity.triggerHint}」
 						</p>
 					</div>
 				</div>
 			{:else if activity.description}
-				<div class="mt-6 max-w-xs w-full">
+				<div class="mt-6 w-72">
 					<div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center">
 						<p class="text-xs text-gray-400 font-bold mb-1">活動の説明</p>
 						<p class="text-sm text-gray-600 leading-snug">{activity.description}</p>
 					</div>
 				</div>
 			{:else}
-				<div class="mt-6 max-w-xs w-full">
+				<div class="mt-6 w-72">
 					<div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center">
 						<p class="text-sm text-gray-400">
 							ヒントはまだ設定されていません
@@ -110,7 +110,7 @@ function finish() {
 		</div>
 
 		<!-- Navigation buttons -->
-		<div class="px-4 pb-6 space-y-2">
+		<div class="sticky bottom-0 px-4 pb-6 pt-4 space-y-2 bg-white/80 backdrop-blur-sm border-t border-gray-100">
 			<div class="flex gap-2">
 				<button
 					onclick={prev}

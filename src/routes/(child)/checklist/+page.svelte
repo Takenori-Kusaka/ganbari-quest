@@ -43,25 +43,25 @@ function handleCompleteClose() {
 	<title>もちものチェック - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-sm)] py-[var(--spacing-sm)]">
+<div class="px-[var(--sp-sm)] py-[var(--sp-sm)]">
 	<!-- Day of week header -->
-	<div class="text-center mb-[var(--spacing-md)]">
+	<div class="text-center mb-[var(--sp-md)]">
 		<p class="text-sm text-[var(--color-text-muted)]">きょうは</p>
 		<p class="text-lg font-bold">{todayDayName}</p>
 	</div>
 
 	{#if data.checklists.length === 0}
-		<div class="flex flex-col items-center justify-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
-			<span class="text-4xl mb-[var(--spacing-md)]">📋</span>
+		<div class="flex flex-col items-center justify-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-[var(--sp-md)]">📋</span>
 			<p class="text-lg font-bold">チェックリストがないよ</p>
 			<p class="text-sm">おやにおねがいしてね</p>
 		</div>
 	{:else}
 		{#each data.checklists as checklist (checklist.templateId)}
-			<div class="bg-white rounded-[var(--radius-lg)] shadow-sm border border-[var(--color-border)] mb-[var(--spacing-md)] overflow-hidden">
+			<div class="bg-white rounded-[var(--radius-lg)] shadow-sm border border-[var(--color-border)] mb-[var(--sp-md)] overflow-hidden">
 				<!-- Template header -->
-				<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)] bg-[var(--theme-primary-light)] flex items-center justify-between">
-					<div class="flex items-center gap-[var(--spacing-xs)]">
+				<div class="px-[var(--sp-md)] py-[var(--sp-sm)] bg-[var(--theme-primary-light)] flex items-center justify-between">
+					<div class="flex items-center gap-[var(--sp-xs)]">
 						<span class="text-xl">{checklist.templateIcon}</span>
 						<span class="font-bold">{checklist.templateName}</span>
 					</div>
@@ -113,7 +113,7 @@ function handleCompleteClose() {
 							<input type="hidden" name="checked" value={item.checked ? '0' : '1'} />
 							<button
 								type="submit"
-								class="tap-target w-full flex items-center gap-[var(--spacing-sm)] px-[var(--spacing-md)] py-[var(--spacing-sm)] text-left transition-colors {item.checked ? 'bg-green-50' : 'hover:bg-gray-50'}"
+								class="tap-target w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors {item.checked ? 'bg-green-50' : 'hover:bg-gray-50'}"
 							>
 								<span class="text-2xl flex-shrink-0 {item.checked ? 'opacity-100' : 'opacity-30'}">
 									{item.checked ? '✅' : '☐'}
@@ -128,7 +128,7 @@ function handleCompleteClose() {
 				</div>
 
 				<!-- Footer: points info -->
-				<div class="px-[var(--spacing-md)] py-[var(--spacing-xs)] bg-gray-50 text-center text-sm text-[var(--color-text-muted)]">
+				<div class="px-[var(--sp-md)] py-[var(--sp-xs)] bg-gray-50 text-center text-sm text-[var(--color-text-muted)]">
 					{#if checklist.completedAll}
 						<span class="text-[var(--theme-accent)] font-bold">🎉 ぜんぶできた！ {fmtPts(checklist.pointsAwarded)}</span>
 					{:else}
@@ -140,10 +140,10 @@ function handleCompleteClose() {
 	{/if}
 
 	<!-- Back button -->
-	<div class="text-center mt-[var(--spacing-md)]">
+	<div class="text-center mt-[var(--sp-md)]">
 		<a
 			href="/{data.uiMode}/home"
-			class="inline-block px-[var(--spacing-lg)] py-[var(--spacing-sm)] rounded-[var(--radius-md)] bg-gray-200 font-bold text-sm"
+			class="inline-block px-[var(--sp-lg)] py-[var(--sp-sm)] rounded-[var(--radius-md)] bg-gray-200 font-bold text-sm"
 		>
 			もどる
 		</a>
@@ -153,7 +153,7 @@ function handleCompleteClose() {
 <!-- Complete overlay -->
 <Dialog bind:open={completeOpen} closable={false} title="">
 	{#if completeData}
-		<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center py-[var(--spacing-md)]">
+		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center py-[var(--sp-md)]">
 			<div class="relative w-24 h-24 flex items-center justify-center">
 				<CelebrationEffect type={celebEffect} />
 			</div>

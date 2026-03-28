@@ -98,9 +98,9 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 	<title>じっせき - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
+<div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	<!-- Summary -->
-	<div class="flex items-center justify-center gap-[var(--spacing-sm)] mb-[var(--spacing-lg)]">
+	<div class="flex items-center justify-center gap-[var(--sp-sm)] mb-[var(--sp-lg)]">
 		<span class="text-3xl">🏆</span>
 		<p class="text-lg font-bold">
 			{unlockedCount} / {data.achievements.length} たっせい
@@ -109,7 +109,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 
 	<!-- Achievement grid -->
 	{#if data.achievements.length > 0}
-		<div class="grid grid-cols-3 gap-[var(--spacing-sm)]">
+		<div class="grid grid-cols-3 gap-[var(--sp-sm)]">
 			{#each data.achievements as achievement (achievement.id)}
 				{@const unlocked = isUnlocked(achievement)}
 				{@const rarity = currentRarity(achievement)}
@@ -117,7 +117,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 				{@const bg = rarityBg[rarity] ?? 'bg-gray-50'}
 				{@const pct = progressPercent(achievement)}
 				<button
-					class="tap-target flex flex-col items-center gap-1 p-[var(--spacing-sm)] rounded-[var(--radius-md)] border-2
+					class="tap-target flex flex-col items-center gap-1 p-[var(--sp-sm)] rounded-[var(--radius-md)] border-2
 						{unlocked ? `${border} ${bg}` : 'border-gray-200 bg-gray-100'}
 						transition-all relative overflow-hidden"
 					onclick={() => handleTap(achievement)}
@@ -148,9 +148,9 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 		</div>
 	{:else}
 		<div
-			class="flex flex-col items-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]"
+			class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]"
 		>
-			<span class="text-4xl mb-[var(--spacing-sm)]">🏆</span>
+			<span class="text-4xl mb-[var(--sp-sm)]">🏆</span>
 			<p class="font-bold">じっせきがまだないよ</p>
 		</div>
 	{/if}
@@ -166,7 +166,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 		{@const pct = progressPercent(selectedAchievement)}
 		{@const streakText = streakStatusText(selectedAchievement)}
 		{@const milestoneText = milestoneDisplayText(selectedAchievement)}
-		<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center">
+		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center">
 			<div
 				class="w-24 h-24 rounded-[var(--radius-lg)] border-4 {unlocked
 					? `${border} ${bg}`
@@ -262,7 +262,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 				</div>
 			{/if}
 
-			<div class="flex gap-[var(--spacing-md)] text-sm">
+			<div class="flex gap-[var(--sp-md)] text-sm">
 				<div class="flex flex-col items-center">
 					<span class="font-bold text-[var(--color-point)]"
 						>{fmtPts(selectedAchievement.bonusPoints)}</span

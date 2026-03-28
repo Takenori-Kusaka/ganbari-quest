@@ -35,7 +35,7 @@ $effect(() => {
 </script>
 
 <Dialog bind:open closable={false} title="">
-	<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center py-[var(--spacing-md)]">
+	<div class="flex flex-col items-center gap-[var(--sp-md)] text-center py-[var(--sp-md)]">
 		{#if !revealed}
 			<div class="text-6xl animate-spin-in">🎁</div>
 			<p class="text-lg font-bold">プレゼントをあけるよ...</p>
@@ -72,7 +72,7 @@ $effect(() => {
 			</div>
 
 			<button
-				class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg mt-[var(--spacing-sm)]"
+				class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg mt-[var(--sp-sm)]"
 				onclick={() => { open = false; onClose?.(); }}
 			>
 				やったね！

@@ -18,7 +18,7 @@ function handleValueComplete(details: { value: string[]; valueAsString: string }
 	onValueComplete={handleValueComplete}
 	{mask}
 	type="numeric"
-	class="flex gap-[var(--spacing-sm)] justify-center"
+	class="flex gap-[var(--sp-sm)] justify-center"
 >
 	<ArkPinInput.Label class="sr-only">PINコード</ArkPinInput.Label>
 	{#each Array(length) as _, i}

@@ -41,7 +41,7 @@ const collapsedRows = $derived(Math.ceil(itemsPerCategory / MIN_COLS[cardSize]))
 const collapsedMaxHeight = $derived(`${collapsedRows * ROW_HEIGHTS[cardSize]}px`);
 </script>
 
-<section class="mb-[var(--spacing-sm)]">
+<section class="mb-[var(--sp-sm)]">
 	<h2
 		class="flex items-center gap-1 mb-1 px-1"
 	>

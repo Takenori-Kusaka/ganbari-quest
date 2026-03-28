@@ -48,12 +48,12 @@ function formatDate(dateStr: string): string {
 	<title>きろく - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
+<div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	<Tabs items={tabItems} value={data.period} onValueChange={handleTabChange}>
 		{#snippet children(_value)}
 			<!-- Summary -->
-			<div class="bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm mb-[var(--spacing-md)]">
-				<div class="flex justify-between items-center mb-[var(--spacing-sm)]">
+			<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-md)]">
+				<div class="flex justify-between items-center mb-[var(--sp-sm)]">
 					<span class="text-sm text-[var(--color-text-muted)]">ごうけい</span>
 					<span class="font-bold text-lg">{data.summary.totalCount}かい</span>
 				</div>
@@ -62,7 +62,7 @@ function formatDate(dateStr: string): string {
 					<span class="font-bold text-lg text-[var(--color-point)]">{fmtBal(data.summary.totalPoints)}</span>
 				</div>
 				{#if Object.keys(data.summary.byCategory).length > 0}
-					<div class="flex flex-wrap gap-[var(--spacing-xs)] mt-[var(--spacing-sm)]">
+					<div class="flex flex-wrap gap-[var(--sp-xs)] mt-[var(--sp-sm)]">
 						{#each Object.entries(data.summary.byCategory) as [cat, info]}
 							<span
 								class="text-xs px-2 py-1 rounded-[var(--radius-full)] text-white font-bold"
@@ -77,19 +77,19 @@ function formatDate(dateStr: string): string {
 
 			<!-- Log list -->
 			{#if data.logs.length === 0}
-				<div class="flex flex-col items-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
-					<span class="text-4xl mb-[var(--spacing-sm)]">📝</span>
+				<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
+					<span class="text-4xl mb-[var(--sp-sm)]">📝</span>
 					<p class="font-bold">まだきろくがないよ</p>
 				</div>
 			{:else}
 				{#each logsByDate() as [date, logs] (date)}
-					<div class="mb-[var(--spacing-md)]">
-						<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--spacing-xs)]">
+					<div class="mb-[var(--sp-md)]">
+						<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-xs)]">
 							{formatDate(date)}
 						</h3>
-						<div class="flex flex-col gap-[var(--spacing-xs)]">
+						<div class="flex flex-col gap-[var(--sp-xs)]">
 							{#each logs as log (log.id)}
-								<div class="flex items-center gap-[var(--spacing-sm)] bg-white rounded-[var(--radius-sm)] px-[var(--spacing-sm)] py-[var(--spacing-xs)] shadow-sm">
+								<div class="flex items-center gap-[var(--sp-sm)] bg-white rounded-[var(--radius-sm)] px-[var(--sp-sm)] py-[var(--sp-xs)] shadow-sm">
 									<span class="text-2xl">{log.activityIcon}</span>
 									<div class="flex-1 min-w-0">
 										<p class="text-sm font-bold truncate">{log.activityName}</p>

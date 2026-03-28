@@ -144,13 +144,13 @@ function selectGoal(index: number) {
 	.mandala-container {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-md);
 	}
 	.mandala-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		grid-template-rows: repeat(3, 1fr);
-		gap: var(--spacing-xs);
+		gap: var(--sp-xs);
 		aspect-ratio: 1;
 		max-width: 360px;
 		margin: 0 auto;
@@ -160,7 +160,7 @@ function selectGoal(index: number) {
 		align-items: center;
 		justify-content: center;
 		border-radius: var(--radius-sm);
-		padding: var(--spacing-xs);
+		padding: var(--sp-xs);
 		min-height: 0;
 		font-size: var(--font-xs);
 		text-align: center;
@@ -221,14 +221,14 @@ function selectGoal(index: number) {
 		background: white;
 		border: 2px solid var(--color-primary, #6366f1);
 		border-radius: var(--radius-md);
-		padding: var(--spacing-md);
+		padding: var(--sp-md);
 	}
 	.actions-header {
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: var(--sp-sm);
 	}
 	.goal-edit-input {
 		width: 100%;
-		padding: var(--spacing-xs) var(--spacing-sm);
+		padding: var(--sp-xs) var(--sp-sm);
 		border: 2px solid #d1d5db;
 		border-radius: var(--radius-sm);
 		font-size: var(--font-sm);
@@ -242,12 +242,12 @@ function selectGoal(index: number) {
 	.actions-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-xs);
 	}
 	.action-item {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-xs);
 	}
 	.action-number {
 		font-weight: 600;
@@ -256,7 +256,7 @@ function selectGoal(index: number) {
 	}
 	.action-input {
 		flex: 1;
-		padding: var(--spacing-xs);
+		padding: var(--sp-xs);
 		border: 1px solid #d1d5db;
 		border-radius: var(--radius-sm);
 		font-size: var(--font-sm);
@@ -265,8 +265,8 @@ function selectGoal(index: number) {
 		color: #374151;
 	}
 	.close-btn {
-		margin-top: var(--spacing-sm);
-		padding: var(--spacing-xs) var(--spacing-md);
+		margin-top: var(--sp-sm);
+		padding: var(--sp-xs) var(--sp-md);
 		background: #f3f4f6;
 		border: 1px solid #d1d5db;
 		border-radius: var(--radius-sm);

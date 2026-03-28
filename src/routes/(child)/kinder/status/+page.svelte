@@ -79,11 +79,11 @@ const radarCategories = $derived(
 	<title>つよさ - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
+<div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	{#if data.status}
 		<!-- Level + title -->
-		<div class="bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm mb-[var(--spacing-lg)]">
-			<div class="flex flex-col items-center gap-[var(--spacing-xs)] mb-[var(--spacing-md)]">
+		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-lg)]">
+			<div class="flex flex-col items-center gap-[var(--sp-xs)] mb-[var(--sp-md)]">
 				<span class="text-5xl">
 					{levelEmojis[data.status.level] ?? '⭐'}
 				</span>
@@ -115,8 +115,8 @@ const radarCategories = $derived(
 		</div>
 
 		<!-- Radar chart -->
-		<div class="bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm mb-[var(--spacing-md)]">
-			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--spacing-sm)]">ステータス</h2>
+		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-md)]">
+			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">ステータス</h2>
 			<div class="flex justify-center">
 				<RadarChart categories={radarCategories} size={300} />
 			</div>
@@ -125,13 +125,13 @@ const radarCategories = $derived(
 		<!-- Collapsible detail -->
 		<div class="bg-white rounded-[var(--radius-md)] shadow-sm overflow-hidden">
 			<button
-				class="w-full p-[var(--spacing-md)] flex items-center justify-between text-sm font-bold text-[var(--color-text-muted)]"
+				class="w-full p-[var(--sp-md)] flex items-center justify-between text-sm font-bold text-[var(--color-text-muted)]"
 				onclick={() => { soundService.play('tap'); detailOpen = !detailOpen; }}
 			>
 				<span>{detailOpen ? '▼' : '▶'} くわしくみる</span>
 			</button>
 			{#if detailOpen}
-				<div class="px-[var(--spacing-md)] pb-[var(--spacing-md)] flex flex-col gap-[var(--spacing-md)]">
+				<div class="px-[var(--sp-md)] pb-[var(--sp-md)] flex flex-col gap-[var(--sp-md)]">
 					{#each CATEGORY_DEFS as catDef (catDef.id)}
 						{@const status = data.status.statuses[catDef.id]}
 						{#if status}
@@ -165,7 +165,7 @@ const radarCategories = $derived(
 		<!-- Title collection link -->
 		<a
 			href="/kinder/titles"
-			class="mt-[var(--spacing-md)] block bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm text-center"
+			class="mt-[var(--sp-md)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
 		>
 			<span class="text-2xl">🏅</span>
 			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">しょうごうコレクション</p>
@@ -175,7 +175,7 @@ const radarCategories = $derived(
 		<!-- Shop link -->
 		<a
 			href="/kinder/shop"
-			class="mt-[var(--spacing-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm text-center"
+			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
 		>
 			<span class="text-2xl">🛒</span>
 			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">ごほうびショップ</p>
@@ -185,7 +185,7 @@ const radarCategories = $derived(
 		<!-- Memories link -->
 		<a
 			href="/kinder/memories"
-			class="mt-[var(--spacing-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm text-center"
+			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
 		>
 			<span class="text-2xl">📖</span>
 			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">おもいで</p>
@@ -195,15 +195,15 @@ const radarCategories = $derived(
 		<!-- Career plan link -->
 		<a
 			href="/kinder/career"
-			class="mt-[var(--spacing-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm text-center"
+			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
 		>
 			<span class="text-2xl">🌟</span>
 			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">みらいのゆめ</p>
 			<p class="text-xs text-[var(--color-text-muted)]">しょうらいのゆめをかんがえよう！</p>
 		</a>
 	{:else}
-		<div class="flex flex-col items-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
-			<span class="text-4xl mb-[var(--spacing-sm)]">⭐</span>
+		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-[var(--sp-sm)]">⭐</span>
 			<p class="font-bold">ステータスがまだないよ</p>
 		</div>
 	{/if}
