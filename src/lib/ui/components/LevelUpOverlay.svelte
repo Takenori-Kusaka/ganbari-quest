@@ -117,9 +117,9 @@ function handleClose() {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--spacing-md);
+		gap: var(--sp-md);
 		text-align: center;
-		padding: var(--spacing-lg) var(--spacing-md);
+		padding: var(--sp-lg) var(--sp-md);
 		position: relative;
 		overflow: hidden;
 	}
@@ -237,7 +237,7 @@ function handleClose() {
 		font-weight: 700;
 		font-size: 1.125rem;
 		border: none;
-		margin-top: var(--spacing-sm);
+		margin-top: var(--sp-sm);
 		animation: fade-in 0.5s ease-out 1.6s both;
 		cursor: pointer;
 	}

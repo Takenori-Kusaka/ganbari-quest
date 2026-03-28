@@ -36,7 +36,7 @@ function isActive(href: string): boolean {
 		<a
 			href={item.href}
 			use:playSound={'tap'}
-			class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--spacing-sm)]
+			class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)]
 				transition-colors min-h-16
 				{isActive(item.href) ? 'text-[var(--theme-primary)] font-bold' : 'text-[var(--color-text-muted)]'}"
 			aria-current={isActive(item.href) ? 'page' : undefined}

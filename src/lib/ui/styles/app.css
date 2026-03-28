@@ -6,13 +6,13 @@
    ============================================================ */
 
 @theme {
-	/* ---- Spacing ---- */
-	--spacing-xs: 4px;
-	--spacing-sm: 8px;
-	--spacing-md: 16px;
-	--spacing-lg: 24px;
-	--spacing-xl: 32px;
-	--spacing-2xl: 48px;
+	/* ---- Spacing (--sp-* to avoid Tailwind v4 --spacing-* namespace collision) ---- */
+	--sp-xs: 4px;
+	--sp-sm: 8px;
+	--sp-md: 16px;
+	--sp-lg: 24px;
+	--sp-xl: 32px;
+	--sp-2xl: 48px;
 
 	/* ---- Border Radius ---- */
 	--radius-sm: 8px;

@@ -304,7 +304,7 @@ function handleBirthdayResultClose() {
 	<title>ホーム - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-sm)] py-1">
+<div class="px-[var(--sp-sm)] py-1">
 	<!-- Error toast -->
 	{#if errorMessage}
 		<div class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold animate-bounce-in">
@@ -343,14 +343,14 @@ function handleBirthdayResultClose() {
 	{#if data.hasChecklists}
 		<a
 			href="/checklist"
-			class="flex items-center justify-between w-full px-[var(--spacing-md)] py-[var(--spacing-sm)] mb-[var(--spacing-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] tap-target"
+			class="flex items-center justify-between w-full px-[var(--sp-md)] py-[var(--sp-sm)] mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] tap-target"
 		>
-			<div class="flex items-center gap-[var(--spacing-sm)]">
+			<div class="flex items-center gap-[var(--sp-sm)]">
 				<span class="text-2xl">📋</span>
 				<span class="font-bold">もちものチェック</span>
 			</div>
 			{#if data.checklistProgress}
-				<div class="flex items-center gap-[var(--spacing-xs)]">
+				<div class="flex items-center gap-[var(--sp-xs)]">
 					{#if data.checklistProgress.allDone}
 						<span class="text-sm font-bold text-[var(--theme-accent)]">✅ かんりょう！</span>
 					{:else}
@@ -366,17 +366,17 @@ function handleBirthdayResultClose() {
 
 	<!-- Daily missions -->
 	{#if data.dailyMissions && data.dailyMissions.missions.length > 0}
-		<div class="mb-[var(--spacing-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
-			<div class="flex items-center gap-[var(--spacing-xs)] px-[var(--spacing-md)] pt-[var(--spacing-sm)] pb-1">
+		<div class="mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
+			<div class="flex items-center gap-[var(--sp-xs)] px-[var(--sp-md)] pt-[var(--sp-sm)] pb-1">
 				<span class="text-lg">🎯</span>
 				<span class="font-bold text-sm">きょうのミッション</span>
 				<span class="text-xs text-[var(--color-text-muted)] ml-auto">
 					{data.dailyMissions.completedCount}/{data.dailyMissions.missions.length}
 				</span>
 			</div>
-			<div class="px-[var(--spacing-md)] pb-[var(--spacing-sm)]">
+			<div class="px-[var(--sp-md)] pb-[var(--sp-sm)]">
 				{#each data.dailyMissions.missions as mission (mission.id)}
-					<div class="flex items-center gap-[var(--spacing-sm)] py-1">
+					<div class="flex items-center gap-[var(--sp-sm)] py-1">
 						<span class="text-lg w-6 text-center">{mission.completed ? '✅' : '⬜'}</span>
 						<span class="text-lg">{mission.activityIcon}</span>
 						<span class="text-sm {mission.completed ? 'line-through text-[var(--color-text-muted)]' : 'font-bold'}">
@@ -430,8 +430,8 @@ function handleBirthdayResultClose() {
 	{/each}
 
 	{#if data.activities.length === 0}
-		<div class="flex flex-col items-center justify-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
-			<span class="text-4xl mb-[var(--spacing-md)]">📋</span>
+		<div class="flex flex-col items-center justify-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-[var(--sp-md)]">📋</span>
 			<p class="text-lg font-bold">かつどうがまだないよ</p>
 			<p class="text-sm">おやにおねがいしてね</p>
 		</div>
@@ -470,10 +470,10 @@ function handleBirthdayResultClose() {
 <!-- Confirm dialog -->
 <Dialog bind:open={confirmOpen} closable={false} title="">
 	{#if selectedActivity}
-		<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center">
+		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center">
 			<CompoundIcon icon={selectedActivity.icon} size="xl" />
 			<p class="text-lg font-bold">{selectedActivity.displayName ?? selectedActivity.name}を<br />きろくする？</p>
-			<div class="flex gap-[var(--spacing-sm)] w-full">
+			<div class="flex gap-[var(--sp-sm)] w-full">
 				<button
 					class="tap-target flex-1 py-4 rounded-[var(--radius-md)] bg-gray-200 font-bold text-lg"
 					disabled={submitting}
@@ -563,12 +563,12 @@ function handleBirthdayResultClose() {
 <!-- Record result overlay -->
 <Dialog bind:open={resultOpen} closable={false} title="">
 	{#if resultData}
-		<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center py-[var(--spacing-md)]">
+		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center py-[var(--sp-md)]">
 			{#if cancelledMessage}
 				<span class="text-5xl">↩️</span>
 				<p class="text-lg font-bold">とりけしました</p>
 				<button
-					class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-gray-200 font-bold text-lg mt-[var(--spacing-sm)]"
+					class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-gray-200 font-bold text-lg mt-[var(--sp-sm)]"
 					onclick={() => {
 						cancelledMessage = false;
 						resultOpen = false;
@@ -619,7 +619,7 @@ function handleBirthdayResultClose() {
 					</div>
 				{/if}
 
-				<div class="flex gap-[var(--spacing-sm)] w-full mt-[var(--spacing-sm)]">
+				<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-sm)]">
 					<!-- Cancel button with countdown -->
 					{#if cancelCountdown > 0}
 						<form

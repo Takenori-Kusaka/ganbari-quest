@@ -19,17 +19,17 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 	<title>きりかえ - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-lg)]">
-	<h1 class="text-xl font-bold text-center mb-[var(--spacing-lg)]">だれがつかう？</h1>
+<div class="px-[var(--sp-md)] py-[var(--sp-lg)]">
+	<h1 class="text-xl font-bold text-center mb-[var(--sp-lg)]">だれがつかう？</h1>
 
 	{#if data.children.length === 0}
-		<div class="flex flex-col items-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
-			<span class="text-4xl mb-[var(--spacing-sm)]">👤</span>
+		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-[var(--sp-sm)]">👤</span>
 			<p class="font-bold">こどもがまだいないよ</p>
 			<p class="text-sm">おやがかんりがめんからついかしてね</p>
 		</div>
 	{:else}
-		<div class="flex flex-col gap-[var(--spacing-md)]">
+		<div class="flex flex-col gap-[var(--sp-md)]">
 			{#each data.children as child (child.id)}
 				{@const colors = themeColors[child.theme] ?? defaultTheme}
 				<form method="POST" action="?/select" use:enhance>
@@ -37,7 +37,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 					<button
 						type="submit"
 						use:playSound={'tap'}
-						class="tap-target w-full flex items-center gap-[var(--spacing-md)] p-[var(--spacing-md)]
+						class="tap-target w-full flex items-center gap-[var(--sp-md)] p-[var(--sp-md)]
 							rounded-[var(--radius-lg)] shadow-sm border-2 transition-shadow hover:shadow-md"
 						style="background-color: {colors.bg}; border-color: {colors.border};"
 					>
@@ -66,7 +66,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 	{/if}
 
 	<!-- Parent admin link -->
-	<div class="mt-[var(--spacing-2xl)] flex justify-center">
+	<div class="mt-[var(--sp-2xl)] flex justify-center">
 		<a
 			href={data.adminLink}
 			class="text-sm text-[var(--color-text-muted)] hover:text-[var(--theme-primary)] transition-colors py-2 px-4"

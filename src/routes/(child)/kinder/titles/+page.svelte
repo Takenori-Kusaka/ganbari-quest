@@ -41,9 +41,9 @@ function handleTap(title: (typeof data.titles)[number]) {
 	<title>しょうごう - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
+<div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	<!-- Summary -->
-	<div class="flex items-center justify-center gap-[var(--spacing-sm)] mb-[var(--spacing-md)]">
+	<div class="flex items-center justify-center gap-[var(--sp-sm)] mb-[var(--sp-md)]">
 		<span class="text-3xl">🏅</span>
 		<p class="text-lg font-bold">
 			{unlockedCount} / {data.titles.length} かいほう
@@ -52,7 +52,7 @@ function handleTap(title: (typeof data.titles)[number]) {
 
 	<!-- Active title display -->
 	{#if data.activeTitle}
-		<div class="bg-white rounded-[var(--radius-md)] p-[var(--spacing-sm)] shadow-sm mb-[var(--spacing-md)] flex items-center justify-center gap-[var(--spacing-sm)]">
+		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-sm)] shadow-sm mb-[var(--sp-md)] flex items-center justify-center gap-[var(--sp-sm)]">
 			<span class="text-xl">{data.activeTitle.icon}</span>
 			<p class="text-sm font-bold" style="color: var(--theme-accent);">
 				いまのしょうごう: {data.activeTitle.name}
@@ -62,13 +62,13 @@ function handleTap(title: (typeof data.titles)[number]) {
 
 	<!-- Title grid -->
 	{#if data.titles.length > 0}
-		<div class="grid grid-cols-3 gap-[var(--spacing-sm)]">
+		<div class="grid grid-cols-3 gap-[var(--sp-sm)]">
 			{#each data.titles as title (title.id)}
 				{@const unlocked = title.unlockedAt !== null}
 				{@const border = rarityBorder[title.rarity] ?? 'border-gray-200'}
 				{@const bg = rarityBg[title.rarity] ?? 'bg-gray-50'}
 				<button
-					class="tap-target flex flex-col items-center gap-1 p-[var(--spacing-sm)] rounded-[var(--radius-md)] border-2
+					class="tap-target flex flex-col items-center gap-1 p-[var(--sp-sm)] rounded-[var(--radius-md)] border-2
 						{unlocked ? `${border} ${bg}` : 'border-gray-200 bg-gray-100'}
 						{title.isActive ? 'ring-2 ring-[var(--theme-accent)]' : ''}
 						transition-all relative overflow-hidden"
@@ -96,14 +96,14 @@ function handleTap(title: (typeof data.titles)[number]) {
 			{/each}
 		</div>
 	{:else}
-		<div class="flex flex-col items-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
-			<span class="text-4xl mb-[var(--spacing-sm)]">🏅</span>
+		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-[var(--sp-sm)]">🏅</span>
 			<p class="font-bold">しょうごうがまだないよ</p>
 		</div>
 	{/if}
 
 	<!-- Back link -->
-	<div class="mt-[var(--spacing-lg)] text-center">
+	<div class="mt-[var(--sp-lg)] text-center">
 		<a href="/kinder/status" class="text-sm text-[var(--color-text-muted)] underline">
 			← つよさにもどる
 		</a>
@@ -116,7 +116,7 @@ function handleTap(title: (typeof data.titles)[number]) {
 		{@const unlocked = selectedTitle.unlockedAt !== null}
 		{@const border = rarityBorder[selectedTitle.rarity] ?? 'border-gray-200'}
 		{@const bg = rarityBg[selectedTitle.rarity] ?? 'bg-gray-50'}
-		<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center">
+		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center">
 			<div
 				class="w-24 h-24 rounded-[var(--radius-lg)] border-4 {unlocked
 					? `${border} ${bg}`

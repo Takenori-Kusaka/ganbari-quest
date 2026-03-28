@@ -43,15 +43,15 @@ function handleTap(review: (typeof data.reviews)[number]) {
 	<title>おもいで - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
+<div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	<!-- Header -->
-	<div class="flex items-center justify-center gap-[var(--spacing-sm)] mb-[var(--spacing-md)]">
+	<div class="flex items-center justify-center gap-[var(--sp-sm)] mb-[var(--sp-md)]">
 		<span class="text-3xl">📖</span>
 		<p class="text-lg font-bold">おたんじょうびのおもいで</p>
 	</div>
 
 	{#if data.reviews.length > 0}
-		<div class="flex flex-col gap-[var(--spacing-md)]">
+		<div class="flex flex-col gap-[var(--sp-md)]">
 			{#each data.reviews as review (review.id)}
 				<button
 					class="tap-target w-full text-left bg-white rounded-[var(--radius-lg)] shadow-sm border-2 border-amber-200 overflow-hidden transition-all active:scale-[0.98]"
@@ -100,15 +100,15 @@ function handleTap(review: (typeof data.reviews)[number]) {
 			{/each}
 		</div>
 	{:else}
-		<div class="flex flex-col items-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
-			<span class="text-4xl mb-[var(--spacing-sm)]">📖</span>
+		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-[var(--sp-sm)]">📖</span>
 			<p class="font-bold">おもいでがまだないよ</p>
 			<p class="text-sm mt-1">おたんじょうびにふりかえりをしよう！</p>
 		</div>
 	{/if}
 
 	<!-- Back link -->
-	<div class="mt-[var(--spacing-lg)] text-center">
+	<div class="mt-[var(--sp-lg)] text-center">
 		<a href="/kinder/status" class="text-sm text-[var(--color-text-muted)] underline">
 			← つよさにもどる
 		</a>
@@ -119,7 +119,7 @@ function handleTap(review: (typeof data.reviews)[number]) {
 <Dialog bind:open={detailOpen} title="">
 	{#if selectedReview}
 		{@const checks = parseHealthChecks(selectedReview.healthChecks)}
-		<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center">
+		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center">
 			<!-- Year & Age -->
 			<div class="text-5xl">🎂</div>
 			<div>

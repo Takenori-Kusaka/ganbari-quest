@@ -78,18 +78,18 @@ function handleResultClose() {
 	<title>ホーム - がんばりクエスト デモ</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-sm)] py-1">
+<div class="px-[var(--sp-sm)] py-1">
 	<!-- Checklist shortcut -->
 	{#if data.hasChecklists}
 		<div
-			class="flex items-center justify-between w-full px-[var(--spacing-md)] py-[var(--spacing-sm)] mb-[var(--spacing-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)]"
+			class="flex items-center justify-between w-full px-[var(--sp-md)] py-[var(--sp-sm)] mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)]"
 		>
-			<div class="flex items-center gap-[var(--spacing-sm)]">
+			<div class="flex items-center gap-[var(--sp-sm)]">
 				<span class="text-2xl">📋</span>
 				<span class="font-bold">もちものチェック</span>
 			</div>
 			{#if data.checklistProgress}
-				<div class="flex items-center gap-[var(--spacing-xs)]">
+				<div class="flex items-center gap-[var(--sp-xs)]">
 					{#if data.checklistProgress.allDone}
 						<span class="text-sm font-bold text-[var(--theme-accent)]">✅ かんりょう！</span>
 					{:else}
@@ -104,17 +104,17 @@ function handleResultClose() {
 
 	<!-- Daily missions -->
 	{#if data.dailyMissions && data.dailyMissions.missions.length > 0}
-		<div class="mb-[var(--spacing-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
-			<div class="flex items-center gap-[var(--spacing-xs)] px-[var(--spacing-md)] pt-[var(--spacing-sm)] pb-1">
+		<div class="mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
+			<div class="flex items-center gap-[var(--sp-xs)] px-[var(--sp-md)] pt-[var(--sp-sm)] pb-1">
 				<span class="text-lg">🎯</span>
 				<span class="font-bold text-sm">きょうのミッション</span>
 				<span class="text-xs text-[var(--color-text-muted)] ml-auto">
 					{data.dailyMissions.completedCount}/{data.dailyMissions.missions.length}
 				</span>
 			</div>
-			<div class="px-[var(--spacing-md)] pb-[var(--spacing-sm)]">
+			<div class="px-[var(--sp-md)] pb-[var(--sp-sm)]">
 				{#each data.dailyMissions.missions as mission (mission.id)}
-					<div class="flex items-center gap-[var(--spacing-sm)] py-1">
+					<div class="flex items-center gap-[var(--sp-sm)] py-1">
 						<span class="text-lg w-6 text-center">{mission.completed ? '✅' : '⬜'}</span>
 						<span class="text-lg">{mission.activityIcon}</span>
 						<span class="text-sm {mission.completed ? 'line-through text-[var(--color-text-muted)]' : 'font-bold'}">
@@ -149,8 +149,8 @@ function handleResultClose() {
 	{/each}
 
 	{#if data.activities.length === 0}
-		<div class="flex flex-col items-center justify-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
-			<span class="text-4xl mb-[var(--spacing-md)]">📋</span>
+		<div class="flex flex-col items-center justify-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-[var(--sp-md)]">📋</span>
 			<p class="text-[var(--font-md)]">かつどうがまだありません</p>
 		</div>
 	{/if}
