@@ -321,3 +321,11 @@ body {
 		background-position: -200% 0;
 	}
 }
+
+/* ============================================================
+   Safe Area (iOS notch / home indicator)
+   ============================================================ */
+
+.safe-area-bottom {
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
