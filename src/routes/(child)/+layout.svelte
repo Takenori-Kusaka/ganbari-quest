@@ -17,12 +17,24 @@ const customSoundPath = $derived(data.avatarConfig?.customSoundPath ?? null);
 $effect(() => {
 	soundService.setCustomRecordSound(customSoundPath);
 });
+// モード別ナビラベル (#0167)
+const NAV_LABELS: Record<
+	string,
+	{ history: string; status: string; achievements: string; switch: string }
+> = {
+	baby: { history: 'きろく', status: 'つよさ', achievements: 'じっせき', switch: 'きりかえ' },
+	kinder: { history: 'きろく', status: 'つよさ', achievements: 'じっせき', switch: 'きりかえ' },
+	lower: { history: 'きろく', status: 'つよさ', achievements: '実績', switch: 'きりかえ' },
+	upper: { history: '活動記録', status: 'ステータス', achievements: '実績', switch: '切替' },
+	teen: { history: '記録', status: '実績', achievements: '称号', switch: '切替' },
+};
+const labels = $derived(NAV_LABELS[uiMode] ?? NAV_LABELS.kinder!);
 const navItems = $derived([
 	{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
-	{ href: `/${uiMode}/history`, icon: '📋', label: 'きろく' },
-	{ href: `/${uiMode}/status`, icon: '⭐', label: 'つよさ' },
-	{ href: `/${uiMode}/achievements`, icon: '🏆', label: 'じっせき' },
-	{ href: '/switch', icon: '👤', label: 'きりかえ' },
+	{ href: `/${uiMode}/history`, icon: '📋', label: labels!.history },
+	{ href: `/${uiMode}/status`, icon: '⭐', label: labels!.status },
+	{ href: `/${uiMode}/achievements`, icon: '🏆', label: labels!.achievements },
+	{ href: '/switch', icon: '👤', label: labels!.switch },
 ]);
 
 // サウンドシステム初期化 + オートリロード
