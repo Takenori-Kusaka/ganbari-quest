@@ -74,6 +74,7 @@ export const actions = {
 		const form = await request.formData();
 		const category = form.get('category')?.toString() ?? '';
 		const text = form.get('text')?.toString()?.trim() ?? '';
+		const replyEmail = form.get('email')?.toString()?.trim() ?? '';
 
 		if (!text || text.length === 0) {
 			return fail(400, { feedbackError: '内容を入力してください' });
@@ -83,6 +84,9 @@ export const actions = {
 		}
 		if (!['feature', 'bug', 'other'].includes(category)) {
 			return fail(400, { feedbackError: 'カテゴリが不正です' });
+		}
+		if (replyEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyEmail) || replyEmail.length > 254)) {
+			return fail(400, { feedbackError: 'メールアドレスの形式が正しくありません' });
 		}
 
 		const categoryLabel = { feature: '機能要望', bug: 'バグ報告', other: 'その他' }[category];
@@ -104,6 +108,7 @@ export const actions = {
 								fields: [
 									{ name: 'テナント', value: tenantId, inline: true },
 									{ name: '送信者', value: email, inline: true },
+									{ name: '返信先', value: replyEmail || 'なし', inline: true },
 								],
 								timestamp: new Date().toISOString(),
 							},
