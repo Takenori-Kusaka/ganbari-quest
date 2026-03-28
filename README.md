@@ -115,6 +115,12 @@ npx biome check .    # Lint
 npx drizzle-kit push # DBマイグレーション
 ```
 
+## コミュニティ
+
+[![Discord](https://img.shields.io/badge/Discord-コミュニティ-5865F2?logo=discord&logoColor=white)](https://discord.gg/5pWkf4Z5)
+
+質問・要望・体験談の共有は [Discordコミュニティ](https://discord.gg/5pWkf4Z5) で受け付けています。お気軽にご参加ください。
+
 ## コントリビュート
 
 バグ報告・機能提案・PRを歓迎します。詳細は [CONTRIBUTING.md](./CONTRIBUTING.md) を参照してください。
