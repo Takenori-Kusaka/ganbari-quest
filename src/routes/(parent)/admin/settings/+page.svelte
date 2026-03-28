@@ -597,6 +597,11 @@ const previewFormatted = $derived(
 				{feedbackSubmitting ? '送信中...' : 'フィードバックを送信'}
 			</button>
 		</form>
+		<p class="text-xs text-gray-400 mt-3 text-center">
+			技術的なご質問・使い方の相談は
+			<a href="https://discord.gg/5pWkf4Z5" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">Discord コミュニティ</a>
+			でも受け付けています
+		</p>
 	</div>
 
 	<!-- アプリ情報・リンク -->
@@ -608,6 +613,12 @@ const previewFormatted = $derived(
 			</li>
 			<li>
 				<a href="https://takenori-kusaka.github.io/ganbari-quest/privacy.html" target="_blank" rel="noopener" class="text-blue-500 hover:underline">🔒 プライバシーポリシー</a>
+			</li>
+			<li>
+				<a href="https://discord.gg/5pWkf4Z5" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">💬 Discord コミュニティ</a>
+			</li>
+			<li>
+				<a href="https://github.com/Takenori-Kusaka/ganbari-quest" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">🐙 GitHub</a>
 			</li>
 			<li>
 				<span class="text-gray-500">バージョン: 1.0.0</span>
