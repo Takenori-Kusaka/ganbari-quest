@@ -145,9 +145,10 @@ function handler(event) {
 				},
 			],
 			// Custom domain settings (applied only when domain + certificate are provided)
+			// www is served by GitHub Pages (not CloudFront) — see #0160
 			...(props.domainName && certificate
 				? {
-						domainNames: [props.domainName, `www.${props.domainName}`],
+						domainNames: [props.domainName],
 						certificate,
 					}
 				: {}),
