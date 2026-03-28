@@ -71,7 +71,7 @@ const milestones = [
 		padding-left: 2rem;
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-lg);
+		gap: var(--sp-lg);
 	}
 	.timeline-line {
 		position: absolute;
@@ -85,7 +85,7 @@ const milestones = [
 	.timeline-node {
 		display: flex;
 		align-items: flex-start;
-		gap: var(--spacing-sm);
+		gap: var(--sp-sm);
 		position: relative;
 	}
 	.timeline-dot {
@@ -108,7 +108,7 @@ const milestones = [
 		flex: 1;
 		background: white;
 		border-radius: var(--radius-md);
-		padding: var(--spacing-sm) var(--spacing-md);
+		padding: var(--sp-sm) var(--sp-md);
 		border: 1px solid #e5e7eb;
 	}
 	.timeline-label {
@@ -116,7 +116,7 @@ const milestones = [
 		font-weight: 700;
 		color: #16a34a;
 		display: block;
-		margin-bottom: var(--spacing-xs);
+		margin-bottom: var(--sp-xs);
 	}
 	.timeline-text {
 		margin: 0;
@@ -125,7 +125,7 @@ const milestones = [
 	}
 	.timeline-input {
 		width: 100%;
-		padding: var(--spacing-xs);
+		padding: var(--sp-xs);
 		border: 1px solid #d1d5db;
 		border-radius: var(--radius-sm);
 		font-size: var(--font-sm);

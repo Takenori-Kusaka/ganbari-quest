@@ -60,7 +60,7 @@ function handleClose() {
 </script>
 
 <Dialog bind:open closable={false} title="">
-	<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center py-[var(--spacing-md)]">
+	<div class="flex flex-col items-center gap-[var(--sp-md)] text-center py-[var(--sp-md)]">
 		<h2 class="text-xl font-bold">🎋 きょうのうんせい 🎋</h2>
 
 		{#if !revealed}
@@ -105,7 +105,7 @@ function handleClose() {
 			{/if}
 
 			<button
-				class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg mt-[var(--spacing-sm)]"
+				class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg mt-[var(--sp-sm)]"
 				onclick={handleClose}
 			>
 				タップしてすすむ

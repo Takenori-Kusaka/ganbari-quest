@@ -87,10 +87,10 @@ function previewCelebration(cssValue: string) {
 	<title>ごほうびショップ - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
+<div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	<!-- Header: avatar preview + points -->
-	<div class="bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm mb-[var(--spacing-md)] flex items-center justify-between">
-		<div class="flex items-center gap-[var(--spacing-sm)]">
+	<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-md)] flex items-center justify-between">
+		<div class="flex items-center gap-[var(--sp-sm)]">
 			{#if data.avatarConfig}
 				<AvatarDisplay
 					bgCss={data.avatarConfig.bgCss}
@@ -115,7 +115,7 @@ function previewCelebration(cssValue: string) {
 
 	<!-- Error/Success messages -->
 	{#if form?.error}
-		<div class="bg-red-50 text-red-600 rounded-[var(--radius-md)] p-[var(--spacing-sm)] mb-[var(--spacing-sm)] text-sm font-bold text-center">
+		<div class="bg-red-50 text-red-600 rounded-[var(--radius-md)] p-[var(--sp-sm)] mb-[var(--sp-sm)] text-sm font-bold text-center">
 			{form.error}
 		</div>
 	{/if}
@@ -138,7 +138,7 @@ function previewCelebration(cssValue: string) {
 	</div>
 
 	<!-- Category sub-tabs -->
-	<div class="flex gap-1 mb-[var(--spacing-md)]">
+	<div class="flex gap-1 mb-[var(--sp-md)]">
 		{#each tabGroups[activeGroup]?.categories ?? [] as cat (cat)}
 			<button
 				type="button"
@@ -156,7 +156,7 @@ function previewCelebration(cssValue: string) {
 
 	<!-- Background notice for custom avatar -->
 	{#if activeTab === 'background' && hasCustomAvatar}
-		<div class="bg-amber-50 border border-amber-200 rounded-[var(--radius-md)] p-[var(--spacing-sm)] mb-[var(--spacing-sm)] text-center">
+		<div class="bg-amber-50 border border-amber-200 rounded-[var(--radius-md)] p-[var(--sp-sm)] mb-[var(--sp-sm)] text-center">
 			<p class="text-xs text-amber-700">
 				📷 カスタムしゃしんをおつかいのばあい、はいけいはうすくみえます
 			</p>
@@ -165,12 +165,12 @@ function previewCelebration(cssValue: string) {
 
 	<!-- Item grid -->
 	{#if filteredItems.length > 0}
-		<div class="grid grid-cols-3 gap-[var(--spacing-sm)]">
+		<div class="grid grid-cols-3 gap-[var(--sp-sm)]">
 			{#each filteredItems as item (item.id)}
 				{@const border = rarityBorder[item.rarity] ?? 'border-gray-200'}
 				{@const bg = rarityBg[item.rarity] ?? 'bg-gray-50'}
 				<button
-					class="tap-target flex flex-col items-center gap-1 p-[var(--spacing-sm)] rounded-[var(--radius-md)] border-2
+					class="tap-target flex flex-col items-center gap-1 p-[var(--sp-sm)] rounded-[var(--radius-md)] border-2
 						{item.owned ? `${border} ${bg}` : item.locked ? 'border-gray-200 bg-gray-100' : `${border} bg-white`}
 						{item.equipped ? 'ring-2 ring-[var(--theme-accent)]' : ''}
 						transition-all relative"
@@ -197,7 +197,7 @@ function previewCelebration(cssValue: string) {
 	{/if}
 
 	<!-- Back link -->
-	<div class="mt-[var(--spacing-lg)] text-center">
+	<div class="mt-[var(--sp-lg)] text-center">
 		<a href="/kinder/status" class="text-sm text-[var(--color-text-muted)] underline">
 			← つよさにもどる
 		</a>
@@ -209,7 +209,7 @@ function previewCelebration(cssValue: string) {
 	{#if selectedItem}
 		{@const border = rarityBorder[selectedItem.rarity] ?? 'border-gray-200'}
 		{@const bg = rarityBg[selectedItem.rarity] ?? 'bg-gray-50'}
-		<div class="flex flex-col items-center gap-[var(--spacing-md)] text-center">
+		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center">
 			<!-- Preview -->
 			<div
 				class="w-24 h-24 rounded-[var(--radius-lg)] border-4 {selectedItem.owned || !selectedItem.locked

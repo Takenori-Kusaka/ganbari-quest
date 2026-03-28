@@ -551,8 +551,8 @@ function acceptPreview() {
 		<div class="flex items-center gap-3">
 			<span class="text-2xl">📖</span>
 			<div class="flex-1">
-				<p class="font-bold text-gray-700 text-sm">子供に活動のおしえかた</p>
-				<p class="text-xs text-gray-500 mt-0.5">お子さんと一緒に画面を見ながら、ボタンの使い方を紹介できます</p>
+				<p class="font-bold text-gray-700 text-sm">活動の紹介スライド</p>
+				<p class="text-xs text-gray-500 mt-0.5">お子さんと一緒に各活動の内容や記録方法を確認できます</p>
 			</div>
 			<span class="text-gray-400 text-sm">→</span>
 		</div>

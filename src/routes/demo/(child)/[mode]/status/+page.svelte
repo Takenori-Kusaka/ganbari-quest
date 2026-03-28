@@ -74,11 +74,11 @@ const radarCategories = $derived(
 	<title>つよさ - がんばりクエスト デモ</title>
 </svelte:head>
 
-<div class="px-[var(--spacing-md)] py-[var(--spacing-sm)]">
+<div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	{#if data.status}
 		<!-- Level + title -->
-		<div class="bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm mb-[var(--spacing-lg)]">
-			<div class="flex flex-col items-center gap-[var(--spacing-xs)] mb-[var(--spacing-md)]">
+		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-lg)]">
+			<div class="flex flex-col items-center gap-[var(--sp-xs)] mb-[var(--sp-md)]">
 				<span class="text-5xl">{levelEmojis[data.status.level] ?? '⭐'}</span>
 				<p class="text-2xl font-bold">Lv.{data.status.level}</p>
 				<p class="text-sm font-bold" style="color: var(--theme-accent);">{data.status.levelTitle}</p>
@@ -104,8 +104,8 @@ const radarCategories = $derived(
 		</div>
 
 		<!-- Radar chart -->
-		<div class="bg-white rounded-[var(--radius-md)] p-[var(--spacing-md)] shadow-sm mb-[var(--spacing-md)]">
-			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--spacing-sm)]">ステータス</h2>
+		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-md)]">
+			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">ステータス</h2>
 			<div class="flex justify-center">
 				<RadarChart categories={radarCategories} size={300} />
 			</div>
@@ -114,13 +114,13 @@ const radarCategories = $derived(
 		<!-- Detail section -->
 		<div class="bg-white rounded-[var(--radius-md)] shadow-sm overflow-hidden">
 			<button
-				class="w-full p-[var(--spacing-md)] flex items-center justify-between text-sm font-bold text-[var(--color-text-muted)]"
+				class="w-full p-[var(--sp-md)] flex items-center justify-between text-sm font-bold text-[var(--color-text-muted)]"
 				onclick={() => { detailOpen = !detailOpen; }}
 			>
 				<span>{detailOpen ? '▼' : '▶'} くわしくみる</span>
 			</button>
 			{#if detailOpen}
-				<div class="px-[var(--spacing-md)] pb-[var(--spacing-md)] flex flex-col gap-[var(--spacing-md)]">
+				<div class="px-[var(--sp-md)] pb-[var(--sp-md)] flex flex-col gap-[var(--sp-md)]">
 					{#each CATEGORY_DEFS as catDef (catDef.id)}
 						{@const status = data.status.statuses[catDef.id]}
 						{#if status}
@@ -146,8 +146,8 @@ const radarCategories = $derived(
 			{/if}
 		</div>
 	{:else}
-		<div class="flex flex-col items-center py-[var(--spacing-2xl)] text-[var(--color-text-muted)]">
-			<span class="text-4xl mb-[var(--spacing-sm)]">⭐</span>
+		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-[var(--sp-sm)]">⭐</span>
 			<p class="font-bold">ステータスがまだないよ</p>
 		</div>
 	{/if}
