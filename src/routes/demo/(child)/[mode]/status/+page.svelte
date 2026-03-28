@@ -130,7 +130,6 @@ const radarCategories = $derived(
 									categoryId={catDef.id}
 									value={status.value}
 									maxValue={data.status.maxValue}
-									stars={status.stars}
 								/>
 								<div class="flex justify-between items-center mt-1 px-1">
 									<span class="text-xs" style="color: var(--theme-accent);">

@@ -133,7 +133,6 @@ const radarCategories = $derived(
 									categoryId={catDef.id}
 									value={status.value}
 									maxValue={data.status.maxValue}
-									stars={status.stars}
 								/>
 								<div class="status-bars__trend">
 									<span class="status-bars__trend-icon">

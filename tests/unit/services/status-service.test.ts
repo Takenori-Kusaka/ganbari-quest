@@ -198,7 +198,8 @@ describe('status-service', () => {
 		const result = await getChildStatus(1, 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.statuses[1]?.deviationScore).toBe(50);
-			expect(result.statuses[1]?.stars).toBe(3);
+			// 値0/max350 → 0% → 1星（スコア割合ベース）
+			expect(result.statuses[1]?.stars).toBe(1);
 		}
 	});
 
@@ -211,7 +212,8 @@ describe('status-service', () => {
 		if (!('error' in result)) {
 			expect(result.statuses[1]?.value).toBe(70);
 			expect(result.statuses[1]?.deviationScore).toBe(70);
-			expect(result.statuses[1]?.stars).toBe(5);
+			// 値70/max350 → 20% → 2星（スコア割合ベース）
+			expect(result.statuses[1]?.stars).toBe(2);
 		}
 	});
 

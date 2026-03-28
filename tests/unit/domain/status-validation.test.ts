@@ -79,29 +79,34 @@ describe('calcDeviationScore', () => {
 });
 
 describe('calcStars', () => {
-	it('偏差値65以上で5星', () => {
-		expect(calcStars(65)).toBe(5);
-		expect(calcStars(70)).toBe(5);
+	it('スコア割合80%以上で5星', () => {
+		expect(calcStars(80, 100)).toBe(5);
+		expect(calcStars(100, 100)).toBe(5);
+		expect(calcStars(280, 350)).toBe(5);
 	});
 
-	it('偏差値58-64で4星', () => {
-		expect(calcStars(58)).toBe(4);
-		expect(calcStars(64)).toBe(4);
+	it('スコア割合60-79%で4星', () => {
+		expect(calcStars(60, 100)).toBe(4);
+		expect(calcStars(79, 100)).toBe(4);
 	});
 
-	it('偏差値50-57で3星', () => {
-		expect(calcStars(50)).toBe(3);
-		expect(calcStars(57)).toBe(3);
+	it('スコア割合40-59%で3星', () => {
+		expect(calcStars(40, 100)).toBe(3);
+		expect(calcStars(59, 100)).toBe(3);
 	});
 
-	it('偏差値42-49で2星', () => {
-		expect(calcStars(42)).toBe(2);
-		expect(calcStars(49)).toBe(2);
+	it('スコア割合20-39%で2星', () => {
+		expect(calcStars(20, 100)).toBe(2);
+		expect(calcStars(39, 100)).toBe(2);
 	});
 
-	it('偏差値41以下で1星', () => {
-		expect(calcStars(41)).toBe(1);
-		expect(calcStars(30)).toBe(1);
+	it('スコア割合20%未満で1星', () => {
+		expect(calcStars(19, 100)).toBe(1);
+		expect(calcStars(0, 100)).toBe(1);
+	});
+
+	it('maxValueが0の場合は1星', () => {
+		expect(calcStars(50, 0)).toBe(1);
 	});
 });
 

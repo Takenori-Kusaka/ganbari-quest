@@ -7,8 +7,8 @@ interface CategoryData {
 	name: string;
 	value: number;
 	maxValue: number;
-	deviationScore: number;
-	stars: number;
+	deviationScore?: number;
+	stars?: number;
 	trend: 'up' | 'down' | 'stable';
 }
 
@@ -40,14 +40,11 @@ const trendIcons: Record<string, string> = {
 	stable: '➡️',
 };
 
-// Normalize deviation scores to visually meaningful 0-100 percentage
-// Map deviation score range [20, 70] → [0%, 100%] so stars align with chart size:
-//   1★ (<42)  → <44%   2★ (42-49) → 44-58%
-//   3★ (50-57) → 60-74%  4★ (58-64) → 76-88%  5★ (65+) → 90%+
+// スコア割合でレーダーチャートの値を正規化（0-100%）
 const normalizedValues = $derived(
 	categories.map((c) => {
-		const ds = c.deviationScore;
-		return Math.min(100, Math.max(5, ((ds - 20) / 50) * 100));
+		const pct = c.maxValue > 0 ? (c.value / c.maxValue) * 100 : 0;
+		return Math.min(100, Math.max(5, pct));
 	}),
 );
 
@@ -93,8 +90,6 @@ function gridPolygon(pct: number): string {
 		return `${p.x},${p.y}`;
 	}).join(' ');
 }
-
-const starText = (stars: number) => '★'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars));
 </script>
 
 <svg
@@ -169,16 +164,6 @@ const starText = (stars: number) => '★'.repeat(stars) + '☆'.repeat(Math.max(
 			y={lp.y + dy + 14}
 			text-anchor={anchor}
 			dominant-baseline="central"
-			class="radar-stars"
-			fill="var(--color-point, #ffc107)"
-		>
-			{starText(cat.stars)}
-		</text>
-		<text
-			x={lp.x}
-			y={lp.y + dy + 28}
-			text-anchor={anchor}
-			dominant-baseline="central"
 			class="radar-trend"
 		>
 			{trendIcons[cat.trend] ?? '➡️'}
@@ -191,10 +176,7 @@ const starText = (stars: number) => '★'.repeat(stars) + '☆'.repeat(Math.max(
 		font-size: 12px;
 		font-weight: 700;
 	}
-	.radar-stars {
-		font-size: 10px;
-	}
-	.radar-trend {
+.radar-trend {
 		font-size: 11px;
 	}
 </style>
