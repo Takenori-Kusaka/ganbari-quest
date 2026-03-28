@@ -178,11 +178,11 @@ function handler(event) {
 				),
 			});
 
-			// www redirect
+			// www → GitHub Pages LP
 			new route53.CnameRecord(this, 'WwwRecord', {
 				zone: hostedZone,
 				recordName: 'www',
-				domainName: props.domainName,
+				domainName: 'kokor.github.io',
 			});
 		}
 
