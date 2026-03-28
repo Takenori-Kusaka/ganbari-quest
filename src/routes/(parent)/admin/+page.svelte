@@ -1,4 +1,5 @@
 <script lang="ts">
+import { page } from '$app/stores';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 
 let { data } = $props();
@@ -6,6 +7,23 @@ let { data } = $props();
 const ps = $derived(data.pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
 const unit = $derived(getUnitLabel(ps.mode, ps.currency));
+
+const authMode = $derived($page.data.authMode as string);
+
+const menuItems = [
+	{ href: '/admin/rewards', label: '特別報酬', icon: '🎁' },
+	{ href: '/admin/points', label: 'ポイント', icon: '⭐' },
+	{ href: '/admin/checklists', label: 'もちもの', icon: '✅' },
+	{ href: '/admin/achievements', label: 'じっせき', icon: '🏆' },
+	{ href: '/admin/status', label: 'ステータス', icon: '📊' },
+	{ href: '/admin/career', label: 'キャリア', icon: '🌟' },
+	{ href: '/admin/members', label: 'メンバー', icon: '👥' },
+	{ href: '/admin/license', label: 'ライセンス', icon: '🔑', authOnly: true },
+];
+
+const visibleMenuItems = $derived(
+	authMode === 'local' ? menuItems.filter((item) => !item.authOnly) : menuItems,
+);
 </script>
 
 <svelte:head>
@@ -80,6 +98,19 @@ const unit = $derived(getUnitLabel(ps.mode, ps.currency));
 				<span class="text-2xl block mb-1">👧</span>
 				<p class="text-sm font-bold text-gray-600">こども画面へ</p>
 			</a>
+		</div>
+	</section>
+
+	<!-- Management Menu -->
+	<section>
+		<h2 class="text-lg font-bold text-gray-700 mb-3">管理メニュー</h2>
+		<div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+			{#each visibleMenuItems as item}
+				<a href={item.href} class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md transition-shadow">
+					<span class="text-xl block mb-1">{item.icon}</span>
+					<p class="text-xs font-medium text-gray-600">{item.label}</p>
+				</a>
+			{/each}
 		</div>
 	</section>
 </div>
