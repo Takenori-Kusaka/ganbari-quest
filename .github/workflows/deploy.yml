@@ -335,14 +335,46 @@ jobs:
           echo "$NOTES" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
+      - name: Build fallback release notes (Gemini unavailable)
+        id: fallback-notes
+        if: env.GEMINI_API_KEY == '' || steps.release-notes.outputs.notes == '' || steps.release-notes.outputs.notes == 'SKIP'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          COMMIT_MESSAGES: ${{ steps.commits.outputs.messages }}
+        run: |
+          if [ -z "$COMMIT_MESSAGES" ]; then
+            echo "notes=SKIP" >> "$GITHUB_OUTPUT"
+          else
+            echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+            echo -e "**アップデート内容**\n\n${COMMIT_MESSAGES}" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve final notes
+        id: final-notes
+        env:
+          AI_NOTES: ${{ steps.release-notes.outputs.notes }}
+          FB_NOTES: ${{ steps.fallback-notes.outputs.notes }}
+        run: |
+          if [ -n "$AI_NOTES" ] && [ "$AI_NOTES" != "SKIP" ]; then
+            FINAL="$AI_NOTES"
+          elif [ -n "$FB_NOTES" ] && [ "$FB_NOTES" != "SKIP" ]; then
+            FINAL="$FB_NOTES"
+          else
+            FINAL="SKIP"
+          fi
+          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$FINAL" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: Post release notes to Discord
-        if: steps.release-notes.outputs.notes != '' && steps.release-notes.outputs.notes != 'SKIP'
+        if: steps.final-notes.outputs.notes != '' && steps.final-notes.outputs.notes != 'SKIP'
         env:
           WEBHOOK_URL: ${{ vars.DISCORD_RELEASE_NOTES_WEBHOOK_URL }}
-          NOTES: ${{ steps.release-notes.outputs.notes }}
+          NOTES: ${{ steps.final-notes.outputs.notes }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
-            echo "DISCORD_RELEASE_NOTES_WEBHOOK_URL not set, skipping"
+            echo "::warning::DISCORD_RELEASE_NOTES_WEBHOOK_URL is not set. Skipping Discord notification."
             exit 0
           fi
           DATE_JP=$(date -u +"%Y年%-m月%-d日")
