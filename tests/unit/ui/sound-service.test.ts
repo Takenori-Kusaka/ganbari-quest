@@ -145,10 +145,10 @@ describe('SoundService', () => {
 			destination: {},
 		};
 
-		vi.stubGlobal(
-			'AudioContext',
-			vi.fn(() => mockContext),
-		);
+		const MockAudioContext = vi.fn(function (this: typeof mockContext) {
+			Object.assign(this, mockContext);
+		}) as unknown as typeof AudioContext;
+		vi.stubGlobal('AudioContext', MockAudioContext);
 		vi.stubGlobal('fetch', vi.fn());
 	});
 
