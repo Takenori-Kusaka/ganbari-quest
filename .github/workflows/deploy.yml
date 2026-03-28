@@ -273,6 +273,89 @@ jobs:
             - **Docker Image**: `${{ needs.deploy.outputs.image-tag }}`
             - **Deploy Date**: ${{ github.event.head_commit.timestamp }}
 
+  release-notes:
+    needs: [deploy, e2e-production]
+    runs-on: ubuntu-latest
+    if: needs.deploy.result == 'success' && needs.e2e-production.result != 'failure'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 50
+
+      - name: Get commit messages since last deploy
+        id: commits
+        run: |
+          PREV=$(git tag --sort=-creatordate | grep '^deploy-' | head -1 || echo "")
+          if [ -z "$PREV" ]; then
+            MESSAGES=$(git log --format="- %s" --no-merges -10)
+          else
+            MESSAGES=$(git log ${PREV}..HEAD --format="- %s" --no-merges | head -30)
+          fi
+          echo "messages<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$MESSAGES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Tag current deploy
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "deploy-$(date +%Y%m%d-%H%M%S)-$(echo ${{ github.sha }} | cut -c1-7)"
+          git push origin --tags
+        continue-on-error: true
+
+      - name: Generate user-facing release notes (Gemini)
+        id: release-notes
+        if: env.GEMINI_API_KEY != ''
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          COMMIT_MESSAGES: ${{ steps.commits.outputs.messages }}
+        run: |
+          PROMPT="以下は「がんばりクエスト」（子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ）の開発コミットメッセージです。
+          これをアプリを使う保護者・家族向けに、やさしい日本語でリリースノートに変換してください。
+
+          ルール:
+          - ユーザーに見える変化（機能追加・UI改善・バグ修正）のみを記載する
+          - インフラ・依存関係・テスト・リファクタリングのみの場合は「SKIP」とだけ返す
+          - 「🆕 新機能・改善」「🐛 不具合修正」のカテゴリで分けて箇条書きにする
+          - 各項目は「〜しました」「〜できるようになりました」で終わる文体にする
+          - 技術用語（commit hash, CDK, Lambda等）は使わない
+          - 最大 8 項目まで
+
+          コミット:
+          ${COMMIT_MESSAGES}"
+
+          RESPONSE=$(curl -s \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"contents\":[{\"parts\":[{\"text\":$(echo "$PROMPT" | jq -Rs .)}]}]}")
+
+          NOTES=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // "SKIP"')
+          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$NOTES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Post release notes to Discord
+        if: steps.release-notes.outputs.notes != '' && steps.release-notes.outputs.notes != 'SKIP'
+        env:
+          WEBHOOK_URL: ${{ vars.DISCORD_RELEASE_NOTES_WEBHOOK_URL }}
+          NOTES: ${{ steps.release-notes.outputs.notes }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "DISCORD_RELEASE_NOTES_WEBHOOK_URL not set, skipping"
+            exit 0
+          fi
+          DATE_JP=$(date -u +"%Y年%-m月%-d日")
+          curl -s -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"🎉 アップデートのお知らせ\",
+                \"description\": $(echo -e "$NOTES\n\nご意見・ご要望は **設定 > フィードバック** からどうぞ！" | jq -Rs .),
+                \"color\": 5763719,
+                \"footer\": {\"text\": \"がんばりクエスト • ${DATE_JP}\"}
+              }]
+            }"
+
   notify:
     needs: [deploy, e2e-production]
     runs-on: ubuntu-latest
