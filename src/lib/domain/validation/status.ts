@@ -43,12 +43,13 @@ export function calcDeviationScore(value: number, mean: number, stdDev: number):
 	return Math.round(((value - mean) / stdDev) * 10 + 50);
 }
 
-/** 偏差値から星評価（5段階） */
-export function calcStars(deviationScore: number): number {
-	if (deviationScore >= 65) return 5;
-	if (deviationScore >= 58) return 4;
-	if (deviationScore >= 50) return 3;
-	if (deviationScore >= 42) return 2;
+/** スコア割合から星評価（5段階） */
+export function calcStars(value: number, maxValue: number): number {
+	const pct = maxValue > 0 ? (value / maxValue) * 100 : 0;
+	if (pct >= 80) return 5;
+	if (pct >= 60) return 4;
+	if (pct >= 40) return 3;
+	if (pct >= 20) return 2;
 	return 1;
 }
 

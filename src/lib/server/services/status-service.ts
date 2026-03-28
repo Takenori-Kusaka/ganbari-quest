@@ -63,7 +63,7 @@ export async function getChildStatus(
 			? calcDeviationScore(value, benchmark.mean, benchmark.stdDev)
 			: 50; // ベンチマークがない場合は平均
 
-		const stars = calcStars(deviationScore);
+		const stars = calcStars(value, maxValue);
 
 		// 直近の変動履歴からトレンド判定
 		const history = await findRecentStatusHistory(childId, catDef.id, tenantId, 2);
