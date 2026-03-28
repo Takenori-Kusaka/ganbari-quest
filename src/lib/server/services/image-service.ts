@@ -80,18 +80,6 @@ function generateFallbackAvatar(nickname: string, theme: string): Buffer {
 	return Buffer.from(svg, 'utf-8');
 }
 
-/** フォールバック favicon SVG */
-function generateFallbackFavicon(): Buffer {
-	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <rect width="256" height="256" rx="48" fill="#4A90D9"/>
-  <polygon points="128,30 158,100 235,108 178,162 193,238 128,200 63,238 78,162 21,108 98,100" fill="#FFD700" stroke="#FFA000" stroke-width="3"/>
-  <circle cx="108" cy="118" r="8" fill="#5D4037"/>
-  <circle cx="148" cy="118" r="8" fill="#5D4037"/>
-  <path d="M110,145 Q128,165 146,145" fill="none" stroke="#5D4037" stroke-width="4" stroke-linecap="round"/>
-</svg>`;
-
-	return Buffer.from(svg, 'utf-8');
-}
 
 export interface GenerateAvatarResult {
 	filePath: string;
@@ -168,8 +156,8 @@ export async function generateFavicon(_tenantId: string): Promise<{
 	if (await fileExists('generated/favicon.png')) {
 		return { filePath: '/generated/favicon.png', isGenerated: true };
 	}
-	if (await fileExists('favicon.svg')) {
-		return { filePath: '/favicon.svg', isGenerated: false };
+	if (await fileExists('icon-character.png')) {
+		return { filePath: '/icon-character.png', isGenerated: false };
 	}
 
 	const prompt = buildFaviconPrompt();
@@ -180,15 +168,13 @@ export async function generateFavicon(_tenantId: string): Promise<{
 		return { filePath: '/generated/favicon.png', isGenerated: true };
 	}
 
-	// Fallback SVG
-	const fallback = generateFallbackFavicon();
-	await saveFile('favicon.svg', fallback, 'image/svg+xml');
-	return { filePath: '/favicon.svg', isGenerated: false };
+	// Fallback: use static icon-character.png
+	return { filePath: '/icon-character.png', isGenerated: false };
 }
 
 /** favicon の現在パスを取得 */
 export async function getFaviconPath(_tenantId: string): Promise<string> {
 	if (await fileExists('generated/favicon.png')) return '/generated/favicon.png';
-	if (await fileExists('favicon.svg')) return '/favicon.svg';
+	if (await fileExists('icon-character.png')) return '/icon-character.png';
 	return '';
 }
