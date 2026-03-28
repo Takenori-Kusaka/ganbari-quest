@@ -329,6 +329,7 @@ async function handleReceiptFile(event: Event) {
 									type="button"
 									class="absolute top-2 right-2 bg-black/50 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm hover:bg-black/70"
 									onclick={() => { resetReceipt(); }}
+									aria-label="プレビューを閉じる"
 								>
 									✕
 								</button>
