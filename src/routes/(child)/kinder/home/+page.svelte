@@ -364,33 +364,62 @@ function handleBirthdayResultClose() {
 		</a>
 	{/if}
 
-	<!-- Daily missions -->
+	<!-- Daily missions — Quest Board (#0170) -->
 	{#if data.dailyMissions && data.dailyMissions.missions.length > 0}
-		<div class="mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
-			<div class="flex items-center gap-[var(--sp-xs)] px-[var(--sp-md)] pt-[var(--sp-sm)] pb-1">
-				<span class="text-lg">🎯</span>
-				<span class="font-bold text-sm">きょうのミッション</span>
-				<span class="text-xs text-[var(--color-text-muted)] ml-auto">
-					{data.dailyMissions.completedCount}/{data.dailyMissions.missions.length}
+		{@const missionTotal = data.dailyMissions.missions.length}
+		{@const missionDone = data.dailyMissions.completedCount}
+		{@const progressPct = Math.round((missionDone / missionTotal) * 100)}
+		{@const almostDone = missionDone >= missionTotal - 1 && !data.dailyMissions.allComplete}
+		<div class="quest-board mb-[var(--sp-sm)] rounded-[var(--radius-lg)] overflow-hidden shadow-md {data.dailyMissions.allComplete ? 'quest-board--complete' : ''}">
+			<!-- Header -->
+			<div class="quest-board__header flex items-center gap-[var(--sp-xs)] px-[var(--sp-md)] pt-[var(--sp-sm)] pb-1">
+				<span class="text-lg">⚔️</span>
+				<span class="font-bold text-sm quest-board__title">きょうのクエスト</span>
+				<span class="text-lg">✨</span>
+				<span class="text-xs text-amber-700/70 ml-auto font-bold">
+					{missionDone}/{missionTotal} クリア
 				</span>
 			</div>
+
+			<!-- XP Progress bar -->
+			<div class="px-[var(--sp-md)] pb-1">
+				<div class="h-2 rounded-full bg-amber-200/60 overflow-hidden">
+					<div
+						class="h-full rounded-full transition-all duration-500"
+						class:quest-bar--almost={almostDone}
+						style="width: {progressPct}%; background: linear-gradient(90deg, #fbbf24, #f59e0b, #d97706);"
+					></div>
+				</div>
+			</div>
+
+			<!-- Mission items -->
 			<div class="px-[var(--sp-md)] pb-[var(--sp-sm)]">
 				{#each data.dailyMissions.missions as mission (mission.id)}
-					<div class="flex items-center gap-[var(--sp-sm)] py-1">
-						<span class="text-lg w-6 text-center">{mission.completed ? '✅' : '⬜'}</span>
+					<div class="flex items-center gap-[var(--sp-sm)] py-1.5 {!mission.completed ? 'quest-item--pending' : ''}">
+						{#if mission.completed}
+							<span class="text-lg w-6 text-center quest-stamp" aria-hidden="true">💮</span>
+						{:else}
+							<span class="text-lg w-6 text-center quest-pending-icon" aria-hidden="true">✨</span>
+						{/if}
 						<span class="text-lg">{mission.activityIcon}</span>
-						<span class="text-sm {mission.completed ? 'line-through text-[var(--color-text-muted)]' : 'font-bold'}">
+						<span class="text-sm {mission.completed ? 'line-through text-amber-700/50' : 'font-bold text-amber-900'}">
 							{mission.activityName}
 						</span>
+						{#if mission.completed}
+							<span class="ml-auto text-xs text-amber-600" aria-hidden="true">🌟</span>
+						{/if}
 					</div>
 				{/each}
+
+				<!-- Complete banner or bonus teaser -->
 				{#if data.dailyMissions.allComplete}
-					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-[var(--theme-bg)]">
-						<span class="text-sm font-bold text-[var(--theme-accent)]">🎉 ミッションコンプリート！ {fmtPts(data.dailyMissions.bonusAwarded)}</span>
+					<div class="quest-complete-banner text-center mt-2 py-2 rounded-[var(--radius-md)]">
+						<p class="text-base font-bold text-amber-800">🏆 ミッションコンプリート！ 🏆</p>
+						<p class="text-sm font-bold text-amber-600">{fmtPts(data.dailyMissions.bonusAwarded)} ゲット！</p>
 					</div>
-				{:else if data.dailyMissions.bonusAwarded > 0}
-					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-[var(--theme-bg)]">
-						<span class="text-xs font-bold text-[var(--color-text-muted)]">ボーナス {fmtPts(data.dailyMissions.bonusAwarded)}</span>
+				{:else}
+					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-amber-100/40">
+						<span class="text-xs font-bold text-amber-600/80">🎁 ぜんぶクリアでボーナス！</span>
 					</div>
 				{/if}
 			</div>
@@ -779,5 +808,51 @@ function handleBirthdayResultClose() {
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
+	}
+
+	/* Quest Board (#0170) */
+	.quest-board {
+		background: linear-gradient(135deg, #fef3c7, #fde68a);
+		border: 2px solid #d4a017;
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 4px 12px rgba(180, 140, 20, 0.2);
+	}
+
+	.quest-board--complete {
+		animation: gold-flash 0.4s ease-out forwards;
+	}
+
+	.quest-board__header {
+		border-bottom: 1px dashed #d4a01744;
+	}
+
+	.quest-board__title {
+		background: linear-gradient(135deg, #92400e, #b45309, #d97706);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
+
+	.quest-bar--almost {
+		animation: bar-pulse 0.6s ease-in-out infinite;
+	}
+
+	.quest-stamp {
+		animation: stamp-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+	}
+
+	.quest-pending-icon {
+		animation: sparkle-float 2s ease-in-out infinite;
+	}
+
+	.quest-item--pending {
+		animation: breathing-glow 2.5s ease-in-out infinite;
+		border-radius: 8px;
+		padding-left: 4px;
+		padding-right: 4px;
+	}
+
+	.quest-complete-banner {
+		background: linear-gradient(135deg, #fbbf24, #f59e0b);
+		animation: banner-drop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 	}
 </style>
