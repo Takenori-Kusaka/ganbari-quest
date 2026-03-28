@@ -35,6 +35,7 @@ img{max-width:100%;height:auto}
 .header-nav{display:flex;gap:20px;align-items:center}
 .header-nav a:not(.btn){font-size:.9rem;color:var(--gray-500)}
 .header-nav a:not(.btn):hover{color:var(--gray-900)}
+.hamburger{display:none;background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px 8px;color:var(--gray-700)}
 .btn{display:inline-block;padding:10px 24px;border-radius:2rem;font-size:.95rem;font-weight:600;transition:all .2s;text-decoration:none}
 .btn-primary{background:linear-gradient(135deg,var(--blue-500),var(--blue-600));color:#fff;box-shadow:0 2px 8px rgba(56,120,184,.3)}
 .btn-primary:hover{box-shadow:0 4px 16px rgba(56,120,184,.4);text-decoration:none;transform:translateY(-1px)}
@@ -163,8 +164,11 @@ img{max-width:100%;height:auto}
 
 @media(max-width:640px){
   .hero h1{font-size:1.8rem}
-  .header-nav{gap:12px}
-  .header-nav a:not(.btn){font-size:.8rem}
+  .hamburger{display:flex;align-items:center;justify-content:center}
+  .header-nav{display:none;position:absolute;top:56px;left:0;right:0;background:#fff;flex-direction:column;padding:16px;gap:12px;border-bottom:1px solid var(--gray-300);box-shadow:0 4px 12px rgba(0,0,0,.1)}
+  .header-nav.open{display:flex}
+  .header-nav a:not(.btn){font-size:1rem;padding:8px 0}
+  .header-nav .btn{text-align:center;width:100%}
   .hero-cta{flex-direction:column;align-items:center}
   .footer-inner{flex-direction:column}
   .age-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
@@ -182,11 +186,12 @@ img{max-width:100%;height:auto}
       <img src="favicon.svg" alt="">
       がんばりクエスト
     </a>
+    <button class="hamburger" aria-label="メニュー" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.textContent==='☰'?'✕':'☰'">☰</button>
     <nav class="header-nav">
-      <a href="#pain">こんな悩み</a>
-      <a href="#features">できること</a>
-      <a href="#age-modes">年齢対応</a>
-      <a href="#faq">よくある質問</a>
+      <a href="#pain" onclick="this.parentElement.classList.remove('open')">こんな悩み</a>
+      <a href="#features" onclick="this.parentElement.classList.remove('open')">できること</a>
+      <a href="#age-modes" onclick="this.parentElement.classList.remove('open')">年齢対応</a>
+      <a href="#faq" onclick="this.parentElement.classList.remove('open')">よくある質問</a>
       <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモ体験</a>
       <a href="https://ganbari-quest.com/auth/login" class="btn btn-primary">ログイン</a>
     </nav>
