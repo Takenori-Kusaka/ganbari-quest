@@ -37,10 +37,10 @@
 		"@biomejs/biome": "^1.9.0",
 		"@playwright/test": "^1.50.0",
 		"@sveltejs/adapter-auto": "^7.0.0",
-		"@sveltejs/adapter-node": "^5.0.0",
-		"@sveltejs/kit": "^2.50.2",
-		"@sveltejs/vite-plugin-svelte": "^6.0.0",
-		"@tailwindcss/vite": "^4.2.0",
+		"@sveltejs/adapter-node": "^5.5.4",
+		"@sveltejs/kit": "^2.55.0",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
+		"@tailwindcss/vite": "^4.2.2",
 		"@testing-library/svelte": "^5.2.0",
 		"@types/bcrypt": "^6.0.0",
 		"@types/better-sqlite3": "^7.6.0",
@@ -53,7 +53,7 @@
 		"tailwindcss": "^4.2.2",
 		"tsx": "^4.19.0",
 		"typescript": "^5.9.3",
-		"vite": "^7.3.1",
+		"vite": "^8.0.3",
 		"vitest": "^4.1.2"
 	},
 	"dependencies": {
