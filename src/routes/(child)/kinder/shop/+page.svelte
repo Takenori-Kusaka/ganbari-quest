@@ -41,6 +41,7 @@ const tabGroups = [
 let activeGroup = $state(0);
 const filteredItems = $derived(data.items.filter((i) => i.category === activeTab));
 const ownedCount = $derived(data.items.filter((i) => i.owned).length);
+const hasCustomAvatar = $derived(!!data.child?.avatarUrl);
 
 const rarityBorder: Record<string, string> = {
 	common: 'border-green-300',
@@ -152,6 +153,15 @@ function previewCelebration(cssValue: string) {
 			</button>
 		{/each}
 	</div>
+
+	<!-- Background notice for custom avatar -->
+	{#if activeTab === 'background' && hasCustomAvatar}
+		<div class="bg-amber-50 border border-amber-200 rounded-[var(--radius-md)] p-[var(--spacing-sm)] mb-[var(--spacing-sm)] text-center">
+			<p class="text-xs text-amber-700">
+				📷 カスタムしゃしんをおつかいのばあい、はいけいはうすくみえます
+			</p>
+		</div>
+	{/if}
 
 	<!-- Item grid -->
 	{#if filteredItems.length > 0}
