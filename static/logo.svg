@@ -1,31 +1,70 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 120" width="480" height="120">
   <defs>
-    <linearGradient id="sg" x1="0.5" y1="0" x2="0.5" y2="1">
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;400&amp;display=swap');
+    </style>
+    <linearGradient id="cape" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3878B8"/>
+      <stop offset="100%" stop-color="#2A5F9E"/>
+    </linearGradient>
+    <linearGradient id="helmet" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#5BA3E6"/>
       <stop offset="100%" stop-color="#3878B8"/>
     </linearGradient>
-    <linearGradient id="st" x1="0.5" y1="0" x2="0.5" y2="1">
+    <linearGradient id="gold" x1="0.5" y1="0" x2="0.5" y2="1">
       <stop offset="0%" stop-color="#FFE44D"/>
       <stop offset="100%" stop-color="#FFCC00"/>
     </linearGradient>
+    <linearGradient id="skin" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#FFE0B2"/>
+      <stop offset="100%" stop-color="#FFCC80"/>
+    </linearGradient>
   </defs>
-  <!-- Shield symbol (scaled to fit 100x100 area, offset 10,10) -->
-  <g transform="translate(10,8) scale(0.41)">
-    <path d="M128 18 L218 52 C220 53 222 55 222 58 L222 126 C222 180 136 228 128 238 C120 228 34 180 34 126 L34 58 C34 55 36 53 38 52 Z"
-          fill="url(#sg)"/>
-    <path d="M128 18 L218 52 C220 53 222 55 222 58 L222 126 C222 180 136 228 128 238 C120 228 34 180 34 126 L34 58 C34 55 36 53 38 52 Z"
-          fill="none" stroke="#2A6BA8" stroke-width="6"/>
-    <polygon points="128,62 144,106 192,110 155,140 166,186 128,162 90,186 101,140 64,110 112,106"
-             fill="url(#st)" stroke="#D4A800" stroke-width="3"/>
+  <!-- Hero character symbol (scaled to ~100x100 area) -->
+  <g transform="translate(8,6) scale(0.42)">
+    <!-- Cape -->
+    <path d="M96,130 Q78,165 82,200 Q88,195 100,188 L128,175 L156,188 Q168,195 174,200 Q178,165 160,130Z" fill="url(#cape)" opacity="0.85"/>
+    <!-- Body -->
+    <path d="M104,120 Q100,140 102,165 L128,172 L154,165 Q156,140 152,120Z" fill="#F5E6C8"/>
+    <!-- Star emblem -->
+    <polygon points="128,132 132,124 140,123 135,118 136,110 128,114 120,110 121,118 116,123 124,124" fill="url(#gold)"/>
+    <!-- Arms -->
+    <path d="M104,125 Q88,115 82,98" fill="none" stroke="url(#skin)" stroke-width="10" stroke-linecap="round"/>
+    <path d="M152,125 Q168,110 172,95" fill="none" stroke="url(#skin)" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="80" cy="96" r="7" fill="url(#skin)"/>
+    <circle cx="173" cy="93" r="7" fill="url(#skin)"/>
+    <!-- Wand -->
+    <line x1="173" y1="93" x2="185" y2="52" stroke="#8D6E63" stroke-width="4" stroke-linecap="round"/>
+    <polygon points="185,42 189,32 198,30 191,24 193,14 185,19 177,14 179,24 172,30 181,32" fill="url(#gold)"/>
+    <circle cx="185" cy="30" r="18" fill="#FFCC00" opacity="0.15"/>
+    <!-- Head -->
+    <circle cx="128" cy="82" r="28" fill="url(#skin)"/>
+    <!-- Helmet -->
+    <path d="M100,78 Q100,50 128,45 Q156,50 156,78 Q148,72 128,70 Q108,72 100,78Z" fill="url(#helmet)"/>
+    <rect x="100" y="74" width="56" height="6" rx="3" fill="url(#gold)"/>
+    <polygon points="128,52 131,44 138,43 133,39 134,32 128,36 122,32 123,39 118,43 125,44" fill="url(#gold)"/>
+    <!-- Face -->
+    <ellipse cx="118" cy="85" rx="4.5" ry="5" fill="#333"/>
+    <ellipse cx="138" cy="85" rx="4.5" ry="5" fill="#333"/>
+    <circle cx="116" cy="83" r="2" fill="white"/>
+    <circle cx="136" cy="83" r="2" fill="white"/>
+    <ellipse cx="108" cy="92" rx="6" ry="3.5" fill="#FFAB91" opacity="0.45"/>
+    <ellipse cx="148" cy="92" rx="6" ry="3.5" fill="#FFAB91" opacity="0.45"/>
+    <path d="M120,96 Q128,104 136,96" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Sparkles -->
+    <g fill="#FFCC00" opacity="0.6">
+      <polygon points="60,68 62,62 68,60 62,58 60,52 58,58 52,60 58,62"/>
+      <polygon points="200,72 202,66 208,64 202,62 200,56 198,62 192,64 198,66"/>
+    </g>
   </g>
   <!-- Wordmark -->
-  <text x="124" y="72" font-family="'Rounded Mplus 1c', 'Hiragino Maru Gothic Pro', 'BIZ UDPGothic', sans-serif"
-        font-size="42" font-weight="700" fill="#2D2D2D" letter-spacing="2">
+  <text x="122" y="68" font-family="'M PLUS Rounded 1c', 'Rounded Mplus 1c', 'Hiragino Maru Gothic Pro', 'BIZ UDPGothic', sans-serif"
+        font-size="40" font-weight="700" fill="#2D2D2D" letter-spacing="1.5">
     がんばりクエスト
   </text>
   <!-- Subtitle -->
-  <text x="126" y="98" font-family="'Rounded Mplus 1c', 'Hiragino Maru Gothic Pro', 'BIZ UDPGothic', sans-serif"
-        font-size="14" font-weight="400" fill="#8B8B8B" letter-spacing="1">
+  <text x="124" y="94" font-family="'M PLUS Rounded 1c', 'Rounded Mplus 1c', 'Hiragino Maru Gothic Pro', 'BIZ UDPGothic', sans-serif"
+        font-size="13" font-weight="400" fill="#8B8B8B" letter-spacing="1">
     こどもの がんばりを ぼうけんに
   </text>
 </svg>
