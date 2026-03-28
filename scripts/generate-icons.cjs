@@ -13,9 +13,26 @@ const iconsDir = path.join(outDir, 'icons');
 async function generate() {
 	console.log('Generating icons from:', srcPath);
 
-	// favicon-32x32.png
-	await sharp(srcPath).resize(32, 32, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toFile(path.join(outDir, 'favicon-32x32.png'));
-	console.log('  favicon-32x32.png');
+	// favicon-32x32.png (face-cropped + white background for dark mode visibility)
+	const meta = await sharp(srcPath).metadata();
+	const srcW = meta.width ?? 1024;
+	const srcH = meta.height ?? 1024;
+	const cropTop = Math.round(srcH * 0.02);
+	const cropHeight = Math.round(srcH * 0.38);
+	const cropLeft = Math.round(srcW * 0.1);
+	const cropFaceWidth = Math.round(srcW * 0.8);
+	const faceBuf = await sharp(srcPath)
+		.extract({ left: cropLeft, top: cropTop, width: cropFaceWidth, height: cropHeight })
+		.resize(28, 28, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
+		.png()
+		.toBuffer();
+	await sharp({
+		create: { width: 32, height: 32, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 255 } },
+	})
+		.composite([{ input: faceBuf, left: 2, top: 2 }])
+		.png()
+		.toFile(path.join(outDir, 'favicon-32x32.png'));
+	console.log('  favicon-32x32.png (face-cropped, white background)');
 
 	// icon-192.png
 	await sharp(srcPath).resize(192, 192, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toFile(path.join(iconsDir, 'icon-192.png'));
