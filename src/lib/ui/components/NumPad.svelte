@@ -94,7 +94,7 @@ function handleKey(key: string) {
 	}
 
 	.numpad-btn--ok {
-		background: var(--theme-primary, #5c6bc0);
+		background: var(--theme-primary, #3878b8);
 		color: white;
 	}
 </style>
