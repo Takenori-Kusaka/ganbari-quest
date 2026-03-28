@@ -6,22 +6,38 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // AWS SDK のモック
 const mockSend = vi.fn();
-vi.mock('@aws-sdk/client-cognito-identity-provider', () => ({
-	CognitoIdentityProviderClient: vi.fn(() => ({ send: mockSend })),
-	InitiateAuthCommand: vi.fn((params: Record<string, unknown>) => ({
-		...params,
-		_type: 'InitiateAuth',
-	})),
-	SignUpCommand: vi.fn((params: Record<string, unknown>) => ({ ...params, _type: 'SignUp' })),
-	ConfirmSignUpCommand: vi.fn((params: Record<string, unknown>) => ({
-		...params,
-		_type: 'ConfirmSignUp',
-	})),
-	RespondToAuthChallengeCommand: vi.fn((params: Record<string, unknown>) => ({
-		...params,
-		_type: 'RespondToAuthChallenge',
-	})),
-}));
+vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
+	class MockClient {
+		send = mockSend;
+	}
+	class MockInitiateAuthCommand {
+		constructor(params: Record<string, unknown>) {
+			Object.assign(this, params, { _type: 'InitiateAuth' });
+		}
+	}
+	class MockSignUpCommand {
+		constructor(params: Record<string, unknown>) {
+			Object.assign(this, params, { _type: 'SignUp' });
+		}
+	}
+	class MockConfirmSignUpCommand {
+		constructor(params: Record<string, unknown>) {
+			Object.assign(this, params, { _type: 'ConfirmSignUp' });
+		}
+	}
+	class MockRespondToAuthChallengeCommand {
+		constructor(params: Record<string, unknown>) {
+			Object.assign(this, params, { _type: 'RespondToAuthChallenge' });
+		}
+	}
+	return {
+		CognitoIdentityProviderClient: MockClient,
+		InitiateAuthCommand: MockInitiateAuthCommand,
+		SignUpCommand: MockSignUpCommand,
+		ConfirmSignUpCommand: MockConfirmSignUpCommand,
+		RespondToAuthChallengeCommand: MockRespondToAuthChallengeCommand,
+	};
+});
 
 beforeEach(() => {
 	process.env.COGNITO_CLIENT_ID = 'test-client-id';
