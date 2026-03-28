@@ -226,7 +226,7 @@ function directionLabel(dir: string): string {
 							</div>
 							<form method="POST" action="?/removeOverride" use:enhance={() => async () => invalidateAll()}>
 								<input type="hidden" name="overrideId" value={ov.id} />
-								<button type="submit" class="text-xs text-gray-400 hover:text-red-500 px-1" title="削除">✕</button>
+								<button type="submit" class="text-xs text-gray-400 hover:text-red-500 px-1" title="削除" aria-label="削除">✕</button>
 							</form>
 						</div>
 					{/each}
