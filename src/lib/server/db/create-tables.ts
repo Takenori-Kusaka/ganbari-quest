@@ -46,6 +46,7 @@ export const SQL_CREATE_TABLES = `
 		active_avatar_sound INTEGER,
 		active_avatar_celebration INTEGER,
 		display_config TEXT,
+		user_id TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);

@@ -4,6 +4,7 @@
 import type { Invite, Membership } from '$lib/server/auth/entities';
 import type { Role } from '$lib/server/auth/types';
 import { getRepos } from '$lib/server/db/factory';
+import { logger } from '$lib/server/logger';
 
 const repos = () => getRepos();
 
@@ -76,6 +77,27 @@ export async function acceptInvite(
 	} catch {
 		// conditional write failure — 既に受諾済み（race condition）
 		// メンバーシップは作成済みなので続行
+	}
+
+	// childId が指定されている場合、子供プロフィールに userId を紐づけ (#0156)
+	if (invite.childId) {
+		try {
+			const child = await repos().child.findChildById(invite.childId, invite.tenantId);
+			if (child) {
+				await repos().child.updateChild(invite.childId, { userId }, invite.tenantId);
+				logger.info('[invite] Child linked to user', {
+					context: { childId: invite.childId, userId, tenantId: invite.tenantId },
+				});
+			}
+		} catch (e) {
+			logger.warn('[invite] Failed to link child to user', {
+				context: {
+					childId: invite.childId,
+					userId,
+					error: e instanceof Error ? e.message : String(e),
+				},
+			});
+		}
 	}
 
 	return { membership };

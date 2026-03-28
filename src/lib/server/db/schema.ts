@@ -51,6 +51,7 @@ export const children = sqliteTable('children', {
 	activeAvatarSound: integer('active_avatar_sound'),
 	activeAvatarCelebration: integer('active_avatar_celebration'),
 	displayConfig: text('display_config'),
+	userId: text('user_id'),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });

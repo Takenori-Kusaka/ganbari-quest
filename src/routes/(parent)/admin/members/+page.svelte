@@ -4,11 +4,19 @@ import QRCode from 'qrcode';
 let { data } = $props();
 
 let inviteRole = $state<'parent' | 'child'>('parent');
+let inviteChildId = $state<number | undefined>(undefined);
 let creating = $state(false);
 let inviteLink = $state('');
 let qrDataUrl = $state('');
 let error = $state('');
 let copied = $state(false);
+
+// 紐づけ済みでない子供のみ選択可能
+let availableChildren = $derived(
+	(data.children ?? []).filter(
+		(c: { id: number; nickname: string; userId: string | null }) => !c.userId,
+	),
+);
 
 async function createInvite() {
 	creating = true;
@@ -17,10 +25,14 @@ async function createInvite() {
 	qrDataUrl = '';
 	copied = false;
 	try {
+		const body: { role: string; childId?: number } = { role: inviteRole };
+		if (inviteRole === 'child' && inviteChildId) {
+			body.childId = inviteChildId;
+		}
 		const res = await fetch('/api/v1/admin/invites', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ role: inviteRole }),
+			body: JSON.stringify(body),
 		});
 		if (!res.ok) {
 			const data = await res.json();
@@ -108,20 +120,38 @@ const roleLabel = (role: string) => {
 	<section class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
 		<h3 class="text-lg font-semibold text-gray-600 mb-3">メンバーを招待</h3>
 
-		<div class="flex items-end gap-3 mb-3">
-			<div class="flex-1">
+		<div class="flex flex-wrap items-end gap-3 mb-3">
+			<div class="flex-1 min-w-[120px]">
 				<label for="invite-role" class="block text-sm font-medium text-gray-600 mb-1">
 					招待ロール
 				</label>
 				<select
 					id="invite-role"
 					bind:value={inviteRole}
+					onchange={() => { inviteChildId = undefined; }}
 					class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
 				>
 					<option value="parent">保護者</option>
 					<option value="child">こども</option>
 				</select>
 			</div>
+			{#if inviteRole === 'child' && availableChildren.length > 0}
+				<div class="flex-1 min-w-[120px]">
+					<label for="invite-child" class="block text-sm font-medium text-gray-600 mb-1">
+						対象の子供（任意）
+					</label>
+					<select
+						id="invite-child"
+						bind:value={inviteChildId}
+						class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+					>
+						<option value={undefined}>-- 後で紐づけ --</option>
+						{#each availableChildren as child}
+							<option value={child.id}>{child.nickname}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
 			<button
 				onclick={createInvite}
 				disabled={creating}
