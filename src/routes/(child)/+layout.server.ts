@@ -49,14 +49,17 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 
 	const uiMode = child.uiMode ?? 'kinder';
 
+	// 全モード実装済み (#0167)
+	const effectiveMode = UI_MODES.includes(uiMode as (typeof UI_MODES)[number]) ? uiMode : 'kinder';
+
 	// 年齢帯不一致チェック: 異なるモードのルートにアクセスした場合リダイレクト
 	const pathSegment = url.pathname.split('/')[1];
 	if (
 		pathSegment &&
 		UI_MODES.includes(pathSegment as (typeof UI_MODES)[number]) &&
-		pathSegment !== uiMode
+		pathSegment !== effectiveMode
 	) {
-		redirect(302, `/${uiMode}/home`);
+		redirect(302, `/${effectiveMode}/home`);
 	}
 
 	const balanceResult = await getPointBalance(childId, tenantId);
@@ -91,7 +94,7 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		activeTitle,
 		avatarConfig,
 		allChildren: await getAllChildren(tenantId),
-		uiMode,
+		uiMode: effectiveMode,
 		pointSettings,
 	};
 };
