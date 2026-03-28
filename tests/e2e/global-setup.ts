@@ -142,6 +142,12 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_child_activity_prefs_pinned ON child_activity_preferences(child_id, is_pinned);
 		`);
 
+		// テスト用クリーンアップ: ピン留め設定を削除（ピン留めテストの安定化）
+		const deletedPins = db.prepare('DELETE FROM child_activity_preferences').run();
+		if (deletedPins.changes > 0) {
+			console.log(`[E2E Setup]   Cleaned ${deletedPins.changes} pin preference(s).`);
+		}
+
 		// テスト用クリーンアップ: 今日の活動記録を削除（記録テストの安定化）
 		const deleted = db
 			.prepare("DELETE FROM activity_logs WHERE recorded_date = date('now', 'localtime')")

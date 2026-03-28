@@ -54,6 +54,7 @@ let feedbackSuccess = $state(false);
 let feedbackSubmitting = $state(false);
 let feedbackCategory = $state('feature');
 let feedbackText = $state('');
+let feedbackEmail = $state('');
 
 const previewPoints = 100;
 const previewFormatted = $derived(
@@ -312,7 +313,9 @@ const previewFormatted = $derived(
 		<h3 class="text-lg font-bold text-gray-700 mb-4">💬 フィードバック・ご意見</h3>
 
 		{#if feedbackSuccess}
-			<SuccessAlert message="フィードバックを送信しました。ありがとうございます！" />
+			<SuccessAlert message={feedbackEmail
+				? 'お問い合わせありがとうございます。今後の参考とさせていただきます。\nご入力いただいたメールアドレスに、内容によってはご返信する場合があります。'
+				: 'お問い合わせありがとうございます。今後の参考とさせていただきます。'} />
 		{/if}
 
 		{#if form?.feedbackError}
@@ -331,6 +334,7 @@ const previewFormatted = $derived(
 						feedbackSuccess = true;
 						feedbackText = '';
 						feedbackCategory = 'feature';
+						feedbackEmail = '';
 					}
 					await update();
 				};
@@ -368,6 +372,25 @@ const previewFormatted = $derived(
 					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 resize-y"
 				></textarea>
 				<p class="text-xs text-gray-400 mt-1 text-right">{feedbackText.length}/1000</p>
+			</div>
+
+			<div>
+				<label for="feedbackEmail" class="block text-sm font-medium text-gray-600 mb-1">
+					返信先メールアドレス
+					<span class="text-xs text-gray-400 ml-1">（任意）</span>
+				</label>
+				<input
+					type="email"
+					id="feedbackEmail"
+					name="email"
+					bind:value={feedbackEmail}
+					placeholder="reply@example.com"
+					maxlength="254"
+					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+				/>
+				<p class="text-xs text-gray-400 mt-1">
+					ご入力いただいた場合、内容によってはメールでご返信する場合があります
+				</p>
 			</div>
 
 			<button

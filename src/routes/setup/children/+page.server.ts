@@ -21,18 +21,39 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const nickname = formData.get('nickname')?.toString().trim();
-		const age = Number(formData.get('age'));
+		const ageStr = formData.get('age')?.toString();
 		const theme = formData.get('theme')?.toString() || 'pink';
 		const uiMode = formData.get('uiMode')?.toString() || 'kinder';
+		const birthDate = formData.get('birthDate')?.toString() || null;
 
 		if (!nickname || nickname.length === 0) {
 			return fail(400, { error: 'ニックネームを入力してください' });
 		}
-		if (Number.isNaN(age) || age < 0 || age > 18) {
-			return fail(400, { error: '年齢は0〜18で入力してください' });
+
+		if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+			return fail(400, { error: '誕生日の形式が正しくありません（YYYY-MM-DD）' });
+		}
+		if (birthDate && new Date(birthDate) > new Date()) {
+			return fail(400, { error: '未来の日付は設定できません' });
 		}
 
-		await addChild({ nickname, age, theme, uiMode }, tenantId);
+		let age: number;
+		if (birthDate) {
+			const birth = new Date(birthDate);
+			const today = new Date();
+			age = today.getFullYear() - birth.getFullYear();
+			const m = today.getMonth() - birth.getMonth();
+			if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+				age--;
+			}
+		} else {
+			age = Number(ageStr);
+			if (Number.isNaN(age) || age < 0 || age > 18) {
+				return fail(400, { error: '年齢は0〜18で入力してください' });
+			}
+		}
+
+		await addChild({ nickname, age, theme, uiMode, birthDate: birthDate ?? undefined }, tenantId);
 		return { success: true };
 	},
 

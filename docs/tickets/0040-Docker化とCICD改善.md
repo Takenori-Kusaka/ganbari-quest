@@ -1,10 +1,7 @@
 # Docker化とCI/CD改善
 
-### ステータス
+## Status: Done
 
-`Done`
-
----
 
 ### 概要
 

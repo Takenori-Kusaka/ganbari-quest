@@ -1,8 +1,6 @@
 # 0124 Cognito Email/Password + MFA 設定
 
-### ステータス
-
-`Done`
+## Status: Done
 
 ### メタ情報
 

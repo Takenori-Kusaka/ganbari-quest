@@ -1,8 +1,6 @@
 # 0100 Docker環境でのGoogle Driveバックアップ復旧
 
-### ステータス
-
-`Done`
+## Status: Done
 
 ### メタ情報
 

@@ -1,8 +1,6 @@
 # 0135 Browser Use CLI 2.0 による視覚デザインテスト導入検討
 
-### ステータス
-
-`Backlog`
+## Status: Backlog
 
 ### メタ情報
 

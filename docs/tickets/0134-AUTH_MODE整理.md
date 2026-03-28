@@ -1,8 +1,6 @@
 # 0134 AUTH_MODE 整理（local認証なし / cognito）
 
-### ステータス
-
-`Done`
+## Status: Done
 
 ### メタ情報
 

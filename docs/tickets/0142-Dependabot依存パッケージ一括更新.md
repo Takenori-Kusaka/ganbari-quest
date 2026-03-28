@@ -1,8 +1,6 @@
 # 0142 Dependabot 依存パッケージ一括更新
 
-### ステータス
-
-`Done`
+## Status: Done
 
 ### メタ情報
 

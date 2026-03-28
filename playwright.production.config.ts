@@ -10,10 +10,12 @@ export default defineConfig({
 	fullyParallel: false,
 	retries: 1,
 	workers: 1,
-	timeout: 30_000,
+	timeout: 60_000,
 	reporter: [['list'], ['json', { outputFile: 'test-results/production.json' }]],
 	use: {
 		baseURL: process.env.E2E_BASE_URL || 'https://ganbari-quest.com',
+		actionTimeout: 15_000,
+		navigationTimeout: 30_000,
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 	},

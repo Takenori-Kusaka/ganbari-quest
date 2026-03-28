@@ -1,10 +1,7 @@
 # #0137 Cognito本番認証切替（COGNITO_DEV_MODE=false）
 
-### ステータス
+## Status: Done
 
-`Done`
-
----
 
 ### 概要
 
