@@ -16,9 +16,9 @@ const defaultSizes: Record<LogoVariant, { width: number; height: number }> = {
 };
 
 const src: Record<LogoVariant, string> = {
-	symbol: '/favicon.svg',
-	full: '/logo.svg',
-	compact: '/logo-compact.svg',
+	symbol: '/icon-character.png',
+	full: '/logo.png',
+	compact: '/logo-compact.png',
 };
 
 const dims = $derived.by(() => {
