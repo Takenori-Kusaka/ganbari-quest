@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 
@@ -50,6 +51,18 @@ export class AuthStack extends cdk.Stack {
 			removalPolicy: cdk.RemovalPolicy.RETAIN,
 		});
 
+		// --- CustomMessage Lambda Trigger (日本語HTML メールテンプレート) ---
+		const customMessageFn = new lambda.Function(this, 'CustomMessageFn', {
+			functionName: 'ganbari-quest-cognito-custom-message',
+			runtime: lambda.Runtime.NODEJS_20_X,
+			handler: 'index.handler',
+			timeout: cdk.Duration.seconds(5),
+			memorySize: 128,
+			code: lambda.Code.fromInline(customMessageLambdaCode()),
+		});
+
+		this.userPool.addTrigger(cognito.UserPoolOperation.CUSTOM_MESSAGE, customMessageFn);
+
 		// --- User Pool Client (パブリッククライアント、USER_PASSWORD_AUTH) ---
 		// 新しい論理ID 'PublicClient' を使い、旧 'AppClient' の export への依存を回避
 		this.userPoolClient = this.userPool.addClient('PublicClient', {
@@ -82,4 +95,41 @@ export class AuthStack extends cdk.Stack {
 			value: this.userPoolClient.userPoolClientId,
 		});
 	}
+}
+
+/**
+ * Cognito CustomMessage Lambda トリガーのインラインコード
+ * メール確認コード・パスワードリセットを日本語HTMLテンプレートで送信
+ */
+function customMessageLambdaCode(): string {
+	return `
+exports.handler = async (event) => {
+  const code = event.request.codeParameter;
+  const header = '<div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:24px;text-align:center"><h1 style="color:#fff;font-size:20px;margin:0">がんばりクエスト</h1></div>';
+  const footer = '<div style="padding:16px 24px;background:#f9fafb;text-align:center;font-size:12px;color:#9ca3af;border-top:1px solid #e5e7eb"><p>このメールは「がんばりクエスト」から自動送信されています。</p></div>';
+  const wrap = (content) => '<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;margin:0;padding:0;background:#f5f5f5"><div style="max-width:600px;margin:0 auto;background:#fff">' + header + '<div style="padding:32px 24px;color:#333;line-height:1.7">' + content + '</div>' + footer + '</div></body></html>';
+
+  if (event.triggerSource === 'CustomMessage_SignUp' || event.triggerSource === 'CustomMessage_ResendCode') {
+    event.response.emailSubject = 'がんばりクエスト — メールアドレスの確認';
+    event.response.emailMessage = wrap(
+      '<h2 style="color:#4f46e5;font-size:18px;margin-top:0">メールアドレスの確認</h2>' +
+      '<p>がんばりクエストへのご登録ありがとうございます。</p>' +
+      '<p>以下の確認コードをアプリの確認画面に入力してください:</p>' +
+      '<div style="text-align:center;margin:24px 0"><span style="display:inline-block;padding:16px 32px;background:#f0f0ff;border:2px solid #6366f1;border-radius:8px;font-size:28px;font-weight:bold;letter-spacing:8px;color:#4f46e5">' + code + '</span></div>' +
+      '<p style="font-size:14px;color:#666">このコードは24時間有効です。身に覚えのない場合は、このメールを無視してください。</p>'
+    );
+  } else if (event.triggerSource === 'CustomMessage_ForgotPassword') {
+    event.response.emailSubject = 'がんばりクエスト — パスワードのリセット';
+    event.response.emailMessage = wrap(
+      '<h2 style="color:#4f46e5;font-size:18px;margin-top:0">パスワードのリセット</h2>' +
+      '<p>パスワードリセットのリクエストを受け付けました。</p>' +
+      '<p>以下の確認コードを入力して、新しいパスワードを設定してください:</p>' +
+      '<div style="text-align:center;margin:24px 0"><span style="display:inline-block;padding:16px 32px;background:#f0f0ff;border:2px solid #6366f1;border-radius:8px;font-size:28px;font-weight:bold;letter-spacing:8px;color:#4f46e5">' + code + '</span></div>' +
+      '<p style="font-size:14px;color:#666">このコードは24時間有効です。リクエストした覚えがない場合は、このメールを無視してください。</p>'
+    );
+  }
+
+  return event;
+};
+`;
 }
