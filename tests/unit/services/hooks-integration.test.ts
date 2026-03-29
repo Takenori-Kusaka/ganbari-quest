@@ -25,6 +25,11 @@ vi.mock('$lib/server/security/rate-limiter', () => ({
 	checkAuthRateLimit: () => ({ allowed: true, remaining: 9, resetAt: Date.now() + 60000 }),
 }));
 
+const mockCheckConsent = vi.fn();
+vi.mock('$lib/server/services/consent-service', () => ({
+	checkConsent: (...args: unknown[]) => mockCheckConsent(...args),
+}));
+
 const mockResolveIdentity = vi.fn();
 const mockResolveContext = vi.fn();
 const mockAuthorize = vi.fn();
@@ -82,6 +87,11 @@ beforeEach(() => {
 	mockResolveIdentity.mockResolvedValue(null);
 	mockResolveContext.mockResolvedValue(null);
 	mockAuthorize.mockReturnValue({ allowed: true });
+	mockCheckConsent.mockResolvedValue({
+		needsReconsent: false,
+		termsAccepted: true,
+		privacyAccepted: true,
+	});
 });
 
 afterEach(() => {

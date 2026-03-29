@@ -72,6 +72,18 @@ export function tenantInviteKey(tenantId: string, inviteCode: string): DynamoKey
 }
 
 // ============================================================
+// Consent keys (#0192)
+// ============================================================
+
+/** Consent record: PK=TENANT#<tenantId>, SK=CONSENT#<type>#<version> */
+export function tenantConsentKey(tenantId: string, type: string, version: string): DynamoKey {
+	return { PK: `${AUTH_PREFIX.TENANT}#${tenantId}`, SK: `CONSENT#${type}#${version}` };
+}
+
+/** Consent SK prefix for querying all consent records */
+export const CONSENT_SK_PREFIX = 'CONSENT#';
+
+// ============================================================
 // Prefix helpers (for queries)
 // ============================================================
 

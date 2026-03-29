@@ -77,3 +77,23 @@ export interface CreateInviteInput {
 	role: Role;
 	childId?: number;
 }
+
+/** 利用規約・PP 同意記録 (#0192) */
+export interface ConsentRecord {
+	tenantId: string;
+	userId: string;
+	type: 'terms' | 'privacy';
+	version: string;
+	consentedAt: string;
+	ipAddress: string;
+	userAgent: string;
+}
+
+export interface RecordConsentInput {
+	tenantId: string;
+	userId: string;
+	type: 'terms' | 'privacy';
+	version: string;
+	ipAddress: string;
+	userAgent: string;
+}

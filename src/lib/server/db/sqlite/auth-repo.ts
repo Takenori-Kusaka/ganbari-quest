@@ -65,3 +65,12 @@ export const updateInviteStatus: IAuthRepo['updateInviteStatus'] = async () => {
 export const findTenantInvites: IAuthRepo['findTenantInvites'] = async () => {
 	return [];
 };
+export const recordConsent: IAuthRepo['recordConsent'] = async (input) => {
+	return { ...input, consentedAt: new Date().toISOString() };
+};
+export const findLatestConsent: IAuthRepo['findLatestConsent'] = async () => {
+	return undefined;
+};
+export const findAllConsents: IAuthRepo['findAllConsents'] = async () => {
+	return [];
+};
