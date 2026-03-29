@@ -42,14 +42,12 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 				<Logo variant="compact" />
 				<span class="text-xs font-medium text-gray-400 border border-gray-300 rounded px-1.5 py-0.5">管理</span>
 			</div>
-			<form method="POST" action="/api/v1/auth/logout">
-				<button
-					type="submit"
-					class="text-sm px-3 py-1 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 transition-colors"
-				>
-					ログアウト
-				</button>
-			</form>
+			<a
+				href="/switch"
+				class="text-sm px-3 py-1 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 transition-colors inline-flex items-center gap-1"
+			>
+				<span aria-hidden="true">&larr;</span> 子供画面へ
+			</a>
 		</div>
 	</header>
 

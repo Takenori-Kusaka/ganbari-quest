@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { page } from '$app/stores';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
@@ -625,4 +626,20 @@ const previewFormatted = $derived(
 			</li>
 		</ul>
 	</div>
+
+	<!-- ログアウト（cognito モードのみ） -->
+	{#if $page.data.authMode === 'cognito'}
+		<div class="bg-white rounded-xl shadow-sm border border-red-100 p-6">
+			<h3 class="text-lg font-bold text-gray-700 mb-2">ログアウト</h3>
+			<p class="text-sm text-gray-500 mb-4">
+				このデバイスからがんばりクエストのアカウントからログアウトします。再度ログインするにはメールアドレスとパスワードが必要です。
+			</p>
+			<a
+				href="/auth/signout"
+				class="inline-block px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
+			>
+				アカウントからログアウト
+			</a>
+		</div>
+	{/if}
 </div>
