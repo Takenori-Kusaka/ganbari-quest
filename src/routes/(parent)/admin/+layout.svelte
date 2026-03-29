@@ -1,6 +1,8 @@
 <script lang="ts">
 import { navigating, page } from '$app/stores';
 import Logo from '$lib/ui/components/Logo.svelte';
+import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
+import { markTutorialStarted, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
 import type { Snippet } from 'svelte';
 
 interface Props {
@@ -8,6 +10,11 @@ interface Props {
 }
 
 let { children }: Props = $props();
+
+async function handleStartTutorial() {
+	await markTutorialStarted();
+	await startTutorial();
+}
 
 // bfcache からの復元時にページをリロードしてサーバー認証チェックを発火させる
 $effect(() => {
@@ -42,12 +49,23 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 				<Logo variant="compact" />
 				<span class="text-xs font-medium text-gray-400 border border-gray-300 rounded px-1.5 py-0.5">管理</span>
 			</div>
-			<a
-				href="/switch"
-				class="text-sm px-3 py-1 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 transition-colors inline-flex items-center gap-1"
-			>
-				<span aria-hidden="true">&larr;</span> 子供画面へ
-			</a>
+			<div class="flex items-center gap-2">
+				<button
+					onclick={handleStartTutorial}
+					class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors text-sm font-bold"
+					title="チュートリアルを開始"
+					data-tutorial="tutorial-restart"
+				>
+					?
+				</button>
+				<a
+					href="/switch"
+					class="text-sm px-3 py-1 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 transition-colors inline-flex items-center gap-1"
+					data-tutorial="switch-to-child"
+				>
+					<span aria-hidden="true">&larr;</span> 子供画面へ
+				</a>
+			</div>
 		</div>
 	</header>
 
@@ -86,7 +104,7 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 	</main>
 
 	<!-- Mobile Bottom Navigation (<768px) -->
-	<nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 safe-area-bottom" aria-label="メインナビゲーション">
+	<nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 safe-area-bottom" aria-label="メインナビゲーション" data-tutorial="nav-primary">
 		<div class="flex justify-around items-center h-16">
 			{#each primaryNavItems as item}
 				{@const isActive = isNavActive(item.href, $page.url.pathname)}
@@ -102,4 +120,6 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 			{/each}
 		</div>
 	</nav>
+
+	<TutorialOverlay />
 </div>
