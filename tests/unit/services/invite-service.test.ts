@@ -209,7 +209,10 @@ describe('acceptInvite', () => {
 	});
 
 	it('自分で作成した招待は受諾できない (#0203)', async () => {
-		inviteStore.set('self-inv', makePendingInvite({ inviteCode: 'self-inv', invitedBy: 'user-owner' }));
+		inviteStore.set(
+			'self-inv',
+			makePendingInvite({ inviteCode: 'self-inv', invitedBy: 'user-owner' }),
+		);
 
 		const result = await acceptInvite('self-inv', 'user-owner');
 		expect('error' in result).toBe(true);
@@ -219,7 +222,10 @@ describe('acceptInvite', () => {
 	});
 
 	it('owner は招待でダウングレードされない (#0203)', async () => {
-		inviteStore.set('downgrade', makePendingInvite({ inviteCode: 'downgrade', tenantId: 't-test' }));
+		inviteStore.set(
+			'downgrade',
+			makePendingInvite({ inviteCode: 'downgrade', tenantId: 't-test' }),
+		);
 		userTenantStore.set('owner-user', [
 			{
 				userId: 'owner-user',
