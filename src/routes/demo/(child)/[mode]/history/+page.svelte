@@ -12,7 +12,7 @@ const groupedLogs = $derived(() => {
 	for (const log of data.logs) {
 		const date = log.recordedDate;
 		if (!groups.has(date)) groups.set(date, []);
-		groups.get(date)?.push(log);
+		groups.get(date)!.push(log);
 	}
 	return Array.from(groups.entries()).sort(([a], [b]) => b.localeCompare(a));
 });
