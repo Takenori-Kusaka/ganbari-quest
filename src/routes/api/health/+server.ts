@@ -1,3 +1,4 @@
+import { APP_VERSION } from '$lib/version';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -41,7 +42,7 @@ export const GET: RequestHandler = async () => {
 	return json({
 		status: 'ok',
 		timestamp: new Date().toISOString(),
-		version: '0.1.0',
+		version: APP_VERSION,
 		dataSource: DATA_SOURCE,
 		region: process.env.AWS_REGION ?? 'local',
 		uptime: Math.floor(process.uptime()),
