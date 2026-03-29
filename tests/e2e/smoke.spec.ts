@@ -9,9 +9,10 @@ import { expect, test } from '@playwright/test';
 import {
 	dismissOverlays,
 	getAvailableActivities,
+	isAwsEnv,
 	recordAnyActivity,
-	selectChild,
-	selectChildAndDismiss,
+	selectKinderChild,
+	selectKinderChildAndDismiss,
 } from './helpers';
 
 // ============================================================
@@ -43,7 +44,7 @@ test.describe('UC-05: 子供切り替え', () => {
 	});
 
 	test('子供を選択するとホーム画面に遷移する', async ({ page }) => {
-		await selectChild(page);
+		await selectKinderChild(page);
 		await expect(page).toHaveURL(/\/kinder\/home/);
 		await expect(page).toHaveTitle(/ホーム/);
 	});
@@ -54,7 +55,7 @@ test.describe('UC-05: 子供切り替え', () => {
 // ============================================================
 test.describe('UC-01: Kinder ホーム画面', () => {
 	test.beforeEach(async ({ page }) => {
-		await selectChildAndDismiss(page);
+		await selectKinderChildAndDismiss(page);
 	});
 
 	test('活動カードが表示される', async ({ page }) => {
@@ -77,6 +78,10 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 	});
 
 	test('スタンプカードが表示される', async ({ page }) => {
+		test.skip(
+			isAwsEnv(),
+			'AWS 環境ではスタンプカード未初期化（ログインボーナス機能の初期データなし）',
+		);
 		const stampCard = page.locator('[data-testid="stamp-card"]');
 		await expect(stampCard).toBeVisible();
 		await expect(stampCard.getByText('しゅうかんスタンプ')).toBeVisible();
@@ -91,7 +96,7 @@ test.describe('UC-01: 活動記録フロー', () => {
 	test.describe.configure({ mode: 'serial' });
 
 	test.beforeEach(async ({ page }) => {
-		await selectChildAndDismiss(page);
+		await selectKinderChildAndDismiss(page);
 	});
 
 	test('活動をタップすると確認ダイアログが表示される', async ({ page }) => {
@@ -141,7 +146,7 @@ test.describe('UC-01: 活動記録フロー', () => {
 test.describe('UC-02: 記録キャンセル', () => {
 	test('5秒以内にキャンセルできる', async ({ page }) => {
 		test.slow();
-		await selectChildAndDismiss(page);
+		await selectKinderChildAndDismiss(page);
 
 		const recorded = await recordAnyActivity(page);
 		expect(recorded).toBe(true);
@@ -160,7 +165,7 @@ test.describe('UC-02: 記録キャンセル', () => {
 // ============================================================
 test.describe('UC-03: 活動履歴', () => {
 	test('履歴画面が表示される', async ({ page }) => {
-		await selectChildAndDismiss(page);
+		await selectKinderChildAndDismiss(page);
 		await page.goto('/kinder/history');
 		await expect(page).toHaveURL(/\/kinder\/history/);
 		// 期間タブが表示されることでページが正しくレンダリングされたことを確認
@@ -168,7 +173,7 @@ test.describe('UC-03: 活動履歴', () => {
 	});
 
 	test('期間タブが表示される', async ({ page }) => {
-		await selectChildAndDismiss(page);
+		await selectKinderChildAndDismiss(page);
 		await page.goto('/kinder/history');
 
 		await expect(page.getByRole('tab', { name: 'きょう' })).toBeVisible();
@@ -182,7 +187,7 @@ test.describe('UC-03: 活動履歴', () => {
 // ============================================================
 test.describe('UC-04: ステータス確認', () => {
 	test('ステータス画面が表示される', async ({ page }) => {
-		await selectChildAndDismiss(page);
+		await selectKinderChildAndDismiss(page);
 		await page.goto('/kinder/status');
 		await expect(page).toHaveURL(/\/kinder\/status/);
 		// ステータスセクション見出しでレンダリング確認
@@ -190,7 +195,7 @@ test.describe('UC-04: ステータス確認', () => {
 	});
 
 	test('レベルとキャラクタータイプが表示される', async ({ page }) => {
-		await selectChildAndDismiss(page);
+		await selectKinderChildAndDismiss(page);
 		await page.goto('/kinder/status');
 
 		// レベル表示（ヘッダーとメインの2箇所にあるので main 内を指定）
@@ -205,7 +210,7 @@ test.describe('UC-04: ステータス確認', () => {
 // ============================================================
 test.describe('実績画面', () => {
 	test('実績一覧が表示される', async ({ page }) => {
-		await selectChildAndDismiss(page);
+		await selectKinderChildAndDismiss(page);
 		await page.goto('/kinder/achievements');
 		await expect(page).toHaveURL(/\/kinder\/achievements/);
 
@@ -218,29 +223,28 @@ test.describe('実績画面', () => {
 // ============================================================
 test.describe('ナビゲーション', () => {
 	test.beforeEach(async ({ page }) => {
-		await selectChildAndDismiss(page);
+		await selectKinderChildAndDismiss(page);
 	});
 
 	test('ボトムナビでページ遷移できる', async ({ page }) => {
+		const nav = page.locator('[data-testid="bottom-nav"]');
+
 		// ホーム → きろく（履歴）
-		const historyLink = page.getByRole('link', { name: 'きろく' });
-		await historyLink.click();
+		await nav.locator('a').filter({ hasText: 'きろく' }).click();
 		await expect(page).toHaveURL(/\/kinder\/history/);
 
 		// きろく → つよさ
-		const statusLink = page.getByRole('link', { name: 'つよさ' });
-		await statusLink.click();
+		await nav.locator('a').filter({ hasText: 'つよさ' }).click();
 		await expect(page).toHaveURL(/\/kinder\/status/);
 
 		// つよさ → ホーム
-		const homeLink = page.getByRole('link', { name: 'ホーム' });
-		await homeLink.click();
+		await nav.locator('a').filter({ hasText: 'ホーム' }).click();
 		await expect(page).toHaveURL(/\/kinder\/home/);
 	});
 
 	test('きりかえリンクで /switch に戻れる', async ({ page }) => {
-		const switchLink = page.getByRole('link', { name: 'きりかえ' });
-		await switchLink.click();
+		const nav = page.locator('[data-testid="bottom-nav"]');
+		await nav.locator('a').filter({ hasText: 'きりかえ' }).click();
 		await expect(page).toHaveURL(/\/switch/);
 	});
 });
@@ -250,7 +254,11 @@ test.describe('ナビゲーション', () => {
 // ============================================================
 test.describe('UC-13: ログインボーナス', () => {
 	test('初回アクセスでおみくじまたはスタンプカードが表示される', async ({ page }) => {
-		await selectChild(page);
+		test.skip(
+			isAwsEnv(),
+			'AWS 環境ではスタンプカード未初期化（事前claimでおみくじ非表示＋スタンプカード未作成）',
+		);
+		await selectKinderChild(page);
 
 		// おみくじ結果（ログインボーナス未受取時）またはスタンプカード（受取済み時）
 		// 他テストで先にdismissされている場合はスタンプカードが表示される
@@ -272,11 +280,11 @@ test.describe('UC-13: ログインボーナス', () => {
 // ============================================================
 // 11. UC-09: 親ログイン画面
 // ============================================================
-test.describe('UC-09: 親ログイン（local モード — 認証不要）', () => {
+test.describe('UC-09: 親ログイン', () => {
 	test('/login にアクセスするとページが表示される', async ({ page }) => {
 		await page.goto('/login');
-		// local モードでは /login ページが表示される or /admin にリダイレクト
-		await expect(page).toHaveURL(/\/(login|admin)/);
+		// local モードでは /login or /admin、Cognito モードでは /auth/login にリダイレクト
+		await expect(page).toHaveURL(/\/(login|admin|auth\/login)/);
 	});
 });
 

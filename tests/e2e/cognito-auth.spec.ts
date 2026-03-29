@@ -187,7 +187,7 @@ test.describe('サインアップ', () => {
 
 	test('devモードではサインアップリンクが非表示', async ({ page }) => {
 		await gotoLogin(page);
-		const signupLink = page.getByRole('link', { name: /アカウントをお持ちでない/ });
+		const signupLink = page.locator('a').filter({ hasText: 'アカウントをお持ちでない' });
 		await expect(signupLink).not.toBeVisible();
 	});
 });

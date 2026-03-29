@@ -6,6 +6,21 @@ import { expect } from '@playwright/test';
 type Page = import('@playwright/test').Page;
 
 // ============================================================
+// 環境判定
+// ============================================================
+
+/** AWS 環境で実行中かどうか（playwright.aws.config.ts 経由） */
+export function isAwsEnv(): boolean {
+	const baseUrl = process.env.E2E_BASE_URL ?? '';
+	return baseUrl.includes('ganbari-quest.com') || baseUrl.includes('amazonaws.com');
+}
+
+/** ローカル環境で実行中かどうか */
+export function isLocalEnv(): boolean {
+	return !isAwsEnv();
+}
+
+// ============================================================
 // 子供選択
 // ============================================================
 
@@ -43,21 +58,27 @@ export async function selectBabyChild(page: Page) {
 
 /** ログインボーナスのおみくじ・誕生日レビュー・各種オーバーレイを閉じる */
 export async function dismissOverlays(page: Page) {
-	// おみくじオーバーレイを閉じる
-	const hasOmikuji = await page
-		.getByText('きょうのうんせい')
-		.isVisible()
-		.catch(() => false);
-	if (hasOmikuji) {
-		try {
-			const omikujiBtn = page.getByRole('button', { name: /タップしてすすむ/ });
-			await omikujiBtn.waitFor({ timeout: 4000 });
-			await omikujiBtn.click();
-			await page.waitForTimeout(500);
-		} catch {
-			// ボタンが出なかった場合
-		}
+	// AWS 環境ではログインボーナス API（Lambda cold start）に時間がかかるため、
+	// おみくじオーバーレイが遅延表示される。networkidle で API 完了を待つ。
+	if (isAwsEnv()) {
+		await page.waitForLoadState('networkidle').catch(() => {});
+		// クライアント JS がハイドレーション完了し $effect が発火するまで追加待機
+		await page.waitForTimeout(2000);
 	}
+
+	// おみくじオーバーレイを閉じる（AWS: 遅延表示対策で長めに待機）
+	const omikujiTimeout = isAwsEnv() ? 8000 : 3000;
+	try {
+		const omikujiText = page.getByText('きょうのうんせい');
+		await omikujiText.waitFor({ timeout: omikujiTimeout });
+		const omikujiBtn = page.getByRole('button', { name: /タップしてすすむ/ });
+		await omikujiBtn.waitFor({ timeout: 4000 });
+		await omikujiBtn.click();
+		await page.waitForTimeout(500);
+	} catch {
+		// おみくじが表示されなかった場合（既に受領済み or 未対応）
+	}
+
 	// 誕生日レビューオーバーレイを閉じる
 	try {
 		const birthdayBtn = page.getByRole('button', { name: /はじめる/ });
@@ -68,6 +89,7 @@ export async function dismissOverlays(page: Page) {
 	} catch {
 		// なければスキップ
 	}
+
 	// 特別報酬や汎用オーバーレイを閉じる
 	for (let i = 0; i < 3; i++) {
 		await page.waitForTimeout(400);
@@ -83,12 +105,67 @@ export async function dismissOverlays(page: Page) {
 			break;
 		}
 	}
+
+	// 最終クリーンアップ: Ark UI Dialog の残骸を処理する
+	// AWS 環境では SSR→ハイドレーション遷移時にダイアログが data-state="open" のまま
+	// display: none になり、body に pointer-events: none が残留してクリックが効かなくなる
+	for (let i = 0; i < 5; i++) {
+		const hasOpenDialog = await page
+			.evaluate(() => {
+				return !!document.querySelector(
+					'[data-scope="dialog"][data-part="backdrop"][data-state="open"]',
+				);
+			})
+			.catch(() => false);
+
+		if (!hasOpenDialog) break;
+
+		// closable=true のダイアログは Escape で閉じる
+		await page.keyboard.press('Escape');
+		await page.waitForTimeout(500);
+
+		// closable=false のダイアログ（おみくじ等）はボタンクリックで閉じる
+		const dialogBtn = page.locator('button').filter({
+			hasText: /タップしてすすむ|やったね！|とじる|閉じる|OK|やったー/,
+		});
+		if (
+			await dialogBtn
+				.first()
+				.isVisible()
+				.catch(() => false)
+		) {
+			await dialogBtn.first().click();
+			await page.waitForTimeout(500);
+		}
+	}
+
+	// Ark UI Dialog のゴースト要素を強制非表示
+	// SSR→ハイドレーション不整合で、dialog positioner (fixed inset-0 z-50) が
+	// display:flex のまま残り、z-30 の BottomNav へのクリックをブロックする。
+	// body の pointer-events: none / overflow: hidden も同時にリセットする。
+	await page.evaluate(() => {
+		document.body.style.pointerEvents = '';
+		document.body.style.overflow = '';
+		for (const el of document.querySelectorAll('[data-scope="dialog"][data-part="positioner"]')) {
+			const content = el.querySelector('[data-part="content"]');
+			const isVisible = content && window.getComputedStyle(content).display !== 'none';
+			if (!isVisible) {
+				(el as HTMLElement).style.display = 'none';
+			}
+		}
+	});
 	await page.waitForTimeout(300);
 }
 
 /** 子供を選択してオーバーレイを閉じた状態にする */
 export async function selectChildAndDismiss(page: Page) {
 	await selectChild(page);
+	await dismissOverlays(page);
+}
+
+/** ゆうきちゃん(kinder)を選択してオーバーレイを閉じた状態にする */
+export async function selectKinderChildAndDismiss(page: Page) {
+	await selectKinderChild(page);
 	await dismissOverlays(page);
 }
 
