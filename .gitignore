@@ -36,6 +36,7 @@ coverage/
 playwright-report/
 test-results/
 test-results.json
+tests/e2e/.auth/
 
 # Drizzle
 drizzle/meta/
