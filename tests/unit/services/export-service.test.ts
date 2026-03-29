@@ -419,7 +419,7 @@ describe('exportFamilyData', () => {
 
 	it('活動マスタがIDではなくカテゴリコードで参照される', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
-		const activity = result.master.activities[0];
+		const activity = result.master.activities[0]!;
 		expect(activity.categoryCode).toBe('undou');
 		expect(activity.name).toBe('はいはいした');
 		expect(activity).not.toHaveProperty('id');
