@@ -10,6 +10,7 @@ const ICON_SIZE_MAP: Record<CardSize, 'md' | 'lg' | 'xl'> = {
 };
 
 interface Props {
+	activityId?: number;
 	icon: string;
 	name: string;
 	categoryId: number;
@@ -25,6 +26,7 @@ interface Props {
 }
 
 let {
+	activityId,
 	icon,
 	name,
 	categoryId,
@@ -84,6 +86,7 @@ function handleClick(e: Event) {
 	class:card-mission={showMission}
 	style={completed ? '' : `border-color: ${showMission ? 'gold' : borderColor};`}
 	disabled={completed}
+	data-testid={activityId != null ? `activity-card-${activityId}` : undefined}
 	aria-label="{name}{completed ? '（きろくずみ）' : ''}{showMission ? '（ミッション）' : ''}{isPinned ? '（ピンどめ）' : ''}"
 	onclick={handleClick}
 	onpointerdown={handlePointerDown}

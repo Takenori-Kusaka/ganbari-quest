@@ -9,9 +9,17 @@ interface Props {
 	children: Snippet;
 	title?: string;
 	closable?: boolean;
+	testid?: string;
 }
 
-let { open = $bindable(), onOpenChange, children, title, closable = true }: Props = $props();
+let {
+	open = $bindable(),
+	onOpenChange,
+	children,
+	title,
+	closable = true,
+	testid,
+}: Props = $props();
 
 function handleOpenChange(details: { open: boolean }) {
 	open = details.open;
@@ -27,6 +35,7 @@ function handleOpenChange(details: { open: boolean }) {
 		<ArkDialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-[var(--sp-md)]">
 			<ArkDialog.Content
 				class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)]"
+				data-testid={testid}
 			>
 				{#if title}
 					<ArkDialog.Title class="text-xl font-bold mb-[var(--sp-md)]">
