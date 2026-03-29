@@ -14,6 +14,7 @@ let submitting = $state(false);
 let exportLoading = $state(false);
 let exportError = $state('');
 let compactFormat = $state(false);
+let includeFiles = $state(false);
 
 // インポート
 let importFile = $state<File | null>(null);
@@ -112,7 +113,11 @@ async function handleExport() {
 	exportLoading = true;
 	exportError = '';
 	try {
-		const res = await fetch(`/api/v1/export${compactFormat ? '?compact=1' : ''}`);
+		const params = new URLSearchParams();
+		if (compactFormat) params.set('compact', '1');
+		if (includeFiles) params.set('format', 'zip');
+		const qs = params.toString() ? `?${params.toString()}` : '';
+		const res = await fetch(`/api/v1/export${qs}`);
 		if (!res.ok) {
 			const data = await res.json().catch(() => null);
 			throw new Error(data?.error?.message ?? `エクスポートに失敗しました (${res.status})`);
@@ -387,15 +392,15 @@ const previewFormatted = $derived(
 						<li>活動マスタ・きせかえアイテム</li>
 					</ul>
 				</div>
-				<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
-					<p class="text-xs font-bold text-yellow-700 mb-1">エクスポートに含まれないデータ</p>
-					<ul class="text-xs text-yellow-700 space-y-0.5">
-						<li>アバター画像（/uploads/avatars/）</li>
-						<li>音声データ（/uploads/audio/）</li>
-						<li>生成された画像（/generated/）</li>
-					</ul>
-					<p class="text-xs text-yellow-600 mt-1">これらは別途バックアップしてください。</p>
-				</div>
+				<label class="flex items-center gap-2 mb-2 text-sm text-gray-600 cursor-pointer">
+					<input type="checkbox" bind:checked={includeFiles} class="w-4 h-4 text-blue-500 rounded" />
+					画像・音声ファイルも含める（ZIP形式）
+				</label>
+				{#if !includeFiles}
+					<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+						<p class="text-xs text-yellow-600">画像・音声を含める場合は上のチェックをオンにしてください。ファイルサイズが大きくなる場合があります（最大100MB）。</p>
+					</div>
+				{/if}
 				<label class="flex items-center gap-2 mb-3 text-sm text-gray-600 cursor-pointer">
 					<input type="checkbox" bind:checked={compactFormat} class="w-4 h-4 text-blue-500 rounded" />
 					圧縮形式でエクスポート（ファイルサイズを削減）
