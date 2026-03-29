@@ -88,6 +88,8 @@ export class ComputeStack extends cdk.Stack {
 					? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident }
 					: {}),
 				COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
+				SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
+				SES_CONFIG_SET_NAME: 'ganbari-quest-config',
 			},
 		});
 		this.fn.node.addDependency(logGroup);
@@ -95,6 +97,14 @@ export class ComputeStack extends cdk.Stack {
 		// Grant Lambda access to DynamoDB and S3
 		props.table.grantReadWriteData(this.fn);
 		props.assetsBucket.grantReadWrite(this.fn);
+
+		// Grant Lambda SES SendEmail permission
+		this.fn.addToRolePolicy(
+			new iam.PolicyStatement({
+				actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+				resources: ['*'],
+			}),
+		);
 
 		// Lambda Function URL (public, CloudFront will be in front)
 		this.functionUrl = this.fn.addFunctionUrl({
