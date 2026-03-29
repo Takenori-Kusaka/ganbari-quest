@@ -4,7 +4,12 @@
 import { EXPORT_FORMAT, EXPORT_VERSION, type ExportData } from '$lib/domain/export-format';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { findAllAchievements, insertChildAchievement } from '$lib/server/db/achievement-repo';
-import { findActivities, insertActivityLog, insertPointLedger } from '$lib/server/db/activity-repo';
+import {
+	findActivities,
+	insertActivity,
+	insertActivityLog,
+	insertPointLedger,
+} from '$lib/server/db/activity-repo';
 import { findAllAvatarItems, insertChildAvatarItem } from '$lib/server/db/avatar-repo';
 import { insertBirthdayReview } from '$lib/server/db/birthday-repo';
 import { findAllCareerFields, insertCareerPlan } from '$lib/server/db/career-repo';
@@ -23,12 +28,16 @@ for (const [i, code] of CATEGORY_CODES.entries()) {
 
 export interface ImportResult {
 	childrenImported: number;
+	activitiesCreated: number;
 	activityLogsImported: number;
+	activityLogsSkipped: number;
 	pointLedgerImported: number;
+	pointLedgerSkipped: number;
 	statusesImported: number;
 	achievementsImported: number;
 	titlesImported: number;
 	errors: string[];
+	warnings: string[];
 }
 
 /**
@@ -46,10 +55,11 @@ export function validateExportData(
 	if (d.format !== EXPORT_FORMAT) {
 		return { valid: false, error: `フォーマットが不正です（期待: ${EXPORT_FORMAT}）` };
 	}
-	if (d.version !== EXPORT_VERSION) {
+	const supportedVersions = [EXPORT_VERSION, '1.0.0'];
+	if (!supportedVersions.includes(d.version as string)) {
 		return {
 			valid: false,
-			error: `バージョンが不正です（期待: ${EXPORT_VERSION}, 実際: ${d.version}）`,
+			error: `バージョンが不正です（対応: ${supportedVersions.join(', ')}, 実際: ${d.version}）`,
 		};
 	}
 	if (!d.family || typeof d.family !== 'object') {
@@ -92,17 +102,59 @@ export function previewImport(data: ExportData) {
  */
 export async function importFamilyData(data: ExportData, tenantId: string): Promise<ImportResult> {
 	const errors: string[] = [];
+	const warnings: string[] = [];
 	const result: ImportResult = {
 		childrenImported: 0,
+		activitiesCreated: 0,
 		activityLogsImported: 0,
+		activityLogsSkipped: 0,
 		pointLedgerImported: 0,
+		pointLedgerSkipped: 0,
 		statusesImported: 0,
 		achievementsImported: 0,
 		titlesImported: 0,
 		errors,
+		warnings,
 	};
 
 	logger.info('[import] インポート開始', { context: { tenantId } });
+
+	// 0. マスタデータのインポート（活動マスタ）
+	if (data.master?.activities) {
+		const existingActivities = await findActivities(tenantId);
+		const existingNames = new Set(existingActivities.map((a) => a.name));
+
+		for (const exportActivity of data.master.activities) {
+			if (existingNames.has(exportActivity.name)) continue;
+
+			const categoryId = CATEGORY_CODE_TO_ID[exportActivity.categoryCode];
+			if (!categoryId) {
+				warnings.push(
+					`活動「${exportActivity.name}」のカテゴリ「${exportActivity.categoryCode}」が不明のためスキップ`,
+				);
+				continue;
+			}
+
+			try {
+				await insertActivity(
+					{
+						name: exportActivity.name,
+						categoryId,
+						icon: exportActivity.icon,
+						basePoints: exportActivity.basePoints,
+						ageMin: null,
+						ageMax: null,
+						triggerHint: exportActivity.triggerHint,
+					},
+					tenantId,
+				);
+				result.activitiesCreated++;
+				existingNames.add(exportActivity.name);
+			} catch (e) {
+				warnings.push(`活動「${exportActivity.name}」の作成に失敗: ${String(e)}`);
+			}
+		}
+	}
 
 	// マスタデータのルックアップ構築
 	const [activities, titles, achievements, avatarItems, careerFields] = await Promise.all([
@@ -163,13 +215,18 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 	}
 
 	// 3. 活動ログ
+	const missingActivityNames = new Set<string>();
 	for (const log of data.data.activityLogs) {
 		const childId = childIdMap.get(log.childRef);
 		if (!childId) continue;
 
 		const activity = activityNameMap.get(log.activityName);
 		if (!activity) {
-			// 活動マスタが見つからない場合はスキップ
+			result.activityLogsSkipped++;
+			if (!missingActivityNames.has(log.activityName)) {
+				missingActivityNames.add(log.activityName);
+				warnings.push(`活動ログスキップ: 活動「${log.activityName}」がマスタに見つかりません`);
+			}
 			continue;
 		}
 
@@ -195,7 +252,10 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 	// 4. ポイント台帳
 	for (const entry of data.data.pointLedger) {
 		const childId = childIdMap.get(entry.childRef);
-		if (!childId) continue;
+		if (!childId) {
+			result.pointLedgerSkipped++;
+			continue;
+		}
 
 		try {
 			await insertPointLedger(
@@ -209,7 +269,7 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 			);
 			result.pointLedgerImported++;
 		} catch (_e) {
-			// skip
+			result.pointLedgerSkipped++;
 		}
 	}
 
