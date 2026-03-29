@@ -65,7 +65,7 @@ onMount(() => {
 
 <div data-theme={theme} data-age-tier={uiMode} class="min-h-dvh bg-[var(--theme-bg)]">
 	{#if data.child}
-		<Header nickname={data.child.nickname} totalPoints={data.balance} level={data.level} showLevel={true} avatarUrl={data.child.avatarUrl} avatarConfig={data.avatarConfig} pointSettings={data.pointSettings} />
+		<Header nickname={data.child.nickname} totalPoints={data.balance} level={data.level} showLevel={true} avatarUrl={data.child.avatarUrl} avatarConfig={data.avatarConfig} pointSettings={data.pointSettings} activeTitle={data.activeTitle} />
 	{/if}
 
 	<main class="pb-20 pt-[var(--sp-sm)]">

@@ -457,6 +457,30 @@ function handleBirthdayResultClose() {
 		</div>
 	{/if}
 
+	<!-- Game loop hooks -->
+	{#if data.gameLoopHints}
+		<div class="mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
+			<div class="px-[var(--sp-md)] py-[var(--sp-sm)] flex flex-col gap-1">
+				<a href="/{data.uiMode}/achievements" class="flex items-center justify-between tap-target py-1">
+					<div class="flex items-center gap-[var(--sp-sm)]">
+						<span class="text-lg">🏆</span>
+						<span class="text-sm font-bold">実績</span>
+						<span class="text-xs text-[var(--color-text-muted)]">{data.gameLoopHints.achievements.unlockedCount}/{data.gameLoopHints.achievements.totalCount}</span>
+					</div>
+					<span class="text-[var(--color-text-muted)]">›</span>
+				</a>
+				<a href="/{data.uiMode}/skill-tree" class="flex items-center justify-between tap-target py-1">
+					<div class="flex items-center gap-[var(--sp-sm)]">
+						<span class="text-lg">⚔️</span>
+						<span class="text-sm font-bold">スキル</span>
+						<span class="text-xs text-[var(--color-text-muted)]">💎 {data.gameLoopHints.spBalance} SP</span>
+					</div>
+					<span class="text-[var(--color-text-muted)]">›</span>
+				</a>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Activity grid by category -->
 	{#each activitiesByCategory as group (group.categoryId)}
 		<CategorySection

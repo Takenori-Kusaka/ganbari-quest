@@ -59,6 +59,19 @@ export interface AchievementWithStatus {
 	liveStreak: number | null;
 }
 
+// --- 実績サマリー（ホーム表示用） ---
+
+/** 解放済み / 全実績数を返す（軽量） */
+export async function getAchievementSummary(
+	childId: number,
+	tenantId: string,
+): Promise<{ unlockedCount: number; totalCount: number }> {
+	const all = await findAllAchievements(tenantId);
+	const unlocked = await findUnlockedAchievements(childId, tenantId);
+	const uniqueUnlocked = new Set(unlocked.map((u) => u.achievementId));
+	return { unlockedCount: uniqueUnlocked.size, totalCount: all.length };
+}
+
 // --- 実績チェック + 解除 ---
 
 /** 全条件をチェックし、新規達成した実績を返す */
