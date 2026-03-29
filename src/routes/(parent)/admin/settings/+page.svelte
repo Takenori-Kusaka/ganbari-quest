@@ -13,6 +13,7 @@ let submitting = $state(false);
 // エクスポート
 let exportLoading = $state(false);
 let exportError = $state('');
+let compactFormat = $state(false);
 
 // インポート
 let importFile = $state<File | null>(null);
@@ -21,8 +22,13 @@ let importError = $state('');
 let importPreview = $state<Record<string, number> | null>(null);
 let importResult = $state<{
 	childrenImported: number;
+	activitiesCreated: number;
 	activityLogsImported: number;
+	activityLogsSkipped: number;
+	pointLedgerImported: number;
+	pointLedgerSkipped: number;
 	errors: string[];
+	warnings: string[];
 } | null>(null);
 let importStep = $state<'select' | 'preview' | 'done'>('select');
 
@@ -106,7 +112,7 @@ async function handleExport() {
 	exportLoading = true;
 	exportError = '';
 	try {
-		const res = await fetch('/api/v1/export');
+		const res = await fetch(`/api/v1/export${compactFormat ? '?compact=1' : ''}`);
 		if (!res.ok) {
 			const data = await res.json().catch(() => null);
 			throw new Error(data?.error?.message ?? `エクスポートに失敗しました (${res.status})`);
@@ -380,6 +386,19 @@ const previewFormatted = $derived(
 						<li>活動マスタ・きせかえアイテム</li>
 					</ul>
 				</div>
+				<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+					<p class="text-xs font-bold text-yellow-700 mb-1">エクスポートに含まれないデータ</p>
+					<ul class="text-xs text-yellow-700 space-y-0.5">
+						<li>アバター画像（/uploads/avatars/）</li>
+						<li>音声データ（/uploads/audio/）</li>
+						<li>生成された画像（/generated/）</li>
+					</ul>
+					<p class="text-xs text-yellow-600 mt-1">これらは別途バックアップしてください。</p>
+				</div>
+				<label class="flex items-center gap-2 mb-3 text-sm text-gray-600 cursor-pointer">
+					<input type="checkbox" bind:checked={compactFormat} class="w-4 h-4 text-blue-500 rounded" />
+					圧縮形式でエクスポート（ファイルサイズを削減）
+				</label>
 				<button
 					type="button"
 					disabled={exportLoading}
@@ -477,10 +496,27 @@ const previewFormatted = $derived(
 						<p class="text-sm font-bold text-green-700 mb-2">インポート完了</p>
 						<ul class="text-xs text-green-700 space-y-1">
 							<li>子供: {importResult.childrenImported}人 作成</li>
-							<li>活動ログ: {importResult.activityLogsImported}件</li>
+							{#if importResult.activitiesCreated > 0}
+								<li>活動マスタ: {importResult.activitiesCreated}件 新規作成</li>
+							{/if}
+							<li>活動ログ: {importResult.activityLogsImported}件{importResult.activityLogsSkipped > 0 ? `（${importResult.activityLogsSkipped}件スキップ）` : ''}</li>
+							<li>ポイント: {importResult.pointLedgerImported}件{importResult.pointLedgerSkipped > 0 ? `（${importResult.pointLedgerSkipped}件スキップ）` : ''}</li>
+							{#if (importResult.warnings?.length ?? 0) > 0}
+								<li class="text-yellow-600 mt-2">
+									警告 ({importResult.warnings.length}件):
+									<ul class="ml-3 mt-1">
+										{#each importResult.warnings.slice(0, 5) as warn}
+											<li>{warn}</li>
+										{/each}
+										{#if importResult.warnings.length > 5}
+											<li>...他 {importResult.warnings.length - 5}件</li>
+										{/if}
+									</ul>
+								</li>
+							{/if}
 							{#if importResult.errors.length > 0}
 								<li class="text-orange-600 mt-2">
-									一部エラー ({importResult.errors.length}件):
+									エラー ({importResult.errors.length}件):
 									<ul class="ml-3 mt-1">
 										{#each importResult.errors.slice(0, 5) as err}
 											<li>{err}</li>
