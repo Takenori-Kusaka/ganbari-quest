@@ -112,6 +112,7 @@ export class DevCognitoAuthProvider implements AuthProvider {
 			tenantId: devUser.tenantId,
 			role: devUser.role,
 			licenseStatus: 'active',
+			tenantStatus: 'active',
 		};
 
 		const token = signContext(context);
