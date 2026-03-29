@@ -1,0 +1,176 @@
+name: Weekly Operations Report
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # 毎週月曜 0:00 UTC (= 09:00 JST)
+  workflow_dispatch: # 手動実行
+
+env:
+  AWS_REGION: us-east-1
+  DYNAMO_TABLE: ganbari-quest
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Collect AWS costs (Cost Explorer)
+        id: aws-costs
+        run: |
+          START=$(date -d 'last Monday' +%Y-%m-%d)
+          END=$(date -d 'last Sunday + 1 day' +%Y-%m-%d)
+          START_JP=$(date -d "$START" +"%Y年%-m月%-d日")
+          END_JP=$(date -d 'last Sunday' +"%Y年%-m月%-d日")
+          NEXT_JP=$(date -d "next Monday" +"%Y年%-m月%-d日")
+
+          RESULT=$(aws ce get-cost-and-usage \
+            --time-period Start=$START,End=$END \
+            --granularity WEEKLY \
+            --group-by Type=DIMENSION,Key=SERVICE \
+            --metrics UnblendedCost \
+            --query 'ResultsByTime[0].Groups' \
+            --output json 2>/dev/null || echo '[]')
+
+          echo "costs=$RESULT" >> "$GITHUB_OUTPUT"
+          echo "start_jp=$START_JP" >> "$GITHUB_OUTPUT"
+          echo "end_jp=$END_JP" >> "$GITHUB_OUTPUT"
+          echo "next_jp=$NEXT_JP" >> "$GITHUB_OUTPUT"
+
+      - name: Collect tenant stats (DynamoDB)
+        id: tenant-stats
+        run: |
+          ITEMS=$(aws dynamodb scan \
+            --table-name "$DYNAMO_TABLE" \
+            --filter-expression "begins_with(PK, :prefix) AND SK = :meta" \
+            --expression-attribute-values '{":prefix":{"S":"TENANT#"},":meta":{"S":"META"}}' \
+            --projection-expression "#s, #p, createdAt" \
+            --expression-attribute-names '{"#s":"status","#p":"plan"}' \
+            --query 'Items' \
+            --output json 2>/dev/null || echo '[]')
+
+          TOTAL=$(echo "$ITEMS" | jq 'length')
+          ACTIVE=$(echo "$ITEMS" | jq '[.[] | select(.status.S == "active")] | length')
+          MONTHLY=$(echo "$ITEMS" | jq '[.[] | select(.plan.S == "monthly")] | length')
+          YEARLY=$(echo "$ITEMS" | jq '[.[] | select(.plan.S == "yearly")] | length')
+          LIFETIME=$(echo "$ITEMS" | jq '[.[] | select(.plan.S == "lifetime")] | length')
+
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+          echo "active=$ACTIVE" >> "$GITHUB_OUTPUT"
+          echo "monthly=$MONTHLY" >> "$GITHUB_OUTPUT"
+          echo "yearly=$YEARLY" >> "$GITHUB_OUTPUT"
+          echo "lifetime=$LIFETIME" >> "$GITHUB_OUTPUT"
+
+      - name: Collect Stripe revenue
+        id: stripe-revenue
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          if [ -z "$STRIPE_SECRET_KEY" ]; then
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "total=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          START_TS=$(date -d 'last Monday' +%s)
+          END_TS=$(date -d 'last Sunday 23:59:59' +%s)
+
+          RESULT=$(curl -s "https://api.stripe.com/v1/invoices?status=paid&created[gte]=${START_TS}&created[lte]=${END_TS}&limit=100" \
+            -u "${STRIPE_SECRET_KEY}:" 2>/dev/null || echo '{"data":[]}')
+
+          COUNT=$(echo "$RESULT" | jq '.data | length')
+          TOTAL=$(echo "$RESULT" | jq '[.data[].amount_paid] | add // 0')
+
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+
+      - name: Format and send Discord report
+        env:
+          WEBHOOK_URL: ${{ vars.DISCORD_WEEKLY_REPORT_WEBHOOK_URL }}
+          COSTS_JSON: ${{ steps.aws-costs.outputs.costs }}
+          START_JP: ${{ steps.aws-costs.outputs.start_jp }}
+          END_JP: ${{ steps.aws-costs.outputs.end_jp }}
+          NEXT_JP: ${{ steps.aws-costs.outputs.next_jp }}
+          TENANT_TOTAL: ${{ steps.tenant-stats.outputs.total }}
+          TENANT_ACTIVE: ${{ steps.tenant-stats.outputs.active }}
+          TENANT_MONTHLY: ${{ steps.tenant-stats.outputs.monthly }}
+          TENANT_YEARLY: ${{ steps.tenant-stats.outputs.yearly }}
+          TENANT_LIFETIME: ${{ steps.tenant-stats.outputs.lifetime }}
+          STRIPE_COUNT: ${{ steps.stripe-revenue.outputs.count }}
+          STRIPE_TOTAL: ${{ steps.stripe-revenue.outputs.total }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::DISCORD_WEEKLY_REPORT_WEBHOOK_URL is not set. Skipping."
+            exit 0
+          fi
+
+          # コスト集計（円換算: 1USD=150円）
+          get_cost() {
+            echo "$COSTS_JSON" | jq -r --arg svc "$1" \
+              '[.[] | select(.Keys[0] == $svc) | .Metrics.UnblendedCost.Amount | tonumber] | add // 0'
+          }
+
+          LAMBDA_USD=$(get_cost "AWS Lambda")
+          DYNAMO_USD=$(get_cost "Amazon DynamoDB")
+          S3_USD=$(get_cost "Amazon Simple Storage Service")
+          CF_USD=$(get_cost "Amazon CloudFront")
+          R53_USD=$(get_cost "Amazon Route 53")
+          COGNITO_USD=$(get_cost "Amazon Cognito")
+          SES_USD=$(get_cost "Amazon Simple Email Service")
+
+          TOTAL_USD=$(echo "$LAMBDA_USD + $DYNAMO_USD + $S3_USD + $CF_USD + $R53_USD + $COGNITO_USD + $SES_USD" | bc)
+
+          to_yen() { printf "%.0f" "$(echo "$1 * 150" | bc)"; }
+          LAMBDA_JPY=$(to_yen "$LAMBDA_USD")
+          DYNAMO_JPY=$(to_yen "$DYNAMO_USD")
+          S3_JPY=$(to_yen "$S3_USD")
+          CF_JPY=$(to_yen "$CF_USD")
+          R53_JPY=$(to_yen "$R53_USD")
+          TOTAL_JPY=$(to_yen "$TOTAL_USD")
+
+          # アクティブ率
+          if [ "$TENANT_TOTAL" -gt 0 ]; then
+            ACTIVE_RATE=$((TENANT_ACTIVE * 100 / TENANT_TOTAL))
+          else
+            ACTIVE_RATE=0
+          fi
+
+          # MRR 概算（月額480円、年額4,800円÷12=400円）
+          MRR=$((TENANT_MONTHLY * 480 + TENANT_YEARLY * 400))
+          PROFIT=$((MRR - TOTAL_JPY))
+
+          # Discord embed（jq でJSON構築）
+          EMBED=$(jq -n \
+            --arg title "📊 週次レポート（${START_JP} 〜 ${END_JP}）" \
+            --arg tenant_sec "テナント総数 : ${TENANT_TOTAL}\nアクティブ   : ${TENANT_ACTIVE} (${ACTIVE_RATE}%)\n月額プラン   : ${TENANT_MONTHLY}\n年額プラン   : ${TENANT_YEARLY}\nLifetime     : ${TENANT_LIFETIME}" \
+            --arg cost_sec "Lambda       : ¥ ${LAMBDA_JPY}\nDynamoDB     : ¥ ${DYNAMO_JPY}\nS3           : ¥ ${S3_JPY}\nCloudFront   : ¥ ${CF_JPY}\nRoute 53     : ¥ ${R53_JPY}\n合計         : ¥ ${TOTAL_JPY}" \
+            --arg stripe_sec "決済件数     : ${STRIPE_COUNT} 件\n売上合計     : ¥ ${STRIPE_TOTAL}" \
+            --arg summary_sec "MRR概算      : ¥ ${MRR}\n今週費用     : ¥ ${TOTAL_JPY}\n利益概算     : ¥ ${PROFIT}" \
+            --arg next "🗓 次回レポート: ${NEXT_JP}（月）" \
+            '{
+              title: $title,
+              color: 3447003,
+              fields: [
+                { name: "👥 利用状況", value: ("```\n" + $tenant_sec + "\n```"), inline: false },
+                { name: "💰 先週のAWSコスト（概算）", value: ("```\n" + $cost_sec + "\n```"), inline: false },
+                { name: "💳 Stripe 売上（先週）", value: ("```\n" + $stripe_sec + "\n```"), inline: false },
+                { name: "📈 サマリー", value: ("```\n" + $summary_sec + "\n```"), inline: false }
+              ],
+              footer: { text: ($next + " • AWS Cost Explorer (概算 $1=¥150)") },
+              timestamp: (now | todate)
+            }')
+
+          curl -sf -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --argjson embed "$EMBED" '{embeds: [$embed]}')"
+
+          echo "✅ Weekly report sent to Discord"
