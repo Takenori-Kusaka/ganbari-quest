@@ -226,3 +226,61 @@ export async function sendMemberJoinedEmail(
 		textBody: `${memberName} さんが「${role}」として家族グループに参加しました。`,
 	});
 }
+
+/** 週次活動レポート */
+export interface WeeklyReportData {
+	childName: string;
+	dateRange: string;
+	categories: { name: string; count: number; diff: number }[];
+	streak: number;
+	pointsEarned: number;
+	totalPoints: number;
+	newAchievements: string[];
+}
+
+export async function sendWeeklyReportEmail(
+	email: string,
+	report: WeeklyReportData,
+): Promise<boolean> {
+	const catRows = report.categories
+		.map((c) => {
+			const diff = c.diff > 0 ? `+${c.diff}` : c.diff === 0 ? '±0' : String(c.diff);
+			return `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee">${c.name}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;font-weight:bold">${c.count}回</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;color:${c.diff >= 0 ? '#22c55e' : '#ef4444'}">${diff}</td></tr>`;
+		})
+		.join('');
+
+	const achievementHtml =
+		report.newAchievements.length > 0
+			? `<p style="margin-top:16px">🏆 <strong>新しい実績:</strong> ${report.newAchievements.join('、')}</p>`
+			: '';
+
+	return sendEmail({
+		to: email,
+		subject: `🌟 ${report.childName}の今週のがんばり（${report.dateRange}）`,
+		htmlBody: wrapTemplate(`
+      <h2>${report.childName}の今週のがんばり</h2>
+      <p style="color:#666">${report.dateRange}</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <tr style="background:#f5f3ff"><th style="padding:8px 12px;text-align:left">カテゴリ</th><th style="padding:8px 12px;text-align:center">回数</th><th style="padding:8px 12px;text-align:center">前週比</th></tr>
+        ${catRows}
+      </table>
+      <div style="display:flex;gap:16px;margin:16px 0;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px;background:#fef3c7;border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:24px">🔥</div>
+          <div style="font-size:20px;font-weight:bold">${report.streak}日</div>
+          <div style="font-size:12px;color:#666">連続記録</div>
+        </div>
+        <div style="flex:1;min-width:120px;background:#dbeafe;border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:24px">⭐</div>
+          <div style="font-size:20px;font-weight:bold">+${report.pointsEarned}pt</div>
+          <div style="font-size:12px;color:#666">累計: ${report.totalPoints}pt</div>
+        </div>
+      </div>
+      ${achievementHtml}
+      <p style="text-align:center;margin:24px 0">
+        <a href="https://ganbari-quest.com/admin" class="button">アプリを開く</a>
+      </p>
+    `),
+		textBody: `${report.childName}の今週のがんばり（${report.dateRange}）\n\n${report.categories.map((c) => `${c.name}: ${c.count}回`).join('\n')}\n\n🔥 連続記録: ${report.streak}日\n⭐ ポイント: +${report.pointsEarned}pt（累計: ${report.totalPoints}pt）`,
+	});
+}
