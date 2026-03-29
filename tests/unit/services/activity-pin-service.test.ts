@@ -56,10 +56,10 @@ describe('sortActivitiesWithPreferences', () => {
 		const activities = [makeActivity({ id: 1 }), makeActivity({ id: 2 }), makeActivity({ id: 3 })];
 		const result = await sortActivitiesWithPreferences(activities, 1, 'test-tenant');
 
-		expect(result[0]?.id).toBe(3);
-		expect(result[0]?.isPinned).toBe(true);
-		expect(result[1]?.isPinned).toBe(false);
-		expect(result[2]?.isPinned).toBe(false);
+		expect(result[0]!.id).toBe(3);
+		expect(result[0]!.isPinned).toBe(true);
+		expect(result[1]!.isPinned).toBe(false);
+		expect(result[2]!.isPinned).toBe(false);
 	});
 
 	it('ピン留め同士はpinOrder順', async () => {
@@ -72,8 +72,8 @@ describe('sortActivitiesWithPreferences', () => {
 		const activities = [makeActivity({ id: 1 }), makeActivity({ id: 2 }), makeActivity({ id: 3 })];
 		const result = await sortActivitiesWithPreferences(activities, 1, 'test-tenant');
 
-		expect(result[0]?.id).toBe(3); // pinOrder=1
-		expect(result[1]?.id).toBe(2); // pinOrder=2
+		expect(result[0]!.id).toBe(3); // pinOrder=1
+		expect(result[1]!.id).toBe(2); // pinOrder=2
 	});
 
 	it('使用頻度が高い活動が上位に来る', async () => {
@@ -86,9 +86,9 @@ describe('sortActivitiesWithPreferences', () => {
 		const activities = [makeActivity({ id: 1 }), makeActivity({ id: 2 }), makeActivity({ id: 3 })];
 		const result = await sortActivitiesWithPreferences(activities, 1, 'test-tenant');
 
-		expect(result[0]?.id).toBe(2); // 10回
-		expect(result[1]?.id).toBe(1); // 3回
-		expect(result[2]?.id).toBe(3); // 0回
+		expect(result[0]!.id).toBe(2); // 10回
+		expect(result[1]!.id).toBe(1); // 3回
+		expect(result[2]!.id).toBe(3); // 0回
 	});
 
 	it('同じ使用頻度ではsortOrder順', async () => {
@@ -102,9 +102,9 @@ describe('sortActivitiesWithPreferences', () => {
 		];
 		const result = await sortActivitiesWithPreferences(activities, 1, 'test-tenant');
 
-		expect(result[0]?.id).toBe(2); // sortOrder=1
-		expect(result[1]?.id).toBe(3); // sortOrder=2
-		expect(result[2]?.id).toBe(1); // sortOrder=3
+		expect(result[0]!.id).toBe(2); // sortOrder=1
+		expect(result[1]!.id).toBe(3); // sortOrder=2
+		expect(result[2]!.id).toBe(1); // sortOrder=3
 	});
 
 	it('ピン留め > 使用頻度 > sortOrder の優先度', async () => {
@@ -119,9 +119,9 @@ describe('sortActivitiesWithPreferences', () => {
 		const activities = [makeActivity({ id: 1 }), makeActivity({ id: 2 }), makeActivity({ id: 3 })];
 		const result = await sortActivitiesWithPreferences(activities, 1, 'test-tenant');
 
-		expect(result[0]?.id).toBe(3); // ピン留め
-		expect(result[1]?.id).toBe(1); // 使用頻度20
-		expect(result[2]?.id).toBe(2); // 使用頻度5
+		expect(result[0]!.id).toBe(3); // ピン留め
+		expect(result[1]!.id).toBe(1); // 使用頻度20
+		expect(result[2]!.id).toBe(2); // 使用頻度5
 	});
 
 	it('空の活動リストを処理できる', async () => {
@@ -139,7 +139,7 @@ describe('sortActivitiesWithPreferences', () => {
 		const activities = [makeActivity({ id: 1 })];
 		const result = await sortActivitiesWithPreferences(activities, 1, 'test-tenant');
 
-		expect(result[0]?.usageCount).toBe(7);
+		expect(result[0]!.usageCount).toBe(7);
 	});
 });
 

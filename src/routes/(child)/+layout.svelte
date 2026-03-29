@@ -28,13 +28,13 @@ const NAV_LABELS: Record<
 	upper: { history: '活動記録', status: 'ステータス', achievements: '実績', switch: '切替' },
 	teen: { history: '記録', status: '実績', achievements: '称号', switch: '切替' },
 };
-const labels = $derived(NAV_LABELS[uiMode] ?? NAV_LABELS.kinder);
+const labels = $derived(NAV_LABELS[uiMode] ?? NAV_LABELS.kinder!);
 const navItems = $derived([
 	{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
-	{ href: `/${uiMode}/history`, icon: '📋', label: labels?.history },
-	{ href: `/${uiMode}/status`, icon: '⭐', label: labels?.status },
-	{ href: `/${uiMode}/achievements`, icon: '🏆', label: labels?.achievements },
-	{ href: '/switch', icon: '👤', label: labels?.switch },
+	{ href: `/${uiMode}/history`, icon: '📋', label: labels!.history },
+	{ href: `/${uiMode}/status`, icon: '⭐', label: labels!.status },
+	{ href: `/${uiMode}/achievements`, icon: '🏆', label: labels!.achievements },
+	{ href: '/switch', icon: '👤', label: labels!.switch },
 ]);
 
 // サウンドシステム初期化 + オートリロード

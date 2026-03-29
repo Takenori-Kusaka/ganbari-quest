@@ -247,7 +247,7 @@ describe('auth-service', () => {
 			const hash = await getSetting('pin_hash', 'test-tenant');
 			expect(hash).toBeDefined();
 			expect(hash).not.toBe('');
-			expect(bcrypt.compareSync('5678', hash ?? '')).toBe(true);
+			expect(bcrypt.compareSync('5678', hash!)).toBe(true);
 		});
 
 		it('新しいPINでログインできる', async () => {
