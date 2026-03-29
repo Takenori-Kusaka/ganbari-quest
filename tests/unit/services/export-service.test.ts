@@ -395,16 +395,16 @@ describe('exportFamilyData', () => {
 	it('全子供のデータがエクスポートされる', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.family.children).toHaveLength(2);
-		expect(result.family.children[0]!.exportId).toBe('child-1');
-		expect(result.family.children[0]!.nickname).toBe('テスト太郎');
-		expect(result.family.children[1]!.exportId).toBe('child-2');
-		expect(result.family.children[1]!.nickname).toBe('テスト花子');
+		expect(result.family.children[0]?.exportId).toBe('child-1');
+		expect(result.family.children[0]?.nickname).toBe('テスト太郎');
+		expect(result.family.children[1]?.exportId).toBe('child-2');
+		expect(result.family.children[1]?.nickname).toBe('テスト花子');
 	});
 
 	it('childIdsでフィルタリングできる', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant', childIds: [1] });
 		expect(result.family.children).toHaveLength(1);
-		expect(result.family.children[0]!.nickname).toBe('テスト太郎');
+		expect(result.family.children[0]?.nickname).toBe('テスト太郎');
 	});
 
 	it('マスタデータが含まれる', async () => {
