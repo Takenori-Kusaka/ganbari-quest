@@ -9,6 +9,7 @@ import {
 } from '$lib/server/auth/providers/cognito-direct-auth';
 import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
 import { logger } from '$lib/server/logger';
+import { recordConsent } from '$lib/server/services/consent-service';
 import { notifyNewSignup } from '$lib/server/services/discord-notify-service';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -37,6 +38,12 @@ export const actions: Actions = {
 		const email = formData.get('email') as string;
 		const password = formData.get('password') as string;
 		const passwordConfirm = formData.get('passwordConfirm') as string;
+		const agreedTerms = formData.get('agreedTerms') === 'on';
+		const agreedPrivacy = formData.get('agreedPrivacy') === 'on';
+
+		if (!agreedTerms || !agreedPrivacy) {
+			return fail(400, { error: '利用規約とプライバシーポリシーへの同意が必要です', email });
+		}
 
 		if (!email || !password || !passwordConfirm) {
 			return fail(400, { error: '全ての項目を入力してください', email });
@@ -65,7 +72,7 @@ export const actions: Actions = {
 		redirect(302, '/auth/login?registered=true');
 	},
 
-	confirm: async ({ request, cookies, locals }) => {
+	confirm: async ({ request, cookies, locals, getClientAddress }) => {
 		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
@@ -85,6 +92,18 @@ export const actions: Actions = {
 		// 新規登録通知（Discord）
 		const tenantId = locals.context?.tenantId ?? 'unknown';
 		notifyNewSignup(tenantId, email).catch(() => {});
+
+		// 同意記録（サインアップ完了後に記録）
+		if (tenantId !== 'unknown') {
+			const userId = locals.identity?.type === 'cognito' ? locals.identity.userId : 'unknown';
+			const ip = getClientAddress();
+			const ua = request.headers.get('user-agent') ?? '';
+			recordConsent(tenantId, userId, ['terms', 'privacy'], ip, ua).catch((err) => {
+				logger.warn('[CONSENT] Failed to record consent at signup', {
+					error: err instanceof Error ? err.message : String(err),
+				});
+			});
+		}
 
 		// 確認成功 → パスワードがあれば自動ログインを試みる
 		if (password) {

@@ -3,7 +3,13 @@
 
 import { randomUUID } from 'node:crypto';
 import { INVITE_EXPIRY_DAYS } from '$lib/domain/validation/auth';
-import type { AuthUser, Invite, Membership, Tenant } from '$lib/server/auth/entities';
+import type {
+	AuthUser,
+	ConsentRecord,
+	Invite,
+	Membership,
+	Tenant,
+} from '$lib/server/auth/entities';
 import type { Role } from '$lib/server/auth/types';
 import {
 	DeleteCommand,
@@ -14,10 +20,12 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import type { IAuthRepo } from '../interfaces/auth-repo.interface';
 import {
+	CONSENT_SK_PREFIX,
 	INVITE_SK_PREFIX,
 	MEMBER_SK_PREFIX,
 	USER_TENANT_SK_PREFIX,
 	inviteKey,
+	tenantConsentKey,
 	tenantInviteKey,
 	tenantKey,
 	tenantMemberKey,
@@ -444,3 +452,75 @@ function itemToInvite(item: Record<string, unknown>): Invite {
 		acceptedAt: item.acceptedAt as string | undefined,
 	};
 }
+
+function itemToConsent(item: Record<string, unknown>): ConsentRecord {
+	return {
+		tenantId: item.tenantId as string,
+		userId: item.userId as string,
+		type: item.type as ConsentRecord['type'],
+		version: item.version as string,
+		consentedAt: item.consentedAt as string,
+		ipAddress: item.ipAddress as string,
+		userAgent: item.userAgent as string,
+	};
+}
+
+// ============================================================
+// Consent (#0192)
+// ============================================================
+
+export const recordConsent: IAuthRepo['recordConsent'] = async (input) => {
+	const now = new Date().toISOString();
+	const record: ConsentRecord = {
+		tenantId: input.tenantId,
+		userId: input.userId,
+		type: input.type,
+		version: input.version,
+		consentedAt: now,
+		ipAddress: input.ipAddress,
+		userAgent: input.userAgent,
+	};
+
+	await doc().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...tenantConsentKey(input.tenantId, input.type, input.version),
+				...record,
+			},
+		}),
+	);
+
+	return record;
+};
+
+export const findLatestConsent: IAuthRepo['findLatestConsent'] = async (tenantId, type) => {
+	const result = await doc().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': tenantPartition(tenantId),
+				':prefix': `${CONSENT_SK_PREFIX}${type}#`,
+			},
+			ScanIndexForward: false,
+			Limit: 1,
+		}),
+	);
+	if (!result.Items || result.Items.length === 0) return undefined;
+	return itemToConsent(result.Items[0] as Record<string, unknown>);
+};
+
+export const findAllConsents: IAuthRepo['findAllConsents'] = async (tenantId) => {
+	const result = await doc().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': tenantPartition(tenantId),
+				':prefix': CONSENT_SK_PREFIX,
+			},
+		}),
+	);
+	return (result.Items ?? []).map((item) => itemToConsent(item as Record<string, unknown>));
+};
