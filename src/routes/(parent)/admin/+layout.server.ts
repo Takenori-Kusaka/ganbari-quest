@@ -10,7 +10,13 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	const authMode = getAuthMode();
 
 	const pointSettingsRaw = await getSettings(
-		['point_unit_mode', 'point_currency', 'point_rate'],
+		[
+			'point_unit_mode',
+			'point_currency',
+			'point_rate',
+			'tutorial_started_at',
+			'tutorial_banner_dismissed',
+		],
 		tenantId,
 	);
 	const pointSettings: PointSettings = {
@@ -20,6 +26,9 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	};
 
 	const tenantStatus = locals.context?.tenantStatus ?? 'active';
+	const tutorialStarted = !!(
+		pointSettingsRaw.tutorial_started_at || pointSettingsRaw.tutorial_banner_dismissed
+	);
 
-	return { pointSettings, authMode, tenantStatus };
+	return { pointSettings, authMode, tenantStatus, tutorialStarted };
 };

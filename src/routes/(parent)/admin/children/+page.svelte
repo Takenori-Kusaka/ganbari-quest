@@ -7,7 +7,11 @@ import {
 } from '$lib/domain/point-display';
 
 let { data } = $props();
-const childLimit = $derived((data as Record<string, unknown>).childLimit as { allowed: boolean; current: number; max: number | null } | undefined);
+const childLimit = $derived(
+	(data as Record<string, unknown>).childLimit as
+		| { allowed: boolean; current: number; max: number | null }
+		| undefined,
+);
 
 const ps = $derived(data.pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
@@ -112,12 +116,13 @@ function handleFileSelect(childId: number, event: Event) {
 		</div>
 	{/if}
 
-	<div class="flex items-center justify-between">
+	<div class="flex items-center justify-between" data-tutorial="children-list">
 		<h2 class="text-lg font-bold text-gray-700">こども一覧</h2>
 		{#if !childLimit || childLimit.allowed}
 			<button
 				class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors"
 				onclick={() => showAddForm = !showAddForm}
+				data-tutorial="add-child-btn"
 			>
 				{showAddForm ? 'キャンセル' : '+ こどもを追加'}
 			</button>
@@ -205,8 +210,8 @@ function handleFileSelect(childId: number, event: Event) {
 
 	<!-- Children list -->
 	<div class="grid gap-3">
-		{#each data.children as child}
-			<div class="bg-white rounded-xl p-4 shadow-sm">
+		{#each data.children as child, i}
+			<div class="bg-white rounded-xl p-4 shadow-sm" data-tutorial={i === 0 ? 'child-card' : undefined}>
 				{#if editingChildId === child.id}
 					<!-- Edit form -->
 					<form
