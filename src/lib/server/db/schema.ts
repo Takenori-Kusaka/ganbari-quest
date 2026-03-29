@@ -646,3 +646,25 @@ export const stampEntries = sqliteTable(
 		uniqueIndex('idx_stamp_entries_card_date').on(table.cardId, table.loginDate),
 	],
 );
+
+// ============================================================
+// activity_mastery - 活動別習熟度
+// ============================================================
+export const activityMastery = sqliteTable(
+	'activity_mastery',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		activityId: integer('activity_id')
+			.notNull()
+			.references(() => activities.id),
+		totalCount: integer('total_count').notNull().default(0),
+		level: integer('level').notNull().default(1),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_activity_mastery_child_activity').on(table.childId, table.activityId),
+	],
+);

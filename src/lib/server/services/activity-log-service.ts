@@ -1,9 +1,18 @@
 import {
 	CANCEL_WINDOW_MS,
+	MASTERY_MILESTONE_LEVELS,
+	calcMasteryBonus,
+	calcMasteryLevel,
 	calcStreakBonus,
 	getActivityDisplayName,
+	getCategoryById,
 	todayDate,
 } from '$lib/domain/validation/activity';
+import { calcCategoryLevel } from '$lib/domain/validation/status';
+import {
+	findByChildAndActivity as findMastery,
+	upsert as upsertMastery,
+} from '$lib/server/db/activity-mastery-repo';
 import {
 	countTodayActiveRecords,
 	findActivityById,
@@ -25,7 +34,24 @@ import { checkMissionCompletion } from '$lib/server/services/daily-mission-servi
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
 
 /** 1回の活動記録あたりのステータス増加量 */
-const STATUS_PER_ACTIVITY = 0.3;
+export const STATUS_PER_ACTIVITY = 0.3;
+
+/** 活動記録時のカテゴリXP変化情報 */
+export interface XpGainInfo {
+	categoryId: number;
+	categoryName: string;
+	xpBefore: number;
+	xpAfter: number;
+	maxValue: number;
+	levelBefore: number;
+	levelAfter: number;
+}
+
+export interface MasteryLevelUpInfo {
+	oldLevel: number;
+	newLevel: number;
+	isMilestone: boolean;
+}
 
 export interface RecordActivityResult {
 	id: number;
@@ -35,6 +61,9 @@ export interface RecordActivityResult {
 	basePoints: number;
 	streakDays: number;
 	streakBonus: number;
+	masteryBonus: number;
+	masteryLevel: number;
+	masteryLeveledUp: MasteryLevelUpInfo | null;
 	totalPoints: number;
 	recordedAt: string;
 	cancelableUntil: string;
@@ -42,6 +71,7 @@ export interface RecordActivityResult {
 	comboBonus: ComboResult | null;
 	missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 	levelUp: LevelUpInfo | null;
+	xpGain: XpGainInfo;
 }
 
 export interface ActivityLogEntry {
@@ -97,7 +127,12 @@ export async function recordActivity(
 	const isFirstToday = todayCount === 0;
 	const streakDays = isFirstToday ? await calculateStreak(childId, activityId, today, tenantId) : 1;
 	const streakBonus = isFirstToday ? calcStreakBonus(streakDays) : 0;
-	const totalPoints = activity.basePoints + streakBonus;
+
+	// 習熟度ボーナス
+	const mastery = await findMastery(childId, activityId, tenantId);
+	const currentLevel = mastery?.level ?? 1;
+	const masteryBonus = calcMasteryBonus(currentLevel);
+	const totalPoints = activity.basePoints + streakBonus + masteryBonus;
 
 	// Insert activity log
 	const now = new Date().toISOString();
@@ -114,13 +149,22 @@ export async function recordActivity(
 		tenantId,
 	);
 
+	// 習熟度更新（count+1 → レベル再計算）
+	const newCount = (mastery?.totalCount ?? 0) + 1;
+	const newLevel = calcMasteryLevel(newCount);
+	const masteryLeveledUp =
+		newLevel > currentLevel
+			? { oldLevel: currentLevel, newLevel, isMilestone: MASTERY_MILESTONE_LEVELS.has(newLevel) }
+			: null;
+	await upsertMastery(childId, activityId, newCount, newLevel, tenantId);
+
 	// Insert point ledger entry
 	await insertPointLedger(
 		{
 			childId,
 			amount: totalPoints,
 			type: 'activity',
-			description: `${activity.name}${streakBonus > 0 ? ` (${streakDays}日連続+${streakBonus})` : ''}`,
+			description: `${activity.name}${streakBonus > 0 ? ` (${streakDays}日連続+${streakBonus})` : ''}${masteryBonus > 0 ? ` (習熟Lv.${newLevel}+${masteryBonus})` : ''}`,
 			referenceId: log.id,
 		},
 		tenantId,
@@ -135,6 +179,34 @@ export async function recordActivity(
 		tenantId,
 	);
 	const levelUp = !('error' in statusResult) && statusResult.levelUp ? statusResult.levelUp : null;
+
+	// XP 変化情報の構築
+	const catDef = getCategoryById(activity.categoryId);
+	let xpGain: XpGainInfo;
+	if (!('error' in statusResult)) {
+		const { valueBefore, valueAfter, maxValue } = statusResult;
+		const lvBefore = calcCategoryLevel(valueBefore, maxValue);
+		const lvAfter = calcCategoryLevel(valueAfter, maxValue);
+		xpGain = {
+			categoryId: activity.categoryId,
+			categoryName: catDef?.name ?? '',
+			xpBefore: Math.round(valueBefore * 10) / 10,
+			xpAfter: Math.round(valueAfter * 10) / 10,
+			maxValue,
+			levelBefore: lvBefore.level,
+			levelAfter: lvAfter.level,
+		};
+	} else {
+		xpGain = {
+			categoryId: activity.categoryId,
+			categoryName: catDef?.name ?? '',
+			xpBefore: 0,
+			xpAfter: 0,
+			maxValue: 0,
+			levelBefore: 1,
+			levelAfter: 1,
+		};
+	}
 
 	const cancelableUntil = new Date(Date.now() + CANCEL_WINDOW_MS).toISOString();
 
@@ -157,6 +229,9 @@ export async function recordActivity(
 		basePoints: activity.basePoints,
 		streakDays,
 		streakBonus,
+		masteryBonus,
+		masteryLevel: newLevel,
+		masteryLeveledUp,
 		totalPoints,
 		recordedAt: now,
 		cancelableUntil,
@@ -164,6 +239,7 @@ export async function recordActivity(
 		comboBonus: comboBonus.totalNewBonus > 0 || comboBonus.hints.length > 0 ? comboBonus : null,
 		missionComplete: missionResult.missionCompleted ? missionResult : null,
 		levelUp,
+		xpGain,
 	};
 }
 
@@ -193,6 +269,14 @@ export async function cancelActivityLog(
 			'activity_cancel',
 			tenantId,
 		);
+	}
+
+	// 習熟度を戻す（count-1、レベル再計算）
+	const mastery = await findMastery(log.childId, log.activityId, tenantId);
+	if (mastery && mastery.totalCount > 0) {
+		const revertedCount = Math.max(0, mastery.totalCount - 1);
+		const revertedLevel = calcMasteryLevel(revertedCount);
+		await upsertMastery(log.childId, log.activityId, revertedCount, revertedLevel, tenantId);
 	}
 
 	// Mark as cancelled

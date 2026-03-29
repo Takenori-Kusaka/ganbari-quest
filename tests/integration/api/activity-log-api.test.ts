@@ -124,6 +124,15 @@ const SQL_TABLES = `
 		UNIQUE(child_id, mission_date, activity_id)
 	);
 	CREATE INDEX idx_daily_missions_child_date ON daily_missions(child_id, mission_date);
+	CREATE TABLE activity_mastery (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		total_count INTEGER NOT NULL DEFAULT 0,
+		level INTEGER NOT NULL DEFAULT 1,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_activity_mastery_child_activity ON activity_mastery(child_id, activity_id);
 `;
 
 vi.mock('$lib/server/db', () => ({
@@ -156,6 +165,7 @@ afterAll(() => {
 });
 
 function resetDb() {
+	sqlite.exec('DELETE FROM activity_mastery');
 	sqlite.exec('DELETE FROM status_history');
 	sqlite.exec('DELETE FROM statuses');
 	sqlite.exec('DELETE FROM child_achievements');
@@ -164,7 +174,7 @@ function resetDb() {
 	sqlite.exec('DELETE FROM activities');
 	sqlite.exec('DELETE FROM children');
 	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','activity_logs','point_ledger','statuses','status_history','child_achievements')",
+		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','activity_logs','point_ledger','statuses','status_history','child_achievements','activity_mastery')",
 	);
 }
 

@@ -142,6 +142,19 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_child_activity_prefs_pinned ON child_activity_preferences(child_id, is_pinned);
 		`);
 
+		// activity_mastery テーブル（#0175 活動個別習熟レベルシステム）
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS activity_mastery (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id),
+				activity_id INTEGER NOT NULL REFERENCES activities(id),
+				total_count INTEGER NOT NULL DEFAULT 0,
+				level INTEGER NOT NULL DEFAULT 1,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_mastery_child_activity ON activity_mastery(child_id, activity_id);
+		`);
+
 		// stamp_masters / stamp_cards / stamp_entries テーブル（#0204 スタンプカード）
 		db.exec(`
 			CREATE TABLE IF NOT EXISTS stamp_masters (
