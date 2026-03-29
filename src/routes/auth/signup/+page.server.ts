@@ -9,6 +9,7 @@ import {
 } from '$lib/server/auth/providers/cognito-direct-auth';
 import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
 import { logger } from '$lib/server/logger';
+import { notifyNewSignup } from '$lib/server/services/discord-notify-service';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -80,6 +81,10 @@ export const actions: Actions = {
 		if (!confirmResult.success) {
 			return fail(400, { error: confirmResult.message, email, confirmStep: true });
 		}
+
+		// 新規登録通知（Discord）
+		const tenantId = locals.context?.tenantId ?? 'unknown';
+		notifyNewSignup(tenantId, email).catch(() => {});
 
 		// 確認成功 → パスワードがあれば自動ログインを試みる
 		if (password) {
