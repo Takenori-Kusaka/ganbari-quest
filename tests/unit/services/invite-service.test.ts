@@ -207,6 +207,34 @@ describe('acceptInvite', () => {
 			expect(result.error).toBe('TENANT_NOT_FOUND');
 		}
 	});
+
+	it('自分で作成した招待は受諾できない (#0203)', async () => {
+		inviteStore.set('self-inv', makePendingInvite({ inviteCode: 'self-inv', invitedBy: 'user-owner' }));
+
+		const result = await acceptInvite('self-inv', 'user-owner');
+		expect('error' in result).toBe(true);
+		if ('error' in result) {
+			expect(result.error).toBe('SELF_INVITE_NOT_ALLOWED');
+		}
+	});
+
+	it('owner は招待でダウングレードされない (#0203)', async () => {
+		inviteStore.set('downgrade', makePendingInvite({ inviteCode: 'downgrade', tenantId: 't-test' }));
+		userTenantStore.set('owner-user', [
+			{
+				userId: 'owner-user',
+				tenantId: 't-test',
+				role: 'owner',
+				joinedAt: new Date().toISOString(),
+			},
+		]);
+
+		const result = await acceptInvite('downgrade', 'owner-user');
+		expect('error' in result).toBe(true);
+		if ('error' in result) {
+			expect(result.error).toBe('OWNER_CANNOT_BE_DOWNGRADED');
+		}
+	});
 });
 
 describe('revokeInvite', () => {
