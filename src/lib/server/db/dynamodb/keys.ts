@@ -425,6 +425,27 @@ export function activityMasteryPrefix(): string {
 	return 'MAST#';
 }
 
+/** Child skill node: PK=CHILD#<cId>, SK=SKILLNODE#<nodeId> */
+export function childSkillNodeKey(childId: number, nodeId: number, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `SKILLNODE#${padId(nodeId)}`,
+	};
+}
+
+/** Child skill node SK prefix */
+export function childSkillNodePrefix(): string {
+	return 'SKILLNODE#';
+}
+
+/** Skill points balance: PK=CHILD#<cId>, SK=SKILLPT */
+export function skillPointsKey(childId: number, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: 'SKILLPT',
+	};
+}
+
 /** Birthday review: PK=CHILD#<cId>, SK=BDAY#<year> */
 export function birthdayReviewKey(
 	childId: number,
@@ -611,6 +632,9 @@ export const ENTITY_NAMES = {
 	marketBenchmark: 'marketBenchmark',
 	activityPref: 'activityPref',
 	activityMastery: 'activityMastery',
+	skillNode: 'skillNode',
+	childSkillNode: 'childSkillNode',
+	skillPoints: 'skillPoints',
 	inquiry: 'inquiry',
 } as const;
 
