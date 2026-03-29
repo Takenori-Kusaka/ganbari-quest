@@ -60,10 +60,13 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		const id = Number(selectedId);
 		const child = children.find((c) => c.id === id);
 		if (child) {
-			const balance = await getPointBalance(id, tenantId);
-			const status = await getChildStatus(id, tenantId);
-			const logs = await getActivityLogs(id, tenantId);
-			const achievements = await getChildAchievements(id, tenantId);
+			const [balance, status, logs, achievements, birthdayReviews] = await Promise.all([
+				getPointBalance(id, tenantId),
+				getChildStatus(id, tenantId),
+				getActivityLogs(id, tenantId),
+				getChildAchievements(id, tenantId),
+				getBirthdayReviews(id, tenantId),
+			]);
 
 			if ('error' in balance) {
 				logger.warn('[admin/children] 詳細ポイント取得フォールバック', {
@@ -75,8 +78,6 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 					context: { childId: id, error: status.error },
 				});
 			}
-
-			const birthdayReviews = await getBirthdayReviews(id, tenantId);
 
 			selectedChild = {
 				...child,
