@@ -4,6 +4,7 @@
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+import { notifyBillingEvent } from '$lib/server/services/discord-notify-service';
 import { getStripeClient, isStripeEnabled } from '$lib/server/stripe/client';
 import {
 	CURRENCY,
@@ -170,6 +171,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 	logger.info(
 		`[STRIPE] Checkout completed: tenant=${tenantId} customer=${customerId} subscription=${subscriptionId}`,
 	);
+
+	notifyBillingEvent(tenantId, 'checkout_completed', `plan=${planId}`).catch(() => {});
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
@@ -196,6 +199,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 	});
 
 	logger.info(`[STRIPE] Invoice paid: tenant=${tenant.tenantId}`);
+
+	notifyBillingEvent(tenant.tenantId, 'invoice_paid', `plan=${plan ?? 'unknown'}`).catch(() => {});
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
@@ -218,6 +223,10 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 	});
 
 	logger.warn(`[STRIPE] Payment failed: tenant=${tenant.tenantId}, grace until ${graceExpires}`);
+
+	notifyBillingEvent(tenant.tenantId, 'payment_failed', `猶予期間: ${graceExpires}`).catch(
+		() => {},
+	);
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
@@ -245,6 +254,12 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 	});
 
 	logger.info(`[STRIPE] Subscription updated: tenant=${tenant.tenantId} status=${status}`);
+
+	notifyBillingEvent(
+		tenant.tenantId,
+		'subscription_updated',
+		`status=${status}, plan=${plan ?? 'unknown'}`,
+	).catch(() => {});
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
@@ -262,6 +277,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 	});
 
 	logger.info(`[STRIPE] Subscription deleted: tenant=${tenant.tenantId}`);
+
+	notifyBillingEvent(tenant.tenantId, 'subscription_deleted').catch(() => {});
 }
 
 // ============================================================
