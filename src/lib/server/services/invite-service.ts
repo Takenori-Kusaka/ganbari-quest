@@ -51,9 +51,19 @@ export async function acceptInvite(
 		return { error: 'INVALID_OR_EXPIRED' };
 	}
 
+	// 自己招待防止 (#0203)
+	if (invite.invitedBy === userId) {
+		return { error: 'SELF_INVITE_NOT_ALLOWED' };
+	}
+
 	// 1ユーザー=1テナント制約チェック
 	const existingTenants = await repos().auth.findUserTenants(userId);
 	if (existingTenants.length > 0) {
+		// owner が child ロールの招待を受けてダウングレードされるのを防止 (#0203)
+		const existingMembership = existingTenants.find((m) => m.tenantId === invite.tenantId);
+		if (existingMembership && existingMembership.role === 'owner') {
+			return { error: 'OWNER_CANNOT_BE_DOWNGRADED' };
+		}
 		return { error: 'ALREADY_IN_TENANT' };
 	}
 

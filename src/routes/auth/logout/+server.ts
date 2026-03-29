@@ -4,6 +4,7 @@
 import {
 	CONTEXT_COOKIE_NAME,
 	IDENTITY_COOKIE_NAME,
+	INVITE_COOKIE_NAME,
 	SESSION_COOKIE_NAME,
 } from '$lib/domain/validation/auth';
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
@@ -15,6 +16,7 @@ function clearSessionCookies(cookies: import('@sveltejs/kit').Cookies) {
 	cookies.delete(IDENTITY_COOKIE_NAME, { path: '/' });
 	cookies.delete(CONTEXT_COOKIE_NAME, { path: '/' });
 	cookies.delete(SESSION_COOKIE_NAME, { path: '/' });
+	cookies.delete(INVITE_COOKIE_NAME, { path: '/' }); // #0203: 残留防止
 }
 
 function handleLogout(cookies: import('@sveltejs/kit').Cookies): never {
