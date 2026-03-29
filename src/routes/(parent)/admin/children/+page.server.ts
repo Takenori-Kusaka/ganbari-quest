@@ -1,3 +1,4 @@
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { getChildAchievements } from '$lib/server/services/achievement-service';
@@ -11,7 +12,7 @@ import {
 } from '$lib/server/services/child-service';
 import { checkChildLimit } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
-import { getChildStatus } from '$lib/server/services/status-service';
+import { getChildStatus, updateStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -93,7 +94,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const licenseStatus = locals.context?.licenseStatus ?? 'none';
 	const childLimit = await checkChildLimit(tenantId, licenseStatus);
 
-	return { children: childrenSummary, selectedChild, childLimit };
+	return { children: childrenSummary, selectedChild, childLimit, categoryDefs: CATEGORY_DEFS };
 };
 
 export const actions: Actions = {
@@ -199,5 +200,37 @@ export const actions: Actions = {
 
 		await removeChild(childId, tenantId);
 		return { success: true, removedChildId: childId };
+	},
+
+	updateStatus: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+		const childId = Number(form.get('childId'));
+		const categoryId = Number(form.get('categoryId'));
+		const newValue = Number(form.get('value'));
+
+		if (!childId || !categoryId) {
+			return fail(400, { error: '必須項目が不足しています' });
+		}
+
+		const currentStatus = await getChildStatus(childId, tenantId);
+		if ('error' in currentStatus) {
+			return fail(404, { error: '子供が見つかりません' });
+		}
+
+		const maxForAge = currentStatus.maxValue;
+		if (Number.isNaN(newValue) || newValue < 0 || newValue > maxForAge) {
+			return fail(400, { error: `値は0〜${maxForAge}の範囲で入力してください` });
+		}
+
+		const currentValue = currentStatus.statuses[categoryId]?.value ?? 0;
+		const changeAmount = newValue - currentValue;
+
+		if (changeAmount === 0) {
+			return { success: true, noChange: true };
+		}
+
+		await updateStatus(childId, categoryId, changeAmount, 'admin_edit', tenantId);
+		return { success: true, statusUpdated: true };
 	},
 };
