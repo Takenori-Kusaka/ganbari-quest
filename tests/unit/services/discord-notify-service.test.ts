@@ -35,11 +35,10 @@ import {
 describe('discord-notify-service', () => {
 	const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	function getLastBody(): any {
+	function getLastBody(): Record<string, unknown> {
 		const call = fetchSpy.mock.calls[0] as [string, { body: string }] | undefined;
 		if (!call) throw new Error('fetch was not called');
-		return JSON.parse(call[1].body);
+		return JSON.parse(call[1].body) as Record<string, unknown>;
 	}
 
 	beforeEach(() => {

@@ -511,7 +511,7 @@ export function getDemoAchievementsData(childId: number): AchievementWithStatus[
 			milestones,
 			highestUnlockedMilestone,
 			nextMilestone,
-			unlockedAt: isUnlocked ? unlockedEntries[0]!.unlockedAt : null,
+			unlockedAt: isUnlocked ? unlockedEntries[0]?.unlockedAt : null,
 			currentProgress,
 			conditionLabel: getConditionLabel(a.conditionType, a.conditionValue),
 			liveStreak: a.conditionType === 'streak_days' ? currentProgress : null,
