@@ -308,11 +308,16 @@ jobs:
             sed 's/^fix: /修正: /g' |
             sed 's/^docs: /ドキュメント: /g' |
             sed 's/^refactor: /改善: /g' |
+            sed 's/^perf: /改善: /g' |
             sed 's/^chore: /保守: /g' |
             sed 's/^test: /テスト: /g' |
+            sed 's/^ci: /CI: /g' |
+            sed 's/^build: /ビルド: /g' |
             grep -v "^ドキュメント:" |
             grep -v "^テスト:" |
             grep -v "^保守:" |
+            grep -v "^CI:" |
+            grep -v "^ビルド:" |
             grep -v "Co-Authored-By:" |
             sed 's/  */ /g' |
             sed 's/^ //g' |
