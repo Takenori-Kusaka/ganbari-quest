@@ -1,6 +1,7 @@
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
+import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { isSetupRequired } from '$lib/server/services/setup-service';
 import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
 
@@ -132,7 +133,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	return response;
 };
 
-// サーバーエラーハンドラ: 500エラーの詳細をログに記録
+// サーバーエラーハンドラ: 500エラーの詳細をログに記録 + Discord 障害通知
 export const handleError: HandleServerError = ({ error, event, status, message }) => {
 	const method = event.request.method;
 	const path = event.url.pathname;
@@ -144,6 +145,12 @@ export const handleError: HandleServerError = ({ error, event, status, message }
 		error: error instanceof Error ? error.message : String(error),
 		stack: error instanceof Error ? error.stack : undefined,
 	});
+
+	// 500 系エラーのみ Discord に通知（4xx は通常エラーなので除外）
+	if (status >= 500) {
+		const errorMsg = error instanceof Error ? error.message : String(error);
+		notifyIncident(errorMsg, { method, path, status }).catch(() => {});
+	}
 
 	return { message: 'Internal Server Error' };
 };
