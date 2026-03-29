@@ -68,6 +68,7 @@ export function verifyContext(token: string): AuthContext | null {
 			role: payload.role,
 			childId: payload.childId,
 			licenseStatus: payload.licenseStatus,
+			tenantStatus: payload.tenantStatus,
 		};
 	} catch {
 		return null;

@@ -157,6 +157,42 @@ let feedbackText = $state('');
 let feedbackEmail = $state('');
 let feedbackInquiryId = $state('');
 
+// アカウント削除
+let cancelConfirmText = $state('');
+let cancelSubmitting = $state(false);
+let cancelError = $state('');
+let reactivateSubmitting = $state(false);
+
+async function handleCancelAccount() {
+	if (cancelConfirmText !== 'アカウントを削除します') return;
+	cancelSubmitting = true;
+	cancelError = '';
+	try {
+		const res = await fetch('/api/v1/admin/tenant/cancel', { method: 'POST' });
+		const d = await res.json();
+		if (!res.ok) throw new Error(d.error ?? '解約申請に失敗しました');
+		window.location.reload();
+	} catch (err) {
+		cancelError = err instanceof Error ? err.message : '解約申請に失敗しました';
+	} finally {
+		cancelSubmitting = false;
+	}
+}
+
+async function handleReactivate() {
+	reactivateSubmitting = true;
+	try {
+		const res = await fetch('/api/v1/admin/tenant/reactivate', { method: 'POST' });
+		const d = await res.json();
+		if (!res.ok) throw new Error(d.error ?? '解約キャンセルに失敗しました');
+		window.location.reload();
+	} catch (err) {
+		cancelError = err instanceof Error ? err.message : '解約キャンセルに失敗しました';
+	} finally {
+		reactivateSubmitting = false;
+	}
+}
+
 const previewPoints = 100;
 const previewFormatted = $derived(
 	formatPointValue(previewPoints, pointMode, pointCurrency, Number.parseFloat(pointRate) || 1),
@@ -169,6 +205,28 @@ const previewFormatted = $derived(
 
 <div class="space-y-6">
 	<h2 class="text-xl font-bold text-gray-700 mb-6">せってい</h2>
+
+	<!-- grace_period バナー -->
+	{#if $page.data.tenantStatus === 'grace_period'}
+		<div class="bg-red-50 border-2 border-red-300 rounded-xl p-6">
+			<h3 class="text-lg font-bold text-red-700 mb-2">解約手続き中です</h3>
+			<p class="text-sm text-red-600 mb-4">
+				現在、アカウントは解約手続き中で読み取り専用モードです。
+				期限までにキャンセルしないとデータが完全に削除されます。
+			</p>
+			{#if cancelError}
+				<ErrorAlert message={cancelError} severity="error" action="retry" />
+			{/if}
+			<button
+				type="button"
+				disabled={reactivateSubmitting}
+				onclick={handleReactivate}
+				class="px-6 py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+			>
+				{reactivateSubmitting ? 'キャンセル中...' : '解約をキャンセルして通常利用に戻る'}
+			</button>
+		</div>
+	{/if}
 
 	<!-- PIN変更 -->
 	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -670,6 +728,50 @@ const previewFormatted = $derived(
 			</li>
 		</ul>
 	</div>
+
+	<!-- アカウント削除（cognito モードの owner のみ） -->
+	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== 'grace_period'}
+		<div class="bg-white rounded-xl shadow-sm border-2 border-red-200 p-6">
+			<h3 class="text-lg font-bold text-red-600 mb-2">アカウント削除</h3>
+			<div class="text-sm text-gray-600 space-y-2 mb-4">
+				<p>アカウントを削除すると、30日間の猶予期間の後に以下のデータが完全に削除されます。</p>
+				<ul class="list-disc ml-5 text-gray-500 space-y-1">
+					<li>子供のプロフィール・活動記録・ポイント履歴</li>
+					<li>アバター画像・音声ファイル</li>
+					<li>設定・チェックリスト・キャリアプラン</li>
+					<li>メンバーシップ・招待情報</li>
+				</ul>
+				<p class="text-red-500 font-medium">
+					削除後のデータ復旧はできません。事前にデータをエクスポートすることを強くお勧めします。
+				</p>
+			</div>
+
+			{#if cancelError}
+				<ErrorAlert message={cancelError} severity="error" action="retry" />
+			{/if}
+
+			<div class="mt-4 space-y-3">
+				<label for="cancelConfirm" class="block text-sm font-medium text-gray-600">
+					確認のため「アカウントを削除します」と入力してください
+				</label>
+				<input
+					type="text"
+					id="cancelConfirm"
+					bind:value={cancelConfirmText}
+					placeholder="アカウントを削除します"
+					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300"
+				/>
+				<button
+					type="button"
+					disabled={cancelSubmitting || cancelConfirmText !== 'アカウントを削除します'}
+					onclick={handleCancelAccount}
+					class="w-full py-2 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+				>
+					{cancelSubmitting ? '処理中...' : 'アカウント削除を申請する'}
+				</button>
+			</div>
+		</div>
+	{/if}
 
 	<!-- ログアウト（cognito モードのみ） -->
 	{#if $page.data.authMode === 'cognito'}

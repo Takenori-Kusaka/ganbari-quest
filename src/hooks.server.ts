@@ -108,6 +108,40 @@ export const handle: Handle = async ({ event, resolve }) => {
 		redirect(302, authResult.redirect);
 	}
 
+	// grace_period 読み取り専用制御（#0193）
+	if (context?.tenantStatus === 'grace_period') {
+		const method = event.request.method;
+		const isWrite = method !== 'GET' && method !== 'HEAD';
+		const isAllowedWritePath = [
+			'/api/v1/admin/tenant/reactivate',
+			'/api/v1/export',
+			'/api/v1/auth/logout',
+			'/auth/logout',
+		].some((p) => path.startsWith(p));
+
+		if (isWrite && !isAllowedWritePath) {
+			if (path.startsWith('/api/')) {
+				return new Response(
+					JSON.stringify({ error: 'テナントは解約手続き中です。読み取り専用モードです。' }),
+					{ status: 403, headers: { 'Content-Type': 'application/json' } },
+				);
+			}
+			// フォーム送信等は設定画面にリダイレクト
+			redirect(302, '/admin/settings?reason=grace_period');
+		}
+	}
+
+	// terminated テナントは完全ブロック（#0193）
+	if (context?.tenantStatus === 'terminated') {
+		if (path.startsWith('/api/')) {
+			return new Response(JSON.stringify({ error: 'アカウントは削除済みです。' }), {
+				status: 403,
+				headers: { 'Content-Type': 'application/json' },
+			});
+		}
+		redirect(302, '/auth/login?reason=deleted');
+	}
+
 	// 同意バージョンチェック（cognito 本番モードのみ、dev モードは除外）
 	if (
 		authMode === 'cognito' &&
