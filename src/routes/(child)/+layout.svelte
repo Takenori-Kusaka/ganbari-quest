@@ -29,11 +29,14 @@ const NAV_LABELS: Record<
 	teen: { history: '記録', status: '実績', achievements: '称号', switch: '切替' },
 };
 const labels = $derived(NAV_LABELS[uiMode] ?? NAV_LABELS.kinder!);
+const SKILL_TREE_MODES = ['lower', 'upper', 'teen'];
 const navItems = $derived([
 	{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
 	{ href: `/${uiMode}/history`, icon: '📋', label: labels!.history },
 	{ href: `/${uiMode}/status`, icon: '⭐', label: labels!.status },
-	{ href: `/${uiMode}/achievements`, icon: '🏆', label: labels!.achievements },
+	...(SKILL_TREE_MODES.includes(uiMode)
+		? [{ href: `/${uiMode}/skill-tree`, icon: '⚔️', label: 'スキル' }]
+		: [{ href: `/${uiMode}/achievements`, icon: '🏆', label: labels!.achievements }]),
 	{ href: '/switch', icon: '👤', label: labels!.switch },
 ]);
 

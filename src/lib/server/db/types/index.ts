@@ -585,6 +585,41 @@ export interface ActivityUsageCount {
 }
 
 // ============================================================
+// Skill Tree (パッシブスキルツリー)
+// ============================================================
+
+export interface SkillNode {
+	id: number;
+	categoryId: number | null;
+	name: string;
+	description: string | null;
+	icon: string;
+	sortOrder: number;
+	spCost: number;
+	requiredNodeId: number | null;
+	requiredCategoryLevel: number;
+	effectType: string;
+	effectValue: number;
+	targetModes: string;
+}
+
+export interface ChildSkillNode {
+	id: number;
+	childId: number;
+	nodeId: number;
+	unlockedAt: string;
+}
+
+export interface SkillPoints {
+	id: number;
+	childId: number;
+	balance: number;
+	totalEarned: number;
+	totalSpent: number;
+	updatedAt: string;
+}
+
+// ============================================================
 // Activity Mastery (活動別習熟度)
 // ============================================================
 
