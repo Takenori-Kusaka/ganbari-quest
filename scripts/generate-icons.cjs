@@ -17,10 +17,10 @@ async function generate() {
 	const meta = await sharp(srcPath).metadata();
 	const srcW = meta.width ?? 1024;
 	const srcH = meta.height ?? 1024;
-	const cropTop = Math.round(srcH * 0.02);
-	const cropHeight = Math.round(srcH * 0.38);
-	const cropLeft = Math.round(srcW * 0.1);
-	const cropFaceWidth = Math.round(srcW * 0.8);
+	const cropTop = Math.round(srcH * 0.08);
+	const cropHeight = Math.round(srcH * 0.45);
+	const cropLeft = Math.round(srcW * 0.15);
+	const cropFaceWidth = Math.round(srcW * 0.65);
 	const faceBuf = await sharp(srcPath)
 		.extract({ left: cropLeft, top: cropTop, width: cropFaceWidth, height: cropHeight })
 		.resize(28, 28, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
