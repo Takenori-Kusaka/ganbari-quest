@@ -1,5 +1,6 @@
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { getAchievementSummary } from '$lib/server/services/achievement-service';
 import {
 	cancelActivityLog,
 	getTodayRecordedActivityCounts,
@@ -14,6 +15,7 @@ import {
 } from '$lib/server/services/birthday-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
+import { getSkillPointBalance } from '$lib/server/services/skill-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
@@ -38,6 +40,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			dailyMissions: null,
 			stampCard: null,
 			categoryXp: null,
+			gameLoopHints: null,
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -50,6 +53,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		dailyMissions,
 		stampCard,
 		categoryXp,
+		achievementSummary,
+		spBalance,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -59,6 +64,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getTodayMissions(child.id, tenantId),
 		getStampCardStatus(child.id, tenantId),
 		getCategoryXpSummary(child.id, tenantId),
+		getAchievementSummary(child.id, tenantId),
+		getSkillPointBalance(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -88,6 +95,10 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		dailyMissions,
 		stampCard,
 		categoryXp,
+		gameLoopHints: {
+			achievements: achievementSummary,
+			spBalance: spBalance.balance,
+		},
 	};
 };
 
