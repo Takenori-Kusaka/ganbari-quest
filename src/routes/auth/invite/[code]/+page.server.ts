@@ -2,6 +2,7 @@
 // 招待コードを検証し、ログイン/サインアップへ誘導する
 
 import { INVITE_COOKIE_NAME } from '$lib/domain/validation/auth';
+import { getRepos } from '$lib/server/db/factory';
 import { getInvite } from '$lib/server/services/invite-service';
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
@@ -18,22 +19,38 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 		};
 	}
 
-	// 招待コードを Cookie に保存（ログイン/サインアップ後に消費）
+	// 既にログイン済みのユーザー → テナント所属チェック (#0203)
+	if (locals.identity && locals.identity.type === 'cognito') {
+		const existingTenants = await getRepos().auth.findUserTenants(locals.identity.userId);
+		if (existingTenants.length > 0) {
+			// 既にテナント所属 → 招待 Cookie を保存せず警告表示
+			cookies.delete(INVITE_COOKIE_NAME, { path: '/' });
+			return {
+				valid: false as const,
+				error: '既に別のグループに所属しているため、この招待を受けることはできません。',
+			};
+		}
+
+		// テナント未所属 → 招待処理をトリガー
+		cookies.set(INVITE_COOKIE_NAME, code, {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			secure: true,
+			maxAge: 60 * 10, // 10分（#0203: リスク軽減）
+		});
+		cookies.delete('context_token', { path: '/' });
+		redirect(302, '/admin');
+	}
+
+	// 未ログインユーザー → Cookie に保存してログイン/サインアップへ誘導
 	cookies.set(INVITE_COOKIE_NAME, code, {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
 		secure: true,
-		maxAge: 60 * 60, // 1時間（操作中に消えないよう十分な時間）
+		maxAge: 60 * 10, // 10分（#0203: リスク軽減）
 	});
-
-	// 既にログイン済みのユーザー → 直接テナント参加を試行
-	if (locals.identity) {
-		// context があれば既にテナント所属 → 招待受諾は CognitoProvider が行う
-		// context cookie をクリアして再発行させる（招待処理をトリガー）
-		cookies.delete('context_token', { path: '/' });
-		redirect(302, '/admin');
-	}
 
 	return {
 		valid: true as const,
