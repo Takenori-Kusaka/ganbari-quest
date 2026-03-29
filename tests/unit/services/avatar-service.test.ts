@@ -176,7 +176,7 @@ describe('purchaseItem', () => {
 		const sakura = (await avatarService.getShopItems(1, 'test-tenant')).find(
 			(i) => i.code === 'bg_sakura',
 		);
-		const result = await avatarService.purchaseItem(1, sakura!.id, 'test-tenant');
+		const result = await avatarService.purchaseItem(1, sakura?.id, 'test-tenant');
 		expect(result).toEqual({ success: true });
 
 		const items = await avatarService.getShopItems(1, 'test-tenant');
@@ -189,7 +189,7 @@ describe('purchaseItem', () => {
 		const sakura = (await avatarService.getShopItems(1, 'test-tenant')).find(
 			(i) => i.code === 'bg_sakura',
 		);
-		const result = await avatarService.purchaseItem(1, sakura!.id, 'test-tenant');
+		const result = await avatarService.purchaseItem(1, sakura?.id, 'test-tenant');
 		expect(result).toEqual({ error: 'INSUFFICIENT_POINTS' });
 	});
 
@@ -200,8 +200,8 @@ describe('purchaseItem', () => {
 		const sakura = (await avatarService.getShopItems(1, 'test-tenant')).find(
 			(i) => i.code === 'bg_sakura',
 		);
-		await avatarService.purchaseItem(1, sakura!.id, 'test-tenant');
-		const result = await avatarService.purchaseItem(1, sakura!.id, 'test-tenant');
+		await avatarService.purchaseItem(1, sakura?.id, 'test-tenant');
+		const result = await avatarService.purchaseItem(1, sakura?.id, 'test-tenant');
 		expect(result).toEqual({ error: 'ALREADY_OWNED' });
 	});
 
@@ -210,7 +210,7 @@ describe('purchaseItem', () => {
 		const legend = (await avatarService.getShopItems(1, 'test-tenant')).find(
 			(i) => i.code === 'bg_legend',
 		);
-		const result = await avatarService.purchaseItem(1, legend!.id, 'test-tenant');
+		const result = await avatarService.purchaseItem(1, legend?.id, 'test-tenant');
 		expect(result).toEqual({ error: 'LOCKED' });
 	});
 
@@ -230,9 +230,9 @@ describe('equipItem', () => {
 		const sakura = (await avatarService.getShopItems(1, 'test-tenant')).find(
 			(i) => i.code === 'bg_sakura',
 		);
-		await avatarService.purchaseItem(1, sakura!.id, 'test-tenant');
+		await avatarService.purchaseItem(1, sakura?.id, 'test-tenant');
 
-		const result = await avatarService.equipItem(1, 'background', sakura!.id, 'test-tenant');
+		const result = await avatarService.equipItem(1, 'background', sakura?.id, 'test-tenant');
 		expect(result).toEqual({ success: true });
 
 		const config = await avatarService.getAvatarConfig(1, 'test-tenant');
@@ -244,7 +244,7 @@ describe('equipItem', () => {
 		const sakura = (await avatarService.getShopItems(1, 'test-tenant')).find(
 			(i) => i.code === 'bg_sakura',
 		);
-		const result = await avatarService.equipItem(1, 'background', sakura!.id, 'test-tenant');
+		const result = await avatarService.equipItem(1, 'background', sakura?.id, 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_OWNED' });
 	});
 
