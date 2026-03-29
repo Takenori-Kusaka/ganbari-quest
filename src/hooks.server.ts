@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
+import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
 import { checkConsent } from '$lib/server/services/consent-service';
@@ -15,6 +17,9 @@ const COGNITO_DEV_MODE = process.env.COGNITO_DEV_MODE === 'true';
 export const handle: Handle = async ({ event, resolve }) => {
 	const start = Date.now();
 	const path = event.url.pathname;
+
+	// リクエストID 生成（相関ID）
+	event.locals.requestId = randomUUID();
 
 	// 0-a) メンテナンスモード（Lambda環境変数で切替）
 	if (MAINTENANCE_MODE && path !== '/api/health') {
@@ -63,7 +68,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 		};
 		const response = await resolve(event);
 		if (!path.startsWith('/_app/') && !path.startsWith('/favicon')) {
-			logger.request(event.request.method, path, response.status, Date.now() - start);
+			logger.request(event.request.method, path, response.status, Date.now() - start, {
+				requestId: event.locals.requestId,
+				tenantId: 'demo',
+			});
 		}
 		return response;
 	}
@@ -181,7 +189,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// 4) リクエストログ（静的ファイルは除外）
 	if (!path.startsWith('/_app/') && !path.startsWith('/favicon')) {
-		logger.request(event.request.method, path, response.status, Date.now() - start);
+		logger.request(event.request.method, path, response.status, Date.now() - start, {
+			requestId: event.locals.requestId,
+			tenantId: context?.tenantId,
+		});
 	}
 
 	return response;
@@ -191,19 +202,39 @@ export const handle: Handle = async ({ event, resolve }) => {
 export const handleError: HandleServerError = ({ error, event, status, message }) => {
 	const method = event.request.method;
 	const path = event.url.pathname;
+	const requestId = event.locals.requestId ?? 'unknown';
+	const tenantId = event.locals.context?.tenantId;
+	const stack = error instanceof Error ? error.stack : undefined;
 
 	logger.error(`[${status}] ${method} ${path}: ${message}`, {
 		method,
 		path,
 		status,
+		requestId,
+		tenantId,
 		error: error instanceof Error ? error.message : String(error),
-		stack: error instanceof Error ? error.stack : undefined,
+		stack,
 	});
 
 	// 500 系エラーのみ Discord に通知（4xx は通常エラーなので除外）
 	if (status >= 500) {
 		const errorMsg = error instanceof Error ? error.message : String(error);
+
+		// 既存の通知サービス（互換維持）
 		notifyIncident(errorMsg, { method, path, status }).catch(() => {});
+
+		// 新アラートシステム（スロットリング付き、requestId/tenantId 含む）
+		sendDiscordAlert({
+			level: 'error',
+			message: 'Internal Server Error',
+			method,
+			path,
+			status,
+			requestId,
+			tenantId,
+			errorSummary: errorMsg,
+			stackSummary: stack?.split('\n').slice(0, 3).join('\n'),
+		}).catch(() => {});
 	}
 
 	return { message: 'Internal Server Error' };

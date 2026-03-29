@@ -4,6 +4,7 @@ declare global {
 	namespace App {
 		// interface Error {}
 		interface Locals {
+			requestId: string;
 			authenticated: boolean;
 			identity: import('$lib/server/auth/types').Identity | null;
 			context: import('$lib/server/auth/types').AuthContext | null;
