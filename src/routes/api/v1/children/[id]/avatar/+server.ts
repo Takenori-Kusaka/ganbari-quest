@@ -2,7 +2,8 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
-import { saveFile } from '$lib/server/storage';
+import { deleteFile, saveFile } from '$lib/server/storage';
+import { avatarKey, storageKeyToPublicUrl } from '$lib/server/storage-keys';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -36,15 +37,23 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw error(400, { message: 'ファイルサイズは5MB以下にしてください' });
 	}
 
-	// ファイル名: avatar-{childId}-{timestamp}.{ext}
 	const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-	const fileName = `avatar-${childId}-${Date.now()}.${ext}`;
-	const storageKey = `uploads/avatars/${fileName}`;
-	const publicUrl = `/uploads/avatars/${fileName}`;
+	const storageKey = avatarKey(tenantId, childId, ext);
+	const publicUrl = storageKeyToPublicUrl(storageKey);
 
 	try {
 		const buffer = Buffer.from(await file.arrayBuffer());
 		await saveFile(storageKey, buffer, file.type);
+
+		// 旧アバターファイルを削除（パスがあり、新パスと異なる場合）
+		if (child.avatarUrl && child.avatarUrl !== publicUrl) {
+			const oldKey = child.avatarUrl.startsWith('/') ? child.avatarUrl.slice(1) : child.avatarUrl;
+			try {
+				await deleteFile(oldKey);
+			} catch {
+				// 旧ファイル削除失敗は無視（孤立ファイルは定期クリーンアップで対応）
+			}
+		}
 
 		// DB更新
 		await updateChildAvatarUrl(childId, publicUrl, tenantId);
@@ -52,7 +61,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		logger.error('[avatar] アバター保存失敗', {
 			error: err instanceof Error ? err.message : String(err),
 			stack: err instanceof Error ? err.stack : undefined,
-			context: { childId, fileName },
+			context: { childId, storageKey },
 		});
 		throw error(500, { message: 'アバターの保存に失敗しました' });
 	}

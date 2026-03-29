@@ -10,6 +10,7 @@ import {
 } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
 import { fileExists, saveFile } from '$lib/server/storage';
+import { generatedImageKey, storageKeyToPublicUrl } from '$lib/server/storage-keys';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildAvatarPrompt, buildFaviconPrompt } from './image-prompt';
 
@@ -110,22 +111,21 @@ export async function generateAvatar(
 	const cached = await findCachedImage(childId, 'avatar', promptHash, tenantId);
 
 	if (cached && (await fileExists(cached.filePath))) {
-		return { filePath: `/${cached.filePath}`, isGenerated: true };
+		return { filePath: storageKeyToPublicUrl(cached.filePath), isGenerated: true };
 	}
 
 	// Generate image
 	const imageData = await generateImageWithGemini(prompt);
-	const fileName = `avatar-${childId}-${promptHash}`;
 	let filePath: string;
 	let isGenerated: boolean;
 
 	if (imageData) {
-		filePath = `generated/${fileName}.png`;
+		filePath = generatedImageKey(tenantId, childId, promptHash, 'png');
 		await saveFile(filePath, imageData, 'image/png');
 		isGenerated = true;
 	} else {
 		// Fallback SVG
-		filePath = `generated/${fileName}.svg`;
+		filePath = generatedImageKey(tenantId, childId, promptHash, 'svg');
 		const fallback = generateFallbackAvatar(child.nickname, child.theme);
 		await saveFile(filePath, fallback, 'image/svg+xml');
 		isGenerated = false;
@@ -135,9 +135,10 @@ export async function generateAvatar(
 	await insertCharacterImage({ childId, type: 'avatar', filePath, promptHash }, tenantId);
 
 	// Update child avatarUrl
-	await updateChildAvatarUrl(childId, `/${filePath}`, tenantId);
+	const publicUrl = storageKeyToPublicUrl(filePath);
+	await updateChildAvatarUrl(childId, publicUrl, tenantId);
 
-	return { filePath: `/${filePath}`, isGenerated };
+	return { filePath: publicUrl, isGenerated };
 }
 
 /** 子供の現在のアバターURLを取得（未生成ならnull） */
