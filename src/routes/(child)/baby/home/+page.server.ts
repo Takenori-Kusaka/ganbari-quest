@@ -15,6 +15,11 @@ import {
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
+import {
+	getStampCardStatus,
+	redeemStampCard,
+	stampToday,
+} from '$lib/server/services/stamp-card-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -30,18 +35,27 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			birthdayStatus: null,
 			healthCheckItems: [],
 			dailyMissions: null,
+			stampCard: null,
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
-	const [rawActivities, todayRecorded, loginBonusStatus, latestReward, birthdayRaw, dailyMissions] =
-		await Promise.all([
-			getActivities(tenantId, { childAge: child.age }),
-			getTodayRecordedActivityCounts(child.id, tenantId),
-			getLoginBonusStatus(child.id, tenantId),
-			getUnshownReward(child.id, tenantId),
-			checkBirthdayStatus(child.id, tenantId),
-			getTodayMissions(child.id, tenantId),
-		]);
+	const [
+		rawActivities,
+		todayRecorded,
+		loginBonusStatus,
+		latestReward,
+		birthdayRaw,
+		dailyMissions,
+		stampCard,
+	] = await Promise.all([
+		getActivities(tenantId, { childAge: child.age }),
+		getTodayRecordedActivityCounts(child.id, tenantId),
+		getLoginBonusStatus(child.id, tenantId),
+		getUnshownReward(child.id, tenantId),
+		checkBirthdayStatus(child.id, tenantId),
+		getTodayMissions(child.id, tenantId),
+		getStampCardStatus(child.id, tenantId),
+	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
 	const activities = sortedActivities.map((a) => ({
@@ -68,6 +82,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		birthdayStatus,
 		healthCheckItems: HEALTH_CHECK_ITEMS.map((h) => ({ key: h.key, label: h.label, icon: h.icon })),
 		dailyMissions,
+		stampCard,
 	};
 };
 
@@ -189,6 +204,46 @@ export const actions: Actions = {
 			multiplier: result.multiplier,
 			totalPoints: result.totalPoints,
 			consecutiveLoginDays: result.consecutiveLoginDays,
+		};
+	},
+
+	stampCard: async ({ cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const childId = Number(cookies.get('selectedChildId'));
+		if (Number.isNaN(childId)) return fail(400, { error: 'パラメータが不正です' });
+
+		const result = await stampToday(childId, tenantId);
+		if ('error' in result) {
+			if (result.error === 'ALREADY_STAMPED') return fail(409, { error: 'きょうはもうおしたよ' });
+			if (result.error === 'CARD_FULL') return fail(409, { error: 'カードがいっぱいだよ' });
+			return fail(400, { error: 'スタンプをおせませんでした' });
+		}
+
+		return {
+			success: true,
+			stampEmoji: result.stamp.emoji,
+			stampName: result.stamp.name,
+			stampRarity: result.stamp.rarity,
+		};
+	},
+
+	redeemStampCard: async ({ cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const childId = Number(cookies.get('selectedChildId'));
+		if (Number.isNaN(childId)) return fail(400, { error: 'パラメータが不正です' });
+
+		const result = await redeemStampCard(childId, tenantId);
+		if ('error' in result) {
+			if (result.error === 'ALREADY_REDEEMED') return fail(409, { error: 'もうこうかんしたよ' });
+			if (result.error === 'EMPTY_CARD') return fail(400, { error: 'スタンプがないよ' });
+			return fail(400, { error: 'こうかんできませんでした' });
+		}
+
+		return {
+			success: true,
+			totalPoints: result.points,
+			stampPoints: result.stampPoints,
+			completeBonus: result.completeBonus,
 		};
 	},
 };

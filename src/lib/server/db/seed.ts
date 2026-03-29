@@ -3980,6 +3980,37 @@ function seed() {
 		console.log(`  - career_fields: already seeded (${existingCareerFields.length})`);
 	}
 
+	// ============================================================
+	// スタンプマスタ（デフォルトスタンプ 16 種）
+	// ============================================================
+	const existingStamps = db.select().from(schema.stampMasters).all();
+	if (existingStamps.length === 0) {
+		const defaultStamps: (typeof schema.stampMasters.$inferInsert)[] = [
+			{ name: 'にこにこ', emoji: '😊', rarity: 'N' },
+			{ name: 'グッジョブ', emoji: '👍', rarity: 'N' },
+			{ name: 'スター', emoji: '⭐', rarity: 'N' },
+			{ name: 'ハート', emoji: '❤️', rarity: 'N' },
+			{ name: 'がんばった', emoji: '💪', rarity: 'N' },
+			{ name: 'ロケット', emoji: '🚀', rarity: 'R' },
+			{ name: 'おうかん', emoji: '👑', rarity: 'R' },
+			{ name: 'トロフィー', emoji: '🏆', rarity: 'R' },
+			{ name: 'にじ', emoji: '🌈', rarity: 'R' },
+			{ name: 'たいよう', emoji: '☀️', rarity: 'R' },
+			{ name: 'ドラゴン', emoji: '🐉', rarity: 'SR' },
+			{ name: 'ユニコーン', emoji: '🦄', rarity: 'SR' },
+			{ name: 'たからばこ', emoji: '📦', rarity: 'SR' },
+			{ name: 'まほうのつえ', emoji: '🪄', rarity: 'SR' },
+			{ name: 'でんせつのけん', emoji: '⚔️', rarity: 'UR' },
+			{ name: 'きせきのほし', emoji: '🌟', rarity: 'UR' },
+		];
+		for (const stamp of defaultStamps) {
+			db.insert(schema.stampMasters).values(stamp).run();
+		}
+		console.log(`  ✓ stamp_masters: ${defaultStamps.length} items`);
+	} else {
+		console.log(`  - stamp_masters: already seeded (${existingStamps.length})`);
+	}
+
 	console.log('Seeding complete!');
 }
 
