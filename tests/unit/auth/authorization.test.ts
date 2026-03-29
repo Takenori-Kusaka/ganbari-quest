@@ -27,7 +27,6 @@ describe('authorizeCognito', () => {
 			'/auth/signup',
 			'/auth/invite/abc123',
 			'/pricing',
-			'/switch',
 			'/setup',
 			'/api/health',
 			'/api/stripe/webhook',
