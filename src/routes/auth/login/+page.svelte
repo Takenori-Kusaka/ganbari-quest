@@ -25,8 +25,7 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 <div class="login-page">
 	<div class="login-card">
 		<div class="login-header">
-			<Logo variant="symbol" size={64} />
-			<h1 class="login-title">がんばりクエスト</h1>
+			<Logo variant="full" size={240} />
 			<p class="login-subtitle">{mfaStep ? 'MFA認証' : 'ログイン'}</p>
 		</div>
 
