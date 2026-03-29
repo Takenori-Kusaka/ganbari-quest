@@ -21,3 +21,7 @@ export async function deleteFile(key: string): Promise<void> {
 export async function listFiles(prefix: string): Promise<string[]> {
 	return getRepos().storage.listFiles(prefix);
 }
+
+export async function deleteByPrefix(prefix: string): Promise<number> {
+	return getRepos().storage.deleteByPrefix(prefix);
+}
