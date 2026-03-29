@@ -7,11 +7,13 @@ import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
 // --- モック定義 ---
 
 const mockFindUserTenants = vi.fn();
+const mockFindTenantById = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		auth: {
 			findUserTenants: mockFindUserTenants,
+			findTenantById: mockFindTenantById,
 		},
 	}),
 }));
@@ -62,6 +64,7 @@ function createMockEvent(cookies: Record<string, string> = {}) {
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	mockFindTenantById.mockResolvedValue({ tenantId: 'default', status: 'active' });
 });
 
 afterEach(() => {
@@ -190,6 +193,7 @@ describe('CognitoAuthProvider', () => {
 				tenantId: 't-family-A',
 				role: 'owner',
 				licenseStatus: 'active',
+				tenantStatus: 'active',
 			});
 			expect(mockFindUserTenants).toHaveBeenCalledWith('u-member');
 			expect(event.cookies.set).toHaveBeenCalled();
