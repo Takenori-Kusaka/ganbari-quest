@@ -22,22 +22,9 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		cookies.set('selectedChildId', childIdStr, { path: '/', httpOnly: false, sameSite: 'lax' });
 	}
 
-	// /switch ページは子供未選択でもアクセス可能（無限リダイレクト防止）
-	if (!childIdStr && url.pathname !== '/switch') {
-		redirect(302, '/switch');
-	}
-
+	// 子供未選択の場合は /switch にリダイレクト
 	if (!childIdStr) {
-		// /switch ページ用: 子供一覧だけ返す
-		return {
-			child: null,
-			balance: 0,
-			level: 1,
-			levelTitle: 'かけだし',
-			allChildren: await getAllChildren(tenantId),
-			uiMode: 'kinder' as const,
-			pointSettings: DEFAULT_POINT_SETTINGS,
-		};
+		redirect(302, '/switch');
 	}
 
 	const childId = Number(childIdStr);
