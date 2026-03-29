@@ -150,6 +150,7 @@ let feedbackSubmitting = $state(false);
 let feedbackCategory = $state('feature');
 let feedbackText = $state('');
 let feedbackEmail = $state('');
+let feedbackInquiryId = $state('');
 
 const previewPoints = 100;
 const previewFormatted = $derived(
@@ -546,8 +547,8 @@ const previewFormatted = $derived(
 		<h3 class="text-lg font-bold text-gray-700 mb-4">💬 フィードバック・ご意見</h3>
 
 		{#if feedbackSuccess}
-			<SuccessAlert message={feedbackEmail
-				? 'お問い合わせありがとうございます。今後の参考とさせていただきます。\nご入力いただいたメールアドレスに、内容によってはご返信する場合があります。'
+			<SuccessAlert message={feedbackInquiryId
+				? `お問い合わせを受け付けました。受付番号: ${feedbackInquiryId}\n${feedbackEmail ? '入力いただいたメールアドレスに確認メールをお送りしました。' : ''}`
 				: 'お問い合わせありがとうございます。今後の参考とさせていただきます。'} />
 		{/if}
 
@@ -561,10 +562,12 @@ const previewFormatted = $derived(
 			use:enhance={() => {
 				feedbackSubmitting = true;
 				feedbackSuccess = false;
+				feedbackInquiryId = '';
 				return async ({ result, update }) => {
 					feedbackSubmitting = false;
 					if (result.type === 'success') {
 						feedbackSuccess = true;
+						feedbackInquiryId = (result.data as { inquiryId?: string })?.inquiryId ?? '';
 						feedbackText = '';
 						feedbackCategory = 'feature';
 						feedbackEmail = '';

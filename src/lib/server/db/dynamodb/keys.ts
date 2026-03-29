@@ -30,6 +30,7 @@ const PREFIX = {
 	CKTPL: 'CKTPL',
 	AVITEM: 'AVITEM',
 	BENCH: 'BENCH',
+	INQUIRY: 'INQUIRY',
 } as const;
 
 // ============================================================
@@ -520,6 +521,14 @@ export function marketBenchmarkPrefix(): string {
 	return 'CAT#';
 }
 
+/** Inquiry: PK=INQUIRY#<inquiryId>, SK=META */
+export function inquiryKey(inquiryId: string): DynamoKey {
+	return {
+		PK: `${PREFIX.INQUIRY}#${inquiryId}`,
+		SK: 'META',
+	};
+}
+
 /** ID counter: PK=COUNTER, SK=<entity> */
 export function counterKey(entity: string, tenantId: string): DynamoKey {
 	return {
@@ -584,6 +593,7 @@ export const ENTITY_NAMES = {
 	childAvatarItem: 'childAvatarItem',
 	marketBenchmark: 'marketBenchmark',
 	activityPref: 'activityPref',
+	inquiry: 'inquiry',
 } as const;
 
 export type EntityName = (typeof ENTITY_NAMES)[keyof typeof ENTITY_NAMES];
