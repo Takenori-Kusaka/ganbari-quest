@@ -230,7 +230,7 @@ const previewFormatted = $derived(
 	{/if}
 
 	<!-- PIN変更 -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6" data-tutorial="pin-settings">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">🔒 PINコード変更</h3>
 
 		{#if success}
@@ -607,7 +607,7 @@ const previewFormatted = $derived(
 	</div>
 
 	<!-- フィードバック -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6" data-tutorial="feedback-section">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">💬 フィードバック・ご意見</h3>
 
 		{#if feedbackSuccess}

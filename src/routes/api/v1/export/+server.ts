@@ -18,7 +18,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const licenseStatus = locals.context?.licenseStatus ?? 'none';
 	const limits = getPlanLimits(resolvePlanTier(licenseStatus));
 	if (!limits.canExport) {
-		return apiError('PLAN_LIMIT_EXCEEDED', 'エクスポート機能はプレミアムプランでご利用いただけます');
+		return apiError(
+			'PLAN_LIMIT_EXCEEDED',
+			'エクスポート機能はプレミアムプランでご利用いただけます',
+		);
 	}
 
 	const childIdsParam = url.searchParams.get('childIds');
