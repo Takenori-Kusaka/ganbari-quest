@@ -6,7 +6,7 @@ import {
 	IDENTITY_COOKIE_NAME,
 	SESSION_COOKIE_NAME,
 } from '$lib/domain/validation/auth';
-import { getAuthMode } from '$lib/server/auth/factory';
+import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
 import { buildLogoutUrl } from '$lib/server/auth/providers/cognito-oauth';
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
@@ -17,12 +17,11 @@ export const GET: RequestHandler = async ({ cookies }) => {
 	cookies.delete(CONTEXT_COOKIE_NAME, { path: '/' });
 	cookies.delete(SESSION_COOKIE_NAME, { path: '/' });
 
-	// Cognito モードの場合は Cognito ログアウト URL にリダイレクト
-	if (getAuthMode() === 'cognito') {
-		const logoutUrl = buildLogoutUrl();
-		redirect(302, logoutUrl);
+	// Cognito 本番モードの場合は Cognito ログアウト URL にリダイレクト（dev モードは除外）
+	if (getAuthMode() === 'cognito' && !isCognitoDevMode()) {
+		redirect(302, buildLogoutUrl());
 	}
 
-	// ローカルモードの場合はログインページへ
-	redirect(302, '/');
+	// ローカル or dev モードの場合はログインページへ
+	redirect(302, '/auth/login');
 };
