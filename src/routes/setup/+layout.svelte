@@ -1,5 +1,6 @@
 <script lang="ts">
 import { page } from '$app/stores';
+import Logo from '$lib/ui/components/Logo.svelte';
 
 let { children } = $props();
 
@@ -20,7 +21,7 @@ const currentStepIndex = $derived(
 <div class="setup-page">
 	<div class="setup-container">
 		<div class="setup-header">
-			<h1 class="setup-title">がんばりクエスト</h1>
+			<Logo variant="compact" size={200} />
 			<p class="setup-subtitle">初期セットアップ</p>
 		</div>
 

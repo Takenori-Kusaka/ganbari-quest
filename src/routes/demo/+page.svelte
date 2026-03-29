@@ -1,4 +1,6 @@
 <script lang="ts">
+import Logo from '$lib/ui/components/Logo.svelte';
+
 let { data } = $props();
 
 const modeLabels: Record<string, string> = {
@@ -22,7 +24,10 @@ const modeColors: Record<string, string> = {
 	<div class="max-w-2xl mx-auto px-4 py-8">
 		<!-- Hero -->
 		<div class="text-center mb-8">
-			<h1 class="text-3xl font-bold text-gray-800 mb-2">がんばりクエスト デモ体験</h1>
+			<div class="flex items-center justify-center gap-2 mb-2">
+				<Logo variant="compact" size={180} />
+			</div>
+			<p class="text-xl font-semibold text-gray-600">デモ体験</p>
 			<p class="text-gray-600">
 				がんばり家のみんなと一緒に、アプリの機能を体験してみましょう！
 			</p>
