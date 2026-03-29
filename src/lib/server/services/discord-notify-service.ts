@@ -168,6 +168,7 @@ export async function notifyInquiry(
 	text: string,
 	email: string,
 	replyEmail?: string,
+	inquiryId?: string,
 ): Promise<void> {
 	const categoryLabel: Record<string, string> = {
 		feature: '機能要望',
@@ -176,10 +177,11 @@ export async function notifyInquiry(
 	};
 
 	await notifyDiscord('inquiry', {
-		title: `📬 ${categoryLabel[category] ?? category}`,
+		title: `📬 ${categoryLabel[category] ?? category}${inquiryId ? ` (${inquiryId})` : ''}`,
 		description: text.slice(0, 2000),
 		color: category === 'bug' ? 0xff4444 : 0x4a90d9,
 		fields: [
+			...(inquiryId ? [{ name: '受付番号', value: inquiryId, inline: true }] : []),
 			{ name: 'テナント', value: tenantId, inline: true },
 			{ name: '送信者', value: email, inline: true },
 			{ name: '返信先', value: replyEmail || 'なし', inline: true },
