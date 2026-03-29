@@ -3,9 +3,9 @@
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-type LogLevel = 'info' | 'warn' | 'error';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'critical';
 
-interface LogEntry {
+export interface LogEntry {
 	timestamp: string;
 	level: LogLevel;
 	message: string;
@@ -15,12 +15,31 @@ interface LogEntry {
 	durationMs?: number;
 	error?: string;
 	stack?: string;
+	requestId?: string;
+	tenantId?: string;
+	userId?: string;
+	service?: string;
 	context?: Record<string, unknown>;
 }
+
+const LEVEL_VALUES: Record<LogLevel, number> = {
+	debug: 10,
+	info: 20,
+	warn: 30,
+	error: 40,
+	critical: 50,
+};
 
 const LOG_DIR = join(process.cwd(), 'data', 'logs');
 const isProduction = process.env.NODE_ENV === 'production';
 const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+const MIN_LOG_LEVEL: LogLevel =
+	(process.env.LOG_LEVEL as LogLevel) ?? (isProduction ? 'info' : 'debug');
+
+function shouldLog(level: LogLevel): boolean {
+	return LEVEL_VALUES[level] >= LEVEL_VALUES[MIN_LOG_LEVEL];
+}
 
 function ensureLogDir() {
 	if (!existsSync(LOG_DIR)) {
@@ -38,13 +57,15 @@ function formatEntry(entry: LogEntry): string {
 }
 
 function writeLog(entry: LogEntry) {
+	if (!shouldLog(entry.level)) return;
+
 	// Console output
 	const prefix = `[${entry.timestamp}] [${entry.level.toUpperCase()}]`;
 	const msg = entry.method
 		? `${prefix} ${entry.method} ${entry.path} ${entry.status ?? ''} ${entry.durationMs ? `${entry.durationMs}ms` : ''} ${entry.message}`
 		: `${prefix} ${entry.message}`;
 
-	if (entry.level === 'error') {
+	if (entry.level === 'critical' || entry.level === 'error') {
 		console.error(msg);
 		if (entry.stack) console.error(entry.stack);
 	} else if (entry.level === 'warn') {
@@ -66,6 +87,15 @@ function writeLog(entry: LogEntry) {
 }
 
 export const logger = {
+	debug(message: string, meta?: Partial<LogEntry>) {
+		writeLog({
+			timestamp: new Date().toISOString(),
+			level: 'debug',
+			message,
+			...meta,
+		});
+	},
+
 	info(message: string, meta?: Partial<LogEntry>) {
 		writeLog({
 			timestamp: new Date().toISOString(),
@@ -93,8 +123,23 @@ export const logger = {
 		});
 	},
 
+	critical(message: string, meta?: Partial<LogEntry>) {
+		writeLog({
+			timestamp: new Date().toISOString(),
+			level: 'critical',
+			message,
+			...meta,
+		});
+	},
+
 	/** Log an HTTP request with duration and status */
-	request(method: string, path: string, status: number, durationMs: number) {
+	request(
+		method: string,
+		path: string,
+		status: number,
+		durationMs: number,
+		extra?: { requestId?: string; tenantId?: string },
+	) {
 		const level: LogLevel = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info';
 		writeLog({
 			timestamp: new Date().toISOString(),
@@ -104,11 +149,13 @@ export const logger = {
 			path,
 			status,
 			durationMs,
+			requestId: extra?.requestId,
+			tenantId: extra?.tenantId,
 		});
 	},
 
 	/** Log a caught error with full context */
-	requestError(method: string, path: string, err: unknown) {
+	requestError(method: string, path: string, err: unknown, requestId?: string, tenantId?: string) {
 		const error = err instanceof Error ? err.message : String(err);
 		const stack = err instanceof Error ? err.stack : undefined;
 		writeLog({
@@ -119,6 +166,8 @@ export const logger = {
 			path,
 			error,
 			stack,
+			requestId,
+			tenantId,
 		});
 	},
 };
