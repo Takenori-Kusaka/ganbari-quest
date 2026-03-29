@@ -1,12 +1,16 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { invalidateAll } from '$app/navigation';
 import {
 	formatPointValue,
 	formatPointValueWithSign,
 	getUnitLabel,
 } from '$lib/domain/point-display';
 
-let { data } = $props();
+let { data, form } = $props();
+let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'birthday'>('info');
+let statusEditSuccess = $state(false);
+let sliderValues: Record<number, number> = $state({});
 const childLimit = $derived(
 	(data as Record<string, unknown>).childLimit as
 		| { allowed: boolean; current: number; max: number | null }
@@ -20,6 +24,14 @@ const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.curren
 let showAddForm = $state(false);
 let editingChildId = $state<number | null>(null);
 let confirmDeleteId = $state<number | null>(null);
+
+const detailTabs = [
+	{ id: 'info', label: '📋 基本情報' },
+	{ id: 'status', label: '📊 ステータス' },
+	{ id: 'logs', label: '📝 活動記録' },
+	{ id: 'achievements', label: '🏆 実績' },
+	{ id: 'birthday', label: '🎂 ふりかえり' },
+] as const;
 
 let generating = $state(false);
 let generateResult = $state<{ filePath?: string; error?: string } | null>(null);
@@ -360,25 +372,27 @@ function handleFileSelect(childId: number, event: Event) {
 	<!-- Selected child detail -->
 	{#if data.selectedChild}
 		{@const child = data.selectedChild}
-		<section class="bg-white rounded-xl p-6 shadow-sm space-y-4">
-			<div class="flex items-center gap-4">
+		<section class="bg-white rounded-xl shadow-sm overflow-hidden">
+			<!-- Header -->
+			<div class="p-4 border-b border-gray-100 flex items-center gap-4">
 				{#if uploadResult?.avatarUrl || generateResult?.filePath || child.avatarUrl}
 					<img
 						src={uploadResult?.avatarUrl ?? generateResult?.filePath ?? child.avatarUrl}
 						alt={child.nickname}
-						class="w-16 h-16 rounded-full object-cover border-2 border-gray-200" loading="lazy"
+						class="w-14 h-14 rounded-full object-cover border-2 border-gray-200" loading="lazy"
 					/>
 				{:else}
-					<span class="text-4xl">👤</span>
+					<span class="text-3xl">👤</span>
 				{/if}
 				<div class="flex-1">
-					<h3 class="text-lg font-bold text-gray-700">{child.nickname} の詳細</h3>
+					<h3 class="text-lg font-bold text-gray-700">{child.nickname}</h3>
+					<p class="text-sm text-gray-400">{child.age}歳 / Lv.{child.status?.level ?? '?'} {child.status?.levelTitle ?? ''}</p>
 				</div>
 				<div class="flex gap-1">
 					<label
 						class="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors cursor-pointer {uploading ? 'opacity-50 pointer-events-none' : ''}"
 					>
-						{uploading ? 'アップロード中...' : '📷 写真'}
+						{uploading ? '...' : '📷'}
 						<input
 							type="file"
 							accept="image/jpeg,image/png,image/webp"
@@ -392,126 +406,195 @@ function handleFileSelect(childId: number, event: Event) {
 						disabled={generating}
 						onclick={() => generateAvatar(child.id)}
 					>
-						{#if generating}
-							<span class="avatar-spinner" aria-hidden="true"></span>
-							生成中...
-						{:else}
-							✨ AI生成
-						{/if}
+						{generating ? '...' : '✨'}
 					</button>
 				</div>
 			</div>
 			{#if uploadResult?.error || generateResult?.error}
-				<p class="text-red-500 text-sm">{uploadResult?.error ?? generateResult?.error}</p>
+				<p class="text-red-500 text-sm px-4 pt-2">{uploadResult?.error ?? generateResult?.error}</p>
 			{/if}
 			{#if uploadResult?.avatarUrl}
-				<p class="text-green-600 text-sm font-bold">写真をアップロードしました</p>
+				<p class="text-green-600 text-sm font-bold px-4 pt-2">写真をアップロードしました</p>
 			{/if}
 			{#if generateResult?.filePath}
-				<p class="text-green-600 text-sm font-bold">アバターを生成しました</p>
+				<p class="text-green-600 text-sm font-bold px-4 pt-2">アバターを生成しました</p>
 			{/if}
 
-			<!-- Basic Info -->
-			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-				<div class="bg-blue-50 rounded-lg p-3">
-					<p class="text-xl font-bold text-blue-600">{child.age}歳</p>
-					<p class="text-xs text-gray-500">年齢</p>
-				</div>
-				<div class="bg-purple-50 rounded-lg p-3">
-					<p class="text-xl font-bold text-purple-600">Lv.{child.status?.level ?? '?'}</p>
-					<p class="text-xs text-gray-500">{child.status?.levelTitle ?? ''}</p>
-				</div>
-				<div class="bg-amber-50 rounded-lg p-3">
-					<p class="text-xl font-bold text-amber-600">{fmtBal(child.balance?.balance ?? 0)}</p>
-					<p class="text-xs text-gray-500">{getUnitLabel(ps.mode, ps.currency)}残高</p>
-				</div>
-				<div class="bg-green-50 rounded-lg p-3">
-					<p class="text-xl font-bold text-green-600">{child.logSummary?.totalCount ?? 0}</p>
-					<p class="text-xs text-gray-500">累計記録数</p>
-				</div>
+			<!-- Tabs -->
+			<div class="flex border-b border-gray-100 overflow-x-auto px-2">
+				{#each detailTabs as tab}
+					<button
+						class="px-3 py-2.5 text-xs font-bold whitespace-nowrap transition-colors border-b-2
+							{detailTab === tab.id
+							? 'border-blue-500 text-blue-600'
+							: 'border-transparent text-gray-400 hover:text-gray-600'}"
+						onclick={() => { detailTab = tab.id; statusEditSuccess = false; }}
+					>
+						{tab.label}
+					</button>
+				{/each}
 			</div>
 
-			<!-- Status -->
-			{#if child.status?.statuses}
-				<div>
-					<h4 class="font-bold text-gray-600 mb-2">ステータス</h4>
-					<div class="grid gap-2">
-						{#each Object.entries(child.status.statuses) as [category, detail]}
-							<div class="flex items-center gap-2">
-								<span class="text-sm font-bold w-20 text-gray-500">{category}</span>
-								<div class="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
-									<div
-										class="h-full bg-blue-400 rounded-full transition-all"
-										style="width: {Math.min(detail.value, 100)}%"
-									></div>
-								</div>
-								<span class="text-xs font-bold text-gray-500 w-12 text-right">{detail.value.toFixed(0)}</span>
-								<span class="text-xs w-8 text-center">
-									{detail.trend === 'up' ? '↑' : detail.trend === 'down' ? '↓' : '→'}
-								</span>
-							</div>
-						{/each}
+			<!-- Tab content -->
+			<div class="p-4 space-y-4">
+				{#if detailTab === 'info'}
+					<!-- Basic Info cards -->
+					<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+						<div class="bg-blue-50 rounded-lg p-3">
+							<p class="text-xl font-bold text-blue-600">{child.age}歳</p>
+							<p class="text-xs text-gray-500">年齢</p>
+						</div>
+						<div class="bg-purple-50 rounded-lg p-3">
+							<p class="text-xl font-bold text-purple-600">Lv.{child.status?.level ?? '?'}</p>
+							<p class="text-xs text-gray-500">{child.status?.levelTitle ?? ''}</p>
+						</div>
+						<div class="bg-amber-50 rounded-lg p-3">
+							<p class="text-xl font-bold text-amber-600">{fmtBal(child.balance?.balance ?? 0)}</p>
+							<p class="text-xs text-gray-500">{getUnitLabel(ps.mode, ps.currency)}残高</p>
+						</div>
+						<div class="bg-green-50 rounded-lg p-3">
+							<p class="text-xl font-bold text-green-600">{child.logSummary?.totalCount ?? 0}</p>
+							<p class="text-xs text-gray-500">累計記録数</p>
+						</div>
 					</div>
-				</div>
-			{/if}
-
-			<!-- Recent activity logs -->
-			{#if child.recentLogs && child.recentLogs.length > 0}
-				<div>
-					<h4 class="font-bold text-gray-600 mb-2">最近の活動記録</h4>
-					<div class="space-y-1 max-h-60 overflow-y-auto">
-						{#each child.recentLogs as log}
-							<div class="flex items-center gap-2 text-sm py-1 border-b border-gray-50">
-								<span>{log.activityIcon}</span>
-								<span class="flex-1 text-gray-600">{log.activityName}</span>
-								<span class="text-amber-500 font-bold">{fmtPts(log.points)}</span>
-								<span class="text-xs text-gray-400">{new Date(log.recordedAt).toLocaleDateString('ja-JP')}</span>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			<!-- Achievements -->
-			{#if child.achievements && child.achievements.length > 0}
-				<div>
-					<h4 class="font-bold text-gray-600 mb-2">実績</h4>
-					<div class="flex flex-wrap gap-2">
-						{#each child.achievements as ach}
-							<div
-								class="flex items-center gap-1 px-2 py-1 rounded-full text-xs
-									{ach.unlockedAt ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-400'}"
-							>
-								<span>{ach.icon}</span>
-								<span>{ach.name}</span>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			<!-- Birthday Reviews -->
-			{#if child.birthdayReviews && child.birthdayReviews.length > 0}
-				<div>
-					<h4 class="font-bold text-gray-600 mb-2">🎂 誕生日ふりかえり</h4>
-					<div class="space-y-2">
-						{#each child.birthdayReviews as review}
-							<div class="bg-pink-50 rounded-lg p-3 text-sm">
-								<div class="flex items-center justify-between mb-1">
-									<span class="font-bold">{review.reviewYear}年（{review.ageAtReview}歳）</span>
-									<span class="text-amber-600 font-bold">{fmtPts(review.totalPoints)}</span>
-								</div>
-								{#if review.aspirationText}
-									<p class="text-gray-600 text-xs">🌟 {review.aspirationText}</p>
+				{:else if detailTab === 'status'}
+					<!-- Status editing with sliders -->
+					{#if statusEditSuccess}
+						<div class="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded-lg text-sm font-bold">
+							ステータスを更新しました
+						</div>
+					{/if}
+					{#if child.status?.statuses && data.categoryDefs}
+						<div class="flex flex-col gap-3">
+							{#each data.categoryDefs as catDef (catDef.id)}
+								{@const stat = child.status?.statuses[catDef.id]}
+								{#if stat}
+									{@const maxVal = child.status?.maxValue ?? 100}
+									{@const sliderStep = maxVal > 100 ? 1 : 0.5}
+									{@const currentVal = sliderValues[catDef.id] ?? stat.value}
+									{@const diff = currentVal - stat.value}
+									{@const hasChanged = Math.abs(diff) >= 0.5}
+									<div class="bg-gray-50 rounded-lg p-3">
+										<div class="flex items-center justify-between mb-1">
+											<div class="flex items-center gap-2">
+												<span>{catDef.icon}</span>
+												<span class="font-bold text-gray-700 text-sm">{catDef.name}</span>
+											</div>
+											<span class="text-xs text-yellow-500">{'★'.repeat(stat.stars)}{'☆'.repeat(5 - stat.stars)}</span>
+										</div>
+										<form
+											method="POST"
+											action="?/updateStatus"
+											use:enhance={() => {
+												statusEditSuccess = false;
+												return async ({ result }) => {
+													if (result.type === 'success') {
+														statusEditSuccess = true;
+														delete sliderValues[catDef.id];
+														await invalidateAll();
+													}
+												};
+											}}
+											class="space-y-1"
+										>
+											<input type="hidden" name="childId" value={child.id} />
+											<input type="hidden" name="categoryId" value={catDef.id} />
+											<input
+												type="range"
+												name="value"
+												min="0"
+												max={maxVal}
+												step={sliderStep}
+												value={currentVal}
+												oninput={(e) => { sliderValues[catDef.id] = Number(e.currentTarget.value); }}
+												class="w-full accent-blue-500"
+											/>
+											<div class="flex items-center justify-between">
+												<div>
+													<span class="text-lg font-bold text-gray-700">{currentVal}</span>
+													<span class="text-xs text-gray-400"> / {maxVal}</span>
+													{#if hasChanged}
+														<span class="ml-1 text-xs font-bold {diff > 0 ? 'text-green-500' : 'text-red-500'}">
+															{diff > 0 ? '+' : ''}{diff.toFixed(1)}
+														</span>
+													{/if}
+												</div>
+												<button
+													type="submit"
+													disabled={!hasChanged}
+													class="px-3 py-1 text-xs font-bold rounded-lg transition-colors
+														{hasChanged
+														? 'bg-blue-500 text-white hover:bg-blue-600'
+														: 'bg-gray-200 text-gray-400 cursor-not-allowed'}"
+												>
+													保存
+												</button>
+											</div>
+										</form>
+									</div>
 								{/if}
-								<p class="text-gray-400 text-xs mt-1">
-									基本:{fmtPts(review.basePoints)} / 健康:{fmtPts(review.healthPoints)} / 目標:{fmtPts(review.aspirationPoints)}
-								</p>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
+							{/each}
+						</div>
+					{:else}
+						<p class="text-center text-gray-400 py-4">ステータスデータがありません</p>
+					{/if}
+				{:else if detailTab === 'logs'}
+					<!-- Activity logs -->
+					{#if child.recentLogs && child.recentLogs.length > 0}
+						<div class="space-y-1 max-h-80 overflow-y-auto">
+							{#each child.recentLogs as log}
+								<div class="flex items-center gap-2 text-sm py-1.5 border-b border-gray-50">
+									<span>{log.activityIcon}</span>
+									<span class="flex-1 text-gray-600">{log.activityName}</span>
+									<span class="text-amber-500 font-bold">{fmtPts(log.points)}</span>
+									<span class="text-xs text-gray-400">{new Date(log.recordedAt).toLocaleDateString('ja-JP')}</span>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-center text-gray-400 py-4">活動記録がありません</p>
+					{/if}
+				{:else if detailTab === 'achievements'}
+					<!-- Achievements -->
+					{#if child.achievements && child.achievements.length > 0}
+						<div class="flex flex-wrap gap-2">
+							{#each child.achievements as ach}
+								<div
+									class="flex items-center gap-1 px-2 py-1 rounded-full text-xs
+										{ach.unlockedAt ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-400'}"
+								>
+									<span>{ach.icon}</span>
+									<span>{ach.name}</span>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-center text-gray-400 py-4">実績がありません</p>
+					{/if}
+				{:else if detailTab === 'birthday'}
+					<!-- Birthday reviews -->
+					{#if child.birthdayReviews && child.birthdayReviews.length > 0}
+						<div class="space-y-2">
+							{#each child.birthdayReviews as review}
+								<div class="bg-pink-50 rounded-lg p-3 text-sm">
+									<div class="flex items-center justify-between mb-1">
+										<span class="font-bold">{review.reviewYear}年（{review.ageAtReview}歳）</span>
+										<span class="text-amber-600 font-bold">{fmtPts(review.totalPoints)}</span>
+									</div>
+									{#if review.aspirationText}
+										<p class="text-gray-600 text-xs">🌟 {review.aspirationText}</p>
+									{/if}
+									<p class="text-gray-400 text-xs mt-1">
+										基本:{fmtPts(review.basePoints)} / 健康:{fmtPts(review.healthPoints)} / 目標:{fmtPts(review.aspirationPoints)}
+									</p>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-center text-gray-400 py-4">ふりかえりがありません</p>
+					{/if}
+				{/if}
+			</div>
 		</section>
 	{/if}
 </div>

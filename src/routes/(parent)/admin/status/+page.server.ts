@@ -2,7 +2,7 @@ import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllBenchmarks, upsertBenchmark } from '$lib/server/db/status-repo';
 import { getAllChildren } from '$lib/server/services/child-service';
-import { getChildStatus, updateStatus } from '$lib/server/services/status-service';
+import { getChildStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -26,39 +26,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions = {
-	updateStatus: async ({ request, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const form = await request.formData();
-		const childId = Number(form.get('childId'));
-		const categoryId = Number(form.get('categoryId'));
-		const newValue = Number(form.get('value'));
-
-		if (!childId || !categoryId) {
-			return fail(400, { error: '必須項目が不足しています' });
-		}
-
-		// 現在のステータスを取得して差分計算
-		const currentStatus = await getChildStatus(childId, tenantId);
-		if ('error' in currentStatus) {
-			return fail(404, { error: '子供が見つかりません' });
-		}
-
-		const maxForAge = currentStatus.maxValue;
-		if (Number.isNaN(newValue) || newValue < 0 || newValue > maxForAge) {
-			return fail(400, { error: `値は0〜${maxForAge}の範囲で入力してください` });
-		}
-
-		const currentValue = currentStatus.statuses[categoryId]?.value ?? 0;
-		const changeAmount = newValue - currentValue;
-
-		if (changeAmount === 0) {
-			return { success: true, noChange: true };
-		}
-
-		await updateStatus(childId, categoryId, changeAmount, 'admin_edit', tenantId);
-
-		return { success: true, categoryId, newValue };
-	},
 	updateBenchmark: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
