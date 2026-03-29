@@ -114,6 +114,45 @@ export async function getChildStatus(
 	};
 }
 
+/** カテゴリXPサマリ（ホームページ用の軽量版） */
+export interface CategoryXpInfo {
+	value: number;
+	level: number;
+	levelTitle: string;
+	expToNextLevel: number;
+	maxValue: number;
+}
+
+/** カテゴリ別XP情報を取得（ベンチマーク・偏差値を省略した軽量版） */
+export async function getCategoryXpSummary(
+	childId: number,
+	tenantId: string,
+): Promise<Record<number, CategoryXpInfo> | null> {
+	const child = await findChildById(childId, tenantId);
+	if (!child) return null;
+
+	const maxValue = getMaxForAge(child.age);
+	const statusRows = await findStatuses(childId, tenantId);
+	const result: Record<number, CategoryXpInfo> = {};
+
+	for (const catDef of CATEGORY_DEFS) {
+		const row = statusRows.find((s) => s.categoryId === catDef.id);
+		const value = row?.value ?? 0;
+		const catLevel = calcCategoryLevel(value, maxValue);
+		const catExp = calcCategoryExpToNextLevel(value, maxValue);
+
+		result[catDef.id] = {
+			value: Math.round(value * 10) / 10,
+			level: catLevel.level,
+			levelTitle: catLevel.title,
+			expToNextLevel: Math.round(catExp * 10) / 10,
+			maxValue,
+		};
+	}
+
+	return result;
+}
+
 export interface LevelUpInfo {
 	oldLevel: number;
 	oldTitle: string;
@@ -123,6 +162,14 @@ export interface LevelUpInfo {
 	categoryName: string;
 }
 
+/** ステータス更新結果 */
+export interface StatusUpdateResult {
+	levelUp: LevelUpInfo | null;
+	valueBefore: number;
+	valueAfter: number;
+	maxValue: number;
+}
+
 /** ステータスを更新する（週次評価から呼ばれる） */
 export async function updateStatus(
 	childId: number,
@@ -130,7 +177,7 @@ export async function updateStatus(
 	changeAmount: number,
 	changeType: string,
 	tenantId: string,
-): Promise<{ error: 'NOT_FOUND' } | { levelUp: LevelUpInfo | null }> {
+): Promise<{ error: 'NOT_FOUND' } | StatusUpdateResult> {
 	const child = await findChildById(childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND' as const };
 
@@ -174,5 +221,10 @@ export async function updateStatus(
 				}
 			: null;
 
-	return { levelUp };
+	return {
+		levelUp,
+		valueBefore: currentValue,
+		valueAfter: newValue,
+		maxValue,
+	};
 }
