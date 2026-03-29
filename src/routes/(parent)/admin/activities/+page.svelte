@@ -10,7 +10,11 @@ import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
 
 let { data } = $props();
-const activityLimit = $derived((data as Record<string, unknown>).activityLimit as { allowed: boolean; current: number; max: number | null } | undefined);
+const activityLimit = $derived(
+	(data as Record<string, unknown>).activityLimit as
+		| { allowed: boolean; current: number; max: number | null }
+		| undefined,
+);
 
 let showAddForm = $state(false);
 let filterCategoryId = $state(0);
@@ -255,10 +259,10 @@ function acceptPreview() {
 		</div>
 	{/if}
 
-	<div class="flex items-center justify-between">
+	<div class="flex items-center justify-between" data-tutorial="activity-list">
 		<h2 class="text-lg font-bold text-gray-700">活動管理</h2>
 		{#if !activityLimit || activityLimit.allowed}
-			<div class="flex gap-2">
+			<div class="flex gap-2" data-tutorial="add-activity-btn">
 				<button
 					class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-bold hover:bg-purple-600 transition-colors"
 					onclick={() => { aiMode = !aiMode; showAddForm = false; }}
@@ -593,7 +597,7 @@ function acceptPreview() {
 	</div>
 
 	<!-- Filter -->
-	<div class="flex gap-2 flex-wrap">
+	<div class="flex gap-2 flex-wrap" data-tutorial="category-filter">
 		<button
 			class="px-3 py-1 rounded-full text-xs font-bold transition-colors
 				{filterCategoryId === 0 ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"

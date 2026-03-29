@@ -520,31 +520,6 @@ export const DEMO_ACTIVITIES: Activity[] = [
 // Activity Logs (recent 14 days for each child)
 // ============================================================
 
-function generateLogs(childId: number, activityIds: number[], daysBack: number): ActivityLog[] {
-	const logs: ActivityLog[] = [];
-	let logId = childId * 1000;
-	for (let d = 0; d < daysBack; d++) {
-		const dayActivities = activityIds.filter(() => Math.random() > 0.4);
-		for (const actId of dayActivities) {
-			const act = DEMO_ACTIVITIES.find((a) => a.id === actId);
-			if (!act) continue;
-			logId++;
-			logs.push({
-				id: logId,
-				childId,
-				activityId: actId,
-				points: act.basePoints + Math.min(d, 10),
-				streakDays: Math.max(1, daysBack - d),
-				streakBonus: Math.min(daysBack - d - 1, 10),
-				recordedDate: daysAgo(d),
-				recordedAt: daysAgoISO(d),
-				cancelled: 0,
-			});
-		}
-	}
-	return logs;
-}
-
 // Use fixed seed approach for deterministic data
 export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 	// ひかり (baby) — simple logs

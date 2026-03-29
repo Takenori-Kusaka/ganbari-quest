@@ -1,8 +1,25 @@
 <script lang="ts">
+import { invalidateAll } from '$app/navigation';
 import { page } from '$app/stores';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
+import {
+	dismissTutorialBanner,
+	markTutorialStarted,
+	startTutorial,
+} from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data } = $props();
+
+async function handleStartTutorial() {
+	await markTutorialStarted();
+	await startTutorial();
+	await invalidateAll();
+}
+
+async function handleDismissBanner() {
+	await dismissTutorialBanner();
+	await invalidateAll();
+}
 
 const ps = $derived(data.pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
@@ -31,8 +48,35 @@ const visibleMenuItems = $derived(
 </svelte:head>
 
 <div class="space-y-6">
+	<!-- Tutorial banner for first-time users -->
+	{#if !(data as Record<string, unknown>).tutorialStarted}
+		<div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg" data-tutorial="tutorial-banner">
+			<div class="flex items-center gap-3">
+				<span class="text-2xl">📖</span>
+				<div class="flex-1">
+					<p class="font-bold text-gray-700">初めてご利用ですか？</p>
+					<p class="text-sm text-gray-500">チュートリアルで使い方を確認しましょう（約3分）</p>
+				</div>
+				<div class="flex gap-2">
+					<button
+						class="px-3 py-1.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors"
+						onclick={handleStartTutorial}
+					>
+						開始
+					</button>
+					<button
+						class="px-3 py-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+						onclick={handleDismissBanner}
+					>
+						あとで
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Summary Cards -->
-	<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+	<div class="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tutorial="summary-cards">
 		<div class="bg-white rounded-xl p-4 shadow-sm text-center">
 			<p class="text-2xl font-bold text-blue-600">{data.children.length}</p>
 			<p class="text-xs text-gray-500 mt-1">こどもの数</p>
@@ -46,7 +90,7 @@ const visibleMenuItems = $derived(
 	</div>
 
 	<!-- Children Overview -->
-	<section>
+	<section data-tutorial="children-overview">
 		<h2 class="text-lg font-bold text-gray-700 mb-3">こども一覧</h2>
 		{#if data.children.length === 0}
 			<div class="bg-white rounded-xl p-8 shadow-sm text-center text-gray-400">
@@ -79,7 +123,7 @@ const visibleMenuItems = $derived(
 	</section>
 
 	<!-- Quick Actions -->
-	<section>
+	<section data-tutorial="quick-actions">
 		<h2 class="text-lg font-bold text-gray-700 mb-3">クイックアクション</h2>
 		<div class="grid grid-cols-2 gap-3">
 			<a href="/admin/rewards" class="bg-white rounded-xl p-4 shadow-sm text-center hover:shadow-md transition-shadow">
