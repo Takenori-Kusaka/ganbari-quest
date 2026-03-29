@@ -1,6 +1,7 @@
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
+import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { isSetupRequired } from '$lib/server/services/setup-service';
 import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
@@ -105,6 +106,24 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const authResult = provider.authorize(path, identity, context);
 	if (!authResult.allowed) {
 		redirect(302, authResult.redirect);
+	}
+
+	// 同意バージョンチェック（cognito モードのみ）
+	if (
+		authMode === 'cognito' &&
+		identity &&
+		context?.tenantId &&
+		!path.startsWith('/consent') &&
+		!path.startsWith('/legal/') &&
+		!path.startsWith('/auth/') &&
+		!path.startsWith('/api/') &&
+		!path.startsWith('/_app/') &&
+		!path.startsWith('/favicon')
+	) {
+		const consent = await checkConsent(context.tenantId);
+		if (consent.needsReconsent) {
+			redirect(302, '/consent');
+		}
 	}
 
 	const response = await resolve(event);

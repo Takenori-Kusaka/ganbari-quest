@@ -9,7 +9,8 @@ let password = $state('');
 let passwordConfirm = $state('');
 let code = $state('');
 let loading = $state(false);
-let agreed = $state(false);
+let agreedTerms = $state(false);
+let agreedPrivacy = $state(false);
 
 let confirmStep = $derived(form?.confirmStep ?? false);
 
@@ -149,18 +150,33 @@ $effect(() => {
 					<label class="agreement-label">
 						<input
 							type="checkbox"
-							bind:checked={agreed}
+							name="agreedTerms"
+							bind:checked={agreedTerms}
 							class="agreement-checkbox"
 						/>
 						<span class="agreement-text">
-							<a href="https://takenori-kusaka.github.io/ganbari-quest/terms.html" target="_blank" rel="noopener">利用規約</a>および<a href="https://takenori-kusaka.github.io/ganbari-quest/privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>に同意します
+							<a href="/legal/terms" target="_blank" rel="noopener">利用規約</a>に同意します
 						</span>
 					</label>
+					<label class="agreement-label">
+						<input
+							type="checkbox"
+							name="agreedPrivacy"
+							bind:checked={agreedPrivacy}
+							class="agreement-checkbox"
+						/>
+						<span class="agreement-text">
+							<a href="/legal/privacy" target="_blank" rel="noopener">プライバシーポリシー</a>に同意します
+						</span>
+					</label>
+					<p class="agreement-note">
+						※ 本サービスは子供のデータを扱います。保護者として上記に同意してください。
+					</p>
 				</div>
 
 				<button
 					type="submit"
-					disabled={loading || !email || !password || !passwordConfirm || !agreed}
+					disabled={loading || !email || !password || !passwordConfirm || !agreedTerms || !agreedPrivacy}
 					class="signup-button"
 					aria-busy={loading}
 				>
@@ -307,6 +323,13 @@ $effect(() => {
 	.agreement-text a {
 		color: #667eea;
 		text-decoration: underline;
+	}
+
+	.agreement-note {
+		font-size: 0.75rem;
+		color: #94a3b8;
+		margin: 4px 0 0 24px;
+		line-height: 1.4;
 	}
 
 	.btn-spinner {
