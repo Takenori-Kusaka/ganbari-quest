@@ -167,7 +167,7 @@ describe('career-service', () => {
 			const active = await getActiveCareerPlan(childId, 'test-tenant');
 			expect(active).not.toBeNull();
 			expect(active?.careerFieldId).toBe(2);
-			expect(JSON.parse(active?.mandalaChart).center).toBe('プラン2');
+			expect(JSON.parse(active!.mandalaChart).center).toBe('プラン2');
 		});
 	});
 

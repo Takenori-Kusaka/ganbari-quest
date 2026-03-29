@@ -255,9 +255,9 @@ describe('連続日数の記録', () => {
 					childId: 1,
 					activityId: 1,
 					points: 5,
-					streakDays: expectedStreaks[i] ?? 0,
-					streakBonus: calcStreakBonus(expectedStreaks[i] ?? 0),
-					recordedDate: dates[i] ?? '',
+					streakDays: expectedStreaks[i]!,
+					streakBonus: calcStreakBonus(expectedStreaks[i]!),
+					recordedDate: dates[i]!,
 				})
 				.run();
 		}
@@ -412,8 +412,7 @@ describe('dailyLimit（DB層テスト）', () => {
 			.run();
 
 		const activities = db.select().from(schema.activities).all();
-		const act = activities.find((a) => a.name === 'はみがき2');
-		if (!act) throw new Error('Activity not found');
+		const act = activities.find((a) => a.name === 'はみがき2')!;
 
 		db.insert(schema.activityLogs)
 			.values({ childId: 1, activityId: act.id, points: 3, recordedDate: '2026-02-20' })

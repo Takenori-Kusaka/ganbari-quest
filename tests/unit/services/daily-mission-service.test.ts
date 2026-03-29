@@ -262,7 +262,7 @@ describe('checkMissionCompletion', () => {
 
 	it('ミッションに含まれる活動を記録すると達成になる', async () => {
 		const missions = await getTodayMissions(1, 'test-tenant');
-		const firstMissionActivityId = missions.missions[0]?.activityId;
+		const firstMissionActivityId = missions.missions[0]!.activityId;
 
 		const result = await checkMissionCompletion(1, firstMissionActivityId, 'test-tenant');
 		expect(result.missionCompleted).toBe(true);
@@ -287,10 +287,10 @@ describe('checkMissionCompletion', () => {
 
 	it('2つ達成で+5Pボーナス', async () => {
 		const missions = await getTodayMissions(1, 'test-tenant');
-		await checkMissionCompletion(1, missions.missions[0]?.activityId, 'test-tenant');
+		await checkMissionCompletion(1, missions.missions[0]!.activityId, 'test-tenant');
 		const result2 = await checkMissionCompletion(
 			1,
-			missions.missions[1]?.activityId,
+			missions.missions[1]!.activityId,
 			'test-tenant',
 		);
 		expect(result2.bonusAwarded).toBe(5);
@@ -299,11 +299,11 @@ describe('checkMissionCompletion', () => {
 
 	it('3つ達成で+20Pボーナス（差分で+15P追加付与）', async () => {
 		const missions = await getTodayMissions(1, 'test-tenant');
-		await checkMissionCompletion(1, missions.missions[0]?.activityId, 'test-tenant');
-		await checkMissionCompletion(1, missions.missions[1]?.activityId, 'test-tenant');
+		await checkMissionCompletion(1, missions.missions[0]!.activityId, 'test-tenant');
+		await checkMissionCompletion(1, missions.missions[1]!.activityId, 'test-tenant');
 		const result3 = await checkMissionCompletion(
 			1,
-			missions.missions[2]?.activityId,
+			missions.missions[2]!.activityId,
 			'test-tenant',
 		);
 		expect(result3.allComplete).toBe(true);
@@ -313,7 +313,7 @@ describe('checkMissionCompletion', () => {
 
 	it('同じ活動を2回達成しても二重計上されない', async () => {
 		const missions = await getTodayMissions(1, 'test-tenant');
-		const firstId = missions.missions[0]?.activityId;
+		const firstId = missions.missions[0]!.activityId;
 
 		const result1 = await checkMissionCompletion(1, firstId, 'test-tenant');
 		expect(result1.missionCompleted).toBe(true);
