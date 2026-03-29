@@ -27,7 +27,7 @@ async function loginAs(page: Page, email: string, password: string, expectedUrl:
 test.describe('ログインページ', () => {
 	test('ログインフォームが表示される', async ({ page }) => {
 		await gotoLogin(page);
-		await expect(page.getByRole('heading', { name: 'がんばりクエスト' })).toBeVisible();
+		await expect(page.getByAltText('がんばりクエスト')).toBeVisible();
 		await expect(page.getByLabel('メールアドレス')).toBeVisible();
 		await expect(page.getByLabel('パスワード')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'ログイン' })).toBeVisible();
