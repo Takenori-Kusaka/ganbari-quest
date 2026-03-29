@@ -7,6 +7,7 @@ import {
 } from '$lib/domain/point-display';
 
 let { data } = $props();
+const childLimit = $derived((data as Record<string, unknown>).childLimit as { allowed: boolean; current: number; max: number | null } | undefined);
 
 const ps = $derived(data.pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
@@ -98,14 +99,36 @@ function handleFileSelect(childId: number, event: Event) {
 </svelte:head>
 
 <div class="space-y-6">
+	{#if childLimit && !childLimit.allowed}
+		<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+			<span class="text-2xl">⚠️</span>
+			<div>
+				<p class="font-bold text-amber-800">こどもの登録上限に達しています</p>
+				<p class="text-sm text-amber-700 mt-1">
+					現在 {childLimit.current}人 / 最大 {childLimit.max}人。
+					プランをアップグレードすると、もっと登録できます。
+				</p>
+			</div>
+		</div>
+	{/if}
+
 	<div class="flex items-center justify-between">
 		<h2 class="text-lg font-bold text-gray-700">こども一覧</h2>
-		<button
-			class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors"
-			onclick={() => showAddForm = !showAddForm}
-		>
-			{showAddForm ? 'キャンセル' : '+ こどもを追加'}
-		</button>
+		{#if !childLimit || childLimit.allowed}
+			<button
+				class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors"
+				onclick={() => showAddForm = !showAddForm}
+			>
+				{showAddForm ? 'キャンセル' : '+ こどもを追加'}
+			</button>
+		{:else}
+			<button
+				class="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-bold cursor-not-allowed"
+				disabled
+			>
+				上限に達しています
+			</button>
+		{/if}
 	</div>
 
 	<!-- Add child form -->
