@@ -49,24 +49,22 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		redirect(302, `/${effectiveMode}/home`);
 	}
 
-	const balanceResult = await getPointBalance(childId, tenantId);
-	const balance = 'error' in balanceResult ? 0 : balanceResult.balance;
+	// 独立したDB呼び出しを並列実行（LCP改善）
+	const [balanceResult, statusResult, activeTitle, , avatarConfig, allChildren, pointSettingsRaw] =
+		await Promise.all([
+			getPointBalance(childId, tenantId),
+			getChildStatus(childId, tenantId),
+			getActiveTitle(childId, tenantId),
+			checkAndUnlockItems(childId, tenantId),
+			getAvatarConfig(childId, tenantId),
+			getAllChildren(tenantId),
+			getSettings(['point_unit_mode', 'point_currency', 'point_rate'], tenantId),
+		]);
 
-	const statusResult = await getChildStatus(childId, tenantId);
+	const balance = 'error' in balanceResult ? 0 : balanceResult.balance;
 	const level = 'error' in statusResult ? 1 : statusResult.level;
 	const levelTitle = 'error' in statusResult ? 'かけだし' : statusResult.levelTitle;
 
-	const activeTitle = await getActiveTitle(childId, tenantId);
-
-	// きせかえアバター: 無料・レベル条件アイテムの自動解放
-	await checkAndUnlockItems(childId, tenantId);
-	const avatarConfig = await getAvatarConfig(childId, tenantId);
-
-	// ポイント表示設定
-	const pointSettingsRaw = await getSettings(
-		['point_unit_mode', 'point_currency', 'point_rate'],
-		tenantId,
-	);
 	const pointSettings: PointSettings = {
 		mode: (pointSettingsRaw.point_unit_mode as PointUnitMode) ?? DEFAULT_POINT_SETTINGS.mode,
 		currency: (pointSettingsRaw.point_currency as CurrencyCode) ?? DEFAULT_POINT_SETTINGS.currency,
@@ -80,7 +78,7 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		levelTitle,
 		activeTitle,
 		avatarConfig,
-		allChildren: await getAllChildren(tenantId),
+		allChildren,
 		uiMode: effectiveMode,
 		pointSettings,
 	};
