@@ -419,7 +419,7 @@ describe('exportFamilyData', () => {
 
 	it('活動マスタがIDではなくカテゴリコードで参照される', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
-		const activity = result.master.activities[0]!;
+		const activity = result.master.activities[0];
 		expect(activity.categoryCode).toBe('undou');
 		expect(activity.name).toBe('はいはいした');
 		expect(activity).not.toHaveProperty('id');
@@ -428,100 +428,100 @@ describe('exportFamilyData', () => {
 
 	it('子供のactiveTitleがIDではなく名前で参照される', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
-		expect(result.family.children[0]!.activeTitle).toBe('うんどうマスター');
-		expect(result.family.children[1]!.activeTitle).toBeNull();
+		expect(result.family.children[0]?.activeTitle).toBe('うんどうマスター');
+		expect(result.family.children[1]?.activeTitle).toBeNull();
 	});
 
 	it('活動記録がchildRefで参照される', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		const logs = result.data.activityLogs;
 		expect(logs).toHaveLength(1);
-		expect(logs[0]!.childRef).toBe('child-1');
-		expect(logs[0]!.activityName).toBe('ひらがなれんしゅう');
-		expect(logs[0]!.activityCategory).toBe('benkyou');
-		expect(logs[0]!.recordedDate).toBe('2026-03-15');
+		expect(logs[0]?.childRef).toBe('child-1');
+		expect(logs[0]?.activityName).toBe('ひらがなれんしゅう');
+		expect(logs[0]?.activityCategory).toBe('benkyou');
+		expect(logs[0]?.recordedDate).toBe('2026-03-15');
 	});
 
 	it('ポイント台帳がエクスポートされる', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.pointLedger).toHaveLength(1);
-		expect(result.data.pointLedger[0]!.childRef).toBe('child-1');
-		expect(result.data.pointLedger[0]!.amount).toBe(10);
-		expect(result.data.pointLedger[0]!.type).toBe('earn');
+		expect(result.data.pointLedger[0]?.childRef).toBe('child-1');
+		expect(result.data.pointLedger[0]?.amount).toBe(10);
+		expect(result.data.pointLedger[0]?.type).toBe('earn');
 	});
 
 	it('ステータスがカテゴリコードで参照される', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.statuses).toHaveLength(1);
-		expect(result.data.statuses[0]!.categoryCode).toBe('benkyou');
-		expect(result.data.statuses[0]!.value).toBe(42.5);
+		expect(result.data.statuses[0]?.categoryCode).toBe('benkyou');
+		expect(result.data.statuses[0]?.value).toBe(42.5);
 	});
 
 	it('ステータス履歴がエクスポートされる', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.statusHistory).toHaveLength(1);
-		expect(result.data.statusHistory[0]!.categoryCode).toBe('benkyou');
-		expect(result.data.statusHistory[0]!.changeType).toBe('activity');
+		expect(result.data.statusHistory[0]?.categoryCode).toBe('benkyou');
+		expect(result.data.statusHistory[0]?.changeType).toBe('activity');
 	});
 
 	it('実績がコードで参照される', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.childAchievements).toHaveLength(1);
-		expect(result.data.childAchievements[0]!.achievementCode).toBe('first_step');
+		expect(result.data.childAchievements[0]?.achievementCode).toBe('first_step');
 	});
 
 	it('称号がコードで参照される', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.childTitles).toHaveLength(1);
-		expect(result.data.childTitles[0]!.titleCode).toBe('undou_master');
+		expect(result.data.childTitles[0]?.titleCode).toBe('undou_master');
 	});
 
 	it('ログインボーナスがエクスポートされる', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.loginBonuses).toHaveLength(1);
-		expect(result.data.loginBonuses[0]!.rank).toBe('gold');
-		expect(result.data.loginBonuses[0]!.consecutiveDays).toBe(7);
+		expect(result.data.loginBonuses[0]?.rank).toBe('gold');
+		expect(result.data.loginBonuses[0]?.consecutiveDays).toBe(7);
 	});
 
 	it('週次評価がエクスポートされる', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.evaluations).toHaveLength(1);
-		expect(result.data.evaluations[0]!.weekStart).toBe('2026-03-10');
+		expect(result.data.evaluations[0]?.weekStart).toBe('2026-03-10');
 	});
 
 	it('特別報酬がエクスポートされる', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.specialRewards).toHaveLength(1);
-		expect(result.data.specialRewards[0]!.title).toBe('よくがんばった！');
-		expect(result.data.specialRewards[0]!.points).toBe(50);
+		expect(result.data.specialRewards[0]?.title).toBe('よくがんばった！');
+		expect(result.data.specialRewards[0]?.points).toBe(50);
 	});
 
 	it('チェックリストテンプレートとアイテムがエクスポートされる', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.checklistTemplates).toHaveLength(1);
-		expect(result.data.checklistTemplates[0]!.name).toBe('あさのじゅんび');
-		expect(result.data.checklistTemplates[0]!.items).toHaveLength(1);
-		expect(result.data.checklistTemplates[0]!.items[0]!.name).toBe('はみがき');
+		expect(result.data.checklistTemplates[0]?.name).toBe('あさのじゅんび');
+		expect(result.data.checklistTemplates[0]?.items).toHaveLength(1);
+		expect(result.data.checklistTemplates[0]?.items[0]?.name).toBe('はみがき');
 	});
 
 	it('きせかえアイテム所持がコードで参照される', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.childAvatarItems).toHaveLength(1);
-		expect(result.data.childAvatarItems[0]!.itemCode).toBe('bg_sunset');
+		expect(result.data.childAvatarItems[0]?.itemCode).toBe('bg_sunset');
 	});
 
 	it('キャリアプランがエクスポートされる', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.careerPlans).toHaveLength(1);
-		expect(result.data.careerPlans[0]!.careerFieldName).toBe('先生');
-		expect(result.data.careerPlans[0]!.dreamText).toBe('先生になりたい');
+		expect(result.data.careerPlans[0]?.careerFieldName).toBe('先生');
+		expect(result.data.careerPlans[0]?.dreamText).toBe('先生になりたい');
 	});
 
 	it('誕生日振り返りがエクスポートされる', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.birthdayReviews).toHaveLength(1);
-		expect(result.data.birthdayReviews[0]!.reviewYear).toBe(2026);
-		expect(result.data.birthdayReviews[0]!.totalPoints).toBe(80);
+		expect(result.data.birthdayReviews[0]?.reviewYear).toBe(2026);
+		expect(result.data.birthdayReviews[0]?.totalPoints).toBe(80);
 	});
 
 	it('チェックサムが再現可能であること', async () => {
