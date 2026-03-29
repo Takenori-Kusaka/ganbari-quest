@@ -121,7 +121,6 @@ function isPublicRoute(path: string): boolean {
 		path === '/' ||
 		path.startsWith('/auth') ||
 		path.startsWith('/pricing') ||
-		path.startsWith('/switch') ||
 		path.startsWith('/setup') ||
 		path.startsWith('/_app') ||
 		path.startsWith('/favicon') ||

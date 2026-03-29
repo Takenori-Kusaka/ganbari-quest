@@ -38,8 +38,9 @@ describe('authorizeCognito', () => {
 			expect(authorizeCognito('/pricing', null, null)).toEqual({ allowed: true });
 		});
 
-		it('/switch は未認証でもアクセス可能', () => {
-			expect(authorizeCognito('/switch', null, null)).toEqual({ allowed: true });
+		it('/switch は未認証だとログインにリダイレクト', () => {
+			const result = authorizeCognito('/switch', null, null);
+			expect(result).toEqual({ allowed: false, redirect: '/auth/login', status: 401 });
 		});
 
 		it('認証済み owner が /auth/login にアクセス → /admin リダイレクト', () => {
