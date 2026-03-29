@@ -2,58 +2,17 @@
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
-import Progress from '$lib/ui/primitives/Progress.svelte';
 import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
 let detailOpen = $state(false);
 
-/** レベル別アイコン */
-const levelEmojis: Record<number, string> = {
-	1: '🌱',
-	2: '💪',
-	3: '⚡',
-	4: '🔥',
-	5: '⭐',
-	6: '🗡️',
-	7: '🏆',
-	8: '✨',
-	9: '👑',
-	10: '🌟',
-};
-
-/** レベル別はげましメッセージ */
-const levelMessages: Record<number, string> = {
-	1: 'まだまだこれから！どんどんつよくなろう！',
-	2: 'がんばってるね！このちょうしでいこう！',
-	3: 'わくわくしてきた！どんどんいこう！',
-	4: 'つよくなってきた！もっといけるよ！',
-	5: 'すごい！ヒーローになったよ！',
-	6: 'とてもすごい！ぼうけんのたつじんだ！',
-	7: 'チャンピオンだ！みんなのあこがれだよ！',
-	8: 'きせきをおこしているよ！すばらしい！',
-	9: 'せかいいちつよい！でんせつだ！',
-	10: 'かみさまレベル！これいじょうはない！',
-};
-
 const trendIcons: Record<string, string> = {
 	up: '📈',
 	down: '📉',
 	stable: '➡️',
 };
-
-const expBarValue = $derived(() => {
-	if (!data.status) return 0;
-	const level = data.status.level;
-	if (level >= 10) return 100;
-	const maxValue = data.status.maxValue;
-	const totalExp = Object.values(data.status.statuses).reduce((sum, s) => sum + s.value, 0);
-	const avgStatus = totalExp / CATEGORY_DEFS.length;
-	const normalizedAvg = maxValue > 0 ? (avgStatus / maxValue) * 100 : 0;
-	const levelMinAvg = (level - 1) * 10;
-	return Math.min(100, Math.max(0, ((normalizedAvg - levelMinAvg) / 10) * 100));
-});
 
 const radarCategories = $derived(
 	data.status
@@ -79,32 +38,45 @@ const radarCategories = $derived(
 
 <div class="status-page">
 	{#if data.status}
-		<!-- Level + title -->
+		<!-- Category levels -->
 		<div class="status-level">
-			<div class="status-level__center">
-				<span class="status-level__emoji">
-					{levelEmojis[data.status.level] ?? '⭐'}
-				</span>
-				<p class="status-level__num">Lv.{data.status.level}</p>
-				<p class="status-level__title">
-					{data.status.levelTitle}
-				</p>
-				<p class="status-level__message">
-					{levelMessages[data.status.level] ?? ''}
-				</p>
+			<div class="status-level__center" style="flex-direction: row; gap: 8px; margin-bottom: 12px;">
+				<span style="font-size: 2rem;">{data.status.characterType === 'hero' ? '🦸' : data.status.characterType === 'normal' ? '😊' : '🌱'}</span>
+				<div>
+					<p class="status-level__title">
+						{data.status.characterType === 'hero' ? 'ヒーロータイプ' : data.status.characterType === 'normal' ? 'バランスタイプ' : 'がんばりタイプ'}
+					</p>
+					{#if data.activeTitle}
+						<p style="font-size: 0.75rem; font-weight: 700; color: var(--color-point);">
+							{data.activeTitle.icon} {data.activeTitle.name}
+						</p>
+					{/if}
+				</div>
 			</div>
-			<div style="margin-bottom: 4px;">
-				<Progress value={expBarValue()} max={100} color="var(--color-point)" size="md" />
+			<div style="display: flex; flex-direction: column; gap: 8px;">
+				{#each CATEGORY_DEFS as catDef (catDef.id)}
+					{@const stat = data.status.statuses[catDef.id]}
+					{#if stat}
+						{@const pct = stat.level >= 10 ? 100 : Math.min(100, Math.max(0, ((stat.value / data.status.maxValue * 100) - (stat.level - 1) * 10) / 10 * 100))}
+						<div style="display: flex; align-items: center; gap: 4px;">
+							<span style="font-size: 1.125rem; width: 1.75rem; text-align: center;">{catDef.icon}</span>
+							<div style="flex: 1; min-width: 0;">
+								<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
+									<span style="font-size: 0.75rem; font-weight: 700; color: var(--color-text);">{catDef.name} Lv.{stat.level}</span>
+									{#if stat.level < 10}
+										<span style="font-size: 10px; color: var(--color-text-muted);">あと {Math.round(stat.expToNextLevel)}</span>
+									{:else}
+										<span style="font-size: 10px; font-weight: 700; color: var(--color-point);">MAX</span>
+									{/if}
+								</div>
+								<div style="height: 0.5rem; background: #f3f4f6; border-radius: 9999px; overflow: hidden;">
+									<div style="height: 100%; border-radius: 9999px; transition: all; width: {pct}%; background: var(--theme-accent);"></div>
+								</div>
+							</div>
+						</div>
+					{/if}
+				{/each}
 			</div>
-			{#if data.status.level < 10}
-				<p class="status-level__next">
-					つぎのレベルまで あと {data.status.expToNextLevel}
-				</p>
-			{:else}
-				<p class="status-level__max">
-					さいこうレベル！
-				</p>
-			{/if}
 		</div>
 
 		<!-- Radar chart -->
@@ -174,12 +146,7 @@ const radarCategories = $derived(
 		margin-bottom: 16px;
 	}
 
-	.status-level__emoji { font-size: 3rem; }
-	.status-level__num { font-size: 1.5rem; font-weight: 700; }
 	.status-level__title { font-size: 0.875rem; font-weight: 700; color: var(--theme-accent); }
-	.status-level__message { font-size: 0.75rem; color: var(--color-text-muted); text-align: center; }
-	.status-level__next { font-size: 0.75rem; color: var(--color-text-muted); text-align: right; }
-	.status-level__max { font-size: 0.75rem; color: var(--color-point); text-align: right; font-weight: 700; }
 
 	.status-radar {
 		background: white;
