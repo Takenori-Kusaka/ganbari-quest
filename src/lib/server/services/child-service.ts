@@ -7,7 +7,8 @@ import {
 	updateChild,
 } from '$lib/server/db/child-repo';
 import { logger } from '$lib/server/logger';
-import { deleteFile, listFiles } from '$lib/server/storage';
+import { deleteByPrefix, deleteFile, listFiles } from '$lib/server/storage';
+import { childPrefix } from '$lib/server/storage-keys';
 
 export async function getAllChildren(tenantId: string) {
 	return await findAllChildren(tenantId);
@@ -51,39 +52,41 @@ export async function editChild(
 
 export async function removeChild(id: number, tenantId: string) {
 	// 物理ファイル削除（アバター画像・AI生成画像）
-	await deleteChildFiles(id);
+	await deleteChildFiles(id, tenantId);
 
 	return await deleteChild(id, tenantId);
 }
 
 /** 子供に紐づく物理ファイルを削除 */
-async function deleteChildFiles(childId: number): Promise<void> {
+async function deleteChildFiles(childId: number, tenantId: string): Promise<void> {
 	try {
-		// アバター画像: uploads/avatars/avatar-{childId}-*
-		const avatarFiles = await listFiles(`uploads/avatars/avatar-${childId}-`);
-		for (const file of avatarFiles) {
+		let totalDeleted = 0;
+
+		// 新パス: tenants/{tenantId}/avatars/{childId}/ 配下を一括削除
+		totalDeleted += await deleteByPrefix(childPrefix(tenantId, childId, 'avatars'));
+		totalDeleted += await deleteByPrefix(childPrefix(tenantId, childId, 'generated'));
+		totalDeleted += await deleteByPrefix(childPrefix(tenantId, childId, 'voices'));
+
+		// レガシーパス: 旧形式のファイルも削除（移行前データ対応）
+		const legacyAvatars = await listFiles(`uploads/avatars/avatar-${childId}-`);
+		for (const file of legacyAvatars) {
 			await deleteFile(file);
 		}
-
-		// AI生成画像: generated/avatar-{childId}-*
-		const generatedFiles = await listFiles(`generated/avatar-${childId}-`);
-		for (const file of generatedFiles) {
+		const legacyGenerated = await listFiles(`generated/avatar-${childId}-`);
+		for (const file of legacyGenerated) {
 			await deleteFile(file);
 		}
+		totalDeleted += legacyAvatars.length + legacyGenerated.length;
 
-		if (avatarFiles.length > 0 || generatedFiles.length > 0) {
+		if (totalDeleted > 0) {
 			logger.info('[child-service] 子供の画像ファイルを削除しました', {
-				context: {
-					childId,
-					avatarFiles: avatarFiles.length,
-					generatedFiles: generatedFiles.length,
-				},
+				context: { childId, tenantId, totalDeleted },
 			});
 		}
 	} catch (err) {
 		logger.error('[child-service] 子供の画像ファイル削除に失敗', {
 			error: err instanceof Error ? err.message : String(err),
-			context: { childId },
+			context: { childId, tenantId },
 		});
 	}
 }

@@ -46,6 +46,9 @@ static/generated/
 # User uploads (avatars etc.)
 static/uploads/
 
+# Tenant-scoped files
+static/tenants/
+
 # CDK
 infra/cdk.out/
 

@@ -12,4 +12,6 @@ export interface IStorageRepo {
 	fileExists(key: string): Promise<boolean>;
 	deleteFile(key: string): Promise<void>;
 	listFiles(prefix: string): Promise<string[]>;
+	/** プレフィックスに一致する全ファイルを一括削除し、削除件数を返す */
+	deleteByPrefix(prefix: string): Promise<number>;
 }

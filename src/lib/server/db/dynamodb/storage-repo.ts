@@ -88,3 +88,36 @@ export const listFiles: IStorageRepo['listFiles'] = async (prefix) => {
 	);
 	return (result.Contents ?? []).map((obj) => obj.Key as string).filter(Boolean);
 };
+
+export const deleteByPrefix: IStorageRepo['deleteByPrefix'] = async (prefix) => {
+	const { DeleteObjectsCommand, ListObjectsV2Command } = await import('@aws-sdk/client-s3');
+	const client = await getS3Client();
+	let totalDeleted = 0;
+	let continuationToken: string | undefined;
+
+	do {
+		const listResult = await client.send(
+			new ListObjectsV2Command({
+				Bucket: ASSETS_BUCKET,
+				Prefix: prefix,
+				ContinuationToken: continuationToken,
+			}),
+		);
+
+		const keys = (listResult.Contents ?? []).map((obj) => obj.Key).filter((k): k is string => !!k);
+
+		if (keys.length > 0) {
+			await client.send(
+				new DeleteObjectsCommand({
+					Bucket: ASSETS_BUCKET,
+					Delete: { Objects: keys.map((Key) => ({ Key })) },
+				}),
+			);
+			totalDeleted += keys.length;
+		}
+
+		continuationToken = listResult.IsTruncated ? listResult.NextContinuationToken : undefined;
+	} while (continuationToken);
+
+	return totalDeleted;
+};

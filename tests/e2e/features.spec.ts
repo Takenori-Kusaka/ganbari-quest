@@ -412,7 +412,7 @@ test.describe('#0122: アバターアップロード', () => {
 		expect(res.status()).toBe(200);
 		const body = await res.json();
 		expect(body.avatarUrl).toBeDefined();
-		expect(body.avatarUrl).toMatch(/\/uploads\/avatars\/avatar-1-\d+\.jpg/);
+		expect(body.avatarUrl).toMatch(/\/tenants\/local\/avatars\/1\/[0-9a-f-]+\.jpg/);
 	});
 
 	test('アップロードしたアバター画像を取得できる', async ({ request }) => {
@@ -465,6 +465,79 @@ test.describe('#0122: アバターアップロード', () => {
 				},
 			},
 		});
+		expect(res.status()).toBe(404);
+	});
+
+	test('アバターURLがテナントプレフィックスパスを含む', async ({ request }) => {
+		const jpegData = createMinimalJpeg();
+		const res = await request.post('/api/v1/children/1/avatar', {
+			multipart: {
+				avatar: {
+					name: 'tenant-test.jpg',
+					mimeType: 'image/jpeg',
+					buffer: jpegData,
+				},
+			},
+		});
+		expect(res.status()).toBe(200);
+		const body = await res.json();
+		// tenants/{tenantId}/avatars/{childId}/{uuid}.{ext} 形式
+		expect(body.avatarUrl).toContain('/tenants/');
+		expect(body.avatarUrl).toContain('/avatars/1/');
+		expect(body.avatarUrl).toMatch(/\.[a-z]+$/);
+	});
+
+	test('PNG形式のアバターもテナントパスで保存される', async ({ request }) => {
+		// Minimal valid PNG (1x1 white pixel)
+		const pngData = Buffer.from([
+			0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
+			0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90,
+			0x77, 0x53, 0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8,
+			0xcf, 0xc0, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, 0x33, 0x00, 0x00, 0x00,
+			0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+		]);
+		const res = await request.post('/api/v1/children/1/avatar', {
+			multipart: {
+				avatar: {
+					name: 'test.png',
+					mimeType: 'image/png',
+					buffer: pngData,
+				},
+			},
+		});
+		expect(res.status()).toBe(200);
+		const body = await res.json();
+		expect(body.avatarUrl).toMatch(/\/tenants\/local\/avatars\/1\/[0-9a-f-]+\.png/);
+	});
+
+	test('アバター更新時に新しいURLが返る（UUID異なる）', async ({ request }) => {
+		const jpegData = createMinimalJpeg();
+
+		// 1回目アップロード
+		const res1 = await request.post('/api/v1/children/1/avatar', {
+			multipart: {
+				avatar: { name: 'first.jpg', mimeType: 'image/jpeg', buffer: jpegData },
+			},
+		});
+		const url1 = (await res1.json()).avatarUrl;
+
+		// 2回目アップロード
+		const res2 = await request.post('/api/v1/children/1/avatar', {
+			multipart: {
+				avatar: { name: 'second.jpg', mimeType: 'image/jpeg', buffer: jpegData },
+			},
+		});
+		const url2 = (await res2.json()).avatarUrl;
+
+		// UUID が異なるため別のURLになる
+		expect(url1).not.toBe(url2);
+		// 両方ともテナントパス形式
+		expect(url1).toContain('/tenants/');
+		expect(url2).toContain('/tenants/');
+	});
+
+	test('テナントファイル配信ルートで存在しないファイルは404', async ({ request }) => {
+		const res = await request.get('/tenants/nonexistent/avatars/1/missing.jpg');
 		expect(res.status()).toBe(404);
 	});
 });
