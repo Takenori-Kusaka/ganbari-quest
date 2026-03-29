@@ -461,6 +461,7 @@ function handleBirthdayResultClose() {
 					</div>
 				{/if}
 				<ActivityCard
+					activityId={activity.id}
 					icon={activity.icon}
 					name={activity.displayName}
 					categoryId={activity.categoryId}
@@ -516,7 +517,7 @@ function handleBirthdayResultClose() {
 </Dialog>
 
 <!-- Confirm dialog -->
-<Dialog bind:open={confirmOpen} closable={false} title="">
+<Dialog bind:open={confirmOpen} closable={false} title="" testid="confirm-dialog">
 	{#if selectedActivity}
 		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center">
 			<CompoundIcon icon={selectedActivity.icon} size="xl" />
@@ -524,6 +525,7 @@ function handleBirthdayResultClose() {
 			<div class="flex gap-[var(--sp-sm)] w-full">
 				<button
 					class="tap-target flex-1 py-4 rounded-[var(--radius-md)] bg-gray-200 font-bold text-lg"
+					data-testid="confirm-cancel-btn"
 					disabled={submitting}
 					onclick={handleConfirmClose}
 				>
@@ -592,6 +594,7 @@ function handleBirthdayResultClose() {
 					<button
 						type="submit"
 						disabled={submitting}
+						data-testid="confirm-record-btn"
 						class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg"
 						class:activity-btn--pending={submitting}
 					>

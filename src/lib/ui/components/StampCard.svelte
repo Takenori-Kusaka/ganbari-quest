@@ -55,7 +55,7 @@ function formatDateShort(dateStr: string): string {
 }
 </script>
 
-<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm">
+<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm" data-testid="stamp-card">
 	<div class="flex items-center justify-between mb-[var(--sp-sm)]">
 		<h3 class="text-sm font-bold text-[var(--color-text)]">
 			🎴 しゅうかんスタンプ
@@ -135,6 +135,7 @@ function formatDateShort(dateStr: string): string {
 				type="submit"
 				class="w-full py-2 rounded-[var(--radius-md)] text-sm font-bold text-white"
 				style="background: linear-gradient(135deg, var(--theme-accent), var(--theme-sub));"
+				data-testid="stamp-today-btn"
 				disabled={stamping}
 			>
 				{stamping ? 'おしています...' : '🎴 きょうのスタンプをおす！'}
@@ -162,6 +163,7 @@ function formatDateShort(dateStr: string): string {
 				type="submit"
 				class="w-full py-2 rounded-[var(--radius-md)] text-sm font-bold border-2"
 				style="border-color: var(--theme-accent); color: var(--theme-accent);"
+				data-testid="stamp-redeem-btn"
 			>
 				🎁 ポイントにこうかん（{filledSlots}/{totalSlots}）
 			</button>
