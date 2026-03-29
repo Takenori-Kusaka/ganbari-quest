@@ -29,8 +29,7 @@ $effect(() => {
 <div class="signup-page">
 	<div class="signup-card">
 		<div class="signup-header">
-			<Logo variant="symbol" size={64} />
-			<h1 class="signup-title">がんばりクエスト</h1>
+			<Logo variant="full" size={240} />
 			<p class="signup-subtitle">{confirmStep ? 'メール認証' : 'アカウント登録'}</p>
 		</div>
 
