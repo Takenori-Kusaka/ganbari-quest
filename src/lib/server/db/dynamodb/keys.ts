@@ -408,6 +408,23 @@ export function activityPrefPrefix(): string {
 	return 'ACTPREF#';
 }
 
+/** Activity mastery: PK=CHILD#<cId>, SK=MAST#<actId> */
+export function activityMasteryKey(
+	childId: number,
+	activityId: number,
+	tenantId: string,
+): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `MAST#${padId(activityId)}`,
+	};
+}
+
+/** Activity mastery SK prefix for querying all mastery records of a child */
+export function activityMasteryPrefix(): string {
+	return 'MAST#';
+}
+
 /** Birthday review: PK=CHILD#<cId>, SK=BDAY#<year> */
 export function birthdayReviewKey(
 	childId: number,
@@ -593,6 +610,7 @@ export const ENTITY_NAMES = {
 	childAvatarItem: 'childAvatarItem',
 	marketBenchmark: 'marketBenchmark',
 	activityPref: 'activityPref',
+	activityMastery: 'activityMastery',
 	inquiry: 'inquiry',
 } as const;
 
