@@ -648,6 +648,60 @@ export const stampEntries = sqliteTable(
 );
 
 // ============================================================
+// skill_nodes - パッシブスキルノードマスタ
+// ============================================================
+export const skillNodes = sqliteTable('skill_nodes', {
+	id: integer('id').primaryKey(),
+	categoryId: integer('category_id').references(() => categories.id),
+	name: text('name').notNull(),
+	description: text('description'),
+	icon: text('icon').notNull(),
+	sortOrder: integer('sort_order').notNull().default(0),
+	spCost: integer('sp_cost').notNull().default(1),
+	requiredNodeId: integer('required_node_id'),
+	requiredCategoryLevel: integer('required_category_level').notNull().default(0),
+	effectType: text('effect_type').notNull(),
+	effectValue: real('effect_value').notNull(),
+	targetModes: text('target_modes').notNull().default('["lower","upper","teen"]'),
+});
+
+// ============================================================
+// child_skill_nodes - 子供別スキルノード解放状態
+// ============================================================
+export const childSkillNodes = sqliteTable(
+	'child_skill_nodes',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		nodeId: integer('node_id')
+			.notNull()
+			.references(() => skillNodes.id),
+		unlockedAt: text('unlocked_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [uniqueIndex('idx_child_skill_nodes_unique').on(table.childId, table.nodeId)],
+);
+
+// ============================================================
+// skill_points - スキルポイント残高
+// ============================================================
+export const skillPoints = sqliteTable(
+	'skill_points',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		balance: integer('balance').notNull().default(0),
+		totalEarned: integer('total_earned').notNull().default(0),
+		totalSpent: integer('total_spent').notNull().default(0),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [uniqueIndex('idx_skill_points_child').on(table.childId)],
+);
+
+// ============================================================
 // activity_mastery - 活動別習熟度
 // ============================================================
 export const activityMastery = sqliteTable(

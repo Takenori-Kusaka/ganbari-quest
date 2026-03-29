@@ -149,6 +149,7 @@ export const actions: Actions = {
 			masteryBonus: result.masteryBonus,
 			masteryLevel: result.masteryLevel,
 			masteryLeveledUp: result.masteryLeveledUp,
+			skillPointBonus: result.skillPointBonus,
 			xpGain: result.xpGain,
 		};
 	},

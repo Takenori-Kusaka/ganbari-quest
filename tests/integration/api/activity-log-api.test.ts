@@ -133,6 +133,36 @@ const SQL_TABLES = `
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE UNIQUE INDEX idx_activity_mastery_child_activity ON activity_mastery(child_id, activity_id);
+	CREATE TABLE skill_nodes (
+		id INTEGER PRIMARY KEY,
+		category_id INTEGER REFERENCES categories(id),
+		name TEXT NOT NULL,
+		description TEXT,
+		icon TEXT NOT NULL,
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		sp_cost INTEGER NOT NULL DEFAULT 1,
+		required_node_id INTEGER,
+		required_category_level INTEGER NOT NULL DEFAULT 0,
+		effect_type TEXT NOT NULL,
+		effect_value REAL NOT NULL,
+		target_modes TEXT NOT NULL DEFAULT '["lower","upper","teen"]'
+	);
+	CREATE TABLE child_skill_nodes (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		node_id INTEGER NOT NULL REFERENCES skill_nodes(id),
+		unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_child_skill_nodes_unique ON child_skill_nodes(child_id, node_id);
+	CREATE TABLE skill_points (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		balance INTEGER NOT NULL DEFAULT 0,
+		total_earned INTEGER NOT NULL DEFAULT 0,
+		total_spent INTEGER NOT NULL DEFAULT 0,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_skill_points_child ON skill_points(child_id);
 `;
 
 vi.mock('$lib/server/db', () => ({
@@ -165,6 +195,8 @@ afterAll(() => {
 });
 
 function resetDb() {
+	sqlite.exec('DELETE FROM child_skill_nodes');
+	sqlite.exec('DELETE FROM skill_points');
 	sqlite.exec('DELETE FROM activity_mastery');
 	sqlite.exec('DELETE FROM status_history');
 	sqlite.exec('DELETE FROM statuses');

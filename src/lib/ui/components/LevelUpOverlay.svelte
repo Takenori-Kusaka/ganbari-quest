@@ -9,6 +9,7 @@ interface LevelUpData {
 	newTitle: string;
 	categoryId?: number;
 	categoryName?: string;
+	spGranted?: number;
 }
 
 interface Props {
@@ -102,6 +103,9 @@ function handleClose() {
 			{#if showTitle}
 				<p class="levelup-title animate-bounce-in">{levelUp.newTitle}</p>
 				<p class="levelup-message">{LEVEL_MESSAGES[levelUp.newLevel] ?? 'すごい！がんばったね！'}</p>
+				{#if levelUp.spGranted && levelUp.spGranted > 0}
+					<p class="levelup-sp animate-bounce-in">+{levelUp.spGranted} SP ゲット！</p>
+				{/if}
 			{/if}
 
 			<button
@@ -228,6 +232,16 @@ function handleClose() {
 	@keyframes fade-in {
 		from { opacity: 0; transform: translateY(10px); }
 		to { opacity: 1; transform: translateY(0); }
+	}
+
+	.levelup-sp {
+		font-size: 1.125rem;
+		font-weight: 800;
+		color: #8b5cf6;
+		background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+		padding: 0.5rem 1rem;
+		border-radius: var(--radius-md);
+		animation: fade-in 0.5s ease-out 1.6s both;
 	}
 
 	.levelup-btn {
