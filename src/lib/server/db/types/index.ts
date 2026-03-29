@@ -583,3 +583,16 @@ export interface ActivityUsageCount {
 	activityId: number;
 	usageCount: number;
 }
+
+// ============================================================
+// Activity Mastery (活動別習熟度)
+// ============================================================
+
+export interface ActivityMastery {
+	id: number;
+	childId: number;
+	activityId: number;
+	totalCount: number;
+	level: number;
+	updatedAt: string;
+}

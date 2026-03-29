@@ -20,6 +20,7 @@ import {
 	redeemStampCard,
 	stampToday,
 } from '$lib/server/services/stamp-card-service';
+import { getCategoryXpSummary } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -36,6 +37,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			healthCheckItems: [],
 			dailyMissions: null,
 			stampCard: null,
+			categoryXp: null,
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -47,6 +49,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		birthdayRaw,
 		dailyMissions,
 		stampCard,
+		categoryXp,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -55,6 +58,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		checkBirthdayStatus(child.id, tenantId),
 		getTodayMissions(child.id, tenantId),
 		getStampCardStatus(child.id, tenantId),
+		getCategoryXpSummary(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -83,6 +87,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		healthCheckItems: HEALTH_CHECK_ITEMS.map((h) => ({ key: h.key, label: h.label, icon: h.icon })),
 		dailyMissions,
 		stampCard,
+		categoryXp,
 	};
 };
 
@@ -121,6 +126,10 @@ export const actions: Actions = {
 			comboBonus: result.comboBonus,
 			missionComplete: result.missionComplete,
 			levelUp: result.levelUp,
+			masteryBonus: result.masteryBonus,
+			masteryLevel: result.masteryLevel,
+			masteryLeveledUp: result.masteryLeveledUp,
+			xpGain: result.xpGain,
 		};
 	},
 

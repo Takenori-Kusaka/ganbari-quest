@@ -140,3 +140,74 @@ export { todayDateJST as todayDate } from '$lib/domain/date-utils';
 
 /** Cancel window in milliseconds (5 seconds) */
 export const CANCEL_WINDOW_MS = 5000;
+
+// ============================================================
+// 活動習熟レベル (Activity Mastery)
+// ============================================================
+
+/** 累積回数 → レベル対応テーブル（対数的成長） */
+export const MASTERY_LEVEL_TABLE: ReadonlyArray<{ minCount: number; level: number }> = [
+	{ minCount: 0, level: 1 },
+	{ minCount: 5, level: 2 },
+	{ minCount: 10, level: 3 },
+	{ minCount: 20, level: 4 },
+	{ minCount: 30, level: 5 },
+	{ minCount: 50, level: 6 },
+	{ minCount: 70, level: 7 },
+	{ minCount: 100, level: 8 },
+	{ minCount: 130, level: 9 },
+	{ minCount: 170, level: 10 },
+	{ minCount: 220, level: 11 },
+	{ minCount: 280, level: 12 },
+	{ minCount: 350, level: 13 },
+	{ minCount: 430, level: 14 },
+	{ minCount: 520, level: 15 },
+	{ minCount: 620, level: 16 },
+	{ minCount: 730, level: 17 },
+	{ minCount: 850, level: 18 },
+	{ minCount: 980, level: 19 },
+	{ minCount: 1120, level: 20 },
+	{ minCount: 1280, level: 21 },
+	{ minCount: 1450, level: 22 },
+	{ minCount: 1640, level: 23 },
+	{ minCount: 1850, level: 24 },
+	{ minCount: 2080, level: 25 },
+	{ minCount: 2330, level: 26 },
+	{ minCount: 2600, level: 27 },
+	{ minCount: 2900, level: 28 },
+	{ minCount: 3220, level: 29 },
+	{ minCount: 3570, level: 30 },
+	{ minCount: 3950, level: 31 },
+	{ minCount: 4360, level: 32 },
+	{ minCount: 4800, level: 33 },
+	{ minCount: 5270, level: 34 },
+	{ minCount: 5770, level: 35 },
+	{ minCount: 6300, level: 36 },
+	{ minCount: 6860, level: 37 },
+	{ minCount: 7450, level: 38 },
+	{ minCount: 8070, level: 39 },
+	{ minCount: 8720, level: 40 },
+	{ minCount: 9999, level: 99 },
+];
+
+/** 累積回数からレベルを算出 */
+export function calcMasteryLevel(totalCount: number): number {
+	const entry = [...MASTERY_LEVEL_TABLE].reverse().find((e) => totalCount >= e.minCount);
+	return Math.min(entry?.level ?? 1, 99);
+}
+
+/** 次のレベルまでの必要回数（残り） */
+export function countToNextMasteryLevel(totalCount: number): number {
+	const currentLevel = calcMasteryLevel(totalCount);
+	const nextEntry = MASTERY_LEVEL_TABLE.find((e) => e.level === currentLevel + 1);
+	if (!nextEntry) return 0; // Lv99 (cap)
+	return nextEntry.minCount - totalCount;
+}
+
+/** レベルに応じたポイントボーナス: floor(level / 5) */
+export function calcMasteryBonus(level: number): number {
+	return Math.floor(level / 5);
+}
+
+/** 節目レベル（派手な演出対象） */
+export const MASTERY_MILESTONE_LEVELS = new Set([5, 10, 20, 30, 50, 99]);
