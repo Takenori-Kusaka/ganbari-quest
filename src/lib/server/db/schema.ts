@@ -585,3 +585,64 @@ export const childActivityPreferences = sqliteTable(
 		index('idx_child_activity_prefs_pinned').on(table.childId, table.isPinned),
 	],
 );
+
+// ============================================================
+// stamp_masters - スタンプマスタ
+// ============================================================
+export const stampMasters = sqliteTable('stamp_masters', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	name: text('name').notNull(),
+	emoji: text('emoji').notNull(),
+	rarity: text('rarity').notNull(), // 'N' | 'R' | 'SR' | 'UR'
+	isDefault: integer('is_default').notNull().default(1),
+	isEnabled: integer('is_enabled').notNull().default(1),
+	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================
+// stamp_cards - スタンプカード（週単位、子供ごと）
+// ============================================================
+export const stampCards = sqliteTable(
+	'stamp_cards',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id, { onDelete: 'cascade' }),
+		weekStart: text('week_start').notNull(),
+		weekEnd: text('week_end').notNull(),
+		status: text('status').notNull().default('collecting'), // 'collecting' | 'redeemable' | 'redeemed'
+		redeemedPoints: integer('redeemed_points'),
+		redeemedAt: text('redeemed_at'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_stamp_cards_child_week').on(table.childId, table.weekStart),
+		index('idx_stamp_cards_child').on(table.childId),
+	],
+);
+
+// ============================================================
+// stamp_entries - スタンプ押印記録
+// ============================================================
+export const stampEntries = sqliteTable(
+	'stamp_entries',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		cardId: integer('card_id')
+			.notNull()
+			.references(() => stampCards.id, { onDelete: 'cascade' }),
+		stampMasterId: integer('stamp_master_id')
+			.notNull()
+			.references(() => stampMasters.id),
+		slot: integer('slot').notNull(),
+		loginDate: text('login_date').notNull(),
+		earnedAt: text('earned_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_stamp_entries_card_slot').on(table.cardId, table.slot),
+		uniqueIndex('idx_stamp_entries_card_date').on(table.cardId, table.loginDate),
+	],
+);
