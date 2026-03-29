@@ -21,6 +21,7 @@ export interface AuthContext {
 	role: Role;
 	childId?: number;
 	licenseStatus: 'active' | 'suspended' | 'expired' | 'none';
+	tenantStatus?: 'active' | 'suspended' | 'grace_period' | 'terminated';
 }
 
 /** authorize() の戻り値 */

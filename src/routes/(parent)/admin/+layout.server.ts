@@ -19,5 +19,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 		rate: Number.parseFloat(pointSettingsRaw.point_rate ?? '') || DEFAULT_POINT_SETTINGS.rate,
 	};
 
-	return { pointSettings, authMode };
+	const tenantStatus = locals.context?.tenantStatus ?? 'active';
+
+	return { pointSettings, authMode, tenantStatus };
 };

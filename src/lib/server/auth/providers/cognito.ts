@@ -109,10 +109,14 @@ export class CognitoAuthProvider implements AuthProvider {
 			const membership = memberships[0];
 			if (!membership) return null;
 
+			// テナントステータスを取得
+			const tenant = await repos.auth.findTenantById(membership.tenantId);
+
 			const context: AuthContext = {
 				tenantId: membership.tenantId,
 				role: membership.role,
 				licenseStatus: 'active',
+				tenantStatus: tenant?.status ?? 'active',
 			};
 
 			// child ロールの場合、userId から childId を解決 (#0156)
