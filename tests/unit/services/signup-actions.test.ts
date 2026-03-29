@@ -73,9 +73,29 @@ const mockLocals = { authenticated: false, identity: null, context: null };
 // signup action
 // ============================================================
 describe('signup action', () => {
+	it('規約未同意で 400 エラーを返す', async () => {
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const request = createRequest({
+			email: 'test@example.com',
+			password: 'Password1',
+			passwordConfirm: 'Password1',
+		});
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
+		const result = await (actions.signup as any)({ request, locals: mockLocals });
+
+		expect(result.status).toBe(400);
+		expect(result.data.error).toContain('同意が必要');
+	});
+
 	it('空のフィールドで 400 エラーを返す', async () => {
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
-		const request = createRequest({ email: '', password: '', passwordConfirm: '' });
+		const request = createRequest({
+			email: '',
+			password: '',
+			passwordConfirm: '',
+			agreedTerms: 'on',
+			agreedPrivacy: 'on',
+		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
 
@@ -89,6 +109,8 @@ describe('signup action', () => {
 			email: 'test@example.com',
 			password: 'Password1',
 			passwordConfirm: 'Different1',
+			agreedTerms: 'on',
+			agreedPrivacy: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -103,6 +125,8 @@ describe('signup action', () => {
 			email: 'test@example.com',
 			password: 'Short1',
 			passwordConfirm: 'Short1',
+			agreedTerms: 'on',
+			agreedPrivacy: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -119,6 +143,8 @@ describe('signup action', () => {
 			email: 'test@example.com',
 			password: 'Password1',
 			passwordConfirm: 'Password1',
+			agreedTerms: 'on',
+			agreedPrivacy: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -140,6 +166,8 @@ describe('signup action', () => {
 			email: 'existing@example.com',
 			password: 'Password1',
 			passwordConfirm: 'Password1',
+			agreedTerms: 'on',
+			agreedPrivacy: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });

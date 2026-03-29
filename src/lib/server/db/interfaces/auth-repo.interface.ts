@@ -3,12 +3,14 @@
 
 import type {
 	AuthUser,
+	ConsentRecord,
 	CreateInviteInput,
 	CreateMembershipInput,
 	CreateTenantInput,
 	CreateUserInput,
 	Invite,
 	Membership,
+	RecordConsentInput,
 	Tenant,
 } from '$lib/server/auth/entities';
 
@@ -51,4 +53,12 @@ export interface IAuthRepo {
 		acceptedBy?: string,
 	): Promise<void>;
 	findTenantInvites(tenantId: string): Promise<Invite[]>;
+
+	// --- Consent (#0192) ---
+	recordConsent(input: RecordConsentInput): Promise<ConsentRecord>;
+	findLatestConsent(
+		tenantId: string,
+		type: ConsentRecord['type'],
+	): Promise<ConsentRecord | undefined>;
+	findAllConsents(tenantId: string): Promise<ConsentRecord[]>;
 }
