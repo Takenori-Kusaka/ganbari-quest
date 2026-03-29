@@ -9,6 +9,7 @@ import {
 	getAllChildren,
 	removeChild,
 } from '$lib/server/services/child-service';
+import { checkChildLimit } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
@@ -88,7 +89,11 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		}
 	}
 
-	return { children: childrenSummary, selectedChild };
+	// プラン制限情報
+	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const childLimit = await checkChildLimit(tenantId, licenseStatus);
+
+	return { children: childrenSummary, selectedChild, childLimit };
 };
 
 export const actions: Actions = {
@@ -121,6 +126,15 @@ export const actions: Actions = {
 			if (Number.isNaN(age) || age < 0 || age > 18) {
 				return fail(400, { error: '年齢は0〜18で入力してください' });
 			}
+		}
+
+		// プラン制限チェック
+		const licenseStatus = locals.context?.licenseStatus ?? 'none';
+		const childLimitCheck = await checkChildLimit(tenantId, licenseStatus);
+		if (!childLimitCheck.allowed) {
+			return fail(403, {
+				error: `子供は最大${childLimitCheck.max}人まで登録できます。プランをアップグレードしてください。`,
+			});
 		}
 
 		const child = await addChild(

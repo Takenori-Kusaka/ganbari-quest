@@ -10,6 +10,7 @@ import {
 	setActivityVisibility,
 	updateActivity,
 } from '$lib/server/services/activity-service';
+import { checkActivityLimit } from '$lib/server/services/plan-limit-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -17,7 +18,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
 	const activities = await getActivities(tenantId, { includeHidden: true });
 	const logCounts = await getActivityLogCounts(tenantId);
-	return { activities, categoryDefs: CATEGORY_DEFS, logCounts };
+
+	// プラン制限情報
+	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const activityLimit = await checkActivityLimit(tenantId, licenseStatus);
+
+	return { activities, categoryDefs: CATEGORY_DEFS, logCounts, activityLimit };
 };
 
 export const actions: Actions = {
@@ -60,6 +66,15 @@ export const actions: Actions = {
 		if (!name) return fail(400, { error: '名前を入力してください' });
 		if (!categoryId || categoryId < 1 || categoryId > 5) {
 			return fail(400, { error: 'カテゴリを選択してください' });
+		}
+
+		// プラン制限チェック（カスタム活動数）
+		const licenseStatus = locals.context?.licenseStatus ?? 'none';
+		const activityLimitCheck = await checkActivityLimit(tenantId, licenseStatus);
+		if (!activityLimitCheck.allowed) {
+			return fail(403, {
+				error: `カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+			});
 		}
 
 		try {

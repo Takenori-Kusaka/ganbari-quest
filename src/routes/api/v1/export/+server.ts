@@ -5,6 +5,7 @@ import { requireRole, requireTenantId } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { exportFamilyData } from '$lib/server/services/export-service';
+import { getPlanLimits, resolvePlanTier } from '$lib/server/services/plan-limit-service';
 import { listFiles, readFile } from '$lib/server/storage';
 import { tenantPrefix } from '$lib/server/storage-keys';
 import type { RequestHandler } from './$types';
@@ -12,6 +13,13 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async ({ url, locals }) => {
 	const tenantId = requireTenantId(locals);
 	requireRole(locals, ['owner', 'parent']);
+
+	// プラン制限チェック（エクスポート機能）
+	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const limits = getPlanLimits(resolvePlanTier(licenseStatus));
+	if (!limits.canExport) {
+		return apiError('PLAN_LIMIT_EXCEEDED', 'エクスポート機能はプレミアムプランでご利用いただけます');
+	}
 
 	const childIdsParam = url.searchParams.get('childIds');
 	const childIds = childIdsParam
