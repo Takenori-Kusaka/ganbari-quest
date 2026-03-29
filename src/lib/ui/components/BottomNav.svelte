@@ -30,6 +30,7 @@ function isActive(href: string): boolean {
 <nav
 	class="fixed bottom-0 left-0 right-0 z-30 flex items-stretch justify-around
 		bg-[var(--theme-nav)] border-t border-black/10 safe-area-bottom"
+	data-testid="bottom-nav"
 	aria-label="メインナビゲーション"
 >
 	{#each items as item (item.href)}

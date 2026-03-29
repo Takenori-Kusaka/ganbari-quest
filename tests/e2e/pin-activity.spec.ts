@@ -3,69 +3,9 @@
 // #0153 で追加
 
 import { expect, test } from '@playwright/test';
+import { dismissOverlays, selectBabyChild, selectKinderChild } from './helpers';
 
 type Page = import('@playwright/test').Page;
-
-// ============================================================
-// ヘルパー
-// ============================================================
-
-async function selectKinderChild(page: Page) {
-	await page.goto('/switch');
-	const childButton = page.locator('button[type="submit"]').filter({ hasText: 'ゆうきちゃん' });
-	await expect(childButton).toBeVisible();
-	await childButton.click();
-	await page.waitForURL(/\/kinder\/home/);
-}
-
-async function selectBabyChild(page: Page) {
-	await page.goto('/switch');
-	const childButton = page.locator('button[type="submit"]').filter({ hasText: 'てすとくん' });
-	await expect(childButton).toBeVisible();
-	await childButton.click();
-	await page.waitForURL(/\/baby\/home/);
-}
-
-async function dismissOverlays(page: Page) {
-	const hasOmikuji = await page
-		.getByText('きょうのうんせい')
-		.isVisible()
-		.catch(() => false);
-	if (hasOmikuji) {
-		try {
-			const omikujiBtn = page.getByRole('button', { name: /タップしてすすむ/ });
-			await omikujiBtn.waitFor({ timeout: 4000 });
-			await omikujiBtn.click();
-			await page.waitForTimeout(500);
-		} catch {
-			// ignore
-		}
-	}
-	try {
-		const birthdayBtn = page.getByRole('button', { name: /はじめる/ });
-		if (await birthdayBtn.isVisible().catch(() => false)) {
-			await page.keyboard.press('Escape');
-			await page.waitForTimeout(300);
-		}
-	} catch {
-		// ignore
-	}
-	for (let i = 0; i < 3; i++) {
-		await page.waitForTimeout(400);
-		try {
-			const closeBtn = page.getByRole('button', { name: /とじる|閉じる|OK|やったー/ });
-			if (await closeBtn.isVisible().catch(() => false)) {
-				await closeBtn.click();
-				await page.waitForTimeout(300);
-			} else {
-				break;
-			}
-		} catch {
-			break;
-		}
-	}
-	await page.waitForTimeout(300);
-}
 
 /** 右クリックで contextmenu を発火してピンメニューを開く */
 async function openPinMenu(card: import('@playwright/test').Locator) {
@@ -74,7 +14,7 @@ async function openPinMenu(card: import('@playwright/test').Locator) {
 
 /** 最初の未完了（disabled でない）活動カードを取得 */
 function getFirstEnabledCard(page: Page) {
-	return page.locator('button.tap-target:not([disabled])').first();
+	return page.locator('[data-testid^="activity-card-"]:not([disabled])').first();
 }
 
 /** 最初の未完了カードの aria-label からアクティビティ名を取得 */
@@ -145,7 +85,7 @@ test.describe
 
 			// ピン留め済みカードが表示される
 			const pinnedCard = page.locator(
-				`button.tap-target[aria-label*="${pinnedActivityName}"][aria-label*="ピンどめ"]`,
+				`[data-testid^="activity-card-"][aria-label*="${pinnedActivityName}"][aria-label*="ピンどめ"]`,
 			);
 			await expect(pinnedCard).toBeVisible({ timeout: 5000 });
 		});
@@ -155,7 +95,9 @@ test.describe
 			await dismissOverlays(page);
 
 			// ピン留め済みカードが存在すること
-			const pinnedCard = page.locator('button.tap-target[aria-label*="ピンどめ"]').first();
+			const pinnedCard = page
+				.locator('[data-testid^="activity-card-"][aria-label*="ピンどめ"]')
+				.first();
 			await expect(pinnedCard).toBeVisible({ timeout: 5000 });
 			const label = await pinnedCard.getAttribute('aria-label');
 			expect(label).toContain(pinnedActivityName);
@@ -175,7 +117,9 @@ test.describe
 			await dismissOverlays(page);
 
 			// ピン留め済みカードを右クリック
-			const pinnedCard = page.locator('button.tap-target[aria-label*="ピンどめ"]').first();
+			const pinnedCard = page
+				.locator('[data-testid^="activity-card-"][aria-label*="ピンどめ"]')
+				.first();
 			await expect(pinnedCard).toBeVisible({ timeout: 5000 });
 			await openPinMenu(pinnedCard);
 
@@ -186,7 +130,7 @@ test.describe
 			await page.waitForTimeout(1000);
 
 			// ピン留め済みカードがなくなる
-			const remaining = page.locator('button.tap-target[aria-label*="ピンどめ"]');
+			const remaining = page.locator('[data-testid^="activity-card-"][aria-label*="ピンどめ"]');
 			await expect(remaining).toHaveCount(0, { timeout: 5000 });
 
 			// 区切り線も消える
@@ -199,7 +143,7 @@ test.describe
 			await dismissOverlays(page);
 
 			// Baby モードの活動ボタンを右クリック
-			const card = page.locator('button.tap-target').first();
+			const card = page.locator('[data-testid^="activity-card-"]').first();
 			if (!(await card.isVisible().catch(() => false))) {
 				test.skip(true, 'Baby モードに活動カードがないためスキップ');
 				return;

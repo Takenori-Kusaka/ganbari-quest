@@ -136,6 +136,7 @@ function handleResultClose() {
 		<CategorySection categoryId={group.categoryId} itemCount={group.items.length}>
 			{#each group.items as activity (activity.id)}
 				<ActivityCard
+					activityId={activity.id}
 					icon={activity.icon}
 					name={activity.displayName}
 					categoryId={activity.categoryId}

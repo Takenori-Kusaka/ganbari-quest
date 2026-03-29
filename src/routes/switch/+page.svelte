@@ -44,6 +44,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 							type="submit"
 							use:playSound={'tap'}
 							class="child-button"
+							data-testid="child-select-{child.id}"
 							style="--child-bg: {colors.bg}; --child-border: {colors.border};"
 						>
 							{#if child.avatarUrl}
