@@ -52,6 +52,9 @@ let resultData = $state<{
 	totalPoints: number;
 	streakDays: number;
 	streakBonus: number;
+	masteryBonus: number;
+	masteryLevel: number;
+	masteryLeveledUp: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
 	cancelableUntil: string;
 	comboBonus: {
 		categoryCombo: { categoryId: number; name: string; bonus: number }[];
@@ -121,6 +124,32 @@ let levelUpData = $state<{
 	categoryId?: number;
 	categoryName?: string;
 } | null>(null);
+
+// XP gain animation state
+let xpGainData = $state<{
+	categoryId: number;
+	categoryName: string;
+	xpBefore: number;
+	xpAfter: number;
+	maxValue: number;
+	levelBefore: number;
+	levelAfter: number;
+} | null>(null);
+let xpAnimatingCategoryId = $state<number | null>(null);
+
+/** categoryXp にアニメーション用の上書き値を適用 */
+function getCategoryXpWithAnim(categoryId: number) {
+	const base = data.categoryXp?.[categoryId] ?? null;
+	if (!base) return null;
+	if (xpGainData && xpGainData.categoryId === categoryId && xpAnimatingCategoryId === categoryId) {
+		return {
+			...base,
+			value: xpGainData.xpAfter,
+			level: xpGainData.levelAfter,
+		};
+	}
+	return base;
+}
 
 // Build recorded counts map: activityId → count
 const recordedMap = $derived(new Map(data.todayRecorded.map((r) => [r.activityId, r.count])));
@@ -193,6 +222,14 @@ function handleResultClose() {
 	resultOpen = false;
 	missionResult = null;
 
+	// XPバーアニメーションを開始
+	if (xpGainData) {
+		xpAnimatingCategoryId = xpGainData.categoryId;
+		setTimeout(() => {
+			xpAnimatingCategoryId = null;
+		}, 900);
+	}
+
 	// レベルアップがあれば先に表示
 	if (levelUpData) {
 		levelUpOpen = true;
@@ -200,6 +237,7 @@ function handleResultClose() {
 		achievementOpen = true;
 	} else {
 		resultData = null;
+		xpGainData = null;
 		invalidateAll();
 	}
 }
@@ -213,6 +251,7 @@ function handleLevelUpClose() {
 		achievementOpen = true;
 	} else {
 		resultData = null;
+		xpGainData = null;
 		invalidateAll();
 	}
 }
@@ -221,6 +260,7 @@ function handleAchievementClose() {
 	achievementOpen = false;
 	unlockedAchievements = [];
 	resultData = null;
+	xpGainData = null;
 	invalidateAll();
 }
 
@@ -424,6 +464,8 @@ function handleBirthdayResultClose() {
 			itemsPerCategory={displayConfig.itemsPerCategory}
 			collapsible={displayConfig.collapsible}
 			itemCount={group.items.length}
+			xpInfo={getCategoryXpWithAnim(group.categoryId)}
+			xpAnimating={xpAnimatingCategoryId === group.categoryId}
 		>
 			{#each group.items as activity, i (activity.id)}
 				{#if i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
@@ -532,6 +574,9 @@ function handleBirthdayResultClose() {
 									totalPoints: number;
 									streakDays: number;
 									streakBonus: number;
+									masteryBonus?: number;
+									masteryLevel?: number;
+									masteryLeveledUp?: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
 									cancelableUntil: string;
 									unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
 									comboBonus: {
@@ -543,6 +588,7 @@ function handleBirthdayResultClose() {
 									} | null;
 									missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 									levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string } | null;
+								xpGain?: { categoryId: number; categoryName: string; xpBefore: number; xpAfter: number; maxValue: number; levelBefore: number; levelAfter: number };
 								};
 								resultData = {
 									logId: d.logId,
@@ -550,12 +596,16 @@ function handleBirthdayResultClose() {
 									totalPoints: d.totalPoints,
 									streakDays: d.streakDays,
 									streakBonus: d.streakBonus,
+									masteryBonus: d.masteryBonus ?? 0,
+									masteryLevel: d.masteryLevel ?? 1,
+									masteryLeveledUp: d.masteryLeveledUp ?? null,
 									cancelableUntil: d.cancelableUntil,
 									comboBonus: d.comboBonus ?? null,
 								};
 								unlockedAchievements = d.unlockedAchievements ?? [];
 								missionResult = d.missionComplete ?? null;
 								levelUpData = d.levelUp ?? null;
+								xpGainData = d.xpGain ?? null;
 								startCancelCountdown(d.cancelableUntil);
 								soundService.playRecordComplete();
 								setTimeout(() => soundService.play('point-gain'), 300);
@@ -624,6 +674,18 @@ function handleBirthdayResultClose() {
 						{resultData.streakDays}日れんぞく！ +{resultData.streakBonus}ボーナス
 					</p>
 				{/if}
+				{#if resultData.masteryBonus > 0}
+					<p class="text-sm text-purple-600">
+						📗 なれてきたボーナス +{resultData.masteryBonus} (Lv.{resultData.masteryLevel})
+					</p>
+				{/if}
+				{#if resultData.masteryLeveledUp}
+					<div class="bg-purple-50 rounded-[var(--radius-md)] px-3 py-2 w-full">
+						<p class="text-sm font-bold text-purple-700">
+							🎖️ {resultData.activityName}が Lv.{resultData.masteryLeveledUp.newLevel} になった！
+						</p>
+					</div>
+				{/if}
 				{#if resultData.comboBonus}
 					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
 						{#each resultData.comboBonus.categoryCombo as cc}
@@ -648,6 +710,18 @@ function handleBirthdayResultClose() {
 						</p>
 						{#if missionResult.allComplete}
 							<p class="text-xs font-bold text-amber-500">🎉 ぜんぶクリア！</p>
+						{/if}
+					</div>
+				{/if}
+
+				{#if xpGainData}
+					{@const catDef = getCategoryById(xpGainData.categoryId)}
+					<div class="mt-1 text-center text-xs text-[var(--color-text-muted)] border-t border-gray-100 pt-2 w-full">
+						<span style="color: {catDef?.color ?? 'inherit'};">{xpGainData.categoryName}</span>
+						けいけんち
+						<span class="font-bold text-[var(--color-text)]">+0.3</span>
+						{#if xpGainData.levelAfter > xpGainData.levelBefore}
+							<span class="font-bold text-amber-600"> → Lv.{xpGainData.levelAfter} ↑</span>
 						{/if}
 					</div>
 				{/if}
