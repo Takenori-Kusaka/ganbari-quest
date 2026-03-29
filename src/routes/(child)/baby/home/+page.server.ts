@@ -32,25 +32,24 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			dailyMissions: null,
 		};
 
-	const rawActivities = await getActivities(tenantId, { childAge: child.age });
+	// 独立したDB呼び出しを並列実行（LCP改善）
+	const [rawActivities, todayRecorded, loginBonusStatus, latestReward, birthdayRaw, dailyMissions] =
+		await Promise.all([
+			getActivities(tenantId, { childAge: child.age }),
+			getTodayRecordedActivityCounts(child.id, tenantId),
+			getLoginBonusStatus(child.id, tenantId),
+			getUnshownReward(child.id, tenantId),
+			checkBirthdayStatus(child.id, tenantId),
+			getTodayMissions(child.id, tenantId),
+		]);
+
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
 	const activities = sortedActivities.map((a) => ({
 		...a,
 		displayName: getActivityDisplayName(a, child.age),
 	}));
-	const todayRecorded = await getTodayRecordedActivityCounts(child.id, tenantId);
-	const loginBonusStatus = await getLoginBonusStatus(child.id, tenantId);
 	const bonusStatus = 'error' in loginBonusStatus ? null : loginBonusStatus;
-
-	// 未表示の特別報酬を取得
-	const latestReward = await getUnshownReward(child.id, tenantId);
-
-	// 誕生日ステータス
-	const birthdayRaw = await checkBirthdayStatus(child.id, tenantId);
 	const birthdayStatus = 'error' in birthdayRaw ? null : birthdayRaw;
-
-	// デイリーミッション
-	const dailyMissions = await getTodayMissions(child.id, tenantId);
 
 	// ミッション対象の活動IDセット
 	const missionActivityIds = new Set(dailyMissions?.missions.map((m) => m.activityId) ?? []);
