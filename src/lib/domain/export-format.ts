@@ -2,7 +2,7 @@
 // エクスポートファイルのフォーマット型定義
 
 export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
-export const EXPORT_VERSION = '1.0.0' as const;
+export const EXPORT_VERSION = '1.1.0' as const;
 
 // ============================================================
 // マスタデータ型
@@ -260,7 +260,7 @@ export interface ExportTransactionData {
 
 export interface ExportData {
 	format: typeof EXPORT_FORMAT;
-	version: typeof EXPORT_VERSION;
+	version: string;
 	exportedAt: string;
 	checksum: string;
 	master: ExportMasterData;
@@ -273,4 +273,5 @@ export interface ExportData {
 export interface ExportOptions {
 	tenantId: string;
 	childIds?: number[];
+	compact?: boolean;
 }
