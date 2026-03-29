@@ -87,6 +87,7 @@ export class ComputeStack extends cdk.Stack {
 				...(discordWebhookIncident
 					? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident }
 					: {}),
+				COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
 			},
 		});
 		this.fn.node.addDependency(logGroup);
