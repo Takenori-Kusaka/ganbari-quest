@@ -3,74 +3,7 @@
 // smoke.spec.ts で未カバーの Done チケットを E2E 検証する
 
 import { expect, test } from '@playwright/test';
-
-type Page = import('@playwright/test').Page;
-
-// ============================================================
-// ヘルパー
-// ============================================================
-
-/** 指定の子供を選択してホーム画面に遷移 */
-async function selectChildByName(page: Page, name: string) {
-	await page.goto('/switch');
-	const childButton = page.locator('button[type="submit"]').filter({ hasText: name });
-	await expect(childButton).toBeVisible();
-	await childButton.click();
-	await page.waitForURL(/\/(kinder|baby)\/home/);
-}
-
-/** ゆうきちゃん(kinder)を選択 */
-async function selectKinderChild(page: Page) {
-	await selectChildByName(page, 'ゆうきちゃん');
-}
-
-/** てすとくん(baby)を選択 */
-async function selectBabyChild(page: Page) {
-	await selectChildByName(page, 'てすとくん');
-}
-
-/** オーバーレイを閉じる（おみくじ → 誕生日 → 特別報酬 の順に処理） */
-async function dismissOverlays(page: Page) {
-	const hasOmikuji = await page
-		.getByText('きょうのうんせい')
-		.isVisible()
-		.catch(() => false);
-	if (hasOmikuji) {
-		try {
-			const omikujiBtn = page.getByRole('button', { name: /タップしてすすむ/ });
-			await omikujiBtn.waitFor({ timeout: 4000 });
-			await omikujiBtn.click();
-			await page.waitForTimeout(500);
-		} catch {
-			// ignore
-		}
-	}
-	try {
-		const birthdayBtn = page.getByRole('button', { name: /はじめる/ });
-		if (await birthdayBtn.isVisible().catch(() => false)) {
-			await page.keyboard.press('Escape');
-			await page.waitForTimeout(300);
-		}
-	} catch {
-		// ignore
-	}
-	// 特別報酬・汎用オーバーレイを複数回チェック（おみくじ後に遅延表示されることがある）
-	for (let i = 0; i < 3; i++) {
-		await page.waitForTimeout(400);
-		try {
-			const closeBtn = page.getByRole('button', { name: /とじる|閉じる|OK|やったー/ });
-			if (await closeBtn.isVisible().catch(() => false)) {
-				await closeBtn.click();
-				await page.waitForTimeout(300);
-			} else {
-				break;
-			}
-		} catch {
-			break;
-		}
-	}
-	await page.waitForTimeout(300);
-}
+import { dismissOverlays, selectBabyChild, selectKinderChild } from './helpers';
 
 // ============================================================
 // #0029: Baby モード画面
@@ -88,9 +21,9 @@ test.describe('#0029: Baby モード', () => {
 		await selectBabyChild(page);
 		await dismissOverlays(page);
 
-		// Baby モードは大きなタップボタンを持つ
-		const buttons = page.locator('button.tap-target, button.baby-card');
-		const count = await buttons.count();
+		// Baby モードは data-testid="activity-card-*" の活動カードを持つ
+		const cards = page.locator('[data-testid^="activity-card-"]');
+		const count = await cards.count();
 		expect(count).toBeGreaterThan(0);
 	});
 
@@ -98,7 +31,7 @@ test.describe('#0029: Baby モード', () => {
 		await selectBabyChild(page);
 		await dismissOverlays(page);
 
-		const nav = page.locator('nav');
+		const nav = page.locator('[data-testid="bottom-nav"]');
 		await expect(nav).toBeVisible();
 		await expect(page.getByRole('link', { name: 'ホーム' })).toBeVisible();
 	});
@@ -246,7 +179,9 @@ test.describe('#0051: 複数回実行', () => {
 		// 複数回実行対応の活動（例: おさらあらい dailyLimit=3）を探す
 		// 記録済みの場合はバッジ(回数)が表示される
 		// 未記録でもdailyLimitが1より大きいので、ボタンが有効なまま残る仕様
-		const multiButton = page.locator('button.tap-target').filter({ hasText: 'おさらあらい' });
+		const multiButton = page
+			.locator('[data-testid^="activity-card-"]')
+			.filter({ hasText: 'おさらあらい' });
 		await expect(multiButton).toBeVisible();
 	});
 });
@@ -273,7 +208,9 @@ test.describe('#0054: 複合アイコン', () => {
 
 		// 複合アイコンの例: おさらあらい (🍽️💧), 水やりをする (🌱💧)
 		// これらの活動ボタンが正常に表示される
-		const button = page.locator('button.tap-target').filter({ hasText: '水やりをする' });
+		const button = page
+			.locator('[data-testid^="activity-card-"]')
+			.filter({ hasText: '水やりをする' });
 		await expect(button).toBeVisible();
 	});
 });
@@ -287,14 +224,15 @@ test.describe('#0053/#0058: 多重送信防止', () => {
 		await dismissOverlays(page);
 
 		// 未記録の活動を探してクリック
-		const activity = page.locator('button.tap-target:not([disabled])').first();
+		const activity = page.locator('[data-testid^="activity-card-"]:not([disabled])').first();
 		await activity.click();
 
 		// 確認ダイアログが表示される
-		await expect(page.getByText('きろくする？')).toBeVisible();
+		const dialog = page.locator('[data-testid="confirm-dialog"]');
+		await expect(dialog).toBeVisible();
 
 		// 「きろく！」ボタンを押す
-		const recordBtn = page.getByRole('button', { name: 'きろく！' });
+		const recordBtn = page.locator('[data-testid="confirm-record-btn"]');
 		await recordBtn.click();
 
 		// 送信中はボタンが無効化される（submitting 状態）
@@ -673,18 +611,16 @@ test.describe('API 正常系: 認証（local モード — 認証不要）', () 
 		expect(res.ok()).toBeTruthy();
 	});
 
-	test('PIN ログイン API が残っている場合は互換動作する', async ({ request }) => {
+	test('PIN ログイン API が 200 を返す（ローカルモード）', async ({ request }) => {
 		const res = await request.post('/api/v1/auth/login', {
 			data: { pin: '1234' },
 		});
-		// PIN認証がまだ残っていれば200、廃止済みなら404
-		expect([200, 404]).toContain(res.status());
+		expect(res.status()).toBe(200);
 	});
 
-	test('ログアウト API が残っている場合は互換動作する', async ({ request }) => {
+	test('PIN ログアウト API が 200 を返す（ローカルモード）', async ({ request }) => {
 		const res = await request.post('/api/v1/auth/logout');
-		// 200, 302, 404 のいずれか
-		expect([200, 302, 404]).toContain(res.status());
+		expect(res.status()).toBe(200);
 	});
 });
 
@@ -772,11 +708,8 @@ test.describe('#0129: 招待ランディングページ', () => {
 
 test.describe('#0129: 招待 API', () => {
 	test('招待一覧 API が 200 を返す (local モード)', async ({ request }) => {
-		// local モードでは auth が local のため、cognito 依存の invite API は
-		// requireTenantId で失敗するが、それが正しい挙動（500ではなくエラーレスポンス）
 		const res = await request.get('/api/v1/admin/invites');
-		// local モードでは context があるはずなので 200 が返る
-		expect([200, 500]).toContain(res.status());
+		expect(res.status()).toBe(200);
 	});
 
 	test('招待作成 API でバリデーションエラー', async ({ request }) => {
@@ -787,10 +720,10 @@ test.describe('#0129: 招待 API', () => {
 		expect(res.status()).toBeGreaterThanOrEqual(400);
 	});
 
-	test('招待取消し API が存在する', async ({ request }) => {
+	test('存在しない招待コードの取消しは冪等に成功する', async ({ request }) => {
 		const res = await request.delete('/api/v1/admin/invites/nonexistent-code');
-		// 404 ではなく処理は通る（revoke は冪等）
-		expect([200, 401, 500]).toContain(res.status());
+		// revoke は冪等操作として 200 を返す
+		expect(res.status()).toBe(200);
 	});
 });
 

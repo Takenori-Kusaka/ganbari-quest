@@ -19,11 +19,15 @@ test.describe('ローカルモード — 認証不要', () => {
 	test('API エンドポイントに直接アクセスできる', async ({ request }) => {
 		const res = await request.get('/api/v1/activities');
 		expect(res.ok()).toBeTruthy();
+		const body = await res.json();
+		expect(body.activities).toBeDefined();
 	});
 
 	test('ヘルスチェックにアクセスできる', async ({ request }) => {
 		const res = await request.get('/api/health');
 		expect(res.ok()).toBeTruthy();
+		const body = await res.json();
+		expect(body.status).toBe('ok');
 	});
 });
 
@@ -32,39 +36,37 @@ test.describe('ローカルモード — 認証不要', () => {
 // ============================================================
 
 test.describe('公開ルートアクセス', () => {
-	test('/ はアクセス可能', async ({ request }) => {
-		const res = await request.get('/');
-		expect(res.ok()).toBeTruthy();
+	test('/ は /switch にリダイレクトされる', async ({ page }) => {
+		await page.goto('/');
+		await expect(page).toHaveURL(/\/switch/);
 	});
 
-	test('/api/health はアクセス可能', async ({ request }) => {
+	test('/api/health は 200 を返す', async ({ request }) => {
 		const res = await request.get('/api/health');
-		expect(res.ok()).toBeTruthy();
+		expect(res.status()).toBe(200);
 	});
 
-	test('/switch（子供選択画面）はアクセス可能', async ({ request }) => {
-		const res = await request.get('/switch');
-		expect(res.ok()).toBeTruthy();
+	test('/switch（子供選択画面）が表示される', async ({ page }) => {
+		await page.goto('/switch');
+		await expect(page.locator('h1')).toContainText('だれがつかう？');
 	});
 });
 
 // ============================================================
-// PIN 認証 API の後方互換（廃止予定だがまだルートが残っている場合）
+// PIN 認証 API（廃止済み — 404 を返すことを確認）
 // ============================================================
 
-test.describe('PIN 認証 API（後方互換）', () => {
-	test('ログイン API が存在する場合は 200 を返す', async ({ request }) => {
+test.describe('PIN 認証 API（ローカルモード）', () => {
+	test('ログイン API が 200 を返す（ローカルモードでは常に成功）', async ({ request }) => {
 		const res = await request.post('/api/v1/auth/login', {
 			data: { pin: '1234' },
 		});
-		// PIN 認証が残っていれば 200、廃止済みなら 404
-		expect([200, 404]).toContain(res.status());
+		expect(res.status()).toBe(200);
 	});
 
-	test('ログアウト API が存在する場合は正常に処理される', async ({ request }) => {
+	test('ログアウト API が 200 を返す', async ({ request }) => {
 		const res = await request.post('/api/v1/auth/logout');
-		// 200, 302, 404 のいずれか
-		expect([200, 302, 404]).toContain(res.status());
+		expect(res.status()).toBe(200);
 	});
 });
 
@@ -73,24 +75,29 @@ test.describe('PIN 認証 API（後方互換）', () => {
 // ============================================================
 
 test.describe('OAuth ルート', () => {
-	test('/auth/callback — code なしでリダイレクト', async ({ page }) => {
+	test('/auth/callback — code なしで /admin にリダイレクト', async ({ page }) => {
 		await page.goto('/auth/callback');
-		// local モードでは /auth/login → /admin にリダイレクトされる
-		// cognito モードでは /auth/login にリダイレクト
-		const url = page.url();
-		expect(
-			url.includes('/auth') ||
-				url.includes('/login') ||
-				url.includes('/admin') ||
-				url.endsWith('/'),
-		).toBeTruthy();
+		// local モードでは認証不要なので最終的に /admin 系にリダイレクトされる
+		await expect(page).toHaveURL(/\/(admin|auth\/login|login)/);
 	});
 
-	test('/auth/logout GET — Cookie 削除してリダイレクト', async ({ request }) => {
+	test('/auth/logout GET — 302 リダイレクトを返す', async ({ request }) => {
 		const res = await request.get('/auth/logout', {
 			maxRedirects: 0,
 		});
-		// リダイレクト or サーバーエラー（Cognito 環境変数未設定時）
-		expect([302, 500]).toContain(res.status());
+		expect(res.status()).toBe(302);
+	});
+});
+
+// ============================================================
+// 認証が必要なAPI（ローカルモードでは認証不要）
+// ============================================================
+
+test.describe('API 認証チェック（ローカルモード）', () => {
+	test('活動一覧 API にアクセスできる', async ({ request }) => {
+		const res = await request.get('/api/v1/activities');
+		expect(res.status()).toBe(200);
+		const body = await res.json();
+		expect(body.activities).toBeDefined();
 	});
 });

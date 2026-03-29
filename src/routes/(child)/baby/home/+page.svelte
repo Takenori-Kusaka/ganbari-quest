@@ -348,6 +348,7 @@ function handleBirthdayResultClose() {
 				{#if completed}
 					<div
 						class="baby-card baby-card--done tap-target"
+						data-testid="activity-card-{activity.id}"
 						aria-label="{activity.displayName}（きろくずみ）"
 					>
 						<span class="baby-card__done-badge animate-bounce-in">💮</span>
@@ -416,6 +417,7 @@ function handleBirthdayResultClose() {
 							class="baby-card baby-card--active tap-target"
 							class:baby-card--pending={pendingActivityId === activity.id}
 							class:baby-card--mission={showMission}
+							data-testid="activity-card-{activity.id}"
 							style="border-color: {showMission ? 'gold' : borderColor};"
 							aria-label="{activity.displayName}をきろくする{showMission ? '（ミッション）' : ''}"
 						>
