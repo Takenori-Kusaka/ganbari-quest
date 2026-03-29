@@ -10,6 +10,7 @@ import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
 
 let { data } = $props();
+const activityLimit = $derived((data as Record<string, unknown>).activityLimit as { allowed: boolean; current: number; max: number | null } | undefined);
 
 let showAddForm = $state(false);
 let filterCategoryId = $state(0);
@@ -241,22 +242,44 @@ function acceptPreview() {
 </svelte:head>
 
 <div class="space-y-4">
+	{#if activityLimit && !activityLimit.allowed}
+		<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+			<span class="text-2xl">⚠️</span>
+			<div>
+				<p class="font-bold text-amber-800">カスタム活動の登録上限に達しています</p>
+				<p class="text-sm text-amber-700 mt-1">
+					現在 {activityLimit.current}個 / 最大 {activityLimit.max}個。
+					プランをアップグレードすると、もっと追加できます。
+				</p>
+			</div>
+		</div>
+	{/if}
+
 	<div class="flex items-center justify-between">
 		<h2 class="text-lg font-bold text-gray-700">活動管理</h2>
-		<div class="flex gap-2">
+		{#if !activityLimit || activityLimit.allowed}
+			<div class="flex gap-2">
+				<button
+					class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-bold hover:bg-purple-600 transition-colors"
+					onclick={() => { aiMode = !aiMode; showAddForm = false; }}
+				>
+					{aiMode ? 'キャンセル' : '✨ AI追加'}
+				</button>
+				<button
+					class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors"
+					onclick={() => { showAddForm = !showAddForm; aiMode = false; }}
+				>
+					{showAddForm ? 'キャンセル' : '+ 手動追加'}
+				</button>
+			</div>
+		{:else}
 			<button
-				class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-bold hover:bg-purple-600 transition-colors"
-				onclick={() => { aiMode = !aiMode; showAddForm = false; }}
+				class="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-bold cursor-not-allowed"
+				disabled
 			>
-				{aiMode ? 'キャンセル' : '✨ AI追加'}
+				上限に達しています
 			</button>
-			<button
-				class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors"
-				onclick={() => { showAddForm = !showAddForm; aiMode = false; }}
-			>
-				{showAddForm ? 'キャンセル' : '+ 手動追加'}
-			</button>
-		</div>
+		{/if}
 	</div>
 
 	<!-- AI入力モード -->

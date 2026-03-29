@@ -12,6 +12,7 @@ export type ErrorCode =
 	| 'UNAUTHORIZED'
 	| 'LOCKED_OUT'
 	| 'NOT_FOUND'
+	| 'PLAN_LIMIT_EXCEEDED'
 	| 'INTERNAL_ERROR';
 
 export type ErrorSeverity = 'info' | 'warning' | 'error';
@@ -83,6 +84,12 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 		status: 404,
 		userMessage: 'お探しのデータが見つかりませんでした。',
 		severity: 'warning',
+		action: 'none',
+	},
+	PLAN_LIMIT_EXCEEDED: {
+		status: 403,
+		userMessage: 'この機能はプレミアムプランでご利用いただけます。プランをアップグレードしてください。',
+		severity: 'info',
 		action: 'none',
 	},
 	INTERNAL_ERROR: {
