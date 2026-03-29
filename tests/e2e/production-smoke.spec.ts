@@ -72,7 +72,7 @@ test.describe('本番環境 - 基本動作', () => {
 
 	test('ログインページが表示される', async ({ page }) => {
 		await page.goto(`${BASE_URL}/auth/login`);
-		await expect(page.getByRole('heading', { name: 'がんばりクエスト' })).toBeVisible({
+		await expect(page.getByAltText('がんばりクエスト')).toBeVisible({
 			timeout: 10000,
 		});
 		await expect(page.getByLabel('メールアドレス')).toBeVisible();
