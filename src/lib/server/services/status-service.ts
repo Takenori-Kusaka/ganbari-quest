@@ -3,10 +3,10 @@
 
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import {
+	calcCategoryExpToNextLevel,
+	calcCategoryLevel,
 	calcCharacterType,
 	calcDeviationScore,
-	calcExpToNextLevel,
-	calcLevel,
 	calcStars,
 	calcTrend,
 	getMaxForAge,
@@ -25,16 +25,23 @@ export interface StatusDetail {
 	deviationScore: number;
 	stars: number;
 	trend: 'up' | 'down' | 'stable';
+	level: number;
+	levelTitle: string;
+	expToNextLevel: number;
 }
 
 export interface ChildStatus {
 	childId: number;
+	/** @deprecated 全体レベルは廃止。カテゴリ別レベルを使用。後方互換のため残存 */
 	level: number;
+	/** @deprecated */
 	levelTitle: string;
+	/** @deprecated */
 	expToNextLevel: number;
 	maxValue: number;
 	statuses: Record<number, StatusDetail>;
 	characterType: string;
+	highestCategoryLevel: number;
 }
 
 /** 子供のステータスを取得 */
@@ -49,9 +56,9 @@ export async function getChildStatus(
 	const statusRows = await findStatuses(childId, tenantId);
 	const statusMap: Record<number, StatusDetail> = {};
 
-	let totalValue = 0;
 	let totalDeviation = 0;
 	let categoryCount = 0;
+	let highestCategoryLevel = 0;
 
 	for (const catDef of CATEGORY_DEFS) {
 		const row = statusRows.find((s) => s.categoryId === catDef.id);
@@ -70,29 +77,40 @@ export async function getChildStatus(
 		const recentChange = history.length >= 2 ? (history[0]?.changeAmount ?? 0) : 0;
 		const trend = calcTrend(recentChange);
 
-		statusMap[catDef.id] = { value: Math.round(value * 10) / 10, deviationScore, stars, trend };
-		totalValue += value;
+		// カテゴリ別レベル
+		const catLevel = calcCategoryLevel(value, maxValue);
+		const catExp = calcCategoryExpToNextLevel(value, maxValue);
+
+		statusMap[catDef.id] = {
+			value: Math.round(value * 10) / 10,
+			deviationScore,
+			stars,
+			trend,
+			level: catLevel.level,
+			levelTitle: catLevel.title,
+			expToNextLevel: Math.round(catExp * 10) / 10,
+		};
+
+		if (catLevel.level > highestCategoryLevel) {
+			highestCategoryLevel = catLevel.level;
+		}
+
 		totalDeviation += deviationScore;
 		categoryCount++;
 	}
-
-	const avgStatus = categoryCount > 0 ? totalValue / categoryCount : 0;
-	// 年齢別max値で正規化してからレベル判定（LEVEL_TABLEは0-100前提）
-	const normalizedAvg = maxValue > 0 ? (avgStatus / maxValue) * 100 : 0;
-	const { level, title } = calcLevel(normalizedAvg);
-	const expToNextLevel = calcExpToNextLevel(normalizedAvg);
 
 	const avgDeviation = categoryCount > 0 ? totalDeviation / categoryCount : 50;
 	const characterType = calcCharacterType(avgDeviation);
 
 	return {
 		childId,
-		level,
-		levelTitle: title,
-		expToNextLevel: Math.round(expToNextLevel * 10) / 10,
+		level: highestCategoryLevel,
+		levelTitle: '',
+		expToNextLevel: 0,
 		maxValue,
 		statuses: statusMap,
 		characterType,
+		highestCategoryLevel,
 	};
 }
 
@@ -101,6 +119,8 @@ export interface LevelUpInfo {
 	oldTitle: string;
 	newLevel: number;
 	newTitle: string;
+	categoryId: number;
+	categoryName: string;
 }
 
 /** ステータスを更新する（週次評価から呼ばれる） */
@@ -117,18 +137,12 @@ export async function updateStatus(
 	const maxValue = getMaxForAge(child.age);
 	const allStatuses = await findStatuses(childId, tenantId);
 
-	// 更新前のレベルを計算
-	const beforeValues = CATEGORY_DEFS.map((catDef) => {
-		const row = allStatuses.find((s) => s.categoryId === catDef.id);
-		return row?.value ?? 0;
-	});
-	const beforeAvg = beforeValues.reduce((a, b) => a + b, 0) / CATEGORY_DEFS.length;
-	const beforeNormalized = maxValue > 0 ? (beforeAvg / maxValue) * 100 : 0;
-	const beforeLevel = calcLevel(beforeNormalized);
-
-	// ステータス値を更新
+	// 更新前の対象カテゴリレベルを計算
 	const currentStatus = allStatuses.find((s) => s.categoryId === categoryId);
 	const currentValue = currentStatus?.value ?? 0;
+	const beforeLevel = calcCategoryLevel(currentValue, maxValue);
+
+	// ステータス値を更新
 	const newValue = Math.max(0, Math.min(maxValue, currentValue + changeAmount));
 
 	await upsertStatus(childId, categoryId, newValue, tenantId);
@@ -144,16 +158,10 @@ export async function updateStatus(
 		tenantId,
 	);
 
-	// 更新後のレベルを計算
-	const afterValues = CATEGORY_DEFS.map((catDef) => {
-		if (catDef.id === categoryId) return newValue;
-		const row = allStatuses.find((s) => s.categoryId === catDef.id);
-		return row?.value ?? 0;
-	});
-	const afterAvg = afterValues.reduce((a, b) => a + b, 0) / CATEGORY_DEFS.length;
-	const afterNormalized = maxValue > 0 ? (afterAvg / maxValue) * 100 : 0;
-	const afterLevel = calcLevel(afterNormalized);
+	// 更新後の対象カテゴリレベルを計算
+	const afterLevel = calcCategoryLevel(newValue, maxValue);
 
+	const catDef = CATEGORY_DEFS.find((c) => c.id === categoryId);
 	const levelUp =
 		afterLevel.level > beforeLevel.level
 			? {
@@ -161,6 +169,8 @@ export async function updateStatus(
 					oldTitle: beforeLevel.title,
 					newLevel: afterLevel.level,
 					newTitle: afterLevel.title,
+					categoryId,
+					categoryName: catDef?.name ?? '',
 				}
 			: null;
 
