@@ -54,6 +54,7 @@ let resultMasteryLeveledUp = $state<{
 	newLevel: number;
 	isMilestone: boolean;
 } | null>(null);
+let resultSkillPointBonus = $state(0);
 let cancelCountdown = $state(0);
 let cancelTimerId = $state<ReturnType<typeof setInterval> | null>(null);
 let cancelledMessage = $state(false);
@@ -434,7 +435,8 @@ function handleBirthdayResultClose() {
 											totalNewBonus: number;
 										} | null;
 										missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
-										levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string } | null;
+										levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string; spGranted?: number } | null;
+										skillPointBonus?: number;
 										xpGain?: { categoryId: number; categoryName: string; xpBefore: number; xpAfter: number; maxValue: number; levelBefore: number; levelAfter: number };
 									};
 									resultIcon = activity.icon;
@@ -445,6 +447,7 @@ function handleBirthdayResultClose() {
 									resultMasteryBonus = d.masteryBonus ?? 0;
 									resultMasteryLevel = d.masteryLevel ?? 1;
 									resultMasteryLeveledUp = d.masteryLeveledUp ?? null;
+								resultSkillPointBonus = d.skillPointBonus ?? 0;
 									unlockedAchievements = d.unlockedAchievements ?? [];
 									missionResult = d.missionComplete ?? null;
 								levelUpData = d.levelUp ?? null;

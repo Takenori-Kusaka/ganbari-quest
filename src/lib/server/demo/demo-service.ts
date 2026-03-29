@@ -703,6 +703,7 @@ export function demoRecordActivity(activityId: number) {
 		masteryBonus: 0,
 		masteryLevel: 1,
 		masteryLeveledUp: null,
+		skillPointBonus: 0,
 		cancelableUntil: new Date(Date.now() + 30 * 60_000).toISOString(),
 		unlockedAchievements: [],
 		comboBonus: null,

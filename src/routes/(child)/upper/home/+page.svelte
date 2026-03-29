@@ -55,6 +55,7 @@ let resultData = $state<{
 	masteryBonus: number;
 	masteryLevel: number;
 	masteryLeveledUp: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
+	skillPointBonus: number;
 	cancelableUntil: string;
 	comboBonus: {
 		categoryCombo: { categoryId: number; name: string; bonus: number }[];
@@ -587,7 +588,8 @@ function handleBirthdayResultClose() {
 										totalNewBonus: number;
 									} | null;
 									missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
-									levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string } | null;
+									levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string; spGranted?: number } | null;
+								skillPointBonus?: number;
 								xpGain?: { categoryId: number; categoryName: string; xpBefore: number; xpAfter: number; maxValue: number; levelBefore: number; levelAfter: number };
 								};
 								resultData = {
@@ -599,6 +601,7 @@ function handleBirthdayResultClose() {
 									masteryBonus: d.masteryBonus ?? 0,
 									masteryLevel: d.masteryLevel ?? 1,
 									masteryLeveledUp: d.masteryLeveledUp ?? null,
+									skillPointBonus: d.skillPointBonus ?? 0,
 									cancelableUntil: d.cancelableUntil,
 									comboBonus: d.comboBonus ?? null,
 								};

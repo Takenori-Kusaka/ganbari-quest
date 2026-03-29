@@ -19,6 +19,7 @@ import {
 	insertStatusHistory,
 	upsertStatus,
 } from '$lib/server/db/status-repo';
+import { grantSkillPoints } from '$lib/server/services/skill-service';
 
 export interface StatusDetail {
 	value: number;
@@ -160,6 +161,7 @@ export interface LevelUpInfo {
 	newTitle: string;
 	categoryId: number;
 	categoryName: string;
+	spGranted: number;
 }
 
 /** ステータス更新結果 */
@@ -209,17 +211,23 @@ export async function updateStatus(
 	const afterLevel = calcCategoryLevel(newValue, maxValue);
 
 	const catDef = CATEGORY_DEFS.find((c) => c.id === categoryId);
-	const levelUp =
-		afterLevel.level > beforeLevel.level
-			? {
-					oldLevel: beforeLevel.level,
-					oldTitle: beforeLevel.title,
-					newLevel: afterLevel.level,
-					newTitle: afterLevel.title,
-					categoryId,
-					categoryName: catDef?.name ?? '',
-				}
-			: null;
+	let levelUp: LevelUpInfo | null = null;
+
+	if (afterLevel.level > beforeLevel.level) {
+		// LvUP時にSPを1付与
+		const spAmount = 1;
+		await grantSkillPoints(childId, spAmount, tenantId);
+
+		levelUp = {
+			oldLevel: beforeLevel.level,
+			oldTitle: beforeLevel.title,
+			newLevel: afterLevel.level,
+			newTitle: afterLevel.title,
+			categoryId,
+			categoryName: catDef?.name ?? '',
+			spGranted: spAmount,
+		};
+	}
 
 	return {
 		levelUp,
