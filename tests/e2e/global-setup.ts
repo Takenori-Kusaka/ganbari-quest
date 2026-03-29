@@ -142,6 +142,71 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_child_activity_prefs_pinned ON child_activity_preferences(child_id, is_pinned);
 		`);
 
+		// stamp_masters / stamp_cards / stamp_entries テーブル（#0204 スタンプカード）
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS stamp_masters (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				name TEXT NOT NULL,
+				emoji TEXT NOT NULL,
+				rarity TEXT NOT NULL,
+				is_default INTEGER NOT NULL DEFAULT 1,
+				is_enabled INTEGER NOT NULL DEFAULT 1,
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE TABLE IF NOT EXISTS stamp_cards (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+				week_start TEXT NOT NULL,
+				week_end TEXT NOT NULL,
+				status TEXT NOT NULL DEFAULT 'collecting',
+				redeemed_points INTEGER,
+				redeemed_at TEXT,
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_stamp_cards_child_week ON stamp_cards(child_id, week_start);
+			CREATE INDEX IF NOT EXISTS idx_stamp_cards_child ON stamp_cards(child_id);
+			CREATE TABLE IF NOT EXISTS stamp_entries (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				card_id INTEGER NOT NULL REFERENCES stamp_cards(id) ON DELETE CASCADE,
+				stamp_master_id INTEGER NOT NULL REFERENCES stamp_masters(id),
+				slot INTEGER NOT NULL,
+				login_date TEXT NOT NULL,
+				earned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_stamp_entries_card_slot ON stamp_entries(card_id, slot);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_stamp_entries_card_date ON stamp_entries(card_id, login_date);
+		`);
+
+		// デフォルトスタンプマスタの挿入
+		const stampCount = db.prepare('SELECT count(*) as c FROM stamp_masters').get() as { c: number };
+		if (stampCount.c === 0) {
+			const defaultStamps = [
+				['にこにこ', '😊', 'N'],
+				['グッジョブ', '👍', 'N'],
+				['スター', '⭐', 'N'],
+				['ハート', '❤️', 'N'],
+				['がんばった', '💪', 'N'],
+				['ロケット', '🚀', 'R'],
+				['おうかん', '👑', 'R'],
+				['トロフィー', '🏆', 'R'],
+				['にじ', '🌈', 'R'],
+				['たいよう', '☀️', 'R'],
+				['ドラゴン', '🐉', 'SR'],
+				['ユニコーン', '🦄', 'SR'],
+				['たからばこ', '📦', 'SR'],
+				['まほうのつえ', '🪄', 'SR'],
+				['でんせつのけん', '⚔️', 'UR'],
+				['きせきのほし', '🌟', 'UR'],
+			];
+			const stmt = db.prepare('INSERT INTO stamp_masters (name, emoji, rarity) VALUES (?, ?, ?)');
+			for (const [name, emoji, rarity] of defaultStamps) {
+				stmt.run(name, emoji, rarity);
+			}
+			console.log('[E2E Setup]   Created default stamp masters.');
+		}
+
 		// テスト用クリーンアップ: ピン留め設定を削除（ピン留めテストの安定化）
 		const deletedPins = db.prepare('DELETE FROM child_activity_preferences').run();
 		if (deletedPins.changes > 0) {
