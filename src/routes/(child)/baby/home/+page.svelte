@@ -14,6 +14,7 @@ import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import OmikujiOverlay from '$lib/ui/components/OmikujiOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
+import StampCard from '$lib/ui/components/StampCard.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 import { tick } from 'svelte';
@@ -279,6 +280,22 @@ function handleBirthdayResultClose() {
 		>
 			<button type="submit" id="claim-bonus-btn">claim</button>
 		</form>
+	{/if}
+
+	<!-- Stamp card -->
+	{#if data.stampCard}
+		<div class="mb-[var(--sp-sm)]">
+			<StampCard
+				weekStart={data.stampCard.weekStart}
+				weekEnd={data.stampCard.weekEnd}
+				entries={data.stampCard.entries}
+				canStampToday={data.stampCard.canStampToday}
+				totalSlots={data.stampCard.totalSlots}
+				filledSlots={data.stampCard.filledSlots}
+				status={data.stampCard.status}
+				redeemedPoints={data.stampCard.redeemedPoints}
+			/>
+		</div>
 	{/if}
 
 	<!-- Daily missions -->
