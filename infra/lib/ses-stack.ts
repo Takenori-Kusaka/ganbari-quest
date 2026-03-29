@@ -61,7 +61,7 @@ export class SesStack extends cdk.Stack {
 		});
 
 		// --- Outputs ---
-		new cdk.CfnOutput(this, 'BounceTopic', { value: bounceTopic.topicArn });
-		new cdk.CfnOutput(this, 'ComplaintTopic', { value: complaintTopic.topicArn });
+		new cdk.CfnOutput(this, 'BounceTopicArn', { value: bounceTopic.topicArn });
+		new cdk.CfnOutput(this, 'ComplaintTopicArn', { value: complaintTopic.topicArn });
 	}
 }
