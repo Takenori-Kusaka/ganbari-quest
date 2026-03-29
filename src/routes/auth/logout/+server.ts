@@ -6,7 +6,7 @@ import {
 	IDENTITY_COOKIE_NAME,
 	SESSION_COOKIE_NAME,
 } from '$lib/domain/validation/auth';
-import { getAuthMode } from '$lib/server/auth/factory';
+import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
 import { buildLogoutUrl } from '$lib/server/auth/providers/cognito-oauth';
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
@@ -20,7 +20,8 @@ function clearSessionCookies(cookies: import('@sveltejs/kit').Cookies) {
 function handleLogout(cookies: import('@sveltejs/kit').Cookies): never {
 	clearSessionCookies(cookies);
 
-	if (getAuthMode() === 'cognito') {
+	// Cognito 本番モードのみ Hosted UI ログアウトにリダイレクト（dev モードは除外）
+	if (getAuthMode() === 'cognito' && !isCognitoDevMode()) {
 		redirect(302, buildLogoutUrl());
 	}
 
