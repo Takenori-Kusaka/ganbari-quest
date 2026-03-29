@@ -37,6 +37,23 @@ export function calcExpToNextLevel(avgStatus: number): number {
 	return Math.max(0, nextEntry.minAvg - avgStatus);
 }
 
+/** カテゴリ個別値からレベルを算出（maxValue ベースで正規化） */
+export function calcCategoryLevel(
+	value: number,
+	maxValue: number,
+): { level: number; title: string } {
+	const normalized = maxValue > 0 ? (value / maxValue) * 100 : 0;
+	return calcLevel(normalized);
+}
+
+/** カテゴリ個別値から次レベルまでの必要ポイントを算出 */
+export function calcCategoryExpToNextLevel(value: number, maxValue: number): number {
+	const normalized = maxValue > 0 ? (value / maxValue) * 100 : 0;
+	const exp = calcExpToNextLevel(normalized);
+	// 正規化空間でのポイントを実値空間に変換
+	return maxValue > 0 ? (exp / 100) * maxValue : 0;
+}
+
 /** 偏差値計算: (個人値 - 平均) / 標準偏差 × 10 + 50 */
 export function calcDeviationScore(value: number, mean: number, stdDev: number): number {
 	if (stdDev === 0) return 50;

@@ -188,10 +188,13 @@ describe('status-service', () => {
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.childId).toBe(1);
-			expect(result.level).toBe(1);
-			expect(result.levelTitle).toBe('はじめのぼうけんしゃ');
+			expect(result.level).toBe(1); // highestCategoryLevel
 			expect(Object.keys(result.statuses).length).toBe(5);
 			expect(result.statuses[1]?.value).toBe(0);
+			// カテゴリ別レベルが各StatusDetailに含まれる
+			expect(result.statuses[1]?.level).toBe(1);
+			expect(result.statuses[1]?.levelTitle).toBe('はじめのぼうけんしゃ');
+			expect(result.statuses[1]?.expToNextLevel).toBeGreaterThan(0);
 		}
 	});
 
@@ -255,49 +258,51 @@ describe('status-service', () => {
 		}
 	});
 
-	it('レベルアップ時にlevelUp情報が返る', async () => {
-		// 全カテゴリを34に設定 → 平均34 → 正規化 34/350*100≈9.7 → レベル1
-		for (const catId of [1, 2, 3, 4, 5]) {
-			await updateStatus(1, catId, 34, 'test', 'test-tenant');
-		}
+	it('カテゴリ別レベルアップ時にlevelUp情報が返る', async () => {
+		// うんどうを34に設定 → 正規化 34/350*100≈9.7 → レベル1
+		await updateStatus(1, 1, 34, 'test', 'test-tenant');
 		const before = await getChildStatus(1, 'test-tenant');
 		if (!('error' in before)) {
-			expect(before.level).toBe(1);
+			expect(before.statuses[1]?.level).toBe(1);
 		}
 
-		// うんどう+2 → [36,34,34,34,34] 平均34.4 → 正規化9.83 → レベル1（変化なし）
+		// うんどう+2 → 36 → 正規化10.29 → レベル2！（カテゴリ別レベルアップ）
 		const result = await updateStatus(1, 1, 2, 'test', 'test-tenant');
 		if (!('error' in result)) {
-			expect(result.levelUp).toBeNull();
-		}
-
-		// べんきょう+2 → [36,36,34,34,34] 平均34.8 → 正規化9.94 → レベル1
-		const result2 = await updateStatus(1, 2, 2, 'test', 'test-tenant');
-		if (!('error' in result2)) {
-			expect(result2.levelUp).toBeNull();
-		}
-
-		// せいかつ+2 → [36,36,36,34,34] 平均35.2 → 正規化10.06 → レベル2！
-		const levelUpResult = await updateStatus(1, 3, 2, 'test', 'test-tenant');
-		if (!('error' in levelUpResult)) {
-			expect(levelUpResult.levelUp).not.toBeNull();
-			expect(levelUpResult.levelUp?.oldLevel).toBe(1);
-			expect(levelUpResult.levelUp?.newLevel).toBe(2);
-			expect(levelUpResult.levelUp?.newTitle).toBe('がんばりルーキー');
+			expect(result.levelUp).not.toBeNull();
+			expect(result.levelUp?.oldLevel).toBe(1);
+			expect(result.levelUp?.newLevel).toBe(2);
+			expect(result.levelUp?.newTitle).toBe('がんばりルーキー');
+			expect(result.levelUp?.categoryId).toBe(1);
+			expect(result.levelUp?.categoryName).toBe('うんどう');
 		}
 	});
 
-	it('レベルがステータス平均の正規化値で決まる（age=4, max=350）', async () => {
-		// 全カテゴリを175に設定 → 平均175 → 正規化 175/350*100=50 → レベル6
+	it('同一レベル内の変動ではlevelUpはnull', async () => {
+		// うんどうを36に設定 → 正規化10.29 → レベル2
+		await updateStatus(1, 1, 36, 'test', 'test-tenant');
+
+		// +1 → 37 → 正規化10.57 → まだレベル2（変化なし）
+		const result = await updateStatus(1, 1, 1, 'test', 'test-tenant');
+		if (!('error' in result)) {
+			expect(result.levelUp).toBeNull();
+		}
+	});
+
+	it('カテゴリ別レベルが正規化値で決まる（age=4, max=350）', async () => {
+		// 全カテゴリを175に設定 → 正規化 175/350*100=50 → カテゴリレベル6
 		for (const catId of [1, 2, 3, 4, 5]) {
 			await updateStatus(1, catId, 175, 'test', 'test-tenant');
 		}
 
 		const result = await getChildStatus(1, 'test-tenant');
 		if (!('error' in result)) {
-			expect(result.level).toBe(6);
-			expect(result.levelTitle).toBe('すごうでアドベンチャー');
+			expect(result.level).toBe(6); // highestCategoryLevel
+			expect(result.highestCategoryLevel).toBe(6);
 			expect(result.maxValue).toBe(350);
+			// 各カテゴリのレベルが6
+			expect(result.statuses[1]?.level).toBe(6);
+			expect(result.statuses[1]?.levelTitle).toBe('すごうでアドベンチャー');
 		}
 	});
 
