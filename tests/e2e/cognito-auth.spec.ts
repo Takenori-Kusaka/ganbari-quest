@@ -161,9 +161,9 @@ test.describe('公開ルート', () => {
 		expect(page.url()).not.toContain('/error');
 	});
 
-	test('未ログインで /switch にアクセスしてもログインにリダイレクトされない', async ({ page }) => {
+	test('未ログインで /switch にアクセスするとログインにリダイレクトされる', async ({ page }) => {
 		await page.goto('/switch');
-		expect(page.url()).not.toContain('/auth/login');
+		expect(page.url()).toContain('/auth/login');
 	});
 
 	test('/api/health は認証不要', async ({ request }) => {
