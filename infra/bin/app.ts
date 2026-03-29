@@ -5,6 +5,7 @@ import { AuthStack } from '../lib/auth-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { NetworkStack } from '../lib/network-stack';
 import { OpsStack } from '../lib/ops-stack';
+import { SesStack } from '../lib/ses-stack';
 import { StorageStack } from '../lib/storage-stack';
 
 const app = new cdk.App();
@@ -46,6 +47,13 @@ const network = new NetworkStack(app, `${appName}Network`, {
 	functionUrl: compute.functionUrl,
 	domainName,
 	certificateArn,
+});
+
+// SES Stack: メール送信基盤（ドメイン検証 + DKIM + Configuration Set）
+new SesStack(app, `${appName}Ses`, {
+	env,
+	description: 'SES Email Infrastructure for Ganbari Quest',
+	domainName,
 });
 
 // OpsStack: 監視・アラート + コスト防衛 (deploy with -c opsEmail=you@example.com)
