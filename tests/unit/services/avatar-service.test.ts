@@ -210,7 +210,7 @@ describe('purchaseItem', () => {
 		const legend = (await avatarService.getShopItems(1, 'test-tenant')).find(
 			(i) => i.code === 'bg_legend',
 		);
-		const result = await avatarService.purchaseItem(1, legend!.id, 'test-tenant');
+		const result = await avatarService.purchaseItem(1, legend?.id ?? 0, 'test-tenant');
 		expect(result).toEqual({ error: 'LOCKED' });
 	});
 
