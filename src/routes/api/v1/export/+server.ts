@@ -18,10 +18,11 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 				.map(Number)
 				.filter((n) => !Number.isNaN(n))
 		: undefined;
+	const compact = url.searchParams.get('compact') === '1';
 
 	try {
-		const exportData = await exportFamilyData({ tenantId, childIds });
-		const jsonStr = JSON.stringify(exportData, null, 2);
+		const exportData = await exportFamilyData({ tenantId, childIds, compact });
+		const jsonStr = compact ? JSON.stringify(exportData) : JSON.stringify(exportData, null, 2);
 		const now = new Date().toISOString().split('T')[0];
 
 		return new Response(jsonStr, {
