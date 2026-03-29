@@ -35,7 +35,7 @@ import {
 describe('discord-notify-service', () => {
 	const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	// biome-ignore lint/suspicious/noExplicitAny: test helper parsing JSON needs flexible type
 	function getLastBody(): any {
 		const call = fetchSpy.mock.calls[0] as [string, { body: string }] | undefined;
 		if (!call) throw new Error('fetch was not called');
