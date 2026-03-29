@@ -1,4 +1,5 @@
 <script lang="ts">
+import { page } from '$app/stores';
 import QRCode from 'qrcode';
 
 let { data } = $props();
@@ -68,6 +69,63 @@ async function copyLink() {
 	}, 2000);
 }
 
+let memberError = $state('');
+
+async function removeMember(userId: string, email: string) {
+	if (!confirm(`${email} をメンバーから削除しますか？この操作は取り消せません。`)) return;
+	memberError = '';
+	try {
+		const res = await fetch(`/api/v1/admin/members/${userId}`, { method: 'DELETE' });
+		if (!res.ok) {
+			const d = await res.json();
+			memberError = d.error ?? '削除に失敗しました';
+			return;
+		}
+		window.location.reload();
+	} catch {
+		memberError = '通信エラーが発生しました';
+	}
+}
+
+async function transferOwnership(userId: string, email: string) {
+	if (
+		!confirm(
+			`${email} にオーナー権限を移譲しますか？\n移譲後、あなたは「保護者」ロールになります。この操作は取り消せません。`,
+		)
+	)
+		return;
+	memberError = '';
+	try {
+		const res = await fetch(`/api/v1/admin/members/${userId}/transfer-ownership`, {
+			method: 'POST',
+		});
+		if (!res.ok) {
+			const d = await res.json();
+			memberError = d.error ?? '移譲に失敗しました';
+			return;
+		}
+		window.location.reload();
+	} catch {
+		memberError = '通信エラーが発生しました';
+	}
+}
+
+async function leaveGroup() {
+	if (!confirm('家族グループを離れますか？この操作は取り消せません。')) return;
+	memberError = '';
+	try {
+		const res = await fetch('/api/v1/admin/members/leave', { method: 'POST' });
+		if (!res.ok) {
+			const d = await res.json();
+			memberError = d.error ?? '離脱に失敗しました';
+			return;
+		}
+		window.location.href = '/auth/login';
+	} catch {
+		memberError = '通信エラーが発生しました';
+	}
+}
+
 const roleLabel = (role: string) => {
 	switch (role) {
 		case 'owner':
@@ -92,26 +150,68 @@ const roleLabel = (role: string) => {
 	<!-- メンバー一覧 -->
 	<section class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
 		<h3 class="text-lg font-semibold text-gray-600 mb-3">現在のメンバー</h3>
+
+		{#if memberError}
+			<div class="p-3 mb-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+				{memberError}
+			</div>
+		{/if}
+
 		{#if data.members.length === 0}
 			<p class="text-gray-400 text-sm">メンバーがいません</p>
 		{:else}
 			<div class="divide-y divide-gray-100">
 				{#each data.members as member}
-					<div class="flex items-center justify-between py-3">
-						<div>
-							<span class="text-sm font-medium text-gray-700">{member.email}</span>
-							<span class="ml-2 text-xs px-2 py-0.5 rounded-full
-								{member.role === 'owner' ? 'bg-amber-100 text-amber-700'
-								: member.role === 'parent' ? 'bg-blue-100 text-blue-700'
-								: 'bg-green-100 text-green-700'}">
-								{roleLabel(member.role)}
-							</span>
+					<div class="flex items-center justify-between py-3 gap-2">
+						<div class="flex-1 min-w-0">
+							<span class="text-sm font-medium text-gray-700 truncate block">{member.email}</span>
+							<div class="flex items-center gap-2 mt-0.5">
+								<span class="text-xs px-2 py-0.5 rounded-full
+									{member.role === 'owner' ? 'bg-amber-100 text-amber-700'
+									: member.role === 'parent' ? 'bg-blue-100 text-blue-700'
+									: 'bg-green-100 text-green-700'}">
+									{roleLabel(member.role)}
+								</span>
+								<span class="text-xs text-gray-400">
+									{new Date(member.joinedAt).toLocaleDateString('ja-JP')}
+								</span>
+							</div>
 						</div>
-						<span class="text-xs text-gray-400">
-							{new Date(member.joinedAt).toLocaleDateString('ja-JP')}
-						</span>
+						<!-- アクションボタン -->
+						{#if $page.data.currentRole === 'owner' && member.userId !== $page.data.currentUserId}
+							<div class="flex gap-1 flex-shrink-0">
+								{#if member.role !== 'owner'}
+									<button
+										onclick={() => transferOwnership(member.userId, member.email)}
+										class="text-xs px-2 py-1 bg-amber-50 text-amber-600 rounded hover:bg-amber-100 transition-colors"
+										title="オーナー権限を移譲"
+									>
+										移譲
+									</button>
+									<button
+										onclick={() => removeMember(member.userId, member.email)}
+										class="text-xs px-2 py-1 bg-red-50 text-red-500 rounded hover:bg-red-100 transition-colors"
+										title="メンバーを削除"
+									>
+										削除
+									</button>
+								{/if}
+							</div>
+						{/if}
 					</div>
 				{/each}
+			</div>
+		{/if}
+
+		<!-- 自主離脱ボタン（parent のみ） -->
+		{#if $page.data.currentRole === 'parent'}
+			<div class="mt-4 pt-4 border-t border-gray-100">
+				<button
+					onclick={leaveGroup}
+					class="text-sm text-red-500 hover:text-red-700 transition-colors"
+				>
+					家族グループを離れる
+				</button>
 			</div>
 		{/if}
 	</section>

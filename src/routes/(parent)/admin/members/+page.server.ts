@@ -29,9 +29,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
+	const currentUserId = locals.identity?.type === 'cognito' ? locals.identity.userId : undefined;
+	const currentRole = locals.context?.role ?? 'parent';
+
 	return {
 		members: membersWithEmail,
 		invites: invites.filter((i) => i.status === 'pending'),
 		children: children.map((c) => ({ id: c.id, nickname: c.nickname, userId: c.userId })),
+		currentUserId,
+		currentRole,
 	};
 };
