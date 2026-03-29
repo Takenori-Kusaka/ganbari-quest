@@ -108,9 +108,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 		redirect(302, authResult.redirect);
 	}
 
-	// 同意バージョンチェック（cognito モードのみ）
+	// 同意バージョンチェック（cognito 本番モードのみ、dev モードは除外）
 	if (
 		authMode === 'cognito' &&
+		!COGNITO_DEV_MODE &&
 		identity &&
 		context?.tenantId &&
 		!path.startsWith('/consent') &&
