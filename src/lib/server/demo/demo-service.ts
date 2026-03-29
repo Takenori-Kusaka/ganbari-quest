@@ -8,7 +8,12 @@
 
 import { DEFAULT_POINT_SETTINGS, type PointSettings } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getActivityDisplayName } from '$lib/domain/validation/activity';
-import { calcLevel, getMaxForAge } from '$lib/domain/validation/status';
+import {
+	calcCategoryExpToNextLevel,
+	calcCategoryLevel,
+	calcLevel,
+	getMaxForAge,
+} from '$lib/domain/validation/status';
 import type { Activity, Child } from '$lib/server/db/types/index.js';
 import type { AchievementWithStatus } from '$lib/server/services/achievement-service';
 import type { AvatarConfig } from '$lib/server/services/avatar-service';
@@ -408,7 +413,8 @@ export function getDemoStatusData(childId: number): ChildStatus | null {
 	const maxValue = getMaxForAge(child.age);
 	const statusMap: Record<number, StatusDetail> = {};
 
-	let totalValue = 0;
+	let highestCategoryLevel = 0;
+	let totalDeviation = 0;
 
 	for (const catDef of CATEGORY_DEFS) {
 		const row = statuses.find((s) => s.categoryId === catDef.id);
@@ -427,28 +433,36 @@ export function getDemoStatusData(childId: number): ChildStatus | null {
 							? 2
 							: 1;
 
+		const catLevel = calcCategoryLevel(value, maxValue);
+		const catExp = calcCategoryExpToNextLevel(value, maxValue);
+
 		statusMap[catDef.id] = {
 			value: Math.round(value * 10) / 10,
 			deviationScore,
 			stars,
 			trend: value > maxValue * 0.3 ? 'up' : 'stable',
+			level: catLevel.level,
+			levelTitle: catLevel.title,
+			expToNextLevel: Math.round(catExp * 10) / 10,
 		};
-		totalValue += value;
+
+		if (catLevel.level > highestCategoryLevel) {
+			highestCategoryLevel = catLevel.level;
+		}
+		totalDeviation += deviationScore;
 	}
 
-	const avgStatus = CATEGORY_DEFS.length > 0 ? totalValue / CATEGORY_DEFS.length : 0;
-	const normalizedAvg = maxValue > 0 ? (avgStatus / maxValue) * 100 : 0;
-	const { level, title } = calcLevel(normalizedAvg);
-	const nextEntry = level < 10 ? (level + 1) * 10 - normalizedAvg : 0;
+	const avgDeviation = CATEGORY_DEFS.length > 0 ? totalDeviation / CATEGORY_DEFS.length : 50;
 
 	return {
 		childId,
-		level,
-		levelTitle: title,
-		expToNextLevel: Math.round(Math.max(0, nextEntry) * 10) / 10,
+		level: highestCategoryLevel,
+		levelTitle: '',
+		expToNextLevel: 0,
 		maxValue,
 		statuses: statusMap,
-		characterType: normalizedAvg >= 55 ? 'hero' : normalizedAvg >= 45 ? 'normal' : 'ganbari',
+		characterType: avgDeviation >= 55 ? 'hero' : avgDeviation >= 45 ? 'normal' : 'ganbari',
+		highestCategoryLevel,
 	};
 }
 

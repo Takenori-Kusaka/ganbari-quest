@@ -96,6 +96,8 @@ let levelUpData = $state<{
 	oldTitle: string;
 	newLevel: number;
 	newTitle: string;
+	categoryId?: number;
+	categoryName?: string;
 } | null>(null);
 
 // Build recorded counts map: activityId → count
@@ -365,7 +367,7 @@ function handleBirthdayResultClose() {
 											totalNewBonus: number;
 										} | null;
 										missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
-										levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string } | null;
+										levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string } | null;
 									};
 									resultIcon = activity.icon;
 									resultName = d.activityName;

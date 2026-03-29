@@ -7,6 +7,8 @@ interface LevelUpData {
 	oldTitle: string;
 	newLevel: number;
 	newTitle: string;
+	categoryId?: number;
+	categoryName?: string;
 }
 
 interface Props {
@@ -87,7 +89,7 @@ function handleClose() {
 				<span class="sparkle s6">✦</span>
 			</div>
 
-			<p class="levelup-label">レベルアップ！</p>
+			<p class="levelup-label">{levelUp.categoryName ? `${levelUp.categoryName} ` : ''}レベルアップ！</p>
 
 			<div class="levelup-icon-wrapper">
 				<span class="levelup-icon">{LEVEL_ICONS[levelUp.newLevel] ?? '⭐'}</span>
