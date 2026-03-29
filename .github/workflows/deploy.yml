@@ -21,6 +21,7 @@ env:
   LAMBDA_FUNCTION: ganbari-quest-app
   DOMAIN_NAME: ganbari-quest.com
   CERTIFICATE_ARN: arn:aws:acm:us-east-1:443370718249:certificate/a278b058-8798-4793-ba1f-3f3de2a0b837
+  APP_MAJOR_VERSION: "1"
 
 jobs:
   test:
@@ -34,6 +35,8 @@ jobs:
           cache: 'npm'
 
       - run: npm ci
+      - name: Generate version
+        run: npm run version:generate
       - run: npx biome check .
       - run: npx svelte-check
       - run: npx vitest run
@@ -104,6 +107,11 @@ jobs:
 
       - name: Install app dependencies
         run: npm ci
+
+      - name: Generate version
+        run: npm run version:generate
+        env:
+          APP_MAJOR_VERSION: ${{ env.APP_MAJOR_VERSION }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4

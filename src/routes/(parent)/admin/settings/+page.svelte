@@ -4,6 +4,7 @@ import { page } from '$app/stores';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import { APP_VERSION } from '$lib/version';
 
 let { data, form } = $props();
 
@@ -724,7 +725,7 @@ const previewFormatted = $derived(
 				<a href="https://github.com/Takenori-Kusaka/ganbari-quest" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">🐙 GitHub</a>
 			</li>
 			<li>
-				<span class="text-gray-500">バージョン: 1.0.0</span>
+				<span class="text-gray-500">バージョン: {APP_VERSION}</span>
 			</li>
 		</ul>
 	</div>
