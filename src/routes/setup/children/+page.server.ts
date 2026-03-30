@@ -5,6 +5,9 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	if (!locals.context) {
+		redirect(302, '/auth/login');
+	}
 	const tenantId = requireTenantId(locals);
 	// PIN not set -> go back to step 1
 	const pinHash = await getSetting('pin_hash', tenantId);
