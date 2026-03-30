@@ -1,5 +1,7 @@
 <script lang="ts">
 import { CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
+import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
+import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 
 let { data } = $props();
 
@@ -29,11 +31,7 @@ const decayOptions = [
 	<!-- Page Header -->
 	<h1 class="text-lg font-bold text-gray-700">設定</h1>
 
-	<!-- Demo Notice -->
-	<div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-2">
-		<span class="text-amber-500">&#x26A0;&#xFE0F;</span>
-		<p class="text-sm text-amber-700">デモモードのため、変更はできません</p>
-	</div>
+	<DemoBanner />
 
 	<!-- PIN Settings -->
 	<section class="bg-white rounded-xl p-4 shadow-sm space-y-3">
@@ -167,17 +165,8 @@ const decayOptions = [
 		</p>
 	</section>
 
-	<!-- Demo CTA -->
-	<div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-200 rounded-xl p-4 text-center">
-		<p class="text-sm font-bold text-gray-700 mb-1">すべての設定を利用しませんか？</p>
-		<p class="text-xs text-gray-500 mb-3">
-			登録すると、PIN設定・ポイント表示・減衰設定などが自由にカスタマイズできます。
-		</p>
-		<a
-			href="/demo/signup"
-			class="inline-block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-center text-sm"
-		>
-			無料で はじめる &rarr;
-		</a>
-	</div>
+	<DemoCta
+		title="すべての設定を利用しませんか？"
+		description="登録すると、PIN設定・ポイント表示・減衰設定などが自由にカスタマイズできます。"
+	/>
 </div>
