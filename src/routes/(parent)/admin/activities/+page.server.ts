@@ -1,6 +1,13 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import type { ActivityPack } from '$lib/domain/activity-pack';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
+import {
+	importActivities,
+	previewActivityImport,
+} from '$lib/server/services/activity-import-service';
 import {
 	createActivity,
 	deleteActivityWithCleanup,
@@ -23,7 +30,25 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const licenseStatus = locals.context?.licenseStatus ?? 'none';
 	const activityLimit = await checkActivityLimit(tenantId, licenseStatus);
 
-	return { activities, categoryDefs: CATEGORY_DEFS, logCounts, activityLimit };
+	// プリセットパック一覧
+	let activityPacks: {
+		packId: string;
+		packName: string;
+		icon: string;
+		activityCount: number;
+		targetAgeMin: number;
+		targetAgeMax: number;
+	}[] = [];
+	try {
+		const indexPath = join(process.cwd(), 'static', 'activity-packs', 'index.json');
+		const raw = await readFile(indexPath, 'utf-8');
+		const index = JSON.parse(raw);
+		activityPacks = index.packs ?? [];
+	} catch {
+		// パックが存在しない場合は空配列
+	}
+
+	return { activities, categoryDefs: CATEGORY_DEFS, logCounts, activityLimit, activityPacks };
 };
 
 export const actions: Actions = {
@@ -152,6 +177,43 @@ export const actions: Actions = {
 				context: { id, name },
 			});
 			return fail(500, { error: '更新に失敗しました' });
+		}
+	},
+
+	importPack: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const packId = String(formData.get('packId') ?? '').trim();
+
+		if (!packId) return fail(400, { error: 'パックIDが必要です' });
+
+		// static/activity-packs/{packId}.json を読み込み
+		let pack: ActivityPack;
+		try {
+			const filePath = join(process.cwd(), 'static', 'activity-packs', `${packId}.json`);
+			const raw = await readFile(filePath, 'utf-8');
+			pack = JSON.parse(raw);
+		} catch {
+			return fail(404, { error: 'パックが見つかりません' });
+		}
+
+		try {
+			const preview = await previewActivityImport(pack.activities, tenantId);
+			const result = await importActivities(pack.activities, tenantId);
+			return {
+				importResult: true,
+				packName: pack.packName,
+				imported: result.imported,
+				skipped: result.skipped,
+				total: preview.total,
+				errors: result.errors,
+			};
+		} catch (e) {
+			logger.error('[admin/activities] パックインポート失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { packId },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
 		}
 	},
 

@@ -92,6 +92,8 @@ function dailyLimitLabel(val: number | null): string {
 }
 
 let showHidden = $state(false);
+let showImportPanel = $state(false);
+let importLoading = $state(false);
 
 const filteredActivities = $derived.by(() => {
 	let result = data.activities.filter((a) => a.isVisible);
@@ -276,6 +278,12 @@ function acceptPreview() {
 				>
 					{showAddForm ? 'キャンセル' : '+ 手動追加'}
 				</button>
+				<button
+					class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600 transition-colors"
+					onclick={() => { showImportPanel = !showImportPanel; }}
+				>
+					{showImportPanel ? 'キャンセル' : '📥 インポート'}
+				</button>
 			</div>
 		{:else}
 			<button
@@ -286,6 +294,54 @@ function acceptPreview() {
 			</button>
 		{/if}
 	</div>
+
+	<!-- インポートパネル -->
+	{#if showImportPanel}
+		<div class="bg-green-50 rounded-xl p-4 shadow-sm space-y-3 border border-green-200">
+			<h3 class="font-bold text-green-700">📥 活動パックからインポート</h3>
+			<p class="text-xs text-green-600">おすすめの活動セットを一括追加できます（重複はスキップ）</p>
+			{#if data.activityPacks.length === 0}
+				<p class="text-sm text-gray-500">利用可能なパックがありません</p>
+			{:else}
+				<div class="grid grid-cols-1 gap-2">
+					{#each data.activityPacks as pack}
+						<form
+							method="POST"
+							action="?/importPack"
+							use:enhance={() => {
+								importLoading = true;
+								return async ({ result, update }) => {
+									importLoading = false;
+									if (result.type === 'success' && result.data && 'importResult' in result.data) {
+										const d = result.data as Record<string, unknown>;
+										actionMessage = `📦 「${d.packName}」: ${d.imported}件追加、${d.skipped}件スキップ`;
+										showImportPanel = false;
+									}
+									await update({ reset: false });
+								};
+							}}
+						>
+							<input type="hidden" name="packId" value={pack.packId} />
+							<button
+								type="submit"
+								disabled={importLoading}
+								class="w-full flex items-center gap-3 p-3 bg-white rounded-lg border border-green-200 hover:border-green-400 hover:bg-green-50 transition-colors text-left"
+							>
+								<span class="text-2xl">{pack.icon}</span>
+								<div class="flex-1 min-w-0">
+									<p class="font-bold text-sm text-gray-800">{pack.packName}</p>
+									<p class="text-xs text-gray-500">{pack.activityCount}件 ・ {pack.targetAgeMin}〜{pack.targetAgeMax}歳</p>
+								</div>
+								<span class="text-xs font-bold text-green-600 shrink-0">
+									{importLoading ? '処理中...' : '追加'}
+								</span>
+							</button>
+						</form>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- AI入力モード -->
 	{#if aiMode}
