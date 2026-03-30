@@ -29,3 +29,23 @@ export async function findWeekEvaluation(childId: number, weekStart: string, ten
 export async function findLastActivityDateByCategory(childId: number, tenantId: string) {
 	return getRepos().evaluation.findLastActivityDateByCategory(childId, tenantId);
 }
+export async function insertRestDay(
+	childId: number,
+	date: string,
+	reason: string,
+	tenantId: string,
+) {
+	return getRepos().evaluation.insertRestDay(childId, date, reason, tenantId);
+}
+export async function deleteRestDay(childId: number, date: string, tenantId: string) {
+	return getRepos().evaluation.deleteRestDay(childId, date, tenantId);
+}
+export async function isRestDay(childId: number, date: string, tenantId: string) {
+	return getRepos().evaluation.isRestDay(childId, date, tenantId);
+}
+export async function countRestDaysInMonth(childId: number, yearMonth: string, tenantId: string) {
+	return getRepos().evaluation.countRestDaysInMonth(childId, yearMonth, tenantId);
+}
+export async function findRestDays(childId: number, yearMonth: string, tenantId: string) {
+	return getRepos().evaluation.findRestDays(childId, yearMonth, tenantId);
+}

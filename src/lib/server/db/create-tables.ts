@@ -152,6 +152,16 @@ export const SQL_CREATE_TABLES = `
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS rest_days (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		date TEXT NOT NULL,
+		reason TEXT NOT NULL DEFAULT 'rest',
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_rest_days_child_date
+		ON rest_days(child_id, date);
+
 	CREATE TABLE IF NOT EXISTS character_images (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),

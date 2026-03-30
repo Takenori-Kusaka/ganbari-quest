@@ -8,6 +8,7 @@ import type {
 	Child,
 	Evaluation,
 	InsertEvaluationInput,
+	RestDay,
 } from '../types';
 import { TABLE_NAME, getDocClient } from './client';
 import { nextId } from './counter';
@@ -264,4 +265,48 @@ export async function findLastActivityDateByCategory(
 		categoryId,
 		lastDate,
 	}));
+}
+
+// ============================================================
+// おやすみ日 (rest_days) — DynamoDB stub
+// TODO: DynamoDB 本番対応時に実装
+// ============================================================
+
+export async function insertRestDay(
+	_childId: number,
+	_date: string,
+	_reason: string,
+	_tenantId: string,
+): Promise<RestDay | undefined> {
+	return undefined;
+}
+
+export async function deleteRestDay(
+	_childId: number,
+	_date: string,
+	_tenantId: string,
+): Promise<void> {}
+
+export async function isRestDay(
+	_childId: number,
+	_date: string,
+	_tenantId: string,
+): Promise<boolean> {
+	return false;
+}
+
+export async function countRestDaysInMonth(
+	_childId: number,
+	_yearMonth: string,
+	_tenantId: string,
+): Promise<number> {
+	return 0;
+}
+
+export async function findRestDays(
+	_childId: number,
+	_yearMonth: string,
+	_tenantId: string,
+): Promise<RestDay[]> {
+	return [];
 }
