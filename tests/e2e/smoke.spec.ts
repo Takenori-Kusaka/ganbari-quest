@@ -194,8 +194,8 @@ test.describe('UC-04: ステータス確認', () => {
 		await selectKinderChildAndDismiss(page);
 		await page.goto('/kinder/status');
 		await expect(page).toHaveURL(/\/kinder\/status/);
-		// ステータスセクション見出しでレンダリング確認
-		await expect(page.getByRole('heading', { name: 'ステータス' })).toBeVisible();
+		// レーダーチャートセクション見出しでレンダリング確認
+		await expect(page.getByRole('heading', { name: 'せいちょうチャート' })).toBeVisible();
 	});
 
 	test('レベルとキャラクタータイプが表示される', async ({ page }) => {
@@ -204,8 +204,8 @@ test.describe('UC-04: ステータス確認', () => {
 
 		// レベル表示（ヘッダーとメインの2箇所にあるので main 内を指定）
 		await expect(page.getByRole('main').getByText(/Lv\./).first()).toBeVisible();
-		// ステータスセクション見出し
-		await expect(page.getByRole('heading', { name: 'ステータス' })).toBeVisible();
+		// レーダーチャートセクション見出し
+		await expect(page.getByRole('heading', { name: 'せいちょうチャート' })).toBeVisible();
 	});
 });
 

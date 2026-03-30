@@ -296,8 +296,8 @@ test.describe('#0082: レーダーチャート', () => {
 		const svg = page.locator('svg[aria-label="ステータスレーダーチャート"]');
 		await expect(svg).toBeVisible();
 
-		// 5カテゴリのラベルが表示される
-		await expect(page.getByText('ステータス')).toBeVisible();
+		// せいちょうチャートの見出しが表示される
+		await expect(page.getByText('せいちょうチャート')).toBeVisible();
 	});
 
 	test('「くわしくみる」で詳細が展開される', async ({ page }) => {
