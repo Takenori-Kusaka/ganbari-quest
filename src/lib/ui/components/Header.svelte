@@ -10,10 +10,20 @@ interface Props {
 	avatarConfig?: { bgCss: string; frameCss: string; effectClass: string } | null;
 	pointSettings?: PointSettings;
 	activeTitle?: { icon: string; name: string } | null;
+	stampProgress?: { filled: number; total: number } | null;
+	onStampClick?: () => void;
 }
 
-let { nickname, totalPoints, avatarUrl, avatarConfig, pointSettings, activeTitle }: Props =
-	$props();
+let {
+	nickname,
+	totalPoints,
+	avatarUrl,
+	avatarConfig,
+	pointSettings,
+	activeTitle,
+	stampProgress,
+	onStampClick,
+}: Props = $props();
 
 const settings = $derived(pointSettings ?? DEFAULT_POINT_SETTINGS);
 const balanceDisplay = $derived(
@@ -41,8 +51,40 @@ const balanceDisplay = $derived(
 			{/if}
 		</div>
 	</div>
-	<div class="flex items-center gap-1 font-bold">
-		<span class="text-xl" aria-hidden="true">⭐</span>
-		<span class="text-lg">{balanceDisplay}</span>
+	<div class="flex items-center gap-2">
+		{#if stampProgress}
+			<button
+				type="button"
+				class="stamp-mini"
+				data-testid="header-stamp-btn"
+				onclick={() => onStampClick?.()}
+				aria-label="スタンプカードを見る"
+			>
+				<span class="text-sm" aria-hidden="true">🎴</span>
+				<span class="text-xs font-bold">{stampProgress.filled}/{stampProgress.total}</span>
+			</button>
+		{/if}
+		<div class="flex items-center gap-1 font-bold">
+			<span class="text-xl" aria-hidden="true">⭐</span>
+			<span class="text-lg">{balanceDisplay}</span>
+		</div>
 	</div>
 </header>
+
+<style>
+	.stamp-mini {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		background: rgba(255, 255, 255, 0.2);
+		border: none;
+		border-radius: var(--radius-sm, 6px);
+		padding: 2px 6px;
+		color: white;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+	.stamp-mini:hover {
+		background: rgba(255, 255, 255, 0.3);
+	}
+</style>

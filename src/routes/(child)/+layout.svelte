@@ -4,6 +4,8 @@ import { navigating } from '$app/stores';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
+import StampCard from '$lib/ui/components/StampCard.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { SOUND_TIER_CONFIG, loadSoundSettings, soundService } from '$lib/ui/sound';
 import { onMount } from 'svelte';
 
@@ -65,11 +67,13 @@ onMount(() => {
 
 	return () => clearInterval(autoReloadTimer);
 });
+
+let stampDialogOpen = $state(false);
 </script>
 
 <div data-theme={theme} data-age-tier={uiMode} class="min-h-dvh bg-[var(--theme-bg)]">
 	{#if data.child}
-		<Header nickname={data.child.nickname} totalPoints={data.balance} avatarUrl={data.child.avatarUrl} avatarConfig={data.avatarConfig} pointSettings={data.pointSettings} activeTitle={data.activeTitle} />
+		<Header nickname={data.child.nickname} totalPoints={data.balance} avatarUrl={data.child.avatarUrl} avatarConfig={data.avatarConfig} pointSettings={data.pointSettings} activeTitle={data.activeTitle} stampProgress={data.stampProgress} onStampClick={() => { stampDialogOpen = true; }} />
 	{/if}
 
 	<main class="pb-20 pt-[var(--sp-sm)]">
@@ -86,3 +90,19 @@ onMount(() => {
 
 	<BottomNav items={navItems} />
 </div>
+
+<!-- Stamp card dialog (opened from header) -->
+{#if data.stampCard}
+	<Dialog bind:open={stampDialogOpen} title="しゅうかんスタンプ">
+		<StampCard
+			weekStart={data.stampCard.weekStart}
+			weekEnd={data.stampCard.weekEnd}
+			entries={data.stampCard.entries}
+			canStampToday={false}
+			totalSlots={data.stampCard.totalSlots}
+			filledSlots={data.stampCard.filledSlots}
+			status={data.stampCard.status}
+			redeemedPoints={data.stampCard.redeemedPoints}
+		/>
+	</Dialog>
+{/if}
