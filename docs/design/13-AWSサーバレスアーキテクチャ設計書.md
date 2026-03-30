@@ -169,6 +169,34 @@
 - ワイルドカード証明書: `*.ganbari-quest.com` + `ganbari-quest.com`
 - DNS検証（Route 53自動連携）
 
+### 3.6 SesStack（メール送信・受信基盤）
+
+**SES Email Identity:**
+- ドメイン検証: `ganbari-quest.com`（Easy DKIM自動設定）
+- Mail-From ドメイン: `mail.ganbari-quest.com`
+- 送信元: `noreply@ganbari-quest.com`（アプリ通知用）
+
+**Configuration Set:** `ganbari-quest-config`
+- レピュテーション監視有効
+- バウンス/リジェクト → SNS Topic `ses-bounce-notifications`
+- 苦情 → SNS Topic `ses-complaint-notifications`
+
+**メール受信パイプライン（support@ganbari-quest.com）:**
+
+```
+[顧客] → MXレコード → [SES Receipt Rule]
+  ├→ S3保存（ganbari-quest-support-mail-{account}/incoming/）
+  └→ Lambda（ganbari-quest-ses-receive）
+       ├→ Discord通知（お問い合わせ受信チャネル）
+       └→ 自動応答メール送信
+```
+
+- Route 53 MXレコード → `inbound-smtp.us-east-1.amazonaws.com`
+- S3バケット: 暗号化(SSE-S3)、公開アクセスブロック、1年自動削除
+- Lambda: Node.js 20, ARM64, 256MB, 30秒タイムアウト, 同時実行上限5
+- スパム/ウイルス判定FAIL → スキップ
+- 自動応答ループ防止（Auto-Reply/noreply検出）
+
 ## 4. デプロイパイプライン
 
 ```
