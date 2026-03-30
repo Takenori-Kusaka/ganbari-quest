@@ -1,5 +1,7 @@
 <script lang="ts">
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
+import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
+import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 
 let { data } = $props();
 
@@ -15,86 +17,173 @@ function uiModeLabel(mode: string): string {
 			return 'キンダー';
 		case 'lower':
 			return '小学生';
+		case 'upper':
+			return '高学年';
 		case 'teen':
 			return 'ティーン';
 		default:
 			return mode;
 	}
 }
+
+// Detail tabs shown on production (read-only in demo)
+const detailTabs = [
+	{ id: 'info', label: '📋 基本情報' },
+	{ id: 'status', label: '📊 ステータス' },
+	{ id: 'logs', label: '📝 活動記録' },
+	{ id: 'achievements', label: '🏆 実績' },
+	{ id: 'voice', label: '📢 ボイス' },
+	{ id: 'birthday', label: '🎂 ふりかえり' },
+] as const;
+
+let selectedChildId = $state<number | null>(null);
+let detailTab = $state<string>('info');
+
+const selectedChild = $derived(
+	data.children.find((c: { id: number }) => c.id === selectedChildId) ?? null,
+);
 </script>
 
 <svelte:head>
 	<title>こども管理 - がんばりクエスト デモ</title>
 </svelte:head>
 
-<div class="space-y-6">
-	<!-- Page Header -->
+<div class="space-y-4">
+	<DemoBanner />
+
+	<!-- Header (matches production) -->
 	<div class="flex items-center justify-between">
-		<h1 class="text-lg font-bold text-gray-700">こども管理</h1>
-		<span class="text-xs text-gray-400">{data.children.length}人</span>
+		<div>
+			<button
+				class="px-4 py-2 bg-blue-300 text-white rounded-lg text-sm font-bold cursor-not-allowed"
+				disabled
+			>
+				+ こどもを追加
+			</button>
+		</div>
 	</div>
 
-	<!-- Demo Notice -->
-	<div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-2">
-		<span class="text-amber-500">&#x26A0;&#xFE0F;</span>
-		<p class="text-sm text-amber-700">デモモードのため、変更はできません</p>
-	</div>
-
-	<!-- Children List -->
-	<div class="grid gap-3">
-		{#each data.children as child (child.id)}
-			<div class="bg-white rounded-xl p-4 shadow-sm">
-				<div class="flex items-center gap-4">
-					<span class="text-3xl">
-						{#if child.uiMode === 'baby'}
-							&#x1F476;
-						{:else if child.uiMode === 'kinder'}
-							&#x1F9D2;
-						{:else if child.uiMode === 'lower'}
-							&#x1F9D1;
-						{:else}
-							&#x1F9D1;&#x200D;&#x1F4BB;
-						{/if}
-					</span>
+	<!-- Children List (matches production card style) -->
+	{#if !selectedChildId}
+		<div class="grid gap-3">
+			{#each data.children as child (child.id)}
+				<button
+					type="button"
+					class="w-full bg-white rounded-xl p-4 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow text-left"
+					onclick={() => selectedChildId = child.id}
+				>
+					{#if child.avatarUrl}
+						<img src={child.avatarUrl} alt={child.nickname} class="w-12 h-12 rounded-full object-cover" loading="lazy" />
+					{:else}
+						<span class="text-3xl">👤</span>
+					{/if}
 					<div class="flex-1 min-w-0">
 						<p class="font-bold text-gray-700">{child.nickname}</p>
-						<p class="text-sm text-gray-400">{child.age}歳</p>
+						<p class="text-sm text-gray-400">{child.age}歳 / {uiModeLabel(child.uiMode ?? 'kinder')}</p>
 					</div>
 					<div class="text-right">
 						<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance)}</p>
 					</div>
-				</div>
+				</button>
+			{/each}
+		</div>
+	{/if}
 
-				<!-- Detail Cards -->
-				<div class="grid grid-cols-3 gap-2 mt-3">
-					<div class="bg-blue-50 rounded-lg p-2 text-center">
-						<p class="text-xs text-gray-500">年齢</p>
-						<p class="text-sm font-bold text-blue-600">{child.age}歳</p>
-					</div>
-					<div class="bg-purple-50 rounded-lg p-2 text-center">
-						<p class="text-xs text-gray-500">UIモード</p>
-						<p class="text-sm font-bold text-purple-600">{uiModeLabel(child.uiMode ?? 'kinder')}</p>
-					</div>
-					<div class="bg-amber-50 rounded-lg p-2 text-center">
-						<p class="text-xs text-gray-500">{unit}残高</p>
-						<p class="text-sm font-bold text-amber-600">{fmtBal(child.balance)}</p>
-					</div>
+	<!-- Child Detail View (matches production tab layout) -->
+	{#if selectedChild}
+		<div>
+			<button
+				type="button"
+				class="text-sm text-blue-600 hover:text-blue-800 mb-3 inline-flex items-center gap-1"
+				onclick={() => selectedChildId = null}
+			>
+				← 一覧に戻る
+			</button>
+
+			<!-- Child Header -->
+			<div class="bg-white rounded-xl p-4 shadow-sm flex items-center gap-4 mb-4">
+				{#if selectedChild.avatarUrl}
+					<img src={selectedChild.avatarUrl} alt={selectedChild.nickname} class="w-16 h-16 rounded-full object-cover" />
+				{:else}
+					<span class="text-5xl">👤</span>
+				{/if}
+				<div class="flex-1">
+					<h2 class="text-lg font-bold text-gray-700">{selectedChild.nickname}</h2>
+					<p class="text-sm text-gray-400">{selectedChild.age}歳 / {uiModeLabel(selectedChild.uiMode ?? 'kinder')}</p>
+				</div>
+				<div class="text-right">
+					<p class="text-2xl font-bold text-amber-500">{fmtBal(selectedChild.balance)}</p>
+					<p class="text-xs text-gray-400">{unit}</p>
 				</div>
 			</div>
-		{/each}
-	</div>
 
-	<!-- Demo CTA -->
-	<div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-200 rounded-xl p-4 text-center">
-		<p class="text-sm font-bold text-gray-700 mb-1">お子さまを登録しませんか？</p>
-		<p class="text-xs text-gray-500 mb-3">
-			登録すると、お子さまの成長をリアルタイムで見守れます。
-		</p>
-		<a
-			href="/demo/signup"
-			class="inline-block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-center text-sm"
-		>
-			無料で はじめる &rarr;
-		</a>
-	</div>
+			<!-- Tab Navigation (matches production 6-tab system) -->
+			<div class="flex overflow-x-auto gap-1 mb-4 pb-1">
+				{#each detailTabs as tab}
+					<button
+						type="button"
+						class="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors
+							{detailTab === tab.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+						onclick={() => detailTab = tab.id}
+					>
+						{tab.label}
+					</button>
+				{/each}
+			</div>
+
+			<!-- Tab Content -->
+			<div class="bg-white rounded-xl p-4 shadow-sm">
+				{#if detailTab === 'info'}
+					<div class="grid grid-cols-2 gap-3">
+						<div class="bg-blue-50 rounded-lg p-3 text-center">
+							<p class="text-xs text-gray-500">年齢</p>
+							<p class="text-lg font-bold text-blue-600">{selectedChild.age}歳</p>
+						</div>
+						<div class="bg-purple-50 rounded-lg p-3 text-center">
+							<p class="text-xs text-gray-500">UIモード</p>
+							<p class="text-lg font-bold text-purple-600">{uiModeLabel(selectedChild.uiMode ?? 'kinder')}</p>
+						</div>
+						<div class="bg-amber-50 rounded-lg p-3 text-center">
+							<p class="text-xs text-gray-500">{unit}残高</p>
+							<p class="text-lg font-bold text-amber-600">{fmtBal(selectedChild.balance)}</p>
+						</div>
+						<div class="bg-green-50 rounded-lg p-3 text-center">
+							<p class="text-xs text-gray-500">レベル</p>
+							<p class="text-lg font-bold text-green-600">Lv.{selectedChild.level ?? 1}</p>
+						</div>
+					</div>
+				{:else if detailTab === 'status'}
+					<div class="text-center py-8 text-gray-400">
+						<p class="text-3xl mb-2">📊</p>
+						<p class="text-sm">ステータス詳細は登録後にご覧いただけます</p>
+					</div>
+				{:else if detailTab === 'logs'}
+					<div class="text-center py-8 text-gray-400">
+						<p class="text-3xl mb-2">📝</p>
+						<p class="text-sm">活動ログは登録後にご覧いただけます</p>
+					</div>
+				{:else if detailTab === 'achievements'}
+					<div class="text-center py-8 text-gray-400">
+						<p class="text-3xl mb-2">🏆</p>
+						<p class="text-sm">実績一覧は登録後にご覧いただけます</p>
+					</div>
+				{:else if detailTab === 'voice'}
+					<div class="text-center py-8 text-gray-400">
+						<p class="text-3xl mb-2">📢</p>
+						<p class="text-sm">おうえんボイスは登録後にご利用いただけます</p>
+					</div>
+				{:else if detailTab === 'birthday'}
+					<div class="text-center py-8 text-gray-400">
+						<p class="text-3xl mb-2">🎂</p>
+						<p class="text-sm">ふりかえりは登録後にご覧いただけます</p>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
+
+	<DemoCta
+		title="お子さまを登録しませんか？"
+		description="登録すると、お子さまの成長をリアルタイムで見守れます。"
+	/>
 </div>
