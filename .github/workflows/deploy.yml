@@ -221,6 +221,80 @@ jobs:
             --region $AWS_REGION
           echo "Rollback complete"
 
+      # Phase 5c: Post-deploy resource & cost audit
+      - name: Post-deploy resource audit
+        continue-on-error: true
+        run: |
+          echo "=== CloudFormation Stack Resource Count ==="
+          for stack in GanbariQuestStorage GanbariQuestAuth GanbariQuestCompute GanbariQuestNetwork GanbariQuestOps; do
+            count=$(aws cloudformation list-stack-resources --stack-name "$stack" --query 'length(StackResourceSummaries)' --output text 2>/dev/null || echo "N/A")
+            echo "$stack: $count resources"
+          done
+
+          echo ""
+          echo "=== Lambda Functions (expected: 2) ==="
+          aws lambda list-functions --query 'Functions[?starts_with(FunctionName,`ganbari`)].{Name:FunctionName,Memory:MemorySize,Timeout:Timeout}' --output table
+
+          echo ""
+          echo "=== DynamoDB Tables (expected: 1) ==="
+          aws dynamodb list-tables --query 'TableNames[?contains(@,`ganbari`)]' --output text
+
+          echo ""
+          echo "=== S3 Buckets (expected: 2) ==="
+          aws s3api list-buckets --query 'Buckets[?contains(Name,`ganbari`)].Name' --output text
+
+          echo ""
+          echo "=== ECR Repositories (expected: 1) ==="
+          aws ecr describe-repositories --query 'repositories[?contains(repositoryName,`ganbari`)].{Name:repositoryName}' --output table 2>/dev/null || true
+
+          echo ""
+          echo "=== CloudWatch Log Groups ==="
+          aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/ganbari" --query 'logGroups[].{Name:logGroupName,RetentionDays:retentionInDays,StoredBytes:storedBytes}' --output table
+
+          echo ""
+          echo "=== Current month cost estimate ==="
+          aws ce get-cost-and-usage \
+            --time-period Start=$(date -u +%Y-%m-01),End=$(date -u +%Y-%m-%d) \
+            --granularity MONTHLY \
+            --metrics "UnblendedCost" \
+            --query 'ResultsByTime[0].Total.UnblendedCost.{Amount:Amount,Unit:Unit}' \
+            --output table 2>/dev/null || echo "Cost Explorer not available"
+
+      - name: Detect orphaned resources
+        continue-on-error: true
+        run: |
+          echo "=== Orphaned Lambda Functions (not in any stack) ==="
+          all_lambdas=$(aws lambda list-functions --query 'Functions[?starts_with(FunctionName,`ganbari`)].FunctionName' --output text)
+          managed_lambdas=""
+          for stack in GanbariQuestStorage GanbariQuestAuth GanbariQuestCompute GanbariQuestNetwork GanbariQuestOps; do
+            managed=$(aws cloudformation list-stack-resources --stack-name "$stack" --query 'StackResourceSummaries[?ResourceType==`AWS::Lambda::Function`].PhysicalResourceId' --output text 2>/dev/null)
+            managed_lambdas="$managed_lambdas $managed"
+          done
+          orphaned=0
+          for fn in $all_lambdas; do
+            if ! echo "$managed_lambdas" | grep -q "$fn"; then
+              echo "ORPHANED: $fn"
+              orphaned=$((orphaned + 1))
+            fi
+          done
+          [ $orphaned -eq 0 ] && echo "None found"
+
+          echo ""
+          echo "=== Orphaned CloudWatch Log Groups ==="
+          orphaned_logs=0
+          for lg in $(aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/ganbari" --query 'logGroups[].logGroupName' --output text); do
+            fn_name=$(echo "$lg" | sed 's|/aws/lambda/||')
+            if ! aws lambda get-function --function-name "$fn_name" > /dev/null 2>&1; then
+              echo "ORPHANED LOG GROUP: $lg"
+              orphaned_logs=$((orphaned_logs + 1))
+            fi
+          done
+          [ $orphaned_logs -eq 0 ] && echo "None found"
+
+          echo ""
+          echo "=== Orphaned Cost Anomaly Monitors ==="
+          aws ce get-anomaly-monitors --query 'AnomalyMonitors[?contains(MonitorName,`ganbari`) || contains(MonitorName,`gq-cost`)].{Name:MonitorName,Arn:MonitorArn}' --output table 2>/dev/null || echo "None found"
+
       - name: Show deployment outputs
         working-directory: infra/
         if: always()
