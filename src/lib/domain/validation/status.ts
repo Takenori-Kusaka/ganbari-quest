@@ -94,13 +94,47 @@ export function getAgeCoefficient(age: number): number {
 	return 0.9;
 }
 
-/** ステータス減少計算 */
-export function calcDecay(daysSinceActivity: number, age: number): number {
-	if (daysSinceActivity <= 0) return 0;
+/** 減少強度（親が設定画面で選択） */
+export type DecayIntensity = 'none' | 'gentle' | 'normal' | 'strict';
+
+/** 強度別の減少係数乗算 */
+const DECAY_INTENSITY_MULTIPLIER: Record<DecayIntensity, number> = {
+	none: 0,
+	gentle: 0.5,
+	normal: 1.0,
+	strict: 1.5,
+};
+
+/** 猶予日数（この日数以内は減少なし） */
+export const DECAY_GRACE_DAYS = 2;
+
+/** ステータス減少計算（猶予2日、下限70%対応） */
+export function calcDecay(
+	daysSinceActivity: number,
+	age: number,
+	intensity: DecayIntensity = 'normal',
+): number {
+	if (daysSinceActivity <= DECAY_GRACE_DAYS) return 0;
+	if (intensity === 'none') return 0;
+
+	const effectiveDays = daysSinceActivity - DECAY_GRACE_DAYS;
 	const coeff = getAgeCoefficient(age);
 	const baseDecay = coeff * 0.1;
-	const acceleration = 0.05 * Math.max(0, daysSinceActivity - 1);
-	return baseDecay + acceleration;
+	const acceleration = 0.03 * Math.max(0, effectiveDays - 1);
+	const rawDecay = baseDecay + acceleration;
+
+	return rawDecay * DECAY_INTENSITY_MULTIPLIER[intensity];
+}
+
+/** 減少後の下限値を算出（直近最高値の70%を下回らない） */
+export function clampDecayFloor(
+	currentValue: number,
+	decayAmount: number,
+	peakValue: number,
+): number {
+	const floor = peakValue * 0.7;
+	const afterDecay = currentValue - decayAmount;
+	return Math.max(afterDecay, floor);
 }
 
 /** トレンド判定 */

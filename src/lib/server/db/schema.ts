@@ -215,6 +215,23 @@ export const settings = sqliteTable('settings', {
 });
 
 // ============================================================
+// rest_days - おやすみ日（ステータス減少停止）
+// ============================================================
+export const restDays = sqliteTable(
+	'rest_days',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		date: text('date').notNull(),
+		reason: text('reason').notNull().default('rest'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [uniqueIndex('idx_rest_days_child_date').on(table.childId, table.date)],
+);
+
+// ============================================================
 // character_images - キャラクター画像
 // ============================================================
 export const characterImages = sqliteTable('character_images', {

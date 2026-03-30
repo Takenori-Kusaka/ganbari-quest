@@ -3,15 +3,17 @@
 
 import { todayDateJST } from '$lib/domain/date-utils';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
-import { calcDecay } from '$lib/domain/validation/status';
+import { type DecayIntensity, calcDecay } from '$lib/domain/validation/status';
 import {
 	countActivitiesByCategory,
 	findAllChildren,
 	findEvaluationsByChild,
 	findLastActivityDateByCategory,
 	insertEvaluation,
+	isRestDay,
 } from '$lib/server/db/evaluation-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
+import { getSetting } from '$lib/server/db/settings-repo';
 import { updateStatus } from '$lib/server/services/status-service';
 
 /**
@@ -153,7 +155,16 @@ export async function getChildEvaluations(childId: number, tenantId: string, lim
 	}));
 }
 
-/** 日次ステータス減少処理 */
+/** 減少強度設定を取得 */
+async function getDecayIntensity(tenantId: string): Promise<DecayIntensity> {
+	const value = await getSetting('decay_intensity', tenantId);
+	if (value === 'none' || value === 'gentle' || value === 'normal' || value === 'strict') {
+		return value;
+	}
+	return 'normal';
+}
+
+/** 日次ステータス減少処理（猶予2日、おやすみ日対応） */
 export async function runDailyDecay(
 	tenantId: string,
 	today?: string,
@@ -164,6 +175,7 @@ export async function runDailyDecay(
 	}[]
 > {
 	const todayStr = today ?? todayDateJST();
+	const intensity = await getDecayIntensity(tenantId);
 	const allChildren = await findAllChildren(tenantId);
 	const results: {
 		childId: number;
@@ -171,6 +183,13 @@ export async function runDailyDecay(
 	}[] = [];
 
 	for (const child of allChildren) {
+		// おやすみ日チェック
+		const resting = await isRestDay(child.id, todayStr, tenantId);
+		if (resting) {
+			results.push({ childId: child.id, decays: [] });
+			continue;
+		}
+
 		const lastActivityDates = await findLastActivityDateByCategory(child.id, tenantId);
 		const decays: { categoryId: number; amount: number }[] = [];
 
@@ -184,7 +203,7 @@ export async function runDailyDecay(
 			const daysSince = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
 			if (daysSince > 0) {
-				const decayAmount = calcDecay(daysSince, child.age);
+				const decayAmount = calcDecay(daysSince, child.age, intensity);
 				if (decayAmount > 0) {
 					await updateStatus(child.id, catDef.id, -decayAmount, 'daily_decay', tenantId);
 					decays.push({ categoryId: catDef.id, amount: decayAmount });
