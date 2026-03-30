@@ -170,6 +170,36 @@ export async function selectKinderChildAndDismiss(page: Page) {
 }
 
 // ============================================================
+// カテゴリ展開（compactMode 対応）
+// ============================================================
+
+/** compactMode で折りたたまれた最初のカテゴリを展開する */
+export async function expandFirstCategory(page: Page) {
+	const header = page.locator('[data-testid^="category-header-"]').first();
+	if (await header.isVisible().catch(() => false)) {
+		const cards = page.locator('[data-testid^="activity-card-"]');
+		const cardVisible = await cards
+			.first()
+			.isVisible()
+			.catch(() => false);
+		if (!cardVisible) {
+			await header.click();
+			await page.waitForTimeout(300);
+		}
+	}
+}
+
+/** compactMode で折りたたまれた全カテゴリを展開する */
+export async function expandAllCategories(page: Page) {
+	const headers = page.locator('[data-testid^="category-header-"]');
+	const count = await headers.count();
+	for (let i = 0; i < count; i++) {
+		await headers.nth(i).click();
+		await page.waitForTimeout(200);
+	}
+}
+
+// ============================================================
 // 活動カード — data-testid ベースのセレクタ
 // ============================================================
 
@@ -189,6 +219,9 @@ export function getAllActivityCards(page: Page) {
 
 /** 未記録の活動を記録する（並列テストの競合対策で複数リトライ） */
 export async function recordAnyActivity(page: Page): Promise<boolean> {
+	// compactMode でカテゴリが折りたたまれている場合は展開する
+	await expandFirstCategory(page);
+
 	const activities = getAvailableActivities(page);
 	const count = await activities.count();
 
