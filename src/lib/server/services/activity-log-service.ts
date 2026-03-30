@@ -14,6 +14,7 @@ import {
 	upsert as upsertMastery,
 } from '$lib/server/db/activity-mastery-repo';
 import {
+	countActiveActivityLogs,
 	countTodayActiveRecords,
 	findActivityById,
 	findActivityLogById,
@@ -355,6 +356,12 @@ export async function getTodayRecordedActivityIds(
 	tenantId: string,
 ): Promise<number[]> {
 	return (await getTodayRecordedActivityCounts(childId, tenantId)).map((r) => r.activityId);
+}
+
+/** Check if a child has any activity records (for first-time experience detection). */
+export async function hasAnyActivityRecords(childId: number, tenantId: string): Promise<boolean> {
+	const count = await countActiveActivityLogs(childId, tenantId);
+	return count > 0;
 }
 
 /** Calculate streak (consecutive days including today). */
