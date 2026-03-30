@@ -45,12 +45,45 @@ export class NetworkStack extends cdk.Stack {
 			}
 		}
 
-		// --- CloudFront Function: encode slash in query strings ---
-		// SvelteKit form actions use ?/action-name pattern, but Lambda Function URL
-		// rejects forward slashes in query strings. This function encodes them.
-		const queryFixFn = new cloudfront.Function(this, 'QuerySlashEncodeFn', {
-			functionName: 'ganbari-quest-query-slash-encode',
-			code: cloudfront.FunctionCode.fromInline(`
+		// --- Admin IP allowlist (from CDK context, comma-separated) ---
+		const adminAllowedIps = (this.node.tryGetContext('adminAllowedIps') as string | undefined) ?? '';
+
+		// --- CloudFront Function: query slash encode + admin IP filter ---
+		// 1. Admin IP restriction: /admin/* and /api/v1/admin/* require allowlisted IPs
+		// 2. Query slash encode: SvelteKit form actions use ?/action-name pattern,
+		//    but Lambda Function URL rejects forward slashes in query strings.
+		const cfFunctionCode = adminAllowedIps
+			? `
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+
+  // Admin IP restriction
+  if (uri.startsWith('/admin') || uri.startsWith('/api/v1/admin') || uri.startsWith('/ops')) {
+    var ALLOWED_IPS = ${JSON.stringify(adminAllowedIps.split(',').map((ip: string) => ip.trim()).filter(Boolean))};
+    var clientIp = event.viewer.ip;
+    if (ALLOWED_IPS.indexOf(clientIp) === -1) {
+      return {
+        statusCode: 403,
+        statusDescription: 'Forbidden',
+        headers: { 'content-type': { value: 'text/html; charset=utf-8' } },
+        body: '<html><body><h1>Access Restricted</h1></body></html>',
+      };
+    }
+  }
+
+  // Query string slash encode
+  var qs = request.querystring;
+  var newQs = {};
+  for (var key in qs) {
+    var encodedKey = key.replace(/\\//g, '%2F');
+    newQs[encodedKey] = qs[key];
+  }
+  request.querystring = newQs;
+  return request;
+}
+`
+			: `
 function handler(event) {
   var request = event.request;
   var qs = request.querystring;
@@ -62,7 +95,11 @@ function handler(event) {
   request.querystring = newQs;
   return request;
 }
-			`),
+`;
+
+		const queryFixFn = new cloudfront.Function(this, 'QuerySlashEncodeFn', {
+			functionName: 'ganbari-quest-query-slash-encode',
+			code: cloudfront.FunctionCode.fromInline(cfFunctionCode),
 			runtime: cloudfront.FunctionRuntime.JS_2_0,
 		});
 
@@ -154,6 +191,7 @@ function handler(event) {
 				: {}),
 			priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
 			httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
+			geoRestriction: cloudfront.GeoRestriction.allowlist('JP'),
 		});
 
 		// --- Deploy error pages to S3 ---
