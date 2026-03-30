@@ -397,4 +397,102 @@ export const SQL_CREATE_TABLES = `
 	);
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_level_titles_tenant_level
 		ON level_titles(tenant_id, level);
+
+	CREATE TABLE IF NOT EXISTS skill_nodes (
+		id INTEGER PRIMARY KEY,
+		category_id INTEGER REFERENCES categories(id),
+		name TEXT NOT NULL,
+		description TEXT,
+		icon TEXT NOT NULL,
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		sp_cost INTEGER NOT NULL DEFAULT 1,
+		required_node_id INTEGER,
+		required_category_level INTEGER NOT NULL DEFAULT 0,
+		effect_type TEXT NOT NULL,
+		effect_value REAL NOT NULL,
+		target_modes TEXT NOT NULL DEFAULT '["lower","upper","teen"]'
+	);
+	CREATE TABLE IF NOT EXISTS child_skill_nodes (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		node_id INTEGER NOT NULL REFERENCES skill_nodes(id),
+		unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_child_skill_nodes_unique
+		ON child_skill_nodes(child_id, node_id);
+	CREATE TABLE IF NOT EXISTS skill_points (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		balance INTEGER NOT NULL DEFAULT 0,
+		total_earned INTEGER NOT NULL DEFAULT 0,
+		total_spent INTEGER NOT NULL DEFAULT 0,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_skill_points_child
+		ON skill_points(child_id);
+
+	CREATE TABLE IF NOT EXISTS activity_mastery (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		total_count INTEGER NOT NULL DEFAULT 0,
+		level INTEGER NOT NULL DEFAULT 1,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_mastery_child_activity
+		ON activity_mastery(child_id, activity_id);
+
+	CREATE TABLE IF NOT EXISTS child_activity_preferences (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+		is_pinned INTEGER NOT NULL DEFAULT 0,
+		pin_order INTEGER,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_child_activity_prefs_unique
+		ON child_activity_preferences(child_id, activity_id);
+	CREATE INDEX IF NOT EXISTS idx_child_activity_prefs_child
+		ON child_activity_preferences(child_id);
+	CREATE INDEX IF NOT EXISTS idx_child_activity_prefs_pinned
+		ON child_activity_preferences(child_id, is_pinned);
+
+	CREATE TABLE IF NOT EXISTS stamp_masters (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		emoji TEXT NOT NULL,
+		rarity TEXT NOT NULL,
+		is_default INTEGER NOT NULL DEFAULT 1,
+		is_enabled INTEGER NOT NULL DEFAULT 1,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE TABLE IF NOT EXISTS stamp_cards (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		week_start TEXT NOT NULL,
+		week_end TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'collecting',
+		redeemed_points INTEGER,
+		redeemed_at TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_stamp_cards_child_week
+		ON stamp_cards(child_id, week_start);
+	CREATE INDEX IF NOT EXISTS idx_stamp_cards_child
+		ON stamp_cards(child_id);
+	CREATE TABLE IF NOT EXISTS stamp_entries (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		card_id INTEGER NOT NULL REFERENCES stamp_cards(id) ON DELETE CASCADE,
+		stamp_master_id INTEGER NOT NULL REFERENCES stamp_masters(id),
+		slot INTEGER NOT NULL,
+		login_date TEXT NOT NULL,
+		earned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_stamp_entries_card_slot
+		ON stamp_entries(card_id, slot);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_stamp_entries_card_date
+		ON stamp_entries(card_id, login_date);
 `;
