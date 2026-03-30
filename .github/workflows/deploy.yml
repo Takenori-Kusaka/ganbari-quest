@@ -157,6 +157,7 @@ jobs:
           -c domainName=${{ env.DOMAIN_NAME }}
           -c certificateArn=${{ env.CERTIFICATE_ARN }}
           -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
+          -c geminiApiKey=${{ secrets.GEMINI_API_KEY }}
 
       # Phase 4: Update Lambda to use the new image
       - name: Update Lambda function image
