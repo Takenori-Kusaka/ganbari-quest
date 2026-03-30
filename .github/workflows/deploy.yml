@@ -165,6 +165,7 @@ jobs:
           -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
           -c stripePriceMonthly=${{ vars.STRIPE_PRICE_MONTHLY }}
           -c stripePriceYearly=${{ vars.STRIPE_PRICE_YEARLY }}
+          -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
 
       # Phase 4: Update Lambda to use the new image
       - name: Update Lambda function image
@@ -233,7 +234,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "=== CloudFormation Stack Resource Count ==="
-          for stack in GanbariQuestStorage GanbariQuestAuth GanbariQuestCompute GanbariQuestNetwork GanbariQuestOps; do
+          for stack in GanbariQuestStorage GanbariQuestAuth GanbariQuestCompute GanbariQuestNetwork GanbariQuestSes GanbariQuestOps; do
             count=$(aws cloudformation list-stack-resources --stack-name "$stack" --query 'length(StackResourceSummaries)' --output text 2>/dev/null || echo "N/A")
             echo "$stack: $count resources"
           done
@@ -273,7 +274,7 @@ jobs:
           echo "=== Orphaned Lambda Functions (not in any stack) ==="
           all_lambdas=$(aws lambda list-functions --query 'Functions[?starts_with(FunctionName,`ganbari`)].FunctionName' --output text)
           managed_lambdas=""
-          for stack in GanbariQuestStorage GanbariQuestAuth GanbariQuestCompute GanbariQuestNetwork GanbariQuestOps; do
+          for stack in GanbariQuestStorage GanbariQuestAuth GanbariQuestCompute GanbariQuestNetwork GanbariQuestSes GanbariQuestOps; do
             managed=$(aws cloudformation list-stack-resources --stack-name "$stack" --query 'StackResourceSummaries[?ResourceType==`AWS::Lambda::Function`].PhysicalResourceId' --output text 2>/dev/null)
             managed_lambdas="$managed_lambdas $managed"
           done
