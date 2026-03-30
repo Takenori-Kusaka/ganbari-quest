@@ -109,6 +109,14 @@ const SQL_TABLES = `
 		key TEXT PRIMARY KEY, value TEXT NOT NULL,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
+	CREATE TABLE rest_days (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		date TEXT NOT NULL,
+		reason TEXT NOT NULL DEFAULT 'rest',
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_rest_days_child_date ON rest_days(child_id, date);
 	CREATE TABLE character_images (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
@@ -340,12 +348,23 @@ describe('runDailyDecay', () => {
 		expect(results[0]?.decays.length).toBe(0);
 	});
 
-	it('前日に活動があれば減少が発生', async () => {
-		addLog(1, 1, '2026-02-19'); // 2日前にうんどう
+	it('猶予期間超過（3日以上）で減少が発生', async () => {
+		addLog(1, 1, '2026-02-18'); // 3日前にうんどう（猶予2日を超える）
 
 		const results = await runDailyDecay('test-tenant', '2026-02-21');
 		const decay = results[0]?.decays.find((d) => d.categoryId === 1);
 		expect(decay).toBeDefined();
 		expect(decay?.amount).toBeGreaterThan(0);
+	});
+
+	it('猶予期間内（2日以内）は減少なし', async () => {
+		addLog(1, 1, '2026-02-19'); // 2日前にうんどう（猶予2日以内）
+
+		const results = await runDailyDecay('test-tenant', '2026-02-21');
+		const decay = results[0]?.decays.find((d) => d.categoryId === 1);
+		// 猶予期間内なので減少なし（decayが未定義 or amount=0）
+		if (decay) {
+			expect(decay.amount).toBe(0);
+		}
 	});
 });

@@ -2,7 +2,7 @@ import { CURRENCY_CODES } from '$lib/domain/point-display';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { generateInquiryId, saveInquiry } from '$lib/server/db/dynamodb/inquiry-repo';
-import { setSetting } from '$lib/server/db/settings-repo';
+import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { changePin } from '$lib/server/services/auth-service';
 import { clearAllFamilyData, getDataSummary } from '$lib/server/services/data-service';
@@ -13,8 +13,11 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
-	const dataSummary = await getDataSummary(tenantId);
-	return { dataSummary };
+	const [dataSummary, decayIntensity] = await Promise.all([
+		getDataSummary(tenantId),
+		getSetting('decay_intensity', tenantId),
+	]);
+	return { dataSummary, decayIntensity: decayIntensity ?? 'normal' };
 };
 
 export const actions = {

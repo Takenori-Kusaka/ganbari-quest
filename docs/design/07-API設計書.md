@@ -69,6 +69,16 @@
 | GET | /api/v1/special-rewards/templates | 報酬テンプレート一覧 | owner/parent |
 | PUT | /api/v1/special-rewards/templates | 報酬テンプレート更新 | owner/parent |
 
+### おやすみ日・減少設定
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| GET | /api/v1/rest-days/[childId] | おやすみ日一覧取得（月別） | owner/parent |
+| POST | /api/v1/rest-days/[childId] | おやすみ日登録 | owner/parent |
+| DELETE | /api/v1/rest-days/[childId] | おやすみ日削除 | owner/parent |
+| GET | /api/v1/settings/decay | 減少強度設定取得 | owner/parent |
+| PUT | /api/v1/settings/decay | 減少強度設定更新 | owner/parent |
+
 ### キャリアプラン
 
 | メソッド | パス | 概要 | 認証 |

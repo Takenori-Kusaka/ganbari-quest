@@ -118,6 +118,14 @@ export interface Setting {
 	updatedAt: string;
 }
 
+export interface RestDay {
+	id: number;
+	childId: number;
+	date: string;
+	reason: string;
+	createdAt: string;
+}
+
 export interface CharacterImage {
 	id: number;
 	childId: number;
