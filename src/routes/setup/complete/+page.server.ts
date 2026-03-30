@@ -4,7 +4,7 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.context) {
 		redirect(302, '/auth/login');
 	}
@@ -20,5 +20,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 		redirect(302, '/setup/children');
 	}
 
-	return { childCount: children.length };
+	const imported = Number(url.searchParams.get('imported') ?? 0);
+	const skipped = Number(url.searchParams.get('skipped') ?? 0);
+
+	return {
+		childCount: children.length,
+		importedActivities: imported,
+		skippedActivities: skipped,
+	};
 };
