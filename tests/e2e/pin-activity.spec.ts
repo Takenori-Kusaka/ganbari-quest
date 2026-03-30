@@ -3,7 +3,12 @@
 // #0153 で追加
 
 import { expect, test } from '@playwright/test';
-import { dismissOverlays, selectBabyChild, selectKinderChild } from './helpers';
+import {
+	dismissOverlays,
+	expandFirstCategory,
+	selectBabyChild,
+	selectKinderChild,
+} from './helpers';
 
 type Page = import('@playwright/test').Page;
 
@@ -50,6 +55,7 @@ test.describe
 		test('長押し（右クリック）でピンメニューが表示される', async ({ page }) => {
 			await selectKinderChild(page);
 			await dismissOverlays(page);
+			await expandFirstCategory(page);
 
 			const card = getFirstEnabledCard(page);
 			await expect(card).toBeVisible();
@@ -68,6 +74,7 @@ test.describe
 		test('ピン留めすると📌が付く（aria-label で確認）', async ({ page }) => {
 			await selectKinderChild(page);
 			await dismissOverlays(page);
+			await expandFirstCategory(page);
 
 			// 未完了の活動カードを動的に選択してピン留め
 			pinnedActivityName = await getFirstEnabledCardName(page);
@@ -93,6 +100,7 @@ test.describe
 		test('ピン留めした活動がカテゴリ先頭に表示される', async ({ page }) => {
 			await selectKinderChild(page);
 			await dismissOverlays(page);
+			await expandFirstCategory(page);
 
 			// ピン留め済みカードが存在すること
 			const pinnedCard = page
@@ -106,6 +114,7 @@ test.describe
 		test('区切り線がピン留め活動と非ピン留め活動の間に表示される', async ({ page }) => {
 			await selectKinderChild(page);
 			await dismissOverlays(page);
+			await expandFirstCategory(page);
 
 			// ピン区切り線の存在を確認
 			const separator = page.locator('[data-testid="pin-separator"]');
@@ -115,6 +124,7 @@ test.describe
 		test('ピン留めを解除すると📌が消える', async ({ page }) => {
 			await selectKinderChild(page);
 			await dismissOverlays(page);
+			await expandFirstCategory(page);
 
 			// ピン留め済みカードを右クリック
 			const pinnedCard = page
@@ -141,6 +151,7 @@ test.describe
 		test('Baby モードでは長押しメニューが表示されない', async ({ page }) => {
 			await selectBabyChild(page);
 			await dismissOverlays(page);
+			await expandFirstCategory(page);
 
 			// Baby モードの活動ボタンを右クリック
 			const card = page.locator('[data-testid^="activity-card-"]').first();

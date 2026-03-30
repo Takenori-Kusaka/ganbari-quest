@@ -81,18 +81,29 @@ const defaultConfig = {
 };
 const config = $derived(rankConfig[rank] ?? defaultConfig);
 
+// 8日目以降は短縮モード（タップでスキップ可能）
+const quickMode = $derived(consecutiveDays >= 8 && (rankConfig[rank]?.tier ?? 1) < 4);
+
 $effect(() => {
 	if (open) {
 		revealed = false;
 		soundService.play('omikuji-roll');
 
+		const delay = quickMode ? 800 : 2000;
 		const timer = setTimeout(() => {
 			revealed = true;
 			soundService.play('omikuji-result');
-		}, 2000);
+		}, delay);
 		return () => clearTimeout(timer);
 	}
 });
+
+function skipToResult() {
+	if (!revealed && quickMode) {
+		revealed = true;
+		soundService.play('omikuji-result');
+	}
+}
 
 function handleClose() {
 	open = false;
@@ -101,7 +112,8 @@ function handleClose() {
 </script>
 
 <Dialog bind:open closable={false} title="">
-	<div class="omikuji" data-testid="omikuji-overlay">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="omikuji" data-testid="omikuji-overlay" onclick={skipToResult} onkeydown={skipToResult}>
 		{#if !revealed}
 			<!-- Shaking phase: omikuji box -->
 			<div class="omikuji__scene">

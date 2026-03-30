@@ -7,6 +7,7 @@
 
 import { expect, test } from '@playwright/test';
 import {
+	expandFirstCategory,
 	getAvailableActivities,
 	isAwsEnv,
 	recordAnyActivity,
@@ -58,6 +59,8 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 	});
 
 	test('活動カードが表示される', async ({ page }) => {
+		// compactMode でカテゴリが折りたたまれているので展開する
+		await expandFirstCategory(page);
 		const activityCards = page.locator('[data-testid^="activity-card-"]');
 		await expect(activityCards.first()).toBeVisible();
 		const count = await activityCards.count();
@@ -77,7 +80,11 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 	});
 
 	test('チェックリストショートカットまたは活動カードが表示される', async ({ page }) => {
-		// ホーム画面のメインコンテンツ（チェックリスト or 活動グリッド）が表示される
+		// compactMode ではカテゴリヘッダーが表示されていることを確認
+		const categoryHeader = page.locator('[data-testid^="category-header-"]');
+		await expect(categoryHeader.first()).toBeVisible();
+		// カテゴリを展開すると活動カードが表示される
+		await expandFirstCategory(page);
 		const activityCards = page.locator('[data-testid^="activity-card-"]');
 		await expect(activityCards.first()).toBeVisible();
 	});
@@ -95,6 +102,7 @@ test.describe('UC-01: 活動記録フロー', () => {
 	});
 
 	test('活動をタップすると確認ダイアログが表示される', async ({ page }) => {
+		await expandFirstCategory(page);
 		const activity = getAvailableActivities(page).first();
 		await activity.click();
 
@@ -105,6 +113,7 @@ test.describe('UC-01: 活動記録フロー', () => {
 	});
 
 	test('「やめる」でダイアログが閉じる', async ({ page }) => {
+		await expandFirstCategory(page);
 		const activity = getAvailableActivities(page).first();
 		await activity.click();
 		const dialog = page.locator('[data-testid="confirm-dialog"]');

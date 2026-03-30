@@ -3,7 +3,14 @@
 // smoke.spec.ts で未カバーの Done チケットを E2E 検証する
 
 import { expect, test } from '@playwright/test';
-import { dismissOverlays, isAwsEnv, selectBabyChild, selectKinderChild } from './helpers';
+import {
+	dismissOverlays,
+	expandAllCategories,
+	expandFirstCategory,
+	isAwsEnv,
+	selectBabyChild,
+	selectKinderChild,
+} from './helpers';
 
 // ============================================================
 // #0029: Baby モード画面
@@ -179,6 +186,7 @@ test.describe('#0051: 複数回実行', () => {
 	test('複数回実行可能な活動のUIにバッジが表示される', async ({ page }) => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
+		await expandAllCategories(page);
 
 		// 複数回実行対応の活動（例: おさらあらい dailyLimit=3）を探す
 		// 記録済みの場合はバッジ(回数)が表示される
@@ -209,6 +217,7 @@ test.describe('#0054: 複合アイコン', () => {
 	test('複合アイコンのある活動が正しく表示される', async ({ page }) => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
+		await expandAllCategories(page);
 
 		// 複合アイコンの例: おさらあらい (🍽️💧), 水やりをする (🌱💧)
 		// これらの活動ボタンが正常に表示される
@@ -226,6 +235,7 @@ test.describe('#0053/#0058: 多重送信防止', () => {
 	test('記録ボタン押下後にボタンが無効化される', async ({ page }) => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
+		await expandFirstCategory(page);
 
 		// 未記録の活動を探してクリック
 		const activity = page.locator('[data-testid^="activity-card-"]:not([disabled])').first();
