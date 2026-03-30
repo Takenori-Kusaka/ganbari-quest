@@ -2,9 +2,9 @@
 
 | 項目 | 内容 |
 |------|------|
-| 版数 | 2.0 |
+| 版数 | 2.1 |
 | 作成日 | 2026-02-19 |
-| 更新日 | 2026-03-27 |
+| 更新日 | 2026-03-30 |
 | 作成者 | 日下武紀 |
 
 ---
@@ -715,6 +715,25 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 
 ---
 
+### 3.17 運営管理ダッシュボード（#0176）
+
+> `/ops` 配下は既存のテナント認証とは完全に分離。`OPS_SECRET_KEY` 環境変数による Bearer token 認証。
+
+#### GET /ops （KPI サマリーページ）
+
+**認証:** `Authorization: Bearer <OPS_SECRET_KEY>` または `ops_token` Cookie または `?token=<OPS_SECRET_KEY>` クエリパラメータ
+
+**レスポンス:** HTML ページ（SSR）。テナント統計・プラン別内訳・MRR概算を表示。
+
+**データ:**
+- 総テナント数（active / grace_period / suspended / terminated）
+- 今月の新規テナント数
+- プラン別内訳（monthly / yearly / lifetime / noPlan）
+- MRR 概算
+- Stripe 連携状態
+
+---
+
 ## 4. エラーレスポンス仕様
 
 ### 共通エラー形式
@@ -760,7 +779,7 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
     │       └── Layer 2: context_token Cookie → HMAC 検証 → AuthContext
     │
     ├── 2) ルート保護
-    │       ├── 公開ルート（/, /auth/*, /switch, /legal/*, /api/health, /api/stripe/webhook）→ 通過
+    │       ├── 公開ルート（/, /auth/*, /switch, /legal/*, /api/health, /api/stripe/webhook, /ops/*）→ 通過
     │       ├── /admin/* → owner/parent ロール必須
     │       ├── /child/* → 全ロール
     │       ├── /api/v1/admin/* → owner/parent ロール必須
@@ -811,3 +830,4 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 |------|------|------|
 | 2026-02-19 | 1.0 | 初版作成 |
 | 2026-03-27 | 2.0 | 全エンドポイント最新化（認証, Stripe, 招待, キャリア, 特別報酬, 画像, エクスポート, ピン留め, サジェスト等を追加）。認証フローを Cognito 二層認証に更新 |
+| 2026-03-30 | 2.1 | #0176 運営管理ダッシュボード Phase 1（/ops KPIサマリー + Bearer認証）追加 |

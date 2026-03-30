@@ -23,6 +23,7 @@ export interface IAuthRepo {
 	// --- Tenant ---
 	findTenantById(tenantId: string): Promise<Tenant | undefined>;
 	findTenantByStripeCustomerId(stripeCustomerId: string): Promise<Tenant | undefined>;
+	listAllTenants(): Promise<Tenant[]>;
 	createTenant(input: CreateTenantInput): Promise<Tenant>;
 	updateTenantStatus(tenantId: string, status: Tenant['status']): Promise<void>;
 	updateTenantStripe(
