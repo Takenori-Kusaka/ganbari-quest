@@ -29,7 +29,7 @@ $effect(() => {
 <div class="signup-page">
 	<div class="signup-card">
 		<div class="signup-header">
-			<Logo variant="full" size={240} />
+			<Logo variant="full" size={320} />
 		</div>
 
 		{#if form?.error}
@@ -218,11 +218,9 @@ $effect(() => {
 		margin-bottom: 32px;
 	}
 
-	.signup-title {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: #1e293b;
-		margin: 0;
+	.signup-header :global(img) {
+		width: min(320px, 80vw);
+		height: auto;
 	}
 
 	.signup-error {
