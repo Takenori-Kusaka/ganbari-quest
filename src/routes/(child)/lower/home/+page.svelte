@@ -13,8 +13,8 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
-import OmikujiOverlay from '$lib/ui/components/OmikujiOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
+import StampPressOverlay from '$lib/ui/components/StampPressOverlay.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 import { tick } from 'svelte';
@@ -85,13 +85,13 @@ let unlockedAchievements = $state<
 // Special reward overlay
 let rewardOpen = $state(false);
 
-// Login bonus state
-let omikujiOpen = $state(false);
-let bonusData = $state<{
-	rank: string;
-	basePoints: number;
-	multiplier: number;
+// Login stamp state (unified bonus + stamp)
+let stampPressOpen = $state(false);
+let stampPressData = $state<{
+	stampEmoji: string;
+	stampRarity: string;
 	totalPoints: number;
+	multiplier: number;
 	consecutiveDays: number;
 } | null>(null);
 let bonusClaiming = $state(false);
@@ -264,9 +264,9 @@ function handleAchievementClose() {
 	invalidateAll();
 }
 
-function handleOmikujiClose() {
-	omikujiOpen = false;
-	// おみくじ後に特別報酬チェック
+function handleStampPressClose() {
+	stampPressOpen = false;
+	// スタンプ後に特別報酬チェック
 	checkSpecialReward();
 	invalidateAll();
 }
@@ -288,7 +288,7 @@ async function handleRewardClose() {
 	rewardOpen = false;
 }
 
-// Auto-show login bonus on page load if not claimed
+// Auto-show login stamp on page load if not claimed
 $effect(() => {
 	if (data.loginBonusStatus && !data.loginBonusStatus.claimedToday && !bonusClaiming) {
 		bonusClaiming = true;
@@ -301,7 +301,7 @@ $effect(() => {
 
 // Check special reward on mount (if no bonus to show)
 $effect(() => {
-	if (data.latestReward && !bonusClaiming && !omikujiOpen) {
+	if (data.latestReward && !bonusClaiming && !stampPressOpen) {
 		checkSpecialReward();
 	}
 });
@@ -312,7 +312,7 @@ $effect(() => {
 		data.birthdayStatus?.isBirthday &&
 		!data.birthdayStatus.alreadyReviewed &&
 		!bonusClaiming &&
-		!omikujiOpen &&
+		!stampPressOpen &&
 		!birthdayOpen &&
 		!birthdayResultOpen
 	) {
@@ -355,23 +355,23 @@ function handleBirthdayResultClose() {
 		</div>
 	{/if}
 
-	<!-- Login bonus auto-claim form (hidden) -->
-	{#if bonusClaiming && !omikujiOpen}
+	<!-- Login stamp auto-claim form (hidden) — unified bonus + stamp -->
+	{#if bonusClaiming && !stampPressOpen}
 		<form
 			method="POST"
-			action="?/claimBonus"
+			action="?/loginStamp"
 			use:enhance={() => {
 				return async ({ result }) => {
-					if (result.type === 'success' && result.data && 'bonusClaimed' in result.data) {
-						const d = result.data as { rank: string; basePoints: number; multiplier: number; totalPoints: number; consecutiveLoginDays: number };
-						bonusData = {
-							rank: d.rank,
-							basePoints: d.basePoints,
-							multiplier: d.multiplier,
+					if (result.type === 'success' && result.data && 'loginStamp' in result.data) {
+						const d = result.data as { stampEmoji: string; stampRarity: string; totalPoints: number; multiplier: number; consecutiveLoginDays: number };
+						stampPressData = {
+							stampEmoji: d.stampEmoji,
+							stampRarity: d.stampRarity,
 							totalPoints: d.totalPoints,
+							multiplier: d.multiplier,
 							consecutiveDays: d.consecutiveLoginDays,
 						};
-						omikujiOpen = true;
+						stampPressOpen = true;
 					}
 					bonusClaiming = false;
 				};
@@ -746,16 +746,16 @@ function handleBirthdayResultClose() {
 	/>
 {/if}
 
-<!-- Omikuji overlay -->
-{#if bonusData}
-	<OmikujiOverlay
-		bind:open={omikujiOpen}
-		rank={bonusData.rank}
-		basePoints={bonusData.basePoints}
-		multiplier={bonusData.multiplier}
-		totalPoints={bonusData.totalPoints}
-		consecutiveDays={bonusData.consecutiveDays}
-		onClose={handleOmikujiClose}
+<!-- Stamp press overlay -->
+{#if stampPressData}
+	<StampPressOverlay
+		bind:open={stampPressOpen}
+		stampEmoji={stampPressData.stampEmoji}
+		stampRarity={stampPressData.stampRarity}
+		totalPoints={stampPressData.totalPoints}
+		multiplier={stampPressData.multiplier}
+		consecutiveDays={stampPressData.consecutiveDays}
+		onClose={handleStampPressClose}
 	/>
 {/if}
 

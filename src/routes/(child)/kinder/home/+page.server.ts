@@ -257,6 +257,35 @@ export const actions: Actions = {
 		};
 	},
 
+	/** Unified login stamp: claims bonus + stamps card in one action */
+	loginStamp: async ({ cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const childId = Number(cookies.get('selectedChildId'));
+		if (Number.isNaN(childId)) return fail(400, { error: 'パラメータが不正です' });
+
+		// 1. Claim login bonus (points + rank)
+		const bonusResult = await claimLoginBonus(childId, tenantId);
+		const bonus = 'error' in bonusResult ? null : bonusResult;
+
+		// 2. Stamp the card
+		const stampResult = await stampToday(childId, tenantId);
+		const stamp = 'error' in stampResult ? null : stampResult;
+
+		if (!bonus && !stamp) {
+			return fail(409, { error: 'きょうはもうスタンプをおしたよ！' });
+		}
+
+		return {
+			success: true,
+			loginStamp: true,
+			stampEmoji: stamp?.stamp.emoji ?? '⭐',
+			stampRarity: stamp?.stamp.rarity ?? 'N',
+			totalPoints: bonus?.totalPoints ?? 0,
+			multiplier: bonus?.multiplier ?? 1,
+			consecutiveLoginDays: bonus?.consecutiveLoginDays ?? 0,
+		};
+	},
+
 	togglePin: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();

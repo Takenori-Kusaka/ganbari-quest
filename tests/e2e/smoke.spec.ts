@@ -257,15 +257,19 @@ test.describe('ナビゲーション', () => {
 // 10. UC-13: ログインボーナス（スタンプカード）
 // ============================================================
 test.describe('UC-13: ログインボーナス', () => {
-	test('初回アクセスでおみくじオーバーレイが表示される', async ({ page }) => {
-		test.skip(isAwsEnv(), 'AWS 環境ではログインボーナス未初期化（事前claimでおみくじ非表示）');
+	test('初回アクセスでスタンプ押印オーバーレイが表示される', async ({ page }) => {
+		test.skip(isAwsEnv(), 'AWS 環境ではログインボーナス未初期化（事前claimでオーバーレイ非表示）');
 		await selectKinderChild(page);
 
-		// おみくじ結果（ログインボーナス未受取時）が表示される
+		// スタンプ押印オーバーレイ or おみくじ結果が表示される
+		const stampOverlay = page.getByTestId('stamp-press-overlay');
 		const omikuji = page.getByText(/大吉|中吉|小吉|吉|末吉/);
 		try {
-			await omikuji.waitFor({ timeout: 5000 });
-			await expect(page.getByText(/ポイント/)).toBeVisible();
+			await Promise.race([
+				stampOverlay.waitFor({ timeout: 5000 }),
+				omikuji.waitFor({ timeout: 5000 }),
+			]);
+			await expect(page.getByText(/ポイント|pt/)).toBeVisible();
 		} catch {
 			// 他テストで既にclaimされている場合はスキップ
 		}
