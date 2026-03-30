@@ -35,6 +35,7 @@ let {
 
 const catDef = $derived(getCategoryById(categoryId));
 const color = $derived(catDef?.color ?? 'var(--theme-primary)');
+const accent = $derived(catDef?.accent ?? color);
 const name = $derived(catDef?.name ?? '');
 
 const css = $derived(CARD_SIZE_CSS[cardSize]);
@@ -66,20 +67,21 @@ function xpBarPct(xp: CategoryXpInfo): number {
 		<h2 class="flex items-center gap-1">
 			<span
 				class="w-1 h-4 rounded-[var(--radius-full)]"
-				style="background-color: {color};"
+				style="background-color: {accent};"
 				aria-hidden="true"
 			></span>
 			<span class="text-xs font-bold text-[var(--color-text-muted)]">{name}</span>
 		</h2>
 		{#if xpInfo}
-			<span class="text-[10px] font-bold" style="color: {color};">Lv.{xpInfo.level}</span>
-			<div class="flex-1 h-1.5 rounded-full bg-gray-200 overflow-hidden" data-testid="xp-bar-{categoryId}">
+			<span class="text-[10px] font-bold" style="color: {accent};">Lv.{xpInfo.level}</span>
+			<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-auto" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
 				<div
 					class="h-full rounded-full xp-bar__fill"
 					class:xp-bar--animating={xpAnimating}
-					style="width: {xpBarPct(xpInfo)}%; background-color: {color};"
+					style="width: {xpBarPct(xpInfo)}%; background-color: {accent};"
 				></div>
 			</div>
+			<span class="text-[10px] text-[var(--color-text-muted)] tabular-nums w-8 text-right">{Math.round(xpBarPct(xpInfo))}%</span>
 		{/if}
 	</div>
 	<div

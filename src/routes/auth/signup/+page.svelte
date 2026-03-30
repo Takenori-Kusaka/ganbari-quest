@@ -30,7 +30,6 @@ $effect(() => {
 	<div class="signup-card">
 		<div class="signup-header">
 			<Logo variant="full" size={240} />
-			<p class="signup-subtitle">{confirmStep ? 'メール認証' : 'アカウント登録'}</p>
 		</div>
 
 		{#if form?.error}
@@ -154,7 +153,7 @@ $effect(() => {
 							class="agreement-checkbox"
 						/>
 						<span class="agreement-text">
-							<a href="/legal/terms" target="_blank" rel="noopener">利用規約</a>に同意します
+							<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener">利用規約</a>に同意します
 						</span>
 					</label>
 					<label class="agreement-label">
@@ -165,7 +164,7 @@ $effect(() => {
 							class="agreement-checkbox"
 						/>
 						<span class="agreement-text">
-							<a href="/legal/privacy" target="_blank" rel="noopener">プライバシーポリシー</a>に同意します
+							<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>に同意します
 						</span>
 					</label>
 					<p class="agreement-note">
@@ -224,12 +223,6 @@ $effect(() => {
 		font-weight: 700;
 		color: #1e293b;
 		margin: 0;
-	}
-
-	.signup-subtitle {
-		font-size: 0.875rem;
-		color: #64748b;
-		margin-top: 4px;
 	}
 
 	.signup-error {

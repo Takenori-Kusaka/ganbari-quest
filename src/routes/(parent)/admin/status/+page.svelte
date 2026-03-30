@@ -46,12 +46,11 @@ let levelTitleInputs: Record<number, string> = $state({});
 </script>
 
 <svelte:head>
-	<title>ベンチマーク管理 - がんばりクエスト管理</title>
+	<title>ベンチマーク管理 - がんばりクエスト</title>
 </svelte:head>
 
 <div class="space-y-6">
-	<div class="flex items-center justify-between">
-		<h2 class="text-xl font-bold text-gray-700">📈 ベンチマーク管理</h2>
+	<div class="flex items-center justify-end">
 		<a
 			href="/admin/children"
 			class="text-sm text-blue-500 hover:text-blue-600 font-bold"

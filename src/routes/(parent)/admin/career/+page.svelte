@@ -15,8 +15,6 @@ function toggleChild(childId: number) {
 	<title>キャリアプラン管理 - がんばりクエスト</title>
 </svelte:head>
 
-<h1 class="text-xl font-bold mb-4 text-gray-800">キャリアプラン管理</h1>
-
 {#if data.children.length === 0}
 	<p class="text-gray-500">子供が登録されていません。</p>
 {:else}

@@ -12,12 +12,10 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 </script>
 
 <svelte:head>
-	<title>じっせき管理 - がんばりクエスト管理</title>
+	<title>実績管理 - がんばりクエスト</title>
 </svelte:head>
 
 <div class="space-y-6">
-	<h2 class="text-xl font-bold text-gray-700 mb-6">🏆 じっせき管理</h2>
-
 	<!-- 子供選択 -->
 	{#if data.children.length > 0}
 		<div class="flex gap-2 mb-6 overflow-x-auto pb-2">

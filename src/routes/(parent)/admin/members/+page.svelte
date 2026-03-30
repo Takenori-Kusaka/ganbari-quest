@@ -145,8 +145,6 @@ const roleLabel = (role: string) => {
 </svelte:head>
 
 <div class="space-y-6">
-	<h2 class="text-xl font-bold text-gray-700">メンバー管理</h2>
-
 	<!-- メンバー一覧 -->
 	<section class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
 		<h3 class="text-lg font-semibold text-gray-600 mb-3">現在のメンバー</h3>
