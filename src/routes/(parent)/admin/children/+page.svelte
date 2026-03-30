@@ -190,7 +190,6 @@ function handleFileSelect(childId: number, event: Event) {
 	{/if}
 
 	<div class="flex items-center justify-between" data-tutorial="children-list">
-		<h2 class="text-lg font-bold text-gray-700">こども一覧</h2>
 		{#if !childLimit || childLimit.allowed}
 			<button
 				class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors"
@@ -377,7 +376,7 @@ function handleFileSelect(childId: number, event: Event) {
 							{/if}
 							<div class="flex-1">
 								<p class="font-bold text-gray-700">{child.nickname}</p>
-								<p class="text-sm text-gray-400">{child.age}歳 / {child.uiMode} / Lv.{child.level}</p>
+								<p class="text-sm text-gray-400">{child.age}歳 / {child.uiMode}</p>
 							</div>
 							<div class="text-right">
 								<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance)}</p>
@@ -447,7 +446,7 @@ function handleFileSelect(childId: number, event: Event) {
 				{/if}
 				<div class="flex-1">
 					<h3 class="text-lg font-bold text-gray-700">{child.nickname}</h3>
-					<p class="text-sm text-gray-400">{child.age}歳 / Lv.{child.status?.level ?? '?'} {child.status?.levelTitle ?? ''}</p>
+					<p class="text-sm text-gray-400">{child.age}歳 / {child.uiMode}</p>
 				</div>
 				<div class="flex gap-1">
 					<label
@@ -506,8 +505,8 @@ function handleFileSelect(childId: number, event: Event) {
 							<p class="text-xs text-gray-500">年齢</p>
 						</div>
 						<div class="bg-purple-50 rounded-lg p-3">
-							<p class="text-xl font-bold text-purple-600">Lv.{child.status?.level ?? '?'}</p>
-							<p class="text-xs text-gray-500">{child.status?.levelTitle ?? ''}</p>
+							<p class="text-xl font-bold text-purple-600">{child.uiMode}</p>
+							<p class="text-xs text-gray-500">UIモード</p>
 						</div>
 						<div class="bg-amber-50 rounded-lg p-3">
 							<p class="text-xl font-bold text-amber-600">{fmtBal(child.balance?.balance ?? 0)}</p>

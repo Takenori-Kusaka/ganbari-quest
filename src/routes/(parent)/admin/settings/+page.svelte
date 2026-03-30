@@ -211,12 +211,10 @@ const previewFormatted = $derived(
 </script>
 
 <svelte:head>
-	<title>せってい - がんばりクエスト管理</title>
+	<title>設定 - がんばりクエスト</title>
 </svelte:head>
 
 <div class="space-y-6">
-	<h2 class="text-xl font-bold text-gray-700 mb-6">せってい</h2>
-
 	<!-- grace_period バナー -->
 	{#if $page.data.tenantStatus === 'grace_period'}
 		<div class="bg-red-50 border-2 border-red-300 rounded-xl p-6">
@@ -831,10 +829,10 @@ const previewFormatted = $derived(
 		<h3 class="text-lg font-bold text-gray-700 mb-4">ℹ️ アプリ情報</h3>
 		<ul class="space-y-3 text-sm">
 			<li>
-				<a href="/legal/terms" target="_blank" rel="noopener" class="text-blue-500 hover:underline">📄 利用規約</a>
+				<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-blue-500 hover:underline">📄 利用規約</a>
 			</li>
 			<li>
-				<a href="/legal/privacy" target="_blank" rel="noopener" class="text-blue-500 hover:underline">🔒 プライバシーポリシー</a>
+				<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-blue-500 hover:underline">🔒 プライバシーポリシー</a>
 			</li>
 			<li>
 				<a href="https://discord.gg/5pWkf4Z5" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">💬 Discord コミュニティ</a>
