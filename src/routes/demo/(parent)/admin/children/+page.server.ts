@@ -8,8 +8,6 @@ export const load: PageServerLoad = async () => {
 	const children = adminData.children.map((child) => ({
 		...child,
 		balance: getDemoPointBalance(child.id),
-		level: 1,
-		levelTitle: '',
 	}));
 
 	return {
