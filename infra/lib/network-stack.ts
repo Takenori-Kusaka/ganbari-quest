@@ -223,6 +223,65 @@ function handler(event) {
 				recordName: 'www',
 				domainName: 'kokor.github.io',
 			});
+
+			// --- Stripe カスタムメールドメイン DNS レコード (#0246) ---
+			// TXT: Stripe ドメイン所有確認
+			new route53.TxtRecord(this, 'StripeDomainVerification', {
+				zone: hostedZone,
+				values: [
+					'stripe-verification=b0276ff8bdfbb406277f328df069e3125243dcc66dbab67a879e40a9a41775bf',
+				],
+			});
+
+			// TXT: DMARC ポリシー
+			new route53.TxtRecord(this, 'StripeDmarc', {
+				zone: hostedZone,
+				recordName: '_dmarc',
+				values: ['v=DMARC1; p=none; rua=mailto:dmarc@ganbari-quest.com'],
+			});
+
+			// DKIM CNAME レコード (6件)
+			const stripeDkimRecords: [string, string][] = [
+				[
+					'2lxhcyzg45h3ki74cqu2q62disli3r2i._domainkey',
+					'2lxhcyzg45h3ki74cqu2q62disli3r2i.dkim.custom-email-domain.stripe.com.',
+				],
+				[
+					'p2whjut6rekn3vb327dzc32uit4iheln._domainkey',
+					'p2whjut6rekn3vb327dzc32uit4iheln.dkim.custom-email-domain.stripe.com.',
+				],
+				[
+					'u7pyxxke42xi3xirfzegpgaha7zu7mo6._domainkey',
+					'u7pyxxke42xi3xirfzegpgaha7zu7mo6.dkim.custom-email-domain.stripe.com.',
+				],
+				[
+					'zfuvjoxtlyzdq243t2tpavrf7xaplkat._domainkey',
+					'zfuvjoxtlyzdq243t2tpavrf7xaplkat.dkim.custom-email-domain.stripe.com.',
+				],
+				[
+					'6khrfj5mxtz4beixdyeyk7fkhl4an3as._domainkey',
+					'6khrfj5mxtz4beixdyeyk7fkhl4an3as.dkim.custom-email-domain.stripe.com.',
+				],
+				[
+					'pzztpaebpfqf3b5rowr2cbyohxnlojds._domainkey',
+					'pzztpaebpfqf3b5rowr2cbyohxnlojds.dkim.custom-email-domain.stripe.com.',
+				],
+			];
+
+			stripeDkimRecords.forEach(([name, value], i) => {
+				new route53.CnameRecord(this, `StripeDkim${i + 1}`, {
+					zone: hostedZone!,
+					recordName: name,
+					domainName: value,
+				});
+			});
+
+			// Stripe bounce CNAME
+			new route53.CnameRecord(this, 'StripeBounce', {
+				zone: hostedZone,
+				recordName: 'bounce',
+				domainName: 'custom-email-domain.stripe.com.',
+			});
 		}
 
 		// --- Outputs ---

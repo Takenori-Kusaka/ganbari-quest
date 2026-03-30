@@ -58,9 +58,32 @@ export async function createCheckoutSession(
 		mode: 'subscription',
 		payment_method_types: ['card'],
 		line_items: [{ price: plan.priceId, quantity: 1 }],
+		locale: 'ja',
+		custom_text: {
+			submit: {
+				message: trialDays
+					? `${trialDays}日間の無料トライアル付き。トライアル期間中はいつでもキャンセル可能です。`
+					: 'お支払い後、すぐにプレミアム機能をご利用いただけます。',
+			},
+			after_submit: {
+				message: 'アプリに戻ってプレミアム機能をお楽しみください。',
+			},
+		},
+		consent_collection: {
+			terms_of_service: 'required',
+		},
+		allow_promotion_codes: true,
+		expires_at: Math.floor(Date.now() / 1000) + 1800, // 30分
+		after_expiration: {
+			recovery: {
+				enabled: true,
+				allow_promotion_codes: true,
+			},
+		},
 		subscription_data: {
 			trial_period_days: trialDays,
 			metadata: { tenantId: input.tenantId },
+			description: 'がんばりクエスト プレミアムプラン',
 		},
 		success_url: input.successUrl,
 		cancel_url: input.cancelUrl,
