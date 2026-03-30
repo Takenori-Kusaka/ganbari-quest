@@ -514,6 +514,14 @@ export interface InsertCareerPlanHistoryInput {
 	snapshot?: string;
 }
 
+export interface InsertParentMessageInput {
+	childId: number;
+	messageType: string;
+	stampCode?: string | null;
+	body?: string | null;
+	icon?: string;
+}
+
 export interface InsertCareerPointInput {
 	childId: number;
 	amount: number;
@@ -651,6 +659,17 @@ export interface ChildCustomVoice {
 	isActive: number;
 	tenantId: string;
 	createdAt: string;
+}
+
+export interface ParentMessage {
+	id: number;
+	childId: number;
+	messageType: string;
+	stampCode: string | null;
+	body: string | null;
+	icon: string;
+	sentAt: string;
+	shownAt: string | null;
 }
 
 export interface LevelTitle {

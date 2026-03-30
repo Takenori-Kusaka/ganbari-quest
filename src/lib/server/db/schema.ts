@@ -761,6 +761,29 @@ export const childCustomVoices = sqliteTable(
 );
 
 // ============================================================
+// parent_messages - 親から子へのおうえんメッセージ
+// ============================================================
+export const parentMessages = sqliteTable(
+	'parent_messages',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		messageType: text('message_type').notNull(), // 'stamp' | 'text' | 'reward_notice'
+		stampCode: text('stamp_code'), // スタンプ種別コード（stampの場合）
+		body: text('body'), // 自由入力テキスト（textの場合）
+		icon: text('icon').notNull().default('💌'),
+		sentAt: text('sent_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		shownAt: text('shown_at'), // 子供に表示済みの日時
+	},
+	(table) => [
+		index('idx_parent_messages_child').on(table.childId, table.sentAt),
+		index('idx_parent_messages_unshown').on(table.childId, table.shownAt),
+	],
+);
+
+// ============================================================
 // level_titles - テナント別レベル称号カスタマイズ
 // ============================================================
 export const levelTitles = sqliteTable(

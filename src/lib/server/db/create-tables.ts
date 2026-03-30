@@ -398,6 +398,21 @@ export const SQL_CREATE_TABLES = `
 	CREATE INDEX IF NOT EXISTS idx_child_custom_voices_child
 		ON child_custom_voices(child_id, scene);
 
+	CREATE TABLE IF NOT EXISTS parent_messages (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		message_type TEXT NOT NULL,
+		stamp_code TEXT,
+		body TEXT,
+		icon TEXT NOT NULL DEFAULT '💌',
+		sent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		shown_at TEXT
+	);
+	CREATE INDEX IF NOT EXISTS idx_parent_messages_child
+		ON parent_messages(child_id, sent_at);
+	CREATE INDEX IF NOT EXISTS idx_parent_messages_unshown
+		ON parent_messages(child_id, shown_at);
+
 	CREATE TABLE IF NOT EXISTS level_titles (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		tenant_id TEXT NOT NULL,

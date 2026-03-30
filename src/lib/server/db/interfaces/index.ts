@@ -12,6 +12,7 @@ export type { IDailyMissionRepo } from './daily-mission-repo.interface';
 export type { IEvaluationRepo } from './evaluation-repo.interface';
 export type { IImageRepo } from './image-repo.interface';
 export type { ILoginBonusRepo } from './login-bonus-repo.interface';
+export type { IMessageRepo } from './message-repo.interface';
 export type { IPointRepo } from './point-repo.interface';
 export type { ISettingsRepo } from './settings-repo.interface';
 export type { ISpecialRewardRepo } from './special-reward-repo.interface';
