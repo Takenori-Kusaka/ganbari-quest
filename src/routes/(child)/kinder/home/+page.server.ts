@@ -4,6 +4,7 @@ import { getAchievementSummary } from '$lib/server/services/achievement-service'
 import {
 	cancelActivityLog,
 	getTodayRecordedActivityCounts,
+	hasAnyActivityRecords,
 	recordActivity,
 } from '$lib/server/services/activity-log-service';
 import { sortActivitiesWithPreferences } from '$lib/server/services/activity-pin-service';
@@ -68,6 +69,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		categoryXp,
 		achievementSummary,
 		spBalance,
+		hasRecords,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -81,6 +83,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getCategoryXpSummary(child.id, tenantId),
 		getAchievementSummary(child.id, tenantId),
 		getSkillPointBalance(child.id, tenantId),
+		hasAnyActivityRecords(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -125,6 +128,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			achievements: achievementSummary,
 			spBalance: spBalance.balance,
 		},
+		isFirstTime: !hasRecords,
 	};
 };
 
