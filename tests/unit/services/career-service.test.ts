@@ -63,9 +63,7 @@ beforeEach(() => {
 // 動的インポート（モック適用後）
 const { getCareerFields, getActiveCareerPlan, createCareerPlan, updateCareerPlanWithPoints } =
 	await import('../../../src/lib/server/services/career-service');
-const { findAllCareerFields, findCareerFieldsByAge } = await import(
-	'../../../src/lib/server/db/career-repo'
-);
+// career-repo is imported via mock setup above
 
 describe('career-service', () => {
 	describe('getCareerFields', () => {
@@ -165,9 +163,9 @@ describe('career-service', () => {
 			);
 
 			const active = await getActiveCareerPlan(childId, 'test-tenant');
-			expect(active).not.toBeNull();
-			expect(active?.careerFieldId).toBe(2);
-			expect(JSON.parse(active!.mandalaChart).center).toBe('プラン2');
+			if (!active) throw new Error('Expected active career plan to exist');
+			expect(active.careerFieldId).toBe(2);
+			expect(JSON.parse(active.mandalaChart).center).toBe('プラン2');
 		});
 	});
 

@@ -76,7 +76,7 @@ function pickRandomStamp(stamps: StampMasterData[]): StampMasterData {
 	const byRarity: Record<string, StampMasterData[]> = {};
 	for (const s of stamps) {
 		if (!byRarity[s.rarity]) byRarity[s.rarity] = [];
-		byRarity[s.rarity]!.push(s);
+		byRarity[s.rarity]?.push(s);
 	}
 
 	// まずレア度を確率で決定
