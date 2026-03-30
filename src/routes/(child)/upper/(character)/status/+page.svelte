@@ -128,10 +128,30 @@ const radarCategories = $derived(
 			{/if}
 		</div>
 
+		<!-- Achievements link -->
+		<a
+			href="/upper/achievements"
+			class="mt-[var(--sp-md)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
+		>
+			<span class="text-2xl">🏆</span>
+			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">実績</p>
+			<p class="text-xs text-[var(--color-text-muted)]">達成した実績を確認</p>
+		</a>
+
+		<!-- History link -->
+		<a
+			href="/upper/history"
+			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
+		>
+			<span class="text-2xl">📊</span>
+			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">記録</p>
+			<p class="text-xs text-[var(--color-text-muted)]">活動の履歴を確認</p>
+		</a>
+
 		<!-- Title collection link -->
 		<a
 			href="/upper/titles"
-			class="mt-[var(--sp-md)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
+			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
 		>
 			<span class="text-2xl">🏅</span>
 			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">称号コレクション</p>

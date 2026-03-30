@@ -128,10 +128,30 @@ const radarCategories = $derived(
 			{/if}
 		</div>
 
+		<!-- Achievements link -->
+		<a
+			href="/lower/achievements"
+			class="mt-[var(--sp-md)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
+		>
+			<span class="text-2xl">🏆</span>
+			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">じっせき</p>
+			<p class="text-xs text-[var(--color-text-muted)]">達成したことを見よう！</p>
+		</a>
+
+		<!-- History link -->
+		<a
+			href="/lower/history"
+			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
+		>
+			<span class="text-2xl">📊</span>
+			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">きろく</p>
+			<p class="text-xs text-[var(--color-text-muted)]">今までのがんばりを見よう！</p>
+		</a>
+
 		<!-- Title collection link -->
 		<a
 			href="/lower/titles"
-			class="mt-[var(--sp-md)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
+			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
 		>
 			<span class="text-2xl">🏅</span>
 			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">称号コレクション</p>
