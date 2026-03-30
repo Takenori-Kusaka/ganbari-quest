@@ -372,4 +372,14 @@ export const SQL_CREATE_TABLES = `
 	);
 	CREATE INDEX IF NOT EXISTS idx_career_plan_history_plan
 		ON career_plan_history(career_plan_id);
+
+	CREATE TABLE IF NOT EXISTS level_titles (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		level INTEGER NOT NULL,
+		custom_title TEXT NOT NULL,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_level_titles_tenant_level
+		ON level_titles(tenant_id, level);
 `;

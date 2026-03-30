@@ -220,6 +220,18 @@ export default async function globalSetup() {
 			console.log('[E2E Setup]   Created default stamp masters.');
 		}
 
+		// level_titles テーブル（#0147 レベル称号カスタマイズ）
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS level_titles (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				tenant_id TEXT NOT NULL,
+				level INTEGER NOT NULL,
+				custom_title TEXT NOT NULL,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_level_titles_tenant_level ON level_titles(tenant_id, level);
+		`);
+
 		// skill_nodes / child_skill_nodes / skill_points テーブル（#0174 スキルツリー）
 		db.exec(`
 			CREATE TABLE IF NOT EXISTS skill_nodes (

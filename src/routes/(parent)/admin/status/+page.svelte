@@ -38,6 +38,11 @@ const hasUnsetBenchmarks = $derived(
 const initialChildId = data.children[0]?.id ?? 0;
 let previewChildId = $state(initialChildId);
 const previewChild = $derived(data.children.find((c) => c.id === previewChildId));
+
+// 称号カスタマイズ
+let showLevelTitles = $state(false);
+let levelTitleSuccess = $state(false);
+let levelTitleInputs: Record<number, string> = $state({});
 </script>
 
 <svelte:head>
@@ -53,6 +58,122 @@ const previewChild = $derived(data.children.find((c) => c.id === previewChildId)
 		>
 			こども管理でステータス編集 →
 		</a>
+	</div>
+
+	<!-- 称号カスタマイズセクション -->
+	<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+		<button
+			type="button"
+			class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+			onclick={() => { showLevelTitles = !showLevelTitles; }}
+		>
+			<h3 class="text-lg font-bold text-gray-700">🏷️ レベル称号カスタマイズ</h3>
+			<span class="text-gray-400 text-sm">{showLevelTitles ? '▲ 閉じる' : '▼ 開く'}</span>
+		</button>
+
+		{#if showLevelTitles}
+			<div class="px-4 pb-4 space-y-3">
+				<p class="text-xs text-gray-500">
+					各レベルの称号を家庭オリジナルに変更できます。空欄にするとデフォルトに戻ります。
+				</p>
+
+				{#if levelTitleSuccess}
+					<SuccessAlert message="称号を更新しました" />
+				{/if}
+
+				{#each data.levelTitles as lt (lt.level)}
+					<div class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+						<span class="text-sm font-bold text-gray-500 w-12">Lv.{lt.level}</span>
+						<div class="flex-1 min-w-0">
+							<form
+								method="POST"
+								action="?/saveLevelTitle"
+								use:enhance={() => {
+									levelTitleSuccess = false;
+									return async ({ result }) => {
+										if (result.type === 'success') {
+											levelTitleSuccess = true;
+											delete levelTitleInputs[lt.level];
+											await invalidateAll();
+										}
+									};
+								}}
+								class="flex items-center gap-2"
+							>
+								<input type="hidden" name="level" value={lt.level} />
+								<input
+									type="text"
+									name="customTitle"
+									maxlength={20}
+									placeholder={lt.defaultTitle}
+									value={levelTitleInputs[lt.level] ?? lt.customTitle ?? ''}
+									oninput={(e) => { levelTitleInputs[lt.level] = e.currentTarget.value; }}
+									class="flex-1 px-3 py-1.5 border rounded-lg text-sm
+										{lt.customTitle ? 'border-purple-300 bg-purple-50' : 'border-gray-200'}"
+								/>
+								<button
+									type="submit"
+									class="px-3 py-1.5 bg-purple-500 text-white text-xs font-bold rounded-lg hover:bg-purple-600 transition-colors whitespace-nowrap"
+								>
+									保存
+								</button>
+							</form>
+						</div>
+						{#if lt.customTitle}
+							<form
+								method="POST"
+								action="?/resetLevelTitle"
+								use:enhance={() => {
+									levelTitleSuccess = false;
+									return async ({ result }) => {
+										if (result.type === 'success') {
+											levelTitleSuccess = true;
+											delete levelTitleInputs[lt.level];
+											await invalidateAll();
+										}
+									};
+								}}
+							>
+								<input type="hidden" name="level" value={lt.level} />
+								<button
+									type="submit"
+									class="px-2 py-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors whitespace-nowrap"
+									title="デフォルトに戻す"
+								>
+									リセット
+								</button>
+							</form>
+						{/if}
+					</div>
+				{/each}
+
+				<!-- 全リセットボタン -->
+				{#if data.levelTitles.some((lt) => lt.customTitle)}
+					<form
+						method="POST"
+						action="?/resetAllLevelTitles"
+						use:enhance={() => {
+							levelTitleSuccess = false;
+							return async ({ result }) => {
+								if (result.type === 'success') {
+									levelTitleSuccess = true;
+									levelTitleInputs = {};
+									await invalidateAll();
+								}
+							};
+						}}
+						class="pt-2 border-t border-gray-200"
+					>
+						<button
+							type="submit"
+							class="px-4 py-2 text-sm text-red-500 hover:text-red-600 font-bold transition-colors"
+						>
+							全ての称号をデフォルトに戻す
+						</button>
+					</form>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<div>

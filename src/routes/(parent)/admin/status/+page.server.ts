@@ -2,13 +2,23 @@ import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllBenchmarks, upsertBenchmark } from '$lib/server/db/status-repo';
 import { getAllChildren } from '$lib/server/services/child-service';
-import { getChildStatus } from '$lib/server/services/status-service';
+import {
+	getChildStatus,
+	getLevelTitleList,
+	resetAllLevelTitles,
+	resetLevelTitle,
+	saveLevelTitle,
+} from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
-	const children = await getAllChildren(tenantId);
+	const [children, benchmarks, levelTitles] = await Promise.all([
+		getAllChildren(tenantId),
+		findAllBenchmarks(tenantId),
+		getLevelTitleList(tenantId),
+	]);
 
 	const childrenWithStatus = await Promise.all(
 		children.map(async (child) => {
@@ -20,12 +30,46 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
-	const benchmarks = await findAllBenchmarks(tenantId);
-
-	return { children: childrenWithStatus, categoryDefs: CATEGORY_DEFS, benchmarks };
+	return { children: childrenWithStatus, categoryDefs: CATEGORY_DEFS, benchmarks, levelTitles };
 };
 
 export const actions = {
+	saveLevelTitle: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+		const level = Number(form.get('level'));
+		const customTitle = String(form.get('customTitle') ?? '').trim();
+
+		if (!level || level < 1 || level > 10) {
+			return fail(400, { error: 'レベルが不正です' });
+		}
+		if (!customTitle || customTitle.length > 20) {
+			return fail(400, { error: '称号は1〜20文字で入力してください' });
+		}
+
+		await saveLevelTitle(tenantId, level, customTitle);
+		return { success: true, levelTitleUpdated: true };
+	},
+
+	resetLevelTitle: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+		const level = Number(form.get('level'));
+
+		if (!level || level < 1 || level > 10) {
+			return fail(400, { error: 'レベルが不正です' });
+		}
+
+		await resetLevelTitle(tenantId, level);
+		return { success: true, levelTitleReset: true };
+	},
+
+	resetAllLevelTitles: async ({ locals }) => {
+		const tenantId = requireTenantId(locals);
+		await resetAllLevelTitles(tenantId);
+		return { success: true, levelTitlesAllReset: true };
+	},
+
 	updateBenchmark: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
