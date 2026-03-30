@@ -81,8 +81,13 @@ export class CognitoAuthProvider implements AuthProvider {
 
 			const repos = getRepos();
 
+			// Cognito sub → 内部 userId の解決
+			// identity.userId は Cognito sub だが、DynamoDB は u-<uuid> で管理
+			const existingUser = await repos.auth.findUserByEmail(identity.email);
+			const internalUserId = existingUser?.userId ?? identity.userId;
+
 			// メンバーシップから取得（1ユーザー=1テナント）
-			let memberships = await repos.auth.findUserTenants(identity.userId);
+			let memberships = await repos.auth.findUserTenants(internalUserId);
 
 			// 初回ログイン: 招待コード or 自動プロビジョニング
 			if (memberships.length === 0) {
@@ -158,17 +163,19 @@ export class CognitoAuthProvider implements AuthProvider {
 				return null;
 			}
 
-			// AuthUser を確保（未作成の場合は作成）
+			// AuthUser を確保（Email で既存ユーザーを検索、なければ作成）
 			const repos = getRepos();
-			let user = await repos.auth.findUserById(identity.userId);
-			if (!user) {
-				user = await repos.auth.createUser({
+			const existingUser = await repos.auth.findUserByEmail(identity.email);
+			let effectiveUserId: string;
+			if (existingUser) {
+				effectiveUserId = existingUser.userId;
+			} else {
+				const user = await repos.auth.createUser({
 					email: identity.email,
 					provider: 'cognito',
 				});
+				effectiveUserId = user.userId;
 			}
-			const existingUser = await repos.auth.findUserByEmail(identity.email);
-			const effectiveUserId = existingUser?.userId ?? user.userId;
 
 			// 招待受諾
 			const result = await acceptInvite(inviteCode, effectiveUserId);
@@ -212,22 +219,20 @@ export class CognitoAuthProvider implements AuthProvider {
 		try {
 			const repos = getRepos();
 
-			// AuthUser が既にあるか確認（別経路で作成済みの場合）
-			let user = await repos.auth.findUserById(identity.userId);
-			if (!user) {
-				user = await repos.auth.createUser({
+			// Email で既存ユーザーを検索（Cognito sub と内部 u-xxx ID が異なるため）
+			const existingUser = await repos.auth.findUserByEmail(identity.email);
+
+			let effectiveUserId: string;
+			if (existingUser) {
+				effectiveUserId = existingUser.userId;
+			} else {
+				// 本当に初回 → AuthUser を作成
+				const user = await repos.auth.createUser({
 					email: identity.email,
 					provider: 'cognito',
 				});
-				// Cognito sub と内部 userId が異なるため、Cognito sub でも引けるよう保存
-				// createUser は内部 u-<uuid> を生成するが、Cognito sub を userId として使いたい
-				// → findUserByEmail で逆引きする
+				effectiveUserId = user.userId;
 			}
-
-			// Email で既存ユーザーを検索（createUser が別IDを振る場合の対応）
-			const existingUser = await repos.auth.findUserByEmail(identity.email);
-
-			const effectiveUserId = existingUser?.userId ?? user.userId;
 
 			// 既にテナントに所属していないか再確認
 			const existing = await repos.auth.findUserTenants(effectiveUserId);

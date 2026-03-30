@@ -39,7 +39,7 @@ const ROUTE_RULES: RouteRule[] = [
 		pattern: '/admin',
 		roles: ['owner', 'parent'],
 		unauthRedirect: '/auth/login',
-		forbiddenRedirect: '/switch',
+		forbiddenRedirect: '/switch?reason=admin_forbidden',
 	},
 	// 子供画面 — 全ロール（/switch, /kinder/*, /baby/*, /checklist/*）
 	{ pattern: '/switch', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
