@@ -14,6 +14,7 @@ import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelt
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import OmikujiOverlay from '$lib/ui/components/OmikujiOverlay.svelte';
+import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -84,6 +85,9 @@ let unlockedAchievements = $state<
 
 // Special reward overlay
 let rewardOpen = $state(false);
+
+// Parent message overlay
+let messageOpen = $state(false);
 
 // Login bonus state
 let omikujiOpen = $state(false);
@@ -276,7 +280,27 @@ function handleOmikujiClose() {
 function checkSpecialReward() {
 	if (data.latestReward && !rewardOpen) {
 		rewardOpen = true;
+	} else {
+		checkParentMessage();
 	}
+}
+
+function checkParentMessage() {
+	if (data.latestMessage && !messageOpen && !rewardOpen) {
+		messageOpen = true;
+	}
+}
+
+async function handleMessageClose() {
+	if (data.latestMessage) {
+		try {
+			await fetch(`/api/v1/messages/${data.latestMessage.id}/shown`, { method: 'POST' });
+		} catch {
+			// ignore
+		}
+	}
+	messageOpen = false;
+	invalidateAll();
 }
 
 async function handleRewardClose() {
@@ -288,6 +312,7 @@ async function handleRewardClose() {
 		}
 	}
 	rewardOpen = false;
+	checkParentMessage();
 }
 
 // Auto-show login bonus on page load if not claimed
@@ -734,6 +759,18 @@ function handleBirthdayResultClose() {
 		points={data.latestReward.points}
 		icon={data.latestReward.icon}
 		onClose={handleRewardClose}
+	/>
+{/if}
+
+<!-- Parent message overlay -->
+{#if data.latestMessage}
+	<ParentMessageOverlay
+		bind:open={messageOpen}
+		messageType={data.latestMessage.messageType}
+		stampLabel={data.latestMessage.stampLabel}
+		body={data.latestMessage.body}
+		icon={data.latestMessage.icon}
+		onClose={handleMessageClose}
 	/>
 {/if}
 

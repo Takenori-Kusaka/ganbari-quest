@@ -28,6 +28,7 @@ const unit = $derived(getUnitLabel(ps.mode, ps.currency));
 const authMode = $derived($page.data.authMode as string);
 
 const menuItems = [
+	{ href: '/admin/messages', label: 'おうえん', icon: '💌' },
 	{ href: '/admin/rewards', label: '特別報酬', icon: '🎁' },
 	{ href: '/admin/points', label: 'ポイント', icon: '⭐' },
 	{ href: '/admin/checklists', label: 'もちもの', icon: '✅' },

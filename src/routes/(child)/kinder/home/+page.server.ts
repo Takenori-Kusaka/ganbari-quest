@@ -17,6 +17,7 @@ import {
 import { getChecklistsForChild } from '$lib/server/services/checklist-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
+import { getUnshownMessage } from '$lib/server/services/message-service';
 import { getSkillPointBalance } from '$lib/server/services/skill-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
@@ -42,6 +43,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			todayRecorded: [],
 			loginBonusStatus: null,
 			latestReward: null,
+			latestMessage: null,
 			hasChecklists: false,
 			checklistProgress: null,
 			birthdayStatus: null,
@@ -58,6 +60,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		todayRecorded,
 		loginBonusStatus,
 		latestReward,
+		latestMessage,
 		checklists,
 		birthdayRaw,
 		dailyMissions,
@@ -70,6 +73,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getTodayRecordedActivityCounts(child.id, tenantId),
 		getLoginBonusStatus(child.id, tenantId),
 		getUnshownReward(child.id, tenantId),
+		getUnshownMessage(child.id, tenantId),
 		getChecklistsForChild(child.id, todayDate(), tenantId),
 		checkBirthdayStatus(child.id, tenantId),
 		getTodayMissions(child.id, tenantId),
@@ -109,6 +113,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		todayRecorded,
 		loginBonusStatus: bonusStatus,
 		latestReward,
+		latestMessage: latestMessage ?? null,
 		hasChecklists,
 		checklistProgress,
 		birthdayStatus,
