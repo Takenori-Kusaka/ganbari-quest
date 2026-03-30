@@ -42,6 +42,34 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 const currentBalance = $derived(selectedChild?.balance?.balance ?? 0);
 const maxConvertable = $derived(selectedChild?.balance?.convertableAmount ?? 0);
 
+// 変換履歴
+const convertHistory = $derived(selectedChild?.convertHistory ?? []);
+let historyPeriod = $state<'this-month' | 'last-month' | 'all'>('all');
+const filteredHistory = $derived.by(() => {
+	if (historyPeriod === 'all') return convertHistory;
+	const now = new Date();
+	const year =
+		historyPeriod === 'last-month' && now.getMonth() === 0
+			? now.getFullYear() - 1
+			: now.getFullYear();
+	const month =
+		historyPeriod === 'last-month'
+			? now.getMonth() === 0
+				? 12
+				: now.getMonth()
+			: now.getMonth() + 1;
+	const prefix = `${year}-${String(month).padStart(2, '0')}`;
+	return convertHistory.filter((h) => h.createdAt?.startsWith(prefix));
+});
+const thisMonthTotal = $derived.by(() => {
+	const now = new Date();
+	const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+	return convertHistory
+		.filter((h) => h.createdAt?.startsWith(monthStart))
+		.reduce((sum, h) => sum + Math.abs(h.amount), 0);
+});
+const allTimeTotal = $derived(convertHistory.reduce((sum, h) => sum + Math.abs(h.amount), 0));
+
 const manualAmount = $derived(Math.floor(Number(manualInput) || 0));
 const manualValid = $derived(manualAmount >= 1 && manualAmount <= currentBalance);
 const receiptValid = $derived(
@@ -190,7 +218,12 @@ async function handleReceiptFile(event: Event) {
 			}}
 			class="bg-white rounded-xl p-6 shadow-sm space-y-4"
 		>
-			<h3 class="font-bold text-gray-700">{selectedChild.nickname}の{isCurrencyMode ? '金額を渡す' : 'ポイントを変換'}</h3>
+			<h3 class="font-bold text-gray-700">{selectedChild.nickname}のおこづかいにかえる</h3>
+			{#if isCurrencyMode}
+				<p class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded mt-1">
+					💡 変換した金額を実際にお子さまへお渡しください
+				</p>
+			{/if}
 			<input type="hidden" name="childId" value={selectedChildId} />
 			<input type="hidden" name="mode" value={effectiveMode} />
 			<input type="hidden" name="amount" value={effectiveAmount} />
@@ -415,10 +448,16 @@ async function handleReceiptFile(event: Event) {
 
 			<!-- Convert Preview & Button -->
 			{#if canSubmit}
-				<div class="bg-amber-50 rounded-lg p-3 text-center">
+				<div class="bg-amber-50 rounded-lg p-3 text-center space-y-1">
 					<p class="text-sm text-amber-700">
 						<span class="font-bold text-lg">{fmtBal(effectiveAmount)}</span>
 						{#if !isCurrencyMode}→ <span class="font-bold text-lg">{effectiveAmount.toLocaleString()}円</span>分のおこづかい{/if}
+					</p>
+					<p class="text-xs text-amber-600">
+						残高: {fmtBal(currentBalance)} → {fmtBal(currentBalance - effectiveAmount)}
+						{#if thisMonthTotal > 0}
+							／今月の合計: {fmtBal(thisMonthTotal)} → {fmtBal(thisMonthTotal + effectiveAmount)}
+						{/if}
 					</p>
 				</div>
 				<button
@@ -446,6 +485,71 @@ async function handleReceiptFile(event: Event) {
 		<div class="bg-green-50 rounded-xl p-4 border border-green-200 text-center">
 			<p class="text-green-700 font-bold">{convertResult.message}</p>
 			<p class="text-sm text-green-600 mt-1">残高: {fmtBal(convertResult.remainingBalance)}</p>
+		</div>
+	{/if}
+
+	<!-- Convert History -->
+	{#if selectedChild && convertHistory.length > 0}
+		<div class="bg-white rounded-xl p-6 shadow-sm space-y-4">
+			<h3 class="font-bold text-gray-700">おこづかい変換りれき</h3>
+
+			<!-- Summary -->
+			<div class="grid grid-cols-2 gap-3">
+				<div class="bg-blue-50 rounded-lg p-3 text-center">
+					<p class="text-xs text-gray-500">今月の合計</p>
+					<p class="text-lg font-bold text-blue-600">{fmtBal(thisMonthTotal)}</p>
+				</div>
+				<div class="bg-purple-50 rounded-lg p-3 text-center">
+					<p class="text-xs text-gray-500">累計</p>
+					<p class="text-lg font-bold text-purple-600">{fmtBal(allTimeTotal)}</p>
+				</div>
+			</div>
+
+			<!-- Period Filter -->
+			<div class="flex rounded-lg bg-gray-100 p-1">
+				<button
+					type="button"
+					class="flex-1 py-1.5 text-xs font-bold rounded-md transition-colors
+						{historyPeriod === 'this-month' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+					onclick={() => historyPeriod = 'this-month'}
+				>
+					今月
+				</button>
+				<button
+					type="button"
+					class="flex-1 py-1.5 text-xs font-bold rounded-md transition-colors
+						{historyPeriod === 'last-month' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+					onclick={() => historyPeriod = 'last-month'}
+				>
+					先月
+				</button>
+				<button
+					type="button"
+					class="flex-1 py-1.5 text-xs font-bold rounded-md transition-colors
+						{historyPeriod === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+					onclick={() => historyPeriod = 'all'}
+				>
+					全期間
+				</button>
+			</div>
+
+			<!-- History List -->
+			{#if filteredHistory.length > 0}
+				<div class="divide-y divide-gray-100">
+					{#each filteredHistory as entry}
+						<div class="flex items-center justify-between py-3">
+							<div>
+								<p class="text-sm text-gray-500">
+									{entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }) : '—'}
+								</p>
+							</div>
+							<p class="font-bold text-amber-600">-{fmtBal(Math.abs(entry.amount))}</p>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<p class="text-sm text-gray-400 text-center py-4">この期間の変換履歴はありません</p>
+			{/if}
 		</div>
 	{/if}
 </div>

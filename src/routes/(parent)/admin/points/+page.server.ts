@@ -2,7 +2,11 @@ import { ConvertMode } from '$lib/domain/validation/point';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
-import { convertPoints, getPointBalance } from '$lib/server/services/point-service';
+import {
+	convertPoints,
+	getPointBalance,
+	getPointHistory,
+} from '$lib/server/services/point-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -17,9 +21,20 @@ export const load: PageServerLoad = async ({ locals }) => {
 					context: { childId: child.id, error: balance.error },
 				});
 			}
+			// 変換履歴（type=convert）を取得
+			const historyResult = await getPointHistory(
+				child.id,
+				{ limit: 50, offset: 0 },
+				tenantId,
+			);
+			const convertHistory =
+				!('error' in historyResult)
+					? historyResult.history.filter((h) => h.type === 'convert')
+					: [];
 			return {
 				...child,
 				balance: 'error' in balance ? null : balance,
+				convertHistory,
 			};
 		}),
 	);
