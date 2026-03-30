@@ -177,6 +177,25 @@ const activitiesByCategory = $derived(
 	})).filter((g) => g.items.length > 0),
 );
 
+// Quest progress summary (mission-based activities)
+const questProgress = $derived.by(() => {
+	const missions = data.activities.filter((a) => a.isMission);
+	const completed = missions.filter((a) => isCompleted(a));
+	return { total: missions.length, completed: completed.length };
+});
+
+// Per-category mission counts
+function getCategoryMissionCount(categoryId: number) {
+	const missions = data.activities.filter((a) => a.categoryId === categoryId && a.isMission);
+	return missions.length;
+}
+function getCategoryCompletedMissionCount(categoryId: number) {
+	const missions = data.activities.filter(
+		(a) => a.categoryId === categoryId && a.isMission && isCompleted(a),
+	);
+	return missions.length;
+}
+
 function handleActivityTap(activity: { id: number; name: string; icon: string }) {
 	soundService.play('tap');
 	selectedActivity = activity;
@@ -409,41 +428,40 @@ function handleBirthdayResultClose() {
 		</form>
 	{/if}
 
-	<!-- Checklist shortcut -->
-	{#if data.hasChecklists}
-		<a
-			href="/checklist"
-			class="flex items-center justify-between w-full px-[var(--sp-md)] py-[var(--sp-sm)] mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] tap-target"
-		>
-			<div class="flex items-center gap-[var(--sp-sm)]">
-				<span class="text-2xl">📋</span>
-				<span class="font-bold">もちものチェック</span>
-			</div>
-			{#if data.checklistProgress}
-				<div class="flex items-center gap-[var(--sp-xs)]">
-					{#if data.checklistProgress.allDone}
-						<span class="text-sm font-bold text-[var(--theme-accent)]">✅ かんりょう！</span>
-					{:else}
-						<span class="text-sm text-[var(--color-text-muted)]">
-							{data.checklistProgress.checkedCount}/{data.checklistProgress.totalCount}
-						</span>
-					{/if}
-					<span class="text-[var(--color-text-muted)]">›</span>
+	<!-- Quest progress summary (first view) -->
+	{#if questProgress.total > 0}
+		<div class="flex items-center gap-2 px-[var(--sp-md)] py-[var(--sp-sm)] mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200" data-testid="quest-progress">
+			<span class="text-xl">⚔️</span>
+			<div class="flex-1">
+				<p class="text-xs font-bold text-orange-700">きょうのクエスト</p>
+				<div class="flex items-center gap-1 mt-0.5">
+					{#each Array(questProgress.total) as _, i}
+						<span class="text-base">{i < questProgress.completed ? '⚔️' : '✨'}</span>
+					{/each}
+					<span class="text-xs font-bold text-orange-600 ml-1">{questProgress.completed}/{questProgress.total}</span>
 				</div>
+			</div>
+			{#if questProgress.completed >= questProgress.total}
+				<span class="text-sm font-bold text-orange-600">コンプリート！</span>
+			{:else}
+				<span class="text-xs text-orange-500">あと{questProgress.total - questProgress.completed}つ！</span>
 			{/if}
-		</a>
+		</div>
 	{/if}
 
-	<!-- Activity grid by category -->
+	<!-- Activity grid by category (compact mode: collapsed by default) -->
 	{#each activitiesByCategory as group (group.categoryId)}
 		<CategorySection
 			categoryId={group.categoryId}
 			cardSize={displayConfig.cardSize}
 			itemsPerCategory={displayConfig.itemsPerCategory}
 			collapsible={displayConfig.collapsible}
+			compactMode={true}
 			itemCount={group.items.length}
 			xpInfo={getCategoryXpWithAnim(group.categoryId)}
 			xpAnimating={xpAnimatingCategoryId === group.categoryId}
+			missionCount={getCategoryMissionCount(group.categoryId)}
+			completedMissionCount={getCategoryCompletedMissionCount(group.categoryId)}
 		>
 			{#each group.items as activity, i (activity.id)}
 				{#if i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
@@ -475,6 +493,31 @@ function handleBirthdayResultClose() {
 			<p class="text-lg font-bold">かつどうがまだないよ</p>
 			<p class="text-sm">おやにおねがいしてね</p>
 		</div>
+	{/if}
+
+	<!-- Checklist shortcut (below activities to reduce first-view clutter) -->
+	{#if data.hasChecklists}
+		<a
+			href="/checklist"
+			class="flex items-center justify-between w-full px-[var(--sp-md)] py-[var(--sp-sm)] mt-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] tap-target"
+		>
+			<div class="flex items-center gap-[var(--sp-sm)]">
+				<span class="text-2xl">📋</span>
+				<span class="font-bold">もちものチェック</span>
+			</div>
+			{#if data.checklistProgress}
+				<div class="flex items-center gap-[var(--sp-xs)]">
+					{#if data.checklistProgress.allDone}
+						<span class="text-sm font-bold text-[var(--theme-accent)]">✅ かんりょう！</span>
+					{:else}
+						<span class="text-sm text-[var(--color-text-muted)]">
+							{data.checklistProgress.checkedCount}/{data.checklistProgress.totalCount}
+						</span>
+					{/if}
+					<span class="text-[var(--color-text-muted)]">›</span>
+				</div>
+			{/if}
+		</a>
 	{/if}
 </div>
 
