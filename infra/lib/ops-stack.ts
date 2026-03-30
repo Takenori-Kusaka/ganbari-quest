@@ -186,6 +186,37 @@ export class OpsStack extends cdk.Stack {
 		cf5xx.addAlarmAction(alarmAction);
 		cf5xx.addOkAction(alarmAction);
 
+		// P1: DynamoDB Consumed Capacity (RCU+WCU combined, hourly)
+		// 無料枠10アラームの最後の1枠を使用（9→10）
+		const dynamoConsumedCapacity = new cloudwatch.Alarm(this, 'DynamoDBConsumedCapacity', {
+			alarmName: 'ganbari-quest-dynamodb-consumed-capacity',
+			alarmDescription: 'DynamoDB 消費容量（RCU+WCU）が1時間で10,000を超過。クエリループの可能性',
+			metric: new cloudwatch.MathExpression({
+				expression: 'rcu + wcu',
+				usingMetrics: {
+					rcu: new cloudwatch.Metric({
+						namespace: 'AWS/DynamoDB',
+						metricName: 'ConsumedReadCapacityUnits',
+						dimensionsMap: { TableName: props.table.tableName! },
+						period: cdk.Duration.hours(1),
+						statistic: 'Sum',
+					}),
+					wcu: new cloudwatch.Metric({
+						namespace: 'AWS/DynamoDB',
+						metricName: 'ConsumedWriteCapacityUnits',
+						dimensionsMap: { TableName: props.table.tableName! },
+						period: cdk.Duration.hours(1),
+						statistic: 'Sum',
+					}),
+				},
+				period: cdk.Duration.hours(1),
+			}),
+			threshold: 10000,
+			evaluationPeriods: 1,
+			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+		});
+		dynamoConsumedCapacity.addAlarmAction(alarmAction);
+
 		// ================================================================
 		// 3. CloudWatch Dashboard
 		// ================================================================
