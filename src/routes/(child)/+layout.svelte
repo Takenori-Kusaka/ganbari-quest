@@ -28,18 +28,18 @@ const NAV_LABELS: Record<string, { character: string; switch: string }> = {
 	upper: { character: 'ステータス', switch: '切替' },
 	teen: { character: 'ステータス', switch: '切替' },
 };
-const labels = $derived(NAV_LABELS[uiMode] ?? NAV_LABELS.kinder!);
+const labels = $derived(NAV_LABELS[uiMode] ?? NAV_LABELS.kinder);
 const SKILL_TREE_MODES = ['lower', 'upper', 'teen'];
 const SHOP_MODES = ['kinder'];
 const navItems = $derived([
 	{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
-	{ href: `/${uiMode}/status`, icon: '🛡️', label: labels!.character },
+	{ href: `/${uiMode}/status`, icon: '🛡️', label: labels?.character ?? 'つよさ' },
 	...(SKILL_TREE_MODES.includes(uiMode)
 		? [{ href: `/${uiMode}/skill-tree`, icon: '⚔️', label: 'スキル' }]
 		: SHOP_MODES.includes(uiMode)
 			? [{ href: `/${uiMode}/shop`, icon: '🛒', label: 'ショップ' }]
 			: []),
-	{ href: '/switch', icon: '👤', label: labels!.switch },
+	{ href: '/switch', icon: '👤', label: labels?.switch ?? 'きりかえ' },
 ]);
 
 // サウンドシステム初期化 + オートリロード
