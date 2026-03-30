@@ -1,14 +1,24 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import {
 	calcDeviationScore,
 	getComparisonLabel,
 	getMaxForAge,
 } from '$lib/domain/validation/status';
 import { SuccessAlert } from '$lib/ui/components';
+import RadarChart from '$lib/ui/components/RadarChart.svelte';
 
 let { data } = $props();
+
+/** 偏差値帯から親向け自然言語へ変換 */
+function getAnalysisText(deviationScore: number): { text: string; color: string } {
+	if (deviationScore >= 60) return { text: '同年齢の中でも特に活発です', color: 'text-green-600' };
+	if (deviationScore >= 45)
+		return { text: '平均的なペースで成長しています', color: 'text-blue-600' };
+	return { text: 'これから伸びる余地がたくさんあります', color: 'text-orange-500' };
+}
 
 let benchmarkAge = $state(4);
 let benchmarkSuccess = $state(false);
@@ -39,6 +49,24 @@ const initialChildId = data.children[0]?.id ?? 0;
 let previewChildId = $state(initialChildId);
 const previewChild = $derived(data.children.find((c) => c.id === previewChildId));
 
+// 成長レポート用のレーダーチャートデータ
+const previewRadarCategories = $derived(
+	previewChild?.status
+		? CATEGORY_DEFS.map((catDef) => {
+				const s = previewChild.status?.statuses[catDef.id];
+				return {
+					categoryId: catDef.id,
+					name: catDef.name,
+					value: s?.value ?? 0,
+					maxValue: previewChild.status?.maxValue ?? 100,
+					deviationScore: s?.deviationScore ?? 50,
+					stars: s?.stars ?? 0,
+					trend: (s?.trend ?? 'stable') as 'up' | 'down' | 'stable',
+				};
+			})
+		: [],
+);
+
 // 称号カスタマイズ
 let showLevelTitles = $state(false);
 let levelTitleSuccess = $state(false);
@@ -58,6 +86,68 @@ let levelTitleInputs: Record<number, string> = $state({});
 			こども管理でステータス編集 →
 		</a>
 	</div>
+
+	<!-- 成長レポート -->
+	{#if previewChild?.status}
+		<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+			<h3 class="text-lg font-bold text-gray-700 mb-3">
+				📊 {previewChild.nickname}の成長レポート
+			</h3>
+
+			<!-- ベンチマーク比較レーダーチャート (G7) -->
+			<div class="flex justify-center mb-4">
+				<RadarChart
+					categories={previewRadarCategories}
+					comparisonValues={previewChild.benchmarkValues}
+					comparisonLabel="同年齢の平均"
+					size={280}
+				/>
+			</div>
+			<p class="text-xs text-gray-400 text-center mb-4">
+				※ 参考値です。お子さまの個性やペースを大切にしてください
+			</p>
+
+			<!-- 分析サマリー (G8) -->
+			<div class="bg-gray-50 rounded-lg p-3 mb-4">
+				<h4 class="text-sm font-bold text-gray-600 mb-2">📋 分析サマリー</h4>
+				<div class="space-y-1">
+					{#each CATEGORY_DEFS as catDef (catDef.id)}
+						{@const stat = previewChild.status?.statuses[catDef.id]}
+						{#if stat}
+							{@const analysis = getAnalysisText(stat.deviationScore)}
+							<div class="flex items-center gap-2 text-sm">
+								<span class="w-5 text-center">{catDef.icon}</span>
+								<span class="font-bold text-gray-700 w-20">{catDef.name}</span>
+								<span class={analysis.color}>{analysis.text}</span>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			</div>
+
+			<!-- 月次変化量テーブル (G9) -->
+			{#if previewChild.monthlyComparison}
+				{@const mc = previewChild.monthlyComparison}
+				<div class="bg-gray-50 rounded-lg p-3">
+					<h4 class="text-sm font-bold text-gray-600 mb-2">📈 先月からの変化</h4>
+					<div class="space-y-1">
+						{#each CATEGORY_DEFS as catDef (catDef.id)}
+							{@const change = mc.changes[catDef.id] ?? 0}
+							{@const arrow = change > 0 ? '↑' : change < 0 ? '↓' : '→'}
+							{@const color = change > 0 ? 'text-green-600' : change < 0 ? 'text-red-500' : 'text-gray-400'}
+							<div class="flex items-center gap-2 text-sm">
+								<span class="w-5 text-center">{catDef.icon}</span>
+								<span class="font-bold text-gray-700 w-20">{catDef.name}</span>
+								<span class={color}>
+									{change > 0 ? '+' : ''}{change} {arrow}
+								</span>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- 称号カスタマイズセクション -->
 	<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
