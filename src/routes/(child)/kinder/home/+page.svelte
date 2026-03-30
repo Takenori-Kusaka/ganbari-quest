@@ -6,6 +6,7 @@ import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-di
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
+import AdventureStartOverlay from '$lib/ui/components/AdventureStartOverlay.svelte';
 import BirthdayResultOverlay from '$lib/ui/components/BirthdayResultOverlay.svelte';
 import BirthdayReviewOverlay from '$lib/ui/components/BirthdayReviewOverlay.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
@@ -22,9 +23,13 @@ import { tick } from 'svelte';
 
 let { data } = $props();
 
-const celebEffect = $derived(
+// First record special celebration (must be before celebEffect)
+let isFirstRecord = $state(false);
+
+const baseCelebEffect = $derived(
 	(data.avatarConfig?.celebrationEffect ?? 'default') as CelebrationType,
 );
+const celebEffect = $derived(isFirstRecord ? ('legend' as CelebrationType) : baseCelebEffect);
 const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
@@ -80,7 +85,7 @@ let cancelledMessage = $state(false);
 // Achievement unlock overlay
 let achievementOpen = $state(false);
 let unlockedAchievements = $state<
-	{ name: string; icon: string; bonusPoints: number; rarity: string }[]
+	{ code?: string; name: string; icon: string; bonusPoints: number; rarity: string }[]
 >([]);
 
 // Special reward overlay
@@ -88,6 +93,9 @@ let rewardOpen = $state(false);
 
 // Parent message overlay
 let messageOpen = $state(false);
+
+// First-time adventure overlay
+let adventureOpen = $state(false);
 
 // Login bonus state
 let omikujiOpen = $state(false);
@@ -261,6 +269,7 @@ function handleResultClose() {
 	} else if (unlockedAchievements.length > 0) {
 		achievementOpen = true;
 	} else {
+		isFirstRecord = false;
 		resultData = null;
 		xpGainData = null;
 		invalidateAll();
@@ -275,6 +284,7 @@ function handleLevelUpClose() {
 	if (unlockedAchievements.length > 0) {
 		achievementOpen = true;
 	} else {
+		isFirstRecord = false;
 		resultData = null;
 		xpGainData = null;
 		invalidateAll();
@@ -284,6 +294,7 @@ function handleLevelUpClose() {
 function handleAchievementClose() {
 	achievementOpen = false;
 	unlockedAchievements = [];
+	isFirstRecord = false;
 	resultData = null;
 	xpGainData = null;
 	invalidateAll();
@@ -334,11 +345,37 @@ async function handleRewardClose() {
 	checkParentMessage();
 }
 
-// Auto-show login bonus on page load if not claimed
+// Auto-show adventure overlay for first-time users
 $effect(() => {
+	if (data.isFirstTime && !adventureOpen && !omikujiOpen && !bonusClaiming) {
+		adventureOpen = true;
+	}
+});
+
+function handleAdventureClose() {
+	adventureOpen = false;
+	// After adventure, continue with login bonus flow
+	triggerLoginBonus();
+}
+
+function triggerLoginBonus() {
 	if (data.loginBonusStatus && !data.loginBonusStatus.claimedToday && !bonusClaiming) {
 		bonusClaiming = true;
-		// Wait for DOM update then auto-submit the hidden form
+		tick().then(() => {
+			document.getElementById('claim-bonus-btn')?.click();
+		});
+	}
+}
+
+// Auto-show login bonus on page load if not claimed (skip if adventure is showing)
+$effect(() => {
+	if (
+		data.loginBonusStatus &&
+		!data.loginBonusStatus.claimedToday &&
+		!bonusClaiming &&
+		!adventureOpen
+	) {
+		bonusClaiming = true;
 		tick().then(() => {
 			document.getElementById('claim-bonus-btn')?.click();
 		});
@@ -588,7 +625,7 @@ function handleBirthdayResultClose() {
 									masteryLevel?: number;
 									masteryLeveledUp?: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
 									cancelableUntil: string;
-									unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
+									unlockedAchievements: { code?: string; name: string; icon: string; bonusPoints: number; rarity: string }[];
 									comboBonus: {
 										categoryCombo: { categoryId: number; name: string; bonus: number }[];
 										crossCategoryCombo: { name: string; bonus: number } | null;
@@ -615,6 +652,7 @@ function handleBirthdayResultClose() {
 									comboBonus: d.comboBonus ?? null,
 								};
 								unlockedAchievements = d.unlockedAchievements ?? [];
+								isFirstRecord = unlockedAchievements.some((a) => a.code === 'first_step');
 								missionResult = d.missionComplete ?? null;
 								levelUpData = d.levelUp ?? null;
 								xpGainData = d.xpGain ?? null;
@@ -677,7 +715,12 @@ function handleBirthdayResultClose() {
 				<div class="relative w-24 h-24 flex items-center justify-center">
 					<CelebrationEffect type={celebEffect} />
 				</div>
-				<p class="text-lg font-bold">{resultData.activityName}をきろくしたよ！</p>
+				{#if isFirstRecord}
+					<p class="text-lg font-bold text-[var(--theme-accent)]">🌟 はじめての いっぽ！ 🌟</p>
+					<p class="text-sm font-bold">{resultData.activityName}をきろくしたよ！</p>
+				{:else}
+					<p class="text-lg font-bold">{resultData.activityName}をきろくしたよ！</p>
+				{/if}
 				<div class="animate-point-pop">
 					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.totalPoints)}</p>
 				</div>
@@ -791,6 +834,15 @@ function handleBirthdayResultClose() {
 		bind:open={achievementOpen}
 		achievements={unlockedAchievements}
 		onClose={handleAchievementClose}
+	/>
+{/if}
+
+<!-- Adventure start overlay (first-time users) -->
+{#if data.isFirstTime}
+	<AdventureStartOverlay
+		bind:open={adventureOpen}
+		childName={data.child?.nickname ?? ''}
+		onClose={handleAdventureClose}
 	/>
 {/if}
 
