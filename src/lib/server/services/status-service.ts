@@ -16,6 +16,7 @@ import {
 	findBenchmark,
 	findChildById,
 	findRecentStatusHistory,
+	findStatusValueAtDate,
 	findStatuses,
 	insertStatusHistory,
 	upsertStatus,
@@ -117,6 +118,60 @@ export async function getChildStatus(
 		characterType,
 		highestCategoryLevel,
 	};
+}
+
+/** 月次比較データ */
+export interface MonthlyComparison {
+	current: Record<number, number>;
+	previous: Record<number, number>;
+	changes: Record<number, number>;
+}
+
+/** 先月末時点と現在のステータスを比較 */
+export async function getMonthlyComparison(
+	childId: number,
+	tenantId: string,
+): Promise<MonthlyComparison | null> {
+	const child = await findChildById(childId, tenantId);
+	if (!child) return null;
+
+	const statusRows = await findStatuses(childId, tenantId);
+
+	// 先月末の日付を計算
+	const now = new Date();
+	const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+	const lastMonthEnd = firstOfMonth.toISOString();
+
+	const current: Record<number, number> = {};
+	const previous: Record<number, number> = {};
+	const changes: Record<number, number> = {};
+
+	for (const catDef of CATEGORY_DEFS) {
+		const row = statusRows.find((s) => s.categoryId === catDef.id);
+		const currentValue = row?.value ?? 0;
+		current[catDef.id] = Math.round(currentValue * 10) / 10;
+
+		const prevValue = await findStatusValueAtDate(childId, catDef.id, lastMonthEnd, tenantId);
+		previous[catDef.id] = prevValue !== null ? Math.round(prevValue * 10) / 10 : 0;
+		const cur = current[catDef.id] ?? 0;
+		const prev = previous[catDef.id] ?? 0;
+		changes[catDef.id] = Math.round((cur - prev) * 10) / 10;
+	}
+
+	return { current, previous, changes };
+}
+
+/** ベンチマーク平均値を取得（レーダーチャート比較用） */
+export async function getBenchmarkValues(
+	age: number,
+	tenantId: string,
+): Promise<Record<number, number>> {
+	const result: Record<number, number> = {};
+	for (const catDef of CATEGORY_DEFS) {
+		const benchmark = await findBenchmark(age, catDef.id, tenantId);
+		result[catDef.id] = benchmark?.mean ?? 0;
+	}
+	return result;
 }
 
 /** カテゴリXPサマリ（ホームページ用の軽量版） */

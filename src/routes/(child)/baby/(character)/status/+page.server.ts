@@ -6,7 +6,7 @@ import {
 	getWeekRange,
 	runDailyDecay,
 } from '$lib/server/services/evaluation-service';
-import { getChildStatus } from '$lib/server/services/status-service';
+import { getChildStatus, getMonthlyComparison } from '$lib/server/services/status-service';
 import type { PageServerLoad } from './$types';
 
 function todayStr(): string {
@@ -35,13 +35,16 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 
 	await ensureStatusUpToDate(child.id, tenantId);
 
-	const result = await getChildStatus(child.id, tenantId);
+	const [result, monthlyComparison] = await Promise.all([
+		getChildStatus(child.id, tenantId),
+		getMonthlyComparison(child.id, tenantId),
+	]);
 	if ('error' in result) {
 		logger.warn('[baby/status] ステータス取得フォールバック', {
 			context: { childId: child.id, error: result.error },
 		});
-		return { status: null };
+		return { status: null, monthlyComparison: null };
 	}
 
-	return { status: result };
+	return { status: result, monthlyComparison };
 };
