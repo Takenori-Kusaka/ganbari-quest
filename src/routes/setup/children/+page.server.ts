@@ -66,6 +66,6 @@ export const actions: Actions = {
 		if (children.length === 0) {
 			return fail(400, { error: '1人以上の子供を登録してください' });
 		}
-		redirect(302, '/setup/complete');
+		redirect(302, '/setup/packs');
 	},
 };
