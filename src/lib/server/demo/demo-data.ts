@@ -143,7 +143,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'さんぽ',
 		nameKanji: '散歩',
-		triggerHint: null,
+		triggerHint: 'おそとを あるいて みよう！',
 		createdAt: NOW,
 	},
 	{
@@ -163,7 +163,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'たいそう',
 		nameKanji: '体操',
-		triggerHint: null,
+		triggerHint: 'からだを うごかして たいそう しよう！',
 		createdAt: NOW,
 	},
 	{
@@ -183,7 +183,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'すいみんぐ',
 		nameKanji: 'スイミング',
-		triggerHint: null,
+		triggerHint: 'プールで ばしゃばしゃ しよう！',
 		createdAt: NOW,
 	},
 	{
@@ -203,7 +203,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'さっかー',
 		nameKanji: 'サッカー',
-		triggerHint: null,
+		triggerHint: 'ボールを けって あそぼう！',
 		createdAt: NOW,
 	},
 
@@ -225,7 +225,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'えほん',
 		nameKanji: '絵本',
-		triggerHint: null,
+		triggerHint: 'えほんを よんで みよう！',
 		createdAt: NOW,
 	},
 	{
@@ -245,7 +245,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'しゅくだい',
 		nameKanji: '宿題',
-		triggerHint: null,
+		triggerHint: 'きょうの しゅくだいを やろう！',
 		createdAt: NOW,
 	},
 	{
@@ -265,7 +265,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'どくしょ',
 		nameKanji: '読書',
-		triggerHint: null,
+		triggerHint: 'すきな ほんを よもう！',
 		createdAt: NOW,
 	},
 	{
@@ -285,7 +285,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'えいご',
 		nameKanji: '英語',
-		triggerHint: null,
+		triggerHint: 'えいごの おべんきょう しよう！',
 		createdAt: NOW,
 	},
 
@@ -307,7 +307,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'はみがき',
 		nameKanji: '歯みがき',
-		triggerHint: null,
+		triggerHint: 'はを ぴかぴかに みがこう！',
 		createdAt: NOW,
 	},
 	{
@@ -327,7 +327,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'おかたづけ',
 		nameKanji: 'お片づけ',
-		triggerHint: null,
+		triggerHint: 'おもちゃを おかたづけ しよう！',
 		createdAt: NOW,
 	},
 	{
@@ -347,7 +347,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'おてつだい',
 		nameKanji: 'お手伝い',
-		triggerHint: null,
+		triggerHint: 'おうちの おてつだい しよう！',
 		createdAt: NOW,
 	},
 	{
@@ -367,7 +367,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'せんたくもの',
 		nameKanji: '洗濯物たたみ',
-		triggerHint: null,
+		triggerHint: 'せんたくものを たたもう！',
 		createdAt: NOW,
 	},
 
@@ -389,7 +389,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'あいさつ',
 		nameKanji: 'あいさつ',
-		triggerHint: null,
+		triggerHint: 'げんきに あいさつ しよう！',
 		createdAt: NOW,
 	},
 	{
@@ -409,7 +409,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'おともだちとあそぶ',
 		nameKanji: '友達と遊ぶ',
-		triggerHint: null,
+		triggerHint: 'おともだちと なかよく あそぼう！',
 		createdAt: NOW,
 	},
 	{
@@ -429,7 +429,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'かぞくのてつだい',
 		nameKanji: '家族のお手伝い',
-		triggerHint: null,
+		triggerHint: 'かぞくの おてつだい しよう！',
 		createdAt: NOW,
 	},
 
@@ -451,7 +451,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'おえかき',
 		nameKanji: 'お絵かき',
-		triggerHint: null,
+		triggerHint: 'すきなものを おえかき しよう！',
 		createdAt: NOW,
 	},
 	{
@@ -471,7 +471,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'こうさく',
 		nameKanji: '工作',
-		triggerHint: null,
+		triggerHint: 'はさみと のりで こうさく しよう！',
 		createdAt: NOW,
 	},
 	{
@@ -491,7 +491,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: 'ぴあの',
 		nameKanji: 'ピアノ',
-		triggerHint: null,
+		triggerHint: 'すきな きょくを ひいてみよう！',
 		createdAt: NOW,
 	},
 	{
@@ -511,7 +511,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		description: null,
 		nameKana: null,
 		nameKanji: 'プログラミング',
-		triggerHint: null,
+		triggerHint: 'コードを かいて うごかそう！',
 		createdAt: NOW,
 	},
 ];
