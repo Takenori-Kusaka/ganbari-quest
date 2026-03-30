@@ -26,6 +26,19 @@ export const findTenantById: IAuthRepo['findTenantById'] = async () => {
 		updatedAt: new Date().toISOString(),
 	};
 };
+export const listAllTenants: IAuthRepo['listAllTenants'] = async () => {
+	// local モードではダミーテナント1件を返す
+	return [
+		{
+			tenantId: 'local',
+			name: 'ローカル家族',
+			ownerId: 'local',
+			status: 'active' as const,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		},
+	];
+};
 export const findTenantByStripeCustomerId: IAuthRepo['findTenantByStripeCustomerId'] = async () => {
 	return undefined;
 };

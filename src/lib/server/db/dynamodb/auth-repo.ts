@@ -16,6 +16,7 @@ import {
 	GetCommand,
 	PutCommand,
 	QueryCommand,
+	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { IAuthRepo } from '../interfaces/auth-repo.interface';
@@ -146,6 +147,28 @@ export const updateTenantStatus: IAuthRepo['updateTenantStatus'] = async (tenant
 			Item: { ...result.Item, status, updatedAt: now },
 		}),
 	);
+};
+
+export const listAllTenants: IAuthRepo['listAllTenants'] = async () => {
+	const tenants: Tenant[] = [];
+	let lastKey: Record<string, unknown> | undefined;
+
+	do {
+		const result = await doc().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk',
+				ExpressionAttributeValues: { ':prefix': 'TENANT#', ':sk': 'META' },
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of result.Items ?? []) {
+			tenants.push(itemToTenant(item as Record<string, unknown>));
+		}
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
+
+	return tenants;
 };
 
 export const findTenantByStripeCustomerId: IAuthRepo['findTenantByStripeCustomerId'] = async (
