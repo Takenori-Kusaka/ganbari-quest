@@ -76,7 +76,11 @@ const radarCategories = $derived(
 		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-md)]">
 			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">ステータス</h2>
 			<div class="flex justify-center">
-				<RadarChart categories={radarCategories} size={300} />
+				<RadarChart
+					categories={radarCategories}
+					comparisonValues={data.monthlyComparison?.previous}
+					size={300}
+				/>
 			</div>
 		</div>
 

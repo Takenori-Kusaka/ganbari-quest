@@ -187,6 +187,37 @@ export async function findRecentStatusHistory(
 	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as StatusHistoryEntry);
 }
 
+/** 指定日時点のステータス値を取得（その日以前の最新のhistory entry） */
+export async function findStatusValueAtDate(
+	childId: number,
+	categoryId: number,
+	beforeDate: string,
+	tenantId: string,
+): Promise<number | null> {
+	const pk = childPK(childId, tenantId);
+	const prefix = statusHistoryByCategoryPrefix(categoryId);
+
+	const result = await getDocClient().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': pk,
+				':prefix': prefix,
+			},
+			ScanIndexForward: false,
+		}),
+	);
+
+	for (const item of result.Items ?? []) {
+		const entry = stripKeys(item) as unknown as StatusHistoryEntry;
+		if (entry.recordedAt && entry.recordedAt < beforeDate) {
+			return entry.value;
+		}
+	}
+	return null;
+}
+
 /** 市場ベンチマークを取得 (global) */
 export async function findBenchmark(
 	age: number,

@@ -28,6 +28,14 @@ export async function findRecentStatusHistory(
 ) {
 	return getRepos().status.findRecentStatusHistory(childId, categoryId, tenantId, limit);
 }
+export async function findStatusValueAtDate(
+	childId: number,
+	categoryId: number,
+	beforeDate: string,
+	tenantId: string,
+) {
+	return getRepos().status.findStatusValueAtDate(childId, categoryId, beforeDate, tenantId);
+}
 export async function findBenchmark(age: number, categoryId: number, tenantId: string) {
 	return getRepos().status.findBenchmark(age, categoryId, tenantId);
 }

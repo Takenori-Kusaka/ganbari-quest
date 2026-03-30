@@ -1,7 +1,7 @@
 // src/lib/server/db/status-repo.ts
 // ステータス関連のリポジトリ層
 
-import { and, desc, eq, max } from 'drizzle-orm';
+import { and, desc, eq, lt, max } from 'drizzle-orm';
 import { db } from '../client';
 import { activityLogs, children, marketBenchmarks, statusHistory, statuses } from '../schema';
 
@@ -74,6 +74,29 @@ export async function findRecentStatusHistory(
 		.orderBy(desc(statusHistory.recordedAt))
 		.limit(limit)
 		.all();
+}
+
+/** 指定日時点のステータス値を取得（その日以前の最新のhistory entry） */
+export async function findStatusValueAtDate(
+	childId: number,
+	categoryId: number,
+	beforeDate: string,
+	_tenantId: string,
+): Promise<number | null> {
+	const row = db
+		.select({ value: statusHistory.value })
+		.from(statusHistory)
+		.where(
+			and(
+				eq(statusHistory.childId, childId),
+				eq(statusHistory.categoryId, categoryId),
+				lt(statusHistory.recordedAt, beforeDate),
+			),
+		)
+		.orderBy(desc(statusHistory.recordedAt))
+		.limit(1)
+		.get();
+	return row?.value ?? null;
 }
 
 /** 市場ベンチマークを取得 */

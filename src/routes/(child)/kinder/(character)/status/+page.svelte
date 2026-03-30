@@ -14,6 +14,23 @@ const trendIcons: Record<string, string> = {
 	stable: '➡️',
 };
 
+// Growth comment helpers
+const growthBestCat = $derived.by(() => {
+	if (!data.monthlyComparison || CATEGORY_DEFS.length === 0) return CATEGORY_DEFS[0];
+	const changes = data.monthlyComparison.changes;
+	return CATEGORY_DEFS.reduce((best, c) =>
+		(changes[c.id] ?? 0) > (changes[best.id] ?? 0) ? c : best,
+	);
+});
+
+const growthWeakCat = $derived.by(() => {
+	if (!data.status || CATEGORY_DEFS.length === 0) return CATEGORY_DEFS[0];
+	const statuses = data.status.statuses;
+	return CATEGORY_DEFS.reduce((weak, c) =>
+		(statuses[c.id]?.value ?? 0) < (statuses[weak.id]?.value ?? 0) ? c : weak,
+	);
+});
+
 // Prepare radar chart data
 const radarCategories = $derived(
 	data.status
@@ -74,11 +91,39 @@ const radarCategories = $derived(
 
 		<!-- Radar chart -->
 		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-md)]">
-			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">ステータス</h2>
+			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">せいちょうチャート</h2>
 			<div class="flex justify-center">
-				<RadarChart categories={radarCategories} size={300} />
+				<RadarChart
+					categories={radarCategories}
+					comparisonValues={data.monthlyComparison?.previous}
+					size={300}
+				/>
 			</div>
 		</div>
+
+		<!-- Growth comments -->
+		{#if data.monthlyComparison && growthBestCat && growthWeakCat}
+			{@const changes = data.monthlyComparison.changes}
+			<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-md)]">
+				{#if (changes[growthBestCat.id] ?? 0) > 0}
+					<p class="text-sm font-bold">
+						💬 {growthBestCat.name}が
+						{#if (changes[growthBestCat.id] ?? 0) > 5}
+							すごくのびたね！
+						{:else}
+							ちょっとずつ せいちょうしてるよ！
+						{/if}
+					</p>
+				{:else}
+					<p class="text-sm font-bold">💬 あんていしてるね！ またがんばろう！</p>
+				{/if}
+				{#if growthWeakCat.id !== growthBestCat.id}
+					<p class="text-xs text-[var(--color-text-muted)] mt-1">
+						🌟 {growthWeakCat.name}にチャレンジすると のびしろがたくさん！
+					</p>
+				{/if}
+			</div>
+		{/if}
 
 		<!-- Collapsible detail -->
 		<div class="bg-white rounded-[var(--radius-md)] shadow-sm overflow-hidden">
