@@ -14,10 +14,12 @@ interface CategoryData {
 
 interface Props {
 	categories: CategoryData[];
+	comparisonValues?: Record<number, number>;
+	comparisonLabel?: string;
 	size?: number;
 }
 
-let { categories, size = 300 }: Props = $props();
+let { categories, comparisonValues, comparisonLabel, size = 300 }: Props = $props();
 
 const LEVELS = [25, 50, 75, 100];
 const padding = 60;
@@ -48,6 +50,17 @@ const normalizedValues = $derived(
 	}),
 );
 
+// Comparison polygon values (previous month)
+const compNormalized = $derived(
+	comparisonValues
+		? categories.map((c) => {
+				const prev = comparisonValues[c.categoryId] ?? 0;
+				const pct = c.maxValue > 0 ? (prev / c.maxValue) * 100 : 0;
+				return Math.min(100, Math.max(5, pct));
+			})
+		: null,
+);
+
 // Animated values
 const animatedValues = tweened(
 	categories.map(() => 0),
@@ -57,8 +70,22 @@ const animatedValues = tweened(
 	},
 );
 
+const animatedComp = tweened(
+	categories.map(() => 0),
+	{
+		duration: 800,
+		easing: cubicOut,
+	},
+);
+
 $effect(() => {
 	animatedValues.set(normalizedValues);
+});
+
+$effect(() => {
+	if (compNormalized) {
+		animatedComp.set(compNormalized);
+	}
 });
 
 // SVG coordinate helpers
@@ -126,6 +153,19 @@ function gridPolygon(pct: number): string {
 		/>
 	{/each}
 
+	<!-- Comparison polygon (previous month) -->
+	{#if compNormalized}
+		<polygon
+			points={polygonPoints($animatedComp, maxRadius)}
+			fill="none"
+			stroke="var(--color-text-muted, #999)"
+			stroke-width="1.5"
+			stroke-dasharray="6,4"
+			stroke-linejoin="round"
+			opacity="0.5"
+		/>
+	{/if}
+
 	<!-- Filled area -->
 	<polygon
 		points={polygonPoints($animatedValues, maxRadius)}
@@ -169,6 +209,16 @@ function gridPolygon(pct: number): string {
 			{trendIcons[cat.trend] ?? '➡️'}
 		</text>
 	{/each}
+
+	<!-- Legend (when comparison is shown) -->
+	{#if compNormalized}
+		<g transform="translate({center - 60}, {size / 2 + maxRadius + 20})">
+			<line x1="0" y1="0" x2="16" y2="0" stroke="var(--theme-primary, #ff69b4)" stroke-width="2" />
+			<text x="20" y="4" class="radar-legend" fill="var(--color-text)">いま</text>
+			<line x1="56" y1="0" x2="72" y2="0" stroke="var(--color-text-muted, #999)" stroke-width="1.5" stroke-dasharray="4,3" />
+			<text x="76" y="4" class="radar-legend" fill="var(--color-text-muted)">{comparisonLabel ?? 'せんげつ'}</text>
+		</g>
+	{/if}
 </svg>
 
 <style>
@@ -178,5 +228,9 @@ function gridPolygon(pct: number): string {
 	}
 .radar-trend {
 		font-size: 11px;
+	}
+	.radar-legend {
+		font-size: 10px;
+		font-weight: 700;
 	}
 </style>

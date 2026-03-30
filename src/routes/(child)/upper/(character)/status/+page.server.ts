@@ -6,7 +6,7 @@ import {
 	getWeekRange,
 	runDailyDecay,
 } from '$lib/server/services/evaluation-service';
-import { getChildStatus } from '$lib/server/services/status-service';
+import { getChildStatus, getMonthlyComparison } from '$lib/server/services/status-service';
 import { checkAndUnlockTitles } from '$lib/server/services/title-service';
 import type { PageServerLoad } from './$types';
 
@@ -41,16 +41,19 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	// ステータスを最新化
 	await ensureStatusUpToDate(child.id, tenantId);
 
-	const result = await getChildStatus(child.id, tenantId);
+	const [result, monthlyComparison] = await Promise.all([
+		getChildStatus(child.id, tenantId),
+		getMonthlyComparison(child.id, tenantId),
+	]);
 	if ('error' in result) {
 		logger.warn('[upper/status] ステータス取得フォールバック', {
 			context: { childId: child.id, error: result.error },
 		});
-		return { status: null };
+		return { status: null, monthlyComparison: null };
 	}
 
 	// 偏差値ベースの称号チェック（ステータスページ表示時のみ）
 	await checkAndUnlockTitles(child.id, tenantId);
 
-	return { status: result };
+	return { status: result, monthlyComparison };
 };

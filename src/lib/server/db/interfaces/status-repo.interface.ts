@@ -25,6 +25,12 @@ export interface IStatusRepo {
 		tenantId: string,
 		limit?: number,
 	): Promise<StatusHistoryEntry[]>;
+	findStatusValueAtDate(
+		childId: number,
+		categoryId: number,
+		beforeDate: string,
+		tenantId: string,
+	): Promise<number | null>;
 	findBenchmark(
 		age: number,
 		categoryId: number,
