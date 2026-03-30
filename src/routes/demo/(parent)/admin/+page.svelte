@@ -100,6 +100,20 @@ const fmtPts = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.r
 			<p class="text-xs text-amber-500 text-center mt-4">
 				（デモモード：個別の管理画面は閲覧のみです）
 			</p>
+
+			<!-- コンバージョンCTA -->
+			<div class="mt-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-200 rounded-xl p-4 text-center">
+				<p class="text-sm font-bold text-gray-700 mb-1">いかがでしたか？</p>
+				<p class="text-xs text-gray-500 mb-3">
+					お子さまの「がんばり」を冒険に変えませんか？
+				</p>
+				<a
+					href="https://ganbari-quest.com/auth/signup"
+					class="inline-block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-center text-sm"
+				>
+					無料で はじめる →
+				</a>
+			</div>
 		</div>
 	</main>
 </div>
