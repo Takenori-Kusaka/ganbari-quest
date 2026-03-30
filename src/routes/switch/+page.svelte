@@ -26,7 +26,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 	{/if}
 
 	<header class="portal-header">
-		<Logo variant="compact" size={160} />
+		<Logo variant="full" size={280} />
 	</header>
 
 	<main class="portal-main">
@@ -89,7 +89,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 	}
 
 	.portal-header {
-		padding: 32px 16px 16px;
+		padding: 40px 24px 24px;
 		display: flex;
 		justify-content: center;
 	}

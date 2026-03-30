@@ -11,8 +11,8 @@ let { variant = 'symbol', size, class: className = '' }: Props = $props();
 
 const defaultSizes: Record<LogoVariant, { width: number; height: number }> = {
 	symbol: { width: 48, height: 48 },
-	full: { width: 240, height: 60 },
-	compact: { width: 160, height: 24 },
+	full: { width: 240, height: 119 },
+	compact: { width: 160, height: 79 },
 };
 
 const src: Record<LogoVariant, string> = {

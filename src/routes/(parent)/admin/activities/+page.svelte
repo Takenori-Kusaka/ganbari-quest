@@ -253,8 +253,10 @@ function acceptPreview() {
 				<p class="font-bold text-amber-800">カスタム活動の登録上限に達しています</p>
 				<p class="text-sm text-amber-700 mt-1">
 					現在 {activityLimit.current}個 / 最大 {activityLimit.max}個。
-					プランをアップグレードすると、もっと追加できます。
 				</p>
+				<a href="/admin/license" class="inline-flex items-center mt-2 text-sm font-semibold text-blue-600 hover:text-blue-800">
+					🚀 プランをアップグレードする →
+				</a>
 			</div>
 		</div>
 	{/if}
@@ -328,7 +330,7 @@ function acceptPreview() {
 			{#if aiPreview}
 				<div class="bg-white rounded-lg p-3 space-y-2 border border-purple-200">
 					{#if aiPreview.source === 'fallback'}
-						<p class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">AI APIが利用できなかったため、キーワードベースで推定しました</p>
+						<p class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">AIが利用できなかったため、入力内容から推定しました</p>
 					{/if}
 					<div class="flex items-center gap-3">
 						<CompoundIcon icon={aiPreview.icon} size="lg" />

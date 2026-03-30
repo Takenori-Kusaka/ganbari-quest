@@ -13,13 +13,13 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	// ロールチェック: owner/parent のみ決済操作を許可
 	const role = locals.context?.role;
 	if (role !== 'owner' && role !== 'parent') {
-		error(403, 'Only owner or parent can manage subscriptions');
+		error(403, 'サブスクリプションの管理は保護者のみ可能です');
 	}
 
 	const body = await request.json();
 	const planId = body.planId;
 	if (planId !== 'monthly' && planId !== 'yearly') {
-		error(400, 'Invalid planId. Must be "monthly" or "yearly".');
+		error(400, 'プランが正しくありません');
 	}
 
 	const origin = url.origin;
@@ -31,13 +31,19 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	});
 
 	if ('error' in result) {
-		const statusMap = {
+		const statusMap: Record<string, number> = {
 			STRIPE_DISABLED: 503,
 			TENANT_NOT_FOUND: 404,
 			ALREADY_SUBSCRIBED: 409,
 			INVALID_PLAN: 400,
-		} as const;
-		error(statusMap[result.error], result.error);
+		};
+		const messageMap: Record<string, string> = {
+			STRIPE_DISABLED: '決済機能は現在利用できません',
+			TENANT_NOT_FOUND: 'アカウントが見つかりません',
+			ALREADY_SUBSCRIBED: '既にサブスクリプションに加入済みです',
+			INVALID_PLAN: 'プランが正しくありません',
+		};
+		error(statusMap[result.error] ?? 500, messageMap[result.error] ?? 'エラーが発生しました');
 	}
 
 	return json({ url: result.url });

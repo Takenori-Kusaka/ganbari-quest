@@ -13,6 +13,10 @@ vi.mock('$lib/server/db/factory', () => ({
 	}),
 }));
 
+vi.mock('$lib/server/auth/factory', () => ({
+	getAuthMode: () => process.env.AUTH_MODE ?? 'local',
+}));
+
 import {
 	checkActivityLimit,
 	checkChildLimit,
@@ -30,15 +34,23 @@ describe('plan-limit-service', () => {
 			expect(resolvePlanTier('active')).toBe('paid');
 		});
 
-		it('none → free', () => {
+		it('local mode: none → paid (selfhost = 全機能解放)', () => {
+			process.env.AUTH_MODE = 'local';
+			expect(resolvePlanTier('none')).toBe('paid');
+		});
+
+		it('cognito mode: none → free', () => {
+			process.env.AUTH_MODE = 'cognito';
 			expect(resolvePlanTier('none')).toBe('free');
 		});
 
-		it('expired → free', () => {
+		it('cognito mode: expired → free', () => {
+			process.env.AUTH_MODE = 'cognito';
 			expect(resolvePlanTier('expired')).toBe('free');
 		});
 
-		it('suspended → free', () => {
+		it('cognito mode: suspended → free', () => {
+			process.env.AUTH_MODE = 'cognito';
 			expect(resolvePlanTier('suspended')).toBe('free');
 		});
 	});
@@ -71,7 +83,8 @@ describe('plan-limit-service', () => {
 			expect(mockFindAllChildren).not.toHaveBeenCalled();
 		});
 
-		it('free: allowed when under limit', async () => {
+		it('free (cognito): allowed when under limit', async () => {
+			process.env.AUTH_MODE = 'cognito';
 			mockFindAllChildren.mockResolvedValue([]);
 			const result = await checkChildLimit('tenant1', 'none');
 			expect(result.allowed).toBe(true);
@@ -79,12 +92,20 @@ describe('plan-limit-service', () => {
 			expect(result.max).toBe(1);
 		});
 
-		it('free: blocked when at limit', async () => {
+		it('free (cognito): blocked when at limit', async () => {
+			process.env.AUTH_MODE = 'cognito';
 			mockFindAllChildren.mockResolvedValue([{ id: 1, nickname: 'test' }]);
 			const result = await checkChildLimit('tenant1', 'none');
 			expect(result.allowed).toBe(false);
 			expect(result.current).toBe(1);
 			expect(result.max).toBe(1);
+		});
+
+		it('local: always allowed (selfhost)', async () => {
+			process.env.AUTH_MODE = 'local';
+			const result = await checkChildLimit('tenant1', 'none');
+			expect(result.allowed).toBe(true);
+			expect(result.max).toBeNull();
 		});
 	});
 
@@ -96,7 +117,8 @@ describe('plan-limit-service', () => {
 			expect(mockFindActivities).not.toHaveBeenCalled();
 		});
 
-		it('free: allowed when under limit', async () => {
+		it('free (cognito): allowed when under limit', async () => {
+			process.env.AUTH_MODE = 'cognito';
 			mockFindActivities.mockResolvedValue([
 				{ id: 1, source: 'custom' },
 				{ id: 2, source: 'custom' },
@@ -107,7 +129,8 @@ describe('plan-limit-service', () => {
 			expect(result.max).toBe(5);
 		});
 
-		it('free: blocked when at limit', async () => {
+		it('free (cognito): blocked when at limit', async () => {
+			process.env.AUTH_MODE = 'cognito';
 			mockFindActivities.mockResolvedValue([
 				{ id: 1, source: 'custom' },
 				{ id: 2, source: 'custom' },
@@ -121,7 +144,8 @@ describe('plan-limit-service', () => {
 			expect(result.max).toBe(5);
 		});
 
-		it('free: system activities are not counted', async () => {
+		it('free (cognito): system activities are not counted', async () => {
+			process.env.AUTH_MODE = 'cognito';
 			mockFindActivities.mockResolvedValue([
 				{ id: 1, source: 'system' },
 				{ id: 2, source: 'system' },
@@ -130,6 +154,13 @@ describe('plan-limit-service', () => {
 			const result = await checkActivityLimit('tenant1', 'none');
 			expect(result.allowed).toBe(true);
 			expect(result.current).toBe(1);
+		});
+
+		it('local: always allowed (selfhost)', async () => {
+			process.env.AUTH_MODE = 'local';
+			const result = await checkActivityLimit('tenant1', 'none');
+			expect(result.allowed).toBe(true);
+			expect(result.max).toBeNull();
 		});
 	});
 });

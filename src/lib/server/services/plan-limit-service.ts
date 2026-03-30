@@ -1,6 +1,7 @@
 // src/lib/server/services/plan-limit-service.ts
 // プラン別機能制限サービス (#0196)
 
+import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 
 export interface PlanLimits {
@@ -32,6 +33,8 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 
 /** テナントのプランティアを判定 */
 export function resolvePlanTier(licenseStatus: string): PlanTier {
+	// ローカル版（セルフホスト）は常に全機能解放
+	if (getAuthMode() === 'local') return 'paid';
 	return licenseStatus === 'active' ? 'paid' : 'free';
 }
 

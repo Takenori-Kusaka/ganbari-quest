@@ -183,8 +183,10 @@ function handleFileSelect(childId: number, event: Event) {
 				<p class="font-bold text-amber-800">こどもの登録上限に達しています</p>
 				<p class="text-sm text-amber-700 mt-1">
 					現在 {childLimit.current}人 / 最大 {childLimit.max}人。
-					プランをアップグレードすると、もっと登録できます。
 				</p>
+				<a href="/admin/license" class="inline-flex items-center mt-2 text-sm font-semibold text-blue-600 hover:text-blue-800">
+					🚀 プランをアップグレードする →
+				</a>
 			</div>
 		</div>
 	{/if}
