@@ -21,18 +21,11 @@ sqlite.pragma('wal_autocheckpoint = 100');
 // NORMAL sync is sufficient in WAL mode (good balance of safety + performance)
 sqlite.pragma('synchronous = NORMAL');
 
-// --- Lambda cold-start auto-initialization ---
-// On Lambda with SQLite backend, DATABASE_URL points to /tmp (ephemeral).
-// Skip when DATA_SOURCE=dynamodb (DynamoDB handles its own persistence).
-if (process.env.AWS_LAMBDA_FUNCTION_NAME && (process.env.DATA_SOURCE ?? 'sqlite') === 'sqlite') {
-	const tableExists = sqlite
-		.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='categories'")
-		.get();
-	if (!tableExists) {
-		console.log('[LAMBDA-INIT] Empty database detected, creating tables + categories...');
-		sqlite.exec(SQL_CREATE_TABLES);
-		console.log('[LAMBDA-INIT] Schema initialized. App will start in setup wizard mode.');
-	}
+// --- Auto schema migration ---
+// All statements use CREATE TABLE/INDEX IF NOT EXISTS, so this is idempotent.
+// Ensures new tables are always available after code updates (NUC Docker, Lambda, dev).
+if ((process.env.DATA_SOURCE ?? 'sqlite') === 'sqlite') {
+	sqlite.exec(SQL_CREATE_TABLES);
 }
 
 export const db = drizzle(sqlite, { schema });
