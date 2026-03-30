@@ -5,10 +5,17 @@ import { generateInquiryId, saveInquiry } from '$lib/server/db/dynamodb/inquiry-
 import { setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { changePin } from '$lib/server/services/auth-service';
+import { clearAllFamilyData, getDataSummary } from '$lib/server/services/data-service';
 import { notifyInquiry } from '$lib/server/services/discord-notify-service';
 import { sendInquiryConfirmationEmail } from '$lib/server/services/email-service';
 import { fail } from '@sveltejs/kit';
-import type { Actions } from './$types';
+import type { Actions, PageServerLoad } from './$types';
+
+export const load: PageServerLoad = async ({ locals }) => {
+	const tenantId = requireTenantId(locals);
+	const dataSummary = await getDataSummary(tenantId);
+	return { dataSummary };
+};
 
 export const actions = {
 	changePin: async ({ request, locals }) => {
@@ -134,5 +141,23 @@ export const actions = {
 
 		logger.info(`Feedback received: [${categoryLabel}] ${inquiryId} from ${email} (${tenantId})`);
 		return { feedbackSuccess: true, inquiryId };
+	},
+	clearData: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+		const confirm = form.get('confirm')?.toString() ?? '';
+
+		if (confirm !== '削除') {
+			return fail(400, { clearError: '確認テキスト「削除」を入力してください' });
+		}
+
+		try {
+			const result = await clearAllFamilyData(tenantId);
+			logger.info(`[data-clear] テナント ${tenantId} のデータクリア完了（form action）`);
+			return { clearSuccess: true, cleared: result.deleted };
+		} catch (err) {
+			logger.error('[data-clear] データクリア失敗', { error: String(err) });
+			return fail(500, { clearError: 'データクリアに失敗しました' });
+		}
 	},
 } satisfies Actions;
