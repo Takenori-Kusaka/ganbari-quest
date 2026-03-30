@@ -115,8 +115,9 @@ describe('calcMasteryBonus', () => {
 describe('MASTERY_LEVEL_TABLE', () => {
 	it('テーブルが昇順でソートされている', () => {
 		for (let i = 1; i < MASTERY_LEVEL_TABLE.length; i++) {
-			const current = MASTERY_LEVEL_TABLE[i]!;
-			const prev = MASTERY_LEVEL_TABLE[i - 1]!;
+			const current = MASTERY_LEVEL_TABLE[i];
+			const prev = MASTERY_LEVEL_TABLE[i - 1];
+			if (!current || !prev) throw new Error(`Expected table entries at indices ${i} and ${i - 1}`);
 			expect(current.minCount).toBeGreaterThan(prev.minCount);
 			expect(current.level).toBeGreaterThan(prev.level);
 		}
@@ -127,7 +128,8 @@ describe('MASTERY_LEVEL_TABLE', () => {
 	});
 
 	it('最終エントリがLv99', () => {
-		const last = MASTERY_LEVEL_TABLE[MASTERY_LEVEL_TABLE.length - 1]!;
+		const last = MASTERY_LEVEL_TABLE[MASTERY_LEVEL_TABLE.length - 1];
+		if (!last) throw new Error('Expected table to have at least one entry');
 		expect(last.level).toBe(99);
 	});
 });

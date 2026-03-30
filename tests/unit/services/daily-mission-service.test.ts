@@ -262,9 +262,10 @@ describe('checkMissionCompletion', () => {
 
 	it('ミッションに含まれる活動を記録すると達成になる', async () => {
 		const missions = await getTodayMissions(1, 'test-tenant');
-		const firstMissionActivityId = missions.missions[0]!.activityId;
+		const firstMission = missions.missions[0];
+		if (!firstMission) throw new Error('Expected at least one mission');
 
-		const result = await checkMissionCompletion(1, firstMissionActivityId, 'test-tenant');
+		const result = await checkMissionCompletion(1, firstMission.activityId, 'test-tenant');
 		expect(result.missionCompleted).toBe(true);
 
 		// 再取得して完了状態を確認
@@ -287,25 +288,24 @@ describe('checkMissionCompletion', () => {
 
 	it('2つ達成で+5Pボーナス', async () => {
 		const missions = await getTodayMissions(1, 'test-tenant');
-		await checkMissionCompletion(1, missions.missions[0]!.activityId, 'test-tenant');
-		const result2 = await checkMissionCompletion(
-			1,
-			missions.missions[1]!.activityId,
-			'test-tenant',
-		);
+		const m0 = missions.missions[0];
+		const m1 = missions.missions[1];
+		if (!m0 || !m1) throw new Error('Expected at least 2 missions');
+		await checkMissionCompletion(1, m0.activityId, 'test-tenant');
+		const result2 = await checkMissionCompletion(1, m1.activityId, 'test-tenant');
 		expect(result2.bonusAwarded).toBe(5);
 		expect(result2.allComplete).toBe(false);
 	});
 
 	it('3つ達成で+20Pボーナス（差分で+15P追加付与）', async () => {
 		const missions = await getTodayMissions(1, 'test-tenant');
-		await checkMissionCompletion(1, missions.missions[0]!.activityId, 'test-tenant');
-		await checkMissionCompletion(1, missions.missions[1]!.activityId, 'test-tenant');
-		const result3 = await checkMissionCompletion(
-			1,
-			missions.missions[2]!.activityId,
-			'test-tenant',
-		);
+		const m0 = missions.missions[0];
+		const m1 = missions.missions[1];
+		const m2 = missions.missions[2];
+		if (!m0 || !m1 || !m2) throw new Error('Expected at least 3 missions');
+		await checkMissionCompletion(1, m0.activityId, 'test-tenant');
+		await checkMissionCompletion(1, m1.activityId, 'test-tenant');
+		const result3 = await checkMissionCompletion(1, m2.activityId, 'test-tenant');
 		expect(result3.allComplete).toBe(true);
 		// 2/3で5P付与済み、3/3で20P。差分は15P
 		expect(result3.bonusAwarded).toBe(15);
@@ -313,12 +313,13 @@ describe('checkMissionCompletion', () => {
 
 	it('同じ活動を2回達成しても二重計上されない', async () => {
 		const missions = await getTodayMissions(1, 'test-tenant');
-		const firstId = missions.missions[0]!.activityId;
+		const firstMission = missions.missions[0];
+		if (!firstMission) throw new Error('Expected at least one mission');
 
-		const result1 = await checkMissionCompletion(1, firstId, 'test-tenant');
+		const result1 = await checkMissionCompletion(1, firstMission.activityId, 'test-tenant');
 		expect(result1.missionCompleted).toBe(true);
 
-		const result2 = await checkMissionCompletion(1, firstId, 'test-tenant');
+		const result2 = await checkMissionCompletion(1, firstMission.activityId, 'test-tenant');
 		expect(result2.missionCompleted).toBe(false);
 	});
 });

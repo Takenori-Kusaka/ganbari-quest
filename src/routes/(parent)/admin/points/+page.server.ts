@@ -22,15 +22,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 				});
 			}
 			// 変換履歴（type=convert）を取得
-			const historyResult = await getPointHistory(
-				child.id,
-				{ limit: 50, offset: 0 },
-				tenantId,
-			);
-			const convertHistory =
-				!('error' in historyResult)
-					? historyResult.history.filter((h) => h.type === 'convert')
-					: [];
+			const historyResult = await getPointHistory(child.id, { limit: 50, offset: 0 }, tenantId);
+			const convertHistory = !('error' in historyResult)
+				? historyResult.history.filter((h) => h.type === 'convert')
+				: [];
 			return {
 				...child,
 				balance: 'error' in balance ? null : balance,

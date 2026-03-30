@@ -18,7 +18,7 @@ const radarCategories = $derived(
 					categoryId: catDef.id,
 					name: catDef.name,
 					value: s?.value ?? 0,
-					maxValue: data.status!.maxValue,
+					maxValue: data.status?.maxValue ?? 0,
 					deviationScore: s?.deviationScore ?? 50,
 					stars: s?.stars ?? 0,
 					trend: (s?.trend ?? 'stable') as 'up' | 'down' | 'stable',
