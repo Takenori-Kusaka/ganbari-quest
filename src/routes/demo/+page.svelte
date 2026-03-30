@@ -1,7 +1,14 @@
 <script lang="ts">
+import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
+import { startGuide } from '$lib/features/demo/demo-guide-state.svelte.js';
 import Logo from '$lib/ui/components/Logo.svelte';
 
 let { data } = $props();
+
+function handleGuideStart() {
+	startGuide();
+	trackDemoEvent('demo_guide_start');
+}
 
 const modeLabels: Record<string, string> = {
 	baby: 'はじめの一歩',
@@ -31,6 +38,19 @@ const modeColors: Record<string, string> = {
 			<p class="text-gray-600">
 				がんばり家のみんなと一緒に、アプリの機能を体験してみましょう！
 			</p>
+		</div>
+
+		<!-- Guided demo option -->
+		<div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-5 mb-6 text-center">
+			<p class="text-sm font-bold text-gray-700 mb-1">はじめてですか？</p>
+			<p class="text-xs text-gray-500 mb-3">5ステップで主な機能をご案内します</p>
+			<a
+				href="/demo/kinder/home?childId=902"
+				class="block w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl text-sm hover:bg-blue-600 transition-colors"
+				onclick={handleGuideStart}
+			>
+				ガイド付きデモを はじめる
+			</a>
 		</div>
 
 		<!-- Family Introduction -->
@@ -78,7 +98,7 @@ const modeColors: Record<string, string> = {
 		</div>
 
 		<!-- Feature highlights -->
-		<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+		<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
 			<h2 class="text-lg font-bold text-gray-700 mb-4">体験できる機能</h2>
 			<ul class="space-y-3 text-sm text-gray-600">
 				<li class="flex gap-2">
@@ -117,6 +137,18 @@ const modeColors: Record<string, string> = {
 					</div>
 				</li>
 			</ul>
+		</div>
+
+		<!-- Conversion CTA -->
+		<div class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-orange-200 p-6 text-center">
+			<p class="text-sm font-bold text-gray-700 mb-1">お子さまの冒険、はじめませんか？</p>
+			<p class="text-xs text-gray-500 mb-3">7日間無料 ・ いつでもキャンセルOK</p>
+			<a
+				href="/demo/signup"
+				class="block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-sm"
+			>
+				無料で はじめる
+			</a>
 		</div>
 	</div>
 </div>
