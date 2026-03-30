@@ -8,7 +8,7 @@ import {
 } from '$lib/domain/point-display';
 
 let { data, form } = $props();
-let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'birthday'>('info');
+let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'voice' | 'birthday'>('info');
 let statusEditSuccess = $state(false);
 let sliderValues: Record<number, number> = $state({});
 const childLimit = $derived(
@@ -30,6 +30,7 @@ const detailTabs = [
 	{ id: 'status', label: '📊 ステータス' },
 	{ id: 'logs', label: '📝 活動記録' },
 	{ id: 'achievements', label: '🏆 実績' },
+	{ id: 'voice', label: '📢 ボイス' },
 	{ id: 'birthday', label: '🎂 ふりかえり' },
 ] as const;
 
@@ -37,6 +38,66 @@ let generating = $state(false);
 let generateResult = $state<{ filePath?: string; error?: string } | null>(null);
 let uploading = $state(false);
 let uploadResult = $state<{ avatarUrl?: string; error?: string } | null>(null);
+
+// ボイス関連
+let voiceUploading = $state(false);
+let voiceLabel = $state('');
+let voiceRecording = $state(false);
+let mediaRecorder: MediaRecorder | null = $state(null);
+let recordedBlob: Blob | null = $state(null);
+let recordedUrl: string | null = $state(null);
+let recordDuration = $state(0);
+let recordTimer: ReturnType<typeof setInterval> | null = null;
+
+async function startRecording() {
+	try {
+		const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+		const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+		const recorder = new MediaRecorder(stream, { mimeType });
+		const chunks: Blob[] = [];
+
+		recorder.ondataavailable = (e) => {
+			if (e.data.size > 0) chunks.push(e.data);
+		};
+		recorder.onstop = () => {
+			for (const t of stream.getTracks()) t.stop();
+			const blob = new Blob(chunks, { type: mimeType });
+			recordedBlob = blob;
+			if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+			recordedUrl = URL.createObjectURL(blob);
+			voiceRecording = false;
+			if (recordTimer) clearInterval(recordTimer);
+		};
+
+		recorder.start();
+		mediaRecorder = recorder;
+		voiceRecording = true;
+		recordDuration = 0;
+		recordTimer = setInterval(() => {
+			recordDuration++;
+			if (recordDuration >= 10) stopRecording();
+		}, 1000);
+	} catch {
+		// マイクアクセス拒否
+	}
+}
+
+function stopRecording() {
+	if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+		mediaRecorder.stop();
+	}
+	if (recordTimer) {
+		clearInterval(recordTimer);
+		recordTimer = null;
+	}
+}
+
+function clearRecording() {
+	if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+	recordedBlob = null;
+	recordedUrl = null;
+	recordDuration = 0;
+}
 
 async function generateAvatar(childId: number) {
 	generating = true;
@@ -571,6 +632,131 @@ function handleFileSelect(childId: number, event: Event) {
 					{:else}
 						<p class="text-center text-gray-400 py-4">実績がありません</p>
 					{/if}
+				{:else if detailTab === 'voice'}
+					<!-- カスタムボイス管理 -->
+					<div class="space-y-4">
+						<p class="text-xs text-gray-500">
+							録音または音声ファイルを登録すると、活動完了時にお子さんに再生されます。
+						</p>
+
+						<!-- 録音セクション -->
+						<div class="bg-gray-50 rounded-lg p-3 space-y-2">
+							<h4 class="text-sm font-bold text-gray-700">🎤 録音する</h4>
+							{#if voiceRecording}
+								<div class="flex items-center gap-3">
+									<span class="text-red-500 text-sm font-bold animate-pulse">● 録音中 {recordDuration}秒 / 10秒</span>
+									<button
+										type="button"
+										onclick={stopRecording}
+										class="px-3 py-1 bg-red-500 text-white text-sm rounded-lg"
+									>■ 停止</button>
+								</div>
+							{:else if recordedUrl}
+								<div class="flex items-center gap-2">
+									<audio src={recordedUrl} controls class="h-8 flex-1"></audio>
+									<button
+										type="button"
+										onclick={clearRecording}
+										class="px-2 py-1 text-xs text-gray-400 hover:text-red-500"
+									>取消</button>
+								</div>
+							{:else}
+								<button
+									type="button"
+									onclick={startRecording}
+									class="px-4 py-2 bg-red-500 text-white text-sm font-bold rounded-lg hover:bg-red-600 transition-colors"
+								>● 録音開始（最大10秒）</button>
+							{/if}
+						</div>
+
+						<!-- アップロードフォーム -->
+						<form
+							method="POST"
+							action="?/uploadVoice"
+							enctype="multipart/form-data"
+							use:enhance={({ formData }) => {
+								// 録音データがあればファイルとして追加
+								if (recordedBlob && !formData.get('file')?.valueOf()) {
+									const ext = recordedBlob.type.includes('webm') ? 'webm' : 'm4a';
+									formData.set('file', new File([recordedBlob], `recording.${ext}`, { type: recordedBlob.type }));
+									formData.set('durationMs', String(recordDuration * 1000));
+								}
+								voiceUploading = true;
+								return async ({ result, update }) => {
+									voiceUploading = false;
+									if (result.type === 'success') {
+										clearRecording();
+										voiceLabel = '';
+										await update();
+									}
+								};
+							}}
+							class="bg-gray-50 rounded-lg p-3 space-y-2"
+						>
+							<h4 class="text-sm font-bold text-gray-700">📁 ファイルからアップロード</h4>
+							<input type="hidden" name="childId" value={child.id} />
+							<input
+								type="text"
+								name="label"
+								bind:value={voiceLabel}
+								placeholder="ラベル（例: お母さんの声）"
+								maxlength={30}
+								class="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm"
+								required
+							/>
+							{#if !recordedBlob}
+								<input
+									type="file"
+									name="file"
+									accept="audio/mpeg,audio/mp4,audio/wav,audio/webm,audio/ogg,audio/x-m4a,.mp3,.m4a,.wav,.webm,.ogg"
+									class="w-full text-sm"
+								/>
+							{:else}
+								<p class="text-xs text-green-600">✅ 録音データを使用します</p>
+							{/if}
+							<button
+								type="submit"
+								disabled={voiceUploading || !voiceLabel}
+								class="px-4 py-1.5 bg-purple-500 text-white text-sm font-bold rounded-lg hover:bg-purple-600 disabled:opacity-50 transition-colors"
+							>
+								{voiceUploading ? 'アップロード中...' : '💾 保存'}
+							</button>
+						</form>
+
+						<!-- 登録済みボイス一覧 -->
+						{#if child.voices && child.voices.length > 0}
+							<div class="space-y-2">
+								<h4 class="text-sm font-bold text-gray-700">登録済み（{child.voices.length}件）</h4>
+								{#each child.voices as voice}
+									<div class="flex items-center gap-2 bg-white border rounded-lg p-2 {voice.isActive ? 'border-purple-300 bg-purple-50' : 'border-gray-200'}">
+										<span class="text-sm {voice.isActive ? 'text-purple-600 font-bold' : 'text-gray-600'}">
+											{voice.isActive ? '●' : '○'} {voice.label}
+										</span>
+										<audio src={voice.publicUrl} controls class="h-7 flex-1"></audio>
+										{#if !voice.isActive}
+											<form method="POST" action="?/activateVoice" use:enhance>
+												<input type="hidden" name="voiceId" value={voice.id} />
+												<input type="hidden" name="childId" value={child.id} />
+												<button type="submit" class="px-2 py-1 text-xs bg-purple-100 text-purple-600 rounded hover:bg-purple-200">有効化</button>
+											</form>
+										{/if}
+										<form method="POST" action="?/deleteVoice" use:enhance>
+											<input type="hidden" name="voiceId" value={voice.id} />
+											<button type="submit" class="px-2 py-1 text-xs text-red-400 hover:text-red-600">削除</button>
+										</form>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p class="text-center text-gray-400 py-4 text-sm">
+								ボイスが登録されていません。録音またはファイルアップロードで追加できます。
+							</p>
+						{/if}
+
+						<p class="text-xs text-gray-400">
+							※ 有効なボイスが設定されている場合、ショップの効果音よりも優先されます。
+						</p>
+					</div>
 				{:else if detailTab === 'birthday'}
 					<!-- Birthday reviews -->
 					{#if child.birthdayReviews && child.birthdayReviews.length > 0}

@@ -724,6 +724,26 @@ export const activityMastery = sqliteTable(
 );
 
 // ============================================================
+// child_custom_voices - 親の声・カスタム音声
+// ============================================================
+export const childCustomVoices = sqliteTable(
+	'child_custom_voices',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id').notNull(),
+		scene: text('scene').notNull().default('complete'),
+		label: text('label').notNull(),
+		filePath: text('file_path').notNull(),
+		publicUrl: text('public_url').notNull(),
+		durationMs: integer('duration_ms'),
+		isActive: integer('is_active').notNull().default(0),
+		tenantId: text('tenant_id').notNull(),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [index('idx_child_custom_voices_child').on(table.childId, table.scene)],
+);
+
+// ============================================================
 // level_titles - テナント別レベル称号カスタマイズ
 // ============================================================
 export const levelTitles = sqliteTable(

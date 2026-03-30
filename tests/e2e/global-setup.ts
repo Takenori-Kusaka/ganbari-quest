@@ -220,6 +220,23 @@ export default async function globalSetup() {
 			console.log('[E2E Setup]   Created default stamp masters.');
 		}
 
+		// child_custom_voices テーブル（#0157 親の声カスタム音声）
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS child_custom_voices (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL,
+				scene TEXT NOT NULL DEFAULT 'complete',
+				label TEXT NOT NULL,
+				file_path TEXT NOT NULL,
+				public_url TEXT NOT NULL,
+				duration_ms INTEGER,
+				is_active INTEGER NOT NULL DEFAULT 0,
+				tenant_id TEXT NOT NULL,
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE INDEX IF NOT EXISTS idx_child_custom_voices_child ON child_custom_voices(child_id, scene);
+		`);
+
 		// level_titles テーブル（#0147 レベル称号カスタマイズ）
 		db.exec(`
 			CREATE TABLE IF NOT EXISTS level_titles (

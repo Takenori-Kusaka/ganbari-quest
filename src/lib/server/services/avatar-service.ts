@@ -41,6 +41,8 @@ export interface AvatarConfig {
 	frameCss: string;
 	effectClass: string;
 	customSoundPath: string | null;
+	/** 親の声カスタムボイス（ショップ音より優先） */
+	customVoicePath: string | null;
 	celebrationEffect: string;
 }
 
@@ -187,7 +189,11 @@ export async function getAvatarConfig(childId: number, tenantId: string): Promis
 		if (item?.cssValue) celebrationEffect = item.cssValue;
 	}
 
-	return { bgCss, frameCss, effectClass, customSoundPath, celebrationEffect };
+	// 親の声カスタムボイス（ショップ音より優先）
+	const { getActiveVoicePath } = await import('$lib/server/services/voice-service');
+	const customVoicePath = await getActiveVoicePath(childId, tenantId);
+
+	return { bgCss, frameCss, effectClass, customSoundPath, customVoicePath, celebrationEffect };
 }
 
 // --- レベル/実績によるアイテム自動解放 ---
