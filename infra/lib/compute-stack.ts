@@ -43,6 +43,9 @@ export class ComputeStack extends cdk.Stack {
 			'/ganbari-quest/context-token-secret',
 		);
 
+		// --- Gemini API Key（SSM から取得、未設定時はフォールバック動作） ---
+		const geminiApiKey = this.node.tryGetContext('geminiApiKey') ?? '';
+
 		// --- Discord Webhook URLs（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const feedbackDiscordWebhookUrl = this.node.tryGetContext('feedbackDiscordWebhookUrl') ?? '';
 		const discordWebhookSignup = this.node.tryGetContext('discordWebhookSignup') ?? '';
@@ -87,6 +90,7 @@ export class ComputeStack extends cdk.Stack {
 				...(discordWebhookIncident
 					? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident }
 					: {}),
+				...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
 				COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
 				SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
 				SES_CONFIG_SET_NAME: 'ganbari-quest-config',
