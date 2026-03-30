@@ -631,3 +631,11 @@ export interface ActivityMastery {
 	level: number;
 	updatedAt: string;
 }
+
+export interface LevelTitle {
+	id: number;
+	tenantId: string;
+	level: number;
+	customTitle: string;
+	updatedAt: string;
+}
