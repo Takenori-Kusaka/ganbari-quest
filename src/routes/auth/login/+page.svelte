@@ -10,12 +10,18 @@ const f = () => form as Record<string, unknown> | null;
 let email = $state(form?.email ?? '');
 let password = $state('');
 let mfaCode = $state('');
+let otpCode = $state('');
 let loading = $state(false);
 
 // MFA ステップ: サーバーから session/challengeName が返ってきた場合
 let mfaStep = $derived((f()?.mfaStep as boolean) ?? false);
 let mfaSession = $derived((f()?.session as string) ?? '');
 let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
+
+// Email OTP ステップ: Cognito認証成功後のメール確認コード
+let otpStep = $derived((f()?.otpStep as boolean) ?? false);
+let otpSessionKey = $derived((f()?.otpSessionKey as string) ?? '');
+let maskedEmail = $derived((f()?.maskedEmail as string) ?? '');
 </script>
 
 <svelte:head>
@@ -26,7 +32,9 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 	<div class="login-card">
 		<div class="login-header">
 			<Logo variant="full" size={320} />
-			{#if mfaStep}
+			{#if otpStep}
+				<p class="mfa-step-label">メール確認</p>
+			{:else if mfaStep}
 				<p class="mfa-step-label">MFA認証</p>
 			{/if}
 		</div>
@@ -37,7 +45,58 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 			</div>
 		{/if}
 
-		{#if mfaStep}
+		{#if otpStep}
+			<!-- Email OTP 確認コード入力フォーム -->
+			<form
+				method="POST"
+				action="?/verifyOtp"
+				use:enhance={() => {
+					loading = true;
+					return async ({ update }) => {
+						loading = false;
+						otpCode = '';
+						await update();
+					};
+				}}
+				class="login-form"
+			>
+				<input type="hidden" name="otpSessionKey" value={otpSessionKey} />
+				<input type="hidden" name="email" value={email} />
+
+				<p class="mfa-description">
+					<strong>{maskedEmail}</strong> に確認コードを送信しました。<br />
+					メールに記載された6桁のコードを入力してください。
+				</p>
+
+				<div class="form-group">
+					<label for="otpCode" class="form-label">確認コード</label>
+					<input
+						id="otpCode"
+						name="otpCode"
+						type="text"
+						bind:value={otpCode}
+						placeholder="000000"
+						required
+						maxlength="6"
+						pattern="[0-9]{6}"
+						inputmode="numeric"
+						autocomplete="one-time-code"
+						class="form-input mfa-input"
+					/>
+				</div>
+
+				<p class="otp-hint">コードは3分間有効です</p>
+
+				<button type="submit" disabled={loading || otpCode.length !== 6} class="login-button" aria-busy={loading}>
+					{#if loading}
+						<span class="btn-spinner" aria-hidden="true"></span>
+						確認中...
+					{:else}
+						確認する
+					{/if}
+				</button>
+			</form>
+		{:else if mfaStep}
 			<!-- MFA コード入力フォーム -->
 			<form
 				method="POST"
@@ -252,6 +311,13 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 		color: #64748b;
 		text-align: center;
 		margin: 0;
+	}
+
+	.otp-hint {
+		font-size: 0.75rem;
+		color: #9ca3af;
+		text-align: center;
+		margin: -8px 0 0;
 	}
 
 	.login-button {
