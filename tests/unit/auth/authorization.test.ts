@@ -164,10 +164,10 @@ describe('authorizeCognito', () => {
 			const ctx = makeContext({ role: 'child', childId: 1 });
 			const id = cognitoIdentity();
 
-			it('/admin にアクセス不可（→ /switch にリダイレクト）', () => {
+			it('/admin にアクセス不可（→ /switch?reason=admin_forbidden にリダイレクト）', () => {
 				const result = authorizeCognito('/admin', id, ctx);
 				expect(result.allowed).toBe(false);
-				if (!result.allowed) expect(result.redirect).toBe('/switch');
+				if (!result.allowed) expect(result.redirect).toBe('/switch?reason=admin_forbidden');
 			});
 			it('/admin/settings にアクセス不可', () => {
 				const result = authorizeCognito('/admin/settings', id, ctx);
