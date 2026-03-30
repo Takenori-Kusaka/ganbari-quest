@@ -206,7 +206,7 @@ function handleResultClose() {
 				（デモモード：データは保存されません）
 			</p>
 			<a
-				href="https://ganbari-quest.com/auth/signup"
+				href="/demo/signup"
 				class="mt-3 block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-[var(--radius-lg)] text-center text-sm"
 			>
 				お子さまの名前で はじめる →
