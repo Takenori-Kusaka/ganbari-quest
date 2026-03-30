@@ -13,6 +13,11 @@ import {
 } from '$lib/server/auth/providers/cognito-direct-auth';
 import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
+import {
+	checkAccountLockout,
+	recordLoginFailure,
+	resetLoginFailures,
+} from '$lib/server/security/account-lockout';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -119,10 +124,19 @@ async function handleCognitoLogin(
 	password: string,
 	cookies: import('@sveltejs/kit').Cookies,
 ) {
+	// アカウントロックアウトチェック
+	const lockout = await checkAccountLockout(email);
+	if (lockout.locked) {
+		return fail(401, {
+			error: `アカウントがロックされています。${lockout.remainingMinutes}分後にお試しください`,
+			email,
+		});
+	}
+
 	const result = await authenticateWithCognito(email, password);
 
 	if (!result.success) {
-		// MFA チャレンジ: セッション情報をクライアントに返す
+		// MFA チャレンジ: セッション情報をクライアントに返す（失敗ではない）
 		if (result.error === 'MFA_REQUIRED') {
 			return fail(200, {
 				mfaStep: true,
@@ -131,8 +145,21 @@ async function handleCognitoLogin(
 				email,
 			});
 		}
+		// 認証失敗をカウント
+		if (result.error === 'INVALID_CREDENTIALS' || result.error === 'USER_NOT_FOUND') {
+			const lockResult = await recordLoginFailure(email);
+			if (lockResult.locked) {
+				return fail(401, {
+					error: `ログインに10回失敗したため、アカウントがロックされました。${lockResult.remainingMinutes}分後にお試しください`,
+					email,
+				});
+			}
+		}
 		return fail(401, { error: result.message, email });
 	}
+
+	// 認証成功: ロックアウトカウンターをリセット
+	await resetLoginFailures(email);
 
 	// Cognito JWT を Cookie にセット
 	setIdentityCookie(cookies, result.idToken);
