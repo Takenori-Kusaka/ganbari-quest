@@ -25,10 +25,12 @@ export class AuthStack extends cdk.Stack {
 			standardAttributes: {
 				email: { required: true, mutable: false },
 			},
+			// Email OTP is enforced at the application layer (not Cognito MFA)
+			// after USER_PASSWORD_AUTH succeeds, app sends OTP via SES and verifies
 			mfa: cognito.Mfa.OPTIONAL,
 			mfaSecondFactor: {
-				sms: false, // SNS サンドボックス回避のため初期は無効
-				otp: true, // TOTP (Google Authenticator 等)
+				sms: false,
+				otp: true, // TOTP (Google Authenticator) remains as optional extra
 			},
 			passwordPolicy: {
 				minLength: 8,
