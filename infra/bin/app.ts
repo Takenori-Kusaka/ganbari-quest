@@ -49,11 +49,13 @@ const network = new NetworkStack(app, `${appName}Network`, {
 	certificateArn,
 });
 
-// SES Stack: メール送信基盤（ドメイン検証 + DKIM + Configuration Set）
+// SES Stack: メール送信基盤 + 受信パイプライン（support@ganbari-quest.com）
+const discordWebhookSupport = app.node.tryGetContext('discordWebhookSupport') as string | undefined;
 new SesStack(app, `${appName}Ses`, {
 	env,
 	description: 'SES Email Infrastructure for Ganbari Quest',
 	domainName,
+	discordWebhookSupport,
 });
 
 // OpsStack: 監視・アラート + コスト防衛 (deploy with -c opsEmail=you@example.com)
