@@ -42,6 +42,7 @@ function seed() {
 				subcategory: '粗大運動',
 				description: '這う・立つなど基本的な運動機能の発達',
 				sortOrder: s(),
+				triggerHint: 'マットの うえで はいはい してみよう！',
 			},
 			{
 				name: 'あんよした',
@@ -55,6 +56,7 @@ function seed() {
 				subcategory: '粗大運動',
 				description: '歩行の練習・伝い歩き',
 				sortOrder: s(),
+				triggerHint: 'てを つないで いっぽ あるいてみよう！',
 			},
 			{
 				name: 'おそとにでた',
@@ -68,6 +70,7 @@ function seed() {
 				subcategory: '外遊び',
 				description: '戸外で外気に触れ体を動かす',
 				sortOrder: s(),
+				triggerHint: 'おそとの かぜを かんじに いこう！',
 			},
 			{
 				name: 'からだをうごかした',
@@ -81,6 +84,7 @@ function seed() {
 				subcategory: '全身運動',
 				description: '伸び伸びと体を動かす遊び',
 				sortOrder: s(),
+				triggerHint: 'おててを パチパチ からだを うごかそう！',
 			},
 			// べんきょう
 			{
@@ -95,6 +99,7 @@ function seed() {
 				subcategory: '言葉',
 				description: '絵本の読み聞かせを聞く',
 				sortOrder: s(),
+				triggerHint: 'いっしょに えほんを みてみよう！',
 			},
 			{
 				name: 'おうたをきいた',
@@ -108,6 +113,7 @@ function seed() {
 				subcategory: '言葉',
 				description: 'わらべうた・手遊びうたを聞く',
 				sortOrder: s(),
+				triggerHint: 'おうたに あわせて てを たたこう！',
 			},
 			{
 				name: 'ことばをまねた',
@@ -121,6 +127,7 @@ function seed() {
 				subcategory: '言葉',
 				description: '喃語・片言の発語',
 				sortOrder: s(),
+				triggerHint: 'まねっこ できるかな？ いってみよう！',
 			},
 			// せいかつ
 			{
@@ -136,6 +143,7 @@ function seed() {
 				description: '食事・離乳食を食べる',
 				dailyLimit: 3,
 				sortOrder: s(),
+				triggerHint: 'もぐもぐ ぱくぱく たべてみよう！',
 			},
 			{
 				name: 'ねんねできた',
@@ -149,6 +157,7 @@ function seed() {
 				subcategory: '睡眠',
 				description: '規則正しい睡眠リズムの形成',
 				sortOrder: s(),
+				triggerHint: 'おふとんに はいって ねんね しよう！',
 			},
 			{
 				name: 'てをあらった',
@@ -163,6 +172,7 @@ function seed() {
 				description: '手洗いの習慣づけ',
 				dailyLimit: 3,
 				sortOrder: s(),
+				triggerHint: 'おみずで てを きれいに しよう！',
 			},
 			// こうりゅう
 			{
@@ -177,6 +187,7 @@ function seed() {
 				subcategory: '愛着形成',
 				description: '大人との応答的な関わり・微笑み返し',
 				sortOrder: s(),
+				triggerHint: 'にこにこ おかおを みせてね！',
 			},
 			{
 				name: 'バイバイした',
@@ -190,6 +201,7 @@ function seed() {
 				subcategory: '挨拶',
 				description: '手を振る・バイバイなどの身振り',
 				sortOrder: s(),
+				triggerHint: 'おてて ふって バイバイ しよう！',
 			},
 			{
 				name: 'いないいないばあ',
@@ -203,6 +215,7 @@ function seed() {
 				subcategory: '遊び',
 				description: '大人との関わり遊び',
 				sortOrder: s(),
+				triggerHint: 'いないいない…ばあ！ してみよう！',
 			},
 			// そうぞう
 			{
@@ -217,6 +230,7 @@ function seed() {
 				subcategory: '感覚遊び',
 				description: '様々な素材・玩具に触れる',
 				sortOrder: s(),
+				triggerHint: 'おもちゃで いっしょに あそぼう！',
 			},
 			{
 				name: 'おとをならした',
@@ -230,6 +244,7 @@ function seed() {
 				subcategory: '音遊び',
 				description: '音の出るおもちゃ・楽器で遊ぶ',
 				sortOrder: s(),
+				triggerHint: 'がらがら ふって おとを だしてみよう！',
 			},
 			{
 				name: 'てあそびした',
@@ -243,6 +258,7 @@ function seed() {
 				subcategory: '手指遊び',
 				description: 'つまむ・握るなどの手指を使う遊び',
 				sortOrder: s(),
+				triggerHint: 'おてて ぱちぱち てあそび しよう！',
 			},
 
 			// ============================
@@ -261,6 +277,7 @@ function seed() {
 				subcategory: '体操',
 				description: 'いろいろな遊びの中で十分に体を動かす',
 				sortOrder: s(),
+				triggerHint: 'いっしょに たいそう してみよう！',
 			},
 			{
 				name: 'おそとであそんだ',
@@ -274,6 +291,7 @@ function seed() {
 				subcategory: '外遊び',
 				description: '進んで戸外で遊ぶ',
 				sortOrder: s(),
+				triggerHint: 'こうえんで おもいっきり あそぼう！',
 			},
 			{
 				name: 'すいみんぐ',
@@ -287,6 +305,7 @@ function seed() {
 				subcategory: '水遊び',
 				description: '水に親しみ水遊びをする',
 				sortOrder: s(),
+				triggerHint: 'プールで ばしゃばしゃ しよう！',
 			},
 			{
 				name: 'ボールあそび',
@@ -300,6 +319,7 @@ function seed() {
 				subcategory: '球技遊び',
 				description: 'ボールを投げる・蹴る・転がす遊び',
 				sortOrder: s(),
+				triggerHint: 'ボールを なげたり とったり しよう！',
 			},
 			{
 				name: 'おにごっこ',
@@ -313,6 +333,7 @@ function seed() {
 				subcategory: '走運動',
 				description: '走る・追いかけるなどの全身運動遊び',
 				sortOrder: s(),
+				triggerHint: 'おにごっこで いっぱい はしろう！',
 			},
 			{
 				name: 'なわとびれんしゅう',
@@ -326,6 +347,7 @@ function seed() {
 				subcategory: '跳運動',
 				description: 'なわとび・跳ぶ運動への挑戦',
 				sortOrder: s(),
+				triggerHint: 'なわとび なんかい とべるかな？',
 			},
 			// べんきょう
 			{
@@ -340,6 +362,7 @@ function seed() {
 				subcategory: '文字',
 				description: '文字で伝える楽しさを味わう',
 				sortOrder: s(),
+				triggerHint: 'すきな ひらがなを かいてみよう！',
 			},
 			{
 				name: 'すうじをかぞえた',
@@ -353,6 +376,7 @@ function seed() {
 				subcategory: '数量',
 				description: '日常生活の中で数量や図形に関心をもつ',
 				sortOrder: s(),
+				triggerHint: 'おやつの かずを かぞえてみよう！',
 			},
 			{
 				name: 'えほんをよんだ',
@@ -366,6 +390,7 @@ function seed() {
 				subcategory: '読書',
 				description: '絵本や物語に親しみ想像する楽しさを味わう',
 				sortOrder: s(),
+				triggerHint: 'すきな えほんを えらんで よもう！',
 			},
 			{
 				name: 'としょかんにいった',
@@ -379,6 +404,7 @@ function seed() {
 				subcategory: '読書',
 				description: '生活に関係の深い施設に興味をもつ',
 				sortOrder: s(),
+				triggerHint: 'としょかんで えほんを さがそう！',
 			},
 			{
 				name: 'しぜんをかんさつした',
@@ -392,6 +418,7 @@ function seed() {
 				subcategory: '自然観察',
 				description: '自然に触れ不思議さに気付く',
 				sortOrder: s(),
+				triggerHint: 'おはなや むしを みつけよう！',
 			},
 			{
 				name: 'どうぶつ・しょくぶつのおせわ',
@@ -405,6 +432,7 @@ function seed() {
 				subcategory: '飼育栽培',
 				description: '身近な動植物に親しみ生命の尊さに気付く',
 				sortOrder: s(),
+				triggerHint: 'おはなに おみず あげてみよう！',
 			},
 			// せいかつ
 			{
@@ -419,6 +447,7 @@ function seed() {
 				subcategory: '着替え',
 				description: '衣服の着脱を自分でする',
 				sortOrder: s(),
+				triggerHint: 'じぶんで おきがえ してみよう！',
 			},
 			{
 				name: 'はみがきした',
@@ -433,6 +462,7 @@ function seed() {
 				description: '身の回りを清潔にする',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: 'しゃかしゃか はみがき してみよう！',
 			},
 			{
 				name: 'ごはんをぜんぶたべた',
@@ -447,6 +477,7 @@ function seed() {
 				description: '食べることを楽しみ残さず食べる',
 				dailyLimit: 3,
 				sortOrder: s(),
+				triggerHint: 'おさらを ぴかぴかに しよう！',
 			},
 			{
 				name: 'おかたづけした',
@@ -461,6 +492,7 @@ function seed() {
 				description: '生活の場を整える',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: 'おもちゃを もとの ばしょに もどそう！',
 			},
 			{
 				name: 'てあらい・うがいした',
@@ -475,6 +507,7 @@ function seed() {
 				description: '病気の予防に必要な活動を進んで行う',
 				dailyLimit: 3,
 				sortOrder: s(),
+				triggerHint: 'おうちに かえったら てあらい しよう！',
 			},
 			{
 				name: 'はやねはやおきした',
@@ -488,6 +521,7 @@ function seed() {
 				subcategory: '生活リズム',
 				description: '健康な生活のリズムを身に付ける',
 				sortOrder: s(),
+				triggerHint: 'はやく ねて あした げんきに おきよう！',
 			},
 			{
 				name: 'もちものチェックした',
@@ -501,6 +535,7 @@ function seed() {
 				subcategory: '準備',
 				description: 'あしたのもちものをたしかめた',
 				sortOrder: s(),
+				triggerHint: 'あしたの もちもの じゅんび しよう！',
 			},
 			// こうりゅう
 			{
@@ -515,6 +550,7 @@ function seed() {
 				subcategory: '友達関係',
 				description: '友達と積極的にかかわり喜びを共感し合う',
 				sortOrder: s(),
+				triggerHint: 'おともだちと なかよく あそぼう！',
 			},
 			{
 				name: 'あいさつした',
@@ -529,6 +565,7 @@ function seed() {
 				description: '親しみをもって日常のあいさつをする',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: 'げんきに おはよう！って いおう！',
 			},
 			{
 				name: 'じぶんのきもちをつたえた',
@@ -542,6 +579,7 @@ function seed() {
 				subcategory: '伝達',
 				description: '自分の思ったことを相手に伝える',
 				sortOrder: s(),
+				triggerHint: 'おもったことを ことばで つたえよう！',
 			},
 			{
 				name: 'おやくそくをまもった',
@@ -555,6 +593,7 @@ function seed() {
 				subcategory: 'ルール',
 				description: 'きまりの大切さに気付き守ろうとする',
 				sortOrder: s(),
+				triggerHint: 'きめた おやくそく まもれたかな？',
 			},
 			{
 				name: 'せんせいとおはなしした',
@@ -568,6 +607,7 @@ function seed() {
 				subcategory: '伝達',
 				description: '先生に自分のことを話したり質問したりする',
 				sortOrder: s(),
+				triggerHint: 'せんせいに きょうの ことを はなそう！',
 			},
 			{
 				name: 'いっしょにごはんたべた',
@@ -581,6 +621,7 @@ function seed() {
 				subcategory: '食事',
 				description: '家族や友達と一緒に楽しく食事する',
 				sortOrder: s(),
+				triggerHint: 'みんなで いただきます しよう！',
 			},
 			{
 				name: 'おてがみをかいた',
@@ -594,6 +635,7 @@ function seed() {
 				subcategory: '伝達',
 				description: '友達や家族にお手紙やカードを書く',
 				sortOrder: s(),
+				triggerHint: 'だれかに おてがみ かいてみよう！',
 			},
 			// そうぞう
 			{
@@ -608,6 +650,7 @@ function seed() {
 				subcategory: '絵画',
 				description: '感じたことを自由にかく',
 				sortOrder: s(),
+				triggerHint: 'すきな ものを じゆうに かこう！',
 			},
 			{
 				name: 'こうさくした',
@@ -621,6 +664,7 @@ function seed() {
 				subcategory: '工作',
 				description: 'いろいろな素材に親しみ工夫して遊ぶ',
 				sortOrder: s(),
+				triggerHint: 'はさみと のりで なにか つくろう！',
 			},
 			{
 				name: 'うたをうたった',
@@ -634,6 +678,7 @@ function seed() {
 				subcategory: '音楽',
 				description: '音楽に親しみ歌を歌う楽しさを味わう',
 				sortOrder: s(),
+				triggerHint: 'すきな うたを げんきに うたおう！',
 			},
 			{
 				name: 'がっきであそんだ',
@@ -647,6 +692,7 @@ function seed() {
 				subcategory: '音楽',
 				description: '簡単なリズム楽器を使う楽しさを味わう',
 				sortOrder: s(),
+				triggerHint: 'タンバリンや すずで リズム とろう！',
 			},
 			{
 				name: 'ダンス・おどり',
@@ -660,6 +706,7 @@ function seed() {
 				subcategory: '身体表現',
 				description: '音や動きで表現する楽しさを味わう',
 				sortOrder: s(),
+				triggerHint: 'おんがくに あわせて おどってみよう！',
 			},
 			{
 				name: 'ごっこあそび',
@@ -673,6 +720,7 @@ function seed() {
 				subcategory: '劇遊び',
 				description: 'イメージを動きや言葉で表現し演じて遊ぶ',
 				sortOrder: s(),
+				triggerHint: 'なにやさんに なりたい？ ごっこしよう！',
 			},
 
 			// ============================
@@ -691,6 +739,7 @@ function seed() {
 				subcategory: '体つくり運動',
 				description: '体ほぐしの運動・多様な動きをつくる運動遊び',
 				sortOrder: s(),
+				triggerHint: 'あさ おきたら ストレッチ しよう！',
 			},
 			{
 				name: 'かけっこ・おにごっこ',
@@ -704,6 +753,7 @@ function seed() {
 				subcategory: '走の運動遊び',
 				description: '走の運動遊び・跳の運動遊び',
 				sortOrder: s(),
+				triggerHint: 'おそとで おもいきり はしろう！',
 			},
 			{
 				name: 'なわとび',
@@ -717,6 +767,7 @@ function seed() {
 				subcategory: '跳の運動遊び',
 				description: '跳ぶ運動遊び・短なわ・長なわ',
 				sortOrder: s(),
+				triggerHint: 'なわとび れんぞく なんかい いけるかな？',
 			},
 			{
 				name: 'マットうんどう',
@@ -730,6 +781,7 @@ function seed() {
 				subcategory: '器械運動遊び',
 				description: 'マットを使っての運動遊び',
 				sortOrder: s(),
+				triggerHint: 'マットの うえで まえまわり しよう！',
 			},
 			{
 				name: 'みずあそび・プール',
@@ -743,6 +795,7 @@ function seed() {
 				subcategory: '水遊び',
 				description: '水に慣れる遊び・浮く・もぐる遊び',
 				sortOrder: s(),
+				triggerHint: 'プールで たくさん およごう！',
 			},
 			{
 				name: 'ボールゲーム',
@@ -756,6 +809,7 @@ function seed() {
 				subcategory: 'ゲーム',
 				description: 'ボールゲーム・鬼遊び',
 				sortOrder: s(),
+				triggerHint: 'ボールを つかって あそぼう！',
 			},
 			// べんきょう
 			{
@@ -770,6 +824,7 @@ function seed() {
 				subcategory: '国語',
 				description: 'ひらがな・カタカナ・漢字の読み書き練習',
 				sortOrder: s(),
+				triggerHint: 'こくごの ドリルを 1ページ やろう！',
 			},
 			{
 				name: 'さんすうドリル',
@@ -783,6 +838,7 @@ function seed() {
 				subcategory: '算数',
 				description: 'たし算・ひき算・かけ算の計算練習',
 				sortOrder: s(),
+				triggerHint: 'さんすうの ドリルを 1ページ やろう！',
 			},
 			{
 				name: 'どくしょ（20ぷん）',
@@ -796,6 +852,7 @@ function seed() {
 				subcategory: '読書',
 				description: '読書習慣の形成・物語を楽しむ',
 				sortOrder: s(),
+				triggerHint: 'すきな ほんを 20ぷん よもう！',
 			},
 			{
 				name: 'しぜんかんさつ',
@@ -809,6 +866,7 @@ function seed() {
 				subcategory: '生活科',
 				description: '自然や物を使った遊び・季節の観察',
 				sortOrder: s(),
+				triggerHint: 'おそとの いきものを かんさつ しよう！',
 			},
 			{
 				name: 'どうぶつ・しょくぶつのせわ',
@@ -822,6 +880,7 @@ function seed() {
 				subcategory: '生活科',
 				description: '動植物の飼育・栽培',
 				sortOrder: s(),
+				triggerHint: 'いきものの おせわを しよう！',
 			},
 			{
 				name: 'にっきをかいた',
@@ -835,6 +894,7 @@ function seed() {
 				subcategory: '国語',
 				description: '経験を文章に書く',
 				sortOrder: s(),
+				triggerHint: 'きょうの できごとを にっきに かこう！',
 			},
 			// せいかつ
 			{
@@ -850,6 +910,7 @@ function seed() {
 				description: '健康な生活のリズム・清潔習慣',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: 'ごはんの あと はみがき しよう！',
 			},
 			{
 				name: 'はやねはやおき',
@@ -863,6 +924,7 @@ function seed() {
 				subcategory: '生活リズム',
 				description: '規則正しい生活リズム',
 				sortOrder: s(),
+				triggerHint: 'はやく ねて あした げんきに なろう！',
 			},
 			{
 				name: 'おてつだいした',
@@ -877,6 +939,7 @@ function seed() {
 				description: '家庭での自分の役割を果たす',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: 'おうちの おてつだい なにか やろう！',
 			},
 			{
 				name: 'じぶんのもちものをせいり',
@@ -891,6 +954,7 @@ function seed() {
 				description: '持ち物の準備・整理整頓',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: 'つくえの うえを きれいに しよう！',
 			},
 			{
 				name: 'あしたのじゅんびした',
@@ -904,6 +968,7 @@ function seed() {
 				subcategory: '準備',
 				description: 'ランドセルの中身・持ち物を確認した',
 				sortOrder: s(),
+				triggerHint: 'あしたの じゅんびを すませよう！',
 			},
 			// こうりゅう
 			{
@@ -919,6 +984,7 @@ function seed() {
 				description: '気持ちのよい挨拶と返事',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: 'げんきに あいさつ しよう！',
 			},
 			{
 				name: 'ともだちとなかよくした',
@@ -932,6 +998,7 @@ function seed() {
 				subcategory: '友達関係',
 				description: '友達と仲よくし助け合う',
 				sortOrder: s(),
+				triggerHint: 'ともだちに やさしく しよう！',
 			},
 			{
 				name: 'じぶんのかんがえをはなした',
@@ -945,6 +1012,7 @@ function seed() {
 				subcategory: '伝達',
 				description: '自分の考えを話す・相手の話を聞く',
 				sortOrder: s(),
+				triggerHint: 'おもったことを じぶんの ことばで！',
 			},
 			// そうぞう
 			{
@@ -959,6 +1027,7 @@ function seed() {
 				subcategory: '表現リズム',
 				description: '表現遊び・リズム遊び',
 				sortOrder: s(),
+				triggerHint: 'おんがくに あわせて からだを うごかそう！',
 			},
 			{
 				name: 'おえかき・ずがこうさく',
@@ -972,6 +1041,7 @@ function seed() {
 				subcategory: '図画工作',
 				description: '造形遊び・絵に表す活動',
 				sortOrder: s(),
+				triggerHint: 'じゆうに えを かいてみよう！',
 			},
 			{
 				name: 'こうさく',
@@ -985,6 +1055,7 @@ function seed() {
 				subcategory: '図画工作',
 				description: '工作に表す活動・材料や用具の扱い',
 				sortOrder: s(),
+				triggerHint: 'ざいりょうを つかって つくってみよう！',
 			},
 			{
 				name: 'うた・がっき',
@@ -998,6 +1069,7 @@ function seed() {
 				subcategory: '音楽',
 				description: '歌唱・器楽の表現活動',
 				sortOrder: s(),
+				triggerHint: 'うたったり がっきを ひいたりしよう！',
 			},
 			{
 				name: 'おんがくをきいた',
@@ -1011,6 +1083,7 @@ function seed() {
 				subcategory: '音楽',
 				description: '音楽鑑賞・リズムやメロディを楽しむ',
 				sortOrder: s(),
+				triggerHint: 'すきな おんがくを きいてみよう！',
 			},
 
 			// ============================
@@ -1029,6 +1102,7 @@ function seed() {
 				subcategory: '体力向上',
 				description: '体ほぐしの運動・体力を高める運動',
 				sortOrder: s(),
+				triggerHint: '体を動かして体力づくりしよう！',
 			},
 			{
 				name: '短距離走・リレー',
@@ -1042,6 +1116,7 @@ function seed() {
 				subcategory: '陸上運動',
 				description: '短距離走・リレー・ハードル走',
 				sortOrder: s(),
+				triggerHint: 'タイムをはかって走ってみよう！',
 			},
 			{
 				name: 'マット・跳び箱運動',
@@ -1055,6 +1130,7 @@ function seed() {
 				subcategory: '器械運動',
 				description: 'マット運動・鉄棒運動・跳び箱運動',
 				sortOrder: s(),
+				triggerHint: 'マット運動にチャレンジしよう！',
 			},
 			{
 				name: '水泳（クロール・平泳ぎ）',
@@ -1068,6 +1144,7 @@ function seed() {
 				subcategory: '水泳',
 				description: 'クロール・平泳ぎの技能向上',
 				sortOrder: s(),
+				triggerHint: 'フォームをいしきして泳ごう！',
 			},
 			{
 				name: 'ボール運動',
@@ -1081,6 +1158,7 @@ function seed() {
 				subcategory: '球技',
 				description: 'ゴール型・ネット型・ベースボール型',
 				sortOrder: s(),
+				triggerHint: 'ボール運動の練習をしよう！',
 			},
 			{
 				name: 'なわとびチャレンジ',
@@ -1094,6 +1172,7 @@ function seed() {
 				subcategory: '跳運動',
 				description: '二重跳び・技の練習など発展的なわとび',
 				sortOrder: s(),
+				triggerHint: 'なわとび新記録にちょうせん！',
 			},
 			// べんきょう
 			{
@@ -1108,6 +1187,7 @@ function seed() {
 				subcategory: '国語',
 				description: '漢字練習・読解・作文',
 				sortOrder: s(),
+				triggerHint: '国語のふくしゅうをしよう！',
 			},
 			{
 				name: '算数の自主学習',
@@ -1121,6 +1201,7 @@ function seed() {
 				subcategory: '算数',
 				description: '計算・図形・文章題の家庭学習',
 				sortOrder: s(),
+				triggerHint: '算数の問題をといてみよう！',
 			},
 			{
 				name: '読書（30分以上）',
@@ -1134,6 +1215,7 @@ function seed() {
 				subcategory: '読書',
 				description: '読書習慣の定着・多様なジャンルへの挑戦',
 				sortOrder: s(),
+				triggerHint: '30分以上じっくり読書しよう！',
 			},
 			{
 				name: '理科の観察・実験記録',
@@ -1147,6 +1229,7 @@ function seed() {
 				subcategory: '理科',
 				description: '自然の観察記録・実験レポート',
 				sortOrder: s(),
+				triggerHint: '実験や観察の記録をつけよう！',
 			},
 			{
 				name: '社会科の調べ学習',
@@ -1160,6 +1243,7 @@ function seed() {
 				subcategory: '社会',
 				description: '地域・歴史・産業について調べる',
 				sortOrder: s(),
+				triggerHint: 'きょうみのあることを調べよう！',
 			},
 			{
 				name: '英語の練習',
@@ -1173,6 +1257,7 @@ function seed() {
 				subcategory: '外国語',
 				description: 'アルファベット・基本表現の練習',
 				sortOrder: s(),
+				triggerHint: '英語の単語や文を練習しよう！',
 			},
 			// せいかつ
 			{
@@ -1188,6 +1273,7 @@ function seed() {
 				description: 'ゆでる・いためる調理の実践',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: '料理のお手伝いをしてみよう！',
 			},
 			{
 				name: '洗濯・ボタン付け',
@@ -1201,6 +1287,7 @@ function seed() {
 				subcategory: '家庭科',
 				description: '衣服の手入れ・洗濯・裁縫',
 				sortOrder: s(),
+				triggerHint: 'せんたくやボタン付けに挑戦！',
 			},
 			{
 				name: '整理整頓・掃除',
@@ -1215,6 +1302,7 @@ function seed() {
 				description: '快適な住まい方・季節の工夫',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: '身の回りをきれいに整理しよう！',
 			},
 			{
 				name: '家庭の仕事を分担',
@@ -1229,6 +1317,7 @@ function seed() {
 				description: '家庭生活の仕事と役割分担',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: 'おうちの仕事をひとつやろう！',
 			},
 			{
 				name: '時間の使い方を工夫',
@@ -1242,6 +1331,7 @@ function seed() {
 				subcategory: '家庭科',
 				description: '生活時間の有効な使い方',
 				sortOrder: s(),
+				triggerHint: '時間をじょうずにつかおう！',
 			},
 			{
 				name: '明日の準備・持ち物チェック',
@@ -1255,6 +1345,7 @@ function seed() {
 				subcategory: '準備',
 				description: '時間割を確認し必要な持ち物を揃えた',
 				sortOrder: s(),
+				triggerHint: '明日のじゅんびをしよう！',
 			},
 			// こうりゅう
 			{
@@ -1270,6 +1361,7 @@ function seed() {
 				description: '時と場に応じた適切な言葉遣い',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: '気持ちのよいあいさつをしよう！',
 			},
 			{
 				name: '友達と協力して活動',
@@ -1283,6 +1375,7 @@ function seed() {
 				subcategory: '協力',
 				description: '友達と互いに信頼し学び合い助け合う',
 				sortOrder: s(),
+				triggerHint: '友達と協力してとりくもう！',
 			},
 			{
 				name: '委員会・係活動への貢献',
@@ -1296,6 +1389,7 @@ function seed() {
 				subcategory: '特別活動',
 				description: '学校での役割を主体的に果たす',
 				sortOrder: s(),
+				triggerHint: '係の仕事をしっかりやろう！',
 			},
 			{
 				name: '地域の人への感謝',
@@ -1309,6 +1403,7 @@ function seed() {
 				subcategory: '地域',
 				description: '地域の人々に感謝し共に生きる',
 				sortOrder: s(),
+				triggerHint: '地域の人にありがとうを伝えよう！',
 			},
 			// そうぞう
 			{
@@ -1323,6 +1418,7 @@ function seed() {
 				subcategory: '図画工作',
 				description: '感じたことを絵や立体に表す',
 				sortOrder: s(),
+				triggerHint: 'じゆうに絵をかいてみよう！',
 			},
 			{
 				name: '工作・ものづくり',
@@ -1336,6 +1432,7 @@ function seed() {
 				subcategory: '図画工作',
 				description: '用途を考えた工作・デザイン',
 				sortOrder: s(),
+				triggerHint: 'ざいりょうをつかって作ろう！',
 			},
 			{
 				name: '合奏・楽器練習',
@@ -1349,6 +1446,7 @@ function seed() {
 				subcategory: '音楽',
 				description: 'リコーダー等の楽器演奏の練習',
 				sortOrder: s(),
+				triggerHint: '楽器の練習をしよう！',
 			},
 			{
 				name: '表現・フォークダンス',
@@ -1362,6 +1460,7 @@ function seed() {
 				subcategory: '表現運動',
 				description: '表現・フォークダンス',
 				sortOrder: s(),
+				triggerHint: 'ダンスや表現を楽しもう！',
 			},
 			{
 				name: '裁縫・布を使った制作',
@@ -1375,6 +1474,7 @@ function seed() {
 				subcategory: '家庭科',
 				description: '手縫い・ミシンを用いた布製品の制作',
 				sortOrder: s(),
+				triggerHint: 'ぬい物にチャレンジしよう！',
 			},
 
 			// ============================
@@ -1393,6 +1493,7 @@ function seed() {
 				subcategory: '体つくり',
 				description: '体つくり運動・体力を高める運動の計画と実践',
 				sortOrder: s(),
+				triggerHint: '体力づくりのトレーニングをしよう',
 			},
 			{
 				name: 'ランニング・陸上練習',
@@ -1406,6 +1507,7 @@ function seed() {
 				subcategory: '陸上競技',
 				description: '短距離走・長距離走・走り幅跳びなどの練習',
 				sortOrder: s(),
+				triggerHint: 'ランニングで体力をつけよう',
 			},
 			{
 				name: '水泳練習',
@@ -1419,6 +1521,7 @@ function seed() {
 				subcategory: '水泳',
 				description: 'クロール・平泳ぎ・背泳ぎの技能向上',
 				sortOrder: s(),
+				triggerHint: 'フォームを意識して泳ごう',
 			},
 			{
 				name: '球技の練習',
@@ -1432,6 +1535,7 @@ function seed() {
 				subcategory: '球技',
 				description: 'ゴール型・ネット型・ベースボール型の技能向上',
 				sortOrder: s(),
+				triggerHint: '球技のスキルアップ練習をしよう',
 			},
 			{
 				name: '武道の練習',
@@ -1445,6 +1549,7 @@ function seed() {
 				subcategory: '武道',
 				description: '柔道・剣道・相撲など伝統的な運動文化',
 				sortOrder: s(),
+				triggerHint: '武道の型を練習しよう',
 			},
 			{
 				name: '部活動の練習',
@@ -1458,6 +1563,7 @@ function seed() {
 				subcategory: '部活動',
 				description: '運動部・文化部での主体的な活動',
 				sortOrder: s(),
+				triggerHint: '部活の練習に集中して取り組もう',
 			},
 			// べんきょう
 			{
@@ -1472,6 +1578,7 @@ function seed() {
 				subcategory: '国語',
 				description: '漢字・文法・読解・作文の自主学習',
 				sortOrder: s(),
+				triggerHint: '国語の復習・予習をしよう',
 			},
 			{
 				name: '数学の家庭学習',
@@ -1485,6 +1592,7 @@ function seed() {
 				subcategory: '数学',
 				description: '方程式・関数・図形の演習',
 				sortOrder: s(),
+				triggerHint: '数学の問題演習をしよう',
 			},
 			{
 				name: '英語の家庭学習',
@@ -1498,6 +1606,7 @@ function seed() {
 				subcategory: '英語',
 				description: '単語・文法・リスニングの練習',
 				sortOrder: s(),
+				triggerHint: '英語の単語・文法を復習しよう',
 			},
 			{
 				name: '理科の自主学習',
@@ -1511,6 +1620,7 @@ function seed() {
 				subcategory: '理科',
 				description: '実験レポート・科学的な観察記録',
 				sortOrder: s(),
+				triggerHint: '理科のノートまとめをしよう',
 			},
 			{
 				name: '社会の自主学習',
@@ -1524,6 +1634,7 @@ function seed() {
 				subcategory: '社会',
 				description: '歴史・地理・公民の調べ学習',
 				sortOrder: s(),
+				triggerHint: '社会の暗記・まとめをしよう',
 			},
 			{
 				name: '読書（1時間）',
@@ -1537,6 +1648,7 @@ function seed() {
 				subcategory: '読書',
 				description: '幅広いジャンルの読書・読書感想文',
 				sortOrder: s(),
+				triggerHint: 'じっくり1時間読書に集中しよう',
 			},
 			{
 				name: 'テスト勉強',
@@ -1550,6 +1662,7 @@ function seed() {
 				subcategory: '試験対策',
 				description: '定期テストに向けた計画的な学習',
 				sortOrder: s(),
+				triggerHint: 'テスト範囲の復習をしよう',
 			},
 			// せいかつ
 			{
@@ -1564,6 +1677,7 @@ function seed() {
 				subcategory: '技術家庭',
 				description: '日常食の調理と食事の仕方',
 				sortOrder: s(),
+				triggerHint: '習った料理を家で作ってみよう',
 			},
 			{
 				name: '家事の分担・実践',
@@ -1578,6 +1692,7 @@ function seed() {
 				description: '家庭の仕事を計画的に分担する',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: '家事をひとつ担当しよう',
 			},
 			{
 				name: '衣服の管理・手入れ',
@@ -1591,6 +1706,7 @@ function seed() {
 				subcategory: '技術家庭',
 				description: '衣服の選択・手入れ・洗濯',
 				sortOrder: s(),
+				triggerHint: '自分の服を自分で管理しよう',
 			},
 			{
 				name: '健康管理・生活改善',
@@ -1604,6 +1720,7 @@ function seed() {
 				subcategory: '保健',
 				description: '健康な生活と疾病の予防',
 				sortOrder: s(),
+				triggerHint: '生活リズムを整えよう',
 			},
 			{
 				name: '金銭管理の実践',
@@ -1617,6 +1734,7 @@ function seed() {
 				subcategory: '技術家庭',
 				description: '消費生活と環境への配慮',
 				sortOrder: s(),
+				triggerHint: 'おこづかいの使い方を記録しよう',
 			},
 			{
 				name: '明日の準備・提出物チェック',
@@ -1630,6 +1748,7 @@ function seed() {
 				subcategory: '準備',
 				description: '時間割・提出物・部活の準備を確認した',
 				sortOrder: s(),
+				triggerHint: '提出物と明日の準備を確認しよう',
 			},
 			// こうりゅう
 			{
@@ -1644,6 +1763,7 @@ function seed() {
 				subcategory: '礼儀',
 				description: '礼儀の意義を理解し適切に行動する',
 				sortOrder: s(),
+				triggerHint: '丁寧な言葉遣いを心がけよう',
 			},
 			{
 				name: '友人との協力活動',
@@ -1657,6 +1777,7 @@ function seed() {
 				subcategory: '友情',
 				description: '友情を深め互いに切磋琢磨する',
 				sortOrder: s(),
+				triggerHint: '友達と協力して取り組もう',
 			},
 			{
 				name: '地域ボランティア',
@@ -1670,6 +1791,7 @@ function seed() {
 				subcategory: '社会貢献',
 				description: '社会参画・勤労への意欲',
 				sortOrder: s(),
+				triggerHint: '地域活動に参加してみよう',
 			},
 			{
 				name: '進路について考えた',
@@ -1683,6 +1805,7 @@ function seed() {
 				subcategory: '進路',
 				description: '将来の生き方・進路選択について考える',
 				sortOrder: s(),
+				triggerHint: '将来のことを考えてみよう',
 			},
 			// そうぞう
 			{
@@ -1697,6 +1820,7 @@ function seed() {
 				subcategory: '美術',
 				description: '感じ取ったことを絵や彫刻で表現する',
 				sortOrder: s(),
+				triggerHint: '美術作品の制作に取り組もう',
 			},
 			{
 				name: '音楽の練習（歌唱・器楽）',
@@ -1710,6 +1834,7 @@ function seed() {
 				subcategory: '音楽',
 				description: '歌唱・器楽の表現技能の向上',
 				sortOrder: s(),
+				triggerHint: '音楽の練習をしよう',
 			},
 			{
 				name: '技術ものづくり',
@@ -1723,6 +1848,7 @@ function seed() {
 				subcategory: '技術',
 				description: '材料と加工の技術・プログラミング',
 				sortOrder: s(),
+				triggerHint: 'ものづくりにチャレンジしよう',
 			},
 			{
 				name: 'ダンス・創作表現',
@@ -1736,6 +1862,7 @@ function seed() {
 				subcategory: 'ダンス',
 				description: '創作ダンス・フォークダンス・現代的なリズムのダンス',
 				sortOrder: s(),
+				triggerHint: 'ダンスや創作表現を楽しもう',
 			},
 			{
 				name: '作文・レポート執筆',
@@ -1749,6 +1876,7 @@ function seed() {
 				subcategory: '国語',
 				description: '論理的な文章を書く力の育成',
 				sortOrder: s(),
+				triggerHint: '文章を書いてまとめよう',
 			},
 
 			// ============================
@@ -1767,6 +1895,7 @@ function seed() {
 				subcategory: '体つくり',
 				description: '体つくり運動・自己の体力課題に応じた運動',
 				sortOrder: s(),
+				triggerHint: 'トレーニングで体を鍛えよう',
 			},
 			{
 				name: 'ランニング・ジョギング',
@@ -1780,6 +1909,7 @@ function seed() {
 				subcategory: '陸上',
 				description: '陸上競技・持久走など',
 				sortOrder: s(),
+				triggerHint: 'ランニングで気分転換しよう',
 			},
 			{
 				name: '球技・スポーツ活動',
@@ -1793,6 +1923,7 @@ function seed() {
 				subcategory: '球技',
 				description: 'ゴール型・ネット型・ベースボール型の発展的な活動',
 				sortOrder: s(),
+				triggerHint: 'スポーツで汗を流そう',
 			},
 			{
 				name: '武道・ダンス',
@@ -1806,6 +1937,7 @@ function seed() {
 				subcategory: '武道/ダンス',
 				description: '伝統的な武道またはダンスの選択',
 				sortOrder: s(),
+				triggerHint: '武道やダンスに取り組もう',
 			},
 			{
 				name: '部活動・クラブ活動',
@@ -1819,6 +1951,7 @@ function seed() {
 				subcategory: '部活動',
 				description: '運動部・文化部での主体的な取り組み',
 				sortOrder: s(),
+				triggerHint: '部活・クラブに全力で取り組もう',
 			},
 			// べんきょう
 			{
@@ -1833,6 +1966,7 @@ function seed() {
 				subcategory: '国語',
 				description: '現代文・古文・漢文の学習',
 				sortOrder: s(),
+				triggerHint: '国語の問題演習・読解をしよう',
 			},
 			{
 				name: '数学の自主学習',
@@ -1846,6 +1980,7 @@ function seed() {
 				subcategory: '数学',
 				description: '数学I/II/III/A/Bの演習',
 				sortOrder: s(),
+				triggerHint: '数学の問題にチャレンジしよう',
 			},
 			{
 				name: '英語の自主学習（高校）',
@@ -1859,6 +1994,7 @@ function seed() {
 				subcategory: '英語',
 				description: '英語コミュニケーション・論理英語の学習',
 				sortOrder: s(),
+				triggerHint: '英語の長文・リスニング練習を',
 			},
 			{
 				name: '理科の自主学習（高校）',
@@ -1872,6 +2008,7 @@ function seed() {
 				subcategory: '理科',
 				description: '物理・化学・生物・地学の学習と実験',
 				sortOrder: s(),
+				triggerHint: '理科の演習問題に取り組もう',
 			},
 			{
 				name: '社会科の自主学習（高校）',
@@ -1885,6 +2022,7 @@ function seed() {
 				subcategory: '社会',
 				description: '地理歴史・公民の学習',
 				sortOrder: s(),
+				triggerHint: '社会の論述・暗記を進めよう',
 			},
 			{
 				name: '読書・論文読解',
@@ -1898,6 +2036,7 @@ function seed() {
 				subcategory: '読書',
 				description: '多様な文章の読解・批評的な読み',
 				sortOrder: s(),
+				triggerHint: '本や論文をじっくり読もう',
 			},
 			{
 				name: '受験勉強・模試対策',
@@ -1911,6 +2050,7 @@ function seed() {
 				subcategory: '受験',
 				description: '進路実現に向けた計画的な学習',
 				sortOrder: s(),
+				triggerHint: '受験に向けて計画的に勉強しよう',
 			},
 			// せいかつ
 			{
@@ -1925,6 +2065,7 @@ function seed() {
 				subcategory: '家庭科',
 				description: '栄養バランスを考えた献立と調理実践',
 				sortOrder: s(),
+				triggerHint: '自分で献立を考えて作ろう',
 			},
 			{
 				name: '家事の自立的実践',
@@ -1939,6 +2080,7 @@ function seed() {
 				description: '自立した生活者として家事を計画・実践',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: '家事を自立的にこなそう',
 			},
 			{
 				name: '金銭管理・消費行動',
@@ -1952,6 +2094,7 @@ function seed() {
 				subcategory: '家庭科',
 				description: '消費生活・金銭管理・消費者の権利と責任',
 				sortOrder: s(),
+				triggerHint: '収支を記録して管理しよう',
 			},
 			{
 				name: '健康管理・ストレス対処',
@@ -1965,6 +2108,7 @@ function seed() {
 				subcategory: '保健',
 				description: '精神疾患の予防・ストレスへの対処',
 				sortOrder: s(),
+				triggerHint: '体調と心の管理を意識しよう',
 			},
 			{
 				name: '環境に配慮した生活',
@@ -1978,6 +2122,7 @@ function seed() {
 				subcategory: '家庭科',
 				description: '持続可能な社会を目指す生活の工夫',
 				sortOrder: s(),
+				triggerHint: '環境に優しい行動を実践しよう',
 			},
 			// こうりゅう
 			{
@@ -1992,6 +2137,7 @@ function seed() {
 				subcategory: '社会参画',
 				description: '社会参画の意識と実践',
 				sortOrder: s(),
+				triggerHint: 'ボランティア活動に参加しよう',
 			},
 			{
 				name: '進路研究・キャリア設計',
@@ -2005,6 +2151,7 @@ function seed() {
 				subcategory: '進路',
 				description: '自己の在り方生き方と進路選択',
 				sortOrder: s(),
+				triggerHint: '進路について調べて考えよう',
 			},
 			{
 				name: 'プレゼンテーション',
@@ -2018,6 +2165,7 @@ function seed() {
 				subcategory: '表現',
 				description: '自分の考えを論理的に伝える',
 				sortOrder: s(),
+				triggerHint: 'プレゼンの準備・練習をしよう',
 			},
 			{
 				name: '異文化交流・国際理解',
@@ -2031,6 +2179,7 @@ function seed() {
 				subcategory: '国際',
 				description: '国際理解・異文化コミュニケーション',
 				sortOrder: s(),
+				triggerHint: '異文化への理解を深めよう',
 			},
 			// そうぞう
 			{
@@ -2045,6 +2194,7 @@ function seed() {
 				subcategory: '美術',
 				description: '主題に応じた絵画・彫刻・デザインの制作',
 				sortOrder: s(),
+				triggerHint: '作品制作にじっくり取り組もう',
 			},
 			{
 				name: '音楽活動（歌唱・楽器・作曲）',
@@ -2058,6 +2208,7 @@ function seed() {
 				subcategory: '音楽',
 				description: '歌唱・器楽・創作の表現活動',
 				sortOrder: s(),
+				triggerHint: '音楽活動に取り組もう',
 			},
 			{
 				name: '創作文・小論文執筆',
@@ -2071,6 +2222,7 @@ function seed() {
 				subcategory: '国語',
 				description: '創造的な文章・論理的な小論文の執筆',
 				sortOrder: s(),
+				triggerHint: '文章を書いて表現力を磨こう',
 			},
 			{
 				name: 'プログラミング・情報制作',
@@ -2084,6 +2236,7 @@ function seed() {
 				subcategory: '情報',
 				description: 'プログラミング・情報デザイン',
 				sortOrder: s(),
+				triggerHint: 'プログラミングに挑戦しよう',
 			},
 			{
 				name: '探究レポート・研究発表',
@@ -2097,6 +2250,7 @@ function seed() {
 				subcategory: '探究',
 				description: '探究課題の研究成果をまとめ発表する',
 				sortOrder: s(),
+				triggerHint: '探究テーマを深く調べよう',
 			},
 
 			// ============================
@@ -2116,6 +2270,7 @@ function seed() {
 				description: 'お皿やコップを洗う',
 				dailyLimit: 3,
 				sortOrder: s(),
+				triggerHint: 'スポンジで おさら あらってみよう！',
 			},
 			{
 				name: 'テーブルをふく',
@@ -2130,6 +2285,7 @@ function seed() {
 				description: '食事の前後にテーブルを拭く',
 				dailyLimit: 3,
 				sortOrder: s(),
+				triggerHint: 'ふきんで テーブルを きれいに しよう！',
 			},
 			{
 				name: 'りょうりのおてつだい',
@@ -2144,6 +2300,7 @@ function seed() {
 				description: '料理を手伝う',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: 'いっしょに おりょうり してみよう！',
 			},
 			// 料理・食事まわり（elementary以上）
 			{
@@ -2159,6 +2316,7 @@ function seed() {
 				description: '食器を洗う',
 				dailyLimit: 3,
 				sortOrder: s(),
+				triggerHint: 'ごはんの あと おさら あらおう！',
 			},
 			{
 				name: '料理する',
@@ -2172,6 +2330,7 @@ function seed() {
 				subcategory: '食事',
 				description: '料理を作る',
 				sortOrder: s(),
+				triggerHint: 'かんたんな りょうりに ちょうせん！',
 			},
 			{
 				name: '献立を考える',
@@ -2185,6 +2344,7 @@ function seed() {
 				subcategory: '食事',
 				description: '食事の献立を考える',
 				sortOrder: s(),
+				triggerHint: '今日のこんだてを考えてみよう！',
 			},
 			{
 				name: '冷蔵庫を整理する',
@@ -2198,6 +2358,7 @@ function seed() {
 				subcategory: '食事',
 				description: '冷蔵庫・冷凍庫の中を整理する',
 				sortOrder: s(),
+				triggerHint: '冷蔵庫の中を整理しよう！',
 			},
 
 			// 洗濯まわり（kinder）
@@ -2213,6 +2374,7 @@ function seed() {
 				subcategory: '洗濯',
 				description: '洗濯物をたたむ',
 				sortOrder: s(),
+				triggerHint: 'せんたくもの たたんでみよう！',
 			},
 			{
 				name: 'せんたくものをしまう',
@@ -2226,6 +2388,7 @@ function seed() {
 				subcategory: '洗濯',
 				description: '洗濯物をタンスにしまう',
 				sortOrder: s(),
+				triggerHint: 'たたんだ ふくを しまおう！',
 			},
 			// 洗濯まわり（elementary以上）
 			{
@@ -2240,6 +2403,7 @@ function seed() {
 				subcategory: '洗濯',
 				description: '洗濯物をたたむ',
 				sortOrder: s(),
+				triggerHint: 'せんたくもの きれいに たたもう！',
 			},
 			{
 				name: '洗濯物を干す',
@@ -2253,6 +2417,7 @@ function seed() {
 				subcategory: '洗濯',
 				description: '洗濯物を干す',
 				sortOrder: s(),
+				triggerHint: 'せんたくもの じょうずに ほそう！',
 			},
 			{
 				name: '洗濯をする',
@@ -2266,6 +2431,7 @@ function seed() {
 				subcategory: '洗濯',
 				description: '洗濯機に洗剤を入れて洗濯する',
 				sortOrder: s(),
+				triggerHint: 'せんたくを自分でやってみよう！',
 			},
 			{
 				name: 'くつを洗う',
@@ -2279,6 +2445,7 @@ function seed() {
 				subcategory: '洗濯',
 				description: '靴をブラシで洗う',
 				sortOrder: s(),
+				triggerHint: 'じぶんの くつを あらってみよう！',
 			},
 
 			// 掃除・片付け（kinder）
@@ -2294,6 +2461,7 @@ function seed() {
 				subcategory: '掃除',
 				description: '自分の部屋やリビングを掃除する',
 				sortOrder: s(),
+				triggerHint: 'おへやを きれいに しよう！',
 			},
 			{
 				name: 'くつをそろえる',
@@ -2308,6 +2476,7 @@ function seed() {
 				description: '玄関の靴をそろえる',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: 'げんかんの くつを そろえよう！',
 			},
 			// 掃除・片付け（elementary以上）
 			{
@@ -2322,6 +2491,7 @@ function seed() {
 				subcategory: '掃除',
 				description: '掃除機をかけたり拭き掃除する',
 				sortOrder: s(),
+				triggerHint: 'おへやを そうじ しよう！',
 			},
 			{
 				name: 'お風呂を掃除する',
@@ -2335,6 +2505,7 @@ function seed() {
 				subcategory: '掃除',
 				description: '浴槽や床を洗う',
 				sortOrder: s(),
+				triggerHint: 'おふろを ピカピカに しよう！',
 			},
 			{
 				name: 'トイレを掃除する',
@@ -2348,6 +2519,7 @@ function seed() {
 				subcategory: '掃除',
 				description: 'トイレの便器や床を掃除する',
 				sortOrder: s(),
+				triggerHint: 'トイレを きれいに そうじ しよう！',
 			},
 			{
 				name: '洗面台を掃除する',
@@ -2361,6 +2533,7 @@ function seed() {
 				subcategory: '掃除',
 				description: '洗面台のボウルや鏡を掃除する',
 				sortOrder: s(),
+				triggerHint: 'せんめんだいを ふいて きれいに！',
 			},
 			{
 				name: '玄関を掃除する',
@@ -2374,6 +2547,7 @@ function seed() {
 				subcategory: '掃除',
 				description: '玄関の掃き掃除や靴の片付け',
 				sortOrder: s(),
+				triggerHint: 'げんかんを はいて きれいに しよう！',
 			},
 			{
 				name: 'ゴミを出す',
@@ -2387,6 +2561,7 @@ function seed() {
 				subcategory: '掃除',
 				description: 'ゴミをまとめて収集場所に出す',
 				sortOrder: s(),
+				triggerHint: 'ゴミぶくろを ゴミばこに もっていこう！',
 			},
 
 			// 生活・その他
@@ -2402,6 +2577,7 @@ function seed() {
 				subcategory: '生活',
 				description: '起きた後に布団を畳む',
 				sortOrder: s(),
+				triggerHint: 'おきたら おふとん たたもう！',
 			},
 			{
 				name: 'かいものにいく',
@@ -2415,6 +2591,7 @@ function seed() {
 				subcategory: '買い物',
 				description: '家族と一緒に買い物に行く',
 				sortOrder: s(),
+				triggerHint: 'おかいもので おてつだい しよう！',
 			},
 			{
 				name: '買い物をする',
@@ -2428,6 +2605,7 @@ function seed() {
 				subcategory: '買い物',
 				description: '食材や日用品の買い物をする',
 				sortOrder: s(),
+				triggerHint: 'おつかいに ちょうせん してみよう！',
 			},
 			{
 				name: '水やりをする',
@@ -2442,6 +2620,7 @@ function seed() {
 				description: '植物や花に水をあげる',
 				dailyLimit: 2,
 				sortOrder: s(),
+				triggerHint: 'おはなに おみず あげよう！',
 			},
 			{
 				name: 'おたよりをわたす',
@@ -2455,6 +2634,7 @@ function seed() {
 				subcategory: '準備',
 				description: '保育園・学校からの手紙を親に渡す',
 				sortOrder: s(),
+				triggerHint: 'せんせいからの おたより わたそう！',
 			},
 		];
 

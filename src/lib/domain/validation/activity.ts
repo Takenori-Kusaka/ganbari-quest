@@ -80,6 +80,7 @@ export const createActivitySchema = z.object({
 	dailyLimit: z.number().int().min(0).max(99).nullable().optional(),
 	nameKana: z.string().max(50).nullable().optional(),
 	nameKanji: z.string().max(50).nullable().optional(),
+	triggerHint: z.string().max(30).nullable().optional(),
 });
 
 export const updateActivitySchema = createActivitySchema.partial();
