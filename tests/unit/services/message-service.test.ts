@@ -49,16 +49,13 @@ vi.mock('$lib/server/db/client', () => ({
 }));
 
 import {
-	getStampPreset,
-	STAMP_PRESETS,
-} from '../../../src/lib/server/services/message-service';
-import {
 	countUnshownMessages,
 	findMessages,
 	findUnshownMessage,
 	insertMessage,
 	markMessageShown,
 } from '../../../src/lib/server/db/sqlite/message-repo';
+import { STAMP_PRESETS, getStampPreset } from '../../../src/lib/server/services/message-service';
 
 beforeAll(() => {
 	sqlite = new Database(':memory:');
@@ -74,9 +71,7 @@ afterAll(() => {
 function resetDb() {
 	sqlite.exec('DELETE FROM parent_messages');
 	sqlite.exec('DELETE FROM children');
-	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children','parent_messages')",
-	);
+	sqlite.exec("DELETE FROM sqlite_sequence WHERE name IN ('children','parent_messages')");
 }
 
 function seedBase() {
@@ -149,10 +144,7 @@ describe('message-repo', () => {
 			{ childId: 1, messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
 			'test-tenant',
 		);
-		await insertMessage(
-			{ childId: 1, messageType: 'text', body: 'テスト' },
-			'test-tenant',
-		);
+		await insertMessage({ childId: 1, messageType: 'text', body: 'テスト' }, 'test-tenant');
 
 		const count = await countUnshownMessages(1, 'test-tenant');
 		expect(count).toBe(2);
@@ -176,10 +168,7 @@ describe('message-repo', () => {
 			{ childId: 1, messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
 			'test-tenant',
 		);
-		await insertMessage(
-			{ childId: 1, messageType: 'text', body: '2番目' },
-			'test-tenant',
-		);
+		await insertMessage({ childId: 1, messageType: 'text', body: '2番目' }, 'test-tenant');
 
 		const messages = await findMessages(1, 10, 'test-tenant');
 		expect(messages.length).toBe(2);
