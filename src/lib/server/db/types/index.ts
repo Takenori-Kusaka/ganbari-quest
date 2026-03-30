@@ -632,6 +632,19 @@ export interface ActivityMastery {
 	updatedAt: string;
 }
 
+export interface ChildCustomVoice {
+	id: number;
+	childId: number;
+	scene: string;
+	label: string;
+	filePath: string;
+	publicUrl: string;
+	durationMs: number | null;
+	isActive: number;
+	tenantId: string;
+	createdAt: string;
+}
+
 export interface LevelTitle {
 	id: number;
 	tenantId: string;

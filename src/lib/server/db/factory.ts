@@ -23,6 +23,7 @@ import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
 import * as dynamoStatusRepo from './dynamodb/status-repo';
 import * as dynamoStorageRepo from './dynamodb/storage-repo';
 import * as dynamoTitleRepo from './dynamodb/title-repo';
+import * as dynamoVoiceRepo from './dynamodb/voice-repo';
 import type { IAchievementRepo } from './interfaces/achievement-repo.interface';
 import type { IActivityMasteryRepo } from './interfaces/activity-mastery-repo.interface';
 import type { IActivityPrefRepo } from './interfaces/activity-pref-repo.interface';
@@ -45,6 +46,7 @@ import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interf
 import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
 import type { ITitleRepo } from './interfaces/title-repo.interface';
+import type { IVoiceRepo } from './interfaces/voice-repo.interface';
 import * as sqliteAchievementRepo from './sqlite/achievement-repo';
 import * as sqliteActivityMasteryRepo from './sqlite/activity-mastery-repo';
 import * as sqliteActivityPrefRepo from './sqlite/activity-pref-repo';
@@ -67,6 +69,7 @@ import * as sqliteSpecialRewardRepo from './sqlite/special-reward-repo';
 import * as sqliteStatusRepo from './sqlite/status-repo';
 import * as sqliteStorageRepo from './sqlite/storage-repo';
 import * as sqliteTitleRepo from './sqlite/title-repo';
+import * as sqliteVoiceRepo from './sqlite/voice-repo';
 
 export interface Repositories {
 	auth: IAuthRepo;
@@ -91,6 +94,7 @@ export interface Repositories {
 	skillTree: ISkillTreeRepo;
 	storage: IStorageRepo;
 	title: ITitleRepo;
+	voice: IVoiceRepo;
 }
 
 let _repos: Repositories | null = null;
@@ -123,6 +127,7 @@ export function getRepos(): Repositories {
 			status: dynamoStatusRepo,
 			storage: dynamoStorageRepo,
 			title: dynamoTitleRepo,
+			voice: dynamoVoiceRepo,
 		};
 		_repos = repos;
 		return repos;
@@ -151,6 +156,7 @@ export function getRepos(): Repositories {
 		status: sqliteStatusRepo,
 		storage: sqliteStorageRepo,
 		title: sqliteTitleRepo,
+		voice: sqliteVoiceRepo,
 	};
 	_repos = repos;
 
