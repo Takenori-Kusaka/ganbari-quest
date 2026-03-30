@@ -69,6 +69,15 @@
 | GET | /api/v1/special-rewards/templates | 報酬テンプレート一覧 | owner/parent |
 | PUT | /api/v1/special-rewards/templates | 報酬テンプレート更新 | owner/parent |
 
+### おうえんメッセージ
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| GET | /api/v1/messages/[childId] | メッセージ履歴取得 | 全ロール |
+| GET | /api/v1/messages/[childId]?mode=unshown | 未表示メッセージ取得 | 全ロール |
+| POST | /api/v1/messages/[childId] | メッセージ送信 | owner/parent |
+| POST | /api/v1/messages/[messageId]/shown | メッセージ表示済みマーク | 全ロール |
+
 ### おやすみ日・減少設定
 
 | メソッド | パス | 概要 | 認証 |
