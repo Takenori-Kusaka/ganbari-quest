@@ -66,17 +66,18 @@ function formatDateShort(dateStr: string): string {
 	</div>
 
 	<!-- スタンプスロット -->
-	<div class="flex justify-center gap-2 mb-[var(--sp-sm)]">
+	<div class="flex justify-center items-end gap-2 mb-[var(--sp-sm)]">
 		{#each Array(totalSlots) as _, i}
 			{@const entry = entries.find((e) => e.slot === i + 1)}
 			<div
 				class="stamp-slot"
 				class:filled={!!entry}
+				class:empty={!entry}
 				class:new-stamp={newStamp && entry?.slot === filledSlots}
-				style={entry ? `border-color: ${rarityColors[entry.rarity]}` : ''}
+				style={entry ? `border-color: ${rarityColors[entry.rarity]}; background: ${rarityColors[entry.rarity]}10` : ''}
 			>
 				{#if entry}
-					<span class="text-2xl">{entry.emoji}</span>
+					<span class="stamp-emoji">{entry.emoji}</span>
 					<span
 						class="rarity-badge"
 						style="background: {rarityColors[entry.rarity]}"
@@ -84,7 +85,7 @@ function formatDateShort(dateStr: string): string {
 						{rarityLabels[entry.rarity]}
 					</span>
 				{:else}
-					<span class="text-xl text-gray-300">?</span>
+					<span class="empty-dot"></span>
 				{/if}
 			</div>
 		{/each}
@@ -177,23 +178,40 @@ function formatDateShort(dateStr: string): string {
 
 <style>
 	.stamp-slot {
-		width: 3.2rem;
-		height: 3.2rem;
 		border-radius: var(--radius-md);
-		border: 2px dashed #d1d5db;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		position: relative;
-		background: #fafafa;
 		transition: all 0.3s ease;
 	}
 
 	.stamp-slot.filled {
-		border-style: solid;
+		width: 3.4rem;
+		height: 3.4rem;
+		border: 2px solid;
 		background: white;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+	}
+
+	.stamp-slot.empty {
+		width: 2.4rem;
+		height: 2.4rem;
+		border: none;
+		background: #f0f0f0;
+	}
+
+	.stamp-emoji {
+		font-size: 1.6rem;
+		line-height: 1;
+	}
+
+	.empty-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: #d1d5db;
 	}
 
 	.stamp-slot.new-stamp {

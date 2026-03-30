@@ -54,7 +54,12 @@ const rarityConfig: Record<
 	N: { label: 'N', color: '#4b5563', glow: 'none', bgClass: 'from-gray-400 to-gray-500' },
 };
 
-const defaultConfig = { label: 'N', color: '#4b5563', glow: 'none', bgClass: 'from-gray-400 to-gray-500' } as const;
+const defaultConfig = {
+	label: 'N',
+	color: '#4b5563',
+	glow: 'none',
+	bgClass: 'from-gray-400 to-gray-500',
+} as const;
 const config = $derived(rarityConfig[stampRarity] ?? defaultConfig);
 
 $effect(() => {
