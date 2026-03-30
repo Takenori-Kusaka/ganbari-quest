@@ -260,7 +260,6 @@ function acceptPreview() {
 	{/if}
 
 	<div class="flex items-center justify-between" data-tutorial="activity-list">
-		<h2 class="text-lg font-bold text-gray-700">活動管理</h2>
 		{#if !activityLimit || activityLimit.allowed}
 			<div class="flex gap-2" data-tutorial="add-activity-btn">
 				<button

@@ -89,12 +89,10 @@ function directionLabel(dir: string): string {
 </script>
 
 <svelte:head>
-	<title>もちもの管理 - がんばりクエスト</title>
+	<title>チェックリスト管理 - がんばりクエスト</title>
 </svelte:head>
 
 <div class="space-y-4">
-	<h2 class="text-xl font-bold text-gray-700">もちものチェックリスト管理</h2>
-
 	<!-- Child selector -->
 	{#if data.children.length > 1}
 		<div class="flex gap-2">

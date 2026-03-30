@@ -132,12 +132,11 @@ async function handleReceiptFile(event: Event) {
 </script>
 
 <svelte:head>
-	<title>{isCurrencyMode ? '金額を渡す' : 'ポイント変換'} - がんばりクエスト</title>
+	<title>ポイント管理 - がんばりクエスト</title>
 </svelte:head>
 
 <div class="space-y-6" data-tutorial="points-section">
-	<div class="flex items-center justify-between mb-1">
-		<h2 class="text-lg font-bold text-gray-700">{isCurrencyMode ? '金額を渡す（記録）' : 'ポイント変換'}</h2>
+	<div class="flex items-center justify-end mb-1">
 		<a
 			href="/admin/settings#point-settings"
 			class="text-xs text-gray-400 hover:text-blue-500 flex items-center gap-1 transition-colors"

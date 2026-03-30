@@ -6,24 +6,14 @@ import AvatarDisplay from '$lib/ui/components/AvatarDisplay.svelte';
 interface Props {
 	nickname: string;
 	totalPoints: number;
-	level?: number;
-	showLevel?: boolean;
 	avatarUrl?: string | null;
 	avatarConfig?: { bgCss: string; frameCss: string; effectClass: string } | null;
 	pointSettings?: PointSettings;
 	activeTitle?: { icon: string; name: string } | null;
 }
 
-let {
-	nickname,
-	totalPoints,
-	level,
-	showLevel = true,
-	avatarUrl,
-	avatarConfig,
-	pointSettings,
-	activeTitle,
-}: Props = $props();
+let { nickname, totalPoints, avatarUrl, avatarConfig, pointSettings, activeTitle }: Props =
+	$props();
 
 const settings = $derived(pointSettings ?? DEFAULT_POINT_SETTINGS);
 const balanceDisplay = $derived(
@@ -46,14 +36,9 @@ const balanceDisplay = $derived(
 		/>
 		<div class="flex flex-col">
 			<span class="font-bold text-lg leading-tight">{nickname}</span>
-			<div class="flex items-center gap-1">
-				{#if showLevel && level != null}
-					<span class="text-xs opacity-80">Lv.{level}</span>
-				{/if}
-				{#if activeTitle}
-					<span class="text-xs opacity-90">{activeTitle.icon} {activeTitle.name}</span>
-				{/if}
-			</div>
+			{#if activeTitle}
+				<span class="text-xs opacity-90">{activeTitle.icon} {activeTitle.name}</span>
+			{/if}
 		</div>
 	</div>
 	<div class="flex items-center gap-1 font-bold">

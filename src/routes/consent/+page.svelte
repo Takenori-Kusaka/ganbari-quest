@@ -42,7 +42,7 @@ let loading = $state(false);
 					<div class="consent-item">
 						<h2>利用規約</h2>
 						<p>バージョン: {data.currentTermsVersion}</p>
-						<a href="/legal/terms" target="_blank" rel="noopener">利用規約を確認する</a>
+						<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener">利用規約を確認する</a>
 						<label class="consent-label">
 							<input
 								type="checkbox"
@@ -61,7 +61,7 @@ let loading = $state(false);
 					<div class="consent-item">
 						<h2>プライバシーポリシー</h2>
 						<p>バージョン: {data.currentPrivacyVersion}</p>
-						<a href="/legal/privacy" target="_blank" rel="noopener">プライバシーポリシーを確認する</a>
+						<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener">プライバシーポリシーを確認する</a>
 						<label class="consent-label">
 							<input
 								type="checkbox"

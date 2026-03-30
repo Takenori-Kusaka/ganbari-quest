@@ -683,7 +683,6 @@ test.describe('API 正常系: 活動サジェスト', () => {
 test.describe('#0129: メンバー管理画面', () => {
 	test('メンバー管理画面が表示される', async ({ page }) => {
 		await page.goto('/admin/members');
-		await expect(page.getByText('メンバー管理')).toBeVisible();
 		await expect(page.getByText('現在のメンバー')).toBeVisible();
 		await expect(page.getByText('メンバーを招待')).toBeVisible();
 	});
@@ -740,7 +739,6 @@ test.describe('#0129: 招待 API', () => {
 test.describe('#0130: ライセンス管理画面', () => {
 	test('ライセンス管理画面が表示される', async ({ page }) => {
 		await page.goto('/admin/license');
-		await expect(page.getByText('ライセンス管理')).toBeVisible();
 		await expect(page.getByText('現在のプラン')).toBeVisible();
 	});
 

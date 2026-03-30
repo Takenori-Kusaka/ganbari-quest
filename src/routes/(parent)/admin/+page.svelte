@@ -110,11 +110,10 @@ const visibleMenuItems = $derived(
 						{/if}
 						<div class="flex-1">
 							<p class="font-bold text-gray-700">{child.nickname}</p>
-							<p class="text-sm text-gray-400">{child.age}歳 / {child.uiMode} / Lv.{child.level}</p>
+							<p class="text-sm text-gray-400">{child.age}歳 / {child.uiMode}</p>
 						</div>
 						<div class="text-right">
 							<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance)}</p>
-							<p class="text-xs text-gray-400">{child.levelTitle}</p>
 						</div>
 					</a>
 				{/each}

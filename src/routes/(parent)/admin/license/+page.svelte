@@ -79,8 +79,6 @@ async function openPortal() {
 </svelte:head>
 
 <div class="space-y-6">
-	<h2 class="text-xl font-bold text-gray-700">ライセンス管理</h2>
-
 	<!-- 現在のプラン -->
 	<section class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
 		<h3 class="text-lg font-semibold text-gray-600 mb-4">現在のプラン</h3>
