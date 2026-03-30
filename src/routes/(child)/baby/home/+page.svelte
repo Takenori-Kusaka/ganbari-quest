@@ -327,8 +327,8 @@ function handleBirthdayResultClose() {
 		</form>
 	{/if}
 
-	<!-- Stamp card -->
-	{#if data.stampCard}
+	<!-- Stamp card (actionable時のみ表示) #0231 -->
+	{#if data.stampCard && (data.stampCard.canStampToday || (data.stampCard.filledSlots >= data.stampCard.totalSlots && data.stampCard.status !== 'redeemed'))}
 		<div class="mb-[var(--sp-sm)]">
 			<StampCard
 				weekStart={data.stampCard.weekStart}
@@ -343,52 +343,24 @@ function handleBirthdayResultClose() {
 		</div>
 	{/if}
 
-	<!-- Daily missions -->
+	<!-- Mission mini bar (#0232) -->
 	{#if data.dailyMissions && data.dailyMissions.missions.length > 0}
-		<div class="baby-mission-card">
-			<div class="baby-mission-card__header">
-				<span class="baby-mission-card__icon">🎯</span>
-				<span class="baby-mission-card__title">きょうのミッション</span>
-				<span class="baby-mission-card__count">
-					{data.dailyMissions.completedCount}/{data.dailyMissions.missions.length}
-				</span>
-			</div>
-			<div class="baby-mission-card__body">
-				{#each data.dailyMissions.missions as mission (mission.id)}
-					<div class="baby-mission-card__item">
-						<span class="baby-mission-card__check">{mission.completed ? '✅' : '⬜'}</span>
-						<span class="baby-mission-card__activity-icon">{mission.activityIcon}</span>
-						<span class="baby-mission-card__name" class:baby-mission-card__name--done={mission.completed}>
-							{mission.activityName}
-						</span>
-					</div>
+		{@const mTotal = data.dailyMissions.missions.length}
+		{@const mDone = data.dailyMissions.completedCount}
+		<div class="mission-mini-bar mb-[var(--sp-sm)]">
+			<span class="mission-mini-bar__icon">⚔️</span>
+			<span class="mission-mini-bar__label">クエスト</span>
+			<span class="mission-mini-bar__count">{mDone}/{mTotal}</span>
+			<div class="mission-mini-bar__track">
+				{#each { length: mTotal } as _, i}
+					<div class="mission-mini-bar__pip" class:mission-mini-bar__pip--done={i < mDone}></div>
 				{/each}
-				{#if data.dailyMissions.allComplete}
-					<div class="baby-mission-card__complete">
-						🎉 ミッションコンプリート！ {fmtPts(data.dailyMissions.bonusAwarded)}
-					</div>
-				{:else if data.dailyMissions.bonusAwarded > 0}
-					<div class="baby-mission-card__bonus">
-						ボーナス {fmtPts(data.dailyMissions.bonusAwarded)}
-					</div>
-				{/if}
 			</div>
-		</div>
-	{/if}
-
-	<!-- Game loop hooks -->
-	{#if data.gameLoopHints}
-		<div class="mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
-			<div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
-				<a href="/{data.uiMode}/achievements" class="flex items-center justify-between tap-target py-1">
-					<div class="flex items-center gap-[var(--sp-sm)]">
-						<span class="text-lg">🏆</span>
-						<span class="text-sm font-bold">じっせき</span>
-						<span class="text-xs text-[var(--color-text-muted)]">{data.gameLoopHints.achievements.unlockedCount}/{data.gameLoopHints.achievements.totalCount}</span>
-					</div>
-					<span class="text-[var(--color-text-muted)]">›</span>
-				</a>
-			</div>
+			{#if data.dailyMissions.allComplete}
+				<span class="mission-mini-bar__bonus">🏆</span>
+			{:else}
+				<span class="mission-mini-bar__hint">🎁</span>
+			{/if}
 		</div>
 	{/if}
 
@@ -943,91 +915,29 @@ function handleBirthdayResultClose() {
 		margin-top: 2px;
 	}
 
-	/* Mission card */
-	.baby-mission-card {
-		margin-bottom: 8px;
-		border-radius: 16px;
-		background: white;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		border: 1px solid var(--color-border);
-		overflow: hidden;
-	}
-
-	.baby-mission-card__header {
+	/* Mission mini bar (#0232) */
+	.mission-mini-bar {
 		display: flex;
 		align-items: center;
-		gap: 4px;
-		padding: 8px 12px 4px;
+		gap: 6px;
+		padding: 8px 12px;
+		background: linear-gradient(135deg, #fef3c7, #fde68a);
+		border: 1.5px solid #d4a017;
+		border-radius: var(--radius-lg, 16px);
+		font-size: 0.8125rem;
 	}
-
-	.baby-mission-card__icon {
-		font-size: 1.125rem;
+	.mission-mini-bar__icon { font-size: 1rem; }
+	.mission-mini-bar__label { font-weight: 700; color: #92400e; }
+	.mission-mini-bar__count { font-weight: 700; color: #b45309; font-size: 0.75rem; }
+	.mission-mini-bar__track { display: flex; gap: 3px; flex: 1; justify-content: center; }
+	.mission-mini-bar__pip {
+		width: 18px; height: 6px;
+		border-radius: 3px;
+		background: #d4a01744;
+		transition: background 0.3s;
 	}
-
-	.baby-mission-card__title {
-		font-weight: 700;
-		font-size: 0.875rem;
-	}
-
-	.baby-mission-card__count {
-		margin-left: auto;
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-	}
-
-	.baby-mission-card__body {
-		padding: 0 12px 8px;
-	}
-
-	.baby-mission-card__item {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 3px 0;
-	}
-
-	.baby-mission-card__check {
-		font-size: 1.125rem;
-		width: 24px;
-		text-align: center;
-	}
-
-	.baby-mission-card__activity-icon {
-		font-size: 1.125rem;
-	}
-
-	.baby-mission-card__name {
-		font-size: 0.875rem;
-		font-weight: 700;
-	}
-
-	.baby-mission-card__name--done {
-		text-decoration: line-through;
-		color: var(--color-text-muted);
-		font-weight: 400;
-	}
-
-	.baby-mission-card__complete {
-		text-align: center;
-		margin-top: 4px;
-		padding: 4px;
-		border-radius: 8px;
-		background: var(--theme-bg);
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--theme-accent);
-	}
-
-	.baby-mission-card__bonus {
-		text-align: center;
-		margin-top: 4px;
-		padding: 4px;
-		border-radius: 8px;
-		background: var(--theme-bg);
-		font-size: 0.75rem;
-		font-weight: 700;
-		color: var(--color-text-muted);
-	}
+	.mission-mini-bar__pip--done { background: linear-gradient(90deg, #fbbf24, #d97706); }
+	.mission-mini-bar__bonus, .mission-mini-bar__hint { font-size: 1rem; }
 
 	/* Mission result in dialog */
 	.baby-result__mission {

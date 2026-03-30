@@ -381,8 +381,8 @@ function handleBirthdayResultClose() {
 		</form>
 	{/if}
 
-	<!-- Stamp card -->
-	{#if data.stampCard}
+	<!-- Stamp card (actionable時のみ表示) #0231 -->
+	{#if data.stampCard && (data.stampCard.canStampToday || (data.stampCard.filledSlots >= data.stampCard.totalSlots && data.stampCard.status !== 'redeemed'))}
 		<div class="mb-[var(--sp-sm)]">
 			<StampCard
 				weekStart={data.stampCard.weekStart}
@@ -422,60 +422,24 @@ function handleBirthdayResultClose() {
 		</a>
 	{/if}
 
-	<!-- Daily missions -->
+	<!-- Mission mini bar (#0232) -->
 	{#if data.dailyMissions && data.dailyMissions.missions.length > 0}
-		<div class="mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
-			<div class="flex items-center gap-[var(--sp-xs)] px-[var(--sp-md)] pt-[var(--sp-sm)] pb-1">
-				<span class="text-lg">🎯</span>
-				<span class="font-bold text-sm">今日のミッション</span>
-				<span class="text-xs text-[var(--color-text-muted)] ml-auto">
-					{data.dailyMissions.completedCount}/{data.dailyMissions.missions.length}
-				</span>
-			</div>
-			<div class="px-[var(--sp-md)] pb-[var(--sp-sm)]">
-				{#each data.dailyMissions.missions as mission (mission.id)}
-					<div class="flex items-center gap-[var(--sp-sm)] py-1">
-						<span class="text-lg w-6 text-center">{mission.completed ? '✅' : '⬜'}</span>
-						<span class="text-lg">{mission.activityIcon}</span>
-						<span class="text-sm {mission.completed ? 'line-through text-[var(--color-text-muted)]' : 'font-bold'}">
-							{mission.activityName}
-						</span>
-					</div>
+		{@const mTotal = data.dailyMissions.missions.length}
+		{@const mDone = data.dailyMissions.completedCount}
+		<div class="mission-mini-bar mb-[var(--sp-sm)]">
+			<span class="mission-mini-bar__icon">⚔️</span>
+			<span class="mission-mini-bar__label">クエスト</span>
+			<span class="mission-mini-bar__count">{mDone}/{mTotal}</span>
+			<div class="mission-mini-bar__track">
+				{#each { length: mTotal } as _, i}
+					<div class="mission-mini-bar__pip" class:mission-mini-bar__pip--done={i < mDone}></div>
 				{/each}
-				{#if data.dailyMissions.allComplete}
-					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-[var(--theme-bg)]">
-						<span class="text-sm font-bold text-[var(--theme-accent)]">🎉 ミッションコンプリート！ {fmtPts(data.dailyMissions.bonusAwarded)}</span>
-					</div>
-				{:else if data.dailyMissions.bonusAwarded > 0}
-					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-[var(--theme-bg)]">
-						<span class="text-xs font-bold text-[var(--color-text-muted)]">ボーナス {fmtPts(data.dailyMissions.bonusAwarded)}</span>
-					</div>
-				{/if}
 			</div>
-		</div>
-	{/if}
-
-	<!-- Game loop hooks -->
-	{#if data.gameLoopHints}
-		<div class="mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
-			<div class="px-[var(--sp-md)] py-[var(--sp-sm)] flex flex-col gap-1">
-				<a href="/{data.uiMode}/achievements" class="flex items-center justify-between tap-target py-1">
-					<div class="flex items-center gap-[var(--sp-sm)]">
-						<span class="text-lg">🏆</span>
-						<span class="text-sm font-bold">実績</span>
-						<span class="text-xs text-[var(--color-text-muted)]">{data.gameLoopHints.achievements.unlockedCount}/{data.gameLoopHints.achievements.totalCount}</span>
-					</div>
-					<span class="text-[var(--color-text-muted)]">›</span>
-				</a>
-				<a href="/{data.uiMode}/skill-tree" class="flex items-center justify-between tap-target py-1">
-					<div class="flex items-center gap-[var(--sp-sm)]">
-						<span class="text-lg">⚔️</span>
-						<span class="text-sm font-bold">スキル</span>
-						<span class="text-xs text-[var(--color-text-muted)]">💎 {data.gameLoopHints.spBalance} SP</span>
-					</div>
-					<span class="text-[var(--color-text-muted)]">›</span>
-				</a>
-			</div>
+			{#if data.dailyMissions.allComplete}
+				<span class="mission-mini-bar__bonus">🏆</span>
+			{:else}
+				<span class="mission-mini-bar__hint">🎁</span>
+			{/if}
 		</div>
 	{/if}
 
@@ -912,4 +876,28 @@ function handleBirthdayResultClose() {
 	@keyframes spin {
 		to { transform: rotate(360deg); }
 	}
+
+	/* Mission mini bar (#0232) */
+	.mission-mini-bar {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 8px 12px;
+		background: linear-gradient(135deg, #fef3c7, #fde68a);
+		border: 1.5px solid #d4a017;
+		border-radius: var(--radius-lg);
+		font-size: 0.8125rem;
+	}
+	.mission-mini-bar__icon { font-size: 1rem; }
+	.mission-mini-bar__label { font-weight: 700; color: #92400e; }
+	.mission-mini-bar__count { font-weight: 700; color: #b45309; font-size: 0.75rem; }
+	.mission-mini-bar__track { display: flex; gap: 3px; flex: 1; justify-content: center; }
+	.mission-mini-bar__pip {
+		width: 18px; height: 6px;
+		border-radius: 3px;
+		background: #d4a01744;
+		transition: background 0.3s;
+	}
+	.mission-mini-bar__pip--done { background: linear-gradient(90deg, #fbbf24, #d97706); }
+	.mission-mini-bar__bonus, .mission-mini-bar__hint { font-size: 1rem; }
 </style>
