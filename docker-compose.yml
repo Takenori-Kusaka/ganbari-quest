@@ -5,6 +5,7 @@ services:
       - "${PORT:-3000}:3000"
     volumes:
       - ./data:/app/data
+      - ./tenants:/app/client/tenants
       - ./uploads:/app/client/uploads
       - ./generated:/app/client/generated
     environment:
