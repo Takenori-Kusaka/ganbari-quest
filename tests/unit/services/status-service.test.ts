@@ -154,6 +154,15 @@ const SQL_TABLES = `
 		total_spent INTEGER NOT NULL DEFAULT 0,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
+
+	CREATE TABLE IF NOT EXISTS level_titles (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		level INTEGER NOT NULL,
+		custom_title TEXT NOT NULL,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_level_titles_tenant_level ON level_titles(tenant_id, level);
 `;
 
 vi.mock('$lib/server/db', () => ({

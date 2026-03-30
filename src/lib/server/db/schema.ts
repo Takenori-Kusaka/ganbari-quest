@@ -722,3 +722,18 @@ export const activityMastery = sqliteTable(
 		uniqueIndex('idx_activity_mastery_child_activity').on(table.childId, table.activityId),
 	],
 );
+
+// ============================================================
+// level_titles - テナント別レベル称号カスタマイズ
+// ============================================================
+export const levelTitles = sqliteTable(
+	'level_titles',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		level: integer('level').notNull(),
+		customTitle: text('custom_title').notNull(),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [uniqueIndex('idx_level_titles_tenant_level').on(table.tenantId, table.level)],
+);

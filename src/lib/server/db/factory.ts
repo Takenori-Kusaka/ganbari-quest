@@ -14,6 +14,7 @@ import * as dynamoChildRepo from './dynamodb/child-repo';
 import * as dynamoDailyMissionRepo from './dynamodb/daily-mission-repo';
 import * as dynamoEvaluationRepo from './dynamodb/evaluation-repo';
 import * as dynamoImageRepo from './dynamodb/image-repo';
+import * as dynamoLevelTitleRepo from './dynamodb/level-title-repo';
 import * as dynamoLoginBonusRepo from './dynamodb/login-bonus-repo';
 import * as dynamoPointRepo from './dynamodb/point-repo';
 import * as dynamoSettingsRepo from './dynamodb/settings-repo';
@@ -35,6 +36,7 @@ import type { IChildRepo } from './interfaces/child-repo.interface';
 import type { IDailyMissionRepo } from './interfaces/daily-mission-repo.interface';
 import type { IEvaluationRepo } from './interfaces/evaluation-repo.interface';
 import type { IImageRepo } from './interfaces/image-repo.interface';
+import type { ILevelTitleRepo } from './interfaces/level-title-repo.interface';
 import type { ILoginBonusRepo } from './interfaces/login-bonus-repo.interface';
 import type { IPointRepo } from './interfaces/point-repo.interface';
 import type { ISettingsRepo } from './interfaces/settings-repo.interface';
@@ -56,6 +58,7 @@ import * as sqliteChildRepo from './sqlite/child-repo';
 import * as sqliteDailyMissionRepo from './sqlite/daily-mission-repo';
 import * as sqliteEvaluationRepo from './sqlite/evaluation-repo';
 import * as sqliteImageRepo from './sqlite/image-repo';
+import * as sqliteLevelTitleRepo from './sqlite/level-title-repo';
 import * as sqliteLoginBonusRepo from './sqlite/login-bonus-repo';
 import * as sqlitePointRepo from './sqlite/point-repo';
 import * as sqliteSettingsRepo from './sqlite/settings-repo';
@@ -84,6 +87,7 @@ export interface Repositories {
 	settings: ISettingsRepo;
 	specialReward: ISpecialRewardRepo;
 	status: IStatusRepo;
+	levelTitle: ILevelTitleRepo;
 	skillTree: ISkillTreeRepo;
 	storage: IStorageRepo;
 	title: ITitleRepo;
@@ -113,6 +117,7 @@ export function getRepos(): Repositories {
 			loginBonus: dynamoLoginBonusRepo,
 			point: dynamoPointRepo,
 			settings: dynamoSettingsRepo,
+			levelTitle: dynamoLevelTitleRepo,
 			skillTree: dynamoSkillTreeRepo,
 			specialReward: dynamoSpecialRewardRepo,
 			status: dynamoStatusRepo,
@@ -140,6 +145,7 @@ export function getRepos(): Repositories {
 		loginBonus: sqliteLoginBonusRepo,
 		point: sqlitePointRepo,
 		settings: sqliteSettingsRepo,
+		levelTitle: sqliteLevelTitleRepo,
 		skillTree: sqliteSkillTreeRepo,
 		specialReward: sqliteSpecialRewardRepo,
 		status: sqliteStatusRepo,
