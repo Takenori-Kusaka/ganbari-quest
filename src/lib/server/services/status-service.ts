@@ -11,6 +11,7 @@ import {
 	calcTrend,
 	getMaxForAge,
 } from '$lib/domain/validation/status';
+import { getRepos } from '$lib/server/db/factory';
 import {
 	findBenchmark,
 	findChildById,
@@ -54,7 +55,10 @@ export async function getChildStatus(
 	if (!child) return { error: 'NOT_FOUND' };
 
 	const maxValue = getMaxForAge(child.age);
-	const statusRows = await findStatuses(childId, tenantId);
+	const [statusRows, customTitles] = await Promise.all([
+		findStatuses(childId, tenantId),
+		getCustomLevelTitles(tenantId),
+	]);
 	const statusMap: Record<number, StatusDetail> = {};
 
 	let totalDeviation = 0;
@@ -88,7 +92,7 @@ export async function getChildStatus(
 			stars,
 			trend,
 			level: catLevel.level,
-			levelTitle: catLevel.title,
+			levelTitle: resolveLevelTitle(catLevel.level, customTitles),
 			expToNextLevel: Math.round(catExp * 10) / 10,
 		};
 
@@ -106,7 +110,7 @@ export async function getChildStatus(
 	return {
 		childId,
 		level: highestCategoryLevel,
-		levelTitle: '',
+		levelTitle: resolveLevelTitle(highestCategoryLevel, customTitles),
 		expToNextLevel: 0,
 		maxValue,
 		statuses: statusMap,
@@ -133,7 +137,10 @@ export async function getCategoryXpSummary(
 	if (!child) return null;
 
 	const maxValue = getMaxForAge(child.age);
-	const statusRows = await findStatuses(childId, tenantId);
+	const [statusRows, customTitles] = await Promise.all([
+		findStatuses(childId, tenantId),
+		getCustomLevelTitles(tenantId),
+	]);
 	const result: Record<number, CategoryXpInfo> = {};
 
 	for (const catDef of CATEGORY_DEFS) {
@@ -145,7 +152,7 @@ export async function getCategoryXpSummary(
 		result[catDef.id] = {
 			value: Math.round(value * 10) / 10,
 			level: catLevel.level,
-			levelTitle: catLevel.title,
+			levelTitle: resolveLevelTitle(catLevel.level, customTitles),
 			expToNextLevel: Math.round(catExp * 10) / 10,
 			maxValue,
 		};
@@ -218,11 +225,14 @@ export async function updateStatus(
 		const spAmount = 1;
 		await grantSkillPoints(childId, spAmount, tenantId);
 
+		// カスタム称号を解決
+		const customTitles = await getCustomLevelTitles(tenantId);
+
 		levelUp = {
 			oldLevel: beforeLevel.level,
-			oldTitle: beforeLevel.title,
+			oldTitle: resolveLevelTitle(beforeLevel.level, customTitles),
 			newLevel: afterLevel.level,
-			newTitle: afterLevel.title,
+			newTitle: resolveLevelTitle(afterLevel.level, customTitles),
 			categoryId,
 			categoryName: catDef?.name ?? '',
 			spGranted: spAmount,
@@ -235,4 +245,59 @@ export async function updateStatus(
 		valueAfter: newValue,
 		maxValue,
 	};
+}
+
+// ============================================================
+// カスタムレベル称号
+// ============================================================
+
+import { LEVEL_TABLE } from '$lib/domain/validation/status';
+
+/** テナントのカスタムレベル称号を取得（Map形式） */
+export async function getCustomLevelTitles(tenantId: string): Promise<Map<number, string>> {
+	const rows = await getRepos().levelTitle.findByTenant(tenantId);
+	const map = new Map<number, string>();
+	for (const row of rows) {
+		map.set(row.level, row.customTitle);
+	}
+	return map;
+}
+
+/** カスタム称号を考慮してレベルに対応する称号を解決 */
+export function resolveLevelTitle(level: number, customTitles: Map<number, string>): string {
+	const custom = customTitles.get(level);
+	if (custom) return custom;
+	const entry = LEVEL_TABLE.find((e) => e.level === level);
+	return entry?.title ?? '';
+}
+
+/** レベル称号一覧を取得（カスタム + デフォルトの統合ビュー） */
+export async function getLevelTitleList(
+	tenantId: string,
+): Promise<{ level: number; defaultTitle: string; customTitle: string | null }[]> {
+	const customMap = await getCustomLevelTitles(tenantId);
+	return LEVEL_TABLE.map((entry) => ({
+		level: entry.level,
+		defaultTitle: entry.title,
+		customTitle: customMap.get(entry.level) ?? null,
+	}));
+}
+
+/** カスタムレベル称号を保存 */
+export async function saveLevelTitle(
+	tenantId: string,
+	level: number,
+	customTitle: string,
+): Promise<void> {
+	await getRepos().levelTitle.upsert(tenantId, level, customTitle.trim());
+}
+
+/** カスタムレベル称号を削除（デフォルトに戻す） */
+export async function resetLevelTitle(tenantId: string, level: number): Promise<void> {
+	await getRepos().levelTitle.deleteByTenantAndLevel(tenantId, level);
+}
+
+/** 全カスタム称号をリセット */
+export async function resetAllLevelTitles(tenantId: string): Promise<void> {
+	await getRepos().levelTitle.deleteAllByTenant(tenantId);
 }
