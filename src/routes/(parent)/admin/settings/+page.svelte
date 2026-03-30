@@ -144,6 +144,37 @@ async function handleExport() {
 	}
 }
 
+// ステータス減少設定
+let decayIntensity = $state<string>(data.decayIntensity ?? 'normal');
+let decaySaving = $state(false);
+let decaySuccess = $state(false);
+
+const DECAY_OPTIONS = [
+	{ value: 'none', label: 'なし', desc: '減少しません（練習や導入期間向け）' },
+	{ value: 'gentle', label: 'ゆるやか', desc: '通常の半分の速度で減少します' },
+	{ value: 'normal', label: 'ふつう', desc: '猶予2日後にゆるやかに減少します' },
+	{ value: 'strict', label: 'きびしめ', desc: '上級者向け。1.5倍の速度で減少します' },
+] as const;
+
+async function saveDecayIntensity() {
+	decaySaving = true;
+	decaySuccess = false;
+	try {
+		const res = await fetch('/api/v1/settings/decay', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ intensity: decayIntensity }),
+		});
+		if (!res.ok) throw new Error('Failed to save');
+		decaySuccess = true;
+		setTimeout(() => {
+			decaySuccess = false;
+		}, 3000);
+	} finally {
+		decaySaving = false;
+	}
+}
+
 // ポイント表示設定
 let pointSuccess = $state(false);
 let pointSubmitting = $state(false);
@@ -323,6 +354,45 @@ const previewFormatted = $derived(
 				{submitting ? '変更中...' : 'PINを変更'}
 			</button>
 		</form>
+	</div>
+
+	<!-- ステータス減少設定 -->
+	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+		<h3 class="text-lg font-bold text-gray-700 mb-4">📊 ステータス減少設定</h3>
+		<p class="text-sm text-gray-500 mb-4">
+			活動をお休みした日のステータス減少の強さを設定できます。どの設定でも最初の2日間は減少しません。
+		</p>
+
+		{#if decaySuccess}
+			<SuccessAlert message="ステータス減少設定を保存しました" />
+		{/if}
+
+		<div class="space-y-3 mb-4">
+			{#each DECAY_OPTIONS as opt}
+				<label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors {decayIntensity === opt.value ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}">
+					<input
+						type="radio"
+						name="decayIntensity"
+						value={opt.value}
+						bind:group={decayIntensity}
+						class="mt-0.5 accent-blue-500"
+					/>
+					<div>
+						<span class="font-semibold text-gray-700">{opt.label}</span>
+						<p class="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+					</div>
+				</label>
+			{/each}
+		</div>
+
+		<button
+			type="button"
+			onclick={saveDecayIntensity}
+			disabled={decaySaving}
+			class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+		>
+			{decaySaving ? '保存中...' : '設定を保存'}
+		</button>
 	</div>
 
 	<!-- ポイント表示設定 -->

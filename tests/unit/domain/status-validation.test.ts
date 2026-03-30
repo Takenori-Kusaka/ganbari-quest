@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+	DECAY_GRACE_DAYS,
 	LEVEL_TABLE,
 	calcCharacterType,
 	calcDecay,
@@ -11,6 +12,7 @@ import {
 	calcLevel,
 	calcStars,
 	calcTrend,
+	clampDecayFloor,
 	getAgeCoefficient,
 	getComparisonLabel,
 } from '../../../src/lib/domain/validation/status';
@@ -151,24 +153,61 @@ describe('getAgeCoefficient', () => {
 });
 
 describe('calcDecay', () => {
-	it('活動0日経過なら減少なし', () => {
+	it('猶予期間（2日以内）は減少なし', () => {
 		expect(calcDecay(0, 4)).toBe(0);
+		expect(calcDecay(1, 4)).toBe(0);
+		expect(calcDecay(2, 4)).toBe(0);
 	});
 
-	it('1日未活動（4歳）: 0.3 × 0.1 = 0.03', () => {
-		expect(calcDecay(1, 4)).toBeCloseTo(0.03);
+	it('3日目から減少開始（4歳、normal）: effectiveDays=1, 0.03', () => {
+		expect(calcDecay(3, 4, 'normal')).toBeCloseTo(0.03);
 	});
 
-	it('3日未活動（4歳）: 0.03 + 0.05×2 = 0.13', () => {
-		expect(calcDecay(3, 4)).toBeCloseTo(0.13);
+	it('5日未活動（4歳、normal）: effectiveDays=3, 0.03 + 0.03×2 = 0.09', () => {
+		expect(calcDecay(5, 4, 'normal')).toBeCloseTo(0.09);
 	});
 
-	it('1日未活動（10歳）: 0.5 × 0.1 = 0.05', () => {
-		expect(calcDecay(1, 10)).toBeCloseTo(0.05);
+	it('3日目（10歳、normal）: effectiveDays=1, 0.05', () => {
+		expect(calcDecay(3, 10, 'normal')).toBeCloseTo(0.05);
 	});
 
-	it('5日未活動（15歳）: 0.07 + 0.05×4 = 0.27', () => {
-		expect(calcDecay(5, 15)).toBeCloseTo(0.27);
+	it('強度 none は常に0', () => {
+		expect(calcDecay(10, 4, 'none')).toBe(0);
+		expect(calcDecay(100, 15, 'none')).toBe(0);
+	});
+
+	it('強度 gentle は通常の半分', () => {
+		const normal = calcDecay(5, 4, 'normal');
+		const gentle = calcDecay(5, 4, 'gentle');
+		expect(gentle).toBeCloseTo(normal * 0.5);
+	});
+
+	it('強度 strict は通常の1.5倍', () => {
+		const normal = calcDecay(5, 4, 'normal');
+		const strict = calcDecay(5, 4, 'strict');
+		expect(strict).toBeCloseTo(normal * 1.5);
+	});
+
+	it('デフォルト強度は normal', () => {
+		expect(calcDecay(5, 4)).toBeCloseTo(calcDecay(5, 4, 'normal'));
+	});
+
+	it('猶予日数定数が2', () => {
+		expect(DECAY_GRACE_DAYS).toBe(2);
+	});
+});
+
+describe('clampDecayFloor', () => {
+	it('減少後が下限（70%）以上ならそのまま', () => {
+		expect(clampDecayFloor(100, 10, 100)).toBe(90);
+	});
+
+	it('減少後が下限を下回る場合は下限で止まる', () => {
+		expect(clampDecayFloor(75, 10, 100)).toBe(70);
+	});
+
+	it('既に下限以下の場合は下限を維持', () => {
+		expect(clampDecayFloor(60, 5, 100)).toBe(70);
 	});
 });
 

@@ -3,7 +3,14 @@
 
 import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm';
 import { db } from '../client';
-import { activities, activityLogs, children, evaluations, statusHistory } from '../schema';
+import {
+	activities,
+	activityLogs,
+	children,
+	evaluations,
+	restDays,
+	statusHistory,
+} from '../schema';
 
 /** 指定期間のカテゴリ別活動回数を集計 */
 export async function countActivitiesByCategory(
@@ -102,5 +109,73 @@ export async function findLastActivityDateByCategory(childId: number, _tenantId:
 		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
 		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
 		.groupBy(activities.categoryId)
+		.all();
+}
+
+// ============================================================
+// おやすみ日 (rest_days)
+// ============================================================
+
+/** おやすみ日を登録 */
+export async function insertRestDay(
+	childId: number,
+	date: string,
+	reason: string,
+	_tenantId: string,
+) {
+	return db
+		.insert(restDays)
+		.values({ childId, date, reason })
+		.onConflictDoNothing()
+		.returning()
+		.get();
+}
+
+/** おやすみ日を削除 */
+export async function deleteRestDay(
+	childId: number,
+	date: string,
+	_tenantId: string,
+): Promise<void> {
+	db.delete(restDays)
+		.where(and(eq(restDays.childId, childId), eq(restDays.date, date)))
+		.run();
+}
+
+/** 指定日がおやすみかどうか */
+export async function isRestDay(
+	childId: number,
+	date: string,
+	_tenantId: string,
+): Promise<boolean> {
+	const row = db
+		.select({ id: restDays.id })
+		.from(restDays)
+		.where(and(eq(restDays.childId, childId), eq(restDays.date, date)))
+		.get();
+	return !!row;
+}
+
+/** 子供の今月のおやすみ日数を取得 */
+export async function countRestDaysInMonth(
+	childId: number,
+	yearMonth: string,
+	_tenantId: string,
+): Promise<number> {
+	const rows = db
+		.select({ id: restDays.id })
+		.from(restDays)
+		.where(and(eq(restDays.childId, childId), like(restDays.date, `${yearMonth}%`)))
+		.all();
+	return rows.length;
+}
+
+/** 子供のおやすみ日一覧を取得 */
+export async function findRestDays(childId: number, yearMonth: string, _tenantId: string) {
+	return db
+		.select()
+		.from(restDays)
+		.where(and(eq(restDays.childId, childId), like(restDays.date, `${yearMonth}%`)))
+		.orderBy(restDays.date)
 		.all();
 }
