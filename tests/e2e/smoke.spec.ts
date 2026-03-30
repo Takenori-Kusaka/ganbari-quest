@@ -72,9 +72,9 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 	test('ボトムナビゲーションが表示される', async ({ page }) => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
 		await expect(nav).toBeVisible();
-		// ナビリンクが5つ表示される（ホーム、きろく、つよさ、じっせき、きりかえ）
+		// ナビリンクが4つ表示される（ホーム、キャラ、ショップ、きりかえ）
 		const links = nav.locator('a');
-		expect(await links.count()).toBe(5);
+		expect(await links.count()).toBe(4);
 	});
 
 	test('スタンプカードが表示される', async ({ page }) => {
@@ -229,15 +229,15 @@ test.describe('ナビゲーション', () => {
 	test('ボトムナビでページ遷移できる', async ({ page }) => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
 
-		// ホーム → きろく（履歴）
-		await nav.locator('a').filter({ hasText: 'きろく' }).click();
-		await expect(page).toHaveURL(/\/kinder\/history/);
-
-		// きろく → つよさ
-		await nav.locator('a').filter({ hasText: 'つよさ' }).click();
+		// ホーム → キャラ（ステータス）
+		await nav.locator('a').filter({ hasText: 'キャラ' }).click();
 		await expect(page).toHaveURL(/\/kinder\/status/);
 
-		// つよさ → ホーム
+		// キャラ → ショップ
+		await nav.locator('a').filter({ hasText: 'ショップ' }).click();
+		await expect(page).toHaveURL(/\/kinder\/shop/);
+
+		// ショップ → ホーム
 		await nav.locator('a').filter({ hasText: 'ホーム' }).click();
 		await expect(page).toHaveURL(/\/kinder\/home/);
 	});

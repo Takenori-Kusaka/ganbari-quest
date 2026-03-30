@@ -102,12 +102,6 @@ function handleTap(title: (typeof data.titles)[number]) {
 		</div>
 	{/if}
 
-	<!-- Back link -->
-	<div class="mt-[var(--sp-lg)] text-center">
-		<a href="/kinder/status" class="text-sm text-[var(--color-text-muted)] underline">
-			← つよさにもどる
-		</a>
-	</div>
 </div>
 
 <!-- Title detail dialog -->
