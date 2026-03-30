@@ -3,8 +3,10 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllBenchmarks, upsertBenchmark } from '$lib/server/db/status-repo';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
+	getBenchmarkValues,
 	getChildStatus,
 	getLevelTitleList,
+	getMonthlyComparison,
 	resetAllLevelTitles,
 	resetLevelTitle,
 	saveLevelTitle,
@@ -22,10 +24,16 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const childrenWithStatus = await Promise.all(
 		children.map(async (child) => {
-			const status = await getChildStatus(child.id, tenantId);
+			const [status, monthlyComparison, benchmarkValues] = await Promise.all([
+				getChildStatus(child.id, tenantId),
+				getMonthlyComparison(child.id, tenantId),
+				getBenchmarkValues(child.age, tenantId),
+			]);
 			return {
 				...child,
 				status: 'error' in status ? null : status,
+				monthlyComparison,
+				benchmarkValues,
 			};
 		}),
 	);
