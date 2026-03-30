@@ -25,8 +25,10 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 <div class="login-page">
 	<div class="login-card">
 		<div class="login-header">
-			<Logo variant="full" size={240} />
-			<p class="login-subtitle">{mfaStep ? 'MFA認証' : 'ログイン'}</p>
+			<Logo variant="full" size={320} />
+			{#if mfaStep}
+				<p class="mfa-step-label">MFA認証</p>
+			{/if}
 		</div>
 
 		{#if form?.error}
@@ -184,17 +186,16 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 		margin-bottom: 32px;
 	}
 
-	.login-title {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: #1e293b;
-		margin: 0;
+	.login-header :global(img) {
+		width: min(320px, 80vw);
+		height: auto;
 	}
 
-	.login-subtitle {
+	.mfa-step-label {
 		font-size: 0.875rem;
 		color: #64748b;
-		margin-top: 4px;
+		margin-top: 8px;
+		font-weight: 600;
 	}
 
 	.login-error {
