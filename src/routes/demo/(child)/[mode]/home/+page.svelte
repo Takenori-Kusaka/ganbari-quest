@@ -205,10 +205,16 @@ function handleResultClose() {
 			<p class="text-xs text-amber-500 mt-3">
 				（デモモード：データは保存されません）
 			</p>
+			<a
+				href="https://ganbari-quest.com/auth/signup"
+				class="mt-3 block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-[var(--radius-lg)] text-center text-sm"
+			>
+				お子さまの名前で はじめる →
+			</a>
 			<button
 				type="button"
 				onclick={handleResultClose}
-				class="mt-4 w-full py-2 bg-[var(--theme-accent)] text-white font-bold rounded-[var(--radius-lg)]"
+				class="mt-2 w-full py-2 bg-[var(--theme-accent)] text-white font-bold rounded-[var(--radius-lg)]"
 			>
 				とじる
 			</button>
