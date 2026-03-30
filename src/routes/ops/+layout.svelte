@@ -8,7 +8,10 @@ let { children }: { children: Snippet } = $props();
 	<header class="ops-header">
 		<h1>がんばりクエスト 運営ダッシュボード</h1>
 		<nav>
-			<a href="/ops">KPI サマリー</a>
+			<a href="/ops">KPI</a>
+			<a href="/ops/revenue">収益</a>
+			<a href="/ops/costs">費用</a>
+			<a href="/ops/export">エクスポート</a>
 		</nav>
 	</header>
 	<main class="ops-main">
