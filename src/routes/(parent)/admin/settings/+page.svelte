@@ -84,7 +84,8 @@ async function handleImportExecute() {
 	try {
 		const text = await importFile.text();
 		const json = JSON.parse(text);
-		const res = await fetch('/api/v1/import?mode=execute', {
+		const mode = importMode === 'replace' ? 'replace' : 'execute';
+		const res = await fetch(`/api/v1/import?mode=${mode}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(json),
@@ -157,6 +158,15 @@ let feedbackCategory = $state('feature');
 let feedbackText = $state('');
 let feedbackEmail = $state('');
 let feedbackInquiryId = $state('');
+
+// データクリア
+let clearConfirmText = $state('');
+let clearSubmitting = $state(false);
+let clearError = $state('');
+let clearSuccess = $state(false);
+
+// インポートモード
+let importMode = $state<'add' | 'replace'>('replace');
 
 // アカウント削除
 let cancelConfirmText = $state('');
@@ -491,8 +501,26 @@ const previewFormatted = $derived(
 
 				{#if importStep === 'select'}
 					<p class="text-sm text-gray-600 mb-3">
-						エクスポートしたJSONファイルからデータを復元できます。インポートすると新しい子供データとして追加されます（既存データは上書きされません）。
+						エクスポートしたJSONファイルからデータを復元できます。
 					</p>
+					<div class="mb-3">
+						<span class="block text-sm font-medium text-gray-600 mb-2">インポートモード</span>
+						<div class="flex gap-3">
+							<label class="flex items-center gap-2 cursor-pointer">
+								<input type="radio" value="replace" bind:group={importMode} class="w-4 h-4 text-orange-500" />
+								<span class="text-sm">置換（既存データを削除してインポート）</span>
+							</label>
+							<label class="flex items-center gap-2 cursor-pointer">
+								<input type="radio" value="add" bind:group={importMode} class="w-4 h-4 text-orange-500" />
+								<span class="text-sm">追加（既存データを残して追加）</span>
+							</label>
+						</div>
+						{#if importMode === 'replace'}
+							<p class="text-xs text-red-500 mt-1">既存の子供・活動ログ・ポイント等のデータをすべて削除してからインポートします。</p>
+						{:else}
+							<p class="text-xs text-gray-400 mt-1">新しい子供データとして追加されます（既存データは上書きされません）。</p>
+						{/if}
+					</div>
 					<label class="block w-full py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition-colors text-center cursor-pointer {importLoading ? 'opacity-50 pointer-events-none' : ''}">
 						{#if importLoading}
 							<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
@@ -530,9 +558,15 @@ const previewFormatted = $derived(
 						</ul>
 					</div>
 					<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
-						<p class="text-xs text-yellow-700">
-							インポートすると新しい子供データとして追加されます。この操作は取り消せません。
-						</p>
+						{#if importMode === 'replace'}
+							<p class="text-xs text-red-600 font-bold">
+								既存データをすべて削除してからインポートします。この操作は取り消せません。
+							</p>
+						{:else}
+							<p class="text-xs text-yellow-700">
+								インポートすると新しい子供データとして追加されます。この操作は取り消せません。
+							</p>
+						{/if}
 					</div>
 					<div class="flex gap-2">
 						<button
@@ -604,6 +638,90 @@ const previewFormatted = $derived(
 				{/if}
 			</div>
 		</div>
+	</div>
+
+	<!-- データクリア -->
+	<div class="bg-white rounded-xl shadow-sm border-2 border-red-200 p-6">
+		<h3 class="text-lg font-bold text-red-600 mb-4">🗑️ データクリア</h3>
+
+		{#if clearSuccess}
+			<SuccessAlert message="データクリアが完了しました。ページを再読み込みしてください。" />
+		{/if}
+
+		{#if clearError}
+			<ErrorAlert message={clearError} severity="error" action="retry" />
+		{/if}
+
+		{#if form?.clearError}
+			<ErrorAlert message={form.clearError} severity="warning" action="fix_input" />
+		{/if}
+
+		<p class="text-sm text-gray-600 mb-3">
+			すべての家族データ（子供・活動ログ・ポイント・ステータス等）を一括削除します。
+			活動マスタ・カテゴリなどのシステムデータは保持されます。
+		</p>
+
+		{#if data.dataSummary}
+			<div class="bg-red-50 rounded-lg p-4 mb-4">
+				<p class="text-sm font-bold text-red-700 mb-2">現在のデータ件数</p>
+				<ul class="text-xs text-red-700 space-y-1 columns-2">
+					<li>子供: {data.dataSummary.children}人</li>
+					<li>活動ログ: {data.dataSummary.activityLogs}件</li>
+					<li>ポイント履歴: {data.dataSummary.pointLedger}件</li>
+					<li>ステータス: {data.dataSummary.statuses}件</li>
+					<li>実績: {data.dataSummary.achievements}件</li>
+					<li>称号: {data.dataSummary.titles}件</li>
+					<li>ログインボーナス: {data.dataSummary.loginBonuses}件</li>
+					<li>チェックリスト: {data.dataSummary.checklistTemplates}件</li>
+					<li>キャリアプラン: {data.dataSummary.careerPlans}件</li>
+				</ul>
+			</div>
+		{/if}
+
+		<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+			<p class="text-xs text-red-600 font-bold">
+				この操作は取り消せません。事前にデータをエクスポートすることをお勧めします。
+			</p>
+		</div>
+
+		<form
+			method="POST"
+			action="?/clearData"
+			use:enhance={() => {
+				clearSubmitting = true;
+				clearSuccess = false;
+				clearError = '';
+				return async ({ result, update }) => {
+					clearSubmitting = false;
+					if (result.type === 'success') {
+						clearSuccess = true;
+						clearConfirmText = '';
+					}
+					await update();
+				};
+			}}
+		>
+			<div class="space-y-3">
+				<label for="clearConfirm" class="block text-sm font-medium text-gray-600">
+					確認のため「削除」と入力してください
+				</label>
+				<input
+					type="text"
+					id="clearConfirm"
+					name="confirm"
+					bind:value={clearConfirmText}
+					placeholder="削除"
+					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300"
+				/>
+				<button
+					type="submit"
+					disabled={clearSubmitting || clearConfirmText !== '削除'}
+					class="w-full py-2 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+				>
+					{clearSubmitting ? 'データクリア中...' : 'すべてのデータを削除'}
+				</button>
+			</div>
+		</form>
 	</div>
 
 	<!-- フィードバック -->
