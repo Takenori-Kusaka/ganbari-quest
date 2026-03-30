@@ -87,6 +87,7 @@ export class StorageStack extends cdk.Stack {
 		this.repository = new ecr.Repository(this, 'AppRepo', {
 			repositoryName: 'ganbari-quest',
 			removalPolicy: cdk.RemovalPolicy.RETAIN,
+			imageScanOnPush: true,
 			lifecycleRules: [
 				{
 					maxImageCount: 10,
