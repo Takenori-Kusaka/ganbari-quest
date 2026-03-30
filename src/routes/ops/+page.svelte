@@ -1,8 +1,8 @@
 <script lang="ts">
-	let { data } = $props();
-	const kpi = $derived(data.kpi);
-	const stats = $derived(kpi.tenantStats);
-	const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
+let { data } = $props();
+const kpi = $derived(data.kpi);
+const stats = $derived(kpi.tenantStats);
+const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 </script>
 
 <svelte:head>
