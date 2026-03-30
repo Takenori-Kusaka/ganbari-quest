@@ -1,0 +1,181 @@
+name: Monthly Cost & Resource Audit
+
+on:
+  schedule:
+    - cron: '0 0 1 * *' # 毎月1日 UTC 0:00
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: CloudFormation Stack Inventory
+        run: |
+          echo "========================================"
+          echo "  CloudFormation Stack Resource Count"
+          echo "========================================"
+          for stack in GanbariQuestStorage GanbariQuestAuth GanbariQuestCompute GanbariQuestNetwork GanbariQuestOps; do
+            count=$(aws cloudformation list-stack-resources --stack-name "$stack" --query 'length(StackResourceSummaries)' --output text 2>/dev/null || echo "NOT_FOUND")
+            echo "$stack: $count resources"
+          done
+
+      - name: Lambda Functions Inventory
+        run: |
+          echo "========================================"
+          echo "  Lambda Functions (expected: 2)"
+          echo "========================================"
+          aws lambda list-functions \
+            --query 'Functions[?starts_with(FunctionName,`ganbari`)].{Name:FunctionName,Runtime:Runtime,Memory:MemorySize,Timeout:Timeout,LastModified:LastModified}' \
+            --output table
+
+      - name: DynamoDB Tables Inventory
+        run: |
+          echo "========================================"
+          echo "  DynamoDB Tables (expected: 1)"
+          echo "========================================"
+          for table in $(aws dynamodb list-tables --query 'TableNames[?contains(@,`ganbari`)]' --output text); do
+            echo "--- $table ---"
+            aws dynamodb describe-table --table-name "$table" \
+              --query 'Table.{Status:TableStatus,ItemCount:ItemCount,SizeBytes:TableSizeBytes,GSIs:length(GlobalSecondaryIndexes||`[]`)}' \
+              --output table
+          done
+
+      - name: S3 Buckets Inventory
+        run: |
+          echo "========================================"
+          echo "  S3 Buckets (expected: 2)"
+          echo "========================================"
+          for bucket in $(aws s3api list-buckets --query 'Buckets[?contains(Name,`ganbari`)].Name' --output text); do
+            echo "--- $bucket ---"
+            aws s3 ls "s3://$bucket" --summarize --recursive 2>/dev/null | tail -2
+          done
+
+      - name: ECR Repository Inventory
+        run: |
+          echo "========================================"
+          echo "  ECR Repositories (expected: 1)"
+          echo "========================================"
+          aws ecr describe-repositories \
+            --query 'repositories[?contains(repositoryName,`ganbari`)].{Name:repositoryName,CreatedAt:createdAt}' \
+            --output table 2>/dev/null || true
+          echo ""
+          echo "Image count:"
+          aws ecr list-images --repository-name ganbari-quest \
+            --query 'length(imageIds)' --output text 2>/dev/null || echo "N/A"
+
+      - name: Cognito User Pool Inventory
+        run: |
+          echo "========================================"
+          echo "  Cognito User Pools (expected: 1)"
+          echo "========================================"
+          for pool_id in $(aws cognito-idp list-user-pools --max-results 10 --query 'UserPools[?contains(Name,`ganbari`)].Id' --output text); do
+            aws cognito-idp describe-user-pool --user-pool-id "$pool_id" \
+              --query 'UserPool.{Name:Name,Status:Status,EstimatedUsers:EstimatedNumberOfUsers,MfaConfig:MfaConfiguration}' \
+              --output table
+          done
+
+      - name: CloudWatch Resources
+        run: |
+          echo "========================================"
+          echo "  CloudWatch Alarms (expected: 10)"
+          echo "========================================"
+          aws cloudwatch describe-alarms \
+            --alarm-name-prefix "ganbari-quest" \
+            --query 'MetricAlarms[].{Name:AlarmName,State:StateValue}' \
+            --output table
+
+          echo ""
+          echo "========================================"
+          echo "  CloudWatch Log Groups"
+          echo "========================================"
+          aws logs describe-log-groups \
+            --log-group-name-prefix "/aws/lambda/ganbari" \
+            --query 'logGroups[].{Name:logGroupName,RetentionDays:retentionInDays,StoredBytes:storedBytes}' \
+            --output table
+
+      - name: Cost Summary (previous month)
+        run: |
+          echo "========================================"
+          echo "  Cost Summary"
+          echo "========================================"
+          LAST_MONTH_START=$(date -u -d "$(date -u +%Y-%m-01) -1 month" +%Y-%m-%d)
+          LAST_MONTH_END=$(date -u +%Y-%m-01)
+          THIS_MONTH_START=$(date -u +%Y-%m-01)
+          TODAY=$(date -u +%Y-%m-%d)
+
+          echo "--- Previous Month ($LAST_MONTH_START to $LAST_MONTH_END) ---"
+          aws ce get-cost-and-usage \
+            --time-period "Start=$LAST_MONTH_START,End=$LAST_MONTH_END" \
+            --granularity MONTHLY \
+            --metrics "UnblendedCost" \
+            --group-by Type=DIMENSION,Key=SERVICE \
+            --query 'ResultsByTime[0].Groups[?Metrics.UnblendedCost.Amount!=`0`].{Service:Keys[0],Cost:Metrics.UnblendedCost.Amount}' \
+            --output table 2>/dev/null || echo "Cost Explorer not available"
+
+          echo ""
+          echo "--- Current Month ($THIS_MONTH_START to $TODAY) ---"
+          aws ce get-cost-and-usage \
+            --time-period "Start=$THIS_MONTH_START,End=$TODAY" \
+            --granularity MONTHLY \
+            --metrics "UnblendedCost" \
+            --query 'ResultsByTime[0].Total.UnblendedCost.{Amount:Amount,Unit:Unit}' \
+            --output table 2>/dev/null || echo "Cost Explorer not available"
+
+      - name: Orphaned Resources Check
+        run: |
+          echo "========================================"
+          echo "  Orphaned Resources"
+          echo "========================================"
+
+          echo "--- Orphaned Lambda Functions ---"
+          all_lambdas=$(aws lambda list-functions --query 'Functions[?starts_with(FunctionName,`ganbari`)].FunctionName' --output text)
+          managed_lambdas=""
+          for stack in GanbariQuestStorage GanbariQuestAuth GanbariQuestCompute GanbariQuestNetwork GanbariQuestOps; do
+            managed=$(aws cloudformation list-stack-resources --stack-name "$stack" --query 'StackResourceSummaries[?ResourceType==`AWS::Lambda::Function`].PhysicalResourceId' --output text 2>/dev/null)
+            managed_lambdas="$managed_lambdas $managed"
+          done
+          orphaned=0
+          for fn in $all_lambdas; do
+            if ! echo "$managed_lambdas" | grep -q "$fn"; then
+              echo "ORPHANED: $fn"
+              orphaned=$((orphaned + 1))
+            fi
+          done
+          [ $orphaned -eq 0 ] && echo "None found"
+
+          echo ""
+          echo "--- Orphaned Cost Anomaly Monitors ---"
+          aws ce get-anomaly-monitors \
+            --query 'AnomalyMonitors[?contains(MonitorName,`ganbari`) || contains(MonitorName,`gq-cost`)].{Name:MonitorName,Arn:MonitorArn}' \
+            --output table 2>/dev/null || echo "None found"
+
+      - name: Post audit summary to Discord
+        if: vars.DISCORD_WEBHOOK_URL != ''
+        env:
+          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+        run: |
+          MONTH=$(date -u +"%Y年%-m月")
+          curl -s -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"📊 ${MONTH} リソース棚卸し完了\",
+                \"description\": \"月次のAWSリソース棚卸しが完了しました。詳細はGitHub Actionsのログを確認してください。\",
+                \"color\": 3447003,
+                \"footer\": {\"text\": \"がんばりクエスト Cost Audit\"}
+              }]
+            }"
