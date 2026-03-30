@@ -108,7 +108,7 @@ const fmtPts = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.r
 					お子さまの「がんばり」を冒険に変えませんか？
 				</p>
 				<a
-					href="https://ganbari-quest.com/auth/signup"
+					href="/demo/signup"
 					class="inline-block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-center text-sm"
 				>
 					無料で はじめる →
