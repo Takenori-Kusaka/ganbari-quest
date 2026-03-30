@@ -7,6 +7,7 @@ import { getSettings } from '$lib/server/db/settings-repo';
 import { checkAndUnlockItems, getAvatarConfig } from '$lib/server/services/avatar-service';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { getPointBalance } from '$lib/server/services/point-service';
+import { getStampCardStatus } from '$lib/server/services/stamp-card-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import { getActiveTitle } from '$lib/server/services/title-service';
 import { redirect } from '@sveltejs/kit';
@@ -50,16 +51,25 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	}
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
-	const [balanceResult, statusResult, activeTitle, , avatarConfig, allChildren, pointSettingsRaw] =
-		await Promise.all([
-			getPointBalance(childId, tenantId),
-			getChildStatus(childId, tenantId),
-			getActiveTitle(childId, tenantId),
-			checkAndUnlockItems(childId, tenantId),
-			getAvatarConfig(childId, tenantId),
-			getAllChildren(tenantId),
-			getSettings(['point_unit_mode', 'point_currency', 'point_rate'], tenantId),
-		]);
+	const [
+		balanceResult,
+		statusResult,
+		activeTitle,
+		,
+		avatarConfig,
+		allChildren,
+		pointSettingsRaw,
+		stampCardResult,
+	] = await Promise.all([
+		getPointBalance(childId, tenantId),
+		getChildStatus(childId, tenantId),
+		getActiveTitle(childId, tenantId),
+		checkAndUnlockItems(childId, tenantId),
+		getAvatarConfig(childId, tenantId),
+		getAllChildren(tenantId),
+		getSettings(['point_unit_mode', 'point_currency', 'point_rate'], tenantId),
+		getStampCardStatus(childId, tenantId),
+	]);
 
 	const balance = 'error' in balanceResult ? 0 : balanceResult.balance;
 	const level = 'error' in statusResult ? 1 : statusResult.level;
@@ -71,6 +81,11 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		rate: Number.parseFloat(pointSettingsRaw.point_rate ?? '') || DEFAULT_POINT_SETTINGS.rate,
 	};
 
+	const stampProgress =
+		!stampCardResult || 'error' in stampCardResult
+			? null
+			: { filled: stampCardResult.filledSlots, total: stampCardResult.totalSlots };
+
 	return {
 		child,
 		balance,
@@ -81,5 +96,7 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		allChildren,
 		uiMode: effectiveMode,
 		pointSettings,
+		stampProgress,
+		stampCard: !stampCardResult || 'error' in stampCardResult ? null : stampCardResult,
 	};
 };
