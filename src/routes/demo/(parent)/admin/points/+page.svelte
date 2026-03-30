@@ -1,5 +1,7 @@
 <script lang="ts">
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
+import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
+import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 
 let { data } = $props();
 
@@ -10,98 +12,124 @@ const unit = $derived(getUnitLabel(ps.mode, ps.currency));
 const totalBalance = $derived(
 	data.children.reduce((sum: number, c: { balance: number }) => sum + c.balance, 0),
 );
-const maxBalance = $derived(
-	Math.max(...data.children.map((c: { balance: number }) => c.balance), 1),
-);
+
+let selectedChildId = $state(0);
+$effect(() => {
+	const first = data.children[0];
+	if (selectedChildId === 0 && first) {
+		selectedChildId = first.id;
+	}
+});
+
+const selectedChild = $derived(data.children.find((c: { id: number }) => c.id === selectedChildId));
 </script>
 
 <svelte:head>
 	<title>ポイント管理 - がんばりクエスト デモ</title>
 </svelte:head>
 
-<div class="space-y-6">
-	<!-- Page Header -->
-	<div class="flex items-center justify-between">
-		<h1 class="text-lg font-bold text-gray-700">ポイント管理</h1>
-	</div>
+<div class="space-y-4">
+	<DemoBanner />
 
-	<!-- Demo Notice -->
-	<div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-2">
-		<span class="text-amber-500">&#x26A0;&#xFE0F;</span>
-		<p class="text-sm text-amber-700">デモモードのため、変更はできません</p>
-	</div>
-
-	<!-- Total Summary -->
-	<div class="bg-white rounded-xl p-4 shadow-sm text-center">
-		<p class="text-xs text-gray-500 mb-1">全こども合計{unit}</p>
-		<p class="text-3xl font-bold text-amber-500">{fmtBal(totalBalance)}</p>
-	</div>
-
-	<!-- Per-child point cards -->
-	<div class="grid gap-3">
+	<!-- Child selector tabs (matches production) -->
+	<div class="flex overflow-x-auto gap-2 pb-1">
 		{#each data.children as child (child.id)}
-			<div class="bg-white rounded-xl p-4 shadow-sm">
-				<div class="flex items-center gap-4">
-					<span class="text-3xl">
-						{#if child.uiMode === 'baby'}
-							&#x1F476;
-						{:else if child.uiMode === 'kinder'}
-							&#x1F9D2;
-						{:else if child.uiMode === 'lower'}
-							&#x1F9D1;
-						{:else}
-							&#x1F9D1;&#x200D;&#x1F4BB;
-						{/if}
-					</span>
-					<div class="flex-1">
-						<p class="font-bold text-gray-700">{child.nickname}</p>
-						<p class="text-sm text-gray-400">{child.age}歳</p>
-					</div>
-					<div class="text-right">
-						<p class="text-2xl font-bold text-amber-500">{fmtBal(child.balance)}</p>
-						<p class="text-xs text-gray-400">現在の{unit}残高</p>
-					</div>
-				</div>
-
-				<!-- Point bar visualization -->
-				<div class="mt-3">
-					<div class="w-full bg-gray-100 rounded-full h-2.5">
-						<div
-							class="bg-gradient-to-r from-amber-400 to-orange-400 h-2.5 rounded-full transition-all"
-							style="width: {Math.round((child.balance / maxBalance) * 100)}%;"
-						></div>
-					</div>
-				</div>
-
-				<!-- Quick info -->
-				<div class="mt-3 flex gap-3 text-xs text-gray-400">
-					<span>&#x1F4B1; ポイント変換: デモでは利用不可</span>
-				</div>
-			</div>
+			<button
+				type="button"
+				class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors
+					{selectedChildId === child.id
+					? 'bg-blue-500 text-white shadow-sm'
+					: 'bg-white text-gray-600 hover:bg-gray-50 shadow-sm'}"
+				onclick={() => selectedChildId = child.id}
+			>
+				{#if child.avatarUrl}
+					<img src={child.avatarUrl} alt="" class="w-6 h-6 rounded-full object-cover" />
+				{:else}
+					<span>👤</span>
+				{/if}
+				{child.nickname}
+			</button>
 		{/each}
 	</div>
 
-	<!-- Explanation Section -->
+	{#if selectedChild}
+		<!-- Balance Card (matches production) -->
+		<div class="bg-white rounded-xl p-6 shadow-sm text-center">
+			<p class="text-xs text-gray-400 mb-1">現在の{unit}残高</p>
+			<p class="text-4xl font-bold text-amber-500">{fmtBal(selectedChild.balance)}</p>
+		</div>
+
+		<!-- Convert Modes (disabled in demo, but shows the UI) -->
+		<div class="bg-white rounded-xl p-4 shadow-sm">
+			<h3 class="text-sm font-bold text-gray-700 mb-3">ポイント変換</h3>
+			<div class="flex gap-2 mb-4">
+				<button
+					class="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-blue-500 text-white"
+					disabled
+				>
+					かんたん
+				</button>
+				<button
+					class="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-gray-100 text-gray-400"
+					disabled
+				>
+					自由入力
+				</button>
+				<button
+					class="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-gray-100 text-gray-400"
+					disabled
+				>
+					領収書OCR
+				</button>
+			</div>
+
+			<!-- Preset amounts (matches production) -->
+			<div class="grid grid-cols-4 gap-2 mb-4">
+				{#each [100, 300, 500, 1000] as amount}
+					<button
+						class="py-3 rounded-xl text-center font-bold shadow-sm transition-colors
+							{amount === 500 ? 'bg-blue-50 border-2 border-blue-300 text-blue-700' : 'bg-gray-50 text-gray-400'}"
+						disabled
+					>
+						{amount}
+					</button>
+				{/each}
+			</div>
+
+			<button
+				class="w-full py-3 bg-gray-200 text-gray-400 font-bold rounded-xl cursor-not-allowed"
+				disabled
+			>
+				デモでは変換できません
+			</button>
+		</div>
+
+		<!-- Summary Stats (matches production) -->
+		<div class="grid grid-cols-2 gap-3">
+			<div class="bg-white rounded-xl p-4 shadow-sm text-center">
+				<p class="text-xs text-gray-400 mb-1">今月の変換合計</p>
+				<p class="text-xl font-bold text-blue-600">{fmtBal(0)}</p>
+			</div>
+			<div class="bg-white rounded-xl p-4 shadow-sm text-center">
+				<p class="text-xs text-gray-400 mb-1">累計変換合計</p>
+				<p class="text-xl font-bold text-purple-600">{fmtBal(0)}</p>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Explanation -->
 	<div class="bg-white rounded-xl p-4 shadow-sm">
-		<h2 class="text-sm font-bold text-gray-700 mb-2">&#x2139;&#xFE0F; ポイント変換について</h2>
+		<h2 class="text-sm font-bold text-gray-700 mb-2">ポイント変換について</h2>
 		<ul class="text-xs text-gray-500 space-y-1.5">
 			<li>&#x2022; お子さまが活動で貯めたポイントを、おこづかいに変換できます</li>
 			<li>&#x2022; 変換レートは設定画面で自由にカスタマイズ可能です</li>
+			<li>&#x2022; 3つの変換モード: かんたん / 自由入力 / 領収書OCR</li>
 			<li>&#x2022; 変換履歴も記録されるので、安心して管理できます</li>
 		</ul>
 	</div>
 
-	<!-- Demo CTA -->
-	<div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-200 rounded-xl p-4 text-center">
-		<p class="text-sm font-bold text-gray-700 mb-1">ポイントをおこづかいに変換しませんか？</p>
-		<p class="text-xs text-gray-500 mb-3">
-			登録すると、ポイント変換やレート設定が自由にできます。
-		</p>
-		<a
-			href="/demo/signup"
-			class="inline-block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-center text-sm"
-		>
-			無料で はじめる &rarr;
-		</a>
-	</div>
+	<DemoCta
+		title="ポイントをおこづかいに変換しませんか？"
+		description="登録すると、ポイント変換やレート設定が自由にできます。"
+	/>
 </div>
