@@ -107,8 +107,8 @@ describe('discord-alert', () => {
 		await sendDiscordAlert({ ...opts, requestId: 'b' });
 
 		const map = _getThrottleMap();
-		const entry = map.get('/api/x:err detail')!;
-		expect(entry).toBeDefined();
+		const entry = map.get('/api/x:err detail');
+		if (!entry) throw new Error('Expected throttle map entry to be defined');
 		expect(entry.count).toBe(2);
 		expect(entry.requestIds).toEqual(['a', 'b']);
 	});

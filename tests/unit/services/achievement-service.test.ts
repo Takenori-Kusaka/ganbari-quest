@@ -511,7 +511,10 @@ describe('getChildAchievements', () => {
 	it('sortOrder 順に並ぶ', async () => {
 		const achievements = await getChildAchievements(1, 'test-tenant');
 		for (let i = 1; i < achievements.length; i++) {
-			expect(achievements[i]?.sortOrder).toBeGreaterThanOrEqual(achievements[i - 1]!.sortOrder);
+			const current = achievements[i];
+			const prev = achievements[i - 1];
+			if (!current || !prev) throw new Error(`Expected achievements at indices ${i} and ${i - 1}`);
+			expect(current.sortOrder).toBeGreaterThanOrEqual(prev.sortOrder);
 		}
 	});
 

@@ -31,7 +31,7 @@ const tabsByMode: Record<string, { label: string; path: string }[]> = {
 	],
 };
 
-const tabs = $derived(tabsByMode[uiMode] ?? tabsByMode.kinder!);
+const tabs = $derived(tabsByMode[uiMode] ?? tabsByMode.kinder);
 </script>
 
 <nav class="flex gap-1 bg-[var(--theme-nav)] rounded-[var(--radius-md)] p-1 mx-[var(--sp-md)] mb-[var(--sp-md)]">
