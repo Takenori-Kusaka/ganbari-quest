@@ -15,7 +15,6 @@ import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import OmikujiOverlay from '$lib/ui/components/OmikujiOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
-import StampCard from '$lib/ui/components/StampCard.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 import { tick } from 'svelte';
@@ -383,22 +382,6 @@ function handleBirthdayResultClose() {
 		</form>
 	{/if}
 
-	<!-- Stamp card (actionable時のみ表示) #0231 -->
-	{#if data.stampCard && (data.stampCard.canStampToday || (data.stampCard.filledSlots >= data.stampCard.totalSlots && data.stampCard.status !== 'redeemed'))}
-		<div class="mb-[var(--sp-sm)]">
-			<StampCard
-				weekStart={data.stampCard.weekStart}
-				weekEnd={data.stampCard.weekEnd}
-				entries={data.stampCard.entries}
-				canStampToday={data.stampCard.canStampToday}
-				totalSlots={data.stampCard.totalSlots}
-				filledSlots={data.stampCard.filledSlots}
-				status={data.stampCard.status}
-				redeemedPoints={data.stampCard.redeemedPoints}
-			/>
-		</div>
-	{/if}
-
 	<!-- Checklist shortcut -->
 	{#if data.hasChecklists}
 		<a
@@ -422,27 +405,6 @@ function handleBirthdayResultClose() {
 				</div>
 			{/if}
 		</a>
-	{/if}
-
-	<!-- Mission mini bar (#0232) -->
-	{#if data.dailyMissions && data.dailyMissions.missions.length > 0}
-		{@const mTotal = data.dailyMissions.missions.length}
-		{@const mDone = data.dailyMissions.completedCount}
-		<div class="mission-mini-bar mb-[var(--sp-sm)]">
-			<span class="mission-mini-bar__icon">⚔️</span>
-			<span class="mission-mini-bar__label">クエスト</span>
-			<span class="mission-mini-bar__count">{mDone}/{mTotal}</span>
-			<div class="mission-mini-bar__track">
-				{#each { length: mTotal } as _, i}
-					<div class="mission-mini-bar__pip" class:mission-mini-bar__pip--done={i < mDone}></div>
-				{/each}
-			</div>
-			{#if data.dailyMissions.allComplete}
-				<span class="mission-mini-bar__bonus">🏆</span>
-			{:else}
-				<span class="mission-mini-bar__hint">🎁</span>
-			{/if}
-		</div>
 	{/if}
 
 	<!-- Activity grid by category -->
@@ -879,27 +841,4 @@ function handleBirthdayResultClose() {
 		to { transform: rotate(360deg); }
 	}
 
-	/* Mission mini bar (#0232) */
-	.mission-mini-bar {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 8px 12px;
-		background: linear-gradient(135deg, #fef3c7, #fde68a);
-		border: 1.5px solid #d4a017;
-		border-radius: var(--radius-lg);
-		font-size: 0.8125rem;
-	}
-	.mission-mini-bar__icon { font-size: 1rem; }
-	.mission-mini-bar__label { font-weight: 700; color: #92400e; }
-	.mission-mini-bar__count { font-weight: 700; color: #b45309; font-size: 0.75rem; }
-	.mission-mini-bar__track { display: flex; gap: 3px; flex: 1; justify-content: center; }
-	.mission-mini-bar__pip {
-		width: 18px; height: 6px;
-		border-radius: 3px;
-		background: #d4a01744;
-		transition: background 0.3s;
-	}
-	.mission-mini-bar__pip--done { background: linear-gradient(90deg, #fbbf24, #d97706); }
-	.mission-mini-bar__bonus, .mission-mini-bar__hint { font-size: 1rem; }
 </style>
