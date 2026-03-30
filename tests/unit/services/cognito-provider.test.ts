@@ -8,12 +8,14 @@ import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
 
 const mockFindUserTenants = vi.fn();
 const mockFindTenantById = vi.fn();
+const mockFindUserByEmail = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		auth: {
 			findUserTenants: mockFindUserTenants,
 			findTenantById: mockFindTenantById,
+			findUserByEmail: mockFindUserByEmail,
 		},
 	}),
 }));
@@ -172,6 +174,7 @@ describe('CognitoAuthProvider', () => {
 
 		it('Context Token がない場合、メンバーシップから Context を発行する', async () => {
 			mockVerifyContext.mockReturnValue(null);
+			mockFindUserByEmail.mockResolvedValue({ userId: 'u-member', email: 'owner@family.com' });
 			mockFindUserTenants.mockResolvedValue([
 				{ userId: 'u-member', tenantId: 't-family-A', role: 'owner', joinedAt: '2024-01-01' },
 			]);
@@ -195,12 +198,14 @@ describe('CognitoAuthProvider', () => {
 				licenseStatus: 'active',
 				tenantStatus: 'active',
 			});
+			expect(mockFindUserByEmail).toHaveBeenCalledWith('owner@family.com');
 			expect(mockFindUserTenants).toHaveBeenCalledWith('u-member');
 			expect(event.cookies.set).toHaveBeenCalled();
 		});
 
 		it('Cognito ユーザーがテナント未所属の場合 null を返す', async () => {
 			mockVerifyContext.mockReturnValue(null);
+			mockFindUserByEmail.mockResolvedValue(undefined);
 			mockFindUserTenants.mockResolvedValue([]);
 
 			const { CognitoAuthProvider } = await import(
@@ -221,6 +226,7 @@ describe('CognitoAuthProvider', () => {
 
 		it('1ユーザー=1テナント: 最初のテナントを自動選択する', async () => {
 			mockVerifyContext.mockReturnValue(null);
+			mockFindUserByEmail.mockResolvedValue({ userId: 'u-single', email: 'single@example.com' });
 			mockFindUserTenants.mockResolvedValue([
 				{ userId: 'u-single', tenantId: 't-only', role: 'parent', joinedAt: '2024-01-01' },
 			]);
@@ -244,6 +250,7 @@ describe('CognitoAuthProvider', () => {
 
 		it('メンバーシップ検索で例外が発生した場合 null を返す', async () => {
 			mockVerifyContext.mockReturnValue(null);
+			mockFindUserByEmail.mockResolvedValue({ userId: 'u-err', email: 'err@x.com' });
 			mockFindUserTenants.mockRejectedValue(new Error('DynamoDB timeout'));
 
 			const { CognitoAuthProvider } = await import(
@@ -260,6 +267,7 @@ describe('CognitoAuthProvider', () => {
 
 		it('Context Token が期限切れの場合、メンバーシップから再発行する', async () => {
 			mockVerifyContext.mockReturnValue(null);
+			mockFindUserByEmail.mockResolvedValue({ userId: 'u-expired', email: 'expired@x.com' });
 			mockFindUserTenants.mockResolvedValue([
 				{ userId: 'u-expired', tenantId: 't-reissue', role: 'owner', joinedAt: '2024-01-01' },
 			]);

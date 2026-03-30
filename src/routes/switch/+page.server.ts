@@ -6,11 +6,12 @@ import { getAllChildren, getChildById } from '$lib/server/services/child-service
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const tenantId = locals.context?.tenantId;
 	if (!tenantId) {
 		redirect(302, '/auth/login');
 	}
+	const reason = url.searchParams.get('reason');
 
 	let children = await getAllChildren(tenantId);
 
@@ -22,7 +23,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const authMode = getAuthMode();
 	// local モードは認証不要なので直接 /admin、cognito モードは /auth/login
 	const adminLink = authMode === 'cognito' ? '/auth/login' : '/admin';
-	return { children, adminLink };
+	// child ロールには管理画面リンクを非表示（local モードでは常に表示）
+	const showAdminLink = authMode === 'local' || locals.context?.role !== 'child';
+	return { children, adminLink, showAdminLink, reason };
 };
 
 export const actions: Actions = {

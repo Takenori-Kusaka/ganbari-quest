@@ -21,6 +21,10 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 </svelte:head>
 
 <div class="portal-page">
+	{#if data.reason === 'admin_forbidden'}
+		<div class="toast-banner" role="alert">おやのアカウントでログインしてね</div>
+	{/if}
+
 	<header class="portal-header">
 		<Logo variant="compact" size={160} />
 	</header>
@@ -69,9 +73,11 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 		{/if}
 	</main>
 
-	<footer class="portal-footer">
-		<a href={data.adminLink}>🔒 おやのかんりがめん</a>
-	</footer>
+	{#if data.showAdminLink}
+		<footer class="portal-footer">
+			<a href={data.adminLink}>🔒 おやのかんりがめん</a>
+		</footer>
+	{/if}
 </div>
 
 <style>
@@ -209,5 +215,15 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 
 	.portal-footer a:hover {
 		color: #3878b8;
+	}
+
+	.toast-banner {
+		background: #fef3cd;
+		color: #856404;
+		padding: 12px 16px;
+		text-align: center;
+		font-size: 0.875rem;
+		font-weight: 600;
+		border-bottom: 1px solid #ffc107;
 	}
 </style>

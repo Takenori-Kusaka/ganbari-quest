@@ -67,9 +67,13 @@ describe('authorizeCognito', () => {
 			});
 		});
 
-		it('child は /switch にリダイレクト', () => {
+		it('child は /switch?reason=admin_forbidden にリダイレクト', () => {
 			const result = authorizeCognito('/admin', cognitoIdentity, childContext);
-			expect(result).toEqual({ allowed: false, redirect: '/switch', status: 403 });
+			expect(result).toEqual({
+				allowed: false,
+				redirect: '/switch?reason=admin_forbidden',
+				status: 403,
+			});
 		});
 
 		it('未認証は /auth/login にリダイレクト', () => {
