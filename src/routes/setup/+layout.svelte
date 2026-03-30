@@ -7,6 +7,7 @@ let { children } = $props();
 const steps = [
 	{ path: '/setup', label: 'PIN設定' },
 	{ path: '/setup/children', label: '子供登録' },
+	{ path: '/setup/packs', label: '活動パック' },
 	{ path: '/setup/complete', label: '完了' },
 ];
 
