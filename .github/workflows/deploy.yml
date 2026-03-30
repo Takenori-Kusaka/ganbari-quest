@@ -161,6 +161,10 @@ jobs:
           -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
           -c geminiApiKey=${{ secrets.GEMINI_API_KEY }}
           -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }}
+          -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }}
+          -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          -c stripePriceMonthly=${{ vars.STRIPE_PRICE_MONTHLY }}
+          -c stripePriceYearly=${{ vars.STRIPE_PRICE_YEARLY }}
 
       # Phase 4: Update Lambda to use the new image
       - name: Update Lambda function image

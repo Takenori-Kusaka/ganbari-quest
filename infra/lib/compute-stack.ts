@@ -46,6 +46,12 @@ export class ComputeStack extends cdk.Stack {
 		// --- Gemini API Key（SSM から取得、未設定時はフォールバック動作） ---
 		const geminiApiKey = this.node.tryGetContext('geminiApiKey') ?? '';
 
+		// --- Stripe 設定（CDK context 経由で GitHub Actions Secrets から取得） ---
+		const stripeSecretKey = this.node.tryGetContext('stripeSecretKey') ?? '';
+		const stripeWebhookSecret = this.node.tryGetContext('stripeWebhookSecret') ?? '';
+		const stripePriceMonthly = this.node.tryGetContext('stripePriceMonthly') ?? '';
+		const stripePriceYearly = this.node.tryGetContext('stripePriceYearly') ?? '';
+
 		// --- Discord Webhook URLs（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const feedbackDiscordWebhookUrl = this.node.tryGetContext('feedbackDiscordWebhookUrl') ?? '';
 		const discordWebhookSignup = this.node.tryGetContext('discordWebhookSignup') ?? '';
@@ -92,6 +98,10 @@ export class ComputeStack extends cdk.Stack {
 					? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident }
 					: {}),
 				...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
+				...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
+				...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
+				...(stripePriceMonthly ? { STRIPE_PRICE_MONTHLY: stripePriceMonthly } : {}),
+				...(stripePriceYearly ? { STRIPE_PRICE_YEARLY: stripePriceYearly } : {}),
 				COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
 				SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
 				SES_CONFIG_SET_NAME: 'ganbari-quest-config',
