@@ -39,6 +39,8 @@ jobs:
         run: npm run version:generate
       - run: npx biome check .
       - run: npx svelte-check
+      - name: Security audit (high/critical vulnerabilities)
+        run: npm audit --audit-level=high || true
       - run: npx vitest run
 
       # E2E tests (local mode)
@@ -158,6 +160,7 @@ jobs:
           -c certificateArn=${{ env.CERTIFICATE_ARN }}
           -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
           -c geminiApiKey=${{ secrets.GEMINI_API_KEY }}
+          -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }}
 
       # Phase 4: Update Lambda to use the new image
       - name: Update Lambda function image
