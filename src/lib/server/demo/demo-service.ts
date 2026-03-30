@@ -277,6 +277,7 @@ function defaultAvatarConfig(): AvatarConfig {
 		frameCss: '',
 		effectClass: '',
 		customSoundPath: null,
+		customVoicePath: null,
 		celebrationEffect: '',
 	};
 }

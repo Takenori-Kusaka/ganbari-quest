@@ -11,11 +11,14 @@ let { data, children } = $props();
 
 const theme = $derived(data.child?.theme ?? 'pink');
 const uiMode = $derived(data.uiMode ?? 'kinder');
-const customSoundPath = $derived(data.avatarConfig?.customSoundPath ?? null);
+// 親の声カスタムボイスがあればショップ音より優先
+const effectiveSoundPath = $derived(
+	data.avatarConfig?.customVoicePath ?? data.avatarConfig?.customSoundPath ?? null,
+);
 
 // きろくおん設定がデータ更新で変わったら反映
 $effect(() => {
-	soundService.setCustomRecordSound(customSoundPath);
+	soundService.setCustomRecordSound(effectiveSoundPath);
 });
 // モード別ナビラベル (#0173 ゲームループ再設計)
 const NAV_LABELS: Record<string, { character: string; switch: string }> = {
@@ -47,8 +50,10 @@ onMount(() => {
 	if (config) {
 		soundService.preload(config.enabledSounds);
 	}
-	// きろくおんカスタム設定
-	soundService.setCustomRecordSound(data.avatarConfig?.customSoundPath ?? null);
+	// きろくおんカスタム設定（親の声ボイス優先）
+	soundService.setCustomRecordSound(
+		data.avatarConfig?.customVoicePath ?? data.avatarConfig?.customSoundPath ?? null,
+	);
 
 	// 1分間隔で自動リロード（親の変更を反映）
 	const autoReloadTimer = setInterval(() => {

@@ -13,6 +13,12 @@ import {
 import { checkChildLimit } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getChildStatus, updateStatus } from '$lib/server/services/status-service';
+import {
+	activateVoice,
+	deleteVoice,
+	listVoices,
+	uploadVoice,
+} from '$lib/server/services/voice-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -60,12 +66,13 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		const id = Number(selectedId);
 		const child = children.find((c) => c.id === id);
 		if (child) {
-			const [balance, status, logs, achievements, birthdayReviews] = await Promise.all([
+			const [balance, status, logs, achievements, birthdayReviews, voices] = await Promise.all([
 				getPointBalance(id, tenantId),
 				getChildStatus(id, tenantId),
 				getActivityLogs(id, tenantId),
 				getChildAchievements(id, tenantId),
 				getBirthdayReviews(id, tenantId),
+				listVoices(id, 'complete', tenantId),
 			]);
 
 			if ('error' in balance) {
@@ -87,6 +94,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 				logSummary: 'error' in logs ? null : logs.summary,
 				achievements: achievements,
 				birthdayReviews,
+				voices,
 			};
 		}
 	}
@@ -233,5 +241,53 @@ export const actions: Actions = {
 
 		await updateStatus(childId, categoryId, changeAmount, 'admin_edit', tenantId);
 		return { success: true, statusUpdated: true };
+	},
+
+	uploadVoice: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(formData.get('childId'));
+		const file = formData.get('file');
+		const label = String(formData.get('label') ?? '').trim();
+		const durationMs = formData.get('durationMs') ? Number(formData.get('durationMs')) : undefined;
+
+		if (!childId) return fail(400, { error: 'IDが不正です' });
+		if (!label) return fail(400, { error: 'ラベルを入力してください' });
+		if (!(file instanceof File) || file.size === 0) {
+			return fail(400, { error: '音声ファイルを選択してください' });
+		}
+
+		const result = await uploadVoice(childId, tenantId, file, label, 'complete', durationMs);
+		if ('error' in result) {
+			const msgs: Record<string, string> = {
+				INVALID_FILE: 'ファイルが不正です',
+				FILE_TOO_LARGE: '5MB以下にしてください',
+				UNSUPPORTED_TYPE: 'MP3/M4A/WAV/WebM/OGG形式のみ',
+				TOO_MANY_VOICES: '10件まで登録可能です',
+			};
+			return fail(400, { error: msgs[result.error] ?? 'エラーが発生しました' });
+		}
+		return { success: true, voiceUploaded: true };
+	},
+
+	activateVoice: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+		const voiceId = Number(form.get('voiceId'));
+		const childId = Number(form.get('childId'));
+		if (!voiceId || !childId) return fail(400, { error: 'IDが不正です' });
+
+		await activateVoice(voiceId, childId, 'complete', tenantId);
+		return { success: true, voiceActivated: true };
+	},
+
+	deleteVoice: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+		const voiceId = Number(form.get('voiceId'));
+		if (!voiceId) return fail(400, { error: 'IDが不正です' });
+
+		await deleteVoice(voiceId, tenantId);
+		return { success: true, voiceDeleted: true };
 	},
 };

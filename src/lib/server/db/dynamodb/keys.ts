@@ -636,6 +636,7 @@ export const ENTITY_NAMES = {
 	childSkillNode: 'childSkillNode',
 	skillPoints: 'skillPoints',
 	inquiry: 'inquiry',
+	voice: 'voice',
 } as const;
 
 export type EntityName = (typeof ENTITY_NAMES)[keyof typeof ENTITY_NAMES];
