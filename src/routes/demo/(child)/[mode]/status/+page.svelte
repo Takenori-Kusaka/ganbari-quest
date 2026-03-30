@@ -36,19 +36,11 @@ const radarCategories = $derived(
 	{#if data.status}
 		<!-- Category levels -->
 		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-lg)]">
-			<div class="flex items-center gap-[var(--sp-sm)] mb-[var(--sp-md)]">
-				<span class="text-3xl">{data.status.characterType === 'hero' ? '🦸' : data.status.characterType === 'normal' ? '😊' : '🌱'}</span>
-				<div>
-					<p class="text-sm font-bold" style="color: var(--theme-accent);">
-						{data.status.characterType === 'hero' ? 'ヒーロータイプ' : data.status.characterType === 'normal' ? 'バランスタイプ' : 'がんばりタイプ'}
-					</p>
-					{#if data.activeTitle}
-						<p class="text-xs font-bold" style="color: var(--color-point);">
-							{data.activeTitle.icon} {data.activeTitle.name}
-						</p>
-					{/if}
-				</div>
-			</div>
+			{#if data.activeTitle}
+				<p class="text-xs font-bold mb-[var(--sp-sm)]" style="color: var(--color-point);">
+					{data.activeTitle.icon} {data.activeTitle.name}
+				</p>
+			{/if}
 			<div class="flex flex-col gap-[var(--sp-sm)]">
 				{#each CATEGORY_DEFS as catDef (catDef.id)}
 					{@const stat = data.status.statuses[catDef.id]}

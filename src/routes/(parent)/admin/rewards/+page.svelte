@@ -45,8 +45,6 @@ const categoryLabels: Record<string, string> = {
 </svelte:head>
 
 <div class="space-y-6" data-tutorial="rewards-section">
-	<h2 class="text-lg font-bold text-gray-700">特別報酬を付与</h2>
-
 	<!-- Step 1: Select child -->
 	<section>
 		<h3 class="text-sm font-bold text-gray-500 mb-2">1. こどもを選択</h3>

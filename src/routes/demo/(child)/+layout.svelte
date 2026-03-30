@@ -11,7 +11,7 @@ const uiMode = $derived(data.uiMode ?? 'kinder');
 const navItems = $derived([
 	{ href: `/demo/${uiMode}/home?childId=${data.child?.id ?? ''}`, icon: '🏠', label: 'ホーム' },
 	{ href: `/demo/${uiMode}/history?childId=${data.child?.id ?? ''}`, icon: '📋', label: 'きろく' },
-	{ href: `/demo/${uiMode}/status?childId=${data.child?.id ?? ''}`, icon: '⭐', label: 'つよさ' },
+	{ href: `/demo/${uiMode}/status?childId=${data.child?.id ?? ''}`, icon: '🛡️', label: 'つよさ' },
 	{
 		href: `/demo/${uiMode}/achievements?childId=${data.child?.id ?? ''}`,
 		icon: '🏆',
@@ -26,11 +26,10 @@ const navItems = $derived([
 		<Header
 			nickname={data.child.nickname}
 			totalPoints={data.balance}
-			level={data.level}
-			showLevel={true}
 			avatarUrl={data.child.avatarUrl}
 			avatarConfig={data.avatarConfig}
 			pointSettings={data.pointSettings}
+			activeTitle={data.activeTitle}
 		/>
 	{/if}
 

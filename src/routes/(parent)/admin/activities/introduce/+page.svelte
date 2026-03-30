@@ -28,7 +28,7 @@ function finish() {
 </script>
 
 <svelte:head>
-	<title>活動紹介スライド - がんばりクエスト管理</title>
+	<title>活動紹介スライド - がんばりクエスト</title>
 </svelte:head>
 
 <div class="min-h-full bg-gradient-to-b from-blue-50 to-white flex flex-col">

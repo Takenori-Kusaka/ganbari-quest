@@ -22,18 +22,18 @@ $effect(() => {
 });
 // モード別ナビラベル (#0173 ゲームループ再設計)
 const NAV_LABELS: Record<string, { character: string; switch: string }> = {
-	baby: { character: 'キャラ', switch: 'きりかえ' },
-	kinder: { character: 'キャラ', switch: 'きりかえ' },
-	lower: { character: 'キャラ', switch: 'きりかえ' },
-	upper: { character: 'キャラ', switch: '切替' },
-	teen: { character: 'キャラ', switch: '切替' },
+	baby: { character: 'つよさ', switch: 'きりかえ' },
+	kinder: { character: 'つよさ', switch: 'きりかえ' },
+	lower: { character: 'つよさ', switch: 'きりかえ' },
+	upper: { character: 'ステータス', switch: '切替' },
+	teen: { character: 'ステータス', switch: '切替' },
 };
 const labels = $derived(NAV_LABELS[uiMode] ?? NAV_LABELS.kinder!);
 const SKILL_TREE_MODES = ['lower', 'upper', 'teen'];
 const SHOP_MODES = ['kinder'];
 const navItems = $derived([
 	{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
-	{ href: `/${uiMode}/status`, icon: '⭐', label: labels!.character },
+	{ href: `/${uiMode}/status`, icon: '🛡️', label: labels!.character },
 	...(SKILL_TREE_MODES.includes(uiMode)
 		? [{ href: `/${uiMode}/skill-tree`, icon: '⚔️', label: 'スキル' }]
 		: SHOP_MODES.includes(uiMode)
@@ -69,7 +69,7 @@ onMount(() => {
 
 <div data-theme={theme} data-age-tier={uiMode} class="min-h-dvh bg-[var(--theme-bg)]">
 	{#if data.child}
-		<Header nickname={data.child.nickname} totalPoints={data.balance} level={data.level} showLevel={true} avatarUrl={data.child.avatarUrl} avatarConfig={data.avatarConfig} pointSettings={data.pointSettings} activeTitle={data.activeTitle} />
+		<Header nickname={data.child.nickname} totalPoints={data.balance} avatarUrl={data.child.avatarUrl} avatarConfig={data.avatarConfig} pointSettings={data.pointSettings} activeTitle={data.activeTitle} />
 	{/if}
 
 	<main class="pb-20 pt-[var(--sp-sm)]">

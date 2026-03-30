@@ -71,7 +71,7 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 	test('ボトムナビゲーションが表示される', async ({ page }) => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
 		await expect(nav).toBeVisible();
-		// ナビリンクが4つ表示される（ホーム、キャラ、ショップ、きりかえ）
+		// ナビリンクが4つ表示される（ホーム、つよさ、ショップ、きりかえ）
 		const links = nav.locator('a');
 		expect(await links.count()).toBe(4);
 	});
@@ -224,11 +224,11 @@ test.describe('ナビゲーション', () => {
 	test('ボトムナビでページ遷移できる', async ({ page }) => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
 
-		// ホーム → キャラ（ステータス）
-		await nav.locator('a').filter({ hasText: 'キャラ' }).click();
+		// ホーム → つよさ（ステータス）
+		await nav.locator('a').filter({ hasText: 'つよさ' }).click();
 		await expect(page).toHaveURL(/\/kinder\/status/);
 
-		// キャラ → ショップ
+		// つよさ → ショップ
 		await nav.locator('a').filter({ hasText: 'ショップ' }).click();
 		await expect(page).toHaveURL(/\/kinder\/shop/);
 

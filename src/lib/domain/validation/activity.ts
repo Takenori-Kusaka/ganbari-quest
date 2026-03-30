@@ -16,14 +16,15 @@ export interface CategoryDef {
 	readonly name: Category;
 	readonly icon: string;
 	readonly color: string;
+	readonly accent: string;
 }
 
 export const CATEGORY_DEFS: readonly CategoryDef[] = [
-	{ id: 1, code: 'undou', name: 'うんどう', icon: '🏃', color: '#FF6B6B' },
-	{ id: 2, code: 'benkyou', name: 'べんきょう', icon: '📚', color: '#4ECDC4' },
-	{ id: 3, code: 'seikatsu', name: 'せいかつ', icon: '🏠', color: '#FFE66D' },
-	{ id: 4, code: 'kouryuu', name: 'こうりゅう', icon: '🤝', color: '#A8E6CF' },
-	{ id: 5, code: 'souzou', name: 'そうぞう', icon: '🎨', color: '#DDA0DD' },
+	{ id: 1, code: 'undou', name: 'うんどう', icon: '🏃', color: '#FF6B6B', accent: '#D32F2F' },
+	{ id: 2, code: 'benkyou', name: 'べんきょう', icon: '📚', color: '#4ECDC4', accent: '#00897B' },
+	{ id: 3, code: 'seikatsu', name: 'せいかつ', icon: '🏠', color: '#FFE66D', accent: '#F9A825' },
+	{ id: 4, code: 'kouryuu', name: 'こうりゅう', icon: '🤝', color: '#A8E6CF', accent: '#2E7D32' },
+	{ id: 5, code: 'souzou', name: 'そうぞう', icon: '🎨', color: '#DDA0DD', accent: '#7B1FA2' },
 ] as const;
 
 export const CATEGORY_IDS = CATEGORY_DEFS.map((c) => c.id) as [number, ...number[]];
