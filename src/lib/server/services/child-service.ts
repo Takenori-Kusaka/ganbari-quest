@@ -58,7 +58,7 @@ export async function removeChild(id: number, tenantId: string) {
 }
 
 /** 子供に紐づく物理ファイルを削除 */
-async function deleteChildFiles(childId: number, tenantId: string): Promise<void> {
+export async function deleteChildFiles(childId: number, tenantId: string): Promise<void> {
 	try {
 		let totalDeleted = 0;
 
