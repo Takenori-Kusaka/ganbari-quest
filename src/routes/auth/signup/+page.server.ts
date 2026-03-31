@@ -98,7 +98,7 @@ export const actions: Actions = {
 		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
-		const code = formData.get('code') as string;
+		const code = (formData.get('code') as string)?.replace(/\s/g, '');
 		const password = formData.get('password') as string;
 		const licenseKeyInput = (formData.get('licenseKey') as string)?.trim() || '';
 
