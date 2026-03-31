@@ -340,6 +340,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     environment: production
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -353,13 +356,32 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      # CloudFront Geo Restriction (JP only) のため、Lambda Function URL 直接でテスト
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get Lambda Function URL
+        id: function-url
+        run: |
+          FUNCTION_URL=$(aws lambda get-function-url-config \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION \
+            --query 'FunctionUrl' --output text)
+          # Remove trailing slash for consistency
+          FUNCTION_URL="${FUNCTION_URL%/}"
+          echo "url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
+          echo "E2E target: $FUNCTION_URL"
+
       - name: Wait for deployment propagation
         run: sleep 15
 
       - name: Run Production Smoke Test
         run: npx playwright test --config playwright.production.config.ts
         env:
-          E2E_BASE_URL: https://${{ env.DOMAIN_NAME }}
+          E2E_BASE_URL: ${{ steps.function-url.outputs.url }}
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
