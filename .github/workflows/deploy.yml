@@ -151,7 +151,7 @@ jobs:
       - name: Cleanup failed stacks
         continue-on-error: true
         run: |
-          for stack in GanbariQuestOps GanbariQuestNetwork GanbariQuestCompute GanbariQuestAuth; do
+          for stack in GanbariQuestOps GanbariQuestNetwork GanbariQuestCompute GanbariQuestAuth GanbariQuestSes; do
             status=$(aws cloudformation describe-stacks --stack-name "$stack" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
             if [ "$status" = "ROLLBACK_COMPLETE" ] || [ "$status" = "DELETE_FAILED" ]; then
               echo "Deleting $stack (status: $status)"
@@ -159,6 +159,16 @@ jobs:
               aws cloudformation wait stack-delete-complete --stack-name "$stack" || true
             fi
           done
+          # Delete orphaned S3 buckets left by failed SES stack deploys (RETAIN policy)
+          SES_BUCKET="ganbari-quest-support-mail-$(aws sts get-caller-identity --query Account --output text)"
+          SES_STATUS=$(aws cloudformation describe-stacks --stack-name GanbariQuestSes --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
+          if [ "$SES_STATUS" = "NOT_FOUND" ] || [ "$SES_STATUS" = "ROLLBACK_COMPLETE" ]; then
+            if aws s3api head-bucket --bucket "$SES_BUCKET" 2>/dev/null; then
+              echo "Deleting orphaned SES bucket: $SES_BUCKET"
+              aws s3 rm "s3://$SES_BUCKET" --recursive 2>/dev/null || true
+              aws s3api delete-bucket --bucket "$SES_BUCKET" 2>/dev/null || true
+            fi
+          fi
           # Delete orphaned Cost Anomaly Monitors (left by failed OpsStack deploys)
           for arn in $(aws ce get-anomaly-monitors --query 'AnomalyMonitors[?contains(MonitorName,`ganbari`) || contains(MonitorName,`gq-cost`)].MonitorArn' --output text 2>/dev/null); do
             echo "Deleting orphaned anomaly monitor: $arn"
