@@ -45,11 +45,11 @@ export function stripId3v2Tag(data: Buffer): Buffer {
 	}
 
 	// syncsafe integer でタグサイズを読む（先頭10バイト + タグ本体）
-	const size =
-		((data[6]! & 0x7f) << 21) |
-		((data[7]! & 0x7f) << 14) |
-		((data[8]! & 0x7f) << 7) |
-		(data[9]! & 0x7f);
+	const b6 = data[6] ?? 0;
+	const b7 = data[7] ?? 0;
+	const b8 = data[8] ?? 0;
+	const b9 = data[9] ?? 0;
+	const size = ((b6 & 0x7f) << 21) | ((b7 & 0x7f) << 14) | ((b8 & 0x7f) << 7) | (b9 & 0x7f);
 	const tagEnd = 10 + size;
 
 	if (tagEnd >= data.length) {

@@ -574,9 +574,7 @@ export const saveLicenseKey: IAuthRepo['saveLicenseKey'] = async (record) => {
 
 export const findLicenseKey: IAuthRepo['findLicenseKey'] = async (key) => {
 	const keys = licenseKeyFn(key);
-	const result = await doc().send(
-		new GetCommand({ TableName: TABLE_NAME, Key: keys }),
-	);
+	const result = await doc().send(new GetCommand({ TableName: TABLE_NAME, Key: keys }));
 	if (!result.Item) return undefined;
 	const item = result.Item as Record<string, unknown>;
 	return {
