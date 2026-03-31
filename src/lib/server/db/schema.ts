@@ -137,7 +137,9 @@ export const statuses = sqliteTable(
 		categoryId: integer('category_id')
 			.notNull()
 			.references(() => categories.id),
-		value: real('value').notNull().default(0.0),
+		totalXp: integer('total_xp').notNull().default(0),
+		level: integer('level').notNull().default(1),
+		peakXp: integer('peak_xp').notNull().default(0),
 		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
 	(table) => [uniqueIndex('idx_statuses_child_category').on(table.childId, table.categoryId)],

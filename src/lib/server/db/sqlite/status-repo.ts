@@ -23,17 +23,19 @@ export async function findStatus(childId: number, categoryId: number, _tenantId:
 export async function upsertStatus(
 	childId: number,
 	categoryId: number,
-	value: number,
+	totalXp: number,
+	level: number,
+	peakXp: number,
 	_tenantId: string,
 ) {
 	const existing = await findStatus(childId, categoryId, _tenantId);
-	const clampedValue = Math.max(0, value);
+	const clampedXp = Math.max(0, totalXp);
 	const now = new Date().toISOString();
 
 	if (existing) {
 		return db
 			.update(statuses)
-			.set({ value: clampedValue, updatedAt: now })
+			.set({ totalXp: clampedXp, level, peakXp, updatedAt: now })
 			.where(eq(statuses.id, existing.id))
 			.returning()
 			.get();
@@ -41,7 +43,7 @@ export async function upsertStatus(
 
 	return db
 		.insert(statuses)
-		.values({ childId, categoryId, value: clampedValue, updatedAt: now })
+		.values({ childId, categoryId, totalXp: clampedXp, level, peakXp, updatedAt: now })
 		.returning()
 		.get();
 }

@@ -84,7 +84,9 @@ export interface ExportPointLedger {
 export interface ExportStatus {
 	childRef: string;
 	categoryCode: string;
-	value: number;
+	totalXp: number;
+	level: number;
+	peakXp: number;
 	updatedAt: string;
 }
 

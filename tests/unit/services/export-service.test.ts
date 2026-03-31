@@ -141,7 +141,15 @@ const mockPointHistory = [
 ];
 
 const mockStatuses = [
-	{ id: 1, childId: 1, categoryId: 2, value: 42.5, updatedAt: '2026-03-15T08:30:00Z' },
+	{
+		id: 1,
+		childId: 1,
+		categoryId: 2,
+		totalXp: 43,
+		level: 3,
+		peakXp: 43,
+		updatedAt: '2026-03-15T08:30:00Z',
+	},
 ];
 
 const mockStatusHistory = [
@@ -359,7 +367,7 @@ describe('exportFamilyData', () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.data.statuses).toHaveLength(1);
 		expect(result.data.statuses[0]?.categoryCode).toBe('benkyou');
-		expect(result.data.statuses[0]?.value).toBe(42.5);
+		expect(result.data.statuses[0]?.totalXp).toBe(43);
 	});
 
 	it('ステータス履歴がエクスポートされる', async () => {

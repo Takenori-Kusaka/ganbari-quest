@@ -224,9 +224,8 @@ export const actions: Actions = {
 			return fail(404, { error: '子供が見つかりません' });
 		}
 
-		const maxForAge = currentStatus.maxValue;
-		if (Number.isNaN(newValue) || newValue < 0 || newValue > maxForAge) {
-			return fail(400, { error: `値は0〜${maxForAge}の範囲で入力してください` });
+		if (Number.isNaN(newValue) || newValue < 0 || newValue > 100000) {
+			return fail(400, { error: '値は0〜100000の範囲で入力してください' });
 		}
 
 		const currentValue = currentStatus.statuses[categoryId]?.value ?? 0;

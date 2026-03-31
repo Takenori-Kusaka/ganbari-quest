@@ -75,7 +75,9 @@ export interface Status {
 	id: number;
 	childId: number;
 	categoryId: number;
-	value: number;
+	totalXp: number;
+	level: number;
+	peakXp: number;
 	updatedAt: string;
 }
 

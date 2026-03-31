@@ -3102,16 +3102,23 @@ function seed() {
 	if (existingStatuses.length === 0) {
 		const allChildren = db.select().from(schema.children).all();
 		const statusesData: (typeof schema.statuses.$inferInsert)[] = [];
-		const baseValues: Record<number, number> = {
-			1: 30.0,
-			2: 20.0,
-			3: 35.0,
-			4: 25.0,
-			5: 25.0,
+		const baseXp: Record<number, number> = {
+			1: 100,
+			2: 60,
+			3: 120,
+			4: 80,
+			5: 80,
 		};
 		for (const child of allChildren) {
 			for (const catId of [1, 2, 3, 4, 5]) {
-				statusesData.push({ childId: child.id, categoryId: catId, value: baseValues[catId] });
+				const xp = baseXp[catId] ?? 0;
+				statusesData.push({
+					childId: child.id,
+					categoryId: catId,
+					totalXp: xp,
+					level: 4,
+					peakXp: xp,
+				});
 			}
 		}
 

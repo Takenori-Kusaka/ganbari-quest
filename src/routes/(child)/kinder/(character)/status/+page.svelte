@@ -41,6 +41,7 @@ const radarCategories = $derived(
 					name: catDef.name,
 					value: s?.value ?? 0,
 					maxValue: data.status?.maxValue,
+					level: s?.level ?? 1,
 					deviationScore: s?.deviationScore ?? 50,
 					stars: s?.stars ?? 0,
 					trend: (s?.trend ?? 'stable') as 'up' | 'down' | 'stable',
@@ -67,14 +68,14 @@ const radarCategories = $derived(
 				{#each CATEGORY_DEFS as catDef (catDef.id)}
 					{@const stat = data.status.statuses[catDef.id]}
 					{#if stat}
-						{@const pct = stat.level >= 10 ? 100 : Math.min(100, Math.max(0, ((stat.value / data.status.maxValue * 100) - (stat.level - 1) * 10) / 10 * 100))}
+						{@const pct = stat.level >= 99 ? 100 : (stat.progressPct ?? 0)}
 						<div class="flex items-center gap-[var(--sp-xs)]">
 							<span class="text-lg w-7 text-center">{catDef.icon}</span>
 							<div class="flex-1 min-w-0">
 								<div class="flex items-center justify-between mb-0.5">
 									<span class="text-xs font-bold text-[var(--color-text)]">{catDef.name} Lv.{stat.level}</span>
-									{#if stat.level < 10}
-										<span class="text-[10px] text-[var(--color-text-muted)]">あと {Math.round(stat.expToNextLevel)}</span>
+									{#if stat.level < 99}
+										<span class="text-[10px] text-[var(--color-text-muted)]">あと {Math.round(stat.expToNextLevel)}XP</span>
 									{:else}
 										<span class="text-[10px] font-bold text-[var(--color-point)]">MAX</span>
 									{/if}
@@ -142,7 +143,8 @@ const radarCategories = $derived(
 								<StatusBar
 									categoryId={catDef.id}
 									value={status.value}
-									maxValue={data.status.maxValue}
+									level={status.level}
+									progressPct={status.progressPct}
 								/>
 								<div class="flex justify-between items-center mt-1 px-1">
 									<span class="text-xs" style="color: var(--theme-accent);">

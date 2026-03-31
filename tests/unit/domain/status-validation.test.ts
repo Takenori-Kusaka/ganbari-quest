@@ -1,66 +1,229 @@
 // tests/unit/domain/status-validation.test.ts
-// ステータス計算ロジックのユニットテスト
+// ステータス計算ロジックのユニットテスト（#0255 XP/レベル統一後）
 
 import { describe, expect, it } from 'vitest';
 import {
 	DECAY_GRACE_DAYS,
 	LEVEL_TABLE,
+	calcActivitiesToNextLevel,
 	calcCharacterType,
 	calcDecay,
 	calcDeviationScore,
-	calcExpToNextLevel,
-	calcLevel,
+	calcLevelFromXp,
 	calcStars,
 	calcTrend,
+	calcXpToNextLevel,
 	clampDecayFloor,
 	getAgeCoefficient,
 	getComparisonLabel,
+	getLevelEvaluationText,
 } from '../../../src/lib/domain/validation/status';
 
-describe('calcLevel', () => {
-	it('平均0はレベル1', () => {
-		expect(calcLevel(0)).toEqual({ level: 1, title: 'はじめのぼうけんしゃ' });
+// ================================================================
+// LEVEL_TABLE
+// ================================================================
+
+describe('LEVEL_TABLE', () => {
+	it('99段階定義されている', () => {
+		expect(LEVEL_TABLE.length).toBe(99);
 	});
 
-	it('平均25はレベル3', () => {
-		expect(calcLevel(25)).toEqual({ level: 3, title: 'わくわくファイター' });
+	it('レベル1から99まで連続', () => {
+		for (let i = 0; i < 99; i++) {
+			expect(LEVEL_TABLE[i]?.level).toBe(i + 1);
+		}
 	});
 
-	it('平均50はレベル6', () => {
-		expect(calcLevel(50)).toEqual({ level: 6, title: 'すごうでアドベンチャー' });
+	it('必要XPは厳密に単調増加', () => {
+		for (let i = 1; i < LEVEL_TABLE.length; i++) {
+			expect(LEVEL_TABLE[i]!.requiredXp).toBeGreaterThan(LEVEL_TABLE[i - 1]!.requiredXp);
+		}
 	});
 
-	it('平均90はレベル10', () => {
-		expect(calcLevel(90)).toEqual({ level: 10, title: 'かみさまレベル' });
+	it('Lv.1の必要XPは0', () => {
+		expect(LEVEL_TABLE[0]!.requiredXp).toBe(0);
 	});
 
-	it('平均100はレベル10', () => {
-		expect(calcLevel(100)).toEqual({ level: 10, title: 'かみさまレベル' });
+	it('キーポイントが設計通り', () => {
+		expect(LEVEL_TABLE[1]!.requiredXp).toBe(15); // Lv.2
+		expect(LEVEL_TABLE[2]!.requiredXp).toBe(40); // Lv.3
+		expect(LEVEL_TABLE[3]!.requiredXp).toBe(80); // Lv.4
+		expect(LEVEL_TABLE[4]!.requiredXp).toBe(140); // Lv.5
+		expect(LEVEL_TABLE[9]!.requiredXp).toBe(500); // Lv.10
+		expect(LEVEL_TABLE[19]!.requiredXp).toBe(2500); // Lv.20
+		expect(LEVEL_TABLE[98]!.requiredXp).toBe(100000); // Lv.99
 	});
 
-	it('負の値はレベル1にクランプ', () => {
-		expect(calcLevel(-10).level).toBe(1);
+	it('全エントリにタイトルがある', () => {
+		for (const entry of LEVEL_TABLE) {
+			expect(entry.title).toBeTruthy();
+			expect(typeof entry.title).toBe('string');
+		}
 	});
 
-	it('100超はレベル10にクランプ', () => {
-		expect(calcLevel(150).level).toBe(10);
+	it('Lv.1-10は固有タイトル', () => {
+		expect(LEVEL_TABLE[0]!.title).toBe('はじめのぼうけんしゃ');
+		expect(LEVEL_TABLE[4]!.title).toBe('きらきらヒーロー');
+		expect(LEVEL_TABLE[9]!.title).toBe('かみさまレベル');
+	});
+
+	it('Lv.99は最高タイトル', () => {
+		expect(LEVEL_TABLE[98]!.title).toBe('でんせつのぼうけんしゃ');
 	});
 });
 
-describe('calcExpToNextLevel', () => {
-	it('レベル1(avg=5)なら次まで5', () => {
-		expect(calcExpToNextLevel(5)).toBe(5);
+// ================================================================
+// calcLevelFromXp
+// ================================================================
+
+describe('calcLevelFromXp', () => {
+	it('0 XPはレベル1', () => {
+		expect(calcLevelFromXp(0)).toEqual({ level: 1, title: 'はじめのぼうけんしゃ' });
 	});
 
-	it('レベル10なら0', () => {
-		expect(calcExpToNextLevel(95)).toBe(0);
+	it('14 XPはレベル1（Lv.2の手前）', () => {
+		expect(calcLevelFromXp(14).level).toBe(1);
 	});
 
-	it('ちょうどレベル境界（avg=10, Lv2）なら次まで10', () => {
-		// avg=10 → Lv2(10-19), 次のLv3は20 → 20-10=10
-		expect(calcExpToNextLevel(10)).toBe(10);
+	it('15 XPはレベル2', () => {
+		expect(calcLevelFromXp(15)).toEqual({ level: 2, title: 'がんばりルーキー' });
+	});
+
+	it('39 XPはレベル2', () => {
+		expect(calcLevelFromXp(39).level).toBe(2);
+	});
+
+	it('40 XPはレベル3', () => {
+		expect(calcLevelFromXp(40).level).toBe(3);
+	});
+
+	it('500 XPはレベル10', () => {
+		expect(calcLevelFromXp(500).level).toBe(10);
+	});
+
+	it('100000 XPはレベル99', () => {
+		expect(calcLevelFromXp(100000).level).toBe(99);
+	});
+
+	it('100001 XPもレベル99（上限）', () => {
+		expect(calcLevelFromXp(100001).level).toBe(99);
+	});
+
+	it('負の値はレベル1', () => {
+		expect(calcLevelFromXp(-100).level).toBe(1);
+	});
+
+	it('境界値: 各レベルのrequiredXpで正しいレベルが返る', () => {
+		for (const entry of LEVEL_TABLE) {
+			const result = calcLevelFromXp(entry.requiredXp);
+			expect(result.level).toBe(entry.level);
+		}
 	});
 });
+
+// ================================================================
+// calcXpToNextLevel
+// ================================================================
+
+describe('calcXpToNextLevel', () => {
+	it('0 XP (Lv.1) → 次まで15XP', () => {
+		const result = calcXpToNextLevel(0);
+		expect(result.currentLevel).toBe(1);
+		expect(result.xpNeeded).toBe(15);
+		expect(result.progressPct).toBe(0);
+	});
+
+	it('7 XP (Lv.1) → 進捗約47%', () => {
+		const result = calcXpToNextLevel(7);
+		expect(result.currentLevel).toBe(1);
+		expect(result.xpNeeded).toBe(8);
+		expect(result.xpInCurrentLevel).toBe(7);
+		expect(result.xpForCurrentLevel).toBe(15);
+		expect(result.progressPct).toBeCloseTo(46.7, 0);
+	});
+
+	it('15 XP (Lv.2) → 次まで25XP', () => {
+		const result = calcXpToNextLevel(15);
+		expect(result.currentLevel).toBe(2);
+		expect(result.xpNeeded).toBe(25);
+		expect(result.progressPct).toBe(0);
+	});
+
+	it('500 XP (Lv.10) の進捗率', () => {
+		const result = calcXpToNextLevel(500);
+		expect(result.currentLevel).toBe(10);
+		expect(result.xpNeeded).toBeGreaterThan(0);
+	});
+
+	it('Lv.99 (100000 XP) は進捗100%、必要XP=0', () => {
+		const result = calcXpToNextLevel(100000);
+		expect(result.currentLevel).toBe(99);
+		expect(result.xpNeeded).toBe(0);
+		expect(result.progressPct).toBe(100);
+	});
+
+	it('Lv.99超 (150000 XP) も進捗100%', () => {
+		const result = calcXpToNextLevel(150000);
+		expect(result.currentLevel).toBe(99);
+		expect(result.xpNeeded).toBe(0);
+		expect(result.progressPct).toBe(100);
+	});
+});
+
+// ================================================================
+// calcActivitiesToNextLevel
+// ================================================================
+
+describe('calcActivitiesToNextLevel', () => {
+	it('0 XP、平均5ポイント → Lv.2まで3回', () => {
+		expect(calcActivitiesToNextLevel(0, 5)).toBe(3);
+	});
+
+	it('0 XP、平均8ポイント → Lv.2まで2回', () => {
+		expect(calcActivitiesToNextLevel(0, 8)).toBe(2);
+	});
+
+	it('Lv.99なら0回', () => {
+		expect(calcActivitiesToNextLevel(100000, 5)).toBe(0);
+	});
+
+	it('デフォルト平均ポイントは8', () => {
+		const result = calcActivitiesToNextLevel(0);
+		expect(result).toBe(Math.ceil(15 / 8));
+	});
+});
+
+// ================================================================
+// getLevelEvaluationText
+// ================================================================
+
+describe('getLevelEvaluationText', () => {
+	it('Lv.1は「はじめのいっぽ」', () => {
+		const result = getLevelEvaluationText(1);
+		expect(result.text).toBe('はじめのいっぽ！');
+		expect(result.emoji).toBe('🌱');
+	});
+
+	it('Lv.2は「そのちょうしだ」', () => {
+		expect(getLevelEvaluationText(2).text).toBe('そのちょうしだ！');
+	});
+
+	it('Lv.5は「すごいぞ」', () => {
+		expect(getLevelEvaluationText(5).text).toBe('すごいぞ！');
+	});
+
+	it('Lv.10は「めちゃくちゃがんばってる」', () => {
+		expect(getLevelEvaluationText(10).text).toBe('めちゃくちゃがんばってる！');
+	});
+
+	it('Lv.50は「でんせつのぼうけんしゃ」', () => {
+		expect(getLevelEvaluationText(50).text).toBe('でんせつのぼうけんしゃ！');
+	});
+});
+
+// ================================================================
+// calcDeviationScore (unchanged)
+// ================================================================
 
 describe('calcDeviationScore', () => {
 	it('平均値なら偏差値50', () => {
@@ -80,37 +243,45 @@ describe('calcDeviationScore', () => {
 	});
 });
 
+// ================================================================
+// calcStars (updated: benchmark ratio-based)
+// ================================================================
+
 describe('calcStars', () => {
-	it('スコア割合80%以上で5星', () => {
-		expect(calcStars(80, 100)).toBe(5);
-		expect(calcStars(100, 100)).toBe(5);
-		expect(calcStars(280, 350)).toBe(5);
+	it('ベンチマーク平均の1.6倍以上で5星', () => {
+		expect(calcStars(160, 100)).toBe(5);
+		expect(calcStars(200, 100)).toBe(5);
 	});
 
-	it('スコア割合60-79%で4星', () => {
-		expect(calcStars(60, 100)).toBe(4);
-		expect(calcStars(79, 100)).toBe(4);
+	it('ベンチマーク平均の1.2-1.59倍で4星', () => {
+		expect(calcStars(120, 100)).toBe(4);
+		expect(calcStars(159, 100)).toBe(4);
 	});
 
-	it('スコア割合40-59%で3星', () => {
-		expect(calcStars(40, 100)).toBe(3);
-		expect(calcStars(59, 100)).toBe(3);
+	it('ベンチマーク平均の0.8-1.19倍で3星', () => {
+		expect(calcStars(80, 100)).toBe(3);
+		expect(calcStars(100, 100)).toBe(3);
 	});
 
-	it('スコア割合20-39%で2星', () => {
-		expect(calcStars(20, 100)).toBe(2);
-		expect(calcStars(39, 100)).toBe(2);
+	it('ベンチマーク平均の0.4-0.79倍で2星', () => {
+		expect(calcStars(40, 100)).toBe(2);
+		expect(calcStars(79, 100)).toBe(2);
 	});
 
-	it('スコア割合20%未満で1星', () => {
-		expect(calcStars(19, 100)).toBe(1);
+	it('ベンチマーク平均の0.4倍未満で1星', () => {
+		expect(calcStars(39, 100)).toBe(1);
 		expect(calcStars(0, 100)).toBe(1);
 	});
 
-	it('maxValueが0の場合は1星', () => {
-		expect(calcStars(50, 0)).toBe(1);
+	it('ベンチマーク平均が0以下なら3星', () => {
+		expect(calcStars(50, 0)).toBe(3);
+		expect(calcStars(50, -10)).toBe(3);
 	});
 });
+
+// ================================================================
+// calcCharacterType (unchanged)
+// ================================================================
 
 describe('calcCharacterType', () => {
 	it('偏差値55以上でhero', () => {
@@ -128,6 +299,10 @@ describe('calcCharacterType', () => {
 		expect(calcCharacterType(30)).toBe('ganbari');
 	});
 });
+
+// ================================================================
+// getAgeCoefficient (unchanged)
+// ================================================================
 
 describe('getAgeCoefficient', () => {
 	it('0-6歳は0.3', () => {
@@ -152,6 +327,10 @@ describe('getAgeCoefficient', () => {
 	});
 });
 
+// ================================================================
+// calcDecay (新XPスケール: 整数返却)
+// ================================================================
+
 describe('calcDecay', () => {
 	it('猶予期間（2日以内）は減少なし', () => {
 		expect(calcDecay(0, 4)).toBe(0);
@@ -159,16 +338,22 @@ describe('calcDecay', () => {
 		expect(calcDecay(2, 4)).toBe(0);
 	});
 
-	it('3日目から減少開始（4歳、normal）: effectiveDays=1, 0.03', () => {
-		expect(calcDecay(3, 4, 'normal')).toBeCloseTo(0.03);
+	it('3日目から減少開始（4歳、normal）: 整数XPが返る', () => {
+		const result = calcDecay(3, 4, 'normal');
+		expect(Number.isInteger(result)).toBe(true);
+		expect(result).toBeGreaterThan(0);
 	});
 
-	it('5日未活動（4歳、normal）: effectiveDays=3, 0.03 + 0.03×2 = 0.09', () => {
-		expect(calcDecay(5, 4, 'normal')).toBeCloseTo(0.09);
+	it('5日未活動（4歳、normal）は3日目より大きい', () => {
+		const day3 = calcDecay(3, 4, 'normal');
+		const day5 = calcDecay(5, 4, 'normal');
+		expect(day5).toBeGreaterThan(day3);
 	});
 
-	it('3日目（10歳、normal）: effectiveDays=1, 0.05', () => {
-		expect(calcDecay(3, 10, 'normal')).toBeCloseTo(0.05);
+	it('年齢が高いほど減衰が大きい', () => {
+		const young = calcDecay(5, 4, 'normal');
+		const old = calcDecay(5, 15, 'normal');
+		expect(old).toBeGreaterThan(young);
 	});
 
 	it('強度 none は常に0', () => {
@@ -176,20 +361,16 @@ describe('calcDecay', () => {
 		expect(calcDecay(100, 15, 'none')).toBe(0);
 	});
 
-	it('強度 gentle は通常の半分', () => {
-		const normal = calcDecay(5, 4, 'normal');
-		const gentle = calcDecay(5, 4, 'gentle');
-		expect(gentle).toBeCloseTo(normal * 0.5);
-	});
-
-	it('強度 strict は通常の1.5倍', () => {
-		const normal = calcDecay(5, 4, 'normal');
-		const strict = calcDecay(5, 4, 'strict');
-		expect(strict).toBeCloseTo(normal * 1.5);
+	it('強度 strict は gentle より大きい（整数丸めで厳密3倍にはならない）', () => {
+		const gentle = calcDecay(5, 8, 'gentle');
+		const strict = calcDecay(5, 8, 'strict');
+		// 乗数比: strict(1.5) / gentle(0.5) = 3 だが Math.round で誤差あり
+		expect(strict).toBeGreaterThan(gentle);
+		expect(strict).toBeGreaterThanOrEqual(gentle * 2);
 	});
 
 	it('デフォルト強度は normal', () => {
-		expect(calcDecay(5, 4)).toBeCloseTo(calcDecay(5, 4, 'normal'));
+		expect(calcDecay(5, 4)).toBe(calcDecay(5, 4, 'normal'));
 	});
 
 	it('猶予日数定数が2', () => {
@@ -197,47 +378,49 @@ describe('calcDecay', () => {
 	});
 });
 
+// ================================================================
+// clampDecayFloor (unchanged logic, integer values)
+// ================================================================
+
 describe('clampDecayFloor', () => {
 	it('減少後が下限（70%）以上ならそのまま', () => {
-		expect(clampDecayFloor(100, 10, 100)).toBe(90);
+		expect(clampDecayFloor(1000, 100, 1000)).toBe(900);
 	});
 
 	it('減少後が下限を下回る場合は下限で止まる', () => {
-		expect(clampDecayFloor(75, 10, 100)).toBe(70);
+		expect(clampDecayFloor(750, 100, 1000)).toBe(700);
 	});
 
 	it('既に下限以下の場合は下限を維持', () => {
-		expect(clampDecayFloor(60, 5, 100)).toBe(70);
+		expect(clampDecayFloor(600, 50, 1000)).toBe(700);
 	});
 });
 
+// ================================================================
+// calcTrend (新XPスケール: 閾値変更)
+// ================================================================
+
 describe('calcTrend', () => {
-	it('正の変化はup', () => {
-		expect(calcTrend(1.0)).toBe('up');
+	it('大きい正の変化はup', () => {
+		expect(calcTrend(10)).toBe('up');
+		expect(calcTrend(5)).toBe('up');
 	});
 
-	it('負の変化はdown', () => {
-		expect(calcTrend(-1.0)).toBe('down');
+	it('大きい負の変化はdown', () => {
+		expect(calcTrend(-10)).toBe('down');
+		expect(calcTrend(-5)).toBe('down');
 	});
 
 	it('小さい変化はstable', () => {
-		expect(calcTrend(0.3)).toBe('stable');
-		expect(calcTrend(-0.3)).toBe('stable');
+		expect(calcTrend(2)).toBe('stable');
+		expect(calcTrend(-2)).toBe('stable');
 		expect(calcTrend(0)).toBe('stable');
 	});
 });
 
-describe('LEVEL_TABLE', () => {
-	it('10段階定義されている', () => {
-		expect(LEVEL_TABLE.length).toBe(10);
-	});
-
-	it('レベル1から10まで連続', () => {
-		for (let i = 0; i < 10; i++) {
-			expect(LEVEL_TABLE[i]?.level).toBe(i + 1);
-		}
-	});
-});
+// ================================================================
+// getComparisonLabel (unchanged)
+// ================================================================
 
 describe('getComparisonLabel', () => {
 	it('偏差値65以上は最高ラベル', () => {

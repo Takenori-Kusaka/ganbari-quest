@@ -98,7 +98,9 @@ beforeAll(() => {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			child_id INTEGER NOT NULL REFERENCES children(id),
 			category_id INTEGER NOT NULL REFERENCES categories(id),
-			value REAL NOT NULL DEFAULT 0.0,
+			total_xp INTEGER NOT NULL DEFAULT 0,
+			level INTEGER NOT NULL DEFAULT 1,
+			peak_xp INTEGER NOT NULL DEFAULT 0,
 			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 		CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
@@ -290,16 +292,20 @@ describe('statuses テーブル', () => {
 	it('ステータスを登録できる', () => {
 		const result = db
 			.insert(schema.statuses)
-			.values({ childId: 1, categoryId: 1, value: 30.0 })
+			.values({ childId: 1, categoryId: 1, totalXp: 30, level: 2, peakXp: 30 })
 			.returning()
 			.get();
 
-		expect(result.value).toBe(30.0);
+		expect(result.totalXp).toBe(30);
+		expect(result.level).toBe(2);
+		expect(result.peakXp).toBe(30);
 	});
 
 	it('同じ子供・カテゴリの組み合わせはユニーク制約違反', () => {
 		expect(() => {
-			db.insert(schema.statuses).values({ childId: 1, categoryId: 1, value: 50.0 }).run();
+			db.insert(schema.statuses)
+				.values({ childId: 1, categoryId: 1, totalXp: 50, level: 3, peakXp: 50 })
+				.run();
 		}).toThrow();
 	});
 });
