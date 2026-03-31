@@ -1,3 +1,4 @@
+import { requireTenantId } from '$lib/server/auth/factory';
 import { validationError } from '$lib/server/errors';
 import { validateBase64ImageMagicBytes } from '$lib/server/security/magic-bytes';
 import { ocrReceipt } from '$lib/server/services/receipt-ocr-service';
@@ -7,7 +8,8 @@ import type { RequestHandler } from './$types';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	requireTenantId(locals);
 	const body = await request.json();
 	const { image, mimeType } = body as { image?: string; mimeType?: string };
 
