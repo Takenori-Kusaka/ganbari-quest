@@ -206,13 +206,19 @@ jobs:
             --region $AWS_REGION
 
       # Phase 5: Post-deployment health check (with retry)
+      # Lambda Function URL 直接で確認（DNS 障害時もデプロイ判定可能）
       - name: Health check
         id: healthcheck
         run: |
+          FUNCTION_URL=$(aws lambda get-function-url-config \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION \
+            --query 'FunctionUrl' --output text)
+          echo "Health check target: ${FUNCTION_URL}api/health"
           echo "Waiting 10s for Lambda cold start..."
           sleep 10
           for i in 1 2 3 4 5; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ env.DOMAIN_NAME }}/api/health" || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}api/health")
             echo "Attempt $i: status=$STATUS"
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed"
