@@ -148,11 +148,10 @@ export function calcXpToNextLevel(totalXp: number): {
 } {
 	const xp = Math.max(0, totalXp);
 	const { level } = calcLevelFromXp(xp);
-	const currentEntry = LEVEL_TABLE[level - 1] ?? LEVEL_TABLE[0];
+	const currentEntry = LEVEL_TABLE[level - 1];
 	const nextEntry = level < 99 ? LEVEL_TABLE[level] : null;
 
-	if (!nextEntry) {
-		// Max level
+	if (!currentEntry || !nextEntry) {
 		return {
 			currentLevel: level,
 			xpNeeded: 0,
