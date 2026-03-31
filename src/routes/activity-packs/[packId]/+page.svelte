@@ -14,7 +14,7 @@ const groupedActivities = $derived.by(() => {
 		if (!groups.has(label)) {
 			groups.set(label, []);
 		}
-		groups.get(label)!.push(activity);
+		groups.get(label)?.push(activity);
 	}
 	return [...groups.entries()];
 });
