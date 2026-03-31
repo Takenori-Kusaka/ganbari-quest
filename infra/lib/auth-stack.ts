@@ -16,6 +16,9 @@ export class AuthStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props: AuthStackProps) {
 		super(scope, id, props);
 
+		// --- SES domain ARN (us-east-1 固定 — Cognito はメール送信を us-east-1 SES で行う) ---
+		const sesDomainArn = `arn:aws:ses:us-east-1:${this.account}:identity/ganbari-quest.com`;
+
 		// --- Cognito User Pool (Email/Password + MFA) ---
 		this.userPool = new cognito.UserPool(this, 'UserPool', {
 			userPoolName: 'ganbari-quest-users',
@@ -25,6 +28,13 @@ export class AuthStack extends cdk.Stack {
 			standardAttributes: {
 				email: { required: true, mutable: false },
 			},
+			// SES 経由でメール送信（DKIM/SPF 付き ganbari-quest.com ドメインから）
+			email: cognito.UserPoolEmail.withSES({
+				sesRegion: 'us-east-1',
+				fromEmail: 'noreply@ganbari-quest.com',
+				fromName: 'がんばりクエスト',
+				sesVerifiedDomain: 'ganbari-quest.com',
+			}),
 			// Email OTP is enforced at the application layer (not Cognito MFA)
 			// after USER_PASSWORD_AUTH succeeds, app sends OTP via SES and verifies
 			mfa: cognito.Mfa.OPTIONAL,
