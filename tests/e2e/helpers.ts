@@ -107,10 +107,13 @@ export async function dismissOverlays(page: Page) {
 	}
 
 	// 特別報酬や汎用オーバーレイを閉じる
+	// ダイアログ内のボタンのみ対象にし、ページ上の別ボタンを誤クリックしない
 	for (let i = 0; i < 3; i++) {
 		await page.waitForTimeout(400);
 		try {
-			const closeBtn = page.getByRole('button', { name: /とじる|閉じる|OK|やったー/ });
+			const closeBtn = page
+				.locator('[data-scope="dialog"][data-state="open"]')
+				.getByRole('button', { name: /とじる|閉じる|OK|やったー/ });
 			if (await closeBtn.isVisible().catch(() => false)) {
 				await closeBtn.click();
 				await page.waitForTimeout(300);
@@ -141,7 +144,8 @@ export async function dismissOverlays(page: Page) {
 		await page.waitForTimeout(500);
 
 		// closable=false のダイアログ（おみくじ等）はボタンクリックで閉じる
-		const dialogBtn = page.locator('button').filter({
+		// ダイアログ内のボタンのみ対象
+		const dialogBtn = page.locator('[data-scope="dialog"][data-state="open"] button').filter({
 			hasText: /タップしてすすむ|やったね！|とじる|閉じる|OK|やったー/,
 		});
 		if (
@@ -156,20 +160,7 @@ export async function dismissOverlays(page: Page) {
 	}
 
 	// Ark UI Dialog のゴースト要素を強制非表示
-	// SSR→ハイドレーション不整合で、dialog positioner (fixed inset-0 z-50) が
-	// display:flex のまま残り、z-30 の BottomNav へのクリックをブロックする。
-	// body の pointer-events: none / overflow: hidden も同時にリセットする。
-	await page.evaluate(() => {
-		document.body.style.pointerEvents = '';
-		document.body.style.overflow = '';
-		for (const el of document.querySelectorAll('[data-scope="dialog"][data-part="positioner"]')) {
-			const content = el.querySelector('[data-part="content"]');
-			const isVisible = content && window.getComputedStyle(content).display !== 'none';
-			if (!isVisible) {
-				(el as HTMLElement).style.display = 'none';
-			}
-		}
-	});
+	await clearDialogGhosts(page);
 	await page.waitForTimeout(300);
 }
 
@@ -186,11 +177,33 @@ export async function selectKinderChildAndDismiss(page: Page) {
 }
 
 // ============================================================
+// Dialog ゴースト要素クリーンアップ
+// ============================================================
+
+/** Ark UI Dialog のゴースト positioner を強制非表示にする */
+export async function clearDialogGhosts(page: Page) {
+	await page.evaluate(() => {
+		document.body.style.pointerEvents = '';
+		document.body.style.overflow = '';
+		for (const el of document.querySelectorAll('[data-scope="dialog"][data-part="positioner"]')) {
+			const content = el.querySelector('[data-part="content"]');
+			const isVisible = content && window.getComputedStyle(content).display !== 'none';
+			if (!isVisible) {
+				(el as HTMLElement).style.display = 'none';
+			}
+		}
+	});
+}
+
+// ============================================================
 // カテゴリ展開（compactMode 対応）
 // ============================================================
 
 /** compactMode で折りたたまれた最初のカテゴリを展開する */
 export async function expandFirstCategory(page: Page) {
+	// Ark UI Dialog のゴースト positioner が残留してクリックをブロックすることがある
+	await clearDialogGhosts(page);
+
 	const header = page.locator('[data-testid^="category-header-"]').first();
 	if (await header.isVisible().catch(() => false)) {
 		const cards = page.locator('[data-testid^="activity-card-"]');
@@ -199,6 +212,8 @@ export async function expandFirstCategory(page: Page) {
 			.isVisible()
 			.catch(() => false);
 		if (!cardVisible) {
+			// BottomNav と重ならないよう、要素が完全に見える位置までスクロールしてからクリック
+			await header.scrollIntoViewIfNeeded();
 			await header.click();
 			await page.waitForTimeout(300);
 		}
@@ -207,9 +222,12 @@ export async function expandFirstCategory(page: Page) {
 
 /** compactMode で折りたたまれた全カテゴリを展開する */
 export async function expandAllCategories(page: Page) {
+	await clearDialogGhosts(page);
+
 	const headers = page.locator('[data-testid^="category-header-"]');
 	const count = await headers.count();
 	for (let i = 0; i < count; i++) {
+		await headers.nth(i).scrollIntoViewIfNeeded();
 		await headers.nth(i).click();
 		await page.waitForTimeout(200);
 	}
