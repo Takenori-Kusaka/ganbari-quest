@@ -204,9 +204,8 @@ export async function expandFirstCategory(page: Page) {
 			.isVisible()
 			.catch(() => false);
 		if (!cardVisible) {
-			// BottomNav と重ならないよう、要素が完全に見える位置までスクロールしてからクリック
-			await header.scrollIntoViewIfNeeded();
-			await header.click();
+			// JS evaluate で直接クリック（ダイアログゴースト/BottomNav の干渉を回避）
+			await header.evaluate((el) => el.click());
 			await page.waitForTimeout(300);
 		}
 	}
@@ -219,8 +218,8 @@ export async function expandAllCategories(page: Page) {
 	const headers = page.locator('[data-testid^="category-header-"]');
 	const count = await headers.count();
 	for (let i = 0; i < count; i++) {
-		await headers.nth(i).scrollIntoViewIfNeeded();
-		await headers.nth(i).click();
+		// JS evaluate で直接クリック（ダイアログゴースト/BottomNav の干渉を回避）
+		await headers.nth(i).evaluate((el) => el.click());
 		// アニメーション完了を待つ（固定waitではなく最小限）
 		await page.waitForTimeout(100);
 	}
