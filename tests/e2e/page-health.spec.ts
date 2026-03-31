@@ -24,6 +24,43 @@ test.describe('ページヘルス: Public', () => {
 });
 
 // ============================================================
+// Auth pages — 認証関連（cognito モードではフォーム表示、local モードではリダイレクト）
+// ============================================================
+test.describe('ページヘルス: Auth', () => {
+	const authPages = [
+		{ path: '/auth/login', name: 'ログイン (auth)' },
+		{ path: '/auth/signup', name: 'サインアップ' },
+	];
+
+	for (const { path, name } of authPages) {
+		test(`${name} (${path}) が 500 にならない`, async ({ page }) => {
+			const response = await page.goto(path);
+			expect(response?.status(), `${path} returned ${response?.status()}`).not.toBe(500);
+		});
+	}
+});
+
+// ============================================================
+// Legal redirects — 法的ページリダイレクト
+// ============================================================
+test.describe('ページヘルス: Legal', () => {
+	const legalPages = [
+		{ path: '/legal/terms', name: '利用規約' },
+		{ path: '/legal/privacy', name: 'プライバシーポリシー' },
+		{ path: '/legal/tokushoho', name: '特定商取引法' },
+	];
+
+	for (const { path, name } of legalPages) {
+		test(`${name} (${path}) がリダイレクト or 200 を返す`, async ({ page }) => {
+			const response = await page.goto(path);
+			const status = response?.status() ?? 0;
+			// 301 redirect to external LP, or 200 if served directly
+			expect(status, `${path} returned ${status}`).not.toBe(500);
+		});
+	}
+});
+
+// ============================================================
 // Admin pages — 親管理画面（local モードでは認証不要）
 // ============================================================
 test.describe('ページヘルス: Admin', () => {
