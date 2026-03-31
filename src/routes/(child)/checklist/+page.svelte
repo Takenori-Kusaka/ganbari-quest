@@ -10,9 +10,7 @@ import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
-const celebEffect = $derived(
-	(data.avatarConfig?.celebrationEffect ?? 'default') as CelebrationType,
-);
+const celebEffect: CelebrationType = 'default';
 const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 

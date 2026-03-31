@@ -154,35 +154,6 @@ const radarCategories = $derived(
 			<p class="text-xs text-[var(--color-text-muted)]">獲得した称号一覧</p>
 		</a>
 
-		<!-- Shop link -->
-		<a
-			href="/teen/shop"
-			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">🛒</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">ショップ</p>
-			<p class="text-xs text-[var(--color-text-muted)]">カスタマイズ</p>
-		</a>
-
-		<!-- Memories link -->
-		<a
-			href="/teen/memories"
-			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">📖</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">振り返り</p>
-			<p class="text-xs text-[var(--color-text-muted)]">誕生日の振り返り</p>
-		</a>
-
-		<!-- Career plan link -->
-		<a
-			href="/teen/career"
-			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">🌟</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">目標</p>
-			<p class="text-xs text-[var(--color-text-muted)]">目標設定・キャリアプラン</p>
-		</a>
 	{:else}
 		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-sm)]">⭐</span>

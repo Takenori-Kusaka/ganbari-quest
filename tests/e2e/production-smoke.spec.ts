@@ -126,11 +126,6 @@ test.describe('本番API検証 - GET', () => {
 		expect(response.status()).toBeLessThan(500);
 	});
 
-	test('GET /api/v1/career-fields - キャリア分野', async ({ request }) => {
-		const response = await request.get(`${BASE_URL}/api/v1/career-fields`);
-		expect(response.status()).toBeLessThan(500);
-	});
-
 	test('GET /api/v1/evaluations/1 - 週次評価', async ({ request }) => {
 		const response = await request.get(`${BASE_URL}/api/v1/evaluations/1`);
 		expect(response.status()).toBeLessThan(500);
@@ -148,11 +143,6 @@ test.describe('本番API検証 - GET', () => {
 
 	test('GET /api/v1/points/1/history - ポイント履歴', async ({ request }) => {
 		const response = await request.get(`${BASE_URL}/api/v1/points/1/history`);
-		expect(response.status()).toBeLessThan(500);
-	});
-
-	test('GET /api/v1/career-plans/1 - キャリアプラン', async ({ request }) => {
-		const response = await request.get(`${BASE_URL}/api/v1/career-plans/1`);
 		expect(response.status()).toBeLessThan(500);
 	});
 });

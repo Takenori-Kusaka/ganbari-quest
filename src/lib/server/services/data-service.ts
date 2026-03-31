@@ -5,9 +5,6 @@ import { db } from '$lib/server/db/client';
 import {
 	activityLogs,
 	activityMastery,
-	birthdayReviews,
-	careerPlanHistory,
-	careerPlans,
 	characterImages,
 	checklistLogs,
 	checklistOverrides,
@@ -15,9 +12,7 @@ import {
 	checklistTemplates,
 	childAchievements,
 	childActivityPreferences,
-	childAvatarItems,
 	childCustomVoices,
-	childSkillNodes,
 	childTitles,
 	children,
 	dailyMissions,
@@ -25,7 +20,6 @@ import {
 	levelTitles,
 	loginBonuses,
 	pointLedger,
-	skillPoints,
 	specialRewards,
 	stampCards,
 	stampEntries,
@@ -49,9 +43,6 @@ export interface DataSummary {
 	titles: number;
 	loginBonuses: number;
 	checklistTemplates: number;
-	careerPlans: number;
-	birthdayReviews: number;
-	avatarItems: number;
 	voices: number;
 }
 
@@ -66,8 +57,6 @@ export interface ClearResult {
 		titles: number;
 		loginBonuses: number;
 		checklistTemplates: number;
-		careerPlans: number;
-		birthdayReviews: number;
 		other: number;
 	};
 }
@@ -95,9 +84,6 @@ export async function getDataSummary(_tenantId: string): Promise<DataSummary> {
 		titles: countAll(childTitles),
 		loginBonuses: countAll(loginBonuses),
 		checklistTemplates: countAll(checklistTemplates),
-		careerPlans: countAll(careerPlans),
-		birthdayReviews: countAll(birthdayReviews),
-		avatarItems: countAll(childAvatarItems),
 		voices: countAll(childCustomVoices),
 	};
 }
@@ -126,9 +112,6 @@ export async function clearAllFamilyData(tenantId: string): Promise<ClearResult>
 			// スタンプカード関連
 			stampEntries: tx.delete(stampEntries).run().changes,
 			stampCards: tx.delete(stampCards).run().changes,
-			// スキルツリー関連
-			childSkillNodes: tx.delete(childSkillNodes).run().changes,
-			skillPoints: tx.delete(skillPoints).run().changes,
 			// 活動習熟
 			activityMastery: tx.delete(activityMastery).run().changes,
 			// チェックリスト関連
@@ -140,7 +123,6 @@ export async function clearAllFamilyData(tenantId: string): Promise<ClearResult>
 			specialRewards: tx.delete(specialRewards).run().changes,
 			childAchievements: tx.delete(childAchievements).run().changes,
 			childTitles: tx.delete(childTitles).run().changes,
-			childAvatarItems: tx.delete(childAvatarItems).run().changes,
 			// ボーナス・ミッション
 			loginBonuses: tx.delete(loginBonuses).run().changes,
 			dailyMissions: tx.delete(dailyMissions).run().changes,
@@ -151,11 +133,6 @@ export async function clearAllFamilyData(tenantId: string): Promise<ClearResult>
 			evaluations: tx.delete(evaluations).run().changes,
 			statusHistory: tx.delete(statusHistory).run().changes,
 			statuses: tx.delete(statuses).run().changes,
-			// キャリア
-			careerPlanHistory: tx.delete(careerPlanHistory).run().changes,
-			careerPlans: tx.delete(careerPlans).run().changes,
-			// 誕生日
-			birthdayReviews: tx.delete(birthdayReviews).run().changes,
 			// 嗜好
 			childActivityPreferences: tx.delete(childActivityPreferences).run().changes,
 			// 記録
@@ -180,24 +157,18 @@ export async function clearAllFamilyData(tenantId: string): Promise<ClearResult>
 			titles: result.childTitles,
 			loginBonuses: result.loginBonuses,
 			checklistTemplates: result.checklistTemplates,
-			careerPlans: result.careerPlans,
-			birthdayReviews: result.birthdayReviews,
 			other:
 				result.stampEntries +
 				result.stampCards +
-				result.childSkillNodes +
-				result.skillPoints +
 				result.activityMastery +
 				result.checklistOverrides +
 				result.checklistLogs +
 				result.checklistTemplateItems +
 				result.specialRewards +
-				result.childAvatarItems +
 				result.dailyMissions +
 				result.characterImages +
 				result.childCustomVoices +
 				result.evaluations +
-				result.careerPlanHistory +
 				result.childActivityPreferences +
 				result.levelTitles,
 		},

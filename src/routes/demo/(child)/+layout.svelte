@@ -27,7 +27,6 @@ const navItems = $derived([
 			nickname={data.child.nickname}
 			totalPoints={data.balance}
 			avatarUrl={data.child.avatarUrl}
-			avatarConfig={data.avatarConfig}
 			pointSettings={data.pointSettings}
 			activeTitle={data.activeTitle}
 		/>

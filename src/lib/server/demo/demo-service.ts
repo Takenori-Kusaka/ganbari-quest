@@ -16,7 +16,6 @@ import {
 } from '$lib/domain/validation/status';
 import type { Activity, Child } from '$lib/server/db/types/index.js';
 import type { AchievementWithStatus } from '$lib/server/services/achievement-service';
-import type { AvatarConfig } from '$lib/server/services/avatar-service';
 import type { DailyMissionStatus } from '$lib/server/services/daily-mission-service';
 import type { LoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import type { ChildStatus, StatusDetail } from '$lib/server/services/status-service';
@@ -25,8 +24,6 @@ import type { ActiveTitleInfo, TitleWithStatus } from '$lib/server/services/titl
 import {
 	DEMO_ACTIVITIES,
 	DEMO_ACTIVITY_LOGS,
-	DEMO_CAREER_FIELDS,
-	DEMO_CAREER_PLAN,
 	DEMO_CHILDREN,
 	DEMO_LOGIN_BONUSES,
 	DEMO_POINT_BALANCES,
@@ -210,7 +207,7 @@ export interface DemoChildLayoutData {
 	level: number;
 	levelTitle: string;
 	activeTitle: ActiveTitleInfo | null;
-	avatarConfig: AvatarConfig;
+	avatarConfig: null;
 	allChildren: Child[];
 	uiMode: string;
 	pointSettings: PointSettings;
@@ -226,7 +223,7 @@ export function getDemoChildLayoutData(childId: number): DemoChildLayoutData {
 			level: 1,
 			levelTitle: 'はじめのぼうけんしゃ',
 			activeTitle: null,
-			avatarConfig: defaultAvatarConfig(),
+			avatarConfig: null,
 			allChildren: DEMO_CHILDREN,
 			uiMode: 'kinder',
 			pointSettings: DEFAULT_POINT_SETTINGS,
@@ -264,21 +261,10 @@ export function getDemoChildLayoutData(childId: number): DemoChildLayoutData {
 		level,
 		levelTitle: title,
 		activeTitle,
-		avatarConfig: defaultAvatarConfig(),
+		avatarConfig: null,
 		allChildren: DEMO_CHILDREN,
 		uiMode: child.uiMode ?? 'kinder',
 		pointSettings: DEFAULT_POINT_SETTINGS,
-	};
-}
-
-function defaultAvatarConfig(): AvatarConfig {
-	return {
-		bgCss: '',
-		frameCss: '',
-		effectClass: '',
-		customSoundPath: null,
-		customVoicePath: null,
-		celebrationEffect: '',
 	};
 }
 
@@ -293,8 +279,6 @@ export interface DemoHomeData {
 	latestReward: null;
 	hasChecklists: boolean;
 	checklistProgress: { checkedCount: number; totalCount: number; allDone: boolean } | null;
-	birthdayStatus: null;
-	healthCheckItems: { key: string; label: string; icon: string }[];
 	dailyMissions: DailyMissionStatus | null;
 }
 
@@ -308,8 +292,6 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 			latestReward: null,
 			hasChecklists: false,
 			checklistProgress: null,
-			birthdayStatus: null,
-			healthCheckItems: [],
 			dailyMissions: null,
 		};
 	}
@@ -390,14 +372,6 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 		latestReward: null,
 		hasChecklists,
 		checklistProgress,
-		birthdayStatus: null,
-		healthCheckItems: [
-			{ key: 'no_injury', label: 'おおきなけがをしなかった', icon: '🩹' },
-			{ key: 'no_cold', label: 'かぜをあまりひかなかった', icon: '🤧' },
-			{ key: 'played_outside', label: 'たくさんそとであそんだ', icon: '🌞' },
-			{ key: 'ate_well', label: 'すききらいなくたべられた', icon: '🍽️' },
-			{ key: 'slept_well', label: 'はやねはやおきができた', icon: '😴' },
-		],
 		dailyMissions,
 	};
 }
@@ -653,18 +627,6 @@ export function getDemoAdminData(): DemoAdminData {
 }
 
 // ============================================================
-// Career page data (teen only)
-// ============================================================
-
-export function getDemoCareerData(childId: number) {
-	if (childId !== 904) return { fields: DEMO_CAREER_FIELDS, plan: null };
-	return {
-		fields: DEMO_CAREER_FIELDS,
-		plan: DEMO_CAREER_PLAN,
-	};
-}
-
-// ============================================================
 // Checklist page data
 // ============================================================
 
@@ -704,7 +666,6 @@ export function demoRecordActivity(activityId: number) {
 		masteryBonus: 0,
 		masteryLevel: 1,
 		masteryLeveledUp: null,
-		skillPointBonus: 0,
 		cancelableUntil: new Date(Date.now() + 30 * 60_000).toISOString(),
 		unlockedAchievements: [],
 		comboBonus: null,

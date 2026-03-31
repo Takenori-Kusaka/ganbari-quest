@@ -4,7 +4,6 @@ import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { UI_MODES } from '$lib/domain/validation/age-tier';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings } from '$lib/server/db/settings-repo';
-import { checkAndUnlockItems, getAvatarConfig } from '$lib/server/services/avatar-service';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getStampCardStatus } from '$lib/server/services/stamp-card-service';
@@ -51,25 +50,15 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	}
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
-	const [
-		balanceResult,
-		statusResult,
-		activeTitle,
-		,
-		avatarConfig,
-		allChildren,
-		pointSettingsRaw,
-		stampCardResult,
-	] = await Promise.all([
-		getPointBalance(childId, tenantId),
-		getChildStatus(childId, tenantId),
-		getActiveTitle(childId, tenantId),
-		checkAndUnlockItems(childId, tenantId),
-		getAvatarConfig(childId, tenantId),
-		getAllChildren(tenantId),
-		getSettings(['point_unit_mode', 'point_currency', 'point_rate'], tenantId),
-		getStampCardStatus(childId, tenantId),
-	]);
+	const [balanceResult, statusResult, activeTitle, allChildren, pointSettingsRaw, stampCardResult] =
+		await Promise.all([
+			getPointBalance(childId, tenantId),
+			getChildStatus(childId, tenantId),
+			getActiveTitle(childId, tenantId),
+			getAllChildren(tenantId),
+			getSettings(['point_unit_mode', 'point_currency', 'point_rate'], tenantId),
+			getStampCardStatus(childId, tenantId),
+		]);
 
 	const balance = 'error' in balanceResult ? 0 : balanceResult.balance;
 	const level = 'error' in statusResult ? 1 : statusResult.level;
@@ -92,7 +81,6 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		level,
 		levelTitle,
 		activeTitle,
-		avatarConfig,
 		allChildren,
 		uiMode: effectiveMode,
 		pointSettings,

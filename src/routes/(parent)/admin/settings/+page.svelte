@@ -614,15 +614,6 @@ const previewFormatted = $derived(
 							{#if (importPreview.checklistTemplates ?? 0) > 0}
 								<li>チェックリスト: {importPreview.checklistTemplates}件</li>
 							{/if}
-							{#if (importPreview.avatarItems ?? 0) > 0}
-								<li>きせかえアイテム: {importPreview.avatarItems}件</li>
-							{/if}
-							{#if (importPreview.careerPlans ?? 0) > 0}
-								<li>キャリアプラン: {importPreview.careerPlans}件</li>
-							{/if}
-							{#if (importPreview.birthdayReviews ?? 0) > 0}
-								<li>誕生日振り返り: {importPreview.birthdayReviews}件</li>
-							{/if}
 						</ul>
 					</div>
 					<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
@@ -741,7 +732,6 @@ const previewFormatted = $derived(
 					<li>称号: {data.dataSummary.titles}件</li>
 					<li>ログインボーナス: {data.dataSummary.loginBonuses}件</li>
 					<li>チェックリスト: {data.dataSummary.checklistTemplates}件</li>
-					<li>キャリアプラン: {data.dataSummary.careerPlans}件</li>
 				</ul>
 			</div>
 		{/if}

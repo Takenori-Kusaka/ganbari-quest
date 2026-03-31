@@ -32,7 +32,6 @@ import {
 } from '$lib/server/services/achievement-service';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
-import { getActiveSkillEffects } from '$lib/server/services/skill-service';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
 
 /** 1回の活動記録あたりのステータス増加量 */
@@ -66,7 +65,6 @@ export interface RecordActivityResult {
 	masteryBonus: number;
 	masteryLevel: number;
 	masteryLeveledUp: MasteryLevelUpInfo | null;
-	skillPointBonus: number;
 	totalPoints: number;
 	recordedAt: string;
 	cancelableUntil: string;
@@ -136,10 +134,7 @@ export async function recordActivity(
 	const currentLevel = mastery?.level ?? 1;
 	const masteryBonus = calcMasteryBonus(currentLevel);
 
-	// スキルツリーボーナス
-	const skillEffects = await getActiveSkillEffects(childId, tenantId);
-	const skillPointBonus = Math.floor(skillEffects.pointBonuses[activity.categoryId] ?? 0);
-	const totalPoints = activity.basePoints + streakBonus + masteryBonus + skillPointBonus;
+	const totalPoints = activity.basePoints + streakBonus + masteryBonus;
 
 	// Insert activity log
 	const now = new Date().toISOString();
@@ -171,15 +166,14 @@ export async function recordActivity(
 			childId,
 			amount: totalPoints,
 			type: 'activity',
-			description: `${activity.name}${streakBonus > 0 ? ` (${streakDays}日連続+${streakBonus})` : ''}${masteryBonus > 0 ? ` (習熟Lv.${newLevel}+${masteryBonus})` : ''}${skillPointBonus > 0 ? ` (スキル+${skillPointBonus})` : ''}`,
+			description: `${activity.name}${streakBonus > 0 ? ` (${streakDays}日連続+${streakBonus})` : ''}${masteryBonus > 0 ? ` (習熟Lv.${newLevel}+${masteryBonus})` : ''}`,
 			referenceId: log.id,
 		},
 		tenantId,
 	);
 
-	// ステータスを即時更新（スキルXP倍率を適用）
-	const xpMultiplier = skillEffects.xpMultipliers[activity.categoryId] ?? 1;
-	const statusIncrease = STATUS_PER_ACTIVITY * xpMultiplier;
+	// ステータスを即時更新
+	const statusIncrease = STATUS_PER_ACTIVITY;
 	const statusResult = await updateStatus(
 		childId,
 		activity.categoryId,
@@ -241,7 +235,6 @@ export async function recordActivity(
 		masteryBonus,
 		masteryLevel: newLevel,
 		masteryLeveledUp,
-		skillPointBonus,
 		totalPoints,
 		recordedAt: now,
 		cancelableUntil,

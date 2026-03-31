@@ -22,9 +22,6 @@ export interface Child {
 	uiMode: string;
 	avatarUrl: string | null;
 	activeTitleId: number | null;
-	activeAvatarBg: number | null;
-	activeAvatarFrame: number | null;
-	activeAvatarEffect: number | null;
 	displayConfig: string | null;
 	userId: string | null;
 	createdAt: string;
@@ -254,30 +251,6 @@ export interface DailyMission {
 	completedAt: string | null;
 }
 
-export interface AvatarItem {
-	id: number;
-	code: string;
-	name: string;
-	description: string | null;
-	category: string;
-	icon: string;
-	cssValue: string;
-	price: number;
-	unlockType: string;
-	unlockCondition: string | null;
-	rarity: string;
-	sortOrder: number;
-	isActive: number;
-	createdAt: string;
-}
-
-export interface ChildAvatarItem {
-	id: number;
-	childId: number;
-	avatarItemId: number;
-	acquiredAt: string;
-}
-
 export interface Title {
 	id: number;
 	code: string;
@@ -297,42 +270,6 @@ export interface ChildTitle {
 	childId: number;
 	titleId: number;
 	unlockedAt: string;
-}
-
-export interface CareerField {
-	id: number;
-	name: string;
-	description: string | null;
-	icon: string | null;
-	relatedCategories: string;
-	recommendedActivities: string;
-	minAge: number;
-	createdAt: string;
-}
-
-export interface CareerPlan {
-	id: number;
-	childId: number;
-	careerFieldId: number | null;
-	dreamText: string | null;
-	mandalaChart: string;
-	timeline3y: string | null;
-	timeline5y: string | null;
-	timeline10y: string | null;
-	targetStatuses: string;
-	version: number;
-	isActive: number;
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface CareerPlanHistory {
-	id: number;
-	careerPlanId: number;
-	action: string;
-	pointsEarned: number;
-	snapshot: string;
-	createdAt: string;
 }
 
 // ============================================================
@@ -487,46 +424,12 @@ export interface InsertBirthdayReviewInput {
 	totalPoints: number;
 }
 
-export interface InsertCareerPlanInput {
-	childId: number;
-	careerFieldId?: number;
-	dreamText?: string;
-	mandalaChart?: string;
-	timeline3y?: string;
-	timeline5y?: string;
-	timeline10y?: string;
-}
-
-export interface UpdateCareerPlanInput {
-	careerFieldId?: number;
-	dreamText?: string;
-	mandalaChart?: string;
-	timeline3y?: string;
-	timeline5y?: string;
-	timeline10y?: string;
-	version?: number;
-}
-
-export interface InsertCareerPlanHistoryInput {
-	careerPlanId: number;
-	action: string;
-	pointsEarned: number;
-	snapshot?: string;
-}
-
 export interface InsertParentMessageInput {
 	childId: number;
 	messageType: string;
 	stampCode?: string | null;
 	body?: string | null;
 	icon?: string;
-}
-
-export interface InsertCareerPointInput {
-	childId: number;
-	amount: number;
-	description: string;
-	referenceId?: number;
 }
 
 export interface InsertCharacterImageInput {
@@ -598,41 +501,6 @@ export interface ChildActivityPreference {
 export interface ActivityUsageCount {
 	activityId: number;
 	usageCount: number;
-}
-
-// ============================================================
-// Skill Tree (パッシブスキルツリー)
-// ============================================================
-
-export interface SkillNode {
-	id: number;
-	categoryId: number | null;
-	name: string;
-	description: string | null;
-	icon: string;
-	sortOrder: number;
-	spCost: number;
-	requiredNodeId: number | null;
-	requiredCategoryLevel: number;
-	effectType: string;
-	effectValue: number;
-	targetModes: string;
-}
-
-export interface ChildSkillNode {
-	id: number;
-	childId: number;
-	nodeId: number;
-	unlockedAt: string;
-}
-
-export interface SkillPoints {
-	id: number;
-	childId: number;
-	balance: number;
-	totalEarned: number;
-	totalSpent: number;
-	updatedAt: string;
 }
 
 // ============================================================

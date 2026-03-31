@@ -13,8 +13,6 @@
 import type {
 	Activity,
 	ActivityLog,
-	CareerField,
-	CareerPlan,
 	ChecklistTemplate,
 	ChecklistTemplateItem,
 	Child,
@@ -59,9 +57,6 @@ export const DEMO_CHILDREN: Child[] = [
 		uiMode: 'baby',
 		avatarUrl: null,
 		activeTitleId: null,
-		activeAvatarBg: null,
-		activeAvatarFrame: null,
-		activeAvatarEffect: null,
 		displayConfig: null,
 		userId: null,
 		createdAt: '2026-01-01T00:00:00.000Z',
@@ -76,9 +71,6 @@ export const DEMO_CHILDREN: Child[] = [
 		uiMode: 'kinder',
 		avatarUrl: null,
 		activeTitleId: 1,
-		activeAvatarBg: 1,
-		activeAvatarFrame: null,
-		activeAvatarEffect: null,
 		displayConfig: null,
 		userId: null,
 		createdAt: '2025-09-01T00:00:00.000Z',
@@ -93,9 +85,6 @@ export const DEMO_CHILDREN: Child[] = [
 		uiMode: 'lower',
 		avatarUrl: null,
 		activeTitleId: 3,
-		activeAvatarBg: 2,
-		activeAvatarFrame: 1,
-		activeAvatarEffect: null,
 		displayConfig: null,
 		userId: null,
 		createdAt: '2025-04-01T00:00:00.000Z',
@@ -110,9 +99,6 @@ export const DEMO_CHILDREN: Child[] = [
 		uiMode: 'teen',
 		avatarUrl: null,
 		activeTitleId: 5,
-		activeAvatarBg: 3,
-		activeAvatarFrame: 2,
-		activeAvatarEffect: 1,
 		displayConfig: null,
 		userId: null,
 		createdAt: '2025-04-01T00:00:00.000Z',
@@ -943,98 +929,6 @@ export const DEMO_LOGIN_BONUSES: LoginBonus[] = [
 		createdAt: NOW,
 	},
 ];
-
-// ============================================================
-// Career Plan (teen only)
-// ============================================================
-
-export const DEMO_CAREER_FIELDS: CareerField[] = [
-	{
-		id: 1,
-		name: 'エンジニア・プログラマー',
-		description: 'ソフトウェア開発やシステム構築',
-		icon: '💻',
-		relatedCategories: '[2,5]',
-		recommendedActivities: '[43,13]',
-		minAge: 10,
-		createdAt: NOW,
-	},
-	{
-		id: 2,
-		name: 'スポーツ選手',
-		description: 'プロスポーツや競技',
-		icon: '⚽',
-		relatedCategories: '[1]',
-		recommendedActivities: '[3,4]',
-		minAge: 8,
-		createdAt: NOW,
-	},
-	{
-		id: 3,
-		name: '医師・看護師',
-		description: '医療・ヘルスケア',
-		icon: '🏥',
-		relatedCategories: '[2,4]',
-		recommendedActivities: '[11,12]',
-		minAge: 10,
-		createdAt: NOW,
-	},
-];
-
-export const DEMO_CAREER_PLAN: CareerPlan = {
-	id: 1,
-	childId: 904,
-	careerFieldId: 1,
-	dreamText: 'ゲームを作るプログラマーになりたい',
-	mandalaChart: JSON.stringify({
-		center: 'ゲームプログラマー',
-		surrounding: [
-			{
-				goal: 'プログラミングスキル',
-				actions: [
-					'毎日1時間コーディング',
-					'Pythonを学ぶ',
-					'ゲームを1本完成させる',
-					'競プロに挑戦',
-					'',
-					'',
-					'',
-					'',
-				],
-			},
-			{
-				goal: '数学力',
-				actions: ['数学の成績5を目指す', '確率・統計を学ぶ', '', '', '', '', '', ''],
-			},
-			{
-				goal: '英語力',
-				actions: ['技術ドキュメントを読む', '英語の授業で発表', '', '', '', '', '', ''],
-			},
-			{
-				goal: 'チームワーク',
-				actions: ['部活で協力する', 'ハッカソンに参加', '', '', '', '', '', ''],
-			},
-			{ goal: '体力づくり', actions: ['毎日30分運動', 'サッカーを続ける', '', '', '', '', '', ''] },
-			{ goal: '創造力', actions: ['デザインを学ぶ', 'UIを考える', '', '', '', '', '', ''] },
-			{
-				goal: '知識を広げる',
-				actions: ['本を月2冊読む', 'ニュースを見る', '', '', '', '', '', ''],
-			},
-			{ goal: '生活習慣', actions: ['早寝早起き', '計画的に行動する', '', '', '', '', '', ''] },
-		],
-	}),
-	timeline3y: '高校でプログラミング部に入り、基礎を固める',
-	timeline5y: '大学で情報工学を学び、インターンに参加する',
-	timeline10y: 'ゲーム会社でプログラマーとして活躍する',
-	targetStatuses: JSON.stringify([
-		{ categoryId: 2, target: 2000 },
-		{ categoryId: 5, target: 1800 },
-	]),
-	version: 1,
-	isActive: 1,
-	createdAt: daysAgoISO(30),
-	updatedAt: NOW,
-};
 
 // ============================================================
 // Helper: Get demo data for a specific child
