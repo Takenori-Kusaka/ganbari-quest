@@ -7,6 +7,7 @@ interface CategoryData {
 	name: string;
 	value: number;
 	maxValue: number;
+	level?: number;
 	deviationScore?: number;
 	stars?: number;
 	trend: 'up' | 'down' | 'stable';
@@ -42,20 +43,28 @@ const trendIcons: Record<string, string> = {
 	stable: '➡️',
 };
 
-// スコア割合でレーダーチャートの値を正規化（0-100%）
+// レベルベースでレーダーチャートの値を正規化（0-100%）
+// レベル15で100%表示。低レベル帯でも見やすいスケール
+const RADAR_VISUAL_MAX_LEVEL = 15;
 const normalizedValues = $derived(
 	categories.map((c) => {
-		const pct = c.maxValue > 0 ? (c.value / c.maxValue) * 100 : 0;
+		const level = c.level ?? 1;
+		const pct = (level / RADAR_VISUAL_MAX_LEVEL) * 100;
 		return Math.min(100, Math.max(5, pct));
 	}),
 );
 
-// Comparison polygon values (previous month)
+// Comparison polygon values (previous month) — XPからレベルに変換
 const compNormalized = $derived(
 	comparisonValues
 		? categories.map((c) => {
-				const prev = comparisonValues[c.categoryId] ?? 0;
-				const pct = c.maxValue > 0 ? (prev / c.maxValue) * 100 : 0;
+				const prevXp = comparisonValues[c.categoryId] ?? 0;
+				// 簡易レベル推定: 同カテゴリの現在レベルとXP比率から推定
+				const currentLevel = c.level ?? 1;
+				const currentXp = c.value || 1;
+				const prevLevel =
+					currentXp > 0 ? Math.max(1, Math.round(currentLevel * (prevXp / currentXp))) : 1;
+				const pct = (prevLevel / RADAR_VISUAL_MAX_LEVEL) * 100;
 				return Math.min(100, Math.max(5, pct));
 			})
 		: null,

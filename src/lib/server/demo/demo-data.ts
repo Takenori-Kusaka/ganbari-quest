@@ -689,30 +689,30 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 // ============================================================
 
 export const DEMO_STATUSES: Status[] = [
-	// ひかり (baby, level 2) — low values
-	{ id: 9011, childId: 901, categoryId: 1, value: 15, updatedAt: NOW },
-	{ id: 9012, childId: 901, categoryId: 2, value: 8, updatedAt: NOW },
-	{ id: 9013, childId: 901, categoryId: 3, value: 20, updatedAt: NOW },
-	{ id: 9014, childId: 901, categoryId: 4, value: 10, updatedAt: NOW },
-	{ id: 9015, childId: 901, categoryId: 5, value: 12, updatedAt: NOW },
-	// そうた (kinder, level 4) — moderate
-	{ id: 9021, childId: 902, categoryId: 1, value: 80, updatedAt: NOW },
-	{ id: 9022, childId: 902, categoryId: 2, value: 65, updatedAt: NOW },
-	{ id: 9023, childId: 902, categoryId: 3, value: 55, updatedAt: NOW },
-	{ id: 9024, childId: 902, categoryId: 4, value: 45, updatedAt: NOW },
-	{ id: 9025, childId: 902, categoryId: 5, value: 70, updatedAt: NOW },
-	// あおい (lower, level 6) — active
-	{ id: 9031, childId: 903, categoryId: 1, value: 250, updatedAt: NOW },
-	{ id: 9032, childId: 903, categoryId: 2, value: 200, updatedAt: NOW },
-	{ id: 9033, childId: 903, categoryId: 3, value: 180, updatedAt: NOW },
-	{ id: 9034, childId: 903, categoryId: 4, value: 120, updatedAt: NOW },
-	{ id: 9035, childId: 903, categoryId: 5, value: 160, updatedAt: NOW },
-	// はると (teen, level 8) — very active
-	{ id: 9041, childId: 904, categoryId: 1, value: 1200, updatedAt: NOW },
-	{ id: 9042, childId: 904, categoryId: 2, value: 1500, updatedAt: NOW },
-	{ id: 9043, childId: 904, categoryId: 3, value: 800, updatedAt: NOW },
-	{ id: 9044, childId: 904, categoryId: 4, value: 600, updatedAt: NOW },
-	{ id: 9045, childId: 904, categoryId: 5, value: 1100, updatedAt: NOW },
+	// ひかり (baby, Lv.2) — 15 XP 程度
+	{ id: 9011, childId: 901, categoryId: 1, totalXp: 20, level: 2, peakXp: 20, updatedAt: NOW },
+	{ id: 9012, childId: 901, categoryId: 2, totalXp: 10, level: 1, peakXp: 10, updatedAt: NOW },
+	{ id: 9013, childId: 901, categoryId: 3, totalXp: 25, level: 2, peakXp: 25, updatedAt: NOW },
+	{ id: 9014, childId: 901, categoryId: 4, totalXp: 12, level: 1, peakXp: 12, updatedAt: NOW },
+	{ id: 9015, childId: 901, categoryId: 5, totalXp: 18, level: 2, peakXp: 18, updatedAt: NOW },
+	// そうた (kinder, Lv.4) — 80-140 XP
+	{ id: 9021, childId: 902, categoryId: 1, totalXp: 120, level: 4, peakXp: 120, updatedAt: NOW },
+	{ id: 9022, childId: 902, categoryId: 2, totalXp: 90, level: 4, peakXp: 90, updatedAt: NOW },
+	{ id: 9023, childId: 902, categoryId: 3, totalXp: 75, level: 3, peakXp: 75, updatedAt: NOW },
+	{ id: 9024, childId: 902, categoryId: 4, totalXp: 55, level: 3, peakXp: 55, updatedAt: NOW },
+	{ id: 9025, childId: 902, categoryId: 5, totalXp: 100, level: 4, peakXp: 100, updatedAt: NOW },
+	// あおい (lower, Lv.7) — 275-500 XP
+	{ id: 9031, childId: 903, categoryId: 1, totalXp: 450, level: 9, peakXp: 450, updatedAt: NOW },
+	{ id: 9032, childId: 903, categoryId: 2, totalXp: 350, level: 8, peakXp: 350, updatedAt: NOW },
+	{ id: 9033, childId: 903, categoryId: 3, totalXp: 300, level: 7, peakXp: 300, updatedAt: NOW },
+	{ id: 9034, childId: 903, categoryId: 4, totalXp: 200, level: 6, peakXp: 200, updatedAt: NOW },
+	{ id: 9035, childId: 903, categoryId: 5, totalXp: 280, level: 7, peakXp: 280, updatedAt: NOW },
+	// はると (teen, Lv.15+) — 1200-2500 XP
+	{ id: 9041, childId: 904, categoryId: 1, totalXp: 2000, level: 18, peakXp: 2000, updatedAt: NOW },
+	{ id: 9042, childId: 904, categoryId: 2, totalXp: 2500, level: 20, peakXp: 2500, updatedAt: NOW },
+	{ id: 9043, childId: 904, categoryId: 3, totalXp: 1200, level: 15, peakXp: 1200, updatedAt: NOW },
+	{ id: 9044, childId: 904, categoryId: 4, totalXp: 800, level: 10, peakXp: 800, updatedAt: NOW },
+	{ id: 9045, childId: 904, categoryId: 5, totalXp: 1800, level: 17, peakXp: 1800, updatedAt: NOW },
 ];
 
 // ============================================================

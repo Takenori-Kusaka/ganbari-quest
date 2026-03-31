@@ -23,6 +23,7 @@ const radarCategories = $derived(
 					name: catDef.name,
 					value: s?.value ?? 0,
 					maxValue: data.status?.maxValue,
+					level: s?.level ?? 1,
 					deviationScore: s?.deviationScore ?? 50,
 					stars: s?.stars ?? 0,
 					trend: (s?.trend ?? 'stable') as 'up' | 'down' | 'stable',
@@ -51,14 +52,14 @@ const radarCategories = $derived(
 				{#each CATEGORY_DEFS as catDef (catDef.id)}
 					{@const stat = data.status.statuses[catDef.id]}
 					{#if stat}
-						{@const pct = stat.level >= 10 ? 100 : Math.min(100, Math.max(0, ((stat.value / data.status.maxValue * 100) - (stat.level - 1) * 10) / 10 * 100))}
+						{@const pct = stat.level >= 99 ? 100 : (stat.progressPct ?? 0)}
 						<div style="display: flex; align-items: center; gap: 4px;">
 							<span style="font-size: 1.125rem; width: 1.75rem; text-align: center;">{catDef.icon}</span>
 							<div style="flex: 1; min-width: 0;">
 								<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
 									<span style="font-size: 0.75rem; font-weight: 700; color: var(--color-text);">{catDef.name} Lv.{stat.level}</span>
-									{#if stat.level < 10}
-										<span style="font-size: 10px; color: var(--color-text-muted);">あと {Math.round(stat.expToNextLevel)}</span>
+									{#if stat.level < 99}
+										<span style="font-size: 10px; color: var(--color-text-muted);">あと {Math.round(stat.expToNextLevel)}XP</span>
 									{:else}
 										<span style="font-size: 10px; font-weight: 700; color: var(--color-point);">MAX</span>
 									{/if}
@@ -98,7 +99,8 @@ const radarCategories = $derived(
 								<StatusBar
 									categoryId={catDef.id}
 									value={status.value}
-									maxValue={data.status.maxValue}
+									level={status.level}
+									progressPct={status.progressPct}
 								/>
 								<div class="status-bars__trend">
 									<span class="status-bars__trend-icon">

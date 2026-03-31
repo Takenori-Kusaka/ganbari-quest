@@ -3,13 +3,13 @@
 
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import {
-	calcCategoryExpToNextLevel,
-	calcCategoryLevel,
 	calcCharacterType,
 	calcDeviationScore,
+	calcLevelFromXp,
 	calcStars,
 	calcTrend,
-	getMaxForAge,
+	calcXpToNextLevel,
+	clampDecayFloor,
 } from '$lib/domain/validation/status';
 import { getRepos } from '$lib/server/db/factory';
 import {
@@ -30,6 +30,8 @@ export interface StatusDetail {
 	level: number;
 	levelTitle: string;
 	expToNextLevel: number;
+	/** 現レベル内の進捗% (0-100) */
+	progressPct: number;
 }
 
 export interface ChildStatus {
@@ -54,7 +56,6 @@ export async function getChildStatus(
 	const child = await findChildById(childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND' };
 
-	const maxValue = getMaxForAge(child.age);
 	const [statusRows, customTitles] = await Promise.all([
 		findStatuses(childId, tenantId),
 		getCustomLevelTitles(tenantId),
@@ -67,37 +68,38 @@ export async function getChildStatus(
 
 	for (const catDef of CATEGORY_DEFS) {
 		const row = statusRows.find((s) => s.categoryId === catDef.id);
-		const value = row?.value ?? 0;
+		const totalXp = row?.totalXp ?? 0;
 
 		// 市場比較（ベンチマーク）
 		const benchmark = await findBenchmark(child.age, catDef.id, tenantId);
 		const deviationScore = benchmark
-			? calcDeviationScore(value, benchmark.mean, benchmark.stdDev)
-			: 50; // ベンチマークがない場合は平均
+			? calcDeviationScore(totalXp, benchmark.mean, benchmark.stdDev)
+			: 50;
 
-		const stars = calcStars(value, maxValue);
+		const stars = benchmark ? calcStars(totalXp, benchmark.mean) : 3;
 
 		// 直近の変動履歴からトレンド判定
 		const history = await findRecentStatusHistory(childId, catDef.id, tenantId, 2);
 		const recentChange = history.length >= 2 ? (history[0]?.changeAmount ?? 0) : 0;
 		const trend = calcTrend(recentChange);
 
-		// カテゴリ別レベル
-		const catLevel = calcCategoryLevel(value, maxValue);
-		const catExp = calcCategoryExpToNextLevel(value, maxValue);
+		// カテゴリ別レベル（新XPベース）
+		const { level, title } = calcLevelFromXp(totalXp);
+		const xpInfo = calcXpToNextLevel(totalXp);
 
 		statusMap[catDef.id] = {
-			value: Math.round(value * 10) / 10,
+			value: totalXp,
 			deviationScore,
 			stars,
 			trend,
-			level: catLevel.level,
-			levelTitle: resolveLevelTitle(catLevel.level, customTitles),
-			expToNextLevel: Math.round(catExp * 10) / 10,
+			level,
+			levelTitle: resolveLevelTitle(level, customTitles) || title,
+			expToNextLevel: xpInfo.xpNeeded,
+			progressPct: xpInfo.progressPct,
 		};
 
-		if (catLevel.level > highestCategoryLevel) {
-			highestCategoryLevel = catLevel.level;
+		if (level > highestCategoryLevel) {
+			highestCategoryLevel = level;
 		}
 
 		totalDeviation += deviationScore;
@@ -112,7 +114,7 @@ export async function getChildStatus(
 		level: highestCategoryLevel,
 		levelTitle: resolveLevelTitle(highestCategoryLevel, customTitles),
 		expToNextLevel: 0,
-		maxValue,
+		maxValue: 100000,
 		statuses: statusMap,
 		characterType,
 		highestCategoryLevel,
@@ -147,14 +149,14 @@ export async function getMonthlyComparison(
 
 	for (const catDef of CATEGORY_DEFS) {
 		const row = statusRows.find((s) => s.categoryId === catDef.id);
-		const currentValue = row?.value ?? 0;
-		current[catDef.id] = Math.round(currentValue * 10) / 10;
+		const currentXp = row?.totalXp ?? 0;
+		current[catDef.id] = currentXp;
 
 		const prevValue = await findStatusValueAtDate(childId, catDef.id, lastMonthEnd, tenantId);
-		previous[catDef.id] = prevValue !== null ? Math.round(prevValue * 10) / 10 : 0;
+		previous[catDef.id] = prevValue ?? 0;
 		const cur = current[catDef.id] ?? 0;
 		const prev = previous[catDef.id] ?? 0;
-		changes[catDef.id] = Math.round((cur - prev) * 10) / 10;
+		changes[catDef.id] = cur - prev;
 	}
 
 	return { current, previous, changes };
@@ -180,6 +182,8 @@ export interface CategoryXpInfo {
 	levelTitle: string;
 	expToNextLevel: number;
 	maxValue: number;
+	/** 現レベル内の進捗% (0-100) */
+	progressPct: number;
 }
 
 /** カテゴリ別XP情報を取得（ベンチマーク・偏差値を省略した軽量版） */
@@ -190,7 +194,6 @@ export async function getCategoryXpSummary(
 	const child = await findChildById(childId, tenantId);
 	if (!child) return null;
 
-	const maxValue = getMaxForAge(child.age);
 	const [statusRows, customTitles] = await Promise.all([
 		findStatuses(childId, tenantId),
 		getCustomLevelTitles(tenantId),
@@ -199,16 +202,17 @@ export async function getCategoryXpSummary(
 
 	for (const catDef of CATEGORY_DEFS) {
 		const row = statusRows.find((s) => s.categoryId === catDef.id);
-		const value = row?.value ?? 0;
-		const catLevel = calcCategoryLevel(value, maxValue);
-		const catExp = calcCategoryExpToNextLevel(value, maxValue);
+		const totalXp = row?.totalXp ?? 0;
+		const { level, title } = calcLevelFromXp(totalXp);
+		const xpInfo = calcXpToNextLevel(totalXp);
 
 		result[catDef.id] = {
-			value: Math.round(value * 10) / 10,
-			level: catLevel.level,
-			levelTitle: resolveLevelTitle(catLevel.level, customTitles),
-			expToNextLevel: Math.round(catExp * 10) / 10,
-			maxValue,
+			value: totalXp,
+			level,
+			levelTitle: resolveLevelTitle(level, customTitles) || title,
+			expToNextLevel: xpInfo.xpNeeded,
+			maxValue: 100000,
+			progressPct: xpInfo.progressPct,
 		};
 	}
 
@@ -233,7 +237,7 @@ export interface StatusUpdateResult {
 	maxValue: number;
 }
 
-/** ステータスを更新する（週次評価から呼ばれる） */
+/** ステータスを更新する（活動記録・週次評価・日次減衰から呼ばれる） */
 export async function updateStatus(
 	childId: number,
 	categoryId: number,
@@ -244,38 +248,44 @@ export async function updateStatus(
 	const child = await findChildById(childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND' as const };
 
-	const maxValue = getMaxForAge(child.age);
 	const allStatuses = await findStatuses(childId, tenantId);
-
-	// 更新前の対象カテゴリレベルを計算
 	const currentStatus = allStatuses.find((s) => s.categoryId === categoryId);
-	const currentValue = currentStatus?.value ?? 0;
-	const beforeLevel = calcCategoryLevel(currentValue, maxValue);
+	const currentXp = currentStatus?.totalXp ?? 0;
+	const currentPeakXp = currentStatus?.peakXp ?? 0;
+	const beforeLevel = calcLevelFromXp(currentXp);
 
-	// ステータス値を更新
-	const newValue = Math.max(0, Math.min(maxValue, currentValue + changeAmount));
+	// XP更新（減衰時はpeak floor を適用）
+	let newXp: number;
+	if (changeAmount < 0) {
+		newXp = clampDecayFloor(currentXp, Math.abs(changeAmount), currentPeakXp);
+	} else {
+		newXp = currentXp + changeAmount;
+	}
+	newXp = Math.max(0, newXp);
 
-	await upsertStatus(childId, categoryId, newValue, tenantId);
+	// peakXp更新（増加時のみ）
+	const newPeakXp = Math.max(currentPeakXp, newXp);
+
+	// レベル計算
+	const afterLevel = calcLevelFromXp(newXp);
+
+	await upsertStatus(childId, categoryId, newXp, afterLevel.level, newPeakXp, tenantId);
 
 	await insertStatusHistory(
 		{
 			childId,
 			categoryId,
-			value: newValue,
+			value: newXp,
 			changeAmount,
 			changeType,
 		},
 		tenantId,
 	);
 
-	// 更新後の対象カテゴリレベルを計算
-	const afterLevel = calcCategoryLevel(newValue, maxValue);
-
 	const catDef = CATEGORY_DEFS.find((c) => c.id === categoryId);
 	let levelUp: LevelUpInfo | null = null;
 
 	if (afterLevel.level > beforeLevel.level) {
-		// カスタム称号を解決
 		const customTitles = await getCustomLevelTitles(tenantId);
 
 		levelUp = {
@@ -291,9 +301,9 @@ export async function updateStatus(
 
 	return {
 		levelUp,
-		valueBefore: currentValue,
-		valueAfter: newValue,
-		maxValue,
+		valueBefore: currentXp,
+		valueAfter: newXp,
+		maxValue: 100000,
 	};
 }
 

@@ -1,5 +1,5 @@
 // tests/unit/services/status-service.test.ts
-// ステータスサービスのユニットテスト
+// ステータスサービスのユニットテスト（新XPスケール対応）
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
@@ -72,7 +72,10 @@ const SQL_TABLES = `
 	CREATE TABLE statuses (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL DEFAULT 0.0,
+		category_id INTEGER NOT NULL REFERENCES categories(id),
+		total_xp INTEGER NOT NULL DEFAULT 0,
+		level INTEGER NOT NULL DEFAULT 1,
+		peak_xp INTEGER NOT NULL DEFAULT 0,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
@@ -186,7 +189,7 @@ function seedBenchmarks() {
 	for (const catId of [1, 2, 3, 4, 5]) {
 		testDb
 			.insert(schema.marketBenchmarks)
-			.values({ age: 4, categoryId: catId, mean: 50, stdDev: 10, source: 'test' })
+			.values({ age: 4, categoryId: catId, mean: 200, stdDev: 50, source: 'test' })
 			.run();
 	}
 }
@@ -201,7 +204,7 @@ describe('status-service', () => {
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
-	it('初期状態で全カテゴリ値0のステータスを返す', async () => {
+	it('初期状態で全カテゴリXP=0のステータスを返す', async () => {
 		const result = await getChildStatus(1, 'test-tenant');
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
@@ -209,83 +212,83 @@ describe('status-service', () => {
 			expect(result.level).toBe(1); // highestCategoryLevel
 			expect(Object.keys(result.statuses).length).toBe(5);
 			expect(result.statuses[1]?.value).toBe(0);
-			// カテゴリ別レベルが各StatusDetailに含まれる
 			expect(result.statuses[1]?.level).toBe(1);
 			expect(result.statuses[1]?.levelTitle).toBe('はじめのぼうけんしゃ');
-			expect(result.statuses[1]?.expToNextLevel).toBeGreaterThan(0);
+			expect(result.statuses[1]?.expToNextLevel).toBe(15); // Lv.2 requires 15 XP
 		}
 	});
 
-	it('ベンチマークなしの場合、偏差値50を返す', async () => {
+	it('ベンチマークなしの場合、偏差値50・星3を返す', async () => {
 		const result = await getChildStatus(1, 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.statuses[1]?.deviationScore).toBe(50);
-			// 値0/max350 → 0% → 1星（スコア割合ベース）
-			expect(result.statuses[1]?.stars).toBe(1);
+			expect(result.statuses[1]?.stars).toBe(3);
 		}
 	});
 
 	it('ベンチマークありの場合、偏差値を正しく計算する', async () => {
 		seedBenchmarks();
-		// うんどう = 70, mean = 50, stdDev = 10 → 偏差値 (70-50)/10*10+50 = 70
-		await updateStatus(1, 1, 70, 'test', 'test-tenant');
+		// うんどう = 300 XP, mean = 200, stdDev = 50 → 偏差値 (300-200)/50*10+50 = 70
+		await updateStatus(1, 1, 300, 'test', 'test-tenant');
 
 		const result = await getChildStatus(1, 'test-tenant');
 		if (!('error' in result)) {
-			expect(result.statuses[1]?.value).toBe(70);
+			expect(result.statuses[1]?.value).toBe(300);
 			expect(result.statuses[1]?.deviationScore).toBe(70);
-			// 値70/max350 → 20% → 2星（スコア割合ベース）
-			expect(result.statuses[1]?.stars).toBe(2);
+			// 300/200 = 1.5 → ratio >= 1.2 → 4 stars
+			expect(result.statuses[1]?.stars).toBe(4);
 		}
 	});
 
-	it('ステータス更新が正常に動作する', async () => {
-		const updated = await updateStatus(1, 1, 5.0, 'weekly', 'test-tenant');
+	it('ステータス更新が正常に動作する（XP累積）', async () => {
+		const updated = await updateStatus(1, 1, 10, 'activity_record', 'test-tenant');
 		expect(updated).toBeDefined();
 		expect('error' in updated).toBe(false);
 
-		// getChildStatus で値を確認
 		const status = await getChildStatus(1, 'test-tenant');
 		if (!('error' in status)) {
-			expect(status.statuses[1]?.value).toBe(5.0);
+			expect(status.statuses[1]?.value).toBe(10);
 		}
 
 		// 累積更新
-		await updateStatus(1, 1, 3.0, 'weekly', 'test-tenant');
+		await updateStatus(1, 1, 8, 'activity_record', 'test-tenant');
 		const status2 = await getChildStatus(1, 'test-tenant');
 		if (!('error' in status2)) {
-			expect(status2.statuses[1]?.value).toBe(8.0);
+			expect(status2.statuses[1]?.value).toBe(18); // 10 + 8
 		}
 	});
 
-	it('ステータスは0未満にならない', async () => {
-		await updateStatus(1, 1, 5.0, 'weekly', 'test-tenant');
-		await updateStatus(1, 1, -10.0, 'decay', 'test-tenant');
+	it('ステータスXPは0未満にならない', async () => {
+		await updateStatus(1, 1, 10, 'activity_record', 'test-tenant');
+		await updateStatus(1, 1, -100, 'decay', 'test-tenant');
 		const status = await getChildStatus(1, 'test-tenant');
 		if (!('error' in status)) {
-			expect(status.statuses[1]?.value).toBe(0);
+			// peakXp=10, floor=10*0.7=7 → clampDecayFloor(10, 100, 10) = max(10-100, 7) = 7
+			expect(status.statuses[1]?.value).toBe(7);
 		}
 	});
 
-	it('ステータスは年齢別maxを超えない（age=4 → max=350）', async () => {
-		await updateStatus(1, 1, 300.0, 'weekly', 'test-tenant');
-		await updateStatus(1, 1, 100.0, 'weekly', 'test-tenant');
+	it('減衰はpeakXpの70%で下限になる', async () => {
+		// 100 XP まで上げる
+		await updateStatus(1, 1, 100, 'activity_record', 'test-tenant');
+		// 大きな減衰 → peakXp=100, floor=70
+		await updateStatus(1, 1, -80, 'decay', 'test-tenant');
 		const status = await getChildStatus(1, 'test-tenant');
 		if (!('error' in status)) {
-			expect(status.statuses[1]?.value).toBe(350);
+			expect(status.statuses[1]?.value).toBe(70); // clamped to 70% of peak
 		}
 	});
 
-	it('カテゴリ別レベルアップ時にlevelUp情報が返る', async () => {
-		// うんどうを34に設定 → 正規化 34/350*100≈9.7 → レベル1
-		await updateStatus(1, 1, 34, 'test', 'test-tenant');
+	it('レベルアップ時にlevelUp情報が返る（Lv.1→2: 15XP境界）', async () => {
+		// 14 XP → Lv.1
+		await updateStatus(1, 1, 14, 'activity_record', 'test-tenant');
 		const before = await getChildStatus(1, 'test-tenant');
 		if (!('error' in before)) {
 			expect(before.statuses[1]?.level).toBe(1);
 		}
 
-		// うんどう+2 → 36 → 正規化10.29 → レベル2！（カテゴリ別レベルアップ）
-		const result = await updateStatus(1, 1, 2, 'test', 'test-tenant');
+		// +2 → 16 XP → Lv.2
+		const result = await updateStatus(1, 1, 2, 'activity_record', 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.levelUp).not.toBeNull();
 			expect(result.levelUp?.oldLevel).toBe(1);
@@ -297,38 +300,36 @@ describe('status-service', () => {
 	});
 
 	it('同一レベル内の変動ではlevelUpはnull', async () => {
-		// うんどうを36に設定 → 正規化10.29 → レベル2
-		await updateStatus(1, 1, 36, 'test', 'test-tenant');
+		// 16 XP → Lv.2（Lv.3は40 XP）
+		await updateStatus(1, 1, 16, 'activity_record', 'test-tenant');
 
-		// +1 → 37 → 正規化10.57 → まだレベル2（変化なし）
-		const result = await updateStatus(1, 1, 1, 'test', 'test-tenant');
+		// +5 → 21 XP → まだLv.2
+		const result = await updateStatus(1, 1, 5, 'activity_record', 'test-tenant');
 		if (!('error' in result)) {
 			expect(result.levelUp).toBeNull();
 		}
 	});
 
-	it('カテゴリ別レベルが正規化値で決まる（age=4, max=350）', async () => {
-		// 全カテゴリを175に設定 → 正規化 175/350*100=50 → カテゴリレベル6
+	it('XPに基づくレベルが正しく計算される', async () => {
+		// 全カテゴリを500 XP → Lv.10（500 XP = Lv.10の必要XP）
 		for (const catId of [1, 2, 3, 4, 5]) {
-			await updateStatus(1, catId, 175, 'test', 'test-tenant');
+			await updateStatus(1, catId, 500, 'test', 'test-tenant');
 		}
 
 		const result = await getChildStatus(1, 'test-tenant');
 		if (!('error' in result)) {
-			expect(result.level).toBe(6); // highestCategoryLevel
-			expect(result.highestCategoryLevel).toBe(6);
-			expect(result.maxValue).toBe(350);
-			// 各カテゴリのレベルが6
-			expect(result.statuses[1]?.level).toBe(6);
-			expect(result.statuses[1]?.levelTitle).toBe('すごうでアドベンチャー');
+			expect(result.level).toBe(10); // highestCategoryLevel
+			expect(result.highestCategoryLevel).toBe(10);
+			expect(result.statuses[1]?.level).toBe(10);
+			expect(result.statuses[1]?.levelTitle).toBe('かみさまレベル');
 		}
 	});
 
 	it('キャラクタータイプが偏差値平均で決まる', async () => {
 		seedBenchmarks();
-		// 全カテゴリを70に → 偏差値70 → hero
+		// 全カテゴリを350 XP → mean=200, stdDev=50 → 偏差値 (350-200)/50*10+50=80 → hero
 		for (const catId of [1, 2, 3, 4, 5]) {
-			await updateStatus(1, catId, 70, 'test', 'test-tenant');
+			await updateStatus(1, catId, 350, 'test', 'test-tenant');
 		}
 
 		const result = await getChildStatus(1, 'test-tenant');
@@ -338,7 +339,7 @@ describe('status-service', () => {
 	});
 
 	it('存在しない子供のステータス更新はNOT_FOUND', async () => {
-		const result = await updateStatus(999, 1, 5.0, 'weekly', 'test-tenant');
+		const result = await updateStatus(999, 1, 10, 'activity_record', 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 });

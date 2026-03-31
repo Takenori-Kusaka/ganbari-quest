@@ -9,6 +9,7 @@ interface CategoryXpInfo {
 	levelTitle: string;
 	expToNextLevel: number;
 	maxValue: number;
+	progressPct?: number;
 }
 
 interface Props {
@@ -62,10 +63,7 @@ const collapsedMaxHeight = $derived(`${collapsedRows * ROW_HEIGHTS[cardSize]}px`
 
 /** レベル内のXP進捗率（0〜100%） */
 function xpBarPct(xp: CategoryXpInfo): number {
-	if (xp.maxValue <= 0) return 0;
-	const normalized = (xp.value / xp.maxValue) * 100;
-	const levelMin = (xp.level - 1) * 10;
-	return Math.min(100, Math.max(0, ((normalized - levelMin) / 10) * 100));
+	return xp.progressPct ?? 0;
 }
 
 function toggleExpand() {

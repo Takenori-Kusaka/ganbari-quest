@@ -195,7 +195,14 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 		if (!childId || !categoryId) continue;
 
 		try {
-			await upsertStatus(childId, categoryId, status.value, tenantId);
+			await upsertStatus(
+				childId,
+				categoryId,
+				status.totalXp,
+				status.level,
+				status.peakXp,
+				tenantId,
+			);
 			result.statusesImported++;
 		} catch (e) {
 			errors.push(

@@ -74,7 +74,7 @@ const SQL_TABLES = `
 	CREATE TABLE statuses (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL DEFAULT 0.0,
+		category_id INTEGER NOT NULL REFERENCES categories(id), total_xp INTEGER NOT NULL DEFAULT 0, level INTEGER NOT NULL DEFAULT 1, peak_xp INTEGER NOT NULL DEFAULT 0,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
@@ -128,6 +128,14 @@ const SQL_TABLES = `
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE UNIQUE INDEX idx_login_bonuses_child_date ON login_bonuses(child_id, login_date);
+	CREATE TABLE IF NOT EXISTS level_titles (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		level INTEGER NOT NULL,
+		custom_title TEXT NOT NULL,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_level_titles_tenant_level ON level_titles(tenant_id, level);
 `;
 
 vi.mock('$lib/server/db', () => ({
@@ -205,19 +213,19 @@ function addLog(childId: number, activityId: number, date: string) {
 }
 
 describe('calcStatusIncrease', () => {
-	it('7回以上で+1.0（週次ボーナス）', () => {
-		expect(calcStatusIncrease(7)).toBe(1.0);
-		expect(calcStatusIncrease(10)).toBe(1.0);
+	it('7回以上で+27 XP（週次ボーナス）', () => {
+		expect(calcStatusIncrease(7)).toBe(27);
+		expect(calcStatusIncrease(10)).toBe(27);
 	});
 
-	it('5-6回で+0.5', () => {
-		expect(calcStatusIncrease(5)).toBe(0.5);
-		expect(calcStatusIncrease(6)).toBe(0.5);
+	it('5-6回で+14 XP', () => {
+		expect(calcStatusIncrease(5)).toBe(14);
+		expect(calcStatusIncrease(6)).toBe(14);
 	});
 
-	it('3-4回で+0.3', () => {
-		expect(calcStatusIncrease(3)).toBe(0.3);
-		expect(calcStatusIncrease(4)).toBe(0.3);
+	it('3-4回で+8 XP', () => {
+		expect(calcStatusIncrease(3)).toBe(8);
+		expect(calcStatusIncrease(4)).toBe(8);
 	});
 
 	it('0-2回で0（即時更新分で十分）', () => {
@@ -322,14 +330,14 @@ describe('evaluateChild', () => {
 		}
 	});
 
-	it('1カテゴリ7回でステータス+3.0', async () => {
+	it('1カテゴリ7回でステータス+27 XP', async () => {
 		for (let i = 16; i <= 22; i++) {
 			addLog(1, 1, `2026-02-${i}`); // うんどう毎日
 		}
 
 		const result = await evaluateChild(1, '2026-02-16', '2026-02-22', 'test-tenant');
 		expect(result.categoryScores[1]?.count).toBe(7);
-		expect(result.categoryScores[1]?.statusIncrease).toBe(1.0); // 週次ボーナス
+		expect(result.categoryScores[1]?.statusIncrease).toBe(27); // 週次ボーナスXP
 	});
 });
 
