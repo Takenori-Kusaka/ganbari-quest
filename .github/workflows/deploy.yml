@@ -170,11 +170,7 @@ jobs:
             echo "SES stack not active. Cleaning up orphaned bucket..."
             aws s3 rb "s3://${SES_BUCKET}" --force 2>&1 || echo "Bucket cleanup skipped (may not exist)"
           fi
-          # Delete orphaned Cost Anomaly Monitors (left by failed OpsStack deploys)
-          for arn in $(aws ce get-anomaly-monitors --query 'AnomalyMonitors[?contains(MonitorName,`ganbari`) || contains(MonitorName,`gq-cost`)].MonitorArn' --output text 2>/dev/null); do
-            echo "Deleting orphaned anomaly monitor: $arn"
-            aws ce delete-anomaly-monitor --monitor-arn "$arn" 2>/dev/null || true
-          done
+          # Note: Cost Anomaly Monitoring はデフォルトモニターを使用（CDK管理外）
 
       # Phase 3: Deploy Compute + Network stacks (Lambda, CloudFront)
       - name: CDK Deploy all stacks
