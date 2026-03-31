@@ -68,7 +68,6 @@ export class ComputeStack extends cdk.Stack {
 			memorySize: 512,
 			timeout: cdk.Duration.seconds(30),
 			architecture: lambda.Architecture.ARM_64,
-			reservedConcurrentExecutions: 50,
 			environment: {
 				DATA_SOURCE: 'dynamodb',
 				DYNAMODB_TABLE: props.table.tableName!,
