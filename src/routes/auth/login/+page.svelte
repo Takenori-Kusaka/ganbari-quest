@@ -9,8 +9,10 @@ const f = () => form as Record<string, unknown> | null;
 
 let email = $state(form?.email ?? '');
 let password = $state('');
-let mfaCode = $state('');
-let otpCode = $state('');
+let mfaCodeRaw = $state('');
+const mfaCode = $derived(mfaCodeRaw.replace(/\s/g, ''));
+let otpCodeRaw = $state('');
+const otpCode = $derived(otpCodeRaw.replace(/\s/g, ''));
 let loading = $state(false);
 
 // MFA ステップ: サーバーから session/challengeName が返ってきた場合
@@ -54,7 +56,7 @@ let maskedEmail = $derived((f()?.maskedEmail as string) ?? '');
 					loading = true;
 					return async ({ update }) => {
 						loading = false;
-						otpCode = '';
+						otpCodeRaw = '';
 						await update();
 					};
 				}}
@@ -74,11 +76,10 @@ let maskedEmail = $derived((f()?.maskedEmail as string) ?? '');
 						id="otpCode"
 						name="otpCode"
 						type="text"
-						bind:value={otpCode}
+						bind:value={otpCodeRaw}
 						placeholder="000000"
 						required
-						maxlength="6"
-						pattern="[0-9]{6}"
+						maxlength="12"
 						inputmode="numeric"
 						autocomplete="one-time-code"
 						class="form-input mfa-input"
@@ -105,7 +106,7 @@ let maskedEmail = $derived((f()?.maskedEmail as string) ?? '');
 					loading = true;
 					return async ({ update }) => {
 						loading = false;
-						mfaCode = '';
+						mfaCodeRaw = '';
 						await update();
 					};
 				}}
@@ -125,11 +126,10 @@ let maskedEmail = $derived((f()?.maskedEmail as string) ?? '');
 						id="mfaCode"
 						name="mfaCode"
 						type="text"
-						bind:value={mfaCode}
+						bind:value={mfaCodeRaw}
 						placeholder="000000"
 						required
-						maxlength="6"
-						pattern="[0-9]{6}"
+						maxlength="12"
 						inputmode="numeric"
 						autocomplete="one-time-code"
 						class="form-input mfa-input"
