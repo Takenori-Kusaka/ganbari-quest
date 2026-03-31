@@ -3,6 +3,7 @@
 
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+import { sanitizeAudio } from '$lib/server/security/file-sanitizer';
 import { validateAudioMagicBytes } from '$lib/server/security/magic-bytes';
 import { deleteFile } from '$lib/server/storage';
 import { saveFile } from '$lib/server/storage';
@@ -100,7 +101,9 @@ export async function uploadVoice(
 	const storageKey = voiceKey(tenantId, childId, ext);
 	const publicUrl = storageKeyToPublicUrl(storageKey);
 
-	const buffer = Buffer.from(await file.arrayBuffer());
+	const rawBuffer = Buffer.from(await file.arrayBuffer());
+	// 音声メタデータ除去（MP3 ID3タグ等）
+	const buffer = sanitizeAudio(rawBuffer, file.type);
 	await saveFile(storageKey, buffer, file.type);
 
 	const { id } = await getRepos().voice.insert({

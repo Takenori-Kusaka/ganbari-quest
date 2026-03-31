@@ -1,5 +1,6 @@
 // Dynamic file server for uploaded avatars
 // Serves from local filesystem (NUC) or S3 (Lambda)
+import { safeContentType } from '$lib/server/security/file-sanitizer';
 import { readFile } from '$lib/server/storage';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
@@ -19,7 +20,8 @@ export const GET: RequestHandler = async ({ params }) => {
 
 	return new Response(new Uint8Array(result.data), {
 		headers: {
-			'Content-Type': result.contentType,
+			'Content-Type': safeContentType(result.contentType),
+			'Content-Disposition': 'inline',
 			'Cache-Control': 'public, max-age=31536000, immutable',
 		},
 	});
