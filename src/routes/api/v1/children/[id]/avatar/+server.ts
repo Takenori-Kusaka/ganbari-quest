@@ -2,6 +2,7 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
+import { validateImageMagicBytes } from '$lib/server/security/magic-bytes';
 import { deleteFile, saveFile } from '$lib/server/storage';
 import { avatarKey, storageKeyToPublicUrl } from '$lib/server/storage-keys';
 import { error, json } from '@sveltejs/kit';
@@ -35,6 +36,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	if (file.size > MAX_FILE_SIZE) {
 		throw error(400, { message: 'ファイルサイズは5MB以下にしてください' });
+	}
+
+	// マジックバイト検証（Content-Type偽装対策）
+	const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+	const magicCheck = validateImageMagicBytes(headerBytes, file.type);
+	if (!magicCheck.valid) {
+		throw error(400, { message: 'ファイルの内容が宣言された形式と一致しません' });
 	}
 
 	const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';

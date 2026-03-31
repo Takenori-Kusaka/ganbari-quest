@@ -3,6 +3,7 @@
 
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+import { validateAudioMagicBytes } from '$lib/server/security/magic-bytes';
 import { deleteFile } from '$lib/server/storage';
 import { saveFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl, voiceKey } from '$lib/server/storage-keys';
@@ -80,6 +81,13 @@ export async function uploadVoice(
 	}
 	if (!ALLOWED_AUDIO_TYPES.includes(file.type)) {
 		return { error: 'UNSUPPORTED_TYPE' };
+	}
+
+	// マジックバイト検証（Content-Type偽装対策）
+	const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+	const magicCheck = validateAudioMagicBytes(headerBytes, file.type);
+	if (!magicCheck.valid) {
+		return { error: 'INVALID_FILE' };
 	}
 
 	// 上限チェック
