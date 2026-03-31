@@ -11,6 +11,7 @@ import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
 import { logger } from '$lib/server/logger';
 import { recordConsent } from '$lib/server/services/consent-service';
 import { notifyNewSignup } from '$lib/server/services/discord-notify-service';
+import { consumeLicenseKey, validateLicenseKey } from '$lib/server/services/license-key-service';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -38,34 +39,43 @@ export const actions: Actions = {
 		const email = formData.get('email') as string;
 		const password = formData.get('password') as string;
 		const passwordConfirm = formData.get('passwordConfirm') as string;
+		const licenseKeyInput = (formData.get('licenseKey') as string)?.trim() || '';
 		const agreedTerms = formData.get('agreedTerms') === 'on';
 		const agreedPrivacy = formData.get('agreedPrivacy') === 'on';
 
 		if (!agreedTerms || !agreedPrivacy) {
-			return fail(400, { error: '利用規約とプライバシーポリシーへの同意が必要です', email });
+			return fail(400, { error: '利用規約とプライバシーポリシーへの同意が必要です', email, licenseKey: licenseKeyInput });
 		}
 
 		if (!email || !password || !passwordConfirm) {
-			return fail(400, { error: '全ての項目を入力してください', email });
+			return fail(400, { error: '全ての項目を入力してください', email, licenseKey: licenseKeyInput });
 		}
 
 		if (password !== passwordConfirm) {
-			return fail(400, { error: 'パスワードが一致しません', email });
+			return fail(400, { error: 'パスワードが一致しません', email, licenseKey: licenseKeyInput });
 		}
 
 		if (password.length < 8) {
-			return fail(400, { error: 'パスワードは8文字以上で入力してください', email });
+			return fail(400, { error: 'パスワードは8文字以上で入力してください', email, licenseKey: licenseKeyInput });
+		}
+
+		// ライセンスキーが入力されている場合は事前検証
+		if (licenseKeyInput) {
+			const keyCheck = await validateLicenseKey(licenseKeyInput);
+			if (!keyCheck.valid) {
+				return fail(400, { error: keyCheck.reason, email, licenseKey: licenseKeyInput });
+			}
 		}
 
 		const result = await signUpWithCognito(email, password);
 
 		if (!result.success) {
-			return fail(400, { error: result.message, email });
+			return fail(400, { error: result.message, email, licenseKey: licenseKeyInput });
 		}
 
 		// メール認証が必要（通常のケース）
 		if (!result.userConfirmed) {
-			return { confirmStep: true, email };
+			return { confirmStep: true, email, licenseKey: licenseKeyInput };
 		}
 
 		// 即時確認（auto-verify が有効な場合）
@@ -78,20 +88,30 @@ export const actions: Actions = {
 		const email = formData.get('email') as string;
 		const code = formData.get('code') as string;
 		const password = formData.get('password') as string;
+		const licenseKeyInput = (formData.get('licenseKey') as string)?.trim() || '';
 
 		if (!email || !code) {
-			return fail(400, { error: '確認コードを入力してください', email, confirmStep: true });
+			return fail(400, { error: '確認コードを入力してください', email, confirmStep: true, licenseKey: licenseKeyInput });
 		}
 
 		const confirmResult = await confirmSignUp(email, code);
 
 		if (!confirmResult.success) {
-			return fail(400, { error: confirmResult.message, email, confirmStep: true });
+			return fail(400, { error: confirmResult.message, email, confirmStep: true, licenseKey: licenseKeyInput });
 		}
 
 		// 新規登録通知（Discord）
 		const tenantId = locals.context?.tenantId ?? 'unknown';
 		notifyNewSignup(tenantId, email).catch(() => {});
+
+		// ライセンスキーが入力されていた場合、テナントに紐付け
+		if (licenseKeyInput && tenantId !== 'unknown') {
+			consumeLicenseKey(licenseKeyInput, tenantId).catch((err) => {
+				logger.warn('[SIGNUP] License key consumption failed', {
+					error: err instanceof Error ? err.message : String(err),
+				});
+			});
+		}
 
 		// 同意記録（サインアップ完了後に記録）
 		if (tenantId !== 'unknown') {
