@@ -2,6 +2,7 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
+import { sanitizeImage } from '$lib/server/security/file-sanitizer';
 import { validateImageMagicBytes } from '$lib/server/security/magic-bytes';
 import { deleteFile, saveFile } from '$lib/server/storage';
 import { avatarKey, storageKeyToPublicUrl } from '$lib/server/storage-keys';
@@ -50,7 +51,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const publicUrl = storageKeyToPublicUrl(storageKey);
 
 	try {
-		const buffer = Buffer.from(await file.arrayBuffer());
+		const rawBuffer = Buffer.from(await file.arrayBuffer());
+		// 画像 re-encode: メタデータ・Polyglotペイロードを完全除去
+		const { buffer } = await sanitizeImage(rawBuffer, file.type);
 		await saveFile(storageKey, buffer, file.type);
 
 		// 旧アバターファイルを削除（パスがあり、新パスと異なる場合）

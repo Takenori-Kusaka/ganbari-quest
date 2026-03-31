@@ -10,7 +10,7 @@ const config = {
 			$lib: 'src/lib',
 		},
 		csrf: {
-			checkOrigin: true,
+			trustedOrigins: [],
 		},
 	},
 };
