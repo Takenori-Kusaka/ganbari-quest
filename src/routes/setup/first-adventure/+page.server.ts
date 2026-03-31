@@ -21,7 +21,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	// redirect 済みなので children[0] は確実に存在
-	const firstChild = children[0]!;
+	const firstChild = children[0];
+	if (!firstChild) redirect(302, '/setup/children');
 	const activities = await getActivities(tenantId);
 
 	// 子供の年齢に合う活動を3〜5件選ぶ
