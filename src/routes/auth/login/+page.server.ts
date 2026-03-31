@@ -74,7 +74,7 @@ export const actions: Actions = {
 		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const session = formData.get('session') as string;
-		const mfaCode = formData.get('mfaCode') as string;
+		const mfaCode = (formData.get('mfaCode') as string)?.replace(/\s/g, '');
 		const challengeName = formData.get('challengeName') as string;
 		const email = formData.get('email') as string;
 
@@ -101,7 +101,7 @@ export const actions: Actions = {
 	verifyOtp: async ({ request, cookies }) => {
 		const formData = await request.formData();
 		const otpSessionKey = formData.get('otpSessionKey') as string;
-		const otpCode = formData.get('otpCode') as string;
+		const otpCode = (formData.get('otpCode') as string)?.replace(/\s/g, '');
 		const email = formData.get('email') as string;
 
 		if (!otpSessionKey || !otpCode) {
