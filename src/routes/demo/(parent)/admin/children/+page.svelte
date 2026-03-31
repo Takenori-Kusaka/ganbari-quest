@@ -33,7 +33,6 @@ const detailTabs = [
 	{ id: 'logs', label: '📝 活動記録' },
 	{ id: 'achievements', label: '🏆 実績' },
 	{ id: 'voice', label: '📢 ボイス' },
-	{ id: 'birthday', label: '🎂 ふりかえり' },
 ] as const;
 
 let selectedChildId = $state<number | null>(null);
@@ -171,11 +170,6 @@ const selectedChild = $derived(
 					<div class="text-center py-8 text-gray-400">
 						<p class="text-3xl mb-2">📢</p>
 						<p class="text-sm">おうえんボイスは登録後にご利用いただけます</p>
-					</div>
-				{:else if detailTab === 'birthday'}
-					<div class="text-center py-8 text-gray-400">
-						<p class="text-3xl mb-2">🎂</p>
-						<p class="text-sm">ふりかえりは登録後にご覧いただけます</p>
 					</div>
 				{/if}
 			</div>

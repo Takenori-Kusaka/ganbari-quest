@@ -604,22 +604,6 @@ test.describe('API 正常系: 週次評価', () => {
 	});
 });
 
-test.describe('API 正常系: キャリア', () => {
-	test('キャリア分野一覧が取得できる', async ({ request }) => {
-		const res = await request.get('/api/v1/career-fields');
-		expect(res.status()).toBe(200);
-		const body = await res.json();
-		expect(body.careerFields).toBeDefined();
-		expect(Array.isArray(body.careerFields)).toBe(true);
-	});
-
-	test('キャリアプランの取得ができる', async ({ request }) => {
-		const res = await request.get('/api/v1/career-plans/1');
-		// 200(プランあり) or 200(plan: null)
-		expect(res.status()).toBe(200);
-	});
-});
-
 test.describe('API 正常系: 認証', () => {
 	test('管理画面にアクセスできる', async ({ request }) => {
 		const res = await request.get('/admin');

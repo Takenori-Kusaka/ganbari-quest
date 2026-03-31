@@ -13,15 +13,6 @@ let { data, children } = $props();
 
 const theme = $derived(data.child?.theme ?? 'pink');
 const uiMode = $derived(data.uiMode ?? 'kinder');
-// 親の声カスタムボイスがあればショップ音より優先
-const effectiveSoundPath = $derived(
-	data.avatarConfig?.customVoicePath ?? data.avatarConfig?.customSoundPath ?? null,
-);
-
-// きろくおん設定がデータ更新で変わったら反映
-$effect(() => {
-	soundService.setCustomRecordSound(effectiveSoundPath);
-});
 // モード別ナビラベル (#0173 ゲームループ再設計)
 const NAV_LABELS: Record<string, { character: string; switch: string }> = {
 	baby: { character: 'つよさ', switch: 'きりかえ' },
@@ -31,16 +22,9 @@ const NAV_LABELS: Record<string, { character: string; switch: string }> = {
 	teen: { character: 'ステータス', switch: '切替' },
 };
 const labels = $derived(NAV_LABELS[uiMode] ?? NAV_LABELS.kinder);
-const SKILL_TREE_MODES = ['lower', 'upper', 'teen'];
-const SHOP_MODES = ['kinder'];
 const navItems = $derived([
 	{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
 	{ href: `/${uiMode}/status`, icon: '🛡️', label: labels?.character ?? 'つよさ' },
-	...(SKILL_TREE_MODES.includes(uiMode)
-		? [{ href: `/${uiMode}/skill-tree`, icon: '⚔️', label: 'スキル' }]
-		: SHOP_MODES.includes(uiMode)
-			? [{ href: `/${uiMode}/shop`, icon: '🛒', label: 'ショップ' }]
-			: []),
 	{ href: '/switch', icon: '👤', label: labels?.switch ?? 'きりかえ' },
 ]);
 
@@ -52,10 +36,6 @@ onMount(() => {
 	if (config) {
 		soundService.preload(config.enabledSounds);
 	}
-	// きろくおんカスタム設定（親の声ボイス優先）
-	soundService.setCustomRecordSound(
-		data.avatarConfig?.customVoicePath ?? data.avatarConfig?.customSoundPath ?? null,
-	);
 
 	// 1分間隔で自動リロード（親の変更を反映）
 	const autoReloadTimer = setInterval(() => {
@@ -73,7 +53,7 @@ let stampDialogOpen = $state(false);
 
 <div data-theme={theme} data-age-tier={uiMode} class="min-h-dvh bg-[var(--theme-bg)]">
 	{#if data.child}
-		<Header nickname={data.child.nickname} totalPoints={data.balance} avatarUrl={data.child.avatarUrl} avatarConfig={data.avatarConfig} pointSettings={data.pointSettings} activeTitle={data.activeTitle} stampProgress={data.stampProgress} onStampClick={() => { stampDialogOpen = true; }} />
+		<Header nickname={data.child.nickname} totalPoints={data.balance} avatarUrl={data.child.avatarUrl} pointSettings={data.pointSettings} activeTitle={data.activeTitle} stampProgress={data.stampProgress} onStampClick={() => { stampDialogOpen = true; }} />
 	{/if}
 
 	<main class="pb-20 pt-[var(--sp-sm)]">

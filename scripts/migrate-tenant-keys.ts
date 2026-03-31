@@ -81,7 +81,6 @@ const TENANT_SCOPED_PK_PREFIXES = [
 	'SETTING', // settings (exact match)
 	'COUNTER', // ID counters (exact match)
 	'CKTPL#', // checklist template items
-	'CARPLAN#', // career plan history
 ];
 
 // These PKs are global and should NOT be migrated
@@ -89,7 +88,6 @@ const GLOBAL_PK_PREFIXES = [
 	'CATEGORY#',
 	'ACHIEVEMENT#',
 	'TITLE#',
-	'CAREER#',
 	'AVITEM#',
 	'BENCH#',
 	'USER#',

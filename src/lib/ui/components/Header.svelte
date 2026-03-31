@@ -7,7 +7,6 @@ interface Props {
 	nickname: string;
 	totalPoints: number;
 	avatarUrl?: string | null;
-	avatarConfig?: { bgCss: string; frameCss: string; effectClass: string } | null;
 	pointSettings?: PointSettings;
 	activeTitle?: { icon: string; name: string } | null;
 	stampProgress?: { filled: number; total: number } | null;
@@ -18,7 +17,6 @@ let {
 	nickname,
 	totalPoints,
 	avatarUrl,
-	avatarConfig,
 	pointSettings,
 	activeTitle,
 	stampProgress,
@@ -39,9 +37,9 @@ const balanceDisplay = $derived(
 		<AvatarDisplay
 			{nickname}
 			{avatarUrl}
-			bgCss={avatarConfig?.bgCss ?? '#ffffff'}
-			frameCss={avatarConfig?.frameCss ?? '2px solid rgba(255,255,255,0.5)'}
-			effectClass={avatarConfig?.effectClass ?? ''}
+			bgCss="#ffffff"
+			frameCss="2px solid rgba(255,255,255,0.5)"
+			effectClass=""
 			size="sm"
 		/>
 		<div class="flex flex-col">

@@ -40,11 +40,6 @@ export const SQL_CREATE_TABLES = `
 		ui_mode TEXT NOT NULL DEFAULT 'kinder',
 		avatar_url TEXT,
 		active_title_id INTEGER,
-		active_avatar_bg INTEGER,
-		active_avatar_frame INTEGER,
-		active_avatar_effect INTEGER,
-		active_avatar_sound INTEGER,
-		active_avatar_celebration INTEGER,
 		display_config TEXT,
 		user_id TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -308,32 +303,6 @@ export const SQL_CREATE_TABLES = `
 	CREATE INDEX IF NOT EXISTS idx_daily_missions_child_date
 		ON daily_missions(child_id, mission_date);
 
-	CREATE TABLE IF NOT EXISTS avatar_items (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		code TEXT NOT NULL UNIQUE,
-		name TEXT NOT NULL,
-		description TEXT,
-		category TEXT NOT NULL,
-		icon TEXT NOT NULL,
-		css_value TEXT NOT NULL,
-		price INTEGER NOT NULL DEFAULT 0,
-		unlock_type TEXT NOT NULL DEFAULT 'purchase',
-		unlock_condition TEXT,
-		rarity TEXT NOT NULL DEFAULT 'common',
-		sort_order INTEGER NOT NULL DEFAULT 0,
-		is_active INTEGER NOT NULL DEFAULT 1,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE TABLE IF NOT EXISTS child_avatar_items (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		avatar_item_id INTEGER NOT NULL REFERENCES avatar_items(id),
-		acquired_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_child_avatar_items_unique
-		ON child_avatar_items(child_id, avatar_item_id);
-
 	CREATE TABLE IF NOT EXISTS child_titles (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
@@ -342,46 +311,6 @@ export const SQL_CREATE_TABLES = `
 	);
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_child_titles_unique
 		ON child_titles(child_id, title_id);
-
-	CREATE TABLE IF NOT EXISTS career_fields (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
-		description TEXT,
-		icon TEXT,
-		related_categories TEXT NOT NULL DEFAULT '[]',
-		recommended_activities TEXT NOT NULL DEFAULT '[]',
-		min_age INTEGER NOT NULL DEFAULT 6,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE TABLE IF NOT EXISTS career_plans (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		career_field_id INTEGER REFERENCES career_fields(id),
-		dream_text TEXT,
-		mandala_chart TEXT NOT NULL DEFAULT '{}',
-		timeline_3y TEXT,
-		timeline_5y TEXT,
-		timeline_10y TEXT,
-		target_statuses TEXT NOT NULL DEFAULT '{}',
-		version INTEGER NOT NULL DEFAULT 1,
-		is_active INTEGER NOT NULL DEFAULT 1,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE INDEX IF NOT EXISTS idx_career_plans_child
-		ON career_plans(child_id, is_active);
-
-	CREATE TABLE IF NOT EXISTS career_plan_history (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		career_plan_id INTEGER NOT NULL REFERENCES career_plans(id),
-		action TEXT NOT NULL,
-		points_earned INTEGER NOT NULL DEFAULT 0,
-		snapshot TEXT NOT NULL DEFAULT '{}',
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE INDEX IF NOT EXISTS idx_career_plan_history_plan
-		ON career_plan_history(career_plan_id);
 
 	CREATE TABLE IF NOT EXISTS child_custom_voices (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -422,39 +351,6 @@ export const SQL_CREATE_TABLES = `
 	);
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_level_titles_tenant_level
 		ON level_titles(tenant_id, level);
-
-	CREATE TABLE IF NOT EXISTS skill_nodes (
-		id INTEGER PRIMARY KEY,
-		category_id INTEGER REFERENCES categories(id),
-		name TEXT NOT NULL,
-		description TEXT,
-		icon TEXT NOT NULL,
-		sort_order INTEGER NOT NULL DEFAULT 0,
-		sp_cost INTEGER NOT NULL DEFAULT 1,
-		required_node_id INTEGER,
-		required_category_level INTEGER NOT NULL DEFAULT 0,
-		effect_type TEXT NOT NULL,
-		effect_value REAL NOT NULL,
-		target_modes TEXT NOT NULL DEFAULT '["lower","upper","teen"]'
-	);
-	CREATE TABLE IF NOT EXISTS child_skill_nodes (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		node_id INTEGER NOT NULL REFERENCES skill_nodes(id),
-		unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_child_skill_nodes_unique
-		ON child_skill_nodes(child_id, node_id);
-	CREATE TABLE IF NOT EXISTS skill_points (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		balance INTEGER NOT NULL DEFAULT 0,
-		total_earned INTEGER NOT NULL DEFAULT 0,
-		total_spent INTEGER NOT NULL DEFAULT 0,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_skill_points_child
-		ON skill_points(child_id);
 
 	CREATE TABLE IF NOT EXISTS activity_mastery (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

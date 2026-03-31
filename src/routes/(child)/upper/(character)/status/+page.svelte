@@ -154,35 +154,6 @@ const radarCategories = $derived(
 			<p class="text-xs text-[var(--color-text-muted)]">特別な称号を集めよう！</p>
 		</a>
 
-		<!-- Shop link -->
-		<a
-			href="/upper/shop"
-			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">🛒</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">ショップ</p>
-			<p class="text-xs text-[var(--color-text-muted)]">音や演出をカスタマイズ</p>
-		</a>
-
-		<!-- Memories link -->
-		<a
-			href="/upper/memories"
-			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">📖</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">思い出</p>
-			<p class="text-xs text-[var(--color-text-muted)]">誕生日の振り返り</p>
-		</a>
-
-		<!-- Career plan link -->
-		<a
-			href="/upper/career"
-			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">🌟</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">目標設定</p>
-			<p class="text-xs text-[var(--color-text-muted)]">将来の目標を設定しよう</p>
-		</a>
 	{:else}
 		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-sm)]">⭐</span>

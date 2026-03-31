@@ -7,15 +7,10 @@ import {
 	type ExportAchievement,
 	type ExportActivity,
 	type ExportActivityLog,
-	type ExportAvatarItem,
-	type ExportBirthdayReview,
-	type ExportCareerField,
-	type ExportCareerPlan,
 	type ExportCategory,
 	type ExportChecklistTemplate,
 	type ExportChild,
 	type ExportChildAchievement,
-	type ExportChildAvatarItem,
 	type ExportChildTitle,
 	type ExportData,
 	type ExportEvaluation,
@@ -31,9 +26,6 @@ import {
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { findAllAchievements, findUnlockedAchievements } from '$lib/server/db/achievement-repo';
 import { findActivities, findActivityLogs } from '$lib/server/db/activity-repo';
-import { findAllAvatarItems, findOwnedItems } from '$lib/server/db/avatar-repo';
-import { findBirthdayReviews } from '$lib/server/db/birthday-repo';
-import { findAllCareerFields, findCareerPlansByChildId } from '$lib/server/db/career-repo';
 import { findTemplateItems, findTemplatesByChild } from '$lib/server/db/checklist-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { findEvaluationsByChild } from '$lib/server/db/evaluation-repo';
@@ -99,24 +91,16 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 	}
 
 	// マスタデータの取得（並列）
-	const [activitiesRaw, titlesRaw, achievementsRaw, avatarItemsRaw, careerFieldsRaw] =
-		await Promise.all([
-			findActivities(tenantId),
-			findAllTitles(tenantId),
-			findAllAchievements(tenantId),
-			findAllAvatarItems(tenantId),
-			findAllCareerFields(tenantId),
-		]);
+	const [activitiesRaw, titlesRaw, achievementsRaw] = await Promise.all([
+		findActivities(tenantId),
+		findAllTitles(tenantId),
+		findAllAchievements(tenantId),
+	]);
 
 	// 称号 ID → コード
 	const titleMap = new Map(titlesRaw.map((t) => [t.id, t]));
 	// 実績 ID → コード
 	const achievementMap = new Map(achievementsRaw.map((a) => [a.id, a]));
-	// アバターアイテム ID → コード
-	const avatarItemMap = new Map(avatarItemsRaw.map((a) => [a.id, a]));
-	// キャリア分野 ID → 名前
-	const careerFieldMap = new Map(careerFieldsRaw.map((f) => [f.id, f]));
-
 	// マスタデータの変換
 	const masterActivities: ExportActivity[] = activitiesRaw.map((a) => ({
 		name: a.name,
@@ -143,19 +127,6 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		rarity: a.rarity,
 	}));
 
-	const masterAvatarItems: ExportAvatarItem[] = avatarItemsRaw.map((a) => ({
-		code: a.code,
-		name: a.name,
-		category: a.category,
-		icon: a.icon,
-		rarity: a.rarity,
-	}));
-
-	const masterCareerFields: ExportCareerField[] = careerFieldsRaw.map((f) => ({
-		name: f.name,
-		icon: f.icon,
-	}));
-
 	// 子供データの変換
 	const exportChildren: ExportChild[] = allChildren.map((child, index) => ({
 		exportId: `child-${index + 1}`,
@@ -166,15 +137,6 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		uiMode: child.uiMode,
 		avatarUrl: child.avatarUrl,
 		activeTitle: child.activeTitleId ? (titleMap.get(child.activeTitleId)?.name ?? null) : null,
-		activeAvatarBg: child.activeAvatarBg
-			? (avatarItemMap.get(child.activeAvatarBg)?.code ?? null)
-			: null,
-		activeAvatarFrame: child.activeAvatarFrame
-			? (avatarItemMap.get(child.activeAvatarFrame)?.code ?? null)
-			: null,
-		activeAvatarEffect: child.activeAvatarEffect
-			? (avatarItemMap.get(child.activeAvatarEffect)?.code ?? null)
-			: null,
 		createdAt: child.createdAt,
 	}));
 
@@ -189,8 +151,6 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		childExportIdMap,
 		titleMap,
 		achievementMap,
-		avatarItemMap,
-		careerFieldMap,
 		tenantId,
 	);
 
@@ -205,8 +165,7 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 			activities: masterActivities,
 			titles: masterTitles,
 			achievements: masterAchievements,
-			avatarItems: masterAvatarItems,
-			careerFields: masterCareerFields,
+			avatarItems: [],
 		},
 		family: {
 			children: exportChildren,
@@ -248,8 +207,6 @@ async function collectTransactionData(
 	childExportIdMap: Map<number, string>,
 	titleMap: Map<number, { code: string }>,
 	achievementMap: Map<number, { code: string }>,
-	avatarItemMap: Map<number, { code: string }>,
-	careerFieldMap: Map<number, { name: string }>,
 	tenantId: string,
 ): Promise<ExportTransactionData> {
 	const allActivityLogs: ExportActivityLog[] = [];
@@ -262,10 +219,6 @@ async function collectTransactionData(
 	const allEvaluations: ExportEvaluation[] = [];
 	const allSpecialRewards: ExportSpecialReward[] = [];
 	const allChecklistTemplates: ExportChecklistTemplate[] = [];
-	const allChildAvatarItems: ExportChildAvatarItem[] = [];
-	const allCareerPlans: ExportCareerPlan[] = [];
-	const allBirthdayReviews: ExportBirthdayReview[] = [];
-
 	for (const childId of childIds) {
 		const childRef = childExportIdMap.get(childId) ?? `child-${childId}`;
 
@@ -280,9 +233,6 @@ async function collectTransactionData(
 			evaluations,
 			specialRewards,
 			checklistTemplates,
-			ownedAvatarItems,
-			careerPlans,
-			birthdayReviews,
 		] = await Promise.all([
 			findActivityLogs(childId, tenantId),
 			findPointHistory(childId, { limit: MAX_EXPORT_ROWS, offset: 0 }, tenantId),
@@ -293,9 +243,6 @@ async function collectTransactionData(
 			findEvaluationsByChild(childId, MAX_EXPORT_ROWS, tenantId),
 			findSpecialRewards(childId, tenantId),
 			findTemplatesByChild(childId, tenantId, true),
-			findOwnedItems(childId, tenantId),
-			findCareerPlansByChildId(childId, tenantId),
-			findBirthdayReviews(childId, tenantId),
 		]);
 
 		// ステータス履歴は全カテゴリ分を取得
@@ -437,54 +384,6 @@ async function collectTransactionData(
 				})),
 			});
 		}
-
-		// Owned avatar items
-		for (const oi of ownedAvatarItems) {
-			const item = avatarItemMap.get(oi.avatarItemId);
-			if (item) {
-				allChildAvatarItems.push({
-					childRef,
-					itemCode: item.code,
-					acquiredAt: oi.acquiredAt,
-				});
-			}
-		}
-
-		// Career plans
-		for (const cp of careerPlans) {
-			const field = cp.careerFieldId ? careerFieldMap.get(cp.careerFieldId) : null;
-			allCareerPlans.push({
-				childRef,
-				careerFieldName: field?.name ?? null,
-				dreamText: cp.dreamText,
-				mandalaChart: cp.mandalaChart,
-				timeline3y: cp.timeline3y,
-				timeline5y: cp.timeline5y,
-				timeline10y: cp.timeline10y,
-				targetStatuses: cp.targetStatuses,
-				version: cp.version,
-				isActive: cp.isActive === 1,
-				createdAt: cp.createdAt,
-				updatedAt: cp.updatedAt,
-			});
-		}
-
-		// Birthday reviews
-		for (const br of birthdayReviews) {
-			allBirthdayReviews.push({
-				childRef,
-				reviewYear: br.reviewYear,
-				ageAtReview: br.ageAtReview,
-				healthChecks: br.healthChecks,
-				aspirationText: br.aspirationText,
-				aspirationCategories: br.aspirationCategories,
-				basePoints: br.basePoints,
-				healthPoints: br.healthPoints,
-				aspirationPoints: br.aspirationPoints,
-				totalPoints: br.totalPoints,
-				createdAt: br.createdAt,
-			});
-		}
 	}
 
 	return {
@@ -499,9 +398,7 @@ async function collectTransactionData(
 		specialRewards: allSpecialRewards,
 		checklistTemplates: allChecklistTemplates,
 		checklistLogs: [], // Phase 2: バルク取得メソッド追加後に対応
-		childAvatarItems: allChildAvatarItems,
-		careerPlans: allCareerPlans,
-		birthdayReviews: allBirthdayReviews,
+		childAvatarItems: [],
 		dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応
 	};
 }

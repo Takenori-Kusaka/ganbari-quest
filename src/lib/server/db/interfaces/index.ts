@@ -3,9 +3,6 @@
 
 export type { IAchievementRepo } from './achievement-repo.interface';
 export type { IActivityRepo } from './activity-repo.interface';
-export type { IAvatarRepo } from './avatar-repo.interface';
-export type { IBirthdayRepo } from './birthday-repo.interface';
-export type { ICareerRepo } from './career-repo.interface';
 export type { IChecklistRepo } from './checklist-repo.interface';
 export type { IChildRepo } from './child-repo.interface';
 export type { IDailyMissionRepo } from './daily-mission-repo.interface';

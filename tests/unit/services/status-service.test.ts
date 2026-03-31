@@ -31,11 +31,6 @@ const SQL_TABLES = `
 		ui_mode TEXT NOT NULL DEFAULT 'kinder',
 		avatar_url TEXT,
 		active_title_id INTEGER,
-		active_avatar_bg INTEGER,
-		active_avatar_frame INTEGER,
-		active_avatar_effect INTEGER,
-		active_avatar_sound INTEGER,
-		active_avatar_celebration INTEGER,
 		display_config TEXT,
 		user_id TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -124,37 +119,6 @@ const SQL_TABLES = `
 	);
 	CREATE UNIQUE INDEX idx_login_bonuses_child_date ON login_bonuses(child_id, login_date);
 
-	CREATE TABLE IF NOT EXISTS skill_nodes (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		category_id INTEGER REFERENCES categories(id),
-		name TEXT NOT NULL,
-		description TEXT,
-		icon TEXT NOT NULL DEFAULT '⭐',
-		sort_order INTEGER NOT NULL DEFAULT 0,
-		sp_cost INTEGER NOT NULL DEFAULT 1,
-		required_node_id INTEGER REFERENCES skill_nodes(id),
-		required_category_level INTEGER NOT NULL DEFAULT 0,
-		effect_type TEXT NOT NULL,
-		effect_value REAL NOT NULL DEFAULT 0
-	);
-
-	CREATE TABLE IF NOT EXISTS child_skill_nodes (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		node_id INTEGER NOT NULL REFERENCES skill_nodes(id),
-		unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		UNIQUE(child_id, node_id)
-	);
-
-	CREATE TABLE IF NOT EXISTS skill_points (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL UNIQUE REFERENCES children(id),
-		balance INTEGER NOT NULL DEFAULT 0,
-		total_earned INTEGER NOT NULL DEFAULT 0,
-		total_spent INTEGER NOT NULL DEFAULT 0,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-
 	CREATE TABLE IF NOT EXISTS child_custom_voices (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL,
@@ -204,8 +168,6 @@ afterAll(() => {
 });
 
 function resetDb() {
-	sqlite.exec('DELETE FROM child_skill_nodes');
-	sqlite.exec('DELETE FROM skill_points');
 	sqlite.exec('DELETE FROM status_history');
 	sqlite.exec('DELETE FROM statuses');
 	sqlite.exec('DELETE FROM market_benchmarks');

@@ -10,9 +10,9 @@ interface Props {
 let { variant = 'symbol', size, class: className = '' }: Props = $props();
 
 const defaultSizes: Record<LogoVariant, { width: number; height: number }> = {
-	symbol: { width: 48, height: 48 },
-	full: { width: 240, height: 119 },
-	compact: { width: 160, height: 79 },
+	symbol: { width: 48, height: 51 },
+	full: { width: 240, height: 69 },
+	compact: { width: 160, height: 65 },
 };
 
 const src: Record<LogoVariant, string> = {
