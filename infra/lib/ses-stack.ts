@@ -122,7 +122,6 @@ export class SesStack extends cdk.Stack {
 				architecture: lambda.Architecture.ARM_64,
 				memorySize: 256,
 				timeout: cdk.Duration.seconds(30),
-				reservedConcurrentExecutions: 5,
 				environment: {
 					MAIL_BUCKET: mailBucket.bucketName,
 					SUPPORT_EMAIL: `support@${domainName}`,
