@@ -2,12 +2,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ActivityPack, ActivityPackIndex } from '$lib/domain/activity-pack';
 import { requireTenantId } from '$lib/server/auth/factory';
-import { getSetting } from '$lib/server/db/settings-repo';
 import {
 	importActivities,
 	previewActivityImport,
 } from '$lib/server/services/activity-import-service';
 import { getAllChildren } from '$lib/server/services/child-service';
+import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -27,13 +27,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 	const tenantId = requireTenantId(locals);
 
-	// Guard: PIN not set -> go back to step 1
-	const pinHash = await getSetting('pin_hash', tenantId);
-	if (!pinHash) {
-		redirect(302, '/setup');
-	}
-
-	// Guard: No children -> go back to step 2
+	// Guard: No children -> go back to step 1
 	const children = await getAllChildren(tenantId);
 	if (children.length === 0) {
 		redirect(302, '/setup/children');
@@ -86,10 +80,16 @@ export const actions: Actions = {
 			}
 		}
 
-		redirect(302, `/setup/complete?imported=${totalImported}&skipped=${totalSkipped}`);
+		trackSetupFunnel('setup_packs_selected', tenantId, {
+			packCount: packIds.length,
+			imported: totalImported,
+		});
+		redirect(302, `/setup/first-adventure?imported=${totalImported}&skipped=${totalSkipped}`);
 	},
 
-	skip: async () => {
-		redirect(302, '/setup/complete');
+	skip: async ({ locals }) => {
+		const tenantId = requireTenantId(locals);
+		trackSetupFunnel('setup_packs_skipped', tenantId);
+		redirect(302, '/setup/first-adventure');
 	},
 };
