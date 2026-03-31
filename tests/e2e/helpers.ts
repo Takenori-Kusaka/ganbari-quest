@@ -186,10 +186,14 @@ export async function clearDialogGhosts(page: Page) {
 		document.body.style.pointerEvents = '';
 		document.body.style.overflow = '';
 		for (const el of document.querySelectorAll('[data-scope="dialog"][data-part="positioner"]')) {
+			const htmlEl = el as HTMLElement;
+			// aria-hidden="true" や data-state="closed" なら完全に閉じたダイアログ → 非表示
+			const ariaHidden = el.getAttribute('aria-hidden') === 'true';
+			const stateClosed = el.getAttribute('data-state') === 'closed';
 			const content = el.querySelector('[data-part="content"]');
-			const isVisible = content && window.getComputedStyle(content).display !== 'none';
-			if (!isVisible) {
-				(el as HTMLElement).style.display = 'none';
+			const contentHidden = !content || window.getComputedStyle(content).display === 'none';
+			if (ariaHidden || stateClosed || contentHidden) {
+				htmlEl.style.display = 'none';
 			}
 		}
 	});
