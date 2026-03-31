@@ -211,17 +211,25 @@ export async function expandFirstCategory(page: Page) {
 	}
 }
 
-/** compactMode で折りたたまれた全カテゴリを展開する */
+/** 折りたたまれたカテゴリを全て展開する（冪等 — 既に展開済みなら何もしない） */
 export async function expandAllCategories(page: Page) {
 	await clearDialogGhosts(page);
 
 	const headers = page.locator('[data-testid^="category-header-"]');
 	const count = await headers.count();
 	for (let i = 0; i < count; i++) {
-		// JS evaluate で直接クリック（ダイアログゴースト/BottomNav の干渉を回避）
-		await headers.nth(i).evaluate((el) => (el as HTMLElement).click());
-		// アニメーション完了を待つ（固定waitではなく最小限）
-		await page.waitForTimeout(100);
+		const header = headers.nth(i);
+		// 親 <section> 内に activity-card があれば既に展開済み → スキップ
+		const section = header.locator('..');
+		const hasCards = await section
+			.locator('[data-testid^="activity-card-"]')
+			.first()
+			.isVisible()
+			.catch(() => false);
+		if (!hasCards) {
+			await header.evaluate((el) => (el as HTMLElement).click());
+			await page.waitForTimeout(100);
+		}
 	}
 }
 

@@ -435,14 +435,13 @@ $effect(() => {
 		</div>
 	{/if}
 
-	<!-- Activity grid by category (compact mode: collapsed by default) -->
+	<!-- Activity grid by category -->
 	{#each activitiesByCategory as group (group.categoryId)}
 		<CategorySection
 			categoryId={group.categoryId}
 			cardSize={displayConfig.cardSize}
 			itemsPerCategory={displayConfig.itemsPerCategory}
 			collapsible={displayConfig.collapsible}
-			compactMode={true}
 			itemCount={group.items.length}
 			xpInfo={getCategoryXpWithAnim(group.categoryId)}
 			xpAnimating={xpAnimatingCategoryId === group.categoryId}
