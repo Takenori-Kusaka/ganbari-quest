@@ -4,7 +4,7 @@
 // 機能テストは smoke.spec.ts / features.spec.ts が担う。
 
 import { expect, test } from '@playwright/test';
-import { isAwsEnv, selectChildByName, selectKinderChildAndDismiss } from './helpers';
+import { selectChildByName, selectKinderChildAndDismiss } from './helpers';
 
 // ============================================================
 // Public pages — 認証不要
@@ -76,7 +76,7 @@ test.describe('ページヘルス: Kinder 子供画面', () => {
 
 	test('チェックリスト (/checklist) が 500 にならない', async ({ page }) => {
 		const response = await page.goto('/checklist');
-		expect(response?.status(), '/checklist returned ' + response?.status()).not.toBe(500);
+		expect(response?.status(), `/checklist returned ${response?.status()}`).not.toBe(500);
 	});
 });
 
