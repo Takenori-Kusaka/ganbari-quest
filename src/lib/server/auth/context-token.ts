@@ -2,7 +2,7 @@
 // サーバーサイド Context トークン（署名付き短命トークン）
 // JWE ではなく HMAC-SHA256 で署名した JSON。サーバーサイドのみで使用。
 
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { AuthContext } from './types';
 
 /** Context トークンの有効期限（秒） */
@@ -53,7 +53,9 @@ export function verifyContext(token: string): AuthContext | null {
 	if (!encoded || !signature) return null;
 
 	const expected = createHmac('sha256', getSecret()).update(encoded).digest('base64url');
-	if (signature !== expected) return null;
+	const sigBuf = Buffer.from(signature);
+	const expBuf = Buffer.from(expected);
+	if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) return null;
 
 	try {
 		const json = Buffer.from(encoded, 'base64url').toString();
