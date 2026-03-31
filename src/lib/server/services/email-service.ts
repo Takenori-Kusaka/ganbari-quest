@@ -227,6 +227,34 @@ export async function sendMemberJoinedEmail(
 	});
 }
 
+/** ライセンスキー通知メール (#0247) */
+export async function sendLicenseKeyEmail(
+	email: string,
+	licenseKey: string,
+	plan: string,
+): Promise<boolean> {
+	const planLabel = plan === 'yearly' ? '年額プラン' : '月額プラン';
+	return sendEmail({
+		to: email,
+		subject: '【がんばりクエスト】ライセンスキーのお知らせ',
+		htmlBody: wrapTemplate(`
+      <h2>ライセンスキーをお届けします</h2>
+      <p>プレミアムプラン（${planLabel}）のご購入ありがとうございます。</p>
+      <div style="background: #f5f3ff; border: 2px solid #6366f1; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
+        <p style="font-size: 12px; color: #666; margin: 0 0 8px 0;">ライセンスキー</p>
+        <p style="font-size: 28px; font-weight: bold; color: #4f46e5; letter-spacing: 4px; margin: 0; font-family: 'Courier New', monospace;">${licenseKey}</p>
+      </div>
+      <p>このキーは、新しいデバイスやブラウザからサインアップする際に使用できます。</p>
+      <p>ライセンスキーは管理画面の「ライセンス」ページでもいつでも確認できます。</p>
+      <p style="text-align: center; margin: 24px 0;">
+        <a href="https://ganbari-quest.com/admin/license" class="button">ライセンス管理を開く</a>
+      </p>
+      <p style="font-size: 12px; color: #999;">※ このキーは大切に保管してください。第三者に共有しないでください。</p>
+    `),
+		textBody: `プレミアムプラン（${planLabel}）のご購入ありがとうございます。\n\nライセンスキー: ${licenseKey}\n\nこのキーは、新しいデバイスやブラウザからサインアップする際に使用できます。\nライセンス管理: https://ganbari-quest.com/admin/license`,
+	});
+}
+
 /** 週次活動レポート */
 export interface WeeklyReportData {
 	childName: string;

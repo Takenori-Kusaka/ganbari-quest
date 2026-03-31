@@ -5,6 +5,8 @@ import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { notifyBillingEvent } from '$lib/server/services/discord-notify-service';
+import { sendLicenseKeyEmail } from '$lib/server/services/email-service';
+import { issueLicenseKey } from '$lib/server/services/license-key-service';
 import { getStripeClient, isStripeEnabled } from '$lib/server/stripe/client';
 import {
 	CURRENCY,
@@ -182,14 +184,40 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 	const subscriptionId =
 		typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
 
+	const plan = (planId as Tenant['plan']) ?? 'monthly';
 	const repos = getRepos();
 	await repos.auth.updateTenantStripe(tenantId, {
 		stripeCustomerId: customerId ?? undefined,
 		stripeSubscriptionId: subscriptionId ?? undefined,
-		plan: (planId as Tenant['plan']) ?? 'monthly',
+		plan,
 		status: 'active',
 		trialUsedAt: new Date().toISOString(),
 	});
+
+	// ライセンスキー発行 (#0247)
+	try {
+		const licenseRecord = await issueLicenseKey({
+			tenantId,
+			plan: plan ?? 'monthly',
+			stripeSessionId: session.id,
+		});
+
+		// テナントにライセンスキーを紐付け
+		await repos.auth.updateTenantStripe(tenantId, { licenseKey: licenseRecord.licenseKey });
+
+		// Stripe Customer のメールアドレスにキーを送信
+		const customerEmail = session.customer_details?.email ?? session.customer_email;
+		if (customerEmail) {
+			sendLicenseKeyEmail(customerEmail, licenseRecord.licenseKey, plan ?? 'monthly').catch(
+				(err) => {
+					logger.warn('[STRIPE] License key email failed', { error: String(err) });
+				},
+			);
+		}
+	} catch (err) {
+		logger.error('[STRIPE] License key issuance failed', { error: String(err) });
+		// キー発行失敗でも決済自体は成功扱い（手動対応で補完可能）
+	}
 
 	logger.info(
 		`[STRIPE] Checkout completed: tenant=${tenantId} customer=${customerId} subscription=${subscriptionId}`,

@@ -26,6 +26,7 @@ import {
 	MEMBER_SK_PREFIX,
 	USER_TENANT_SK_PREFIX,
 	inviteKey,
+	licenseKey as licenseKeyFn,
 	tenantConsentKey,
 	tenantInviteKey,
 	tenantKey,
@@ -546,4 +547,69 @@ export const findAllConsents: IAuthRepo['findAllConsents'] = async (tenantId) =>
 		}),
 	);
 	return (result.Items ?? []).map((item) => itemToConsent(item as Record<string, unknown>));
+};
+
+// ============================================================
+// License Key (#0247)
+// ============================================================
+
+import type { LicenseRecord } from '$lib/server/services/license-key-service';
+
+export const saveLicenseKey: IAuthRepo['saveLicenseKey'] = async (record) => {
+	const keys = licenseKeyFn(record.licenseKey);
+	await doc().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...keys,
+				tenantId: record.tenantId,
+				plan: record.plan,
+				stripeSessionId: record.stripeSessionId,
+				status: record.status,
+				createdAt: record.createdAt,
+			},
+		}),
+	);
+};
+
+export const findLicenseKey: IAuthRepo['findLicenseKey'] = async (key) => {
+	const keys = licenseKeyFn(key);
+	const result = await doc().send(
+		new GetCommand({ TableName: TABLE_NAME, Key: keys }),
+	);
+	if (!result.Item) return undefined;
+	const item = result.Item as Record<string, unknown>;
+	return {
+		licenseKey: key,
+		tenantId: item.tenantId as string,
+		plan: item.plan as LicenseRecord['plan'],
+		stripeSessionId: item.stripeSessionId as string | undefined,
+		status: item.status as LicenseRecord['status'],
+		consumedBy: item.consumedBy as string | undefined,
+		consumedAt: item.consumedAt as string | undefined,
+		createdAt: item.createdAt as string,
+	};
+};
+
+export const updateLicenseKeyStatus: IAuthRepo['updateLicenseKeyStatus'] = async (
+	key,
+	status,
+	consumedBy,
+) => {
+	const keys = licenseKeyFn(key);
+	const now = new Date().toISOString();
+	await doc().send(
+		new UpdateCommand({
+			TableName: TABLE_NAME,
+			Key: keys,
+			UpdateExpression: consumedBy
+				? 'SET #status = :status, consumedBy = :consumedBy, consumedAt = :consumedAt'
+				: 'SET #status = :status',
+			ExpressionAttributeNames: { '#status': 'status' },
+			ExpressionAttributeValues: {
+				':status': status,
+				...(consumedBy ? { ':consumedBy': consumedBy, ':consumedAt': now } : {}),
+			},
+		}),
+	);
 };
