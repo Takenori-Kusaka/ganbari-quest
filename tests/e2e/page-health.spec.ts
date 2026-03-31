@@ -1,0 +1,125 @@
+// tests/e2e/page-health.spec.ts
+// 全ページヘルスチェック — 全ルートが 500 エラーなく表示されることを保証する
+// このテストは「ページが開けること」のみを検証する最低限のスモークテスト。
+// 機能テストは smoke.spec.ts / features.spec.ts が担う。
+
+import { expect, test } from '@playwright/test';
+import { isAwsEnv, selectChildByName, selectKinderChildAndDismiss } from './helpers';
+
+// ============================================================
+// Public pages — 認証不要
+// ============================================================
+test.describe('ページヘルス: Public', () => {
+	const publicPages = [
+		{ path: '/switch', name: '子供選択' },
+		{ path: '/login', name: 'ログイン' },
+	];
+
+	for (const { path, name } of publicPages) {
+		test(`${name} (${path}) が 500 にならない`, async ({ page }) => {
+			const response = await page.goto(path);
+			expect(response?.status(), `${path} returned ${response?.status()}`).not.toBe(500);
+		});
+	}
+});
+
+// ============================================================
+// Admin pages — 親管理画面（local モードでは認証不要）
+// ============================================================
+test.describe('ページヘルス: Admin', () => {
+	const adminPages = [
+		{ path: '/admin', name: 'ダッシュボード' },
+		{ path: '/admin/children', name: 'こども管理' },
+		{ path: '/admin/activities', name: '活動管理' },
+		{ path: '/admin/activities/introduce', name: '活動紹介' },
+		{ path: '/admin/points', name: 'ポイント管理' },
+		{ path: '/admin/rewards', name: 'ごほうび管理' },
+		{ path: '/admin/achievements', name: '実績管理' },
+		{ path: '/admin/checklists', name: 'チェックリスト管理' },
+		{ path: '/admin/messages', name: 'メッセージ管理' },
+		{ path: '/admin/status', name: 'ステータス管理' },
+		{ path: '/admin/settings', name: '設定' },
+		{ path: '/admin/members', name: 'メンバー管理' },
+		{ path: '/admin/license', name: 'ライセンス' },
+	];
+
+	for (const { path, name } of adminPages) {
+		test(`${name} (${path}) が 500 にならない`, async ({ page }) => {
+			const response = await page.goto(path);
+			expect(response?.status(), `${path} returned ${response?.status()}`).not.toBe(500);
+		});
+	}
+});
+
+// ============================================================
+// Kinder child pages — 子供画面（ゆうきちゃん = kinder）
+// ============================================================
+test.describe('ページヘルス: Kinder 子供画面', () => {
+	test.beforeEach(async ({ page }) => {
+		await selectKinderChildAndDismiss(page);
+	});
+
+	const kinderPages = [
+		{ path: '/kinder/home', name: 'ホーム' },
+		{ path: '/kinder/history', name: '履歴' },
+		{ path: '/kinder/status', name: 'ステータス' },
+		{ path: '/kinder/achievements', name: '実績' },
+		{ path: '/kinder/titles', name: '称号' },
+	];
+
+	for (const { path, name } of kinderPages) {
+		test(`${name} (${path}) が 500 にならない`, async ({ page }) => {
+			const response = await page.goto(path);
+			expect(response?.status(), `${path} returned ${response?.status()}`).not.toBe(500);
+		});
+	}
+
+	test('チェックリスト (/checklist) が 500 にならない', async ({ page }) => {
+		const response = await page.goto('/checklist');
+		expect(response?.status(), '/checklist returned ' + response?.status()).not.toBe(500);
+	});
+});
+
+// ============================================================
+// Baby child pages — 子供画面（てすとくん = baby）
+// ============================================================
+test.describe('ページヘルス: Baby 子供画面', () => {
+	test.beforeEach(async ({ page }) => {
+		await selectChildByName(page, 'てすとくん');
+	});
+
+	const babyPages = [
+		{ path: '/baby/home', name: 'ホーム' },
+		{ path: '/baby/history', name: '履歴' },
+		{ path: '/baby/status', name: 'ステータス' },
+		{ path: '/baby/achievements', name: '実績' },
+	];
+
+	for (const { path, name } of babyPages) {
+		test(`${name} (${path}) が 500 にならない`, async ({ page }) => {
+			const response = await page.goto(path);
+			expect(response?.status(), `${path} returned ${response?.status()}`).not.toBe(500);
+		});
+	}
+});
+
+// ============================================================
+// API health — 主要 API エンドポイント
+// ============================================================
+test.describe('ページヘルス: API', () => {
+	const apiEndpoints = [
+		{ path: '/api/health', name: 'ヘルスチェック' },
+		{ path: '/api/v1/activities', name: '活動一覧' },
+		{ path: '/api/v1/points/1', name: 'ポイント残高' },
+		{ path: '/api/v1/status/1', name: 'ステータス' },
+		{ path: '/api/v1/achievements/1', name: '実績' },
+		{ path: '/api/v1/login-bonus/1', name: 'ログインボーナス' },
+	];
+
+	for (const { path, name } of apiEndpoints) {
+		test(`${name} (${path}) が 500 にならない`, async ({ request }) => {
+			const response = await request.get(path);
+			expect(response.status(), `${path} returned ${response.status()}`).not.toBe(500);
+		});
+	}
+});
