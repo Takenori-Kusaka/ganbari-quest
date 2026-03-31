@@ -7,7 +7,6 @@
 
 import { expect, test } from '@playwright/test';
 import {
-	expandFirstCategory,
 	getAvailableActivities,
 	isAwsEnv,
 	recordAnyActivity,
