@@ -44,11 +44,19 @@ export const actions: Actions = {
 		const agreedPrivacy = formData.get('agreedPrivacy') === 'on';
 
 		if (!agreedTerms || !agreedPrivacy) {
-			return fail(400, { error: '利用規約とプライバシーポリシーへの同意が必要です', email, licenseKey: licenseKeyInput });
+			return fail(400, {
+				error: '利用規約とプライバシーポリシーへの同意が必要です',
+				email,
+				licenseKey: licenseKeyInput,
+			});
 		}
 
 		if (!email || !password || !passwordConfirm) {
-			return fail(400, { error: '全ての項目を入力してください', email, licenseKey: licenseKeyInput });
+			return fail(400, {
+				error: '全ての項目を入力してください',
+				email,
+				licenseKey: licenseKeyInput,
+			});
 		}
 
 		if (password !== passwordConfirm) {
@@ -56,7 +64,11 @@ export const actions: Actions = {
 		}
 
 		if (password.length < 8) {
-			return fail(400, { error: 'パスワードは8文字以上で入力してください', email, licenseKey: licenseKeyInput });
+			return fail(400, {
+				error: 'パスワードは8文字以上で入力してください',
+				email,
+				licenseKey: licenseKeyInput,
+			});
 		}
 
 		// ライセンスキーが入力されている場合は事前検証
@@ -91,13 +103,23 @@ export const actions: Actions = {
 		const licenseKeyInput = (formData.get('licenseKey') as string)?.trim() || '';
 
 		if (!email || !code) {
-			return fail(400, { error: '確認コードを入力してください', email, confirmStep: true, licenseKey: licenseKeyInput });
+			return fail(400, {
+				error: '確認コードを入力してください',
+				email,
+				confirmStep: true,
+				licenseKey: licenseKeyInput,
+			});
 		}
 
 		const confirmResult = await confirmSignUp(email, code);
 
 		if (!confirmResult.success) {
-			return fail(400, { error: confirmResult.message, email, confirmStep: true, licenseKey: licenseKeyInput });
+			return fail(400, {
+				error: confirmResult.message,
+				email,
+				confirmStep: true,
+				licenseKey: licenseKeyInput,
+			});
 		}
 
 		// 新規登録通知（Discord）

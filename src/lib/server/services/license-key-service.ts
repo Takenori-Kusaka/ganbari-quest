@@ -18,7 +18,8 @@ export function generateLicenseKey(): string {
 	for (let s = 0; s < 3; s++) {
 		let seg = '';
 		for (let i = 0; i < 4; i++) {
-			seg += KEY_CHARS[bytes[s * 4 + i]! % KEY_CHARS.length];
+			const b = bytes[s * 4 + i] ?? 0;
+			seg += KEY_CHARS[b % KEY_CHARS.length];
 		}
 		segments.push(seg);
 	}
