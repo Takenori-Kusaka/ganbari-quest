@@ -87,3 +87,12 @@ export const findLatestConsent: IAuthRepo['findLatestConsent'] = async () => {
 export const findAllConsents: IAuthRepo['findAllConsents'] = async () => {
 	return [];
 };
+export const saveLicenseKey: IAuthRepo['saveLicenseKey'] = async () => {
+	// no-op in local mode
+};
+export const findLicenseKey: IAuthRepo['findLicenseKey'] = async () => {
+	return undefined;
+};
+export const updateLicenseKeyStatus: IAuthRepo['updateLicenseKeyStatus'] = async () => {
+	// no-op in local mode
+};
