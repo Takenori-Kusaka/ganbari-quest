@@ -24,6 +24,7 @@ console.log(`DB: ${dbPath}`);
 
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = OFF');
 
 // ============================================================
 // Step 1: テーブル削除
