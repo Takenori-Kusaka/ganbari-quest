@@ -79,6 +79,7 @@ export class ComputeStack extends cdk.Stack {
 				PORT: '3000',
 				HOST: '0.0.0.0',
 				NODE_ENV: 'production',
+				ORIGIN: 'https://ganbari-quest.com',
 				BODY_SIZE_LIMIT: '10485760',
 				AUTH_MODE: 'cognito',
 				COGNITO_USER_POOL_ID: cognitoUserPoolId,
