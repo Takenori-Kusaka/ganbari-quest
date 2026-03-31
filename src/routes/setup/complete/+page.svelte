@@ -7,9 +7,7 @@ let { data } = $props();
 const firstChild = $derived(data.children[0]);
 const childHomeUrl = $derived(firstChild ? `/${firstChild.uiMode}/home` : '/switch');
 const childLabel = $derived(
-	firstChild
-		? (AGE_TIER_CONFIG[firstChild.uiMode as UiMode]?.label ?? firstChild.uiMode)
-		: '',
+	firstChild ? (AGE_TIER_CONFIG[firstChild.uiMode as UiMode]?.label ?? firstChild.uiMode) : '',
 );
 </script>
 

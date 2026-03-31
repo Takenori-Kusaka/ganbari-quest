@@ -36,22 +36,22 @@ describe('LEVEL_TABLE', () => {
 
 	it('必要XPは厳密に単調増加', () => {
 		for (let i = 1; i < LEVEL_TABLE.length; i++) {
-			expect(LEVEL_TABLE[i]!.requiredXp).toBeGreaterThan(LEVEL_TABLE[i - 1]!.requiredXp);
+			expect(LEVEL_TABLE[i]?.requiredXp).toBeGreaterThan(LEVEL_TABLE[i - 1]?.requiredXp ?? 0);
 		}
 	});
 
 	it('Lv.1の必要XPは0', () => {
-		expect(LEVEL_TABLE[0]!.requiredXp).toBe(0);
+		expect(LEVEL_TABLE[0]?.requiredXp).toBe(0);
 	});
 
 	it('キーポイントが設計通り', () => {
-		expect(LEVEL_TABLE[1]!.requiredXp).toBe(15); // Lv.2
-		expect(LEVEL_TABLE[2]!.requiredXp).toBe(40); // Lv.3
-		expect(LEVEL_TABLE[3]!.requiredXp).toBe(80); // Lv.4
-		expect(LEVEL_TABLE[4]!.requiredXp).toBe(140); // Lv.5
-		expect(LEVEL_TABLE[9]!.requiredXp).toBe(500); // Lv.10
-		expect(LEVEL_TABLE[19]!.requiredXp).toBe(2500); // Lv.20
-		expect(LEVEL_TABLE[98]!.requiredXp).toBe(100000); // Lv.99
+		expect(LEVEL_TABLE[1]?.requiredXp).toBe(15); // Lv.2
+		expect(LEVEL_TABLE[2]?.requiredXp).toBe(40); // Lv.3
+		expect(LEVEL_TABLE[3]?.requiredXp).toBe(80); // Lv.4
+		expect(LEVEL_TABLE[4]?.requiredXp).toBe(140); // Lv.5
+		expect(LEVEL_TABLE[9]?.requiredXp).toBe(500); // Lv.10
+		expect(LEVEL_TABLE[19]?.requiredXp).toBe(2500); // Lv.20
+		expect(LEVEL_TABLE[98]?.requiredXp).toBe(100000); // Lv.99
 	});
 
 	it('全エントリにタイトルがある', () => {
@@ -62,13 +62,13 @@ describe('LEVEL_TABLE', () => {
 	});
 
 	it('Lv.1-10は固有タイトル', () => {
-		expect(LEVEL_TABLE[0]!.title).toBe('はじめのぼうけんしゃ');
-		expect(LEVEL_TABLE[4]!.title).toBe('きらきらヒーロー');
-		expect(LEVEL_TABLE[9]!.title).toBe('かみさまレベル');
+		expect(LEVEL_TABLE[0]?.title).toBe('はじめのぼうけんしゃ');
+		expect(LEVEL_TABLE[4]?.title).toBe('きらきらヒーロー');
+		expect(LEVEL_TABLE[9]?.title).toBe('かみさまレベル');
 	});
 
 	it('Lv.99は最高タイトル', () => {
-		expect(LEVEL_TABLE[98]!.title).toBe('でんせつのぼうけんしゃ');
+		expect(LEVEL_TABLE[98]?.title).toBe('でんせつのぼうけんしゃ');
 	});
 });
 
