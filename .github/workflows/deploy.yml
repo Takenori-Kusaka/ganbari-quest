@@ -43,15 +43,29 @@ jobs:
         run: npm audit --audit-level=high || true
       - run: npx vitest run
 
+      # Build before E2E (preview mode eliminates Vite JIT compilation overhead)
+      - run: npm run build
+
       # E2E tests (local mode)
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright deps (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
       - run: npx playwright test
 
       # E2E tests (cognito-dev mode)
       - run: npx playwright test --config playwright.cognito-dev.config.ts
-
-      - run: npm run build
 
   deploy:
     needs: test

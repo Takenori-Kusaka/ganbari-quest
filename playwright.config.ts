@@ -7,12 +7,14 @@ export default defineConfig({
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
 	workers: process.env.CI ? 1 : 2,
+	timeout: 30_000,
 	reporter: [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'test-results.json' }]],
 	globalSetup: './tests/e2e/global-setup.ts',
 	use: {
 		baseURL: 'http://localhost:5173',
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
+		actionTimeout: 10_000,
 	},
 	projects: [
 		{
@@ -31,7 +33,7 @@ export default defineConfig({
 		},
 	],
 	webServer: {
-		command: 'npm run dev',
+		command: process.env.CI ? 'npm run preview -- --port 5173' : 'npm run dev',
 		port: 5173,
 		reuseExistingServer: !process.env.CI,
 		timeout: 30_000,

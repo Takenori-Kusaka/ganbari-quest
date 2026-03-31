@@ -31,8 +31,11 @@ export default defineConfig({
 		},
 	],
 	webServer: {
-		command:
-			process.platform === 'win32'
+		command: process.env.CI
+			? process.platform === 'win32'
+				? 'set AUTH_MODE=cognito&& set COGNITO_DEV_MODE=true&& npm run preview -- --port 5174'
+				: 'AUTH_MODE=cognito COGNITO_DEV_MODE=true npm run preview -- --port 5174'
+			: process.platform === 'win32'
 				? 'set AUTH_MODE=cognito&& set COGNITO_DEV_MODE=true&& npm run dev -- --port 5174'
 				: 'AUTH_MODE=cognito COGNITO_DEV_MODE=true npm run dev -- --port 5174',
 		port: 5174,
