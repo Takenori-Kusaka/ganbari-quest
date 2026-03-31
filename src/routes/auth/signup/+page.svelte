@@ -7,6 +7,7 @@ let { form } = $props();
 let email = $state(form?.email ?? '');
 let password = $state('');
 let passwordConfirm = $state('');
+let licenseKey = $state(form?.licenseKey ?? '');
 let code = $state('');
 let loading = $state(false);
 let agreedTerms = $state(false);
@@ -54,6 +55,7 @@ $effect(() => {
 			>
 				<input type="hidden" name="email" value={email} />
 				<input type="hidden" name="password" value={password} />
+				<input type="hidden" name="licenseKey" value={licenseKey} />
 
 				<p class="confirm-description">
 					<strong>{email}</strong> に確認コードを送信しました。<br />
@@ -142,6 +144,20 @@ $effect(() => {
 						autocomplete="new-password"
 						class="form-input"
 					/>
+				</div>
+
+				<div class="form-group">
+					<label for="licenseKey" class="form-label">ライセンスキー <span class="form-optional">（任意）</span></label>
+					<input
+						id="licenseKey"
+						name="licenseKey"
+						type="text"
+						bind:value={licenseKey}
+						placeholder="GQ-XXXX-XXXX-XXXX"
+						autocomplete="off"
+						class="form-input license-input"
+					/>
+					<span class="form-hint">購入済みの方はライセンスキーを入力するとプレミアムプランが有効になります</span>
 				</div>
 
 				<div class="agreement-group">
@@ -268,6 +284,18 @@ $effect(() => {
 	.form-hint {
 		font-size: 0.75rem;
 		color: #9ca3af;
+	}
+
+	.form-optional {
+		font-weight: 400;
+		color: #9ca3af;
+		font-size: 0.75rem;
+	}
+
+	.license-input {
+		text-transform: uppercase;
+		font-family: 'Courier New', monospace;
+		letter-spacing: 0.1em;
 	}
 
 	.code-input {

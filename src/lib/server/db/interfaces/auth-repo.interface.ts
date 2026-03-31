@@ -13,6 +13,7 @@ import type {
 	RecordConsentInput,
 	Tenant,
 } from '$lib/server/auth/entities';
+import type { LicenseRecord } from '$lib/server/services/license-key-service';
 
 export interface IAuthRepo {
 	// --- User ---
@@ -35,6 +36,7 @@ export interface IAuthRepo {
 			planExpiresAt?: string;
 			trialUsedAt?: string;
 			status?: Tenant['status'];
+			licenseKey?: string;
 		},
 	): Promise<void>;
 
@@ -62,4 +64,13 @@ export interface IAuthRepo {
 		type: ConsentRecord['type'],
 	): Promise<ConsentRecord | undefined>;
 	findAllConsents(tenantId: string): Promise<ConsentRecord[]>;
+
+	// --- License Key (#0247) ---
+	saveLicenseKey(record: LicenseRecord): Promise<void>;
+	findLicenseKey(key: string): Promise<LicenseRecord | undefined>;
+	updateLicenseKeyStatus(
+		key: string,
+		status: LicenseRecord['status'],
+		consumedBy?: string,
+	): Promise<void>;
 }
