@@ -84,8 +84,9 @@ function generateLevelTable(): readonly LevelEntry[] {
 	function interpolateXp(level: number): number {
 		if (level <= 1) return 0;
 		for (let i = 0; i < keyPoints.length - 1; i++) {
-			const kp = keyPoints[i]!;
-			const kpNext = keyPoints[i + 1]!;
+			const kp = keyPoints[i];
+			const kpNext = keyPoints[i + 1];
+			if (!kp || !kpNext) continue;
 			const [l1, xp1] = kp;
 			const [l2, xp2] = kpNext;
 			if (level >= l1 && level <= l2) {
@@ -118,10 +119,13 @@ export function calcLevelFromXp(totalXp: number): { level: number; title: string
 	const xp = Math.max(0, totalXp);
 	let lo = 0;
 	let hi = LEVEL_TABLE.length - 1;
+	// LEVEL_TABLE は 99 要素で必ず存在する
+	// biome-ignore lint/style/noNonNullAssertion: LEVEL_TABLE[0] is guaranteed to exist (99 entries)
 	let result = LEVEL_TABLE[0]!;
 
 	while (lo <= hi) {
 		const mid = (lo + hi) >> 1;
+		// biome-ignore lint/style/noNonNullAssertion: mid is always within bounds
 		const entry = LEVEL_TABLE[mid]!;
 		if (entry.requiredXp <= xp) {
 			result = entry;
@@ -144,7 +148,7 @@ export function calcXpToNextLevel(totalXp: number): {
 } {
 	const xp = Math.max(0, totalXp);
 	const { level } = calcLevelFromXp(xp);
-	const currentEntry = LEVEL_TABLE[level - 1]!;
+	const currentEntry = LEVEL_TABLE[level - 1] ?? LEVEL_TABLE[0];
 	const nextEntry = level < 99 ? LEVEL_TABLE[level] : null;
 
 	if (!nextEntry) {
