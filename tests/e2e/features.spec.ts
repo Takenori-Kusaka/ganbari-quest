@@ -237,9 +237,9 @@ test.describe('#0053/#0058: 多重送信防止', () => {
 		await dismissOverlays(page);
 		await expandFirstCategory(page);
 
-		// 未記録の活動を探してクリック
+		// 未記録の活動を探してクリック（evaluate でBottomNav干渉を回避）
 		const activity = page.locator('[data-testid^="activity-card-"]:not([disabled])').first();
-		await activity.click();
+		await activity.evaluate((el) => (el as HTMLElement).click());
 
 		// 確認ダイアログが表示される
 		const dialog = page.locator('[data-testid="confirm-dialog"]');
