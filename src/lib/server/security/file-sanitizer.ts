@@ -2,16 +2,17 @@
 // Polyglot攻撃、EXIFインジェクション、ID3タグインジェクションへの防御
 
 import { logger } from '$lib/server/logger';
-import sharp from 'sharp';
 
 /**
  * 画像を re-encode してメタデータ・埋め込みペイロードを完全に除去する
  * Sharp はデコード→ピクセルデータ→再エンコードを行い、EXIF/XMP/コメント等を全て消す
+ * Note: sharp は動的 import（ネイティブモジュールのため、未使用ページでクラッシュ防止）
  */
 export async function sanitizeImage(
 	data: Buffer,
 	mimeType: string,
 ): Promise<{ buffer: Buffer; mimeType: string }> {
+	const { default: sharp } = await import('sharp');
 	let pipeline = sharp(data);
 
 	switch (mimeType) {

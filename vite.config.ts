@@ -4,6 +4,10 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	ssr: {
+		// sharp はネイティブモジュール — バンドルせず node_modules から直接ロード
+		external: ['sharp'],
+	},
 	test: {
 		include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
 		environment: 'jsdom',
