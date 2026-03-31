@@ -341,31 +341,9 @@ export class OpsStack extends cdk.Stack {
 				: [],
 		});
 
-		// ================================================================
 		// 5. Cost Anomaly Detection
-		// deploy.yml の cleanup ステップが孤立 AnomalyMonitor を事前削除するため
-		// 再有効化してOK（AlreadyExists 問題は cleanup で回避）
-		// ================================================================
-		const anomalyMonitor = new cdk.aws_ce.CfnAnomalyMonitor(this, 'CostAnomalyMonitor', {
-			monitorName: 'ganbari-quest-cost-anomaly',
-			monitorType: 'DIMENSIONAL',
-			monitorDimension: 'SERVICE',
-		});
-
-		if (opsEmail) {
-			new cdk.aws_ce.CfnAnomalySubscription(this, 'CostAnomalySubscription', {
-				subscriptionName: 'ganbari-quest-cost-anomaly-alert',
-				monitorArnList: [anomalyMonitor.attrMonitorArn],
-				frequency: 'DAILY',
-				threshold: 5,
-				subscribers: [
-					{
-						type: 'EMAIL',
-						address: opsEmail,
-					},
-				],
-			});
-		}
+		// AWS アカウントのデフォルト "Default-Services-Monitor" を使用
+		// （カスタムモニター作成はアカウント上限との競合で AlreadyExists エラーが発生するため削除）
 
 		// ================================================================
 		// 6. AWS Health → EventBridge → SNS (AWS障害の自動通知)
