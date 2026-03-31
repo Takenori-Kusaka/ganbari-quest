@@ -6,9 +6,6 @@ import * as dynamoActivityMasteryRepo from './dynamodb/activity-mastery-repo';
 import * as dynamoActivityPrefRepo from './dynamodb/activity-pref-repo';
 import * as dynamoActivityRepo from './dynamodb/activity-repo';
 import * as dynamoAuthRepo from './dynamodb/auth-repo';
-import * as dynamoAvatarRepo from './dynamodb/avatar-repo';
-import * as dynamoBirthdayRepo from './dynamodb/birthday-repo';
-import * as dynamoCareerRepo from './dynamodb/career-repo';
 import * as dynamoChecklistRepo from './dynamodb/checklist-repo';
 import * as dynamoChildRepo from './dynamodb/child-repo';
 import * as dynamoDailyMissionRepo from './dynamodb/daily-mission-repo';
@@ -19,7 +16,6 @@ import * as dynamoLoginBonusRepo from './dynamodb/login-bonus-repo';
 import * as dynamoMessageRepo from './dynamodb/message-repo';
 import * as dynamoPointRepo from './dynamodb/point-repo';
 import * as dynamoSettingsRepo from './dynamodb/settings-repo';
-import * as dynamoSkillTreeRepo from './dynamodb/skill-tree-repo';
 import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
 import * as dynamoStatusRepo from './dynamodb/status-repo';
 import * as dynamoStorageRepo from './dynamodb/storage-repo';
@@ -30,9 +26,6 @@ import type { IActivityMasteryRepo } from './interfaces/activity-mastery-repo.in
 import type { IActivityPrefRepo } from './interfaces/activity-pref-repo.interface';
 import type { IActivityRepo } from './interfaces/activity-repo.interface';
 import type { IAuthRepo } from './interfaces/auth-repo.interface';
-import type { IAvatarRepo } from './interfaces/avatar-repo.interface';
-import type { IBirthdayRepo } from './interfaces/birthday-repo.interface';
-import type { ICareerRepo } from './interfaces/career-repo.interface';
 import type { IChecklistRepo } from './interfaces/checklist-repo.interface';
 import type { IChildRepo } from './interfaces/child-repo.interface';
 import type { IDailyMissionRepo } from './interfaces/daily-mission-repo.interface';
@@ -43,7 +36,6 @@ import type { ILoginBonusRepo } from './interfaces/login-bonus-repo.interface';
 import type { IMessageRepo } from './interfaces/message-repo.interface';
 import type { IPointRepo } from './interfaces/point-repo.interface';
 import type { ISettingsRepo } from './interfaces/settings-repo.interface';
-import type { ISkillTreeRepo } from './interfaces/skill-tree-repo.interface';
 import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interface';
 import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
@@ -54,9 +46,6 @@ import * as sqliteActivityMasteryRepo from './sqlite/activity-mastery-repo';
 import * as sqliteActivityPrefRepo from './sqlite/activity-pref-repo';
 import * as sqliteActivityRepo from './sqlite/activity-repo';
 import * as sqliteAuthRepo from './sqlite/auth-repo';
-import * as sqliteAvatarRepo from './sqlite/avatar-repo';
-import * as sqliteBirthdayRepo from './sqlite/birthday-repo';
-import * as sqliteCareerRepo from './sqlite/career-repo';
 import * as sqliteChecklistRepo from './sqlite/checklist-repo';
 import * as sqliteChildRepo from './sqlite/child-repo';
 import * as sqliteDailyMissionRepo from './sqlite/daily-mission-repo';
@@ -67,7 +56,6 @@ import * as sqliteLoginBonusRepo from './sqlite/login-bonus-repo';
 import * as sqliteMessageRepo from './sqlite/message-repo';
 import * as sqlitePointRepo from './sqlite/point-repo';
 import * as sqliteSettingsRepo from './sqlite/settings-repo';
-import * as sqliteSkillTreeRepo from './sqlite/skill-tree-repo';
 import * as sqliteSpecialRewardRepo from './sqlite/special-reward-repo';
 import * as sqliteStatusRepo from './sqlite/status-repo';
 import * as sqliteStorageRepo from './sqlite/storage-repo';
@@ -80,9 +68,6 @@ export interface Repositories {
 	activity: IActivityRepo;
 	activityMastery: IActivityMasteryRepo;
 	activityPref: IActivityPrefRepo;
-	avatar: IAvatarRepo;
-	birthday: IBirthdayRepo;
-	career: ICareerRepo;
 	checklist: IChecklistRepo;
 	child: IChildRepo;
 	dailyMission: IDailyMissionRepo;
@@ -95,7 +80,6 @@ export interface Repositories {
 	specialReward: ISpecialRewardRepo;
 	status: IStatusRepo;
 	levelTitle: ILevelTitleRepo;
-	skillTree: ISkillTreeRepo;
 	storage: IStorageRepo;
 	title: ITitleRepo;
 	voice: IVoiceRepo;
@@ -114,9 +98,6 @@ export function getRepos(): Repositories {
 			activity: dynamoActivityRepo,
 			activityMastery: dynamoActivityMasteryRepo,
 			activityPref: dynamoActivityPrefRepo,
-			avatar: dynamoAvatarRepo,
-			birthday: dynamoBirthdayRepo,
-			career: dynamoCareerRepo,
 			checklist: dynamoChecklistRepo,
 			child: dynamoChildRepo,
 			dailyMission: dynamoDailyMissionRepo,
@@ -127,7 +108,6 @@ export function getRepos(): Repositories {
 			point: dynamoPointRepo,
 			settings: dynamoSettingsRepo,
 			levelTitle: dynamoLevelTitleRepo,
-			skillTree: dynamoSkillTreeRepo,
 			specialReward: dynamoSpecialRewardRepo,
 			status: dynamoStatusRepo,
 			storage: dynamoStorageRepo,
@@ -144,9 +124,6 @@ export function getRepos(): Repositories {
 		activity: sqliteActivityRepo,
 		activityMastery: sqliteActivityMasteryRepo,
 		activityPref: sqliteActivityPrefRepo,
-		avatar: sqliteAvatarRepo,
-		birthday: sqliteBirthdayRepo,
-		career: sqliteCareerRepo,
 		checklist: sqliteChecklistRepo,
 		child: sqliteChildRepo,
 		dailyMission: sqliteDailyMissionRepo,
@@ -157,7 +134,6 @@ export function getRepos(): Repositories {
 		point: sqlitePointRepo,
 		settings: sqliteSettingsRepo,
 		levelTitle: sqliteLevelTitleRepo,
-		skillTree: sqliteSkillTreeRepo,
 		specialReward: sqliteSpecialRewardRepo,
 		status: sqliteStatusRepo,
 		storage: sqliteStorageRepo,

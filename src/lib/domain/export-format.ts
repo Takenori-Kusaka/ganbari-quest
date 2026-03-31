@@ -41,19 +41,6 @@ export interface ExportAchievement {
 	rarity: string;
 }
 
-export interface ExportAvatarItem {
-	code: string;
-	name: string;
-	category: string;
-	icon: string;
-	rarity: string;
-}
-
-export interface ExportCareerField {
-	name: string;
-	icon: string | null;
-}
-
 // ============================================================
 // 家族データ型
 // ============================================================
@@ -67,9 +54,6 @@ export interface ExportChild {
 	uiMode: string;
 	avatarUrl: string | null;
 	activeTitle: string | null;
-	activeAvatarBg: string | null;
-	activeAvatarFrame: string | null;
-	activeAvatarEffect: string | null;
 	createdAt: string;
 }
 
@@ -184,41 +168,6 @@ export interface ExportChecklistLog {
 	createdAt: string;
 }
 
-export interface ExportChildAvatarItem {
-	childRef: string;
-	itemCode: string;
-	acquiredAt: string;
-}
-
-export interface ExportCareerPlan {
-	childRef: string;
-	careerFieldName: string | null;
-	dreamText: string | null;
-	mandalaChart: string;
-	timeline3y: string | null;
-	timeline5y: string | null;
-	timeline10y: string | null;
-	targetStatuses: string;
-	version: number;
-	isActive: boolean;
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface ExportBirthdayReview {
-	childRef: string;
-	reviewYear: number;
-	ageAtReview: number;
-	healthChecks: string;
-	aspirationText: string | null;
-	aspirationCategories: string;
-	basePoints: number;
-	healthPoints: number;
-	aspirationPoints: number;
-	totalPoints: number;
-	createdAt: string;
-}
-
 export interface ExportDailyMission {
 	childRef: string;
 	missionDate: string;
@@ -236,8 +185,7 @@ export interface ExportMasterData {
 	activities: ExportActivity[];
 	titles: ExportTitle[];
 	achievements: ExportAchievement[];
-	avatarItems: ExportAvatarItem[];
-	careerFields: ExportCareerField[];
+	avatarItems: never[];
 }
 
 export interface ExportTransactionData {
@@ -252,9 +200,7 @@ export interface ExportTransactionData {
 	specialRewards: ExportSpecialReward[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
-	childAvatarItems: ExportChildAvatarItem[];
-	careerPlans: ExportCareerPlan[];
-	birthdayReviews: ExportBirthdayReview[];
+	childAvatarItems: never[];
 	dailyMissions: ExportDailyMission[];
 }
 

@@ -3,7 +3,6 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { getChildAchievements } from '$lib/server/services/achievement-service';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
-import { getBirthdayReviews } from '$lib/server/services/birthday-service';
 import {
 	addChild,
 	editChild,
@@ -66,12 +65,11 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		const id = Number(selectedId);
 		const child = children.find((c) => c.id === id);
 		if (child) {
-			const [balance, status, logs, achievements, birthdayReviews, voices] = await Promise.all([
+			const [balance, status, logs, achievements, voices] = await Promise.all([
 				getPointBalance(id, tenantId),
 				getChildStatus(id, tenantId),
 				getActivityLogs(id, tenantId),
 				getChildAchievements(id, tenantId),
-				getBirthdayReviews(id, tenantId),
 				listVoices(id, 'complete', tenantId),
 			]);
 
@@ -93,7 +91,6 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 				recentLogs: 'error' in logs ? [] : logs.logs.slice(0, 20),
 				logSummary: 'error' in logs ? null : logs.summary,
 				achievements: achievements,
-				birthdayReviews,
 				voices,
 			};
 		}

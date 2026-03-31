@@ -5,8 +5,6 @@ import { parseDisplayConfig } from '$lib/domain/display-config';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
-import BirthdayResultOverlay from '$lib/ui/components/BirthdayResultOverlay.svelte';
-import BirthdayReviewOverlay from '$lib/ui/components/BirthdayReviewOverlay.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
@@ -20,9 +18,7 @@ import { tick } from 'svelte';
 
 let { data } = $props();
 
-const celebEffect = $derived(
-	(data.avatarConfig?.celebrationEffect ?? 'default') as CelebrationType,
-);
+const celebEffect: CelebrationType = 'default';
 const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
@@ -53,7 +49,6 @@ let resultMasteryLeveledUp = $state<{
 	newLevel: number;
 	isMilestone: boolean;
 } | null>(null);
-let resultSkillPointBonus = $state(0);
 let cancelCountdown = $state(0);
 let cancelTimerId = $state<ReturnType<typeof setInterval> | null>(null);
 let cancelledMessage = $state(false);
@@ -77,18 +72,6 @@ let stampPressData = $state<{
 	consecutiveDays: number;
 } | null>(null);
 let bonusClaiming = $state(false);
-
-// Birthday review state
-let birthdayOpen = $state(false);
-let birthdayResultOpen = $state(false);
-let birthdayResult = $state<{
-	basePoints: number;
-	healthPoints: number;
-	aspirationPoints: number;
-	totalPoints: number;
-} | null>(null);
-let birthdaySubmitting = $state(false);
-let birthdayFormData = $state<{ healthChecks: string; aspirationText: string } | null>(null);
 
 // Mission complete result state
 let missionResult = $state<{
@@ -251,40 +234,6 @@ $effect(() => {
 		checkSpecialReward();
 	}
 });
-
-// Auto-show birthday review
-$effect(() => {
-	if (
-		data.birthdayStatus?.isBirthday &&
-		!data.birthdayStatus.alreadyReviewed &&
-		!bonusClaiming &&
-		!stampPressOpen &&
-		!birthdayOpen &&
-		!birthdayResultOpen
-	) {
-		birthdayOpen = true;
-	}
-});
-
-function handleBirthdaySubmit(submitData: {
-	healthChecks: Record<string, boolean>;
-	aspirationText: string;
-}) {
-	birthdayFormData = {
-		healthChecks: JSON.stringify(submitData.healthChecks),
-		aspirationText: submitData.aspirationText,
-	};
-	birthdaySubmitting = true;
-	tick().then(() => {
-		document.getElementById('birthday-submit-btn')?.click();
-	});
-}
-
-function handleBirthdayResultClose() {
-	birthdayResultOpen = false;
-	birthdayResult = null;
-	invalidateAll();
-}
 </script>
 
 <svelte:head>
@@ -386,7 +335,6 @@ function handleBirthdayResultClose() {
 										} | null;
 										missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 										levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string; spGranted?: number } | null;
-										skillPointBonus?: number;
 										xpGain?: { categoryId: number; categoryName: string; xpBefore: number; xpAfter: number; maxValue: number; levelBefore: number; levelAfter: number };
 									};
 									resultIcon = activity.icon;
@@ -397,8 +345,7 @@ function handleBirthdayResultClose() {
 									resultMasteryBonus = d.masteryBonus ?? 0;
 									resultMasteryLevel = d.masteryLevel ?? 1;
 									resultMasteryLeveledUp = d.masteryLeveledUp ?? null;
-								resultSkillPointBonus = d.skillPointBonus ?? 0;
-									unlockedAchievements = d.unlockedAchievements ?? [];
+unlockedAchievements = d.unlockedAchievements ?? [];
 									missionResult = d.missionComplete ?? null;
 								levelUpData = d.levelUp ?? null;
 									xpGainData = d.xpGain ?? null;
@@ -604,62 +551,6 @@ function handleBirthdayResultClose() {
 		multiplier={stampPressData.multiplier}
 		consecutiveDays={stampPressData.consecutiveDays}
 		onClose={handleStampPressClose}
-	/>
-{/if}
-
-<!-- Birthday review hidden form -->
-{#if birthdaySubmitting && birthdayFormData}
-	<form
-		method="POST"
-		action="?/submitBirthday"
-		use:enhance={() => {
-			return async ({ result }) => {
-				birthdaySubmitting = false;
-				if (result.type === 'success' && result.data && 'birthdayReview' in result.data) {
-					const d = result.data as { basePoints: number; healthPoints: number; aspirationPoints: number; totalPoints: number };
-					birthdayOpen = false;
-					birthdayResult = {
-						basePoints: d.basePoints,
-						healthPoints: d.healthPoints,
-						aspirationPoints: d.aspirationPoints,
-						totalPoints: d.totalPoints,
-					};
-					birthdayResultOpen = true;
-					soundService.playRecordComplete();
-				} else {
-					birthdayOpen = false;
-					invalidateAll();
-				}
-			};
-		}}
-		class="hidden"
-	>
-		<input type="hidden" name="healthChecks" value={birthdayFormData.healthChecks} />
-		<input type="hidden" name="aspirationText" value={birthdayFormData.aspirationText} />
-		<button type="submit" id="birthday-submit-btn">submit</button>
-	</form>
-{/if}
-
-<!-- Birthday review overlay -->
-{#if data.birthdayStatus}
-	<BirthdayReviewOverlay
-		bind:open={birthdayOpen}
-		childAge={data.birthdayStatus.childAge}
-		healthCheckItems={data.healthCheckItems}
-		onSubmit={handleBirthdaySubmit}
-	/>
-{/if}
-
-<!-- Birthday result overlay -->
-{#if birthdayResult}
-	<BirthdayResultOverlay
-		bind:open={birthdayResultOpen}
-		childAge={data.birthdayStatus?.childAge ?? 0}
-		basePoints={birthdayResult.basePoints}
-		healthPoints={birthdayResult.healthPoints}
-		aspirationPoints={birthdayResult.aspirationPoints}
-		totalPoints={birthdayResult.totalPoints}
-		onClose={handleBirthdayResultClose}
 	/>
 {/if}
 

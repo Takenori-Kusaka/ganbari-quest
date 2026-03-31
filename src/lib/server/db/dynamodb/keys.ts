@@ -25,10 +25,7 @@ const PREFIX = {
 	TITLE: 'TITLE',
 	SETTING: 'SETTING',
 	COUNTER: 'COUNTER',
-	CAREER: 'CAREER',
-	CARPLAN: 'CARPLAN',
 	CKTPL: 'CKTPL',
-	AVITEM: 'AVITEM',
 	BENCH: 'BENCH',
 	INQUIRY: 'INQUIRY',
 } as const;
@@ -425,44 +422,6 @@ export function activityMasteryPrefix(): string {
 	return 'MAST#';
 }
 
-/** Child skill node: PK=CHILD#<cId>, SK=SKILLNODE#<nodeId> */
-export function childSkillNodeKey(childId: number, nodeId: number, tenantId: string): DynamoKey {
-	return {
-		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
-		SK: `SKILLNODE#${padId(nodeId)}`,
-	};
-}
-
-/** Child skill node SK prefix */
-export function childSkillNodePrefix(): string {
-	return 'SKILLNODE#';
-}
-
-/** Skill points balance: PK=CHILD#<cId>, SK=SKILLPT */
-export function skillPointsKey(childId: number, tenantId: string): DynamoKey {
-	return {
-		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
-		SK: 'SKILLPT',
-	};
-}
-
-/** Birthday review: PK=CHILD#<cId>, SK=BDAY#<year> */
-export function birthdayReviewKey(
-	childId: number,
-	reviewYear: number,
-	tenantId: string,
-): DynamoKey {
-	return {
-		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
-		SK: `BDAY#${reviewYear}`,
-	};
-}
-
-/** Birthday review SK prefix for querying all reviews of a child */
-export function birthdayReviewPrefix(): string {
-	return 'BDAY#';
-}
-
 /** Character image: PK=CHILD#<cId>, SK=IMG#<type>#<hash> */
 export function characterImageKey(
 	childId: number,
@@ -484,66 +443,6 @@ export function characterImagePrefix(): string {
 /** Character image SK prefix for querying images by type */
 export function characterImageTypePrefix(type: string): string {
 	return `IMG#${type}#`;
-}
-
-/** Career field master: PK=CAREER#<id>, SK=MASTER (global) */
-export function careerFieldKey(careerFieldId: number): DynamoKey {
-	return {
-		PK: `${PREFIX.CAREER}#${careerFieldId}`,
-		SK: 'MASTER',
-	};
-}
-
-/** Career plan: PK=CHILD#<cId>, SK=CARPLAN#<id> */
-export function careerPlanKey(childId: number, planId: number, tenantId: string): DynamoKey {
-	return {
-		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
-		SK: `CARPLAN#${padId(planId)}`,
-	};
-}
-
-/** Career plan SK prefix for querying all plans of a child */
-export function careerPlanPrefix(): string {
-	return 'CARPLAN#';
-}
-
-/** Career plan history: PK=CARPLAN#<planId>, SK=HIST#<ts>#<id> */
-export function careerPlanHistoryKey(
-	planId: number,
-	createdAt: string,
-	historyId: number,
-	tenantId: string,
-): DynamoKey {
-	return {
-		PK: tenantPK(`${PREFIX.CARPLAN}#${planId}`, tenantId),
-		SK: `HIST#${createdAt}#${padId(historyId)}`,
-	};
-}
-
-/** Career plan history SK prefix for querying all history of a plan */
-export function careerPlanHistoryPrefix(): string {
-	return 'HIST#';
-}
-
-/** Avatar item master: PK=AVITEM#<id>, SK=MASTER (global) */
-export function avatarItemKey(itemId: number): DynamoKey {
-	return {
-		PK: `${PREFIX.AVITEM}#${itemId}`,
-		SK: 'MASTER',
-	};
-}
-
-/** Child avatar item: PK=CHILD#<cId>, SK=AVOWN#<itemId> */
-export function childAvatarItemKey(childId: number, itemId: number, tenantId: string): DynamoKey {
-	return {
-		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
-		SK: `AVOWN#${padId(itemId)}`,
-	};
-}
-
-/** Child avatar item SK prefix for querying all owned items of a child */
-export function childAvatarItemPrefix(): string {
-	return 'AVOWN#';
 }
 
 /** Market benchmark: PK=BENCH#<age>, SK=CAT#<catId> (global) */
@@ -622,19 +521,10 @@ export const ENTITY_NAMES = {
 	checklistLog: 'checklistLog',
 	checklistOverride: 'checklistOverride',
 	dailyMission: 'dailyMission',
-	birthdayReview: 'birthdayReview',
 	characterImage: 'characterImage',
-	careerField: 'careerField',
-	careerPlan: 'careerPlan',
-	careerPlanHistory: 'careerPlanHistory',
-	avatarItem: 'avatarItem',
-	childAvatarItem: 'childAvatarItem',
 	marketBenchmark: 'marketBenchmark',
 	activityPref: 'activityPref',
 	activityMastery: 'activityMastery',
-	skillNode: 'skillNode',
-	childSkillNode: 'childSkillNode',
-	skillPoints: 'skillPoints',
 	inquiry: 'inquiry',
 	voice: 'voice',
 } as const;

@@ -56,7 +56,6 @@ const menuItems = $derived([
 	{ href: `${basePath}/checklists`, label: 'もちもの', icon: '✅' },
 	{ href: `${basePath}/achievements`, label: 'じっせき', icon: '🏆' },
 	{ href: `${basePath}/status`, label: 'ベンチマーク', icon: '📈' },
-	{ href: `${basePath}/career`, label: 'キャリア', icon: '🌟' },
 	{ href: `${basePath}/members`, label: 'メンバー', icon: '👥' },
 	...(isDemo
 		? []

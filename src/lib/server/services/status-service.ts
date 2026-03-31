@@ -21,7 +21,6 @@ import {
 	insertStatusHistory,
 	upsertStatus,
 } from '$lib/server/db/status-repo';
-import { grantSkillPoints } from '$lib/server/services/skill-service';
 
 export interface StatusDetail {
 	value: number;
@@ -276,10 +275,6 @@ export async function updateStatus(
 	let levelUp: LevelUpInfo | null = null;
 
 	if (afterLevel.level > beforeLevel.level) {
-		// LvUP時にSPを1付与
-		const spAmount = 1;
-		await grantSkillPoints(childId, spAmount, tenantId);
-
 		// カスタム称号を解決
 		const customTitles = await getCustomLevelTitles(tenantId);
 
@@ -290,7 +285,7 @@ export async function updateStatus(
 			newTitle: resolveLevelTitle(afterLevel.level, customTitles),
 			categoryId,
 			categoryName: catDef?.name ?? '',
-			spGranted: spAmount,
+			spGranted: 0,
 		};
 	}
 

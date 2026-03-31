@@ -10,9 +10,6 @@ import {
 	insertActivityLog,
 	insertPointLedger,
 } from '$lib/server/db/activity-repo';
-import { findAllAvatarItems, insertChildAvatarItem } from '$lib/server/db/avatar-repo';
-import { insertBirthdayReview } from '$lib/server/db/birthday-repo';
-import { findAllCareerFields, insertCareerPlan } from '$lib/server/db/career-repo';
 import { insertTemplate, insertTemplateItem } from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
 import { insertLoginBonus } from '$lib/server/db/login-bonus-repo';
@@ -91,9 +88,6 @@ export function previewImport(data: ExportData) {
 		titles: data.data.childTitles.length,
 		loginBonuses: data.data.loginBonuses.length,
 		checklistTemplates: data.data.checklistTemplates.length,
-		avatarItems: data.data.childAvatarItems.length,
-		careerPlans: data.data.careerPlans.length,
-		birthdayReviews: data.data.birthdayReviews.length,
 	};
 }
 
@@ -157,19 +151,15 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 	}
 
 	// マスタデータのルックアップ構築
-	const [activities, titles, achievements, avatarItems, careerFields] = await Promise.all([
+	const [activities, titles, achievements] = await Promise.all([
 		findActivities(tenantId),
 		findAllTitles(tenantId),
 		findAllAchievements(tenantId),
-		findAllAvatarItems(tenantId),
-		findAllCareerFields(tenantId),
 	]);
 
 	const activityNameMap = new Map(activities.map((a) => [a.name, a]));
 	const titleCodeMap = new Map(titles.map((t) => [t.code, t]));
 	const achievementCodeMap = new Map(achievements.map((a) => [a.code, a]));
-	const avatarCodeMap = new Map(avatarItems.map((a) => [a.code, a]));
-	const careerFieldNameMap = new Map(careerFields.map((f) => [f.name, f]));
 
 	// 1. 子供を作成し、exportId → newChildId のマッピングを構築
 	const childIdMap = new Map<string, number>();
@@ -328,22 +318,7 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 		}
 	}
 
-	// 8. きせかえアイテム所持
-	for (const oi of data.data.childAvatarItems) {
-		const childId = childIdMap.get(oi.childRef);
-		if (!childId) continue;
-
-		const item = avatarCodeMap.get(oi.itemCode);
-		if (!item) continue;
-
-		try {
-			await insertChildAvatarItem(childId, item.id, tenantId);
-		} catch (_e) {
-			// skip duplicate
-		}
-	}
-
-	// 9. チェックリストテンプレート
+	// 8. チェックリストテンプレート
 	for (const tpl of data.data.checklistTemplates) {
 		const childId = childIdMap.get(tpl.childRef);
 		if (!childId) continue;
@@ -378,57 +353,7 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 		}
 	}
 
-	// 10. キャリアプラン
-	for (const cp of data.data.careerPlans) {
-		const childId = childIdMap.get(cp.childRef);
-		if (!childId) continue;
-
-		const field = cp.careerFieldName ? careerFieldNameMap.get(cp.careerFieldName) : null;
-		try {
-			await insertCareerPlan(
-				{
-					childId,
-					careerFieldId: field?.id ?? undefined,
-					dreamText: cp.dreamText ?? undefined,
-					mandalaChart: cp.mandalaChart,
-					timeline3y: cp.timeline3y ?? undefined,
-					timeline5y: cp.timeline5y ?? undefined,
-					timeline10y: cp.timeline10y ?? undefined,
-				},
-				tenantId,
-			);
-		} catch (_e) {
-			// skip
-		}
-	}
-
-	// 11. 誕生日振り返り
-	for (const br of data.data.birthdayReviews) {
-		const childId = childIdMap.get(br.childRef);
-		if (!childId) continue;
-
-		try {
-			await insertBirthdayReview(
-				{
-					childId,
-					reviewYear: br.reviewYear,
-					ageAtReview: br.ageAtReview,
-					healthChecks: br.healthChecks,
-					aspirationText: br.aspirationText,
-					aspirationCategories: br.aspirationCategories,
-					basePoints: br.basePoints,
-					healthPoints: br.healthPoints,
-					aspirationPoints: br.aspirationPoints,
-					totalPoints: br.totalPoints,
-				},
-				tenantId,
-			);
-		} catch (_e) {
-			// skip duplicate
-		}
-	}
-
-	// 12. ステータス履歴
+	// 10. ステータス履歴
 	for (const sh of data.data.statusHistory) {
 		const childId = childIdMap.get(sh.childRef);
 		const categoryId = CATEGORY_CODE_TO_ID[sh.categoryCode];

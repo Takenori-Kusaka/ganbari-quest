@@ -8,7 +8,7 @@ import {
 } from '$lib/domain/point-display';
 
 let { data, form } = $props();
-let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'voice' | 'birthday'>('info');
+let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'voice'>('info');
 let statusEditSuccess = $state(false);
 let sliderValues: Record<number, number> = $state({});
 const childLimit = $derived(
@@ -31,7 +31,6 @@ const detailTabs = [
 	{ id: 'logs', label: '📝 活動記録' },
 	{ id: 'achievements', label: '🏆 実績' },
 	{ id: 'voice', label: '📢 ボイス' },
-	{ id: 'birthday', label: '🎂 ふりかえり' },
 ] as const;
 
 let generating = $state(false);
@@ -758,28 +757,6 @@ function handleFileSelect(childId: number, event: Event) {
 							※ 有効なボイスが設定されている場合、ショップの効果音よりも優先されます。
 						</p>
 					</div>
-				{:else if detailTab === 'birthday'}
-					<!-- Birthday reviews -->
-					{#if child.birthdayReviews && child.birthdayReviews.length > 0}
-						<div class="space-y-2">
-							{#each child.birthdayReviews as review}
-								<div class="bg-pink-50 rounded-lg p-3 text-sm">
-									<div class="flex items-center justify-between mb-1">
-										<span class="font-bold">{review.reviewYear}年（{review.ageAtReview}歳）</span>
-										<span class="text-amber-600 font-bold">{fmtPts(review.totalPoints)}</span>
-									</div>
-									{#if review.aspirationText}
-										<p class="text-gray-600 text-xs">🌟 {review.aspirationText}</p>
-									{/if}
-									<p class="text-gray-400 text-xs mt-1">
-										基本:{fmtPts(review.basePoints)} / 健康:{fmtPts(review.healthPoints)} / 目標:{fmtPts(review.aspirationPoints)}
-									</p>
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<p class="text-center text-gray-400 py-4">ふりかえりがありません</p>
-					{/if}
 				{/if}
 			</div>
 		</section>
