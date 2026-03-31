@@ -58,9 +58,9 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 		await selectKinderChildAndDismiss(page);
 	});
 
-	test('活動カードが表示される', async ({ page }) => {
-		// compactMode でカテゴリが折りたたまれているので展開する
-		await expandFirstCategory(page);
+	test('活動カードがページロード直後に表示される（展開操作なし）', async ({ page }) => {
+		// コア UX 保証: 活動カードはユーザーの操作なしで即座に表示されること
+		// compactMode 等で折りたたまれていると記録できないデグレに直結する
 		const activityCards = page.locator('[data-testid^="activity-card-"]');
 		await expect(activityCards.first()).toBeVisible();
 		const count = await activityCards.count();
@@ -79,12 +79,10 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 		expect(await links.count()).toBe(3);
 	});
 
-	test('チェックリストショートカットまたは活動カードが表示される', async ({ page }) => {
-		// compactMode ではカテゴリヘッダーが表示されていることを確認
+	test('カテゴリヘッダーと活動カードが両方表示される', async ({ page }) => {
 		const categoryHeader = page.locator('[data-testid^="category-header-"]');
 		await expect(categoryHeader.first()).toBeVisible();
-		// カテゴリを展開すると活動カードが表示される
-		await expandFirstCategory(page);
+		// 活動カードも展開操作なしで表示されていること
 		const activityCards = page.locator('[data-testid^="activity-card-"]');
 		await expect(activityCards.first()).toBeVisible();
 	});
@@ -102,7 +100,6 @@ test.describe('UC-01: 活動記録フロー', () => {
 	});
 
 	test('活動をタップすると確認ダイアログが表示される', async ({ page }) => {
-		await expandFirstCategory(page);
 		const activity = getAvailableActivities(page).first();
 		await activity.click();
 
@@ -113,7 +110,6 @@ test.describe('UC-01: 活動記録フロー', () => {
 	});
 
 	test('「やめる」でダイアログが閉じる', async ({ page }) => {
-		await expandFirstCategory(page);
 		const activity = getAvailableActivities(page).first();
 		await activity.click();
 		const dialog = page.locator('[data-testid="confirm-dialog"]');
