@@ -15,6 +15,9 @@ export default defineConfig({
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 		actionTimeout: 10_000,
+		extraHTTPHeaders: {
+			Origin: 'http://localhost:5173',
+		},
 	},
 	projects: [
 		{
