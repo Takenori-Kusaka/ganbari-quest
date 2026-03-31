@@ -175,7 +175,7 @@ export class SesStack extends cdk.Stack {
 		new cdk.CfnOutput(this, 'ComplaintTopicArn', {
 			value: complaintTopic.topicArn,
 		});
-		new cdk.CfnOutput(this, 'SupportMailBucket', {
+		new cdk.CfnOutput(this, 'SupportMailBucketName', {
 			value: mailBucket.bucketName,
 		});
 		new cdk.CfnOutput(this, 'SesReceiveFunctionArn', {
