@@ -1,17 +1,22 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { AGE_TIER_CONFIG, type UiMode, getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 
 let { data, form } = $props();
 let submitting = $state(false);
 let addSuccess = $state(false);
+
+let ageInput = $state<number | undefined>(undefined);
+const autoUiMode = $derived(ageInput !== undefined ? getDefaultUiMode(ageInput) : null);
+const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : '');
 </script>
 
 <svelte:head>
 	<title>子供登録 - がんばりクエスト セットアップ</title>
 </svelte:head>
 
-<h2 class="text-lg font-bold text-gray-700 mb-2">子供を登録</h2>
+<h2 class="text-lg font-bold text-gray-700 mb-2">子供を登録しよう</h2>
 <p class="text-sm text-gray-500 mb-4">
 	がんばりクエストを使う子供を登録してください（1人以上）。
 </p>
@@ -21,7 +26,7 @@ let addSuccess = $state(false);
 {/if}
 
 {#if addSuccess}
-	<SuccessAlert message="子供を登録しました" />
+	<SuccessAlert message="子供を登録しました！" />
 {/if}
 
 <!-- Registered children list -->
@@ -40,7 +45,9 @@ let addSuccess = $state(false);
 					</span>
 					<div>
 						<p class="font-bold text-sm text-gray-700">{child.nickname}</p>
-						<p class="text-xs text-gray-500">{child.age}歳 / {child.uiMode === 'baby' ? 'ベビーモード' : 'キッズモード'}</p>
+						<p class="text-xs text-gray-500">
+							{child.age}歳 / {AGE_TIER_CONFIG[child.uiMode as UiMode]?.label ?? child.uiMode}モード
+						</p>
 					</div>
 				</div>
 			{/each}
@@ -59,6 +66,7 @@ let addSuccess = $state(false);
 			submitting = false;
 			if (result.type === 'success') {
 				addSuccess = true;
+				ageInput = undefined;
 			}
 			await update({ reset: true });
 		};
@@ -80,21 +88,6 @@ let addSuccess = $state(false);
 	</div>
 
 	<div>
-		<label for="birthDate" class="block text-sm font-medium text-gray-600 mb-1">
-			たんじょうび
-			<span class="text-xs text-gray-400 ml-1">（任意）</span>
-		</label>
-		<input
-			type="date"
-			id="birthDate"
-			name="birthDate"
-			max={new Date().toISOString().split('T')[0]}
-			class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-		/>
-		<p class="text-xs text-gray-400 mt-1">入力すると年齢が自動計算されます</p>
-	</div>
-
-	<div>
 		<label for="age" class="block text-sm font-medium text-gray-600 mb-1">年齢</label>
 		<input
 			type="number"
@@ -103,33 +96,33 @@ let addSuccess = $state(false);
 			min="0"
 			max="18"
 			required
+			bind:value={ageInput}
 			class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
 		/>
+		{#if autoUiMode}
+			<p class="text-xs text-blue-500 mt-1">
+				{autoUiLabel}モードが自動で設定されます
+			</p>
+		{/if}
 	</div>
 
-	<div class="grid grid-cols-2 gap-3">
-		<div>
-			<label for="theme" class="block text-sm font-medium text-gray-600 mb-1">テーマカラー</label>
-			<select
-				id="theme"
-				name="theme"
-				class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-			>
-				<option value="pink">ピンク</option>
-				<option value="blue">ブルー</option>
-			</select>
-		</div>
-
-		<div>
-			<label for="uiMode" class="block text-sm font-medium text-gray-600 mb-1">UIモード</label>
-			<select
-				id="uiMode"
-				name="uiMode"
-				class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-			>
-				<option value="kinder">キッズ（3歳〜）</option>
-				<option value="baby">ベビー（0〜2歳）</option>
-			</select>
+	<div>
+		<label for="theme" class="block text-sm font-medium text-gray-600 mb-1">テーマカラー</label>
+		<div class="grid grid-cols-2 gap-2">
+			<label class="theme-option">
+				<input type="radio" name="theme" value="pink" checked class="sr-only peer" />
+				<div class="theme-card peer-checked:border-pink-400 peer-checked:bg-pink-50">
+					<span class="text-2xl">👧</span>
+					<span class="text-sm font-medium text-gray-700">ピンク</span>
+				</div>
+			</label>
+			<label class="theme-option">
+				<input type="radio" name="theme" value="blue" class="sr-only peer" />
+				<div class="theme-card peer-checked:border-blue-400 peer-checked:bg-blue-50">
+					<span class="text-2xl">👦</span>
+					<span class="text-sm font-medium text-gray-700">ブルー</span>
+				</div>
+			</label>
 		</div>
 	</div>
 
@@ -153,3 +146,21 @@ let addSuccess = $state(false);
 		</button>
 	</form>
 {/if}
+
+<style>
+	.theme-card {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		padding: 12px 8px;
+		border: 2px solid #e5e7eb;
+		border-radius: 12px;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.theme-card:hover {
+		border-color: #d1d5db;
+	}
+</style>
