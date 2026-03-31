@@ -19,9 +19,6 @@ const mockChildren = [
 		uiMode: 'kinder',
 		avatarUrl: null,
 		activeTitleId: 1,
-		activeAvatarBg: null,
-		activeAvatarFrame: null,
-		activeAvatarEffect: null,
 		createdAt: '2025-06-01T00:00:00Z',
 		updatedAt: '2026-03-01T00:00:00Z',
 	},
@@ -34,9 +31,6 @@ const mockChildren = [
 		uiMode: 'baby',
 		avatarUrl: null,
 		activeTitleId: null,
-		activeAvatarBg: null,
-		activeAvatarFrame: null,
-		activeAvatarEffect: null,
 		createdAt: '2025-07-01T00:00:00Z',
 		updatedAt: '2026-03-01T00:00:00Z',
 	},
@@ -117,38 +111,6 @@ const mockAchievements = [
 		repeatable: 0,
 		milestoneValues: null,
 		isMilestone: 0,
-		createdAt: '2025-01-01T00:00:00Z',
-	},
-];
-
-const mockAvatarItems = [
-	{
-		id: 1,
-		code: 'bg_sunset',
-		name: 'ゆうやけ',
-		description: null,
-		category: 'background',
-		icon: '🌅',
-		cssValue: 'linear-gradient(...)',
-		price: 100,
-		unlockType: 'purchase',
-		unlockCondition: null,
-		rarity: 'common',
-		sortOrder: 1,
-		isActive: 1,
-		createdAt: '2025-01-01T00:00:00Z',
-	},
-];
-
-const mockCareerFields = [
-	{
-		id: 1,
-		name: '先生',
-		description: null,
-		icon: '👨‍🏫',
-		relatedCategories: '[2,4]',
-		recommendedActivities: '[]',
-		minAge: 4,
 		createdAt: '2025-01-01T00:00:00Z',
 	},
 ];
@@ -268,45 +230,6 @@ const mockChecklistItems = [
 	},
 ];
 
-const mockOwnedAvatarItems = [
-	{ id: 1, childId: 1, avatarItemId: 1, acquiredAt: '2026-03-10T00:00:00Z' },
-];
-
-const mockCareerPlans = [
-	{
-		id: 1,
-		childId: 1,
-		careerFieldId: 1,
-		dreamText: '先生になりたい',
-		mandalaChart: '{}',
-		timeline3y: null,
-		timeline5y: null,
-		timeline10y: null,
-		targetStatuses: '{}',
-		version: 1,
-		isActive: 1,
-		createdAt: '2026-03-01T00:00:00Z',
-		updatedAt: '2026-03-01T00:00:00Z',
-	},
-];
-
-const mockBirthdayReviews = [
-	{
-		id: 1,
-		childId: 1,
-		reviewYear: 2026,
-		ageAtReview: 5,
-		healthChecks: '{}',
-		aspirationText: 'サッカー選手',
-		aspirationCategories: '{}',
-		basePoints: 50,
-		healthPoints: 10,
-		aspirationPoints: 20,
-		totalPoints: 80,
-		createdAt: '2026-01-15T00:00:00Z',
-	},
-];
-
 // 全リポジトリファサードをモック
 vi.mock('$lib/server/db/child-repo', () => ({
 	findAllChildren: vi.fn(() => Promise.resolve(mockChildren)),
@@ -327,18 +250,6 @@ vi.mock('$lib/server/db/achievement-repo', () => ({
 	findAllAchievements: vi.fn(() => Promise.resolve(mockAchievements)),
 	findUnlockedAchievements: vi.fn((childId: number) =>
 		childId === 1 ? Promise.resolve(mockUnlockedAchievements) : Promise.resolve([]),
-	),
-}));
-vi.mock('$lib/server/db/avatar-repo', () => ({
-	findAllAvatarItems: vi.fn(() => Promise.resolve(mockAvatarItems)),
-	findOwnedItems: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockOwnedAvatarItems) : Promise.resolve([]),
-	),
-}));
-vi.mock('$lib/server/db/career-repo', () => ({
-	findAllCareerFields: vi.fn(() => Promise.resolve(mockCareerFields)),
-	findCareerPlansByChildId: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockCareerPlans) : Promise.resolve([]),
 	),
 }));
 vi.mock('$lib/server/db/checklist-repo', () => ({
@@ -375,12 +286,6 @@ vi.mock('$lib/server/db/status-repo', () => ({
 		childId === 1 && catId === 2 ? Promise.resolve(mockStatusHistory) : Promise.resolve([]),
 	),
 }));
-vi.mock('$lib/server/db/birthday-repo', () => ({
-	findBirthdayReviews: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockBirthdayReviews) : Promise.resolve([]),
-	),
-}));
-
 import { exportFamilyData } from '../../../src/lib/server/services/export-service';
 
 describe('exportFamilyData', () => {
@@ -413,8 +318,7 @@ describe('exportFamilyData', () => {
 		expect(result.master.activities).toHaveLength(2);
 		expect(result.master.titles).toHaveLength(1);
 		expect(result.master.achievements).toHaveLength(1);
-		expect(result.master.avatarItems).toHaveLength(1);
-		expect(result.master.careerFields).toHaveLength(1);
+		expect(result.master.avatarItems).toHaveLength(0);
 	});
 
 	it('活動マスタがIDではなくカテゴリコードで参照される', async () => {
@@ -503,26 +407,6 @@ describe('exportFamilyData', () => {
 		expect(result.data.checklistTemplates[0]?.name).toBe('あさのじゅんび');
 		expect(result.data.checklistTemplates[0]?.items).toHaveLength(1);
 		expect(result.data.checklistTemplates[0]?.items[0]?.name).toBe('はみがき');
-	});
-
-	it('きせかえアイテム所持がコードで参照される', async () => {
-		const result = await exportFamilyData({ tenantId: 'test-tenant' });
-		expect(result.data.childAvatarItems).toHaveLength(1);
-		expect(result.data.childAvatarItems[0]?.itemCode).toBe('bg_sunset');
-	});
-
-	it('キャリアプランがエクスポートされる', async () => {
-		const result = await exportFamilyData({ tenantId: 'test-tenant' });
-		expect(result.data.careerPlans).toHaveLength(1);
-		expect(result.data.careerPlans[0]?.careerFieldName).toBe('先生');
-		expect(result.data.careerPlans[0]?.dreamText).toBe('先生になりたい');
-	});
-
-	it('誕生日振り返りがエクスポートされる', async () => {
-		const result = await exportFamilyData({ tenantId: 'test-tenant' });
-		expect(result.data.birthdayReviews).toHaveLength(1);
-		expect(result.data.birthdayReviews[0]?.reviewYear).toBe(2026);
-		expect(result.data.birthdayReviews[0]?.totalPoints).toBe(80);
 	});
 
 	it('チェックサムが再現可能であること', async () => {

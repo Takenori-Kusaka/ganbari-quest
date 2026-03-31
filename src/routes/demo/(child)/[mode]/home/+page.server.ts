@@ -37,15 +37,4 @@ export const actions: Actions = {
 		const pinned = formData.get('pinned') === 'true';
 		return demoTogglePin(pinned);
 	},
-
-	submitBirthday: async () => {
-		return {
-			success: true,
-			birthdayReview: true,
-			basePoints: 50,
-			healthPoints: 250,
-			aspirationPoints: 200,
-			totalPoints: 500,
-		};
-	},
 };

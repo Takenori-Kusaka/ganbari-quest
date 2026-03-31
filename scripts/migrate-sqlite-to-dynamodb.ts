@@ -455,57 +455,6 @@ function migrateCharacterImages(db: InstanceType<typeof Database>): Record<strin
 	}));
 }
 
-function migrateCareerFields(db: InstanceType<typeof Database>): Record<string, unknown>[] {
-	const rows = db.prepare('SELECT * FROM career_fields').all() as Record<string, unknown>[];
-	return rows.map((r) => ({
-		PK: `CAREER#${r.id}`,
-		SK: 'MASTER',
-		id: r.id,
-		name: r.name,
-		description: r.description,
-		icon: r.icon,
-		relatedCategories: r.related_categories,
-		recommendedActivities: r.recommended_activities,
-		minAge: r.min_age,
-		createdAt: r.created_at,
-	}));
-}
-
-function migrateCareerPlans(db: InstanceType<typeof Database>): Record<string, unknown>[] {
-	const rows = db.prepare('SELECT * FROM career_plans').all() as Record<string, unknown>[];
-	return rows.map((r) => ({
-		PK: `CHILD#${r.child_id}`,
-		SK: `CARPLAN#${padId(r.id as number)}`,
-		id: r.id,
-		childId: r.child_id,
-		careerFieldId: r.career_field_id,
-		dreamText: r.dream_text,
-		mandalaChart: r.mandala_chart,
-		timeline3y: r.timeline_3y,
-		timeline5y: r.timeline_5y,
-		timeline10y: r.timeline_10y,
-		targetStatuses: r.target_statuses,
-		version: r.version,
-		isActive: r.is_active,
-		createdAt: r.created_at,
-		updatedAt: r.updated_at,
-	}));
-}
-
-function migrateCareerPlanHistory(db: InstanceType<typeof Database>): Record<string, unknown>[] {
-	const rows = db.prepare('SELECT * FROM career_plan_history').all() as Record<string, unknown>[];
-	return rows.map((r) => ({
-		PK: `CARPLAN#${r.career_plan_id}`,
-		SK: `HIST#${r.created_at}#${padId(r.id as number)}`,
-		id: r.id,
-		careerPlanId: r.career_plan_id,
-		action: r.action,
-		pointsEarned: r.points_earned,
-		snapshot: r.snapshot,
-		createdAt: r.created_at,
-	}));
-}
-
 function migrateAvatarItems(db: InstanceType<typeof Database>): Record<string, unknown>[] {
 	const rows = db.prepare('SELECT * FROM avatar_items').all() as Record<string, unknown>[];
 	return rows.map((r) => ({
@@ -585,9 +534,6 @@ function buildCounterItems(db: InstanceType<typeof Database>): Record<string, un
 		['dailyMission', 'daily_missions'],
 		['birthdayReview', 'birthday_reviews'],
 		['characterImage', 'character_images'],
-		['careerField', 'career_fields'],
-		['careerPlan', 'career_plans'],
-		['careerPlanHistory', 'career_plan_history'],
 		['avatarItem', 'avatar_items'],
 		['childAvatarItem', 'child_avatar_items'],
 		['marketBenchmark', 'market_benchmarks'],
@@ -651,9 +597,6 @@ async function main() {
 		['daily_missions', () => migrateDailyMissions(db)],
 		['birthday_reviews', () => migrateBirthdayReviews(db)],
 		['character_images', () => migrateCharacterImages(db)],
-		['career_fields', () => migrateCareerFields(db)],
-		['career_plans', () => migrateCareerPlans(db)],
-		['career_plan_history', () => migrateCareerPlanHistory(db)],
 		['avatar_items', () => migrateAvatarItems(db)],
 		['child_avatar_items', () => migrateChildAvatarItems(db)],
 		['market_benchmarks', () => migrateMarketBenchmarks(db)],

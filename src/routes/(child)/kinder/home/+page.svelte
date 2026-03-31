@@ -7,8 +7,6 @@ import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity'
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import AdventureStartOverlay from '$lib/ui/components/AdventureStartOverlay.svelte';
-import BirthdayResultOverlay from '$lib/ui/components/BirthdayResultOverlay.svelte';
-import BirthdayReviewOverlay from '$lib/ui/components/BirthdayReviewOverlay.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
@@ -26,10 +24,9 @@ let { data } = $props();
 // First record special celebration (must be before celebEffect)
 let isFirstRecord = $state(false);
 
-const baseCelebEffect = $derived(
-	(data.avatarConfig?.celebrationEffect ?? 'default') as CelebrationType,
+const celebEffect = $derived(
+	isFirstRecord ? ('legend' as CelebrationType) : ('default' as CelebrationType),
 );
-const celebEffect = $derived(isFirstRecord ? ('legend' as CelebrationType) : baseCelebEffect);
 const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
@@ -60,7 +57,6 @@ let resultData = $state<{
 	masteryBonus: number;
 	masteryLevel: number;
 	masteryLeveledUp: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
-	skillPointBonus: number;
 	cancelableUntil: string;
 	comboBonus: {
 		categoryCombo: { categoryId: number; name: string; bonus: number }[];
@@ -107,17 +103,6 @@ let stampPressData = $state<{
 	consecutiveDays: number;
 } | null>(null);
 let bonusClaiming = $state(false);
-
-// Birthday review state
-let birthdayOpen = $state(false);
-let birthdayResultOpen = $state(false);
-let birthdayResult = $state<{
-	basePoints: number;
-	healthPoints: number;
-	aspirationPoints: number;
-	totalPoints: number;
-} | null>(null);
-let birthdaySubmitting = $state(false);
 
 // Mission complete result state
 let missionResult = $state<{
@@ -388,42 +373,6 @@ $effect(() => {
 		checkSpecialReward();
 	}
 });
-
-// Auto-show birthday review if it's birthday and not yet reviewed
-$effect(() => {
-	if (
-		data.birthdayStatus?.isBirthday &&
-		!data.birthdayStatus.alreadyReviewed &&
-		!bonusClaiming &&
-		!stampPressOpen &&
-		!birthdayOpen &&
-		!birthdayResultOpen
-	) {
-		birthdayOpen = true;
-	}
-});
-
-let birthdayFormData = $state<{ healthChecks: string; aspirationText: string } | null>(null);
-
-function handleBirthdaySubmit(submitData: {
-	healthChecks: Record<string, boolean>;
-	aspirationText: string;
-}) {
-	birthdayFormData = {
-		healthChecks: JSON.stringify(submitData.healthChecks),
-		aspirationText: submitData.aspirationText,
-	};
-	birthdaySubmitting = true;
-	tick().then(() => {
-		document.getElementById('birthday-submit-btn')?.click();
-	});
-}
-
-function handleBirthdayResultClose() {
-	birthdayResultOpen = false;
-	birthdayResult = null;
-	invalidateAll();
-}
 </script>
 
 <svelte:head>
@@ -635,7 +584,6 @@ function handleBirthdayResultClose() {
 									} | null;
 									missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 									levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string; spGranted?: number } | null;
-									skillPointBonus?: number;
 								xpGain?: { categoryId: number; categoryName: string; xpBefore: number; xpAfter: number; maxValue: number; levelBefore: number; levelAfter: number };
 								};
 								resultData = {
@@ -647,7 +595,6 @@ function handleBirthdayResultClose() {
 									masteryBonus: d.masteryBonus ?? 0,
 									masteryLevel: d.masteryLevel ?? 1,
 									masteryLeveledUp: d.masteryLeveledUp ?? null,
-									skillPointBonus: d.skillPointBonus ?? 0,
 									cancelableUntil: d.cancelableUntil,
 									comboBonus: d.comboBonus ?? null,
 								};
@@ -879,62 +826,6 @@ function handleBirthdayResultClose() {
 		multiplier={stampPressData.multiplier}
 		consecutiveDays={stampPressData.consecutiveDays}
 		onClose={handleStampPressClose}
-	/>
-{/if}
-
-<!-- Birthday review hidden form -->
-{#if birthdaySubmitting && birthdayFormData}
-	<form
-		method="POST"
-		action="?/submitBirthday"
-		use:enhance={() => {
-			return async ({ result }) => {
-				birthdaySubmitting = false;
-				if (result.type === 'success' && result.data && 'birthdayReview' in result.data) {
-					const d = result.data as { basePoints: number; healthPoints: number; aspirationPoints: number; totalPoints: number };
-					birthdayOpen = false;
-					birthdayResult = {
-						basePoints: d.basePoints,
-						healthPoints: d.healthPoints,
-						aspirationPoints: d.aspirationPoints,
-						totalPoints: d.totalPoints,
-					};
-					birthdayResultOpen = true;
-					soundService.playRecordComplete();
-				} else {
-					birthdayOpen = false;
-					invalidateAll();
-				}
-			};
-		}}
-		class="hidden"
-	>
-		<input type="hidden" name="healthChecks" value={birthdayFormData.healthChecks} />
-		<input type="hidden" name="aspirationText" value={birthdayFormData.aspirationText} />
-		<button type="submit" id="birthday-submit-btn">submit</button>
-	</form>
-{/if}
-
-<!-- Birthday review overlay -->
-{#if data.birthdayStatus}
-	<BirthdayReviewOverlay
-		bind:open={birthdayOpen}
-		childAge={data.birthdayStatus.childAge}
-		healthCheckItems={data.healthCheckItems}
-		onSubmit={handleBirthdaySubmit}
-	/>
-{/if}
-
-<!-- Birthday result overlay -->
-{#if birthdayResult}
-	<BirthdayResultOverlay
-		bind:open={birthdayResultOpen}
-		childAge={data.birthdayStatus?.childAge ?? 0}
-		basePoints={birthdayResult.basePoints}
-		healthPoints={birthdayResult.healthPoints}
-		aspirationPoints={birthdayResult.aspirationPoints}
-		totalPoints={birthdayResult.totalPoints}
-		onClose={handleBirthdayResultClose}
 	/>
 {/if}
 

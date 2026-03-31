@@ -8,14 +8,8 @@ import {
 } from '$lib/server/services/activity-log-service';
 import { sortActivitiesWithPreferences } from '$lib/server/services/activity-pin-service';
 import { getActivities } from '$lib/server/services/activity-service';
-import {
-	HEALTH_CHECK_ITEMS,
-	checkBirthdayStatus,
-	submitBirthdayReview,
-} from '$lib/server/services/birthday-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
-import { getSkillPointBalance } from '$lib/server/services/skill-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
@@ -35,8 +29,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			todayRecorded: [],
 			loginBonusStatus: null,
 			latestReward: null,
-			birthdayStatus: null,
-			healthCheckItems: [],
 			dailyMissions: null,
 			stampCard: null,
 			categoryXp: null,
@@ -49,23 +41,19 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		todayRecorded,
 		loginBonusStatus,
 		latestReward,
-		birthdayRaw,
 		dailyMissions,
 		stampCard,
 		categoryXp,
 		achievementSummary,
-		spBalance,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
 		getLoginBonusStatus(child.id, tenantId),
 		getUnshownReward(child.id, tenantId),
-		checkBirthdayStatus(child.id, tenantId),
 		getTodayMissions(child.id, tenantId),
 		getStampCardStatus(child.id, tenantId),
 		getCategoryXpSummary(child.id, tenantId),
 		getAchievementSummary(child.id, tenantId),
-		getSkillPointBalance(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -74,7 +62,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		displayName: getActivityDisplayName(a, child.age),
 	}));
 	const bonusStatus = 'error' in loginBonusStatus ? null : loginBonusStatus;
-	const birthdayStatus = 'error' in birthdayRaw ? null : birthdayRaw;
 
 	// ミッション対象の活動IDセット
 	const missionActivityIds = new Set(dailyMissions?.missions.map((m) => m.activityId) ?? []);
@@ -90,14 +77,11 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		todayRecorded,
 		loginBonusStatus: bonusStatus,
 		latestReward,
-		birthdayStatus,
-		healthCheckItems: HEALTH_CHECK_ITEMS.map((h) => ({ key: h.key, label: h.label, icon: h.icon })),
 		dailyMissions,
 		stampCard,
 		categoryXp,
 		gameLoopHints: {
 			achievements: achievementSummary,
-			spBalance: spBalance.balance,
 		},
 	};
 };
@@ -140,7 +124,6 @@ export const actions: Actions = {
 			masteryBonus: result.masteryBonus,
 			masteryLevel: result.masteryLevel,
 			masteryLeveledUp: result.masteryLeveledUp,
-			skillPointBonus: result.skillPointBonus,
 			xpGain: result.xpGain,
 		};
 	},
@@ -164,42 +147,6 @@ export const actions: Actions = {
 		}
 
 		return { success: true, cancelled: true, refundedPoints: result.refundedPoints };
-	},
-
-	submitBirthday: async ({ request, cookies, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const childId = Number(cookies.get('selectedChildId'));
-		if (Number.isNaN(childId)) {
-			return fail(400, { error: 'パラメータが不正です' });
-		}
-
-		const formData = await request.formData();
-		const healthChecksJson = formData.get('healthChecks') as string;
-		const aspirationText = (formData.get('aspirationText') as string) || '';
-
-		let healthChecks: Record<string, boolean> = {};
-		try {
-			healthChecks = JSON.parse(healthChecksJson);
-		} catch {
-			return fail(400, { error: 'データが不正です' });
-		}
-
-		const result = await submitBirthdayReview(childId, { healthChecks, aspirationText }, tenantId);
-		if ('error' in result) {
-			if (result.error === 'ALREADY_REVIEWED') {
-				return fail(409, { error: 'もうふりかえりしたよ！' });
-			}
-			return fail(404, { error: 'みつかりません' });
-		}
-
-		return {
-			success: true,
-			birthdayReview: true,
-			basePoints: result.basePoints,
-			healthPoints: result.healthPoints,
-			aspirationPoints: result.aspirationPoints,
-			totalPoints: result.totalPoints,
-		};
 	},
 
 	claimBonus: async ({ cookies, locals }) => {

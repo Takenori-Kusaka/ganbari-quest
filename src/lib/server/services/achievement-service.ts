@@ -328,8 +328,6 @@ async function getCurrentProgress(
 			return await countPointLedgerEntriesByType(childId, 'combo_bonus', tenantId);
 		case 'first_mission':
 			return await countPointLedgerEntriesByType(childId, 'daily_mission', tenantId);
-		case 'first_purchase':
-			return await countPointLedgerEntriesByType(childId, 'avatar_purchase', tenantId);
 		case 'milestone_event':
 			return 0;
 		default:
@@ -450,8 +448,6 @@ function getConditionLabel(
 			return 'コンボボーナスをもらう';
 		case 'first_mission':
 			return 'ミッションをたっせいする';
-		case 'first_purchase':
-			return 'ショップでおかいものする';
 		case 'milestone_event':
 			return 'おやがきろくしてくれるよ';
 		default:
@@ -490,8 +486,6 @@ async function evaluateCondition(
 			return (await countPointLedgerEntriesByType(childId, 'combo_bonus', tenantId)) >= 1;
 		case 'first_mission':
 			return (await countPointLedgerEntriesByType(childId, 'daily_mission', tenantId)) >= 1;
-		case 'first_purchase':
-			return (await countPointLedgerEntriesByType(childId, 'avatar_purchase', tenantId)) >= 1;
 		default:
 			return false;
 	}
