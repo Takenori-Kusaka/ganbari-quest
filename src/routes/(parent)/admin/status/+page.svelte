@@ -2,11 +2,7 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
-import {
-	calcDeviationScore,
-	getComparisonLabel,
-	getMaxForAge,
-} from '$lib/domain/validation/status';
+import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/status';
 import { SuccessAlert } from '$lib/ui/components';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 
@@ -29,12 +25,13 @@ let bmInputSd: Record<string, string> = $state({});
 
 const benchmarksForAge = $derived(data.benchmarks.filter((b) => b.age === benchmarkAge));
 
-// 年齢別参考値ガイド
-const guideMaxVal = $derived(getMaxForAge(benchmarkAge));
-const guideMeanLow = $derived(Math.round(guideMaxVal * 0.35));
-const guideMeanHigh = $derived(Math.round(guideMaxVal * 0.5));
-const guideSdLow = $derived(Math.round(guideMaxVal * 0.1));
-const guideSdHigh = $derived(Math.round(guideMaxVal * 0.18));
+// 年齢別参考値ガイド（XPスケール）
+// 月30日×2活動×8XP÷5カテゴリ≒96 XP/月/カテゴリを基準
+const guideBaseXp = $derived(Math.round((benchmarkAge - 2) * 80));
+const guideMeanLow = $derived(Math.round(guideBaseXp * 0.8));
+const guideMeanHigh = $derived(Math.round(guideBaseXp * 1.5));
+const guideSdLow = $derived(Math.round(guideBaseXp * 0.3));
+const guideSdHigh = $derived(Math.round(guideBaseXp * 0.6));
 
 // 未設定ベンチマーク警告
 const hasUnsetBenchmarks = $derived(
@@ -58,7 +55,8 @@ const previewRadarCategories = $derived(
 					categoryId: catDef.id,
 					name: catDef.name,
 					value: s?.value ?? 0,
-					maxValue: previewChild.status?.maxValue ?? 100,
+					maxValue: previewChild.status?.maxValue ?? 100000,
+					level: s?.level ?? 1,
 					deviationScore: s?.deviationScore ?? 50,
 					stars: s?.stars ?? 0,
 					trend: (s?.trend ?? 'stable') as 'up' | 'down' | 'stable',
@@ -314,7 +312,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 
 		<!-- 年齢別参考値ガイド -->
 		<p class="text-xs text-gray-400 mb-4">
-			{benchmarkAge}歳の目安: 平均 {guideMeanLow}〜{guideMeanHigh}、SD {guideSdLow}〜{guideSdHigh}（最大値: {guideMaxVal}）
+			{benchmarkAge}歳の目安: 平均 {guideMeanLow}〜{guideMeanHigh} XP、SD {guideSdLow}〜{guideSdHigh}（XPベース）
 		</p>
 
 		<!-- 未設定警告 -->

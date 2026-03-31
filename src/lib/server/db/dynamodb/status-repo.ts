@@ -78,10 +78,12 @@ export async function findStatus(
 export async function upsertStatus(
 	childId: number,
 	categoryId: number,
-	value: number,
+	totalXp: number,
+	level: number,
+	peakXp: number,
 	tenantId: string,
 ): Promise<Status> {
-	const clampedValue = Math.max(0, value);
+	const clampedXp = Math.max(0, totalXp);
 	const now = new Date().toISOString();
 	const existing = await findStatus(childId, categoryId, tenantId);
 
@@ -90,13 +92,18 @@ export async function upsertStatus(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
 				Key: statusKey(childId, categoryId, tenantId),
-				UpdateExpression: 'SET #value = :value, #updatedAt = :updatedAt',
+				UpdateExpression:
+					'SET #totalXp = :totalXp, #level = :level, #peakXp = :peakXp, #updatedAt = :updatedAt',
 				ExpressionAttributeNames: {
-					'#value': 'value',
+					'#totalXp': 'totalXp',
+					'#level': 'level',
+					'#peakXp': 'peakXp',
 					'#updatedAt': 'updatedAt',
 				},
 				ExpressionAttributeValues: {
-					':value': clampedValue,
+					':totalXp': clampedXp,
+					':level': level,
+					':peakXp': peakXp,
 					':updatedAt': now,
 				},
 				ReturnValues: 'ALL_NEW',
@@ -111,7 +118,9 @@ export async function upsertStatus(
 		id,
 		childId,
 		categoryId,
-		value: clampedValue,
+		totalXp: clampedXp,
+		level,
+		peakXp,
 		updatedAt: now,
 	};
 

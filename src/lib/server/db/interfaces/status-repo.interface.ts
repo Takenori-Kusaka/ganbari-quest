@@ -12,7 +12,9 @@ export interface IStatusRepo {
 	upsertStatus(
 		childId: number,
 		categoryId: number,
-		value: number,
+		totalXp: number,
+		level: number,
+		peakXp: number,
 		tenantId: string,
 	): Promise<Status>;
 	insertStatusHistory(

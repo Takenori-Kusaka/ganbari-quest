@@ -12,10 +12,12 @@ export async function findStatus(childId: number, categoryId: number, tenantId: 
 export async function upsertStatus(
 	childId: number,
 	categoryId: number,
-	value: number,
+	totalXp: number,
+	level: number,
+	peakXp: number,
 	tenantId: string,
 ) {
-	return getRepos().status.upsertStatus(childId, categoryId, value, tenantId);
+	return getRepos().status.upsertStatus(childId, categoryId, totalXp, level, peakXp, tenantId);
 }
 export async function insertStatusHistory(input: InsertStatusHistoryInput, tenantId: string) {
 	return getRepos().status.insertStatusHistory(input, tenantId);

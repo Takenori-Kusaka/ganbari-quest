@@ -91,7 +91,7 @@ export default async function globalSetup() {
 			for (const childId of [1, 2]) {
 				for (const catId of [1, 2, 3, 4, 5]) {
 					db.prepare(
-						'INSERT OR IGNORE INTO statuses (child_id, category_id, value) VALUES (?, ?, 25.0)',
+						'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (?, ?, 25, 2, 25)',
 					).run(childId, catId);
 				}
 			}
