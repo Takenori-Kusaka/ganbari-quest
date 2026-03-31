@@ -21,10 +21,6 @@ const MIME_TYPES: Record<string, string> = {
 	svg: 'image/svg+xml',
 };
 
-function getBaseDir(): string {
-	return process.env.NODE_ENV === 'production' ? 'client' : 'static';
-}
-
 export const saveFile: IStorageRepo['saveFile'] = async (key, data, _contentType) => {
 	const fullPath = join(process.cwd(), 'static', key);
 	const dir = dirname(fullPath);
@@ -35,7 +31,7 @@ export const saveFile: IStorageRepo['saveFile'] = async (key, data, _contentType
 };
 
 export const readFile: IStorageRepo['readFile'] = async (key): Promise<FileData | null> => {
-	const filePath = join(process.cwd(), getBaseDir(), key);
+	const filePath = join(process.cwd(), 'static', key);
 	if (!existsSync(filePath)) return null;
 	const ext = key.split('.').pop()?.toLowerCase() ?? '';
 	return {
