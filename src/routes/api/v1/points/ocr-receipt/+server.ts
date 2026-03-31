@@ -1,4 +1,5 @@
 import { validationError } from '$lib/server/errors';
+import { validateBase64ImageMagicBytes } from '$lib/server/security/magic-bytes';
 import { ocrReceipt } from '$lib/server/services/receipt-ocr-service';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
@@ -22,6 +23,12 @@ export const POST: RequestHandler = async ({ request }) => {
 	const estimatedSize = (image.length * 3) / 4;
 	if (estimatedSize > MAX_IMAGE_SIZE) {
 		return validationError('画像サイズは5MB以下にしてください');
+	}
+
+	// マジックバイト検証（Content-Type偽装対策）
+	const magicCheck = validateBase64ImageMagicBytes(image, mimeType);
+	if (!magicCheck.valid) {
+		return validationError('ファイルの内容が宣言された形式と一致しません');
 	}
 
 	const result = await ocrReceipt(image, mimeType);
