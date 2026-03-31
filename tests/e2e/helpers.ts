@@ -95,28 +95,17 @@ export async function dismissOverlays(page: Page) {
 		// オーバーレイが表示されなかった場合（既に受領済み or 未対応）
 	}
 
-	// 誕生日レビューオーバーレイを閉じる
-	try {
-		const birthdayBtn = page.getByRole('button', { name: /はじめる/ });
-		if (await birthdayBtn.isVisible().catch(() => false)) {
-			await page.keyboard.press('Escape');
-			await page.waitForTimeout(300);
-		}
-	} catch {
-		// なければスキップ
-	}
-
 	// 特別報酬や汎用オーバーレイを閉じる
 	// ダイアログ内のボタンのみ対象にし、ページ上の別ボタンを誤クリックしない
 	for (let i = 0; i < 3; i++) {
-		await page.waitForTimeout(400);
+		await page.waitForTimeout(200);
 		try {
 			const closeBtn = page
 				.locator('[data-scope="dialog"][data-state="open"]')
 				.getByRole('button', { name: /とじる|閉じる|OK|やったー/ });
 			if (await closeBtn.isVisible().catch(() => false)) {
 				await closeBtn.click();
-				await page.waitForTimeout(300);
+				await page.waitForTimeout(200);
 			} else {
 				break;
 			}
@@ -141,7 +130,7 @@ export async function dismissOverlays(page: Page) {
 
 		// closable=true のダイアログは Escape で閉じる
 		await page.keyboard.press('Escape');
-		await page.waitForTimeout(500);
+		await page.waitForTimeout(300);
 
 		// closable=false のダイアログ（おみくじ等）はボタンクリックで閉じる
 		// ダイアログ内のボタンのみ対象
@@ -155,13 +144,12 @@ export async function dismissOverlays(page: Page) {
 				.catch(() => false)
 		) {
 			await dialogBtn.first().click();
-			await page.waitForTimeout(500);
+			await page.waitForTimeout(300);
 		}
 	}
 
 	// Ark UI Dialog のゴースト要素を強制非表示
 	await clearDialogGhosts(page);
-	await page.waitForTimeout(300);
 }
 
 /** 子供を選択してオーバーレイを閉じた状態にする */
@@ -233,7 +221,8 @@ export async function expandAllCategories(page: Page) {
 	for (let i = 0; i < count; i++) {
 		await headers.nth(i).scrollIntoViewIfNeeded();
 		await headers.nth(i).click();
-		await page.waitForTimeout(200);
+		// アニメーション完了を待つ（固定waitではなく最小限）
+		await page.waitForTimeout(100);
 	}
 }
 
