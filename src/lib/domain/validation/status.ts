@@ -1,58 +1,207 @@
 import { z } from 'zod';
 
-/** レベルテーブル */
-export const LEVEL_TABLE: {
-	level: number;
-	minAvg: number;
-	maxAvg: number;
-	title: string;
-}[] = [
-	{ level: 1, minAvg: 0, maxAvg: 9, title: 'はじめのぼうけんしゃ' },
-	{ level: 2, minAvg: 10, maxAvg: 19, title: 'がんばりルーキー' },
-	{ level: 3, minAvg: 20, maxAvg: 29, title: 'わくわくファイター' },
-	{ level: 4, minAvg: 30, maxAvg: 39, title: 'つよつよチャレンジャー' },
-	{ level: 5, minAvg: 40, maxAvg: 49, title: 'きらきらヒーロー' },
-	{ level: 6, minAvg: 50, maxAvg: 59, title: 'すごうでアドベンチャー' },
-	{ level: 7, minAvg: 60, maxAvg: 69, title: 'そらとぶチャンピオン' },
-	{ level: 8, minAvg: 70, maxAvg: 79, title: 'きせきのマスター' },
-	{ level: 9, minAvg: 80, maxAvg: 89, title: 'せかいいちのつわもの' },
-	{ level: 10, minAvg: 90, maxAvg: 100, title: 'かみさまレベル' },
-];
+// ================================================================
+// Level Table (Lv.1–99)
+// RPG-style progressive curve: early levels are fast, late levels are slow
+// Lv.2 = 15 XP (~3 activities), Lv.10 = 500 XP, Lv.99 = 100,000 XP
+// ================================================================
 
-/** 平均ステータスからレベルを算出 */
-export function calcLevel(avgStatus: number): { level: number; title: string } {
-	const clamped = Math.max(0, Math.min(100, avgStatus));
-	const entry = LEVEL_TABLE.find((e) => clamped >= e.minAvg && clamped <= e.maxAvg);
-	return entry
-		? { level: entry.level, title: entry.title }
-		: { level: 1, title: LEVEL_TABLE[0]?.title ?? '' };
+interface LevelEntry {
+	readonly level: number;
+	readonly requiredXp: number;
+	readonly title: string;
 }
 
-/** 次のレベルまでに必要なステータスポイント */
-export function calcExpToNextLevel(avgStatus: number): number {
-	const { level } = calcLevel(avgStatus);
-	if (level >= 10) return 0;
-	const nextEntry = LEVEL_TABLE.find((e) => e.level === level + 1);
-	if (!nextEntry) return 0;
-	return Math.max(0, nextEntry.minAvg - avgStatus);
+function generateLevelTable(): readonly LevelEntry[] {
+	const titles: Record<number, string> = {
+		1: 'はじめのぼうけんしゃ',
+		2: 'がんばりルーキー',
+		3: 'わくわくファイター',
+		4: 'つよつよチャレンジャー',
+		5: 'きらきらヒーロー',
+		6: 'すごうでアドベンチャー',
+		7: 'そらとぶチャンピオン',
+		8: 'きせきのマスター',
+		9: 'せかいいちのつわもの',
+		10: 'かみさまレベル',
+	};
+
+	// Tier-based titles for Lv.11+
+	const tierTitles: [number, number, string][] = [
+		[11, 20, 'ちゅうけんぼうけんしゃ'],
+		[21, 30, 'ベテランせんし'],
+		[31, 40, 'エリートヒーロー'],
+		[41, 50, 'マスターチャンピオン'],
+		[51, 60, 'レジェンドファイター'],
+		[61, 70, 'ミスティックセイジ'],
+		[71, 80, 'コズミックウォリアー'],
+		[81, 90, 'ディバインマスター'],
+		[91, 98, 'ユニバーサルキング'],
+		[99, 99, 'でんせつのぼうけんしゃ'],
+	];
+
+	function getTitle(level: number): string {
+		if (titles[level]) return titles[level];
+		for (const [min, max, title] of tierTitles) {
+			if (level >= min && level <= max) return title;
+		}
+		return `Lv.${level}`;
+	}
+
+	// XP curve: hand-tuned key points with interpolation
+	const keyPoints: [number, number][] = [
+		[1, 0],
+		[2, 15],
+		[3, 40],
+		[4, 80],
+		[5, 140],
+		[6, 200],
+		[7, 275],
+		[8, 360],
+		[9, 460],
+		[10, 500],
+		[15, 1200],
+		[20, 2500],
+		[25, 3500],
+		[30, 5100],
+		[35, 7600],
+		[40, 11000],
+		[45, 15000],
+		[50, 17000],
+		[55, 20000],
+		[60, 25000],
+		[65, 31500],
+		[70, 39000],
+		[75, 46500],
+		[80, 55500],
+		[85, 69000],
+		[90, 86000],
+		[95, 96500],
+		[99, 100000],
+	];
+
+	// Linear interpolation between key points
+	function interpolateXp(level: number): number {
+		if (level <= 1) return 0;
+		for (let i = 0; i < keyPoints.length - 1; i++) {
+			const kp = keyPoints[i]!;
+			const kpNext = keyPoints[i + 1]!;
+			const [l1, xp1] = kp;
+			const [l2, xp2] = kpNext;
+			if (level >= l1 && level <= l2) {
+				const t = (level - l1) / (l2 - l1);
+				return Math.round(xp1 + t * (xp2 - xp1));
+			}
+		}
+		return 100000;
+	}
+
+	const table: LevelEntry[] = [];
+	for (let lv = 1; lv <= 99; lv++) {
+		table.push({
+			level: lv,
+			requiredXp: interpolateXp(lv),
+			title: getTitle(lv),
+		});
+	}
+	return Object.freeze(table);
 }
 
-/** カテゴリ個別値からレベルを算出（maxValue ベースで正規化） */
-export function calcCategoryLevel(
-	value: number,
-	maxValue: number,
-): { level: number; title: string } {
-	const normalized = maxValue > 0 ? (value / maxValue) * 100 : 0;
-	return calcLevel(normalized);
+export const LEVEL_TABLE: readonly LevelEntry[] = generateLevelTable();
+
+// ================================================================
+// Level Calculation (XP → Level)
+// ================================================================
+
+/** 累計XPからレベルとタイトルを算出（二分探索） */
+export function calcLevelFromXp(totalXp: number): { level: number; title: string } {
+	const xp = Math.max(0, totalXp);
+	let lo = 0;
+	let hi = LEVEL_TABLE.length - 1;
+	let result = LEVEL_TABLE[0]!;
+
+	while (lo <= hi) {
+		const mid = (lo + hi) >> 1;
+		const entry = LEVEL_TABLE[mid]!;
+		if (entry.requiredXp <= xp) {
+			result = entry;
+			lo = mid + 1;
+		} else {
+			hi = mid - 1;
+		}
+	}
+
+	return { level: result.level, title: result.title };
 }
 
-/** カテゴリ個別値から次レベルまでの必要ポイントを算出 */
-export function calcCategoryExpToNextLevel(value: number, maxValue: number): number {
-	const normalized = maxValue > 0 ? (value / maxValue) * 100 : 0;
-	const exp = calcExpToNextLevel(normalized);
-	// 正規化空間でのポイントを実値空間に変換
-	return maxValue > 0 ? (exp / 100) * maxValue : 0;
+/** 次レベルまでの詳細情報を算出 */
+export function calcXpToNextLevel(totalXp: number): {
+	currentLevel: number;
+	xpNeeded: number;
+	xpInCurrentLevel: number;
+	xpForCurrentLevel: number;
+	progressPct: number;
+} {
+	const xp = Math.max(0, totalXp);
+	const { level } = calcLevelFromXp(xp);
+	const currentEntry = LEVEL_TABLE[level - 1]!;
+	const nextEntry = level < 99 ? LEVEL_TABLE[level] : null;
+
+	if (!nextEntry) {
+		// Max level
+		return {
+			currentLevel: level,
+			xpNeeded: 0,
+			xpInCurrentLevel: 0,
+			xpForCurrentLevel: 0,
+			progressPct: 100,
+		};
+	}
+
+	const xpInCurrentLevel = xp - currentEntry.requiredXp;
+	const xpForCurrentLevel = nextEntry.requiredXp - currentEntry.requiredXp;
+	const xpNeeded = nextEntry.requiredXp - xp;
+	const progressPct =
+		xpForCurrentLevel > 0
+			? Math.min(100, Math.max(0, (xpInCurrentLevel / xpForCurrentLevel) * 100))
+			: 100;
+
+	return {
+		currentLevel: level,
+		xpNeeded: Math.max(0, xpNeeded),
+		xpInCurrentLevel,
+		xpForCurrentLevel,
+		progressPct: Math.round(progressPct * 10) / 10,
+	};
 }
+
+/** 次レベルまでに必要な活動回数を概算 */
+export function calcActivitiesToNextLevel(totalXp: number, avgPointsPerActivity = 8): number {
+	const { xpNeeded } = calcXpToNextLevel(totalXp);
+	if (xpNeeded <= 0) return 0;
+	return Math.ceil(xpNeeded / Math.max(1, avgPointsPerActivity));
+}
+
+// ================================================================
+// Level-based Evaluation Text (replaces deviation-based for child UI)
+// ================================================================
+
+/** レベルに連動した評価文（子供画面用） */
+export function getLevelEvaluationText(level: number): { text: string; emoji: string } {
+	if (level >= 50) return { text: 'でんせつのぼうけんしゃ！', emoji: '👑' };
+	if (level >= 30) return { text: 'もはやたつじん！', emoji: '🏆' };
+	if (level >= 20) return { text: 'すばらしいせいちょう！', emoji: '🌟' };
+	if (level >= 10) return { text: 'めちゃくちゃがんばってる！', emoji: '🔥' };
+	if (level >= 7) return { text: 'たつじんレベル！', emoji: '⭐' };
+	if (level >= 5) return { text: 'すごいぞ！', emoji: '✨' };
+	if (level >= 3) return { text: 'いいかんじ！', emoji: '😊' };
+	if (level >= 2) return { text: 'そのちょうしだ！', emoji: '💪' };
+	return { text: 'はじめのいっぽ！', emoji: '🌱' };
+}
+
+// ================================================================
+// Benchmark / Deviation Score (admin-only, kept for parent analysis)
+// ================================================================
 
 /** 偏差値計算: (個人値 - 平均) / 標準偏差 × 10 + 50 */
 export function calcDeviationScore(value: number, mean: number, stdDev: number): number {
@@ -60,13 +209,14 @@ export function calcDeviationScore(value: number, mean: number, stdDev: number):
 	return Math.round(((value - mean) / stdDev) * 10 + 50);
 }
 
-/** スコア割合から星評価（5段階） */
-export function calcStars(value: number, maxValue: number): number {
-	const pct = maxValue > 0 ? (value / maxValue) * 100 : 0;
-	if (pct >= 80) return 5;
-	if (pct >= 60) return 4;
-	if (pct >= 40) return 3;
-	if (pct >= 20) return 2;
+/** スコア割合から星評価（5段階） — admin benchmark用 */
+export function calcStars(totalXp: number, benchmarkMean: number): number {
+	if (benchmarkMean <= 0) return 3;
+	const ratio = totalXp / benchmarkMean;
+	if (ratio >= 1.6) return 5;
+	if (ratio >= 1.2) return 4;
+	if (ratio >= 0.8) return 3;
+	if (ratio >= 0.4) return 2;
 	return 1;
 }
 
@@ -77,7 +227,7 @@ export function calcCharacterType(avgDeviationScore: number): string {
 	return 'ganbari';
 }
 
-/** 偏差値から比較ラベル（子供向け） */
+/** 偏差値から比較ラベル（管理画面用） */
 export function getComparisonLabel(deviationScore: number): { text: string; emoji: string } {
 	if (deviationScore >= 65) return { text: 'みんなよりすっごくすごい！', emoji: '🌟' };
 	if (deviationScore >= 58) return { text: 'みんなよりすごい！', emoji: '✨' };
@@ -85,6 +235,10 @@ export function getComparisonLabel(deviationScore: number): { text: string; emoj
 	if (deviationScore >= 42) return { text: 'もうちょっとがんばろう！', emoji: '💪' };
 	return { text: 'いっしょにがんばろう！', emoji: '🌱' };
 }
+
+// ================================================================
+// Decay System
+// ================================================================
 
 /** 年齢係数（ステータス減少用） */
 export function getAgeCoefficient(age: number): number {
@@ -108,7 +262,14 @@ const DECAY_INTENSITY_MULTIPLIER: Record<DecayIntensity, number> = {
 /** 猶予日数（この日数以内は減少なし） */
 export const DECAY_GRACE_DAYS = 2;
 
-/** ステータス減少計算（猶予2日、下限70%対応） */
+/**
+ * 新XPスケール用の減衰スケーリング係数
+ * 旧: 0.3 XP/活動 → 新: ~8 XP/活動（平均）= 約27倍
+ * 減衰も同比率でスケールさせる
+ */
+const DECAY_SCALE = 27;
+
+/** ステータス減少計算（猶予2日、整数XP返却） */
 export function calcDecay(
 	daysSinceActivity: number,
 	age: number,
@@ -123,28 +284,31 @@ export function calcDecay(
 	const acceleration = 0.03 * Math.max(0, effectiveDays - 1);
 	const rawDecay = baseDecay + acceleration;
 
-	return rawDecay * DECAY_INTENSITY_MULTIPLIER[intensity];
+	return Math.round(rawDecay * DECAY_INTENSITY_MULTIPLIER[intensity] * DECAY_SCALE);
 }
 
-/** 減少後の下限値を算出（直近最高値の70%を下回らない） */
-export function clampDecayFloor(
-	currentValue: number,
-	decayAmount: number,
-	peakValue: number,
-): number {
-	const floor = peakValue * 0.7;
-	const afterDecay = currentValue - decayAmount;
+/** 減少後の下限値を算出（最高到達XPの70%を下回らない） */
+export function clampDecayFloor(currentXp: number, decayAmount: number, peakXp: number): number {
+	const floor = Math.round(peakXp * 0.7);
+	const afterDecay = currentXp - decayAmount;
 	return Math.max(afterDecay, floor);
 }
 
-/** トレンド判定 */
+/** トレンド判定（新XPスケール対応） */
 export function calcTrend(recentChange: number): 'up' | 'down' | 'stable' {
-	if (recentChange > 0.5) return 'up';
-	if (recentChange < -0.5) return 'down';
+	if (recentChange > 3) return 'up';
+	if (recentChange < -3) return 'down';
 	return 'stable';
 }
 
-/** 年齢別ステータス最大値テーブル */
+// ================================================================
+// Legacy Compatibility (deprecated, will be removed)
+// ================================================================
+
+/**
+ * @deprecated Use calcLevelFromXp instead. Kept temporarily for migration.
+ * 年齢別ステータス最大値テーブル
+ */
 export const AGE_MAX_TABLE: { age: number; maxValue: number }[] = [
 	{ age: 1, maxValue: 50 },
 	{ age: 2, maxValue: 100 },
@@ -166,13 +330,19 @@ export const AGE_MAX_TABLE: { age: number; maxValue: number }[] = [
 	{ age: 18, maxValue: 8000 },
 ];
 
-/** 年齢に応じたステータス最大値を取得 */
+/**
+ * @deprecated Use calcLevelFromXp instead. Kept temporarily for migration.
+ */
 export function getMaxForAge(age: number): number {
 	const entry = AGE_MAX_TABLE.find((e) => e.age === age);
 	if (entry) return entry.maxValue;
 	if (age < 1) return AGE_MAX_TABLE[0]?.maxValue ?? 0;
 	return AGE_MAX_TABLE[AGE_MAX_TABLE.length - 1]?.maxValue ?? 0;
 }
+
+// ================================================================
+// Zod Schemas
+// ================================================================
 
 /** ステータスクエリスキーマ */
 export const statusQuerySchema = z.object({

@@ -82,7 +82,7 @@ const SQL_TABLES = `
 	CREATE TABLE statuses (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL DEFAULT 0.0,
+		category_id INTEGER NOT NULL REFERENCES categories(id), total_xp INTEGER NOT NULL DEFAULT 0, level INTEGER NOT NULL DEFAULT 1, peak_xp INTEGER NOT NULL DEFAULT 0,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
@@ -194,14 +194,18 @@ beforeEach(() => {
 describe('checkAndUnlockTitles', () => {
 	it('偏差値が条件未満なら称号は解除されない', async () => {
 		// ステータス: うんどう=25 → 偏差値50 (mean=25, stdDev=10 → (25-25)/10*10+50=50)
-		sqlite.exec('INSERT INTO statuses (child_id, category_id, value) VALUES (1, 1, 25.0)');
+		sqlite.exec(
+			'INSERT INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, 1, 25, 2, 25)',
+		);
 		const result = await checkAndUnlockTitles(1, 'test-tenant');
 		expect(result).toEqual([]);
 	});
 
 	it('偏差値が条件を満たすと称号が解除される', async () => {
 		// ステータス: うんどう=40 → 偏差値65 (mean=25, stdDev=10 → (40-25)/10*10+50=65)
-		sqlite.exec('INSERT INTO statuses (child_id, category_id, value) VALUES (1, 1, 40.0)');
+		sqlite.exec(
+			'INSERT INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, 1, 40, 3, 40)',
+		);
 		const result = await checkAndUnlockTitles(1, 'test-tenant');
 		expect(result.length).toBe(1);
 		expect(result[0]?.code).toBe('undou_master');
@@ -209,7 +213,9 @@ describe('checkAndUnlockTitles', () => {
 	});
 
 	it('既に解除済みなら重複解除しない', async () => {
-		sqlite.exec('INSERT INTO statuses (child_id, category_id, value) VALUES (1, 1, 40.0)');
+		sqlite.exec(
+			'INSERT INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, 1, 40, 3, 40)',
+		);
 		await checkAndUnlockTitles(1, 'test-tenant'); // 1回目
 		const result = await checkAndUnlockTitles(1, 'test-tenant'); // 2回目
 		expect(result).toEqual([]);
@@ -218,7 +224,9 @@ describe('checkAndUnlockTitles', () => {
 	it('全カテゴリ偏差値条件: 全部55以上でオールラウンダー解除', async () => {
 		// 偏差値55 → value = 25 + (55-50)/10*10 = 30
 		for (let catId = 1; catId <= 5; catId++) {
-			sqlite.exec(`INSERT INTO statuses (child_id, category_id, value) VALUES (1, ${catId}, 30.0)`);
+			sqlite.exec(
+				`INSERT INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, ${catId}, 30, 2, 30)`,
+			);
 		}
 		const result = await checkAndUnlockTitles(1, 'test-tenant');
 		const allRounder = result.find((t) => t.code === 'all_rounder');
@@ -227,10 +235,14 @@ describe('checkAndUnlockTitles', () => {
 
 	it('全カテゴリ偏差値条件: 1つでも足りないと解除されない', async () => {
 		for (let catId = 1; catId <= 4; catId++) {
-			sqlite.exec(`INSERT INTO statuses (child_id, category_id, value) VALUES (1, ${catId}, 30.0)`);
+			sqlite.exec(
+				`INSERT INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, ${catId}, 30, 2, 30)`,
+			);
 		}
 		// カテゴリ5は偏差値40 (value=15)
-		sqlite.exec('INSERT INTO statuses (child_id, category_id, value) VALUES (1, 5, 15.0)');
+		sqlite.exec(
+			'INSERT INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, 5, 15, 2, 15)',
+		);
 		const result = await checkAndUnlockTitles(1, 'test-tenant');
 		const allRounder = result.find((t) => t.code === 'all_rounder');
 		expect(allRounder).toBeUndefined();
@@ -245,7 +257,9 @@ describe('getChildTitles', () => {
 	});
 
 	it('解除済み称号のunlockedAtが設定される', async () => {
-		sqlite.exec('INSERT INTO statuses (child_id, category_id, value) VALUES (1, 1, 40.0)');
+		sqlite.exec(
+			'INSERT INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, 1, 40, 3, 40)',
+		);
 		await checkAndUnlockTitles(1, 'test-tenant');
 
 		const titles = await getChildTitles(1, 'test-tenant');
@@ -255,7 +269,9 @@ describe('getChildTitles', () => {
 
 	it('進捗が正しく計算される', async () => {
 		// うんどう偏差値50 (value=25) → 条件65に対して50/65*100 = 77%
-		sqlite.exec('INSERT INTO statuses (child_id, category_id, value) VALUES (1, 1, 25.0)');
+		sqlite.exec(
+			'INSERT INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, 1, 25, 2, 25)',
+		);
 		const titles = await getChildTitles(1, 'test-tenant');
 		const undouMaster = titles.find((t) => t.code === 'undou_master');
 		expect(undouMaster?.currentProgress).toBe(77); // Math.round(50/65*100)
@@ -272,7 +288,9 @@ describe('getChildTitles', () => {
 
 describe('setActiveTitle', () => {
 	it('解除済み称号を装備できる', async () => {
-		sqlite.exec('INSERT INTO statuses (child_id, category_id, value) VALUES (1, 1, 40.0)');
+		sqlite.exec(
+			'INSERT INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, 1, 40, 3, 40)',
+		);
 		await checkAndUnlockTitles(1, 'test-tenant');
 
 		const result = await setActiveTitle(1, 1, 'test-tenant');
@@ -289,7 +307,9 @@ describe('setActiveTitle', () => {
 	});
 
 	it('nullで装備を外せる', async () => {
-		sqlite.exec('INSERT INTO statuses (child_id, category_id, value) VALUES (1, 1, 40.0)');
+		sqlite.exec(
+			'INSERT INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, 1, 40, 3, 40)',
+		);
 		await checkAndUnlockTitles(1, 'test-tenant');
 		await setActiveTitle(1, 1, 'test-tenant');
 

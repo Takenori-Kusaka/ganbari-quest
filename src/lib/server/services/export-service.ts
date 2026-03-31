@@ -282,7 +282,9 @@ async function collectTransactionData(
 			allStatuses.push({
 				childRef,
 				categoryCode: getCategoryCode(status.categoryId),
-				value: status.value,
+				totalXp: status.totalXp,
+				level: status.level,
+				peakXp: status.peakXp,
 				updatedAt: status.updatedAt,
 			});
 		}

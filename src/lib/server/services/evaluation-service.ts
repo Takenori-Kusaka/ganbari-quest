@@ -17,18 +17,18 @@ import { getSetting } from '$lib/server/db/settings-repo';
 import { updateStatus } from '$lib/server/services/status-service';
 
 /**
- * 週次評価ボーナスを活動回数から算出
- * （活動記録ごとに即時+0.3が付くため、週次はボーナスのみ）
- * 週間活動回数 >= 7 → +1.0
- * 週間活動回数 >= 5 → +0.5
- * 週間活動回数 >= 3 → +0.3
- * 週間活動回数 >= 1 → +0.0（即時更新分で十分）
- * 週間活動回数 == 0 → +0.0
+ * 週次評価ボーナスXPを活動回数から算出（整数XPスケール）
+ * （活動記録ごとに即時 totalPoints 分のXPが付くため、週次はボーナスのみ）
+ * 週間活動回数 >= 7 → +27 XP
+ * 週間活動回数 >= 5 → +14 XP
+ * 週間活動回数 >= 3 → +8 XP
+ * 週間活動回数 >= 1 → +0（即時更新分で十分）
+ * 週間活動回数 == 0 → +0
  */
 export function calcStatusIncrease(activityCount: number): number {
-	if (activityCount >= 7) return 1.0;
-	if (activityCount >= 5) return 0.5;
-	if (activityCount >= 3) return 0.3;
+	if (activityCount >= 7) return 27;
+	if (activityCount >= 5) return 14;
+	if (activityCount >= 3) return 8;
 	return 0;
 }
 

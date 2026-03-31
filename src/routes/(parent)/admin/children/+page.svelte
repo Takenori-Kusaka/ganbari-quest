@@ -530,11 +530,11 @@ function handleFileSelect(childId: number, event: Event) {
 							{#each data.categoryDefs as catDef (catDef.id)}
 								{@const stat = child.status?.statuses[catDef.id]}
 								{#if stat}
-									{@const maxVal = child.status?.maxValue ?? 100}
-									{@const sliderStep = maxVal > 100 ? 1 : 0.5}
+									{@const maxVal = Math.max(stat.value * 2, 1000)}
+									{@const sliderStep = 1}
 									{@const currentVal = sliderValues[catDef.id] ?? stat.value}
 									{@const diff = currentVal - stat.value}
-									{@const hasChanged = Math.abs(diff) >= 0.5}
+									{@const hasChanged = Math.abs(diff) >= 1}
 									<div class="bg-gray-50 rounded-lg p-3">
 										<div class="flex items-center justify-between mb-1">
 											<div class="flex items-center gap-2">
@@ -572,11 +572,11 @@ function handleFileSelect(childId: number, event: Event) {
 											/>
 											<div class="flex items-center justify-between">
 												<div>
-													<span class="text-lg font-bold text-gray-700">{currentVal}</span>
-													<span class="text-xs text-gray-400"> / {maxVal}</span>
+													<span class="text-lg font-bold text-gray-700">{currentVal} XP</span>
+													<span class="text-xs text-gray-400"> (Lv.{stat.level})</span>
 													{#if hasChanged}
 														<span class="ml-1 text-xs font-bold {diff > 0 ? 'text-green-500' : 'text-red-500'}">
-															{diff > 0 ? '+' : ''}{diff.toFixed(1)}
+															{diff > 0 ? '+' : ''}{diff}
 														</span>
 													{/if}
 												</div>

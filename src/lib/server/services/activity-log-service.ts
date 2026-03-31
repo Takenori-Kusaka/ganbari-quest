@@ -8,7 +8,7 @@ import {
 	getCategoryById,
 	todayDate,
 } from '$lib/domain/validation/activity';
-import { calcCategoryLevel } from '$lib/domain/validation/status';
+import { calcLevelFromXp } from '$lib/domain/validation/status';
 import {
 	findByChildAndActivity as findMastery,
 	upsert as upsertMastery,
@@ -34,8 +34,10 @@ import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
 
-/** 1回の活動記録あたりのステータス増加量 */
-export const STATUS_PER_ACTIVITY = 0.3;
+/**
+ * XP = ポイント統合: 活動で得るポイントがそのままXPとしてカテゴリに蓄積される。
+ * STATUS_PER_ACTIVITY は廃止。totalPoints が直接 XP に加算される。
+ */
 
 /** 活動記録時のカテゴリXP変化情報 */
 export interface XpGainInfo {
@@ -172,12 +174,11 @@ export async function recordActivity(
 		tenantId,
 	);
 
-	// ステータスを即時更新
-	const statusIncrease = STATUS_PER_ACTIVITY;
+	// ステータスを即時更新（XP = ポイント統合）
 	const statusResult = await updateStatus(
 		childId,
 		activity.categoryId,
-		statusIncrease,
+		totalPoints,
 		'activity_record',
 		tenantId,
 	);
@@ -188,13 +189,13 @@ export async function recordActivity(
 	let xpGain: XpGainInfo;
 	if (!('error' in statusResult)) {
 		const { valueBefore, valueAfter, maxValue } = statusResult;
-		const lvBefore = calcCategoryLevel(valueBefore, maxValue);
-		const lvAfter = calcCategoryLevel(valueAfter, maxValue);
+		const lvBefore = calcLevelFromXp(valueBefore);
+		const lvAfter = calcLevelFromXp(valueAfter);
 		xpGain = {
 			categoryId: activity.categoryId,
 			categoryName: catDef?.name ?? '',
-			xpBefore: Math.round(valueBefore * 10) / 10,
-			xpAfter: Math.round(valueAfter * 10) / 10,
+			xpBefore: valueBefore,
+			xpAfter: valueAfter,
 			maxValue,
 			levelBefore: lvBefore.level,
 			levelAfter: lvAfter.level,
@@ -262,16 +263,10 @@ export async function cancelActivityLog(
 
 	const totalPoints = log.points + log.streakBonus;
 
-	// 活動のカテゴリを取得してステータスを戻す
+	// 活動のカテゴリを取得してステータスXPを戻す
 	const activity = await findActivityById(log.activityId, tenantId);
 	if (activity) {
-		await updateStatus(
-			log.childId,
-			activity.categoryId,
-			-STATUS_PER_ACTIVITY,
-			'activity_cancel',
-			tenantId,
-		);
+		await updateStatus(log.childId, activity.categoryId, -totalPoints, 'activity_cancel', tenantId);
 	}
 
 	// 習熟度を戻す（count-1、レベル再計算）

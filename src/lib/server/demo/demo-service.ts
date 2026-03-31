@@ -8,12 +8,7 @@
 
 import { DEFAULT_POINT_SETTINGS, type PointSettings } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getActivityDisplayName } from '$lib/domain/validation/activity';
-import {
-	calcCategoryExpToNextLevel,
-	calcCategoryLevel,
-	calcLevel,
-	getMaxForAge,
-} from '$lib/domain/validation/status';
+import { calcLevelFromXp, calcXpToNextLevel } from '$lib/domain/validation/status';
 import type { Activity, Child } from '$lib/server/db/types/index.js';
 import type { AchievementWithStatus } from '$lib/server/services/achievement-service';
 import type { DailyMissionStatus } from '$lib/server/services/daily-mission-service';
@@ -231,14 +226,11 @@ export function getDemoChildLayoutData(childId: number): DemoChildLayoutData {
 	}
 
 	const statuses = getDemoStatusesForChild(childId);
-	const maxValue = getMaxForAge(child.age);
-	let totalValue = 0;
+	let highestXp = 0;
 	for (const s of statuses) {
-		totalValue += s.value;
+		if (s.totalXp > highestXp) highestXp = s.totalXp;
 	}
-	const avgStatus = statuses.length > 0 ? totalValue / statuses.length : 0;
-	const normalizedAvg = maxValue > 0 ? (avgStatus / maxValue) * 100 : 0;
-	const { level, title } = calcLevel(normalizedAvg);
+	const { level, title } = calcLevelFromXp(highestXp);
 
 	const titleUnlocks = getDemoTitlesForChild(childId);
 	const activeTitleId = child.activeTitleId;
@@ -385,7 +377,6 @@ export function getDemoStatusData(childId: number): ChildStatus | null {
 	if (!child) return null;
 
 	const statuses = getDemoStatusesForChild(childId);
-	const maxValue = getMaxForAge(child.age);
 	const statusMap: Record<number, StatusDetail> = {};
 
 	let highestCategoryLevel = 0;
@@ -393,10 +384,10 @@ export function getDemoStatusData(childId: number): ChildStatus | null {
 
 	for (const catDef of CATEGORY_DEFS) {
 		const row = statuses.find((s) => s.categoryId === catDef.id);
-		const value = row?.value ?? 0;
-		// Simple deviation score based on value/maxValue
-		const normalized = maxValue > 0 ? (value / maxValue) * 100 : 0;
-		const deviationScore = Math.round(normalized * 0.3 + 35); // Maps 0-100 → 35-65
+		const totalXp = row?.totalXp ?? 0;
+
+		// Simple deviation score for demo (based on XP thresholds)
+		const deviationScore = totalXp >= 500 ? 60 : totalXp >= 200 ? 55 : totalXp >= 50 ? 50 : 42;
 		const stars =
 			deviationScore >= 65
 				? 5
@@ -408,21 +399,22 @@ export function getDemoStatusData(childId: number): ChildStatus | null {
 							? 2
 							: 1;
 
-		const catLevel = calcCategoryLevel(value, maxValue);
-		const catExp = calcCategoryExpToNextLevel(value, maxValue);
+		const { level, title } = calcLevelFromXp(totalXp);
+		const xpInfo = calcXpToNextLevel(totalXp);
 
 		statusMap[catDef.id] = {
-			value: Math.round(value * 10) / 10,
+			value: totalXp,
 			deviationScore,
 			stars,
-			trend: value > maxValue * 0.3 ? 'up' : 'stable',
-			level: catLevel.level,
-			levelTitle: catLevel.title,
-			expToNextLevel: Math.round(catExp * 10) / 10,
+			trend: totalXp > 100 ? 'up' : 'stable',
+			level,
+			levelTitle: title,
+			expToNextLevel: xpInfo.xpNeeded,
+			progressPct: xpInfo.progressPct,
 		};
 
-		if (catLevel.level > highestCategoryLevel) {
-			highestCategoryLevel = catLevel.level;
+		if (level > highestCategoryLevel) {
+			highestCategoryLevel = level;
 		}
 		totalDeviation += deviationScore;
 	}
@@ -434,7 +426,7 @@ export function getDemoStatusData(childId: number): ChildStatus | null {
 		level: highestCategoryLevel,
 		levelTitle: '',
 		expToNextLevel: 0,
-		maxValue,
+		maxValue: 100000,
 		statuses: statusMap,
 		characterType: avgDeviation >= 55 ? 'hero' : avgDeviation >= 45 ? 'normal' : 'ganbari',
 		highestCategoryLevel,
