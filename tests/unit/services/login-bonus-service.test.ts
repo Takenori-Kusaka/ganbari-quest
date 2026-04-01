@@ -25,13 +25,28 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
+// todayDateJST をモックして日付を制御（prevDateJST は実際の計算を使う）
+let mockToday = '2026-03-10';
+vi.mock('$lib/domain/date-utils', () => ({
+	todayDateJST: () => mockToday,
+	prevDateJST: (dateStr: string) => {
+		const d = new Date(`${dateStr}T00:00:00Z`);
+		d.setUTCDate(d.getUTCDate() - 1);
+		return d.toISOString().slice(0, 10);
+	},
+}));
+
 import {
 	OMIKUJI_RANKS,
 	calcLoginBonusPoints,
 	drawOmikuji,
 	getLoginMultiplier,
 } from '../../../src/lib/domain/validation/login-bonus';
-import { calculateConsecutiveDays } from '../../../src/lib/server/services/login-bonus-service';
+import {
+	calculateConsecutiveDays,
+	claimLoginBonus,
+	getLoginBonusStatus,
+} from '../../../src/lib/server/services/login-bonus-service';
 
 beforeAll(() => {
 	const t = createTestDb();
@@ -168,5 +183,175 @@ describe('calculateConsecutiveDays', () => {
 		addBonus(1, '2026-02-18'); // 3日前
 		// 2/19, 2/20 なし
 		expect(await calculateConsecutiveDays(1, '2026-02-21', 'test-tenant')).toBe(1);
+	});
+});
+
+// ============================================================
+// getLoginBonusStatus
+// ============================================================
+describe('getLoginBonusStatus', () => {
+	beforeEach(() => {
+		seedChild();
+		mockToday = '2026-03-10';
+	});
+
+	it('存在しない子供IDでNOT_FOUNDエラー', async () => {
+		const result = await getLoginBonusStatus(999, 'test-tenant');
+		expect(result).toEqual({ error: 'NOT_FOUND' });
+	});
+
+	it('未受取の場合claimedTodayがfalse', async () => {
+		const result = await getLoginBonusStatus(1, 'test-tenant');
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.childId).toBe(1);
+			expect(result.claimedToday).toBe(false);
+			expect(result.consecutiveLoginDays).toBe(1);
+			expect(result.lastClaimedAt).toBeNull();
+		}
+	});
+
+	it('今日受取済みの場合claimedTodayがtrue', async () => {
+		addBonus(1, '2026-03-10', 3);
+		const result = await getLoginBonusStatus(1, 'test-tenant');
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.claimedToday).toBe(true);
+			expect(result.consecutiveLoginDays).toBe(3);
+		}
+	});
+
+	it('過去にボーナスがある場合lastClaimedAtが返る', async () => {
+		addBonus(1, '2026-03-09', 2);
+		const result = await getLoginBonusStatus(1, 'test-tenant');
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.claimedToday).toBe(false);
+			expect(result.lastClaimedAt).toBeTruthy();
+			// 昨日(03/09)のボーナスがあるので、今日を含めて2日連続
+			expect(result.consecutiveLoginDays).toBe(2);
+		}
+	});
+
+	it('連続が途切れた場合は1日目として返る', async () => {
+		addBonus(1, '2026-03-07', 5); // 3日前 → 途切れ
+		const result = await getLoginBonusStatus(1, 'test-tenant');
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.claimedToday).toBe(false);
+			expect(result.consecutiveLoginDays).toBe(1);
+		}
+	});
+});
+
+// ============================================================
+// claimLoginBonus
+// ============================================================
+describe('claimLoginBonus', () => {
+	beforeEach(() => {
+		seedChild();
+		mockToday = '2026-03-10';
+	});
+
+	it('存在しない子供IDでNOT_FOUNDエラー', async () => {
+		const result = await claimLoginBonus(999, 'test-tenant');
+		expect(result).toEqual({ error: 'NOT_FOUND' });
+	});
+
+	it('既に受取済みの場合ALREADY_CLAIMEDエラー', async () => {
+		addBonus(1, '2026-03-10');
+		const result = await claimLoginBonus(1, 'test-tenant');
+		expect(result).toEqual({ error: 'ALREADY_CLAIMED' });
+	});
+
+	it('初回ログインボーナス受取（倍率なし）', async () => {
+		// Math.random を制御して「吉」(weight=34, basePoints=3) を確定
+		// OMIKUJI_RANKS: 大大吉(1), 大吉(5), 中吉(15), 小吉(25), 吉(34), 末吉(20)
+		// 累積: 1, 6, 21, 46, 80, 100
+		// random=50 → 50-1=49, 49-5=44, 44-15=29, 29-25=4, 4-34=-30 ≤ 0 → 吉
+		const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+		const result = await claimLoginBonus(1, 'test-tenant');
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.childId).toBe(1);
+			expect(result.rank).toBe('吉');
+			expect(result.basePoints).toBe(3);
+			expect(result.consecutiveLoginDays).toBe(1);
+			expect(result.multiplier).toBe(1.0);
+			expect(result.totalPoints).toBe(3);
+			expect(result.message).toBe('吉！3ポイントゲット！');
+		}
+
+		randomSpy.mockRestore();
+	});
+
+	it('連続ログインで倍率付きボーナス受取', async () => {
+		// 2日分の過去ボーナスを追加 → 今日で3日連続 → 1.5倍
+		addBonus(1, '2026-03-08', 1);
+		addBonus(1, '2026-03-09', 2);
+
+		// Math.random を制御して「中吉」(basePoints=7) を確定
+		// 累積: 大大吉(1), 大吉(6), 中吉(21)
+		// random=15 → 15-1=14, 14-5=9, 9-15=-6 ≤ 0 → 中吉
+		const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.15);
+
+		const result = await claimLoginBonus(1, 'test-tenant');
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.rank).toBe('中吉');
+			expect(result.basePoints).toBe(7);
+			expect(result.consecutiveLoginDays).toBe(3);
+			expect(result.multiplier).toBe(1.5);
+			expect(result.totalPoints).toBe(10); // floor(7 * 1.5) = 10
+			expect(result.message).toContain('3にちれんぞくで1.5ばい');
+			expect(result.message).toContain('10ポイントゲット');
+		}
+
+		randomSpy.mockRestore();
+	});
+
+	it('ボーナス受取後にDBにレコードが保存される', async () => {
+		const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+		await claimLoginBonus(1, 'test-tenant');
+
+		// login_bonuses テーブルにレコードがあるか確認
+		const bonuses = testDb.select().from(schema.loginBonuses).all();
+		expect(bonuses.length).toBe(1);
+		expect(bonuses[0]?.loginDate).toBe('2026-03-10');
+		expect(bonuses[0]?.childId).toBe(1);
+
+		// point_ledger テーブルにレコードがあるか確認
+		const points = testDb.select().from(schema.pointLedger).all();
+		expect(points.length).toBe(1);
+		expect(points[0]?.type).toBe('login_bonus');
+		expect(points[0]?.childId).toBe(1);
+
+		randomSpy.mockRestore();
+	});
+
+	it('7日連続で2.0倍のメッセージ', async () => {
+		// 6日分の過去ボーナスを追加
+		for (let i = 3; i <= 8; i++) {
+			const date = `2026-03-0${i}`;
+			addBonus(1, date, i - 2);
+		}
+		addBonus(1, '2026-03-09', 7);
+
+		// 大吉 (basePoints=15) を確定
+		// random=3 → 3-1=2, 2-5=-3 ≤ 0 → 大吉
+		const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.03);
+
+		const result = await claimLoginBonus(1, 'test-tenant');
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.consecutiveLoginDays).toBe(8);
+			expect(result.multiplier).toBe(2.0);
+			expect(result.totalPoints).toBe(30); // floor(15 * 2.0) = 30
+			expect(result.message).toContain('8にちれんぞくで2ばい');
+		}
+
+		randomSpy.mockRestore();
 	});
 });
