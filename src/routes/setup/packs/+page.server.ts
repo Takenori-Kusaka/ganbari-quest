@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import type { ActivityPack, ActivityPackIndex } from '$lib/domain/activity-pack';
+import { activityPackIndex, getActivityPack } from '$lib/data/activity-packs';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	importActivities,
@@ -10,16 +8,6 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-
-function loadPackIndex(): ActivityPackIndex {
-	const indexPath = join(process.cwd(), 'static', 'activity-packs', 'index.json');
-	return JSON.parse(readFileSync(indexPath, 'utf-8'));
-}
-
-function loadPack(packId: string): ActivityPack {
-	const packPath = join(process.cwd(), 'static', 'activity-packs', `${packId}.json`);
-	return JSON.parse(readFileSync(packPath, 'utf-8'));
-}
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.context) {
@@ -33,15 +21,13 @@ export const load: PageServerLoad = async ({ locals }) => {
 		redirect(302, '/setup/children');
 	}
 
-	const packIndex = loadPackIndex();
-
 	// Compute child age range for recommendations
 	const ages = children.map((c) => c.age);
 	const minAge = Math.min(...ages);
 	const maxAge = Math.max(...ages);
 
 	return {
-		packs: packIndex.packs,
+		packs: activityPackIndex.packs,
 		childAgeMin: minAge,
 		childAgeMax: maxAge,
 	};
@@ -64,7 +50,11 @@ export const actions: Actions = {
 
 		for (const packId of packIds) {
 			try {
-				const pack = loadPack(packId);
+				const pack = getActivityPack(packId);
+				if (!pack) {
+					allErrors.push(`パック「${packId}」が見つかりません`);
+					continue;
+				}
 				const preview = await previewActivityImport(pack.activities, tenantId);
 
 				if (preview.newActivities > 0) {

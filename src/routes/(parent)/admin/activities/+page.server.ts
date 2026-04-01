@@ -1,6 +1,4 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import type { ActivityPack } from '$lib/domain/activity-pack';
+import { activityPackIndex, getActivityPack } from '$lib/data/activity-packs';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -31,22 +29,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const activityLimit = await checkActivityLimit(tenantId, licenseStatus);
 
 	// プリセットパック一覧
-	let activityPacks: {
-		packId: string;
-		packName: string;
-		icon: string;
-		activityCount: number;
-		targetAgeMin: number;
-		targetAgeMax: number;
-	}[] = [];
-	try {
-		const indexPath = join(process.cwd(), 'static', 'activity-packs', 'index.json');
-		const raw = await readFile(indexPath, 'utf-8');
-		const index = JSON.parse(raw);
-		activityPacks = index.packs ?? [];
-	} catch {
-		// パックが存在しない場合は空配列
-	}
+	const activityPacks = activityPackIndex.packs;
 
 	return { activities, categoryDefs: CATEGORY_DEFS, logCounts, activityLimit, activityPacks };
 };
@@ -187,15 +170,8 @@ export const actions: Actions = {
 
 		if (!packId) return fail(400, { error: 'パックIDが必要です' });
 
-		// static/activity-packs/{packId}.json を読み込み
-		let pack: ActivityPack;
-		try {
-			const filePath = join(process.cwd(), 'static', 'activity-packs', `${packId}.json`);
-			const raw = await readFile(filePath, 'utf-8');
-			pack = JSON.parse(raw);
-		} catch {
-			return fail(404, { error: 'パックが見つかりません' });
-		}
+		const pack = getActivityPack(packId);
+		if (!pack) return fail(404, { error: 'パックが見つかりません' });
 
 		try {
 			const preview = await previewActivityImport(pack.activities, tenantId);
