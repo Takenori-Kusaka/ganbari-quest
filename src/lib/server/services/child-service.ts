@@ -44,6 +44,8 @@ export async function editChild(
 		uiMode?: string;
 		birthDate?: string | null;
 		displayConfig?: string | null;
+		birthdayBonusMultiplier?: number;
+		lastBirthdayBonusYear?: number | null;
 	},
 	tenantId: string,
 ) {

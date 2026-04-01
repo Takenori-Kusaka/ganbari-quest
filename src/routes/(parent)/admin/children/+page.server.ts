@@ -286,4 +286,19 @@ export const actions: Actions = {
 		await deleteVoice(voiceId, tenantId);
 		return { success: true, voiceDeleted: true };
 	},
+
+	updateBirthdayMultiplier: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+		const childId = Number(form.get('childId'));
+		const multiplier = Number(form.get('multiplier'));
+
+		if (Number.isNaN(childId)) return fail(400, { error: 'IDが不正です' });
+		if (Number.isNaN(multiplier) || multiplier < 0.5 || multiplier > 3.0) {
+			return fail(400, { error: '倍率は0.5〜3.0の範囲で設定してください' });
+		}
+
+		await editChild(childId, { birthdayBonusMultiplier: multiplier }, tenantId);
+		return { success: true, multiplierUpdated: true, childId };
+	},
 };
