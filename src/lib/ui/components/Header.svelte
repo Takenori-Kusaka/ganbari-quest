@@ -58,7 +58,7 @@ const balanceDisplay = $derived(
 				onclick={() => onStampClick?.()}
 				aria-label="スタンプカードを見る"
 			>
-				<span class="text-sm" aria-hidden="true">🎴</span>
+				<span class="text-sm" aria-hidden="true">💮</span>
 				<span class="text-xs font-bold">{stampProgress.filled}/{stampProgress.total}</span>
 			</button>
 		{/if}
