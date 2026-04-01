@@ -4,6 +4,8 @@ import { invalidateAll } from '$app/navigation';
 import { parseDisplayConfig } from '$lib/domain/display-config';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
+import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
+import BirthdayModal from '$lib/features/birthday/BirthdayModal.svelte';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
@@ -26,6 +28,9 @@ const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
 const displayConfig = $derived(parseDisplayConfig(data.child?.displayConfig, data.child?.age ?? 4));
+
+// Birthday bonus state
+let birthdayModalOpen = $state(false);
 
 // Pin context menu state
 let pinMenuOpen = $state(false);
@@ -304,6 +309,16 @@ $effect(() => {
 </svelte:head>
 
 <div class="px-[var(--sp-sm)] py-1">
+	<!-- Birthday bonus banner -->
+	{#if data.birthdayBonus}
+		<BirthdayBanner
+			nickname={data.child?.nickname ?? ''}
+			newAge={data.birthdayBonus.newAge ?? 0}
+			totalPoints={data.birthdayBonus.totalPoints ?? 0}
+			onclick={() => { birthdayModalOpen = true; }}
+		/>
+	{/if}
+
 	<!-- Error toast -->
 	{#if errorMessage}
 		<div class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold animate-bounce-in">
@@ -730,6 +745,17 @@ $effect(() => {
 		multiplier={stampPressData.multiplier}
 		consecutiveDays={stampPressData.consecutiveDays}
 		onClose={handleStampPressClose}
+	/>
+{/if}
+
+<!-- Birthday bonus modal -->
+{#if data.birthdayBonus}
+	<BirthdayModal
+		bind:open={birthdayModalOpen}
+		nickname={data.child?.nickname ?? ''}
+		newAge={data.birthdayBonus.newAge ?? 0}
+		totalPoints={data.birthdayBonus.totalPoints ?? 0}
+		uiMode={data.uiMode}
 	/>
 {/if}
 

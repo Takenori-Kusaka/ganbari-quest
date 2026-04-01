@@ -47,6 +47,8 @@ export const children = sqliteTable('children', {
 	activeTitleId: integer('active_title_id'),
 	displayConfig: text('display_config'),
 	userId: text('user_id'),
+	birthdayBonusMultiplier: real('birthday_bonus_multiplier').notNull().default(1.0),
+	lastBirthdayBonusYear: integer('last_birthday_bonus_year'),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
