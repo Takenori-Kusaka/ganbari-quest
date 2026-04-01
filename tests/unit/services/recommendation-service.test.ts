@@ -326,51 +326,17 @@ describe('selectRecommendations', () => {
 });
 
 // ============================================================
-// isFocusModeActive
+// isFocusModeActive (#0288: 常時有効化)
 // ============================================================
 describe('isFocusModeActive', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
-
-	it('開始日がない場合は true（初回 = 有効）', async () => {
-		mockGetSetting.mockResolvedValue(undefined);
-		const result = await isFocusModeActive(1, TENANT);
-		expect(result).toBe(true);
-		expect(mockGetSetting).toHaveBeenCalledWith('focus_mode_start_1', TENANT);
-	});
-
-	it('開始日から3日未満なら true', async () => {
-		// 現在時刻から1日前を開始日に設定
-		const yesterday = new Date();
-		yesterday.setDate(yesterday.getDate() - 1);
-		mockGetSetting.mockResolvedValue(yesterday.toISOString().split('T')[0]);
+	it('常に true を返す（デイリークエスト常時有効）', async () => {
 		const result = await isFocusModeActive(1, TENANT);
 		expect(result).toBe(true);
 	});
 
-	it('開始日からちょうど3日経過したら false', async () => {
-		const threeDaysAgo = new Date();
-		threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-		mockGetSetting.mockResolvedValue(threeDaysAgo.toISOString().split('T')[0]);
-		const result = await isFocusModeActive(1, TENANT);
-		// 日付文字列は "YYYY-MM-DD" なので時刻は 00:00:00 として解釈される
-		// 3日と数時間経っているので daysDiff >= 3 → false
-		expect(result).toBe(false);
-	});
-
-	it('開始日から5日経過したら false', async () => {
-		const fiveDaysAgo = new Date();
-		fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-		mockGetSetting.mockResolvedValue(fiveDaysAgo.toISOString().split('T')[0]);
-		const result = await isFocusModeActive(1, TENANT);
-		expect(result).toBe(false);
-	});
-
-	it('childId ごとに異なるキーを使用する', async () => {
-		mockGetSetting.mockResolvedValue(undefined);
-		await isFocusModeActive(42, TENANT);
-		expect(mockGetSetting).toHaveBeenCalledWith('focus_mode_start_42', TENANT);
+	it('どの childId でも true を返す', async () => {
+		const result = await isFocusModeActive(42, TENANT);
+		expect(result).toBe(true);
 	});
 });
 
@@ -431,15 +397,10 @@ describe('checkAndGrantFocusBonus', () => {
 		expect(result).toBeNull();
 	});
 
-	it('フォーカスモードが無効なら null を返す', async () => {
-		// 5日前の開始日 → isFocusModeActive = false
-		const fiveDaysAgo = new Date();
-		fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-		mockGetSetting.mockResolvedValue(fiveDaysAgo.toISOString().split('T')[0]);
-
-		const result = await checkAndGrantFocusBonus(1, [1, 2, 3], TENANT);
-		expect(result).toBeNull();
-		expect(mockInsertPointLedger).not.toHaveBeenCalled();
+	it('フォーカスモードは常時有効なのでこのケースはスキップ', async () => {
+		// #0288: isFocusModeActive は常に true を返すため、このテストは不要
+		// 互換性のため空テストとして残す
+		expect(true).toBe(true);
 	});
 
 	it('今日すでにフォーカスボーナスを付与済みなら null を返す', async () => {
@@ -474,27 +435,27 @@ describe('checkAndGrantFocusBonus', () => {
 
 		const result = await checkAndGrantFocusBonus(1, [10, 20, 30], TENANT);
 
-		expect(result).toEqual({ bonusPoints: 5 });
+		expect(result).toEqual({ bonusPoints: 10 });
 		expect(mockInsertPointLedger).toHaveBeenCalledTimes(1);
 		expect(mockInsertPointLedger).toHaveBeenCalledWith(
 			{
 				childId: 1,
-				amount: 5,
+				amount: 10,
 				type: 'focus_bonus',
-				description: 'きょうのミッション コンプリート！',
+				description: 'きょうのクエスト コンプリート！',
 			},
 			TENANT,
 		);
 	});
 
-	it('ボーナスポイントは5ポイント固定', async () => {
+	it('ボーナスポイントは10ポイント固定（#0288）', async () => {
 		mockGetSetting.mockResolvedValue(undefined);
 		mockCountPointLedgerEntriesByTypeAndDate.mockResolvedValue(0);
 		mockCountTodayActiveRecords.mockResolvedValue(1);
 		mockInsertPointLedger.mockResolvedValue(undefined);
 
 		const result = await checkAndGrantFocusBonus(1, [1], TENANT);
-		expect(result?.bonusPoints).toBe(5);
+		expect(result?.bonusPoints).toBe(10);
 	});
 
 	it('各おすすめ活動の完了状態を個別にチェックする', async () => {

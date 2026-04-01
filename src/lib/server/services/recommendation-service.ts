@@ -10,17 +10,11 @@ export interface RecommendedActivity {
 }
 
 /**
- * フォーカスモードの有効/無効を判定
- * 初回アクセスから3日間有効（settings で制御）
+ * デイリークエストの有効/無効を判定
+ * #0288: 3日限定を撤廃し常時有効化
  */
-export async function isFocusModeActive(childId: number, tenantId: string): Promise<boolean> {
-	const key = `focus_mode_start_${childId}`;
-	const startDate = await getSetting(key, tenantId);
-	if (!startDate) return true; // まだ開始日がない = 初回 → 有効
-	const start = new Date(startDate);
-	const now = new Date();
-	const daysDiff = (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-	return daysDiff < 3;
+export async function isFocusModeActive(_childId: number, _tenantId: string): Promise<boolean> {
+	return true;
 }
 
 /**
@@ -154,15 +148,15 @@ export async function checkAndGrantFocusBonus(
 		if (count === 0) return null; // 1つでも未完了なら付与しない
 	}
 
-	// 全完了 → ボーナスポイント付与
-	const bonusPoints = 5;
+	// 全完了 → ボーナスポイント付与 (#0288: +5 → +10)
+	const bonusPoints = 10;
 	const { insertPointLedger } = await import('$lib/server/db/activity-repo');
 	await insertPointLedger(
 		{
 			childId,
 			amount: bonusPoints,
 			type: 'focus_bonus',
-			description: 'きょうのミッション コンプリート！',
+			description: 'きょうのクエスト コンプリート！',
 		},
 		tenantId,
 	);

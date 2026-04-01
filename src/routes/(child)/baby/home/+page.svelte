@@ -372,30 +372,16 @@ $effect(() => {
 		</form>
 	{/if}
 
-	<!-- Focus Mode: recommended activities (#0264) -->
+	<!-- Daily Quest: compact recommended activities (#0288) -->
 	{#if data.focusMode && recommendedActivities.length > 0}
 		<FocusMode
 			{recommendedActivities}
 			allCompleted={focusAllCompleted}
 			completedCount={focusCompletedCount}
 			totalCount={recommendedActivities.length}
-		>
-			{#snippet activitySlot(activity)}
-				<ActivityCard
-					activityId={activity.id}
-					icon={activity.icon}
-					name={activity.displayName ?? activity.name}
-					categoryId={activity.categoryId}
-					cardSize="small"
-					completed={isCompleted(activity)}
-					count={getCount(activity.id)}
-					isMission={false}
-					isPinned={false}
-					onclick={() => handleActivityTap(activity)}
-					onlongpress={() => handleActivityLongPress(activity)}
-				/>
-			{/snippet}
-		</FocusMode>
+			completedIds={new Set(recommendedActivities.filter((a) => isCompleted(a)).map((a) => a.id))}
+			onactivityclick={(activity) => handleActivityTap(activity)}
+		/>
 	{/if}
 
 	<!-- Activity grid by category (always visible) -->
