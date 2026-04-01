@@ -328,6 +328,14 @@ async function getCurrentProgress(
 			return await countPointLedgerEntriesByType(childId, 'combo_bonus', tenantId);
 		case 'first_mission':
 			return await countPointLedgerEntriesByType(childId, 'daily_mission', tenantId);
+		case 'first_purchase':
+			return await countPointLedgerEntriesByType(childId, 'purchase', tenantId);
+		case 'focus_complete':
+			return await countPointLedgerEntriesByType(childId, 'focus_bonus', tenantId);
+		case 'first_checklist':
+			return await countPointLedgerEntriesByType(childId, 'checklist', tenantId);
+		case 'weekly_active':
+			return await getActiveDaysInLastWeek(childId, tenantId);
 		case 'milestone_event':
 			return 0;
 		default:
@@ -448,6 +456,14 @@ function getConditionLabel(
 			return 'コンボボーナスをもらう';
 		case 'first_mission':
 			return 'ミッションをたっせいする';
+		case 'first_purchase':
+			return 'ごほうびショップでおかいもの';
+		case 'focus_complete':
+			return 'きょうのおすすめを ぜんぶやる';
+		case 'first_checklist':
+			return 'チェックリストをぜんぶやる';
+		case 'weekly_active':
+			return `${prefix}7にちで${conditionValue}にちかつどう`;
 		case 'milestone_event':
 			return 'おやがきろくしてくれるよ';
 		default:
@@ -486,6 +502,18 @@ async function evaluateCondition(
 			return (await countPointLedgerEntriesByType(childId, 'combo_bonus', tenantId)) >= 1;
 		case 'first_mission':
 			return (await countPointLedgerEntriesByType(childId, 'daily_mission', tenantId)) >= 1;
+		case 'first_purchase':
+			return (await countPointLedgerEntriesByType(childId, 'purchase', tenantId)) >= 1;
+		case 'focus_complete':
+			return (
+				(await countPointLedgerEntriesByType(childId, 'focus_bonus', tenantId)) >= conditionValue
+			);
+		case 'first_checklist':
+			return (
+				(await countPointLedgerEntriesByType(childId, 'checklist', tenantId)) >= conditionValue
+			);
+		case 'weekly_active':
+			return (await getActiveDaysInLastWeek(childId, tenantId)) >= conditionValue;
 		default:
 			return false;
 	}
@@ -494,6 +522,21 @@ async function evaluateCondition(
 /** 累計で記録した異なるカテゴリ数を取得 */
 async function getDistinctCategoryCount(childId: number, tenantId: string): Promise<number> {
 	return await countDistinctCategories(childId, tenantId);
+}
+
+/** 過去7日間の活動日数を取得 */
+async function getActiveDaysInLastWeek(childId: number, tenantId: string): Promise<number> {
+	const rows = await findDistinctRecordedDates(childId, tenantId);
+	if (rows.length === 0) return 0;
+
+	const today = new Date(todayDateJST());
+	const weekAgo = new Date(today);
+	weekAgo.setDate(weekAgo.getDate() - 6); // 今日含めて7日間
+
+	return rows.filter((r) => {
+		const d = new Date(r.recordedDate);
+		return d >= weekAgo && d <= today;
+	}).length;
 }
 
 /** 全5カテゴリに記録がある日が存在するかチェック */
