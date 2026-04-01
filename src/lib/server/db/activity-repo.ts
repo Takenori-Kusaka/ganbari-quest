@@ -134,6 +134,15 @@ export async function countPointLedgerEntriesByType(
 	return getRepos().activity.countPointLedgerEntriesByType(childId, type, tenantId);
 }
 
+export async function countPointLedgerEntriesByTypeAndDate(
+	childId: number,
+	type: string,
+	date: string,
+	tenantId: string,
+) {
+	return getRepos().activity.countPointLedgerEntriesByTypeAndDate(childId, type, date, tenantId);
+}
+
 // Point Ledger
 export async function insertPointLedger(input: InsertPointLedgerInput, tenantId: string) {
 	return getRepos().activity.insertPointLedger(input, tenantId);
