@@ -227,6 +227,8 @@ test.describe('ナビゲーション', () => {
 
 	test('ボトムナビでページ遷移できる', async ({ page }) => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
+		// スクロール位置をリセットしてコンテンツがナビに重ならないようにする
+		await page.evaluate(() => window.scrollTo(0, 0));
 
 		// ホーム → つよさ（ステータス）
 		await nav.locator('a').filter({ hasText: 'つよさ' }).click();
@@ -239,6 +241,8 @@ test.describe('ナビゲーション', () => {
 
 	test('きりかえリンクで /switch に戻れる', async ({ page }) => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
+		// スクロール位置をリセットしてコンテンツがナビに重ならないようにする
+		await page.evaluate(() => window.scrollTo(0, 0));
 		await nav.locator('a').filter({ hasText: 'きりかえ' }).click();
 		await expect(page).toHaveURL(/\/switch/);
 	});
