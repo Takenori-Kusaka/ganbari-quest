@@ -16,6 +16,7 @@ export const SOUND_IDS = [
 	'special-reward',
 	'omikuji-roll',
 	'omikuji-result',
+	'stamp-press',
 ] as const;
 
 export type SoundId = (typeof SOUND_IDS)[number];
@@ -33,6 +34,7 @@ export const SOUND_DEFS: Record<SoundId, { path: string; label: string }> = {
 	'special-reward': { path: '/sounds/special-reward.mp3', label: '特別報酬' },
 	'omikuji-roll': { path: '/sounds/omikuji-roll.mp3', label: 'おみくじ回転' },
 	'omikuji-result': { path: '/sounds/omikuji-result.mp3', label: 'おみくじ結果' },
+	'stamp-press': { path: '/sounds/stamp-press.mp3', label: 'スタンプ押印' },
 };
 
 // --- 年齢帯別サウンド設定 ---
@@ -56,6 +58,7 @@ export const SOUND_TIER_CONFIG: Record<UiMode, SoundTierConfig> = {
 			'special-reward',
 			'omikuji-roll',
 			'omikuji-result',
+			'stamp-press',
 		],
 	},
 	kinder: {
@@ -70,6 +73,7 @@ export const SOUND_TIER_CONFIG: Record<UiMode, SoundTierConfig> = {
 			'special-reward',
 			'omikuji-roll',
 			'omikuji-result',
+			'stamp-press',
 		],
 	},
 	lower: {
@@ -81,6 +85,7 @@ export const SOUND_TIER_CONFIG: Record<UiMode, SoundTierConfig> = {
 			'level-up',
 			'special-reward',
 			'omikuji-result',
+			'stamp-press',
 		],
 	},
 	upper: {

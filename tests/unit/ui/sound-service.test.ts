@@ -7,8 +7,8 @@ import { SOUND_DEFS, SOUND_IDS, SOUND_TIER_CONFIG } from '../../../src/lib/ui/so
 // --- 定数テスト ---
 
 describe('SOUND_IDS', () => {
-	it('10種類のサウンドIDが定義されている', () => {
-		expect(SOUND_IDS).toHaveLength(10);
+	it('11種類のサウンドIDが定義されている', () => {
+		expect(SOUND_IDS).toHaveLength(11);
 	});
 
 	it.each([
@@ -22,6 +22,7 @@ describe('SOUND_IDS', () => {
 		'special-reward',
 		'omikuji-roll',
 		'omikuji-result',
+		'stamp-press',
 	])('%s が含まれる', (id) => {
 		expect(SOUND_IDS).toContain(id);
 	});
