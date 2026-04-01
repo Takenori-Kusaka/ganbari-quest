@@ -3,6 +3,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
+import type { InsertParentMessageInput } from '../../../src/lib/server/db/types';
 import {
 	type TestDb,
 	type TestSqlite,
@@ -194,7 +195,7 @@ describe('sendMessage（サービス層）', () => {
 		};
 		mockInsertMessage.mockResolvedValue(returnedMsg);
 
-		const input = { childId: 1, messageType: 'stamp', stampCode: 'nonexistent_code' };
+		const input: InsertParentMessageInput = { childId: 1, messageType: 'stamp', stampCode: 'nonexistent_code' };
 		await sendMessage(input, 'test-tenant');
 
 		// preset が見つからないため icon は設定されない
@@ -215,7 +216,7 @@ describe('sendMessage（サービス層）', () => {
 		};
 		mockInsertMessage.mockResolvedValue(returnedMsg);
 
-		const input = { childId: 1, messageType: 'stamp', stampCode: 'arigatou' };
+		const input: InsertParentMessageInput = { childId: 1, messageType: 'stamp', stampCode: 'arigatou' };
 		await sendMessage(input, 'test-tenant');
 
 		expect(input.icon).toBe('💖');
@@ -238,7 +239,7 @@ describe('sendMessage（サービス層）', () => {
 		};
 		mockInsertMessage.mockResolvedValue(returnedMsg);
 
-		const input = { childId: 1, messageType: 'text', body: 'テストメッセージ' };
+		const input: InsertParentMessageInput = { childId: 1, messageType: 'text', body: 'テストメッセージ' };
 		await sendMessage(input, 'test-tenant');
 
 		expect(input.icon).toBeUndefined();
