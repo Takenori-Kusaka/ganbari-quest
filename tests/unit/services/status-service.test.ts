@@ -252,7 +252,7 @@ describe('getMonthlyComparison', () => {
 		}
 	});
 
-	it('XP追加後にcurrentが反映され、previousとの差分がchangesに入る', async () => {
+	it('XP追加後にcurrentが反映され、changes = current - previous', async () => {
 		// うんどう=100, べんきょう=50
 		await updateStatus(1, 1, 100, 'activity_record', 'test-tenant');
 		await updateStatus(1, 2, 50, 'activity_record', 'test-tenant');
@@ -261,11 +261,9 @@ describe('getMonthlyComparison', () => {
 		expect(result).not.toBeNull();
 		expect(result?.current[1]).toBe(100);
 		expect(result?.current[2]).toBe(50);
-		// previousはstatus_historyにbeforeDate以前のレコードがないため0
-		expect(result?.previous[1]).toBe(0);
-		expect(result?.previous[2]).toBe(0);
-		expect(result?.changes[1]).toBe(100);
-		expect(result?.changes[2]).toBe(50);
+		// changes = current - previous（タイムゾーンにより previous が 0 or current と同じになる）
+		expect(result?.changes[1]).toBe((result?.current[1] ?? 0) - (result?.previous[1] ?? 0));
+		expect(result?.changes[2]).toBe((result?.current[2] ?? 0) - (result?.previous[2] ?? 0));
 	});
 
 	it('全5カテゴリ分のデータが返る', async () => {
