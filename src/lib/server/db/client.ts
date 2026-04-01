@@ -5,6 +5,7 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { SQL_CREATE_TABLES } from './create-tables';
 import * as schema from './schema';
+import { validateAndMigrate } from './schema-validator';
 
 const DATABASE_URL = process.env.DATABASE_URL ?? './data/ganbari-quest.db';
 
@@ -26,6 +27,31 @@ sqlite.pragma('synchronous = NORMAL');
 // Ensures new tables are always available after code updates (NUC Docker, Lambda, dev).
 if ((process.env.DATA_SOURCE ?? 'sqlite') === 'sqlite') {
 	sqlite.exec(SQL_CREATE_TABLES);
+
+	// スキーマバリデーション + 安全な自動マイグレーション（カラム追加）
+	const schemaResult = validateAndMigrate(sqlite);
+
+	if (schemaResult.applied.length > 0) {
+		console.log(`[SCHEMA] ${schemaResult.applied.length} 件の安全なマイグレーションを自動適用:`);
+		for (const m of schemaResult.applied) {
+			console.log(`  + ${m.table}.${m.column}: ${m.sql}`);
+		}
+	}
+	for (const w of schemaResult.warnings) {
+		console.warn(`[SCHEMA] ${w}`);
+	}
+
+	if (!schemaResult.valid) {
+		console.error('[SCHEMA] データベーススキーマが不整合です:');
+		for (const err of schemaResult.errors) {
+			console.error(`  ✗ ${err}`);
+		}
+		// SCHEMA_VALIDATION_MODE=warn で起動を継続可能（デバッグ用）
+		if (process.env.SCHEMA_VALIDATION_MODE !== 'warn') {
+			console.error('[SCHEMA] アプリケーションを停止します。修正後に再デプロイしてください。');
+			process.exit(1);
+		}
+	}
 }
 
 export const db = drizzle(sqlite, { schema });
