@@ -12,6 +12,11 @@ import { getActivities } from '$lib/server/services/activity-service';
 import { getChecklistsForChild } from '$lib/server/services/checklist-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
+import {
+	isFocusModeActive,
+	markFocusModeStart,
+	selectRecommendations,
+} from '$lib/server/services/recommendation-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
@@ -42,6 +47,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			stampCard: null,
 			categoryXp: null,
 			gameLoopHints: null,
+			focusMode: false,
+			recommendedActivityIds: [],
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -90,6 +97,14 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		isMission: missionActivityIds.has(a.id),
 	}));
 
+	// フォーカスモード: おすすめ活動の選定 (#0264)
+	const focusActive = await isFocusModeActive(child.id, tenantId);
+	if (focusActive) {
+		markFocusModeStart(child.id, tenantId).catch(() => {});
+	}
+	const recommendations = focusActive ? selectRecommendations(rawActivities, todayDate()) : [];
+	const recommendedIds = new Set(recommendations.map((r) => r.activityId));
+
 	return {
 		activities: activitiesWithMission,
 		todayRecorded,
@@ -103,6 +118,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		gameLoopHints: {
 			achievements: achievementSummary,
 		},
+		focusMode: focusActive,
+		recommendedActivityIds: [...recommendedIds],
 	};
 };
 
