@@ -1,51 +1,19 @@
 // tests/unit/services/special-reward-service.test.ts
 // 特別報酬サービスのユニットテスト
 
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
+import { assertError, assertSuccess } from '../helpers/assert-result';
+import {
+	type TestDb,
+	type TestSqlite,
+	closeDb,
+	createTestDb,
+	resetDb as resetAllTables,
+} from '../helpers/test-db';
 
-let sqlite: InstanceType<typeof Database>;
-let testDb: ReturnType<typeof drizzle>;
-
-const SQL_TABLES = `
-	CREATE TABLE children (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
-		theme TEXT NOT NULL DEFAULT 'pink',
-		ui_mode TEXT NOT NULL DEFAULT 'kinder',
-		avatar_url TEXT,
-		active_title_id INTEGER,
-		display_config TEXT,
-		user_id TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE TABLE point_ledger (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		amount INTEGER NOT NULL, type TEXT NOT NULL,
-		description TEXT, reference_id INTEGER,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE INDEX idx_point_ledger_child ON point_ledger(child_id, created_at);
-	CREATE TABLE special_rewards (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		granted_by INTEGER,
-		title TEXT NOT NULL, description TEXT,
-		points INTEGER NOT NULL, icon TEXT,
-		category TEXT NOT NULL,
-		granted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		shown_at TEXT
-	);
-	CREATE INDEX idx_special_rewards_child ON special_rewards(child_id, granted_at);
-	CREATE TABLE settings (
-		key TEXT PRIMARY KEY, value TEXT NOT NULL,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-`;
+let sqlite: TestSqlite;
+let testDb: TestDb;
 
 vi.mock('$lib/server/db', () => ({
 	get db() {
@@ -68,24 +36,17 @@ import {
 } from '../../../src/lib/server/services/special-reward-service';
 
 beforeAll(() => {
-	sqlite = new Database(':memory:');
-	sqlite.pragma('foreign_keys = ON');
-	sqlite.exec(SQL_TABLES);
-	testDb = drizzle(sqlite, { schema });
+	const t = createTestDb();
+	sqlite = t.sqlite;
+	testDb = t.db;
 });
 
 afterAll(() => {
-	sqlite.close();
+	closeDb(sqlite);
 });
 
 function resetDb() {
-	sqlite.exec('DELETE FROM special_rewards');
-	sqlite.exec('DELETE FROM point_ledger');
-	sqlite.exec('DELETE FROM settings');
-	sqlite.exec('DELETE FROM children');
-	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children','point_ledger','special_rewards')",
-	);
+	resetAllTables(sqlite);
 }
 
 function seedBase() {
@@ -99,45 +60,43 @@ describe('grantSpecialReward', () => {
 	});
 
 	it('正常に特別報酬を付与できる', async () => {
-		const result = await grantSpecialReward(
-			{
-				childId: 1,
-				title: 'テスト100点',
-				points: 100,
-				category: 'academic',
-			},
-			'test-tenant',
+		const result = assertSuccess(
+			await grantSpecialReward(
+				{
+					childId: 1,
+					title: 'テスト100点',
+					points: 100,
+					category: 'academic',
+				},
+				'test-tenant',
+			),
 		);
 
-		expect('error' in result).toBe(false);
-		if (!('error' in result)) {
-			expect(result.id).toBe(1);
-			expect(result.childId).toBe(1);
-			expect(result.title).toBe('テスト100点');
-			expect(result.points).toBe(100);
-			expect(result.category).toBe('academic');
-			expect(result.grantedAt).toBeDefined();
-		}
+		expect(result.id).toBe(1);
+		expect(result.childId).toBe(1);
+		expect(result.title).toBe('テスト100点');
+		expect(result.points).toBe(100);
+		expect(result.category).toBe('academic');
+		expect(result.grantedAt).toBeDefined();
 	});
 
 	it('オプションフィールド付きで付与できる', async () => {
-		const result = await grantSpecialReward(
-			{
-				childId: 1,
-				title: '漢字検定合格',
-				description: '漢字検定10級に合格！',
-				points: 200,
-				icon: '📜',
-				category: 'academic',
-			},
-			'test-tenant',
+		const result = assertSuccess(
+			await grantSpecialReward(
+				{
+					childId: 1,
+					title: '漢字検定合格',
+					description: '漢字検定10級に合格！',
+					points: 200,
+					icon: '📜',
+					category: 'academic',
+				},
+				'test-tenant',
+			),
 		);
 
-		expect('error' in result).toBe(false);
-		if (!('error' in result)) {
-			expect(result.description).toBe('漢字検定10級に合格！');
-			expect(result.icon).toBe('📜');
-		}
+		expect(result.description).toBe('漢字検定10級に合格！');
+		expect(result.icon).toBe('📜');
 	});
 
 	it('ポイント台帳に special_reward エントリが追加される', async () => {
@@ -159,21 +118,20 @@ describe('grantSpecialReward', () => {
 	});
 
 	it('存在しない子供にはエラーを返す', async () => {
-		const result = await grantSpecialReward(
-			{
-				childId: 999,
-				title: 'テスト',
-				points: 50,
-				category: 'other',
-			},
-			'test-tenant',
+		const result = assertError(
+			await grantSpecialReward(
+				{
+					childId: 999,
+					title: 'テスト',
+					points: 50,
+					category: 'other',
+				},
+				'test-tenant',
+			),
 		);
 
-		expect('error' in result).toBe(true);
-		if ('error' in result) {
-			expect(result.error).toBe('NOT_FOUND');
-			expect(result.target).toBe('child');
-		}
+		expect(result.error).toBe('NOT_FOUND');
+		expect(result.target).toBe('child');
 	});
 
 	it('複数回付与できる', async () => {
@@ -268,31 +226,23 @@ describe('getUnshownReward / markRewardShown', () => {
 	});
 
 	it('表示済みにした報酬は返さない', async () => {
-		const reward = await grantSpecialReward(
-			{
-				childId: 1,
-				title: 'テスト100点',
-				points: 100,
-				category: 'academic',
-			},
-			'test-tenant',
+		const reward = assertSuccess(
+			await grantSpecialReward(
+				{ childId: 1, title: 'テスト100点', points: 100, category: 'academic' },
+				'test-tenant',
+			),
 		);
-		if (!('error' in reward)) {
-			await markRewardShown(reward.id, 'test-tenant');
-		}
+		await markRewardShown(reward.id, 'test-tenant');
 		const result = await getUnshownReward(1, 'test-tenant');
 		expect(result).toBeNull();
 	});
 
 	it('複数の報酬がある場合、未表示のものだけ返す', async () => {
-		const r1 = await grantSpecialReward(
-			{
-				childId: 1,
-				title: '1回目',
-				points: 50,
-				category: 'academic',
-			},
-			'test-tenant',
+		const r1 = assertSuccess(
+			await grantSpecialReward(
+				{ childId: 1, title: '1回目', points: 50, category: 'academic' },
+				'test-tenant',
+			),
 		);
 		await grantSpecialReward(
 			{ childId: 1, title: '2回目', points: 100, category: 'sports' },
@@ -300,9 +250,7 @@ describe('getUnshownReward / markRewardShown', () => {
 		);
 
 		// 1回目を表示済みにする
-		if (!('error' in r1)) {
-			await markRewardShown(r1.id, 'test-tenant');
-		}
+		await markRewardShown(r1.id, 'test-tenant');
 
 		const result = await getUnshownReward(1, 'test-tenant');
 		expect(result).not.toBeNull();
@@ -310,18 +258,13 @@ describe('getUnshownReward / markRewardShown', () => {
 	});
 
 	it('新しいごほうびを付与すると再度表示される', async () => {
-		const r1 = await grantSpecialReward(
-			{
-				childId: 1,
-				title: '1回目',
-				points: 50,
-				category: 'academic',
-			},
-			'test-tenant',
+		const r1 = assertSuccess(
+			await grantSpecialReward(
+				{ childId: 1, title: '1回目', points: 50, category: 'academic' },
+				'test-tenant',
+			),
 		);
-		if (!('error' in r1)) {
-			await markRewardShown(r1.id, 'test-tenant');
-		}
+		await markRewardShown(r1.id, 'test-tenant');
 
 		// 新しい報酬を付与
 		await grantSpecialReward(

@@ -165,15 +165,8 @@ describe('verifyIdentityToken', () => {
 	it('COGNITO_USER_POOL_ID が未設定の場合エラー', async () => {
 		process.env.COGNITO_USER_POOL_ID = '';
 
-		// モジュールキャッシュをクリアして再読み込み
+		// モジュールキャッシュをクリアして再読み込み（トップレベルの vi.mock が有効）
 		vi.resetModules();
-		vi.mock('jose', () => ({
-			createRemoteJWKSet: vi.fn(() => 'mock-jwks'),
-			jwtVerify: vi.fn(),
-		}));
-		vi.mock('$lib/server/logger', () => ({
-			logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
-		}));
 
 		const { verifyIdentityToken: verify } = await import(
 			'../../../src/lib/server/auth/providers/cognito-jwt'
