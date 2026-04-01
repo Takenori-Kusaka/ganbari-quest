@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Invite, Membership, Tenant } from '../../../src/lib/server/auth/entities';
 import type { IAuthRepo } from '../../../src/lib/server/db/interfaces/auth-repo.interface';
+import { assertError, assertSuccess } from '../helpers/assert-result';
 
 // モック用のインメモリストア
 let inviteStore: Map<string, Invite>;
@@ -164,20 +165,14 @@ describe('acceptInvite', () => {
 			createdAt: new Date().toISOString(),
 		} as Tenant);
 
-		const result = await acceptInvite('acc-1', 'new-user');
-		expect('membership' in result).toBe(true);
-		if ('membership' in result) {
-			expect(result.membership.tenantId).toBe('t-test');
-			expect(result.membership.role).toBe('parent');
-		}
+		const result = assertSuccess(await acceptInvite('acc-1', 'new-user'));
+		expect(result.membership.tenantId).toBe('t-test');
+		expect(result.membership.role).toBe('parent');
 	});
 
 	it('無効な招待コードはエラー', async () => {
-		const result = await acceptInvite('bad-code', 'user');
-		expect('error' in result).toBe(true);
-		if ('error' in result) {
-			expect(result.error).toBe('INVALID_OR_EXPIRED');
-		}
+		const result = assertError(await acceptInvite('bad-code', 'user'));
+		expect(result.error).toBe('INVALID_OR_EXPIRED');
 	});
 
 	it('既にテナントに所属しているユーザーはエラー', async () => {
@@ -191,21 +186,15 @@ describe('acceptInvite', () => {
 			},
 		]);
 
-		const result = await acceptInvite('acc-2', 'existing-user');
-		expect('error' in result).toBe(true);
-		if ('error' in result) {
-			expect(result.error).toBe('ALREADY_IN_TENANT');
-		}
+		const result = assertError(await acceptInvite('acc-2', 'existing-user'));
+		expect(result.error).toBe('ALREADY_IN_TENANT');
 	});
 
 	it('テナントが存在しない場合はエラー', async () => {
 		inviteStore.set('acc-3', makePendingInvite({ inviteCode: 'acc-3' }));
 
-		const result = await acceptInvite('acc-3', 'user');
-		expect('error' in result).toBe(true);
-		if ('error' in result) {
-			expect(result.error).toBe('TENANT_NOT_FOUND');
-		}
+		const result = assertError(await acceptInvite('acc-3', 'user'));
+		expect(result.error).toBe('TENANT_NOT_FOUND');
 	});
 
 	it('自分で作成した招待は受諾できない (#0203)', async () => {
@@ -214,11 +203,8 @@ describe('acceptInvite', () => {
 			makePendingInvite({ inviteCode: 'self-inv', invitedBy: 'user-owner' }),
 		);
 
-		const result = await acceptInvite('self-inv', 'user-owner');
-		expect('error' in result).toBe(true);
-		if ('error' in result) {
-			expect(result.error).toBe('SELF_INVITE_NOT_ALLOWED');
-		}
+		const result = assertError(await acceptInvite('self-inv', 'user-owner'));
+		expect(result.error).toBe('SELF_INVITE_NOT_ALLOWED');
 	});
 
 	it('owner は招待でダウングレードされない (#0203)', async () => {
@@ -235,11 +221,8 @@ describe('acceptInvite', () => {
 			},
 		]);
 
-		const result = await acceptInvite('downgrade', 'owner-user');
-		expect('error' in result).toBe(true);
-		if ('error' in result) {
-			expect(result.error).toBe('OWNER_CANNOT_BE_DOWNGRADED');
-		}
+		const result = assertError(await acceptInvite('downgrade', 'owner-user'));
+		expect(result.error).toBe('OWNER_CANNOT_BE_DOWNGRADED');
 	});
 });
 

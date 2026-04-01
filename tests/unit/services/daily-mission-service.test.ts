@@ -1,84 +1,18 @@
 // tests/unit/services/daily-mission-service.test.ts
 // デイリーミッションのユニットテスト
 
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
+import {
+	type TestDb,
+	type TestSqlite,
+	closeDb,
+	createTestDb,
+	resetDb as resetAllTables,
+} from '../helpers/test-db';
 
-let sqlite: InstanceType<typeof Database>;
-let testDb: ReturnType<typeof drizzle>;
-
-const SQL_TABLES = `
-	CREATE TABLE categories (
-		id INTEGER PRIMARY KEY,
-		code TEXT NOT NULL UNIQUE,
-		name TEXT NOT NULL,
-		icon TEXT,
-		color TEXT
-	);
-
-	INSERT INTO categories VALUES (1, 'undou', 'うんどう', '🏃', '#FF6B6B');
-	INSERT INTO categories VALUES (2, 'benkyou', 'べんきょう', '📚', '#4ECDC4');
-	INSERT INTO categories VALUES (3, 'seikatsu', 'せいかつ', '🏠', '#FFE66D');
-	INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
-	INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
-
-	CREATE TABLE children (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
-		theme TEXT NOT NULL DEFAULT 'pink',
-		ui_mode TEXT NOT NULL DEFAULT 'kinder',
-		avatar_url TEXT,
-		active_title_id INTEGER,
-		display_config TEXT,
-		user_id TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE TABLE activities (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), icon TEXT NOT NULL,
-		base_points INTEGER NOT NULL DEFAULT 5,
-		age_min INTEGER, age_max INTEGER,
-		is_visible INTEGER NOT NULL DEFAULT 1,
-		daily_limit INTEGER, sort_order INTEGER NOT NULL DEFAULT 0,
-		source TEXT NOT NULL DEFAULT 'seed',
-		grade_level TEXT, subcategory TEXT, description TEXT,
-		name_kana TEXT,
-		name_kanji TEXT,
-		trigger_hint TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE TABLE activity_logs (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
-		points INTEGER NOT NULL, streak_days INTEGER NOT NULL DEFAULT 1,
-		streak_bonus INTEGER NOT NULL DEFAULT 0,
-		recorded_date TEXT NOT NULL,
-		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		cancelled INTEGER NOT NULL DEFAULT 0
-	);
-	CREATE TABLE point_ledger (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		amount INTEGER NOT NULL, type TEXT NOT NULL,
-		description TEXT, reference_id INTEGER,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE INDEX idx_point_ledger_child ON point_ledger(child_id, created_at);
-	CREATE TABLE daily_missions (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		mission_date TEXT NOT NULL,
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
-		completed INTEGER NOT NULL DEFAULT 0,
-		completed_at TEXT,
-		UNIQUE(child_id, mission_date, activity_id)
-	);
-	CREATE INDEX idx_daily_missions_child_date ON daily_missions(child_id, mission_date);
-`;
+let sqlite: TestSqlite;
+let testDb: TestDb;
 
 vi.mock('$lib/server/db', () => ({
 	get db() {
@@ -100,25 +34,17 @@ import {
 } from '../../../src/lib/server/services/daily-mission-service';
 
 beforeAll(() => {
-	sqlite = new Database(':memory:');
-	sqlite.pragma('foreign_keys = ON');
-	sqlite.exec(SQL_TABLES);
-	testDb = drizzle(sqlite, { schema });
+	const t = createTestDb();
+	sqlite = t.sqlite;
+	testDb = t.db;
 });
 
 afterAll(() => {
-	sqlite.close();
+	closeDb(sqlite);
 });
 
 function resetDb() {
-	sqlite.exec('DELETE FROM daily_missions');
-	sqlite.exec('DELETE FROM point_ledger');
-	sqlite.exec('DELETE FROM activity_logs');
-	sqlite.exec('DELETE FROM activities');
-	sqlite.exec('DELETE FROM children');
-	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children', 'activities', 'activity_logs', 'point_ledger', 'daily_missions')",
-	);
+	resetAllTables(sqlite);
 }
 
 function seedChild() {

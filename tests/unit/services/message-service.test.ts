@@ -1,39 +1,18 @@
 // tests/unit/services/message-service.test.ts
 // おうえんメッセージサービスのユニットテスト
 
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
+import {
+	type TestDb,
+	type TestSqlite,
+	closeDb,
+	createTestDb,
+	resetDb as resetAllTables,
+} from '../helpers/test-db';
 
-let sqlite: InstanceType<typeof Database>;
-let testDb: ReturnType<typeof drizzle>;
-
-const SQL_TABLES = `
-	CREATE TABLE children (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		nickname TEXT NOT NULL, age INTEGER NOT NULL,
-		theme TEXT NOT NULL DEFAULT 'pink',
-		ui_mode TEXT NOT NULL DEFAULT 'kinder',
-		avatar_url TEXT, active_title_id INTEGER,
-		display_config TEXT,
-		user_id TEXT, birth_date TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE TABLE parent_messages (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		message_type TEXT NOT NULL,
-		stamp_code TEXT,
-		body TEXT,
-		icon TEXT NOT NULL DEFAULT '💌',
-		sent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		shown_at TEXT
-	);
-	CREATE INDEX idx_parent_messages_child ON parent_messages(child_id, sent_at);
-	CREATE INDEX idx_parent_messages_unshown ON parent_messages(child_id, shown_at);
-`;
+let sqlite: TestSqlite;
+let testDb: TestDb;
 
 vi.mock('$lib/server/db', () => ({
 	get db() {
@@ -56,20 +35,17 @@ import {
 import { STAMP_PRESETS, getStampPreset } from '../../../src/lib/server/services/message-service';
 
 beforeAll(() => {
-	sqlite = new Database(':memory:');
-	sqlite.pragma('foreign_keys = ON');
-	sqlite.exec(SQL_TABLES);
-	testDb = drizzle(sqlite, { schema });
+	const t = createTestDb();
+	sqlite = t.sqlite;
+	testDb = t.db;
 });
 
 afterAll(() => {
-	sqlite.close();
+	closeDb(sqlite);
 });
 
 function resetDb() {
-	sqlite.exec('DELETE FROM parent_messages');
-	sqlite.exec('DELETE FROM children');
-	sqlite.exec("DELETE FROM sqlite_sequence WHERE name IN ('children','parent_messages')");
+	resetAllTables(sqlite);
 }
 
 function seedBase() {
