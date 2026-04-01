@@ -13,11 +13,31 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
-	const [dataSummary, decayIntensity] = await Promise.all([
-		getDataSummary(tenantId),
-		getSetting('decay_intensity', tenantId),
-	]);
-	return { dataSummary, decayIntensity: decayIntensity ?? 'normal' };
+
+	// 各データ取得を個別にエラーハンドリング（1つの失敗でページ全体が500にならないように）
+	let dataSummary: Awaited<ReturnType<typeof getDataSummary>> = {
+		children: 0,
+		activityLogs: 0,
+		pointLedger: 0,
+		statuses: 0,
+		achievements: 0,
+		titles: 0,
+		loginBonuses: 0,
+		checklistTemplates: 0,
+		voices: 0,
+	};
+	let decayIntensity = 'normal';
+
+	try {
+		[dataSummary, decayIntensity] = await Promise.all([
+			getDataSummary(tenantId),
+			getSetting('decay_intensity', tenantId).then((v) => v ?? 'normal'),
+		]);
+	} catch (err) {
+		logger.error('[settings] load failed, using defaults', { error: String(err) });
+	}
+
+	return { dataSummary, decayIntensity };
 };
 
 export const actions = {
