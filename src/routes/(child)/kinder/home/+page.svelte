@@ -94,6 +94,7 @@ let messageOpen = $state(false);
 
 // First-time adventure overlay
 let adventureOpen = $state(false);
+let adventureShown = $state(false);
 
 // Login stamp state (unified bonus + stamp)
 let stampPressOpen = $state(false);
@@ -341,10 +342,11 @@ async function handleRewardClose() {
 	checkParentMessage();
 }
 
-// Auto-show adventure overlay for first-time users
+// Auto-show adventure overlay for first-time users (once per page load)
 $effect(() => {
-	if (data.isFirstTime && !adventureOpen && !stampPressOpen && !bonusClaiming) {
+	if (data.isFirstTime && !adventureShown && !adventureOpen && !stampPressOpen && !bonusClaiming) {
 		adventureOpen = true;
+		adventureShown = true;
 	}
 });
 

@@ -103,7 +103,8 @@ function handleClose() {
 						{/each}
 					{/each}
 				</div>
-				<p class="adventure__ready-text">さあ、はじめよう！</p>
+				<img src="/icon-character.png" alt="ぼうけんキャラクター" class="adventure__character" />
+				<p class="adventure__ready-text">🌟 さあ、はじめよう！ 🌟</p>
 				<p class="adventure__ready-sub">したのカードをタップしてみてね</p>
 				<button class="adventure__start-btn tap-target" onclick={handleClose}>
 					ぼうけんスタート！
@@ -227,10 +228,18 @@ function handleClose() {
 		gap: var(--sp-md);
 		position: relative;
 	}
+	.adventure__character {
+		width: 120px;
+		height: 120px;
+		object-fit: contain;
+		animation: character-bounce 0.8s ease-out;
+		filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+	}
 	.adventure__ready-text {
 		font-size: 1.5rem;
 		font-weight: 900;
 		color: var(--theme-primary);
+		text-shadow: 0 2px 8px rgba(255, 165, 0, 0.2);
 	}
 	.adventure__ready-sub {
 		font-size: 0.875rem;
@@ -296,6 +305,11 @@ function handleClose() {
 		from { transform: scale(0); opacity: 0; }
 		to { transform: scale(1); opacity: 1; }
 	}
+	@keyframes character-bounce {
+		0% { transform: scale(0) translateY(30px); opacity: 0; }
+		50% { transform: scale(1.15) translateY(-8px); opacity: 1; }
+		100% { transform: scale(1) translateY(0); opacity: 1; }
+	}
 	@keyframes confetti-burst {
 		0% { transform: translate(0, 0) scale(0) rotate(0deg); opacity: 0; }
 		20% { opacity: 1; transform: scale(1); }
@@ -313,7 +327,8 @@ function handleClose() {
 		.adventure__avatar,
 		.adventure__star,
 		.adventure__cat-item,
-		.adventure__confetti-piece {
+		.adventure__confetti-piece,
+		.adventure__character {
 			animation: none;
 		}
 		.animate-fade-in,
