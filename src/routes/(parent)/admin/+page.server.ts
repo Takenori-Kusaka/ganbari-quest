@@ -1,13 +1,19 @@
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
+import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/onboarding-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getChildStatus } from '$lib/server/services/status-service';
-import type { PageServerLoad } from './$types';
+import { fail } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
-	const children = await getAllChildren(tenantId);
+
+	const [children, onboarding] = await Promise.all([
+		getAllChildren(tenantId),
+		getOnboardingProgress(tenantId, '/admin'),
+	]);
 
 	const childrenWithStatus = await Promise.all(
 		children.map(async (child) => {
@@ -32,5 +38,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
-	return { children: childrenWithStatus };
+	return { children: childrenWithStatus, onboarding };
+};
+
+export const actions: Actions = {
+	dismissOnboarding: async ({ locals }) => {
+		const tenantId = requireTenantId(locals);
+		try {
+			await dismissOnboarding(tenantId);
+			return { dismissed: true };
+		} catch {
+			return fail(500, { error: 'オンボーディングの非表示に失敗しました' });
+		}
+	},
 };

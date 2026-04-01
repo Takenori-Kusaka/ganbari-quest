@@ -5,6 +5,7 @@ import { UI_MODES } from '$lib/domain/validation/age-tier';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
+import { markChildScreenVisited } from '$lib/server/services/onboarding-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getStampCardStatus } from '$lib/server/services/stamp-card-service';
 import { getChildStatus } from '$lib/server/services/status-service';
@@ -74,6 +75,9 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		!stampCardResult || 'error' in stampCardResult
 			? null
 			: { filled: stampCardResult.filledSlots, total: stampCardResult.totalSlots };
+
+	// オンボーディング「子供の画面を確認する」を自動マーク（fire-and-forget）
+	markChildScreenVisited(tenantId).catch(() => {});
 
 	return {
 		child,
