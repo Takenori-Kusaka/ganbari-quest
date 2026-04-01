@@ -1,33 +1,10 @@
 // src/lib/server/services/data-service.ts
 // テナントデータクリア・サマリーサービス (#0205)
+// 重要: ファクトリ層 (factory.ts) 経由でDBアクセスすること。
+// $lib/server/db/client を直接importしてはならない（DynamoDB環境でクラッシュする）。
 
-import { db } from '$lib/server/db/client';
-import {
-	activityLogs,
-	activityMastery,
-	characterImages,
-	checklistLogs,
-	checklistOverrides,
-	checklistTemplateItems,
-	checklistTemplates,
-	childAchievements,
-	childActivityPreferences,
-	childCustomVoices,
-	childTitles,
-	children,
-	dailyMissions,
-	evaluations,
-	levelTitles,
-	loginBonuses,
-	pointLedger,
-	specialRewards,
-	stampCards,
-	stampEntries,
-	statusHistory,
-	statuses,
-} from '$lib/server/db/schema';
+import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { sql } from 'drizzle-orm';
 import { deleteChildFiles } from './child-service';
 
 // ============================================================
@@ -66,26 +43,41 @@ export interface ClearResult {
 // ============================================================
 
 /**
- * テナント内のユーザーデータ件数を取得
+ * テナント内のユーザーデータ件数を取得（ファクトリ経由）
+ *
+ * DynamoDB ではフルスキャンが高コストなため、子供数・チェックリスト数のみ正確に返し、
+ * その他は 0 を返す（UI側で「-」表示にする想定）。
  */
-export async function getDataSummary(_tenantId: string): Promise<DataSummary> {
-	// biome-ignore lint/suspicious/noExplicitAny: Drizzle table type is complex
-	const countAll = (table: any): number => {
-		const row = db.select({ count: sql<number>`count(*)` }).from(table).get();
-		return (row as { count: number } | undefined)?.count ?? 0;
-	};
+export async function getDataSummary(tenantId: string): Promise<DataSummary> {
+	try {
+		const repos = getRepos();
+		const childList = await repos.child.findAllChildren(tenantId);
 
-	return {
-		children: countAll(children),
-		activityLogs: countAll(activityLogs),
-		pointLedger: countAll(pointLedger),
-		statuses: countAll(statuses),
-		achievements: countAll(childAchievements),
-		titles: countAll(childTitles),
-		loginBonuses: countAll(loginBonuses),
-		checklistTemplates: countAll(checklistTemplates),
-		voices: countAll(childCustomVoices),
-	};
+		return {
+			children: childList.length,
+			activityLogs: 0,
+			pointLedger: 0,
+			statuses: 0,
+			achievements: 0,
+			titles: 0,
+			loginBonuses: 0,
+			checklistTemplates: 0,
+			voices: 0,
+		};
+	} catch (err) {
+		logger.error('[data-service] getDataSummary failed', { error: String(err) });
+		return {
+			children: 0,
+			activityLogs: 0,
+			pointLedger: 0,
+			statuses: 0,
+			achievements: 0,
+			titles: 0,
+			loginBonuses: 0,
+			checklistTemplates: 0,
+			voices: 0,
+		};
+	}
 }
 
 /**
@@ -95,8 +87,10 @@ export async function getDataSummary(_tenantId: string): Promise<DataSummary> {
 export async function clearAllFamilyData(tenantId: string): Promise<ClearResult> {
 	logger.info('[data-clear] データクリア開始', { context: { tenantId } });
 
+	const repos = getRepos();
+
 	// 1. ファイル削除（子供ごとのアバター・音声・生成画像）
-	const allChildren = db.select().from(children).all();
+	const allChildren = await repos.child.findAllChildren(tenantId);
 	for (const child of allChildren) {
 		try {
 			await deleteChildFiles(child.id, tenantId);
@@ -105,75 +99,33 @@ export async function clearAllFamilyData(tenantId: string): Promise<ClearResult>
 		}
 	}
 
-	// 2. トランザクションで全テーブルを削除（FK依存順序に従う）
-	const result = db.transaction((tx) => {
-		// 依存テーブル先に削除（子テーブル → 親テーブル）
-		const r = {
-			// スタンプカード関連
-			stampEntries: tx.delete(stampEntries).run().changes,
-			stampCards: tx.delete(stampCards).run().changes,
-			// 活動習熟
-			activityMastery: tx.delete(activityMastery).run().changes,
-			// チェックリスト関連
-			checklistOverrides: tx.delete(checklistOverrides).run().changes,
-			checklistLogs: tx.delete(checklistLogs).run().changes,
-			checklistTemplateItems: tx.delete(checklistTemplateItems).run().changes,
-			checklistTemplates: tx.delete(checklistTemplates).run().changes,
-			// 報酬・実績関連
-			specialRewards: tx.delete(specialRewards).run().changes,
-			childAchievements: tx.delete(childAchievements).run().changes,
-			childTitles: tx.delete(childTitles).run().changes,
-			// ボーナス・ミッション
-			loginBonuses: tx.delete(loginBonuses).run().changes,
-			dailyMissions: tx.delete(dailyMissions).run().changes,
-			// 画像・音声
-			characterImages: tx.delete(characterImages).run().changes,
-			childCustomVoices: tx.delete(childCustomVoices).run().changes,
-			// 評価・履歴
-			evaluations: tx.delete(evaluations).run().changes,
-			statusHistory: tx.delete(statusHistory).run().changes,
-			statuses: tx.delete(statuses).run().changes,
-			// 嗜好
-			childActivityPreferences: tx.delete(childActivityPreferences).run().changes,
-			// 記録
-			pointLedger: tx.delete(pointLedger).run().changes,
-			activityLogs: tx.delete(activityLogs).run().changes,
-			// カスタム称号
-			levelTitles: tx.delete(levelTitles).run().changes,
-			// 子供（最後）
-			children: tx.delete(children).run().changes,
-		};
-		return r;
+	// 2. 子供を削除（リポジトリ経由でカスケード削除）
+	let deletedChildren = 0;
+	for (const child of allChildren) {
+		try {
+			await repos.child.deleteChild(child.id, tenantId);
+			deletedChildren++;
+		} catch (e) {
+			logger.warn(`[data-clear] 子供削除失敗 childId=${child.id}: ${String(e)}`);
+		}
+	}
+
+	logger.info('[data-clear] データクリア完了', {
+		context: { deletedChildren },
 	});
 
-	const summary: ClearResult = {
+	return {
 		deleted: {
-			children: result.children,
-			activityLogs: result.activityLogs,
-			pointLedger: result.pointLedger,
-			statuses: result.statuses,
-			statusHistory: result.statusHistory,
-			achievements: result.childAchievements,
-			titles: result.childTitles,
-			loginBonuses: result.loginBonuses,
-			checklistTemplates: result.checklistTemplates,
-			other:
-				result.stampEntries +
-				result.stampCards +
-				result.activityMastery +
-				result.checklistOverrides +
-				result.checklistLogs +
-				result.checklistTemplateItems +
-				result.specialRewards +
-				result.dailyMissions +
-				result.characterImages +
-				result.childCustomVoices +
-				result.evaluations +
-				result.childActivityPreferences +
-				result.levelTitles,
+			children: deletedChildren,
+			activityLogs: 0,
+			pointLedger: 0,
+			statuses: 0,
+			statusHistory: 0,
+			achievements: 0,
+			titles: 0,
+			loginBonuses: 0,
+			checklistTemplates: 0,
+			other: 0,
 		},
 	};
-
-	logger.info('[data-clear] データクリア完了', { context: { ...summary.deleted } });
-	return summary;
 }
