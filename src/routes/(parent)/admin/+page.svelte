@@ -8,6 +8,7 @@ let { data } = $props();
 	children={data.children}
 	pointSettings={data.pointSettings}
 	tutorialStarted={data.tutorialStarted}
+	onboarding={data.onboarding}
 	mode="live"
 	basePath="/admin"
 />

@@ -3,11 +3,13 @@ import { invalidateAll } from '$app/navigation';
 import { page } from '$app/stores';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import type { PointSettings } from '$lib/domain/point-display';
+import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import {
 	dismissTutorialBanner,
 	markTutorialStarted,
 	startTutorial,
 } from '$lib/ui/tutorial/tutorial-store.svelte';
+import OnboardingChecklist from './OnboardingChecklist.svelte';
 
 interface ChildSummary {
 	id: number;
@@ -24,13 +26,25 @@ interface Props {
 	children: ChildSummary[];
 	pointSettings: PointSettings;
 	tutorialStarted?: boolean;
+	onboarding?: OnboardingProgress | null;
 	mode: 'live' | 'demo';
 	basePath: string;
 }
 
-let { children, pointSettings, tutorialStarted = true, mode, basePath }: Props = $props();
+let {
+	children,
+	pointSettings,
+	tutorialStarted = true,
+	onboarding = null,
+	mode,
+	basePath,
+}: Props = $props();
 
 const isDemo = $derived(mode === 'demo');
+const showOnboarding = $derived(
+	!isDemo && onboarding && !onboarding.dismissed && !onboarding.allCompleted,
+);
+const onboardingComplete = $derived(!isDemo && onboarding?.allCompleted && !onboarding?.dismissed);
 
 async function handleStartTutorial() {
 	await markTutorialStarted();
@@ -49,7 +63,35 @@ const unit = $derived(getUnitLabel(ps.mode, ps.currency));
 
 const authMode = $derived($page.data.authMode as string);
 
-const menuItems = $derived([
+// Primary menu items (shown during onboarding)
+const primaryMenuItems = $derived([
+	{ href: `${basePath}/activities`, label: '活動管理', icon: '📋' },
+	{ href: `${basePath}/checklists`, label: 'チェックリスト', icon: '☑️' },
+	{ href: `${basePath}/rewards`, label: 'ごほうび', icon: '🎁' },
+	{ href: isDemo ? '/demo' : '/switch', label: 'こども画面', icon: '👶' },
+]);
+
+// Secondary menu items (hidden during onboarding, shown in "more" section)
+const secondaryMenuItems = $derived([
+	{ href: `${basePath}/messages`, label: 'おうえん', icon: '💌' },
+	{ href: `${basePath}/rewards`, label: '特別報酬', icon: '🎁' },
+	{ href: `${basePath}/points`, label: 'ポイント', icon: '⭐' },
+	{ href: `${basePath}/achievements`, label: 'じっせき', icon: '🏆' },
+	{ href: `${basePath}/status`, label: 'ベンチマーク', icon: '📈' },
+	{ href: `${basePath}/members`, label: 'メンバー', icon: '👥' },
+	...(isDemo
+		? []
+		: [{ href: `${basePath}/license`, label: 'ライセンス', icon: '🔑', authOnly: true }]),
+]);
+
+const filteredSecondaryItems = $derived(
+	authMode === 'local'
+		? secondaryMenuItems.filter((item) => !('authOnly' in item && item.authOnly))
+		: secondaryMenuItems,
+);
+
+// Legacy full menu (when onboarding is complete)
+const allMenuItems = $derived([
 	{ href: `${basePath}/messages`, label: 'おうえん', icon: '💌' },
 	{ href: `${basePath}/rewards`, label: '特別報酬', icon: '🎁' },
 	{ href: `${basePath}/points`, label: 'ポイント', icon: '⭐' },
@@ -62,11 +104,21 @@ const menuItems = $derived([
 		: [{ href: `${basePath}/license`, label: 'ライセンス', icon: '🔑', authOnly: true }]),
 ]);
 
-const visibleMenuItems = $derived(
+const visibleAllMenuItems = $derived(
 	authMode === 'local'
-		? menuItems.filter((item) => !('authOnly' in item && item.authOnly))
-		: menuItems,
+		? allMenuItems.filter((item) => !('authOnly' in item && item.authOnly))
+		: allMenuItems,
 );
+
+let showMoreMenu = $state(false);
+
+// Context hints (shown once per session)
+const contextHints: Record<string, string> = {
+	活動管理: 'お子さまが記録する活動を追加・編集できます',
+	チェックリスト: '朝の準備や持ち物など毎日のルーティンを管理できます',
+	ごほうび: 'がんばりポイントと交換できるごほうびを設定できます',
+	こども画面: 'お子さまの画面に切り替えます',
+};
 
 function childLink(child: ChildSummary): string {
 	if (isDemo) {
@@ -81,8 +133,19 @@ function childLink(child: ChildSummary): string {
 </svelte:head>
 
 <div class="space-y-6">
-	<!-- Tutorial banner for first-time users (production only) -->
-	{#if !isDemo && !tutorialStarted}
+	<!-- Onboarding Checklist (replaces tutorial banner for new users) -->
+	{#if showOnboarding && onboarding}
+		<OnboardingChecklist {onboarding} />
+	{:else if onboardingComplete && onboarding}
+		<div class="onboarding-complete-card" data-testid="onboarding-complete">
+			<span class="text-2xl">🎉</span>
+			<p class="font-bold text-green-700">すべてのセットアップが完了しました！</p>
+			<form method="POST" action="?/dismissOnboarding">
+				<button type="submit" class="dismiss-complete-btn">非表示にする</button>
+			</form>
+		</div>
+	{:else if !isDemo && !tutorialStarted && !onboarding}
+		<!-- Fallback: Legacy tutorial banner -->
 		<div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg" data-tutorial="tutorial-banner">
 			<div class="flex items-center gap-3">
 				<span class="text-2xl">📖</span>
@@ -177,17 +240,54 @@ function childLink(child: ChildSummary): string {
 		</div>
 	</section>
 
-	<!-- Management Menu -->
+	<!-- Management Menu: Progressive disclosure during onboarding -->
 	<section>
 		<h2 class="text-lg font-bold text-gray-700 mb-3">管理メニュー</h2>
-		<div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
-			{#each visibleMenuItems as item}
-				<a href={item.href} class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md transition-shadow">
-					<span class="text-xl block mb-1">{item.icon}</span>
-					<p class="text-xs font-medium text-gray-600">{item.label}</p>
-				</a>
-			{/each}
-		</div>
+
+		{#if showOnboarding}
+			<!-- Onboarding mode: show primary 4 items with context hints -->
+			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+				{#each primaryMenuItems as item}
+					<a href={item.href} class="menu-item-with-hint">
+						<span class="text-xl block mb-1">{item.icon}</span>
+						<p class="text-xs font-medium text-gray-600">{item.label}</p>
+						{#if contextHints[item.label]}
+							<p class="context-hint">{contextHints[item.label]}</p>
+						{/if}
+					</a>
+				{/each}
+			</div>
+
+			<!-- "More" toggle -->
+			<button
+				class="more-menu-btn"
+				onclick={() => (showMoreMenu = !showMoreMenu)}
+				data-testid="more-menu-toggle"
+			>
+				{showMoreMenu ? '▲ 閉じる' : '▼ もっと見る'}
+			</button>
+
+			{#if showMoreMenu}
+				<div class="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-3">
+					{#each filteredSecondaryItems as item}
+						<a href={item.href} class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md transition-shadow">
+							<span class="text-xl block mb-1">{item.icon}</span>
+							<p class="text-xs font-medium text-gray-600">{item.label}</p>
+						</a>
+					{/each}
+				</div>
+			{/if}
+		{:else}
+			<!-- Normal mode: show all items -->
+			<div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+				{#each visibleAllMenuItems as item}
+					<a href={item.href} class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md transition-shadow">
+						<span class="text-xl block mb-1">{item.icon}</span>
+						<p class="text-xs font-medium text-gray-600">{item.label}</p>
+					</a>
+				{/each}
+			</div>
+		{/if}
 	</section>
 
 	<!-- Demo CTA (demo only) -->
@@ -206,3 +306,66 @@ function childLink(child: ChildSummary): string {
 		</div>
 	{/if}
 </div>
+
+<style>
+	.onboarding-complete-card {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+		border: 1px solid #86efac;
+		border-radius: 12px;
+		padding: 16px;
+	}
+
+	.dismiss-complete-btn {
+		margin-left: auto;
+		background: none;
+		border: none;
+		color: #9ca3af;
+		font-size: 0.75rem;
+		cursor: pointer;
+		text-decoration: underline;
+	}
+
+	.menu-item-with-hint {
+		display: block;
+		background: white;
+		border-radius: 12px;
+		padding: 12px;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+		text-align: center;
+		text-decoration: none;
+		transition: box-shadow 0.15s;
+	}
+
+	.menu-item-with-hint:hover {
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	}
+
+	.context-hint {
+		font-size: 0.625rem;
+		color: #6b7280;
+		margin-top: 4px;
+		line-height: 1.3;
+	}
+
+	.more-menu-btn {
+		display: block;
+		width: 100%;
+		margin-top: 12px;
+		padding: 8px;
+		background: #f9fafb;
+		border: 1px solid #e5e7eb;
+		border-radius: 8px;
+		color: #6b7280;
+		font-size: 0.75rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+
+	.more-menu-btn:hover {
+		background: #f3f4f6;
+	}
+</style>
