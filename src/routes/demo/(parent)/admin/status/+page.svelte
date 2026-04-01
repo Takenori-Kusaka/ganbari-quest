@@ -26,8 +26,13 @@ const guideMeanHigh = $derived(Math.round(guideBaseXp * 1.5));
 const guideSdLow = $derived(Math.round(guideBaseXp * 0.3));
 const guideSdHigh = $derived(Math.round(guideBaseXp * 0.6));
 
-const initialChildId = data.children[0]?.id ?? 0;
-let previewChildId = $state(initialChildId);
+let previewChildIdOverride = $state<number | undefined>(undefined);
+const previewChildId = $derived(
+	previewChildIdOverride !== undefined &&
+		data.children.some((c: { id: number }) => c.id === previewChildIdOverride)
+		? previewChildIdOverride
+		: (data.children[0]?.id ?? 0),
+);
 const previewChild = $derived(data.children.find((c: { id: number }) => c.id === previewChildId));
 
 const previewRadarCategories = $derived(
@@ -169,7 +174,7 @@ let showLevelTitles = $state(false);
 								{previewChildId === child.id
 								? 'bg-blue-500 text-white'
 								: 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}"
-							onclick={() => { previewChildId = child.id; }}
+							onclick={() => { previewChildIdOverride = child.id; }}
 						>
 							{child.nickname}
 						</button>
