@@ -73,7 +73,7 @@ let stampDialogOpen = $state(false);
 
 <!-- Stamp card dialog (opened from header) -->
 {#if data.stampCard}
-	<Dialog bind:open={stampDialogOpen} title="しゅうかんスタンプ">
+	<Dialog bind:open={stampDialogOpen} title="スタンプカード">
 		<StampCard
 			weekStart={data.stampCard.weekStart}
 			weekEnd={data.stampCard.weekEnd}

@@ -529,9 +529,8 @@ export const stampEntries = sqliteTable(
 		cardId: integer('card_id')
 			.notNull()
 			.references(() => stampCards.id, { onDelete: 'cascade' }),
-		stampMasterId: integer('stamp_master_id')
-			.notNull()
-			.references(() => stampMasters.id),
+		stampMasterId: integer('stamp_master_id').references(() => stampMasters.id),
+		omikujiRank: text('omikuji_rank'),
 		slot: integer('slot').notNull(),
 		loginDate: text('login_date').notNull(),
 		earnedAt: text('earned_at').notNull().default(sql`CURRENT_TIMESTAMP`),

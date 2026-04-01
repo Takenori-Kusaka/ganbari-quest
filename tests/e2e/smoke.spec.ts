@@ -252,8 +252,8 @@ test.describe('UC-13: ログインボーナス', () => {
 		test.skip(isAwsEnv(), 'AWS 環境ではログインボーナス未初期化（事前claimでオーバーレイ非表示）');
 		await selectKinderChild(page);
 
-		// スタンプ押印オーバーレイ or おみくじ結果が表示される
-		const stampOverlay = page.getByTestId('stamp-press-overlay');
+		// おみくじ統合スタンプオーバーレイが表示される
+		const stampOverlay = page.getByTestId('omikuji-stamp-overlay');
 		const omikuji = page.getByText(/大吉|中吉|小吉|吉|末吉/);
 		try {
 			await Promise.race([
