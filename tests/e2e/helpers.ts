@@ -66,29 +66,21 @@ export async function dismissOverlays(page: Page) {
 		await page.waitForTimeout(2000);
 	}
 
-	// スタンプ押印オーバーレイ or おみくじオーバーレイを閉じる（AWS: 遅延表示対策で長めに待機）
+	// おみくじ統合スタンプオーバーレイを閉じる（AWS: 遅延表示対策で長めに待機）
 	const overlayTimeout = isAwsEnv() ? 8000 : 3000;
 	try {
-		// 新: スタンプ押印オーバーレイ
-		const stampOverlay = page.getByTestId('stamp-press-overlay');
-		const omikujiText = page.getByText('きょうのうんせい');
-		const stampBtn = page.getByRole('button', { name: /やったね/ });
-		const omikujiBtn = page.getByRole('button', { name: /タップしてすすむ/ });
+		const stampOverlay = page.getByTestId('omikuji-stamp-overlay');
+		const closeBtn = page.getByRole('button', { name: /やったね/ });
 
-		// どちらかが表示されるのを待つ
-		await Promise.race([
-			stampOverlay.waitFor({ timeout: overlayTimeout }),
-			omikujiText.waitFor({ timeout: overlayTimeout }),
-		]);
+		// オーバーレイが表示されるのを待つ
+		await stampOverlay.waitFor({ timeout: overlayTimeout });
 
-		// スタンプ演出の場合
-		if (await stampBtn.isVisible().catch(() => false)) {
-			await stampBtn.click();
-			await page.waitForTimeout(500);
-		}
-		// おみくじの場合（レガシー互換）
-		else if (await omikujiBtn.isVisible().catch(() => false)) {
-			await omikujiBtn.click();
+		// フェーズが進むまで少し待つ（shake → result → stamp）
+		await page.waitForTimeout(3500);
+
+		// 「やったね！」ボタンで閉じる
+		if (await closeBtn.isVisible().catch(() => false)) {
+			await closeBtn.click();
 			await page.waitForTimeout(500);
 		}
 	} catch {
