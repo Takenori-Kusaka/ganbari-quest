@@ -129,7 +129,7 @@ const radarCategories = $derived(
 			href="/baby/history"
 			class="status-link"
 		>
-			<span style="font-size: 1.5rem;">📊</span>
+			<span style="font-size: 1.5rem;">📋</span>
 			<p class="status-link__title">きろく</p>
 			<p class="status-link__desc">がんばったことをみよう！</p>
 		</a>

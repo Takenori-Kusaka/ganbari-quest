@@ -1,6 +1,7 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
 import { navigating } from '$app/stores';
+import { ICON_HOME, ICON_STATUS, ICON_SWITCH, getModeLabels } from '$lib/domain/icons';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
@@ -13,19 +14,12 @@ let { data, children } = $props();
 
 const theme = $derived(data.child?.theme ?? 'pink');
 const uiMode = $derived(data.uiMode ?? 'kinder');
-// モード別ナビラベル (#0173 ゲームループ再設計)
-const NAV_LABELS: Record<string, { character: string; switch: string }> = {
-	baby: { character: 'つよさ', switch: 'きりかえ' },
-	kinder: { character: 'つよさ', switch: 'きりかえ' },
-	lower: { character: 'つよさ', switch: 'きりかえ' },
-	upper: { character: 'ステータス', switch: '切替' },
-	teen: { character: 'ステータス', switch: '切替' },
-};
-const labels = $derived(NAV_LABELS[uiMode] ?? NAV_LABELS.kinder);
+// #0289: モード別ラベルを一元定数から取得
+const modeLabels = $derived(getModeLabels(uiMode));
 const navItems = $derived([
-	{ href: `/${uiMode}/home`, icon: '🏠', label: 'ホーム' },
-	{ href: `/${uiMode}/status`, icon: '🛡️', label: labels?.character ?? 'つよさ' },
-	{ href: '/switch', icon: '👤', label: labels?.switch ?? 'きりかえ' },
+	{ href: `/${uiMode}/home`, icon: ICON_HOME, label: 'ホーム' },
+	{ href: `/${uiMode}/status`, icon: ICON_STATUS, label: modeLabels.status },
+	{ href: '/switch', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
 
 // サウンドシステム初期化 + オートリロード

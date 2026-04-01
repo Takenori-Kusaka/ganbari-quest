@@ -427,7 +427,7 @@ $effect(() => {
 	<!-- 今日の記録サマリー -->
 	{#if data.todayRecorded.length > 0}
 		<div class="mt-[var(--sp-md)] bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm">
-			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">📊 今日の記録</h3>
+			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">📝 今日の記録</h3>
 			<div class="flex justify-between items-center">
 				<span class="text-sm text-[var(--color-text-muted)]">記録した活動</span>
 				<span class="font-bold">{data.todayRecorded.reduce((sum, r) => sum + r.count, 0)}回</span>

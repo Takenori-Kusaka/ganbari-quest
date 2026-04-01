@@ -141,7 +141,7 @@ const radarCategories = $derived(
 			href="/teen/history"
 			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
 		>
-			<span class="text-2xl">📊</span>
+			<span class="text-2xl">📋</span>
 			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">記録</p>
 			<p class="text-xs text-[var(--color-text-muted)]">活動履歴</p>
 		</a>
@@ -151,7 +151,7 @@ const radarCategories = $derived(
 			href="/teen/titles"
 			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
 		>
-			<span class="text-2xl">🏅</span>
+			<span class="text-2xl">🎖️</span>
 			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">称号</p>
 			<p class="text-xs text-[var(--color-text-muted)]">獲得した称号一覧</p>
 		</a>
