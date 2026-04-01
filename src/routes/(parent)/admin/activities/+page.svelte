@@ -94,6 +94,9 @@ function dailyLimitLabel(val: number | null): string {
 let showHidden = $state(false);
 let showImportPanel = $state(false);
 let importLoading = $state(false);
+let fileImportLoading = $state(false);
+let showClearConfirm = $state(false);
+let clearLoading = $state(false);
 
 const filteredActivities = $derived.by(() => {
 	let result = data.activities.filter((a) => a.isVisible);
@@ -340,8 +343,83 @@ function acceptPreview() {
 					{/each}
 				</div>
 			{/if}
+
+			<!-- ファイルからインポート -->
+			<div class="border-t border-green-200 pt-3 mt-3">
+				<h4 class="font-bold text-green-700 text-sm mb-2">📁 ファイルからインポート</h4>
+				<p class="text-xs text-green-600 mb-2">JSON または CSV ファイルから活動を一括追加（重複はスキップ）</p>
+				<form
+					method="POST"
+					action="?/importFile"
+					enctype="multipart/form-data"
+					use:enhance={() => {
+						fileImportLoading = true;
+						return async ({ result, update }) => {
+							fileImportLoading = false;
+							if (result.type === 'success' && result.data && 'importResult' in result.data) {
+								const d = result.data as Record<string, unknown>;
+								actionMessage = `📁 「${d.packName}」: ${d.imported}件追加、${d.skipped}件スキップ`;
+								showImportPanel = false;
+							}
+							await update({ reset: false });
+						};
+					}}
+				>
+					<div class="flex gap-2 items-center">
+						<input type="file" name="file" accept=".json,.csv" class="flex-1 text-sm file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-green-100 file:text-green-700 file:font-bold file:text-xs" required />
+						<button type="submit" disabled={fileImportLoading} class="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 disabled:opacity-50">
+							{fileImportLoading ? '処理中...' : 'インポート'}
+						</button>
+					</div>
+				</form>
+			</div>
 		</div>
 	{/if}
+
+	<!-- エクスポート・一括クリア -->
+	<div class="flex gap-2 flex-wrap">
+		<a
+			href="/api/v1/activities/export"
+			class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors inline-flex items-center gap-1"
+			download="activities-export.json"
+		>
+			📤 エクスポート
+		</a>
+		{#if !showClearConfirm}
+			<button
+				class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors"
+				onclick={() => { showClearConfirm = true; }}
+			>
+				🗑 全クリア
+			</button>
+		{:else}
+			<form
+				method="POST"
+				action="?/clearAll"
+				use:enhance={() => {
+					clearLoading = true;
+					return async ({ result, update }) => {
+						clearLoading = false;
+						showClearConfirm = false;
+						if (result.type === 'success' && result.data && 'clearResult' in result.data) {
+							const d = result.data as Record<string, unknown>;
+							actionMessage = `🗑 ${d.deleted}件削除、${d.hidden}件非表示にしました`;
+						}
+						await update({ reset: false });
+					};
+				}}
+				class="flex gap-1 items-center"
+			>
+				<span class="text-xs text-red-600 font-bold">本当に全削除しますか？</span>
+				<button type="submit" disabled={clearLoading} class="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 disabled:opacity-50">
+					{clearLoading ? '処理中...' : '実行'}
+				</button>
+				<button type="button" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-bold" onclick={() => { showClearConfirm = false; }}>
+					やめる
+				</button>
+			</form>
+		{/if}
+	</div>
 
 	<!-- AI入力モード -->
 	{#if aiMode}
