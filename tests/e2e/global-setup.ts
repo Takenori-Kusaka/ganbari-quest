@@ -98,6 +98,17 @@ export default async function globalSetup() {
 			console.log('[E2E Setup]   Created test children (ゆうきちゃん, てすとくん).');
 		}
 
+		// フォーカスモード開始日を過去に設定（3日経過 → フォーカスモード無効化）
+		// テスト環境ではカテゴリ一覧が見える通常モードが必要
+		const allTestChildren = db.prepare('SELECT id FROM children').all() as { id: number }[];
+		for (const child of allTestChildren) {
+			const key = `focus_mode_start_${child.id}`;
+			const past = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
+			db.prepare(
+				'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+			).run(key, past);
+		}
+
 		// チェックリストテンプレートがなければ作成（チェックリストテストの安定化）
 		const kinderChild = db
 			.prepare("SELECT id FROM children WHERE ui_mode = 'kinder' LIMIT 1")
