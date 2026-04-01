@@ -26,9 +26,9 @@ COPY --from=build /app/src/lib/server/db/seed.ts ./src/lib/server/db/seed.ts
 COPY --from=build /app/src/lib/server/db/schema.ts ./src/lib/server/db/schema.ts
 COPY --from=build /app/drizzle.config.ts ./
 
-# Copy entrypoint script
+# Copy entrypoint script (strip Windows CRLF line endings)
 COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
 
 EXPOSE 3000
 
