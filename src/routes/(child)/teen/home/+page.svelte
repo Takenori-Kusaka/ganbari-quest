@@ -165,8 +165,6 @@ const focusCompletedCount = $derived(recommendedActivities.filter((a) => isCompl
 const focusAllCompleted = $derived(
 	recommendedActivities.length > 0 && focusCompletedCount === recommendedActivities.length,
 );
-let showAllActivities = $state(false);
-
 function handleActivityTap(activity: { id: number; name: string; icon: string }) {
 	soundService.play('tap');
 	selectedActivity = activity;
@@ -365,14 +363,12 @@ $effect(() => {
 	{/if}
 
 	<!-- Focus Mode: recommended activities (#0264) -->
-	{#if data.focusMode && recommendedActivities.length > 0 && !showAllActivities}
+	{#if data.focusMode && recommendedActivities.length > 0}
 		<FocusMode
 			{recommendedActivities}
 			allCompleted={focusAllCompleted}
 			completedCount={focusCompletedCount}
 			totalCount={recommendedActivities.length}
-			{showAllActivities}
-			onToggleShowAll={() => (showAllActivities = !showAllActivities)}
 		>
 			{#snippet activitySlot(activity)}
 				<ActivityCard
@@ -390,9 +386,10 @@ $effect(() => {
 				/>
 			{/snippet}
 		</FocusMode>
-	{:else}
-		<!-- Activity grid by category (normal mode or expanded) -->
-		{#each activitiesByCategory as group (group.categoryId)}
+	{/if}
+
+	<!-- Activity grid by category (always visible) -->
+	{#each activitiesByCategory as group (group.categoryId)}
 			<CategorySection
 				categoryId={group.categoryId}
 				cardSize={displayConfig.cardSize}
@@ -425,18 +422,6 @@ $effect(() => {
 				{/each}
 			</CategorySection>
 		{/each}
-
-		<!-- Collapse back to focus mode button -->
-		{#if data.focusMode && showAllActivities}
-			<button
-				class="show-all-toggle"
-				onclick={() => (showAllActivities = false)}
-				data-testid="focus-collapse"
-			>
-				▲ おすすめだけ みる
-			</button>
-		{/if}
-	{/if}
 
 	<!-- Today's summary -->
 	{#if data.todayRecorded.length > 0}
@@ -775,18 +760,5 @@ $effect(() => {
 		to { transform: rotate(360deg); }
 	}
 
-	.show-all-toggle {
-		display: block;
-		width: 100%;
-		margin-top: 12px;
-		padding: 10px;
-		background: var(--color-surface, #f9fafb);
-		border: 1px solid var(--color-border, #e5e7eb);
-		border-radius: 12px;
-		color: var(--color-text-muted, #6b7280);
-		font-size: 0.8125rem;
-		font-weight: 600;
-		cursor: pointer;
-	}
 
 </style>
