@@ -363,6 +363,38 @@ function handleFileSelect(childId: number, event: Event) {
 							</button>
 						</div>
 					</form>
+					<!-- Birthday bonus multiplier (separate form to avoid nesting) -->
+					{#if child.birthDate}
+						<form
+							method="POST"
+							action="?/updateBirthdayMultiplier"
+							class="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200"
+							use:enhance={() => {
+								return async ({ update }) => {
+									await update({ reset: false });
+								};
+							}}
+						>
+							<input type="hidden" name="childId" value={child.id} />
+							<p class="text-xs font-bold text-amber-800 mb-2">🎂 おたんじょうびボーナス</p>
+							<div class="flex items-center gap-2 flex-wrap">
+								<label for="edit-multiplier-{child.id}" class="text-xs text-amber-700 whitespace-nowrap">倍率:</label>
+								<select
+									id="edit-multiplier-{child.id}"
+									name="multiplier"
+									class="px-2 py-1 border border-amber-300 rounded text-sm bg-white"
+								>
+									{#each [0.5, 1.0, 1.5, 2.0, 2.5, 3.0] as val}
+										<option value={val} selected={val === (child.birthdayBonusMultiplier ?? 1.0)}>×{val}</option>
+									{/each}
+								</select>
+								<button type="submit" class="px-2 py-1 bg-amber-500 text-white rounded text-xs font-bold hover:bg-amber-600">適用</button>
+								<span class="text-xs text-amber-600">
+									→ {child.age}歳 × 100pt × {child.birthdayBonusMultiplier ?? 1.0}倍 = {Math.round(child.age * 100 * (child.birthdayBonusMultiplier ?? 1.0))}pt
+								</span>
+							</div>
+						</form>
+					{/if}
 				{:else}
 					<!-- Display mode -->
 					<div class="flex items-center gap-4">

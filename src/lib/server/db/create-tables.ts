@@ -42,6 +42,8 @@ export const SQL_CREATE_TABLES = `
 		active_title_id INTEGER,
 		display_config TEXT,
 		user_id TEXT,
+		birthday_bonus_multiplier REAL NOT NULL DEFAULT 1.0,
+		last_birthday_bonus_year INTEGER,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);

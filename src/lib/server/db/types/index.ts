@@ -24,6 +24,8 @@ export interface Child {
 	activeTitleId: number | null;
 	displayConfig: string | null;
 	userId: string | null;
+	birthdayBonusMultiplier: number;
+	lastBirthdayBonusYear: number | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -332,6 +334,8 @@ export interface UpdateChildInput {
 	birthDate?: string | null;
 	displayConfig?: string | null;
 	userId?: string | null;
+	birthdayBonusMultiplier?: number;
+	lastBirthdayBonusYear?: number | null;
 }
 
 export interface InsertEvaluationInput {

@@ -10,6 +10,10 @@ import {
 import { sortActivitiesWithPreferences } from '$lib/server/services/activity-pin-service';
 import { toggleActivityPin } from '$lib/server/services/activity-pin-service';
 import { getActivities } from '$lib/server/services/activity-service';
+import {
+	claimBirthdayBonus,
+	getBirthdayBonusStatus,
+} from '$lib/server/services/birthday-bonus-service';
 import { getChecklistsForChild } from '$lib/server/services/checklist-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
@@ -52,6 +56,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			gameLoopHints: null,
 			focusMode: false,
 			recommendedActivityIds: [],
+			birthdayBonus: null,
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -67,6 +72,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		categoryXp,
 		achievementSummary,
 		hasRecords,
+		birthdayBonusStatus,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -79,6 +85,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getCategoryXpSummary(child.id, tenantId),
 		getAchievementSummary(child.id, tenantId),
 		hasAnyActivityRecords(child.id, tenantId),
+		getBirthdayBonusStatus(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -112,6 +119,13 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	const recommendations = focusActive ? selectRecommendations(rawActivities, todayDate()) : [];
 	const recommendedIds = new Set(recommendations.map((r) => r.activityId));
 
+	const birthdayBonus =
+		'error' in birthdayBonusStatus
+			? null
+			: birthdayBonusStatus.eligible
+				? birthdayBonusStatus
+				: null;
+
 	return {
 		activities: activitiesWithMission,
 		todayRecorded,
@@ -129,6 +143,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		isFirstTime: !hasRecords,
 		focusMode: focusActive,
 		recommendedActivityIds: [...recommendedIds],
+		birthdayBonus,
 	};
 };
 
@@ -310,6 +325,28 @@ export const actions: Actions = {
 			totalPoints: result.points,
 			stampPoints: result.stampPoints,
 			completeBonus: result.completeBonus,
+		};
+	},
+
+	claimBirthday: async ({ cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const childId = Number(cookies.get('selectedChildId'));
+		if (Number.isNaN(childId)) return fail(400, { error: 'パラメータが不正です' });
+
+		const result = await claimBirthdayBonus(childId, tenantId);
+		if ('error' in result) {
+			if (result.error === 'ALREADY_CLAIMED') return fail(409, { error: 'もうもらったよ' });
+			if (result.error === 'NOT_ELIGIBLE')
+				return fail(400, { error: 'おたんじょうびボーナスはありません' });
+			return fail(400, { error: 'ボーナスをもらえませんでした' });
+		}
+
+		return {
+			success: true,
+			birthdayClaimed: true,
+			newAge: result.newAge,
+			totalPoints: result.totalPoints,
+			multiplier: result.multiplier,
 		};
 	},
 };

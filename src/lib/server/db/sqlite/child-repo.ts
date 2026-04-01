@@ -59,6 +59,8 @@ export async function updateChild(
 		uiMode?: string;
 		birthDate?: string | null;
 		displayConfig?: string | null;
+		birthdayBonusMultiplier?: number;
+		lastBirthdayBonusYear?: number | null;
 	},
 	_tenantId: string,
 ) {
