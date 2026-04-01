@@ -445,6 +445,23 @@ export const SQL_TABLES = `
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (1, 'にこにこ', '😊', 'N');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (2, 'グッジョブ', '👍', 'N');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (3, 'スター', '⭐', 'N');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (4, 'ハート', '❤️', 'N');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (5, 'がんばった', '💪', 'N');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (6, 'ロケット', '🚀', 'R');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (7, 'おうかん', '👑', 'R');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (8, 'トロフィー', '🏆', 'R');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (9, 'にじ', '🌈', 'R');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (10, 'たいよう', '☀️', 'R');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (11, 'ドラゴン', '🐉', 'SR');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (12, 'ユニコーン', '🦄', 'SR');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (13, 'たからばこ', '📦', 'SR');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (14, 'まほうのつえ', '🪄', 'SR');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (15, 'でんせつのけん', '⚔️', 'UR');
+	INSERT OR IGNORE INTO stamp_masters (id, name, emoji, rarity) VALUES (16, 'きせきのほし', '🌟', 'UR');
+
 	-- ============================================================
 	-- stamp_cards
 	-- ============================================================
