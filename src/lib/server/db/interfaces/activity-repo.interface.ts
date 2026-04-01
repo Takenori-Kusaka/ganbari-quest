@@ -90,6 +90,12 @@ export interface IActivityRepo {
 		tenantId: string,
 	): Promise<number>;
 	countPointLedgerEntriesByType(childId: number, type: string, tenantId: string): Promise<number>;
+	countPointLedgerEntriesByTypeAndDate(
+		childId: number,
+		type: string,
+		date: string,
+		tenantId: string,
+	): Promise<number>;
 
 	// Point Ledger
 	insertPointLedger(input: InsertPointLedgerInput, tenantId: string): Promise<void>;

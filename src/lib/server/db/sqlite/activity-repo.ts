@@ -403,6 +403,27 @@ export async function countPointLedgerEntriesByType(
 	return result?.total ?? 0;
 }
 
+/** 指定タイプ＋日付のポイント台帳エントリ数を取得 */
+export async function countPointLedgerEntriesByTypeAndDate(
+	childId: number,
+	type: string,
+	date: string,
+	_tenantId: string,
+): Promise<number> {
+	const result = await db
+		.select({ total: count() })
+		.from(pointLedger)
+		.where(
+			and(
+				eq(pointLedger.childId, childId),
+				eq(pointLedger.type, type),
+				sql`date(${pointLedger.createdAt}) = ${date}`,
+			),
+		)
+		.get();
+	return result?.total ?? 0;
+}
+
 // ============================================================
 // Point Ledger
 // ============================================================
