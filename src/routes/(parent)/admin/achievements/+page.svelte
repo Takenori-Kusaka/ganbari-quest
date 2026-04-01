@@ -4,8 +4,13 @@ import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 
 let { data, form } = $props();
 
-const initialChildId = data.children[0]?.id ?? 0;
-let selectedChildId = $state(initialChildId);
+// ユーザー選択を保持。undefined = デフォルト（先頭の子供）
+let childIdOverride = $state<number | undefined>(undefined);
+const selectedChildId = $derived(
+	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
+		? childIdOverride
+		: (data.children[0]?.id ?? 0),
+);
 let grantSuccess = $state(false);
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
@@ -27,7 +32,7 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 						? 'bg-blue-500 text-white'
 						: 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}"
 					onclick={() => {
-						selectedChildId = child.id;
+						childIdOverride = child.id;
 						grantSuccess = false;
 					}}
 				>
