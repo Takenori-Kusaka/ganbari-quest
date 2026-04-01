@@ -4,8 +4,13 @@ import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 
 let { data } = $props();
 
-const initialChildId = data.children[0]?.id ?? 0;
-let selectedChildId = $state(initialChildId);
+let childIdOverride = $state<number | undefined>(undefined);
+const selectedChildId = $derived(
+	childIdOverride !== undefined &&
+		data.children.some((c: { id: number }) => c.id === childIdOverride)
+		? childIdOverride
+		: (data.children[0]?.id ?? 0),
+);
 
 const selectedChild = $derived(data.children.find((c: { id: number }) => c.id === selectedChildId));
 </script>
@@ -27,7 +32,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 						{selectedChildId === child.id
 						? 'bg-blue-500 text-white'
 						: 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}"
-					onclick={() => { selectedChildId = child.id; }}
+					onclick={() => { childIdOverride = child.id; }}
 				>
 					{child.nickname}
 					<span class="text-xs opacity-75">({child.unlockedCount}/{child.totalCount})</span>

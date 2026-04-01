@@ -7,9 +7,15 @@ let { data, form } = $props();
 // form は複数の action から異なる型が返るためキャスト
 const f = () => form as Record<string, unknown> | null;
 
-let email = $state(form?.email ?? '');
+let email = $state('');
 let password = $state('');
 let mfaCodeRaw = $state('');
+
+// サーバーレスポンス（form）からのメールアドレス復元
+$effect(() => {
+	const formEmail = form?.email;
+	if (typeof formEmail === 'string') email = formEmail;
+});
 const mfaCode = $derived(mfaCodeRaw.replace(/\s/g, ''));
 let loading = $state(false);
 
