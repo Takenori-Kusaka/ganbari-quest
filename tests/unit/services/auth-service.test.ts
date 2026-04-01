@@ -2,21 +2,13 @@
 // 認証サービスのユニットテスト
 
 import bcrypt from 'bcrypt';
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
+import { assertError, assertSuccess } from '../helpers/assert-result';
+import { type TestDb, type TestSqlite, closeDb, createTestDb } from '../helpers/test-db';
 
-let sqlite: InstanceType<typeof Database>;
-let testDb: ReturnType<typeof drizzle>;
-
-const SQL_TABLES = `
-	CREATE TABLE settings (
-		key TEXT PRIMARY KEY,
-		value TEXT NOT NULL,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-`;
+let sqlite: TestSqlite;
+let testDb: TestDb;
 
 vi.mock('$lib/server/db', () => ({
 	get db() {
@@ -41,15 +33,14 @@ const DEFAULT_PIN = '1234';
 let defaultPinHash: string;
 
 beforeAll(() => {
-	sqlite = new Database(':memory:');
-	sqlite.pragma('foreign_keys = ON');
-	sqlite.exec(SQL_TABLES);
-	testDb = drizzle(sqlite, { schema });
+	const t = createTestDb();
+	sqlite = t.sqlite;
+	testDb = t.db;
 	defaultPinHash = bcrypt.hashSync(DEFAULT_PIN, 10);
 });
 
 afterAll(() => {
-	sqlite.close();
+	closeDb(sqlite);
 });
 
 function seedAuthSettings(pinHash: string = defaultPinHash) {
@@ -75,21 +66,16 @@ describe('auth-service', () => {
 	// --- login ---
 	describe('login', () => {
 		it('正しいPINでログイン成功', async () => {
-			const result = await login(DEFAULT_PIN, 'test-tenant');
-			expect('error' in result).toBe(false);
-			if (!('error' in result)) {
-				expect(result.sessionToken).toBeDefined();
-				expect(result.sessionToken.length).toBeGreaterThan(0);
-				expect(result.expiresAt).toBeDefined();
-			}
+			const result = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			expect(result.sessionToken).toBeDefined();
+			expect(result.sessionToken.length).toBeGreaterThan(0);
+			expect(result.expiresAt).toBeDefined();
 		});
 
 		it('ログイン成功後にsettingsにセッションが保存される', async () => {
-			const result = await login(DEFAULT_PIN, 'test-tenant');
-			if (!('error' in result)) {
-				const storedToken = await getSetting('session_token', 'test-tenant');
-				expect(storedToken).toBe(result.sessionToken);
-			}
+			const result = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			const storedToken = await getSetting('session_token', 'test-tenant');
+			expect(storedToken).toBe(result.sessionToken);
 		});
 
 		it('間違ったPINでログイン失敗', async () => {
@@ -113,11 +99,8 @@ describe('auth-service', () => {
 			for (let i = 0; i < 5; i++) {
 				await login('9999', 'test-tenant');
 			}
-			const result = await login(DEFAULT_PIN, 'test-tenant');
-			expect('error' in result).toBe(true);
-			if ('error' in result) {
-				expect(result.error).toBe('LOCKED_OUT');
-			}
+			const result = assertError(await login(DEFAULT_PIN, 'test-tenant'));
+			expect(result.error).toBe('LOCKED_OUT');
 		});
 
 		it('ロックアウト期間経過後はログイン可能', async () => {
@@ -136,8 +119,7 @@ describe('auth-service', () => {
 				})
 				.run();
 
-			const result = await login(DEFAULT_PIN, 'test-tenant');
-			expect('error' in result).toBe(false);
+			assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
 		});
 
 		it('ログイン成功で失敗カウントがリセットされる', async () => {
@@ -156,11 +138,9 @@ describe('auth-service', () => {
 	// --- validateSession ---
 	describe('validateSession', () => {
 		it('有効なトークンでvalid: true', async () => {
-			const loginResult = await login(DEFAULT_PIN, 'test-tenant');
-			if (!('error' in loginResult)) {
-				const result = await validateSession(loginResult.sessionToken, 'test-tenant');
-				expect(result.valid).toBe(true);
-			}
+			const loginResult = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			const result = await validateSession(loginResult.sessionToken, 'test-tenant');
+			expect(result.valid).toBe(true);
 		});
 
 		it('不正なトークンでvalid: false', async () => {
@@ -175,49 +155,43 @@ describe('auth-service', () => {
 		});
 
 		it('期限切れトークンでvalid: false', async () => {
-			const loginResult = await login(DEFAULT_PIN, 'test-tenant');
-			if (!('error' in loginResult)) {
-				// 期限を過去に設定
-				const pastDate = new Date(Date.now() - 1000).toISOString();
-				testDb
-					.insert(schema.settings)
-					.values({ key: 'session_expires_at', value: pastDate })
-					.onConflictDoUpdate({
-						target: schema.settings.key,
-						set: { value: pastDate },
-					})
-					.run();
+			const loginResult = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			// 期限を過去に設定
+			const pastDate = new Date(Date.now() - 1000).toISOString();
+			testDb
+				.insert(schema.settings)
+				.values({ key: 'session_expires_at', value: pastDate })
+				.onConflictDoUpdate({
+					target: schema.settings.key,
+					set: { value: pastDate },
+				})
+				.run();
 
-				const result = await validateSession(loginResult.sessionToken, 'test-tenant');
-				expect(result.valid).toBe(false);
-			}
+			const result = await validateSession(loginResult.sessionToken, 'test-tenant');
+			expect(result.valid).toBe(false);
 		});
 
 		it('リフレッシュ閾値以下でrefreshed: true', async () => {
-			const loginResult = await login(DEFAULT_PIN, 'test-tenant');
-			if (!('error' in loginResult)) {
-				// 残り10日に設定（閾値は30日）
-				const nearExpiry = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString();
-				testDb
-					.insert(schema.settings)
-					.values({ key: 'session_expires_at', value: nearExpiry })
-					.onConflictDoUpdate({
-						target: schema.settings.key,
-						set: { value: nearExpiry },
-					})
-					.run();
+			const loginResult = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			// 残り10日に設定（閾値は30日）
+			const nearExpiry = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString();
+			testDb
+				.insert(schema.settings)
+				.values({ key: 'session_expires_at', value: nearExpiry })
+				.onConflictDoUpdate({
+					target: schema.settings.key,
+					set: { value: nearExpiry },
+				})
+				.run();
 
-				const result = await validateSession(loginResult.sessionToken, 'test-tenant');
-				expect(result).toEqual({ valid: true, refreshed: true });
-			}
+			const result = await validateSession(loginResult.sessionToken, 'test-tenant');
+			expect(result).toEqual({ valid: true, refreshed: true });
 		});
 
 		it('十分な残り期間ではrefreshed: false', async () => {
-			const loginResult = await login(DEFAULT_PIN, 'test-tenant');
-			if (!('error' in loginResult)) {
-				const result = await validateSession(loginResult.sessionToken, 'test-tenant');
-				expect(result).toEqual({ valid: true, refreshed: false });
-			}
+			const loginResult = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			const result = await validateSession(loginResult.sessionToken, 'test-tenant');
+			expect(result).toEqual({ valid: true, refreshed: false });
 		});
 	});
 
@@ -231,12 +205,10 @@ describe('auth-service', () => {
 		});
 
 		it('ログアウト後のトークンは無効', async () => {
-			const loginResult = await login(DEFAULT_PIN, 'test-tenant');
-			if (!('error' in loginResult)) {
-				await logout('test-tenant');
-				const result = await validateSession(loginResult.sessionToken, 'test-tenant');
-				expect(result.valid).toBe(false);
-			}
+			const loginResult = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			await logout('test-tenant');
+			const result = await validateSession(loginResult.sessionToken, 'test-tenant');
+			expect(result.valid).toBe(false);
 		});
 	});
 

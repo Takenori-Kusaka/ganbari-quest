@@ -1,45 +1,18 @@
 // tests/unit/services/login-bonus-service.test.ts
 // ログインボーナスサービスのユニットテスト
 
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
+import {
+	type TestDb,
+	type TestSqlite,
+	closeDb,
+	createTestDb,
+	resetDb as resetAllTables,
+} from '../helpers/test-db';
 
-let sqlite: InstanceType<typeof Database>;
-let testDb: ReturnType<typeof drizzle>;
-
-const SQL_TABLES = `
-	CREATE TABLE children (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
-		theme TEXT NOT NULL DEFAULT 'pink',
-		ui_mode TEXT NOT NULL DEFAULT 'kinder',
-		avatar_url TEXT,
-		active_title_id INTEGER,
-		display_config TEXT,
-		user_id TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE TABLE point_ledger (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		amount INTEGER NOT NULL, type TEXT NOT NULL,
-		description TEXT, reference_id INTEGER,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE INDEX idx_point_ledger_child ON point_ledger(child_id, created_at);
-	CREATE TABLE login_bonuses (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		login_date TEXT NOT NULL, rank TEXT NOT NULL,
-		base_points INTEGER NOT NULL, multiplier REAL NOT NULL DEFAULT 1.0,
-		total_points INTEGER NOT NULL, consecutive_days INTEGER NOT NULL DEFAULT 1,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX idx_login_bonuses_child_date ON login_bonuses(child_id, login_date);
-`;
+let sqlite: TestSqlite;
+let testDb: TestDb;
 
 vi.mock('$lib/server/db', () => ({
 	get db() {
@@ -61,23 +34,17 @@ import {
 import { calculateConsecutiveDays } from '../../../src/lib/server/services/login-bonus-service';
 
 beforeAll(() => {
-	sqlite = new Database(':memory:');
-	sqlite.pragma('foreign_keys = ON');
-	sqlite.exec(SQL_TABLES);
-	testDb = drizzle(sqlite, { schema });
+	const t = createTestDb();
+	sqlite = t.sqlite;
+	testDb = t.db;
 });
 
 afterAll(() => {
-	sqlite.close();
+	closeDb(sqlite);
 });
 
 function resetDb() {
-	sqlite.exec('DELETE FROM login_bonuses');
-	sqlite.exec('DELETE FROM point_ledger');
-	sqlite.exec('DELETE FROM children');
-	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children','login_bonuses','point_ledger')",
-	);
+	resetAllTables(sqlite);
 }
 
 function seedChild() {
