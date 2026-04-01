@@ -4,10 +4,10 @@ import Logo from '$lib/ui/components/Logo.svelte';
 
 let { form } = $props();
 
-let email = $state(form?.email ?? '');
+let email = $state('');
 let password = $state('');
 let passwordConfirm = $state('');
-let licenseKey = $state(form?.licenseKey ?? '');
+let licenseKey = $state('');
 let codeRaw = $state('');
 const code = $derived(codeRaw.replace(/\s/g, ''));
 let loading = $state(false);
@@ -16,11 +16,10 @@ let agreedPrivacy = $state(false);
 
 let confirmStep = $derived(form?.confirmStep ?? false);
 
-// form 更新時に email を同期（enhance の form reset で消えるのを防止）
+// サーバーレスポンス（form）からフォーム値を復元
 $effect(() => {
-	if (form?.email) {
-		email = form.email as string;
-	}
+	if (typeof form?.email === 'string') email = form.email;
+	if (typeof form?.licenseKey === 'string') licenseKey = form.licenseKey;
 });
 </script>
 

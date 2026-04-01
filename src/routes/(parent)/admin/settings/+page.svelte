@@ -145,9 +145,13 @@ async function handleExport() {
 }
 
 // ステータス減少設定
-let decayIntensity = $state<string>(data.decayIntensity ?? 'normal');
+let decayIntensity = $state<string>('normal');
 let decaySaving = $state(false);
 let decaySuccess = $state(false);
+// サーバーデータから減少設定を同期
+$effect(() => {
+	decayIntensity = data.decayIntensity ?? 'normal';
+});
 
 const DECAY_OPTIONS = [
 	{ value: 'none', label: 'なし', desc: '減少しません（練習や導入期間向け）' },
@@ -178,9 +182,15 @@ async function saveDecayIntensity() {
 // ポイント表示設定
 let pointSuccess = $state(false);
 let pointSubmitting = $state(false);
-let pointMode = $state<PointUnitMode>(data.pointSettings.mode);
-let pointCurrency = $state<CurrencyCode>(data.pointSettings.currency);
-let pointRate = $state(String(data.pointSettings.rate));
+let pointMode = $state<PointUnitMode>('point');
+let pointCurrency = $state<CurrencyCode>('JPY');
+let pointRate = $state('1');
+// サーバーデータからポイント設定を同期
+$effect(() => {
+	pointMode = data.pointSettings.mode;
+	pointCurrency = data.pointSettings.currency;
+	pointRate = String(data.pointSettings.rate);
+});
 
 // フィードバック
 let feedbackSuccess = $state(false);

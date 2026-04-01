@@ -1,73 +1,13 @@
 // tests/unit/services/stamp-card-service.test.ts
 // スタンプカードサービスのユニットテスト
 
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 import { assertSuccess } from '../helpers/assert-result';
+import { type TestDb, type TestSqlite, closeDb, createTestDb, resetDb } from '../helpers/test-db';
 
-let sqlite: InstanceType<typeof Database>;
-let testDb: ReturnType<typeof drizzle>;
-
-const SQL_TABLES = `
-	CREATE TABLE children (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
-		theme TEXT NOT NULL DEFAULT 'pink',
-		ui_mode TEXT NOT NULL DEFAULT 'kinder',
-		avatar_url TEXT,
-		active_title_id INTEGER,
-		display_config TEXT,
-		user_id TEXT,
-		birthday_bonus_multiplier REAL NOT NULL DEFAULT 1.0,
-		last_birthday_bonus_year INTEGER,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE TABLE point_ledger (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		amount INTEGER NOT NULL, type TEXT NOT NULL,
-		description TEXT, reference_id INTEGER,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE INDEX idx_point_ledger_child ON point_ledger(child_id, created_at);
-	CREATE TABLE stamp_masters (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
-		emoji TEXT NOT NULL,
-		rarity TEXT NOT NULL,
-		is_default INTEGER NOT NULL DEFAULT 1,
-		is_enabled INTEGER NOT NULL DEFAULT 1,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE TABLE stamp_cards (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-		week_start TEXT NOT NULL,
-		week_end TEXT NOT NULL,
-		status TEXT NOT NULL DEFAULT 'collecting',
-		redeemed_points INTEGER,
-		redeemed_at TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX idx_stamp_cards_child_week ON stamp_cards(child_id, week_start);
-	CREATE INDEX idx_stamp_cards_child ON stamp_cards(child_id);
-	CREATE TABLE stamp_entries (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		card_id INTEGER NOT NULL REFERENCES stamp_cards(id) ON DELETE CASCADE,
-		stamp_master_id INTEGER REFERENCES stamp_masters(id),
-		omikuji_rank TEXT,
-		slot INTEGER NOT NULL,
-		login_date TEXT NOT NULL,
-		earned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX idx_stamp_entries_card_slot ON stamp_entries(card_id, slot);
-	CREATE UNIQUE INDEX idx_stamp_entries_card_date ON stamp_entries(card_id, login_date);
-`;
+let sqlite: TestSqlite;
+let testDb: TestDb;
 
 // todayDateJST をモックして日付を制御
 let mockToday = '2026-03-30'; // 月曜日
@@ -119,26 +59,12 @@ import {
 } from '../../../src/lib/server/services/stamp-card-service';
 
 beforeAll(() => {
-	sqlite = new Database(':memory:');
-	sqlite.pragma('foreign_keys = ON');
-	sqlite.exec(SQL_TABLES);
-	testDb = drizzle(sqlite, { schema });
+	({ sqlite, db: testDb } = createTestDb());
 });
 
 afterAll(() => {
-	sqlite.close();
+	closeDb(sqlite);
 });
-
-function resetDb() {
-	sqlite.exec('DELETE FROM stamp_entries');
-	sqlite.exec('DELETE FROM stamp_cards');
-	sqlite.exec('DELETE FROM stamp_masters');
-	sqlite.exec('DELETE FROM point_ledger');
-	sqlite.exec('DELETE FROM children');
-	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children','stamp_masters','stamp_cards','stamp_entries','point_ledger')",
-	);
-}
 
 function seedChild() {
 	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 6, theme: 'blue' }).run();
@@ -175,7 +101,7 @@ function seedStampMasters() {
 }
 
 function seedAll() {
-	resetDb();
+	resetDb(sqlite);
 	seedChild();
 	seedStampMasters();
 }

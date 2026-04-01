@@ -1,9 +1,14 @@
 <script lang="ts">
 let { data } = $props();
 
-let year = $state(data.currentYear);
+let year = $state(new Date().getFullYear());
 let monthFrom = $state(1);
-let monthTo = $state(data.currentMonth);
+let monthTo = $state(new Date().getMonth() + 1);
+// サーバーデータから年月を同期
+$effect(() => {
+	year = data.currentYear;
+	monthTo = data.currentMonth;
+});
 let downloading = $state(false);
 
 async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {

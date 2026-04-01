@@ -70,22 +70,16 @@ const compNormalized = $derived(
 		: null,
 );
 
-// Animated values
-const animatedValues = tweened(
-	categories.map(() => 0),
-	{
-		duration: 800,
-		easing: cubicOut,
-	},
-);
+// Animated values — tweened は初期値のみ使用。$effect で正しい値に更新する
+const animatedValues = tweened([0, 0, 0, 0, 0], {
+	duration: 800,
+	easing: cubicOut,
+});
 
-const animatedComp = tweened(
-	categories.map(() => 0),
-	{
-		duration: 800,
-		easing: cubicOut,
-	},
-);
+const animatedComp = tweened([0, 0, 0, 0, 0], {
+	duration: 800,
+	easing: cubicOut,
+});
 
 $effect(() => {
 	animatedValues.set(normalizedValues);
