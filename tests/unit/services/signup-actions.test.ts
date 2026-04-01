@@ -33,6 +33,25 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+// --- Consent Service モック ---
+vi.mock('$lib/server/services/consent-service', () => ({
+	recordConsent: vi.fn().mockResolvedValue(undefined),
+	checkConsent: vi.fn().mockResolvedValue({ needsReconsent: false }),
+	CURRENT_TERMS_VERSION: '2026-03-29',
+	CURRENT_PRIVACY_VERSION: '2026-03-29',
+}));
+
+// --- Discord Notify Service モック ---
+vi.mock('$lib/server/services/discord-notify-service', () => ({
+	notifyNewSignup: vi.fn().mockResolvedValue(undefined),
+}));
+
+// --- License Key Service モック ---
+vi.mock('$lib/server/services/license-key-service', () => ({
+	validateLicenseKey: vi.fn().mockResolvedValue({ valid: true, key: null }),
+	consumeLicenseKey: vi.fn().mockResolvedValue(undefined),
+}));
+
 beforeEach(() => {
 	mockSignUp.mockReset();
 	mockConfirmSignUp.mockReset();

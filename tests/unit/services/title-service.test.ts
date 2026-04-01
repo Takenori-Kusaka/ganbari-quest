@@ -1,129 +1,11 @@
 // tests/unit/services/title-service.test.ts
 // 称号コレクションサービスのユニットテスト
 
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import * as schema from '../../../src/lib/server/db/schema';
+import { type TestDb, type TestSqlite, closeDb, createTestDb } from '../helpers/test-db';
 
-let sqlite: InstanceType<typeof Database>;
-let testDb: ReturnType<typeof drizzle>;
-
-const SQL_TABLES = `
-	CREATE TABLE categories (
-		id INTEGER PRIMARY KEY,
-		code TEXT NOT NULL UNIQUE,
-		name TEXT NOT NULL,
-		icon TEXT,
-		color TEXT
-	);
-
-	INSERT INTO categories VALUES (1, 'undou', 'うんどう', '🏃', '#FF6B6B');
-	INSERT INTO categories VALUES (2, 'benkyou', 'べんきょう', '📚', '#4ECDC4');
-	INSERT INTO categories VALUES (3, 'seikatsu', 'せいかつ', '🏠', '#FFE66D');
-	INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
-	INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
-
-	CREATE TABLE titles (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		code TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
-		description TEXT, icon TEXT NOT NULL,
-		condition_type TEXT NOT NULL, condition_value INTEGER NOT NULL,
-		condition_extra TEXT,
-		rarity TEXT NOT NULL DEFAULT 'common',
-		sort_order INTEGER NOT NULL DEFAULT 0,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE TABLE children (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
-		theme TEXT NOT NULL DEFAULT 'pink',
-		ui_mode TEXT NOT NULL DEFAULT 'kinder',
-		avatar_url TEXT,
-		active_title_id INTEGER,
-		display_config TEXT,
-		user_id TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE TABLE child_titles (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		title_id INTEGER NOT NULL REFERENCES titles(id),
-		unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX idx_child_titles_unique ON child_titles(child_id, title_id);
-
-	CREATE TABLE activities (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), icon TEXT NOT NULL,
-		base_points INTEGER NOT NULL DEFAULT 5,
-		age_min INTEGER, age_max INTEGER,
-		is_visible INTEGER NOT NULL DEFAULT 1,
-		daily_limit INTEGER, sort_order INTEGER NOT NULL DEFAULT 0,
-		source TEXT NOT NULL DEFAULT 'seed',
-		grade_level TEXT, subcategory TEXT, description TEXT,
-		name_kana TEXT, name_kanji TEXT, trigger_hint TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE TABLE activity_logs (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
-		points INTEGER NOT NULL, streak_days INTEGER NOT NULL DEFAULT 1,
-		streak_bonus INTEGER NOT NULL DEFAULT 0,
-		recorded_date TEXT NOT NULL,
-		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		cancelled INTEGER NOT NULL DEFAULT 0
-	);
-	CREATE INDEX idx_activity_logs_daily ON activity_logs(child_id, activity_id, recorded_date);
-
-	CREATE TABLE statuses (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		category_id INTEGER NOT NULL REFERENCES categories(id), total_xp INTEGER NOT NULL DEFAULT 0, level INTEGER NOT NULL DEFAULT 1, peak_xp INTEGER NOT NULL DEFAULT 0,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
-	CREATE TABLE status_history (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		category_id INTEGER NOT NULL REFERENCES categories(id), value REAL NOT NULL,
-		change_amount REAL NOT NULL, change_type TEXT NOT NULL,
-		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE TABLE market_benchmarks (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		age INTEGER NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id),
-		mean REAL NOT NULL, std_dev REAL NOT NULL,
-		source TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks(age, category_id);
-
-	CREATE TABLE IF NOT EXISTS child_custom_voices (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL,
-		scene TEXT NOT NULL DEFAULT 'complete',
-		label TEXT NOT NULL,
-		file_path TEXT NOT NULL,
-		public_url TEXT NOT NULL,
-		duration_ms INTEGER,
-		is_active INTEGER NOT NULL DEFAULT 0,
-		tenant_id TEXT NOT NULL,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE INDEX IF NOT EXISTS idx_child_custom_voices_child ON child_custom_voices(child_id, scene);
-
-	CREATE TABLE IF NOT EXISTS level_titles (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		tenant_id TEXT NOT NULL,
-		level INTEGER NOT NULL,
-		custom_title TEXT NOT NULL,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_level_titles_tenant_level ON level_titles(tenant_id, level);
-`;
+let sqlite: TestSqlite;
+let testDb: TestDb;
 
 vi.mock('$lib/server/db', () => ({
 	get db() {
@@ -144,14 +26,13 @@ import {
 } from '../../../src/lib/server/services/title-service';
 
 beforeAll(() => {
-	sqlite = new Database(':memory:');
-	sqlite.pragma('foreign_keys = ON');
-	sqlite.exec(SQL_TABLES);
-	testDb = drizzle(sqlite, { schema });
+	const t = createTestDb();
+	sqlite = t.sqlite;
+	testDb = t.db;
 });
 
 afterAll(() => {
-	sqlite.close();
+	closeDb(sqlite);
 });
 
 beforeEach(() => {

@@ -101,30 +101,8 @@ afterEach(() => {
 describe('hooks.server.ts handle（結合テスト）', () => {
 	async function loadHandle() {
 		vi.resetModules();
-		vi.mock('$lib/server/services/setup-service', () => ({
-			isSetupRequired: () => mockIsSetupRequired(),
-		}));
-		vi.mock('$lib/server/logger', () => ({
-			logger: { request: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() },
-		}));
-		vi.mock('$lib/server/security/rate-limiter', () => ({
-			checkApiRateLimit: () => ({ allowed: true, remaining: 99, resetAt: Date.now() + 60000 }),
-			checkAuthRateLimit: () => ({ allowed: true, remaining: 9, resetAt: Date.now() + 60000 }),
-		}));
-		vi.mock('$lib/server/auth/factory', () => ({
-			getAuthProvider: () => ({
-				resolveIdentity: mockResolveIdentity,
-				resolveContext: mockResolveContext,
-				authorize: mockAuthorize,
-			}),
-			getAuthMode: () => currentAuthMode,
-		}));
-		vi.mock('@sveltejs/kit', () => ({
-			redirect: (status: number, location: string) => {
-				throw new RedirectError(status, location);
-			},
-		}));
-
+		// vi.mock はトップレベルで定義済み — ここでは再宣言不要
+		// vi.resetModules() 後でもトップレベルのモック定義が有効
 		const mod = await import('../../../src/hooks.server');
 		return mod.handle;
 	}
