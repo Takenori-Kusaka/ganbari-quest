@@ -16,20 +16,11 @@ interface Props {
 	allCompleted: boolean;
 	completedCount: number;
 	totalCount: number;
-	showAllActivities: boolean;
-	onToggleShowAll: () => void;
 	activitySlot: Snippet<[Activity]>;
 }
 
-let {
-	recommendedActivities,
-	allCompleted,
-	completedCount,
-	totalCount,
-	showAllActivities,
-	onToggleShowAll,
-	activitySlot,
-}: Props = $props();
+let { recommendedActivities, allCompleted, completedCount, totalCount, activitySlot }: Props =
+	$props();
 </script>
 
 <div class="focus-mode" data-testid="focus-mode">
@@ -49,7 +40,7 @@ let {
 		<span class="progress-count">{completedCount}/{totalCount}</span>
 	</div>
 
-	<!-- Recommended activities grid -->
+	<!-- Recommended activities grid (compact) -->
 	<div class="focus-grid">
 		{#each recommendedActivities as activity (activity.id)}
 			{@render activitySlot(activity)}
@@ -67,35 +58,30 @@ let {
 	{:else}
 		<p class="focus-hint">{totalCount}つ できたら ⭐ボーナス！</p>
 	{/if}
-
-	<!-- Toggle to show all activities -->
-	<button
-		class="show-all-btn"
-		onclick={onToggleShowAll}
-		data-testid="focus-show-all"
-	>
-		{showAllActivities ? '▲ おすすめだけ みる' : '▼ ほかの がんばり'}
-	</button>
 </div>
 
 <style>
 	.focus-mode {
-		margin-bottom: 16px;
+		margin-bottom: 8px;
+		padding: 12px;
+		background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(251, 191, 36, 0.02));
+		border: 1px solid rgba(251, 191, 36, 0.2);
+		border-radius: 16px;
 	}
 
 	.focus-header {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		margin-bottom: 12px;
+		gap: 6px;
+		margin-bottom: 8px;
 	}
 
 	.focus-star {
-		font-size: 1.5rem;
+		font-size: 1.25rem;
 	}
 
 	.focus-title {
-		font-size: 1.125rem;
+		font-size: 1rem;
 		font-weight: 800;
 		color: var(--color-text, #1f2937);
 	}
@@ -103,15 +89,12 @@ let {
 	.focus-progress {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		margin-bottom: 12px;
-		padding: 8px 12px;
-		background: rgba(251, 191, 36, 0.1);
-		border-radius: 12px;
+		gap: 6px;
+		margin-bottom: 10px;
 	}
 
 	.progress-dot {
-		font-size: 1.25rem;
+		font-size: 1.125rem;
 		transition: transform 0.3s ease;
 	}
 
@@ -121,7 +104,7 @@ let {
 
 	.progress-count {
 		margin-left: auto;
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 		font-weight: 700;
 		color: #92400e;
 	}
@@ -129,17 +112,16 @@ let {
 	.focus-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 12px;
-		margin-bottom: 12px;
+		gap: 8px;
+		margin-bottom: 8px;
 	}
 
 	.focus-bonus {
 		text-align: center;
-		padding: 16px;
+		padding: 12px;
 		background: linear-gradient(135deg, #fef3c7, #fde68a);
 		border: 2px solid #fbbf24;
-		border-radius: 16px;
-		margin-bottom: 12px;
+		border-radius: 12px;
 		animation: bounceIn 0.5s ease;
 	}
 
@@ -150,30 +132,30 @@ let {
 	}
 
 	.bonus-emoji {
-		font-size: 2rem;
+		font-size: 1.5rem;
 		display: block;
-		margin-bottom: 4px;
+		margin-bottom: 2px;
 	}
 
 	.bonus-text {
-		font-size: 1rem;
+		font-size: 0.875rem;
 		font-weight: 800;
 		color: #78350f;
 		margin: 0;
 	}
 
 	.bonus-sub-points {
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 		font-weight: 700;
 		color: var(--color-point, #d97706);
-		margin: 4px 0 0;
+		margin: 2px 0 0;
 		animation: point-pop 0.4s ease-out;
 	}
 
 	.bonus-sub {
-		font-size: 0.75rem;
+		font-size: 0.6875rem;
 		color: #92400e;
-		margin: 4px 0 0;
+		margin: 2px 0 0;
 	}
 
 	@keyframes point-pop {
@@ -184,27 +166,9 @@ let {
 
 	.focus-hint {
 		text-align: center;
-		font-size: 0.8125rem;
+		font-size: 0.75rem;
 		font-weight: 600;
 		color: #92400e;
-		margin: 0 0 12px;
-	}
-
-	.show-all-btn {
-		display: block;
-		width: 100%;
-		padding: 10px;
-		background: var(--color-surface, #f9fafb);
-		border: 1px solid var(--color-border, #e5e7eb);
-		border-radius: 12px;
-		color: var(--color-text-muted, #6b7280);
-		font-size: 0.8125rem;
-		font-weight: 600;
-		cursor: pointer;
-		transition: background 0.15s;
-	}
-
-	.show-all-btn:hover {
-		background: var(--color-border, #e5e7eb);
+		margin: 0;
 	}
 </style>
