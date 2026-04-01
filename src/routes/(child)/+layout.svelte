@@ -50,7 +50,7 @@ let stampDialogOpen = $state(false);
 		<Header nickname={data.child.nickname} totalPoints={data.balance} avatarUrl={data.child.avatarUrl} pointSettings={data.pointSettings} activeTitle={data.activeTitle} stampProgress={data.stampProgress} onStampClick={() => { stampDialogOpen = true; }} />
 	{/if}
 
-	<main class="pb-20 pt-[var(--sp-sm)]">
+	<main class="relative z-0 pb-20 pt-[var(--sp-sm)]">
 		{#if $navigating}
 			<div class="px-[var(--sp-md)] py-[var(--sp-sm)] flex flex-col gap-[var(--sp-md)]">
 				<div class="skeleton-block h-32 rounded-[var(--radius-md)]"></div>
