@@ -221,7 +221,7 @@ export const actions: Actions = {
 		const bonusResult = await claimLoginBonus(childId, tenantId);
 		const bonus = 'error' in bonusResult ? null : bonusResult;
 
-		const stampResult = await stampToday(childId, tenantId);
+		const stampResult = await stampToday(childId, tenantId, bonus?.rank);
 		const stamp = 'error' in stampResult ? null : stampResult;
 
 		if (!bonus && !stamp) {
@@ -233,6 +233,8 @@ export const actions: Actions = {
 			loginStamp: true,
 			stampEmoji: stamp?.stamp.emoji ?? '⭐',
 			stampRarity: stamp?.stamp.rarity ?? 'N',
+			stampName: stamp?.stamp.name ?? '',
+			omikujiRank: bonus?.rank ?? stamp?.stamp.omikujiRank ?? null,
 			totalPoints: bonus?.totalPoints ?? 0,
 			multiplier: bonus?.multiplier ?? 1,
 			consecutiveLoginDays: bonus?.consecutiveLoginDays ?? 0,
@@ -276,6 +278,7 @@ export const actions: Actions = {
 			stampEmoji: result.stamp.emoji,
 			stampName: result.stamp.name,
 			stampRarity: result.stamp.rarity,
+			omikujiRank: result.stamp.omikujiRank ?? null,
 		};
 	},
 

@@ -10,7 +10,7 @@ export { default as BottomNav } from './BottomNav.svelte';
 export { default as CategorySection } from './CategorySection.svelte';
 export { default as Header } from './Header.svelte';
 export { default as NumPad } from './NumPad.svelte';
-export { default as OmikujiOverlay } from './OmikujiOverlay.svelte';
+export { default as OmikujiStampOverlay } from './OmikujiStampOverlay.svelte';
 export { default as PointDisplay } from './PointDisplay.svelte';
 export { default as RadarChart } from './RadarChart.svelte';
 export { default as StatusBar } from './StatusBar.svelte';

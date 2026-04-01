@@ -36,7 +36,8 @@ export interface StampMasterData {
 
 export interface StampEntryData {
 	slot: number;
-	stampMasterId: number;
+	stampMasterId: number | null;
+	omikujiRank: string | null;
 	name: string;
 	emoji: string;
 	rarity: string;
@@ -149,19 +150,30 @@ export async function getOrCreateCurrentCard(
 	}
 
 	// エントリ取得
-	const entries = db
+	const rawEntries = db
 		.select({
 			slot: schema.stampEntries.slot,
 			stampMasterId: schema.stampEntries.stampMasterId,
+			omikujiRank: schema.stampEntries.omikujiRank,
 			loginDate: schema.stampEntries.loginDate,
 			name: schema.stampMasters.name,
 			emoji: schema.stampMasters.emoji,
 			rarity: schema.stampMasters.rarity,
 		})
 		.from(schema.stampEntries)
-		.innerJoin(schema.stampMasters, eq(schema.stampEntries.stampMasterId, schema.stampMasters.id))
+		.leftJoin(schema.stampMasters, eq(schema.stampEntries.stampMasterId, schema.stampMasters.id))
 		.where(eq(schema.stampEntries.cardId, card.id))
 		.all();
+
+	const entries: StampEntryData[] = rawEntries.map((e) => ({
+		slot: e.slot,
+		stampMasterId: e.stampMasterId,
+		omikujiRank: e.omikujiRank,
+		name: e.name ?? e.omikujiRank ?? '?',
+		emoji: e.emoji ?? '',
+		rarity: e.rarity ?? 'N',
+		loginDate: e.loginDate,
+	}));
 
 	// 今日スタンプ押印済みか確認
 	const todayEntry = entries.find((e) => e.loginDate === today);
@@ -185,6 +197,7 @@ export async function getOrCreateCurrentCard(
 export async function stampToday(
 	childId: number,
 	tenantId: string,
+	omikujiRank?: string,
 ): Promise<
 	| { error: 'ALREADY_STAMPED' | 'CARD_FULL' | 'NOT_COLLECTING' }
 	| { stamp: StampEntryData; cardData: StampCardData }
@@ -206,7 +219,7 @@ export async function stampToday(
 		return { error: 'CARD_FULL' };
 	}
 
-	// ランダムスタンプを選出
+	// ランダムスタンプを選出（後方互換のため残す）
 	const enabledStamps = await getEnabledStamps(tenantId);
 	if (enabledStamps.length === 0) {
 		throw new Error('No enabled stamps available');
@@ -214,11 +227,12 @@ export async function stampToday(
 	const picked = pickRandomStamp(enabledStamps);
 	const nextSlot = cardData.filledSlots + 1;
 
-	// 挿入
+	// 挿入（omikujiRank があればセット）
 	db.insert(schema.stampEntries)
 		.values({
 			cardId: cardData.id,
 			stampMasterId: picked.id,
+			omikujiRank: omikujiRank ?? null,
 			slot: nextSlot,
 			loginDate: today,
 		})
@@ -227,7 +241,8 @@ export async function stampToday(
 	const entry: StampEntryData = {
 		slot: nextSlot,
 		stampMasterId: picked.id,
-		name: picked.name,
+		omikujiRank: omikujiRank ?? null,
+		name: omikujiRank ?? picked.name,
 		emoji: picked.emoji,
 		rarity: picked.rarity,
 		loginDate: today,

@@ -14,9 +14,9 @@ import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelt
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
+import OmikujiStampOverlay from '$lib/ui/components/OmikujiStampOverlay.svelte';
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
-import StampPressOverlay from '$lib/ui/components/StampPressOverlay.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 import { tick } from 'svelte';
@@ -99,8 +99,7 @@ let adventureShown = $state(false);
 // Login stamp state (unified bonus + stamp)
 let stampPressOpen = $state(false);
 let stampPressData = $state<{
-	stampEmoji: string;
-	stampRarity: string;
+	omikujiRank: string;
 	totalPoints: number;
 	multiplier: number;
 	consecutiveDays: number;
@@ -407,10 +406,9 @@ $effect(() => {
 			use:enhance={() => {
 				return async ({ result }) => {
 					if (result.type === 'success' && result.data && 'loginStamp' in result.data) {
-						const d = result.data as { stampEmoji: string; stampRarity: string; totalPoints: number; multiplier: number; consecutiveLoginDays: number };
+						const d = result.data as { omikujiRank: string; totalPoints: number; multiplier: number; consecutiveLoginDays: number };
 						stampPressData = {
-							stampEmoji: d.stampEmoji,
-							stampRarity: d.stampRarity,
+							omikujiRank: d.omikujiRank || '吉',
 							totalPoints: d.totalPoints,
 							multiplier: d.multiplier,
 							consecutiveDays: d.consecutiveLoginDays,
@@ -849,12 +847,11 @@ $effect(() => {
 	/>
 {/if}
 
-<!-- Stamp press overlay -->
+<!-- Omikuji + Stamp overlay (unified) -->
 {#if stampPressData}
-	<StampPressOverlay
+	<OmikujiStampOverlay
 		bind:open={stampPressOpen}
-		stampEmoji={stampPressData.stampEmoji}
-		stampRarity={stampPressData.stampRarity}
+		rank={stampPressData.omikujiRank}
 		totalPoints={stampPressData.totalPoints}
 		multiplier={stampPressData.multiplier}
 		consecutiveDays={stampPressData.consecutiveDays}
