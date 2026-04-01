@@ -140,7 +140,7 @@ function getConfig(rank: string) {
 						const data = result.data as Record<string, unknown>;
 						const omikujiRank = (data.omikujiRank as string) || (data.stampName as string) || '吉';
 						newStamp = { omikujiRank, slot: filledSlots + 1 };
-						soundService.play('special-reward');
+						soundService.play('stamp-press');
 						setTimeout(() => { newStamp = null; }, 3000);
 					}
 					await update({ reset: false });
