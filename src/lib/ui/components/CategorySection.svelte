@@ -51,8 +51,11 @@ const gridStyle = $derived(
 	`grid-template-columns: repeat(auto-fill, minmax(${css.minWidth}, 1fr));`,
 );
 
-// Collapsible state
-let expanded = $state(!compactMode);
+// Collapsible state — compactMode変更に追従
+let expanded = $state(true);
+$effect(() => {
+	expanded = !compactMode;
+});
 const shouldCollapse = $derived(
 	collapsible && itemsPerCategory > 0 && itemCount > itemsPerCategory,
 );
@@ -96,7 +99,7 @@ function toggleExpand() {
 		{/if}
 		{#if xpInfo}
 			<span class="text-[10px] font-bold" style="color: {accent};">Lv.{xpInfo.level}</span>
-			<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-auto" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
+			<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
 				<div
 					class="h-full rounded-full xp-bar__fill"
 					class:xp-bar--animating={xpAnimating}
