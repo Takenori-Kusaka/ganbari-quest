@@ -4,12 +4,27 @@ import type { RequestHandler } from './$types';
 
 const DATA_SOURCE = process.env.DATA_SOURCE ?? 'sqlite';
 
-async function checkSqlite(): Promise<void> {
+async function checkSqlite(): Promise<{
+	schemaValid?: boolean;
+	migrationsApplied?: number;
+	schemaWarnings?: number;
+}> {
 	const { rawSqlite } = await import('$lib/server/db/client');
 	const row = rawSqlite.prepare('SELECT 1 AS ok').get() as { ok: number } | undefined;
 	if (!row || row.ok !== 1) {
 		throw new Error('db_check_failed');
 	}
+	// スキーマ検証結果を返す
+	const { getLastValidationResult } = await import('$lib/server/db/schema-validator');
+	const schemaResult = getLastValidationResult();
+	if (schemaResult && !schemaResult.valid) {
+		throw new Error('schema_incompatible');
+	}
+	return {
+		schemaValid: schemaResult?.valid ?? true,
+		migrationsApplied: schemaResult?.applied.length ?? 0,
+		schemaWarnings: schemaResult?.warnings.length ?? 0,
+	};
 }
 
 async function checkDynamoDB(): Promise<void> {
@@ -22,11 +37,13 @@ async function checkDynamoDB(): Promise<void> {
 }
 
 export const GET: RequestHandler = async () => {
+	let schemaInfo: { schemaValid?: boolean; migrationsApplied?: number; schemaWarnings?: number } =
+		{};
 	try {
 		if (DATA_SOURCE === 'dynamodb') {
 			await checkDynamoDB();
 		} else {
-			await checkSqlite();
+			schemaInfo = await checkSqlite();
 		}
 	} catch (e) {
 		return json(
@@ -46,5 +63,6 @@ export const GET: RequestHandler = async () => {
 		dataSource: DATA_SOURCE,
 		region: process.env.AWS_REGION ?? 'local',
 		uptime: Math.floor(process.uptime()),
+		schema: schemaInfo,
 	});
 };
