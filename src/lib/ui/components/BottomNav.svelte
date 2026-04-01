@@ -1,5 +1,6 @@
 <script lang="ts">
 import { page } from '$app/state';
+import { ICON_HOME, ICON_STATUS, ICON_SWITCH } from '$lib/domain/icons';
 import { playSound } from '$lib/ui/sound/play-sound';
 
 interface NavItem {
@@ -14,10 +15,9 @@ interface Props {
 }
 
 const defaultItems: NavItem[] = [
-	{ href: '/home', icon: '🏠', label: 'ホーム' },
-	{ href: '/history', icon: '📋', label: 'きろく' },
-	{ href: '/status', icon: '⭐', label: 'つよさ' },
-	{ href: '/switch', icon: '👤', label: 'きりかえ' },
+	{ href: '/home', icon: ICON_HOME, label: 'ホーム' },
+	{ href: '/status', icon: ICON_STATUS, label: 'つよさ' },
+	{ href: '/switch', icon: ICON_SWITCH, label: 'きりかえ' },
 ];
 
 let { items = defaultItems, iconOnly = false }: Props = $props();
