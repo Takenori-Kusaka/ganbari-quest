@@ -1,5 +1,6 @@
 import { activityPackIndex, getActivityPack } from '$lib/data/activity-packs';
-import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import { CATEGORY_CODES, CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -217,4 +218,113 @@ export const actions: Actions = {
 			return fail(500, { error: '削除に失敗しました' });
 		}
 	},
+
+	importFile: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const file = formData.get('file') as File | null;
+
+		if (!file || file.size === 0) {
+			return fail(400, { error: 'ファイルを選択してください' });
+		}
+
+		const text = await file.text();
+		let activities: ActivityPackItem[];
+
+		try {
+			if (file.name.endsWith('.csv')) {
+				activities = parseCsvActivities(text);
+			} else {
+				const parsed = JSON.parse(text);
+				activities = parsed.activities ?? parsed;
+				if (!Array.isArray(activities)) {
+					return fail(400, { error: 'JSONの形式が正しくありません' });
+				}
+			}
+		} catch {
+			return fail(400, { error: 'ファイルの解析に失敗しました' });
+		}
+
+		if (activities.length === 0) {
+			return fail(400, { error: 'インポートする活動がありません' });
+		}
+
+		try {
+			const preview = await previewActivityImport(activities, tenantId);
+			const result = await importActivities(activities, tenantId);
+			return {
+				importResult: true,
+				packName: file.name,
+				imported: result.imported,
+				skipped: result.skipped,
+				total: preview.total,
+				errors: result.errors,
+			};
+		} catch (e) {
+			logger.error('[admin/activities] ファイルインポート失敗', {
+				error: e instanceof Error ? e.message : String(e),
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
+		}
+	},
+
+	clearAll: async ({ locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		try {
+			const activities = await getActivities(tenantId, { includeHidden: true });
+			let deleted = 0;
+			let hidden = 0;
+
+			for (const activity of activities) {
+				if (await hasActivityLogs(activity.id, tenantId)) {
+					await setActivityVisibility(activity.id, false, tenantId);
+					hidden++;
+				} else {
+					await deleteActivityWithCleanup(activity.id, tenantId);
+					deleted++;
+				}
+			}
+
+			return { clearResult: true, deleted, hidden };
+		} catch (e) {
+			logger.error('[admin/activities] 一括クリア失敗', {
+				error: e instanceof Error ? e.message : String(e),
+			});
+			return fail(500, { error: '一括クリアに失敗しました' });
+		}
+	},
 };
+
+/** CSV を ActivityPackItem[] に変換 */
+function parseCsvActivities(text: string): ActivityPackItem[] {
+	const lines = text.split('\n').filter((l) => l.trim());
+	if (lines.length < 2) return [];
+
+	// ヘッダー行をスキップ
+	const validCodes = new Set<string>(CATEGORY_CODES);
+	const items: ActivityPackItem[] = [];
+
+	for (let i = 1; i < lines.length; i++) {
+		const line = lines[i];
+		if (!line) continue;
+		const cols = line.split(',').map((c) => c.trim());
+		if (cols.length < 4) continue;
+
+		const [name, categoryCode, icon, pointsStr, description] = cols;
+		if (!name || !categoryCode || !validCodes.has(categoryCode)) continue;
+
+		items.push({
+			name,
+			categoryCode: categoryCode as ActivityPackItem['categoryCode'],
+			icon: icon || '📝',
+			basePoints: Number(pointsStr) || 5,
+			ageMin: null,
+			ageMax: null,
+			gradeLevel: null,
+			description: description || undefined,
+		});
+	}
+
+	return items;
+}

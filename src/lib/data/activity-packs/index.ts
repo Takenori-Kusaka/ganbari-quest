@@ -3,10 +3,10 @@
 
 import type { ActivityPack, ActivityPackIndex } from '$lib/domain/activity-pack';
 
-import indexData from './index.json';
 import babyFirst from './baby-first.json';
-import kinderStarter from './kinder-starter.json';
 import elementaryChallenge from './elementary-challenge.json';
+import indexData from './index.json';
+import kinderStarter from './kinder-starter.json';
 import otetsudaiMaster from './otetsudai-master.json';
 
 export const activityPackIndex: ActivityPackIndex = indexData as ActivityPackIndex;
