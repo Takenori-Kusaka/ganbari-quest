@@ -41,7 +41,8 @@ jobs:
       - run: npx svelte-check
       - name: Security audit (high/critical vulnerabilities)
         run: npm audit --audit-level=high || true
-      - run: npx vitest run
+      - run: npx vitest run --coverage
+        name: Unit tests with coverage enforcement
 
       # Build before E2E (preview mode eliminates Vite JIT compilation overhead)
       - run: npm run build
@@ -187,6 +188,7 @@ jobs:
           -c stripePriceMonthly=${{ vars.STRIPE_PRICE_MONTHLY }}
           -c stripePriceYearly=${{ vars.STRIPE_PRICE_YEARLY }}
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
+          -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
 
       # Phase 4: Update Lambda to use the new image
       - name: Update Lambda function image
