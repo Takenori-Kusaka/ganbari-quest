@@ -54,7 +54,6 @@ const rankConfig: Record<string, { image: string; label: string; glow?: string }
 	末吉: { image: '/assets/stamps/suekichi.png', label: '末吉' },
 };
 
-
 function formatDateShort(dateStr: string): string {
 	const d = new Date(`${dateStr}T00:00:00`);
 	return `${d.getMonth() + 1}/${d.getDate()}`;
