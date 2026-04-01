@@ -1,5 +1,6 @@
 <script lang="ts">
 import { navigating } from '$app/stores';
+import { ICON_HOME, ICON_STATUS, ICON_SWITCH, getModeLabels } from '$lib/domain/icons';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 
@@ -8,16 +9,20 @@ let { data, children } = $props();
 const theme = $derived(data.child?.theme ?? 'pink');
 const uiMode = $derived(data.uiMode ?? 'kinder');
 
+// #0289: 本番と同じナビ構成（3項目）に統一
+const modeLabels = $derived(getModeLabels(uiMode));
 const navItems = $derived([
-	{ href: `/demo/${uiMode}/home?childId=${data.child?.id ?? ''}`, icon: '🏠', label: 'ホーム' },
-	{ href: `/demo/${uiMode}/history?childId=${data.child?.id ?? ''}`, icon: '📋', label: 'きろく' },
-	{ href: `/demo/${uiMode}/status?childId=${data.child?.id ?? ''}`, icon: '🛡️', label: 'つよさ' },
 	{
-		href: `/demo/${uiMode}/achievements?childId=${data.child?.id ?? ''}`,
-		icon: '🏆',
-		label: 'じっせき',
+		href: `/demo/${uiMode}/home?childId=${data.child?.id ?? ''}`,
+		icon: ICON_HOME,
+		label: 'ホーム',
 	},
-	{ href: '/demo', icon: '👤', label: 'きりかえ' },
+	{
+		href: `/demo/${uiMode}/status?childId=${data.child?.id ?? ''}`,
+		icon: ICON_STATUS,
+		label: modeLabels.status,
+	},
+	{ href: '/demo', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
 </script>
 

@@ -1,9 +1,12 @@
 <script lang="ts">
+import { ICON_STATUS, ICON_TITLES, getModeLabels } from '$lib/domain/icons';
+
 interface Props {
 	uiMode: string;
 }
 
 let { uiMode }: Props = $props();
+const labels = $derived(getModeLabels(uiMode));
 </script>
 
 <div class="empty-state" data-testid="activity-empty-state">
@@ -16,12 +19,12 @@ let { uiMode }: Props = $props();
 		<p class="empty-actions-title">── できること ──</p>
 		<div class="empty-links">
 			<a href="/{uiMode}/status" class="empty-link">
-				<span>📊</span>
-				<span>つよさをみる</span>
+				<span>{ICON_STATUS}</span>
+				<span>{labels.status}をみる</span>
 			</a>
 			<a href="/{uiMode}/achievements" class="empty-link">
-				<span>🏅</span>
-				<span>しょうごうをみる</span>
+				<span>{ICON_TITLES}</span>
+				<span>{labels.achievements}をみる</span>
 			</a>
 		</div>
 	</div>
