@@ -5,10 +5,13 @@ import { parseDisplayConfig } from '$lib/domain/display-config';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
+import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
+import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
 import StampPressOverlay from '$lib/ui/components/StampPressOverlay.svelte';
@@ -137,6 +140,32 @@ const activitiesByCategory = $derived(
 		items: data.activities.filter((a) => a.categoryId === catDef.id),
 	})).filter((g) => g.items.length > 0),
 );
+
+// Focus mode (#0264): recommended activities
+const recommendedIdSet = $derived(new Set(data.recommendedActivityIds ?? []));
+const recommendedActivities = $derived(data.activities.filter((a) => recommendedIdSet.has(a.id)));
+const focusCompletedCount = $derived(recommendedActivities.filter((a) => isCompleted(a)).length);
+const focusAllCompleted = $derived(
+	recommendedActivities.length > 0 && focusCompletedCount === recommendedActivities.length,
+);
+let showAllActivities = $state(false);
+
+// Focus mode: programmatic record for ActivityCard tap
+let focusRecordActivityId = $state<number | null>(null);
+
+function handleActivityTap(activity: { id: number; name: string; icon: string }) {
+	if (submitting) return;
+	focusRecordActivityId = activity.id;
+	soundService.ensureContext();
+	soundService.play('tap');
+	tick().then(() => {
+		document.getElementById('focus-record-btn')?.click();
+	});
+}
+
+function handleActivityLongPress(_activity: { id: number; name: string; isPinned?: boolean }) {
+	// Baby mode does not support long press actions
+}
 
 function startCancelCountdown(until: string) {
 	const remaining = Math.max(0, Math.floor((new Date(until).getTime() - Date.now()) / 1000));
@@ -275,135 +304,227 @@ $effect(() => {
 		</form>
 	{/if}
 
-	<!-- Activity grid by category (same layout as kinder, but 1-tap instant record) -->
-	{#each activitiesByCategory as group (group.categoryId)}
-		<CategorySection
-			categoryId={group.categoryId}
-			cardSize={displayConfig.cardSize}
-			itemsPerCategory={displayConfig.itemsPerCategory}
-			collapsible={displayConfig.collapsible}
-			itemCount={group.items.length}
-			xpInfo={getCategoryXpWithAnim(group.categoryId)}
-			xpAnimating={xpAnimatingCategoryId === group.categoryId}
+	<!-- Hidden form for focus mode programmatic record -->
+	{#if focusRecordActivityId !== null}
+		<form
+			method="POST"
+			action="?/record"
+			use:enhance={() => {
+				submitting = true;
+				pendingActivityId = focusRecordActivityId;
+				return async ({ result }) => {
+					submitting = false;
+					pendingActivityId = null;
+					focusRecordActivityId = null;
+					if (result.type === 'success' && result.data && 'success' in result.data) {
+						const d = result.data as {
+							logId: number; activityName: string; totalPoints: number; streakDays: number; streakBonus: number;
+							masteryBonus?: number; masteryLevel?: number;
+							masteryLeveledUp?: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
+							cancelableUntil: string;
+							unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
+							comboBonus: { categoryCombo: { categoryId: number; name: string; bonus: number }[]; crossCategoryCombo: { name: string; bonus: number } | null; miniCombo: { uniqueCount: number; bonus: number } | null; hints: { message: string }[]; totalNewBonus: number } | null;
+							missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
+							levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string; spGranted?: number } | null;
+							xpGain?: { categoryId: number; categoryName: string; xpBefore: number; xpAfter: number; maxValue: number; levelBefore: number; levelAfter: number };
+						};
+						resultIcon = '';
+						resultName = d.activityName;
+						resultPoints = d.totalPoints;
+						resultLogId = d.logId;
+						resultComboBonus = d.comboBonus ?? null;
+						resultMasteryBonus = d.masteryBonus ?? 0;
+						resultMasteryLevel = d.masteryLevel ?? 1;
+						resultMasteryLeveledUp = d.masteryLeveledUp ?? null;
+						unlockedAchievements = d.unlockedAchievements ?? [];
+						missionResult = d.missionComplete ?? null;
+						levelUpData = d.levelUp ?? null;
+						xpGainData = d.xpGain ?? null;
+						startCancelCountdown(d.cancelableUntil);
+						soundService.playRecordComplete();
+						setTimeout(() => soundService.play('point-gain'), 300);
+						resultOpen = true;
+					} else if (result.type === 'failure' && result.data && 'error' in result.data) {
+						errorMessage = String(result.data.error);
+						soundService.play('error');
+						setTimeout(() => { errorMessage = ''; }, 3000);
+						invalidateAll();
+					} else {
+						invalidateAll();
+					}
+				};
+			}}
+			class="hidden"
 		>
-			{#each group.items as activity (activity.id)}
-				{@const completed = isCompleted(activity)}
-				{@const borderColor = getCategoryById(activity.categoryId)?.color ?? 'var(--theme-primary)'}
-				{@const actCount = getCount(activity.id)}
-				{@const showMission = activity.isMission && !completed}
-				{#if completed}
-					<div
-						class="baby-card baby-card--done tap-target"
-						data-testid="activity-card-{activity.id}"
-						aria-label="{activity.displayName}（きろくずみ）"
-					>
-						<span class="baby-card__done-badge animate-bounce-in">💮</span>
-						<CompoundIcon icon={activity.icon} size="lg" faded={true} />
-						<span class="baby-card__name baby-card__name--faded">{activity.displayName}</span>
-					</div>
-				{:else}
-					<form
-						method="POST"
-						action="?/record"
-						use:enhance={() => {
-							if (submitting) return ({ update }) => update();
-							submitting = true;
-							pendingActivityId = activity.id;
-							soundService.ensureContext();
-							soundService.play('tap');
-							return async ({ result }) => {
-								submitting = false;
-								pendingActivityId = null;
-								if (result.type === 'success' && result.data && 'success' in result.data) {
-									const d = result.data as {
-										logId: number;
-										activityName: string;
-										totalPoints: number;
-										streakDays: number;
-										streakBonus: number;
-										masteryBonus?: number;
-										masteryLevel?: number;
-										masteryLeveledUp?: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
-										cancelableUntil: string;
-										unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
-										comboBonus: {
-											categoryCombo: { categoryId: number; name: string; bonus: number }[];
-											crossCategoryCombo: { name: string; bonus: number } | null;
-											miniCombo: { uniqueCount: number; bonus: number } | null;
-											hints: { message: string }[];
-											totalNewBonus: number;
-										} | null;
-										missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
-										levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string; spGranted?: number } | null;
-										xpGain?: { categoryId: number; categoryName: string; xpBefore: number; xpAfter: number; maxValue: number; levelBefore: number; levelAfter: number };
-									};
-									resultIcon = activity.icon;
-									resultName = d.activityName;
-									resultPoints = d.totalPoints;
-									resultLogId = d.logId;
-									resultComboBonus = d.comboBonus ?? null;
-									resultMasteryBonus = d.masteryBonus ?? 0;
-									resultMasteryLevel = d.masteryLevel ?? 1;
-									resultMasteryLeveledUp = d.masteryLeveledUp ?? null;
-unlockedAchievements = d.unlockedAchievements ?? [];
-									missionResult = d.missionComplete ?? null;
-								levelUpData = d.levelUp ?? null;
-									xpGainData = d.xpGain ?? null;
-									startCancelCountdown(d.cancelableUntil);
-									soundService.playRecordComplete();
-									setTimeout(() => soundService.play('point-gain'), 300);
-									resultOpen = true;
-								} else if (result.type === 'failure' && result.data && 'error' in result.data) {
-									errorMessage = String(result.data.error);
-									soundService.play('error');
-									setTimeout(() => { errorMessage = ''; }, 3000);
-									invalidateAll();
-								} else {
-									invalidateAll();
-								}
-							};
-						}}
-					>
-						<input type="hidden" name="activityId" value={activity.id} />
-						<button
-							type="submit"
-							disabled={submitting}
-							class="baby-card baby-card--active tap-target"
-							class:baby-card--pending={pendingActivityId === activity.id}
-							class:baby-card--mission={showMission}
+			<input type="hidden" name="activityId" value={focusRecordActivityId} />
+			<button type="submit" id="focus-record-btn">record</button>
+		</form>
+	{/if}
+
+	<!-- Focus Mode: recommended activities (#0264) -->
+	{#if data.focusMode && recommendedActivities.length > 0 && !showAllActivities}
+		<FocusMode
+			{recommendedActivities}
+			allCompleted={focusAllCompleted}
+			completedCount={focusCompletedCount}
+			totalCount={recommendedActivities.length}
+			{showAllActivities}
+			onToggleShowAll={() => (showAllActivities = !showAllActivities)}
+		>
+			{#snippet activitySlot(activity)}
+				<ActivityCard
+					activityId={activity.id}
+					icon={activity.icon}
+					name={activity.displayName ?? activity.name}
+					categoryId={activity.categoryId}
+					cardSize="large"
+					completed={isCompleted(activity)}
+					count={getCount(activity.id)}
+					isMission={false}
+					isPinned={false}
+					onclick={() => handleActivityTap(activity)}
+					onlongpress={() => handleActivityLongPress(activity)}
+				/>
+			{/snippet}
+		</FocusMode>
+	{:else}
+		<!-- Activity grid by category (normal mode or expanded) -->
+		{#each activitiesByCategory as group (group.categoryId)}
+			<CategorySection
+				categoryId={group.categoryId}
+				cardSize={displayConfig.cardSize}
+				itemsPerCategory={displayConfig.itemsPerCategory}
+				collapsible={displayConfig.collapsible}
+				itemCount={group.items.length}
+				xpInfo={getCategoryXpWithAnim(group.categoryId)}
+				xpAnimating={xpAnimatingCategoryId === group.categoryId}
+			>
+				{#each group.items as activity (activity.id)}
+					{@const completed = isCompleted(activity)}
+					{@const borderColor = getCategoryById(activity.categoryId)?.color ?? 'var(--theme-primary)'}
+					{@const actCount = getCount(activity.id)}
+					{@const showMission = activity.isMission && !completed}
+					{#if completed}
+						<div
+							class="baby-card baby-card--done tap-target"
 							data-testid="activity-card-{activity.id}"
-							style="border-color: {showMission ? 'gold' : borderColor};"
-							aria-label="{activity.displayName}をきろくする{showMission ? '（ミッション）' : ''}"
+							aria-label="{activity.displayName}（きろくずみ）"
 						>
-							{#if showMission}
-								<span class="baby-card__mission-star" aria-hidden="true">⭐</span>
-							{/if}
-							{#if pendingActivityId === activity.id}
-								<span class="baby-card__spinner" aria-hidden="true"></span>
-								<span class="baby-card__name">まってね！</span>
-							{:else}
-								{#if actCount > 0}
-									<span class="baby-card__count-badge">{actCount}</span>
+							<span class="baby-card__done-badge animate-bounce-in">💮</span>
+							<CompoundIcon icon={activity.icon} size="lg" faded={true} />
+							<span class="baby-card__name baby-card__name--faded">{activity.displayName}</span>
+						</div>
+					{:else}
+						<form
+							method="POST"
+							action="?/record"
+							use:enhance={() => {
+								if (submitting) return ({ update }) => update();
+								submitting = true;
+								pendingActivityId = activity.id;
+								soundService.ensureContext();
+								soundService.play('tap');
+								return async ({ result }) => {
+									submitting = false;
+									pendingActivityId = null;
+									if (result.type === 'success' && result.data && 'success' in result.data) {
+										const d = result.data as {
+											logId: number;
+											activityName: string;
+											totalPoints: number;
+											streakDays: number;
+											streakBonus: number;
+											masteryBonus?: number;
+											masteryLevel?: number;
+											masteryLeveledUp?: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
+											cancelableUntil: string;
+											unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
+											comboBonus: {
+												categoryCombo: { categoryId: number; name: string; bonus: number }[];
+												crossCategoryCombo: { name: string; bonus: number } | null;
+												miniCombo: { uniqueCount: number; bonus: number } | null;
+												hints: { message: string }[];
+												totalNewBonus: number;
+											} | null;
+											missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
+											levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string; spGranted?: number } | null;
+											xpGain?: { categoryId: number; categoryName: string; xpBefore: number; xpAfter: number; maxValue: number; levelBefore: number; levelAfter: number };
+										};
+										resultIcon = activity.icon;
+										resultName = d.activityName;
+										resultPoints = d.totalPoints;
+										resultLogId = d.logId;
+										resultComboBonus = d.comboBonus ?? null;
+										resultMasteryBonus = d.masteryBonus ?? 0;
+										resultMasteryLevel = d.masteryLevel ?? 1;
+										resultMasteryLeveledUp = d.masteryLeveledUp ?? null;
+										unlockedAchievements = d.unlockedAchievements ?? [];
+										missionResult = d.missionComplete ?? null;
+										levelUpData = d.levelUp ?? null;
+										xpGainData = d.xpGain ?? null;
+										startCancelCountdown(d.cancelableUntil);
+										soundService.playRecordComplete();
+										setTimeout(() => soundService.play('point-gain'), 300);
+										resultOpen = true;
+									} else if (result.type === 'failure' && result.data && 'error' in result.data) {
+										errorMessage = String(result.data.error);
+										soundService.play('error');
+										setTimeout(() => { errorMessage = ''; }, 3000);
+										invalidateAll();
+									} else {
+										invalidateAll();
+									}
+								};
+							}}
+						>
+							<input type="hidden" name="activityId" value={activity.id} />
+							<button
+								type="submit"
+								disabled={submitting}
+								class="baby-card baby-card--active tap-target"
+								class:baby-card--pending={pendingActivityId === activity.id}
+								class:baby-card--mission={showMission}
+								data-testid="activity-card-{activity.id}"
+								style="border-color: {showMission ? 'gold' : borderColor};"
+								aria-label="{activity.displayName}をきろくする{showMission ? '（ミッション）' : ''}"
+							>
+								{#if showMission}
+									<span class="baby-card__mission-star" aria-hidden="true">⭐</span>
 								{/if}
-								<CompoundIcon icon={activity.icon} size="lg" />
-								<span class="baby-card__name">{activity.displayName}</span>
-								{#if activity.triggerHint}
-									<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{activity.triggerHint}</span>
+								{#if pendingActivityId === activity.id}
+									<span class="baby-card__spinner" aria-hidden="true"></span>
+									<span class="baby-card__name">まってね！</span>
+								{:else}
+									{#if actCount > 0}
+										<span class="baby-card__count-badge">{actCount}</span>
+									{/if}
+									<CompoundIcon icon={activity.icon} size="lg" />
+									<span class="baby-card__name">{activity.displayName}</span>
+									{#if activity.triggerHint}
+										<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{activity.triggerHint}</span>
+									{/if}
 								{/if}
-							{/if}
-						</button>
-					</form>
-				{/if}
-			{/each}
-		</CategorySection>
-	{/each}
+							</button>
+						</form>
+					{/if}
+				{/each}
+			</CategorySection>
+		{/each}
+
+		<!-- Collapse back to focus mode button -->
+		{#if data.focusMode && showAllActivities}
+			<button
+				class="show-all-toggle"
+				onclick={() => (showAllActivities = false)}
+				data-testid="focus-collapse"
+			>
+				▲ おすすめだけ みる
+			</button>
+		{/if}
+	{/if}
 
 	{#if data.activities.length === 0}
-		<div class="baby-empty">
-			<span class="baby-empty__icon">📋</span>
-			<p class="baby-empty__text">かつどうがまだないよ</p>
-			<p class="baby-empty__sub">おやにおねがいしてね</p>
-		</div>
+		<ActivityEmptyState uiMode={data.uiMode} />
 	{/if}
 </div>
 
@@ -865,5 +986,19 @@ unlockedAchievements = d.unlockedAchievements ?? [];
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 		font-size: 0.875rem;
 		font-weight: 700;
+	}
+
+	.show-all-toggle {
+		display: block;
+		width: 100%;
+		margin-top: 12px;
+		padding: 10px;
+		background: var(--color-surface, #f9fafb);
+		border: 1px solid var(--color-border, #e5e7eb);
+		border-radius: 12px;
+		color: var(--color-text-muted, #6b7280);
+		font-size: 0.8125rem;
+		font-weight: 600;
+		cursor: pointer;
 	}
 </style>

@@ -6,10 +6,12 @@ import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-di
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
+import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
 import StampPressOverlay from '$lib/ui/components/StampPressOverlay.svelte';
@@ -155,6 +157,15 @@ const activitiesByCategory = $derived(
 		items: data.activities.filter((a) => a.categoryId === catDef.id),
 	})).filter((g) => g.items.length > 0),
 );
+
+// Focus mode (#0264): recommended activities
+const recommendedIdSet = $derived(new Set(data.recommendedActivityIds ?? []));
+const recommendedActivities = $derived(data.activities.filter((a) => recommendedIdSet.has(a.id)));
+const focusCompletedCount = $derived(recommendedActivities.filter((a) => isCompleted(a)).length);
+const focusAllCompleted = $derived(
+	recommendedActivities.length > 0 && focusCompletedCount === recommendedActivities.length,
+);
+let showAllActivities = $state(false);
 
 function handleActivityTap(activity: { id: number; name: string; icon: string }) {
 	soundService.play('tap');
@@ -355,47 +366,78 @@ $effect(() => {
 		</a>
 	{/if}
 
-	<!-- Activity grid by category -->
-	{#each activitiesByCategory as group (group.categoryId)}
-		<CategorySection
-			categoryId={group.categoryId}
-			cardSize={displayConfig.cardSize}
-			itemsPerCategory={displayConfig.itemsPerCategory}
-			collapsible={displayConfig.collapsible}
-			itemCount={group.items.length}
-			xpInfo={getCategoryXpWithAnim(group.categoryId)}
-			xpAnimating={xpAnimatingCategoryId === group.categoryId}
+	<!-- Focus Mode: recommended activities (#0264) -->
+	{#if data.focusMode && recommendedActivities.length > 0 && !showAllActivities}
+		<FocusMode
+			{recommendedActivities}
+			allCompleted={focusAllCompleted}
+			completedCount={focusCompletedCount}
+			totalCount={recommendedActivities.length}
+			{showAllActivities}
+			onToggleShowAll={() => (showAllActivities = !showAllActivities)}
 		>
-			{#each group.items as activity, i (activity.id)}
-				{#if i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
-					<div class="col-span-full flex items-center gap-2 my-0.5" aria-hidden="true" data-testid="pin-separator">
-						<div class="flex-1 border-t border-dashed border-gray-300"></div>
-					</div>
-				{/if}
+			{#snippet activitySlot(activity)}
 				<ActivityCard
 					activityId={activity.id}
 					icon={activity.icon}
-					name={activity.displayName}
+					name={activity.displayName ?? activity.name}
 					categoryId={activity.categoryId}
-					cardSize={displayConfig.cardSize}
+					cardSize="small"
 					completed={isCompleted(activity)}
 					count={getCount(activity.id)}
-					isMission={activity.isMission}
-					isPinned={activity.isPinned}
-					triggerHint={activity.triggerHint}
+					isMission={false}
+					isPinned={false}
 					onclick={() => handleActivityTap(activity)}
 					onlongpress={() => handleActivityLongPress(activity)}
 				/>
-			{/each}
-		</CategorySection>
-	{/each}
+			{/snippet}
+		</FocusMode>
+	{:else}
+		<!-- Activity grid by category (normal mode or expanded) -->
+		{#each activitiesByCategory as group (group.categoryId)}
+			<CategorySection
+				categoryId={group.categoryId}
+				cardSize={displayConfig.cardSize}
+				itemsPerCategory={displayConfig.itemsPerCategory}
+				collapsible={displayConfig.collapsible}
+				itemCount={group.items.length}
+				xpInfo={getCategoryXpWithAnim(group.categoryId)}
+				xpAnimating={xpAnimatingCategoryId === group.categoryId}
+			>
+				{#each group.items as activity, i (activity.id)}
+					{#if i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
+						<div class="col-span-full flex items-center gap-2 my-0.5" aria-hidden="true" data-testid="pin-separator">
+							<div class="flex-1 border-t border-dashed border-gray-300"></div>
+						</div>
+					{/if}
+					<ActivityCard
+						activityId={activity.id}
+						icon={activity.icon}
+						name={activity.displayName}
+						categoryId={activity.categoryId}
+						cardSize={displayConfig.cardSize}
+						completed={isCompleted(activity)}
+						count={getCount(activity.id)}
+						isMission={activity.isMission}
+						isPinned={activity.isPinned}
+						triggerHint={activity.triggerHint}
+						onclick={() => handleActivityTap(activity)}
+						onlongpress={() => handleActivityLongPress(activity)}
+					/>
+				{/each}
+			</CategorySection>
+		{/each}
 
-	{#if data.activities.length === 0}
-		<div class="flex flex-col items-center justify-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
-			<span class="text-4xl mb-[var(--sp-md)]">📋</span>
-			<p class="text-lg font-bold">活動がまだないよ</p>
-			<p class="text-sm">おうちの人におねがいしてね</p>
-		</div>
+		<!-- Collapse back to focus mode button -->
+		{#if data.focusMode && showAllActivities}
+			<button
+				class="show-all-toggle"
+				onclick={() => (showAllActivities = false)}
+				data-testid="focus-collapse"
+			>
+				▲ おすすめだけ みる
+			</button>
+		{/if}
 	{/if}
 
 	<!-- 今日のきろくサマリー（lower以上で表示） -->
@@ -407,6 +449,10 @@ $effect(() => {
 				<span class="font-bold">{data.todayRecorded.reduce((sum, r) => sum + r.count, 0)}回</span>
 			</div>
 		</div>
+	{/if}
+
+	{#if data.activities.length === 0}
+		<ActivityEmptyState uiMode={data.uiMode} />
 	{/if}
 </div>
 
@@ -729,6 +775,20 @@ $effect(() => {
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
+	}
+
+	.show-all-toggle {
+		display: block;
+		width: 100%;
+		margin-top: 12px;
+		padding: 10px;
+		background: var(--color-surface, #f9fafb);
+		border: 1px solid var(--color-border, #e5e7eb);
+		border-radius: 12px;
+		color: var(--color-text-muted, #6b7280);
+		font-size: 0.8125rem;
+		font-weight: 600;
+		cursor: pointer;
 	}
 
 </style>
