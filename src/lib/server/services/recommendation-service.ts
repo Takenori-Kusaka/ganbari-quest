@@ -119,6 +119,57 @@ export function selectRecommendations(
 	return selected.slice(0, count);
 }
 
+/**
+ * フォーカスモードのおすすめ3件全完了をチェックし、ボーナスを付与
+ * 1日1回のみ。focus_bonus タイプで point_ledger に記録
+ */
+export async function checkAndGrantFocusBonus(
+	childId: number,
+	recommendedActivityIds: number[],
+	tenantId: string,
+): Promise<{ bonusPoints: number } | null> {
+	if (recommendedActivityIds.length === 0) return null;
+
+	// フォーカスモードがアクティブでなければスキップ
+	const active = await isFocusModeActive(childId, tenantId);
+	if (!active) return null;
+
+	const { todayDateJST } = await import('$lib/domain/date-utils');
+	const today = todayDateJST();
+
+	// 今日すでにフォーカスボーナスを付与済みかチェック
+	const { countPointLedgerEntriesByTypeAndDate } = await import('$lib/server/db/activity-repo');
+	const alreadyGranted = await countPointLedgerEntriesByTypeAndDate(
+		childId,
+		'focus_bonus',
+		today,
+		tenantId,
+	);
+	if (alreadyGranted > 0) return null;
+
+	// おすすめ活動の今日の完了状態をチェック
+	const { countTodayActiveRecords } = await import('$lib/server/db/activity-repo');
+	for (const activityId of recommendedActivityIds) {
+		const count = await countTodayActiveRecords(childId, activityId, today, tenantId);
+		if (count === 0) return null; // 1つでも未完了なら付与しない
+	}
+
+	// 全完了 → ボーナスポイント付与
+	const bonusPoints = 5;
+	const { insertPointLedger } = await import('$lib/server/db/activity-repo');
+	await insertPointLedger(
+		{
+			childId,
+			amount: bonusPoints,
+			type: 'focus_bonus',
+			description: 'きょうのミッション コンプリート！',
+		},
+		tenantId,
+	);
+
+	return { bonusPoints };
+}
+
 /** 日付文字列から簡易ハッシュ値を生成（日替わり用） */
 function dateHash(date: string): number {
 	let hash = 0;

@@ -926,6 +926,30 @@ export async function countPointLedgerEntriesByType(
 	return items.length;
 }
 
+/** 指定タイプ＋日付のポイント台帳エントリ数を取得 */
+export async function countPointLedgerEntriesByTypeAndDate(
+	childId: number,
+	type: string,
+	date: string,
+	tenantId: string,
+): Promise<number> {
+	const items = await queryAll({
+		TableName: TABLE_NAME,
+		KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+		FilterExpression: '#type = :type AND begins_with(createdAt, :date)',
+		ExpressionAttributeNames: { '#type': 'type' },
+		ExpressionAttributeValues: {
+			':pk': childPK(childId, tenantId),
+			':skPrefix': pointLedgerPrefix(),
+			':type': type,
+			':date': date,
+		},
+		ProjectionExpression: 'PK',
+	});
+
+	return items.length;
+}
+
 // ============================================================
 // Point Ledger
 // ============================================================

@@ -73,6 +73,7 @@ export interface RecordActivityResult {
 	unlockedAchievements: UnlockedAchievement[];
 	comboBonus: ComboResult | null;
 	missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
+	focusBonus: { bonusPoints: number } | null;
 	levelUp: LevelUpInfo | null;
 	xpGain: XpGainInfo;
 }
@@ -225,6 +226,20 @@ export async function recordActivity(
 	// デイリーミッション判定
 	const missionResult = await checkMissionCompletion(childId, activityId, tenantId);
 
+	// フォーカスモードおすすめ3件達成ボーナスチェック
+	let focusBonus: { bonusPoints: number } | null = null;
+	try {
+		const { checkAndGrantFocusBonus } = await import('$lib/server/services/recommendation-service');
+		const { findActivities } = await import('$lib/server/db/activity-repo');
+		const { selectRecommendations } = await import('$lib/server/services/recommendation-service');
+		const allActivities = await findActivities(tenantId, { childAge: child.age });
+		const recs = selectRecommendations(allActivities, today, 3);
+		const recIds = recs.map((r) => r.activityId);
+		focusBonus = await checkAndGrantFocusBonus(childId, recIds, tenantId);
+	} catch {
+		// フォーカスボーナスチェック失敗は記録フローを止めない
+	}
+
 	return {
 		id: log.id,
 		childId,
@@ -242,6 +257,7 @@ export async function recordActivity(
 		unlockedAchievements,
 		comboBonus: comboBonus.totalNewBonus > 0 || comboBonus.hints.length > 0 ? comboBonus : null,
 		missionComplete: missionResult.missionCompleted ? missionResult : null,
+		focusBonus,
 		levelUp,
 		xpGain,
 	};

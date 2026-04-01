@@ -61,6 +61,7 @@ let {
 		<div class="focus-bonus" data-testid="focus-bonus">
 			<span class="bonus-emoji">🎉</span>
 			<p class="bonus-text">きょうのミッション コンプリート！</p>
+			<p class="bonus-sub-points">⭐ ボーナス +5ポイント！</p>
 			<p class="bonus-sub">すごい！ あしたも がんばろう！</p>
 		</div>
 	{:else}
@@ -161,10 +162,24 @@ let {
 		margin: 0;
 	}
 
+	.bonus-sub-points {
+		font-size: 0.875rem;
+		font-weight: 700;
+		color: var(--color-point, #d97706);
+		margin: 4px 0 0;
+		animation: point-pop 0.4s ease-out;
+	}
+
 	.bonus-sub {
 		font-size: 0.75rem;
 		color: #92400e;
 		margin: 4px 0 0;
+	}
+
+	@keyframes point-pop {
+		0% { transform: scale(0.5); opacity: 0; }
+		60% { transform: scale(1.2); }
+		100% { transform: scale(1); opacity: 1; }
 	}
 
 	.focus-hint {
