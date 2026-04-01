@@ -180,7 +180,6 @@ const focusCompletedCount = $derived(recommendedActivities.filter((a) => isCompl
 const focusAllCompleted = $derived(
 	recommendedActivities.length > 0 && focusCompletedCount === recommendedActivities.length,
 );
-let showAllActivities = $state(false);
 
 // Quest progress summary (mission-based activities)
 const questProgress = $derived.by(() => {
@@ -448,15 +447,13 @@ $effect(() => {
 		</div>
 	{/if}
 
-	<!-- Focus Mode: recommended 3 activities (#0264) -->
-	{#if data.focusMode && recommendedActivities.length > 0 && !showAllActivities}
+	<!-- Focus Mode: recommended activities as compact section (#0264, #0283) -->
+	{#if data.focusMode && recommendedActivities.length > 0}
 		<FocusMode
 			{recommendedActivities}
 			allCompleted={focusAllCompleted}
 			completedCount={focusCompletedCount}
 			totalCount={recommendedActivities.length}
-			{showAllActivities}
-			onToggleShowAll={() => (showAllActivities = !showAllActivities)}
 		>
 			{#snippet activitySlot(activity)}
 				<ActivityCard
@@ -464,7 +461,7 @@ $effect(() => {
 					icon={activity.icon}
 					name={activity.displayName ?? activity.name}
 					categoryId={activity.categoryId}
-					cardSize="medium"
+					cardSize="small"
 					completed={isCompleted(activity)}
 					count={getCount(activity.id)}
 					isMission={false}
@@ -474,55 +471,44 @@ $effect(() => {
 				/>
 			{/snippet}
 		</FocusMode>
-	{:else}
-		<!-- Activity grid by category (normal mode or expanded) -->
-		{#each activitiesByCategory as group (group.categoryId)}
-			<CategorySection
-				categoryId={group.categoryId}
-				cardSize={displayConfig.cardSize}
-				itemsPerCategory={displayConfig.itemsPerCategory}
-				collapsible={displayConfig.collapsible}
-				itemCount={group.items.length}
-				xpInfo={getCategoryXpWithAnim(group.categoryId)}
-				xpAnimating={xpAnimatingCategoryId === group.categoryId}
-				missionCount={getCategoryMissionCount(group.categoryId)}
-				completedMissionCount={getCategoryCompletedMissionCount(group.categoryId)}
-			>
-				{#each group.items as activity, i (activity.id)}
-					{#if i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
-						<div class="col-span-full flex items-center gap-2 my-0.5" aria-hidden="true" data-testid="pin-separator">
-							<div class="flex-1 border-t border-dashed border-gray-300"></div>
-						</div>
-					{/if}
-					<ActivityCard
-						activityId={activity.id}
-						icon={activity.icon}
-						name={activity.displayName}
-						categoryId={activity.categoryId}
-						cardSize={displayConfig.cardSize}
-						completed={isCompleted(activity)}
-						count={getCount(activity.id)}
-						isMission={activity.isMission}
-						isPinned={activity.isPinned}
-						triggerHint={activity.triggerHint}
-						onclick={() => handleActivityTap(activity)}
-						onlongpress={() => handleActivityLongPress(activity)}
-					/>
-				{/each}
-			</CategorySection>
-		{/each}
-
-		<!-- Collapse back to focus mode button -->
-		{#if data.focusMode && showAllActivities}
-			<button
-				class="show-all-toggle"
-				onclick={() => (showAllActivities = false)}
-				data-testid="focus-collapse"
-			>
-				▲ おすすめだけ みる
-			</button>
-		{/if}
 	{/if}
+
+	<!-- Activity grid by category (always visible) -->
+	{#each activitiesByCategory as group (group.categoryId)}
+		<CategorySection
+			categoryId={group.categoryId}
+			cardSize={displayConfig.cardSize}
+			itemsPerCategory={displayConfig.itemsPerCategory}
+			collapsible={displayConfig.collapsible}
+			itemCount={group.items.length}
+			xpInfo={getCategoryXpWithAnim(group.categoryId)}
+			xpAnimating={xpAnimatingCategoryId === group.categoryId}
+			missionCount={getCategoryMissionCount(group.categoryId)}
+			completedMissionCount={getCategoryCompletedMissionCount(group.categoryId)}
+		>
+			{#each group.items as activity, i (activity.id)}
+				{#if i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
+					<div class="col-span-full flex items-center gap-2 my-0.5" aria-hidden="true" data-testid="pin-separator">
+						<div class="flex-1 border-t border-dashed border-gray-300"></div>
+					</div>
+				{/if}
+				<ActivityCard
+					activityId={activity.id}
+					icon={activity.icon}
+					name={activity.displayName}
+					categoryId={activity.categoryId}
+					cardSize={displayConfig.cardSize}
+					completed={isCompleted(activity)}
+					count={getCount(activity.id)}
+					isMission={activity.isMission}
+					isPinned={activity.isPinned}
+					triggerHint={activity.triggerHint}
+					onclick={() => handleActivityTap(activity)}
+					onlongpress={() => handleActivityLongPress(activity)}
+				/>
+			{/each}
+		</CategorySection>
+	{/each}
 
 	{#if data.activities.length === 0}
 		<ActivityEmptyState uiMode={data.uiMode} />
@@ -900,20 +886,6 @@ $effect(() => {
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
-	}
-
-	.show-all-toggle {
-		display: block;
-		width: 100%;
-		margin-top: 12px;
-		padding: 10px;
-		background: var(--color-surface, #f9fafb);
-		border: 1px solid var(--color-border, #e5e7eb);
-		border-radius: 12px;
-		color: var(--color-text-muted, #6b7280);
-		font-size: 0.8125rem;
-		font-weight: 600;
-		cursor: pointer;
 	}
 
 </style>
