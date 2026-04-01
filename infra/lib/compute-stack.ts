@@ -52,6 +52,9 @@ export class ComputeStack extends cdk.Stack {
 		const stripePriceMonthly = this.node.tryGetContext('stripePriceMonthly') ?? '';
 		const stripePriceYearly = this.node.tryGetContext('stripePriceYearly') ?? '';
 
+		// --- OPS Dashboard（CDK context 経由で GitHub Actions Secrets から取得） ---
+		const opsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
+
 		// --- Discord Webhook URLs（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const feedbackDiscordWebhookUrl = this.node.tryGetContext('feedbackDiscordWebhookUrl') ?? '';
 		const discordWebhookSignup = this.node.tryGetContext('discordWebhookSignup') ?? '';
@@ -97,6 +100,7 @@ export class ComputeStack extends cdk.Stack {
 				...(discordWebhookIncident
 					? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident }
 					: {}),
+				...(opsSecretKey ? { OPS_SECRET_KEY: opsSecretKey } : {}),
 				...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
 				...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
 				...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
@@ -117,6 +121,14 @@ export class ComputeStack extends cdk.Stack {
 		this.fn.addToRolePolicy(
 			new iam.PolicyStatement({
 				actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+				resources: ['*'],
+			}),
+		);
+
+		// Grant Lambda Cost Explorer read access (OPS dashboard)
+		this.fn.addToRolePolicy(
+			new iam.PolicyStatement({
+				actions: ['ce:GetCostAndUsage'],
 				resources: ['*'],
 			}),
 		);
