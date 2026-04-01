@@ -16,11 +16,7 @@ import {
 import { getChecklistsForChild } from '$lib/server/services/checklist-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
-import {
-	isFocusModeActive,
-	markFocusModeStart,
-	selectRecommendations,
-} from '$lib/server/services/recommendation-service';
+import { selectRecommendations } from '$lib/server/services/recommendation-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
@@ -105,11 +101,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	}));
 
 	// フォーカスモード: おすすめ活動の選定 (#0264)
-	const focusActive = await isFocusModeActive(child.id, tenantId);
-	if (focusActive) {
-		markFocusModeStart(child.id, tenantId).catch(() => {});
-	}
-	const recommendations = focusActive ? selectRecommendations(rawActivities, todayDate()) : [];
+	const recommendations = selectRecommendations(rawActivities, todayDate());
 	const recommendedIds = new Set(recommendations.map((r) => r.activityId));
 
 	const birthdayBonus =
@@ -132,7 +124,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		gameLoopHints: {
 			achievements: achievementSummary,
 		},
-		focusMode: focusActive,
+		focusMode: recommendations.length > 0,
 		recommendedActivityIds: [...recommendedIds],
 		birthdayBonus,
 	};
