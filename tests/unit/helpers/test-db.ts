@@ -467,7 +467,8 @@ export const SQL_TABLES = `
 	CREATE TABLE stamp_entries (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		card_id INTEGER NOT NULL REFERENCES stamp_cards(id),
-		stamp_master_id INTEGER NOT NULL REFERENCES stamp_masters(id),
+		stamp_master_id INTEGER REFERENCES stamp_masters(id),
+		omikuji_rank TEXT,
 		slot INTEGER NOT NULL,
 		login_date TEXT NOT NULL,
 		earned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
