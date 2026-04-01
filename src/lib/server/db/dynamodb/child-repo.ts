@@ -91,6 +91,8 @@ export async function insertChild(input: InsertChildInput, tenantId: string): Pr
 		activeTitleId: null,
 		displayConfig: null,
 		userId: null,
+		birthdayBonusMultiplier: 1.0,
+		lastBirthdayBonusYear: null,
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -160,6 +162,16 @@ export async function updateChild(
 		expressionParts.push('#userId = :userId');
 		expressionNames['#userId'] = 'userId';
 		expressionValues[':userId'] = input.userId;
+	}
+	if (input.birthdayBonusMultiplier !== undefined) {
+		expressionParts.push('#birthdayBonusMultiplier = :birthdayBonusMultiplier');
+		expressionNames['#birthdayBonusMultiplier'] = 'birthdayBonusMultiplier';
+		expressionValues[':birthdayBonusMultiplier'] = input.birthdayBonusMultiplier;
+	}
+	if (input.lastBirthdayBonusYear !== undefined) {
+		expressionParts.push('#lastBirthdayBonusYear = :lastBirthdayBonusYear');
+		expressionNames['#lastBirthdayBonusYear'] = 'lastBirthdayBonusYear';
+		expressionValues[':lastBirthdayBonusYear'] = input.lastBirthdayBonusYear;
 	}
 
 	try {
