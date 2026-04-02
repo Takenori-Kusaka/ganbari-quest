@@ -90,26 +90,14 @@ resource "google_service_account" "github_actions" {
   depends_on = [google_project_service.this["iam.googleapis.com"]]
 }
 
-# サービスアカウントに WIF バインド
-resource "google_service_account_iam_member" "wif_binding" {
-  service_account_id = google_service_account.github_actions.name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repository}"
-}
-
-# サービスアカウントにプロジェクト編集権限
-resource "google_project_iam_member" "github_actions_editor" {
-  project = var.project_id
-  role    = "roles/editor"
-  member  = "serviceAccount:${google_service_account.github_actions.email}"
-}
-
-# サービスアカウントに WIF Pool 管理権限
-resource "google_project_iam_member" "github_actions_wif_admin" {
-  project = var.project_id
-  role    = "roles/iam.workloadIdentityPoolAdmin"
-  member  = "serviceAccount:${google_service_account.github_actions.email}"
-}
+# ------------------------------------------------------------------------------
+# IAM バインディング（bootstrap-gcp-wif.sh で管理）
+# ------------------------------------------------------------------------------
+# SA 自身の権限（editor, workloadIdentityUser, workloadIdentityPoolAdmin）は
+# ブートストラップスクリプトで付与済み。SA が自分自身の IAM ポリシーを変更するには
+# resourcemanager.projects.setIamPolicy / iam.serviceAccounts.setIamPolicy が
+# 必要だが、これらは roles/editor に含まれない（循環依存）。
+# GCP Terraform ベストプラクティスに従い、SA の権限管理はブートストラップに委譲する。
 
 # ------------------------------------------------------------------------------
 # Import: ブートストラップスクリプトで作成済みリソースを Terraform 管理下に取り込む
