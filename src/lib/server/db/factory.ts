@@ -17,6 +17,7 @@ import * as dynamoLevelTitleRepo from './dynamodb/level-title-repo';
 import * as dynamoLoginBonusRepo from './dynamodb/login-bonus-repo';
 import * as dynamoMessageRepo from './dynamodb/message-repo';
 import * as dynamoPointRepo from './dynamodb/point-repo';
+import * as dynamoSeasonEventRepo from './dynamodb/season-event-repo';
 import * as dynamoSettingsRepo from './dynamodb/settings-repo';
 import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
 import * as dynamoStampCardRepo from './dynamodb/stamp-card-repo';
@@ -40,6 +41,7 @@ import type { ILevelTitleRepo } from './interfaces/level-title-repo.interface';
 import type { ILoginBonusRepo } from './interfaces/login-bonus-repo.interface';
 import type { IMessageRepo } from './interfaces/message-repo.interface';
 import type { IPointRepo } from './interfaces/point-repo.interface';
+import type { ISeasonEventRepo } from './interfaces/season-event-repo.interface';
 import type { ISettingsRepo } from './interfaces/settings-repo.interface';
 import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interface';
 import type { IStampCardRepo } from './interfaces/stamp-card-repo.interface';
@@ -63,6 +65,7 @@ import * as sqliteLevelTitleRepo from './sqlite/level-title-repo';
 import * as sqliteLoginBonusRepo from './sqlite/login-bonus-repo';
 import * as sqliteMessageRepo from './sqlite/message-repo';
 import * as sqlitePointRepo from './sqlite/point-repo';
+import * as sqliteSeasonEventRepo from './sqlite/season-event-repo';
 import * as sqliteSettingsRepo from './sqlite/settings-repo';
 import * as sqliteSpecialRewardRepo from './sqlite/special-reward-repo';
 import * as sqliteStampCardRepo from './sqlite/stamp-card-repo';
@@ -87,6 +90,7 @@ export interface Repositories {
 	loginBonus: ILoginBonusRepo;
 	message: IMessageRepo;
 	point: IPointRepo;
+	seasonEvent: ISeasonEventRepo;
 	settings: ISettingsRepo;
 	specialReward: ISpecialRewardRepo;
 	stampCard: IStampCardRepo;
@@ -120,6 +124,7 @@ export function getRepos(): Repositories {
 			loginBonus: dynamoLoginBonusRepo,
 			message: dynamoMessageRepo,
 			point: dynamoPointRepo,
+			seasonEvent: dynamoSeasonEventRepo,
 			settings: dynamoSettingsRepo,
 			levelTitle: dynamoLevelTitleRepo,
 			specialReward: dynamoSpecialRewardRepo,
@@ -149,6 +154,7 @@ export function getRepos(): Repositories {
 		loginBonus: sqliteLoginBonusRepo,
 		message: sqliteMessageRepo,
 		point: sqlitePointRepo,
+		seasonEvent: sqliteSeasonEventRepo,
 		settings: sqliteSettingsRepo,
 		levelTitle: sqliteLevelTitleRepo,
 		specialReward: sqliteSpecialRewardRepo,
