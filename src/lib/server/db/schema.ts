@@ -609,6 +609,52 @@ export const parentMessages = sqliteTable(
 );
 
 // ============================================================
+// season_events - シーズンイベント定義
+// ============================================================
+export const seasonEvents = sqliteTable('season_events', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	code: text('code').notNull().unique(),
+	name: text('name').notNull(),
+	description: text('description'),
+	eventType: text('event_type').notNull().default('seasonal'), // seasonal / campaign / monthly
+	startDate: text('start_date').notNull(), // YYYY-MM-DD
+	endDate: text('end_date').notNull(), // YYYY-MM-DD
+	bannerIcon: text('banner_icon').notNull().default('🎉'),
+	bannerColor: text('banner_color'), // CSS color or gradient
+	themeConfig: text('theme_config'), // JSON: background, accent colors
+	rewardConfig: text('reward_config'), // JSON: title/points/stamp rewards
+	missionConfig: text('mission_config'), // JSON: event-specific missions
+	isActive: integer('is_active').notNull().default(1),
+	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================
+// child_event_progress - 子供ごとのイベント参加・進捗
+// ============================================================
+export const childEventProgress = sqliteTable(
+	'child_event_progress',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		eventId: integer('event_id')
+			.notNull()
+			.references(() => seasonEvents.id),
+		status: text('status').notNull().default('active'), // active / completed / reward_claimed
+		progressJson: text('progress_json'), // JSON: mission completions, counts
+		rewardClaimedAt: text('reward_claimed_at'),
+		joinedAt: text('joined_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_child_event_unique').on(table.childId, table.eventId),
+		index('idx_child_event_child').on(table.childId),
+	],
+);
+
+// ============================================================
 // level_titles - テナント別レベル称号カスタマイズ
 // ============================================================
 export const levelTitles = sqliteTable(

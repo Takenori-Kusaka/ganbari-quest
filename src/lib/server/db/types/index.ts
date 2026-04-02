@@ -622,3 +622,68 @@ export interface UpdateStampCardStatusInput {
 	redeemedAt: string | null;
 	updatedAt: string;
 }
+
+// ============================================================
+// Season Events
+// ============================================================
+
+export interface SeasonEvent {
+	id: number;
+	code: string;
+	name: string;
+	description: string | null;
+	eventType: string;
+	startDate: string;
+	endDate: string;
+	bannerIcon: string;
+	bannerColor: string | null;
+	themeConfig: string | null;
+	rewardConfig: string | null;
+	missionConfig: string | null;
+	isActive: number;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface ChildEventProgress {
+	id: number;
+	childId: number;
+	eventId: number;
+	status: string;
+	progressJson: string | null;
+	rewardClaimedAt: string | null;
+	joinedAt: string;
+	updatedAt: string;
+}
+
+export interface InsertSeasonEventInput {
+	code: string;
+	name: string;
+	description?: string | null;
+	eventType?: string;
+	startDate: string;
+	endDate: string;
+	bannerIcon?: string;
+	bannerColor?: string | null;
+	themeConfig?: string | null;
+	rewardConfig?: string | null;
+	missionConfig?: string | null;
+}
+
+export interface UpdateSeasonEventInput {
+	name?: string;
+	description?: string | null;
+	eventType?: string;
+	startDate?: string;
+	endDate?: string;
+	bannerIcon?: string;
+	bannerColor?: string | null;
+	themeConfig?: string | null;
+	rewardConfig?: string | null;
+	missionConfig?: string | null;
+	isActive?: number;
+}
+
+export interface SeasonEventWithProgress extends SeasonEvent {
+	progress: ChildEventProgress | null;
+}
