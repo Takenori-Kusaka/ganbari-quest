@@ -75,6 +75,20 @@
 	--color-danger: #f44336;
 	--color-point: #ffd700;
 
+	/* ---- Violet Accent (プライシング・プレミアム強調) ---- */
+	--color-violet-600: #7c3aed;
+	--color-violet-500: #8b5cf6;
+
+	/* ---- Rarity Colors (実績・シールのレアリティ) ---- */
+	--color-rarity-common: #86efac;
+	--color-rarity-common-bg: #f0fdf4;
+	--color-rarity-rare: #93c5fd;
+	--color-rarity-rare-bg: #eff6ff;
+	--color-rarity-epic: #c4b5fd;
+	--color-rarity-epic-bg: #f5f3ff;
+	--color-rarity-legendary: #fcd34d;
+	--color-rarity-legendary-bg: #fffbeb;
+
 	/* ---- Category Colors ---- */
 	--color-cat-undou: #4caf50;
 	--color-cat-benkyou: #2196f3;

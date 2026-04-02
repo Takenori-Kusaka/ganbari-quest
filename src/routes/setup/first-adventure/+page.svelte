@@ -193,8 +193,8 @@ function goToComplete() {
 	}
 
 	.points-display {
-		background: linear-gradient(135deg, #fef3c7, #fde68a);
-		border: 2px solid #f59e0b;
+		background: var(--gradient-gold);
+		border: 2px solid var(--color-gold-600);
 		border-radius: 16px;
 		padding: 16px;
 		margin: 16px 0;
@@ -203,12 +203,12 @@ function goToComplete() {
 	.points-value {
 		font-size: 2rem;
 		font-weight: 800;
-		color: #b45309;
+		color: var(--color-gold-700);
 	}
 
 	.points-label {
 		font-size: 0.875rem;
-		color: #92400e;
+		color: var(--color-gold-700);
 		font-weight: 600;
 	}
 
@@ -226,15 +226,15 @@ function goToComplete() {
 	}
 
 	.level-before {
-		color: #9ca3af;
+		color: var(--color-neutral-400);
 	}
 
 	.level-arrow {
-		color: #f59e0b;
+		color: var(--color-gold-600);
 	}
 
 	.level-after {
-		color: #f59e0b;
+		color: var(--color-gold-600);
 		font-size: 1.5rem;
 	}
 
@@ -250,7 +250,7 @@ function goToComplete() {
 		align-items: center;
 		gap: 4px;
 		padding: 16px 8px;
-		border: 2px solid #e5e7eb;
+		border: 2px solid var(--color-neutral-200);
 		border-radius: 16px;
 		background: white;
 		cursor: pointer;
@@ -258,13 +258,13 @@ function goToComplete() {
 	}
 
 	.activity-card:hover {
-		border-color: #93c5fd;
-		background: #eff6ff;
+		border-color: var(--color-brand-300);
+		background: var(--color-brand-50);
 	}
 
 	.activity-card--selected {
-		border-color: #3b82f6;
-		background: #dbeafe;
+		border-color: var(--color-brand-600);
+		background: var(--color-brand-200);
 		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 	}
 
@@ -275,14 +275,14 @@ function goToComplete() {
 	.activity-name {
 		font-size: 0.75rem;
 		font-weight: 600;
-		color: #374151;
+		color: var(--color-text);
 		text-align: center;
 		line-height: 1.2;
 	}
 
 	.activity-points {
 		font-size: 0.625rem;
-		color: #f59e0b;
+		color: var(--color-gold-600);
 		font-weight: 700;
 	}
 

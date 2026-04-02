@@ -5,15 +5,7 @@ import { playSound } from '$lib/ui/sound/play-sound';
 
 let { data } = $props();
 
-const themeColors: Record<string, { bg: string; border: string }> = {
-	pink: { bg: '#fff0f5', border: '#ff69b4' },
-	blue: { bg: '#e3f2fd', border: '#4fc3f7' },
-	green: { bg: '#e8f5e9', border: '#66bb6a' },
-	orange: { bg: '#fff3e0', border: '#ffa726' },
-	purple: { bg: '#f3e5f5', border: '#ab47bc' },
-};
-
-const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
+const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 </script>
 
 <svelte:head>
@@ -41,7 +33,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 		{:else}
 			<div class="child-list">
 				{#each data.children as child (child.id)}
-					{@const colors = themeColors[child.theme] ?? defaultTheme}
+					{@const themeName = knownThemes.has(child.theme) ? child.theme : 'pink'}
 					<form method="POST" action="?/select" use:enhance>
 						<input type="hidden" name="childId" value={child.id} />
 						<button
@@ -49,7 +41,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 							use:playSound={'tap'}
 							class="child-button"
 							data-testid="child-select-{child.id}"
-							style="--child-bg: {colors.bg}; --child-border: {colors.border};"
+							data-theme={themeName}
 						>
 							{#if child.avatarUrl}
 								<img
@@ -83,7 +75,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 <style>
 	.portal-page {
 		min-height: 100dvh;
-		background: linear-gradient(135deg, #e8f4fd 0%, #f0f7ff 50%, #fef9e7 100%);
+		background: linear-gradient(135deg, var(--color-brand-100) 0%, var(--color-brand-50) 50%, var(--color-gold-100) 100%);
 		display: flex;
 		flex-direction: column;
 	}
@@ -106,7 +98,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 		font-size: 1.5rem;
 		font-weight: 700;
 		text-align: center;
-		color: #1e293b;
+		color: var(--color-neutral-900);
 		margin-bottom: 24px;
 	}
 
@@ -115,7 +107,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 		flex-direction: column;
 		align-items: center;
 		padding: 48px 0;
-		color: #94a3b8;
+		color: var(--color-neutral-400);
 	}
 
 	.portal-empty-icon {
@@ -146,7 +138,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 		gap: 12px;
 		padding: 16px;
 		background: white;
-		border: 2px solid var(--child-border);
+		border: 2px solid var(--theme-primary);
 		border-radius: 16px;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 		cursor: pointer;
@@ -155,7 +147,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 	}
 
 	.child-button:hover {
-		background: var(--child-bg);
+		background: var(--theme-bg);
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
@@ -169,7 +161,7 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 		height: 48px;
 		border-radius: 50%;
 		object-fit: cover;
-		border: 2px solid var(--child-border);
+		border: 2px solid var(--theme-primary);
 		flex-shrink: 0;
 	}
 
@@ -186,19 +178,19 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 	.child-name {
 		font-size: 1.125rem;
 		font-weight: 700;
-		color: #1e293b;
+		color: var(--color-neutral-900);
 		margin: 0;
 	}
 
 	.child-age {
 		font-size: 0.875rem;
-		color: #94a3b8;
+		color: var(--color-neutral-400);
 		margin: 2px 0 0;
 	}
 
 	.child-arrow {
 		font-size: 1.5rem;
-		color: #cbd5e1;
+		color: var(--color-neutral-300);
 		flex-shrink: 0;
 	}
 
@@ -208,22 +200,22 @@ const defaultTheme = { bg: '#f5f5f5', border: '#9e9e9e' };
 	}
 
 	.portal-footer a {
-		color: #64748b;
+		color: var(--color-text-muted);
 		font-size: 0.875rem;
 		text-decoration: none;
 	}
 
 	.portal-footer a:hover {
-		color: #3878b8;
+		color: var(--color-brand-700);
 	}
 
 	.toast-banner {
-		background: #fef3cd;
-		color: #856404;
+		background: var(--color-gold-100);
+		color: var(--color-gold-700);
 		padding: 12px 16px;
 		text-align: center;
 		font-size: 0.875rem;
 		font-weight: 600;
-		border-bottom: 1px solid #ffc107;
+		border-bottom: 1px solid var(--color-gold-500);
 	}
 </style>
