@@ -5,6 +5,7 @@ import { parseDisplayConfig } from '$lib/domain/display-config';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
+import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
@@ -17,6 +18,7 @@ import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import EventBanner from '$lib/ui/components/EventBanner.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
+import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
 import SiblingRanking from '$lib/ui/components/SiblingRanking.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -37,6 +39,22 @@ const displayConfig = $derived(parseDisplayConfig(data.child?.displayConfig, dat
 
 // Birthday bonus state
 let birthdayModalOpen = $state(false);
+
+// Sibling cheer overlay
+let showCheerOverlay = $state(true);
+
+// Sibling celebration (all siblings complete)
+const celebrationChallenge = $derived(
+	data.activeChallenges?.find(
+		(c: { allCompleted: boolean; progress: { childId: number; rewardClaimed: number }[] }) =>
+			c.allCompleted &&
+			c.progress.some(
+				(p: { childId: number; rewardClaimed: number }) =>
+					p.childId === (data.child?.id ?? 0) && p.rewardClaimed === 0,
+			),
+	) ?? null,
+);
+let showCelebration = $state(true);
 
 // Pin context menu state
 let pinMenuOpen = $state(false);
@@ -859,6 +877,28 @@ $effect(() => {
 		body={data.latestMessage.body}
 		icon={data.latestMessage.icon}
 		onClose={handleMessageClose}
+	/>
+{/if}
+
+<!-- Sibling celebration (all siblings complete) -->
+{#if showCelebration && celebrationChallenge}
+	<SiblingCelebration
+		challengeTitle={celebrationChallenge.title}
+		challengeId={celebrationChallenge.id}
+		rewardClaimed={false}
+		siblings={celebrationChallenge.progress.map((p: { childId: number; completed: number }) => ({
+			name: data.allChildren?.find((c: { id: number }) => c.id === p.childId)?.nickname ?? `#${p.childId}`,
+			completed: p.completed === 1,
+		}))}
+		onDismiss={() => { showCelebration = false; }}
+	/>
+{/if}
+
+<!-- Sibling cheer overlay -->
+{#if showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0}
+	<SiblingCheerOverlay
+		cheers={data.unshownCheers}
+		onDismiss={() => { showCheerOverlay = false; }}
 	/>
 {/if}
 
