@@ -3616,6 +3616,62 @@ function seed() {
 		console.log(`  - stamp_masters: already seeded (${existingStamps.length})`);
 	}
 
+	// ============================================================
+	// シーズンイベント初期データ
+	// ============================================================
+	const existingEvents = db.select().from(schema.seasonEvents).all();
+	if (existingEvents.length === 0) {
+		const eventsData: (typeof schema.seasonEvents.$inferInsert)[] = [
+			{
+				code: 'spring-2026',
+				name: 'しんがっきスタートダッシュ',
+				description: '新学期の目標を立てて、毎日の活動を記録しよう！30日間のチャレンジ',
+				eventType: 'seasonal',
+				startDate: '2026-04-01',
+				endDate: '2026-04-30',
+				bannerIcon: '🌸',
+				bannerColor: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+				rewardConfig: JSON.stringify({
+					points: 50,
+					title: 'スタートダッシュ達成！',
+					bonusXp: 100,
+				}),
+				missionConfig: JSON.stringify({
+					type: 'total_records',
+					target: 20,
+					description: '20回活動を記録しよう',
+				}),
+				isActive: 1,
+			},
+			{
+				code: 'monthly-2026-04',
+				name: 'まんすりーチャレンジ 4月',
+				description: '今月30回記録して月替わりスタンプをゲットしよう',
+				eventType: 'monthly',
+				startDate: '2026-04-01',
+				endDate: '2026-04-30',
+				bannerIcon: '📅',
+				bannerColor: 'linear-gradient(135deg, #dbeafe, #bfdbfe)',
+				rewardConfig: JSON.stringify({
+					points: 30,
+					title: 'まんすりーチャンピオン',
+				}),
+				missionConfig: JSON.stringify({
+					type: 'total_records',
+					target: 30,
+					description: '30回活動を記録しよう',
+				}),
+				isActive: 1,
+			},
+		];
+		for (const event of eventsData) {
+			db.insert(schema.seasonEvents).values(event).run();
+		}
+		console.log(`  ✓ season_events: ${eventsData.length} items`);
+	} else {
+		console.log(`  - season_events: already seeded (${existingEvents.length})`);
+	}
+
 	console.log('Seeding complete!');
 }
 
