@@ -65,11 +65,6 @@ function getConfig(rank: string) {
 </script>
 
 <div class="stamp-card" data-testid="stamp-card">
-	<!-- Header -->
-	<div class="stamp-card__header">
-		<span class="stamp-card__period">{formatDateShort(weekStart)}〜{formatDateShort(weekEnd)}</span>
-	</div>
-
 	<!-- Stamp slots -->
 	<div class="stamp-card__slots">
 		{#each Array(totalSlots) as _, i}
@@ -106,10 +101,13 @@ function getConfig(rank: string) {
 
 	<!-- Progress -->
 	<div class="stamp-card__progress">
-		<div class="stamp-card__progress-bar">
-			<div class="stamp-card__progress-fill" style="width: {(filledSlots / totalSlots) * 100}%"></div>
+		<span class="stamp-card__period">{formatDateShort(weekStart)}〜{formatDateShort(weekEnd)}</span>
+		<div class="stamp-card__progress-right">
+			<div class="stamp-card__progress-bar">
+				<div class="stamp-card__progress-fill" style="width: {(filledSlots / totalSlots) * 100}%"></div>
+			</div>
+			<span class="stamp-card__progress-text">{filledSlots}/{totalSlots} おしたよ！</span>
 		</div>
-		<span class="stamp-card__progress-text">{filledSlots}/{totalSlots} おしたよ！</span>
 	</div>
 
 	<!-- Action area -->
@@ -191,20 +189,10 @@ function getConfig(rank: string) {
 </div>
 
 <style>
-	.stamp-card {
-		padding: 12px 10px 10px;
-	}
-
-	.stamp-card__header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 10px;
-	}
-
 	.stamp-card__period {
 		font-size: 0.625rem;
 		color: var(--color-text-muted, #9ca3af);
+		white-space: nowrap;
 	}
 
 	/* Stamp slots grid */
@@ -282,8 +270,17 @@ function getConfig(rank: string) {
 	.stamp-card__progress {
 		display: flex;
 		align-items: center;
+		justify-content: space-between;
 		gap: 8px;
 		margin-bottom: 8px;
+	}
+
+	.stamp-card__progress-right {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex: 1;
+		min-width: 0;
 	}
 
 	.stamp-card__progress-bar {
