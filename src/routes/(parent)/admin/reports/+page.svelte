@@ -1,5 +1,17 @@
 <script lang="ts">
-let { data } = $props();
+import { enhance } from '$app/forms';
+
+let { data, form } = $props();
+
+const dayLabels: Record<string, string> = {
+	monday: '月曜日',
+	tuesday: '火曜日',
+	wednesday: '水曜日',
+	thursday: '木曜日',
+	friday: '金曜日',
+	saturday: '土曜日',
+	sunday: '日曜日',
+};
 
 function formatWeek(start: string, end: string): string {
 	return `${start.replace(/-/g, '/')} 〜 ${end.replace(/-/g, '/')}`;
@@ -21,7 +33,40 @@ function progressPct(xp: number, level: number): number {
 </svelte:head>
 
 <div class="space-y-6">
-	<h2 class="text-lg font-bold">📊 しゅうかんレポート</h2>
+	<div class="flex items-center justify-between">
+		<h2 class="text-lg font-bold">📊 しゅうかんレポート</h2>
+	</div>
+
+	{#if form?.settingsUpdated}
+		<div class="rounded-lg bg-green-50 p-3 text-sm text-green-700">設定を更新しました</div>
+	{/if}
+
+	<!-- 設定セクション -->
+	<form method="POST" action="?/updateSettings" use:enhance class="rounded-xl border bg-white p-4">
+		<h3 class="mb-3 text-sm font-bold text-gray-700">⚙️ レポート設定</h3>
+		<div class="flex flex-wrap items-center gap-4">
+			<label class="flex items-center gap-2">
+				<input
+					type="checkbox"
+					name="enabled"
+					checked={data.settings.enabled}
+					class="h-4 w-4 rounded border-gray-300"
+				/>
+				<span class="text-sm text-gray-700">週次レポートを有効にする</span>
+			</label>
+			<label class="flex items-center gap-2">
+				<span class="text-sm text-gray-600">配信曜日:</span>
+				<select name="day" class="rounded-lg border px-2 py-1 text-sm">
+					{#each Object.entries(dayLabels) as [value, label]}
+						<option {value} selected={data.settings.day === value}>{label}</option>
+					{/each}
+				</select>
+			</label>
+			<button type="submit" class="rounded-lg bg-blue-500 px-3 py-1.5 text-sm font-bold text-white">
+				保存
+			</button>
+		</div>
+	</form>
 
 	{#if data.reports.length === 0}
 		<div class="rounded-xl border bg-white p-8 text-center">
