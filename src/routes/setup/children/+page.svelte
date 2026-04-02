@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { AGE_TIER_CONFIG, type UiMode, getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
 let submitting = $state(false);
@@ -76,36 +77,23 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 >
 	<h3 class="text-sm font-bold text-gray-600">子供を追加</h3>
 
-	<div>
-		<label for="nickname" class="block text-sm font-medium text-gray-600 mb-1">ニックネーム</label>
-		<input
-			type="text"
-			id="nickname"
-			name="nickname"
-			required
-			placeholder="ゆうきちゃん"
-			class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-		/>
-	</div>
+	<FormField
+		label="ニックネーム"
+		name="nickname"
+		required
+		placeholder="ゆうきちゃん"
+	/>
 
-	<div>
-		<label for="age" class="block text-sm font-medium text-gray-600 mb-1">年齢</label>
-		<input
-			type="number"
-			id="age"
-			name="age"
-			min="0"
-			max="18"
-			required
-			bind:value={ageInput}
-			class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-		/>
-		{#if autoUiMode}
-			<p class="text-xs text-blue-500 mt-1">
-				{autoUiLabel}モードが自動で設定されます
-			</p>
-		{/if}
-	</div>
+	<FormField
+		label="年齢"
+		type="number"
+		name="age"
+		min={0}
+		max={18}
+		required
+		bind:value={ageInput}
+		hint={autoUiMode ? `${autoUiLabel}モードが自動で設定されます` : undefined}
+	/>
 
 	<div>
 		<label for="theme" class="block text-sm font-medium text-gray-600 mb-1">テーマカラー</label>
