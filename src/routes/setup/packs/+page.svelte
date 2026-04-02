@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -133,26 +134,17 @@ $effect(() => {
 			&larr; もどる
 		</a>
 		{#if skipMode}
-			<button
-				type="submit"
-				formaction="?/skip"
-				disabled={submitting}
-				class="flex-1 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 text-sm"
-			>
+			<Button type="submit" formaction="?/skip" variant="primary" size="sm" disabled={submitting} class="flex-1">
 				{submitting ? '処理中...' : 'スキップして次へ'}
-			</button>
+			</Button>
 		{:else}
-			<button
-				type="submit"
-				disabled={submitting || selectedPacks.size === 0}
-				class="flex-1 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 text-sm"
-			>
+			<Button type="submit" variant="primary" size="sm" disabled={submitting || selectedPacks.size === 0} class="flex-1">
 				{#if submitting}
 					インポート中...
 				{:else}
 					{selectedPacks.size}件のパックを追加 &rarr;
 				{/if}
-			</button>
+			</Button>
 		{/if}
 	</div>
 </form>

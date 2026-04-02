@@ -2,6 +2,7 @@
 import { goto } from '$app/navigation';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -37,12 +38,9 @@ function finish() {
 			<span class="text-5xl mb-4">📋</span>
 			<p class="text-lg font-bold text-gray-600">表示できる活動がありません</p>
 			<p class="text-sm text-gray-400 mt-1">まず活動を追加してください</p>
-			<button
-				onclick={finish}
-				class="mt-6 px-6 py-2 bg-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-300 transition-colors"
-			>
+			<Button onclick={finish} variant="ghost" size="sm" class="mt-6">
 				もどる
-			</button>
+			</Button>
 		</div>
 	{:else if activity}
 		<!-- Progress bar -->
@@ -112,33 +110,16 @@ function finish() {
 		<!-- Navigation buttons -->
 		<div class="sticky bottom-0 px-4 pb-6 pt-4 space-y-2 bg-white/80 backdrop-blur-sm border-t border-gray-100">
 			<div class="flex gap-2">
-				<button
-					onclick={prev}
-					disabled={currentIndex === 0}
-					class="flex-1 py-3 rounded-xl font-bold text-sm transition-colors
-						{currentIndex === 0
-						? 'bg-gray-100 text-gray-300'
-						: 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}"
-				>
+				<Button onclick={prev} disabled={currentIndex === 0} variant="outline" size="sm" class="flex-1">
 					← まえへ
-				</button>
-				<button
-					onclick={next}
-					disabled={currentIndex >= total - 1}
-					class="flex-1 py-3 rounded-xl font-bold text-sm transition-colors
-						{currentIndex >= total - 1
-						? 'bg-gray-100 text-gray-300'
-						: 'bg-blue-500 text-white hover:bg-blue-600'}"
-				>
+				</Button>
+				<Button onclick={next} disabled={currentIndex >= total - 1} variant="primary" size="sm" class="flex-1">
 					つぎへ →
-				</button>
+				</Button>
 			</div>
-			<button
-				onclick={finish}
-				class="w-full py-2.5 rounded-xl text-sm font-bold text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-			>
+			<Button onclick={finish} variant="ghost" size="sm" class="w-full">
 				おわる
-			</button>
+			</Button>
 		</div>
 	{/if}
 </div>

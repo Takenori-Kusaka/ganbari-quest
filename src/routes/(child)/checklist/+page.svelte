@@ -5,6 +5,7 @@ import { formatPointValueWithSign } from '$lib/domain/point-display';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -160,12 +161,9 @@ function handleCompleteClose() {
 				<p class="text-2xl font-bold text-[var(--color-point)]">+{completeData.pointsAwarded} ポイント！</p>
 			</div>
 			<p class="text-sm text-[var(--color-text-muted)]">わすれものなし！すごい！</p>
-			<button
-				class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg"
-				onclick={handleCompleteClose}
-			>
+			<Button variant="primary" size="lg" class="w-full" onclick={handleCompleteClose}>
 				やったね！
-			</button>
+			</Button>
 		</div>
 	{/if}
 </Dialog>
