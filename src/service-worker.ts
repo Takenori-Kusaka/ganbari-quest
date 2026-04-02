@@ -78,3 +78,52 @@ sw.addEventListener('fetch', (event) => {
 		}),
 	);
 });
+
+// ============================================================
+// プッシュ通知: 受信
+// ============================================================
+sw.addEventListener('push', (event) => {
+	if (!event.data) return;
+	try {
+		const payload = event.data.json() as {
+			title?: string;
+			body?: string;
+			data?: Record<string, unknown>;
+		};
+		event.waitUntil(
+			sw.registration.showNotification(payload.title ?? 'がんばりクエスト', {
+				body: payload.body ?? '',
+				icon: '/icons/icon-192.png',
+				badge: '/icons/icon-192.png',
+				data: payload.data ?? {},
+				tag: String((payload.data as Record<string, unknown>)?.type ?? 'default'),
+				renotify: true,
+			}),
+		);
+	} catch {
+		event.waitUntil(
+			sw.registration.showNotification('がんばりクエスト', {
+				body: event.data.text(),
+				icon: '/icons/icon-192.png',
+			}),
+		);
+	}
+});
+
+// ============================================================
+// プッシュ通知: クリック時のナビゲーション
+// ============================================================
+sw.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const targetUrl = '/';
+	event.waitUntil(
+		sw.clients.matchAll({ type: 'window' }).then((clients) => {
+			for (const client of clients) {
+				if (client.url.includes(targetUrl) && 'focus' in client) {
+					return (client as WindowClient).focus();
+				}
+			}
+			return sw.clients.openWindow(targetUrl);
+		}),
+	);
+});
