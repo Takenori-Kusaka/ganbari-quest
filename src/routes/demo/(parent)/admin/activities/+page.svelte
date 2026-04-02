@@ -9,6 +9,7 @@ import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
@@ -72,12 +73,7 @@ function dailyLimitLabel(val: number | null): string {
 	</div>
 
 	<!-- Search (matches production) -->
-	<input
-		type="text"
-		placeholder="🔍 活動を検索..."
-		class="w-full px-3 py-2 border rounded-lg text-sm bg-white"
-		bind:value={searchQuery}
-	/>
+	<FormField label="活動を検索" type="search" placeholder="🔍 活動を検索..." bind:value={searchQuery} />
 
 	<!-- Category Filter (matches production) -->
 	<div class="flex flex-wrap gap-2">

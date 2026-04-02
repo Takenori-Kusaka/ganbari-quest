@@ -7,6 +7,7 @@ import {
 	getUnitLabel,
 } from '$lib/domain/point-display';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
 let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'voice'>('info');
@@ -230,41 +231,32 @@ function handleFileSelect(childId: number, event: Event) {
 		>
 			<h3 class="font-bold text-gray-600">こどもを追加</h3>
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-				<div>
-					<label for="add-nickname" class="block text-xs font-bold text-gray-500 mb-1">ニックネーム</label>
-					<input
-						id="add-nickname"
-						name="nickname"
-						type="text"
-						required
-						placeholder="例: ゆうきちゃん"
-						class="w-full px-3 py-2 border rounded-lg text-sm"
-					/>
-				</div>
-				<div>
-					<label for="add-birthDate" class="block text-xs font-bold text-gray-500 mb-1">たんじょうび</label>
-					<input
-						id="add-birthDate"
-						name="birthDate"
-						type="date"
-						max={new Date().toISOString().split('T')[0]}
-						class="w-full px-3 py-2 border rounded-lg text-sm"
-					/>
-					<p class="text-xs text-gray-400 mt-0.5">設定すると年齢が自動計算されます</p>
-				</div>
-				<div>
-					<label for="add-age" class="block text-xs font-bold text-gray-500 mb-1">年齢</label>
-					<input
-						id="add-age"
-						name="age"
-						type="number"
-						min="0"
-						max="18"
-						required
-						placeholder="4"
-						class="w-full px-3 py-2 border rounded-lg text-sm"
-					/>
-				</div>
+				<FormField
+					label="ニックネーム"
+					type="text"
+					id="add-nickname"
+					name="nickname"
+					required
+					placeholder="例: ゆうきちゃん"
+				/>
+				<FormField
+					label="たんじょうび"
+					type="date"
+					id="add-birthDate"
+					name="birthDate"
+					max={new Date().toISOString().split('T')[0]}
+					hint="設定すると年齢が自動計算されます"
+				/>
+				<FormField
+					label="年齢"
+					type="number"
+					id="add-age"
+					name="age"
+					min="0"
+					max="18"
+					required
+					placeholder="4"
+				/>
 				<div>
 					<label for="add-theme" class="block text-xs font-bold text-gray-500 mb-1">テーマカラー</label>
 					<select id="add-theme" name="theme" class="w-full px-3 py-2 border rounded-lg text-sm">
@@ -307,40 +299,38 @@ function handleFileSelect(childId: number, event: Event) {
 					>
 						<input type="hidden" name="childId" value={child.id} />
 						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-							<div>
-								<label for="edit-nickname-{child.id}" class="block text-xs font-bold text-gray-500 mb-1">ニックネーム</label>
-								<input
-									id="edit-nickname-{child.id}"
-									name="nickname"
-									type="text"
-									value={child.nickname}
-									class="w-full px-3 py-2 border rounded-lg text-sm"
-								/>
-							</div>
-							<div>
-								<label for="edit-birthDate-{child.id}" class="block text-xs font-bold text-gray-500 mb-1">たんじょうび</label>
-								<input
-									id="edit-birthDate-{child.id}"
-									name="birthDate"
-									type="date"
-									max={new Date().toISOString().split('T')[0]}
-									value={child.birthDate ?? ''}
-									class="w-full px-3 py-2 border rounded-lg text-sm"
-								/>
-							</div>
-							<div>
-								<label for="edit-age-{child.id}" class="block text-xs font-bold text-gray-500 mb-1">年齢{child.birthDate ? '（自動計算）' : ''}</label>
-								<input
-									id="edit-age-{child.id}"
-									name="age"
-									type="number"
-									min="0"
-									max="18"
-									value={child.age}
-									readonly={!!child.birthDate}
-									class="w-full px-3 py-2 border rounded-lg text-sm {child.birthDate ? 'bg-gray-100 text-gray-500' : ''}"
-								/>
-							</div>
+							<FormField
+								label="ニックネーム"
+								type="text"
+								id="edit-nickname-{child.id}"
+								name="nickname"
+								value={child.nickname}
+							/>
+							<FormField
+								label="たんじょうび"
+								type="date"
+								id="edit-birthDate-{child.id}"
+								name="birthDate"
+								max={new Date().toISOString().split('T')[0]}
+								value={child.birthDate ?? ''}
+							/>
+							<FormField label="年齢{child.birthDate ? '（自動計算）' : ''}">
+								{#snippet children()}
+									<input
+										id="edit-age-{child.id}"
+										name="age"
+										type="number"
+										min="0"
+										max="18"
+										value={child.age}
+										readonly={!!child.birthDate}
+										class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
+											border-[var(--input-border)] focus:border-[var(--input-border-focus)]
+											focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors
+											{child.birthDate ? 'bg-gray-100 text-gray-500' : ''}"
+									/>
+								{/snippet}
+							</FormField>
 							<div>
 								<label for="edit-theme-{child.id}" class="block text-xs font-bold text-gray-500 mb-1">テーマカラー</label>
 								<select id="edit-theme-{child.id}" name="theme" class="w-full px-3 py-2 border rounded-lg text-sm">
@@ -751,13 +741,13 @@ function handleFileSelect(childId: number, event: Event) {
 						>
 							<h4 class="text-sm font-bold text-gray-700">📁 ファイルからアップロード</h4>
 							<input type="hidden" name="childId" value={child.id} />
-							<input
+							<FormField
+								label="ラベル"
 								type="text"
 								name="label"
 								bind:value={voiceLabel}
 								placeholder="ラベル（例: お母さんの声）"
 								maxlength={30}
-								class="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm"
 								required
 							/>
 							{#if !recordedBlob}

@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
@@ -290,44 +291,40 @@ async function handleReceiptFile(event: Event) {
 
 			<!-- Manual Mode -->
 			{:else if convertMode === 'manual'}
-				<div>
-					<span class="block text-sm font-bold text-gray-500 mb-2">変換{unit}数（自由入力）</span>
-					<div class="flex items-center gap-2">
-						<input
-							type="number"
-							min="1"
-							max={currentBalance}
-							step="1"
-							bind:value={manualInput}
-							placeholder="金額を入力"
-							class="flex-1 px-4 py-3 border-2 rounded-xl text-lg font-bold text-right
-								{manualInput && !manualValid ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-blue-400'}
-								outline-none transition-colors"
-							inputmode="numeric"
-						/>
-						<span class="text-lg font-bold text-gray-500">P</span>
-					</div>
-					<div class="flex items-center justify-between mt-2">
-						<p class="text-xs text-gray-400">
-							{isCurrencyMode ? '' : '1P = 1円 / '}残高: {fmtBal(currentBalance)}
-						</p>
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							class="text-xs text-blue-500 hover:text-blue-700"
-							onclick={() => manualInput = String(currentBalance)}
-						>
-							全額変換
-						</Button>
-					</div>
-					{#if manualInput && manualAmount > currentBalance}
-						<p class="text-xs text-red-500 mt-1">残高を超えています</p>
-					{/if}
-					{#if manualInput && manualAmount < 1}
-						<p class="text-xs text-red-500 mt-1">1P以上を入力してください</p>
-					{/if}
-				</div>
+				<FormField
+					label="変換{unit}数（自由入力）"
+					error={manualInput && manualAmount > currentBalance ? '残高を超えています' : manualInput && manualAmount < 1 ? '1P以上を入力してください' : undefined}
+					hint="{isCurrencyMode ? '' : '1P = 1円 / '}残高: {fmtBal(currentBalance)}"
+				>
+					{#snippet children()}
+						<div class="flex items-center gap-2">
+							<input
+								type="number"
+								min="1"
+								max={currentBalance}
+								step="1"
+								bind:value={manualInput}
+								placeholder="金額を入力"
+								class="flex-1 px-4 py-3 border-2 rounded-xl text-lg font-bold text-right
+									{manualInput && !manualValid ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-blue-400'}
+									outline-none transition-colors"
+								inputmode="numeric"
+							/>
+							<span class="text-lg font-bold text-gray-500">P</span>
+						</div>
+						<div class="flex items-center justify-end mt-2">
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								class="text-xs text-blue-500 hover:text-blue-700"
+								onclick={() => manualInput = String(currentBalance)}
+							>
+								全額変換
+							</Button>
+						</div>
+					{/snippet}
+				</FormField>
 
 			<!-- Receipt OCR Mode -->
 			{:else}
@@ -410,21 +407,24 @@ async function handleReceiptFile(event: Event) {
 									</div>
 
 									<!-- Editable amount -->
-									<div class="flex items-center justify-center gap-2">
-										<input
-											type="number"
-											min="1"
-											max={currentBalance}
-											step="1"
-											bind:value={receiptAmount}
-											class="w-32 px-3 py-2 border-2 rounded-lg text-lg font-bold text-right
-												{receiptAmount > currentBalance ? 'border-red-300' : 'border-blue-300 focus:border-blue-500'}
-												outline-none transition-colors"
-											inputmode="numeric"
-										/>
-										<span class="text-lg font-bold text-gray-500">円</span>
-									</div>
-									<p class="text-xs text-center text-gray-400">金額が違う場合は修正できます</p>
+									<FormField label="" hint="金額が違う場合は修正できます">
+										{#snippet children()}
+											<div class="flex items-center justify-center gap-2">
+												<input
+													type="number"
+													min="1"
+													max={currentBalance}
+													step="1"
+													bind:value={receiptAmount}
+													class="w-32 px-3 py-2 border-2 rounded-lg text-lg font-bold text-right
+														{receiptAmount > currentBalance ? 'border-red-300' : 'border-blue-300 focus:border-blue-500'}
+														outline-none transition-colors"
+													inputmode="numeric"
+												/>
+												<span class="text-lg font-bold text-gray-500">円</span>
+											</div>
+										{/snippet}
+									</FormField>
 
 									{#if receiptAmount > currentBalance}
 										<p class="text-xs text-red-500 text-center">残高（{fmtBal(currentBalance)}）を超えています</p>

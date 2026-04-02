@@ -2,6 +2,7 @@
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
@@ -67,36 +68,11 @@ let selectedTemplate = $state<string | null>(null);
 		<h3 class="text-sm font-bold text-gray-500">3. 内容を確認して付与</h3>
 
 		<div class="grid grid-cols-2 gap-3">
-			<label class="block">
-				<span class="block text-xs font-bold text-gray-500 mb-1">タイトル</span>
-				<input
-					type="text"
-					disabled
-					value={selectedTemplate ?? ''}
-					placeholder="テンプレートを選択"
-					class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
-				/>
-			</label>
-			<label class="block">
-				<span class="block text-xs font-bold text-gray-500 mb-1">ポイント</span>
-				<input
-					type="number"
-					disabled
-					value={100}
-					class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
-				/>
-			</label>
+			<FormField label="タイトル" type="text" disabled value={selectedTemplate ?? ''} placeholder="テンプレートを選択" />
+			<FormField label="ポイント" type="number" disabled value={100} />
 		</div>
 		<div class="grid grid-cols-2 gap-3">
-			<label class="block">
-				<span class="block text-xs font-bold text-gray-500 mb-1">アイコン</span>
-				<input
-					type="text"
-					disabled
-					value="🎁"
-					class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
-				/>
-			</label>
+			<FormField label="アイコン" type="text" disabled value="🎁" />
 			<label class="block">
 				<span class="block text-xs font-bold text-gray-500 mb-1">カテゴリ</span>
 				<select
