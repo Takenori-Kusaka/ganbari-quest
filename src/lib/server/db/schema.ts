@@ -778,3 +778,27 @@ export const notificationLogs = sqliteTable(
 	},
 	(table) => [index('idx_notification_logs_tenant_date').on(table.tenantId, table.sentAt)],
 );
+
+export const reportDailySummaries = sqliteTable(
+	'report_daily_summaries',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		date: text('date').notNull(),
+		activityCount: integer('activity_count').notNull().default(0),
+		categoryBreakdown: text('category_breakdown').notNull().default('{}'),
+		checklistCompletion: text('checklist_completion').notNull().default('{}'),
+		level: integer('level').notNull().default(1),
+		totalPoints: integer('total_points').notNull().default(0),
+		streakDays: integer('streak_days').notNull().default(0),
+		newAchievements: integer('new_achievements').notNull().default(0),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		index('idx_report_daily_child_date').on(table.childId, table.date),
+		index('idx_report_daily_tenant_date').on(table.tenantId, table.date),
+	],
+);

@@ -23,6 +23,12 @@ interface ChildSummary {
 	levelTitle?: string;
 }
 
+interface MonthSummaryData {
+	totalActivities: number;
+	currentLevel: number;
+	newAchievements: number;
+}
+
 interface Props {
 	children: ChildSummary[];
 	pointSettings: PointSettings;
@@ -30,6 +36,8 @@ interface Props {
 	onboarding?: OnboardingProgress | null;
 	mode: 'live' | 'demo';
 	basePath: string;
+	monthlySummaries?: Record<number, MonthSummaryData>;
+	currentMonth?: string;
 }
 
 let {
@@ -39,6 +47,8 @@ let {
 	onboarding = null,
 	mode,
 	basePath,
+	monthlySummaries = {},
+	currentMonth = '',
 }: Props = $props();
 
 const isDemo = $derived(mode === 'demo');
@@ -196,6 +206,43 @@ function childLink(child: ChildSummary): string {
 			<p class="text-xs text-gray-500 mt-1">合計{unit}</p>
 		</div>
 	</div>
+
+	<!-- Monthly Summary -->
+	{#if currentMonth && children.length > 0}
+		{@const monthLabel = currentMonth.replace(/^(\d{4})-0?(\d{1,2})$/, '$1年$2月')}
+		<section>
+			<div class="flex items-center justify-between mb-3">
+				<h2 class="text-lg font-bold text-gray-700">📊 {monthLabel}のがんばり</h2>
+				<a href="{basePath}/reports" class="text-xs text-blue-500 hover:underline">詳しく見る →</a>
+			</div>
+			<div class="grid gap-3">
+				{#each children as child}
+					{@const summary = monthlySummaries[child.id]}
+					{#if summary}
+						<div class="bg-white rounded-xl p-4 shadow-sm">
+							<p class="text-sm font-bold text-gray-700 mb-2">{child.nickname}</p>
+							<div class="flex gap-3">
+								<div class="flex-1 rounded-lg bg-blue-50 p-2 text-center">
+									<p class="text-xs text-blue-600">かつどう</p>
+									<p class="text-lg font-bold text-blue-700">{summary.totalActivities}</p>
+									<p class="text-[10px] text-blue-400">かい</p>
+								</div>
+								<div class="flex-1 rounded-lg bg-purple-50 p-2 text-center">
+									<p class="text-xs text-purple-600">レベル</p>
+									<p class="text-lg font-bold text-purple-700">{summary.currentLevel}</p>
+								</div>
+								<div class="flex-1 rounded-lg bg-amber-50 p-2 text-center">
+									<p class="text-xs text-amber-600">じっせき</p>
+									<p class="text-lg font-bold text-amber-700">{summary.newAchievements}</p>
+									<p class="text-[10px] text-amber-400">かくとく</p>
+								</div>
+							</div>
+						</div>
+					{/if}
+				{/each}
+			</div>
+		</section>
+	{/if}
 
 	<!-- Children Overview -->
 	<section data-tutorial="children-overview">
