@@ -1,0 +1,14 @@
+{
+	"formatVersion": "1.0",
+	"presetId": "evening-routine",
+	"name": "よるのじゅんび",
+	"icon": "🌙",
+	"pointsPerItem": 2,
+	"completionBonus": 5,
+	"items": [
+		{ "name": "おふろ", "icon": "🛁", "sortOrder": 1 },
+		{ "name": "はみがき", "icon": "🪥", "sortOrder": 2 },
+		{ "name": "あしたのじゅんび", "icon": "📋", "sortOrder": 3 },
+		{ "name": "おやすみのあいさつ", "icon": "😴", "sortOrder": 4 }
+	]
+}
