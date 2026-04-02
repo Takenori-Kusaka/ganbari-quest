@@ -67,7 +67,7 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 	});
 
 	test('ヘッダーにニックネームが表示される', async ({ page }) => {
-		await expect(page.getByText('ゆうきちゃん')).toBeVisible();
+		await expect(page.getByText('ゆうきちゃん', { exact: true })).toBeVisible();
 	});
 
 	test('ボトムナビゲーションが表示される', async ({ page }) => {
