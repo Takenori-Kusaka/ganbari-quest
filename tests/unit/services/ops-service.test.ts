@@ -229,7 +229,7 @@ describe('generateSalesLedgerCsv', () => {
 
 		const csv = generateSalesLedgerCsv(invoices);
 		const lines = csv.split('\n');
-		const dataLine = lines[1]!;
+		const dataLine = lines[1] ?? '';
 
 		expect(dataLine).toContain('123456789012...');
 	});
@@ -250,7 +250,7 @@ describe('generateSalesLedgerCsv', () => {
 		const csv = generateSalesLedgerCsv(invoices);
 		const lines = csv.split('\n');
 
-		expect(lines[1]!).toMatch(/^2026-12-25,/);
+		expect(lines[1] ?? '').toMatch(/^2026-12-25,/);
 	});
 
 	it('paidAt が空の場合、日付欄は空文字になる', () => {
@@ -269,7 +269,7 @@ describe('generateSalesLedgerCsv', () => {
 		const csv = generateSalesLedgerCsv(invoices);
 		const lines = csv.split('\n');
 
-		expect(lines[1]!).toMatch(/^,cus_test1234/);
+		expect(lines[1] ?? '').toMatch(/^,cus_test1234/);
 	});
 });
 
