@@ -2,7 +2,7 @@ import { CURRENCY_CODES } from '$lib/domain/point-display';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { generateInquiryId, saveInquiry } from '$lib/server/db/inquiry-repo';
-import { getSetting, setSetting } from '$lib/server/db/settings-repo';
+import { getSetting, getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { changePin } from '$lib/server/services/auth-service';
 import { clearAllFamilyData, getDataSummary } from '$lib/server/services/data-service';
@@ -30,6 +30,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	let siblingMode = 'both';
 	let siblingRankingEnabled = 'true';
+	let notificationSettings = {
+		remindersEnabled: true,
+		reminderTime: '09:00',
+		streakEnabled: true,
+		achievementsEnabled: true,
+		quietStart: '21:00',
+		quietEnd: '07:00',
+	};
 
 	try {
 		[dataSummary, decayIntensity, siblingMode, siblingRankingEnabled] = await Promise.all([
@@ -38,11 +46,36 @@ export const load: PageServerLoad = async ({ locals }) => {
 			getSetting('sibling_mode', tenantId).then((v) => v ?? 'both'),
 			getSetting('sibling_ranking_enabled', tenantId).then((v) => v ?? 'true'),
 		]);
+		const ns = await getSettings(
+			[
+				'notification_reminders_enabled',
+				'notification_reminder_time',
+				'notification_streak_enabled',
+				'notification_achievements_enabled',
+				'notification_quiet_start',
+				'notification_quiet_end',
+			],
+			tenantId,
+		);
+		notificationSettings = {
+			remindersEnabled: ns.notification_reminders_enabled !== 'false',
+			reminderTime: ns.notification_reminder_time ?? '09:00',
+			streakEnabled: ns.notification_streak_enabled !== 'false',
+			achievementsEnabled: ns.notification_achievements_enabled !== 'false',
+			quietStart: ns.notification_quiet_start ?? '21:00',
+			quietEnd: ns.notification_quiet_end ?? '07:00',
+		};
 	} catch (err) {
 		logger.error('[settings] load failed, using defaults', { error: String(err) });
 	}
 
-	return { dataSummary, decayIntensity, siblingMode, siblingRankingEnabled };
+	return {
+		dataSummary,
+		decayIntensity,
+		siblingMode,
+		siblingRankingEnabled,
+		notificationSettings,
+	};
 };
 
 export const actions = {
@@ -175,6 +208,32 @@ export const actions = {
 		await setSetting('sibling_ranking_enabled', rankingEnabled, tenantId);
 
 		return { siblingSuccess: true };
+	},
+	updateNotificationSettings: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+
+		const remindersEnabled = form.has('remindersEnabled') ? 'true' : 'false';
+		const reminderTime = form.get('reminderTime')?.toString() ?? '09:00';
+		const streakEnabled = form.has('streakEnabled') ? 'true' : 'false';
+		const achievementsEnabled = form.has('achievementsEnabled') ? 'true' : 'false';
+		const quietStart = form.get('quietStart')?.toString() ?? '21:00';
+		const quietEnd = form.get('quietEnd')?.toString() ?? '07:00';
+
+		// HH:MM format validation
+		const timeRegex = /^\d{2}:\d{2}$/;
+		if (!timeRegex.test(reminderTime) || !timeRegex.test(quietStart) || !timeRegex.test(quietEnd)) {
+			return fail(400, { notificationError: '時刻の形式が不正です' });
+		}
+
+		await setSetting('notification_reminders_enabled', remindersEnabled, tenantId);
+		await setSetting('notification_reminder_time', reminderTime, tenantId);
+		await setSetting('notification_streak_enabled', streakEnabled, tenantId);
+		await setSetting('notification_achievements_enabled', achievementsEnabled, tenantId);
+		await setSetting('notification_quiet_start', quietStart, tenantId);
+		await setSetting('notification_quiet_end', quietEnd, tenantId);
+
+		return { notificationSuccess: true };
 	},
 	clearData: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);

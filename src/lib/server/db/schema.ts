@@ -743,3 +743,38 @@ export const siblingCheers = sqliteTable(
 	},
 	(table) => [index('idx_sibling_cheers_to_shown').on(table.toChildId, table.shownAt)],
 );
+
+// ============================================================
+// push_subscriptions - プッシュ通知購読
+// ============================================================
+export const pushSubscriptions = sqliteTable(
+	'push_subscriptions',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		endpoint: text('endpoint').notNull().unique(),
+		keysP256dh: text('keys_p256dh').notNull(),
+		keysAuth: text('keys_auth').notNull(),
+		userAgent: text('user_agent'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [index('idx_push_subs_tenant').on(table.tenantId)],
+);
+
+// ============================================================
+// notification_logs - 通知送信ログ（レート制限＋監査）
+// ============================================================
+export const notificationLogs = sqliteTable(
+	'notification_logs',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		notificationType: text('notification_type').notNull(),
+		title: text('title').notNull(),
+		body: text('body').notNull(),
+		sentAt: text('sent_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		success: integer('success').notNull().default(1),
+		errorMessage: text('error_message'),
+	},
+	(table) => [index('idx_notification_logs_tenant_date').on(table.tenantId, table.sentAt)],
+);

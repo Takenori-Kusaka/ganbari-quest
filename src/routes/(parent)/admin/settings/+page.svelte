@@ -445,6 +445,135 @@ const previewFormatted = $derived(
 		</form>
 	</div>
 
+	<!-- 通知設定 -->
+	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+		<h3 class="text-lg font-bold text-gray-700 mb-4">🔔 通知設定</h3>
+
+		{#if form?.notificationSuccess}
+			<div class="rounded-lg bg-green-50 p-3 text-sm text-green-700 mb-4">通知設定を保存しました</div>
+		{/if}
+		{#if form?.notificationError}
+			<div class="rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4">{form.notificationError}</div>
+		{/if}
+
+		<!-- ブラウザ通知ステータス -->
+		<div class="mb-4 p-3 rounded-lg bg-gray-50 border border-gray-200">
+			<div class="flex items-center justify-between">
+				<span class="text-sm font-medium text-gray-700">ブラウザ通知</span>
+				<span class="text-xs px-2 py-1 rounded-full" id="notification-status">確認中...</span>
+			</div>
+			<div id="notification-action" class="mt-2 hidden">
+				<button
+					type="button"
+					class="text-sm px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+					id="notification-subscribe-btn"
+				>
+					通知を有効にする
+				</button>
+			</div>
+			<div id="notification-subscribed" class="mt-2 hidden">
+				<button
+					type="button"
+					class="text-sm px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+					id="notification-unsubscribe-btn"
+				>
+					通知を無効にする
+				</button>
+			</div>
+		</div>
+
+		<form method="POST" action="?/updateNotificationSettings" use:enhance class="space-y-4">
+			<label class="flex items-center gap-2">
+				<input type="checkbox" name="remindersEnabled" checked={data.notificationSettings.remindersEnabled} class="h-4 w-4 rounded border-gray-300" />
+				<span class="text-sm text-gray-700">リマインダー通知（毎日の記録を促す）</span>
+			</label>
+			{#if data.notificationSettings.remindersEnabled}
+				<div class="ml-6">
+					<label class="block text-xs text-gray-500 mb-1">リマインダー時刻</label>
+					<input type="time" name="reminderTime" value={data.notificationSettings.reminderTime} class="text-sm border border-gray-300 rounded-lg px-3 py-1.5" />
+				</div>
+			{/if}
+			<label class="flex items-center gap-2">
+				<input type="checkbox" name="streakEnabled" checked={data.notificationSettings.streakEnabled} class="h-4 w-4 rounded border-gray-300" />
+				<span class="text-sm text-gray-700">ストリーク警告（連続記録が途切れそうな時）</span>
+			</label>
+			<label class="flex items-center gap-2">
+				<input type="checkbox" name="achievementsEnabled" checked={data.notificationSettings.achievementsEnabled} class="h-4 w-4 rounded border-gray-300" />
+				<span class="text-sm text-gray-700">達成通知（記録完了・レベルアップ時）</span>
+			</label>
+			<div class="border-t border-gray-200 pt-4 mt-4">
+				<label class="block text-sm font-semibold text-gray-600 mb-2">サイレント時間帯</label>
+				<p class="text-xs text-gray-500 mb-2">この時間帯は通知を送信しません</p>
+				<div class="flex items-center gap-2">
+					<input type="time" name="quietStart" value={data.notificationSettings.quietStart} class="text-sm border border-gray-300 rounded-lg px-3 py-1.5" />
+					<span class="text-sm text-gray-500">〜</span>
+					<input type="time" name="quietEnd" value={data.notificationSettings.quietEnd} class="text-sm border border-gray-300 rounded-lg px-3 py-1.5" />
+				</div>
+			</div>
+			<button type="submit" class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors">
+				通知設定を保存
+			</button>
+		</form>
+	</div>
+
+	<script>
+		// Client-side notification status check
+		(async function() {
+			const statusEl = document.getElementById('notification-status');
+			const actionEl = document.getElementById('notification-action');
+			const subscribedEl = document.getElementById('notification-subscribed');
+			const subscribeBtn = document.getElementById('notification-subscribe-btn');
+			const unsubscribeBtn = document.getElementById('notification-unsubscribe-btn');
+
+			if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+				if (statusEl) { statusEl.textContent = 'この端末は通知に対応していません'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-600'; }
+				return;
+			}
+
+			const permission = Notification.permission;
+			if (permission === 'denied') {
+				if (statusEl) { statusEl.textContent = 'ブロック中（ブラウザ設定で変更）'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-red-100 text-red-700'; }
+				return;
+			}
+
+			if (permission === 'default') {
+				if (statusEl) { statusEl.textContent = '未設定'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700'; }
+				if (actionEl) actionEl.classList.remove('hidden');
+			} else {
+				const reg = await navigator.serviceWorker.ready;
+				const sub = await reg.pushManager.getSubscription();
+				if (sub) {
+					if (statusEl) { statusEl.textContent = '有効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-green-100 text-green-700'; }
+					if (subscribedEl) subscribedEl.classList.remove('hidden');
+				} else {
+					if (statusEl) { statusEl.textContent = '許可済み（未登録）'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700'; }
+					if (actionEl) actionEl.classList.remove('hidden');
+				}
+			}
+
+			if (subscribeBtn) {
+				subscribeBtn.addEventListener('click', async () => {
+					const { subscribeToPush } = await import('$lib/features/admin/push-subscription');
+					const sub = await subscribeToPush();
+					if (sub) {
+						if (statusEl) { statusEl.textContent = '有効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-green-100 text-green-700'; }
+						if (actionEl) actionEl.classList.add('hidden');
+						if (subscribedEl) subscribedEl.classList.remove('hidden');
+					}
+				});
+			}
+			if (unsubscribeBtn) {
+				unsubscribeBtn.addEventListener('click', async () => {
+					const { unsubscribeFromPush } = await import('$lib/features/admin/push-subscription');
+					await unsubscribeFromPush();
+					if (statusEl) { statusEl.textContent = '無効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-600'; }
+					if (subscribedEl) subscribedEl.classList.add('hidden');
+					if (actionEl) actionEl.classList.remove('hidden');
+				});
+			}
+		})();
+	</script>
+
 	<!-- ポイント表示設定 -->
 	<div id="point-settings" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">💰 ポイント表示設定</h3>

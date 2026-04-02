@@ -769,3 +769,49 @@ export interface InsertSiblingCheerInput {
 	toChildId: number;
 	stampCode: string;
 }
+
+// ============================================================
+// Push Subscriptions (プッシュ通知購読)
+// ============================================================
+
+export interface PushSubscriptionRecord {
+	id: number;
+	tenantId: string;
+	endpoint: string;
+	keysP256dh: string;
+	keysAuth: string;
+	userAgent: string | null;
+	createdAt: string;
+}
+
+export interface InsertPushSubscriptionInput {
+	tenantId: string;
+	endpoint: string;
+	keysP256dh: string;
+	keysAuth: string;
+	userAgent?: string | null;
+}
+
+// ============================================================
+// Notification Logs (通知送信ログ)
+// ============================================================
+
+export interface NotificationLog {
+	id: number;
+	tenantId: string;
+	notificationType: string;
+	title: string;
+	body: string;
+	sentAt: string;
+	success: number;
+	errorMessage: string | null;
+}
+
+export interface InsertNotificationLogInput {
+	tenantId: string;
+	notificationType: string;
+	title: string;
+	body: string;
+	success: boolean;
+	errorMessage?: string | null;
+}
