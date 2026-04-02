@@ -1,5 +1,5 @@
 // src/lib/server/services/plan-limit-service.ts
-// プラン別機能制限サービス (#0196)
+// プラン別機能制限サービス (#0196, #0269)
 
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
@@ -12,17 +12,24 @@ export interface PlanLimits {
 	canCustomAvatar: boolean;
 }
 
-export type PlanTier = 'free' | 'paid';
+export type PlanTier = 'free' | 'standard' | 'family';
 
 const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 	free: {
-		maxChildren: 1,
-		maxActivities: 5,
-		historyRetentionDays: 30,
+		maxChildren: 2,
+		maxActivities: 3,
+		historyRetentionDays: 90,
 		canExport: false,
 		canCustomAvatar: false,
 	},
-	paid: {
+	standard: {
+		maxChildren: null,
+		maxActivities: null,
+		historyRetentionDays: 365,
+		canExport: true,
+		canCustomAvatar: true,
+	},
+	family: {
 		maxChildren: null,
 		maxActivities: null,
 		historyRetentionDays: null,
@@ -32,15 +39,74 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 };
 
 /** テナントのプランティアを判定 */
-export function resolvePlanTier(licenseStatus: string): PlanTier {
+export function resolvePlanTier(licenseStatus: string, planId?: string): PlanTier {
 	// ローカル版（セルフホスト）は常に全機能解放
-	if (getAuthMode() === 'local') return 'paid';
-	return licenseStatus === 'active' ? 'paid' : 'free';
+	if (getAuthMode() === 'local') return 'family';
+	if (licenseStatus !== 'active') return 'free';
+	// planId で standard / family を判別（未指定は standard）
+	if (planId === 'family') return 'family';
+	return 'standard';
+}
+
+/** 有料プランかどうか */
+export function isPaidTier(tier: PlanTier): boolean {
+	return tier === 'standard' || tier === 'family';
 }
 
 /** プラン別制限を取得 */
 export function getPlanLimits(tier: PlanTier): PlanLimits {
 	return PLAN_LIMITS[tier];
+}
+
+/** 保持期間カットオフ日を取得。null = 制限なし */
+export function getHistoryCutoffDate(tier: PlanTier): string | null {
+	const limits = PLAN_LIMITS[tier];
+	if (limits.historyRetentionDays === null) return null;
+	const d = new Date();
+	d.setDate(d.getDate() - limits.historyRetentionDays);
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${y}-${m}-${day}`;
+}
+
+/**
+ * 日付範囲オプションに保持期間フィルタを適用する
+ * from が cutoff より前の場合、cutoff に上書き
+ */
+export function applyRetentionFilter(
+	tier: PlanTier,
+	options: { from?: string; to?: string } = {},
+): { from?: string; to?: string } {
+	const cutoff = getHistoryCutoffDate(tier);
+	if (cutoff === null) return options;
+	const from = options.from && options.from > cutoff ? options.from : cutoff;
+	return { ...options, from };
+}
+
+/**
+ * 保持期間外のデータが存在するかチェック
+ * (cutoff 日より前にデータがあれば true)
+ */
+export async function hasArchivedData(
+	tenantId: string,
+	childId: number,
+	tier: PlanTier,
+): Promise<boolean> {
+	const cutoff = getHistoryCutoffDate(tier);
+	if (cutoff === null) return false;
+
+	const repos = getRepos();
+	// cutoff日より前の活動ログが存在するか
+	const logs = await repos.activity.findTodayLogsWithCategory(childId, cutoff, tenantId);
+	if (logs.length > 0) return true;
+
+	// 1日前のデータも確認
+	const prevDay = new Date(cutoff);
+	prevDay.setDate(prevDay.getDate() - 1);
+	const prevStr = `${prevDay.getFullYear()}-${String(prevDay.getMonth() + 1).padStart(2, '0')}-${String(prevDay.getDate()).padStart(2, '0')}`;
+	const oldLogs = await repos.activity.findTodayLogsWithCategory(childId, prevStr, tenantId);
+	return oldLogs.length > 0;
 }
 
 /** 子供追加の制限チェック */
