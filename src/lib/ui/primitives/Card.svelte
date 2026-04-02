@@ -23,7 +23,8 @@ let {
 }: Props = $props();
 
 const variantClasses: Record<Variant, string> = {
-	default: 'bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)]',
+	default:
+		'bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)]',
 	elevated: 'bg-[var(--card-bg)] shadow-[var(--card-shadow-elevated)]',
 	outlined: 'bg-[var(--card-bg)] border border-[var(--color-border-strong)]',
 };

@@ -7,12 +7,7 @@ interface Props extends HTMLAttributes<HTMLElement> {
 	spacing?: 'sm' | 'md' | 'lg';
 }
 
-let {
-	label,
-	spacing = 'md',
-	class: className = '',
-	...rest
-}: Props = $props();
+let { label, spacing = 'md', class: className = '', ...rest }: Props = $props();
 
 const spacingClasses: Record<string, string> = {
 	sm: 'my-2',
