@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import Logo from '$lib/ui/components/Logo.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
 let agreedTerms = $state(false);
@@ -12,18 +13,18 @@ let loading = $state(false);
 	<title>規約への同意 - がんばりクエスト</title>
 </svelte:head>
 
-<div class="consent-page">
-	<div class="consent-card">
-		<div class="consent-header">
+<div class="consent-page min-h-dvh flex items-center justify-center p-4">
+	<div class="w-full max-w-[480px] bg-[var(--color-surface-card)] rounded-[var(--radius-md)] px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
+		<div class="text-center mb-6">
 			<Logo variant="symbol" size={48} />
-			<h1>規約が更新されました</h1>
-			<p class="consent-subtitle">
+			<h1 class="text-lg font-bold text-[var(--color-neutral-900)] mt-2 mb-1">規約が更新されました</h1>
+			<p class="text-sm text-[var(--color-neutral-500)]">
 				サービスの利用を続けるには、更新された規約への同意が必要です。
 			</p>
 		</div>
 
 		{#if form?.error}
-			<div class="consent-error" role="alert">{form.error}</div>
+			<div class="mb-4 px-4 py-3 bg-red-50 text-red-700 border border-red-200 rounded-[var(--radius-sm)] text-sm" role="alert">{form.error}</div>
 		{/if}
 
 		<form
@@ -35,20 +36,20 @@ let loading = $state(false);
 					await update();
 				};
 			}}
-			class="consent-form"
+			class="flex flex-col gap-6"
 		>
-			<div class="consent-items">
+			<div class="flex flex-col gap-5">
 				{#if !data.termsAccepted}
-					<div class="consent-item">
-						<h2>利用規約</h2>
-						<p>バージョン: {data.currentTermsVersion}</p>
-						<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener">利用規約を確認する</a>
-						<label class="consent-label">
+					<div class="p-4 border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
+						<h2 class="text-base font-semibold text-[var(--color-neutral-900)] mb-1">利用規約</h2>
+						<p class="text-xs text-[var(--color-neutral-400)] mb-2">バージョン: {data.currentTermsVersion}</p>
+						<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-sm text-[var(--color-text-link)] inline-block mb-3">利用規約を確認する</a>
+						<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-neutral-700)]">
 							<input
 								type="checkbox"
 								name="agreedTerms"
 								bind:checked={agreedTerms}
-								class="consent-checkbox"
+								class="w-[18px] h-[18px] accent-[var(--color-brand-600)]"
 							/>
 							<span>利用規約に同意します</span>
 						</label>
@@ -58,16 +59,16 @@ let loading = $state(false);
 				{/if}
 
 				{#if !data.privacyAccepted}
-					<div class="consent-item">
-						<h2>プライバシーポリシー</h2>
-						<p>バージョン: {data.currentPrivacyVersion}</p>
-						<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener">プライバシーポリシーを確認する</a>
-						<label class="consent-label">
+					<div class="p-4 border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
+						<h2 class="text-base font-semibold text-[var(--color-neutral-900)] mb-1">プライバシーポリシー</h2>
+						<p class="text-xs text-[var(--color-neutral-400)] mb-2">バージョン: {data.currentPrivacyVersion}</p>
+						<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-sm text-[var(--color-text-link)] inline-block mb-3">プライバシーポリシーを確認する</a>
+						<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-neutral-700)]">
 							<input
 								type="checkbox"
 								name="agreedPrivacy"
 								bind:checked={agreedPrivacy}
-								class="consent-checkbox"
+								class="w-[18px] h-[18px] accent-[var(--color-brand-600)]"
 							/>
 							<span>プライバシーポリシーに同意します</span>
 						</label>
@@ -77,12 +78,12 @@ let loading = $state(false);
 				{/if}
 			</div>
 
-			<button
+			<Button
 				type="submit"
 				disabled={loading ||
 					(!data.termsAccepted && !agreedTerms) ||
 					(!data.privacyAccepted && !agreedPrivacy)}
-				class="consent-button"
+				class="consent-submit-btn"
 				aria-busy={loading}
 			>
 				{#if loading}
@@ -90,112 +91,17 @@ let loading = $state(false);
 				{:else}
 					同意して続ける
 				{/if}
-			</button>
+			</Button>
 		</form>
 	</div>
 </div>
 
 <style>
 	.consent-page {
-		min-height: 100dvh;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-		padding: 16px;
+		background: var(--gradient-brand);
 	}
-	.consent-card {
+	.consent-submit-btn {
 		width: 100%;
-		max-width: 480px;
-		background: white;
-		border-radius: 16px;
-		padding: 40px 32px;
-		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-	}
-	.consent-header {
-		text-align: center;
-		margin-bottom: 24px;
-	}
-	.consent-header h1 {
-		font-size: 1.25rem;
-		font-weight: 700;
-		color: #1e293b;
-		margin: 8px 0 4px;
-	}
-	.consent-subtitle {
-		font-size: 0.875rem;
-		color: #64748b;
-	}
-	.consent-error {
-		margin-bottom: 16px;
-		padding: 12px 16px;
-		background: #fef2f2;
-		color: #dc2626;
-		border: 1px solid #fecaca;
-		border-radius: 8px;
-		font-size: 0.875rem;
-	}
-	.consent-form {
-		display: flex;
-		flex-direction: column;
-		gap: 24px;
-	}
-	.consent-items {
-		display: flex;
-		flex-direction: column;
-		gap: 20px;
-	}
-	.consent-item {
-		padding: 16px;
-		border: 1px solid #e2e8f0;
-		border-radius: 8px;
-	}
-	.consent-item h2 {
-		font-size: 1rem;
-		font-weight: 600;
-		color: #1e293b;
-		margin: 0 0 4px;
-	}
-	.consent-item p {
-		font-size: 0.8rem;
-		color: #94a3b8;
-		margin: 0 0 8px;
-	}
-	.consent-item a {
-		font-size: 0.85rem;
-		color: #667eea;
-		display: inline-block;
-		margin-bottom: 12px;
-	}
-	.consent-label {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		cursor: pointer;
-		font-size: 0.9rem;
-		color: #374151;
-	}
-	.consent-checkbox {
-		width: 18px;
-		height: 18px;
-		accent-color: #667eea;
-	}
-	.consent-button {
-		padding: 14px;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-		color: white;
-		font-size: 1rem;
-		font-weight: 600;
-		border: none;
-		border-radius: 8px;
-		cursor: pointer;
-		transition: opacity 0.15s;
-	}
-	.consent-button:hover:not(:disabled) {
-		opacity: 0.9;
-	}
-	.consent-button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
+		background: var(--gradient-brand) !important;
 	}
 </style>

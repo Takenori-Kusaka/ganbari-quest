@@ -154,13 +154,13 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 		align-items: center;
 		gap: 4px;
 		padding: 12px 8px;
-		border: 2px solid #e5e7eb;
+		border: 2px solid var(--color-neutral-200);
 		border-radius: 12px;
 		cursor: pointer;
 		transition: all 0.15s;
 	}
 
 	.theme-card:hover {
-		border-color: #d1d5db;
+		border-color: var(--color-neutral-300);
 	}
 </style>
