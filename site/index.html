@@ -9,7 +9,14 @@
 <meta property="og:description" content="お子さまの毎日のがんばりをRPG風の冒険に変える家庭向けWebアプリ。ポイント、レベルアップ、称号で「自分から動く力」を育てます。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://ganbari-quest.com">
+<meta property="og:image" content="https://www.ganbari-quest.com/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="がんばりクエスト — 「やりなさい」を「やりたい！」に変える">
+<meta name="twitter:description" content="お子さまの毎日のがんばりをRPG風の冒険に変える家庭向けWebアプリ。ポイント、レベルアップ、称号で「自分から動く力」を育てます。">
+<meta name="twitter:image" content="https://www.ganbari-quest.com/ogp.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <style>
@@ -37,7 +44,7 @@ img{max-width:100%;height:auto}
 .header{background:#fff;border-bottom:1px solid var(--gray-300);padding:12px 16px;position:sticky;top:0;z-index:50}
 .header-inner{max-width:1080px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
 .logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.1rem;color:var(--gray-900);text-decoration:none}
-.logo img{height:36px;width:auto}
+.logo img{height:44px;width:auto}
 .header-nav{display:flex;gap:20px;align-items:center}
 .header-nav a:not(.btn){font-size:.9rem;color:var(--gray-500)}
 .header-nav a:not(.btn):hover{color:var(--gray-900)}
@@ -189,7 +196,7 @@ img{max-width:100%;height:auto}
 <header class="header">
   <div class="header-inner">
     <a href="#" class="logo">
-      <img src="logo-compact.png" alt="がんばりクエスト" height="36">
+      <img src="logo-compact.png" alt="がんばりクエスト" height="44">
     </a>
     <button class="hamburger" aria-label="メニュー" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.textContent==='☰'?'✕':'☰'">☰</button>
     <nav class="header-nav">
@@ -197,6 +204,7 @@ img{max-width:100%;height:auto}
       <a href="#features" onclick="this.parentElement.classList.remove('open')">できること</a>
       <a href="#age-modes" onclick="this.parentElement.classList.remove('open')">年齢対応</a>
       <a href="#faq" onclick="this.parentElement.classList.remove('open')">よくある質問</a>
+      <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
       <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモ体験</a>
       <a href="https://ganbari-quest.com/auth/login" class="btn btn-primary">ログイン</a>
     </nav>
@@ -477,7 +485,7 @@ img{max-width:100%;height:auto}
       </details>
       <details class="faq-item">
         <summary>料金はかかりますか？</summary>
-        <div class="faq-answer">基本機能は無料でお使いいただけます。セルフホスト版はオープンソースとして完全無料です。SaaS版の有料プランについては、サービス内の料金ページをご覧ください。</div>
+        <div class="faq-answer">基本機能は無料でお使いいただけます。セルフホスト版はオープンソースとして完全無料です。SaaS版の有料プランについては<a href="pricing.html">料金プランページ</a>をご覧ください。</div>
       </details>
       <details class="faq-item">
         <summary>何歳から使えますか？</summary>
@@ -492,6 +500,58 @@ img{max-width:100%;height:auto}
         <div class="faq-answer">はい。Webアプリなのでお手持ちのスマートフォンのブラウザからすぐにご利用いただけます。ホーム画面に追加すれば、アプリのように使えます。</div>
       </details>
     </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section class="section bg-white" id="pricing">
+  <div class="section-inner">
+    <h2 class="section-title">料金プラン</h2>
+    <p class="section-desc">基本無料ではじめられます。ゲーム体験はすべてのプランで制限なし。</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px;max-width:900px;margin:0 auto 32px">
+
+      <div style="background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px;text-align:center">
+        <div style="font-size:1rem;font-weight:700;color:var(--gray-900);margin-bottom:8px">フリー</div>
+        <div style="font-size:2rem;font-weight:800;color:var(--gray-900)">&#165;0</div>
+        <div style="font-size:.82rem;color:var(--gray-500);margin-bottom:16px">&nbsp;</div>
+        <ul style="list-style:none;padding:0;text-align:left;font-size:.85rem;color:var(--gray-700);margin-bottom:20px">
+          <li style="padding:4px 0">&#10003; 子供2人まで</li>
+          <li style="padding:4px 0">&#10003; プリセット活動の利用</li>
+          <li style="padding:4px 0">&#10003; レベル・ポイント・実績</li>
+          <li style="padding:4px 0">&#10003; 90日間の履歴</li>
+        </ul>
+        <a href="https://ganbari-quest.com/auth/signup" class="btn btn-outline" style="width:100%;text-align:center">無料ではじめる</a>
+      </div>
+
+      <div style="background:#fff;border:2px solid #8b5cf6;border-radius:var(--radius);padding:28px 24px;text-align:center;position:relative;box-shadow:0 4px 20px rgba(139,92,246,.12)">
+        <span style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#8b5cf6;color:#fff;font-size:.72rem;font-weight:700;padding:3px 14px;border-radius:2rem">おすすめ</span>
+        <div style="font-size:1rem;font-weight:700;color:var(--gray-900);margin-bottom:8px">スタンダード</div>
+        <div style="font-size:2rem;font-weight:800;color:var(--gray-900)">&#165;500<span style="font-size:.85rem;font-weight:400;color:var(--gray-500)">/月〜</span></div>
+        <div style="font-size:.82rem;color:var(--gray-500);margin-bottom:16px">年額 &#165;5,000（2ヶ月分お得）</div>
+        <ul style="list-style:none;padding:0;text-align:left;font-size:.85rem;color:var(--gray-700);margin-bottom:20px">
+          <li style="padding:4px 0">&#10003; 子供 無制限</li>
+          <li style="padding:4px 0">&#10003; 活動の自由な追加・編集</li>
+          <li style="padding:4px 0">&#10003; チェックリストのカスタマイズ</li>
+          <li style="padding:4px 0">&#10003; データエクスポート</li>
+        </ul>
+        <a href="https://ganbari-quest.com/auth/signup?plan=standard" class="btn btn-primary" style="width:100%;text-align:center;background:linear-gradient(135deg,#7c3aed,#8b5cf6);box-shadow:0 2px 8px rgba(139,92,246,.3)">7日間 無料体験</a>
+      </div>
+
+      <div style="background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px;text-align:center">
+        <div style="font-size:1rem;font-weight:700;color:var(--gray-900);margin-bottom:8px">ファミリー</div>
+        <div style="font-size:2rem;font-weight:800;color:var(--gray-900)">&#165;780<span style="font-size:.85rem;font-weight:400;color:var(--gray-500)">/月〜</span></div>
+        <div style="font-size:.82rem;color:var(--gray-500);margin-bottom:16px">年額 &#165;7,800（2ヶ月分お得）</div>
+        <ul style="list-style:none;padding:0;text-align:left;font-size:.85rem;color:var(--gray-700);margin-bottom:20px">
+          <li style="padding:4px 0">&#10003; スタンダードの全機能</li>
+          <li style="padding:4px 0">&#10003; 兄弟間比較分析</li>
+          <li style="padding:4px 0">&#10003; 年間サマリーレポート</li>
+          <li style="padding:4px 0">&#10003; 無制限の履歴保持</li>
+        </ul>
+        <a href="https://ganbari-quest.com/auth/signup?plan=family" class="btn btn-primary" style="width:100%;text-align:center;background:linear-gradient(135deg,#7c3aed,#8b5cf6);box-shadow:0 2px 8px rgba(139,92,246,.3)">7日間 無料体験</a>
+      </div>
+
+    </div>
+    <p style="text-align:center"><a href="pricing.html" style="font-size:.9rem;color:var(--brand-700)">詳しい機能比較を見る &#8594;</a></p>
   </div>
 </section>
 
@@ -572,6 +632,7 @@ img{max-width:100%;height:auto}
     </div>
     <div class="footer-links">
       <h4>リンク</h4>
+      <a href="pricing.html">料金プラン</a>
       <a href="https://github.com/Takenori-Kusaka/ganbari-quest">GitHub</a>
       <a href="https://discord.gg/5pWkf4Z5">Discordコミュニティ</a>
       <a href="https://github.com/sponsors/Takenori-Kusaka">Sponsor</a>
