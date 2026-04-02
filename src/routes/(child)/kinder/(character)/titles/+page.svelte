@@ -68,8 +68,10 @@ function handleTap(title: (typeof data.titles)[number]) {
 				{@const unlocked = title.unlockedAt !== null}
 				{@const border = rarityBorder[title.rarity] ?? 'border-gray-200'}
 				{@const bg = rarityBg[title.rarity] ?? 'bg-gray-50'}
-				<button
-					class="tap-target flex flex-col items-center gap-1 p-[var(--sp-sm)] rounded-[var(--radius-md)] border-2
+				<Button
+					variant="ghost"
+					size="sm"
+					class="flex flex-col items-center gap-1 p-[var(--sp-sm)] rounded-[var(--radius-md)] border-2
 						{unlocked ? `${border} ${bg}` : 'border-gray-200 bg-gray-100'}
 						{title.isActive ? 'ring-2 ring-[var(--theme-accent)]' : ''}
 						transition-all relative overflow-hidden"
@@ -93,7 +95,7 @@ function handleTap(title: (typeof data.titles)[number]) {
 							></div>
 						</div>
 					{/if}
-				</button>
+				</Button>
 			{/each}
 		</div>
 	{:else}

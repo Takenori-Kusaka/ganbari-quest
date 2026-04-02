@@ -5,6 +5,7 @@ import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/status';
 import { SuccessAlert } from '$lib/ui/components';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -153,14 +154,16 @@ let levelTitleInputs: Record<number, string> = $state({});
 
 	<!-- 称号カスタマイズセクション -->
 	<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-		<button
+		<Button
 			type="button"
-			class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+			variant="ghost"
+			size="md"
+			class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"
 			onclick={() => { showLevelTitles = !showLevelTitles; }}
 		>
 			<h3 class="text-lg font-bold text-gray-700">🏷️ レベル称号カスタマイズ</h3>
 			<span class="text-gray-400 text-sm">{showLevelTitles ? '▲ 閉じる' : '▼ 開く'}</span>
-		</button>
+		</Button>
 
 		{#if showLevelTitles}
 			<div class="px-4 pb-4 space-y-3">
@@ -202,12 +205,14 @@ let levelTitleInputs: Record<number, string> = $state({});
 									class="flex-1 px-3 py-1.5 border rounded-lg text-sm
 										{lt.customTitle ? 'border-purple-300 bg-purple-50' : 'border-gray-200'}"
 								/>
-								<button
+								<Button
 									type="submit"
-									class="px-3 py-1.5 bg-purple-500 text-white text-xs font-bold rounded-lg hover:bg-purple-600 transition-colors whitespace-nowrap"
+									variant="primary"
+									size="sm"
+									class="bg-purple-500 hover:bg-purple-600 text-xs whitespace-nowrap"
 								>
 									保存
-								</button>
+								</Button>
 							</form>
 						</div>
 						{#if lt.customTitle}
@@ -226,13 +231,15 @@ let levelTitleInputs: Record<number, string> = $state({});
 								}}
 							>
 								<input type="hidden" name="level" value={lt.level} />
-								<button
+								<Button
 									type="submit"
-									class="px-2 py-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors whitespace-nowrap"
+									variant="ghost"
+									size="sm"
+									class="text-xs text-gray-400 hover:text-red-500 whitespace-nowrap"
 									title="デフォルトに戻す"
 								>
 									リセット
-								</button>
+								</Button>
 							</form>
 						{/if}
 					</div>
@@ -255,12 +262,14 @@ let levelTitleInputs: Record<number, string> = $state({});
 						}}
 						class="pt-2 border-t border-gray-200"
 					>
-						<button
+						<Button
 							type="submit"
-							class="px-4 py-2 text-sm text-red-500 hover:text-red-600 font-bold transition-colors"
+							variant="ghost"
+							size="sm"
+							class="text-sm text-red-500 hover:text-red-600"
 						>
 							全ての称号をデフォルトに戻す
-						</button>
+						</Button>
 					</form>
 				{/if}
 			</div>
@@ -283,16 +292,15 @@ let levelTitleInputs: Record<number, string> = $state({});
 				<span class="text-xs text-gray-500">プレビュー:</span>
 				<div class="flex gap-1 flex-wrap">
 					{#each data.children as child (child.id)}
-						<button
+						<Button
 							type="button"
-							class="px-2 py-1 rounded text-xs font-bold transition-colors
-								{previewChildId === child.id
-								? 'bg-blue-500 text-white'
-								: 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}"
+							variant={previewChildId === child.id ? 'primary' : 'outline'}
+							size="sm"
+							class="text-xs {previewChildId === child.id ? '' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}"
 							onclick={() => { previewChildIdOverride = child.id; }}
 						>
 							{child.nickname}
-						</button>
+						</Button>
 					{/each}
 				</div>
 			</div>
@@ -301,16 +309,15 @@ let levelTitleInputs: Record<number, string> = $state({});
 		<!-- 年齢選択 -->
 		<div class="flex gap-1 mb-2 overflow-x-auto pb-2">
 			{#each Array.from({ length: 10 }, (_, i) => i + 3) as age (age)}
-				<button
+				<Button
 					type="button"
-					class="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors
-						{benchmarkAge === age
-						? 'bg-green-500 text-white'
-						: 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}"
+					variant={benchmarkAge === age ? 'success' : 'outline'}
+					size="sm"
+					class="text-xs whitespace-nowrap {benchmarkAge === age ? '' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}"
 					onclick={() => { benchmarkAge = age; benchmarkSuccess = false; bmInputMean = {}; bmInputSd = {}; }}
 				>
 					{age}歳
-				</button>
+				</Button>
 			{/each}
 		</div>
 
@@ -383,12 +390,14 @@ let levelTitleInputs: Record<number, string> = $state({});
 								class="w-20 px-2 py-1 border rounded text-sm text-right"
 							/>
 						</div>
-						<button
+						<Button
 							type="submit"
-							class="px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-lg hover:bg-green-600 transition-colors"
+							variant="success"
+							size="sm"
+							class="text-xs"
 						>
 							保存
-						</button>
+						</Button>
 					</div>
 
 					<!-- 偏差値プレビュー -->

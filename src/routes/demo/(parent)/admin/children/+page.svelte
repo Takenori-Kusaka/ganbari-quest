@@ -2,6 +2,7 @@
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -53,12 +54,14 @@ const selectedChild = $derived(
 	<!-- Header (matches production) -->
 	<div class="flex items-center justify-between">
 		<div>
-			<button
-				class="px-4 py-2 bg-blue-300 text-white rounded-lg text-sm font-bold cursor-not-allowed"
+			<Button
+				variant="primary"
+				size="sm"
+				class="bg-blue-300 cursor-not-allowed"
 				disabled
 			>
 				+ こどもを追加
-			</button>
+			</Button>
 		</div>
 	</div>
 
@@ -66,9 +69,10 @@ const selectedChild = $derived(
 	{#if !selectedChildId}
 		<div class="grid gap-3">
 			{#each data.children as child (child.id)}
-				<button
-					type="button"
-					class="w-full bg-white rounded-xl p-4 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow text-left"
+				<Button
+					variant="ghost"
+					size="md"
+					class="w-full bg-white rounded-xl p-4 shadow-sm flex items-center gap-4 hover:shadow-md text-left"
 					onclick={() => selectedChildId = child.id}
 				>
 					{#if child.avatarUrl}
@@ -83,7 +87,7 @@ const selectedChild = $derived(
 					<div class="text-right">
 						<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance)}</p>
 					</div>
-				</button>
+				</Button>
 			{/each}
 		</div>
 	{/if}
@@ -91,13 +95,14 @@ const selectedChild = $derived(
 	<!-- Child Detail View (matches production tab layout) -->
 	{#if selectedChild}
 		<div>
-			<button
-				type="button"
-				class="text-sm text-blue-600 hover:text-blue-800 mb-3 inline-flex items-center gap-1"
+			<Button
+				variant="ghost"
+				size="sm"
+				class="text-blue-600 hover:text-blue-800 mb-3"
 				onclick={() => selectedChildId = null}
 			>
 				← 一覧に戻る
-			</button>
+			</Button>
 
 			<!-- Child Header -->
 			<div class="bg-white rounded-xl p-4 shadow-sm flex items-center gap-4 mb-4">
@@ -119,14 +124,15 @@ const selectedChild = $derived(
 			<!-- Tab Navigation (matches production 6-tab system) -->
 			<div class="flex overflow-x-auto gap-1 mb-4 pb-1">
 				{#each detailTabs as tab}
-					<button
-						type="button"
-						class="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors
-							{detailTab === tab.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+					<Button
+						variant={detailTab === tab.id ? 'primary' : 'ghost'}
+						size="sm"
+						class="whitespace-nowrap
+							{detailTab === tab.id ? '' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
 						onclick={() => detailTab = tab.id}
 					>
 						{tab.label}
-					</button>
+					</Button>
 				{/each}
 			</div>
 

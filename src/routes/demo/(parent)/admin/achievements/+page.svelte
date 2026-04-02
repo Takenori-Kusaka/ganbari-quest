@@ -1,6 +1,7 @@
 <script lang="ts">
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -26,17 +27,18 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 	{#if data.children.length > 0}
 		<div class="flex gap-2 mb-6 overflow-x-auto pb-2">
 			{#each data.children as child (child.id)}
-				<button
-					type="button"
-					class="px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors
+				<Button
+					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+					size="sm"
+					class="whitespace-nowrap
 						{selectedChildId === child.id
-						? 'bg-blue-500 text-white'
+						? ''
 						: 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}"
 					onclick={() => { childIdOverride = child.id; }}
 				>
 					{child.nickname}
 					<span class="text-xs opacity-75">({child.unlockedCount}/{child.totalCount})</span>
-				</button>
+				</Button>
 			{/each}
 		</div>
 
@@ -60,12 +62,14 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 									<p class="text-xs text-gray-500">+{event.bonusPoints}P</p>
 								</div>
 							</div>
-							<button
+							<Button
+								variant="ghost"
+								size="sm"
+								class="bg-gray-200 text-gray-400 cursor-not-allowed"
 								disabled
-								class="px-3 py-1.5 bg-gray-200 text-gray-400 text-sm font-bold rounded-lg cursor-not-allowed"
 							>
 								付与する
-							</button>
+							</Button>
 						</div>
 					{/each}
 				</div>

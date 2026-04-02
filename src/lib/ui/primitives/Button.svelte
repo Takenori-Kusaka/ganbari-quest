@@ -2,7 +2,7 @@
 import type { Snippet } from 'svelte';
 import type { HTMLButtonAttributes } from 'svelte/elements';
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'outline';
+type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'outline' | 'warning';
 type Size = 'sm' | 'md' | 'lg';
 
 interface Props extends HTMLButtonAttributes {
@@ -28,6 +28,7 @@ const variantClasses: Record<Variant, string> = {
 	success: 'bg-[var(--color-success)] text-white hover:brightness-90 active:brightness-80',
 	outline:
 		'bg-transparent text-[var(--theme-primary)] border-2 border-[var(--theme-primary)] hover:bg-[var(--theme-primary)]/10 active:bg-[var(--theme-primary)]/20',
+	warning: 'bg-[var(--color-warning)] text-white hover:brightness-90 active:brightness-80',
 };
 
 const sizeClasses: Record<Size, string> = {

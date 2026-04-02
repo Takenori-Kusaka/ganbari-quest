@@ -2,6 +2,7 @@
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -90,12 +91,14 @@ const radarCategories = $derived(
 		<!-- Collapsible detail -->
 		<Card variant="elevated" padding="none">
 			{#snippet children()}
-			<button
-				class="w-full p-4 flex items-center justify-between text-sm font-bold text-[var(--color-text-muted)] bg-transparent border-none cursor-pointer"
+			<Button
+				variant="ghost"
+				size="sm"
+				class="w-full p-4 flex items-center justify-between text-sm text-[var(--color-text-muted)]"
 				onclick={() => { soundService.play('tap'); detailOpen = !detailOpen; }}
 			>
 				<span>{detailOpen ? '▼' : '▶'} くわしくみる</span>
-			</button>
+			</Button>
 			{#if detailOpen}
 				<div class="px-4 pb-4 flex flex-col gap-4">
 					{#each CATEGORY_DEFS as catDef (catDef.id)}

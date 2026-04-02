@@ -4,6 +4,7 @@ import { page } from '$app/stores';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import Button from '$lib/ui/primitives/Button.svelte';
 import { APP_VERSION } from '$lib/version';
 
 let { data, form } = $props();
@@ -267,14 +268,15 @@ const previewFormatted = $derived(
 			{#if cancelError}
 				<ErrorAlert message={cancelError} severity="error" action="retry" />
 			{/if}
-			<button
+			<Button
 				type="button"
+				variant="success"
+				size="md"
 				disabled={reactivateSubmitting}
 				onclick={handleReactivate}
-				class="px-6 py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
 			>
 				{reactivateSubmitting ? 'キャンセル中...' : '解約をキャンセルして通常利用に戻る'}
-			</button>
+			</Button>
 		</div>
 	{/if}
 
@@ -356,13 +358,15 @@ const previewFormatted = $derived(
 				/>
 			</div>
 
-			<button
+			<Button
 				type="submit"
+				variant="primary"
+				size="md"
+				class="w-full"
 				disabled={submitting}
-				class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
 			>
 				{submitting ? '変更中...' : 'PINを変更'}
-			</button>
+			</Button>
 		</form>
 	</div>
 
@@ -395,14 +399,16 @@ const previewFormatted = $derived(
 			{/each}
 		</div>
 
-		<button
+		<Button
 			type="button"
+			variant="primary"
+			size="md"
+			class="w-full"
 			onclick={saveDecayIntensity}
 			disabled={decaySaving}
-			class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
 		>
 			{decaySaving ? '保存中...' : '設定を保存'}
-		</button>
+		</Button>
 	</div>
 
 	<!-- きょうだいチャレンジ設定 -->
@@ -439,9 +445,9 @@ const previewFormatted = $derived(
 				<input type="checkbox" name="siblingRankingEnabled" checked={data.siblingRankingEnabled === 'true'} class="h-4 w-4 rounded border-gray-300" />
 				<span class="text-sm text-gray-700">きょうだいランキングを表示する</span>
 			</label>
-			<button type="submit" class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors">
+			<Button type="submit" variant="primary" size="md" class="w-full">
 				設定を保存
-			</button>
+			</Button>
 		</form>
 	</div>
 
@@ -463,22 +469,25 @@ const previewFormatted = $derived(
 				<span class="text-xs px-2 py-1 rounded-full" id="notification-status">確認中...</span>
 			</div>
 			<div id="notification-action" class="mt-2 hidden">
-				<button
+				<Button
 					type="button"
-					class="text-sm px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+					variant="primary"
+					size="sm"
 					id="notification-subscribe-btn"
 				>
 					通知を有効にする
-				</button>
+				</Button>
 			</div>
 			<div id="notification-subscribed" class="mt-2 hidden">
-				<button
+				<Button
 					type="button"
-					class="text-sm px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+					variant="ghost"
+					size="sm"
+					class="bg-gray-200 text-gray-700 hover:bg-gray-300"
 					id="notification-unsubscribe-btn"
 				>
 					通知を無効にする
-				</button>
+				</Button>
 			</div>
 		</div>
 
@@ -510,9 +519,9 @@ const previewFormatted = $derived(
 					<input type="time" name="quietEnd" value={data.notificationSettings.quietEnd} class="text-sm border border-gray-300 rounded-lg px-3 py-1.5" />
 				</div>
 			</div>
-			<button type="submit" class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors">
+			<Button type="submit" variant="primary" size="md" class="w-full">
 				通知設定を保存
-			</button>
+			</Button>
 		</form>
 	</div>
 
@@ -676,13 +685,15 @@ const previewFormatted = $derived(
 				</p>
 			</div>
 
-			<button
+			<Button
 				type="submit"
+				variant="primary"
+				size="md"
+				class="w-full"
 				disabled={pointSubmitting}
-				class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
 			>
 				{pointSubmitting ? '保存中...' : 'ポイント設定を保存'}
-			</button>
+			</Button>
 		</form>
 	</div>
 
@@ -721,11 +732,13 @@ const previewFormatted = $derived(
 					<input type="checkbox" bind:checked={compactFormat} class="w-4 h-4 text-blue-500 rounded" />
 					圧縮形式でエクスポート（ファイルサイズを削減）
 				</label>
-				<button
+				<Button
 					type="button"
+					variant="success"
+					size="md"
+					class="w-full flex items-center justify-center gap-2"
 					disabled={exportLoading}
 					onclick={handleExport}
-					class="w-full py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
 				>
 					{#if exportLoading}
 						<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
@@ -733,7 +746,7 @@ const previewFormatted = $derived(
 					{:else}
 						データをエクスポート
 					{/if}
-				</button>
+				</Button>
 			</div>
 
 			<hr class="my-4 border-gray-200" />
@@ -807,18 +820,22 @@ const previewFormatted = $derived(
 						{/if}
 					</div>
 					<div class="flex gap-2">
-						<button
+						<Button
 							type="button"
+							variant="ghost"
+							size="md"
+							class="flex-1 bg-gray-300 text-gray-700 hover:bg-gray-400"
 							onclick={resetImport}
-							class="flex-1 py-2 bg-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-400 transition-colors"
 						>
 							キャンセル
-						</button>
-						<button
+						</Button>
+						<Button
 							type="button"
+							variant="warning"
+							size="md"
+							class="flex-1 flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600"
 							disabled={importLoading}
 							onclick={handleImportExecute}
-							class="flex-1 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
 						>
 							{#if importLoading}
 								<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
@@ -826,7 +843,7 @@ const previewFormatted = $derived(
 							{:else}
 								インポートを実行
 							{/if}
-						</button>
+						</Button>
 					</div>
 				{:else if importStep === 'done' && importResult}
 					<div class="bg-green-50 rounded-lg p-4 mb-3">
@@ -866,13 +883,15 @@ const previewFormatted = $derived(
 							{/if}
 						</ul>
 					</div>
-					<button
+					<Button
 						type="button"
+						variant="ghost"
+						size="md"
+						class="w-full bg-gray-300 text-gray-700 hover:bg-gray-400"
 						onclick={resetImport}
-						class="w-full py-2 bg-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-400 transition-colors"
 					>
 						閉じる
-					</button>
+					</Button>
 				{/if}
 			</div>
 		</div>
@@ -950,13 +969,15 @@ const previewFormatted = $derived(
 					placeholder="削除"
 					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300"
 				/>
-				<button
+				<Button
 					type="submit"
+					variant="danger"
+					size="md"
+					class="w-full"
 					disabled={clearSubmitting || clearConfirmText !== '削除'}
-					class="w-full py-2 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					{clearSubmitting ? 'データクリア中...' : 'すべてのデータを削除'}
-				</button>
+				</Button>
 			</div>
 		</form>
 	</div>
@@ -1048,13 +1069,15 @@ const previewFormatted = $derived(
 				</p>
 			</div>
 
-			<button
+			<Button
 				type="submit"
+				variant="primary"
+				size="md"
+				class="w-full"
 				disabled={feedbackSubmitting || feedbackText.length === 0}
-				class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
 			>
 				{feedbackSubmitting ? '送信中...' : 'フィードバックを送信'}
-			</button>
+			</Button>
 		</form>
 		<p class="text-xs text-gray-400 mt-3 text-center">
 			技術的なご質問・使い方の相談は
@@ -1117,14 +1140,16 @@ const previewFormatted = $derived(
 					placeholder="アカウントを削除します"
 					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300"
 				/>
-				<button
+				<Button
 					type="button"
+					variant="danger"
+					size="md"
+					class="w-full"
 					disabled={cancelSubmitting || cancelConfirmText !== 'アカウントを削除します'}
 					onclick={handleCancelAccount}
-					class="w-full py-2 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					{cancelSubmitting ? '処理中...' : 'アカウント削除を申請する'}
-				</button>
+				</Button>
 			</div>
 		</div>
 	{/if}

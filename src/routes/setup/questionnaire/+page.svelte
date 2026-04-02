@@ -82,15 +82,16 @@ function togglePreset(value: string) {
 		</legend>
 		<div class="grid gap-2">
 			{#each challengeOptions as option (option.value)}
-				<button
+				<Button
 					type="button"
-					class="option-button"
-					class:option-button--selected={selectedChallenges.includes(option.value)}
+					variant="ghost"
+					size="sm"
+					class="option-button {selectedChallenges.includes(option.value) ? 'option-button--selected' : ''}"
 					onclick={() => toggleChallenge(option.value)}
 				>
 					<span class="text-lg">{option.icon}</span>
 					<span class="text-sm">{option.label}</span>
-				</button>
+				</Button>
 				{#if selectedChallenges.includes(option.value)}
 					<input type="hidden" name="challenges" value={option.value} />
 				{/if}
@@ -137,10 +138,11 @@ function togglePreset(value: string) {
 		</p>
 		<div class="grid gap-2">
 			{#each availablePresets as preset (preset.value)}
-				<button
+				<Button
 					type="button"
-					class="option-button"
-					class:option-button--selected={selectedPresets.includes(preset.value)}
+					variant="ghost"
+					size="sm"
+					class="option-button {selectedPresets.includes(preset.value) ? 'option-button--selected' : ''}"
 					onclick={() => togglePreset(preset.value)}
 				>
 					<span class="text-lg">{preset.icon}</span>
@@ -148,7 +150,7 @@ function togglePreset(value: string) {
 					{#if selectedPresets.includes(preset.value)}
 						<span class="ml-auto text-xs text-[var(--color-success)]">✓</span>
 					{/if}
-				</button>
+				</Button>
 				{#if selectedPresets.includes(preset.value)}
 					<input type="hidden" name="checklistPresets" value={preset.value} />
 				{/if}
@@ -165,9 +167,9 @@ function togglePreset(value: string) {
 
 <form method="POST" action="?/skip" use:enhance>
 	<div class="text-center mt-3">
-		<button type="submit" class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-secondary)]">
+		<Button type="submit" variant="ghost" size="sm" class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-secondary)]">
 			あとで設定する（スキップ）
-		</button>
+		</Button>
 	</div>
 </form>
 

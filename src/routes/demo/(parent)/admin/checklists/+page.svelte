@@ -2,6 +2,7 @@
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -26,27 +27,30 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 	<!-- 子供選択 -->
 	<div class="flex gap-2 flex-wrap mb-4">
 		{#each data.children as child}
-			<button
-				class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors
-					{selectedChildId === child.id
-					? 'bg-blue-500 text-white'
-					: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
+			<Button
+				variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+				size="sm"
+				class={selectedChildId === child.id
+					? ''
+					: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}
 				onclick={() => (selectedChildId = child.id)}
 			>
 				{child.nickname}
-			</button>
+			</Button>
 		{/each}
 	</div>
 
 	{#if selectedChild}
 		<!-- テンプレート追加ボタン (disabled) -->
 		<div class="flex justify-end">
-			<button
+			<Button
+				variant="ghost"
+				size="sm"
+				class="bg-gray-200 text-gray-400 cursor-not-allowed"
 				disabled
-				class="px-4 py-2 bg-gray-200 text-gray-400 text-sm font-bold rounded-xl cursor-not-allowed"
 			>
 				+ テンプレート追加
-			</button>
+			</Button>
 		</div>
 
 		<!-- チェックリスト一覧 -->
@@ -86,12 +90,14 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 						</div>
 
 						<!-- アイテム追加 (disabled) -->
-						<button
-							disabled
+						<Button
+							variant="ghost"
+							size="sm"
 							class="mt-2 text-xs text-gray-400 cursor-not-allowed"
+							disabled
 						>
 							+ アイテム追加
-						</button>
+						</Button>
 					</div>
 				{/each}
 			</div>

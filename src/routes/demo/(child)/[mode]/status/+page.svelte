@@ -4,6 +4,7 @@ import { getComparisonLabel } from '$lib/domain/validation/status';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -79,12 +80,14 @@ const radarCategories = $derived(
 
 		<!-- Detail section -->
 		<div class="bg-white rounded-[var(--radius-md)] shadow-sm overflow-hidden">
-			<button
-				class="w-full p-[var(--sp-md)] flex items-center justify-between text-sm font-bold text-[var(--color-text-muted)]"
+			<Button
+				variant="ghost"
+				size="md"
+				class="w-full p-[var(--sp-md)] flex items-center justify-between text-sm text-[var(--color-text-muted)]"
 				onclick={() => { detailOpen = !detailOpen; }}
 			>
 				<span>{detailOpen ? '▼' : '▶'} くわしくみる</span>
-			</button>
+			</Button>
 			{#if detailOpen}
 				<div class="px-[var(--sp-md)] pb-[var(--sp-md)] flex flex-col gap-[var(--sp-md)]">
 					{#each CATEGORY_DEFS as catDef (catDef.id)}

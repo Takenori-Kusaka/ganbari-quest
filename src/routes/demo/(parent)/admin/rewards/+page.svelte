@@ -1,6 +1,7 @@
 <script lang="ts">
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -27,15 +28,16 @@ let selectedTemplate = $state<string | null>(null);
 		<h3 class="text-sm font-bold text-gray-500 mb-2">1. こどもを選択</h3>
 		<div class="flex gap-2 flex-wrap">
 			{#each data.children as child}
-				<button
-					class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors
-						{selectedChildId === child.id
-						? 'bg-blue-500 text-white'
-						: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
+				<Button
+					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+					size="sm"
+					class={selectedChildId === child.id
+						? ''
+						: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}
 					onclick={() => (selectedChildId = child.id)}
 				>
 					👤 {child.nickname}
-				</button>
+				</Button>
 			{/each}
 		</div>
 	</section>
@@ -45,15 +47,17 @@ let selectedTemplate = $state<string | null>(null);
 		<h3 class="text-sm font-bold text-gray-500 mb-2">2. テンプレートを選択（またはカスタム）</h3>
 		<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
 			{#each data.templates as tmpl}
-				<button
-					class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md transition-shadow
+				<Button
+					variant="ghost"
+					size="sm"
+					class="bg-white rounded-xl p-3 shadow-sm hover:shadow-md
 						{selectedTemplate === tmpl.title ? 'ring-2 ring-blue-400' : ''}"
 					onclick={() => (selectedTemplate = tmpl.title)}
 				>
 					<span class="text-2xl block">{tmpl.icon}</span>
 					<p class="text-xs font-bold text-gray-600 mt-1">{tmpl.title}</p>
 					<p class="text-xs text-amber-500 font-bold">{tmpl.points}P</p>
-				</button>
+				</Button>
 			{/each}
 		</div>
 	</section>
@@ -104,12 +108,14 @@ let selectedTemplate = $state<string | null>(null);
 			</label>
 		</div>
 
-		<button
+		<Button
+			variant="ghost"
+			size="md"
+			class="w-full bg-gray-200 text-gray-400 cursor-not-allowed"
 			disabled
-			class="w-full py-3 bg-gray-200 text-gray-400 rounded-xl font-bold cursor-not-allowed"
 		>
 			デモでは報酬を付与できません
-		</button>
+		</Button>
 	</div>
 
 	<DemoCta

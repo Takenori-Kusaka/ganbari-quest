@@ -2,6 +2,7 @@
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -34,11 +35,12 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 	<!-- Child selector tabs (matches production) -->
 	<div class="flex overflow-x-auto gap-2 pb-1">
 		{#each data.children as child (child.id)}
-			<button
-				type="button"
-				class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors
+			<Button
+				variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+				size="sm"
+				class="flex items-center gap-2 whitespace-nowrap
 					{selectedChildId === child.id
-					? 'bg-blue-500 text-white shadow-sm'
+					? 'shadow-sm'
 					: 'bg-white text-gray-600 hover:bg-gray-50 shadow-sm'}"
 				onclick={() => selectedChildId = child.id}
 			>
@@ -48,7 +50,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 					<span>👤</span>
 				{/if}
 				{child.nickname}
-			</button>
+			</Button>
 		{/each}
 	</div>
 
@@ -63,45 +65,55 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 		<div class="bg-white rounded-xl p-4 shadow-sm">
 			<h3 class="text-sm font-bold text-gray-700 mb-3">ポイント変換</h3>
 			<div class="flex gap-2 mb-4">
-				<button
-					class="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-blue-500 text-white"
+				<Button
+					variant="primary"
+					size="sm"
+					class="flex-1"
 					disabled
 				>
 					かんたん
-				</button>
-				<button
-					class="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-gray-100 text-gray-400"
+				</Button>
+				<Button
+					variant="ghost"
+					size="sm"
+					class="flex-1 bg-gray-100 text-gray-400"
 					disabled
 				>
 					自由入力
-				</button>
-				<button
-					class="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-gray-100 text-gray-400"
+				</Button>
+				<Button
+					variant="ghost"
+					size="sm"
+					class="flex-1 bg-gray-100 text-gray-400"
 					disabled
 				>
 					領収書OCR
-				</button>
+				</Button>
 			</div>
 
 			<!-- Preset amounts (matches production) -->
 			<div class="grid grid-cols-4 gap-2 mb-4">
 				{#each [100, 300, 500, 1000] as amount}
-					<button
-						class="py-3 rounded-xl text-center font-bold shadow-sm transition-colors
+					<Button
+						variant={amount === 500 ? 'outline' : 'ghost'}
+						size="sm"
+						class="py-3 rounded-xl shadow-sm
 							{amount === 500 ? 'bg-blue-50 border-2 border-blue-300 text-blue-700' : 'bg-gray-50 text-gray-400'}"
 						disabled
 					>
 						{amount}
-					</button>
+					</Button>
 				{/each}
 			</div>
 
-			<button
-				class="w-full py-3 bg-gray-200 text-gray-400 font-bold rounded-xl cursor-not-allowed"
+			<Button
+				variant="ghost"
+				size="md"
+				class="w-full bg-gray-200 text-gray-400 cursor-not-allowed"
 				disabled
 			>
 				デモでは変換できません
-			</button>
+			</Button>
 		</div>
 
 		<!-- Summary Stats (matches production) -->
