@@ -27,12 +27,11 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 	{#if data.children.length > 0}
 		<div class="flex gap-2 mb-6 overflow-x-auto pb-2">
 			{#each data.children as child (child.id)}
-				<button
+				<Button
 					type="button"
-					class="px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors
-						{selectedChildId === child.id
-						? 'bg-blue-500 text-white'
-						: 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}"
+					variant={selectedChildId === child.id ? 'primary' : 'outline'}
+					size="sm"
+					class="whitespace-nowrap {selectedChildId === child.id ? '' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}"
 					onclick={() => {
 						childIdOverride = child.id;
 						grantSuccess = false;
@@ -40,7 +39,7 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 				>
 					{child.nickname}
 					<span class="text-xs opacity-75">({child.unlockedCount}/{child.totalCount})</span>
-				</button>
+				</Button>
 			{/each}
 		</div>
 

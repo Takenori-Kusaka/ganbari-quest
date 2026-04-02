@@ -1,4 +1,6 @@
 <script lang="ts">
+import Button from '$lib/ui/primitives/Button.svelte';
+
 let { data } = $props();
 
 let year = $state(new Date().getFullYear());
@@ -73,23 +75,23 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 			<div class="export-card">
 				<h3>売上台帳</h3>
 				<p>Stripe 請求書ベースの収入記録。青色申告決算書 第1面「収入金額」に対応。</p>
-				<button class="export-btn" onclick={() => downloadCsv('sales')} disabled={downloading}>
+				<Button variant="primary" size="sm" onclick={() => downloadCsv('sales')} disabled={downloading}>
 					CSV ダウンロード
-				</button>
+				</Button>
 			</div>
 			<div class="export-card">
 				<h3>経費台帳</h3>
 				<p>AWS 費用 + Stripe 手数料。勘定科目付き。青色申告決算書「必要経費」に対応。</p>
-				<button class="export-btn" onclick={() => downloadCsv('expenses')} disabled={downloading}>
+				<Button variant="primary" size="sm" onclick={() => downloadCsv('expenses')} disabled={downloading}>
 					CSV ダウンロード
-				</button>
+				</Button>
 			</div>
 			<div class="export-card">
 				<h3>収支サマリー</h3>
 				<p>売上・経費・差引利益の一覧。確定申告前の概要確認用。</p>
-				<button class="export-btn" onclick={() => downloadCsv('summary')} disabled={downloading}>
+				<Button variant="primary" size="sm" onclick={() => downloadCsv('summary')} disabled={downloading}>
 					テキスト ダウンロード
-				</button>
+				</Button>
 			</div>
 		</div>
 	</section>
@@ -126,17 +128,4 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 		line-height: 1.5;
 	}
 
-	.export-btn {
-		padding: 0.5rem 1rem;
-		background: var(--color-brand-600);
-		color: white;
-		border: none;
-		border-radius: 0.375rem;
-		font-size: 0.875rem;
-		cursor: pointer;
-		transition: background 0.15s;
-	}
-
-	.export-btn:hover:not(:disabled) { background: var(--color-brand-700); }
-	.export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

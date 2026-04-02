@@ -1,5 +1,6 @@
 <script lang="ts">
 import { formatPointValueWithSign } from '$lib/domain/point-display';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -100,8 +101,10 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 				{@const unlocked = isUnlocked(achievement)}
 				{@const rarity = currentRarity(achievement)}
 				{@const pct = progressPercent(achievement)}
-				<button
-					class="tap-target ach-card flex flex-col items-center gap-1 p-2 rounded-2xl border-2 border-solid relative overflow-hidden cursor-pointer bg-none transition-all duration-150 ease-in-out {unlocked ? 'ach-card--unlocked ach-card--' + rarity : 'ach-card--locked'}"
+				<Button
+					variant="ghost"
+					size="sm"
+					class="ach-card flex flex-col items-center gap-1 p-2 rounded-2xl border-2 border-solid relative overflow-hidden cursor-pointer bg-none transition-all duration-150 ease-in-out {unlocked ? 'ach-card--unlocked ach-card--' + rarity : 'ach-card--locked'}"
 					onclick={() => handleTap(achievement)}
 				>
 					<span class="text-3xl {unlocked ? '' : 'grayscale opacity-50'}">
@@ -120,7 +123,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 							<div class="ach-progress-fill h-full rounded-full bg-[var(--theme-primary)]" style:width="{pct}%"></div>
 						</div>
 					{/if}
-				</button>
+				</Button>
 			{/each}
 		</div>
 	{:else}

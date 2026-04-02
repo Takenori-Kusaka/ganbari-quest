@@ -49,7 +49,7 @@ export default [
 		rules: {
 			'local/no-style-attribute': 'error',
 			'local/no-tailwind-arbitrary-hex': 'error',
-			'local/no-raw-button': 'warn',
+			'local/no-raw-button': 'error',
 			'local/max-style-lines': ['error', { max: 50 }],
 			'local/max-svelte-lines': ['warn', { max: 500 }],
 		},

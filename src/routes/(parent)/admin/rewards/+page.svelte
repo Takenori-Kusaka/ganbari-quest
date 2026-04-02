@@ -53,13 +53,14 @@ const categoryLabels: Record<string, string> = {
 		<h3 class="text-sm font-bold text-gray-500 mb-2">1. こどもを選択</h3>
 		<div class="flex gap-2 flex-wrap">
 			{#each data.children as child}
-				<button
-					class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors
-						{selectedChildId === child.id ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
+				<Button
+					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+					size="sm"
+					class="rounded-xl {selectedChildId === child.id ? '' : 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
 					onclick={() => selectedChildId = child.id}
 				>
 					👤 {child.nickname}
-				</button>
+				</Button>
 			{/each}
 		</div>
 	</section>
@@ -69,15 +70,17 @@ const categoryLabels: Record<string, string> = {
 		<h3 class="text-sm font-bold text-gray-500 mb-2">2. テンプレートを選択（またはカスタム）</h3>
 		<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
 			{#each data.templates as tmpl}
-				<button
-					class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md transition-shadow
+				<Button
+					variant="ghost"
+					size="sm"
+					class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto
 						{selectedTemplate?.title === tmpl.title ? 'ring-2 ring-blue-400' : ''}"
 					onclick={() => selectTemplate(tmpl)}
 				>
 					<span class="text-2xl block">{tmpl.icon ?? '🎁'}</span>
 					<p class="text-xs font-bold text-gray-600 mt-1">{tmpl.title}</p>
 					<p class="text-xs text-amber-500 font-bold">{tmpl.points}P</p>
-				</button>
+				</Button>
 			{/each}
 		</div>
 	</section>

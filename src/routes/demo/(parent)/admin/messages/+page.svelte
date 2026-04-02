@@ -1,6 +1,7 @@
 <script lang="ts">
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -30,15 +31,16 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 		<h3 class="text-sm font-bold text-gray-500 mb-2">1. こどもを選択</h3>
 		<div class="flex gap-2 flex-wrap">
 			{#each data.children as child}
-				<button
-					class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors
-						{selectedChildId === child.id
-						? 'bg-blue-500 text-white'
-						: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
+				<Button
+					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+					size="sm"
+					class={selectedChildId === child.id
+						? ''
+						: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}
 					onclick={() => (selectedChildId = child.id)}
 				>
 					{child.nickname}
-				</button>
+				</Button>
 			{/each}
 		</div>
 	</section>
@@ -47,37 +49,41 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 	<section>
 		<h3 class="text-sm font-bold text-gray-500 mb-2">2. おうえんの種類</h3>
 		<div class="flex gap-2 mb-3">
-			<button
-				class="px-4 py-2 rounded-xl text-sm font-bold transition-colors
-					{messageType === 'stamp'
-					? 'bg-pink-500 text-white'
-					: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
+			<Button
+				variant={messageType === 'stamp' ? 'primary' : 'ghost'}
+				size="sm"
+				class={messageType === 'stamp'
+					? 'bg-pink-500'
+					: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}
 				onclick={() => (messageType = 'stamp')}
 			>
 				スタンプ
-			</button>
-			<button
-				class="px-4 py-2 rounded-xl text-sm font-bold transition-colors
-					{messageType === 'text'
-					? 'bg-pink-500 text-white'
-					: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
+			</Button>
+			<Button
+				variant={messageType === 'text' ? 'primary' : 'ghost'}
+				size="sm"
+				class={messageType === 'text'
+					? 'bg-pink-500'
+					: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}
 				onclick={() => (messageType = 'text')}
 			>
 				ひとことメッセージ
-			</button>
+			</Button>
 		</div>
 
 		{#if messageType === 'stamp'}
 			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
 				{#each data.stamps as stamp}
-					<button
-						class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md transition-shadow
+					<Button
+						variant="ghost"
+						size="sm"
+						class="bg-white rounded-xl p-3 shadow-sm hover:shadow-md
 							{selectedStamp === stamp.code ? 'ring-2 ring-pink-400' : ''}"
 						onclick={() => { selectedStamp = stamp.code; }}
 					>
 						<span class="text-3xl block">{stamp.icon}</span>
 						<p class="text-xs font-bold text-gray-600 mt-1">{stamp.label}</p>
-					</button>
+					</Button>
 				{/each}
 			</div>
 		{:else}
@@ -100,12 +106,14 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 
 	<!-- Step 3: Send button (disabled) -->
 	<div class="bg-white rounded-xl p-4 shadow-sm">
-		<button
+		<Button
+			variant="ghost"
+			size="md"
+			class="w-full bg-gray-200 text-gray-400 cursor-not-allowed"
 			disabled
-			class="w-full py-3 bg-gray-200 text-gray-400 rounded-xl font-bold cursor-not-allowed"
 		>
 			デモではメッセージを送れません
-		</button>
+		</Button>
 	</div>
 
 	<!-- Recent messages (demo data) -->

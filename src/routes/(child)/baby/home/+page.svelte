@@ -13,6 +13,7 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 import { tick } from 'svelte';
@@ -307,7 +308,7 @@ $effect(() => {
 			}}
 			class="hidden"
 		>
-			<button type="submit" id="claim-bonus-btn">claim</button>
+			<Button type="submit" id="claim-bonus-btn" variant="ghost" size="sm">claim</Button>
 		</form>
 	{/if}
 
@@ -364,7 +365,7 @@ $effect(() => {
 			class="hidden"
 		>
 			<input type="hidden" name="activityId" value={focusRecordActivityId} />
-			<button type="submit" id="focus-record-btn">record</button>
+			<Button type="submit" id="focus-record-btn" variant="ghost" size="sm">record</Button>
 		</form>
 	{/if}
 
@@ -470,14 +471,14 @@ $effect(() => {
 							}}
 						>
 							<input type="hidden" name="activityId" value={activity.id} />
-							<button
+							<Button
 								type="submit"
 								disabled={submitting}
-								class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] border-2 border-solid bg-white shadow-sm cursor-pointer transition-all duration-150 ease-out hover:shadow-md active:scale-95 tap-target"
-								class:baby-card--pending={pendingActivityId === activity.id}
-								class:baby-card--mission={showMission}
+								variant="outline"
+								size="sm"
+								class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] border-2 border-solid bg-white shadow-sm cursor-pointer duration-150 ease-out hover:shadow-md active:scale-95 {pendingActivityId === activity.id ? 'baby-card-pending' : ''} {showMission ? 'baby-card-mission' : ''}"
 								data-testid="activity-card-{activity.id}"
-								style:border-color={showMission ? 'gold' : borderColor}
+								style="border-color: {showMission ? 'gold' : borderColor}"
 								aria-label="{activity.displayName}をきろくする{showMission ? '（ミッション）' : ''}"
 							>
 								{#if showMission}
@@ -496,7 +497,7 @@ $effect(() => {
 										<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{activity.triggerHint}</span>
 									{/if}
 								{/if}
-							</button>
+							</Button>
 						</form>
 					{/if}
 				{/each}
@@ -514,9 +515,11 @@ $effect(() => {
 		{#if cancelledMessage}
 			<span class="text-[3.5rem]">↩️</span>
 			<p class="text-lg font-bold">とりけしました</p>
-			<button
+			<Button
 				type="button"
-				class="w-full py-3.5 px-3 rounded-xl font-bold text-lg border-none cursor-pointer bg-[var(--color-neutral-200)] tap-target"
+				variant="ghost"
+				size="md"
+				class="w-full bg-[var(--color-neutral-200)]"
 				onclick={() => {
 					cancelledMessage = false;
 					resultOpen = false;
@@ -524,7 +527,7 @@ $effect(() => {
 				}}
 			>
 				とじる
-			</button>
+			</Button>
 		{:else}
 			<div class="relative w-24 h-24 flex items-center justify-center">
 				<CelebrationEffect type={celebEffect} />
@@ -593,21 +596,25 @@ $effect(() => {
 						}}
 					>
 						<input type="hidden" name="logId" value={resultLogId} />
-						<button
+						<Button
 							type="submit"
-							class="w-full py-3.5 px-3 rounded-xl font-bold text-sm border-none cursor-pointer bg-[var(--color-neutral-200)] text-[var(--color-text-muted)] tap-target"
+							variant="ghost"
+							size="sm"
+							class="w-full bg-[var(--color-neutral-200)] text-[var(--color-text-muted)]"
 						>
 							とりけし ({cancelCountdown}s)
-						</button>
+						</Button>
 					</form>
 				{/if}
-				<button
+				<Button
 					type="button"
-					class="flex-1 w-full py-3.5 px-3 rounded-xl font-bold text-lg border-none cursor-pointer bg-[var(--theme-primary)] text-white tap-target"
+					variant="primary"
+					size="md"
+					class="flex-1 w-full"
 					onclick={handleResultClose}
 				>
 					やったね！
-				</button>
+				</Button>
 			</div>
 		{/if}
 	</div>
@@ -634,7 +641,8 @@ $effect(() => {
 
 <style>
 	/* Animations only — all layout/color via Tailwind utilities */
-	.baby-card--mission {
+	/* :global() needed because these classes are applied to Button component's inner <button> */
+	:global(.baby-card-mission) {
 		box-shadow: 0 0 12px rgba(255, 200, 0, 0.5);
 		animation: pulse-gold 2s ease-in-out infinite;
 	}
@@ -649,7 +657,8 @@ $effect(() => {
 		0%, 100% { opacity: 0.7; transform: scale(1); }
 		50% { opacity: 1; transform: scale(1.2); }
 	}
-	.baby-card--pending {
+	/* :global() needed because this class is applied to Button component's inner <button> */
+	:global(.baby-card-pending) {
 		animation: card-pulse 0.8s ease-in-out infinite;
 		opacity: 0.7;
 	}

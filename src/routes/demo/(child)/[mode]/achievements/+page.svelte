@@ -1,6 +1,7 @@
 <script lang="ts">
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 let { data } = $props();
@@ -92,10 +93,12 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 				{@const border = rarityBorder[rarity] ?? 'border-gray-200'}
 				{@const bg = rarityBg[rarity] ?? 'bg-gray-50'}
 				{@const pct = progressPercent(achievement)}
-				<button
+				<Button
+					variant="ghost"
+					size="sm"
 					class="tap-target flex flex-col items-center gap-1 p-[var(--sp-sm)] rounded-[var(--radius-md)] border-2
 						{unlocked ? `${border} ${bg}` : 'border-gray-200 bg-gray-100'}
-						transition-all relative overflow-hidden"
+						relative overflow-hidden"
 					onclick={() => handleTap(achievement)}
 				>
 					<span class="text-3xl {unlocked ? '' : 'grayscale opacity-50'}">{achievement.icon}</span>
@@ -107,7 +110,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 							<ProgressFill pct={pct} class="h-full rounded-full bg-[var(--theme-primary)] transition-all" />
 						</div>
 					{/if}
-				</button>
+				</Button>
 			{/each}
 		</div>
 	{/if}

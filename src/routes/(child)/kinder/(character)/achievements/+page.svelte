@@ -1,5 +1,6 @@
 <script lang="ts">
 import { formatPointValueWithSign } from '$lib/domain/point-display';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -116,8 +117,10 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 				{@const border = rarityBorder[rarity] ?? 'border-gray-200'}
 				{@const bg = rarityBg[rarity] ?? 'bg-gray-50'}
 				{@const pct = progressPercent(achievement)}
-				<button
-					class="tap-target flex flex-col items-center gap-1 p-[var(--sp-sm)] rounded-[var(--radius-md)] border-2
+				<Button
+					variant="ghost"
+					size="sm"
+					class="flex flex-col items-center gap-1 p-[var(--sp-sm)] rounded-[var(--radius-md)] border-2
 						{unlocked ? `${border} ${bg}` : 'border-gray-200 bg-gray-100'}
 						transition-all relative overflow-hidden"
 					onclick={() => handleTap(achievement)}
@@ -143,7 +146,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 							></div>
 						</div>
 					{/if}
-				</button>
+				</Button>
 			{/each}
 		</div>
 	{:else}
