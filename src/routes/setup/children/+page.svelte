@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import { AGE_TIER_CONFIG, type UiMode, getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
 let submitting = $state(false);
@@ -126,24 +127,15 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 		</div>
 	</div>
 
-	<button
-		type="submit"
-		disabled={submitting}
-		class="w-full py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
-	>
+	<Button type="submit" variant="success" size="md" disabled={submitting} class="w-full">
 		{submitting ? '登録中...' : '追加する'}
-	</button>
+	</Button>
 </form>
 
 <!-- Next step button -->
 {#if data.children.length > 0}
 	<form method="POST" action="?/next">
-		<button
-			type="submit"
-			class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors"
-		>
-			次へ
-		</button>
+		<Button type="submit" variant="primary" size="md" class="w-full">次へ</Button>
 	</form>
 {/if}
 
