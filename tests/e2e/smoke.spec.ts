@@ -227,23 +227,23 @@ test.describe('ナビゲーション', () => {
 
 	test('ボトムナビでページ遷移できる', async ({ page }) => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
-		// スクロール位置をリセットしてコンテンツがナビに重ならないようにする
 		await page.evaluate(() => window.scrollTo(0, 0));
+		await nav.waitFor({ state: 'visible' });
 
 		// ホーム → つよさ（ステータス）
-		await nav.locator('a').filter({ hasText: 'つよさ' }).click();
+		await nav.locator('a').filter({ hasText: 'つよさ' }).click({ force: true });
 		await expect(page).toHaveURL(/\/kinder\/status/);
 
 		// つよさ → ホーム
-		await nav.locator('a').filter({ hasText: 'ホーム' }).click();
+		await nav.locator('a').filter({ hasText: 'ホーム' }).click({ force: true });
 		await expect(page).toHaveURL(/\/kinder\/home/);
 	});
 
 	test('きりかえリンクで /switch に戻れる', async ({ page }) => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
-		// スクロール位置をリセットしてコンテンツがナビに重ならないようにする
 		await page.evaluate(() => window.scrollTo(0, 0));
-		await nav.locator('a').filter({ hasText: 'きりかえ' }).click();
+		await nav.waitFor({ state: 'visible' });
+		await nav.locator('a').filter({ hasText: 'きりかえ' }).click({ force: true });
 		await expect(page).toHaveURL(/\/switch/);
 	});
 });

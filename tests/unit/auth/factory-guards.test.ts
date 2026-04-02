@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { requireChildAccess, requireRole } from '../../../src/lib/server/auth/factory';
+import { requireChildAccess, requireRole } from '../../../src/lib/server/auth/guards';
 import type { AuthContext } from '../../../src/lib/server/auth/types';
 
 function makeLocals(context: AuthContext | null): App.Locals {
