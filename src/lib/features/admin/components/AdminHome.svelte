@@ -79,6 +79,7 @@ const secondaryMenuItems = $derived([
 	{ href: `${basePath}/achievements`, label: 'じっせき', icon: '🏆' },
 	{ href: `${basePath}/status`, label: 'ベンチマーク', icon: '📈' },
 	{ href: `${basePath}/events`, label: 'イベント', icon: '🎉' },
+	{ href: `${basePath}/reports`, label: 'レポート', icon: '📊' },
 	{ href: `${basePath}/members`, label: 'メンバー', icon: '👥' },
 	...(isDemo
 		? []
@@ -100,6 +101,7 @@ const allMenuItems = $derived([
 	{ href: `${basePath}/achievements`, label: 'じっせき', icon: '🏆' },
 	{ href: `${basePath}/status`, label: 'ベンチマーク', icon: '📈' },
 	{ href: `${basePath}/events`, label: 'イベント', icon: '🎉' },
+	{ href: `${basePath}/reports`, label: 'レポート', icon: '📊' },
 	{ href: `${basePath}/members`, label: 'メンバー', icon: '👥' },
 	...(isDemo
 		? []
