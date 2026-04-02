@@ -85,6 +85,69 @@ export async function claimEventReward(
 	return { rewardConfig: event.rewardConfig };
 }
 
+/** 活動記録時のイベントミッション進捗チェック */
+export async function checkEventMissionProgress(
+	childId: number,
+	tenantId: string,
+): Promise<{ eventId: number; missionComplete: boolean; eventName: string }[]> {
+	const today = new Date().toISOString().slice(0, 10);
+	const events = await findActiveEvents(today, tenantId);
+	const results: { eventId: number; missionComplete: boolean; eventName: string }[] = [];
+
+	for (const event of events) {
+		if (!event.missionConfig) continue;
+
+		let config: { type?: string; target?: number };
+		try {
+			config = JSON.parse(event.missionConfig);
+		} catch {
+			continue;
+		}
+
+		if (config.type !== 'total_records' || !config.target) continue;
+
+		// 自動参加
+		let progress = await findChildProgress(childId, event.id, tenantId);
+		if (!progress) {
+			await upsertChildProgress(childId, event.id, 'active', null, tenantId);
+			progress = await findChildProgress(childId, event.id, tenantId);
+		}
+		if (!progress || progress.status === 'completed' || progress.status === 'reward_claimed')
+			continue;
+
+		// 進捗カウンタ更新
+		let current = 0;
+		if (progress.progressJson) {
+			try {
+				current = JSON.parse(progress.progressJson).count ?? 0;
+			} catch {
+				/* ignore */
+			}
+		}
+		current++;
+
+		const missionComplete = current >= config.target;
+		const newStatus = missionComplete ? 'completed' : 'active';
+		await upsertChildProgress(
+			childId,
+			event.id,
+			newStatus,
+			JSON.stringify({ count: current, target: config.target }),
+			tenantId,
+		);
+
+		if (missionComplete) {
+			logger.info('[season-event] Event mission completed', {
+				context: { childId, eventId: event.id },
+			});
+		}
+
+		results.push({ eventId: event.id, missionComplete, eventName: event.name });
+	}
+
+	return results;
+}
+
 /** 管理: イベント作成 */
 export async function createEvent(
 	input: InsertSeasonEventInput,

@@ -73,6 +73,7 @@ export interface RecordActivityResult {
 	unlockedAchievements: UnlockedAchievement[];
 	comboBonus: ComboResult | null;
 	missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
+	eventMissions: { eventId: number; missionComplete: boolean; eventName: string }[];
 	focusBonus: { bonusPoints: number } | null;
 	levelUp: LevelUpInfo | null;
 	xpGain: XpGainInfo;
@@ -226,6 +227,15 @@ export async function recordActivity(
 	// デイリーミッション判定
 	const missionResult = await checkMissionCompletion(childId, activityId, tenantId);
 
+	// イベントミッション進捗チェック
+	let eventMissionResults: { eventId: number; missionComplete: boolean; eventName: string }[] = [];
+	try {
+		const { checkEventMissionProgress } = await import('$lib/server/services/season-event-service');
+		eventMissionResults = await checkEventMissionProgress(childId, tenantId);
+	} catch {
+		// イベントミッションチェック失敗は記録フローを止めない
+	}
+
 	// フォーカスモードおすすめ3件達成ボーナスチェック
 	let focusBonus: { bonusPoints: number } | null = null;
 	try {
@@ -257,6 +267,7 @@ export async function recordActivity(
 		unlockedAchievements,
 		comboBonus: comboBonus.totalNewBonus > 0 || comboBonus.hints.length > 0 ? comboBonus : null,
 		missionComplete: missionResult.missionCompleted ? missionResult : null,
+		eventMissions: eventMissionResults,
 		focusBonus,
 		levelUp,
 		xpGain,
