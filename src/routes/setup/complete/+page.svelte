@@ -23,31 +23,31 @@ const childLabel = $derived(
 	</p>
 
 	<!-- ステータスサマリ -->
-	<div class="status-cards">
-		<div class="status-card">
-			<div class="status-icon">👦</div>
-			<div class="status-value">{data.childCount}人</div>
-			<div class="status-label">こども</div>
+	<div class="flex gap-3 justify-center mb-5">
+		<div class="flex-1 max-w-[120px] bg-[var(--color-brand-50)] border border-[var(--color-brand-200)] rounded-xl py-3 px-2">
+			<div class="text-2xl mb-1">👦</div>
+			<div class="text-xl font-extrabold text-[var(--color-brand-800)]">{data.childCount}人</div>
+			<div class="text-[0.625rem] text-[var(--color-text-muted)]">こども</div>
 		</div>
 		{#if data.importedActivities > 0}
-			<div class="status-card">
-				<div class="status-icon">📋</div>
-				<div class="status-value">{data.importedActivities}こ</div>
-				<div class="status-label">かつどう</div>
+			<div class="flex-1 max-w-[120px] bg-[var(--color-brand-50)] border border-[var(--color-brand-200)] rounded-xl py-3 px-2">
+				<div class="text-2xl mb-1">📋</div>
+				<div class="text-xl font-extrabold text-[var(--color-brand-800)]">{data.importedActivities}こ</div>
+				<div class="text-[0.625rem] text-[var(--color-text-muted)]">かつどう</div>
 			</div>
 		{/if}
 	</div>
 
 	<!-- 次のミッション -->
-	<div class="mission-card">
-		<p class="mission-title">つぎのミッション</p>
-		<p class="mission-text">
+	<div class="bg-[var(--gradient-gold)] border border-[var(--color-gold-400)] rounded-xl py-3 px-4 mb-5">
+		<p class="text-[0.625rem] font-bold text-[var(--color-gold-700)] uppercase tracking-wide m-0 mb-1">つぎのミッション</p>
+		<p class="text-sm font-semibold text-[var(--color-gold-700)] m-0">
 			「きょうの がんばりを 3つ きろくしよう！」
 		</p>
 	</div>
 
 	<!-- CTA ボタン -->
-	<div class="cta-group">
+	<div class="flex flex-col gap-2 mb-4">
 		<a href={childHomeUrl} class="cta-primary">
 			こどもがめんをひらく
 		</a>
@@ -57,7 +57,7 @@ const childLabel = $derived(
 	</div>
 
 	<!-- PINヒント -->
-	<p class="pin-hint">
+	<p class="text-[0.6875rem] text-[var(--color-neutral-400)] mt-2">
 		💡 管理画面の「せってい」からPINコードを設定すると、おやの画面を守れるよ
 	</p>
 </div>
@@ -70,69 +70,6 @@ const childLabel = $derived(
 	@keyframes fadeIn {
 		from { opacity: 0; transform: translateY(8px); }
 		to { opacity: 1; transform: translateY(0); }
-	}
-
-	.status-cards {
-		display: flex;
-		gap: 12px;
-		justify-content: center;
-		margin-bottom: 20px;
-	}
-
-	.status-card {
-		flex: 1;
-		max-width: 120px;
-		background: var(--color-brand-50);
-		border: 1px solid var(--color-brand-200);
-		border-radius: 12px;
-		padding: 12px 8px;
-	}
-
-	.status-icon {
-		font-size: 1.5rem;
-		margin-bottom: 4px;
-	}
-
-	.status-value {
-		font-size: 1.25rem;
-		font-weight: 800;
-		color: var(--color-brand-800);
-	}
-
-	.status-label {
-		font-size: 0.625rem;
-		color: var(--color-text-muted);
-	}
-
-	.mission-card {
-		background: var(--gradient-gold);
-		border: 1px solid var(--color-gold-400);
-		border-radius: 12px;
-		padding: 12px 16px;
-		margin-bottom: 20px;
-	}
-
-	.mission-title {
-		font-size: 0.625rem;
-		font-weight: 700;
-		color: var(--color-gold-700);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		margin: 0 0 4px 0;
-	}
-
-	.mission-text {
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--color-gold-700);
-		margin: 0;
-	}
-
-	.cta-group {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		margin-bottom: 16px;
 	}
 
 	.cta-primary {
@@ -165,11 +102,5 @@ const childLabel = $derived(
 
 	.cta-secondary:hover {
 		background: var(--color-neutral-200);
-	}
-
-	.pin-hint {
-		font-size: 0.6875rem;
-		color: var(--color-neutral-400);
-		margin-top: 8px;
 	}
 </style>

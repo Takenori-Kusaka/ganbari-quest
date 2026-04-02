@@ -12,26 +12,26 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 	<title>だれがつかう？ - がんばりクエスト</title>
 </svelte:head>
 
-<div class="portal-page">
+<div class="portal-page min-h-dvh flex flex-col">
 	{#if data.reason === 'admin_forbidden'}
-		<div class="toast-banner" role="alert">おやのアカウントでログインしてね</div>
+		<div class="bg-[var(--color-gold-100)] text-[var(--color-gold-700)] py-3 px-4 text-center text-sm font-semibold border-b border-[var(--color-gold-500)]" role="alert">おやのアカウントでログインしてね</div>
 	{/if}
 
-	<header class="portal-header">
+	<header class="pt-10 px-6 pb-6 flex justify-center">
 		<Logo variant="full" size={280} />
 	</header>
 
-	<main class="portal-main">
-		<h1 class="portal-title">だれがつかう？</h1>
+	<main class="flex-1 px-4 pb-6 max-w-[480px] mx-auto w-full">
+		<h1 class="text-2xl font-bold text-center text-[var(--color-neutral-900)] mb-6">だれがつかう？</h1>
 
 		{#if data.children.length === 0}
-			<div class="portal-empty">
-				<span class="portal-empty-icon">👤</span>
-				<p class="portal-empty-title">こどもがまだいないよ</p>
-				<p class="portal-empty-desc">おやがかんりがめんからついかしてね</p>
+			<div class="flex flex-col items-center py-12 text-[var(--color-neutral-400)]">
+				<span class="text-[2.5rem] mb-2">👤</span>
+				<p class="font-bold m-0">こどもがまだいないよ</p>
+				<p class="text-sm mt-1">おやがかんりがめんからついかしてね</p>
 			</div>
 		{:else}
-			<div class="child-list">
+			<div class="flex flex-col gap-3">
 				{#each data.children as child (child.id)}
 					{@const themeName = knownThemes.has(child.theme) ? child.theme : 'pink'}
 					<form method="POST" action="?/select" use:enhance>
@@ -47,17 +47,17 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 								<img
 									src={child.avatarUrl}
 									alt={child.nickname}
-									class="child-avatar"
+									class="w-12 h-12 rounded-full object-cover border-2 border-[var(--theme-primary)] shrink-0"
 									loading="lazy"
 								/>
 							{:else}
-								<span class="child-avatar-placeholder">👤</span>
+								<span class="text-[2.5rem] shrink-0">👤</span>
 							{/if}
-							<div class="child-info">
-								<p class="child-name">{child.nickname}</p>
-								<p class="child-age">{child.age}さい</p>
+							<div class="flex-1 min-w-0">
+								<p class="text-lg font-bold text-[var(--color-neutral-900)] m-0">{child.nickname}</p>
+								<p class="text-sm text-[var(--color-neutral-400)] mt-0.5">{child.age}さい</p>
 							</div>
-							<span class="child-arrow" aria-hidden="true">▶</span>
+							<span class="text-2xl text-[var(--color-neutral-300)] shrink-0" aria-hidden="true">▶</span>
 						</button>
 					</form>
 				{/each}
@@ -66,71 +66,16 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 	</main>
 
 	{#if data.showAdminLink}
-		<footer class="portal-footer">
-			<a href={data.adminLink}>🔒 おやのかんりがめん</a>
+		<footer class="p-4 text-center">
+			<a href={data.adminLink} class="text-[var(--color-text-muted)] text-sm no-underline hover:text-[var(--color-brand-700)]">🔒 おやのかんりがめん</a>
 		</footer>
 	{/if}
 </div>
 
 <style>
 	.portal-page {
-		min-height: 100dvh;
 		background: linear-gradient(135deg, var(--color-brand-100) 0%, var(--color-brand-50) 50%, var(--color-gold-100) 100%);
-		display: flex;
-		flex-direction: column;
 	}
-
-	.portal-header {
-		padding: 40px 24px 24px;
-		display: flex;
-		justify-content: center;
-	}
-
-	.portal-main {
-		flex: 1;
-		padding: 0 16px 24px;
-		max-width: 480px;
-		margin: 0 auto;
-		width: 100%;
-	}
-
-	.portal-title {
-		font-size: 1.5rem;
-		font-weight: 700;
-		text-align: center;
-		color: var(--color-neutral-900);
-		margin-bottom: 24px;
-	}
-
-	.portal-empty {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: 48px 0;
-		color: var(--color-neutral-400);
-	}
-
-	.portal-empty-icon {
-		font-size: 2.5rem;
-		margin-bottom: 8px;
-	}
-
-	.portal-empty-title {
-		font-weight: 700;
-		margin: 0;
-	}
-
-	.portal-empty-desc {
-		font-size: 0.875rem;
-		margin: 4px 0 0;
-	}
-
-	.child-list {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
 	.child-button {
 		width: 100%;
 		display: flex;
@@ -145,77 +90,12 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 		transition: all 0.2s;
 		text-align: left;
 	}
-
 	.child-button:hover {
 		background: var(--theme-bg);
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
-
 	.child-button:active {
 		transform: translateY(0);
-	}
-
-	.child-avatar {
-		width: 48px;
-		height: 48px;
-		border-radius: 50%;
-		object-fit: cover;
-		border: 2px solid var(--theme-primary);
-		flex-shrink: 0;
-	}
-
-	.child-avatar-placeholder {
-		font-size: 2.5rem;
-		flex-shrink: 0;
-	}
-
-	.child-info {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.child-name {
-		font-size: 1.125rem;
-		font-weight: 700;
-		color: var(--color-neutral-900);
-		margin: 0;
-	}
-
-	.child-age {
-		font-size: 0.875rem;
-		color: var(--color-neutral-400);
-		margin: 2px 0 0;
-	}
-
-	.child-arrow {
-		font-size: 1.5rem;
-		color: var(--color-neutral-300);
-		flex-shrink: 0;
-	}
-
-	.portal-footer {
-		padding: 16px;
-		text-align: center;
-	}
-
-	.portal-footer a {
-		color: var(--color-text-muted);
-		font-size: 0.875rem;
-		text-decoration: none;
-	}
-
-	.portal-footer a:hover {
-		color: var(--color-brand-700);
-	}
-
-	.toast-banner {
-		background: var(--color-gold-100);
-		color: var(--color-gold-700);
-		padding: 12px 16px;
-		text-align: center;
-		font-size: 0.875rem;
-		font-weight: 600;
-		border-bottom: 1px solid var(--color-gold-500);
 	}
 </style>

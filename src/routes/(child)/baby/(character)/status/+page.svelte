@@ -37,12 +37,12 @@ const radarCategories = $derived(
 	<title>つよさ - がんばりクエスト</title>
 </svelte:head>
 
-<div class="status-page">
+<div class="px-4 py-1">
 	{#if data.status}
 		<!-- Category levels -->
-		<div class="status-level">
+		<div class="bg-[var(--color-surface-card)] rounded-2xl p-4 shadow-[var(--card-shadow)] mb-6">
 			{#if data.activeTitle}
-				<div class="status-level__center flex-row gap-2 mb-3">
+				<div class="flex flex-col items-center gap-1 mb-4">
 					<span class="text-sm font-bold text-[var(--color-point)]">
 						{data.activeTitle.icon} {data.activeTitle.name}
 					</span>
@@ -75,23 +75,23 @@ const radarCategories = $derived(
 		</div>
 
 		<!-- Radar chart -->
-		<div class="status-radar">
-			<h2 class="status-radar__title">ステータス</h2>
-			<div class="status-radar__chart">
+		<div class="bg-[var(--color-surface-card)] rounded-2xl p-4 shadow-[var(--card-shadow)] mb-3">
+			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">ステータス</h2>
+			<div class="flex justify-center">
 				<RadarChart categories={radarCategories} size={280} />
 			</div>
 		</div>
 
 		<!-- Collapsible detail -->
-		<div class="status-detail">
+		<div class="bg-[var(--color-surface-card)] rounded-2xl shadow-[var(--card-shadow)] overflow-hidden">
 			<button
-				class="status-detail__toggle"
+				class="w-full p-4 flex items-center justify-between text-sm font-bold text-[var(--color-text-muted)] bg-transparent border-none cursor-pointer"
 				onclick={() => { soundService.play('tap'); detailOpen = !detailOpen; }}
 			>
 				<span>{detailOpen ? '▼' : '▶'} くわしくみる</span>
 			</button>
 			{#if detailOpen}
-				<div class="status-detail__content">
+				<div class="px-4 pb-4 flex flex-col gap-4">
 					{#each CATEGORY_DEFS as catDef (catDef.id)}
 						{@const status = data.status.statuses[catDef.id]}
 						{#if status}
@@ -102,8 +102,8 @@ const radarCategories = $derived(
 									level={status.level}
 									progressPct={status.progressPct}
 								/>
-								<div class="status-bars__trend">
-									<span class="status-bars__trend-icon">
+								<div class="flex justify-between items-center mt-1 px-1">
+									<span class="text-xs text-[var(--color-text-muted)]">
 										{trendIcons[status.trend] ?? '➡️'}
 									</span>
 								</div>
@@ -114,105 +114,9 @@ const radarCategories = $derived(
 			{/if}
 		</div>
 	{:else}
-		<div class="status-empty">
-			<span class="status-empty__icon">⭐</span>
-			<p class="status-empty__text">ステータスがまだないよ</p>
+		<div class="flex flex-col items-center py-12 text-[var(--color-text-muted)]">
+			<span class="text-[2.5rem] mb-2">⭐</span>
+			<p class="font-bold">ステータスがまだないよ</p>
 		</div>
 	{/if}
 </div>
-
-<style>
-	.status-page {
-		padding: 4px 16px;
-	}
-
-	.status-level {
-		background: white;
-		border-radius: 16px;
-		padding: 16px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		margin-bottom: 24px;
-	}
-
-	.status-level__center {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		margin-bottom: 16px;
-	}
-
-	.status-level__title { font-size: 0.875rem; font-weight: 700; color: var(--theme-accent); }
-
-	.status-radar {
-		background: white;
-		border-radius: 16px;
-		padding: 16px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		margin-bottom: 12px;
-	}
-
-	.status-radar__title {
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--color-text-muted);
-		margin-bottom: 8px;
-	}
-
-	.status-radar__chart {
-		display: flex;
-		justify-content: center;
-	}
-
-	.status-detail {
-		background: white;
-		border-radius: 16px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		overflow: hidden;
-	}
-
-	.status-detail__toggle {
-		width: 100%;
-		padding: 16px;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--color-text-muted);
-		background: none;
-		border: none;
-		cursor: pointer;
-	}
-
-	.status-detail__content {
-		padding: 0 16px 16px;
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-	}
-
-	.status-bars__trend {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-top: 4px;
-		padding: 0 4px;
-	}
-
-	.status-bars__trend-icon {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-	}
-
-.status-empty {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: 48px 0;
-		color: var(--color-text-muted);
-	}
-
-	.status-empty__icon { font-size: 2.5rem; margin-bottom: 8px; }
-	.status-empty__text { font-weight: 700; }
-</style>

@@ -6,38 +6,38 @@ let { data } = $props();
 	<title>招待 - がんばりクエスト</title>
 </svelte:head>
 
-<div class="invite-page">
-	<div class="invite-card">
-		<div class="invite-header">
-			<div class="invite-icon">🏰</div>
-			<h1 class="invite-title">がんばりクエスト</h1>
+<div class="invite-bg min-h-dvh flex items-center justify-center p-4">
+	<div class="w-full max-w-[420px] bg-[var(--color-surface-card)] rounded-[var(--radius-md)] py-10 px-8 shadow-[var(--card-shadow-elevated)]">
+		<div class="text-center mb-8">
+			<div class="text-5xl mb-2">🏰</div>
+			<h1 class="text-2xl font-bold text-[var(--color-neutral-900)] m-0">がんばりクエスト</h1>
 		</div>
 
 		{#if !data.valid}
-			<div class="invite-error">
-				<div class="error-icon">⚠️</div>
-				<p class="error-message">{data.error}</p>
-				<p class="error-hint">招待した方に新しいリンクを発行してもらってください。</p>
-				<a href="/auth/login" class="invite-button">ログインページへ</a>
+			<div class="text-center">
+				<div class="text-[2.5rem] mb-3">⚠️</div>
+				<p class="text-base font-semibold text-[var(--color-danger)] mb-2">{data.error}</p>
+				<p class="text-sm text-[var(--color-neutral-500)] mb-6">招待した方に新しいリンクを発行してもらってください。</p>
+				<a href="/auth/login" class="invite-button invite-button--error">ログインページへ</a>
 			</div>
 		{:else}
-			<div class="invite-info">
-				<p class="invite-description">
+			<div class="mb-7">
+				<p class="text-base text-[var(--color-neutral-700)] text-center mb-4 leading-relaxed">
 					家族グループへの招待が届いています。
 				</p>
-				<div class="invite-detail">
-					<span class="detail-label">参加ロール:</span>
-					<span class="detail-value">
+				<div class="flex justify-center gap-2 py-3 px-4 bg-[var(--color-brand-50)] rounded-[var(--radius-sm)]">
+					<span class="text-sm text-[var(--color-neutral-500)]">参加ロール:</span>
+					<span class="text-sm font-semibold text-[var(--color-brand-700)]">
 						{data.invite.role === 'parent' ? '保護者' : 'こども'}
 					</span>
 				</div>
 			</div>
 
-			<div class="invite-actions">
-				<a href="/auth/signup" class="invite-button primary">
+			<div class="flex flex-col gap-3">
+				<a href="/auth/signup" class="invite-button invite-button--primary">
 					新規アカウントを作成して参加
 				</a>
-				<a href="/auth/login" class="invite-button secondary">
+				<a href="/auth/login" class="invite-button invite-button--secondary">
 					既存アカウントでログインして参加
 				</a>
 			</div>
@@ -46,101 +46,7 @@ let { data } = $props();
 </div>
 
 <style>
-	.invite-page {
-		min-height: 100dvh;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: var(--gradient-brand);
-		padding: 16px;
-	}
-
-	.invite-card {
-		width: 100%;
-		max-width: 420px;
-		background: var(--color-surface-card);
-		border-radius: var(--radius-md);
-		padding: 40px 32px;
-		box-shadow: var(--card-shadow-elevated);
-	}
-
-	.invite-header {
-		text-align: center;
-		margin-bottom: 32px;
-	}
-
-	.invite-icon {
-		font-size: 3rem;
-		margin-bottom: 8px;
-	}
-
-	.invite-title {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: var(--color-neutral-900);
-		margin: 0;
-	}
-
-	.invite-error {
-		text-align: center;
-	}
-
-	.error-icon {
-		font-size: 2.5rem;
-		margin-bottom: 12px;
-	}
-
-	.error-message {
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--color-danger);
-		margin: 0 0 8px;
-	}
-
-	.error-hint {
-		font-size: 0.875rem;
-		color: var(--color-neutral-500);
-		margin: 0 0 24px;
-	}
-
-	.invite-info {
-		margin-bottom: 28px;
-	}
-
-	.invite-description {
-		font-size: 1rem;
-		color: var(--color-neutral-700);
-		text-align: center;
-		margin: 0 0 16px;
-		line-height: 1.6;
-	}
-
-	.invite-detail {
-		display: flex;
-		justify-content: center;
-		gap: 8px;
-		padding: 12px 16px;
-		background: var(--color-brand-50);
-		border-radius: var(--radius-sm);
-	}
-
-	.detail-label {
-		font-size: 0.875rem;
-		color: var(--color-neutral-500);
-	}
-
-	.detail-value {
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--color-brand-700);
-	}
-
-	.invite-actions {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
+	.invite-bg { background: var(--gradient-brand); }
 	.invite-button {
 		display: block;
 		padding: 14px;
@@ -151,23 +57,17 @@ let { data } = $props();
 		text-decoration: none;
 		transition: opacity 0.15s;
 	}
-
-	.invite-button:hover {
-		opacity: 0.9;
-	}
-
-	.invite-button.primary {
+	.invite-button:hover { opacity: 0.9; }
+	.invite-button--primary {
 		background: var(--gradient-brand);
 		color: var(--color-text-inverse);
 	}
-
-	.invite-button.secondary {
+	.invite-button--secondary {
 		background: var(--color-surface-card);
 		color: var(--color-brand-600);
 		border: 2px solid var(--color-brand-600);
 	}
-
-	.invite-error .invite-button {
+	.invite-button--error {
 		display: inline-block;
 		background: var(--color-brand-600);
 		color: var(--color-text-inverse);
