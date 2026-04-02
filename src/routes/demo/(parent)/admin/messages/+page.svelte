@@ -2,6 +2,7 @@
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
@@ -88,18 +89,13 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 			</div>
 		{:else}
 			<div class="bg-white rounded-xl p-4 shadow-sm">
-				<label class="block">
-					<span class="block text-xs font-bold text-gray-500 mb-1">
-						メッセージ（30文字以内）
-					</span>
-					<input
-						type="text"
-						maxlength={30}
-						disabled
-						placeholder="がんばってるね！だいすき！"
-						class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
-					/>
-				</label>
+				<FormField
+					label="メッセージ（30文字以内）"
+					type="text"
+					maxlength={30}
+					disabled
+					placeholder="がんばってるね！だいすき！"
+				/>
 			</div>
 		{/if}
 	</section>

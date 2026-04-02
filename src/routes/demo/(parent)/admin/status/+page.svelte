@@ -5,6 +5,7 @@ import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
@@ -134,13 +135,7 @@ let showLevelTitles = $state(false);
 					<div class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
 						<span class="text-sm font-bold text-gray-500 w-12">Lv.{lt.level}</span>
 						<div class="flex-1 min-w-0 flex items-center gap-2">
-							<input
-								type="text"
-								maxlength={20}
-								placeholder={lt.defaultTitle}
-								disabled
-								class="flex-1 px-3 py-1.5 border rounded-lg text-sm border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-							/>
+							<FormField label="称号" type="text" maxlength={20} placeholder={lt.defaultTitle} disabled class="flex-1" />
 							<Button
 								variant="ghost"
 								size="sm"
@@ -219,24 +214,8 @@ let showLevelTitles = $state(false);
 						<span class="text-lg">{catDef.icon}</span>
 						<span class="font-bold text-gray-700 w-24">{catDef.name}</span>
 						<div class="flex items-center gap-2 flex-1 min-w-0">
-							<label class="text-xs text-gray-500 whitespace-nowrap">
-								平均:
-							</label>
-							<input
-								type="number"
-								value={inputMean}
-								disabled
-								class="w-20 px-2 py-1 border rounded text-sm text-right bg-gray-50 text-gray-400 cursor-not-allowed"
-							/>
-							<label class="text-xs text-gray-500 whitespace-nowrap">
-								SD:
-							</label>
-							<input
-								type="number"
-								value={inputSd}
-								disabled
-								class="w-20 px-2 py-1 border rounded text-sm text-right bg-gray-50 text-gray-400 cursor-not-allowed"
-							/>
+							<FormField label="平均" type="number" value={inputMean} disabled class="w-24" />
+							<FormField label="SD" type="number" value={inputSd} disabled class="w-24" />
 						</div>
 						<Button
 							variant="ghost"

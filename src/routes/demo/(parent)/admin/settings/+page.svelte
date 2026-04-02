@@ -2,6 +2,7 @@
 import { CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
@@ -40,33 +41,9 @@ const decayOptions = [
 			管理画面にアクセスするためのPINコードを変更できます。
 		</p>
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-			<div>
-				<label class="block text-xs font-bold text-gray-400 mb-1">現在のPIN</label>
-				<input
-					type="password"
-					disabled
-					placeholder="****"
-					class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
-				/>
-			</div>
-			<div>
-				<label class="block text-xs font-bold text-gray-400 mb-1">新しいPIN</label>
-				<input
-					type="password"
-					disabled
-					placeholder="****"
-					class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
-				/>
-			</div>
-			<div>
-				<label class="block text-xs font-bold text-gray-400 mb-1">確認</label>
-				<input
-					type="password"
-					disabled
-					placeholder="****"
-					class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
-				/>
-			</div>
+			<FormField label="現在のPIN" type="password" disabled placeholder="****" />
+			<FormField label="新しいPIN" type="password" disabled placeholder="****" />
+			<FormField label="確認" type="password" disabled placeholder="****" />
 		</div>
 	</section>
 

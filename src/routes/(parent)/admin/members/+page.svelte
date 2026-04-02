@@ -2,6 +2,7 @@
 import { page } from '$app/stores';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 import QRCode from 'qrcode';
 
 let { data } = $props();
@@ -228,36 +229,33 @@ const roleLabel = (role: string) => {
 		<h3 class="text-lg font-semibold text-gray-600 mb-3">メンバーを招待</h3>
 
 		<div class="flex flex-wrap items-end gap-3 mb-3">
-			<div class="flex-1 min-w-[120px]">
-				<label for="invite-role" class="block text-sm font-medium text-gray-600 mb-1">
-					招待ロール
-				</label>
-				<select
-					id="invite-role"
-					bind:value={inviteRole}
-					onchange={() => { inviteChildId = undefined; }}
-					class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-				>
-					<option value="parent">保護者</option>
-					<option value="child">こども</option>
-				</select>
-			</div>
-			{#if inviteRole === 'child' && availableChildren.length > 0}
-				<div class="flex-1 min-w-[120px]">
-					<label for="invite-child" class="block text-sm font-medium text-gray-600 mb-1">
-						対象の子供（任意）
-					</label>
+			<FormField label="招待ロール" id="invite-role" class="flex-1 min-w-[120px]">
+				{#snippet children()}
 					<select
-						id="invite-child"
-						bind:value={inviteChildId}
-						class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+						id="invite-role"
+						bind:value={inviteRole}
+						onchange={() => { inviteChildId = undefined; }}
+						class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm"
 					>
-						<option value={undefined}>-- 後で紐づけ --</option>
-						{#each availableChildren as child}
-							<option value={child.id}>{child.nickname}</option>
-						{/each}
+						<option value="parent">保護者</option>
+						<option value="child">こども</option>
 					</select>
-				</div>
+				{/snippet}
+			</FormField>
+			{#if inviteRole === 'child' && availableChildren.length > 0}
+				<FormField label="対象の子供（任意）" class="flex-1 min-w-[120px]">
+					{#snippet children()}
+						<select
+							bind:value={inviteChildId}
+							class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm"
+						>
+							<option value={undefined}>-- 後で紐づけ --</option>
+							{#each availableChildren as child}
+								<option value={child.id}>{child.nickname}</option>
+							{/each}
+						</select>
+					{/snippet}
+				</FormField>
 			{/if}
 			<Button
 				onclick={createInvite}
@@ -292,13 +290,17 @@ const roleLabel = (role: string) => {
 				{/if}
 
 				<!-- URL コピー -->
-				<div class="flex items-center gap-2">
-					<input
-						type="text"
-						value={inviteLink}
-						readonly
-						class="flex-1 px-3 py-2 bg-white border border-green-200 rounded-lg text-xs font-mono"
-					/>
+				<div class="flex items-end gap-2">
+					<FormField label="招待URL" class="flex-1">
+						{#snippet children()}
+							<input
+								type="text"
+								value={inviteLink}
+								readonly
+								class="w-full px-3 py-2 bg-white border border-green-200 rounded-[var(--input-radius)] text-xs font-mono"
+							/>
+						{/snippet}
+					</FormField>
 					<Button
 						onclick={copyLink}
 						variant={copyButtonVariant}
