@@ -19,7 +19,10 @@ import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getUnshownMessage } from '$lib/server/services/message-service';
 import { selectRecommendations } from '$lib/server/services/recommendation-service';
-import { getActiveEventsForChild } from '$lib/server/services/season-event-service';
+import {
+	claimEventReward,
+	getActiveEventsForChild,
+} from '$lib/server/services/season-event-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
@@ -346,5 +349,37 @@ export const actions: Actions = {
 			totalPoints: result.totalPoints,
 			multiplier: result.multiplier,
 		};
+	},
+
+	claimEventReward: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(cookies.get('selectedChildId'));
+		const eventId = Number(formData.get('eventId'));
+
+		if (Number.isNaN(childId) || Number.isNaN(eventId)) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+
+		try {
+			const result = await claimEventReward(childId, eventId, tenantId);
+			let rewardInfo: { points?: number; title?: string } = {};
+			if (result.rewardConfig) {
+				try {
+					rewardInfo = JSON.parse(result.rewardConfig);
+				} catch {
+					/* ignore */
+				}
+			}
+			return {
+				success: true,
+				eventRewardClaimed: true,
+				rewardPoints: rewardInfo.points ?? 0,
+				rewardTitle: rewardInfo.title ?? '',
+			};
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'ほうしゅうをうけとれませんでした';
+			return fail(400, { error: message });
+		}
 	},
 };
