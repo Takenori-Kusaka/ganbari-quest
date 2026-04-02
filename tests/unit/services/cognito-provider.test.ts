@@ -195,8 +195,9 @@ describe('CognitoAuthProvider', () => {
 			expect(context).toEqual({
 				tenantId: 't-family-A',
 				role: 'owner',
-				licenseStatus: 'active',
+				licenseStatus: 'none',
 				tenantStatus: 'active',
+				plan: undefined,
 			});
 			expect(mockFindUserByEmail).toHaveBeenCalledWith('owner@family.com');
 			expect(mockFindUserTenants).toHaveBeenCalledWith('u-member');

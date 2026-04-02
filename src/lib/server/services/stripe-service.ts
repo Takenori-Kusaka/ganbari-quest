@@ -24,7 +24,7 @@ import type Stripe from 'stripe';
 
 export interface CreateCheckoutInput {
 	tenantId: string;
-	planId: 'monthly' | 'yearly';
+	planId: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly';
 	successUrl: string;
 	cancelUrl: string;
 }
@@ -56,6 +56,8 @@ export async function createCheckoutSession(
 	// Trial abuse prevention: only grant trial once per tenant
 	const trialDays = tenant.trialUsedAt ? undefined : TRIAL_PERIOD_DAYS;
 
+	const tierLabel = plan.tier === 'family' ? 'ファミリープラン' : 'スタンダードプラン';
+
 	const sessionParams: Stripe.Checkout.SessionCreateParams = {
 		mode: 'subscription',
 		payment_method_types: ['card'],
@@ -85,7 +87,7 @@ export async function createCheckoutSession(
 		subscription_data: {
 			trial_period_days: trialDays,
 			metadata: { tenantId: input.tenantId },
-			description: 'がんばりクエスト プレミアムプラン',
+			description: `がんばりクエスト ${tierLabel}`,
 		},
 		success_url: input.successUrl,
 		cancel_url: input.cancelUrl,

@@ -49,7 +49,7 @@ export function resolvePlanTier(
 	if (getAuthMode() === 'local') return 'family';
 	// アクティブな有料プラン
 	if (licenseStatus === 'active') {
-		return planId === 'family' ? 'family' : 'standard';
+		return planId?.startsWith('family') ? 'family' : 'standard';
 	}
 	// トライアル期間中 → ファミリー全機能解放
 	if (trialEndDate && new Date(trialEndDate) > new Date()) {

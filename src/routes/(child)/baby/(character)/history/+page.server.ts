@@ -31,7 +31,11 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 
 	const period = url.searchParams.get('period') ?? 'week';
 	const dateRange = getDateRange(period);
-	const planTier = await resolveFullPlanTier(tenantId, locals.context?.licenseStatus ?? 'none');
+	const planTier = await resolveFullPlanTier(
+		tenantId,
+		locals.context?.licenseStatus ?? 'none',
+		locals.context?.plan,
+	);
 	const filtered = applyRetentionFilter(planTier, dateRange);
 	const result = await getActivityLogs(child.id, tenantId, filtered);
 

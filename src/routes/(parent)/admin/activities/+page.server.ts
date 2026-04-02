@@ -36,7 +36,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// プリセットパック一覧
 	const activityPacks = activityPackIndex.packs;
 
-	const isPremium = isPaidTier(await resolveFullPlanTier(tenantId, licenseStatus));
+	const isPremium = isPaidTier(
+		await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan),
+	);
 
 	return {
 		activities,
