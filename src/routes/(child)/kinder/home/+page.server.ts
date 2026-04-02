@@ -177,6 +177,7 @@ export const actions: Actions = {
 			unlockedAchievements: result.unlockedAchievements,
 			comboBonus: result.comboBonus,
 			missionComplete: result.missionComplete,
+			eventMissions: result.eventMissions,
 			focusBonus: result.focusBonus,
 			levelUp: result.levelUp,
 			masteryBonus: result.masteryBonus,
