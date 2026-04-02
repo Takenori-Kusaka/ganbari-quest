@@ -6,6 +6,7 @@ import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/s
 import { SuccessAlert } from '$lib/ui/components';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
@@ -93,7 +94,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 
 	<!-- 成長レポート -->
 	{#if previewChild?.status}
-		<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+		<Card>
 			<h3 class="text-lg font-bold text-gray-700 mb-3">
 				📊 {previewChild.nickname}の成長レポート
 			</h3>
@@ -150,11 +151,11 @@ let levelTitleInputs: Record<number, string> = $state({});
 					</div>
 				</div>
 			{/if}
-		</div>
+		</Card>
 	{/if}
 
 	<!-- 称号カスタマイズセクション -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+	<Card padding="none">
 		<Button
 			type="button"
 			variant="ghost"
@@ -278,7 +279,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 				{/if}
 			</div>
 		{/if}
-	</div>
+	</Card>
 
 	<div>
 		<!-- 機能説明 -->
@@ -347,7 +348,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 				{@const bmKey = `${benchmarkAge}-${catDef.id}`}
 				{@const inputMean = Number(bmInputMean[bmKey] ?? String(bm?.mean ?? 0))}
 				{@const inputSd = Number(bmInputSd[bmKey] ?? String(bm?.stdDev ?? 10))}
-				<form
+				<Card><form
 					method="POST"
 					action="?/updateBenchmark"
 					use:enhance={() => {
@@ -361,7 +362,6 @@ let levelTitleInputs: Record<number, string> = $state({});
 							}
 						};
 					}}
-					class="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
 				>
 					<input type="hidden" name="age" value={benchmarkAge} />
 					<input type="hidden" name="categoryId" value={catDef.id} />
@@ -416,7 +416,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 							</p>
 						{/if}
 					{/if}
-				</form>
+				</form></Card>
 			{/each}
 		</div>
 	</div>

@@ -14,6 +14,7 @@ import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelt
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 import { tick } from 'svelte';
@@ -422,13 +423,15 @@ $effect(() => {
 
 	<!-- Today's summary -->
 	{#if data.todayRecorded.length > 0}
-		<div class="mt-[var(--sp-md)] bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm">
+		<Card padding="md" class="mt-[var(--sp-md)]">
+			{#snippet children()}
 			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">📝 今日の記録</h3>
 			<div class="flex justify-between items-center">
 				<span class="text-sm text-[var(--color-text-muted)]">記録件数</span>
 				<span class="font-bold">{data.todayRecorded.reduce((sum, r) => sum + r.count, 0)}件</span>
 			</div>
-		</div>
+			{/snippet}
+		</Card>
 	{/if}
 
 	{#if data.activities.length === 0}

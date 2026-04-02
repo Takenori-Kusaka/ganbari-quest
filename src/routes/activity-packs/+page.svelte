@@ -28,18 +28,22 @@ let { data } = $props();
 			{#each data.packs as pack}
 				<a
 					href="/activity-packs/{pack.packId}"
-					class="block bg-white rounded-2xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow"
+					class="block hover:shadow-md transition-shadow"
 				>
-					<span class="text-3xl block mb-2">{pack.icon}</span>
-					<h2 class="text-sm font-bold text-gray-800 mb-1">{pack.packName}</h2>
-					<p class="text-xs text-gray-500 mb-2">
-						{pack.targetAgeMin}〜{pack.targetAgeMax}歳 / {pack.activityCount}件
-					</p>
-					<div class="flex flex-wrap gap-1">
-						{#each pack.tags as tag}
-							<span class="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full">{tag}</span>
-						{/each}
-					</div>
+					<Card padding="lg">
+						{#snippet children()}
+						<span class="text-3xl block mb-2">{pack.icon}</span>
+						<h2 class="text-sm font-bold text-gray-800 mb-1">{pack.packName}</h2>
+						<p class="text-xs text-gray-500 mb-2">
+							{pack.targetAgeMin}〜{pack.targetAgeMax}歳 / {pack.activityCount}件
+						</p>
+						<div class="flex flex-wrap gap-1">
+							{#each pack.tags as tag}
+								<span class="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full">{tag}</span>
+							{/each}
+						</div>
+						{/snippet}
+					</Card>
 				</a>
 			{/each}
 		</div>

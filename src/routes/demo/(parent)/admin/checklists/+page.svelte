@@ -3,6 +3,7 @@ import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
@@ -57,7 +58,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 		{#if selectedChild.checklists.length > 0}
 			<div class="space-y-4">
 				{#each selectedChild.checklists as checklist}
-					<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+					<Card>
 						<div class="flex items-center justify-between mb-3">
 							<h3 class="text-sm font-bold text-gray-700">
 								{checklist.template.icon} {checklist.template.name}
@@ -98,15 +99,17 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 						>
 							+ アイテム追加
 						</Button>
-					</div>
+					</Card>
 				{/each}
 			</div>
 		{:else}
-			<div class="bg-white rounded-xl p-8 shadow-sm text-center text-gray-400">
-				<span class="text-4xl block mb-2">✅</span>
-				<p class="font-bold">チェックリストがありません</p>
-				<p class="text-sm mt-1">登録するとお子さまの持ち物チェックリストを管理できます</p>
-			</div>
+			<Card padding="lg">
+				<div class="text-center text-gray-400">
+					<span class="text-4xl block mb-2">✅</span>
+					<p class="font-bold">チェックリストがありません</p>
+					<p class="text-sm mt-1">登録するとお子さまの持ち物チェックリストを管理できます</p>
+				</div>
+			</Card>
 		{/if}
 	{/if}
 

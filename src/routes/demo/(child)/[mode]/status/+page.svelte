@@ -5,6 +5,7 @@ import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
@@ -38,7 +39,8 @@ const radarCategories = $derived(
 <div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	{#if data.status}
 		<!-- Category levels -->
-		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-lg)]">
+		<Card padding="md" class="mb-[var(--sp-lg)]">
+			{#snippet children()}
 			{#if data.activeTitle}
 				<p class="text-xs font-bold mb-[var(--sp-sm)] text-[var(--color-point)]">
 					{data.activeTitle.icon} {data.activeTitle.name}
@@ -46,7 +48,7 @@ const radarCategories = $derived(
 			{/if}
 			<div class="flex flex-col gap-[var(--sp-sm)]">
 				{#each CATEGORY_DEFS as catDef (catDef.id)}
-					{@const stat = data.status.statuses[catDef.id]}
+					{@const stat = data.status?.statuses[catDef.id]}
 					{#if stat}
 						{@const pct = stat.level >= 99 ? 100 : (stat.progressPct ?? 0)}
 						<div class="flex items-center gap-[var(--sp-xs)]">
@@ -68,18 +70,22 @@ const radarCategories = $derived(
 					{/if}
 				{/each}
 			</div>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Radar chart -->
-		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-md)]">
+		<Card padding="md" class="mb-[var(--sp-md)]">
+			{#snippet children()}
 			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">ステータス</h2>
 			<div class="flex justify-center">
 				<RadarChart categories={radarCategories} size={300} />
 			</div>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Detail section -->
-		<div class="bg-white rounded-[var(--radius-md)] shadow-sm overflow-hidden">
+		<Card padding="none">
+			{#snippet children()}
 			<Button
 				variant="ghost"
 				size="md"
@@ -91,7 +97,7 @@ const radarCategories = $derived(
 			{#if detailOpen}
 				<div class="px-[var(--sp-md)] pb-[var(--sp-md)] flex flex-col gap-[var(--sp-md)]">
 					{#each CATEGORY_DEFS as catDef (catDef.id)}
-						{@const status = data.status.statuses[catDef.id]}
+						{@const status = data.status?.statuses[catDef.id]}
 						{#if status}
 							{@const comparison = getComparisonLabel(status.deviationScore)}
 							<div>
@@ -114,7 +120,8 @@ const radarCategories = $derived(
 					{/each}
 				</div>
 			{/if}
-		</div>
+			{/snippet}
+		</Card>
 	{:else}
 		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-sm)]">⭐</span>

@@ -1,4 +1,6 @@
 <script lang="ts">
+import Card from '$lib/ui/primitives/Card.svelte';
+
 let { data } = $props();
 const kpi = $derived(data.kpi);
 const stats = $derived(kpi.tenantStats);
@@ -17,32 +19,32 @@ const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 
 	<!-- KPI カード -->
 	<div class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
-		<div class="bg-[var(--color-surface-card)] border border-[var(--color-border-default)] rounded-xl p-5 text-center">
+		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">総テナント数</div>
 			<div class="text-[2rem] font-bold text-[var(--color-neutral-900)]">{stats.total}</div>
 			<div class="text-xs text-[var(--color-success)] mt-1">+{stats.newThisMonth} 今月</div>
-		</div>
-		<div class="bg-[var(--color-surface-card)] border border-[var(--color-border-default)] rounded-xl p-5 text-center">
+		</Card>
+		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">アクティブ</div>
 			<div class="text-[2rem] font-bold text-[var(--color-neutral-900)]">{stats.active}</div>
 			<div class="text-xs text-[var(--color-success)] mt-1">{activeRate}%</div>
-		</div>
-		<div class="bg-[var(--color-surface-card)] border border-[var(--color-border-default)] rounded-xl p-5 text-center">
+		</Card>
+		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">猶予期間</div>
 			<div class="text-[2rem] font-bold text-[var(--color-neutral-900)]">{stats.gracePeriod}</div>
-		</div>
-		<div class="bg-[var(--color-surface-card)] border border-[var(--color-border-default)] rounded-xl p-5 text-center">
+		</Card>
+		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">停止中</div>
 			<div class="text-[2rem] font-bold text-[var(--color-neutral-900)]">{stats.suspended}</div>
-		</div>
-		<div class="bg-[var(--color-surface-card)] border border-[var(--color-border-default)] rounded-xl p-5 text-center">
+		</Card>
+		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">退会済み</div>
 			<div class="text-[2rem] font-bold text-[var(--color-neutral-900)]">{stats.terminated}</div>
-		</div>
+		</Card>
 	</div>
 
 	<!-- プラン内訳 -->
-	<section class="bg-[var(--color-surface-card)] border border-[var(--color-border-default)] rounded-xl p-6">
+	<Card padding="lg">
 		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">プラン別内訳（アクティブテナント）</h2>
 		<table class="ops-table">
 			<thead>
@@ -80,10 +82,10 @@ const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 				</tr>
 			</tbody>
 		</table>
-	</section>
+	</Card>
 
 	<!-- ステータス -->
-	<section class="bg-[var(--color-surface-card)] border border-[var(--color-border-default)] rounded-xl p-6">
+	<Card padding="lg">
 		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">システム状態</h2>
 		<div class="flex flex-col gap-2">
 			<div class="flex gap-2 items-center">
@@ -93,7 +95,7 @@ const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 				</span>
 			</div>
 		</div>
-	</section>
+	</Card>
 </div>
 
 <style>
