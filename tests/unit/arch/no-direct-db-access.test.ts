@@ -39,7 +39,7 @@ describe('アーキテクチャ: services/ は DB を直接参照しない', () 
 	});
 
 	for (const filePath of serviceFiles) {
-		const fileName = filePath.split(/[\\/]/).pop()!;
+		const fileName = filePath.split(/[\\/]/).pop() ?? filePath;
 
 		for (const { pattern, description } of FORBIDDEN_IMPORTS) {
 			it(`${fileName} は ${description} を含まない`, () => {
@@ -54,8 +54,7 @@ describe('アーキテクチャ: services/ は DB を直接参照しない', () 
 						.map(({ line, lineNum }) => `  L${lineNum}: ${line}`)
 						.join('\n');
 					expect.fail(
-						`${fileName} に禁止された import があります:\n${details}\n\n` +
-							'services/ 層は facade (db/*.ts) 経由でアクセスしてください。',
+						`${fileName} に禁止された import があります:\n${details}\n\nservices/ 層は facade (db/*.ts) 経由でアクセスしてください。`,
 					);
 				}
 			});
