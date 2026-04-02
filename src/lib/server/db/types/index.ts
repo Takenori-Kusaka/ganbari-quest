@@ -815,3 +815,35 @@ export interface InsertNotificationLogInput {
 	success: boolean;
 	errorMessage?: string | null;
 }
+
+// ============================================================
+// Report Daily Summary
+// ============================================================
+
+export interface ReportDailySummary {
+	id: number;
+	tenantId: string;
+	childId: number;
+	date: string;
+	activityCount: number;
+	categoryBreakdown: string;
+	checklistCompletion: string;
+	level: number;
+	totalPoints: number;
+	streakDays: number;
+	newAchievements: number;
+	createdAt: string;
+}
+
+export interface InsertReportDailySummaryInput {
+	tenantId: string;
+	childId: number;
+	date: string;
+	activityCount: number;
+	categoryBreakdown: string;
+	checklistCompletion: string;
+	level: number;
+	totalPoints: number;
+	streakDays: number;
+	newAchievements: number;
+}

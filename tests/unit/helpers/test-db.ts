@@ -587,6 +587,25 @@ export const SQL_TABLES = `
 		error_message TEXT
 	);
 	CREATE INDEX idx_notification_logs_tenant_date ON notification_logs(tenant_id, sent_at);
+
+	-- report_daily_summaries
+	CREATE TABLE report_daily_summaries (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		date TEXT NOT NULL,
+		activity_count INTEGER NOT NULL DEFAULT 0,
+		category_breakdown TEXT NOT NULL DEFAULT '{}',
+		checklist_completion TEXT NOT NULL DEFAULT '{}',
+		level INTEGER NOT NULL DEFAULT 1,
+		total_points INTEGER NOT NULL DEFAULT 0,
+		streak_days INTEGER NOT NULL DEFAULT 0,
+		new_achievements INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(tenant_id, child_id, date)
+	);
+	CREATE INDEX idx_report_daily_child_date ON report_daily_summaries(child_id, date);
+	CREATE INDEX idx_report_daily_tenant_date ON report_daily_summaries(tenant_id, date);
 `;
 
 // ============================================================
@@ -594,6 +613,7 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'report_daily_summaries',
 	'notification_logs',
 	'push_subscriptions',
 	'sibling_cheers',
