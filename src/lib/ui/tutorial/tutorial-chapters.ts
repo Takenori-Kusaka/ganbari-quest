@@ -116,7 +116,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				selector: '[data-tutorial="add-activity-btn"]',
 				title: '活動を追加',
 				description:
-					'お子さまの習い事や家庭のルールに合わせたオリジナル活動を追加できます。例えば「ピアノの練習30分」「犬のお散歩」など、ご家庭ならではの活動を登録しましょう。',
+					'お子さまの習い事や家庭のルールに合わせたオリジナル活動を追加できます。例えば「ピアノの練習30分」「犬のお散歩」など、ご家庭ならではの活動を登録しましょう。\n\n⭐ カスタム活動の追加・編集はスタンダードプラン以上で利用できます。無料プランではプリセット活動をそのままご利用いただけます。',
 				position: 'bottom',
 				page: '/admin/activities',
 			},
@@ -193,6 +193,41 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 					'このチュートリアルは、ヘッダーの「？」ボタンからいつでも見直せます。使い方に迷った時はお気軽にどうぞ。お疲れさまでした！',
 				position: 'bottom',
 				page: '/admin/settings',
+			},
+		],
+	},
+	{
+		id: 6,
+		title: 'プレミアム機能',
+		icon: '⭐',
+		steps: [
+			{
+				id: 'premium-1',
+				chapterId: 6,
+				title: '無料でできること',
+				description:
+					'プリセット活動の記録、子供1人の登録、ゲーミフィケーション機能（レベル・ポイント・実績・称号）は無料でお使いいただけます。まずは無料で試してみてください！',
+				position: 'bottom',
+				page: '/admin',
+			},
+			{
+				id: 'premium-2',
+				chapterId: 6,
+				title: 'プレミアムでできること',
+				description:
+					'オリジナル活動の追加・編集、チェックリストの自由作成、ごほうびの設定、子供の登録無制限、データのエクスポートが可能になります。お子さまに合わせたカスタマイズで、もっと楽しく！',
+				position: 'bottom',
+				page: '/admin',
+			},
+			{
+				id: 'premium-3',
+				chapterId: 6,
+				selector: '[data-tutorial="upgrade-btn"]',
+				title: 'アップグレード',
+				description:
+					'管理画面右上の「⭐ アップグレード」ボタンから、いつでも有料プランに切り替えられます。7日間の無料トライアル付きなので、まずはお試しください。',
+				position: 'bottom',
+				page: '/admin',
 			},
 		],
 	},
