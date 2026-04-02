@@ -522,4 +522,29 @@ export const SQL_CREATE_TABLES = `
 	);
 	CREATE INDEX IF NOT EXISTS idx_sibling_cheers_to_shown
 		ON sibling_cheers(to_child_id, shown_at);
+
+	CREATE TABLE IF NOT EXISTS push_subscriptions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		endpoint TEXT NOT NULL UNIQUE,
+		keys_p256dh TEXT NOT NULL,
+		keys_auth TEXT NOT NULL,
+		user_agent TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX IF NOT EXISTS idx_push_subs_tenant
+		ON push_subscriptions(tenant_id);
+
+	CREATE TABLE IF NOT EXISTS notification_logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		notification_type TEXT NOT NULL,
+		title TEXT NOT NULL,
+		body TEXT NOT NULL,
+		sent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		success INTEGER NOT NULL DEFAULT 1,
+		error_message TEXT
+	);
+	CREATE INDEX IF NOT EXISTS idx_notification_logs_tenant_date
+		ON notification_logs(tenant_id, sent_at);
 `;
