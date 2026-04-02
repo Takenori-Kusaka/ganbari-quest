@@ -28,16 +28,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 	let decayIntensity = 'normal';
 
+	let siblingMode = 'both';
+	let siblingRankingEnabled = 'true';
+
 	try {
-		[dataSummary, decayIntensity] = await Promise.all([
+		[dataSummary, decayIntensity, siblingMode, siblingRankingEnabled] = await Promise.all([
 			getDataSummary(tenantId),
 			getSetting('decay_intensity', tenantId).then((v) => v ?? 'normal'),
+			getSetting('sibling_mode', tenantId).then((v) => v ?? 'both'),
+			getSetting('sibling_ranking_enabled', tenantId).then((v) => v ?? 'true'),
 		]);
 	} catch (err) {
 		logger.error('[settings] load failed, using defaults', { error: String(err) });
 	}
 
-	return { dataSummary, decayIntensity };
+	return { dataSummary, decayIntensity, siblingMode, siblingRankingEnabled };
 };
 
 export const actions = {
@@ -155,6 +160,21 @@ export const actions = {
 
 		logger.info(`Feedback received: [${categoryLabel}] ${inquiryId} from ${email} (${tenantId})`);
 		return { feedbackSuccess: true, inquiryId };
+	},
+	updateSiblingSettings: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+		const mode = form.get('siblingMode')?.toString() ?? 'both';
+		const rankingEnabled = form.has('siblingRankingEnabled') ? 'true' : 'false';
+
+		if (!['cooperative', 'competitive', 'both'].includes(mode)) {
+			return fail(400, { siblingError: '不正なモードです' });
+		}
+
+		await setSetting('sibling_mode', mode, tenantId);
+		await setSetting('sibling_ranking_enabled', rankingEnabled, tenantId);
+
+		return { siblingSuccess: true };
 	},
 	clearData: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);

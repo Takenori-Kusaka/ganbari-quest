@@ -1,0 +1,119 @@
+<script lang="ts">
+import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
+import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+
+let { data } = $props();
+
+interface TargetConfig {
+	metric: string;
+	baseTarget: number;
+	categoryId?: number;
+}
+interface RewardConfig {
+	points: number;
+	message?: string;
+}
+
+function parseJSON<T>(json: string, fallback: T): T {
+	try {
+		return JSON.parse(json);
+	} catch {
+		return fallback;
+	}
+}
+
+function formatDate(d: string): string {
+	return d.replace(/-/g, '/');
+}
+
+const typeLabel = (t: string) => (t === 'cooperative' ? '協力' : '競争');
+const periodLabel = (t: string) => {
+	switch (t) {
+		case 'weekly':
+			return '週間';
+		case 'monthly':
+			return '月間';
+		default:
+			return 'カスタム';
+	}
+};
+
+const categories: Record<number, string> = {
+	1: 'うんどう',
+	2: 'べんきょう',
+	3: 'せいかつ',
+	4: 'こうりゅう',
+	5: 'そうぞう',
+};
+</script>
+
+<svelte:head>
+	<title>きょうだいチャレンジ（デモ） - がんばりクエスト</title>
+</svelte:head>
+
+<DemoBanner />
+
+<div class="space-y-4">
+	<h2 class="text-lg font-bold">👥 きょうだいチャレンジ</h2>
+
+	{#each data.challenges as challenge (challenge.id)}
+		{@const target = parseJSON<TargetConfig>(challenge.targetConfig, { metric: 'count', baseTarget: 0 })}
+		{@const reward = parseJSON<RewardConfig>(challenge.rewardConfig, { points: 0 })}
+		<div class="rounded-xl border bg-white p-4" class:border-blue-300={challenge.status === 'active'}>
+			<div class="flex-1">
+				<h3 class="font-bold text-sm">
+					{challenge.title}
+					{#if challenge.allCompleted}
+						<span class="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">全員クリア！</span>
+					{/if}
+					{#if challenge.status === 'active'}
+						<span class="ml-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">開催中</span>
+					{/if}
+				</h3>
+				<p class="text-xs text-gray-500 mt-0.5">
+					{typeLabel(challenge.challengeType)} · {periodLabel(challenge.periodType)}
+					· {formatDate(challenge.startDate)} 〜 {formatDate(challenge.endDate)}
+					· 目標{target.baseTarget}回 · 報酬{reward.points}P
+					{#if target.categoryId}
+						· {categories[target.categoryId] ?? ''}
+					{/if}
+				</p>
+				{#if challenge.description}
+					<p class="text-xs text-gray-600 mt-1">{challenge.description}</p>
+				{/if}
+
+				{#if challenge.progress.length > 0}
+					<div class="mt-2 space-y-1">
+						{#each challenge.progress as prog}
+							{@const child = data.children.find((c: { id: number }) => c.id === prog.childId)}
+							<div class="flex items-center gap-2">
+								<span class="text-xs font-medium text-gray-700 w-16 truncate">
+									{child?.nickname ?? `#${prog.childId}`}
+								</span>
+								<div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+									<div
+										class="h-full rounded-full transition-all"
+										class:bg-green-400={prog.completed === 1}
+										class:bg-blue-400={prog.completed !== 1}
+										style="width: {Math.min(100, Math.round((prog.currentValue / prog.targetValue) * 100))}%"
+									></div>
+								</div>
+								<span class="text-[10px] text-gray-500 w-12 text-right">
+									{prog.currentValue}/{prog.targetValue}
+									{#if prog.completed === 1}✅{/if}
+								</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/each}
+
+	<DemoCta
+		title="きょうだいチャレンジを使ってみよう"
+		description="家族みんなで協力チャレンジを作成して、きょうだいの絆を深めましょう"
+		ctaText="無料で始める"
+		ctaHref="/auth/register"
+	/>
+</div>

@@ -546,6 +546,18 @@ export const SQL_TABLES = `
 	);
 	CREATE UNIQUE INDEX idx_sibling_challenge_progress_unique ON sibling_challenge_progress(challenge_id, child_id);
 	CREATE INDEX idx_sibling_challenge_progress_child ON sibling_challenge_progress(child_id);
+
+	-- sibling_cheers
+	CREATE TABLE sibling_cheers (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		from_child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		to_child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		stamp_code TEXT NOT NULL,
+		tenant_id TEXT NOT NULL DEFAULT 'default',
+		sent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		shown_at TEXT
+	);
+	CREATE INDEX idx_sibling_cheers_to_shown ON sibling_cheers(to_child_id, shown_at);
 `;
 
 // ============================================================
@@ -553,6 +565,7 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'sibling_cheers',
 	'sibling_challenge_progress',
 	'sibling_challenges',
 	'stamp_entries',
