@@ -1,4 +1,6 @@
 <script lang="ts">
+import { enhance } from '$app/forms';
+
 interface EventData {
 	id: number;
 	name: string;
@@ -7,6 +9,7 @@ interface EventData {
 	bannerColor: string | null;
 	startDate: string;
 	endDate: string;
+	rewardConfig: string | null;
 	missionConfig: string | null;
 	progress: { status: string; progressJson: string | null } | null;
 }
@@ -54,26 +57,37 @@ function getMissionProgress(event: EventData): { current: number; target: number
 					{/if}
 				</div>
 				<div class="event-banner__meta">
-					{#if mission}
-						<div class="event-banner__mission">
-							<div class="event-banner__progress-bar">
-								<div
-									class="event-banner__progress-fill"
-									class:event-banner__progress-fill--complete={mission.current >= mission.target}
-									style="width: {Math.round((mission.current / mission.target) * 100)}%"
-								></div>
-							</div>
-							<span class="event-banner__progress-text">
-								{mission.current}/{mission.target}
-							</span>
-						</div>
-					{/if}
-					{#if remainingDays(event.endDate) <= 3}
-						<span class="event-banner__countdown event-banner__countdown--urgent">
-							あと{remainingDays(event.endDate)}にち！
-						</span>
+					{#if event.progress?.status === 'reward_claimed'}
+						<span class="event-banner__claimed">✅ うけとりずみ</span>
+					{:else if event.progress?.status === 'completed' && event.rewardConfig}
+						<form method="POST" action="?/claimEventReward" use:enhance>
+							<input type="hidden" name="eventId" value={event.id} />
+							<button type="submit" class="event-banner__claim-btn">
+								🎁 うけとる
+							</button>
+						</form>
 					{:else}
-						<span class="event-banner__countdown">あと{remainingDays(event.endDate)}にち</span>
+						{#if mission}
+							<div class="event-banner__mission">
+								<div class="event-banner__progress-bar">
+									<div
+										class="event-banner__progress-fill"
+										class:event-banner__progress-fill--complete={mission.current >= mission.target}
+										style="width: {Math.round((mission.current / mission.target) * 100)}%"
+									></div>
+								</div>
+								<span class="event-banner__progress-text">
+									{mission.current}/{mission.target}
+								</span>
+							</div>
+						{/if}
+						{#if remainingDays(event.endDate) <= 3}
+							<span class="event-banner__countdown event-banner__countdown--urgent">
+								あと{remainingDays(event.endDate)}にち！
+							</span>
+						{:else}
+							<span class="event-banner__countdown">あと{remainingDays(event.endDate)}にち</span>
+						{/if}
 					{/if}
 				</div>
 			</div>
@@ -167,6 +181,35 @@ function getMissionProgress(event: EventData): { current: number; target: number
 		font-weight: 700;
 		color: #92400e;
 		white-space: nowrap;
+	}
+
+	.event-banner__claim-btn {
+		padding: 2px 8px;
+		border-radius: 6px;
+		background: #f59e0b;
+		color: white;
+		font-size: 0.625rem;
+		font-weight: 700;
+		border: none;
+		cursor: pointer;
+		white-space: nowrap;
+		animation: pulse-claim 2s ease-in-out infinite;
+	}
+
+	.event-banner__claim-btn:hover {
+		background: #d97706;
+	}
+
+	.event-banner__claimed {
+		font-size: 0.5625rem;
+		font-weight: 600;
+		color: #16a34a;
+		white-space: nowrap;
+	}
+
+	@keyframes pulse-claim {
+		0%, 100% { transform: scale(1); }
+		50% { transform: scale(1.05); }
 	}
 
 	.event-banner__countdown--urgent {
