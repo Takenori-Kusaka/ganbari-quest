@@ -7,6 +7,8 @@ import { logger } from '$lib/server/logger';
 export type SetupFunnelEvent =
 	| 'setup_start'
 	| 'setup_child_registered'
+	| 'setup_questionnaire_completed'
+	| 'setup_questionnaire_skipped'
 	| 'setup_packs_selected'
 	| 'setup_packs_skipped'
 	| 'setup_first_adventure_completed'
