@@ -1,4 +1,6 @@
 <script lang="ts">
+import Button from '$lib/ui/primitives/Button.svelte';
+
 let { data } = $props();
 
 const license = $derived(data.license);
@@ -166,13 +168,15 @@ async function openPortal() {
 		{:else if hasSubscription}
 			<!-- サブスクリプション有り → Stripe Customer Portal で管理 -->
 			<div class="grid gap-3">
-				<button
+				<Button
 					onclick={openPortal}
 					disabled={portalLoading}
-					class="w-full px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+					variant="primary"
+					size="md"
+					class="w-full"
 				>
 					{portalLoading ? '読み込み中...' : 'プラン変更・支払い管理'}
-				</button>
+				</Button>
 				<p class="text-xs text-gray-400 text-center">
 					Stripeの管理画面でプラン変更・支払い方法の更新・解約ができます
 				</p>
@@ -188,13 +192,15 @@ async function openPortal() {
 						</div>
 						<p class="text-xl font-bold text-blue-600">¥500<span class="text-sm font-normal text-gray-500">/月</span></p>
 					</div>
-					<button
+					<Button
 						onclick={() => startCheckout('monthly')}
 						disabled={checkoutLoading}
-						class="w-full px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+						variant="primary"
+						size="sm"
+						class="w-full"
 					>
 						{checkoutLoading ? '処理中...' : '月額プランで始める'}
-					</button>
+					</Button>
 				</div>
 
 				<div class="border border-purple-200 rounded-lg p-4 relative">
@@ -208,13 +214,15 @@ async function openPortal() {
 						</div>
 						<p class="text-xl font-bold text-purple-600">¥5,000<span class="text-sm font-normal text-gray-500">/年</span></p>
 					</div>
-					<button
+					<Button
 						onclick={() => startCheckout('yearly')}
 						disabled={checkoutLoading}
-						class="w-full px-4 py-2.5 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+						variant="primary"
+						size="sm"
+						class="w-full"
 					>
 						{checkoutLoading ? '処理中...' : '年額プランで始める'}
-					</button>
+					</Button>
 				</div>
 
 				<p class="text-xs text-gray-400 text-center">
@@ -231,13 +239,15 @@ async function openPortal() {
 			<p class="text-sm text-gray-500 text-center py-4">
 				支払い履歴はStripeの管理画面でご確認いただけます
 			</p>
-			<button
+			<Button
 				onclick={openPortal}
 				disabled={portalLoading}
-				class="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+				variant="secondary"
+				size="sm"
+				class="w-full"
 			>
 				支払い履歴を確認
-			</button>
+			</Button>
 		{:else}
 			<p class="text-sm text-gray-400 text-center py-4">
 				支払い履歴はまだありません
