@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
@@ -219,12 +220,10 @@ const categories: Record<number, string> = {
 												{child?.nickname ?? `#${prog.childId}`}
 											</span>
 											<div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-												<div
-													class="h-full rounded-full transition-all"
-													class:bg-green-400={prog.completed === 1}
-													class:bg-blue-400={prog.completed !== 1}
-													style="width: {Math.min(100, Math.round((prog.currentValue / prog.targetValue) * 100))}%"
-												></div>
+												<ProgressFill
+													pct={Math.min(100, Math.round((prog.currentValue / prog.targetValue) * 100))}
+													class="h-full rounded-full transition-all {prog.completed === 1 ? 'bg-green-400' : 'bg-blue-400'}"
+												/>
 											</div>
 											<span class="text-[10px] text-gray-500 w-12 text-right">
 												{prog.currentValue}/{prog.targetValue}

@@ -23,7 +23,7 @@ const { Story } = defineMeta({
 
 <Story name="AllVariants">
   {#snippet children()}
-    <div style="display: flex; flex-direction: column; gap: 8px;">
+    <div class="flex flex-col gap-2">
       <Alert variant="success" message="保存しました！" />
       <Alert variant="warning" message="入力内容を確認してください" />
       <Alert variant="danger" message="エラーが発生しました" />

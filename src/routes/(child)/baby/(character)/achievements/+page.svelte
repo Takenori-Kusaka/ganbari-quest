@@ -117,7 +117,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 					{/if}
 					{#if !unlocked || achievement.nextMilestone}
 						<div class="ach-card__progress-bar">
-							<div class="ach-card__progress-fill" style="width: {pct}%"></div>
+							<div class="ach-card__progress-fill" style:width="{pct}%"></div>
 						</div>
 					{/if}
 				</button>
@@ -176,7 +176,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 					{#if selectedAchievement.nextMilestone || !unlocked}
 						<div class="ach-detail__progress">
 							<div class="ach-detail__progress-bar">
-								<div class="ach-detail__progress-fill" style="width: {pct}%"></div>
+								<div class="ach-detail__progress-fill" style:width="{pct}%"></div>
 							</div>
 							<span class="ach-detail__progress-text">
 								{progressText(selectedAchievement)}

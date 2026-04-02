@@ -1,5 +1,6 @@
 <script lang="ts">
 import { formatPointValueWithSign } from '$lib/domain/point-display';
+import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 let { data } = $props();
@@ -103,7 +104,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 					</span>
 					{#if !unlocked || achievement.nextMilestone}
 						<div class="w-full h-1 rounded-full bg-gray-200 mt-0.5">
-							<div class="h-full rounded-full bg-[var(--theme-primary)] transition-all" style="width: {pct}%"></div>
+							<ProgressFill pct={pct} class="h-full rounded-full bg-[var(--theme-primary)] transition-all" />
 						</div>
 					{/if}
 				</button>
@@ -133,7 +134,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 					{#if !unlocked}
 						<div class="flex items-center gap-2 mt-2">
 							<div class="flex-1 h-2 rounded-full bg-gray-200">
-								<div class="h-full rounded-full bg-[var(--theme-primary)]" style="width: {pct}%"></div>
+								<ProgressFill pct={pct} class="h-full rounded-full bg-[var(--theme-primary)]" />
 							</div>
 							<span class="text-xs font-bold text-[var(--color-text-muted)]">{progressText(selectedAchievement)}</span>
 						</div>

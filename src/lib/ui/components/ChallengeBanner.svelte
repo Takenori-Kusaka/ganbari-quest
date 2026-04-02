@@ -80,7 +80,7 @@ const typeIcon = (t: string) => (t === 'cooperative' ? '🤝' : '⚔️');
 										<div
 											class="challenge-banner__progress-fill"
 											class:challenge-banner__progress-fill--complete={prog.completed === 1}
-											style="width: {Math.min(100, Math.round((prog.currentValue / prog.targetValue) * 100))}%"
+											style:width="{Math.min(100, Math.round((prog.currentValue / prog.targetValue) * 100))}%"
 										></div>
 									</div>
 									<span class="challenge-banner__progress-text">

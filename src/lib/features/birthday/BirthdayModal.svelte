@@ -113,7 +113,9 @@ const msg = $derived(getMessageText());
 			{#each Array(12) as _, i}
 				<span
 					class="birthday-modal__confetti-piece"
-					style="--delay: {i * 0.15}s; --x: {(i % 4) * 25 - 37}%; --color: {['#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899'][i % 6]}"
+					style:--delay="{i * 0.15}s"
+					style:--x="{(i % 4) * 25 - 37}%"
+					style:--color={['#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899'][i % 6]}
 				></span>
 			{/each}
 		</div>

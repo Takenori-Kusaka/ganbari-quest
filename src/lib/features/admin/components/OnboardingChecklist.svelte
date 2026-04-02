@@ -22,7 +22,7 @@ const progressPct = $derived(
 
 	<!-- Progress bar -->
 	<div class="progress-bar-container">
-		<div class="progress-bar" style="width: {progressPct}%"></div>
+		<div class="progress-bar" style:width="{progressPct}%"></div>
 	</div>
 	<p class="progress-text">{onboarding.completedCount}/{onboarding.totalCount} 完了 ({progressPct}%)</p>
 

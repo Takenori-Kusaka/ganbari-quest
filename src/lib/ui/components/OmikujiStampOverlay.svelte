@@ -157,18 +157,18 @@ function handleClose() {
 				</div>
 				<div class="os__sakura">
 					{#each Array(6) as _, i}
-						<span class="os__petal" style="--i:{i}">🌸</span>
+						<span class="os__petal" style:--i={i}>🌸</span>
 					{/each}
 				</div>
 			</div>
 		{:else if phase === 'result'}
 			<!-- Phase 2: おみくじ結果表示 -->
-			<div class="os__result" style="--rank-glow: {config.glow}">
+			<div class="os__result" style:--rank-glow={config.glow}>
 				{#if config.tier >= 4}
 					<div class="os__confetti">
 						{#each config.particles as p, i}
 							{#each Array(3) as _, j}
-								<span class="os__confetti-piece" style="--ci:{i * 3 + j}">{p}</span>
+								<span class="os__confetti-piece" style:--ci={i * 3 + j}>{p}</span>
 							{/each}
 						{/each}
 					</div>
@@ -176,7 +176,8 @@ function handleClose() {
 
 				<div
 					class="os__slip"
-					style="--rank-accent: {config.accent}; --rank-color: {config.color}"
+					style:--rank-accent={config.accent}
+					style:--rank-color={config.color}
 				>
 					<div class="os__slip-border">
 						<div class="os__slip-inner">
@@ -210,11 +211,13 @@ function handleClose() {
 				<div class="os__seal-wrap">
 					<div
 						class="os__seal"
-						style="border-color: {sealStyle.stroke}; background: {sealStyle.fill}; box-shadow: {config.glow}"
+						style:border-color={sealStyle.stroke}
+						style:background={sealStyle.fill}
+						style:box-shadow={config.glow}
 					>
-						<span class="os__seal-text" style="color: {sealStyle.text}">{rank}</span>
+						<span class="os__seal-text" style:color={sealStyle.text}>{rank}</span>
 					</div>
-					<div class="os__ink-ring" style="background: radial-gradient(circle, {sealStyle.stroke}33 0%, transparent 70%)"></div>
+					<div class="os__ink-ring" style:background="radial-gradient(circle, {sealStyle.stroke}33 0%, transparent 70%)"></div>
 				</div>
 
 				<div class="os__stamp-points">

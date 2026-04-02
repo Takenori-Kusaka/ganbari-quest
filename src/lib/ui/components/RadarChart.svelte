@@ -125,7 +125,7 @@ function gridPolygon(pct: number): string {
 <svg
 	viewBox="{-padding} {-padding} {viewBoxSize} {viewBoxSize}"
 	width="100%"
-	style="max-width: {viewBoxSize}px;"
+	style:max-width="{viewBoxSize}px"
 	overflow="visible"
 	role="img"
 	aria-label="ステータスレーダーチャート"

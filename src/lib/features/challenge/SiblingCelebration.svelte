@@ -30,7 +30,10 @@ const confetti = Array.from({ length: 30 }, (_, i) => ({
 		{#each confetti as c}
 			<div
 				class="celebration__particle"
-				style="left:{c.left};background:{c.color};animation-delay:{c.delay};animation-duration:{c.duration}"
+				style:left={c.left}
+				style:background={c.color}
+				style:animation-delay={c.delay}
+				style:animation-duration={c.duration}
 			></div>
 		{/each}
 	</div>

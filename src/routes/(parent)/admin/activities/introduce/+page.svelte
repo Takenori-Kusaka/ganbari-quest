@@ -1,7 +1,8 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
 import { getCategoryById } from '$lib/domain/validation/activity';
-import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import ActivityIntroCard from '$lib/features/admin/components/ActivityIntroCard.svelte';
+import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -50,25 +51,22 @@ function finish() {
 				<span class="text-gray-400">{categoryName}</span>
 			</div>
 			<div class="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-				<div
+				<ProgressFill
+					pct={((currentIndex + 1) / total) * 100}
+					color={categoryColor}
 					class="h-full rounded-full transition-all duration-300"
-					style="width: {((currentIndex + 1) / total) * 100}%; background-color: {categoryColor};"
-				></div>
+				/>
 			</div>
 		</div>
 
 		<!-- Card area -->
 		<div class="flex-1 flex flex-col items-center justify-center px-6 py-4">
 			<!-- Activity card (large) -->
-			<div
-				class="w-40 aspect-square rounded-2xl border-3 shadow-lg flex flex-col items-center justify-center gap-2 bg-white transition-all duration-300"
-				style="border-color: {categoryColor};"
-			>
-				<CompoundIcon icon={activity.icon} size="xl" />
-				<span class="text-base font-bold text-gray-700 text-center leading-tight px-2">
-					{activity.name}
-				</span>
-			</div>
+			<ActivityIntroCard
+				icon={activity.icon}
+				name={activity.name}
+				borderColor={categoryColor}
+			/>
 
 			<!-- Trigger hint balloon -->
 			{#if activity.triggerHint}

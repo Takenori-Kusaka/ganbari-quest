@@ -51,7 +51,7 @@ const bubbleStyle = $derived.by(() => {
 	}
 	top = Math.max(12, Math.min(top, window.innerHeight - 280));
 
-	return `top:${top}px;left:${left}px;width:${bubbleWidth}px;`;
+	return { top: `${top}px`, left: `${left}px`, width: `${bubbleWidth}px` };
 });
 
 const isFirst = $derived(progress.current === 1);
@@ -66,7 +66,9 @@ function handleEnd() {
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="tutorial-bubble"
-	style={bubbleStyle}
+	style:top={bubbleStyle.top}
+	style:left={bubbleStyle.left}
+	style:width={bubbleStyle.width}
 	class:bubble-top={step.position === 'top'}
 >
 	<!-- Chapter header -->
@@ -111,7 +113,7 @@ function handleEnd() {
 		<div class="tutorial-progress-bar">
 			<div
 				class="tutorial-progress-fill"
-				style="width:{(progress.current / progress.total) * 100}%"
+				style:width="{(progress.current / progress.total) * 100}%"
 			></div>
 		</div>
 	</div>

@@ -47,10 +47,6 @@ const name = $derived(catDef?.name ?? '');
 const icon = $derived(catDef?.icon ?? '');
 
 const css = $derived(CARD_SIZE_CSS[cardSize]);
-const gridStyle = $derived(
-	`grid-template-columns: repeat(auto-fill, minmax(${css.minWidth}, 1fr));`,
-);
-
 // Collapsible state — compactMode変更に追従
 let expanded = $state(true);
 $effect(() => {
@@ -87,7 +83,7 @@ function toggleExpand() {
 		<h2 class="flex items-center gap-1">
 			<span
 				class="w-1 h-4 rounded-[var(--radius-full)]"
-				style="background-color: {accent};"
+				style:background-color={accent}
 				aria-hidden="true"
 			></span>
 			<span class="text-xs font-bold text-[var(--color-text-muted)]">{name}</span>
@@ -98,12 +94,13 @@ function toggleExpand() {
 			</span>
 		{/if}
 		{#if xpInfo}
-			<span class="text-[10px] font-bold" style="color: {accent};">Lv.{xpInfo.level}</span>
+			<span class="text-[10px] font-bold" style:color={accent}>Lv.{xpInfo.level}</span>
 			<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
 				<div
 					class="h-full rounded-full xp-bar__fill"
 					class:xp-bar--animating={xpAnimating}
-					style="width: {xpBarPct(xpInfo)}%; background-color: {accent};"
+					style:width="{xpBarPct(xpInfo)}%"
+				style:background-color={accent}
 				></div>
 			</div>
 			<span class="text-[10px] text-[var(--color-text-muted)] tabular-nums w-8 text-right">{Math.round(xpBarPct(xpInfo))}%</span>
@@ -118,7 +115,9 @@ function toggleExpand() {
 		<div
 			class="grid gap-1 px-1"
 			class:collapsed={shouldCollapse && !expanded}
-			style="{gridStyle}{shouldCollapse && !expanded ? ` max-height: ${collapsedMaxHeight}; overflow: hidden;` : ''}"
+			style:grid-template-columns="repeat(auto-fill, minmax({css.minWidth}, 1fr))"
+			style:max-height={shouldCollapse && !expanded ? collapsedMaxHeight : undefined}
+			style:overflow={shouldCollapse && !expanded ? 'hidden' : undefined}
 		>
 			{@render children()}
 		</div>

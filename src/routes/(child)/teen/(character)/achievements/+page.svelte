@@ -139,7 +139,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 						<div class="w-full h-1 rounded-full bg-gray-200 mt-0.5">
 							<div
 								class="h-full rounded-full bg-[var(--theme-primary)] transition-all"
-								style="width: {pct}%"
+								style:width="{pct}%"
 							></div>
 						</div>
 					{/if}
@@ -222,7 +222,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 							<div class="flex-1 h-2 rounded-full bg-gray-200">
 								<div
 									class="h-full rounded-full bg-[var(--theme-primary)] transition-all"
-									style="width: {pct}%"
+									style:width="{pct}%"
 								></div>
 							</div>
 							<span
