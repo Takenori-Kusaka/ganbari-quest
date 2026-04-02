@@ -211,8 +211,9 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 								<div>
 									<h4 class="mb-2 text-xs font-bold text-gray-600">📈 カテゴリべつの ようす</h4>
 									<div class="space-y-2">
-										{#each Object.entries(report.categoryBreakdown) as [catId, count]}
-											{@const prevCat = prev?.categoryBreakdown?.[catId]}
+										{#each Object.entries(report.categoryBreakdown) as [catId, rawCount]}
+											{@const count = rawCount as number}
+											{@const prevCat = prev?.categoryBreakdown?.[catId] as number | undefined}
 											{@const maxCount = maxCategoryCount(report.categoryBreakdown)}
 											<div class="flex items-center gap-2">
 												<span class="w-16 text-xs font-semibold text-gray-700 truncate">{getCategoryName(catId)}</span>
