@@ -48,24 +48,24 @@ function formatDate(dateStr: string): string {
 	<title>きろく - がんばりクエスト</title>
 </svelte:head>
 
-<div class="history-page">
+<div class="py-1 px-4">
 	<Tabs items={tabItems} value={data.period} onValueChange={handleTabChange}>
 		{#snippet children(_value)}
 			<!-- Summary -->
-			<div class="history-summary">
-				<div class="history-summary__row">
-					<span class="history-summary__label">ごうけい</span>
-					<span class="history-summary__value">{data.summary.totalCount}かい</span>
+			<div class="bg-white rounded-2xl p-4 shadow-[var(--card-shadow)] mb-4">
+				<div class="flex justify-between items-center mb-1">
+					<span class="text-sm text-[var(--color-text-muted)]">ごうけい</span>
+					<span class="font-bold text-lg">{data.summary.totalCount}かい</span>
 				</div>
-				<div class="history-summary__row">
-					<span class="history-summary__label">ポイント</span>
-					<span class="history-summary__value history-summary__value--point">{fmtBal(data.summary.totalPoints)}</span>
+				<div class="flex justify-between items-center mb-1">
+					<span class="text-sm text-[var(--color-text-muted)]">ポイント</span>
+					<span class="font-bold text-lg text-[var(--color-point)]">{fmtBal(data.summary.totalPoints)}</span>
 				</div>
 				{#if Object.keys(data.summary.byCategory).length > 0}
-					<div class="history-summary__cats">
+					<div class="flex flex-wrap gap-1 mt-2">
 						{#each Object.entries(data.summary.byCategory) as [cat, info]}
 							<span
-								class="history-summary__cat-badge"
+								class="text-xs px-2 py-0.5 rounded-full text-white font-bold"
 								style:background-color={getCategoryById(Number(cat))?.color ?? 'var(--theme-primary)'}
 							>
 								{getCategoryById(Number(cat))?.name ?? cat} {info.count}かい
@@ -77,34 +77,34 @@ function formatDate(dateStr: string): string {
 
 			<!-- Log list -->
 			{#if data.logs.length === 0}
-				<div class="history-empty">
-					<span class="history-empty__icon">📝</span>
-					<p class="history-empty__text">まだきろくがないよ</p>
+				<div class="flex flex-col items-center py-12 text-[var(--color-text-muted)]">
+					<span class="text-[2.5rem] mb-2">📝</span>
+					<p class="font-bold">まだきろくがないよ</p>
 				</div>
 			{:else}
 				{#each logsByDate() as [date, logs] (date)}
-					<div class="history-date-group">
-						<h3 class="history-date-group__title">
+					<div class="mb-4">
+						<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-1">
 							{formatDate(date)}
 						</h3>
-						<div class="history-log-list">
+						<div class="flex flex-col gap-1">
 							{#each logs as log (log.id)}
-								<div class="history-log">
-									<span class="history-log__icon">{log.activityIcon}</span>
-									<div class="history-log__body">
-										<p class="history-log__name">{log.activityName}</p>
-										<p class="history-log__cat">
+								<div class="history-log flex items-center gap-2 bg-white rounded-lg px-2 py-1.5">
+									<span class="text-2xl shrink-0">{log.activityIcon}</span>
+									<div class="flex-1 min-w-0">
+										<p class="text-sm font-bold overflow-hidden text-ellipsis whitespace-nowrap">{log.activityName}</p>
+										<p class="text-xs text-[var(--color-text-muted)] flex items-center gap-1">
 											<span
-												class="history-log__cat-dot"
+												class="inline-block w-2 h-2 rounded-full"
 												style:background-color={getCategoryById(log.categoryId)?.color ?? 'var(--theme-primary)'}
 											></span>
 											{getCategoryById(log.categoryId)?.name ?? ""}
 										</p>
 									</div>
-									<div class="history-log__points">
-										<p class="history-log__points-value">{fmtPts(log.points + log.streakBonus)}</p>
+									<div class="text-right shrink-0">
+										<p class="text-sm font-bold text-[var(--color-point)]">{fmtPts(log.points + log.streakBonus)}</p>
 										{#if log.streakDays >= 2}
-											<p class="history-log__streak">{log.streakDays}にちれんぞく</p>
+											<p class="text-xs text-[var(--theme-accent)]">{log.streakDays}にちれんぞく</p>
 										{/if}
 									</div>
 								</div>
@@ -118,148 +118,7 @@ function formatDate(dateStr: string): string {
 </div>
 
 <style>
-	.history-page {
-		padding: 4px 16px;
-	}
-
-	/* Summary card */
-	.history-summary {
-		background: white;
-		border-radius: 16px;
-		padding: 16px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		margin-bottom: 16px;
-	}
-
-	.history-summary__row {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 4px;
-	}
-
-	.history-summary__label {
-		font-size: 0.875rem;
-		color: var(--color-text-muted);
-	}
-
-	.history-summary__value {
-		font-weight: 700;
-		font-size: 1.125rem;
-	}
-
-	.history-summary__value--point {
-		color: var(--color-point);
-	}
-
-	.history-summary__cats {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px;
-		margin-top: 8px;
-	}
-
-	.history-summary__cat-badge {
-		font-size: 0.75rem;
-		padding: 2px 8px;
-		border-radius: 9999px;
-		color: white;
-		font-weight: 700;
-	}
-
-	/* Empty state */
-	.history-empty {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: 48px 0;
-		color: var(--color-text-muted);
-	}
-
-	.history-empty__icon {
-		font-size: 2.5rem;
-		margin-bottom: 8px;
-	}
-
-	.history-empty__text {
-		font-weight: 700;
-	}
-
-	/* Date group */
-	.history-date-group {
-		margin-bottom: 16px;
-	}
-
-	.history-date-group__title {
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--color-text-muted);
-		margin-bottom: 4px;
-	}
-
-	/* Log item */
-	.history-log-list {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
 	.history-log {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		background: white;
-		border-radius: 8px;
-		padding: 6px 8px;
 		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-	}
-
-	.history-log__icon {
-		font-size: 1.5rem;
-		flex-shrink: 0;
-	}
-
-	.history-log__body {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.history-log__name {
-		font-size: 0.875rem;
-		font-weight: 700;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.history-log__cat {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-		display: flex;
-		align-items: center;
-		gap: 4px;
-	}
-
-	.history-log__cat-dot {
-		display: inline-block;
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-	}
-
-	.history-log__points {
-		text-align: right;
-		flex-shrink: 0;
-	}
-
-	.history-log__points-value {
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--color-point);
-	}
-
-	.history-log__streak {
-		font-size: 0.75rem;
-		color: var(--theme-accent);
 	}
 </style>
