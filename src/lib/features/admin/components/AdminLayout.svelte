@@ -38,6 +38,7 @@ const primaryNavItems = $derived([
 	{ href: `${basePath}/children`, label: 'こども', icon: '👧' },
 	{ href: `${basePath}/points`, label: 'ポイント', icon: '⭐' },
 	{ href: `${basePath}/events`, label: 'イベント', icon: '🎉' },
+	{ href: `${basePath}/challenges`, label: 'チャレンジ', icon: '👥' },
 	{ href: `${basePath}/reports`, label: 'レポート', icon: '📊' },
 	{ href: `${basePath}/settings`, label: '設定', icon: '⚙️' },
 ]);

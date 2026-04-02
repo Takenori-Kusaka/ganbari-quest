@@ -405,6 +405,46 @@ const previewFormatted = $derived(
 		</button>
 	</div>
 
+	<!-- きょうだいチャレンジ設定 -->
+	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+		<h3 class="text-lg font-bold text-gray-700 mb-4">👥 きょうだいチャレンジ設定</h3>
+
+		{#if form?.siblingSuccess}
+			<div class="rounded-lg bg-green-50 p-3 text-sm text-green-700 mb-4">きょうだい設定を保存しました</div>
+		{/if}
+		{#if form?.siblingError}
+			<div class="rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4">{form.siblingError}</div>
+		{/if}
+
+		<form method="POST" action="?/updateSiblingSettings" use:enhance class="space-y-4">
+			<div>
+				<label class="block text-sm font-semibold text-gray-600 mb-2">チャレンジモード</label>
+				<div class="space-y-2">
+					{#each [
+						{ value: 'both', label: '協力＆競争（両方）', desc: '協力チャレンジと競争チャレンジの両方を利用' },
+						{ value: 'cooperative', label: '協力のみ', desc: 'きょうだいで協力するチャレンジのみ' },
+						{ value: 'competitive', label: '競争のみ', desc: 'きょうだい間の競争チャレンジのみ' },
+					] as opt}
+						<label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors {data.siblingMode === opt.value ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}">
+							<input type="radio" name="siblingMode" value={opt.value} checked={data.siblingMode === opt.value} class="mt-0.5" />
+							<div>
+								<span class="text-sm font-medium text-gray-700">{opt.label}</span>
+								<p class="text-xs text-gray-500">{opt.desc}</p>
+							</div>
+						</label>
+					{/each}
+				</div>
+			</div>
+			<label class="flex items-center gap-2">
+				<input type="checkbox" name="siblingRankingEnabled" checked={data.siblingRankingEnabled === 'true'} class="h-4 w-4 rounded border-gray-300" />
+				<span class="text-sm text-gray-700">きょうだいランキングを表示する</span>
+			</label>
+			<button type="submit" class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors">
+				設定を保存
+			</button>
+		</form>
+	</div>
+
 	<!-- ポイント表示設定 -->
 	<div id="point-settings" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">💰 ポイント表示設定</h3>

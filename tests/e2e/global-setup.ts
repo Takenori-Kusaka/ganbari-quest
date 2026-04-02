@@ -260,6 +260,61 @@ export default async function globalSetup() {
 			CREATE UNIQUE INDEX IF NOT EXISTS idx_level_titles_tenant_level ON level_titles(tenant_id, level);
 		`);
 
+		// sibling_challenges テーブル（#0216 きょうだいチャレンジ）
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS sibling_challenges (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				title TEXT NOT NULL,
+				description TEXT,
+				challenge_type TEXT NOT NULL DEFAULT 'cooperative',
+				period_type TEXT NOT NULL DEFAULT 'weekly',
+				start_date TEXT NOT NULL,
+				end_date TEXT NOT NULL,
+				target_config TEXT NOT NULL,
+				reward_config TEXT NOT NULL,
+				status TEXT NOT NULL DEFAULT 'active',
+				is_active INTEGER NOT NULL DEFAULT 1,
+				tenant_id TEXT NOT NULL DEFAULT 'default',
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE INDEX IF NOT EXISTS idx_sibling_challenges_status ON sibling_challenges(status);
+			CREATE INDEX IF NOT EXISTS idx_sibling_challenges_dates ON sibling_challenges(start_date, end_date);
+		`);
+
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS sibling_challenge_progress (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				challenge_id INTEGER NOT NULL REFERENCES sibling_challenges(id) ON DELETE CASCADE,
+				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+				current_value INTEGER NOT NULL DEFAULT 0,
+				target_value INTEGER NOT NULL,
+				completed INTEGER NOT NULL DEFAULT 0,
+				completed_at TEXT,
+				reward_claimed INTEGER NOT NULL DEFAULT 0,
+				reward_claimed_at TEXT,
+				progress_json TEXT,
+				tenant_id TEXT NOT NULL DEFAULT 'default',
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_scp_challenge_child ON sibling_challenge_progress(challenge_id, child_id);
+			CREATE INDEX IF NOT EXISTS idx_scp_child ON sibling_challenge_progress(child_id);
+		`);
+
+		// sibling_cheers テーブル（#0216 きょうだいスタンプ）
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS sibling_cheers (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				from_child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+				to_child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+				stamp_code TEXT NOT NULL,
+				tenant_id TEXT NOT NULL DEFAULT 'default',
+				sent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				shown_at TEXT
+			);
+			CREATE INDEX IF NOT EXISTS idx_sibling_cheers_to_shown ON sibling_cheers(to_child_id, shown_at);
+		`);
+
 		// テスト用クリーンアップ: ピン留め設定を削除（ピン留めテストの安定化）
 		const deletedPins = db.prepare('DELETE FROM child_activity_preferences').run();
 		if (deletedPins.changes > 0) {
