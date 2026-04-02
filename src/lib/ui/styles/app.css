@@ -100,16 +100,28 @@
 /* ============================================================
    Semantic Layer — UIの「目的」に紐づくトークン
    routes/features からはこの層を参照する。Base 層を直接使わない。
-   テーマ変数（--theme-*）を参照するため @theme の外で定義。
+
+   テーマカラー分離:
+   - --app-*   : アプリ全体のブランドカラー（常にブランドブルー）
+   - --theme-* : 子供個別テーマ（[data-theme] で上書き、デフォルトは --app-* にフォールバック）
+   子供ページ外では --theme-* がブランドカラーに解決される。
+   admin画面で「ピンク」が出る問題を防止する設計。
    ============================================================ */
 
 :root {
-	/* ---- Default Theme (pink — data-theme未設定時のフォールバック) ---- */
-	--theme-primary: #ff69b4;
-	--theme-secondary: #ffb6c1;
-	--theme-accent: #ff1493;
-	--theme-bg: #fff0f5;
-	--theme-nav: #ffe4e1;
+	/* ---- App Brand Colors (アプリ全体のブランドカラー — 子供テーマに依存しない) ---- */
+	--app-primary: var(--color-brand-600);
+	--app-secondary: var(--color-brand-400);
+	--app-accent: var(--color-brand-800);
+	--app-bg: var(--color-bg);
+	--app-nav: var(--color-brand-100);
+
+	/* ---- Child Theme Colors (子供個別テーマ — data-themeで上書き、デフォルトはブランドカラー) ---- */
+	--theme-primary: var(--app-primary);
+	--theme-secondary: var(--app-secondary);
+	--theme-accent: var(--app-accent);
+	--theme-bg: var(--app-bg);
+	--theme-nav: var(--app-nav);
 
 	/* ---- Action: インタラクティブ要素 ---- */
 	--color-action-primary: var(--theme-primary);
@@ -216,11 +228,11 @@
 }
 
 [data-theme="admin"] {
-	--theme-primary: #3878b8;
-	--theme-secondary: #5ba3e6;
-	--theme-accent: #2a5f9e;
-	--theme-bg: #f8fafc;
-	--theme-nav: #e8f4fd;
+	--theme-primary: var(--app-primary);
+	--theme-secondary: var(--app-secondary);
+	--theme-accent: var(--app-accent);
+	--theme-bg: var(--app-bg);
+	--theme-nav: var(--app-nav);
 }
 
 /* ============================================================

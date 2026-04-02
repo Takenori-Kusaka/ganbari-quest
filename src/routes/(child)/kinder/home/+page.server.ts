@@ -23,6 +23,11 @@ import {
 	claimEventReward,
 	getActiveEventsForChild,
 } from '$lib/server/services/season-event-service';
+import {
+	claimChallengeReward as claimChallengeRewardService,
+	getActiveChallengesForChild,
+} from '$lib/server/services/sibling-challenge-service';
+import { getWeeklyRanking, isRankingEnabled } from '$lib/server/services/sibling-ranking-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
@@ -58,6 +63,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			recommendedActivityIds: [],
 			birthdayBonus: null,
 			activeEvents: [],
+			activeChallenges: [],
+			siblingRanking: null,
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -75,6 +82,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		hasRecords,
 		birthdayBonusStatus,
 		activeEvents,
+		activeChallenges,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -89,6 +97,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		hasAnyActivityRecords(child.id, tenantId),
 		getBirthdayBonusStatus(child.id, tenantId),
 		getActiveEventsForChild(child.id, tenantId),
+		getActiveChallengesForChild(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -125,6 +134,17 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 				? birthdayBonusStatus
 				: null;
 
+	// きょうだいランキング（設定有効時のみ）
+	let siblingRanking: Awaited<ReturnType<typeof getWeeklyRanking>> | null = null;
+	try {
+		const rankingOn = await isRankingEnabled(tenantId);
+		if (rankingOn) {
+			siblingRanking = await getWeeklyRanking(tenantId);
+		}
+	} catch {
+		// ランキング取得失敗はページ全体に影響させない
+	}
+
 	return {
 		activities: activitiesWithMission,
 		todayRecorded,
@@ -144,6 +164,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		recommendedActivityIds: [...recommendedIds],
 		birthdayBonus,
 		activeEvents,
+		activeChallenges,
+		siblingRanking,
 	};
 };
 
@@ -376,6 +398,33 @@ export const actions: Actions = {
 				eventRewardClaimed: true,
 				rewardPoints: rewardInfo.points ?? 0,
 				rewardTitle: rewardInfo.title ?? '',
+			};
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'ほうしゅうをうけとれませんでした';
+			return fail(400, { error: message });
+		}
+	},
+
+	claimChallengeReward: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(cookies.get('selectedChildId'));
+		const challengeId = Number(formData.get('challengeId'));
+
+		if (Number.isNaN(childId) || Number.isNaN(challengeId)) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+
+		try {
+			const result = await claimChallengeRewardService(challengeId, childId, tenantId);
+			if ('error' in result) {
+				return fail(400, { error: result.error });
+			}
+			return {
+				success: true,
+				challengeRewardClaimed: true,
+				rewardPoints: result.points,
+				rewardMessage: result.message ?? '',
 			};
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'ほうしゅうをうけとれませんでした';
