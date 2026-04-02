@@ -7,9 +7,14 @@ output "project_id" {
   value       = var.project_id
 }
 
+output "workload_identity_provider" {
+  description = "GitHub Actions 用 Workload Identity Provider の完全パス"
+  value       = google_iam_workload_identity_pool_provider.github.name
+}
+
 output "service_account_email" {
-  description = "GitHub Actions 用サービスアカウントのメール（ブートストラップ済み）"
-  value       = data.google_service_account.github_actions.email
+  description = "GitHub Actions 用サービスアカウントのメール"
+  value       = google_service_account.github_actions.email
 }
 
 output "oauth_callback_urls" {

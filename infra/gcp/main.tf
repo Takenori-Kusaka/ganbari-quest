@@ -50,15 +50,84 @@ resource "google_project_service" "this" {
 }
 
 # ------------------------------------------------------------------------------
-# Workload Identity Federation / サービスアカウント（ブートストラップ済み、参照のみ）
+# Workload Identity Federation（GitHub Actions → GCP 認証）
 # ------------------------------------------------------------------------------
-# WIF Pool, Provider, SA は bootstrap-gcp-wif.sh で作成済み。
-# SA の roles/editor では iam.workloadIdentityPools.create 権限がないため、
-# Terraform では data source として参照のみ行う。
+resource "google_iam_workload_identity_pool" "github" {
+  project                   = var.project_id
+  workload_identity_pool_id = "github-pool"
+  display_name              = "GitHub Actions Pool"
+  description               = "GitHub Actions OIDC federation for CI/CD"
 
-data "google_service_account" "github_actions" {
-  account_id = "github-actions"
-  project    = var.project_id
+  depends_on = [google_project_service.this["iam.googleapis.com"]]
+}
+
+resource "google_iam_workload_identity_pool_provider" "github" {
+  project                            = var.project_id
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github-provider"
+  display_name                       = "GitHub OIDC Provider"
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+
+  attribute_mapping = {
+    "google.subject"       = "assertion.sub"
+    "attribute.repository" = "assertion.repository"
+    "attribute.actor"      = "assertion.actor"
+  }
+
+  attribute_condition = "assertion.repository == '${var.github_repository}'"
+}
+
+# サービスアカウント（GitHub Actions が使用）
+resource "google_service_account" "github_actions" {
+  project      = var.project_id
+  account_id   = "github-actions"
+  display_name = "GitHub Actions Service Account"
+  description  = "Used by GitHub Actions via Workload Identity Federation"
+
+  depends_on = [google_project_service.this["iam.googleapis.com"]]
+}
+
+# サービスアカウントに WIF バインド
+resource "google_service_account_iam_member" "wif_binding" {
+  service_account_id = google_service_account.github_actions.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repository}"
+}
+
+# サービスアカウントにプロジェクト編集権限
+resource "google_project_iam_member" "github_actions_editor" {
+  project = var.project_id
+  role    = "roles/editor"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
+# サービスアカウントに WIF Pool 管理権限
+resource "google_project_iam_member" "github_actions_wif_admin" {
+  project = var.project_id
+  role    = "roles/iam.workloadIdentityPoolAdmin"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
+# ------------------------------------------------------------------------------
+# Import: ブートストラップスクリプトで作成済みリソースを Terraform 管理下に取り込む
+# 初回 apply 時に import され、以降は通常の Terraform 管理となる
+# ------------------------------------------------------------------------------
+import {
+  to = google_iam_workload_identity_pool.github
+  id = "projects/${var.project_id}/locations/global/workloadIdentityPools/github-pool"
+}
+
+import {
+  to = google_iam_workload_identity_pool_provider.github
+  id = "projects/${var.project_id}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+}
+
+import {
+  to = google_service_account.github_actions
+  id = "projects/${var.project_id}/serviceAccounts/github-actions@${var.project_id}.iam.gserviceaccount.com"
 }
 
 # ------------------------------------------------------------------------------
