@@ -9,7 +9,13 @@ import {
 	getAllChildren,
 	removeChild,
 } from '$lib/server/services/child-service';
-import { checkChildLimit } from '$lib/server/services/plan-limit-service';
+import {
+	applyRetentionFilter,
+	checkChildLimit,
+	getPlanLimits,
+	hasArchivedData,
+	resolvePlanTier,
+} from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getChildStatus, updateStatus } from '$lib/server/services/status-service';
 import {
@@ -34,6 +40,7 @@ function calculateAge(birthDate: string): number {
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const tenantId = requireTenantId(locals);
+	const licenseStatus = locals.context?.licenseStatus ?? 'none';
 	const children = await getAllChildren(tenantId);
 	const selectedId = url.searchParams.get('id');
 
@@ -65,10 +72,12 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		const id = Number(selectedId);
 		const child = children.find((c) => c.id === id);
 		if (child) {
+			const planTier = resolvePlanTier(licenseStatus);
+			const retentionFilter = applyRetentionFilter(planTier);
 			const [balance, status, logs, achievements, voices] = await Promise.all([
 				getPointBalance(id, tenantId),
 				getChildStatus(id, tenantId),
-				getActivityLogs(id, tenantId),
+				getActivityLogs(id, tenantId, retentionFilter),
 				getChildAchievements(id, tenantId),
 				listVoices(id, 'complete', tenantId),
 			]);
@@ -97,10 +106,30 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	}
 
 	// プラン制限情報
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
 	const childLimit = await checkChildLimit(tenantId, licenseStatus);
 
-	return { children: childrenSummary, selectedChild, childLimit, categoryDefs: CATEGORY_DEFS };
+	// アーカイブ検知（選択中の子供）
+	const planTierForArchive = resolvePlanTier(licenseStatus);
+	const planLimits = getPlanLimits(planTierForArchive);
+	let archived = false;
+	if (selectedChild && planLimits.historyRetentionDays !== null) {
+		try {
+			archived = await hasArchivedData(tenantId, selectedChild.id ?? 0, planTierForArchive);
+		} catch {
+			// アーカイブチェック失敗は無視
+		}
+	}
+
+	return {
+		children: childrenSummary,
+		selectedChild,
+		childLimit,
+		categoryDefs: CATEGORY_DEFS,
+		archiveInfo: {
+			hasArchived: archived,
+			retentionDays: planLimits.historyRetentionDays,
+		},
+	};
 };
 
 export const actions: Actions = {
