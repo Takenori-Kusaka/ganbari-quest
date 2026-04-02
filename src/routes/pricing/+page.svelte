@@ -1,4 +1,6 @@
 <script lang="ts">
+import Card from '$lib/ui/primitives/Card.svelte';
+
 const plans = [
 	{
 		id: 'free' as const,
@@ -122,7 +124,8 @@ const plans = [
 		&#x1F4A1; ゲーミフィケーション機能（レベル・ポイント・実績・称号・シールガチャ・コンボ）は<strong>全プラン共通</strong>で制限なし
 	</p>
 
-	<section class="bg-[var(--color-surface-muted)] rounded-2xl p-6">
+	<Card padding="lg" class="bg-[var(--color-surface-muted)]">
+		{#snippet children()}
 		<h2 class="text-[1.1rem] font-semibold text-[var(--color-neutral-700)] mb-4">よくある質問</h2>
 		<dl>
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">無料プランでも十分使えますか？</dt>
@@ -143,7 +146,8 @@ const plans = [
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">セルフホスト版はありますか？</dt>
 			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。全機能を無料でお使いいただけるオープンソース版があります。DockerとNode.jsの基本的な知識が必要です。</dd>
 		</dl>
-	</section>
+		{/snippet}
+	</Card>
 </div>
 
 <style>

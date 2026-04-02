@@ -5,6 +5,7 @@ import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/poi
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import { APP_VERSION } from '$lib/version';
 
@@ -282,7 +283,7 @@ const previewFormatted = $derived(
 	{/if}
 
 	<!-- PIN変更 -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6" data-tutorial="pin-settings">
+	<Card padding="lg" data-tutorial="pin-settings">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">🔒 PINコード変更</h3>
 
 		{#if success}
@@ -366,10 +367,10 @@ const previewFormatted = $derived(
 				{submitting ? '変更中...' : 'PINを変更'}
 			</Button>
 		</form>
-	</div>
+	</Card>
 
 	<!-- ステータス減少設定 -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+	<Card padding="lg">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">📊 ステータス減少設定</h3>
 		<p class="text-sm text-gray-500 mb-4">
 			活動をお休みした日のステータス減少の強さを設定できます。どの設定でも最初の2日間は減少しません。
@@ -407,10 +408,10 @@ const previewFormatted = $derived(
 		>
 			{decaySaving ? '保存中...' : '設定を保存'}
 		</Button>
-	</div>
+	</Card>
 
 	<!-- きょうだいチャレンジ設定 -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+	<Card padding="lg">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">👥 きょうだいチャレンジ設定</h3>
 
 		{#if form?.siblingSuccess}
@@ -447,10 +448,10 @@ const previewFormatted = $derived(
 				設定を保存
 			</Button>
 		</form>
-	</div>
+	</Card>
 
 	<!-- 通知設定 -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+	<Card padding="lg">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">🔔 通知設定</h3>
 
 		{#if form?.notificationSuccess}
@@ -527,7 +528,7 @@ const previewFormatted = $derived(
 				通知設定を保存
 			</Button>
 		</form>
-	</div>
+	</Card>
 
 	<script>
 		// Client-side notification status check
@@ -588,7 +589,7 @@ const previewFormatted = $derived(
 	</script>
 
 	<!-- ポイント表示設定 -->
-	<div id="point-settings" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+	<Card padding="lg" id="point-settings">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">💰 ポイント表示設定</h3>
 
 		{#if pointSuccess}
@@ -692,10 +693,10 @@ const previewFormatted = $derived(
 				{pointSubmitting ? '保存中...' : 'ポイント設定を保存'}
 			</Button>
 		</form>
-	</div>
+	</Card>
 
 	<!-- データ管理 -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+	<Card padding="lg">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">💾 データ管理</h3>
 
 		{#if exportError}
@@ -892,10 +893,10 @@ const previewFormatted = $derived(
 				{/if}
 			</div>
 		</div>
-	</div>
+	</Card>
 
 	<!-- データクリア -->
-	<div class="bg-white rounded-xl shadow-sm border-2 border-red-200 p-6">
+	<Card padding="lg" class="border-2 border-red-200">
 		<h3 class="text-lg font-bold text-red-600 mb-4">🗑️ データクリア</h3>
 
 		{#if clearSuccess}
@@ -974,10 +975,10 @@ const previewFormatted = $derived(
 				</Button>
 			</div>
 		</form>
-	</div>
+	</Card>
 
 	<!-- フィードバック -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6" data-tutorial="feedback-section">
+	<Card padding="lg" data-tutorial="feedback-section">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">💬 フィードバック・ご意見</h3>
 
 		{#if feedbackSuccess}
@@ -1070,10 +1071,10 @@ const previewFormatted = $derived(
 			<a href="https://discord.gg/5pWkf4Z5" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">Discord コミュニティ</a>
 			でも受け付けています
 		</p>
-	</div>
+	</Card>
 
 	<!-- アプリ情報・リンク -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+	<Card padding="lg">
 		<h3 class="text-lg font-bold text-gray-700 mb-4">ℹ️ アプリ情報</h3>
 		<ul class="space-y-3 text-sm">
 			<li>
@@ -1092,11 +1093,11 @@ const previewFormatted = $derived(
 				<span class="text-gray-500">バージョン: {APP_VERSION}</span>
 			</li>
 		</ul>
-	</div>
+	</Card>
 
 	<!-- アカウント削除（cognito モードの owner のみ） -->
 	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== 'grace_period'}
-		<div class="bg-white rounded-xl shadow-sm border-2 border-red-200 p-6">
+		<Card padding="lg" class="border-2 border-red-200">
 			<h3 class="text-lg font-bold text-red-600 mb-2">アカウント削除</h3>
 			<div class="text-sm text-gray-600 space-y-2 mb-4">
 				<p>アカウントを削除すると、30日間の猶予期間の後に以下のデータが完全に削除されます。</p>
@@ -1134,12 +1135,12 @@ const previewFormatted = $derived(
 					{cancelSubmitting ? '処理中...' : 'アカウント削除を申請する'}
 				</Button>
 			</div>
-		</div>
+		</Card>
 	{/if}
 
 	<!-- ログアウト（cognito モードのみ） -->
 	{#if $page.data.authMode === 'cognito'}
-		<div class="bg-white rounded-xl shadow-sm border border-red-100 p-6">
+		<Card padding="lg" class="border border-red-100">
 			<h3 class="text-lg font-bold text-gray-700 mb-2">ログアウト</h3>
 			<p class="text-sm text-gray-500 mb-4">
 				このデバイスからがんばりクエストのアカウントからログアウトします。再度ログインするにはメールアドレスとパスワードが必要です。
@@ -1150,6 +1151,6 @@ const previewFormatted = $derived(
 			>
 				アカウントからログアウト
 			</a>
-		</div>
+		</Card>
 	{/if}
 </div>

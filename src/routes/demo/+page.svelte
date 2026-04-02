@@ -2,6 +2,7 @@
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import { startGuide } from '$lib/features/demo/demo-guide-state.svelte.js';
 import Logo from '$lib/ui/components/Logo.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
@@ -54,7 +55,8 @@ const modeColors: Record<string, string> = {
 		</div>
 
 		<!-- Family Introduction -->
-		<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+		<Card padding="lg" class="mb-6">
+			{#snippet children()}
 			<h2 class="text-lg font-bold text-gray-700 mb-4">がんばり家のこどもたち</h2>
 			<div class="grid grid-cols-2 gap-3">
 				{#each data.children as child}
@@ -81,10 +83,12 @@ const modeColors: Record<string, string> = {
 					</a>
 				{/each}
 			</div>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Admin Link -->
-		<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+		<Card padding="lg" class="mb-6">
+			{#snippet children()}
 			<h2 class="text-lg font-bold text-gray-700 mb-3">おやの管理画面</h2>
 			<p class="text-sm text-gray-500 mb-4">
 				活動の追加、こどもの管理、ポイント確認などの管理機能を体験できます。
@@ -95,10 +99,12 @@ const modeColors: Record<string, string> = {
 			>
 				管理画面をみる
 			</a>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Feature highlights -->
-		<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+		<Card padding="lg" class="mb-6">
+			{#snippet children()}
 			<h2 class="text-lg font-bold text-gray-700 mb-4">体験できる機能</h2>
 			<ul class="space-y-3 text-sm text-gray-600">
 				<li class="flex gap-2">
@@ -137,7 +143,8 @@ const modeColors: Record<string, string> = {
 					</div>
 				</li>
 			</ul>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Conversion CTA -->
 		<div class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-orange-200 p-6 text-center">

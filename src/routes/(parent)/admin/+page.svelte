@@ -11,4 +11,6 @@ let { data } = $props();
 	onboarding={data.onboarding}
 	mode="live"
 	basePath="/admin"
+	monthlySummaries={data.monthlySummaries}
+	currentMonth={data.currentMonth}
 />

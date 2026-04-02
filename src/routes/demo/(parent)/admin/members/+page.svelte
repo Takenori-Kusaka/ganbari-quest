@@ -1,6 +1,7 @@
 <script lang="ts">
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 </script>
 
 <svelte:head>
@@ -11,7 +12,7 @@ import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 	<DemoBanner />
 
 	<!-- QRコード共有の説明 -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+	<Card>
 		<h3 class="text-lg font-bold text-gray-700 mb-3">👥 メンバー管理</h3>
 		<p class="text-sm text-gray-500 mb-4">
 			QRコードでご家族をかんたんに招待できます。パートナーやおじいちゃん・おばあちゃんもお子さまの成長を一緒に見守れます。
@@ -24,10 +25,10 @@ import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 			</div>
 			<p class="text-xs text-gray-400">登録するとQRコードが生成されます</p>
 		</div>
-	</div>
+	</Card>
 
 	<!-- メンバー一覧プレビュー -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+	<Card>
 		<h3 class="text-sm font-bold text-gray-700 mb-3">招待済みメンバー</h3>
 		<div class="space-y-2">
 			<div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -47,17 +48,17 @@ import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 				<span class="text-xs text-green-500 font-bold">アクティブ</span>
 			</div>
 		</div>
-	</div>
+	</Card>
 
 	<!-- 権限説明 -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+	<Card>
 		<h3 class="text-sm font-bold text-gray-700 mb-2">権限について</h3>
 		<ul class="text-xs text-gray-500 space-y-1.5">
 			<li>&#x2022; <span class="font-bold">オーナー</span>: すべての設定変更・メンバー管理が可能</li>
 			<li>&#x2022; <span class="font-bold">メンバー</span>: 活動記録・閲覧が可能（設定変更は不可）</li>
 			<li>&#x2022; 招待は最大5名まで（オーナー含む）</li>
 		</ul>
-	</div>
+	</Card>
 
 	<DemoCta
 		title="ご家族みんなで使いませんか？"

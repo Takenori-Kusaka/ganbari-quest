@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
@@ -32,7 +33,8 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 </svelte:head>
 
 <div class="min-h-dvh flex items-center justify-center bg-[var(--gradient-brand)] p-4">
-	<div class="w-full max-w-[400px] bg-[var(--color-surface-card)] rounded-[var(--radius-md)] px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
+	<Card padding="none" class="w-full max-w-[400px] px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
+		{#snippet children()}
 		<div class="text-center mb-8">
 			<Logo variant="full" size={320} />
 			{#if mfaStep}
@@ -165,5 +167,6 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 				</details>
 			</div>
 		{/if}
-	</div>
+		{/snippet}
+	</Card>
 </div>

@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
@@ -203,7 +204,7 @@ async function handleReceiptFile(event: Event) {
 
 	<!-- Convert Form -->
 	{#if selectedChild && currentBalance > 0}
-		<form
+		<Card padding="lg"><form
 			method="POST"
 			action="?/convert"
 			use:enhance={() => {
@@ -218,7 +219,7 @@ async function handleReceiptFile(event: Event) {
 					await update();
 				};
 			}}
-			class="bg-white rounded-xl p-6 shadow-sm space-y-4"
+			class="space-y-4"
 		>
 			<h3 class="font-bold text-gray-700">{selectedChild.nickname}のおこづかいにかえる</h3>
 			{#if isCurrencyMode}
@@ -494,11 +495,11 @@ async function handleReceiptFile(event: Event) {
 					{/if}
 				</Button>
 			{/if}
-		</form>
+		</form></Card>
 	{:else if selectedChild}
-		<div class="bg-white rounded-xl p-6 shadow-sm text-center text-gray-400">
+		<Card padding="lg" class="text-center text-gray-400">
 			<p>変換可能な{unit}がありません</p>
-		</div>
+		</Card>
 	{/if}
 
 	<!-- Result -->
@@ -511,8 +512,8 @@ async function handleReceiptFile(event: Event) {
 
 	<!-- Convert History -->
 	{#if selectedChild && convertHistory.length > 0}
-		<div class="bg-white rounded-xl p-6 shadow-sm space-y-4">
-			<h3 class="font-bold text-gray-700">おこづかい変換りれき</h3>
+		<Card padding="lg">
+			<h3 class="font-bold text-gray-700 mb-4">おこづかい変換りれき</h3>
 
 			<!-- Summary -->
 			<div class="grid grid-cols-2 gap-3">
@@ -577,6 +578,6 @@ async function handleReceiptFile(event: Event) {
 			{:else}
 				<p class="text-sm text-gray-400 text-center py-4">この期間の変換履歴はありません</p>
 			{/if}
-		</div>
+		</Card>
 	{/if}
 </div>

@@ -3,6 +3,7 @@ import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
@@ -56,13 +57,15 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 
 	{#if selectedChild}
 		<!-- Balance Card (matches production) -->
-		<div class="bg-white rounded-xl p-6 shadow-sm text-center">
-			<p class="text-xs text-gray-400 mb-1">現在の{unit}残高</p>
-			<p class="text-4xl font-bold text-amber-500">{fmtBal(selectedChild.balance)}</p>
-		</div>
+		<Card padding="lg">
+			<div class="text-center">
+				<p class="text-xs text-gray-400 mb-1">現在の{unit}残高</p>
+				<p class="text-4xl font-bold text-amber-500">{fmtBal(selectedChild.balance)}</p>
+			</div>
+		</Card>
 
 		<!-- Convert Modes (disabled in demo, but shows the UI) -->
-		<div class="bg-white rounded-xl p-4 shadow-sm">
+		<Card>
 			<h3 class="text-sm font-bold text-gray-700 mb-3">ポイント変換</h3>
 			<div class="flex gap-2 mb-4">
 				<Button
@@ -114,23 +117,27 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 			>
 				デモでは変換できません
 			</Button>
-		</div>
+		</Card>
 
 		<!-- Summary Stats (matches production) -->
 		<div class="grid grid-cols-2 gap-3">
-			<div class="bg-white rounded-xl p-4 shadow-sm text-center">
-				<p class="text-xs text-gray-400 mb-1">今月の変換合計</p>
-				<p class="text-xl font-bold text-blue-600">{fmtBal(0)}</p>
-			</div>
-			<div class="bg-white rounded-xl p-4 shadow-sm text-center">
-				<p class="text-xs text-gray-400 mb-1">累計変換合計</p>
-				<p class="text-xl font-bold text-purple-600">{fmtBal(0)}</p>
-			</div>
+			<Card>
+				<div class="text-center">
+					<p class="text-xs text-gray-400 mb-1">今月の変換合計</p>
+					<p class="text-xl font-bold text-blue-600">{fmtBal(0)}</p>
+				</div>
+			</Card>
+			<Card>
+				<div class="text-center">
+					<p class="text-xs text-gray-400 mb-1">累計変換合計</p>
+					<p class="text-xl font-bold text-purple-600">{fmtBal(0)}</p>
+				</div>
+			</Card>
 		</div>
 	{/if}
 
 	<!-- Explanation -->
-	<div class="bg-white rounded-xl p-4 shadow-sm">
+	<Card>
 		<h2 class="text-sm font-bold text-gray-700 mb-2">ポイント変換について</h2>
 		<ul class="text-xs text-gray-500 space-y-1.5">
 			<li>&#x2022; お子さまが活動で貯めたポイントを、おこづかいに変換できます</li>
@@ -138,7 +145,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 			<li>&#x2022; 3つの変換モード: かんたん / 自由入力 / 領収書OCR</li>
 			<li>&#x2022; 変換履歴も記録されるので、安心して管理できます</li>
 		</ul>
-	</div>
+	</Card>
 
 	<DemoCta
 		title="ポイントをおこづかいに変換しませんか？"

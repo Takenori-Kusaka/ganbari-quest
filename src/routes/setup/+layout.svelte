@@ -1,6 +1,7 @@
 <script lang="ts">
 import { page } from '$app/stores';
 import Logo from '$lib/ui/components/Logo.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { children } = $props();
 
@@ -46,9 +47,11 @@ const currentStepIndex = $derived(
 			{/each}
 		</div>
 
-		<div class="bg-[var(--color-surface-card)] rounded-[var(--radius-md)] p-6 shadow-[var(--card-shadow)]">
+		<Card padding="lg">
+			{#snippet children()}
 			{@render children()}
-		</div>
+			{/snippet}
+		</Card>
 	</div>
 </div>
 

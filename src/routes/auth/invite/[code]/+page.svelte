@@ -1,4 +1,6 @@
 <script lang="ts">
+import Card from '$lib/ui/primitives/Card.svelte';
+
 let { data } = $props();
 </script>
 
@@ -7,7 +9,8 @@ let { data } = $props();
 </svelte:head>
 
 <div class="invite-bg min-h-dvh flex items-center justify-center p-4">
-	<div class="w-full max-w-[420px] bg-[var(--color-surface-card)] rounded-[var(--radius-md)] py-10 px-8 shadow-[var(--card-shadow-elevated)]">
+	<Card variant="elevated" padding="none" class="w-full max-w-[420px] py-10 px-8">
+		{#snippet children()}
 		<div class="text-center mb-8">
 			<div class="text-5xl mb-2">🏰</div>
 			<h1 class="text-2xl font-bold text-[var(--color-neutral-900)] m-0">がんばりクエスト</h1>
@@ -42,7 +45,8 @@ let { data } = $props();
 				</a>
 			</div>
 		{/if}
-	</div>
+		{/snippet}
+	</Card>
 </div>
 
 <style>

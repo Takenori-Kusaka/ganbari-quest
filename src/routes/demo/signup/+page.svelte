@@ -1,6 +1,7 @@
 <script lang="ts">
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import Logo from '$lib/ui/components/Logo.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 // Track conversion page view
 trackDemoEvent('demo_signup_page');
@@ -30,7 +31,8 @@ function handleCtaClick() {
 		</div>
 
 		<!-- Primary CTA -->
-		<div class="bg-white rounded-2xl shadow-md border border-orange-200 p-6 mb-6 text-center">
+		<Card variant="elevated" padding="lg" class="border border-orange-200 mb-6 text-center">
+			{#snippet children()}
 			<p class="text-lg font-bold text-gray-700 mb-1">7日間の無料トライアル</p>
 			<p class="text-sm text-gray-500 mb-4">クレジットカード登録不要で今すぐ始められます</p>
 			<a
@@ -41,10 +43,12 @@ function handleCtaClick() {
 				無料で はじめる
 			</a>
 			<p class="text-xs text-gray-400 mt-2">いつでもキャンセルOK・違約金なし</p>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Value propositions -->
-		<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+		<Card padding="lg" class="mb-6">
+			{#snippet children()}
 			<h2 class="text-lg font-bold text-gray-700 mb-4">がんばりクエストでできること</h2>
 			<div class="space-y-4">
 				<div class="flex gap-3">
@@ -83,10 +87,12 @@ function handleCtaClick() {
 					</div>
 				</div>
 			</div>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Pricing summary -->
-		<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+		<Card padding="lg" class="mb-6">
+			{#snippet children()}
 			<h2 class="text-lg font-bold text-gray-700 mb-4">料金プラン</h2>
 			<div class="grid grid-cols-2 gap-3">
 				<div class="rounded-xl border border-gray-200 p-4 text-center">
@@ -103,7 +109,8 @@ function handleCtaClick() {
 			<a href="/pricing" class="block text-center text-sm text-blue-500 mt-3 hover:underline">
 				料金プランの詳細を見る
 			</a>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Testimonial / Social proof -->
 		<div class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-orange-200 p-6 mb-6">
