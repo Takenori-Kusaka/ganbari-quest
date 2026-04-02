@@ -269,14 +269,14 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 	}
 
 	.ach-card--locked {
-		border-color: #e5e7eb;
-		background: #f3f4f6;
+		border-color: var(--color-neutral-200);
+		background: var(--color-neutral-100);
 	}
 
-	.ach-card--unlocked.ach-card--common { border-color: #86efac; background: #f0fdf4; }
-	.ach-card--unlocked.ach-card--rare { border-color: #93c5fd; background: #eff6ff; }
-	.ach-card--unlocked.ach-card--epic { border-color: #c4b5fd; background: #f5f3ff; }
-	.ach-card--unlocked.ach-card--legendary { border-color: #fcd34d; background: #fffbeb; }
+	.ach-card--unlocked.ach-card--common { border-color: var(--color-rarity-common); background: var(--color-rarity-common-bg); }
+	.ach-card--unlocked.ach-card--rare { border-color: var(--color-rarity-rare); background: var(--color-rarity-rare-bg); }
+	.ach-card--unlocked.ach-card--epic { border-color: var(--color-rarity-epic); background: var(--color-rarity-epic-bg); }
+	.ach-card--unlocked.ach-card--legendary { border-color: var(--color-rarity-legendary); background: var(--color-rarity-legendary-bg); }
 
 	.ach-card__icon {
 		font-size: 1.875rem;
@@ -311,7 +311,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 		width: 100%;
 		height: 4px;
 		border-radius: 9999px;
-		background: #e5e7eb;
+		background: var(--color-neutral-200);
 		margin-top: 2px;
 	}
 
@@ -357,11 +357,11 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 		justify-content: center;
 	}
 
-	.ach-detail__icon-wrap--locked { border-color: #e5e7eb; background: #f3f4f6; }
-	.ach-detail__icon-wrap--common { border-color: #86efac; background: #f0fdf4; }
-	.ach-detail__icon-wrap--rare { border-color: #93c5fd; background: #eff6ff; }
-	.ach-detail__icon-wrap--epic { border-color: #c4b5fd; background: #f5f3ff; }
-	.ach-detail__icon-wrap--legendary { border-color: #fcd34d; background: #fffbeb; }
+	.ach-detail__icon-wrap--locked { border-color: var(--color-neutral-200); background: var(--color-neutral-100); }
+	.ach-detail__icon-wrap--common { border-color: var(--color-rarity-common); background: var(--color-rarity-common-bg); }
+	.ach-detail__icon-wrap--rare { border-color: var(--color-rarity-rare); background: var(--color-rarity-rare-bg); }
+	.ach-detail__icon-wrap--epic { border-color: var(--color-rarity-epic); background: var(--color-rarity-epic-bg); }
+	.ach-detail__icon-wrap--legendary { border-color: var(--color-rarity-legendary); background: var(--color-rarity-legendary-bg); }
 
 	.ach-detail__icon {
 		font-size: 3rem;
@@ -390,7 +390,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 		padding: 2px 8px;
 		border-radius: 9999px;
 		font-weight: 700;
-		background: #e5e7eb;
+		background: var(--color-neutral-200);
 		color: var(--color-text-muted);
 	}
 
@@ -408,7 +408,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 	.ach-detail__condition {
 		padding: 8px 12px;
 		border-radius: 12px;
-		background: #f9fafb;
+		background: var(--color-neutral-50);
 		width: 100%;
 	}
 
@@ -429,7 +429,7 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 		flex: 1;
 		height: 8px;
 		border-radius: 9999px;
-		background: #e5e7eb;
+		background: var(--color-neutral-200);
 	}
 
 	.ach-detail__progress-fill {

@@ -54,7 +54,7 @@ const currentStepIndex = $derived(
 <style>
 	.setup-page {
 		min-height: 100dvh;
-		background: linear-gradient(to bottom, #eff6ff, #dbeafe);
+		background: linear-gradient(to bottom, var(--color-brand-100), var(--color-brand-200));
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -71,16 +71,9 @@ const currentStepIndex = $derived(
 		margin-bottom: 24px;
 	}
 
-	.setup-title {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: #1e40af;
-		margin: 0;
-	}
-
 	.setup-subtitle {
 		font-size: 0.875rem;
-		color: #6b7280;
+		color: var(--color-text-muted);
 		margin-top: 4px;
 	}
 
@@ -108,51 +101,51 @@ const currentStepIndex = $derived(
 		justify-content: center;
 		font-size: 0.875rem;
 		font-weight: 700;
-		background: #e5e7eb;
-		color: #9ca3af;
+		background: var(--color-neutral-200);
+		color: var(--color-neutral-400);
 		transition: all 0.2s;
 	}
 
 	.step--active .step-circle {
-		background: #3b82f6;
+		background: var(--color-brand-600);
 		color: white;
 	}
 
 	.step--done .step-circle {
-		background: #22c55e;
+		background: var(--color-success);
 		color: white;
 	}
 
 	.step-label {
 		font-size: 0.75rem;
-		color: #9ca3af;
+		color: var(--color-neutral-400);
 		white-space: nowrap;
 	}
 
 	.step--active .step-label {
-		color: #3b82f6;
+		color: var(--color-brand-600);
 		font-weight: 600;
 	}
 
 	.step--done .step-label {
-		color: #22c55e;
+		color: var(--color-success);
 	}
 
 	.step-line {
 		width: 40px;
 		height: 2px;
-		background: #e5e7eb;
+		background: var(--color-neutral-200);
 		margin-bottom: 20px;
 	}
 
 	.step-line--done {
-		background: #22c55e;
+		background: var(--color-success);
 	}
 
 	.setup-content {
-		background: white;
-		border-radius: 16px;
+		background: var(--color-surface-card);
+		border-radius: var(--radius-md);
 		padding: 24px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		box-shadow: var(--card-shadow);
 	}
 </style>
