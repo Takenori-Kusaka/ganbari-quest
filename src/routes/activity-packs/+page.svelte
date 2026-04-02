@@ -1,5 +1,6 @@
 <script lang="ts">
 import Logo from '$lib/ui/components/Logo.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 </script>
@@ -44,7 +45,8 @@ let { data } = $props();
 		</div>
 
 		<!-- CTA -->
-		<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 text-center mb-6">
+		<Card variant="default" padding="lg" class="text-center mb-6">
+			{#snippet children()}
 			<p class="text-sm font-bold text-gray-700 mb-1">パックをインポートするには</p>
 			<p class="text-xs text-gray-500 mb-3">
 				アカウント登録後、管理画面からワンタップでインポートできます
@@ -56,7 +58,8 @@ let { data } = $props();
 				無料で はじめる
 			</a>
 			<p class="text-xs text-gray-400 mt-2">7日間無料トライアル付き</p>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Demo link -->
 		<div class="text-center">

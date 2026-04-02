@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
@@ -80,21 +81,7 @@ function selectStamp(code: string) {
 			</div>
 		{:else}
 			<div class="bg-white rounded-xl p-4 shadow-sm">
-				<label class="block">
-					<span class="block text-xs font-bold text-gray-500 mb-1">
-						メッセージ（30文字以内）
-					</span>
-					<input
-						type="text"
-						maxlength="30"
-						bind:value={textBody}
-						placeholder="がんばってるね！だいすき！"
-						class="w-full px-3 py-2 border rounded-lg text-sm"
-					/>
-					<span class="text-xs text-gray-400 mt-1 block text-right">
-						{textBody.length}/30
-					</span>
-				</label>
+				<FormField label="メッセージ（30文字以内）" type="text" bind:value={textBody} maxlength={30} placeholder="がんばってるね！だいすき！" hint="{textBody.length}/30" />
 			</div>
 		{/if}
 	</section>

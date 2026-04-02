@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
 let agreedTerms = $state(false);
@@ -44,15 +45,19 @@ let loading = $state(false);
 						<h2 class="text-base font-semibold text-[var(--color-neutral-900)] mb-1">利用規約</h2>
 						<p class="text-xs text-[var(--color-neutral-400)] mb-2">バージョン: {data.currentTermsVersion}</p>
 						<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-sm text-[var(--color-text-link)] inline-block mb-3">利用規約を確認する</a>
-						<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-neutral-700)]">
-							<input
-								type="checkbox"
-								name="agreedTerms"
-								bind:checked={agreedTerms}
-								class="w-[18px] h-[18px] accent-[var(--color-brand-600)]"
-							/>
-							<span>利用規約に同意します</span>
-						</label>
+						<FormField label="">
+							{#snippet children()}
+								<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-neutral-700)]">
+									<input
+										type="checkbox"
+										name="agreedTerms"
+										bind:checked={agreedTerms}
+										class="w-[18px] h-[18px] accent-[var(--color-brand-600)]"
+									/>
+									<span>利用規約に同意します</span>
+								</label>
+							{/snippet}
+						</FormField>
 					</div>
 				{:else}
 					<input type="hidden" name="agreedTerms" value="on" />
@@ -63,15 +68,19 @@ let loading = $state(false);
 						<h2 class="text-base font-semibold text-[var(--color-neutral-900)] mb-1">プライバシーポリシー</h2>
 						<p class="text-xs text-[var(--color-neutral-400)] mb-2">バージョン: {data.currentPrivacyVersion}</p>
 						<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-sm text-[var(--color-text-link)] inline-block mb-3">プライバシーポリシーを確認する</a>
-						<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-neutral-700)]">
-							<input
-								type="checkbox"
-								name="agreedPrivacy"
-								bind:checked={agreedPrivacy}
-								class="w-[18px] h-[18px] accent-[var(--color-brand-600)]"
-							/>
-							<span>プライバシーポリシーに同意します</span>
-						</label>
+						<FormField label="">
+							{#snippet children()}
+								<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-neutral-700)]">
+									<input
+										type="checkbox"
+										name="agreedPrivacy"
+										bind:checked={agreedPrivacy}
+										class="w-[18px] h-[18px] accent-[var(--color-brand-600)]"
+									/>
+									<span>プライバシーポリシーに同意します</span>
+								</label>
+							{/snippet}
+						</FormField>
 					</div>
 				{:else}
 					<input type="hidden" name="agreedPrivacy" value="on" />

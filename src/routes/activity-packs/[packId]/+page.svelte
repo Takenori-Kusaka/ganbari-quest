@@ -1,5 +1,6 @@
 <script lang="ts">
 import { getCategoryByCode } from '$lib/domain/validation/activity.js';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
@@ -33,7 +34,8 @@ const groupedActivities = $derived.by(() => {
 		</a>
 
 		<!-- Pack header -->
-		<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+		<Card variant="default" padding="lg" class="mb-6">
+			{#snippet children()}
 			<div class="flex items-start gap-4 mb-4">
 				<span class="text-4xl">{pack.icon}</span>
 				<div class="flex-1">
@@ -49,12 +51,14 @@ const groupedActivities = $derived.by(() => {
 					<span class="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">{tag}</span>
 				{/each}
 			</div>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Activity list by category -->
 		{#each groupedActivities as [categoryName, activities]}
 			{@const catDef = getCategoryByCode(activities[0]?.categoryCode ?? 'seikatsu')}
-			<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-4">
+			<Card variant="default" padding="md" class="mb-4">
+				{#snippet children()}
 				<h2 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">
 					<span>{catDef?.icon ?? ''}</span>
 					{categoryName}
@@ -74,7 +78,8 @@ const groupedActivities = $derived.by(() => {
 						</div>
 					{/each}
 				</div>
-			</div>
+				{/snippet}
+			</Card>
 		{/each}
 
 		<!-- CTA -->

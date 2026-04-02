@@ -2,6 +2,7 @@
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
@@ -40,7 +41,8 @@ const radarCategories = $derived(
 <div class="px-4 py-1">
 	{#if data.status}
 		<!-- Category levels -->
-		<div class="bg-[var(--color-surface-card)] rounded-2xl p-4 shadow-[var(--card-shadow)] mb-6">
+		<Card variant="elevated" padding="md" class="mb-6">
+			{#snippet children()}
 			{#if data.activeTitle}
 				<div class="flex flex-col items-center gap-1 mb-4">
 					<span class="text-sm font-bold text-[var(--color-point)]">
@@ -72,18 +74,22 @@ const radarCategories = $derived(
 					{/if}
 				{/each}
 			</div>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Radar chart -->
-		<div class="bg-[var(--color-surface-card)] rounded-2xl p-4 shadow-[var(--card-shadow)] mb-3">
+		<Card variant="elevated" padding="md" class="mb-3">
+			{#snippet children()}
 			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">ステータス</h2>
 			<div class="flex justify-center">
 				<RadarChart categories={radarCategories} size={280} />
 			</div>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Collapsible detail -->
-		<div class="bg-[var(--color-surface-card)] rounded-2xl shadow-[var(--card-shadow)] overflow-hidden">
+		<Card variant="elevated" padding="none">
+			{#snippet children()}
 			<button
 				class="w-full p-4 flex items-center justify-between text-sm font-bold text-[var(--color-text-muted)] bg-transparent border-none cursor-pointer"
 				onclick={() => { soundService.play('tap'); detailOpen = !detailOpen; }}
@@ -112,7 +118,8 @@ const radarCategories = $derived(
 					{/each}
 				</div>
 			{/if}
-		</div>
+			{/snippet}
+		</Card>
 	{:else}
 		<div class="flex flex-col items-center py-12 text-[var(--color-text-muted)]">
 			<span class="text-[2.5rem] mb-2">⭐</span>

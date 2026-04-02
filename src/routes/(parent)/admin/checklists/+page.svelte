@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 let { data } = $props();
@@ -112,14 +113,19 @@ function directionLabel(dir: string): string {
 	{#if selectedChild}
 		<!-- Templates -->
 		{#if selectedChild.templates.length === 0}
-			<div class="bg-white rounded-xl p-6 text-center text-gray-400">
-				<p class="text-3xl mb-2">📋</p>
-				<p>チェックリストがまだありません</p>
-			</div>
+			<Card variant="elevated" padding="lg">
+				{#snippet children()}
+				<div class="text-center text-gray-400">
+					<p class="text-3xl mb-2">📋</p>
+					<p>チェックリストがまだありません</p>
+				</div>
+				{/snippet}
+			</Card>
 		{/if}
 
 		{#each selectedChild.templates as template (template.id)}
-			<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+			<Card variant="default" padding="none">
+				{#snippet children()}
 				<!-- Template header -->
 				<div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
 					<div class="flex items-center gap-2">
@@ -187,7 +193,8 @@ function directionLabel(dir: string): string {
 						+ アイテム追加
 					</button>
 				</div>
-			</div>
+				{/snippet}
+			</Card>
 		{/each}
 
 		<!-- Actions -->
@@ -208,7 +215,8 @@ function directionLabel(dir: string): string {
 
 		<!-- Today's overrides -->
 		{#if selectedChild.overrides.length > 0}
-			<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+			<Card variant="default" padding="none">
+				{#snippet children()}
 				<div class="px-4 py-3 bg-amber-50 border-b border-amber-100">
 					<span class="font-bold text-gray-700">📅 本日のワンオフ</span>
 				</div>
@@ -229,7 +237,8 @@ function directionLabel(dir: string): string {
 						</div>
 					{/each}
 				</div>
-			</div>
+				{/snippet}
+			</Card>
 		{/if}
 	{/if}
 </div>

@@ -2,7 +2,17 @@
 import type { Snippet } from 'svelte';
 import type { HTMLInputAttributes } from 'svelte/elements';
 
-type InputType = 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' | 'search';
+type InputType =
+	| 'text'
+	| 'email'
+	| 'password'
+	| 'number'
+	| 'tel'
+	| 'url'
+	| 'search'
+	| 'date'
+	| 'time'
+	| 'datetime-local';
 
 interface Props extends Omit<HTMLInputAttributes, 'type'> {
 	label: string;
