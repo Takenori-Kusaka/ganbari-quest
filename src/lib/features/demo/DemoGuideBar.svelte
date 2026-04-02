@@ -34,7 +34,7 @@ function handleDismiss() {
 			<div class="h-1 bg-gray-100">
 				<div
 					class="h-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-500"
-					style="width: {((guide.currentStep + 1) / guide.totalSteps) * 100}%"
+					style:width="{((guide.currentStep + 1) / guide.totalSteps) * 100}%"
 				></div>
 			</div>
 

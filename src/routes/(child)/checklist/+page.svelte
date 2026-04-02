@@ -74,7 +74,7 @@ function handleCompleteClose() {
 				<div class="h-1.5 bg-gray-100">
 					<div
 						class="h-full bg-[var(--theme-primary)] transition-all duration-300"
-						style="width: {checklist.totalCount > 0 ? (checklist.checkedCount / checklist.totalCount) * 100 : 0}%"
+						style:width="{checklist.totalCount > 0 ? (checklist.checkedCount / checklist.totalCount) * 100 : 0}%"
 					></div>
 				</div>
 

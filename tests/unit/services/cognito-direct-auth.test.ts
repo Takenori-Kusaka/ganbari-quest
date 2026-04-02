@@ -39,6 +39,19 @@ vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
 	};
 });
 
+vi.mock('$lib/server/logger', () => ({
+	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+// vi.mock はホイストされるため static import で安全にモジュールを取得できる
+// 各関数は呼び出し時に process.env を読むため、beforeEach での env 設定が有効
+import {
+	authenticateWithCognito,
+	confirmSignUp,
+	respondToMfaChallenge,
+	signUpWithCognito,
+} from '../../../src/lib/server/auth/providers/cognito-direct-auth';
+
 beforeEach(() => {
 	process.env.COGNITO_CLIENT_ID = 'test-client-id';
 	process.env.AWS_REGION = 'us-east-1';
@@ -58,9 +71,6 @@ describe('signUpWithCognito', () => {
 	it('正常にサインアップし userConfirmed=false を返す', async () => {
 		mockSend.mockResolvedValue({ UserConfirmed: false, UserSub: 'user-123' });
 
-		const { signUpWithCognito } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await signUpWithCognito('test@example.com', 'Password1');
 
 		expect(result).toEqual({ success: true, userConfirmed: false });
@@ -69,9 +79,6 @@ describe('signUpWithCognito', () => {
 	it('auto-verify 時に userConfirmed=true を返す', async () => {
 		mockSend.mockResolvedValue({ UserConfirmed: true, UserSub: 'user-123' });
 
-		const { signUpWithCognito } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await signUpWithCognito('test@example.com', 'Password1');
 
 		expect(result).toEqual({ success: true, userConfirmed: true });
@@ -82,9 +89,6 @@ describe('signUpWithCognito', () => {
 			Object.assign(new Error('exists'), { name: 'UsernameExistsException' }),
 		);
 
-		const { signUpWithCognito } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await signUpWithCognito('test@example.com', 'Password1');
 
 		expect(result.success).toBe(false);
@@ -98,9 +102,6 @@ describe('signUpWithCognito', () => {
 			Object.assign(new Error('bad password'), { name: 'InvalidPasswordException' }),
 		);
 
-		const { signUpWithCognito } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await signUpWithCognito('test@example.com', 'weak');
 
 		expect(result.success).toBe(false);
@@ -112,9 +113,6 @@ describe('signUpWithCognito', () => {
 	it('不明なエラーで汎用メッセージ', async () => {
 		mockSend.mockRejectedValue(new Error('network error'));
 
-		const { signUpWithCognito } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await signUpWithCognito('test@example.com', 'Password1');
 
 		expect(result.success).toBe(false);
@@ -126,9 +124,6 @@ describe('signUpWithCognito', () => {
 	it('COGNITO_CLIENT_ID 未設定でエラー', async () => {
 		process.env.COGNITO_CLIENT_ID = '';
 
-		const { signUpWithCognito } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		await expect(signUpWithCognito('test@example.com', 'Password1')).rejects.toThrow(
 			'COGNITO_CLIENT_ID',
 		);
@@ -142,9 +137,6 @@ describe('confirmSignUp', () => {
 	it('正常に確認コードを検証する', async () => {
 		mockSend.mockResolvedValue({});
 
-		const { confirmSignUp } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await confirmSignUp('test@example.com', '123456');
 
 		expect(result).toEqual({ success: true });
@@ -155,9 +147,6 @@ describe('confirmSignUp', () => {
 			Object.assign(new Error('mismatch'), { name: 'CodeMismatchException' }),
 		);
 
-		const { confirmSignUp } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await confirmSignUp('test@example.com', '000000');
 
 		expect(result.success).toBe(false);
@@ -171,9 +160,6 @@ describe('confirmSignUp', () => {
 			Object.assign(new Error('expired'), { name: 'ExpiredCodeException' }),
 		);
 
-		const { confirmSignUp } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await confirmSignUp('test@example.com', '123456');
 
 		expect(result.success).toBe(false);
@@ -196,9 +182,6 @@ describe('authenticateWithCognito', () => {
 			},
 		});
 
-		const { authenticateWithCognito } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await authenticateWithCognito('test@example.com', 'Password1');
 
 		expect(result.success).toBe(true);
@@ -214,9 +197,6 @@ describe('authenticateWithCognito', () => {
 			Session: 'mfa-session-xyz',
 		});
 
-		const { authenticateWithCognito } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await authenticateWithCognito('test@example.com', 'Password1');
 
 		expect(result.success).toBe(false);
@@ -234,9 +214,6 @@ describe('authenticateWithCognito', () => {
 			Object.assign(new Error('bad creds'), { name: 'NotAuthorizedException' }),
 		);
 
-		const { authenticateWithCognito } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await authenticateWithCognito('test@example.com', 'wrong');
 
 		expect(result.success).toBe(false);
@@ -250,9 +227,6 @@ describe('authenticateWithCognito', () => {
 			Object.assign(new Error('not confirmed'), { name: 'UserNotConfirmedException' }),
 		);
 
-		const { authenticateWithCognito } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await authenticateWithCognito('test@example.com', 'Password1');
 
 		expect(result.success).toBe(false);
@@ -266,9 +240,6 @@ describe('authenticateWithCognito', () => {
 			AuthenticationResult: { IdToken: null, AccessToken: null },
 		});
 
-		const { authenticateWithCognito } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await authenticateWithCognito('test@example.com', 'Password1');
 
 		expect(result.success).toBe(false);
@@ -287,9 +258,6 @@ describe('respondToMfaChallenge', () => {
 			},
 		});
 
-		const { respondToMfaChallenge } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await respondToMfaChallenge('session-abc', '123456', 'SOFTWARE_TOKEN_MFA');
 
 		expect(result.success).toBe(true);
@@ -303,9 +271,6 @@ describe('respondToMfaChallenge', () => {
 			Object.assign(new Error('mismatch'), { name: 'CodeMismatchException' }),
 		);
 
-		const { respondToMfaChallenge } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await respondToMfaChallenge('session-abc', '000000', 'SOFTWARE_TOKEN_MFA');
 
 		expect(result.success).toBe(false);
@@ -319,9 +284,6 @@ describe('respondToMfaChallenge', () => {
 			Object.assign(new Error('expired'), { name: 'ExpiredCodeException' }),
 		);
 
-		const { respondToMfaChallenge } = await import(
-			'../../../src/lib/server/auth/providers/cognito-direct-auth'
-		);
 		const result = await respondToMfaChallenge('old-session', '123456', 'SOFTWARE_TOKEN_MFA');
 
 		expect(result.success).toBe(false);

@@ -55,7 +55,7 @@ function handleTap(title: (typeof data.titles)[number]) {
 	{#if data.activeTitle}
 		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-sm)] shadow-sm mb-[var(--sp-md)] flex items-center justify-center gap-[var(--sp-sm)]">
 			<span class="text-xl">{data.activeTitle.icon}</span>
-			<p class="text-sm font-bold" style="color: var(--theme-accent);">
+			<p class="text-sm font-bold text-[var(--theme-accent)]">
 				いまのしょうごう: {data.activeTitle.name}
 			</p>
 		</div>
@@ -89,7 +89,7 @@ function handleTap(title: (typeof data.titles)[number]) {
 						<div class="w-full h-1 rounded-full bg-gray-200 mt-0.5">
 							<div
 								class="h-full rounded-full bg-[var(--theme-primary)] transition-all"
-								style="width: {title.currentProgress}%"
+								style:width="{title.currentProgress}%"
 							></div>
 						</div>
 					{/if}
@@ -143,7 +143,7 @@ function handleTap(title: (typeof data.titles)[number]) {
 						<div class="flex-1 h-2 rounded-full bg-gray-200">
 							<div
 								class="h-full rounded-full bg-[var(--theme-primary)] transition-all"
-								style="width: {selectedTitle.currentProgress}%"
+								style:width="{selectedTitle.currentProgress}%"
 							></div>
 						</div>
 						<span class="text-xs font-bold text-[var(--color-text-muted)] whitespace-nowrap">

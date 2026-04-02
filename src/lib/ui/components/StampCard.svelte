@@ -78,7 +78,7 @@ function getConfig(rank: string) {
 					<div
 						class="stamp-seal"
 						class:stamp-seal--rare={rank === '大大吉' || rank === '大吉'}
-						style={config.glow ? `filter: drop-shadow(${config.glow});` : ''}
+						style:filter={config.glow ? `drop-shadow(${config.glow})` : undefined}
 					>
 						<img
 							src={config.image}
@@ -104,7 +104,7 @@ function getConfig(rank: string) {
 		<span class="stamp-card__period">{formatDateShort(weekStart)}〜{formatDateShort(weekEnd)}</span>
 		<div class="stamp-card__progress-right">
 			<div class="stamp-card__progress-bar">
-				<div class="stamp-card__progress-fill" style="width: {(filledSlots / totalSlots) * 100}%"></div>
+				<div class="stamp-card__progress-fill" style:width="{(filledSlots / totalSlots) * 100}%"></div>
 			</div>
 			<span class="stamp-card__progress-text">{filledSlots}/{totalSlots} おしたよ！</span>
 		</div>

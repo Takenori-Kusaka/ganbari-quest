@@ -98,7 +98,9 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe('hooks.server.ts handle（結合テスト）', () => {
+// vi.resetModules() + dynamic import は並列テスト実行時にモジュール解決が遅延するため
+// デフォルト 5s では不足することがある
+describe('hooks.server.ts handle（結合テスト）', { timeout: 15_000 }, () => {
 	async function loadHandle() {
 		vi.resetModules();
 		// vi.mock はトップレベルで定義済み — ここでは再宣言不要

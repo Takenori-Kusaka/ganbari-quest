@@ -4,6 +4,7 @@ import storybook from 'eslint-plugin-storybook';
 import tsParser from '@typescript-eslint/parser';
 import svelte from 'eslint-plugin-svelte';
 import svelteParser from 'svelte-eslint-parser';
+import noStyleAttribute from './eslint-plugin-local/no-style-attribute.js';
 
 /**
  * ESLint 設定 — Svelte スタイル強制ルール専用
@@ -12,7 +13,7 @@ import svelteParser from 'svelte-eslint-parser';
  * この設定は Svelte ファイルに対する UI 品質ルールのみを扱う。
  */
 export default [
-	// Svelte ファイルのみ対象
+	// Svelte ファイル共通設定（パーサー）
 	{
 		files: ['src/**/*.svelte'],
 		plugins: {
@@ -24,12 +25,21 @@ export default [
 				parser: tsParser,
 			},
 		},
+	},
+	// routes 配下: style="..." 属性の使用を警告
+	// style:prop={value} ディレクティブは動的スタイルに必要なため許可
+	// デザインシステム層（$lib/ui, $lib/features）は動的スタイルが必要なため除外
+	{
+		files: ['src/routes/**/*.svelte'],
+		plugins: {
+			local: {
+				rules: {
+					'no-style-attribute': noStyleAttribute,
+				},
+			},
+		},
 		rules: {
-			// --- デザインシステム強制ルール ---
-
-			// style="" 属性の使用を警告（動的バインディング style:prop={val} は許容）
-			// 段階的に error に昇格予定（既存コードの置換完了後）
-			'svelte/no-inline-styles': ['warn', { allowTransitions: true }],
+			'local/no-style-attribute': 'error',
 		},
 	},
 	...storybook.configs['flat/recommended'],

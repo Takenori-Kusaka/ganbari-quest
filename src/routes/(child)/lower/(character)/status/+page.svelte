@@ -43,7 +43,7 @@ const radarCategories = $derived(
 		<!-- Category levels -->
 		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-lg)]">
 			{#if data.activeTitle}
-				<p class="text-xs font-bold mb-[var(--sp-sm)]" style="color: var(--color-point);">
+				<p class="text-xs font-bold mb-[var(--sp-sm)] text-[var(--color-point)]">
 					{data.activeTitle.icon} {data.activeTitle.name}
 				</p>
 			{/if}
@@ -64,7 +64,7 @@ const radarCategories = $derived(
 									{/if}
 								</div>
 								<div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-									<div class="h-full rounded-full transition-all" style="width: {pct}%; background: var(--theme-accent);"></div>
+									<div class="h-full rounded-full transition-all bg-[var(--theme-accent)]" style:width="{pct}%"></div>
 								</div>
 							</div>
 						</div>
@@ -106,7 +106,7 @@ const radarCategories = $derived(
 									progressPct={status.progressPct}
 								/>
 								<div class="flex justify-between items-center mt-1 px-1">
-									<span class="text-xs" style="color: var(--theme-accent);">
+									<span class="text-xs text-[var(--theme-accent)]">
 										{#if status.trend === 'up'}
 											🌟 前よりのびたよ！
 										{:else if status.trend === 'down'}

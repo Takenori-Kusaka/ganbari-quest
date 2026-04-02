@@ -62,7 +62,8 @@
 			"*.db",
 			"scripts/",
 			"infra/",
-			"cdk.out"
+			"cdk.out",
+			"storybook-static"
 		]
 	}
 }
