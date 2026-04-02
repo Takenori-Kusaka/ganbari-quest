@@ -1,8 +1,9 @@
 // src/lib/server/services/plan-limit-service.ts
-// プラン別機能制限サービス (#0196, #0269)
+// プラン別機能制限サービス (#0196, #0269, #0270)
 
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
+import { getTrialEndDate } from '$lib/server/services/trial-service';
 
 export interface PlanLimits {
 	maxChildren: number | null; // null = 無制限
@@ -39,13 +40,32 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 };
 
 /** テナントのプランティアを判定 */
-export function resolvePlanTier(licenseStatus: string, planId?: string): PlanTier {
+export function resolvePlanTier(
+	licenseStatus: string,
+	planId?: string,
+	trialEndDate?: string | null,
+): PlanTier {
 	// ローカル版（セルフホスト）は常に全機能解放
 	if (getAuthMode() === 'local') return 'family';
-	if (licenseStatus !== 'active') return 'free';
-	// planId で standard / family を判別（未指定は standard）
-	if (planId === 'family') return 'family';
-	return 'standard';
+	// アクティブな有料プラン
+	if (licenseStatus === 'active') {
+		return planId === 'family' ? 'family' : 'standard';
+	}
+	// トライアル期間中 → ファミリー全機能解放
+	if (trialEndDate && new Date(trialEndDate) > new Date()) {
+		return 'family';
+	}
+	return 'free';
+}
+
+/** テナントのプランティアを非同期で判定（トライアル状態を自動チェック） */
+export async function resolveFullPlanTier(
+	tenantId: string,
+	licenseStatus: string,
+	planId?: string,
+): Promise<PlanTier> {
+	const trialEnd = await getTrialEndDate(tenantId);
+	return resolvePlanTier(licenseStatus, planId, trialEnd);
 }
 
 /** 有料プランかどうか */
@@ -114,7 +134,7 @@ export async function checkChildLimit(
 	tenantId: string,
 	licenseStatus: string,
 ): Promise<{ allowed: boolean; current: number; max: number | null }> {
-	const limits = getPlanLimits(resolvePlanTier(licenseStatus));
+	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxChildren === null) {
 		return { allowed: true, current: 0, max: null };
 	}
@@ -135,7 +155,7 @@ export async function checkActivityLimit(
 	tenantId: string,
 	licenseStatus: string,
 ): Promise<{ allowed: boolean; current: number; max: number | null }> {
-	const limits = getPlanLimits(resolvePlanTier(licenseStatus));
+	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxActivities === null) {
 		return { allowed: true, current: 0, max: null };
 	}
