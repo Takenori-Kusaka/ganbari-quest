@@ -267,7 +267,7 @@ $effect(() => {
 	<title>ホーム - がんばりクエスト</title>
 </svelte:head>
 
-<div class="baby-page">
+<div class="px-2 py-1">
 	<!-- Birthday bonus banner -->
 	{#if data.birthdayBonus}
 		<BirthdayBanner
@@ -280,7 +280,7 @@ $effect(() => {
 
 	<!-- Error toast -->
 	{#if errorMessage}
-		<div class="baby-error-toast animate-bounce-in">
+		<div class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[var(--color-danger)] text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold animate-bounce-in">
 			{errorMessage}
 		</div>
 	{/if}
@@ -398,13 +398,13 @@ $effect(() => {
 					{@const showMission = activity.isMission && !completed}
 					{#if completed}
 						<div
-							class="baby-card baby-card--done tap-target"
+							class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] border-2 border-[var(--color-gold-400)] bg-[var(--color-gold-100)] shadow-[0_0_0_2px_rgba(251,191,36,0.3)] transition-all duration-150 ease-out tap-target"
 							data-testid="activity-card-{activity.id}"
 							aria-label="{activity.displayName}（きろくずみ）"
 						>
-							<span class="baby-card__done-badge animate-bounce-in">💮</span>
+							<span class="absolute inset-0 flex items-center justify-center text-3xl opacity-80 z-1 animate-bounce-in">💮</span>
 							<CompoundIcon icon={activity.icon} size="lg" faded={true} />
-							<span class="baby-card__name baby-card__name--faded">{activity.displayName}</span>
+							<span class="text-[10px] font-bold leading-tight text-center line-clamp-2 opacity-40">{activity.displayName}</span>
 						</div>
 					{:else}
 						<form
@@ -473,7 +473,7 @@ $effect(() => {
 							<button
 								type="submit"
 								disabled={submitting}
-								class="baby-card baby-card--active tap-target"
+								class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] border-2 border-solid bg-white shadow-sm cursor-pointer transition-all duration-150 ease-out hover:shadow-md active:scale-95 tap-target"
 								class:baby-card--pending={pendingActivityId === activity.id}
 								class:baby-card--mission={showMission}
 								data-testid="activity-card-{activity.id}"
@@ -481,17 +481,17 @@ $effect(() => {
 								aria-label="{activity.displayName}をきろくする{showMission ? '（ミッション）' : ''}"
 							>
 								{#if showMission}
-									<span class="baby-card__mission-star" aria-hidden="true">⭐</span>
+									<span class="absolute -top-1.5 -left-1.5 z-10 text-sm baby-card__mission-star" aria-hidden="true">⭐</span>
 								{/if}
 								{#if pendingActivityId === activity.id}
 									<span class="baby-card__spinner" aria-hidden="true"></span>
-									<span class="baby-card__name">まってね！</span>
+									<span class="text-[10px] font-bold leading-tight text-center line-clamp-2">まってね！</span>
 								{:else}
 									{#if actCount > 0}
-										<span class="baby-card__count-badge">{actCount}</span>
+										<span class="absolute -top-1 -right-1 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-brand-600)] text-white text-[10px] font-bold shadow-sm">{actCount}</span>
 									{/if}
 									<CompoundIcon icon={activity.icon} size="lg" />
-									<span class="baby-card__name">{activity.displayName}</span>
+									<span class="text-[10px] font-bold leading-tight text-center line-clamp-2">{activity.displayName}</span>
 									{#if activity.triggerHint}
 										<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{activity.triggerHint}</span>
 									{/if}
@@ -510,13 +510,13 @@ $effect(() => {
 
 <!-- Record result overlay -->
 <Dialog bind:open={resultOpen} closable={false} title="">
-	<div class="baby-result">
+	<div class="flex flex-col items-center gap-4 text-center py-4">
 		{#if cancelledMessage}
-			<span class="baby-result__emoji">↩️</span>
-			<p class="baby-result__text">とりけしました</p>
+			<span class="text-[3.5rem]">↩️</span>
+			<p class="text-lg font-bold">とりけしました</p>
 			<button
 				type="button"
-				class="tap-target baby-result__btn baby-result__btn--close"
+				class="w-full py-3.5 px-3 rounded-xl font-bold text-lg border-none cursor-pointer bg-[var(--color-neutral-200)] tap-target"
 				onclick={() => {
 					cancelledMessage = false;
 					resultOpen = false;
@@ -526,20 +526,20 @@ $effect(() => {
 				とじる
 			</button>
 		{:else}
-			<div class="baby-result__celebration">
+			<div class="relative w-24 h-24 flex items-center justify-center">
 				<CelebrationEffect type={celebEffect} />
 			</div>
-			<p class="baby-result__text">{resultName}をきろくしたよ！</p>
+			<p class="text-lg font-bold">{resultName}をきろくしたよ！</p>
 			<div class="animate-point-pop">
-				<p class="baby-result__points">{fmtPts(resultPoints)}</p>
+				<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultPoints)}</p>
 			</div>
 			{#if resultComboBonus}
-				<div class="baby-result__combo">
+				<div class="bg-[var(--color-gold-100)] rounded-xl px-3 py-2 w-full">
 					{#each resultComboBonus.categoryCombo as cc}
-						<p class="baby-result__combo-text">{cc.name}コンボ！ {fmtPts(cc.bonus)}</p>
+						<p class="text-sm font-bold text-[var(--theme-accent)]">{cc.name}コンボ！ {fmtPts(cc.bonus)}</p>
 					{/each}
 					{#if resultComboBonus.crossCategoryCombo}
-						<p class="baby-result__combo-cross">{resultComboBonus.crossCategoryCombo.name}！ {fmtPts(resultComboBonus.crossCategoryCombo.bonus)}</p>
+						<p class="text-sm font-bold text-[var(--color-point)]">{resultComboBonus.crossCategoryCombo.name}！ {fmtPts(resultComboBonus.crossCategoryCombo.bonus)}</p>
 					{/if}
 				</div>
 			{/if}
@@ -551,15 +551,15 @@ $effect(() => {
 				</div>
 			{/if}
 			{#if missionResult}
-				<div class="baby-result__mission">
-					<p class="baby-result__mission-text">
+				<div class="bg-[var(--color-gold-100)] rounded-xl px-3 py-2 w-full">
+					<p class="text-sm font-bold text-[var(--color-warning)]">
 						🎯 ミッションたっせい！
 						{#if missionResult.bonusAwarded > 0}
 							{fmtPts(missionResult.bonusAwarded)}
 						{/if}
 					</p>
 					{#if missionResult.allComplete}
-						<p class="baby-result__mission-complete">🎉 ぜんぶクリア！</p>
+						<p class="text-xs font-bold text-[var(--color-gold-700)]">🎉 ぜんぶクリア！</p>
 					{/if}
 				</div>
 			{/if}
@@ -576,12 +576,12 @@ $effect(() => {
 				</div>
 			{/if}
 
-			<div class="baby-result__actions">
+			<div class="flex gap-2 w-full">
 				{#if cancelCountdown > 0}
 					<form
 						method="POST"
 						action="?/cancelRecord"
-						class="baby-result__cancel-form"
+						class="flex-1"
 						use:enhance={() => {
 							return async ({ result }) => {
 								if (result.type === 'success' && result.data && 'cancelled' in result.data) {
@@ -595,7 +595,7 @@ $effect(() => {
 						<input type="hidden" name="logId" value={resultLogId} />
 						<button
 							type="submit"
-							class="tap-target baby-result__btn baby-result__btn--cancel"
+							class="w-full py-3.5 px-3 rounded-xl font-bold text-sm border-none cursor-pointer bg-[var(--color-neutral-200)] text-[var(--color-text-muted)] tap-target"
 						>
 							とりけし ({cancelCountdown}s)
 						</button>
@@ -603,7 +603,7 @@ $effect(() => {
 				{/if}
 				<button
 					type="button"
-					class="tap-target baby-result__btn baby-result__btn--ok"
+					class="flex-1 w-full py-3.5 px-3 rounded-xl font-bold text-lg border-none cursor-pointer bg-[var(--theme-primary)] text-white tap-target"
 					onclick={handleResultClose}
 				>
 					やったね！
@@ -633,288 +633,30 @@ $effect(() => {
 />
 
 <style>
-	.baby-page {
-		padding: 4px 8px;
-	}
-
-	/* Activity card - matches ActivityCard component style */
-	.baby-card {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 2px;
-		width: 100%;
-		aspect-ratio: 4 / 5;
-		min-height: 60px;
-		border-radius: 16px;
-		border: 2px solid;
-		transition: all 0.15s ease;
-	}
-
-	.baby-card--active {
-		background: white;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		cursor: pointer;
-	}
-
-	.baby-card--active:hover {
-		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-	}
-
-	.baby-card--active:active {
-		transform: scale(0.95);
-	}
-
-	.baby-card--done {
-		background: var(--color-gold-100);
-		border-color: var(--color-gold-400);
-		box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.3);
-	}
-
-	.baby-card__icon {
-		font-size: 1.875rem; /* text-3xl */
-		line-height: 1;
-	}
-
-	.baby-card__icon--faded {
-		opacity: 0.4;
-	}
-
-	.baby-card__name {
-		font-size: 10px;
-		font-weight: 700;
-		line-height: 1.2;
-		text-align: center;
-		overflow: hidden;
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		-webkit-box-orient: vertical;
-	}
-
-	.baby-card__name--faded {
-		opacity: 0.4;
-	}
-
-	.baby-card__done-badge {
-		position: absolute;
-		inset: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 1.875rem;
-		opacity: 0.8;
-		z-index: 1;
-	}
-
-	.baby-card__count-badge {
-		position: absolute;
-		top: -4px;
-		right: -4px;
-		z-index: 10;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 20px;
-		height: 20px;
-		border-radius: 50%;
-		background: var(--color-brand-600);
-		color: white;
-		font-size: 10px;
-		font-weight: 700;
-		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-	}
-
-	/* Empty state */
-	.baby-empty {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 48px 0;
-		color: var(--color-text-muted);
-	}
-
-	.baby-empty__icon {
-		font-size: 2.5rem;
-		margin-bottom: 16px;
-	}
-
-	.baby-empty__text {
-		font-size: 1.125rem;
-		font-weight: 700;
-	}
-
-	.baby-empty__sub {
-		font-size: 0.875rem;
-	}
-
-	/* Result overlay */
-	.baby-result {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 16px;
-		text-align: center;
-		padding: 16px 0;
-	}
-
-	.baby-result__emoji {
-		font-size: 3.5rem;
-	}
-
-	.baby-result__celebration {
-		position: relative;
-		width: 6rem;
-		height: 6rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.baby-result__text {
-		font-size: 1.125rem;
-		font-weight: 700;
-	}
-
-	.baby-result__points {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: var(--color-point);
-	}
-
-	.baby-result__actions {
-		display: flex;
-		gap: 8px;
-		width: 100%;
-	}
-
-	.baby-result__cancel-form {
-		flex: 1;
-	}
-
-	.baby-result__btn {
-		width: 100%;
-		padding: 14px 12px;
-		border-radius: 12px;
-		font-weight: 700;
-		font-size: 1.125rem;
-		border: none;
-		cursor: pointer;
-	}
-
-	.baby-result__btn--ok {
-		flex: 1;
-		background: var(--theme-primary);
-		color: white;
-	}
-
-	.baby-result__btn--cancel {
-		background: var(--color-neutral-200);
-		color: var(--color-text-muted);
-		font-size: 0.875rem;
-	}
-
-	.baby-result__btn--close {
-		background: var(--color-neutral-200);
-	}
-
-	.baby-result__combo {
-		background: var(--color-gold-100);
-		border-radius: 12px;
-		padding: 8px 12px;
-		width: 100%;
-	}
-
-	.baby-result__combo-text {
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--theme-accent);
-	}
-
-	.baby-result__combo-cross {
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--color-point);
-	}
-
-	.baby-result__combo-hint {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-		margin-top: 2px;
-	}
-
-
-	/* Mission result in dialog */
-	.baby-result__mission {
-		background: var(--color-gold-100);
-		border-radius: 12px;
-		padding: 8px 12px;
-		width: 100%;
-	}
-
-	.baby-result__mission-text {
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--color-warning);
-	}
-
-	.baby-result__mission-complete {
-		font-size: 0.75rem;
-		font-weight: 700;
-		color: var(--color-gold-700);
-	}
-
-	/* Mission state */
+	/* Animations only — all layout/color via Tailwind utilities */
 	.baby-card--mission {
 		box-shadow: 0 0 12px rgba(255, 200, 0, 0.5);
 		animation: pulse-gold 2s ease-in-out infinite;
 	}
-
 	@keyframes pulse-gold {
-		0%,
-		100% {
-			box-shadow: 0 0 8px rgba(255, 200, 0, 0.4);
-		}
-		50% {
-			box-shadow: 0 0 20px rgba(255, 200, 0, 0.8);
-		}
+		0%, 100% { box-shadow: 0 0 8px rgba(255, 200, 0, 0.4); }
+		50% { box-shadow: 0 0 20px rgba(255, 200, 0, 0.8); }
 	}
-
 	.baby-card__mission-star {
-		position: absolute;
-		top: -6px;
-		left: -6px;
-		z-index: 10;
-		font-size: 0.875rem;
 		animation: star-twinkle 1.5s ease-in-out infinite;
 	}
-
 	@keyframes star-twinkle {
-		0%,
-		100% {
-			opacity: 0.7;
-			transform: scale(1);
-		}
-		50% {
-			opacity: 1;
-			transform: scale(1.2);
-		}
+		0%, 100% { opacity: 0.7; transform: scale(1); }
+		50% { opacity: 1; transform: scale(1.2); }
 	}
-
-	/* Pending state */
 	.baby-card--pending {
 		animation: card-pulse 0.8s ease-in-out infinite;
 		opacity: 0.7;
 	}
-
 	@keyframes card-pulse {
 		0%, 100% { transform: scale(1); }
 		50% { transform: scale(0.97); }
 	}
-
 	.baby-card__spinner {
 		display: inline-block;
 		width: 2rem;
@@ -924,25 +666,7 @@ $effect(() => {
 		border-radius: 50%;
 		animation: spin 0.6s linear infinite;
 	}
-
 	@keyframes spin {
 		to { transform: rotate(360deg); }
 	}
-
-	/* Error toast */
-	.baby-error-toast {
-		position: fixed;
-		top: 64px;
-		left: 50%;
-		transform: translateX(-50%);
-		z-index: 50;
-		background: var(--color-danger);
-		color: white;
-		padding: 8px 16px;
-		border-radius: 8px;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-		font-size: 0.875rem;
-		font-weight: 700;
-	}
-
 </style>
