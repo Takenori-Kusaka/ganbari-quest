@@ -8,6 +8,7 @@ import {
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -51,18 +52,22 @@ function dailyLimitLabel(val: number | null): string {
 	<!-- Header (matches production layout) -->
 	<div class="flex items-center justify-between">
 		<div class="flex gap-2">
-			<button
-				class="px-4 py-2 bg-purple-300 text-white rounded-lg text-sm font-bold cursor-not-allowed"
+			<Button
+				variant="primary"
+				size="sm"
+				class="bg-purple-300 cursor-not-allowed"
 				disabled
 			>
 				✨ AI追加
-			</button>
-			<button
-				class="px-4 py-2 bg-blue-300 text-white rounded-lg text-sm font-bold cursor-not-allowed"
+			</Button>
+			<Button
+				variant="primary"
+				size="sm"
+				class="bg-blue-300 cursor-not-allowed"
 				disabled
 			>
 				+ 手動追加
-			</button>
+			</Button>
 		</div>
 	</div>
 
@@ -76,22 +81,26 @@ function dailyLimitLabel(val: number | null): string {
 
 	<!-- Category Filter (matches production) -->
 	<div class="flex flex-wrap gap-2">
-		<button
-			class="px-3 py-1 rounded-full text-xs font-bold transition-colors
-				{filterCategoryId === 0 ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+		<Button
+			variant={filterCategoryId === 0 ? 'primary' : 'ghost'}
+			size="sm"
+			class="rounded-full
+				{filterCategoryId === 0 ? '' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
 			onclick={() => filterCategoryId = 0}
 		>
 			すべて ({data.activities.length})
-		</button>
+		</Button>
 		{#each data.categoryDefs as catDef}
 			{@const count = data.activities.filter((a: { categoryId: number }) => a.categoryId === catDef.id).length}
-			<button
-				class="px-3 py-1 rounded-full text-xs font-bold transition-colors
-					{filterCategoryId === catDef.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+			<Button
+				variant={filterCategoryId === catDef.id ? 'primary' : 'ghost'}
+				size="sm"
+				class="rounded-full
+					{filterCategoryId === catDef.id ? '' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
 				onclick={() => filterCategoryId = catDef.id}
 			>
 				{catDef.name} ({count})
-			</button>
+			</Button>
 		{/each}
 	</div>
 

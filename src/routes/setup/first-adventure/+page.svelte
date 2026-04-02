@@ -115,16 +115,17 @@ function goToComplete() {
 
 			<div class="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2">
 				{#each data.activities as activity (activity.id)}
-					<button
+					<Button
 						type="button"
+						variant="ghost"
+						size="sm"
 						onclick={() => selectActivity(activity.id)}
-						class="activity-card"
-						class:activity-card--selected={selectedActivityId === activity.id}
+						class="flex flex-col items-center gap-1 px-2 py-4 border-2 rounded-2xl bg-white cursor-pointer transition-all duration-150 h-auto {selectedActivityId === activity.id ? 'border-[var(--color-brand-600)] bg-[var(--color-brand-200)] shadow-[0_0_0_3px_rgba(59,130,246,0.2)]' : 'border-[var(--color-neutral-200)] hover:border-[var(--color-brand-300)] hover:bg-[var(--color-brand-50)]'}"
 					>
 						<span class="text-[2rem]">{activity.icon || '⭐'}</span>
 						<span class="text-xs font-semibold text-[var(--color-text)] text-center leading-tight">{activity.name}</span>
 						<span class="text-[0.625rem] text-[var(--color-gold-600)] font-bold">+{activity.basePoints}pt</span>
-					</button>
+					</Button>
 				{/each}
 			</div>
 
@@ -170,27 +171,6 @@ function goToComplete() {
 	@keyframes fadeIn {
 		from { opacity: 0; transform: translateY(8px); }
 		to { opacity: 1; transform: translateY(0); }
-	}
-	.activity-card {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		padding: 16px 8px;
-		border: 2px solid var(--color-neutral-200);
-		border-radius: 16px;
-		background: white;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-	.activity-card:hover {
-		border-color: var(--color-brand-300);
-		background: var(--color-brand-50);
-	}
-	.activity-card--selected {
-		border-color: var(--color-brand-600);
-		background: var(--color-brand-200);
-		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 	}
 	:global(.record-button) { animation: pulse 1.5s ease-in-out infinite; }
 	@keyframes pulse {

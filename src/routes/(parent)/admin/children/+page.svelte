@@ -6,6 +6,7 @@ import {
 	formatPointValueWithSign,
 	getUnitLabel,
 } from '$lib/domain/point-display';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
 let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'voice'>('info');
@@ -192,20 +193,23 @@ function handleFileSelect(childId: number, event: Event) {
 
 	<div class="flex items-center justify-between" data-tutorial="children-list">
 		{#if !childLimit || childLimit.allowed}
-			<button
-				class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors"
+			<Button
+				variant="primary"
+				size="sm"
 				onclick={() => showAddForm = !showAddForm}
 				data-tutorial="add-child-btn"
 			>
 				{showAddForm ? 'キャンセル' : '+ こどもを追加'}
-			</button>
+			</Button>
 		{:else}
-			<button
-				class="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-bold cursor-not-allowed"
+			<Button
+				variant="ghost"
+				size="sm"
+				class="bg-gray-300 text-gray-500 cursor-not-allowed"
 				disabled
 			>
 				上限に達しています
-			</button>
+			</Button>
 		{/if}
 	</div>
 
@@ -272,12 +276,13 @@ function handleFileSelect(childId: number, event: Event) {
 					</select>
 				</div>
 			</div>
-			<button
+			<Button
 				type="submit"
-				class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600 transition-colors"
+				variant="success"
+				size="sm"
 			>
 				追加する
-			</button>
+			</Button>
 		</form>
 	{/if}
 
@@ -348,19 +353,22 @@ function handleFileSelect(childId: number, event: Event) {
 							</div>
 						</div>
 						<div class="flex gap-2">
-							<button
+							<Button
 								type="submit"
-								class="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-bold hover:bg-blue-600"
+								variant="primary"
+								size="sm"
 							>
 								保存
-							</button>
-							<button
+							</Button>
+							<Button
 								type="button"
-								class="px-3 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-300"
+								variant="ghost"
+								size="sm"
+								class="bg-gray-200 text-gray-600 hover:bg-gray-300"
 								onclick={() => editingChildId = null}
 							>
 								キャンセル
-							</button>
+							</Button>
 						</div>
 					</form>
 					<!-- Birthday bonus multiplier (separate form to avoid nesting) -->
@@ -388,7 +396,7 @@ function handleFileSelect(childId: number, event: Event) {
 										<option value={val} selected={val === (child.birthdayBonusMultiplier ?? 1.0)}>×{val}</option>
 									{/each}
 								</select>
-								<button type="submit" class="px-2 py-1 bg-amber-500 text-white rounded text-xs font-bold hover:bg-amber-600">適用</button>
+								<Button type="submit" variant="primary" size="sm" class="bg-amber-500 hover:bg-amber-600">適用</Button>
 								<span class="text-xs text-amber-600">
 									→ {child.age}歳 × 100pt × {child.birthdayBonusMultiplier ?? 1.0}倍 = {Math.round(child.age * 100 * (child.birthdayBonusMultiplier ?? 1.0))}pt
 								</span>
@@ -416,12 +424,14 @@ function handleFileSelect(childId: number, event: Event) {
 							</div>
 						</a>
 						<div class="flex gap-1">
-							<button
-								class="px-2 py-1 bg-gray-100 text-gray-500 rounded text-xs hover:bg-gray-200"
+							<Button
+								variant="ghost"
+								size="sm"
+								class="bg-gray-100 text-gray-500 hover:bg-gray-200"
 								onclick={() => editingChildId = child.id}
 							>
 								編集
-							</button>
+							</Button>
 							{#if confirmDeleteId === child.id}
 								<form
 									method="POST"
@@ -434,26 +444,31 @@ function handleFileSelect(childId: number, event: Event) {
 									}}
 								>
 									<input type="hidden" name="childId" value={child.id} />
-									<button
+									<Button
 										type="submit"
-										class="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+										variant="danger"
+										size="sm"
 									>
 										本当に削除
-									</button>
+									</Button>
 								</form>
-								<button
-									class="px-2 py-1 bg-gray-100 text-gray-500 rounded text-xs hover:bg-gray-200"
+								<Button
+									variant="ghost"
+									size="sm"
+									class="bg-gray-100 text-gray-500 hover:bg-gray-200"
 									onclick={() => confirmDeleteId = null}
 								>
 									やめる
-								</button>
+								</Button>
 							{:else}
-								<button
-									class="px-2 py-1 bg-red-50 text-red-400 rounded text-xs hover:bg-red-100"
+								<Button
+									variant="ghost"
+									size="sm"
+									class="bg-red-50 text-red-400 hover:bg-red-100"
 									onclick={() => confirmDeleteId = child.id}
 								>
 									削除
-								</button>
+								</Button>
 							{/if}
 						</div>
 					</div>
@@ -494,13 +509,15 @@ function handleFileSelect(childId: number, event: Event) {
 							disabled={uploading}
 						/>
 					</label>
-					<button
-						class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-500 text-white rounded-lg text-xs font-bold hover:bg-purple-600 transition-colors disabled:opacity-50"
+					<Button
+						variant="primary"
+						size="sm"
+						class="bg-purple-500 hover:bg-purple-600"
 						disabled={generating}
 						onclick={() => generateAvatar(child.id)}
 					>
 						{generating ? '...' : '✨'}
-					</button>
+					</Button>
 				</div>
 			</div>
 			{#if uploadResult?.error || generateResult?.error}
@@ -516,15 +533,17 @@ function handleFileSelect(childId: number, event: Event) {
 			<!-- Tabs -->
 			<div class="flex border-b border-gray-100 overflow-x-auto px-2">
 				{#each detailTabs as tab}
-					<button
-						class="px-3 py-2.5 text-xs font-bold whitespace-nowrap transition-colors border-b-2
+					<Button
+						variant="ghost"
+						size="sm"
+						class="px-3 py-2.5 text-xs whitespace-nowrap border-b-2 rounded-none
 							{detailTab === tab.id
 							? 'border-blue-500 text-blue-600'
 							: 'border-transparent text-gray-400 hover:text-gray-600'}"
 						onclick={() => { detailTab = tab.id; statusEditSuccess = false; }}
 					>
 						{tab.label}
-					</button>
+					</Button>
 				{/each}
 			</div>
 
@@ -612,16 +631,17 @@ function handleFileSelect(childId: number, event: Event) {
 														</span>
 													{/if}
 												</div>
-												<button
+												<Button
 													type="submit"
+													variant={hasChanged ? 'primary' : 'ghost'}
+													size="sm"
 													disabled={!hasChanged}
-													class="px-3 py-1 text-xs font-bold rounded-lg transition-colors
-														{hasChanged
-														? 'bg-blue-500 text-white hover:bg-blue-600'
-														: 'bg-gray-200 text-gray-400 cursor-not-allowed'}"
+													class={hasChanged
+														? ''
+														: 'bg-gray-200 text-gray-400 cursor-not-allowed'}
 												>
 													保存
-												</button>
+												</Button>
 											</div>
 										</form>
 									</div>
@@ -677,27 +697,31 @@ function handleFileSelect(childId: number, event: Event) {
 							{#if voiceRecording}
 								<div class="flex items-center gap-3">
 									<span class="text-red-500 text-sm font-bold animate-pulse">● 録音中 {recordDuration}秒 / 10秒</span>
-									<button
+									<Button
 										type="button"
+										variant="danger"
+										size="sm"
 										onclick={stopRecording}
-										class="px-3 py-1 bg-red-500 text-white text-sm rounded-lg"
-									>■ 停止</button>
+									>■ 停止</Button>
 								</div>
 							{:else if recordedUrl}
 								<div class="flex items-center gap-2">
 									<audio src={recordedUrl} controls class="h-8 flex-1"></audio>
-									<button
+									<Button
 										type="button"
+										variant="ghost"
+										size="sm"
 										onclick={clearRecording}
-										class="px-2 py-1 text-xs text-gray-400 hover:text-red-500"
-									>取消</button>
+										class="text-gray-400 hover:text-red-500"
+									>取消</Button>
 								</div>
 							{:else}
-								<button
+								<Button
 									type="button"
+									variant="danger"
+									size="sm"
 									onclick={startRecording}
-									class="px-4 py-2 bg-red-500 text-white text-sm font-bold rounded-lg hover:bg-red-600 transition-colors"
-								>● 録音開始（最大10秒）</button>
+								>● 録音開始（最大10秒）</Button>
 							{/if}
 						</div>
 
@@ -746,13 +770,15 @@ function handleFileSelect(childId: number, event: Event) {
 							{:else}
 								<p class="text-xs text-green-600">✅ 録音データを使用します</p>
 							{/if}
-							<button
+							<Button
 								type="submit"
+								variant="primary"
+								size="sm"
+								class="bg-purple-500 hover:bg-purple-600"
 								disabled={voiceUploading || !voiceLabel}
-								class="px-4 py-1.5 bg-purple-500 text-white text-sm font-bold rounded-lg hover:bg-purple-600 disabled:opacity-50 transition-colors"
 							>
 								{voiceUploading ? 'アップロード中...' : '💾 保存'}
-							</button>
+							</Button>
 						</form>
 
 						<!-- 登録済みボイス一覧 -->
@@ -769,12 +795,12 @@ function handleFileSelect(childId: number, event: Event) {
 											<form method="POST" action="?/activateVoice" use:enhance>
 												<input type="hidden" name="voiceId" value={voice.id} />
 												<input type="hidden" name="childId" value={child.id} />
-												<button type="submit" class="px-2 py-1 text-xs bg-purple-100 text-purple-600 rounded hover:bg-purple-200">有効化</button>
+												<Button type="submit" variant="ghost" size="sm" class="bg-purple-100 text-purple-600 hover:bg-purple-200">有効化</Button>
 											</form>
 										{/if}
 										<form method="POST" action="?/deleteVoice" use:enhance>
 											<input type="hidden" name="voiceId" value={voice.id} />
-											<button type="submit" class="px-2 py-1 text-xs text-red-400 hover:text-red-600">削除</button>
+											<Button type="submit" variant="ghost" size="sm" class="text-red-400 hover:text-red-600">削除</Button>
 										</form>
 									</div>
 								{/each}

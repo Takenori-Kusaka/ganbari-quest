@@ -1,7 +1,8 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import Logo from '$lib/ui/components/Logo.svelte';
-import { playSound } from '$lib/ui/sound/play-sound';
+import Button from '$lib/ui/primitives/Button.svelte';
+import { soundService } from '$lib/ui/sound/sound-service';
 
 let { data } = $props();
 
@@ -36,10 +37,12 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 					{@const themeName = knownThemes.has(child.theme) ? child.theme : 'pink'}
 					<form method="POST" action="?/select" use:enhance>
 						<input type="hidden" name="childId" value={child.id} />
-						<button
+						<Button
 							type="submit"
-							use:playSound={'tap'}
-							class="child-button"
+							onclick={() => { soundService.ensureContext(); soundService.play('tap'); }}
+							variant="ghost"
+							size="lg"
+							class="w-full flex items-center gap-3 p-4 bg-white border-2 border-[var(--theme-primary)] rounded-2xl shadow-sm cursor-pointer transition-all text-left hover:bg-[var(--theme-bg)] hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
 							data-testid="child-select-{child.id}"
 							data-theme={themeName}
 						>
@@ -58,7 +61,7 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 								<p class="text-sm text-[var(--color-neutral-400)] mt-0.5">{child.age}さい</p>
 							</div>
 							<span class="text-2xl text-[var(--color-neutral-300)] shrink-0" aria-hidden="true">▶</span>
-						</button>
+						</Button>
 					</form>
 				{/each}
 			</div>
@@ -75,27 +78,5 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 <style>
 	.portal-page {
 		background: linear-gradient(135deg, var(--color-brand-100) 0%, var(--color-brand-50) 50%, var(--color-gold-100) 100%);
-	}
-	.child-button {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 16px;
-		background: white;
-		border: 2px solid var(--theme-primary);
-		border-radius: 16px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-		cursor: pointer;
-		transition: all 0.2s;
-		text-align: left;
-	}
-	.child-button:hover {
-		background: var(--theme-bg);
-		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-		transform: translateY(-2px);
-	}
-	.child-button:active {
-		transform: translateY(0);
 	}
 </style>

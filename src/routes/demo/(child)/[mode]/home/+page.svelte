@@ -5,6 +5,7 @@ import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 let { data } = $props();
@@ -180,13 +181,15 @@ function handleResultClose() {
 				}}
 			>
 				<input type="hidden" name="activityId" value={selectedActivity.id} />
-				<button
+				<Button
 					type="submit"
+					variant="primary"
+					size="lg"
 					disabled={submitting}
-					class="w-full py-3 bg-[var(--theme-accent)] text-white font-bold rounded-[var(--radius-lg)] text-lg disabled:opacity-50"
+					class="w-full bg-[var(--theme-accent)] disabled:opacity-50"
 				>
 					{submitting ? 'きろくちゅう...' : 'きろくする！'}
-				</button>
+				</Button>
 			</form>
 		</div>
 	{/if}
@@ -211,13 +214,14 @@ function handleResultClose() {
 			>
 				お子さまの名前で はじめる →
 			</a>
-			<button
-				type="button"
+			<Button
+				variant="primary"
+				size="md"
+				class="mt-2 w-full bg-[var(--theme-accent)]"
 				onclick={handleResultClose}
-				class="mt-2 w-full py-2 bg-[var(--theme-accent)] text-white font-bold rounded-[var(--radius-lg)]"
 			>
 				とじる
-			</button>
+			</Button>
 		</div>
 	{/if}
 </Dialog>

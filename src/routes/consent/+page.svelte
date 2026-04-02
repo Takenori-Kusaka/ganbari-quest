@@ -92,7 +92,7 @@ let loading = $state(false);
 				disabled={loading ||
 					(!data.termsAccepted && !agreedTerms) ||
 					(!data.privacyAccepted && !agreedPrivacy)}
-				class="consent-submit-btn"
+				class="w-full !bg-[var(--gradient-brand)]"
 				aria-busy={loading}
 			>
 				{#if loading}
@@ -108,9 +108,5 @@ let loading = $state(false);
 <style>
 	.consent-page {
 		background: var(--gradient-brand);
-	}
-	.consent-submit-btn {
-		width: 100%;
-		background: var(--gradient-brand) !important;
 	}
 </style>

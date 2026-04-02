@@ -64,10 +64,12 @@ $effect(() => {
 		{#each data.packs as pack (pack.packId)}
 			{@const recommended = isRecommended(pack.targetAgeMin, pack.targetAgeMax)}
 			{@const selected = selectedPacks.has(pack.packId)}
-			<button
+			<Button
 				type="button"
+				variant="ghost"
+				size="sm"
 				onclick={() => togglePack(pack.packId)}
-				class="relative w-full text-left p-4 rounded-xl border-2 transition-all
+				class="relative w-full text-left p-4 rounded-xl border-2 h-auto items-start
 					{selected
 					? 'border-blue-500 bg-blue-50 shadow-sm'
 					: 'border-gray-200 bg-white hover:border-gray-300'}"
@@ -101,15 +103,17 @@ $effect(() => {
 				{#if selected}
 					<input type="hidden" name="packIds" value={pack.packId} />
 				{/if}
-			</button>
+			</Button>
 		{/each}
 	</div>
 
 	<!-- Skip option -->
-	<button
+	<Button
 		type="button"
+		variant="ghost"
+		size="sm"
 		onclick={selectSkip}
-		class="w-full text-left p-3 rounded-lg border-2 transition-all mb-4
+		class="w-full text-left p-3 rounded-lg border-2 mb-4 h-auto
 			{skipMode
 			? 'border-gray-400 bg-gray-50'
 			: 'border-gray-200 bg-white hover:border-gray-300'}"
@@ -123,7 +127,7 @@ $effect(() => {
 			</div>
 			<span class="text-sm text-gray-600">あとでえらぶ（スキップ）</span>
 		</div>
-	</button>
+	</Button>
 
 	<!-- Navigation buttons -->
 	<div class="flex gap-3">
