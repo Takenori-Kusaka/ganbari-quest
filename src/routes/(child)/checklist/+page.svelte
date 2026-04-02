@@ -110,9 +110,11 @@ function handleCompleteClose() {
 							<input type="hidden" name="templateId" value={checklist.templateId} />
 							<input type="hidden" name="itemId" value={item.id} />
 							<input type="hidden" name="checked" value={item.checked ? '0' : '1'} />
-							<button
+							<Button
 								type="submit"
-								class="tap-target w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors {item.checked ? 'bg-green-50' : 'hover:bg-gray-50'}"
+								variant="ghost"
+								size="sm"
+								class="w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors {item.checked ? 'bg-green-50' : 'hover:bg-gray-50'}"
 							>
 								<span class="text-2xl flex-shrink-0 {item.checked ? 'opacity-100' : 'opacity-30'}">
 									{item.checked ? '✅' : '☐'}
@@ -121,7 +123,7 @@ function handleCompleteClose() {
 								<span class="flex-1 font-medium {item.checked ? 'line-through text-[var(--color-text-muted)]' : ''}">
 									{item.name}
 								</span>
-							</button>
+							</Button>
 						</form>
 					{/each}
 				</div>

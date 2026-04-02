@@ -4,6 +4,7 @@ import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/s
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -113,14 +114,15 @@ let showLevelTitles = $state(false);
 
 	<!-- 称号カスタマイズ -->
 	<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-		<button
-			type="button"
-			class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+		<Button
+			variant="ghost"
+			size="md"
+			class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"
 			onclick={() => { showLevelTitles = !showLevelTitles; }}
 		>
 			<h3 class="text-lg font-bold text-gray-700">🏷️ レベル称号カスタマイズ</h3>
 			<span class="text-gray-400 text-sm">{showLevelTitles ? '▲ 閉じる' : '▼ 開く'}</span>
-		</button>
+		</Button>
 
 		{#if showLevelTitles}
 			<div class="px-4 pb-4 space-y-3">
@@ -139,12 +141,14 @@ let showLevelTitles = $state(false);
 								disabled
 								class="flex-1 px-3 py-1.5 border rounded-lg text-sm border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
 							/>
-							<button
+							<Button
+								variant="ghost"
+								size="sm"
+								class="bg-gray-200 text-gray-400 cursor-not-allowed"
 								disabled
-								class="px-3 py-1.5 bg-gray-200 text-gray-400 text-xs font-bold rounded-lg cursor-not-allowed"
 							>
 								保存
-							</button>
+							</Button>
 						</div>
 					</div>
 				{/each}
@@ -168,16 +172,16 @@ let showLevelTitles = $state(false);
 				<span class="text-xs text-gray-500">プレビュー:</span>
 				<div class="flex gap-1 flex-wrap">
 					{#each data.children as child (child.id)}
-						<button
-							type="button"
-							class="px-2 py-1 rounded text-xs font-bold transition-colors
-								{previewChildId === child.id
-								? 'bg-blue-500 text-white'
-								: 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}"
+						<Button
+							variant={previewChildId === child.id ? 'primary' : 'ghost'}
+							size="sm"
+							class={previewChildId === child.id
+								? ''
+								: 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}
 							onclick={() => { previewChildIdOverride = child.id; }}
 						>
 							{child.nickname}
-						</button>
+						</Button>
 					{/each}
 				</div>
 			</div>
@@ -186,16 +190,17 @@ let showLevelTitles = $state(false);
 		<!-- 年齢選択 -->
 		<div class="flex gap-1 mb-2 overflow-x-auto pb-2">
 			{#each Array.from({ length: 10 }, (_, i) => i + 3) as age (age)}
-				<button
-					type="button"
-					class="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors
+				<Button
+					variant={benchmarkAge === age ? 'success' : 'ghost'}
+					size="sm"
+					class="whitespace-nowrap
 						{benchmarkAge === age
-						? 'bg-green-500 text-white'
+						? ''
 						: 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}"
 					onclick={() => { benchmarkAge = age; }}
 				>
 					{age}歳
-				</button>
+				</Button>
 			{/each}
 		</div>
 
@@ -233,12 +238,14 @@ let showLevelTitles = $state(false);
 								class="w-20 px-2 py-1 border rounded text-sm text-right bg-gray-50 text-gray-400 cursor-not-allowed"
 							/>
 						</div>
-						<button
+						<Button
+							variant="ghost"
+							size="sm"
+							class="bg-gray-200 text-gray-400 cursor-not-allowed"
 							disabled
-							class="px-3 py-1.5 bg-gray-200 text-gray-400 text-xs font-bold rounded-lg cursor-not-allowed"
 						>
 							保存
-						</button>
+						</Button>
 					</div>
 
 					{#if previewChild?.status}

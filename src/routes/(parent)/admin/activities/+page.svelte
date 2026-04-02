@@ -7,6 +7,8 @@ import ActivityListItem from '$lib/features/admin/components/ActivityListItem.sv
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivitiesSection.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
+import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 const activityLimit = $derived(
@@ -89,33 +91,45 @@ function acceptAiPreview(preview: AiPreviewData) {
 
 	<div class="flex items-center justify-between" data-tutorial="activity-list">
 		{#if !activityLimit || activityLimit.allowed}
-			<div class="flex gap-2" data-tutorial="add-activity-btn">
-				<button
-					class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-bold hover:bg-purple-600 transition-colors"
+			<div class="flex items-center gap-2" data-tutorial="add-activity-btn">
+				<Button
+					variant="primary"
+					size="sm"
+					class="bg-purple-500 hover:bg-purple-600"
 					onclick={() => { aiMode = !aiMode; showAddForm = false; }}
 				>
 					{aiMode ? 'キャンセル' : '✨ AI追加'}
-				</button>
-				<button
-					class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors"
+				</Button>
+				<Button
+					variant="primary"
+					size="sm"
 					onclick={() => { showAddForm = !showAddForm; aiMode = false; }}
 				>
 					{showAddForm ? 'キャンセル' : '+ 手動追加'}
-				</button>
-				<button
-					class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600 transition-colors"
+				</Button>
+				<Button
+					variant="success"
+					size="sm"
 					onclick={() => { showImportPanel = !showImportPanel; }}
 				>
 					{showImportPanel ? 'キャンセル' : '📥 インポート'}
-				</button>
+				</Button>
+				{#if !data.isPremium}
+					<PremiumBadge size="sm" label="プレミアム" />
+				{/if}
 			</div>
 		{:else}
-			<button
-				class="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-bold cursor-not-allowed"
-				disabled
-			>
-				上限に達しています
-			</button>
+			<div class="flex items-center gap-2">
+				<Button
+					variant="ghost"
+					size="sm"
+					class="bg-gray-300 text-gray-500 cursor-not-allowed"
+					disabled
+				>
+					上限に達しています
+				</Button>
+				<PremiumBadge size="sm" label="プレミアム" />
+			</div>
 		{/if}
 	</div>
 
@@ -137,12 +151,14 @@ function acceptAiPreview(preview: AiPreviewData) {
 			📤 エクスポート
 		</a>
 		{#if !showClearConfirm}
-			<button
-				class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors"
+			<Button
+				variant="danger"
+				size="sm"
+				class="bg-red-50 text-red-600 hover:bg-red-100 text-xs"
 				onclick={() => { showClearConfirm = true; }}
 			>
 				🗑 全クリア
-			</button>
+			</Button>
 		{:else}
 			<form
 				method="POST"
@@ -162,12 +178,12 @@ function acceptAiPreview(preview: AiPreviewData) {
 				class="flex gap-1 items-center"
 			>
 				<span class="text-xs text-red-600 font-bold">本当に全削除しますか？</span>
-				<button type="submit" disabled={clearLoading} class="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 disabled:opacity-50">
+				<Button type="submit" disabled={clearLoading} variant="danger" size="sm" class="text-xs">
 					{clearLoading ? '処理中...' : '実行'}
-				</button>
-				<button type="button" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-bold" onclick={() => { showClearConfirm = false; }}>
+				</Button>
+				<Button type="button" variant="ghost" size="sm" class="bg-gray-200 text-gray-700 text-xs" onclick={() => { showClearConfirm = false; }}>
 					やめる
-				</button>
+				</Button>
 			</form>
 		{/if}
 	</div>
@@ -218,22 +234,24 @@ function acceptAiPreview(preview: AiPreviewData) {
 
 	<!-- Filter -->
 	<div class="flex gap-2 flex-wrap" data-tutorial="category-filter">
-		<button
-			class="px-3 py-1 rounded-full text-xs font-bold transition-colors
-				{filterCategoryId === 0 ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+		<Button
+			variant={filterCategoryId === 0 ? 'primary' : 'ghost'}
+			size="sm"
+			class="rounded-full text-xs {filterCategoryId === 0 ? '' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
 			onclick={() => filterCategoryId = 0}
 		>
 			すべて ({data.activities.filter(a => a.isVisible).length})
-		</button>
+		</Button>
 		{#each data.categoryDefs as catDef}
 			{@const count = data.activities.filter(a => a.categoryId === catDef.id && a.isVisible).length}
-			<button
-				class="px-3 py-1 rounded-full text-xs font-bold transition-colors
-					{filterCategoryId === catDef.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+			<Button
+				variant={filterCategoryId === catDef.id ? 'primary' : 'ghost'}
+				size="sm"
+				class="rounded-full text-xs {filterCategoryId === catDef.id ? '' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
 				onclick={() => filterCategoryId = catDef.id}
 			>
 				{catDef.name} ({count})
-			</button>
+			</Button>
 		{/each}
 	</div>
 

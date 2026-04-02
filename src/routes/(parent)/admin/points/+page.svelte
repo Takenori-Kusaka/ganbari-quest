@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -230,30 +231,36 @@ async function handleReceiptFile(event: Event) {
 
 			<!-- Mode Tabs -->
 			<div class="flex rounded-lg bg-gray-100 p-1">
-				<button
+				<Button
 					type="button"
-					class="flex-1 py-2 text-sm font-bold rounded-md transition-colors
+					variant="ghost"
+					size="sm"
+					class="flex-1 py-2 text-sm rounded-md
 						{convertMode === 'preset' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 					onclick={() => { convertMode = 'preset'; resetReceipt(); }}
 				>
 					かんたん
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					class="flex-1 py-2 text-sm font-bold rounded-md transition-colors
+					variant="ghost"
+					size="sm"
+					class="flex-1 py-2 text-sm rounded-md
 						{convertMode === 'manual' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 					onclick={() => { convertMode = 'manual'; resetReceipt(); }}
 				>
 					自由入力
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					class="flex-1 py-2 text-sm font-bold rounded-md transition-colors
+					variant="ghost"
+					size="sm"
+					class="flex-1 py-2 text-sm rounded-md
 						{convertMode === 'receipt' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 					onclick={() => { convertMode = 'receipt'; manualInput = ''; }}
 				>
 					領収書
-				</button>
+				</Button>
 			</div>
 
 			<!-- Preset Mode -->
@@ -264,14 +271,15 @@ async function handleReceiptFile(event: Event) {
 						<div class="flex gap-2 flex-wrap">
 							{#each [500, 1000, 1500, 2000] as opt}
 								{#if opt <= maxConvertable}
-									<button
+									<Button
 										type="button"
-										class="px-4 py-2 rounded-lg text-sm font-bold transition-colors
-											{presetAmount === opt ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+										variant={presetAmount === opt ? 'primary' : 'ghost'}
+										size="sm"
+										class={presetAmount === opt ? '' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}
 										onclick={() => presetAmount = opt}
 									>
 										{fmtBal(opt)}
-									</button>
+									</Button>
 								{/if}
 							{/each}
 						</div>
@@ -303,13 +311,15 @@ async function handleReceiptFile(event: Event) {
 						<p class="text-xs text-gray-400">
 							{isCurrencyMode ? '' : '1P = 1円 / '}残高: {fmtBal(currentBalance)}
 						</p>
-						<button
+						<Button
 							type="button"
-							class="text-xs text-blue-500 font-bold hover:text-blue-700"
+							variant="ghost"
+							size="sm"
+							class="text-xs text-blue-500 hover:text-blue-700"
 							onclick={() => manualInput = String(currentBalance)}
 						>
 							全額変換
-						</button>
+						</Button>
 					</div>
 					{#if manualInput && manualAmount > currentBalance}
 						<p class="text-xs text-red-500 mt-1">残高を超えています</p>
@@ -336,17 +346,19 @@ async function handleReceiptFile(event: Event) {
 
 					{#if !receiptPreviewUrl}
 						<!-- Capture button -->
-						<button
+						<Button
 							type="button"
-							class="w-full py-8 border-2 border-dashed border-gray-300 rounded-xl
-								text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors
+							variant="ghost"
+							size="lg"
+							class="w-full py-8 border-2 border-dashed border-gray-300
+								text-gray-400 hover:border-blue-400 hover:text-blue-500
 								flex flex-col items-center gap-2"
 							onclick={() => fileInput?.click()}
 						>
 							<span class="text-4xl">📸</span>
 							<span class="text-sm font-bold">領収書を撮影 / 画像を選択</span>
 							<span class="text-xs">JPEG, PNG, WebP（5MB以下）</span>
-						</button>
+						</Button>
 					{:else}
 						<!-- Preview + Result -->
 						<div class="space-y-3">
@@ -357,14 +369,16 @@ async function handleReceiptFile(event: Event) {
 									alt="領収書プレビュー"
 									class="w-full max-h-48 object-contain rounded-lg border border-gray-200"
 								/>
-								<button
+								<Button
 									type="button"
+									variant="ghost"
+									size="sm"
 									class="absolute top-2 right-2 bg-black/50 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm hover:bg-black/70"
 									onclick={() => { resetReceipt(); }}
 									aria-label="プレビューを閉じる"
 								>
 									✕
-								</button>
+								</Button>
 							</div>
 
 							{#if receiptScanning}
@@ -377,13 +391,15 @@ async function handleReceiptFile(event: Event) {
 								<!-- Error -->
 								<div class="bg-red-50 rounded-lg p-3 text-center">
 									<p class="text-sm text-red-600 font-bold">{receiptError}</p>
-									<button
+									<Button
 										type="button"
-										class="mt-2 text-xs text-blue-500 font-bold hover:text-blue-700"
+										variant="ghost"
+										size="sm"
+										class="mt-2 text-xs text-blue-500 hover:text-blue-700"
 										onclick={() => { resetReceipt(); fileInput?.click(); }}
 									>
 										再撮影する
-									</button>
+									</Button>
 								</div>
 							{:else if receiptAmount > 0}
 								<!-- OCR Result -->
@@ -415,13 +431,15 @@ async function handleReceiptFile(event: Event) {
 									{:else}
 										<!-- Confirm button -->
 										{#if !receiptConfirmed}
-											<button
+											<Button
 												type="button"
-												class="w-full py-2 bg-blue-500 text-white rounded-lg font-bold text-sm hover:bg-blue-600 transition-colors"
+												variant="primary"
+												size="sm"
+												class="w-full"
 												onclick={() => receiptConfirmed = true}
 											>
 												この金額で変換する
-											</button>
+											</Button>
 										{:else}
 											<div class="text-center">
 												<span class="inline-block bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">
@@ -433,13 +451,15 @@ async function handleReceiptFile(event: Event) {
 								</div>
 
 								<!-- Retake button -->
-								<button
+								<Button
 									type="button"
+									variant="ghost"
+									size="sm"
 									class="w-full text-center text-xs text-gray-400 hover:text-gray-600"
 									onclick={() => { resetReceipt(); fileInput?.click(); }}
 								>
 									別の領収書を撮影する
-								</button>
+								</Button>
 							{/if}
 						</div>
 					{/if}
@@ -460,18 +480,19 @@ async function handleReceiptFile(event: Event) {
 						{/if}
 					</p>
 				</div>
-				<button
+				<Button
 					type="submit"
+					variant="warning"
+					size="md"
+					class="w-full bg-amber-500 hover:bg-amber-600"
 					disabled={submitting}
-					class="w-full py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors
-						disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					{#if submitting}
 						変換中...
 					{:else}
 						{fmtBal(effectiveAmount)} を{isCurrencyMode ? '渡す' : '変換する'}
 					{/if}
-				</button>
+				</Button>
 			{/if}
 		</form>
 	{:else if selectedChild}
@@ -507,30 +528,36 @@ async function handleReceiptFile(event: Event) {
 
 			<!-- Period Filter -->
 			<div class="flex rounded-lg bg-gray-100 p-1">
-				<button
+				<Button
 					type="button"
-					class="flex-1 py-1.5 text-xs font-bold rounded-md transition-colors
+					variant="ghost"
+					size="sm"
+					class="flex-1 py-1.5 text-xs rounded-md
 						{historyPeriod === 'this-month' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 					onclick={() => historyPeriod = 'this-month'}
 				>
 					今月
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					class="flex-1 py-1.5 text-xs font-bold rounded-md transition-colors
+					variant="ghost"
+					size="sm"
+					class="flex-1 py-1.5 text-xs rounded-md
 						{historyPeriod === 'last-month' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 					onclick={() => historyPeriod = 'last-month'}
 				>
 					先月
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					class="flex-1 py-1.5 text-xs font-bold rounded-md transition-colors
+					variant="ghost"
+					size="sm"
+					class="flex-1 py-1.5 text-xs rounded-md
 						{historyPeriod === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 					onclick={() => historyPeriod = 'all'}
 				>
 					全期間
-				</button>
+				</Button>
 			</div>
 
 			<!-- History List -->

@@ -13,6 +13,7 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 import { tick } from 'svelte';
@@ -344,7 +345,7 @@ $effect(() => {
 			}}
 			class="hidden"
 		>
-			<button type="submit" id="claim-bonus-btn">claim</button>
+			<Button type="submit" id="claim-bonus-btn" variant="ghost" size="sm">claim</Button>
 		</form>
 	{/if}
 
@@ -412,6 +413,7 @@ $effect(() => {
 						count={getCount(activity.id)}
 						isMission={activity.isMission}
 						isPinned={activity.isPinned}
+						frozen={!data.isPremium && activity.source === 'custom'}
 						triggerHint={activity.triggerHint}
 						onclick={() => handleActivityTap(activity)}
 						onlongpress={() => handleActivityLongPress(activity)}
@@ -441,9 +443,10 @@ $effect(() => {
 	{#if pinMenuActivity}
 		<div class="flex flex-col items-center gap-3 text-center py-2">
 			<p class="text-base font-bold">{pinMenuActivity.name}</p>
-			<button
-				class="tap-target w-full py-3 rounded-[var(--radius-md)] font-bold text-lg
-					{pinMenuActivity.isPinned ? 'bg-gray-200 text-gray-700' : 'bg-amber-100 text-amber-700'}"
+			<Button
+				variant={pinMenuActivity.isPinned ? 'ghost' : 'warning'}
+				size="md"
+				class="w-full {pinMenuActivity.isPinned ? 'bg-gray-200 text-gray-700' : 'bg-amber-100 text-amber-700'}"
 				disabled={pinSubmitting}
 				onclick={handlePinToggle}
 			>
@@ -454,13 +457,15 @@ $effect(() => {
 				{:else}
 					📌 ピン留めする
 				{/if}
-			</button>
-			<button
-				class="tap-target w-full py-2 text-sm text-gray-500"
+			</Button>
+			<Button
+				variant="ghost"
+				size="sm"
+				class="w-full text-gray-500"
 				onclick={() => { pinMenuOpen = false; pinMenuActivity = null; }}
 			>
 				閉じる
-			</button>
+			</Button>
 		</div>
 	{/if}
 </Dialog>
@@ -472,14 +477,16 @@ $effect(() => {
 			<CompoundIcon icon={selectedActivity.icon} size="xl" />
 			<p class="text-lg font-bold">{selectedActivity.displayName ?? selectedActivity.name}を<br />記録しますか？</p>
 			<div class="flex gap-[var(--sp-sm)] w-full">
-				<button
-					class="tap-target flex-1 py-4 rounded-[var(--radius-md)] bg-gray-200 font-bold text-lg"
+				<Button
+					variant="ghost"
+					size="md"
+					class="flex-1 bg-gray-200"
 					data-testid="confirm-cancel-btn"
 					disabled={submitting}
 					onclick={handleConfirmClose}
 				>
 					キャンセル
-				</button>
+				</Button>
 				<form
 					method="POST"
 					action="?/record"
@@ -548,12 +555,13 @@ $effect(() => {
 					}}
 				>
 					<input type="hidden" name="activityId" value={selectedActivity.id} />
-					<button
+					<Button
 						type="submit"
 						disabled={submitting}
+						variant="primary"
+						size="md"
 						data-testid="confirm-record-btn"
-						class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg"
-						class:activity-btn--pending={submitting}
+						class="w-full {submitting ? 'animate-btn-pulse' : ''}"
 					>
 						{#if submitting}
 							<span class="pending-dot" aria-hidden="true"></span>
@@ -561,7 +569,7 @@ $effect(() => {
 						{:else}
 							記録する
 						{/if}
-					</button>
+					</Button>
 				</form>
 			</div>
 		</div>
@@ -575,8 +583,10 @@ $effect(() => {
 			{#if cancelledMessage}
 				<span class="text-5xl">↩️</span>
 				<p class="text-lg font-bold">取り消しました</p>
-				<button
-					class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-gray-200 font-bold text-lg mt-[var(--sp-sm)]"
+				<Button
+					variant="ghost"
+					size="md"
+					class="w-full bg-gray-200 mt-[var(--sp-sm)]"
 					onclick={() => {
 						cancelledMessage = false;
 						resultOpen = false;
@@ -585,7 +595,7 @@ $effect(() => {
 					}}
 				>
 					閉じる
-				</button>
+				</Button>
 			{:else}
 				<div class="relative w-24 h-24 flex items-center justify-center">
 					<CelebrationEffect type={celebEffect} />
@@ -669,20 +679,24 @@ $effect(() => {
 							}}
 						>
 							<input type="hidden" name="logId" value={resultData.logId} />
-							<button
+							<Button
 								type="submit"
-								class="tap-target w-full py-3 rounded-[var(--radius-md)] bg-gray-200 text-[var(--color-text-muted)] font-bold text-sm"
+								variant="ghost"
+								size="sm"
+								class="w-full bg-gray-200 text-[var(--color-text-muted)]"
 							>
 								取消 ({cancelCountdown}s)
-							</button>
+							</Button>
 						</form>
 					{/if}
-					<button
-						class="tap-target flex-1 py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg"
+					<Button
+						variant="primary"
+						size="md"
+						class="flex-1"
 						onclick={handleResultClose}
 					>
 						OK
-					</button>
+					</Button>
 				</div>
 			{/if}
 		</div>
@@ -709,15 +723,6 @@ $effect(() => {
 />
 
 <style>
-	.activity-btn--pending {
-		animation: btn-pulse 0.8s ease-in-out infinite;
-	}
-
-	@keyframes btn-pulse {
-		0%, 100% { transform: scale(1); }
-		50% { transform: scale(0.97); }
-	}
-
 	.pending-dot {
 		display: inline-block;
 		width: 0.7em;

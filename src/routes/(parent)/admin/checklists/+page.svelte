@@ -1,6 +1,8 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
@@ -98,14 +100,14 @@ function directionLabel(dir: string): string {
 	{#if data.children.length > 1}
 		<div class="flex gap-2">
 			{#each data.children as child (child.id)}
-				<button
-					class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {selectedChildId === child.id
-						? 'bg-blue-500 text-white'
-						: 'bg-white text-gray-600 hover:bg-blue-50'}"
+				<Button
+					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+					size="sm"
+					class={selectedChildId === child.id ? '' : 'bg-white text-gray-600 hover:bg-blue-50'}
 					onclick={() => (selectedChildId = child.id)}
 				>
 					{child.nickname}
-				</button>
+				</Button>
 			{/each}
 		</div>
 	{/if}
@@ -139,23 +141,27 @@ function directionLabel(dir: string): string {
 						<form method="POST" action="?/toggleTemplate" use:enhance={() => async () => invalidateAll()}>
 							<input type="hidden" name="templateId" value={template.id} />
 							<input type="hidden" name="isActive" value={template.isActive} />
-							<button
+							<Button
 								type="submit"
-								class="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-500"
+								variant="ghost"
+								size="sm"
+								class="bg-gray-100 hover:bg-gray-200 text-gray-500"
 								title={template.isActive ? '無効にする' : '有効にする'}
 							>
 								{template.isActive ? '無効化' : '有効化'}
-							</button>
+							</Button>
 						</form>
 						<form method="POST" action="?/deleteTemplate" use:enhance={() => async () => invalidateAll()}>
 							<input type="hidden" name="templateId" value={template.id} />
-							<button
+							<Button
 								type="submit"
-								class="px-2 py-1 text-xs rounded bg-red-50 hover:bg-red-100 text-red-500"
+								variant="ghost"
+								size="sm"
+								class="bg-red-50 hover:bg-red-100 text-red-500"
 								onclick={(e) => { if (!confirm('削除しますか？')) e.preventDefault(); }}
 							>
 								削除
-							</button>
+							</Button>
 						</form>
 					</div>
 				</div>
@@ -172,13 +178,15 @@ function directionLabel(dir: string): string {
 							</div>
 							<form method="POST" action="?/removeItem" use:enhance={() => async () => invalidateAll()}>
 								<input type="hidden" name="itemId" value={item.id} />
-								<button
+								<Button
 									type="submit"
+									variant="ghost"
+									size="sm"
 									class="text-xs text-gray-400 hover:text-red-500 px-1"
 									title="削除"
 								>
 									✕
-								</button>
+								</Button>
 							</form>
 						</div>
 					{/each}
@@ -186,31 +194,40 @@ function directionLabel(dir: string): string {
 
 				<!-- Add item button -->
 				<div class="px-4 py-2 border-t border-gray-50">
-					<button
-						class="w-full py-2 text-sm text-blue-500 font-medium hover:bg-blue-50 rounded-lg transition-colors"
+					<Button
+						variant="ghost"
+						size="sm"
+						class="w-full py-2 text-sm text-blue-500 hover:bg-blue-50"
 						onclick={() => openAddItem(template.id)}
 					>
 						+ アイテム追加
-					</button>
+					</Button>
 				</div>
 				{/snippet}
 			</Card>
 		{/each}
 
 		<!-- Actions -->
-		<div class="flex gap-2">
-			<button
-				class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors"
+		<div class="flex gap-2 items-center">
+			<Button
+				variant="primary"
+				size="md"
+				class="flex-1"
 				onclick={openAddTemplate}
 			>
 				+ テンプレート作成
-			</button>
-			<button
-				class="flex-1 py-3 bg-white text-blue-500 font-bold rounded-xl border border-blue-200 hover:bg-blue-50 transition-colors"
+			</Button>
+			<Button
+				variant="outline"
+				size="md"
+				class="flex-1"
 				onclick={openOverride}
 			>
 				📅 ワンオフ追加
-			</button>
+			</Button>
+			{#if !data.isPremium}
+				<PremiumBadge size="sm" label="プレミアム" />
+			{/if}
 		</div>
 
 		<!-- Today's overrides -->
@@ -232,7 +249,7 @@ function directionLabel(dir: string): string {
 							</div>
 							<form method="POST" action="?/removeOverride" use:enhance={() => async () => invalidateAll()}>
 								<input type="hidden" name="overrideId" value={ov.id} />
-								<button type="submit" class="text-xs text-gray-400 hover:text-red-500 px-1" title="削除" aria-label="削除">✕</button>
+								<Button type="submit" variant="ghost" size="sm" class="text-xs text-gray-400 hover:text-red-500 px-1" title="削除" aria-label="削除">✕</Button>
 							</form>
 						</div>
 					{/each}
@@ -274,22 +291,26 @@ function directionLabel(dir: string): string {
 			<span class="block text-sm font-medium text-gray-700 mb-1">アイコン</span>
 			<div class="flex gap-1 flex-wrap">
 				{#each ['📋', '🎒', '🏫', '📚'] as ic}
-					<button
+					<Button
 						type="button"
-						class="w-10 h-10 rounded-lg text-xl {templateIcon === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gray-50 hover:bg-gray-100'}"
+						variant="ghost"
+						size="sm"
+						class="w-10 h-10 text-xl {templateIcon === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gray-50 hover:bg-gray-100'}"
 						onclick={() => (templateIcon = ic)}
-					>{ic}</button>
+					>{ic}</Button>
 				{/each}
 			</div>
 			<input type="hidden" name="icon" value={templateIcon} />
 		</div>
 
-		<button
+		<Button
 			type="submit"
-			class="w-full py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors"
+			variant="primary"
+			size="md"
+			class="w-full"
 		>
 			作成
-		</button>
+		</Button>
 	</form>
 </Dialog>
 
@@ -324,11 +345,13 @@ function directionLabel(dir: string): string {
 			<span class="block text-sm font-medium text-gray-700 mb-1">アイコン</span>
 			<div class="flex gap-1 flex-wrap">
 				{#each COMMON_ICONS as ic}
-					<button
+					<Button
 						type="button"
-						class="w-10 h-10 rounded-lg text-xl {itemIcon === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gray-50 hover:bg-gray-100'}"
+						variant="ghost"
+						size="sm"
+						class="w-10 h-10 text-xl {itemIcon === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gray-50 hover:bg-gray-100'}"
 						onclick={() => (itemIcon = ic)}
-					>{ic}</button>
+					>{ic}</Button>
 				{/each}
 			</div>
 			<input type="hidden" name="icon" value={itemIcon} />
@@ -356,12 +379,14 @@ function directionLabel(dir: string): string {
 			</label>
 		</div>
 
-		<button
+		<Button
 			type="submit"
-			class="w-full py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors"
+			variant="primary"
+			size="md"
+			class="w-full"
 		>
 			追加
-		</button>
+		</Button>
 	</form>
 </Dialog>
 
@@ -419,21 +444,25 @@ function directionLabel(dir: string): string {
 			<span class="block text-sm font-medium text-gray-700 mb-1">アイコン</span>
 			<div class="flex gap-1 flex-wrap">
 				{#each COMMON_ICONS as ic}
-					<button
+					<Button
 						type="button"
-						class="w-10 h-10 rounded-lg text-xl {overrideIcon === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gray-50 hover:bg-gray-100'}"
+						variant="ghost"
+						size="sm"
+						class="w-10 h-10 text-xl {overrideIcon === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gray-50 hover:bg-gray-100'}"
 						onclick={() => (overrideIcon = ic)}
-					>{ic}</button>
+					>{ic}</Button>
 				{/each}
 			</div>
 			<input type="hidden" name="icon" value={overrideIcon} />
 		</div>
 
-		<button
+		<Button
 			type="submit"
-			class="w-full py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors"
+			variant="primary"
+			size="md"
+			class="w-full"
 		>
 			追加
-		</button>
+		</Button>
 	</form>
 </Dialog>

@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
@@ -35,13 +36,14 @@ function selectStamp(code: string) {
 		<h3 class="text-sm font-bold text-gray-500 mb-2">1. こどもを選択</h3>
 		<div class="flex gap-2 flex-wrap">
 			{#each data.children as child}
-				<button
-					class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors
-						{selectedChildId === child.id ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
+				<Button
+					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+					size="sm"
+					class="rounded-xl {selectedChildId === child.id ? '' : 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
 					onclick={() => (selectedChildId = child.id)}
 				>
 					{child.nickname}
-				</button>
+				</Button>
 			{/each}
 		</div>
 	</section>
@@ -50,33 +52,37 @@ function selectStamp(code: string) {
 	<section>
 		<h3 class="text-sm font-bold text-gray-500 mb-2">2. おうえんの種類</h3>
 		<div class="flex gap-2 mb-3">
-			<button
-				class="px-4 py-2 rounded-xl text-sm font-bold transition-colors
-					{messageType === 'stamp' ? 'bg-pink-500 text-white' : 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
+			<Button
+				variant={messageType === 'stamp' ? 'primary' : 'ghost'}
+				size="sm"
+				class="rounded-xl {messageType === 'stamp' ? 'bg-pink-500 hover:bg-pink-600' : 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
 				onclick={() => (messageType = 'stamp')}
 			>
 				スタンプ
-			</button>
-			<button
-				class="px-4 py-2 rounded-xl text-sm font-bold transition-colors
-					{messageType === 'text' ? 'bg-pink-500 text-white' : 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
+			</Button>
+			<Button
+				variant={messageType === 'text' ? 'primary' : 'ghost'}
+				size="sm"
+				class="rounded-xl {messageType === 'text' ? 'bg-pink-500 hover:bg-pink-600' : 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
 				onclick={() => (messageType = 'text')}
 			>
 				ひとことメッセージ
-			</button>
+			</Button>
 		</div>
 
 		{#if messageType === 'stamp'}
 			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
 				{#each data.stamps as stamp}
-					<button
-						class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md transition-shadow
+					<Button
+						variant="ghost"
+						size="sm"
+						class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto
 							{selectedStamp === stamp.code ? 'ring-2 ring-pink-400' : ''}"
 						onclick={() => selectStamp(stamp.code)}
 					>
 						<span class="text-3xl block">{stamp.icon}</span>
 						<p class="text-xs font-bold text-gray-600 mt-1">{stamp.label}</p>
-					</button>
+					</Button>
 				{/each}
 			</div>
 		{:else}
@@ -113,10 +119,12 @@ function selectStamp(code: string) {
 			<input type="hidden" name="body" value={textBody} />
 		{/if}
 
-		<button
+		<Button
 			type="submit"
 			disabled={messageType === 'stamp' ? !selectedStamp : !textBody.trim()}
-			class="w-full py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+			variant="primary"
+			size="md"
+			class="w-full rounded-xl bg-pink-500 hover:bg-pink-600"
 		>
 			{#if messageType === 'stamp'}
 				{@const stamp = data.stamps.find((s) => s.code === selectedStamp)}
@@ -124,7 +132,7 @@ function selectStamp(code: string) {
 			{:else}
 				{textBody.trim() ? `💌 「${textBody}」を送る` : 'メッセージを入力してね'}
 			{/if}
-		</button>
+		</Button>
 	</form>
 
 	<!-- Success Message -->
