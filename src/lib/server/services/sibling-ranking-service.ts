@@ -57,8 +57,8 @@ export async function getWeeklyRanking(tenantId: string): Promise<WeeklyRankingR
 
 	if (children.length <= 1) {
 		// 1人家庭の場合: gracefulに自分がチャンピオン
-		if (children.length === 1) {
-			const child = children[0];
+		const child = children[0];
+		if (child) {
 			const logs = await findActivityLogs(child.id, tenantId, {
 				from: getWeekStart(),
 				to: getWeekEnd(),
