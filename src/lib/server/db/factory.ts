@@ -1,6 +1,7 @@
 // src/lib/server/db/factory.ts
 // DATA_SOURCE 環境変数による SQLite / DynamoDB バックエンド切り替え
 
+import * as dynamoAccountLockoutRepo from './dynamodb/account-lockout-repo';
 import * as dynamoAchievementRepo from './dynamodb/achievement-repo';
 import * as dynamoActivityMasteryRepo from './dynamodb/activity-mastery-repo';
 import * as dynamoActivityPrefRepo from './dynamodb/activity-pref-repo';
@@ -11,6 +12,7 @@ import * as dynamoChildRepo from './dynamodb/child-repo';
 import * as dynamoDailyMissionRepo from './dynamodb/daily-mission-repo';
 import * as dynamoEvaluationRepo from './dynamodb/evaluation-repo';
 import * as dynamoImageRepo from './dynamodb/image-repo';
+import * as dynamoInquiryRepo from './dynamodb/inquiry-repo';
 import * as dynamoLevelTitleRepo from './dynamodb/level-title-repo';
 import * as dynamoLoginBonusRepo from './dynamodb/login-bonus-repo';
 import * as dynamoMessageRepo from './dynamodb/message-repo';
@@ -22,6 +24,7 @@ import * as dynamoStatusRepo from './dynamodb/status-repo';
 import * as dynamoStorageRepo from './dynamodb/storage-repo';
 import * as dynamoTitleRepo from './dynamodb/title-repo';
 import * as dynamoVoiceRepo from './dynamodb/voice-repo';
+import type { IAccountLockoutRepo } from './interfaces/account-lockout-repo.interface';
 import type { IAchievementRepo } from './interfaces/achievement-repo.interface';
 import type { IActivityMasteryRepo } from './interfaces/activity-mastery-repo.interface';
 import type { IActivityPrefRepo } from './interfaces/activity-pref-repo.interface';
@@ -32,6 +35,7 @@ import type { IChildRepo } from './interfaces/child-repo.interface';
 import type { IDailyMissionRepo } from './interfaces/daily-mission-repo.interface';
 import type { IEvaluationRepo } from './interfaces/evaluation-repo.interface';
 import type { IImageRepo } from './interfaces/image-repo.interface';
+import type { IInquiryRepo } from './interfaces/inquiry-repo.interface';
 import type { ILevelTitleRepo } from './interfaces/level-title-repo.interface';
 import type { ILoginBonusRepo } from './interfaces/login-bonus-repo.interface';
 import type { IMessageRepo } from './interfaces/message-repo.interface';
@@ -43,6 +47,7 @@ import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
 import type { ITitleRepo } from './interfaces/title-repo.interface';
 import type { IVoiceRepo } from './interfaces/voice-repo.interface';
+import * as sqliteAccountLockoutRepo from './sqlite/account-lockout-repo';
 import * as sqliteAchievementRepo from './sqlite/achievement-repo';
 import * as sqliteActivityMasteryRepo from './sqlite/activity-mastery-repo';
 import * as sqliteActivityPrefRepo from './sqlite/activity-pref-repo';
@@ -53,6 +58,7 @@ import * as sqliteChildRepo from './sqlite/child-repo';
 import * as sqliteDailyMissionRepo from './sqlite/daily-mission-repo';
 import * as sqliteEvaluationRepo from './sqlite/evaluation-repo';
 import * as sqliteImageRepo from './sqlite/image-repo';
+import * as sqliteInquiryRepo from './sqlite/inquiry-repo';
 import * as sqliteLevelTitleRepo from './sqlite/level-title-repo';
 import * as sqliteLoginBonusRepo from './sqlite/login-bonus-repo';
 import * as sqliteMessageRepo from './sqlite/message-repo';
@@ -66,6 +72,7 @@ import * as sqliteTitleRepo from './sqlite/title-repo';
 import * as sqliteVoiceRepo from './sqlite/voice-repo';
 
 export interface Repositories {
+	accountLockout: IAccountLockoutRepo;
 	auth: IAuthRepo;
 	achievement: IAchievementRepo;
 	activity: IActivityRepo;
@@ -76,6 +83,7 @@ export interface Repositories {
 	dailyMission: IDailyMissionRepo;
 	evaluation: IEvaluationRepo;
 	image: IImageRepo;
+	inquiry: IInquiryRepo;
 	loginBonus: ILoginBonusRepo;
 	message: IMessageRepo;
 	point: IPointRepo;
@@ -97,6 +105,7 @@ export function getRepos(): Repositories {
 	const dataSource = process.env.DATA_SOURCE ?? 'sqlite';
 	if (dataSource === 'dynamodb') {
 		const repos: Repositories = {
+			accountLockout: dynamoAccountLockoutRepo,
 			auth: dynamoAuthRepo,
 			achievement: dynamoAchievementRepo,
 			activity: dynamoActivityRepo,
@@ -107,6 +116,7 @@ export function getRepos(): Repositories {
 			dailyMission: dynamoDailyMissionRepo,
 			evaluation: dynamoEvaluationRepo,
 			image: dynamoImageRepo,
+			inquiry: dynamoInquiryRepo,
 			loginBonus: dynamoLoginBonusRepo,
 			message: dynamoMessageRepo,
 			point: dynamoPointRepo,
@@ -124,6 +134,7 @@ export function getRepos(): Repositories {
 	}
 
 	const repos: Repositories = {
+		accountLockout: sqliteAccountLockoutRepo,
 		auth: sqliteAuthRepo,
 		achievement: sqliteAchievementRepo,
 		activity: sqliteActivityRepo,
@@ -134,6 +145,7 @@ export function getRepos(): Repositories {
 		dailyMission: sqliteDailyMissionRepo,
 		evaluation: sqliteEvaluationRepo,
 		image: sqliteImageRepo,
+		inquiry: sqliteInquiryRepo,
 		loginBonus: sqliteLoginBonusRepo,
 		message: sqliteMessageRepo,
 		point: sqlitePointRepo,
