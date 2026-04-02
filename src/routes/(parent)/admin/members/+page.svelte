@@ -1,6 +1,7 @@
 <script lang="ts">
 import { page } from '$app/stores';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import QRCode from 'qrcode';
 
 let { data } = $props();
@@ -148,7 +149,8 @@ const roleLabel = (role: string) => {
 
 <div class="space-y-6">
 	<!-- メンバー一覧 -->
-	<section class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+	<Card variant="default" padding="md">
+		{#snippet children()}
 		<h3 class="text-lg font-semibold text-gray-600 mb-3">現在のメンバー</h3>
 
 		{#if memberError}
@@ -217,10 +219,12 @@ const roleLabel = (role: string) => {
 				</Button>
 			</div>
 		{/if}
-	</section>
+		{/snippet}
+	</Card>
 
 	<!-- 招待リンク作成 -->
-	<section class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+	<Card variant="default" padding="md">
+		{#snippet children()}
 		<h3 class="text-lg font-semibold text-gray-600 mb-3">メンバーを招待</h3>
 
 		<div class="flex flex-wrap items-end gap-3 mb-3">
@@ -305,11 +309,13 @@ const roleLabel = (role: string) => {
 				</div>
 			</div>
 		{/if}
-	</section>
+		{/snippet}
+	</Card>
 
 	<!-- 保留中の招待 -->
 	{#if data.invites.length > 0}
-		<section class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+		<Card variant="default" padding="md">
+			{#snippet children()}
 			<h3 class="text-lg font-semibold text-gray-600 mb-3">保留中の招待</h3>
 			<div class="divide-y divide-gray-100">
 				{#each data.invites as invite}
@@ -333,6 +339,7 @@ const roleLabel = (role: string) => {
 					</div>
 				{/each}
 			</div>
-		</section>
+			{/snippet}
+		</Card>
 	{/if}
 </div>

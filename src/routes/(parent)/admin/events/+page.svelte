@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
 
@@ -64,59 +65,28 @@ function formatDate(d: string): string {
 		<form method="POST" action="?/create" use:enhance class="rounded-xl border bg-white p-4 space-y-3">
 			<h3 class="font-bold text-sm">新規イベント作成</h3>
 			<div class="grid grid-cols-2 gap-3">
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">コード</span>
-					<input name="code" type="text" placeholder="spring-2026" required
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">名前</span>
-					<input name="name" type="text" placeholder="しんがっきスタートダッシュ" required
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
+				<FormField label="コード" type="text" name="code" placeholder="spring-2026" required />
+				<FormField label="名前" type="text" name="name" placeholder="しんがっきスタートダッシュ" required />
 			</div>
-			<label class="block">
-				<span class="text-xs font-semibold text-gray-600">説明</span>
-				<input name="description" type="text" placeholder="新学期の目標を立てて活動しよう！"
-					class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-			</label>
+			<FormField label="説明" type="text" name="description" placeholder="新学期の目標を立てて活動しよう！" />
 			<div class="grid grid-cols-3 gap-3">
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">種別</span>
-					<select name="eventType" class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm">
-						<option value="seasonal">季節</option>
-						<option value="monthly">月次</option>
-						<option value="campaign">キャンペーン</option>
-					</select>
-				</label>
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">開始日</span>
-					<input name="startDate" type="date" required
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">終了日</span>
-					<input name="endDate" type="date" required
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
+				<FormField label="種別">
+					{#snippet children()}
+						<select name="eventType" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
+							<option value="seasonal">季節</option>
+							<option value="monthly">月次</option>
+							<option value="campaign">キャンペーン</option>
+						</select>
+					{/snippet}
+				</FormField>
+				<FormField label="開始日" type="date" name="startDate" required />
+				<FormField label="終了日" type="date" name="endDate" required />
 			</div>
 			<div class="grid grid-cols-2 gap-3">
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">アイコン</span>
-					<input name="bannerIcon" type="text" value="🎉"
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">バナー色（CSS）</span>
-					<input name="bannerColor" type="text" placeholder="linear-gradient(135deg, #fef3c7, #fde68a)"
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
+				<FormField label="アイコン" type="text" name="bannerIcon" value="🎉" />
+				<FormField label="バナー色（CSS）" type="text" name="bannerColor" placeholder="linear-gradient(135deg, #fef3c7, #fde68a)" />
 			</div>
-			<label class="block">
-				<span class="text-xs font-semibold text-gray-600">報酬設定（JSON）</span>
-				<input name="rewardConfig" type="text" placeholder={'{"points":50,"title":"スタートダッシュ達成！"}'}
-					class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-			</label>
+			<FormField label="報酬設定（JSON）" type="text" name="rewardConfig" placeholder={'{"points":50,"title":"スタートダッシュ達成！"}'} />
 			<Button type="submit" variant="primary" size="sm" class="w-full">
 				作成
 			</Button>

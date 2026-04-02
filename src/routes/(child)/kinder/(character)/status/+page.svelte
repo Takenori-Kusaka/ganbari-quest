@@ -2,6 +2,7 @@
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
@@ -58,7 +59,8 @@ const radarCategories = $derived(
 <div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	{#if data.status}
 		<!-- Category levels -->
-		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-lg)]">
+		<Card variant="elevated" padding="md" class="mb-[var(--sp-lg)]">
+			{#snippet children()}
 			{#if data.activeTitle}
 				<p class="text-xs font-bold mb-[var(--sp-sm)] text-[var(--color-point)]">
 					{data.activeTitle.icon} {data.activeTitle.name}
@@ -88,10 +90,12 @@ const radarCategories = $derived(
 					{/if}
 				{/each}
 			</div>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Radar chart -->
-		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-md)]">
+		<Card variant="elevated" padding="md" class="mb-[var(--sp-md)]">
+			{#snippet children()}
 			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">せいちょうチャート</h2>
 			<div class="flex justify-center">
 				<RadarChart
@@ -100,12 +104,14 @@ const radarCategories = $derived(
 					size={300}
 				/>
 			</div>
-		</div>
+			{/snippet}
+		</Card>
 
 		<!-- Growth comments -->
 		{#if data.monthlyComparison && growthBestCat && growthWeakCat}
 			{@const changes = data.monthlyComparison.changes}
-			<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm mb-[var(--sp-md)]">
+			<Card variant="elevated" padding="md" class="mb-[var(--sp-md)]">
+				{#snippet children()}
 				{#if (changes[growthBestCat.id] ?? 0) > 0}
 					<p class="text-sm font-bold">
 						💬 {growthBestCat.name}が
@@ -123,11 +129,13 @@ const radarCategories = $derived(
 						🌟 {growthWeakCat.name}にチャレンジすると のびしろがたくさん！
 					</p>
 				{/if}
-			</div>
+				{/snippet}
+			</Card>
 		{/if}
 
 		<!-- Collapsible detail -->
-		<div class="bg-white rounded-[var(--radius-md)] shadow-sm overflow-hidden">
+		<Card variant="elevated" padding="none">
+			{#snippet children()}
 			<button
 				class="w-full p-[var(--sp-md)] flex items-center justify-between text-sm font-bold text-[var(--color-text-muted)]"
 				onclick={() => { soundService.play('tap'); detailOpen = !detailOpen; }}
@@ -165,7 +173,8 @@ const radarCategories = $derived(
 					{/each}
 				</div>
 			{/if}
-		</div>
+			{/snippet}
+		</Card>
 
 	{:else}
 		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">

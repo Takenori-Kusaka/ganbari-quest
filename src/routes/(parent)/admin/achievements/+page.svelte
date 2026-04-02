@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data, form } = $props();
 
@@ -45,7 +46,8 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 
 		{#if selectedChild}
 			<!-- ライフイベント付与 -->
-			<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+			<Card variant="default" padding="md" class="mb-6">
+				{#snippet children()}
 				<h3 class="text-lg font-bold text-gray-700 mb-3">🎓 ライフイベント付与</h3>
 				<p class="text-sm text-gray-500 mb-3">
 					保育園卒園・小学校卒業などの節目を記録し、ボーナスポイントを付与します。
@@ -107,10 +109,12 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 						</div>
 					{/each}
 				</div>
-			</div>
+				{/snippet}
+			</Card>
 
 			<!-- 実績一覧 -->
-			<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+			<Card variant="default" padding="md">
+				{#snippet children()}
 				<h3 class="text-lg font-bold text-gray-700 mb-3">
 					{selectedChild.nickname}の実績
 				</h3>
@@ -159,7 +163,8 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 						</div>
 					{/each}
 				</div>
-			</div>
+				{/snippet}
+			</Card>
 		{/if}
 	{:else}
 		<div class="text-center text-gray-500 py-12">

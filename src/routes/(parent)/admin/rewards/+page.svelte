@@ -1,6 +1,8 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
@@ -81,57 +83,53 @@ const categoryLabels: Record<string, string> = {
 	</section>
 
 	<!-- Step 3: Confirm & submit -->
-	<form
-		method="POST"
-		action="?/grant"
-		use:enhance={() => {
-			return async ({ result, update }) => {
-				if (result.type === 'success' && result.data && 'granted' in result.data) {
-					grantSuccess = true;
-					setTimeout(() => { grantSuccess = false; }, 3000);
-				}
-				await update();
-			};
-		}}
-		class="bg-white rounded-xl p-4 shadow-sm space-y-3"
-	>
-		<h3 class="text-sm font-bold text-gray-500">3. 内容を確認して付与</h3>
-		<input type="hidden" name="childId" value={selectedChildId} />
-
-		<div class="grid grid-cols-2 gap-3">
-			<label class="block">
-				<span class="block text-xs font-bold text-gray-500 mb-1">タイトル</span>
-				<input type="text" name="title" bind:value={customTitle} required class="w-full px-3 py-2 border rounded-lg text-sm" />
-			</label>
-			<label class="block">
-				<span class="block text-xs font-bold text-gray-500 mb-1">ポイント</span>
-				<input type="number" name="points" bind:value={customPoints} min="1" max="10000" required class="w-full px-3 py-2 border rounded-lg text-sm" />
-			</label>
-		</div>
-		<div class="grid grid-cols-2 gap-3">
-			<label class="block">
-				<span class="block text-xs font-bold text-gray-500 mb-1">アイコン</span>
-				<input type="text" name="icon" bind:value={customIcon} class="w-full px-3 py-2 border rounded-lg text-sm" />
-			</label>
-			<label class="block">
-				<span class="block text-xs font-bold text-gray-500 mb-1">カテゴリ</span>
-				<select name="category" bind:value={customCategory} class="w-full px-3 py-2 border rounded-lg text-sm">
-					{#each Object.entries(categoryLabels) as [value, label]}
-						<option {value}>{label}</option>
-					{/each}
-				</select>
-			</label>
-		</div>
-
-		<Button
-			type="submit"
-			variant="primary"
-			size="md"
-			class="w-full"
+	<Card variant="elevated" padding="md">
+		{#snippet children()}
+		<form
+			method="POST"
+			action="?/grant"
+			use:enhance={() => {
+				return async ({ result, update }) => {
+					if (result.type === 'success' && result.data && 'granted' in result.data) {
+						grantSuccess = true;
+						setTimeout(() => { grantSuccess = false; }, 3000);
+					}
+					await update();
+				};
+			}}
+			class="space-y-3"
 		>
-			{customIcon} {customTitle || '報酬'} ({customPoints}P) を付与する
-		</Button>
-	</form>
+			<h3 class="text-sm font-bold text-gray-500">3. 内容を確認して付与</h3>
+			<input type="hidden" name="childId" value={selectedChildId} />
+
+			<div class="grid grid-cols-2 gap-3">
+				<FormField label="タイトル" type="text" name="title" bind:value={customTitle} required />
+				<FormField label="ポイント" type="number" name="points" bind:value={customPoints} min={1} max={10000} required />
+			</div>
+			<div class="grid grid-cols-2 gap-3">
+				<FormField label="アイコン" type="text" name="icon" bind:value={customIcon} />
+				<FormField label="カテゴリ">
+					{#snippet children()}
+						<select name="category" bind:value={customCategory} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
+							{#each Object.entries(categoryLabels) as [value, label]}
+								<option {value}>{label}</option>
+							{/each}
+						</select>
+					{/snippet}
+				</FormField>
+			</div>
+
+			<Button
+				type="submit"
+				variant="primary"
+				size="md"
+				class="w-full"
+			>
+				{customIcon} {customTitle || '報酬'} ({customPoints}P) を付与する
+			</Button>
+		</form>
+		{/snippet}
+	</Card>
 
 	<!-- Success Message -->
 	{#if grantSuccess}
