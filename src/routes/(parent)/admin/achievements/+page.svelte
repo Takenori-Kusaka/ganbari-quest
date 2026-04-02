@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
 
@@ -94,12 +95,13 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 								>
 									<input type="hidden" name="childId" value={selectedChildId} />
 									<input type="hidden" name="achievementId" value={event.id} />
-									<button
+									<Button
 										type="submit"
-										class="px-3 py-1.5 bg-blue-500 text-white text-sm font-bold rounded-lg hover:bg-blue-600 transition-colors"
+										variant="primary"
+										size="sm"
 									>
 										付与する
-									</button>
+									</Button>
 								</form>
 							{/if}
 						</div>
