@@ -17,6 +17,7 @@ import * as dynamoMessageRepo from './dynamodb/message-repo';
 import * as dynamoPointRepo from './dynamodb/point-repo';
 import * as dynamoSettingsRepo from './dynamodb/settings-repo';
 import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
+import * as dynamoStampCardRepo from './dynamodb/stamp-card-repo';
 import * as dynamoStatusRepo from './dynamodb/status-repo';
 import * as dynamoStorageRepo from './dynamodb/storage-repo';
 import * as dynamoTitleRepo from './dynamodb/title-repo';
@@ -37,6 +38,7 @@ import type { IMessageRepo } from './interfaces/message-repo.interface';
 import type { IPointRepo } from './interfaces/point-repo.interface';
 import type { ISettingsRepo } from './interfaces/settings-repo.interface';
 import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interface';
+import type { IStampCardRepo } from './interfaces/stamp-card-repo.interface';
 import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
 import type { ITitleRepo } from './interfaces/title-repo.interface';
@@ -57,6 +59,7 @@ import * as sqliteMessageRepo from './sqlite/message-repo';
 import * as sqlitePointRepo from './sqlite/point-repo';
 import * as sqliteSettingsRepo from './sqlite/settings-repo';
 import * as sqliteSpecialRewardRepo from './sqlite/special-reward-repo';
+import * as sqliteStampCardRepo from './sqlite/stamp-card-repo';
 import * as sqliteStatusRepo from './sqlite/status-repo';
 import * as sqliteStorageRepo from './sqlite/storage-repo';
 import * as sqliteTitleRepo from './sqlite/title-repo';
@@ -78,6 +81,7 @@ export interface Repositories {
 	point: IPointRepo;
 	settings: ISettingsRepo;
 	specialReward: ISpecialRewardRepo;
+	stampCard: IStampCardRepo;
 	status: IStatusRepo;
 	levelTitle: ILevelTitleRepo;
 	storage: IStorageRepo;
@@ -109,6 +113,7 @@ export function getRepos(): Repositories {
 			settings: dynamoSettingsRepo,
 			levelTitle: dynamoLevelTitleRepo,
 			specialReward: dynamoSpecialRewardRepo,
+			stampCard: dynamoStampCardRepo,
 			status: dynamoStatusRepo,
 			storage: dynamoStorageRepo,
 			title: dynamoTitleRepo,
@@ -135,6 +140,7 @@ export function getRepos(): Repositories {
 		settings: sqliteSettingsRepo,
 		levelTitle: sqliteLevelTitleRepo,
 		specialReward: sqliteSpecialRewardRepo,
+		stampCard: sqliteStampCardRepo,
 		status: sqliteStatusRepo,
 		storage: sqliteStorageRepo,
 		title: sqliteTitleRepo,
