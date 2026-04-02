@@ -67,7 +67,6 @@ function getConfig(rank: string) {
 <div class="stamp-card" data-testid="stamp-card">
 	<!-- Header -->
 	<div class="stamp-card__header">
-		<span class="stamp-card__title">📿 スタンプカード</span>
 		<span class="stamp-card__period">{formatDateShort(weekStart)}〜{formatDateShort(weekEnd)}</span>
 	</div>
 
@@ -201,12 +200,6 @@ function getConfig(rank: string) {
 		align-items: center;
 		justify-content: space-between;
 		margin-bottom: 10px;
-	}
-
-	.stamp-card__title {
-		font-size: 0.875rem;
-		font-weight: 800;
-		color: var(--color-text, #1f2937);
 	}
 
 	.stamp-card__period {
