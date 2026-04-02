@@ -793,7 +793,7 @@ $effect(() => {
 				{#if xpGainData}
 					{@const catDef = getCategoryById(xpGainData.categoryId)}
 					<div class="mt-1 text-center text-xs text-[var(--color-text-muted)] border-t border-gray-100 pt-2 w-full">
-						<span style="color: {catDef?.color ?? 'inherit'};">{xpGainData.categoryName}</span>
+						<span style:color={catDef?.color ?? 'inherit'}>{xpGainData.categoryName}</span>
 						けいけんち
 						<span class="font-bold text-[var(--color-text)]">+0.3</span>
 						{#if xpGainData.levelAfter > xpGainData.levelBefore}

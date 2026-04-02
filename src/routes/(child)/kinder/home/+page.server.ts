@@ -460,7 +460,7 @@ export const actions: Actions = {
 		return { success: true, cheerSent: true };
 	},
 
-	markCheersShown: async ({ request, cookies, locals }) => {
+	markCheersShown: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const cheerIdsStr = formData.get('cheerIds')?.toString() ?? '';

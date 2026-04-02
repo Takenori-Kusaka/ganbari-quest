@@ -75,12 +75,10 @@ function handleOverlayClick(e: MouseEvent) {
 		<!-- Spotlight border glow -->
 		<div
 			class="tutorial-spotlight-ring"
-			style="
-				top: {targetRect.y - 10}px;
-				left: {targetRect.x - 10}px;
-				width: {targetRect.width + 20}px;
-				height: {targetRect.height + 20}px;
-			"
+			style:top="{targetRect.y - 10}px"
+			style:left="{targetRect.x - 10}px"
+			style:width="{targetRect.width + 20}px"
+			style:height="{targetRect.height + 20}px"
 		></div>
 
 		<!-- Bubble -->

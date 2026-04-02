@@ -72,7 +72,7 @@ function handleClose() {
 				<p class="adventure__big-text adventure__big-text--accent">ぼうけんだよ！</p>
 				<div class="adventure__sparkles">
 					{#each Array(5) as _, i}
-						<span class="adventure__star" style="--si:{i}">⭐</span>
+						<span class="adventure__star" style:--si={i}>⭐</span>
 					{/each}
 				</div>
 			</div>
@@ -85,7 +85,8 @@ function handleClose() {
 					{#each categories as cat, i (cat.id)}
 						<div
 							class="adventure__cat-item"
-							style="--ci:{i}; --cat-color:{cat.color}"
+							style:--ci={i}
+							style:--cat-color={cat.color}
 						>
 							<span class="adventure__cat-icon">{cat.icon}</span>
 							<span class="adventure__cat-name">{cat.name}</span>
@@ -99,7 +100,7 @@ function handleClose() {
 				<div class="adventure__confetti">
 					{#each ['🎊', '✨', '🌟', '💫', '⭐'] as p, i}
 						{#each Array(3) as _, j}
-							<span class="adventure__confetti-piece" style="--ci:{i * 3 + j}">{p}</span>
+							<span class="adventure__confetti-piece" style:--ci={i * 3 + j}>{p}</span>
 						{/each}
 					{/each}
 				</div>

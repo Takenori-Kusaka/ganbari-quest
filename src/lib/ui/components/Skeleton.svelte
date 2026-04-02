@@ -18,7 +18,8 @@ const roundedClass: Record<string, string> = {
 
 <div
 	class="skeleton {roundedClass[rounded]} {className}"
-	style="width: {width}; height: {height};"
+	style:width={width}
+	style:height={height}
 	aria-hidden="true"
 ></div>
 

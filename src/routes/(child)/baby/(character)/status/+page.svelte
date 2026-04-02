@@ -42,30 +42,30 @@ const radarCategories = $derived(
 		<!-- Category levels -->
 		<div class="status-level">
 			{#if data.activeTitle}
-				<div class="status-level__center" style="flex-direction: row; gap: 8px; margin-bottom: 12px;">
-					<span style="font-size: 0.875rem; font-weight: 700; color: var(--color-point);">
+				<div class="status-level__center flex-row gap-2 mb-3">
+					<span class="text-sm font-bold text-[var(--color-point)]">
 						{data.activeTitle.icon} {data.activeTitle.name}
 					</span>
 				</div>
 			{/if}
-			<div style="display: flex; flex-direction: column; gap: 8px;">
+			<div class="flex flex-col gap-2">
 				{#each CATEGORY_DEFS as catDef (catDef.id)}
 					{@const stat = data.status.statuses[catDef.id]}
 					{#if stat}
 						{@const pct = stat.level >= 99 ? 100 : (stat.progressPct ?? 0)}
-						<div style="display: flex; align-items: center; gap: 4px;">
-							<span style="font-size: 1.125rem; width: 1.75rem; text-align: center;">{catDef.icon}</span>
-							<div style="flex: 1; min-width: 0;">
-								<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
-									<span style="font-size: 0.75rem; font-weight: 700; color: var(--color-text);">{catDef.name} Lv.{stat.level}</span>
+						<div class="flex items-center gap-1">
+							<span class="text-lg w-7 text-center">{catDef.icon}</span>
+							<div class="flex-1 min-w-0">
+								<div class="flex items-center justify-between mb-0.5">
+									<span class="text-xs font-bold text-[var(--color-text)]">{catDef.name} Lv.{stat.level}</span>
 									{#if stat.level < 99}
-										<span style="font-size: 10px; color: var(--color-text-muted);">あと {Math.round(stat.expToNextLevel)}XP</span>
+										<span class="text-[10px] text-[var(--color-text-muted)]">あと {Math.round(stat.expToNextLevel)}XP</span>
 									{:else}
-										<span style="font-size: 10px; font-weight: 700; color: var(--color-point);">MAX</span>
+										<span class="text-[10px] font-bold text-[var(--color-point)]">MAX</span>
 									{/if}
 								</div>
-								<div style="height: 0.5rem; background: #f3f4f6; border-radius: 9999px; overflow: hidden;">
-									<div style="height: 100%; border-radius: 9999px; transition: all; width: {pct}%; background: var(--theme-accent);"></div>
+								<div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+									<div class="h-full rounded-full transition-all bg-[var(--theme-accent)]" style:width="{pct}%"></div>
 								</div>
 							</div>
 						</div>
