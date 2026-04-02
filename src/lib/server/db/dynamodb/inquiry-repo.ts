@@ -1,20 +1,10 @@
 // src/lib/server/db/dynamodb/inquiry-repo.ts
-// DynamoDB implementation for inquiry storage
+// DynamoDB implementation of IInquiryRepo
 
 import { PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import type { InquiryRecord } from '../interfaces/inquiry-repo.interface';
 import { TABLE_NAME, getDocClient } from './client';
 import { inquiryKey } from './keys';
-
-export interface InquiryRecord {
-	inquiryId: string;
-	tenantId: string | null;
-	email: string;
-	replyEmail: string | null;
-	category: string;
-	body: string;
-	status: 'open' | 'replied' | 'closed';
-	createdAt: string;
-}
 
 /**
  * 問い合わせ受付番号を発番する（INQ-YYYYMMDD-XXXX形式）
