@@ -14,7 +14,7 @@ const { Story } = defineMeta({
 <Story name="Ghost"><IconButton variant="ghost" label="閉じる">✕</IconButton></Story>
 
 <Story name="AllVariants">
-  <div style="display: flex; gap: 8px; align-items: center;">
+  <div class="flex gap-2 items-center">
     <IconButton variant="primary" label="編集">✏️</IconButton>
     <IconButton variant="danger" label="削除">🗑️</IconButton>
     <IconButton variant="ghost" label="閉じる">✕</IconButton>
@@ -24,7 +24,7 @@ const { Story } = defineMeta({
 </Story>
 
 <Story name="AllSizes">
-  <div style="display: flex; gap: 8px; align-items: center;">
+  <div class="flex gap-2 items-center">
     <IconButton variant="primary" label="小" size="sm">✏️</IconButton>
     <IconButton variant="primary" label="中" size="md">✏️</IconButton>
     <IconButton variant="primary" label="大" size="lg">✏️</IconButton>

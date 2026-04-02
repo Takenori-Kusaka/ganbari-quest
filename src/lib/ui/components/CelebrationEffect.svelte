@@ -24,7 +24,9 @@ let { type = 'default' }: { type: CelebrationType } = $props();
 		{#each Array(20) as _, i}
 			<div
 				class="confetti-piece"
-				style="--x:{Math.random() * 100}%;--delay:{Math.random() * 0.5}s;--color:{['#ff6b6b','#4ecdc4','#ffe66d','#a8e6cf','#dda0dd','#ff9800','#2196f3'][i % 7]}"
+				style:--x="{Math.random() * 100}%"
+				style:--delay="{Math.random() * 0.5}s"
+				style:--color={['#ff6b6b','#4ecdc4','#ffe66d','#a8e6cf','#dda0dd','#ff9800','#2196f3'][i % 7]}
 			></div>
 		{/each}
 	</div>
@@ -43,7 +45,9 @@ let { type = 'default' }: { type: CelebrationType } = $props();
 		{#each Array(12) as _, i}
 			<div
 				class="star-particle"
-				style="--x:{Math.random() * 100}%;--delay:{Math.random() * 0.8}s;--size:{0.5 + Math.random() * 0.8}rem"
+				style:--x="{Math.random() * 100}%"
+				style:--delay="{Math.random() * 0.8}s"
+				style:--size="{0.5 + Math.random() * 0.8}rem"
 			></div>
 		{/each}
 	</div>
@@ -54,7 +58,9 @@ let { type = 'default' }: { type: CelebrationType } = $props();
 		{#each Array(16) as _, i}
 			<div
 				class="cracker-piece"
-				style="--angle:{(i / 16) * 360}deg;--delay:{Math.random() * 0.3}s;--color:{['#ff6b6b','#4ecdc4','#ffe66d','#ff9800','#e040fb','#00bcd4','#8bc34a','#ff5722'][i % 8]}"
+				style:--angle="{(i / 16) * 360}deg"
+				style:--delay="{Math.random() * 0.3}s"
+				style:--color={['#ff6b6b','#4ecdc4','#ffe66d','#ff9800','#e040fb','#00bcd4','#8bc34a','#ff5722'][i % 8]}
 			></div>
 		{/each}
 	</div>
@@ -74,7 +80,8 @@ let { type = 'default' }: { type: CelebrationType } = $props();
 		{#each Array(10) as _, i}
 			<div
 				class="legend-particle"
-				style="--angle:{(i / 10) * 360}deg;--delay:{Math.random() * 1}s"
+				style:--angle="{(i / 10) * 360}deg"
+				style:--delay="{Math.random() * 1}s"
 			></div>
 		{/each}
 	</div>

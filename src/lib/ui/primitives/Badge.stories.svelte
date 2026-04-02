@@ -17,7 +17,7 @@ const { Story } = defineMeta({
 <Story name="Accent"><Badge variant="accent">アクセント</Badge></Story>
 
 <Story name="AllVariants">
-  <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+  <div class="flex gap-2 flex-wrap items-center">
     <Badge variant="success">完了</Badge>
     <Badge variant="warning">注意</Badge>
     <Badge variant="danger">エラー</Badge>
@@ -28,7 +28,7 @@ const { Story } = defineMeta({
 </Story>
 
 <Story name="SmallSize">
-  <div style="display: flex; gap: 8px;">
+  <div class="flex gap-2">
     <Badge variant="success" size="sm">小</Badge>
     <Badge variant="success" size="md">中</Badge>
   </div>

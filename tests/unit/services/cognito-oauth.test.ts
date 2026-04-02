@@ -3,7 +3,20 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// 環境変数を先にセット（モジュール読み込み前に必要）
+vi.mock('$lib/server/logger', () => ({
+	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+// static import — vi.mock はホイストされるため安全
+// 各関数は呼び出し時に process.env を参照するため beforeEach での設定が有効
+import {
+	buildAuthorizeUrl,
+	buildLogoutUrl,
+	exchangeCodeForTokens,
+	getCognitoOAuthConfig,
+	verifyOAuthState,
+} from '../../../src/lib/server/auth/providers/cognito-oauth';
+
 beforeEach(() => {
 	process.env.COGNITO_USER_POOL_ID = 'us-east-1_TestPool';
 	process.env.COGNITO_CLIENT_ID = 'test-client-id';
@@ -41,10 +54,7 @@ function createMockCookies() {
 
 describe('cognito-oauth', () => {
 	describe('getCognitoOAuthConfig', () => {
-		it('環境変数から設定を取得する', async () => {
-			const { getCognitoOAuthConfig } = await import(
-				'../../../src/lib/server/auth/providers/cognito-oauth'
-			);
+		it('環境変数から設定を取得する', () => {
 			const config = getCognitoOAuthConfig();
 			expect(config.userPoolId).toBe('us-east-1_TestPool');
 			expect(config.clientId).toBe('test-client-id');
@@ -53,20 +63,14 @@ describe('cognito-oauth', () => {
 			expect(config.callbackUrl).toBe('http://localhost:5173/auth/callback');
 		});
 
-		it('COGNITO_USER_POOL_ID が未設定でエラー', async () => {
+		it('COGNITO_USER_POOL_ID が未設定でエラー', () => {
 			process.env.COGNITO_USER_POOL_ID = '';
-			const { getCognitoOAuthConfig } = await import(
-				'../../../src/lib/server/auth/providers/cognito-oauth'
-			);
 			expect(() => getCognitoOAuthConfig()).toThrow('COGNITO_USER_POOL_ID');
 		});
 	});
 
 	describe('buildAuthorizeUrl', () => {
-		it('正しい認可 URL を生成する', async () => {
-			const { buildAuthorizeUrl } = await import(
-				'../../../src/lib/server/auth/providers/cognito-oauth'
-			);
+		it('正しい認可 URL を生成する', () => {
 			const cookies = createMockCookies();
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
 			const url = buildAuthorizeUrl(cookies as any);
@@ -80,10 +84,7 @@ describe('cognito-oauth', () => {
 			expect(url).toContain('nonce=');
 		});
 
-		it('state と nonce が Cookie に保存される', async () => {
-			const { buildAuthorizeUrl } = await import(
-				'../../../src/lib/server/auth/providers/cognito-oauth'
-			);
+		it('state と nonce が Cookie に保存される', () => {
 			const cookies = createMockCookies();
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
 			buildAuthorizeUrl(cookies as any);
@@ -95,10 +96,7 @@ describe('cognito-oauth', () => {
 	});
 
 	describe('verifyOAuthState', () => {
-		it('一致する state で true を返す', async () => {
-			const { verifyOAuthState } = await import(
-				'../../../src/lib/server/auth/providers/cognito-oauth'
-			);
+		it('一致する state で true を返す', () => {
 			const cookies = createMockCookies();
 			cookies.set('oauth_state', 'test-state-123');
 
@@ -106,10 +104,7 @@ describe('cognito-oauth', () => {
 			expect(verifyOAuthState('test-state-123', cookies as any)).toBe(true);
 		});
 
-		it('不一致の state で false を返す', async () => {
-			const { verifyOAuthState } = await import(
-				'../../../src/lib/server/auth/providers/cognito-oauth'
-			);
+		it('不一致の state で false を返す', () => {
 			const cookies = createMockCookies();
 			cookies.set('oauth_state', 'correct-state');
 
@@ -117,10 +112,7 @@ describe('cognito-oauth', () => {
 			expect(verifyOAuthState('wrong-state', cookies as any)).toBe(false);
 		});
 
-		it('Cookie がない場合 false を返す', async () => {
-			const { verifyOAuthState } = await import(
-				'../../../src/lib/server/auth/providers/cognito-oauth'
-			);
+		it('Cookie がない場合 false を返す', () => {
 			const cookies = createMockCookies();
 
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
@@ -129,10 +121,7 @@ describe('cognito-oauth', () => {
 	});
 
 	describe('buildLogoutUrl', () => {
-		it('正しいログアウト URL を生成する', async () => {
-			const { buildLogoutUrl } = await import(
-				'../../../src/lib/server/auth/providers/cognito-oauth'
-			);
+		it('正しいログアウト URL を生成する', () => {
 			const url = buildLogoutUrl();
 
 			expect(url).toContain('https://test.auth.us-east-1.amazoncognito.com/logout');
@@ -153,9 +142,6 @@ describe('cognito-oauth', () => {
 			};
 			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
 
-			const { exchangeCodeForTokens } = await import(
-				'../../../src/lib/server/auth/providers/cognito-oauth'
-			);
 			const cookies = createMockCookies();
 			cookies.set('oauth_state', 'test-state');
 
@@ -168,11 +154,7 @@ describe('cognito-oauth', () => {
 		});
 
 		it('state Cookie がない場合エラー', async () => {
-			const { exchangeCodeForTokens } = await import(
-				'../../../src/lib/server/auth/providers/cognito-oauth'
-			);
 			const cookies = createMockCookies();
-			// state Cookie を設定しない
 
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
 			await expect(exchangeCodeForTokens('code', cookies as any)).rejects.toThrow(
@@ -188,9 +170,6 @@ describe('cognito-oauth', () => {
 			};
 			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
 
-			const { exchangeCodeForTokens } = await import(
-				'../../../src/lib/server/auth/providers/cognito-oauth'
-			);
 			const cookies = createMockCookies();
 			cookies.set('oauth_state', 'test-state');
 

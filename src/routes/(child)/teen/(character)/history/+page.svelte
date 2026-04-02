@@ -66,7 +66,7 @@ function formatDate(dateStr: string): string {
 						{#each Object.entries(data.summary.byCategory) as [cat, info]}
 							<span
 								class="text-xs px-2 py-1 rounded-[var(--radius-full)] text-white font-bold"
-								style="background-color: {getCategoryById(Number(cat))?.color ?? 'var(--theme-primary)'};"
+								style:background-color={getCategoryById(Number(cat))?.color ?? 'var(--theme-primary)'}
 							>
 								{getCategoryById(Number(cat))?.name ?? cat} {info.count}回
 							</span>
@@ -96,7 +96,7 @@ function formatDate(dateStr: string): string {
 										<p class="text-xs text-[var(--color-text-muted)]">
 											<span
 												class="inline-block w-2 h-2 rounded-[var(--radius-full)] mr-1"
-												style="background-color: {getCategoryById(log.categoryId)?.color ?? 'var(--theme-primary)'};"
+												style:background-color={getCategoryById(log.categoryId)?.color ?? 'var(--theme-primary)'}
 											></span>
 											{getCategoryById(log.categoryId)?.name ?? ""}
 										</p>

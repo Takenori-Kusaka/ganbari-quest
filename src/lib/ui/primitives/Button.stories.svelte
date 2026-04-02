@@ -46,7 +46,7 @@ const { Story } = defineMeta({
 </Story>
 
 <Story name="AllVariants">
-  <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+  <div class="flex gap-2 flex-wrap items-center">
     <Button variant="primary">Primary</Button>
     <Button variant="secondary">Secondary</Button>
     <Button variant="danger">Danger</Button>
@@ -57,7 +57,7 @@ const { Story } = defineMeta({
 </Story>
 
 <Story name="AllSizes">
-  <div style="display: flex; gap: 8px; align-items: center;">
+  <div class="flex gap-2 items-center">
     <Button variant="primary" size="sm">Small</Button>
     <Button variant="primary" size="md">Medium</Button>
     <Button variant="primary" size="lg">Large</Button>

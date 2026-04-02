@@ -24,21 +24,26 @@ const px = $derived(sizeMap[size]);
 
 <div
 	class="avatar-wrap {effectClass}"
-	style="width: {px}px; height: {px}px;"
+	style:width="{px}px"
+	style:height="{px}px"
 >
 	<div
 		class="avatar-ring"
-		style="background: {bgCss}; border: {frameCss}; width: {px}px; height: {px}px;"
+		style:background={bgCss}
+		style:border={frameCss}
+		style:width="{px}px"
+		style:height="{px}px"
 	>
 		{#if avatarUrl}
 			<img
 				src={avatarUrl}
 				alt={nickname}
 				class="avatar-img"
-				style="width: {px - 6}px; height: {px - 6}px;"
+				style:width="{px - 6}px"
+				style:height="{px - 6}px"
 			/>
 		{:else}
-			<span class="avatar-fallback" style="font-size: {fontSize[size]};">👤</span>
+			<span class="avatar-fallback" style:font-size={fontSize[size]}>👤</span>
 		{/if}
 	</div>
 </div>

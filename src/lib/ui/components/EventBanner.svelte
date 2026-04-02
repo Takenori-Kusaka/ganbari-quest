@@ -47,7 +47,7 @@ function getMissionProgress(event: EventData): { current: number; target: number
 			{@const mission = getMissionProgress(event)}
 			<div
 				class="event-banner"
-				style={event.bannerColor ? `background: ${event.bannerColor}` : ''}
+				style:background={event.bannerColor || undefined}
 			>
 				<span class="event-banner__icon">{event.bannerIcon}</span>
 				<div class="event-banner__content">
@@ -73,7 +73,7 @@ function getMissionProgress(event: EventData): { current: number; target: number
 									<div
 										class="event-banner__progress-fill"
 										class:event-banner__progress-fill--complete={mission.current >= mission.target}
-										style="width: {Math.round((mission.current / mission.target) * 100)}%"
+										style:width="{Math.round((mission.current / mission.target) * 100)}%"
 									></div>
 								</div>
 								<span class="event-banner__progress-text">

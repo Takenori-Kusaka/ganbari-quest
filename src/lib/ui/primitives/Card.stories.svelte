@@ -14,7 +14,7 @@ const { Story } = defineMeta({
 <Story name="Outlined"><Card variant="outlined" padding="md"><p>枠線付きカード</p></Card></Story>
 
 <Story name="AllVariants">
-  <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+  <div class="flex gap-4 flex-wrap">
     <Card variant="default" padding="md"><p>Default</p></Card>
     <Card variant="elevated" padding="md"><p>Elevated</p></Card>
     <Card variant="outlined" padding="md"><p>Outlined</p></Card>
@@ -22,7 +22,7 @@ const { Story } = defineMeta({
 </Story>
 
 <Story name="Paddings">
-  <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+  <div class="flex gap-4 flex-wrap">
     <Card variant="outlined" padding="none"><p>None</p></Card>
     <Card variant="outlined" padding="sm"><p>Small</p></Card>
     <Card variant="outlined" padding="md"><p>Medium</p></Card>

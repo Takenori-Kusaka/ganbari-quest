@@ -1,6 +1,7 @@
 <script lang="ts">
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 
 let { data } = $props();
 
@@ -75,10 +76,10 @@ function progressPct(xp: number, level: number): number {
 								<span class="w-16 text-xs font-semibold text-gray-700">{cat.categoryName}</span>
 								<div class="flex-1">
 									<div class="h-3 overflow-hidden rounded-full bg-gray-100">
-										<div
+										<ProgressFill
+											pct={progressPct(cat.totalXp, cat.level)}
 											class="h-full rounded-full bg-blue-400 transition-all"
-											style="width: {progressPct(cat.totalXp, cat.level)}%"
-										></div>
+										/>
 									</div>
 								</div>
 								<span class="w-12 text-right text-[10px] font-bold text-gray-500">Lv.{cat.level}</span>

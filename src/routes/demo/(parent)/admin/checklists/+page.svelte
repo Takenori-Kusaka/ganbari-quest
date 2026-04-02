@@ -1,6 +1,7 @@
 <script lang="ts">
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 
 let { data } = $props();
 
@@ -64,10 +65,10 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 
 						<!-- 進捗バー -->
 						<div class="w-full bg-gray-200 rounded-full h-2 mb-3">
-							<div
+							<ProgressFill
+								pct={checklist.totalCount > 0 ? (checklist.checkedCount / checklist.totalCount) * 100 : 0}
 								class="bg-green-500 h-2 rounded-full transition-all"
-								style="width: {checklist.totalCount > 0 ? (checklist.checkedCount / checklist.totalCount) * 100 : 0}%"
-							></div>
+							/>
 						</div>
 
 						<!-- アイテム一覧 -->

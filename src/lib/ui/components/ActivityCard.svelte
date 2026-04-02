@@ -84,7 +84,7 @@ function handleClick(e: Event) {
 		border-2 transition-all
 		{completed ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-300/50' : 'bg-white hover:shadow-md'}"
 	class:card-mission={showMission}
-	style={completed ? '' : `border-color: ${showMission ? 'gold' : borderColor};`}
+	style:border-color={completed ? undefined : (showMission ? 'gold' : borderColor)}
 	disabled={completed}
 	data-testid={activityId != null ? `activity-card-${activityId}` : undefined}
 	aria-label="{name}{completed ? '（きろくずみ）' : ''}{showMission ? '（ミッション）' : ''}{isPinned ? '（ピンどめ）' : ''}"
@@ -115,7 +115,7 @@ function handleClick(e: Event) {
 	{/if}
 
 	<CompoundIcon {icon} size={iconSize} faded={completed} />
-	<span class="font-bold leading-tight text-center line-clamp-2 {completed ? 'opacity-40' : ''}" style="font-size: {textSize};">{name}</span>
+	<span class="font-bold leading-tight text-center line-clamp-2 {completed ? 'opacity-40' : ''}" style:font-size={textSize}>{name}</span>
 	{#if triggerHint && !completed}
 		<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{triggerHint}</span>
 	{/if}
