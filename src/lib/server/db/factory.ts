@@ -17,6 +17,7 @@ import * as dynamoLevelTitleRepo from './dynamodb/level-title-repo';
 import * as dynamoLoginBonusRepo from './dynamodb/login-bonus-repo';
 import * as dynamoMessageRepo from './dynamodb/message-repo';
 import * as dynamoPointRepo from './dynamodb/point-repo';
+import * as dynamoPushSubscriptionRepo from './dynamodb/push-subscription-repo';
 import * as dynamoSeasonEventRepo from './dynamodb/season-event-repo';
 import * as dynamoSettingsRepo from './dynamodb/settings-repo';
 import * as dynamoSiblingChallengeRepo from './dynamodb/sibling-challenge-repo';
@@ -43,6 +44,7 @@ import type { ILevelTitleRepo } from './interfaces/level-title-repo.interface';
 import type { ILoginBonusRepo } from './interfaces/login-bonus-repo.interface';
 import type { IMessageRepo } from './interfaces/message-repo.interface';
 import type { IPointRepo } from './interfaces/point-repo.interface';
+import type { IPushSubscriptionRepo } from './interfaces/push-subscription-repo.interface';
 import type { ISeasonEventRepo } from './interfaces/season-event-repo.interface';
 import type { ISettingsRepo } from './interfaces/settings-repo.interface';
 import type { ISiblingChallengeRepo } from './interfaces/sibling-challenge-repo.interface';
@@ -69,6 +71,7 @@ import * as sqliteLevelTitleRepo from './sqlite/level-title-repo';
 import * as sqliteLoginBonusRepo from './sqlite/login-bonus-repo';
 import * as sqliteMessageRepo from './sqlite/message-repo';
 import * as sqlitePointRepo from './sqlite/point-repo';
+import * as sqlitePushSubscriptionRepo from './sqlite/push-subscription-repo';
 import * as sqliteSeasonEventRepo from './sqlite/season-event-repo';
 import * as sqliteSettingsRepo from './sqlite/settings-repo';
 import * as sqliteSiblingChallengeRepo from './sqlite/sibling-challenge-repo';
@@ -96,6 +99,7 @@ export interface Repositories {
 	loginBonus: ILoginBonusRepo;
 	message: IMessageRepo;
 	point: IPointRepo;
+	pushSubscription: IPushSubscriptionRepo;
 	seasonEvent: ISeasonEventRepo;
 	siblingChallenge: ISiblingChallengeRepo;
 	siblingCheer: ISiblingCheerRepo;
@@ -132,6 +136,7 @@ export function getRepos(): Repositories {
 			loginBonus: dynamoLoginBonusRepo,
 			message: dynamoMessageRepo,
 			point: dynamoPointRepo,
+			pushSubscription: dynamoPushSubscriptionRepo,
 			seasonEvent: dynamoSeasonEventRepo,
 			siblingChallenge: dynamoSiblingChallengeRepo,
 			siblingCheer: dynamoSiblingCheerRepo,
@@ -164,6 +169,7 @@ export function getRepos(): Repositories {
 		loginBonus: sqliteLoginBonusRepo,
 		message: sqliteMessageRepo,
 		point: sqlitePointRepo,
+		pushSubscription: sqlitePushSubscriptionRepo,
 		seasonEvent: sqliteSeasonEventRepo,
 		siblingChallenge: sqliteSiblingChallengeRepo,
 		siblingCheer: sqliteSiblingCheerRepo,

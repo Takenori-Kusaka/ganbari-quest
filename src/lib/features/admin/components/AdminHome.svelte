@@ -9,6 +9,7 @@ import {
 	markTutorialStarted,
 	startTutorial,
 } from '$lib/ui/tutorial/tutorial-store.svelte';
+import NotificationPermissionBanner from './NotificationPermissionBanner.svelte';
 import OnboardingChecklist from './OnboardingChecklist.svelte';
 
 interface ChildSummary {
@@ -175,6 +176,11 @@ function childLink(child: ChildSummary): string {
 				</div>
 			</div>
 		</div>
+	{/if}
+
+	<!-- 通知許可バナー -->
+	{#if !isDemo}
+		<NotificationPermissionBanner />
 	{/if}
 
 	<!-- Summary Cards -->

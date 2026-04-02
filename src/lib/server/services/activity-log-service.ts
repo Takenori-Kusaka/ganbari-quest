@@ -275,6 +275,22 @@ export async function recordActivity(
 		// フォーカスボーナスチェック失敗は記録フローを止めない
 	}
 
+	// プッシュ通知: 達成通知・レベルアップ通知
+	try {
+		const { sendAchievementNotification } = await import(
+			'$lib/server/services/notification-service'
+		);
+		await sendAchievementNotification(tenantId, {
+			childName: child.nickname,
+			activityName: getActivityDisplayName(activity, child.age),
+			totalPoints,
+			levelUp,
+			unlockedAchievements,
+		});
+	} catch {
+		// 通知送信失敗は記録フローを止めない
+	}
+
 	return {
 		id: log.id,
 		childId,
