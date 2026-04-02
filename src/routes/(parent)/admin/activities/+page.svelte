@@ -9,6 +9,7 @@ import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivi
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 const activityLimit = $derived(
@@ -222,15 +223,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 	</a>
 
 	<!-- Search -->
-	<div class="relative">
-		<input
-			type="search"
-			bind:value={searchQuery}
-			placeholder="活動名で検索..."
-			class="w-full px-3 py-2 pl-9 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
-		/>
-		<span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-	</div>
+	<FormField label="🔍 活動名で検索" type="search" bind:value={searchQuery} placeholder="活動名で検索..." />
 
 	<!-- Filter -->
 	<div class="flex gap-2 flex-wrap" data-tutorial="category-filter">
