@@ -33,7 +33,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	const tenantStatus = locals.context?.tenantStatus ?? 'active';
 	const planTier = resolvePlanTier(
 		locals.context?.licenseStatus ?? 'none',
-		undefined,
+		locals.context?.plan,
 		trialStatus.trialEndDate,
 	);
 	const isPremium = isPaidTier(planTier);

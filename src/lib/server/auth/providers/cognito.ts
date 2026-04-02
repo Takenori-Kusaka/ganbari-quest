@@ -117,11 +117,19 @@ export class CognitoAuthProvider implements AuthProvider {
 			// テナントステータスを取得
 			const tenant = await repos.auth.findTenantById(membership.tenantId);
 
+			// Stripe サブスクリプション状態からライセンスステータスを判定
+			const licenseStatus = tenant?.stripeSubscriptionId
+				? ((tenant.status === 'active' || tenant.status === 'grace_period'
+						? 'active'
+						: 'suspended') as AuthContext['licenseStatus'])
+				: ('none' as AuthContext['licenseStatus']);
+
 			const context: AuthContext = {
 				tenantId: membership.tenantId,
 				role: membership.role,
-				licenseStatus: 'active',
+				licenseStatus,
 				tenantStatus: tenant?.status ?? 'active',
+				plan: tenant?.plan,
 			};
 
 			// child ロールの場合、userId から childId を解決 (#0156)

@@ -44,14 +44,24 @@ describe('plan-limit-service', () => {
 			expect(resolvePlanTier('active')).toBe('standard');
 		});
 
-		it('active + planId=family → family', () => {
+		it('active + planId=family-monthly → family', () => {
 			process.env.AUTH_MODE = 'cognito';
-			expect(resolvePlanTier('active', 'family')).toBe('family');
+			expect(resolvePlanTier('active', 'family-monthly')).toBe('family');
 		});
 
-		it('active + planId=standard → standard', () => {
+		it('active + planId=family-yearly → family', () => {
 			process.env.AUTH_MODE = 'cognito';
-			expect(resolvePlanTier('active', 'standard')).toBe('standard');
+			expect(resolvePlanTier('active', 'family-yearly')).toBe('family');
+		});
+
+		it('active + planId=monthly → standard', () => {
+			process.env.AUTH_MODE = 'cognito';
+			expect(resolvePlanTier('active', 'monthly')).toBe('standard');
+		});
+
+		it('active + planId=yearly → standard', () => {
+			process.env.AUTH_MODE = 'cognito';
+			expect(resolvePlanTier('active', 'yearly')).toBe('standard');
 		});
 
 		it('local mode: none → family (selfhost = 全機能解放)', () => {
@@ -95,7 +105,7 @@ describe('plan-limit-service', () => {
 			const futureDate = new Date();
 			futureDate.setDate(futureDate.getDate() + 5);
 			const endStr = futureDate.toISOString().slice(0, 10);
-			expect(resolvePlanTier('active', 'standard', endStr)).toBe('standard');
+			expect(resolvePlanTier('active', 'monthly', endStr)).toBe('standard');
 		});
 	});
 
@@ -165,7 +175,7 @@ describe('plan-limit-service', () => {
 		it('free: returns date 90 days ago', () => {
 			const cutoff = getHistoryCutoffDate('free');
 			expect(cutoff).not.toBeNull();
-			const d = new Date(cutoff!);
+			const d = new Date(cutoff ?? '');
 			const now = new Date();
 			const diffDays = Math.round((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
 			expect(diffDays).toBe(90);
@@ -174,7 +184,7 @@ describe('plan-limit-service', () => {
 		it('standard: returns date 365 days ago', () => {
 			const cutoff = getHistoryCutoffDate('standard');
 			expect(cutoff).not.toBeNull();
-			const d = new Date(cutoff!);
+			const d = new Date(cutoff ?? '');
 			const now = new Date();
 			const diffDays = Math.round((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
 			expect(diffDays).toBe(365);
