@@ -20,6 +20,7 @@ interface Props {
 	streakDays?: number;
 	isMission?: boolean;
 	isPinned?: boolean;
+	frozen?: boolean;
 	triggerHint?: string | null;
 	onclick?: () => void;
 	onlongpress?: () => void;
@@ -36,10 +37,13 @@ let {
 	streakDays = 0,
 	isMission = false,
 	isPinned = false,
+	frozen = false,
 	triggerHint,
 	onclick,
 	onlongpress,
 }: Props = $props();
+
+let showFrozenToast = $state(false);
 
 const iconSize = $derived(ICON_SIZE_MAP[cardSize]);
 const textSize = $derived(CARD_SIZE_CSS[cardSize].textSize);
@@ -74,6 +78,11 @@ function handleClick(e: Event) {
 		longPressTriggered = false;
 		return;
 	}
+	if (frozen) {
+		showFrozenToast = true;
+		setTimeout(() => (showFrozenToast = false), 2000);
+		return;
+	}
 	onclick?.();
 }
 </script>
@@ -82,12 +91,13 @@ function handleClick(e: Event) {
 	class="tap-target relative flex flex-col items-center justify-center gap-0.5
 		w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] shadow-sm
 		border-2 transition-all
-		{completed ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-300/50' : 'bg-white hover:shadow-md'}"
+		{completed ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-300/50' : 'bg-white hover:shadow-md'}
+		{frozen ? 'card-frozen' : ''}"
 	class:card-mission={showMission}
-	style:border-color={completed ? undefined : (showMission ? 'gold' : borderColor)}
+	style:border-color={completed ? undefined : (showMission ? 'gold' : (frozen ? 'var(--color-neutral-300)' : borderColor))}
 	disabled={completed}
 	data-testid={activityId != null ? `activity-card-${activityId}` : undefined}
-	aria-label="{name}{completed ? '（きろくずみ）' : ''}{showMission ? '（ミッション）' : ''}{isPinned ? '（ピンどめ）' : ''}"
+	aria-label="{name}{completed ? '（きろくずみ）' : ''}{showMission ? '（ミッション）' : ''}{isPinned ? '（ピンどめ）' : ''}{frozen ? '（ロックちゅう）' : ''}"
 	onclick={handleClick}
 	onpointerdown={handlePointerDown}
 	onpointerup={handlePointerUp}
@@ -120,6 +130,12 @@ function handleClick(e: Event) {
 		<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{triggerHint}</span>
 	{/if}
 
+	{#if frozen}
+		<div class="absolute top-1 right-1 z-10" aria-hidden="true">
+			<span class="text-sm">⭐</span>
+		</div>
+	{/if}
+
 	{#if streakDays >= 2}
 		<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 flex" aria-label="{streakDays}にちれんぞく">
 			{#each Array(Math.min(streakDays, 5)) as _, i}
@@ -128,6 +144,10 @@ function handleClick(e: Event) {
 		</div>
 	{/if}
 </button>
+
+{#if showFrozenToast}
+	<div class="frozen-toast">おうちのひとに おねがいしてね</div>
+{/if}
 
 <style>
 	/* Holographic rainbow border (#0170) */
@@ -188,4 +208,34 @@ function handleClick(e: Event) {
 	}
 	.card-mission__sparkle::before { top: -4px; left: -4px; animation-delay: 0s; }
 	.card-mission__sparkle::after  { top: -4px; right: -4px; animation-delay: 0.5s; }
+
+	/* Frozen card (#0266) */
+	:global(.card-frozen) {
+		opacity: 0.5;
+		filter: grayscale(0.3);
+	}
+
+	.frozen-toast {
+		position: absolute;
+		bottom: -28px;
+		left: 50%;
+		transform: translateX(-50%);
+		white-space: nowrap;
+		font-size: 0.65rem;
+		font-weight: 600;
+		color: var(--color-premium, #7c3aed);
+		background: white;
+		padding: 2px 8px;
+		border-radius: var(--radius-full);
+		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+		z-index: 20;
+		animation: toast-fade 2s ease-out forwards;
+	}
+
+	@keyframes toast-fade {
+		0% { opacity: 0; transform: translateX(-50%) translateY(4px); }
+		15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+		85% { opacity: 1; }
+		100% { opacity: 0; }
+	}
 </style>

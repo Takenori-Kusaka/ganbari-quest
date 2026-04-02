@@ -1,7 +1,7 @@
 export interface TutorialStep {
 	id: string;
 	chapterId: number;
-	selector: string;
+	selector?: string;
 	title: string;
 	description: string;
 	position: 'top' | 'bottom' | 'left' | 'right' | 'auto';
