@@ -151,6 +151,12 @@
 	--color-text-accent: var(--theme-accent);
 	--color-text-link: var(--color-brand-600);
 
+	/* ---- Premium ---- */
+	--color-premium: var(--color-violet-600);
+	--color-premium-light: var(--color-violet-500);
+	--color-premium-bg: #f5f3ff;
+	--gradient-premium: linear-gradient(135deg, var(--color-violet-600), var(--color-violet-500));
+
 	/* ---- Gradient ---- */
 	--gradient-brand: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-400));
 	--gradient-gold: linear-gradient(135deg, var(--color-gold-600), var(--color-gold-400));
@@ -556,4 +562,22 @@ body {
 
 .safe-area-bottom {
 	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ============================================================
+   Button pending pulse (activity record submit)
+   ============================================================ */
+
+@keyframes btn-pulse {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(0.97);
+	}
+}
+
+.animate-btn-pulse {
+	animation: btn-pulse 0.8s ease-in-out infinite;
 }
