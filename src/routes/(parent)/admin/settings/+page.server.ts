@@ -1,7 +1,7 @@
 import { CURRENCY_CODES } from '$lib/domain/point-display';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { requireTenantId } from '$lib/server/auth/factory';
-import { generateInquiryId, saveInquiry } from '$lib/server/db/dynamodb/inquiry-repo';
+import { generateInquiryId, saveInquiry } from '$lib/server/db/inquiry-repo';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { changePin } from '$lib/server/services/auth-service';
@@ -123,32 +123,23 @@ export const actions = {
 
 		const categoryLabel = { feature: '機能要望', bug: 'バグ報告', other: 'その他' }[category];
 		const email = locals.identity?.type === 'cognito' ? locals.identity.email : 'local-user';
-		const isDynamo = (process.env.DATA_SOURCE ?? 'sqlite') === 'dynamodb';
 
-		// 受付番号を発番
+		// 受付番号を発番（ファクトリ経由で SQLite/DynamoDB 両対応）
 		let inquiryId = '';
-		if (isDynamo) {
-			try {
-				inquiryId = await generateInquiryId();
-				await saveInquiry({
-					inquiryId,
-					tenantId,
-					email,
-					replyEmail: replyEmail || null,
-					category,
-					body: text,
-					status: 'open',
-					createdAt: new Date().toISOString(),
-				});
-			} catch (err) {
-				logger.error('Inquiry save failed', { error: String(err) });
-			}
-		} else {
-			// ローカルモード: タイムスタンプベースのID
-			const now = new Date();
-			const d = now.toISOString().slice(0, 10).replace(/-/g, '');
-			const seq = String(now.getTime() % 10000).padStart(4, '0');
-			inquiryId = `INQ-${d}-${seq}`;
+		try {
+			inquiryId = await generateInquiryId();
+			await saveInquiry({
+				inquiryId,
+				tenantId,
+				email,
+				replyEmail: replyEmail || null,
+				category,
+				body: text,
+				status: 'open',
+				createdAt: new Date().toISOString(),
+			});
+		} catch (err) {
+			logger.error('Inquiry save failed', { error: String(err) });
 		}
 
 		// Discord Webhook に送信（受付番号入り）
