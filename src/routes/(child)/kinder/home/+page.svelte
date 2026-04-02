@@ -5,8 +5,7 @@ import { parseDisplayConfig } from '$lib/domain/display-config';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
-import BirthdayModal from '$lib/features/birthday/BirthdayModal.svelte';
-import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
+import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
 import AdventureStartOverlay from '$lib/ui/components/AdventureStartOverlay.svelte';
@@ -16,10 +15,7 @@ import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelt
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import EventBanner from '$lib/ui/components/EventBanner.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
-import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
-import OmikujiStampOverlay from '$lib/ui/components/OmikujiStampOverlay.svelte';
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
-import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 import { tick } from 'svelte';
@@ -804,23 +800,24 @@ $effect(() => {
 	{/if}
 </Dialog>
 
-<!-- Level up overlay -->
-{#if levelUpData}
-	<LevelUpOverlay
-		bind:open={levelUpOpen}
-		levelUp={levelUpData}
-		onClose={handleLevelUpClose}
-	/>
-{/if}
-
-<!-- Achievement unlock overlay -->
-{#if unlockedAchievements.length > 0}
-	<AchievementUnlockOverlay
-		bind:open={achievementOpen}
-		achievements={unlockedAchievements}
-		onClose={handleAchievementClose}
-	/>
-{/if}
+<OverlaysSection
+	bind:levelUpOpen
+	{levelUpData}
+	onLevelUpClose={handleLevelUpClose}
+	bind:achievementOpen
+	{unlockedAchievements}
+	onAchievementClose={handleAchievementClose}
+	bind:rewardOpen
+	latestReward={data.latestReward}
+	onRewardClose={handleRewardClose}
+	bind:stampPressOpen
+	{stampPressData}
+	onStampPressClose={handleStampPressClose}
+	bind:birthdayModalOpen
+	birthdayBonus={data.birthdayBonus}
+	nickname={data.child?.nickname ?? ''}
+	uiMode={data.uiMode}
+/>
 
 <!-- Adventure start overlay (first-time users) -->
 {#if data.isFirstTime}
@@ -828,17 +825,6 @@ $effect(() => {
 		bind:open={adventureOpen}
 		childName={data.child?.nickname ?? ''}
 		onClose={handleAdventureClose}
-	/>
-{/if}
-
-<!-- Special reward overlay -->
-{#if data.latestReward}
-	<SpecialRewardOverlay
-		bind:open={rewardOpen}
-		title={data.latestReward.title}
-		points={data.latestReward.points}
-		icon={data.latestReward.icon}
-		onClose={handleRewardClose}
 	/>
 {/if}
 
@@ -851,29 +837,6 @@ $effect(() => {
 		body={data.latestMessage.body}
 		icon={data.latestMessage.icon}
 		onClose={handleMessageClose}
-	/>
-{/if}
-
-<!-- Omikuji + Stamp overlay (unified) -->
-{#if stampPressData}
-	<OmikujiStampOverlay
-		bind:open={stampPressOpen}
-		rank={stampPressData.omikujiRank}
-		totalPoints={stampPressData.totalPoints}
-		multiplier={stampPressData.multiplier}
-		consecutiveDays={stampPressData.consecutiveDays}
-		onClose={handleStampPressClose}
-	/>
-{/if}
-
-<!-- Birthday bonus modal -->
-{#if data.birthdayBonus}
-	<BirthdayModal
-		bind:open={birthdayModalOpen}
-		nickname={data.child?.nickname ?? ''}
-		newAge={data.birthdayBonus.newAge ?? 0}
-		totalPoints={data.birthdayBonus.totalPoints ?? 0}
-		uiMode={data.uiMode}
 	/>
 {/if}
 
