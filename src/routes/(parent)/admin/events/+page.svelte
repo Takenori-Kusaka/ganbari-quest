@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
 
@@ -36,12 +37,13 @@ function formatDate(d: string): string {
 <div class="space-y-4">
 	<div class="flex items-center justify-between">
 		<h2 class="text-lg font-bold">🎉 シーズンイベント管理</h2>
-		<button
-			class="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-bold text-white"
+		<Button
+			variant={creating ? 'ghost' : 'primary'}
+			size="sm"
 			onclick={() => { creating = !creating; }}
 		>
 			{creating ? 'キャンセル' : '＋ 新規イベント'}
-		</button>
+		</Button>
 	</div>
 
 	{#if form?.error}
@@ -115,9 +117,9 @@ function formatDate(d: string): string {
 				<input name="rewardConfig" type="text" placeholder={'{"points":50,"title":"スタートダッシュ達成！"}'}
 					class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
 			</label>
-			<button type="submit" class="w-full rounded-lg bg-amber-500 py-2 text-sm font-bold text-white">
+			<Button type="submit" variant="primary" size="sm" class="w-full">
 				作成
-			</button>
+			</Button>
 		</form>
 	{/if}
 
@@ -160,7 +162,7 @@ function formatDate(d: string): string {
 							onsubmit={(e) => { if (!confirm(`「${event.name}」を削除しますか？`)) e.preventDefault(); }}
 						>
 							<input type="hidden" name="id" value={event.id} />
-							<button type="submit" class="text-xs text-red-400 hover:text-red-600">削除</button>
+							<Button type="submit" variant="danger" size="sm">削除</Button>
 						</form>
 					</div>
 				</div>

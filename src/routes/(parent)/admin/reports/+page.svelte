@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
 
@@ -62,9 +63,9 @@ function progressPct(xp: number, level: number): number {
 					{/each}
 				</select>
 			</label>
-			<button type="submit" class="rounded-lg bg-blue-500 px-3 py-1.5 text-sm font-bold text-white">
+			<Button type="submit" variant="primary" size="sm">
 				保存
-			</button>
+			</Button>
 		</div>
 	</form>
 
