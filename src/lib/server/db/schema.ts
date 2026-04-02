@@ -655,6 +655,60 @@ export const childEventProgress = sqliteTable(
 );
 
 // ============================================================
+// sibling_challenges - きょうだいチャレンジ定義
+// ============================================================
+export const siblingChallenges = sqliteTable(
+	'sibling_challenges',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		title: text('title').notNull(),
+		description: text('description'),
+		challengeType: text('challenge_type').notNull().default('cooperative'), // cooperative | competitive
+		periodType: text('period_type').notNull().default('weekly'), // weekly | monthly | custom
+		startDate: text('start_date').notNull(), // YYYY-MM-DD
+		endDate: text('end_date').notNull(), // YYYY-MM-DD
+		targetConfig: text('target_config').notNull(), // JSON: { metric, categoryId?, baseTarget, ageAdjustments? }
+		rewardConfig: text('reward_config').notNull(), // JSON: { points, message? }
+		status: text('status').notNull().default('active'), // active | completed | expired
+		isActive: integer('is_active').notNull().default(1),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		index('idx_sibling_challenges_status').on(table.status),
+		index('idx_sibling_challenges_dates').on(table.startDate, table.endDate),
+	],
+);
+
+// ============================================================
+// sibling_challenge_progress - 子供ごとのチャレンジ進捗
+// ============================================================
+export const siblingChallengeProgress = sqliteTable(
+	'sibling_challenge_progress',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		challengeId: integer('challenge_id')
+			.notNull()
+			.references(() => siblingChallenges.id, { onDelete: 'cascade' }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id, { onDelete: 'cascade' }),
+		currentValue: integer('current_value').notNull().default(0),
+		targetValue: integer('target_value').notNull(),
+		completed: integer('completed').notNull().default(0),
+		completedAt: text('completed_at'),
+		rewardClaimed: integer('reward_claimed').notNull().default(0),
+		rewardClaimedAt: text('reward_claimed_at'),
+		progressJson: text('progress_json'), // JSON: detailed tracking
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_sibling_challenge_progress_unique').on(table.challengeId, table.childId),
+		index('idx_sibling_challenge_progress_child').on(table.childId),
+	],
+);
+
+// ============================================================
 // level_titles - テナント別レベル称号カスタマイズ
 // ============================================================
 export const levelTitles = sqliteTable(
@@ -667,4 +721,25 @@ export const levelTitles = sqliteTable(
 		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
 	(table) => [uniqueIndex('idx_level_titles_tenant_level').on(table.tenantId, table.level)],
+);
+
+// ============================================================
+// sibling_cheers - きょうだい間おうえんスタンプ
+// ============================================================
+export const siblingCheers = sqliteTable(
+	'sibling_cheers',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		fromChildId: integer('from_child_id')
+			.notNull()
+			.references(() => children.id, { onDelete: 'cascade' }),
+		toChildId: integer('to_child_id')
+			.notNull()
+			.references(() => children.id, { onDelete: 'cascade' }),
+		stampCode: text('stamp_code').notNull(),
+		tenantId: text('tenant_id').notNull().default('default'),
+		sentAt: text('sent_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		shownAt: text('shown_at'),
+	},
+	(table) => [index('idx_sibling_cheers_to_shown').on(table.toChildId, table.shownAt)],
 );
