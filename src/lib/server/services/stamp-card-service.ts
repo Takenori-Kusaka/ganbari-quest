@@ -1,11 +1,16 @@
 // src/lib/server/services/stamp-card-service.ts
-// スタンプカードサービス層
+// スタンプカードサービス層 — ビジネスロジックのみ。DB操作はリポジトリfacade経由
 
 import { todayDateJST } from '$lib/domain/date-utils';
-import { db } from '$lib/server/db/client';
 import { insertPointEntry } from '$lib/server/db/point-repo';
-import * as schema from '$lib/server/db/schema';
-import { and, eq } from 'drizzle-orm';
+import {
+	findCardByChildAndWeek,
+	findEnabledStampMasters,
+	findEntriesWithMasterByCardId,
+	insertCard,
+	insertEntry,
+	updateCardStatus,
+} from '$lib/server/db/stamp-card-repo';
 
 // レア度別排出確率
 const RARITY_WEIGHTS: Record<string, number> = {
@@ -102,68 +107,34 @@ function pickRandomStamp(stamps: StampMasterData[]): StampMasterData {
 }
 
 /** 有効なスタンプマスタ一覧を取得 */
-export async function getEnabledStamps(_tenantId: string): Promise<StampMasterData[]> {
-	const rows = db
-		.select({
-			id: schema.stampMasters.id,
-			name: schema.stampMasters.name,
-			emoji: schema.stampMasters.emoji,
-			rarity: schema.stampMasters.rarity,
-		})
-		.from(schema.stampMasters)
-		.where(eq(schema.stampMasters.isEnabled, 1))
-		.all();
-	return rows;
+export async function getEnabledStamps(tenantId: string): Promise<StampMasterData[]> {
+	const rows = await findEnabledStampMasters(tenantId);
+	return rows.map((r) => ({
+		id: r.id,
+		name: r.name,
+		emoji: r.emoji,
+		rarity: r.rarity,
+	}));
 }
 
 /** 現在の週のスタンプカードを取得（なければ作成） */
 export async function getOrCreateCurrentCard(
 	childId: number,
-	_tenantId: string,
+	tenantId: string,
 ): Promise<StampCardData> {
 	const today = todayDateJST();
 	const { weekStart, weekEnd } = getWeekRange(today);
 
 	// 既存カードを検索
-	let card = db
-		.select()
-		.from(schema.stampCards)
-		.where(and(eq(schema.stampCards.childId, childId), eq(schema.stampCards.weekStart, weekStart)))
-		.get();
+	let card = await findCardByChildAndWeek(childId, weekStart, tenantId);
 
 	if (!card) {
 		// 新しいカードを作成
-		db.insert(schema.stampCards)
-			.values({ childId, weekStart, weekEnd, status: 'collecting' })
-			.run();
-		card = db
-			.select()
-			.from(schema.stampCards)
-			.where(
-				and(eq(schema.stampCards.childId, childId), eq(schema.stampCards.weekStart, weekStart)),
-			)
-			.get();
-	}
-
-	if (!card) {
-		throw new Error('Failed to create stamp card');
+		card = await insertCard({ childId, weekStart, weekEnd, status: 'collecting' }, tenantId);
 	}
 
 	// エントリ取得
-	const rawEntries = db
-		.select({
-			slot: schema.stampEntries.slot,
-			stampMasterId: schema.stampEntries.stampMasterId,
-			omikujiRank: schema.stampEntries.omikujiRank,
-			loginDate: schema.stampEntries.loginDate,
-			name: schema.stampMasters.name,
-			emoji: schema.stampMasters.emoji,
-			rarity: schema.stampMasters.rarity,
-		})
-		.from(schema.stampEntries)
-		.leftJoin(schema.stampMasters, eq(schema.stampEntries.stampMasterId, schema.stampMasters.id))
-		.where(eq(schema.stampEntries.cardId, card.id))
-		.all();
+	const rawEntries = await findEntriesWithMasterByCardId(card.id, tenantId);
 
 	const entries: StampEntryData[] = rawEntries.map((e) => ({
 		slot: e.slot,
@@ -228,15 +199,16 @@ export async function stampToday(
 	const nextSlot = cardData.filledSlots + 1;
 
 	// 挿入（omikujiRank があればセット）
-	db.insert(schema.stampEntries)
-		.values({
+	await insertEntry(
+		{
 			cardId: cardData.id,
 			stampMasterId: picked.id,
 			omikujiRank: omikujiRank ?? null,
 			slot: nextSlot,
 			loginDate: today,
-		})
-		.run();
+		},
+		tenantId,
+	);
 
 	const entry: StampEntryData = {
 		slot: nextSlot,
@@ -290,15 +262,17 @@ export async function redeemStampCard(
 	const { stampPoints, completeBonus, total } = calcCardPoints(cardData.entries);
 
 	// カードを引き換え済みに更新
-	db.update(schema.stampCards)
-		.set({
+	const now = new Date().toISOString();
+	await updateCardStatus(
+		cardData.id,
+		{
 			status: 'redeemed',
 			redeemedPoints: total,
-			redeemedAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
-		})
-		.where(eq(schema.stampCards.id, cardData.id))
-		.run();
+			redeemedAt: now,
+			updatedAt: now,
+		},
+		tenantId,
+	);
 
 	// ポイント付与
 	await insertPointEntry(
