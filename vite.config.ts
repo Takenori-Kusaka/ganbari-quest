@@ -9,7 +9,38 @@ import { defineConfig } from 'vitest/config';
 const dirname =
 	typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
-// More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
+// Storybook browser test はローカルのみ（CIではPlaywrightブラウザ未インストール）
+const enableStorybookTests = !process.env.CI;
+
+// Unit/integration test project（常に有効）
+const unitProject = {
+	extends: true,
+	test: {
+		include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
+		environment: 'jsdom',
+		globals: true,
+	},
+};
+
+// Storybook browser test project（ローカルのみ）
+const storybookProject = {
+	extends: true,
+	plugins: [
+		storybookTest({
+			configDir: path.join(dirname, '.storybook'),
+		}),
+	],
+	test: {
+		name: 'storybook',
+		browser: {
+			enabled: true,
+			headless: true,
+			provider: playwright({}),
+			instances: [{ browser: 'chromium' }],
+		},
+	},
+};
+
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	ssr: {
@@ -32,38 +63,6 @@ export default defineConfig({
 				statements: 43,
 			},
 		},
-		projects: [
-			{
-				extends: true,
-				test: {
-					include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
-					environment: 'jsdom',
-					globals: true,
-				},
-			},
-			{
-				extends: true,
-				plugins: [
-					// The plugin will run tests for the stories defined in your Storybook config
-					// See options at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon#storybooktest
-					storybookTest({
-						configDir: path.join(dirname, '.storybook'),
-					}),
-				],
-				test: {
-					name: 'storybook',
-					browser: {
-						enabled: true,
-						headless: true,
-						provider: playwright({}),
-						instances: [
-							{
-								browser: 'chromium',
-							},
-						],
-					},
-				},
-			},
-		],
+		projects: enableStorybookTests ? [unitProject, storybookProject] : [unitProject],
 	},
 });
