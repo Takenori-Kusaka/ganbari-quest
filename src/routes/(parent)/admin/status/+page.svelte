@@ -6,6 +6,7 @@ import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/s
 import { SuccessAlert } from '$lib/ui/components';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
@@ -176,8 +177,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 				{/if}
 
 				{#each data.levelTitles as lt (lt.level)}
-					<div class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
-						<span class="text-sm font-bold text-gray-500 w-12">Lv.{lt.level}</span>
+					<div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
 						<div class="flex-1 min-w-0">
 							<form
 								method="POST"
@@ -192,19 +192,23 @@ let levelTitleInputs: Record<number, string> = $state({});
 										}
 									};
 								}}
-								class="flex items-center gap-2"
+								class="flex items-end gap-2"
 							>
 								<input type="hidden" name="level" value={lt.level} />
-								<input
-									type="text"
-									name="customTitle"
-									maxlength={20}
-									placeholder={lt.defaultTitle}
-									value={levelTitleInputs[lt.level] ?? lt.customTitle ?? ''}
-									oninput={(e) => { levelTitleInputs[lt.level] = e.currentTarget.value; }}
-									class="flex-1 px-3 py-1.5 border rounded-lg text-sm
-										{lt.customTitle ? 'border-purple-300 bg-purple-50' : 'border-gray-200'}"
-								/>
+								<FormField label="Lv.{lt.level}" class="flex-1">
+									{#snippet children()}
+										<input
+											type="text"
+											name="customTitle"
+											maxlength={20}
+											placeholder={lt.defaultTitle}
+											value={levelTitleInputs[lt.level] ?? lt.customTitle ?? ''}
+											oninput={(e) => { levelTitleInputs[lt.level] = e.currentTarget.value; }}
+											class="w-full px-3 py-1.5 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
+												{lt.customTitle ? 'border-purple-300 bg-purple-50' : 'border-[var(--input-border)]'}"
+										/>
+									{/snippet}
+								</FormField>
 								<Button
 									type="submit"
 									variant="primary"
@@ -361,35 +365,35 @@ let levelTitleInputs: Record<number, string> = $state({});
 				>
 					<input type="hidden" name="age" value={benchmarkAge} />
 					<input type="hidden" name="categoryId" value={catDef.id} />
-					<div class="flex items-center gap-3 flex-wrap">
-						<span class="text-lg">{catDef.icon}</span>
-						<span class="font-bold text-gray-700 w-24">{catDef.name}</span>
-						<div class="flex items-center gap-2 flex-1 min-w-0">
-							<label class="text-xs text-gray-500 whitespace-nowrap">
-								平均<span class="hidden sm:inline text-gray-400">（目安値）</span>:
-							</label>
-							<input
-								type="number"
-								name="mean"
-								step="0.1"
-								min="0"
-								value={bm?.mean ?? 0}
-								oninput={(e) => { bmInputMean[bmKey] = e.currentTarget.value; }}
-								class="w-20 px-2 py-1 border rounded text-sm text-right"
-							/>
-							<label class="text-xs text-gray-500 whitespace-nowrap">
-								SD<span class="hidden sm:inline text-gray-400">（ばらつき）</span>:
-							</label>
-							<input
-								type="number"
-								name="stdDev"
-								step="0.1"
-								min="0.1"
-								value={bm?.stdDev ?? 10}
-								oninput={(e) => { bmInputSd[bmKey] = e.currentTarget.value; }}
-								class="w-20 px-2 py-1 border rounded text-sm text-right"
-							/>
-						</div>
+					<div class="flex items-end gap-3 flex-wrap">
+						<span class="text-lg self-center">{catDef.icon}</span>
+						<span class="font-bold text-gray-700 w-24 self-center">{catDef.name}</span>
+						<FormField label="平均（目安値）" class="w-24">
+							{#snippet children()}
+								<input
+									type="number"
+									name="mean"
+									step="0.1"
+									min="0"
+									value={bm?.mean ?? 0}
+									oninput={(e) => { bmInputMean[bmKey] = e.currentTarget.value; }}
+									class="w-full px-2 py-1 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm text-right"
+								/>
+							{/snippet}
+						</FormField>
+						<FormField label="SD（ばらつき）" class="w-24">
+							{#snippet children()}
+								<input
+									type="number"
+									name="stdDev"
+									step="0.1"
+									min="0.1"
+									value={bm?.stdDev ?? 10}
+									oninput={(e) => { bmInputSd[bmKey] = e.currentTarget.value; }}
+									class="w-full px-2 py-1 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm text-right"
+								/>
+							{/snippet}
+						</FormField>
 						<Button
 							type="submit"
 							variant="success"
