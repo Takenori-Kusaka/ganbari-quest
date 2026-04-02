@@ -12,6 +12,7 @@ let inviteLink = $state('');
 let qrDataUrl = $state('');
 let error = $state('');
 let copied = $state(false);
+let copyButtonVariant: 'secondary' | 'success' = $derived(copied ? 'secondary' : 'success');
 
 // 紐づけ済みでない子供のみ選択可能
 let availableChildren = $derived(
@@ -296,7 +297,7 @@ const roleLabel = (role: string) => {
 					/>
 					<Button
 						onclick={copyLink}
-						variant={copied ? 'secondary' : 'success'}
+						variant={copyButtonVariant}
 						size="sm"
 					>
 						{copied ? 'コピー済み' : 'コピー'}
