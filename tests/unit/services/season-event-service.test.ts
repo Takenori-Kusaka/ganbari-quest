@@ -27,6 +27,7 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 import {
+	checkEventMissionProgress,
 	claimEventReward,
 	createEvent,
 	getActiveEventsForChild,
@@ -110,6 +111,85 @@ describe('claimEventReward', () => {
 		mockFindChildProgress.mockResolvedValue(undefined);
 
 		await expect(claimEventReward(1, 1, TENANT)).rejects.toThrow('Not joined');
+	});
+});
+
+describe('checkEventMissionProgress', () => {
+	it('ミッション付きイベントの進捗を更新する', async () => {
+		mockFindActiveEvents.mockResolvedValue([
+			{
+				id: 1,
+				name: 'テスト',
+				missionConfig: '{"type":"total_records","target":5}',
+			},
+		]);
+		mockFindChildProgress.mockResolvedValue({
+			status: 'active',
+			progressJson: '{"count":2,"target":5}',
+		});
+		mockUpsertChildProgress.mockResolvedValue(undefined);
+
+		const results = await checkEventMissionProgress(1, TENANT);
+		expect(results).toHaveLength(1);
+		expect(results[0]?.missionComplete).toBe(false);
+		expect(mockUpsertChildProgress).toHaveBeenCalledWith(
+			1,
+			1,
+			'active',
+			'{"count":3,"target":5}',
+			TENANT,
+		);
+	});
+
+	it('ターゲット達成でcompleted状態にする', async () => {
+		mockFindActiveEvents.mockResolvedValue([
+			{
+				id: 1,
+				name: 'テスト',
+				missionConfig: '{"type":"total_records","target":3}',
+			},
+		]);
+		mockFindChildProgress.mockResolvedValue({
+			status: 'active',
+			progressJson: '{"count":2,"target":3}',
+		});
+		mockUpsertChildProgress.mockResolvedValue(undefined);
+
+		const results = await checkEventMissionProgress(1, TENANT);
+		expect(results[0]?.missionComplete).toBe(true);
+		expect(mockUpsertChildProgress).toHaveBeenCalledWith(
+			1,
+			1,
+			'completed',
+			'{"count":3,"target":3}',
+			TENANT,
+		);
+	});
+
+	it('未参加なら自動参加して進捗を開始', async () => {
+		mockFindActiveEvents.mockResolvedValue([
+			{
+				id: 1,
+				name: 'テスト',
+				missionConfig: '{"type":"total_records","target":10}',
+			},
+		]);
+		mockFindChildProgress
+			.mockResolvedValueOnce(undefined) // 最初のチェック: 未参加
+			.mockResolvedValueOnce({ status: 'active', progressJson: null }); // 参加後のチェック
+		mockUpsertChildProgress.mockResolvedValue(undefined);
+
+		const results = await checkEventMissionProgress(1, TENANT);
+		expect(results).toHaveLength(1);
+		// 自動参加 + 進捗更新 = 2回呼ばれる
+		expect(mockUpsertChildProgress).toHaveBeenCalledTimes(2);
+	});
+
+	it('missionConfigがないイベントはスキップ', async () => {
+		mockFindActiveEvents.mockResolvedValue([{ id: 1, name: 'テスト', missionConfig: null }]);
+
+		const results = await checkEventMissionProgress(1, TENANT);
+		expect(results).toHaveLength(0);
 	});
 });
 
