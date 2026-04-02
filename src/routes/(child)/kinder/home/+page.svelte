@@ -12,10 +12,12 @@ import AdventureStartOverlay from '$lib/ui/components/AdventureStartOverlay.svel
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
+import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import EventBanner from '$lib/ui/components/EventBanner.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
+import SiblingRanking from '$lib/ui/components/SiblingRanking.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 import { tick } from 'svelte';
@@ -406,6 +408,26 @@ $effect(() => {
 	<!-- Season event banners -->
 	{#if data.activeEvents && data.activeEvents.length > 0}
 		<EventBanner events={data.activeEvents} />
+	{/if}
+
+	<!-- Sibling challenge banners -->
+	{#if data.activeChallenges && data.activeChallenges.length > 0}
+		<ChallengeBanner
+			challenges={data.activeChallenges}
+			childId={data.child?.id ?? 0}
+			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
+		/>
+	{/if}
+
+	<!-- Sibling ranking -->
+	{#if data.siblingRanking}
+		<SiblingRanking
+			rankings={data.siblingRanking.rankings}
+			mostActive={data.siblingRanking.mostActive}
+			categoryChampions={data.siblingRanking.categoryChampions}
+			encouragement={data.siblingRanking.encouragement}
+			childId={data.child?.id ?? 0}
+		/>
 	{/if}
 
 	<!-- Error toast -->

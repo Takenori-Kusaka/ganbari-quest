@@ -74,6 +74,11 @@ export interface RecordActivityResult {
 	comboBonus: ComboResult | null;
 	missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 	eventMissions: { eventId: number; missionComplete: boolean; eventName: string }[];
+	siblingChallenges: {
+		challengeId: number;
+		allSiblingsComplete: boolean;
+		challengeTitle: string;
+	}[];
 	focusBonus: { bonusPoints: number } | null;
 	levelUp: LevelUpInfo | null;
 	xpGain: XpGainInfo;
@@ -236,6 +241,26 @@ export async function recordActivity(
 		// イベントミッションチェック失敗は記録フローを止めない
 	}
 
+	// きょうだいチャレンジ進捗チェック
+	let siblingChallengeResults: {
+		challengeId: number;
+		allSiblingsComplete: boolean;
+		challengeTitle: string;
+	}[] = [];
+	try {
+		const { checkChallengeProgress } = await import(
+			'$lib/server/services/sibling-challenge-service'
+		);
+		siblingChallengeResults = await checkChallengeProgress(
+			childId,
+			activityId,
+			activity.categoryId,
+			tenantId,
+		);
+	} catch {
+		// きょうだいチャレンジチェック失敗は記録フローを止めない
+	}
+
 	// フォーカスモードおすすめ3件達成ボーナスチェック
 	let focusBonus: { bonusPoints: number } | null = null;
 	try {
@@ -268,6 +293,7 @@ export async function recordActivity(
 		comboBonus: comboBonus.totalNewBonus > 0 || comboBonus.hints.length > 0 ? comboBonus : null,
 		missionComplete: missionResult.missionCompleted ? missionResult : null,
 		eventMissions: eventMissionResults,
+		siblingChallenges: siblingChallengeResults,
 		focusBonus,
 		levelUp,
 		xpGain,

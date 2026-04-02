@@ -27,6 +27,11 @@ import {
 	claimChallengeReward as claimChallengeRewardService,
 	getActiveChallengesForChild,
 } from '$lib/server/services/sibling-challenge-service';
+import {
+	getUnshownCheers,
+	markCheersShown,
+	sendCheer,
+} from '$lib/server/services/sibling-cheer-service';
 import { getWeeklyRanking, isRankingEnabled } from '$lib/server/services/sibling-ranking-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
@@ -65,6 +70,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			activeEvents: [],
 			activeChallenges: [],
 			siblingRanking: null,
+			unshownCheers: [],
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -83,6 +89,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		birthdayBonusStatus,
 		activeEvents,
 		activeChallenges,
+		unshownCheers,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -98,6 +105,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getBirthdayBonusStatus(child.id, tenantId),
 		getActiveEventsForChild(child.id, tenantId),
 		getActiveChallengesForChild(child.id, tenantId),
+		getUnshownCheers(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -166,6 +174,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		activeEvents,
 		activeChallenges,
 		siblingRanking,
+		unshownCheers,
 	};
 };
 
@@ -430,5 +439,41 @@ export const actions: Actions = {
 			const message = err instanceof Error ? err.message : 'ほうしゅうをうけとれませんでした';
 			return fail(400, { error: message });
 		}
+	},
+
+	sendCheer: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(cookies.get('selectedChildId'));
+		const toChildId = Number(formData.get('toChildId'));
+		const stampCode = formData.get('stampCode')?.toString() ?? '';
+
+		if (Number.isNaN(childId) || Number.isNaN(toChildId) || !stampCode) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+
+		const result = await sendCheer(childId, toChildId, stampCode, tenantId);
+		if ('error' in result) {
+			return fail(400, { error: result.error });
+		}
+
+		return { success: true, cheerSent: true };
+	},
+
+	markCheersShown: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const cheerIdsStr = formData.get('cheerIds')?.toString() ?? '';
+		const cheerIds = cheerIdsStr
+			.split(',')
+			.map(Number)
+			.filter((n) => !Number.isNaN(n));
+
+		if (cheerIds.length === 0) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+
+		await markCheersShown(cheerIds, tenantId);
+		return { success: true };
 	},
 };

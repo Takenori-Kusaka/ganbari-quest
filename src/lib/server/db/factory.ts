@@ -19,6 +19,8 @@ import * as dynamoMessageRepo from './dynamodb/message-repo';
 import * as dynamoPointRepo from './dynamodb/point-repo';
 import * as dynamoSeasonEventRepo from './dynamodb/season-event-repo';
 import * as dynamoSettingsRepo from './dynamodb/settings-repo';
+import * as dynamoSiblingChallengeRepo from './dynamodb/sibling-challenge-repo';
+import * as dynamoSiblingCheerRepo from './dynamodb/sibling-cheer-repo';
 import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
 import * as dynamoStampCardRepo from './dynamodb/stamp-card-repo';
 import * as dynamoStatusRepo from './dynamodb/status-repo';
@@ -43,6 +45,8 @@ import type { IMessageRepo } from './interfaces/message-repo.interface';
 import type { IPointRepo } from './interfaces/point-repo.interface';
 import type { ISeasonEventRepo } from './interfaces/season-event-repo.interface';
 import type { ISettingsRepo } from './interfaces/settings-repo.interface';
+import type { ISiblingChallengeRepo } from './interfaces/sibling-challenge-repo.interface';
+import type { ISiblingCheerRepo } from './interfaces/sibling-cheer-repo.interface';
 import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interface';
 import type { IStampCardRepo } from './interfaces/stamp-card-repo.interface';
 import type { IStatusRepo } from './interfaces/status-repo.interface';
@@ -67,6 +71,8 @@ import * as sqliteMessageRepo from './sqlite/message-repo';
 import * as sqlitePointRepo from './sqlite/point-repo';
 import * as sqliteSeasonEventRepo from './sqlite/season-event-repo';
 import * as sqliteSettingsRepo from './sqlite/settings-repo';
+import * as sqliteSiblingChallengeRepo from './sqlite/sibling-challenge-repo';
+import * as sqliteSiblingCheerRepo from './sqlite/sibling-cheer-repo';
 import * as sqliteSpecialRewardRepo from './sqlite/special-reward-repo';
 import * as sqliteStampCardRepo from './sqlite/stamp-card-repo';
 import * as sqliteStatusRepo from './sqlite/status-repo';
@@ -91,6 +97,8 @@ export interface Repositories {
 	message: IMessageRepo;
 	point: IPointRepo;
 	seasonEvent: ISeasonEventRepo;
+	siblingChallenge: ISiblingChallengeRepo;
+	siblingCheer: ISiblingCheerRepo;
 	settings: ISettingsRepo;
 	specialReward: ISpecialRewardRepo;
 	stampCard: IStampCardRepo;
@@ -125,6 +133,8 @@ export function getRepos(): Repositories {
 			message: dynamoMessageRepo,
 			point: dynamoPointRepo,
 			seasonEvent: dynamoSeasonEventRepo,
+			siblingChallenge: dynamoSiblingChallengeRepo,
+			siblingCheer: dynamoSiblingCheerRepo,
 			settings: dynamoSettingsRepo,
 			levelTitle: dynamoLevelTitleRepo,
 			specialReward: dynamoSpecialRewardRepo,
@@ -155,6 +165,8 @@ export function getRepos(): Repositories {
 		message: sqliteMessageRepo,
 		point: sqlitePointRepo,
 		seasonEvent: sqliteSeasonEventRepo,
+		siblingChallenge: sqliteSiblingChallengeRepo,
+		siblingCheer: sqliteSiblingCheerRepo,
 		settings: sqliteSettingsRepo,
 		levelTitle: sqliteLevelTitleRepo,
 		specialReward: sqliteSpecialRewardRepo,
