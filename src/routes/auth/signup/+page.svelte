@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { page } from '$app/stores';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -15,13 +16,20 @@ const code = $derived(codeRaw.replace(/\s/g, ''));
 let loading = $state(false);
 let agreedTerms = $state(false);
 let agreedPrivacy = $state(false);
+let showLicenseKey = $state(false);
+
+// URL の plan パラメータ（pricing ページからの遷移用）
+const planParam = $derived($page.url.searchParams.get('plan'));
 
 let confirmStep = $derived(form?.confirmStep ?? false);
 
 // サーバーレスポンス（form）からフォーム値を復元
 $effect(() => {
 	if (typeof form?.email === 'string') email = form.email;
-	if (typeof form?.licenseKey === 'string') licenseKey = form.licenseKey;
+	if (typeof form?.licenseKey === 'string') {
+		licenseKey = form.licenseKey;
+		if (form.licenseKey) showLicenseKey = true;
+	}
 });
 </script>
 
@@ -141,20 +149,24 @@ $effect(() => {
 					autocomplete="new-password"
 				/>
 
-				<FormField label="ライセンスキー（任意）" id="licenseKey" hint="購入済みの方はライセンスキーを入力するとプレミアムプランが有効になります">
-					{#snippet children()}
-						<input
-							id="licenseKey"
-							name="licenseKey"
-							type="text"
-							bind:value={licenseKey}
-							placeholder="GQ-XXXX-XXXX-XXXX"
-							autocomplete="off"
-							class="w-full px-3 py-2 border border-[var(--input-border)] rounded-[var(--input-radius)] text-sm uppercase font-mono tracking-wider
-								focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors"
-						/>
-					{/snippet}
-				</FormField>
+				{#if showLicenseKey}
+					<FormField label="ライセンスキー" id="licenseKey" hint="購入済みのライセンスキーを入力してください">
+						{#snippet children()}
+							<input
+								id="licenseKey"
+								name="licenseKey"
+								type="text"
+								bind:value={licenseKey}
+								placeholder="GQ-XXXX-XXXX-XXXX"
+								autocomplete="off"
+								class="w-full px-3 py-2 border border-[var(--input-border)] rounded-[var(--input-radius)] text-sm uppercase font-mono tracking-wider
+									focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors"
+							/>
+						{/snippet}
+					</FormField>
+				{:else}
+					<input type="hidden" name="licenseKey" value="" />
+				{/if}
 
 				<div class="-mt-1">
 					<FormField label="">
@@ -201,11 +213,32 @@ $effect(() => {
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
 						登録中...
+					{:else if planParam}
+						7日間 無料体験をはじめる
 					{:else}
-						アカウントを作成
+						無料ではじめる
 					{/if}
 				</Button>
+
+				{#if planParam}
+					<p class="text-xs text-center text-[var(--color-neutral-400)] -mt-2">
+						セットアップ後に {planParam === 'family' ? 'ファミリー' : 'スタンダード'}プランのトライアルが開始されます
+					</p>
+				{/if}
 			</form>
+
+			<!-- ライセンスキー / プランの切り替えリンク -->
+			<div class="mt-3 text-center">
+				{#if !showLicenseKey}
+					<button
+						type="button"
+						class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-link)] underline cursor-pointer bg-transparent border-none p-0"
+						onclick={() => { showLicenseKey = true; }}
+					>
+						ライセンスキーをお持ちの方
+					</button>
+				{/if}
+			</div>
 		{/if}
 
 		<div class="mt-5 text-center">
