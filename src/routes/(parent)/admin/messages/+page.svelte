@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
@@ -86,14 +87,14 @@ function selectStamp(code: string) {
 				{/each}
 			</div>
 		{:else}
-			<div class="bg-white rounded-xl p-4 shadow-sm">
+			<Card>
 				<FormField label="メッセージ（30文字以内）" type="text" bind:value={textBody} maxlength={30} placeholder="がんばってるね！だいすき！" hint="{textBody.length}/30" />
-			</div>
+			</Card>
 		{/if}
 	</section>
 
 	<!-- Step 3: Confirm & send -->
-	<form
+	<Card><form
 		method="POST"
 		action="?/send"
 		use:enhance={() => {
@@ -109,7 +110,6 @@ function selectStamp(code: string) {
 				await update();
 			};
 		}}
-		class="bg-white rounded-xl p-4 shadow-sm"
 	>
 		<input type="hidden" name="childId" value={selectedChildId} />
 		<input type="hidden" name="messageType" value={messageType} />
@@ -133,7 +133,7 @@ function selectStamp(code: string) {
 				{textBody.trim() ? `💌 「${textBody}」を送る` : 'メッセージを入力してね'}
 			{/if}
 		</Button>
-	</form>
+	</form></Card>
 
 	<!-- Success Message -->
 	{#if sendSuccess}

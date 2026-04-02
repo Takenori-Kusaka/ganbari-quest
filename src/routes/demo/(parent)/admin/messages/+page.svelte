@@ -2,6 +2,7 @@
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
@@ -88,7 +89,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 				{/each}
 			</div>
 		{:else}
-			<div class="bg-white rounded-xl p-4 shadow-sm">
+			<Card>
 				<FormField
 					label="メッセージ（30文字以内）"
 					type="text"
@@ -96,12 +97,12 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 					disabled
 					placeholder="がんばってるね！だいすき！"
 				/>
-			</div>
+			</Card>
 		{/if}
 	</section>
 
 	<!-- Step 3: Send button (disabled) -->
-	<div class="bg-white rounded-xl p-4 shadow-sm">
+	<Card>
 		<Button
 			variant="ghost"
 			size="md"
@@ -110,7 +111,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 		>
 			デモではメッセージを送れません
 		</Button>
-	</div>
+	</Card>
 
 	<!-- Recent messages (demo data) -->
 	{#if selectedChild?.recentMessages && selectedChild.recentMessages.length > 0}
@@ -118,29 +119,31 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 			<h3 class="text-sm font-bold text-gray-500 mb-2">最近のメッセージ</h3>
 			<div class="space-y-2">
 				{#each selectedChild.recentMessages as msg}
-					<div class="bg-white rounded-xl p-3 shadow-sm flex items-center gap-3">
-						<span class="text-2xl">{msg.icon}</span>
-						<div class="flex-1 min-w-0">
-							{#if msg.messageType === 'stamp' && msg.stampCode}
-								{@const stamp = data.stamps.find(
-									(s: { code: string }) => s.code === msg.stampCode,
-								)}
-								<p class="text-sm font-bold text-gray-700">
-									{stamp?.label ?? msg.stampCode}
+					<Card padding="sm">
+						<div class="flex items-center gap-3">
+							<span class="text-2xl">{msg.icon}</span>
+							<div class="flex-1 min-w-0">
+								{#if msg.messageType === 'stamp' && msg.stampCode}
+									{@const stamp = data.stamps.find(
+										(s: { code: string }) => s.code === msg.stampCode,
+									)}
+									<p class="text-sm font-bold text-gray-700">
+										{stamp?.label ?? msg.stampCode}
+									</p>
+								{:else if msg.body}
+									<p class="text-sm font-bold text-gray-700">{msg.body}</p>
+								{/if}
+								<p class="text-xs text-gray-400">
+									{new Date(msg.sentAt).toLocaleString('ja-JP')}
 								</p>
-							{:else if msg.body}
-								<p class="text-sm font-bold text-gray-700">{msg.body}</p>
+							</div>
+							{#if msg.shownAt}
+								<span class="text-xs text-green-500">既読</span>
+							{:else}
+								<span class="text-xs text-orange-500">未読</span>
 							{/if}
-							<p class="text-xs text-gray-400">
-								{new Date(msg.sentAt).toLocaleString('ja-JP')}
-							</p>
 						</div>
-						{#if msg.shownAt}
-							<span class="text-xs text-green-500">既読</span>
-						{:else}
-							<span class="text-xs text-orange-500">未読</span>
-						{/if}
-					</div>
+					</Card>
 				{/each}
 			</div>
 		</section>

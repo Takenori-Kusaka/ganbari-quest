@@ -6,6 +6,7 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -57,7 +58,8 @@ function handleCompleteClose() {
 		</div>
 	{:else}
 		{#each data.checklists as checklist (checklist.templateId)}
-			<div class="bg-white rounded-[var(--radius-lg)] shadow-sm border border-[var(--color-border)] mb-[var(--sp-md)] overflow-hidden">
+			<Card padding="none" class="mb-[var(--sp-md)]">
+				{#snippet children()}
 				<!-- Template header -->
 				<div class="px-[var(--sp-md)] py-[var(--sp-sm)] bg-[var(--theme-primary-light)] flex items-center justify-between">
 					<div class="flex items-center gap-[var(--sp-xs)]">
@@ -136,7 +138,8 @@ function handleCompleteClose() {
 						ぜんぶチェックしたら <span class="font-bold text-[var(--color-point)]">{fmtPts(checklist.totalCount * checklist.pointsPerItem + checklist.completionBonus)}</span>
 					{/if}
 				</div>
-			</div>
+				{/snippet}
+			</Card>
 		{/each}
 	{/if}
 

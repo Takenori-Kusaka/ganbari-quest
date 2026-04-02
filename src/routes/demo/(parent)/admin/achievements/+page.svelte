@@ -2,6 +2,7 @@
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
@@ -44,7 +45,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 
 		{#if selectedChild}
 			<!-- ライフイベント付与 -->
-			<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+			<Card class="mb-6">
 				<h3 class="text-lg font-bold text-gray-700 mb-3">🎓 ライフイベント付与</h3>
 				<p class="text-sm text-gray-500 mb-3">
 					保育園卒園・小学校卒業などの節目を記録し、ボーナスポイントを付与します。
@@ -73,10 +74,10 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 						</div>
 					{/each}
 				</div>
-			</div>
+			</Card>
 
 			<!-- 実績一覧 -->
-			<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+			<Card>
 				<h3 class="text-lg font-bold text-gray-700 mb-3">
 					{selectedChild.nickname}の実績
 				</h3>
@@ -125,7 +126,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 						</div>
 					{/each}
 				</div>
-			</div>
+			</Card>
 		{/if}
 	{/if}
 

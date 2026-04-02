@@ -3,6 +3,7 @@ import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/onboarding-service';
 import { getPointBalance } from '$lib/server/services/point-service';
+import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -38,7 +39,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
-	return { children: childrenWithStatus, onboarding };
+	// 今月の簡易サマリー
+	const now = new Date();
+	const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+	let monthlySummaries: Record<
+		number,
+		{ totalActivities: number; currentLevel: number; newAchievements: number }
+	> = {};
+	try {
+		const summaryMap = await getAllChildrenSimpleSummary(tenantId, yearMonth);
+		monthlySummaries = Object.fromEntries(summaryMap);
+	} catch (e) {
+		logger.warn('[admin] 月次サマリー取得フォールバック', { context: { error: String(e) } });
+	}
+
+	return { children: childrenWithStatus, onboarding, monthlySummaries, currentMonth: yearMonth };
 };
 
 export const actions: Actions = {

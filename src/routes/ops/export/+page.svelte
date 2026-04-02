@@ -1,5 +1,6 @@
 <script lang="ts">
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
@@ -42,7 +43,7 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 </svelte:head>
 
 <div class="flex flex-col gap-8">
-	<section class="bg-[var(--color-surface-card)] border border-[var(--color-border-default)] rounded-xl p-6">
+	<Card padding="lg">
 		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">確定申告用CSVエクスポート</h2>
 		<div class="flex gap-4 items-center mb-6 flex-wrap">
 			<label class="flex gap-2 items-center text-sm text-[var(--color-neutral-600)]">
@@ -94,9 +95,9 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 				</Button>
 			</div>
 		</div>
-	</section>
+	</Card>
 
-	<section class="bg-[var(--color-surface-card)] border border-[var(--color-border-default)] rounded-xl p-6">
+	<Card padding="lg">
 		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">注意事項</h2>
 		<ul class="pl-6 text-[0.8125rem] text-[var(--color-text-muted)] leading-[1.8]">
 			<li>AWS 費用は Cost Explorer API から取得（USD→JPY はレート ¥150/$ で概算）</li>
@@ -104,7 +105,7 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 			<li>消費税区分はインボイス登録状況に応じて調整が必要です</li>
 			<li>本データは概算値です。正式な申告は税理士に相談してください</li>
 		</ul>
-	</section>
+	</Card>
 </div>
 
 <style>

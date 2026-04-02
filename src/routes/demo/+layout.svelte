@@ -6,6 +6,7 @@ import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import { getGuideState } from '$lib/features/demo/demo-guide-state.svelte.js';
 import NavigationProgress from '$lib/ui/components/NavigationProgress.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { children } = $props();
 
@@ -58,7 +59,8 @@ $effect(() => {
 
 <!-- 5分後に表示されるフローティングCTA（ガイドが非アクティブ時のみ） -->
 {#if showFloatingCta && !floatingCtaDismissed && !guide.active}
-	<div class="fixed bottom-20 left-4 right-4 z-40 bg-white rounded-2xl shadow-xl border border-orange-200 p-4 animate-slide-up">
+	<Card variant="elevated" padding="md" class="fixed bottom-20 left-4 right-4 z-40 border border-orange-200 animate-slide-up">
+		{#snippet children()}
 		<Button
 			variant="ghost"
 			size="sm"
@@ -76,7 +78,8 @@ $effect(() => {
 		>
 			無料で はじめる →
 		</a>
-	</div>
+		{/snippet}
+	</Card>
 {/if}
 
 <style>

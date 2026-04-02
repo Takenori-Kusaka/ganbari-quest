@@ -9,6 +9,7 @@ import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
@@ -103,7 +104,7 @@ function dailyLimitLabel(val: number | null): string {
 	<!-- Activity List (matches production card style) -->
 	<div class="space-y-1">
 		{#each filteredActivities as activity (activity.id)}
-			<div class="bg-white rounded-lg shadow-sm">
+			<Card padding="none">
 				<div class="px-3 py-2 flex items-center gap-3">
 					<CompoundIcon icon={activity.icon} size="md" />
 					<div class="flex-1 min-w-0">
@@ -122,7 +123,7 @@ function dailyLimitLabel(val: number | null): string {
 						<span class="text-sm font-bold text-amber-500">{fmtPts(activity.basePoints)}</span>
 					</div>
 				</div>
-			</div>
+			</Card>
 		{/each}
 	</div>
 
