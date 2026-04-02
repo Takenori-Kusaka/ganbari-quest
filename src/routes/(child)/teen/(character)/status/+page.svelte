@@ -126,36 +126,6 @@ const radarCategories = $derived(
 			{/if}
 		</div>
 
-		<!-- Achievements link -->
-		<a
-			href="/teen/achievements"
-			class="mt-[var(--sp-md)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">🏆</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">実績</p>
-			<p class="text-xs text-[var(--color-text-muted)]">達成した実績一覧</p>
-		</a>
-
-		<!-- History link -->
-		<a
-			href="/teen/history"
-			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">📋</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">記録</p>
-			<p class="text-xs text-[var(--color-text-muted)]">活動履歴</p>
-		</a>
-
-		<!-- Title collection link -->
-		<a
-			href="/teen/titles"
-			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">🎖️</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">称号</p>
-			<p class="text-xs text-[var(--color-text-muted)]">獲得した称号一覧</p>
-		</a>
-
 	{:else}
 		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-sm)]">⭐</span>
