@@ -687,3 +687,85 @@ export interface UpdateSeasonEventInput {
 export interface SeasonEventWithProgress extends SeasonEvent {
 	progress: ChildEventProgress | null;
 }
+
+// ============================================================
+// Sibling Challenge
+// ============================================================
+
+export interface SiblingChallenge {
+	id: number;
+	title: string;
+	description: string | null;
+	challengeType: string;
+	periodType: string;
+	startDate: string;
+	endDate: string;
+	targetConfig: string;
+	rewardConfig: string;
+	status: string;
+	isActive: number;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface SiblingChallengeProgress {
+	id: number;
+	challengeId: number;
+	childId: number;
+	currentValue: number;
+	targetValue: number;
+	completed: number;
+	completedAt: string | null;
+	rewardClaimed: number;
+	rewardClaimedAt: string | null;
+	progressJson: string | null;
+	updatedAt: string;
+}
+
+export interface InsertSiblingChallengeInput {
+	title: string;
+	description?: string | null;
+	challengeType?: string;
+	periodType?: string;
+	startDate: string;
+	endDate: string;
+	targetConfig: string;
+	rewardConfig: string;
+}
+
+export interface UpdateSiblingChallengeInput {
+	title?: string;
+	description?: string | null;
+	challengeType?: string;
+	startDate?: string;
+	endDate?: string;
+	targetConfig?: string;
+	rewardConfig?: string;
+	status?: string;
+	isActive?: number;
+}
+
+export interface SiblingChallengeWithProgress extends SiblingChallenge {
+	progress: SiblingChallengeProgress[];
+	allCompleted: boolean;
+}
+
+// ============================================================
+// Sibling Cheers (きょうだい間おうえんスタンプ)
+// ============================================================
+
+export interface SiblingCheer {
+	id: number;
+	fromChildId: number;
+	toChildId: number;
+	stampCode: string;
+	tenantId: string;
+	sentAt: string;
+	shownAt: string | null;
+}
+
+export interface InsertSiblingCheerInput {
+	fromChildId: number;
+	toChildId: number;
+	stampCode: string;
+}
