@@ -85,7 +85,7 @@ const secondaryMenuItems = $derived([
 	{ href: `${basePath}/members`, label: 'メンバー', icon: '👥' },
 	...(isDemo
 		? []
-		: [{ href: `${basePath}/license`, label: 'ライセンス', icon: '🔑', authOnly: true }]),
+		: [{ href: `${basePath}/license`, label: 'プラン・お支払い', icon: '💳', authOnly: true }]),
 ]);
 
 const filteredSecondaryItems = $derived(
@@ -108,7 +108,7 @@ const allMenuItems = $derived([
 	{ href: `${basePath}/members`, label: 'メンバー', icon: '👥' },
 	...(isDemo
 		? []
-		: [{ href: `${basePath}/license`, label: 'ライセンス', icon: '🔑', authOnly: true }]),
+		: [{ href: `${basePath}/license`, label: 'プラン・お支払い', icon: '💳', authOnly: true }]),
 ]);
 
 const visibleAllMenuItems = $derived(
