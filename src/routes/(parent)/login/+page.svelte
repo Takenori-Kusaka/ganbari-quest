@@ -27,23 +27,25 @@ function handleSubmit() {
 }
 </script>
 
-<div data-theme="admin" class="login-page">
+<div data-theme="admin" class="min-h-dvh flex flex-col items-center justify-center bg-gradient-to-b from-[var(--color-brand-100)] to-[var(--color-brand-200)] p-4 relative">
 	<!-- もどるボタン -->
-	<a href="/switch" class="back-link">
+	<a href="/switch" class="absolute top-4 left-4 text-[var(--color-text-muted)] text-sm no-underline px-3 py-2 rounded-[var(--radius-sm)] transition-colors hover:bg-black/5">
 		← もどる
 	</a>
 
-	<div class="login-header">
+	<div class="text-center mb-8">
 		<Logo variant="symbol" size={56} />
-		<h1 class="login-title">おとうさん・おかあさんの<br />ページだよ</h1>
-		<p class="login-hint">
+		<h1 class="text-[1.375rem] font-bold text-[var(--color-text)] leading-relaxed m-0">
+			おとうさん・おかあさんの<br />ページだよ
+		</h1>
+		<p class="text-sm text-[var(--color-text-muted)] mt-3 leading-relaxed">
 			ここから先はおとうさん・おかあさんに<br />
 			ひみつのばんごうを入れてもらってね
 		</p>
 	</div>
 
 	{#if form?.error}
-		<div class="login-error">
+		<div class="mb-4 px-4 py-3 bg-red-100 text-red-700 rounded-[var(--radius-md)] text-sm font-medium">
 			{form.error}
 		</div>
 	{/if}
@@ -59,15 +61,16 @@ function handleSubmit() {
 				await update();
 			};
 		}}
-		class="login-form"
+		class="w-full max-w-[320px] mx-auto"
 	>
 		<input type="hidden" name="pin" value={pin} />
 
 		<!-- ドット表示 -->
-		<div class="pin-dots" aria-label="PIN入力状態">
+		<div class="flex justify-center gap-3 mb-8" aria-label="PIN入力状態">
 			{#each Array(PIN_MAX_LENGTH) as _, i}
 				<div
-					class="pin-dot {i < pin.length ? 'pin-dot--filled' : ''}"
+					class="w-4 h-4 rounded-full transition-all duration-200
+						{i < pin.length ? 'bg-[var(--color-brand-600)] scale-110' : 'bg-[var(--color-neutral-300)]'}"
 				></div>
 			{/each}
 		</div>
@@ -80,88 +83,3 @@ function handleSubmit() {
 		/>
 	</form>
 </div>
-
-<style>
-	.login-page {
-		min-height: 100dvh;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		background: linear-gradient(to bottom, #eff6ff, #dbeafe);
-		padding: 16px;
-		position: relative;
-	}
-
-	.back-link {
-		position: absolute;
-		top: 16px;
-		left: 16px;
-		color: #6b7280;
-		font-size: 0.875rem;
-		text-decoration: none;
-		padding: 8px 12px;
-		border-radius: 8px;
-		transition: background 0.15s;
-	}
-
-	.back-link:hover {
-		background: rgba(0, 0, 0, 0.05);
-	}
-
-	.login-header {
-		text-align: center;
-		margin-bottom: 32px;
-	}
-
-	.login-title {
-		font-size: 1.375rem;
-		font-weight: 700;
-		color: #374151;
-		line-height: 1.5;
-		margin: 0;
-	}
-
-	.login-hint {
-		font-size: 0.875rem;
-		color: #6b7280;
-		margin-top: 12px;
-		line-height: 1.6;
-	}
-
-	.login-error {
-		margin-bottom: 16px;
-		padding: 12px 16px;
-		background: #fee2e2;
-		color: #b91c1c;
-		border-radius: 12px;
-		font-size: 0.875rem;
-		font-weight: 500;
-	}
-
-	.login-form {
-		width: 100%;
-		max-width: 320px;
-		margin: 0 auto;
-	}
-
-	.pin-dots {
-		display: flex;
-		justify-content: center;
-		gap: 12px;
-		margin-bottom: 32px;
-	}
-
-	.pin-dot {
-		width: 16px;
-		height: 16px;
-		border-radius: 50%;
-		background: #d1d5db;
-		transition: all 0.2s;
-	}
-
-	.pin-dot--filled {
-		background: #3b82f6;
-		transform: scale(1.1);
-	}
-</style>

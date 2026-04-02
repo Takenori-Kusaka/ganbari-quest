@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import Logo from '$lib/ui/components/Logo.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { form } = $props();
 
@@ -27,14 +28,14 @@ $effect(() => {
 	<title>アカウント登録 - がんばりクエスト</title>
 </svelte:head>
 
-<div class="signup-page">
-	<div class="signup-card">
-		<div class="signup-header">
+<div class="min-h-dvh flex items-center justify-center bg-[var(--gradient-brand)] p-4">
+	<div class="w-full max-w-[400px] bg-[var(--color-surface-card)] rounded-[var(--radius-md)] px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
+		<div class="text-center mb-8">
 			<Logo variant="full" size={320} />
 		</div>
 
 		{#if form?.error}
-			<div class="signup-error" role="alert">
+			<div class="mb-4 p-3 bg-red-50 text-red-600 border border-red-200 rounded-[var(--radius-sm)] text-sm" role="alert">
 				{form.error}
 			</div>
 		{/if}
@@ -51,19 +52,19 @@ $effect(() => {
 						await update();
 					};
 				}}
-				class="signup-form"
+				class="flex flex-col gap-5"
 			>
 				<input type="hidden" name="email" value={email} />
 				<input type="hidden" name="password" value={password} />
 				<input type="hidden" name="licenseKey" value={licenseKey} />
 
-				<p class="confirm-description">
+				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
 					<strong>{email}</strong> に確認コードを送信しました。<br />
 					メールに記載された6桁のコードを入力してください。
 				</p>
 
-				<div class="form-group">
-					<label for="code" class="form-label">確認コード</label>
+				<div class="flex flex-col gap-1.5">
+					<label for="code" class="text-sm font-semibold text-[var(--color-text)]">確認コード</label>
 					<input
 						id="code"
 						name="code"
@@ -73,18 +74,19 @@ $effect(() => {
 						required
 						inputmode="numeric"
 						autocomplete="one-time-code"
-						class="form-input code-input"
+						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-2xl text-center tracking-[0.5em] font-mono
+							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
 					/>
 				</div>
 
-				<button type="submit" disabled={loading || code.length < 1} class="signup-button" aria-busy={loading}>
+				<Button type="submit" disabled={loading || code.length < 1} size="md" class="w-full">
 					{#if loading}
-						<span class="btn-spinner" aria-hidden="true"></span>
-					確認中...
+						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
+						確認中...
 					{:else}
 						確認する
 					{/if}
-				</button>
+				</Button>
 			</form>
 		{:else}
 			<!-- 登録フォーム -->
@@ -99,10 +101,10 @@ $effect(() => {
 						await update({ reset: false });
 					};
 				}}
-				class="signup-form"
+				class="flex flex-col gap-5"
 			>
-				<div class="form-group">
-					<label for="email" class="form-label">メールアドレス</label>
+				<div class="flex flex-col gap-1.5">
+					<label for="email" class="text-sm font-semibold text-[var(--color-text)]">メールアドレス</label>
 					<input
 						id="email"
 						name="email"
@@ -111,12 +113,13 @@ $effect(() => {
 						placeholder="example@email.com"
 						required
 						autocomplete="email"
-						class="form-input"
+						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-base
+							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
 					/>
 				</div>
 
-				<div class="form-group">
-					<label for="password" class="form-label">パスワード</label>
+				<div class="flex flex-col gap-1.5">
+					<label for="password" class="text-sm font-semibold text-[var(--color-text)]">パスワード</label>
 					<input
 						id="password"
 						name="password"
@@ -126,13 +129,14 @@ $effect(() => {
 						required
 						minlength="8"
 						autocomplete="new-password"
-						class="form-input"
+						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-base
+							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
 					/>
-					<span class="form-hint">8文字以上、大文字・小文字・数字を含む</span>
+					<span class="text-xs text-[var(--color-text-muted)]">8文字以上、大文字・小文字・数字を含む</span>
 				</div>
 
-				<div class="form-group">
-					<label for="passwordConfirm" class="form-label">パスワード（確認）</label>
+				<div class="flex flex-col gap-1.5">
+					<label for="passwordConfirm" class="text-sm font-semibold text-[var(--color-text)]">パスワード（確認）</label>
 					<input
 						id="passwordConfirm"
 						name="passwordConfirm"
@@ -142,12 +146,15 @@ $effect(() => {
 						required
 						minlength="8"
 						autocomplete="new-password"
-						class="form-input"
+						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-base
+							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
 					/>
 				</div>
 
-				<div class="form-group">
-					<label for="licenseKey" class="form-label">ライセンスキー <span class="form-optional">（任意）</span></label>
+				<div class="flex flex-col gap-1.5">
+					<label for="licenseKey" class="text-sm font-semibold text-[var(--color-text)]">
+						ライセンスキー <span class="font-normal text-xs text-[var(--color-text-muted)]">（任意）</span>
+					</label>
 					<input
 						id="licenseKey"
 						name="licenseKey"
@@ -155,252 +162,60 @@ $effect(() => {
 						bind:value={licenseKey}
 						placeholder="GQ-XXXX-XXXX-XXXX"
 						autocomplete="off"
-						class="form-input license-input"
+						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-base uppercase font-mono tracking-wider
+							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
 					/>
-					<span class="form-hint">購入済みの方はライセンスキーを入力するとプレミアムプランが有効になります</span>
+					<span class="text-xs text-[var(--color-text-muted)]">購入済みの方はライセンスキーを入力するとプレミアムプランが有効になります</span>
 				</div>
 
-				<div class="agreement-group">
-					<label class="agreement-label">
+				<div class="-mt-1">
+					<label class="flex items-start gap-2 cursor-pointer">
 						<input
 							type="checkbox"
 							name="agreedTerms"
 							bind:checked={agreedTerms}
-							class="agreement-checkbox"
+							class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
 						/>
-						<span class="agreement-text">
-							<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener">利用規約</a>に同意します
+						<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
+							<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline">利用規約</a>に同意します
 						</span>
 					</label>
-					<label class="agreement-label">
+					<label class="flex items-start gap-2 cursor-pointer">
 						<input
 							type="checkbox"
 							name="agreedPrivacy"
 							bind:checked={agreedPrivacy}
-							class="agreement-checkbox"
+							class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
 						/>
-						<span class="agreement-text">
-							<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>に同意します
+						<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
+							<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline">プライバシーポリシー</a>に同意します
 						</span>
 					</label>
-					<p class="agreement-note">
+					<p class="text-xs text-[var(--color-neutral-400)] mt-1 ml-6 leading-snug">
 						※ 本サービスは子供のデータを扱います。保護者として上記に同意してください。
 					</p>
 				</div>
 
-				<button
+				<Button
 					type="submit"
 					disabled={loading || !email || !password || !passwordConfirm || !agreedTerms || !agreedPrivacy}
-					class="signup-button"
-					aria-busy={loading}
+					size="md"
+					class="w-full"
 				>
 					{#if loading}
-						<span class="btn-spinner" aria-hidden="true"></span>
-					登録中...
+						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
+						登録中...
 					{:else}
 						アカウントを作成
 					{/if}
-				</button>
+				</Button>
 			</form>
 		{/if}
 
-		<div class="login-link">
-			<a href="/auth/login">既にアカウントをお持ちの方はこちら</a>
+		<div class="mt-5 text-center">
+			<a href="/auth/login" class="text-sm text-[var(--color-text-link)] hover:underline">
+				既にアカウントをお持ちの方はこちら
+			</a>
 		</div>
 	</div>
 </div>
-
-<style>
-	.signup-page {
-		min-height: 100dvh;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-		padding: 16px;
-	}
-
-	.signup-card {
-		width: 100%;
-		max-width: 400px;
-		background: white;
-		border-radius: 16px;
-		padding: 40px 32px;
-		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-	}
-
-	.signup-header {
-		text-align: center;
-		margin-bottom: 32px;
-	}
-
-	.signup-header :global(img) {
-		width: min(320px, 80vw);
-		height: auto;
-	}
-
-	.signup-error {
-		margin-bottom: 16px;
-		padding: 12px 16px;
-		background: #fef2f2;
-		color: #dc2626;
-		border: 1px solid #fecaca;
-		border-radius: 8px;
-		font-size: 0.875rem;
-	}
-
-	.signup-form {
-		display: flex;
-		flex-direction: column;
-		gap: 20px;
-	}
-
-	.form-group {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-	}
-
-	.form-label {
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: #374151;
-	}
-
-	.form-input {
-		padding: 12px 16px;
-		border: 1px solid #d1d5db;
-		border-radius: 8px;
-		font-size: 1rem;
-		transition: border-color 0.15s;
-		outline: none;
-	}
-
-	.form-input:focus {
-		border-color: #667eea;
-		box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
-	}
-
-	.form-hint {
-		font-size: 0.75rem;
-		color: #9ca3af;
-	}
-
-	.form-optional {
-		font-weight: 400;
-		color: #9ca3af;
-		font-size: 0.75rem;
-	}
-
-	.license-input {
-		text-transform: uppercase;
-		font-family: 'Courier New', monospace;
-		letter-spacing: 0.1em;
-	}
-
-	.code-input {
-		text-align: center;
-		font-size: 1.5rem;
-		letter-spacing: 0.5em;
-		font-family: monospace;
-	}
-
-	.confirm-description {
-		font-size: 0.875rem;
-		color: #64748b;
-		text-align: center;
-		margin: 0;
-		line-height: 1.6;
-	}
-
-	.agreement-group {
-		margin-top: -4px;
-	}
-
-	.agreement-label {
-		display: flex;
-		align-items: flex-start;
-		gap: 8px;
-		cursor: pointer;
-	}
-
-	.agreement-checkbox {
-		margin-top: 3px;
-		width: 16px;
-		height: 16px;
-		flex-shrink: 0;
-		accent-color: #667eea;
-	}
-
-	.agreement-text {
-		font-size: 0.8rem;
-		color: #64748b;
-		line-height: 1.5;
-	}
-
-	.agreement-text a {
-		color: #667eea;
-		text-decoration: underline;
-	}
-
-	.agreement-note {
-		font-size: 0.75rem;
-		color: #94a3b8;
-		margin: 4px 0 0 24px;
-		line-height: 1.4;
-	}
-
-	.btn-spinner {
-		display: inline-block;
-		width: 1em;
-		height: 1em;
-		border: 2px solid currentColor;
-		border-right-color: transparent;
-		border-radius: 50%;
-		animation: spin 0.6s linear infinite;
-	}
-
-	@keyframes spin {
-		to { transform: rotate(360deg); }
-	}
-
-	.signup-button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 8px;
-		padding: 14px;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-		color: white;
-		font-size: 1rem;
-		font-weight: 600;
-		border: none;
-		border-radius: 8px;
-		cursor: pointer;
-		transition: opacity 0.15s;
-	}
-
-	.signup-button:hover:not(:disabled) {
-		opacity: 0.9;
-	}
-
-	.signup-button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.login-link {
-		margin-top: 20px;
-		text-align: center;
-	}
-
-	.login-link a {
-		font-size: 0.875rem;
-		color: #667eea;
-		text-decoration: none;
-	}
-
-	.login-link a:hover {
-		text-decoration: underline;
-	}
-</style>
