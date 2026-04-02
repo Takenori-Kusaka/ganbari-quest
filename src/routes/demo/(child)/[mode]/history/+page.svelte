@@ -1,5 +1,6 @@
 <script lang="ts">
 import { formatPointValueWithSign } from '$lib/domain/point-display';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
@@ -47,19 +48,23 @@ function formatDate(dateStr: string): string {
 				</h3>
 				<div class="flex flex-col gap-1">
 					{#each logs as log (log.id)}
-						<div class="flex items-center gap-[var(--sp-sm)] py-2 px-[var(--sp-sm)] bg-white rounded-[var(--radius-md)] shadow-sm">
-							<span class="text-2xl">{log.activityIcon}</span>
-							<div class="flex-1 min-w-0">
-								<p class="font-bold text-sm truncate">{log.activityName}</p>
-								<p class="text-xs text-[var(--color-text-muted)]">{log.categoryName}</p>
+						<Card padding="sm">
+							{#snippet children()}
+							<div class="flex items-center gap-[var(--sp-sm)]">
+								<span class="text-2xl">{log.activityIcon}</span>
+								<div class="flex-1 min-w-0">
+									<p class="font-bold text-sm truncate">{log.activityName}</p>
+									<p class="text-xs text-[var(--color-text-muted)]">{log.categoryName}</p>
+								</div>
+								<div class="text-right">
+									<p class="font-bold text-sm text-[var(--color-point)]">{fmtPts(log.points)}</p>
+									{#if log.streakDays > 1}
+										<p class="text-xs text-[var(--color-text-muted)]">{log.streakDays}日れんぞく</p>
+									{/if}
+								</div>
 							</div>
-							<div class="text-right">
-								<p class="font-bold text-sm text-[var(--color-point)]">{fmtPts(log.points)}</p>
-								{#if log.streakDays > 1}
-									<p class="text-xs text-[var(--color-text-muted)]">{log.streakDays}日れんぞく</p>
-								{/if}
-							</div>
-						</div>
+							{/snippet}
+						</Card>
 					{/each}
 				</div>
 			</div>

@@ -2,6 +2,7 @@
 import { CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
@@ -35,20 +36,23 @@ const decayOptions = [
 	<DemoBanner />
 
 	<!-- PIN Settings -->
-	<section class="bg-white rounded-xl p-4 shadow-sm space-y-3">
-		<h2 class="text-sm font-bold text-gray-700">&#x1F512; PINコード設定</h2>
-		<p class="text-xs text-gray-500">
-			管理画面にアクセスするためのPINコードを変更できます。
-		</p>
-		<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-			<FormField label="現在のPIN" type="password" disabled placeholder="****" />
-			<FormField label="新しいPIN" type="password" disabled placeholder="****" />
-			<FormField label="確認" type="password" disabled placeholder="****" />
+	<Card>
+		<div class="space-y-3">
+			<h2 class="text-sm font-bold text-gray-700">&#x1F512; PINコード設定</h2>
+			<p class="text-xs text-gray-500">
+				管理画面にアクセスするためのPINコードを変更できます。
+			</p>
+			<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+				<FormField label="現在のPIN" type="password" disabled placeholder="****" />
+				<FormField label="新しいPIN" type="password" disabled placeholder="****" />
+				<FormField label="確認" type="password" disabled placeholder="****" />
+			</div>
 		</div>
-	</section>
+	</Card>
 
 	<!-- Point Display Settings -->
-	<section class="bg-white rounded-xl p-4 shadow-sm space-y-3">
+	<Card>
+		<div class="space-y-3">
 		<h2 class="text-sm font-bold text-gray-700">&#x2B50; ポイント表示設定</h2>
 		<p class="text-xs text-gray-500">
 			ポイントの表示方法を「ポイント (P)」または「通貨」に切り替えられます。
@@ -73,74 +77,83 @@ const decayOptions = [
 				{/each}
 			</div>
 		</div>
-	</section>
+		</div>
+	</Card>
 
 	<!-- Decay Settings -->
-	<section class="bg-white rounded-xl p-4 shadow-sm space-y-3">
-		<h2 class="text-sm font-bold text-gray-700">&#x1F4C9; ステータス減衰設定</h2>
-		<p class="text-xs text-gray-500">
-			活動をサボるとステータスがゆっくり下がります。お子さまに合った強度を選べます。
-		</p>
-		<div class="grid grid-cols-2 gap-2">
-			{#each decayOptions as opt}
-				<div
-					class="rounded-lg p-3 border-2 {data.decayIntensity === opt.value
-						? 'border-blue-300 bg-blue-50'
-						: 'border-gray-200 bg-gray-50'}"
-				>
-					<p class="text-sm font-bold {data.decayIntensity === opt.value ? 'text-blue-700' : 'text-gray-500'}">
-						{opt.label}
-					</p>
-					<p class="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
-				</div>
-			{/each}
+	<Card>
+		<div class="space-y-3">
+			<h2 class="text-sm font-bold text-gray-700">&#x1F4C9; ステータス減衰設定</h2>
+			<p class="text-xs text-gray-500">
+				活動をサボるとステータスがゆっくり下がります。お子さまに合った強度を選べます。
+			</p>
+			<div class="grid grid-cols-2 gap-2">
+				{#each decayOptions as opt}
+					<div
+						class="rounded-lg p-3 border-2 {data.decayIntensity === opt.value
+							? 'border-blue-300 bg-blue-50'
+							: 'border-gray-200 bg-gray-50'}"
+					>
+						<p class="text-sm font-bold {data.decayIntensity === opt.value ? 'text-blue-700' : 'text-gray-500'}">
+							{opt.label}
+						</p>
+						<p class="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
+					</div>
+				{/each}
+			</div>
 		</div>
-	</section>
+	</Card>
 
 	<!-- Theme Colors -->
-	<section class="bg-white rounded-xl p-4 shadow-sm space-y-3">
-		<h2 class="text-sm font-bold text-gray-700">&#x1F3A8; テーマカラー</h2>
-		<p class="text-xs text-gray-500">
-			こどもごとにテーマカラーを設定できます。こども管理画面から変更してください。
-		</p>
-		<div class="flex gap-2">
-			{#each themeOptions as theme}
-				<div class="w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center text-lg" title={theme.label}>
-					{@html theme.icon}
-				</div>
-			{/each}
+	<Card>
+		<div class="space-y-3">
+			<h2 class="text-sm font-bold text-gray-700">&#x1F3A8; テーマカラー</h2>
+			<p class="text-xs text-gray-500">
+				こどもごとにテーマカラーを設定できます。こども管理画面から変更してください。
+			</p>
+			<div class="flex gap-2">
+				{#each themeOptions as theme}
+					<div class="w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center text-lg" title={theme.label}>
+						{@html theme.icon}
+					</div>
+				{/each}
+			</div>
 		</div>
-	</section>
+	</Card>
 
 	<!-- Data Management -->
-	<section class="bg-white rounded-xl p-4 shadow-sm space-y-3">
-		<h2 class="text-sm font-bold text-gray-700">&#x1F4BE; データ管理</h2>
-		<p class="text-xs text-gray-500">
-			登録すると、データのエクスポート・インポート・初期化が利用できます。
-		</p>
-		<div class="grid grid-cols-3 gap-2">
-			<div class="bg-gray-50 rounded-lg p-3 text-center">
-				<span class="text-xl block mb-1">&#x1F4E4;</span>
-				<p class="text-xs font-bold text-gray-400">エクスポート</p>
-			</div>
-			<div class="bg-gray-50 rounded-lg p-3 text-center">
-				<span class="text-xl block mb-1">&#x1F4E5;</span>
-				<p class="text-xs font-bold text-gray-400">インポート</p>
-			</div>
-			<div class="bg-gray-50 rounded-lg p-3 text-center">
-				<span class="text-xl block mb-1">&#x1F5D1;&#xFE0F;</span>
-				<p class="text-xs font-bold text-gray-400">初期化</p>
+	<Card>
+		<div class="space-y-3">
+			<h2 class="text-sm font-bold text-gray-700">&#x1F4BE; データ管理</h2>
+			<p class="text-xs text-gray-500">
+				登録すると、データのエクスポート・インポート・初期化が利用できます。
+			</p>
+			<div class="grid grid-cols-3 gap-2">
+				<div class="bg-gray-50 rounded-lg p-3 text-center">
+					<span class="text-xl block mb-1">&#x1F4E4;</span>
+					<p class="text-xs font-bold text-gray-400">エクスポート</p>
+				</div>
+				<div class="bg-gray-50 rounded-lg p-3 text-center">
+					<span class="text-xl block mb-1">&#x1F4E5;</span>
+					<p class="text-xs font-bold text-gray-400">インポート</p>
+				</div>
+				<div class="bg-gray-50 rounded-lg p-3 text-center">
+					<span class="text-xl block mb-1">&#x1F5D1;&#xFE0F;</span>
+					<p class="text-xs font-bold text-gray-400">初期化</p>
+				</div>
 			</div>
 		</div>
-	</section>
+	</Card>
 
 	<!-- Feedback -->
-	<section class="bg-white rounded-xl p-4 shadow-sm space-y-3">
-		<h2 class="text-sm font-bold text-gray-700">&#x1F4AC; フィードバック</h2>
-		<p class="text-xs text-gray-500">
-			ご意見・ご要望・バグ報告をお寄せください。登録後に利用可能です。
-		</p>
-	</section>
+	<Card>
+		<div class="space-y-3">
+			<h2 class="text-sm font-bold text-gray-700">&#x1F4AC; フィードバック</h2>
+			<p class="text-xs text-gray-500">
+				ご意見・ご要望・バグ報告をお寄せください。登録後に利用可能です。
+			</p>
+		</div>
+	</Card>
 
 	<DemoCta
 		title="すべての設定を利用しませんか？"

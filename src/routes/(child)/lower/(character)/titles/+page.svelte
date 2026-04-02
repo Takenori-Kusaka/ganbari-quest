@@ -1,5 +1,6 @@
 <script lang="ts">
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -51,12 +52,16 @@ function handleTap(title: (typeof data.titles)[number]) {
 	</div>
 
 	{#if data.activeTitle}
-		<div class="bg-white rounded-[var(--radius-md)] p-[var(--sp-sm)] shadow-sm mb-[var(--sp-md)] flex items-center justify-center gap-[var(--sp-sm)]">
-			<span class="text-xl">{data.activeTitle.icon}</span>
-			<p class="text-sm font-bold text-[var(--theme-accent)]">
-				今の称号: {data.activeTitle.name}
-			</p>
-		</div>
+		<Card padding="sm" class="mb-[var(--sp-md)]">
+			{#snippet children()}
+			<div class="flex items-center justify-center gap-[var(--sp-sm)]">
+				<span class="text-xl">{data.activeTitle?.icon}</span>
+				<p class="text-sm font-bold text-[var(--theme-accent)]">
+					今の称号: {data.activeTitle?.name}
+				</p>
+			</div>
+			{/snippet}
+		</Card>
 	{/if}
 
 	{#if data.titles.length > 0}

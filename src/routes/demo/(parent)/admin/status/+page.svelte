@@ -5,6 +5,7 @@ import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
@@ -76,7 +77,7 @@ let showLevelTitles = $state(false);
 
 	<!-- 成長レポート -->
 	{#if previewChild?.status}
-		<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+		<Card>
 			<h3 class="text-lg font-bold text-gray-700 mb-3">
 				📊 {previewChild.nickname}の成長レポート
 			</h3>
@@ -110,11 +111,11 @@ let showLevelTitles = $state(false);
 					{/each}
 				</div>
 			</div>
-		</div>
+		</Card>
 	{/if}
 
 	<!-- 称号カスタマイズ -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+	<Card padding="none">
 		<Button
 			variant="ghost"
 			size="md"
@@ -149,7 +150,7 @@ let showLevelTitles = $state(false);
 				{/each}
 			</div>
 		{/if}
-	</div>
+	</Card>
 
 	<div>
 		<!-- 機能説明 -->
@@ -209,7 +210,7 @@ let showLevelTitles = $state(false);
 				{@const bm = benchmarksForAge.find((b: { categoryId: number }) => b.categoryId === catDef.id)}
 				{@const inputMean = bm?.mean ?? 0}
 				{@const inputSd = bm?.stdDev ?? 10}
-				<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+				<Card>
 					<div class="flex items-center gap-3 flex-wrap">
 						<span class="text-lg">{catDef.icon}</span>
 						<span class="font-bold text-gray-700 w-24">{catDef.name}</span>
@@ -238,7 +239,7 @@ let showLevelTitles = $state(false);
 							</p>
 						{/if}
 					{/if}
-				</div>
+				</Card>
 			{/each}
 		</div>
 	</div>

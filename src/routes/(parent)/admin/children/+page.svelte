@@ -7,6 +7,7 @@ import {
 	getUnitLabel,
 } from '$lib/domain/point-display';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
@@ -216,7 +217,7 @@ function handleFileSelect(childId: number, event: Event) {
 
 	<!-- Add child form -->
 	{#if showAddForm}
-		<form
+		<Card><form
 			method="POST"
 			action="?/addChild"
 			use:enhance={() => {
@@ -227,7 +228,7 @@ function handleFileSelect(childId: number, event: Event) {
 					await update();
 				};
 			}}
-			class="bg-white rounded-xl p-4 shadow-sm space-y-3"
+			class="space-y-3"
 		>
 			<h3 class="font-bold text-gray-600">こどもを追加</h3>
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -275,13 +276,13 @@ function handleFileSelect(childId: number, event: Event) {
 			>
 				追加する
 			</Button>
-		</form>
+		</form></Card>
 	{/if}
 
 	<!-- Children list -->
 	<div class="grid gap-3">
 		{#each data.children as child, i}
-			<div class="bg-white rounded-xl p-4 shadow-sm" data-tutorial={i === 0 ? 'child-card' : undefined}>
+			<Card data-tutorial={i === 0 ? 'child-card' : undefined}>
 				{#if editingChildId === child.id}
 					<!-- Edit form -->
 					<form
@@ -463,14 +464,14 @@ function handleFileSelect(childId: number, event: Event) {
 						</div>
 					</div>
 				{/if}
-			</div>
+			</Card>
 		{/each}
 	</div>
 
 	<!-- Selected child detail -->
 	{#if data.selectedChild}
 		{@const child = data.selectedChild}
-		<section class="bg-white rounded-xl shadow-sm overflow-hidden">
+		<Card padding="none">
 			<!-- Header -->
 			<div class="p-4 border-b border-gray-100 flex items-center gap-4">
 				{#if uploadResult?.avatarUrl || generateResult?.filePath || child.avatarUrl}
@@ -807,7 +808,7 @@ function handleFileSelect(childId: number, event: Event) {
 					</div>
 				{/if}
 			</div>
-		</section>
+		</Card>
 	{/if}
 </div>
 

@@ -2,6 +2,7 @@
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
@@ -64,35 +65,37 @@ let selectedTemplate = $state<string | null>(null);
 	</section>
 
 	<!-- Step 3: Confirm -->
-	<div class="bg-white rounded-xl p-4 shadow-sm space-y-3">
-		<h3 class="text-sm font-bold text-gray-500">3. 内容を確認して付与</h3>
+	<Card>
+		<div class="space-y-3">
+			<h3 class="text-sm font-bold text-gray-500">3. 内容を確認して付与</h3>
 
-		<div class="grid grid-cols-2 gap-3">
-			<FormField label="タイトル" type="text" disabled value={selectedTemplate ?? ''} placeholder="テンプレートを選択" />
-			<FormField label="ポイント" type="number" disabled value={100} />
-		</div>
-		<div class="grid grid-cols-2 gap-3">
-			<FormField label="アイコン" type="text" disabled value="🎁" />
-			<label class="block">
-				<span class="block text-xs font-bold text-gray-500 mb-1">カテゴリ</span>
-				<select
-					disabled
-					class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
-				>
-					<option>とくべつ</option>
-				</select>
-			</label>
-		</div>
+			<div class="grid grid-cols-2 gap-3">
+				<FormField label="タイトル" type="text" disabled value={selectedTemplate ?? ''} placeholder="テンプレートを選択" />
+				<FormField label="ポイント" type="number" disabled value={100} />
+			</div>
+			<div class="grid grid-cols-2 gap-3">
+				<FormField label="アイコン" type="text" disabled value="🎁" />
+				<label class="block">
+					<span class="block text-xs font-bold text-gray-500 mb-1">カテゴリ</span>
+					<select
+						disabled
+						class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
+					>
+						<option>とくべつ</option>
+					</select>
+				</label>
+			</div>
 
-		<Button
-			variant="ghost"
-			size="md"
-			class="w-full bg-gray-200 text-gray-400 cursor-not-allowed"
-			disabled
-		>
-			デモでは報酬を付与できません
-		</Button>
-	</div>
+			<Button
+				variant="ghost"
+				size="md"
+				class="w-full bg-gray-200 text-gray-400 cursor-not-allowed"
+				disabled
+			>
+				デモでは報酬を付与できません
+			</Button>
+		</div>
+	</Card>
 
 	<DemoCta
 		title="特別報酬で子どもをもっと応援しませんか？"

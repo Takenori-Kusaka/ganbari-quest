@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
@@ -15,7 +16,8 @@ let loading = $state(false);
 </svelte:head>
 
 <div class="consent-page min-h-dvh flex items-center justify-center p-4">
-	<div class="w-full max-w-[480px] bg-[var(--color-surface-card)] rounded-[var(--radius-md)] px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
+	<Card padding="none" class="w-full max-w-[480px] px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
+		{#snippet children()}
 		<div class="text-center mb-6">
 			<Logo variant="symbol" size={48} />
 			<h1 class="text-lg font-bold text-[var(--color-neutral-900)] mt-2 mb-1">規約が更新されました</h1>
@@ -102,7 +104,8 @@ let loading = $state(false);
 				{/if}
 			</Button>
 		</form>
-	</div>
+		{/snippet}
+	</Card>
 </div>
 
 <style>

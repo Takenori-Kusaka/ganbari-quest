@@ -3,6 +3,7 @@ import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
@@ -105,21 +106,23 @@ const selectedChild = $derived(
 			</Button>
 
 			<!-- Child Header -->
-			<div class="bg-white rounded-xl p-4 shadow-sm flex items-center gap-4 mb-4">
-				{#if selectedChild.avatarUrl}
-					<img src={selectedChild.avatarUrl} alt={selectedChild.nickname} class="w-16 h-16 rounded-full object-cover" />
-				{:else}
-					<span class="text-5xl">👤</span>
-				{/if}
-				<div class="flex-1">
-					<h2 class="text-lg font-bold text-gray-700">{selectedChild.nickname}</h2>
-					<p class="text-sm text-gray-400">{selectedChild.age}歳 / {uiModeLabel(selectedChild.uiMode ?? 'kinder')}</p>
+			<Card class="mb-4">
+				<div class="flex items-center gap-4">
+					{#if selectedChild.avatarUrl}
+						<img src={selectedChild.avatarUrl} alt={selectedChild.nickname} class="w-16 h-16 rounded-full object-cover" />
+					{:else}
+						<span class="text-5xl">👤</span>
+					{/if}
+					<div class="flex-1">
+						<h2 class="text-lg font-bold text-gray-700">{selectedChild.nickname}</h2>
+						<p class="text-sm text-gray-400">{selectedChild.age}歳 / {uiModeLabel(selectedChild.uiMode ?? 'kinder')}</p>
+					</div>
+					<div class="text-right">
+						<p class="text-2xl font-bold text-amber-500">{fmtBal(selectedChild.balance)}</p>
+						<p class="text-xs text-gray-400">{unit}</p>
+					</div>
 				</div>
-				<div class="text-right">
-					<p class="text-2xl font-bold text-amber-500">{fmtBal(selectedChild.balance)}</p>
-					<p class="text-xs text-gray-400">{unit}</p>
-				</div>
-			</div>
+			</Card>
 
 			<!-- Tab Navigation (matches production 6-tab system) -->
 			<div class="flex overflow-x-auto gap-1 mb-4 pb-1">
@@ -137,7 +140,7 @@ const selectedChild = $derived(
 			</div>
 
 			<!-- Tab Content -->
-			<div class="bg-white rounded-xl p-4 shadow-sm">
+			<Card>
 				{#if detailTab === 'info'}
 					<div class="grid grid-cols-2 gap-3">
 						<div class="bg-blue-50 rounded-lg p-3 text-center">
@@ -178,7 +181,7 @@ const selectedChild = $derived(
 						<p class="text-sm">おうえんボイスは登録後にご利用いただけます</p>
 					</div>
 				{/if}
-			</div>
+			</Card>
 		</div>
 	{/if}
 
