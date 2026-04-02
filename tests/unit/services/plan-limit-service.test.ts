@@ -1,5 +1,5 @@
 // tests/unit/services/plan-limit-service.test.ts
-// plan-limit-service ユニットテスト (#0196, #0269)
+// plan-limit-service ユニットテスト (#0196, #0269, #0270)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,12 +17,19 @@ vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => process.env.AUTH_MODE ?? 'local',
 }));
 
+// mock trial-service (resolveFullPlanTier depends on it)
+const mockGetTrialEndDate = vi.fn().mockResolvedValue(null);
+vi.mock('$lib/server/services/trial-service', () => ({
+	getTrialEndDate: (...args: unknown[]) => mockGetTrialEndDate(...args),
+}));
+
 import {
 	checkActivityLimit,
 	checkChildLimit,
 	getHistoryCutoffDate,
 	getPlanLimits,
 	isPaidTier,
+	resolveFullPlanTier,
 	resolvePlanTier,
 } from '$lib/server/services/plan-limit-service';
 
@@ -65,6 +72,49 @@ describe('plan-limit-service', () => {
 		it('cognito mode: suspended → free', () => {
 			process.env.AUTH_MODE = 'cognito';
 			expect(resolvePlanTier('suspended')).toBe('free');
+		});
+
+		it('cognito mode: trial active → family', () => {
+			process.env.AUTH_MODE = 'cognito';
+			const futureDate = new Date();
+			futureDate.setDate(futureDate.getDate() + 5);
+			const endStr = futureDate.toISOString().slice(0, 10);
+			expect(resolvePlanTier('none', undefined, endStr)).toBe('family');
+		});
+
+		it('cognito mode: trial expired → free', () => {
+			process.env.AUTH_MODE = 'cognito';
+			const pastDate = new Date();
+			pastDate.setDate(pastDate.getDate() - 1);
+			const endStr = pastDate.toISOString().slice(0, 10);
+			expect(resolvePlanTier('none', undefined, endStr)).toBe('free');
+		});
+
+		it('active license overrides trial', () => {
+			process.env.AUTH_MODE = 'cognito';
+			const futureDate = new Date();
+			futureDate.setDate(futureDate.getDate() + 5);
+			const endStr = futureDate.toISOString().slice(0, 10);
+			expect(resolvePlanTier('active', 'standard', endStr)).toBe('standard');
+		});
+	});
+
+	describe('resolveFullPlanTier', () => {
+		it('resolves with trial end date from service', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			const futureDate = new Date();
+			futureDate.setDate(futureDate.getDate() + 3);
+			mockGetTrialEndDate.mockResolvedValue(futureDate.toISOString().slice(0, 10));
+			const tier = await resolveFullPlanTier('tenant1', 'none');
+			expect(tier).toBe('family');
+			expect(mockGetTrialEndDate).toHaveBeenCalledWith('tenant1');
+		});
+
+		it('resolves to free when no trial', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockGetTrialEndDate.mockResolvedValue(null);
+			const tier = await resolveFullPlanTier('tenant1', 'none');
+			expect(tier).toBe('free');
 		});
 	});
 

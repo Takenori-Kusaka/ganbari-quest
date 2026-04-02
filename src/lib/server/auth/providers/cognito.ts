@@ -252,6 +252,16 @@ export class CognitoAuthProvider implements AuthProvider {
 				role: 'owner',
 			});
 
+			// リバーストライアル自動開始 (#0270)
+			try {
+				const { startTrial } = await import('$lib/server/services/trial-service');
+				await startTrial(tenant.tenantId);
+			} catch (e) {
+				logger.warn('[AUTH] Trial start failed (non-blocking)', {
+					error: e instanceof Error ? e.message : String(e),
+				});
+			}
+
 			logger.info('[AUTH] Auto-provisioned new user', {
 				context: {
 					userId: effectiveUserId,
