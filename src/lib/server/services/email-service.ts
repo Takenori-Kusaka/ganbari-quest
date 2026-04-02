@@ -233,7 +233,14 @@ export async function sendLicenseKeyEmail(
 	licenseKey: string,
 	plan: string,
 ): Promise<boolean> {
-	const planLabel = plan === 'yearly' ? '年額プラン' : '月額プラン';
+	const planLabels: Record<string, string> = {
+		monthly: 'スタンダード月額プラン',
+		yearly: 'スタンダード年額プラン',
+		'family-monthly': 'ファミリー月額プラン',
+		'family-yearly': 'ファミリー年額プラン',
+		lifetime: '永久ライセンス',
+	};
+	const planLabel = planLabels[plan] ?? '月額プラン';
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】ライセンスキーのお知らせ',

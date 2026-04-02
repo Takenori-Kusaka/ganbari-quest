@@ -41,7 +41,7 @@ export function getCognitoOAuthConfig(): CognitoOAuthConfig {
 }
 
 /** Cognito Hosted UI の認可エンドポイント URL を生成 */
-export function buildAuthorizeUrl(cookies: Cookies): string {
+export function buildAuthorizeUrl(cookies: Cookies, identityProvider?: string): string {
 	const config = getCognitoOAuthConfig();
 	const state = randomBytes(32).toString('hex');
 	const nonce = randomBytes(16).toString('hex');
@@ -65,6 +65,11 @@ export function buildAuthorizeUrl(cookies: Cookies): string {
 		state,
 		nonce,
 	});
+
+	// 特定の IdP に直接リダイレクト（Hosted UI スキップ）
+	if (identityProvider) {
+		params.set('identity_provider', identityProvider);
+	}
 
 	return `https://${config.domain}/oauth2/authorize?${params.toString()}`;
 }

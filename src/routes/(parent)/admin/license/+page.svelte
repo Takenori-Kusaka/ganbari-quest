@@ -9,13 +9,19 @@ const stripeEnabled = $derived(data.stripeEnabled);
 
 let checkoutLoading = $state(false);
 let portalLoading = $state(false);
+let selectedTier = $state<'standard' | 'family'>('standard');
+let billingInterval = $state<'monthly' | 'yearly'>('monthly');
 
 const planLabel = (plan: string) => {
 	switch (plan) {
 		case 'monthly':
-			return '月額プラン（¥500/月）';
+			return 'スタンダード月額（¥500/月）';
 		case 'yearly':
-			return '年額プラン（¥5,000/年）';
+			return 'スタンダード年額（¥5,000/年）';
+		case 'family-monthly':
+			return 'ファミリー月額（¥780/月）';
+		case 'family-yearly':
+			return 'ファミリー年額（¥7,800/年）';
 		case 'lifetime':
 			return '永久ライセンス';
 		case 'free':
@@ -43,7 +49,7 @@ const statusLabel = (status: string) => {
 const status = $derived(statusLabel(license.status));
 const hasSubscription = $derived(!!license.stripeSubscriptionId);
 
-async function startCheckout(planId: 'monthly' | 'yearly') {
+async function startCheckout(planId: string) {
 	checkoutLoading = true;
 	try {
 		const res = await fetch('/api/stripe/checkout', {
@@ -188,49 +194,95 @@ async function openPortal() {
 		{:else}
 			<!-- サブスクリプション無し → プラン選択 -->
 			<div class="grid gap-4">
-				<div class="border border-blue-200 rounded-lg p-4">
-					<div class="flex items-center justify-between mb-2">
-						<div>
-							<p class="font-semibold text-gray-700">月額プラン</p>
-							<p class="text-sm text-gray-500">全機能利用可能・毎月自動更新</p>
-						</div>
-						<p class="text-xl font-bold text-blue-600">¥500<span class="text-sm font-normal text-gray-500">/月</span></p>
-					</div>
-					<Button
-						onclick={() => startCheckout('monthly')}
-						disabled={checkoutLoading}
-						variant="primary"
-						size="sm"
-						class="w-full"
+				<!-- 請求間隔切り替え -->
+				<div class="flex justify-center gap-2 mb-2">
+					<button
+						class="interval-btn"
+						class:active={billingInterval === 'monthly'}
+						onclick={() => (billingInterval = 'monthly')}
 					>
-						{checkoutLoading ? '処理中...' : '月額プランで始める'}
-					</Button>
+						月額
+					</button>
+					<button
+						class="interval-btn"
+						class:active={billingInterval === 'yearly'}
+						onclick={() => (billingInterval = 'yearly')}
+					>
+						年額（17% OFF）
+					</button>
 				</div>
 
-				<div class="border border-purple-200 rounded-lg p-4 relative">
-					<span class="absolute -top-2.5 left-4 bg-purple-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-						2ヶ月分お得
-					</span>
+				<!-- スタンダードプラン -->
+				<div
+					class="plan-card"
+					class:selected={selectedTier === 'standard'}
+					role="button"
+					tabindex="0"
+					onclick={() => (selectedTier = 'standard')}
+					onkeydown={(e) => e.key === 'Enter' && (selectedTier = 'standard')}
+				>
 					<div class="flex items-center justify-between mb-2">
 						<div>
-							<p class="font-semibold text-gray-700">年額プラン</p>
-							<p class="text-sm text-gray-500">全機能利用可能・毎年自動更新</p>
+							<p class="font-semibold text-gray-700">スタンダード</p>
+							<p class="text-xs text-gray-500">子供無制限・活動無制限・1年保持</p>
 						</div>
-						<p class="text-xl font-bold text-purple-600">¥5,000<span class="text-sm font-normal text-gray-500">/年</span></p>
+						{#if billingInterval === 'monthly'}
+							<p class="text-xl font-bold text-blue-600">¥500<span class="text-sm font-normal text-gray-500">/月</span></p>
+						{:else}
+							<p class="text-xl font-bold text-blue-600">¥5,000<span class="text-sm font-normal text-gray-500">/年</span></p>
+						{/if}
 					</div>
-					<Button
-						onclick={() => startCheckout('yearly')}
-						disabled={checkoutLoading}
-						variant="primary"
-						size="sm"
-						class="w-full"
-					>
-						{checkoutLoading ? '処理中...' : '年額プランで始める'}
-					</Button>
+					<ul class="text-xs text-gray-500 space-y-1 mb-3">
+						<li>子供の登録数 無制限</li>
+						<li>カスタム活動 無制限</li>
+						<li>データ保持 1年間</li>
+						<li>データエクスポート対応</li>
+					</ul>
 				</div>
+
+				<!-- ファミリープラン -->
+				<div
+					class="plan-card"
+					class:selected={selectedTier === 'family'}
+					class:recommended={true}
+					role="button"
+					tabindex="0"
+					onclick={() => (selectedTier = 'family')}
+					onkeydown={(e) => e.key === 'Enter' && (selectedTier = 'family')}
+				>
+					<span class="recommend-badge">おすすめ</span>
+					<div class="flex items-center justify-between mb-2">
+						<div>
+							<p class="font-semibold text-gray-700">ファミリー</p>
+							<p class="text-xs text-gray-500">全機能+データ永久保持+成長記録</p>
+						</div>
+						{#if billingInterval === 'monthly'}
+							<p class="text-xl font-bold text-purple-600">¥780<span class="text-sm font-normal text-gray-500">/月</span></p>
+						{:else}
+							<p class="text-xl font-bold text-purple-600">¥7,800<span class="text-sm font-normal text-gray-500">/年</span></p>
+						{/if}
+					</div>
+					<ul class="text-xs text-gray-500 space-y-1 mb-3">
+						<li>スタンダードの全機能</li>
+						<li>データ保持 <strong>永久</strong></li>
+						<li>兄弟間クロス分析</li>
+						<li>詳細月次レポート</li>
+					</ul>
+				</div>
+
+				<!-- 購入ボタン -->
+				<Button
+					onclick={() => startCheckout(selectedTier === 'family' ? `family-${billingInterval}` : billingInterval)}
+					disabled={checkoutLoading}
+					variant="primary"
+					size="md"
+					class="w-full"
+				>
+					{checkoutLoading ? '処理中...' : `${selectedTier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める`}
+				</Button>
 
 				<p class="text-xs text-gray-400 text-center">
-					7日間の無料トライアル付き・いつでもキャンセル可能
+					いつでもキャンセル・プラン変更可能
 				</p>
 			</div>
 		{/if}
@@ -262,3 +314,53 @@ async function openPortal() {
 		{/snippet}
 	</Card>
 </div>
+
+<style>
+	.interval-btn {
+		padding: 6px 16px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		border-radius: 8px;
+		border: 1px solid var(--color-neutral-200, #e5e7eb);
+		background: white;
+		color: var(--color-neutral-500, #6b7280);
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.interval-btn.active {
+		background: var(--color-violet-500, #8b5cf6);
+		color: white;
+		border-color: var(--color-violet-500, #8b5cf6);
+	}
+
+	.plan-card {
+		position: relative;
+		border: 2px solid var(--color-neutral-200, #e5e7eb);
+		border-radius: 12px;
+		padding: 16px;
+		cursor: pointer;
+		transition: border-color 0.15s, box-shadow 0.15s;
+	}
+
+	.plan-card:hover {
+		border-color: var(--color-violet-300, #c4b5fd);
+	}
+
+	.plan-card.selected {
+		border-color: var(--color-violet-500, #8b5cf6);
+		box-shadow: 0 0 0 1px var(--color-violet-500, #8b5cf6);
+	}
+
+	.recommend-badge {
+		position: absolute;
+		top: -10px;
+		left: 16px;
+		background: var(--color-violet-500, #8b5cf6);
+		color: white;
+		font-size: 0.7rem;
+		font-weight: 700;
+		padding: 2px 10px;
+		border-radius: 9999px;
+	}
+</style>

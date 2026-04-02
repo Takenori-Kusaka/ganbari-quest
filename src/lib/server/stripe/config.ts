@@ -1,12 +1,13 @@
 // src/lib/server/stripe/config.ts
-// Stripe 決済設定・プラン定義 (#0131)
+// Stripe 決済設定・プラン定義 (#0131, #0271)
 
-export type PlanId = 'monthly' | 'yearly';
+export type PlanId = 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly';
 
 export interface PlanConfig {
 	priceId: string;
 	amount: number;
 	interval: 'month' | 'year';
+	tier: 'standard' | 'family';
 	label: string;
 }
 
@@ -17,13 +18,29 @@ function buildPlanConfigs(): Record<PlanId, PlanConfig> {
 			priceId: process.env.STRIPE_PRICE_MONTHLY ?? '',
 			amount: 500,
 			interval: 'month',
-			label: '月額プラン（¥500/月）',
+			tier: 'standard',
+			label: 'スタンダード月額（¥500/月）',
 		},
 		yearly: {
 			priceId: process.env.STRIPE_PRICE_YEARLY ?? '',
 			amount: 5000,
 			interval: 'year',
-			label: '年額プラン（¥5,000/年）',
+			tier: 'standard',
+			label: 'スタンダード年額（¥5,000/年）',
+		},
+		'family-monthly': {
+			priceId: process.env.STRIPE_PRICE_FAMILY_MONTHLY ?? '',
+			amount: 780,
+			interval: 'month',
+			tier: 'family',
+			label: 'ファミリー月額（¥780/月）',
+		},
+		'family-yearly': {
+			priceId: process.env.STRIPE_PRICE_FAMILY_YEARLY ?? '',
+			amount: 7800,
+			interval: 'year',
+			tier: 'family',
+			label: 'ファミリー年額（¥7,800/年）',
 		},
 	};
 }
@@ -45,6 +62,11 @@ export function planIdFromPriceId(priceId: string): PlanId | null {
 		if (config.priceId === priceId) return id as PlanId;
 	}
 	return null;
+}
+
+/** PlanId からプランティアを取得 */
+export function planTierFromPlanId(planId: PlanId): 'standard' | 'family' {
+	return getPlans()[planId].tier;
 }
 
 /** 無料トライアル日数 */

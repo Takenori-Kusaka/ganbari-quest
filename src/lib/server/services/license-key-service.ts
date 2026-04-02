@@ -33,7 +33,7 @@ export function generateLicenseKey(): string {
 export interface LicenseRecord {
 	licenseKey: string;
 	tenantId: string;
-	plan: 'monthly' | 'yearly' | 'lifetime';
+	plan: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly' | 'lifetime';
 	stripeSessionId?: string;
 	status: 'active' | 'consumed' | 'revoked';
 	consumedBy?: string;
@@ -44,7 +44,7 @@ export interface LicenseRecord {
 /** ライセンスキーを発行して DynamoDB に保存 */
 export async function issueLicenseKey(params: {
 	tenantId: string;
-	plan: 'monthly' | 'yearly' | 'lifetime';
+	plan: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly' | 'lifetime';
 	stripeSessionId?: string;
 }): Promise<LicenseRecord> {
 	const key = generateLicenseKey();
