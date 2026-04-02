@@ -51,17 +51,17 @@ let { data } = $props();
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: var(--gradient-brand);
 		padding: 16px;
 	}
 
 	.invite-card {
 		width: 100%;
 		max-width: 420px;
-		background: white;
-		border-radius: 16px;
+		background: var(--color-surface-card);
+		border-radius: var(--radius-md);
 		padding: 40px 32px;
-		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+		box-shadow: var(--card-shadow-elevated);
 	}
 
 	.invite-header {
@@ -77,7 +77,7 @@ let { data } = $props();
 	.invite-title {
 		font-size: 1.5rem;
 		font-weight: 700;
-		color: #1e293b;
+		color: var(--color-neutral-900);
 		margin: 0;
 	}
 
@@ -93,13 +93,13 @@ let { data } = $props();
 	.error-message {
 		font-size: 1rem;
 		font-weight: 600;
-		color: #dc2626;
+		color: var(--color-danger);
 		margin: 0 0 8px;
 	}
 
 	.error-hint {
 		font-size: 0.875rem;
-		color: #64748b;
+		color: var(--color-neutral-500);
 		margin: 0 0 24px;
 	}
 
@@ -109,7 +109,7 @@ let { data } = $props();
 
 	.invite-description {
 		font-size: 1rem;
-		color: #374151;
+		color: var(--color-neutral-700);
 		text-align: center;
 		margin: 0 0 16px;
 		line-height: 1.6;
@@ -120,19 +120,19 @@ let { data } = $props();
 		justify-content: center;
 		gap: 8px;
 		padding: 12px 16px;
-		background: #f0f4ff;
-		border-radius: 8px;
+		background: var(--color-brand-50);
+		border-radius: var(--radius-sm);
 	}
 
 	.detail-label {
 		font-size: 0.875rem;
-		color: #64748b;
+		color: var(--color-neutral-500);
 	}
 
 	.detail-value {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: #4f46e5;
+		color: var(--color-brand-700);
 	}
 
 	.invite-actions {
@@ -147,7 +147,7 @@ let { data } = $props();
 		text-align: center;
 		font-size: 1rem;
 		font-weight: 600;
-		border-radius: 8px;
+		border-radius: var(--radius-sm);
 		text-decoration: none;
 		transition: opacity 0.15s;
 	}
@@ -157,20 +157,20 @@ let { data } = $props();
 	}
 
 	.invite-button.primary {
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-		color: white;
+		background: var(--gradient-brand);
+		color: var(--color-text-inverse);
 	}
 
 	.invite-button.secondary {
-		background: white;
-		color: #667eea;
-		border: 2px solid #667eea;
+		background: var(--color-surface-card);
+		color: var(--color-brand-600);
+		border: 2px solid var(--color-brand-600);
 	}
 
 	.invite-error .invite-button {
 		display: inline-block;
-		background: #667eea;
-		color: white;
+		background: var(--color-brand-600);
+		color: var(--color-text-inverse);
 		padding: 12px 24px;
 	}
 </style>

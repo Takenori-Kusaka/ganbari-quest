@@ -84,6 +84,10 @@ const plans = [
 
 <style>
 	.pricing-page {
+		/* Page-scoped accent tokens (purple for recommended plan) */
+		--color-pricing-accent: var(--color-violet-500);
+		--color-pricing-accent-hover: var(--color-violet-600);
+
 		max-width: 800px;
 		margin: 0 auto;
 		padding: 2rem 1rem;
@@ -97,12 +101,12 @@ const plans = [
 	.pricing-header h1 {
 		font-size: 1.75rem;
 		font-weight: 700;
-		color: #374151;
+		color: var(--color-neutral-700);
 		margin-bottom: 0.5rem;
 	}
 
 	.pricing-header p {
-		color: #6b7280;
+		color: var(--color-neutral-500);
 		font-size: 0.95rem;
 	}
 
@@ -115,8 +119,8 @@ const plans = [
 
 	.plan-card {
 		position: relative;
-		background: #fff;
-		border: 2px solid #e5e7eb;
+		background: var(--color-surface-card);
+		border: 2px solid var(--color-border-default);
 		border-radius: 1rem;
 		padding: 1.5rem;
 		display: flex;
@@ -124,7 +128,7 @@ const plans = [
 	}
 
 	.plan-card.recommended {
-		border-color: #8b5cf6;
+		border-color: var(--color-pricing-accent);
 		box-shadow: 0 4px 14px rgba(139, 92, 246, 0.15);
 	}
 
@@ -132,8 +136,8 @@ const plans = [
 		position: absolute;
 		top: -0.75rem;
 		left: 1rem;
-		background: #8b5cf6;
-		color: #fff;
+		background: var(--color-pricing-accent);
+		color: var(--color-text-inverse);
 		font-size: 0.75rem;
 		font-weight: 700;
 		padding: 0.2rem 0.75rem;
@@ -143,7 +147,7 @@ const plans = [
 	.plan-name {
 		font-size: 1.1rem;
 		font-weight: 600;
-		color: #374151;
+		color: var(--color-neutral-700);
 		margin-bottom: 0.5rem;
 	}
 
@@ -154,17 +158,17 @@ const plans = [
 	.plan-price .amount {
 		font-size: 2rem;
 		font-weight: 700;
-		color: #111827;
+		color: var(--color-neutral-900);
 	}
 
 	.plan-price .unit {
 		font-size: 0.9rem;
-		color: #6b7280;
+		color: var(--color-neutral-500);
 	}
 
 	.plan-desc {
 		font-size: 0.85rem;
-		color: #6b7280;
+		color: var(--color-neutral-500);
 		margin-bottom: 1.25rem;
 	}
 
@@ -176,23 +180,23 @@ const plans = [
 		font-size: 0.9rem;
 		font-weight: 600;
 		text-decoration: none;
-		background: #f3f4f6;
-		color: #374151;
+		background: var(--color-neutral-100);
+		color: var(--color-neutral-700);
 		transition: background 0.15s;
 		margin-bottom: 1.25rem;
 	}
 
 	.plan-cta:hover {
-		background: #e5e7eb;
+		background: var(--color-border-default);
 	}
 
 	.plan-cta.primary {
-		background: #8b5cf6;
-		color: #fff;
+		background: var(--color-pricing-accent);
+		color: var(--color-text-inverse);
 	}
 
 	.plan-cta.primary:hover {
-		background: #7c3aed;
+		background: var(--color-pricing-accent-hover);
 	}
 
 	.plan-features {
@@ -204,7 +208,7 @@ const plans = [
 
 	.plan-features li {
 		font-size: 0.85rem;
-		color: #4b5563;
+		color: var(--color-neutral-600);
 		padding: 0.35rem 0;
 		padding-left: 1.25rem;
 		position: relative;
@@ -214,12 +218,12 @@ const plans = [
 		content: '\2713';
 		position: absolute;
 		left: 0;
-		color: #10b981;
+		color: var(--color-success);
 		font-weight: 700;
 	}
 
 	.pricing-faq {
-		background: #f9fafb;
+		background: var(--color-surface-muted);
 		border-radius: 1rem;
 		padding: 1.5rem;
 	}
@@ -227,20 +231,20 @@ const plans = [
 	.pricing-faq h2 {
 		font-size: 1.1rem;
 		font-weight: 600;
-		color: #374151;
+		color: var(--color-neutral-700);
 		margin-bottom: 1rem;
 	}
 
 	.pricing-faq dt {
 		font-size: 0.9rem;
 		font-weight: 600;
-		color: #374151;
+		color: var(--color-neutral-700);
 		margin-top: 1rem;
 	}
 
 	.pricing-faq dd {
 		font-size: 0.85rem;
-		color: #6b7280;
+		color: var(--color-neutral-500);
 		margin: 0.25rem 0 0;
 	}
 </style>

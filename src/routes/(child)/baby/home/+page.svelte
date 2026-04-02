@@ -705,8 +705,8 @@ $effect(() => {
 	}
 
 	.baby-card--done {
-		background: #fffbeb;
-		border-color: #fbbf24;
+		background: var(--color-gold-100);
+		border-color: var(--color-gold-400);
 		box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.3);
 	}
 
@@ -757,7 +757,7 @@ $effect(() => {
 		width: 20px;
 		height: 20px;
 		border-radius: 50%;
-		background: #3b82f6;
+		background: var(--color-brand-600);
 		color: white;
 		font-size: 10px;
 		font-weight: 700;
@@ -849,17 +849,17 @@ $effect(() => {
 	}
 
 	.baby-result__btn--cancel {
-		background: #e5e7eb;
+		background: var(--color-neutral-200);
 		color: var(--color-text-muted);
 		font-size: 0.875rem;
 	}
 
 	.baby-result__btn--close {
-		background: #e5e7eb;
+		background: var(--color-neutral-200);
 	}
 
 	.baby-result__combo {
-		background: #fff7ed;
+		background: var(--color-gold-100);
 		border-radius: 12px;
 		padding: 8px 12px;
 		width: 100%;
@@ -868,25 +868,25 @@ $effect(() => {
 	.baby-result__combo-text {
 		font-size: 0.875rem;
 		font-weight: 700;
-		color: var(--theme-accent, #f59e0b);
+		color: var(--theme-accent);
 	}
 
 	.baby-result__combo-cross {
 		font-size: 0.875rem;
 		font-weight: 700;
-		color: var(--color-point, #3b82f6);
+		color: var(--color-point);
 	}
 
 	.baby-result__combo-hint {
 		font-size: 0.75rem;
-		color: #9ca3af;
+		color: var(--color-text-muted);
 		margin-top: 2px;
 	}
 
 
 	/* Mission result in dialog */
 	.baby-result__mission {
-		background: #fffbeb;
+		background: var(--color-gold-100);
 		border-radius: 12px;
 		padding: 8px 12px;
 		width: 100%;
@@ -895,13 +895,13 @@ $effect(() => {
 	.baby-result__mission-text {
 		font-size: 0.875rem;
 		font-weight: 700;
-		color: #d97706;
+		color: var(--color-warning);
 	}
 
 	.baby-result__mission-complete {
 		font-size: 0.75rem;
 		font-weight: 700;
-		color: #b45309;
+		color: var(--color-gold-700);
 	}
 
 	/* Mission state */
@@ -973,7 +973,7 @@ $effect(() => {
 		left: 50%;
 		transform: translateX(-50%);
 		z-index: 50;
-		background: #ef4444;
+		background: var(--color-danger);
 		color: white;
 		padding: 8px 16px;
 		border-radius: 8px;

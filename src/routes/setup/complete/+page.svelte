@@ -82,8 +82,8 @@ const childLabel = $derived(
 	.status-card {
 		flex: 1;
 		max-width: 120px;
-		background: #f0f9ff;
-		border: 1px solid #bae6fd;
+		background: var(--color-brand-50);
+		border: 1px solid var(--color-brand-200);
 		border-radius: 12px;
 		padding: 12px 8px;
 	}
@@ -96,17 +96,17 @@ const childLabel = $derived(
 	.status-value {
 		font-size: 1.25rem;
 		font-weight: 800;
-		color: #1e40af;
+		color: var(--color-brand-800);
 	}
 
 	.status-label {
 		font-size: 0.625rem;
-		color: #64748b;
+		color: var(--color-text-muted);
 	}
 
 	.mission-card {
-		background: linear-gradient(135deg, #fef3c7, #fde68a);
-		border: 1px solid #fbbf24;
+		background: var(--gradient-gold);
+		border: 1px solid var(--color-gold-400);
 		border-radius: 12px;
 		padding: 12px 16px;
 		margin-bottom: 20px;
@@ -115,7 +115,7 @@ const childLabel = $derived(
 	.mission-title {
 		font-size: 0.625rem;
 		font-weight: 700;
-		color: #92400e;
+		color: var(--color-gold-700);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		margin: 0 0 4px 0;
@@ -124,7 +124,7 @@ const childLabel = $derived(
 	.mission-text {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: #78350f;
+		color: var(--color-gold-700);
 		margin: 0;
 	}
 
@@ -138,7 +138,7 @@ const childLabel = $derived(
 	.cta-primary {
 		display: block;
 		padding: 14px;
-		background: linear-gradient(135deg, #3b82f6, #6366f1);
+		background: var(--gradient-brand);
 		color: white;
 		font-weight: 700;
 		font-size: 0.9375rem;
@@ -154,8 +154,8 @@ const childLabel = $derived(
 	.cta-secondary {
 		display: block;
 		padding: 12px;
-		background: #f3f4f6;
-		color: #4b5563;
+		background: var(--color-neutral-100);
+		color: var(--color-neutral-600);
 		font-weight: 600;
 		font-size: 0.8125rem;
 		text-decoration: none;
@@ -164,12 +164,12 @@ const childLabel = $derived(
 	}
 
 	.cta-secondary:hover {
-		background: #e5e7eb;
+		background: var(--color-neutral-200);
 	}
 
 	.pin-hint {
 		font-size: 0.6875rem;
-		color: #9ca3af;
+		color: var(--color-neutral-400);
 		margin-top: 8px;
 	}
 </style>
