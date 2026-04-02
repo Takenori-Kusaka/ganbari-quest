@@ -66,6 +66,9 @@ infra/gcp/.terraform.lock.hcl
 tmp/
 screenshots/
 
+# Storybook
+storybook-static/
+
 # Misc
 *.log
 *.tsbuildinfo

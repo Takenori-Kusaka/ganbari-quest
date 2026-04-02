@@ -35,7 +35,9 @@
 		"db:studio": "drizzle-kit studio",
 		"db:seed": "tsx src/lib/server/db/seed.ts",
 		"deploy": "bash scripts/deploy.sh",
-		"start": "node build/index.js"
+		"start": "node build/index.js",
+		"storybook": "storybook dev -p 6006",
+		"build-storybook": "storybook build"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.0",
@@ -65,7 +67,17 @@
 		"tsx": "^4.19.0",
 		"typescript": "^5.9.3",
 		"vite": "^8.0.3",
-		"vitest": "^4.1.2"
+		"vitest": "^4.1.2",
+		"storybook": "^10.3.4",
+		"@storybook/sveltekit": "^10.3.4",
+		"@storybook/addon-svelte-csf": "^5.1.2",
+		"@chromatic-com/storybook": "^5.1.1",
+		"@storybook/addon-vitest": "^10.3.4",
+		"@storybook/addon-a11y": "^10.3.4",
+		"@storybook/addon-docs": "^10.3.4",
+		"eslint-plugin-storybook": "^10.3.4",
+		"playwright": "^1.59.1",
+		"@vitest/browser-playwright": "^4.1.2"
 	},
 	"dependencies": {
 		"@ark-ui/svelte": "^5.20.0",
