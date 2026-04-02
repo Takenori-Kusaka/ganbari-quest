@@ -506,6 +506,46 @@ export const SQL_TABLES = `
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE UNIQUE INDEX idx_activity_mastery_child_activity ON activity_mastery(child_id, activity_id);
+
+	-- ============================================================
+	-- sibling_challenges
+	-- ============================================================
+	CREATE TABLE sibling_challenges (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		title TEXT NOT NULL,
+		description TEXT,
+		challenge_type TEXT NOT NULL DEFAULT 'cooperative',
+		period_type TEXT NOT NULL DEFAULT 'weekly',
+		start_date TEXT NOT NULL,
+		end_date TEXT NOT NULL,
+		target_config TEXT NOT NULL,
+		reward_config TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'active',
+		is_active INTEGER NOT NULL DEFAULT 1,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_sibling_challenges_status ON sibling_challenges(status);
+	CREATE INDEX idx_sibling_challenges_dates ON sibling_challenges(start_date, end_date);
+
+	-- ============================================================
+	-- sibling_challenge_progress
+	-- ============================================================
+	CREATE TABLE sibling_challenge_progress (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		challenge_id INTEGER NOT NULL REFERENCES sibling_challenges(id) ON DELETE CASCADE,
+		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		current_value INTEGER NOT NULL DEFAULT 0,
+		target_value INTEGER NOT NULL,
+		completed INTEGER NOT NULL DEFAULT 0,
+		completed_at TEXT,
+		reward_claimed INTEGER NOT NULL DEFAULT 0,
+		reward_claimed_at TEXT,
+		progress_json TEXT,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_sibling_challenge_progress_unique ON sibling_challenge_progress(challenge_id, child_id);
+	CREATE INDEX idx_sibling_challenge_progress_child ON sibling_challenge_progress(child_id);
 `;
 
 // ============================================================
@@ -513,6 +553,8 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'sibling_challenge_progress',
+	'sibling_challenges',
 	'stamp_entries',
 	'stamp_cards',
 	'stamp_masters',
