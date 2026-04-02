@@ -5,6 +5,7 @@ import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
@@ -273,19 +274,7 @@ function directionLabel(dir: string): string {
 	>
 		<input type="hidden" name="childId" value={selectedChildId} />
 
-		<div>
-			<label class="block text-sm font-medium text-gray-700 mb-1">
-				<span>名前</span>
-				<input
-					type="text"
-					name="name"
-					bind:value={templateName}
-					placeholder="例: がっこうのもちもの"
-					required
-					class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-				/>
-			</label>
-		</div>
+		<FormField label="名前" type="text" name="name" bind:value={templateName} placeholder="例: がっこうのもちもの" required />
 
 		<div>
 			<span class="block text-sm font-medium text-gray-700 mb-1">アイコン</span>
@@ -327,19 +316,7 @@ function directionLabel(dir: string): string {
 	>
 		<input type="hidden" name="templateId" value={addItemTemplateId} />
 
-		<div>
-			<label class="block text-sm font-medium text-gray-700 mb-1">
-				<span>名前</span>
-				<input
-					type="text"
-					name="name"
-					bind:value={itemName}
-					placeholder="例: ハンカチ"
-					required
-					class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-				/>
-			</label>
-		</div>
+		<FormField label="名前" type="text" name="name" bind:value={itemName} placeholder="例: ハンカチ" required />
 
 		<div>
 			<span class="block text-sm font-medium text-gray-700 mb-1">アイコン</span>
@@ -357,27 +334,25 @@ function directionLabel(dir: string): string {
 			<input type="hidden" name="icon" value={itemIcon} />
 		</div>
 
-		<div>
-			<label class="block text-sm font-medium text-gray-700 mb-1">
-				<span>頻度</span>
-				<select name="frequency" bind:value={itemFrequency} class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
+		<FormField label="頻度">
+			{#snippet children()}
+				<select name="frequency" bind:value={itemFrequency} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors">
 					{#each FREQUENCY_OPTIONS as opt}
 						<option value={opt.value}>{opt.label}</option>
 					{/each}
 				</select>
-			</label>
-		</div>
+			{/snippet}
+		</FormField>
 
-		<div>
-			<label class="block text-sm font-medium text-gray-700 mb-1">
-				<span>方向</span>
-				<select name="direction" bind:value={itemDirection} class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
+		<FormField label="方向">
+			{#snippet children()}
+				<select name="direction" bind:value={itemDirection} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors">
 					{#each DIRECTION_OPTIONS as opt}
 						<option value={opt.value}>{opt.label}</option>
 					{/each}
 				</select>
-			</label>
-		</div>
+			{/snippet}
+		</FormField>
 
 		<Button
 			type="submit"
@@ -403,42 +378,18 @@ function directionLabel(dir: string): string {
 	>
 		<input type="hidden" name="childId" value={selectedChildId} />
 
-		<div>
-			<label class="block text-sm font-medium text-gray-700 mb-1">
-				<span>日付</span>
-				<input
-					type="date"
-					name="targetDate"
-					bind:value={overrideDate}
-					required
-					class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-				/>
-			</label>
-		</div>
+		<FormField label="日付" type="date" name="targetDate" bind:value={overrideDate} required />
 
-		<div>
-			<label class="block text-sm font-medium text-gray-700 mb-1">
-				<span>操作</span>
-				<select name="action" bind:value={overrideAction} class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
+		<FormField label="操作">
+			{#snippet children()}
+				<select name="action" bind:value={overrideAction} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors">
 					<option value="add">追加</option>
 					<option value="remove">除外</option>
 				</select>
-			</label>
-		</div>
+			{/snippet}
+		</FormField>
 
-		<div>
-			<label class="block text-sm font-medium text-gray-700 mb-1">
-				<span>アイテム名</span>
-				<input
-					type="text"
-					name="itemName"
-					bind:value={overrideName}
-					placeholder="例: リュック（遠足）"
-					required
-					class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-				/>
-			</label>
-		</div>
+		<FormField label="アイテム名" type="text" name="itemName" bind:value={overrideName} placeholder="例: リュック（遠足）" required />
 
 		<div>
 			<span class="block text-sm font-medium text-gray-700 mb-1">アイコン</span>
