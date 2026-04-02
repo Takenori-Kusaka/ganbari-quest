@@ -1,6 +1,6 @@
 <script lang="ts">
-import { Select as ArkSelect, createListCollection } from '@ark-ui/svelte/select';
 import { Portal } from '@ark-ui/svelte/portal';
+import { Select as ArkSelect, createListCollection } from '@ark-ui/svelte/select';
 
 interface SelectItem {
 	value: string;
@@ -29,9 +29,7 @@ let {
 	class: className = '',
 }: Props = $props();
 
-const collection = $derived(
-	createListCollection({ items }),
-);
+const collection = $derived(createListCollection({ items }));
 
 function handleValueChange(details: { value: string[]; items: SelectItem[] }) {
 	value = details.value;
