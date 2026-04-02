@@ -1,0 +1,17 @@
+# ==============================================================================
+# 設定例 — 実際の値に置き換えて terraform.tfvars として保存
+# ==============================================================================
+
+project_id        = "ganbari-quest-oauth"
+region            = "asia-northeast1"
+github_repository = "Takenori-Kusaka/ganbari-quest"
+
+oauth_callback_urls = [
+  "https://ganbari-quest.auth.us-east-1.amazoncognito.com/oauth2/idpresponse",
+]
+
+oauth_scopes = [
+  "openid",
+  "email",
+  "profile",
+]
