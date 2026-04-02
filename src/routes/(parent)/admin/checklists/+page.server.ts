@@ -15,7 +15,7 @@ import {
 	removeTemplateItem,
 } from '$lib/server/services/checklist-service';
 import { getAllChildren } from '$lib/server/services/child-service';
-import { resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import { isPaidTier, resolvePlanTier } from '$lib/server/services/plan-limit-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -41,7 +41,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
-	const isPremium = resolvePlanTier(locals.context?.licenseStatus ?? 'none') === 'paid';
+	const isPremium = isPaidTier(resolvePlanTier(locals.context?.licenseStatus ?? 'none'));
 
 	return { children: childrenWithChecklists, today: todayDateJST(), isPremium };
 };

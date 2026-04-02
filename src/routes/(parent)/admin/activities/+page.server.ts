@@ -16,7 +16,11 @@ import {
 	setActivityVisibility,
 	updateActivity,
 } from '$lib/server/services/activity-service';
-import { checkActivityLimit, resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import {
+	checkActivityLimit,
+	isPaidTier,
+	resolvePlanTier,
+} from '$lib/server/services/plan-limit-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -32,7 +36,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// プリセットパック一覧
 	const activityPacks = activityPackIndex.packs;
 
-	const isPremium = resolvePlanTier(licenseStatus) === 'paid';
+	const isPremium = isPaidTier(resolvePlanTier(licenseStatus));
 
 	return {
 		activities,
