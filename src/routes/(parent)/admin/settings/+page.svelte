@@ -5,6 +5,7 @@ import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/poi
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 import { APP_VERSION } from '$lib/version';
 
 let { data, form } = $props();
@@ -308,55 +309,52 @@ const previewFormatted = $derived(
 			}}
 			class="flex flex-col gap-4"
 		>
-			<div>
-				<label for="currentPin" class="block text-sm font-medium text-gray-600 mb-1"
-					>現在のPIN</label
-				>
-				<input
-					type="password"
-					id="currentPin"
-					name="currentPin"
-					inputmode="numeric"
-					pattern="[0-9]*"
-					maxlength="8"
-					required
-					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 text-center text-lg tracking-widest"
-				/>
-			</div>
+			<FormField label="現在のPIN">
+				{#snippet children()}
+					<input
+						type="password"
+						id="currentPin"
+						name="currentPin"
+						inputmode="numeric"
+						pattern="[0-9]*"
+						maxlength="8"
+						required
+						class="w-full px-3 py-2 border border-[var(--input-border)] rounded-[var(--input-radius)] bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-opacity-30 focus:border-[var(--input-border-focus)] text-center text-lg tracking-widest transition-colors"
+					/>
+				{/snippet}
+			</FormField>
 
-			<div>
-				<label for="newPin" class="block text-sm font-medium text-gray-600 mb-1"
-					>新しいPIN（4〜8桁）</label
-				>
-				<input
-					type="password"
-					id="newPin"
-					name="newPin"
-					inputmode="numeric"
-					pattern="[0-9]*"
-					minlength="4"
-					maxlength="8"
-					required
-					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 text-center text-lg tracking-widest"
-				/>
-			</div>
+			<FormField label="新しいPIN（4〜8桁）">
+				{#snippet children()}
+					<input
+						type="password"
+						id="newPin"
+						name="newPin"
+						inputmode="numeric"
+						pattern="[0-9]*"
+						minlength="4"
+						maxlength="8"
+						required
+						class="w-full px-3 py-2 border border-[var(--input-border)] rounded-[var(--input-radius)] bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-opacity-30 focus:border-[var(--input-border-focus)] text-center text-lg tracking-widest transition-colors"
+					/>
+				{/snippet}
+			</FormField>
 
-			<div>
-				<label for="confirmPin" class="block text-sm font-medium text-gray-600 mb-1"
-					>新しいPIN（確認）</label
-				>
-				<input
-					type="password"
-					id="confirmPin"
-					name="confirmPin"
-					inputmode="numeric"
-					pattern="[0-9]*"
-					minlength="4"
-					maxlength="8"
-					required
-					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 text-center text-lg tracking-widest"
-				/>
-			</div>
+			<FormField label="新しいPIN（確認）">
+				{#snippet children()}
+					<input
+						type="password"
+						id="confirmPin"
+						name="confirmPin"
+						inputmode="numeric"
+						pattern="[0-9]*"
+						minlength="4"
+						maxlength="8"
+						required
+						class="w-full px-3 py-2 border border-[var(--input-border)] rounded-[var(--input-radius)] bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-opacity-30 focus:border-[var(--input-border-focus)] text-center text-lg tracking-widest transition-colors"
+					/>
+				{/snippet}
+			</FormField>
 
 			<Button
 				type="submit"
@@ -498,8 +496,12 @@ const previewFormatted = $derived(
 			</label>
 			{#if data.notificationSettings.remindersEnabled}
 				<div class="ml-6">
-					<label class="block text-xs text-gray-500 mb-1">リマインダー時刻</label>
-					<input type="time" name="reminderTime" value={data.notificationSettings.reminderTime} class="text-sm border border-gray-300 rounded-lg px-3 py-1.5" />
+					<FormField
+						label="リマインダー時刻"
+						type="time"
+						name="reminderTime"
+						value={data.notificationSettings.reminderTime}
+					/>
 				</div>
 			{/if}
 			<label class="flex items-center gap-2">
@@ -511,13 +513,15 @@ const previewFormatted = $derived(
 				<span class="text-sm text-gray-700">達成通知（記録完了・レベルアップ時）</span>
 			</label>
 			<div class="border-t border-gray-200 pt-4 mt-4">
-				<label class="block text-sm font-semibold text-gray-600 mb-2">サイレント時間帯</label>
-				<p class="text-xs text-gray-500 mb-2">この時間帯は通知を送信しません</p>
-				<div class="flex items-center gap-2">
-					<input type="time" name="quietStart" value={data.notificationSettings.quietStart} class="text-sm border border-gray-300 rounded-lg px-3 py-1.5" />
-					<span class="text-sm text-gray-500">〜</span>
-					<input type="time" name="quietEnd" value={data.notificationSettings.quietEnd} class="text-sm border border-gray-300 rounded-lg px-3 py-1.5" />
-				</div>
+				<FormField label="サイレント時間帯" hint="この時間帯は通知を送信しません">
+					{#snippet children()}
+						<div class="flex items-center gap-2">
+							<input type="time" name="quietStart" value={data.notificationSettings.quietStart} class="text-sm border border-[var(--input-border)] rounded-[var(--input-radius)] bg-[var(--input-bg)] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-opacity-30 focus:border-[var(--input-border-focus)] transition-colors" />
+							<span class="text-sm text-gray-500">〜</span>
+							<input type="time" name="quietEnd" value={data.notificationSettings.quietEnd} class="text-sm border border-[var(--input-border)] rounded-[var(--input-radius)] bg-[var(--input-bg)] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-opacity-30 focus:border-[var(--input-border-focus)] transition-colors" />
+						</div>
+					{/snippet}
+				</FormField>
 			</div>
 			<Button type="submit" variant="primary" size="md" class="w-full">
 				通知設定を保存
@@ -656,25 +660,18 @@ const previewFormatted = $derived(
 					</select>
 				</div>
 
-				<div>
-					<label for="pointRate" class="block text-sm font-medium text-gray-600 mb-1">
-						レート（1P = ？{CURRENCY_DEFS[pointCurrency].symbol}）
-					</label>
-					<input
-						type="number"
-						id="pointRate"
-						name="point_rate"
-						bind:value={pointRate}
-						min="0.001"
-						max="10000"
-						step="any"
-						required
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-					/>
-					<p class="text-xs text-gray-400 mt-1">
-						例: 1P = 1円なら「1」、1P = 0.01ドルなら「0.01」
-					</p>
-				</div>
+				<FormField
+					label="レート（1P = ？{CURRENCY_DEFS[pointCurrency].symbol}）"
+					type="number"
+					id="pointRate"
+					name="point_rate"
+					bind:value={pointRate}
+					min="0.001"
+					max="10000"
+					step="any"
+					required
+					hint="例: 1P = 1円なら「1」、1P = 0.01ドルなら「0.01」"
+				/>
 			{/if}
 
 			<!-- プレビュー -->
@@ -958,16 +955,13 @@ const previewFormatted = $derived(
 			}}
 		>
 			<div class="space-y-3">
-				<label for="clearConfirm" class="block text-sm font-medium text-gray-600">
-					確認のため「削除」と入力してください
-				</label>
-				<input
+				<FormField
+					label="確認のため「削除」と入力してください"
 					type="text"
 					id="clearConfirm"
 					name="confirm"
 					bind:value={clearConfirmText}
 					placeholder="削除"
-					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300"
 				/>
 				<Button
 					type="submit"
@@ -1050,24 +1044,16 @@ const previewFormatted = $derived(
 				<p class="text-xs text-gray-400 mt-1 text-right">{feedbackText.length}/1000</p>
 			</div>
 
-			<div>
-				<label for="feedbackEmail" class="block text-sm font-medium text-gray-600 mb-1">
-					返信先メールアドレス
-					<span class="text-xs text-gray-400 ml-1">（任意）</span>
-				</label>
-				<input
-					type="email"
-					id="feedbackEmail"
-					name="email"
-					bind:value={feedbackEmail}
-					placeholder="reply@example.com"
-					maxlength="254"
-					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-				/>
-				<p class="text-xs text-gray-400 mt-1">
-					ご入力いただいた場合、内容によってはメールでご返信する場合があります
-				</p>
-			</div>
+			<FormField
+				label="返信先メールアドレス（任意）"
+				type="email"
+				id="feedbackEmail"
+				name="email"
+				bind:value={feedbackEmail}
+				placeholder="reply@example.com"
+				maxlength={254}
+				hint="ご入力いただいた場合、内容によってはメールでご返信する場合があります"
+			/>
 
 			<Button
 				type="submit"
@@ -1130,15 +1116,12 @@ const previewFormatted = $derived(
 			{/if}
 
 			<div class="mt-4 space-y-3">
-				<label for="cancelConfirm" class="block text-sm font-medium text-gray-600">
-					確認のため「アカウントを削除します」と入力してください
-				</label>
-				<input
+				<FormField
+					label="確認のため「アカウントを削除します」と入力してください"
 					type="text"
 					id="cancelConfirm"
 					bind:value={cancelConfirmText}
 					placeholder="アカウントを削除します"
-					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300"
 				/>
 				<Button
 					type="button"
