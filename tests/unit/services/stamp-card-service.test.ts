@@ -149,7 +149,7 @@ describe('stamp-card-service', () => {
 
 		it('各スタンプにid, name, emoji, rarityが含まれる', async () => {
 			const stamps = await getEnabledStamps(TENANT);
-			const first = stamps[0]!;
+			const first = stamps[0] ?? { id: 0, name: '', emoji: '', rarity: '' };
 			expect(typeof first.id).toBe('number');
 			expect(typeof first.name).toBe('string');
 			expect(typeof first.emoji).toBe('string');

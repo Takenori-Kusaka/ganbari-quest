@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
@@ -122,12 +123,14 @@ const categoryLabels: Record<string, string> = {
 			</label>
 		</div>
 
-		<button
+		<Button
 			type="submit"
-			class="w-full py-3 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-colors"
+			variant="primary"
+			size="md"
+			class="w-full"
 		>
 			{customIcon} {customTitle || '報酬'} ({customPoints}P) を付与する
-		</button>
+		</Button>
 	</form>
 
 	<!-- Success Message -->

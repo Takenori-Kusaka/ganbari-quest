@@ -10,13 +10,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 	children?: Snippet;
 }
 
-let {
-	variant = 'info',
-	message,
-	children,
-	class: className = '',
-	...rest
-}: Props = $props();
+let { variant = 'info', message, children, class: className = '', ...rest }: Props = $props();
 
 const variantClasses: Record<Variant, string> = {
 	success: 'bg-green-50 border-green-200 text-green-800',
