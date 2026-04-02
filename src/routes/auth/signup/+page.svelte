@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { form } = $props();
 
@@ -63,21 +64,22 @@ $effect(() => {
 					メールに記載された6桁のコードを入力してください。
 				</p>
 
-				<div class="flex flex-col gap-1.5">
-					<label for="code" class="text-sm font-semibold text-[var(--color-text)]">確認コード</label>
-					<input
-						id="code"
-						name="code"
-						type="text"
-						bind:value={codeRaw}
-						placeholder="123456"
-						required
-						inputmode="numeric"
-						autocomplete="one-time-code"
-						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-2xl text-center tracking-[0.5em] font-mono
-							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
-					/>
-				</div>
+				<FormField label="確認コード" id="code">
+					{#snippet children()}
+						<input
+							id="code"
+							name="code"
+							type="text"
+							bind:value={codeRaw}
+							placeholder="123456"
+							required
+							inputmode="numeric"
+							autocomplete="one-time-code"
+							class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-2xl text-center tracking-[0.5em] font-mono
+								focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
+						/>
+					{/snippet}
+				</FormField>
 
 				<Button type="submit" disabled={loading || code.length < 1} size="md" class="w-full">
 					{#if loading}
@@ -103,94 +105,88 @@ $effect(() => {
 				}}
 				class="flex flex-col gap-5"
 			>
-				<div class="flex flex-col gap-1.5">
-					<label for="email" class="text-sm font-semibold text-[var(--color-text)]">メールアドレス</label>
-					<input
-						id="email"
-						name="email"
-						type="email"
-						bind:value={email}
-						placeholder="example@email.com"
-						required
-						autocomplete="email"
-						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-base
-							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
-					/>
-				</div>
+				<FormField
+					label="メールアドレス"
+					type="email"
+					id="email"
+					name="email"
+					bind:value={email}
+					placeholder="example@email.com"
+					required
+					autocomplete="email"
+				/>
 
-				<div class="flex flex-col gap-1.5">
-					<label for="password" class="text-sm font-semibold text-[var(--color-text)]">パスワード</label>
-					<input
-						id="password"
-						name="password"
-						type="password"
-						bind:value={password}
-						placeholder="8文字以上（大小英字・数字を含む）"
-						required
-						minlength="8"
-						autocomplete="new-password"
-						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-base
-							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
-					/>
-					<span class="text-xs text-[var(--color-text-muted)]">8文字以上、大文字・小文字・数字を含む</span>
-				</div>
+				<FormField
+					label="パスワード"
+					type="password"
+					id="password"
+					name="password"
+					bind:value={password}
+					placeholder="8文字以上（大小英字・数字を含む）"
+					required
+					minlength={8}
+					autocomplete="new-password"
+					hint="8文字以上、大文字・小文字・数字を含む"
+				/>
 
-				<div class="flex flex-col gap-1.5">
-					<label for="passwordConfirm" class="text-sm font-semibold text-[var(--color-text)]">パスワード（確認）</label>
-					<input
-						id="passwordConfirm"
-						name="passwordConfirm"
-						type="password"
-						bind:value={passwordConfirm}
-						placeholder="パスワードを再入力"
-						required
-						minlength="8"
-						autocomplete="new-password"
-						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-base
-							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
-					/>
-				</div>
+				<FormField
+					label="パスワード（確認）"
+					type="password"
+					id="passwordConfirm"
+					name="passwordConfirm"
+					bind:value={passwordConfirm}
+					placeholder="パスワードを再入力"
+					required
+					minlength={8}
+					autocomplete="new-password"
+				/>
 
-				<div class="flex flex-col gap-1.5">
-					<label for="licenseKey" class="text-sm font-semibold text-[var(--color-text)]">
-						ライセンスキー <span class="font-normal text-xs text-[var(--color-text-muted)]">（任意）</span>
-					</label>
-					<input
-						id="licenseKey"
-						name="licenseKey"
-						type="text"
-						bind:value={licenseKey}
-						placeholder="GQ-XXXX-XXXX-XXXX"
-						autocomplete="off"
-						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-base uppercase font-mono tracking-wider
-							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
-					/>
-					<span class="text-xs text-[var(--color-text-muted)]">購入済みの方はライセンスキーを入力するとプレミアムプランが有効になります</span>
-				</div>
+				<FormField label="ライセンスキー（任意）" id="licenseKey" hint="購入済みの方はライセンスキーを入力するとプレミアムプランが有効になります">
+					{#snippet children()}
+						<input
+							id="licenseKey"
+							name="licenseKey"
+							type="text"
+							bind:value={licenseKey}
+							placeholder="GQ-XXXX-XXXX-XXXX"
+							autocomplete="off"
+							class="w-full px-3 py-2 border border-[var(--input-border)] rounded-[var(--input-radius)] text-sm uppercase font-mono tracking-wider
+								focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors"
+						/>
+					{/snippet}
+				</FormField>
 
 				<div class="-mt-1">
-					<label class="flex items-start gap-2 cursor-pointer">
-						<input
-							type="checkbox"
-							name="agreedTerms"
-							bind:checked={agreedTerms}
-							class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
-						/>
-						<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-							<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline">利用規約</a>に同意します
-						</span>
-					</label>
-					<label class="flex items-start gap-2 cursor-pointer">
-						<input
-							type="checkbox"
-							name="agreedPrivacy"
-							bind:checked={agreedPrivacy}
-							class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
-						/>
-						<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-							<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline">プライバシーポリシー</a>に同意します
-						</span>
-					</label>
+					<FormField label="">
+						{#snippet children()}
+							<label class="flex items-start gap-2 cursor-pointer">
+								<input
+									type="checkbox"
+									name="agreedTerms"
+									bind:checked={agreedTerms}
+									class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
+								/>
+								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
+									<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline">利用規約</a>に同意します
+								</span>
+							</label>
+						{/snippet}
+					</FormField>
+					<FormField label="">
+						{#snippet children()}
+							<label class="flex items-start gap-2 cursor-pointer">
+								<input
+									type="checkbox"
+									name="agreedPrivacy"
+									bind:checked={agreedPrivacy}
+									class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
+								/>
+								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
+									<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline">プライバシーポリシー</a>に同意します
+								</span>
+							</label>
+						{/snippet}
+					</FormField>
 					<p class="text-xs text-[var(--color-neutral-400)] mt-1 ml-6 leading-snug">
 						※ 本サービスは子供のデータを扱います。保護者として上記に同意してください。
 					</p>
