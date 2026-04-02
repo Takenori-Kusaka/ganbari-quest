@@ -58,7 +58,7 @@ export default async function globalSetup() {
 			} catch {
 				// タイムアウト — 現在のURLとページ内容をログ
 				console.log(`[AWS E2E Setup] ログイン後URL: ${page.url()}`);
-				const errorEl = page.locator('.login-error');
+				const errorEl = page.locator('[role="alert"]');
 				if (await errorEl.isVisible().catch(() => false)) {
 					console.log(`[AWS E2E Setup] ログインエラー: ${await errorEl.textContent()}`);
 				}
