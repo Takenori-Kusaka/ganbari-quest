@@ -78,7 +78,7 @@ async function openPortal() {
 </script>
 
 <svelte:head>
-	<title>ライセンス管理 - がんばりクエスト</title>
+	<title>プラン・お支払い - がんばりクエスト</title>
 </svelte:head>
 
 <div class="space-y-6">
