@@ -18,7 +18,8 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 
 	const body = await request.json();
 	const planId = body.planId;
-	if (planId !== 'monthly' && planId !== 'yearly') {
+	const validPlanIds = ['monthly', 'yearly', 'family-monthly', 'family-yearly'];
+	if (!validPlanIds.includes(planId)) {
 		error(400, 'プランが正しくありません');
 	}
 

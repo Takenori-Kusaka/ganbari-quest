@@ -81,7 +81,11 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	markChildScreenVisited(tenantId).catch(() => {});
 
 	const isPremium = isPaidTier(
-		await resolveFullPlanTier(tenantId, locals.context?.licenseStatus ?? 'none'),
+		await resolveFullPlanTier(
+			tenantId,
+			locals.context?.licenseStatus ?? 'none',
+			locals.context?.plan,
+		),
 	);
 
 	return {

@@ -72,7 +72,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		const id = Number(selectedId);
 		const child = children.find((c) => c.id === id);
 		if (child) {
-			const planTier = await resolveFullPlanTier(tenantId, licenseStatus);
+			const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 			const retentionFilter = applyRetentionFilter(planTier);
 			const [balance, status, logs, achievements, voices] = await Promise.all([
 				getPointBalance(id, tenantId),
@@ -109,7 +109,11 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const childLimit = await checkChildLimit(tenantId, licenseStatus);
 
 	// アーカイブ検知（選択中の子供）
-	const planTierForArchive = await resolveFullPlanTier(tenantId, licenseStatus);
+	const planTierForArchive = await resolveFullPlanTier(
+		tenantId,
+		licenseStatus,
+		locals.context?.plan,
+	);
 	const planLimits = getPlanLimits(planTierForArchive);
 	let archived = false;
 	if (selectedChild && planLimits.historyRetentionDays !== null) {

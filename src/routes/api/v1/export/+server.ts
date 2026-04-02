@@ -16,7 +16,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	// プラン制限チェック（エクスポート機能）
 	const licenseStatus = locals.context?.licenseStatus ?? 'none';
-	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
+	const limits = getPlanLimits(
+		await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan),
+	);
 	if (!limits.canExport) {
 		return apiError(
 			'PLAN_LIMIT_EXCEEDED',
