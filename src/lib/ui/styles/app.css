@@ -84,10 +84,83 @@
 }
 
 /* ============================================================
+   Semantic Layer — UIの「目的」に紐づくトークン
+   routes/features からはこの層を参照する。Base 層を直接使わない。
+   テーマ変数（--theme-*）を参照するため @theme の外で定義。
+   ============================================================ */
+
+:root {
+	/* ---- Default Theme (pink — data-theme未設定時のフォールバック) ---- */
+	--theme-primary: #ff69b4;
+	--theme-secondary: #ffb6c1;
+	--theme-accent: #ff1493;
+	--theme-bg: #fff0f5;
+	--theme-nav: #ffe4e1;
+
+	/* ---- Action: インタラクティブ要素 ---- */
+	--color-action-primary: var(--theme-primary);
+	--color-action-secondary: var(--theme-secondary);
+	--color-action-accent: var(--theme-accent);
+	--color-action-danger: var(--color-danger);
+	--color-action-success: var(--color-success);
+	--color-action-ghost: transparent;
+
+	/* ---- Surface: 背景・コンテナ ---- */
+	--color-surface-base: var(--color-bg);
+	--color-surface-card: white;
+	--color-surface-overlay: rgba(0, 0, 0, 0.5);
+	--color-surface-elevated: white;
+	--color-surface-muted: var(--color-neutral-50);
+	--color-surface-themed: var(--theme-bg);
+	--color-surface-nav: var(--theme-nav);
+
+	/* ---- Border ---- */
+	--color-border-default: var(--color-neutral-200);
+	--color-border-strong: var(--color-neutral-300);
+	--color-border-focus: var(--theme-primary);
+	--color-border-accent: var(--theme-accent);
+
+	/* ---- Text (Base層の補完) ---- */
+	--color-text-inverse: white;
+	--color-text-accent: var(--theme-accent);
+	--color-text-link: var(--color-brand-600);
+
+	/* ---- Gradient ---- */
+	--gradient-brand: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-400));
+	--gradient-gold: linear-gradient(135deg, var(--color-gold-600), var(--color-gold-400));
+	--gradient-action: linear-gradient(135deg, var(--theme-primary), var(--theme-accent));
+
+	/* ============================================================
+	   Component Layer — コンポーネント固有のトークン
+	   primitives/components 内で使用。routes から直接参照しても可。
+	   ============================================================ */
+
+	/* ---- Button ---- */
+	--button-radius: var(--radius-md);
+	--button-font-weight: 700;
+
+	/* ---- Card ---- */
+	--card-radius: var(--radius-lg);
+	--card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	--card-shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.15);
+	--card-padding: var(--sp-md);
+	--card-bg: var(--color-surface-card);
+
+	/* ---- Input / Form ---- */
+	--input-radius: var(--radius-sm);
+	--input-border: var(--color-border-default);
+	--input-border-focus: var(--color-border-focus);
+	--input-bg: white;
+
+	/* ---- Badge ---- */
+	--badge-radius: var(--radius-full);
+	--badge-font-size: var(--font-size-sm);
+}
+
+/* ============================================================
    Theme System (CSS custom properties on [data-theme])
    ============================================================ */
 
-:root,
 [data-theme="pink"] {
 	--theme-primary: #ff69b4;
 	--theme-secondary: #ffb6c1;

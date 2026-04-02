@@ -439,4 +439,37 @@ export const SQL_CREATE_TABLES = `
 		ON stamp_entries(card_id, slot);
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_stamp_entries_card_date
 		ON stamp_entries(card_id, login_date);
+
+	CREATE TABLE IF NOT EXISTS season_events (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		code TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		description TEXT,
+		event_type TEXT NOT NULL DEFAULT 'seasonal',
+		start_date TEXT NOT NULL,
+		end_date TEXT NOT NULL,
+		banner_icon TEXT NOT NULL DEFAULT '🎉',
+		banner_color TEXT,
+		theme_config TEXT,
+		reward_config TEXT,
+		mission_config TEXT,
+		is_active INTEGER NOT NULL DEFAULT 1,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS child_event_progress (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		event_id INTEGER NOT NULL REFERENCES season_events(id),
+		status TEXT NOT NULL DEFAULT 'active',
+		progress_json TEXT,
+		reward_claimed_at TEXT,
+		joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_child_event_unique
+		ON child_event_progress(child_id, event_id);
+	CREATE INDEX IF NOT EXISTS idx_child_event_child
+		ON child_event_progress(child_id);
 `;
