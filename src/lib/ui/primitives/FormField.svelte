@@ -9,6 +9,7 @@ interface Props extends Omit<HTMLInputAttributes, 'type'> {
 	type?: InputType;
 	error?: string;
 	hint?: string;
+	value?: string | number;
 	/** Override default input with custom content (e.g. textarea, select) */
 	children?: Snippet;
 }
@@ -19,6 +20,7 @@ let {
 	error,
 	hint,
 	id,
+	value = $bindable(),
 	children,
 	class: className = '',
 	...rest
@@ -37,6 +39,7 @@ const fieldId = id ?? `field-${label.replace(/\s+/g, '-').toLowerCase()}`;
 		<input
 			{type}
 			id={fieldId}
+			bind:value
 			class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
 				{error
 				? 'border-[var(--color-danger)] focus:ring-[var(--color-danger)]'
