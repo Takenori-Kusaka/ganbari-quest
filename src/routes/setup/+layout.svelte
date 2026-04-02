@@ -6,6 +6,7 @@ let { children } = $props();
 
 const steps = [
 	{ path: '/setup/children', label: '子供登録' },
+	{ path: '/setup/questionnaire', label: 'かんたん質問' },
 	{ path: '/setup/packs', label: '活動パック' },
 	{ path: '/setup/first-adventure', label: 'はじめての冒険' },
 	{ path: '/setup/complete', label: '冒険の始まり' },
@@ -89,6 +90,6 @@ const currentStepIndex = $derived(
 	.step--active .step-label { color: var(--color-brand-600); font-weight: 600; }
 	.step--done .step-label { color: var(--color-success); }
 
-	.step-line { width: 40px; height: 2px; background: var(--color-neutral-200); margin-bottom: 20px; }
+	.step-line { width: 24px; height: 2px; background: var(--color-neutral-200); margin-bottom: 20px; }
 	.step-line--done { background: var(--color-success); }
 </style>

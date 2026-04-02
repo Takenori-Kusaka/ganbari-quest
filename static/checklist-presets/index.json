@@ -1,0 +1,53 @@
+{
+	"formatVersion": "1.0",
+	"presets": [
+		{
+			"presetId": "morning-routine",
+			"name": "あさのしたく",
+			"icon": "☀️",
+			"description": "毎朝のルーティンをチェックリストに",
+			"targetAgeMin": 0,
+			"targetAgeMax": 18,
+			"tags": ["朝の準備", "生活習慣", "全年齢"],
+			"itemCount": 5,
+			"pointsPerItem": 2,
+			"completionBonus": 5
+		},
+		{
+			"presetId": "evening-routine",
+			"name": "よるのじゅんび",
+			"icon": "🌙",
+			"description": "寝る前のルーティンをチェックリストに",
+			"targetAgeMin": 0,
+			"targetAgeMax": 18,
+			"tags": ["夜の準備", "生活習慣", "全年齢"],
+			"itemCount": 4,
+			"pointsPerItem": 2,
+			"completionBonus": 5
+		},
+		{
+			"presetId": "after-school",
+			"name": "がっこうからかえったら",
+			"icon": "🎒",
+			"description": "帰宅後のルーティンをチェックリストに",
+			"targetAgeMin": 6,
+			"targetAgeMax": 18,
+			"tags": ["帰宅後", "宿題", "学校"],
+			"itemCount": 4,
+			"pointsPerItem": 2,
+			"completionBonus": 5
+		},
+		{
+			"presetId": "weekend-chores",
+			"name": "しゅうまつのおてつだい",
+			"icon": "🧹",
+			"description": "週末のお手伝いリスト",
+			"targetAgeMin": 4,
+			"targetAgeMax": 18,
+			"tags": ["お手伝い", "週末", "家事"],
+			"itemCount": 4,
+			"pointsPerItem": 3,
+			"completionBonus": 8
+		}
+	]
+}

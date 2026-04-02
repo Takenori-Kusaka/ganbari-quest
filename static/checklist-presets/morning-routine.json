@@ -1,0 +1,15 @@
+{
+	"formatVersion": "1.0",
+	"presetId": "morning-routine",
+	"name": "あさのしたく",
+	"icon": "☀️",
+	"pointsPerItem": 2,
+	"completionBonus": 5,
+	"items": [
+		{ "name": "はみがき", "icon": "🪥", "sortOrder": 1 },
+		{ "name": "かおをあらう", "icon": "🧼", "sortOrder": 2 },
+		{ "name": "きがえ", "icon": "👕", "sortOrder": 3 },
+		{ "name": "あさごはん", "icon": "🍚", "sortOrder": 4 },
+		{ "name": "もちものチェック", "icon": "🎒", "sortOrder": 5 }
+	]
+}
