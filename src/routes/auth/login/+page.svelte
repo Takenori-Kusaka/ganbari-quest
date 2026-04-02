@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
 
@@ -68,22 +69,23 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 					認証アプリに表示されている6桁のコードを入力してください。
 				</p>
 
-				<div class="flex flex-col gap-1.5">
-					<label for="mfaCode" class="text-sm font-semibold text-[var(--color-text)]">認証コード</label>
-					<input
-						id="mfaCode"
-						name="mfaCode"
-						type="text"
-						bind:value={mfaCodeRaw}
-						placeholder="000000"
-						required
-						maxlength="12"
-						inputmode="numeric"
-						autocomplete="one-time-code"
-						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-2xl text-center tracking-[0.5em] font-mono
-							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
-					/>
-				</div>
+				<FormField label="認証コード" id="mfaCode">
+					{#snippet children()}
+						<input
+							id="mfaCode"
+							name="mfaCode"
+							type="text"
+							bind:value={mfaCodeRaw}
+							placeholder="000000"
+							required
+							maxlength="12"
+							inputmode="numeric"
+							autocomplete="one-time-code"
+							class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-2xl text-center tracking-[0.5em] font-mono
+								focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
+						/>
+					{/snippet}
+				</FormField>
 
 				<Button type="submit" disabled={loading || mfaCode.length !== 6} size="md" class="w-full">
 					{#if loading}
@@ -109,36 +111,28 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 				}}
 				class="flex flex-col gap-5"
 			>
-				<div class="flex flex-col gap-1.5">
-					<label for="email" class="text-sm font-semibold text-[var(--color-text)]">メールアドレス</label>
-					<input
-						id="email"
-						name="email"
-						type="email"
-						bind:value={email}
-						placeholder="example@email.com"
-						required
-						autocomplete="email"
-						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-base
-							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
-					/>
-				</div>
+				<FormField
+					label="メールアドレス"
+					type="email"
+					id="email"
+					name="email"
+					bind:value={email}
+					placeholder="example@email.com"
+					required
+					autocomplete="email"
+				/>
 
-				<div class="flex flex-col gap-1.5">
-					<label for="password" class="text-sm font-semibold text-[var(--color-text)]">パスワード</label>
-					<input
-						id="password"
-						name="password"
-						type="password"
-						bind:value={password}
-						placeholder="8文字以上"
-						required
-						minlength="8"
-						autocomplete="current-password"
-						class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-base
-							focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
-					/>
-				</div>
+				<FormField
+					label="パスワード"
+					type="password"
+					id="password"
+					name="password"
+					bind:value={password}
+					placeholder="8文字以上"
+					required
+					minlength={8}
+					autocomplete="current-password"
+				/>
 
 				<Button type="submit" disabled={loading || !email || !password} size="md" class="w-full">
 					{#if loading}

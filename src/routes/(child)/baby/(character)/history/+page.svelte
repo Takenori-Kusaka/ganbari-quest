@@ -1,6 +1,7 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
+import Card from '$lib/ui/primitives/Card.svelte';
 import Tabs from '$lib/ui/primitives/Tabs.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -52,7 +53,8 @@ function formatDate(dateStr: string): string {
 	<Tabs items={tabItems} value={data.period} onValueChange={handleTabChange}>
 		{#snippet children(_value)}
 			<!-- Summary -->
-			<div class="bg-white rounded-2xl p-4 shadow-[var(--card-shadow)] mb-4">
+			<Card variant="elevated" padding="md" class="mb-4">
+				{#snippet children()}
 				<div class="flex justify-between items-center mb-1">
 					<span class="text-sm text-[var(--color-text-muted)]">ごうけい</span>
 					<span class="font-bold text-lg">{data.summary.totalCount}かい</span>
@@ -73,7 +75,8 @@ function formatDate(dateStr: string): string {
 						{/each}
 					</div>
 				{/if}
-			</div>
+				{/snippet}
+			</Card>
 
 			<!-- Log list -->
 			{#if data.logs.length === 0}

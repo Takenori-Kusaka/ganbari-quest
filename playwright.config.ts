@@ -2,7 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
 	testDir: 'tests/e2e',
-	testIgnore: ['**/cognito-auth.spec.ts', '**/production-smoke.spec.ts'],
+	testIgnore: [
+		'**/cognito-auth.spec.ts',
+		'**/production-smoke.spec.ts',
+		// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
+		// CI（Linux）ではスキップし、ローカル開発でのUI崩壊検知にのみ使用する
+		...(process.env.CI ? ['**/visual-regression.spec.ts'] : []),
+	],
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,

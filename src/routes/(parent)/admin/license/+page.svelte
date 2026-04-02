@@ -1,5 +1,6 @@
 <script lang="ts">
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
@@ -82,7 +83,8 @@ async function openPortal() {
 
 <div class="space-y-6">
 	<!-- 現在のプラン -->
-	<section class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+	<Card variant="default" padding="lg">
+		{#snippet children()}
 		<h3 class="text-lg font-semibold text-gray-600 mb-4">現在のプラン</h3>
 
 		<div class="grid gap-4">
@@ -128,7 +130,8 @@ async function openPortal() {
 				</span>
 			</div>
 		</div>
-	</section>
+		{/snippet}
+	</Card>
 
 	<!-- ステータス別メッセージ -->
 	{#if license.status === 'grace_period'}
@@ -158,7 +161,8 @@ async function openPortal() {
 	{/if}
 
 	<!-- プラン管理 -->
-	<section class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+	<Card variant="default" padding="lg">
+		{#snippet children()}
 		<h3 class="text-lg font-semibold text-gray-600 mb-4">プラン管理</h3>
 
 		{#if !stripeEnabled}
@@ -230,10 +234,12 @@ async function openPortal() {
 				</p>
 			</div>
 		{/if}
-	</section>
+		{/snippet}
+	</Card>
 
 	<!-- 支払い履歴 -->
-	<section class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+	<Card variant="default" padding="lg">
+		{#snippet children()}
 		<h3 class="text-lg font-semibold text-gray-600 mb-4">支払い履歴</h3>
 		{#if hasSubscription}
 			<p class="text-sm text-gray-500 text-center py-4">
@@ -253,5 +259,6 @@ async function openPortal() {
 				支払い履歴はまだありません
 			</p>
 		{/if}
-	</section>
+		{/snippet}
+	</Card>
 </div>

@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
 
@@ -96,71 +97,46 @@ const categories: Record<number, string> = {
 		<form method="POST" action="?/create" use:enhance class="rounded-xl border bg-white p-4 space-y-3">
 			<h3 class="font-bold text-sm">新規チャレンジ作成</h3>
 			<div class="grid grid-cols-2 gap-3">
-				<label class="block col-span-2">
-					<span class="text-xs font-semibold text-gray-600">タイトル</span>
-					<input name="title" type="text" placeholder="みんなで今週3回うんどう！" required
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
-				<label class="block col-span-2">
-					<span class="text-xs font-semibold text-gray-600">説明（任意）</span>
-					<input name="description" type="text" placeholder="家族みんなでうんどうしよう"
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
+				<FormField label="タイトル" type="text" name="title" placeholder="みんなで今週3回うんどう！" required class="col-span-2" />
+				<FormField label="説明（任意）" type="text" name="description" placeholder="家族みんなでうんどうしよう" class="col-span-2" />
 			</div>
 			<div class="grid grid-cols-3 gap-3">
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">種別</span>
-					<select name="challengeType" class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm">
-						<option value="cooperative">協力</option>
-						<option value="competitive">競争</option>
-					</select>
-				</label>
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">期間</span>
-					<select name="periodType" class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm">
-						<option value="weekly">週間</option>
-						<option value="monthly">月間</option>
-						<option value="custom">カスタム</option>
-					</select>
-				</label>
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">カテゴリ（任意）</span>
-					<select name="categoryId" class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm">
-						<option value="">全カテゴリ</option>
-						{#each Object.entries(categories) as [id, name]}
-							<option value={id}>{name}</option>
-						{/each}
-					</select>
-				</label>
+				<FormField label="種別">
+					{#snippet children()}
+						<select name="challengeType" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
+							<option value="cooperative">協力</option>
+							<option value="competitive">競争</option>
+						</select>
+					{/snippet}
+				</FormField>
+				<FormField label="期間">
+					{#snippet children()}
+						<select name="periodType" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
+							<option value="weekly">週間</option>
+							<option value="monthly">月間</option>
+							<option value="custom">カスタム</option>
+						</select>
+					{/snippet}
+				</FormField>
+				<FormField label="カテゴリ（任意）">
+					{#snippet children()}
+						<select name="categoryId" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
+							<option value="">全カテゴリ</option>
+							{#each Object.entries(categories) as [id, name]}
+								<option value={id}>{name}</option>
+							{/each}
+						</select>
+					{/snippet}
+				</FormField>
 			</div>
 			<div class="grid grid-cols-2 gap-3">
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">開始日</span>
-					<input name="startDate" type="date" required
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">終了日</span>
-					<input name="endDate" type="date" required
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
+				<FormField label="開始日" type="date" name="startDate" required />
+				<FormField label="終了日" type="date" name="endDate" required />
 			</div>
 			<div class="grid grid-cols-3 gap-3">
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">目標回数</span>
-					<input name="baseTarget" type="number" value="3" min="1" required
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">報酬ポイント</span>
-					<input name="rewardPoints" type="number" value="50" min="1" required
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
-				<label class="block">
-					<span class="text-xs font-semibold text-gray-600">達成メッセージ（任意）</span>
-					<input name="rewardMessage" type="text" placeholder="みんなすごい！"
-						class="mt-1 block w-full rounded-lg border px-3 py-1.5 text-sm" />
-				</label>
+				<FormField label="目標回数" type="number" name="baseTarget" value={3} min={1} required />
+				<FormField label="報酬ポイント" type="number" name="rewardPoints" value={50} min={1} required />
+				<FormField label="達成メッセージ（任意）" type="text" name="rewardMessage" placeholder="みんなすごい！" />
 			</div>
 			<input type="hidden" name="metric" value="count" />
 			<Button type="submit" variant="primary" size="sm" class="w-full">

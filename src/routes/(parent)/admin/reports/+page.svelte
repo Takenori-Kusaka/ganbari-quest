@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
 
@@ -47,23 +48,25 @@ function progressPct(xp: number, level: number): number {
 	<form method="POST" action="?/updateSettings" use:enhance class="rounded-xl border bg-white p-4">
 		<h3 class="mb-3 text-sm font-bold text-gray-700">⚙️ レポート設定</h3>
 		<div class="flex flex-wrap items-center gap-4">
-			<label class="flex items-center gap-2">
-				<input
-					type="checkbox"
-					name="enabled"
-					checked={data.settings.enabled}
-					class="h-4 w-4 rounded border-gray-300"
-				/>
-				<span class="text-sm text-gray-700">週次レポートを有効にする</span>
-			</label>
-			<label class="flex items-center gap-2">
-				<span class="text-sm text-gray-600">配信曜日:</span>
-				<select name="day" class="rounded-lg border px-2 py-1 text-sm">
-					{#each Object.entries(dayLabels) as [value, label]}
-						<option {value} selected={data.settings.day === value}>{label}</option>
-					{/each}
-				</select>
-			</label>
+			<FormField label="週次レポートを有効にする">
+				{#snippet children()}
+					<input
+						type="checkbox"
+						name="enabled"
+						checked={data.settings.enabled}
+						class="h-4 w-4 rounded border-gray-300"
+					/>
+				{/snippet}
+			</FormField>
+			<FormField label="配信曜日">
+				{#snippet children()}
+					<select name="day" class="rounded-[var(--input-radius)] border bg-[var(--input-bg)] px-2 py-1 text-sm">
+						{#each Object.entries(dayLabels) as [value, label]}
+							<option {value} selected={data.settings.day === value}>{label}</option>
+						{/each}
+					</select>
+				{/snippet}
+			</FormField>
 			<Button type="submit" variant="primary" size="sm">
 				保存
 			</Button>
