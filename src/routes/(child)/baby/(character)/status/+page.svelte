@@ -113,26 +113,6 @@ const radarCategories = $derived(
 				</div>
 			{/if}
 		</div>
-		<!-- Achievements link -->
-		<a
-			href="/baby/achievements"
-			class="status-link"
-			style="margin-top: 16px;"
-		>
-			<span style="font-size: 1.5rem;">🏆</span>
-			<p class="status-link__title">じっせき</p>
-			<p class="status-link__desc">できたことをみよう！</p>
-		</a>
-
-		<!-- History link -->
-		<a
-			href="/baby/history"
-			class="status-link"
-		>
-			<span style="font-size: 1.5rem;">📋</span>
-			<p class="status-link__title">きろく</p>
-			<p class="status-link__desc">がんばったことをみよう！</p>
-		</a>
 	{:else}
 		<div class="status-empty">
 			<span class="status-empty__icon">⭐</span>
@@ -225,31 +205,7 @@ const radarCategories = $derived(
 		color: var(--color-text-muted);
 	}
 
-	.status-link {
-		display: block;
-		background: white;
-		border-radius: 16px;
-		padding: 16px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		text-align: center;
-		text-decoration: none;
-		color: inherit;
-		margin-top: 8px;
-	}
-
-	.status-link__title {
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--theme-accent);
-		margin-top: 4px;
-	}
-
-	.status-link__desc {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-	}
-
-	.status-empty {
+.status-empty {
 		display: flex;
 		flex-direction: column;
 		align-items: center;

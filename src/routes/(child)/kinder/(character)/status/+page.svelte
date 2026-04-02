@@ -167,36 +167,6 @@ const radarCategories = $derived(
 			{/if}
 		</div>
 
-		<!-- Achievements link -->
-		<a
-			href="/kinder/achievements"
-			class="mt-[var(--sp-md)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">🏆</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">じっせき</p>
-			<p class="text-xs text-[var(--color-text-muted)]">たっせいしたことをみよう！</p>
-		</a>
-
-		<!-- History link -->
-		<a
-			href="/kinder/history"
-			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">📋</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">きろく</p>
-			<p class="text-xs text-[var(--color-text-muted)]">いままでのがんばりをみよう！</p>
-		</a>
-
-		<!-- Title collection link -->
-		<a
-			href="/kinder/titles"
-			class="mt-[var(--sp-sm)] block bg-white rounded-[var(--radius-md)] p-[var(--sp-md)] shadow-sm text-center"
-		>
-			<span class="text-2xl">🎖️</span>
-			<p class="text-sm font-bold mt-1" style="color: var(--theme-accent);">しょうごうコレクション</p>
-			<p class="text-xs text-[var(--color-text-muted)]">とくべつなしょうごうをあつめよう！</p>
-		</a>
-
 	{:else}
 		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-sm)]">⭐</span>
