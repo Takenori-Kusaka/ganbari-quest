@@ -9,9 +9,10 @@ interface Props {
 	children: Snippet;
 	mode: 'live' | 'demo';
 	basePath: string;
+	isPremium?: boolean;
 }
 
-let { children, mode, basePath }: Props = $props();
+let { children, mode, basePath, isPremium = false }: Props = $props();
 
 const isDemo = $derived(mode === 'demo');
 
@@ -61,6 +62,15 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
+				{#if !isDemo && !isPremium}
+					<a
+						href="{basePath}/license"
+						class="upgrade-btn"
+						data-tutorial="upgrade-btn"
+					>
+						⭐ アップグレード
+					</a>
+				{/if}
 				{#if !isDemo}
 					<button
 						onclick={handleStartTutorial}
@@ -141,3 +151,25 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 		<TutorialOverlay />
 	{/if}
 </div>
+
+<style>
+	.upgrade-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 4px 12px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-premium);
+		background: var(--color-premium-bg);
+		border-radius: var(--radius-full);
+		text-decoration: none;
+		transition: all 0.15s ease;
+		white-space: nowrap;
+	}
+
+	.upgrade-btn:hover {
+		background: var(--color-premium);
+		color: white;
+	}
+</style>

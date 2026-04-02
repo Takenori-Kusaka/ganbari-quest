@@ -16,7 +16,7 @@ $effect(() => {
 	if (active && step) {
 		// Small delay to ensure DOM elements are rendered after page navigation
 		const timer = setTimeout(() => {
-			const el = document.querySelector(step.selector);
+			const el = step.selector ? document.querySelector(step.selector) : null;
 			if (el) {
 				el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 				// Update rect after scroll settles

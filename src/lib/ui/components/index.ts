@@ -12,6 +12,8 @@ export { default as Header } from './Header.svelte';
 export { default as NumPad } from './NumPad.svelte';
 export { default as OmikujiStampOverlay } from './OmikujiStampOverlay.svelte';
 export { default as PointDisplay } from './PointDisplay.svelte';
+export { default as PremiumBadge } from './PremiumBadge.svelte';
+export { default as PremiumModal } from './PremiumModal.svelte';
 export { default as RadarChart } from './RadarChart.svelte';
 export { default as StatusBar } from './StatusBar.svelte';
 export { default as StreakDisplay } from './StreakDisplay.svelte';
