@@ -19,6 +19,7 @@ import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getUnshownMessage } from '$lib/server/services/message-service';
 import { selectRecommendations } from '$lib/server/services/recommendation-service';
+import { getActiveEventsForChild } from '$lib/server/services/season-event-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
@@ -53,6 +54,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			focusMode: false,
 			recommendedActivityIds: [],
 			birthdayBonus: null,
+			activeEvents: [],
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -69,6 +71,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		achievementSummary,
 		hasRecords,
 		birthdayBonusStatus,
+		activeEvents,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -82,6 +85,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getAchievementSummary(child.id, tenantId),
 		hasAnyActivityRecords(child.id, tenantId),
 		getBirthdayBonusStatus(child.id, tenantId),
+		getActiveEventsForChild(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -136,6 +140,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		focusMode: recommendations.length > 0,
 		recommendedActivityIds: [...recommendedIds],
 		birthdayBonus,
+		activeEvents,
 	};
 };
 

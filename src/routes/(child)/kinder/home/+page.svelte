@@ -14,6 +14,7 @@ import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import EventBanner from '$lib/ui/components/EventBanner.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import OmikujiStampOverlay from '$lib/ui/components/OmikujiStampOverlay.svelte';
@@ -404,6 +405,11 @@ $effect(() => {
 			totalPoints={data.birthdayBonus.totalPoints ?? 0}
 			onclick={() => { birthdayModalOpen = true; }}
 		/>
+	{/if}
+
+	<!-- Season event banners -->
+	{#if data.activeEvents && data.activeEvents.length > 0}
+		<EventBanner events={data.activeEvents} />
 	{/if}
 
 	<!-- Error toast -->
