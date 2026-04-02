@@ -553,3 +553,72 @@ export interface LevelTitle {
 	customTitle: string;
 	updatedAt: string;
 }
+
+// ============================================================
+// Stamp Card / Stamp Master / Stamp Entry
+// ============================================================
+
+export interface StampMaster {
+	id: number;
+	name: string;
+	emoji: string;
+	rarity: string;
+	isDefault: number;
+	isEnabled: number;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface StampCard {
+	id: number;
+	childId: number;
+	weekStart: string;
+	weekEnd: string;
+	status: string;
+	redeemedPoints: number | null;
+	redeemedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface StampEntry {
+	id: number;
+	cardId: number;
+	stampMasterId: number | null;
+	omikujiRank: string | null;
+	slot: number;
+	loginDate: string;
+	earnedAt: string;
+}
+
+export interface StampEntryWithMaster {
+	slot: number;
+	stampMasterId: number | null;
+	omikujiRank: string | null;
+	loginDate: string;
+	name: string | null;
+	emoji: string | null;
+	rarity: string | null;
+}
+
+export interface InsertStampCardInput {
+	childId: number;
+	weekStart: string;
+	weekEnd: string;
+	status?: string;
+}
+
+export interface InsertStampEntryInput {
+	cardId: number;
+	stampMasterId: number;
+	omikujiRank: string | null;
+	slot: number;
+	loginDate: string;
+}
+
+export interface UpdateStampCardStatusInput {
+	status: string;
+	redeemedPoints: number | null;
+	redeemedAt: string | null;
+	updatedAt: string;
+}
