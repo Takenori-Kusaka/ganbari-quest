@@ -52,6 +52,19 @@ static/tenants/
 
 # CDK
 infra/cdk.out/
+infra/cdk.context.json
+
+# Terraform (GCP)
+infra/gcp/.terraform/
+infra/gcp/*.tfstate
+infra/gcp/*.tfstate.*
+infra/gcp/*.tfvars
+!infra/gcp/*.tfvars.example
+infra/gcp/.terraform.lock.hcl
+
+# Temporary files
+tmp/
+screenshots/
 
 # Misc
 *.log
