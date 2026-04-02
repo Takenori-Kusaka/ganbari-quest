@@ -1,5 +1,6 @@
 <script lang="ts">
 import { page } from '$app/stores';
+import Button from '$lib/ui/primitives/Button.svelte';
 import QRCode from 'qrcode';
 
 let { data } = $props();
@@ -179,20 +180,22 @@ const roleLabel = (role: string) => {
 						{#if $page.data.currentRole === 'owner' && member.userId !== $page.data.currentUserId}
 							<div class="flex gap-1 flex-shrink-0">
 								{#if member.role !== 'owner'}
-									<button
+									<Button
 										onclick={() => transferOwnership(member.userId, member.email)}
-										class="text-xs px-2 py-1 bg-amber-50 text-amber-600 rounded hover:bg-amber-100 transition-colors"
+										variant="ghost"
+										size="sm"
 										title="オーナー権限を移譲"
 									>
 										移譲
-									</button>
-									<button
+									</Button>
+									<Button
 										onclick={() => removeMember(member.userId, member.email)}
-										class="text-xs px-2 py-1 bg-red-50 text-red-500 rounded hover:bg-red-100 transition-colors"
+										variant="danger"
+										size="sm"
 										title="メンバーを削除"
 									>
 										削除
-									</button>
+									</Button>
 								{/if}
 							</div>
 						{/if}
@@ -204,12 +207,13 @@ const roleLabel = (role: string) => {
 		<!-- 自主離脱ボタン（parent のみ） -->
 		{#if $page.data.currentRole === 'parent'}
 			<div class="mt-4 pt-4 border-t border-gray-100">
-				<button
+				<Button
 					onclick={leaveGroup}
-					class="text-sm text-red-500 hover:text-red-700 transition-colors"
+					variant="danger"
+					size="sm"
 				>
 					家族グループを離れる
-				</button>
+				</Button>
 			</div>
 		{/if}
 	</section>
@@ -250,13 +254,14 @@ const roleLabel = (role: string) => {
 					</select>
 				</div>
 			{/if}
-			<button
+			<Button
 				onclick={createInvite}
 				disabled={creating}
-				class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+				variant="primary"
+				size="sm"
 			>
 				{creating ? '作成中...' : '招待リンクを作成'}
-			</button>
+			</Button>
 		</div>
 
 		{#if error}
@@ -289,15 +294,13 @@ const roleLabel = (role: string) => {
 						readonly
 						class="flex-1 px-3 py-2 bg-white border border-green-200 rounded-lg text-xs font-mono"
 					/>
-					<button
+					<Button
 						onclick={copyLink}
-						class="px-3 py-2 text-xs font-medium rounded-lg transition-colors
-							{copied
-							? 'bg-gray-500 text-white'
-							: 'bg-green-600 text-white hover:bg-green-700'}"
+						variant={copied ? 'secondary' : 'success'}
+						size="sm"
 					>
 						{copied ? 'コピー済み' : 'コピー'}
-					</button>
+					</Button>
 				</div>
 			</div>
 		{/if}
@@ -319,12 +322,13 @@ const roleLabel = (role: string) => {
 								期限: {new Date(invite.expiresAt).toLocaleDateString('ja-JP')}
 							</span>
 						</div>
-						<button
+						<Button
 							onclick={() => revokeInvite(invite.inviteCode)}
-							class="text-xs text-red-500 hover:text-red-700 transition-colors"
+							variant="danger"
+							size="sm"
 						>
 							取消し
-						</button>
+						</Button>
 					</div>
 				{/each}
 			</div>
