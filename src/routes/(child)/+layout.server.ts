@@ -6,7 +6,7 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { markChildScreenVisited } from '$lib/server/services/onboarding-service';
-import { isPaidTier, resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getStampCardStatus } from '$lib/server/services/stamp-card-service';
 import { getChildStatus } from '$lib/server/services/status-service';
@@ -80,7 +80,9 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	// オンボーディング「子供の画面を確認する」を自動マーク（fire-and-forget）
 	markChildScreenVisited(tenantId).catch(() => {});
 
-	const isPremium = isPaidTier(resolvePlanTier(locals.context?.licenseStatus ?? 'none'));
+	const isPremium = isPaidTier(
+		await resolveFullPlanTier(tenantId, locals.context?.licenseStatus ?? 'none'),
+	);
 
 	return {
 		child,

@@ -1,6 +1,6 @@
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
-import { applyRetentionFilter, resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import { applyRetentionFilter, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { PageServerLoad } from './$types';
 
 function getDateRange(period: string): { from: string; to: string } {
@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 
 	const period = url.searchParams.get('period') ?? 'week';
 	const dateRange = getDateRange(period);
-	const planTier = resolvePlanTier(locals.context?.licenseStatus ?? 'none');
+	const planTier = await resolveFullPlanTier(tenantId, locals.context?.licenseStatus ?? 'none');
 	const filtered = applyRetentionFilter(planTier, dateRange);
 	const result = await getActivityLogs(child.id, tenantId, filtered);
 
