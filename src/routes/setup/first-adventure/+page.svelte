@@ -46,8 +46,8 @@ function goToComplete() {
 {#if recorded}
 	<!-- 成功演出 -->
 	<div class="text-center success-screen">
-		<div class="celebration">
-			<span class="celebration-emoji">🎉</span>
+		<div class="mb-2">
+			<span class="celebration-emoji text-[4rem] inline-block">🎉</span>
 		</div>
 
 		<h2 class="text-xl font-bold text-gray-700 mt-4 mb-2">
@@ -58,17 +58,17 @@ function goToComplete() {
 			「{resultName}」をきろくしたよ！
 		</p>
 
-		<div class="points-display">
-			<div class="points-value">+{resultPoints}pt</div>
-			<div class="points-label">ポイントゲット！</div>
+		<div class="points-display border-2 border-[var(--color-gold-600)] rounded-2xl p-4 my-4">
+			<div class="text-[2rem] font-extrabold text-[var(--color-gold-700)]">+{resultPoints}pt</div>
+			<div class="text-sm text-[var(--color-gold-700)] font-semibold">ポイントゲット！</div>
 		</div>
 
 		{#if resultLevelUp}
-			<div class="level-up-display">
-				<div class="level-badge">
-					<span class="level-before">Lv.{resultLevelUp.levelBefore}</span>
-					<span class="level-arrow">→</span>
-					<span class="level-after">Lv.{resultLevelUp.levelAfter}</span>
+			<div class="my-3">
+				<div class="flex items-center justify-center gap-2 text-xl font-bold">
+					<span class="text-[var(--color-neutral-400)]">Lv.{resultLevelUp.levelBefore}</span>
+					<span class="text-[var(--color-gold-600)]">→</span>
+					<span class="text-[var(--color-gold-600)] text-2xl">Lv.{resultLevelUp.levelAfter}</span>
 				</div>
 				<p class="text-sm text-amber-600 font-bold">レベルアップ！</p>
 			</div>
@@ -113,7 +113,7 @@ function goToComplete() {
 			<input type="hidden" name="childId" value={child?.id ?? ''} />
 			<input type="hidden" name="activityId" value={selectedActivityId ?? ''} />
 
-			<div class="activity-grid">
+			<div class="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2">
 				{#each data.activities as activity (activity.id)}
 					<button
 						type="button"
@@ -121,9 +121,9 @@ function goToComplete() {
 						class="activity-card"
 						class:activity-card--selected={selectedActivityId === activity.id}
 					>
-						<span class="activity-icon">{activity.icon || '⭐'}</span>
-						<span class="activity-name">{activity.name}</span>
-						<span class="activity-points">+{activity.basePoints}pt</span>
+						<span class="text-[2rem]">{activity.icon || '⭐'}</span>
+						<span class="text-xs font-semibold text-[var(--color-text)] text-center leading-tight">{activity.name}</span>
+						<span class="text-[0.625rem] text-[var(--color-gold-600)] font-bold">+{activity.basePoints}pt</span>
 					</button>
 				{/each}
 			</div>
@@ -160,82 +160,17 @@ function goToComplete() {
 {/if}
 
 <style>
-	.celebration {
-		margin-bottom: 8px;
-	}
-
-	.celebration-emoji {
-		font-size: 4rem;
-		display: inline-block;
-		animation: bounce 0.6s ease-in-out infinite alternate;
-	}
-
+	.points-display { background: var(--gradient-gold); }
+	.celebration-emoji { animation: bounce 0.6s ease-in-out infinite alternate; }
 	@keyframes bounce {
 		from { transform: translateY(0); }
 		to { transform: translateY(-12px); }
 	}
-
-	.success-screen {
-		animation: fadeIn 0.3s ease-out;
-	}
-
+	.success-screen { animation: fadeIn 0.3s ease-out; }
 	@keyframes fadeIn {
 		from { opacity: 0; transform: translateY(8px); }
 		to { opacity: 1; transform: translateY(0); }
 	}
-
-	.points-display {
-		background: var(--gradient-gold);
-		border: 2px solid var(--color-gold-600);
-		border-radius: 16px;
-		padding: 16px;
-		margin: 16px 0;
-	}
-
-	.points-value {
-		font-size: 2rem;
-		font-weight: 800;
-		color: var(--color-gold-700);
-	}
-
-	.points-label {
-		font-size: 0.875rem;
-		color: var(--color-gold-700);
-		font-weight: 600;
-	}
-
-	.level-up-display {
-		margin: 12px 0;
-	}
-
-	.level-badge {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 8px;
-		font-size: 1.25rem;
-		font-weight: 700;
-	}
-
-	.level-before {
-		color: var(--color-neutral-400);
-	}
-
-	.level-arrow {
-		color: var(--color-gold-600);
-	}
-
-	.level-after {
-		color: var(--color-gold-600);
-		font-size: 1.5rem;
-	}
-
-	.activity-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-		gap: 8px;
-	}
-
 	.activity-card {
 		display: flex;
 		flex-direction: column;
@@ -248,40 +183,16 @@ function goToComplete() {
 		cursor: pointer;
 		transition: all 0.15s;
 	}
-
 	.activity-card:hover {
 		border-color: var(--color-brand-300);
 		background: var(--color-brand-50);
 	}
-
 	.activity-card--selected {
 		border-color: var(--color-brand-600);
 		background: var(--color-brand-200);
 		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 	}
-
-	.activity-icon {
-		font-size: 2rem;
-	}
-
-	.activity-name {
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: var(--color-text);
-		text-align: center;
-		line-height: 1.2;
-	}
-
-	.activity-points {
-		font-size: 0.625rem;
-		color: var(--color-gold-600);
-		font-weight: 700;
-	}
-
-	.record-button {
-		animation: pulse 1.5s ease-in-out infinite;
-	}
-
+	:global(.record-button) { animation: pulse 1.5s ease-in-out infinite; }
 	@keyframes pulse {
 		0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
 		50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }

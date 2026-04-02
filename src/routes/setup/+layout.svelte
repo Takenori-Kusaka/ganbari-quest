@@ -20,14 +20,14 @@ const currentStepIndex = $derived(
 </script>
 
 <div class="setup-page">
-	<div class="setup-container">
-		<div class="setup-header">
+	<div class="w-full max-w-[480px]">
+		<div class="text-center mb-6">
 			<Logo variant="compact" size={200} />
-			<p class="setup-subtitle">初期セットアップ</p>
+			<p class="text-sm text-[var(--color-text-muted)] mt-1">初期セットアップ</p>
 		</div>
 
 		<!-- Step indicator -->
-		<div class="step-indicator">
+		<div class="flex items-center justify-center mb-6">
 			{#each steps as step, i (step.path)}
 				<div class="step" class:step--active={i === currentStepIndex} class:step--done={i < currentStepIndex}>
 					<div class="step-circle">
@@ -45,7 +45,7 @@ const currentStepIndex = $derived(
 			{/each}
 		</div>
 
-		<div class="setup-content">
+		<div class="bg-[var(--color-surface-card)] rounded-[var(--radius-md)] p-6 shadow-[var(--card-shadow)]">
 			{@render children()}
 		</div>
 	</div>
@@ -59,30 +59,6 @@ const currentStepIndex = $derived(
 		align-items: center;
 		justify-content: center;
 		padding: 16px;
-	}
-
-	.setup-container {
-		width: 100%;
-		max-width: 480px;
-	}
-
-	.setup-header {
-		text-align: center;
-		margin-bottom: 24px;
-	}
-
-	.setup-subtitle {
-		font-size: 0.875rem;
-		color: var(--color-text-muted);
-		margin-top: 4px;
-	}
-
-	.step-indicator {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0;
-		margin-bottom: 24px;
 	}
 
 	.step {
@@ -106,46 +82,13 @@ const currentStepIndex = $derived(
 		transition: all 0.2s;
 	}
 
-	.step--active .step-circle {
-		background: var(--color-brand-600);
-		color: white;
-	}
+	.step--active .step-circle { background: var(--color-brand-600); color: white; }
+	.step--done .step-circle { background: var(--color-success); color: white; }
 
-	.step--done .step-circle {
-		background: var(--color-success);
-		color: white;
-	}
+	.step-label { font-size: 0.75rem; color: var(--color-neutral-400); white-space: nowrap; }
+	.step--active .step-label { color: var(--color-brand-600); font-weight: 600; }
+	.step--done .step-label { color: var(--color-success); }
 
-	.step-label {
-		font-size: 0.75rem;
-		color: var(--color-neutral-400);
-		white-space: nowrap;
-	}
-
-	.step--active .step-label {
-		color: var(--color-brand-600);
-		font-weight: 600;
-	}
-
-	.step--done .step-label {
-		color: var(--color-success);
-	}
-
-	.step-line {
-		width: 40px;
-		height: 2px;
-		background: var(--color-neutral-200);
-		margin-bottom: 20px;
-	}
-
-	.step-line--done {
-		background: var(--color-success);
-	}
-
-	.setup-content {
-		background: var(--color-surface-card);
-		border-radius: var(--radius-md);
-		padding: 24px;
-		box-shadow: var(--card-shadow);
-	}
+	.step-line { width: 40px; height: 2px; background: var(--color-neutral-200); margin-bottom: 20px; }
+	.step-line--done { background: var(--color-success); }
 </style>

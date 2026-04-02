@@ -84,49 +84,49 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 	<title>じっせき - がんばりクエスト</title>
 </svelte:head>
 
-<div class="ach-page">
+<div class="px-4 py-1">
 	<!-- Summary -->
-	<div class="ach-summary">
-		<span class="ach-summary__icon">🏆</span>
-		<p class="ach-summary__text">
+	<div class="flex items-center justify-center gap-2 mb-6">
+		<span class="text-3xl">🏆</span>
+		<p class="text-lg font-bold">
 			{unlockedCount} / {data.achievements.length} たっせい
 		</p>
 	</div>
 
 	<!-- Achievement grid -->
 	{#if data.achievements.length > 0}
-		<div class="ach-grid">
+		<div class="grid grid-cols-3 gap-2">
 			{#each data.achievements as achievement (achievement.id)}
 				{@const unlocked = isUnlocked(achievement)}
 				{@const rarity = currentRarity(achievement)}
 				{@const pct = progressPercent(achievement)}
 				<button
-					class="tap-target ach-card {unlocked ? 'ach-card--unlocked ach-card--' + rarity : 'ach-card--locked'}"
+					class="tap-target ach-card flex flex-col items-center gap-1 p-2 rounded-2xl border-2 border-solid relative overflow-hidden cursor-pointer bg-none transition-all duration-150 ease-in-out {unlocked ? 'ach-card--unlocked ach-card--' + rarity : 'ach-card--locked'}"
 					onclick={() => handleTap(achievement)}
 				>
-					<span class="ach-card__icon {unlocked ? '' : 'ach-card__icon--dim'}">
+					<span class="text-3xl {unlocked ? '' : 'grayscale opacity-50'}">
 						{achievement.icon}
 					</span>
-					<span class="ach-card__name {unlocked ? '' : 'ach-card__name--muted'}">
+					<span class="text-xs font-bold text-center overflow-hidden text-ellipsis whitespace-nowrap w-full {unlocked ? '' : 'text-[var(--color-text-muted)]'}">
 						{achievement.name}
 					</span>
 					{#if achievement.repeatable && unlocked && achievement.highestUnlockedMilestone}
-						<span class="ach-card__milestone">
+						<span class="text-[10px] font-bold text-[var(--theme-accent)]">
 							{achievement.highestUnlockedMilestone}{achievement.conditionType === 'streak_days' ? 'にち' : ''}
 						</span>
 					{/if}
 					{#if !unlocked || achievement.nextMilestone}
-						<div class="ach-card__progress-bar">
-							<div class="ach-card__progress-fill" style:width="{pct}%"></div>
+						<div class="w-full h-1 rounded-full bg-[var(--color-neutral-200)] mt-0.5">
+							<div class="ach-progress-fill h-full rounded-full bg-[var(--theme-primary)]" style:width="{pct}%"></div>
 						</div>
 					{/if}
 				</button>
 			{/each}
 		</div>
 	{:else}
-		<div class="ach-empty">
-			<span class="ach-empty__icon">🏆</span>
-			<p class="ach-empty__text">じっせきがまだないよ</p>
+		<div class="flex flex-col items-center py-12 text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-2">🏆</span>
+			<p class="font-bold">じっせきがまだないよ</p>
 		</div>
 	{/if}
 </div>
@@ -139,56 +139,56 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 		{@const pct = progressPercent(selectedAchievement)}
 		{@const streakText = streakStatusText(selectedAchievement)}
 		{@const milestoneText = milestoneDisplayText(selectedAchievement)}
-		<div class="ach-detail">
-			<div class="ach-detail__icon-wrap {unlocked ? 'ach-detail__icon-wrap--' + rarity : 'ach-detail__icon-wrap--locked'}">
-				<span class="ach-detail__icon {unlocked ? '' : 'ach-card__icon--dim'}">
+		<div class="flex flex-col items-center gap-4 text-center">
+			<div class="ach-detail-icon w-24 h-24 rounded-3xl border-4 border-solid flex items-center justify-center {unlocked ? 'ach-detail-icon--' + rarity : 'ach-detail-icon--locked'}">
+				<span class="text-5xl {unlocked ? '' : 'grayscale opacity-50'}">
 					{selectedAchievement.icon}
 				</span>
 			</div>
 
 			<div>
-				<p class="ach-detail__name">{selectedAchievement.name}</p>
+				<p class="text-xl font-bold">{selectedAchievement.name}</p>
 				{#if selectedAchievement.description}
-					<p class="ach-detail__desc">{selectedAchievement.description}</p>
+					<p class="text-sm text-[var(--color-text-muted)] mt-1">{selectedAchievement.description}</p>
 				{/if}
 			</div>
 
 			<!-- Milestone chips (repeatable) -->
 			{#if selectedAchievement.repeatable && selectedAchievement.milestones.length > 0}
-				<div class="ach-detail__milestones">
+				<div class="flex flex-wrap gap-1 justify-center">
 					{#each selectedAchievement.milestones as m}
-						<span class="ach-detail__milestone-chip {m.unlocked ? 'ach-detail__milestone-chip--done' : ''}">
+						<span class="text-xs px-2 py-0.5 rounded-full font-bold {m.unlocked ? 'bg-[var(--theme-primary)] text-white' : 'bg-[var(--color-neutral-200)] text-[var(--color-text-muted)]'}">
 							{m.value}
 						</span>
 					{/each}
 				</div>
 				{#if milestoneText}
-					<p class="ach-detail__milestone-text">{milestoneText}</p>
+					<p class="text-sm font-bold text-[var(--theme-accent)]">{milestoneText}</p>
 				{/if}
 			{/if}
 
 			<!-- Condition -->
 			{#if selectedAchievement.conditionLabel && selectedAchievement.conditionType !== 'milestone_event'}
-				<div class="ach-detail__condition">
-					<p class="ach-detail__condition-text">
+				<div class="px-3 py-2 rounded-xl bg-[var(--color-neutral-50)] w-full">
+					<p class="text-sm font-bold text-[var(--color-text-muted)]">
 						{unlocked && !selectedAchievement.nextMilestone ? '✅' : '🎯'} {selectedAchievement.conditionLabel}
 					</p>
 					{#if selectedAchievement.nextMilestone || !unlocked}
-						<div class="ach-detail__progress">
-							<div class="ach-detail__progress-bar">
-								<div class="ach-detail__progress-fill" style:width="{pct}%"></div>
+						<div class="flex items-center gap-2 mt-2">
+							<div class="flex-1 h-2 rounded-full bg-[var(--color-neutral-200)]">
+								<div class="ach-progress-fill h-full rounded-full bg-[var(--theme-primary)]" style:width="{pct}%"></div>
 							</div>
-							<span class="ach-detail__progress-text">
+							<span class="text-xs font-bold text-[var(--color-text-muted)] whitespace-nowrap">
 								{progressText(selectedAchievement)}
 							</span>
 						</div>
 						{#if streakText}
-							<p class="ach-detail__streak-text">({streakText})</p>
+							<p class="text-xs text-[var(--theme-accent)] mt-1">({streakText})</p>
 						{/if}
 					{:else}
-						<p class="ach-detail__achieved">ぜんぶたっせい！</p>
+						<p class="text-xs text-[var(--theme-accent)] font-bold mt-1">ぜんぶたっせい！</p>
 						{#if streakText}
-							<p class="ach-detail__streak-info">({streakText})</p>
+							<p class="text-xs text-[var(--color-text-muted)] mt-1">({streakText})</p>
 						{/if}
 					{/if}
 				</div>
@@ -196,28 +196,28 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 
 			<!-- Life milestone -->
 			{#if selectedAchievement.conditionType === 'milestone_event'}
-				<div class="ach-detail__condition">
+				<div class="px-3 py-2 rounded-xl bg-[var(--color-neutral-50)] w-full">
 					{#if unlocked}
-						<p class="ach-detail__achieved">✅ たっせい！おめでとう！</p>
+						<p class="text-xs text-[var(--theme-accent)] font-bold mt-1">✅ たっせい！おめでとう！</p>
 					{:else}
-						<p class="ach-detail__condition-text">おやがきろくしてくれるよ</p>
+						<p class="text-sm font-bold text-[var(--color-text-muted)]">おやがきろくしてくれるよ</p>
 					{/if}
 				</div>
 			{/if}
 
-			<div class="ach-detail__meta">
-				<div class="ach-detail__meta-item">
-					<span class="ach-detail__meta-value ach-detail__meta-value--point">{fmtPts(selectedAchievement.bonusPoints)}</span>
-					<span class="ach-detail__meta-label">ボーナス</span>
+			<div class="flex gap-4 text-sm">
+				<div class="flex flex-col items-center">
+					<span class="font-bold text-[var(--color-point)]">{fmtPts(selectedAchievement.bonusPoints)}</span>
+					<span class="text-[var(--color-text-muted)]">ボーナス</span>
 				</div>
-				<div class="ach-detail__meta-item">
-					<span class="ach-detail__meta-value">{rarityLabel[rarity] ?? 'ふつう'}</span>
-					<span class="ach-detail__meta-label">レアリティ</span>
+				<div class="flex flex-col items-center">
+					<span class="font-bold">{rarityLabel[rarity] ?? 'ふつう'}</span>
+					<span class="text-[var(--color-text-muted)]">レアリティ</span>
 				</div>
 			</div>
 
 			{#if unlocked && selectedAchievement.unlockedAt}
-				<p class="ach-detail__date">
+				<p class="text-xs text-[var(--color-text-muted)]">
 					{new Date(selectedAchievement.unlockedAt).toLocaleDateString('ja-JP')} にたっせい
 				</p>
 			{/if}
@@ -226,271 +226,20 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 </Dialog>
 
 <style>
-	.ach-page {
-		padding: 4px 16px;
-	}
-
-	.ach-summary {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 8px;
-		margin-bottom: 24px;
-	}
-
-	.ach-summary__icon {
-		font-size: 1.875rem;
-	}
-
-	.ach-summary__text {
-		font-size: 1.125rem;
-		font-weight: 700;
-	}
-
-	.ach-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 8px;
-	}
-
-	.ach-card {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		padding: 8px;
-		border-radius: 16px;
-		border: 2px solid;
-		transition: all 0.15s ease;
-		position: relative;
-		overflow: hidden;
-		cursor: pointer;
-		background: none;
-	}
-
-	.ach-card--locked {
-		border-color: var(--color-neutral-200);
-		background: var(--color-neutral-100);
-	}
-
+	/* Rarity variants for card grid — dynamic class names require CSS rules */
+	.ach-card--locked { border-color: var(--color-neutral-200); background: var(--color-neutral-100); }
 	.ach-card--unlocked.ach-card--common { border-color: var(--color-rarity-common); background: var(--color-rarity-common-bg); }
 	.ach-card--unlocked.ach-card--rare { border-color: var(--color-rarity-rare); background: var(--color-rarity-rare-bg); }
 	.ach-card--unlocked.ach-card--epic { border-color: var(--color-rarity-epic); background: var(--color-rarity-epic-bg); }
 	.ach-card--unlocked.ach-card--legendary { border-color: var(--color-rarity-legendary); background: var(--color-rarity-legendary-bg); }
 
-	.ach-card__icon {
-		font-size: 1.875rem;
-	}
+	/* Rarity variants for detail icon */
+	.ach-detail-icon--locked { border-color: var(--color-neutral-200); background: var(--color-neutral-100); }
+	.ach-detail-icon--common { border-color: var(--color-rarity-common); background: var(--color-rarity-common-bg); }
+	.ach-detail-icon--rare { border-color: var(--color-rarity-rare); background: var(--color-rarity-rare-bg); }
+	.ach-detail-icon--epic { border-color: var(--color-rarity-epic); background: var(--color-rarity-epic-bg); }
+	.ach-detail-icon--legendary { border-color: var(--color-rarity-legendary); background: var(--color-rarity-legendary-bg); }
 
-	.ach-card__icon--dim {
-		filter: grayscale(1);
-		opacity: 0.5;
-	}
-
-	.ach-card__name {
-		font-size: 0.75rem;
-		font-weight: 700;
-		text-align: center;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		width: 100%;
-	}
-
-	.ach-card__name--muted {
-		color: var(--color-text-muted);
-	}
-
-	.ach-card__milestone {
-		font-size: 10px;
-		font-weight: 700;
-		color: var(--theme-accent);
-	}
-
-	.ach-card__progress-bar {
-		width: 100%;
-		height: 4px;
-		border-radius: 9999px;
-		background: var(--color-neutral-200);
-		margin-top: 2px;
-	}
-
-	.ach-card__progress-fill {
-		height: 100%;
-		border-radius: 9999px;
-		background: var(--theme-primary);
-		transition: width 0.3s ease;
-	}
-
-	.ach-empty {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: 48px 0;
-		color: var(--color-text-muted);
-	}
-
-	.ach-empty__icon {
-		font-size: 2.5rem;
-		margin-bottom: 8px;
-	}
-
-	.ach-empty__text {
-		font-weight: 700;
-	}
-
-	.ach-detail {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 16px;
-		text-align: center;
-	}
-
-	.ach-detail__icon-wrap {
-		width: 96px;
-		height: 96px;
-		border-radius: 24px;
-		border: 4px solid;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.ach-detail__icon-wrap--locked { border-color: var(--color-neutral-200); background: var(--color-neutral-100); }
-	.ach-detail__icon-wrap--common { border-color: var(--color-rarity-common); background: var(--color-rarity-common-bg); }
-	.ach-detail__icon-wrap--rare { border-color: var(--color-rarity-rare); background: var(--color-rarity-rare-bg); }
-	.ach-detail__icon-wrap--epic { border-color: var(--color-rarity-epic); background: var(--color-rarity-epic-bg); }
-	.ach-detail__icon-wrap--legendary { border-color: var(--color-rarity-legendary); background: var(--color-rarity-legendary-bg); }
-
-	.ach-detail__icon {
-		font-size: 3rem;
-	}
-
-	.ach-detail__name {
-		font-size: 1.25rem;
-		font-weight: 700;
-	}
-
-	.ach-detail__desc {
-		font-size: 0.875rem;
-		color: var(--color-text-muted);
-		margin-top: 4px;
-	}
-
-	.ach-detail__milestones {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px;
-		justify-content: center;
-	}
-
-	.ach-detail__milestone-chip {
-		font-size: 0.75rem;
-		padding: 2px 8px;
-		border-radius: 9999px;
-		font-weight: 700;
-		background: var(--color-neutral-200);
-		color: var(--color-text-muted);
-	}
-
-	.ach-detail__milestone-chip--done {
-		background: var(--theme-primary);
-		color: white;
-	}
-
-	.ach-detail__milestone-text {
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--theme-accent);
-	}
-
-	.ach-detail__condition {
-		padding: 8px 12px;
-		border-radius: 12px;
-		background: var(--color-neutral-50);
-		width: 100%;
-	}
-
-	.ach-detail__condition-text {
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--color-text-muted);
-	}
-
-	.ach-detail__progress {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin-top: 8px;
-	}
-
-	.ach-detail__progress-bar {
-		flex: 1;
-		height: 8px;
-		border-radius: 9999px;
-		background: var(--color-neutral-200);
-	}
-
-	.ach-detail__progress-fill {
-		height: 100%;
-		border-radius: 9999px;
-		background: var(--theme-primary);
-		transition: width 0.3s ease;
-	}
-
-	.ach-detail__progress-text {
-		font-size: 0.75rem;
-		font-weight: 700;
-		color: var(--color-text-muted);
-		white-space: nowrap;
-	}
-
-	.ach-detail__streak-text {
-		font-size: 0.75rem;
-		color: var(--theme-accent);
-		margin-top: 4px;
-	}
-
-	.ach-detail__streak-info {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-		margin-top: 4px;
-	}
-
-	.ach-detail__achieved {
-		font-size: 0.75rem;
-		color: var(--theme-accent);
-		font-weight: 700;
-		margin-top: 4px;
-	}
-
-	.ach-detail__meta {
-		display: flex;
-		gap: 16px;
-		font-size: 0.875rem;
-	}
-
-	.ach-detail__meta-item {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-	}
-
-	.ach-detail__meta-value {
-		font-weight: 700;
-	}
-
-	.ach-detail__meta-value--point {
-		color: var(--color-point);
-	}
-
-	.ach-detail__meta-label {
-		color: var(--color-text-muted);
-	}
-
-	.ach-detail__date {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-	}
+	/* Progress bar width transition — not possible with Tailwind alone */
+	.ach-progress-fill { transition: width 0.3s ease; }
 </style>
