@@ -189,6 +189,8 @@ jobs:
           -c stripePriceYearly=${{ vars.STRIPE_PRICE_YEARLY }}
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+          ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
+          ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}
 
       # Phase 4: Update Lambda to use the new image
       - name: Update Lambda function image

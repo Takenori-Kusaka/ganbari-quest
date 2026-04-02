@@ -7,6 +7,10 @@ import type { Construct } from 'constructs';
 export interface AuthStackProps extends cdk.StackProps {
 	/** App domain for future use (e.g. ganbari-quest.com) */
 	appDomain?: string;
+	/** Google OAuth Client ID (GCP Console で作成したもの) */
+	googleClientId?: string;
+	/** Google OAuth Client Secret */
+	googleClientSecret?: string;
 }
 
 export class AuthStack extends cdk.Stack {
@@ -75,8 +79,48 @@ export class AuthStack extends cdk.Stack {
 
 		this.userPool.addTrigger(cognito.UserPoolOperation.CUSTOM_MESSAGE, customMessageFn);
 
-		// --- User Pool Client (パブリッククライアント、USER_PASSWORD_AUTH) ---
+		// --- Google Identity Provider（条件付き: googleClientId が指定された場合のみ） ---
+		const googleClientId = props.googleClientId;
+		const googleClientSecret = props.googleClientSecret;
+		const googleEnabled = !!(googleClientId && googleClientSecret);
+		if (googleEnabled) {
+			// Cognito Hosted UI ドメイン（OAuth フローに必要）
+			const domain = this.userPool.addDomain('CognitoDomain', {
+				cognitoDomain: {
+					domainPrefix: 'ganbari-quest',
+				},
+			});
+
+			new cognito.UserPoolIdentityProviderGoogle(this, 'GoogleIdP', {
+				userPool: this.userPool,
+				clientId: googleClientId,
+				clientSecretValue: cdk.SecretValue.unsafePlainText(googleClientSecret),
+				scopes: ['openid', 'email', 'profile'],
+				attributeMapping: {
+					email: cognito.ProviderAttribute.GOOGLE_EMAIL,
+					fullname: cognito.ProviderAttribute.GOOGLE_NAME,
+				},
+			});
+
+			// Cognito Domain を SSM に出力（アプリ側で参照）
+			new ssm.StringParameter(this, 'CognitoDomainParam', {
+				parameterName: '/ganbari-quest/cognito/domain',
+				stringValue: `${domain.domainName}.auth.${this.region}.amazoncognito.com`,
+			});
+
+			new cdk.CfnOutput(this, 'CognitoDomainOutput', {
+				value: `${domain.domainName}.auth.${this.region}.amazoncognito.com`,
+				description: 'Cognito Hosted UI Domain',
+			});
+			new cdk.CfnOutput(this, 'GoogleIdPEnabled', {
+				value: 'true',
+				description: 'Google Identity Provider is configured',
+			});
+		}
+
+		// --- User Pool Client (パブリッククライアント、USER_PASSWORD_AUTH + OAuth) ---
 		// 新しい論理ID 'PublicClient' を使い、旧 'AppClient' の export への依存を回避
+		const appDomain = props.appDomain ?? 'ganbari-quest.com';
 		this.userPoolClient = this.userPool.addClient('PublicClient', {
 			userPoolClientName: 'ganbari-quest-public',
 			generateSecret: false, // InitiateAuth (USER_PASSWORD_AUTH) はパブリッククライアント必須
@@ -87,6 +131,31 @@ export class AuthStack extends cdk.Stack {
 			accessTokenValidity: cdk.Duration.hours(1),
 			idTokenValidity: cdk.Duration.hours(1),
 			refreshTokenValidity: cdk.Duration.days(30),
+			// Google IdP が有効な場合、OAuth フロー設定を追加
+			...(googleEnabled
+				? {
+						oAuth: {
+							flows: { authorizationCodeGrant: true },
+							scopes: [
+								cognito.OAuthScope.OPENID,
+								cognito.OAuthScope.EMAIL,
+								cognito.OAuthScope.PROFILE,
+							],
+							callbackUrls: [
+								`https://${appDomain}/auth/callback`,
+								'http://localhost:5173/auth/callback',
+							],
+							logoutUrls: [
+								`https://${appDomain}/auth/login`,
+								'http://localhost:5173/auth/login',
+							],
+						},
+						supportedIdentityProviders: [
+							cognito.UserPoolClientIdentityProvider.COGNITO,
+							cognito.UserPoolClientIdentityProvider.GOOGLE,
+						],
+					}
+				: {}),
 		});
 
 		// --- SSM Parameters (スタック間依存の切り離し) ---

@@ -26,10 +26,16 @@ const storage = new StorageStack(app, `${appName}Storage`, {
 	description: 'DynamoDB + S3 for Ganbari Quest',
 });
 
+// Google OAuth (deploy with -c googleClientId=xxx -c googleClientSecret=xxx)
+const googleClientId = app.node.tryGetContext('googleClientId') as string | undefined;
+const googleClientSecret = app.node.tryGetContext('googleClientSecret') as string | undefined;
+
 new AuthStack(app, `${appName}Auth`, {
 	env,
 	description: 'Cognito User Pool for Ganbari Quest',
 	appDomain: domainName,
+	googleClientId,
+	googleClientSecret,
 });
 
 // ComputeStack は SSM パラメータ経由で Cognito 設定を取得（cross-stack export 回避）
