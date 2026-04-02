@@ -1,5 +1,6 @@
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
+import { applyRetentionFilter, resolvePlanTier } from '$lib/server/services/plan-limit-service';
 import type { PageServerLoad } from './$types';
 
 function getDateRange(period: string): { from: string; to: string } {
@@ -29,8 +30,10 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 		return { logs: [], summary: { totalCount: 0, totalPoints: 0, byCategory: {} }, period: 'week' };
 
 	const period = url.searchParams.get('period') ?? 'week';
-	const { from, to } = getDateRange(period);
-	const result = await getActivityLogs(child.id, tenantId, { from, to });
+	const dateRange = getDateRange(period);
+	const planTier = resolvePlanTier(locals.context?.licenseStatus ?? 'none');
+	const filtered = applyRetentionFilter(planTier, dateRange);
+	const result = await getActivityLogs(child.id, tenantId, filtered);
 
 	return {
 		logs: result.logs,

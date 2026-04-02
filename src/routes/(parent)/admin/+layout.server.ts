@@ -3,7 +3,7 @@ import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { getSettings } from '$lib/server/db/settings-repo';
-import { resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import { isPaidTier, resolvePlanTier } from '$lib/server/services/plan-limit-service';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
@@ -27,10 +27,11 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	};
 
 	const tenantStatus = locals.context?.tenantStatus ?? 'active';
-	const isPremium = resolvePlanTier(locals.context?.licenseStatus ?? 'none') === 'paid';
+	const planTier = resolvePlanTier(locals.context?.licenseStatus ?? 'none');
+	const isPremium = isPaidTier(planTier);
 	const tutorialStarted = !!(
 		pointSettingsRaw.tutorial_started_at || pointSettingsRaw.tutorial_banner_dismissed
 	);
 
-	return { pointSettings, authMode, tenantStatus, isPremium, tutorialStarted };
+	return { pointSettings, authMode, tenantStatus, isPremium, planTier, tutorialStarted };
 };
