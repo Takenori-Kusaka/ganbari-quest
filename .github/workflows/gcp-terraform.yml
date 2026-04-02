@@ -1,0 +1,88 @@
+name: GCP Terraform (OAuth Infrastructure)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action to run'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: gcp-terraform
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: infra/gcp
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.action == 'apply' && 'production' || '' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Authenticate to GCP (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '~> 1.9'
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: >-
+          terraform plan
+          -var="project_id=${{ secrets.GCP_PROJECT_ID }}"
+          -out=tfplan
+          -input=false
+
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
+        run: terraform apply -auto-approve tfplan
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: >-
+          terraform destroy
+          -var="project_id=${{ secrets.GCP_PROJECT_ID }}"
+          -auto-approve
+
+      - name: Show Outputs
+        if: github.event.inputs.action == 'apply'
+        run: terraform output -json
+
+      - name: Post-apply summary
+        if: github.event.inputs.action == 'apply'
+        run: |
+          echo "## GCP Terraform Apply Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Outputs" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          terraform output -json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Next Steps" >> "$GITHUB_STEP_SUMMARY"
+          echo "1. GCP Console で OAuth 同意画面を設定" >> "$GITHUB_STEP_SUMMARY"
+          echo "2. OAuth 2.0 クライアント ID を作成" >> "$GITHUB_STEP_SUMMARY"
+          echo "3. GitHub Secrets に \`GOOGLE_OAUTH_CLIENT_ID\` / \`GOOGLE_OAUTH_CLIENT_SECRET\` を登録" >> "$GITHUB_STEP_SUMMARY"
+          echo "4. main に push → Cognito に Google IdP が自動追加" >> "$GITHUB_STEP_SUMMARY"
