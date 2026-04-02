@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
+import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
 let submitting = $state(false);
@@ -73,12 +74,9 @@ function goToComplete() {
 			</div>
 		{/if}
 
-		<button
-			onclick={goToComplete}
-			class="w-full mt-6 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors text-sm"
-		>
+		<Button onclick={goToComplete} variant="primary" size="md" class="w-full mt-6 text-sm">
 			ぼうけんをはじめる！
-		</button>
+		</Button>
 	</div>
 {:else}
 	<!-- 活動選択画面 -->
@@ -97,12 +95,7 @@ function goToComplete() {
 				まだ活動が登録されていません。あとから管理画面で追加できます。
 			</p>
 			<form method="POST" action="?/skip">
-				<button
-					type="submit"
-					class="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors text-sm"
-				>
-					次へすすむ
-				</button>
+				<Button type="submit" variant="primary" size="md" class="w-full text-sm">次へすすむ</Button>
 			</form>
 		</div>
 	{:else}
@@ -136,17 +129,19 @@ function goToComplete() {
 			</div>
 
 			{#if selectedActivityId}
-				<button
+				<Button
 					type="submit"
+					variant="success"
+					size="md"
 					disabled={submitting}
-					class="w-full mt-4 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition-all disabled:opacity-50 text-sm record-button"
+					class="w-full mt-4 text-sm record-button"
 				>
 					{#if submitting}
 						きろくちゅう...
 					{:else}
 						タップしてきろく！
 					{/if}
-				</button>
+				</Button>
 			{:else}
 				<p class="text-xs text-gray-400 text-center mt-4">
 					がんばりをえらんでね！
@@ -156,12 +151,9 @@ function goToComplete() {
 
 		<div class="text-center mt-3">
 			<form method="POST" action="?/skip">
-				<button
-					type="submit"
-					class="text-xs text-gray-400 hover:text-gray-600 underline"
-				>
+				<Button type="submit" variant="ghost" size="sm" class="text-xs underline">
 					あとでやる（スキップ）
-				</button>
+				</Button>
 			</form>
 		</div>
 	{/if}

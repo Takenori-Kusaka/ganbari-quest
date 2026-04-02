@@ -1,4 +1,5 @@
 <script lang="ts">
+import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -154,23 +155,12 @@ function handleTap(title: (typeof data.titles)[number]) {
 			{#if unlocked}
 				{#if selectedTitle.isActive}
 					<form method="POST" action="?/unset">
-						<button
-							type="submit"
-							class="px-6 py-2 rounded-full text-sm font-bold bg-gray-200 text-[var(--color-text-muted)]"
-						>
-							外す
-						</button>
+						<Button type="submit" variant="ghost" size="sm">外す</Button>
 					</form>
 				{:else}
 					<form method="POST" action="?/setActive">
 						<input type="hidden" name="titleId" value={selectedTitle.id} />
-						<button
-							type="submit"
-							class="px-6 py-2 rounded-full text-sm font-bold text-white"
-							style="background: var(--theme-accent);"
-						>
-							装備する
-						</button>
+						<Button type="submit" variant="primary" size="sm">装備する</Button>
 					</form>
 				{/if}
 			{/if}
