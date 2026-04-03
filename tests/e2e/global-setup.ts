@@ -87,13 +87,33 @@ export default async function globalSetup() {
 				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('てすとくん', 1, 'pink', 'baby')",
 			).run();
 
-			// ステータス初期化
-			for (const childId of [1, 2]) {
-				for (const catId of [1, 2, 3, 4, 5]) {
-					db.prepare(
-						'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (?, ?, 25, 2, 25)',
-					).run(childId, catId);
-				}
+			// ステータス初期化（カテゴリごとにリアルなレベル差をつける）
+			// ゆうきちゃん (kinder): せいかつが得意、べんきょうはこれから
+			const kinderXp: [number, number, number][] = [
+				// [categoryId, totalXp, level]
+				[1, 80, 4], // undou: よく体を動かす
+				[2, 30, 2], // benkyou: まだこれから
+				[3, 150, 6], // seikatsu: 生活習慣が一番得意
+				[4, 60, 3], // kouryuu: お友達と遊べる
+				[5, 45, 3], // souzou: おえかき好き
+			];
+			for (const [catId, xp, lv] of kinderXp) {
+				db.prepare(
+					'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, ?, ?, ?, ?)',
+				).run(catId, xp, lv, xp);
+			}
+			// てすとくん (baby): 全体的にまだ低レベル
+			const babyXp: [number, number, number][] = [
+				[1, 20, 2], // undou
+				[2, 10, 1], // benkyou
+				[3, 35, 2], // seikatsu
+				[4, 15, 1], // kouryuu
+				[5, 10, 1], // souzou
+			];
+			for (const [catId, xp, lv] of babyXp) {
+				db.prepare(
+					'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (2, ?, ?, ?, ?)',
+				).run(catId, xp, lv, xp);
 			}
 			console.log('[E2E Setup]   Created test children (ゆうきちゃん, てすとくん).');
 		}
@@ -109,32 +129,55 @@ export default async function globalSetup() {
 			).run(key, past);
 		}
 
-		// チェックリストテンプレートがなければ作成（チェックリストテストの安定化）
+		// チェックリストテンプレート作成（デフォルトプリセット準拠）
 		const kinderChild = db
 			.prepare("SELECT id FROM children WHERE ui_mode = 'kinder' LIMIT 1")
 			.get() as { id: number } | undefined;
 		if (kinderChild) {
-			const tmplCount = db
-				.prepare('SELECT count(*) as c FROM checklist_templates WHERE child_id = ?')
-				.get(kinderChild.id) as { c: number };
-			if (tmplCount.c === 0) {
-				db.prepare(
-					"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus) VALUES (?, 'がっこう', '🏫', 2, 5)",
-				).run(kinderChild.id);
-				const tmplId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
-				const items: [string, string][] = [
-					['ハンカチ', '🤧'],
-					['ティッシュ', '🧻'],
-					['すいとう', '🧴'],
-					['れんらくちょう', '📒'],
-				];
-				for (const [i, [itemName, itemIcon]] of items.entries()) {
-					db.prepare(
-						'INSERT INTO checklist_template_items (template_id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
-					).run(tmplId, itemName, itemIcon, i);
-				}
-				console.log('[E2E Setup]   Created checklist template (がっこう).');
+			// 旧テンプレートをクリーンアップして最新プリセットで再作成
+			const existingTmpls = db
+				.prepare('SELECT id FROM checklist_templates WHERE child_id = ?')
+				.all(kinderChild.id) as { id: number }[];
+			for (const t of existingTmpls) {
+				db.prepare('DELETE FROM checklist_template_items WHERE template_id = ?').run(t.id);
 			}
+			db.prepare('DELETE FROM checklist_templates WHERE child_id = ?').run(kinderChild.id);
+
+			// あさのしたくプリセット（static/checklist-presets/morning-routine.json 準拠）
+			db.prepare(
+				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus) VALUES (?, 'あさのしたく', '☀️', 2, 5)",
+			).run(kinderChild.id);
+			const morningId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
+			const morningItems: [string, string][] = [
+				['はみがき', '🪥'],
+				['かおをあらう', '🧼'],
+				['きがえ', '👕'],
+				['あさごはん', '🍚'],
+				['もちものチェック', '🎒'],
+			];
+			for (const [i, [itemName, itemIcon]] of morningItems.entries()) {
+				db.prepare(
+					'INSERT INTO checklist_template_items (template_id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
+				).run(morningId, itemName, itemIcon, i + 1);
+			}
+
+			// よるのじゅんびプリセット（static/checklist-presets/evening-routine.json 準拠）
+			db.prepare(
+				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus) VALUES (?, 'よるのじゅんび', '🌙', 2, 5)",
+			).run(kinderChild.id);
+			const eveningId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
+			const eveningItems: [string, string][] = [
+				['おふろ', '🛁'],
+				['はみがき', '🪥'],
+				['あしたのじゅんび', '📋'],
+				['おやすみのあいさつ', '😴'],
+			];
+			for (const [i, [itemName, itemIcon]] of eveningItems.entries()) {
+				db.prepare(
+					'INSERT INTO checklist_template_items (template_id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
+				).run(eveningId, itemName, itemIcon, i + 1);
+			}
+			console.log('[E2E Setup]   Created checklist templates (あさのしたく, よるのじゅんび).');
 		}
 
 		// child_activity_preferences テーブルが存在しなければ作成（#0115 ピン留め機能）
@@ -387,6 +430,81 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_custom_titles_tenant_child
 				ON custom_titles(tenant_id, child_id);
 		`);
+
+		// リアルな過去の活動ログを追加（ステータス画面・レーダーチャートの表示用）
+		// 今日のログはテスト安定化のため下で削除されるが、過去日のログは保持
+		const pastLogCount = db
+			.prepare(
+				"SELECT count(*) as c FROM activity_logs WHERE recorded_date < date('now', 'localtime')",
+			)
+			.get() as { c: number };
+		if (pastLogCount.c === 0) {
+			// ゆうきちゃん (child_id=1) の過去7日分の活動ログ
+			// kinder-starter パックの活動を使用（seed.ts の活動名と一致）
+			const kinderActivities = db
+				.prepare(
+					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'kinder' OR (age_min <= 4 AND (age_max IS NULL OR age_max >= 4)) LIMIT 20",
+				)
+				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+
+			if (kinderActivities.length > 0) {
+				const logStmt = db.prepare(
+					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+				);
+				// 過去7日分（1日2-4件ずつ）
+				for (let daysAgo = 7; daysAgo >= 1; daysAgo--) {
+					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+					const dateStr = date.toISOString().split('T')[0];
+					const logsPerDay = 2 + (daysAgo % 3); // 2-4件/日
+					for (let j = 0; j < logsPerDay && j < kinderActivities.length; j++) {
+						const act = kinderActivities[(daysAgo * 3 + j) % kinderActivities.length];
+						const streak = 8 - daysAgo; // 連続日数
+						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
+						logStmt.run(
+							1,
+							act.id,
+							act.base_points + bonus,
+							streak,
+							bonus,
+							dateStr,
+							`${dateStr}T09:${String(j * 15).padStart(2, '0')}:00.000Z`,
+						);
+					}
+				}
+				console.log('[E2E Setup]   Added realistic activity logs for ゆうきちゃん (7 days).');
+			}
+
+			// てすとくん (child_id=2) の過去5日分
+			const babyActivities = db
+				.prepare(
+					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'baby' OR (age_min <= 1 AND (age_max IS NULL OR age_max >= 1)) LIMIT 10",
+				)
+				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+
+			if (babyActivities.length > 0) {
+				const logStmt2 = db.prepare(
+					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+				);
+				for (let daysAgo = 5; daysAgo >= 1; daysAgo--) {
+					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+					const dateStr = date.toISOString().split('T')[0];
+					const logsPerDay = 1 + (daysAgo % 2); // 1-2件/日
+					for (let j = 0; j < logsPerDay && j < babyActivities.length; j++) {
+						const act = babyActivities[(daysAgo * 2 + j) % babyActivities.length];
+						logStmt2.run(
+							1 + 1,
+							act.id,
+							act.base_points,
+							1,
+							0,
+							dateStr,
+							`${dateStr}T10:${String(j * 20).padStart(2, '0')}:00.000Z`,
+						);
+					}
+				}
+				console.log('[E2E Setup]   Added realistic activity logs for てすとくん (5 days).');
+			}
+		}
 
 		// テスト用クリーンアップ: ピン留め設定を削除（ピン留めテストの安定化）
 		const deletedPins = db.prepare('DELETE FROM child_activity_preferences').run();
