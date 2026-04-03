@@ -185,7 +185,7 @@ describe('children テーブル', () => {
 		expect(result.nickname).toBe('テスト太郎');
 		expect(result.age).toBe(4);
 		expect(result.theme).toBe('blue');
-		expect(result.createdAt).toBeTruthy();
+		expect(result.createdAt).toBeTypeOf('string');
 	});
 
 	it('theme のデフォルト値が pink', () => {

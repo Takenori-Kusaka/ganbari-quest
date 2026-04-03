@@ -125,7 +125,7 @@ describe('image-prompt', () => {
 		it('空でない文字列を返す', () => {
 			const result = buildFaviconPrompt();
 
-			expect(result).toBeTruthy();
+			expect(result).toBeTypeOf('string');
 			expect(result.length).toBeGreaterThan(0);
 		});
 
