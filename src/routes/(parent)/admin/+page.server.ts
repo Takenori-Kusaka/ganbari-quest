@@ -1,4 +1,5 @@
 import { requireTenantId } from '$lib/server/auth/factory';
+import { findActiveEvents } from '$lib/server/db/season-event-repo';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { getActivities } from '$lib/server/services/activity-service';
@@ -7,6 +8,7 @@ import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/o
 import { getPlanLimits, resolvePlanTier } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
+import { getMemoryTicketStatus } from '$lib/server/services/seasonal-content-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -82,6 +84,42 @@ export const load: PageServerLoad = async ({ locals }) => {
 		showPremiumWelcome = welcomeSettings.premium_welcome_shown !== 'true';
 	}
 
+	// 季節コンテンツ情報（G6+G7: 思い出チケット＋管理表示）
+	let seasonalInfo: {
+		activeEvents: {
+			name: string;
+			eventType: string;
+			startDate: string;
+			endDate: string;
+			bannerIcon: string;
+		}[];
+		memoryTicket: Awaited<ReturnType<typeof getMemoryTicketStatus>> | null;
+	} | null = null;
+	try {
+		const today = new Date().toISOString().slice(0, 10);
+		const events = await findActiveEvents(today, tenantId);
+		const activeEvents = events.map((e) => ({
+			name: e.name,
+			eventType: e.eventType,
+			startDate: e.startDate,
+			endDate: e.endDate,
+			bannerIcon: e.bannerIcon,
+		}));
+
+		let memoryTicket: Awaited<ReturnType<typeof getMemoryTicketStatus>> | null = null;
+		if (isPaid) {
+			const settings = await getSettings(['subscription_start_date'], tenantId);
+			memoryTicket = await getMemoryTicketStatus(
+				tenantId,
+				settings.subscription_start_date ?? null,
+			);
+		}
+
+		seasonalInfo = { activeEvents, memoryTicket };
+	} catch {
+		// 季節情報取得失敗はページに影響させない
+	}
+
 	return {
 		children: childrenWithStatus,
 		onboarding,
@@ -89,6 +127,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		currentMonth: yearMonth,
 		planStats,
 		showPremiumWelcome,
+		seasonalInfo,
 	};
 };
 

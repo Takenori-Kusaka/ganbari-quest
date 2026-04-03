@@ -3663,6 +3663,94 @@ function seed() {
 				}),
 				isActive: 1,
 			},
+			// シーズンパス（4月）
+			{
+				code: 'season-pass-2026-04',
+				name: '🌸 はるのぼうけん',
+				description: '4月のシーズンパス！活動を記録してマイルストーン報酬をゲットしよう',
+				eventType: 'season_pass',
+				startDate: '2026-04-01',
+				endDate: '2026-04-30',
+				bannerIcon: '🌸',
+				bannerColor: 'linear-gradient(135deg, #fce7f3, #fbcfe8)',
+				rewardConfig: null,
+				missionConfig: JSON.stringify({
+					type: 'season_pass',
+					milestones: [
+						{
+							target: 5,
+							track: 'free',
+							reward: { type: 'points', value: 50, name: '50ポイント', icon: '⭐' },
+						},
+						{
+							target: 5,
+							track: 'premium',
+							reward: { type: 'stamp', name: 'はるのスタンプ', icon: '🌸' },
+						},
+						{
+							target: 10,
+							track: 'free',
+							reward: { type: 'title', name: 'はるのたんけんか', icon: '🌷' },
+						},
+						{
+							target: 10,
+							track: 'premium',
+							reward: { type: 'badge', name: 'さくらバッジ', icon: '🏅' },
+						},
+						{
+							target: 15,
+							track: 'free',
+							reward: { type: 'points', value: 100, name: '100ポイント', icon: '⭐' },
+						},
+						{
+							target: 15,
+							track: 'premium',
+							reward: { type: 'theme', name: 'さくらテーマ', icon: '🎨' },
+						},
+						{
+							target: 20,
+							track: 'free',
+							reward: { type: 'points', value: 150, name: '150ポイント', icon: '⭐' },
+						},
+						{
+							target: 20,
+							track: 'premium',
+							reward: { type: 'badge', name: 'はるマスターバッジ', icon: '🏆' },
+						},
+						{
+							target: 25,
+							track: 'premium',
+							reward: {
+								type: 'title',
+								name: 'はるのチャンピオン',
+								icon: '👑',
+								description: '4月シーズンパス最高位の称号',
+							},
+						},
+					],
+				}),
+				isActive: 1,
+			},
+			// 月替わりプレミアム報酬（4月）
+			{
+				code: 'premium-reward-2026-04',
+				name: '📦 4がつのプレゼント',
+				description: 'プレミアム会員限定！今月の特別プレゼント',
+				eventType: 'monthly_premium_reward',
+				startDate: '2026-04-01',
+				endDate: '2026-04-30',
+				bannerIcon: '📦',
+				bannerColor: 'linear-gradient(135deg, #f3e8ff, #e9d5ff)',
+				rewardConfig: JSON.stringify({
+					type: 'monthly_premium_reward',
+					rewardType: 'title',
+					name: 'はるのぼうけんしゃ',
+					icon: '🌸',
+					description: '2026年4月のプレミアム限定称号',
+				}),
+				missionConfig: null,
+				isActive: 1,
+			},
 		];
 		for (const event of eventsData) {
 			db.insert(schema.seasonEvents).values(event).run();
@@ -3670,6 +3758,91 @@ function seed() {
 		console.log(`  ✓ season_events: ${eventsData.length} items`);
 	} else {
 		console.log(`  - season_events: already seeded (${existingEvents.length})`);
+	}
+
+	// ============================================================
+	// 季節活動パック（春: 4-6月）
+	// ============================================================
+	const seasonalActivitiesExist = db
+		.select()
+		.from(schema.activities)
+		.where(eq(schema.activities.source, 'seasonal'))
+		.all();
+
+	if (seasonalActivitiesExist.length === 0) {
+		// カテゴリIDマッピング（既存のカテゴリを参照）
+		const cats = db.select().from(schema.categories).all();
+		const catMap = Object.fromEntries(cats.map((c) => [c.code, c.id]));
+
+		const springActivities: (typeof schema.activities.$inferInsert)[] = [
+			{
+				name: 'おはなみさんぽ',
+				categoryId: catMap.undou ?? 1,
+				icon: '🌸',
+				basePoints: 8,
+				source: 'seasonal',
+				description: '春のお花見散歩',
+				nameKana: 'おはなみさんぽ',
+				sortOrder: 900,
+			},
+			{
+				name: 'たねをまく',
+				categoryId: catMap.seikatsu ?? 3,
+				icon: '🌱',
+				basePoints: 10,
+				source: 'seasonal',
+				description: '春の種まき体験',
+				nameKana: 'たねをまく',
+				sortOrder: 901,
+			},
+			{
+				name: 'はるのむしさがし',
+				categoryId: catMap.undou ?? 1,
+				icon: '🐝',
+				basePoints: 8,
+				source: 'seasonal',
+				description: '春の虫探し冒険',
+				nameKana: 'はるのむしさがし',
+				sortOrder: 902,
+			},
+			{
+				name: 'あたらしいおともだちとあそぶ',
+				categoryId: catMap.kouryuu ?? 4,
+				icon: '🤝',
+				basePoints: 10,
+				source: 'seasonal',
+				description: '新しいお友達作り',
+				nameKana: 'あたらしいおともだちとあそぶ',
+				sortOrder: 903,
+			},
+			{
+				name: 'はるのおえかき',
+				categoryId: catMap.souzou ?? 5,
+				icon: '🎨',
+				basePoints: 8,
+				source: 'seasonal',
+				description: '春をテーマにしたお絵かき',
+				nameKana: 'はるのおえかき',
+				sortOrder: 904,
+			},
+			{
+				name: 'しんがっきのもくひょう',
+				categoryId: catMap.benkyou ?? 2,
+				icon: '📝',
+				basePoints: 15,
+				source: 'seasonal',
+				description: '新学期の目標を立てる',
+				nameKana: 'しんがっきのもくひょう',
+				sortOrder: 905,
+			},
+		];
+
+		for (const act of springActivities) {
+			db.insert(schema.activities).values(act).run();
+		}
+		console.log(`  ✓ seasonal activities (spring): ${springActivities.length} items`);
+	} else {
+		console.log(`  - seasonal activities: already seeded (${seasonalActivitiesExist.length})`);
 	}
 
 	console.log('Seeding complete!');

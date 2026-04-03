@@ -241,6 +241,16 @@ export async function recordActivity(
 		// イベントミッションチェック失敗は記録フローを止めない
 	}
 
+	// シーズンパス進捗チェック
+	try {
+		const { incrementSeasonPassProgress } = await import(
+			'$lib/server/services/seasonal-content-service'
+		);
+		await incrementSeasonPassProgress(childId, tenantId);
+	} catch {
+		// シーズンパス進捗失敗は記録フローを止めない
+	}
+
 	// きょうだいチャレンジ進捗チェック
 	let siblingChallengeResults: {
 		challengeId: number;

@@ -13,6 +13,8 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
+import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
+import SeasonPassCard from '$lib/ui/components/SeasonPassCard.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
@@ -373,6 +375,20 @@ $effect(() => {
 		</a>
 	{/if}
 
+	<!-- Season pass card -->
+	{#if data.seasonPass}
+		<SeasonPassCard
+			eventName={data.seasonPass.event.name}
+			eventId={data.seasonPass.event.id}
+			bannerIcon={data.seasonPass.event.bannerIcon}
+			milestones={data.seasonPass.milestones}
+			currentCount={data.seasonPass.progress.count}
+			maxTarget={Math.max(...data.seasonPass.milestones.map((m: { target: number }) => m.target), 1)}
+			remainingDays={data.seasonPass.remainingDays}
+			isPremium={data.isPremium ?? false}
+		/>
+	{/if}
+
 	<!-- Daily Quest: compact recommended activities (#0288) -->
 	{#if data.focusMode && recommendedActivities.length > 0}
 		<FocusMode
@@ -722,6 +738,17 @@ $effect(() => {
 	nickname={data.child?.nickname ?? ''}
 	uiMode={data.uiMode}
 />
+
+<!-- Monthly premium reward modal -->
+{#if data.monthlyPremiumReward && !data.monthlyPremiumReward.claimed}
+	<MonthlyRewardModal
+		eventId={data.monthlyPremiumReward.event.id}
+		rewardName={data.monthlyPremiumReward.config.name}
+		rewardIcon={data.monthlyPremiumReward.config.icon}
+		rewardDescription={data.monthlyPremiumReward.config.description}
+		claimed={data.monthlyPremiumReward.claimed}
+	/>
+{/if}
 
 <style>
 	.pending-dot {
