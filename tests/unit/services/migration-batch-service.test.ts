@@ -3,13 +3,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
-import {
-	type TestDb,
-	type TestSqlite,
-	closeDb,
-	createTestDb,
-	resetDb,
-} from '../helpers/test-db';
+import { type TestDb, type TestSqlite, closeDb, createTestDb, resetDb } from '../helpers/test-db';
 
 let sqlite: TestSqlite;
 let testDb: TestDb;
@@ -43,7 +37,9 @@ beforeEach(() => {
 	resetDb(sqlite);
 });
 
-const childRow = (overrides: Partial<{ id: number; nickname: string; age: number; _sv: number | null }> = {}) => ({
+const childRow = (
+	overrides: Partial<{ id: number; nickname: string; age: number; _sv: number | null }> = {},
+) => ({
 	nickname: 'テスト',
 	age: 5,
 	theme: 'blue',
@@ -62,24 +58,30 @@ describe('getMigrationStats', () => {
 	});
 
 	it('_sv=NULL のレコードをneedsMigrationとして検出', () => {
-		testDb.insert(schema.children).values(childRow({ _sv: null })).run();
+		testDb
+			.insert(schema.children)
+			.values(childRow({ _sv: null }))
+			.run();
 
 		const stats = getMigrationStats();
 		const childStats = stats.find((s) => s.entityType === 'child');
 		expect(childStats).toBeDefined();
-		expect(childStats!.totalRecords).toBe(1);
-		expect(childStats!.needsMigration).toBe(1);
-		expect(childStats!.upToDate).toBe(0);
+		expect(childStats?.totalRecords).toBe(1);
+		expect(childStats?.needsMigration).toBe(1);
+		expect(childStats?.upToDate).toBe(0);
 	});
 
 	it('最新バージョンのレコードはupToDate', () => {
-		testDb.insert(schema.children).values(childRow({ _sv: 2 })).run();
+		testDb
+			.insert(schema.children)
+			.values(childRow({ _sv: 2 }))
+			.run();
 
 		const stats = getMigrationStats();
 		const childStats = stats.find((s) => s.entityType === 'child');
-		expect(childStats!.totalRecords).toBe(1);
-		expect(childStats!.upToDate).toBe(1);
-		expect(childStats!.needsMigration).toBe(0);
+		expect(childStats?.totalRecords).toBe(1);
+		expect(childStats?.upToDate).toBe(1);
+		expect(childStats?.needsMigration).toBe(0);
 	});
 
 	it('バージョン分布が正しく集計される', () => {
@@ -94,16 +96,19 @@ describe('getMigrationStats', () => {
 
 		const stats = getMigrationStats();
 		const childStats = stats.find((s) => s.entityType === 'child');
-		expect(childStats!.totalRecords).toBe(3);
-		expect(childStats!.needsMigration).toBe(2); // null + v1
-		expect(childStats!.upToDate).toBe(1); // v2
-		expect(childStats!.distribution.length).toBeGreaterThanOrEqual(2);
+		expect(childStats?.totalRecords).toBe(3);
+		expect(childStats?.needsMigration).toBe(2); // null + v1
+		expect(childStats?.upToDate).toBe(1); // v2
+		expect(childStats?.distribution.length).toBeGreaterThanOrEqual(2);
 	});
 });
 
 describe('runBatchMigration', () => {
 	it('dryRun=trueで実際の更新はしない', () => {
-		testDb.insert(schema.children).values(childRow({ _sv: null })).run();
+		testDb
+			.insert(schema.children)
+			.values(childRow({ _sv: null }))
+			.run();
 
 		const result = runBatchMigration('child', { dryRun: true });
 		expect(result.scanned).toBe(1);
@@ -111,11 +116,14 @@ describe('runBatchMigration', () => {
 
 		// DBは変更されていないことを確認
 		const row = testDb.select().from(schema.children).all()[0];
-		expect(row!._sv).toBeNull();
+		expect(row?._sv).toBeNull();
 	});
 
 	it('_sv=NULLのchildレコードをv2にマイグレーション', () => {
-		testDb.insert(schema.children).values(childRow({ _sv: null })).run();
+		testDb
+			.insert(schema.children)
+			.values(childRow({ _sv: null }))
+			.run();
 
 		const result = runBatchMigration('child', { dryRun: false });
 		expect(result.scanned).toBe(1);
@@ -123,11 +131,14 @@ describe('runBatchMigration', () => {
 		expect(result.failed).toBe(0);
 
 		const row = testDb.select().from(schema.children).all()[0];
-		expect(row!._sv).toBe(2);
+		expect(row?._sv).toBe(2);
 	});
 
 	it('_sv=1のstatusレコードをv2にマイグレーション', () => {
-		testDb.insert(schema.children).values(childRow({ id: 1, _sv: 2 })).run();
+		testDb
+			.insert(schema.children)
+			.values(childRow({ id: 1, _sv: 2 }))
+			.run();
 		testDb
 			.insert(schema.statuses)
 			.values({
@@ -145,12 +156,15 @@ describe('runBatchMigration', () => {
 		expect(result.migrated).toBe(1);
 
 		const row = testDb.select().from(schema.statuses).all()[0];
-		expect(row!._sv).toBe(2);
-		expect(row!.peakXp).toBe(100); // peakXp copied from totalXp
+		expect(row?._sv).toBe(2);
+		expect(row?.peakXp).toBe(100); // peakXp copied from totalXp
 	});
 
 	it('最新バージョンのレコードはスキップ', () => {
-		testDb.insert(schema.children).values(childRow({ _sv: 2 })).run();
+		testDb
+			.insert(schema.children)
+			.values(childRow({ _sv: 2 }))
+			.run();
 
 		const result = runBatchMigration('child', { dryRun: false });
 		expect(result.scanned).toBe(0);
@@ -159,7 +173,10 @@ describe('runBatchMigration', () => {
 
 	it('limitパラメータで処理数を制限', () => {
 		for (let i = 1; i <= 5; i++) {
-			testDb.insert(schema.children).values(childRow({ id: i, nickname: `テスト${i}`, _sv: null })).run();
+			testDb
+				.insert(schema.children)
+				.values(childRow({ id: i, nickname: `テスト${i}`, _sv: null }))
+				.run();
 		}
 
 		const result = runBatchMigration('child', { dryRun: false, limit: 3 });
@@ -168,13 +185,16 @@ describe('runBatchMigration', () => {
 
 		const stats = getMigrationStats();
 		const childStats = stats.find((s) => s.entityType === 'child');
-		expect(childStats!.needsMigration).toBe(2);
+		expect(childStats?.needsMigration).toBe(2);
 	});
 });
 
 describe('runAllBatchMigrations', () => {
 	it('全エンティティタイプをまとめてマイグレーション', () => {
-		testDb.insert(schema.children).values(childRow({ id: 1, _sv: null })).run();
+		testDb
+			.insert(schema.children)
+			.values(childRow({ id: 1, _sv: null }))
+			.run();
 		testDb
 			.insert(schema.statuses)
 			.values({
@@ -191,9 +211,9 @@ describe('runAllBatchMigrations', () => {
 		expect(results.length).toBeGreaterThanOrEqual(2);
 
 		const childResult = results.find((r) => r.entityType === 'child');
-		expect(childResult!.migrated).toBe(1);
+		expect(childResult?.migrated).toBe(1);
 
 		const statusResult = results.find((r) => r.entityType === 'status');
-		expect(statusResult!.migrated).toBe(1);
+		expect(statusResult?.migrated).toBe(1);
 	});
 });
