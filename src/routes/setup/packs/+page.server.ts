@@ -26,8 +26,19 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const minAge = Math.min(...ages);
 	const maxAge = Math.max(...ages);
 
+	// Pack preview: include activity names for each pack
+	const packsWithPreview = activityPackIndex.packs.map((p) => {
+		const full = getActivityPack(p.packId);
+		return {
+			...p,
+			activities: full
+				? full.activities.map((a) => ({ name: a.name, icon: a.icon, categoryCode: a.categoryCode }))
+				: [],
+		};
+	});
+
 	return {
-		packs: activityPackIndex.packs,
+		packs: packsWithPreview,
 		childAgeMin: minAge,
 		childAgeMax: maxAge,
 	};
@@ -79,7 +90,32 @@ export const actions: Actions = {
 
 	skip: async ({ locals }) => {
 		const tenantId = requireTenantId(locals);
-		trackSetupFunnel('setup_packs_skipped', tenantId);
-		redirect(302, '/setup/first-adventure');
+		// スキップ時も推奨パックを自動適用（初期離脱防止）
+		const children = await getAllChildren(tenantId);
+		const ages = children.map((c) => c.age);
+		const minAge = Math.min(...ages);
+		const maxAge = Math.max(...ages);
+
+		let autoImported = 0;
+		for (const p of activityPackIndex.packs) {
+			if (p.targetAgeMin <= maxAge && p.targetAgeMax >= minAge) {
+				try {
+					const pack = getActivityPack(p.packId);
+					if (!pack) continue;
+					const preview = await previewActivityImport(pack.activities, tenantId);
+					if (preview.newActivities > 0) {
+						const result = await importActivities(pack.activities, tenantId);
+						autoImported += result.imported;
+					}
+				} catch {
+					// 自動適用失敗は無視（ユーザーは後から手動インポート可能）
+				}
+			}
+		}
+
+		trackSetupFunnel('setup_packs_skipped', tenantId, {
+			autoImported,
+		});
+		redirect(302, `/setup/first-adventure?imported=${autoImported}&skipped=0`);
 	},
 };
