@@ -57,6 +57,16 @@ const bubbleStyle = $derived.by(() => {
 const isFirst = $derived(progress.current === 1);
 const isLast = $derived(progress.current === progress.total);
 
+// 年齢帯別のナビラベル（baby/kinder はひらがなのみ）
+const ageTier = $derived.by(() => {
+	if (typeof document === 'undefined') return '';
+	return document.querySelector('[data-age-tier]')?.getAttribute('data-age-tier') ?? '';
+});
+const isYoungTier = $derived(['baby', 'kinder'].includes(ageTier));
+const labelEnd = $derived(isYoungTier ? 'おわり' : '終了');
+const labelPrev = $derived(isYoungTier ? 'もどる' : '戻る');
+const labelNext = $derived(isYoungTier ? (isLast ? 'おしまい！' : 'つぎへ') : (isLast ? '完了！' : '次へ'));
+
 function handleEnd() {
 	endTutorial();
 }
@@ -124,7 +134,7 @@ function handleEnd() {
 			class="tutorial-nav-btn tutorial-nav-end"
 			onclick={handleEnd}
 		>
-			終了
+			{labelEnd}
 		</button>
 		<div class="tutorial-nav-right">
 			{#if !isFirst}
@@ -132,14 +142,14 @@ function handleEnd() {
 					class="tutorial-nav-btn tutorial-nav-prev"
 					onclick={() => prevStep()}
 				>
-					戻る
+					{labelPrev}
 				</button>
 			{/if}
 			<button
 				class="tutorial-nav-btn tutorial-nav-next"
 				onclick={() => nextStep()}
 			>
-				{isLast ? '完了！' : '次へ'}
+				{labelNext}
 			</button>
 		</div>
 	</div>
@@ -327,5 +337,24 @@ function handleEnd() {
 
 	.tutorial-nav-next:active {
 		transform: scale(0.97);
+	}
+
+	/* 年齢帯別フォントサイズ調整 (G3) */
+	:global([data-age-tier="baby"]) .tutorial-title,
+	:global([data-age-tier="kinder"]) .tutorial-title {
+		font-size: 1.25rem;
+	}
+
+	:global([data-age-tier="baby"]) .tutorial-description,
+	:global([data-age-tier="kinder"]) .tutorial-description {
+		font-size: 1.05rem;
+	}
+
+	:global([data-age-tier="lower"]) .tutorial-title {
+		font-size: 1.125rem;
+	}
+
+	:global([data-age-tier="lower"]) .tutorial-description {
+		font-size: 0.95rem;
 	}
 </style>

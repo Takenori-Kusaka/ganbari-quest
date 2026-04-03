@@ -6,6 +6,7 @@ import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
+import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
@@ -29,6 +30,19 @@ const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
 const displayConfig = $derived(parseDisplayConfig(data.child?.displayConfig, data.child?.age ?? 1));
+
+// Tutorial hint banner (one-time, localStorage)
+const tutorialHintKey = `child_tutorial_hint_shown_${data.child?.id ?? 0}`;
+let showTutorialHint = $state(false);
+$effect(() => {
+	if (typeof window !== 'undefined') {
+		showTutorialHint = !localStorage.getItem(tutorialHintKey);
+	}
+});
+function dismissTutorialHint() {
+	showTutorialHint = false;
+	if (typeof window !== 'undefined') localStorage.setItem(tutorialHintKey, '1');
+}
 
 // Birthday bonus state
 let birthdayModalOpen = $state(false);
@@ -408,8 +422,12 @@ $effect(() => {
 		/>
 	{/if}
 
+	<!-- Tutorial hint banner (one-time) -->
+	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
+
 	<!-- Daily Quest: compact recommended activities (#0288) -->
 	{#if data.focusMode && recommendedActivities.length > 0}
+		<div data-tutorial="daily-missions">
 		<FocusMode
 			{recommendedActivities}
 			allCompleted={focusAllCompleted}
@@ -418,10 +436,11 @@ $effect(() => {
 			completedIds={new Set(recommendedActivities.filter((a) => isCompleted(a)).map((a) => a.id))}
 			onactivityclick={(activity) => handleActivityTap(activity)}
 		/>
+		</div>
 	{/if}
 
 	<!-- Activity grid by category (always visible) -->
-	{#each activitiesByCategory as group (group.categoryId)}
+	{#each activitiesByCategory as group, groupIdx (group.categoryId)}
 			<CategorySection
 				categoryId={group.categoryId}
 				cardSize={displayConfig.cardSize}
@@ -431,7 +450,7 @@ $effect(() => {
 				xpInfo={getCategoryXpWithAnim(group.categoryId)}
 				xpAnimating={xpAnimatingCategoryId === group.categoryId}
 			>
-				{#each group.items as activity (activity.id)}
+				{#each group.items as activity, actIdx (activity.id)}
 					{@const completed = isCompleted(activity)}
 					{@const borderColor = getCategoryById(activity.categoryId)?.color ?? 'var(--theme-primary)'}
 					{@const actCount = getCount(activity.id)}
@@ -440,6 +459,7 @@ $effect(() => {
 						<div
 							class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] border-2 border-[var(--color-gold-400)] bg-[var(--color-gold-100)] shadow-[0_0_0_2px_rgba(251,191,36,0.3)] transition-all duration-150 ease-out tap-target"
 							data-testid="activity-card-{activity.id}"
+							data-tutorial={groupIdx === 0 && actIdx === 0 ? 'activity-card' : undefined}
 							aria-label="{activity.displayName}（きろくずみ）"
 						>
 							<span class="absolute inset-0 flex items-center justify-center text-3xl opacity-80 z-1 animate-bounce-in">💮</span>
@@ -450,6 +470,7 @@ $effect(() => {
 						<form
 							method="POST"
 							action="?/record"
+							data-tutorial={groupIdx === 0 && actIdx === 0 ? 'activity-card' : undefined}
 							use:enhance={() => {
 								if (submitting) return ({ update }) => update();
 								submitting = true;

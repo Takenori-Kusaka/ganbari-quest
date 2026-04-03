@@ -6,6 +6,7 @@ import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-di
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
+import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
@@ -30,6 +31,19 @@ const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
 const displayConfig = $derived(parseDisplayConfig(data.child?.displayConfig, data.child?.age ?? 4));
+
+// Tutorial hint banner (one-time, localStorage)
+const tutorialHintKey = `child_tutorial_hint_shown_${data.child?.id ?? 0}`;
+let showTutorialHint = $state(false);
+$effect(() => {
+	if (typeof window !== 'undefined') {
+		showTutorialHint = !localStorage.getItem(tutorialHintKey);
+	}
+});
+function dismissTutorialHint() {
+	showTutorialHint = false;
+	if (typeof window !== 'undefined') localStorage.setItem(tutorialHintKey, '1');
+}
 
 // Birthday bonus state
 let birthdayModalOpen = $state(false);
@@ -414,8 +428,12 @@ $effect(() => {
 		/>
 	{/if}
 
+	<!-- Tutorial hint banner (one-time) -->
+	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
+
 	<!-- Daily Quest: compact recommended activities (#0288) -->
 	{#if data.focusMode && recommendedActivities.length > 0}
+		<div data-tutorial="daily-missions">
 		<FocusMode
 			{recommendedActivities}
 			allCompleted={focusAllCompleted}
@@ -424,10 +442,11 @@ $effect(() => {
 			completedIds={new Set(recommendedActivities.filter((a) => isCompleted(a)).map((a) => a.id))}
 			onactivityclick={(activity) => handleActivityTap(activity)}
 		/>
+		</div>
 	{/if}
 
 	<!-- Activity grid by category (always visible) -->
-	{#each activitiesByCategory as group (group.categoryId)}
+	{#each activitiesByCategory as group, groupIdx (group.categoryId)}
 			<CategorySection
 				categoryId={group.categoryId}
 				cardSize={displayConfig.cardSize}
@@ -443,6 +462,8 @@ $effect(() => {
 							<div class="flex-1 border-t border-dashed border-gray-300"></div>
 						</div>
 					{/if}
+					{#if groupIdx === 0 && i === 0}
+					<div data-tutorial="activity-card">
 					<ActivityCard
 						activityId={activity.id}
 						icon={activity.icon}
@@ -458,6 +479,24 @@ $effect(() => {
 						onclick={() => handleActivityTap(activity)}
 						onlongpress={() => handleActivityLongPress(activity)}
 					/>
+					</div>
+					{:else}
+					<ActivityCard
+						activityId={activity.id}
+						icon={activity.icon}
+						name={activity.displayName}
+						categoryId={activity.categoryId}
+						cardSize={displayConfig.cardSize}
+						completed={isCompleted(activity)}
+						count={getCount(activity.id)}
+						isMission={activity.isMission}
+						isPinned={activity.isPinned}
+						frozen={!data.isPremium && activity.source === 'custom'}
+						triggerHint={activity.triggerHint}
+						onclick={() => handleActivityTap(activity)}
+						onlongpress={() => handleActivityLongPress(activity)}
+					/>
+					{/if}
 				{/each}
 			</CategorySection>
 		{/each}

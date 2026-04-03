@@ -1,6 +1,6 @@
 import { goto } from '$app/navigation';
-import { TUTORIAL_CHAPTERS, getAllSteps } from './tutorial-chapters';
-import type { TutorialStep } from './tutorial-types';
+import { TUTORIAL_CHAPTERS } from './tutorial-chapters';
+import type { TutorialChapter, TutorialStep } from './tutorial-types';
 
 interface TutorialState {
 	isActive: boolean;
@@ -14,8 +14,25 @@ const state = $state<TutorialState>({
 	currentStepIndex: 0,
 });
 
+// Configurable chapter source (default: parent admin chapters)
+let activeChapters = $state<TutorialChapter[]>(TUTORIAL_CHAPTERS);
+
+/** Switch the chapter set (e.g. for child tutorial) */
+export function setChapters(chapters: TutorialChapter[]) {
+	activeChapters = chapters;
+}
+
+/** Reset to default parent admin chapters */
+export function resetChapters() {
+	activeChapters = TUTORIAL_CHAPTERS;
+}
+
+function flatSteps(): TutorialStep[] {
+	return activeChapters.flatMap((ch) => ch.steps);
+}
+
 function flatIndex(): number {
-	const allSteps = getAllSteps();
+	const allSteps = flatSteps();
 	const current = getCurrentStep();
 	if (!current) return 0;
 	return allSteps.findIndex((s) => s.id === current.id);
@@ -23,7 +40,7 @@ function flatIndex(): number {
 
 export function getCurrentStep(): TutorialStep | null {
 	if (!state.isActive) return null;
-	const chapter = TUTORIAL_CHAPTERS.find((ch) => ch.id === state.currentChapter);
+	const chapter = activeChapters.find((ch) => ch.id === state.currentChapter);
 	if (!chapter) return null;
 	return chapter.steps[state.currentStepIndex] ?? null;
 }
@@ -31,12 +48,12 @@ export function getCurrentStep(): TutorialStep | null {
 export function getProgress(): { current: number; total: number } {
 	return {
 		current: flatIndex() + 1,
-		total: getAllSteps().length,
+		total: flatSteps().length,
 	};
 }
 
 export function getCurrentChapterInfo() {
-	return TUTORIAL_CHAPTERS.find((ch) => ch.id === state.currentChapter) ?? null;
+	return activeChapters.find((ch) => ch.id === state.currentChapter) ?? null;
 }
 
 export function isTutorialActive(): boolean {
@@ -44,7 +61,7 @@ export function isTutorialActive(): boolean {
 }
 
 export function getChapters() {
-	return TUTORIAL_CHAPTERS;
+	return activeChapters;
 }
 
 export async function startTutorial(chapter?: number) {
@@ -60,14 +77,14 @@ export async function startTutorial(chapter?: number) {
 }
 
 export async function nextStep() {
-	const chapter = TUTORIAL_CHAPTERS.find((ch) => ch.id === state.currentChapter);
+	const chapter = activeChapters.find((ch) => ch.id === state.currentChapter);
 	if (!chapter) return;
 
 	if (state.currentStepIndex < chapter.steps.length - 1) {
 		state.currentStepIndex++;
 	} else {
 		// Move to next chapter
-		const nextChapter = TUTORIAL_CHAPTERS.find((ch) => ch.id === state.currentChapter + 1);
+		const nextChapter = activeChapters.find((ch) => ch.id === state.currentChapter + 1);
 		if (nextChapter) {
 			state.currentChapter = nextChapter.id;
 			state.currentStepIndex = 0;
@@ -92,7 +109,7 @@ export async function prevStep() {
 		state.currentStepIndex--;
 	} else {
 		// Move to previous chapter's last step
-		const prevChapter = TUTORIAL_CHAPTERS.find((ch) => ch.id === state.currentChapter - 1);
+		const prevChapter = activeChapters.find((ch) => ch.id === state.currentChapter - 1);
 		if (prevChapter) {
 			state.currentChapter = prevChapter.id;
 			state.currentStepIndex = prevChapter.steps.length - 1;
@@ -109,7 +126,7 @@ export async function prevStep() {
 }
 
 export async function skipToChapter(chapterId: number) {
-	const chapter = TUTORIAL_CHAPTERS.find((ch) => ch.id === chapterId);
+	const chapter = activeChapters.find((ch) => ch.id === chapterId);
 	if (!chapter) return;
 
 	state.currentChapter = chapterId;
