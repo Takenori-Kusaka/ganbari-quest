@@ -281,6 +281,52 @@
 }
 
 /* ============================================================
+   Plan Tier System (プラン別管理画面テーマ)
+   ============================================================ */
+
+[data-plan="free"] {
+	--plan-primary: var(--color-brand-600);
+	--plan-secondary: var(--color-brand-400);
+	--plan-nav-bg: #e8f4fd;
+	--plan-nav-active: #dbeafe;
+	--plan-nav-text: var(--color-brand-700);
+	--plan-header-bg: rgba(255, 255, 255, 0.8);
+	--plan-card-border: var(--color-neutral-200);
+	--plan-page-from: #eff6ff;
+	--plan-page-to: #dbeafe;
+	--plan-badge-bg: transparent;
+	--plan-badge-text: transparent;
+}
+
+[data-plan="standard"] {
+	--plan-primary: #7c3aed;
+	--plan-secondary: #a78bfa;
+	--plan-nav-bg: #f3e8ff;
+	--plan-nav-active: #ede9fe;
+	--plan-nav-text: #6d28d9;
+	--plan-header-bg: rgba(250, 245, 255, 0.85);
+	--plan-card-border: #e9d5ff;
+	--plan-page-from: #faf5ff;
+	--plan-page-to: #eef2ff;
+	--plan-badge-bg: #f3e8ff;
+	--plan-badge-text: #6d28d9;
+}
+
+[data-plan="family"] {
+	--plan-primary: #7c3aed;
+	--plan-secondary: #f59e0b;
+	--plan-nav-bg: #fef3c7;
+	--plan-nav-active: #fde68a;
+	--plan-nav-text: #6d28d9;
+	--plan-header-bg: rgba(254, 252, 232, 0.85);
+	--plan-card-border: #fde68a;
+	--plan-page-from: #fffbeb;
+	--plan-page-to: #faf5ff;
+	--plan-badge-bg: #fef3c7;
+	--plan-badge-text: #92400e;
+}
+
+/* ============================================================
    Base Styles
    ============================================================ */
 

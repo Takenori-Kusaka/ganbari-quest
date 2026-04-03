@@ -10,9 +10,10 @@ interface Props {
 	mode: 'live' | 'demo';
 	basePath: string;
 	isPremium?: boolean;
+	planTier?: 'free' | 'standard' | 'family';
 }
 
-let { children, mode, basePath, isPremium = false }: Props = $props();
+let { children, mode, basePath, isPremium = false, planTier = 'free' }: Props = $props();
 
 const isDemo = $derived(mode === 'demo');
 
@@ -50,12 +51,12 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 }
 </script>
 
-<div data-theme="admin" class="min-h-dvh bg-gradient-to-b from-blue-50 to-blue-100">
+<div data-theme="admin" data-plan={planTier} class="admin-shell">
 	<!-- Admin Header -->
-	<header class="sticky {isDemo ? 'top-10' : 'top-0'} z-30 bg-white/80 backdrop-blur border-b border-gray-200 px-4 py-3">
+	<header class="admin-header sticky {isDemo ? 'top-10' : 'top-0'} z-30 backdrop-blur border-b border-gray-200 px-4 py-3">
 		<div class="max-w-4xl mx-auto flex items-center justify-between">
 			<div class="flex items-center gap-2">
-				<Logo variant="compact" size={120} />
+				<Logo variant="compact" size={120} planTier={isPremium ? planTier : undefined} />
 				<span class="text-xs font-medium text-gray-400 border border-gray-300 rounded px-1.5 py-0.5">管理</span>
 				{#if isDemo}
 					<span class="text-xs font-medium text-amber-500 border border-amber-300 rounded px-1.5 py-0.5">デモ</span>
@@ -70,6 +71,10 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 					>
 						⭐ アップグレード
 					</a>
+				{:else if !isDemo && planTier === 'standard'}
+					<span class="plan-badge plan-badge--standard">⭐ プレミアム</span>
+				{:else if !isDemo && planTier === 'family'}
+					<span class="plan-badge plan-badge--family">⭐⭐ ファミリー</span>
 				{/if}
 				{#if !isDemo}
 					<button
@@ -100,10 +105,7 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 				{@const isActive = isNavActive(item.href, $page.url.pathname)}
 				<a
 					href={item.href}
-					class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap
-						{isActive
-						? 'bg-blue-100 text-blue-700'
-						: 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'}"
+					class="nav-item {isActive ? 'nav-item--active' : ''}"
 					aria-current={isActive ? 'page' : undefined}
 				>
 					<span aria-hidden="true">{item.icon}</span>
@@ -136,8 +138,7 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 				{@const isActive = isNavActive(item.href, $page.url.pathname)}
 				<a
 					href={item.href}
-					class="flex flex-col items-center justify-center gap-0.5 w-16 h-full transition-colors
-						{isActive ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}"
+					class="mobile-nav-item {isActive ? 'mobile-nav-item--active' : ''}"
 					aria-current={isActive ? 'page' : undefined}
 				>
 					<span class="text-xl" aria-hidden="true">{item.icon}</span>
@@ -153,6 +154,13 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 </div>
 
 <style>
+	.admin-shell {
+		min-height: 100dvh;
+		background: linear-gradient(to bottom, var(--plan-page-from, #eff6ff), var(--plan-page-to, #dbeafe));
+	}
+	.admin-header {
+		background: var(--plan-header-bg, rgba(255, 255, 255, 0.8));
+	}
 	.upgrade-btn {
 		display: inline-flex;
 		align-items: center;
@@ -167,9 +175,65 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 		transition: all 0.15s ease;
 		white-space: nowrap;
 	}
-
 	.upgrade-btn:hover {
 		background: var(--color-premium);
 		color: white;
+	}
+	.plan-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		padding: 3px 10px;
+		font-size: 0.7rem;
+		font-weight: 700;
+		border-radius: 9999px;
+		white-space: nowrap;
+	}
+	.plan-badge--standard {
+		background: var(--plan-badge-bg, #f3e8ff);
+		color: var(--plan-badge-text, #6d28d9);
+	}
+	.plan-badge--family {
+		background: var(--plan-badge-bg, #fef3c7);
+		color: var(--plan-badge-text, #92400e);
+	}
+	/* Desktop nav */
+	.nav-item {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.5rem 1rem;
+		border-radius: 0.5rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		transition: all 0.15s;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #4b5563);
+	}
+	.nav-item:hover {
+		background: var(--plan-nav-bg, #e8f4fd);
+		color: var(--plan-nav-text, var(--color-brand-600));
+	}
+	.nav-item--active {
+		background: var(--plan-nav-active, #dbeafe);
+		color: var(--plan-nav-text, var(--color-brand-700));
+	}
+	/* Mobile nav */
+	.mobile-nav-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 2px;
+		width: 4rem;
+		height: 100%;
+		transition: color 0.15s;
+		color: var(--color-text-tertiary, #9ca3af);
+	}
+	.mobile-nav-item:hover {
+		color: var(--color-text-secondary, #4b5563);
+	}
+	.mobile-nav-item--active {
+		color: var(--plan-primary, var(--color-brand-600));
 	}
 </style>
