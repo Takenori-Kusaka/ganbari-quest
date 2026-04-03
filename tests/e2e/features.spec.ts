@@ -62,8 +62,8 @@ test.describe('#0037: もちものチェックリスト', () => {
 		await dismissOverlays(page);
 
 		await page.goto('/checklist');
-		// テンプレート名 "がっこう" が表示される
-		await expect(page.getByText('がっこう')).toBeVisible();
+		// テンプレート名 "あさのしたく" が表示される（デフォルトプリセット準拠）
+		await expect(page.getByText('あさのしたく')).toBeVisible();
 	});
 
 	test('ホーム画面からチェックリストへのリンクがある', async ({ page }) => {
