@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>がんばりクエスト パンフレット</title>
+<style>
+/* === Reset & Variables === */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --brand-900:#1a3a5c;--brand-800:#2a5f9e;--brand-700:#3878B8;--brand-600:#4a90d9;--brand-500:#5BA3E6;--brand-400:#7db8ed;--brand-300:#a3cef3;--brand-200:#c9e2f8;--brand-100:#e8f4fd;--brand-50:#f2f9ff;
+  --gold-600:#d4ad00;--gold-500:#FFCC00;--gold-400:#FFE44D;--gold-300:#ffed80;--gold-100:#fffbe6;
+  --green-500:#4caf50;--green-100:#e8f5e9;
+  --orange-500:#ff9800;--orange-100:#fff3e0;
+  --gray-900:#1e293b;--gray-700:#334155;--gray-500:#64748b;--gray-300:#cbd5e1;--gray-200:#e2e8f0;--gray-100:#f1f5f9;--gray-50:#f8fafc;
+  --radius:12px;
+}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',system-ui,sans-serif;color:var(--gray-700);line-height:1.6;background:#f0f4f8}
+
+/* === Print Settings === */
+@page{
+  size:A4;
+  margin:0;
+}
+@media print{
+  body{background:#fff}
+  .page{box-shadow:none;margin:0;border-radius:0}
+  .page-break{page-break-after:always;break-after:page}
+  .screen-controls{display:none!important}
+}
+
+/* === Page Container === */
+.page{
+  width:210mm;
+  min-height:297mm;
+  margin:20px auto;
+  background:#fff;
+  box-shadow:0 4px 24px rgba(0,0,0,.12);
+  overflow:hidden;
+  position:relative;
+}
+.page-break{page-break-after:always;break-after:page}
+
+/* === Screen Controls === */
+.screen-controls{
+  text-align:center;
+  padding:20px;
+  background:var(--gray-900);
+  color:#fff;
+  font-size:.9rem;
+}
+.screen-controls button{
+  background:linear-gradient(135deg,var(--brand-500),var(--brand-700));
+  color:#fff;
+  border:none;
+  padding:12px 32px;
+  border-radius:2rem;
+  font-size:1rem;
+  font-weight:600;
+  cursor:pointer;
+  font-family:inherit;
+  margin:0 8px;
+}
+.screen-controls button:hover{opacity:.9}
+.screen-controls p{margin-top:8px;color:#94a3b8;font-size:.8rem}
+
+/* =============================================
+   FRONT PAGE (omote)
+   ============================================= */
+
+.front{
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  min-height:297mm;
+}
+
+/* -- Front: Hero Area -- */
+.front-hero{
+  background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 40%,#fef9e7 100%);
+  padding:14mm 16mm 8mm;
+  text-align:center;
+  position:relative;
+  flex-shrink:0;
+}
+.front-hero::after{
+  content:'';
+  position:absolute;
+  bottom:0;left:0;right:0;
+  height:4px;
+  background:linear-gradient(90deg,var(--brand-500),var(--gold-400),var(--brand-500));
+}
+.front-logo{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  margin-bottom:4mm;
+}
+.front-logo img{height:44px;width:auto}
+.front-logo .service-name{
+  font-size:1.4rem;
+  font-weight:800;
+  color:var(--gray-900);
+  letter-spacing:.02em;
+}
+.front-tagline{
+  font-size:.9rem;
+  color:var(--brand-700);
+  font-weight:600;
+  margin-bottom:5mm;
+  letter-spacing:.06em;
+}
+.front-catchcopy{
+  font-size:1.8rem;
+  font-weight:800;
+  color:var(--gray-900);
+  line-height:1.3;
+  margin-bottom:2mm;
+}
+.front-catchcopy span{
+  color:var(--brand-700);
+}
+.front-sub{
+  font-size:.85rem;
+  color:var(--gray-500);
+  max-width:440px;
+  margin:0 auto;
+  line-height:1.6;
+}
+
+/* -- Front: Character -- */
+.front-character{
+  position:absolute;
+  right:12mm;
+  top:6mm;
+  width:60px;
+  height:auto;
+  opacity:.85;
+}
+/* -- Front: Hero Illustration -- */
+.front-hero-illustration{
+  max-width:100%;
+  margin:4mm auto 0;
+  border-radius:8px;
+  overflow:hidden;
+}
+.front-hero-illustration img{
+  width:100%;
+  height:auto;
+  display:block;
+}
+
+/* -- Front: Features -- */
+.front-features{
+  padding:8mm 14mm 6mm;
+  flex-shrink:0;
+}
+.front-features h2{
+  text-align:center;
+  font-size:1.05rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:4mm;
+}
+.feature-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:4mm;
+}
+.feature-item{
+  background:var(--gray-50);
+  border:1px solid var(--gray-200);
+  border-radius:var(--radius);
+  padding:4mm 3.5mm;
+  text-align:center;
+}
+.feature-item .fi-icon{font-size:1.6rem;margin-bottom:1.5mm}
+.feature-item h3{font-size:.82rem;font-weight:700;color:var(--gray-900);margin-bottom:1mm}
+.feature-item p{font-size:.68rem;color:var(--gray-500);line-height:1.5}
+
+/* -- Front: Age Modes -- */
+.front-ages{
+  padding:5mm 14mm 5mm;
+  flex-shrink:0;
+}
+.front-ages h2{
+  text-align:center;
+  font-size:.95rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:5mm;
+}
+.age-row{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:3mm;
+}
+.age-item{
+  text-align:center;
+  background:#fff;
+  border:1px solid var(--gray-200);
+  border-radius:10px;
+  padding:3.5mm 2mm;
+}
+.age-item .ai-emoji{font-size:1.5rem;margin-bottom:1mm}
+.age-item .ai-name{font-size:.68rem;font-weight:700;color:var(--gray-900);margin-bottom:.5mm}
+.age-item .ai-range{font-size:.62rem;color:var(--brand-700);font-weight:600}
+
+/* -- Front: CTA -- */
+.front-cta{
+  margin-top:auto;
+  background:linear-gradient(135deg,var(--brand-700),var(--brand-800));
+  padding:6mm 14mm;
+  text-align:center;
+  color:#fff;
+  flex-shrink:0;
+}
+.front-cta h2{
+  font-size:1.1rem;
+  font-weight:700;
+  margin-bottom:2mm;
+  color:#fff;
+}
+.front-cta p{
+  font-size:.8rem;
+  margin-bottom:3mm;
+  color:var(--brand-200);
+}
+.cta-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8mm;
+}
+.cta-url-box{
+  background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.3);
+  border-radius:10px;
+  padding:4mm 6mm;
+  text-align:center;
+}
+.cta-url-box .url-label{font-size:.7rem;color:var(--brand-200);margin-bottom:1mm}
+.cta-url-box .url-text{font-size:.85rem;font-weight:700;color:#fff;letter-spacing:.02em}
+.qr-space{
+  width:28mm;
+  height:28mm;
+  background:rgba(255,255,255,.95);
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:.6rem;
+  color:var(--gray-500);
+  text-align:center;
+  line-height:1.3;
+  flex-shrink:0;
+}
+
+/* =============================================
+   BACK PAGE (ura)
+   ============================================= */
+
+.back{
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  min-height:297mm;
+}
+
+/* -- Back: Header -- */
+.back-header{
+  background:linear-gradient(135deg,var(--brand-700),var(--brand-800));
+  padding:4mm 14mm;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;
+}
+.back-header img{height:28px;width:auto}
+.back-header .bh-text{color:#fff;font-size:.9rem;font-weight:700}
+
+/* -- Back: Pricing -- */
+.back-pricing{
+  padding:5mm 12mm 4mm;
+  flex-shrink:0;
+}
+.back-pricing h2{
+  text-align:center;
+  font-size:1.05rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:1.5mm;
+}
+.back-pricing .pricing-sub{
+  text-align:center;
+  font-size:.72rem;
+  color:var(--gray-500);
+  margin-bottom:4mm;
+}
+.pricing-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:4mm;
+}
+.plan-card{
+  border:1.5px solid var(--gray-200);
+  border-radius:var(--radius);
+  padding:4mm 3.5mm;
+  text-align:center;
+  position:relative;
+}
+.plan-card.recommended{
+  border-color:var(--brand-500);
+  box-shadow:0 0 0 1.5px var(--brand-500);
+}
+.plan-badge{
+  position:absolute;
+  top:-3mm;
+  left:50%;
+  transform:translateX(-50%);
+  background:linear-gradient(135deg,var(--brand-500),var(--brand-700));
+  color:#fff;
+  font-size:.6rem;
+  font-weight:700;
+  padding:1mm 3mm;
+  border-radius:2rem;
+  white-space:nowrap;
+}
+.plan-card h3{font-size:.85rem;font-weight:700;color:var(--gray-900);margin-bottom:1mm;margin-top:1mm}
+.plan-price{font-size:1.3rem;font-weight:800;color:var(--brand-700);margin-bottom:1mm}
+.plan-price small{font-size:.65rem;font-weight:500;color:var(--gray-500)}
+.plan-price .free-label{color:var(--green-500)}
+.plan-trial{font-size:.65rem;color:var(--brand-600);font-weight:600;margin-bottom:2mm}
+.plan-features{
+  list-style:none;
+  text-align:left;
+  padding:0;
+}
+.plan-features li{
+  font-size:.65rem;
+  color:var(--gray-700);
+  padding:.7mm 0;
+  display:flex;
+  gap:1.5mm;
+  align-items:flex-start;
+  line-height:1.4;
+}
+.plan-features li .check{color:var(--green-500);flex-shrink:0;font-size:.75rem}
+.plan-features li .cross{color:var(--gray-300);flex-shrink:0;font-size:.75rem}
+
+/* -- Back: Steps -- */
+.back-steps{
+  padding:4mm 14mm;
+  background:var(--gray-50);
+  flex-shrink:0;
+}
+.back-steps h2{
+  text-align:center;
+  font-size:.95rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:4mm;
+}
+.steps-row{
+  display:grid;
+  grid-template-columns:1fr auto 1fr auto 1fr;
+  gap:3mm;
+  align-items:center;
+}
+.step-card{
+  text-align:center;
+  background:#fff;
+  border:1px solid var(--gray-200);
+  border-radius:var(--radius);
+  padding:3mm 2.5mm;
+}
+.step-card .sc-num{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:20px;height:20px;
+  border-radius:50%;
+  background:var(--brand-700);
+  color:#fff;
+  font-size:.65rem;
+  font-weight:700;
+  margin-bottom:1.5mm;
+}
+.step-card .sc-icon{font-size:1.3rem;margin-bottom:1mm}
+.step-card h3{font-size:.75rem;font-weight:700;color:var(--gray-900);margin-bottom:1mm}
+.step-card p{font-size:.62rem;color:var(--gray-500);line-height:1.45}
+.step-arrow{font-size:1.2rem;color:var(--brand-400)}
+
+/* -- Back: FAQ -- */
+.back-faq{
+  padding:4mm 14mm;
+  flex-shrink:0;
+}
+.back-faq h2{
+  text-align:center;
+  font-size:.95rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:3mm;
+}
+.faq-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:3mm;
+}
+.faq-card{
+  background:var(--gray-50);
+  border:1px solid var(--gray-200);
+  border-radius:10px;
+  padding:3mm 4mm;
+}
+.faq-card .fq-q{
+  font-size:.73rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:1mm;
+  display:flex;
+  gap:2mm;
+  align-items:flex-start;
+}
+.faq-card .fq-q .q-label{
+  color:var(--brand-700);
+  font-weight:800;
+  flex-shrink:0;
+}
+.faq-card .fq-a{
+  font-size:.65rem;
+  color:var(--gray-500);
+  line-height:1.45;
+  padding-left:5mm;
+}
+
+/* -- Back: Footer -- */
+.back-footer{
+  margin-top:auto;
+  background:var(--gray-900);
+  padding:4mm 14mm;
+  color:#94a3b8;
+  flex-shrink:0;
+}
+.footer-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:4mm;
+  margin-bottom:3mm;
+}
+.footer-brand-col h3{color:#fff;font-size:.78rem;margin-bottom:1mm}
+.footer-brand-col p{font-size:.65rem;line-height:1.4}
+.footer-contact{text-align:right}
+.footer-contact h4{color:#e2e8f0;font-size:.68rem;margin-bottom:1.5mm}
+.footer-contact a,.footer-contact span{
+  display:block;
+  font-size:.62rem;
+  color:#94a3b8;
+  text-decoration:none;
+  margin-bottom:1mm;
+}
+.footer-divider{
+  border:none;
+  border-top:1px solid #334155;
+  margin-bottom:3mm;
+}
+.footer-bottom{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:.6rem;
+}
+.footer-bottom .links a{
+  color:#94a3b8;
+  text-decoration:none;
+  margin-left:3mm;
+}
+.footer-bottom .links a:hover{color:#fff}
+
+/* === Responsive for screen viewing === */
+@media screen and (max-width:220mm){
+  .page{
+    width:100%;
+    min-height:auto;
+    margin:0;
+    border-radius:0;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Screen Controls -->
+<div class="screen-controls">
+  <button onclick="window.print()">&#x1F5A8; 印刷 / PDF保存</button>
+  <p>ブラウザの「印刷」からPDFとして保存できます。用紙サイズはA4を選択してください。</p>
+</div>
+
+<!-- =============================================
+     FRONT PAGE (表面)
+     ============================================= -->
+<div class="page page-break front">
+
+  <!-- Character decoration -->
+  <img src="icon-character.png" alt="" class="front-character" aria-hidden="true">
+
+  <!-- Hero -->
+  <div class="front-hero">
+    <div class="front-logo">
+      <img src="logo-compact.png" alt="がんばりクエスト">
+      <span class="service-name">がんばりクエスト</span>
+    </div>
+    <div class="front-tagline">こどもの がんばりを ぼうけんに</div>
+    <h1 class="front-catchcopy">
+      「やりなさい」を<br>
+      <span>「やりたい！」</span>に変える
+    </h1>
+    <p class="front-sub">
+      お子さまの毎日のがんばりをRPG風の冒険に変えて、<br>
+      ポイント、レベルアップ、称号で<br>
+      「自分から動く力」を育てる家庭向けWebアプリです。
+    </p>
+    <div class="front-hero-illustration">
+      <img src="hero-illustration.webp" alt="冒険の旅に出る勇者キャラクター" loading="eager">
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="front-features">
+    <h2>&#x2728; 「がんばる」が楽しくなる3つの仕組み</h2>
+    <div class="feature-row">
+      <div class="feature-item">
+        <div class="fi-icon">&#x2B50;</div>
+        <h3>ポイント &amp; レベルアップ</h3>
+        <p>活動を記録するとポイント獲得。知力・体力・創造力・社会性・生活力の5つのチカラが成長し、レベルアップの達成感が次のがんばりにつながります。</p>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">&#x1F525;</div>
+        <h3>コンボ &amp; ミッション</h3>
+        <p>連続日数に応じてボーナスポイント。毎日変わるミッションが小さな達成感を積み重ね、「もう1日がんばろう」を自然に引き出します。</p>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">&#x1F4CA;</div>
+        <h3>成長レーダーチャート</h3>
+        <p>5軸のレーダーチャートでお子さまの強みが一目瞭然。「すごいね」に根拠が生まれ、自信を持って褒められるようになります。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Age Modes -->
+  <div class="front-ages">
+    <h2>&#x1F308; 0歳から18歳まで &#8212; 5つの年齢モード</h2>
+    <div class="age-row">
+      <div class="age-item">
+        <div class="ai-emoji">&#x1F476;</div>
+        <div class="ai-name">はじめの一歩</div>
+        <div class="ai-range">0&#x301C;2歳</div>
+      </div>
+      <div class="age-item">
+        <div class="ai-emoji">&#x1F9D2;</div>
+        <div class="ai-name">じぶんでタップ</div>
+        <div class="ai-range">3&#x301C;5歳</div>
+      </div>
+      <div class="age-item">
+        <div class="ai-emoji">&#x1F466;</div>
+        <div class="ai-name">冒険スタート</div>
+        <div class="ai-range">6&#x301C;9歳</div>
+      </div>
+      <div class="age-item">
+        <div class="ai-emoji">&#x1F9D1;&#x200D;&#x1F393;</div>
+        <div class="ai-name">チャレンジ</div>
+        <div class="ai-range">10&#x301C;14歳</div>
+      </div>
+      <div class="age-item">
+        <div class="ai-emoji">&#x1F680;</div>
+        <div class="ai-name">みらい設計</div>
+        <div class="ai-range">15&#x301C;18歳</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="front-cta">
+    <h2>&#x1F3AE; まずは無料で始めよう！</h2>
+    <p>登録は1分。お子さまの名前と年齢を入れるだけで、今日から冒険が始まります。</p>
+    <div class="cta-row">
+      <div class="cta-url-box">
+        <div class="url-label">&#x1F310; アクセスはこちら</div>
+        <div class="url-text">https://www.ganbari-quest.com</div>
+      </div>
+      <div class="qr-space">
+        QR&#x30B3;&#x30FC;&#x30C9;&#x3092;<br>&#x8CBC;&#x308A;&#x4ED8;&#x3051;
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- =============================================
+     BACK PAGE (裏面)
+     ============================================= -->
+<div class="page back">
+
+  <!-- Header -->
+  <div class="back-header">
+    <img src="logo-compact.png" alt="" height="32">
+    <span class="bh-text">がんばりクエスト &#x2014; &#x6599;&#x91D1;&#x30D7;&#x30E9;&#x30F3; &amp; &#x59CB;&#x3081;&#x65B9;</span>
+  </div>
+
+  <!-- Pricing -->
+  <div class="back-pricing">
+    <h2>&#x1F4B0; 料金プラン</h2>
+    <p class="pricing-sub">すべてのプランで基本のゲーミフィケーション機能が使えます</p>
+    <div class="pricing-grid">
+      <!-- Free -->
+      <div class="plan-card">
+        <h3>フリー</h3>
+        <div class="plan-price"><span class="free-label">&#xA5;0</span></div>
+        <div class="plan-trial">ずっと無料</div>
+        <ul class="plan-features">
+          <li><span class="check">&#x2713;</span>子供1人まで</li>
+          <li><span class="check">&#x2713;</span>ポイント &amp; レベルアップ</li>
+          <li><span class="check">&#x2713;</span>コンボ &amp; ミッション</li>
+          <li><span class="check">&#x2713;</span>成長レーダーチャート</li>
+          <li><span class="check">&#x2713;</span>称号 &amp; 実績</li>
+          <li><span class="cross">&#x2013;</span>高度な分析機能</li>
+          <li><span class="cross">&#x2013;</span>複数保護者</li>
+        </ul>
+      </div>
+      <!-- Standard -->
+      <div class="plan-card recommended">
+        <div class="plan-badge">&#x2B50; おすすめ</div>
+        <h3>スタンダード</h3>
+        <div class="plan-price">&#xA5;500<small>/月</small></div>
+        <div class="plan-trial">7日間無料体験</div>
+        <ul class="plan-features">
+          <li><span class="check">&#x2713;</span>子供3人まで</li>
+          <li><span class="check">&#x2713;</span>全ての基本機能</li>
+          <li><span class="check">&#x2713;</span>高度な成長分析</li>
+          <li><span class="check">&#x2713;</span>カスタム称号作成</li>
+          <li><span class="check">&#x2713;</span>月次レポート</li>
+          <li><span class="check">&#x2713;</span>優先サポート</li>
+          <li><span class="cross">&#x2013;</span>複数保護者</li>
+        </ul>
+      </div>
+      <!-- Family -->
+      <div class="plan-card">
+        <h3>ファミリー</h3>
+        <div class="plan-price">&#xA5;780<small>/月</small></div>
+        <div class="plan-trial">7日間無料体験</div>
+        <ul class="plan-features">
+          <li><span class="check">&#x2713;</span>子供5人まで</li>
+          <li><span class="check">&#x2713;</span>スタンダード全機能</li>
+          <li><span class="check">&#x2713;</span>複数保護者アクセス</li>
+          <li><span class="check">&#x2713;</span>家族協力クエスト</li>
+          <li><span class="check">&#x2713;</span>きょうだいチャレンジ</li>
+          <li><span class="check">&#x2713;</span>家族ランキング</li>
+          <li><span class="check">&#x2713;</span>データエクスポート</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Steps -->
+  <div class="back-steps">
+    <h2>&#x1F680; かんたん3ステップで始められます</h2>
+    <div class="steps-row">
+      <div class="step-card">
+        <div class="sc-num">1</div>
+        <div class="sc-icon">&#x1F4DD;</div>
+        <h3>アカウント登録</h3>
+        <p>メールアドレスとパスワードだけ。<br>1分で完了します。</p>
+      </div>
+      <div class="step-arrow">&#x25B6;</div>
+      <div class="step-card">
+        <div class="sc-num">2</div>
+        <div class="sc-icon">&#x2699;&#xFE0F;</div>
+        <h3>活動を設定</h3>
+        <p>「宿題」「お手伝い」など<br>がんばる活動を登録。</p>
+      </div>
+      <div class="step-arrow">&#x25B6;</div>
+      <div class="step-card">
+        <div class="sc-num">3</div>
+        <div class="sc-icon">&#x2694;&#xFE0F;</div>
+        <h3>冒険スタート！</h3>
+        <p>活動を記録するたびに<br>ポイント獲得 &amp; レベルアップ！</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="back-faq">
+    <h2>&#x2753; よくある質問</h2>
+    <div class="faq-grid">
+      <div class="faq-card">
+        <div class="fq-q">
+          <span class="q-label">Q.</span>
+          <span>料金はかかりますか？</span>
+        </div>
+        <div class="fq-a">基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。スタンダード・ファミリープランは7日間の無料体験付きです。</div>
+      </div>
+      <div class="faq-card">
+        <div class="fq-q">
+          <span class="q-label">Q.</span>
+          <span>何歳から使えますか？</span>
+        </div>
+        <div class="fq-a">0歳からお使いいただけます。0&#x301C;2歳は保護者が記録するモード、3歳からはお子さま自身がタップして記録できます。年齢に合わせて画面が自動で変わるので、きょうだいでも安心です。</div>
+      </div>
+      <div class="faq-card">
+        <div class="fq-q">
+          <span class="q-label">Q.</span>
+          <span>子供のデータは安全ですか？</span>
+        </div>
+        <div class="fq-a">はい。TLS暗号化通信とAES-256暗号化保存で安全に管理しています。お子さまの本名は不要で、ニックネームでご利用いただけます。データの第三者への販売・共有は一切行いません。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="back-footer">
+    <div class="footer-top">
+      <div class="footer-brand-col">
+        <h3>&#x2694;&#xFE0F; がんばりクエスト</h3>
+        <p>お子さまの「がんばり」を冒険に変える<br>家庭向けWebアプリ</p>
+      </div>
+      <div class="footer-contact">
+        <h4>お問い合わせ・コミュニティ</h4>
+        <a href="https://discord.gg/5pWkf4Z5">&#x1F4AC; Discord: discord.gg/5pWkf4Z5</a>
+        <a href="https://github.com/Takenori-Kusaka/ganbari-quest">&#x1F4E6; GitHub: Takenori-Kusaka/ganbari-quest</a>
+        <span>&#x2709;&#xFE0F; support@ganbari-quest.com</span>
+      </div>
+    </div>
+    <hr class="footer-divider">
+    <div class="footer-bottom">
+      <span>&copy; 2026 がんばりクエスト. All rights reserved.</span>
+      <span class="links">
+        <a href="https://www.ganbari-quest.com/terms.html">利用規約</a>
+        <a href="https://www.ganbari-quest.com/privacy.html">プライバシーポリシー</a>
+      </span>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
