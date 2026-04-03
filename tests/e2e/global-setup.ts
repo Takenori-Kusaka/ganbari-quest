@@ -339,6 +339,19 @@ export default async function globalSetup() {
 				error_message TEXT
 			);
 			CREATE INDEX IF NOT EXISTS idx_notification_logs_tenant_date ON notification_logs(tenant_id, sent_at);
+
+			CREATE TABLE IF NOT EXISTS certificates (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id),
+				tenant_id TEXT NOT NULL,
+				certificate_type TEXT NOT NULL,
+				title TEXT NOT NULL,
+				description TEXT,
+				issued_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				metadata TEXT,
+				UNIQUE(child_id, tenant_id, certificate_type)
+			);
+			CREATE INDEX IF NOT EXISTS idx_certificates_child ON certificates(child_id, tenant_id);
 		`);
 
 		// テスト用クリーンアップ: ピン留め設定を削除（ピン留めテストの安定化）
