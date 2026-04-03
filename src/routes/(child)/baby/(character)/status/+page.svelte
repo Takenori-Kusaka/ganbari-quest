@@ -79,7 +79,7 @@ const radarCategories = $derived(
 		</Card>
 
 		<!-- Radar chart -->
-		<Card variant="elevated" padding="md" class="mb-3">
+		<Card variant="elevated" padding="md" class="mb-3" data-tutorial="radar-chart">
 			{#snippet children()}
 			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">ステータス</h2>
 			<div class="flex justify-center">
