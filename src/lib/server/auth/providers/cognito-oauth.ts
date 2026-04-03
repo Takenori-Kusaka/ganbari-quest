@@ -61,7 +61,7 @@ export function buildAuthorizeUrl(cookies: Cookies, identityProvider?: string): 
 		response_type: 'code',
 		client_id: config.clientId,
 		redirect_uri: config.callbackUrl,
-		scope: 'openid email profile',
+		scope: 'openid email',
 		state,
 		nonce,
 	});
