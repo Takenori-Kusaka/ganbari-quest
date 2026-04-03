@@ -38,7 +38,7 @@ test.describe('UC-05: 子供切り替え', () => {
 	test('子供一覧が表示される', async ({ page }) => {
 		await page.goto('/switch');
 		await expect(page.locator('h1')).toContainText('だれがつかう？');
-		await expect(page.getByText('ゆうきちゃん')).toBeVisible();
+		await expect(page.getByText('たろうくん')).toBeVisible();
 		await expect(page.getByText('4さい')).toBeVisible();
 	});
 
@@ -67,7 +67,7 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 	});
 
 	test('ヘッダーにニックネームが表示される', async ({ page }) => {
-		await expect(page.locator('header').getByText('ゆうきちゃん')).toBeVisible();
+		await expect(page.locator('header').getByText('たろうくん')).toBeVisible();
 	});
 
 	test('ボトムナビゲーションが表示される', async ({ page }) => {

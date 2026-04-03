@@ -17,7 +17,7 @@ export const GUIDE_STEPS: GuideStep[] = [
 	{
 		id: 1,
 		title: 'こどもの画面をみよう',
-		description: '5さいの そうたくんで ためしてみましょう',
+		description: '5さいの たろうくんで ためしてみましょう',
 		matchPath: '/demo/kinder/home',
 		href: '/demo/kinder/home?childId=902',
 	},
@@ -31,7 +31,7 @@ export const GUIDE_STEPS: GuideStep[] = [
 	{
 		id: 3,
 		title: 'ステータスを みよう',
-		description: 'そうたくんの つよさを チェック！',
+		description: 'たろうくんの つよさを チェック！',
 		matchPath: '/demo/kinder/status',
 		href: '/demo/kinder/status?childId=902',
 	},

@@ -81,14 +81,14 @@ export default async function globalSetup() {
 		const childCount = db.prepare('SELECT count(*) as c FROM children').get() as { c: number };
 		if (childCount.c === 0) {
 			db.prepare(
-				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('ゆうきちゃん', 4, 'pink', 'kinder')",
+				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('たろうくん', 4, 'pink', 'kinder')",
 			).run();
 			db.prepare(
-				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('てすとくん', 1, 'pink', 'baby')",
+				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('はなこちゃん', 1, 'pink', 'baby')",
 			).run();
 
 			// ステータス初期化（カテゴリごとにリアルなレベル差をつける）
-			// ゆうきちゃん (kinder): せいかつが得意、べんきょうはこれから
+			// たろうくん (kinder): せいかつが得意、べんきょうはこれから
 			const kinderXp: [number, number, number][] = [
 				// [categoryId, totalXp, level]
 				[1, 80, 4], // undou: よく体を動かす
@@ -102,7 +102,7 @@ export default async function globalSetup() {
 					'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, ?, ?, ?, ?)',
 				).run(catId, xp, lv, xp);
 			}
-			// てすとくん (baby): 全体的にまだ低レベル
+			// はなこちゃん (baby): 全体的にまだ低レベル
 			const babyXp: [number, number, number][] = [
 				[1, 20, 2], // undou
 				[2, 10, 1], // benkyou
@@ -115,7 +115,7 @@ export default async function globalSetup() {
 					'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (2, ?, ?, ?, ?)',
 				).run(catId, xp, lv, xp);
 			}
-			console.log('[E2E Setup]   Created test children (ゆうきちゃん, てすとくん).');
+			console.log('[E2E Setup]   Created test children (たろうくん, はなこちゃん).');
 		}
 
 		// フォーカスモード開始日を過去に設定（3日経過 → フォーカスモード無効化）
@@ -439,7 +439,7 @@ export default async function globalSetup() {
 			)
 			.get() as { c: number };
 		if (pastLogCount.c === 0) {
-			// ゆうきちゃん (child_id=1) の過去7日分の活動ログ
+			// たろうくん (child_id=1) の過去7日分の活動ログ
 			// kinder-starter パックの活動を使用（seed.ts の活動名と一致）
 			const kinderActivities = db
 				.prepare(
@@ -471,10 +471,10 @@ export default async function globalSetup() {
 						);
 					}
 				}
-				console.log('[E2E Setup]   Added realistic activity logs for ゆうきちゃん (7 days).');
+				console.log('[E2E Setup]   Added realistic activity logs for たろうくん (7 days).');
 			}
 
-			// てすとくん (child_id=2) の過去5日分
+			// はなこちゃん (child_id=2) の過去5日分
 			const babyActivities = db
 				.prepare(
 					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'baby' OR (age_min <= 1 AND (age_max IS NULL OR age_max >= 1)) LIMIT 10",
@@ -502,7 +502,7 @@ export default async function globalSetup() {
 						);
 					}
 				}
-				console.log('[E2E Setup]   Added realistic activity logs for てすとくん (5 days).');
+				console.log('[E2E Setup]   Added realistic activity logs for はなこちゃん (5 days).');
 			}
 		}
 
