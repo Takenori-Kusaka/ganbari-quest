@@ -42,6 +42,7 @@ function isActive(href: string): boolean {
 				{isActive(item.href) ? 'text-[var(--theme-primary)] font-bold' : 'text-[var(--color-text-muted)]'}"
 			aria-current={isActive(item.href) ? 'page' : undefined}
 			aria-label={iconOnly ? item.label : undefined}
+			data-testid="nav-{item.href.split('/').pop()}"
 			data-tutorial={item.href.includes('/status') ? 'nav-status' : undefined}
 		>
 			<span class="{iconOnly ? 'text-3xl' : 'text-2xl'}" aria-hidden="true">{item.icon}</span>

@@ -242,7 +242,7 @@ function handleClose() {
 					<p class="os__hint">あと1にちで ×3.0ばい！</p>
 				{/if}
 
-				<button class="os__close tap-target" onclick={handleClose}> やったね！ </button>
+				<button class="os__close tap-target" data-testid="login-bonus-confirm" onclick={handleClose}> やったね！ </button>
 			</div>
 		{/if}
 	</div>
