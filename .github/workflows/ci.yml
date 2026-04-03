@@ -25,8 +25,8 @@ jobs:
       - name: Svelte check
         run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json
 
-      - name: Unit tests
-        run: npx vitest run
+      - name: Unit tests with coverage enforcement
+        run: npx vitest run --coverage
 
       - name: Build
         run: npm run build
