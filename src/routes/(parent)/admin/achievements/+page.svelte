@@ -21,18 +21,18 @@ let showTitleForm = $state(false);
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
 const conditionTypeLabels: Record<string, string> = {
-	total_count: 'かつどう そうかいすう',
-	activity_count: 'とくてい かつどう かいすう',
+	total_count: '活動 総回数',
+	activity_count: '特定活動 回数',
 	category_count: 'カテゴリ かいすう',
-	streak_days: 'れんぞく にっすう',
-	activity_streak: 'かつどう れんぞく',
+	streak_days: '連続日数',
+	activity_streak: '活動連続',
 };
 
 const titleConditionLabels: Record<string, string> = {
 	level_reach: 'レベル とうたつ',
-	achievement_count: 'じっせき かいすう',
-	activity_count: 'かつどう かいすう',
-	streak_days: 'れんぞく にっすう',
+	achievement_count: '実績回数',
+	activity_count: '活動回数',
+	streak_days: '連続日数',
 };
 </script>
 
