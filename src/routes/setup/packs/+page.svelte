@@ -7,6 +7,7 @@ let { data } = $props();
 let selectedPacks = $state<Set<string>>(new Set());
 let submitting = $state(false);
 let skipMode = $state(false);
+let expandedPack = $state<string | null>(null);
 
 function isRecommended(packAgeMin: number, packAgeMax: number): boolean {
 	return packAgeMin <= data.childAgeMax && packAgeMax >= data.childAgeMin;
@@ -23,10 +24,24 @@ function togglePack(packId: string) {
 	selectedPacks = next;
 }
 
+function togglePreview(e: Event, packId: string) {
+	e.stopPropagation();
+	expandedPack = expandedPack === packId ? null : packId;
+}
+
 function selectSkip() {
 	skipMode = true;
 	selectedPacks = new Set();
 }
+
+// Category labels for preview
+const categoryLabels: Record<string, string> = {
+	undou: 'うんどう',
+	benkyou: 'べんきょう',
+	seikatsu: 'せいかつ',
+	kouryuu: 'こうりゅう',
+	souzou: 'そうぞう',
+};
 
 // Auto-select recommended packs on mount
 $effect(() => {
@@ -87,10 +102,17 @@ $effect(() => {
 							<span class="text-xs text-gray-400">{pack.activityCount}件</span>
 						</div>
 						<p class="text-xs text-gray-500 mt-1 line-clamp-2">{pack.description}</p>
-						<div class="flex gap-1 mt-2">
+						<div class="flex items-center gap-1 mt-2">
 							{#each pack.tags as tag}
 								<span class="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">{tag}</span>
 							{/each}
+							<button
+								type="button"
+								class="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 ml-auto"
+								onclick={(e) => togglePreview(e, pack.packId)}
+							>
+								{expandedPack === pack.packId ? '▲ とじる' : '▼ なかみ'}
+							</button>
 						</div>
 					</div>
 					<div class="flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center mt-1
@@ -100,6 +122,18 @@ $effect(() => {
 						{/if}
 					</div>
 				</div>
+				{#if expandedPack === pack.packId && pack.activities?.length}
+					<div class="mt-3 pt-3 border-t border-gray-100" onclick={(e) => e.stopPropagation()}>
+						<div class="grid grid-cols-2 gap-1">
+							{#each pack.activities as act}
+								<div class="flex items-center gap-1 text-xs text-gray-600 py-0.5">
+									<span>{act.icon}</span>
+									<span class="truncate">{act.name}</span>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
 				{#if selected}
 					<input type="hidden" name="packIds" value={pack.packId} />
 				{/if}
@@ -125,7 +159,7 @@ $effect(() => {
 					<span class="text-white text-[10px] font-bold">&#10003;</span>
 				{/if}
 			</div>
-			<span class="text-sm text-gray-600">あとでえらぶ（スキップ）</span>
+			<span class="text-sm text-gray-600">おすすめパックを自動で追加してすすむ</span>
 		</div>
 	</Button>
 
@@ -139,7 +173,7 @@ $effect(() => {
 		</a>
 		{#if skipMode}
 			<Button type="submit" formaction="?/skip" variant="primary" size="sm" disabled={submitting} class="flex-1">
-				{submitting ? '処理中...' : 'スキップして次へ'}
+				{submitting ? '処理中...' : 'おすすめで次へ'}
 			</Button>
 		{:else}
 			<Button type="submit" variant="primary" size="sm" disabled={submitting || selectedPacks.size === 0} class="flex-1">

@@ -15,7 +15,10 @@ let fileImportLoading = $state(false);
 </script>
 
 <div class="bg-green-50 rounded-xl p-4 shadow-sm space-y-3 border border-green-200">
-	<h3 class="font-bold text-green-700">📥 活動パックからインポート</h3>
+	<div class="flex items-center justify-between">
+		<h3 class="font-bold text-green-700">📥 活動パックからインポート</h3>
+		<a href="/admin/packs" class="text-xs text-green-600 hover:text-green-800 underline">すべてのパック →</a>
+	</div>
 	<p class="text-xs text-green-600">おすすめの活動セットを一括追加できます（重複はスキップ）</p>
 	{#if activityPacks.length === 0}
 		<p class="text-sm text-gray-500">利用可能なパックがありません</p>

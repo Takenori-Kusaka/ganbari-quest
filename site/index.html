@@ -122,6 +122,21 @@ img{max-width:100%;height:auto}
 .age-range{font-size:.85rem;color:var(--brand-700);font-weight:600;margin-bottom:8px}
 .age-card p{font-size:.82rem;color:var(--gray-500);line-height:1.5}
 
+/* Template Packs */
+.pack-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px;max-width:1000px;margin:0 auto}
+.pack-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px;transition:box-shadow .2s}
+.pack-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.pack-icon{font-size:2.5rem;margin-bottom:12px}
+.pack-card h3{font-size:1.05rem;font-weight:600;color:var(--gray-900);margin-bottom:2px}
+.pack-age{font-size:.8rem;color:var(--brand-700);font-weight:600;margin-bottom:8px}
+.pack-card p{font-size:.85rem;color:var(--gray-500);line-height:1.6;margin-bottom:12px}
+.pack-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.pack-tag{font-size:.72rem;padding:3px 10px;background:var(--gray-100);color:var(--gray-500);border-radius:2rem}
+.pack-activities{display:flex;flex-wrap:wrap;gap:4px}
+.pack-activity{font-size:.75rem;color:var(--gray-500);background:var(--brand-50);border:1px solid var(--brand-200);border-radius:4px;padding:2px 8px}
+.pack-count{font-size:.8rem;color:var(--gray-500);font-weight:600;margin-bottom:8px}
+.pack-note{max-width:700px;margin:32px auto 0;text-align:center;font-size:.9rem;color:var(--gray-500);line-height:1.7}
+
 /* Diff section */
 .diff-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
 .diff-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px}
@@ -253,6 +268,7 @@ img{max-width:100%;height:auto}
       <a href="#pain" onclick="this.parentElement.classList.remove('open')">こんな悩み</a>
       <a href="#features" onclick="this.parentElement.classList.remove('open')">できること</a>
       <a href="#age-modes" onclick="this.parentElement.classList.remove('open')">年齢対応</a>
+      <a href="#templates" onclick="this.parentElement.classList.remove('open')">活動パック</a>
       <a href="#faq" onclick="this.parentElement.classList.remove('open')">よくある質問</a>
       <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
       <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモ体験</a>
@@ -597,6 +613,92 @@ img{max-width:100%;height:auto}
         <p>全機能を活用。キャリアプランニングで将来の夢に向けた行動計画を作れます。</p>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- Template Packs -->
+<section class="section bg-gray" id="templates">
+  <div class="section-inner">
+    <h2 class="section-title">すぐ始められる活動パック</h2>
+    <p class="section-desc">年齢に合わせた活動セットをワンタップでインポート。<br>何を登録すればいいか迷いません。</p>
+    <div class="pack-grid">
+      <div class="pack-card">
+        <div class="pack-icon">&#x1F37C;</div>
+        <h3>はじめてのぼうけん</h3>
+        <div class="pack-age">0&#x301C;2歳向け &#x30FB; 15件の活動</div>
+        <p>赤ちゃんの生活習慣と基本的な運動を中心に、毎日の小さな成長を記録できます。</p>
+        <div class="pack-tags">
+          <span class="pack-tag">初心者向け</span>
+          <span class="pack-tag">赤ちゃん</span>
+          <span class="pack-tag">生活習慣</span>
+        </div>
+        <div class="pack-activities">
+          <span class="pack-activity">&#x1F476; はいはいした</span>
+          <span class="pack-activity">&#x1F6B6; あんよした</span>
+          <span class="pack-activity">&#x1F37D;&#xFE0F; ごはんたべた</span>
+          <span class="pack-activity">&#x1F6C1; おふろはいった</span>
+          <span class="pack-activity">&#x1F4A4; おひるねした</span>
+        </div>
+      </div>
+      <div class="pack-card">
+        <div class="pack-icon">&#x1F3A8;</div>
+        <h3>ようちえんキッズ</h3>
+        <div class="pack-age">3&#x301C;5歳向け &#x30FB; 20件の活動</div>
+        <p>保育園・幼稚園の日常活動をバランスよくカバーし、自立心を育てます。</p>
+        <div class="pack-tags">
+          <span class="pack-tag">初心者向け</span>
+          <span class="pack-tag">幼児</span>
+          <span class="pack-tag">バランス型</span>
+        </div>
+        <div class="pack-activities">
+          <span class="pack-activity">&#x1F45F; おきがえした</span>
+          <span class="pack-activity">&#x1FAA5; はみがきした</span>
+          <span class="pack-activity">&#x1F3C3; おそとであそんだ</span>
+          <span class="pack-activity">&#x270D;&#xFE0F; おえかきした</span>
+          <span class="pack-activity">&#x1F4D6; えほんよんだ</span>
+        </div>
+      </div>
+      <div class="pack-card">
+        <div class="pack-icon">&#x1F4DA;</div>
+        <h3>しょうがくせいチャレンジ</h3>
+        <div class="pack-age">6&#x301C;9歳向け &#x30FB; 16件の活動</div>
+        <p>学習習慣・運動・お手伝いをバランスよく組み合わせ、自主性を育てます。</p>
+        <div class="pack-tags">
+          <span class="pack-tag">小学生</span>
+          <span class="pack-tag">学習</span>
+          <span class="pack-tag">自立</span>
+        </div>
+        <div class="pack-activities">
+          <span class="pack-activity">&#x1F4D6; しゅくだいした</span>
+          <span class="pack-activity">&#x1F4D6; どくしょした</span>
+          <span class="pack-activity">&#x1F3C3; うんどうした</span>
+          <span class="pack-activity">&#x1F9F9; おそうじした</span>
+          <span class="pack-activity">&#x1F373; りょうりてつだった</span>
+        </div>
+      </div>
+      <div class="pack-card">
+        <div class="pack-icon">&#x1F4AA;</div>
+        <h3>おてつだいマスター</h3>
+        <div class="pack-age">4&#x301C;10歳向け &#x30FB; 15件の活動</div>
+        <p>年齢に応じた家事スキルを段階的に身につけ、家族への貢献心を育てます。</p>
+        <div class="pack-tags">
+          <span class="pack-tag">テーマ別</span>
+          <span class="pack-tag">お手伝い</span>
+          <span class="pack-tag">家事スキル</span>
+        </div>
+        <div class="pack-activities">
+          <span class="pack-activity">&#x1F9F9; おへやをそうじ</span>
+          <span class="pack-activity">&#x1F45A; せんたくものたたみ</span>
+          <span class="pack-activity">&#x1F37D;&#xFE0F; しょっきあらい</span>
+          <span class="pack-activity">&#x1F6D2; おかいものてつだい</span>
+          <span class="pack-activity">&#x1F331; みずやりした</span>
+        </div>
+      </div>
+    </div>
+    <p class="pack-note">
+      セットアップ時にお子さまの年齢にぴったりのパックを自動でおすすめ。<br>
+      もちろん、活動パックはあとからいつでも追加・カスタマイズできます。
+    </p>
   </div>
 </section>
 
