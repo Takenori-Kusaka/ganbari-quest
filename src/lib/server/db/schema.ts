@@ -51,6 +51,7 @@ export const children = sqliteTable('children', {
 	lastBirthdayBonusYear: integer('last_birthday_bonus_year'),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	_sv: integer('_sv'),
 });
 
 // ============================================================
@@ -143,6 +144,7 @@ export const statuses = sqliteTable(
 		level: integer('level').notNull().default(1),
 		peakXp: integer('peak_xp').notNull().default(0),
 		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		_sv: integer('_sv'),
 	},
 	(table) => [uniqueIndex('idx_statuses_child_category').on(table.childId, table.categoryId)],
 );
