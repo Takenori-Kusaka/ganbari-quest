@@ -620,6 +620,40 @@ export const SQL_TABLES = `
 		UNIQUE(child_id, tenant_id, certificate_type)
 	);
 	CREATE INDEX idx_certificates_child ON certificates(child_id, tenant_id);
+
+	-- custom_achievements
+	CREATE TABLE custom_achievements (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		name TEXT NOT NULL,
+		description TEXT,
+		icon TEXT NOT NULL DEFAULT '🏅',
+		condition_type TEXT NOT NULL,
+		condition_activity_id INTEGER,
+		condition_category_id INTEGER,
+		condition_value INTEGER NOT NULL,
+		bonus_points INTEGER NOT NULL DEFAULT 100,
+		unlocked_at TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_custom_achievements_tenant_child ON custom_achievements(tenant_id, child_id);
+
+	-- custom_titles
+	CREATE TABLE custom_titles (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		name TEXT NOT NULL,
+		icon TEXT NOT NULL DEFAULT '📛',
+		condition_type TEXT NOT NULL,
+		condition_value INTEGER NOT NULL,
+		condition_activity_id INTEGER,
+		unlocked_at TEXT,
+		equipped INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_custom_titles_tenant_child ON custom_titles(tenant_id, child_id);
 `;
 
 // ============================================================
@@ -627,6 +661,8 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'custom_titles',
+	'custom_achievements',
 	'certificates',
 	'report_daily_summaries',
 	'notification_logs',
