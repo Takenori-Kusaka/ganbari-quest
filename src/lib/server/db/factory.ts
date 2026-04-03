@@ -9,6 +9,7 @@ import * as dynamoActivityRepo from './dynamodb/activity-repo';
 import * as dynamoAuthRepo from './dynamodb/auth-repo';
 import * as dynamoChecklistRepo from './dynamodb/checklist-repo';
 import * as dynamoChildRepo from './dynamodb/child-repo';
+import * as dynamoCloudExportRepo from './dynamodb/cloud-export-repo';
 import * as dynamoDailyMissionRepo from './dynamodb/daily-mission-repo';
 import * as dynamoEvaluationRepo from './dynamodb/evaluation-repo';
 import * as dynamoImageRepo from './dynamodb/image-repo';
@@ -37,6 +38,7 @@ import type { IActivityRepo } from './interfaces/activity-repo.interface';
 import type { IAuthRepo } from './interfaces/auth-repo.interface';
 import type { IChecklistRepo } from './interfaces/checklist-repo.interface';
 import type { IChildRepo } from './interfaces/child-repo.interface';
+import type { ICloudExportRepo } from './interfaces/cloud-export-repo.interface';
 import type { IDailyMissionRepo } from './interfaces/daily-mission-repo.interface';
 import type { IEvaluationRepo } from './interfaces/evaluation-repo.interface';
 import type { IImageRepo } from './interfaces/image-repo.interface';
@@ -65,6 +67,7 @@ import * as sqliteActivityRepo from './sqlite/activity-repo';
 import * as sqliteAuthRepo from './sqlite/auth-repo';
 import * as sqliteChecklistRepo from './sqlite/checklist-repo';
 import * as sqliteChildRepo from './sqlite/child-repo';
+import * as sqliteCloudExportRepo from './sqlite/cloud-export-repo';
 import * as sqliteDailyMissionRepo from './sqlite/daily-mission-repo';
 import * as sqliteEvaluationRepo from './sqlite/evaluation-repo';
 import * as sqliteImageRepo from './sqlite/image-repo';
@@ -95,6 +98,7 @@ export interface Repositories {
 	activityPref: IActivityPrefRepo;
 	checklist: IChecklistRepo;
 	child: IChildRepo;
+	cloudExport: ICloudExportRepo;
 	dailyMission: IDailyMissionRepo;
 	evaluation: IEvaluationRepo;
 	image: IImageRepo;
@@ -133,6 +137,7 @@ export function getRepos(): Repositories {
 			activityPref: dynamoActivityPrefRepo,
 			checklist: dynamoChecklistRepo,
 			child: dynamoChildRepo,
+			cloudExport: dynamoCloudExportRepo,
 			dailyMission: dynamoDailyMissionRepo,
 			evaluation: dynamoEvaluationRepo,
 			image: dynamoImageRepo,
@@ -167,6 +172,7 @@ export function getRepos(): Repositories {
 		activityPref: sqliteActivityPrefRepo,
 		checklist: sqliteChecklistRepo,
 		child: sqliteChildRepo,
+		cloudExport: sqliteCloudExportRepo,
 		dailyMission: sqliteDailyMissionRepo,
 		evaluation: sqliteEvaluationRepo,
 		image: sqliteImageRepo,
