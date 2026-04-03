@@ -501,15 +501,53 @@ $effect(() => {
 			</CategorySection>
 		{/each}
 
-	<!-- 今日の記録サマリー -->
-	{#if data.todayRecorded.length > 0}
+	<!-- 週間アクティビティサマリー（Upper固有） -->
+	{#if data.weeklySummary}
+		{@const ws = data.weeklySummary}
+		{@const todayCount = data.todayRecorded.reduce((sum, r) => sum + r.count, 0)}
+		{@const maxDayCount = Math.max(...ws.days.map((d) => d.count), 1)}
 		<Card padding="md" class="mt-[var(--sp-md)]">
 			{#snippet children()}
-			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">📝 今日の記録</h3>
-			<div class="flex justify-between items-center">
-				<span class="text-sm text-[var(--color-text-muted)]">記録した活動</span>
-				<span class="font-bold">{data.todayRecorded.reduce((sum, r) => sum + r.count, 0)}回</span>
+			<div class="flex items-center justify-between mb-2">
+				<h3 class="text-sm font-bold text-[var(--color-text-muted)]">📊 今週のがんばり</h3>
+				<span class="text-xs text-[var(--color-text-muted)]">{ws.totalCount}回 / {ws.totalPoints}P</span>
 			</div>
+			<!-- 7日バーチャート -->
+			<div class="flex items-end gap-1 h-16 mb-2">
+				{#each ws.days as day}
+					{@const pct = Math.max((day.count / maxDayCount) * 100, 4)}
+					{@const isToday = day.date === ws.days[ws.days.length - 1]?.date}
+					<div class="flex-1 flex flex-col items-center gap-0.5">
+						<span class="text-[9px] font-bold text-[var(--color-text-muted)]">{day.count || ''}</span>
+						<div
+							class="w-full rounded-t-sm transition-all duration-300"
+							style="height: {pct}%; background: {isToday ? 'var(--theme-accent)' : 'var(--theme-secondary)'}; opacity: {day.count > 0 ? 1 : 0.3}; min-height: 2px;"
+						></div>
+						<span class="text-[9px] text-[var(--color-text-muted)]">
+							{['日', '月', '火', '水', '木', '金', '土'][new Date(day.date).getDay()]}
+						</span>
+					</div>
+				{/each}
+			</div>
+			<!-- カテゴリ別内訳 -->
+			{#if Object.keys(ws.byCategory).length > 0}
+				<div class="flex gap-2 flex-wrap mt-1 pt-2 border-t border-gray-100">
+					{#each Object.entries(ws.byCategory) as [catId, cat]}
+						{@const catDef = getCategoryById(Number(catId))}
+						{#if catDef}
+							<span class="text-[10px] px-2 py-0.5 rounded-full" style="background: {catDef.color}20; color: {catDef.color};">
+								{catDef.name} {cat.count}回
+							</span>
+						{/if}
+					{/each}
+				</div>
+			{/if}
+			{#if todayCount > 0}
+				<div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+					<span class="text-xs text-[var(--color-text-muted)]">📝 今日の記録</span>
+					<span class="text-sm font-bold">{todayCount}回</span>
+				</div>
+			{/if}
 			{/snippet}
 		</Card>
 	{/if}
