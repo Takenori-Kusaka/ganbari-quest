@@ -6,6 +6,7 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
 
+const isFamily = $derived(data.planTier === 'family');
 let creating = $state(false);
 
 interface TargetConfig {
@@ -71,6 +72,36 @@ const categories: Record<number, string> = {
 </svelte:head>
 
 <div class="space-y-4">
+	<!-- Family Streak -->
+	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
+		<div class="rounded-xl border bg-white p-4">
+			<div class="flex items-center gap-2 mb-2">
+				<span class="text-xl">🔥</span>
+				<h3 class="font-bold text-sm">家族ストリーク: {data.familyStreak.currentStreak}日</h3>
+			</div>
+			<p class="text-xs text-gray-500">
+				{data.familyStreak.hasRecordedToday
+					? `今日は${data.familyStreak.todayRecorders.length}人が記録済み`
+					: '今日はまだ誰も記録していません'}
+			</p>
+			{#if data.familyStreak.nextMilestone}
+				<p class="text-xs text-gray-400 mt-1">
+					あと{data.familyStreak.nextMilestone.remaining}日で{data.familyStreak.nextMilestone.days}日ボーナス（+{data.familyStreak.nextMilestone.points}P）
+				</p>
+			{/if}
+		</div>
+	{/if}
+
+	{#if !isFamily}
+		<div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
+			<p class="text-sm font-bold text-amber-800">👨‍👩‍👧‍👦 ファミリープラン限定機能</p>
+			<p class="text-xs text-amber-600 mt-1">きょうだいチャレンジと家族ストリークはファミリープランでご利用いただけます</p>
+			<a href="/admin/license" class="inline-block mt-2 px-3 py-1 text-xs font-bold rounded-lg bg-amber-500 text-white">
+				プランを確認
+			</a>
+		</div>
+	{:else}
+
 	<div class="flex items-center justify-between">
 		<h2 class="text-lg font-bold">👥 きょうだいチャレンジ</h2>
 		<Button
@@ -221,4 +252,6 @@ const categories: Record<number, string> = {
 			{/each}
 		</div>
 	{/if}
+
+	{/if}<!-- /isFamily -->
 </div>

@@ -16,6 +16,7 @@ import {
 } from '$lib/server/services/birthday-bonus-service';
 import { getChecklistsForChild } from '$lib/server/services/checklist-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
+import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getUnshownMessage } from '$lib/server/services/message-service';
 import { selectRecommendations } from '$lib/server/services/recommendation-service';
@@ -97,6 +98,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		activeEvents,
 		activeChallenges,
 		unshownCheers,
+		familyStreakData,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -113,6 +115,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getActiveEventsForChild(child.id, tenantId),
 		getActiveChallengesForChild(child.id, tenantId),
 		getUnshownCheers(child.id, tenantId),
+		getFamilyStreak(tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -182,6 +185,12 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		activeChallenges,
 		siblingRanking,
 		unshownCheers,
+		familyStreak: familyStreakData
+			? {
+					...familyStreakData,
+					nextMilestone: getNextMilestone(familyStreakData.currentStreak),
+				}
+			: null,
 		seasonPass: await getSeasonPassForChild(
 			child.id,
 			tenantId,

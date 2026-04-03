@@ -16,6 +16,7 @@ import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelt
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import EventBanner from '$lib/ui/components/EventBanner.svelte';
+import FamilyStreakBanner from '$lib/ui/components/FamilyStreakBanner.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
@@ -442,6 +443,18 @@ $effect(() => {
 			maxTarget={Math.max(...data.seasonPass.milestones.map((m: { target: number }) => m.target), 1)}
 			remainingDays={data.seasonPass.remainingDays}
 			isPremium={data.isPremium ?? false}
+		/>
+	{/if}
+
+	<!-- Family streak banner -->
+	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
+		<FamilyStreakBanner
+			currentStreak={data.familyStreak.currentStreak}
+			hasRecordedToday={data.familyStreak.hasRecordedToday}
+			todayRecorders={data.familyStreak.todayRecorders}
+			childId={data.child?.id ?? 0}
+			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
+			nextMilestone={data.familyStreak.nextMilestone}
 		/>
 	{/if}
 
