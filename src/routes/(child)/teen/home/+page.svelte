@@ -499,15 +499,74 @@ $effect(() => {
 			</CategorySection>
 		{/each}
 
-	<!-- Today's summary -->
-	{#if data.todayRecorded.length > 0}
+	<!-- 週間ダッシュボード（Teen固有） -->
+	{#if data.weeklySummary}
+		{@const ws = data.weeklySummary}
+		{@const todayCount = data.todayRecorded.reduce((sum, r) => sum + r.count, 0)}
+		{@const maxDayCount = Math.max(...ws.days.map((d) => d.count), 1)}
 		<Card padding="md" class="mt-[var(--sp-md)]">
 			{#snippet children()}
-			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">📝 今日の記録</h3>
-			<div class="flex justify-between items-center">
-				<span class="text-sm text-[var(--color-text-muted)]">記録件数</span>
-				<span class="font-bold">{data.todayRecorded.reduce((sum, r) => sum + r.count, 0)}件</span>
+			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-3">📈 ウィークリーダッシュボード</h3>
+			<!-- KPI row -->
+			<div class="grid grid-cols-3 gap-2 mb-3">
+				<div class="text-center p-2 rounded-lg bg-[var(--theme-bg)]">
+					<div class="text-lg font-bold text-[var(--theme-accent)]">{ws.totalCount}</div>
+					<div class="text-[10px] text-[var(--color-text-muted)]">記録数</div>
+				</div>
+				<div class="text-center p-2 rounded-lg bg-[var(--theme-bg)]">
+					<div class="text-lg font-bold text-[var(--color-point)]">{ws.totalPoints}</div>
+					<div class="text-[10px] text-[var(--color-text-muted)]">獲得P</div>
+				</div>
+				<div class="text-center p-2 rounded-lg bg-[var(--theme-bg)]">
+					<div class="text-lg font-bold text-[var(--theme-accent)]">{ws.activeDays}/7</div>
+					<div class="text-[10px] text-[var(--color-text-muted)]">稼働日</div>
+				</div>
 			</div>
+			<!-- 7日ストリークカレンダー -->
+			<div class="flex gap-1 mb-3">
+				{#each ws.days as day}
+					{@const isToday = day.date === ws.days[ws.days.length - 1]?.date}
+					<div class="flex-1 flex flex-col items-center gap-1">
+						<span class="text-[9px] text-[var(--color-text-muted)]">
+							{['日', '月', '火', '水', '木', '金', '土'][new Date(day.date).getDay()]}
+						</span>
+						<div
+							class="w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-bold
+								{day.count > 0 ? 'bg-[var(--theme-accent)] text-white' : 'bg-gray-100 text-gray-300'}
+								{isToday ? 'ring-2 ring-[var(--theme-accent)] ring-offset-1' : ''}"
+						>
+							{day.count || '−'}
+						</div>
+					</div>
+				{/each}
+			</div>
+			<!-- カテゴリバランス -->
+			{#if Object.keys(ws.byCategory).length > 0}
+				<div class="border-t border-gray-100 pt-2">
+					<div class="text-[10px] text-[var(--color-text-muted)] mb-1.5">カテゴリバランス</div>
+					<div class="flex flex-col gap-1.5">
+						{#each Object.entries(ws.byCategory) as [catId, cat]}
+							{@const catDef = getCategoryById(Number(catId))}
+							{@const pct = Math.round((cat.count / ws.totalCount) * 100)}
+							{#if catDef}
+								<div class="flex items-center gap-2">
+									<span class="text-[10px] w-14 truncate" style="color: {catDef.color};">{catDef.name}</span>
+									<div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+										<div class="h-full rounded-full transition-all duration-500" style="width: {pct}%; background: {catDef.color};"></div>
+									</div>
+									<span class="text-[10px] text-[var(--color-text-muted)] w-8 text-right">{pct}%</span>
+								</div>
+							{/if}
+						{/each}
+					</div>
+				</div>
+			{/if}
+			{#if todayCount > 0}
+				<div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+					<span class="text-xs text-[var(--color-text-muted)]">📝 今日の記録</span>
+					<span class="text-sm font-bold">{todayCount}回</span>
+				</div>
+			{/if}
 			{/snippet}
 		</Card>
 	{/if}

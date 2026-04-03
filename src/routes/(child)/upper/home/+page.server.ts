@@ -4,6 +4,7 @@ import { findAllChildren } from '$lib/server/db/child-repo';
 import { getAchievementSummary } from '$lib/server/services/achievement-service';
 import {
 	cancelActivityLog,
+	getActivityLogs,
 	getTodayRecordedActivityCounts,
 	recordActivity,
 } from '$lib/server/services/activity-log-service';
@@ -40,6 +41,12 @@ import type { Actions, PageServerLoad } from './$types';
 function todayDate(): string {
 	const now = new Date();
 	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function weekAgoDate(): string {
+	const d = new Date();
+	d.setDate(d.getDate() - 6);
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
@@ -82,6 +89,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		birthdayBonusStatus,
 		activeChallenges,
 		familyStreakData,
+		weeklyLogs,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -95,6 +103,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getBirthdayBonusStatus(child.id, tenantId),
 		getActiveChallengesForChild(child.id, tenantId),
 		getFamilyStreak(tenantId),
+		getActivityLogs(child.id, tenantId, { from: weekAgoDate(), to: todayDate() }),
 	]);
 
 	const allChildren = await findAllChildren(tenantId);
@@ -133,6 +142,21 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 				? birthdayBonusStatus
 				: null;
 
+	// 週間データ: 日別の記録数を集計
+	const weeklyByDay: Record<string, number> = {};
+	for (const log of weeklyLogs.logs) {
+		const d = log.recordedAt.slice(0, 10);
+		weeklyByDay[d] = (weeklyByDay[d] ?? 0) + 1;
+	}
+	// 過去7日の日付リスト生成
+	const weekDays: { date: string; count: number }[] = [];
+	for (let i = 6; i >= 0; i--) {
+		const d = new Date();
+		d.setDate(d.getDate() - i);
+		const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+		weekDays.push({ date: ds, count: weeklyByDay[ds] ?? 0 });
+	}
+
 	return {
 		activities: activitiesWithMission,
 		todayRecorded,
@@ -167,6 +191,12 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			tenantId,
 			parentData.isPremium ?? false,
 		).catch(() => null),
+		weeklySummary: {
+			days: weekDays,
+			totalCount: weeklyLogs.summary.totalCount,
+			totalPoints: weeklyLogs.summary.totalPoints,
+			byCategory: weeklyLogs.summary.byCategory,
+		},
 	};
 };
 
