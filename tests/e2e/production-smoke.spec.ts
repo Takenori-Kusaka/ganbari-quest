@@ -44,7 +44,7 @@ async function loginAsOwner(page: Page): Promise<boolean> {
 	await passwordInput.click();
 	await passwordInput.type(TEST_PASSWORD, { delay: 10 });
 
-	const loginBtn = page.getByRole('button', { name: 'ログイン' });
+	const loginBtn = page.getByRole('button', { name: 'ログイン', exact: true });
 	await expect(loginBtn).toBeEnabled({ timeout: 10000 });
 	await loginBtn.click();
 
