@@ -29,6 +29,7 @@ function handleValueChange(details: { value: string }) {
 		{#each items as item (item.value)}
 			<ArkTabs.Trigger
 				value={item.value}
+				data-testid="tab-{item.value}"
 				class="tap-target flex-1 px-3 py-2 rounded-[var(--radius-sm)] text-sm font-bold text-center
 					transition-colors data-[selected]:bg-white data-[selected]:text-[var(--theme-primary)]
 					data-[selected]:shadow-sm text-[var(--color-text-muted)]"

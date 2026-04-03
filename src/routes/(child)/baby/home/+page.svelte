@@ -660,6 +660,7 @@ $effect(() => {
 							type="submit"
 							variant="ghost"
 							size="sm"
+							data-testid="activity-cancel-btn"
 							class="w-full bg-[var(--color-neutral-200)] text-[var(--color-text-muted)]"
 						>
 							とりけし ({cancelCountdown}s)
@@ -671,6 +672,7 @@ $effect(() => {
 					variant="primary"
 					size="md"
 					class="flex-1 w-full"
+					data-testid="activity-confirm-btn"
 					onclick={handleResultClose}
 				>
 					やったね！
