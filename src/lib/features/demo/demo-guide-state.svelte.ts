@@ -94,6 +94,10 @@ export function getGuideState() {
 /**
  * Called on page navigation to auto-advance the guide
  * when the user has navigated to the expected page for the next step.
+ *
+ * 同一 matchPath が連続するステップ（例: ステップ1→2は共に /demo/kinder/home）では
+ * URL遷移だけでは区別できないため auto-advance をスキップする。
+ * そのようなステップは advanceStep() で明示的に進める。
  */
 export function checkAutoAdvance(pathname: string) {
 	if (!guideActive || guideDismissed) return;
@@ -102,7 +106,11 @@ export function checkAutoAdvance(pathname: string) {
 	if (nextStepIndex >= GUIDE_STEPS.length) return;
 
 	const nextStep = GUIDE_STEPS[nextStepIndex];
-	if (nextStep && pathname.startsWith(nextStep.matchPath)) {
-		currentStep = nextStepIndex;
-	}
+	if (!nextStep || !pathname.startsWith(nextStep.matchPath)) return;
+
+	// 現在のステップと次のステップが同一パスならスキップ（手動遷移を待つ）
+	const currentMatchPath = GUIDE_STEPS[currentStep]?.matchPath;
+	if (currentMatchPath === nextStep.matchPath) return;
+
+	currentStep = nextStepIndex;
 }

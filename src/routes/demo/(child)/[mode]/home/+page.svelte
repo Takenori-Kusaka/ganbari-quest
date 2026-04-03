@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import { advanceStep, getGuideState } from '$lib/features/demo/demo-guide-state.svelte.js';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -176,6 +177,11 @@ function handleResultClose() {
 							const d = result.data as { activityName: string; totalPoints: number; streakDays: number };
 							resultData = d;
 							resultOpen = true;
+							// ガイドステップ2（活動記録）完了 → ステップ3へ進める
+							const guide = getGuideState();
+							if (guide.active && guide.currentStep === 1) {
+								advanceStep();
+							}
 						}
 					};
 				}}
