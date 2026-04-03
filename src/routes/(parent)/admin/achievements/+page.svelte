@@ -23,13 +23,13 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 const conditionTypeLabels: Record<string, string> = {
 	total_count: '活動 総回数',
 	activity_count: '特定活動 回数',
-	category_count: 'カテゴリ かいすう',
+	category_count: 'カテゴリ回数',
 	streak_days: '連続日数',
 	activity_streak: '活動連続',
 };
 
 const titleConditionLabels: Record<string, string> = {
-	level_reach: 'レベル とうたつ',
+	level_reach: 'レベル到達',
 	achievement_count: '実績回数',
 	activity_count: '活動回数',
 	streak_days: '連続日数',
