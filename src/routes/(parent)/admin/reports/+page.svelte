@@ -96,6 +96,20 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<h2 class="text-lg font-bold">📊 レポート</h2>
+		<div class="flex gap-2">
+			<a
+				href="/admin/certificates"
+				class="text-sm font-medium px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors inline-flex items-center gap-1"
+			>
+				📜 証明書
+			</a>
+			<a
+				href="/admin/growth-book"
+				class="text-sm font-medium px-3 py-1.5 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors inline-flex items-center gap-1"
+			>
+				📖 記録ブック
+			</a>
+		</div>
 	</div>
 
 	{#if form?.settingsUpdated}

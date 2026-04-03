@@ -847,3 +847,26 @@ export interface InsertReportDailySummaryInput {
 	streakDays: number;
 	newAchievements: number;
 }
+
+// ============================================================
+// Certificates
+// ============================================================
+
+export interface Certificate {
+	id: number;
+	childId: number;
+	tenantId: string;
+	certificateType: string;
+	title: string;
+	description: string | null;
+	issuedAt: string;
+	metadata: string | null;
+}
+
+export interface InsertCertificateInput {
+	childId: number;
+	certificateType: string;
+	title: string;
+	description?: string;
+	metadata?: string;
+}

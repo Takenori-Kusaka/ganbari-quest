@@ -802,3 +802,30 @@ export const reportDailySummaries = sqliteTable(
 		index('idx_report_daily_tenant_date').on(table.tenantId, table.date),
 	],
 );
+
+// ============================================================
+// Certificates
+// ============================================================
+
+export const certificates = sqliteTable(
+	'certificates',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		tenantId: text('tenant_id').notNull(),
+		certificateType: text('certificate_type').notNull(),
+		title: text('title').notNull(),
+		description: text('description'),
+		issuedAt: text('issued_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		metadata: text('metadata'),
+	},
+	(table) => [
+		uniqueIndex('idx_certificates_child_type').on(
+			table.childId,
+			table.tenantId,
+			table.certificateType,
+		),
+	],
+);
