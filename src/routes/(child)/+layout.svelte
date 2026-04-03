@@ -6,8 +6,11 @@ import type { UiMode } from '$lib/domain/validation/age-tier';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 import StampCard from '$lib/ui/components/StampCard.svelte';
+import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { SOUND_TIER_CONFIG, loadSoundSettings, soundService } from '$lib/ui/sound';
+import { CHILD_TUTORIAL_CHAPTERS } from '$lib/ui/tutorial/tutorial-chapters-child';
+import { resetChapters, setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
 import { onMount } from 'svelte';
 
 let { data, children } = $props();
@@ -22,7 +25,7 @@ const navItems = $derived([
 	{ href: '/switch', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
 
-// サウンドシステム初期化 + オートリロード
+// サウンドシステム初期化 + オートリロード + チュートリアル設定
 onMount(() => {
 	loadSoundSettings();
 	soundService.configure(uiMode as UiMode);
@@ -30,6 +33,9 @@ onMount(() => {
 	if (config) {
 		soundService.preload(config.enabledSounds);
 	}
+
+	// 子供用チュートリアルチャプターに切り替え
+	setChapters(CHILD_TUTORIAL_CHAPTERS);
 
 	// 1分間隔で自動リロード（親の変更を反映）
 	const autoReloadTimer = setInterval(() => {
@@ -39,15 +45,22 @@ onMount(() => {
 		invalidateAll();
 	}, 60_000);
 
-	return () => clearInterval(autoReloadTimer);
+	return () => {
+		clearInterval(autoReloadTimer);
+		resetChapters();
+	};
 });
 
 let stampDialogOpen = $state(false);
+
+function handleStartChildTutorial() {
+	startTutorial();
+}
 </script>
 
 <div data-theme={theme} data-age-tier={uiMode} class="min-h-dvh bg-[var(--theme-bg)]">
 	{#if data.child}
-		<Header nickname={data.child.nickname} totalPoints={data.balance} avatarUrl={data.child.avatarUrl} pointSettings={data.pointSettings} activeTitle={data.activeTitle} stampProgress={data.stampProgress} onStampClick={() => { stampDialogOpen = true; }} isPremium={data.isPremium} />
+		<Header nickname={data.child.nickname} totalPoints={data.balance} avatarUrl={data.child.avatarUrl} pointSettings={data.pointSettings} activeTitle={data.activeTitle} stampProgress={data.stampProgress} onStampClick={() => { stampDialogOpen = true; }} onHelpClick={handleStartChildTutorial} isPremium={data.isPremium} />
 	{/if}
 
 	<main class="relative z-0 pb-20 pt-[var(--sp-sm)]">
@@ -63,6 +76,7 @@ let stampDialogOpen = $state(false);
 	</main>
 
 	<BottomNav items={navItems} />
+	<TutorialOverlay />
 </div>
 
 <!-- Stamp card dialog (opened from header) -->

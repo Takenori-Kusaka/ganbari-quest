@@ -11,6 +11,7 @@ interface Props {
 	activeTitle?: { icon: string; name: string } | null;
 	stampProgress?: { filled: number; total: number } | null;
 	onStampClick?: () => void;
+	onHelpClick?: () => void;
 	isPremium?: boolean;
 }
 
@@ -22,6 +23,7 @@ let {
 	activeTitle,
 	stampProgress,
 	onStampClick,
+	onHelpClick,
 	isPremium = false,
 }: Props = $props();
 
@@ -52,11 +54,24 @@ const balanceDisplay = $derived(
 		</div>
 	</div>
 	<div class="flex items-center gap-2">
+		{#if onHelpClick}
+			<button
+				type="button"
+				class="help-btn"
+				data-testid="header-help-btn"
+				data-tutorial="tutorial-restart"
+				onclick={() => onHelpClick?.()}
+				aria-label="つかいかたガイド"
+			>
+				<span class="text-sm font-bold">❓</span>
+			</button>
+		{/if}
 		{#if stampProgress}
 			<button
 				type="button"
 				class="stamp-mini"
 				data-testid="header-stamp-btn"
+				data-tutorial="stamp-progress"
 				onclick={() => onStampClick?.()}
 				aria-label="スタンプカードを見る"
 			>
@@ -86,6 +101,22 @@ const balanceDisplay = $derived(
 	}
 	.stamp-mini:hover {
 		background: rgba(255, 255, 255, 0.3);
+	}
+	.help-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		background: rgba(255, 255, 255, 0.25);
+		border: none;
+		border-radius: 50%;
+		color: white;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+	.help-btn:hover {
+		background: rgba(255, 255, 255, 0.4);
 	}
 	.premium-star {
 		font-size: 0.6em;
