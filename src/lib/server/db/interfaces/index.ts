@@ -20,3 +20,4 @@ export type { ITitleRepo } from './title-repo.interface';
 export type { IAuthRepo } from './auth-repo.interface';
 export type { ISiblingChallengeRepo } from './sibling-challenge-repo.interface';
 export type { ISiblingCheerRepo } from './sibling-cheer-repo.interface';
+export type { ICloudExportRepo } from './cloud-export-repo.interface';

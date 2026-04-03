@@ -882,3 +882,28 @@ export const certificates = sqliteTable(
 		),
 	],
 );
+
+// ============================================================
+// cloud_exports - クラウドエクスポート共有（PIN付きS3保管）
+// ============================================================
+export const cloudExports = sqliteTable(
+	'cloud_exports',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		exportType: text('export_type').notNull(), // 'template' | 'full'
+		pinCode: text('pin_code').notNull().unique(),
+		s3Key: text('s3_key').notNull(),
+		fileSizeBytes: integer('file_size_bytes').notNull(),
+		label: text('label'),
+		description: text('description'),
+		expiresAt: text('expires_at').notNull(),
+		downloadCount: integer('download_count').notNull().default(0),
+		maxDownloads: integer('max_downloads').notNull().default(10),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		index('idx_cloud_exports_tenant').on(table.tenantId),
+		index('idx_cloud_exports_pin').on(table.pinCode),
+	],
+);
