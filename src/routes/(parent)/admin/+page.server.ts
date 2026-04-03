@@ -5,7 +5,11 @@ import { logger } from '$lib/server/logger';
 import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/onboarding-service';
-import { getPlanLimits, isPaidTier, resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import {
+	getPlanLimits,
+	isPaidTier,
+	resolvePlanTier,
+} from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
 import {
