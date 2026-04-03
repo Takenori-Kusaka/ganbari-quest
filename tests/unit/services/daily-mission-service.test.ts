@@ -135,15 +135,24 @@ describe('エラーパス・境界値', () => {
 
 	it('活動が1件しかない場合はミッション1つだけ生成', async () => {
 		seedChild();
-		testDb.insert(schema.activities).values({ name: 'ランニング', categoryId: 1, icon: '🏃', basePoints: 5 }).run();
+		testDb
+			.insert(schema.activities)
+			.values({ name: 'ランニング', categoryId: 1, icon: '🏃', basePoints: 5 })
+			.run();
 		const result = await getTodayMissions(1, 'test-tenant');
 		expect(result.missions).toHaveLength(1);
 	});
 
 	it('活動が2件の場合はミッション2つだけ生成', async () => {
 		seedChild();
-		testDb.insert(schema.activities).values({ name: 'ランニング', categoryId: 1, icon: '🏃', basePoints: 5 }).run();
-		testDb.insert(schema.activities).values({ name: 'おべんきょう', categoryId: 2, icon: '📚', basePoints: 5 }).run();
+		testDb
+			.insert(schema.activities)
+			.values({ name: 'ランニング', categoryId: 1, icon: '🏃', basePoints: 5 })
+			.run();
+		testDb
+			.insert(schema.activities)
+			.values({ name: 'おべんきょう', categoryId: 2, icon: '📚', basePoints: 5 })
+			.run();
 		const result = await getTodayMissions(1, 'test-tenant');
 		expect(result.missions).toHaveLength(2);
 	});
