@@ -65,6 +65,7 @@ infra/gcp/.terraform.lock.hcl
 # Temporary files
 tmp/
 screenshots/
+!site/screenshots/
 
 # Storybook
 storybook-static/
