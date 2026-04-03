@@ -24,10 +24,7 @@ import {
 	claimEventReward,
 	getActiveEventsForChild,
 } from '$lib/server/services/season-event-service';
-import {
-	getMonthlyPremiumReward,
-	getSeasonPassForChild,
-} from '$lib/server/services/seasonal-content-service';
+import { getMonthlyPremiumReward } from '$lib/server/services/seasonal-content-service';
 import {
 	claimChallengeReward as claimChallengeRewardService,
 	getActiveChallengesForChild,
@@ -77,7 +74,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			activeChallenges: [],
 			siblingRanking: null,
 			unshownCheers: [],
-			seasonPass: null,
 			monthlyPremiumReward: null,
 		};
 
@@ -191,11 +187,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 					nextMilestone: getNextMilestone(familyStreakData.currentStreak),
 				}
 			: null,
-		seasonPass: await getSeasonPassForChild(
-			child.id,
-			tenantId,
-			parentData.isPremium ?? false,
-		).catch(() => null),
 		monthlyPremiumReward: await getMonthlyPremiumReward(
 			child.id,
 			tenantId,
@@ -501,29 +492,6 @@ export const actions: Actions = {
 
 		await markCheersShown(cheerIds, tenantId);
 		return { success: true };
-	},
-
-	claimSeasonPassReward: async ({ request, cookies, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const formData = await request.formData();
-		const childId = Number(cookies.get('selectedChildId'));
-		const eventId = Number(formData.get('eventId'));
-		const target = Number(formData.get('target'));
-		const track = String(formData.get('track'));
-
-		if (Number.isNaN(childId) || Number.isNaN(eventId) || Number.isNaN(target)) {
-			return fail(400, { error: 'パラメータが不正です' });
-		}
-
-		try {
-			const { claimSeasonPassMilestone } = await import(
-				'$lib/server/services/seasonal-content-service'
-			);
-			const reward = await claimSeasonPassMilestone(childId, eventId, target, track, tenantId);
-			return { claimedReward: reward };
-		} catch {
-			return fail(500, { error: 'マイルストーン報酬の受け取りに失敗しました' });
-		}
 	},
 
 	claimMonthlyReward: async ({ request, cookies, locals }) => {

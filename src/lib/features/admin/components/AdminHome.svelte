@@ -46,6 +46,28 @@ interface MemoryTicketInfo {
 	nextTicketAt: number;
 }
 
+interface SeasonPassMilestoneData {
+	target: number;
+	track: 'free' | 'premium';
+	reward: {
+		type: string;
+		value?: number;
+		name?: string;
+		icon?: string;
+		description?: string;
+	};
+	achieved: boolean;
+	claimed: boolean;
+	current: number;
+}
+
+interface SeasonPassChildData {
+	event: { name: string; bannerIcon: string };
+	progress: { count: number };
+	milestones: SeasonPassMilestoneData[];
+	remainingDays: number;
+}
+
 interface Props {
 	children: ChildSummary[];
 	pointSettings: PointSettings;
@@ -68,6 +90,7 @@ interface Props {
 		activeEvents: SeasonEventInfo[];
 		memoryTicket: MemoryTicketInfo | null;
 	} | null;
+	seasonPassByChild?: Record<number, SeasonPassChildData>;
 }
 
 let {
@@ -83,6 +106,7 @@ let {
 	planStats,
 	showPremiumWelcome = false,
 	seasonalInfo = null,
+	seasonPassByChild = {},
 }: Props = $props();
 
 let welcomeVisible = $state(showPremiumWelcome);
@@ -285,6 +309,49 @@ function childLink(child: ChildSummary): string {
 				</div>
 			{/if}
 		</section>
+	{/if}
+
+	<!-- Season Pass Progress (per child) -->
+	{#if Object.keys(seasonPassByChild).length > 0}
+		{@const allPasses = Object.values(seasonPassByChild)}
+		{#if allPasses[0]}
+		<section class="bg-white rounded-xl p-4 shadow-sm" data-testid="season-pass-admin">
+			<div class="flex items-center gap-2 mb-3">
+				<span>{allPasses[0].event.bannerIcon}</span>
+				<h2 class="text-sm font-bold text-gray-700">{allPasses[0].event.name}</h2>
+				<span class="text-xs text-gray-400 ml-auto">のこり {allPasses[0].remainingDays}日</span>
+			</div>
+			<div class="space-y-3">
+				{#each children as child}
+					{@const sp = seasonPassByChild[child.id]}
+					{#if sp}
+						{@const maxTarget = Math.max(...sp.milestones.map((m) => m.target), 1)}
+						{@const pct = Math.min(100, Math.round((sp.progress.count / maxTarget) * 100))}
+						<div>
+							<div class="flex items-center justify-between mb-1">
+								<span class="text-sm font-medium text-gray-700">{child.nickname}</span>
+								<span class="text-xs font-bold text-gray-500">{sp.progress.count}/{maxTarget}</span>
+							</div>
+							<div class="season-pass-bar">
+								<div class="season-pass-bar__fill" style:width="{pct}%"></div>
+							</div>
+							{#if sp.milestones.length > 0}
+								<div class="flex gap-1 mt-1 flex-wrap">
+									{#each sp.milestones as m}
+										<span
+											class="text-xs px-1.5 py-0.5 rounded {m.claimed ? 'bg-green-100 text-green-700' : m.achieved ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400'}"
+										>
+											{m.claimed ? '✅' : m.achieved ? '🎁' : ''} {m.target}回{m.reward.name ? ` ${m.reward.name}` : ''}
+										</span>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{/if}
+				{/each}
+			</div>
+		</section>
+		{/if}
 	{/if}
 
 	<!-- Summary Cards -->
@@ -520,5 +587,19 @@ function childLink(child: ChildSummary): string {
 
 	.more-menu-btn:hover {
 		background: #f3f4f6;
+	}
+
+	.season-pass-bar {
+		height: 8px;
+		background: var(--color-neutral-100, #f3f4f6);
+		border-radius: 4px;
+		overflow: hidden;
+	}
+
+	.season-pass-bar__fill {
+		height: 100%;
+		background: linear-gradient(90deg, var(--color-brand-500, #8b5cf6), var(--color-brand-400, #a78bfa));
+		border-radius: 4px;
+		transition: width 0.5s ease;
 	}
 </style>

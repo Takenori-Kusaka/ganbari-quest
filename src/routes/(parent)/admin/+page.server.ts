@@ -5,10 +5,14 @@ import { logger } from '$lib/server/logger';
 import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/onboarding-service';
-import { getPlanLimits, resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import { getPlanLimits, isPaidTier, resolvePlanTier } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
-import { getMemoryTicketStatus } from '$lib/server/services/seasonal-content-service';
+import {
+	getMemoryTicketStatus,
+	getSeasonPassForChild,
+} from '$lib/server/services/seasonal-content-service';
+import type { SeasonPassData } from '$lib/server/services/seasonal-content-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -120,6 +124,23 @@ export const load: PageServerLoad = async ({ locals }) => {
 		// 季節情報取得失敗はページに影響させない
 	}
 
+	// シーズンパス進捗（子供ごと）
+	const seasonPassByChild: Record<number, SeasonPassData> = {};
+	try {
+		const premium = isPaidTier(tier);
+		const seasonPassEntries = await Promise.all(
+			children.map(async (child) => {
+				const sp = await getSeasonPassForChild(child.id, tenantId, premium).catch(() => null);
+				return [child.id, sp] as const;
+			}),
+		);
+		for (const [childId, sp] of seasonPassEntries) {
+			if (sp) seasonPassByChild[childId] = sp;
+		}
+	} catch {
+		// シーズンパス取得失敗はページに影響させない
+	}
+
 	return {
 		children: childrenWithStatus,
 		onboarding,
@@ -128,6 +149,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		planStats,
 		showPremiumWelcome,
 		seasonalInfo,
+		seasonPassByChild,
 	};
 };
 

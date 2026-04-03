@@ -20,10 +20,7 @@ import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { selectRecommendations } from '$lib/server/services/recommendation-service';
-import {
-	getMonthlyPremiumReward,
-	getSeasonPassForChild,
-} from '$lib/server/services/seasonal-content-service';
+import { getMonthlyPremiumReward } from '$lib/server/services/seasonal-content-service';
 import {
 	claimChallengeReward as claimChallengeRewardService,
 	getActiveChallengesForChild,
@@ -68,7 +65,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			focusMode: false,
 			recommendedActivityIds: [],
 			birthdayBonus: null,
-			seasonPass: null,
 			monthlyPremiumReward: null,
 			activeChallenges: [],
 			familyStreak: null,
@@ -183,11 +179,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 				}
 			: null,
 		allChildren: allChildren.map((c) => ({ id: c.id, nickname: c.nickname })),
-		seasonPass: await getSeasonPassForChild(
-			child.id,
-			tenantId,
-			parentData.isPremium ?? false,
-		).catch(() => null),
 		monthlyPremiumReward: await getMonthlyPremiumReward(
 			child.id,
 			tenantId,
@@ -402,29 +393,6 @@ export const actions: Actions = {
 			totalPoints: result.totalPoints,
 			multiplier: result.multiplier,
 		};
-	},
-
-	claimSeasonPassReward: async ({ request, cookies, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const formData = await request.formData();
-		const childId = Number(cookies.get('selectedChildId'));
-		const eventId = Number(formData.get('eventId'));
-		const target = Number(formData.get('target'));
-		const track = String(formData.get('track'));
-
-		if (Number.isNaN(childId) || Number.isNaN(eventId) || Number.isNaN(target)) {
-			return fail(400, { error: 'パラメータが不正です' });
-		}
-
-		try {
-			const { claimSeasonPassMilestone } = await import(
-				'$lib/server/services/seasonal-content-service'
-			);
-			const reward = await claimSeasonPassMilestone(childId, eventId, target, track, tenantId);
-			return { claimedReward: reward };
-		} catch {
-			return fail(500, { error: 'マイルストーン報酬の受け取りに失敗しました' });
-		}
 	},
 
 	claimMonthlyReward: async ({ request, cookies, locals }) => {
