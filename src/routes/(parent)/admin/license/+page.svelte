@@ -1,4 +1,6 @@
 <script lang="ts">
+import ChurnPreventionModal from '$lib/features/loyalty/ChurnPreventionModal.svelte';
+import LoyaltyBadge from '$lib/features/loyalty/LoyaltyBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -9,6 +11,7 @@ const stripeEnabled = $derived(data.stripeEnabled);
 
 let checkoutLoading = $state(false);
 let portalLoading = $state(false);
+let showChurnModal = $state(false);
 let selectedTier = $state<'standard' | 'family'>('standard');
 let billingInterval = $state<'monthly' | 'yearly'>('monthly');
 
@@ -138,6 +141,19 @@ async function openPortal() {
 		</div>
 		{/snippet}
 	</Card>
+
+	<!-- サポーターバッジ -->
+	{#if data.loyaltyInfo && data.loyaltyInfo.subscriptionMonths > 0}
+		<LoyaltyBadge
+			subscriptionMonths={data.loyaltyInfo.subscriptionMonths}
+			memoryTickets={data.loyaltyInfo.memoryTickets}
+			currentTierName={data.loyaltyInfo.currentTier.name}
+			nextTierMonths={data.loyaltyInfo.nextTier?.months ?? null}
+			nextTierRemaining={data.loyaltyInfo.nextTier?.remaining ?? null}
+			tiers={data.loyaltyInfo.tiers}
+			loginBonusMultiplier={data.loyaltyInfo.loginBonusMultiplier}
+		/>
+	{/if}
 
 	<!-- ステータス別メッセージ -->
 	{#if license.status === 'grace_period'}
@@ -364,3 +380,20 @@ async function openPortal() {
 		border-radius: 9999px;
 	}
 </style>
+
+<!-- Churn prevention modal -->
+{#if data.loyaltyInfo && data.loyaltyInfo.subscriptionMonths > 0}
+	<ChurnPreventionModal
+		bind:open={showChurnModal}
+		subscriptionMonths={data.loyaltyInfo.subscriptionMonths}
+		lostItems={[
+			...(data.loyaltyInfo.subscriptionMonths > 0 ? [`月替わり限定アイテム ${data.loyaltyInfo.subscriptionMonths}個`] : []),
+			...(data.loyaltyInfo.memoryTickets > 0 ? [`思い出チケット ${data.loyaltyInfo.memoryTickets}枚`] : []),
+			...(data.loyaltyInfo.loginBonusMultiplier > 1 ? [`ログインボーナス ×${data.loyaltyInfo.loginBonusMultiplier}倍`] : []),
+			...(data.loyaltyInfo.currentTier.titleUnlock ? [`「${data.loyaltyInfo.currentTier.titleUnlock}」称号`] : []),
+			'90日以前のデータへのアクセス',
+		]}
+		onKeep={() => { showChurnModal = false; }}
+		onCancel={() => { showChurnModal = false; openPortal(); }}
+	/>
+{/if}
