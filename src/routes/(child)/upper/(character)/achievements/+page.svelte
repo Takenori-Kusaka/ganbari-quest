@@ -157,6 +157,34 @@ function currentRarity(achievement: (typeof data.achievements)[number]): string 
 			<p class="font-bold">実績がまだありません</p>
 		</div>
 	{/if}
+
+	<!-- Custom achievements -->
+	{#if data.customAchievements && data.customAchievements.length > 0}
+		<div class="mt-[var(--sp-lg)]">
+			<p class="text-sm font-bold text-center text-[var(--color-text-muted)] mb-[var(--sp-sm)]">
+				── かぞくの とくべつ じっせき ──
+			</p>
+			<div class="flex flex-col gap-[var(--sp-sm)]">
+				{#each data.customAchievements as ca (ca.id)}
+					{@const pct = ca.conditionValue > 0 ? Math.min(100, Math.round((0 / ca.conditionValue) * 100)) : 0}
+					<div class="flex items-center gap-[var(--sp-sm)] p-[var(--sp-sm)] rounded-[var(--radius-md)] border-2 {ca.unlockedAt ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200 bg-gray-50'}">
+						<span class="text-2xl {ca.unlockedAt ? '' : 'opacity-60'}">{ca.icon}</span>
+						<div class="flex-1 min-w-0">
+							<p class="text-sm font-bold truncate">{ca.name}</p>
+							{#if ca.unlockedAt}
+								<p class="text-xs text-yellow-600 font-bold">たっせい！ +{ca.bonusPoints}P</p>
+							{:else}
+								<div class="w-full h-1.5 rounded-full bg-gray-200 mt-1">
+									<div class="h-full rounded-full bg-[var(--theme-primary)] transition-all" style:width="{pct}%"></div>
+								</div>
+								<p class="text-[10px] text-[var(--color-text-muted)]">もくひょう: {ca.conditionValue}</p>
+							{/if}
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
 </div>
 
 <!-- Achievement detail dialog -->

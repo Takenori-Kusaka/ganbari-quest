@@ -82,6 +82,7 @@ export interface RecordActivityResult {
 	focusBonus: { bonusPoints: number } | null;
 	levelUp: LevelUpInfo | null;
 	xpGain: XpGainInfo;
+	customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[];
 }
 
 export interface ActivityLogEntry {
@@ -324,6 +325,42 @@ export async function recordActivity(
 		// 証明書発行失敗は記録フローを止めない
 	}
 
+	// カスタム実績・称号チェック
+	let customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[] = [];
+	try {
+		const { checkAndUnlockCustomItems } = await import(
+			'$lib/server/services/custom-achievement-service'
+		);
+		const progressData = {
+			totalActivityCount: await countActiveActivityLogs(childId, tenantId),
+			activityCounts: {
+				[activityId]: await countTodayActiveRecords(childId, activityId, today, tenantId),
+			},
+			categoryCounts: {},
+			maxStreakDays: streakDays,
+			activityStreaks: { [activityId]: streakDays },
+			currentLevel: levelUp ? levelUp.newLevel : xpGain.levelAfter,
+			achievementCount: unlockedAchievements.length,
+		};
+		customUnlocked = await checkAndUnlockCustomItems(childId, tenantId, progressData);
+		// カスタム実績ボーナスポイント付与
+		for (const item of customUnlocked) {
+			if (item.bonusPoints > 0) {
+				await insertPointLedger(
+					{
+						childId,
+						amount: item.bonusPoints,
+						type: 'custom_achievement',
+						description: `カスタム実績「${item.name}」達成ボーナス`,
+					},
+					tenantId,
+				);
+			}
+		}
+	} catch {
+		// カスタム実績チェック失敗は記録フローを止めない
+	}
+
 	return {
 		id: log.id,
 		childId,
@@ -346,6 +383,7 @@ export async function recordActivity(
 		focusBonus,
 		levelUp,
 		xpGain,
+		customUnlocked,
 	};
 }
 
