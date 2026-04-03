@@ -42,14 +42,14 @@ export async function selectChildByName(page: Page, name: string) {
 	await page.waitForURL(/\/(kinder|baby|lower|upper|teen)\/home/);
 }
 
-/** ゆうきちゃん(kinder)を選択 */
+/** たろうくん(kinder)を選択 */
 export async function selectKinderChild(page: Page) {
-	await selectChildByName(page, 'ゆうきちゃん');
+	await selectChildByName(page, 'たろうくん');
 }
 
-/** てすとくん(baby)を選択 */
+/** はなこちゃん(baby)を選択 */
 export async function selectBabyChild(page: Page) {
-	await selectChildByName(page, 'てすとくん');
+	await selectChildByName(page, 'はなこちゃん');
 }
 
 // ============================================================
@@ -165,7 +165,7 @@ export async function selectChildAndDismiss(page: Page) {
 	await dismissOverlays(page);
 }
 
-/** ゆうきちゃん(kinder)を選択してオーバーレイを閉じた状態にする */
+/** たろうくん(kinder)を選択してオーバーレイを閉じた状態にする */
 export async function selectKinderChildAndDismiss(page: Page) {
 	await selectKinderChild(page);
 	await dismissOverlays(page);

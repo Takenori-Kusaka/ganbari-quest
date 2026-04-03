@@ -89,7 +89,7 @@ test.describe('ページヘルス: Admin', () => {
 });
 
 // ============================================================
-// Kinder child pages — 子供画面（ゆうきちゃん = kinder）
+// Kinder child pages — 子供画面（たろうくん = kinder）
 // ============================================================
 test.describe('ページヘルス: Kinder 子供画面', () => {
 	test.beforeEach(async ({ page }) => {
@@ -118,11 +118,11 @@ test.describe('ページヘルス: Kinder 子供画面', () => {
 });
 
 // ============================================================
-// Baby child pages — 子供画面（てすとくん = baby）
+// Baby child pages — 子供画面（はなこちゃん = baby）
 // ============================================================
 test.describe('ページヘルス: Baby 子供画面', () => {
 	test.beforeEach(async ({ page }) => {
-		await selectChildByName(page, 'てすとくん');
+		await selectChildByName(page, 'はなこちゃん');
 	});
 
 	const babyPages = [
