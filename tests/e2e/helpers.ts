@@ -283,16 +283,28 @@ export async function recordAnyActivity(page: Page): Promise<boolean> {
 
 		await page.locator('[data-testid="confirm-record-btn"]').click();
 
-		// 記録成功の結果オーバーレイを待つ
+		// 記録成功の結果ダイアログを待つ（テキスト + ボタンの両方が揃うまで）
 		try {
-			await page.getByText(/きろくしたよ！/).waitFor({ timeout: 2000 });
+			await page.getByText(/きろくしたよ！/).waitFor({ timeout: 3000 });
+			// 結果ダイアログ内のボタンが完全にレンダリングされるまで待機
+			await page
+				.getByTestId('activity-confirm-btn')
+				.or(page.getByTestId('login-bonus-confirm'))
+				.first()
+				.waitFor({ timeout: 3000 });
 			return true;
 		} catch {
-			// ALREADY_RECORDED — 次の活動へ
+			// ALREADY_RECORDED or ダイアログ未表示 — 次の活動へ
 			await page
 				.locator('[data-testid="confirm-dialog"]')
 				.waitFor({ state: 'hidden', timeout: 1000 })
 				.catch(() => {});
+			// 結果ダイアログが中途半端に開いていれば閉じる
+			const confirmBtn = page.getByTestId('activity-confirm-btn');
+			if (await confirmBtn.isVisible({ timeout: 500 }).catch(() => false)) {
+				await confirmBtn.click();
+				await page.waitForTimeout(300);
+			}
 		}
 	}
 	return false;
