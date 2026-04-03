@@ -40,7 +40,7 @@ test.describe('#0029: Baby モード', () => {
 
 		const nav = page.locator('[data-testid="bottom-nav"]');
 		await expect(nav).toBeVisible();
-		await expect(nav.locator('a').filter({ hasText: 'ホーム' })).toBeVisible();
+		await expect(nav.getByTestId('nav-home')).toBeVisible();
 	});
 });
 
@@ -297,7 +297,7 @@ test.describe('#0082: レーダーチャート', () => {
 		await expect(svg).toBeVisible();
 
 		// せいちょうチャートの見出しが表示される
-		await expect(page.getByText('せいちょうチャート')).toBeVisible();
+		await expect(page.getByTestId('growth-chart-heading')).toBeVisible();
 	});
 
 	test('「くわしくみる」で詳細が展開される', async ({ page }) => {
@@ -307,7 +307,7 @@ test.describe('#0082: レーダーチャート', () => {
 		await page.goto('/kinder/status');
 
 		// 折りたたみボタンをクリック
-		const detailBtn = page.getByText('くわしくみる');
+		const detailBtn = page.getByTestId('growth-detail-toggle');
 		await expect(detailBtn).toBeVisible();
 		await detailBtn.click();
 

@@ -124,7 +124,7 @@ test.describe('UC-01: 活動記録フロー', () => {
 		expect(recorded).toBe(true);
 
 		await expect(page.getByText(/\+\d+/).first()).toBeVisible();
-		await expect(page.getByRole('button', { name: 'やったね！' }).first()).toBeVisible();
+		await expect(page.getByTestId('activity-confirm-btn').or(page.getByTestId('login-bonus-confirm')).first()).toBeVisible();
 	});
 
 	test('記録完了後に「とりけし」ボタンが表示される', async ({ page }) => {
@@ -135,7 +135,7 @@ test.describe('UC-01: 活動記録フロー', () => {
 		// 結果ダイアログが開いている状態を確認
 		await expect(page.getByText(/きろくしたよ！/).first()).toBeVisible({ timeout: 3000 });
 		// キャンセルウィンドウ(5秒)内にキャンセルボタンが表示される
-		await expect(page.getByRole('button', { name: /とりけし/ })).toBeVisible({ timeout: 3000 });
+		await expect(page.getByTestId('activity-cancel-btn')).toBeVisible({ timeout: 3000 });
 	});
 });
 
@@ -151,7 +151,7 @@ test.describe('UC-02: 記録キャンセル', () => {
 		expect(recorded).toBe(true);
 
 		// 即座にキャンセル
-		const cancelButton = page.getByRole('button', { name: /とりけし/ });
+		const cancelButton = page.getByTestId('activity-cancel-btn');
 		if (await cancelButton.isVisible()) {
 			await cancelButton.click();
 			await expect(page.getByText('とりけしました')).toBeVisible();
@@ -168,16 +168,16 @@ test.describe('UC-03: 活動履歴', () => {
 		await page.goto('/kinder/history');
 		await expect(page).toHaveURL(/\/kinder\/history/);
 		// 期間タブが表示されることでページが正しくレンダリングされたことを確認
-		await expect(page.getByRole('tab', { name: 'きょう' })).toBeVisible();
+		await expect(page.getByTestId('tab-today')).toBeVisible();
 	});
 
 	test('期間タブが表示される', async ({ page }) => {
 		await selectKinderChildAndDismiss(page);
 		await page.goto('/kinder/history');
 
-		await expect(page.getByRole('tab', { name: 'きょう' })).toBeVisible();
-		await expect(page.getByRole('tab', { name: 'しゅう' })).toBeVisible();
-		await expect(page.getByRole('tab', { name: 'つき' })).toBeVisible();
+		await expect(page.getByTestId('tab-today')).toBeVisible();
+		await expect(page.getByTestId('tab-week')).toBeVisible();
+		await expect(page.getByTestId('tab-month')).toBeVisible();
 	});
 });
 
@@ -190,7 +190,7 @@ test.describe('UC-04: ステータス確認', () => {
 		await page.goto('/kinder/status');
 		await expect(page).toHaveURL(/\/kinder\/status/);
 		// レーダーチャートセクション見出しでレンダリング確認
-		await expect(page.getByRole('heading', { name: 'せいちょうチャート' })).toBeVisible();
+		await expect(page.getByTestId('growth-chart-heading')).toBeVisible();
 	});
 
 	test('レベルとキャラクタータイプが表示される', async ({ page }) => {
@@ -200,7 +200,7 @@ test.describe('UC-04: ステータス確認', () => {
 		// レベル表示（ヘッダーとメインの2箇所にあるので main 内を指定）
 		await expect(page.getByRole('main').getByText(/Lv\./).first()).toBeVisible();
 		// レーダーチャートセクション見出し
-		await expect(page.getByRole('heading', { name: 'せいちょうチャート' })).toBeVisible();
+		await expect(page.getByTestId('growth-chart-heading')).toBeVisible();
 	});
 });
 

@@ -70,7 +70,7 @@ export async function dismissOverlays(page: Page) {
 	const overlayTimeout = isAwsEnv() ? 8000 : 3000;
 	try {
 		const stampOverlay = page.getByTestId('omikuji-stamp-overlay');
-		const closeBtn = page.getByRole('button', { name: /やったね/ });
+		const closeBtn = page.getByTestId('login-bonus-confirm');
 
 		// オーバーレイが表示されるのを待つ
 		await stampOverlay.waitFor({ timeout: overlayTimeout });

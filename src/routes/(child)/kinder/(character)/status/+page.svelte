@@ -97,7 +97,7 @@ const radarCategories = $derived(
 		<!-- Radar chart -->
 		<Card variant="elevated" padding="md" class="mb-[var(--sp-md)]" data-tutorial="radar-chart">
 			{#snippet children()}
-			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">せいちょうチャート</h2>
+			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]" data-testid="growth-chart-heading">せいちょうチャート</h2>
 			<div class="flex justify-center">
 				<RadarChart
 					categories={radarCategories}
@@ -143,7 +143,7 @@ const radarCategories = $derived(
 				class="w-full p-[var(--sp-md)] flex items-center justify-between text-sm text-[var(--color-text-muted)]"
 				onclick={() => { soundService.play('tap'); detailOpen = !detailOpen; }}
 			>
-				<span>{detailOpen ? '▼' : '▶'} くわしくみる</span>
+				<span data-testid="growth-detail-toggle">{detailOpen ? '▼' : '▶'} くわしくみる</span>
 			</Button>
 			{#if detailOpen}
 				<div class="px-[var(--sp-md)] pb-[var(--sp-md)] flex flex-col gap-[var(--sp-md)]">
