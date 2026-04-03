@@ -1,5 +1,7 @@
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
+import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
+import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	createSiblingChallenge,
 	deleteSiblingChallenge,
@@ -10,11 +12,21 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
-	const [challenges, children] = await Promise.all([
+	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+
+	const [challenges, children, familyStreakData] = await Promise.all([
 		getAllChallengesWithProgress(tenantId),
 		getAllChildren(tenantId),
+		getFamilyStreak(tenantId),
 	]);
-	return { challenges, children };
+
+	const familyStreak = {
+		...familyStreakData,
+		nextMilestone: getNextMilestone(familyStreakData.currentStreak),
+	};
+
+	return { challenges, children, planTier, familyStreak };
 };
 
 export const actions: Actions = {
