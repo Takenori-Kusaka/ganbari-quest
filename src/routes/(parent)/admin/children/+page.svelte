@@ -86,7 +86,7 @@ let showAddForm = $state(false);
 						id="add-nickname"
 						name="nickname"
 						required
-						placeholder="例: ゆうきちゃん"
+						placeholder="例: たろうくん"
 					/>
 					<FormField
 						label="たんじょうび"

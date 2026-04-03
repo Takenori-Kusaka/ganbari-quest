@@ -81,7 +81,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 		label="ニックネーム"
 		name="nickname"
 		required
-		placeholder="ゆうきちゃん"
+		placeholder="たろうくん"
 	/>
 
 	<FormField

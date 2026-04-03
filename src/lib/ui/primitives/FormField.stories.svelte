@@ -21,7 +21,7 @@ const { Story } = defineMeta({
 });
 </script>
 
-<Story name="Text" args={{ label: 'ニックネーム', placeholder: 'ゆうきちゃん' }} />
+<Story name="Text" args={{ label: 'ニックネーム', placeholder: 'たろうくん' }} />
 <Story name="Email" args={{ label: 'メールアドレス', type: 'email', placeholder: 'user@example.com' }} />
 <Story name="Password" args={{ label: 'パスワード', type: 'password' }} />
 <Story name="Number" args={{ label: '年齢', type: 'number', min: 0, max: 18 }} />

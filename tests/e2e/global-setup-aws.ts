@@ -112,11 +112,11 @@ export default async function globalSetup() {
 			if (page.url().includes('/setup/children')) {
 				console.log('[AWS E2E Setup]   子供を登録中...');
 
-				// ゆうきちゃん（4歳、kinder、pink）
-				await addChildViaSetup(page, 'ゆうきちゃん', '4', 'kinder', 'pink');
+				// たろうくん（4歳、kinder、pink）
+				await addChildViaSetup(page, 'たろうくん', '4', 'kinder', 'pink');
 
-				// てすとくん（1歳、baby、blue）
-				await addChildViaSetup(page, 'てすとくん', '1', 'baby', 'blue');
+				// はなこちゃん（1歳、baby、blue）
+				await addChildViaSetup(page, 'はなこちゃん', '1', 'baby', 'blue');
 
 				// セットアップ完了
 				const nextBtn = page.getByRole('button', { name: /完了|次へ/ });
@@ -145,11 +145,11 @@ export default async function globalSetup() {
 				await page.goto(`${BASE_URL}/admin/children`);
 				await page.waitForLoadState('networkidle');
 
-				// ゆうきちゃん（4歳、kinder、pink）
-				await addChildViaAdmin(page, 'ゆうきちゃん', '4', 'kinder', 'pink');
+				// たろうくん（4歳、kinder、pink）
+				await addChildViaAdmin(page, 'たろうくん', '4', 'kinder', 'pink');
 
-				// てすとくん（1歳、baby、blue）
-				await addChildViaAdmin(page, 'てすとくん', '1', 'baby', 'blue');
+				// はなこちゃん（1歳、baby、blue）
+				await addChildViaAdmin(page, 'はなこちゃん', '1', 'baby', 'blue');
 
 				console.log('[AWS E2E Setup] 子供登録完了');
 			} else {
