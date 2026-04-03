@@ -193,6 +193,7 @@ function getCategoryXpWithAnim(categoryId: number) {
 
 // Build recorded counts map: activityId → count
 const recordedMap = $derived(new Map(data.todayRecorded.map((r) => [r.activityId, r.count])));
+const kinderTodayCount = $derived(data.todayRecorded.reduce((sum, r) => sum + r.count, 0));
 
 function getCount(activityId: number): number {
 	return recordedMap.get(activityId) ?? 0;
@@ -620,6 +621,35 @@ $effect(() => {
 			{/each}
 		</CategorySection>
 	{/each}
+
+	<!-- おうえんメッセージ（Kinder固有） -->
+	{#if kinderTodayCount > 0}
+		<div class="mt-[var(--sp-md)] p-4 rounded-2xl bg-[var(--theme-bg)] border border-[var(--theme-secondary)] text-center">
+			<div class="text-3xl mb-1">
+				{#if kinderTodayCount >= 5}
+					🌟
+				{:else if kinderTodayCount >= 3}
+					⭐
+				{:else}
+					😊
+				{/if}
+			</div>
+			<p class="text-sm font-bold" style="color: var(--theme-accent);">
+				{#if kinderTodayCount >= 5}
+					すっごーい！ きょう {kinderTodayCount}かい がんばったね！
+				{:else if kinderTodayCount >= 3}
+					いいかんじ！ {kinderTodayCount}かい できたよ！
+				{:else}
+					がんばってるね！ {kinderTodayCount}かい きろくしたよ！
+				{/if}
+			</p>
+			<div class="flex justify-center gap-1 mt-2">
+				{#each Array(Math.min(kinderTodayCount, 10)) as _}
+					<span class="text-lg">⭐</span>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	{#if data.activities.length === 0}
 		<ActivityEmptyState uiMode={data.uiMode} />
