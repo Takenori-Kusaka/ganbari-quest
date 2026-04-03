@@ -907,3 +907,82 @@ export const cloudExports = sqliteTable(
 		index('idx_cloud_exports_pin').on(table.pinCode),
 	],
 );
+
+// ============================================================
+// tenant_events - テナント別シーズンイベント有効/無効
+// ============================================================
+export const tenantEvents = sqliteTable(
+	'tenant_events',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		eventCode: text('event_code').notNull(),
+		year: integer('year').notNull(),
+		enabled: integer('enabled').notNull().default(1),
+		targetOverride: text('target_override'), // JSON: override missions
+		rewardMemo: text('reward_memo'), // parent's reward promise
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_tenant_events_unique').on(table.tenantId, table.eventCode, table.year),
+		index('idx_tenant_events_tenant_year').on(table.tenantId, table.year),
+	],
+);
+
+// ============================================================
+// tenant_event_progress - テナントイベントの子供別進捗
+// ============================================================
+export const tenantEventProgress = sqliteTable(
+	'tenant_event_progress',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		eventCode: text('event_code').notNull(),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		year: integer('year').notNull(),
+		currentCount: integer('current_count').notNull().default(0),
+		completedAt: text('completed_at'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_tenant_event_progress_unique').on(
+			table.tenantId,
+			table.eventCode,
+			table.childId,
+			table.year,
+		),
+		index('idx_tenant_event_progress_child').on(table.childId, table.year),
+	],
+);
+
+// ============================================================
+// auto_challenges - 自動生成ウィークリーチャレンジ
+// ============================================================
+export const autoChallenges = sqliteTable(
+	'auto_challenges',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		tenantId: text('tenant_id').notNull(),
+		weekStart: text('week_start').notNull(), // YYYY-MM-DD (Monday)
+		categoryId: integer('category_id')
+			.notNull()
+			.references(() => categories.id),
+		targetCount: integer('target_count').notNull(),
+		currentCount: integer('current_count').notNull().default(0),
+		status: text('status').notNull().default('active'), // active | completed | expired
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_auto_challenges_child_week').on(table.childId, table.weekStart),
+		index('idx_auto_challenges_tenant').on(table.tenantId),
+		index('idx_auto_challenges_status').on(table.status),
+	],
+);

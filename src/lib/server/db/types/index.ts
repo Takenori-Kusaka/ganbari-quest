@@ -975,3 +975,88 @@ export interface InsertCloudExportInput {
 	expiresAt: string;
 	maxDownloads?: number;
 }
+
+// ============================================================
+// Tenant Events (calendar-based season event opt-in/out)
+// ============================================================
+
+export interface TenantEvent {
+	id: number;
+	tenantId: string;
+	eventCode: string;
+	year: number;
+	enabled: number;
+	targetOverride: string | null;
+	rewardMemo: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface InsertTenantEventInput {
+	eventCode: string;
+	year: number;
+	enabled?: number;
+	targetOverride?: string | null;
+	rewardMemo?: string | null;
+}
+
+export interface UpdateTenantEventInput {
+	enabled?: number;
+	targetOverride?: string | null;
+	rewardMemo?: string | null;
+}
+
+// ============================================================
+// Tenant Event Progress (child progress on calendar events)
+// ============================================================
+
+export interface TenantEventProgress {
+	id: number;
+	tenantId: string;
+	eventCode: string;
+	childId: number;
+	year: number;
+	currentCount: number;
+	completedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface UpsertTenantEventProgressInput {
+	eventCode: string;
+	childId: number;
+	year: number;
+	currentCount: number;
+	completedAt?: string | null;
+}
+
+// ============================================================
+// Auto Challenges (weekly auto-generated per-child challenges)
+// ============================================================
+
+export type AutoChallengeStatus = 'active' | 'completed' | 'expired';
+
+export interface AutoChallenge {
+	id: number;
+	childId: number;
+	tenantId: string;
+	weekStart: string;
+	categoryId: number;
+	targetCount: number;
+	currentCount: number;
+	status: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface InsertAutoChallengeInput {
+	childId: number;
+	weekStart: string;
+	categoryId: number;
+	targetCount: number;
+}
+
+export interface UpdateAutoChallengeInput {
+	currentCount?: number;
+	status?: string;
+}

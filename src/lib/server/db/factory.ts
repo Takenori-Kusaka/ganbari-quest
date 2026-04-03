@@ -1,6 +1,7 @@
 // src/lib/server/db/factory.ts
 // DATA_SOURCE 環境変数による SQLite / DynamoDB バックエンド切り替え
 
+import * as dynamoAutoChallengeRepo from './dynamodb/auto-challenge-repo';
 import * as dynamoAccountLockoutRepo from './dynamodb/account-lockout-repo';
 import * as dynamoAchievementRepo from './dynamodb/achievement-repo';
 import * as dynamoActivityMasteryRepo from './dynamodb/activity-mastery-repo';
@@ -28,8 +29,10 @@ import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
 import * as dynamoStampCardRepo from './dynamodb/stamp-card-repo';
 import * as dynamoStatusRepo from './dynamodb/status-repo';
 import * as dynamoStorageRepo from './dynamodb/storage-repo';
+import * as dynamoTenantEventRepo from './dynamodb/tenant-event-repo';
 import * as dynamoTitleRepo from './dynamodb/title-repo';
 import * as dynamoVoiceRepo from './dynamodb/voice-repo';
+import type { IAutoChallengeRepo } from './interfaces/auto-challenge-repo.interface';
 import type { IAccountLockoutRepo } from './interfaces/account-lockout-repo.interface';
 import type { IAchievementRepo } from './interfaces/achievement-repo.interface';
 import type { IActivityMasteryRepo } from './interfaces/activity-mastery-repo.interface';
@@ -57,8 +60,10 @@ import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interf
 import type { IStampCardRepo } from './interfaces/stamp-card-repo.interface';
 import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
+import type { ITenantEventRepo } from './interfaces/tenant-event-repo.interface';
 import type { ITitleRepo } from './interfaces/title-repo.interface';
 import type { IVoiceRepo } from './interfaces/voice-repo.interface';
+import * as sqliteAutoChallengeRepo from './sqlite/auto-challenge-repo';
 import * as sqliteAccountLockoutRepo from './sqlite/account-lockout-repo';
 import * as sqliteAchievementRepo from './sqlite/achievement-repo';
 import * as sqliteActivityMasteryRepo from './sqlite/activity-mastery-repo';
@@ -86,11 +91,13 @@ import * as sqliteSpecialRewardRepo from './sqlite/special-reward-repo';
 import * as sqliteStampCardRepo from './sqlite/stamp-card-repo';
 import * as sqliteStatusRepo from './sqlite/status-repo';
 import * as sqliteStorageRepo from './sqlite/storage-repo';
+import * as sqliteTenantEventRepo from './sqlite/tenant-event-repo';
 import * as sqliteTitleRepo from './sqlite/title-repo';
 import * as sqliteVoiceRepo from './sqlite/voice-repo';
 
 export interface Repositories {
 	accountLockout: IAccountLockoutRepo;
+	autoChallenge: IAutoChallengeRepo;
 	auth: IAuthRepo;
 	achievement: IAchievementRepo;
 	activity: IActivityRepo;
@@ -117,6 +124,7 @@ export interface Repositories {
 	status: IStatusRepo;
 	levelTitle: ILevelTitleRepo;
 	storage: IStorageRepo;
+	tenantEvent: ITenantEventRepo;
 	title: ITitleRepo;
 	voice: IVoiceRepo;
 }
@@ -130,6 +138,7 @@ export function getRepos(): Repositories {
 	if (dataSource === 'dynamodb') {
 		const repos: Repositories = {
 			accountLockout: dynamoAccountLockoutRepo,
+			autoChallenge: dynamoAutoChallengeRepo,
 			auth: dynamoAuthRepo,
 			achievement: dynamoAchievementRepo,
 			activity: dynamoActivityRepo,
@@ -156,6 +165,7 @@ export function getRepos(): Repositories {
 			stampCard: dynamoStampCardRepo,
 			status: dynamoStatusRepo,
 			storage: dynamoStorageRepo,
+			tenantEvent: dynamoTenantEventRepo,
 			title: dynamoTitleRepo,
 			voice: dynamoVoiceRepo,
 		};
@@ -165,6 +175,7 @@ export function getRepos(): Repositories {
 
 	const repos: Repositories = {
 		accountLockout: sqliteAccountLockoutRepo,
+		autoChallenge: sqliteAutoChallengeRepo,
 		auth: sqliteAuthRepo,
 		achievement: sqliteAchievementRepo,
 		activity: sqliteActivityRepo,
@@ -191,6 +202,7 @@ export function getRepos(): Repositories {
 		stampCard: sqliteStampCardRepo,
 		status: sqliteStatusRepo,
 		storage: sqliteStorageRepo,
+		tenantEvent: sqliteTenantEventRepo,
 		title: sqliteTitleRepo,
 		voice: sqliteVoiceRepo,
 	};
