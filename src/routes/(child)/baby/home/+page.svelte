@@ -18,6 +18,7 @@ import FamilyStreakBanner from '$lib/ui/components/FamilyStreakBanner.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
 import SeasonPassCard from '$lib/ui/components/SeasonPassCard.svelte';
+import SpecialRewardProgress from '$lib/ui/components/SpecialRewardProgress.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -419,6 +420,14 @@ $effect(() => {
 			challenges={data.activeChallenges}
 			childId={data.child?.id ?? 0}
 			siblings={data.allChildren?.map((c) => ({ id: c.id, nickname: c.nickname })) ?? []}
+		/>
+	{/if}
+
+	<!-- Special reward progress indicator -->
+	{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
+		<SpecialRewardProgress
+			remaining={data.specialRewardProgress.remaining}
+			interval={data.specialRewardProgress.interval}
 		/>
 	{/if}
 
