@@ -1,5 +1,6 @@
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { findAllChildren } from '$lib/server/db/child-repo';
 import { getAchievementSummary } from '$lib/server/services/achievement-service';
 import {
 	cancelActivityLog,
@@ -15,12 +16,17 @@ import {
 } from '$lib/server/services/birthday-bonus-service';
 import { getChecklistsForChild } from '$lib/server/services/checklist-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
+import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { selectRecommendations } from '$lib/server/services/recommendation-service';
 import {
 	getMonthlyPremiumReward,
 	getSeasonPassForChild,
 } from '$lib/server/services/seasonal-content-service';
+import {
+	claimChallengeReward as claimChallengeRewardService,
+	getActiveChallengesForChild,
+} from '$lib/server/services/sibling-challenge-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
@@ -57,6 +63,9 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			birthdayBonus: null,
 			seasonPass: null,
 			monthlyPremiumReward: null,
+			activeChallenges: [],
+			familyStreak: null,
+			allChildren: [],
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -71,6 +80,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		categoryXp,
 		achievementSummary,
 		birthdayBonusStatus,
+		activeChallenges,
+		familyStreakData,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -82,7 +93,11 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getCategoryXpSummary(child.id, tenantId),
 		getAchievementSummary(child.id, tenantId),
 		getBirthdayBonusStatus(child.id, tenantId),
+		getActiveChallengesForChild(child.id, tenantId),
+		getFamilyStreak(tenantId),
 	]);
+
+	const allChildren = await findAllChildren(tenantId);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
 	const activities = sortedActivities.map((a) => ({
@@ -134,6 +149,14 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		focusMode: recommendations.length > 0,
 		recommendedActivityIds: [...recommendedIds],
 		birthdayBonus,
+		activeChallenges,
+		familyStreak: familyStreakData
+			? {
+					...familyStreakData,
+					nextMilestone: getNextMilestone(familyStreakData.currentStreak),
+				}
+			: null,
+		allChildren: allChildren.map((c) => ({ id: c.id, nickname: c.nickname })),
 		seasonPass: await getSeasonPassForChild(
 			child.id,
 			tenantId,
@@ -399,6 +422,30 @@ export const actions: Actions = {
 			return { claimedReward: reward };
 		} catch {
 			return fail(500, { error: '月替わり報酬の受け取りに失敗しました' });
+		}
+	},
+
+	claimChallengeReward: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(cookies.get('selectedChildId'));
+		const challengeId = Number(formData.get('challengeId'));
+
+		if (Number.isNaN(childId) || Number.isNaN(challengeId)) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+
+		try {
+			const result = await claimChallengeRewardService(challengeId, childId, tenantId);
+			if ('error' in result) {
+				return fail(400, { error: result.error });
+			}
+			return {
+				challengeRewardClaimed: true,
+				challengeRewardPoints: result.points,
+			};
+		} catch {
+			return fail(500, { error: '報酬の受け取りに失敗しました' });
 		}
 	},
 };
