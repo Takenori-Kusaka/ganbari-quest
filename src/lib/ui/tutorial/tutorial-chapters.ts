@@ -1,4 +1,6 @@
-import type { TutorialChapter } from './tutorial-types';
+import type { PlanTier, TutorialChapter } from './tutorial-types';
+
+const TIER_ORDER: Record<PlanTier, number> = { free: 0, standard: 1, family: 2 };
 
 export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	{
@@ -119,6 +121,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 					'お子さまの習い事や家庭のルールに合わせたオリジナル活動を追加できます。例えば「ピアノの練習30分」「犬のお散歩」など、ご家庭ならではの活動を登録しましょう。\n\n⭐ カスタム活動の追加・編集はスタンダードプラン以上で利用できます。無料プランではプリセット活動をそのままご利用いただけます。',
 				position: 'bottom',
 				page: '/admin/activities',
+				requiredTier: 'standard',
 			},
 		],
 	},
@@ -239,4 +242,20 @@ export function getAllSteps() {
 
 export function getTotalStepCount() {
 	return getAllSteps().length;
+}
+
+/** プランティアに応じてフィルタされたチャプターを返す */
+export function getChaptersForPlan(planTier: PlanTier): TutorialChapter[] {
+	return TUTORIAL_CHAPTERS.map((ch) => ({
+		...ch,
+		steps: ch.steps.filter((step) => {
+			if (!step.requiredTier) return true;
+			return TIER_ORDER[planTier] >= TIER_ORDER[step.requiredTier];
+		}),
+	})).filter((ch) => ch.steps.length > 0);
+}
+
+/** プランティアに応じてフィルタされた全ステップを返す */
+export function getStepsForPlan(planTier: PlanTier) {
+	return getChaptersForPlan(planTier).flatMap((ch) => ch.steps);
 }

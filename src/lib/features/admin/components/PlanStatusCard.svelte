@@ -83,21 +83,21 @@ const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retent
 		gap: 0.375rem;
 	}
 	:global(.plan-status-card--free) .plan-status__title {
-		color: var(--color-text-secondary, #4b5563);
+		color: var(--color-text-secondary);
 	}
 	:global(.plan-status-card--standard) .plan-status__title {
-		color: #6d28d9;
+		color: var(--color-premium);
 	}
 	:global(.plan-status-card--family) .plan-status__title {
-		color: #92400e;
+		color: var(--color-gold-700, var(--color-amber-700));
 	}
 	:global(.plan-status-card--standard) {
-		border-color: #e9d5ff;
-		background: linear-gradient(135deg, #faf5ff, #f5f3ff);
+		border-color: var(--color-premium-bg);
+		background: linear-gradient(135deg, var(--color-premium-bg), var(--color-surface-card));
 	}
 	:global(.plan-status-card--family) {
-		border-color: #fde68a;
-		background: linear-gradient(135deg, #fffbeb, #fef3c7);
+		border-color: var(--color-gold-200, var(--color-amber-200));
+		background: linear-gradient(135deg, var(--color-gold-50, var(--color-amber-50)), var(--color-surface-card));
 	}
 	.plan-status__stats {
 		display: grid;
@@ -111,12 +111,12 @@ const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retent
 	}
 	.plan-status__stat-label {
 		font-size: 0.7rem;
-		color: var(--color-text-tertiary, #9ca3af);
+		color: var(--color-text-tertiary);
 	}
 	.plan-status__stat-value {
 		font-size: 0.85rem;
 		font-weight: 600;
-		color: var(--color-text-primary, #374151);
+		color: var(--color-text-primary);
 	}
 	.plan-status__cta {
 		display: inline-flex;
@@ -124,14 +124,14 @@ const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retent
 		justify-content: center;
 		gap: 0.25rem;
 		padding: 0.5rem 1rem;
-		border-radius: 0.5rem;
+		border-radius: var(--radius-md);
 		font-size: 0.8rem;
 		font-weight: 700;
 		text-decoration: none;
 		transition: all 0.15s;
 	}
 	.plan-status__cta--upgrade {
-		background: var(--gradient-premium, linear-gradient(135deg, #7c3aed, #a78bfa));
+		background: linear-gradient(135deg, var(--color-premium), var(--color-premium-light));
 		color: white;
 	}
 	.plan-status__cta--upgrade:hover {
@@ -142,19 +142,19 @@ const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retent
 		gap: 0.5rem;
 	}
 	.plan-status__cta--detail {
-		background: var(--color-surface-secondary, #f3f4f6);
-		color: var(--color-text-secondary, #4b5563);
+		background: var(--color-surface-secondary);
+		color: var(--color-text-secondary);
 		flex: 1;
 	}
 	.plan-status__cta--detail:hover {
-		background: var(--color-neutral-200, #e5e7eb);
+		background: var(--color-neutral-200);
 	}
 	.plan-status__cta--family {
 		background: #fef3c7;
-		color: #92400e;
+		color: var(--color-gold-700, var(--color-amber-700));
 		flex: 1;
 	}
 	.plan-status__cta--family:hover {
-		background: #fde68a;
+		background: var(--color-gold-200, var(--color-amber-200));
 	}
 </style>
