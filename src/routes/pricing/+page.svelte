@@ -26,16 +26,17 @@ const plans = [
 		yearlyPrice: '年額 ¥5,000（2ヶ月分お得）',
 		description: 'カスタマイズ自由自在。お子さまにぴったりの環境を。',
 		features: [
-			'子供 無制限',
-			'カスタム活動 無制限',
+			'お子さまの登録人数：無制限',
+			'オリジナル活動の作成：無制限',
 			'活動アイコンの変更',
 			'チェックリスト自由作成',
 			'カスタム報酬設定',
-			'おうえん自由テキスト',
+			'おうえんスタンプ（全種類）',
 			'週次メールレポート',
-			'データエクスポート（CSV）',
+			'活動バランスの見える化',
+			'データエクスポート（JSON）',
 			'1年間の履歴保持',
-			'メールサポート',
+			'Discordサポート',
 		],
 		badge: 'おすすめ',
 		recommended: true,
@@ -50,12 +51,10 @@ const plans = [
 		features: [
 			'スタンダードの全機能',
 			'月次比較レポート',
-			'年間サマリーレポート',
-			'兄弟間比較分析',
+			'きょうだいランキング',
 			'カスタムレベル称号',
-			'データエクスポート（PDF）',
 			'無制限の履歴保持',
-			'優先サポート（48h以内）',
+			'Discordサポート（優先対応）',
 		],
 	},
 ];
@@ -121,7 +120,7 @@ const plans = [
 	</div>
 
 	<p class="text-center text-[0.85rem] text-[var(--color-neutral-500)] mb-12">
-		&#x1F4A1; ゲーミフィケーション機能（レベル・ポイント・実績・称号・シールガチャ・コンボ）は<strong>全プラン共通</strong>で制限なし
+		&#x1F4A1; お子さまが楽しめる冒険の仕組み（レベル・ポイント・実績・称号・シールガチャ・コンボ）は<strong>全プラン共通</strong>で制限なし
 	</p>
 
 	<Card padding="lg" class="bg-[var(--color-surface-muted)]">
@@ -138,10 +137,16 @@ const plans = [
 			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しています。</dd>
 
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">プランの変更はできますか？</dt>
-			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。スタンダード↔ファミリー、月額↔年額の切り替えがいつでも可能です。管理画面から変更できます。</dd>
+			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。スタンダード↔ファミリー、月額↔年額の切り替えがいつでも可能です。管理画面の「プラン・お支払い」から変更できます。</dd>
 
-			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">解約するとデータはどうなりますか？</dt>
-			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">解約後30日間はデータが保持されます。その間に再開すればデータはそのまま利用できます。</dd>
+			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">解約するとどうなりますか？</dt>
+			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">お支払い済みの期間終了後、フリープランに自動移行します。データは30日間保持され、再開すればそのまま利用できます。</dd>
+
+			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">課金日はいつですか？</dt>
+			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">お申込み日を起算日として毎月/毎年自動更新されます。</dd>
+
+			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">年額プランの途中解約は返金されますか？</dt>
+			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">日割りでの返金は行っておりません。残りの期間は引き続きご利用いただけます。</dd>
 
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">セルフホスト版はありますか？</dt>
 			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。全機能を無料でお使いいただけるオープンソース版があります。DockerとNode.jsの基本的な知識が必要です。</dd>
