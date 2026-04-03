@@ -64,8 +64,11 @@ img{max-width:100%;height:auto}
 .hero h1 span{color:var(--brand-700)}
 .hero-sub{font-size:1.15rem;color:var(--gray-500);margin-bottom:32px;max-width:600px;margin-left:auto;margin-right:auto}
 .hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
-.hero-badges{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.hero-badges{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
 .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#fff;border:1px solid var(--gray-300);border-radius:2rem;font-size:.8rem;color:var(--gray-500)}
+.hero-illustration{max-width:900px;margin:0 auto 24px;border-radius:16px;overflow:hidden}
+.hero-illustration img{width:100%;height:auto;display:block}
+@media(max-width:640px){.hero-illustration{max-width:100%;border-radius:12px}}
 
 /* Section */
 .section{padding:64px 16px}
@@ -294,6 +297,12 @@ img{max-width:100%;height:auto}
     <span class="badge">&#x1F512; データは家族だけのもの</span>
     <span class="badge">&#x1F4F1; スマホ対応</span>
     <span class="badge">&#x1F310; セルフホスト可</span>
+  </div>
+  <div class="hero-illustration">
+    <picture>
+      <source srcset="hero-illustration.webp" type="image/webp">
+      <img src="hero-illustration.png" alt="冒険の旅に出る勇者キャラクター — ポイント、宝箱、バッジを集めながらレベルアップ" width="1584" height="672" loading="eager">
+    </picture>
   </div>
   <div class="hero-carousel" id="hero-carousel">
     <div class="carousel-track">

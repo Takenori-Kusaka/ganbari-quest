@@ -1,11 +1,8 @@
 // src/routes/api/v1/admin/migration/+server.ts
 // スキーママイグレーション統計 + バッチ実行エンドポイント
 
+import { getMigrationStats, runAllBatchMigrations } from '$lib/server/db/migration/batch';
 import { logger } from '$lib/server/logger';
-import {
-	getMigrationStats,
-	runAllBatchMigrations,
-} from '$lib/server/db/migration/batch';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 
