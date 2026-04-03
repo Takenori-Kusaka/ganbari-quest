@@ -65,7 +65,9 @@ const ageTier = $derived.by(() => {
 const isYoungTier = $derived(['baby', 'kinder'].includes(ageTier));
 const labelEnd = $derived(isYoungTier ? 'おわり' : '終了');
 const labelPrev = $derived(isYoungTier ? 'もどる' : '戻る');
-const labelNext = $derived(isYoungTier ? (isLast ? 'おしまい！' : 'つぎへ') : (isLast ? '完了！' : '次へ'));
+const labelNext = $derived(
+	isYoungTier ? (isLast ? 'おしまい！' : 'つぎへ') : isLast ? '完了！' : '次へ',
+);
 
 function handleEnd() {
 	endTutorial();
