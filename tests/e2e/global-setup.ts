@@ -457,7 +457,8 @@ export default async function globalSetup() {
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 2 + (daysAgo % 3); // 2-4件/日
 					for (let j = 0; j < logsPerDay && j < kinderActivities.length; j++) {
-						const act = kinderActivities[(daysAgo * 3 + j) % kinderActivities.length]!;
+						const act = kinderActivities[(daysAgo * 3 + j) % kinderActivities.length];
+						if (!act) continue;
 						const streak = 8 - daysAgo; // 連続日数
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
 						logStmt.run(
@@ -490,7 +491,8 @@ export default async function globalSetup() {
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 1 + (daysAgo % 2); // 1-2件/日
 					for (let j = 0; j < logsPerDay && j < babyActivities.length; j++) {
-						const act = babyActivities[(daysAgo * 2 + j) % babyActivities.length]!;
+						const act = babyActivities[(daysAgo * 2 + j) % babyActivities.length];
+						if (!act) continue;
 						logStmt2.run(
 							1 + 1,
 							act.id,
