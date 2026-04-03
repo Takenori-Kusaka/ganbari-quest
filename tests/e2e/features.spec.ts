@@ -21,7 +21,7 @@ test.describe('#0029: Baby モード', () => {
 		await dismissOverlays(page);
 
 		await expect(page).toHaveURL(/\/baby\/home/);
-		await expect(page.getByText('てすとくん')).toBeVisible();
+		await expect(page.getByText('はなこちゃん')).toBeVisible();
 	});
 
 	test('活動ボタンが表示される', async ({ page }) => {
