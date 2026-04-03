@@ -70,7 +70,7 @@ describe('checkAndIssueStreakCertificates', () => {
 		const result = await checkAndIssueStreakCertificates(CHILD_ID, 7, TENANT);
 
 		expect(result).toHaveLength(1);
-		expect(result[0].certificateType).toBe('streak_7');
+		expect(result[0]?.certificateType).toBe('streak_7');
 		expect(hasCertificate).toHaveBeenCalledTimes(1);
 		expect(issueCertificate).toHaveBeenCalledTimes(1);
 	});
@@ -158,7 +158,7 @@ describe('checkAndIssueLevelCertificates', () => {
 		const result = await checkAndIssueLevelCertificates(CHILD_ID, 5, TENANT);
 
 		expect(result).toHaveLength(1);
-		expect(result[0].certificateType).toBe('level_5');
+		expect(result[0]?.certificateType).toBe('level_5');
 	});
 
 	it('level=20 で 3 件 (5, 10, 20) 発行する', async () => {
@@ -347,12 +347,12 @@ describe('getCertificatesForChild', () => {
 		const result = await getCertificatesForChild(CHILD_ID, TENANT);
 
 		expect(result).toHaveLength(3);
-		expect(result[0].icon).toBe('⭐');
-		expect(result[0].category).toBe('streak');
-		expect(result[1].icon).toBe('📜');
-		expect(result[1].category).toBe('monthly');
-		expect(result[2].icon).toBe('🏆');
-		expect(result[2].category).toBe('level');
+		expect(result[0]?.icon).toBe('⭐');
+		expect(result[0]?.category).toBe('streak');
+		expect(result[1]?.icon).toBe('📜');
+		expect(result[1]?.category).toBe('monthly');
+		expect(result[2]?.icon).toBe('🏆');
+		expect(result[2]?.category).toBe('level');
 	});
 
 	it('metadata に icon がない場合はデフォルトアイコンを使う', async () => {
@@ -362,8 +362,8 @@ describe('getCertificatesForChild', () => {
 
 		const result = await getCertificatesForChild(CHILD_ID, TENANT);
 
-		expect(result[0].icon).toBe('🎓');
-		expect(result[0].category).toBe('category_master');
+		expect(result[0]?.icon).toBe('🎓');
+		expect(result[0]?.category).toBe('category_master');
 	});
 });
 
