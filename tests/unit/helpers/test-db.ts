@@ -656,6 +656,24 @@ export const SQL_TABLES = `
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX idx_custom_titles_tenant_child ON custom_titles(tenant_id, child_id);
+
+	-- cloud_exports
+	CREATE TABLE cloud_exports (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		export_type TEXT NOT NULL,
+		pin_code TEXT NOT NULL UNIQUE,
+		s3_key TEXT NOT NULL,
+		file_size_bytes INTEGER NOT NULL,
+		label TEXT,
+		description TEXT,
+		expires_at TEXT NOT NULL,
+		download_count INTEGER NOT NULL DEFAULT 0,
+		max_downloads INTEGER NOT NULL DEFAULT 10,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_cloud_exports_tenant ON cloud_exports(tenant_id);
+	CREATE INDEX idx_cloud_exports_pin ON cloud_exports(pin_code);
 `;
 
 // ============================================================
@@ -663,6 +681,7 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'cloud_exports',
 	'custom_titles',
 	'custom_achievements',
 	'certificates',

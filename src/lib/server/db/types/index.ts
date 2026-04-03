@@ -942,3 +942,36 @@ export interface InsertCertificateInput {
 	description?: string;
 	metadata?: string;
 }
+
+// ============================================================
+// Cloud Exports (クラウドエクスポート共有)
+// ============================================================
+
+export type CloudExportType = 'template' | 'full';
+
+export interface CloudExportRecord {
+	id: number;
+	tenantId: string;
+	exportType: CloudExportType;
+	pinCode: string;
+	s3Key: string;
+	fileSizeBytes: number;
+	label: string | null;
+	description: string | null;
+	expiresAt: string;
+	downloadCount: number;
+	maxDownloads: number;
+	createdAt: string;
+}
+
+export interface InsertCloudExportInput {
+	tenantId: string;
+	exportType: CloudExportType;
+	pinCode: string;
+	s3Key: string;
+	fileSizeBytes: number;
+	label?: string | null;
+	description?: string | null;
+	expiresAt: string;
+	maxDownloads?: number;
+}
