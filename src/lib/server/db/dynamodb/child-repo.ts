@@ -9,6 +9,8 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { hydrate, withVersion } from '../migration';
+import { writeBackDynamoDB } from '../migration/writeback';
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
 import { TABLE_NAME, getDocClient } from './client';
 import { nextId } from './counter';
@@ -20,6 +22,19 @@ function stripKeys<T extends Record<string, unknown>>(
 ): Omit<T, 'PK' | 'SK' | 'GSI2PK' | 'GSI2SK'> {
 	const { PK, SK, GSI2PK, GSI2SK, ...rest } = item;
 	return rest;
+}
+
+/** DynamoDB アイテムをマイグレーション（必要なら Write-Back） */
+async function hydrateChild(
+	item: Record<string, unknown>,
+	tenantId: string,
+): Promise<Record<string, unknown>> {
+	const { data, didMigrate } = hydrate('child', item);
+	if (didMigrate) {
+		const id = data.id as number;
+		await writeBackDynamoDB('child', childKey(id, tenantId), item, data);
+	}
+	return data;
 }
 
 /** 全ての子供を取得 */
@@ -37,7 +52,8 @@ export async function findAllChildren(tenantId: string): Promise<Child[]> {
 	);
 
 	const items = result.Items ?? [];
-	return items.map((item) => stripKeys(item) as unknown as Child);
+	const hydrated = await Promise.all(items.map((item) => hydrateChild(item, tenantId)));
+	return hydrated.map((item) => stripKeys(item) as unknown as Child);
 }
 
 /** userIdで子供を取得（招待紐づけ用） */
@@ -59,7 +75,8 @@ export async function findChildByUserId(
 
 	const item = result.Items?.[0];
 	if (!item) return undefined;
-	return stripKeys(item) as unknown as Child;
+	const data = await hydrateChild(item, tenantId);
+	return stripKeys(data) as unknown as Child;
 }
 
 /** IDで子供を取得 */
@@ -72,7 +89,8 @@ export async function findChildById(id: number, tenantId: string): Promise<Child
 	);
 
 	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as Child;
+	const data = await hydrateChild(result.Item, tenantId);
+	return stripKeys(data) as unknown as Child;
 }
 
 /** 子供を作成 */
@@ -97,13 +115,11 @@ export async function insertChild(input: InsertChildInput, tenantId: string): Pr
 		updatedAt: now,
 	};
 
+	const versioned = withVersion('child', { ...childKey(id, tenantId), ...child });
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
-			Item: {
-				...childKey(id, tenantId),
-				...child,
-			},
+			Item: versioned,
 		}),
 	);
 

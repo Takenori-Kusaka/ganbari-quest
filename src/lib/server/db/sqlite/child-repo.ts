@@ -1,5 +1,7 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../client';
+import { ENTITY_VERSIONS } from '../migration/registry';
+import { SCHEMA_VERSION_FIELD } from '../migration/types';
 import {
 	activityLogs,
 	characterImages,
@@ -15,16 +17,44 @@ import {
 	statuses,
 } from '../schema';
 
+/** SQLite: _sv が未設定のレコードに最新バージョンを書き戻す */
+function writeBackChildSv(id: number): void {
+	try {
+		db.run(
+			sql`UPDATE children SET _sv = ${ENTITY_VERSIONS.child.latest} WHERE id = ${id} AND (_sv IS NULL OR _sv < ${ENTITY_VERSIONS.child.latest})`,
+		);
+	} catch {
+		// Write-back failure is non-fatal
+	}
+}
+
 export async function findAllChildren(_tenantId: string) {
-	return db.select().from(children).all();
+	const rows = db.select().from(children).all();
+	for (const row of rows) {
+		if (row._sv == null || row._sv < ENTITY_VERSIONS.child.latest) {
+			writeBackChildSv(row.id);
+			row._sv = ENTITY_VERSIONS.child.latest;
+		}
+	}
+	return rows;
 }
 
 export async function findChildById(id: number, _tenantId: string) {
-	return db.select().from(children).where(eq(children.id, id)).get();
+	const row = db.select().from(children).where(eq(children.id, id)).get();
+	if (row && (row._sv == null || row._sv < ENTITY_VERSIONS.child.latest)) {
+		writeBackChildSv(row.id);
+		row._sv = ENTITY_VERSIONS.child.latest;
+	}
+	return row;
 }
 
 export async function findChildByUserId(userId: string, _tenantId: string) {
-	return db.select().from(children).where(eq(children.userId, userId)).get();
+	const row = db.select().from(children).where(eq(children.userId, userId)).get();
+	if (row && (row._sv == null || row._sv < ENTITY_VERSIONS.child.latest)) {
+		writeBackChildSv(row.id);
+		row._sv = ENTITY_VERSIONS.child.latest;
+	}
+	return row;
 }
 
 export async function insertChild(
@@ -45,6 +75,7 @@ export async function insertChild(
 			theme: input.theme ?? 'pink',
 			uiMode: input.uiMode ?? (input.age <= 2 ? 'baby' : 'kinder'),
 			birthDate: input.birthDate ?? null,
+			[SCHEMA_VERSION_FIELD]: ENTITY_VERSIONS.child.latest,
 		})
 		.returning()
 		.get();
