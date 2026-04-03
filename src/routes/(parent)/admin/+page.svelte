@@ -13,4 +13,7 @@ let { data } = $props();
 	basePath="/admin"
 	monthlySummaries={data.monthlySummaries}
 	currentMonth={data.currentMonth}
+	planTier={data.planTier}
+	planStats={data.planStats}
+	showPremiumWelcome={data.showPremiumWelcome}
 />

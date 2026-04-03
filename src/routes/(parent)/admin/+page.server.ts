@@ -1,7 +1,10 @@
 import { requireTenantId } from '$lib/server/auth/factory';
+import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
+import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/onboarding-service';
+import { getPlanLimits, resolvePlanTier } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
 import { getChildStatus } from '$lib/server/services/status-service';
@@ -53,7 +56,40 @@ export const load: PageServerLoad = async ({ locals }) => {
 		logger.warn('[admin] 月次サマリー取得フォールバック', { context: { error: String(e) } });
 	}
 
-	return { children: childrenWithStatus, onboarding, monthlySummaries, currentMonth: yearMonth };
+	// プランステータスカード用データ
+	let activityCount = 0;
+	try {
+		const acts = await getActivities(tenantId, { includeHidden: false });
+		activityCount = acts.filter((a) => a.source === 'parent').length;
+	} catch {
+		/* fallback */
+	}
+	const tier = resolvePlanTier(locals.context?.licenseStatus ?? 'none', locals.context?.plan);
+	const planLimits = getPlanLimits(tier);
+	const planStats = {
+		activityCount,
+		activityMax: planLimits.maxActivities,
+		childCount: children.length,
+		childMax: planLimits.maxChildren,
+		retentionDays: planLimits.historyRetentionDays,
+	};
+
+	// プレミアム歓迎画面フラグ
+	const isPaid = tier !== 'free';
+	let showPremiumWelcome = false;
+	if (isPaid) {
+		const welcomeSettings = await getSettings(['premium_welcome_shown'], tenantId);
+		showPremiumWelcome = welcomeSettings.premium_welcome_shown !== 'true';
+	}
+
+	return {
+		children: childrenWithStatus,
+		onboarding,
+		monthlySummaries,
+		currentMonth: yearMonth,
+		planStats,
+		showPremiumWelcome,
+	};
 };
 
 export const actions: Actions = {
@@ -64,6 +100,15 @@ export const actions: Actions = {
 			return { dismissed: true };
 		} catch {
 			return fail(500, { error: 'オンボーディングの非表示に失敗しました' });
+		}
+	},
+	dismissPremiumWelcome: async ({ locals }) => {
+		const tenantId = requireTenantId(locals);
+		try {
+			await setSetting('premium_welcome_shown', 'true', tenantId);
+			return { dismissed: true };
+		} catch {
+			return fail(500, { error: 'プレミアム歓迎画面の非表示に失敗しました' });
 		}
 	},
 };
