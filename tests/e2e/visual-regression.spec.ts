@@ -52,7 +52,7 @@ test.describe('Visual Regression: Kinder', () => {
 
 	test('ステータス画面', async ({ page }) => {
 		await page.goto('/kinder/status');
-		await expect(page.getByRole('heading', { name: 'せいちょうチャート' })).toBeVisible();
+		await expect(page.getByTestId('growth-chart-heading')).toBeVisible();
 		await expect(page).toHaveScreenshot('kinder-status.png', SCREENSHOT_OPTIONS);
 	});
 
@@ -64,7 +64,7 @@ test.describe('Visual Regression: Kinder', () => {
 
 	test('履歴画面', async ({ page }) => {
 		await page.goto('/kinder/history');
-		await expect(page.getByRole('tab', { name: 'きょう' })).toBeVisible();
+		await expect(page.getByTestId('tab-today')).toBeVisible();
 		await expect(page).toHaveScreenshot('kinder-history.png', DYNAMIC_SCREENSHOT_OPTIONS);
 	});
 });

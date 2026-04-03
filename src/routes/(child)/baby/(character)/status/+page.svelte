@@ -97,7 +97,7 @@ const radarCategories = $derived(
 				class="w-full p-4 flex items-center justify-between text-sm text-[var(--color-text-muted)]"
 				onclick={() => { soundService.play('tap'); detailOpen = !detailOpen; }}
 			>
-				<span>{detailOpen ? '▼' : '▶'} くわしくみる</span>
+				<span data-testid="growth-detail-toggle">{detailOpen ? '▼' : '▶'} くわしくみる</span>
 			</Button>
 			{#if detailOpen}
 				<div class="px-4 pb-4 flex flex-col gap-4">
