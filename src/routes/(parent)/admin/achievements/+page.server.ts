@@ -1,18 +1,12 @@
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllAchievements } from '$lib/server/db/achievement-repo';
-import type {
-	CustomAchievementConditionType,
-	CustomTitleConditionType,
-} from '$lib/server/db/types';
+import type { CustomAchievementConditionType } from '$lib/server/db/types';
 import { getChildAchievements, grantLifeEvent } from '$lib/server/services/achievement-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
 	createCustomAchievement,
-	createCustomTitle,
 	getCustomAchievementsForChild,
-	getCustomTitlesForChild,
 	removeCustomAchievement,
-	removeCustomTitle,
 } from '$lib/server/services/custom-achievement-service';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { fail } from '@sveltejs/kit';
@@ -29,10 +23,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const childrenWithAchievements = await Promise.all(
 		children.map(async (child) => {
-			const [achievements, customAchievements, customTitles] = await Promise.all([
+			const [achievements, customAchievements] = await Promise.all([
 				getChildAchievements(child.id, tenantId),
 				getCustomAchievementsForChild(child.id, tenantId),
-				getCustomTitlesForChild(child.id, tenantId),
 			]);
 			const unlockedCount = achievements.filter(
 				(a) => a.unlockedAt !== null || a.highestUnlockedMilestone !== null,
@@ -43,7 +36,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 				unlockedCount,
 				totalCount: achievements.length,
 				customAchievements,
-				customTitles,
 			};
 		}),
 	);
@@ -138,48 +130,4 @@ export const actions = {
 		return { customDeleted: true };
 	},
 
-	createCustomTitle: async ({ request, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const form = await request.formData();
-		const childId = Number(form.get('childId'));
-		const name = String(form.get('name') ?? '').trim();
-		const icon = String(form.get('icon') ?? '📛');
-		const conditionType = String(form.get('conditionType')) as CustomTitleConditionType;
-		const conditionValue = Number(form.get('conditionValue'));
-		const conditionActivityId = form.get('conditionActivityId')
-			? Number(form.get('conditionActivityId'))
-			: undefined;
-
-		if (!childId || !name || !conditionValue) {
-			return fail(400, { error: '必須項目を入力してください' });
-		}
-
-		const licenseStatus = locals.context?.licenseStatus ?? 'none';
-		const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-
-		const result = await createCustomTitle(
-			{ childId, name, icon, conditionType, conditionValue, conditionActivityId },
-			tenantId,
-			planTier,
-		);
-
-		if ('error' in result) {
-			const messages: Record<string, string> = {
-				LIMIT_REACHED: 'カスタム称号の上限に達しています',
-				INVALID_INPUT: '入力内容を確認してください',
-			};
-			return fail(400, { error: messages[result.error] ?? 'エラーが発生しました' });
-		}
-
-		return { titleCreated: true };
-	},
-
-	deleteCustomTitle: async ({ request, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const form = await request.formData();
-		const id = Number(form.get('id'));
-		if (!id) return fail(400, { error: 'IDが無効です' });
-		await removeCustomTitle(id, tenantId);
-		return { titleDeleted: true };
-	},
 } satisfies Actions;

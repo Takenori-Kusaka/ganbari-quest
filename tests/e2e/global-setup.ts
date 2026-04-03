@@ -291,18 +291,6 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_child_custom_voices_child ON child_custom_voices(child_id, scene);
 		`);
 
-		// level_titles テーブル（#0147 レベル称号カスタマイズ）
-		db.exec(`
-			CREATE TABLE IF NOT EXISTS level_titles (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				tenant_id TEXT NOT NULL,
-				level INTEGER NOT NULL,
-				custom_title TEXT NOT NULL,
-				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-			);
-			CREATE UNIQUE INDEX IF NOT EXISTS idx_level_titles_tenant_level ON level_titles(tenant_id, level);
-		`);
-
 		// sibling_challenges テーブル（#0216 きょうだいチャレンジ）
 		db.exec(`
 			CREATE TABLE IF NOT EXISTS sibling_challenges (
@@ -414,21 +402,6 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_custom_achievements_tenant_child
 				ON custom_achievements(tenant_id, child_id);
 
-			CREATE TABLE IF NOT EXISTS custom_titles (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				tenant_id TEXT NOT NULL,
-				child_id INTEGER NOT NULL REFERENCES children(id),
-				name TEXT NOT NULL,
-				icon TEXT NOT NULL DEFAULT '📛',
-				condition_type TEXT NOT NULL,
-				condition_value INTEGER NOT NULL,
-				condition_activity_id INTEGER,
-				unlocked_at TEXT,
-				equipped INTEGER NOT NULL DEFAULT 0,
-				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-			);
-			CREATE INDEX IF NOT EXISTS idx_custom_titles_tenant_child
-				ON custom_titles(tenant_id, child_id);
 		`);
 
 		// リアルな過去の活動ログを追加（ステータス画面・レーダーチャートの表示用）

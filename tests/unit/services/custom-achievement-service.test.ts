@@ -6,12 +6,6 @@ const mockFindCustomAchievements = vi.fn();
 const mockCountCustomAchievements = vi.fn();
 const mockUnlockCustomAchievement = vi.fn();
 const mockDeleteCustomAchievement = vi.fn();
-const mockInsertCustomTitle = vi.fn();
-const mockFindCustomTitles = vi.fn();
-const mockCountCustomTitles = vi.fn();
-const mockUnlockCustomTitle = vi.fn();
-const mockEquipCustomTitle = vi.fn();
-const mockDeleteCustomTitle = vi.fn();
 
 vi.mock('$lib/server/db/custom-achievement-repo', () => ({
 	insertCustomAchievement: (...args: unknown[]) => mockInsertCustomAchievement(...args),
@@ -19,12 +13,6 @@ vi.mock('$lib/server/db/custom-achievement-repo', () => ({
 	countCustomAchievements: (...args: unknown[]) => mockCountCustomAchievements(...args),
 	unlockCustomAchievement: (...args: unknown[]) => mockUnlockCustomAchievement(...args),
 	deleteCustomAchievement: (...args: unknown[]) => mockDeleteCustomAchievement(...args),
-	insertCustomTitle: (...args: unknown[]) => mockInsertCustomTitle(...args),
-	findCustomTitles: (...args: unknown[]) => mockFindCustomTitles(...args),
-	countCustomTitles: (...args: unknown[]) => mockCountCustomTitles(...args),
-	unlockCustomTitle: (...args: unknown[]) => mockUnlockCustomTitle(...args),
-	equipCustomTitle: (...args: unknown[]) => mockEquipCustomTitle(...args),
-	deleteCustomTitle: (...args: unknown[]) => mockDeleteCustomTitle(...args),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -34,12 +22,9 @@ vi.mock('$lib/server/logger', () => ({
 import {
 	checkAndUnlockCustomItems,
 	createCustomAchievement,
-	createCustomTitle,
 	getAchievementProgress,
 	getCustomLimits,
-	getTitleProgress,
 	removeCustomAchievement,
-	removeCustomTitle,
 } from '$lib/server/services/custom-achievement-service';
 
 const TENANT = 'test-tenant';
@@ -49,20 +34,20 @@ beforeEach(() => {
 });
 
 describe('getCustomLimits', () => {
-	it('free プランは 0/0', () => {
-		expect(getCustomLimits('free')).toEqual({ achievements: 0, titles: 0 });
+	it('free プランは 0', () => {
+		expect(getCustomLimits('free')).toEqual({ achievements: 0 });
 	});
 
-	it('standard プランは 10/5', () => {
-		expect(getCustomLimits('standard')).toEqual({ achievements: 10, titles: 5 });
+	it('standard プランは 10', () => {
+		expect(getCustomLimits('standard')).toEqual({ achievements: 10 });
 	});
 
-	it('family プランは 999/999', () => {
-		expect(getCustomLimits('family')).toEqual({ achievements: 999, titles: 999 });
+	it('family プランは 999', () => {
+		expect(getCustomLimits('family')).toEqual({ achievements: 999 });
 	});
 
 	it('未知のプランは free と同じ', () => {
-		expect(getCustomLimits('unknown')).toEqual({ achievements: 0, titles: 0 });
+		expect(getCustomLimits('unknown')).toEqual({ achievements: 0 });
 	});
 });
 
@@ -104,38 +89,10 @@ describe('createCustomAchievement', () => {
 	});
 });
 
-describe('createCustomTitle', () => {
-	const validInput = {
-		childId: 1,
-		name: 'ピアノのめいじん',
-		conditionType: 'activity_count' as const,
-		conditionValue: 50,
-	};
-
-	it('プラン上限内で作成成功', async () => {
-		mockCountCustomTitles.mockResolvedValue(2);
-		mockInsertCustomTitle.mockResolvedValue({ id: 1, ...validInput });
-		const result = await createCustomTitle(validInput, TENANT, 'standard');
-		expect(result).toHaveProperty('id', 1);
-	});
-
-	it('プラン上限到達で LIMIT_REACHED', async () => {
-		mockCountCustomTitles.mockResolvedValue(5);
-		const result = await createCustomTitle(validInput, TENANT, 'standard');
-		expect(result).toEqual({ error: 'LIMIT_REACHED' });
-	});
-});
-
-describe('removeCustomAchievement / removeCustomTitle', () => {
+describe('removeCustomAchievement', () => {
 	it('実績削除', async () => {
 		mockDeleteCustomAchievement.mockResolvedValue(true);
 		const result = await removeCustomAchievement(1, TENANT);
-		expect(result).toBe(true);
-	});
-
-	it('称号削除', async () => {
-		mockDeleteCustomTitle.mockResolvedValue(true);
-		const result = await removeCustomTitle(1, TENANT);
 		expect(result).toBe(true);
 	});
 });
@@ -207,52 +164,6 @@ describe('getAchievementProgress', () => {
 	});
 });
 
-describe('getTitleProgress', () => {
-	const baseData = {
-		totalActivityCount: 50,
-		activityCounts: { 5: 30 } as Record<number, number>,
-		categoryCounts: {} as Record<number, number>,
-		maxStreakDays: 14,
-		activityStreaks: {} as Record<number, number>,
-		currentLevel: 15,
-		achievementCount: 8,
-	};
-
-	it('level_reach', () => {
-		const t = { conditionType: 'level_reach', conditionValue: 20, conditionActivityId: null };
-		const result = getTitleProgress(t as never, baseData);
-		expect(result).toEqual({ current: 15, target: 20, complete: false });
-	});
-
-	it('achievement_count', () => {
-		const t = {
-			conditionType: 'achievement_count',
-			conditionValue: 5,
-			conditionActivityId: null,
-		};
-		const result = getTitleProgress(t as never, baseData);
-		expect(result).toEqual({ current: 5, target: 5, complete: true });
-	});
-
-	it('activity_count (specific)', () => {
-		const t = { conditionType: 'activity_count', conditionValue: 50, conditionActivityId: 5 };
-		const result = getTitleProgress(t as never, baseData);
-		expect(result).toEqual({ current: 30, target: 50, complete: false });
-	});
-
-	it('activity_count (total)', () => {
-		const t = { conditionType: 'activity_count', conditionValue: 40, conditionActivityId: null };
-		const result = getTitleProgress(t as never, baseData);
-		expect(result).toEqual({ current: 40, target: 40, complete: true });
-	});
-
-	it('streak_days', () => {
-		const t = { conditionType: 'streak_days', conditionValue: 30, conditionActivityId: null };
-		const result = getTitleProgress(t as never, baseData);
-		expect(result).toEqual({ current: 14, target: 30, complete: false });
-	});
-});
-
 describe('checkAndUnlockCustomItems', () => {
 	const progressData = {
 		totalActivityCount: 100,
@@ -278,7 +189,6 @@ describe('checkAndUnlockCustomItems', () => {
 				unlockedAt: null,
 			},
 		]);
-		mockFindCustomTitles.mockResolvedValue([]);
 		mockUnlockCustomAchievement.mockResolvedValue(undefined);
 
 		const result = await checkAndUnlockCustomItems(1, TENANT, progressData);
@@ -298,30 +208,9 @@ describe('checkAndUnlockCustomItems', () => {
 				bonusPoints: 100,
 			},
 		]);
-		mockFindCustomTitles.mockResolvedValue([]);
 
 		const result = await checkAndUnlockCustomItems(1, TENANT, progressData);
 		expect(result).toHaveLength(0);
-	});
-
-	it('称号も解放', async () => {
-		mockFindCustomAchievements.mockResolvedValue([]);
-		mockFindCustomTitles.mockResolvedValue([
-			{
-				id: 2,
-				name: 'レベルマスター',
-				icon: '📛',
-				conditionType: 'level_reach',
-				conditionValue: 10,
-				conditionActivityId: null,
-				unlockedAt: null,
-			},
-		]);
-		mockUnlockCustomTitle.mockResolvedValue(undefined);
-
-		const result = await checkAndUnlockCustomItems(1, TENANT, progressData);
-		expect(result).toHaveLength(1);
-		expect(result[0]).toMatchObject({ type: 'title', id: 2 });
 	});
 
 	it('エラー時は空配列を返す', async () => {
