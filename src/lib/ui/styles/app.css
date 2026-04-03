@@ -20,12 +20,28 @@
 	--radius-lg: 24px;
 	--radius-full: 9999px;
 
-	/* ---- Font Size ---- */
+	/* ---- Font Size (Major Third scale — see docs/design/22) ---- */
 	--font-size-hero: 3rem;
+	--font-size-2xl: 2rem;
 	--font-size-xl: 1.5rem;
 	--font-size-lg: 1.25rem;
 	--font-size-md: 1rem;
 	--font-size-sm: 0.875rem;
+	--font-size-xs: 0.75rem;
+
+	/* ---- Font Weight ---- */
+	--font-weight-normal: 400;
+	--font-weight-medium: 500;
+	--font-weight-bold: 700;
+
+	/* ---- Line Height ---- */
+	--line-height-tight: 1.25;
+	--line-height-normal: 1.5;
+	--line-height-relaxed: 1.75;
+
+	/* ---- Emoji Size ---- */
+	--emoji-size-inline: 1.25em;
+	--emoji-size-card: 2rem;
 
 	/* ============================================================
 	   Brand Color Palette
