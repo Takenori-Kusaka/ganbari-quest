@@ -807,6 +807,57 @@ export const reportDailySummaries = sqliteTable(
 // Certificates
 // ============================================================
 
+// ============================================================
+// custom_achievements - カスタム実績
+// ============================================================
+export const customAchievements = sqliteTable(
+	'custom_achievements',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		name: text('name').notNull(),
+		description: text('description'),
+		icon: text('icon').notNull().default('🏅'),
+		conditionType: text('condition_type').notNull(), // total_count, activity_count, category_count, streak_days, activity_streak
+		conditionActivityId: integer('condition_activity_id'), // for activity_count / activity_streak
+		conditionCategoryId: integer('condition_category_id'), // for category_count
+		conditionValue: integer('condition_value').notNull(), // target value
+		bonusPoints: integer('bonus_points').notNull().default(100),
+		unlockedAt: text('unlocked_at'), // null = not yet unlocked
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [index('idx_custom_achievements_tenant_child').on(table.tenantId, table.childId)],
+);
+
+// ============================================================
+// custom_titles - カスタム称号
+// ============================================================
+export const customTitles = sqliteTable(
+	'custom_titles',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		name: text('name').notNull(),
+		icon: text('icon').notNull().default('📛'),
+		conditionType: text('condition_type').notNull(), // level_reach, achievement_count, activity_count, streak_days
+		conditionValue: integer('condition_value').notNull(),
+		conditionActivityId: integer('condition_activity_id'),
+		unlockedAt: text('unlocked_at'), // null = not yet unlocked
+		equipped: integer('equipped').notNull().default(0), // 1 = active title
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [index('idx_custom_titles_tenant_child').on(table.tenantId, table.childId)],
+);
+
+// ============================================================
+// certificates - がんばり証明書
+// ============================================================
 export const certificates = sqliteTable(
 	'certificates',
 	{

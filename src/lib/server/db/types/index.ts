@@ -849,6 +849,78 @@ export interface InsertReportDailySummaryInput {
 }
 
 // ============================================================
+// Custom Achievements
+// ============================================================
+
+export type CustomAchievementConditionType =
+	| 'total_count'
+	| 'activity_count'
+	| 'category_count'
+	| 'streak_days'
+	| 'activity_streak';
+
+export interface CustomAchievement {
+	id: number;
+	tenantId: string;
+	childId: number;
+	name: string;
+	description: string | null;
+	icon: string;
+	conditionType: CustomAchievementConditionType;
+	conditionActivityId: number | null;
+	conditionCategoryId: number | null;
+	conditionValue: number;
+	bonusPoints: number;
+	unlockedAt: string | null;
+	createdAt: string;
+}
+
+export interface InsertCustomAchievementInput {
+	childId: number;
+	name: string;
+	description?: string;
+	icon?: string;
+	conditionType: CustomAchievementConditionType;
+	conditionActivityId?: number;
+	conditionCategoryId?: number;
+	conditionValue: number;
+	bonusPoints?: number;
+}
+
+// ============================================================
+// Custom Titles
+// ============================================================
+
+export type CustomTitleConditionType =
+	| 'level_reach'
+	| 'achievement_count'
+	| 'activity_count'
+	| 'streak_days';
+
+export interface CustomTitle {
+	id: number;
+	tenantId: string;
+	childId: number;
+	name: string;
+	icon: string;
+	conditionType: CustomTitleConditionType;
+	conditionValue: number;
+	conditionActivityId: number | null;
+	unlockedAt: string | null;
+	equipped: number;
+	createdAt: string;
+}
+
+export interface InsertCustomTitleInput {
+	childId: number;
+	name: string;
+	icon?: string;
+	conditionType: CustomTitleConditionType;
+	conditionValue: number;
+	conditionActivityId?: number;
+}
+
+// ============================================================
 // Certificates
 // ============================================================
 
