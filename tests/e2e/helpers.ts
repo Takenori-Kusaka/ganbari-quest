@@ -87,6 +87,21 @@ export async function dismissOverlays(page: Page) {
 		// オーバーレイが表示されなかった場合（既に受領済み or 未対応）
 	}
 
+	// 月替わりプレゼントオーバーレイを閉じる（reward-overlay は Ark UI Dialog ではない）
+	const giftBtn = page.locator('.reward-gift__open-btn');
+	if (await giftBtn.isVisible().catch(() => false)) {
+		await giftBtn.click();
+		const claimBtn = page.locator('.reward-reveal__btn');
+		await claimBtn.waitFor({ timeout: 2000 }).catch(() => {});
+		if (await claimBtn.isVisible().catch(() => false)) {
+			await claimBtn.click();
+		}
+		await page
+			.locator('.reward-overlay')
+			.waitFor({ state: 'hidden', timeout: 3000 })
+			.catch(() => {});
+	}
+
 	// 特別報酬や汎用オーバーレイを閉じる
 	// ダイアログ内のボタンのみ対象にし、ページ上の別ボタンを誤クリックしない
 	for (let i = 0; i < 3; i++) {
@@ -245,6 +260,9 @@ export function getAllActivityCards(page: Page) {
 
 /** 未記録の活動を記録する（並列テストの競合対策で複数リトライ） */
 export async function recordAnyActivity(page: Page): Promise<boolean> {
+	// 月替わりプレゼントなどのモーダルオーバーレイが表示されている場合は閉じる
+	await dismissOverlays(page);
+
 	// compactMode でカテゴリが折りたたまれている場合は展開する
 	await expandFirstCategory(page);
 
@@ -252,6 +270,7 @@ export async function recordAnyActivity(page: Page): Promise<boolean> {
 	const count = await activities.count();
 
 	for (let i = 0; i < Math.min(count, 10); i++) {
+		await dismissOverlays(page);
 		await activities.nth(i).click();
 
 		// 確認ダイアログが出るのを待つ
