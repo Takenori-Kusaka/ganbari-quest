@@ -129,6 +129,21 @@ img{max-width:100%;height:auto}
 .diff-card .diff-issue{font-size:.85rem;color:#dc2626;margin-bottom:8px}
 .diff-card .diff-solve{font-size:.85rem;color:#16a34a}
 
+/* Evolution section */
+.evo-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;max-width:900px;margin:0 auto}
+.evo-card{border-radius:var(--radius);padding:28px 24px}
+.evo-card h3{font-size:1.1rem;font-weight:700;margin-bottom:16px}
+.evo-sticker{background:#fff;border:1px solid var(--gray-300)}
+.evo-sticker h3{color:var(--gray-700)}
+.evo-quest{background:linear-gradient(135deg,var(--brand-100),#fef9e7);border:1px solid var(--brand-300)}
+.evo-quest h3{color:var(--brand-700)}
+.evo-card ul{list-style:none;padding:0}
+.evo-card li{font-size:.9rem;padding:6px 0;display:flex;gap:8px;align-items:flex-start;line-height:1.6}
+.evo-card li span{flex-shrink:0}
+@media(max-width:640px){
+  .evo-grid{grid-template-columns:1fr}
+}
+
 /* Social proof */
 .review-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
 .review-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px}
@@ -175,18 +190,37 @@ img{max-width:100%;height:auto}
 .footer-links a:hover{color:#fff}
 .footer-copy{border-top:1px solid #334155;margin-top:32px;padding-top:16px;text-align:center;font-size:.75rem}
 
-/* Hero product shot */
-.hero-product{margin-top:40px;display:flex;justify-content:center}
-.hero-product .device-frame{position:relative;width:280px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
-.hero-product .device-frame img{display:block;width:100%;height:auto;border-radius:24px}
+/* Hero carousel */
+.hero-carousel{margin-top:40px;display:flex;flex-direction:column;align-items:center}
+.carousel-track{position:relative;width:280px;height:606px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
+.carousel-slide{position:absolute;inset:0;opacity:0;transition:opacity .8s ease}
+.carousel-slide.active{opacity:1}
+.carousel-slide img{display:block;width:100%;height:100%;object-fit:cover;object-position:top;border-radius:24px}
+.carousel-dots{display:flex;gap:8px;margin-top:16px}
+.carousel-dot{width:8px;height:8px;border-radius:50%;background:var(--gray-300);border:none;cursor:pointer;padding:0;transition:background .3s}
+.carousel-dot.active{background:var(--brand-700);width:24px;border-radius:4px}
+.carousel-label{margin-top:8px;font-size:.85rem;color:var(--gray-500);min-height:1.5em;transition:opacity .3s}
+@media(min-width:1024px){
+  .carousel-track{width:720px;height:450px;border-radius:12px;box-shadow:0 20px 60px rgba(56,120,184,.2),0 0 0 4px var(--gray-900)}
+  .carousel-slide img{border-radius:8px}
+}
 
 /* Feature card screenshots */
 .feature-card .feature-screenshot{margin-bottom:12px;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:220px}
 .feature-card .feature-screenshot img{width:100%;height:100%;object-fit:cover;object-position:top}
+@media(min-width:1024px){
+  .feature-card .feature-screenshot{aspect-ratio:16/10;max-height:240px}
+}
 
 /* Age card screenshots */
 .age-card .age-screenshot{margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:200px}
 .age-card .age-screenshot img{width:100%;height:100%;object-fit:cover;object-position:top}
+@media(min-width:641px) and (max-width:1023px){
+  .age-card .age-screenshot{aspect-ratio:3/4;max-height:220px}
+}
+@media(min-width:1024px){
+  .age-card .age-screenshot{aspect-ratio:16/10;max-height:200px}
+}
 
 @media(max-width:640px){
   .hero h1{font-size:1.8rem}
@@ -200,7 +234,7 @@ img{max-width:100%;height:auto}
   .age-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
   .ba-grid{grid-template-columns:1fr;gap:16px}
   .ba-arrow{justify-content:center;transform:rotate(90deg)}
-  .hero-product .device-frame{width:220px;border-radius:24px;box-shadow:0 12px 40px rgba(56,120,184,.2),0 0 0 6px var(--gray-900)}
+  .carousel-track{width:220px;height:476px;border-radius:24px;box-shadow:0 12px 40px rgba(56,120,184,.2),0 0 0 6px var(--gray-900)}
   .feature-card .feature-screenshot{max-height:180px}
   .age-card .age-screenshot{max-height:160px}
 }
@@ -245,13 +279,40 @@ img{max-width:100%;height:auto}
     <span class="badge">&#x1F4F1; スマホ対応</span>
     <span class="badge">&#x1F310; セルフホスト可</span>
   </div>
-  <div class="hero-product">
-    <div class="device-frame">
-      <picture>
-        <source srcset="screenshots/hero-child-home.webp" type="image/webp">
-        <img src="screenshots/hero-child-home.webp" alt="がんばりクエスト 子供ホーム画面 — ポイント獲得とレベルアップ" width="390" height="844">
-      </picture>
+  <div class="hero-carousel" id="hero-carousel">
+    <div class="carousel-track">
+      <div class="carousel-slide active" data-label="子供のホーム画面 &#8212; 活動を記録してポイントゲット">
+        <picture>
+          <source srcset="screenshots/carousel-1-child-home-desktop.webp" media="(min-width:1024px)" type="image/webp">
+          <img src="screenshots/carousel-1-child-home-mobile.webp" alt="子供のホーム画面 — 活動記録とポイント獲得" width="390" height="844">
+        </picture>
+      </div>
+      <div class="carousel-slide" data-label="成長チャート &#8212; 5つのチカラが見える化">
+        <picture>
+          <source srcset="screenshots/carousel-2-child-status-desktop.webp" media="(min-width:1024px)" type="image/webp">
+          <img src="screenshots/carousel-2-child-status-mobile.webp" alt="成長レーダーチャートとステータス画面" width="390" height="844">
+        </picture>
+      </div>
+      <div class="carousel-slide" data-label="親の管理画面 &#8212; お子さまの活動を一覧で把握">
+        <picture>
+          <source srcset="screenshots/carousel-3-admin-main-desktop.webp" media="(min-width:1024px)" type="image/webp">
+          <img src="screenshots/carousel-3-admin-main-mobile.webp" alt="親の管理ダッシュボード" width="390" height="844">
+        </picture>
+      </div>
+      <div class="carousel-slide" data-label="活動の設定 &#8212; がんばってほしいことを自由にカスタマイズ">
+        <picture>
+          <source srcset="screenshots/carousel-4-admin-sub-desktop.webp" media="(min-width:1024px)" type="image/webp">
+          <img src="screenshots/carousel-4-admin-sub-mobile.webp" alt="活動管理画面" width="390" height="844">
+        </picture>
+      </div>
     </div>
+    <div class="carousel-dots">
+      <button class="carousel-dot active" data-index="0" aria-label="スライド1"></button>
+      <button class="carousel-dot" data-index="1" aria-label="スライド2"></button>
+      <button class="carousel-dot" data-index="2" aria-label="スライド3"></button>
+      <button class="carousel-dot" data-index="3" aria-label="スライド4"></button>
+    </div>
+    <div class="carousel-label">子供のホーム画面 &#8212; 活動を記録してポイントゲット</div>
   </div>
 </section>
 
@@ -289,6 +350,13 @@ img{max-width:100%;height:auto}
           <div class="pain-detail">100均のごほうびシール、手作りスタンプカード。最初は喜んだけど、いつも途中で終わる。</div>
         </div>
       </div>
+      <div class="pain-card">
+        <div class="pain-icon">&#x1F4B0;</div>
+        <div>
+          <div class="pain-quote">「がんばったからおもちゃ買ってあげるね」</div>
+          <div class="pain-detail">がんばりの評価がカンと気分頼りに。何をどれだけがんばったか分からないから、「まとめて何か買ってあげる」になりがち。</div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -299,9 +367,11 @@ img{max-width:100%;height:auto}
     <div class="solution-box">
       <h3>お子さまの「がんばり」を、冒険に変えよう</h3>
       <p>
-        がんばりクエストは、毎日の活動をポイントに変え、<br>
-        レベルアップや称号獲得のワクワクで<br>
-        お子さまの「自分からやりたい！」を引き出します。
+        シール帳やスタンプカードでは見えなかった<br>
+        一つひとつのがんばりが、ポイントとして蓄積。<br>
+        お子さまは冒険の主人公のようにレベルアップし、<br>
+        親御さんは「何をどれだけがんばったか」を<br>
+        根拠を持って褒められるようになります。
       </p>
       <div class="solution-points">
         <div class="solution-point">
@@ -364,7 +434,7 @@ img{max-width:100%;height:auto}
     <div class="features-grid">
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-point-level.webp" type="image/webp"><img src="screenshots/feature-point-level.webp" alt="ポイント獲得とレベルアップ画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-point-level.webp" type="image/webp"><img src="screenshots/feature-point-level.webp" alt="ポイント獲得とレベルアップ画面" width="390" height="844" loading="lazy"></picture>
         </div>
         <div class="feature-icon">&#x2B50;</div>
         <h3>ポイント &amp; レベルアップ</h3>
@@ -373,7 +443,7 @@ img{max-width:100%;height:auto}
       </div>
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-combo-mission.webp" type="image/webp"><img src="screenshots/feature-combo-mission.webp" alt="コンボカウンターとデイリーミッション" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-combo-mission-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-combo-mission.webp" type="image/webp"><img src="screenshots/feature-combo-mission.webp" alt="コンボカウンターとデイリーミッション" width="390" height="844" loading="lazy"></picture>
         </div>
         <div class="feature-icon">&#x1F525;</div>
         <h3>コンボ &amp; デイリーミッション</h3>
@@ -382,7 +452,7 @@ img{max-width:100%;height:auto}
       </div>
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-radar-chart.webp" type="image/webp"><img src="screenshots/feature-radar-chart.webp" alt="5軸の成長レーダーチャート" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-radar-chart-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-radar-chart.webp" type="image/webp"><img src="screenshots/feature-radar-chart.webp" alt="5軸の成長レーダーチャート" width="390" height="844" loading="lazy"></picture>
         </div>
         <div class="feature-icon">&#x1F4CA;</div>
         <h3>成長レーダーチャート</h3>
@@ -391,7 +461,7 @@ img{max-width:100%;height:auto}
       </div>
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-titles.webp" type="image/webp"><img src="screenshots/feature-titles.webp" alt="称号と実績コレクション画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-titles-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-titles.webp" type="image/webp"><img src="screenshots/feature-titles.webp" alt="称号と実績コレクション画面" width="390" height="844" loading="lazy"></picture>
         </div>
         <div class="feature-icon">&#x1F3C6;</div>
         <h3>称号 &amp; 実績コレクション</h3>
@@ -400,7 +470,7 @@ img{max-width:100%;height:auto}
       </div>
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-checklist.webp" type="image/webp"><img src="screenshots/feature-checklist.webp" alt="やることリスト画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-checklist-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-checklist.webp" type="image/webp"><img src="screenshots/feature-checklist.webp" alt="やることリスト画面" width="390" height="844" loading="lazy"></picture>
         </div>
         <div class="feature-icon">&#x2705;</div>
         <h3>やることリスト</h3>
@@ -409,7 +479,7 @@ img{max-width:100%;height:auto}
       </div>
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-dream.webp" type="image/webp"><img src="screenshots/feature-dream.webp" alt="成長記録と管理画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-dream-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-dream.webp" type="image/webp"><img src="screenshots/feature-dream.webp" alt="成長記録と管理画面" width="390" height="844" loading="lazy"></picture>
         </div>
         <div class="feature-icon">&#x1F3AF;</div>
         <h3>将来の夢を応援</h3>
@@ -428,8 +498,8 @@ img{max-width:100%;height:auto}
     <div class="diff-grid">
       <div class="diff-card">
         <h3>&#x1F4DD; シール帳・スタンプカード</h3>
-        <div class="diff-issue">&#x274C; 飽きる。親の手間がかかる。兄妹で公平にできない。</div>
-        <div class="diff-solve">&#x2705; アプリなので子供が自分で記録。年齢ごとに異なる基準で公平に評価。</div>
+        <div class="diff-issue">&#x274C; 飽きる。がんばりが見えない。「おもちゃ買ってあげる」式のまとめ報酬になりがち。</div>
+        <div class="diff-solve">&#x2705; 個々の活動がポイントに変わり、がんばりが数字で見える。ポイントをお小遣いに変換すれば、がんばりと報酬が直接つながります。</div>
       </div>
       <div class="diff-card">
         <h3>&#x1F4B0; お小遣いアプリ</h3>
@@ -445,8 +515,38 @@ img{max-width:100%;height:auto}
   </div>
 </section>
 
+<!-- Evolution — sticker chart to quest -->
+<section class="section bg-gray" id="evolution">
+  <div class="section-inner">
+    <h2 class="section-title">シール帳の「いいところ」は、そのまま</h2>
+    <p class="section-desc">足りなかったところを、テクノロジーで補いました</p>
+    <div class="evo-grid">
+      <div class="evo-card evo-sticker">
+        <h3>&#x2B50; シール帳</h3>
+        <ul>
+          <li><span>&#x2705;</span> がんばったらシールで褒める &#8212; 嬉しい</li>
+          <li><span>&#x26A0;&#xFE0F;</span> 何をどれだけがんばったか、記録に残らない</li>
+          <li><span>&#x26A0;&#xFE0F;</span> 「がんばったからおもちゃ」&#8212; 報酬がアバウトに</li>
+          <li><span>&#x26A0;&#xFE0F;</span> 親の気分やタイミングで評価がブレやすい</li>
+          <li><span>&#x26A0;&#xFE0F;</span> 2&#x301C;3週間で新鮮さが薄れてしまう</li>
+        </ul>
+      </div>
+      <div class="evo-card evo-quest">
+        <h3>&#x1F3AE; がんばりクエスト</h3>
+        <ul>
+          <li><span>&#x2705;</span> がんばりがポイントに &#8212; 褒める根拠がデータで残る</li>
+          <li><span>&#x2705;</span> 個々の活動にポイントがつくから、報酬と1対1で結びつく</li>
+          <li><span>&#x2705;</span> レーダーチャートで成長が見える &#8212; 「すごいね」がフェアに</li>
+          <li><span>&#x2705;</span> コンボ・称号・レベルアップ &#8212; ゲームのように続く</li>
+          <li><span>&#x2705;</span> お小遣い変換で「がんばり = 価値」が伝わる</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Age Modes -->
-<section class="section bg-gray" id="age-modes">
+<section class="section bg-white" id="age-modes">
   <div class="section-inner">
     <h2 class="section-title">お子さまの成長に合わせて</h2>
     <p class="section-desc">0歳から18歳まで、年齢に応じて画面が自動で変わります</p>
@@ -456,7 +556,7 @@ img{max-width:100%;height:auto}
         <h3>はじめの一歩</h3>
         <div class="age-range">0&#x301C;2歳</div>
         <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-baby.webp" type="image/webp"><img src="screenshots/age-baby.webp" alt="0-2歳向け はじめの一歩モード画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/age-baby-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-baby-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-baby.webp" type="image/webp"><img src="screenshots/age-baby.webp" alt="0-2歳向け はじめの一歩モード画面" width="390" height="844" loading="lazy"></picture>
         </div>
         <p>保護者がお子さまの活動を記録します。大きなアイコンでシンプルな画面です。</p>
       </div>
@@ -465,7 +565,7 @@ img{max-width:100%;height:auto}
         <h3>じぶんでタップ</h3>
         <div class="age-range">3&#x301C;5歳</div>
         <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-kinder.webp" type="image/webp"><img src="screenshots/age-kinder.webp" alt="3-5歳向け じぶんでタップモード画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/age-kinder-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-kinder-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-kinder.webp" type="image/webp"><img src="screenshots/age-kinder.webp" alt="3-5歳向け じぶんでタップモード画面" width="390" height="844" loading="lazy"></picture>
         </div>
         <p>ひらがな表示と大きなボタンで、お子さま自身が「できた！」をタップできます。</p>
       </div>
@@ -474,7 +574,7 @@ img{max-width:100%;height:auto}
         <h3>冒険スタート</h3>
         <div class="age-range">6&#x301C;9歳</div>
         <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-lower.webp" type="image/webp"><img src="screenshots/age-lower.webp" alt="6-9歳向け 冒険スタートモード画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/age-lower-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-lower-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-lower.webp" type="image/webp"><img src="screenshots/age-lower.webp" alt="6-9歳向け 冒険スタートモード画面" width="390" height="844" loading="lazy"></picture>
         </div>
         <p>自分で活動を選んで記録。称号集めやコンボで、がんばりが楽しくなります。</p>
       </div>
@@ -483,7 +583,7 @@ img{max-width:100%;height:auto}
         <h3>チャレンジ</h3>
         <div class="age-range">10&#x301C;14歳</div>
         <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-upper.webp" type="image/webp"><img src="screenshots/age-upper.webp" alt="10-14歳向け チャレンジモード画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/age-upper-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-upper-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-upper.webp" type="image/webp"><img src="screenshots/age-upper.webp" alt="10-14歳向け チャレンジモード画面" width="390" height="844" loading="lazy"></picture>
         </div>
         <p>統計やグラフで自分の成長を分析。目標を立てて計画的に取り組めます。</p>
       </div>
@@ -492,7 +592,7 @@ img{max-width:100%;height:auto}
         <h3>みらい設計</h3>
         <div class="age-range">15&#x301C;18歳</div>
         <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-teen.webp" type="image/webp"><img src="screenshots/age-teen.webp" alt="15-18歳向け みらい設計モード画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/age-teen-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-teen-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-teen.webp" type="image/webp"><img src="screenshots/age-teen.webp" alt="15-18歳向け みらい設計モード画面" width="390" height="844" loading="lazy"></picture>
         </div>
         <p>全機能を活用。キャリアプランニングで将来の夢に向けた行動計画を作れます。</p>
       </div>
@@ -501,7 +601,7 @@ img{max-width:100%;height:auto}
 </section>
 
 <!-- Social proof -->
-<section class="section bg-white" id="voices">
+<section class="section bg-gray" id="voices">
   <div class="section-inner">
     <h2 class="section-title">ご家庭の声</h2>
     <p class="section-desc">がんばりクエストを使っている家族からの感想です</p>
@@ -708,5 +808,41 @@ img{max-width:100%;height:auto}
   </div>
 </footer>
 
+<script>
+(function(){
+  var carousel=document.getElementById('hero-carousel');
+  if(!carousel)return;
+  var slides=carousel.querySelectorAll('.carousel-slide');
+  var dots=carousel.querySelectorAll('.carousel-dot');
+  var label=carousel.querySelector('.carousel-label');
+  var current=0;
+  var total=slides.length;
+  var interval=4000;
+  var timer;
+
+  function show(index){
+    slides[current].classList.remove('active');
+    dots[current].classList.remove('active');
+    current=index;
+    slides[current].classList.add('active');
+    dots[current].classList.add('active');
+    if(label)label.innerHTML=slides[current].getAttribute('data-label')||'';
+  }
+
+  function next(){show((current+1)%total)}
+
+  function startTimer(){timer=setInterval(next,interval)}
+  function resetTimer(){clearInterval(timer);startTimer()}
+
+  dots.forEach(function(dot){
+    dot.addEventListener('click',function(){
+      show(parseInt(this.getAttribute('data-index')));
+      resetTimer();
+    });
+  });
+
+  startTimer();
+})();
+</script>
 </body>
 </html>
