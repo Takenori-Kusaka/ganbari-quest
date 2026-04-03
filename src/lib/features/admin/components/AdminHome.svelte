@@ -31,6 +31,21 @@ interface MonthSummaryData {
 	newAchievements: number;
 }
 
+interface SeasonEventInfo {
+	name: string;
+	eventType: string;
+	startDate: string;
+	endDate: string;
+	bannerIcon: string;
+}
+
+interface MemoryTicketInfo {
+	totalMonths: number;
+	ticketsEarned: number;
+	ticketsAvailable: number;
+	nextTicketAt: number;
+}
+
 interface Props {
 	children: ChildSummary[];
 	pointSettings: PointSettings;
@@ -49,6 +64,10 @@ interface Props {
 		retentionDays: number | null;
 	};
 	showPremiumWelcome?: boolean;
+	seasonalInfo?: {
+		activeEvents: SeasonEventInfo[];
+		memoryTicket: MemoryTicketInfo | null;
+	} | null;
 }
 
 let {
@@ -63,6 +82,7 @@ let {
 	planTier = 'free',
 	planStats,
 	showPremiumWelcome = false,
+	seasonalInfo = null,
 }: Props = $props();
 
 let welcomeVisible = $state(showPremiumWelcome);
@@ -234,6 +254,37 @@ function childLink(child: ChildSummary): string {
 			childMax={planStats.childMax}
 			retentionDays={planStats.retentionDays}
 		/>
+	{/if}
+
+	<!-- Seasonal Content Info -->
+	{#if !isDemo && seasonalInfo && seasonalInfo.activeEvents.length > 0}
+		<section class="bg-white rounded-xl p-4 shadow-sm">
+			<h2 class="text-sm font-bold text-gray-700 mb-3">🌸 季節コンテンツ</h2>
+			<div class="space-y-2">
+				{#each seasonalInfo.activeEvents as event}
+					<div class="flex items-center gap-2 text-sm">
+						<span>{event.bannerIcon}</span>
+						<span class="font-medium text-gray-800">{event.name}</span>
+						<span class="text-xs text-gray-400 ml-auto">
+							{event.startDate} 〜 {event.endDate}
+						</span>
+					</div>
+				{/each}
+			</div>
+			{#if seasonalInfo.memoryTicket && (planTier === 'standard' || planTier === 'family')}
+				<div class="mt-3 pt-3 border-t border-gray-100">
+					<div class="flex items-center justify-between text-sm">
+						<span class="text-gray-600">🎫 思い出チケット</span>
+						<span class="font-bold text-purple-600">
+							{seasonalInfo.memoryTicket.ticketsAvailable}枚
+						</span>
+					</div>
+					<p class="text-xs text-gray-400 mt-1">
+						継続{seasonalInfo.memoryTicket.totalMonths}ヶ月 — 次のチケットまで{seasonalInfo.memoryTicket.nextTicketAt}ヶ月
+					</p>
+				</div>
+			{/if}
+		</section>
 	{/if}
 
 	<!-- Summary Cards -->
