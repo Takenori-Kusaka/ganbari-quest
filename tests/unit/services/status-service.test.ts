@@ -372,6 +372,4 @@ describe('getCategoryXpSummary', () => {
 		expect(undou?.expToNextLevel).toBe(20); // 40 - 20
 		expect(undou?.progressPct).toBe(20);
 	});
-
 });
-

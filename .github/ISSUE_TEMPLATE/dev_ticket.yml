@@ -72,6 +72,49 @@ body:
         - [ ]
         - [ ]
 
+  - type: textarea
+    id: quality-policy
+    attributes:
+      label: 品質ポリシー（スクラップ&ビルド時 必読）
+      description: 機能削除・根本的修正を含むチケットでは特に厳守すること。
+      value: |
+        以下に該当する作業がある場合、はりぼて修正（表示だけ変更・コメントアウト・unused変数放置等）は禁止。
+        作業が肥大化してでも、設計思想・コーディングポリシーに準拠した丁寧な対応を行うこと。
+
+        **機能削除時:**
+        - [ ] 関連コンポーネント・ページ・ルートを完全削除（コメントアウトではなく削除）
+        - [ ] 関連するサービス層・API エンドポイントも削除
+        - [ ] 関連するDBテーブル・カラムのマイグレーション対応
+        - [ ] 関連するテスト（unit/E2E）を削除または更新
+        - [ ] 関連するシードデータ・テストデータを更新
+        - [ ] 他コンポーネントからの参照（import/props/型定義）を全て除去
+        - [ ] 不要になった型定義・インターフェースを削除
+
+        **機能改修時:**
+        - [ ] 既存コードの上に条件分岐を重ねるのではなく、設計から見直す
+        - [ ] 一時的な互換レイヤー（_旧変数名、re-export等）を残さない
+        - [ ] UIの配置変更は関連コンポーネント全体のレイアウトを再検討する
+
+    validations:
+      required: true
+
+  - type: textarea
+    id: done-checklist
+    attributes:
+      label: 完了チェックリスト（共通）
+      description: チケット完了時に全項目を満たすこと。省略不可。
+      value: |
+        - [ ] `npx biome check .` — lint エラーなし
+        - [ ] `npx svelte-check` — 型エラーなし
+        - [ ] `npx vitest run` — ユニットテスト全通過
+        - [ ] `npx playwright test` — E2Eテスト全通過
+        - [ ] git commit & push 完了
+        - [ ] GitHub Actions デプロイ成功（`gh run list` で確認）
+        - [ ] ローカルNUCデプロイ & 動作確認
+        - [ ] 影響する設計書（docs/design/）を更新済み
+    validations:
+      required: true
+
   - type: input
     id: related
     attributes:

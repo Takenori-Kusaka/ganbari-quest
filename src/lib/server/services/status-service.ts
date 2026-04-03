@@ -11,7 +11,6 @@ import {
 	calcXpToNextLevel,
 	clampDecayFloor,
 } from '$lib/domain/validation/status';
-import { getRepos } from '$lib/server/db/factory';
 import {
 	findBenchmark,
 	findChildById,
