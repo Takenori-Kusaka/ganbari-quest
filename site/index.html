@@ -66,9 +66,9 @@ img{max-width:100%;height:auto}
 .hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
 .hero-badges{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
 .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#fff;border:1px solid var(--gray-300);border-radius:2rem;font-size:.8rem;color:var(--gray-500)}
-.hero-illustration{max-width:900px;margin:0 auto 24px;border-radius:16px;overflow:hidden}
-.hero-illustration img{width:100%;height:auto;display:block}
-@media(max-width:640px){.hero-illustration{max-width:100%;border-radius:12px}}
+.solution-illustration{max-width:480px;margin:0 auto 24px;border-radius:16px;overflow:hidden}
+.solution-illustration img{width:100%;height:auto;display:block}
+@media(max-width:640px){.solution-illustration{max-width:320px;border-radius:12px}}
 
 /* Section */
 .section{padding:64px 16px}
@@ -209,7 +209,7 @@ img{max-width:100%;height:auto}
 .footer-copy{border-top:1px solid #334155;margin-top:32px;padding-top:16px;text-align:center;font-size:.75rem}
 
 /* Hero carousel */
-.hero-carousel{margin-top:40px;display:flex;flex-direction:column;align-items:center}
+.hero-carousel{margin-top:16px;display:flex;flex-direction:column;align-items:center}
 .carousel-track{position:relative;width:280px;height:606px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
 .carousel-slide{position:absolute;inset:0;opacity:0;transition:opacity .8s ease}
 .carousel-slide.active{opacity:1}
@@ -298,12 +298,6 @@ img{max-width:100%;height:auto}
     <span class="badge">&#x1F4F1; スマホ対応</span>
     <span class="badge">&#x1F310; セルフホスト可</span>
   </div>
-  <div class="hero-illustration">
-    <picture>
-      <source srcset="hero-illustration.webp" type="image/webp">
-      <img src="hero-illustration.png" alt="冒険の旅に出る勇者キャラクター — ポイント、宝箱、バッジを集めながらレベルアップ" width="1584" height="672" loading="eager">
-    </picture>
-  </div>
   <div class="hero-carousel" id="hero-carousel">
     <div class="carousel-track">
       <div class="carousel-slide active" data-label="子供のホーム画面 &#8212; 活動を記録してポイントゲット">
@@ -389,6 +383,12 @@ img{max-width:100%;height:auto}
 <!-- Solution -->
 <section class="section bg-gray" id="solution">
   <div class="section-inner">
+    <div class="solution-illustration">
+      <picture>
+        <source srcset="hero-illustration.webp" type="image/webp">
+        <img src="hero-illustration.png" alt="冒険の旅に出る勇者キャラクター — ポイント、宝箱、バッジを集めながらレベルアップ" width="1584" height="672" loading="lazy">
+      </picture>
+    </div>
     <div class="solution-box">
       <h3>お子さまの「がんばり」を、冒険に変えよう</h3>
       <p>
