@@ -84,6 +84,7 @@ export async function getMemoryTickets(tenantId: string): Promise<number> {
 
 /** 現在のティアを取得 */
 export function getCurrentTier(months: number): LoyaltyTier {
+	// biome-ignore lint/style/noNonNullAssertion: TIERS is a non-empty const array
 	let current = TIERS[0]!;
 	for (const tier of TIERS) {
 		if (months >= tier.months) {
