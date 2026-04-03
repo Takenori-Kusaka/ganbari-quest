@@ -62,6 +62,9 @@ infra/gcp/*.tfvars
 !infra/gcp/*.tfvars.example
 infra/gcp/.terraform.lock.hcl
 
+# Legacy tickets (migrated to GitHub Issues)
+docs/tickets/
+
 # Temporary files
 tmp/
 screenshots/
