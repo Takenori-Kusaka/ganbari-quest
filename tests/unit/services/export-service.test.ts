@@ -301,7 +301,7 @@ describe('exportFamilyData', () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.format).toBe(EXPORT_FORMAT);
 		expect(result.version).toBe(EXPORT_VERSION);
-		expect(result.exportedAt).toBeTruthy();
+		expect(result.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}/);
 		expect(result.checksum).toMatch(/^sha256:[0-9a-f]{64}$/);
 	});
 

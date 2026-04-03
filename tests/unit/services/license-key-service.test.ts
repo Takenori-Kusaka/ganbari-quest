@@ -99,7 +99,7 @@ describe('issueLicenseKey', () => {
 		expect(result.tenantId).toBe('tenant-1');
 		expect(result.plan).toBe('monthly');
 		expect(result.status).toBe('active');
-		expect(result.createdAt).toBeTruthy();
+		expect(result.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}/);
 		expect(mockSaveLicenseKey).toHaveBeenCalledTimes(1);
 		expect(mockSaveLicenseKey).toHaveBeenCalledWith(result);
 	});

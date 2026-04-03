@@ -30,7 +30,7 @@ describe('age-tier validation', () => {
 			for (const mode of UI_MODES) {
 				const config = AGE_TIER_CONFIG[mode];
 				expect(config).toBeDefined();
-				expect(config.label).toBeTruthy();
+				expect(config.label).toBeTypeOf('string');
 				expect(config.ageMin).toBeGreaterThanOrEqual(0);
 				expect(config.ageMax).toBeGreaterThan(config.ageMin);
 				expect(config.tapSize).toBeGreaterThan(0);
