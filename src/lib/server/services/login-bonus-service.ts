@@ -108,11 +108,26 @@ export async function claimLoginBonus(
 	// 連続ログイン日数計算
 	const consecutiveDays = await calculateConsecutiveDays(childId, today, tenantId);
 
-	// 倍率計算
-	const multiplier = getLoginMultiplier(consecutiveDays);
+	// 倍率計算（連続ログイン）
+	const streakMultiplier = getLoginMultiplier(consecutiveDays);
 
-	// 最終ポイント
-	const totalPoints = calcLoginBonusPoints(omikuji.basePoints, multiplier);
+	// ロイヤルティ倍率（サブスク継続月数に応じた追加倍率）
+	let loyaltyMultiplier = 1.0;
+	try {
+		const { getSubscriptionMonths, getLoginBonusMultiplier } = await import(
+			'$lib/server/services/loyalty-service'
+		);
+		const months = await getSubscriptionMonths(tenantId);
+		loyaltyMultiplier = getLoginBonusMultiplier(months);
+	} catch {
+		// ロイヤルティ取得失敗はボーナスフロー全体を止めない
+	}
+
+	const multiplier = streakMultiplier;
+	// 最終ポイント（ロイヤルティ倍率を追加適用）
+	const totalPoints = Math.round(
+		calcLoginBonusPoints(omikuji.basePoints, multiplier) * loyaltyMultiplier,
+	);
 
 	// DB保存
 	await insertLoginBonus(
@@ -141,7 +156,11 @@ export async function claimLoginBonus(
 
 	// メッセージ組み立て
 	let message = `${omikuji.rank}！${totalPoints}ポイントゲット！`;
-	if (multiplier > 1) {
+	if (loyaltyMultiplier > 1 && multiplier > 1) {
+		message = `${omikuji.rank}！${consecutiveDays}にちれんぞく＋プレミアムボーナス！${totalPoints}ポイントゲット！`;
+	} else if (loyaltyMultiplier > 1) {
+		message = `${omikuji.rank}！⭐プレミアムボーナス！${totalPoints}ポイントゲット！`;
+	} else if (multiplier > 1) {
 		message = `${omikuji.rank}！${consecutiveDays}にちれんぞくで${multiplier}ばい！${totalPoints}ポイントゲット！`;
 	}
 

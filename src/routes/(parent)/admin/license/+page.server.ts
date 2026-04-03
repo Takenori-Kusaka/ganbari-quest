@@ -2,12 +2,16 @@
 
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getLicenseInfo } from '$lib/server/services/license-service';
+import { getLoyaltyInfo } from '$lib/server/services/loyalty-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
-	const license = await getLicenseInfo(tenantId);
+	const [license, loyaltyInfo] = await Promise.all([
+		getLicenseInfo(tenantId),
+		getLoyaltyInfo(tenantId).catch(() => null),
+	]);
 
 	return {
 		license: license ?? {
@@ -18,5 +22,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 			updatedAt: new Date().toISOString(),
 		},
 		stripeEnabled: isStripeEnabled(),
+		loyaltyInfo,
 	};
 };
