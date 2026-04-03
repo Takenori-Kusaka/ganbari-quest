@@ -301,6 +301,29 @@ export async function recordActivity(
 		// 通知送信失敗は記録フローを止めない
 	}
 
+	// がんばり証明書: ストリーク・レベルアップ・カテゴリマスター自動発行
+	try {
+		const {
+			checkAndIssueStreakCertificates,
+			checkAndIssueLevelCertificates,
+			issueCategoryMasterCertificate,
+		} = await import('$lib/server/services/certificate-service');
+		// ストリーク証明書
+		if (isFirstToday && streakDays >= 7) {
+			await checkAndIssueStreakCertificates(childId, streakDays, tenantId);
+		}
+		// レベルアップ証明書
+		if (levelUp) {
+			await checkAndIssueLevelCertificates(childId, levelUp.newLevel, tenantId);
+		}
+		// カテゴリマスター証明書（カテゴリ★5 = XPレベル5到達時）
+		if (xpGain.levelAfter >= 5 && xpGain.levelBefore < 5 && catDef) {
+			await issueCategoryMasterCertificate(childId, String(catDef.id), catDef.name, tenantId);
+		}
+	} catch {
+		// 証明書発行失敗は記録フローを止めない
+	}
+
 	return {
 		id: log.id,
 		childId,

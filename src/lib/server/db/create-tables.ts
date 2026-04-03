@@ -567,4 +567,18 @@ export const SQL_CREATE_TABLES = `
 		ON report_daily_summaries(child_id, date);
 	CREATE INDEX IF NOT EXISTS idx_report_daily_tenant_date
 		ON report_daily_summaries(tenant_id, date);
+
+	CREATE TABLE IF NOT EXISTS certificates (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		tenant_id TEXT NOT NULL,
+		certificate_type TEXT NOT NULL,
+		title TEXT NOT NULL,
+		description TEXT,
+		issued_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		metadata TEXT,
+		UNIQUE(child_id, tenant_id, certificate_type)
+	);
+	CREATE INDEX IF NOT EXISTS idx_certificates_child
+		ON certificates(child_id, tenant_id);
 `;
