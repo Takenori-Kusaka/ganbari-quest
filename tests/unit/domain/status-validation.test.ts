@@ -56,8 +56,8 @@ describe('LEVEL_TABLE', () => {
 
 	it('全エントリにタイトルがある', () => {
 		for (const entry of LEVEL_TABLE) {
-			expect(entry.title).toBeTruthy();
-			expect(typeof entry.title).toBe('string');
+			expect(entry.title).toBeTypeOf('string');
+			expect(entry.title.length).toBeGreaterThan(0);
 		}
 	});
 

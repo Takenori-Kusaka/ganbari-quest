@@ -96,9 +96,9 @@ describe('getTodayMissions', () => {
 	it('各ミッションに活動名・アイコン・カテゴリが含まれる', async () => {
 		const result = await getTodayMissions(1, 'test-tenant');
 		for (const mission of result.missions) {
-			expect(mission.activityName).toBeTruthy();
-			expect(mission.activityIcon).toBeTruthy();
-			expect(mission.categoryId).toBeTruthy();
+			expect(mission.activityName).toBeTypeOf('string');
+			expect(mission.activityIcon).toBeTypeOf('string');
+			expect(mission.categoryId).toBeTypeOf('number');
 			expect(mission.completed).toBe(false);
 		}
 	});
