@@ -160,7 +160,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				selector: '[data-tutorial="switch-to-child"]',
 				title: 'こども画面へ切替',
 				description:
-					'こどもにタブレットやスマホを渡す時に使います。こども専用のゲーム画面に切り替わり、自分で活動を記録できるようになります。管理画面に戻るにはPINコードが必要です。',
+					'こどもにタブレットやスマホを渡す時に使います。こども専用のゲーム画面に切り替わり、自分で活動を記録できるようになります。管理画面に戻るにはPINコードが必要です。\n\n💡 こども画面にも「❓」ボタンからアクセスできる操作ガイドがあります。お子さまが自分で使い方を確認できるので安心です。',
 				position: 'bottom',
 				page: '/admin',
 			},
