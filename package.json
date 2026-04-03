@@ -64,7 +64,7 @@
 		"drizzle-kit": "^0.30.0",
 		"eslint": "^10.1.0",
 		"eslint-plugin-storybook": "^10.3.4",
-		"eslint-plugin-svelte": "^3.16.0",
+		"eslint-plugin-svelte": "^3.17.0",
 		"jsdom": "^26.0.0",
 		"playwright": "^1.59.1",
 		"sharp": "^0.34.5",
