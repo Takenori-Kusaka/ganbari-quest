@@ -87,21 +87,6 @@ export async function dismissOverlays(page: Page) {
 		// オーバーレイが表示されなかった場合（既に受領済み or 未対応）
 	}
 
-	// 月替わりプレゼントオーバーレイを閉じる（reward-overlay は Ark UI Dialog ではない）
-	const giftBtn = page.locator('.reward-gift__open-btn');
-	if (await giftBtn.isVisible().catch(() => false)) {
-		await giftBtn.click();
-		const claimBtn = page.locator('.reward-reveal__btn');
-		await claimBtn.waitFor({ timeout: 2000 }).catch(() => {});
-		if (await claimBtn.isVisible().catch(() => false)) {
-			await claimBtn.click();
-		}
-		await page
-			.locator('.reward-overlay')
-			.waitFor({ state: 'hidden', timeout: 3000 })
-			.catch(() => {});
-	}
-
 	// 特別報酬や汎用オーバーレイを閉じる
 	// ダイアログ内のボタンのみ対象にし、ページ上の別ボタンを誤クリックしない
 	for (let i = 0; i < 3; i++) {
@@ -157,6 +142,21 @@ export async function dismissOverlays(page: Page) {
 
 	// Ark UI Dialog のゴースト要素を強制非表示
 	await clearDialogGhosts(page);
+
+	// 月替わりプレゼントオーバーレイを閉じる（Ark UI Dialog ではないため最後に処理）
+	const giftBtn = page.locator('.reward-gift__open-btn');
+	if (await giftBtn.isVisible().catch(() => false)) {
+		await giftBtn.click();
+		const claimBtn = page.locator('.reward-reveal__btn');
+		await claimBtn.waitFor({ timeout: 2000 }).catch(() => {});
+		if (await claimBtn.isVisible().catch(() => false)) {
+			await claimBtn.click();
+		}
+		await page
+			.locator('.reward-overlay')
+			.waitFor({ state: 'hidden', timeout: 3000 })
+			.catch(() => {});
+	}
 }
 
 /** 子供を選択してオーバーレイを閉じた状態にする */
