@@ -95,10 +95,9 @@ export class AuthStack extends cdk.Stack {
 				userPool: this.userPool,
 				clientId: googleClientId,
 				clientSecretValue: cdk.SecretValue.unsafePlainText(googleClientSecret),
-				scopes: ['openid', 'email', 'profile'],
+				scopes: ['openid', 'email'],
 				attributeMapping: {
 					email: cognito.ProviderAttribute.GOOGLE_EMAIL,
-					fullname: cognito.ProviderAttribute.GOOGLE_NAME,
 				},
 			});
 
@@ -139,7 +138,6 @@ export class AuthStack extends cdk.Stack {
 							scopes: [
 								cognito.OAuthScope.OPENID,
 								cognito.OAuthScope.EMAIL,
-								cognito.OAuthScope.PROFILE,
 							],
 							callbackUrls: [
 								`https://${appDomain}/auth/callback`,

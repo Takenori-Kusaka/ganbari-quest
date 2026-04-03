@@ -79,7 +79,7 @@ describe('cognito-oauth', () => {
 			expect(url).toContain('response_type=code');
 			expect(url).toContain('client_id=test-client-id');
 			expect(url).toContain('redirect_uri=');
-			expect(url).toContain('scope=openid+email+profile');
+			expect(url).toContain('scope=openid+email');
 			expect(url).toContain('state=');
 			expect(url).toContain('nonce=');
 		});

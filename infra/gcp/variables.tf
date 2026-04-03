@@ -31,5 +31,5 @@ variable "oauth_callback_urls" {
 variable "oauth_scopes" {
   description = "OAuth スコープ一覧"
   type        = list(string)
-  default     = ["openid", "email", "profile"]
+  default     = ["openid", "email"]
 }
