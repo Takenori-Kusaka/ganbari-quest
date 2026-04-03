@@ -175,6 +175,19 @@ img{max-width:100%;height:auto}
 .footer-links a:hover{color:#fff}
 .footer-copy{border-top:1px solid #334155;margin-top:32px;padding-top:16px;text-align:center;font-size:.75rem}
 
+/* Hero product shot */
+.hero-product{margin-top:40px;display:flex;justify-content:center}
+.hero-product .device-frame{position:relative;width:280px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
+.hero-product .device-frame img{display:block;width:100%;height:auto;border-radius:24px}
+
+/* Feature card screenshots */
+.feature-card .feature-screenshot{margin-bottom:12px;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:220px}
+.feature-card .feature-screenshot img{width:100%;height:100%;object-fit:cover;object-position:top}
+
+/* Age card screenshots */
+.age-card .age-screenshot{margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:200px}
+.age-card .age-screenshot img{width:100%;height:100%;object-fit:cover;object-position:top}
+
 @media(max-width:640px){
   .hero h1{font-size:1.8rem}
   .hamburger{display:flex;align-items:center;justify-content:center}
@@ -187,6 +200,9 @@ img{max-width:100%;height:auto}
   .age-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
   .ba-grid{grid-template-columns:1fr;gap:16px}
   .ba-arrow{justify-content:center;transform:rotate(90deg)}
+  .hero-product .device-frame{width:220px;border-radius:24px;box-shadow:0 12px 40px rgba(56,120,184,.2),0 0 0 6px var(--gray-900)}
+  .feature-card .feature-screenshot{max-height:180px}
+  .age-card .age-screenshot{max-height:160px}
 }
 </style>
 </head>
@@ -228,6 +244,14 @@ img{max-width:100%;height:auto}
     <span class="badge">&#x1F512; データは家族だけのもの</span>
     <span class="badge">&#x1F4F1; スマホ対応</span>
     <span class="badge">&#x1F310; セルフホスト可</span>
+  </div>
+  <div class="hero-product">
+    <div class="device-frame">
+      <picture>
+        <source srcset="screenshots/hero-child-home.webp" type="image/webp">
+        <img src="screenshots/hero-child-home.webp" alt="がんばりクエスト 子供ホーム画面 — ポイント獲得とレベルアップ" width="390" height="844">
+      </picture>
+    </div>
   </div>
 </section>
 
@@ -339,36 +363,54 @@ img{max-width:100%;height:auto}
     <p class="section-desc">ゲームに夢中になるあの集中力を、日常のがんばりに</p>
     <div class="features-grid">
       <div class="feature-card">
+        <div class="feature-screenshot">
+          <picture><source srcset="screenshots/feature-point-level.webp" type="image/webp"><img src="screenshots/feature-point-level.webp" alt="ポイント獲得とレベルアップ画面" width="390" height="844" loading="lazy"></picture>
+        </div>
         <div class="feature-icon">&#x2B50;</div>
         <h3>ポイント &amp; レベルアップ</h3>
         <div class="feature-benefit">&#x2192; 「やった！」の手応えが毎日ある</div>
         <p>活動を記録するとポイント獲得。知力・体力・創造力・社会性・生活力の5つのチカラが成長し、レベルアップの達成感が次のがんばりにつながります。</p>
       </div>
       <div class="feature-card">
+        <div class="feature-screenshot">
+          <picture><source srcset="screenshots/feature-combo-mission.webp" type="image/webp"><img src="screenshots/feature-combo-mission.webp" alt="コンボカウンターとデイリーミッション" width="390" height="844" loading="lazy"></picture>
+        </div>
         <div class="feature-icon">&#x1F525;</div>
         <h3>コンボ &amp; デイリーミッション</h3>
         <div class="feature-benefit">&#x2192; シール帳が続かなかった子でも続く</div>
         <p>連続日数に応じてボーナスポイント。毎日変わるミッションが小さな達成感を積み重ね、「もう1日がんばろう」を自然に引き出します。</p>
       </div>
       <div class="feature-card">
+        <div class="feature-screenshot">
+          <picture><source srcset="screenshots/feature-radar-chart.webp" type="image/webp"><img src="screenshots/feature-radar-chart.webp" alt="5軸の成長レーダーチャート" width="390" height="844" loading="lazy"></picture>
+        </div>
         <div class="feature-icon">&#x1F4CA;</div>
         <h3>成長レーダーチャート</h3>
         <div class="feature-benefit">&#x2192; 「すごいね」に根拠が生まれる</div>
         <p>5軸のレーダーチャートでお子さまの強みが一目瞭然。同年齢の目安と比較でき、親として自信を持って「がんばってるね」と褒められます。</p>
       </div>
       <div class="feature-card">
+        <div class="feature-screenshot">
+          <picture><source srcset="screenshots/feature-titles.webp" type="image/webp"><img src="screenshots/feature-titles.webp" alt="称号と実績コレクション画面" width="390" height="844" loading="lazy"></picture>
+        </div>
         <div class="feature-icon">&#x1F3C6;</div>
         <h3>称号 &amp; 実績コレクション</h3>
         <div class="feature-benefit">&#x2192; 「もっとやりたい！」が自然に出る</div>
         <p>「お手伝いマスター」「読書家」など、がんばりに応じて称号を獲得。コレクションする楽しみで、自分からチャレンジしたくなります。</p>
       </div>
       <div class="feature-card">
+        <div class="feature-screenshot">
+          <picture><source srcset="screenshots/feature-checklist.webp" type="image/webp"><img src="screenshots/feature-checklist.webp" alt="やることリスト画面" width="390" height="844" loading="lazy"></picture>
+        </div>
         <div class="feature-icon">&#x2705;</div>
         <h3>やることリスト</h3>
         <div class="feature-benefit">&#x2192; 朝の「はやくして！」が減る</div>
         <p>朝の準備、帰宅後のルーティンをチェックリストに。自分で確認する習慣がつき、声かけなしで準備ができるようになります。</p>
       </div>
       <div class="feature-card">
+        <div class="feature-screenshot">
+          <picture><source srcset="screenshots/feature-dream.webp" type="image/webp"><img src="screenshots/feature-dream.webp" alt="成長記録と管理画面" width="390" height="844" loading="lazy"></picture>
+        </div>
         <div class="feature-icon">&#x1F3AF;</div>
         <h3>将来の夢を応援</h3>
         <div class="feature-benefit">&#x2192; 夢に向かって今日できることが見える</div>
@@ -413,30 +455,45 @@ img{max-width:100%;height:auto}
         <div class="age-emoji">&#x1F476;</div>
         <h3>はじめの一歩</h3>
         <div class="age-range">0&#x301C;2歳</div>
+        <div class="age-screenshot">
+          <picture><source srcset="screenshots/age-baby.webp" type="image/webp"><img src="screenshots/age-baby.webp" alt="0-2歳向け はじめの一歩モード画面" width="390" height="844" loading="lazy"></picture>
+        </div>
         <p>保護者がお子さまの活動を記録します。大きなアイコンでシンプルな画面です。</p>
       </div>
       <div class="age-card">
         <div class="age-emoji">&#x1F9D2;</div>
         <h3>じぶんでタップ</h3>
         <div class="age-range">3&#x301C;5歳</div>
+        <div class="age-screenshot">
+          <picture><source srcset="screenshots/age-kinder.webp" type="image/webp"><img src="screenshots/age-kinder.webp" alt="3-5歳向け じぶんでタップモード画面" width="390" height="844" loading="lazy"></picture>
+        </div>
         <p>ひらがな表示と大きなボタンで、お子さま自身が「できた！」をタップできます。</p>
       </div>
       <div class="age-card">
         <div class="age-emoji">&#x1F466;</div>
         <h3>冒険スタート</h3>
         <div class="age-range">6&#x301C;9歳</div>
+        <div class="age-screenshot">
+          <picture><source srcset="screenshots/age-lower.webp" type="image/webp"><img src="screenshots/age-lower.webp" alt="6-9歳向け 冒険スタートモード画面" width="390" height="844" loading="lazy"></picture>
+        </div>
         <p>自分で活動を選んで記録。称号集めやコンボで、がんばりが楽しくなります。</p>
       </div>
       <div class="age-card">
         <div class="age-emoji">&#x1F9D1;&#x200D;&#x1F393;</div>
         <h3>チャレンジ</h3>
         <div class="age-range">10&#x301C;14歳</div>
+        <div class="age-screenshot">
+          <picture><source srcset="screenshots/age-upper.webp" type="image/webp"><img src="screenshots/age-upper.webp" alt="10-14歳向け チャレンジモード画面" width="390" height="844" loading="lazy"></picture>
+        </div>
         <p>統計やグラフで自分の成長を分析。目標を立てて計画的に取り組めます。</p>
       </div>
       <div class="age-card">
         <div class="age-emoji">&#x1F680;</div>
         <h3>みらい設計</h3>
         <div class="age-range">15&#x301C;18歳</div>
+        <div class="age-screenshot">
+          <picture><source srcset="screenshots/age-teen.webp" type="image/webp"><img src="screenshots/age-teen.webp" alt="15-18歳向け みらい設計モード画面" width="390" height="844" loading="lazy"></picture>
+        </div>
         <p>全機能を活用。キャリアプランニングで将来の夢に向けた行動計画を作れます。</p>
       </div>
     </div>
