@@ -80,7 +80,9 @@ function handleClick(e: Event) {
 	}
 	if (frozen) {
 		showFrozenToast = true;
-		setTimeout(() => (showFrozenToast = false), 2000);
+		setTimeout(() => {
+			showFrozenToast = false;
+		}, 2000);
 		return;
 	}
 	onclick?.();

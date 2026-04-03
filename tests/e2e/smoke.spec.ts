@@ -124,7 +124,9 @@ test.describe('UC-01: 活動記録フロー', () => {
 		expect(recorded).toBe(true);
 
 		await expect(page.getByText(/\+\d+/).first()).toBeVisible();
-		await expect(page.getByTestId('activity-confirm-btn').or(page.getByTestId('login-bonus-confirm')).first()).toBeVisible();
+		await expect(
+			page.getByTestId('activity-confirm-btn').or(page.getByTestId('login-bonus-confirm')).first(),
+		).toBeVisible();
 	});
 
 	test('記録完了後に「とりけし」ボタンが表示される', async ({ page }) => {
