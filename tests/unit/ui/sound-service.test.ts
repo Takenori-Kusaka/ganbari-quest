@@ -33,7 +33,7 @@ describe('SOUND_DEFS', () => {
 		for (const id of SOUND_IDS) {
 			expect(SOUND_DEFS[id]).toBeDefined();
 			expect(SOUND_DEFS[id].path).toMatch(/^\/sounds\/.+\.mp3$/);
-			expect(SOUND_DEFS[id].label).toBeTruthy();
+			expect(SOUND_DEFS[id].label).toBeTypeOf('string');
 		}
 	});
 });

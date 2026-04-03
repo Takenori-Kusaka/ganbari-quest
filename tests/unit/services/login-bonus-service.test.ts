@@ -227,7 +227,7 @@ describe('getLoginBonusStatus', () => {
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.claimedToday).toBe(false);
-			expect(result.lastClaimedAt).toBeTruthy();
+			expect(result.lastClaimedAt).toMatch(/^\d{4}-\d{2}-\d{2}/);
 			// 昨日(03/09)のボーナスがあるので、今日を含めて2日連続
 			expect(result.consecutiveLoginDays).toBe(2);
 		}

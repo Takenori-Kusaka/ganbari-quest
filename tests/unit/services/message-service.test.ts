@@ -82,9 +82,9 @@ describe('STAMP_PRESETS', () => {
 
 	it('各スタンプにcode, label, iconがある', () => {
 		for (const stamp of STAMP_PRESETS) {
-			expect(stamp.code).toBeTruthy();
-			expect(stamp.label).toBeTruthy();
-			expect(stamp.icon).toBeTruthy();
+			expect(stamp.code).toBeTypeOf('string');
+			expect(stamp.label).toBeTypeOf('string');
+			expect(stamp.icon).toBeTypeOf('string');
 		}
 	});
 });
@@ -153,7 +153,7 @@ describe('message-repo', () => {
 		);
 
 		const shown = await markMessageShown(msg.id, 'test-tenant');
-		expect(shown?.shownAt).toBeTruthy();
+		expect(shown?.shownAt).toMatch(/^\d{4}-\d{2}-\d{2}/);
 
 		const unshown = await findUnshownMessage(1, 'test-tenant');
 		expect(unshown).toBeUndefined();
