@@ -1,9 +1,11 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import Divider from '$lib/ui/primitives/Divider.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { form } = $props();
@@ -101,6 +103,10 @@ $effect(() => {
 				</Button>
 			</form>
 		{:else}
+			<!-- Google OAuth サインアップ -->
+			<GoogleSignInButton label="Google で登録" href="/auth/oauth/google" />
+			<Divider label="または" spacing="sm" />
+
 			<!-- 登録フォーム -->
 			<form
 				method="POST"

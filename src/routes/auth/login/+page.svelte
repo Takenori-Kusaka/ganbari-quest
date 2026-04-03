@@ -1,8 +1,10 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import Divider from '$lib/ui/primitives/Divider.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
@@ -99,6 +101,12 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 				</Button>
 			</form>
 		{:else}
+			<!-- Google OAuth ログイン -->
+			{#if !data.devMode}
+				<GoogleSignInButton />
+				<Divider label="または" spacing="sm" />
+			{/if}
+
 			<!-- 通常ログインフォーム -->
 			<form
 				method="POST"
