@@ -15,6 +15,10 @@ import {
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { selectRecommendations } from '$lib/server/services/recommendation-service';
+import {
+	getMonthlyPremiumReward,
+	getSeasonPassForChild,
+} from '$lib/server/services/seasonal-content-service';
 import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
@@ -32,7 +36,8 @@ function todayDate(): string {
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
 	const tenantId = requireTenantId(locals);
-	const { child } = await parent();
+	const parentData = await parent();
+	const { child } = parentData;
 	if (!child)
 		return {
 			activities: [],
@@ -46,6 +51,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			focusMode: false,
 			recommendedActivityIds: [],
 			birthdayBonus: null,
+			seasonPass: null,
+			monthlyPremiumReward: null,
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -112,6 +119,16 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		focusMode: recommendations.length > 0,
 		recommendedActivityIds: [...recommendedIds],
 		birthdayBonus,
+		seasonPass: await getSeasonPassForChild(
+			child.id,
+			tenantId,
+			parentData.isPremium ?? false,
+		).catch(() => null),
+		monthlyPremiumReward: await getMonthlyPremiumReward(
+			child.id,
+			tenantId,
+			parentData.isPremium ?? false,
+		).catch(() => null),
 	};
 };
 
@@ -295,5 +312,59 @@ export const actions: Actions = {
 			totalPoints: result.totalPoints,
 			multiplier: result.multiplier,
 		};
+	},
+
+	claimSeasonPassReward: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(cookies.get('selectedChildId'));
+		const eventId = Number(formData.get('eventId'));
+		const target = Number(formData.get('target'));
+		const track = String(formData.get('track'));
+
+		if (Number.isNaN(childId) || Number.isNaN(eventId) || Number.isNaN(target)) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+
+		try {
+			const { claimSeasonPassMilestone } = await import(
+				'$lib/server/services/seasonal-content-service'
+			);
+			const reward = await claimSeasonPassMilestone(childId, eventId, target, track, tenantId);
+			return { claimedReward: reward };
+		} catch {
+			return fail(500, { error: 'マイルストーン報酬の受け取りに失敗しました' });
+		}
+	},
+
+	claimMonthlyReward: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(cookies.get('selectedChildId'));
+		const eventId = Number(formData.get('eventId'));
+
+		if (Number.isNaN(childId) || Number.isNaN(eventId)) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+
+		try {
+			const { claimMonthlyPremiumReward } = await import(
+				'$lib/server/services/seasonal-content-service'
+			);
+			const { isPaidTier, resolveFullPlanTier } = await import(
+				'$lib/server/services/plan-limit-service'
+			);
+			const isPremium = isPaidTier(
+				await resolveFullPlanTier(
+					tenantId,
+					locals.context?.licenseStatus ?? 'none',
+					locals.context?.plan,
+				),
+			);
+			const reward = await claimMonthlyPremiumReward(childId, eventId, tenantId, isPremium);
+			return { claimedReward: reward };
+		} catch {
+			return fail(500, { error: '月替わり報酬の受け取りに失敗しました' });
+		}
 	},
 };
