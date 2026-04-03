@@ -47,8 +47,23 @@ sw.addEventListener('fetch', (event) => {
 	// API リクエスト: ネットワークのみ（キャッシュしない）
 	if (url.pathname.startsWith('/api/')) return;
 
+	// SvelteKit 内部データエンドポイント: キャッシュしない
+	// クライアントサイドナビゲーション時に __data.json を取得するが、
+	// 認証リダイレクト等の一時的なレスポンスがキャッシュされると
+	// 再ログイン後もリダイレクトが残留する (#332)
+	if (url.pathname.endsWith('/__data.json')) return;
+
 	// POST 等: キャッシュ対象外
 	if (request.method !== 'GET') return;
+
+	// 認証必要ページ: ネットワークのみ（キャッシュからのリダイレクト残留を防止）
+	if (
+		url.pathname.startsWith('/admin') ||
+		url.pathname.startsWith('/auth') ||
+		url.pathname.startsWith('/login')
+	) {
+		return;
+	}
 
 	// ページナビゲーション: Network-first + オフラインフォールバック
 	if (request.mode === 'navigate') {
