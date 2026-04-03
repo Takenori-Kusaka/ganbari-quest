@@ -175,19 +175,20 @@ describe('plan-limit-service', () => {
 		it('free: returns date 90 days ago', () => {
 			const cutoff = getHistoryCutoffDate('free');
 			expect(cutoff).not.toBeNull();
-			const d = new Date(cutoff ?? '');
-			const now = new Date();
-			const diffDays = Math.round((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-			expect(diffDays).toBe(90);
+			// 実装と同じロジックで期待値を算出（setDate ベース）
+			const expected = new Date();
+			expected.setDate(expected.getDate() - 90);
+			const expectedStr = `${expected.getFullYear()}-${String(expected.getMonth() + 1).padStart(2, '0')}-${String(expected.getDate()).padStart(2, '0')}`;
+			expect(cutoff).toBe(expectedStr);
 		});
 
 		it('standard: returns date 365 days ago', () => {
 			const cutoff = getHistoryCutoffDate('standard');
 			expect(cutoff).not.toBeNull();
-			const d = new Date(cutoff ?? '');
-			const now = new Date();
-			const diffDays = Math.round((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-			expect(diffDays).toBe(365);
+			const expected = new Date();
+			expected.setDate(expected.getDate() - 365);
+			const expectedStr = `${expected.getFullYear()}-${String(expected.getMonth() + 1).padStart(2, '0')}-${String(expected.getDate()).padStart(2, '0')}`;
+			expect(cutoff).toBe(expectedStr);
 		});
 
 		it('family: returns null (no limit)', () => {
