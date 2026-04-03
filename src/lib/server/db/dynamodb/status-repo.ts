@@ -8,6 +8,8 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { hydrate, withVersion } from '../migration';
+import { writeBackDynamoDB } from '../migration/writeback';
 import type {
 	Child,
 	InsertStatusHistoryInput,
@@ -38,6 +40,20 @@ function stripKeys<T extends Record<string, unknown>>(
 	return rest;
 }
 
+/** DynamoDB アイテムをマイグレーション（必要なら Write-Back） */
+async function hydrateStatus(
+	item: Record<string, unknown>,
+	childId: number,
+	categoryId: number,
+	tenantId: string,
+): Promise<Record<string, unknown>> {
+	const { data, didMigrate } = hydrate('status', item);
+	if (didMigrate) {
+		await writeBackDynamoDB('status', statusKey(childId, categoryId, tenantId), item, data);
+	}
+	return data;
+}
+
 /** 子供の全ステータスを取得 */
 export async function findStatuses(childId: number, tenantId: string): Promise<Status[]> {
 	const pk = childPK(childId, tenantId);
@@ -54,7 +70,11 @@ export async function findStatuses(childId: number, tenantId: string): Promise<S
 		}),
 	);
 
-	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as Status);
+	const items = result.Items ?? [];
+	const hydrated = await Promise.all(
+		items.map((item) => hydrateStatus(item, childId, item.categoryId as number, tenantId)),
+	);
+	return hydrated.map((item) => stripKeys(item) as unknown as Status);
 }
 
 /** カテゴリ別のステータスを取得 */
@@ -71,7 +91,8 @@ export async function findStatus(
 	);
 
 	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as Status;
+	const data = await hydrateStatus(result.Item, childId, categoryId, tenantId);
+	return stripKeys(data) as unknown as Status;
 }
 
 /** ステータスを更新（upsert） */
@@ -124,13 +145,14 @@ export async function upsertStatus(
 		updatedAt: now,
 	};
 
+	const versioned = withVersion('status', {
+		...statusKey(childId, categoryId, tenantId),
+		...status,
+	});
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
-			Item: {
-				...statusKey(childId, categoryId, tenantId),
-				...status,
-			},
+			Item: versioned,
 		}),
 	);
 
@@ -332,7 +354,11 @@ export async function findChildById(id: number, tenantId: string): Promise<Child
 	);
 
 	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as Child;
+	const { data, didMigrate } = hydrate('child', result.Item);
+	if (didMigrate) {
+		await writeBackDynamoDB('child', childKey(id, tenantId), result.Item, data);
+	}
+	return stripKeys(data) as unknown as Child;
 }
 
 /** カテゴリ別の最終活動日を取得 */

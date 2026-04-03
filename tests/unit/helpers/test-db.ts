@@ -75,7 +75,8 @@ export const SQL_TABLES = `
 		birthday_bonus_multiplier REAL NOT NULL DEFAULT 1.0,
 		last_birthday_bonus_year INTEGER,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		_sv INTEGER
 	);
 
 	-- ============================================================
@@ -145,7 +146,8 @@ export const SQL_TABLES = `
 		total_xp INTEGER NOT NULL DEFAULT 0,
 		level INTEGER NOT NULL DEFAULT 1,
 		peak_xp INTEGER NOT NULL DEFAULT 0,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		_sv INTEGER
 	);
 	CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
 
