@@ -11,6 +11,8 @@ import {
 } from '$lib/ui/tutorial/tutorial-store.svelte';
 import NotificationPermissionBanner from './NotificationPermissionBanner.svelte';
 import OnboardingChecklist from './OnboardingChecklist.svelte';
+import PlanStatusCard from './PlanStatusCard.svelte';
+import PremiumWelcome from './PremiumWelcome.svelte';
 
 interface ChildSummary {
 	id: number;
@@ -38,6 +40,15 @@ interface Props {
 	basePath: string;
 	monthlySummaries?: Record<number, MonthSummaryData>;
 	currentMonth?: string;
+	planTier?: 'free' | 'standard' | 'family';
+	planStats?: {
+		activityCount: number;
+		activityMax: number | null;
+		childCount: number;
+		childMax: number | null;
+		retentionDays: number | null;
+	};
+	showPremiumWelcome?: boolean;
 }
 
 let {
@@ -49,7 +60,23 @@ let {
 	basePath,
 	monthlySummaries = {},
 	currentMonth = '',
+	planTier = 'free',
+	planStats,
+	showPremiumWelcome = false,
 }: Props = $props();
+
+let welcomeVisible = $state(showPremiumWelcome);
+
+async function handleDismissWelcome() {
+	welcomeVisible = false;
+	try {
+		const formData = new FormData();
+		formData.append('', '');
+		await fetch('?/dismissPremiumWelcome', { method: 'POST', body: formData });
+	} catch {
+		// Dismissal UI already hidden; server persist failure is non-critical
+	}
+}
 
 const isDemo = $derived(mode === 'demo');
 const showOnboarding = $derived(
@@ -149,6 +176,10 @@ function childLink(child: ChildSummary): string {
 	<title>管理画面 - がんばりクエスト{isDemo ? ' デモ' : ''}</title>
 </svelte:head>
 
+{#if welcomeVisible && (planTier === 'standard' || planTier === 'family')}
+	<PremiumWelcome planTier={planTier} onDismiss={handleDismissWelcome} />
+{/if}
+
 <div class="space-y-6">
 	<!-- Onboarding Checklist (replaces tutorial banner for new users) -->
 	{#if showOnboarding && onboarding}
@@ -191,6 +222,18 @@ function childLink(child: ChildSummary): string {
 	<!-- 通知許可バナー -->
 	{#if !isDemo}
 		<NotificationPermissionBanner />
+	{/if}
+
+	<!-- Plan Status Card -->
+	{#if !isDemo && planStats}
+		<PlanStatusCard
+			{planTier}
+			activityCount={planStats.activityCount}
+			activityMax={planStats.activityMax}
+			childCount={planStats.childCount}
+			childMax={planStats.childMax}
+			retentionDays={planStats.retentionDays}
+		/>
 	{/if}
 
 	<!-- Summary Cards -->

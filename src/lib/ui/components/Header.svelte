@@ -11,6 +11,7 @@ interface Props {
 	activeTitle?: { icon: string; name: string } | null;
 	stampProgress?: { filled: number; total: number } | null;
 	onStampClick?: () => void;
+	isPremium?: boolean;
 }
 
 let {
@@ -21,6 +22,7 @@ let {
 	activeTitle,
 	stampProgress,
 	onStampClick,
+	isPremium = false,
 }: Props = $props();
 
 const settings = $derived(pointSettings ?? DEFAULT_POINT_SETTINGS);
@@ -43,7 +45,7 @@ const balanceDisplay = $derived(
 			size="sm"
 		/>
 		<div class="flex flex-col">
-			<span class="font-bold text-lg leading-tight">{nickname}</span>
+			<span class="font-bold text-lg leading-tight">{nickname}{#if isPremium}<span class="premium-star" title="プレミアム">⭐</span>{/if}</span>
 			{#if activeTitle}
 				<span class="text-xs opacity-90">{activeTitle.icon} {activeTitle.name}</span>
 			{/if}
@@ -84,5 +86,11 @@ const balanceDisplay = $derived(
 	}
 	.stamp-mini:hover {
 		background: rgba(255, 255, 255, 0.3);
+	}
+	.premium-star {
+		font-size: 0.6em;
+		margin-left: 2px;
+		vertical-align: super;
+		opacity: 0.8;
 	}
 </style>

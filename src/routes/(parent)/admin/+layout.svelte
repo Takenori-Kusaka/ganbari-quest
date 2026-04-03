@@ -6,6 +6,7 @@ import type { Snippet } from 'svelte';
 interface Props {
 	data: {
 		isPremium?: boolean;
+		planTier?: 'free' | 'standard' | 'family';
 		authMode?: string;
 		trialStatus?: {
 			isTrialActive: boolean;
@@ -28,7 +29,7 @@ const showTrialBanner = $derived(
 );
 </script>
 
-<AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false}>
+<AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'}>
 	{#if showTrialBanner && trial}
 		<div style:margin-bottom="16px">
 			<TrialBanner
