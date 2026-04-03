@@ -147,6 +147,139 @@ async function handleExport() {
 	}
 }
 
+// クラウドエクスポート
+let cloudExports = $state<
+	Array<{
+		id: number;
+		exportType: string;
+		pinCode: string;
+		expiresAt: string;
+		fileSizeBytes: number;
+		description: string | null;
+		downloadCount: number;
+		maxDownloads: number;
+		createdAt: string;
+	}>
+>([]);
+let cloudLoading = $state(false);
+let cloudError = $state('');
+let cloudSuccess = $state('');
+let cloudExportType = $state<'template' | 'full'>('template');
+let cloudImportPin = $state('');
+let cloudImportLoading = $state(false);
+let cloudImportError = $state('');
+let cloudImportPreview = $state<Record<string, unknown> | null>(null);
+let cloudImportResult = $state<Record<string, unknown> | null>(null);
+let cloudImportStep = $state<'input' | 'preview' | 'done'>('input');
+
+async function loadCloudExports() {
+	try {
+		const res = await fetch('/api/v1/export/cloud');
+		if (res.ok) {
+			const d = await res.json();
+			cloudExports = d.exports ?? [];
+		}
+	} catch {
+		/* ignore */
+	}
+}
+
+async function handleCloudExport() {
+	cloudLoading = true;
+	cloudError = '';
+	cloudSuccess = '';
+	try {
+		const res = await fetch('/api/v1/export/cloud', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ exportType: cloudExportType }),
+		});
+		const d = await res.json();
+		if (!res.ok) {
+			throw new Error(d?.error?.message ?? 'クラウドエクスポートに失敗しました');
+		}
+		cloudSuccess = `PINコード: ${d.pinCode}（有効期限: ${new Date(d.expiresAt).toLocaleDateString('ja-JP')}）`;
+		await loadCloudExports();
+	} catch (err) {
+		cloudError = err instanceof Error ? err.message : 'クラウドエクスポートに失敗しました';
+	} finally {
+		cloudLoading = false;
+	}
+}
+
+async function handleDeleteCloudExport(id: number) {
+	try {
+		const res = await fetch(`/api/v1/export/cloud/${id}`, { method: 'DELETE' });
+		if (!res.ok) {
+			const d = await res.json();
+			throw new Error(d?.error?.message ?? '削除に失敗しました');
+		}
+		await loadCloudExports();
+	} catch (err) {
+		cloudError = err instanceof Error ? err.message : '削除に失敗しました';
+	}
+}
+
+async function handleCloudImportPreview() {
+	if (!cloudImportPin.trim()) return;
+	cloudImportLoading = true;
+	cloudImportError = '';
+	try {
+		const res = await fetch('/api/v1/import/cloud?mode=preview', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ pinCode: cloudImportPin.trim() }),
+		});
+		const d = await res.json();
+		if (!res.ok) {
+			throw new Error(d?.error?.message ?? 'PINコードが無効です');
+		}
+		cloudImportPreview = d.preview;
+		cloudImportStep = 'preview';
+	} catch (err) {
+		cloudImportError = err instanceof Error ? err.message : 'PINコードが無効です';
+	} finally {
+		cloudImportLoading = false;
+	}
+}
+
+async function handleCloudImportExecute() {
+	cloudImportLoading = true;
+	cloudImportError = '';
+	try {
+		const res = await fetch('/api/v1/import/cloud?mode=execute', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ pinCode: cloudImportPin.trim() }),
+		});
+		const d = await res.json();
+		if (!res.ok) {
+			throw new Error(d?.error?.message ?? 'インポートに失敗しました');
+		}
+		cloudImportResult = d.result;
+		cloudImportStep = 'done';
+	} catch (err) {
+		cloudImportError = err instanceof Error ? err.message : 'インポートに失敗しました';
+	} finally {
+		cloudImportLoading = false;
+	}
+}
+
+function resetCloudImport() {
+	cloudImportPin = '';
+	cloudImportPreview = null;
+	cloudImportResult = null;
+	cloudImportError = '';
+	cloudImportStep = 'input';
+}
+
+// 初回ロード時にクラウドエクスポート一覧を取得
+$effect(() => {
+	if ($page.data.authMode === 'cognito' && $page.data.planTier !== 'free') {
+		loadCloudExports();
+	}
+});
+
 // ステータス減少設定
 let decayIntensity = $state<string>('normal');
 let decaySaving = $state(false);
@@ -894,6 +1027,196 @@ const previewFormatted = $derived(
 			</div>
 		</div>
 	</Card>
+
+	<!-- クラウドエクスポート共有（SaaS有料プランのみ） -->
+	{#if $page.data.authMode === 'cognito' && $page.data.planTier !== 'free'}
+		<Card padding="lg">
+			<h3 class="text-lg font-bold text-gray-700 mb-4">☁️ クラウド共有</h3>
+
+			{#if cloudError}
+				<ErrorAlert message={cloudError} severity="error" action="retry" />
+			{/if}
+			{#if cloudSuccess}
+				<SuccessAlert message={cloudSuccess} />
+			{/if}
+
+			<div class="space-y-4">
+				<!-- エクスポート作成 -->
+				<div>
+					<p class="text-sm text-gray-600 mb-3">
+						設定やデータをクラウドに保管してPINコードで他のアカウントと共有できます。
+					</p>
+					<div class="mb-3">
+						<span class="block text-sm font-medium text-gray-600 mb-2">エクスポートタイプ</span>
+						<div class="flex gap-3">
+							<label class="flex items-center gap-2 cursor-pointer">
+								<input type="radio" value="template" bind:group={cloudExportType} class="w-4 h-4 text-blue-500" />
+								<span class="text-sm">テンプレート（活動・チェックリスト）</span>
+							</label>
+							<label class="flex items-center gap-2 cursor-pointer">
+								<input type="radio" value="full" bind:group={cloudExportType} class="w-4 h-4 text-blue-500" />
+								<span class="text-sm">フルバックアップ</span>
+							</label>
+						</div>
+						{#if cloudExportType === 'template'}
+							<p class="text-xs text-gray-400 mt-1">活動設定やチェックリストのみ共有します（個人データは含みません）。</p>
+						{:else}
+							<p class="text-xs text-gray-400 mt-1">子供データ・活動ログ等すべてのデータを含みます。環境移行用です。</p>
+						{/if}
+					</div>
+					<Button
+						type="button"
+						variant="primary"
+						size="md"
+						class="w-full"
+						disabled={cloudLoading}
+						onclick={handleCloudExport}
+					>
+						{#if cloudLoading}
+							<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
+							保管中...
+						{:else}
+							クラウドに保管
+						{/if}
+					</Button>
+				</div>
+
+				<!-- 保管済み一覧 -->
+				{#if cloudExports.length > 0}
+					<hr class="my-4 border-gray-200" />
+					<div>
+						<h4 class="text-sm font-bold text-gray-600 mb-2">保管済みデータ</h4>
+						<div class="space-y-2">
+							{#each cloudExports as exp}
+								<div class="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+									<div>
+										<p class="text-sm font-mono font-bold text-blue-600">{exp.pinCode}</p>
+										<p class="text-xs text-gray-500">
+											{exp.exportType === 'template' ? 'テンプレート' : 'フルバックアップ'}
+											{#if exp.description}· {exp.description}{/if}
+										</p>
+										<p class="text-xs text-gray-400">
+											期限: {new Date(exp.expiresAt).toLocaleDateString('ja-JP')}
+											· DL: {exp.downloadCount}/{exp.maxDownloads}回
+										</p>
+									</div>
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										class="text-red-500 hover:text-red-700"
+										onclick={() => handleDeleteCloudExport(exp.id)}
+									>
+										削除
+									</Button>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				<!-- PINインポート -->
+				<hr class="my-4 border-gray-200" />
+				<div>
+					<h4 class="text-sm font-bold text-gray-600 mb-2">PINコードでインポート</h4>
+
+					{#if cloudImportError}
+						<ErrorAlert message={cloudImportError} severity="warning" action="fix_input" />
+					{/if}
+
+					{#if cloudImportStep === 'input'}
+						<p class="text-sm text-gray-600 mb-3">
+							共有されたPINコードを入力してデータを取り込みます。
+						</p>
+						<div class="flex gap-2">
+							<input
+								type="text"
+								bind:value={cloudImportPin}
+								placeholder="PINコード（6桁）"
+								maxlength="6"
+								class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-center font-mono text-lg uppercase tracking-widest"
+							/>
+							<Button
+								type="button"
+								variant="primary"
+								size="md"
+								disabled={cloudImportLoading || cloudImportPin.trim().length < 4}
+								onclick={handleCloudImportPreview}
+							>
+								{#if cloudImportLoading}
+									確認中...
+								{:else}
+									確認
+								{/if}
+							</Button>
+						</div>
+					{:else if cloudImportStep === 'preview' && cloudImportPreview}
+						<div class="bg-blue-50 rounded-lg p-4 mb-3">
+							<p class="text-sm font-bold text-blue-700 mb-2">インポート内容の確認</p>
+							{#if cloudImportPreview.exportType === 'template'}
+								<ul class="text-xs text-blue-700 space-y-1">
+									{#if cloudImportPreview.activities}<li>活動マスタ: {cloudImportPreview.activities}件</li>{/if}
+									{#if cloudImportPreview.checklistTemplates}<li>チェックリスト: {cloudImportPreview.checklistTemplates}件</li>{/if}
+								</ul>
+								<p class="text-xs text-gray-500 mt-2">既存の設定に追加されます（重複はスキップ）。</p>
+							{:else}
+								<p class="text-xs text-blue-700">フルバックアップデータです。追加インポートされます。</p>
+							{/if}
+						</div>
+						<div class="flex gap-2">
+							<Button
+								type="button"
+								variant="ghost"
+								size="md"
+								class="flex-1 bg-gray-300 text-gray-700 hover:bg-gray-400"
+								onclick={resetCloudImport}
+							>
+								キャンセル
+							</Button>
+							<Button
+								type="button"
+								variant="primary"
+								size="md"
+								class="flex-1"
+								disabled={cloudImportLoading}
+								onclick={handleCloudImportExecute}
+							>
+								{#if cloudImportLoading}
+									インポート中...
+								{:else}
+									インポート実行
+								{/if}
+							</Button>
+						</div>
+					{:else if cloudImportStep === 'done' && cloudImportResult}
+						<div class="bg-green-50 rounded-lg p-4 mb-3">
+							<p class="text-sm font-bold text-green-700 mb-2">インポート完了</p>
+							<ul class="text-xs text-green-700 space-y-1">
+								{#if cloudImportResult.activitiesCreated}
+									<li>活動マスタ: {cloudImportResult.activitiesCreated}件 追加</li>
+								{/if}
+								{#if cloudImportResult.checklistsCreated}
+									<li>チェックリスト: {cloudImportResult.checklistsCreated}件 追加</li>
+								{/if}
+								{#if cloudImportResult.childrenImported}
+									<li>子供データ: {cloudImportResult.childrenImported}人 追加</li>
+								{/if}
+							</ul>
+						</div>
+						<Button
+							type="button"
+							variant="ghost"
+							size="md"
+							class="w-full bg-gray-300 text-gray-700 hover:bg-gray-400"
+							onclick={resetCloudImport}
+						>
+							閉じる
+						</Button>
+					{/if}
+				</div>
+			</div>
+		</Card>
+	{/if}
 
 	<!-- データクリア -->
 	<Card padding="lg" class="border-2 border-red-200">
