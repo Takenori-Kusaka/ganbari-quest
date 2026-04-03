@@ -111,6 +111,44 @@ describe('getTodayMissions', () => {
 	});
 });
 
+describe('エラーパス・境界値', () => {
+	beforeEach(() => {
+		resetDb();
+	});
+
+	it('存在しない子供IDでもエラーにならず空ミッションを返す', async () => {
+		seedActivities();
+		const result = await getTodayMissions(999, 'test-tenant');
+		// 子供が存在しないため活動候補がフィルタされ、空ミッションを返す
+		expect(result.missions).toHaveLength(0);
+		expect(result.completedCount).toBe(0);
+	});
+
+	it('活動が0件の場合は空のミッションリストを返す', async () => {
+		seedChild();
+		// 活動を追加しない
+		const result = await getTodayMissions(1, 'test-tenant');
+		expect(result.missions).toHaveLength(0);
+		expect(result.completedCount).toBe(0);
+		expect(result.allComplete).toBe(false);
+	});
+
+	it('活動が1件しかない場合はミッション1つだけ生成', async () => {
+		seedChild();
+		testDb.insert(schema.activities).values({ name: 'ランニング', categoryId: 1, icon: '🏃', basePoints: 5 }).run();
+		const result = await getTodayMissions(1, 'test-tenant');
+		expect(result.missions).toHaveLength(1);
+	});
+
+	it('活動が2件の場合はミッション2つだけ生成', async () => {
+		seedChild();
+		testDb.insert(schema.activities).values({ name: 'ランニング', categoryId: 1, icon: '🏃', basePoints: 5 }).run();
+		testDb.insert(schema.activities).values({ name: 'おべんきょう', categoryId: 2, icon: '📚', basePoints: 5 }).run();
+		const result = await getTodayMissions(1, 'test-tenant');
+		expect(result.missions).toHaveLength(2);
+	});
+});
+
 describe('利用履歴ベースのミッション生成', () => {
 	beforeEach(() => {
 		resetDb();
