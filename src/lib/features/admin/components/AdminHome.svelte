@@ -373,8 +373,8 @@ function childLink(child: ChildSummary): string {
 		<h2 class="text-lg font-bold text-gray-700 mb-3">クイックアクション</h2>
 		<div class="grid grid-cols-2 gap-3">
 			<a href="{basePath}/rewards" class="bg-white rounded-xl p-4 shadow-sm text-center hover:shadow-md transition-shadow">
-				<span class="text-2xl block mb-1">🎁</span>
-				<p class="text-sm font-bold text-gray-600">特別報酬を付与</p>
+				<span class="text-2xl block mb-1">💌</span>
+				<p class="text-sm font-bold text-gray-600">こどもを褒める</p>
 			</a>
 			<a href="{basePath}/points" class="bg-white rounded-xl p-4 shadow-sm text-center hover:shadow-md transition-shadow">
 				<span class="text-2xl block mb-1">⭐</span>
