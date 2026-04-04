@@ -94,20 +94,12 @@ function handleCtaClick() {
 		<Card padding="lg" class="mb-6">
 			{#snippet children()}
 			<h2 class="text-lg font-bold text-gray-700 mb-4">料金プラン</h2>
-			<div class="grid grid-cols-2 gap-3">
-				<div class="rounded-xl border border-gray-200 p-4 text-center">
-					<p class="text-sm text-gray-500 mb-1">月額プラン</p>
-					<p class="text-2xl font-bold text-gray-800">¥500<span class="text-sm font-normal text-gray-400">/月</span></p>
-				</div>
-				<div class="rounded-xl border-2 border-purple-400 p-4 text-center relative">
-					<span class="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-purple-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">おすすめ</span>
-					<p class="text-sm text-gray-500 mb-1">年額プラン</p>
-					<p class="text-2xl font-bold text-gray-800">¥5,000<span class="text-sm font-normal text-gray-400">/年</span></p>
-					<p class="text-xs text-purple-500 font-medium mt-1">2ヶ月分お得</p>
-				</div>
-			</div>
-			<a href="/pricing" class="block text-center text-sm text-blue-500 mt-3 hover:underline">
-				料金プランの詳細を見る
+			<p class="text-sm text-gray-600 mb-2">
+				<span class="font-bold">フリー</span>（¥0）からスタート。有料プランは<span class="font-bold">スタンダード</span>（月額¥500〜）と<span class="font-bold">ファミリー</span>（月額¥780〜）の2種類。
+			</p>
+			<p class="text-xs text-gray-500 mb-3">有料プランはすべて7日間の無料トライアル付き</p>
+			<a href="/pricing" class="block text-center text-sm text-blue-500 hover:underline">
+				プランの詳細を料金ページで見る →
 			</a>
 			{/snippet}
 		</Card>
