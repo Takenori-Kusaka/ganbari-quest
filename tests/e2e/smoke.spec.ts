@@ -215,7 +215,7 @@ test.describe('チャレンジきろく画面', () => {
 		await page.goto('/admin/achievements');
 		await expect(page).toHaveURL(/\/admin\/achievements/);
 
-		await expect(page.getByText(/チャレンジ/)).toBeVisible();
+		await expect(page).toHaveTitle(/チャレンジ管理/);
 	});
 });
 
