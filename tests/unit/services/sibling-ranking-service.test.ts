@@ -35,9 +35,9 @@ describe('isRankingEnabled', () => {
 		expect(await isRankingEnabled(TENANT)).toBe(true);
 	});
 
-	it('設定が null（未設定）ならランキング有効（デフォルト）', async () => {
+	it('設定が null（未設定）ならランキング無効（デフォルトOFF）', async () => {
 		mockGetSetting.mockResolvedValue(null);
-		expect(await isRankingEnabled(TENANT)).toBe(true);
+		expect(await isRankingEnabled(TENANT)).toBe(false);
 	});
 });
 

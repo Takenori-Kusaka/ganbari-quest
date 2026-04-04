@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	let decayIntensity = 'normal';
 
 	let siblingMode = 'both';
-	let siblingRankingEnabled = 'true';
+	let siblingRankingEnabled = 'false';
 	let notificationSettings = {
 		remindersEnabled: true,
 		reminderTime: '09:00',
@@ -43,7 +43,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			getDataSummary(tenantId),
 			getSetting('decay_intensity', tenantId).then((v) => v ?? 'normal'),
 			getSetting('sibling_mode', tenantId).then((v) => v ?? 'both'),
-			getSetting('sibling_ranking_enabled', tenantId).then((v) => v ?? 'true'),
+			getSetting('sibling_ranking_enabled', tenantId).then((v) => v ?? 'false'),
 		]);
 		const ns = await getSettings(
 			[
