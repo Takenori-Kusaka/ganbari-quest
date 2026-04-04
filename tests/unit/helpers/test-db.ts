@@ -617,6 +617,59 @@ export const SQL_TABLES = `
 	);
 	CREATE INDEX idx_cloud_exports_tenant ON cloud_exports(tenant_id);
 	CREATE INDEX idx_cloud_exports_pin ON cloud_exports(pin_code);
+
+	-- ============================================================
+	-- tenant_events
+	-- ============================================================
+	CREATE TABLE tenant_events (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		event_code TEXT NOT NULL,
+		year INTEGER NOT NULL,
+		enabled INTEGER NOT NULL DEFAULT 1,
+		target_override TEXT,
+		reward_memo TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_tenant_events_unique ON tenant_events(tenant_id, event_code, year);
+	CREATE INDEX idx_tenant_events_tenant_year ON tenant_events(tenant_id, year);
+
+	-- ============================================================
+	-- tenant_event_progress
+	-- ============================================================
+	CREATE TABLE tenant_event_progress (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		event_code TEXT NOT NULL,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		year INTEGER NOT NULL,
+		current_count INTEGER NOT NULL DEFAULT 0,
+		completed_at TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_tenant_event_progress_unique ON tenant_event_progress(tenant_id, event_code, child_id, year);
+	CREATE INDEX idx_tenant_event_progress_child ON tenant_event_progress(child_id, year);
+
+	-- ============================================================
+	-- auto_challenges
+	-- ============================================================
+	CREATE TABLE auto_challenges (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		tenant_id TEXT NOT NULL,
+		week_start TEXT NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id),
+		target_count INTEGER NOT NULL,
+		current_count INTEGER NOT NULL DEFAULT 0,
+		status TEXT NOT NULL DEFAULT 'active',
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_auto_challenges_child_week ON auto_challenges(child_id, week_start);
+	CREATE INDEX idx_auto_challenges_tenant ON auto_challenges(tenant_id);
+	CREATE INDEX idx_auto_challenges_status ON auto_challenges(status);
 `;
 
 // ============================================================
@@ -624,6 +677,9 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'auto_challenges',
+	'tenant_event_progress',
+	'tenant_events',
 	'cloud_exports',
 	'custom_achievements',
 	'certificates',
