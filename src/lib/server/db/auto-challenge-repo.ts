@@ -41,9 +41,6 @@ export async function update(
 	return getRepos().autoChallenge.update(id, input, tenantId);
 }
 
-export async function expireOldChallenges(
-	beforeDate: string,
-	tenantId: string,
-): Promise<number> {
+export async function expireOldChallenges(beforeDate: string, tenantId: string): Promise<number> {
 	return getRepos().autoChallenge.expireOldChallenges(beforeDate, tenantId);
 }

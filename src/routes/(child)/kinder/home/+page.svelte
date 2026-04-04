@@ -442,57 +442,6 @@ $effect(() => {
 		/>
 	{/if}
 
-	<!-- Season event banners -->
-	{#if data.activeEvents && data.activeEvents.length > 0}
-		<EventBanner events={data.activeEvents} />
-	{/if}
-
-	<!-- Season pass card -->
-	{#if data.seasonPass}
-		<SeasonPassCard
-			eventName={data.seasonPass.event.name}
-			eventId={data.seasonPass.event.id}
-			bannerIcon={data.seasonPass.event.bannerIcon}
-			milestones={data.seasonPass.milestones}
-			currentCount={data.seasonPass.progress.count}
-			maxTarget={Math.max(...data.seasonPass.milestones.map((m: { target: number }) => m.target), 1)}
-			remainingDays={data.seasonPass.remainingDays}
-			isPremium={data.isPremium ?? false}
-		/>
-	{/if}
-
-	<!-- Family streak banner -->
-	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
-		<FamilyStreakBanner
-			currentStreak={data.familyStreak.currentStreak}
-			hasRecordedToday={data.familyStreak.hasRecordedToday}
-			todayRecorders={data.familyStreak.todayRecorders}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
-			nextMilestone={data.familyStreak.nextMilestone}
-		/>
-	{/if}
-
-	<!-- Sibling challenge banners -->
-	{#if data.activeChallenges && data.activeChallenges.length > 0}
-		<ChallengeBanner
-			challenges={data.activeChallenges}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
-		/>
-	{/if}
-
-	<!-- Sibling ranking -->
-	{#if data.siblingRanking}
-		<SiblingRanking
-			rankings={data.siblingRanking.rankings}
-			mostActive={data.siblingRanking.mostActive}
-			categoryChampions={data.siblingRanking.categoryChampions}
-			encouragement={data.siblingRanking.encouragement}
-			childId={data.child?.id ?? 0}
-		/>
-	{/if}
-
 	<!-- Error toast -->
 	{#if errorMessage}
 		<div class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold animate-bounce-in">
@@ -678,6 +627,69 @@ $effect(() => {
 				</div>
 			{/if}
 		</a>
+	{/if}
+
+	<!-- Family streak banner (below activities) -->
+	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
+		<FamilyStreakBanner
+			currentStreak={data.familyStreak.currentStreak}
+			hasRecordedToday={data.familyStreak.hasRecordedToday}
+			todayRecorders={data.familyStreak.todayRecorders}
+			childId={data.child?.id ?? 0}
+			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
+			nextMilestone={data.familyStreak.nextMilestone}
+			compact
+		/>
+	{/if}
+
+	<!-- Season event banners -->
+	{#if data.activeEvents && data.activeEvents.length > 0}
+		<EventBanner events={data.activeEvents} />
+	{/if}
+
+	<!-- Season pass card -->
+	{#if data.seasonPass}
+		<SeasonPassCard
+			eventName={data.seasonPass.event.name}
+			eventId={data.seasonPass.event.id}
+			bannerIcon={data.seasonPass.event.bannerIcon}
+			milestones={data.seasonPass.milestones}
+			currentCount={data.seasonPass.progress.count}
+			maxTarget={Math.max(...data.seasonPass.milestones.map((m: { target: number }) => m.target), 1)}
+			remainingDays={data.seasonPass.remainingDays}
+			isPremium={data.isPremium ?? false}
+		/>
+	{/if}
+
+	<!-- Sibling challenge banners -->
+	{#if data.activeChallenges && data.activeChallenges.length > 0}
+		<ChallengeBanner
+			challenges={data.activeChallenges}
+			childId={data.child?.id ?? 0}
+			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
+		/>
+	{/if}
+
+	<!-- Sibling ranking (collapsible) -->
+	{#if data.siblingRanking}
+		<details class="mt-[var(--sp-sm)]">
+			<summary class="flex items-center justify-between px-[var(--sp-md)] py-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] cursor-pointer tap-target list-none">
+				<div class="flex items-center gap-[var(--sp-sm)]">
+					<span class="text-xl">🏆</span>
+					<span class="font-bold text-sm">こんしゅうの ランキング</span>
+				</div>
+				<span class="text-[var(--color-text-muted)] transition-transform duration-200 ranking-arrow">▼</span>
+			</summary>
+			<div class="mt-1">
+				<SiblingRanking
+					rankings={data.siblingRanking.rankings}
+					mostActive={data.siblingRanking.mostActive}
+					categoryChampions={data.siblingRanking.categoryChampions}
+					encouragement={data.siblingRanking.encouragement}
+					childId={data.child?.id ?? 0}
+				/>
+			</div>
+		</details>
 	{/if}
 </div>
 
@@ -1042,6 +1054,10 @@ $effect(() => {
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
+	}
+
+	details[open] .ranking-arrow {
+		transform: rotate(180deg);
 	}
 
 </style>

@@ -12,40 +12,8 @@
 <meta property="og:image" content="https://www.ganbari-quest.com/ogp.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="stylesheet" href="shared.css">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --brand-900:#1a3a5c;--brand-800:#2a5f9e;--brand-700:#3878B8;--brand-600:#4a90d9;--brand-500:#5BA3E6;--brand-400:#7db8ed;--brand-300:#a3cef3;--brand-200:#c9e2f8;--brand-100:#e8f4fd;--brand-50:#f2f9ff;
-  --gold-600:#d4ad00;--gold-500:#FFCC00;--gold-400:#FFE44D;--gold-300:#ffed80;--gold-100:#fffbe6;
-  --violet-600:#7c3aed;--violet-500:#8b5cf6;--violet-100:#ede9fe;
-  --green-500:#4caf50;--green-100:#e8f5e9;
-  --gray-900:#1e293b;--gray-700:#334155;--gray-500:#64748b;--gray-300:#cbd5e1;--gray-200:#e2e8f0;--gray-100:#f1f5f9;--gray-50:#f8fafc;
-  --radius:12px;
-}
-html{scroll-behavior:smooth}
-body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',system-ui,sans-serif;color:var(--gray-700);line-height:1.7}
-a{color:var(--brand-700);text-decoration:none}
-a:hover{text-decoration:underline}
-img{max-width:100%;height:auto}
-
-/* Header */
-.header{background:#fff;border-bottom:1px solid var(--gray-300);padding:12px 16px;position:sticky;top:0;z-index:50}
-.header-inner{max-width:1080px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
-.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.1rem;color:var(--gray-900);text-decoration:none}
-.logo img{height:44px;width:auto}
-.header-nav{display:flex;gap:20px;align-items:center}
-.header-nav a:not(.btn){font-size:.9rem;color:var(--gray-500)}
-.header-nav a:not(.btn):hover{color:var(--gray-900)}
-.hamburger{display:none;background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px 8px;color:var(--gray-700)}
-.btn{display:inline-block;padding:10px 24px;border-radius:2rem;font-size:.95rem;font-weight:600;transition:all .2s;text-decoration:none}
-.btn-primary{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff;box-shadow:0 2px 8px rgba(56,120,184,.3)}
-.btn-primary:hover{box-shadow:0 4px 16px rgba(56,120,184,.4);text-decoration:none;transform:translateY(-1px)}
-.btn-outline{border:2px solid var(--brand-700);color:var(--brand-700)}
-.btn-outline:hover{background:var(--brand-100);text-decoration:none}
-.btn-premium{background:linear-gradient(135deg,var(--violet-600),var(--violet-500));color:#fff;box-shadow:0 2px 8px rgba(139,92,246,.3)}
-.btn-premium:hover{box-shadow:0 4px 16px rgba(139,92,246,.4);text-decoration:none;transform:translateY(-1px)}
-.btn-lg{padding:14px 32px;font-size:1.1rem}
-
 /* Hero */
 .pricing-hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,var(--violet-100) 100%);padding:80px 16px 60px;text-align:center}
 .pricing-hero h1{font-size:2.2rem;font-weight:800;color:var(--gray-900);margin-bottom:12px}
@@ -90,6 +58,19 @@ img{max-width:100%;height:auto}
 .check{color:var(--green-500);font-weight:700}
 .dash{color:var(--gray-300)}
 
+/* Feature Details */
+.feature-details-section{padding:0 16px 64px}
+.feature-details-inner{max-width:720px;margin:0 auto}
+.feature-details-title{font-size:1.5rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:8px}
+.feature-details-subtitle{font-size:.9rem;color:var(--gray-500);text-align:center;margin-bottom:32px}
+.feature-group-title{font-size:.95rem;font-weight:700;color:var(--gray-500);margin:24px 0 12px;padding-left:4px}
+.feature-detail-item{border-bottom:1px solid var(--gray-200);padding:0}
+.feature-detail-item summary{font-size:.95rem;font-weight:600;color:var(--gray-900);cursor:pointer;list-style:none;padding:14px 4px;display:flex;align-items:center;gap:8px}
+.feature-detail-item summary::before{content:'▶';font-size:.65rem;color:var(--gray-300);transition:transform .2s;flex-shrink:0}
+.feature-detail-item[open] summary::before{transform:rotate(90deg)}
+.feature-detail-item[open] summary{margin-bottom:0}
+.feature-detail-answer{font-size:.9rem;color:var(--gray-500);padding:0 4px 16px 20px;line-height:1.7}
+
 /* FAQ */
 .faq-section{padding:64px 16px;background:var(--gray-50)}
 .faq-inner{max-width:720px;margin:0 auto}
@@ -106,28 +87,12 @@ img{max-width:100%;height:auto}
 .cta-bottom p{color:var(--gray-500);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto}
 .cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 
-/* Footer */
-.footer{background:var(--gray-900);color:#94a3b8;padding:40px 16px}
-.footer-inner{max-width:1080px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:24px}
-.footer-brand h3{color:#fff;font-size:1rem;margin-bottom:8px}
-.footer-brand p{font-size:.85rem}
-.footer-links h4{color:#e2e8f0;font-size:.85rem;margin-bottom:8px}
-.footer-links a{display:block;font-size:.85rem;color:#94a3b8;margin-bottom:4px}
-.footer-links a:hover{color:#fff}
-.footer-copy{border-top:1px solid #334155;margin-top:32px;padding-top:16px;text-align:center;font-size:.75rem}
-
 @media(max-width:768px){
   .pricing-hero h1{font-size:1.6rem}
   .plan-grid{grid-template-columns:1fr;max-width:400px;margin-left:auto;margin-right:auto}
   .plan-card.recommended{order:-1}
   .comparison-table{font-size:.75rem}
   .comparison-table thead th,.comparison-table tbody td{padding:8px 4px}
-  .hamburger{display:flex;align-items:center;justify-content:center}
-  .header-nav{display:none;position:absolute;top:56px;left:0;right:0;background:#fff;flex-direction:column;padding:16px;gap:12px;border-bottom:1px solid var(--gray-300);box-shadow:0 4px 12px rgba(0,0,0,.1)}
-  .header-nav.open{display:flex}
-  .header-nav a:not(.btn){font-size:1rem;padding:8px 0}
-  .header-nav .btn{text-align:center;width:100%}
-  .footer-inner{flex-direction:column}
 }
 </style>
 </head>
@@ -143,9 +108,10 @@ img{max-width:100%;height:auto}
     <nav class="header-nav">
       <a href="index.html">ホーム</a>
       <a href="index.html#features">できること</a>
-      <a href="index.html#faq">よくある質問</a>
-      <a href="https://ganbari-quest.com/demo" class="btn btn-outline">デモ体験</a>
-      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
+      <a href="index.html#age-modes">年齢対応</a>
+      <a href="pricing.html">料金プラン</a>
+      <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモ体験</a>
+      <a href="https://ganbari-quest.com/auth/login" class="btn btn-primary">ログイン</a>
     </nav>
   </div>
 </header>
@@ -170,7 +136,7 @@ img{max-width:100%;height:auto}
         <div class="plan-desc">基本機能で気軽にスタート。お子さまのゲーム体験は一切制限なし。</div>
         <a href="https://ganbari-quest.com/auth/signup" class="plan-cta plan-cta-free">無料ではじめる</a>
         <ul class="plan-features">
-          <li>子供 2人まで登録</li>
+          <li>お子さま 2人まで登録</li>
           <li>プリセット活動の利用</li>
           <li>カスタム活動 3個まで</li>
           <li>レベル・ポイント・実績・称号</li>
@@ -190,17 +156,17 @@ img{max-width:100%;height:auto}
         <div class="plan-desc">カスタマイズ自由自在。お子さまにぴったりの環境を作れます。</div>
         <a href="https://ganbari-quest.com/auth/signup?plan=standard" class="plan-cta plan-cta-premium">7日間 無料体験</a>
         <ul class="plan-features">
-          <li>子供 無制限</li>
-          <li>カスタム活動 無制限</li>
+          <li>お子さまの登録人数：無制限</li>
+          <li>オリジナル活動の作成：無制限</li>
           <li>活動アイコンの変更</li>
           <li>チェックリスト自由作成</li>
           <li>カスタム報酬設定</li>
-          <li>おうえん自由テキスト</li>
+          <li>おうえんスタンプ（全種類）</li>
           <li>週次メールレポート</li>
-          <li>カテゴリ偏差値レーダー</li>
-          <li>データエクスポート（CSV）</li>
+          <li>活動バランスの見える化</li>
+          <li>データエクスポート（JSON）</li>
           <li>1年間の履歴保持</li>
-          <li>メールサポート</li>
+          <li>Discordサポート</li>
         </ul>
       </div>
 
@@ -215,12 +181,10 @@ img{max-width:100%;height:auto}
         <ul class="plan-features">
           <li>スタンダードの全機能</li>
           <li>月次比較レポート</li>
-          <li>年間サマリーレポート</li>
-          <li>兄弟間比較分析</li>
+          <li>きょうだいランキング</li>
           <li>カスタムレベル称号</li>
-          <li>データエクスポート（PDF）</li>
           <li>無制限の履歴保持</li>
-          <li>優先サポート（48h以内）</li>
+          <li>Discordサポート（優先対応）</li>
         </ul>
       </div>
 
@@ -228,7 +192,7 @@ img{max-width:100%;height:auto}
 
     <!-- Note -->
     <p style="text-align:center;font-size:.85rem;color:var(--gray-500);margin-bottom:48px">
-      &#x1F4A1; ゲーミフィケーション機能（レベル・ポイント・実績・称号・シールガチャ・コンボ）は<strong>全プラン共通</strong>で制限なし
+      &#x1F4A1; お子さまが楽しめる冒険の仕組み（レベル・ポイント・実績・称号・シールガチャ・コンボ）は<strong>全プラン共通</strong>で制限なし
     </p>
   </div>
 </section>
@@ -249,12 +213,12 @@ img{max-width:100%;height:auto}
       </thead>
       <tbody>
         <tr class="cat-row"><td colspan="4">基本</td></tr>
-        <tr><td>子供の登録数</td><td>2人まで</td><td class="check">無制限</td><td class="check">無制限</td></tr>
+        <tr><td>お子さまの登録人数</td><td>2人まで</td><td class="check">無制限</td><td class="check">無制限</td></tr>
         <tr><td>プリセット活動の利用</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td>カスタム活動の追加</td><td>3個まで</td><td class="check">無制限</td><td class="check">無制限</td></tr>
+        <tr><td>オリジナル活動の作成</td><td>3個まで</td><td class="check">無制限</td><td class="check">無制限</td></tr>
         <tr><td>活動履歴の保持</td><td>90日</td><td>1年</td><td class="check">無制限</td></tr>
 
-        <tr class="cat-row"><td colspan="4">ゲーミフィケーション</td></tr>
+        <tr class="cat-row"><td colspan="4">冒険の仕組み</td></tr>
         <tr><td>XP・レベルアップ</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
         <tr><td>実績・バッジ解除</td><td>基本のみ</td><td class="check">全種</td><td class="check">全種</td></tr>
         <tr><td>称号システム</td><td>基本のみ</td><td class="check">全種</td><td class="check">全種＋カスタム</td></tr>
@@ -270,23 +234,95 @@ img{max-width:100%;height:auto}
         <tr class="cat-row"><td colspan="4">レポート・分析</td></tr>
         <tr><td>日次サマリー</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
         <tr><td>週次メールレポート</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td>カテゴリ偏差値レーダー</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>活動バランスの見える化</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
         <tr><td>月次比較レポート</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
-        <tr><td>年間サマリーレポート</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
-        <tr><td>兄弟間比較分析</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
+        <tr><td>きょうだいランキング</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
 
         <tr class="cat-row"><td colspan="4">データ管理</td></tr>
-        <tr><td>データエクスポート（CSV）</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td>データエクスポート（PDF）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
+        <tr><td>データエクスポート（JSON）</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
         <tr><td>データインポート</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
 
         <tr class="cat-row"><td colspan="4">サポート</td></tr>
-        <tr><td>コミュニティサポート</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td>メールサポート</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td>優先サポート（48h以内）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Discordコミュニティ</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Discordサポート</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Discordサポート（優先対応）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
       </tbody>
     </table>
     </div>
+  </div>
+</section>
+
+<!-- Feature Details -->
+<section class="feature-details-section">
+  <div class="feature-details-inner">
+    <h2 class="feature-details-title">各機能のくわしい説明</h2>
+    <p class="feature-details-subtitle">プランに含まれる機能の内容をご説明します</p>
+
+    <h3 class="feature-group-title">基本機能（全プラン共通）</h3>
+    <details class="feature-detail-item">
+      <summary>プリセット活動</summary>
+      <div class="feature-detail-answer">「べんきょう」「うんどう」「おてつだい」など、最初から用意されている定番の活動です。すぐに活動記録を始められます。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>レベル・ポイント</summary>
+      <div class="feature-detail-answer">活動を記録するたびにポイント（XP）がたまり、レベルが上がります。お子さまのがんばりが目に見える形で成長していきます。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>実績・称号</summary>
+      <div class="feature-detail-answer">「3日連続で活動を記録」「合計100ポイント達成」など、特別な条件を達成するとバッジや称号がもらえます。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>シールガチャ</summary>
+      <div class="feature-detail-answer">活動を記録するとシールガチャが回せます。レア度の異なるシールを集めるコレクション要素で、お子さまの記録モチベーションを高めます。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>ログインボーナス</summary>
+      <div class="feature-detail-answer">毎日アプリを開くとボーナスポイントがもらえます。連続ログインでボーナスが増えていきます。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>チェックリスト（テンプレート）</summary>
+      <div class="feature-detail-answer">「おでかけのじゅんび」「あさのしたく」など、やることリストのテンプレートを使えます。項目を一つずつチェックしていく達成感が味わえます。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>おうえんスタンプ</summary>
+      <div class="feature-detail-answer">保護者からお子さまへ「がんばったね！」などのスタンプを送れます。お子さまの画面に表示され、やる気アップにつながります。</div>
+    </details>
+
+    <h3 class="feature-group-title">スタンダード以上の機能</h3>
+    <details class="feature-detail-item">
+      <summary>オリジナル活動の作成</summary>
+      <div class="feature-detail-answer">「ピアノれんしゅう」「犬のさんぽ」など、お子さまに合わせた活動を自由に追加できます。アイコンも変更可能です。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>チェックリスト自由作成</summary>
+      <div class="feature-detail-answer">テンプレートだけでなく、完全オリジナルのチェックリストを作成できます。お子さまの日課や目標に合わせて項目を自由に設定できます。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>カスタム報酬設定</summary>
+      <div class="feature-detail-answer">「おやつを選べる」「ゲーム30分」など、ポイントと交換できる報酬を自由に設定できます。お子さまと相談して決めるのがおすすめです。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>週次メールレポート</summary>
+      <div class="feature-detail-answer">1週間の活動をまとめたレポートが登録メールアドレスに届きます。忙しくてアプリを開けない日でも、お子さまのがんばりを把握できます。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>活動バランスの見える化</summary>
+      <div class="feature-detail-answer">「うんどう」「べんきょう」「おてつだい」など、カテゴリごとの活動量をチャートで確認できます。偏りに気づいて声かけに活かせます。</div>
+    </details>
+
+    <h3 class="feature-group-title">ファミリープランの機能</h3>
+    <details class="feature-detail-item">
+      <summary>月次比較レポート</summary>
+      <div class="feature-detail-answer">月ごとの活動量や成長の変化を比較できるレポートです。先月と今月でどれだけ成長したかが一目でわかります。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>きょうだいランキング</summary>
+      <div class="feature-detail-answer">きょうだい間でポイントや活動回数を比較できるランキングです。楽しく競い合いながら、一緒にがんばれます。</div>
+    </details>
+    <details class="feature-detail-item">
+      <summary>カスタムレベル称号</summary>
+      <div class="feature-detail-answer">レベルに応じた称号を自由にカスタマイズできます。お子さまの好きなテーマに合わせた称号で冒険をもっと楽しく。</div>
+    </details>
   </div>
 </section>
 
@@ -317,7 +353,22 @@ img{max-width:100%;height:auto}
 
     <details class="faq-item">
       <summary>プランの変更はできますか？</summary>
-      <div class="faq-answer">はい。スタンダード↔ファミリー、月額↔年額の切り替えがいつでも可能です。管理画面から数クリックで変更できます。</div>
+      <div class="faq-answer">はい。スタンダード↔ファミリー、月額↔年額の切り替えがいつでも可能です。管理画面の「プラン・お支払い」から変更できます。現在のプランを解約してから新しいプランに申し込む流れになります。</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>解約するとどうなりますか？</summary>
+      <div class="faq-answer">解約後も、お支払い済みの期間が終了するまでは引き続きご利用いただけます。期間終了後はフリープランに自動移行し、データは30日間保持されます。再開すればそのままお使いいただけます。</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>課金日はいつですか？</summary>
+      <div class="faq-answer">お申込み日を起算日として、月額プランは毎月、年額プランは毎年自動更新されます。例えば4月15日にお申込みの場合、次回の課金日は5月15日（月額）または翌年4月15日（年額）です。</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>年額プランの途中解約は返金されますか？</summary>
+      <div class="faq-answer">年額プランの途中解約の場合、日割りでの返金は行っておりません。解約後も残りの期間は引き続きご利用いただけます。</div>
     </details>
 
     <details class="faq-item">

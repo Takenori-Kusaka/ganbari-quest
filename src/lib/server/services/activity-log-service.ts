@@ -257,14 +257,8 @@ export async function recordActivity(
 	// カレンダーイベント進捗チェック（新: season-event-calendar ベース）
 	let calendarEventResults: { eventCode: string; eventName: string; completed: boolean }[] = [];
 	try {
-		const { incrementEventProgress } = await import(
-			'$lib/server/services/calendar-event-service'
-		);
-		calendarEventResults = await incrementEventProgress(
-			childId,
-			activity.categoryId,
-			tenantId,
-		);
+		const { incrementEventProgress } = await import('$lib/server/services/calendar-event-service');
+		calendarEventResults = await incrementEventProgress(childId, activity.categoryId, tenantId);
 	} catch {
 		// カレンダーイベント進捗失敗は記録フローを止めない
 	}

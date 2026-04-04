@@ -280,11 +280,7 @@ describe('incrementChallengeProgress', () => {
 		const result = await incrementChallengeProgress(CHILD_ID, 3, TENANT);
 		expect(result.challengeCompleted).toBe(true);
 		expect(result.challengeInfo?.status).toBe('completed');
-		expect(mockUpdate).toHaveBeenCalledWith(
-			1,
-			{ currentCount: 3, status: 'completed' },
-			TENANT,
-		);
+		expect(mockUpdate).toHaveBeenCalledWith(1, { currentCount: 3, status: 'completed' }, TENANT);
 	});
 
 	it('does nothing when category does not match', async () => {

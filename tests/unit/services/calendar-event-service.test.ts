@@ -137,11 +137,7 @@ describe('setEventRewardMemo', () => {
 
 		await setEventRewardMemo(TENANT, 'christmas', 'ケーキを食べよう！', 2026);
 
-		expect(mockUpdateEvent).toHaveBeenCalledWith(
-			5,
-			{ rewardMemo: 'ケーキを食べよう！' },
-			TENANT,
-		);
+		expect(mockUpdateEvent).toHaveBeenCalledWith(5, { rewardMemo: 'ケーキを食べよう！' }, TENANT);
 	});
 
 	it('creates new event record if none exists', async () => {

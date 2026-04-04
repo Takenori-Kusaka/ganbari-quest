@@ -3,8 +3,8 @@
 // Replaces the old manual event creation flow with auto-delivered seasonal events.
 
 import {
-	type SeasonEventDefinition,
 	SEASON_EVENTS,
+	type SeasonEventDefinition,
 	getActiveSeasonEvents,
 	getEventDateRange,
 } from '$lib/domain/season-event-calendar';
@@ -17,10 +17,7 @@ import {
 	upsertEvent,
 	upsertProgress,
 } from '$lib/server/db/tenant-event-repo';
-import type {
-	TenantEvent,
-	TenantEventProgress,
-} from '$lib/server/db/types';
+import type { TenantEvent, TenantEventProgress } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
 
 // ============================================================

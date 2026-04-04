@@ -11,10 +11,7 @@ import type {
 	UpsertTenantEventProgressInput,
 } from '../types';
 
-export async function findByTenantAndYear(
-	tenantId: string,
-	year: number,
-): Promise<TenantEvent[]> {
+export async function findByTenantAndYear(tenantId: string, year: number): Promise<TenantEvent[]> {
 	return db
 		.select()
 		.from(tenantEvents)

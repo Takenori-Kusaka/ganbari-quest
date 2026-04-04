@@ -224,11 +224,14 @@ function handler(event) {
 				domainName: 'kokor.github.io',
 			});
 
-			// --- Stripe カスタムメールドメイン DNS レコード (#0246) ---
-			// TXT: Stripe ドメイン所有確認
-			new route53.TxtRecord(this, 'StripeDomainVerification', {
+			// --- Apex ドメイン TXT レコード（統合） ---
+			// Google Search Console ドメイン所有確認 (#328)
+			// Stripe ドメイン所有確認 (#0246)
+			// ※ 同一ドメインのTXTレコードは1つに統合する必要がある（Route 53制約）
+			new route53.TxtRecord(this, 'ApexTxtRecords', {
 				zone: hostedZone,
 				values: [
+					'google-site-verification=WhDKAgGbFDHHgi-1hXJSo344zNmTY1j0BdYc09dy4Lk',
 					'stripe-verification=b0276ff8bdfbb406277f328df069e3125243dcc66dbab67a879e40a9a41775bf',
 				],
 			});

@@ -137,7 +137,6 @@ export function runBatchMigration(
 						lastBirthdayBonusYear: migrated.lastBirthdayBonusYear as number | null,
 						birthDate: migrated.birthDate as string | null,
 						avatarUrl: migrated.avatarUrl as string | null,
-						activeTitleId: migrated.activeTitleId as number | null,
 						userId: migrated.userId as string | null,
 					})
 					.where(eq(children.id, id))

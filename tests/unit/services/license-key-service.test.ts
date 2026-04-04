@@ -1,7 +1,7 @@
 // tests/unit/services/license-key-service.test.ts
-// ライセンスキー生成・検証・消費サービスのユニットテスト
+// ライセンスキー生成・検証・消費サービスのユニットテスト (#0247, #319 HMAC署名対応)
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- モック定義 ---
 const mockSaveLicenseKey = vi.fn();
@@ -30,23 +30,120 @@ vi.mock('$lib/server/logger', () => ({
 import {
 	type LicenseRecord,
 	consumeLicenseKey,
+	createHmacChecksum,
 	generateLicenseKey,
+	isSignedKeyFormat,
 	issueLicenseKey,
 	validateLicenseKey,
+	verifyKeySignature,
 } from '$lib/server/services/license-key-service';
+
+const TEST_SECRET = 'test-license-secret-for-hmac-signing';
+
+// ============================================================
+// HMAC 署名ユーティリティ (#319)
+// ============================================================
+
+describe('createHmacChecksum', () => {
+	it('5文字のチェックサムを生成する', () => {
+		const checksum = createHmacChecksum('GQ-ABCD-EFGH-JKLM', TEST_SECRET);
+		expect(checksum).toHaveLength(5);
+		expect(checksum).toMatch(/^[A-Z0-9]{5}$/);
+	});
+
+	it('同じ入力に対して同じチェックサムを返す', () => {
+		const a = createHmacChecksum('GQ-ABCD-EFGH-JKLM', TEST_SECRET);
+		const b = createHmacChecksum('GQ-ABCD-EFGH-JKLM', TEST_SECRET);
+		expect(a).toBe(b);
+	});
+
+	it('異なるペイロードで異なるチェックサムを返す', () => {
+		const a = createHmacChecksum('GQ-ABCD-EFGH-JKLM', TEST_SECRET);
+		const b = createHmacChecksum('GQ-WXYZ-WXYZ-WXYZ', TEST_SECRET);
+		expect(a).not.toBe(b);
+	});
+
+	it('異なる秘密鍵で異なるチェックサムを返す', () => {
+		const a = createHmacChecksum('GQ-ABCD-EFGH-JKLM', 'secret-1');
+		const b = createHmacChecksum('GQ-ABCD-EFGH-JKLM', 'secret-2');
+		expect(a).not.toBe(b);
+	});
+
+	it('曖昧な文字（0/O/1/I）を含まない', () => {
+		for (let i = 0; i < 100; i++) {
+			const checksum = createHmacChecksum(
+				`GQ-TEST-${i.toString().padStart(4, '0')}-AAAA`,
+				TEST_SECRET,
+			);
+			expect(checksum).not.toMatch(/[01OI]/);
+		}
+	});
+});
+
+describe('isSignedKeyFormat', () => {
+	it('署名付き形式を判定する', () => {
+		expect(isSignedKeyFormat('GQ-ABCD-EFGH-JKLM-NPRST')).toBe(true);
+	});
+
+	it('旧形式は false を返す', () => {
+		expect(isSignedKeyFormat('GQ-ABCD-EFGH-JKLM')).toBe(false);
+	});
+
+	it('不正な形式は false を返す', () => {
+		expect(isSignedKeyFormat('XX-ABCD-EFGH-JKLM-NPRST')).toBe(false);
+		expect(isSignedKeyFormat('GQ-ABCD-EFGH-JKLM-NPR')).toBe(false);
+		expect(isSignedKeyFormat('')).toBe(false);
+	});
+});
+
+describe('verifyKeySignature', () => {
+	it('正しい署名のキーを検証する', () => {
+		const payload = 'GQ-ABCD-EFGH-JKLM';
+		const checksum = createHmacChecksum(payload, TEST_SECRET);
+		const key = `${payload}-${checksum}`;
+		expect(verifyKeySignature(key, TEST_SECRET)).toBe(true);
+	});
+
+	it('不正な署名のキーを拒否する', () => {
+		expect(verifyKeySignature('GQ-ABCD-EFGH-JKLM-ZZZZZ', TEST_SECRET)).toBe(false);
+	});
+
+	it('異なる秘密鍵で生成された署名を拒否する', () => {
+		const payload = 'GQ-ABCD-EFGH-JKLM';
+		const checksum = createHmacChecksum(payload, 'wrong-secret');
+		const key = `${payload}-${checksum}`;
+		expect(verifyKeySignature(key, TEST_SECRET)).toBe(false);
+	});
+});
 
 // ============================================================
 // generateLicenseKey
 // ============================================================
 
 describe('generateLicenseKey', () => {
-	it('GQ-XXXX-XXXX-XXXX 形式のキーを生成する', () => {
+	afterEach(() => {
+		process.env.AWS_LICENSE_SECRET = '';
+	});
+
+	it('秘密鍵なしの場合 GQ-XXXX-XXXX-XXXX 形式のキーを生成する', () => {
+		process.env.AWS_LICENSE_SECRET = '';
 		const key = generateLicenseKey();
 		expect(key).toMatch(/^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/);
 	});
 
+	it('秘密鍵ありの場合 GQ-XXXX-XXXX-XXXX-YYYYY 形式のキーを生成する', () => {
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+		const key = generateLicenseKey();
+		expect(key).toMatch(/^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{5}$/);
+	});
+
+	it('署名付きキーの署名が正しく検証できる', () => {
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+		const key = generateLicenseKey();
+		expect(verifyKeySignature(key, TEST_SECRET)).toBe(true);
+	});
+
 	it('曖昧な文字（0/O/1/I）を含まない', () => {
-		// 100回生成して統計的に検証
 		for (let i = 0; i < 100; i++) {
 			const key = generateLicenseKey();
 			const body = key.slice(3); // "GQ-" を除去
@@ -59,7 +156,6 @@ describe('generateLicenseKey', () => {
 		for (let i = 0; i < 50; i++) {
 			keys.add(generateLicenseKey());
 		}
-		// 50個のキーが全て異なる（衝突率は極めて低い）
 		expect(keys.size).toBe(50);
 	});
 
@@ -68,7 +164,8 @@ describe('generateLicenseKey', () => {
 		expect(key.startsWith('GQ-')).toBe(true);
 	});
 
-	it('3つのセグメントがハイフンで区切られている', () => {
+	it('秘密鍵なしの場合は3つのセグメントがハイフンで区切られている', () => {
+		process.env.AWS_LICENSE_SECRET = '';
 		const key = generateLicenseKey();
 		const segments = key.split('-');
 		expect(segments).toHaveLength(4); // GQ, seg1, seg2, seg3
@@ -76,6 +173,18 @@ describe('generateLicenseKey', () => {
 		expect(segments[1]).toHaveLength(4);
 		expect(segments[2]).toHaveLength(4);
 		expect(segments[3]).toHaveLength(4);
+	});
+
+	it('秘密鍵ありの場合は4つのセグメント+チェックサムがハイフンで区切られている', () => {
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+		const key = generateLicenseKey();
+		const segments = key.split('-');
+		expect(segments).toHaveLength(5); // GQ, seg1, seg2, seg3, checksum
+		expect(segments[0]).toBe('GQ');
+		expect(segments[1]).toHaveLength(4);
+		expect(segments[2]).toHaveLength(4);
+		expect(segments[3]).toHaveLength(4);
+		expect(segments[4]).toHaveLength(5);
 	});
 });
 
@@ -87,6 +196,11 @@ describe('issueLicenseKey', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockSaveLicenseKey.mockResolvedValue(undefined);
+		process.env.AWS_LICENSE_SECRET = '';
+	});
+
+	afterEach(() => {
+		process.env.AWS_LICENSE_SECRET = '';
 	});
 
 	it('ライセンスレコードを生成して DB に保存する', async () => {
@@ -102,6 +216,17 @@ describe('issueLicenseKey', () => {
 		expect(result.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}/);
 		expect(mockSaveLicenseKey).toHaveBeenCalledTimes(1);
 		expect(mockSaveLicenseKey).toHaveBeenCalledWith(result);
+	});
+
+	it('秘密鍵ありの場合は署名付きキーを発行する', async () => {
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+		const result = await issueLicenseKey({
+			tenantId: 'tenant-signed',
+			plan: 'monthly',
+		});
+
+		expect(result.licenseKey).toMatch(/^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{5}$/);
+		expect(verifyKeySignature(result.licenseKey, TEST_SECRET)).toBe(true);
 	});
 
 	it('yearly プランで発行できる', async () => {
@@ -151,7 +276,6 @@ describe('issueLicenseKey', () => {
 			plan: 'monthly',
 		});
 
-		// ISO 8601 形式の検証
 		const parsed = new Date(result.createdAt);
 		expect(parsed.toISOString()).toBe(result.createdAt);
 	});
@@ -172,6 +296,11 @@ describe('issueLicenseKey', () => {
 describe('validateLicenseKey', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		process.env.AWS_LICENSE_SECRET = '';
+	});
+
+	afterEach(() => {
+		process.env.AWS_LICENSE_SECRET = '';
 	});
 
 	it('不正な形式のキーは invalid を返す（短すぎる）', async () => {
@@ -192,9 +321,7 @@ describe('validateLicenseKey', () => {
 		}
 	});
 
-	it('不正な形式のキーは invalid を返す（禁止文字 O を含む）', async () => {
-		// 正規表現は [A-Z0-9] なので O も 0 もマッチするが、形式自体は通る
-		// ここでは完全に形式が壊れたケースをテスト
+	it('不正な形式のキーは invalid を返す（セグメント不足）', async () => {
 		const result = await validateLicenseKey('GQ-ABCD-EFGH');
 
 		expect(result.valid).toBe(false);
@@ -219,6 +346,71 @@ describe('validateLicenseKey', () => {
 		if (!result.valid) {
 			expect(result.reason).toBe('ライセンスキーの形式が不正です');
 		}
+	});
+
+	it('旧形式（署名なし）のキーも受け入れる', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM');
+
+		expect(result.valid).toBe(true);
+	});
+
+	it('署名付きキーの署名が正しい場合はDBを参照する', async () => {
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+		const payload = 'GQ-ABCD-EFGH-JKLM';
+		const checksum = createHmacChecksum(payload, TEST_SECRET);
+		const signedKey = `${payload}-${checksum}`;
+
+		const record: LicenseRecord = {
+			licenseKey: signedKey,
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await validateLicenseKey(signedKey);
+
+		expect(result.valid).toBe(true);
+		expect(mockFindLicenseKey).toHaveBeenCalledWith(signedKey);
+	});
+
+	it('署名付きキーの署名が不正な場合はDB問い合わせなしで拒否する', async () => {
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM-ZZZZZ');
+
+		expect(result.valid).toBe(false);
+		if (!result.valid) {
+			expect(result.reason).toBe('ライセンスキーが不正です');
+		}
+		expect(mockFindLicenseKey).not.toHaveBeenCalled();
+	});
+
+	it('秘密鍵未設定時は署名付きキーでもDB参照する（ローカルモード）', async () => {
+		process.env.AWS_LICENSE_SECRET = '';
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM-NPRST',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM-NPRST');
+
+		expect(result.valid).toBe(true);
+		expect(mockFindLicenseKey).toHaveBeenCalled();
 	});
 
 	it('小文字のキーを大文字に正規化して検証する', async () => {

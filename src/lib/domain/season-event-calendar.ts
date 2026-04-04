@@ -159,9 +159,7 @@ export const SEASON_EVENTS: SeasonEventDefinition[] = [
 		startDay: 1,
 		endMonth: 3,
 		endDay: 3,
-		defaultMissions: [
-			{ categoryId: 5, targetCount: 3, description: 'そうぞうを3回やろう！' },
-		],
+		defaultMissions: [{ categoryId: 5, targetCount: 3, description: 'そうぞうを3回やろう！' }],
 		flavorText: 'すてきなおひなさまのように、きれいなものをつくってみよう！',
 	},
 ];

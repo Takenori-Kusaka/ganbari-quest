@@ -42,9 +42,6 @@ export async function update(
 	throw new Error(NOT_IMPL);
 }
 
-export async function expireOldChallenges(
-	_beforeDate: string,
-	_tenantId: string,
-): Promise<number> {
+export async function expireOldChallenges(_beforeDate: string, _tenantId: string): Promise<number> {
 	throw new Error(NOT_IMPL);
 }
