@@ -929,7 +929,7 @@ const previewFormatted = $derived(
 			<!-- プレビュー -->
 			<div class="bg-[var(--color-surface-muted)] rounded-lg p-4">
 				<p class="text-sm text-[var(--color-text-muted)] mb-1">プレビュー（{previewPoints}P の場合）</p>
-				<p class="text-2xl font-bold text-[var(--color-point,#f59e0b)]">
+				<p class="text-2xl font-bold text-[var(--color-point)]">
 					{previewFormatted}
 				</p>
 			</div>

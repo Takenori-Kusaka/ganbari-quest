@@ -18,7 +18,6 @@ let {
 	<p class="text-xs text-[var(--color-text-muted)] mb-3">{description}</p>
 	<a
 		href={ctaHref}
-		class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"	>
-		{ctaText}
+		class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"	>		{ctaText}
 	</a>
 </div>
