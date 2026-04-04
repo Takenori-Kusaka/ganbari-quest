@@ -99,11 +99,11 @@ function handlePrint() {
 			<div class="grid grid-cols-2 gap-3">
 				<div class="text-center p-3 bg-blue-50 rounded-lg">
 					<p class="text-2xl font-bold text-blue-600">{book.totalActivities}</p>
-					<p class="text-xs text-gray-500">かつどうかいすう</p>
+					<p class="text-xs text-gray-500">活動回数</p>
 				</div>
 				<div class="text-center p-3 bg-green-50 rounded-lg">
 					<p class="text-2xl font-bold text-green-600">{book.totalPoints.toLocaleString()}</p>
-					<p class="text-xs text-gray-500">かくとくポイント</p>
+					<p class="text-xs text-gray-500">獲得ポイント</p>
 				</div>
 				<div class="text-center p-3 bg-orange-50 rounded-lg">
 					<p class="text-2xl font-bold text-orange-600">{book.maxStreakDays}</p>
@@ -128,7 +128,7 @@ function handlePrint() {
 		</Card>
 
 		<!-- Monthly pages -->
-		<h3 class="text-base font-bold text-gray-700">📅 月べつのきろく</h3>
+		<h3 class="text-base font-bold text-gray-700">📅 月別の記録</h3>
 		{#each book.months as month (month.month)}
 			{@const hasActivity = month.totalActivities > 0}
 			<Card variant="default" padding="sm">
