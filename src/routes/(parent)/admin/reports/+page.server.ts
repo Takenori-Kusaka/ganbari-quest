@@ -4,10 +4,16 @@ import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { computeAllChildrenDetailedReport } from '$lib/server/services/report-service';
+import {
+	getMonthlyRanking,
+	getRankingTrend,
+	getWeeklyRanking,
+	isRankingEnabled,
+} from '$lib/server/services/sibling-ranking-service';
 import { generateReportsForChildren } from '$lib/server/services/weekly-report-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+export const load: PageServerLoad = async ({ locals, url, parent }) => {
 	const tenantId = requireTenantId(locals);
 
 	// 月パラメータ（デフォルト: 今月）
@@ -21,6 +27,28 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	]);
 
 	const childList = children.map((c) => ({ id: c.id, nickname: c.nickname }));
+
+	// ランキングデータ取得（ファミリープラン用、#373）
+	const parentData = await parent();
+	const isFamily = parentData.planTier === 'family';
+
+	let rankingData: Awaited<ReturnType<typeof getWeeklyRanking>> | null = null;
+	let monthlyRankingData: Awaited<ReturnType<typeof getMonthlyRanking>> | null = null;
+	let trendData: Awaited<ReturnType<typeof getRankingTrend>> | null = null;
+	if (isFamily) {
+		try {
+			const rankingOn = await isRankingEnabled(tenantId);
+			if (rankingOn && children.length > 1) {
+				[rankingData, monthlyRankingData, trendData] = await Promise.all([
+					getWeeklyRanking(tenantId),
+					getMonthlyRanking(tenantId),
+					getRankingTrend(tenantId, 4),
+				]);
+			}
+		} catch (err) {
+			logger.error('[reports] ランキング取得失敗', { error: String(err) });
+		}
+	}
 
 	// 週次 + 月次レポートを並行取得
 	let monthlyReports: Awaited<ReturnType<typeof computeAllChildrenDetailedReport>> = [];
@@ -37,8 +65,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		let prevMonthlyReports: typeof monthlyReports = [];
 		try {
 			prevMonthlyReports = await computeAllChildrenDetailedReport(tenantId, prevMonthStr);
-		} catch {
-			// 先月データなしでも継続
+		} catch (err) {
+			logger.error('[reports] 先月レポート取得失敗', { error: String(err) });
 		}
 
 		return {
@@ -50,6 +78,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 				enabled: reportSettings.weekly_report_enabled !== '0',
 				day: reportSettings.weekly_report_day ?? 'monday',
 			},
+			rankingData,
+			monthlyRankingData,
+			trendData,
+			isFamily,
 		};
 	} catch (e) {
 		logger.error('月次レポート取得エラー', { context: { error: String(e) } });
@@ -63,6 +95,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 				enabled: reportSettings.weekly_report_enabled !== '0',
 				day: reportSettings.weekly_report_day ?? 'monday',
 			},
+			rankingData: null,
+			monthlyRankingData: null,
+			trendData: null,
+			isFamily,
 		};
 	}
 };
