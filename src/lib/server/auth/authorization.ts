@@ -128,7 +128,8 @@ function isPublicRoute(path: string): boolean {
 		path.startsWith('/api/stripe/webhook') ||
 		path.startsWith('/legal') ||
 		path.startsWith('/demo') ||
-		path.startsWith('/ops')
+		path.startsWith('/ops') ||
+		path.startsWith('/view')
 	);
 }
 
