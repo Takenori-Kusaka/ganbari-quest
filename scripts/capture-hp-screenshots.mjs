@@ -5,11 +5,10 @@
 // 前提: npm run dev でローカルサーバーが起動していること
 //
 // オプション:
-//   --webp    PNG撮影後にWebPへ自動変換（sharp CLI が必要）
+//   --webp    PNG撮影後にWebPへ自動変換（sharp Node API を使用）
 //   --only X  指定グループのみ撮影 (carousel, feature, age)
 
 import { chromium } from 'playwright';
-import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -19,10 +18,24 @@ const OUTPUT_DIR = path.resolve('site/screenshots');
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 // Parse CLI args
+const VALID_GROUPS = new Set(['carousel', 'feature', 'age']);
 const args = process.argv.slice(2);
 const doWebp = args.includes('--webp');
 const onlyIdx = args.indexOf('--only');
-const onlyGroup = onlyIdx >= 0 ? args[onlyIdx + 1] : null;
+let onlyGroup = null;
+if (onlyIdx >= 0) {
+	const nextArg = args[onlyIdx + 1];
+	if (!nextArg || !VALID_GROUPS.has(nextArg)) {
+		console.error(
+			`Error: --only requires a valid group name: ${[...VALID_GROUPS].join(', ')}`,
+		);
+		console.error(
+			'Usage: node scripts/capture-hp-screenshots.mjs [--webp] [--only carousel|feature|age]',
+		);
+		process.exit(1);
+	}
+	onlyGroup = nextArg;
+}
 
 // ============================================================
 // Viewport definitions
@@ -252,22 +265,24 @@ async function captureScreenshots() {
 	await browser.close();
 	console.log(`\n撮影完了: ${successCount}/${totalFiles} ファイル`);
 
-	// WebP conversion
+	// WebP conversion using sharp Node API
 	if (doWebp && pngFiles.length > 0) {
+		const sharp = (await import('sharp')).default;
 		console.log('\n=== WebP変換 ===');
 		let convertCount = 0;
 		for (const pngPath of pngFiles) {
 			const webpPath = pngPath.replace(/\.png$/, '.webp');
 			try {
-				execSync(
-					`npx sharp-cli --input "${pngPath}" --output "${webpPath}" --format webp --quality 80`,
-					{ stdio: 'pipe' },
-				);
+				await sharp(pngPath).webp({ quality: 80 }).toFile(webpPath);
 				const stat = fs.statSync(webpPath);
 				console.log(`  -> ${path.basename(webpPath)} (${(stat.size / 1024).toFixed(0)} KB)`);
 				convertCount++;
-			} catch {
+			} catch (error) {
 				console.error(`  WebP変換失敗: ${path.basename(pngPath)}`);
+				console.error(`    原因: ${error.message}`);
+				if (error.stderr) {
+					console.error(`    stderr: ${error.stderr}`);
+				}
 			}
 		}
 		console.log(`変換完了: ${convertCount}/${pngFiles.length} ファイル`);
