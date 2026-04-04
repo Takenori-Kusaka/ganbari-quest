@@ -19,45 +19,8 @@
 <meta name="twitter:image" content="https://www.ganbari-quest.com/ogp.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="stylesheet" href="shared.css">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  /* Brand Blue (D3勇者キャラクターから抽出) */
-  --brand-900:#1a3a5c;--brand-800:#2a5f9e;--brand-700:#3878B8;--brand-600:#4a90d9;--brand-500:#5BA3E6;--brand-400:#7db8ed;--brand-300:#a3cef3;--brand-200:#c9e2f8;--brand-100:#e8f4fd;--brand-50:#f2f9ff;
-  /* Gold (星・杖先のゴールド) */
-  --gold-600:#d4ad00;--gold-500:#FFCC00;--gold-400:#FFE44D;--gold-300:#ffed80;--gold-100:#fffbe6;
-  /* Semantic */
-  --green-500:#4caf50;--green-100:#e8f5e9;
-  --orange-500:#ff9800;--orange-100:#fff3e0;
-  --red-500:#f44336;--red-100:#fde8e7;
-  /* Neutral */
-  --gray-900:#1e293b;--gray-700:#334155;--gray-500:#64748b;--gray-300:#cbd5e1;--gray-200:#e2e8f0;--gray-100:#f1f5f9;--gray-50:#f8fafc;
-  --radius:12px;
-}
-html{scroll-behavior:smooth}
-body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',system-ui,sans-serif;color:var(--gray-700);line-height:1.7}
-a{color:var(--brand-700);text-decoration:none}
-a:hover{text-decoration:underline}
-img{max-width:100%;height:auto}
-
-/* Header */
-.header{background:#fff;border-bottom:1px solid var(--gray-300);padding:12px 16px;position:sticky;top:0;z-index:50}
-.header-inner{max-width:1080px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
-.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.1rem;color:var(--gray-900);text-decoration:none}
-.logo img{height:44px;width:auto}
-.header-nav{display:flex;gap:20px;align-items:center}
-.header-nav a:not(.btn){font-size:.9rem;color:var(--gray-500)}
-.header-nav a:not(.btn):hover{color:var(--gray-900)}
-.hamburger{display:none;background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px 8px;color:var(--gray-700)}
-.btn{display:inline-block;padding:10px 24px;border-radius:2rem;font-size:.95rem;font-weight:600;transition:all .2s;text-decoration:none}
-.btn-primary{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff;box-shadow:0 2px 8px rgba(56,120,184,.3)}
-.btn-primary:hover{box-shadow:0 4px 16px rgba(56,120,184,.4);text-decoration:none;transform:translateY(-1px)}
-.btn-outline{border:2px solid var(--brand-700);color:var(--brand-700)}
-.btn-outline:hover{background:var(--brand-100);text-decoration:none}
-.btn-demo{background:linear-gradient(135deg,var(--gold-400),var(--gold-500));color:var(--gray-900);box-shadow:0 2px 8px rgba(255,204,0,.3)}
-.btn-demo:hover{box-shadow:0 4px 16px rgba(255,204,0,.4);text-decoration:none;transform:translateY(-1px)}
-.btn-lg{padding:14px 32px;font-size:1.1rem}
-
 /* Hero */
 .hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:80px 16px 60px;text-align:center}
 .hero h1{font-size:2.5rem;font-weight:800;color:var(--gray-900);margin-bottom:16px;line-height:1.3}
@@ -198,16 +161,6 @@ img{max-width:100%;height:auto}
 .step-body h3{font-size:1.05rem;font-weight:600;color:var(--gray-900);margin-bottom:4px}
 .step-body p{font-size:.9rem;color:var(--gray-500)}
 
-/* Footer */
-.footer{background:var(--gray-900);color:#94a3b8;padding:40px 16px}
-.footer-inner{max-width:1080px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:24px}
-.footer-brand h3{color:#fff;font-size:1rem;margin-bottom:8px}
-.footer-brand p{font-size:.85rem}
-.footer-links h4{color:#e2e8f0;font-size:.85rem;margin-bottom:8px}
-.footer-links a{display:block;font-size:.85rem;color:#94a3b8;margin-bottom:4px}
-.footer-links a:hover{color:#fff}
-.footer-copy{border-top:1px solid #334155;margin-top:32px;padding-top:16px;text-align:center;font-size:.75rem}
-
 /* Hero carousel */
 .hero-carousel{margin-top:16px;display:flex;flex-direction:column;align-items:center}
 .carousel-track{position:relative;width:280px;height:606px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
@@ -223,38 +176,32 @@ img{max-width:100%;height:auto}
   .carousel-slide img{border-radius:8px}
 }
 
-/* Feature card screenshots */
-.feature-card .feature-screenshot{margin-bottom:12px;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:220px}
-.feature-card .feature-screenshot img{width:100%;height:100%;object-fit:cover;object-position:top}
+/* Feature card screenshots (#298: enlarged sizes) */
+.feature-card .feature-screenshot{margin-bottom:12px;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:240px}
+.feature-card .feature-screenshot img{width:100%;height:100%;object-fit:contain;object-position:top}
 @media(min-width:1024px){
-  .feature-card .feature-screenshot{aspect-ratio:16/10;max-height:240px}
+  .feature-card .feature-screenshot{aspect-ratio:16/10;max-height:320px}
 }
 
-/* Age card screenshots */
+/* Age card screenshots (#298: enlarged sizes) */
 .age-card .age-screenshot{margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:200px}
-.age-card .age-screenshot img{width:100%;height:100%;object-fit:cover;object-position:top}
+.age-card .age-screenshot img{width:100%;height:100%;object-fit:contain;object-position:top}
 @media(min-width:641px) and (max-width:1023px){
-  .age-card .age-screenshot{aspect-ratio:3/4;max-height:220px}
+  .age-card .age-screenshot{aspect-ratio:3/4;max-height:240px}
 }
 @media(min-width:1024px){
-  .age-card .age-screenshot{aspect-ratio:16/10;max-height:200px}
+  .age-card .age-screenshot{aspect-ratio:16/10;max-height:280px}
 }
 
 @media(max-width:640px){
   .hero h1{font-size:1.8rem}
-  .hamburger{display:flex;align-items:center;justify-content:center}
-  .header-nav{display:none;position:absolute;top:56px;left:0;right:0;background:#fff;flex-direction:column;padding:16px;gap:12px;border-bottom:1px solid var(--gray-300);box-shadow:0 4px 12px rgba(0,0,0,.1)}
-  .header-nav.open{display:flex}
-  .header-nav a:not(.btn){font-size:1rem;padding:8px 0}
-  .header-nav .btn{text-align:center;width:100%}
   .hero-cta{flex-direction:column;align-items:center}
-  .footer-inner{flex-direction:column}
   .age-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
   .ba-grid{grid-template-columns:1fr;gap:16px}
   .ba-arrow{justify-content:center;transform:rotate(90deg)}
   .carousel-track{width:220px;height:476px;border-radius:24px;box-shadow:0 12px 40px rgba(56,120,184,.2),0 0 0 6px var(--gray-900)}
-  .feature-card .feature-screenshot{max-height:180px}
-  .age-card .age-screenshot{max-height:160px}
+  .feature-card .feature-screenshot{max-height:240px}
+  .age-card .age-screenshot{max-height:200px}
 }
 </style>
 </head>
@@ -263,16 +210,14 @@ img{max-width:100%;height:auto}
 <!-- Header -->
 <header class="header">
   <div class="header-inner">
-    <a href="#" class="logo">
+    <a href="index.html" class="logo">
       <img src="logo-compact.png" alt="がんばりクエスト" height="44">
     </a>
-    <button class="hamburger" aria-label="メニュー" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.textContent==='☰'?'✕':'☰'">☰</button>
+    <button class="hamburger" aria-label="メニュー" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.textContent==='&#9776;'?'&#10005;':'&#9776;'">&#9776;</button>
     <nav class="header-nav">
-      <a href="#pain" onclick="this.parentElement.classList.remove('open')">こんな悩み</a>
+      <a href="index.html" onclick="this.parentElement.classList.remove('open')">ホーム</a>
       <a href="#features" onclick="this.parentElement.classList.remove('open')">できること</a>
       <a href="#age-modes" onclick="this.parentElement.classList.remove('open')">年齢対応</a>
-      <a href="#templates" onclick="this.parentElement.classList.remove('open')">活動パック</a>
-      <a href="#faq" onclick="this.parentElement.classList.remove('open')">よくある質問</a>
       <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
       <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモ体験</a>
       <a href="https://ganbari-quest.com/auth/login" class="btn btn-primary">ログイン</a>
@@ -303,25 +248,25 @@ img{max-width:100%;height:auto}
       <div class="carousel-slide active" data-label="子供のホーム画面 &#8212; 活動を記録してポイントゲット">
         <picture>
           <source srcset="screenshots/carousel-1-child-home-desktop.webp" media="(min-width:1024px)" type="image/webp">
-          <img src="screenshots/carousel-1-child-home-mobile.webp" alt="子供のホーム画面 — 活動記録とポイント獲得" width="390" height="844">
+          <img src="screenshots/carousel-1-child-home-mobile.webp" alt="子供のホーム画面 — 活動記録とポイント獲得" width="390" height="844" data-lightbox>
         </picture>
       </div>
       <div class="carousel-slide" data-label="成長チャート &#8212; 5つのチカラが見える化">
         <picture>
           <source srcset="screenshots/carousel-2-child-status-desktop.webp" media="(min-width:1024px)" type="image/webp">
-          <img src="screenshots/carousel-2-child-status-mobile.webp" alt="成長レーダーチャートとステータス画面" width="390" height="844">
+          <img src="screenshots/carousel-2-child-status-mobile.webp" alt="成長レーダーチャートとステータス画面" width="390" height="844" data-lightbox>
         </picture>
       </div>
       <div class="carousel-slide" data-label="親の管理画面 &#8212; お子さまの活動を一覧で把握">
         <picture>
           <source srcset="screenshots/carousel-3-admin-main-desktop.webp" media="(min-width:1024px)" type="image/webp">
-          <img src="screenshots/carousel-3-admin-main-mobile.webp" alt="親の管理ダッシュボード" width="390" height="844">
+          <img src="screenshots/carousel-3-admin-main-mobile.webp" alt="親の管理ダッシュボード" width="390" height="844" data-lightbox>
         </picture>
       </div>
       <div class="carousel-slide" data-label="活動の設定 &#8212; がんばってほしいことを自由にカスタマイズ">
         <picture>
           <source srcset="screenshots/carousel-4-admin-sub-desktop.webp" media="(min-width:1024px)" type="image/webp">
-          <img src="screenshots/carousel-4-admin-sub-mobile.webp" alt="活動管理画面" width="390" height="844">
+          <img src="screenshots/carousel-4-admin-sub-mobile.webp" alt="活動管理画面" width="390" height="844" data-lightbox>
         </picture>
       </div>
     </div>
@@ -459,7 +404,7 @@ img{max-width:100%;height:auto}
     <div class="features-grid">
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-point-level.webp" type="image/webp"><img src="screenshots/feature-point-level.webp" alt="ポイント獲得とレベルアップ画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-point-level.webp" type="image/webp"><img src="screenshots/feature-point-level.webp" alt="ポイント獲得とレベルアップ画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <div class="feature-icon">&#x2B50;</div>
         <h3>ポイント &amp; レベルアップ</h3>
@@ -468,7 +413,7 @@ img{max-width:100%;height:auto}
       </div>
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-combo-mission-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-combo-mission.webp" type="image/webp"><img src="screenshots/feature-combo-mission.webp" alt="コンボカウンターとデイリーミッション" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-combo-mission-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-combo-mission.webp" type="image/webp"><img src="screenshots/feature-combo-mission.webp" alt="コンボカウンターとデイリーミッション" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <div class="feature-icon">&#x1F525;</div>
         <h3>コンボ &amp; デイリーミッション</h3>
@@ -477,7 +422,7 @@ img{max-width:100%;height:auto}
       </div>
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-radar-chart-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-radar-chart.webp" type="image/webp"><img src="screenshots/feature-radar-chart.webp" alt="5軸の成長レーダーチャート" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-radar-chart-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-radar-chart.webp" type="image/webp"><img src="screenshots/feature-radar-chart.webp" alt="5軸の成長レーダーチャート" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <div class="feature-icon">&#x1F4CA;</div>
         <h3>成長レーダーチャート</h3>
@@ -486,7 +431,7 @@ img{max-width:100%;height:auto}
       </div>
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-titles-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-titles.webp" type="image/webp"><img src="screenshots/feature-titles.webp" alt="称号と実績コレクション画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-titles-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-titles.webp" type="image/webp"><img src="screenshots/feature-titles.webp" alt="称号と実績コレクション画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <div class="feature-icon">&#x1F3C6;</div>
         <h3>称号 &amp; 実績コレクション</h3>
@@ -495,7 +440,7 @@ img{max-width:100%;height:auto}
       </div>
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-checklist-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-checklist.webp" type="image/webp"><img src="screenshots/feature-checklist.webp" alt="やることリスト画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-checklist-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-checklist.webp" type="image/webp"><img src="screenshots/feature-checklist.webp" alt="やることリスト画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <div class="feature-icon">&#x2705;</div>
         <h3>やることリスト</h3>
@@ -504,7 +449,7 @@ img{max-width:100%;height:auto}
       </div>
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-dream-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-dream.webp" type="image/webp"><img src="screenshots/feature-dream.webp" alt="成長記録と管理画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/feature-dream-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-dream.webp" type="image/webp"><img src="screenshots/feature-dream.webp" alt="成長記録と管理画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <div class="feature-icon">&#x1F3AF;</div>
         <h3>将来の夢を応援</h3>
@@ -581,7 +526,7 @@ img{max-width:100%;height:auto}
         <h3>はじめの一歩</h3>
         <div class="age-range">0&#x301C;2歳</div>
         <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-baby-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-baby-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-baby.webp" type="image/webp"><img src="screenshots/age-baby.webp" alt="0-2歳向け はじめの一歩モード画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/age-baby-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-baby-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-baby.webp" type="image/webp"><img src="screenshots/age-baby.webp" alt="0-2歳向け はじめの一歩モード画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <p>保護者がお子さまの活動を記録します。大きなアイコンでシンプルな画面です。</p>
       </div>
@@ -590,7 +535,7 @@ img{max-width:100%;height:auto}
         <h3>じぶんでタップ</h3>
         <div class="age-range">3&#x301C;5歳</div>
         <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-kinder-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-kinder-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-kinder.webp" type="image/webp"><img src="screenshots/age-kinder.webp" alt="3-5歳向け じぶんでタップモード画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/age-kinder-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-kinder-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-kinder.webp" type="image/webp"><img src="screenshots/age-kinder.webp" alt="3-5歳向け じぶんでタップモード画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <p>ひらがな表示と大きなボタンで、お子さま自身が「できた！」をタップできます。</p>
       </div>
@@ -599,7 +544,7 @@ img{max-width:100%;height:auto}
         <h3>冒険スタート</h3>
         <div class="age-range">6&#x301C;9歳</div>
         <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-lower-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-lower-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-lower.webp" type="image/webp"><img src="screenshots/age-lower.webp" alt="6-9歳向け 冒険スタートモード画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/age-lower-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-lower-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-lower.webp" type="image/webp"><img src="screenshots/age-lower.webp" alt="6-9歳向け 冒険スタートモード画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <p>自分で活動を選んで記録。称号集めやコンボで、がんばりが楽しくなります。</p>
       </div>
@@ -608,7 +553,7 @@ img{max-width:100%;height:auto}
         <h3>チャレンジ</h3>
         <div class="age-range">10&#x301C;14歳</div>
         <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-upper-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-upper-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-upper.webp" type="image/webp"><img src="screenshots/age-upper.webp" alt="10-14歳向け チャレンジモード画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/age-upper-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-upper-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-upper.webp" type="image/webp"><img src="screenshots/age-upper.webp" alt="10-14歳向け チャレンジモード画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <p>統計やグラフで自分の成長を分析。目標を立てて計画的に取り組めます。</p>
       </div>
@@ -617,7 +562,7 @@ img{max-width:100%;height:auto}
         <h3>みらい設計</h3>
         <div class="age-range">15&#x301C;18歳</div>
         <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-teen-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-teen-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-teen.webp" type="image/webp"><img src="screenshots/age-teen.webp" alt="15-18歳向け みらい設計モード画面" width="390" height="844" loading="lazy"></picture>
+          <picture><source srcset="screenshots/age-teen-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-teen-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-teen.webp" type="image/webp"><img src="screenshots/age-teen.webp" alt="15-18歳向け みらい設計モード画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <p>全機能を活用。キャリアプランニングで将来の夢に向けた行動計画を作れます。</p>
       </div>
@@ -953,6 +898,39 @@ img{max-width:100%;height:auto}
   });
 
   startTimer();
+})();
+</script>
+
+<!-- Lightbox (#297) -->
+<div class="lightbox-overlay" id="lightbox" aria-hidden="true">
+  <button class="lightbox-close" aria-label="閉じる">&#10005;</button>
+  <img src="" alt="">
+</div>
+<script>
+(function(){
+  var overlay=document.getElementById('lightbox');
+  if(!overlay)return;
+  var lbImg=overlay.querySelector('img');
+  var closeBtn=overlay.querySelector('.lightbox-close');
+
+  function open(src,alt){
+    lbImg.src=src;
+    lbImg.alt=alt||'';
+    overlay.classList.add('active');
+    overlay.setAttribute('aria-hidden','false');
+  }
+  function close(){
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden','true');
+    lbImg.src='';
+  }
+
+  document.querySelectorAll('img[data-lightbox]').forEach(function(img){
+    img.addEventListener('click',function(){open(this.src,this.alt)});
+  });
+  overlay.addEventListener('click',function(e){if(e.target===overlay)close()});
+  closeBtn.addEventListener('click',close);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
 })();
 </script>
 </body>
