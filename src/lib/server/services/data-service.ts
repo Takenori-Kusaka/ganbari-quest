@@ -17,7 +17,6 @@ export interface DataSummary {
 	pointLedger: number;
 	statuses: number;
 	achievements: number;
-	titles: number;
 	loginBonuses: number;
 	checklistTemplates: number;
 	voices: number;
@@ -31,7 +30,6 @@ export interface ClearResult {
 		statuses: number;
 		statusHistory: number;
 		achievements: number;
-		titles: number;
 		loginBonuses: number;
 		checklistTemplates: number;
 		other: number;
@@ -59,7 +57,6 @@ export async function getDataSummary(tenantId: string): Promise<DataSummary> {
 			pointLedger: 0,
 			statuses: 0,
 			achievements: 0,
-			titles: 0,
 			loginBonuses: 0,
 			checklistTemplates: 0,
 			voices: 0,
@@ -72,7 +69,6 @@ export async function getDataSummary(tenantId: string): Promise<DataSummary> {
 			pointLedger: 0,
 			statuses: 0,
 			achievements: 0,
-			titles: 0,
 			loginBonuses: 0,
 			checklistTemplates: 0,
 			voices: 0,
@@ -82,7 +78,7 @@ export async function getDataSummary(tenantId: string): Promise<DataSummary> {
 
 /**
  * テナント内の全ユーザーデータを削除する
- * システムマスタ（デフォルト活動・実績・称号・アバターアイテム等）は保持
+ * システムマスタ（デフォルト活動・実績・アバターアイテム等）は保持
  */
 export async function clearAllFamilyData(tenantId: string): Promise<ClearResult> {
 	logger.info('[data-clear] データクリア開始', { context: { tenantId } });
@@ -122,7 +118,6 @@ export async function clearAllFamilyData(tenantId: string): Promise<ClearResult>
 			statuses: 0,
 			statusHistory: 0,
 			achievements: 0,
-			titles: 0,
 			loginBonuses: 0,
 			checklistTemplates: 0,
 			other: 0,

@@ -7,7 +7,6 @@ import {
 	runDailyDecay,
 } from '$lib/server/services/evaluation-service';
 import { getChildStatus, getMonthlyComparison } from '$lib/server/services/status-service';
-import { checkAndUnlockTitles } from '$lib/server/services/title-service';
 import type { PageServerLoad } from './$types';
 
 /** 今日の日付文字列 (YYYY-MM-DD) */
@@ -51,9 +50,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		});
 		return { status: null, monthlyComparison: null };
 	}
-
-	// 偏差値ベースの称号チェック（ステータスページ表示時のみ）
-	await checkAndUnlockTitles(child.id, tenantId);
 
 	return { status: result, monthlyComparison };
 };

@@ -98,7 +98,6 @@ describe('getDataSummary', () => {
 		expect(summary.pointLedger).toBe(0);
 		expect(summary.statuses).toBe(0);
 		expect(summary.achievements).toBe(0);
-		expect(summary.titles).toBe(0);
 		expect(summary.loginBonuses).toBe(0);
 		expect(summary.checklistTemplates).toBe(0);
 		expect(summary.voices).toBe(0);

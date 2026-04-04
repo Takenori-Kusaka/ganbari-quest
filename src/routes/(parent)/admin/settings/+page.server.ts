@@ -21,7 +21,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 		pointLedger: 0,
 		statuses: 0,
 		achievements: 0,
-		titles: 0,
 		loginBonuses: 0,
 		checklistTemplates: 0,
 		voices: 0,

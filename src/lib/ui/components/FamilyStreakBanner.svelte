@@ -6,6 +6,7 @@ interface Props {
 	childId: number;
 	siblings?: { id: number; nickname: string }[];
 	nextMilestone?: { days: number; points: number; remaining: number } | null;
+	compact?: boolean;
 }
 
 let {
@@ -15,6 +16,7 @@ let {
 	childId,
 	siblings = [],
 	nextMilestone = null,
+	compact = false,
 }: Props = $props();
 
 function getSiblingName(id: number): string {
@@ -24,36 +26,51 @@ function getSiblingName(id: number): string {
 </script>
 
 {#if currentStreak > 0 || hasRecordedToday}
-	<div class="family-streak" data-testid="family-streak-banner">
-		<div class="family-streak__header">
+	{#if compact}
+		<div class="family-streak family-streak--compact" data-testid="family-streak-banner">
 			<span class="family-streak__icon">🔥</span>
 			<span class="family-streak__days">
-				かぞくストリーク: <strong>{currentStreak}にち</strong>
+				{currentStreak}にちれんぞく！
 			</span>
+			{#if !hasRecordedToday}
+				<span class="family-streak__compact-warning">きょうはまだ！</span>
+			{/if}
+			{#if nextMilestone}
+				<span class="family-streak__compact-milestone">あと{nextMilestone.remaining}にちで+{nextMilestone.points}P</span>
+			{/if}
 		</div>
+	{:else}
+		<div class="family-streak" data-testid="family-streak-banner">
+			<div class="family-streak__header">
+				<span class="family-streak__icon">🔥</span>
+				<span class="family-streak__days">
+					かぞくストリーク: <strong>{currentStreak}にち</strong>
+				</span>
+			</div>
 
-		{#if todayRecorders.length > 0}
-			<div class="family-streak__today">
-				きょう がんばった:
-				{#each todayRecorders as rid, i}
-					<span class="family-streak__recorder" class:family-streak__recorder--me={rid === childId}>
-						{getSiblingName(rid)}
-					</span>{#if i < todayRecorders.length - 1}{' '}{/if}
-				{/each}
-				✅
-			</div>
-		{:else}
-			<div class="family-streak__warning">
-				きょうは まだだよ！ だれか がんばろう！
-			</div>
-		{/if}
+			{#if todayRecorders.length > 0}
+				<div class="family-streak__today">
+					きょう がんばった:
+					{#each todayRecorders as rid, i}
+						<span class="family-streak__recorder" class:family-streak__recorder--me={rid === childId}>
+							{getSiblingName(rid)}
+						</span>{#if i < todayRecorders.length - 1}{' '}{/if}
+					{/each}
+					✅
+				</div>
+			{:else}
+				<div class="family-streak__warning">
+					きょうは まだだよ！ だれか がんばろう！
+				</div>
+			{/if}
 
-		{#if nextMilestone}
-			<div class="family-streak__milestone">
-				あと{nextMilestone.remaining}にちで {nextMilestone.days}にちボーナス（+{nextMilestone.points}P）
-			</div>
-		{/if}
-	</div>
+			{#if nextMilestone}
+				<div class="family-streak__milestone">
+					あと{nextMilestone.remaining}にちで {nextMilestone.days}にちボーナス（+{nextMilestone.points}P）
+				</div>
+			{/if}
+		</div>
+	{/if}
 {/if}
 
 <style>
@@ -107,5 +124,33 @@ function getSiblingName(id: number): string {
 		font-size: 0.5625rem;
 		color: var(--color-text-muted, #78716c);
 		margin-top: 4px;
+	}
+
+	.family-streak--compact {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 6px 12px;
+		margin-top: 8px;
+	}
+
+	.family-streak--compact .family-streak__icon {
+		font-size: 1rem;
+	}
+
+	.family-streak--compact .family-streak__days {
+		font-size: 0.75rem;
+	}
+
+	.family-streak__compact-warning {
+		font-size: 0.625rem;
+		font-weight: 600;
+		color: var(--color-warning, #dc2626);
+	}
+
+	.family-streak__compact-milestone {
+		font-size: 0.625rem;
+		color: var(--color-text-muted, #78716c);
+		margin-left: auto;
 	}
 </style>

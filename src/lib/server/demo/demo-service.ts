@@ -14,7 +14,6 @@ import type { AchievementWithStatus } from '$lib/server/services/achievement-ser
 import type { DailyMissionStatus } from '$lib/server/services/daily-mission-service';
 import type { LoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import type { ChildStatus, StatusDetail } from '$lib/server/services/status-service';
-import type { ActiveTitleInfo, TitleWithStatus } from '$lib/server/services/title-service';
 
 import {
 	DEMO_ACTIVITIES,
@@ -30,75 +29,7 @@ import {
 	getDemoMissionsForChild,
 	getDemoPointBalance,
 	getDemoStatusesForChild,
-	getDemoTitlesForChild,
 } from './demo-data.js';
-
-// ============================================================
-// Demo title definitions (global master, normally from DB)
-// ============================================================
-
-const DEMO_TITLES = [
-	{
-		id: 1,
-		code: 'first_step',
-		name: 'はじめの一歩',
-		description: '最初のきろくを達成',
-		icon: '👣',
-		conditionType: 'total_logs',
-		conditionValue: 1,
-		rarity: 'common',
-		sortOrder: 1,
-		createdAt: '',
-	},
-	{
-		id: 2,
-		code: 'adventurer',
-		name: 'ぼうけんしゃ',
-		description: '活動を10回記録',
-		icon: '🗡️',
-		conditionType: 'total_logs',
-		conditionValue: 10,
-		rarity: 'common',
-		sortOrder: 2,
-		createdAt: '',
-	},
-	{
-		id: 3,
-		code: 'warrior',
-		name: 'つよきせんし',
-		description: 'ステータスが平均50以上',
-		icon: '⚔️',
-		conditionType: 'avg_status',
-		conditionValue: 50,
-		rarity: 'rare',
-		sortOrder: 3,
-		createdAt: '',
-	},
-	{
-		id: 4,
-		code: 'hero',
-		name: 'ゆうしゃ',
-		description: 'レベル5に到達',
-		icon: '🦸',
-		conditionType: 'level',
-		conditionValue: 5,
-		rarity: 'epic',
-		sortOrder: 4,
-		createdAt: '',
-	},
-	{
-		id: 5,
-		code: 'legend',
-		name: 'でんせつ',
-		description: 'レベル8に到達',
-		icon: '👑',
-		conditionType: 'level',
-		conditionValue: 8,
-		rarity: 'legendary',
-		sortOrder: 5,
-		createdAt: '',
-	},
-];
 
 // ============================================================
 // Demo achievement definitions (global master, normally from DB)
@@ -201,7 +132,6 @@ export interface DemoChildLayoutData {
 	balance: number;
 	level: number;
 	levelTitle: string;
-	activeTitle: ActiveTitleInfo | null;
 	avatarConfig: null;
 	allChildren: Child[];
 	uiMode: string;
@@ -217,7 +147,6 @@ export function getDemoChildLayoutData(childId: number): DemoChildLayoutData {
 			balance: 0,
 			level: 1,
 			levelTitle: 'はじめのぼうけんしゃ',
-			activeTitle: null,
 			avatarConfig: null,
 			allChildren: DEMO_CHILDREN,
 			uiMode: 'kinder',
@@ -232,27 +161,11 @@ export function getDemoChildLayoutData(childId: number): DemoChildLayoutData {
 	}
 	const { level, title } = calcLevelFromXp(highestXp);
 
-	const titleUnlocks = getDemoTitlesForChild(childId);
-	const activeTitleId = child.activeTitleId;
-	let activeTitle: ActiveTitleInfo | null = null;
-	if (activeTitleId) {
-		const titleDef = DEMO_TITLES.find((t) => t.id === activeTitleId);
-		if (titleDef && titleUnlocks.some((u) => u.titleId === activeTitleId)) {
-			activeTitle = {
-				id: titleDef.id,
-				name: titleDef.name,
-				icon: titleDef.icon,
-				rarity: titleDef.rarity,
-			};
-		}
-	}
-
 	return {
 		child,
 		balance: getDemoPointBalance(childId),
 		level,
 		levelTitle: title,
-		activeTitle,
 		avatarConfig: null,
 		allChildren: DEMO_CHILDREN,
 		uiMode: child.uiMode ?? 'kinder',
@@ -513,48 +426,6 @@ function getConditionLabel(type: string, value: number): string {
 		default:
 			return `条件: ${value}`;
 	}
-}
-
-// ============================================================
-// Titles page data
-// ============================================================
-
-export function getDemoTitlesData(childId: number): TitleWithStatus[] {
-	const childTitles = getDemoTitlesForChild(childId);
-	const child = DEMO_CHILDREN.find((c) => c.id === childId);
-	const status = getDemoStatusData(childId);
-
-	return DEMO_TITLES.map((t) => {
-		const unlock = childTitles.find((ct) => ct.titleId === t.id);
-		const isActive = child?.activeTitleId === t.id;
-
-		let progress = 0;
-		if (t.conditionType === 'total_logs') {
-			progress = getDemoLogsForChild(childId).length;
-		} else if (t.conditionType === 'avg_status' && status) {
-			const vals = Object.values(status.statuses) as StatusDetail[];
-			const avg = vals.reduce((s, v) => s + v.deviationScore, 0) / 5;
-			progress = avg;
-		} else if (t.conditionType === 'level' && status) {
-			progress = status.level;
-		}
-
-		return {
-			id: t.id,
-			code: t.code,
-			name: t.name,
-			description: t.description,
-			icon: t.icon,
-			conditionType: t.conditionType,
-			conditionValue: t.conditionValue,
-			rarity: t.rarity,
-			sortOrder: t.sortOrder,
-			unlockedAt: unlock?.unlockedAt ?? null,
-			isActive,
-			conditionLabel: getConditionLabel(t.conditionType, t.conditionValue),
-			currentProgress: progress,
-		};
-	});
 }
 
 // ============================================================

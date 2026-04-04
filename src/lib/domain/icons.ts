@@ -23,8 +23,6 @@ export const ICON_SWITCH = '🔄';
 
 /** 今日の記録サマリー */
 export const ICON_RECORD_SUMMARY = '📝';
-/** しょうごう / 称号 */
-export const ICON_TITLES = '🎖️';
 /** ポイント */
 export const ICON_POINTS = '⭐';
 /** スタンプ */
@@ -39,7 +37,6 @@ export interface ModeLabels {
 	switch: string;
 	history: string;
 	achievements: string;
-	titles: string;
 	recordSummary: string;
 	checklist: string;
 }
@@ -51,7 +48,6 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		switch: 'きりかえ',
 		history: 'きろく',
 		achievements: 'じっせき',
-		titles: 'しょうごう',
 		recordSummary: 'きょうの きろく',
 		checklist: 'もちものチェック',
 	},
@@ -60,7 +56,6 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		switch: 'きりかえ',
 		history: 'きろく',
 		achievements: 'じっせき',
-		titles: 'しょうごう',
 		recordSummary: 'きょうの きろく',
 		checklist: 'もちものチェック',
 	},
@@ -69,7 +64,6 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		switch: 'きりかえ',
 		history: '記録',
 		achievements: '実績',
-		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: '持ち物チェック',
 	},
@@ -78,7 +72,6 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		switch: '切り替え',
 		history: '記録',
 		achievements: '実績',
-		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: '持ち物チェック',
 	},
@@ -87,7 +80,6 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		switch: '切り替え',
 		history: '記録',
 		achievements: '実績',
-		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: '持ち物チェック',
 	},
