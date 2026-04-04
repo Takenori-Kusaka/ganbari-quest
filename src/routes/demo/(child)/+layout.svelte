@@ -33,7 +33,6 @@ const navItems = $derived([
 			totalPoints={data.balance}
 			avatarUrl={data.child.avatarUrl}
 			pointSettings={data.pointSettings}
-			activeTitle={data.activeTitle}
 		/>
 	{/if}
 

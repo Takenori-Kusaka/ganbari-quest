@@ -17,7 +17,6 @@ import type {
 	ChecklistTemplateItem,
 	Child,
 	ChildAchievement,
-	ChildTitle,
 	DailyMission,
 	LoginBonus,
 	Status,
@@ -56,7 +55,6 @@ export const DEMO_CHILDREN: Child[] = [
 		theme: 'pink',
 		uiMode: 'baby',
 		avatarUrl: null,
-		activeTitleId: null,
 		displayConfig: null,
 		userId: null,
 		birthdayBonusMultiplier: 1.0,
@@ -72,7 +70,6 @@ export const DEMO_CHILDREN: Child[] = [
 		theme: 'green',
 		uiMode: 'kinder',
 		avatarUrl: null,
-		activeTitleId: 1,
 		displayConfig: null,
 		userId: null,
 		birthdayBonusMultiplier: 1.0,
@@ -88,7 +85,6 @@ export const DEMO_CHILDREN: Child[] = [
 		theme: 'blue',
 		uiMode: 'lower',
 		avatarUrl: null,
-		activeTitleId: 3,
 		displayConfig: null,
 		userId: null,
 		birthdayBonusMultiplier: 1.0,
@@ -104,7 +100,6 @@ export const DEMO_CHILDREN: Child[] = [
 		theme: 'purple',
 		uiMode: 'teen',
 		avatarUrl: null,
-		activeTitleId: 5,
 		displayConfig: null,
 		userId: null,
 		birthdayBonusMultiplier: 1.0,
@@ -960,7 +955,7 @@ export const DEMO_POINT_BALANCES: Record<number, number> = {
 };
 
 // ============================================================
-// Achievements & Titles
+// Achievements
 // ============================================================
 
 export const DEMO_CHILD_ACHIEVEMENTS: ChildAchievement[] = [
@@ -981,15 +976,6 @@ export const DEMO_CHILD_ACHIEVEMENTS: ChildAchievement[] = [
 	{ id: 12, childId: 904, achievementId: 3, milestoneValue: null, unlockedAt: daysAgoISO(70) },
 	{ id: 13, childId: 904, achievementId: 4, milestoneValue: null, unlockedAt: daysAgoISO(50) },
 	{ id: 14, childId: 904, achievementId: 5, milestoneValue: null, unlockedAt: daysAgoISO(20) },
-];
-
-export const DEMO_CHILD_TITLES: ChildTitle[] = [
-	{ id: 1, childId: 902, titleId: 1, unlockedAt: daysAgoISO(20) },
-	{ id: 2, childId: 903, titleId: 1, unlockedAt: daysAgoISO(60) },
-	{ id: 3, childId: 903, titleId: 3, unlockedAt: daysAgoISO(25) },
-	{ id: 4, childId: 904, titleId: 1, unlockedAt: daysAgoISO(90) },
-	{ id: 5, childId: 904, titleId: 3, unlockedAt: daysAgoISO(70) },
-	{ id: 6, childId: 904, titleId: 5, unlockedAt: daysAgoISO(20) },
 ];
 
 // ============================================================
@@ -1218,10 +1204,6 @@ export function getDemoPointBalance(childId: number): number {
 
 export function getDemoAchievementsForChild(childId: number): ChildAchievement[] {
 	return DEMO_CHILD_ACHIEVEMENTS.filter((a) => a.childId === childId);
-}
-
-export function getDemoTitlesForChild(childId: number): ChildTitle[] {
-	return DEMO_CHILD_TITLES.filter((t) => t.childId === childId);
 }
 
 export { DEMO_TENANT_ID, TODAY, NOW };

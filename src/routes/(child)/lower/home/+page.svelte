@@ -393,41 +393,6 @@ $effect(() => {
 		</a>
 	{/if}
 
-	<!-- Season pass card -->
-	{#if data.seasonPass}
-		<SeasonPassCard
-			eventName={data.seasonPass.event.name}
-			eventId={data.seasonPass.event.id}
-			bannerIcon={data.seasonPass.event.bannerIcon}
-			milestones={data.seasonPass.milestones}
-			currentCount={data.seasonPass.progress.count}
-			maxTarget={Math.max(...data.seasonPass.milestones.map((m: { target: number }) => m.target), 1)}
-			remainingDays={data.seasonPass.remainingDays}
-			isPremium={data.isPremium ?? false}
-		/>
-	{/if}
-
-	<!-- Family streak banner -->
-	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
-		<FamilyStreakBanner
-			currentStreak={data.familyStreak.currentStreak}
-			hasRecordedToday={data.familyStreak.hasRecordedToday}
-			todayRecorders={data.familyStreak.todayRecorders}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren ?? []}
-			nextMilestone={data.familyStreak.nextMilestone}
-		/>
-	{/if}
-
-	<!-- Sibling challenge banners -->
-	{#if data.activeChallenges && data.activeChallenges.length > 0}
-		<ChallengeBanner
-			challenges={data.activeChallenges}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren?.map((c) => ({ id: c.id, nickname: c.nickname })) ?? []}
-		/>
-	{/if}
-
 	<!-- Tutorial hint banner (one-time) -->
 	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
 
@@ -516,6 +481,42 @@ $effect(() => {
 
 	{#if data.activities.length === 0}
 		<ActivityEmptyState uiMode={data.uiMode} />
+	{/if}
+
+	<!-- Family streak banner (below activities) -->
+	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
+		<FamilyStreakBanner
+			currentStreak={data.familyStreak.currentStreak}
+			hasRecordedToday={data.familyStreak.hasRecordedToday}
+			todayRecorders={data.familyStreak.todayRecorders}
+			childId={data.child?.id ?? 0}
+			siblings={data.allChildren ?? []}
+			nextMilestone={data.familyStreak.nextMilestone}
+			compact
+		/>
+	{/if}
+
+	<!-- Season pass card -->
+	{#if data.seasonPass}
+		<SeasonPassCard
+			eventName={data.seasonPass.event.name}
+			eventId={data.seasonPass.event.id}
+			bannerIcon={data.seasonPass.event.bannerIcon}
+			milestones={data.seasonPass.milestones}
+			currentCount={data.seasonPass.progress.count}
+			maxTarget={Math.max(...data.seasonPass.milestones.map((m: { target: number }) => m.target), 1)}
+			remainingDays={data.seasonPass.remainingDays}
+			isPremium={data.isPremium ?? false}
+		/>
+	{/if}
+
+	<!-- Sibling challenge banners -->
+	{#if data.activeChallenges && data.activeChallenges.length > 0}
+		<ChallengeBanner
+			challenges={data.activeChallenges}
+			childId={data.child?.id ?? 0}
+			siblings={data.allChildren?.map((c) => ({ id: c.id, nickname: c.nickname })) ?? []}
+		/>
 	{/if}
 </div>
 

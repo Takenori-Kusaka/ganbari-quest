@@ -28,7 +28,6 @@ export const childV1toV2: SchemaTransformer = {
 				typeof raw.lastBirthdayBonusYear === 'number' ? raw.lastBirthdayBonusYear : null,
 			birthDate: raw.birthDate ?? null,
 			avatarUrl: raw.avatarUrl ?? null,
-			activeTitleId: raw.activeTitleId ?? null,
 			userId: raw.userId ?? null,
 		};
 	},

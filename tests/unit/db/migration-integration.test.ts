@@ -28,7 +28,6 @@ describe('MigrationPipeline リポジトリ統合', () => {
 			expect(data.lastBirthdayBonusYear).toBeNull();
 			expect(data.birthDate).toBeNull();
 			expect(data.avatarUrl).toBeNull();
-			expect(data.activeTitleId).toBeNull();
 			expect(data.userId).toBeNull();
 		});
 
