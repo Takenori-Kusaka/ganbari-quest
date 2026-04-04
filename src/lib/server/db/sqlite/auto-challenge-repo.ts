@@ -1,8 +1,8 @@
 // src/lib/server/db/sqlite/auto-challenge-repo.ts
 import { and, eq, lt, sql } from 'drizzle-orm';
-import type { AutoChallenge, InsertAutoChallengeInput, UpdateAutoChallengeInput } from '../types';
 import { getDb } from '../client';
 import { autoChallenges } from '../schema';
+import type { AutoChallenge, InsertAutoChallengeInput, UpdateAutoChallengeInput } from '../types';
 
 export async function findActiveChallenge(
 	childId: number,

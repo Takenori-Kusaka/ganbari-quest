@@ -1,6 +1,6 @@
+import { getRepos } from './factory';
 // src/lib/server/db/auto-challenge-repo.ts
 import type { AutoChallenge, InsertAutoChallengeInput, UpdateAutoChallengeInput } from './types';
-import { getRepos } from './factory';
 
 export async function findActiveChallenge(
 	childId: number,
