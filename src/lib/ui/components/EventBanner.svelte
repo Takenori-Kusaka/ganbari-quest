@@ -20,12 +20,6 @@ interface Props {
 
 let { events }: Props = $props();
 
-function remainingDays(endDate: string): number {
-	const end = new Date(`${endDate}T23:59:59`);
-	const now = new Date();
-	return Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 86400000));
-}
-
 function getMissionProgress(event: EventData): { current: number; target: number } | null {
 	if (!event.missionConfig) return null;
 	try {
@@ -81,13 +75,6 @@ function getMissionProgress(event: EventData): { current: number; target: number
 								</span>
 							</div>
 						{/if}
-						{#if remainingDays(event.endDate) <= 3}
-							<span class="event-banner__countdown event-banner__countdown--urgent">
-								あと{remainingDays(event.endDate)}にち！
-							</span>
-						{:else}
-							<span class="event-banner__countdown">あと{remainingDays(event.endDate)}にち</span>
-						{/if}
 					{/if}
 				</div>
 			</div>
@@ -109,8 +96,8 @@ function getMissionProgress(event: EventData): { current: number; target: number
 		gap: 8px;
 		padding: 8px 12px;
 		border-radius: var(--radius-md, 12px);
-		background: linear-gradient(135deg, #fef3c7, #fde68a);
-		border: 1px solid #fbbf2433;
+		background: var(--color-surface-warm, linear-gradient(135deg, #fef3c7, #fde68a));
+		border: 1px solid var(--color-border-warm, rgba(251, 191, 36, 0.2));
 	}
 
 	.event-banner__icon {
@@ -126,13 +113,13 @@ function getMissionProgress(event: EventData): { current: number; target: number
 	.event-banner__name {
 		font-size: 0.75rem;
 		font-weight: 700;
-		color: #92400e;
+		color: var(--color-text-warm, #92400e);
 		display: block;
 	}
 
 	.event-banner__desc {
 		font-size: 0.625rem;
-		color: #a16207;
+		color: var(--color-text-warm-muted, #a16207);
 		display: block;
 		white-space: nowrap;
 		overflow: hidden;
@@ -141,13 +128,6 @@ function getMissionProgress(event: EventData): { current: number; target: number
 
 	.event-banner__meta {
 		flex-shrink: 0;
-	}
-
-	.event-banner__countdown {
-		font-size: 0.625rem;
-		font-weight: 600;
-		color: #92400e;
-		white-space: nowrap;
 	}
 
 	.event-banner__mission {
@@ -167,26 +147,26 @@ function getMissionProgress(event: EventData): { current: number; target: number
 
 	.event-banner__progress-fill {
 		height: 100%;
-		background: #f59e0b;
+		background: var(--color-warning, #f59e0b);
 		border-radius: 3px;
 		transition: width 0.3s ease;
 	}
 
 	.event-banner__progress-fill--complete {
-		background: #22c55e;
+		background: var(--color-success, #22c55e);
 	}
 
 	.event-banner__progress-text {
 		font-size: 0.5625rem;
 		font-weight: 700;
-		color: #92400e;
+		color: var(--color-text-warm, #92400e);
 		white-space: nowrap;
 	}
 
 	.event-banner__claim-btn {
 		padding: 2px 8px;
 		border-radius: 6px;
-		background: #f59e0b;
+		background: var(--color-warning, #f59e0b);
 		color: white;
 		font-size: 0.625rem;
 		font-weight: 700;
@@ -197,28 +177,18 @@ function getMissionProgress(event: EventData): { current: number; target: number
 	}
 
 	.event-banner__claim-btn:hover {
-		background: #d97706;
+		background: var(--color-warning-hover, #d97706);
 	}
 
 	.event-banner__claimed {
 		font-size: 0.5625rem;
 		font-weight: 600;
-		color: #16a34a;
+		color: var(--color-success, #16a34a);
 		white-space: nowrap;
 	}
 
 	@keyframes pulse-claim {
 		0%, 100% { transform: scale(1); }
 		50% { transform: scale(1.05); }
-	}
-
-	.event-banner__countdown--urgent {
-		color: #dc2626;
-		animation: pulse-urgent 1.5s ease-in-out infinite;
-	}
-
-	@keyframes pulse-urgent {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.6; }
 	}
 </style>
