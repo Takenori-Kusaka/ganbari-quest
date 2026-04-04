@@ -53,7 +53,8 @@ const yTicks = $derived.by(() => {
 
 {#if weeks.length > 0 && childNames.length > 1}
 	<div class="trend-chart">
-		<svg viewBox="0 0 {width} {height}" {width} {height} class="trend-svg">
+		<svg viewBox="0 0 {width} {height}" {width} {height} class="trend-svg" role="img" aria-label="きょうだい週次トレンドグラフ">
+			<title>きょうだい週次トレンドグラフ</title>
 			<!-- Y axis grid -->
 			{#each yTicks as tick}
 				<line

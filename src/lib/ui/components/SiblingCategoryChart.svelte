@@ -1,4 +1,6 @@
 <script lang="ts">
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+
 interface RankingData {
 	childId: number;
 	childName: string;
@@ -16,13 +18,7 @@ let { rankings, width = 360, height = 180 }: Props = $props();
 
 const CHILD_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
 
-const CATEGORIES = [
-	{ id: 1, label: 'うんどう', icon: '🏃' },
-	{ id: 2, label: 'べんきょう', icon: '📚' },
-	{ id: 3, label: 'せいかつ', icon: '🏠' },
-	{ id: 4, label: 'こうりゅう', icon: '🤝' },
-	{ id: 5, label: 'そうぞう', icon: '🎨' },
-];
+const CATEGORIES = CATEGORY_DEFS.map((c) => ({ id: c.id, label: c.name, icon: c.icon }));
 
 const PADDING = { top: 12, right: 12, bottom: 40, left: 32 };
 const chartW = $derived(width - PADDING.left - PADDING.right);
@@ -34,11 +30,16 @@ const maxCount = $derived(
 
 const groupWidth = $derived(chartW / CATEGORIES.length);
 const barWidth = $derived(Math.min(16, (groupWidth - 8) / Math.max(1, rankings.length)));
+
+const ariaLabel = $derived(
+	`きょうだいカテゴリ比較グラフ。${rankings.map((r) => r.childName).join('、')}の5カテゴリ別の件数を比較しています。`,
+);
 </script>
 
 {#if rankings.length > 1}
 	<div class="cat-chart">
-		<svg viewBox="0 0 {width} {height}" {width} {height} class="cat-svg">
+		<svg viewBox="0 0 {width} {height}" {width} {height} class="cat-svg" role="img" aria-label={ariaLabel}>
+			<title>{ariaLabel}</title>
 			<!-- Y axis grid -->
 			{#each [0, Math.ceil(maxCount / 2), maxCount] as tick}
 				{@const py = PADDING.top + chartH - (tick / maxCount) * chartH}
@@ -78,10 +79,11 @@ const barWidth = $derived(Math.min(16, (groupWidth - 8) / Math.max(1, rankings.l
 					{@const count = ranking.categoryCounts[cat.id] ?? 0}
 					{@const barH = (count / maxCount) * chartH}
 					{@const bx = groupX - (rankings.length * barWidth) / 2 + childIdx * barWidth}
+					{@const rectWidth = Math.max(barWidth - 1, 1)}
 					<rect
 						x={bx}
 						y={PADDING.top + chartH - barH}
-						width={barWidth - 1}
+						width={rectWidth}
 						height={barH}
 						fill={CHILD_COLORS[childIdx % CHILD_COLORS.length]}
 						rx="2"

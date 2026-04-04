@@ -180,8 +180,15 @@ export async function getRankingTrend(tenantId: string, numWeeks = 4): Promise<R
 	if (children.length === 0) return { weeks: [], children: [] };
 
 	const now = new Date();
-	const weeks: WeeklyTrendEntry[] = [];
 
+	// Build week boundaries first
+	interface WeekBoundary {
+		weekStart: string;
+		weekEnd: string;
+		weekLabel: string;
+		monday: Date;
+	}
+	const weekBoundaries: WeekBoundary[] = [];
 	for (let w = numWeeks - 1; w >= 0; w--) {
 		const refDate = new Date(now);
 		refDate.setDate(refDate.getDate() - w * 7);
@@ -193,22 +200,42 @@ export async function getRankingTrend(tenantId: string, numWeeks = 4): Promise<R
 		const sunday = new Date(monday);
 		sunday.setDate(monday.getDate() + 6);
 
-		const weekStart = monday.toISOString().slice(0, 10);
-		const weekEnd = sunday.toISOString().slice(0, 10);
-		const weekLabel = `${monday.getMonth() + 1}/${monday.getDate()}〜`;
-
-		const childCounts = await Promise.all(
-			children.map(async (child) => {
-				const logs = await findActivityLogs(child.id, tenantId, {
-					from: weekStart,
-					to: weekEnd,
-				});
-				return { childId: child.id, childName: child.nickname, count: logs.length };
-			}),
-		);
-
-		weeks.push({ weekLabel, weekStart, children: childCounts });
+		weekBoundaries.push({
+			weekStart: monday.toISOString().slice(0, 10),
+			weekEnd: sunday.toISOString().slice(0, 10),
+			weekLabel: `${monday.getMonth() + 1}/${monday.getDate()}〜`,
+			monday,
+		});
 	}
+
+	// Fetch all logs for the entire date range once per child (instead of per week × per child)
+	const firstWeek = weekBoundaries[0];
+	const lastWeek = weekBoundaries[weekBoundaries.length - 1];
+	if (!firstWeek || !lastWeek) return { weeks: [], children: [] };
+	const overallFrom = firstWeek.weekStart;
+	const overallTo = lastWeek.weekEnd;
+
+	const allChildLogs = await Promise.all(
+		children.map(async (child) => {
+			const logs = await findActivityLogs(child.id, tenantId, {
+				from: overallFrom,
+				to: overallTo,
+			});
+			return { child, logs };
+		}),
+	);
+
+	// Bucket logs by week in memory
+	const weeks: WeeklyTrendEntry[] = weekBoundaries.map((wb) => {
+		const childCounts = allChildLogs.map(({ child, logs }) => {
+			const count = logs.filter((log) => {
+				const d = typeof log.recordedAt === 'string' ? log.recordedAt.slice(0, 10) : '';
+				return d >= wb.weekStart && d <= wb.weekEnd;
+			}).length;
+			return { childId: child.id, childName: child.nickname, count };
+		});
+		return { weekLabel: wb.weekLabel, weekStart: wb.weekStart, children: childCounts };
+	});
 
 	return {
 		weeks,
