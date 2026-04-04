@@ -1,17 +1,62 @@
 // src/lib/server/services/license-key-service.ts
-// ライセンスキー生成・検証・消費サービス (#0247)
+// ライセンスキー生成・検証・消費サービス (#0247, #319 HMAC署名対応)
 
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+
+// ============================================================
+// 定数
+// ============================================================
+
+const KEY_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 0/O/1/I を除外
+const CHECKSUM_LENGTH = 5;
+
+/** 旧形式: GQ-XXXX-XXXX-XXXX */
+const LEGACY_FORMAT = /^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+/** 新形式: GQ-XXXX-XXXX-XXXX-YYYYY (HMAC署名付き) */
+const SIGNED_FORMAT = /^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{5}$/;
+
+// ============================================================
+// HMAC署名 (#319)
+// ============================================================
+
+/** LICENSE_SECRET 環境変数を取得（未設定なら undefined） */
+function getLicenseSecret(): string | undefined {
+	return process.env.AWS_LICENSE_SECRET || undefined;
+}
+
+/** ペイロードから HMAC-SHA256 チェックサムを生成 (KEY_CHARS エンコード, 5文字) */
+export function createHmacChecksum(payload: string, secret: string): string {
+	const hmac = createHmac('sha256', secret).update(payload).digest();
+	let checksum = '';
+	for (let i = 0; i < CHECKSUM_LENGTH; i++) {
+		const b = hmac[i] ?? 0;
+		checksum += KEY_CHARS[b % KEY_CHARS.length];
+	}
+	return checksum;
+}
+
+/** キーが署名付き形式かどうか判定 */
+export function isSignedKeyFormat(key: string): boolean {
+	return SIGNED_FORMAT.test(key);
+}
+
+/** 署名付きキーの署名を検証 */
+export function verifyKeySignature(key: string, secret: string): boolean {
+	// GQ-XXXX-XXXX-XXXX-YYYYY → payload = GQ-XXXX-XXXX-XXXX, checksum = YYYYY
+	const lastDash = key.lastIndexOf('-');
+	const payload = key.slice(0, lastDash);
+	const checksum = key.slice(lastDash + 1);
+	const expected = createHmacChecksum(payload, secret);
+	return checksum === expected;
+}
 
 // ============================================================
 // キー生成
 // ============================================================
 
-const KEY_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 0/O/1/I を除外
-
-/** GQ-XXXX-XXXX-XXXX 形式のライセンスキーを生成 */
+/** ライセンスキーを生成。秘密鍵があれば HMAC 署名付き形式 */
 export function generateLicenseKey(): string {
 	const bytes = randomBytes(12);
 	const segments: string[] = [];
@@ -23,7 +68,15 @@ export function generateLicenseKey(): string {
 		}
 		segments.push(seg);
 	}
-	return `GQ-${segments.join('-')}`;
+	const payload = `GQ-${segments.join('-')}`;
+
+	const secret = getLicenseSecret();
+	if (secret) {
+		const checksum = createHmacChecksum(payload, secret);
+		return `${payload}-${checksum}`;
+	}
+
+	return payload;
 }
 
 // ============================================================
@@ -66,14 +119,32 @@ export async function issueLicenseKey(params: {
 	return record;
 }
 
-/** ライセンスキーを検証 (存在チェック + active 状態チェック) */
+/** ライセンスキーを検証 (署名チェック + DB 存在チェック + active 状態チェック) */
 export async function validateLicenseKey(
 	key: string,
 ): Promise<{ valid: true; record: LicenseRecord } | { valid: false; reason: string }> {
 	const normalized = key.toUpperCase().trim();
 
-	if (!/^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalized)) {
+	// 形式チェック: 旧形式 or 署名付き形式
+	const isLegacy = LEGACY_FORMAT.test(normalized);
+	const isSigned = SIGNED_FORMAT.test(normalized);
+
+	if (!isLegacy && !isSigned) {
 		return { valid: false, reason: 'ライセンスキーの形式が不正です' };
+	}
+
+	// 署名付きキーの場合: HMAC 署名を検証（DB問い合わせ前に拒否可能）
+	if (isSigned) {
+		const secret = getLicenseSecret();
+		if (secret && !verifyKeySignature(normalized, secret)) {
+			logger.warn(`[LICENSE] Signature verification failed: ${normalized.slice(0, 7)}...`);
+			return { valid: false, reason: 'ライセンスキーが不正です' };
+		}
+	}
+
+	// 旧形式キーの場合: 秘密鍵があればログ出力（将来的に非推奨化の追跡用）
+	if (isLegacy && getLicenseSecret()) {
+		logger.info(`[LICENSE] Legacy format key used: ${normalized.slice(0, 7)}...`);
 	}
 
 	const repos = getRepos();
@@ -105,7 +176,7 @@ export async function consumeLicenseKey(key: string, consumedByTenantId: string)
 	await repos.auth.updateLicenseKeyStatus(normalized, 'consumed', consumedByTenantId);
 
 	logger.info(
-		`[LICENSE] Key consumed: ${normalized} by tenant=${consumedByTenantId} (issued for=${record.tenantId})`,
+		`[LICENSE] Key consumed: ${normalized.slice(0, 7)}... by tenant=${consumedByTenantId} (issued for=${record.tenantId})`,
 	);
 	return true;
 }

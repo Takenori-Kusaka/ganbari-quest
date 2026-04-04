@@ -14,8 +14,6 @@ const mockUpsertStatus = vi.fn();
 const mockInsertStatusHistory = vi.fn();
 const mockFindAllAchievements = vi.fn();
 const mockInsertChildAchievement = vi.fn();
-const mockFindAllTitles = vi.fn();
-const mockInsertChildTitle = vi.fn();
 const mockInsertLoginBonus = vi.fn();
 const mockInsertTemplate = vi.fn();
 const mockInsertTemplateItem = vi.fn();
@@ -39,11 +37,6 @@ vi.mock('$lib/server/db/status-repo', () => ({
 vi.mock('$lib/server/db/achievement-repo', () => ({
 	findAllAchievements: (...args: unknown[]) => mockFindAllAchievements(...args),
 	insertChildAchievement: (...args: unknown[]) => mockInsertChildAchievement(...args),
-}));
-
-vi.mock('$lib/server/db/title-repo', () => ({
-	findAllTitles: (...args: unknown[]) => mockFindAllTitles(...args),
-	insertChildTitle: (...args: unknown[]) => mockInsertChildTitle(...args),
 }));
 
 vi.mock('$lib/server/db/login-bonus-repo', () => ({
@@ -132,7 +125,6 @@ beforeEach(() => {
 
 	// Default: lookup mocks return empty arrays
 	mockFindActivities.mockResolvedValue([]);
-	mockFindAllTitles.mockResolvedValue([]);
 	mockFindAllAchievements.mockResolvedValue([]);
 });
 
@@ -354,7 +346,6 @@ describe('previewImport', () => {
 		expect(preview.pointLedger).toBe(2);
 		expect(preview.statuses).toBe(1);
 		expect(preview.achievements).toBe(1);
-		expect(preview.titles).toBe(1);
 		expect(preview.loginBonuses).toBe(2);
 		expect(preview.checklistTemplates).toBe(1);
 	});
@@ -368,7 +359,6 @@ describe('previewImport', () => {
 		expect(preview.pointLedger).toBe(0);
 		expect(preview.statuses).toBe(0);
 		expect(preview.achievements).toBe(0);
-		expect(preview.titles).toBe(0);
 		expect(preview.loginBonuses).toBe(0);
 		expect(preview.checklistTemplates).toBe(0);
 	});
@@ -392,7 +382,6 @@ describe('importFamilyData', () => {
 			expect(result.pointLedgerSkipped).toBe(0);
 			expect(result.statusesImported).toBe(0);
 			expect(result.achievementsImported).toBe(0);
-			expect(result.titlesImported).toBe(0);
 			expect(result.errors).toContain('子供の作成が全て失敗しました');
 		});
 	});
@@ -933,49 +922,6 @@ describe('importFamilyData', () => {
 
 			expect(result.achievementsImported).toBe(1);
 			expect(mockInsertChildAchievement).toHaveBeenCalledWith(101, 20, TENANT, 100);
-		});
-	});
-
-	describe('称号のインポート', () => {
-		it('マスタに存在する称号コードが正常にインポートされる', async () => {
-			const data = makeExportData();
-			data.family.children = [makeChild('c1')];
-			data.data.childTitles = [
-				{
-					childRef: 'c1',
-					titleCode: 'undou_master',
-					unlockedAt: '2026-03-12T00:00:00Z',
-				},
-			];
-
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockFindAllTitles.mockResolvedValue([{ id: 30, code: 'undou_master' }]);
-			mockInsertChildTitle.mockResolvedValue({});
-
-			const result = await importFamilyData(data, TENANT);
-
-			expect(result.titlesImported).toBe(1);
-			expect(mockInsertChildTitle).toHaveBeenCalledWith(101, 30, TENANT);
-		});
-
-		it('マスタに存在しない称号コードはスキップされる', async () => {
-			const data = makeExportData();
-			data.family.children = [makeChild('c1')];
-			data.data.childTitles = [
-				{
-					childRef: 'c1',
-					titleCode: 'nonexistent_title',
-					unlockedAt: '2026-03-12T00:00:00Z',
-				},
-			];
-
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockFindAllTitles.mockResolvedValue([]);
-
-			const result = await importFamilyData(data, TENANT);
-
-			expect(result.titlesImported).toBe(0);
-			expect(mockInsertChildTitle).not.toHaveBeenCalled();
 		});
 	});
 

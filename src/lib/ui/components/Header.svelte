@@ -8,7 +8,6 @@ interface Props {
 	totalPoints: number;
 	avatarUrl?: string | null;
 	pointSettings?: PointSettings;
-	activeTitle?: { icon: string; name: string } | null;
 	stampProgress?: { filled: number; total: number } | null;
 	onStampClick?: () => void;
 	onHelpClick?: () => void;
@@ -20,7 +19,6 @@ let {
 	totalPoints,
 	avatarUrl,
 	pointSettings,
-	activeTitle,
 	stampProgress,
 	onStampClick,
 	onHelpClick,
@@ -48,9 +46,6 @@ const balanceDisplay = $derived(
 		/>
 		<div class="flex flex-col">
 			<span class="font-bold text-lg leading-tight">{nickname}{#if isPremium}<span class="premium-star" title="プレミアム">⭐</span>{/if}</span>
-			{#if activeTitle}
-				<span class="text-xs opacity-90">{activeTitle.icon} {activeTitle.name}</span>
-			{/if}
 		</div>
 	</div>
 	<div class="flex items-center gap-2">
