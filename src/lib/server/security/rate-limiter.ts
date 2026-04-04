@@ -57,7 +57,14 @@ export function checkApiRateLimit(ip: string) {
 	return checkRateLimit(`api:${ip}`, 100, 60 * 1000);
 }
 
-/** ログイン試行用レートリミット: 10 req/min per IP */
-export function checkAuthRateLimit(ip: string) {
-	return checkRateLimit(`auth:${ip}`, 10, 60 * 1000);
+/**
+ * 認証ルートのレートリミット（メソッド別）
+ * - POST（ログイン試行）: 30 req/min — ブルートフォース保護は account-lockout.ts が担当
+ * - GET（ページ表示・リダイレクト）: 60 req/min — 複数タブ同時オープン等を許容
+ */
+export function checkAuthRateLimit(ip: string, method: string) {
+	if (method === 'POST') {
+		return checkRateLimit(`auth:post:${ip}`, 30, 60 * 1000);
+	}
+	return checkRateLimit(`auth:get:${ip}`, 60, 60 * 1000);
 }
