@@ -285,7 +285,12 @@ async function getRankingForPeriod(
 				encouragement: logs.length > 0 ? 'がんばってるね！' : 'きょうもがんばろう！',
 			};
 		}
-		return { mostActive: null, categoryChampions: {}, rankings: [], encouragement: 'きょうもがんばろう！' };
+		return {
+			mostActive: null,
+			categoryChampions: {},
+			rankings: [],
+			encouragement: 'きょうもがんばろう！',
+		};
 	}
 
 	const rankings: SiblingRanking[] = await Promise.all(
@@ -295,7 +300,12 @@ async function getRankingForPeriod(
 			for (const log of logs) {
 				categoryCounts[log.categoryId] = (categoryCounts[log.categoryId] ?? 0) + 1;
 			}
-			return { childId: child.id, childName: child.nickname, totalCount: logs.length, categoryCounts };
+			return {
+				childId: child.id,
+				childName: child.nickname,
+				totalCount: logs.length,
+				categoryCounts,
+			};
 		}),
 	);
 
@@ -303,7 +313,11 @@ async function getRankingForPeriod(
 
 	const mostActive =
 		rankings[0] && rankings[0].totalCount > 0
-			? { childId: rankings[0].childId, childName: rankings[0].childName, count: rankings[0].totalCount }
+			? {
+					childId: rankings[0].childId,
+					childName: rankings[0].childName,
+					count: rankings[0].totalCount,
+				}
 			: null;
 
 	const categoryChampions: Record<number, CategoryChampion> = {};
@@ -321,9 +335,11 @@ async function getRankingForPeriod(
 
 	const totalAll = rankings.reduce((sum, r) => sum + r.totalCount, 0);
 	const encouragement =
-		totalAll === 0 ? 'きょうもがんばろう！' :
-		totalAll < 10 ? 'がんばりはじめたね！' :
-		'がんばってるね！もっとできるよ！';
+		totalAll === 0
+			? 'きょうもがんばろう！'
+			: totalAll < 10
+				? 'がんばりはじめたね！'
+				: 'がんばってるね！もっとできるよ！';
 
 	return { mostActive, categoryChampions, rankings, encouragement };
 }
