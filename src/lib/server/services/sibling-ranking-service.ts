@@ -158,3 +158,60 @@ export async function getWeeklyRanking(tenantId: string): Promise<WeeklyRankingR
 
 	return { mostActive, categoryChampions, rankings, encouragement };
 }
+
+// ============================================================
+// Ranking Trend (#373)
+// ============================================================
+
+export interface WeeklyTrendEntry {
+	weekLabel: string;
+	weekStart: string;
+	children: { childId: number; childName: string; count: number }[];
+}
+
+export interface RankingTrendResult {
+	weeks: WeeklyTrendEntry[];
+	children: { childId: number; childName: string }[];
+}
+
+/** 過去N週のきょうだい活動数推移を取得 */
+export async function getRankingTrend(tenantId: string, numWeeks = 4): Promise<RankingTrendResult> {
+	const children = await findAllChildren(tenantId);
+	if (children.length === 0) return { weeks: [], children: [] };
+
+	const now = new Date();
+	const weeks: WeeklyTrendEntry[] = [];
+
+	for (let w = numWeeks - 1; w >= 0; w--) {
+		const refDate = new Date(now);
+		refDate.setDate(refDate.getDate() - w * 7);
+
+		const day = refDate.getDay();
+		const mondayOffset = day === 0 ? 6 : day - 1;
+		const monday = new Date(refDate);
+		monday.setDate(refDate.getDate() - mondayOffset);
+		const sunday = new Date(monday);
+		sunday.setDate(monday.getDate() + 6);
+
+		const weekStart = monday.toISOString().slice(0, 10);
+		const weekEnd = sunday.toISOString().slice(0, 10);
+		const weekLabel = `${monday.getMonth() + 1}/${monday.getDate()}〜`;
+
+		const childCounts = await Promise.all(
+			children.map(async (child) => {
+				const logs = await findActivityLogs(child.id, tenantId, {
+					from: weekStart,
+					to: weekEnd,
+				});
+				return { childId: child.id, childName: child.nickname, count: logs.length };
+			}),
+		);
+
+		weeks.push({ weekLabel, weekStart, children: childCounts });
+	}
+
+	return {
+		weeks,
+		children: children.map((c) => ({ childId: c.id, childName: c.nickname })),
+	};
+}
