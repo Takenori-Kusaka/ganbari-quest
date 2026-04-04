@@ -1,8 +1,13 @@
+import { DEMO_CHILDREN } from '$lib/server/demo/demo-data.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
 	const today = new Date().toISOString().slice(0, 10);
 	const weekEnd = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
+
+	// biome-ignore lint: DEMO_CHILDREN indices are always defined (static demo data)
+	const child1 = DEMO_CHILDREN[1]!; // たろう (5歳)
+	const child2 = DEMO_CHILDREN[2]!; // さくら (8歳)
 
 	const challenges = [
 		{
@@ -23,7 +28,7 @@ export const load: PageServerLoad = async () => {
 				{
 					id: 1,
 					challengeId: 1,
-					childId: 1,
+					childId: child1.id,
 					currentValue: 2,
 					targetValue: 3,
 					completed: 0,
@@ -36,7 +41,7 @@ export const load: PageServerLoad = async () => {
 				{
 					id: 2,
 					challengeId: 1,
-					childId: 2,
+					childId: child2.id,
 					currentValue: 3,
 					targetValue: 3,
 					completed: 1,
@@ -67,7 +72,7 @@ export const load: PageServerLoad = async () => {
 				{
 					id: 3,
 					challengeId: 2,
-					childId: 1,
+					childId: child1.id,
 					currentValue: 10,
 					targetValue: 10,
 					completed: 1,
@@ -80,7 +85,7 @@ export const load: PageServerLoad = async () => {
 				{
 					id: 4,
 					challengeId: 2,
-					childId: 2,
+					childId: child2.id,
 					currentValue: 10,
 					targetValue: 10,
 					completed: 1,
@@ -95,10 +100,11 @@ export const load: PageServerLoad = async () => {
 		},
 	];
 
-	const children = [
-		{ id: 1, nickname: 'ゆいちゃん', age: 5 },
-		{ id: 2, nickname: 'けんくん', age: 8 },
-	];
+	const children = DEMO_CHILDREN.slice(1, 3).map((c) => ({
+		id: c.id,
+		nickname: c.nickname,
+		age: c.age,
+	}));
 
 	return { challenges, children };
 };
