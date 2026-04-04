@@ -1,12 +1,12 @@
 // src/routes/api/v1/admin/notifications/reminder/+server.ts
 // リマインダー通知 — EventBridge / 手動トリガー用
 
+import { json } from '@sveltejs/kit';
 import { logger } from '$lib/server/logger';
 import {
 	getNotificationSettings,
 	sendPushNotification,
 } from '$lib/server/services/notification-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {

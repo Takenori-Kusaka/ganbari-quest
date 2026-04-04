@@ -19,13 +19,13 @@ import {
 	DEMO_CHILDREN,
 	DEMO_LOGIN_BONUSES,
 	DEMO_POINT_BALANCES,
-	TODAY,
 	getDemoActivitiesForChild,
 	getDemoChecklistsForChild,
 	getDemoLogsForChild,
 	getDemoMissionsForChild,
 	getDemoPointBalance,
 	getDemoStatusesForChild,
+	TODAY,
 } from './demo-data.js';
 
 // ============================================================

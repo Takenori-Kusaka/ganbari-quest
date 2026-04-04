@@ -31,6 +31,7 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+import webpush from 'web-push';
 import {
 	countTodayLogs,
 	deleteByEndpoint,
@@ -45,7 +46,6 @@ import {
 	sendAchievementNotification,
 	sendPushNotification,
 } from '$lib/server/services/notification-service';
-import webpush from 'web-push';
 
 const mockFindByTenant = vi.mocked(findByTenant);
 const mockDeleteByEndpoint = vi.mocked(deleteByEndpoint);

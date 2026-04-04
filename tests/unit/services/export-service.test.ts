@@ -294,6 +294,7 @@ vi.mock('$lib/server/db/status-repo', () => ({
 		childId === 1 && catId === 2 ? Promise.resolve(mockStatusHistory) : Promise.resolve([]),
 	),
 }));
+
 import { exportFamilyData } from '../../../src/lib/server/services/export-service';
 
 describe('exportFamilyData', () => {

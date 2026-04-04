@@ -1,9 +1,9 @@
 // tests/unit/domain/season-event-calendar.test.ts
 import { describe, expect, it } from 'vitest';
 import {
-	SEASON_EVENTS,
 	getActiveSeasonEvents,
 	getEventDateRange,
+	SEASON_EVENTS,
 } from '../../../src/lib/domain/season-event-calendar';
 
 describe('season-event-calendar', () => {

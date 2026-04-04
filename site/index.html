@@ -865,7 +865,7 @@
 </footer>
 
 <script>
-(function(){
+(()=> {
   var carousel=document.getElementById('hero-carousel');
   if(!carousel)return;
   var slides=carousel.querySelectorAll('.carousel-slide');
@@ -890,7 +890,7 @@
   function startTimer(){timer=setInterval(next,interval)}
   function resetTimer(){clearInterval(timer);startTimer()}
 
-  dots.forEach(function(dot){
+  dots.forEach((dot)=> {
     dot.addEventListener('click',function(){
       show(parseInt(this.getAttribute('data-index')));
       resetTimer();
@@ -907,7 +907,7 @@
   <img src="" alt="">
 </div>
 <script>
-(function(){
+(()=> {
   var overlay=document.getElementById('lightbox');
   if(!overlay)return;
   var lbImg=overlay.querySelector('img');
@@ -925,12 +925,12 @@
     lbImg.src='';
   }
 
-  document.querySelectorAll('img[data-lightbox]').forEach(function(img){
+  document.querySelectorAll('img[data-lightbox]').forEach((img)=> {
     img.addEventListener('click',function(){open(this.src,this.alt)});
   });
-  overlay.addEventListener('click',function(e){if(e.target===overlay)close()});
+  overlay.addEventListener('click',(e)=> {if(e.target===overlay)close()});
   closeBtn.addEventListener('click',close);
-  document.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
+  document.addEventListener('keydown',(e)=> {if(e.key==='Escape')close()});
 })();
 </script>
 </body>

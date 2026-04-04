@@ -40,7 +40,7 @@
 		"build-storybook": "storybook build"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^1.9.0",
+		"@biomejs/biome": "2.4.10",
 		"@chromatic-com/storybook": "^5.1.1",
 		"@google/genai": "^1.47.0",
 		"@playwright/test": "^1.50.0",

@@ -1,12 +1,12 @@
 // src/lib/server/services/migration-batch-service.ts
 // Eager Batch Migration + 統計サービス
 
+import { eq, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db/client';
 import { ENTITY_VERSIONS, hydrate } from '$lib/server/db/migration';
 import { SCHEMA_VERSION_FIELD } from '$lib/server/db/migration/types';
 import { children, statuses } from '$lib/server/db/schema';
 import { logger } from '$lib/server/logger';
-import { eq, isNull, lt, or, sql } from 'drizzle-orm';
 
 /** エンティティ→テーブルのマッピング */
 const ENTITY_TABLE_MAP = {

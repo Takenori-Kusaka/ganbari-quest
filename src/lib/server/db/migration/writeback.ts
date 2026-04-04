@@ -1,9 +1,9 @@
 // src/lib/server/db/migration/writeback.ts
 // DynamoDB / SQLite 共通の Write-Back ヘルパー
 
-import { logger } from '$lib/server/logger';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { TABLE_NAME, getDocClient } from '../dynamodb/client';
+import { logger } from '$lib/server/logger';
+import { getDocClient, TABLE_NAME } from '../dynamodb/client';
 import type { DynamoKey } from '../dynamodb/keys';
 import { type RawRecord, SCHEMA_VERSION_FIELD } from './types';
 

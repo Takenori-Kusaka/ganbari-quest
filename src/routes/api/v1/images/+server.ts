@@ -1,7 +1,9 @@
 import { requireTenantId } from '$lib/server/auth/factory';
+
 // POST /api/v1/images - Generate avatar or favicon
 // GET /api/v1/images?type=favicon - Get favicon path
 
+import { json } from '@sveltejs/kit';
 import { notFound, validationError } from '$lib/server/errors';
 import {
 	generateAvatar,
@@ -9,7 +11,6 @@ import {
 	getFaviconPath,
 } from '$lib/server/services/image-service';
 import { getChildStatus } from '$lib/server/services/status-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {

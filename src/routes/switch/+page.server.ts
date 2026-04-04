@@ -1,9 +1,8 @@
+import { redirect } from '@sveltejs/kit';
 import { dev } from '$app/environment';
-import { requireTenantId } from '$lib/server/auth/factory';
-import { getAuthMode } from '$lib/server/auth/factory';
+import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
-import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {

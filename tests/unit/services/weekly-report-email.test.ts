@@ -25,8 +25,8 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { sendWeeklyReportEmail } from '$lib/server/services/email-service';
 import type { WeeklyReportData } from '$lib/server/services/email-service';
+import { sendWeeklyReportEmail } from '$lib/server/services/email-service';
 
 describe('sendWeeklyReportEmail', () => {
 	beforeEach(() => {

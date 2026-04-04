@@ -13,8 +13,8 @@ vi.mock('$lib/server/db/factory', () => ({
 	}),
 }));
 
-import { getLicenseInfo } from '$lib/server/services/license-service';
 import type { LicenseInfo } from '$lib/server/services/license-service';
+import { getLicenseInfo } from '$lib/server/services/license-service';
 
 describe('license-service', () => {
 	beforeEach(() => {

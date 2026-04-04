@@ -1,6 +1,5 @@
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
-import { getDemoAdminData } from '$lib/server/demo/demo-service.js';
-import { getDemoStatusData } from '$lib/server/demo/demo-service.js';
+import { getDemoAdminData, getDemoStatusData } from '$lib/server/demo/demo-service.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {

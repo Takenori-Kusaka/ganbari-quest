@@ -1,6 +1,6 @@
+import { error, json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
-import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 const VALID_INTENSITIES = ['none', 'gentle', 'normal', 'strict'] as const;

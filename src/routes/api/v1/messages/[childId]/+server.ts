@@ -1,3 +1,4 @@
+import { json } from '@sveltejs/kit';
 import { messageQuerySchema, sendMessageSchema } from '$lib/domain/validation/message';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { validationError } from '$lib/server/errors';
@@ -7,7 +8,6 @@ import {
 	getUnshownMessageCount,
 	sendMessage,
 } from '$lib/server/services/message-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {

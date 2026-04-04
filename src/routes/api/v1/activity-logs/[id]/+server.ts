@@ -1,7 +1,7 @@
+import { json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { cancelActivityLog } from '$lib/server/services/activity-log-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {

@@ -1,10 +1,10 @@
 // src/routes/api/v1/admin/migration/+server.ts
 // スキーママイグレーション統計 + バッチ実行エンドポイント
 
+import type { RequestHandler } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { getMigrationStats, runAllBatchMigrations } from '$lib/server/db/migration/batch';
 import { logger } from '$lib/server/logger';
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from '@sveltejs/kit';
 
 function verifyCronAuth(request: Request): Response | null {
 	const cronSecret = process.env.CRON_SECRET;

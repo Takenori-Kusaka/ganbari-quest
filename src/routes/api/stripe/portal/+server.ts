@@ -1,9 +1,9 @@
 // POST /api/stripe/portal — Stripe Customer Portal セッション作成
 // セキュリティ: 認証必須 + owner/parent ロールのみ + tenantId はサーバー側から取得
 
+import { error, json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { createPortalSession } from '$lib/server/services/stripe-service';
-import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ locals, url }) => {

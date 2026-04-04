@@ -1,5 +1,5 @@
-import { deleteByEndpoint } from '$lib/server/db/push-subscription-repo';
 import { json } from '@sveltejs/kit';
+import { deleteByEndpoint } from '$lib/server/db/push-subscription-repo';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {

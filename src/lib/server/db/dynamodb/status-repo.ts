@@ -17,13 +17,13 @@ import type {
 	Status,
 	StatusHistoryEntry,
 } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
-	ENTITY_NAMES,
 	activityLogPrefix,
 	childKey,
 	childPK,
+	ENTITY_NAMES,
 	marketBenchmarkKey,
 	marketBenchmarkPrefix,
 	statusHistoryByCategoryPrefix,

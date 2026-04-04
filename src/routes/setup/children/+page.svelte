@@ -1,6 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { AGE_TIER_CONFIG, type UiMode, getDefaultUiMode } from '$lib/domain/validation/age-tier';
+import { AGE_TIER_CONFIG, getDefaultUiMode, type UiMode } from '$lib/domain/validation/age-tier';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';

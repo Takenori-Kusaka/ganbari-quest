@@ -1,3 +1,4 @@
+import { json } from '@sveltejs/kit';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { validationError } from '$lib/server/errors';
@@ -5,7 +6,6 @@ import {
 	getRewardTemplates,
 	saveRewardTemplates,
 } from '$lib/server/services/special-reward-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {

@@ -1,3 +1,4 @@
+import { fail } from '@sveltejs/kit';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllChildren } from '$lib/server/db/child-repo';
@@ -31,7 +32,6 @@ import {
 	stampToday,
 } from '$lib/server/services/stamp-card-service';
 import { getCategoryXpSummary } from '$lib/server/services/status-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 function todayDate(): string {

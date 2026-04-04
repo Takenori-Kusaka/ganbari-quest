@@ -1,11 +1,10 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
+import { getCategoryById } from '$lib/domain/validation/activity';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Tabs from '$lib/ui/primitives/Tabs.svelte';
 import { soundService } from '$lib/ui/sound';
-
-import { getCategoryById } from '$lib/domain/validation/activity';
 
 let { data } = $props();
 

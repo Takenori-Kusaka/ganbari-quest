@@ -1,7 +1,7 @@
 <script lang="ts">
+import type { Snippet } from 'svelte';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
-import type { Snippet } from 'svelte';
 
 interface Props {
 	data: {

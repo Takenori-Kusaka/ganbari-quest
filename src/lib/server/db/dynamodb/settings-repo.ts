@@ -2,7 +2,7 @@
 // DynamoDB implementation of ISettingsRepo
 
 import { BatchGetCommand, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { settingKey } from './keys';
 
 /** 設定値を取得 */

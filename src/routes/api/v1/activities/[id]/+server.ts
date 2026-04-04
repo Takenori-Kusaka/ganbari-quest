@@ -1,3 +1,4 @@
+import { json } from '@sveltejs/kit';
 import { updateActivitySchema } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { notFound, validationError } from '$lib/server/errors';
@@ -6,7 +7,6 @@ import {
 	setActivityVisibility,
 	updateActivity,
 } from '$lib/server/services/activity-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {

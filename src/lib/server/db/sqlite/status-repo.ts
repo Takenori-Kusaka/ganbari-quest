@@ -5,7 +5,7 @@ import { and, desc, eq, lt, max, sql } from 'drizzle-orm';
 import { db } from '../client';
 import { ENTITY_VERSIONS } from '../migration/registry';
 import { SCHEMA_VERSION_FIELD } from '../migration/types';
-import { activityLogs, children, marketBenchmarks, statusHistory, statuses } from '../schema';
+import { activityLogs, children, marketBenchmarks, statuses, statusHistory } from '../schema';
 
 /** SQLite: _sv が未設定のステータスレコードに最新バージョンを書き戻す */
 function writeBackStatusSv(id: number): void {

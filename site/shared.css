@@ -105,7 +105,7 @@ img {
 	align-items: center;
 }
 .header-nav a:not(.btn) {
-	font-size: .9rem;
+	font-size: 0.9rem;
 	color: var(--gray-500);
 }
 .header-nav a:not(.btn):hover {
@@ -126,9 +126,9 @@ img {
 	display: inline-block;
 	padding: 10px 24px;
 	border-radius: 2rem;
-	font-size: .95rem;
+	font-size: 0.95rem;
 	font-weight: 600;
-	transition: all .2s;
+	transition: all 0.2s;
 	text-decoration: none;
 }
 .btn-primary {
@@ -194,16 +194,16 @@ img {
 	margin-bottom: 8px;
 }
 .footer-brand p {
-	font-size: .85rem;
+	font-size: 0.85rem;
 }
 .footer-links h4 {
 	color: var(--gray-200);
-	font-size: .85rem;
+	font-size: 0.85rem;
 	margin-bottom: 8px;
 }
 .footer-links a {
 	display: block;
-	font-size: .85rem;
+	font-size: 0.85rem;
 	color: #94a3b8;
 	margin-bottom: 4px;
 }
@@ -215,7 +215,7 @@ img {
 	margin-top: 32px;
 	padding-top: 16px;
 	text-align: center;
-	font-size: .75rem;
+	font-size: 0.75rem;
 }
 
 /* --- Footer (simple for legal pages) --- */
@@ -226,7 +226,7 @@ img {
 	text-align: center;
 }
 .footer-simple p {
-	font-size: .75rem;
+	font-size: 0.75rem;
 	color: #94a3b8;
 	margin: 0 0 8px;
 }
@@ -237,7 +237,7 @@ img {
 	flex-wrap: wrap;
 }
 .footer-simple .footer-links-inline a {
-	font-size: .75rem;
+	font-size: 0.75rem;
 	color: var(--gray-500);
 	display: inline;
 }
@@ -265,12 +265,12 @@ img {
 	margin: 0 0 8px;
 }
 .meta {
-	font-size: .8rem;
+	font-size: 0.8rem;
 	color: #94a3b8;
 	margin: 0 0 24px;
 }
 .intro {
-	font-size: .9rem;
+	font-size: 0.9rem;
 	margin-bottom: 32px;
 	padding-bottom: 24px;
 	border-bottom: 1px solid var(--gray-200);
@@ -282,7 +282,7 @@ img {
 	margin: 32px 0 12px;
 }
 .doc h3 {
-	font-size: .95rem;
+	font-size: 0.95rem;
 	font-weight: 600;
 	color: var(--gray-500);
 	margin: 20px 0 8px;
@@ -291,12 +291,12 @@ img {
 	margin-bottom: 8px;
 }
 .doc p {
-	font-size: .9rem;
+	font-size: 0.9rem;
 	margin: 8px 0;
 }
 .doc ol,
 .doc ul {
-	font-size: .9rem;
+	font-size: 0.9rem;
 	padding-left: 24px;
 	margin: 8px 0;
 }
@@ -310,7 +310,7 @@ img {
 	text-align: right;
 }
 .effective p {
-	font-size: .85rem;
+	font-size: 0.85rem;
 	color: var(--gray-500);
 	margin: 4px 0;
 }
@@ -362,7 +362,7 @@ img {
 	justify-content: center;
 	opacity: 0;
 	pointer-events: none;
-	transition: opacity .25s ease;
+	transition: opacity 0.25s ease;
 }
 .lightbox-overlay.active {
 	opacity: 1;
@@ -388,7 +388,7 @@ img {
 	line-height: 1;
 	padding: 8px;
 	opacity: 0.8;
-	transition: opacity .2s;
+	transition: opacity 0.2s;
 }
 .lightbox-close:hover {
 	opacity: 1;

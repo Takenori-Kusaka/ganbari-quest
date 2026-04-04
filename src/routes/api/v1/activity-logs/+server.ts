@@ -1,8 +1,8 @@
+import { json } from '@sveltejs/kit';
 import { activityLogsQuerySchema, recordActivitySchema } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { getActivityLogs, recordActivity } from '$lib/server/services/activity-log-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {

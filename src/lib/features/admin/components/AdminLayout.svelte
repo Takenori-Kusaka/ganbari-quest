@@ -1,9 +1,9 @@
 <script lang="ts">
+import type { Snippet } from 'svelte';
 import { navigating, page } from '$app/stores';
 import Logo from '$lib/ui/components/Logo.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import { markTutorialStarted, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
-import type { Snippet } from 'svelte';
 
 interface Props {
 	children: Snippet;

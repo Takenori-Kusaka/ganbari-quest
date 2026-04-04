@@ -3,6 +3,7 @@
 // - devモード: ダミーユーザーで認証
 // - 本番: Cognito InitiateAuth API で直接認証（Hosted UI は使わない）
 
+import { fail, redirect } from '@sveltejs/kit';
 import { IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
 import { authenticateDevUser } from '$lib/server/auth/providers/cognito-dev';
@@ -18,7 +19,6 @@ import {
 	recordLoginFailure,
 	resetLoginFailures,
 } from '$lib/server/security/account-lockout';
-import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

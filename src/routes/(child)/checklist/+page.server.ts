@@ -1,7 +1,7 @@
+import { fail } from '@sveltejs/kit';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getChecklistsForChild, toggleCheckItem } from '$lib/server/services/checklist-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
