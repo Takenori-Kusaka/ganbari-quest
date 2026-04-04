@@ -21,8 +21,7 @@ let { rankings, childId }: Props = $props();
 			{#each rankings as entry, i}
 				{#if i > 0}<span class="sibling-summary__sep"> / </span>{/if}
 				<span class:sibling-summary__me={entry.childId === childId}>
-					{entry.childId === childId ? 'じぶん' : entry.childName}
-					{entry.totalCount}かい
+					{entry.childId === childId ? 'じぶん' : entry.childName}　{entry.totalCount}かい
 				</span>
 			{/each}
 			<span class="sibling-summary__period">（こんしゅう）</span>
