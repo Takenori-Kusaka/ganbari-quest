@@ -945,8 +945,5 @@ export const viewerTokens = sqliteTable(
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 		revokedAt: text('revoked_at'),
 	},
-	(table) => [
-		index('idx_viewer_tokens_tenant').on(table.tenantId),
-		uniqueIndex('idx_viewer_tokens_token').on(table.token),
-	],
+	(table) => [index('idx_viewer_tokens_tenant').on(table.tenantId)],
 );

@@ -46,7 +46,6 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		isFamily,
 		viewerTokens: viewerTokens.map((t) => ({
 			id: t.id,
-			token: t.token,
 			label: t.label,
 			expiresAt: t.expiresAt,
 			createdAt: t.createdAt,

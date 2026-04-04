@@ -4,21 +4,19 @@
 
 import { error, json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
-import { resolvePlanTier } from '$lib/server/services/plan-limit-service';
-import { getTrialStatus } from '$lib/server/services/trial-service';
+import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { createViewerToken, listViewerTokens } from '$lib/server/services/viewer-token-service';
 import type { RequestHandler } from './$types';
 
 async function requireFamily(locals: App.Locals): Promise<string> {
 	const tenantId = requireTenantId(locals);
-	const trialStatus = await getTrialStatus(tenantId);
-	const tier = resolvePlanTier(
+	const tier = await resolveFullPlanTier(
+		tenantId,
 		locals.context?.licenseStatus ?? 'none',
 		locals.context?.plan,
-		trialStatus.trialEndDate,
 	);
 	if (tier !== 'family') {
-		error(403, 'ファミリープラン限定の機能です');
+		throw error(403, { message: 'ファミリープラン限定の機能です' });
 	}
 	return tenantId;
 }
@@ -31,9 +29,20 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const tenantId = await requireFamily(locals);
-	const body = await request.json();
+
+	let body: Record<string, unknown>;
+	try {
+		body = await request.json();
+	} catch {
+		return json({ message: '不正なJSONです' }, { status: 400 });
+	}
+
 	const label = typeof body.label === 'string' ? body.label.slice(0, 50) : undefined;
-	const duration = ['7d', '30d', 'unlimited'].includes(body.duration) ? body.duration : '30d';
+	const validDurations = ['7d', '30d', 'unlimited'] as const;
+	type Duration = (typeof validDurations)[number];
+	const duration: Duration = validDurations.includes(body.duration as Duration)
+		? (body.duration as Duration)
+		: '30d';
 
 	const token = await createViewerToken(tenantId, { label, duration });
 	return json({ token }, { status: 201 });
