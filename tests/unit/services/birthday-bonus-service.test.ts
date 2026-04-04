@@ -98,7 +98,6 @@ describe('checkBirthdayStatus', () => {
 			theme: 'pink',
 			uiMode: 'kinder',
 			avatarUrl: null,
-			activeTitleId: null,
 			displayConfig: null,
 			userId: null,
 			birthdayBonusMultiplier: 1.0,

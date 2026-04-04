@@ -31,16 +31,6 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 			{
 				id: 'intro-3',
 				chapterId: 1,
-				selector: '[data-tutorial="quick-actions"]',
-				title: 'クイックアクション',
-				description:
-					'よく使う操作へのショートカットです。「テストで100点だった！」など特別な頑張りにすぐポイントをあげたい時や、おこづかいに交換したい時にここからワンタップで操作できます。',
-				position: 'top',
-				page: '/admin',
-			},
-			{
-				id: 'intro-4',
-				chapterId: 1,
 				selector: '[data-tutorial="children-overview"]',
 				title: 'こども一覧（ホーム）',
 				description:
