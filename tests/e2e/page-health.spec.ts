@@ -71,7 +71,7 @@ test.describe('ページヘルス: Admin', () => {
 		{ path: '/admin/activities/introduce', name: '活動紹介' },
 		{ path: '/admin/points', name: 'ポイント管理' },
 		{ path: '/admin/rewards', name: 'ごほうび管理' },
-		{ path: '/admin/achievements', name: '実績管理' },
+		{ path: '/admin/achievements', name: 'チャレンジ管理' },
 		{ path: '/admin/checklists', name: 'チェックリスト管理' },
 		{ path: '/admin/messages', name: 'メッセージ管理' },
 		{ path: '/admin/status', name: 'ステータス管理' },
@@ -100,8 +100,6 @@ test.describe('ページヘルス: Kinder 子供画面', () => {
 		{ path: '/kinder/home', name: 'ホーム' },
 		{ path: '/kinder/history', name: '履歴' },
 		{ path: '/kinder/status', name: 'ステータス' },
-		{ path: '/kinder/achievements', name: '実績' },
-		{ path: '/kinder/titles', name: '称号' },
 	];
 
 	for (const { path, name } of kinderPages) {
@@ -129,7 +127,6 @@ test.describe('ページヘルス: Baby 子供画面', () => {
 		{ path: '/baby/home', name: 'ホーム' },
 		{ path: '/baby/history', name: '履歴' },
 		{ path: '/baby/status', name: 'ステータス' },
-		{ path: '/baby/achievements', name: '実績' },
 	];
 
 	for (const { path, name } of babyPages) {
@@ -149,7 +146,6 @@ test.describe('ページヘルス: API', () => {
 		{ path: '/api/v1/activities', name: '活動一覧' },
 		{ path: '/api/v1/points/1', name: 'ポイント残高' },
 		{ path: '/api/v1/status/1', name: 'ステータス' },
-		{ path: '/api/v1/achievements/1', name: '実績' },
 		{ path: '/api/v1/login-bonus/1', name: 'ログインボーナス' },
 	];
 

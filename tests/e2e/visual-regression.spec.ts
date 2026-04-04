@@ -56,11 +56,7 @@ test.describe('Visual Regression: Kinder', () => {
 		await expect(page).toHaveScreenshot('kinder-status.png', SCREENSHOT_OPTIONS);
 	});
 
-	test('実績画面', async ({ page }) => {
-		await page.goto('/kinder/achievements');
-		await expect(page.getByText(/たっせい/)).toBeVisible();
-		await expect(page).toHaveScreenshot('kinder-achievements.png', SCREENSHOT_OPTIONS);
-	});
+	// 実績画面は #322 で廃止（チャレンジ管理に転用）
 
 	test('履歴画面', async ({ page }) => {
 		await page.goto('/kinder/history');
