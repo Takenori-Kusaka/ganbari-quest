@@ -1,6 +1,9 @@
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 
@@ -11,6 +14,8 @@ export interface AuthStackProps extends cdk.StackProps {
 	googleClientId?: string;
 	/** Google OAuth Client Secret */
 	googleClientSecret?: string;
+	/** ACM certificate ARN covering auth.<appDomain> (us-east-1) */
+	certificateArn?: string;
 }
 
 export class AuthStack extends cdk.Stack {
@@ -79,17 +84,69 @@ export class AuthStack extends cdk.Stack {
 
 		this.userPool.addTrigger(cognito.UserPoolOperation.CUSTOM_MESSAGE, customMessageFn);
 
+		// --- App domain (OAuth コールバック / カスタムドメインで使用) ---
+		const appDomain = props.appDomain ?? 'ganbari-quest.com';
+
 		// --- Google Identity Provider（条件付き: googleClientId が指定された場合のみ） ---
 		const googleClientId = props.googleClientId;
 		const googleClientSecret = props.googleClientSecret;
 		const googleEnabled = !!(googleClientId && googleClientSecret);
 		if (googleEnabled) {
 			// Cognito Hosted UI ドメイン（OAuth フローに必要）
-			const domain = this.userPool.addDomain('CognitoDomain', {
-				cognitoDomain: {
-					domainPrefix: 'ganbari-quest',
-				},
-			});
+			const certificateArn = props.certificateArn;
+			const useCustomDomain = !!(certificateArn && appDomain);
+			if (useCustomDomain) {
+				const certificateArnComponents = cdk.Arn.split(certificateArn, cdk.ArnFormat.SLASH_RESOURCE_NAME);
+				if (certificateArnComponents.region !== 'us-east-1') {
+					throw new Error(
+						`Cognito custom domain requires an ACM certificate in us-east-1, but got: ${certificateArn}`,
+					);
+				}
+			}
+			let domainValue: string;
+
+			if (useCustomDomain) {
+				// カスタムドメイン: auth.ganbari-quest.com
+				const authDomainName = `auth.${appDomain}`;
+				const authCertificate = acm.Certificate.fromCertificateArn(
+					this, 'AuthCertificate', certificateArn!,
+				);
+
+				const domain = this.userPool.addDomain('CognitoDomain', {
+					customDomain: {
+						domainName: authDomainName,
+						certificate: authCertificate,
+					},
+				});
+
+				// Route53 A / AAAA レコード（エイリアス → Cognito CloudFront）
+				const hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
+					domainName: appDomain,
+				});
+				const authDomainAliasTarget = route53.RecordTarget.fromAlias(
+					new targets.UserPoolDomainTarget(domain),
+				);
+				new route53.ARecord(this, 'AuthDomainAlias', {
+					zone: hostedZone,
+					recordName: 'auth',
+					target: authDomainAliasTarget,
+				});
+				new route53.AaaaRecord(this, 'AuthDomainAliasIpv6', {
+					zone: hostedZone,
+					recordName: 'auth',
+					target: authDomainAliasTarget,
+				});
+
+				domainValue = authDomainName;
+			} else {
+				// フォールバック: Cognito デフォルトドメイン
+				const domain = this.userPool.addDomain('CognitoDomain', {
+					cognitoDomain: {
+						domainPrefix: 'ganbari-quest',
+					},
+				});
+				domainValue = `${domain.domainName}.auth.${this.region}.amazoncognito.com`;
+			}
 
 			new cognito.UserPoolIdentityProviderGoogle(this, 'GoogleIdP', {
 				userPool: this.userPool,
@@ -104,11 +161,11 @@ export class AuthStack extends cdk.Stack {
 			// Cognito Domain を SSM に出力（アプリ側で参照）
 			new ssm.StringParameter(this, 'CognitoDomainParam', {
 				parameterName: '/ganbari-quest/cognito/domain',
-				stringValue: `${domain.domainName}.auth.${this.region}.amazoncognito.com`,
+				stringValue: domainValue,
 			});
 
 			new cdk.CfnOutput(this, 'CognitoDomainOutput', {
-				value: `${domain.domainName}.auth.${this.region}.amazoncognito.com`,
+				value: domainValue,
 				description: 'Cognito Hosted UI Domain',
 			});
 			new cdk.CfnOutput(this, 'GoogleIdPEnabled', {
@@ -119,7 +176,6 @@ export class AuthStack extends cdk.Stack {
 
 		// --- User Pool Client (パブリッククライアント、USER_PASSWORD_AUTH + OAuth) ---
 		// 新しい論理ID 'PublicClient' を使い、旧 'AppClient' の export への依存を回避
-		const appDomain = props.appDomain ?? 'ganbari-quest.com';
 		this.userPoolClient = this.userPool.addClient('PublicClient', {
 			userPoolClientName: 'ganbari-quest-public',
 			generateSecret: false, // InitiateAuth (USER_PASSWORD_AUTH) はパブリッククライアント必須
