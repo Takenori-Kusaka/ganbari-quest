@@ -51,6 +51,8 @@ export class ComputeStack extends cdk.Stack {
 		const stripeWebhookSecret = this.node.tryGetContext('stripeWebhookSecret') ?? '';
 		const stripePriceMonthly = this.node.tryGetContext('stripePriceMonthly') ?? '';
 		const stripePriceYearly = this.node.tryGetContext('stripePriceYearly') ?? '';
+		const stripePriceFamilyMonthly = this.node.tryGetContext('stripePriceFamilyMonthly') ?? '';
+		const stripePriceFamilyYearly = this.node.tryGetContext('stripePriceFamilyYearly') ?? '';
 
 		// --- OPS Dashboard（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const opsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
@@ -106,6 +108,8 @@ export class ComputeStack extends cdk.Stack {
 				...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
 				...(stripePriceMonthly ? { STRIPE_PRICE_MONTHLY: stripePriceMonthly } : {}),
 				...(stripePriceYearly ? { STRIPE_PRICE_YEARLY: stripePriceYearly } : {}),
+				...(stripePriceFamilyMonthly ? { STRIPE_PRICE_FAMILY_MONTHLY: stripePriceFamilyMonthly } : {}),
+				...(stripePriceFamilyYearly ? { STRIPE_PRICE_FAMILY_YEARLY: stripePriceFamilyYearly } : {}),
 				COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
 				SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
 				SES_CONFIG_SET_NAME: 'ganbari-quest-config',

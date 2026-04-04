@@ -6,9 +6,12 @@
 # - Workload Identity Federation（GitHub Actions用）
 # - Secret Manager（OAuth認証情報保存用）
 #
-# 以下はGCPコンソールで手動作成:
+# 以下はGCPコンソールで手動作成（設定済み 2026-04-04）:
 # - OAuth同意画面（ブランド情報、スコープ設定）
-# - OAuth 2.0 クライアントID（WebアプリケーションタイプGo）
+#   - 承認済みドメイン: ganbari-quest.com
+#   - プライバシーポリシーURL: https://www.ganbari-quest.com/privacy.html
+#   - 利用規約URL: https://www.ganbari-quest.com/terms.html
+# - OAuth 2.0 クライアントID（Webアプリケーションタイプ）
 # ==============================================================================
 
 terraform {
