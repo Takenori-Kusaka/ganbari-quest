@@ -93,14 +93,23 @@ export class AuthStack extends cdk.Stack {
 		const googleEnabled = !!(googleClientId && googleClientSecret);
 		if (googleEnabled) {
 			// Cognito Hosted UI ドメイン（OAuth フローに必要）
-			const useCustomDomain = !!(props.certificateArn && appDomain);
+			const certificateArn = props.certificateArn;
+			const useCustomDomain = !!(certificateArn && appDomain);
+			if (useCustomDomain) {
+				const certificateArnComponents = cdk.Arn.split(certificateArn, cdk.ArnFormat.SLASH_RESOURCE_NAME);
+				if (certificateArnComponents.region !== 'us-east-1') {
+					throw new Error(
+						`Cognito custom domain requires an ACM certificate in us-east-1, but got: ${certificateArn}`,
+					);
+				}
+			}
 			let domainValue: string;
 
 			if (useCustomDomain) {
 				// カスタムドメイン: auth.ganbari-quest.com
 				const authDomainName = `auth.${appDomain}`;
 				const authCertificate = acm.Certificate.fromCertificateArn(
-					this, 'AuthCertificate', props.certificateArn!,
+					this, 'AuthCertificate', certificateArn!,
 				);
 
 				const domain = this.userPool.addDomain('CognitoDomain', {
@@ -110,16 +119,22 @@ export class AuthStack extends cdk.Stack {
 					},
 				});
 
-				// Route53 A レコード（エイリアス → Cognito CloudFront）
+				// Route53 A / AAAA レコード（エイリアス → Cognito CloudFront）
 				const hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
 					domainName: appDomain,
 				});
+				const authDomainAliasTarget = route53.RecordTarget.fromAlias(
+					new targets.UserPoolDomainTarget(domain),
+				);
 				new route53.ARecord(this, 'AuthDomainAlias', {
 					zone: hostedZone,
-					recordName: authDomainName,
-					target: route53.RecordTarget.fromAlias(
-						new targets.UserPoolDomainTarget(domain),
-					),
+					recordName: 'auth',
+					target: authDomainAliasTarget,
+				});
+				new route53.AaaaRecord(this, 'AuthDomainAliasIpv6', {
+					zone: hostedZone,
+					recordName: 'auth',
+					target: authDomainAliasTarget,
 				});
 
 				domainValue = authDomainName;
