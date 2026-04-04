@@ -209,6 +209,7 @@ function isItemActive(itemHref: string): boolean {
 						class="nav-item {isActive ? 'nav-item--active' : ''}"
 						aria-expanded={desktopExpandedCategory === category.id}
 						aria-haspopup="true"
+						onclick={() => handleDesktopCategoryEnter(category.id)}
 					>
 						<span aria-hidden="true">{category.icon}</span>
 						{category.label}
