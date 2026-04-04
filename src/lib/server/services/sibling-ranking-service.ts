@@ -45,10 +45,10 @@ function getWeekEnd(): string {
 	return sunday.toISOString().slice(0, 10);
 }
 
-/** ランキングが有効かチェック */
+/** ランキングが有効かチェック（デフォルト: OFF） */
 export async function isRankingEnabled(tenantId: string): Promise<boolean> {
 	const value = await getSetting('sibling_ranking_enabled', tenantId);
-	return value !== 'false';
+	return value === 'true';
 }
 
 /** 今週のきょうだいランキングを算出 */
