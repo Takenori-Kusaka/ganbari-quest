@@ -14,7 +14,6 @@ import { insertTemplate, insertTemplateItem } from '$lib/server/db/checklist-rep
 import { insertChild } from '$lib/server/db/child-repo';
 import { insertLoginBonus } from '$lib/server/db/login-bonus-repo';
 import { insertStatusHistory, upsertStatus } from '$lib/server/db/status-repo';
-import { findAllTitles, insertChildTitle } from '$lib/server/db/title-repo';
 import { logger } from '$lib/server/logger';
 
 // カテゴリコード → ID
@@ -32,7 +31,6 @@ export interface ImportResult {
 	pointLedgerSkipped: number;
 	statusesImported: number;
 	achievementsImported: number;
-	titlesImported: number;
 	errors: string[];
 	warnings: string[];
 }
@@ -85,7 +83,6 @@ export function previewImport(data: ExportData) {
 		pointLedger: data.data.pointLedger.length,
 		statuses: data.data.statuses.length,
 		achievements: data.data.childAchievements.length,
-		titles: data.data.childTitles.length,
 		loginBonuses: data.data.loginBonuses.length,
 		checklistTemplates: data.data.checklistTemplates.length,
 	};
@@ -106,7 +103,6 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 		pointLedgerSkipped: 0,
 		statusesImported: 0,
 		achievementsImported: 0,
-		titlesImported: 0,
 		errors,
 		warnings,
 	};
@@ -151,14 +147,12 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 	}
 
 	// マスタデータのルックアップ構築
-	const [activities, titles, achievements] = await Promise.all([
+	const [activities, achievements] = await Promise.all([
 		findActivities(tenantId),
-		findAllTitles(tenantId),
 		findAllAchievements(tenantId),
 	]);
 
 	const activityNameMap = new Map(activities.map((a) => [a.name, a]));
-	const titleCodeMap = new Map(titles.map((t) => [t.code, t]));
 	const achievementCodeMap = new Map(achievements.map((a) => [a.code, a]));
 
 	// 1. 子供を作成し、exportId → newChildId のマッピングを構築
@@ -281,22 +275,6 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 		try {
 			await insertChildAchievement(childId, achievement.id, tenantId, ca.milestoneValue);
 			result.achievementsImported++;
-		} catch (_e) {
-			// skip duplicate
-		}
-	}
-
-	// 6. 称号
-	for (const ct of data.data.childTitles) {
-		const childId = childIdMap.get(ct.childRef);
-		if (!childId) continue;
-
-		const title = titleCodeMap.get(ct.titleCode);
-		if (!title) continue;
-
-		try {
-			await insertChildTitle(childId, title.id, tenantId);
-			result.titlesImported++;
 		} catch (_e) {
 			// skip duplicate
 		}
