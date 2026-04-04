@@ -2,11 +2,11 @@
 // GET  /api/v1/admin/invites — 招待一覧取得
 // (#0129)
 
+import { error, json } from '@sveltejs/kit';
 import { createInviteSchema } from '$lib/domain/validation/auth';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { validationError } from '$lib/server/errors';
 import { createInvite, listInvites } from '$lib/server/services/invite-service';
-import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {

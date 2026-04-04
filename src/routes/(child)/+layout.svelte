@@ -1,17 +1,17 @@
 <script lang="ts">
+import { onMount } from 'svelte';
 import { invalidateAll } from '$app/navigation';
 import { navigating } from '$app/stores';
-import { ICON_HOME, ICON_STATUS, ICON_SWITCH, getModeLabels } from '$lib/domain/icons';
+import { getModeLabels, ICON_HOME, ICON_STATUS, ICON_SWITCH } from '$lib/domain/icons';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 import StampCard from '$lib/ui/components/StampCard.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
-import { SOUND_TIER_CONFIG, loadSoundSettings, soundService } from '$lib/ui/sound';
+import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
 import { CHILD_TUTORIAL_CHAPTERS } from '$lib/ui/tutorial/tutorial-chapters-child';
 import { resetChapters, setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
-import { onMount } from 'svelte';
 
 let { data, children } = $props();
 

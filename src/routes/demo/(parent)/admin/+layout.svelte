@@ -1,6 +1,6 @@
 <script lang="ts">
-import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import type { Snippet } from 'svelte';
+import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 
 interface Props {
 	children: Snippet;

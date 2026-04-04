@@ -1,3 +1,4 @@
+import { redirect } from '@sveltejs/kit';
 import { activityPackIndex, getActivityPack } from '$lib/data/activity-packs';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
@@ -6,7 +7,6 @@ import {
 } from '$lib/server/services/activity-import-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
-import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

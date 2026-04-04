@@ -1,11 +1,11 @@
-import { getDemoHomeData } from '$lib/server/demo/demo-service.js';
+import { fail } from '@sveltejs/kit';
 import {
 	demoCancelRecord,
 	demoClaimLoginBonus,
 	demoRecordActivity,
 	demoTogglePin,
+	getDemoHomeData,
 } from '$lib/server/demo/demo-service.js';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ parent }) => {

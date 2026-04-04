@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
 	AGE_TIER_CONFIG,
-	UI_MODES,
 	getDefaultUiMode,
 	isValidUiMode,
+	UI_MODES,
 	uiModeSchema,
 } from '../../../src/lib/domain/validation/age-tier';
 

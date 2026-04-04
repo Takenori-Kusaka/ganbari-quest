@@ -2,6 +2,14 @@
 // DynamoDB implementation of IAuthRepo (#0123: DeviceToken 廃止)
 
 import { randomUUID } from 'node:crypto';
+import {
+	DeleteCommand,
+	GetCommand,
+	PutCommand,
+	QueryCommand,
+	ScanCommand,
+	UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { INVITE_EXPIRY_DAYS } from '$lib/domain/validation/auth';
 import type {
 	AuthUser,
@@ -11,33 +19,25 @@ import type {
 	Tenant,
 } from '$lib/server/auth/entities';
 import type { Role } from '$lib/server/auth/types';
-import {
-	DeleteCommand,
-	GetCommand,
-	PutCommand,
-	QueryCommand,
-	ScanCommand,
-	UpdateCommand,
-} from '@aws-sdk/lib-dynamodb';
 import type { IAuthRepo } from '../interfaces/auth-repo.interface';
 import {
 	CONSENT_SK_PREFIX,
 	INVITE_SK_PREFIX,
-	MEMBER_SK_PREFIX,
-	USER_TENANT_SK_PREFIX,
 	inviteKey,
 	licenseKey as licenseKeyFn,
+	MEMBER_SK_PREFIX,
 	tenantConsentKey,
 	tenantInviteKey,
 	tenantKey,
 	tenantMemberKey,
 	tenantPartition,
+	USER_TENANT_SK_PREFIX,
 	userEmailKey,
 	userKey,
 	userPartition,
 	userTenantKey,
 } from './auth-keys';
-import { GSI, TABLE_NAME, getDocClient } from './client';
+import { GSI, getDocClient, TABLE_NAME } from './client';
 
 const doc = () => getDocClient();
 

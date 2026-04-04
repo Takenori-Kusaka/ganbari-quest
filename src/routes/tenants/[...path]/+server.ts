@@ -1,8 +1,9 @@
 // Dynamic file server for tenant-scoped storage files
 // Serves from local filesystem (NUC) or S3 (Lambda)
+
+import { error } from '@sveltejs/kit';
 import { safeContentType } from '$lib/server/security/file-sanitizer';
 import { readFile } from '$lib/server/storage';
-import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params }) => {

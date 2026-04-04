@@ -1,6 +1,7 @@
 // src/lib/server/services/login-bonus-service.ts
 // ログインボーナスサービス層
 
+import { prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import {
 	calcLoginBonusPoints,
 	drawOmikuji,
@@ -13,8 +14,6 @@ import {
 	insertLoginBonus,
 } from '$lib/server/db/login-bonus-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
-
-import { prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 
 /** 今日の日付をYYYY-MM-DD形式で取得 (JST) */
 const todayDate = todayDateJST;

@@ -1,11 +1,11 @@
 // src/routes/api/v1/data/clear/+server.ts
 // テナントデータクリア API (#0205)
 
+import { json } from '@sveltejs/kit';
 import { requireRole, requireTenantId } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { clearAllFamilyData } from '$lib/server/services/data-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 /** POST /api/v1/data/clear */

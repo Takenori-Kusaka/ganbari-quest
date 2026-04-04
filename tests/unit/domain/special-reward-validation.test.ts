@@ -3,8 +3,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-	REWARD_CATEGORIES,
 	grantSpecialRewardSchema,
+	REWARD_CATEGORIES,
 	rewardCategorySchema,
 	rewardTemplateSchema,
 	rewardTemplatesArraySchema,

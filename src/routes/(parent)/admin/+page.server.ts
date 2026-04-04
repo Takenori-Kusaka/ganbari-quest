@@ -1,3 +1,4 @@
+import { fail } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findActiveEvents } from '$lib/server/db/season-event-repo';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
@@ -12,13 +13,12 @@ import {
 } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
+import type { SeasonPassSummary } from '$lib/server/services/seasonal-content-service';
 import {
 	getMemoryTicketStatus,
 	getSeasonPassForChildReadOnly,
 } from '$lib/server/services/seasonal-content-service';
-import type { SeasonPassSummary } from '$lib/server/services/seasonal-content-service';
 import { getChildStatus } from '$lib/server/services/status-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

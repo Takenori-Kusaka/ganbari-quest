@@ -1,10 +1,10 @@
 // /auth/invite/[code] — 招待リンクランディングページ (#0129)
 // 招待コードを検証し、ログイン/サインアップへ誘導する
 
+import { redirect } from '@sveltejs/kit';
 import { INVITE_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { getRepos } from '$lib/server/db/factory';
 import { getInvite } from '$lib/server/services/invite-service';
-import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, cookies, locals }) => {

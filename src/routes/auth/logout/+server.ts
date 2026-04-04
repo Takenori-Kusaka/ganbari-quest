@@ -1,6 +1,7 @@
 // /auth/logout — セッション破棄
 // Cookie 削除 + Cognito ログアウト（cognito モード時）
 
+import { redirect } from '@sveltejs/kit';
 import {
 	CONTEXT_COOKIE_NAME,
 	IDENTITY_COOKIE_NAME,
@@ -9,7 +10,6 @@ import {
 } from '$lib/domain/validation/auth';
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
 import { buildLogoutUrl } from '$lib/server/auth/providers/cognito-oauth';
-import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 function clearSessionCookies(cookies: import('@sveltejs/kit').Cookies) {

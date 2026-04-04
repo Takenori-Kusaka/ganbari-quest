@@ -3,7 +3,7 @@
 
 import { PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { InquiryRecord } from '../interfaces/inquiry-repo.interface';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { inquiryKey } from './keys';
 
 /**

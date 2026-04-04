@@ -1,9 +1,9 @@
 <script lang="ts">
+import QRCode from 'qrcode';
 import { page } from '$app/stores';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
-import QRCode from 'qrcode';
 
 let { data } = $props();
 

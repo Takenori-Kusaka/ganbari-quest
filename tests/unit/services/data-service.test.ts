@@ -6,7 +6,7 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
-import { type TestDb, type TestSqlite, closeDb, createTestDb, resetDb } from '../helpers/test-db';
+import { closeDb, createTestDb, resetDb, type TestDb, type TestSqlite } from '../helpers/test-db';
 
 let sqlite: TestSqlite;
 let testDb: TestDb;

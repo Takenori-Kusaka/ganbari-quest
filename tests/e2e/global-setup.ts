@@ -58,7 +58,7 @@ export default async function globalSetup() {
 		const pinRow = db.prepare("SELECT value FROM settings WHERE key = 'pin_hash'").get() as
 			| { value: string }
 			| undefined;
-		if (!pinRow || !pinRow.value) {
+		if (!pinRow?.value) {
 			const bcrypt = (await import('bcrypt')).default;
 			const hash = await bcrypt.hash('1234', 10);
 			db.prepare(

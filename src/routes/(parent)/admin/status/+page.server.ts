@@ -1,3 +1,4 @@
+import { fail } from '@sveltejs/kit';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllBenchmarks, upsertBenchmark } from '$lib/server/db/status-repo';
@@ -11,7 +12,6 @@ import {
 	resetLevelTitle,
 	saveLevelTitle,
 } from '$lib/server/services/status-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
