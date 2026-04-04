@@ -58,7 +58,7 @@ export async function createCheckoutSession(
 
 	const tierLabel = plan.tier === 'family' ? 'ファミリープラン' : 'スタンダードプラン';
 
-	const sessionParams: Stripe.Checkout.SessionCreateParams = {
+	const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
 		mode: 'subscription',
 		payment_method_types: ['card'],
 		line_items: [{ price: plan.priceId, quantity: 1 }],
