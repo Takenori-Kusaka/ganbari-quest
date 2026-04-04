@@ -676,6 +676,9 @@ test.describe('#0129: メンバー管理画面', () => {
 
 	test('ナビゲーションにメンバーリンクがある', async ({ page }) => {
 		await page.goto('/admin');
+		// 4カテゴリナビの「設定」をhoverしてドロップダウンを開く
+		const settingsCategory = page.locator('button').filter({ hasText: '設定' });
+		await settingsCategory.hover();
 		const memberLink = page.locator('a').filter({ hasText: 'メンバー' });
 		await expect(memberLink).toBeVisible();
 	});
