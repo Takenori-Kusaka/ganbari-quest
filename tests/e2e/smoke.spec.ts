@@ -207,15 +207,15 @@ test.describe('UC-04: ステータス確認', () => {
 });
 
 // ============================================================
-// 8. 実績画面
+// 8. チャレンジきろく画面（実績システム廃止 #322 → チャレンジ管理に転用）
 // ============================================================
-test.describe('実績画面', () => {
-	test('実績一覧が表示される', async ({ page }) => {
+test.describe('チャレンジきろく画面', () => {
+	test('チャレンジ管理ページが表示される', async ({ page }) => {
 		await selectKinderChildAndDismiss(page);
-		await page.goto('/kinder/achievements');
-		await expect(page).toHaveURL(/\/kinder\/achievements/);
+		await page.goto('/admin/achievements');
+		await expect(page).toHaveURL(/\/admin\/achievements/);
 
-		await expect(page.getByText(/たっせい/)).toBeVisible();
+		await expect(page).toHaveTitle(/チャレンジ管理/);
 	});
 });
 

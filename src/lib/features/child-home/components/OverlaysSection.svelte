@@ -1,6 +1,5 @@
 <script lang="ts">
 import BirthdayModal from '$lib/features/birthday/BirthdayModal.svelte';
-import AchievementUnlockOverlay from '$lib/ui/components/AchievementUnlockOverlay.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import OmikujiStampOverlay from '$lib/ui/components/OmikujiStampOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
@@ -33,21 +32,10 @@ interface LevelUpData {
 	spGranted?: number;
 }
 
-interface Achievement {
-	code?: string;
-	name: string;
-	icon: string;
-	bonusPoints: number;
-	rarity: string;
-}
-
 interface Props {
 	levelUpOpen: boolean;
 	levelUpData: LevelUpData | null;
 	onLevelUpClose: () => void;
-	achievementOpen: boolean;
-	unlockedAchievements: Achievement[];
-	onAchievementClose: () => void;
 	rewardOpen: boolean;
 	latestReward: LatestReward | null;
 	onRewardClose: () => void;
@@ -64,9 +52,6 @@ let {
 	levelUpOpen = $bindable(),
 	levelUpData,
 	onLevelUpClose,
-	achievementOpen = $bindable(),
-	unlockedAchievements,
-	onAchievementClose,
 	rewardOpen = $bindable(),
 	latestReward,
 	onRewardClose,
@@ -86,15 +71,6 @@ let {
 		bind:open={levelUpOpen}
 		levelUp={levelUpData}
 		onClose={onLevelUpClose}
-	/>
-{/if}
-
-<!-- Achievement unlock overlay -->
-{#if unlockedAchievements.length > 0}
-	<AchievementUnlockOverlay
-		bind:open={achievementOpen}
-		achievements={unlockedAchievements}
-		onClose={onAchievementClose}
 	/>
 {/if}
 
