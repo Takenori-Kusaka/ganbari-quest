@@ -5,6 +5,7 @@ import {
 	advanceStep,
 	checkAutoAdvance,
 	dismissGuide,
+	goBack,
 	GUIDE_STEPS,
 	getGuideState,
 } from './demo-guide-state.svelte.js';
@@ -17,8 +18,14 @@ $effect(() => {
 });
 
 function handleAdvance() {
+	const prevStep = guide.currentStep;
 	advanceStep();
-	trackDemoEvent('demo_guide_step', { step: guide.currentStep + 1 });
+	trackDemoEvent('demo_guide_step', { step: prevStep + 1 });
+}
+
+function handleBack() {
+	goBack();
+	trackDemoEvent('demo_guide_step', { step: guide.currentStep, direction: 'back' });
 }
 
 function handleDismiss() {
@@ -39,6 +46,21 @@ function handleDismiss() {
 			</div>
 
 			<div class="p-3 flex items-center gap-3">
+				<!-- Back button -->
+				{#if !guide.isFirstStep}
+					{@const prevStep = GUIDE_STEPS[guide.currentStep - 1]}
+					{#if prevStep}
+						<a
+							href={prevStep.href}
+							class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-sm hover:bg-gray-200 transition-colors"
+							onclick={handleBack}
+							aria-label="もどる"
+						>
+							&#8249;
+						</a>
+					{/if}
+				{/if}
+
 				<!-- Step indicator -->
 				<div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold">
 					{guide.currentStep + 1}
@@ -59,6 +81,11 @@ function handleDismiss() {
 						>
 							はじめる
 						</a>
+					{:else if guide.step?.requiresAction}
+						<!-- Action-required step: show hint instead of navigation button -->
+						<span class="px-2 py-1 text-xs text-blue-500 font-medium">
+							👆 やってみよう
+						</span>
 					{:else}
 						{@const nextStep = GUIDE_STEPS[guide.currentStep + 1]}
 						{#if nextStep}
