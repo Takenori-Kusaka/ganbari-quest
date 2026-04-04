@@ -419,14 +419,6 @@ $effect(() => {
 		/>
 	{/if}
 
-<!-- Sibling ranking (1-line summary) -->
-	{#if data.siblingRanking && data.siblingRanking.rankings.length > 1}
-		<SiblingRanking
-			rankings={data.siblingRanking.rankings}
-			childId={data.child?.id ?? 0}
-		/>
-	{/if}
-
 	<!-- Error toast -->
 	{#if errorMessage}
 		<div class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold animate-bounce-in">
@@ -567,6 +559,14 @@ $effect(() => {
 		</CategorySection>
 	{/each}
 
+	<!-- Sibling ranking (1-line summary, below activities) -->
+	{#if data.siblingRanking && data.siblingRanking.rankings.length > 1}
+		<SiblingRanking
+			rankings={data.siblingRanking.rankings}
+			childId={data.child?.id ?? 0}
+		/>
+	{/if}
+
 	<!-- おうえんメッセージ（Kinder固有） -->
 	{#if kinderTodayCount > 0}
 		<div class="mt-[var(--sp-md)] p-4 rounded-2xl bg-[var(--theme-bg)] border border-[var(--theme-secondary)] text-center">
@@ -653,24 +653,6 @@ $effect(() => {
 		/>
 	{/if}
 
-	<!-- Sibling ranking (collapsible) -->
-	{#if data.siblingRanking && data.siblingRanking.rankings.length > 1}
-		<details class="mt-[var(--sp-sm)]">
-			<summary class="flex items-center justify-between px-[var(--sp-md)] py-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] cursor-pointer tap-target list-none">
-				<div class="flex items-center gap-[var(--sp-sm)]">
-					<span class="text-xl">🏆</span>
-					<span class="font-bold text-sm">こんしゅうの ランキング</span>
-				</div>
-				<span class="text-[var(--color-text-muted)] transition-transform duration-200 ranking-arrow">▼</span>
-			</summary>
-			<div class="mt-1">
-				<SiblingRanking
-					rankings={data.siblingRanking.rankings}
-					childId={data.child?.id ?? 0}
-				/>
-			</div>
-		</details>
-	{/if}
 </div>
 
 <!-- Pin context menu -->
