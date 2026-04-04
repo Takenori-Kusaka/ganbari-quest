@@ -57,7 +57,7 @@ const SCREENSHOTS = [
 		description: 'Features: やることリスト',
 	},
 	{
-		name: 'feature-dream',
+		name: 'feature-growth-record-admin',
 		url: '/demo/admin/status',
 		viewport: MOBILE,
 		description: 'Features: 成長記録・管理画面',
