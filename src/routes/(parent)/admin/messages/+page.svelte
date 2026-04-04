@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { MESSAGE_TEXT_MAX_LENGTH } from '$lib/domain/validation/message';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -7,7 +8,7 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 let { data } = $props();
 
 const canFreeText = $derived(data.canFreeTextMessage);
-const TEXT_MAX = 200;
+const TEXT_MAX = MESSAGE_TEXT_MAX_LENGTH;
 
 let selectedChildId = $state(0);
 $effect(() => {
@@ -74,9 +75,20 @@ function selectStamp(code: string) {
 					ひとことメッセージ
 				</Button>
 			{:else}
-				<span class="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-xl bg-gray-100 text-gray-400 cursor-not-allowed" title="ファミリープラン限定">
+				<Button
+					variant="ghost"
+					size="sm"
+					class="rounded-xl bg-gray-100 text-gray-400 shadow-sm cursor-not-allowed gap-1"
+					disabled
+					aria-disabled="true"
+					aria-describedby="free-text-message-disabled-reason"
+					title="ファミリープラン限定"
+				>
 					ひとことメッセージ
 					<span class="text-xs font-bold text-amber-500">⭐⭐</span>
+				</Button>
+				<span id="free-text-message-disabled-reason" class="sr-only">
+					ひとことメッセージはファミリープラン限定の機能です。ご利用にはプランのアップグレードが必要です。
 				</span>
 			{/if}
 		</div>

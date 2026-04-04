@@ -1,13 +1,17 @@
 import { fail } from '@sveltejs/kit';
+import {
+	MESSAGE_TEXT_MAX_LENGTH,
+	SENDABLE_MESSAGE_TYPES,
+	type SendableMessageType,
+} from '$lib/domain/validation/message';
 import { requireTenantId } from '$lib/server/auth/factory';
-import { getRepos } from '$lib/server/db/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
 	getMessageHistory,
 	STAMP_PRESETS,
 	sendMessage,
 } from '$lib/server/services/message-service';
-import { getPlanLimits, resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, parent }) => {
@@ -43,13 +47,19 @@ export const actions: Actions = {
 
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 
-		if (messageType === 'stamp' && !stampCode) {
+		// messageType バリデーション: stamp / text のみ許可
+		if (!(SENDABLE_MESSAGE_TYPES as readonly string[]).includes(messageType)) {
+			return fail(400, { error: 'メッセージ種別が不正です' });
+		}
+		const validType = messageType as SendableMessageType;
+
+		if (validType === 'stamp' && !stampCode) {
 			return fail(400, { error: 'スタンプを選択してください' });
 		}
-		if (messageType === 'text') {
-			// ファミリープラン限定チェック
-			const tenant = await getRepos().auth.findTenantById(tenantId);
-			const tier = resolvePlanTier(tenant?.status ?? 'free', tenant?.plan ?? undefined);
+		if (validType === 'text') {
+			// ファミリープラン限定チェック（トライアル状態も考慮）
+			const licenseStatus = locals.context?.licenseStatus ?? 'none';
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 			const limits = getPlanLimits(tier);
 			if (!limits.canFreeTextMessage) {
 				return fail(403, { error: '自由テキストメッセージはファミリープラン限定です' });
@@ -57,17 +67,19 @@ export const actions: Actions = {
 			if (!body) {
 				return fail(400, { error: 'メッセージを入力してください' });
 			}
-			if (body.length > 200) {
-				return fail(400, { error: 'メッセージは200文字以内で入力してください' });
+			if (body.length > MESSAGE_TEXT_MAX_LENGTH) {
+				return fail(400, {
+					error: `メッセージは${MESSAGE_TEXT_MAX_LENGTH}文字以内で入力してください`,
+				});
 			}
 		}
 
 		const result = await sendMessage(
 			{
 				childId,
-				messageType,
-				stampCode: messageType === 'stamp' ? stampCode : null,
-				body: messageType === 'text' ? body : null,
+				messageType: validType,
+				stampCode: validType === 'stamp' ? stampCode : null,
+				body: validType === 'text' ? body : null,
 			},
 			tenantId,
 		);
