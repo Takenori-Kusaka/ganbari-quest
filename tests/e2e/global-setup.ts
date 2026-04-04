@@ -402,6 +402,19 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_custom_achievements_tenant_child
 				ON custom_achievements(tenant_id, child_id);
 
+			CREATE TABLE IF NOT EXISTS trial_history (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				tenant_id TEXT NOT NULL,
+				start_date TEXT NOT NULL,
+				end_date TEXT NOT NULL,
+				tier TEXT NOT NULL DEFAULT 'standard',
+				source TEXT NOT NULL,
+				campaign_id TEXT,
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE INDEX IF NOT EXISTS idx_trial_history_tenant
+				ON trial_history(tenant_id);
+
 		`);
 
 		// リアルな過去の活動ログを追加（ステータス画面・レーダーチャートの表示用）
