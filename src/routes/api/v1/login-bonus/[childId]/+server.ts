@@ -1,7 +1,7 @@
+import { json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { notFound, validationError } from '$lib/server/errors';
 import { getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {

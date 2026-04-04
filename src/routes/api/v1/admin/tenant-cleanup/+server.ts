@@ -1,13 +1,13 @@
 // src/routes/api/v1/admin/tenant-cleanup/+server.ts
 // 猶予期間満了テナントのデータ完全削除バッチ（EventBridge / 手動トリガー用）
 
+import type { RequestHandler } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { notifyDeletionComplete } from '$lib/server/services/discord-notify-service';
 import { sendDeletionCompleteEmail } from '$lib/server/services/email-service';
 import { deleteByPrefix } from '$lib/server/storage';
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from '@sveltejs/kit';
 
 export const POST: RequestHandler = async ({ request }) => {
 	// 内部 cron 認証

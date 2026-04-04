@@ -2,12 +2,12 @@
 // Cognito InitiateAuth API による直接 Email/Password 認証
 // Hosted UI を使わず、カスタムログインフォームから直接認証する
 
-import { logger } from '$lib/server/logger';
 import {
 	CognitoIdentityProviderClient,
 	InitiateAuthCommand,
 	type InitiateAuthCommandOutput,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { logger } from '$lib/server/logger';
 
 interface CognitoDirectAuthConfig {
 	clientId: string;

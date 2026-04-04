@@ -1,8 +1,8 @@
+import { error } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { buildRenderData, getCertificateDetail } from '$lib/server/services/certificate-service';
 import { getChildById } from '$lib/server/services/child-service';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
-import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {

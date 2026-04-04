@@ -1,11 +1,11 @@
 // src/routes/api/v1/admin/cleanup-orphans/+server.ts
 // S3 孤立ファイル検出・削除（EventBridge / 手動トリガー用）
 
+import type { RequestHandler } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { deleteFile, listFiles } from '$lib/server/storage';
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from '@sveltejs/kit';
 
 export const POST: RequestHandler = async ({ request }) => {
 	// 内部 cron 認証

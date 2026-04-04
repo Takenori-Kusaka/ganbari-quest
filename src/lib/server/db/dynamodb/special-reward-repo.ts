@@ -3,9 +3,9 @@
 
 import { PutCommand, QueryCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { InsertSpecialRewardInput, SpecialReward } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { ENTITY_NAMES, childPK, specialRewardKey, specialRewardPrefix } from './keys';
+import { childPK, ENTITY_NAMES, specialRewardKey, specialRewardPrefix } from './keys';
 
 /** Strip PK/SK/GSI keys from a DynamoDB item */
 function stripKeys<T extends Record<string, unknown>>(

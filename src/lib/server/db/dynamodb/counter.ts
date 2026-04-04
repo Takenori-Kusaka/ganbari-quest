@@ -2,7 +2,7 @@
 // Atomic counter for numeric ID generation using DynamoDB UpdateExpression ADD
 
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import type { EntityName } from './keys';
 import { counterKey } from './keys';
 

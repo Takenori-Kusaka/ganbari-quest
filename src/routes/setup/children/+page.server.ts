@@ -1,8 +1,8 @@
+import { fail, redirect } from '@sveltejs/kit';
 import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { addChild, getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
-import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

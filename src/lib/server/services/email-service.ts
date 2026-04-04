@@ -2,9 +2,9 @@
 // SES ベースのメール送信サービス
 // ローカルモード (AUTH_MODE=local) ではログ出力のみ
 
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
 import { logger } from '$lib/server/logger';
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 
 // ============================================================
 // 型定義

@@ -21,8 +21,8 @@ import {
 	issueCertificate,
 } from '../../../src/lib/server/db/certificate-repo';
 import {
-	type CertificateWithMeta,
 	buildRenderData,
+	type CertificateWithMeta,
 	checkAndIssueLevelCertificates,
 	checkAndIssueStreakCertificates,
 	getCertificateDetail,

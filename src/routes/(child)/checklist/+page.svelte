@@ -2,8 +2,8 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
-import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
+import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';

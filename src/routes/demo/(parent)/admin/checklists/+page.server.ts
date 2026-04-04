@@ -1,5 +1,4 @@
-import { getDemoAdminData } from '$lib/server/demo/demo-service.js';
-import { getDemoChecklistData } from '$lib/server/demo/demo-service.js';
+import { getDemoAdminData, getDemoChecklistData } from '$lib/server/demo/demo-service.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {

@@ -1,7 +1,7 @@
 // tests/unit/arch/no-direct-db-access.test.ts
 // services/ 層が db/client, db/schema, drizzle-orm を直接 import しないことを検証するアーキテクチャテスト
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 

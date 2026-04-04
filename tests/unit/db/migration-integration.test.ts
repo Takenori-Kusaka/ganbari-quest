@@ -1,9 +1,9 @@
 // tests/unit/db/migration-integration.test.ts
 // MigrationPipeline のリポジトリ統合テスト
 
+import { describe, expect, it } from 'vitest';
 import { ENTITY_VERSIONS, getPipeline, hydrate, withVersion } from '$lib/server/db/migration';
 import { SCHEMA_VERSION_FIELD } from '$lib/server/db/migration/types';
-import { describe, expect, it } from 'vitest';
 
 describe('MigrationPipeline リポジトリ統合', () => {
 	describe('hydrate() — 読み取り時の自動マイグレーション', () => {

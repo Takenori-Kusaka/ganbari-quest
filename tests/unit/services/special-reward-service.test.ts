@@ -5,11 +5,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import * as schema from '../../../src/lib/server/db/schema';
 import { assertError, assertSuccess } from '../helpers/assert-result';
 import {
-	type TestDb,
-	type TestSqlite,
 	closeDb,
 	createTestDb,
 	resetDb as resetAllTables,
+	type TestDb,
+	type TestSqlite,
 } from '../helpers/test-db';
 
 let sqlite: TestSqlite;
@@ -27,7 +27,6 @@ vi.mock('$lib/server/db/client', () => ({
 }));
 
 import {
-	SPECIAL_REWARD_INTERVAL,
 	checkAndGrantFixedIntervalReward,
 	getChildSpecialRewards,
 	getRewardTemplates,
@@ -35,6 +34,7 @@ import {
 	getUnshownReward,
 	grantSpecialReward,
 	markRewardShown,
+	SPECIAL_REWARD_INTERVAL,
 	saveRewardTemplates,
 } from '../../../src/lib/server/services/special-reward-service';
 

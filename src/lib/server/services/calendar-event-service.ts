@@ -3,10 +3,10 @@
 // Replaces the old manual event creation flow with auto-delivered seasonal events.
 
 import {
-	SEASON_EVENTS,
-	type SeasonEventDefinition,
 	getActiveSeasonEvents,
 	getEventDateRange,
+	SEASON_EVENTS,
+	type SeasonEventDefinition,
 } from '$lib/domain/season-event-calendar';
 import {
 	findByEventCode,

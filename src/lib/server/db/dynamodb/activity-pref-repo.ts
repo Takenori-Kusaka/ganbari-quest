@@ -3,7 +3,7 @@
 
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { activityLogPrefix, activityPrefKey, activityPrefPrefix, childPK, tenantPK } from './keys';
 
 function stripKeys<T extends Record<string, unknown>>(

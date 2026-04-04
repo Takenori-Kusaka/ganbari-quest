@@ -1,5 +1,5 @@
 <script lang="ts">
-import { ICON_STATUS, getModeLabels } from '$lib/domain/icons';
+import { getModeLabels, ICON_STATUS } from '$lib/domain/icons';
 
 interface Props {
 	uiMode: string;

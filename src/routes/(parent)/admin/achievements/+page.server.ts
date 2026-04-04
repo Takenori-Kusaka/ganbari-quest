@@ -1,3 +1,4 @@
+import { fail } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import type { CustomAchievementConditionType } from '$lib/server/db/types';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -7,7 +8,6 @@ import {
 	removeCustomAchievement,
 } from '$lib/server/services/custom-achievement-service';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
