@@ -15,7 +15,6 @@ import {
 	getPlans,
 	getWebhookSecret,
 	planIdFromPriceId,
-	TRIAL_PERIOD_DAYS,
 } from '$lib/server/stripe/config';
 
 // ============================================================
@@ -53,9 +52,7 @@ export async function createCheckoutSession(
 
 	const stripe = getStripeClient();
 
-	// Trial abuse prevention: only grant trial once per tenant
-	const trialDays = tenant.trialUsedAt ? undefined : TRIAL_PERIOD_DAYS;
-
+	// #314: Stripe 側 trial_period_days を廃止（アプリ側一元管理に移行）
 	const tierLabel = plan.tier === 'family' ? 'ファミリープラン' : 'スタンダードプラン';
 
 	const sessionParams: Stripe.Checkout.SessionCreateParams = {
@@ -65,9 +62,7 @@ export async function createCheckoutSession(
 		locale: 'ja',
 		custom_text: {
 			submit: {
-				message: trialDays
-					? `${trialDays}日間の無料トライアル付き。トライアル期間中はいつでもキャンセル可能です。`
-					: 'お支払い後、すぐにプレミアム機能をご利用いただけます。',
+				message: 'お支払い後、すぐにプレミアム機能をご利用いただけます。',
 			},
 			after_submit: {
 				message: 'アプリに戻ってプレミアム機能をお楽しみください。',
@@ -85,7 +80,6 @@ export async function createCheckoutSession(
 			},
 		},
 		subscription_data: {
-			trial_period_days: trialDays,
 			metadata: { tenantId: input.tenantId },
 			description: `がんばりクエスト ${tierLabel}`,
 		},

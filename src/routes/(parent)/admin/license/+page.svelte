@@ -11,6 +11,7 @@ const license = $derived(data.license);
 const stripeEnabled = $derived(data.stripeEnabled);
 const planTier = $derived(data.planTier ?? 'free');
 const planStats = $derived(data.planStats);
+const trialStatus = $derived(data.trialStatus);
 
 let checkoutLoading = $state(false);
 let portalLoading = $state(false);
@@ -155,6 +156,53 @@ async function openPortal() {
 			childMax={planStats.childMax}
 			retentionDays={planStats.retentionDays}
 		/>
+	{/if}
+
+	<!-- 無料トライアル -->
+	{#if planTier === 'free' && trialStatus}
+		<Card variant="default" padding="lg">
+			{#snippet children()}
+			{#if trialStatus.isTrialActive}
+				<div class="text-center">
+					<p class="text-sm font-semibold text-blue-600 mb-1">
+						スタンダードプラン トライアル中
+					</p>
+					<p class="text-2xl font-bold text-blue-700">
+						残り {trialStatus.daysRemaining}日
+					</p>
+					<p class="text-xs text-gray-400 mt-1">
+						{trialStatus.trialEndDate} まで
+					</p>
+				</div>
+			{:else if !trialStatus.trialUsed}
+				<div class="text-center">
+					<p class="text-lg font-bold text-gray-700 mb-1">
+						7日間 無料でお試し
+					</p>
+					<p class="text-sm text-gray-500 mb-4">
+						スタンダードプランの全機能を体験できます
+					</p>
+					<form method="POST" action="?/startTrial">
+						<Button
+							type="submit"
+							variant="primary"
+							size="md"
+							class="w-full"
+						>
+							無料トライアルを開始する
+						</Button>
+					</form>
+					<p class="text-xs text-gray-400 mt-2">
+						クレジットカード不要 — 自動で課金されることはありません
+					</p>
+				</div>
+			{:else}
+				<p class="text-sm text-gray-400 text-center">
+					無料トライアルは使用済みです
+				</p>
+			{/if}
+			{/snippet}
+		</Card>
 	{/if}
 
 	<!-- サポーターバッジ -->
