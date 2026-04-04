@@ -23,7 +23,6 @@ describe('Child Transformer: V1→V2', () => {
 		expect(result.lastBirthdayBonusYear).toBeNull();
 		expect(result.birthDate).toBeNull();
 		expect(result.avatarUrl).toBeNull();
-		expect(result.activeTitleId).toBeNull();
 		expect(result.userId).toBeNull();
 	});
 
@@ -36,7 +35,6 @@ describe('Child Transformer: V1→V2', () => {
 			lastBirthdayBonusYear: 2026,
 			birthDate: '2021-03-15',
 			avatarUrl: '/avatars/taro.png',
-			activeTitleId: 3,
 			userId: 'user-abc',
 		});
 		expect(result.displayConfig).toBe('{"compact":true}');
@@ -44,7 +42,6 @@ describe('Child Transformer: V1→V2', () => {
 		expect(result.lastBirthdayBonusYear).toBe(2026);
 		expect(result.birthDate).toBe('2021-03-15');
 		expect(result.avatarUrl).toBe('/avatars/taro.png');
-		expect(result.activeTitleId).toBe(3);
 		expect(result.userId).toBe('user-abc');
 	});
 

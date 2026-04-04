@@ -10,7 +10,6 @@ import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getStampCardStatus } from '$lib/server/services/stamp-card-service';
 import { getChildStatus } from '$lib/server/services/status-service';
-import { getActiveTitle } from '$lib/server/services/title-service';
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
@@ -52,11 +51,10 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	}
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
-	const [balanceResult, statusResult, activeTitle, allChildren, pointSettingsRaw, stampCardResult] =
+	const [balanceResult, statusResult, allChildren, pointSettingsRaw, stampCardResult] =
 		await Promise.all([
 			getPointBalance(childId, tenantId),
 			getChildStatus(childId, tenantId),
-			getActiveTitle(childId, tenantId),
 			getAllChildren(tenantId),
 			getSettings(['point_unit_mode', 'point_currency', 'point_rate'], tenantId),
 			getStampCardStatus(childId, tenantId),
@@ -93,7 +91,6 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		balance,
 		level,
 		levelTitle,
-		activeTitle,
 		allChildren,
 		uiMode: effectiveMode,
 		pointSettings,
