@@ -587,15 +587,7 @@ test.describe('API 正常系: ログインボーナス', () => {
 	});
 });
 
-test.describe('API 正常系: 実績', () => {
-	test('実績一覧が取得できる', async ({ request }) => {
-		const res = await request.get('/api/v1/achievements/1');
-		expect(res.status()).toBe(200);
-		const body = await res.json();
-		expect(body.achievements).toBeDefined();
-		expect(Array.isArray(body.achievements)).toBe(true);
-	});
-});
+// 実績APIは #322 で廃止（チャレンジ管理に転用）
 
 test.describe('API 正常系: 週次評価', () => {
 	test('週次評価が取得できる', async ({ request }) => {
