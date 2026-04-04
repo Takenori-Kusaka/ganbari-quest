@@ -11,7 +11,6 @@ import {
 	type ExportChecklistTemplate,
 	type ExportChild,
 	type ExportChildAchievement,
-	type ExportChildTitle,
 	type ExportData,
 	type ExportEvaluation,
 	type ExportLoginBonus,
@@ -20,7 +19,6 @@ import {
 	type ExportSpecialReward,
 	type ExportStatus,
 	type ExportStatusHistory,
-	type ExportTitle,
 	type ExportTransactionData,
 } from '$lib/domain/export-format';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
@@ -33,7 +31,6 @@ import { findRecentBonuses } from '$lib/server/db/login-bonus-repo';
 import { findPointHistory } from '$lib/server/db/point-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
 import { findRecentStatusHistory, findStatuses } from '$lib/server/db/status-repo';
-import { findAllTitles, findUnlockedTitles } from '$lib/server/db/title-repo';
 import { logger } from '$lib/server/logger';
 
 // カテゴリID → コード マッピング（5件固定）
@@ -91,14 +88,11 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 	}
 
 	// マスタデータの取得（並列）
-	const [activitiesRaw, titlesRaw, achievementsRaw] = await Promise.all([
+	const [activitiesRaw, achievementsRaw] = await Promise.all([
 		findActivities(tenantId),
-		findAllTitles(tenantId),
 		findAllAchievements(tenantId),
 	]);
 
-	// 称号 ID → コード
-	const titleMap = new Map(titlesRaw.map((t) => [t.id, t]));
 	// 実績 ID → コード
 	const achievementMap = new Map(achievementsRaw.map((a) => [a.id, a]));
 	// マスタデータの変換
@@ -111,13 +105,6 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		nameKana: a.nameKana,
 		nameKanji: a.nameKanji,
 		triggerHint: a.triggerHint,
-	}));
-
-	const masterTitles: ExportTitle[] = titlesRaw.map((t) => ({
-		code: t.code,
-		name: t.name,
-		icon: t.icon,
-		rarity: t.rarity,
 	}));
 
 	const masterAchievements: ExportAchievement[] = achievementsRaw.map((a) => ({
@@ -136,7 +123,7 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		theme: child.theme,
 		uiMode: child.uiMode,
 		avatarUrl: child.avatarUrl,
-		activeTitle: child.activeTitleId ? (titleMap.get(child.activeTitleId)?.name ?? null) : null,
+		activeTitle: null,
 		createdAt: child.createdAt,
 	}));
 
@@ -149,7 +136,6 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 	const transactionData = await collectTransactionData(
 		allChildren.map((c) => c.id),
 		childExportIdMap,
-		titleMap,
 		achievementMap,
 		tenantId,
 	);
@@ -163,7 +149,7 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		master: {
 			categories: CATEGORY_INFO,
 			activities: masterActivities,
-			titles: masterTitles,
+			titles: [],
 			achievements: masterAchievements,
 			avatarItems: [],
 		},
@@ -205,7 +191,6 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 async function collectTransactionData(
 	childIds: number[],
 	childExportIdMap: Map<number, string>,
-	titleMap: Map<number, { code: string }>,
 	achievementMap: Map<number, { code: string }>,
 	tenantId: string,
 ): Promise<ExportTransactionData> {
@@ -214,7 +199,6 @@ async function collectTransactionData(
 	const allStatuses: ExportStatus[] = [];
 	const allStatusHistory: ExportStatusHistory[] = [];
 	const allChildAchievements: ExportChildAchievement[] = [];
-	const allChildTitles: ExportChildTitle[] = [];
 	const allLoginBonuses: ExportLoginBonus[] = [];
 	const allEvaluations: ExportEvaluation[] = [];
 	const allSpecialRewards: ExportSpecialReward[] = [];
@@ -228,7 +212,6 @@ async function collectTransactionData(
 			pointHistory,
 			statuses,
 			unlockedAchievements,
-			unlockedTitles,
 			loginBonuses,
 			evaluations,
 			specialRewards,
@@ -238,7 +221,6 @@ async function collectTransactionData(
 			findPointHistory(childId, { limit: MAX_EXPORT_ROWS, offset: 0 }, tenantId),
 			findStatuses(childId, tenantId),
 			findUnlockedAchievements(childId, tenantId),
-			findUnlockedTitles(childId, tenantId),
 			findRecentBonuses(childId, tenantId, MAX_EXPORT_ROWS),
 			findEvaluationsByChild(childId, MAX_EXPORT_ROWS, tenantId),
 			findSpecialRewards(childId, tenantId),
@@ -316,18 +298,6 @@ async function collectTransactionData(
 			}
 		}
 
-		// Titles
-		for (const ct of unlockedTitles) {
-			const title = titleMap.get(ct.titleId);
-			if (title) {
-				allChildTitles.push({
-					childRef,
-					titleCode: title.code,
-					unlockedAt: ct.unlockedAt,
-				});
-			}
-		}
-
 		// Login bonuses
 		for (const lb of loginBonuses) {
 			allLoginBonuses.push({
@@ -394,7 +364,7 @@ async function collectTransactionData(
 		statuses: allStatuses,
 		statusHistory: allStatusHistory,
 		childAchievements: allChildAchievements,
-		childTitles: allChildTitles,
+		childTitles: [],
 		loginBonuses: allLoginBonuses,
 		evaluations: allEvaluations,
 		specialRewards: allSpecialRewards,

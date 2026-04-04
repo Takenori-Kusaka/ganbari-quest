@@ -165,7 +165,7 @@ $effect(() => {
 								name="licenseKey"
 								type="text"
 								bind:value={licenseKey}
-								placeholder="GQ-XXXX-XXXX-XXXX"
+								placeholder="GQ-XXXX-XXXX-XXXX-XXXXX"
 								autocomplete="off"
 								class="w-full px-3 py-2 border border-[var(--input-border)] rounded-[var(--input-radius)] text-sm uppercase font-mono tracking-wider
 									focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors"
