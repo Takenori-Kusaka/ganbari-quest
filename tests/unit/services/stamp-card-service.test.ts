@@ -643,11 +643,11 @@ describe('stamp-card-service', () => {
 			mockToday = '2026-03-30';
 			const result = await autoRedeemPreviousWeek(1, TENANT);
 			expect(result).not.toBeNull();
-			expect(result!.rarityPoints).toBe(20); // 5+5+10
-			expect(result!.completeBonus).toBe(0); // 3/7 未完了
-			expect(result!.points).toBe(20);
-			expect(result!.filledSlots).toBe(3);
-			expect(result!.totalSlots).toBe(7);
+			expect(result?.rarityPoints).toBe(20); // 5+5+10
+			expect(result?.completeBonus).toBe(0); // 3/7 未完了
+			expect(result?.points).toBe(20);
+			expect(result?.filledSlots).toBe(3);
+			expect(result?.totalSlots).toBe(7);
 		});
 
 		it('前週のカードがない場合はnullを返す', async () => {
@@ -677,10 +677,10 @@ describe('stamp-card-service', () => {
 			mockToday = '2026-03-30';
 			const result = await autoRedeemPreviousWeek(1, TENANT);
 			expect(result).not.toBeNull();
-			expect(result!.rarityPoints).toBe(35); // 7 * 5 * 1 (all N)
-			expect(result!.completeBonus).toBe(50);
-			expect(result!.points).toBe(85);
-			expect(result!.filledSlots).toBe(7);
+			expect(result?.rarityPoints).toBe(35); // 7 * 5 * 1 (all N)
+			expect(result?.completeBonus).toBe(50);
+			expect(result?.points).toBe(85);
+			expect(result?.filledSlots).toBe(7);
 		});
 
 		it('loginMultiplierが反映される', async () => {
@@ -692,8 +692,8 @@ describe('stamp-card-service', () => {
 			const result = await autoRedeemPreviousWeek(1, TENANT, 2);
 			expect(result).not.toBeNull();
 			// 5 * 2 (multiplier) = 10
-			expect(result!.points).toBe(10);
-			expect(result!.multiplier).toBe(2);
+			expect(result?.points).toBe(10);
+			expect(result?.multiplier).toBe(2);
 		});
 	});
 });
