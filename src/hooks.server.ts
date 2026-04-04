@@ -8,6 +8,46 @@ import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { isSetupRequired } from '$lib/server/services/setup-service';
 
+/**
+ * Accept ヘッダーを検査し、ブラウザ（HTML）リクエストかどうかを判定する
+ */
+function acceptsHtml(request: Request): boolean {
+	const accept = request.headers.get('Accept') ?? '';
+	return accept.includes('text/html');
+}
+
+/**
+ * ミニマルなスタイル付き HTML エラーページを生成する
+ * (hooks 内で SvelteKit のレンダリングパイプラインを通らない場面用)
+ */
+function renderErrorHtml(status: number, title: string, message: string): string {
+	return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${title} - がんばりクエスト</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f2f9ff;color:#2d2d2d}
+.container{text-align:center;padding:2rem;max-width:480px}
+.status{font-size:4rem;font-weight:700;color:#4a90d9;margin-bottom:0.5rem}
+h1{font-size:1.25rem;margin:0 0 1rem}
+p{color:#8b8b8b;line-height:1.6}
+a{color:#4a90d9;text-decoration:none;font-weight:500}
+a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="status">${status}</div>
+<h1>${title}</h1>
+<p>${message}</p>
+<p style="margin-top:2rem"><a href="/">トップページへ戻る</a></p>
+</div>
+</body>
+</html>`;
+}
+
 const provider = getAuthProvider();
 const authMode = getAuthMode();
 
@@ -23,6 +63,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// 0-a) メンテナンスモード（Lambda環境変数で切替）
 	if (MAINTENANCE_MODE && path !== '/api/health') {
+		if (acceptsHtml(event.request)) {
+			return new Response(
+				renderErrorHtml(
+					503,
+					'メンテナンス中',
+					'ただいまメンテナンス中です。しばらくしてから再度お試しください。',
+				),
+				{
+					status: 503,
+					headers: { 'Content-Type': 'text/html; charset=utf-8', 'Retry-After': '600' },
+				},
+			);
+		}
 		return new Response(JSON.stringify({ status: 'maintenance', message: 'メンテナンス中です' }), {
 			status: 503,
 			headers: { 'Content-Type': 'application/json', 'Retry-After': '600' },
@@ -45,6 +98,22 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (!allowed) {
 			logger.warn(`Rate limit exceeded: ${ip} on ${path}`);
 			const retryAfter = Math.ceil((resetAt - Date.now()) / 1000);
+			if (acceptsHtml(event.request)) {
+				return new Response(
+					renderErrorHtml(
+						429,
+						'アクセスが集中しています',
+						'アクセスが集中しています。しばらくしてから再度お試しください。',
+					),
+					{
+						status: 429,
+						headers: {
+							'Content-Type': 'text/html; charset=utf-8',
+							'Retry-After': String(retryAfter),
+						},
+					},
+				);
+			}
 			return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
 				status: 429,
 				headers: {
@@ -241,5 +310,15 @@ export const handleError: HandleServerError = ({ error, event, status, message }
 		}).catch(() => {});
 	}
 
-	return { message: 'Internal Server Error' };
+	// ステータスコードに応じた日本語メッセージを返す
+	if (status === 404) {
+		return { message: 'ページが見つかりません' };
+	}
+	if (status === 429) {
+		return { message: 'アクセスが集中しています' };
+	}
+	if (status === 403) {
+		return { message: 'アクセスが拒否されました' };
+	}
+	return { message: 'サーバーエラーが発生しました' };
 };
