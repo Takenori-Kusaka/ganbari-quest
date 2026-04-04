@@ -6,6 +6,9 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
+const canFreeText = $derived(data.canFreeTextMessage);
+const TEXT_MAX = 200;
+
 let selectedChildId = $state(0);
 $effect(() => {
 	const first = data.children[0];
@@ -61,14 +64,21 @@ function selectStamp(code: string) {
 			>
 				スタンプ
 			</Button>
-			<Button
-				variant={messageType === 'text' ? 'primary' : 'ghost'}
-				size="sm"
-				class="rounded-xl {messageType === 'text' ? 'bg-pink-500 hover:bg-pink-600' : 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
-				onclick={() => (messageType = 'text')}
-			>
-				ひとことメッセージ
-			</Button>
+			{#if canFreeText}
+				<Button
+					variant={messageType === 'text' ? 'primary' : 'ghost'}
+					size="sm"
+					class="rounded-xl {messageType === 'text' ? 'bg-pink-500 hover:bg-pink-600' : 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
+					onclick={() => (messageType = 'text')}
+				>
+					ひとことメッセージ
+				</Button>
+			{:else}
+				<span class="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-xl bg-gray-100 text-gray-400 cursor-not-allowed" title="ファミリープラン限定">
+					ひとことメッセージ
+					<span class="text-xs font-bold text-amber-500">⭐⭐</span>
+				</span>
+			{/if}
 		</div>
 
 		{#if messageType === 'stamp'}
@@ -88,7 +98,15 @@ function selectStamp(code: string) {
 			</div>
 		{:else}
 			<Card>
-				<FormField label="メッセージ（30文字以内）" type="text" bind:value={textBody} maxlength={30} placeholder="がんばってるね！だいすき！" hint="{textBody.length}/30" />
+				<FormField label="メッセージ（{TEXT_MAX}文字以内）" hint="{textBody.length}/{TEXT_MAX}">
+					<textarea
+						bind:value={textBody}
+						maxlength={TEXT_MAX}
+						placeholder="がんばってるね！だいすき！ いつもおうえんしてるよ"
+						rows="3"
+						class="w-full px-3 py-2 border rounded-lg bg-white text-sm border-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-colors resize-none"
+					></textarea>
+				</FormField>
 			</Card>
 		{/if}
 	</section>

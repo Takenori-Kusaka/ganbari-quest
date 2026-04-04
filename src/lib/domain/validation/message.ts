@@ -10,7 +10,7 @@ export const sendMessageSchema = z
 		childId: z.coerce.number().int().positive(),
 		messageType: z.enum(MESSAGE_TYPES),
 		stampCode: z.string().max(30).optional(),
-		body: z.string().max(30).optional(),
+		body: z.string().max(200).optional(),
 		icon: z.string().max(10).optional(),
 	})
 	.refine(

@@ -1,16 +1,21 @@
 import { fail } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { getRepos } from '$lib/server/db/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
 	getMessageHistory,
 	STAMP_PRESETS,
 	sendMessage,
 } from '$lib/server/services/message-service';
+import { getPlanLimits, resolvePlanTier } from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, parent }) => {
 	const tenantId = requireTenantId(locals);
 	const children = await getAllChildren(tenantId);
+	const parentData = await parent();
+	const planTier = parentData.planTier ?? 'free';
+	const limits = getPlanLimits(planTier);
 
 	const childrenWithMessages = await Promise.all(
 		children.map(async (child) => {
@@ -19,7 +24,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
-	return { children: childrenWithMessages, stamps: STAMP_PRESETS };
+	return {
+		children: childrenWithMessages,
+		stamps: STAMP_PRESETS,
+		canFreeTextMessage: limits.canFreeTextMessage,
+		planTier,
+	};
 };
 
 export const actions: Actions = {
@@ -36,11 +46,20 @@ export const actions: Actions = {
 		if (messageType === 'stamp' && !stampCode) {
 			return fail(400, { error: 'スタンプを選択してください' });
 		}
-		if (messageType === 'text' && !body) {
-			return fail(400, { error: 'メッセージを入力してください' });
-		}
-		if (messageType === 'text' && body.length > 30) {
-			return fail(400, { error: 'メッセージは30文字以内で入力してください' });
+		if (messageType === 'text') {
+			// ファミリープラン限定チェック
+			const tenant = await getRepos().auth.findTenantById(tenantId);
+			const tier = resolvePlanTier(tenant?.status ?? 'free', tenant?.plan ?? undefined);
+			const limits = getPlanLimits(tier);
+			if (!limits.canFreeTextMessage) {
+				return fail(403, { error: '自由テキストメッセージはファミリープラン限定です' });
+			}
+			if (!body) {
+				return fail(400, { error: 'メッセージを入力してください' });
+			}
+			if (body.length > 200) {
+				return fail(400, { error: 'メッセージは200文字以内で入力してください' });
+			}
 		}
 
 		const result = await sendMessage(
