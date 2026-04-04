@@ -1,6 +1,5 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
-import { page } from '$app/stores';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
@@ -117,71 +116,6 @@ async function handleDismissBanner() {
 const ps = $derived(pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
 const unit = $derived(getUnitLabel(ps.mode, ps.currency));
-
-const authMode = $derived($page.data.authMode as string);
-
-// Primary menu items (shown during onboarding)
-const primaryMenuItems = $derived([
-	{ href: `${basePath}/activities`, label: '活動管理', icon: '📋' },
-	{ href: `${basePath}/checklists`, label: 'チェックリスト', icon: '☑️' },
-	{ href: `${basePath}/rewards`, label: 'ごほうび', icon: '🎁' },
-	{ href: isDemo ? '/demo' : '/switch', label: 'こども画面', icon: '👶' },
-]);
-
-// Secondary menu items (hidden during onboarding, shown in "more" section)
-const secondaryMenuItems = $derived([
-	{ href: `${basePath}/messages`, label: 'おうえん', icon: '💌' },
-	{ href: `${basePath}/rewards`, label: '特別報酬', icon: '🎁' },
-	{ href: `${basePath}/points`, label: 'ポイント', icon: '⭐' },
-	{ href: `${basePath}/achievements`, label: 'じっせき', icon: '🏆' },
-	{ href: `${basePath}/status`, label: 'ベンチマーク', icon: '📈' },
-	{ href: `${basePath}/events`, label: 'イベント', icon: '🎉' },
-	{ href: `${basePath}/challenges`, label: 'チャレンジ', icon: '🤝' },
-	{ href: `${basePath}/reports`, label: 'レポート', icon: '📊' },
-	{ href: `${basePath}/members`, label: 'メンバー', icon: '👥' },
-	...(isDemo
-		? []
-		: [{ href: `${basePath}/license`, label: 'プラン・お支払い', icon: '💳', authOnly: true }]),
-]);
-
-const filteredSecondaryItems = $derived(
-	authMode === 'local'
-		? secondaryMenuItems.filter((item) => !('authOnly' in item && item.authOnly))
-		: secondaryMenuItems,
-);
-
-// Legacy full menu (when onboarding is complete)
-const allMenuItems = $derived([
-	{ href: `${basePath}/messages`, label: 'おうえん', icon: '💌' },
-	{ href: `${basePath}/rewards`, label: '特別報酬', icon: '🎁' },
-	{ href: `${basePath}/points`, label: 'ポイント', icon: '⭐' },
-	{ href: `${basePath}/checklists`, label: 'もちもの', icon: '✅' },
-	{ href: `${basePath}/achievements`, label: 'じっせき', icon: '🏆' },
-	{ href: `${basePath}/status`, label: 'ベンチマーク', icon: '📈' },
-	{ href: `${basePath}/events`, label: 'イベント', icon: '🎉' },
-	{ href: `${basePath}/challenges`, label: 'チャレンジ', icon: '🤝' },
-	{ href: `${basePath}/reports`, label: 'レポート', icon: '📊' },
-	{ href: `${basePath}/members`, label: 'メンバー', icon: '👥' },
-	...(isDemo
-		? []
-		: [{ href: `${basePath}/license`, label: 'プラン・お支払い', icon: '💳', authOnly: true }]),
-]);
-
-const visibleAllMenuItems = $derived(
-	authMode === 'local'
-		? allMenuItems.filter((item) => !('authOnly' in item && item.authOnly))
-		: allMenuItems,
-);
-
-let showMoreMenu = $state(false);
-
-// Context hints (shown once per session)
-const contextHints: Record<string, string> = {
-	活動管理: 'お子さまが記録する活動を追加・編集できます',
-	チェックリスト: '朝の準備や持ち物など毎日のルーティンを管理できます',
-	ごほうび: 'がんばりポイントと交換できるごほうびを設定できます',
-	こども画面: 'お子さまの画面に切り替えます',
-};
 
 function childLink(child: ChildSummary): string {
 	if (isDemo) {
@@ -368,79 +302,6 @@ function childLink(child: ChildSummary): string {
 		{/if}
 	</section>
 
-	<!-- Quick Actions -->
-	<section data-tutorial="quick-actions">
-		<h2 class="text-lg font-bold text-gray-700 mb-3">クイックアクション</h2>
-		<div class="grid grid-cols-2 gap-3">
-			<a href="{basePath}/rewards" class="bg-white rounded-xl p-4 shadow-sm text-center hover:shadow-md transition-shadow">
-				<span class="text-2xl block mb-1">🎁</span>
-				<p class="text-sm font-bold text-gray-600">特別報酬を付与</p>
-			</a>
-			<a href="{basePath}/points" class="bg-white rounded-xl p-4 shadow-sm text-center hover:shadow-md transition-shadow">
-				<span class="text-2xl block mb-1">⭐</span>
-				<p class="text-sm font-bold text-gray-600">{ps.mode === 'currency' ? '金額を渡す' : 'ポイント変換'}</p>
-			</a>
-			<a href="{basePath}/activities" class="bg-white rounded-xl p-4 shadow-sm text-center hover:shadow-md transition-shadow">
-				<span class="text-2xl block mb-1">📋</span>
-				<p class="text-sm font-bold text-gray-600">活動管理</p>
-			</a>
-			<a href={isDemo ? '/demo' : '/switch'} class="bg-white rounded-xl p-4 shadow-sm text-center hover:shadow-md transition-shadow">
-				<span class="text-2xl block mb-1">👧</span>
-				<p class="text-sm font-bold text-gray-600">こども画面へ</p>
-			</a>
-		</div>
-	</section>
-
-	<!-- Management Menu: Progressive disclosure during onboarding -->
-	<section>
-		<h2 class="text-lg font-bold text-gray-700 mb-3">管理メニュー</h2>
-
-		{#if showOnboarding}
-			<!-- Onboarding mode: show primary 4 items with context hints -->
-			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-				{#each primaryMenuItems as item}
-					<a href={item.href} class="menu-item-with-hint">
-						<span class="text-xl block mb-1">{item.icon}</span>
-						<p class="text-xs font-medium text-gray-600">{item.label}</p>
-						{#if contextHints[item.label]}
-							<p class="context-hint">{contextHints[item.label]}</p>
-						{/if}
-					</a>
-				{/each}
-			</div>
-
-			<!-- "More" toggle -->
-			<button
-				class="more-menu-btn"
-				onclick={() => (showMoreMenu = !showMoreMenu)}
-				data-testid="more-menu-toggle"
-			>
-				{showMoreMenu ? '▲ 閉じる' : '▼ もっと見る'}
-			</button>
-
-			{#if showMoreMenu}
-				<div class="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-3">
-					{#each filteredSecondaryItems as item}
-						<a href={item.href} class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md transition-shadow">
-							<span class="text-xl block mb-1">{item.icon}</span>
-							<p class="text-xs font-medium text-gray-600">{item.label}</p>
-						</a>
-					{/each}
-				</div>
-			{/if}
-		{:else}
-			<!-- Normal mode: show all items -->
-			<div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
-				{#each visibleAllMenuItems as item}
-					<a href={item.href} class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md transition-shadow">
-						<span class="text-xl block mb-1">{item.icon}</span>
-						<p class="text-xs font-medium text-gray-600">{item.label}</p>
-					</a>
-				{/each}
-			</div>
-		{/if}
-	</section>
-
 	<!-- Demo CTA (demo only) -->
 	{#if isDemo}
 		<div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-200 rounded-xl p-4 text-center">
@@ -523,44 +384,4 @@ function childLink(child: ChildSummary): string {
 		white-space: nowrap;
 	}
 
-	.menu-item-with-hint {
-		display: block;
-		background: white;
-		border-radius: 12px;
-		padding: 12px;
-		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-		text-align: center;
-		text-decoration: none;
-		transition: box-shadow 0.15s;
-	}
-
-	.menu-item-with-hint:hover {
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-	}
-
-	.context-hint {
-		font-size: 0.625rem;
-		color: var(--color-text-tertiary);
-		margin-top: 4px;
-		line-height: 1.3;
-	}
-
-	.more-menu-btn {
-		display: block;
-		width: 100%;
-		margin-top: 12px;
-		padding: 8px;
-		background: var(--color-surface-secondary);
-		border: 1px solid var(--color-border-default);
-		border-radius: 8px;
-		color: var(--color-text-tertiary);
-		font-size: 0.75rem;
-		font-weight: 600;
-		cursor: pointer;
-		transition: background 0.15s;
-	}
-
-	.more-menu-btn:hover {
-		background: var(--color-neutral-200);
-	}
 </style>
