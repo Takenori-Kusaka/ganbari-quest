@@ -5,9 +5,9 @@ import {
 	advanceStep,
 	checkAutoAdvance,
 	dismissGuide,
-	goBack,
 	GUIDE_STEPS,
 	getGuideState,
+	goBack,
 } from './demo-guide-state.svelte.js';
 
 const guide = getGuideState();
@@ -18,14 +18,22 @@ $effect(() => {
 });
 
 function handleAdvance() {
-	const prevStep = guide.currentStep;
+	const fromStep = guide.currentStep;
 	advanceStep();
-	trackDemoEvent('demo_guide_step', { step: prevStep + 1 });
+	trackDemoEvent('demo_guide_step', {
+		fromStep: fromStep + 1,
+		toStep: guide.currentStep + 1,
+	});
 }
 
 function handleBack() {
+	const fromStep = guide.currentStep;
 	goBack();
-	trackDemoEvent('demo_guide_step', { step: guide.currentStep, direction: 'back' });
+	trackDemoEvent('demo_guide_step', {
+		fromStep: fromStep + 1,
+		toStep: guide.currentStep + 1,
+		direction: 'back',
+	});
 }
 
 function handleDismiss() {
@@ -84,7 +92,7 @@ function handleDismiss() {
 					{:else if guide.step?.requiresAction}
 						<!-- Action-required step: show hint instead of navigation button -->
 						<span class="px-2 py-1 text-xs text-blue-500 font-medium">
-							👆 やってみよう
+							<span aria-hidden="true">👆</span> やってみよう
 						</span>
 					{:else}
 						{@const nextStep = GUIDE_STEPS[guide.currentStep + 1]}

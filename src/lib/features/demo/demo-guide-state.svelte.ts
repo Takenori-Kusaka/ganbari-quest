@@ -155,7 +155,11 @@ export function checkAutoAdvance(pathname: string) {
 	const nextStep = GUIDE_STEPS[nextStepIndex];
 	if (!nextStep || !pathname.startsWith(nextStep.matchPath)) return;
 
-	// requiresAction ステップは明示的な advanceStep() を待つ
+	// 現在のステップが requiresAction なら、パス遷移だけではスキップさせない
+	const currentStepDef = GUIDE_STEPS[currentStep];
+	if (currentStepDef?.requiresAction) return;
+
+	// 次のステップが requiresAction の場合も明示的な advanceStep() を待つ
 	if (nextStep.requiresAction) return;
 
 	// 現在のステップと次のステップが同一パスならスキップ（手動遷移を待つ）
