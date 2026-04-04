@@ -15,7 +15,7 @@ let { open = $bindable(), messageType, stampLabel, body, icon, onClose }: Props 
 
 $effect(() => {
 	if (open) {
-		soundService.play('achievement-unlock');
+		soundService.play('special-reward');
 	}
 });
 

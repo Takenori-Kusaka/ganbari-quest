@@ -7,8 +7,8 @@ import { SOUND_DEFS, SOUND_IDS, SOUND_TIER_CONFIG } from '../../../src/lib/ui/so
 // --- 定数テスト ---
 
 describe('SOUND_IDS', () => {
-	it('11種類のサウンドIDが定義されている', () => {
-		expect(SOUND_IDS).toHaveLength(11);
+	it('10種類のサウンドIDが定義されている', () => {
+		expect(SOUND_IDS).toHaveLength(10);
 	});
 
 	it.each([
@@ -16,7 +16,6 @@ describe('SOUND_IDS', () => {
 		'record-complete',
 		'point-gain',
 		'purchase',
-		'achievement-unlock',
 		'level-up',
 		'error',
 		'special-reward',
@@ -78,7 +77,6 @@ describe('SOUND_TIER_CONFIG', () => {
 
 	it('teen は最小限のサウンドのみ有効', () => {
 		expect(SOUND_TIER_CONFIG.teen.enabledSounds.length).toBeLessThan(SOUND_IDS.length);
-		expect(SOUND_TIER_CONFIG.teen.enabledSounds).toContain('achievement-unlock');
 		expect(SOUND_TIER_CONFIG.teen.enabledSounds).toContain('special-reward');
 	});
 
@@ -219,7 +217,7 @@ describe('SoundService', () => {
 		const service = await createService();
 		service.ensureContext();
 		service.setEnabledSounds(['tap', 'record-complete']);
-		service.play('achievement-unlock');
+		service.play('level-up');
 		expect(mockContext.createBufferSource).not.toHaveBeenCalled();
 	});
 

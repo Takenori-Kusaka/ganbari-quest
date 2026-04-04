@@ -3,7 +3,6 @@
 
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { calcLevelFromXp } from '$lib/domain/validation/status';
-import { findAllAchievements, findUnlockedAchievements } from '$lib/server/db/achievement-repo';
 import { countActivitiesByCategory } from '$lib/server/db/evaluation-repo';
 import { findStatuses } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
@@ -62,11 +61,9 @@ export async function generateWeeklyReport(
 	const { weekStart, weekEnd } = getWeekRange(targetDate ?? new Date());
 
 	// 並列でデータ取得
-	const [activityCounts, statuses, allAchievements, unlockedRecords] = await Promise.all([
+	const [activityCounts, statuses] = await Promise.all([
 		countActivitiesByCategory(childId, weekStart, weekEnd, tenantId),
 		findStatuses(childId, tenantId),
-		findAllAchievements(tenantId),
-		findUnlockedAchievements(childId, tenantId),
 	]);
 
 	// カテゴリ別レポート
@@ -94,20 +91,8 @@ export async function generateWeeklyReport(
 	// ハイライト生成
 	const highlights = generateHighlights(categories, totalActivities);
 
-	// 今週解除された実績
-	const newAchievements = findWeeklyAchievements(
-		allAchievements,
-		unlockedRecords,
-		weekStart,
-		weekEnd,
-	);
-	for (const ach of newAchievements) {
-		highlights.push({
-			type: 'achievement',
-			message: `「${ach.name}」をかくとく！`,
-			icon: ach.icon,
-		});
-	}
+	// 実績システム廃止（#322）— newAchievements は常に空
+	const newAchievements: { name: string; icon: string; description: string }[] = [];
 
 	// アドバイス生成
 	const advice = generateAdvice(categories, totalActivities);
@@ -178,32 +163,6 @@ function generateHighlights(
 	}
 
 	return highlights;
-}
-
-function findWeeklyAchievements(
-	allAchievements: { id: number; name: string; icon: string; description: string | null }[],
-	unlockedRecords: { achievementId: number; unlockedAt: string | null }[],
-	weekStart: string,
-	weekEnd: string,
-): { name: string; icon: string; description: string }[] {
-	const results: { name: string; icon: string; description: string }[] = [];
-
-	for (const record of unlockedRecords) {
-		if (!record.unlockedAt) continue;
-		const date = record.unlockedAt.slice(0, 10);
-		if (date >= weekStart && date <= weekEnd) {
-			const achievement = allAchievements.find((a) => a.id === record.achievementId);
-			if (achievement) {
-				results.push({
-					name: achievement.name,
-					icon: achievement.icon,
-					description: achievement.description ?? '',
-				});
-			}
-		}
-	}
-
-	return results;
 }
 
 function generateAdvice(categories: CategoryReport[], totalActivities: number): WeeklyAdvice {

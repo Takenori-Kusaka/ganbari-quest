@@ -18,6 +18,7 @@ const mockChildren = [
 		theme: 'blue',
 		uiMode: 'kinder',
 		avatarUrl: null,
+		activeTitleId: 1,
 		createdAt: '2025-06-01T00:00:00Z',
 		updatedAt: '2026-03-01T00:00:00Z',
 	},
@@ -29,6 +30,7 @@ const mockChildren = [
 		theme: 'pink',
 		uiMode: 'baby',
 		avatarUrl: null,
+		activeTitleId: null,
 		createdAt: '2025-07-01T00:00:00Z',
 		updatedAt: '2026-03-01T00:00:00Z',
 	},
@@ -73,6 +75,22 @@ const mockActivities = [
 		nameKana: 'ひらがなれんしゅう',
 		nameKanji: 'ひらがな練習',
 		triggerHint: 'おべんきょうのあとに！',
+		createdAt: '2025-01-01T00:00:00Z',
+	},
+];
+
+const mockTitles = [
+	{
+		id: 1,
+		code: 'undou_master',
+		name: 'うんどうマスター',
+		description: null,
+		icon: '🏃',
+		conditionType: 'status_deviation',
+		conditionValue: 65,
+		conditionExtra: '1',
+		rarity: 'rare',
+		sortOrder: 1,
 		createdAt: '2025-01-01T00:00:00Z',
 	},
 ];
@@ -149,6 +167,8 @@ const mockStatusHistory = [
 const mockUnlockedAchievements = [
 	{ id: 1, childId: 1, achievementId: 1, milestoneValue: null, unlockedAt: '2026-03-10T00:00:00Z' },
 ];
+
+const mockUnlockedTitles = [{ id: 1, childId: 1, titleId: 1, unlockedAt: '2026-03-12T00:00:00Z' }];
 
 const mockLoginBonuses = [
 	{
@@ -228,6 +248,12 @@ vi.mock('$lib/server/db/activity-repo', () => ({
 		childId === 1 ? Promise.resolve(mockActivityLogs) : Promise.resolve([]),
 	),
 }));
+vi.mock('$lib/server/db/title-repo', () => ({
+	findAllTitles: vi.fn(() => Promise.resolve(mockTitles)),
+	findUnlockedTitles: vi.fn((childId: number) =>
+		childId === 1 ? Promise.resolve(mockUnlockedTitles) : Promise.resolve([]),
+	),
+}));
 vi.mock('$lib/server/db/achievement-repo', () => ({
 	findAllAchievements: vi.fn(() => Promise.resolve(mockAchievements)),
 	findUnlockedAchievements: vi.fn((childId: number) =>
@@ -299,7 +325,7 @@ describe('exportFamilyData', () => {
 		expect(result.master.categories).toHaveLength(5);
 		expect(result.master.activities).toHaveLength(2);
 		expect(result.master.titles).toHaveLength(0);
-		expect(result.master.achievements).toHaveLength(1);
+		expect(result.master.achievements).toHaveLength(0);
 		expect(result.master.avatarItems).toHaveLength(0);
 	});
 
@@ -311,6 +337,12 @@ describe('exportFamilyData', () => {
 		expect(activity?.name).toBe('はいはいした');
 		expect(activity).not.toHaveProperty('id');
 		expect(activity).not.toHaveProperty('categoryId');
+	});
+
+	it('称号システム廃止 — activeTitleは常にnull', async () => {
+		const result = await exportFamilyData({ tenantId: 'test-tenant' });
+		expect(result.family.children[0]?.activeTitle).toBeNull();
+		expect(result.family.children[1]?.activeTitle).toBeNull();
 	});
 
 	it('活動記録がchildRefで参照される', async () => {
@@ -345,10 +377,14 @@ describe('exportFamilyData', () => {
 		expect(result.data.statusHistory[0]?.changeType).toBe('activity');
 	});
 
-	it('実績がコードで参照される', async () => {
+	it('実績システム廃止 — childAchievements は空配列', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
-		expect(result.data.childAchievements).toHaveLength(1);
-		expect(result.data.childAchievements[0]?.achievementCode).toBe('first_step');
+		expect(result.data.childAchievements).toHaveLength(0);
+	});
+
+	it('称号システム廃止 — childTitlesは空配列', async () => {
+		const result = await exportFamilyData({ tenantId: 'test-tenant' });
+		expect(result.data.childTitles).toHaveLength(0);
 	});
 
 	it('ログインボーナスがエクスポートされる', async () => {

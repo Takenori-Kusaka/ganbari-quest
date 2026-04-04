@@ -3,7 +3,6 @@
 
 import { EXPORT_FORMAT, EXPORT_VERSION, type ExportData } from '$lib/domain/export-format';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
-import { findAllAchievements, insertChildAchievement } from '$lib/server/db/achievement-repo';
 import {
 	findActivities,
 	insertActivity,
@@ -31,6 +30,7 @@ export interface ImportResult {
 	pointLedgerSkipped: number;
 	statusesImported: number;
 	achievementsImported: number;
+	titlesImported: number;
 	errors: string[];
 	warnings: string[];
 }
@@ -83,6 +83,7 @@ export function previewImport(data: ExportData) {
 		pointLedger: data.data.pointLedger.length,
 		statuses: data.data.statuses.length,
 		achievements: data.data.childAchievements.length,
+		titles: data.data.childTitles.length,
 		loginBonuses: data.data.loginBonuses.length,
 		checklistTemplates: data.data.checklistTemplates.length,
 	};
@@ -103,6 +104,7 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 		pointLedgerSkipped: 0,
 		statusesImported: 0,
 		achievementsImported: 0,
+		titlesImported: 0,
 		errors,
 		warnings,
 	};
@@ -147,13 +149,9 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 	}
 
 	// マスタデータのルックアップ構築
-	const [activities, achievements] = await Promise.all([
-		findActivities(tenantId),
-		findAllAchievements(tenantId),
-	]);
+	const activities = await findActivities(tenantId);
 
 	const activityNameMap = new Map(activities.map((a) => [a.name, a]));
-	const achievementCodeMap = new Map(achievements.map((a) => [a.code, a]));
 
 	// 1. 子供を作成し、exportId → newChildId のマッピングを構築
 	const childIdMap = new Map<string, number>();
@@ -264,21 +262,8 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 		}
 	}
 
-	// 5. 実績
-	for (const ca of data.data.childAchievements) {
-		const childId = childIdMap.get(ca.childRef);
-		if (!childId) continue;
-
-		const achievement = achievementCodeMap.get(ca.achievementCode);
-		if (!achievement) continue;
-
-		try {
-			await insertChildAchievement(childId, achievement.id, tenantId, ca.milestoneValue);
-			result.achievementsImported++;
-		} catch (_e) {
-			// skip duplicate
-		}
-	}
+	// 5. 実績 — 実績システム廃止（#322）— スキップ
+	// 6. 称号 — 称号システム廃止（#322）— スキップ
 
 	// 7. ログインボーナス
 	for (const lb of data.data.loginBonuses) {

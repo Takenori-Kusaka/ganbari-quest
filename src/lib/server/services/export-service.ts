@@ -11,6 +11,7 @@ import {
 	type ExportChecklistTemplate,
 	type ExportChild,
 	type ExportChildAchievement,
+	type ExportChildTitle,
 	type ExportData,
 	type ExportEvaluation,
 	type ExportLoginBonus,
@@ -19,10 +20,10 @@ import {
 	type ExportSpecialReward,
 	type ExportStatus,
 	type ExportStatusHistory,
+	type ExportTitle,
 	type ExportTransactionData,
 } from '$lib/domain/export-format';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
-import { findAllAchievements, findUnlockedAchievements } from '$lib/server/db/achievement-repo';
 import { findActivities, findActivityLogs } from '$lib/server/db/activity-repo';
 import { findTemplateItems, findTemplatesByChild } from '$lib/server/db/checklist-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
@@ -87,14 +88,11 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		logger.warn('[export] エクスポート対象の子供がいません');
 	}
 
-	// マスタデータの取得（並列）
-	const [activitiesRaw, achievementsRaw] = await Promise.all([
-		findActivities(tenantId),
-		findAllAchievements(tenantId),
-	]);
+	// マスタデータの取得
+	const activitiesRaw = await findActivities(tenantId);
 
-	// 実績 ID → コード
-	const achievementMap = new Map(achievementsRaw.map((a) => [a.id, a]));
+	// 実績システム廃止（#322）— achievementMap は空
+	const achievementMap = new Map<number, { code: string }>();
 	// マスタデータの変換
 	const masterActivities: ExportActivity[] = activitiesRaw.map((a) => ({
 		name: a.name,
@@ -107,12 +105,11 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		triggerHint: a.triggerHint,
 	}));
 
-	const masterAchievements: ExportAchievement[] = achievementsRaw.map((a) => ({
-		code: a.code,
-		name: a.name,
-		icon: a.icon,
-		rarity: a.rarity,
-	}));
+	// 称号システム廃止（#322）— 空配列
+	const masterTitles: ExportTitle[] = [];
+
+	// 実績システム廃止（#322）— 空配列
+	const masterAchievements: ExportAchievement[] = [];
 
 	// 子供データの変換
 	const exportChildren: ExportChild[] = allChildren.map((child, index) => ({
@@ -123,7 +120,7 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		theme: child.theme,
 		uiMode: child.uiMode,
 		avatarUrl: child.avatarUrl,
-		activeTitle: null,
+		activeTitle: null, // 称号システム廃止（#322）
 		createdAt: child.createdAt,
 	}));
 
@@ -149,7 +146,7 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		master: {
 			categories: CATEGORY_INFO,
 			activities: masterActivities,
-			titles: [],
+			titles: masterTitles,
 			achievements: masterAchievements,
 			avatarItems: [],
 		},
@@ -191,7 +188,7 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 async function collectTransactionData(
 	childIds: number[],
 	childExportIdMap: Map<number, string>,
-	achievementMap: Map<number, { code: string }>,
+	_achievementMap: Map<number, { code: string }>,
 	tenantId: string,
 ): Promise<ExportTransactionData> {
 	const allActivityLogs: ExportActivityLog[] = [];
@@ -199,6 +196,7 @@ async function collectTransactionData(
 	const allStatuses: ExportStatus[] = [];
 	const allStatusHistory: ExportStatusHistory[] = [];
 	const allChildAchievements: ExportChildAchievement[] = [];
+	const allChildTitles: ExportChildTitle[] = [];
 	const allLoginBonuses: ExportLoginBonus[] = [];
 	const allEvaluations: ExportEvaluation[] = [];
 	const allSpecialRewards: ExportSpecialReward[] = [];
@@ -211,7 +209,6 @@ async function collectTransactionData(
 			activityLogs,
 			pointHistory,
 			statuses,
-			unlockedAchievements,
 			loginBonuses,
 			evaluations,
 			specialRewards,
@@ -220,7 +217,6 @@ async function collectTransactionData(
 			findActivityLogs(childId, tenantId),
 			findPointHistory(childId, { limit: MAX_EXPORT_ROWS, offset: 0 }, tenantId),
 			findStatuses(childId, tenantId),
-			findUnlockedAchievements(childId, tenantId),
 			findRecentBonuses(childId, tenantId, MAX_EXPORT_ROWS),
 			findEvaluationsByChild(childId, MAX_EXPORT_ROWS, tenantId),
 			findSpecialRewards(childId, tenantId),
@@ -285,18 +281,8 @@ async function collectTransactionData(
 			}
 		}
 
-		// Achievements
-		for (const ca of unlockedAchievements) {
-			const achievement = achievementMap.get(ca.achievementId);
-			if (achievement) {
-				allChildAchievements.push({
-					childRef,
-					achievementCode: achievement.code,
-					milestoneValue: ca.milestoneValue,
-					unlockedAt: ca.unlockedAt,
-				});
-			}
-		}
+		// 実績システム廃止（#322）— Achievements スキップ
+		// 称号システム廃止（#322）— Titles スキップ
 
 		// Login bonuses
 		for (const lb of loginBonuses) {
@@ -364,7 +350,7 @@ async function collectTransactionData(
 		statuses: allStatuses,
 		statusHistory: allStatusHistory,
 		childAchievements: allChildAchievements,
-		childTitles: [],
+		childTitles: allChildTitles,
 		loginBonuses: allLoginBonuses,
 		evaluations: allEvaluations,
 		specialRewards: allSpecialRewards,

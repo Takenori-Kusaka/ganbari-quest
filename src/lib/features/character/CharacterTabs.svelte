@@ -22,26 +22,26 @@ interface TabDef {
 const tabsByMode: Record<string, TabDef[]> = {
 	baby: [
 		{ label: 'つよさ', icon: ICON_STATUS, path: 'status' },
-		{ label: 'じっせき', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 	],
 	kinder: [
 		{ label: 'つよさ', icon: ICON_STATUS, path: 'status' },
-		{ label: 'じっせき', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: 'きろく', icon: ICON_HISTORY, path: 'history' },
 	],
 	lower: [
 		{ label: 'つよさ', icon: ICON_STATUS, path: 'status' },
-		{ label: '実績', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
 	],
 	upper: [
 		{ label: 'ステータス', icon: '📊', path: 'status' },
-		{ label: '実績', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
 	],
 	teen: [
 		{ label: 'ステータス', icon: '📊', path: 'status' },
-		{ label: '実績', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
 	],
 };

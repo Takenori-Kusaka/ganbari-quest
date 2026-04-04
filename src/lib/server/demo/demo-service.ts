@@ -10,11 +10,9 @@ import { DEFAULT_POINT_SETTINGS, type PointSettings } from '$lib/domain/point-di
 import { CATEGORY_DEFS, getActivityDisplayName } from '$lib/domain/validation/activity';
 import { calcLevelFromXp, calcXpToNextLevel } from '$lib/domain/validation/status';
 import type { Activity, Child } from '$lib/server/db/types/index.js';
-import type { AchievementWithStatus } from '$lib/server/services/achievement-service';
 import type { DailyMissionStatus } from '$lib/server/services/daily-mission-service';
 import type { LoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import type { ChildStatus, StatusDetail } from '$lib/server/services/status-service';
-
 import {
 	DEMO_ACTIVITIES,
 	DEMO_ACTIVITY_LOGS,
@@ -22,7 +20,6 @@ import {
 	DEMO_LOGIN_BONUSES,
 	DEMO_POINT_BALANCES,
 	TODAY,
-	getDemoAchievementsForChild,
 	getDemoActivitiesForChild,
 	getDemoChecklistsForChild,
 	getDemoLogsForChild,
@@ -30,98 +27,6 @@ import {
 	getDemoPointBalance,
 	getDemoStatusesForChild,
 } from './demo-data.js';
-
-// ============================================================
-// Demo achievement definitions (global master, normally from DB)
-// ============================================================
-
-const DEMO_ACHIEVEMENTS = [
-	{
-		id: 1,
-		code: 'first_log',
-		name: 'はじめてのきろく',
-		description: '初めて活動を記録した',
-		icon: '📝',
-		category: null,
-		conditionType: 'total_logs',
-		conditionValue: 1,
-		bonusPoints: 10,
-		rarity: 'common',
-		sortOrder: 1,
-		repeatable: 0,
-		isMilestone: 0,
-		milestoneValues: null,
-		createdAt: '',
-	},
-	{
-		id: 2,
-		code: 'log_count',
-		name: 'きろくの達人',
-		description: '活動記録の回数マイルストーン',
-		icon: '📊',
-		category: null,
-		conditionType: 'total_logs',
-		conditionValue: 10,
-		bonusPoints: 50,
-		rarity: 'rare',
-		sortOrder: 2,
-		repeatable: 1,
-		isMilestone: 1,
-		milestoneValues: '[10,50,100,200,500]',
-		createdAt: '',
-	},
-	{
-		id: 3,
-		code: 'streak_7',
-		name: '7日れんぞく',
-		description: '7日間連続で記録した',
-		icon: '🔥',
-		category: null,
-		conditionType: 'streak_days',
-		conditionValue: 7,
-		bonusPoints: 30,
-		rarity: 'rare',
-		sortOrder: 3,
-		repeatable: 0,
-		isMilestone: 0,
-		milestoneValues: null,
-		createdAt: '',
-	},
-	{
-		id: 4,
-		code: 'all_category',
-		name: 'オールラウンダー',
-		description: '全カテゴリで記録した',
-		icon: '🌈',
-		category: null,
-		conditionType: 'category_count',
-		conditionValue: 5,
-		bonusPoints: 100,
-		rarity: 'epic',
-		sortOrder: 4,
-		repeatable: 0,
-		isMilestone: 0,
-		milestoneValues: null,
-		createdAt: '',
-	},
-	{
-		id: 5,
-		code: 'level_5',
-		name: 'レベル5到達',
-		description: 'レベル5に到達した',
-		icon: '⭐',
-		category: null,
-		conditionType: 'level',
-		conditionValue: 5,
-		bonusPoints: 200,
-		rarity: 'epic',
-		sortOrder: 5,
-		repeatable: 0,
-		isMilestone: 0,
-		milestoneValues: null,
-		createdAt: '',
-	},
-];
 
 // ============================================================
 // Child layout data
@@ -344,88 +249,6 @@ export function getDemoStatusData(childId: number): ChildStatus | null {
 		characterType: avgDeviation >= 55 ? 'hero' : avgDeviation >= 45 ? 'normal' : 'ganbari',
 		highestCategoryLevel,
 	};
-}
-
-// ============================================================
-// Achievements page data
-// ============================================================
-
-export function getDemoAchievementsData(childId: number): AchievementWithStatus[] {
-	const childAch = getDemoAchievementsForChild(childId);
-	const logs = getDemoLogsForChild(childId);
-	const totalLogs = logs.length;
-
-	return DEMO_ACHIEVEMENTS.map((a) => {
-		const milestoneValues: number[] = a.milestoneValues ? JSON.parse(a.milestoneValues) : [];
-		const unlockedEntries = childAch.filter((ca) => ca.achievementId === a.id);
-		const isUnlocked = unlockedEntries.length > 0;
-
-		let currentProgress = 0;
-		if (a.conditionType === 'total_logs') currentProgress = totalLogs;
-		else if (a.conditionType === 'streak_days') {
-			const maxStreak = logs.reduce((max, l) => Math.max(max, l.streakDays), 0);
-			currentProgress = maxStreak;
-		} else if (a.conditionType === 'category_count') {
-			const cats = new Set(
-				logs
-					.map((l) => DEMO_ACTIVITIES.find((act) => act.id === l.activityId)?.categoryId)
-					.filter(Boolean),
-			);
-			currentProgress = cats.size;
-		} else if (a.conditionType === 'level') {
-			const status = getDemoStatusData(childId);
-			currentProgress = status?.level ?? 0;
-		}
-
-		const milestones = milestoneValues.map((val) => ({
-			value: val,
-			unlocked: unlockedEntries.some((e) => e.milestoneValue === val),
-			unlockedAt: unlockedEntries.find((e) => e.milestoneValue === val)?.unlockedAt ?? null,
-		}));
-		const unlockedMilestones = milestones.filter((m) => m.unlocked);
-		const highestUnlockedMilestone =
-			unlockedMilestones.length > 0 ? Math.max(...unlockedMilestones.map((m) => m.value)) : null;
-		const nextMilestone =
-			milestoneValues.find((v) => !milestones.find((m) => m.value === v && m.unlocked)) ?? null;
-
-		return {
-			id: a.id,
-			code: a.code,
-			name: a.name,
-			description: a.description,
-			icon: a.icon,
-			category: a.category,
-			conditionType: a.conditionType,
-			conditionValue: a.conditionValue,
-			bonusPoints: a.bonusPoints,
-			rarity: a.rarity,
-			sortOrder: a.sortOrder,
-			repeatable: a.repeatable === 1,
-			isMilestone: a.isMilestone === 1,
-			milestones,
-			highestUnlockedMilestone,
-			nextMilestone,
-			unlockedAt: isUnlocked && unlockedEntries[0] ? unlockedEntries[0].unlockedAt : null,
-			currentProgress,
-			conditionLabel: getConditionLabel(a.conditionType, a.conditionValue),
-			liveStreak: a.conditionType === 'streak_days' ? currentProgress : null,
-		};
-	});
-}
-
-function getConditionLabel(type: string, value: number): string {
-	switch (type) {
-		case 'total_logs':
-			return `${value}回きろくする`;
-		case 'streak_days':
-			return `${value}日れんぞく`;
-		case 'category_count':
-			return `${value}カテゴリでかつどう`;
-		case 'level':
-			return `レベル${value}に到達`;
-		default:
-			return `条件: ${value}`;
-	}
 }
 
 // ============================================================
