@@ -325,7 +325,7 @@ describe('exportFamilyData', () => {
 		expect(result.master.categories).toHaveLength(5);
 		expect(result.master.activities).toHaveLength(2);
 		expect(result.master.titles).toHaveLength(1);
-		expect(result.master.achievements).toHaveLength(1);
+		expect(result.master.achievements).toHaveLength(0);
 		expect(result.master.avatarItems).toHaveLength(0);
 	});
 
@@ -377,10 +377,9 @@ describe('exportFamilyData', () => {
 		expect(result.data.statusHistory[0]?.changeType).toBe('activity');
 	});
 
-	it('実績がコードで参照される', async () => {
+	it('実績システム廃止 — childAchievements は空配列', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
-		expect(result.data.childAchievements).toHaveLength(1);
-		expect(result.data.childAchievements[0]?.achievementCode).toBe('first_step');
+		expect(result.data.childAchievements).toHaveLength(0);
 	});
 
 	it('称号がコードで参照される', async () => {

@@ -2,7 +2,7 @@
 // DATA_SOURCE 環境変数による SQLite / DynamoDB バックエンド切り替え
 
 import * as dynamoAccountLockoutRepo from './dynamodb/account-lockout-repo';
-import * as dynamoAchievementRepo from './dynamodb/achievement-repo';
+
 import * as dynamoActivityMasteryRepo from './dynamodb/activity-mastery-repo';
 import * as dynamoActivityPrefRepo from './dynamodb/activity-pref-repo';
 import * as dynamoActivityRepo from './dynamodb/activity-repo';
@@ -31,7 +31,7 @@ import * as dynamoStorageRepo from './dynamodb/storage-repo';
 import * as dynamoTitleRepo from './dynamodb/title-repo';
 import * as dynamoVoiceRepo from './dynamodb/voice-repo';
 import type { IAccountLockoutRepo } from './interfaces/account-lockout-repo.interface';
-import type { IAchievementRepo } from './interfaces/achievement-repo.interface';
+
 import type { IActivityMasteryRepo } from './interfaces/activity-mastery-repo.interface';
 import type { IActivityPrefRepo } from './interfaces/activity-pref-repo.interface';
 import type { IActivityRepo } from './interfaces/activity-repo.interface';
@@ -60,7 +60,7 @@ import type { IStorageRepo } from './interfaces/storage.interface';
 import type { ITitleRepo } from './interfaces/title-repo.interface';
 import type { IVoiceRepo } from './interfaces/voice-repo.interface';
 import * as sqliteAccountLockoutRepo from './sqlite/account-lockout-repo';
-import * as sqliteAchievementRepo from './sqlite/achievement-repo';
+
 import * as sqliteActivityMasteryRepo from './sqlite/activity-mastery-repo';
 import * as sqliteActivityPrefRepo from './sqlite/activity-pref-repo';
 import * as sqliteActivityRepo from './sqlite/activity-repo';
@@ -92,7 +92,6 @@ import * as sqliteVoiceRepo from './sqlite/voice-repo';
 export interface Repositories {
 	accountLockout: IAccountLockoutRepo;
 	auth: IAuthRepo;
-	achievement: IAchievementRepo;
 	activity: IActivityRepo;
 	activityMastery: IActivityMasteryRepo;
 	activityPref: IActivityPrefRepo;
@@ -131,7 +130,6 @@ export function getRepos(): Repositories {
 		const repos: Repositories = {
 			accountLockout: dynamoAccountLockoutRepo,
 			auth: dynamoAuthRepo,
-			achievement: dynamoAchievementRepo,
 			activity: dynamoActivityRepo,
 			activityMastery: dynamoActivityMasteryRepo,
 			activityPref: dynamoActivityPrefRepo,
@@ -166,7 +164,6 @@ export function getRepos(): Repositories {
 	const repos: Repositories = {
 		accountLockout: sqliteAccountLockoutRepo,
 		auth: sqliteAuthRepo,
-		achievement: sqliteAchievementRepo,
 		activity: sqliteActivityRepo,
 		activityMastery: sqliteActivityMasteryRepo,
 		activityPref: sqliteActivityPrefRepo,

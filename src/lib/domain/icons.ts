@@ -12,7 +12,7 @@ export const ICON_HOME = '🏠';
 export const ICON_STATUS = '⭐';
 /** きろく / 記録（履歴） */
 export const ICON_HISTORY = '📋';
-/** じっせき / 実績 */
+/** チャレンジきろく */
 export const ICON_ACHIEVEMENTS = '🏆';
 /** きりかえ / 切替 */
 export const ICON_SWITCH = '🔄';
@@ -50,7 +50,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		status: 'つよさ',
 		switch: 'きりかえ',
 		history: 'きろく',
-		achievements: 'じっせき',
+		achievements: 'チャレンジきろく',
 		titles: 'しょうごう',
 		recordSummary: 'きょうの きろく',
 		checklist: 'もちものチェック',
@@ -59,7 +59,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		status: 'つよさ',
 		switch: 'きりかえ',
 		history: 'きろく',
-		achievements: 'じっせき',
+		achievements: 'チャレンジきろく',
 		titles: 'しょうごう',
 		recordSummary: 'きょうの きろく',
 		checklist: 'もちものチェック',
@@ -68,7 +68,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		status: 'つよさ',
 		switch: 'きりかえ',
 		history: '記録',
-		achievements: '実績',
+		achievements: 'チャレンジきろく',
 		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: '持ち物チェック',
@@ -77,7 +77,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		status: 'ステータス',
 		switch: '切り替え',
 		history: '記録',
-		achievements: '実績',
+		achievements: 'チャレンジきろく',
 		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: '持ち物チェック',
@@ -86,7 +86,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		status: 'ステータス',
 		switch: '切り替え',
 		history: '記録',
-		achievements: '実績',
+		achievements: 'チャレンジきろく',
 		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: '持ち物チェック',

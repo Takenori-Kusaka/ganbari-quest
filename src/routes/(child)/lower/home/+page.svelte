@@ -94,12 +94,6 @@ let cancelCountdown = $state(0);
 let cancelTimerId = $state<ReturnType<typeof setInterval> | null>(null);
 let cancelledMessage = $state(false);
 
-// Achievement unlock overlay
-let achievementOpen = $state(false);
-let unlockedAchievements = $state<
-	{ name: string; icon: string; bonusPoints: number; rarity: string }[]
->([]);
-
 // Special reward overlay
 let rewardOpen = $state(false);
 
@@ -246,8 +240,6 @@ function handleResultClose() {
 	// レベルアップがあれば先に表示
 	if (levelUpData) {
 		levelUpOpen = true;
-	} else if (unlockedAchievements.length > 0) {
-		achievementOpen = true;
 	} else {
 		resultData = null;
 		xpGainData = null;
@@ -258,20 +250,6 @@ function handleResultClose() {
 function handleLevelUpClose() {
 	levelUpOpen = false;
 	levelUpData = null;
-
-	// 次に実績解除があれば表示
-	if (unlockedAchievements.length > 0) {
-		achievementOpen = true;
-	} else {
-		resultData = null;
-		xpGainData = null;
-		invalidateAll();
-	}
-}
-
-function handleAchievementClose() {
-	achievementOpen = false;
-	unlockedAchievements = [];
 	resultData = null;
 	xpGainData = null;
 	invalidateAll();
@@ -591,7 +569,6 @@ $effect(() => {
 									masteryLevel?: number;
 									masteryLeveledUp?: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
 									cancelableUntil: string;
-									unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
 									comboBonus: {
 										categoryCombo: { categoryId: number; name: string; bonus: number }[];
 										crossCategoryCombo: { name: string; bonus: number } | null;
@@ -615,7 +592,6 @@ $effect(() => {
 									cancelableUntil: d.cancelableUntil,
 									comboBonus: d.comboBonus ?? null,
 								};
-								unlockedAchievements = d.unlockedAchievements ?? [];
 								missionResult = d.missionComplete ?? null;
 								levelUpData = d.levelUp ?? null;
 								xpGainData = d.xpGain ?? null;
@@ -790,9 +766,6 @@ $effect(() => {
 	bind:levelUpOpen
 	{levelUpData}
 	onLevelUpClose={handleLevelUpClose}
-	bind:achievementOpen
-	{unlockedAchievements}
-	onAchievementClose={handleAchievementClose}
 	bind:rewardOpen
 	latestReward={data.latestReward}
 	onRewardClose={handleRewardClose}

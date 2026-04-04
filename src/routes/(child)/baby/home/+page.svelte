@@ -76,12 +76,6 @@ let cancelCountdown = $state(0);
 let cancelTimerId = $state<ReturnType<typeof setInterval> | null>(null);
 let cancelledMessage = $state(false);
 
-// Achievement unlock overlay
-let achievementOpen = $state(false);
-let unlockedAchievements = $state<
-	{ name: string; icon: string; bonusPoints: number; rarity: string }[]
->([]);
-
 // Special reward overlay
 let rewardOpen = $state(false);
 
@@ -214,8 +208,6 @@ function handleResultClose() {
 
 	if (levelUpData) {
 		levelUpOpen = true;
-	} else if (unlockedAchievements.length > 0) {
-		achievementOpen = true;
 	} else {
 		xpGainData = null;
 		invalidateAll();
@@ -225,18 +217,6 @@ function handleResultClose() {
 function handleLevelUpClose() {
 	levelUpOpen = false;
 	levelUpData = null;
-
-	if (unlockedAchievements.length > 0) {
-		achievementOpen = true;
-	} else {
-		xpGainData = null;
-		invalidateAll();
-	}
-}
-
-function handleAchievementClose() {
-	achievementOpen = false;
-	unlockedAchievements = [];
 	xpGainData = null;
 	invalidateAll();
 }
@@ -348,7 +328,6 @@ $effect(() => {
 							masteryBonus?: number; masteryLevel?: number;
 							masteryLeveledUp?: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
 							cancelableUntil: string;
-							unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
 							comboBonus: { categoryCombo: { categoryId: number; name: string; bonus: number }[]; crossCategoryCombo: { name: string; bonus: number } | null; miniCombo: { uniqueCount: number; bonus: number } | null; hints: { message: string }[]; totalNewBonus: number } | null;
 							missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 							levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string; spGranted?: number } | null;
@@ -362,7 +341,6 @@ $effect(() => {
 						resultMasteryBonus = d.masteryBonus ?? 0;
 						resultMasteryLevel = d.masteryLevel ?? 1;
 						resultMasteryLeveledUp = d.masteryLeveledUp ?? null;
-						unlockedAchievements = d.unlockedAchievements ?? [];
 						missionResult = d.missionComplete ?? null;
 						levelUpData = d.levelUp ?? null;
 						xpGainData = d.xpGain ?? null;
@@ -491,7 +469,6 @@ $effect(() => {
 											masteryLevel?: number;
 											masteryLeveledUp?: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
 											cancelableUntil: string;
-											unlockedAchievements: { name: string; icon: string; bonusPoints: number; rarity: string }[];
 											comboBonus: {
 												categoryCombo: { categoryId: number; name: string; bonus: number }[];
 												crossCategoryCombo: { name: string; bonus: number } | null;
@@ -511,7 +488,7 @@ $effect(() => {
 										resultMasteryBonus = d.masteryBonus ?? 0;
 										resultMasteryLevel = d.masteryLevel ?? 1;
 										resultMasteryLeveledUp = d.masteryLeveledUp ?? null;
-										unlockedAchievements = d.unlockedAchievements ?? [];
+			
 										missionResult = d.missionComplete ?? null;
 										levelUpData = d.levelUp ?? null;
 										xpGainData = d.xpGain ?? null;
@@ -686,9 +663,6 @@ $effect(() => {
 	bind:levelUpOpen
 	{levelUpData}
 	onLevelUpClose={handleLevelUpClose}
-	bind:achievementOpen
-	{unlockedAchievements}
-	onAchievementClose={handleAchievementClose}
 	bind:rewardOpen
 	latestReward={data.latestReward}
 	onRewardClose={handleRewardClose}
