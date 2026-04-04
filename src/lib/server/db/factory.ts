@@ -14,7 +14,6 @@ import * as dynamoDailyMissionRepo from './dynamodb/daily-mission-repo';
 import * as dynamoEvaluationRepo from './dynamodb/evaluation-repo';
 import * as dynamoImageRepo from './dynamodb/image-repo';
 import * as dynamoInquiryRepo from './dynamodb/inquiry-repo';
-import * as dynamoLevelTitleRepo from './dynamodb/level-title-repo';
 import * as dynamoLoginBonusRepo from './dynamodb/login-bonus-repo';
 import * as dynamoMessageRepo from './dynamodb/message-repo';
 import * as dynamoPointRepo from './dynamodb/point-repo';
@@ -28,7 +27,6 @@ import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
 import * as dynamoStampCardRepo from './dynamodb/stamp-card-repo';
 import * as dynamoStatusRepo from './dynamodb/status-repo';
 import * as dynamoStorageRepo from './dynamodb/storage-repo';
-import * as dynamoTitleRepo from './dynamodb/title-repo';
 import * as dynamoVoiceRepo from './dynamodb/voice-repo';
 import type { IAccountLockoutRepo } from './interfaces/account-lockout-repo.interface';
 import type { IAchievementRepo } from './interfaces/achievement-repo.interface';
@@ -43,7 +41,6 @@ import type { IDailyMissionRepo } from './interfaces/daily-mission-repo.interfac
 import type { IEvaluationRepo } from './interfaces/evaluation-repo.interface';
 import type { IImageRepo } from './interfaces/image-repo.interface';
 import type { IInquiryRepo } from './interfaces/inquiry-repo.interface';
-import type { ILevelTitleRepo } from './interfaces/level-title-repo.interface';
 import type { ILoginBonusRepo } from './interfaces/login-bonus-repo.interface';
 import type { IMessageRepo } from './interfaces/message-repo.interface';
 import type { IPointRepo } from './interfaces/point-repo.interface';
@@ -57,7 +54,6 @@ import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interf
 import type { IStampCardRepo } from './interfaces/stamp-card-repo.interface';
 import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
-import type { ITitleRepo } from './interfaces/title-repo.interface';
 import type { IVoiceRepo } from './interfaces/voice-repo.interface';
 import * as sqliteAccountLockoutRepo from './sqlite/account-lockout-repo';
 import * as sqliteAchievementRepo from './sqlite/achievement-repo';
@@ -72,7 +68,6 @@ import * as sqliteDailyMissionRepo from './sqlite/daily-mission-repo';
 import * as sqliteEvaluationRepo from './sqlite/evaluation-repo';
 import * as sqliteImageRepo from './sqlite/image-repo';
 import * as sqliteInquiryRepo from './sqlite/inquiry-repo';
-import * as sqliteLevelTitleRepo from './sqlite/level-title-repo';
 import * as sqliteLoginBonusRepo from './sqlite/login-bonus-repo';
 import * as sqliteMessageRepo from './sqlite/message-repo';
 import * as sqlitePointRepo from './sqlite/point-repo';
@@ -86,7 +81,6 @@ import * as sqliteSpecialRewardRepo from './sqlite/special-reward-repo';
 import * as sqliteStampCardRepo from './sqlite/stamp-card-repo';
 import * as sqliteStatusRepo from './sqlite/status-repo';
 import * as sqliteStorageRepo from './sqlite/storage-repo';
-import * as sqliteTitleRepo from './sqlite/title-repo';
 import * as sqliteVoiceRepo from './sqlite/voice-repo';
 
 export interface Repositories {
@@ -115,9 +109,7 @@ export interface Repositories {
 	specialReward: ISpecialRewardRepo;
 	stampCard: IStampCardRepo;
 	status: IStatusRepo;
-	levelTitle: ILevelTitleRepo;
 	storage: IStorageRepo;
-	title: ITitleRepo;
 	voice: IVoiceRepo;
 }
 
@@ -151,12 +143,10 @@ export function getRepos(): Repositories {
 			siblingChallenge: dynamoSiblingChallengeRepo,
 			siblingCheer: dynamoSiblingCheerRepo,
 			settings: dynamoSettingsRepo,
-			levelTitle: dynamoLevelTitleRepo,
 			specialReward: dynamoSpecialRewardRepo,
 			stampCard: dynamoStampCardRepo,
 			status: dynamoStatusRepo,
 			storage: dynamoStorageRepo,
-			title: dynamoTitleRepo,
 			voice: dynamoVoiceRepo,
 		};
 		_repos = repos;
@@ -186,12 +176,10 @@ export function getRepos(): Repositories {
 		siblingChallenge: sqliteSiblingChallengeRepo,
 		siblingCheer: sqliteSiblingCheerRepo,
 		settings: sqliteSettingsRepo,
-		levelTitle: sqliteLevelTitleRepo,
 		specialReward: sqliteSpecialRewardRepo,
 		stampCard: sqliteStampCardRepo,
 		status: sqliteStatusRepo,
 		storage: sqliteStorageRepo,
-		title: sqliteTitleRepo,
 		voice: sqliteVoiceRepo,
 	};
 	_repos = repos;

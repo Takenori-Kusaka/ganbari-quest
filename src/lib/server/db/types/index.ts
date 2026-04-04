@@ -21,7 +21,6 @@ export interface Child {
 	theme: string;
 	uiMode: string;
 	avatarUrl: string | null;
-	activeTitleId: number | null;
 	displayConfig: string | null;
 	userId: string | null;
 	birthdayBonusMultiplier: number;
@@ -253,27 +252,6 @@ export interface DailyMission {
 	activityId: number;
 	completed: number;
 	completedAt: string | null;
-}
-
-export interface Title {
-	id: number;
-	code: string;
-	name: string;
-	description: string | null;
-	icon: string;
-	conditionType: string;
-	conditionValue: number;
-	conditionExtra: string | null;
-	rarity: string;
-	sortOrder: number;
-	createdAt: string;
-}
-
-export interface ChildTitle {
-	id: number;
-	childId: number;
-	titleId: number;
-	unlockedAt: string;
 }
 
 // ============================================================
@@ -544,14 +522,6 @@ export interface ParentMessage {
 	icon: string;
 	sentAt: string;
 	shownAt: string | null;
-}
-
-export interface LevelTitle {
-	id: number;
-	tenantId: string;
-	level: number;
-	customTitle: string;
-	updatedAt: string;
 }
 
 // ============================================================
@@ -885,39 +855,6 @@ export interface InsertCustomAchievementInput {
 	conditionCategoryId?: number;
 	conditionValue: number;
 	bonusPoints?: number;
-}
-
-// ============================================================
-// Custom Titles
-// ============================================================
-
-export type CustomTitleConditionType =
-	| 'level_reach'
-	| 'achievement_count'
-	| 'activity_count'
-	| 'streak_days';
-
-export interface CustomTitle {
-	id: number;
-	tenantId: string;
-	childId: number;
-	name: string;
-	icon: string;
-	conditionType: CustomTitleConditionType;
-	conditionValue: number;
-	conditionActivityId: number | null;
-	unlockedAt: string | null;
-	equipped: number;
-	createdAt: string;
-}
-
-export interface InsertCustomTitleInput {
-	childId: number;
-	name: string;
-	icon?: string;
-	conditionType: CustomTitleConditionType;
-	conditionValue: number;
-	conditionActivityId?: number;
 }
 
 // ============================================================
