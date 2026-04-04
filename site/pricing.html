@@ -83,6 +83,21 @@
   .trial-heading{font-size:1.2rem}
 }
 
+/* Family Patterns */
+.family-patterns{padding:64px 16px;background:#fff}
+.family-patterns-inner{max-width:960px;margin:0 auto}
+.family-patterns-title{font-size:1.5rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:12px}
+.family-patterns-subtitle{font-size:.95rem;color:var(--gray-500);text-align:center;margin-bottom:40px;max-width:600px;margin-left:auto;margin-right:auto}
+.pattern-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:32px}
+.pattern-card{background:var(--gray-50);border-radius:var(--radius);padding:24px;text-align:center}
+.pattern-card img{width:100%;max-width:400px;height:auto;border-radius:8px;margin-bottom:16px}
+.pattern-card h3{font-size:1.05rem;font-weight:700;color:var(--gray-900);margin-bottom:8px}
+.pattern-card p{font-size:.85rem;color:var(--gray-500);line-height:1.7}
+.pattern-card .pattern-tag{display:inline-block;font-size:.75rem;font-weight:600;color:var(--brand-700);background:var(--brand-100);padding:3px 12px;border-radius:2rem;margin-bottom:12px}
+@media(max-width:768px){
+  .pattern-grid{grid-template-columns:1fr;max-width:400px;margin-left:auto;margin-right:auto}
+}
+
 /* FAQ */
 .faq-section{padding:64px 16px;background:var(--gray-50)}
 .faq-inner{max-width:720px;margin:0 auto}
@@ -292,6 +307,28 @@
       <div class="trial-reassure">
         <span class="trial-reassure-icon">&#128274;</span>
         <div>トライアル中に作成したデータ（活動履歴・シール・レベルなど）は、フリープランに移行した後もそのまま保持されます。有料プランにアップグレードすれば、すべてのデータを引き続きご利用いただけます。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Family Usage Patterns -->
+<section class="family-patterns">
+  <div class="family-patterns-inner">
+    <h2 class="family-patterns-title">ファミリープランの使い方</h2>
+    <p class="family-patterns-subtitle">ご家庭の環境に合わせて、2つのスタイルからお選びいただけます</p>
+    <div class="pattern-grid">
+      <div class="pattern-card">
+        <span class="pattern-tag">かんたんスタート</span>
+        <img src="assets/family-pattern-shared.jpg" alt="親アカウント共用型の図解：親が1つのアカウントで管理し、同じ端末でお子さまと画面を切り替えて使う" width="800" height="450" loading="lazy">
+        <h3>親アカウント共用型</h3>
+        <p>親が1つのアカウントを作成し、同じ端末でお子さまと画面を切り替えて使います。設定も操作もシンプルで、すぐに始められます。</p>
+      </div>
+      <div class="pattern-card">
+        <span class="pattern-tag">家族みんなで</span>
+        <img src="assets/family-pattern-invite.jpg" alt="個別アカウント＋招待リンク型の図解：家族それぞれが自分のアカウントで参加し、家族メンバーが離れた場所から見守れる" width="800" height="450" loading="lazy">
+        <h3>個別アカウント＋招待リンク型</h3>
+        <p>親がファミリーグループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。</p>
       </div>
     </div>
   </div>
