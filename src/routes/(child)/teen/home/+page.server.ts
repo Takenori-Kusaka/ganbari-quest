@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
+import { logger } from '$lib/server/logger';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import {
@@ -310,8 +311,12 @@ export const actions: Actions = {
 		let weeklyRedeem: Awaited<ReturnType<typeof autoRedeemPreviousWeek>> = null;
 		try {
 			weeklyRedeem = await autoRedeemPreviousWeek(childId, tenantId, loginMultiplier);
-		} catch {
-			// auto-redeem failure should not block the stamp flow
+		} catch (error) {
+			logger.error('[stamp] autoRedeemPreviousWeek failed', {
+				error: String(error),
+				context: { childId, tenantId },
+			});
+			weeklyRedeem = null;
 		}
 
 		return {

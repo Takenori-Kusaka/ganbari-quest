@@ -9,8 +9,9 @@ import {
 	findEntriesWithMasterByCardId,
 	insertCard,
 	insertEntry,
-	updateCardStatus,
+	updateCardStatusIfCollecting,
 } from '$lib/server/db/stamp-card-repo';
+import { logger } from '$lib/server/logger';
 
 // レア度別排出確率
 const RARITY_WEIGHTS: Record<string, number> = {
@@ -69,15 +70,15 @@ export interface StampCardData {
 
 /** 今週の月曜日と日曜日を取得 */
 function getWeekRange(dateStr: string): { weekStart: string; weekEnd: string } {
-	const d = new Date(`${dateStr}T00:00:00`);
-	const day = d.getDay();
+	const d = new Date(`${dateStr}T00:00:00Z`);
+	const day = d.getUTCDay();
 	const diffToMonday = day === 0 ? -6 : 1 - day;
 	const monday = new Date(d);
-	monday.setDate(d.getDate() + diffToMonday);
+	monday.setUTCDate(d.getUTCDate() + diffToMonday);
 	const sunday = new Date(monday);
-	sunday.setDate(monday.getDate() + 6);
+	sunday.setUTCDate(monday.getUTCDate() + 6);
 	const fmt = (dt: Date) =>
-		`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+		`${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
 	return { weekStart: fmt(monday), weekEnd: fmt(sunday) };
 }
 
@@ -224,15 +225,22 @@ export async function stampToday(
 	};
 
 	// 即時ポイント付与（毎日の小さな報酬）
-	await insertPointEntry(
-		{
-			childId,
-			amount: INSTANT_STAMP_POINTS,
-			type: 'stamp_instant',
-			description: `スタンプ押印 +${INSTANT_STAMP_POINTS}pt`,
-		},
-		tenantId,
-	);
+	try {
+		await insertPointEntry(
+			{
+				childId,
+				amount: INSTANT_STAMP_POINTS,
+				type: 'stamp_instant',
+				description: `スタンプ押印 +${INSTANT_STAMP_POINTS}pt`,
+			},
+			tenantId,
+		);
+	} catch (error) {
+		logger.error('[stamp] insertPointEntry failed after stamp insert', {
+			error: String(error),
+			context: { childId, tenantId, cardId: cardData.id, slot: nextSlot },
+		});
+	}
 
 	// 更新後のカード取得
 	const updatedCard = await getOrCreateCurrentCard(childId, tenantId);
@@ -285,9 +293,9 @@ export async function redeemStampCard(
 		loginMultiplier,
 	);
 
-	// カードを引き換え済みに更新
+	// カードを引き換え済みに更新（冪等ガード: 同時リクエスト対策）
 	const now = new Date().toISOString();
-	await updateCardStatus(
+	const affected = await updateCardStatusIfCollecting(
 		cardData.id,
 		{
 			status: 'redeemed',
@@ -297,6 +305,10 @@ export async function redeemStampCard(
 		},
 		tenantId,
 	);
+
+	if (affected === 0) {
+		return { error: 'ALREADY_REDEEMED' as const };
+	}
 
 	// ポイント付与
 	await insertPointEntry(
@@ -328,10 +340,10 @@ export async function autoRedeemPreviousWeek(
 	const today = todayDateJST();
 	const { weekStart } = getWeekRange(today);
 
-	// 前週の月曜日を算出
-	const prevMonday = new Date(`${weekStart}T00:00:00`);
-	prevMonday.setDate(prevMonday.getDate() - 7);
-	const prevWeekStart = `${prevMonday.getFullYear()}-${String(prevMonday.getMonth() + 1).padStart(2, '0')}-${String(prevMonday.getDate()).padStart(2, '0')}`;
+	// 前週の月曜日を算出（UTC固定で計算し、Lambda環境のTZ影響を避ける）
+	const prevMonday = new Date(`${weekStart}T00:00:00Z`);
+	prevMonday.setUTCDate(prevMonday.getUTCDate() - 7);
+	const prevWeekStart = `${prevMonday.getUTCFullYear()}-${String(prevMonday.getUTCMonth() + 1).padStart(2, '0')}-${String(prevMonday.getUTCDate()).padStart(2, '0')}`;
 
 	const prevCard = await findCardByChildAndWeek(childId, prevWeekStart, tenantId);
 	if (!prevCard || prevCard.status === 'redeemed') {
@@ -359,12 +371,17 @@ export async function autoRedeemPreviousWeek(
 		loginMultiplier,
 	);
 
+	// 冪等ガード: 同時リクエストで二重付与を防ぐ
 	const now = new Date().toISOString();
-	await updateCardStatus(
+	const affected = await updateCardStatusIfCollecting(
 		prevCard.id,
 		{ status: 'redeemed', redeemedPoints: total, redeemedAt: now, updatedAt: now },
 		tenantId,
 	);
+
+	if (affected === 0) {
+		return null;
+	}
 
 	await insertPointEntry(
 		{

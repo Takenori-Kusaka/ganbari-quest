@@ -36,8 +36,8 @@ const rarityGlow: Record<string, string | undefined> = {
 };
 
 function formatDateShort(dateStr: string): string {
-	const d = new Date(`${dateStr}T00:00:00`);
-	return `${d.getMonth() + 1}/${d.getDate()}`;
+	const parts = dateStr.split('-');
+	return `${Number(parts[1])}/${Number(parts[2])}`;
 }
 
 /** Determine if a slot is "today" — the first empty slot if card is collecting */
