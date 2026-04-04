@@ -5,10 +5,18 @@ import { logger } from '$lib/server/logger';
 import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/onboarding-service';
-import { getPlanLimits, resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import {
+	getPlanLimits,
+	isPaidTier,
+	resolvePlanTier,
+} from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
-import { getMemoryTicketStatus } from '$lib/server/services/seasonal-content-service';
+import {
+	getMemoryTicketStatus,
+	getSeasonPassForChildReadOnly,
+} from '$lib/server/services/seasonal-content-service';
+import type { SeasonPassSummary } from '$lib/server/services/seasonal-content-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -85,6 +93,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 
 	// 季節コンテンツ情報（G6+G7: 思い出チケット＋管理表示）
+	// イベント一覧を一度だけ取得し、seasonalInfo とシーズンパス両方で共有する
+	const today = new Date().toISOString().slice(0, 10);
+	let allActiveEvents: Awaited<ReturnType<typeof findActiveEvents>> = [];
+	try {
+		allActiveEvents = await findActiveEvents(today, tenantId);
+	} catch {
+		// イベント取得失敗はページに影響させない
+	}
+
 	let seasonalInfo: {
 		activeEvents: {
 			name: string;
@@ -96,9 +113,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		memoryTicket: Awaited<ReturnType<typeof getMemoryTicketStatus>> | null;
 	} | null = null;
 	try {
-		const today = new Date().toISOString().slice(0, 10);
-		const events = await findActiveEvents(today, tenantId);
-		const activeEvents = events.map((e) => ({
+		const activeEvents = allActiveEvents.map((e) => ({
 			name: e.name,
 			eventType: e.eventType,
 			startDate: e.startDate,
@@ -120,6 +135,40 @@ export const load: PageServerLoad = async ({ locals }) => {
 		// 季節情報取得失敗はページに影響させない
 	}
 
+	// シーズンパス進捗（子供ごと）— 読み取り専用で取得（auto-join しない）
+	const seasonPassByChild: Record<number, SeasonPassSummary> = {};
+	try {
+		const passEvent = allActiveEvents.find((e) => e.eventType === 'season_pass');
+		if (passEvent) {
+			const premium = isPaidTier(tier);
+			const seasonPassEntries = await Promise.all(
+				children.map(async (child) => {
+					const sp = await getSeasonPassForChildReadOnly(
+						child.id,
+						passEvent,
+						tenantId,
+						premium,
+					).catch(() => null);
+					return [child.id, sp] as const;
+				}),
+			);
+			for (const [childId, sp] of seasonPassEntries) {
+				if (sp) {
+					// ペイロード削減: 表示に必要なフィールドだけ返す
+					seasonPassByChild[childId] = {
+						eventName: sp.event.name,
+						bannerIcon: sp.event.bannerIcon,
+						progress: sp.progress,
+						milestones: sp.milestones,
+						remainingDays: sp.remainingDays,
+					};
+				}
+			}
+		}
+	} catch {
+		// シーズンパス取得失敗はページに影響させない
+	}
+
 	return {
 		children: childrenWithStatus,
 		onboarding,
@@ -128,6 +177,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		planStats,
 		showPremiumWelcome,
 		seasonalInfo,
+		seasonPassByChild,
 	};
 };
 
