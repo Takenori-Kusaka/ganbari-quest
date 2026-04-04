@@ -1,70 +1,92 @@
 // src/lib/server/services/trial-service.ts
-// リバーストライアル管理サービス (#0270)
+// トライアル管理サービス (#314 リファクタ)
+// trial_history テーブルベースに移行。settings の trial_* は後方互換用に読み取りのみ。
 
-import { getSettings, setSetting } from '$lib/server/db/settings-repo';
+import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 
-const TRIAL_DURATION_DAYS = 7;
+const DEFAULT_TRIAL_DAYS = 7;
+const DEFAULT_TRIAL_TIER = 'standard' as const;
+
+export type TrialSource = 'user_initiated' | 'campaign' | 'admin_grant';
+export type TrialTier = 'standard' | 'family';
 
 export interface TrialStatus {
 	isTrialActive: boolean;
 	trialUsed: boolean;
 	trialStartDate: string | null;
 	trialEndDate: string | null;
+	trialTier: TrialTier | null;
 	daysRemaining: number;
+	source: TrialSource | null;
+}
+
+export interface StartTrialInput {
+	tenantId: string;
+	source: TrialSource;
+	tier?: TrialTier;
+	durationDays?: number;
+	campaignId?: string;
 }
 
 /**
- * トライアル状態を取得
+ * トライアル状態を取得（trial_history テーブルから最新レコードを参照）
  */
 export async function getTrialStatus(tenantId: string): Promise<TrialStatus> {
-	const settings = await getSettings(
-		['trial_start_date', 'trial_end_date', 'trial_used'],
-		tenantId,
-	);
+	const latest = await getRepos().trialHistory.findLatestByTenant(tenantId);
 
-	const trialStartDate = settings.trial_start_date ?? null;
-	const trialEndDate = settings.trial_end_date ?? null;
-	const trialUsed = settings.trial_used === '1';
-
-	if (!trialEndDate) {
+	if (!latest) {
 		return {
 			isTrialActive: false,
-			trialUsed,
-			trialStartDate,
-			trialEndDate,
+			trialUsed: false,
+			trialStartDate: null,
+			trialEndDate: null,
+			trialTier: null,
 			daysRemaining: 0,
+			source: null,
 		};
 	}
 
 	const now = new Date();
-	const end = new Date(trialEndDate);
-	const isTrialActive = end > now;
-	const daysRemaining = isTrialActive
+	const end = new Date(latest.endDate);
+	const isActive = end > now;
+	const daysRemaining = isActive
 		? Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 		: 0;
 
 	return {
-		isTrialActive,
-		trialUsed,
-		trialStartDate,
-		trialEndDate,
+		isTrialActive: isActive,
+		trialUsed: true,
+		trialStartDate: latest.startDate,
+		trialEndDate: latest.endDate,
+		trialTier: latest.tier as TrialTier,
 		daysRemaining,
+		source: latest.source as TrialSource,
 	};
 }
 
 /**
- * トライアルを開始（サインアップ時に呼ばれる）
- * trialUsed=true のテナントには開始しない
+ * トライアルを開始（ユーザー明示操作 or キャンペーン or 管理者付与）
+ * source='user_initiated' の場合、過去にトライアル使用済みなら拒否
+ * source='campaign' or 'admin_grant' の場合、再付与を許可
  */
-export async function startTrial(tenantId: string): Promise<boolean> {
+export async function startTrial(input: StartTrialInput): Promise<boolean> {
+	const {
+		tenantId,
+		source,
+		tier = DEFAULT_TRIAL_TIER,
+		durationDays = DEFAULT_TRIAL_DAYS,
+		campaignId,
+	} = input;
 	const status = await getTrialStatus(tenantId);
 
-	if (status.trialUsed) {
-		logger.info('Trial already used, skipping', { context: { tenantId } });
+	// ユーザー自発開始: 1回限り
+	if (source === 'user_initiated' && status.trialUsed) {
+		logger.info('Trial already used, user_initiated request rejected', { context: { tenantId } });
 		return false;
 	}
 
+	// 現在アクティブなトライアルがあれば重複開始しない
 	if (status.isTrialActive) {
 		logger.info('Trial already active, skipping', { context: { tenantId } });
 		return false;
@@ -72,16 +94,21 @@ export async function startTrial(tenantId: string): Promise<boolean> {
 
 	const now = new Date();
 	const end = new Date(now);
-	end.setDate(end.getDate() + TRIAL_DURATION_DAYS);
+	end.setDate(end.getDate() + durationDays);
 
 	const startStr = formatDate(now);
 	const endStr = formatDate(end);
 
-	await setSetting('trial_start_date', startStr, tenantId);
-	await setSetting('trial_end_date', endStr, tenantId);
-	await setSetting('trial_used', '1', tenantId);
+	await getRepos().trialHistory.insert({
+		tenantId,
+		startDate: startStr,
+		endDate: endStr,
+		tier,
+		source,
+		campaignId: campaignId ?? null,
+	});
 
-	logger.info('Trial started', { context: { tenantId, startStr, endStr } });
+	logger.info('Trial started', { context: { tenantId, startStr, endStr, tier, source } });
 	return true;
 }
 
@@ -97,11 +124,16 @@ export async function isTrialActive(tenantId: string): Promise<boolean> {
  * トライアル終了日を取得（null = トライアルなし or 終了済み）
  */
 export async function getTrialEndDate(tenantId: string): Promise<string | null> {
-	const settings = await getSettings(['trial_end_date'], tenantId);
-	const endDate = settings.trial_end_date ?? null;
-	if (!endDate) return null;
-	if (new Date(endDate) <= new Date()) return null;
-	return endDate;
+	const status = await getTrialStatus(tenantId);
+	return status.isTrialActive ? status.trialEndDate : null;
+}
+
+/**
+ * アクティブなトライアルのティアを取得
+ */
+export async function getTrialTier(tenantId: string): Promise<TrialTier | null> {
+	const status = await getTrialStatus(tenantId);
+	return status.isTrialActive ? status.trialTier : null;
 }
 
 function formatDate(d: Date): string {

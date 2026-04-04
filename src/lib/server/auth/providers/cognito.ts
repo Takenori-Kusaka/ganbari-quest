@@ -260,15 +260,8 @@ export class CognitoAuthProvider implements AuthProvider {
 				role: 'owner',
 			});
 
-			// リバーストライアル自動開始 (#0270)
-			try {
-				const { startTrial } = await import('$lib/server/services/trial-service');
-				await startTrial(tenant.tenantId);
-			} catch (e) {
-				logger.warn('[AUTH] Trial start failed (non-blocking)', {
-					error: e instanceof Error ? e.message : String(e),
-				});
-			}
+			// #314: サインアップ時の自動トライアル開始を廃止
+			// トライアルはユーザーが管理画面から明示的に開始する
 
 			logger.info('[AUTH] Auto-provisioned new user', {
 				context: {
