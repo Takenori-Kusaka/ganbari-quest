@@ -46,6 +46,15 @@ export interface SeasonPassData {
 	remainingDays: number;
 }
 
+/** 管理画面向けの軽量シーズンパスサマリー（ペイロード削減） */
+export interface SeasonPassSummary {
+	eventName: string;
+	bannerIcon: string;
+	progress: SeasonPassProgress;
+	milestones: SeasonPassData['milestones'];
+	remainingDays: number;
+}
+
 export interface MonthlyRewardConfig {
 	type: 'monthly_premium_reward';
 	rewardType: 'title' | 'badge' | 'bonus_points';
@@ -89,23 +98,25 @@ function parseSeasonPassProgress(progressJson: string | null): SeasonPassProgres
 	}
 }
 
-/** 現在のシーズンパスを取得（子供向け） */
-export async function getSeasonPassForChild(
+/**
+ * シーズンパスの進捗を読み取り専用で取得する内部ヘルパー。
+ * passEvent を外部から受け取ることで N+1 の findActiveEvents 呼び出しを回避する。
+ * readOnly=true のとき auto-join（upsertChildProgress）をスキップする。
+ */
+async function resolveSeasonPass(
 	childId: number,
+	passEvent: SeasonEvent,
 	tenantId: string,
 	isPremium: boolean,
+	readOnly: boolean,
 ): Promise<SeasonPassData | null> {
-	const today = new Date().toISOString().slice(0, 10);
-	const events = await findActiveEvents(today, tenantId);
-	const passEvent = events.find((e) => e.eventType === 'season_pass');
-	if (!passEvent) return null;
-
 	const config = parseSeasonPassConfig(passEvent.missionConfig);
 	if (!config) return null;
 
-	// Auto-join
 	let progressRow = await findChildProgress(childId, passEvent.id, tenantId);
-	if (!progressRow) {
+
+	if (!progressRow && !readOnly) {
+		// Auto-join (write path only)
 		await upsertChildProgress(childId, passEvent.id, 'active', null, tenantId);
 		progressRow = await findChildProgress(childId, passEvent.id, tenantId);
 	}
@@ -126,6 +137,34 @@ export async function getSeasonPassForChild(
 	const remainingDays = Math.max(0, Math.ceil((endDate.getTime() - Date.now()) / 86400000));
 
 	return { event: passEvent, progress, milestones, remainingDays };
+}
+
+/** 現在のシーズンパスを取得（子供向け — auto-join あり） */
+export async function getSeasonPassForChild(
+	childId: number,
+	tenantId: string,
+	isPremium: boolean,
+): Promise<SeasonPassData | null> {
+	const today = new Date().toISOString().slice(0, 10);
+	const events = await findActiveEvents(today, tenantId);
+	const passEvent = events.find((e) => e.eventType === 'season_pass');
+	if (!passEvent) return null;
+
+	return resolveSeasonPass(childId, passEvent, tenantId, isPremium, false);
+}
+
+/**
+ * 読み取り専用でシーズンパス進捗を取得（管理画面用）。
+ * auto-join をスキップするため、閲覧だけで参加レコードが作られない。
+ * passEvent を外部から渡すことで findActiveEvents の N+1 呼び出しを回避する。
+ */
+export async function getSeasonPassForChildReadOnly(
+	childId: number,
+	passEvent: SeasonEvent,
+	tenantId: string,
+	isPremium: boolean,
+): Promise<SeasonPassData | null> {
+	return resolveSeasonPass(childId, passEvent, tenantId, isPremium, true);
 }
 
 /** シーズンパスのマイルストーン報酬を受け取る */

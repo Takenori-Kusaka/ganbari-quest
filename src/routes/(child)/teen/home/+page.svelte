@@ -17,7 +17,6 @@ import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import FamilyStreakBanner from '$lib/ui/components/FamilyStreakBanner.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
-import SeasonPassCard from '$lib/ui/components/SeasonPassCard.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
@@ -553,19 +552,6 @@ $effect(() => {
 		/>
 	{/if}
 
-	<!-- Season pass card -->
-	{#if data.seasonPass}
-		<SeasonPassCard
-			eventName={data.seasonPass.event.name}
-			eventId={data.seasonPass.event.id}
-			bannerIcon={data.seasonPass.event.bannerIcon}
-			milestones={data.seasonPass.milestones}
-			currentCount={data.seasonPass.progress.count}
-			maxTarget={Math.max(...data.seasonPass.milestones.map((m: { target: number }) => m.target), 1)}
-			remainingDays={data.seasonPass.remainingDays}
-			isPremium={data.isPremium ?? false}
-		/>
-	{/if}
 
 	<!-- Sibling challenge banners -->
 	{#if data.activeChallenges && data.activeChallenges.length > 0}
