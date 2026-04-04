@@ -152,20 +152,8 @@ describe('createCheckoutSession', () => {
 		expect(mockSessionCreate).toHaveBeenCalledTimes(1);
 	});
 
-	it('トライアル未使用 → trial_period_days が設定される', async () => {
+	it('#314: Stripe側trial_period_daysは廃止（アプリ側一元管理）', async () => {
 		mockFindTenantById.mockResolvedValue(makeTenant({ trialUsedAt: null }));
-		await createCheckoutSession({
-			tenantId: 't-test',
-			planId: 'monthly',
-			successUrl: 'https://app/success',
-			cancelUrl: 'https://app/cancel',
-		});
-		const params = mockSessionCreate.mock.calls[0]?.[0];
-		expect(params.subscription_data.trial_period_days).toBe(7);
-	});
-
-	it('トライアル使用済み → trial_period_days が undefined', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant({ trialUsedAt: '2026-01-01T00:00:00Z' }));
 		await createCheckoutSession({
 			tenantId: 't-test',
 			planId: 'monthly',

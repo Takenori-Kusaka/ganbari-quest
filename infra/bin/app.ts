@@ -36,6 +36,7 @@ new AuthStack(app, `${appName}Auth`, {
 	appDomain: domainName,
 	googleClientId,
 	googleClientSecret,
+	certificateArn,
 });
 
 // ComputeStack は SSM パラメータ経由で Cognito 設定を取得（cross-stack export 回避）

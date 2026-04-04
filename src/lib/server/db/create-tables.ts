@@ -637,4 +637,17 @@ export const SQL_CREATE_TABLES = `
 		ON auto_challenges(tenant_id);
 	CREATE INDEX IF NOT EXISTS idx_auto_challenges_status
 		ON auto_challenges(status);
+
+	CREATE TABLE IF NOT EXISTS trial_history (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		start_date TEXT NOT NULL,
+		end_date TEXT NOT NULL,
+		tier TEXT NOT NULL DEFAULT 'standard',
+		source TEXT NOT NULL,
+		campaign_id TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX IF NOT EXISTS idx_trial_history_tenant
+		ON trial_history(tenant_id);
 `;

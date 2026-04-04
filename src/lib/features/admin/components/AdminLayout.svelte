@@ -5,6 +5,19 @@ import Logo from '$lib/ui/components/Logo.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import { markTutorialStarted, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
 
+interface NavItem {
+	href: string;
+	label: string;
+	icon: string;
+}
+
+interface NavCategory {
+	id: string;
+	label: string;
+	icon: string;
+	items: NavItem[];
+}
+
 interface Props {
 	children: Snippet;
 	mode: 'live' | 'demo';
@@ -34,20 +47,99 @@ $effect(() => {
 	return () => window.removeEventListener('pageshow', handlePageShow);
 });
 
-const primaryNavItems = $derived([
-	{ href: basePath, label: 'ホーム', icon: '🏠' },
-	{ href: `${basePath}/activities`, label: '活動', icon: '📋' },
-	{ href: `${basePath}/children`, label: 'こども', icon: '👧' },
-	{ href: `${basePath}/points`, label: 'ポイント', icon: '⭐' },
-	{ href: `${basePath}/events`, label: 'イベント', icon: '🎉' },
-	{ href: `${basePath}/challenges`, label: 'チャレンジ', icon: '👥' },
-	{ href: `${basePath}/reports`, label: 'レポート', icon: '📊' },
-	{ href: `${basePath}/settings`, label: '設定', icon: '⚙️' },
+const navCategories: NavCategory[] = $derived([
+	{
+		id: 'monitor',
+		label: 'みまもり',
+		icon: '📊',
+		items: [
+			{ href: `${basePath}/reports`, label: 'レポート', icon: '📊' },
+			{ href: `${basePath}/growth-book`, label: 'グロースブック', icon: '📚' },
+			{ href: `${basePath}/achievements`, label: 'チャレンジ履歴', icon: '🏅' },
+		],
+	},
+	{
+		id: 'encourage',
+		label: 'はげまし',
+		icon: '💬',
+		items: [
+			{ href: `${basePath}/points`, label: 'ポイント', icon: '⭐' },
+			{ href: `${basePath}/rewards`, label: 'ごほうび', icon: '🎁' },
+			{ href: `${basePath}/messages`, label: 'メッセージ', icon: '💌' },
+		],
+	},
+	{
+		id: 'customize',
+		label: 'カスタマイズ',
+		icon: '🎮',
+		items: [
+			{ href: `${basePath}/activities`, label: '活動管理', icon: '📋' },
+			{ href: `${basePath}/checklists`, label: 'チェックリスト', icon: '✅' },
+			{ href: `${basePath}/events`, label: 'イベント', icon: '🎉' },
+			{ href: `${basePath}/challenges`, label: 'チャレンジ', icon: '👥' },
+		],
+	},
+	{
+		id: 'settings',
+		label: '設定',
+		icon: '⚙️',
+		items: [
+			{ href: `${basePath}/children`, label: 'こども', icon: '👧' },
+			{ href: `${basePath}/settings`, label: 'アカウント', icon: '⚙️' },
+			{ href: `${basePath}/license`, label: 'プラン', icon: '💎' },
+			{ href: `${basePath}/members`, label: 'メンバー', icon: '👥' },
+		],
+	},
 ]);
 
-function isNavActive(itemHref: string, currentPath: string): boolean {
-	if (itemHref === basePath) return currentPath === basePath;
-	return currentPath.startsWith(itemHref);
+// Current active category based on URL
+const activeCategoryId = $derived.by(() => {
+	const path = $page.url.pathname;
+	for (const cat of navCategories) {
+		for (const item of cat.items) {
+			if (path.startsWith(item.href)) return cat.id;
+		}
+	}
+	return null;
+});
+
+// Mobile: expanded category submenu
+let mobileExpandedCategory = $state<string | null>(null);
+
+function handleMobileCategoryClick(categoryId: string) {
+	if (mobileExpandedCategory === categoryId) {
+		mobileExpandedCategory = null;
+	} else {
+		mobileExpandedCategory = categoryId;
+	}
+}
+
+// Close mobile submenu on navigation
+$effect(() => {
+	$page.url.pathname;
+	mobileExpandedCategory = null;
+});
+
+// Desktop: expanded dropdown
+let desktopExpandedCategory = $state<string | null>(null);
+let dropdownCloseTimer: ReturnType<typeof setTimeout> | null = null;
+
+function handleDesktopCategoryEnter(categoryId: string) {
+	if (dropdownCloseTimer) {
+		clearTimeout(dropdownCloseTimer);
+		dropdownCloseTimer = null;
+	}
+	desktopExpandedCategory = categoryId;
+}
+
+function handleDesktopCategoryLeave() {
+	dropdownCloseTimer = setTimeout(() => {
+		desktopExpandedCategory = null;
+	}, 150);
+}
+
+function isItemActive(itemHref: string): boolean {
+	return $page.url.pathname.startsWith(itemHref);
 }
 </script>
 
@@ -56,7 +148,9 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 	<header class="admin-header sticky {isDemo ? 'top-10' : 'top-0'} z-30 backdrop-blur border-b border-gray-200 px-4 py-3">
 		<div class="max-w-4xl mx-auto flex items-center justify-between">
 			<div class="flex items-center gap-2">
-				<Logo variant="compact" size={120} planTier={isPremium ? planTier : undefined} />
+				<a href={basePath} class="flex items-center">
+					<Logo variant="compact" size={120} planTier={isPremium ? planTier : undefined} />
+				</a>
 				<span class="text-xs font-medium text-gray-400 border border-gray-300 rounded px-1.5 py-0.5">管理</span>
 				{#if isDemo}
 					<span class="text-xs font-medium text-amber-500 border border-amber-300 rounded px-1.5 py-0.5">デモ</span>
@@ -82,6 +176,7 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 						class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors text-sm font-bold"
 						title="チュートリアルを開始"
 						data-tutorial="tutorial-restart"
+						type="button"
 					>
 						?
 					</button>
@@ -98,19 +193,48 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 		</div>
 	</header>
 
-	<!-- Desktop Navigation (>=768px) -->
-	<nav class="hidden md:block bg-white border-b border-gray-100 px-4 py-2">
+	<!-- Desktop Navigation (>=768px) — 4カテゴリ + ドロップダウン -->
+	<nav class="hidden md:block bg-white border-b border-gray-100 px-4 py-2" aria-label="管理メニュー">
 		<div class="max-w-4xl mx-auto flex gap-1">
-			{#each primaryNavItems as item}
-				{@const isActive = isNavActive(item.href, $page.url.pathname)}
-				<a
-					href={item.href}
-					class="nav-item {isActive ? 'nav-item--active' : ''}"
-					aria-current={isActive ? 'page' : undefined}
+			{#each navCategories as category}
+				{@const isActive = activeCategoryId === category.id}
+				<div
+					class="relative"
+					role="none"
+					onmouseenter={() => handleDesktopCategoryEnter(category.id)}
+					onmouseleave={handleDesktopCategoryLeave}
 				>
-					<span aria-hidden="true">{item.icon}</span>
-					{item.label}
-				</a>
+					<button
+						type="button"
+						class="nav-item {isActive ? 'nav-item--active' : ''}"
+						aria-expanded={desktopExpandedCategory === category.id}
+						aria-haspopup="true"
+						onclick={() => handleDesktopCategoryEnter(category.id)}
+					>
+						<span aria-hidden="true">{category.icon}</span>
+						{category.label}
+						<span class="text-[10px] ml-0.5 opacity-50" aria-hidden="true">▾</span>
+					</button>
+					{#if desktopExpandedCategory === category.id}
+						<div
+							class="desktop-dropdown"
+							role="menu"
+							onmouseenter={() => handleDesktopCategoryEnter(category.id)}
+							onmouseleave={handleDesktopCategoryLeave}
+						>
+							{#each category.items as item}
+								<a
+									href={item.href}
+									class="dropdown-item {isItemActive(item.href) ? 'dropdown-item--active' : ''}"
+									role="menuitem"
+								>
+									<span aria-hidden="true">{item.icon}</span>
+									{item.label}
+								</a>
+							{/each}
+						</div>
+					{/if}
+				</div>
 			{/each}
 		</div>
 	</nav>
@@ -131,19 +255,50 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 		{/if}
 	</main>
 
-	<!-- Mobile Bottom Navigation (<768px) -->
+	<!-- Mobile Bottom Navigation (<768px) — 4カテゴリ -->
 	<nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 safe-area-bottom" aria-label="メインナビゲーション" data-tutorial="nav-primary">
+		<!-- Expanded submenu panel -->
+		{#if mobileExpandedCategory}
+			{@const expandedCat = navCategories.find((c) => c.id === mobileExpandedCategory)}
+			{#if expandedCat}
+				<!-- Backdrop -->
+				<button
+					type="button"
+					class="fixed inset-0 z-[-1]"
+					onclick={() => (mobileExpandedCategory = null)}
+					aria-label="メニューを閉じる"
+				></button>
+				<div class="mobile-submenu">
+					<div class="text-xs font-bold text-gray-400 mb-2 px-1">{expandedCat.label}</div>
+					<div class="grid grid-cols-3 gap-2">
+						{#each expandedCat.items as item}
+							<a
+								href={item.href}
+								class="mobile-submenu-item {isItemActive(item.href) ? 'mobile-submenu-item--active' : ''}"
+							>
+								<span class="text-lg" aria-hidden="true">{item.icon}</span>
+								<span class="text-[10px] font-medium leading-tight text-center">{item.label}</span>
+							</a>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		{/if}
+
+		<!-- Category buttons -->
 		<div class="flex justify-around items-center h-16">
-			{#each primaryNavItems as item}
-				{@const isActive = isNavActive(item.href, $page.url.pathname)}
-				<a
-					href={item.href}
-					class="mobile-nav-item {isActive ? 'mobile-nav-item--active' : ''}"
-					aria-current={isActive ? 'page' : undefined}
+			{#each navCategories as category}
+				{@const isActive = activeCategoryId === category.id}
+				<button
+					type="button"
+					class="mobile-nav-item {isActive ? 'mobile-nav-item--active' : ''} {mobileExpandedCategory === category.id ? 'mobile-nav-item--expanded' : ''}"
+					onclick={() => handleMobileCategoryClick(category.id)}
+					aria-expanded={mobileExpandedCategory === category.id}
+					aria-haspopup="true"
 				>
-					<span class="text-xl" aria-hidden="true">{item.icon}</span>
-					<span class="text-[10px] font-medium leading-none">{item.label}</span>
-				</a>
+					<span class="text-xl" aria-hidden="true">{category.icon}</span>
+					<span class="text-[10px] font-medium leading-none">{category.label}</span>
+				</button>
 			{/each}
 		</div>
 	</nav>
@@ -197,7 +352,7 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 		background: var(--plan-badge-bg, #fef3c7);
 		color: var(--plan-badge-text, #92400e);
 	}
-	/* Desktop nav */
+	/* Desktop nav — category buttons */
 	.nav-item {
 		display: flex;
 		align-items: center;
@@ -209,6 +364,9 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 		transition: all 0.15s;
 		white-space: nowrap;
 		color: var(--color-text-secondary, #4b5563);
+		cursor: pointer;
+		border: none;
+		background: none;
 	}
 	.nav-item:hover {
 		background: var(--plan-nav-bg, #e8f4fd);
@@ -218,22 +376,99 @@ function isNavActive(itemHref: string, currentPath: string): boolean {
 		background: var(--plan-nav-active, #dbeafe);
 		color: var(--plan-nav-text, var(--color-brand-700));
 	}
-	/* Mobile nav */
+	/* Desktop dropdown */
+	.desktop-dropdown {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		min-width: 180px;
+		background: white;
+		border: 1px solid var(--color-border, #e5e7eb);
+		border-radius: 0.5rem;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		padding: 0.25rem;
+		z-index: 50;
+		margin-top: 0.25rem;
+	}
+	.dropdown-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.375rem;
+		font-size: 0.8125rem;
+		color: var(--color-text-secondary, #4b5563);
+		transition: all 0.1s;
+		white-space: nowrap;
+	}
+	.dropdown-item:hover {
+		background: var(--plan-nav-bg, #e8f4fd);
+		color: var(--plan-nav-text, var(--color-brand-600));
+	}
+	.dropdown-item--active {
+		background: var(--plan-nav-active, #dbeafe);
+		color: var(--plan-nav-text, var(--color-brand-700));
+		font-weight: 600;
+	}
+	/* Mobile nav — category buttons */
 	.mobile-nav-item {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		gap: 2px;
-		width: 4rem;
+		width: 4.5rem;
 		height: 100%;
 		transition: color 0.15s;
 		color: var(--color-text-tertiary, #9ca3af);
+		border: none;
+		background: none;
+		cursor: pointer;
+		padding: 0;
 	}
 	.mobile-nav-item:hover {
 		color: var(--color-text-secondary, #4b5563);
 	}
 	.mobile-nav-item--active {
 		color: var(--plan-primary, var(--color-brand-600));
+	}
+	.mobile-nav-item--expanded {
+		color: var(--plan-primary, var(--color-brand-600));
+	}
+	/* Mobile submenu panel */
+	.mobile-submenu {
+		background: white;
+		border-top: 1px solid var(--color-border, #e5e7eb);
+		padding: 12px 16px;
+		animation: slideUp 0.15s ease-out;
+	}
+	@keyframes slideUp {
+		from {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	.mobile-submenu-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 4px;
+		padding: 10px 4px;
+		border-radius: 0.5rem;
+		color: var(--color-text-secondary, #4b5563);
+		transition: all 0.1s;
+	}
+	.mobile-submenu-item:hover {
+		background: var(--plan-nav-bg, #e8f4fd);
+	}
+	.mobile-submenu-item--active {
+		background: var(--plan-nav-active, #dbeafe);
+		color: var(--plan-nav-text, var(--color-brand-700));
+		font-weight: 600;
 	}
 </style>
