@@ -91,6 +91,27 @@ img{max-width:100%;height:auto}
 .check{color:var(--green-500);font-weight:700}
 .dash{color:var(--gray-300)}
 
+/* Trial Info */
+.trial-section{padding:64px 16px}
+.trial-inner{max-width:720px;margin:0 auto}
+.trial-box{background:linear-gradient(135deg,var(--brand-50) 0%,var(--violet-100) 100%);border:2px solid var(--brand-300);border-radius:var(--radius);padding:40px 32px}
+.trial-heading{font-size:1.4rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:8px}
+.trial-subheading{font-size:.95rem;color:var(--gray-500);text-align:center;margin-bottom:28px}
+.trial-steps{list-style:none;padding:0;display:flex;flex-direction:column;gap:16px;margin-bottom:28px}
+.trial-step{display:flex;align-items:flex-start;gap:14px;font-size:.92rem;color:var(--gray-700);line-height:1.6}
+.trial-step-icon{flex-shrink:0;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700}
+.trial-step-icon.blue{background:var(--brand-200);color:var(--brand-800)}
+.trial-step-icon.green{background:var(--green-100);color:var(--green-500)}
+.trial-step-icon.gold{background:var(--gold-100);color:var(--gold-600)}
+.trial-step-icon.violet{background:var(--violet-100);color:var(--violet-600)}
+.trial-step strong{color:var(--gray-900)}
+.trial-reassure{background:#fff;border-radius:8px;padding:16px 20px;display:flex;align-items:center;gap:12px;font-size:.88rem;color:var(--gray-700);line-height:1.6;border:1px solid var(--gray-200)}
+.trial-reassure-icon{font-size:1.5rem;flex-shrink:0}
+@media(max-width:768px){
+  .trial-box{padding:28px 20px}
+  .trial-heading{font-size:1.2rem}
+}
+
 /* FAQ */
 .faq-section{padding:64px 16px;background:var(--gray-50)}
 .faq-inner{max-width:720px;margin:0 auto}
@@ -285,6 +306,38 @@ img{max-width:100%;height:auto}
         <tr><td>Discordサポート（優先対応）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
       </tbody>
     </table>
+    </div>
+  </div>
+</section>
+
+<!-- Trial Info -->
+<section class="trial-section">
+  <div class="trial-inner">
+    <div class="trial-box">
+      <h2 class="trial-heading">7日間の無料トライアル</h2>
+      <p class="trial-subheading">有料プランのすべての機能を、安心してお試しいただけます</p>
+      <ul class="trial-steps">
+        <li class="trial-step">
+          <span class="trial-step-icon blue">1</span>
+          <div><strong>いつでも好きなタイミングで開始</strong><br>アカウント登録後、管理画面からワンタップでトライアルを開始できます。クレジットカードの登録は不要です。</div>
+        </li>
+        <li class="trial-step">
+          <span class="trial-step-icon violet">2</span>
+          <div><strong>7日間、全機能が使い放題</strong><br>スタンダードプランの全機能（カスタム活動・レポート・データエクスポートなど）を制限なくお試しいただけます。</div>
+        </li>
+        <li class="trial-step">
+          <span class="trial-step-icon green">3</span>
+          <div><strong>終了後は自動でフリープランに戻ります</strong><br>トライアル期間が終わると、自動的にフリープランへ移行します。<strong>自動課金は一切ありません。</strong></div>
+        </li>
+        <li class="trial-step">
+          <span class="trial-step-icon gold">&#9734;</span>
+          <div><strong>トライアル中にいつでもプラン選択可能</strong><br>気に入ったらトライアル中にそのままプランを選択できます。もちろん、何もしなければ自動でフリープランに戻ります。</div>
+        </li>
+      </ul>
+      <div class="trial-reassure">
+        <span class="trial-reassure-icon">&#128274;</span>
+        <div>トライアル中に作成したデータ（活動履歴・シール・レベルなど）は、フリープランに移行した後もそのまま保持されます。有料プランにアップグレードすれば、すべてのデータを引き続きご利用いただけます。</div>
+      </div>
     </div>
   </div>
 </section>
