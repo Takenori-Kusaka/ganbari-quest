@@ -310,7 +310,7 @@ export const handleError: HandleServerError = ({ error, event, status, message }
 		}).catch(() => {});
 	}
 
-	// ステータスコードに応じた日本語メッセージを返す
+	// ステータスコードに応じたメッセージを返す
 	if (status === 404) {
 		return { message: 'ページが見つかりません' };
 	}
@@ -319,6 +319,10 @@ export const handleError: HandleServerError = ({ error, event, status, message }
 	}
 	if (status === 403) {
 		return { message: 'アクセスが拒否されました' };
+	}
+	// その他の 4xx はSvelteKitが設定した元のメッセージをそのまま返す
+	if (status < 500) {
+		return { message };
 	}
 	return { message: 'サーバーエラーが発生しました' };
 };

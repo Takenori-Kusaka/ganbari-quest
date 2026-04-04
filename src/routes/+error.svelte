@@ -27,7 +27,7 @@ import { page } from '$app/state';
 		align-items: center;
 		justify-content: center;
 		min-height: 100vh;
-		background: var(--color-brand-50);
+		background: var(--color-surface-base);
 		padding: 1rem;
 	}
 
@@ -39,7 +39,7 @@ import { page } from '$app/state';
 	.error-status {
 		font-size: 4rem;
 		font-weight: 700;
-		color: var(--color-brand-600);
+		color: var(--color-action-primary);
 		margin: 0 0 0.5rem;
 		line-height: 1;
 	}
@@ -57,7 +57,7 @@ import { page } from '$app/state';
 	}
 
 	.home-link {
-		color: var(--color-brand-600);
+		color: var(--color-text-link);
 		text-decoration: none;
 		font-weight: 500;
 	}
