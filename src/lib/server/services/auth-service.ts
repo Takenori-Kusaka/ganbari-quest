@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import bcrypt from 'bcrypt';
 import {
 	LOCKOUT_DURATION_MS,
 	MAX_FAILED_ATTEMPTS,
@@ -7,7 +8,6 @@ import {
 } from '$lib/domain/validation/auth';
 import { getSetting, getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
-import bcrypt from 'bcrypt';
 
 // --- 型定義 ---
 export interface LoginSuccess {

@@ -1,3 +1,4 @@
+import { error, json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	countRestDaysInMonth,
@@ -5,7 +6,6 @@ import {
 	findRestDays,
 	insertRestDay,
 } from '$lib/server/db/evaluation-repo';
-import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 const REST_DAY_MONTHLY_LIMIT = 10;

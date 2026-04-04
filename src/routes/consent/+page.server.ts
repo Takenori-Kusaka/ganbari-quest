@@ -1,5 +1,6 @@
 // /consent — 規約再同意ページ (#0192)
 
+import { fail, redirect } from '@sveltejs/kit';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -8,7 +9,6 @@ import {
 	checkConsent,
 	recordConsent,
 } from '$lib/server/services/consent-service';
-import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

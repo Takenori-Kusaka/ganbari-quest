@@ -13,8 +13,8 @@ import {
 	loginBonuses,
 	pointLedger,
 	specialRewards,
-	statusHistory,
 	statuses,
+	statusHistory,
 } from '../schema';
 
 /** SQLite: _sv が未設定のレコードに最新バージョンを書き戻す */

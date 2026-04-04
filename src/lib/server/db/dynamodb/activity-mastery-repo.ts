@@ -3,7 +3,7 @@
 
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { ActivityMastery } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { activityMasteryKey, activityMasteryPrefix, childPK } from './keys';
 
 function stripKeys<T extends Record<string, unknown>>(

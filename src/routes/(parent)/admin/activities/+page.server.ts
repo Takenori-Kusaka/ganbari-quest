@@ -1,3 +1,4 @@
+import { fail } from '@sveltejs/kit';
 import { activityPackIndex, getActivityPack } from '$lib/data/activity-packs';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { CATEGORY_CODES, CATEGORY_DEFS } from '$lib/domain/validation/activity';
@@ -21,7 +22,6 @@ import {
 	isPaidTier,
 	resolveFullPlanTier,
 } from '$lib/server/services/plan-limit-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

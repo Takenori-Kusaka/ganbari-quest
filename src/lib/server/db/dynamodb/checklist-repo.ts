@@ -20,10 +20,9 @@ import type {
 	UpdateChecklistTemplateInput,
 	UpsertChecklistLogInput,
 } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
-	ENTITY_NAMES,
 	checklistItemKey,
 	checklistItemPrefix,
 	checklistLogKey,
@@ -32,6 +31,7 @@ import {
 	checklistTemplateKey,
 	checklistTemplatePrefix,
 	childPK,
+	ENTITY_NAMES,
 	tenantPK,
 } from './keys';
 

@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { calcStreakBonus } from '../../../src/lib/domain/validation/activity';
 import * as schema from '../../../src/lib/server/db/schema';
-import { type TestDb, type TestSqlite, closeDb, createTestDb, resetDb } from '../helpers/test-db';
+import { closeDb, createTestDb, resetDb, type TestDb, type TestSqlite } from '../helpers/test-db';
 
 let sqlite: TestSqlite;
 let db: TestDb;

@@ -1,5 +1,6 @@
-import { CURRENCY_CODES } from '$lib/domain/point-display';
+import { fail } from '@sveltejs/kit';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
+import { CURRENCY_CODES } from '$lib/domain/point-display';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { generateInquiryId, saveInquiry } from '$lib/server/db/inquiry-repo';
 import { getSetting, getSettings, setSetting } from '$lib/server/db/settings-repo';
@@ -8,7 +9,6 @@ import { changePin } from '$lib/server/services/auth-service';
 import { clearAllFamilyData, getDataSummary } from '$lib/server/services/data-service';
 import { notifyInquiry } from '$lib/server/services/discord-notify-service';
 import { sendInquiryConfirmationEmail } from '$lib/server/services/email-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

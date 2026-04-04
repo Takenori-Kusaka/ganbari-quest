@@ -1,8 +1,8 @@
+import { json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { validationError } from '$lib/server/errors';
 import { validateBase64ImageMagicBytes } from '$lib/server/security/magic-bytes';
 import { ocrReceipt } from '$lib/server/services/receipt-ocr-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB

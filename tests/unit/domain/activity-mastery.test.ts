@@ -3,11 +3,11 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-	MASTERY_LEVEL_TABLE,
-	MASTERY_MILESTONE_LEVELS,
 	calcMasteryBonus,
 	calcMasteryLevel,
 	countToNextMasteryLevel,
+	MASTERY_LEVEL_TABLE,
+	MASTERY_MILESTONE_LEVELS,
 } from '../../../src/lib/domain/validation/activity';
 
 describe('calcMasteryLevel', () => {

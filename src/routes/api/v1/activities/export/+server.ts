@@ -1,7 +1,7 @@
+import { json } from '@sveltejs/kit';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getActivities } from '$lib/server/services/activity-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 const CATEGORY_ID_TO_CODE: Record<number, string> = {};

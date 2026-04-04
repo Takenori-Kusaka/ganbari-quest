@@ -1,5 +1,5 @@
-import { APP_VERSION } from '$lib/version';
 import { json } from '@sveltejs/kit';
+import { APP_VERSION } from '$lib/version';
 import type { RequestHandler } from './$types';
 
 const DATA_SOURCE = process.env.DATA_SOURCE ?? 'sqlite';

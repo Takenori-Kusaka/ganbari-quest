@@ -1,10 +1,10 @@
 // src/lib/server/services/activity-suggest-service.ts
 // 自然言語から活動情報を推定するサービス
 
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { joinIcon } from '$lib/domain/icon-utils';
 import { getCategoryByName } from '$lib/domain/validation/activity';
 import { logger } from '$lib/server/logger';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface SuggestedActivity {
 	name: string;

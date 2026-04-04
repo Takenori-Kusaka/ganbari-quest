@@ -1,5 +1,5 @@
-import { getActivityPack } from '$lib/data/activity-packs';
 import { error } from '@sveltejs/kit';
+import { getActivityPack } from '$lib/data/activity-packs';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {

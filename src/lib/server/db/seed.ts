@@ -3750,7 +3750,7 @@ function seed() {
 }
 
 // Export for programmatic use (e.g. Lambda cold-start init)
-export { seed, db as seedDb };
+export { db as seedDb, seed };
 
 // Only auto-run when executed directly as a CLI script
 const isDirectRun = process.argv[1]?.endsWith('seed.ts') || process.argv[1]?.endsWith('seed.js');

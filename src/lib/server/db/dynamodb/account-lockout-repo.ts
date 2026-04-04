@@ -2,7 +2,7 @@
 
 import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import type { LockoutRecord } from '../interfaces/account-lockout-repo.interface';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 
 function lockoutKey(email: string): { PK: string; SK: string } {
 	return {

@@ -1,12 +1,12 @@
 // src/routes/api/v1/admin/members/[userId]/+server.ts
 // メンバー削除（owner のみ）
 
+import type { RequestHandler } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { sendMemberRemovedEmail } from '$lib/server/services/email-service';
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from '@sveltejs/kit';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const tenantId = requireTenantId(locals);

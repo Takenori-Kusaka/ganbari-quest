@@ -1,12 +1,12 @@
 // /setup/first-adventure — はじめてのがんばり体験 (#0262 G4)
 // セットアップの最終ステップ前に、子供と一緒に最初の活動記録を体験
 
+import { fail, redirect } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { recordActivity } from '$lib/server/services/activity-log-service';
 import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
-import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {

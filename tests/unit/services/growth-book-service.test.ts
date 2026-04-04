@@ -21,11 +21,11 @@ vi.mock('$lib/server/logger', () => ({
 
 import { getCertificatesForChild } from '../../../src/lib/server/services/certificate-service';
 import { getChildById } from '../../../src/lib/server/services/child-service';
-import { buildGrowthBook } from '../../../src/lib/server/services/growth-book-service';
 import type {
 	GrowthBookData,
 	MonthPage,
 } from '../../../src/lib/server/services/growth-book-service';
+import { buildGrowthBook } from '../../../src/lib/server/services/growth-book-service';
 import { computeDetailedMonthlyReport } from '../../../src/lib/server/services/report-service';
 import { getChildStatus } from '../../../src/lib/server/services/status-service';
 

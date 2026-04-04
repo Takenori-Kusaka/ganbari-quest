@@ -1,6 +1,6 @@
 <script lang="ts">
 import { navigating } from '$app/stores';
-import { ICON_HOME, ICON_STATUS, ICON_SWITCH, getModeLabels } from '$lib/domain/icons';
+import { getModeLabels, ICON_HOME, ICON_STATUS, ICON_SWITCH } from '$lib/domain/icons';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 
