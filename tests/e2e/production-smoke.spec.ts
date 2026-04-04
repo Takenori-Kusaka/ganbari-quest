@@ -116,10 +116,7 @@ test.describe('本番API検証 - GET', () => {
 		expect(response.status()).toBeLessThan(500);
 	});
 
-	test('GET /api/v1/achievements/1 - 実績一覧', async ({ request }) => {
-		const response = await request.get(`${BASE_URL}/api/v1/achievements/1`);
-		expect(response.status()).toBeLessThan(500);
-	});
+	// 実績APIは #322 で廃止
 
 	test('GET /api/v1/login-bonus/1 - ログインボーナス', async ({ request }) => {
 		const response = await request.get(`${BASE_URL}/api/v1/login-bonus/1`);

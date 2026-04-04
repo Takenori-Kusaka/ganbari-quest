@@ -858,8 +858,8 @@ describe('importFamilyData', () => {
 		});
 	});
 
-	describe('実績のインポート', () => {
-		it('マスタに存在する実績コードが正常にインポートされる', async () => {
+	describe('実績のインポート（廃止 #322）', () => {
+		it('実績システム廃止 — achievementsImported は常に 0', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1')];
 			data.data.childAchievements = [
@@ -872,56 +872,10 @@ describe('importFamilyData', () => {
 			];
 
 			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockFindAllAchievements.mockResolvedValue([{ id: 10, code: 'first_step' }]);
-			mockInsertChildAchievement.mockResolvedValue({});
-
-			const result = await importFamilyData(data, TENANT);
-
-			expect(result.achievementsImported).toBe(1);
-			expect(mockInsertChildAchievement).toHaveBeenCalledWith(101, 10, TENANT, null);
-		});
-
-		it('マスタに存在しない実績コードはスキップされる', async () => {
-			const data = makeExportData();
-			data.family.children = [makeChild('c1')];
-			data.data.childAchievements = [
-				{
-					childRef: 'c1',
-					achievementCode: 'nonexistent_achievement',
-					milestoneValue: null,
-					unlockedAt: '2026-03-10T00:00:00Z',
-				},
-			];
-
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockFindAllAchievements.mockResolvedValue([]);
 
 			const result = await importFamilyData(data, TENANT);
 
 			expect(result.achievementsImported).toBe(0);
-			expect(mockInsertChildAchievement).not.toHaveBeenCalled();
-		});
-
-		it('milestoneValue が渡される', async () => {
-			const data = makeExportData();
-			data.family.children = [makeChild('c1')];
-			data.data.childAchievements = [
-				{
-					childRef: 'c1',
-					achievementCode: 'milestone_100',
-					milestoneValue: 100,
-					unlockedAt: '2026-03-10T00:00:00Z',
-				},
-			];
-
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockFindAllAchievements.mockResolvedValue([{ id: 20, code: 'milestone_100' }]);
-			mockInsertChildAchievement.mockResolvedValue({});
-
-			const result = await importFamilyData(data, TENANT);
-
-			expect(result.achievementsImported).toBe(1);
-			expect(mockInsertChildAchievement).toHaveBeenCalledWith(101, 20, TENANT, 100);
 		});
 	});
 

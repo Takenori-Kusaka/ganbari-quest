@@ -1,7 +1,6 @@
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllChildren } from '$lib/server/db/child-repo';
-import { getAchievementSummary } from '$lib/server/services/achievement-service';
 import {
 	cancelActivityLog,
 	getTodayRecordedActivityCounts,
@@ -78,7 +77,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		dailyMissions,
 		stampCard,
 		categoryXp,
-		achievementSummary,
 		birthdayBonusStatus,
 		activeChallenges,
 		familyStreakData,
@@ -92,7 +90,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getTodayMissions(child.id, tenantId),
 		getStampCardStatus(child.id, tenantId),
 		getCategoryXpSummary(child.id, tenantId),
-		getAchievementSummary(child.id, tenantId),
 		getBirthdayBonusStatus(child.id, tenantId),
 		getActiveChallengesForChild(child.id, tenantId),
 		getFamilyStreak(tenantId),
@@ -145,9 +142,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		dailyMissions,
 		stampCard,
 		categoryXp,
-		gameLoopHints: {
-			achievements: achievementSummary,
-		},
+		gameLoopHints: null,
 		focusMode: recommendations.length > 0,
 		recommendedActivityIds: [...recommendedIds],
 		birthdayBonus,
@@ -198,7 +193,6 @@ export const actions: Actions = {
 			streakDays: result.streakDays,
 			streakBonus: result.streakBonus,
 			cancelableUntil: result.cancelableUntil,
-			unlockedAchievements: result.unlockedAchievements,
 			comboBonus: result.comboBonus,
 			missionComplete: result.missionComplete,
 			focusBonus: result.focusBonus,

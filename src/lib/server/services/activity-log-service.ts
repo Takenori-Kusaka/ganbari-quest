@@ -26,10 +26,6 @@ import {
 	insertPointLedger,
 	markActivityLogCancelled,
 } from '$lib/server/db/activity-repo';
-import {
-	type UnlockedAchievement,
-	checkAndUnlockAchievements,
-} from '$lib/server/services/achievement-service';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
@@ -70,7 +66,13 @@ export interface RecordActivityResult {
 	totalPoints: number;
 	recordedAt: string;
 	cancelableUntil: string;
-	unlockedAchievements: UnlockedAchievement[];
+	unlockedAchievements: {
+		code?: string;
+		name: string;
+		icon: string;
+		bonusPoints: number;
+		rarity: string;
+	}[];
 	comboBonus: ComboResult | null;
 	missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 	eventMissions: { eventId: number; missionComplete: boolean; eventName: string }[];
@@ -225,10 +227,14 @@ export async function recordActivity(
 
 	const cancelableUntil = new Date(Date.now() + CANCEL_WINDOW_MS).toISOString();
 
-	// 実績チェック（初回のみ）
-	const unlockedAchievements = isFirstToday
-		? await checkAndUnlockAchievements(childId, tenantId)
-		: [];
+	// 実績システム廃止（#322）— 常に空配列を返す
+	const unlockedAchievements: {
+		code?: string;
+		name: string;
+		icon: string;
+		bonusPoints: number;
+		rarity: string;
+	}[] = [];
 
 	// コンボボーナスチェック
 	const comboBonus = await checkAndGrantCombo(childId, today, tenantId);

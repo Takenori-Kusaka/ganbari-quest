@@ -80,22 +80,14 @@ describe('generateWeeklyReport', () => {
 		expect(allCatHighlight?.message).toContain('ぜんカテゴリ');
 	});
 
-	it('今週解除された実績がレポートに含まれる', async () => {
+	it('実績システム廃止 — newAchievements は常に空配列', async () => {
 		mockCountActivitiesByCategory.mockResolvedValue([]);
 		mockFindStatuses.mockResolvedValue([]);
-		mockFindAllAchievements.mockResolvedValue([
-			{ id: 1, name: 'はじめの一歩', icon: '👣', description: '初めて記録した' },
-		]);
-		// getWeekRange で前週の範囲が返されるので、テスト用の日付を指定
-		const targetDate = new Date('2026-04-07'); // 月曜 → 前週は 3/30〜4/5
-		mockFindUnlockedAchievements.mockResolvedValue([
-			{ achievementId: 1, unlockedAt: '2026-04-01T10:00:00Z' },
-		]);
+		const targetDate = new Date('2026-04-07');
 
 		const report = await generateWeeklyReport(1, 'テスト', TENANT, targetDate);
 
-		expect(report.newAchievements).toHaveLength(1);
-		expect(report.newAchievements[0]?.name).toBe('はじめの一歩');
+		expect(report.newAchievements).toHaveLength(0);
 	});
 
 	it('活動が少ないカテゴリのアドバイスを生成する', async () => {
