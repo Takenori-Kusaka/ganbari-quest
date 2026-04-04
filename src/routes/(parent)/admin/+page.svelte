@@ -17,5 +17,4 @@ let { data } = $props();
 	planStats={data.planStats}
 	showPremiumWelcome={data.showPremiumWelcome}
 	seasonalInfo={data.seasonalInfo}
-	seasonPassByChild={data.seasonPassByChild}
 />
