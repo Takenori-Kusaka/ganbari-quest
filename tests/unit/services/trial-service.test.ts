@@ -1,20 +1,52 @@
 // tests/unit/services/trial-service.test.ts
-// trial-service ユニットテスト (#0270)
+// trial-service ユニットテスト (#314 リファクタ)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// mock settings
-const settingsStore: Record<string, string> = {};
-vi.mock('$lib/server/db/settings-repo', () => ({
-	getSettings: vi.fn(async (keys: string[]) => {
-		const result: Record<string, string | undefined> = {};
-		for (const key of keys) {
-			result[key] = settingsStore[key];
-		}
-		return result;
+// In-memory trial_history store for testing
+let trialRows: Array<{
+	id: number;
+	tenantId: string;
+	startDate: string;
+	endDate: string;
+	tier: string;
+	source: string;
+	campaignId: string | null;
+	createdAt: string;
+}> = [];
+let nextId = 1;
+
+const mockTrialHistoryRepo = {
+	findLatestByTenant: vi.fn(async (tenantId: string) => {
+		const rows = trialRows.filter((r) => r.tenantId === tenantId).sort((a, b) => b.id - a.id);
+		return rows[0];
 	}),
-	setSetting: vi.fn(async (key: string, value: string) => {
-		settingsStore[key] = value;
+	insert: vi.fn(
+		async (input: {
+			tenantId: string;
+			startDate: string;
+			endDate: string;
+			tier: string;
+			source: string;
+			campaignId?: string | null;
+		}) => {
+			trialRows.push({
+				id: nextId++,
+				tenantId: input.tenantId,
+				startDate: input.startDate,
+				endDate: input.endDate,
+				tier: input.tier,
+				source: input.source,
+				campaignId: input.campaignId ?? null,
+				createdAt: new Date().toISOString(),
+			});
+		},
+	),
+};
+
+vi.mock('$lib/server/db/factory', () => ({
+	getRepos: () => ({
+		trialHistory: mockTrialHistoryRepo,
 	}),
 }));
 
@@ -26,15 +58,19 @@ vi.mock('$lib/server/logger', () => ({
 	},
 }));
 
-import { getTrialStatus, isTrialActive, startTrial } from '$lib/server/services/trial-service';
+import {
+	getTrialEndDate,
+	getTrialStatus,
+	getTrialTier,
+	isTrialActive,
+	startTrial,
+} from '$lib/server/services/trial-service';
 
-describe('trial-service', () => {
+describe('trial-service (#314)', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		// Clear settings store
-		for (const key of Object.keys(settingsStore)) {
-			delete settingsStore[key];
-		}
+		trialRows = [];
+		nextId = 1;
 	});
 
 	describe('getTrialStatus', () => {
@@ -48,85 +84,167 @@ describe('trial-service', () => {
 		});
 
 		it('returns active trial with remaining days', async () => {
-			const future = new Date();
-			future.setDate(future.getDate() + 5);
-			const endStr = future.toISOString().slice(0, 10);
-			const startStr = new Date().toISOString().slice(0, 10);
+			const now = new Date();
+			const end = new Date(now);
+			end.setDate(end.getDate() + 5);
+			const startStr = now.toISOString().slice(0, 10);
+			const endStr = end.toISOString().slice(0, 10);
 
-			settingsStore.trial_start_date = startStr;
-			settingsStore.trial_end_date = endStr;
-			settingsStore.trial_used = '1';
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: startStr,
+				endDate: endStr,
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: new Date().toISOString(),
+			});
 
 			const status = await getTrialStatus('tenant1');
 			expect(status.isTrialActive).toBe(true);
 			expect(status.trialUsed).toBe(true);
+			expect(status.trialTier).toBe('standard');
 			expect(status.daysRemaining).toBeGreaterThanOrEqual(4);
 			expect(status.daysRemaining).toBeLessThanOrEqual(6);
 		});
 
 		it('returns expired trial', async () => {
-			const past = new Date();
-			past.setDate(past.getDate() - 2);
-			const endStr = past.toISOString().slice(0, 10);
 			const start = new Date();
 			start.setDate(start.getDate() - 9);
-			const startStr = start.toISOString().slice(0, 10);
+			const end = new Date();
+			end.setDate(end.getDate() - 2);
 
-			settingsStore.trial_start_date = startStr;
-			settingsStore.trial_end_date = endStr;
-			settingsStore.trial_used = '1';
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: start.toISOString().slice(0, 10),
+				endDate: end.toISOString().slice(0, 10),
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: new Date().toISOString(),
+			});
 
 			const status = await getTrialStatus('tenant1');
 			expect(status.isTrialActive).toBe(false);
 			expect(status.trialUsed).toBe(true);
 			expect(status.daysRemaining).toBe(0);
-			expect(status.trialEndDate).toBe(endStr);
 		});
 	});
 
 	describe('startTrial', () => {
-		it('starts a 7-day trial for new tenant', async () => {
-			const result = await startTrial('tenant1');
+		it('starts a 7-day trial for new tenant (user_initiated)', async () => {
+			const result = await startTrial({
+				tenantId: 'tenant1',
+				source: 'user_initiated',
+			});
 			expect(result).toBe(true);
-			expect(settingsStore.trial_used).toBe('1');
-			expect(settingsStore.trial_start_date).toBeDefined();
-			expect(settingsStore.trial_end_date).toBeDefined();
 
-			// Verify end date is ~7 days from now
-			const endDate = new Date(settingsStore.trial_end_date ?? '');
-			const now = new Date();
-			const diffDays = Math.round((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-			expect(diffDays).toBeGreaterThanOrEqual(6);
-			expect(diffDays).toBeLessThanOrEqual(7);
+			const status = await getTrialStatus('tenant1');
+			expect(status.isTrialActive).toBe(true);
+			expect(status.trialTier).toBe('standard');
+			expect(status.daysRemaining).toBeGreaterThanOrEqual(6);
+			expect(status.daysRemaining).toBeLessThanOrEqual(7);
+			expect(status.source).toBe('user_initiated');
 		});
 
-		it('skips if trial already used', async () => {
-			settingsStore.trial_used = '1';
-			settingsStore.trial_end_date = '2020-01-01';
+		it('rejects user_initiated if trial already used', async () => {
+			// First trial (expired)
+			const past = new Date();
+			past.setDate(past.getDate() - 10);
+			const pastEnd = new Date();
+			pastEnd.setDate(pastEnd.getDate() - 3);
 
-			const result = await startTrial('tenant1');
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: past.toISOString().slice(0, 10),
+				endDate: pastEnd.toISOString().slice(0, 10),
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: new Date().toISOString(),
+			});
+
+			const result = await startTrial({
+				tenantId: 'tenant1',
+				source: 'user_initiated',
+			});
 			expect(result).toBe(false);
+		});
+
+		it('allows admin_grant even if trial already used', async () => {
+			// First trial (expired)
+			const past = new Date();
+			past.setDate(past.getDate() - 10);
+			const pastEnd = new Date();
+			pastEnd.setDate(pastEnd.getDate() - 3);
+
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: past.toISOString().slice(0, 10),
+				endDate: pastEnd.toISOString().slice(0, 10),
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: new Date().toISOString(),
+			});
+
+			const result = await startTrial({
+				tenantId: 'tenant1',
+				source: 'admin_grant',
+				tier: 'family',
+				durationDays: 14,
+			});
+			expect(result).toBe(true);
+
+			const status = await getTrialStatus('tenant1');
+			expect(status.isTrialActive).toBe(true);
+			expect(status.trialTier).toBe('family');
+			expect(status.daysRemaining).toBeGreaterThanOrEqual(13);
 		});
 
 		it('skips if trial already active', async () => {
-			const future = new Date();
-			future.setDate(future.getDate() + 3);
-			settingsStore.trial_start_date = new Date().toISOString().slice(0, 10);
-			settingsStore.trial_end_date = future.toISOString().slice(0, 10);
-			settingsStore.trial_used = '1';
+			const now = new Date();
+			const end = new Date(now);
+			end.setDate(end.getDate() + 3);
 
-			const result = await startTrial('tenant1');
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: now.toISOString().slice(0, 10),
+				endDate: end.toISOString().slice(0, 10),
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: new Date().toISOString(),
+			});
+
+			const result = await startTrial({
+				tenantId: 'tenant1',
+				source: 'admin_grant',
+			});
 			expect(result).toBe(false);
+		});
+
+		it('supports campaign source with campaignId', async () => {
+			const result = await startTrial({
+				tenantId: 'tenant1',
+				source: 'campaign',
+				campaignId: 'spring2026',
+			});
+			expect(result).toBe(true);
+
+			const row = trialRows.find((r) => r.tenantId === 'tenant1');
+			expect(row?.campaignId).toBe('spring2026');
 		});
 	});
 
 	describe('isTrialActive', () => {
 		it('returns true during active trial', async () => {
-			const future = new Date();
-			future.setDate(future.getDate() + 3);
-			settingsStore.trial_end_date = future.toISOString().slice(0, 10);
-			settingsStore.trial_used = '1';
-
+			await startTrial({ tenantId: 'tenant1', source: 'user_initiated' });
 			const result = await isTrialActive('tenant1');
 			expect(result).toBe(true);
 		});
@@ -138,24 +256,87 @@ describe('trial-service', () => {
 
 		it('returns false when trial expired', async () => {
 			const past = new Date();
-			past.setDate(past.getDate() - 1);
-			settingsStore.trial_end_date = past.toISOString().slice(0, 10);
-			settingsStore.trial_used = '1';
+			past.setDate(past.getDate() - 2);
+			const pastEnd = new Date();
+			pastEnd.setDate(pastEnd.getDate() - 1);
+
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: past.toISOString().slice(0, 10),
+				endDate: pastEnd.toISOString().slice(0, 10),
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: new Date().toISOString(),
+			});
 
 			const result = await isTrialActive('tenant1');
 			expect(result).toBe(false);
 		});
 	});
 
-	describe('trial reuse prevention (G6)', () => {
-		it('cannot start trial twice', async () => {
-			// Start first trial
-			const first = await startTrial('tenant1');
+	describe('getTrialEndDate', () => {
+		it('returns end date during active trial', async () => {
+			await startTrial({ tenantId: 'tenant1', source: 'user_initiated' });
+			const endDate = await getTrialEndDate('tenant1');
+			expect(endDate).toBeTruthy();
+		});
+
+		it('returns null when no trial', async () => {
+			const endDate = await getTrialEndDate('tenant1');
+			expect(endDate).toBeNull();
+		});
+	});
+
+	describe('getTrialTier', () => {
+		it('returns tier during active trial', async () => {
+			await startTrial({ tenantId: 'tenant1', source: 'user_initiated', tier: 'standard' });
+			const tier = await getTrialTier('tenant1');
+			expect(tier).toBe('standard');
+		});
+
+		it('returns null when no active trial', async () => {
+			const tier = await getTrialTier('tenant1');
+			expect(tier).toBeNull();
+		});
+	});
+
+	describe('trial reuse prevention', () => {
+		it('user_initiated cannot start trial twice', async () => {
+			const first = await startTrial({ tenantId: 'tenant1', source: 'user_initiated' });
 			expect(first).toBe(true);
 
-			// Try to start again
-			const second = await startTrial('tenant1');
+			// Expire the first trial
+			const row = trialRows.find((r) => r.tenantId === 'tenant1');
+			if (row) {
+				const yesterday = new Date();
+				yesterday.setDate(yesterday.getDate() - 1);
+				row.endDate = yesterday.toISOString().slice(0, 10);
+			}
+
+			const second = await startTrial({ tenantId: 'tenant1', source: 'user_initiated' });
 			expect(second).toBe(false);
+		});
+
+		it('campaign can re-grant after expired trial', async () => {
+			const first = await startTrial({ tenantId: 'tenant1', source: 'user_initiated' });
+			expect(first).toBe(true);
+
+			// Expire the first trial
+			const row = trialRows.find((r) => r.tenantId === 'tenant1');
+			if (row) {
+				const yesterday = new Date();
+				yesterday.setDate(yesterday.getDate() - 1);
+				row.endDate = yesterday.toISOString().slice(0, 10);
+			}
+
+			const second = await startTrial({
+				tenantId: 'tenant1',
+				source: 'campaign',
+				campaignId: 'test',
+			});
+			expect(second).toBe(true);
 		});
 	});
 });
