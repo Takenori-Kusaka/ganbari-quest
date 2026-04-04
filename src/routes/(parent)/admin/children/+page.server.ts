@@ -1,7 +1,6 @@
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
-import { getChildAchievements } from '$lib/server/services/achievement-service';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
 import {
 	addChild,
@@ -74,11 +73,10 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		if (child) {
 			const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 			const retentionFilter = applyRetentionFilter(planTier);
-			const [balance, status, logs, achievements, voices] = await Promise.all([
+			const [balance, status, logs, voices] = await Promise.all([
 				getPointBalance(id, tenantId),
 				getChildStatus(id, tenantId),
 				getActivityLogs(id, tenantId, retentionFilter),
-				getChildAchievements(id, tenantId),
 				listVoices(id, 'complete', tenantId),
 			]);
 
@@ -99,7 +97,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 				status: 'error' in status ? null : status,
 				recentLogs: 'error' in logs ? [] : logs.logs.slice(0, 20),
 				logSummary: 'error' in logs ? null : logs.summary,
-				achievements: achievements,
+				achievements: [],
 				voices,
 			};
 		}

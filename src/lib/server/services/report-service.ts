@@ -61,8 +61,8 @@ async function aggregateChildDaily(tenantId: string, childId: number, date: stri
 	// ストリーク計算（直近の連続日数）
 	const streakDays = await calculateStreak(childId, date, tenantId);
 
-	// 当日の新規実績数
-	const newAchievements = await countNewAchievements(childId, date, tenantId);
+	// 実績システム廃止（#322）— 常に0
+	const newAchievements = 0;
 
 	await repos.reportDailySummary.upsert({
 		tenantId,
@@ -93,19 +93,7 @@ async function calculateStreak(childId: number, date: string, tenantId: string):
 	return streak;
 }
 
-async function countNewAchievements(
-	childId: number,
-	date: string,
-	tenantId: string,
-): Promise<number> {
-	try {
-		const repos = getRepos();
-		const achievements = await repos.achievement.findUnlockedAchievements(childId, tenantId);
-		return achievements.filter((a) => a.unlockedAt?.startsWith(date)).length;
-	} catch {
-		return 0;
-	}
-}
+// 実績システム廃止（#322）— countNewAchievements 削除
 
 // ============================================================
 // クエリ — 月次レポート用
@@ -332,22 +320,14 @@ export async function getAllChildrenSimpleSummary(
 	return result;
 }
 
+// 実績システム廃止（#322）— 常に0
 async function countMonthAchievements(
-	childId: number,
-	startDate: string,
-	endDate: string,
-	tenantId: string,
+	_childId: number,
+	_startDate: string,
+	_endDate: string,
+	_tenantId: string,
 ): Promise<number> {
-	try {
-		const repos = getRepos();
-		const achievements = await repos.achievement.findUnlockedAchievements(childId, tenantId);
-		return achievements.filter((a) => {
-			const d = a.unlockedAt ?? '';
-			return d >= startDate && d <= `${endDate}T23:59:59`;
-		}).length;
-	} catch {
-		return 0;
-	}
+	return 0;
 }
 
 // ============================================================

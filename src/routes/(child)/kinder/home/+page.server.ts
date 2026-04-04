@@ -1,6 +1,5 @@
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
-import { getAchievementSummary } from '$lib/server/services/achievement-service';
 import {
 	cancelActivityLog,
 	getTodayRecordedActivityCounts,
@@ -92,7 +91,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		dailyMissions,
 		stampCard,
 		categoryXp,
-		achievementSummary,
 		hasRecords,
 		birthdayBonusStatus,
 		activeEvents,
@@ -110,7 +108,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getTodayMissions(child.id, tenantId),
 		getStampCardStatus(child.id, tenantId),
 		getCategoryXpSummary(child.id, tenantId),
-		getAchievementSummary(child.id, tenantId),
 		hasAnyActivityRecords(child.id, tenantId),
 		getBirthdayBonusStatus(child.id, tenantId),
 		getActiveEventsForChild(child.id, tenantId),
@@ -176,9 +173,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		dailyMissions,
 		stampCard,
 		categoryXp,
-		gameLoopHints: {
-			achievements: achievementSummary,
-		},
+		gameLoopHints: null,
 		isFirstTime: !hasRecords,
 		focusMode: recommendations.length > 0,
 		recommendedActivityIds: [...recommendedIds],
@@ -232,7 +227,6 @@ export const actions: Actions = {
 			streakDays: result.streakDays,
 			streakBonus: result.streakBonus,
 			cancelableUntil: result.cancelableUntil,
-			unlockedAchievements: result.unlockedAchievements,
 			comboBonus: result.comboBonus,
 			missionComplete: result.missionComplete,
 			eventMissions: result.eventMissions,

@@ -1,9 +1,6 @@
 // src/lib/server/db/interfaces/index.ts
 // All repository interfaces re-exported for factory pattern
 
-export type { IAchievementRepo } from './achievement-repo.interface';
-export type { IAutoChallengeRepo } from './auto-challenge-repo.interface';
-export type { ITenantEventRepo } from './tenant-event-repo.interface';
 export type { IActivityRepo } from './activity-repo.interface';
 export type { IChecklistRepo } from './checklist-repo.interface';
 export type { IChildRepo } from './child-repo.interface';
@@ -22,3 +19,5 @@ export type { IAuthRepo } from './auth-repo.interface';
 export type { ISiblingChallengeRepo } from './sibling-challenge-repo.interface';
 export type { ISiblingCheerRepo } from './sibling-cheer-repo.interface';
 export type { ICloudExportRepo } from './cloud-export-repo.interface';
+export type { IAutoChallengeRepo } from './auto-challenge-repo.interface';
+export type { ITenantEventRepo } from './tenant-event-repo.interface';
