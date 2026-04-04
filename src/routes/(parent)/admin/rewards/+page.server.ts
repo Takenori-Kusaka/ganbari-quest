@@ -3,7 +3,7 @@
 import { fail } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
-import { STAMP_PRESETS, sendMessage } from '$lib/server/services/message-service';
+import { getStampPreset, STAMP_PRESETS, sendMessage } from '$lib/server/services/message-service';
 import {
 	getChildSpecialRewards,
 	getRewardTemplates,
@@ -64,6 +64,7 @@ export const actions: Actions = {
 
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!stampCode) return fail(400, { error: 'スタンプを選択してください' });
+		if (!getStampPreset(stampCode)) return fail(400, { error: '無効なスタンプコードです' });
 
 		await sendMessage({ childId, messageType: 'stamp', stampCode }, tenantId);
 
@@ -78,7 +79,7 @@ export const actions: Actions = {
 
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!body) return fail(400, { error: 'メッセージを入力してください' });
-		if (body.length > 200) return fail(400, { error: 'メッセージは200文字以内です' });
+		if (body.length > 30) return fail(400, { error: 'メッセージは30文字以内で入力してください' });
 
 		await sendMessage({ childId, messageType: 'text', body }, tenantId);
 
