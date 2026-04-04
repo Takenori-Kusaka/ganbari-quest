@@ -23,8 +23,8 @@ const modeColors: Record<string, string> = {
 	baby: 'from-pink-400 to-pink-300',
 	kinder: 'from-green-400 to-emerald-300',
 	lower: 'from-blue-400 to-cyan-300',
-	upper: 'from-purple-400 to-violet-300',
-	teen: 'from-indigo-400 to-blue-300',
+	upper: 'from-orange-400 to-amber-300',
+	teen: 'from-purple-400 to-violet-300',
 };
 </script>
 
@@ -74,6 +74,8 @@ const modeColors: Record<string, string> = {
 								🧒
 							{:else if mode === 'lower'}
 								🧑
+							{:else if mode === 'upper'}
+								💪
 							{:else}
 								🧑‍💻
 							{/if}
