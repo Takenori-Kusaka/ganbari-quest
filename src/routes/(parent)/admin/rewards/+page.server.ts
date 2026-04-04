@@ -46,8 +46,7 @@ export const actions: Actions = {
 
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!title) return fail(400, { error: 'タイトルを入力してください' });
-		if (points <= 0 || points > 10000)
-			return fail(400, { error: 'ポイントは1〜10000の範囲です' });
+		if (points <= 0 || points > 10000) return fail(400, { error: 'ポイントは1〜10000の範囲です' });
 
 		const result = await grantSpecialReward({ childId, title, points, icon, category }, tenantId);
 		if ('error' in result) {
@@ -66,10 +65,7 @@ export const actions: Actions = {
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!stampCode) return fail(400, { error: 'スタンプを選択してください' });
 
-		await sendMessage(
-			{ childId, messageType: 'stamp', stampCode },
-			tenantId,
-		);
+		await sendMessage({ childId, messageType: 'stamp', stampCode }, tenantId);
 
 		return { stampSent: true };
 	},
@@ -84,10 +80,7 @@ export const actions: Actions = {
 		if (!body) return fail(400, { error: 'メッセージを入力してください' });
 		if (body.length > 200) return fail(400, { error: 'メッセージは200文字以内です' });
 
-		await sendMessage(
-			{ childId, messageType: 'text', body },
-			tenantId,
-		);
+		await sendMessage({ childId, messageType: 'text', body }, tenantId);
 
 		return { messageSent: true };
 	},
