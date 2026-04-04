@@ -3,9 +3,11 @@ name: "CodeQL"
 on:
   push:
     branches: [main]
+    paths: ['src/**', 'static/**', '**/*.js', '**/*.ts']
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
+    paths: ['src/**', 'static/**', '**/*.js', '**/*.ts']
   schedule:
     - cron: "0 6 * * 1" # Every Monday at 6:00 UTC
 
