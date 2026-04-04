@@ -83,6 +83,7 @@ export interface RecordActivityResult {
 	levelUp: LevelUpInfo | null;
 	xpGain: XpGainInfo;
 	customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[];
+	specialReward: { id: number; title: string; points: number; icon: string | null } | null;
 }
 
 export interface ActivityLogEntry {
@@ -361,6 +362,26 @@ export async function recordActivity(
 		// カスタム実績チェック失敗は記録フローを止めない
 	}
 
+	// 固定間隔特別報酬チェック（予告型: 毎N回記録でごほうび）
+	let specialReward: { id: number; title: string; points: number; icon: string | null } | null =
+		null;
+	try {
+		const { checkAndGrantFixedIntervalReward } = await import(
+			'$lib/server/services/special-reward-service'
+		);
+		const reward = await checkAndGrantFixedIntervalReward(childId, tenantId);
+		if (reward) {
+			specialReward = {
+				id: reward.id,
+				title: reward.title,
+				points: reward.points,
+				icon: reward.icon,
+			};
+		}
+	} catch {
+		// 固定間隔報酬チェック失敗は記録フローを止めない
+	}
+
 	return {
 		id: log.id,
 		childId,
@@ -384,6 +405,7 @@ export async function recordActivity(
 		levelUp,
 		xpGain,
 		customUnlocked,
+		specialReward,
 	};
 }
 
