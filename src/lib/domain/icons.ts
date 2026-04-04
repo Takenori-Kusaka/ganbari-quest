@@ -14,8 +14,8 @@ export const ICON_STATUS = '⭐';
 export const ICON_HISTORY = '📋';
 /** じっせき / 実績 */
 export const ICON_ACHIEVEMENTS = '🏆';
-/** きりかえ / 切替 */
-export const ICON_SWITCH = '🔄';
+/** かぞく / メンバー（子供選択） */
+export const ICON_SWITCH = '👨‍👩‍👧‍👦';
 
 // ============================================================
 // セクション・機能アイコン
@@ -45,7 +45,7 @@ export interface ModeLabels {
 export const MODE_LABELS: Record<string, ModeLabels> = {
 	baby: {
 		status: 'つよさ',
-		switch: 'きりかえ',
+		switch: 'かぞく',
 		history: 'きろく',
 		achievements: 'じっせき',
 		recordSummary: 'きょうの きろく',
@@ -53,7 +53,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 	},
 	kinder: {
 		status: 'つよさ',
-		switch: 'きりかえ',
+		switch: 'かぞく',
 		history: 'きろく',
 		achievements: 'じっせき',
 		recordSummary: 'きょうの きろく',
@@ -61,7 +61,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 	},
 	lower: {
 		status: 'つよさ',
-		switch: 'きりかえ',
+		switch: 'かぞく',
 		history: '記録',
 		achievements: '実績',
 		recordSummary: '今日の記録',
@@ -69,7 +69,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 	},
 	upper: {
 		status: 'ステータス',
-		switch: '切り替え',
+		switch: 'メンバー',
 		history: '記録',
 		achievements: '実績',
 		recordSummary: '今日の記録',
@@ -77,7 +77,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 	},
 	teen: {
 		status: 'ステータス',
-		switch: '切り替え',
+		switch: 'メンバー',
 		history: '記録',
 		achievements: '実績',
 		recordSummary: '今日の記録',

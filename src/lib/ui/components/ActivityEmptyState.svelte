@@ -1,5 +1,5 @@
 <script lang="ts">
-import { ICON_ACHIEVEMENTS, ICON_STATUS, getModeLabels } from '$lib/domain/icons';
+import { ICON_STATUS, getModeLabels } from '$lib/domain/icons';
 
 interface Props {
 	uiMode: string;
@@ -21,10 +21,6 @@ const labels = $derived(getModeLabels(uiMode));
 			<a href="/{uiMode}/status" class="empty-link">
 				<span>{ICON_STATUS}</span>
 				<span>{labels.status}をみる</span>
-			</a>
-			<a href="/{uiMode}/achievements" class="empty-link">
-				<span>{ICON_ACHIEVEMENTS}</span>
-				<span>{labels.achievements}をみる</span>
 			</a>
 		</div>
 	</div>

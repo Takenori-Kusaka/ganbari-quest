@@ -17,7 +17,7 @@ interface Props {
 const defaultItems: NavItem[] = [
 	{ href: '/home', icon: ICON_HOME, label: 'ホーム' },
 	{ href: '/status', icon: ICON_STATUS, label: 'つよさ' },
-	{ href: '/switch', icon: ICON_SWITCH, label: 'きりかえ' },
+	{ href: '/switch', icon: ICON_SWITCH, label: 'かぞく' },
 ];
 
 let { items = defaultItems, iconOnly = false }: Props = $props();
