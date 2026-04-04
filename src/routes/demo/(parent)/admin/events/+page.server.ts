@@ -11,7 +11,7 @@ export const load: PageServerLoad = async () => {
 			startDate: '2026-04-01',
 			endDate: '2026-04-30',
 			bannerIcon: '🌸',
-			bannerColor: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+			bannerColor: null,
 			rewardConfig: '{"points":50,"title":"スタートダッシュ達成！"}',
 			isActive: 1,
 		},
