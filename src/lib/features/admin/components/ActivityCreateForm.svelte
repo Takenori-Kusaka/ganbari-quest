@@ -278,7 +278,6 @@ function resetForm() {
 		<p class="text-xs text-[var(--color-text-muted)] mt-1">カードに小さく表示される声かけ文（30文字以内）</p>
 	</div>
 
-	<button type="submit" class="w-full py-2 bg-[var(--color-action-success)] text-white rounded-lg font-bold text-sm hover:brightness-90 transition-all">
-		{formIcon} {formName || '活動'} を追加する
+	<button type="submit" class="w-full py-2 bg-[var(--color-action-success)] text-white rounded-lg font-bold text-sm hover:brightness-90 transition-all">		{formIcon} {formName || '活動'} を追加する
 	</button>
 </form>

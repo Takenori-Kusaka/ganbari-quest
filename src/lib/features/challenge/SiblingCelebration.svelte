@@ -176,8 +176,7 @@ const confetti = Array.from({ length: 30 }, (_, i) => ({
 	}
 
 	.celebration__claim-btn:hover {
-		background: linear-gradient(135deg, var(--color-violet-700), var(--color-violet-500));
-	}
+		background: linear-gradient(135deg, var(--color-violet-700), var(--color-violet-500));	}
 
 	.celebration__close-btn {
 		width: 100%;
