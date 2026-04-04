@@ -495,6 +495,9 @@ $effect(() => {
 					{/each}
 					<span class="text-xs font-bold text-orange-600 ml-1">{questProgress.completed}/{questProgress.total}</span>
 				</div>
+				{#if questProgress.completed === 0}
+					<p class="text-[10px] text-orange-400 mt-0.5">⬇ したの カードを タップして きろくしよう！</p>
+				{/if}
 			</div>
 			{#if questProgress.completed >= questProgress.total}
 				<span class="text-sm font-bold text-orange-600">コンプリート！</span>

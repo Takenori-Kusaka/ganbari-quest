@@ -73,7 +73,7 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 	test('ボトムナビゲーションが表示される', async ({ page }) => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
 		await expect(nav).toBeVisible();
-		// ナビリンクが3つ表示される（ホーム、つよさ、きりかえ）
+		// ナビリンクが3つ表示される（ホーム、つよさ、かぞく）
 		const links = nav.locator('a');
 		expect(await links.count()).toBe(3);
 	});
@@ -241,11 +241,11 @@ test.describe('ナビゲーション', () => {
 		await expect(page).toHaveURL(/\/kinder\/home/);
 	});
 
-	test('きりかえリンクで /switch に戻れる', async ({ page }) => {
+	test('かぞくリンクで /switch に戻れる', async ({ page }) => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
 		await page.evaluate(() => window.scrollTo(0, 0));
 		await nav.waitFor({ state: 'visible' });
-		await nav.locator('a').filter({ hasText: 'きりかえ' }).click({ force: true });
+		await nav.locator('a').filter({ hasText: 'かぞく' }).click({ force: true });
 		await expect(page).toHaveURL(/\/switch/);
 	});
 });
