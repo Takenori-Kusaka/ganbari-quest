@@ -20,26 +20,26 @@ function progressPct(xp: number, level: number): number {
 </script>
 
 <svelte:head>
-	<title>しゅうかんレポート（デモ） - がんばりクエスト</title>
+	<title>週間レポート（デモ） - がんばりクエスト</title>
 </svelte:head>
 
 <DemoBanner />
 
 <div class="space-y-6">
-	<h2 class="text-lg font-bold">📊 しゅうかんレポート</h2>
+	<h2 class="text-lg font-bold">📊 週間レポート</h2>
 
 	{#each data.reports as report}
 		<div class="rounded-xl border bg-white shadow-sm">
 			<div class="rounded-t-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3 text-white">
-				<h3 class="text-base font-bold">{report.childName}ちゃんの しゅうかんレポート</h3>
+				<h3 class="text-base font-bold">{report.childName}ちゃんの 週間レポート</h3>
 				<p class="text-xs opacity-80">{formatWeek(report.weekStart, report.weekEnd)}</p>
 			</div>
 			<div class="space-y-4 p-4">
 				<div class="flex gap-3">
 					<div class="flex-1 rounded-lg bg-blue-50 p-3 text-center">
-						<p class="text-xs text-blue-600">かつどう</p>
+						<p class="text-xs text-blue-600">活動</p>
 						<p class="text-xl font-bold text-blue-700">{report.totalActivities}</p>
-						<p class="text-[10px] text-blue-500">かい</p>
+						<p class="text-[10px] text-blue-500">回</p>
 					</div>
 					<div class="flex-1 rounded-lg bg-amber-50 p-3 text-center">
 						<p class="text-xs text-amber-600">ポイント</p>
@@ -47,15 +47,15 @@ function progressPct(xp: number, level: number): number {
 						<p class="text-[10px] text-amber-500">pt</p>
 					</div>
 					<div class="flex-1 rounded-lg bg-green-50 p-3 text-center">
-						<p class="text-xs text-green-600">じっせき</p>
+						<p class="text-xs text-green-600">実績</p>
 						<p class="text-xl font-bold text-green-700">{report.newAchievements.length}</p>
-						<p class="text-[10px] text-green-500">かくとく</p>
+						<p class="text-[10px] text-green-500">獲得</p>
 					</div>
 				</div>
 
 				{#if report.highlights.length > 0}
 					<div>
-						<h4 class="mb-2 text-xs font-bold text-gray-600">🏆 こんしゅうのハイライト</h4>
+						<h4 class="mb-2 text-xs font-bold text-gray-600">🏆 今週のハイライト</h4>
 						<div class="space-y-1.5">
 							{#each report.highlights as highlight}
 								<div class="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
@@ -68,7 +68,7 @@ function progressPct(xp: number, level: number): number {
 				{/if}
 
 				<div>
-					<h4 class="mb-2 text-xs font-bold text-gray-600">📈 カテゴリべつの ようす</h4>
+					<h4 class="mb-2 text-xs font-bold text-gray-600">📈 カテゴリ別の様子</h4>
 					<div class="space-y-2">
 						{#each report.categories as cat}
 							<div class="flex items-center gap-2">

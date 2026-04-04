@@ -70,11 +70,11 @@ function diffColor(current: number, prev: number | undefined): string {
 
 // カテゴリ名の取得（IDから）
 const categoryNames: Record<string, string> = {
-	'1': 'うんどう',
-	'2': 'べんきょう',
-	'3': 'せいかつ',
-	'4': 'こうりゅう',
-	'5': 'そうぞう',
+	'1': '運動',
+	'2': '勉強',
+	'3': '生活',
+	'4': '交流',
+	'5': '創造',
 	unknown: 'その他',
 };
 
@@ -166,9 +166,9 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 							<!-- Highlight cards -->
 							<div class="grid grid-cols-2 gap-3">
 								<div class="rounded-lg bg-blue-50 p-3 text-center">
-									<p class="text-xs text-blue-600">かつどう</p>
+									<p class="text-xs text-blue-600">活動</p>
 									<p class="text-xl font-bold text-blue-700">{report.totalActivities}</p>
-									<p class="text-[10px] text-blue-500">かい</p>
+									<p class="text-[10px] text-blue-500">回</p>
 									{#if prev}
 										<p class="text-[10px] font-semibold {diffColor(report.totalActivities, prev.totalActivities)}">
 											{diffLabel(report.totalActivities, prev.totalActivities)} 先月比
@@ -195,18 +195,18 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 									{/if}
 								</div>
 								<div class="rounded-lg bg-orange-50 p-3 text-center">
-									<p class="text-xs text-orange-600">れんぞく</p>
+									<p class="text-xs text-orange-600">連続</p>
 									<p class="text-xl font-bold text-orange-700">{report.maxStreakDays}</p>
-									<p class="text-[10px] text-orange-500">にち</p>
+									<p class="text-[10px] text-orange-500">日</p>
 								</div>
 							</div>
 
 							<!-- Stats row -->
 							<div class="flex gap-3">
 								<div class="flex-1 rounded-lg bg-green-50 p-2 text-center">
-									<p class="text-xs text-green-600">じっせき</p>
+									<p class="text-xs text-green-600">実績</p>
 									<p class="text-lg font-bold text-green-700">{report.totalNewAchievements}</p>
-									<p class="text-[10px] text-green-500">かくとく</p>
+									<p class="text-[10px] text-green-500">獲得</p>
 								</div>
 								<div class="flex-1 rounded-lg bg-teal-50 p-2 text-center">
 									<p class="text-xs text-teal-600">活動日数</p>
@@ -216,14 +216,14 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 								<div class="flex-1 rounded-lg bg-indigo-50 p-2 text-center">
 									<p class="text-xs text-indigo-600">1日平均</p>
 									<p class="text-lg font-bold text-indigo-700">{report.avgDailyActivities}</p>
-									<p class="text-[10px] text-indigo-500">かい</p>
+									<p class="text-[10px] text-indigo-500">回</p>
 								</div>
 							</div>
 
 							<!-- Category breakdown -->
 							{#if Object.keys(report.categoryBreakdown).length > 0}
 								<div>
-									<h4 class="mb-2 text-xs font-bold text-gray-600">📈 カテゴリべつの ようす</h4>
+									<h4 class="mb-2 text-xs font-bold text-gray-600">📈 カテゴリ別の様子</h4>
 									<div class="space-y-2">
 										{#each Object.entries(report.categoryBreakdown) as [catId, rawCount]}
 											{@const count = rawCount as number}
@@ -242,7 +242,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 												<span class="w-10 text-right text-xs font-bold text-gray-600">{count}回</span>
 												{#if prevCat !== undefined}
 													<span class="w-10 text-right text-[10px] font-semibold {diffColor(count, prevCat)}">
-														{diffLabel(count, prevCat)}
+														{diffLabel(count, prevCat)} 先月比
 													</span>
 												{/if}
 											</div>
@@ -297,7 +297,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 				<div class="rounded-xl border bg-white shadow-sm">
 					<!-- Header -->
 					<div class="rounded-t-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3 text-white">
-						<h3 class="text-base font-bold">{report.childName}ちゃんの しゅうかんレポート</h3>
+						<h3 class="text-base font-bold">{report.childName}ちゃんの 週間レポート</h3>
 						<p class="text-xs opacity-80">{formatWeek(report.weekStart, report.weekEnd)}</p>
 					</div>
 
@@ -305,9 +305,9 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 						<!-- Summary -->
 						<div class="flex gap-3">
 							<div class="flex-1 rounded-lg bg-blue-50 p-3 text-center">
-								<p class="text-xs text-blue-600">かつどう</p>
+								<p class="text-xs text-blue-600">活動</p>
 								<p class="text-xl font-bold text-blue-700">{report.totalActivities}</p>
-								<p class="text-[10px] text-blue-500">かい</p>
+								<p class="text-[10px] text-blue-500">回</p>
 							</div>
 							<div class="flex-1 rounded-lg bg-amber-50 p-3 text-center">
 								<p class="text-xs text-amber-600">ポイント</p>
@@ -315,16 +315,16 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 								<p class="text-[10px] text-amber-500">pt</p>
 							</div>
 							<div class="flex-1 rounded-lg bg-green-50 p-3 text-center">
-								<p class="text-xs text-green-600">じっせき</p>
+								<p class="text-xs text-green-600">実績</p>
 								<p class="text-xl font-bold text-green-700">{report.newAchievements.length}</p>
-								<p class="text-[10px] text-green-500">かくとく</p>
+								<p class="text-[10px] text-green-500">獲得</p>
 							</div>
 						</div>
 
 						<!-- Highlights -->
 						{#if report.highlights.length > 0}
 							<div>
-								<h4 class="mb-2 text-xs font-bold text-gray-600">🏆 こんしゅうのハイライト</h4>
+								<h4 class="mb-2 text-xs font-bold text-gray-600">🏆 今週のハイライト</h4>
 								<div class="space-y-1.5">
 									{#each report.highlights as highlight}
 										<div class="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
@@ -338,7 +338,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 
 						<!-- Category breakdown -->
 						<div>
-							<h4 class="mb-2 text-xs font-bold text-gray-600">📈 カテゴリべつの ようす</h4>
+							<h4 class="mb-2 text-xs font-bold text-gray-600">📈 カテゴリ別の様子</h4>
 							<div class="space-y-2">
 								{#each report.categories as cat}
 									<div class="flex items-center gap-2">
@@ -366,7 +366,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 						<!-- Achievements -->
 						{#if report.newAchievements.length > 0}
 							<div>
-								<h4 class="mb-2 text-xs font-bold text-gray-600">🎖️ かくとくした じっせき</h4>
+								<h4 class="mb-2 text-xs font-bold text-gray-600">🎖️ 獲得した実績</h4>
 								<div class="flex flex-wrap gap-2">
 									{#each report.newAchievements as ach}
 										<div class="rounded-lg border bg-amber-50 px-2.5 py-1.5">
