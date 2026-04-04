@@ -116,7 +116,7 @@ function selectStamp(code: string) {
 						maxlength={TEXT_MAX}
 						placeholder="がんばってるね！だいすき！ いつもおうえんしてるよ"
 						rows="3"
-						class="w-full px-3 py-2 border rounded-lg bg-white text-sm border-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-colors resize-none"
+						class="w-full px-3 py-2 border rounded-lg bg-white text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--input-border-focus)]/30 transition-colors resize-none"
 					></textarea>
 				</FormField>
 			</Card>

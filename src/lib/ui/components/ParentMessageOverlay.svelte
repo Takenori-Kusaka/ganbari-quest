@@ -40,7 +40,7 @@ function handleClose() {
 		{#if messageType === 'stamp'}
 			<p class="text-xl font-bold">{stampLabel}</p>
 		{:else if body}
-			<p class="text-xl font-bold">「{body}」</p>
+			<p class="{body.length > 30 ? 'text-sm' : 'text-lg'} font-bold leading-relaxed max-h-40 overflow-y-auto px-2">「{body}」</p>
 		{/if}
 
 		<p class="text-sm text-gray-500">パパ・ママからのメッセージだよ</p>
