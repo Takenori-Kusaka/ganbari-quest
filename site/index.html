@@ -29,9 +29,13 @@
 .hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
 .hero-badges{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
 .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#fff;border:1px solid var(--gray-300);border-radius:2rem;font-size:.8rem;color:var(--gray-500)}
-.solution-illustration{max-width:480px;margin:0 auto 24px;border-radius:16px;overflow:hidden}
+.solution-layout{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;max-width:960px;margin:0 auto}
+.solution-text{text-align:left}
+.solution-text h3{font-size:1.3rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
+.solution-text p{font-size:1rem;color:var(--gray-500);margin-bottom:24px;line-height:1.7}
+.solution-illustration{border-radius:16px;overflow:hidden}
 .solution-illustration img{width:100%;height:auto;display:block}
-@media(max-width:640px){.solution-illustration{max-width:320px;border-radius:12px}}
+@media(max-width:768px){.solution-layout{grid-template-columns:1fr;gap:24px}.solution-text{text-align:center}.solution-illustration{max-width:400px;margin:0 auto;border-radius:12px;order:-1}}
 
 /* Section */
 .section{padding:64px 16px}
@@ -49,10 +53,8 @@
 .pain-card .pain-detail{font-size:.82rem;color:var(--gray-500);line-height:1.6}
 
 /* Solution */
-.solution-box{max-width:800px;margin:0 auto;background:linear-gradient(135deg,var(--brand-100),#fef9e7);border-radius:var(--radius);padding:40px 32px;text-align:center}
-.solution-box h3{font-size:1.3rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
-.solution-box p{font-size:1rem;color:var(--gray-500);max-width:600px;margin:0 auto 24px}
-.solution-points{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+.solution-points{display:flex;gap:24px;flex-wrap:wrap;margin-top:24px}
+@media(max-width:768px){.solution-points{justify-content:center}}
 .solution-point{text-align:center;max-width:160px}
 .solution-point .sp-icon{font-size:2rem;margin-bottom:8px}
 .solution-point .sp-label{font-size:.9rem;font-weight:600;color:var(--gray-900)}
@@ -328,38 +330,40 @@
 <!-- Solution -->
 <section class="section bg-gray" id="solution">
   <div class="section-inner">
-    <div class="solution-illustration">
-      <picture>
-        <source srcset="hero-illustration.webp" type="image/webp">
-        <img src="hero-illustration.png" alt="冒険の旅に出る勇者キャラクター — ポイント、宝箱、バッジを集めながらレベルアップ" width="1584" height="672" loading="lazy">
-      </picture>
-    </div>
-    <div class="solution-box">
-      <h3>お子さまの「がんばり」を、冒険に変えよう</h3>
-      <p>
-        シール帳やスタンプカードでは見えなかった<br>
-        一つひとつのがんばりが、ポイントとして蓄積。<br>
-        お子さまは冒険の主人公のようにレベルアップし、<br>
-        親御さんは「何をどれだけがんばったか」を<br>
-        根拠を持って褒められるようになります。
-      </p>
-      <div class="solution-points">
-        <div class="solution-point">
-          <div class="sp-icon">&#x1F4E2;</div>
-          <div class="sp-label">声かけが減る</div>
+    <div class="solution-layout">
+      <div class="solution-text">
+        <h3>お子さまの「がんばり」を、冒険に変えよう</h3>
+        <p>
+          シール帳やスタンプカードでは見えなかった
+          一つひとつのがんばりが、ポイントとして蓄積。
+          お子さまは冒険の主人公のようにレベルアップし、
+          親御さんは「何をどれだけがんばったか」を
+          根拠を持って褒められるようになります。
+        </p>
+        <div class="solution-points">
+          <div class="solution-point">
+            <div class="sp-icon">&#x1F4E2;</div>
+            <div class="sp-label">声かけが減る</div>
+          </div>
+          <div class="solution-point">
+            <div class="sp-icon">&#x1F4C8;</div>
+            <div class="sp-label">成長が見える</div>
+          </div>
+          <div class="solution-point">
+            <div class="sp-icon">&#x1F525;</div>
+            <div class="sp-label">続く仕組み</div>
+          </div>
+          <div class="solution-point">
+            <div class="sp-icon">&#x1F46A;</div>
+            <div class="sp-label">親子で楽しめる</div>
+          </div>
         </div>
-        <div class="solution-point">
-          <div class="sp-icon">&#x1F4C8;</div>
-          <div class="sp-label">成長が見える</div>
-        </div>
-        <div class="solution-point">
-          <div class="sp-icon">&#x1F525;</div>
-          <div class="sp-label">続く仕組み</div>
-        </div>
-        <div class="solution-point">
-          <div class="sp-icon">&#x1F46A;</div>
-          <div class="sp-label">親子で楽しめる</div>
-        </div>
+      </div>
+      <div class="solution-illustration">
+        <picture>
+          <source srcset="hero-illustration.webp" type="image/webp">
+          <img src="hero-illustration.png" alt="冒険の旅に出る勇者キャラクター — ポイント、宝箱、バッジを集めながらレベルアップ" width="1584" height="672" loading="lazy">
+        </picture>
       </div>
     </div>
   </div>
