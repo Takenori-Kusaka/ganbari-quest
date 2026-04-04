@@ -1,8 +1,8 @@
 // GET /api/v1/admin/license — ライセンス情報取得 (#0130)
 
+import { error, json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getLicenseInfo } from '$lib/server/services/license-service';
-import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {

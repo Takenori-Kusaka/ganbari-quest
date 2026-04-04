@@ -1,8 +1,8 @@
+import { json } from '@sveltejs/kit';
 import { ConvertMode, convertPointsSchema } from '$lib/domain/validation/point';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { convertPoints } from '$lib/server/services/point-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {

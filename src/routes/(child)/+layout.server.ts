@@ -1,6 +1,6 @@
-import type { PointSettings } from '$lib/domain/point-display';
+import { redirect } from '@sveltejs/kit';
+import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
-import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { UI_MODES } from '$lib/domain/validation/age-tier';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings } from '$lib/server/db/settings-repo';
@@ -10,7 +10,6 @@ import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getStampCardStatus } from '$lib/server/services/stamp-card-service';
 import { getChildStatus } from '$lib/server/services/status-service';
-import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {

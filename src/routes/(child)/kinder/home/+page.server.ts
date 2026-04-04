@@ -1,3 +1,4 @@
+import { fail } from '@sveltejs/kit';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
@@ -6,8 +7,10 @@ import {
 	hasAnyActivityRecords,
 	recordActivity,
 } from '$lib/server/services/activity-log-service';
-import { sortActivitiesWithPreferences } from '$lib/server/services/activity-pin-service';
-import { toggleActivityPin } from '$lib/server/services/activity-pin-service';
+import {
+	sortActivitiesWithPreferences,
+	toggleActivityPin,
+} from '$lib/server/services/activity-pin-service';
 import { getActivities } from '$lib/server/services/activity-service';
 import {
 	claimBirthdayBonus,
@@ -44,7 +47,6 @@ import {
 	stampToday,
 } from '$lib/server/services/stamp-card-service';
 import { getCategoryXpSummary } from '$lib/server/services/status-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 function todayDate(): string {

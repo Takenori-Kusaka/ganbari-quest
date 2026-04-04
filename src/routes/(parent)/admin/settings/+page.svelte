@@ -1,8 +1,8 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
-import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
+import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';

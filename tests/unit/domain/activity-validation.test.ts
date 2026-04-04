@@ -3,9 +3,9 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-	CANCEL_WINDOW_MS,
 	activitiesQuerySchema,
 	activityLogsQuerySchema,
+	CANCEL_WINDOW_MS,
 	calcStreakBonus,
 	createActivitySchema,
 	recordActivitySchema,

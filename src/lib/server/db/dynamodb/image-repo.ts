@@ -3,9 +3,9 @@
 
 import { GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { CharacterImage, Child, InsertCharacterImageInput } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { ENTITY_NAMES, characterImageKey, childKey } from './keys';
+import { characterImageKey, childKey, ENTITY_NAMES } from './keys';
 
 /** Strip PK/SK/GSI keys from a DynamoDB item */
 function stripKeys<T extends Record<string, unknown>>(

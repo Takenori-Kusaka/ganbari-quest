@@ -1206,4 +1206,4 @@ export function getDemoAchievementsForChild(childId: number): ChildAchievement[]
 	return DEMO_CHILD_ACHIEVEMENTS.filter((a) => a.childId === childId);
 }
 
-export { DEMO_TENANT_ID, TODAY, NOW };
+export { DEMO_TENANT_ID, NOW, TODAY };

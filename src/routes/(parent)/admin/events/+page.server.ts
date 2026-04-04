@@ -1,7 +1,7 @@
+import { fail } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { deleteEvent } from '$lib/server/db/season-event-repo';
 import { createEvent, editEvent, getAllEvents } from '$lib/server/services/season-event-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

@@ -1,8 +1,8 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
 import { page } from '$app/stores';
-import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import type { PointSettings } from '$lib/domain/point-display';
+import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import {
 	dismissTutorialBanner,

@@ -2,10 +2,10 @@
 import { page } from '$app/stores';
 import { trackDemoEvent } from './demo-analytics.js';
 import {
-	GUIDE_STEPS,
 	advanceStep,
 	checkAutoAdvance,
 	dismissGuide,
+	GUIDE_STEPS,
 	getGuideState,
 } from './demo-guide-state.svelte.js';
 

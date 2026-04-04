@@ -5,8 +5,8 @@ import ActivityCreateForm from '$lib/features/admin/components/ActivityCreateFor
 import ActivityImportPanel from '$lib/features/admin/components/ActivityImportPanel.svelte';
 import ActivityListItem from '$lib/features/admin/components/ActivityListItem.svelte';
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
-import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivitiesSection.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
+import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivitiesSection.svelte';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';

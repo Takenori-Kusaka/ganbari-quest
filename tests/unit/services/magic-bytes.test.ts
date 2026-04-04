@@ -1,10 +1,10 @@
+import { describe, expect, it } from 'vitest';
 import {
 	detectMimeType,
 	validateAudioMagicBytes,
 	validateBase64ImageMagicBytes,
 	validateImageMagicBytes,
 } from '$lib/server/security/magic-bytes';
-import { describe, expect, it } from 'vitest';
 
 describe('detectMimeType', () => {
 	it('JPEG を検出する', () => {

@@ -1,10 +1,10 @@
 // src/routes/api/v1/children/[id]/activities/[activityId]/pin/+server.ts
 // 活動ピン留めトグルAPI
 
+import { json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { toggleActivityPin } from '$lib/server/services/activity-pin-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {

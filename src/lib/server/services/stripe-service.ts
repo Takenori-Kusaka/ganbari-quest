@@ -1,6 +1,7 @@
 // src/lib/server/services/stripe-service.ts
 // Stripe 決済サービス (#0131)
 
+import type Stripe from 'stripe';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -11,12 +12,11 @@ import { getStripeClient, isStripeEnabled } from '$lib/server/stripe/client';
 import {
 	CURRENCY,
 	GRACE_PERIOD_DAYS,
-	TRIAL_PERIOD_DAYS,
 	getPlans,
 	getWebhookSecret,
 	planIdFromPriceId,
+	TRIAL_PERIOD_DAYS,
 } from '$lib/server/stripe/config';
-import type Stripe from 'stripe';
 
 // ============================================================
 // Checkout Session

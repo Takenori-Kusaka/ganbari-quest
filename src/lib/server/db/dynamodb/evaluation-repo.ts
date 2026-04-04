@@ -10,12 +10,12 @@ import type {
 	InsertEvaluationInput,
 	RestDay,
 } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
-	ENTITY_NAMES,
 	activityLogPrefix,
 	childPK,
+	ENTITY_NAMES,
 	evaluationKey,
 	evaluationPrefix,
 	statusHistoryPrefix,

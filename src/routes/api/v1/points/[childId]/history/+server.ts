@@ -1,8 +1,8 @@
+import { json } from '@sveltejs/kit';
 import { pointHistoryQuerySchema } from '$lib/domain/validation/point';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { notFound, validationError } from '$lib/server/errors';
 import { getPointHistory } from '$lib/server/services/point-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {

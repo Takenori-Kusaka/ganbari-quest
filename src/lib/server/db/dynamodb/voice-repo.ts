@@ -6,7 +6,7 @@ import {
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { ChildCustomVoice } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import type { DynamoKey } from './keys';
 import { padId, tenantPK } from './keys';

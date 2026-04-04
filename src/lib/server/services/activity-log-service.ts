@@ -1,11 +1,11 @@
 import {
 	CANCEL_WINDOW_MS,
-	MASTERY_MILESTONE_LEVELS,
 	calcMasteryBonus,
 	calcMasteryLevel,
 	calcStreakBonus,
 	getActivityDisplayName,
 	getCategoryById,
+	MASTERY_MILESTONE_LEVELS,
 	todayDate,
 } from '$lib/domain/validation/activity';
 import { calcLevelFromXp } from '$lib/domain/validation/status';

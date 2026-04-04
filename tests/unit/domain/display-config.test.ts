@@ -1,11 +1,11 @@
+import { describe, expect, test } from 'vitest';
 import {
-	CARD_SIZES,
 	CARD_SIZE_CSS,
 	CARD_SIZE_LABELS,
+	CARD_SIZES,
 	getDefaultDisplayConfig,
 	parseDisplayConfig,
 } from '$lib/domain/display-config';
-import { describe, expect, test } from 'vitest';
 
 describe('DisplayConfig', () => {
 	describe('getDefaultDisplayConfig', () => {

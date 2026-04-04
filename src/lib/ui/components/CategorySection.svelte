@@ -1,7 +1,7 @@
 <script lang="ts">
+import type { Snippet } from 'svelte';
 import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
 import { getCategoryById } from '$lib/domain/validation/activity';
-import type { Snippet } from 'svelte';
 
 interface CategoryXpInfo {
 	value: number;

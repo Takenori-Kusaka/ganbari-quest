@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import {
 	CURRENCY_CODES,
 	CURRENCY_DEFS,
@@ -8,7 +9,6 @@ import {
 	formatWithSettingsAndSign,
 	getUnitLabel,
 } from '$lib/domain/point-display';
-import { describe, expect, it } from 'vitest';
 
 describe('formatPointValue', () => {
 	describe('point mode', () => {

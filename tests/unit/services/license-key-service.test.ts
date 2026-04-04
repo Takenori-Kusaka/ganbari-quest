@@ -28,12 +28,12 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 import {
-	type LicenseRecord,
 	consumeLicenseKey,
 	createHmacChecksum,
 	generateLicenseKey,
 	isSignedKeyFormat,
 	issueLicenseKey,
+	type LicenseRecord,
 	validateLicenseKey,
 	verifyKeySignature,
 } from '$lib/server/services/license-key-service';

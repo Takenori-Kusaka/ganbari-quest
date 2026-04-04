@@ -1,10 +1,10 @@
+import { fail } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { computeAllChildrenDetailedReport } from '$lib/server/services/report-service';
 import { generateReportsForChildren } from '$lib/server/services/weekly-report-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {

@@ -3,9 +3,9 @@
 
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { Child, InsertLoginBonusInput, LoginBonus } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { ENTITY_NAMES, childKey, childPK, loginBonusKey, loginBonusPrefix } from './keys';
+import { childKey, childPK, ENTITY_NAMES, loginBonusKey, loginBonusPrefix } from './keys';
 
 /** Strip PK/SK/GSI keys from a DynamoDB item */
 function stripKeys<T extends Record<string, unknown>>(

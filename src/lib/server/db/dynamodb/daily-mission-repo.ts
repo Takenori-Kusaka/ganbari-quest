@@ -9,10 +9,9 @@ import {
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { Activity, Child, DailyMissionWithActivity } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
-	ENTITY_NAMES,
 	activityKey,
 	activityLogPrefix,
 	childKey,
@@ -20,6 +19,7 @@ import {
 	dailyMissionDatePrefix,
 	dailyMissionKey,
 	dailyMissionPrefix,
+	ENTITY_NAMES,
 	pointLedgerPrefix,
 	tenantPK,
 } from './keys';

@@ -1,5 +1,5 @@
-import { getChildById } from '$lib/server/services/child-service';
 import { redirect } from '@sveltejs/kit';
+import { getChildById } from '$lib/server/services/child-service';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ cookies, locals }) => {

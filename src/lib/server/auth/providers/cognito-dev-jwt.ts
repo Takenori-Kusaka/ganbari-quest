@@ -2,7 +2,7 @@
 // ローカル開発用ダミー JWT 生成・検証（COGNITO_DEV_MODE=true 時に使用）
 // HS256 + 固定シークレットを使い、Lambda インスタンス間でも JWT を共有可能にする
 
-import { SignJWT, jwtVerify } from 'jose';
+import { jwtVerify, SignJWT } from 'jose';
 import type { CognitoClaims } from './cognito-jwt';
 
 const DEV_ISSUER = 'https://cognito-idp.local.amazonaws.com/local_dev_pool';

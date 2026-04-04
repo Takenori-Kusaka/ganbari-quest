@@ -1,5 +1,5 @@
-import { KANJI_AGE_THRESHOLD, getActivityDisplayName } from '$lib/domain/validation/activity';
 import { describe, expect, it } from 'vitest';
+import { getActivityDisplayName, KANJI_AGE_THRESHOLD } from '$lib/domain/validation/activity';
 
 describe('getActivityDisplayName', () => {
 	const activity = {

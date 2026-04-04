@@ -5,11 +5,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import * as schema from '../../../src/lib/server/db/schema';
 import { assertSuccess } from '../helpers/assert-result';
 import {
-	type TestDb,
-	type TestSqlite,
 	closeDb,
 	createTestDb,
 	resetDb as resetAllTables,
+	type TestDb,
+	type TestSqlite,
 } from '../helpers/test-db';
 
 let sqlite: TestSqlite;

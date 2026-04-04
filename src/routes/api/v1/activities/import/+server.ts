@@ -1,3 +1,4 @@
+import { error, json } from '@sveltejs/kit';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -5,7 +6,6 @@ import {
 	importActivities,
 	previewActivityImport,
 } from '$lib/server/services/activity-import-service';
-import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 const validCategoryCodes = new Set<string>(CATEGORY_CODES);

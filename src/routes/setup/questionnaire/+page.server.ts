@@ -1,3 +1,4 @@
+import { redirect } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { setSetting } from '$lib/server/db/settings-repo';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -7,7 +8,6 @@ import {
 	getRecommendedPresets,
 } from '$lib/server/services/questionnaire-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
-import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

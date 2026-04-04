@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import {
 	avatarKey,
 	childPrefix,
@@ -6,7 +7,6 @@ import {
 	tenantPrefix,
 	voiceKey,
 } from '$lib/server/storage-keys';
-import { describe, expect, it } from 'vitest';
 
 describe('storage-keys', () => {
 	const tenantId = 'tenant-abc123';

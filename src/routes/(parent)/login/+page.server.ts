@@ -1,12 +1,12 @@
+import { fail, redirect } from '@sveltejs/kit';
 import {
+	pinSchema,
 	SESSION_COOKIE_NAME,
 	SESSION_MAX_AGE_SECONDS,
-	pinSchema,
 } from '$lib/domain/validation/auth';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { login } from '$lib/server/services/auth-service';
-import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => {

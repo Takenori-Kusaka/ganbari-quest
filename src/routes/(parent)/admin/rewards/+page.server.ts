@@ -1,3 +1,4 @@
+import { fail } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
@@ -5,7 +6,6 @@ import {
 	getRewardTemplates,
 	grantSpecialReward,
 } from '$lib/server/services/special-reward-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

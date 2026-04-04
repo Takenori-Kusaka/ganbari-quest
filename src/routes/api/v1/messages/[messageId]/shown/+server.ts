@@ -1,7 +1,7 @@
+import { json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { notFound } from '$lib/server/errors';
 import { markAsShown } from '$lib/server/services/message-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ params, locals }) => {

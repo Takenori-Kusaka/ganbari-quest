@@ -1,10 +1,10 @@
+import { describe, expect, it } from 'vitest';
 import {
 	safeContentType,
 	sanitizeAudio,
 	sanitizeImage,
 	stripId3v2Tag,
 } from '$lib/server/security/file-sanitizer';
-import { describe, expect, it } from 'vitest';
 
 describe('sanitizeImage', () => {
 	it('JPEG を re-encode できる', async () => {
