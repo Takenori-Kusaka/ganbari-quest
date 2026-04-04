@@ -129,7 +129,7 @@ function handleClick(e: Event) {
 	{/if}
 
 	{#if eventBadge && !completed}
-		<div class="event-badge" aria-label="イベントちゅう">
+		<div class="event-badge" aria-hidden="true">
 			<span class="event-badge__icon">{eventBadge}</span>
 		</div>
 	{/if}

@@ -201,7 +201,9 @@ function isCompleted(activity: { id: number; dailyLimit: number | null }): boole
 
 // Event badge: show first active event's icon on activity cards (#325)
 const activeEventBadge = $derived(
-	data.activeEvents && data.activeEvents.length > 0 ? (data.activeEvents[0]?.bannerIcon ?? null) : null,
+	data.activeEvents && data.activeEvents.length > 0
+		? (data.activeEvents[0]?.bannerIcon ?? null)
+		: null,
 );
 
 // Group activities by category
