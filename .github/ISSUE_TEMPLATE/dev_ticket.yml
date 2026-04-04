@@ -99,7 +99,7 @@ body:
         以下のプロセスに従って作業を進めてください:
 
         1. **チケット内容の確認** — ゴール・背景・技術メモを読み、スコープを把握
-        2. **ブランチ作成** — `{type}/{issue番号}-{slug}` 形式（例: `feat/123-add-rewards`）
+        2. **ブランチ作成** — `feature/{issue番号}-{slug}` または `fix/{issue番号}-{slug}` 形式（例: `feature/123-add-rewards`）
         3. **影響範囲の調査** — 関連ファイル・テスト・設計書を事前に確認
         4. **実装** — CLAUDE.md のコーディングガイドラインに従う
         5. **lint チェック** — `npx biome check .` でエラーなし確認
@@ -118,13 +118,13 @@ body:
       value: |
         ## ⚠️ 重要事項・注意点
 
-        - **UI実装ルール**: ボタンは `$lib/ui/primitives/Button.svelte`、カードは `Card.svelte` を使用。routes 配下で hex カラー直書き禁止、CSS変数を使用すること
+        - **UI実装ルール**: ボタンは `$lib/ui/primitives/Button.svelte`、カードは `$lib/ui/primitives/Card.svelte` を使用。routes 配下で hex カラー直書き禁止、CSS変数を使用すること
         - **サービス層経由必須**: `+server.ts` から直接 ORM を呼び出さない。`$lib/server/services` 経由で実装
         - **データ取得**: `+page.ts` / `+layout.ts` の `load` を使用。コンポーネント内の直接 fetch 禁止
         - **スクラップ&ビルド**: 機能削除時にコメントアウト・表示変更だけの応急処置禁止。根本から削除・再構築すること
         - **画像アセット**: シール/バッジ/実績等のゲーム報酬は絵文字で代替禁止。Gemini生成またはチケット化必須
         - **テスト・デモデータ**: 実在の子供名を使用禁止。「たろうくん」「はなこちゃん」のようなダミー名を使用
-        - **チケット管理**: `docs/tickets/` への新規ファイル作成禁止。GitHub Issues で管理すること
+        - **チケット管理**: 開発チケットの起票・管理は GitHub Issues に統一すること。`docs/tickets/` は新規チケット管理には使用しない
 
   - type: checkboxes
     id: done_checklist
