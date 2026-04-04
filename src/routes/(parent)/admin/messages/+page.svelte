@@ -85,7 +85,7 @@ function selectStamp(code: string) {
 					title="ファミリープラン限定"
 				>
 					ひとことメッセージ
-					<span class="text-xs font-bold text-amber-500">⭐⭐</span>
+					<span class="text-xs font-bold text-[var(--color-point)]">⭐⭐</span>
 				</Button>
 				<span id="free-text-message-disabled-reason" class="sr-only">
 					ひとことメッセージはファミリープラン限定の機能です。ご利用にはプランのアップグレードが必要です。
