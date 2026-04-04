@@ -63,7 +63,14 @@ const groupedMilestones = $derived(() => {
 
 	<!-- Progress bar -->
 	<div class="season-pass__progress">
-		<div class="season-pass__bar">
+		<div
+			class="season-pass__bar"
+			role="progressbar"
+			aria-valuemin={0}
+			aria-valuemax={maxTarget}
+			aria-valuenow={currentCount}
+			aria-valuetext={`${currentCount}/${maxTarget}`}
+		>
 			<div class="season-pass__bar-fill" style:width="{progressPct}%"></div>
 		</div>
 		<span class="season-pass__count">{currentCount}/{maxTarget}</span>
