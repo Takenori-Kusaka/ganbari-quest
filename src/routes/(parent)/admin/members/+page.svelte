@@ -73,6 +73,66 @@ async function copyLink() {
 	}, 2000);
 }
 
+// --- Viewer Token ---
+let viewerLabel = $state('');
+let viewerDuration = $state<'7d' | '30d' | 'unlimited'>('30d');
+let creatingViewer = $state(false);
+let viewerLink = $state('');
+let viewerQrDataUrl = $state('');
+let viewerError = $state('');
+let viewerCopied = $state(false);
+
+async function createViewerLink() {
+	creatingViewer = true;
+	viewerError = '';
+	viewerLink = '';
+	viewerQrDataUrl = '';
+	viewerCopied = false;
+	try {
+		const res = await fetch('/api/v1/admin/viewer-tokens', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ label: viewerLabel || undefined, duration: viewerDuration }),
+		});
+		if (!res.ok) {
+			const d = await res.json();
+			viewerError = d.message ?? '閲覧リンクの作成に失敗しました';
+			return;
+		}
+		const result = await res.json();
+		viewerLink = `${window.location.origin}/view/${result.token.token}`;
+		viewerQrDataUrl = await QRCode.toDataURL(viewerLink, {
+			width: 256,
+			margin: 2,
+			color: { dark: '#1e293b', light: '#ffffff' },
+		});
+	} catch {
+		viewerError = '通信エラーが発生しました';
+	} finally {
+		creatingViewer = false;
+	}
+}
+
+async function revokeViewerToken(id: number) {
+	if (!confirm('この閲覧リンクを無効にしますか？')) return;
+	await fetch(`/api/v1/admin/viewer-tokens/${id}?action=revoke`, { method: 'DELETE' });
+	window.location.reload();
+}
+
+async function deleteViewerToken(id: number) {
+	if (!confirm('この閲覧リンクを削除しますか？')) return;
+	await fetch(`/api/v1/admin/viewer-tokens/${id}`, { method: 'DELETE' });
+	window.location.reload();
+}
+
+async function copyViewerLink() {
+	await navigator.clipboard.writeText(viewerLink);
+	viewerCopied = true;
+	setTimeout(() => {
+		viewerCopied = false;
+	}, 2000);
+}
+
 let memberError = $state('');
 
 async function removeMember(userId: string, email: string) {
@@ -341,6 +401,142 @@ const roleLabel = (role: string) => {
 					</div>
 				{/each}
 			</div>
+			{/snippet}
+		</Card>
+	{/if}
+
+	<!-- 閲覧リンク（ファミリープラン限定） -->
+	{#if data.isFamily}
+		<Card variant="default" padding="md">
+			{#snippet children()}
+			<h3 class="text-lg font-semibold text-gray-600 mb-3">閲覧リンク</h3>
+			<p class="text-xs text-gray-400 mb-3">
+				祖父母や家族に、お子さまの成長を読み取り専用で共有できます
+			</p>
+
+			<div class="flex flex-wrap items-end gap-3 mb-3">
+				<FormField label="ラベル（任意）" class="flex-1 min-w-[120px]">
+					{#snippet children()}
+						<input
+							type="text"
+							bind:value={viewerLabel}
+							placeholder="例: おばあちゃん用"
+							maxlength="50"
+							class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm"
+						/>
+					{/snippet}
+				</FormField>
+				<FormField label="有効期限" class="min-w-[100px]">
+					{#snippet children()}
+						<select
+							bind:value={viewerDuration}
+							class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm"
+						>
+							<option value="7d">7日間</option>
+							<option value="30d">30日間</option>
+							<option value="unlimited">無期限</option>
+						</select>
+					{/snippet}
+				</FormField>
+				<Button
+					onclick={createViewerLink}
+					disabled={creatingViewer}
+					variant="primary"
+					size="sm"
+				>
+					{creatingViewer ? '作成中...' : '閲覧リンクを作成'}
+				</Button>
+			</div>
+
+			{#if viewerError}
+				<div class="p-3 mb-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+					{viewerError}
+				</div>
+			{/if}
+
+			{#if viewerLink}
+				<div class="p-4 mb-3 bg-green-50 rounded-lg border border-green-100">
+					<p class="text-sm text-green-700 font-medium mb-3">閲覧リンクが作成されました</p>
+					{#if viewerQrDataUrl}
+						<div class="flex justify-center mb-3">
+							<div class="bg-white p-3 rounded-lg shadow-sm">
+								<img src={viewerQrDataUrl} alt="閲覧QRコード" class="w-48 h-48" />
+							</div>
+						</div>
+						<p class="text-xs text-center text-gray-500 mb-3">
+							スマートフォンのカメラでスキャンして閲覧できます
+						</p>
+					{/if}
+					<div class="flex items-end gap-2">
+						<FormField label="閲覧URL" class="flex-1">
+							{#snippet children()}
+								<input
+									type="text"
+									value={viewerLink}
+									readonly
+									class="w-full px-3 py-2 bg-white border border-green-200 rounded-[var(--input-radius)] text-xs font-mono"
+								/>
+							{/snippet}
+						</FormField>
+						<Button
+							onclick={copyViewerLink}
+							variant={viewerCopied ? 'secondary' : 'success'}
+							size="sm"
+						>
+							{viewerCopied ? 'コピー済み' : 'コピー'}
+						</Button>
+					</div>
+				</div>
+			{/if}
+
+			<!-- 既存の閲覧リンク一覧 -->
+			{#if data.viewerTokens.length > 0}
+				<div class="divide-y divide-gray-100">
+					{#each data.viewerTokens as vt}
+						<div class="flex items-center justify-between py-3 gap-2">
+							<div class="flex-1 min-w-0">
+								<span class="text-sm font-medium text-gray-700 truncate block">
+									{vt.label || '(ラベルなし)'}
+								</span>
+								<div class="flex items-center gap-2 mt-0.5">
+									{#if vt.isRevoked}
+										<span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">無効</span>
+									{:else if vt.isExpired}
+										<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">期限切れ</span>
+									{:else}
+										<span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">有効</span>
+									{/if}
+									{#if vt.expiresAt}
+										<span class="text-xs text-gray-400">
+											期限: {new Date(vt.expiresAt).toLocaleDateString('ja-JP')}
+										</span>
+									{:else}
+										<span class="text-xs text-gray-400">無期限</span>
+									{/if}
+								</div>
+							</div>
+							<div class="flex gap-1 flex-shrink-0">
+								{#if !vt.isRevoked && !vt.isExpired}
+									<Button
+										onclick={() => revokeViewerToken(vt.id)}
+										variant="ghost"
+										size="sm"
+									>
+										無効化
+									</Button>
+								{/if}
+								<Button
+									onclick={() => deleteViewerToken(vt.id)}
+									variant="danger"
+									size="sm"
+								>
+									削除
+								</Button>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
 			{/snippet}
 		</Card>
 	{/if}

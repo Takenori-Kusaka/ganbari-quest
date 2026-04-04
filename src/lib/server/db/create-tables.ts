@@ -650,4 +650,16 @@ export const SQL_CREATE_TABLES = `
 	);
 	CREATE INDEX IF NOT EXISTS idx_trial_history_tenant
 		ON trial_history(tenant_id);
+
+	CREATE TABLE IF NOT EXISTS viewer_tokens (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		token TEXT NOT NULL UNIQUE,
+		label TEXT,
+		expires_at TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		revoked_at TEXT
+	);
+	CREATE INDEX IF NOT EXISTS idx_viewer_tokens_tenant
+		ON viewer_tokens(tenant_id);
 `;
