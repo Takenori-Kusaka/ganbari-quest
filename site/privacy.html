@@ -75,7 +75,7 @@ body{line-height:1.8;background:var(--gray-50)}
     <p>セキュリティの確保および不正アクセス防止のために、アクセス日時、IPアドレス、デバイス情報（ブラウザ種別等）を収集します。これらの情報は90日間保存した後、自動的に削除されます。</p>
 
     <h3>5. 決済情報</h3>
-    <p>クレジットカード番号等の決済情報は、運営者のサーバーには保存されません。決済処理は全て外部の決済サービスを通じて行われ、当該サービスのプライバシーポリシーが適用されます。</p>
+    <p>クレジットカード番号等の決済情報は、運営者のサーバーには保存されません。決済処理は全て外部の決済サービス（Stripe）を通じて行われ、当該サービスのプライバシーポリシーが適用されます。</p>
   </section>
 
   <section>
@@ -105,6 +105,8 @@ body{line-height:1.8;background:var(--gray-50)}
       <li>運営者は、サービス提供のために以下の外部サービスを利用しています。各サービスは、それぞれのプライバシーポリシーに基づきデータを取り扱います。
         <ul>
           <li><strong>Amazon Web Services (AWS)</strong> &#8212; サーバーインフラ、データベース、認証基盤</li>
+          <li><strong>Stripe, Inc.</strong> &#8212; 決済処理（クレジットカード情報の安全な取扱い）<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li>
+          <li><strong>Discord Inc.</strong> &#8212; 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li>
         </ul>
       </li>
     </ol>
