@@ -1,4 +1,5 @@
 <script lang="ts">
+import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
 import ChurnPreventionModal from '$lib/features/loyalty/ChurnPreventionModal.svelte';
 import LoyaltyBadge from '$lib/features/loyalty/LoyaltyBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -8,6 +9,8 @@ let { data } = $props();
 
 const license = $derived(data.license);
 const stripeEnabled = $derived(data.stripeEnabled);
+const planTier = $derived(data.planTier ?? 'free');
+const planStats = $derived(data.planStats);
 
 let checkoutLoading = $state(false);
 let portalLoading = $state(false);
@@ -141,6 +144,18 @@ async function openPortal() {
 		</div>
 		{/snippet}
 	</Card>
+
+	<!-- プラン利用状況 -->
+	{#if planStats}
+		<PlanStatusCard
+			{planTier}
+			activityCount={planStats.activityCount}
+			activityMax={planStats.activityMax}
+			childCount={planStats.childCount}
+			childMax={planStats.childMax}
+			retentionDays={planStats.retentionDays}
+		/>
+	{/if}
 
 	<!-- サポーターバッジ -->
 	{#if data.loyaltyInfo && data.loyaltyInfo.subscriptionMonths > 0}
