@@ -1,13 +1,13 @@
 <script lang="ts">
-	let { data } = $props();
+let { data } = $props();
 
-	const CATEGORY_LABELS: Record<number, { name: string; icon: string }> = {
-		1: { name: 'うんどう', icon: '🏃' },
-		2: { name: 'べんきょう', icon: '📚' },
-		3: { name: 'せいかつ', icon: '🏠' },
-		4: { name: 'こうりゅう', icon: '🤝' },
-		5: { name: 'そうぞう', icon: '🎨' },
-	};
+const CATEGORY_LABELS: Record<number, { name: string; icon: string }> = {
+	1: { name: 'うんどう', icon: '🏃' },
+	2: { name: 'べんきょう', icon: '📚' },
+	3: { name: 'せいかつ', icon: '🏠' },
+	4: { name: 'こうりゅう', icon: '🤝' },
+	5: { name: 'そうぞう', icon: '🎨' },
+};
 </script>
 
 <svelte:head>

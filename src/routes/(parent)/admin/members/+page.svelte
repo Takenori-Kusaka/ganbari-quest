@@ -128,7 +128,9 @@ async function deleteViewerToken(id: number) {
 async function copyViewerLink() {
 	await navigator.clipboard.writeText(viewerLink);
 	viewerCopied = true;
-	setTimeout(() => { viewerCopied = false; }, 2000);
+	setTimeout(() => {
+		viewerCopied = false;
+	}, 2000);
 }
 
 let memberError = $state('');

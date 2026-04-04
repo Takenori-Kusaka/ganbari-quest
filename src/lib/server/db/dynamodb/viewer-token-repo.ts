@@ -10,7 +10,10 @@ export async function findByToken(_token: string): Promise<ViewerToken | undefin
 	throw new Error(NOT_IMPL);
 }
 
-export async function insert(_input: InsertViewerTokenInput, _tenantId: string): Promise<ViewerToken> {
+export async function insert(
+	_input: InsertViewerTokenInput,
+	_tenantId: string,
+): Promise<ViewerToken> {
 	throw new Error(NOT_IMPL);
 }
 

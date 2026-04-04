@@ -22,7 +22,10 @@ export async function findByToken(token: string): Promise<ViewerToken | undefine
 	return row ? toRecord(row) : undefined;
 }
 
-export async function insert(input: InsertViewerTokenInput, tenantId: string): Promise<ViewerToken> {
+export async function insert(
+	input: InsertViewerTokenInput,
+	tenantId: string,
+): Promise<ViewerToken> {
 	const now = new Date().toISOString();
 	const row = db
 		.insert(viewerTokens)
