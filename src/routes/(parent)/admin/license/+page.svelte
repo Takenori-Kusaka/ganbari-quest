@@ -285,7 +285,7 @@ async function openPortal() {
 					<div class="flex items-center justify-between mb-2">
 						<div>
 							<p class="font-semibold text-gray-700">ファミリー</p>
-							<p class="text-xs text-gray-500">全機能+データ永久保持+成長記録</p>
+							<p class="text-xs text-gray-500">家族みんなで見守る+永久保持</p>
 						</div>
 						{#if billingInterval === 'monthly'}
 							<p class="text-xl font-bold text-purple-600">¥780<span class="text-sm font-normal text-gray-500">/月</span></p>
@@ -295,9 +295,10 @@ async function openPortal() {
 					</div>
 					<ul class="text-xs text-gray-500 space-y-1 mb-3">
 						<li>スタンダードの全機能</li>
+						<li>祖父母・家族向け閲覧リンク</li>
+						<li>自由テキストおうえん</li>
+						<li>きょうだいランキング</li>
 						<li>データ保持 <strong>永久</strong></li>
-						<li>兄弟間クロス分析</li>
-						<li>詳細月次レポート</li>
 					</ul>
 				</div>
 
