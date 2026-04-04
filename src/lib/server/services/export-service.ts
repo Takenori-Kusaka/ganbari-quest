@@ -32,7 +32,6 @@ import { findRecentBonuses } from '$lib/server/db/login-bonus-repo';
 import { findPointHistory } from '$lib/server/db/point-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
 import { findRecentStatusHistory, findStatuses } from '$lib/server/db/status-repo';
-import { findAllTitles, findUnlockedTitles } from '$lib/server/db/title-repo';
 import { logger } from '$lib/server/logger';
 
 // カテゴリID → コード マッピング（5件固定）
@@ -89,14 +88,9 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		logger.warn('[export] エクスポート対象の子供がいません');
 	}
 
-	// マスタデータの取得（並列）
-	const [activitiesRaw, titlesRaw] = await Promise.all([
-		findActivities(tenantId),
-		findAllTitles(tenantId),
-	]);
+	// マスタデータの取得
+	const activitiesRaw = await findActivities(tenantId);
 
-	// 称号 ID → コード
-	const titleMap = new Map(titlesRaw.map((t) => [t.id, t]));
 	// 実績システム廃止（#322）— achievementMap は空
 	const achievementMap = new Map<number, { code: string }>();
 	// マスタデータの変換
@@ -111,12 +105,8 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		triggerHint: a.triggerHint,
 	}));
 
-	const masterTitles: ExportTitle[] = titlesRaw.map((t) => ({
-		code: t.code,
-		name: t.name,
-		icon: t.icon,
-		rarity: t.rarity,
-	}));
+	// 称号システム廃止（#322）— 空配列
+	const masterTitles: ExportTitle[] = [];
 
 	// 実績システム廃止（#322）— 空配列
 	const masterAchievements: ExportAchievement[] = [];
@@ -130,7 +120,7 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		theme: child.theme,
 		uiMode: child.uiMode,
 		avatarUrl: child.avatarUrl,
-		activeTitle: child.activeTitleId ? (titleMap.get(child.activeTitleId)?.name ?? null) : null,
+		activeTitle: null, // 称号システム廃止（#322）
 		createdAt: child.createdAt,
 	}));
 
@@ -143,7 +133,6 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 	const transactionData = await collectTransactionData(
 		allChildren.map((c) => c.id),
 		childExportIdMap,
-		titleMap,
 		achievementMap,
 		tenantId,
 	);
@@ -199,7 +188,6 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 async function collectTransactionData(
 	childIds: number[],
 	childExportIdMap: Map<number, string>,
-	titleMap: Map<number, { code: string }>,
 	_achievementMap: Map<number, { code: string }>,
 	tenantId: string,
 ): Promise<ExportTransactionData> {
@@ -221,7 +209,6 @@ async function collectTransactionData(
 			activityLogs,
 			pointHistory,
 			statuses,
-			unlockedTitles,
 			loginBonuses,
 			evaluations,
 			specialRewards,
@@ -230,7 +217,6 @@ async function collectTransactionData(
 			findActivityLogs(childId, tenantId),
 			findPointHistory(childId, { limit: MAX_EXPORT_ROWS, offset: 0 }, tenantId),
 			findStatuses(childId, tenantId),
-			findUnlockedTitles(childId, tenantId),
 			findRecentBonuses(childId, tenantId, MAX_EXPORT_ROWS),
 			findEvaluationsByChild(childId, MAX_EXPORT_ROWS, tenantId),
 			findSpecialRewards(childId, tenantId),
@@ -296,18 +282,7 @@ async function collectTransactionData(
 		}
 
 		// 実績システム廃止（#322）— Achievements スキップ
-
-		// Titles
-		for (const ct of unlockedTitles) {
-			const title = titleMap.get(ct.titleId);
-			if (title) {
-				allChildTitles.push({
-					childRef,
-					titleCode: title.code,
-					unlockedAt: ct.unlockedAt,
-				});
-			}
-		}
+		// 称号システム廃止（#322）— Titles スキップ
 
 		// Login bonuses
 		for (const lb of loginBonuses) {

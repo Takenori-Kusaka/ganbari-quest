@@ -13,7 +13,6 @@ import { insertTemplate, insertTemplateItem } from '$lib/server/db/checklist-rep
 import { insertChild } from '$lib/server/db/child-repo';
 import { insertLoginBonus } from '$lib/server/db/login-bonus-repo';
 import { insertStatusHistory, upsertStatus } from '$lib/server/db/status-repo';
-import { findAllTitles, insertChildTitle } from '$lib/server/db/title-repo';
 import { logger } from '$lib/server/logger';
 
 // カテゴリコード → ID
@@ -150,13 +149,9 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 	}
 
 	// マスタデータのルックアップ構築
-	const [activities, titles] = await Promise.all([
-		findActivities(tenantId),
-		findAllTitles(tenantId),
-	]);
+	const activities = await findActivities(tenantId);
 
 	const activityNameMap = new Map(activities.map((a) => [a.name, a]));
-	const titleCodeMap = new Map(titles.map((t) => [t.code, t]));
 
 	// 1. 子供を作成し、exportId → newChildId のマッピングを構築
 	const childIdMap = new Map<string, number>();
@@ -268,22 +263,7 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 	}
 
 	// 5. 実績 — 実績システム廃止（#322）— スキップ
-
-	// 6. 称号
-	for (const ct of data.data.childTitles) {
-		const childId = childIdMap.get(ct.childRef);
-		if (!childId) continue;
-
-		const title = titleCodeMap.get(ct.titleCode);
-		if (!title) continue;
-
-		try {
-			await insertChildTitle(childId, title.id, tenantId);
-			result.titlesImported++;
-		} catch (_e) {
-			// skip duplicate
-		}
-	}
+	// 6. 称号 — 称号システム廃止（#322）— スキップ
 
 	// 7. ログインボーナス
 	for (const lb of data.data.loginBonuses) {

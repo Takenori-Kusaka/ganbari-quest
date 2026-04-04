@@ -15,7 +15,6 @@ export type { ISpecialRewardRepo } from './special-reward-repo.interface';
 export type { IStampCardRepo } from './stamp-card-repo.interface';
 export type { IStatusRepo } from './status-repo.interface';
 export type { IStorageRepo } from './storage.interface';
-export type { ITitleRepo } from './title-repo.interface';
 export type { IAuthRepo } from './auth-repo.interface';
 export type { ISiblingChallengeRepo } from './sibling-challenge-repo.interface';
 export type { ISiblingCheerRepo } from './sibling-cheer-repo.interface';
