@@ -42,6 +42,7 @@ import {
 	getUnshownReward,
 } from '$lib/server/services/special-reward-service';
 import {
+	autoRedeemPreviousWeek,
 	getStampCardStatus,
 	redeemStampCard,
 	stampToday,
@@ -288,22 +289,31 @@ export const actions: Actions = {
 		};
 	},
 
-	/** Unified login stamp: claims bonus + stamps card in one action */
+	/** Unified login stamp: records login + stamps card + auto-redeems previous week */
 	loginStamp: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const childId = Number(cookies.get('selectedChildId'));
 		if (Number.isNaN(childId)) return fail(400, { error: 'パラメータが不正です' });
 
-		// 1. Claim login bonus (points + rank)
+		// 1. Record login (for consecutive day tracking + multiplier)
 		const bonusResult = await claimLoginBonus(childId, tenantId);
 		const bonus = 'error' in bonusResult ? null : bonusResult;
 
-		// 2. Stamp the card (pass omikuji rank for integration)
-		const stampResult = await stampToday(childId, tenantId, bonus?.rank);
+		// 2. Stamp the card (instant 5pt)
+		const stampResult = await stampToday(childId, tenantId);
 		const stamp = 'error' in stampResult ? null : stampResult;
 
 		if (!bonus && !stamp) {
 			return fail(409, { error: 'きょうはもうスタンプをおしたよ！' });
+		}
+
+		// 3. Auto-redeem previous week's card (if available)
+		const loginMultiplier = bonus?.multiplier ?? 1;
+		let weeklyRedeem: Awaited<ReturnType<typeof autoRedeemPreviousWeek>> = null;
+		try {
+			weeklyRedeem = await autoRedeemPreviousWeek(childId, tenantId, loginMultiplier);
+		} catch {
+			// auto-redeem failure should not block the stamp flow
 		}
 
 		return {
@@ -312,10 +322,11 @@ export const actions: Actions = {
 			stampEmoji: stamp?.stamp.emoji ?? '⭐',
 			stampRarity: stamp?.stamp.rarity ?? 'N',
 			stampName: stamp?.stamp.name ?? '',
-			omikujiRank: bonus?.rank ?? stamp?.stamp.omikujiRank ?? null,
-			totalPoints: bonus?.totalPoints ?? 0,
-			multiplier: bonus?.multiplier ?? 1,
+			instantPoints: stamp?.instantPoints ?? 0,
 			consecutiveLoginDays: bonus?.consecutiveLoginDays ?? 0,
+			multiplier: bonus?.multiplier ?? 1,
+			cardData: stamp?.cardData ?? null,
+			weeklyRedeem,
 		};
 	},
 
@@ -375,7 +386,7 @@ export const actions: Actions = {
 		return {
 			success: true,
 			totalPoints: result.points,
-			stampPoints: result.stampPoints,
+			rarityPoints: result.rarityPoints,
 			completeBonus: result.completeBonus,
 		};
 	},

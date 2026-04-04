@@ -51,6 +51,7 @@ vi.mock('$lib/server/db/point-repo', () => ({
 }));
 
 import {
+	autoRedeemPreviousWeek,
 	getEnabledStamps,
 	getOrCreateCurrentCard,
 	getStampCardStatus,
@@ -174,7 +175,7 @@ describe('stamp-card-service', () => {
 			expect(card.status).toBe('collecting');
 			expect(card.entries.length).toBe(0);
 			expect(card.canStampToday).toBe(true);
-			expect(card.totalSlots).toBe(5);
+			expect(card.totalSlots).toBe(7);
 			expect(card.filledSlots).toBe(0);
 			expect(card.redeemedPoints).toBeNull();
 		});
@@ -224,17 +225,15 @@ describe('stamp-card-service', () => {
 			expect(updated.filledSlots).toBe(1);
 		});
 
-		it('canStampTodayは5枠埋まっている場合はfalse', async () => {
+		it('canStampTodayは7枠埋まっている場合はfalse', async () => {
 			const card = await getOrCreateCurrentCard(1, TENANT);
-			insertStampEntry(card.id, 1, 1, '2026-03-24');
-			insertStampEntry(card.id, 2, 2, '2026-03-25');
-			insertStampEntry(card.id, 3, 3, '2026-03-26');
-			insertStampEntry(card.id, 4, 4, '2026-03-27');
-			insertStampEntry(card.id, 5, 5, '2026-03-28');
+			for (let i = 1; i <= 7; i++) {
+				insertStampEntry(card.id, ((i - 1) % 3) + 1, i, `2026-03-${22 + i}`);
+			}
 
 			const updated = await getOrCreateCurrentCard(1, TENANT);
 			expect(updated.canStampToday).toBe(false);
-			expect(updated.filledSlots).toBe(5);
+			expect(updated.filledSlots).toBe(7);
 		});
 
 		it('canStampTodayはredeemedカードではfalse', async () => {
@@ -271,6 +270,7 @@ describe('stamp-card-service', () => {
 			expect(typeof result.stamp.name).toBe('string');
 			expect(typeof result.stamp.emoji).toBe('string');
 			expect(result.cardData.filledSlots).toBe(1);
+			expect(result.instantPoints).toBe(5);
 		});
 
 		it('連続で2日押印できる', async () => {
@@ -289,16 +289,14 @@ describe('stamp-card-service', () => {
 			expect(result).toEqual({ error: 'ALREADY_STAMPED' });
 		});
 
-		it('5枠埋まった後はCARD_FULLエラー', async () => {
-			// 5日分押印 (月〜金)
-			const dates = ['2026-03-30', '2026-03-31', '2026-04-01', '2026-04-02', '2026-04-03'];
-			for (const date of dates) {
-				mockToday = date;
-				await stampToday(1, TENANT);
+		it('7枠埋まった後はCARD_FULLエラー', async () => {
+			// 7枠を直接埋める（今日以外のloginDateを使用）
+			const card = await getOrCreateCurrentCard(1, TENANT);
+			for (let i = 1; i <= 7; i++) {
+				insertStampEntry(card.id, ((i - 1) % 3) + 1, i, `2026-03-${22 + i}`);
 			}
 
-			// 6日目（土曜）
-			mockToday = '2026-04-04';
+			// 今日（2026-03-30）はエントリに含まれないがカード満杯
 			const result = await stampToday(1, TENANT);
 			expect(result).toEqual({ error: 'CARD_FULL' });
 		});
@@ -386,20 +384,22 @@ describe('stamp-card-service', () => {
 			mockToday = '2026-03-30';
 		});
 
-		it('N rarity 5枠で正しいポイントを計算する（10*1*5 + 30 = 80）', async () => {
+		it('N rarity 7枠で正しいポイントを計算する（5*1*7 + 50 = 85）', async () => {
 			const card = await getOrCreateCurrentCard(1, TENANT);
-			// 全てNレアのスタンプで5枠埋める
-			insertStampEntry(card.id, 1, 1, '2026-03-24'); // stamp_master id=1 (N)
-			insertStampEntry(card.id, 2, 2, '2026-03-25'); // stamp_master id=2 (N)
-			insertStampEntry(card.id, 3, 3, '2026-03-26'); // stamp_master id=3 (N)
-			insertStampEntry(card.id, 1, 4, '2026-03-27'); // stamp_master id=1 (N)
-			insertStampEntry(card.id, 2, 5, '2026-03-28'); // stamp_master id=2 (N)
+			// 全てNレアのスタンプで7枠埋める
+			insertStampEntry(card.id, 1, 1, '2026-03-24'); // N
+			insertStampEntry(card.id, 2, 2, '2026-03-25'); // N
+			insertStampEntry(card.id, 3, 3, '2026-03-26'); // N
+			insertStampEntry(card.id, 1, 4, '2026-03-27'); // N
+			insertStampEntry(card.id, 2, 5, '2026-03-28'); // N
+			insertStampEntry(card.id, 3, 6, '2026-03-29'); // N
+			insertStampEntry(card.id, 1, 7, '2026-03-30'); // N
 
 			const result = assertSuccess(await redeemStampCard(1, TENANT));
-			// N: BASE(10) * multiplier(1) * 5 = 50, + COMPLETE_BONUS(30) = 80
-			expect(result.stampPoints).toBe(50);
-			expect(result.completeBonus).toBe(30);
-			expect(result.points).toBe(80);
+			// N: RARITY_BONUS(5) * multiplier(1) * 7 = 35, + COMPLETE_BONUS(50) = 85
+			expect(result.rarityPoints).toBe(35);
+			expect(result.completeBonus).toBe(50);
+			expect(result.points).toBe(85);
 		});
 
 		it('R rarity のポイント倍率が2倍で計算される', async () => {
@@ -408,10 +408,10 @@ describe('stamp-card-service', () => {
 			insertStampEntry(card.id, 4, 1, '2026-03-24');
 
 			const result = assertSuccess(await redeemStampCard(1, TENANT));
-			// R: BASE(10) * multiplier(2) = 20, incomplete => no bonus
-			expect(result.stampPoints).toBe(20);
+			// R: RARITY_BONUS(5) * multiplier(2) = 10, incomplete => no bonus
+			expect(result.rarityPoints).toBe(10);
 			expect(result.completeBonus).toBe(0);
-			expect(result.points).toBe(20);
+			expect(result.points).toBe(10);
 		});
 
 		it('SR rarity のポイント倍率が4倍で計算される', async () => {
@@ -420,10 +420,10 @@ describe('stamp-card-service', () => {
 			insertStampEntry(card.id, 6, 1, '2026-03-24');
 
 			const result = assertSuccess(await redeemStampCard(1, TENANT));
-			// SR: BASE(10) * multiplier(4) = 40
-			expect(result.stampPoints).toBe(40);
+			// SR: RARITY_BONUS(5) * multiplier(4) = 20
+			expect(result.rarityPoints).toBe(20);
 			expect(result.completeBonus).toBe(0);
-			expect(result.points).toBe(40);
+			expect(result.points).toBe(20);
 		});
 
 		it('UR rarity のポイント倍率が8倍で計算される', async () => {
@@ -432,38 +432,40 @@ describe('stamp-card-service', () => {
 			insertStampEntry(card.id, 7, 1, '2026-03-24');
 
 			const result = assertSuccess(await redeemStampCard(1, TENANT));
-			// UR: BASE(10) * multiplier(8) = 80
-			expect(result.stampPoints).toBe(80);
+			// UR: RARITY_BONUS(5) * multiplier(8) = 40
+			expect(result.rarityPoints).toBe(40);
 			expect(result.completeBonus).toBe(0);
-			expect(result.points).toBe(80);
+			expect(result.points).toBe(40);
 		});
 
 		it('混合レアリティで正しくポイントを計算する', async () => {
 			const card = await getOrCreateCurrentCard(1, TENANT);
-			// N(id=1), N(id=2), R(id=4), SR(id=6), UR(id=7) の5枠
-			insertStampEntry(card.id, 1, 1, '2026-03-24'); // N: 10
-			insertStampEntry(card.id, 2, 2, '2026-03-25'); // N: 10
-			insertStampEntry(card.id, 4, 3, '2026-03-26'); // R: 20
-			insertStampEntry(card.id, 6, 4, '2026-03-27'); // SR: 40
-			insertStampEntry(card.id, 7, 5, '2026-03-28'); // UR: 80
+			// N(id=1), N(id=2), R(id=4), SR(id=6), UR(id=7), N(id=3), N(id=1) の7枠
+			insertStampEntry(card.id, 1, 1, '2026-03-24'); // N: 5
+			insertStampEntry(card.id, 2, 2, '2026-03-25'); // N: 5
+			insertStampEntry(card.id, 4, 3, '2026-03-26'); // R: 10
+			insertStampEntry(card.id, 6, 4, '2026-03-27'); // SR: 20
+			insertStampEntry(card.id, 7, 5, '2026-03-28'); // UR: 40
+			insertStampEntry(card.id, 3, 6, '2026-03-29'); // N: 5
+			insertStampEntry(card.id, 1, 7, '2026-03-30'); // N: 5
 
 			const result = assertSuccess(await redeemStampCard(1, TENANT));
-			// stamps: 10+10+20+40+80 = 160, + COMPLETE_BONUS(30) = 190
-			expect(result.stampPoints).toBe(160);
-			expect(result.completeBonus).toBe(30);
-			expect(result.points).toBe(190);
+			// stamps: 5+5+10+20+40+5+5 = 90, + COMPLETE_BONUS(50) = 140
+			expect(result.rarityPoints).toBe(90);
+			expect(result.completeBonus).toBe(50);
+			expect(result.points).toBe(140);
 		});
 
 		it('未完了カードでもポイント交換可能（ボーナスなし）', async () => {
 			const card = await getOrCreateCurrentCard(1, TENANT);
-			insertStampEntry(card.id, 1, 1, '2026-03-24'); // N: 10
-			insertStampEntry(card.id, 4, 2, '2026-03-25'); // R: 20
+			insertStampEntry(card.id, 1, 1, '2026-03-24'); // N: 5
+			insertStampEntry(card.id, 4, 2, '2026-03-25'); // R: 10
 
 			const result = assertSuccess(await redeemStampCard(1, TENANT));
-			// stamps: 10+20 = 30, not complete => no bonus
-			expect(result.stampPoints).toBe(30);
+			// stamps: 5+10 = 15, not complete => no bonus
+			expect(result.rarityPoints).toBe(15);
 			expect(result.completeBonus).toBe(0);
-			expect(result.points).toBe(30);
+			expect(result.points).toBe(15);
 		});
 
 		it('交換済みカードはALREADY_REDEEMEDエラー', async () => {
@@ -497,17 +499,17 @@ describe('stamp-card-service', () => {
 
 		it('交換後にredeemedPointsが記録される', async () => {
 			const card = await getOrCreateCurrentCard(1, TENANT);
-			insertStampEntry(card.id, 1, 1, '2026-03-24'); // N: 10
+			insertStampEntry(card.id, 1, 1, '2026-03-24'); // N: 5*1 = 5
 
 			assertSuccess(await redeemStampCard(1, TENANT));
 
 			const updated = await getOrCreateCurrentCard(1, TENANT);
-			expect(updated.redeemedPoints).toBe(10);
+			expect(updated.redeemedPoints).toBe(5);
 		});
 
 		it('交換後にpoint_ledgerにエントリが追加される', async () => {
 			const card = await getOrCreateCurrentCard(1, TENANT);
-			insertStampEntry(card.id, 1, 1, '2026-03-24');
+			insertStampEntry(card.id, 1, 1, '2026-03-24'); // N: 5*1 = 5
 
 			await redeemStampCard(1, TENANT);
 
@@ -521,7 +523,7 @@ describe('stamp-card-service', () => {
 				.all();
 			expect(ledger.length).toBe(1);
 			expect(ledger[0]?.type).toBe('stamp_card');
-			expect(ledger[0]?.amount).toBe(10);
+			expect(ledger[0]?.amount).toBe(5);
 		});
 	});
 
@@ -534,33 +536,37 @@ describe('stamp-card-service', () => {
 			mockToday = '2026-03-30';
 		});
 
-		it('BASE_POINTS = 10, COMPLETE_BONUS = 30, MAX_SLOTS = 5', async () => {
+		it('RARITY_BONUS = 5, COMPLETE_BONUS = 50, MAX_SLOTS = 7', async () => {
 			const card = await getOrCreateCurrentCard(1, TENANT);
-			expect(card.totalSlots).toBe(5); // MAX_SLOTS
+			expect(card.totalSlots).toBe(7); // MAX_SLOTS
 
-			// 5枠すべてNで埋める
+			// 7枠すべてNで埋める
 			insertStampEntry(card.id, 1, 1, '2026-03-24');
 			insertStampEntry(card.id, 2, 2, '2026-03-25');
 			insertStampEntry(card.id, 3, 3, '2026-03-26');
 			insertStampEntry(card.id, 1, 4, '2026-03-27');
 			insertStampEntry(card.id, 2, 5, '2026-03-28');
+			insertStampEntry(card.id, 3, 6, '2026-03-29');
+			insertStampEntry(card.id, 1, 7, '2026-03-30');
 
 			const result = assertSuccess(await redeemStampCard(1, TENANT));
-			// 5 * 10 * 1 (N) = 50 + 30 (bonus) = 80
-			expect(result.points).toBe(80);
+			// 7 * 5 * 1 (N) = 35 + 50 (bonus) = 85
+			expect(result.points).toBe(85);
 		});
 
-		it('4枠ではコンプリートボーナスなし', async () => {
+		it('6枠ではコンプリートボーナスなし', async () => {
 			const card = await getOrCreateCurrentCard(1, TENANT);
 			insertStampEntry(card.id, 1, 1, '2026-03-24');
 			insertStampEntry(card.id, 2, 2, '2026-03-25');
 			insertStampEntry(card.id, 3, 3, '2026-03-26');
 			insertStampEntry(card.id, 1, 4, '2026-03-27');
+			insertStampEntry(card.id, 2, 5, '2026-03-28');
+			insertStampEntry(card.id, 3, 6, '2026-03-29');
 
 			const result = assertSuccess(await redeemStampCard(1, TENANT));
 			expect(result.completeBonus).toBe(0);
-			expect(result.stampPoints).toBe(40); // 4 * 10 * 1
-			expect(result.points).toBe(40);
+			expect(result.rarityPoints).toBe(30); // 6 * 5 * 1
+			expect(result.points).toBe(30);
 		});
 	});
 
@@ -614,6 +620,80 @@ describe('stamp-card-service', () => {
 			const card2 = await getOrCreateCurrentCard(1, TENANT);
 
 			expect(card1.id).toBe(card2.id);
+		});
+	});
+
+	// ============================================================
+	// autoRedeemPreviousWeek
+	// ============================================================
+	describe('autoRedeemPreviousWeek', () => {
+		beforeEach(() => {
+			seedAll();
+		});
+
+		it('前週のカードを自動redeemしてポイントを返す', async () => {
+			// 前週（2026-03-23〜2026-03-29）にカードを作成してスタンプ押印
+			mockToday = '2026-03-23';
+			const prevCard = await getOrCreateCurrentCard(1, TENANT);
+			insertStampEntry(prevCard.id, 1, 1, '2026-03-23'); // N: 5
+			insertStampEntry(prevCard.id, 2, 2, '2026-03-24'); // N: 5
+			insertStampEntry(prevCard.id, 4, 3, '2026-03-25'); // R: 10
+
+			// 今週の月曜にautoRedeem
+			mockToday = '2026-03-30';
+			const result = await autoRedeemPreviousWeek(1, TENANT);
+			expect(result).not.toBeNull();
+			expect(result!.rarityPoints).toBe(20); // 5+5+10
+			expect(result!.completeBonus).toBe(0); // 3/7 未完了
+			expect(result!.points).toBe(20);
+			expect(result!.filledSlots).toBe(3);
+			expect(result!.totalSlots).toBe(7);
+		});
+
+		it('前週のカードがない場合はnullを返す', async () => {
+			mockToday = '2026-03-30';
+			const result = await autoRedeemPreviousWeek(1, TENANT);
+			expect(result).toBeNull();
+		});
+
+		it('前週のカードがすでにredeem済みの場合はnullを返す', async () => {
+			mockToday = '2026-03-23';
+			const prevCard = await getOrCreateCurrentCard(1, TENANT);
+			insertStampEntry(prevCard.id, 1, 1, '2026-03-23');
+			await redeemStampCard(1, TENANT);
+
+			mockToday = '2026-03-30';
+			const result = await autoRedeemPreviousWeek(1, TENANT);
+			expect(result).toBeNull();
+		});
+
+		it('7枠コンプリートでボーナスが付与される', async () => {
+			mockToday = '2026-03-23';
+			const prevCard = await getOrCreateCurrentCard(1, TENANT);
+			for (let i = 1; i <= 7; i++) {
+				insertStampEntry(prevCard.id, ((i - 1) % 3) + 1, i, `2026-03-${22 + i}`);
+			}
+
+			mockToday = '2026-03-30';
+			const result = await autoRedeemPreviousWeek(1, TENANT);
+			expect(result).not.toBeNull();
+			expect(result!.rarityPoints).toBe(35); // 7 * 5 * 1 (all N)
+			expect(result!.completeBonus).toBe(50);
+			expect(result!.points).toBe(85);
+			expect(result!.filledSlots).toBe(7);
+		});
+
+		it('loginMultiplierが反映される', async () => {
+			mockToday = '2026-03-23';
+			const prevCard = await getOrCreateCurrentCard(1, TENANT);
+			insertStampEntry(prevCard.id, 1, 1, '2026-03-23'); // N: 5
+
+			mockToday = '2026-03-30';
+			const result = await autoRedeemPreviousWeek(1, TENANT, 2);
+			expect(result).not.toBeNull();
+			// 5 * 2 (multiplier) = 10
+			expect(result!.points).toBe(10);
+			expect(result!.multiplier).toBe(2);
 		});
 	});
 });
