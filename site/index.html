@@ -127,11 +127,12 @@
   .evo-grid{grid-template-columns:1fr}
 }
 
-/* Social proof */
-.review-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
-.review-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px}
-.review-card .review-text{font-size:.9rem;color:var(--gray-700);font-style:italic;margin-bottom:12px;line-height:1.7}
-.review-card .review-author{font-size:.8rem;color:var(--gray-500)}
+/* Community invitation */
+.community-cta{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:720px;margin:0 auto}
+.community-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px;text-align:center}
+.community-icon{font-size:2rem;margin-bottom:8px}
+.community-label{font-size:1.05rem;font-weight:700;color:var(--gray-900);margin-bottom:8px}
+.community-detail{font-size:.88rem;color:var(--gray-600);line-height:1.7;margin:0}
 
 /* FAQ */
 .faq-list{max-width:720px;margin:0 auto}
@@ -660,30 +661,25 @@
   </div>
 </section>
 
-<!-- Social proof -->
-<section class="section bg-gray" id="voices">
+<!-- Community invitation -->
+<section class="section bg-gray" id="community">
   <div class="section-inner">
-    <h2 class="section-title">ご家庭の声</h2>
-    <p class="section-desc">がんばりクエストを使っている家族からの感想です</p>
-    <div class="review-grid">
-      <div class="review-card">
-        <div class="review-text">「朝の準備をチェックリストにしたら、声をかけなくても自分で進めるようになりました。レベルアップのたびに家族で盛り上がっています。」</div>
-        <div class="review-author">&#x1F469; 30代・お子さま5歳 &amp; 7歳</div>
+    <h2 class="section-title">一緒に作りませんか？</h2>
+    <p class="section-desc">がんばりクエストはオープンソースで開発中。<br>ご家庭の「こうだったらいいな」を、一緒にカタチにしましょう。</p>
+    <div class="community-cta">
+      <div class="community-card">
+        <div class="community-icon">&#x1F4AC;</div>
+        <div class="community-label">Discordで声を聞かせてください</div>
+        <p class="community-detail">使ってみた感想、こんな機能がほしい、ここが使いにくい&#8230;なんでもOK。<br>開発者が直接お返事します。</p>
+        <a href="https://discord.gg/5pWkf4Z5" class="btn btn-primary" style="margin-top:12px">Discordに参加する</a>
       </div>
-      <div class="review-card">
-        <div class="review-text">「シール帳は1ヶ月で飽きていたのに、これは半年以上続いています。コンボが途切れるのが嫌で、自分から宿題を始めるようになりました。」</div>
-        <div class="review-author">&#x1F468; 40代・お子さま9歳</div>
-      </div>
-      <div class="review-card">
-        <div class="review-text">「『お皿運びもポイントになるの？やる！』と、お手伝いに積極的になりました。レーダーチャートを見ながら『体力も上げたい！』と自分で目標を立てています。」</div>
-        <div class="review-author">&#x1F469; 30代・お子さま6歳 &amp; 4歳</div>
+      <div class="community-card">
+        <div class="community-icon">&#x1F3AE;</div>
+        <div class="community-label">まずはデモで体験</div>
+        <p class="community-detail">アカウント不要・30秒で操作感を体験できます。<br>お子さまと一緒に試してみてください。</p>
+        <a href="https://ganbari-quest.com/demo" class="btn btn-outline" style="margin-top:12px">デモを試す</a>
       </div>
     </div>
-    <p style="text-align:center;margin-top:32px;font-size:.85rem;color:var(--gray-500);">
-      &#x1F4AC; あなたの体験談もお待ちしています &#8212;
-      <a href="https://ganbari-quest.com/demo">まずはデモで試してみる</a> /
-      <a href="https://discord.gg/5pWkf4Z5">Discordで声を聞かせてください</a>
-    </p>
   </div>
 </section>
 
