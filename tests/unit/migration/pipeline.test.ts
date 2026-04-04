@@ -3,8 +3,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { MigrationPipeline } from '../../../src/lib/server/db/migration/pipeline';
-import { MigrationError, SCHEMA_VERSION_FIELD } from '../../../src/lib/server/db/migration/types';
 import type { SchemaTransformer } from '../../../src/lib/server/db/migration/types';
+import { MigrationError, SCHEMA_VERSION_FIELD } from '../../../src/lib/server/db/migration/types';
 
 // テスト用 Transformer
 const testV1toV2: SchemaTransformer = {

@@ -2,6 +2,7 @@
 // Web Push 通知サービス — VAPID + web-push ライブラリ
 // ローカルモード (AUTH_MODE=local) ではログ出力のみ
 
+import webpush from 'web-push';
 import {
 	countTodayLogs,
 	deleteByEndpoint,
@@ -10,7 +11,6 @@ import {
 } from '$lib/server/db/push-subscription-repo';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
-import webpush from 'web-push';
 
 // ============================================================
 // 型定義

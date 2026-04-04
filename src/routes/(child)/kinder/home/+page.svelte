@@ -1,4 +1,5 @@
 <script lang="ts">
+import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { parseDisplayConfig } from '$lib/domain/display-config';
@@ -6,14 +7,14 @@ import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-di
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
-import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
 import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
+import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
 import AdventureStartOverlay from '$lib/ui/components/AdventureStartOverlay.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
-import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
+import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import EventBanner from '$lib/ui/components/EventBanner.svelte';
@@ -27,7 +28,6 @@ import SpecialRewardProgress from '$lib/ui/components/SpecialRewardProgress.svel
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
-import { tick } from 'svelte';
 
 let { data } = $props();
 

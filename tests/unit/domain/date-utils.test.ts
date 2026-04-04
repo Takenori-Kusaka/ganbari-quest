@@ -1,5 +1,5 @@
-import { prevDateJST, toJSTDateString, todayDateJST } from '$lib/domain/date-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { prevDateJST, todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
 
 describe('date-utils', () => {
 	afterEach(() => {

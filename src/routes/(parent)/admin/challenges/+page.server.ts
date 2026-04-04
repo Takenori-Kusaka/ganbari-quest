@@ -1,3 +1,4 @@
+import { fail } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
@@ -7,7 +8,6 @@ import {
 	deleteSiblingChallenge,
 	getAllChallengesWithProgress,
 } from '$lib/server/services/sibling-challenge-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

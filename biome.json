@@ -1,8 +1,6 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
-	"organizeImports": {
-		"enabled": true
-	},
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -37,7 +35,7 @@
 	},
 	"overrides": [
 		{
-			"include": ["**/*.svelte"],
+			"includes": ["**/*.svelte"],
 			"linter": {
 				"rules": {
 					"correctness": {
@@ -49,21 +47,34 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["**/*.css"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noImportantStyles": "off"
+					}
+				}
+			}
 		}
 	],
 	"files": {
-		"ignore": [
-			"node_modules",
-			".svelte-kit",
-			"build",
-			"coverage",
-			"test-results",
-			"test-results.json",
-			"*.db",
-			"scripts/",
-			"infra/",
-			"cdk.out",
-			"storybook-static"
+		"includes": [
+			"**",
+			"!**/node_modules",
+			"!**/.svelte-kit",
+			"!**/build",
+			"!**/coverage",
+			"!**/test-results",
+			"!**/test-results.json",
+			"!**/*.db",
+			"!**/scripts",
+			"!**/infra",
+			"!**/site",
+			"!**/cdk.out",
+			"!**/storybook-static",
+			"!**/app.css"
 		]
 	}
 }

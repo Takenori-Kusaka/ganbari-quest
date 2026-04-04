@@ -1,3 +1,4 @@
+import { json } from '@sveltejs/kit';
 import {
 	grantSpecialRewardSchema,
 	specialRewardQuerySchema,
@@ -8,7 +9,6 @@ import {
 	getChildSpecialRewards,
 	grantSpecialReward,
 } from '$lib/server/services/special-reward-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {

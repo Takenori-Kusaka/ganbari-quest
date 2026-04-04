@@ -3,7 +3,7 @@
 
 import { todayDateJST } from '$lib/domain/date-utils';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
-import { type DecayIntensity, calcDecay } from '$lib/domain/validation/status';
+import { calcDecay, type DecayIntensity } from '$lib/domain/validation/status';
 import {
 	countActivitiesByCategory,
 	findAllChildren,

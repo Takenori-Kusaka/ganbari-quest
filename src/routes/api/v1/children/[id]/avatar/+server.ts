@@ -1,3 +1,4 @@
+import { error, json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
@@ -6,7 +7,6 @@ import { sanitizeImage } from '$lib/server/security/file-sanitizer';
 import { validateImageMagicBytes } from '$lib/server/security/magic-bytes';
 import { deleteFile, saveFile } from '$lib/server/storage';
 import { avatarKey, storageKeyToPublicUrl } from '$lib/server/storage-keys';
-import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB

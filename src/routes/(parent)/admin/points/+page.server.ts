@@ -1,3 +1,4 @@
+import { fail } from '@sveltejs/kit';
 import { ConvertMode } from '$lib/domain/validation/point';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -7,7 +8,6 @@ import {
 	getPointBalance,
 	getPointHistory,
 } from '$lib/server/services/point-service';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

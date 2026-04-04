@@ -1,6 +1,6 @@
 <script lang="ts">
 import { page } from '$app/stores';
-import { ICON_ACHIEVEMENTS, ICON_HISTORY, ICON_STATUS, getModeLabels } from '$lib/domain/icons';
+import { getModeLabels, ICON_ACHIEVEMENTS, ICON_HISTORY, ICON_STATUS } from '$lib/domain/icons';
 
 interface Props {
 	uiMode: string;

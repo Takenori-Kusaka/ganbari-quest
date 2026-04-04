@@ -2,8 +2,8 @@
 // report-service ユニットテスト
 // ファクトリ経由 (getRepos()) でDBアクセスするため、ファクトリをモックしてテストする。
 
-import type { ReportDailySummary } from '$lib/server/db/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReportDailySummary } from '$lib/server/db/types';
 
 // ---- モック定義 ----
 

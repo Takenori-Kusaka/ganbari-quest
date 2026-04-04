@@ -21,10 +21,9 @@ import type {
 	InsertPointLedgerInput,
 	UpdateActivityInput,
 } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
-	ENTITY_NAMES,
 	activityKey,
 	activityKeyWithGSI2,
 	activityLogDatePrefix,
@@ -32,6 +31,7 @@ import {
 	activityLogPrefix,
 	childKey,
 	childPK,
+	ENTITY_NAMES,
 	pointLedgerKey,
 	pointLedgerPrefix,
 	tenantPK,

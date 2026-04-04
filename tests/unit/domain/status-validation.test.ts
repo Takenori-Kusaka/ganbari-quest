@@ -3,8 +3,6 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-	DECAY_GRACE_DAYS,
-	LEVEL_TABLE,
 	calcActivitiesToNextLevel,
 	calcCharacterType,
 	calcDecay,
@@ -14,9 +12,11 @@ import {
 	calcTrend,
 	calcXpToNextLevel,
 	clampDecayFloor,
+	DECAY_GRACE_DAYS,
 	getAgeCoefficient,
 	getComparisonLabel,
 	getLevelEvaluationText,
+	LEVEL_TABLE,
 } from '../../../src/lib/domain/validation/status';
 
 // ================================================================

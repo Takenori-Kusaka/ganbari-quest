@@ -1,6 +1,7 @@
 // /auth/signup — ユーザー登録
 // Cognito SignUp + メール認証コード確認 + 確認後の自動ログイン
 
+import { fail, redirect } from '@sveltejs/kit';
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
 import {
 	authenticateWithCognito,
@@ -12,7 +13,6 @@ import { logger } from '$lib/server/logger';
 import { recordConsent } from '$lib/server/services/consent-service';
 import { notifyNewSignup } from '$lib/server/services/discord-notify-service';
 import { consumeLicenseKey, validateLicenseKey } from '$lib/server/services/license-key-service';
-import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

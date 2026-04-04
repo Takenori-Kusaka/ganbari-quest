@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
@@ -6,7 +7,6 @@ import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { isSetupRequired } from '$lib/server/services/setup-service';
-import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
 
 const provider = getAuthProvider();
 const authMode = getAuthMode();

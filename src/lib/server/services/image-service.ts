@@ -2,6 +2,7 @@
 // Gemini API を使ったキャラクター画像生成サービス
 
 import { createHash } from 'node:crypto';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
 	findCachedImage,
 	findChildForImage,
@@ -11,7 +12,6 @@ import {
 import { logger } from '$lib/server/logger';
 import { fileExists, saveFile } from '$lib/server/storage';
 import { generatedImageKey, storageKeyToPublicUrl } from '$lib/server/storage-keys';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildAvatarPrompt, buildFaviconPrompt } from './image-prompt';
 
 function getGeminiClient(): GoogleGenerativeAI | null {

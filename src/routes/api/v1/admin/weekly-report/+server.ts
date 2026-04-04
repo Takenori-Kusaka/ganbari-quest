@@ -1,10 +1,10 @@
 // src/routes/api/v1/admin/weekly-report/+server.ts
 // 週次活動レポートメール送信（EventBridge / 手動トリガー用）
 
-import { logger } from '$lib/server/logger';
-import { sendWeeklyReportEmail } from '$lib/server/services/email-service';
-import type { WeeklyReportData } from '$lib/server/services/email-service';
 import { json } from '@sveltejs/kit';
+import { logger } from '$lib/server/logger';
+import type { WeeklyReportData } from '$lib/server/services/email-service';
+import { sendWeeklyReportEmail } from '$lib/server/services/email-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {

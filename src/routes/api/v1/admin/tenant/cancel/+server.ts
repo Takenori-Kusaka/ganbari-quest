@@ -1,13 +1,13 @@
 // src/routes/api/v1/admin/tenant/cancel/+server.ts
 // 解約申請（grace_period 開始）— owner 限定
 
+import type { RequestHandler } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { notifyCancellation } from '$lib/server/services/discord-notify-service';
 import { sendCancellationEmail } from '$lib/server/services/email-service';
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from '@sveltejs/kit';
 
 const GRACE_PERIOD_DAYS = 30;
 

@@ -1,13 +1,13 @@
+import { json } from '@sveltejs/kit';
 import {
+	loginSchema,
 	SESSION_COOKIE_NAME,
 	SESSION_MAX_AGE_SECONDS,
-	loginSchema,
 } from '$lib/domain/validation/auth';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { apiError, validationError } from '$lib/server/errors';
 import { login } from '$lib/server/services/auth-service';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies, locals }) => {

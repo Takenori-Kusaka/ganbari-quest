@@ -2,10 +2,10 @@
 // Cognito OAuth フローヘルパー（Authorization Code Grant）
 
 import { randomBytes } from 'node:crypto';
+import type { Cookies } from '@sveltejs/kit';
 import { IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
-import type { Cookies } from '@sveltejs/kit';
 
 /** Cognito OAuth 設定（環境変数から取得） */
 export interface CognitoOAuthConfig {

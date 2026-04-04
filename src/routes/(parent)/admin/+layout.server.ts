@@ -1,6 +1,5 @@
-import type { PointSettings } from '$lib/domain/point-display';
+import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
-import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { isPaidTier, resolvePlanTier } from '$lib/server/services/plan-limit-service';

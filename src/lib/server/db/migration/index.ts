@@ -3,10 +3,10 @@
 
 import { createPipeline } from './registry';
 
-export type { MigrationResult, RawRecord, SchemaTransformer } from './types';
-export { MigrationError, SCHEMA_VERSION_FIELD } from './types';
 export { MigrationPipeline } from './pipeline';
 export { ENTITY_VERSIONS } from './registry';
+export type { MigrationResult, RawRecord, SchemaTransformer } from './types';
+export { MigrationError, SCHEMA_VERSION_FIELD } from './types';
 
 /** アプリケーション全体で共有するシングルトン Pipeline */
 let _pipeline: ReturnType<typeof createPipeline> | null = null;

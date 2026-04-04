@@ -1,8 +1,8 @@
 // src/lib/server/auth/providers/cognito-jwt.ts
 // Cognito JWT (ID Token) の検証
 
-import { logger } from '$lib/server/logger';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { logger } from '$lib/server/logger';
 
 export interface CognitoClaims {
 	sub: string; // ユーザーID

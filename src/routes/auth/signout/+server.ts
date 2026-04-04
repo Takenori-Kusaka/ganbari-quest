@@ -1,6 +1,7 @@
 // /auth/signout — Cognito セッション完全破棄 (#0197)
 // Cookie削除 + Cognito Hosted UI ログアウトにリダイレクト
 
+import { redirect } from '@sveltejs/kit';
 import {
 	CONTEXT_COOKIE_NAME,
 	IDENTITY_COOKIE_NAME,
@@ -9,7 +10,6 @@ import {
 } from '$lib/domain/validation/auth';
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
 import { buildLogoutUrl } from '$lib/server/auth/providers/cognito-oauth';
-import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ cookies }) => {

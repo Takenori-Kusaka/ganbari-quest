@@ -3,12 +3,12 @@
 
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { Child, InsertPointLedgerInput, PointLedgerEntry } from '../types';
-import { TABLE_NAME, getDocClient } from './client';
+import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
-	ENTITY_NAMES,
 	childKey,
 	childPK,
+	ENTITY_NAMES,
 	pointBalanceKey,
 	pointLedgerKey,
 	pointLedgerPrefix,
