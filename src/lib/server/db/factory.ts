@@ -7,6 +7,7 @@ import * as dynamoActivityMasteryRepo from './dynamodb/activity-mastery-repo';
 import * as dynamoActivityPrefRepo from './dynamodb/activity-pref-repo';
 import * as dynamoActivityRepo from './dynamodb/activity-repo';
 import * as dynamoAuthRepo from './dynamodb/auth-repo';
+import * as dynamoAutoChallengeRepo from './dynamodb/auto-challenge-repo';
 import * as dynamoChecklistRepo from './dynamodb/checklist-repo';
 import * as dynamoChildRepo from './dynamodb/child-repo';
 import * as dynamoCloudExportRepo from './dynamodb/cloud-export-repo';
@@ -27,6 +28,8 @@ import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
 import * as dynamoStampCardRepo from './dynamodb/stamp-card-repo';
 import * as dynamoStatusRepo from './dynamodb/status-repo';
 import * as dynamoStorageRepo from './dynamodb/storage-repo';
+import * as dynamoTenantEventRepo from './dynamodb/tenant-event-repo';
+
 import * as dynamoVoiceRepo from './dynamodb/voice-repo';
 import type { IAccountLockoutRepo } from './interfaces/account-lockout-repo.interface';
 import type { IAchievementRepo } from './interfaces/achievement-repo.interface';
@@ -34,6 +37,7 @@ import type { IActivityMasteryRepo } from './interfaces/activity-mastery-repo.in
 import type { IActivityPrefRepo } from './interfaces/activity-pref-repo.interface';
 import type { IActivityRepo } from './interfaces/activity-repo.interface';
 import type { IAuthRepo } from './interfaces/auth-repo.interface';
+import type { IAutoChallengeRepo } from './interfaces/auto-challenge-repo.interface';
 import type { IChecklistRepo } from './interfaces/checklist-repo.interface';
 import type { IChildRepo } from './interfaces/child-repo.interface';
 import type { ICloudExportRepo } from './interfaces/cloud-export-repo.interface';
@@ -54,6 +58,8 @@ import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interf
 import type { IStampCardRepo } from './interfaces/stamp-card-repo.interface';
 import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
+import type { ITenantEventRepo } from './interfaces/tenant-event-repo.interface';
+
 import type { IVoiceRepo } from './interfaces/voice-repo.interface';
 import * as sqliteAccountLockoutRepo from './sqlite/account-lockout-repo';
 import * as sqliteAchievementRepo from './sqlite/achievement-repo';
@@ -61,6 +67,7 @@ import * as sqliteActivityMasteryRepo from './sqlite/activity-mastery-repo';
 import * as sqliteActivityPrefRepo from './sqlite/activity-pref-repo';
 import * as sqliteActivityRepo from './sqlite/activity-repo';
 import * as sqliteAuthRepo from './sqlite/auth-repo';
+import * as sqliteAutoChallengeRepo from './sqlite/auto-challenge-repo';
 import * as sqliteChecklistRepo from './sqlite/checklist-repo';
 import * as sqliteChildRepo from './sqlite/child-repo';
 import * as sqliteCloudExportRepo from './sqlite/cloud-export-repo';
@@ -81,10 +88,13 @@ import * as sqliteSpecialRewardRepo from './sqlite/special-reward-repo';
 import * as sqliteStampCardRepo from './sqlite/stamp-card-repo';
 import * as sqliteStatusRepo from './sqlite/status-repo';
 import * as sqliteStorageRepo from './sqlite/storage-repo';
+import * as sqliteTenantEventRepo from './sqlite/tenant-event-repo';
+
 import * as sqliteVoiceRepo from './sqlite/voice-repo';
 
 export interface Repositories {
 	accountLockout: IAccountLockoutRepo;
+	autoChallenge: IAutoChallengeRepo;
 	auth: IAuthRepo;
 	achievement: IAchievementRepo;
 	activity: IActivityRepo;
@@ -110,6 +120,8 @@ export interface Repositories {
 	stampCard: IStampCardRepo;
 	status: IStatusRepo;
 	storage: IStorageRepo;
+	tenantEvent: ITenantEventRepo;
+
 	voice: IVoiceRepo;
 }
 
@@ -122,6 +134,7 @@ export function getRepos(): Repositories {
 	if (dataSource === 'dynamodb') {
 		const repos: Repositories = {
 			accountLockout: dynamoAccountLockoutRepo,
+			autoChallenge: dynamoAutoChallengeRepo,
 			auth: dynamoAuthRepo,
 			achievement: dynamoAchievementRepo,
 			activity: dynamoActivityRepo,
@@ -147,6 +160,8 @@ export function getRepos(): Repositories {
 			stampCard: dynamoStampCardRepo,
 			status: dynamoStatusRepo,
 			storage: dynamoStorageRepo,
+			tenantEvent: dynamoTenantEventRepo,
+
 			voice: dynamoVoiceRepo,
 		};
 		_repos = repos;
@@ -155,6 +170,7 @@ export function getRepos(): Repositories {
 
 	const repos: Repositories = {
 		accountLockout: sqliteAccountLockoutRepo,
+		autoChallenge: sqliteAutoChallengeRepo,
 		auth: sqliteAuthRepo,
 		achievement: sqliteAchievementRepo,
 		activity: sqliteActivityRepo,
@@ -180,6 +196,8 @@ export function getRepos(): Repositories {
 		stampCard: sqliteStampCardRepo,
 		status: sqliteStatusRepo,
 		storage: sqliteStorageRepo,
+		tenantEvent: sqliteTenantEventRepo,
+
 		voice: sqliteVoiceRepo,
 	};
 	_repos = repos;
