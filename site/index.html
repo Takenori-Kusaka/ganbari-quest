@@ -428,7 +428,7 @@
       </div>
       <div class="feature-card">
         <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-radar-chart-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-radar-chart.webp" type="image/webp"><img src="screenshots/feature-radar-chart.webp" alt="5軸の成長レーダーチャート" width="390" height="844" loading="lazy" data-lightbox></picture>
+          <picture><source srcset="screenshots/feature-radar-chart-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-radar-chart.webp" type="image/webp"><img src="screenshots/feature-radar-chart.webp" alt="5つのチカラチャート" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
         <div class="feature-icon">&#x1F4CA;</div>
         <h3>5つのチカラチャート</h3>
@@ -918,7 +918,7 @@
   }
 
   document.querySelectorAll('img[data-lightbox]').forEach((img)=> {
-    img.addEventListener('click',function(){open(this.src,this.alt)});
+    img.addEventListener('click',function(){open(this.currentSrc||this.src,this.alt)});
   });
   overlay.addEventListener('click',(e)=> {if(e.target===overlay)close()});
   closeBtn.addEventListener('click',close);
