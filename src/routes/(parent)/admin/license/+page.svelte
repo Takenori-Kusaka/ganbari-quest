@@ -11,6 +11,7 @@ const license = $derived(data.license);
 const stripeEnabled = $derived(data.stripeEnabled);
 const planTier = $derived(data.planTier ?? 'free');
 const planStats = $derived(data.planStats);
+const trialStatus = $derived(data.trialStatus);
 
 let checkoutLoading = $state(false);
 let portalLoading = $state(false);
@@ -157,6 +158,53 @@ async function openPortal() {
 		/>
 	{/if}
 
+	<!-- 無料トライアル -->
+	{#if planTier === 'free' && trialStatus}
+		<Card variant="default" padding="lg">
+			{#snippet children()}
+			{#if trialStatus.isTrialActive}
+				<div class="text-center">
+					<p class="text-sm font-semibold text-blue-600 mb-1">
+						スタンダードプラン トライアル中
+					</p>
+					<p class="text-2xl font-bold text-blue-700">
+						残り {trialStatus.daysRemaining}日
+					</p>
+					<p class="text-xs text-gray-400 mt-1">
+						{trialStatus.trialEndDate} まで
+					</p>
+				</div>
+			{:else if !trialStatus.trialUsed}
+				<div class="text-center">
+					<p class="text-lg font-bold text-gray-700 mb-1">
+						7日間 無料でお試し
+					</p>
+					<p class="text-sm text-gray-500 mb-4">
+						スタンダードプランの全機能を体験できます
+					</p>
+					<form method="POST" action="?/startTrial">
+						<Button
+							type="submit"
+							variant="primary"
+							size="md"
+							class="w-full"
+						>
+							無料トライアルを開始する
+						</Button>
+					</form>
+					<p class="text-xs text-gray-400 mt-2">
+						クレジットカード不要 — 自動で課金されることはありません
+					</p>
+				</div>
+			{:else}
+				<p class="text-sm text-gray-400 text-center">
+					無料トライアルは使用済みです
+				</p>
+			{/if}
+			{/snippet}
+		</Card>
+	{/if}
+
 	<!-- サポーターバッジ -->
 	{#if data.loyaltyInfo && data.loyaltyInfo.subscriptionMonths > 0}
 		<LoyaltyBadge
@@ -285,7 +333,7 @@ async function openPortal() {
 					<div class="flex items-center justify-between mb-2">
 						<div>
 							<p class="font-semibold text-gray-700">ファミリー</p>
-							<p class="text-xs text-gray-500">全機能+データ永久保持+成長記録</p>
+							<p class="text-xs text-gray-500">家族みんなで見守る+永久保持</p>
 						</div>
 						{#if billingInterval === 'monthly'}
 							<p class="text-xl font-bold text-purple-600">¥780<span class="text-sm font-normal text-gray-500">/月</span></p>
@@ -295,9 +343,10 @@ async function openPortal() {
 					</div>
 					<ul class="text-xs text-gray-500 space-y-1 mb-3">
 						<li>スタンダードの全機能</li>
+						<li>祖父母・家族向け閲覧リンク</li>
+						<li>自由テキストおうえん</li>
+						<li>きょうだいランキング</li>
 						<li>データ保持 <strong>永久</strong></li>
-						<li>兄弟間クロス分析</li>
-						<li>詳細月次レポート</li>
 					</ul>
 				</div>
 
