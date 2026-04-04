@@ -7,13 +7,13 @@ const plans = [
 		name: 'フリー',
 		price: '¥0',
 		unit: '',
-		description: '基本機能で気軽にスタート。ゲーム体験は一切制限なし。',
+		description: '基本機能で気軽にスタート。冒険体験は一切制限なし。',
 		features: [
-			'子供2人まで登録',
+			'お子さまの登録：2人まで',
 			'プリセット活動の利用',
-			'カスタム活動 3個まで',
-			'レベル・ポイント・実績・称号',
-			'シールガチャ・ログインボーナス',
+			'オリジナル活動の作成：3個まで',
+			'レベル・ポイント・シールガチャ',
+			'ログインボーナス・コンボ',
 			'チェックリスト（テンプレート）',
 			'90日間の履歴保持',
 		],
@@ -26,16 +26,16 @@ const plans = [
 		yearlyPrice: '年額 ¥5,000（2ヶ月分お得）',
 		description: 'カスタマイズ自由自在。お子さまにぴったりの環境を。',
 		features: [
-			'子供 無制限',
-			'カスタム活動 無制限',
+			'お子さまの登録人数：無制限',
+			'オリジナル活動の作成：無制限',
 			'活動アイコンの変更',
 			'チェックリスト自由作成',
 			'カスタム報酬設定',
-			'おうえん自由テキスト',
+			'おうえんスタンプ（全種類）',
 			'週次メールレポート',
-			'データエクスポート（CSV）',
+			'データエクスポート（JSON）',
 			'1年間の履歴保持',
-			'メールサポート',
+			'Discordサポート',
 		],
 		badge: 'おすすめ',
 		recommended: true,
@@ -50,12 +50,9 @@ const plans = [
 		features: [
 			'スタンダードの全機能',
 			'月次比較レポート',
-			'年間サマリーレポート',
-			'兄弟間比較分析',
-			'カスタムレベル称号',
-			'データエクスポート（PDF）',
+			'きょうだいランキング',
 			'無制限の履歴保持',
-			'優先サポート（48h以内）',
+			'Discordサポート（優先対応）',
 		],
 	},
 ];
@@ -121,7 +118,7 @@ const plans = [
 	</div>
 
 	<p class="text-center text-[0.85rem] text-[var(--color-neutral-500)] mb-12">
-		&#x1F4A1; ゲーミフィケーション機能（レベル・ポイント・実績・称号・シールガチャ・コンボ）は<strong>全プラン共通</strong>で制限なし
+		&#x1F4A1; お子さまが楽しめる冒険の仕組み（レベル・シールガチャ・ログインボーナス・コンボなど）は<strong>全プラン共通</strong>で制限なし
 	</p>
 
 	<Card padding="lg" class="bg-[var(--color-surface-muted)]">
@@ -129,19 +126,22 @@ const plans = [
 		<h2 class="text-[1.1rem] font-semibold text-[var(--color-neutral-700)] mb-4">よくある質問</h2>
 		<dl>
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">無料プランでも十分使えますか？</dt>
-			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。プリセットの活動とチェックリストで基本的な機能はお使いいただけます。お子さまのゲーム体験は無料でも一切制限ありません。</dd>
+			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。プリセットの活動とチェックリストで基本的な機能はお使いいただけます。お子さまの冒険体験は無料でも一切制限ありません。</dd>
 
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">無料トライアル中にキャンセルできますか？</dt>
 			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。トライアル期間中にキャンセルすれば一切課金されません。</dd>
+
+			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">解約するとどうなりますか？</dt>
+			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">お支払い済みの期間が終了するまで引き続きご利用いただけます。その後フリープランに自動移行し、データは保持されます。</dd>
+
+			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">課金日はいつですか？</dt>
+			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">お申し込み日を起算日として毎月（または毎年）自動更新されます。</dd>
 
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">支払い方法は？</dt>
 			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しています。</dd>
 
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">プランの変更はできますか？</dt>
-			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。スタンダード↔ファミリー、月額↔年額の切り替えがいつでも可能です。管理画面から変更できます。</dd>
-
-			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">解約するとデータはどうなりますか？</dt>
-			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">解約後30日間はデータが保持されます。その間に再開すればデータはそのまま利用できます。</dd>
+			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。スタンダード↔ファミリー、月額↔年額の切り替えがいつでも可能です。管理画面の「プラン・お支払い」から変更できます。</dd>
 
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">セルフホスト版はありますか？</dt>
 			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。全機能を無料でお使いいただけるオープンソース版があります。DockerとNode.jsの基本的な知識が必要です。</dd>
