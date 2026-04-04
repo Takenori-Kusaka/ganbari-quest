@@ -482,13 +482,10 @@ $effect(() => {
 		/>
 	{/if}
 
-	<!-- Sibling ranking -->
+	<!-- Sibling ranking (1-line summary) -->
 	{#if data.siblingRanking}
 		<SiblingRanking
 			rankings={data.siblingRanking.rankings}
-			mostActive={data.siblingRanking.mostActive}
-			categoryChampions={data.siblingRanking.categoryChampions}
-			encouragement={data.siblingRanking.encouragement}
 			childId={data.child?.id ?? 0}
 		/>
 	{/if}
