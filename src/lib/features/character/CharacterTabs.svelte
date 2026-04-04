@@ -1,12 +1,6 @@
 <script lang="ts">
 import { page } from '$app/stores';
-import {
-	ICON_ACHIEVEMENTS,
-	ICON_HISTORY,
-	ICON_STATUS,
-	ICON_TITLES,
-	getModeLabels,
-} from '$lib/domain/icons';
+import { ICON_ACHIEVEMENTS, ICON_HISTORY, ICON_STATUS, getModeLabels } from '$lib/domain/icons';
 
 interface Props {
 	uiMode: string;
@@ -34,25 +28,21 @@ const tabsByMode: Record<string, TabDef[]> = {
 		{ label: 'つよさ', icon: ICON_STATUS, path: 'status' },
 		{ label: 'じっせき', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: 'きろく', icon: ICON_HISTORY, path: 'history' },
-		{ label: 'しょうごう', icon: ICON_TITLES, path: 'titles' },
 	],
 	lower: [
 		{ label: 'つよさ', icon: ICON_STATUS, path: 'status' },
 		{ label: '実績', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
-		{ label: '称号', icon: ICON_TITLES, path: 'titles' },
 	],
 	upper: [
 		{ label: 'ステータス', icon: '📊', path: 'status' },
 		{ label: '実績', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
-		{ label: '称号', icon: ICON_TITLES, path: 'titles' },
 	],
 	teen: [
 		{ label: 'ステータス', icon: '📊', path: 'status' },
 		{ label: '実績', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
-		{ label: '称号', icon: ICON_TITLES, path: 'titles' },
 	],
 };
 
