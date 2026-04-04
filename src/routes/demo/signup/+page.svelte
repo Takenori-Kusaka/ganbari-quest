@@ -112,21 +112,6 @@ function handleCtaClick() {
 			{/snippet}
 		</Card>
 
-		<!-- Testimonial / Social proof -->
-		<div class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-orange-200 p-6 mb-6">
-			<h2 class="text-lg font-bold text-gray-700 mb-3 text-center">ご利用者の声</h2>
-			<div class="space-y-3">
-				<div class="bg-white rounded-xl p-3">
-					<p class="text-sm text-gray-600 italic">「毎朝、自分からスタンプを押したがるようになりました」</p>
-					<p class="text-xs text-gray-400 mt-1 text-right">— 5歳男の子のママ</p>
-				</div>
-				<div class="bg-white rounded-xl p-3">
-					<p class="text-sm text-gray-600 italic">「お手伝いが楽しいゲームに変わった。親も記録が楽」</p>
-					<p class="text-xs text-gray-400 mt-1 text-right">— 8歳女の子のパパ</p>
-				</div>
-			</div>
-		</div>
-
 		<!-- Secondary CTA -->
 		<div class="text-center mb-8">
 			<a
