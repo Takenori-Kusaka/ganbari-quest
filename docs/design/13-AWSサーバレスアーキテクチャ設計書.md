@@ -29,6 +29,7 @@
 | `GanbariQuestCompute` | Lambda (Docker), Function URL | Storage, Auth |
 | `GanbariQuestNetwork` | CloudFront, Route 53, ACM | Compute |
 | `GanbariQuestOps` | CloudWatch Alarms/Dashboard, SNS, Budgets, Cost Anomaly Detection | Compute, Storage, Network |
+| `GanbariQuestSes` | SES Email Identity, Configuration Set, 受信パイプライン (S3 + Lambda) | なし |
 
 ### 3.1 StorageStack
 
@@ -266,7 +267,8 @@ infra/
 │   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
 │   ├── compute-stack.ts  # Lambda + Function URL
 │   ├── network-stack.ts  # CloudFront + Route53 + ACM + S3エラーページ
-│   └── ops-stack.ts      # CloudWatch Alarms/Dashboard + Budgets + Cost Anomaly + Health通知
+│   ├── ops-stack.ts      # CloudWatch Alarms/Dashboard + Budgets + Cost Anomaly + Health通知
+│   └── ses-stack.ts      # SES Email Identity + Configuration Set + メール受信パイプライン
 ├── error-pages/            # CloudFrontカスタムエラーページHTML（S3にデプロイ）
 ├── package.json
 ├── tsconfig.json
