@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
-import { logger } from '$lib/server/logger';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { logger } from '$lib/server/logger';
 import {
 	cancelActivityLog,
 	getTodayRecordedActivityCounts,

@@ -1,8 +1,8 @@
 <script lang="ts">
 import BirthdayModal from '$lib/features/birthday/BirthdayModal.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
-import StampPressOverlay from '$lib/ui/components/StampPressOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
+import StampPressOverlay from '$lib/ui/components/StampPressOverlay.svelte';
 
 interface StampCardEntry {
 	slot: number;

@@ -7,6 +7,7 @@ export const load: PageServerLoad = async () => {
 
 	// biome-ignore lint: DEMO_CHILDREN indices are always defined (static demo data)
 	const child1 = DEMO_CHILDREN[1]!; // たろう (5歳)
+	// biome-ignore lint: DEMO_CHILDREN indices are always defined (static demo data)
 	const child2 = DEMO_CHILDREN[2]!; // さくら (8歳)
 
 	const challenges = [
