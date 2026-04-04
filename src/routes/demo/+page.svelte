@@ -135,13 +135,6 @@ const modeColors: Record<string, string> = {
 						— 毎日の目標で継続をサポート
 					</div>
 				</li>
-				<li class="flex gap-2">
-					<span class="text-lg">🌟</span>
-					<div>
-						<span class="font-medium text-gray-700">キャリアプラン</span>
-						— 将来の夢に向けた目標設定（中高生向け）
-					</div>
-				</li>
 			</ul>
 			{/snippet}
 		</Card>
