@@ -154,10 +154,10 @@ const modeColors: Record<string, string> = {
 					</div>
 				</li>
 				<li class="flex gap-2">
-					<span class="text-lg">🏆</span>
+					<span class="text-lg">👥</span>
 					<div>
-						<span class="font-medium text-gray-700">実績・称号</span>
-						— がんばりに応じて実績を解除、称号を獲得
+						<span class="font-medium text-gray-700">きょうだいチャレンジ</span>
+						— きょうだいで協力・競争する目標を設定
 					</div>
 				</li>
 				<li class="flex gap-2">
