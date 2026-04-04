@@ -78,7 +78,7 @@ function selectStamp(code: string) {
 				<Button
 					variant="ghost"
 					size="sm"
-					class="rounded-xl bg-gray-100 text-gray-400 shadow-sm cursor-not-allowed gap-1"
+					class="rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] shadow-sm cursor-not-allowed gap-1"
 					disabled
 					aria-disabled="true"
 					aria-describedby="free-text-message-disabled-reason"
@@ -116,7 +116,9 @@ function selectStamp(code: string) {
 						maxlength={TEXT_MAX}
 						placeholder="がんばってるね！だいすき！ いつもおうえんしてるよ"
 						rows="3"
-						class="w-full px-3 py-2 border rounded-lg bg-white text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--input-border-focus)]/30 transition-colors resize-none"
+						class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
+							border-[var(--input-border)] focus:border-[var(--input-border-focus)]
+							focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors resize-none"
 					></textarea>
 				</FormField>
 			</Card>
@@ -167,8 +169,8 @@ function selectStamp(code: string) {
 
 	<!-- Success Message -->
 	{#if sendSuccess}
-		<div class="bg-green-50 rounded-xl p-4 border border-green-200 text-center animate-bounce-in">
-			<p class="text-green-700 font-bold">おうえんメッセージを送りました！</p>
+		<div class="bg-[var(--color-action-success)]/10 rounded-xl p-4 border border-[var(--color-action-success)]/30 text-center animate-bounce-in">
+			<p class="text-[var(--color-action-success)] font-bold">おうえんメッセージを送りました！</p>
 		</div>
 	{/if}
 
