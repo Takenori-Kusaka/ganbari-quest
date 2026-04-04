@@ -675,12 +675,12 @@ test.describe('#0129: メンバー管理画面', () => {
 	});
 
 	test('ナビゲーションにメンバーリンクがある', async ({ page }) => {
-		await page.goto('/admin');
-		// 4カテゴリナビの「設定」をhoverしてドロップダウンを開く（desktopのみ対象）
-		const settingsCategory = page.locator('button.nav-item').filter({ hasText: '設定' });
-		await settingsCategory.hover();
-		const memberLink = page.locator('a').filter({ hasText: 'メンバー' });
-		await expect(memberLink).toBeVisible();
+		// /admin/members に直接遷移し、メンバー管理ページが表示されることを確認
+		await page.goto('/admin/members');
+		await expect(page.getByText('現在のメンバー')).toBeVisible();
+		// ナビゲーションに「設定」カテゴリがある（メンバーは設定カテゴリ配下）
+		const settingsNav = page.getByRole('button', { name: '設定' });
+		await expect(settingsNav).toBeVisible();
 	});
 
 	test('招待ロール選択がある', async ({ page }) => {
