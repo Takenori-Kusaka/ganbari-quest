@@ -997,3 +997,23 @@ export interface UpdateAutoChallengeInput {
 	currentCount?: number;
 	status?: string;
 }
+
+// ============================================================
+// Viewer Tokens (閲覧専用リンク #371)
+// ============================================================
+
+export interface ViewerToken {
+	id: number;
+	tenantId: string;
+	token: string;
+	label: string | null;
+	expiresAt: string | null;
+	createdAt: string;
+	revokedAt: string | null;
+}
+
+export interface InsertViewerTokenInput {
+	token: string;
+	label?: string | null;
+	expiresAt?: string | null;
+}
