@@ -22,7 +22,10 @@ import {
 	claimChallengeReward as claimChallengeRewardService,
 	getActiveChallengesForChild,
 } from '$lib/server/services/sibling-challenge-service';
-import { getUnshownReward } from '$lib/server/services/special-reward-service';
+import {
+	getSpecialRewardProgress,
+	getUnshownReward,
+} from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
 	redeemStampCard,
@@ -58,6 +61,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			activeChallenges: [],
 			familyStreak: null,
 			allChildren: [],
+			specialRewardProgress: null,
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -73,6 +77,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		birthdayBonusStatus,
 		activeChallenges,
 		familyStreakData,
+		specialRewardProgress,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -85,6 +90,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getBirthdayBonusStatus(child.id, tenantId),
 		getActiveChallengesForChild(child.id, tenantId),
 		getFamilyStreak(tenantId),
+		getSpecialRewardProgress(child.id, tenantId),
 	]);
 
 	const allChildren = await findAllChildren(tenantId);
@@ -143,6 +149,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			tenantId,
 			parentData.isPremium ?? false,
 		).catch(() => null),
+		specialRewardProgress,
 	};
 };
 

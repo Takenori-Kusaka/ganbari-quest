@@ -74,6 +74,8 @@ export interface RecordActivityResult {
 	comboBonus: ComboResult | null;
 	missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 	eventMissions: { eventId: number; missionComplete: boolean; eventName: string }[];
+	calendarEvents: { eventCode: string; eventName: string; completed: boolean }[];
+	autoChallengeCompleted: boolean;
 	siblingChallenges: {
 		challengeId: number;
 		allSiblingsComplete: boolean;
@@ -83,6 +85,7 @@ export interface RecordActivityResult {
 	levelUp: LevelUpInfo | null;
 	xpGain: XpGainInfo;
 	customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[];
+	specialReward: { id: number; title: string; points: number; icon: string | null } | null;
 }
 
 export interface ActivityLogEntry {
@@ -252,6 +255,31 @@ export async function recordActivity(
 		// シーズンパス進捗失敗は記録フローを止めない
 	}
 
+	// カレンダーイベント進捗チェック（新: season-event-calendar ベース）
+	let calendarEventResults: { eventCode: string; eventName: string; completed: boolean }[] = [];
+	try {
+		const { incrementEventProgress } = await import('$lib/server/services/calendar-event-service');
+		calendarEventResults = await incrementEventProgress(childId, activity.categoryId, tenantId);
+	} catch {
+		// カレンダーイベント進捗失敗は記録フローを止めない
+	}
+
+	// 自動チャレンジ進捗チェック
+	let autoChallengeCompleted = false;
+	try {
+		const { incrementChallengeProgress } = await import(
+			'$lib/server/services/auto-challenge-service'
+		);
+		const challengeResult = await incrementChallengeProgress(
+			childId,
+			activity.categoryId,
+			tenantId,
+		);
+		autoChallengeCompleted = challengeResult.challengeCompleted;
+	} catch {
+		// 自動チャレンジ進捗失敗は記録フローを止めない
+	}
+
 	// きょうだいチャレンジ進捗チェック
 	let siblingChallengeResults: {
 		challengeId: number;
@@ -361,6 +389,26 @@ export async function recordActivity(
 		// カスタム実績チェック失敗は記録フローを止めない
 	}
 
+	// 固定間隔特別報酬チェック（予告型: 毎N回記録でごほうび）
+	let specialReward: { id: number; title: string; points: number; icon: string | null } | null =
+		null;
+	try {
+		const { checkAndGrantFixedIntervalReward } = await import(
+			'$lib/server/services/special-reward-service'
+		);
+		const reward = await checkAndGrantFixedIntervalReward(childId, tenantId);
+		if (reward) {
+			specialReward = {
+				id: reward.id,
+				title: reward.title,
+				points: reward.points,
+				icon: reward.icon,
+			};
+		}
+	} catch {
+		// 固定間隔報酬チェック失敗は記録フローを止めない
+	}
+
 	return {
 		id: log.id,
 		childId,
@@ -379,11 +427,14 @@ export async function recordActivity(
 		comboBonus: comboBonus.totalNewBonus > 0 || comboBonus.hints.length > 0 ? comboBonus : null,
 		missionComplete: missionResult.missionCompleted ? missionResult : null,
 		eventMissions: eventMissionResults,
+		calendarEvents: calendarEventResults,
+		autoChallengeCompleted,
 		siblingChallenges: siblingChallengeResults,
 		focusBonus,
 		levelUp,
 		xpGain,
 		customUnlocked,
+		specialReward,
 	};
 }
 

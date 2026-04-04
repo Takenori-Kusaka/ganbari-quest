@@ -1,100 +1,208 @@
 // src/lib/domain/season-event-calendar.ts
-export interface SeasonEventDef {
-	code: string;
-	name: string;
+// Season Event Calendar — master data for auto-delivered seasonal events.
+// These define the "what" and "when"; tenants opt in/out via tenant_events table.
+
+export interface SeasonEventMission {
+	categoryId: number;
+	targetCount: number;
 	description: string;
-	startMonthDay: string;
-	endMonthDay: string;
-	categoryId: number | null;
-	bonusMultiplier: number;
 }
 
-export const SEASON_EVENT_CALENDAR: SeasonEventDef[] = [
+export interface SeasonEventDefinition {
+	id: string; // unique code e.g., 'spring-start', 'kodomo-no-hi'
+	name: string; // display name
+	icon: string; // emoji
+	startMonth: number; // 1-12
+	startDay: number;
+	endMonth: number; // 1-12
+	endDay: number;
+	defaultMissions: SeasonEventMission[];
+	flavorText: string;
+}
+
+/**
+ * Annual season event calendar.
+ * Events are automatically delivered to tenants when the date range matches.
+ * Parents can toggle individual events on/off.
+ */
+export const SEASON_EVENTS: SeasonEventDefinition[] = [
+	// ============================================================
+	// Spring (4-5月)
+	// ============================================================
 	{
-		code: 'spring-new-term',
-		name: 'しんがっきスタートダッシュ',
-		description: '新学期のはじまり！ べんきょうをがんばろう',
-		startMonthDay: '04-01',
-		endMonthDay: '04-14',
-		categoryId: 2,
-		bonusMultiplier: 1.5,
+		id: 'spring-start',
+		name: '春の新学期チャレンジ',
+		icon: '🌸',
+		startMonth: 4,
+		startDay: 1,
+		endMonth: 4,
+		endDay: 30,
+		defaultMissions: [
+			{ categoryId: 2, targetCount: 10, description: '4月中にべんきょうを10回やろう！' },
+			{ categoryId: 3, targetCount: 8, description: 'せいかつを8回がんばろう！' },
+		],
+		flavorText: 'あたらしい学年のスタート！いろいろチャレンジしてみよう！',
 	},
 	{
-		code: 'kodomo-no-hi',
+		id: 'kodomo-no-hi',
 		name: 'こどもの日チャレンジ',
-		description: 'こどもの日をお祝い！ いろんなことにチャレンジ',
-		startMonthDay: '05-01',
-		endMonthDay: '05-07',
-		categoryId: null,
-		bonusMultiplier: 1.5,
+		icon: '🎏',
+		startMonth: 5,
+		startDay: 1,
+		endMonth: 5,
+		endDay: 5,
+		defaultMissions: [
+			{ categoryId: 1, targetCount: 5, description: 'うんどうを5回やって元気いっぱい！' },
+		],
+		flavorText: 'こいのぼりのように元気にがんばろう！',
+	},
+
+	// ============================================================
+	// Summer (7-8月)
+	// ============================================================
+	{
+		id: 'summer-vacation',
+		name: '夏休みスペシャル',
+		icon: '🌻',
+		startMonth: 7,
+		startDay: 20,
+		endMonth: 8,
+		endDay: 31,
+		defaultMissions: [
+			{ categoryId: 1, targetCount: 15, description: '夏休み中にうんどうを15回！' },
+			{ categoryId: 5, targetCount: 10, description: 'そうぞうを10回やってみよう！' },
+			{ categoryId: 2, targetCount: 12, description: '夏休みの宿題もがんばろう！べんきょう12回！' },
+		],
+		flavorText: 'なつやすみはいろんなことにチャレンジできるチャンス！',
+	},
+
+	// ============================================================
+	// Autumn (10月)
+	// ============================================================
+	{
+		id: 'halloween',
+		name: 'ハロウィンチャレンジ',
+		icon: '🎃',
+		startMonth: 10,
+		startDay: 1,
+		endMonth: 10,
+		endDay: 31,
+		defaultMissions: [
+			{ categoryId: 5, targetCount: 8, description: 'そうぞうを8回がんばろう！' },
+			{ categoryId: 4, targetCount: 5, description: 'こうりゅうを5回やろう！' },
+		],
+		flavorText: 'トリック・オア・トリート！がんばったらごほうびだ！',
 	},
 	{
-		code: 'summer-vacation',
-		name: 'なつやすみ大ぼうけん',
-		description: 'なつやすみも毎日がんばろう！',
-		startMonthDay: '07-20',
-		endMonthDay: '08-31',
-		categoryId: null,
-		bonusMultiplier: 1.2,
+		id: 'sports-day',
+		name: 'うんどうかいチャレンジ',
+		icon: '🏅',
+		startMonth: 10,
+		startDay: 1,
+		endMonth: 10,
+		endDay: 15,
+		defaultMissions: [
+			{ categoryId: 1, targetCount: 10, description: 'うんどうかいに向けて、うんどう10回！' },
+		],
+		flavorText: 'うんどうかいでかつやくできるようにれんしゅうだ！',
+	},
+
+	// ============================================================
+	// Winter (12-3月)
+	// ============================================================
+	{
+		id: 'christmas',
+		name: 'クリスマスチャレンジ',
+		icon: '🎄',
+		startMonth: 12,
+		startDay: 1,
+		endMonth: 12,
+		endDay: 25,
+		defaultMissions: [
+			{ categoryId: 3, targetCount: 10, description: 'せいかつを10回がんばろう！' },
+			{ categoryId: 4, targetCount: 5, description: 'こうりゅう5回でサンタさんもにっこり！' },
+		],
+		flavorText: 'サンタさんもがんばるきみを応援しているよ！',
 	},
 	{
-		code: 'halloween',
-		name: 'ハロウィンおばけたいじ',
-		description: 'ハロウィンの季節！ おばけに負けずにがんばろう',
-		startMonthDay: '10-25',
-		endMonthDay: '10-31',
-		categoryId: null,
-		bonusMultiplier: 1.5,
+		id: 'new-year',
+		name: 'お正月チャレンジ',
+		icon: '🎍',
+		startMonth: 1,
+		startDay: 1,
+		endMonth: 1,
+		endDay: 15,
+		defaultMissions: [
+			{ categoryId: 2, targetCount: 5, description: '新年はべんきょうからスタート！5回やろう！' },
+			{ categoryId: 3, targetCount: 5, description: 'せいかつ5回でいい1年にしよう！' },
+		],
+		flavorText: 'あけましておめでとう！ことしもいっぱいがんばろう！',
 	},
 	{
-		code: 'christmas',
-		name: 'クリスマスプレゼント大さくせん',
-		description: 'サンタさんにアピール！ いいこでがんばろう',
-		startMonthDay: '12-01',
-		endMonthDay: '12-25',
-		categoryId: null,
-		bonusMultiplier: 1.3,
+		id: 'setsubun',
+		name: '節分チャレンジ',
+		icon: '👹',
+		startMonth: 2,
+		startDay: 1,
+		endMonth: 2,
+		endDay: 3,
+		defaultMissions: [
+			{ categoryId: 1, targetCount: 3, description: 'おにをたいじ！うんどう3回！' },
+		],
+		flavorText: 'おにはそと！ふくはうち！がんばっておにをやっつけよう！',
 	},
 	{
-		code: 'new-year',
-		name: 'おしょうがつチャレンジ',
-		description: 'あたらしい年のはじまり！ せいかつをととのえよう',
-		startMonthDay: '01-01',
-		endMonthDay: '01-07',
-		categoryId: 3,
-		bonusMultiplier: 1.5,
-	},
-	{
-		code: 'setsubun',
-		name: 'せつぶんおにたいじ',
-		description: 'おにはそと！ うんどうでおにをやっつけよう',
-		startMonthDay: '02-01',
-		endMonthDay: '02-03',
-		categoryId: 1,
-		bonusMultiplier: 2.0,
-	},
-	{
-		code: 'hinamatsuri',
-		name: 'ひなまつりそうぞうチャレンジ',
-		description: 'ひなまつりの季節！ そうぞう力をはっきしよう',
-		startMonthDay: '03-01',
-		endMonthDay: '03-03',
-		categoryId: 5,
-		bonusMultiplier: 2.0,
+		id: 'hinamatsuri',
+		name: 'ひなまつりチャレンジ',
+		icon: '🎎',
+		startMonth: 3,
+		startDay: 1,
+		endMonth: 3,
+		endDay: 3,
+		defaultMissions: [{ categoryId: 5, targetCount: 3, description: 'そうぞうを3回やろう！' }],
+		flavorText: 'すてきなおひなさまのように、きれいなものをつくってみよう！',
 	},
 ];
 
-export function getActiveCalendarEvents(today: string): SeasonEventDef[] {
-	const monthDay = today.slice(5);
-	return SEASON_EVENT_CALENDAR.filter(
-		(ev) => monthDay >= ev.startMonthDay && monthDay <= ev.endMonthDay,
-	);
+/**
+ * Get season events that are active for a given date.
+ * Handles year-wrapping (e.g., events spanning Dec -> Jan).
+ */
+export function getActiveSeasonEvents(date: Date): SeasonEventDefinition[] {
+	const month = date.getMonth() + 1; // 1-12
+	const day = date.getDate();
+
+	return SEASON_EVENTS.filter((event) => {
+		if (event.startMonth <= event.endMonth) {
+			// Normal range (e.g., 4/1 - 4/30)
+			if (month < event.startMonth || month > event.endMonth) return false;
+			if (month === event.startMonth && day < event.startDay) return false;
+			if (month === event.endMonth && day > event.endDay) return false;
+			return true;
+		}
+		// Year-wrapping range (e.g., 12/1 - 1/15)
+		if (month > event.startMonth || (month === event.startMonth && day >= event.startDay)) {
+			return true;
+		}
+		if (month < event.endMonth || (month === event.endMonth && day <= event.endDay)) {
+			return true;
+		}
+		return false;
+	});
 }
 
-export function getCalendarEventByCode(code: string): SeasonEventDef | undefined {
-	return SEASON_EVENT_CALENDAR.find((ev) => ev.code === code);
-}
+/**
+ * Get the specific year's date range for a season event.
+ * For year-wrapping events, startDate is in the given year and endDate may be in year+1.
+ */
+export function getEventDateRange(
+	event: SeasonEventDefinition,
+	year: number,
+): { startDate: string; endDate: string } {
+	const startDate = `${year}-${String(event.startMonth).padStart(2, '0')}-${String(event.startDay).padStart(2, '0')}`;
 
-export function toFullDate(year: number, monthDay: string): string {
-	return `${year}-${monthDay}`;
+	const endYear = event.startMonth > event.endMonth ? year + 1 : year;
+	const endDate = `${endYear}-${String(event.endMonth).padStart(2, '0')}-${String(event.endDay).padStart(2, '0')}`;
+
+	return { startDate, endDate };
 }
