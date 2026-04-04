@@ -16,7 +16,13 @@ interface Props {
 
 let { rankings, width = 360, height = 180 }: Props = $props();
 
-const CHILD_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
+const CHILD_COLORS = [
+	'var(--color-chart-1)',
+	'var(--color-chart-2)',
+	'var(--color-chart-3)',
+	'var(--color-chart-4)',
+	'var(--color-chart-5)',
+];
 
 const CATEGORIES = CATEGORY_DEFS.map((c) => ({ id: c.id, label: c.name, icon: c.icon }));
 

@@ -415,11 +415,24 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 				</div>
 			{/if}
 
-			<!-- カテゴリ別比較 -->
+			<!-- カテゴリ別比較（週次） -->
 			<div class="bg-white rounded-xl p-4 shadow-sm">
 				<p class="text-sm font-bold text-gray-600 mb-3">📊 今週のカテゴリ別くらべっこ</p>
 				<SiblingCategoryChart rankings={data.rankingData.rankings} />
 			</div>
+
+			<!-- カテゴリ別比較（月次） -->
+			{#if data.monthlyRankingData && data.monthlyRankingData.rankings.length > 1}
+				<div class="bg-white rounded-xl p-4 shadow-sm">
+					<p class="text-sm font-bold text-gray-600 mb-3">📊 今月のカテゴリ別くらべっこ</p>
+					<SiblingCategoryChart rankings={data.monthlyRankingData.rankings} />
+					{#if data.monthlyRankingData.mostActive}
+						<p class="text-xs text-gray-500 mt-2">
+							🏆 今月もっとも活発: <strong>{data.monthlyRankingData.mostActive.childName}</strong>（{data.monthlyRankingData.mostActive.count}回）
+						</p>
+					{/if}
+				</div>
+			{/if}
 		</section>
 	{/if}
 </div>

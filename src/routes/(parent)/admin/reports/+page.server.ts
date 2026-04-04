@@ -5,6 +5,7 @@ import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { computeAllChildrenDetailedReport } from '$lib/server/services/report-service';
 import {
+	getMonthlyRanking,
 	getRankingTrend,
 	getWeeklyRanking,
 	isRankingEnabled,
@@ -32,18 +33,20 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 	const isFamily = parentData.planTier === 'family';
 
 	let rankingData: Awaited<ReturnType<typeof getWeeklyRanking>> | null = null;
+	let monthlyRankingData: Awaited<ReturnType<typeof getMonthlyRanking>> | null = null;
 	let trendData: Awaited<ReturnType<typeof getRankingTrend>> | null = null;
 	if (isFamily) {
 		try {
 			const rankingOn = await isRankingEnabled(tenantId);
 			if (rankingOn && children.length > 1) {
-				[rankingData, trendData] = await Promise.all([
+				[rankingData, monthlyRankingData, trendData] = await Promise.all([
 					getWeeklyRanking(tenantId),
+					getMonthlyRanking(tenantId),
 					getRankingTrend(tenantId, 4),
 				]);
 			}
-		} catch {
-			// ランキング取得失敗は無視
+		} catch (err) {
+			logger.error('[reports] ランキング取得失敗', { error: String(err) });
 		}
 	}
 
@@ -62,8 +65,8 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 		let prevMonthlyReports: typeof monthlyReports = [];
 		try {
 			prevMonthlyReports = await computeAllChildrenDetailedReport(tenantId, prevMonthStr);
-		} catch {
-			// 先月データなしでも継続
+		} catch (err) {
+			logger.error('[reports] 先月レポート取得失敗', { error: String(err) });
 		}
 
 		return {
@@ -76,6 +79,7 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 				day: reportSettings.weekly_report_day ?? 'monday',
 			},
 			rankingData,
+			monthlyRankingData,
 			trendData,
 			isFamily,
 		};
@@ -92,6 +96,7 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 				day: reportSettings.weekly_report_day ?? 'monday',
 			},
 			rankingData: null,
+			monthlyRankingData: null,
 			trendData: null,
 			isFamily,
 		};

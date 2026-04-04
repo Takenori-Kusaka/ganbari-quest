@@ -12,7 +12,13 @@ interface Props {
 
 let { weeks, width = 360, height = 200 }: Props = $props();
 
-const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
+const COLORS = [
+	'var(--color-chart-1)',
+	'var(--color-chart-2)',
+	'var(--color-chart-3)',
+	'var(--color-chart-4)',
+	'var(--color-chart-5)',
+];
 const PADDING = { top: 20, right: 16, bottom: 32, left: 36 };
 
 const chartW = $derived(width - PADDING.left - PADDING.right);
