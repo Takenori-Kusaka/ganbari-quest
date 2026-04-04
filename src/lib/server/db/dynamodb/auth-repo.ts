@@ -99,6 +99,28 @@ export const createUser: IAuthRepo['createUser'] = async (input) => {
 	return user;
 };
 
+export const deleteUser: IAuthRepo['deleteUser'] = async (userId) => {
+	// Look up user to get email for email-key deletion
+	const user = await findUserById(userId);
+	if (!user) return;
+
+	// Delete email lookup item
+	await doc().send(
+		new DeleteCommand({
+			TableName: TABLE_NAME,
+			Key: userEmailKey(userId, user.email),
+		}),
+	);
+
+	// Delete user profile item
+	await doc().send(
+		new DeleteCommand({
+			TableName: TABLE_NAME,
+			Key: userKey(userId),
+		}),
+	);
+};
+
 // ============================================================
 // Tenant
 // ============================================================
@@ -234,6 +256,47 @@ export const updateTenantStripe: IAuthRepo['updateTenantStripe'] = async (tenant
 			}),
 		);
 	}
+};
+
+export const updateTenantOwner: IAuthRepo['updateTenantOwner'] = async (tenantId, newOwnerId) => {
+	const now = new Date().toISOString();
+	const result = await doc().send(
+		new GetCommand({ TableName: TABLE_NAME, Key: tenantKey(tenantId) }),
+	);
+	if (!result.Item) return;
+
+	await doc().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: { ...result.Item, ownerId: newOwnerId, updatedAt: now },
+		}),
+	);
+};
+
+export const deleteTenant: IAuthRepo['deleteTenant'] = async (tenantId) => {
+	// Read tenant first to get Stripe customer ID
+	const tenant = await findTenantById(tenantId);
+
+	// Delete Stripe customer lookup if it exists
+	if (tenant?.stripeCustomerId) {
+		await doc().send(
+			new DeleteCommand({
+				TableName: TABLE_NAME,
+				Key: {
+					PK: tenantPartition(tenantId),
+					SK: `STRIPE_CUS#${tenant.stripeCustomerId}`,
+				},
+			}),
+		);
+	}
+
+	// Delete tenant META item
+	await doc().send(
+		new DeleteCommand({
+			TableName: TABLE_NAME,
+			Key: tenantKey(tenantId),
+		}),
+	);
 };
 
 // ============================================================
