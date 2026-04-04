@@ -13,53 +13,21 @@
 <link rel="canonical" href="https://www.ganbari-quest.com/pricing.html">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="stylesheet" href="shared.css">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --brand-900:#1a3a5c;--brand-800:#2a5f9e;--brand-700:#3878B8;--brand-600:#4a90d9;--brand-500:#5BA3E6;--brand-400:#7db8ed;--brand-300:#a3cef3;--brand-200:#c9e2f8;--brand-100:#e8f4fd;--brand-50:#f2f9ff;
-  --gold-600:#d4ad00;--gold-500:#FFCC00;--gold-400:#FFE44D;--gold-300:#ffed80;--gold-100:#fffbe6;
-  --violet-600:#7c3aed;--violet-500:#8b5cf6;--violet-100:#ede9fe;
-  --green-500:#4caf50;--green-100:#e8f5e9;
-  --gray-900:#1e293b;--gray-700:#334155;--gray-500:#64748b;--gray-300:#cbd5e1;--gray-200:#e2e8f0;--gray-100:#f1f5f9;--gray-50:#f8fafc;
-  --radius:12px;
-}
-html{scroll-behavior:smooth}
-body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',system-ui,sans-serif;color:var(--gray-700);line-height:1.7}
-a{color:var(--brand-700);text-decoration:none}
-a:hover{text-decoration:underline}
-img{max-width:100%;height:auto}
-
-/* Header */
-.header{background:#fff;border-bottom:1px solid var(--gray-300);padding:12px 16px;position:sticky;top:0;z-index:50}
-.header-inner{max-width:1080px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
-.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.1rem;color:var(--gray-900);text-decoration:none}
-.logo img{height:44px;width:auto}
-.header-nav{display:flex;gap:20px;align-items:center}
-.header-nav a:not(.btn){font-size:.9rem;color:var(--gray-500)}
-.header-nav a:not(.btn):hover{color:var(--gray-900)}
-.hamburger{display:none;background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px 8px;color:var(--gray-700)}
-.btn{display:inline-block;padding:10px 24px;border-radius:2rem;font-size:.95rem;font-weight:600;transition:all .2s;text-decoration:none}
-.btn-primary{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff;box-shadow:0 2px 8px rgba(56,120,184,.3)}
-.btn-primary:hover{box-shadow:0 4px 16px rgba(56,120,184,.4);text-decoration:none;transform:translateY(-1px)}
-.btn-outline{border:2px solid var(--brand-700);color:var(--brand-700)}
-.btn-outline:hover{background:var(--brand-100);text-decoration:none}
-.btn-premium{background:linear-gradient(135deg,var(--violet-600),var(--violet-500));color:#fff;box-shadow:0 2px 8px rgba(139,92,246,.3)}
-.btn-premium:hover{box-shadow:0 4px 16px rgba(139,92,246,.4);text-decoration:none;transform:translateY(-1px)}
-.btn-lg{padding:14px 32px;font-size:1.1rem}
-
 /* Hero */
-.pricing-hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,var(--violet-100) 100%);padding:80px 16px 60px;text-align:center}
+.pricing-hero{background:linear-gradient(135deg,var(--brand-100) 0%,var(--brand-50) 50%,var(--brand-200) 100%);padding:80px 16px 60px;text-align:center}
 .pricing-hero h1{font-size:2.2rem;font-weight:800;color:var(--gray-900);margin-bottom:12px}
 .pricing-hero p{font-size:1.05rem;color:var(--gray-500);max-width:600px;margin:0 auto 8px}
-.pricing-hero .highlight{color:var(--violet-600);font-weight:700}
+.pricing-hero .highlight{color:var(--brand-700);font-weight:700}
 
 /* Plan Grid */
 .plans-section{padding:48px 16px 64px}
 .plans-inner{max-width:960px;margin:0 auto}
 .plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:48px}
 .plan-card{background:#fff;border:2px solid var(--gray-300);border-radius:var(--radius);padding:32px 24px;display:flex;flex-direction:column;position:relative}
-.plan-card.recommended{border-color:var(--violet-500);box-shadow:0 4px 20px rgba(139,92,246,.15)}
-.plan-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--violet-500);color:#fff;font-size:.75rem;font-weight:700;padding:4px 16px;border-radius:2rem;white-space:nowrap}
+.plan-card.recommended{border-color:var(--brand-600);box-shadow:0 4px 20px rgba(56,120,184,.15)}
+.plan-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--brand-600);color:#fff;font-size:.75rem;font-weight:700;padding:4px 16px;border-radius:2rem;white-space:nowrap}
 .plan-name{font-size:1.1rem;font-weight:700;color:var(--gray-900);margin-bottom:8px}
 .plan-price{font-size:2.2rem;font-weight:800;color:var(--gray-900)}
 .plan-price .unit{font-size:.9rem;font-weight:400;color:var(--gray-500)}
@@ -68,8 +36,10 @@ img{max-width:100%;height:auto}
 .plan-cta{display:block;text-align:center;padding:12px 24px;border-radius:2rem;font-size:.95rem;font-weight:600;transition:all .2s;text-decoration:none;margin-bottom:24px}
 .plan-cta-free{background:var(--gray-100);color:var(--gray-700)}
 .plan-cta-free:hover{background:var(--gray-200);text-decoration:none}
-.plan-cta-premium{background:linear-gradient(135deg,var(--violet-600),var(--violet-500));color:#fff}
-.plan-cta-premium:hover{box-shadow:0 4px 16px rgba(139,92,246,.3);text-decoration:none;transform:translateY(-1px)}
+.plan-cta-standard{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff}
+.plan-cta-standard:hover{box-shadow:0 4px 16px rgba(56,120,184,.3);text-decoration:none;transform:translateY(-1px)}
+.plan-cta-family{background:linear-gradient(135deg,var(--brand-600),var(--brand-800));color:#fff}
+.plan-cta-family:hover{box-shadow:0 4px 16px rgba(56,120,184,.3);text-decoration:none;transform:translateY(-1px)}
 .plan-features{list-style:none;padding:0;flex:1}
 .plan-features li{font-size:.85rem;color:var(--gray-700);padding:6px 0 6px 24px;position:relative;line-height:1.5}
 .plan-features li::before{content:'\2713';position:absolute;left:0;color:var(--green-500);font-weight:700}
@@ -84,7 +54,7 @@ img{max-width:100%;height:auto}
 .comparison-table{width:100%;border-collapse:collapse;font-size:.85rem}
 .comparison-table thead th{background:var(--gray-50);border-bottom:2px solid var(--gray-300);padding:12px 8px;text-align:center;font-weight:700;color:var(--gray-900)}
 .comparison-table thead th:first-child{text-align:left}
-.comparison-table thead th.highlight-col{background:var(--violet-100);color:var(--violet-600)}
+.comparison-table thead th.highlight-col{background:var(--brand-100);color:var(--brand-700)}
 .comparison-table tbody td{border-bottom:1px solid var(--gray-200);padding:10px 8px;text-align:center;color:var(--gray-700)}
 .comparison-table tbody td:first-child{text-align:left;font-weight:500}
 .comparison-table .cat-row td{background:var(--gray-50);font-weight:700;font-size:.8rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em}
@@ -102,20 +72,10 @@ img{max-width:100%;height:auto}
 .faq-answer{font-size:.9rem;color:var(--gray-500);padding-left:28px;line-height:1.7}
 
 /* CTA bottom */
-.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,var(--violet-100) 100%);padding:64px 16px;text-align:center}
+.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,var(--brand-50) 100%);padding:64px 16px;text-align:center}
 .cta-bottom h2{font-size:1.6rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
 .cta-bottom p{color:var(--gray-500);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto}
 .cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
-
-/* Footer */
-.footer{background:var(--gray-900);color:#94a3b8;padding:40px 16px}
-.footer-inner{max-width:1080px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:24px}
-.footer-brand h3{color:#fff;font-size:1rem;margin-bottom:8px}
-.footer-brand p{font-size:.85rem}
-.footer-links h4{color:#e2e8f0;font-size:.85rem;margin-bottom:8px}
-.footer-links a{display:block;font-size:.85rem;color:#94a3b8;margin-bottom:4px}
-.footer-links a:hover{color:#fff}
-.footer-copy{border-top:1px solid #334155;margin-top:32px;padding-top:16px;text-align:center;font-size:.75rem}
 
 @media(max-width:768px){
   .pricing-hero h1{font-size:1.6rem}
@@ -123,12 +83,6 @@ img{max-width:100%;height:auto}
   .plan-card.recommended{order:-1}
   .comparison-table{font-size:.75rem}
   .comparison-table thead th,.comparison-table tbody td{padding:8px 4px}
-  .hamburger{display:flex;align-items:center;justify-content:center}
-  .header-nav{display:none;position:absolute;top:56px;left:0;right:0;background:#fff;flex-direction:column;padding:16px;gap:12px;border-bottom:1px solid var(--gray-300);box-shadow:0 4px 12px rgba(0,0,0,.1)}
-  .header-nav.open{display:flex}
-  .header-nav a:not(.btn){font-size:1rem;padding:8px 0}
-  .header-nav .btn{text-align:center;width:100%}
-  .footer-inner{flex-direction:column}
 }
 </style>
 </head>
@@ -183,12 +137,13 @@ img{max-width:100%;height:auto}
       </div>
 
       <!-- Standard -->
-      <div class="plan-card">
+      <div class="plan-card recommended">
+        <span class="plan-badge">おすすめ</span>
         <div class="plan-name">スタンダード</div>
         <div class="plan-price">&#165;500 <span class="unit">/月</span></div>
         <div class="plan-price-sub">年額 &#165;5,000（2ヶ月分お得）</div>
         <div class="plan-desc">カスタマイズ自由自在。お子さまにぴったりの環境を作れます。</div>
-        <a href="https://ganbari-quest.com/auth/signup?plan=standard" class="plan-cta plan-cta-premium">7日間 無料体験</a>
+        <a href="https://ganbari-quest.com/auth/signup?plan=standard" class="plan-cta plan-cta-standard">7日間 無料体験</a>
         <ul class="plan-features">
           <li>お子さまの登録人数：無制限</li>
           <li>オリジナル活動の作成：無制限</li>
@@ -205,13 +160,12 @@ img{max-width:100%;height:auto}
       </div>
 
       <!-- Family -->
-      <div class="plan-card recommended">
-        <span class="plan-badge">おすすめ</span>
+      <div class="plan-card">
         <div class="plan-name">ファミリー</div>
         <div class="plan-price">&#165;780 <span class="unit">/月</span></div>
         <div class="plan-price-sub">年額 &#165;7,800（2ヶ月分お得）</div>
         <div class="plan-desc">家族みんなで見守る。祖父母も一緒にお子さまの成長を応援できます。</div>
-        <a href="https://ganbari-quest.com/auth/signup?plan=family" class="plan-cta plan-cta-premium">7日間 無料体験</a>
+        <a href="https://ganbari-quest.com/auth/signup?plan=family" class="plan-cta plan-cta-family">7日間 無料体験</a>
         <ul class="plan-features">
           <li>スタンダードの全機能</li>
           <li>祖父母・家族向け閲覧リンク</li>
@@ -242,8 +196,8 @@ img{max-width:100%;height:auto}
         <tr>
           <th style="width:40%">機能</th>
           <th style="width:20%">フリー</th>
-          <th style="width:20%">スタンダード</th>
-          <th style="width:20%" class="highlight-col">ファミリー</th>
+          <th style="width:20%" class="highlight-col">スタンダード</th>
+          <th style="width:20%">ファミリー</th>
         </tr>
       </thead>
       <tbody>
