@@ -62,11 +62,6 @@ const radarCategories = $derived(
 		<!-- Category levels -->
 		<Card variant="elevated" padding="md" class="mb-[var(--sp-lg)]">
 			{#snippet children()}
-			{#if data.activeTitle}
-				<p class="text-xs font-bold mb-[var(--sp-sm)] text-[var(--color-point)]">
-					{data.activeTitle.icon} {data.activeTitle.name}
-				</p>
-			{/if}
 			<div class="flex flex-col gap-[var(--sp-sm)]">
 				{#each CATEGORY_DEFS as catDef (catDef.id)}
 					{@const stat = data.status.statuses[catDef.id]}

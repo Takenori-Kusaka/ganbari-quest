@@ -106,7 +106,6 @@ export async function insertChild(input: InsertChildInput, tenantId: string): Pr
 		theme: input.theme ?? 'pink',
 		uiMode: input.uiMode ?? (input.age <= 2 ? 'baby' : 'kinder'),
 		avatarUrl: null,
-		activeTitleId: null,
 		displayConfig: null,
 		userId: null,
 		birthdayBonusMultiplier: 1.0,

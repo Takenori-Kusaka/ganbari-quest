@@ -17,23 +17,6 @@ export const categories = sqliteTable('categories', {
 });
 
 // ============================================================
-// titles - 称号マスタ
-// ============================================================
-export const titles = sqliteTable('titles', {
-	id: integer('id').primaryKey({ autoIncrement: true }),
-	code: text('code').notNull().unique(),
-	name: text('name').notNull(),
-	description: text('description'),
-	icon: text('icon').notNull(),
-	conditionType: text('condition_type').notNull(),
-	conditionValue: integer('condition_value').notNull(),
-	conditionExtra: text('condition_extra'),
-	rarity: text('rarity').notNull().default('common'),
-	sortOrder: integer('sort_order').notNull().default(0),
-	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-});
-
-// ============================================================
 // children - 子供マスタ
 // ============================================================
 export const children = sqliteTable('children', {
@@ -44,7 +27,6 @@ export const children = sqliteTable('children', {
 	theme: text('theme').notNull().default('pink'),
 	uiMode: text('ui_mode').notNull().default('kinder'),
 	avatarUrl: text('avatar_url'),
-	activeTitleId: integer('active_title_id'),
 	displayConfig: text('display_config'),
 	userId: text('user_id'),
 	birthdayBonusMultiplier: real('birthday_bonus_multiplier').notNull().default(1.0),
@@ -443,24 +425,6 @@ export const dailyMissions = sqliteTable(
 );
 
 // ============================================================
-// child_titles - 称号解除履歴
-// ============================================================
-export const childTitles = sqliteTable(
-	'child_titles',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		childId: integer('child_id')
-			.notNull()
-			.references(() => children.id),
-		titleId: integer('title_id')
-			.notNull()
-			.references(() => titles.id),
-		unlockedAt: text('unlocked_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	},
-	(table) => [uniqueIndex('idx_child_titles_unique').on(table.childId, table.titleId)],
-);
-
-// ============================================================
 // child_activity_preferences - 子供×活動のピン留め設定
 // ============================================================
 export const childActivityPreferences = sqliteTable(
@@ -711,21 +675,6 @@ export const siblingChallengeProgress = sqliteTable(
 );
 
 // ============================================================
-// level_titles - テナント別レベル称号カスタマイズ
-// ============================================================
-export const levelTitles = sqliteTable(
-	'level_titles',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		tenantId: text('tenant_id').notNull(),
-		level: integer('level').notNull(),
-		customTitle: text('custom_title').notNull(),
-		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	},
-	(table) => [uniqueIndex('idx_level_titles_tenant_level').on(table.tenantId, table.level)],
-);
-
-// ============================================================
 // sibling_cheers - きょうだい間おうえんスタンプ
 // ============================================================
 export const siblingCheers = sqliteTable(
@@ -832,29 +781,6 @@ export const customAchievements = sqliteTable(
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
 	(table) => [index('idx_custom_achievements_tenant_child').on(table.tenantId, table.childId)],
-);
-
-// ============================================================
-// custom_titles - カスタム称号
-// ============================================================
-export const customTitles = sqliteTable(
-	'custom_titles',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		tenantId: text('tenant_id').notNull(),
-		childId: integer('child_id')
-			.notNull()
-			.references(() => children.id),
-		name: text('name').notNull(),
-		icon: text('icon').notNull().default('📛'),
-		conditionType: text('condition_type').notNull(), // level_reach, achievement_count, activity_count, streak_days
-		conditionValue: integer('condition_value').notNull(),
-		conditionActivityId: integer('condition_activity_id'),
-		unlockedAt: text('unlocked_at'), // null = not yet unlocked
-		equipped: integer('equipped').notNull().default(0), // 1 = active title
-		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	},
-	(table) => [index('idx_custom_titles_tenant_child').on(table.tenantId, table.childId)],
 );
 
 // ============================================================
