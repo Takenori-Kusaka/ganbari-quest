@@ -60,7 +60,7 @@ function handleStartChildTutorial() {
 
 <div data-theme={theme} data-age-tier={uiMode} class="min-h-dvh bg-[var(--theme-bg)]">
 	{#if data.child}
-		<Header nickname={data.child.nickname} totalPoints={data.balance} avatarUrl={data.child.avatarUrl} pointSettings={data.pointSettings} activeTitle={data.activeTitle} stampProgress={data.stampProgress} onStampClick={() => { stampDialogOpen = true; }} onHelpClick={handleStartChildTutorial} isPremium={data.isPremium} />
+		<Header nickname={data.child.nickname} totalPoints={data.balance} avatarUrl={data.child.avatarUrl} pointSettings={data.pointSettings} stampProgress={data.stampProgress} onStampClick={() => { stampDialogOpen = true; }} onHelpClick={handleStartChildTutorial} isPremium={data.isPremium} />
 	{/if}
 
 	<main class="relative z-0 pb-20 pt-[var(--sp-sm)]">

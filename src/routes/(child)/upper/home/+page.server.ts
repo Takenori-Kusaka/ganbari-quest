@@ -27,7 +27,10 @@ import {
 	claimChallengeReward as claimChallengeRewardService,
 	getActiveChallengesForChild,
 } from '$lib/server/services/sibling-challenge-service';
-import { getUnshownReward } from '$lib/server/services/special-reward-service';
+import {
+	getSpecialRewardProgress,
+	getUnshownReward,
+} from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
 	redeemStampCard,
@@ -72,6 +75,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			activeChallenges: [],
 			familyStreak: null,
 			allChildren: [],
+			specialRewardProgress: null,
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -88,6 +92,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		activeChallenges,
 		familyStreakData,
 		weeklyLogs,
+		specialRewardProgress,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -101,6 +106,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getActiveChallengesForChild(child.id, tenantId),
 		getFamilyStreak(tenantId),
 		getActivityLogs(child.id, tenantId, { from: weekAgoDate(), to: todayDate() }),
+		getSpecialRewardProgress(child.id, tenantId),
 	]);
 
 	const allChildren = await findAllChildren(tenantId);
@@ -192,6 +198,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			totalPoints: weeklyLogs.summary.totalPoints,
 			byCategory: weeklyLogs.summary.byCategory,
 		},
+		specialRewardProgress,
 	};
 };
 

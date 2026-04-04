@@ -21,7 +21,6 @@ export interface Child {
 	theme: string;
 	uiMode: string;
 	avatarUrl: string | null;
-	activeTitleId: number | null;
 	displayConfig: string | null;
 	userId: string | null;
 	birthdayBonusMultiplier: number;
@@ -253,27 +252,6 @@ export interface DailyMission {
 	activityId: number;
 	completed: number;
 	completedAt: string | null;
-}
-
-export interface Title {
-	id: number;
-	code: string;
-	name: string;
-	description: string | null;
-	icon: string;
-	conditionType: string;
-	conditionValue: number;
-	conditionExtra: string | null;
-	rarity: string;
-	sortOrder: number;
-	createdAt: string;
-}
-
-export interface ChildTitle {
-	id: number;
-	childId: number;
-	titleId: number;
-	unlockedAt: string;
 }
 
 // ============================================================
@@ -544,14 +522,6 @@ export interface ParentMessage {
 	icon: string;
 	sentAt: string;
 	shownAt: string | null;
-}
-
-export interface LevelTitle {
-	id: number;
-	tenantId: string;
-	level: number;
-	customTitle: string;
-	updatedAt: string;
 }
 
 // ============================================================
@@ -888,39 +858,6 @@ export interface InsertCustomAchievementInput {
 }
 
 // ============================================================
-// Custom Titles
-// ============================================================
-
-export type CustomTitleConditionType =
-	| 'level_reach'
-	| 'achievement_count'
-	| 'activity_count'
-	| 'streak_days';
-
-export interface CustomTitle {
-	id: number;
-	tenantId: string;
-	childId: number;
-	name: string;
-	icon: string;
-	conditionType: CustomTitleConditionType;
-	conditionValue: number;
-	conditionActivityId: number | null;
-	unlockedAt: string | null;
-	equipped: number;
-	createdAt: string;
-}
-
-export interface InsertCustomTitleInput {
-	childId: number;
-	name: string;
-	icon?: string;
-	conditionType: CustomTitleConditionType;
-	conditionValue: number;
-	conditionActivityId?: number;
-}
-
-// ============================================================
 // Certificates
 // ============================================================
 
@@ -974,4 +911,89 @@ export interface InsertCloudExportInput {
 	description?: string | null;
 	expiresAt: string;
 	maxDownloads?: number;
+}
+
+// ============================================================
+// Tenant Events (calendar-based season event opt-in/out)
+// ============================================================
+
+export interface TenantEvent {
+	id: number;
+	tenantId: string;
+	eventCode: string;
+	year: number;
+	enabled: number;
+	targetOverride: string | null;
+	rewardMemo: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface InsertTenantEventInput {
+	eventCode: string;
+	year: number;
+	enabled?: number;
+	targetOverride?: string | null;
+	rewardMemo?: string | null;
+}
+
+export interface UpdateTenantEventInput {
+	enabled?: number;
+	targetOverride?: string | null;
+	rewardMemo?: string | null;
+}
+
+// ============================================================
+// Tenant Event Progress (child progress on calendar events)
+// ============================================================
+
+export interface TenantEventProgress {
+	id: number;
+	tenantId: string;
+	eventCode: string;
+	childId: number;
+	year: number;
+	currentCount: number;
+	completedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface UpsertTenantEventProgressInput {
+	eventCode: string;
+	childId: number;
+	year: number;
+	currentCount: number;
+	completedAt?: string | null;
+}
+
+// ============================================================
+// Auto Challenges (weekly auto-generated per-child challenges)
+// ============================================================
+
+export type AutoChallengeStatus = 'active' | 'completed' | 'expired';
+
+export interface AutoChallenge {
+	id: number;
+	childId: number;
+	tenantId: string;
+	weekStart: string;
+	categoryId: number;
+	targetCount: number;
+	currentCount: number;
+	status: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface InsertAutoChallengeInput {
+	childId: number;
+	weekStart: string;
+	categoryId: number;
+	targetCount: number;
+}
+
+export interface UpdateAutoChallengeInput {
+	currentCount?: number;
+	status?: string;
 }

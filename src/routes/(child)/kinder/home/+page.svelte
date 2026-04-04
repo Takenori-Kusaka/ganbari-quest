@@ -24,6 +24,7 @@ import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte
 import SeasonPassCard from '$lib/ui/components/SeasonPassCard.svelte';
 import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
 import SiblingRanking from '$lib/ui/components/SiblingRanking.svelte';
+import SpecialRewardProgress from '$lib/ui/components/SpecialRewardProgress.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -419,53 +420,10 @@ $effect(() => {
 		/>
 	{/if}
 
-	<!-- Season event banners -->
-	{#if data.activeEvents && data.activeEvents.length > 0}
-		<EventBanner events={data.activeEvents} />
-	{/if}
-
-	<!-- Season pass card -->
-	{#if data.seasonPass}
-		<SeasonPassCard
-			eventName={data.seasonPass.event.name}
-			eventId={data.seasonPass.event.id}
-			bannerIcon={data.seasonPass.event.bannerIcon}
-			milestones={data.seasonPass.milestones}
-			currentCount={data.seasonPass.progress.count}
-			maxTarget={Math.max(...data.seasonPass.milestones.map((m: { target: number }) => m.target), 1)}
-			remainingDays={data.seasonPass.remainingDays}
-			isPremium={data.isPremium ?? false}
-		/>
-	{/if}
-
-	<!-- Family streak banner -->
-	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
-		<FamilyStreakBanner
-			currentStreak={data.familyStreak.currentStreak}
-			hasRecordedToday={data.familyStreak.hasRecordedToday}
-			todayRecorders={data.familyStreak.todayRecorders}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
-			nextMilestone={data.familyStreak.nextMilestone}
-		/>
-	{/if}
-
-	<!-- Sibling challenge banners -->
-	{#if data.activeChallenges && data.activeChallenges.length > 0}
-		<ChallengeBanner
-			challenges={data.activeChallenges}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
-		/>
-	{/if}
-
-	<!-- Sibling ranking -->
-	{#if data.siblingRanking}
+<!-- Sibling ranking (1-line summary) -->
+	{#if data.siblingRanking && data.siblingRanking.rankings.length > 1}
 		<SiblingRanking
 			rankings={data.siblingRanking.rankings}
-			mostActive={data.siblingRanking.mostActive}
-			categoryChampions={data.siblingRanking.categoryChampions}
-			encouragement={data.siblingRanking.encouragement}
 			childId={data.child?.id ?? 0}
 		/>
 	{/if}
@@ -522,6 +480,14 @@ $effect(() => {
 				<span class="text-xs text-orange-500">あと{questProgress.total - questProgress.completed}つ！</span>
 			{/if}
 		</div>
+	{/if}
+
+	<!-- Special reward progress indicator -->
+	{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
+		<SpecialRewardProgress
+			remaining={data.specialRewardProgress.remaining}
+			interval={data.specialRewardProgress.interval}
+		/>
 	{/if}
 
 	<!-- Tutorial hint banner (one-time) -->
@@ -655,6 +621,66 @@ $effect(() => {
 				</div>
 			{/if}
 		</a>
+	{/if}
+
+	<!-- Family streak banner (below activities) -->
+	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
+		<FamilyStreakBanner
+			currentStreak={data.familyStreak.currentStreak}
+			hasRecordedToday={data.familyStreak.hasRecordedToday}
+			todayRecorders={data.familyStreak.todayRecorders}
+			childId={data.child?.id ?? 0}
+			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
+			nextMilestone={data.familyStreak.nextMilestone}
+			compact
+		/>
+	{/if}
+
+	<!-- Season event banners -->
+	{#if data.activeEvents && data.activeEvents.length > 0}
+		<EventBanner events={data.activeEvents} />
+	{/if}
+
+	<!-- Season pass card -->
+	{#if data.seasonPass}
+		<SeasonPassCard
+			eventName={data.seasonPass.event.name}
+			eventId={data.seasonPass.event.id}
+			bannerIcon={data.seasonPass.event.bannerIcon}
+			milestones={data.seasonPass.milestones}
+			currentCount={data.seasonPass.progress.count}
+			maxTarget={Math.max(...data.seasonPass.milestones.map((m: { target: number }) => m.target), 1)}
+			remainingDays={data.seasonPass.remainingDays}
+			isPremium={data.isPremium ?? false}
+		/>
+	{/if}
+
+	<!-- Sibling challenge banners -->
+	{#if data.activeChallenges && data.activeChallenges.length > 0}
+		<ChallengeBanner
+			challenges={data.activeChallenges}
+			childId={data.child?.id ?? 0}
+			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
+		/>
+	{/if}
+
+	<!-- Sibling ranking (collapsible) -->
+	{#if data.siblingRanking && data.siblingRanking.rankings.length > 1}
+		<details class="mt-[var(--sp-sm)]">
+			<summary class="flex items-center justify-between px-[var(--sp-md)] py-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] cursor-pointer tap-target list-none">
+				<div class="flex items-center gap-[var(--sp-sm)]">
+					<span class="text-xl">🏆</span>
+					<span class="font-bold text-sm">こんしゅうの ランキング</span>
+				</div>
+				<span class="text-[var(--color-text-muted)] transition-transform duration-200 ranking-arrow">▼</span>
+			</summary>
+			<div class="mt-1">
+				<SiblingRanking
+					rankings={data.siblingRanking.rankings}
+					childId={data.child?.id ?? 0}
+				/>
+			</div>
+		</details>
 	{/if}
 </div>
 
@@ -1013,6 +1039,10 @@ $effect(() => {
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
+	}
+
+	details[open] .ranking-arrow {
+		transform: rotate(180deg);
 	}
 
 </style>

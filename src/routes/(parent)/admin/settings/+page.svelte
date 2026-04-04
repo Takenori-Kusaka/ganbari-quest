@@ -930,7 +930,6 @@ const previewFormatted = $derived(
 							<li>ポイント履歴: {importPreview.pointLedger}件</li>
 							<li>ステータス: {importPreview.statuses}件</li>
 							<li>実績: {importPreview.achievements}件</li>
-							<li>称号: {importPreview.titles}件</li>
 							{#if (importPreview.loginBonuses ?? 0) > 0}
 								<li>ログインボーナス: {importPreview.loginBonuses}件</li>
 							{/if}
@@ -1248,7 +1247,6 @@ const previewFormatted = $derived(
 					<li>ポイント履歴: {data.dataSummary.pointLedger}件</li>
 					<li>ステータス: {data.dataSummary.statuses}件</li>
 					<li>実績: {data.dataSummary.achievements}件</li>
-					<li>称号: {data.dataSummary.titles}件</li>
 					<li>ログインボーナス: {data.dataSummary.loginBonuses}件</li>
 					<li>チェックリスト: {data.dataSummary.checklistTemplates}件</li>
 				</ul>

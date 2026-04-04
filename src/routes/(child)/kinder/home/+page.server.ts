@@ -37,7 +37,10 @@ import {
 	sendCheer,
 } from '$lib/server/services/sibling-cheer-service';
 import { getWeeklyRanking, isRankingEnabled } from '$lib/server/services/sibling-ranking-service';
-import { getUnshownReward } from '$lib/server/services/special-reward-service';
+import {
+	getSpecialRewardProgress,
+	getUnshownReward,
+} from '$lib/server/services/special-reward-service';
 import {
 	getStampCardStatus,
 	redeemStampCard,
@@ -78,6 +81,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			unshownCheers: [],
 			seasonPass: null,
 			monthlyPremiumReward: null,
+			specialRewardProgress: null,
 		};
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
@@ -97,6 +101,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		activeChallenges,
 		unshownCheers,
 		familyStreakData,
+		specialRewardProgress,
 	] = await Promise.all([
 		getActivities(tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
@@ -113,6 +118,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getActiveChallengesForChild(child.id, tenantId),
 		getUnshownCheers(child.id, tenantId),
 		getFamilyStreak(tenantId),
+		getSpecialRewardProgress(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -196,6 +202,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			tenantId,
 			parentData.isPremium ?? false,
 		).catch(() => null),
+		specialRewardProgress,
 	};
 };
 

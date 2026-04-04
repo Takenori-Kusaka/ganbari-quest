@@ -2,9 +2,9 @@
 
 | 項目 | 内容 |
 |------|------|
-| 版数 | 2.4 |
+| 版数 | 2.5 |
 | 作成日 | 2026-02-19 |
-| 更新日 | 2026-04-03 |
+| 更新日 | 2026-04-04 |
 | 作成者 | 日下武紀 |
 
 ---
@@ -57,6 +57,14 @@
 | POST | /api/v1/login-bonus/[childId]/claim | ログインボーナス受取 | 全ロール |
 | POST | /api/v1/children/[id]/activities/[activityId]/pin | ピン留め設定 | 全ロール |
 | DELETE | /api/v1/children/[id]/activities/[activityId]/pin | ピン留め解除 | 全ロール |
+| POST | /api/v1/children/[id]/avatar | アバター画像アップロード | owner/parent |
+| GET | /api/v1/children/[id]/voices | カスタム音声一覧取得 | 全ロール |
+| POST | /api/v1/children/[id]/voices | カスタム音声アップロード | owner/parent |
+| PATCH | /api/v1/children/[id]/voices/[voiceId] | カスタム音声アクティブ切替 | owner/parent |
+| DELETE | /api/v1/children/[id]/voices/[voiceId] | カスタム音声削除 | owner/parent |
+| GET | /api/v1/activities/export | 活動パック形式でエクスポート | owner/parent |
+| POST | /api/v1/activities/import | 活動パック形式でインポート | owner/parent |
+
 ### 特別報酬
 
 | メソッド | パス | 概要 | 認証 |
@@ -108,6 +116,33 @@
 | POST | /api/v1/admin/invites | 招待リンク作成 | owner/parent |
 | DELETE | /api/v1/admin/invites/[code] | 招待リンク取消 | owner/parent |
 | GET | /api/v1/admin/license | ライセンス情報取得 | owner/parent |
+| DELETE | /api/v1/admin/members/[userId] | メンバー削除 | owner |
+| POST | /api/v1/admin/members/[userId]/transfer-ownership | owner権限移譲 | owner |
+| POST | /api/v1/admin/members/leave | テナントから脱退 | 全ロール |
+| GET | /api/v1/admin/tenant/status | テナントステータス取得 | owner/parent |
+| POST | /api/v1/admin/tenant/cancel | テナント解約（graceful） | owner |
+| POST | /api/v1/admin/tenant/reactivate | テナント再有効化 | owner |
+| POST | /api/v1/admin/tenant-cleanup | テナントクリーンアップ（管理用） | 内部API |
+| POST | /api/v1/admin/cleanup-orphans | 孤立データクリーンアップ | 内部API |
+| GET | /api/v1/admin/migration | マイグレーション統計取得 | 内部API |
+| POST | /api/v1/admin/weekly-report | 週次レポート生成トリガー | 内部API |
+| POST | /api/v1/admin/notifications/reminder | リマインダー通知送信 | 内部API |
+| POST | /api/v1/admin/notifications/streak-warning | ストリーク途切れ警告送信 | 内部API |
+
+### 設定 API
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| GET | /api/v1/settings/vapid-key | VAPID公開鍵取得（Push通知用） | 不要 |
+| POST | /api/v1/settings/tutorial | チュートリアル完了マーク | owner/parent |
+| POST | /api/v1/notifications/subscribe | Push通知購読登録 | owner/parent |
+| POST | /api/v1/notifications/unsubscribe | Push通知購読解除 | owner/parent |
+
+### デモ
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| POST | /api/demo-analytics | デモ利用分析イベント記録 | 不要 |
 
 ### Stripe（決済）
 
@@ -983,3 +1018,4 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 | 2026-03-30 | 2.2 | #0205 データクリア/サマリーAPI追加、インポートにreplaceモード追加 |
 | 2026-03-31 | 2.3 | #0257 廃止機能削除に伴い関連記述を除去（キャリアプランAPI、アバターアップロードAPI、データサマリーから廃止項目削除） |
 | 2026-04-03 | 2.4 | #0294 クラウドエクスポート共有機能のAPI追加（export/cloud CRUD、import/cloud PINコードインポート） |
+| 2026-04-04 | 2.5 | #344 実装とのAPI同期: メンバー管理（削除/移譲/脱退）、テナント操作（status/cancel/reactivate）、通知（reminder/streak-warning/subscribe/unsubscribe）、カスタム音声（voices CRUD）、アバター、活動パック export/import、設定（vapid-key/tutorial）、デモ分析、管理用内部API（cleanup-orphans/migration/weekly-report/tenant-cleanup）追加 |

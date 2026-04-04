@@ -11,7 +11,6 @@ import {
 } from '$lib/ui/tutorial/tutorial-store.svelte';
 import NotificationPermissionBanner from './NotificationPermissionBanner.svelte';
 import OnboardingChecklist from './OnboardingChecklist.svelte';
-import PlanStatusCard from './PlanStatusCard.svelte';
 import PremiumWelcome from './PremiumWelcome.svelte';
 
 interface ChildSummary {
@@ -244,16 +243,15 @@ function childLink(child: ChildSummary): string {
 		<NotificationPermissionBanner />
 	{/if}
 
-	<!-- Plan Status Card -->
-	{#if !isDemo && planStats}
-		<PlanStatusCard
-			{planTier}
-			activityCount={planStats.activityCount}
-			activityMax={planStats.activityMax}
-			childCount={planStats.childCount}
-			childMax={planStats.childMax}
-			retentionDays={planStats.retentionDays}
-		/>
+	<!-- Plan quick link (details moved to /admin/license page) -->
+	{#if !isDemo && planTier === 'free'}
+		<a href="{basePath}/license" class="plan-quick-link plan-quick-link--free">
+			<span class="plan-quick-link__info">
+				<span class="plan-quick-link__name">無料プラン</span>
+				<span class="plan-quick-link__hint">カスタマイズ機能をアンロックしませんか？</span>
+			</span>
+			<span class="plan-quick-link__action">⭐ アップグレード →</span>
+		</a>
 	{/if}
 
 	<!-- Seasonal Content Info -->
@@ -465,9 +463,9 @@ function childLink(child: ChildSummary): string {
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
-		border: 1px solid #86efac;
-		border-radius: 12px;
+		background: linear-gradient(135deg, var(--color-success-50, #f0fdf4), var(--color-surface-card));
+		border: 1px solid var(--color-success-300, #86efac);
+		border-radius: var(--radius-lg, 12px);
 		padding: 16px;
 	}
 
@@ -475,10 +473,54 @@ function childLink(child: ChildSummary): string {
 		margin-left: auto;
 		background: none;
 		border: none;
-		color: #9ca3af;
+		color: var(--color-text-tertiary);
 		font-size: 0.75rem;
 		cursor: pointer;
 		text-decoration: underline;
+	}
+
+	.plan-quick-link {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		border-radius: var(--radius-lg, 12px);
+		text-decoration: none;
+		transition: all 0.15s;
+	}
+
+	.plan-quick-link--free {
+		background: var(--color-premium-bg);
+		border: 1px solid var(--color-premium-bg);
+	}
+
+	.plan-quick-link--free:hover {
+		border-color: var(--color-premium);
+	}
+
+	.plan-quick-link__info {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.plan-quick-link__name {
+		font-size: 0.8rem;
+		font-weight: 700;
+		color: var(--color-text-secondary);
+	}
+
+	.plan-quick-link__hint {
+		font-size: 0.7rem;
+		color: var(--color-text-tertiary);
+	}
+
+	.plan-quick-link__action {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--color-premium);
+		white-space: nowrap;
 	}
 
 	.menu-item-with-hint {
@@ -498,7 +540,7 @@ function childLink(child: ChildSummary): string {
 
 	.context-hint {
 		font-size: 0.625rem;
-		color: #6b7280;
+		color: var(--color-text-tertiary);
 		margin-top: 4px;
 		line-height: 1.3;
 	}
@@ -508,10 +550,10 @@ function childLink(child: ChildSummary): string {
 		width: 100%;
 		margin-top: 12px;
 		padding: 8px;
-		background: #f9fafb;
-		border: 1px solid #e5e7eb;
+		background: var(--color-surface-secondary);
+		border: 1px solid var(--color-border-default);
 		border-radius: 8px;
-		color: #6b7280;
+		color: var(--color-text-tertiary);
 		font-size: 0.75rem;
 		font-weight: 600;
 		cursor: pointer;
@@ -519,6 +561,6 @@ function childLink(child: ChildSummary): string {
 	}
 
 	.more-menu-btn:hover {
-		background: #f3f4f6;
+		background: var(--color-neutral-200);
 	}
 </style>

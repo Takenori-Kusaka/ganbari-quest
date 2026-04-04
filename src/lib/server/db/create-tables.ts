@@ -17,20 +17,6 @@ export const SQL_CREATE_TABLES = `
 	INSERT OR IGNORE INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
 	INSERT OR IGNORE INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
 
-	CREATE TABLE IF NOT EXISTS titles (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		code TEXT NOT NULL UNIQUE,
-		name TEXT NOT NULL,
-		description TEXT,
-		icon TEXT NOT NULL,
-		condition_type TEXT NOT NULL,
-		condition_value INTEGER NOT NULL,
-		condition_extra TEXT,
-		rarity TEXT NOT NULL DEFAULT 'common',
-		sort_order INTEGER NOT NULL DEFAULT 0,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-
 	CREATE TABLE IF NOT EXISTS children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL,
@@ -39,7 +25,6 @@ export const SQL_CREATE_TABLES = `
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'kinder',
 		avatar_url TEXT,
-		active_title_id INTEGER,
 		display_config TEXT,
 		user_id TEXT,
 		birthday_bonus_multiplier REAL NOT NULL DEFAULT 1.0,
@@ -309,15 +294,6 @@ export const SQL_CREATE_TABLES = `
 	CREATE INDEX IF NOT EXISTS idx_daily_missions_child_date
 		ON daily_missions(child_id, mission_date);
 
-	CREATE TABLE IF NOT EXISTS child_titles (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		title_id INTEGER NOT NULL REFERENCES titles(id),
-		unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_child_titles_unique
-		ON child_titles(child_id, title_id);
-
 	CREATE TABLE IF NOT EXISTS child_custom_voices (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL,
@@ -347,16 +323,6 @@ export const SQL_CREATE_TABLES = `
 		ON parent_messages(child_id, sent_at);
 	CREATE INDEX IF NOT EXISTS idx_parent_messages_unshown
 		ON parent_messages(child_id, shown_at);
-
-	CREATE TABLE IF NOT EXISTS level_titles (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		tenant_id TEXT NOT NULL,
-		level INTEGER NOT NULL,
-		custom_title TEXT NOT NULL,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_level_titles_tenant_level
-		ON level_titles(tenant_id, level);
 
 	CREATE TABLE IF NOT EXISTS activity_mastery (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -602,22 +568,6 @@ export const SQL_CREATE_TABLES = `
 	CREATE INDEX IF NOT EXISTS idx_custom_achievements_tenant_child
 		ON custom_achievements(tenant_id, child_id);
 
-	CREATE TABLE IF NOT EXISTS custom_titles (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		tenant_id TEXT NOT NULL,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		name TEXT NOT NULL,
-		icon TEXT NOT NULL DEFAULT '📛',
-		condition_type TEXT NOT NULL,
-		condition_value INTEGER NOT NULL,
-		condition_activity_id INTEGER,
-		unlocked_at TEXT,
-		equipped INTEGER NOT NULL DEFAULT 0,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE INDEX IF NOT EXISTS idx_custom_titles_tenant_child
-		ON custom_titles(tenant_id, child_id);
-
 	CREATE TABLE IF NOT EXISTS cloud_exports (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		tenant_id TEXT NOT NULL,
@@ -636,4 +586,55 @@ export const SQL_CREATE_TABLES = `
 		ON cloud_exports(tenant_id);
 	CREATE INDEX IF NOT EXISTS idx_cloud_exports_pin
 		ON cloud_exports(pin_code);
+
+	CREATE TABLE IF NOT EXISTS tenant_events (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		event_code TEXT NOT NULL,
+		year INTEGER NOT NULL,
+		enabled INTEGER NOT NULL DEFAULT 1,
+		target_override TEXT,
+		reward_memo TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_tenant_events_unique
+		ON tenant_events(tenant_id, event_code, year);
+	CREATE INDEX IF NOT EXISTS idx_tenant_events_tenant_year
+		ON tenant_events(tenant_id, year);
+
+	CREATE TABLE IF NOT EXISTS tenant_event_progress (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		event_code TEXT NOT NULL,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		year INTEGER NOT NULL,
+		current_count INTEGER NOT NULL DEFAULT 0,
+		completed_at TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_tenant_event_progress_unique
+		ON tenant_event_progress(tenant_id, event_code, child_id, year);
+	CREATE INDEX IF NOT EXISTS idx_tenant_event_progress_child
+		ON tenant_event_progress(child_id, year);
+
+	CREATE TABLE IF NOT EXISTS auto_challenges (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		tenant_id TEXT NOT NULL,
+		week_start TEXT NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id),
+		target_count INTEGER NOT NULL,
+		current_count INTEGER NOT NULL DEFAULT 0,
+		status TEXT NOT NULL DEFAULT 'active',
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_auto_challenges_child_week
+		ON auto_challenges(child_id, week_start);
+	CREATE INDEX IF NOT EXISTS idx_auto_challenges_tenant
+		ON auto_challenges(tenant_id);
+	CREATE INDEX IF NOT EXISTS idx_auto_challenges_status
+		ON auto_challenges(status);
 `;

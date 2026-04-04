@@ -15,7 +15,6 @@ const selectedChildId = $derived(
 		: (data.children[0]?.id ?? 0),
 );
 let showCustomForm = $state(false);
-let showTitleForm = $state(false);
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
@@ -25,13 +24,6 @@ const conditionTypeLabels: Record<string, string> = {
 	category_count: 'カテゴリ かいすう',
 	streak_days: 'れんぞく にっすう',
 	activity_streak: 'かつどう れんぞく',
-};
-
-const titleConditionLabels: Record<string, string> = {
-	level_reach: 'レベル とうたつ',
-	achievement_count: 'じっせき かいすう',
-	activity_count: 'かつどう かいすう',
-	streak_days: 'れんぞく にっすう',
 };
 </script>
 
@@ -148,70 +140,6 @@ const titleConditionLabels: Record<string, string> = {
 				{/snippet}
 			</Card>
 
-			<!-- カスタム称号 -->
-			<Card variant="default" padding="md">
-				{#snippet children()}
-				<div class="flex items-center justify-between mb-3">
-					<h3 class="text-lg font-bold text-gray-700">📛 カスタム称号</h3>
-					<Button type="button" variant="outline" size="sm" onclick={() => { showTitleForm = !showTitleForm; }}>
-						{showTitleForm ? '閉じる' : '+ 作成'}
-					</Button>
-				</div>
-
-				{#if showTitleForm}
-					<form method="POST" action="?/createCustomTitle" use:enhance class="space-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
-						<input type="hidden" name="childId" value={selectedChildId} />
-						<FormField id="ct-name" label="称号名">
-							<input id="ct-name" name="name" type="text" required maxlength="20" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ピアノのめいじん" />
-						</FormField>
-						<div class="grid grid-cols-2 gap-3">
-							<FormField id="ct-icon" label="アイコン">
-								<input id="ct-icon" name="icon" type="text" value="📛" maxlength="4" class="w-full px-3 py-2 border rounded-lg text-sm" />
-							</FormField>
-							<FormField id="ct-condType" label="条件タイプ">
-								<select id="ct-condType" name="conditionType" class="w-full px-3 py-2 border rounded-lg text-sm">
-									<option value="level_reach">レベル到達</option>
-									<option value="achievement_count">実績獲得数</option>
-									<option value="activity_count">活動回数</option>
-									<option value="streak_days">連続日数</option>
-								</select>
-							</FormField>
-						</div>
-						<FormField id="ct-condValue" label="目標値">
-							<input id="ct-condValue" name="conditionValue" type="number" required min="1" max="9999" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="50" />
-						</FormField>
-						<Button type="submit" variant="primary" size="sm" class="w-full">作成する</Button>
-					</form>
-				{/if}
-
-				{#if selectedChild.customTitles.length === 0}
-					<p class="text-sm text-gray-400 text-center py-2">カスタム称号はまだありません</p>
-				{:else}
-					<div class="flex flex-col gap-2">
-						{#each selectedChild.customTitles as ct (ct.id)}
-							<div class="flex items-center justify-between p-3 rounded-lg border {ct.unlockedAt ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}">
-								<div class="flex items-center gap-3">
-									<span class="text-2xl">{ct.icon}</span>
-									<div>
-										<p class="font-bold text-sm text-gray-700">{ct.name}</p>
-										<p class="text-xs text-gray-500">
-											{titleConditionLabels[ct.conditionType] ?? ct.conditionType}: {ct.conditionValue}
-											{#if ct.unlockedAt}
-												<span class="text-purple-600 font-bold ml-1">解放済み ✅</span>
-											{/if}
-										</p>
-									</div>
-								</div>
-								<form method="POST" action="?/deleteCustomTitle" use:enhance>
-									<input type="hidden" name="id" value={ct.id} />
-									<button type="submit" class="text-xs text-red-400 hover:text-red-600">削除</button>
-								</form>
-							</div>
-						{/each}
-					</div>
-				{/if}
-				{/snippet}
-			</Card>
 		{:else if !data.isPremium}
 			<Card variant="default" padding="md">
 				{#snippet children()}
