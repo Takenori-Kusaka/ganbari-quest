@@ -22,7 +22,10 @@ vi.mock('$lib/server/logger', () => ({
 
 vi.mock('$lib/server/security/rate-limiter', () => ({
 	checkApiRateLimit: () => ({ allowed: true, remaining: 99, resetAt: Date.now() + 60000 }),
-	checkAuthRateLimit: () => ({ allowed: true, remaining: 29, resetAt: Date.now() + 60000 }),
+	checkAuthRateLimit: (method?: string) => {
+		const isGet = method?.toUpperCase() === 'GET' || method?.toUpperCase() === 'HEAD';
+		return { allowed: true, remaining: isGet ? 59 : 29, resetAt: Date.now() + 60000 };
+	},
 }));
 
 const mockCheckConsent = vi.fn();

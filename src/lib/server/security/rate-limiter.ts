@@ -63,8 +63,8 @@ export function checkApiRateLimit(ip: string) {
  * - GET（ページ表示・リダイレクト）: 60 req/min — 複数タブ同時オープン等を許容
  */
 export function checkAuthRateLimit(ip: string, method: string) {
-	if (method === 'POST') {
-		return checkRateLimit(`auth:post:${ip}`, 30, 60 * 1000);
+	if (method === 'GET' || method === 'HEAD') {
+		return checkRateLimit(`auth:get:${ip}`, 60, 60 * 1000);
 	}
-	return checkRateLimit(`auth:get:${ip}`, 60, 60 * 1000);
+	return checkRateLimit(`auth:post:${ip}`, 30, 60 * 1000);
 }
