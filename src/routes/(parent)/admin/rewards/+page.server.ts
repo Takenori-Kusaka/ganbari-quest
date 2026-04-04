@@ -1,6 +1,9 @@
+// /admin/rewards — 統合報酬ハブ「こどもを褒める」(#336)
+
 import { fail } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
+import { getStampPreset, STAMP_PRESETS, sendMessage } from '$lib/server/services/message-service';
 import {
 	getChildSpecialRewards,
 	getRewardTemplates,
@@ -24,7 +27,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
-	return { children: childrenWithRewards, templates };
+	return {
+		children: childrenWithRewards,
+		templates,
+		stampPresets: STAMP_PRESETS,
+	};
 };
 
 export const actions: Actions = {
@@ -47,5 +54,35 @@ export const actions: Actions = {
 		}
 
 		return { granted: true, reward: result };
+	},
+
+	sendStamp: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(formData.get('childId'));
+		const stampCode = String(formData.get('stampCode') ?? '');
+
+		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+		if (!stampCode) return fail(400, { error: 'スタンプを選択してください' });
+		if (!getStampPreset(stampCode)) return fail(400, { error: '無効なスタンプコードです' });
+
+		await sendMessage({ childId, messageType: 'stamp', stampCode }, tenantId);
+
+		return { stampSent: true };
+	},
+
+	sendText: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(formData.get('childId'));
+		const body = String(formData.get('body') ?? '').trim();
+
+		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+		if (!body) return fail(400, { error: 'メッセージを入力してください' });
+		if (body.length > 30) return fail(400, { error: 'メッセージは30文字以内で入力してください' });
+
+		await sendMessage({ childId, messageType: 'text', body }, tenantId);
+
+		return { messageSent: true };
 	},
 };
