@@ -119,3 +119,22 @@ jobs:
 
       - name: Build Lambda Docker image (AWS)
         run: docker build -f Dockerfile.lambda -t ganbari-quest-lambda:test .
+
+  # Gate job: always runs and reports overall CI status.
+  # Required by branch ruleset instead of individual jobs,
+  # so skipped jobs (via path filter) don't block merges.
+  ci-gate:
+    if: always()
+    needs: [changes, lint-and-test, e2e-test, docker-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CI results
+        run: |
+          results=("${{ needs.lint-and-test.result }}" "${{ needs.e2e-test.result }}" "${{ needs.docker-build.result }}")
+          for r in "${results[@]}"; do
+            if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
+              echo "CI failed: $r"
+              exit 1
+            fi
+          done
+          echo "CI passed (jobs: ${results[*]})"
