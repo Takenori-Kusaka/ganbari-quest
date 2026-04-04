@@ -77,3 +77,66 @@ body:
     attributes:
       label: 関連チケット
       description: "関連する Issue 番号（例: #123, #456）"
+
+  - type: textarea
+    id: scrap_and_build
+    attributes:
+      label: 品質ポリシー（スクラップ&ビルド時）
+      description: |
+        機能削除・根本改修を伴う場合は必ず記載。
+        はりぼて実装（コメントアウト・表示非表示だけの応急処置）は禁止。
+      value: |
+        - 削除対象のコード・機能:
+        - 新規実装で置き換えるもの:
+        - 互換性の考慮:
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 📋 チケット作業プロセス（全開発者・ツール共通）
+
+        以下のプロセスに従って作業を進めてください:
+
+        1. **チケット内容の確認** — ゴール・背景・技術メモを読み、スコープを把握
+        2. **ブランチ作成** — `{type}/{issue番号}-{slug}` 形式（例: `feat/123-add-rewards`）
+        3. **影響範囲の調査** — 関連ファイル・テスト・設計書を事前に確認
+        4. **実装** — CLAUDE.md のコーディングガイドラインに従う
+        5. **lint チェック** — `npx biome check .` でエラーなし確認
+        6. **型チェック** — `npx svelte-check` でエラーなし確認
+        7. **ユニットテスト** — `npx vitest run` で全通過確認
+        8. **E2E テスト** — `npx playwright test` で全通過確認
+        9. **設計書同期** — DB・API・UI・インフラ変更時は `docs/design/` の該当設計書を更新
+        10. **UI 変更時のビジュアル検証** — 対象画面をブラウザで確認、スクリーンショット提示
+        11. **PR 発行** — PRテンプレートに従って記載（影響範囲・テスト戦略・品質チェック）
+        12. **CI 確認** — GitHub Actions のテスト・デプロイが成功することを確認
+        13. **マージ** — レビュー承認後にマージ、`closes #番号` で自動クローズ
+        14. **本番動作確認** — デプロイ後に本番環境で動作を確認
+
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ 重要事項・注意点
+
+        - **UI実装ルール**: ボタンは `$lib/ui/primitives/Button.svelte`、カードは `Card.svelte` を使用。routes 配下で hex カラー直書き禁止、CSS変数を使用すること
+        - **サービス層経由必須**: `+server.ts` から直接 ORM を呼び出さない。`$lib/server/services` 経由で実装
+        - **データ取得**: `+page.ts` / `+layout.ts` の `load` を使用。コンポーネント内の直接 fetch 禁止
+        - **スクラップ&ビルド**: 機能削除時にコメントアウト・表示変更だけの応急処置禁止。根本から削除・再構築すること
+        - **画像アセット**: シール/バッジ/実績等のゲーム報酬は絵文字で代替禁止。Gemini生成またはチケット化必須
+        - **テスト・デモデータ**: 実在の子供名を使用禁止。「たろうくん」「はなこちゃん」のようなダミー名を使用
+        - **チケット管理**: `docs/tickets/` への新規ファイル作成禁止。GitHub Issues で管理すること
+
+  - type: checkboxes
+    id: done_checklist
+    attributes:
+      label: 完了チェックリスト
+      description: チケット完了時にすべてチェックすること
+      options:
+        - label: "lint: `npx biome check .` エラーなし"
+        - label: "型: `npx svelte-check` エラーなし"
+        - label: "ユニットテスト: `npx vitest run` 全通過"
+        - label: "E2E: `npx playwright test` 全通過"
+        - label: "PR テンプレートに従って PR を発行"
+        - label: "GitHub Actions デプロイ成功確認"
+        - label: "UI 変更がある場合: ビジュアル検証・スクリーンショット提示済み"
+        - label: "設計書の同期更新が必要な場合: docs/design/ 更新済み"
