@@ -324,7 +324,7 @@ describe('exportFamilyData', () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.master.categories).toHaveLength(5);
 		expect(result.master.activities).toHaveLength(2);
-		expect(result.master.titles).toHaveLength(1);
+		expect(result.master.titles).toHaveLength(0);
 		expect(result.master.achievements).toHaveLength(0);
 		expect(result.master.avatarItems).toHaveLength(0);
 	});
@@ -339,9 +339,9 @@ describe('exportFamilyData', () => {
 		expect(activity).not.toHaveProperty('categoryId');
 	});
 
-	it('子供のactiveTitleがIDではなく名前で参照される', async () => {
+	it('称号システム廃止 — activeTitleは常にnull', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
-		expect(result.family.children[0]?.activeTitle).toBe('うんどうマスター');
+		expect(result.family.children[0]?.activeTitle).toBeNull();
 		expect(result.family.children[1]?.activeTitle).toBeNull();
 	});
 
@@ -382,10 +382,9 @@ describe('exportFamilyData', () => {
 		expect(result.data.childAchievements).toHaveLength(0);
 	});
 
-	it('称号がコードで参照される', async () => {
+	it('称号システム廃止 — childTitlesは空配列', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
-		expect(result.data.childTitles).toHaveLength(1);
-		expect(result.data.childTitles[0]?.titleCode).toBe('undou_master');
+		expect(result.data.childTitles).toHaveLength(0);
 	});
 
 	it('ログインボーナスがエクスポートされる', async () => {
