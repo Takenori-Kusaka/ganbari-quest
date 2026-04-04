@@ -1,8 +1,9 @@
+import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const today = new Date().toISOString().slice(0, 10);
-	const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+	const today = todayDateJST();
+	const weekAgo = toJSTDateString(new Date(Date.now() - 7 * 86400000));
 
 	const challenges = [
 		{

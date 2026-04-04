@@ -1,9 +1,16 @@
+import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
+import { DEMO_CHILDREN } from '$lib/server/demo/demo-data';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const today = new Date().toISOString().slice(0, 10);
-	const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-	const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+	const today = todayDateJST();
+	const weekAgo = toJSTDateString(new Date(Date.now() - 7 * 86400000));
+	const twoWeeksAgo = toJSTDateString(new Date(Date.now() - 14 * 86400000));
+
+	// biome-ignore lint/style/noNonNullAssertion: demo data — indices are guaranteed
+	const child1 = DEMO_CHILDREN[1]!; // たろう (5歳)
+	// biome-ignore lint/style/noNonNullAssertion: demo data — indices are guaranteed
+	const child2 = DEMO_CHILDREN[2]!; // さくら (8歳)
 
 	const challenges = [
 		{
@@ -24,7 +31,7 @@ export const load: PageServerLoad = async () => {
 				{
 					id: 101,
 					challengeId: 101,
-					childId: 1,
+					childId: child1.id,
 					currentValue: 5,
 					targetValue: 5,
 					completed: 1,
@@ -37,7 +44,7 @@ export const load: PageServerLoad = async () => {
 				{
 					id: 102,
 					challengeId: 101,
-					childId: 2,
+					childId: child2.id,
 					currentValue: 5,
 					targetValue: 5,
 					completed: 1,
@@ -52,8 +59,8 @@ export const load: PageServerLoad = async () => {
 		},
 		{
 			id: 102,
-			title: 'べんきょう10かいチャレンジ',
-			description: 'みんなの合計が10回になったらクリア',
+			title: 'べんきょう5かいチャレンジ',
+			description: 'みんなでべんきょう5回をめざそう',
 			challengeType: 'cooperative',
 			periodType: 'monthly',
 			startDate: twoWeeksAgo,
@@ -68,7 +75,7 @@ export const load: PageServerLoad = async () => {
 				{
 					id: 103,
 					challengeId: 102,
-					childId: 1,
+					childId: child1.id,
 					currentValue: 5,
 					targetValue: 5,
 					completed: 1,
@@ -81,7 +88,7 @@ export const load: PageServerLoad = async () => {
 				{
 					id: 104,
 					challengeId: 102,
-					childId: 2,
+					childId: child2.id,
 					currentValue: 5,
 					targetValue: 5,
 					completed: 1,
@@ -97,8 +104,8 @@ export const load: PageServerLoad = async () => {
 	];
 
 	const children = [
-		{ id: 1, nickname: 'ゆいちゃん', age: 5 },
-		{ id: 2, nickname: 'けんくん', age: 8 },
+		{ id: child1.id, nickname: child1.nickname, age: child1.age },
+		{ id: child2.id, nickname: child2.nickname, age: child2.age },
 	];
 
 	return { challenges, children };
