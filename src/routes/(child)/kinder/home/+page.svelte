@@ -691,9 +691,6 @@ $effect(() => {
 			<div class="mt-1">
 				<SiblingRanking
 					rankings={data.siblingRanking.rankings}
-					mostActive={data.siblingRanking.mostActive}
-					categoryChampions={data.siblingRanking.categoryChampions}
-					encouragement={data.siblingRanking.encouragement}
 					childId={data.child?.id ?? 0}
 				/>
 			</div>
