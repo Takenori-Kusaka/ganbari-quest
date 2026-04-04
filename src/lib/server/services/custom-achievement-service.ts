@@ -154,7 +154,6 @@ export async function checkAndUnlockCustomItems(
 				});
 			}
 		}
-
 	} catch (e) {
 		logger.warn('[custom-achievement] Check failed', {
 			context: { childId, error: String(e) },

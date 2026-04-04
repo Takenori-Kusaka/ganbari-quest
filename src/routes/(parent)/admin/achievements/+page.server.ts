@@ -129,5 +129,4 @@ export const actions = {
 		await removeCustomAchievement(id, tenantId);
 		return { customDeleted: true };
 	},
-
 } satisfies Actions;
