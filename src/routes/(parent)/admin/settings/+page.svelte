@@ -394,9 +394,9 @@ const previewFormatted = $derived(
 <div class="space-y-6">
 	<!-- grace_period バナー -->
 	{#if $page.data.tenantStatus === 'grace_period'}
-		<div class="bg-red-50 border-2 border-red-300 rounded-xl p-6">
-			<h3 class="text-lg font-bold text-red-700 mb-2">解約手続き中です</h3>
-			<p class="text-sm text-red-600 mb-4">
+		<div class="bg-[var(--color-feedback-error-bg)] border-2 border-[var(--color-feedback-error-border)] rounded-xl p-6">
+			<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-2">解約手続き中です</h3>
+			<p class="text-sm text-[var(--color-feedback-error-text)] mb-4">
 				現在、アカウントは解約手続き中で読み取り専用モードです。
 				期限までにキャンセルしないとデータが完全に削除されます。
 			</p>
@@ -417,7 +417,7 @@ const previewFormatted = $derived(
 
 	<!-- PIN変更 -->
 	<Card padding="lg" data-tutorial="pin-settings">
-		<h3 class="text-lg font-bold text-gray-700 mb-4">🔒 PINコード変更</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">🔒 PINコード変更</h3>
 
 		{#if success}
 			<SuccessAlert message="PINコードを変更しました" />
@@ -504,8 +504,8 @@ const previewFormatted = $derived(
 
 	<!-- ステータス減少設定 -->
 	<Card padding="lg">
-		<h3 class="text-lg font-bold text-gray-700 mb-4">📊 ステータス減少設定</h3>
-		<p class="text-sm text-gray-500 mb-4">
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">📊 ステータス減少設定</h3>
+		<p class="text-sm text-[var(--color-text-muted)] mb-4">
 			活動をお休みした日のステータス減少の強さを設定できます。どの設定でも最初の2日間は減少しません。
 		</p>
 
@@ -515,17 +515,17 @@ const previewFormatted = $derived(
 
 		<div class="space-y-3 mb-4">
 			{#each DECAY_OPTIONS as opt}
-				<label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors {decayIntensity === opt.value ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}">
+				<label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors {decayIntensity === opt.value ? 'border-[var(--color-brand-400)] bg-[var(--color-feedback-info-bg)]' : 'border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}">
 					<input
 						type="radio"
 						name="decayIntensity"
 						value={opt.value}
 						bind:group={decayIntensity}
-						class="mt-0.5 accent-blue-500"
+						class="mt-0.5 accent-[var(--color-brand-500)]"
 					/>
 					<div>
-						<span class="font-semibold text-gray-700">{opt.label}</span>
-						<p class="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+						<span class="font-semibold text-[var(--color-text)]">{opt.label}</span>
+						<p class="text-xs text-[var(--color-text-muted)] mt-0.5">{opt.desc}</p>
 					</div>
 				</label>
 			{/each}
@@ -545,37 +545,37 @@ const previewFormatted = $derived(
 
 	<!-- きょうだいチャレンジ設定 -->
 	<Card padding="lg">
-		<h3 class="text-lg font-bold text-gray-700 mb-4">👥 きょうだいチャレンジ設定</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">👥 きょうだいチャレンジ設定</h3>
 
 		{#if form?.siblingSuccess}
-			<div class="rounded-lg bg-green-50 p-3 text-sm text-green-700 mb-4">きょうだい設定を保存しました</div>
+			<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)] mb-4">きょうだい設定を保存しました</div>
 		{/if}
 		{#if form?.siblingError}
-			<div class="rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4">{form.siblingError}</div>
+			<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)] mb-4">{form.siblingError}</div>
 		{/if}
 
 		<form method="POST" action="?/updateSiblingSettings" use:enhance class="space-y-4">
 			<div>
-				<label class="block text-sm font-semibold text-gray-600 mb-2">チャレンジモード</label>
+				<label class="block text-sm font-semibold text-[var(--color-text)] mb-2">チャレンジモード</label>
 				<div class="space-y-2">
 					{#each [
 						{ value: 'both', label: '協力＆競争（両方）', desc: '協力チャレンジと競争チャレンジの両方を利用' },
 						{ value: 'cooperative', label: '協力のみ', desc: 'きょうだいで協力するチャレンジのみ' },
 						{ value: 'competitive', label: '競争のみ', desc: 'きょうだい間の競争チャレンジのみ' },
 					] as opt}
-						<label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors {data.siblingMode === opt.value ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}">
+						<label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors {data.siblingMode === opt.value ? 'border-[var(--color-brand-400)] bg-[var(--color-feedback-info-bg)]' : 'border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}">
 							<input type="radio" name="siblingMode" value={opt.value} checked={data.siblingMode === opt.value} class="mt-0.5" />
 							<div>
-								<span class="text-sm font-medium text-gray-700">{opt.label}</span>
-								<p class="text-xs text-gray-500">{opt.desc}</p>
+								<span class="text-sm font-medium text-[var(--color-text)]">{opt.label}</span>
+								<p class="text-xs text-[var(--color-text-muted)]">{opt.desc}</p>
 							</div>
 						</label>
 					{/each}
 				</div>
 			</div>
 			<label class="flex items-center gap-2">
-				<input type="checkbox" name="siblingRankingEnabled" checked={data.siblingRankingEnabled === 'true'} class="h-4 w-4 rounded border-gray-300" />
-				<span class="text-sm text-gray-700">きょうだいランキングを表示する</span>
+				<input type="checkbox" name="siblingRankingEnabled" checked={data.siblingRankingEnabled === 'true'} class="h-4 w-4 rounded border-[var(--color-border-strong)]" />
+				<span class="text-sm text-[var(--color-text)]">きょうだいランキングを表示する</span>
 			</label>
 			<Button type="submit" variant="primary" size="md" class="w-full">
 				設定を保存
@@ -585,19 +585,19 @@ const previewFormatted = $derived(
 
 	<!-- 通知設定 -->
 	<Card padding="lg">
-		<h3 class="text-lg font-bold text-gray-700 mb-4">🔔 通知設定</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">🔔 通知設定</h3>
 
 		{#if form?.notificationSuccess}
-			<div class="rounded-lg bg-green-50 p-3 text-sm text-green-700 mb-4">通知設定を保存しました</div>
+			<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)] mb-4">通知設定を保存しました</div>
 		{/if}
 		{#if form?.notificationError}
-			<div class="rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4">{form.notificationError}</div>
+			<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)] mb-4">{form.notificationError}</div>
 		{/if}
 
 		<!-- ブラウザ通知ステータス -->
-		<div class="mb-4 p-3 rounded-lg bg-gray-50 border border-gray-200">
+		<div class="mb-4 p-3 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-default)]">
 			<div class="flex items-center justify-between">
-				<span class="text-sm font-medium text-gray-700">ブラウザ通知</span>
+				<span class="text-sm font-medium text-[var(--color-text)]">ブラウザ通知</span>
 				<span class="text-xs px-2 py-1 rounded-full" id="notification-status">確認中...</span>
 			</div>
 			<div id="notification-action" class="mt-2 hidden">
@@ -615,7 +615,7 @@ const previewFormatted = $derived(
 					type="button"
 					variant="ghost"
 					size="sm"
-					class="bg-gray-200 text-gray-700 hover:bg-gray-300"
+					class="bg-[var(--color-neutral-200)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
 					id="notification-unsubscribe-btn"
 				>
 					通知を無効にする
@@ -625,8 +625,8 @@ const previewFormatted = $derived(
 
 		<form method="POST" action="?/updateNotificationSettings" use:enhance class="space-y-4">
 			<label class="flex items-center gap-2">
-				<input type="checkbox" name="remindersEnabled" checked={data.notificationSettings.remindersEnabled} class="h-4 w-4 rounded border-gray-300" />
-				<span class="text-sm text-gray-700">リマインダー通知（毎日の記録を促す）</span>
+				<input type="checkbox" name="remindersEnabled" checked={data.notificationSettings.remindersEnabled} class="h-4 w-4 rounded border-[var(--color-border-strong)]" />
+				<span class="text-sm text-[var(--color-text)]">リマインダー通知（毎日の記録を促す）</span>
 			</label>
 			{#if data.notificationSettings.remindersEnabled}
 				<div class="ml-6">
@@ -639,19 +639,19 @@ const previewFormatted = $derived(
 				</div>
 			{/if}
 			<label class="flex items-center gap-2">
-				<input type="checkbox" name="streakEnabled" checked={data.notificationSettings.streakEnabled} class="h-4 w-4 rounded border-gray-300" />
-				<span class="text-sm text-gray-700">ストリーク警告（連続記録が途切れそうな時）</span>
+				<input type="checkbox" name="streakEnabled" checked={data.notificationSettings.streakEnabled} class="h-4 w-4 rounded border-[var(--color-border-strong)]" />
+				<span class="text-sm text-[var(--color-text)]">ストリーク警告（連続記録が途切れそうな時）</span>
 			</label>
 			<label class="flex items-center gap-2">
-				<input type="checkbox" name="achievementsEnabled" checked={data.notificationSettings.achievementsEnabled} class="h-4 w-4 rounded border-gray-300" />
-				<span class="text-sm text-gray-700">達成通知（記録完了・レベルアップ時）</span>
+				<input type="checkbox" name="achievementsEnabled" checked={data.notificationSettings.achievementsEnabled} class="h-4 w-4 rounded border-[var(--color-border-strong)]" />
+				<span class="text-sm text-[var(--color-text)]">達成通知（記録完了・レベルアップ時）</span>
 			</label>
-			<div class="border-t border-gray-200 pt-4 mt-4">
+			<div class="border-t border-[var(--color-border-default)] pt-4 mt-4">
 				<FormField label="サイレント時間帯" hint="この時間帯は通知を送信しません">
 					{#snippet children()}
 						<div class="flex items-center gap-2">
 							<input type="time" name="quietStart" value={data.notificationSettings.quietStart} class="text-sm border border-[var(--input-border)] rounded-[var(--input-radius)] bg-[var(--input-bg)] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-opacity-30 focus:border-[var(--input-border-focus)] transition-colors" />
-							<span class="text-sm text-gray-500">〜</span>
+							<span class="text-sm text-[var(--color-text-muted)]">〜</span>
 							<input type="time" name="quietEnd" value={data.notificationSettings.quietEnd} class="text-sm border border-[var(--input-border)] rounded-[var(--input-radius)] bg-[var(--input-bg)] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-opacity-30 focus:border-[var(--input-border-focus)] transition-colors" />
 						</div>
 					{/snippet}
@@ -673,27 +673,27 @@ const previewFormatted = $derived(
 			const unsubscribeBtn = document.getElementById('notification-unsubscribe-btn');
 
 			if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-				if (statusEl) { statusEl.textContent = 'この端末は通知に対応していません'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-600'; }
+				if (statusEl) { statusEl.textContent = 'この端末は通知に対応していません'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-neutral-200)] text-[var(--color-text)]'; }
 				return;
 			}
 
 			const permission = Notification.permission;
 			if (permission === 'denied') {
-				if (statusEl) { statusEl.textContent = 'ブロック中（ブラウザ設定で変更）'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-red-100 text-red-700'; }
+				if (statusEl) { statusEl.textContent = 'ブロック中（ブラウザ設定で変更）'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]'; }
 				return;
 			}
 
 			if (permission === 'default') {
-				if (statusEl) { statusEl.textContent = '未設定'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700'; }
+				if (statusEl) { statusEl.textContent = '未設定'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]'; }
 				if (actionEl) actionEl.classList.remove('hidden');
 			} else {
 				const reg = await navigator.serviceWorker.ready;
 				const sub = await reg.pushManager.getSubscription();
 				if (sub) {
-					if (statusEl) { statusEl.textContent = '有効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-green-100 text-green-700'; }
+					if (statusEl) { statusEl.textContent = '有効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]'; }
 					if (subscribedEl) subscribedEl.classList.remove('hidden');
 				} else {
-					if (statusEl) { statusEl.textContent = '許可済み（未登録）'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700'; }
+					if (statusEl) { statusEl.textContent = '許可済み（未登録）'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]'; }
 					if (actionEl) actionEl.classList.remove('hidden');
 				}
 			}
@@ -703,7 +703,7 @@ const previewFormatted = $derived(
 					const { subscribeToPush } = await import('$lib/features/admin/push-subscription');
 					const sub = await subscribeToPush();
 					if (sub) {
-						if (statusEl) { statusEl.textContent = '有効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-green-100 text-green-700'; }
+						if (statusEl) { statusEl.textContent = '有効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]'; }
 						if (actionEl) actionEl.classList.add('hidden');
 						if (subscribedEl) subscribedEl.classList.remove('hidden');
 					}
@@ -713,7 +713,7 @@ const previewFormatted = $derived(
 				unsubscribeBtn.addEventListener('click', async () => {
 					const { unsubscribeFromPush } = await import('$lib/features/admin/push-subscription');
 					await unsubscribeFromPush();
-					if (statusEl) { statusEl.textContent = '無効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-600'; }
+					if (statusEl) { statusEl.textContent = '無効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-neutral-200)] text-[var(--color-text)]'; }
 					if (subscribedEl) subscribedEl.classList.add('hidden');
 					if (actionEl) actionEl.classList.remove('hidden');
 				});
@@ -723,7 +723,7 @@ const previewFormatted = $derived(
 
 	<!-- ポイント表示設定 -->
 	<Card padding="lg" id="point-settings">
-		<h3 class="text-lg font-bold text-gray-700 mb-4">💰 ポイント表示設定</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">💰 ポイント表示設定</h3>
 
 		{#if pointSuccess}
 			<SuccessAlert message="ポイント表示設定を保存しました" />
@@ -750,7 +750,7 @@ const previewFormatted = $derived(
 			class="flex flex-col gap-4"
 		>
 			<div>
-				<span class="block text-sm font-medium text-gray-600 mb-2">表示モード</span>
+				<span class="block text-sm font-medium text-[var(--color-text)] mb-2">表示モード</span>
 				<div class="flex gap-3">
 					<label class="flex items-center gap-2 cursor-pointer">
 						<input
@@ -758,7 +758,7 @@ const previewFormatted = $derived(
 							name="point_unit_mode"
 							value="point"
 							bind:group={pointMode}
-							class="w-4 h-4 text-blue-500"
+							class="w-4 h-4 text-[var(--color-brand-500)]"
 						/>
 						<span class="text-sm">ポイント（P）</span>
 					</label>
@@ -768,7 +768,7 @@ const previewFormatted = $derived(
 							name="point_unit_mode"
 							value="currency"
 							bind:group={pointMode}
-							class="w-4 h-4 text-blue-500"
+							class="w-4 h-4 text-[var(--color-brand-500)]"
 						/>
 						<span class="text-sm">通貨で表示</span>
 					</label>
@@ -777,14 +777,14 @@ const previewFormatted = $derived(
 
 			{#if pointMode === 'currency'}
 				<div>
-					<label for="pointCurrency" class="block text-sm font-medium text-gray-600 mb-1">
+					<label for="pointCurrency" class="block text-sm font-medium text-[var(--color-text)] mb-1">
 						通貨
 					</label>
 					<select
 						id="pointCurrency"
 						name="point_currency"
 						bind:value={pointCurrency}
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+						class="w-full px-3 py-2 border border-[var(--color-border-strong)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-300)]"
 					>
 						{#each CURRENCY_CODES as code}
 							<option value={code}>
@@ -809,8 +809,8 @@ const previewFormatted = $derived(
 			{/if}
 
 			<!-- プレビュー -->
-			<div class="bg-gray-50 rounded-lg p-4">
-				<p class="text-sm text-gray-500 mb-1">プレビュー（{previewPoints}P の場合）</p>
+			<div class="bg-[var(--color-surface-muted)] rounded-lg p-4">
+				<p class="text-sm text-[var(--color-text-muted)] mb-1">プレビュー（{previewPoints}P の場合）</p>
 				<p class="text-2xl font-bold text-[var(--color-point,#f59e0b)]">
 					{previewFormatted}
 				</p>
@@ -830,7 +830,7 @@ const previewFormatted = $derived(
 
 	<!-- データ管理 -->
 	<Card padding="lg">
-		<h3 class="text-lg font-bold text-gray-700 mb-4">💾 データ管理</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">💾 データ管理</h3>
 
 		{#if exportError}
 			<ErrorAlert message={exportError} severity="error" action="retry" />
@@ -838,29 +838,29 @@ const previewFormatted = $derived(
 
 		<div class="space-y-4">
 			<div>
-				<p class="text-sm text-gray-600 mb-3">
+				<p class="text-sm text-[var(--color-text)] mb-3">
 					家族のデータをJSONファイルとしてダウンロードできます。バックアップや別環境への移行に使用できます。
 				</p>
-				<div class="bg-gray-50 rounded-lg p-3 mb-3">
-					<p class="text-xs text-gray-500">エクスポート対象:</p>
-					<ul class="text-xs text-gray-500 mt-1 space-y-0.5">
+				<div class="bg-[var(--color-surface-muted)] rounded-lg p-3 mb-3">
+					<p class="text-xs text-[var(--color-text-muted)]">エクスポート対象:</p>
+					<ul class="text-xs text-[var(--color-text-muted)] mt-1 space-y-0.5">
 						<li>子供プロフィール・活動記録・ポイント履歴</li>
 						<li>ステータス・実績・称号・ログインボーナス</li>
 						<li>チェックリスト・キャリアプラン・誕生日振り返り</li>
 						<li>活動マスタ・きせかえアイテム</li>
 					</ul>
 				</div>
-				<label class="flex items-center gap-2 mb-2 text-sm text-gray-600 cursor-pointer">
-					<input type="checkbox" bind:checked={includeFiles} class="w-4 h-4 text-blue-500 rounded" />
+				<label class="flex items-center gap-2 mb-2 text-sm text-[var(--color-text)] cursor-pointer">
+					<input type="checkbox" bind:checked={includeFiles} class="w-4 h-4 text-[var(--color-brand-500)] rounded" />
 					画像・音声ファイルも含める（ZIP形式）
 				</label>
 				{#if !includeFiles}
-					<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
-						<p class="text-xs text-yellow-600">画像・音声を含める場合は上のチェックをオンにしてください。ファイルサイズが大きくなる場合があります（最大100MB）。</p>
+					<div class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-3">
+						<p class="text-xs text-[var(--color-feedback-warning-text)]">画像・音声を含める場合は上のチェックをオンにしてください。ファイルサイズが大きくなる場合があります（最大100MB）。</p>
 					</div>
 				{/if}
-				<label class="flex items-center gap-2 mb-3 text-sm text-gray-600 cursor-pointer">
-					<input type="checkbox" bind:checked={compactFormat} class="w-4 h-4 text-blue-500 rounded" />
+				<label class="flex items-center gap-2 mb-3 text-sm text-[var(--color-text)] cursor-pointer">
+					<input type="checkbox" bind:checked={compactFormat} class="w-4 h-4 text-[var(--color-brand-500)] rounded" />
 					圧縮形式でエクスポート（ファイルサイズを削減）
 				</label>
 				<Button
@@ -880,39 +880,39 @@ const previewFormatted = $derived(
 				</Button>
 			</div>
 
-			<hr class="my-4 border-gray-200" />
+			<hr class="my-4 border-[var(--color-border-default)]" />
 
 			<!-- インポート -->
 			<div>
-				<h4 class="text-sm font-bold text-gray-600 mb-2">データのインポート</h4>
+				<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">データのインポート</h4>
 
 				{#if importError}
 					<ErrorAlert message={importError} severity="warning" action="fix_input" />
 				{/if}
 
 				{#if importStep === 'select'}
-					<p class="text-sm text-gray-600 mb-3">
+					<p class="text-sm text-[var(--color-text)] mb-3">
 						エクスポートしたJSONファイルからデータを復元できます。
 					</p>
 					<div class="mb-3">
-						<span class="block text-sm font-medium text-gray-600 mb-2">インポートモード</span>
+						<span class="block text-sm font-medium text-[var(--color-text)] mb-2">インポートモード</span>
 						<div class="flex gap-3">
 							<label class="flex items-center gap-2 cursor-pointer">
-								<input type="radio" value="replace" bind:group={importMode} class="w-4 h-4 text-orange-500" />
+								<input type="radio" value="replace" bind:group={importMode} class="w-4 h-4 text-[var(--color-warning)]" />
 								<span class="text-sm">置換（既存データを削除してインポート）</span>
 							</label>
 							<label class="flex items-center gap-2 cursor-pointer">
-								<input type="radio" value="add" bind:group={importMode} class="w-4 h-4 text-orange-500" />
+								<input type="radio" value="add" bind:group={importMode} class="w-4 h-4 text-[var(--color-warning)]" />
 								<span class="text-sm">追加（既存データを残して追加）</span>
 							</label>
 						</div>
 						{#if importMode === 'replace'}
-							<p class="text-xs text-red-500 mt-1">既存の子供・活動ログ・ポイント等のデータをすべて削除してからインポートします。</p>
+							<p class="text-xs text-[var(--color-feedback-error-text)] mt-1">既存の子供・活動ログ・ポイント等のデータをすべて削除してからインポートします。</p>
 						{:else}
-							<p class="text-xs text-gray-400 mt-1">新しい子供データとして追加されます（既存データは上書きされません）。</p>
+							<p class="text-xs text-[var(--color-text-muted)] mt-1">新しい子供データとして追加されます（既存データは上書きされません）。</p>
 						{/if}
 					</div>
-					<label class="block w-full py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition-colors text-center cursor-pointer {importLoading ? 'opacity-50 pointer-events-none' : ''}">
+					<label class="block w-full py-2 bg-[var(--color-warning)] text-white font-bold rounded-lg hover:bg-[var(--color-warning)] transition-colors text-center cursor-pointer {importLoading ? 'opacity-50 pointer-events-none' : ''}">
 						{#if importLoading}
 							<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
 							読み込み中...
@@ -922,9 +922,9 @@ const previewFormatted = $derived(
 						<input type="file" accept=".json" onchange={handleImportFileChange} class="hidden" />
 					</label>
 				{:else if importStep === 'preview' && importPreview}
-					<div class="bg-orange-50 rounded-lg p-4 mb-3">
-						<p class="text-sm font-bold text-orange-700 mb-2">インポート内容の確認</p>
-						<ul class="text-xs text-orange-700 space-y-1">
+					<div class="bg-[var(--color-feedback-warning-bg)] rounded-lg p-4 mb-3">
+						<p class="text-sm font-bold text-[var(--color-feedback-warning-text)] mb-2">インポート内容の確認</p>
+						<ul class="text-xs text-[var(--color-feedback-warning-text)] space-y-1">
 							<li>子供: {importPreview.children}人</li>
 							<li>活動ログ: {importPreview.activityLogs}件</li>
 							<li>ポイント履歴: {importPreview.pointLedger}件</li>
@@ -938,13 +938,13 @@ const previewFormatted = $derived(
 							{/if}
 						</ul>
 					</div>
-					<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+					<div class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-3">
 						{#if importMode === 'replace'}
-							<p class="text-xs text-red-600 font-bold">
+							<p class="text-xs text-[var(--color-feedback-error-text)] font-bold">
 								既存データをすべて削除してからインポートします。この操作は取り消せません。
 							</p>
 						{:else}
-							<p class="text-xs text-yellow-700">
+							<p class="text-xs text-[var(--color-feedback-warning-text)]">
 								インポートすると新しい子供データとして追加されます。この操作は取り消せません。
 							</p>
 						{/if}
@@ -954,7 +954,7 @@ const previewFormatted = $derived(
 							type="button"
 							variant="ghost"
 							size="md"
-							class="flex-1 bg-gray-300 text-gray-700 hover:bg-gray-400"
+							class="flex-1 bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
 							onclick={resetImport}
 						>
 							キャンセル
@@ -963,7 +963,7 @@ const previewFormatted = $derived(
 							type="button"
 							variant="warning"
 							size="md"
-							class="flex-1 flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600"
+							class="flex-1 flex items-center justify-center gap-2 bg-[var(--color-warning)] hover:bg-[var(--color-warning)]"
 							disabled={importLoading}
 							onclick={handleImportExecute}
 						>
@@ -976,9 +976,9 @@ const previewFormatted = $derived(
 						</Button>
 					</div>
 				{:else if importStep === 'done' && importResult}
-					<div class="bg-green-50 rounded-lg p-4 mb-3">
-						<p class="text-sm font-bold text-green-700 mb-2">インポート完了</p>
-						<ul class="text-xs text-green-700 space-y-1">
+					<div class="bg-[var(--color-feedback-success-bg)] rounded-lg p-4 mb-3">
+						<p class="text-sm font-bold text-[var(--color-feedback-success-text)] mb-2">インポート完了</p>
+						<ul class="text-xs text-[var(--color-feedback-success-text)] space-y-1">
 							<li>子供: {importResult.childrenImported}人 作成</li>
 							{#if importResult.activitiesCreated > 0}
 								<li>活動マスタ: {importResult.activitiesCreated}件 新規作成</li>
@@ -986,7 +986,7 @@ const previewFormatted = $derived(
 							<li>活動ログ: {importResult.activityLogsImported}件{importResult.activityLogsSkipped > 0 ? `（${importResult.activityLogsSkipped}件スキップ）` : ''}</li>
 							<li>ポイント: {importResult.pointLedgerImported}件{importResult.pointLedgerSkipped > 0 ? `（${importResult.pointLedgerSkipped}件スキップ）` : ''}</li>
 							{#if (importResult.warnings?.length ?? 0) > 0}
-								<li class="text-yellow-600 mt-2">
+								<li class="text-[var(--color-feedback-warning-text)] mt-2">
 									警告 ({importResult.warnings.length}件):
 									<ul class="ml-3 mt-1">
 										{#each importResult.warnings.slice(0, 5) as warn}
@@ -999,7 +999,7 @@ const previewFormatted = $derived(
 								</li>
 							{/if}
 							{#if importResult.errors.length > 0}
-								<li class="text-orange-600 mt-2">
+								<li class="text-[var(--color-feedback-warning-text)] mt-2">
 									エラー ({importResult.errors.length}件):
 									<ul class="ml-3 mt-1">
 										{#each importResult.errors.slice(0, 5) as err}
@@ -1017,7 +1017,7 @@ const previewFormatted = $derived(
 						type="button"
 						variant="ghost"
 						size="md"
-						class="w-full bg-gray-300 text-gray-700 hover:bg-gray-400"
+						class="w-full bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
 						onclick={resetImport}
 					>
 						閉じる
@@ -1030,7 +1030,7 @@ const previewFormatted = $derived(
 	<!-- クラウドエクスポート共有（SaaS有料プランのみ） -->
 	{#if $page.data.authMode === 'cognito' && $page.data.planTier !== 'free'}
 		<Card padding="lg">
-			<h3 class="text-lg font-bold text-gray-700 mb-4">☁️ クラウド共有</h3>
+			<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">☁️ クラウド共有</h3>
 
 			{#if cloudError}
 				<ErrorAlert message={cloudError} severity="error" action="retry" />
@@ -1042,25 +1042,25 @@ const previewFormatted = $derived(
 			<div class="space-y-4">
 				<!-- エクスポート作成 -->
 				<div>
-					<p class="text-sm text-gray-600 mb-3">
+					<p class="text-sm text-[var(--color-text)] mb-3">
 						設定やデータをクラウドに保管してPINコードで他のアカウントと共有できます。
 					</p>
 					<div class="mb-3">
-						<span class="block text-sm font-medium text-gray-600 mb-2">エクスポートタイプ</span>
+						<span class="block text-sm font-medium text-[var(--color-text)] mb-2">エクスポートタイプ</span>
 						<div class="flex gap-3">
 							<label class="flex items-center gap-2 cursor-pointer">
-								<input type="radio" value="template" bind:group={cloudExportType} class="w-4 h-4 text-blue-500" />
+								<input type="radio" value="template" bind:group={cloudExportType} class="w-4 h-4 text-[var(--color-brand-500)]" />
 								<span class="text-sm">テンプレート（活動・チェックリスト）</span>
 							</label>
 							<label class="flex items-center gap-2 cursor-pointer">
-								<input type="radio" value="full" bind:group={cloudExportType} class="w-4 h-4 text-blue-500" />
+								<input type="radio" value="full" bind:group={cloudExportType} class="w-4 h-4 text-[var(--color-brand-500)]" />
 								<span class="text-sm">フルバックアップ</span>
 							</label>
 						</div>
 						{#if cloudExportType === 'template'}
-							<p class="text-xs text-gray-400 mt-1">活動設定やチェックリストのみ共有します（個人データは含みません）。</p>
+							<p class="text-xs text-[var(--color-text-muted)] mt-1">活動設定やチェックリストのみ共有します（個人データは含みません）。</p>
 						{:else}
-							<p class="text-xs text-gray-400 mt-1">子供データ・活動ログ等すべてのデータを含みます。環境移行用です。</p>
+							<p class="text-xs text-[var(--color-text-muted)] mt-1">子供データ・活動ログ等すべてのデータを含みます。環境移行用です。</p>
 						{/if}
 					</div>
 					<Button
@@ -1082,19 +1082,19 @@ const previewFormatted = $derived(
 
 				<!-- 保管済み一覧 -->
 				{#if cloudExports.length > 0}
-					<hr class="my-4 border-gray-200" />
+					<hr class="my-4 border-[var(--color-border-default)]" />
 					<div>
-						<h4 class="text-sm font-bold text-gray-600 mb-2">保管済みデータ</h4>
+						<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">保管済みデータ</h4>
 						<div class="space-y-2">
 							{#each cloudExports as exp}
-								<div class="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+								<div class="bg-[var(--color-surface-muted)] rounded-lg p-3 flex items-center justify-between">
 									<div>
-										<p class="text-sm font-mono font-bold text-blue-600">{exp.pinCode}</p>
-										<p class="text-xs text-gray-500">
+										<p class="text-sm font-mono font-bold text-[var(--color-brand-600)]">{exp.pinCode}</p>
+										<p class="text-xs text-[var(--color-text-muted)]">
 											{exp.exportType === 'template' ? 'テンプレート' : 'フルバックアップ'}
 											{#if exp.description}· {exp.description}{/if}
 										</p>
-										<p class="text-xs text-gray-400">
+										<p class="text-xs text-[var(--color-text-muted)]">
 											期限: {new Date(exp.expiresAt).toLocaleDateString('ja-JP')}
 											· DL: {exp.downloadCount}/{exp.maxDownloads}回
 										</p>
@@ -1103,7 +1103,7 @@ const previewFormatted = $derived(
 										type="button"
 										variant="ghost"
 										size="sm"
-										class="text-red-500 hover:text-red-700"
+										class="text-[var(--color-feedback-error-text)] hover:text-[var(--color-feedback-error-text)]"
 										onclick={() => handleDeleteCloudExport(exp.id)}
 									>
 										削除
@@ -1115,16 +1115,16 @@ const previewFormatted = $derived(
 				{/if}
 
 				<!-- PINインポート -->
-				<hr class="my-4 border-gray-200" />
+				<hr class="my-4 border-[var(--color-border-default)]" />
 				<div>
-					<h4 class="text-sm font-bold text-gray-600 mb-2">PINコードでインポート</h4>
+					<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">PINコードでインポート</h4>
 
 					{#if cloudImportError}
 						<ErrorAlert message={cloudImportError} severity="warning" action="fix_input" />
 					{/if}
 
 					{#if cloudImportStep === 'input'}
-						<p class="text-sm text-gray-600 mb-3">
+						<p class="text-sm text-[var(--color-text)] mb-3">
 							共有されたPINコードを入力してデータを取り込みます。
 						</p>
 						<div class="flex gap-2">
@@ -1133,7 +1133,7 @@ const previewFormatted = $derived(
 								bind:value={cloudImportPin}
 								placeholder="PINコード（6桁）"
 								maxlength="6"
-								class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-center font-mono text-lg uppercase tracking-widest"
+								class="flex-1 px-3 py-2 border border-[var(--color-border-strong)] rounded-lg text-center font-mono text-lg uppercase tracking-widest"
 							/>
 							<Button
 								type="button"
@@ -1150,16 +1150,16 @@ const previewFormatted = $derived(
 							</Button>
 						</div>
 					{:else if cloudImportStep === 'preview' && cloudImportPreview}
-						<div class="bg-blue-50 rounded-lg p-4 mb-3">
-							<p class="text-sm font-bold text-blue-700 mb-2">インポート内容の確認</p>
+						<div class="bg-[var(--color-feedback-info-bg)] rounded-lg p-4 mb-3">
+							<p class="text-sm font-bold text-[var(--color-feedback-info-text)] mb-2">インポート内容の確認</p>
 							{#if cloudImportPreview.exportType === 'template'}
-								<ul class="text-xs text-blue-700 space-y-1">
+								<ul class="text-xs text-[var(--color-feedback-info-text)] space-y-1">
 									{#if cloudImportPreview.activities}<li>活動マスタ: {cloudImportPreview.activities}件</li>{/if}
 									{#if cloudImportPreview.checklistTemplates}<li>チェックリスト: {cloudImportPreview.checklistTemplates}件</li>{/if}
 								</ul>
-								<p class="text-xs text-gray-500 mt-2">既存の設定に追加されます（重複はスキップ）。</p>
+								<p class="text-xs text-[var(--color-text-muted)] mt-2">既存の設定に追加されます（重複はスキップ）。</p>
 							{:else}
-								<p class="text-xs text-blue-700">フルバックアップデータです。追加インポートされます。</p>
+								<p class="text-xs text-[var(--color-feedback-info-text)]">フルバックアップデータです。追加インポートされます。</p>
 							{/if}
 						</div>
 						<div class="flex gap-2">
@@ -1167,7 +1167,7 @@ const previewFormatted = $derived(
 								type="button"
 								variant="ghost"
 								size="md"
-								class="flex-1 bg-gray-300 text-gray-700 hover:bg-gray-400"
+								class="flex-1 bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
 								onclick={resetCloudImport}
 							>
 								キャンセル
@@ -1188,9 +1188,9 @@ const previewFormatted = $derived(
 							</Button>
 						</div>
 					{:else if cloudImportStep === 'done' && cloudImportResult}
-						<div class="bg-green-50 rounded-lg p-4 mb-3">
-							<p class="text-sm font-bold text-green-700 mb-2">インポート完了</p>
-							<ul class="text-xs text-green-700 space-y-1">
+						<div class="bg-[var(--color-feedback-success-bg)] rounded-lg p-4 mb-3">
+							<p class="text-sm font-bold text-[var(--color-feedback-success-text)] mb-2">インポート完了</p>
+							<ul class="text-xs text-[var(--color-feedback-success-text)] space-y-1">
 								{#if cloudImportResult.activitiesCreated}
 									<li>活動マスタ: {cloudImportResult.activitiesCreated}件 追加</li>
 								{/if}
@@ -1206,7 +1206,7 @@ const previewFormatted = $derived(
 							type="button"
 							variant="ghost"
 							size="md"
-							class="w-full bg-gray-300 text-gray-700 hover:bg-gray-400"
+							class="w-full bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
 							onclick={resetCloudImport}
 						>
 							閉じる
@@ -1218,8 +1218,8 @@ const previewFormatted = $derived(
 	{/if}
 
 	<!-- データクリア -->
-	<Card padding="lg" class="border-2 border-red-200">
-		<h3 class="text-lg font-bold text-red-600 mb-4">🗑️ データクリア</h3>
+	<Card padding="lg" class="border-2 border-[var(--color-feedback-error-border)]">
+		<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-4">🗑️ データクリア</h3>
 
 		{#if clearSuccess}
 			<SuccessAlert message="データクリアが完了しました。ページを再読み込みしてください。" />
@@ -1233,15 +1233,15 @@ const previewFormatted = $derived(
 			<ErrorAlert message={form.clearError} severity="warning" action="fix_input" />
 		{/if}
 
-		<p class="text-sm text-gray-600 mb-3">
+		<p class="text-sm text-[var(--color-text)] mb-3">
 			すべての家族データ（子供・活動ログ・ポイント・ステータス等）を一括削除します。
 			活動マスタ・カテゴリなどのシステムデータは保持されます。
 		</p>
 
 		{#if data.dataSummary}
-			<div class="bg-red-50 rounded-lg p-4 mb-4">
-				<p class="text-sm font-bold text-red-700 mb-2">現在のデータ件数</p>
-				<ul class="text-xs text-red-700 space-y-1 columns-2">
+			<div class="bg-[var(--color-feedback-error-bg)] rounded-lg p-4 mb-4">
+				<p class="text-sm font-bold text-[var(--color-feedback-error-text)] mb-2">現在のデータ件数</p>
+				<ul class="text-xs text-[var(--color-feedback-error-text)] space-y-1 columns-2">
 					<li>子供: {data.dataSummary.children}人</li>
 					<li>活動ログ: {data.dataSummary.activityLogs}件</li>
 					<li>ポイント履歴: {data.dataSummary.pointLedger}件</li>
@@ -1253,8 +1253,8 @@ const previewFormatted = $derived(
 			</div>
 		{/if}
 
-		<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-			<p class="text-xs text-red-600 font-bold">
+		<div class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-4">
+			<p class="text-xs text-[var(--color-feedback-error-text)] font-bold">
 				この操作は取り消せません。事前にデータをエクスポートすることをお勧めします。
 			</p>
 		</div>
@@ -1300,7 +1300,7 @@ const previewFormatted = $derived(
 
 	<!-- フィードバック -->
 	<Card padding="lg" data-tutorial="feedback-section">
-		<h3 class="text-lg font-bold text-gray-700 mb-4">💬 フィードバック・ご意見</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">💬 フィードバック・ご意見</h3>
 
 		{#if feedbackSuccess}
 			<SuccessAlert message={feedbackInquiryId
@@ -1334,14 +1334,14 @@ const previewFormatted = $derived(
 			class="flex flex-col gap-4"
 		>
 			<div>
-				<label for="feedbackCategory" class="block text-sm font-medium text-gray-600 mb-1">
+				<label for="feedbackCategory" class="block text-sm font-medium text-[var(--color-text)] mb-1">
 					カテゴリ
 				</label>
 				<select
 					id="feedbackCategory"
 					name="category"
 					bind:value={feedbackCategory}
-					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+					class="w-full px-3 py-2 border border-[var(--color-border-strong)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-300)]"
 				>
 					<option value="feature">機能要望</option>
 					<option value="bug">バグ報告</option>
@@ -1350,7 +1350,7 @@ const previewFormatted = $derived(
 			</div>
 
 			<div>
-				<label for="feedbackText" class="block text-sm font-medium text-gray-600 mb-1">
+				<label for="feedbackText" class="block text-sm font-medium text-[var(--color-text)] mb-1">
 					内容
 				</label>
 				<textarea
@@ -1361,9 +1361,9 @@ const previewFormatted = $derived(
 					maxlength="1000"
 					required
 					placeholder="ご意見・ご要望をお聞かせください..."
-					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 resize-y"
+					class="w-full px-3 py-2 border border-[var(--color-border-strong)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-300)] resize-y"
 				></textarea>
-				<p class="text-xs text-gray-400 mt-1 text-right">{feedbackText.length}/1000</p>
+				<p class="text-xs text-[var(--color-text-muted)] mt-1 text-right">{feedbackText.length}/1000</p>
 			</div>
 
 			<FormField
@@ -1387,48 +1387,48 @@ const previewFormatted = $derived(
 				{feedbackSubmitting ? '送信中...' : 'フィードバックを送信'}
 			</Button>
 		</form>
-		<p class="text-xs text-gray-400 mt-3 text-center">
+		<p class="text-xs text-[var(--color-text-muted)] mt-3 text-center">
 			技術的なご質問・使い方の相談は
-			<a href="https://discord.gg/5pWkf4Z5" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">Discord コミュニティ</a>
+			<a href="https://discord.gg/5pWkf4Z5" target="_blank" rel="noopener noreferrer" class="text-[var(--color-brand-500)] hover:underline">Discord コミュニティ</a>
 			でも受け付けています
 		</p>
 	</Card>
 
 	<!-- アプリ情報・リンク -->
 	<Card padding="lg">
-		<h3 class="text-lg font-bold text-gray-700 mb-4">ℹ️ アプリ情報</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">ℹ️ アプリ情報</h3>
 		<ul class="space-y-3 text-sm">
 			<li>
-				<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-blue-500 hover:underline">📄 利用規約</a>
+				<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-[var(--color-brand-500)] hover:underline">📄 利用規約</a>
 			</li>
 			<li>
-				<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-blue-500 hover:underline">🔒 プライバシーポリシー</a>
+				<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-[var(--color-brand-500)] hover:underline">🔒 プライバシーポリシー</a>
 			</li>
 			<li>
-				<a href="https://discord.gg/5pWkf4Z5" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">💬 Discord コミュニティ</a>
+				<a href="https://discord.gg/5pWkf4Z5" target="_blank" rel="noopener noreferrer" class="text-[var(--color-brand-500)] hover:underline">💬 Discord コミュニティ</a>
 			</li>
 			<li>
-				<a href="https://github.com/Takenori-Kusaka/ganbari-quest" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">🐙 GitHub</a>
+				<a href="https://github.com/Takenori-Kusaka/ganbari-quest" target="_blank" rel="noopener noreferrer" class="text-[var(--color-brand-500)] hover:underline">🐙 GitHub</a>
 			</li>
 			<li>
-				<span class="text-gray-500">バージョン: {APP_VERSION}</span>
+				<span class="text-[var(--color-text-muted)]">バージョン: {APP_VERSION}</span>
 			</li>
 		</ul>
 	</Card>
 
 	<!-- アカウント削除（cognito モードの owner のみ） -->
 	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== 'grace_period'}
-		<Card padding="lg" class="border-2 border-red-200">
-			<h3 class="text-lg font-bold text-red-600 mb-2">アカウント削除</h3>
-			<div class="text-sm text-gray-600 space-y-2 mb-4">
+		<Card padding="lg" class="border-2 border-[var(--color-feedback-error-border)]">
+			<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-2">アカウント削除</h3>
+			<div class="text-sm text-[var(--color-text)] space-y-2 mb-4">
 				<p>アカウントを削除すると、30日間の猶予期間の後に以下のデータが完全に削除されます。</p>
-				<ul class="list-disc ml-5 text-gray-500 space-y-1">
+				<ul class="list-disc ml-5 text-[var(--color-text-muted)] space-y-1">
 					<li>子供のプロフィール・活動記録・ポイント履歴</li>
 					<li>アバター画像・音声ファイル</li>
 					<li>設定・チェックリスト・キャリアプラン</li>
 					<li>メンバーシップ・招待情報</li>
 				</ul>
-				<p class="text-red-500 font-medium">
+				<p class="text-[var(--color-feedback-error-text)] font-medium">
 					削除後のデータ復旧はできません。事前にデータをエクスポートすることを強くお勧めします。
 				</p>
 			</div>
@@ -1461,14 +1461,14 @@ const previewFormatted = $derived(
 
 	<!-- ログアウト（cognito モードのみ） -->
 	{#if $page.data.authMode === 'cognito'}
-		<Card padding="lg" class="border border-red-100">
-			<h3 class="text-lg font-bold text-gray-700 mb-2">ログアウト</h3>
-			<p class="text-sm text-gray-500 mb-4">
+		<Card padding="lg" class="border border-[var(--color-feedback-error-bg-strong)]">
+			<h3 class="text-lg font-bold text-[var(--color-text)] mb-2">ログアウト</h3>
+			<p class="text-sm text-[var(--color-text-muted)] mb-4">
 				このデバイスからがんばりクエストのアカウントからログアウトします。再度ログインするにはメールアドレスとパスワードが必要です。
 			</p>
 			<a
 				href="/auth/signout"
-				class="inline-block px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
+				class="inline-block px-4 py-2 bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)] text-sm font-medium rounded-lg border border-[var(--color-feedback-error-border)] hover:bg-[var(--color-feedback-error-bg-strong)] transition-colors"
 			>
 				アカウントからログアウト
 			</a>
