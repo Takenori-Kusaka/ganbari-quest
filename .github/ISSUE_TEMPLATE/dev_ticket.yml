@@ -151,10 +151,11 @@ body:
         8. **E2E テスト** — `npx playwright test` で全通過確認
         9. **設計書同期** — DB・API・UI・インフラ変更時は `docs/design/` の該当設計書を更新
         10. **UI 変更時のビジュアル検証** — 対象画面をブラウザで確認、スクリーンショット提示
-        11. **PR 発行** — PRテンプレートに従って記載（影響範囲・テスト戦略・品質チェック）
+        11. **Draft PR 発行** — `gh pr create --draft` でDraft PRとして作成（PRテンプレートに従って記載）
         12. **CI 確認** — GitHub Actions のテスト・デプロイが成功することを確認
-        13. **マージ** — レビュー承認後にマージ、`closes #番号` で自動クローズ
-        14. **本番動作確認** — デプロイ後に本番環境で動作を確認
+        13. **Ready for Review** — CI通過・コンフリクト解消後に `gh pr ready` で Ready に変更
+        14. **マージ** — レビュー承認後にマージ、`closes #番号` で自動クローズ
+        15. **本番動作確認** — デプロイ後に本番環境で動作を確認
 
   - type: markdown
     attributes:
@@ -179,7 +180,8 @@ body:
         - label: "型: `npx svelte-check` エラーなし"
         - label: "ユニットテスト: `npx vitest run` 全通過"
         - label: "E2E: `npx playwright test` 全通過"
-        - label: "PR テンプレートに従って PR を発行"
+        - label: "PR テンプレートに従って Draft PR を発行"
+        - label: "CI 通過後、PR を Draft → Ready for Review に変更"
         - label: "GitHub Actions デプロイ成功確認"
         - label: "UI 変更がある場合: ビジュアル検証・スクリーンショット提示済み"
         - label: "設計書の同期更新が必要な場合: docs/design/ 更新済み"
