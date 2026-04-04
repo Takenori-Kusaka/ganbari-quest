@@ -66,7 +66,7 @@ const tabs: { key: RewardTab; label: string; icon: string }[] = [
 	<title>こどもを褒める - がんばりクエスト</title>
 </svelte:head>
 
-<div class="space-y-4">
+<div class="space-y-4" data-tutorial="rewards-section">
 	<!-- Child Selector (shared across all tabs) -->
 	<section>
 		<h3 class="text-sm font-bold text-gray-500 mb-2">こどもを選択</h3>
@@ -260,19 +260,19 @@ const tabs: { key: RewardTab; label: string; icon: string }[] = [
 				<h3 class="text-sm font-bold text-gray-500">テキストメッセージを送る</h3>
 				<input type="hidden" name="childId" value={selectedChildId} />
 
-				<FormField label="メッセージ（200文字まで）">
+				<FormField label="メッセージ（30文字まで）">
 					{#snippet children()}
 						<textarea
 							name="body"
 							bind:value={messageBody}
-							maxlength={200}
+							maxlength={30}
 							rows={3}
 							placeholder="がんばったね！おつかれさま！"
 							class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm resize-none"
 						></textarea>
 					{/snippet}
 				</FormField>
-				<div class="text-right text-xs text-gray-400">{messageBody.length}/200</div>
+				<div class="text-right text-xs text-gray-400">{messageBody.length}/30</div>
 
 				<Button
 					type="submit"
