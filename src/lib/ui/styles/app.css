@@ -91,7 +91,12 @@
 	--color-danger: #f44336;
 	--color-point: #ffd700;
 
+	/* ---- Orange Accent (CTA・暖色グラデーション終端) ---- */
+	--color-orange-500: #f97316;
+	--color-orange-50: #fff7ed;
+
 	/* ---- Violet Accent (プライシング・プレミアム強調) ---- */
+	--color-violet-700: #6d28d9;
 	--color-violet-600: #7c3aed;
 	--color-violet-500: #8b5cf6;
 
@@ -177,6 +182,8 @@
 	--gradient-brand: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-400));
 	--gradient-gold: linear-gradient(135deg, var(--color-gold-600), var(--color-gold-400));
 	--gradient-action: linear-gradient(135deg, var(--theme-primary), var(--theme-accent));
+	--gradient-cta: linear-gradient(to right, var(--color-warning), var(--color-orange-500));
+	--gradient-warm-bg: linear-gradient(to bottom, var(--color-feedback-warning-bg), var(--color-orange-50));
 
 	/* ============================================================
 	   Component Layer — コンポーネント固有のトークン

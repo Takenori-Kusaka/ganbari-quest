@@ -151,8 +151,8 @@ function childLink(child: ChildSummary): string {
 			<div class="flex items-center gap-3">
 				<span class="text-2xl">📖</span>
 				<div class="flex-1">
-					<p class="font-bold text-[var(--color-text)]">初めてご��用ですか？</p>
-					<p class="text-sm text-[var(--color-text-muted)]">チュートリアルで使い��を確認しましょう（約3分）</p>
+					<p class="font-bold text-[var(--color-text)]">初めてご利用ですか？</p>
+					<p class="text-sm text-[var(--color-text-muted)]">チュートリアルで使い方を確認しましょう（約3分）</p>
 				</div>
 				<div class="flex gap-2">
 					<button
@@ -304,14 +304,14 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Demo CTA (demo only) -->
 	{#if isDemo}
-		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-xl p-4 text-center">
+		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] border border-[var(--color-feedback-warning-border)] rounded-xl p-4 text-center">
 			<p class="text-sm font-bold text-[var(--color-text)] mb-1">いかがでしたか？</p>
 			<p class="text-xs text-[var(--color-text-muted)] mb-3">
 				お子さまの「がんばり」を冒険に変えませんか？
 			</p>
 			<a
 				href="/demo/signup"
-				class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-warning)] text-white font-bold rounded-xl text-center text-sm"
+				class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"
 			>
 				無料で はじめる →
 			</a>

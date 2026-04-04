@@ -15,7 +15,7 @@ function handleCtaClick() {
 	<title>デモ体験ありがとうございます - がんばりクエスト</title>
 </svelte:head>
 
-<div class="min-h-dvh bg-gradient-to-b from-[var(--color-feedback-warning-bg)] to-[var(--color-feedback-warning-bg)]">
+<div class="min-h-dvh bg-gradient-to-b from-[var(--color-feedback-warning-bg)] to-[var(--color-feedback-warning-bg-strong)]">
 	<div class="max-w-lg mx-auto px-4 py-8">
 		<!-- Hero -->
 		<div class="text-center mb-8">
@@ -38,7 +38,7 @@ function handleCtaClick() {
 			<a
 				href="/auth/signup"
 				onclick={handleCtaClick}
-				class="block w-full py-3 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-warning)] text-white font-bold rounded-xl text-center text-lg shadow-sm hover:shadow-md transition-shadow"
+				class="block w-full py-3 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-lg shadow-sm hover:shadow-md transition-shadow"
 			>
 				無料で はじめる
 			</a>
@@ -113,7 +113,7 @@ function handleCtaClick() {
 		</Card>
 
 		<!-- Testimonial / Social proof -->
-		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-feedback-warning-bg)] rounded-2xl border border-[var(--color-feedback-warning-border)] p-6 mb-6">
+		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-feedback-warning-bg-strong)] rounded-2xl border border-[var(--color-feedback-warning-border)] p-6 mb-6">
 			<h2 class="text-lg font-bold text-[var(--color-text)] mb-3 text-center">ご利用者の声</h2>
 			<div class="space-y-3">
 				<div class="bg-[var(--color-surface-card)] rounded-xl p-3">
@@ -131,7 +131,7 @@ function handleCtaClick() {
 		<div class="text-center mb-8">
 			<a
 				href="/auth/signup"
-				class="inline-block w-full py-3 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-warning)] text-white font-bold rounded-xl text-center text-lg shadow-sm hover:shadow-md transition-shadow"
+				class="inline-block w-full py-3 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-lg shadow-sm hover:shadow-md transition-shadow"
 			>
 				無料トライアルを はじめる
 			</a>
