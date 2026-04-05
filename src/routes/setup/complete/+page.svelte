@@ -1,4 +1,5 @@
 <script lang="ts">
+import { formatChildName } from '$lib/domain/child-display';
 import { AGE_TIER_CONFIG, type UiMode } from '$lib/domain/validation/age-tier';
 
 let { data } = $props();
@@ -19,7 +20,7 @@ const childLabel = $derived(
 	<div class="text-4xl mb-2">⚔️</div>
 	<h2 class="text-xl font-bold text-gray-700 mb-1">ぼうけんのはじまり！</h2>
 	<p class="text-sm text-gray-500 mb-4">
-		{firstChild?.nickname ?? ''}ちゃんのぼうけんじゅんびが<br />かんりょうしたよ！
+		{formatChildName(firstChild?.nickname, 'possessive')}ぼうけんじゅんびが<br />かんりょうしたよ！
 	</p>
 
 	<!-- ステータスサマリ -->

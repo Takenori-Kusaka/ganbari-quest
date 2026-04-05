@@ -2,6 +2,7 @@
 // リマインダー通知 — EventBridge / 手動トリガー用
 
 import { json } from '@sveltejs/kit';
+import { formatChildNames } from '$lib/domain/child-display';
 import { logger } from '$lib/server/logger';
 import {
 	getNotificationSettings,
@@ -32,12 +33,18 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ success: true, sent: 0, reason: 'disabled' });
 		}
 
-		const childNames = body.children.map((c) => c.name).join('ちゃん、');
+		const nameLabel = formatChildNames(
+			body.children.map((c) => c.name),
+			'possessive',
+		);
+		if (!nameLabel) {
+			return json({ success: true, sent: 0, reason: 'no_children' });
+		}
 		const result = await sendPushNotification(
 			body.tenantId,
 			'reminder',
 			'きょうも がんばろう！',
-			`${childNames}ちゃんの がんばりを きろくしよう！`,
+			`${nameLabel}がんばりを きろくしよう！`,
 			{ type: 'reminder' },
 		);
 

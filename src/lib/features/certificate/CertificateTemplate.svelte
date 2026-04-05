@@ -39,7 +39,7 @@ const formattedDate = $derived(
 			<div class="cert-icon">{certificate.icon}</div>
 
 			<!-- Child name -->
-			<p class="cert-child-name">{certificate.childName} ちゃん</p>
+			<p class="cert-child-name">{certificate.childName}</p>
 
 			<!-- Certificate title -->
 			<h2 class="cert-achievement">「{certificate.title}」</h2>
