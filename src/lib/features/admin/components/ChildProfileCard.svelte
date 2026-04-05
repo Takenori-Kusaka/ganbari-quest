@@ -371,7 +371,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 								<option value={val} selected={val === (child.birthdayBonusMultiplier ?? 1.0)}>×{val}</option>
 							{/each}
 						</select>
-						<Button type="submit" variant="primary" size="sm" class="bg-[var(--color-warning)] hover:bg-[var(--color-warning)]">適用</Button>
+						<Button type="submit" variant="primary" size="sm" class="bg-[var(--color-warning)] hover:brightness-110">適用</Button>
 						<span class="profile-edit__bonus-preview">
 							→ {child.age}歳 × 100pt × {child.birthdayBonusMultiplier ?? 1.0}倍 = {Math.round(child.age * 100 * (child.birthdayBonusMultiplier ?? 1.0))}pt
 						</span>
@@ -661,7 +661,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 							type="submit"
 							variant="primary"
 							size="sm"
-							class="bg-[var(--color-stat-purple)] hover:bg-[var(--color-stat-purple)]"
+							class="bg-[var(--color-stat-purple)] hover:brightness-110"
 							disabled={voiceUploading || !voiceLabel}
 						>
 							{voiceUploading ? 'アップロード中...' : '💾 保存'}
@@ -682,7 +682,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 										<form method="POST" action="?/activateVoice" use:enhance>
 											<input type="hidden" name="voiceId" value={voice.id} />
 											<input type="hidden" name="childId" value={child.id} />
-											<Button type="submit" variant="ghost" size="sm" class="bg-[var(--color-premium-bg)] text-[var(--color-premium)] hover:bg-[var(--color-premium-bg)]">有効化</Button>
+											<Button type="submit" variant="ghost" size="sm" class="bg-[var(--color-premium-bg)] text-[var(--color-premium)] hover:brightness-95">有効化</Button>
 										</form>
 									{/if}
 									<form method="POST" action="?/deleteVoice" use:enhance>

@@ -208,9 +208,7 @@ const msg = $derived(getMessageText());
 		border: none;
 		cursor: pointer;
 		background: linear-gradient(135deg, var(--color-warning), var(--color-gold-400));
-		box-shadow: 0 2px 8px color-mix(in srgb, var(--color-warning) 30%, transparent);
-	}
-
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--color-warning) 30%, transparent);	}
 	.birthday-modal__btn:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
