@@ -4,6 +4,7 @@ import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import { PASSWORD_RESET_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
 
 let { form } = $props();
 
@@ -59,6 +60,10 @@ $effect(() => {
 				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
 					<strong>{email}</strong> に確認コードを送信しました。<br />
 					メールに記載されたコードと新しいパスワードを入力してください。
+				</p>
+
+				<p class="text-xs text-[var(--color-text-muted)] text-center">
+					確認コードは{PASSWORD_RESET_CODE_EXPIRY_MINUTES}分間有効です。届かない場合は再送してください
 				</p>
 
 				<FormField label="確認コード" id="code">
