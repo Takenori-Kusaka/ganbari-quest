@@ -10,10 +10,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockSignUp = vi.fn();
 const mockConfirmSignUp = vi.fn();
 const mockAuthenticate = vi.fn();
+const mockResendConfirmationCode = vi.fn();
 vi.mock('$lib/server/auth/providers/cognito-direct-auth', () => ({
 	signUpWithCognito: (...args: unknown[]) => mockSignUp(...args),
 	confirmSignUp: (...args: unknown[]) => mockConfirmSignUp(...args),
 	authenticateWithCognito: (...args: unknown[]) => mockAuthenticate(...args),
+	resendConfirmationCode: (...args: unknown[]) => mockResendConfirmationCode(...args),
 }));
 
 // --- Cognito OAuth モック ---
@@ -57,6 +59,7 @@ beforeEach(() => {
 	mockConfirmSignUp.mockReset();
 	mockAuthenticate.mockReset();
 	mockSetIdentityCookie.mockReset();
+	mockResendConfirmationCode.mockReset();
 });
 
 /** FormData モック */
@@ -340,5 +343,50 @@ describe('confirm action', () => {
 			expect((e as { status: number }).status).toBe(302);
 			expect((e as { location: string }).location).toBe('/auth/login?registered=true');
 		}
+	});
+});
+
+// ============================================================
+// resend action
+// ============================================================
+describe('resend action', () => {
+	it('email が空の場合 400 エラーを返す', async () => {
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const request = createRequest({ email: '' });
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
+		const result = await (actions.resend as any)({ request });
+
+		expect(result.status).toBe(400);
+		expect(result.data.confirmStep).toBe(true);
+	});
+
+	it('再送成功時に confirmStep=true, resent=true を返す', async () => {
+		mockResendConfirmationCode.mockResolvedValue({ success: true });
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const request = createRequest({ email: 'test@example.com' });
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
+		const result = await (actions.resend as any)({ request });
+
+		expect(result.confirmStep).toBe(true);
+		expect(result.email).toBe('test@example.com');
+		expect(result.resent).toBe(true);
+	});
+
+	it('再送失敗時に 400 エラーを返す', async () => {
+		mockResendConfirmationCode.mockResolvedValue({
+			success: false,
+			error: 'UNKNOWN',
+			message: '再送回数の上限に達しました。しばらくしてからお試しください',
+		});
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const request = createRequest({ email: 'test@example.com' });
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
+		const result = await (actions.resend as any)({ request });
+
+		expect(result.status).toBe(400);
+		expect(result.data.error).toContain('上限');
+		expect(result.data.confirmStep).toBe(true);
 	});
 });

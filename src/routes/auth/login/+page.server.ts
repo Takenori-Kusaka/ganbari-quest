@@ -10,10 +10,12 @@ import { authenticateDevUser } from '$lib/server/auth/providers/cognito-dev';
 import { signDevIdentityToken } from '$lib/server/auth/providers/cognito-dev-jwt';
 import {
 	authenticateWithCognito,
+	resendConfirmationCode,
 	respondToMfaChallenge,
 } from '$lib/server/auth/providers/cognito-direct-auth';
 import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
+import { logger } from '$lib/server/logger';
 import {
 	checkAccountLockout,
 	recordLoginFailure,
@@ -59,6 +61,75 @@ export const actions: Actions = {
 		}
 
 		return handleCognitoLogin(email, password, cookies);
+	},
+
+	confirmCode: async ({ request, cookies }) => {
+		const formData = await request.formData();
+		const email = formData.get('email') as string;
+		const code = (formData.get('code') as string)?.replace(/\s/g, '');
+		const password = formData.get('password') as string;
+
+		if (!email || !code) {
+			return fail(400, {
+				error: '確認コードを入力してください',
+				email,
+				confirmStep: true,
+			});
+		}
+
+		const { confirmSignUp } = await import('$lib/server/auth/providers/cognito-direct-auth');
+
+		const confirmResult = await confirmSignUp(email, code);
+
+		if (!confirmResult.success) {
+			return fail(400, {
+				error: confirmResult.message,
+				email,
+				confirmStep: true,
+			});
+		}
+
+		// 確認成功 → パスワードがあれば自動ログイン
+		if (password) {
+			const loginResult = await authenticateWithCognito(email, password);
+			if (loginResult.success) {
+				await resetLoginFailures(email);
+				setIdentityCookie(cookies, loginResult.idToken);
+				redirect(302, '/admin');
+			}
+		}
+
+		// 自動ログインできなかった場合はログインページへ
+		redirect(302, '/auth/login?confirmed=true');
+	},
+
+	resendFromLogin: async ({ request }) => {
+		const formData = await request.formData();
+		const email = formData.get('email') as string;
+
+		if (!email) {
+			return fail(400, {
+				error: 'メールアドレスが指定されていません',
+				confirmStep: true,
+				email: '',
+			});
+		}
+
+		const result = await resendConfirmationCode(email);
+
+		if (!result.success) {
+			return fail(400, {
+				error: result.message,
+				confirmStep: true,
+				email,
+			});
+		}
+
+		return {
+			confirmStep: true,
+			email,
+			resent: true,
+		};
 	},
 
 	mfa: async ({ request, cookies, locals }) => {
@@ -146,6 +217,32 @@ async function handleCognitoLogin(
 				email,
 			});
 		}
+
+		// UNCONFIRMED ユーザー: 確認コードを自動再送して確認画面へ遷移
+		if (result.error === 'NOT_CONFIRMED') {
+			try {
+				const resendResult = await resendConfirmationCode(email);
+				if (!resendResult.success) {
+					logger.warn('[AUTH] Failed to auto-resend confirmation code', {
+						context: { email, error: resendResult.message ?? 'Unknown error' },
+					});
+					// Still transition to confirm step but with warning
+				} else {
+					logger.info('[AUTH] Auto-resent confirmation code for unconfirmed user', {
+						context: { email },
+					});
+				}
+			} catch (e) {
+				logger.warn('[AUTH] Failed to auto-resend confirmation code', {
+					context: { error: e instanceof Error ? e.message : String(e) },
+				});
+			}
+			return {
+				confirmStep: true,
+				email,
+			};
+		}
+
 		// 認証失敗をカウント
 		if (result.error === 'INVALID_CREDENTIALS' || result.error === 'USER_NOT_FOUND') {
 			const lockResult = await recordLoginFailure(email);
