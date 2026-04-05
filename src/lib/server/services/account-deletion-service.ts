@@ -159,10 +159,7 @@ async function revokeAndDeleteAllInvites(tenantId: string): Promise<number> {
 				}
 			}
 			// 物理削除: 招待レコード自体を削除（テナント側・招待コード側の両方）
-			// NOTE: auth-repo に deleteInvite がないため、テナント削除時に
-			// deleteTenant で TENANT#<id> パーティション配下は一括クリーンアップされる。
-			// 招待コード側（INVITE#<code>）は残留するが、テナント削除後はアクセス不能。
-			// TODO: auth-repo に deleteInvite(inviteCode) を追加し、INVITE#<code> も物理削除する
+			await repos().auth.deleteInvite(invite.inviteCode, tenantId);
 			deleted++;
 		} catch (err) {
 			logger.warn(
@@ -176,37 +173,8 @@ async function revokeAndDeleteAllInvites(tenantId: string): Promise<number> {
 
 /**
  * テナントスコープの全データを削除する（子供・認証以外）。
- * 各リポジトリの既存 delete/find メソッドを使用して可能な限りクリーンアップする。
- *
- * 現在削除可能:
- * - activities（findActivities + deleteActivity）
- * - viewerTokens（findByTenant + deleteById）
- * - cloudExports（findByTenant + deleteById）
- * - pushSubscriptions（findByTenant + deleteByEndpoint）
- *
- * TODO (#458): 以下のテナントスコープデータに deleteByTenant メソッドが未実装。
- * 各リポジトリインターフェースに追加する必要がある:
- * - settings: PK=T#<tenantId>#SETTING — deleteByTenant 未実装
- * - checklists: 子供ごと（findTemplatesByChild）— テナント一括削除なし
- * - dailyMissions: 子供ごと — テナント一括削除なし
- * - evaluations: 子供ごと — テナント一括削除なし
- * - points: 子供ごと — テナント一括削除なし
- * - stamps/stampCards: 子供ごと — テナント一括削除なし
- * - status: 子供ごと — テナント一括削除なし
- * - loginBonus: 子供ごと — テナント一括削除なし
- * - specialReward: 子供ごと — テナント一括削除なし
- * - activityPref: 子供ごと — テナント一括削除なし
- * - activityMastery: 子供ごと — テナント一括削除なし
- * - voice: deleteByChild 利用可能
- * - message: テナント一括削除なし
- * - tenantEvent: findByTenantAndYear — deleteEvent 未実装
- * - trialHistory: findLatestByTenant — delete 未実装
- * - siblingChallenge: deleteChallenge あり — findByTenant なし
- * - siblingCheer: テナント一括削除なし
- * - autoChallenge: テナント一括削除なし
- * - reportDailySummary: deleteOlderThan あり — テナント全件削除なし
- * - seasonEvent: deleteEvent あり — findByTenant なし
- * - image: テナント一括削除なし
+ * 各リポジトリの deleteByTenantId メソッドを使用してテナント全データをクリーンアップする。
+ * 各リポジトリの削除は独立しており、個別の失敗が他の削除をブロックしない。
  */
 async function deleteTenantScopedData(tenantId: string): Promise<number> {
 	let deleted = 0;
@@ -265,6 +233,166 @@ async function deleteTenantScopedData(tenantId: string): Promise<number> {
 		}
 	} catch (err) {
 		logger.warn(`[account-deletion] voice 削除失敗: ${String(err)}`);
+	}
+
+	// Settings
+	try {
+		await r.settings.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] settings 削除失敗: ${String(err)}`);
+	}
+
+	// Checklists（templates, items, logs, overrides）
+	try {
+		await r.checklist.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] checklists 削除失敗: ${String(err)}`);
+	}
+
+	// Daily missions
+	try {
+		await r.dailyMission.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] dailyMissions 削除失敗: ${String(err)}`);
+	}
+
+	// Evaluations（evaluations + rest_days）
+	try {
+		await r.evaluation.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] evaluations 削除失敗: ${String(err)}`);
+	}
+
+	// Points（point_ledger）
+	try {
+		await r.point.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] points 削除失敗: ${String(err)}`);
+	}
+
+	// Stamp cards + entries
+	try {
+		await r.stampCard.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] stampCards 削除失敗: ${String(err)}`);
+	}
+
+	// Status（statuses + status_history + market_benchmarks）
+	try {
+		await r.status.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] status 削除失敗: ${String(err)}`);
+	}
+
+	// Login bonuses
+	try {
+		await r.loginBonus.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] loginBonus 削除失敗: ${String(err)}`);
+	}
+
+	// Special rewards
+	try {
+		await r.specialReward.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] specialReward 削除失敗: ${String(err)}`);
+	}
+
+	// Activity preferences（pin settings）
+	try {
+		await r.activityPref.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] activityPref 削除失敗: ${String(err)}`);
+	}
+
+	// Activity mastery
+	try {
+		await r.activityMastery.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] activityMastery 削除失敗: ${String(err)}`);
+	}
+
+	// Parent messages
+	try {
+		await r.message.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] message 削除失敗: ${String(err)}`);
+	}
+
+	// Tenant events + progress
+	try {
+		await r.tenantEvent.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] tenantEvent 削除失敗: ${String(err)}`);
+	}
+
+	// Trial history
+	try {
+		await r.trialHistory.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] trialHistory 削除失敗: ${String(err)}`);
+	}
+
+	// Sibling challenges + progress
+	try {
+		await r.siblingChallenge.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] siblingChallenge 削除失敗: ${String(err)}`);
+	}
+
+	// Sibling cheers
+	try {
+		await r.siblingCheer.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] siblingCheer 削除失敗: ${String(err)}`);
+	}
+
+	// Auto challenges
+	try {
+		await r.autoChallenge.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] autoChallenge 削除失敗: ${String(err)}`);
+	}
+
+	// Report daily summaries
+	try {
+		await r.reportDailySummary.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] reportDailySummary 削除失敗: ${String(err)}`);
+	}
+
+	// Season events + child_event_progress
+	try {
+		await r.seasonEvent.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] seasonEvent 削除失敗: ${String(err)}`);
+	}
+
+	// Character images
+	try {
+		await r.image.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[account-deletion] image 削除失敗: ${String(err)}`);
 	}
 
 	return deleted;

@@ -32,3 +32,8 @@ export async function getSettings(
 	}
 	return map;
 }
+
+/** テナントの全設定を削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(settings).run();
+}

@@ -14,3 +14,8 @@ export async function findLatestByTenant(_tenantId: string): Promise<TrialHistor
 export async function insert(_input: InsertTrialHistoryInput): Promise<void> {
 	// TODO: DynamoDB implementation
 }
+
+/** テナントの全トライアル履歴を削除（DynamoDB未実装: 書き込みがないため no-op） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	// DynamoDB trial-history repo は未実装のため書き込みデータなし — no-op
+}

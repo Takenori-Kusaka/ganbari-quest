@@ -9,4 +9,5 @@ export interface IPointRepo {
 	): Promise<PointLedgerEntry[]>;
 	insertPointEntry(input: InsertPointLedgerInput, tenantId: string): Promise<PointLedgerEntry>;
 	findChildById(id: number, tenantId: string): Promise<Child | undefined>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

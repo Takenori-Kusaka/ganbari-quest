@@ -206,3 +206,12 @@ export async function findLastActivityDates(childId: number, _tenantId: string) 
 		.groupBy(activityLogs.activityId)
 		.all();
 }
+
+/**
+ * テナントの全ステータスデータを削除（SQLite: シングルテナントのため全行削除）。
+ * market_benchmarks はグローバルなマスター/シードデータのため削除しない。
+ */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(statusHistory).run();
+	db.delete(statuses).run();
+}

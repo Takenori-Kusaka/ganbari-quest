@@ -17,6 +17,7 @@ import type {
 	Status,
 	StatusHistoryEntry,
 } from '../types';
+import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -28,8 +29,10 @@ import {
 	marketBenchmarkPrefix,
 	statusHistoryByCategoryPrefix,
 	statusHistoryKey,
+	statusHistoryPrefix,
 	statusKey,
 	statusPrefix,
+	tenantPK,
 } from './keys';
 
 /** Strip PK/SK/GSI keys from a DynamoDB item */
@@ -411,4 +414,15 @@ export async function findLastActivityDates(
 		category,
 		lastDate,
 	}));
+}
+
+/**
+ * テナントの全ステータスデータを削除（CHILD#* 配下の STATUS# + STATHIST# アイテム）。
+ * market_benchmarks はグローバルなマスターデータのため削除しない。
+ */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	// Delete status records (STATUS#...)
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), statusPrefix());
+	// Delete status history records (STATHIST#...)
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), statusHistoryPrefix());
 }

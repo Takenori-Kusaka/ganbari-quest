@@ -49,3 +49,8 @@ export async function upsert(
 		.returning()
 		.get();
 }
+
+/** テナントの全活動習熟度を削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(activityMastery).run();
+}
