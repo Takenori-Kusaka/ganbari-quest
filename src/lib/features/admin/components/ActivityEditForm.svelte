@@ -59,7 +59,7 @@ let actionMessage = $state('');
 						value={editMainIcon}
 						oninput={(e) => { const v = (e.target as HTMLInputElement).value; if (v) editMainIcon = v; }}
 					/>
-					<span class="text-xs text-[var(--color-text-muted)]">+</span>
+					<span class="text-xs text-[var(--color-text-disabled)]">+</span>
 					<input type="text" class="w-10 px-1 py-1.5 border rounded text-sm text-center" placeholder="サブ"
 						value={editSubIcon}
 						oninput={(e) => { editSubIcon = (e.target as HTMLInputElement).value; }}
@@ -67,9 +67,9 @@ let actionMessage = $state('');
 					<CompoundIcon icon={editIcon} size="md" />
 				</div>
 				<div class="flex flex-wrap gap-0.5 mt-1">
-					<button type="button" class="w-7 h-7 rounded text-xs flex items-center justify-center {editSubIcon === '' ? 'bg-[var(--color-feedback-info-bg-strong)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-muted-strong)]'}" onclick={() => editSubIcon = ''}>なし</button>
+					<button type="button" class="w-7 h-7 rounded text-xs flex items-center justify-center {editSubIcon === '' ? 'bg-[var(--color-brand-100)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-neutral-100)]'}" onclick={() => editSubIcon = ''}>なし</button>
 					{#each SUB_ICON_PRESETS.slice(0, 8) as ic}
-						<button type="button" class="w-7 h-7 rounded text-sm flex items-center justify-center {editSubIcon === ic ? 'bg-[var(--color-feedback-info-bg-strong)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-muted-strong)]'}" onclick={() => editSubIcon = ic}>{ic}</button>
+						<button type="button" class="w-7 h-7 rounded text-sm flex items-center justify-center {editSubIcon === ic ? 'bg-[var(--color-brand-100)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-neutral-100)]'}" onclick={() => editSubIcon = ic}>{ic}</button>
 					{/each}
 				</div>
 				<input type="hidden" name="icon" value={editIcon} />
@@ -107,7 +107,7 @@ let actionMessage = $state('');
 					<button
 						type="button"
 						class="flex-1 py-1 rounded text-xs font-bold transition-colors
-							{editDailyLimit === opt.val ? 'bg-[var(--color-brand-500)] text-white' : 'bg-[var(--color-surface-muted-strong)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)]'}"
+							{editDailyLimit === opt.val ? 'bg-[var(--color-action-primary)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-neutral-100)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)]'}"
 						onclick={() => editDailyLimit = opt.val}
 					>
 						{opt.label}
@@ -132,15 +132,17 @@ let actionMessage = $state('');
 		<label class="block">
 			<span class="text-xs font-bold text-[var(--color-text-muted)]">子供へのヒント（いつ押すか）</span>
 			<input type="text" name="triggerHint" bind:value={editTriggerHint} maxlength="30" class="w-full px-2 py-1.5 border rounded text-sm" placeholder="はみがきが終わったら押してね" />
-			<span class="text-[10px] text-[var(--color-text-muted)]">カードの下に小さく表示されます（30文字まで）</span>
+			<span class="text-[10px] text-[var(--color-text-disabled)]">カードの下に小さく表示されます（30文字まで）</span>
 		</label>
 		<div class="flex gap-2">
-			<button type="submit" class="flex-1 py-2 bg-[var(--color-brand-500)] text-white rounded-lg font-bold text-sm hover:bg-[var(--color-brand-600)] transition-colors">
+			<button type="submit" class="flex-1 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] rounded-lg font-bold text-sm hover:opacity-90 transition-colors">
 				保存
 			</button>
 			<button
 				type="button"
-				class="px-4 py-2 bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)] rounded-lg font-bold text-sm hover:brightness-95 transition-all"				onclick={() => deleteConfirmId = deleteConfirmId === activity.id ? null : activity.id}			>
+				class="px-4 py-2 bg-[var(--color-feedback-error-bg,#fef2f2)] text-[var(--color-feedback-error-text,#dc2626)] rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
+				onclick={() => deleteConfirmId = deleteConfirmId === activity.id ? null : activity.id}
+			>
 				削除
 			</button>
 		</div>
@@ -148,13 +150,13 @@ let actionMessage = $state('');
 
 	<!-- Delete confirmation -->
 	{#if deleteConfirmId === activity.id}
-		<div class="bg-[var(--color-feedback-error-bg)] border border-[var(--color-feedback-error-border)] rounded-lg p-3 space-y-2">
+		<div class="bg-[var(--color-feedback-error-bg,#fef2f2)] border border-[var(--color-action-danger,#f44336)]/20 rounded-lg p-3 space-y-2">
 			{#if logCount > 0}
-				<p class="text-sm text-[var(--color-feedback-warning-text)] font-bold">この活動には {logCount} 件の記録があります</p>
-				<p class="text-xs text-[var(--color-feedback-warning-text)]">記録を保護するため、完全削除ではなく「非表示」にします。非表示の活動は子供の画面に表示されなくなりますが、過去の記録はそのまま残ります。</p>
+				<p class="text-sm text-[var(--color-gold-700)] font-bold">この活動には {logCount} 件の記録があります</p>
+				<p class="text-xs text-[var(--color-warning)]">記録を保護するため、完全削除ではなく「非表示」にします。非表示の活動は子供の画面に表示されなくなりますが、過去の記録はそのまま残ります。</p>
 			{:else}
-				<p class="text-sm text-[var(--color-feedback-error-text)] font-bold">本当に削除しますか？</p>
-				<p class="text-xs text-[var(--color-feedback-error-text)]">この活動は完全に削除されます。この操作は取り消せません。</p>
+				<p class="text-sm text-[var(--color-action-danger)] font-bold">本当に削除しますか？</p>
+				<p class="text-xs text-[var(--color-action-danger)]">この活動は完全に削除されます。この操作は取り消せません。</p>
 			{/if}
 			<div class="flex gap-2">
 				<form
@@ -176,7 +178,9 @@ let actionMessage = $state('');
 					}}
 				>
 					<input type="hidden" name="id" value={activity.id} />
-					<button type="submit" class="w-full py-2 {logCount > 0 ? 'bg-[var(--color-warning)]' : 'bg-[var(--color-action-danger)]'} text-white rounded-lg font-bold text-sm hover:brightness-90 transition-all">						{logCount > 0 ? '非表示にする' : '削除する'}					</button>
+					<button type="submit" class="w-full py-2 {logCount > 0 ? 'bg-[var(--color-warning)] hover:opacity-90' : 'bg-[var(--color-action-danger)] hover:opacity-90'} text-[var(--color-text-inverse)] rounded-lg font-bold text-sm transition-colors">
+						{logCount > 0 ? '非表示にする' : '削除する'}
+					</button>
 				</form>
 				<button
 					type="button"

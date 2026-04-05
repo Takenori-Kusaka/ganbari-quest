@@ -150,7 +150,7 @@ const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retent
 		background: var(--color-neutral-200);
 	}
 	.plan-status__cta--family {
-		background: #fef3c7;
+		background: var(--color-gold-100, #fef3c7);
 		color: var(--color-gold-700, var(--color-amber-700));
 		flex: 1;
 	}

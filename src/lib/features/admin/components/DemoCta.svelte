@@ -14,10 +14,13 @@ let {
 }: Props = $props();
 </script>
 
-<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] border border-[var(--color-feedback-warning-border)] rounded-xl p-4 text-center">	<p class="text-sm font-bold text-[var(--color-text)] mb-1">{title}</p>
+<div class="bg-gradient-to-r from-[var(--color-gold-100)] to-[var(--color-gold-100)] border border-[var(--color-gold-300)] rounded-xl p-4 text-center">
+	<p class="text-sm font-bold text-[var(--color-text)] mb-1">{title}</p>
 	<p class="text-xs text-[var(--color-text-muted)] mb-3">{description}</p>
 	<a
 		href={ctaHref}
-		class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"	>		{ctaText}
+		class="inline-block w-full py-2.5 bg-[var(--gradient-gold)] text-[var(--color-text-inverse)] font-bold rounded-xl text-center text-sm"
+	>
+		{ctaText}
 	</a>
 </div>
