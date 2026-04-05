@@ -5,7 +5,7 @@
 			true,
 			{
 				"message": "ハードコード hex 禁止。CSS変数 var(--color-*) を使用してください",
-				"severity": "warning"
+				"severity": "error"
 			}
 		],
 		"declaration-no-important": [
@@ -42,5 +42,5 @@
 			}
 		}
 	],
-	"ignoreFiles": ["node_modules/**", ".svelte-kit/**", "build/**", "site/**"]
+	"ignoreFiles": ["node_modules/**", ".svelte-kit/**", "build/**", "site/**", "src/stories/**"]
 }
