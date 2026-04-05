@@ -47,7 +47,7 @@ function acceptPreview() {
 }
 </script>
 
-<div class="bg-[var(--color-premium-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-premium)]/20">
+<div class="bg-[var(--color-premium-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-border-premium)]">
 	<h3 class="font-bold text-[var(--color-premium)]">✨ やりたいことを教えてください</h3>
 	<p class="text-xs text-[var(--color-premium-light)]">
 		やりたい活動を自由に入力すると、カテゴリ・ポイント・アイコンを自動で提案します
@@ -85,7 +85,7 @@ function acceptPreview() {
 	{/if}
 
 	{#if aiPreview}
-		<div class="bg-[var(--color-surface-card)] rounded-lg p-3 space-y-2 border border-[var(--color-premium)]/20">
+		<div class="bg-[var(--color-surface-card)] rounded-lg p-3 space-y-2 border border-[var(--color-border-premium)]">
 			{#if aiPreview.source === 'fallback'}
 				<p class="text-xs text-[var(--color-warning)] bg-[var(--color-gold-100)] px-2 py-1 rounded">AIが利用できなかったため、入力内容から推定しました</p>
 			{/if}
