@@ -244,7 +244,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						<Button
 							variant="ghost"
 							size="sm"
-							class="bg-[var(--color-stat-purple-bg)] text-[var(--color-premium)] hover:bg-[var(--color-premium-bg)]"
+							class="bg-[var(--color-premium-bg)] text-[var(--color-premium)] hover:opacity-80"
 							disabled={generating}
 							onclick={generateAvatar}
 						>
@@ -371,7 +371,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 								<option value={val} selected={val === (child.birthdayBonusMultiplier ?? 1.0)}>×{val}</option>
 							{/each}
 						</select>
-						<Button type="submit" variant="primary" size="sm" class="bg-[var(--color-warning)] hover:brightness-110">適用</Button>
+						<Button type="submit" variant="primary" size="sm" class="bg-[var(--color-warning)] hover:opacity-90">適用</Button>
 						<span class="profile-edit__bonus-preview">
 							→ {child.age}歳 × 100pt × {child.birthdayBonusMultiplier ?? 1.0}倍 = {Math.round(child.age * 100 * (child.birthdayBonusMultiplier ?? 1.0))}pt
 						</span>
@@ -411,7 +411,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 					<Button
 						variant="ghost"
 						size="sm"
-						class="bg-[var(--color-feedback-error-bg)] text-[var(--color-action-danger)] hover:bg-[var(--color-feedback-error-bg-strong)]"
+						class="bg-[var(--color-feedback-error-bg,#fef2f2)] text-[var(--color-action-danger)] hover:opacity-80"
 						onclick={() => { confirmDelete = true; }}
 					>
 						🗑 この子供を削除
@@ -440,7 +440,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 			<Button
 				variant="ghost"
 				size="sm"
-				class="bg-[var(--color-feedback-info-bg)] text-[var(--color-brand-600)] hover:bg-[var(--color-feedback-info-bg-strong)]"
+				class="bg-[var(--color-brand-100)] text-[var(--color-action-primary)] hover:opacity-80"
 				onclick={() => { isEditing = true; detailTab = 'info'; }}
 			>
 				✏️ 編集
@@ -545,7 +545,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 												variant={hasChanged ? 'primary' : 'ghost'}
 												size="sm"
 												disabled={!hasChanged}
-												class={hasChanged ? '' : 'bg-[var(--color-neutral-200)] text-[var(--color-text-muted)] cursor-not-allowed'}
+												class={hasChanged ? '' : 'bg-[var(--color-neutral-200)] text-[var(--color-text-disabled)] cursor-not-allowed'}
 											>保存</Button>
 										</div>
 									</form>
@@ -604,7 +604,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						{:else if recordedUrl}
 							<div class="voice-recorder__preview">
 								<audio src={recordedUrl} controls class="voice-recorder__audio"></audio>
-								<Button type="button" variant="ghost" size="sm" onclick={clearRecording} class="text-[var(--color-text-muted)] hover:text-[var(--color-feedback-error-text)]">取消</Button>
+								<Button type="button" variant="ghost" size="sm" onclick={clearRecording} class="text-[var(--color-text-disabled)] hover:text-[var(--color-action-danger)]">取消</Button>
 							</div>
 						{:else}
 							<Button type="button" variant="danger" size="sm" onclick={startRecording}>
@@ -661,7 +661,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 							type="submit"
 							variant="primary"
 							size="sm"
-							class="bg-[var(--color-stat-purple)] hover:brightness-110"
+							class="bg-[var(--color-premium)] hover:opacity-90"
 							disabled={voiceUploading || !voiceLabel}
 						>
 							{voiceUploading ? 'アップロード中...' : '💾 保存'}
@@ -682,12 +682,12 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 										<form method="POST" action="?/activateVoice" use:enhance>
 											<input type="hidden" name="voiceId" value={voice.id} />
 											<input type="hidden" name="childId" value={child.id} />
-											<Button type="submit" variant="ghost" size="sm" class="bg-[var(--color-premium-bg)] text-[var(--color-premium)] hover:brightness-95">有効化</Button>
+											<Button type="submit" variant="ghost" size="sm" class="bg-[var(--color-premium-bg)] text-[var(--color-premium)] hover:opacity-80">有効化</Button>
 										</form>
 									{/if}
 									<form method="POST" action="?/deleteVoice" use:enhance>
 										<input type="hidden" name="voiceId" value={voice.id} />
-										<Button type="submit" variant="ghost" size="sm" class="text-[var(--color-action-danger)] hover:text-[var(--color-feedback-error-text)]">削除</Button>
+										<Button type="submit" variant="ghost" size="sm" class="text-[var(--color-action-danger)] hover:opacity-80">削除</Button>
 									</form>
 								</div>
 							{/each}
@@ -983,7 +983,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 		padding: 0.75rem;
 	}
 	.info-card--blue { background: var(--color-surface-info, #eff6ff); }
-	.info-card--purple { background: #f5f3ff; }
+	.info-card--purple { background: var(--color-premium-bg, #f5f3ff); }
 	.info-card--amber { background: var(--color-surface-warning, #fffbeb); }
 	.info-card--green { background: var(--color-surface-success, #f0fdf4); }
 	.info-card__value {
@@ -991,7 +991,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 		font-weight: 700;
 	}
 	.info-card--blue .info-card__value { color: var(--color-action-primary, #2563eb); }
-	.info-card--purple .info-card__value { color: #7c3aed; }
+	.info-card--purple .info-card__value { color: var(--color-premium, #7c3aed); }
 	.info-card--amber .info-card__value { color: var(--color-gold-500, #d97706); }
 	.info-card--green .info-card__value { color: var(--color-success, #16a34a); }
 	.info-card__label {
@@ -1002,7 +1002,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 	/* Status */
 	.status-success {
 		background: var(--color-surface-success, #f0fdf4);
-		border: 1px solid #bbf7d0;
+		border: 1px solid var(--color-rarity-common, #bbf7d0);
 		color: var(--color-success, #16a34a);
 		padding: 0.5rem 0.75rem;
 		border-radius: 0.5rem;
@@ -1198,15 +1198,15 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 		padding: 0.5rem;
 	}
 	.voice-item--active {
-		border-color: #c4b5fd;
-		background: #faf5ff;
+		border-color: var(--color-rarity-epic, #c4b5fd);
+		background: var(--color-premium-bg, #faf5ff);
 	}
 	.voice-item__label {
 		font-size: 0.875rem;
 		white-space: nowrap;
 	}
 	.voice-item--active .voice-item__label {
-		color: #7c3aed;
+		color: var(--color-premium, #7c3aed);
 		font-weight: 700;
 	}
 

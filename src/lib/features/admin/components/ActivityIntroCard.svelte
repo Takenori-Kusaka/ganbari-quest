@@ -20,11 +20,11 @@ let { icon, name, borderColor }: Props = $props();
 </script>
 
 <div
-	class="w-40 aspect-square rounded-2xl border-3 shadow-lg flex flex-col items-center justify-center gap-2 bg-white transition-all duration-300"
+	class="w-40 aspect-square rounded-2xl border-3 shadow-lg flex flex-col items-center justify-center gap-2 bg-[var(--color-surface-card)] transition-all duration-300"
 	style:border-color={borderColor}
 >
 	<CompoundIcon {icon} size="xl" />
-	<span class="text-base font-bold text-gray-700 text-center leading-tight px-2">
+	<span class="text-base font-bold text-[var(--color-text)] text-center leading-tight px-2">
 		{name}
 	</span>
 </div>
