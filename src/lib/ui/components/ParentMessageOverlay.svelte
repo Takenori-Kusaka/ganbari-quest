@@ -27,11 +27,11 @@ function handleClose() {
 
 <Dialog bind:open closable={false} title="">
 	<div class="flex flex-col items-center gap-[var(--sp-md)] text-center py-[var(--sp-md)]">
-		<p class="text-lg font-bold text-pink-500">💌 おうえんメッセージ！</p>
+		<p class="text-lg font-bold text-[var(--color-action-primary)]">💌 おうえんメッセージ！</p>
 
 		<div
-			class="w-32 h-32 rounded-[var(--radius-lg)] border-4 border-pink-300
-				bg-gradient-to-b from-pink-50 to-pink-200 shadow-pink-300/50 shadow-lg
+			class="w-32 h-32 rounded-[var(--radius-lg)] border-4 border-[var(--color-action-secondary)]
+				bg-gradient-to-b from-[var(--color-surface-muted)] to-[var(--color-action-secondary)] shadow-lg
 				flex items-center justify-center animate-bounce-in"
 		>
 			<span class="text-5xl">{icon}</span>
@@ -43,10 +43,10 @@ function handleClose() {
 			<p class="{body.length > 30 ? 'text-sm' : 'text-lg'} font-bold leading-relaxed max-h-40 overflow-y-auto px-2">「{body}」</p>
 		{/if}
 
-		<p class="text-sm text-gray-500">パパ・ママからのメッセージだよ</p>
+		<p class="text-sm text-[var(--color-text-muted)]">パパ・ママからのメッセージだよ</p>
 
 		<button
-			class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-pink-500 text-white font-bold text-lg mt-[var(--sp-sm)]"
+			class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--color-action-primary)] text-white font-bold text-lg mt-[var(--sp-sm)]"
 			onclick={handleClose}
 		>
 			うれしい！
