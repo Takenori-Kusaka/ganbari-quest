@@ -36,8 +36,8 @@ let { nickname, newAge, totalPoints, onclick }: Props = $props();
 		padding: 10px 12px;
 		margin-bottom: 8px;
 		border-radius: var(--radius-md, 12px);
-		border: 2px solid #fbbf24;
-		background: linear-gradient(135deg, #fffbeb, #fef3c7);
+		border: 2px solid var(--color-gold-400);
+		background: linear-gradient(135deg, var(--color-feedback-warning-bg), var(--color-feedback-warning-bg-strong));
 		cursor: pointer;
 		animation: birthday-glow 2s ease-in-out infinite;
 	}
@@ -60,20 +60,20 @@ let { nickname, newAge, totalPoints, onclick }: Props = $props();
 	.birthday-banner__title {
 		font-size: 0.75rem;
 		font-weight: 800;
-		color: #92400e;
+		color: var(--color-feedback-warning-text);
 		margin: 0;
 	}
 
 	.birthday-banner__sub {
 		font-size: 0.625rem;
-		color: #b45309;
+		color: var(--color-feedback-warning-text);
 		margin: 2px 0 0;
 	}
 
 	.birthday-banner__points {
 		font-size: 0.875rem;
 		font-weight: 800;
-		color: #d97706;
+		color: var(--color-stat-amber);
 		flex-shrink: 0;
 	}
 </style>

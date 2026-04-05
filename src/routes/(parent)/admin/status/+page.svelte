@@ -13,10 +13,14 @@ let { data } = $props();
 
 /** 偏差値帯から親向け自然言語へ変換 */
 function getAnalysisText(deviationScore: number): { text: string; color: string } {
-	if (deviationScore >= 60) return { text: '同年齢の中でも特に活発です', color: 'text-green-600' };
+	if (deviationScore >= 60)
+		return {
+			text: '同年齢の中でも特に活発です',
+			color: 'text-[var(--color-feedback-success-text)]',
+		};
 	if (deviationScore >= 45)
-		return { text: '平均的なペースで成長しています', color: 'text-blue-600' };
-	return { text: 'これから伸びる余地がたくさんあります', color: 'text-orange-500' };
+		return { text: '平均的なペースで成長しています', color: 'text-[var(--color-brand-600)]' };
+	return { text: 'これから伸びる余地がたくさんあります', color: 'text-[var(--color-warning)]' };
 }
 
 let benchmarkAge = $state(4);
@@ -86,7 +90,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 	<div class="flex items-center justify-end">
 		<a
 			href="/admin/children"
-			class="text-sm text-blue-500 hover:text-blue-600 font-bold"
+			class="text-sm text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] font-bold"
 		>
 			こども管理でステータス編集 →
 		</a>
@@ -95,7 +99,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 	<!-- 成長レポート -->
 	{#if previewChild?.status}
 		<Card>
-			<h3 class="text-lg font-bold text-gray-700 mb-3">
+			<h3 class="text-lg font-bold text-[var(--color-text)] mb-3">
 				📊 {previewChild.nickname}の成長レポート
 			</h3>
 
@@ -108,13 +112,13 @@ let levelTitleInputs: Record<number, string> = $state({});
 					size={280}
 				/>
 			</div>
-			<p class="text-xs text-gray-400 text-center mb-4">
+			<p class="text-xs text-[var(--color-text-muted)] text-center mb-4">
 				※ 参考値です。お子さまの個性やペースを大切にしてください
 			</p>
 
 			<!-- 分析サマリー (G8) -->
-			<div class="bg-gray-50 rounded-lg p-3 mb-4">
-				<h4 class="text-sm font-bold text-gray-600 mb-2">📋 分析サマリー</h4>
+			<div class="bg-[var(--color-surface-muted)] rounded-lg p-3 mb-4">
+				<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">📋 分析サマリー</h4>
 				<div class="space-y-1">
 					{#each CATEGORY_DEFS as catDef (catDef.id)}
 						{@const stat = previewChild.status?.statuses[catDef.id]}
@@ -122,7 +126,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 							{@const analysis = getAnalysisText(stat.deviationScore)}
 							<div class="flex items-center gap-2 text-sm">
 								<span class="w-5 text-center">{catDef.icon}</span>
-								<span class="font-bold text-gray-700 w-20">{catDef.name}</span>
+								<span class="font-bold text-[var(--color-text)] w-20">{catDef.name}</span>
 								<span class={analysis.color}>{analysis.text}</span>
 							</div>
 						{/if}
@@ -133,16 +137,16 @@ let levelTitleInputs: Record<number, string> = $state({});
 			<!-- 月次変化量テーブル (G9) -->
 			{#if previewChild.monthlyComparison}
 				{@const mc = previewChild.monthlyComparison}
-				<div class="bg-gray-50 rounded-lg p-3">
-					<h4 class="text-sm font-bold text-gray-600 mb-2">📈 先月からの変化</h4>
+				<div class="bg-[var(--color-surface-muted)] rounded-lg p-3">
+					<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">📈 先月からの変化</h4>
 					<div class="space-y-1">
 						{#each CATEGORY_DEFS as catDef (catDef.id)}
 							{@const change = mc.changes[catDef.id] ?? 0}
 							{@const arrow = change > 0 ? '↑' : change < 0 ? '↓' : '→'}
-							{@const color = change > 0 ? 'text-green-600' : change < 0 ? 'text-red-500' : 'text-gray-400'}
+							{@const color = change > 0 ? 'text-[var(--color-feedback-success-text)]' : change < 0 ? 'text-[var(--color-feedback-error-text)]' : 'text-[var(--color-text-muted)]'}
 							<div class="flex items-center gap-2 text-sm">
 								<span class="w-5 text-center">{catDef.icon}</span>
-								<span class="font-bold text-gray-700 w-20">{catDef.name}</span>
+								<span class="font-bold text-[var(--color-text)] w-20">{catDef.name}</span>
 								<span class={color}>
 									{change > 0 ? '+' : ''}{change} {arrow}
 								</span>
@@ -160,16 +164,16 @@ let levelTitleInputs: Record<number, string> = $state({});
 			type="button"
 			variant="ghost"
 			size="md"
-			class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"
+			class="w-full flex items-center justify-between p-4 text-left hover:bg-[var(--color-surface-muted)]"
 			onclick={() => { showLevelTitles = !showLevelTitles; }}
 		>
-			<h3 class="text-lg font-bold text-gray-700">🏷️ レベル称号カスタマイズ</h3>
-			<span class="text-gray-400 text-sm">{showLevelTitles ? '▲ 閉じる' : '▼ 開く'}</span>
+			<h3 class="text-lg font-bold text-[var(--color-text)]">🏷️ レベル称号カスタマイズ</h3>
+			<span class="text-[var(--color-text-muted)] text-sm">{showLevelTitles ? '▲ 閉じる' : '▼ 開く'}</span>
 		</Button>
 
 		{#if showLevelTitles}
 			<div class="px-4 pb-4 space-y-3">
-				<p class="text-xs text-gray-500">
+				<p class="text-xs text-[var(--color-text-muted)]">
 					各レベルの称号を家庭オリジナルに変更できます。空欄にするとデフォルトに戻ります。
 				</p>
 
@@ -178,7 +182,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 				{/if}
 
 				{#each data.levelTitles as lt (lt.level)}
-					<div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
+					<div class="flex items-start gap-3 bg-[var(--color-surface-muted)] rounded-lg p-3">
 						<div class="flex-1 min-w-0">
 							<form
 								method="POST"
@@ -206,7 +210,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 											value={levelTitleInputs[lt.level] ?? lt.customTitle ?? ''}
 											oninput={(e) => { levelTitleInputs[lt.level] = e.currentTarget.value; }}
 											class="w-full px-3 py-1.5 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
-												{lt.customTitle ? 'border-purple-300 bg-purple-50' : 'border-[var(--input-border)]'}"
+												{lt.customTitle ? 'border-[var(--color-premium-bg)] bg-[var(--color-stat-purple-bg)]' : 'border-[var(--input-border)]'}"
 										/>
 									{/snippet}
 								</FormField>
@@ -214,7 +218,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 									type="submit"
 									variant="primary"
 									size="sm"
-									class="bg-purple-500 hover:bg-purple-600 text-xs whitespace-nowrap"
+									class="bg-[var(--color-stat-purple)] hover:brightness-110 text-xs whitespace-nowrap"
 								>
 									保存
 								</Button>
@@ -240,7 +244,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 									type="submit"
 									variant="ghost"
 									size="sm"
-									class="text-xs text-gray-400 hover:text-red-500 whitespace-nowrap"
+									class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-feedback-error-text)] whitespace-nowrap"
 									title="デフォルトに戻す"
 								>
 									リセット
@@ -265,13 +269,13 @@ let levelTitleInputs: Record<number, string> = $state({});
 								}
 							};
 						}}
-						class="pt-2 border-t border-gray-200"
+						class="pt-2 border-t border-[var(--color-border-default)]"
 					>
 						<Button
 							type="submit"
 							variant="ghost"
 							size="sm"
-							class="text-sm text-red-500 hover:text-red-600"
+							class="text-sm text-[var(--color-feedback-error-text)] hover:brightness-75"
 						>
 							全ての称号をデフォルトに戻す
 						</Button>
@@ -283,7 +287,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 
 	<div>
 		<!-- 機能説明 -->
-		<div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
+		<div class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-lg p-3 mb-4 text-sm text-[var(--color-feedback-info-text)]">
 			<p class="font-bold mb-1">ベンチマークとは？</p>
 			<p>
 				子供のステータスを「同じ年齢の目安値」と比べて偏差値を計算するためのデータです。
@@ -294,14 +298,14 @@ let levelTitleInputs: Record<number, string> = $state({});
 		<!-- プレビュー用の子供選択 -->
 		{#if data.children.length > 0}
 			<div class="flex items-center gap-2 mb-4">
-				<span class="text-xs text-gray-500">プレビュー:</span>
+				<span class="text-xs text-[var(--color-text-muted)]">プレビュー:</span>
 				<div class="flex gap-1 flex-wrap">
 					{#each data.children as child (child.id)}
 						<Button
 							type="button"
 							variant={previewChildId === child.id ? 'primary' : 'outline'}
 							size="sm"
-							class="text-xs {previewChildId === child.id ? '' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}"
+							class="text-xs {previewChildId === child.id ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text-muted)] border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}"
 							onclick={() => { previewChildIdOverride = child.id; }}
 						>
 							{child.nickname}
@@ -318,7 +322,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 					type="button"
 					variant={benchmarkAge === age ? 'success' : 'outline'}
 					size="sm"
-					class="text-xs whitespace-nowrap {benchmarkAge === age ? '' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}"
+					class="text-xs whitespace-nowrap {benchmarkAge === age ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text)] border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}"
 					onclick={() => { benchmarkAge = age; benchmarkSuccess = false; bmInputMean = {}; bmInputSd = {}; }}
 				>
 					{age}歳
@@ -327,13 +331,13 @@ let levelTitleInputs: Record<number, string> = $state({});
 		</div>
 
 		<!-- 年齢別参考値ガイド -->
-		<p class="text-xs text-gray-400 mb-4">
+		<p class="text-xs text-[var(--color-text-muted)] mb-4">
 			{benchmarkAge}歳の目安: 平均 {guideMeanLow}〜{guideMeanHigh} XP、SD {guideSdLow}〜{guideSdHigh}（XPベース）
 		</p>
 
 		<!-- 未設定警告 -->
 		{#if hasUnsetBenchmarks}
-			<div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 mb-4">
+			<div class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 text-sm text-[var(--color-feedback-warning-text)] mb-4">
 				{benchmarkAge}歳のベンチマークが未設定のカテゴリがあります。設定すると子供画面の比較メッセージが正しく機能します。
 			</div>
 		{/if}
@@ -367,7 +371,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 					<input type="hidden" name="categoryId" value={catDef.id} />
 					<div class="flex items-end gap-3 flex-wrap">
 						<span class="text-lg self-center">{catDef.icon}</span>
-						<span class="font-bold text-gray-700 w-24 self-center">{catDef.name}</span>
+						<span class="font-bold text-[var(--color-text)] w-24 self-center">{catDef.name}</span>
 						<FormField label="平均（目安値）" class="w-24">
 							{#snippet children()}
 								<input
@@ -411,7 +415,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 							{@const childVal = stat.value}
 							{@const deviation = calcDeviationScore(childVal, inputMean, inputSd)}
 							{@const label = getComparisonLabel(deviation)}
-							<p class="text-xs text-gray-400 mt-2 ml-8">
+							<p class="text-xs text-[var(--color-text-muted)] mt-2 ml-8">
 								{previewChild.nickname}: 偏差値 {deviation}（{label.emoji} {label.text}）
 							</p>
 						{/if}

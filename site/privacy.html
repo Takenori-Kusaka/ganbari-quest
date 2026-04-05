@@ -29,12 +29,13 @@ body{line-height:1.8;background:var(--gray-50)}
     <a href="index.html" class="logo">
       <img src="logo-compact.png" alt="がんばりクエスト" height="44">
     </a>
-    <nav class="header-nav">
-      <a href="index.html">ホーム</a>
-      <a href="terms.html">利用規約</a>
-      <a href="privacy.html">プライバシーポリシー</a>
-      <a href="sla.html">SLA</a>
-      <a href="tokushoho.html">特商法表記</a>
+    <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
+    <nav id="main-nav" class="header-nav">
+      <a href="index.html" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="index.html#features" onclick="this.parentElement.classList.remove('open')">できること</a>
+      <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモ体験</a>
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
     </nav>
   </div>
 </header>
@@ -184,12 +185,30 @@ body{line-height:1.8;background:var(--gray-50)}
 </article>
 </main>
 
-<footer class="footer-simple">
-  <p>&copy; 2026 がんばりクエスト</p>
-  <div class="footer-links-inline">
-    <a href="index.html">トップページ</a>
-    <a href="pricing.html">料金プラン</a>
-    <a href="https://ganbari-quest.com/auth/login">ログイン</a>
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <h3>がんばりクエスト</h3>
+      <p>お子さまの「がんばり」を冒険に変える<br>家庭向けWebアプリ</p>
+    </div>
+    <div class="footer-links">
+      <h4>リンク</h4>
+      <a href="pricing.html">料金プラン</a>
+      <a href="https://github.com/Takenori-Kusaka/ganbari-quest">GitHub</a>
+      <a href="https://discord.gg/5pWkf4Z5">Discordコミュニティ</a>
+      <a href="https://github.com/sponsors/Takenori-Kusaka">Sponsor</a>
+      <a href="https://ganbari-quest.com/auth/login">ログイン</a>
+    </div>
+    <div class="footer-links">
+      <h4>法的情報</h4>
+      <a href="terms.html">利用規約</a>
+      <a href="privacy.html">プライバシーポリシー</a>
+      <a href="sla.html">SLA</a>
+      <a href="tokushoho.html">特定商取引法に基づく表記</a>
+    </div>
+  </div>
+  <div class="footer-copy">
+    <p>&copy; 2026 がんばりクエスト. All rights reserved.</p>
   </div>
 </footer>
 
