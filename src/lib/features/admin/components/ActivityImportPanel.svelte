@@ -14,7 +14,7 @@ let importLoading = $state(false);
 let fileImportLoading = $state(false);
 </script>
 
-<div class="bg-[var(--color-rarity-common-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-action-success)]/20">
+<div class="bg-[var(--color-rarity-common-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-border-success)]">
 	<div class="flex items-center justify-between">
 		<h3 class="font-bold text-[var(--color-action-success)]">📥 活動パックからインポート</h3>
 		<a href="/admin/packs" class="text-xs text-[var(--color-action-success)] hover:opacity-80 underline">すべてのパック →</a>
@@ -45,7 +45,7 @@ let fileImportLoading = $state(false);
 					<button
 						type="submit"
 						disabled={importLoading}
-						class="w-full flex items-center gap-3 p-3 bg-[var(--color-surface-card)] rounded-lg border border-[var(--color-action-success)]/20 hover:border-[var(--color-action-success)]/40 hover:bg-[var(--color-rarity-common-bg)] transition-colors text-left"
+						class="w-full flex items-center gap-3 p-3 bg-[var(--color-surface-card)] rounded-lg border border-[var(--color-border-success)] hover:border-[var(--color-border-success-strong)] hover:bg-[var(--color-rarity-common-bg)] transition-colors text-left"
 					>
 						<span class="text-2xl">{pack.icon}</span>
 						<div class="flex-1 min-w-0">
@@ -62,7 +62,7 @@ let fileImportLoading = $state(false);
 	{/if}
 
 	<!-- ファイルからインポート -->
-	<div class="border-t border-[var(--color-action-success)]/20 pt-3 mt-3">
+	<div class="border-t border-[var(--color-border-success)] pt-3 mt-3">
 		<h4 class="font-bold text-[var(--color-action-success)] text-sm mb-2">📁 ファイルからインポート</h4>
 		<p class="text-xs text-[var(--color-action-success)] mb-2">JSON または CSV ファイルから活動を一括追加（重複はスキップ）</p>
 		<form
