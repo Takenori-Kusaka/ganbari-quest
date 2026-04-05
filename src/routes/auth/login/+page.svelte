@@ -1,4 +1,5 @@
 <script lang="ts">
+import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
@@ -18,12 +19,10 @@ let password = $state('');
 let mfaCodeRaw = $state('');
 let confirmCodeRaw = $state('');
 
-// サーバーレスポンス（form）からのメールアドレス・パスワード復元
+// サーバーレスポンス（form）からのメールアドレス復元（パスワードはクライアント状態のみ）
 $effect(() => {
 	const formEmail = form?.email;
 	if (typeof formEmail === 'string') email = formEmail;
-	const formPassword = f()?.password;
-	if (typeof formPassword === 'string') password = formPassword;
 });
 const mfaCode = $derived(mfaCodeRaw.replace(/\s/g, ''));
 const confirmCode = $derived(confirmCodeRaw.replace(/\s/g, ''));
@@ -33,7 +32,14 @@ let resending = $state(false);
 // 再送クールダウン（60秒）
 let resendCooldown = $state(0);
 let cooldownTimer: ReturnType<typeof setInterval> | null = null;
+let messageTimeout: ReturnType<typeof setTimeout> | null = null;
 let resendSuccess = $state(false);
+
+// コンポーネント破棄時にタイマーをクリーンアップ
+onDestroy(() => {
+	if (cooldownTimer) clearInterval(cooldownTimer);
+	if (messageTimeout) clearTimeout(messageTimeout);
+});
 
 function startCooldown() {
 	resendCooldown = 60;
@@ -65,7 +71,8 @@ $effect(() => {
 	if (form && 'resent' in form && form.resent) {
 		resendSuccess = true;
 		startCooldown();
-		setTimeout(() => {
+		if (messageTimeout) clearTimeout(messageTimeout);
+		messageTimeout = setTimeout(() => {
 			resendSuccess = false;
 		}, 3000);
 	}

@@ -221,10 +221,17 @@ async function handleCognitoLogin(
 		// UNCONFIRMED ユーザー: 確認コードを自動再送して確認画面へ遷移
 		if (result.error === 'NOT_CONFIRMED') {
 			try {
-				await resendConfirmationCode(email);
-				logger.info('[AUTH] Auto-resent confirmation code for unconfirmed user', {
-					context: { email },
-				});
+				const resendResult = await resendConfirmationCode(email);
+				if (!resendResult.success) {
+					logger.warn('[AUTH] Failed to auto-resend confirmation code', {
+						context: { email, error: resendResult.message ?? 'Unknown error' },
+					});
+					// Still transition to confirm step but with warning
+				} else {
+					logger.info('[AUTH] Auto-resent confirmation code for unconfirmed user', {
+						context: { email },
+					});
+				}
 			} catch (e) {
 				logger.warn('[AUTH] Failed to auto-resend confirmation code', {
 					context: { error: e instanceof Error ? e.message : String(e) },
@@ -233,7 +240,6 @@ async function handleCognitoLogin(
 			return {
 				confirmStep: true,
 				email,
-				password,
 			};
 		}
 

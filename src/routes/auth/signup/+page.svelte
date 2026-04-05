@@ -1,4 +1,5 @@
 <script lang="ts">
+import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
@@ -25,7 +26,14 @@ let showLicenseKey = $state(false);
 // 再送クールダウン（60秒）
 let resendCooldown = $state(0);
 let cooldownTimer: ReturnType<typeof setInterval> | null = null;
+let messageTimeout: ReturnType<typeof setTimeout> | null = null;
 let resendSuccess = $state(false);
+
+// コンポーネント破棄時にタイマーをクリーンアップ
+onDestroy(() => {
+	if (cooldownTimer) clearInterval(cooldownTimer);
+	if (messageTimeout) clearTimeout(messageTimeout);
+});
 
 function startCooldown() {
 	resendCooldown = 60;
@@ -62,7 +70,8 @@ $effect(() => {
 		resendSuccess = true;
 		startCooldown();
 		// 3秒後に成功メッセージを消す
-		setTimeout(() => {
+		if (messageTimeout) clearTimeout(messageTimeout);
+		messageTimeout = setTimeout(() => {
 			resendSuccess = false;
 		}, 3000);
 	}
