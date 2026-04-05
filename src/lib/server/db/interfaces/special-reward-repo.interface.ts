@@ -5,4 +5,5 @@ export interface ISpecialRewardRepo {
 	findSpecialRewards(childId: number, tenantId: string): Promise<SpecialReward[]>;
 	findUnshownReward(childId: number, tenantId: string): Promise<SpecialReward | undefined>;
 	markRewardShown(rewardId: number, tenantId: string): Promise<SpecialReward | undefined>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

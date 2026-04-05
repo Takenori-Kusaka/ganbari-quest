@@ -3,7 +3,8 @@ import type { Snippet } from 'svelte';
 import { navigating, page } from '$app/stores';
 import Logo from '$lib/ui/components/Logo.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
-import { markTutorialStarted, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
+import { markTutorialStarted, startTutorialForPage } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 interface NavItem {
 	href: string;
@@ -32,7 +33,8 @@ const isDemo = $derived(mode === 'demo');
 
 async function handleStartTutorial() {
 	await markTutorialStarted();
-	await startTutorial();
+	const currentPath = $page.url.pathname;
+	await startTutorialForPage(currentPath);
 }
 
 // bfcache recovery (production only)
@@ -47,10 +49,17 @@ $effect(() => {
 	return () => window.removeEventListener('pageshow', handlePageShow);
 });
 
+/** Full plan name for the header badge (#490) */
+const planLabel = $derived.by(() => {
+	if (planTier === 'family') return 'ファミリープラン';
+	if (planTier === 'standard') return 'スタンダードプラン';
+	return '';
+});
+
 const navCategories: NavCategory[] = $derived([
 	{
 		id: 'monitor',
-		label: 'みまもり',
+		label: '記録・分析',
 		icon: '📊',
 		items: [
 			{ href: `${basePath}/reports`, label: 'レポート', icon: '📊' },
@@ -60,7 +69,7 @@ const navCategories: NavCategory[] = $derived([
 	},
 	{
 		id: 'encourage',
-		label: 'はげまし',
+		label: '応援・報酬',
 		icon: '💬',
 		items: [
 			{ href: `${basePath}/points`, label: 'ポイント', icon: '⭐' },
@@ -70,7 +79,7 @@ const navCategories: NavCategory[] = $derived([
 	},
 	{
 		id: 'customize',
-		label: 'カスタマイズ',
+		label: '活動設定',
 		icon: '🎮',
 		items: [
 			{ href: `${basePath}/activities`, label: '活動管理', icon: '📋' },
@@ -81,11 +90,11 @@ const navCategories: NavCategory[] = $derived([
 	},
 	{
 		id: 'settings',
-		label: '設定',
+		label: 'アカウント',
 		icon: '⚙️',
 		items: [
 			{ href: `${basePath}/children`, label: 'こども', icon: '👧' },
-			{ href: `${basePath}/settings`, label: 'アカウント', icon: '⚙️' },
+			{ href: `${basePath}/settings`, label: '設定', icon: '⚙️' },
 			{ href: `${basePath}/license`, label: 'プラン', icon: '💎' },
 			{ href: `${basePath}/members`, label: 'メンバー', icon: '👥' },
 		],
@@ -149,11 +158,11 @@ function isItemActive(itemHref: string): boolean {
 		<div class="max-w-4xl mx-auto flex items-center justify-between">
 			<div class="flex items-center gap-2">
 				<a href={basePath} class="flex items-center">
-					<Logo variant="compact" size={120} planTier={isPremium ? planTier : undefined} />
+					<Logo variant="compact" size={120} />
 				</a>
-				<span class="text-xs font-medium text-[var(--color-text-muted)] border border-[var(--color-border-strong)] rounded px-1.5 py-0.5">管理</span>
+				<span class="header-badge header-badge--admin">保護者用</span>
 				{#if isDemo}
-					<span class="text-xs font-medium text-[var(--color-warning)] border border-[var(--color-feedback-warning-border)] rounded px-1.5 py-0.5">デモ</span>
+					<span class="header-badge header-badge--demo">デモ</span>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
@@ -163,27 +172,26 @@ function isItemActive(itemHref: string): boolean {
 						class="upgrade-btn"
 						data-tutorial="upgrade-btn"
 					>
-						⭐ アップグレード
+						アップグレード
 					</a>
-				{:else if !isDemo && planTier === 'standard'}
-					<span class="plan-badge plan-badge--standard">⭐ プレミアム</span>
-				{:else if !isDemo && planTier === 'family'}
-					<span class="plan-badge plan-badge--family">⭐⭐ ファミリー</span>
+				{:else if !isDemo && isPremium}
+					<span class="plan-badge plan-badge--{planTier}">{planLabel}</span>
 				{/if}
 				{#if !isDemo}
-					<button
+					<Button
+						variant="ghost"
+						size="sm"
 						onclick={handleStartTutorial}
-						class="w-8 h-8 flex items-center justify-center rounded-full bg-[var(--color-feedback-info-bg-strong)] text-[var(--color-brand-600)] hover:brightness-95 transition-all text-sm font-bold"
 						title="チュートリアルを開始"
 						data-tutorial="tutorial-restart"
-						type="button"
+						class="header-tutorial-btn"
 					>
 						?
-					</button>
+					</Button>
 				{/if}
 				<a
 					href={isDemo ? '/demo' : '/switch'}
-					class="text-sm px-3 py-1 bg-[var(--color-surface-muted-strong)] text-[var(--color-text-muted)] rounded-lg hover:bg-[var(--color-neutral-200)] transition-colors inline-flex items-center gap-1"
+					class="header-switch-link"
 					data-tutorial="switch-to-child"
 				>
 					<span aria-hidden="true">&larr;</span>
@@ -269,7 +277,7 @@ function isItemActive(itemHref: string): boolean {
 					aria-label="メニューを閉じる"
 				></button>
 				<div class="mobile-submenu">
-					<div class="text-xs font-bold text-[var(--color-text-muted)] mb-2 px-1">{expandedCat.label}</div>
+					<div class="mobile-submenu-label">{expandedCat.label}</div>
 					<div class="grid grid-cols-3 gap-2">
 						{#each expandedCat.items as item}
 							<a
@@ -316,6 +324,25 @@ function isItemActive(itemHref: string): boolean {
 	.admin-header {
 		background: var(--plan-header-bg, rgba(255, 255, 255, 0.8));
 	}
+	/* Header badges — "保護者用" / "デモ" */
+	.header-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.125rem 0.5rem;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		border-radius: var(--radius-sm, 0.25rem);
+		white-space: nowrap;
+	}
+	.header-badge--admin {
+		color: var(--color-brand-700);
+		background: var(--color-brand-100);
+	}
+	.header-badge--demo {
+		color: var(--color-warning);
+		background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+	}
+	/* Upgrade link */
 	.upgrade-btn {
 		display: inline-flex;
 		align-items: center;
@@ -332,8 +359,9 @@ function isItemActive(itemHref: string): boolean {
 	}
 	.upgrade-btn:hover {
 		background: var(--color-premium);
-		color: white;
+		color: var(--color-text-inverse);
 	}
+	/* Plan badge — single instance (#490) */
 	.plan-badge {
 		display: inline-flex;
 		align-items: center;
@@ -351,6 +379,32 @@ function isItemActive(itemHref: string): boolean {
 	.plan-badge--family {
 		background: var(--plan-badge-bg, #fef3c7);
 		color: var(--plan-badge-text, #92400e);
+	}
+	/* Tutorial button override for small size (#497) */
+	:global(.header-tutorial-btn) {
+		width: 2rem !important;
+		height: 2rem !important;
+		min-height: unset !important;
+		padding: 0 !important;
+		border-radius: var(--radius-full) !important;
+		font-weight: 700 !important;
+	}
+	/* Switch link (#497) — uses CSS variables instead of Tailwind colors */
+	.header-switch-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.25rem 0.75rem;
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+		background: var(--color-surface-muted);
+		border-radius: var(--radius-md, 0.5rem);
+		transition: background 0.15s ease;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+	.header-switch-link:hover {
+		background: var(--color-border-default);
 	}
 	/* Desktop nav — category buttons */
 	.nav-item {
@@ -382,8 +436,8 @@ function isItemActive(itemHref: string): boolean {
 		top: 100%;
 		left: 0;
 		min-width: 180px;
-		background: white;
-		border: 1px solid var(--color-border, #e5e7eb);
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-default);
 		border-radius: 0.5rem;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 		padding: 0.25rem;
@@ -437,10 +491,17 @@ function isItemActive(itemHref: string): boolean {
 	}
 	/* Mobile submenu panel */
 	.mobile-submenu {
-		background: white;
-		border-top: 1px solid var(--color-border, #e5e7eb);
+		background: var(--color-surface-card);
+		border-top: 1px solid var(--color-border-default);
 		padding: 12px 16px;
 		animation: slideUp 0.15s ease-out;
+	}
+	.mobile-submenu-label {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--color-text-muted);
+		margin-bottom: 0.5rem;
+		padding-left: 0.25rem;
 	}
 	@keyframes slideUp {
 		from {

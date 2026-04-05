@@ -193,3 +193,9 @@ export async function enrollChildren(
 			.run();
 	}
 }
+
+/** テナントの全きょうだいチャレンジを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(siblingChallengeProgress).run();
+	db.delete(siblingChallenges).run();
+}

@@ -184,3 +184,11 @@ export async function insertOverride(
 export async function deleteOverride(id: number, _tenantId: string) {
 	db.delete(checklistOverrides).where(eq(checklistOverrides.id, id)).run();
 }
+
+/** テナントの全チェックリストデータを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(checklistOverrides).run();
+	db.delete(checklistLogs).run();
+	db.delete(checklistTemplateItems).run();
+	db.delete(checklistTemplates).run();
+}

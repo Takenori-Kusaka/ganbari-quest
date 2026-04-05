@@ -133,3 +133,8 @@ export async function insertDailyMission(
 ) {
 	db.insert(dailyMissions).values({ childId, missionDate: date, activityId }).run();
 }
+
+/** テナントの全デイリーミッションを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(dailyMissions).run();
+}
