@@ -55,12 +55,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	});
 
 	// テナントの ownerId を更新
-	const tenant = await repos.auth.findTenantById(tenantId);
-	if (tenant) {
-		await repos.auth.updateTenantStripe(tenantId, {});
-		// updateTenantStripe は get+put パターンなので、直接 ownerId 更新にはならない
-		// ownerId 更新は updateTenantStatus と同じパターンで直接行う
-	}
+	await repos.auth.updateTenantOwner(tenantId, targetUserId);
 
 	// メール通知
 	const newOwner = await repos.auth.findUserById(targetUserId);

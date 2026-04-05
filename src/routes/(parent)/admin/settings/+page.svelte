@@ -351,6 +351,124 @@ let cancelSubmitting = $state(false);
 let cancelError = $state('');
 let reactivateSubmitting = $state(false);
 
+// アカウント削除（ロールベース）
+let deleteConfirmText = $state('');
+let deleteSubmitting = $state(false);
+let deleteError = $state('');
+let showTransferDialog = $state(false);
+let transferTargetId = $state('');
+let deletionInfo = $state<{
+	isOnlyMember: boolean;
+	otherMembers: Array<{
+		userId: string;
+		role: string;
+		email?: string;
+		displayName?: string;
+	}>;
+} | null>(null);
+let deletionInfoLoading = $state(false);
+
+/** Owner 削除時: 他メンバー情報を取得 */
+async function fetchDeletionInfo() {
+	deletionInfoLoading = true;
+	try {
+		const res = await fetch('/api/v1/admin/account/deletion-info');
+		const d = await res.json();
+		if (!res.ok) throw new Error(d.error ?? '情報取得に失敗しました');
+		deletionInfo = d;
+	} catch (err) {
+		deleteError = err instanceof Error ? err.message : '情報取得に失敗しました';
+	} finally {
+		deletionInfoLoading = false;
+	}
+}
+
+/** ロールに応じたアカウント削除 */
+async function handleDeleteAccount() {
+	if (deleteConfirmText !== 'アカウントを削除します') return;
+	deleteSubmitting = true;
+	deleteError = '';
+
+	const role = $page.data.userRole;
+	let pattern: string;
+
+	if (role === 'owner') {
+		if (deletionInfo?.isOnlyMember) {
+			pattern = 'owner-only';
+		} else {
+			// Show transfer dialog instead
+			showTransferDialog = true;
+			deleteSubmitting = false;
+			return;
+		}
+	} else if (role === 'child') {
+		pattern = 'child';
+	} else {
+		pattern = 'member';
+	}
+
+	try {
+		const res = await fetch('/api/v1/admin/account/delete', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ pattern }),
+		});
+		const d = await res.json();
+		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		window.location.href = '/auth/signout';
+	} catch (err) {
+		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+	} finally {
+		deleteSubmitting = false;
+	}
+}
+
+/** Owner: 権限移譲して退会 */
+async function handleTransferAndDelete() {
+	if (!transferTargetId) return;
+	deleteSubmitting = true;
+	deleteError = '';
+
+	try {
+		const res = await fetch('/api/v1/admin/account/delete', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				pattern: 'owner-with-transfer',
+				newOwnerId: transferTargetId,
+			}),
+		});
+		const d = await res.json();
+		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		window.location.href = '/auth/signout';
+	} catch (err) {
+		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+	} finally {
+		deleteSubmitting = false;
+	}
+}
+
+/** Owner: 移譲なしで全削除 */
+async function handleFullDelete() {
+	deleteSubmitting = true;
+	deleteError = '';
+
+	try {
+		const res = await fetch('/api/v1/admin/account/delete', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ pattern: 'owner-full-delete' }),
+		});
+		const d = await res.json();
+		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		window.location.href = '/auth/signout';
+	} catch (err) {
+		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+	} finally {
+		deleteSubmitting = false;
+	}
+}
+
 async function handleCancelAccount() {
 	if (cancelConfirmText !== 'アカウントを削除します') return;
 	cancelSubmitting = true;
@@ -1416,46 +1534,142 @@ const previewFormatted = $derived(
 		</ul>
 	</Card>
 
-	<!-- アカウント削除（cognito モードの owner のみ） -->
+	<!-- アカウント削除（cognito モードの全ロール） -->
 	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== 'grace_period'}
 		<Card padding="lg" class="border-2 border-red-200">
 			<h3 class="text-lg font-bold text-red-600 mb-2">アカウント削除</h3>
-			<div class="text-sm text-gray-600 space-y-2 mb-4">
-				<p>アカウントを削除すると、30日間の猶予期間の後に以下のデータが完全に削除されます。</p>
-				<ul class="list-disc ml-5 text-gray-500 space-y-1">
-					<li>子供のプロフィール・活動記録・ポイント履歴</li>
-					<li>アバター画像・音声ファイル</li>
-					<li>設定・チェックリスト</li>
-					<li>メンバーシップ・招待情報</li>
-				</ul>
-				<p class="text-red-500 font-medium">
-					削除後のデータ復旧はできません。事前にデータをエクスポートすることを強くお勧めします。
-				</p>
-			</div>
 
-			{#if cancelError}
-				<ErrorAlert message={cancelError} severity="error" action="retry" />
+			{#if $page.data.userRole === 'owner'}
+				<!-- Owner: 家族グループ全体に影響 -->
+				<div class="text-sm text-gray-600 space-y-2 mb-4">
+					<p>オーナーとしてアカウントを削除すると、家族グループ全体のデータが影響を受けます。</p>
+					<ul class="list-disc ml-5 text-gray-500 space-y-1">
+						<li>子供のプロフィール・活動記録・ポイント履歴</li>
+						<li>アバター画像・音声ファイル</li>
+						<li>設定・チェックリスト・キャリアプラン</li>
+						<li>メンバーシップ・招待情報</li>
+					</ul>
+					<p class="text-red-500 font-medium">
+						削除後のデータ復旧はできません。事前にデータをエクスポートすることを強くお勧めします。
+					</p>
+				</div>
+			{:else if $page.data.userRole === 'child'}
+				<!-- Child -->
+				<div class="text-sm text-gray-600 space-y-2 mb-4">
+					<p>アカウントを削除すると、あなたのログイン情報が削除されます。</p>
+					<p>活動記録やポイントは家族グループに残りますが、このアカウントでのログインはできなくなります。</p>
+					<p class="text-red-500 font-medium">削除後の復旧はできません。</p>
+				</div>
+			{:else}
+				<!-- Parent (non-owner) -->
+				<div class="text-sm text-gray-600 space-y-2 mb-4">
+					<p>アカウントを削除すると、家族グループから離脱し、ログイン情報が削除されます。</p>
+					<p>家族グループのデータは引き続き保持されます。</p>
+					<p class="text-red-500 font-medium">削除後の復旧はできません。</p>
+				</div>
 			{/if}
 
-			<div class="mt-4 space-y-3">
-				<FormField
-					label="確認のため「アカウントを削除します」と入力してください"
-					type="text"
-					id="cancelConfirm"
-					bind:value={cancelConfirmText}
-					placeholder="アカウントを削除します"
-				/>
-				<Button
-					type="button"
-					variant="danger"
-					size="md"
-					class="w-full"
-					disabled={cancelSubmitting || cancelConfirmText !== 'アカウントを削除します'}
-					onclick={handleCancelAccount}
-				>
-					{cancelSubmitting ? '処理中...' : 'アカウント削除を申請する'}
-				</Button>
-			</div>
+			{#if deleteError}
+				<ErrorAlert message={deleteError} severity="error" action="retry" />
+			{/if}
+
+			<!-- 移譲ダイアログ（Owner かつ他メンバーがいる場合） -->
+			{#if showTransferDialog && deletionInfo && !deletionInfo.isOnlyMember}
+				<div class="mt-4 p-4 rounded-lg border-2" style:border-color="var(--color-border-default)" style:background-color="var(--color-surface-card)">
+					<h4 class="font-bold text-gray-700 mb-3">家族グループに他のメンバーがいます</h4>
+					<p class="text-sm text-gray-600 mb-4">
+						オーナー権限を別のメンバーに移譲するか、家族グループを全て削除するか選択してください。
+					</p>
+
+					<div class="space-y-4">
+						<!-- Option A: Transfer -->
+						<div class="p-3 rounded-lg" style:background-color="var(--color-surface-card)">
+							<p class="text-sm font-medium text-gray-700 mb-2">
+								オーナー権限を移譲して退会する
+							</p>
+							<div class="flex items-center gap-2 mb-2">
+								<select
+									bind:value={transferTargetId}
+									class="flex-1 rounded-lg border px-3 py-2 text-sm"
+									style:border-color="var(--color-border-default)"
+								>
+									<option value="">移譲先を選択...</option>
+									{#each deletionInfo.otherMembers.filter((m) => m.role !== 'child') as member}
+										<option value={member.userId}>
+											{member.displayName ?? member.email ?? member.userId}
+											（{member.role}）
+										</option>
+									{/each}
+								</select>
+								<Button
+									type="button"
+									variant="danger"
+									size="sm"
+									disabled={deleteSubmitting || !transferTargetId}
+									onclick={handleTransferAndDelete}
+								>
+									{deleteSubmitting ? '処理中...' : '移譲して退会'}
+								</Button>
+							</div>
+						</div>
+
+						<!-- Option B: Full delete -->
+						<div class="p-3 rounded-lg" style:background-color="var(--color-surface-card)">
+							<p class="text-sm font-medium text-red-600 mb-2">
+								家族グループを全て削除する
+							</p>
+							<p class="text-xs text-gray-500 mb-2">
+								全メンバーの所属が解除され、全データが削除されます。
+							</p>
+							<Button
+								type="button"
+								variant="danger"
+								size="sm"
+								disabled={deleteSubmitting}
+								onclick={handleFullDelete}
+							>
+								{deleteSubmitting ? '処理中...' : '全て削除する'}
+							</Button>
+						</div>
+
+						<!-- Cancel -->
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							onclick={() => { showTransferDialog = false; }}
+						>
+							キャンセル
+						</Button>
+					</div>
+				</div>
+			{:else}
+				<!-- 通常の削除フロー -->
+				<div class="mt-4 space-y-3">
+					<FormField
+						label="確認のため「アカウントを削除します」と入力してください"
+						type="text"
+						id="deleteConfirm"
+						bind:value={deleteConfirmText}
+						placeholder="アカウントを削除します"
+					/>
+					<Button
+						type="button"
+						variant="danger"
+						size="md"
+						class="w-full"
+						disabled={deleteSubmitting || deletionInfoLoading || deleteConfirmText !== 'アカウントを削除します'}
+						onclick={async () => {
+							if ($page.data.userRole === 'owner' && !deletionInfo) {
+								await fetchDeletionInfo();
+							}
+							handleDeleteAccount();
+						}}
+					>
+						{deleteSubmitting || deletionInfoLoading ? '処理中...' : 'アカウントを削除する'}
+					</Button>
+				</div>
+			{/if}
 		</Card>
 	{/if}
 
