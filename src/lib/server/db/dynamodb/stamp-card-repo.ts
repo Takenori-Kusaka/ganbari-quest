@@ -47,3 +47,11 @@ export async function updateCardStatus(
 ): Promise<void> {
 	throw new Error('stamp-card-repo: DynamoDB not implemented');
 }
+
+export async function updateCardStatusIfCollecting(
+	_cardId: number,
+	_input: UpdateStampCardStatusInput,
+	_tenantId: string,
+): Promise<number> {
+	throw new Error('stamp-card-repo: DynamoDB not implemented');
+}
