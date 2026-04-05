@@ -19,7 +19,7 @@ let { card }: Props = $props();
 	<div class="share-card-inner">
 		<div class="share-card-header">
 			<span class="share-card-icon">{card.icon}</span>
-			<p class="share-card-name">{card.childName} ちゃん</p>
+			<p class="share-card-name">{card.childName}</p>
 		</div>
 
 		<h2 class="share-card-title">{card.title}</h2>
