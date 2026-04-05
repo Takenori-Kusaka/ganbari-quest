@@ -47,21 +47,19 @@ jobs:
           docker compose up -d
 
       # Step 4: Verify the service is healthy after deployment
+      # Uses curl.exe instead of Invoke-WebRequest to avoid NETWORK SERVICE proxy/timeout issues
       - name: Health check
         run: |
           Start-Sleep -Seconds 10
           $maxRetries = 5
           $retryInterval = 5
           for ($i = 1; $i -le $maxRetries; $i++) {
-            try {
-              $response = Invoke-WebRequest -Uri http://localhost:3000/api/health -UseBasicParsing -TimeoutSec 10
-              if ($response.StatusCode -eq 200) {
-                Write-Host "Health check passed on attempt $i (status: $($response.StatusCode))"
-                exit 0
-              }
-            } catch {
-              Write-Host "Attempt $i failed: $($_.Exception.Message)"
+            $code = & curl.exe -s -o NUL -w "%{http_code}" --connect-timeout 10 http://localhost:3000/api/health 2>$null
+            if ($code -eq "200") {
+              Write-Host "Health check passed on attempt $i (status: $code)"
+              exit 0
             }
+            Write-Host "Attempt $i failed (status: $code)"
             if ($i -lt $maxRetries) {
               Write-Host "Retrying in ${retryInterval}s..."
               Start-Sleep -Seconds $retryInterval
