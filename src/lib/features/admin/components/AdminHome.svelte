@@ -182,7 +182,7 @@ function childLink(child: ChildSummary): string {
 		<a href="{basePath}/license" class="plan-quick-link plan-quick-link--free">
 			<span class="plan-quick-link__info">
 				<span class="plan-quick-link__name">無料プラン</span>
-				<span class="plan-quick-link__hint">カスタマイズ機能をアンロックしませんか？</span>
+				<span class="plan-quick-link__hint">もっと便利に使いませんか？</span>
 			</span>
 			<span class="plan-quick-link__action">⭐ アップグレード →</span>
 		</a>
