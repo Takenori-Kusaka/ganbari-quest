@@ -18,7 +18,7 @@ let showHidden = $state(false);
 	<div class="mt-6">
 		<button
 			type="button"
-			class="w-full flex items-center justify-between px-4 py-3 bg-gray-100 rounded-lg text-sm font-bold text-gray-500 hover:bg-gray-200 transition-colors"
+			class="w-full flex items-center justify-between px-4 py-3 bg-[var(--color-surface-muted-strong)] rounded-lg text-sm font-bold text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)] transition-colors"
 			onclick={() => showHidden = !showHidden}
 		>
 			<span>非表示の活動 ({activities.length}件)</span>
@@ -28,14 +28,14 @@ let showHidden = $state(false);
 			<div class="mt-2 space-y-1">
 				{#each activities as activity (activity.id)}
 					{@const logCount = logCounts[activity.id] ?? 0}
-					<div class="bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+					<div class="bg-[var(--color-surface-muted)] rounded-lg shadow-sm border border-[var(--color-border-default)]">
 						<div class="px-3 py-2 flex items-center gap-3">
 							<div class="opacity-50">
 								<CompoundIcon icon={activity.icon} size="md" />
 							</div>
 							<div class="flex-1 min-w-0">
-								<p class="text-sm font-bold text-gray-400 truncate">{getActivityDisplayNameForAdult(activity)}</p>
-								<p class="text-xs text-gray-400">
+								<p class="text-sm font-bold text-[var(--color-text-muted)] truncate">{getActivityDisplayNameForAdult(activity)}</p>
+								<p class="text-xs text-[var(--color-text-muted)]">
 									{getCategoryById(activity.categoryId)?.name ?? ''} / {activity.basePoints}P
 									{#if logCount > 0}
 										/ 記録 {logCount}件
@@ -48,7 +48,7 @@ let showHidden = $state(false);
 									<input type="hidden" name="visible" value="true" />
 									<button
 										type="submit"
-										class="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+										class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-info-bg-strong)] text-[var(--color-brand-600)] hover:bg-[var(--color-feedback-info-bg-strong)] transition-colors"
 									>
 										復活
 									</button>
@@ -64,7 +64,7 @@ let showHidden = $state(false);
 										<input type="hidden" name="id" value={activity.id} />
 										<button
 											type="submit"
-											class="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+											class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)] hover:bg-[var(--color-feedback-error-bg-strong)] transition-colors"
 										>
 											完全削除
 										</button>

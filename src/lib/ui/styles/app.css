@@ -91,7 +91,12 @@
 	--color-danger: #f44336;
 	--color-point: #ffd700;
 
+	/* ---- Orange Accent (CTA・暖色グラデーション終端) ---- */
+	--color-orange-500: #f97316;
+	--color-orange-50: #fff7ed;
+
 	/* ---- Violet Accent (プライシング・プレミアム強調) ---- */
+	--color-violet-700: #6d28d9;
 	--color-violet-600: #7c3aed;
 	--color-violet-500: #8b5cf6;
 
@@ -184,6 +189,8 @@
 	--gradient-brand: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-400));
 	--gradient-gold: linear-gradient(135deg, var(--color-gold-600), var(--color-gold-400));
 	--gradient-action: linear-gradient(135deg, var(--theme-primary), var(--theme-accent));
+	--gradient-cta: linear-gradient(to right, var(--color-warning), var(--color-orange-500));
+	--gradient-warm-bg: linear-gradient(to bottom, var(--color-feedback-warning-bg), var(--color-orange-50));
 
 	/* ============================================================
 	   Component Layer — コンポーネント固有のトークン
@@ -210,6 +217,52 @@
 	/* ---- Badge ---- */
 	--badge-radius: var(--radius-full);
 	--badge-font-size: var(--font-size-sm);
+
+	/* ============================================================
+	   Feedback Colors — 成功/エラー/警告/情報のフィードバック
+	   routes/features から使用するセマンティックトークン
+	   ============================================================ */
+
+	/* ---- Success (green) ---- */
+	--color-feedback-success-bg: #f0fdf4;
+	--color-feedback-success-bg-strong: #dcfce7;
+	--color-feedback-success-text: #15803d;
+	--color-feedback-success-border: #bbf7d0;
+
+	/* ---- Error (red) ---- */
+	--color-feedback-error-bg: #fef2f2;
+	--color-feedback-error-bg-strong: #fee2e2;
+	--color-feedback-error-text: #dc2626;
+	--color-feedback-error-border: #fecaca;
+
+	/* ---- Warning (amber) ---- */
+	--color-feedback-warning-bg: #fffbeb;
+	--color-feedback-warning-bg-strong: #fef3c7;
+	--color-feedback-warning-text: #b45309;
+	--color-feedback-warning-border: #fde68a;
+
+	/* ---- Info (blue) ---- */
+	--color-feedback-info-bg: #eff6ff;
+	--color-feedback-info-bg-strong: #dbeafe;
+	--color-feedback-info-text: #1d4ed8;
+	--color-feedback-info-border: #bfdbfe;
+
+	/* ---- Stat Colors (ダッシュボード統計カード) ---- */
+	--color-stat-purple: #7c3aed;
+	--color-stat-purple-bg: #f5f3ff;
+	--color-stat-amber: #d97706;
+	--color-stat-amber-bg: #fffbeb;
+	--color-stat-blue: #2563eb;
+	--color-stat-blue-bg: #eff6ff;
+	--color-stat-green: #16a34a;
+	--color-stat-green-bg: #f0fdf4;
+	--color-stat-red: #dc2626;
+	--color-stat-red-bg: #fef2f2;
+	--color-stat-indigo: #4f46e5;
+	--color-stat-indigo-bg: #eef2ff;
+
+	/* ---- Surface variants ---- */
+	--color-surface-muted-strong: var(--color-neutral-100);
 }
 
 /* ============================================================
