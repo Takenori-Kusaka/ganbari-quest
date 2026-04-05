@@ -51,7 +51,7 @@ function goToComplete() {
 		</div>
 
 		<h2 class="text-xl font-bold text-gray-700 mt-4 mb-2">
-			{child?.nickname}ちゃん すごい！
+			{child?.nickname} すごい！
 		</h2>
 
 		<p class="text-sm text-gray-500 mb-4">
@@ -84,7 +84,7 @@ function goToComplete() {
 		<div class="text-3xl mb-2">⚔️</div>
 		<h2 class="text-lg font-bold text-gray-700">はじめてのぼうけん！</h2>
 		<p class="text-sm text-gray-500 mt-1">
-			{child?.nickname}ちゃん、さいしょのがんばりを<br />いっしょにきろくしよう！
+			{child?.nickname}、さいしょのがんばりを<br />いっしょにきろくしよう！
 		</p>
 	</div>
 

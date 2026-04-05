@@ -46,7 +46,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				body.tenantId,
 				'streak_warning',
 				'ストリークが あぶない！',
-				`${child.name}ちゃんの ${child.streakDays}日れんぞくが きょうでとぎれちゃうよ！ いまからがんばろう！`,
+				`${child.name}の ${child.streakDays}日れんぞくが きょうでとぎれちゃうよ！ いまからがんばろう！`,
 				{ type: 'streak_warning' },
 			);
 			totalSent += result.sent;

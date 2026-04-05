@@ -32,12 +32,12 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ success: true, sent: 0, reason: 'disabled' });
 		}
 
-		const childNames = body.children.map((c) => c.name).join('ちゃん、');
+		const childNames = body.children.map((c) => c.name).join('、');
 		const result = await sendPushNotification(
 			body.tenantId,
 			'reminder',
 			'きょうも がんばろう！',
-			`${childNames}ちゃんの がんばりを きろくしよう！`,
+			`${childNames}の がんばりを きろくしよう！`,
 			{ type: 'reminder' },
 		);
 

@@ -19,7 +19,7 @@ const childLabel = $derived(
 	<div class="text-4xl mb-2">⚔️</div>
 	<h2 class="text-xl font-bold text-gray-700 mb-1">ぼうけんのはじまり！</h2>
 	<p class="text-sm text-gray-500 mb-4">
-		{firstChild?.nickname ?? ''}ちゃんのぼうけんじゅんびが<br />かんりょうしたよ！
+		{firstChild?.nickname ?? ''}のぼうけんじゅんびが<br />かんりょうしたよ！
 	</p>
 
 	<!-- ステータスサマリ -->

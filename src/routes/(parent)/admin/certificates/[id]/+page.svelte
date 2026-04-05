@@ -44,7 +44,7 @@ async function handleShareDownload() {
 		ctx.font = '48px sans-serif';
 		ctx.fillText(data.certificate.icon, 320, 100);
 		ctx.font = 'bold 24px sans-serif';
-		ctx.fillText(`${data.certificate.childName} ちゃん`, 320, 160);
+		ctx.fillText(data.certificate.childName, 320, 160);
 		ctx.fillStyle = '#2563eb';
 		ctx.font = 'bold 22px sans-serif';
 		ctx.fillText(data.certificate.title, 320, 210);

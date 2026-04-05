@@ -238,7 +238,7 @@ export async function sendAchievementNotification(
 			tenantId,
 			'level_up',
 			'レベルアップ！',
-			`${data.childName}ちゃんが レベル${data.levelUp.newLevel}に なったよ！ すごい！`,
+			`${data.childName}が レベル${data.levelUp.newLevel}に なったよ！ すごい！`,
 			{ type: 'level_up' },
 		);
 	} else {
@@ -246,7 +246,7 @@ export async function sendAchievementNotification(
 			tenantId,
 			'achievement',
 			'きろく完了！',
-			`${data.childName}ちゃんが「${data.activityName}」を がんばったよ！ +${data.totalPoints}P`,
+			`${data.childName}が「${data.activityName}」を がんばったよ！ +${data.totalPoints}P`,
 			{ type: 'achievement' },
 		);
 	}

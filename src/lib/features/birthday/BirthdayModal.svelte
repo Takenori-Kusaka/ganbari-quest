@@ -22,7 +22,7 @@ let claimedPoints = $state(0);
 function getMessageText(): { main: string; sub: string; button: string } {
 	if (uiMode === 'baby' || uiMode === 'kinder') {
 		return {
-			main: `${nickname}ちゃん、${newAge}さい\nおめでとう！`,
+			main: `${nickname}、${newAge}さい\nおめでとう！`,
 			sub: 'これからも いっぱい がんばろうね！',
 			button: 'やったー！',
 		};
@@ -74,7 +74,7 @@ const msg = $derived(getMessageText());
 			<p class="birthday-modal__emoji">🎂🎉🎊</p>
 			<p class="birthday-modal__main">おたんじょうび おめでとう！</p>
 			<p class="birthday-modal__age-text">
-				{nickname}ちゃん、{newAge}さい になったね！
+				{nickname}、{newAge}さい になったね！
 			</p>
 			<div class="birthday-modal__reward">
 				<span class="birthday-modal__reward-label">🎁 おたんじょうびボーナス</span>

@@ -21,7 +21,7 @@ let { nickname, newAge, totalPoints, onclick }: Props = $props();
 			おたんじょうびボーナスがとどいているよ！
 		</p>
 		<p class="birthday-banner__sub">
-			{nickname}ちゃん {newAge}さいおめでとう！ タップしてうけとろう
+			{nickname} {newAge}さいおめでとう！ タップしてうけとろう
 		</p>
 	</div>
 	<span class="birthday-banner__points">⭐{totalPoints}pt</span>
