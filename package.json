@@ -27,6 +27,7 @@
 		"lint": "biome check . && eslint --no-error-on-unmatched-pattern 'src/**/*.svelte' && stylelint 'src/**/*.css'",
 		"lint:svelte": "eslint --no-error-on-unmatched-pattern 'src/**/*.svelte'",
 		"lint:css": "stylelint 'src/**/*.css'",
+		"lint:colors": "node scripts/lint-color-classes.mjs",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
 		"db:generate": "drizzle-kit generate",
