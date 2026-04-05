@@ -1030,7 +1030,7 @@ const previewFormatted = $derived(
 							<p class="text-xs text-[var(--color-text-muted)] mt-1">新しい子供データとして追加されます（既存データは上書きされません）。</p>
 						{/if}
 					</div>
-					<label class="block w-full py-2 bg-[var(--color-warning)] text-white font-bold rounded-lg hover:bg-[var(--color-warning)] transition-colors text-center cursor-pointer {importLoading ? 'opacity-50 pointer-events-none' : ''}">
+					<label class="block w-full py-2 bg-[var(--color-warning)] text-white font-bold rounded-lg hover:brightness-110 transition-all text-center cursor-pointer {importLoading ? 'opacity-50 pointer-events-none' : ''}">
 						{#if importLoading}
 							<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
 							読み込み中...
@@ -1072,7 +1072,7 @@ const previewFormatted = $derived(
 							type="button"
 							variant="ghost"
 							size="md"
-							class="flex-1 bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
+							class="flex-1 bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:brightness-95"
 							onclick={resetImport}
 						>
 							キャンセル
@@ -1081,7 +1081,7 @@ const previewFormatted = $derived(
 							type="button"
 							variant="warning"
 							size="md"
-							class="flex-1 flex items-center justify-center gap-2 bg-[var(--color-warning)] hover:bg-[var(--color-warning)]"
+							class="flex-1 flex items-center justify-center gap-2 bg-[var(--color-warning)] hover:brightness-110"
 							disabled={importLoading}
 							onclick={handleImportExecute}
 						>
@@ -1135,7 +1135,7 @@ const previewFormatted = $derived(
 						type="button"
 						variant="ghost"
 						size="md"
-						class="w-full bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
+						class="w-full bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:brightness-95"
 						onclick={resetImport}
 					>
 						閉じる
@@ -1221,7 +1221,7 @@ const previewFormatted = $derived(
 										type="button"
 										variant="ghost"
 										size="sm"
-										class="text-[var(--color-feedback-error-text)] hover:text-[var(--color-feedback-error-text)]"
+										class="text-[var(--color-feedback-error-text)] hover:brightness-75"
 										onclick={() => handleDeleteCloudExport(exp.id)}
 									>
 										削除
@@ -1285,7 +1285,7 @@ const previewFormatted = $derived(
 								type="button"
 								variant="ghost"
 								size="md"
-								class="flex-1 bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
+								class="flex-1 bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:brightness-95"
 								onclick={resetCloudImport}
 							>
 								キャンセル
@@ -1324,7 +1324,7 @@ const previewFormatted = $derived(
 							type="button"
 							variant="ghost"
 							size="md"
-							class="w-full bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
+							class="w-full bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:brightness-95"
 							onclick={resetCloudImport}
 						>
 							閉じる

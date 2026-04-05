@@ -48,7 +48,7 @@ let showHidden = $state(false);
 									<input type="hidden" name="visible" value="true" />
 									<button
 										type="submit"
-										class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-info-bg-strong)] text-[var(--color-brand-600)] hover:bg-[var(--color-feedback-info-bg-strong)] transition-colors"
+										class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-info-bg-strong)] text-[var(--color-brand-600)] hover:brightness-95 transition-all"
 									>
 										復活
 									</button>
@@ -64,7 +64,7 @@ let showHidden = $state(false);
 										<input type="hidden" name="id" value={activity.id} />
 										<button
 											type="submit"
-											class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)] hover:bg-[var(--color-feedback-error-bg-strong)] transition-colors"
+											class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)] hover:brightness-95 transition-all"
 										>
 											完全削除
 										</button>
