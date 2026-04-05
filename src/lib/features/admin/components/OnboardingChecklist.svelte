@@ -21,7 +21,7 @@ const progressPct = $derived(
 	</div>
 
 	<!-- Progress bar -->
-	<div class="progress-bar-container">
+	<div class="progress-bar-container" role="progressbar" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} aria-label="セットアップ進捗 {progressPct}%">
 		<div class="progress-bar" style:width="{progressPct}%"></div>
 	</div>
 	<p class="progress-text">{onboarding.completedCount}/{onboarding.totalCount} 完了 ({progressPct}%)</p>
