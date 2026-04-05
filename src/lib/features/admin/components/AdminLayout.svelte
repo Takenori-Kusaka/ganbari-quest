@@ -145,15 +145,15 @@ function isItemActive(itemHref: string): boolean {
 
 <div data-theme="admin" data-plan={planTier} class="admin-shell">
 	<!-- Admin Header -->
-	<header class="admin-header sticky {isDemo ? 'top-10' : 'top-0'} z-30 backdrop-blur border-b border-gray-200 px-4 py-3">
+	<header class="admin-header sticky {isDemo ? 'top-10' : 'top-0'} z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3">
 		<div class="max-w-4xl mx-auto flex items-center justify-between">
 			<div class="flex items-center gap-2">
 				<a href={basePath} class="flex items-center">
 					<Logo variant="compact" size={120} planTier={isPremium ? planTier : undefined} />
 				</a>
-				<span class="text-xs font-medium text-gray-400 border border-gray-300 rounded px-1.5 py-0.5">管理</span>
+				<span class="text-xs font-medium text-[var(--color-text-muted)] border border-[var(--color-border-strong)] rounded px-1.5 py-0.5">管理</span>
 				{#if isDemo}
-					<span class="text-xs font-medium text-amber-500 border border-amber-300 rounded px-1.5 py-0.5">デモ</span>
+					<span class="text-xs font-medium text-[var(--color-warning)] border border-[var(--color-feedback-warning-border)] rounded px-1.5 py-0.5">デモ</span>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
@@ -173,7 +173,7 @@ function isItemActive(itemHref: string): boolean {
 				{#if !isDemo}
 					<button
 						onclick={handleStartTutorial}
-						class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors text-sm font-bold"
+						class="w-8 h-8 flex items-center justify-center rounded-full bg-[var(--color-feedback-info-bg-strong)] text-[var(--color-brand-600)] hover:bg-[var(--color-feedback-info-bg-strong)] transition-colors text-sm font-bold"
 						title="チュートリアルを開始"
 						data-tutorial="tutorial-restart"
 						type="button"
@@ -183,7 +183,7 @@ function isItemActive(itemHref: string): boolean {
 				{/if}
 				<a
 					href={isDemo ? '/demo' : '/switch'}
-					class="text-sm px-3 py-1 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 transition-colors inline-flex items-center gap-1"
+					class="text-sm px-3 py-1 bg-[var(--color-surface-muted-strong)] text-[var(--color-text-muted)] rounded-lg hover:bg-[var(--color-neutral-200)] transition-colors inline-flex items-center gap-1"
 					data-tutorial="switch-to-child"
 				>
 					<span aria-hidden="true">&larr;</span>
@@ -194,7 +194,7 @@ function isItemActive(itemHref: string): boolean {
 	</header>
 
 	<!-- Desktop Navigation (>=768px) — 4カテゴリ + ドロップダウン -->
-	<nav class="hidden md:block bg-white border-b border-gray-100 px-4 py-2" aria-label="管理メニュー">
+	<nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2" aria-label="管理メニュー">
 		<div class="max-w-4xl mx-auto flex gap-1">
 			{#each navCategories as category}
 				{@const isActive = activeCategoryId === category.id}
@@ -256,7 +256,7 @@ function isItemActive(itemHref: string): boolean {
 	</main>
 
 	<!-- Mobile Bottom Navigation (<768px) — 4カテゴリ -->
-	<nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 safe-area-bottom" aria-label="メインナビゲーション" data-tutorial="nav-primary">
+	<nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom" aria-label="メインナビゲーション" data-tutorial="nav-primary">
 		<!-- Expanded submenu panel -->
 		{#if mobileExpandedCategory}
 			{@const expandedCat = navCategories.find((c) => c.id === mobileExpandedCategory)}
@@ -269,7 +269,7 @@ function isItemActive(itemHref: string): boolean {
 					aria-label="メニューを閉じる"
 				></button>
 				<div class="mobile-submenu">
-					<div class="text-xs font-bold text-gray-400 mb-2 px-1">{expandedCat.label}</div>
+					<div class="text-xs font-bold text-[var(--color-text-muted)] mb-2 px-1">{expandedCat.label}</div>
 					<div class="grid grid-cols-3 gap-2">
 						{#each expandedCat.items as item}
 							<a
