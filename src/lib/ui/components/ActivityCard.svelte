@@ -22,6 +22,7 @@ interface Props {
 	isPinned?: boolean;
 	frozen?: boolean;
 	triggerHint?: string | null;
+	eventBadge?: string | null;
 	onclick?: () => void;
 	onlongpress?: () => void;
 }
@@ -39,6 +40,7 @@ let {
 	isPinned = false,
 	frozen = false,
 	triggerHint,
+	eventBadge = null,
 	onclick,
 	onlongpress,
 }: Props = $props();
@@ -126,6 +128,12 @@ function handleClick(e: Event) {
 		</div>
 	{/if}
 
+	{#if eventBadge && !completed}
+		<div class="event-badge" aria-hidden="true">
+			<span class="event-badge__icon">{eventBadge}</span>
+		</div>
+	{/if}
+
 	<CompoundIcon {icon} size={iconSize} faded={completed} />
 	<span class="font-bold leading-tight text-center line-clamp-2 {completed ? 'opacity-40' : ''}" style:font-size={textSize}>{name}</span>
 	{#if triggerHint && !completed}
@@ -210,6 +218,28 @@ function handleClick(e: Event) {
 	}
 	.card-mission__sparkle::before { top: -4px; left: -4px; animation-delay: 0s; }
 	.card-mission__sparkle::after  { top: -4px; right: -4px; animation-delay: 0.5s; }
+
+	/* Event badge */
+	.event-badge {
+		position: absolute;
+		bottom: -2px;
+		right: -2px;
+		z-index: 10;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 18px;
+		height: 18px;
+		border-radius: var(--radius-full, 9999px);
+		background: var(--color-surface-warm, #fef3c7);
+		border: 1.5px solid var(--color-border-warm, rgba(251, 191, 36, 0.4));
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+	}
+
+	.event-badge__icon {
+		font-size: 0.6rem;
+		line-height: 1;
+	}
 
 	/* Frozen card (#0266) */
 	:global(.card-frozen) {
