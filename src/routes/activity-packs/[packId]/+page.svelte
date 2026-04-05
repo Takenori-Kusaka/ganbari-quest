@@ -26,10 +26,7 @@ const groupedActivities = $derived.by(() => {
 	<meta name="description" content={pack.description} />
 </svelte:head>
 
-<div class="min-h-dvh bg-gradient-to-b from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)]">
-	<div class="max-w-2xl mx-auto px-4 py-8">
-		<!-- Back link -->
-		<a href="/activity-packs" class="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] mb-6">
+<div class="min-h-dvh bg-gradient-to-b from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)]">	<div class="max-w-2xl mx-auto px-4 py-8">		<!-- Back link -->		<a href="/activity-packs" class="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] mb-6">
 			&larr; かつどうパック一覧
 		</a>
 
@@ -83,16 +80,11 @@ const groupedActivities = $derived.by(() => {
 		{/each}
 
 		<!-- CTA -->
-		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] rounded-2xl border border-[var(--color-feedback-warning-border)] p-6 text-center mb-6">
-			<p class="text-sm font-bold text-[var(--color-text)] mb-1">このパックを使ってみませんか？</p>
-			<p class="text-xs text-[var(--color-text-muted)] mb-3">
-				アカウント登録後、管理画面からインポートできます
+		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] rounded-2xl border border-[var(--color-feedback-warning-border)] p-6 text-center mb-6">			<p class="text-sm font-bold text-[var(--color-text)] mb-1">このパックを使ってみませんか？</p>			<p class="text-xs text-[var(--color-text-muted)] mb-3">				アカウント登録後、管理画面からインポートできます
 			</p>
 			<a
 				href="/auth/signup"
-				class="block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-sm"
-			>
-				無料で はじめる
+				class="block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-sm"			>				無料で はじめる
 			</a>
 			<p class="text-xs text-[var(--color-text-muted)] mt-2">7日間無料トライアル付き</p>
 		</div>

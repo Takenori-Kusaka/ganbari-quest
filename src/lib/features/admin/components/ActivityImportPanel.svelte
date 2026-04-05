@@ -17,7 +17,7 @@ let fileImportLoading = $state(false);
 <div class="bg-[var(--color-feedback-success-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-feedback-success-border)]">
 	<div class="flex items-center justify-between">
 		<h3 class="font-bold text-[var(--color-feedback-success-text)]">📥 活動パックからインポート</h3>
-		<a href="/admin/packs" class="text-xs text-[var(--color-feedback-success-text)] hover:text-[var(--color-feedback-success-text)] underline">すべてのパック →</a>
+		<a href="/admin/packs" class="text-xs text-[var(--color-feedback-success-text)] hover:brightness-75 underline">すべてのパック →</a>
 	</div>
 	<p class="text-xs text-[var(--color-feedback-success-text)]">おすすめの活動セットを一括追加できます（重複はスキップ）</p>
 	{#if activityPacks.length === 0}
@@ -45,7 +45,7 @@ let fileImportLoading = $state(false);
 					<button
 						type="submit"
 						disabled={importLoading}
-						class="w-full flex items-center gap-3 p-3 bg-[var(--color-surface-card)] rounded-lg border border-[var(--color-feedback-success-border)] hover:border-[var(--color-feedback-success-border)] hover:bg-[var(--color-feedback-success-bg)] transition-colors text-left"
+						class="w-full flex items-center gap-3 p-3 bg-[var(--color-surface-card)] rounded-lg border border-[var(--color-feedback-success-border)] hover:border-[var(--color-action-success)] hover:bg-[var(--color-feedback-success-bg)] transition-colors text-left"
 					>
 						<span class="text-2xl">{pack.icon}</span>
 						<div class="flex-1 min-w-0">
@@ -84,7 +84,7 @@ let fileImportLoading = $state(false);
 		>
 			<div class="flex gap-2 items-center">
 				<input type="file" name="file" accept=".json,.csv" class="flex-1 text-sm file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-[var(--color-feedback-success-bg-strong)] file:text-[var(--color-feedback-success-text)] file:font-bold file:text-xs" required />
-				<button type="submit" disabled={fileImportLoading} class="px-4 py-2 bg-[var(--color-action-success)] text-white rounded-lg text-xs font-bold hover:bg-[var(--color-action-success)] disabled:opacity-50">
+				<button type="submit" disabled={fileImportLoading} class="px-4 py-2 bg-[var(--color-action-success)] text-white rounded-lg text-xs font-bold hover:brightness-110 disabled:opacity-50">
 					{fileImportLoading ? '処理中...' : 'インポート'}
 				</button>
 			</div>

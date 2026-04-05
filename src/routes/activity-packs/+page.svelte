@@ -10,10 +10,7 @@ let { data } = $props();
 	<meta name="description" content="お子さまの年齢に合った活動セット。がんばりクエストのプリセットパックで、すぐに始められます。" />
 </svelte:head>
 
-<div class="min-h-dvh bg-gradient-to-b from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)]">
-	<div class="max-w-2xl mx-auto px-4 py-8">
-		<!-- Header -->
-		<div class="text-center mb-8">
+<div class="min-h-dvh bg-gradient-to-b from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)]">	<div class="max-w-2xl mx-auto px-4 py-8">		<!-- Header -->		<div class="text-center mb-8">
 			<div class="flex justify-center mb-3">
 				<Logo variant="compact" size={160} />
 			</div>
@@ -57,9 +54,7 @@ let { data } = $props();
 			</p>
 			<a
 				href="/auth/signup"
-				class="block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-sm"
-			>
-				無料で はじめる
+				class="block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-sm"			>				無料で はじめる
 			</a>
 			<p class="text-xs text-[var(--color-text-muted)] mt-2">7日間無料トライアル付き</p>
 			{/snippet}

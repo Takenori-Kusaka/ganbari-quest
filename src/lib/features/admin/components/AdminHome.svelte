@@ -152,9 +152,7 @@ function childLink(child: ChildSummary): string {
 				<span class="text-2xl">📖</span>
 				<div class="flex-1">
 					<p class="font-bold text-[var(--color-text)]">初めてご利用ですか？</p>
-					<p class="text-sm text-[var(--color-text-muted)]">チュートリアルで使い方を確認しましょう（約3分）</p>
-				</div>
-				<div class="flex gap-2">
+					<p class="text-sm text-[var(--color-text-muted)]">チュートリアルで使い方を確認しましょう（約3分）</p>				</div>				<div class="flex gap-2">
 					<button
 						class="px-3 py-1.5 bg-[var(--color-brand-600)] text-white text-sm font-bold rounded-lg hover:bg-[var(--color-brand-700)] transition-colors"
 						onclick={handleStartTutorial}
@@ -304,16 +302,12 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Demo CTA (demo only) -->
 	{#if isDemo}
-		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] border border-[var(--color-feedback-warning-border)] rounded-xl p-4 text-center">
-			<p class="text-sm font-bold text-[var(--color-text)] mb-1">いかがでしたか？</p>
-			<p class="text-xs text-[var(--color-text-muted)] mb-3">
+		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] border border-[var(--color-feedback-warning-border)] rounded-xl p-4 text-center">			<p class="text-sm font-bold text-[var(--color-text)] mb-1">いかがでしたか？</p>			<p class="text-xs text-[var(--color-text-muted)] mb-3">
 				お子さまの「がんばり」を冒険に変えませんか？
 			</p>
 			<a
 				href="/demo/signup"
-				class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"
-			>
-				無料で はじめる →
+				class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"			>				無料で はじめる →
 			</a>
 		</div>
 	{/if}

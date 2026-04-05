@@ -62,7 +62,7 @@ function acceptPreview() {
 		/>
 		<button
 			type="button"
-			class="px-4 py-2 bg-[var(--color-stat-purple)] text-white rounded-lg text-sm font-bold hover:bg-[var(--color-stat-purple)] transition-colors disabled:opacity-50"
+			class="px-4 py-2 bg-[var(--color-stat-purple)] text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all disabled:opacity-50"
 			disabled={aiLoading || !aiInput.trim()}
 			onclick={suggestFromAI}
 		>
@@ -108,7 +108,7 @@ function acceptPreview() {
 			<div class="flex gap-2">
 				<button
 					type="button"
-					class="flex-1 py-2 bg-[var(--color-action-success)] text-white rounded-lg font-bold text-sm hover:bg-[var(--color-action-success)] transition-colors"
+					class="flex-1 py-2 bg-[var(--color-action-success)] text-white rounded-lg font-bold text-sm hover:brightness-110 transition-all"
 					onclick={acceptPreview}
 				>
 					この内容で追加フォームを開く
