@@ -15,10 +15,7 @@ function handleCtaClick() {
 	<title>デモ体験ありがとうございます - がんばりクエスト</title>
 </svelte:head>
 
-<div class="min-h-dvh bg-gradient-to-b from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)]">
-	<div class="max-w-lg mx-auto px-4 py-8">
-		<!-- Hero -->
-		<div class="text-center mb-8">
+<div class="min-h-dvh bg-gradient-to-b from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)]">	<div class="max-w-lg mx-auto px-4 py-8">		<!-- Hero -->		<div class="text-center mb-8">
 			<div class="flex justify-center mb-4">
 				<Logo variant="compact" size={160} />
 			</div>
@@ -38,9 +35,7 @@ function handleCtaClick() {
 			<a
 				href="/auth/signup"
 				onclick={handleCtaClick}
-				class="block w-full py-3 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-lg shadow-sm hover:shadow-md transition-shadow"
-			>
-				無料で はじめる
+				class="block w-full py-3 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-lg shadow-sm hover:shadow-md transition-shadow"			>				無料で はじめる
 			</a>
 			<p class="text-xs text-[var(--color-text-muted)] mt-2">いつでもキャンセルOK・違約金なし</p>
 			{/snippet}
@@ -93,24 +88,37 @@ function handleCtaClick() {
 		<!-- Pricing summary -->
 		<Card padding="lg" class="mb-6">
 			{#snippet children()}
-			<h2 class="text-lg font-bold text-gray-700 mb-4">料金プラン</h2>
-			<p class="text-sm text-gray-600 mb-2">
+			<h2 class="text-lg font-bold text-[var(--color-text)] mb-4">料金プラン</h2>
+			<p class="text-sm text-[var(--color-text)] mb-2">
 				<span class="font-bold">フリー</span>（¥0）からスタート。有料プランは<span class="font-bold">スタンダード</span>（月額¥500〜）と<span class="font-bold">ファミリー</span>（月額¥780〜）の2種類。
 			</p>
-			<p class="text-xs text-gray-500 mb-3">有料プランはすべて7日間の無料トライアル付き</p>
-			<a href="/pricing" class="block text-center text-sm text-blue-500 hover:underline">
+			<p class="text-xs text-[var(--color-text-muted)] mb-3">有料プランはすべて7日間の無料トライアル付き</p>
+			<a href="/pricing" class="block text-center text-sm text-[var(--color-brand-500)] hover:underline">
 				プランの詳細を料金ページで見る →
 			</a>
 			{/snippet}
 		</Card>
 
+		<!-- Testimonial / Social proof -->
+		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] rounded-2xl border border-[var(--color-feedback-warning-border)] p-6 mb-6">
+			<h2 class="text-lg font-bold text-[var(--color-text)] mb-3 text-center">ご利用者の声</h2>
+			<div class="space-y-3">
+				<div class="bg-[var(--color-surface-card)] rounded-xl p-3">
+					<p class="text-sm text-[var(--color-text)] italic">「毎朝、自分からスタンプを押したがるようになりました」</p>
+					<p class="text-xs text-[var(--color-text-muted)] mt-1 text-right">— 5歳男の子のママ</p>
+				</div>
+				<div class="bg-[var(--color-surface-card)] rounded-xl p-3">
+					<p class="text-sm text-[var(--color-text)] italic">「お手伝いが楽しいゲームに変わった。親も記録が楽」</p>
+					<p class="text-xs text-[var(--color-text-muted)] mt-1 text-right">— 8歳女の子のパパ</p>
+				</div>
+			</div>
+		</div>
+
 		<!-- Secondary CTA -->
 		<div class="text-center mb-8">
 			<a
 				href="/auth/signup"
-				class="inline-block w-full py-3 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-lg shadow-sm hover:shadow-md transition-shadow"
-			>
-				無料トライアルを はじめる
+				class="inline-block w-full py-3 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-lg shadow-sm hover:shadow-md transition-shadow"			>				無料トライアルを はじめる
 			</a>
 			<p class="text-xs text-[var(--color-text-muted)] mt-2">7日間無料 ・ いつでもキャンセルOK</p>
 		</div>

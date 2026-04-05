@@ -173,7 +173,7 @@ function isItemActive(itemHref: string): boolean {
 				{#if !isDemo}
 					<button
 						onclick={handleStartTutorial}
-						class="w-8 h-8 flex items-center justify-center rounded-full bg-[var(--color-feedback-info-bg-strong)] text-[var(--color-brand-600)] hover:bg-[var(--color-feedback-info-bg-strong)] transition-colors text-sm font-bold"
+						class="w-8 h-8 flex items-center justify-center rounded-full bg-[var(--color-feedback-info-bg-strong)] text-[var(--color-brand-600)] hover:brightness-95 transition-all text-sm font-bold"
 						title="チュートリアルを開始"
 						data-tutorial="tutorial-restart"
 						type="button"
