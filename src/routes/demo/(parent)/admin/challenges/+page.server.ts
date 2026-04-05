@@ -1,13 +1,14 @@
-import { DEMO_CHILDREN } from '$lib/server/demo/demo-data.js';
+import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
+import { DEMO_CHILDREN } from '$lib/server/demo/demo-data';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const today = new Date().toISOString().slice(0, 10);
-	const weekEnd = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
+	const today = todayDateJST();
+	const weekEnd = toJSTDateString(new Date(Date.now() + 6 * 86400000));
 
-	// biome-ignore lint: DEMO_CHILDREN indices are always defined (static demo data)
+	// biome-ignore lint/style/noNonNullAssertion: demo data — indices are guaranteed
 	const child1 = DEMO_CHILDREN[1]!; // たろう (5歳)
-	// biome-ignore lint: DEMO_CHILDREN indices are always defined (static demo data)
+	// biome-ignore lint/style/noNonNullAssertion: demo data — indices are guaranteed
 	const child2 = DEMO_CHILDREN[2]!; // さくら (8歳)
 
 	const challenges = [
@@ -101,11 +102,10 @@ export const load: PageServerLoad = async () => {
 		},
 	];
 
-	const children = DEMO_CHILDREN.slice(1, 3).map((c) => ({
-		id: c.id,
-		nickname: c.nickname,
-		age: c.age,
-	}));
+	const children = [
+		{ id: child1.id, nickname: child1.nickname, age: child1.age },
+		{ id: child2.id, nickname: child2.nickname, age: child2.age },
+	];
 
 	return { challenges, children };
 };
