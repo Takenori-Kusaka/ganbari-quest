@@ -1,7 +1,7 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
 import type { PointSettings } from '$lib/domain/point-display';
-import { formatPointValue } from '$lib/domain/point-display';
+import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import {
 	dismissTutorialBanner,
@@ -25,6 +25,7 @@ interface ChildSummary {
 
 interface MonthSummaryData {
 	totalActivities: number;
+	currentLevel: number;
 	newAchievements: number;
 }
 
@@ -53,6 +54,13 @@ interface Props {
 	monthlySummaries?: Record<number, MonthSummaryData>;
 	currentMonth?: string;
 	planTier?: 'free' | 'standard' | 'family';
+	planStats?: {
+		activityCount: number;
+		activityMax: number | null;
+		childCount: number;
+		childMax: number | null;
+		retentionDays: number | null;
+	};
 	showPremiumWelcome?: boolean;
 	seasonalInfo?: {
 		activeEvents: SeasonEventInfo[];
@@ -70,6 +78,7 @@ let {
 	monthlySummaries = {},
 	currentMonth = '',
 	planTier = 'free',
+	planStats,
 	showPremiumWelcome = false,
 	seasonalInfo = null,
 }: Props = $props();
@@ -106,6 +115,7 @@ async function handleDismissBanner() {
 
 const ps = $derived(pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
+const unit = $derived(getUnitLabel(ps.mode, ps.currency));
 
 function childLink(child: ChildSummary): string {
 	if (isDemo) {
@@ -130,29 +140,27 @@ function childLink(child: ChildSummary): string {
 	{:else if onboardingComplete && onboarding}
 		<div class="onboarding-complete-card" data-testid="onboarding-complete">
 			<span class="text-2xl">🎉</span>
-			<p class="font-bold text-green-700">すべてのセットアップが完了しました！</p>
+			<p class="font-bold text-[var(--color-feedback-success-text)]">すべてのセットアップが完了しました！</p>
 			<form method="POST" action="?/dismissOnboarding">
 				<button type="submit" class="dismiss-complete-btn">非表示にする</button>
 			</form>
 		</div>
 	{:else if !isDemo && !tutorialStarted && !onboarding}
 		<!-- Fallback: Legacy tutorial banner -->
-		<div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg" data-tutorial="tutorial-banner">
+		<div class="bg-[var(--color-feedback-info-bg)] border-l-4 border-[var(--color-brand-500)] p-4 rounded-lg" data-tutorial="tutorial-banner">
 			<div class="flex items-center gap-3">
 				<span class="text-2xl">📖</span>
 				<div class="flex-1">
-					<p class="font-bold text-gray-700">初めてご利用ですか？</p>
-					<p class="text-sm text-gray-500">チュートリアルで使い方を確認しましょう（約3分）</p>
-				</div>
-				<div class="flex gap-2">
+					<p class="font-bold text-[var(--color-text)]">初めてご利用ですか？</p>
+					<p class="text-sm text-[var(--color-text-muted)]">チュートリアルで使い方を確認しましょう（約3分）</p>				</div>				<div class="flex gap-2">
 					<button
-						class="px-3 py-1.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors"
+						class="px-3 py-1.5 bg-[var(--color-brand-600)] text-white text-sm font-bold rounded-lg hover:bg-[var(--color-brand-700)] transition-colors"
 						onclick={handleStartTutorial}
 					>
 						開始
 					</button>
 					<button
-						class="px-3 py-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+						class="px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
 						onclick={handleDismissBanner}
 					>
 						あとで
@@ -180,28 +188,28 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Seasonal Content Info -->
 	{#if !isDemo && seasonalInfo && seasonalInfo.activeEvents.length > 0}
-		<section class="bg-white rounded-xl p-4 shadow-sm">
-			<h2 class="text-sm font-bold text-gray-700 mb-3">🌸 季節コンテンツ</h2>
+		<section class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm">
+			<h2 class="text-sm font-bold text-[var(--color-text)] mb-3">🌸 季節コンテンツ</h2>
 			<div class="space-y-2">
 				{#each seasonalInfo.activeEvents as event}
 					<div class="flex items-center gap-2 text-sm">
 						<span>{event.bannerIcon}</span>
-						<span class="font-medium text-gray-800">{event.name}</span>
-						<span class="text-xs text-gray-400 ml-auto">
+						<span class="font-medium text-[var(--color-text)]">{event.name}</span>
+						<span class="text-xs text-[var(--color-text-muted)] ml-auto">
 							{event.startDate} 〜 {event.endDate}
 						</span>
 					</div>
 				{/each}
 			</div>
 			{#if seasonalInfo.memoryTicket && (planTier === 'standard' || planTier === 'family')}
-				<div class="mt-3 pt-3 border-t border-gray-100">
+				<div class="mt-3 pt-3 border-t border-[var(--color-border-default)]">
 					<div class="flex items-center justify-between text-sm">
-						<span class="text-gray-600">🎫 思い出チケット</span>
-						<span class="font-bold text-purple-600">
+						<span class="text-[var(--color-text)]">🎫 思い出チケット</span>
+						<span class="font-bold text-[var(--color-premium)]">
 							{seasonalInfo.memoryTicket.ticketsAvailable}枚
 						</span>
 					</div>
-					<p class="text-xs text-gray-400 mt-1">
+					<p class="text-xs text-[var(--color-text-muted)] mt-1">
 						継続{seasonalInfo.memoryTicket.totalMonths}ヶ月 — 次のチケットまで{seasonalInfo.memoryTicket.nextTicketAt}ヶ月
 					</p>
 				</div>
@@ -222,7 +230,7 @@ function childLink(child: ChildSummary): string {
 			<p class="summary-card__value summary-card__value--accent">
 				{fmtBal(children.reduce((sum, c) => sum + c.balance, 0))}
 			</p>
-			<p class="summary-card__label">全ポイント合計</p>
+			<p class="summary-card__label">合計{unit}</p>
 		</div>
 	</div>
 
@@ -231,20 +239,24 @@ function childLink(child: ChildSummary): string {
 		{@const monthLabel = currentMonth.replace(/^(\d{4})-0?(\d{1,2})$/, '$1年$2月')}
 		<section>
 			<div class="flex items-center justify-between mb-3">
-				<h2 class="text-lg font-bold text-gray-700">📊 {monthLabel}のがんばり</h2>
-				<a href="{basePath}/reports" class="text-xs text-blue-500 hover:underline">詳しく見る →</a>
+				<h2 class="text-lg font-bold text-[var(--color-text)]">📊 {monthLabel}のがんばり</h2>
+				<a href="{basePath}/reports" class="text-xs text-[var(--color-brand-500)] hover:underline">詳しく見る →</a>
 			</div>
 			<div class="grid gap-3">
 				{#each children as child}
 					{@const summary = monthlySummaries[child.id]}
 					{#if summary}
-						<div class="bg-white rounded-xl p-4 shadow-sm">
-							<p class="text-sm font-bold text-gray-700 mb-2">{child.nickname}</p>
+						<div class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm">
+							<p class="text-sm font-bold text-[var(--color-text)] mb-2">{child.nickname}</p>
 							<div class="flex gap-3">
 								<div class="monthly-stat monthly-stat--blue" role="group" aria-label="{child.nickname}の活動回数">
 									<p class="monthly-stat__heading">活動回数</p>
 									<p class="monthly-stat__value">{summary.totalActivities}</p>
 									<p class="monthly-stat__unit">回</p>
+								</div>
+								<div class="monthly-stat monthly-stat--purple" role="group" aria-label="{child.nickname}のレベル">
+									<p class="monthly-stat__heading">レベル</p>
+									<p class="monthly-stat__value">{summary.currentLevel}</p>
 								</div>
 								<div class="monthly-stat monthly-stat--amber" role="group" aria-label="{child.nickname}の実績">
 									<p class="monthly-stat__heading">実績</p>
@@ -261,9 +273,9 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Children Overview -->
 	<section data-tutorial="children-overview">
-		<h2 class="text-lg font-bold text-gray-700 mb-3">こども一覧</h2>
+		<h2 class="text-lg font-bold text-[var(--color-text)] mb-3">こども一覧</h2>
 		{#if children.length === 0}
-			<div class="bg-white rounded-xl p-8 shadow-sm text-center text-gray-400">
+			<div class="bg-[var(--color-surface-card)] rounded-xl p-8 shadow-sm text-center text-[var(--color-text-muted)]">
 				<p>まだこどもが登録されていません</p>
 			</div>
 		{:else}
@@ -279,11 +291,11 @@ function childLink(child: ChildSummary): string {
 							<span class="text-3xl">👤</span>
 						{/if}
 						<div class="flex-1">
-							<p class="font-bold text-gray-700">{child.nickname}</p>
-							<p class="text-sm text-gray-400">{child.age}歳 / {child.uiMode}</p>
+							<p class="font-bold text-[var(--color-text)]">{child.nickname}</p>
+							<p class="text-sm text-[var(--color-text-muted)]">{child.age}歳 / {child.uiMode}</p>
 						</div>
 						<div class="text-right">
-							<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance)}</p>
+							<p class="text-lg font-bold text-[var(--color-warning)]">{fmtBal(child.balance)}</p>
 						</div>
 					</a>
 				{/each}
@@ -293,16 +305,12 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Demo CTA (demo only) -->
 	{#if isDemo}
-		<div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-200 rounded-xl p-4 text-center">
-			<p class="text-sm font-bold text-gray-700 mb-1">いかがでしたか？</p>
-			<p class="text-xs text-gray-500 mb-3">
+		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] border border-[var(--color-feedback-warning-border)] rounded-xl p-4 text-center">			<p class="text-sm font-bold text-[var(--color-text)] mb-1">いかがでしたか？</p>			<p class="text-xs text-[var(--color-text-muted)] mb-3">
 				お子さまの「がんばり」を冒険に変えませんか？
 			</p>
 			<a
 				href="/demo/signup"
-				class="inline-block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-center text-sm"
-			>
-				無料で はじめる →
+				class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"			>				無料で はじめる →
 			</a>
 		</div>
 	{/if}
@@ -352,6 +360,10 @@ function childLink(child: ChildSummary): string {
 
 	.monthly-stat--blue {
 		background: var(--color-info-50, #eff6ff);
+	}
+
+	.monthly-stat--purple {
+		background: var(--color-stat-purple-bg, #f5f3ff);
 	}
 
 	.monthly-stat--amber {

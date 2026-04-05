@@ -40,12 +40,12 @@ const progressPct = $derived(
 </script>
 
 {#if subscriptionMonths > 0}
-	<div class="rounded-xl border bg-white p-4 space-y-3">
+	<div class="rounded-xl border bg-[var(--color-surface-card)] p-4 space-y-3">
 		<div class="flex items-center gap-2">
 			<span class="text-xl">🎖️</span>
 			<div>
 				<h3 class="font-bold text-sm">サポーターバッジ</h3>
-				<p class="text-xs text-gray-500">プレミアム継続: {subscriptionMonths}ヶ月目</p>
+				<p class="text-xs text-[var(--color-text-muted)]">プレミアム継続: {subscriptionMonths}ヶ月目</p>
 			</div>
 		</div>
 
@@ -54,8 +54,8 @@ const progressPct = $derived(
 			{#each tiers as tier (tier.months)}
 				<div
 					class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold {tier.unlocked
-						? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-						: 'bg-gray-50 text-gray-400 border border-gray-100'}"
+						? 'bg-[var(--color-feedback-warning-bg)] text-[var(--color-feedback-warning-text)] border border-[var(--color-feedback-warning-border)]'
+						: 'bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] border border-[var(--color-border-default)]'}"
 				>
 					<span>{tier.unlocked ? (tierIcons[tier.months] ?? '🎖️') : '🔒'}</span>
 					{tier.months}ヶ月
@@ -66,21 +66,21 @@ const progressPct = $derived(
 		<!-- Progress to next tier -->
 		{#if nextTierMonths && nextTierRemaining}
 			<div>
-				<p class="text-xs text-gray-500">
+				<p class="text-xs text-[var(--color-text-muted)]">
 					次のバッジまで: あと{nextTierRemaining}ヶ月
 				</p>
-				<div class="mt-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+				<div class="mt-1 h-2 rounded-full bg-[var(--color-surface-muted-strong)] overflow-hidden">
 					<div
-						class="h-full rounded-full bg-yellow-400 transition-all"
+						class="h-full rounded-full bg-[var(--color-gold-400)] transition-all"
 						style:width="{progressPct}%"
 					></div>
 				</div>
-				<p class="text-[10px] text-gray-400 mt-0.5 text-right">
+				<p class="text-[10px] text-[var(--color-text-muted)] mt-0.5 text-right">
 					{subscriptionMonths}/{nextTierMonths}
 				</p>
 			</div>
 		{:else}
-			<p class="text-xs text-yellow-600 font-bold">🏆 全ティア到達！</p>
+			<p class="text-xs text-[var(--color-feedback-warning-text)] font-bold">🏆 全ティア到達！</p>
 		{/if}
 
 		<!-- Stats -->
