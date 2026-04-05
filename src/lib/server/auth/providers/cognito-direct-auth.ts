@@ -44,7 +44,7 @@ export interface CognitoMfaChallenge {
 
 export interface CognitoAuthError {
 	success: false;
-	error: 'INVALID_CREDENTIALS' | 'USER_NOT_FOUND' | 'NOT_CONFIRMED' | 'UNKNOWN';
+	error: 'INVALID_CREDENTIALS' | 'USER_NOT_FOUND' | 'NOT_CONFIRMED' | 'INVALID_CODE' | 'UNKNOWN';
 	message: string;
 }
 
@@ -289,14 +289,16 @@ export async function forgotPassword(email: string): Promise<{ success: true } |
 		return { success: true };
 	} catch (e: unknown) {
 		const errorName = (e as { name?: string })?.name ?? '';
-		logger.warn('[AUTH] Cognito ForgotPassword failed', {
-			context: { errorName, error: e instanceof Error ? e.message : String(e) },
-		});
 
 		if (errorName === 'UserNotFoundException') {
 			// セキュリティ上、ユーザーが存在しない場合も成功扱いにする
+			logger.info('[AUTH] ForgotPassword for non-existent user (treated as success)');
 			return { success: true };
 		}
+
+		logger.warn('[AUTH] Cognito ForgotPassword failed', {
+			context: { errorName, error: e instanceof Error ? e.message : String(e) },
+		});
 
 		if (errorName === 'LimitExceededException') {
 			return {
@@ -353,10 +355,16 @@ export async function confirmForgotPassword(
 			context: { errorName, error: e instanceof Error ? e.message : String(e) },
 		});
 
-		if (errorName === 'CodeMismatchException') {
+		// セキュリティ: UserNotFoundException / InvalidParameterException も CodeMismatchException と
+		// 同じエラーメッセージを返し、メールアドレスの存在有無を推測させない
+		if (
+			errorName === 'CodeMismatchException' ||
+			errorName === 'UserNotFoundException' ||
+			errorName === 'InvalidParameterException'
+		) {
 			return {
 				success: false,
-				error: 'UNKNOWN',
+				error: 'INVALID_CODE',
 				message: '確認コードが正しくありません',
 			};
 		}
