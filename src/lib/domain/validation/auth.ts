@@ -38,6 +38,12 @@ export const signupSchema = z.object({
 		.regex(/^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/, 'ライセンスキーの形式が不正です'),
 });
 
+// 確認コード有効期限（Cognito設定と同期）
+/** サインアップ確認コードの有効期限（時間） */
+export const SIGNUP_CODE_EXPIRY_HOURS = 24;
+/** パスワードリセット確認コードの有効期限（分） */
+export const PASSWORD_RESET_CODE_EXPIRY_MINUTES = 60;
+
 // 招待リンク関連
 export const INVITE_COOKIE_NAME = 'invite_code';
 export const INVITE_EXPIRY_DAYS = 7;
