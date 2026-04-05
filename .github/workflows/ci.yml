@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -55,6 +56,12 @@ jobs:
 
       - name: Biome lint
         run: npx biome check .
+
+      - name: Stylelint (CSS hex check)
+        run: npx stylelint "src/**/*.css"
+
+      - name: Color usage report
+        run: node scripts/lint-color-classes.mjs || true
 
       - name: Svelte check
         run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json

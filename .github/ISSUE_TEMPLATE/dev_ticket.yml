@@ -112,6 +112,19 @@ body:
       required: true
 
   - type: textarea
+    id: impact-check
+    attributes:
+      label: 影響範囲・横展開チェック
+      description: この変更が他の画面やシステムに及ぼす影響を事前に確認すること
+      value: |
+        - [ ] 用語変更がある場合: `grep` で全件確認し、漏れなく更新した
+        - [ ] UI構造変更がある場合: チュートリアル（`tutorial-chapters.ts`）のセレクタ・説明文を更新した
+        - [ ] デモ版（`/demo`）にも同等の変更が必要か確認した
+        - [ ] カラー・スタイル: hex 直書き・Tailwind デフォルト色の新規追加をしていない（`docs/reference/color-mapping.md` 参照）
+        - [ ] Button/Card/FormField 等のプリミティブコンポーネントを使用した
+        - [ ] 影響する設計書（`docs/design/`）を更新した
+
+  - type: textarea
     id: done-checklist
     attributes:
       label: 完了チェックリスト（共通）
