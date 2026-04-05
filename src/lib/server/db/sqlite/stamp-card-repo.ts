@@ -112,3 +112,22 @@ export async function updateCardStatus(
 		.where(eq(schema.stampCards.id, cardId))
 		.run();
 }
+
+/** status='collecting' の場合のみ更新し、affected 行数を返す（冪等ガード） */
+export async function updateCardStatusIfCollecting(
+	cardId: number,
+	input: UpdateStampCardStatusInput,
+	_tenantId: string,
+): Promise<number> {
+	const result = db
+		.update(schema.stampCards)
+		.set({
+			status: input.status,
+			redeemedPoints: input.redeemedPoints,
+			redeemedAt: input.redeemedAt,
+			updatedAt: input.updatedAt,
+		})
+		.where(and(eq(schema.stampCards.id, cardId), eq(schema.stampCards.status, 'collecting')))
+		.run();
+	return result.changes;
+}
