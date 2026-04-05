@@ -18,6 +18,7 @@ export default defineConfig({
 	timeout: 60_000,
 	reporter: [['list'], ['json', { outputFile: 'test-results/aws.json' }]],
 	globalSetup: './tests/e2e/global-setup-aws.ts',
+	globalTeardown: './tests/e2e/global-teardown-aws.ts',
 	use: {
 		baseURL: process.env.E2E_BASE_URL || 'https://ganbari-quest.com',
 		actionTimeout: 15_000,

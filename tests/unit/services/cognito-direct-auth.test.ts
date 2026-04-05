@@ -40,6 +40,11 @@ vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
 			Object.assign(this, params, { _type: 'ConfirmForgotPassword' });
 		}
 	}
+	class MockResendConfirmationCodeCommand {
+		constructor(params: Record<string, unknown>) {
+			Object.assign(this, params, { _type: 'ResendConfirmationCode' });
+		}
+	}
 	return {
 		CognitoIdentityProviderClient: MockClient,
 		InitiateAuthCommand: MockInitiateAuthCommand,
@@ -48,6 +53,7 @@ vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
 		RespondToAuthChallengeCommand: MockRespondToAuthChallengeCommand,
 		ForgotPasswordCommand: MockForgotPasswordCommand,
 		ConfirmForgotPasswordCommand: MockConfirmForgotPasswordCommand,
+		ResendConfirmationCodeCommand: MockResendConfirmationCodeCommand,
 	};
 });
 
@@ -62,6 +68,7 @@ import {
 	confirmForgotPassword,
 	confirmSignUp,
 	forgotPassword,
+	resendConfirmationCode,
 	respondToMfaChallenge,
 	signUpWithCognito,
 } from '../../../src/lib/server/auth/providers/cognito-direct-auth';
@@ -432,6 +439,57 @@ describe('confirmForgotPassword', () => {
 		expect(result.success).toBe(false);
 		if (!result.success) {
 			expect(result.message).toContain('パスワードのリセットに失敗しました');
+		}
+	});
+});
+
+// ============================================================
+// resendConfirmationCode
+// ============================================================
+describe('resendConfirmationCode', () => {
+	it('正常に確認コードを再送する', async () => {
+		mockSend.mockResolvedValue({});
+
+		const result = await resendConfirmationCode('test@example.com');
+
+		expect(result).toEqual({ success: true });
+	});
+
+	it('LimitExceededException で適切なエラーメッセージ', async () => {
+		mockSend.mockRejectedValue(
+			Object.assign(new Error('too many requests'), { name: 'LimitExceededException' }),
+		);
+
+		const result = await resendConfirmationCode('test@example.com');
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.message).toContain('上限に達しました');
+		}
+	});
+
+	it('UserNotFoundException で適切なエラーメッセージ', async () => {
+		mockSend.mockRejectedValue(
+			Object.assign(new Error('user not found'), { name: 'UserNotFoundException' }),
+		);
+
+		const result = await resendConfirmationCode('nonexistent@example.com');
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error).toBe('USER_NOT_FOUND');
+			expect(result.message).toContain('アカウントが見つかりません');
+		}
+	});
+
+	it('不明なエラーで汎用メッセージ', async () => {
+		mockSend.mockRejectedValue(new Error('network error'));
+
+		const result = await resendConfirmationCode('test@example.com');
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.message).toContain('確認コードの再送に失敗しました');
 		}
 	});
 });

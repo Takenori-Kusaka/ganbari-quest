@@ -91,7 +91,12 @@
 	--color-danger: #f44336;
 	--color-point: #ffd700;
 
+	/* ---- Orange Accent (CTA・暖色グラデーション終端) ---- */
+	--color-orange-500: #f97316;
+	--color-orange-50: #fff7ed;
+
 	/* ---- Violet Accent (プライシング・プレミアム強調) ---- */
+	--color-violet-700: #6d28d9;
 	--color-violet-600: #7c3aed;
 	--color-violet-500: #8b5cf6;
 
@@ -111,6 +116,86 @@
 	--color-cat-seikatsu: #ff9800;
 	--color-cat-kouryuu: #9c27b0;
 	--color-cat-souzou: #e91e63;
+
+	/* ============================================================
+	   Tailwind デフォルトカラー上書き
+	   既存コードで bg-blue-500, text-gray-700 等が使われている箇所を
+	   ブランドカラーに統一する。新規コードでは CSS 変数を直接使うこと。
+	   See: docs/reference/color-mapping.md
+	   ============================================================ */
+
+	/* ---- blue-* → Brand Blue ---- */
+	--color-blue-50: #f2f9ff;
+	--color-blue-100: #e8f4fd;
+	--color-blue-200: #c9e2f8;
+	--color-blue-300: #a3cef3;
+	--color-blue-400: #7db8ed;
+	--color-blue-500: #5ba3e6;
+	--color-blue-600: #4a90d9;
+	--color-blue-700: #3878b8;
+	--color-blue-800: #2a5f9e;
+	--color-blue-900: #1a3a5c;
+
+	/* ---- gray-* → Neutral ---- */
+	--color-gray-50: #f8fafc;
+	--color-gray-100: #f1f5f9;
+	--color-gray-200: #e2e8f0;
+	--color-gray-300: #cbd5e1;
+	--color-gray-400: #8b8b8b;
+	--color-gray-500: #64748b;
+	--color-gray-600: #475569;
+	--color-gray-700: #334155;
+	--color-gray-800: #2d2d2d;
+	--color-gray-900: #1e293b;
+
+	/* ---- amber-* → Gold ---- */
+	--color-amber-50: #fffbe6;
+	--color-amber-100: #fff4b3;
+	--color-amber-200: #ffed80;
+	--color-amber-300: #ffe44d;
+	--color-amber-400: #ffcc00;
+	--color-amber-500: #d4ad00;
+	--color-amber-600: #b8960a;
+	--color-amber-700: #b8960a;
+
+	/* ---- red-* → Danger スケール ---- */
+	--color-red-50: #fef2f2;
+	--color-red-100: #fee2e2;
+	--color-red-200: #fecaca;
+	--color-red-300: #fca5a5;
+	--color-red-500: #f44336;
+	--color-red-600: #dc2626;
+	--color-red-700: #b91c1c;
+
+	/* ---- green-* → Success スケール ---- */
+	--color-green-50: #f0fdf4;
+	--color-green-100: #dcfce7;
+	--color-green-200: #bbf7d0;
+	--color-green-300: #86efac;
+	--color-green-500: #4caf50;
+	--color-green-600: #16a34a;
+	--color-green-700: #15803d;
+
+	/* ---- purple-* → Premium/Violet ---- */
+	--color-purple-50: #f5f3ff;
+	--color-purple-100: #ede9fe;
+	--color-purple-200: #ddd6fe;
+	--color-purple-300: #c4b5fd;
+	--color-purple-500: #8b5cf6;
+	--color-purple-600: #7c3aed;
+	--color-purple-700: #6d28d9;
+
+	/* ---- orange-* (イベント・警告) ---- */
+	--color-orange-50: #fff7ed;
+	--color-orange-100: #ffedd5;
+	--color-orange-200: #fed7aa;
+	--color-orange-500: #ff9800;
+	--color-orange-600: #ea580c;
+
+	/* ---- yellow-* (注意・ハイライト) ---- */
+	--color-yellow-50: #fefce8;
+	--color-yellow-100: #fef9c3;
+	--color-yellow-700: #a16207;
 }
 
 /* ============================================================
@@ -166,11 +251,36 @@
 	--color-text-inverse: white;
 	--color-text-accent: var(--theme-accent);
 	--color-text-link: var(--color-brand-600);
+	--color-text-primary: var(--color-neutral-700);
+	--color-text-secondary: var(--color-neutral-600);
+	--color-text-tertiary: var(--color-neutral-400);
+
+	/* ---- Status Colors (Danger/Success/Warning スケール) ---- */
+	--color-danger-50: #fef2f2;
+	--color-danger-100: #fee2e2;
+	--color-danger-200: #fecaca;
+	--color-danger-600: #dc2626;
+	--color-danger-700: #b91c1c;
+	--color-success-50: #f0fdf4;
+	--color-success-100: #dcfce7;
+	--color-success-200: #bbf7d0;
+	--color-success-300: #86efac;
+	--color-success-600: #16a34a;
+	--color-success-700: #15803d;
+	--color-warning-50: #fff7ed;
+	--color-warning-100: #ffedd5;
+	--color-warning-200: #fed7aa;
+
+	/* ---- Premium (スケール拡充) ---- */
+	--color-premium-50: #f5f3ff;
+	--color-premium-100: #ede9fe;
+	--color-premium-200: #ddd6fe;
+	--color-premium-700: #6d28d9;
 
 	/* ---- Premium ---- */
 	--color-premium: var(--color-violet-600);
 	--color-premium-light: var(--color-violet-500);
-	--color-premium-bg: #f5f3ff;
+	--color-premium-bg: var(--color-premium-50);
 	--gradient-premium: linear-gradient(135deg, var(--color-violet-600), var(--color-violet-500));
 
 	/* ---- Chart (きょうだい比較グラフ等のシリーズカラー) ---- */
@@ -184,6 +294,8 @@
 	--gradient-brand: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-400));
 	--gradient-gold: linear-gradient(135deg, var(--color-gold-600), var(--color-gold-400));
 	--gradient-action: linear-gradient(135deg, var(--theme-primary), var(--theme-accent));
+	--gradient-cta: linear-gradient(to right, var(--color-warning), var(--color-orange-500));
+	--gradient-warm-bg: linear-gradient(to bottom, var(--color-feedback-warning-bg), var(--color-orange-50));
 
 	/* ============================================================
 	   Component Layer — コンポーネント固有のトークン
@@ -210,53 +322,165 @@
 	/* ---- Badge ---- */
 	--badge-radius: var(--radius-full);
 	--badge-font-size: var(--font-size-sm);
+
+	/* ============================================================
+	   Feedback Colors — 成功/エラー/警告/情報のフィードバック
+	   routes/features から使用するセマンティックトークン
+	   ============================================================ */
+
+	/* ---- Success (green) ---- */
+	--color-feedback-success-bg: #f0fdf4;
+	--color-feedback-success-bg-strong: #dcfce7;
+	--color-feedback-success-text: #15803d;
+	--color-feedback-success-border: #bbf7d0;
+
+	/* ---- Error (red) ---- */
+	--color-feedback-error-bg: #fef2f2;
+	--color-feedback-error-bg-strong: #fee2e2;
+	--color-feedback-error-text: #dc2626;
+	--color-feedback-error-border: #fecaca;
+
+	/* ---- Warning (amber) ---- */
+	--color-feedback-warning-bg: #fffbeb;
+	--color-feedback-warning-bg-strong: #fef3c7;
+	--color-feedback-warning-text: #b45309;
+	--color-feedback-warning-border: #fde68a;
+
+	/* ---- Info (blue) ---- */
+	--color-feedback-info-bg: #eff6ff;
+	--color-feedback-info-bg-strong: #dbeafe;
+	--color-feedback-info-text: #1d4ed8;
+	--color-feedback-info-border: #bfdbfe;
+
+	/* ---- Stat Colors (ダッシュボード統計カード) ---- */
+	--color-stat-purple: #7c3aed;
+	--color-stat-purple-bg: #f5f3ff;
+	--color-stat-amber: #d97706;
+	--color-stat-amber-bg: #fffbeb;
+	--color-stat-blue: #2563eb;
+	--color-stat-blue-bg: #eff6ff;
+	--color-stat-green: #16a34a;
+	--color-stat-green-bg: #f0fdf4;
+	--color-stat-red: #dc2626;
+	--color-stat-red-bg: #fef2f2;
+	--color-stat-indigo: #4f46e5;
+	--color-stat-indigo-bg: #eef2ff;
+
+	/* ---- Surface variants ---- */
+	--color-surface-muted-strong: var(--color-neutral-100);
 }
 
 /* ============================================================
    Theme System (CSS custom properties on [data-theme])
    ============================================================ */
 
+/* ---- Pink: ピンク系子どもテーマ ---- */
 [data-theme="pink"] {
-	--theme-primary: #ff69b4;
-	--theme-secondary: #ffb6c1;
-	--theme-accent: #ff1493;
-	--theme-bg: #fff0f5;
-	--theme-nav: #ffe4e1;
+	--theme-50: #fff0f5;
+	--theme-100: #ffe4e1;
+	--theme-200: #ffb6c1;
+	--theme-300: #ff8faa;
+	--theme-400: #ff69b4;
+	--theme-500: #f44d97;
+	--theme-600: #e91e7b;
+	--theme-700: #c2185b;
+	--theme-800: #9c1450;
+	--theme-900: #6e0f3a;
+	--theme-primary: var(--theme-400);
+	--theme-secondary: var(--theme-200);
+	--theme-accent: var(--theme-600);
+	--theme-bg: var(--theme-50);
+	--theme-nav: var(--theme-100);
 }
 
+/* ---- Blue: 水色系子どもテーマ ---- */
 [data-theme="blue"] {
-	--theme-primary: #4fc3f7;
-	--theme-secondary: #81d4fa;
-	--theme-accent: #039be5;
-	--theme-bg: #e3f2fd;
-	--theme-nav: #bbdefb;
+	--theme-50: #e1f5fe;
+	--theme-100: #b3e5fc;
+	--theme-200: #81d4fa;
+	--theme-300: #4fc3f7;
+	--theme-400: #29b6f6;
+	--theme-500: #03a9f4;
+	--theme-600: #039be5;
+	--theme-700: #0288d1;
+	--theme-800: #0277bd;
+	--theme-900: #01579b;
+	--theme-primary: var(--theme-300);
+	--theme-secondary: var(--theme-200);
+	--theme-accent: var(--theme-600);
+	--theme-bg: var(--theme-50);
+	--theme-nav: var(--theme-100);
 }
 
+/* ---- Green: 緑系子どもテーマ ---- */
 [data-theme="green"] {
-	--theme-primary: #66bb6a;
-	--theme-secondary: #a5d6a7;
-	--theme-accent: #388e3c;
-	--theme-bg: #e8f5e9;
-	--theme-nav: #c8e6c9;
+	--theme-50: #e8f5e9;
+	--theme-100: #c8e6c9;
+	--theme-200: #a5d6a7;
+	--theme-300: #81c784;
+	--theme-400: #66bb6a;
+	--theme-500: #4caf50;
+	--theme-600: #43a047;
+	--theme-700: #388e3c;
+	--theme-800: #2e7d32;
+	--theme-900: #1b5e20;
+	--theme-primary: var(--theme-400);
+	--theme-secondary: var(--theme-200);
+	--theme-accent: var(--theme-700);
+	--theme-bg: var(--theme-50);
+	--theme-nav: var(--theme-100);
 }
 
+/* ---- Orange: オレンジ系子どもテーマ ---- */
 [data-theme="orange"] {
-	--theme-primary: #ffa726;
-	--theme-secondary: #ffcc80;
-	--theme-accent: #f57c00;
-	--theme-bg: #fff3e0;
-	--theme-nav: #ffe0b2;
+	--theme-50: #fff3e0;
+	--theme-100: #ffe0b2;
+	--theme-200: #ffcc80;
+	--theme-300: #ffb74d;
+	--theme-400: #ffa726;
+	--theme-500: #ff9800;
+	--theme-600: #fb8c00;
+	--theme-700: #f57c00;
+	--theme-800: #ef6c00;
+	--theme-900: #e65100;
+	--theme-primary: var(--theme-400);
+	--theme-secondary: var(--theme-200);
+	--theme-accent: var(--theme-700);
+	--theme-bg: var(--theme-50);
+	--theme-nav: var(--theme-100);
 }
 
+/* ---- Purple: 紫系子どもテーマ ---- */
 [data-theme="purple"] {
-	--theme-primary: #ab47bc;
-	--theme-secondary: #ce93d8;
-	--theme-accent: #7b1fa2;
-	--theme-bg: #f3e5f5;
-	--theme-nav: #e1bee7;
+	--theme-50: #f3e5f5;
+	--theme-100: #e1bee7;
+	--theme-200: #ce93d8;
+	--theme-300: #ba68c8;
+	--theme-400: #ab47bc;
+	--theme-500: #9c27b0;
+	--theme-600: #8e24aa;
+	--theme-700: #7b1fa2;
+	--theme-800: #6a1b9a;
+	--theme-900: #4a148c;
+	--theme-primary: var(--theme-400);
+	--theme-secondary: var(--theme-200);
+	--theme-accent: var(--theme-700);
+	--theme-bg: var(--theme-50);
+	--theme-nav: var(--theme-100);
 }
 
+/* ---- Admin: 親管理画面・ポータル（ブランドブルー） ---- */
 [data-theme="admin"] {
+	--theme-50: var(--color-brand-50);
+	--theme-100: var(--color-brand-100);
+	--theme-200: var(--color-brand-200);
+	--theme-300: var(--color-brand-300);
+	--theme-400: var(--color-brand-400);
+	--theme-500: var(--color-brand-500);
+	--theme-600: var(--color-brand-600);
+	--theme-700: var(--color-brand-700);
+	--theme-800: var(--color-brand-800);
+	--theme-900: var(--color-brand-900);
 	--theme-primary: var(--app-primary);
 	--theme-secondary: var(--app-secondary);
 	--theme-accent: var(--app-accent);
@@ -307,46 +531,49 @@
    Plan Tier System (プラン別管理画面テーマ)
    ============================================================ */
 
+/* ---- 無料プラン: ブランドブルー基調 ---- */
 [data-plan="free"] {
 	--plan-primary: var(--color-brand-600);
 	--plan-secondary: var(--color-brand-400);
-	--plan-nav-bg: #e8f4fd;
-	--plan-nav-active: #dbeafe;
+	--plan-nav-bg: var(--color-brand-100);
+	--plan-nav-active: var(--color-brand-200);
 	--plan-nav-text: var(--color-brand-700);
-	--plan-header-bg: rgba(255, 255, 255, 0.8);
+	--plan-header-bg: color-mix(in srgb, var(--color-surface-card) 80%, transparent);
 	--plan-card-border: var(--color-neutral-200);
-	--plan-page-from: #eff6ff;
-	--plan-page-to: #dbeafe;
+	--plan-page-from: var(--color-brand-50);
+	--plan-page-to: var(--color-brand-200);
 	--plan-badge-bg: transparent;
 	--plan-badge-text: transparent;
 }
 
+/* ---- スタンダードプラン: バイオレット基調 ---- */
 [data-plan="standard"] {
-	--plan-primary: #7c3aed;
-	--plan-secondary: #a78bfa;
-	--plan-nav-bg: #f3e8ff;
-	--plan-nav-active: #ede9fe;
-	--plan-nav-text: #6d28d9;
-	--plan-header-bg: rgba(250, 245, 255, 0.85);
-	--plan-card-border: #e9d5ff;
-	--plan-page-from: #faf5ff;
-	--plan-page-to: #eef2ff;
-	--plan-badge-bg: #f3e8ff;
-	--plan-badge-text: #6d28d9;
+	--plan-primary: var(--color-violet-600);
+	--plan-secondary: var(--color-violet-500);
+	--plan-nav-bg: var(--color-premium-50);
+	--plan-nav-active: var(--color-premium-100);
+	--plan-nav-text: var(--color-premium-700);
+	--plan-header-bg: color-mix(in srgb, var(--color-premium-50) 85%, transparent);
+	--plan-card-border: var(--color-premium-200);
+	--plan-page-from: var(--color-premium-50);
+	--plan-page-to: var(--color-brand-50);
+	--plan-badge-bg: var(--color-premium-50);
+	--plan-badge-text: var(--color-premium-700);
 }
 
+/* ---- ファミリープラン: バイオレット＋ゴールドの二色基調 ---- */
 [data-plan="family"] {
-	--plan-primary: #7c3aed;
-	--plan-secondary: #f59e0b;
-	--plan-nav-bg: #fef3c7;
-	--plan-nav-active: #fde68a;
-	--plan-nav-text: #6d28d9;
-	--plan-header-bg: rgba(254, 252, 232, 0.85);
-	--plan-card-border: #fde68a;
-	--plan-page-from: #fffbeb;
-	--plan-page-to: #faf5ff;
-	--plan-badge-bg: #fef3c7;
-	--plan-badge-text: #92400e;
+	--plan-primary: var(--color-violet-600);
+	--plan-secondary: var(--color-gold-500);
+	--plan-nav-bg: var(--color-gold-100);
+	--plan-nav-active: var(--color-gold-200);
+	--plan-nav-text: var(--color-premium-700);
+	--plan-header-bg: color-mix(in srgb, var(--color-gold-100) 85%, transparent);
+	--plan-card-border: var(--color-gold-200);
+	--plan-page-from: var(--color-gold-100);
+	--plan-page-to: var(--color-premium-50);
+	--plan-badge-bg: var(--color-gold-100);
+	--plan-badge-text: var(--color-gold-700);
 }
 
 /* ============================================================
