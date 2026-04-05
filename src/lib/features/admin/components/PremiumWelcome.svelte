@@ -96,11 +96,11 @@ const features = $derived(
 	}
 
 	.welcome-card--standard {
-		border: 2px solid #e9d5ff;
+		border: 2px solid var(--color-rarity-epic, #e9d5ff);
 	}
 
 	.welcome-card--family {
-		border: 2px solid #fde68a;
+		border: 2px solid var(--color-gold-300, #fde68a);
 	}
 
 	.welcome-content {
@@ -181,11 +181,11 @@ const features = $derived(
 	}
 
 	.welcome-card--standard .welcome-cta {
-		background: linear-gradient(135deg, #7c3aed, #a78bfa);
+		background: var(--gradient-premium, linear-gradient(135deg, #7c3aed, #a78bfa));
 	}
 
 	.welcome-card--family .welcome-cta {
-		background: linear-gradient(135deg, #7c3aed, #f59e0b);
+		background: linear-gradient(135deg, var(--color-premium, #7c3aed), var(--color-gold-500, #f59e0b));
 	}
 
 	.welcome-cta {
@@ -226,19 +226,19 @@ const features = $derived(
 	}
 
 	.confetti-piece:nth-child(odd) {
-		background: #7c3aed;
+		background: var(--color-premium, #7c3aed);
 		width: 6px;
 		height: 10px;
 	}
 
 	.confetti-piece:nth-child(even) {
-		background: #f59e0b;
+		background: var(--color-gold-500, #f59e0b);
 		width: 10px;
 		height: 6px;
 	}
 
 	.confetti-piece:nth-child(3n) {
-		background: #ec4899;
+		background: var(--color-cat-souzou, #ec4899);
 	}
 
 	@keyframes fadeIn {

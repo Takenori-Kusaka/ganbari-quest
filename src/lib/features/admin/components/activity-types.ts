@@ -94,25 +94,25 @@ export const POINT_GUIDE: PointGuideEntry[] = [
 		points: 3,
 		label: 'かんたん',
 		desc: '毎日できること（あいさつ、歯みがきなど）',
-		color: 'bg-green-100 text-green-700',
+		color: 'bg-[var(--color-rarity-common-bg)] text-[var(--color-action-success)]',
 	},
 	{
 		points: 5,
 		label: 'ふつう',
 		desc: 'ちょっとがんばること（お手伝い、読書など）',
-		color: 'bg-blue-100 text-blue-700',
+		color: 'bg-[var(--color-brand-100)] text-[var(--color-action-primary)]',
 	},
 	{
 		points: 8,
 		label: 'がんばる',
 		desc: '時間がかかること（宿題、習い事の練習など）',
-		color: 'bg-purple-100 text-purple-700',
+		color: 'bg-[var(--color-premium-bg)] text-[var(--color-premium)]',
 	},
 	{
 		points: 10,
 		label: 'すごい',
 		desc: '特別なチャレンジ（発表、大会参加など）',
-		color: 'bg-amber-100 text-amber-700',
+		color: 'bg-[var(--color-gold-100)] text-[var(--color-gold-700)]',
 	},
 ];
 

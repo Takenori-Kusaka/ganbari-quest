@@ -18,7 +18,7 @@ let showHidden = $state(false);
 	<div class="mt-6">
 		<button
 			type="button"
-			class="w-full flex items-center justify-between px-4 py-3 bg-[var(--color-surface-muted-strong)] rounded-lg text-sm font-bold text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)] transition-colors"
+			class="w-full flex items-center justify-between px-4 py-3 bg-[var(--color-neutral-100)] rounded-lg text-sm font-bold text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)] transition-colors"
 			onclick={() => showHidden = !showHidden}
 		>
 			<span>非表示の活動 ({activities.length}件)</span>
@@ -34,8 +34,8 @@ let showHidden = $state(false);
 								<CompoundIcon icon={activity.icon} size="md" />
 							</div>
 							<div class="flex-1 min-w-0">
-								<p class="text-sm font-bold text-[var(--color-text-muted)] truncate">{getActivityDisplayNameForAdult(activity)}</p>
-								<p class="text-xs text-[var(--color-text-muted)]">
+								<p class="text-sm font-bold text-[var(--color-text-disabled)] truncate">{getActivityDisplayNameForAdult(activity)}</p>
+								<p class="text-xs text-[var(--color-text-disabled)]">
 									{getCategoryById(activity.categoryId)?.name ?? ''} / {activity.basePoints}P
 									{#if logCount > 0}
 										/ 記録 {logCount}件
@@ -48,7 +48,7 @@ let showHidden = $state(false);
 									<input type="hidden" name="visible" value="true" />
 									<button
 										type="submit"
-										class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-info-bg-strong)] text-[var(--color-brand-600)] hover:brightness-95 transition-all"
+										class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-brand-100)] text-[var(--color-action-primary)] hover:opacity-80 transition-colors"
 									>
 										復活
 									</button>
@@ -64,7 +64,7 @@ let showHidden = $state(false);
 										<input type="hidden" name="id" value={activity.id} />
 										<button
 											type="submit"
-											class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)] hover:brightness-95 transition-all"
+											class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-error-bg,#fef2f2)] text-[var(--color-action-danger)] hover:opacity-80 transition-colors"
 										>
 											完全削除
 										</button>
