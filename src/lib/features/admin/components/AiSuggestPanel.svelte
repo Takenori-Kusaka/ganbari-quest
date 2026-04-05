@@ -47,9 +47,9 @@ function acceptPreview() {
 }
 </script>
 
-<div class="bg-purple-50 rounded-xl p-4 shadow-sm space-y-3 border border-purple-200">
-	<h3 class="font-bold text-purple-700">✨ やりたいことを教えてください</h3>
-	<p class="text-xs text-purple-600">
+<div class="bg-[var(--color-premium-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-premium)]/20">
+	<h3 class="font-bold text-[var(--color-premium)]">✨ やりたいことを教えてください</h3>
+	<p class="text-xs text-[var(--color-premium-light)]">
 		やりたい活動を自由に入力すると、カテゴリ・ポイント・アイコンを自動で提案します
 	</p>
 	<div class="flex gap-2">
@@ -62,7 +62,7 @@ function acceptPreview() {
 		/>
 		<button
 			type="button"
-			class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-bold hover:bg-purple-600 transition-colors disabled:opacity-50"
+			class="px-4 py-2 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg text-sm font-bold hover:opacity-90 transition-colors disabled:opacity-50"
 			disabled={aiLoading || !aiInput.trim()}
 			onclick={suggestFromAI}
 		>
@@ -81,23 +81,23 @@ function acceptPreview() {
 		/>
 	{/if}
 	{#if aiError}
-		<p class="text-red-500 text-sm">{aiError}</p>
+		<p class="text-[var(--color-action-danger)] text-sm">{aiError}</p>
 	{/if}
 
 	{#if aiPreview}
-		<div class="bg-white rounded-lg p-3 space-y-2 border border-purple-200">
+		<div class="bg-[var(--color-surface-card)] rounded-lg p-3 space-y-2 border border-[var(--color-premium)]/20">
 			{#if aiPreview.source === 'fallback'}
-				<p class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">AIが利用できなかったため、入力内容から推定しました</p>
+				<p class="text-xs text-[var(--color-warning)] bg-[var(--color-gold-100)] px-2 py-1 rounded">AIが利用できなかったため、入力内容から推定しました</p>
 			{/if}
 			<div class="flex items-center gap-3">
 				<CompoundIcon icon={aiPreview.icon} size="lg" />
 				<div class="flex-1">
-					<p class="font-bold text-gray-700">{aiPreview.nameKanji || aiPreview.name}</p>
-					<p class="text-xs text-gray-400">
+					<p class="font-bold text-[var(--color-text)]">{aiPreview.nameKanji || aiPreview.name}</p>
+					<p class="text-xs text-[var(--color-text-disabled)]">
 						{getCategoryById(aiPreview.categoryId)?.name ?? ''} / {aiPreview.basePoints}P
 					</p>
 					{#if aiPreview.nameKana || aiPreview.nameKanji}
-						<p class="text-xs text-gray-400 mt-0.5">
+						<p class="text-xs text-[var(--color-text-disabled)] mt-0.5">
 							{#if aiPreview.nameKana}ひらがな: {aiPreview.nameKana}{/if}
 							{#if aiPreview.nameKana && aiPreview.nameKanji} / {/if}
 							{#if aiPreview.nameKanji}漢字: {aiPreview.nameKanji}{/if}
@@ -108,14 +108,14 @@ function acceptPreview() {
 			<div class="flex gap-2">
 				<button
 					type="button"
-					class="flex-1 py-2 bg-green-500 text-white rounded-lg font-bold text-sm hover:bg-green-600 transition-colors"
+					class="flex-1 py-2 bg-[var(--color-action-success)] text-[var(--color-text-inverse)] rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
 					onclick={acceptPreview}
 				>
 					この内容で追加フォームを開く
 				</button>
 				<button
 					type="button"
-					class="px-4 py-2 bg-gray-200 rounded-lg font-bold text-sm hover:bg-gray-300 transition-colors"
+					class="px-4 py-2 bg-[var(--color-neutral-200)] rounded-lg font-bold text-sm hover:bg-[var(--color-neutral-300)] transition-colors"
 					onclick={() => aiPreview = null}
 				>
 					やり直す
