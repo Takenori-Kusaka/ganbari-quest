@@ -6,8 +6,6 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
 
-type RewardTab = 'special' | 'stamp' | 'message';
-let activeTab = $state<RewardTab>('stamp');
 let selectedChildId = $state(0);
 
 $effect(() => {
@@ -38,14 +36,6 @@ function selectTemplate(tmpl: { title: string; points: number; icon?: string; ca
 	customCategory = tmpl.category;
 }
 
-// --- Stamp ---
-let selectedStamp = $state('');
-let stampSuccess = $state(false);
-
-// --- Text Message ---
-let messageBody = $state('');
-let messageSent = $state(false);
-
 const categoryLabels: Record<string, string> = {
 	うんどう: 'うんどう',
 	べんきょう: 'べんきょう',
@@ -54,265 +44,158 @@ const categoryLabels: Record<string, string> = {
 	そうぞう: 'そうぞう',
 	とくべつ: 'とくべつ',
 };
-
-const tabs: { key: RewardTab; label: string; icon: string }[] = [
-	{ key: 'stamp', label: 'おうえん', icon: '💌' },
-	{ key: 'special', label: 'ごほうび', icon: '🎁' },
-	{ key: 'message', label: 'メッセージ', icon: '✉️' },
-];
 </script>
 
 <svelte:head>
-	<title>こどもを褒める - がんばりクエスト</title>
+	<title>ごほうび - がんばりクエスト</title>
 </svelte:head>
 
 <div class="space-y-4" data-tutorial="rewards-section">
-	<!-- Child Selector (shared across all tabs) -->
+	<!-- Page Description -->
+	<div class="page-description">
+		<p class="page-description__title">🎁 とくべつなごほうび</p>
+		<p class="page-description__text">
+			がんばったこどもへの特別なごほうびを設定・付与します。
+			日常の活動ポイントとは別に、お手伝いや特別な成果に対してボーナスポイントを贈れます。
+		</p>
+		<p class="page-description__hint">
+			💌 スタンプやメッセージは
+			<a href="/admin/messages" class="page-description__link">おうえんメッセージ</a>
+			から送れます
+		</p>
+	</div>
+
+	<!-- Child Selector -->
 	<section>
-		<h3 class="text-sm font-bold text-gray-500 mb-2">こどもを選択</h3>
+		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">こどもを選択</h3>
 		<div class="flex gap-2 flex-wrap">
 			{#each data.children as child}
 				<Button
 					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
 					size="sm"
-					class="rounded-xl {selectedChildId === child.id ? '' : 'bg-white text-gray-600 shadow-sm hover:shadow-md'}"
+					class="rounded-xl {selectedChildId === child.id ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text-muted)] shadow-sm hover:shadow-md'}"
 					onclick={() => selectedChildId = child.id}
 				>
-					👤 {child.nickname}
+					{child.nickname}
 				</Button>
 			{/each}
 		</div>
 	</section>
 
-	<!-- Tab Selector -->
-	<div class="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
-		{#each tabs as tab}
-			<button
-				type="button"
-				class="flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all
-					{activeTab === tab.key
-						? 'bg-[var(--color-action-primary)] text-white shadow-sm'
-						: 'text-gray-500 hover:bg-gray-50'}"
-				onclick={() => activeTab = tab.key}
-			>
-				{tab.icon} {tab.label}
-			</button>
-		{/each}
-	</div>
-
 	<!-- Error Display -->
 	{#if form?.error}
-		<div class="bg-red-50 rounded-xl p-3 border border-red-200 text-red-600 text-sm">
+		<div class="bg-[color-mix(in_srgb,var(--color-action-danger)_10%,transparent)] rounded-xl p-3 border border-[color-mix(in_srgb,var(--color-action-danger)_30%,transparent)] text-[var(--color-action-danger)] text-sm">
 			{form.error}
 		</div>
 	{/if}
 
-	<!-- Tab: Stamp -->
-	{#if activeTab === 'stamp'}
-		<Card variant="elevated" padding="md">
-			{#snippet children()}
-			<form
-				method="POST"
-				action="?/sendStamp"
-				use:enhance={() => {
-					return async ({ result, update }) => {
-						if (result.type === 'success' && result.data && 'stampSent' in result.data) {
-							stampSuccess = true;
-							selectedStamp = '';
-							setTimeout(() => { stampSuccess = false; }, 3000);
-						}
-						await update();
-					};
-				}}
-			>
-				<h3 class="text-sm font-bold text-gray-500 mb-3">おうえんスタンプを送る</h3>
-				<input type="hidden" name="childId" value={selectedChildId} />
-				<input type="hidden" name="stampCode" value={selectedStamp} />
-
-				<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-					{#each data.stampPresets as stamp}
-						<button
-							type="button"
-							class="stamp-btn {selectedStamp === stamp.code ? 'stamp-btn--selected' : ''}"
-							onclick={() => selectedStamp = stamp.code}
-						>
-							<span class="text-3xl block">{stamp.icon}</span>
-							<span class="text-xs font-bold text-gray-600 mt-1">{stamp.label}</span>
-						</button>
-					{/each}
-				</div>
-
+	<!-- Special Reward Templates -->
+	<section>
+		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">テンプレートを選択</h3>
+		<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+			{#each data.templates as tmpl}
 				<Button
-					type="submit"
-					variant="primary"
-					size="md"
-					class="w-full"
-					disabled={!selectedStamp}
+					variant="ghost"
+					size="sm"
+					class="bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto
+						{selectedTemplate?.title === tmpl.title ? 'ring-2 ring-[var(--color-action-primary)]' : ''}"
+					onclick={() => selectTemplate(tmpl)}
 				>
-					スタンプを送る
+					<span class="text-2xl block">{tmpl.icon ?? '🎁'}</span>
+					<p class="text-xs font-bold text-[var(--color-text-muted)] mt-1">{tmpl.title}</p>
+					<p class="text-xs text-[var(--color-point)] font-bold">{tmpl.points}P</p>
 				</Button>
-			</form>
-			{/snippet}
-		</Card>
+			{/each}
+		</div>
+	</section>
 
-		{#if stampSuccess}
-			<div class="bg-green-50 rounded-xl p-4 border border-green-200 text-center">
-				<p class="text-green-700 font-bold">おうえんスタンプを送りました！</p>
+	<!-- Grant Form -->
+	<Card variant="elevated" padding="md">
+		{#snippet children()}
+		<form
+			method="POST"
+			action="?/grant"
+			use:enhance={() => {
+				return async ({ result, update }) => {
+					if (result.type === 'success' && result.data && 'granted' in result.data) {
+						grantSuccess = true;
+						setTimeout(() => { grantSuccess = false; }, 3000);
+					}
+					await update();
+				};
+			}}
+			class="space-y-3"
+		>
+			<h3 class="text-sm font-bold text-[var(--color-text-muted)]">内容を確認して付与</h3>
+			<input type="hidden" name="childId" value={selectedChildId} />
+
+			<div class="grid grid-cols-2 gap-3">
+				<FormField label="タイトル" type="text" name="title" bind:value={customTitle} required />
+				<FormField label="ポイント" type="number" name="points" bind:value={customPoints} min={1} max={10000} required />
 			</div>
-		{/if}
-	{/if}
-
-	<!-- Tab: Special Reward -->
-	{#if activeTab === 'special'}
-		<section>
-			<h3 class="text-sm font-bold text-gray-500 mb-2">テンプレートを選択</h3>
-			<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-				{#each data.templates as tmpl}
-					<Button
-						variant="ghost"
-						size="sm"
-						class="bg-white rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto
-							{selectedTemplate?.title === tmpl.title ? 'ring-2 ring-blue-400' : ''}"
-						onclick={() => selectTemplate(tmpl)}
-					>
-						<span class="text-2xl block">{tmpl.icon ?? '🎁'}</span>
-						<p class="text-xs font-bold text-gray-600 mt-1">{tmpl.title}</p>
-						<p class="text-xs text-amber-500 font-bold">{tmpl.points}P</p>
-					</Button>
-				{/each}
-			</div>
-		</section>
-
-		<Card variant="elevated" padding="md">
-			{#snippet children()}
-			<form
-				method="POST"
-				action="?/grant"
-				use:enhance={() => {
-					return async ({ result, update }) => {
-						if (result.type === 'success' && result.data && 'granted' in result.data) {
-							grantSuccess = true;
-							setTimeout(() => { grantSuccess = false; }, 3000);
-						}
-						await update();
-					};
-				}}
-				class="space-y-3"
-			>
-				<h3 class="text-sm font-bold text-gray-500">内容を確認して付与</h3>
-				<input type="hidden" name="childId" value={selectedChildId} />
-
-				<div class="grid grid-cols-2 gap-3">
-					<FormField label="タイトル" type="text" name="title" bind:value={customTitle} required />
-					<FormField label="ポイント" type="number" name="points" bind:value={customPoints} min={1} max={10000} required />
-				</div>
-				<div class="grid grid-cols-2 gap-3">
-					<FormField label="アイコン" type="text" name="icon" bind:value={customIcon} />
-					<FormField label="カテゴリ">
-						{#snippet children()}
-							<select name="category" bind:value={customCategory} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
-								{#each Object.entries(categoryLabels) as [value, label]}
-									<option {value}>{label}</option>
-								{/each}
-							</select>
-						{/snippet}
-					</FormField>
-				</div>
-
-				<Button
-					type="submit"
-					variant="primary"
-					size="md"
-					class="w-full"
-				>
-					{customIcon} {customTitle || '報酬'} ({customPoints}P) を付与する
-				</Button>
-			</form>
-			{/snippet}
-		</Card>
-
-		{#if grantSuccess}
-			<div class="bg-green-50 rounded-xl p-4 border border-green-200 text-center">
-				<p class="text-green-700 font-bold">特別報酬を付与しました！</p>
-			</div>
-		{/if}
-	{/if}
-
-	<!-- Tab: Text Message -->
-	{#if activeTab === 'message'}
-		<Card variant="elevated" padding="md">
-			{#snippet children()}
-			<form
-				method="POST"
-				action="?/sendText"
-				use:enhance={() => {
-					return async ({ result, update }) => {
-						if (result.type === 'success' && result.data && 'messageSent' in result.data) {
-							messageSent = true;
-							messageBody = '';
-							setTimeout(() => { messageSent = false; }, 3000);
-						}
-						await update();
-					};
-				}}
-				class="space-y-3"
-			>
-				<h3 class="text-sm font-bold text-gray-500">テキストメッセージを送る</h3>
-				<input type="hidden" name="childId" value={selectedChildId} />
-
-				<FormField label="メッセージ（30文字まで）">
+			<div class="grid grid-cols-2 gap-3">
+				<FormField label="アイコン" type="text" name="icon" bind:value={customIcon} />
+				<FormField label="カテゴリ">
 					{#snippet children()}
-						<textarea
-							name="body"
-							bind:value={messageBody}
-							maxlength={30}
-							rows={3}
-							placeholder="がんばったね！おつかれさま！"
-							class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm resize-none"
-						></textarea>
+						<select name="category" bind:value={customCategory} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
+							{#each Object.entries(categoryLabels) as [value, label]}
+								<option {value}>{label}</option>
+							{/each}
+						</select>
 					{/snippet}
 				</FormField>
-				<div class="text-right text-xs text-gray-400">{messageBody.length}/30</div>
-
-				<Button
-					type="submit"
-					variant="primary"
-					size="md"
-					class="w-full"
-					disabled={!messageBody.trim()}
-				>
-					メッセージを送る
-				</Button>
-			</form>
-			{/snippet}
-		</Card>
-
-		{#if messageSent}
-			<div class="bg-green-50 rounded-xl p-4 border border-green-200 text-center">
-				<p class="text-green-700 font-bold">メッセージを送りました！</p>
 			</div>
-		{/if}
+
+			<Button
+				type="submit"
+				variant="primary"
+				size="md"
+				class="w-full"
+			>
+				{customIcon} {customTitle || '報酬'} ({customPoints}P) を付与する
+			</Button>
+		</form>
+		{/snippet}
+	</Card>
+
+	{#if grantSuccess}
+		<div class="bg-[color-mix(in_srgb,var(--color-action-success)_10%,transparent)] rounded-xl p-4 border border-[color-mix(in_srgb,var(--color-action-success)_30%,transparent)] text-center">
+			<p class="text-[var(--color-action-success)] font-bold">特別報酬を付与しました！</p>
+		</div>
 	{/if}
 </div>
 
 <style>
-	.stamp-btn {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 0.75rem 0.5rem;
+	.page-description {
+		background: var(--color-surface-card);
 		border-radius: 0.75rem;
-		background: var(--color-surface-card, #fff);
-		border: 2px solid transparent;
-		cursor: pointer;
-		transition: all 0.15s;
+		padding: 1rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 	}
-	.stamp-btn:hover {
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+	.page-description__title {
+		font-size: 0.9375rem;
+		font-weight: 700;
+		color: var(--color-text);
+		margin-bottom: 0.25rem;
 	}
-	.stamp-btn--selected {
-		border-color: var(--color-action-primary, #667eea);
-		background: var(--color-surface-muted, #f8fafc);
+	.page-description__text {
+		font-size: 0.8125rem;
+		color: var(--color-text-muted);
+		line-height: 1.5;
+	}
+	.page-description__hint {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		margin-top: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.06));
+	}
+	.page-description__link {
+		color: var(--color-action-primary);
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.page-description__link:hover {
+		text-decoration: underline;
 	}
 </style>
