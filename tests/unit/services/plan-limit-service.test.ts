@@ -171,6 +171,7 @@ describe('plan-limit-service', () => {
 			expect(limits.historyRetentionDays).toBe(90);
 			expect(limits.canExport).toBe(false);
 			expect(limits.canCustomAvatar).toBe(false);
+			expect(limits.canFreeTextMessage).toBe(false);
 		});
 
 		it('standard tier limits', () => {
@@ -180,6 +181,7 @@ describe('plan-limit-service', () => {
 			expect(limits.historyRetentionDays).toBe(365);
 			expect(limits.canExport).toBe(true);
 			expect(limits.canCustomAvatar).toBe(true);
+			expect(limits.canFreeTextMessage).toBe(false);
 		});
 
 		it('family tier limits', () => {
@@ -189,6 +191,7 @@ describe('plan-limit-service', () => {
 			expect(limits.historyRetentionDays).toBeNull();
 			expect(limits.canExport).toBe(true);
 			expect(limits.canCustomAvatar).toBe(true);
+			expect(limits.canFreeTextMessage).toBe(true);
 		});
 	});
 

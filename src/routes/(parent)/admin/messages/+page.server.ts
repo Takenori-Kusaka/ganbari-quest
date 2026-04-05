@@ -1,4 +1,9 @@
 import { fail } from '@sveltejs/kit';
+import {
+	MESSAGE_TEXT_MAX_LENGTH,
+	SENDABLE_MESSAGE_TYPES,
+	type SendableMessageType,
+} from '$lib/domain/validation/message';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
@@ -6,11 +11,15 @@ import {
 	STAMP_PRESETS,
 	sendMessage,
 } from '$lib/server/services/message-service';
+import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, parent }) => {
 	const tenantId = requireTenantId(locals);
 	const children = await getAllChildren(tenantId);
+	const parentData = await parent();
+	const planTier = parentData.planTier ?? 'free';
+	const limits = getPlanLimits(planTier);
 
 	const childrenWithMessages = await Promise.all(
 		children.map(async (child) => {
@@ -19,7 +28,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
-	return { children: childrenWithMessages, stamps: STAMP_PRESETS };
+	return {
+		children: childrenWithMessages,
+		stamps: STAMP_PRESETS,
+		canFreeTextMessage: limits.canFreeTextMessage,
+		planTier,
+	};
 };
 
 export const actions: Actions = {
@@ -33,22 +47,39 @@ export const actions: Actions = {
 
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 
-		if (messageType === 'stamp' && !stampCode) {
+		// messageType バリデーション: stamp / text のみ許可
+		if (!(SENDABLE_MESSAGE_TYPES as readonly string[]).includes(messageType)) {
+			return fail(400, { error: 'メッセージ種別が不正です' });
+		}
+		const validType = messageType as SendableMessageType;
+
+		if (validType === 'stamp' && !stampCode) {
 			return fail(400, { error: 'スタンプを選択してください' });
 		}
-		if (messageType === 'text' && !body) {
-			return fail(400, { error: 'メッセージを入力してください' });
-		}
-		if (messageType === 'text' && body.length > 30) {
-			return fail(400, { error: 'メッセージは30文字以内で入力してください' });
+		if (validType === 'text') {
+			// ファミリープラン限定チェック（トライアル状態も考慮）
+			const licenseStatus = locals.context?.licenseStatus ?? 'none';
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			const limits = getPlanLimits(tier);
+			if (!limits.canFreeTextMessage) {
+				return fail(403, { error: '自由テキストメッセージはファミリープラン限定です' });
+			}
+			if (!body) {
+				return fail(400, { error: 'メッセージを入力してください' });
+			}
+			if (body.length > MESSAGE_TEXT_MAX_LENGTH) {
+				return fail(400, {
+					error: `メッセージは${MESSAGE_TEXT_MAX_LENGTH}文字以内で入力してください`,
+				});
+			}
 		}
 
 		const result = await sendMessage(
 			{
 				childId,
-				messageType,
-				stampCode: messageType === 'stamp' ? stampCode : null,
-				body: messageType === 'text' ? body : null,
+				messageType: validType,
+				stampCode: validType === 'stamp' ? stampCode : null,
+				body: validType === 'text' ? body : null,
 			},
 			tenantId,
 		);

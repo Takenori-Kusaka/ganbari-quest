@@ -27,7 +27,7 @@ const variantClasses: Record<Variant, string> = {
 	ghost: 'bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10',
 	success: 'bg-[var(--color-success)] text-white hover:brightness-90 active:brightness-80',
 	outline:
-		'bg-transparent text-[var(--theme-primary)] border-2 border-[var(--theme-primary)] hover:bg-[var(--theme-primary)]/10 active:bg-[var(--theme-primary)]/20',
+		'bg-transparent text-[var(--theme-primary)] border-2 border-[var(--theme-primary)] hover:bg-[color-mix(in_srgb,var(--theme-primary)_10%,transparent)] active:bg-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)]',
 	warning: 'bg-[var(--color-warning)] text-white hover:brightness-90 active:brightness-80',
 };
 
