@@ -4,7 +4,7 @@ import { navigating, page } from '$app/stores';
 import Logo from '$lib/ui/components/Logo.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
-import { markTutorialStarted, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
+import { markTutorialStarted, startTutorialForPage } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 interface NavItem {
 	href: string;
@@ -33,7 +33,8 @@ const isDemo = $derived(mode === 'demo');
 
 async function handleStartTutorial() {
 	await markTutorialStarted();
-	await startTutorial();
+	const currentPath = $page.url.pathname;
+	await startTutorialForPage(currentPath);
 }
 
 // bfcache recovery (production only)

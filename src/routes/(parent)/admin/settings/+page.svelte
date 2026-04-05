@@ -947,7 +947,7 @@ const previewFormatted = $derived(
 	</Card>
 
 	<!-- データ管理 -->
-	<Card padding="lg">
+	<Card padding="lg" data-tutorial="data-management">
 		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">💾 データ管理</h3>
 
 		{#if exportError}
