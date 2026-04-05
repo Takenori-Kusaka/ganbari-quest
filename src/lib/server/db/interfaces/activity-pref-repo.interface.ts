@@ -14,4 +14,5 @@ export interface IActivityPrefRepo {
 		sinceDate: string,
 		tenantId: string,
 	): Promise<ActivityUsageCount[]>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

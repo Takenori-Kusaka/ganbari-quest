@@ -58,3 +58,8 @@ export async function countTodayCheersFrom(
 		.get();
 	return result?.value ?? 0;
 }
+
+/** テナントの全おうえんスタンプを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(siblingCheers).run();
+}

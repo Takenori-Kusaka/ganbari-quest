@@ -37,4 +37,5 @@ export interface ISiblingChallengeRepo {
 		children: { childId: number; targetValue: number }[],
 		tenantId: string,
 	): Promise<void>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

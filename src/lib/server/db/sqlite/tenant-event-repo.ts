@@ -148,3 +148,9 @@ export async function upsertProgress(
 		})
 		.run();
 }
+
+/** テナントの全イベントデータを削除 */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	db.delete(tenantEventProgress).where(eq(tenantEventProgress.tenantId, tenantId)).run();
+	db.delete(tenantEvents).where(eq(tenantEvents.tenantId, tenantId)).run();
+}

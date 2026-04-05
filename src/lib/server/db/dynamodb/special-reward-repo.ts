@@ -3,9 +3,10 @@
 
 import { PutCommand, QueryCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { InsertSpecialRewardInput, SpecialReward } from '../types';
+import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { childPK, ENTITY_NAMES, specialRewardKey, specialRewardPrefix } from './keys';
+import { childPK, ENTITY_NAMES, specialRewardKey, specialRewardPrefix, tenantPK } from './keys';
 
 /** Strip PK/SK/GSI keys from a DynamoDB item */
 function stripKeys<T extends Record<string, unknown>>(
@@ -153,4 +154,9 @@ export async function markRewardShown(
 
 	if (!updateResult.Attributes) return undefined;
 	return stripKeys(updateResult.Attributes) as unknown as SpecialReward;
+}
+
+/** テナントの全特別報酬を削除（CHILD#* 配下の REWARD# アイテム） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), specialRewardPrefix());
 }

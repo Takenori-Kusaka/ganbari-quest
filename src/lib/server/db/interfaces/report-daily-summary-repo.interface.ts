@@ -17,4 +17,5 @@ export interface IReportDailySummaryRepo {
 	upsert(input: InsertReportDailySummaryInput): Promise<void>;
 
 	deleteOlderThan(tenantId: string, cutoffDate: string): Promise<number>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

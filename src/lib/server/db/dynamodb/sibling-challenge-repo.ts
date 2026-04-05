@@ -89,3 +89,8 @@ export async function enrollChildren(
 ): Promise<void> {
 	throw new Error(NOT_IMPL);
 }
+
+/** テナントの全きょうだいチャレンジを削除（DynamoDB未実装: 書き込みがないため no-op） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	// DynamoDB sibling-challenge repo は未実装のため書き込みデータなし — no-op
+}

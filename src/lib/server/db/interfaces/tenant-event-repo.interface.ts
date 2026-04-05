@@ -33,4 +33,5 @@ export interface ITenantEventRepo {
 	): Promise<TenantEventProgress[]>;
 
 	upsertProgress(input: UpsertTenantEventProgressInput, tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

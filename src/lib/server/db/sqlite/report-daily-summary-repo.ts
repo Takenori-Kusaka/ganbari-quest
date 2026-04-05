@@ -74,3 +74,8 @@ export async function deleteOlderThan(tenantId: string, cutoffDate: string): Pro
 		.run();
 	return result.changes;
 }
+
+/** テナントの全日次サマリーを削除 */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	db.delete(reportDailySummaries).where(eq(reportDailySummaries.tenantId, tenantId)).run();
+}
