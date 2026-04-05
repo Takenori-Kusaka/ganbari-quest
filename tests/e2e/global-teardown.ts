@@ -5,9 +5,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const DB_PATH = path.resolve('data/ganbari-quest.db');
+const databaseUrl = process.env.DATABASE_URL ?? './data/ganbari-quest.db';
+const DB_PATH = path.resolve(databaseUrl);
+
+/**
+ * E2E テスト用の子供 ID（global-setup.ts で作成されるテストデータ）
+ * セットアップで INSERT される子供の ID は 1, 2 （たろうくん, はなこちゃん）。
+ * 削除対象をこれらに限定することで、共用 DB 上の本物のユーザーデータを守る。
+ */
+const E2E_CHILD_IDS = [1, 2];
 
 export default async function globalTeardown() {
+	if (process.env.E2E_SKIP_TEARDOWN === 'true') {
+		console.log('[E2E Teardown] E2E_SKIP_TEARDOWN=true — skipping local cleanup.');
+		return;
+	}
+
 	console.log('[E2E Teardown] Cleaning up test data...');
 
 	if (!fs.existsSync(DB_PATH)) {
@@ -19,37 +32,43 @@ export default async function globalTeardown() {
 		const Database = (await import('better-sqlite3')).default;
 		const db = new Database(DB_PATH);
 
-		// 今日の活動ログを削除（テスト実行で作成されたもの）
+		const childIdPlaceholders = E2E_CHILD_IDS.map(() => '?').join(', ');
+
+		// E2E テスト子供の活動ログを削除（日付条件なし — 子供IDでスコープ限定）
 		const deletedLogs = db
-			.prepare("DELETE FROM activity_logs WHERE recorded_date = date('now', 'localtime')")
-			.run();
+			.prepare(`DELETE FROM activity_logs WHERE child_id IN (${childIdPlaceholders})`)
+			.run(...E2E_CHILD_IDS);
 		if (deletedLogs.changes > 0) {
-			console.log(`[E2E Teardown]   Cleaned ${deletedLogs.changes} activity log(s) from today.`);
+			console.log(`[E2E Teardown]   Cleaned ${deletedLogs.changes} activity log(s).`);
 		}
 
-		// 今日のログインボーナスを削除
+		// E2E テスト子供のログインボーナスを削除
 		const deletedBonus = db
-			.prepare("DELETE FROM login_bonuses WHERE login_date = date('now', 'localtime')")
-			.run();
+			.prepare(`DELETE FROM login_bonuses WHERE child_id IN (${childIdPlaceholders})`)
+			.run(...E2E_CHILD_IDS);
 		if (deletedBonus.changes > 0) {
-			console.log(`[E2E Teardown]   Cleaned ${deletedBonus.changes} login bonus(es) from today.`);
+			console.log(`[E2E Teardown]   Cleaned ${deletedBonus.changes} login bonus(es).`);
 		}
 
-		// ピン留め設定を削除
-		const deletedPins = db.prepare('DELETE FROM child_activity_preferences').run();
+		// E2E テスト子供のピン留め設定を削除
+		const deletedPins = db
+			.prepare(`DELETE FROM child_activity_preferences WHERE child_id IN (${childIdPlaceholders})`)
+			.run(...E2E_CHILD_IDS);
 		if (deletedPins.changes > 0) {
 			console.log(`[E2E Teardown]   Cleaned ${deletedPins.changes} pin preference(s).`);
 		}
 
-		// 今日のスタンプエントリを削除
+		// E2E テスト子供のスタンプエントリを削除
 		try {
 			const deletedStamps = db
-				.prepare("DELETE FROM stamp_entries WHERE login_date = date('now', 'localtime')")
-				.run();
+				.prepare(
+					`DELETE FROM stamp_entries WHERE card_id IN (
+						SELECT id FROM stamp_cards WHERE child_id IN (${childIdPlaceholders})
+					)`,
+				)
+				.run(...E2E_CHILD_IDS);
 			if (deletedStamps.changes > 0) {
-				console.log(
-					`[E2E Teardown]   Cleaned ${deletedStamps.changes} stamp entry(ies) from today.`,
-				);
+				console.log(`[E2E Teardown]   Cleaned ${deletedStamps.changes} stamp entry(ies).`);
 			}
 		} catch {
 			// stamp_entries テーブルが存在しない場合は無視
@@ -57,7 +76,9 @@ export default async function globalTeardown() {
 
 		// セッション情報をクリア（テスト中に作成されたセッション）
 		try {
-			db.prepare("UPDATE settings SET value = '' WHERE key IN ('session_token', 'session_expires_at')").run();
+			db.prepare(
+				"UPDATE settings SET value = '' WHERE key IN ('session_token', 'session_expires_at')",
+			).run();
 		} catch {
 			// settings テーブルに該当行がない場合は無視
 		}
