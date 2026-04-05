@@ -85,8 +85,7 @@ function handleDismiss() {
 					{#if guide.isLastStep}
 						<a
 							href="/demo/signup"
-							class="px-3 py-1.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white text-xs font-bold rounded-lg"						>
-							はじめる
+							class="px-3 py-1.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white text-xs font-bold rounded-lg"						>							はじめる
 						</a>
 					{:else if guide.step?.requiresAction}
 						<!-- Action-required step: show hint instead of navigation button -->
@@ -107,8 +106,7 @@ function handleDismiss() {
 					{/if}
 					<button
 						type="button"
-						class="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-lg leading-none"						onclick={handleDismiss}
-						aria-label="ガイドを閉じる"
+						class="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-lg leading-none"						onclick={handleDismiss}						aria-label="ガイドを閉じる"
 					>
 						&times;
 					</button>

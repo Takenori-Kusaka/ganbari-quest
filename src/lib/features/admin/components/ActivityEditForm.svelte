@@ -140,8 +140,7 @@ let actionMessage = $state('');
 			</button>
 			<button
 				type="button"
-				class="px-4 py-2 bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)] rounded-lg font-bold text-sm hover:brightness-95 transition-all"				onclick={() => deleteConfirmId = deleteConfirmId === activity.id ? null : activity.id}
-			>
+				class="px-4 py-2 bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)] rounded-lg font-bold text-sm hover:brightness-95 transition-all"				onclick={() => deleteConfirmId = deleteConfirmId === activity.id ? null : activity.id}			>
 				削除
 			</button>
 		</div>
@@ -177,8 +176,7 @@ let actionMessage = $state('');
 					}}
 				>
 					<input type="hidden" name="id" value={activity.id} />
-					<button type="submit" class="w-full py-2 {logCount > 0 ? 'bg-[var(--color-warning)]' : 'bg-[var(--color-action-danger)]'} text-white rounded-lg font-bold text-sm hover:brightness-90 transition-all">						{logCount > 0 ? '非表示にする' : '削除する'}
-					</button>
+					<button type="submit" class="w-full py-2 {logCount > 0 ? 'bg-[var(--color-warning)]' : 'bg-[var(--color-action-danger)]'} text-white rounded-lg font-bold text-sm hover:brightness-90 transition-all">						{logCount > 0 ? '非表示にする' : '削除する'}					</button>
 				</form>
 				<button
 					type="button"

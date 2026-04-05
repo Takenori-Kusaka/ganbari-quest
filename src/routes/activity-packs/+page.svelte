@@ -10,8 +10,7 @@ let { data } = $props();
 	<meta name="description" content="お子さまの年齢に合った活動セット。がんばりクエストのプリセットパックで、すぐに始められます。" />
 </svelte:head>
 
-<div class="min-h-dvh bg-gradient-to-b from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)]">	<div class="max-w-2xl mx-auto px-4 py-8">		<!-- Header -->
-		<div class="text-center mb-8">
+<div class="min-h-dvh bg-gradient-to-b from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)]">	<div class="max-w-2xl mx-auto px-4 py-8">		<!-- Header -->		<div class="text-center mb-8">
 			<div class="flex justify-center mb-3">
 				<Logo variant="compact" size={160} />
 			</div>
