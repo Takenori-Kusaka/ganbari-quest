@@ -3,11 +3,14 @@ import { invalidateAll } from '$app/navigation';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
+import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import {
 	dismissTutorialBanner,
 	markTutorialStarted,
 	startTutorial,
 } from '$lib/ui/tutorial/tutorial-store.svelte';
+import ChildListCard from './ChildListCard.svelte';
 import NotificationPermissionBanner from './NotificationPermissionBanner.svelte';
 import OnboardingChecklist from './OnboardingChecklist.svelte';
 import PremiumWelcome from './PremiumWelcome.svelte';
@@ -17,8 +20,10 @@ interface ChildSummary {
 	nickname: string;
 	age: number;
 	uiMode: string;
+	theme: string;
 	balance: number;
 	avatarUrl?: string | null;
+	birthDate?: string | null;
 	level?: number;
 	levelTitle?: string;
 }
@@ -152,19 +157,15 @@ function childLink(child: ChildSummary): string {
 				<span class="text-2xl">📖</span>
 				<div class="flex-1">
 					<p class="font-bold text-[var(--color-text)]">初めてご利用ですか？</p>
-					<p class="text-sm text-[var(--color-text-muted)]">チュートリアルで使い方を確認しましょう（約3分）</p>				</div>				<div class="flex gap-2">
-					<button
-						class="px-3 py-1.5 bg-[var(--color-brand-600)] text-white text-sm font-bold rounded-lg hover:bg-[var(--color-brand-700)] transition-colors"
-						onclick={handleStartTutorial}
-					>
+					<p class="text-sm text-[var(--color-text-muted)]">チュートリアルで使い方を確認しましょう（約3分）</p>
+				</div>
+				<div class="flex gap-2">
+					<Button variant="primary" size="sm" onclick={handleStartTutorial}>
 						開始
-					</button>
-					<button
-						class="px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
-						onclick={handleDismissBanner}
-					>
+					</Button>
+					<Button variant="ghost" size="sm" onclick={handleDismissBanner}>
 						あとで
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>
@@ -221,17 +222,17 @@ function childLink(child: ChildSummary): string {
 	<h1 class="dashboard-heading">管理ダッシュボード{isDemo ? '（デモ）' : ''}</h1>
 
 	<!-- Summary Cards -->
-	<div class="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tutorial="summary-cards">
-		<div class="summary-card" role="group" aria-label="登録こども数">
-			<p class="summary-card__value">{children.length}</p>
-			<p class="summary-card__label">こどもの数</p>
-		</div>
-		<div class="summary-card" role="group" aria-label="全ポイント合計">
-			<p class="summary-card__value summary-card__value--accent">
+	<div class="grid grid-cols-2 gap-3" data-tutorial="summary-cards">
+		<Card variant="elevated" class="text-center" role="group" aria-label="登録こども数">
+			<p class="text-2xl font-bold text-[var(--color-action-primary)]">{children.length}</p>
+			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">こどもの数</p>
+		</Card>
+		<Card variant="elevated" class="text-center" role="group" aria-label="全ポイント合計">
+			<p class="text-2xl font-bold text-[var(--color-gold-500)]">
 				{fmtBal(children.reduce((sum, c) => sum + c.balance, 0))}
 			</p>
-			<p class="summary-card__label">合計{unit}</p>
-		</div>
+			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">合計{unit}</p>
+		</Card>
 	</div>
 
 	<!-- Monthly Summary -->
@@ -273,31 +274,24 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Children Overview -->
 	<section data-tutorial="children-overview">
-		<h2 class="text-lg font-bold text-[var(--color-text)] mb-3">こども一覧</h2>
+		<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">こども一覧</h2>
 		{#if children.length === 0}
-			<div class="bg-[var(--color-surface-card)] rounded-xl p-8 shadow-sm text-center text-[var(--color-text-muted)]">
+			<Card class="p-8 text-center text-[var(--color-text-tertiary)]">
 				<p>まだこどもが登録されていません</p>
-			</div>
+			</Card>
 		{:else}
 			<div class="grid gap-3">
 				{#each children as child}
-					<a
+					<ChildListCard
+						child={{
+							...child,
+							theme: child.theme,
+							level: child.level ?? 1,
+						}}
+						isSelected={false}
 						href={childLink(child)}
-						class="child-list-item"
-					>
-						{#if child.avatarUrl}
-							<img src={child.avatarUrl} alt={child.nickname} class="w-10 h-10 rounded-full object-cover" loading="lazy" />
-						{:else}
-							<span class="text-3xl">👤</span>
-						{/if}
-						<div class="flex-1">
-							<p class="font-bold text-[var(--color-text)]">{child.nickname}</p>
-							<p class="text-sm text-[var(--color-text-muted)]">{child.age}歳 / {child.uiMode}</p>
-						</div>
-						<div class="text-right">
-							<p class="text-lg font-bold text-[var(--color-warning)]">{fmtBal(child.balance)}</p>
-						</div>
-					</a>
+						formatBalance={fmtBal}
+					/>
 				{/each}
 			</div>
 		{/if}
@@ -323,31 +317,6 @@ function childLink(child: ChildSummary): string {
 		font-weight: 700;
 		color: var(--color-text-primary, #1f2937);
 		margin: 0;
-	}
-
-	/* #489 + #508: Summary cards */
-	.summary-card {
-		background: var(--color-surface-card, #fff);
-		border-radius: var(--radius-lg, 12px);
-		padding: 1rem;
-		box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
-		text-align: center;
-	}
-
-	.summary-card__value {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: var(--color-action-primary, #2563eb);
-	}
-
-	.summary-card__value--accent {
-		color: var(--color-gold-600, #d97706);
-	}
-
-	.summary-card__label {
-		font-size: 0.75rem;
-		color: var(--color-text-secondary, #4b5563);
-		margin-top: 0.25rem;
 	}
 
 	/* #503 + #508: Monthly stat cards */
@@ -385,29 +354,6 @@ function childLink(child: ChildSummary): string {
 	.monthly-stat__unit {
 		font-size: 0.6875rem;
 		color: var(--color-text-tertiary, #6b7280);
-	}
-
-	/* #508: Child list item with focus indicator */
-	.child-list-item {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		background: var(--color-surface-card, #fff);
-		border-radius: var(--radius-lg, 12px);
-		padding: 1rem;
-		box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
-		text-decoration: none;
-		color: inherit;
-		transition: box-shadow 0.15s;
-	}
-
-	.child-list-item:hover {
-		box-shadow: 0 4px 6px rgb(0 0 0 / 0.1);
-	}
-
-	.child-list-item:focus-visible {
-		outline: 2px solid var(--color-action-primary, #2563eb);
-		outline-offset: 2px;
 	}
 
 	.onboarding-complete-card {
