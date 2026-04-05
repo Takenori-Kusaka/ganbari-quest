@@ -14,7 +14,6 @@ let { data } = $props();
 	monthlySummaries={data.monthlySummaries}
 	currentMonth={data.currentMonth}
 	planTier={data.planTier}
-	planStats={data.planStats}
 	showPremiumWelcome={data.showPremiumWelcome}
 	seasonalInfo={data.seasonalInfo}
 />

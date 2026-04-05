@@ -217,17 +217,20 @@ function childLink(child: ChildSummary): string {
 		</section>
 	{/if}
 
+	<!-- Page heading (visually compact, semantically correct) -->
+	<h1 class="dashboard-heading">管理ダッシュボード{isDemo ? '（デモ）' : ''}</h1>
+
 	<!-- Summary Cards -->
 	<div class="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tutorial="summary-cards">
-		<div class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm text-center">
-			<p class="text-2xl font-bold text-[var(--color-brand-600)]">{children.length}</p>
-			<p class="text-xs text-[var(--color-text-muted)] mt-1">こどもの数</p>
+		<div class="summary-card" role="group" aria-label="登録こども数">
+			<p class="summary-card__value">{children.length}</p>
+			<p class="summary-card__label">こどもの数</p>
 		</div>
-		<div class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm text-center">
-			<p class="text-2xl font-bold text-[var(--color-warning)]">
+		<div class="summary-card" role="group" aria-label="全ポイント合計">
+			<p class="summary-card__value summary-card__value--accent">
 				{fmtBal(children.reduce((sum, c) => sum + c.balance, 0))}
 			</p>
-			<p class="text-xs text-[var(--color-text-muted)] mt-1">合計{unit}</p>
+			<p class="summary-card__label">合計{unit}</p>
 		</div>
 	</div>
 
@@ -246,19 +249,19 @@ function childLink(child: ChildSummary): string {
 						<div class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm">
 							<p class="text-sm font-bold text-[var(--color-text)] mb-2">{child.nickname}</p>
 							<div class="flex gap-3">
-								<div class="flex-1 rounded-lg bg-[var(--color-feedback-info-bg)] p-2 text-center">
-									<p class="text-xs text-[var(--color-brand-600)]">かつどう</p>
-									<p class="text-lg font-bold text-[var(--color-feedback-info-text)]">{summary.totalActivities}</p>
-									<p class="text-[10px] text-[var(--color-brand-400)]">かい</p>
+								<div class="monthly-stat monthly-stat--blue" role="group" aria-label="{child.nickname}の活動回数">
+									<p class="monthly-stat__heading">活動回数</p>
+									<p class="monthly-stat__value">{summary.totalActivities}</p>
+									<p class="monthly-stat__unit">回</p>
 								</div>
-								<div class="flex-1 rounded-lg bg-[var(--color-stat-purple-bg)] p-2 text-center">
-									<p class="text-xs text-[var(--color-premium)]">レベル</p>
-									<p class="text-lg font-bold text-[var(--color-premium)]">{summary.currentLevel}</p>
+								<div class="monthly-stat monthly-stat--purple" role="group" aria-label="{child.nickname}のレベル">
+									<p class="monthly-stat__heading">レベル</p>
+									<p class="monthly-stat__value">{summary.currentLevel}</p>
 								</div>
-								<div class="flex-1 rounded-lg bg-[var(--color-feedback-warning-bg)] p-2 text-center">
-									<p class="text-xs text-[var(--color-feedback-warning-text)]">じっせき</p>
-									<p class="text-lg font-bold text-[var(--color-feedback-warning-text)]">{summary.newAchievements}</p>
-									<p class="text-[10px] text-[var(--color-feedback-warning-text)]">かくとく</p>
+								<div class="monthly-stat monthly-stat--amber" role="group" aria-label="{child.nickname}の実績">
+									<p class="monthly-stat__heading">実績</p>
+									<p class="monthly-stat__value">{summary.newAchievements}</p>
+									<p class="monthly-stat__unit">獲得</p>
 								</div>
 							</div>
 						</div>
@@ -280,7 +283,7 @@ function childLink(child: ChildSummary): string {
 				{#each children as child}
 					<a
 						href={childLink(child)}
-						class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow"
+						class="child-list-item"
 					>
 						{#if child.avatarUrl}
 							<img src={child.avatarUrl} alt={child.nickname} class="w-10 h-10 rounded-full object-cover" loading="lazy" />
@@ -314,6 +317,99 @@ function childLink(child: ChildSummary): string {
 </div>
 
 <style>
+	/* #508: Page heading */
+	.dashboard-heading {
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: var(--color-text-primary, #1f2937);
+		margin: 0;
+	}
+
+	/* #489 + #508: Summary cards */
+	.summary-card {
+		background: var(--color-surface-card, #fff);
+		border-radius: var(--radius-lg, 12px);
+		padding: 1rem;
+		box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+		text-align: center;
+	}
+
+	.summary-card__value {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--color-action-primary, #2563eb);
+	}
+
+	.summary-card__value--accent {
+		color: var(--color-gold-600, #d97706);
+	}
+
+	.summary-card__label {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary, #4b5563);
+		margin-top: 0.25rem;
+	}
+
+	/* #503 + #508: Monthly stat cards */
+	.monthly-stat {
+		flex: 1;
+		border-radius: 0.5rem;
+		padding: 0.5rem;
+		text-align: center;
+	}
+
+	.monthly-stat--blue {
+		background: var(--color-info-50, #eff6ff);
+	}
+
+	.monthly-stat--purple {
+		background: var(--color-stat-purple-bg, #f5f3ff);
+	}
+
+	.monthly-stat--amber {
+		background: var(--color-warning-50, #fffbeb);
+	}
+
+	.monthly-stat__heading {
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-text-secondary, #4b5563);
+	}
+
+	.monthly-stat__value {
+		font-size: 1.125rem;
+		font-weight: 700;
+		color: var(--color-text-primary, #1f2937);
+	}
+
+	.monthly-stat__unit {
+		font-size: 0.6875rem;
+		color: var(--color-text-tertiary, #6b7280);
+	}
+
+	/* #508: Child list item with focus indicator */
+	.child-list-item {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		background: var(--color-surface-card, #fff);
+		border-radius: var(--radius-lg, 12px);
+		padding: 1rem;
+		box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+		text-decoration: none;
+		color: inherit;
+		transition: box-shadow 0.15s;
+	}
+
+	.child-list-item:hover {
+		box-shadow: 0 4px 6px rgb(0 0 0 / 0.1);
+	}
+
+	.child-list-item:focus-visible {
+		outline: 2px solid var(--color-action-primary, #2563eb);
+		outline-offset: 2px;
+	}
+
 	.onboarding-complete-card {
 		display: flex;
 		align-items: center;
