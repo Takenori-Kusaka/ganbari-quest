@@ -150,7 +150,7 @@ let actionMessage = $state('');
 
 	<!-- Delete confirmation -->
 	{#if deleteConfirmId === activity.id}
-		<div class="bg-[var(--color-feedback-error-bg,#fef2f2)] border border-[var(--color-action-danger,#f44336)]/20 rounded-lg p-3 space-y-2">
+		<div class="bg-[var(--color-feedback-error-bg,#fef2f2)] border border-[var(--color-border-danger)] rounded-lg p-3 space-y-2">
 			{#if logCount > 0}
 				<p class="text-sm text-[var(--color-gold-700)] font-bold">この活動には {logCount} 件の記録があります</p>
 				<p class="text-xs text-[var(--color-warning)]">記録を保護するため、完全削除ではなく「非表示」にします。非表示の活動は子供の画面に表示されなくなりますが、過去の記録はそのまま残ります。</p>

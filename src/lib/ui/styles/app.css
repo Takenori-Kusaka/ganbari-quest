@@ -69,6 +69,7 @@
 	--color-gold-300: #ffed80;
 	--color-gold-200: #fff4b3;
 	--color-gold-100: #fffbe6;
+	--color-gold-50: #fffef5;
 
 	/* ---- Neutral (テキスト・背景のグレースケール) ---- */
 	--color-neutral-900: #1e293b;
@@ -99,6 +100,9 @@
 	--color-violet-700: #6d28d9;
 	--color-violet-600: #7c3aed;
 	--color-violet-500: #8b5cf6;
+	--color-violet-300: #c4b5fd;
+	--color-violet-200: #ddd6fe;
+	--color-violet-50: #f5f3ff;
 
 	/* ---- Rarity Colors (実績・シールのレアリティ) ---- */
 	--color-rarity-common: #86efac;
@@ -226,6 +230,7 @@
 
 	/* ---- Action: インタラクティブ要素 ---- */
 	--color-action-primary: var(--theme-primary);
+	--color-action-primary-hover: var(--color-brand-700);
 	--color-action-secondary: var(--theme-secondary);
 	--color-action-accent: var(--theme-accent);
 	--color-action-danger: var(--color-danger);
@@ -233,19 +238,34 @@
 	--color-action-ghost: transparent;
 
 	/* ---- Surface: 背景・コンテナ ---- */
+	--color-surface: white;
 	--color-surface-base: var(--color-bg);
 	--color-surface-card: white;
 	--color-surface-overlay: rgba(0, 0, 0, 0.5);
 	--color-surface-elevated: white;
 	--color-surface-muted: var(--color-neutral-50);
+	--color-surface-secondary: var(--color-neutral-100);
+	--color-surface-accent: var(--color-feedback-info-bg);
+	--color-surface-info: var(--color-feedback-info-bg);
+	--color-surface-success: var(--color-feedback-success-bg);
+	--color-surface-warning: var(--color-feedback-warning-bg);
+	--color-surface-warm: #fef3c7;
 	--color-surface-themed: var(--theme-bg);
 	--color-surface-nav: var(--theme-nav);
 
 	/* ---- Border ---- */
+	--color-border: var(--color-neutral-200);
 	--color-border-default: var(--color-neutral-200);
+	--color-border-light: var(--color-neutral-100);
 	--color-border-strong: var(--color-neutral-300);
 	--color-border-focus: var(--theme-primary);
 	--color-border-accent: var(--theme-accent);
+	--color-border-warm: rgba(251, 191, 36, 0.3);
+	--color-border-warning: var(--color-feedback-warning-border);
+	--color-border-premium: color-mix(in srgb, var(--color-premium) 20%, transparent);
+	--color-border-danger: color-mix(in srgb, var(--color-danger) 20%, transparent);
+	--color-border-success: color-mix(in srgb, var(--color-success) 20%, transparent);
+	--color-border-success-strong: color-mix(in srgb, var(--color-success) 40%, transparent);
 
 	/* ---- Text (Base層の補完) ---- */
 	--color-text-inverse: white;
@@ -254,6 +274,9 @@
 	--color-text-primary: var(--color-neutral-700);
 	--color-text-secondary: var(--color-neutral-600);
 	--color-text-tertiary: var(--color-neutral-400);
+	--color-text-disabled: #9ca3af;
+	--color-text-warm: #92400e;
+	--color-text-warm-muted: #a16207;
 
 	/* ---- Status Colors (Danger/Success/Warning スケール) ---- */
 	--color-danger-50: #fef2f2;
@@ -270,6 +293,9 @@
 	--color-warning-50: #fff7ed;
 	--color-warning-100: #ffedd5;
 	--color-warning-200: #fed7aa;
+	--color-warning-text: #92400e;
+	--color-warning-hover: #d97706;
+	--color-info-50: #eff6ff;
 
 	/* ---- Premium (スケール拡充) ---- */
 	--color-premium-50: #f5f3ff;
