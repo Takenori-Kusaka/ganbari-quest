@@ -144,49 +144,84 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	},
 	{
 		id: 5,
-		title: 'アップグレード',
-		icon: '⭐',
+		title: 'みまもり（レポート）',
+		icon: '📊',
 		steps: [
 			{
-				id: 'premium-1',
+				id: 'reports-1',
 				chapterId: 5,
-				selector: '[data-tutorial="summary-cards"]',
-				title: '無料でできること',
+				selector: '[data-tutorial="report-tabs"]',
+				title: 'レポート画面',
 				description:
-					'初期登録されている活動の記録、こども1人の登録、ポイント・レベル機能は無料でお使いいただけます。まずは無料で試してみてください！',
+					'こどもの活動を月次・週次で振り返れるレポート画面です。上部のタブで「月次レポート」と「週次レポート」を切り替えられます。「今月はどんな活動が多かったかな？」を確認しましょう。',
 				position: 'bottom',
-				page: '/admin',
+				page: '/admin/reports',
 			},
 			{
-				id: 'premium-2',
+				id: 'reports-2',
 				chapterId: 5,
-				selector: '[data-tutorial="children-overview"]',
-				title: 'スタンダード / ファミリーでできること',
+				selector: '[data-tutorial="growth-book-link"]',
+				title: 'グロースブック',
 				description:
-					'オリジナル活動の追加・編集、チェックリストの自由作成、ごほうびの設定、こどもの登録無制限、データのエクスポートが可能になります。お子さまに合わせた設定で、もっと楽しく！',
+					'こどもの1年間の成長をまとめた「成長記録ブック」も用意しています。レポート画面右上の「📖 記録ブック」リンクからアクセスできます。印刷してお子さまの記念にもなります。',
 				position: 'bottom',
-				page: '/admin',
-			},
-			{
-				id: 'premium-3',
-				chapterId: 5,
-				selector: '[data-tutorial="upgrade-btn"]',
-				title: 'アップグレード',
-				description:
-					'管理画面右上の「⭐ アップグレード」ボタンから、いつでも有料プランに切り替えられます。7日間の無料トライアル付きなので、まずはお試しください。',
-				position: 'bottom',
-				page: '/admin',
+				page: '/admin/reports',
 			},
 		],
 	},
 	{
 		id: 6,
+		title: 'はげまし（メッセージ）',
+		icon: '💬',
+		steps: [
+			{
+				id: 'messages-1',
+				chapterId: 6,
+				selector: '[data-tutorial="message-child-select"]',
+				title: 'メッセージ送信',
+				description:
+					'こどもにおうえんメッセージを送れる画面です。まず送りたいこどもを選んで、スタンプまたはテキストメッセージを選びましょう。こどもの画面にメッセージが届きます。',
+				position: 'bottom',
+				page: '/admin/messages',
+			},
+			{
+				id: 'messages-2',
+				chapterId: 6,
+				selector: '[data-tutorial="message-stamp-grid"]',
+				title: 'スタンプの送り方',
+				description:
+					'スタンプを選択して「送信」ボタンを押すだけで、こどもにおうえんの気持ちを伝えられます。「がんばったね！」「すごい！」など、お子さまが喜ぶスタンプが揃っています。',
+				position: 'bottom',
+				page: '/admin/messages',
+			},
+		],
+	},
+	{
+		id: 7,
+		title: 'カスタマイズ（データ管理）',
+		icon: '🎮',
+		steps: [
+			{
+				id: 'customize-1',
+				chapterId: 7,
+				selector: '[data-tutorial="data-management"]',
+				title: 'データ管理',
+				description:
+					'家族のデータをJSONファイルとしてエクスポート（バックアップ）したり、別の環境からインポート（復元）できます。機種変更やデータの引っ越しに便利です。',
+				position: 'bottom',
+				page: '/admin/settings',
+				requiredTier: 'standard',
+			},
+		],
+	},
+	{
+		id: 8,
 		title: '設定と日常の使い方',
 		icon: '⚙️',
 		steps: [
 			{
 				id: 'settings-1',
-				chapterId: 6,
+				chapterId: 8,
 				selector: '[data-tutorial="switch-to-child"]',
 				title: 'こども画面へ切替',
 				description:
@@ -196,7 +231,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 			},
 			{
 				id: 'settings-2',
-				chapterId: 6,
+				chapterId: 8,
 				selector: '[data-tutorial="pin-settings"]',
 				title: 'PINコード設定',
 				description:
@@ -206,7 +241,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 			},
 			{
 				id: 'settings-3',
-				chapterId: 6,
+				chapterId: 8,
 				selector: '[data-tutorial="feedback-section"]',
 				title: 'フィードバック',
 				description:
@@ -216,13 +251,50 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 			},
 			{
 				id: 'settings-4',
-				chapterId: 6,
+				chapterId: 8,
 				selector: '[data-tutorial="tutorial-restart"]',
 				title: 'チュートリアルの再開',
 				description:
 					'このチュートリアルは、ヘッダーの「？」ボタンからいつでも見直せます。使い方に迷った時はお気軽にどうぞ。お疲れさまでした！',
 				position: 'bottom',
 				page: '/admin/settings',
+			},
+		],
+	},
+	{
+		id: 9,
+		title: 'アップグレード',
+		icon: '⭐',
+		steps: [
+			{
+				id: 'premium-1',
+				chapterId: 9,
+				selector: '[data-tutorial="summary-cards"]',
+				title: '無料でできること',
+				description:
+					'初期登録されている活動の記録、こども2人の登録、ポイント・レベル機能は無料でお使いいただけます。まずは無料で試してみてください！',
+				position: 'bottom',
+				page: '/admin',
+			},
+			{
+				id: 'premium-2',
+				chapterId: 9,
+				selector: '[data-tutorial="children-overview"]',
+				title: 'スタンダード / ファミリーでもっと便利に',
+				description:
+					'オリジナル活動の追加・編集、チェックリストの自由作成、ごほうびの設定、こどもの登録無制限、データのエクスポートが可能になります。お子さまに合わせた設定で、もっと楽しく！',
+				position: 'bottom',
+				page: '/admin',
+			},
+			{
+				id: 'premium-3',
+				chapterId: 9,
+				selector: '[data-tutorial="upgrade-btn"]',
+				title: 'アップグレード',
+				description:
+					'管理画面右上の「⭐ アップグレード」ボタンから、いつでも有料プランに切り替えられます。7日間の無料トライアル付きなので、まずはお試しください。',
+				position: 'bottom',
+				page: '/admin',
 			},
 		],
 	},

@@ -51,7 +51,7 @@ function selectStamp(code: string) {
 	</div>
 
 	<!-- Step 1: Select child -->
-	<section>
+	<section data-tutorial="message-child-select">
 		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">1. こどもを選択</h3>
 		<div class="flex gap-2 flex-wrap">
 			{#each data.children as child}
@@ -108,7 +108,7 @@ function selectStamp(code: string) {
 		</div>
 
 		{#if messageType === 'stamp'}
-			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2" data-tutorial="message-stamp-grid">
 				{#each data.stamps as stamp}
 					<Button
 						variant="ghost"
