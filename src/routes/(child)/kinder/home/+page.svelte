@@ -142,7 +142,12 @@ let stampPressData = $state<{
 	cardFilledSlots: number;
 	cardTotalSlots: number;
 	cardEntries: { slot: number; emoji: string; rarity: string }[];
-	weeklyRedeem: { points: number; filledSlots: number; totalSlots: number; completeBonus: number } | null;
+	weeklyRedeem: {
+		points: number;
+		filledSlots: number;
+		totalSlots: number;
+		completeBonus: number;
+	} | null;
 } | null>(null);
 let bonusClaiming = $state(false);
 
