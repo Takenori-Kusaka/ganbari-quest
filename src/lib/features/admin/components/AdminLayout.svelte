@@ -64,8 +64,8 @@ const navCategories: NavCategory[] = $derived([
 		icon: '💬',
 		items: [
 			{ href: `${basePath}/points`, label: 'ポイント', icon: '⭐' },
+			{ href: `${basePath}/messages`, label: 'おうえん', icon: '💌' },
 			{ href: `${basePath}/rewards`, label: 'ごほうび', icon: '🎁' },
-			{ href: `${basePath}/messages`, label: 'メッセージ', icon: '💌' },
 		],
 	},
 	{
