@@ -12,11 +12,23 @@ let animKey = $state(0);
 const active = $derived(isTutorialActive());
 const step = $derived(getCurrentStep());
 
+/** Find the first visible element matching a selector (handles responsive layouts) */
+function findVisibleElement(selector: string): Element | null {
+	const candidates = document.querySelectorAll(selector);
+	for (const el of candidates) {
+		const rect = el.getBoundingClientRect();
+		// Skip elements with zero dimensions (e.g. hidden by CSS display:none)
+		if (rect.width > 0 && rect.height > 0) return el;
+	}
+	// Fallback to first match even if hidden
+	return candidates[0] ?? null;
+}
+
 $effect(() => {
 	if (active && step) {
 		// Small delay to ensure DOM elements are rendered after page navigation
 		const timer = setTimeout(() => {
-			const el = step.selector ? document.querySelector(step.selector) : null;
+			const el = step.selector ? findVisibleElement(step.selector) : null;
 			if (el) {
 				el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 				// Update rect after scroll settles
