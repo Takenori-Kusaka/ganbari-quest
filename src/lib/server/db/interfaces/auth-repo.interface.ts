@@ -59,6 +59,7 @@ export interface IAuthRepo {
 		acceptedBy?: string,
 	): Promise<void>;
 	findTenantInvites(tenantId: string): Promise<Invite[]>;
+	deleteInvite(inviteCode: string, tenantId: string): Promise<void>;
 
 	// --- Consent (#0192) ---
 	recordConsent(input: RecordConsentInput): Promise<ConsentRecord>;

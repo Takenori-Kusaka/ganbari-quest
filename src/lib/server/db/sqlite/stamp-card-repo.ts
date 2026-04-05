@@ -131,3 +131,9 @@ export async function updateCardStatusIfCollecting(
 		.run();
 	return result.changes;
 }
+
+/** テナントの全スタンプカード・エントリを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(schema.stampEntries).run();
+	db.delete(schema.stampCards).run();
+}

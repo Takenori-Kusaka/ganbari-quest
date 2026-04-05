@@ -45,3 +45,8 @@ export async function update(
 export async function expireOldChallenges(_beforeDate: string, _tenantId: string): Promise<number> {
 	throw new Error(NOT_IMPL);
 }
+
+/** テナントの全自動チャレンジを削除（DynamoDB未実装: 書き込みがないため no-op） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	// DynamoDB auto-challenge repo は未実装のため書き込みデータなし — no-op
+}

@@ -16,4 +16,5 @@ export interface IAutoChallengeRepo {
 	update(id: number, input: UpdateAutoChallengeInput, tenantId: string): Promise<void>;
 
 	expireOldChallenges(beforeDate: string, tenantId: string): Promise<number>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

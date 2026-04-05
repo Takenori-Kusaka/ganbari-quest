@@ -86,3 +86,8 @@ export async function expireOldChallenges(beforeDate: string, _tenantId: string)
 		.run();
 	return result.changes;
 }
+
+/** テナントの全自動チャレンジを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(autoChallenges).run();
+}

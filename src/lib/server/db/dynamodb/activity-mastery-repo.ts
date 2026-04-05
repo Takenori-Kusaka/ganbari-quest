@@ -3,8 +3,9 @@
 
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { ActivityMastery } from '../types';
+import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
-import { activityMasteryKey, activityMasteryPrefix, childPK } from './keys';
+import { activityMasteryKey, activityMasteryPrefix, childPK, tenantPK } from './keys';
 
 function stripKeys<T extends Record<string, unknown>>(
 	item: T,
@@ -67,4 +68,9 @@ export async function upsert(
 
 	await getDocClient().send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
 	return stripKeys(item) as unknown as ActivityMastery;
+}
+
+/** テナントの全活動習熟度を削除（CHILD#* パーティション配下の MAST# アイテム） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), activityMasteryPrefix());
 }

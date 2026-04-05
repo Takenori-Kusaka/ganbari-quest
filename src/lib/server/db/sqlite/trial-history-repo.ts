@@ -29,3 +29,8 @@ export async function insert(input: InsertTrialHistoryInput): Promise<void> {
 		campaignId: input.campaignId ?? null,
 	});
 }
+
+/** テナントの全トライアル履歴を削除 */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	db.delete(trialHistory).where(eq(trialHistory.tenantId, tenantId)).run();
+}

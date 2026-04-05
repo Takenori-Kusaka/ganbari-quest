@@ -21,4 +21,5 @@ export interface InsertTrialHistoryInput {
 export interface ITrialHistoryRepo {
 	findLatestByTenant(tenantId: string): Promise<TrialHistoryRow | undefined>;
 	insert(input: InsertTrialHistoryInput): Promise<void>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }
