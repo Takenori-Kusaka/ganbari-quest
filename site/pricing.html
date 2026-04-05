@@ -6,7 +6,7 @@
 <title>料金プラン - がんばりクエスト</title>
 <meta name="description" content="がんばりクエストの料金プラン。基本無料で始められます。スタンダード月額500円、ファミリー月額780円。すべてのプランに7日間の無料トライアル付き。">
 <meta property="og:title" content="料金プラン - がんばりクエスト">
-<meta property="og:description" content="基本無料で始められます。お子さまのゲーム体験は無料プランでも一切制限ありません。">
+<meta property="og:description" content="基本無料で始められます。お子さまのポイント・レベルアップ・シールガチャなどの冒険体験は無料プランでも一切制限ありません。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.ganbari-quest.com/pricing.html">
 <meta property="og:image" content="https://www.ganbari-quest.com/ogp.png">
@@ -16,18 +16,18 @@
 <link rel="stylesheet" href="shared.css">
 <style>
 /* Hero */
-.pricing-hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,var(--violet-100) 100%);padding:80px 16px 60px;text-align:center}
+.pricing-hero{background:linear-gradient(135deg,var(--brand-100) 0%,var(--brand-50) 50%,var(--brand-200) 100%);padding:80px 16px 60px;text-align:center}
 .pricing-hero h1{font-size:2.2rem;font-weight:800;color:var(--gray-900);margin-bottom:12px}
 .pricing-hero p{font-size:1.05rem;color:var(--gray-500);max-width:600px;margin:0 auto 8px}
-.pricing-hero .highlight{color:var(--violet-600);font-weight:700}
+.pricing-hero .highlight{color:var(--brand-700);font-weight:700}
 
 /* Plan Grid */
 .plans-section{padding:48px 16px 64px}
 .plans-inner{max-width:960px;margin:0 auto}
 .plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:48px}
 .plan-card{background:#fff;border:2px solid var(--gray-300);border-radius:var(--radius);padding:32px 24px;display:flex;flex-direction:column;position:relative}
-.plan-card.recommended{border-color:var(--violet-500);box-shadow:0 4px 20px rgba(139,92,246,.15)}
-.plan-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--violet-500);color:#fff;font-size:.75rem;font-weight:700;padding:4px 16px;border-radius:2rem;white-space:nowrap}
+.plan-card.recommended{border-color:var(--brand-600);box-shadow:0 4px 20px rgba(56,120,184,.15)}
+.plan-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--brand-600);color:#fff;font-size:.75rem;font-weight:700;padding:4px 16px;border-radius:2rem;white-space:nowrap}
 .plan-name{font-size:1.1rem;font-weight:700;color:var(--gray-900);margin-bottom:8px}
 .plan-price{font-size:2.2rem;font-weight:800;color:var(--gray-900)}
 .plan-price .unit{font-size:.9rem;font-weight:400;color:var(--gray-500)}
@@ -36,8 +36,10 @@
 .plan-cta{display:block;text-align:center;padding:12px 24px;border-radius:2rem;font-size:.95rem;font-weight:600;transition:all .2s;text-decoration:none;margin-bottom:24px}
 .plan-cta-free{background:var(--gray-100);color:var(--gray-700)}
 .plan-cta-free:hover{background:var(--gray-200);text-decoration:none}
-.plan-cta-premium{background:linear-gradient(135deg,var(--violet-600),var(--violet-500));color:#fff}
-.plan-cta-premium:hover{box-shadow:0 4px 16px rgba(139,92,246,.3);text-decoration:none;transform:translateY(-1px)}
+.plan-cta-standard{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff}
+.plan-cta-standard:hover{box-shadow:0 4px 16px rgba(56,120,184,.3);text-decoration:none;transform:translateY(-1px)}
+.plan-cta-family{background:linear-gradient(135deg,var(--brand-600),var(--brand-800));color:#fff}
+.plan-cta-family:hover{box-shadow:0 4px 16px rgba(56,120,184,.3);text-decoration:none;transform:translateY(-1px)}
 .plan-features{list-style:none;padding:0;flex:1}
 .plan-features li{font-size:.85rem;color:var(--gray-700);padding:6px 0 6px 24px;position:relative;line-height:1.5}
 .plan-features li::before{content:'\2713';position:absolute;left:0;color:var(--green-500);font-weight:700}
@@ -52,12 +54,34 @@
 .comparison-table{width:100%;border-collapse:collapse;font-size:.85rem}
 .comparison-table thead th{background:var(--gray-50);border-bottom:2px solid var(--gray-300);padding:12px 8px;text-align:center;font-weight:700;color:var(--gray-900)}
 .comparison-table thead th:first-child{text-align:left}
-.comparison-table thead th.highlight-col{background:var(--violet-100);color:var(--violet-600)}
+.comparison-table thead th.highlight-col{background:var(--brand-100);color:var(--brand-700)}
 .comparison-table tbody td{border-bottom:1px solid var(--gray-200);padding:10px 8px;text-align:center;color:var(--gray-700)}
 .comparison-table tbody td:first-child{text-align:left;font-weight:500}
 .comparison-table .cat-row td{background:var(--gray-50);font-weight:700;font-size:.8rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em}
 .check{color:var(--green-500);font-weight:700}
 .dash{color:var(--gray-300)}
+
+/* Trial Info */
+.trial-section{padding:64px 16px}
+.trial-inner{max-width:720px;margin:0 auto}
+.trial-box{background:linear-gradient(135deg,var(--brand-50) 0%,var(--brand-100) 100%);border:2px solid var(--brand-300);border-radius:var(--radius);padding:40px 32px}
+.trial-heading{font-size:1.4rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:8px}
+.trial-subheading{font-size:.95rem;color:var(--gray-500);text-align:center;margin-bottom:28px}
+.trial-steps{list-style:none;padding:0;display:flex;flex-direction:column;gap:16px;margin-bottom:28px}
+.trial-step{display:flex;align-items:flex-start;gap:14px;font-size:.92rem;color:var(--gray-700);line-height:1.6}
+.trial-step-icon{flex-shrink:0;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700}
+.trial-step-icon.blue{background:var(--brand-200);color:var(--brand-800)}
+.trial-step-icon.green{background:var(--green-100);color:var(--green-500)}
+.trial-step-icon.gold{background:var(--gold-100);color:var(--gold-600)}
+.trial-step-icon.brand{background:var(--brand-200);color:var(--brand-800)}
+.trial-step strong{color:var(--gray-900)}
+.trial-step-note{margin-bottom:28px;background:var(--brand-50);border:1px solid var(--brand-200);border-radius:8px;padding:12px 16px}
+.trial-reassure{background:#fff;border-radius:8px;padding:16px 20px;display:flex;align-items:center;gap:12px;font-size:.88rem;color:var(--gray-700);line-height:1.6;border:1px solid var(--gray-200)}
+.trial-reassure-icon{font-size:1.5rem;flex-shrink:0}
+@media(max-width:768px){
+  .trial-box{padding:28px 20px}
+  .trial-heading{font-size:1.2rem}
+}
 
 /* FAQ */
 .faq-section{padding:64px 16px;background:var(--gray-50)}
@@ -70,7 +94,7 @@
 .faq-answer{font-size:.9rem;color:var(--gray-500);padding-left:28px;line-height:1.7}
 
 /* CTA bottom */
-.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,var(--violet-100) 100%);padding:64px 16px;text-align:center}
+.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,var(--brand-50) 100%);padding:64px 16px;text-align:center}
 .cta-bottom h2{font-size:1.6rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
 .cta-bottom p{color:var(--gray-500);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto}
 .cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
@@ -135,12 +159,13 @@
       </div>
 
       <!-- Standard -->
-      <div class="plan-card">
+      <div class="plan-card recommended">
+        <span class="plan-badge">おすすめ</span>
         <div class="plan-name">スタンダード</div>
         <div class="plan-price">&#165;500 <span class="unit">/月</span></div>
         <div class="plan-price-sub">年額 &#165;5,000（2ヶ月分お得）</div>
         <div class="plan-desc">カスタマイズ自由自在。お子さまにぴったりの環境を作れます。</div>
-        <a href="https://ganbari-quest.com/auth/signup?plan=standard" class="plan-cta plan-cta-premium">7日間 無料体験</a>
+        <a href="https://ganbari-quest.com/auth/signup?plan=standard" class="plan-cta plan-cta-standard">7日間 無料体験</a>
         <ul class="plan-features">
           <li>お子さまの登録人数：無制限</li>
           <li>オリジナル活動の作成：無制限</li>
@@ -152,18 +177,17 @@
           <li>活動バランスの見える化</li>
           <li>データエクスポート（JSON）</li>
           <li>1年間の履歴保持</li>
-          <li>Discordサポート</li>
+          <li>Discordコミュニティ参加</li>
         </ul>
       </div>
 
       <!-- Family -->
-      <div class="plan-card recommended">
-        <span class="plan-badge">おすすめ</span>
+      <div class="plan-card">
         <div class="plan-name">ファミリー</div>
         <div class="plan-price">&#165;780 <span class="unit">/月</span></div>
         <div class="plan-price-sub">年額 &#165;7,800（2ヶ月分お得）</div>
         <div class="plan-desc">家族みんなで見守る。祖父母も一緒にお子さまの成長を応援できます。</div>
-        <a href="https://ganbari-quest.com/auth/signup?plan=family" class="plan-cta plan-cta-premium">7日間 無料体験</a>
+        <a href="https://ganbari-quest.com/auth/signup?plan=family" class="plan-cta plan-cta-family">7日間 無料体験</a>
         <ul class="plan-features">
           <li>スタンダードの全機能</li>
           <li>祖父母・家族向け閲覧リンク</li>
@@ -171,7 +195,7 @@
           <li>きょうだいランキング</li>
           <li>月次比較レポート</li>
           <li>無制限の履歴保持</li>
-          <li>Discordサポート（優先対応）</li>
+          <li>Discordコミュニティ（優先対応）</li>
         </ul>
       </div>
 
@@ -194,8 +218,8 @@
         <tr>
           <th style="width:40%">機能</th>
           <th style="width:20%">フリー</th>
-          <th style="width:20%">スタンダード</th>
-          <th style="width:20%" class="highlight-col">ファミリー</th>
+          <th style="width:20%" class="highlight-col">スタンダード</th>
+          <th style="width:20%">ファミリー</th>
         </tr>
       </thead>
       <tbody>
@@ -232,11 +256,43 @@
         <tr><td>データインポート</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
 
         <tr class="cat-row"><td colspan="4">サポート</td></tr>
-        <tr><td>Discordコミュニティ</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td>Discordサポート</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td>Discordサポート（優先対応）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
+        <tr><td>メール・GitHub Issuesサポート</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Discordコミュニティ</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Discordコミュニティ（優先対応）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
       </tbody>
     </table>
+    </div>
+  </div>
+</section>
+
+<!-- Trial Info -->
+<section class="trial-section">
+  <div class="trial-inner">
+    <div class="trial-box">
+      <h2 class="trial-heading">7日間の無料トライアル</h2>
+      <p class="trial-subheading">スタンダードプラン相当の全機能を、安心してお試しいただけます</p>
+      <ol class="trial-steps">
+        <li class="trial-step">
+          <span class="trial-step-icon blue">1</span>
+          <div><strong>いつでも好きなタイミングで開始</strong><br>アカウント登録後、管理画面からワンタップでトライアルを開始できます。クレジットカードの登録は不要です。</div>
+        </li>
+        <li class="trial-step">
+          <span class="trial-step-icon brand">2</span>
+          <div><strong>7日間、全機能が使い放題</strong><br>スタンダードプランの全機能（カスタム活動・レポート・データエクスポートなど）を制限なくお試しいただけます。</div>
+        </li>
+        <li class="trial-step">
+          <span class="trial-step-icon green">3</span>
+          <div><strong>終了後は自動でフリープランに戻ります</strong><br>トライアル期間が終わると、自動的にフリープランへ移行します。<strong>自動課金は一切ありません。</strong></div>
+        </li>
+      </ol>
+      <p class="trial-step trial-step-note">
+        <span class="trial-step-icon gold">&#9733;</span>
+        <span><strong>トライアル中にいつでもプラン選択可能</strong><br>気に入ったらトライアル中にそのままプランを選択できます。もちろん、何もしなければ自動でフリープランに戻ります。</span>
+      </p>
+      <div class="trial-reassure">
+        <span class="trial-reassure-icon">&#128274;</span>
+        <div>トライアル中に作成したデータ（活動履歴・シール・レベルなど）は、フリープランに移行した後もそのまま保持されます。有料プランにアップグレードすれば、すべてのデータを引き続きご利用いただけます。</div>
+      </div>
     </div>
   </div>
 </section>

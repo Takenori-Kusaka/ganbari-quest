@@ -22,4 +22,9 @@ export interface IStampCardRepo {
 		input: UpdateStampCardStatusInput,
 		tenantId: string,
 	): Promise<void>;
+	updateCardStatusIfCollecting(
+		cardId: number,
+		input: UpdateStampCardStatusInput,
+		tenantId: string,
+	): Promise<number>;
 }

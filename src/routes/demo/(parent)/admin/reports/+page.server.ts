@@ -1,10 +1,13 @@
+import { DEMO_CHILDREN } from '$lib/server/demo/demo-data.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
+	// biome-ignore lint: DEMO_CHILDREN[1] is always defined (static demo data)
+	const child = DEMO_CHILDREN[1]!; // たろう (5歳)
 	const reports = [
 		{
-			childId: 1,
-			childName: 'ゆうと',
+			childId: child.id,
+			childName: child.nickname,
 			weekStart: '2026-03-24',
 			weekEnd: '2026-03-30',
 			totalActivities: 12,

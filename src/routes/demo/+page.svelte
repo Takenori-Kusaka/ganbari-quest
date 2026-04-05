@@ -1,14 +1,32 @@
 <script lang="ts">
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
-import { startGuide } from '$lib/features/demo/demo-guide-state.svelte.js';
+import {
+	getGuideState,
+	resetGuide,
+	restartGuide,
+	startGuide,
+} from '$lib/features/demo/demo-guide-state.svelte.js';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
+const guide = getGuideState();
+
+// Reset guide state when navigating back to /demo top
+// This clears the overlay so it doesn't persist on the top page
+$effect(() => {
+	resetGuide();
+});
+
 function handleGuideStart() {
 	startGuide();
 	trackDemoEvent('demo_guide_start');
+}
+
+function handleGuideRestart() {
+	restartGuide();
+	trackDemoEvent('demo_guide_start', { restart: true });
 }
 
 const modeLabels: Record<string, string> = {
@@ -23,8 +41,8 @@ const modeColors: Record<string, string> = {
 	baby: 'from-pink-400 to-pink-300',
 	kinder: 'from-green-400 to-emerald-300',
 	lower: 'from-blue-400 to-cyan-300',
-	upper: 'from-purple-400 to-violet-300',
-	teen: 'from-indigo-400 to-blue-300',
+	upper: 'from-orange-400 to-amber-300',
+	teen: 'from-purple-400 to-violet-300',
 };
 </script>
 
@@ -43,15 +61,27 @@ const modeColors: Record<string, string> = {
 
 		<!-- Guided demo option -->
 		<div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-5 mb-6 text-center">
-			<p class="text-sm font-bold text-gray-700 mb-1">はじめてですか？</p>
-			<p class="text-xs text-gray-500 mb-3">5ステップで主な機能をご案内します</p>
-			<a
-				href="/demo/kinder/home?childId=902"
-				class="block w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl text-sm hover:bg-blue-600 transition-colors"
-				onclick={handleGuideStart}
-			>
-				ガイド付きデモを はじめる
-			</a>
+			{#if guide.dismissed}
+				<p class="text-sm font-bold text-gray-700 mb-1">ガイドをとじました</p>
+				<p class="text-xs text-gray-500 mb-3">もう一度はじめから体験できます</p>
+				<a
+					href="/demo/kinder/home?childId=902"
+					class="block w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl text-sm hover:bg-blue-600 transition-colors"
+					onclick={handleGuideRestart}
+				>
+					ガイドを再開する
+				</a>
+			{:else}
+				<p class="text-sm font-bold text-gray-700 mb-1">はじめてですか？</p>
+				<p class="text-xs text-gray-500 mb-3">5ステップで主な機能をご案内します</p>
+				<a
+					href="/demo/kinder/home?childId=902"
+					class="block w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl text-sm hover:bg-blue-600 transition-colors"
+					onclick={handleGuideStart}
+				>
+					ガイド付きデモを はじめる
+				</a>
+			{/if}
 		</div>
 
 		<!-- Family Introduction -->
@@ -74,6 +104,8 @@ const modeColors: Record<string, string> = {
 								🧒
 							{:else if mode === 'lower'}
 								🧑
+							{:else if mode === 'upper'}
+								💪
 							{:else}
 								🧑‍💻
 							{/if}
@@ -133,13 +165,6 @@ const modeColors: Record<string, string> = {
 					<div>
 						<span class="font-medium text-gray-700">デイリーミッション</span>
 						— 毎日の目標で継続をサポート
-					</div>
-				</li>
-				<li class="flex gap-2">
-					<span class="text-lg">🌟</span>
-					<div>
-						<span class="font-medium text-gray-700">キャリアプラン</span>
-						— 将来の夢に向けた目標設定（中高生向け）
 					</div>
 				</li>
 			</ul>

@@ -4,15 +4,14 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async () => {
 	const adminData = getDemoAdminData();
 
+	// sibling-cheer-service.ts の CHEER_STAMPS と一致させる（6種）
 	const stamps = [
-		{ code: 'great', icon: '👏', label: 'すごい！' },
-		{ code: 'love', icon: '❤️', label: 'だいすき' },
-		{ code: 'cheer', icon: '📣', label: 'がんばれ！' },
-		{ code: 'star', icon: '⭐', label: 'きらきら' },
-		{ code: 'muscle', icon: '💪', label: 'つよい！' },
-		{ code: 'smile', icon: '😊', label: 'にこにこ' },
-		{ code: 'rainbow', icon: '🌈', label: 'すてき！' },
-		{ code: 'crown', icon: '👑', label: 'チャンピオン' },
+		{ code: 'ganbare', icon: '💪', label: 'がんばって！' },
+		{ code: 'sugoi', icon: '⭐', label: 'すごいね！' },
+		{ code: 'issho', icon: '🤝', label: 'いっしょにがんばろう！' },
+		{ code: 'omedeto', icon: '🎉', label: 'おめでとう！' },
+		{ code: 'nice', icon: '👍', label: 'ナイス！' },
+		{ code: 'fight', icon: '🔥', label: 'ファイト！' },
 	];
 
 	const children = adminData.children.map((child) => ({
@@ -20,9 +19,9 @@ export const load: PageServerLoad = async () => {
 		nickname: child.nickname,
 		recentMessages: [
 			{
-				icon: '👏',
+				icon: '⭐',
 				messageType: 'stamp' as const,
-				stampCode: 'great',
+				stampCode: 'sugoi',
 				body: null,
 				sentAt: '2026-03-27T08:30:00.000Z',
 				shownAt: '2026-03-27T09:00:00.000Z',

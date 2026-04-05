@@ -178,6 +178,13 @@
 	--color-premium-bg: #f5f3ff;
 	--gradient-premium: linear-gradient(135deg, var(--color-violet-600), var(--color-violet-500));
 
+	/* ---- Chart (きょうだい比較グラフ等のシリーズカラー) ---- */
+	--color-chart-1: #3b82f6;
+	--color-chart-2: #f59e0b;
+	--color-chart-3: #10b981;
+	--color-chart-4: #ef4444;
+	--color-chart-5: #8b5cf6;
+
 	/* ---- Gradient ---- */
 	--gradient-brand: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-400));
 	--gradient-gold: linear-gradient(135deg, var(--color-gold-600), var(--color-gold-400));

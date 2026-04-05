@@ -846,7 +846,7 @@ const previewFormatted = $derived(
 					<ul class="text-xs text-[var(--color-text-muted)] mt-1 space-y-0.5">
 						<li>子供プロフィール・活動記録・ポイント履歴</li>
 						<li>ステータス・実績・称号・ログインボーナス</li>
-						<li>チェックリスト・キャリアプラン・誕生日振り返り</li>
+						<li>チェックリスト・誕生日振り返り</li>
 						<li>活動マスタ・きせかえアイテム</li>
 					</ul>
 				</div>
@@ -1425,7 +1425,7 @@ const previewFormatted = $derived(
 				<ul class="list-disc ml-5 text-[var(--color-text-muted)] space-y-1">
 					<li>子供のプロフィール・活動記録・ポイント履歴</li>
 					<li>アバター画像・音声ファイル</li>
-					<li>設定・チェックリスト・キャリアプラン</li>
+					<li>設定・チェックリスト</li>
 					<li>メンバーシップ・招待情報</li>
 				</ul>
 				<p class="text-[var(--color-feedback-error-text)] font-medium">
