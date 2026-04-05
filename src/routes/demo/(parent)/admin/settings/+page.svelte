@@ -9,14 +9,6 @@ let { data } = $props();
 
 const ps = $derived(data.pointSettings);
 
-const themeOptions = [
-	{ value: 'pink', label: 'ピンク', icon: '&#x1F49B;' },
-	{ value: 'blue', label: 'ブルー', icon: '&#x1F499;' },
-	{ value: 'green', label: 'みどり', icon: '&#x1F49A;' },
-	{ value: 'orange', label: 'オレンジ', icon: '&#x1F9E1;' },
-	{ value: 'purple', label: 'むらさき', icon: '&#x1F49C;' },
-];
-
 const decayOptions = [
 	{ value: 'off', label: 'なし', desc: 'ステータスは下がりません' },
 	{ value: 'gentle', label: 'やさしい', desc: '2週間放置で少し下がる' },
@@ -98,23 +90,6 @@ const decayOptions = [
 							{opt.label}
 						</p>
 						<p class="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
-					</div>
-				{/each}
-			</div>
-		</div>
-	</Card>
-
-	<!-- Theme Colors -->
-	<Card>
-		<div class="space-y-3">
-			<h2 class="text-sm font-bold text-gray-700">&#x1F3A8; テーマカラー</h2>
-			<p class="text-xs text-gray-500">
-				こどもごとにテーマカラーを設定できます。こども管理画面から変更してください。
-			</p>
-			<div class="flex gap-2">
-				{#each themeOptions as theme}
-					<div class="w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center text-lg" title={theme.label}>
-						{@html theme.icon}
 					</div>
 				{/each}
 			</div>

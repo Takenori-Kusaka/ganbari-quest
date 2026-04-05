@@ -5,8 +5,8 @@
 import {
 	CognitoIdentityProviderClient,
 	InitiateAuthCommand,
-	ResendConfirmationCodeCommand,
 	type InitiateAuthCommandOutput,
+	ResendConfirmationCodeCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { logger } from '$lib/server/logger';
 
@@ -45,7 +45,7 @@ export interface CognitoMfaChallenge {
 
 export interface CognitoAuthError {
 	success: false;
-	error: 'INVALID_CREDENTIALS' | 'USER_NOT_FOUND' | 'NOT_CONFIRMED' | 'UNKNOWN';
+	error: 'INVALID_CREDENTIALS' | 'USER_NOT_FOUND' | 'NOT_CONFIRMED' | 'INVALID_CODE' | 'UNKNOWN';
 	message: string;
 }
 
@@ -267,6 +267,137 @@ export async function signUpWithCognito(
 			success: false,
 			error: 'UNKNOWN',
 			message: '登録に失敗しました。しばらくしてからお試しください',
+		};
+	}
+}
+
+/**
+ * パスワードリセットリクエスト（確認コード送信）
+ */
+export async function forgotPassword(email: string): Promise<{ success: true } | CognitoAuthError> {
+	const config = getConfig();
+	const client = new CognitoIdentityProviderClient({ region: config.region });
+
+	try {
+		const { ForgotPasswordCommand } = await import('@aws-sdk/client-cognito-identity-provider');
+
+		const command = new ForgotPasswordCommand({
+			ClientId: config.clientId,
+			Username: email,
+		});
+
+		await client.send(command);
+		return { success: true };
+	} catch (e: unknown) {
+		const errorName = (e as { name?: string })?.name ?? '';
+
+		if (errorName === 'UserNotFoundException') {
+			// セキュリティ上、ユーザーが存在しない場合も成功扱いにする
+			logger.info('[AUTH] ForgotPassword for non-existent user (treated as success)');
+			return { success: true };
+		}
+
+		logger.warn('[AUTH] Cognito ForgotPassword failed', {
+			context: { errorName, error: e instanceof Error ? e.message : String(e) },
+		});
+
+		if (errorName === 'LimitExceededException') {
+			return {
+				success: false,
+				error: 'UNKNOWN',
+				message: 'リクエスト回数の上限に達しました。しばらくしてからお試しください',
+			};
+		}
+
+		if (errorName === 'InvalidParameterException') {
+			return {
+				success: false,
+				error: 'UNKNOWN',
+				message: 'メールアドレスの形式が正しくありません',
+			};
+		}
+
+		return {
+			success: false,
+			error: 'UNKNOWN',
+			message: 'パスワードリセットに失敗しました。しばらくしてからお試しください',
+		};
+	}
+}
+
+/**
+ * パスワードリセット確認（新パスワード設定）
+ */
+export async function confirmForgotPassword(
+	email: string,
+	code: string,
+	newPassword: string,
+): Promise<{ success: true } | CognitoAuthError> {
+	const config = getConfig();
+	const client = new CognitoIdentityProviderClient({ region: config.region });
+
+	try {
+		const { ConfirmForgotPasswordCommand } = await import(
+			'@aws-sdk/client-cognito-identity-provider'
+		);
+
+		const command = new ConfirmForgotPasswordCommand({
+			ClientId: config.clientId,
+			Username: email,
+			ConfirmationCode: code,
+			Password: newPassword,
+		});
+
+		await client.send(command);
+		return { success: true };
+	} catch (e: unknown) {
+		const errorName = (e as { name?: string })?.name ?? '';
+		logger.warn('[AUTH] Cognito ConfirmForgotPassword failed', {
+			context: { errorName, error: e instanceof Error ? e.message : String(e) },
+		});
+
+		// セキュリティ: UserNotFoundException / InvalidParameterException も CodeMismatchException と
+		// 同じエラーメッセージを返し、メールアドレスの存在有無を推測させない
+		if (
+			errorName === 'CodeMismatchException' ||
+			errorName === 'UserNotFoundException' ||
+			errorName === 'InvalidParameterException'
+		) {
+			return {
+				success: false,
+				error: 'INVALID_CODE',
+				message: '確認コードが正しくありません',
+			};
+		}
+
+		if (errorName === 'ExpiredCodeException') {
+			return {
+				success: false,
+				error: 'UNKNOWN',
+				message: '確認コードの有効期限が切れています。もう一度リクエストしてください',
+			};
+		}
+
+		if (errorName === 'InvalidPasswordException') {
+			return {
+				success: false,
+				error: 'UNKNOWN',
+				message: 'パスワードが要件を満たしていません（8文字以上、大小英字・数字を含む）',
+			};
+		}
+
+		if (errorName === 'LimitExceededException') {
+			return {
+				success: false,
+				error: 'UNKNOWN',
+				message: 'リクエスト回数の上限に達しました。しばらくしてからお試しください',
+			};
+		}
+
+		return {
+			success: false,
+			error: 'UNKNOWN',
+			message: 'パスワードのリセットに失敗しました',
 		};
 	}
 }

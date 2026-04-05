@@ -13,9 +13,9 @@ import {
 	resendConfirmationCode,
 	respondToMfaChallenge,
 } from '$lib/server/auth/providers/cognito-direct-auth';
-import { logger } from '$lib/server/logger';
 import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
+import { logger } from '$lib/server/logger';
 import {
 	checkAccountLockout,
 	recordLoginFailure,
@@ -77,9 +77,7 @@ export const actions: Actions = {
 			});
 		}
 
-		const { confirmSignUp } = await import(
-			'$lib/server/auth/providers/cognito-direct-auth'
-		);
+		const { confirmSignUp } = await import('$lib/server/auth/providers/cognito-direct-auth');
 
 		const confirmResult = await confirmSignUp(email, code);
 
