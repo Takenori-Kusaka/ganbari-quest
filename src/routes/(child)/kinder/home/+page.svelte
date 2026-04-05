@@ -199,6 +199,13 @@ function isCompleted(activity: { id: number; dailyLimit: number | null }): boole
 	return getCount(activity.id) >= limit;
 }
 
+// Event badge: show first active event's icon on activity cards (#325)
+const activeEventBadge = $derived(
+	data.activeEvents && data.activeEvents.length > 0
+		? (data.activeEvents[0]?.bannerIcon ?? null)
+		: null,
+);
+
 // Group activities by category
 const activitiesByCategory = $derived(
 	CATEGORY_DEFS.map((catDef) => ({
@@ -534,6 +541,7 @@ $effect(() => {
 					isPinned={activity.isPinned}
 					frozen={!data.isPremium && activity.source === 'custom'}
 					triggerHint={activity.triggerHint}
+					eventBadge={activeEventBadge}
 					onclick={() => handleActivityTap(activity)}
 					onlongpress={() => handleActivityLongPress(activity)}
 				/>
@@ -551,6 +559,7 @@ $effect(() => {
 					isPinned={activity.isPinned}
 					frozen={!data.isPremium && activity.source === 'custom'}
 					triggerHint={activity.triggerHint}
+					eventBadge={activeEventBadge}
 					onclick={() => handleActivityTap(activity)}
 					onlongpress={() => handleActivityLongPress(activity)}
 				/>
