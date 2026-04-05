@@ -45,7 +45,7 @@ function handleOpenChange(details: { open: boolean }) {
 		<ul class="plan-features">
 			<li>✅ スタンダードの全機能</li>
 			<li>✅ 無制限の履歴保持</li>
-			<li>✅ 兄弟間比較分析</li>
+			<li>✅ きょうだいの比較</li>
 			<li>✅ 年間サマリーレポート</li>
 		</ul>
 	</div>
