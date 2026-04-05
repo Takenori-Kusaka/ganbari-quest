@@ -1,4 +1,6 @@
 <script lang="ts">
+import { formatChildName } from '$lib/domain/child-display';
+
 interface Props {
 	nickname: string;
 	newAge: number;
@@ -21,7 +23,7 @@ let { nickname, newAge, totalPoints, onclick }: Props = $props();
 			おたんじょうびボーナスがとどいているよ！
 		</p>
 		<p class="birthday-banner__sub">
-			{nickname} {newAge}さいおめでとう！ タップしてうけとろう
+			{formatChildName(nickname, 'vocative')}{newAge}さいおめでとう！ タップしてうけとろう
 		</p>
 	</div>
 	<span class="birthday-banner__points">⭐{totalPoints}pt</span>

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { formatChildName } from '$lib/domain/child-display';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -22,20 +23,20 @@ let claimedPoints = $state(0);
 function getMessageText(): { main: string; sub: string; button: string } {
 	if (uiMode === 'baby' || uiMode === 'kinder') {
 		return {
-			main: `${nickname}、${newAge}さい\nおめでとう！`,
+			main: `${formatChildName(nickname, 'vocative')}${newAge}さい\nおめでとう！`,
 			sub: 'これからも いっぱい がんばろうね！',
 			button: 'やったー！',
 		};
 	}
 	if (uiMode === 'lower') {
 		return {
-			main: `${nickname}、${newAge}さい\nおめでとう！`,
+			main: `${formatChildName(nickname, 'vocative')}${newAge}さい\nおめでとう！`,
 			sub: 'これからもたくさんチャレンジしよう！',
 			button: 'やったー！',
 		};
 	}
 	return {
-		main: `${nickname}、${newAge}歳\nおめでとう！`,
+		main: `${formatChildName(nickname, 'vocative')}${newAge}歳\nおめでとう！`,
 		sub: 'これからもチャレンジを続けよう！',
 		button: 'ありがとう！',
 	};
@@ -74,7 +75,7 @@ const msg = $derived(getMessageText());
 			<p class="birthday-modal__emoji">🎂🎉🎊</p>
 			<p class="birthday-modal__main">おたんじょうび おめでとう！</p>
 			<p class="birthday-modal__age-text">
-				{nickname}、{newAge}さい になったね！
+				{formatChildName(nickname, 'vocative')}{newAge}さい になったね！
 			</p>
 			<div class="birthday-modal__reward">
 				<span class="birthday-modal__reward-label">🎁 おたんじょうびボーナス</span>

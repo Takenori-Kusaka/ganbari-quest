@@ -3,6 +3,7 @@
 // ローカルモード (AUTH_MODE=local) ではログ出力のみ
 
 import webpush from 'web-push';
+import { formatChildName } from '$lib/domain/child-display';
 import {
 	countTodayLogs,
 	deleteByEndpoint,
@@ -238,7 +239,7 @@ export async function sendAchievementNotification(
 			tenantId,
 			'level_up',
 			'レベルアップ！',
-			`${data.childName}が レベル${data.levelUp.newLevel}に なったよ！ すごい！`,
+			`${formatChildName(data.childName, 'subject')} レベル${data.levelUp.newLevel}に なったよ！ すごい！`,
 			{ type: 'level_up' },
 		);
 	} else {
@@ -246,7 +247,7 @@ export async function sendAchievementNotification(
 			tenantId,
 			'achievement',
 			'きろく完了！',
-			`${data.childName}が「${data.activityName}」を がんばったよ！ +${data.totalPoints}P`,
+			`${formatChildName(data.childName, 'subject')}「${data.activityName}」を がんばったよ！ +${data.totalPoints}P`,
 			{ type: 'achievement' },
 		);
 	}

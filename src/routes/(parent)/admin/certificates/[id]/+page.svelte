@@ -1,4 +1,5 @@
 <script lang="ts">
+import { formatChildName } from '$lib/domain/child-display';
 import CertificateTemplate from '$lib/features/certificate/CertificateTemplate.svelte';
 import ShareCard from '$lib/features/certificate/ShareCard.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -44,7 +45,7 @@ async function handleShareDownload() {
 		ctx.font = '48px sans-serif';
 		ctx.fillText(data.certificate.icon, 320, 100);
 		ctx.font = 'bold 24px sans-serif';
-		ctx.fillText(data.certificate.childName, 320, 160);
+		ctx.fillText(formatChildName(data.certificate.childName), 320, 160);
 		ctx.fillStyle = '#2563eb';
 		ctx.font = 'bold 22px sans-serif';
 		ctx.fillText(data.certificate.title, 320, 210);

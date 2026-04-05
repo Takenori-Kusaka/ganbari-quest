@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
+import { formatChildName } from '$lib/domain/child-display';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -80,7 +81,7 @@ function handlePrint() {
 			<div class="text-center py-4">
 				<p class="text-4xl mb-2">📖</p>
 				<h1 class="text-xl font-bold text-gray-800 mb-1">
-					{book.childName}の がんばり記録
+					{formatChildName(book.childName, 'possessive')}がんばり記録
 				</h1>
 				<p class="text-gray-500">{book.fiscalYear}年度（{book.fiscalYear}年4月〜{Number(book.fiscalYear) + 1}年3月）</p>
 				{#if book.levelTitle}

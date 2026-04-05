@@ -1,4 +1,5 @@
 <script lang="ts">
+import { formatChildName } from '$lib/domain/child-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
@@ -31,7 +32,7 @@ function progressPct(xp: number, level: number): number {
 	{#each data.reports as report}
 		<div class="rounded-xl border bg-white shadow-sm">
 			<div class="rounded-t-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3 text-white">
-				<h3 class="text-base font-bold">{report.childName}の 週間レポート</h3>
+				<h3 class="text-base font-bold">{formatChildName(report.childName, 'possessive')}週間レポート</h3>
 				<p class="text-xs opacity-80">{formatWeek(report.weekStart, report.weekEnd)}</p>
 			</div>
 			<div class="space-y-4 p-4">
