@@ -71,7 +71,7 @@ $effect(() => {
 			&times;
 		</Button>
 		<p class="text-sm font-bold text-gray-700 mb-1">お子さまの ぼうけん、はじめよう！</p>
-		<p class="text-xs text-gray-500 mb-3">初月無料・いつでもキャンセルOK</p>
+		<p class="text-xs text-gray-500 mb-3">7日間無料・いつでもキャンセルOK</p>
 		<a
 			href="/demo/signup"
 			class="block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-center text-sm"
