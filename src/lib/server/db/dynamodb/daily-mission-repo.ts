@@ -9,6 +9,7 @@ import {
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { Activity, Child, DailyMissionWithActivity } from '../types';
+import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -332,6 +333,7 @@ export async function insertDailyMission(
 	);
 }
 
-export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	throw new Error('DynamoDB deleteByTenantId for daily-mission-repo not implemented');
+/** テナントの全デイリーミッションを削除（CHILD#* 配下の MISSION# アイテム） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), dailyMissionPrefix());
 }

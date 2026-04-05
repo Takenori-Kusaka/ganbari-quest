@@ -486,9 +486,7 @@ export const findTenantInvites: IAuthRepo['findTenantInvites'] = async (tenantId
 
 export const deleteInvite: IAuthRepo['deleteInvite'] = async (inviteCode, tenantId) => {
 	// Delete primary invite item (INVITE#<code>)
-	await doc().send(
-		new DeleteCommand({ TableName: TABLE_NAME, Key: inviteKey(inviteCode) }),
-	);
+	await doc().send(new DeleteCommand({ TableName: TABLE_NAME, Key: inviteKey(inviteCode) }));
 	// Delete tenant adjacency item (TENANT#<tenantId>, INVITE#<code>)
 	await doc().send(
 		new DeleteCommand({ TableName: TABLE_NAME, Key: tenantInviteKey(tenantId, inviteCode) }),

@@ -36,6 +36,7 @@ export async function markMessageShown(
 	return undefined;
 }
 
+/** テナントの全メッセージを削除（DynamoDB未実装: 書き込みがないため no-op） */
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	throw new Error('DynamoDB deleteByTenantId for message-repo not implemented');
+	// DynamoDB message repo は未実装のため書き込みデータなし — no-op
 }

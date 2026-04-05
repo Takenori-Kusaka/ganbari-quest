@@ -3,9 +3,10 @@
 
 import { GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { CharacterImage, Child, InsertCharacterImageInput } from '../types';
+import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { characterImageKey, childKey, ENTITY_NAMES } from './keys';
+import { characterImageKey, characterImagePrefix, childKey, ENTITY_NAMES, tenantPK } from './keys';
 
 /** Strip PK/SK/GSI keys from a DynamoDB item */
 function stripKeys<T extends Record<string, unknown>>(
@@ -106,6 +107,7 @@ export async function findChildForImage(
 	return stripKeys(result.Item) as unknown as Child;
 }
 
-export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	throw new Error('DynamoDB deleteByTenantId for image-repo not implemented');
+/** テナントの全キャラクター画像レコードを削除（CHILD#* 配下の IMG# アイテム） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), characterImagePrefix());
 }

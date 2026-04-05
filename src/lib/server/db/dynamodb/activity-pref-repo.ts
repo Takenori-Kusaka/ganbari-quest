@@ -3,6 +3,7 @@
 
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';
+import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { activityLogPrefix, activityPrefKey, activityPrefPrefix, childPK, tenantPK } from './keys';
 
@@ -132,6 +133,7 @@ export async function getUsageCounts(
 	}));
 }
 
-export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	throw new Error('DynamoDB deleteByTenantId for activity-pref-repo not implemented');
+/** テナントの全活動ピン留め設定を削除（CHILD#* 配下の ACTPREF# アイテム） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), activityPrefPrefix());
 }

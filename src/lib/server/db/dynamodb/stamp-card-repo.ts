@@ -56,6 +56,7 @@ export async function updateCardStatusIfCollecting(
 	throw new Error('stamp-card-repo: DynamoDB not implemented');
 }
 
+/** テナントの全スタンプカード・エントリを削除（DynamoDB未実装: 書き込みがないため no-op） */
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	throw new Error('DynamoDB deleteByTenantId for stamp-card-repo not implemented');
+	// DynamoDB stamp-card repo は未実装のため書き込みデータなし — no-op
 }

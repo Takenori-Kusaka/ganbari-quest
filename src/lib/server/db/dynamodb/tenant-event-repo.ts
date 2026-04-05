@@ -64,6 +64,7 @@ export async function upsertProgress(
 	throw new Error(NOT_IMPL);
 }
 
+/** テナントの全イベントデータを削除（DynamoDB未実装: 書き込みがないため no-op） */
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	throw new Error(NOT_IMPL);
+	// DynamoDB tenant-event repo は未実装のため書き込みデータなし — no-op
 }
