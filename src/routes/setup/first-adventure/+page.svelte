@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
+import { formatChildName } from '$lib/domain/child-display';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
@@ -51,7 +52,7 @@ function goToComplete() {
 		</div>
 
 		<h2 class="text-xl font-bold text-gray-700 mt-4 mb-2">
-			{child?.nickname}ちゃん すごい！
+			{formatChildName(child?.nickname, 'vocative')}すごい！
 		</h2>
 
 		<p class="text-sm text-gray-500 mb-4">
@@ -84,7 +85,7 @@ function goToComplete() {
 		<div class="text-3xl mb-2">⚔️</div>
 		<h2 class="text-lg font-bold text-gray-700">はじめてのぼうけん！</h2>
 		<p class="text-sm text-gray-500 mt-1">
-			{child?.nickname}ちゃん、さいしょのがんばりを<br />いっしょにきろくしよう！
+			{formatChildName(child?.nickname, 'vocative')}さいしょのがんばりを<br />いっしょにきろくしよう！
 		</p>
 	</div>
 

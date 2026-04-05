@@ -2,6 +2,7 @@
 // ストリーク警告通知 — EventBridge / 手動トリガー用
 
 import { json } from '@sveltejs/kit';
+import { formatChildName } from '$lib/domain/child-display';
 import { logger } from '$lib/server/logger';
 import {
 	getNotificationSettings,
@@ -46,7 +47,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				body.tenantId,
 				'streak_warning',
 				'ストリークが あぶない！',
-				`${child.name}ちゃんの ${child.streakDays}日れんぞくが きょうでとぎれちゃうよ！ いまからがんばろう！`,
+				`${formatChildName(child.name, 'possessive')}${child.streakDays}日れんぞくが きょうでとぎれちゃうよ！ いまからがんばろう！`,
 				{ type: 'streak_warning' },
 			);
 			totalSent += result.sent;
