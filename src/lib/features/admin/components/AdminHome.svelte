@@ -59,13 +59,6 @@ interface Props {
 	monthlySummaries?: Record<number, MonthSummaryData>;
 	currentMonth?: string;
 	planTier?: 'free' | 'standard' | 'family';
-	planStats?: {
-		activityCount: number;
-		activityMax: number | null;
-		childCount: number;
-		childMax: number | null;
-		retentionDays: number | null;
-	};
 	showPremiumWelcome?: boolean;
 	seasonalInfo?: {
 		activeEvents: SeasonEventInfo[];
@@ -83,7 +76,6 @@ let {
 	monthlySummaries = {},
 	currentMonth = '',
 	planTier = 'free',
-	planStats,
 	showPremiumWelcome = false,
 	seasonalInfo = null,
 }: Props = $props();
@@ -139,6 +131,9 @@ function childLink(child: ChildSummary): string {
 {/if}
 
 <div class="space-y-6">
+	<!-- Page heading (visually compact, semantically correct) -->
+	<h1 class="dashboard-heading">管理ダッシュボード{isDemo ? '（デモ）' : ''}</h1>
+
 	<!-- Onboarding Checklist (replaces tutorial banner for new users) -->
 	{#if showOnboarding && onboarding}
 		<OnboardingChecklist {onboarding} />
@@ -217,9 +212,6 @@ function childLink(child: ChildSummary): string {
 			{/if}
 		</section>
 	{/if}
-
-	<!-- Page heading (visually compact, semantically correct) -->
-	<h1 class="dashboard-heading">管理ダッシュボード{isDemo ? '（デモ）' : ''}</h1>
 
 	<!-- Summary Cards -->
 	<div class="grid grid-cols-2 gap-3" data-tutorial="summary-cards">
