@@ -1,13 +1,9 @@
 <script lang="ts">
-import { enhance } from '$app/forms';
-import { soundService } from '$lib/ui/sound';
-
 interface StampEntry {
 	slot: number;
 	emoji: string;
 	name: string;
 	rarity: string;
-	omikujiRank?: string | null;
 }
 
 interface Props {
@@ -32,255 +28,144 @@ let {
 	redeemedPoints,
 }: Props = $props();
 
-let stamping = $state(false);
-let newStamp = $state<{ omikujiRank: string; slot: number } | null>(null);
-let redeemResult = $state<{ points: number } | null>(null);
+const dayLabels = ['月', '火', '水', '木', '金', '土', '日'];
 
-/** おみくじランク別のスタンプ画像とスタイル */
-const rankConfig: Record<string, { image: string; label: string; glow?: string }> = {
-	大大吉: {
-		image: '/assets/stamps/daidaikichi.png',
-		label: '大大吉',
-		glow: '0 0 10px rgba(212, 160, 23, 0.5)',
-	},
-	大吉: {
-		image: '/assets/stamps/daikichi.png',
-		label: '大吉',
-		glow: '0 0 8px rgba(124, 58, 237, 0.3)',
-	},
-	中吉: { image: '/assets/stamps/chukichi.png', label: '中吉' },
-	小吉: { image: '/assets/stamps/shokichi.png', label: '小吉' },
-	吉: { image: '/assets/stamps/kichi.png', label: '吉' },
-	末吉: { image: '/assets/stamps/suekichi.png', label: '末吉' },
+const rarityGlow: Record<string, string | undefined> = {
+	SR: '0 0 8px rgba(147, 51, 234, 0.3)',
+	UR: '0 0 10px rgba(255, 215, 0, 0.5)',
 };
 
 function formatDateShort(dateStr: string): string {
-	const d = new Date(`${dateStr}T00:00:00`);
-	return `${d.getMonth() + 1}/${d.getDate()}`;
+	const parts = dateStr.split('-');
+	return `${Number(parts[1])}/${Number(parts[2])}`;
 }
 
-function getConfig(rank: string) {
-	return rankConfig[rank] ?? rankConfig.吉;
+/** Determine if a slot is "today" — the first empty slot if card is collecting */
+function isTodaySlot(slotIndex: number): boolean {
+	if (status !== 'collecting') return false;
+	return slotIndex + 1 === filledSlots + 1 && canStampToday;
 }
 </script>
 
 <div class="stamp-card" data-testid="stamp-card">
-	<!-- Stamp slots -->
+	<!-- Header -->
+	<div class="stamp-card__header">
+		<span class="stamp-card__period">📅 {formatDateShort(weekStart)}〜{formatDateShort(weekEnd)}</span>
+		<span class="stamp-card__label">今週のスタンプ</span>
+	</div>
+
+	<!-- 7 Stamp slots with day labels -->
 	<div class="stamp-card__slots">
 		{#each Array(totalSlots) as _, i}
 			{@const entry = entries.find((e) => e.slot === i + 1)}
-			{@const rank = entry?.omikujiRank ?? (entry ? '吉' : null)}
-			{@const config = rank ? getConfig(rank) : null}
-			{@const isNew = newStamp && newStamp.slot === i + 1}
-			<div class="stamp-slot" class:stamp-slot--new={isNew}>
-				{#if entry && config}
-					<!-- 押印済み: イラストスタンプ -->
-					<div
-						class="stamp-seal"
-						class:stamp-seal--rare={rank === '大大吉' || rank === '大吉'}
-						style:filter={config.glow ? `drop-shadow(${config.glow})` : undefined}
-					>
-						<img
-							src={config.image}
-							alt={config.label}
-							class="stamp-seal__img"
-							width="48"
-							height="48"
-						/>
-					</div>
+			{@const glow = entry ? rarityGlow[entry.rarity] : undefined}
+			{@const isToday = isTodaySlot(i)}
+			<div class="stamp-slot" class:stamp-slot--today={isToday}>
+				{#if entry}
+					<span class="stamp-slot__emoji" style:filter={glow ? `drop-shadow(${glow})` : undefined}>
+						{entry.emoji}
+					</span>
 				{:else}
-					<!-- 空スロット -->
-					<div class="stamp-empty">
-						<div class="stamp-empty__circle"></div>
-					</div>
+					<span class="stamp-slot__empty"></span>
 				{/if}
-				<span class="stamp-slot__day">{i + 1}</span>
+				<span class="stamp-slot__day">{dayLabels[i] ?? i + 1}</span>
 			</div>
 		{/each}
 	</div>
 
-	<!-- Progress -->
+	<!-- Progress bar -->
 	<div class="stamp-card__progress">
-		<span class="stamp-card__period">{formatDateShort(weekStart)}〜{formatDateShort(weekEnd)}</span>
-		<div class="stamp-card__progress-right">
-			<div class="stamp-card__progress-bar">
-				<div class="stamp-card__progress-fill" style:width="{(filledSlots / totalSlots) * 100}%"></div>
-			</div>
-			<span class="stamp-card__progress-text">{filledSlots}/{totalSlots} おしたよ！</span>
+		<div class="stamp-card__progress-bar">
+			<div class="stamp-card__progress-fill" style:width="{(filledSlots / totalSlots) * 100}%"></div>
 		</div>
+		<span class="stamp-card__progress-text">{filledSlots}/{totalSlots} おしたよ！</span>
 	</div>
 
-	<!-- Action area -->
+	<!-- Status message -->
 	{#if status === 'redeemed' && redeemedPoints != null}
-		<div class="stamp-card__action">
-			<p class="stamp-card__result stamp-card__result--redeemed">✅ {redeemedPoints}pt もらったよ！</p>
-		</div>
-	{:else if redeemResult}
-		<div class="stamp-card__action">
-			<p class="stamp-card__result stamp-card__result--got">🎉 {redeemResult.points}pt ゲット！</p>
-		</div>
-	{:else if newStamp}
-		<div class="stamp-card__action stamp-card__action--bounce">
-			<p class="stamp-card__result">
-				{newStamp.omikujiRank}のスタンプをおしたよ！
-			</p>
-		</div>
-	{:else if canStampToday}
-		<form
-			method="POST"
-			action="?/stampCard"
-			use:enhance={() => {
-				stamping = true;
-				return async ({ result, update }) => {
-					stamping = false;
-					if (result.type === 'success' && result.data) {
-						const data = result.data as Record<string, unknown>;
-						const omikujiRank = (data.omikujiRank as string) || (data.stampName as string) || '吉';
-						newStamp = { omikujiRank, slot: filledSlots + 1 };
-						soundService.play('stamp-press');
-						setTimeout(() => { newStamp = null; }, 3000);
-					}
-					await update({ reset: false });
-				};
-			}}
-		>
-			<button
-				type="submit"
-				class="stamp-card__btn"
-				data-testid="stamp-today-btn"
-				disabled={stamping}
-			>
-				{stamping ? 'おしています...' : '📿 きょうのスタンプをおす！'}
-			</button>
-		</form>
-		<p class="stamp-card__hint">あと{totalSlots - filledSlots}かいおせるよ！</p>
-	{:else if filledSlots > 0 && status === 'collecting'}
-		<form
-			method="POST"
-			action="?/redeemStampCard"
-			use:enhance={() => {
-				return async ({ result, update }) => {
-					if (result.type === 'success' && result.data) {
-						const data = result.data as Record<string, unknown>;
-						redeemResult = { points: data.totalPoints as number };
-						soundService.play('point-gain');
-					}
-					await update({ reset: false });
-				};
-			}}
-		>
-			<button type="submit" class="stamp-card__btn stamp-card__btn--redeem" data-testid="stamp-redeem-btn">
-				🎁 ポイントにこうかん（{filledSlots}/{totalSlots}）
-			</button>
-		</form>
-	{:else}
-		<p class="stamp-card__done">✅ きょうはもうおしたよ！</p>
-	{/if}
-
-	<!-- Complete bonus or hint -->
-	{#if filledSlots >= totalSlots && status === 'collecting' && !redeemResult}
+		<p class="stamp-card__done">✅ {redeemedPoints}pt もらったよ！</p>
+	{:else if filledSlots >= totalSlots && status === 'collecting'}
 		<div class="stamp-card__complete" data-testid="stamp-complete">
-			<p class="stamp-card__complete-text">🎊 コンプリート！ 🎊</p>
-			<p class="stamp-card__complete-sub">ボーナスポイントをもらおう！</p>
+			<p class="stamp-card__complete-text">🎊 コンプリート！</p>
+			<p class="stamp-card__complete-sub">週明けにボーナスポイントがもらえるよ！</p>
 		</div>
-	{:else if filledSlots < totalSlots && status === 'collecting' && !redeemResult}
-		<p class="stamp-card__bonus-hint">{totalSlots}つあつめると ⭐ボーナスポイント！</p>
+	{:else if !canStampToday && status === 'collecting'}
+		<p class="stamp-card__done">✅ きょうはもうおしたよ！</p>
+	{:else if canStampToday}
+		<p class="stamp-card__hint">✨ あと{totalSlots - filledSlots}回でコンプリート！</p>
 	{/if}
 </div>
 
 <style>
+	/* Header */
+	.stamp-card__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 8px;
+	}
+
 	.stamp-card__period {
 		font-size: 0.625rem;
 		color: var(--color-text-muted, #9ca3af);
 		white-space: nowrap;
 	}
 
-	/* Stamp slots grid */
+	.stamp-card__label {
+		font-size: 0.625rem;
+		font-weight: 700;
+		color: var(--color-text-muted, #9ca3af);
+	}
+
+	/* 7-column stamp slots */
 	.stamp-card__slots {
 		display: grid;
-		grid-template-columns: repeat(5, 1fr);
-		gap: 6px;
-		margin-bottom: 10px;
+		grid-template-columns: repeat(7, 1fr);
+		gap: 4px;
+		margin-bottom: 8px;
 	}
 
 	.stamp-slot {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 3px;
+		gap: 2px;
 	}
 
-	.stamp-slot__day {
-		font-size: 0.625rem;
-		font-weight: 700;
-		color: var(--color-text-muted, #9ca3af);
+	.stamp-slot--today .stamp-slot__empty {
+		animation: pulse-today 1.2s ease-in-out infinite;
+		border-color: var(--theme-accent, #f59e0b);
 	}
 
-	/* Stamp image */
-	.stamp-seal {
-		width: 48px;
-		height: 48px;
+	.stamp-slot__emoji {
+		width: 36px;
+		height: 36px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		position: relative;
+		font-size: 1.25rem;
 	}
 
-	.stamp-seal__img {
-		width: 48px;
-		height: 48px;
-		object-fit: contain;
-	}
-
-	.stamp-seal--rare .stamp-seal__img {
-		width: 52px;
-		height: 52px;
-	}
-
-	/* Empty slot */
-	.stamp-empty {
-		width: 48px;
-		height: 48px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.stamp-empty__circle {
-		width: 42px;
-		height: 42px;
+	.stamp-slot__empty {
+		width: 30px;
+		height: 30px;
 		border-radius: 50%;
 		border: 2px dashed #d1d5db;
 		background: var(--gray-50, #f8fafc);
 	}
 
-	/* New stamp animation */
-	.stamp-slot--new .stamp-seal {
-		animation: seal-stamp 0.5s ease-out;
-	}
-
-	@keyframes seal-stamp {
-		0% { transform: scale(0) rotate(-20deg); opacity: 0; }
-		50% { transform: scale(1.3) rotate(5deg); }
-		70% { transform: scale(0.95) rotate(-2deg); }
-		100% { transform: scale(1) rotate(0deg); opacity: 1; }
+	.stamp-slot__day {
+		font-size: 0.5625rem;
+		font-weight: 700;
+		color: var(--color-text-muted, #9ca3af);
 	}
 
 	/* Progress bar */
 	.stamp-card__progress {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-		margin-bottom: 8px;
-	}
-
-	.stamp-card__progress-right {
-		display: flex;
-		align-items: center;
 		gap: 6px;
-		flex: 1;
-		min-width: 0;
+		margin-bottom: 6px;
 	}
 
 	.stamp-card__progress-bar {
@@ -305,67 +190,13 @@ function getConfig(rank: string) {
 		white-space: nowrap;
 	}
 
-	/* Action buttons */
-	.stamp-card__action {
-		text-align: center;
-		padding: 4px 0;
-	}
-
-	.stamp-card__action--bounce {
-		animation: bounce-in 0.4s ease-out;
-	}
-
-	@keyframes bounce-in {
-		0% { transform: scale(0.8); opacity: 0; }
-		60% { transform: scale(1.05); }
-		100% { transform: scale(1); opacity: 1; }
-	}
-
-	.stamp-card__result {
-		font-size: 0.8125rem;
-		font-weight: 700;
-		margin: 0;
-		color: var(--color-text, #1f2937);
-	}
-
-	.stamp-card__result--redeemed {
-		color: var(--color-point, #d97706);
-		font-size: 0.75rem;
-	}
-
-	.stamp-card__result--got {
-		color: var(--color-point, #d97706);
-		font-size: 0.875rem;
-	}
-
-	.stamp-card__btn {
-		width: 100%;
-		padding: 8px;
-		border-radius: var(--radius-md, 12px);
-		font-size: 0.8125rem;
-		font-weight: 700;
-		color: white;
-		border: none;
-		cursor: pointer;
-		background: linear-gradient(135deg, var(--theme-accent, #f59e0b), var(--theme-sub, #fbbf24));
-	}
-
-	.stamp-card__btn:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-
-	.stamp-card__btn--redeem {
-		background: none;
-		border: 2px solid var(--theme-accent, #f59e0b);
-		color: var(--theme-accent, #f59e0b);
-	}
-
+	/* Status messages */
 	.stamp-card__hint {
 		text-align: center;
-		font-size: 0.625rem;
+		font-size: 0.6875rem;
+		font-weight: 600;
 		color: var(--color-text-muted, #9ca3af);
-		margin: 4px 0 0;
+		margin: 0;
 	}
 
 	.stamp-card__done {
@@ -376,19 +207,10 @@ function getConfig(rank: string) {
 		margin: 0;
 	}
 
-	.stamp-card__bonus-hint {
-		text-align: center;
-		font-size: 0.625rem;
-		font-weight: 600;
-		color: #92400e;
-		margin: 6px 0 0;
-	}
-
 	/* Complete celebration */
 	.stamp-card__complete {
 		text-align: center;
-		padding: 8px 0 4px;
-		animation: bounce-in 0.4s ease-out;
+		padding: 4px 0;
 	}
 
 	.stamp-card__complete-text {
@@ -403,5 +225,17 @@ function getConfig(rank: string) {
 		font-weight: 600;
 		color: #92400e;
 		margin: 2px 0 0;
+	}
+
+	/* Animations */
+	@keyframes pulse-today {
+		0%, 100% { transform: scale(1); opacity: 1; }
+		50% { transform: scale(1.15); opacity: 0.7; }
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.stamp-slot--today .stamp-slot__empty {
+			animation: none;
+		}
 	}
 </style>
