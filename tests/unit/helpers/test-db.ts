@@ -670,6 +670,35 @@ export const SQL_TABLES = `
 	CREATE UNIQUE INDEX idx_auto_challenges_child_week ON auto_challenges(child_id, week_start);
 	CREATE INDEX idx_auto_challenges_tenant ON auto_challenges(tenant_id);
 	CREATE INDEX idx_auto_challenges_status ON auto_challenges(status);
+
+	-- ============================================================
+	-- trial_history
+	-- ============================================================
+	CREATE TABLE trial_history (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		start_date TEXT NOT NULL,
+		end_date TEXT NOT NULL,
+		tier TEXT NOT NULL DEFAULT 'standard',
+		source TEXT NOT NULL,
+		campaign_id TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_trial_history_tenant ON trial_history(tenant_id);
+
+	-- ============================================================
+	-- viewer_tokens
+	-- ============================================================
+	CREATE TABLE viewer_tokens (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		token TEXT NOT NULL UNIQUE,
+		label TEXT,
+		expires_at TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		revoked_at TEXT
+	);
+	CREATE INDEX idx_viewer_tokens_tenant ON viewer_tokens(tenant_id);
 `;
 
 // ============================================================
@@ -677,6 +706,8 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'trial_history',
+	'viewer_tokens',
 	'auto_challenges',
 	'tenant_event_progress',
 	'tenant_events',

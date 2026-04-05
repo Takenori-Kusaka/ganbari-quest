@@ -154,6 +154,23 @@ STRIPE_PRICE_FAMILY_YEARLY=price_xxxxxxxxxxxxx     （ファミリー年額¥7,8
 
 ---
 
+## GitHub リポジトリ変数の設定（デプロイに必要）
+
+Price ID は GitHub Actions 経由で CDK → Lambda 環境変数に渡されます。
+GitHub リポジトリの **Settings > Secrets and variables > Actions > Variables** で以下を登録してください。
+
+| Variable 名 | 値の例 | 説明 |
+|---|---|---|
+| `STRIPE_PRICE_MONTHLY` | `price_xxxxxxxxxxxxx` | スタンダード月額の Price ID |
+| `STRIPE_PRICE_YEARLY` | `price_xxxxxxxxxxxxx` | スタンダード年額の Price ID |
+| `STRIPE_PRICE_FAMILY_MONTHLY` | `price_xxxxxxxxxxxxx` | ファミリー月額の Price ID |
+| `STRIPE_PRICE_FAMILY_YEARLY` | `price_xxxxxxxxxxxxx` | ファミリー年額の Price ID |
+
+> **注意**: Secrets ではなく **Variables**（平文）に登録します。Price ID は機密情報ではないためです。
+> Secret Key や Webhook Secret は引き続き **Secrets** に登録してください。
+
+---
+
 ## ローカル開発でのテスト（任意）
 
 Stripe CLI を使うとローカル環境で Webhook テストができます。

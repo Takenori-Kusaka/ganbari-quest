@@ -133,10 +133,21 @@ let adventureShown = $state(false);
 // Login stamp state (unified bonus + stamp)
 let stampPressOpen = $state(false);
 let stampPressData = $state<{
-	omikujiRank: string;
-	totalPoints: number;
-	multiplier: number;
+	stampEmoji: string;
+	stampRarity: string;
+	stampName: string;
+	instantPoints: number;
 	consecutiveDays: number;
+	multiplier: number;
+	cardFilledSlots: number;
+	cardTotalSlots: number;
+	cardEntries: { slot: number; emoji: string; rarity: string }[];
+	weeklyRedeem: {
+		points: number;
+		filledSlots: number;
+		totalSlots: number;
+		completeBonus: number;
+	} | null;
 } | null>(null);
 let bonusClaiming = $state(false);
 
@@ -198,6 +209,13 @@ function isCompleted(activity: { id: number; dailyLimit: number | null }): boole
 	if (limit === 0) return false; // unlimited
 	return getCount(activity.id) >= limit;
 }
+
+// Event badge: show first active event's icon on activity cards (#325)
+const activeEventBadge = $derived(
+	data.activeEvents && data.activeEvents.length > 0
+		? (data.activeEvents[0]?.bannerIcon ?? null)
+		: null,
+);
 
 // Group activities by category
 const activitiesByCategory = $derived(
@@ -434,12 +452,19 @@ $effect(() => {
 			use:enhance={() => {
 				return async ({ result }) => {
 					if (result.type === 'success' && result.data && 'loginStamp' in result.data) {
-						const d = result.data as { omikujiRank: string; totalPoints: number; multiplier: number; consecutiveLoginDays: number };
+						const d = result.data as Record<string, unknown>;
+						const cardData = d.cardData as { filledSlots: number; totalSlots: number; entries: { slot: number; emoji: string; rarity: string }[] } | null;
 						stampPressData = {
-							omikujiRank: d.omikujiRank || '吉',
-							totalPoints: d.totalPoints,
-							multiplier: d.multiplier,
-							consecutiveDays: d.consecutiveLoginDays,
+							stampEmoji: (d.stampEmoji as string) || '⭐',
+							stampRarity: (d.stampRarity as string) || 'N',
+							stampName: (d.stampName as string) || '',
+							instantPoints: (d.instantPoints as number) || 0,
+							consecutiveDays: (d.consecutiveLoginDays as number) || 0,
+							multiplier: (d.multiplier as number) || 1,
+							cardFilledSlots: cardData?.filledSlots ?? 0,
+							cardTotalSlots: cardData?.totalSlots ?? 7,
+							cardEntries: cardData?.entries ?? [],
+							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number } | null,
 						};
 						stampPressOpen = true;
 					}
@@ -534,6 +559,7 @@ $effect(() => {
 					isPinned={activity.isPinned}
 					frozen={!data.isPremium && activity.source === 'custom'}
 					triggerHint={activity.triggerHint}
+					eventBadge={activeEventBadge}
 					onclick={() => handleActivityTap(activity)}
 					onlongpress={() => handleActivityLongPress(activity)}
 				/>
@@ -551,6 +577,7 @@ $effect(() => {
 					isPinned={activity.isPinned}
 					frozen={!data.isPremium && activity.source === 'custom'}
 					triggerHint={activity.triggerHint}
+					eventBadge={activeEventBadge}
 					onclick={() => handleActivityTap(activity)}
 					onlongpress={() => handleActivityLongPress(activity)}
 				/>

@@ -7,8 +7,41 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      deps: ${{ steps.filter.outputs.deps }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'src/**'
+              - 'static/**'
+              - 'tests/**'
+              - 'svelte.config.js'
+              - 'vite.config.ts'
+              - 'tsconfig.json'
+              - 'biome.json'
+              - 'playwright*.config.*'
+              - 'vitest.config.*'
+              - 'Dockerfile*'
+            deps:
+              - 'package.json'
+              - 'package-lock.json'
+
   lint-and-test:
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -37,7 +70,8 @@ jobs:
 
   e2e-test:
     runs-on: ubuntu-latest
-    needs: lint-and-test
+    needs: [changes, lint-and-test]
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
     steps:
       - uses: actions/checkout@v6
 
@@ -50,7 +84,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -79,7 +113,8 @@ jobs:
 
   docker-build:
     runs-on: ubuntu-latest
-    needs: lint-and-test
+    needs: [changes, lint-and-test]
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
     steps:
       - uses: actions/checkout@v6
 
@@ -88,3 +123,22 @@ jobs:
 
       - name: Build Lambda Docker image (AWS)
         run: docker build -f Dockerfile.lambda -t ganbari-quest-lambda:test .
+
+  # Gate job: always runs and reports overall CI status.
+  # Required by branch ruleset instead of individual jobs,
+  # so skipped jobs (via path filter) don't block merges.
+  ci-gate:
+    if: always()
+    needs: [changes, lint-and-test, e2e-test, docker-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CI results
+        run: |
+          results=("${{ needs.changes.result }}" "${{ needs.lint-and-test.result }}" "${{ needs.e2e-test.result }}" "${{ needs.docker-build.result }}")
+          for r in "${results[@]}"; do
+            if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
+              echo "CI failed: $r"
+              exit 1
+            fi
+          done
+          echo "CI passed (jobs: ${results[*]})"

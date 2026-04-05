@@ -38,6 +38,11 @@ export class ComputeStack extends cdk.Stack {
 			this,
 			'/ganbari-quest/cognito/client-id',
 		);
+		// Cognito Hosted UI ドメイン（Google OAuth 有効時に auth-stack が SSM に書き込む）
+		const cognitoDomain = ssm.StringParameter.valueForStringParameter(
+			this,
+			'/ganbari-quest/cognito/domain',
+		);
 		const contextTokenSecret = ssm.StringParameter.valueForStringParameter(
 			this,
 			'/ganbari-quest/context-token-secret',
@@ -51,6 +56,8 @@ export class ComputeStack extends cdk.Stack {
 		const stripeWebhookSecret = this.node.tryGetContext('stripeWebhookSecret') ?? '';
 		const stripePriceMonthly = this.node.tryGetContext('stripePriceMonthly') ?? '';
 		const stripePriceYearly = this.node.tryGetContext('stripePriceYearly') ?? '';
+		const stripePriceFamilyMonthly = this.node.tryGetContext('stripePriceFamilyMonthly') ?? '';
+		const stripePriceFamilyYearly = this.node.tryGetContext('stripePriceFamilyYearly') ?? '';
 
 		// --- OPS Dashboard（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const opsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
@@ -86,6 +93,8 @@ export class ComputeStack extends cdk.Stack {
 				AUTH_MODE: 'cognito',
 				COGNITO_USER_POOL_ID: cognitoUserPoolId,
 				COGNITO_CLIENT_ID: cognitoClientId,
+				COGNITO_DOMAIN: cognitoDomain,
+				COGNITO_CALLBACK_URL: 'https://ganbari-quest.com/auth/callback',
 				CONTEXT_TOKEN_SECRET: contextTokenSecret,
 				MAINTENANCE_MODE: 'false',
 				...(feedbackDiscordWebhookUrl
@@ -106,6 +115,8 @@ export class ComputeStack extends cdk.Stack {
 				...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
 				...(stripePriceMonthly ? { STRIPE_PRICE_MONTHLY: stripePriceMonthly } : {}),
 				...(stripePriceYearly ? { STRIPE_PRICE_YEARLY: stripePriceYearly } : {}),
+				...(stripePriceFamilyMonthly ? { STRIPE_PRICE_FAMILY_MONTHLY: stripePriceFamilyMonthly } : {}),
+				...(stripePriceFamilyYearly ? { STRIPE_PRICE_FAMILY_YEARLY: stripePriceFamilyYearly } : {}),
 				COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
 				SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
 				SES_CONFIG_SET_NAME: 'ganbari-quest-config',

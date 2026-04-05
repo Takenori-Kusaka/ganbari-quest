@@ -3,7 +3,8 @@
 
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
-import { getTrialEndDate } from '$lib/server/services/trial-service';
+import type { TrialTier } from '$lib/server/services/trial-service';
+import { getTrialEndDate, getTrialTier } from '$lib/server/services/trial-service';
 
 export interface PlanLimits {
 	maxChildren: number | null; // null = 無制限
@@ -52,6 +53,7 @@ export function resolvePlanTier(
 	licenseStatus: string,
 	planId?: string,
 	trialEndDate?: string | null,
+	trialTier?: TrialTier | null,
 ): PlanTier {
 	// ローカル版（セルフホスト）は常に全機能解放
 	if (getAuthMode() === 'local') return 'family';
@@ -59,9 +61,9 @@ export function resolvePlanTier(
 	if (licenseStatus === 'active') {
 		return planId?.startsWith('family') ? 'family' : 'standard';
 	}
-	// トライアル期間中 → ファミリー全機能解放
+	// トライアル期間中 → トライアルのティアを適用（デフォルト: standard）
 	if (trialEndDate && new Date(trialEndDate) > new Date()) {
-		return 'family';
+		return trialTier ?? 'standard';
 	}
 	return 'free';
 }
@@ -73,7 +75,8 @@ export async function resolveFullPlanTier(
 	planId?: string,
 ): Promise<PlanTier> {
 	const trialEnd = await getTrialEndDate(tenantId);
-	return resolvePlanTier(licenseStatus, planId, trialEnd);
+	const trialTierValue = await getTrialTier(tenantId);
+	return resolvePlanTier(licenseStatus, planId, trialEnd, trialTierValue);
 }
 
 /** 有料プランかどうか */

@@ -21,3 +21,4 @@ export type { IStampCardRepo } from './stamp-card-repo.interface';
 export type { IStatusRepo } from './status-repo.interface';
 export type { IStorageRepo } from './storage.interface';
 export type { ITenantEventRepo } from './tenant-event-repo.interface';
+export type { ITrialHistoryRepo } from './trial-history-repo.interface';

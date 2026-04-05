@@ -2,6 +2,8 @@
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
+import SiblingCategoryChart from '$lib/ui/components/SiblingCategoryChart.svelte';
+import SiblingTrendChart from '$lib/ui/components/SiblingTrendChart.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
@@ -387,6 +389,51 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 				</div>
 			{/each}
 		{/if}
+	{/if}
+
+	<!-- きょうだいランキング強化セクション (#373) -->
+	{#if data.isFamily && data.rankingData && data.rankingData.rankings.length > 1}
+		<section class="space-y-4">
+			<h3 class="text-base font-bold text-gray-700">👫 きょうだいランキング</h3>
+
+			<!-- 今週の概要 -->
+			<div class="bg-white rounded-xl p-4 shadow-sm">
+				<p class="text-sm font-bold text-gray-600 mb-2">📊 今週のまとめ</p>
+				{#if data.rankingData.mostActive}
+					<p class="text-sm text-gray-700">
+						🏆 もっとも活発: <strong>{data.rankingData.mostActive.childName}</strong>（{data.rankingData.mostActive.count}回）
+					</p>
+				{/if}
+				<p class="text-sm text-gray-500 mt-1">{data.rankingData.encouragement}</p>
+			</div>
+
+			<!-- 活動数推移グラフ -->
+			{#if data.trendData && data.trendData.weeks.length > 1}
+				<div class="bg-white rounded-xl p-4 shadow-sm">
+					<p class="text-sm font-bold text-gray-600 mb-3">📈 週別 活動数のうつりかわり</p>
+					<SiblingTrendChart weeks={data.trendData.weeks} />
+				</div>
+			{/if}
+
+			<!-- カテゴリ別比較（週次） -->
+			<div class="bg-white rounded-xl p-4 shadow-sm">
+				<p class="text-sm font-bold text-gray-600 mb-3">📊 今週のカテゴリ別くらべっこ</p>
+				<SiblingCategoryChart rankings={data.rankingData.rankings} />
+			</div>
+
+			<!-- カテゴリ別比較（月次） -->
+			{#if data.monthlyRankingData && data.monthlyRankingData.rankings.length > 1}
+				<div class="bg-white rounded-xl p-4 shadow-sm">
+					<p class="text-sm font-bold text-gray-600 mb-3">📊 今月のカテゴリ別くらべっこ</p>
+					<SiblingCategoryChart rankings={data.monthlyRankingData.rankings} />
+					{#if data.monthlyRankingData.mostActive}
+						<p class="text-xs text-gray-500 mt-2">
+							🏆 今月もっとも活発: <strong>{data.monthlyRankingData.mostActive.childName}</strong>（{data.monthlyRankingData.mostActive.count}回）
+						</p>
+					{/if}
+				</div>
+			{/if}
+		</section>
 	{/if}
 </div>
 

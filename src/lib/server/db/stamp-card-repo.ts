@@ -34,3 +34,11 @@ export async function updateCardStatus(
 ) {
 	return getRepos().stampCard.updateCardStatus(cardId, input, tenantId);
 }
+
+export async function updateCardStatusIfCollecting(
+	cardId: number,
+	input: UpdateStampCardStatusInput,
+	tenantId: string,
+) {
+	return getRepos().stampCard.updateCardStatusIfCollecting(cardId, input, tenantId);
+}

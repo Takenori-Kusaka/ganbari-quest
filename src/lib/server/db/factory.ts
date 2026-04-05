@@ -29,7 +29,8 @@ import * as dynamoStampCardRepo from './dynamodb/stamp-card-repo';
 import * as dynamoStatusRepo from './dynamodb/status-repo';
 import * as dynamoStorageRepo from './dynamodb/storage-repo';
 import * as dynamoTenantEventRepo from './dynamodb/tenant-event-repo';
-
+import * as dynamoTrialHistoryRepo from './dynamodb/trial-history-repo';
+import * as dynamoViewerTokenRepo from './dynamodb/viewer-token-repo';
 import * as dynamoVoiceRepo from './dynamodb/voice-repo';
 import type { IAccountLockoutRepo } from './interfaces/account-lockout-repo.interface';
 
@@ -59,7 +60,8 @@ import type { IStampCardRepo } from './interfaces/stamp-card-repo.interface';
 import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
 import type { ITenantEventRepo } from './interfaces/tenant-event-repo.interface';
-
+import type { ITrialHistoryRepo } from './interfaces/trial-history-repo.interface';
+import type { IViewerTokenRepo } from './interfaces/viewer-token-repo.interface';
 import type { IVoiceRepo } from './interfaces/voice-repo.interface';
 import * as sqliteAccountLockoutRepo from './sqlite/account-lockout-repo';
 
@@ -89,7 +91,8 @@ import * as sqliteStampCardRepo from './sqlite/stamp-card-repo';
 import * as sqliteStatusRepo from './sqlite/status-repo';
 import * as sqliteStorageRepo from './sqlite/storage-repo';
 import * as sqliteTenantEventRepo from './sqlite/tenant-event-repo';
-
+import * as sqliteTrialHistoryRepo from './sqlite/trial-history-repo';
+import * as sqliteViewerTokenRepo from './sqlite/viewer-token-repo';
 import * as sqliteVoiceRepo from './sqlite/voice-repo';
 
 export interface Repositories {
@@ -120,7 +123,8 @@ export interface Repositories {
 	status: IStatusRepo;
 	storage: IStorageRepo;
 	tenantEvent: ITenantEventRepo;
-
+	trialHistory: ITrialHistoryRepo;
+	viewerToken: IViewerTokenRepo;
 	voice: IVoiceRepo;
 }
 
@@ -159,7 +163,8 @@ export function getRepos(): Repositories {
 			status: dynamoStatusRepo,
 			storage: dynamoStorageRepo,
 			tenantEvent: dynamoTenantEventRepo,
-
+			trialHistory: dynamoTrialHistoryRepo,
+			viewerToken: dynamoViewerTokenRepo,
 			voice: dynamoVoiceRepo,
 		};
 		_repos = repos;
@@ -194,7 +199,8 @@ export function getRepos(): Repositories {
 		status: sqliteStatusRepo,
 		storage: sqliteStorageRepo,
 		tenantEvent: sqliteTenantEventRepo,
-
+		trialHistory: sqliteTrialHistoryRepo,
+		viewerToken: sqliteViewerTokenRepo,
 		voice: sqliteVoiceRepo,
 	};
 	_repos = repos;

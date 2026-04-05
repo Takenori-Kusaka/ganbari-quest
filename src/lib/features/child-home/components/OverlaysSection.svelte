@@ -1,14 +1,31 @@
 <script lang="ts">
 import BirthdayModal from '$lib/features/birthday/BirthdayModal.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
-import OmikujiStampOverlay from '$lib/ui/components/OmikujiStampOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
+import StampPressOverlay from '$lib/ui/components/StampPressOverlay.svelte';
+
+interface StampCardEntry {
+	slot: number;
+	emoji: string;
+	rarity: string;
+}
 
 interface StampPressData {
-	omikujiRank: string;
-	totalPoints: number;
-	multiplier: number;
+	stampEmoji: string;
+	stampRarity: string;
+	stampName: string;
+	instantPoints: number;
 	consecutiveDays: number;
+	multiplier: number;
+	cardFilledSlots: number;
+	cardTotalSlots: number;
+	cardEntries: StampCardEntry[];
+	weeklyRedeem: {
+		points: number;
+		filledSlots: number;
+		totalSlots: number;
+		completeBonus: number;
+	} | null;
 }
 
 interface LatestReward {
@@ -85,14 +102,20 @@ let {
 	/>
 {/if}
 
-<!-- Omikuji + Stamp overlay (unified) -->
+<!-- Stamp press overlay -->
 {#if stampPressData}
-	<OmikujiStampOverlay
+	<StampPressOverlay
 		bind:open={stampPressOpen}
-		rank={stampPressData.omikujiRank}
-		totalPoints={stampPressData.totalPoints}
-		multiplier={stampPressData.multiplier}
+		stampEmoji={stampPressData.stampEmoji}
+		stampRarity={stampPressData.stampRarity}
+		stampName={stampPressData.stampName}
+		instantPoints={stampPressData.instantPoints}
 		consecutiveDays={stampPressData.consecutiveDays}
+		multiplier={stampPressData.multiplier}
+		cardFilledSlots={stampPressData.cardFilledSlots}
+		cardTotalSlots={stampPressData.cardTotalSlots}
+		cardEntries={stampPressData.cardEntries}
+		weeklyRedeem={stampPressData.weeklyRedeem}
 		onClose={onStampPressClose}
 	/>
 {/if}

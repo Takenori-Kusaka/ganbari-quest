@@ -86,20 +86,28 @@ describe('plan-limit-service', () => {
 			expect(resolvePlanTier('suspended')).toBe('free');
 		});
 
-		it('cognito mode: trial active → family (全機能解放)', () => {
+		it('cognito mode: trial active (standard) → standard', () => {
 			process.env.AUTH_MODE = 'cognito';
 			const futureDate = new Date();
 			futureDate.setDate(futureDate.getDate() + 5);
 			const endStr = futureDate.toISOString().slice(0, 10);
-			expect(resolvePlanTier('none', undefined, endStr)).toBe('family');
+			expect(resolvePlanTier('none', undefined, endStr, 'standard')).toBe('standard');
 		});
 
-		it('cognito mode: trial active (no tier) → family (全機能解放)', () => {
+		it('cognito mode: trial active (family) → family', () => {
 			process.env.AUTH_MODE = 'cognito';
 			const futureDate = new Date();
 			futureDate.setDate(futureDate.getDate() + 5);
 			const endStr = futureDate.toISOString().slice(0, 10);
-			expect(resolvePlanTier('none', undefined, endStr)).toBe('family');
+			expect(resolvePlanTier('none', undefined, endStr, 'family')).toBe('family');
+		});
+
+		it('cognito mode: trial active (no tier) → standard', () => {
+			process.env.AUTH_MODE = 'cognito';
+			const futureDate = new Date();
+			futureDate.setDate(futureDate.getDate() + 5);
+			const endStr = futureDate.toISOString().slice(0, 10);
+			expect(resolvePlanTier('none', undefined, endStr)).toBe('standard');
 		});
 
 		it('cognito mode: trial expired → free', () => {
@@ -120,14 +128,16 @@ describe('plan-limit-service', () => {
 	});
 
 	describe('resolveFullPlanTier', () => {
-		it('resolves with trial end date → family (全機能解放)', async () => {
+		it('resolves with trial end date and tier from service', async () => {
 			process.env.AUTH_MODE = 'cognito';
 			const futureDate = new Date();
 			futureDate.setDate(futureDate.getDate() + 3);
 			mockGetTrialEndDate.mockResolvedValue(futureDate.toISOString().slice(0, 10));
+			mockGetTrialTier.mockResolvedValue('standard');
 			const tier = await resolveFullPlanTier('tenant1', 'none');
-			expect(tier).toBe('family');
+			expect(tier).toBe('standard');
 			expect(mockGetTrialEndDate).toHaveBeenCalledWith('tenant1');
+			expect(mockGetTrialTier).toHaveBeenCalledWith('tenant1');
 		});
 
 		it('resolves to free when no trial', async () => {

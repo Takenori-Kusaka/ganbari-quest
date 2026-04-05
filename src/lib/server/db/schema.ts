@@ -912,3 +912,38 @@ export const autoChallenges = sqliteTable(
 		index('idx_auto_challenges_status').on(table.status),
 	],
 );
+
+// ============================================================
+// trial_history - トライアル履歴（#314）
+// ============================================================
+export const trialHistory = sqliteTable(
+	'trial_history',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		startDate: text('start_date').notNull(), // YYYY-MM-DD
+		endDate: text('end_date').notNull(), // YYYY-MM-DD
+		tier: text('tier').notNull().default('standard'), // 'standard' | 'family'
+		source: text('source').notNull(), // 'user_initiated' | 'campaign' | 'admin_grant'
+		campaignId: text('campaign_id'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [index('idx_trial_history_tenant').on(table.tenantId)],
+);
+
+// ============================================================
+// viewer_tokens - 閲覧専用リンクトークン (#371)
+// ============================================================
+export const viewerTokens = sqliteTable(
+	'viewer_tokens',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		token: text('token').notNull().unique(),
+		label: text('label'), // e.g. "おばあちゃん用"
+		expiresAt: text('expires_at'), // null = 無期限
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		revokedAt: text('revoked_at'),
+	},
+	(table) => [index('idx_viewer_tokens_tenant').on(table.tenantId)],
+);
