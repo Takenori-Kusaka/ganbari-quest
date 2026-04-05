@@ -1,5 +1,5 @@
 // tests/unit/services/cognito-direct-auth.test.ts
-// Cognito Direct Auth (SignUp, ConfirmSignUp, Authenticate, MFA) のユニットテスト
+// Cognito Direct Auth (SignUp, ConfirmSignUp, Authenticate, MFA, ForgotPassword) のユニットテスト
 // AWS SDK をモックして各関数のエラーハンドリングを検証する
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -30,12 +30,24 @@ vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
 			Object.assign(this, params, { _type: 'RespondToAuthChallenge' });
 		}
 	}
+	class MockForgotPasswordCommand {
+		constructor(params: Record<string, unknown>) {
+			Object.assign(this, params, { _type: 'ForgotPassword' });
+		}
+	}
+	class MockConfirmForgotPasswordCommand {
+		constructor(params: Record<string, unknown>) {
+			Object.assign(this, params, { _type: 'ConfirmForgotPassword' });
+		}
+	}
 	return {
 		CognitoIdentityProviderClient: MockClient,
 		InitiateAuthCommand: MockInitiateAuthCommand,
 		SignUpCommand: MockSignUpCommand,
 		ConfirmSignUpCommand: MockConfirmSignUpCommand,
 		RespondToAuthChallengeCommand: MockRespondToAuthChallengeCommand,
+		ForgotPasswordCommand: MockForgotPasswordCommand,
+		ConfirmForgotPasswordCommand: MockConfirmForgotPasswordCommand,
 	};
 });
 
@@ -47,7 +59,9 @@ vi.mock('$lib/server/logger', () => ({
 // 各関数は呼び出し時に process.env を読むため、beforeEach での env 設定が有効
 import {
 	authenticateWithCognito,
+	confirmForgotPassword,
 	confirmSignUp,
+	forgotPassword,
 	respondToMfaChallenge,
 	signUpWithCognito,
 } from '../../../src/lib/server/auth/providers/cognito-direct-auth';
@@ -289,6 +303,135 @@ describe('respondToMfaChallenge', () => {
 		expect(result.success).toBe(false);
 		if (!result.success) {
 			expect(result.message).toContain('期限切れ');
+		}
+	});
+});
+
+// ============================================================
+// forgotPassword
+// ============================================================
+describe('forgotPassword', () => {
+	it('正常にパスワードリセットリクエストを送信する', async () => {
+		mockSend.mockResolvedValue({});
+
+		const result = await forgotPassword('test@example.com');
+
+		expect(result).toEqual({ success: true });
+	});
+
+	it('UserNotFoundException でも成功扱いにする（ユーザー列挙防止）', async () => {
+		mockSend.mockRejectedValue(
+			Object.assign(new Error('user not found'), { name: 'UserNotFoundException' }),
+		);
+
+		const result = await forgotPassword('nonexistent@example.com');
+
+		// セキュリティ: ユーザーが存在しないことを漏らさない
+		expect(result).toEqual({ success: true });
+	});
+
+	it('LimitExceededException で適切なエラーメッセージ', async () => {
+		mockSend.mockRejectedValue(
+			Object.assign(new Error('too many requests'), { name: 'LimitExceededException' }),
+		);
+
+		const result = await forgotPassword('test@example.com');
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.message).toContain('上限に達しました');
+		}
+	});
+
+	it('不明なエラーで汎用メッセージ', async () => {
+		mockSend.mockRejectedValue(new Error('network error'));
+
+		const result = await forgotPassword('test@example.com');
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.message).toContain('パスワードリセットに失敗しました');
+		}
+	});
+});
+
+// ============================================================
+// confirmForgotPassword
+// ============================================================
+describe('confirmForgotPassword', () => {
+	it('正常にパスワードをリセットする', async () => {
+		mockSend.mockResolvedValue({});
+
+		const result = await confirmForgotPassword('test@example.com', '123456', 'NewPassword1');
+
+		expect(result).toEqual({ success: true });
+	});
+
+	it('CodeMismatchException で INVALID_CODE エラー', async () => {
+		mockSend.mockRejectedValue(
+			Object.assign(new Error('code mismatch'), { name: 'CodeMismatchException' }),
+		);
+
+		const result = await confirmForgotPassword('test@example.com', '000000', 'NewPassword1');
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error).toBe('INVALID_CODE');
+			expect(result.message).toContain('確認コードが正しくありません');
+		}
+	});
+
+	it('UserNotFoundException で CodeMismatchException と同じエラーを返す（ユーザー列挙防止）', async () => {
+		mockSend.mockRejectedValue(
+			Object.assign(new Error('user not found'), { name: 'UserNotFoundException' }),
+		);
+
+		const result = await confirmForgotPassword('nonexistent@example.com', '123456', 'NewPassword1');
+
+		// セキュリティ: CodeMismatchException と区別できないこと
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error).toBe('INVALID_CODE');
+			expect(result.message).toContain('確認コードが正しくありません');
+		}
+	});
+
+	it('InvalidParameterException で CodeMismatchException と同じエラーを返す（ユーザー列挙防止）', async () => {
+		mockSend.mockRejectedValue(
+			Object.assign(new Error('invalid parameter'), { name: 'InvalidParameterException' }),
+		);
+
+		const result = await confirmForgotPassword('test@example.com', '123456', 'NewPassword1');
+
+		// セキュリティ: CodeMismatchException と区別できないこと
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error).toBe('INVALID_CODE');
+			expect(result.message).toContain('確認コードが正しくありません');
+		}
+	});
+
+	it('ExpiredCodeException で適切なエラーメッセージ', async () => {
+		mockSend.mockRejectedValue(
+			Object.assign(new Error('expired'), { name: 'ExpiredCodeException' }),
+		);
+
+		const result = await confirmForgotPassword('test@example.com', '123456', 'NewPassword1');
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.message).toContain('有効期限が切れています');
+		}
+	});
+
+	it('不明なエラーで汎用メッセージ', async () => {
+		mockSend.mockRejectedValue(new Error('network error'));
+
+		const result = await confirmForgotPassword('test@example.com', '123456', 'NewPassword1');
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.message).toContain('パスワードのリセットに失敗しました');
 		}
 	});
 });
