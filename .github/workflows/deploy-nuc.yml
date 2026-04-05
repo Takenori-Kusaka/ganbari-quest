@@ -1,0 +1,70 @@
+name: Deploy to NUC (Local)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'static/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'svelte.config.js'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - 'drizzle/**'
+      - 'scripts/**'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-nuc
+  cancel-in-progress: true
+
+jobs:
+  deploy-nuc:
+    runs-on: [self-hosted, Windows, X64]
+    # Public repository guard: only the repo owner can trigger this workflow.
+    # Prevents unauthorized fork PRs from executing commands on the self-hosted runner.
+    if: github.actor == 'Takenori-Kusaka'
+    defaults:
+      run:
+        shell: powershell
+        working-directory: C:\Docker\ganbari-quest
+    steps:
+      # Step 1: Stop app container to flush SQLite WAL safely (#0099 incident prevention)
+      - name: Stop app container (WAL flush)
+        run: docker compose stop app
+
+      # Step 2: Pull latest code from main
+      - name: Pull latest code
+        run: git pull origin main
+
+      # Step 3: Rebuild and start containers (stop -> build -> up order is critical for WAL safety)
+      - name: Build and start
+        run: |
+          docker compose build
+          docker compose up -d
+
+      # Step 4: Verify the service is healthy after deployment
+      - name: Health check
+        run: |
+          Start-Sleep -Seconds 10
+          $maxRetries = 5
+          $retryInterval = 5
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            try {
+              $response = Invoke-WebRequest -Uri http://localhost:3000/api/health -UseBasicParsing -TimeoutSec 10
+              if ($response.StatusCode -eq 200) {
+                Write-Host "Health check passed on attempt $i (status: $($response.StatusCode))"
+                exit 0
+              }
+            } catch {
+              Write-Host "Attempt $i failed: $($_.Exception.Message)"
+            }
+            if ($i -lt $maxRetries) {
+              Write-Host "Retrying in ${retryInterval}s..."
+              Start-Sleep -Seconds $retryInterval
+            }
+          }
+          throw "Health check failed after $maxRetries attempts"
