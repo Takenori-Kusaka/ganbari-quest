@@ -60,8 +60,8 @@ const progressPct = $derived(
 
 <style>
 	.onboarding-card {
-		background: linear-gradient(135deg, #eff6ff, #f0fdf4);
-		border: 1px solid #bfdbfe;
+		background: linear-gradient(135deg, var(--color-brand-50), var(--color-rarity-common-bg));
+		border: 1px solid var(--color-brand-200);
 		border-radius: 12px;
 		padding: 16px;
 	}
@@ -80,12 +80,12 @@ const progressPct = $derived(
 	.onboarding-title {
 		font-weight: 700;
 		font-size: 0.9375rem;
-		color: #1e40af;
+		color: var(--color-brand-800);
 	}
 
 	.progress-bar-container {
 		height: 8px;
-		background: #e2e8f0;
+		background: var(--color-neutral-200);
 		border-radius: 4px;
 		overflow: hidden;
 		margin-bottom: 4px;
@@ -93,14 +93,14 @@ const progressPct = $derived(
 
 	.progress-bar {
 		height: 100%;
-		background: linear-gradient(90deg, #3b82f6, #10b981);
+		background: linear-gradient(90deg, var(--color-action-primary), var(--color-success));
 		border-radius: 4px;
 		transition: width 0.3s ease;
 	}
 
 	.progress-text {
 		font-size: 0.6875rem;
-		color: #64748b;
+		color: var(--color-neutral-500);
 		margin: 0 0 12px 0;
 	}
 
@@ -118,11 +118,11 @@ const progressPct = $derived(
 		align-items: center;
 		gap: 8px;
 		font-size: 0.8125rem;
-		color: #374151;
+		color: var(--color-text);
 	}
 
 	.checklist-item.completed {
-		color: #9ca3af;
+		color: var(--color-text-muted);
 	}
 
 	.checklist-item.completed .item-label {
@@ -144,7 +144,7 @@ const progressPct = $derived(
 		justify-content: center;
 		width: 28px;
 		height: 28px;
-		background: #3b82f6;
+		background: var(--color-action-primary);
 		color: white;
 		border-radius: 8px;
 		text-decoration: none;
@@ -155,7 +155,7 @@ const progressPct = $derived(
 	}
 
 	.item-link:hover {
-		background: #2563eb;
+		background: var(--color-brand-700);
 	}
 
 	.next-recommendation {
@@ -163,9 +163,9 @@ const progressPct = $derived(
 		align-items: center;
 		gap: 6px;
 		font-size: 0.75rem;
-		color: #1e40af;
+		color: var(--color-brand-800);
 		padding: 8px 12px;
-		background: rgba(59, 130, 246, 0.08);
+		background: color-mix(in srgb, var(--color-action-primary) 8%, transparent);
 		border-radius: 8px;
 	}
 
@@ -175,7 +175,7 @@ const progressPct = $derived(
 
 	.recommendation-link {
 		font-weight: 700;
-		color: #1e40af;
+		color: var(--color-brand-800);
 		text-decoration: underline;
 	}
 
@@ -187,13 +187,13 @@ const progressPct = $derived(
 	.dismiss-btn {
 		background: none;
 		border: none;
-		color: #9ca3af;
+		color: var(--color-text-muted);
 		font-size: 0.6875rem;
 		cursor: pointer;
 		text-decoration: underline;
 	}
 
 	.dismiss-btn:hover {
-		color: #6b7280;
+		color: var(--color-neutral-500);
 	}
 </style>
