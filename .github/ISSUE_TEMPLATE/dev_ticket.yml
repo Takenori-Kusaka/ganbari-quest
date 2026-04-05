@@ -73,6 +73,19 @@ body:
         - [ ]
 
   - type: textarea
+    id: impact-check
+    attributes:
+      label: 影響範囲チェック
+      description: 変更が他の画面やコンポーネントに波及しないか事前に確認する
+      value: |
+        - [ ] この変更は他の画面/コンポーネントに影響するか？
+        - [ ] 用語変更の場合: grep で全件確認したか？
+        - [ ] UIの構造変更の場合: チュートリアル（tutorial-chapters.ts）の更新が必要か？
+        - [ ] E2Eテスト（data-tutorial/data-testid セレクタ）に影響するか？
+    validations:
+      required: true
+
+  - type: textarea
     id: quality-policy
     attributes:
       label: 品質ポリシー（スクラップ&ビルド時 必読）
