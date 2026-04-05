@@ -6,6 +6,7 @@ import {
 	CognitoIdentityProviderClient,
 	InitiateAuthCommand,
 	type InitiateAuthCommandOutput,
+	ResendConfirmationCodeCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { SIGNUP_CODE_EXPIRY_HOURS } from '$lib/domain/validation/auth';
 import { logger } from '$lib/server/logger';
@@ -449,6 +450,59 @@ export async function confirmSignUp(
 			success: false,
 			error: 'UNKNOWN',
 			message: '確認に失敗しました',
+		};
+	}
+}
+
+/**
+ * メール認証コードを再送する
+ * サインアップ後の確認ステップで使用
+ */
+export async function resendConfirmationCode(
+	email: string,
+): Promise<{ success: true } | CognitoAuthError> {
+	const config = getConfig();
+	const client = new CognitoIdentityProviderClient({ region: config.region });
+
+	try {
+		const command = new ResendConfirmationCodeCommand({
+			ClientId: config.clientId,
+			Username: email,
+		});
+
+		await client.send(command);
+
+		logger.info('[AUTH] Confirmation code resent', {
+			context: { email },
+		});
+
+		return { success: true };
+	} catch (e: unknown) {
+		const errorName = (e as { name?: string })?.name ?? '';
+		logger.warn('[AUTH] Cognito ResendConfirmationCode failed', {
+			context: { errorName, error: e instanceof Error ? e.message : String(e) },
+		});
+
+		if (errorName === 'LimitExceededException') {
+			return {
+				success: false,
+				error: 'UNKNOWN',
+				message: '再送回数の上限に達しました。しばらくしてからお試しください',
+			};
+		}
+
+		if (errorName === 'UserNotFoundException') {
+			return {
+				success: false,
+				error: 'USER_NOT_FOUND',
+				message: '指定されたメールアドレスのアカウントが見つかりません',
+			};
+		}
+
+		return {
+			success: false,
+			error: 'UNKNOWN',
+			message: '確認コードの再送に失敗しました。しばらくしてからお試しください',
 		};
 	}
 }
