@@ -130,7 +130,7 @@ function resetForm() {
 				<button
 					type="button"
 					class="px-2 py-2 rounded-lg text-xs font-bold transition-colors text-center
-						{formCategoryId === catDef.id ? 'bg-[var(--color-brand-500)] text-white' : 'bg-[var(--color-surface-muted-strong)] text-[var(--color-text)] hover:bg-[var(--color-neutral-200)]'}"
+						{formCategoryId === catDef.id ? 'bg-[var(--color-action-primary)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-surface-muted)] text-[var(--color-text)] hover:bg-[var(--color-neutral-200)]'}"
 					onclick={() => onCategoryChange(catDef.id)}
 				>
 					{info?.icons[0] ?? '📝'} {catDef.name}
@@ -138,7 +138,7 @@ function resetForm() {
 			{/each}
 		</div>
 		{#if CATEGORY_INFO[getCategoryById(formCategoryId)?.name ?? '']?.desc}
-			<p class="text-xs text-[var(--color-text-muted)] mt-1">{CATEGORY_INFO[getCategoryById(formCategoryId)?.name ?? '']?.desc}</p>
+			<p class="text-xs text-[var(--color-text-disabled)] mt-1">{CATEGORY_INFO[getCategoryById(formCategoryId)?.name ?? '']?.desc}</p>
 		{/if}
 		<input type="hidden" name="categoryId" value={formCategoryId} />
 	</div>
@@ -152,7 +152,7 @@ function resetForm() {
 					<button
 						type="button"
 						class="w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-colors
-							{formMainIcon === ic ? 'bg-[var(--color-feedback-info-bg-strong)] ring-2 ring-[var(--color-brand-400)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-muted-strong)]'}"
+							{formMainIcon === ic ? 'bg-[var(--color-brand-100)] ring-2 ring-[var(--color-action-primary)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-neutral-100)]'}"
 						onclick={() => formMainIcon = ic}
 					>
 						{ic}
@@ -160,7 +160,7 @@ function resetForm() {
 				{/each}
 			</div>
 		{/if}
-		<p class="text-xs text-[var(--color-text-muted)] mb-3">直接入力:
+		<p class="text-xs text-[var(--color-text-disabled)] mb-3">直接入力:
 			<input type="text" class="w-10 px-1 border rounded text-center text-sm inline-block"
 				value={formMainIcon}
 				oninput={(e) => { const v = (e.target as HTMLInputElement).value; if (v) formMainIcon = v; }}
@@ -171,18 +171,18 @@ function resetForm() {
 		<div class="flex flex-wrap gap-1 mb-2">
 			<button type="button"
 				class="w-9 h-9 rounded-lg text-xs flex items-center justify-center transition-colors
-					{formSubIcon === '' ? 'bg-[var(--color-feedback-info-bg-strong)] ring-2 ring-[var(--color-brand-400)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-muted-strong)]'}"
+					{formSubIcon === '' ? 'bg-[var(--color-brand-100)] ring-2 ring-[var(--color-action-primary)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-neutral-100)]'}"
 				onclick={() => formSubIcon = ''}
 			>なし</button>
 			{#each SUB_ICON_PRESETS as ic}
 				<button type="button"
 					class="w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-colors
-						{formSubIcon === ic ? 'bg-[var(--color-feedback-info-bg-strong)] ring-2 ring-[var(--color-brand-400)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-muted-strong)]'}"
+						{formSubIcon === ic ? 'bg-[var(--color-brand-100)] ring-2 ring-[var(--color-action-primary)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-neutral-100)]'}"
 					onclick={() => formSubIcon = ic}
 				>{ic}</button>
 			{/each}
 		</div>
-		<p class="text-xs text-[var(--color-text-muted)] mb-2">直接入力:
+		<p class="text-xs text-[var(--color-text-disabled)] mb-2">直接入力:
 			<input type="text" class="w-10 px-1 border rounded text-center text-sm inline-block"
 				value={formSubIcon}
 				oninput={(e) => { formSubIcon = (e.target as HTMLInputElement).value; }}
@@ -190,7 +190,7 @@ function resetForm() {
 		</p>
 
 		<div class="flex items-center gap-2 p-2 bg-[var(--color-surface-muted)] rounded-lg">
-			<span class="text-xs text-[var(--color-text-muted)]">プレビュー:</span>
+			<span class="text-xs text-[var(--color-text-disabled)]">プレビュー:</span>
 			<CompoundIcon icon={formIcon} size="lg" />
 		</div>
 		<input type="hidden" name="icon" value={formIcon} />
@@ -204,7 +204,7 @@ function resetForm() {
 				<button
 					type="button"
 					class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors text-center
-						{formPoints === guide.points ? guide.color + ' ring-2 ring-offset-1 ring-[var(--color-brand-400)]' : 'bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted-strong)]'}"
+						{formPoints === guide.points ? guide.color + ' ring-2 ring-offset-1 ring-[var(--color-action-primary)]' : 'bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-100)]'}"
 					onclick={() => formPoints = guide.points}
 				>
 					{guide.points}P<br /><span class="font-normal">{guide.label}</span>
@@ -212,7 +212,7 @@ function resetForm() {
 			{/each}
 		</div>
 		{#if POINT_GUIDE.find(g => g.points === formPoints)?.desc}
-			<p class="text-xs text-[var(--color-text-muted)]">{POINT_GUIDE.find(g => g.points === formPoints)?.desc}</p>
+			<p class="text-xs text-[var(--color-text-disabled)]">{POINT_GUIDE.find(g => g.points === formPoints)?.desc}</p>
 		{/if}
 		<input type="hidden" name="basePoints" value={formPoints} />
 	</div>
@@ -222,9 +222,9 @@ function resetForm() {
 		<span class="block text-xs font-bold text-[var(--color-text-muted)] mb-1">対象年齢（省略可）</span>
 		<div class="flex gap-1 items-center">
 			<input type="number" name="ageMin" bind:value={formAgeMin} min="0" max="18" class="w-16 px-2 py-2 border rounded-lg text-sm" placeholder="0" aria-label="最小年齢" />
-			<span class="text-[var(--color-text-muted)]">〜</span>
+			<span class="text-[var(--color-text-disabled)]">〜</span>
 			<input type="number" name="ageMax" bind:value={formAgeMax} min="0" max="18" class="w-16 px-2 py-2 border rounded-lg text-sm" placeholder="18" aria-label="最大年齢" />
-			<span class="text-xs text-[var(--color-text-muted)]">歳</span>
+			<span class="text-xs text-[var(--color-text-disabled)]">歳</span>
 		</div>
 	</div>
 
@@ -236,14 +236,14 @@ function resetForm() {
 				<button
 					type="button"
 					class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors
-						{formDailyLimit === opt.val ? 'bg-[var(--color-brand-500)] text-white' : 'bg-[var(--color-surface-muted-strong)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)]'}"
+						{formDailyLimit === opt.val ? 'bg-[var(--color-action-primary)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-neutral-100)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)]'}"
 					onclick={() => formDailyLimit = opt.val}
 				>
 					{opt.label}
 				</button>
 			{/each}
 		</div>
-		<p class="text-xs text-[var(--color-text-muted)] mt-1">「無制限」なら何回でも記録できます</p>
+		<p class="text-xs text-[var(--color-text-disabled)] mt-1">「無制限」なら何回でも記録できます</p>
 		<input type="hidden" name="dailyLimit" value={formDailyLimit} />
 	</div>
 
@@ -255,7 +255,7 @@ function resetForm() {
 			class="w-full px-3 py-2 border rounded-lg text-sm"
 			placeholder="例: おかたづけした"
 		/>
-		<p class="text-xs text-[var(--color-text-muted)] mt-1">6歳未満の子供に表示する名前</p>
+		<p class="text-xs text-[var(--color-text-disabled)] mt-1">6歳未満の子供に表示する名前</p>
 	</div>
 	<div>
 		<span class="block text-xs font-bold text-[var(--color-text-muted)] mb-1">漢字表記（省略可）</span>
@@ -264,7 +264,7 @@ function resetForm() {
 			class="w-full px-3 py-2 border rounded-lg text-sm"
 			placeholder="例: お片付けをした"
 		/>
-		<p class="text-xs text-[var(--color-text-muted)] mt-1">6歳以上の子供に表示する名前</p>
+		<p class="text-xs text-[var(--color-text-disabled)] mt-1">6歳以上の子供に表示する名前</p>
 	</div>
 
 	<!-- トリガーヒント -->
@@ -275,8 +275,10 @@ function resetForm() {
 			class="w-full px-3 py-2 border rounded-lg text-sm"
 			placeholder="例: はみがきが終わったら押してね"
 		/>
-		<p class="text-xs text-[var(--color-text-muted)] mt-1">カードに小さく表示される声かけ文（30文字以内）</p>
+		<p class="text-xs text-[var(--color-text-disabled)] mt-1">カードに小さく表示される声かけ文（30文字以内）</p>
 	</div>
 
-	<button type="submit" class="w-full py-2 bg-[var(--color-action-success)] text-white rounded-lg font-bold text-sm hover:brightness-90 transition-all">		{formIcon} {formName || '活動'} を追加する	</button>
+	<button type="submit" class="w-full py-2 bg-[var(--color-action-success)] text-[var(--color-text-inverse)] rounded-lg font-bold text-sm hover:opacity-90 transition-colors">
+		{formIcon} {formName || '活動'} を追加する
+	</button>
 </form>

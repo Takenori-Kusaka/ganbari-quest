@@ -54,7 +54,7 @@ function dailyLimitLabel(val: number | null): string {
 		<div class="flex gap-1">
 			<button
 				type="button"
-				class="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+				class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-neutral-100)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)] transition-colors"
 				onclick={() => isEditing ? oncanceledit() : onedit()}
 			>
 				{isEditing ? '閉じる' : '編集'}
@@ -65,7 +65,7 @@ function dailyLimitLabel(val: number | null): string {
 				<button
 					type="submit"
 					class="px-2 py-1 rounded text-xs font-bold transition-colors
-						{activity.isVisible ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}"
+						{activity.isVisible ? 'bg-[var(--color-rarity-common-bg)] text-[var(--color-action-success)] hover:opacity-80' : 'bg-[var(--color-neutral-100)] text-[var(--color-text-disabled)] hover:bg-[var(--color-neutral-200)]'}"
 				>
 					{activity.isVisible ? '表示' : '非表示'}
 				</button>
