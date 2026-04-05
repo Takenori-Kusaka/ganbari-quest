@@ -80,7 +80,7 @@ function formatBirthday(dateStr: string): string {
 	}
 	:global(.child-list-card--selected) {
 		border-color: var(--color-action-primary, #3b82f6);
-		box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-action-primary) 15%, transparent);
 	}
 	.child-list-card__content {
 		display: flex;
