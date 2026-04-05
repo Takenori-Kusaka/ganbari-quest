@@ -5,6 +5,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { logger } from '$lib/server/logger';
 import {
 	deleteChildAccount,
 	deleteMemberAccount,
@@ -12,7 +13,6 @@ import {
 	deleteOwnerOnlyAccount,
 	transferOwnershipAndLeave,
 } from '$lib/server/services/account-deletion-service';
-import { logger } from '$lib/server/logger';
 
 interface DeleteRequestBody {
 	pattern: 'owner-only' | 'owner-with-transfer' | 'owner-full-delete' | 'child' | 'member';
@@ -60,11 +60,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				if (!newOwnerId) {
 					return json({ error: '移譲先 (newOwnerId) が必要です' }, { status: 400 });
 				}
-				const result = await transferOwnershipAndLeave(
-					tenantId,
-					identity.userId,
-					newOwnerId,
-				);
+				const result = await transferOwnershipAndLeave(tenantId, identity.userId, newOwnerId);
 				logger.info('[account-delete] Pattern 2a 完了', {
 					context: { tenantId, newOwnerId },
 				});
@@ -81,12 +77,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 
 			case 'child': {
-				// child は自分自身を削除 or owner が子供を削除
-				if (context.role !== 'child' && context.role !== 'owner') {
-					return json(
-						{ error: 'child 本人または owner のみ実行できます' },
-						{ status: 403 },
-					);
+				// child は自分自身を削除のみ。owner が child パターンを使うのは禁止
+				// （owner は owner-only / owner-with-transfer / owner-full-delete を使用すべき）
+				if (context.role === 'owner') {
+					return json({ error: 'Owner cannot use child deletion pattern' }, { status: 403 });
+				}
+				if (context.role !== 'child') {
+					return json({ error: 'child 本人のみ実行できます' }, { status: 403 });
 				}
 				const result = await deleteChildAccount(tenantId, identity.userId);
 				logger.info('[account-delete] Pattern 3 完了', { context: { tenantId } });
@@ -94,7 +91,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 
 			case 'member': {
-				// parent(非owner) は自分自身を削除
+				// parent(非owner) は自分自身を削除。owner / child は使用不可
 				if (context.role === 'owner') {
 					return json(
 						{
@@ -103,6 +100,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 						},
 						{ status: 400 },
 					);
+				}
+				if (context.role !== 'parent') {
+					return json({ error: 'Only parent/owner can use member deletion' }, { status: 403 });
 				}
 				const result = await deleteMemberAccount(tenantId, identity.userId);
 				logger.info('[account-delete] Pattern 4 完了', { context: { tenantId } });

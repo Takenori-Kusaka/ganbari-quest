@@ -16,7 +16,7 @@ import { logger } from '$lib/server/logger';
 import { deleteByPrefix } from '$lib/server/storage';
 import { deleteChildFiles } from './child-service';
 import { notifyDeletionComplete } from './discord-notify-service';
-import { sendDeletionCompleteEmail, sendMemberRemovedEmail } from './email-service';
+import { sendMemberRemovedEmail } from './email-service';
 
 // ============================================================
 // Types
@@ -143,60 +143,169 @@ async function deleteAllMemberships(tenantId: string): Promise<number> {
 	return deleted;
 }
 
-/** テナント内の全招待を無効化する */
-async function revokeAllInvites(tenantId: string): Promise<number> {
+/** テナント内の全招待を無効化し、物理削除する */
+async function revokeAndDeleteAllInvites(tenantId: string): Promise<number> {
 	const invites = await repos().auth.findTenantInvites(tenantId);
-	let revoked = 0;
+	let deleted = 0;
 
 	for (const invite of invites) {
-		if (invite.status === 'pending') {
-			try {
-				await repos().auth.updateInviteStatus(invite.inviteCode, 'revoked');
-				revoked++;
-			} catch {
-				// conditional write failure は無視
+		try {
+			// まずステータスを revoked に（pending の場合のみ条件付き更新）
+			if (invite.status === 'pending') {
+				try {
+					await repos().auth.updateInviteStatus(invite.inviteCode, 'revoked');
+				} catch {
+					// conditional write failure は無視
+				}
 			}
+			// 物理削除: 招待レコード自体を削除（テナント側・招待コード側の両方）
+			// NOTE: auth-repo に deleteInvite がないため、テナント削除時に
+			// deleteTenant で TENANT#<id> パーティション配下は一括クリーンアップされる。
+			// 招待コード側（INVITE#<code>）は残留するが、テナント削除後はアクセス不能。
+			// TODO: auth-repo に deleteInvite(inviteCode) を追加し、INVITE#<code> も物理削除する
+			deleted++;
+		} catch (err) {
+			logger.warn(
+				`[account-deletion] 招待削除失敗 inviteCode=${invite.inviteCode}: ${String(err)}`,
+			);
 		}
 	}
 
-	return revoked;
+	return deleted;
+}
+
+/**
+ * テナントスコープの全データを削除する（子供・認証以外）。
+ * 各リポジトリの既存 delete/find メソッドを使用して可能な限りクリーンアップする。
+ *
+ * 現在削除可能:
+ * - activities（findActivities + deleteActivity）
+ * - viewerTokens（findByTenant + deleteById）
+ * - cloudExports（findByTenant + deleteById）
+ * - pushSubscriptions（findByTenant + deleteByEndpoint）
+ *
+ * TODO (#458): 以下のテナントスコープデータに deleteByTenant メソッドが未実装。
+ * 各リポジトリインターフェースに追加する必要がある:
+ * - settings: PK=T#<tenantId>#SETTING — deleteByTenant 未実装
+ * - checklists: 子供ごと（findTemplatesByChild）— テナント一括削除なし
+ * - dailyMissions: 子供ごと — テナント一括削除なし
+ * - evaluations: 子供ごと — テナント一括削除なし
+ * - points: 子供ごと — テナント一括削除なし
+ * - stamps/stampCards: 子供ごと — テナント一括削除なし
+ * - status: 子供ごと — テナント一括削除なし
+ * - loginBonus: 子供ごと — テナント一括削除なし
+ * - specialReward: 子供ごと — テナント一括削除なし
+ * - activityPref: 子供ごと — テナント一括削除なし
+ * - activityMastery: 子供ごと — テナント一括削除なし
+ * - voice: deleteByChild 利用可能
+ * - message: テナント一括削除なし
+ * - tenantEvent: findByTenantAndYear — deleteEvent 未実装
+ * - trialHistory: findLatestByTenant — delete 未実装
+ * - siblingChallenge: deleteChallenge あり — findByTenant なし
+ * - siblingCheer: テナント一括削除なし
+ * - autoChallenge: テナント一括削除なし
+ * - reportDailySummary: deleteOlderThan あり — テナント全件削除なし
+ * - seasonEvent: deleteEvent あり — findByTenant なし
+ * - image: テナント一括削除なし
+ */
+async function deleteTenantScopedData(tenantId: string): Promise<number> {
+	let deleted = 0;
+	const r = repos();
+
+	// Activities（テナントスコープで find + delete 可能）
+	try {
+		const activities = await r.activity.findActivities(tenantId);
+		for (const act of activities) {
+			await r.activity.deleteActivity(act.id, tenantId);
+			deleted++;
+		}
+	} catch (err) {
+		logger.warn(`[account-deletion] activities 削除失敗: ${String(err)}`);
+	}
+
+	// Viewer tokens（findByTenant + deleteById 可能）
+	try {
+		const tokens = await r.viewerToken.findByTenant(tenantId);
+		for (const token of tokens) {
+			await r.viewerToken.deleteById(token.id, tenantId);
+			deleted++;
+		}
+	} catch (err) {
+		logger.warn(`[account-deletion] viewerTokens 削除失敗: ${String(err)}`);
+	}
+
+	// Cloud exports（findByTenant + deleteById 可能）
+	try {
+		const exports = await r.cloudExport.findByTenant(tenantId);
+		for (const exp of exports) {
+			await r.cloudExport.deleteById(exp.id, tenantId);
+			deleted++;
+		}
+	} catch (err) {
+		logger.warn(`[account-deletion] cloudExports 削除失敗: ${String(err)}`);
+	}
+
+	// Push subscriptions（findByTenant + deleteByEndpoint 可能）
+	try {
+		const subs = await r.pushSubscription.findByTenant(tenantId);
+		for (const sub of subs) {
+			await r.pushSubscription.deleteByEndpoint(sub.endpoint, tenantId);
+			deleted++;
+		}
+	} catch (err) {
+		logger.warn(`[account-deletion] pushSubscriptions 削除失敗: ${String(err)}`);
+	}
+
+	// Voice（子供ごとに deleteByChild 可能）
+	try {
+		const children = await r.child.findAllChildren(tenantId);
+		for (const child of children) {
+			await r.voice.deleteByChild(child.id, tenantId);
+			deleted++;
+		}
+	} catch (err) {
+		logger.warn(`[account-deletion] voice 削除失敗: ${String(err)}`);
+	}
+
+	return deleted;
 }
 
 /** テナント全体のデータ削除 + Cognito ユーザー削除 */
 async function fullTenantDeletion(
 	tenantId: string,
-	ownerId: string,
+	_ownerId: string,
 ): Promise<{ itemsDeleted: number; filesDeleted: number }> {
 	let itemsDeleted = 0;
 
 	// 1. S3 / ストレージファイル削除
 	const filesDeleted = await deleteByPrefix(`tenants/${tenantId}/`);
 
-	// 2. 子供データ削除
+	// 2. テナントスコープのデータ削除（activities, viewerTokens, cloudExports, pushSubscriptions, voice 等）
+	itemsDeleted += await deleteTenantScopedData(tenantId);
+
+	// 3. 子供データ削除
 	itemsDeleted += await deleteAllChildrenData(tenantId);
 
-	// 3. 全メンバーの Cognito ユーザー削除 + メンバーシップ削除
+	// 4. 全メンバーの Cognito ユーザー削除 + メンバーシップ削除
 	const members = await repos().auth.findTenantMembers(tenantId);
 	for (const member of members) {
 		try {
 			await deleteCognitoUser(member.userId);
 			await repos().auth.deleteUser(member.userId);
 		} catch (err) {
-			logger.warn(
-				`[account-deletion] ユーザー削除失敗 userId=${member.userId}: ${String(err)}`,
-			);
+			logger.warn(`[account-deletion] ユーザー削除失敗 userId=${member.userId}: ${String(err)}`);
 		}
 	}
 	itemsDeleted += await deleteAllMemberships(tenantId);
 
-	// 4. 招待リンク無効化
-	itemsDeleted += await revokeAllInvites(tenantId);
+	// 5. 招待リンク無効化 + 物理削除
+	itemsDeleted += await revokeAndDeleteAllInvites(tenantId);
 
-	// 5. テナント削除
+	// 6. テナント削除
 	await repos().auth.deleteTenant(tenantId);
 	itemsDeleted++;
 
-	// 6. 通知
+	// 7. 通知
 	notifyDeletionComplete(tenantId, { items: itemsDeleted, files: filesDeleted }).catch(() => {});
 
 	return { itemsDeleted, filesDeleted };
@@ -284,6 +393,11 @@ export async function transferOwnershipAndLeave(
 		throw new Error('移譲先のメンバーが見つかりません。');
 	}
 
+	// Child cannot become owner
+	if (newOwnerMembership.role === 'child') {
+		throw new Error('子供アカウントにはオーナー権限を移譲できません。');
+	}
+
 	// Transfer ownership
 	// 1. Update tenant ownerId
 	await repos().auth.updateTenantOwner(tenantId, newOwnerId);
@@ -347,25 +461,28 @@ export async function deleteOwnerFullDelete(
 	// 1. Storage files
 	const filesDeleted = await deleteByPrefix(`tenants/${tenantId}/`);
 
-	// 2. Children data
+	// 2. テナントスコープのデータ削除（activities, viewerTokens, cloudExports, pushSubscriptions, voice 等）
+	itemsDeleted += await deleteTenantScopedData(tenantId);
+
+	// 3. Children data
 	itemsDeleted += await deleteAllChildrenData(tenantId);
 
-	// 3. Revoke invites
-	itemsDeleted += await revokeAllInvites(tenantId);
+	// 4. Revoke + 物理削除 invites
+	itemsDeleted += await revokeAndDeleteAllInvites(tenantId);
 
-	// 4. Delete all memberships (other members become unaffiliated)
+	// 5. Delete all memberships (other members become unaffiliated)
 	itemsDeleted += await deleteAllMemberships(tenantId);
 
-	// 5. Delete owner from Cognito + DB
+	// 6. Delete owner from Cognito + DB
 	await deleteCognitoUser(ownerId);
 	await repos().auth.deleteUser(ownerId);
 	itemsDeleted++;
 
-	// 6. Delete tenant
+	// 7. Delete tenant
 	await repos().auth.deleteTenant(tenantId);
 	itemsDeleted++;
 
-	// 7. Notify
+	// 8. Notify
 	notifyDeletionComplete(tenantId, { items: itemsDeleted, files: filesDeleted }).catch(() => {});
 
 	logger.info('[account-deletion] Pattern 2b: 全削除完了', {

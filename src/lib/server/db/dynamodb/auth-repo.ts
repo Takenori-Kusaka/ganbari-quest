@@ -260,15 +260,16 @@ export const updateTenantStripe: IAuthRepo['updateTenantStripe'] = async (tenant
 
 export const updateTenantOwner: IAuthRepo['updateTenantOwner'] = async (tenantId, newOwnerId) => {
 	const now = new Date().toISOString();
-	const result = await doc().send(
-		new GetCommand({ TableName: TABLE_NAME, Key: tenantKey(tenantId) }),
-	);
-	if (!result.Item) return;
-
+	// Atomic update to prevent race condition (Get→Put full overwrite is unsafe)
 	await doc().send(
-		new PutCommand({
+		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Item: { ...result.Item, ownerId: newOwnerId, updatedAt: now },
+			Key: tenantKey(tenantId),
+			UpdateExpression: 'SET ownerId = :ownerId, updatedAt = :updatedAt',
+			ExpressionAttributeValues: {
+				':ownerId': newOwnerId,
+				':updatedAt': now,
+			},
 		}),
 	);
 };

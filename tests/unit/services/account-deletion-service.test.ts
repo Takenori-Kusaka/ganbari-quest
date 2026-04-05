@@ -26,10 +26,39 @@ const mockChildRepo = {
 	updateChild: vi.fn(),
 };
 
+const mockActivityRepo = {
+	findActivities: vi.fn().mockResolvedValue([]),
+	deleteActivity: vi.fn(),
+};
+
+const mockViewerTokenRepo = {
+	findByTenant: vi.fn().mockResolvedValue([]),
+	deleteById: vi.fn(),
+};
+
+const mockCloudExportRepo = {
+	findByTenant: vi.fn().mockResolvedValue([]),
+	deleteById: vi.fn(),
+};
+
+const mockPushSubscriptionRepo = {
+	findByTenant: vi.fn().mockResolvedValue([]),
+	deleteByEndpoint: vi.fn(),
+};
+
+const mockVoiceRepo = {
+	deleteByChild: vi.fn(),
+};
+
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		auth: mockAuthRepo,
 		child: mockChildRepo,
+		activity: mockActivityRepo,
+		viewerToken: mockViewerTokenRepo,
+		cloudExport: mockCloudExportRepo,
+		pushSubscription: mockPushSubscriptionRepo,
+		voice: mockVoiceRepo,
 	}),
 }));
 
@@ -127,8 +156,8 @@ describe('account-deletion-service', () => {
 
 			expect(info.isOnlyMember).toBe(false);
 			expect(info.otherMembers).toHaveLength(1);
-			expect(info.otherMembers[0]!.userId).toBe(PARENT_ID);
-			expect(info.otherMembers[0]!.email).toBe('parent@example.com');
+			expect(info.otherMembers[0]?.userId).toBe(PARENT_ID);
+			expect(info.otherMembers[0]?.email).toBe('parent@example.com');
 		});
 	});
 
@@ -193,9 +222,21 @@ describe('account-deletion-service', () => {
 		it('移譲先が存在しない場合はエラー', async () => {
 			mockAuthRepo.findMembership.mockResolvedValue(undefined);
 
-			await expect(
-				transferOwnershipAndLeave(TENANT_ID, OWNER_ID, 'nonexistent'),
-			).rejects.toThrow('移譲先のメンバーが見つかりません');
+			await expect(transferOwnershipAndLeave(TENANT_ID, OWNER_ID, 'nonexistent')).rejects.toThrow(
+				'移譲先のメンバーが見つかりません',
+			);
+		});
+
+		it('子供アカウントにはオーナー権限を移譲できない', async () => {
+			mockAuthRepo.findMembership.mockResolvedValue({
+				userId: CHILD_USER_ID,
+				tenantId: TENANT_ID,
+				role: 'child',
+			});
+
+			await expect(transferOwnershipAndLeave(TENANT_ID, OWNER_ID, CHILD_USER_ID)).rejects.toThrow(
+				'子供アカウントにはオーナー権限を移譲できません',
+			);
 		});
 	});
 
@@ -243,11 +284,7 @@ describe('account-deletion-service', () => {
 
 			expect(result.success).toBe(true);
 			expect(result.pattern).toBe('child');
-			expect(mockChildRepo.updateChild).toHaveBeenCalledWith(
-				1,
-				{ userId: null },
-				TENANT_ID,
-			);
+			expect(mockChildRepo.updateChild).toHaveBeenCalledWith(1, { userId: null }, TENANT_ID);
 			expect(mockAuthRepo.deleteMembership).toHaveBeenCalledWith(CHILD_USER_ID, TENANT_ID);
 			expect(mockAuthRepo.deleteUser).toHaveBeenCalledWith(CHILD_USER_ID);
 		});
