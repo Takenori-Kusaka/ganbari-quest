@@ -1,2 +1,17 @@
-# Force LF line endings for shell scripts (Docker containers require LF)
-*.sh text eol=lf
+# Force LF line endings for all text files.
+# Prevents CRLF/LF mismatch between Windows (autocrlf) and CI/formatter (LF).
+# This setting is repository-level and applies to all clones automatically.
+* text=auto eol=lf
+
+# Ensure these are always treated as binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.db binary
