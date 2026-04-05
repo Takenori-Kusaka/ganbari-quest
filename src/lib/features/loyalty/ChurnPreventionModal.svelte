@@ -31,12 +31,12 @@ let {
 		</div>
 
 		{#if lostItems.length > 0}
-			<div class="rounded-lg bg-red-50 p-3">
-				<p class="text-sm font-bold text-red-800 mb-2">解約すると失われるもの:</p>
+			<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3">
+				<p class="text-sm font-bold text-[var(--color-feedback-error-text)] mb-2">解約すると失われるもの:</p>
 				<ul class="space-y-1">
 					{#each lostItems as item}
-						<li class="text-xs text-red-700 flex items-start gap-1">
-							<span class="text-red-400">・</span>
+						<li class="text-xs text-[var(--color-feedback-error-text)] flex items-start gap-1">
+							<span class="text-[var(--color-action-danger)]">・</span>
 							{item}
 						</li>
 					{/each}
@@ -45,14 +45,14 @@ let {
 		{/if}
 
 		{#if childName && childActivityCount}
-			<div class="rounded-lg bg-blue-50 p-3">
-				<p class="text-sm text-blue-800">
+			<div class="rounded-lg bg-[var(--color-feedback-info-bg)] p-3">
+				<p class="text-sm text-[var(--color-feedback-info-text)]">
 					💡 {childName}は 今月 <strong>{childActivityCount}回</strong> がんばりました
 				</p>
 			</div>
 		{/if}
 
-		<p class="text-xs text-gray-500">
+		<p class="text-xs text-[var(--color-text-muted)]">
 			※ 解約しても基本データは残ります。再開すれば継続月数も引き継がれます。
 		</p>
 
