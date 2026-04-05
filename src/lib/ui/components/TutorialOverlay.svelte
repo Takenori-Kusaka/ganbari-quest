@@ -1,16 +1,22 @@
 <script lang="ts">
 import {
+	dismissResumePrompt,
 	endTutorial,
 	getCurrentStep,
+	isResumePromptShown,
 	isTutorialActive,
+	resumeTutorial,
+	startFromBeginning,
 } from '$lib/ui/tutorial/tutorial-store.svelte';
 import TutorialBubble from './TutorialBubble.svelte';
 
 let targetRect = $state<DOMRect | null>(null);
 let animKey = $state(0);
+let showExitConfirm = $state(false);
 
 const active = $derived(isTutorialActive());
 const step = $derived(getCurrentStep());
+const showResume = $derived(isResumePromptShown());
 
 /** Find the first visible element matching a selector (handles responsive layouts) */
 function findVisibleElement(selector: string): Element | null {
@@ -49,12 +55,98 @@ $effect(() => {
 });
 
 function handleOverlayClick(e: MouseEvent) {
-	// Only close if clicking the dark overlay itself, not the bubble
+	// Show exit confirmation instead of closing immediately
 	if ((e.target as HTMLElement).classList.contains('tutorial-overlay-bg')) {
-		endTutorial();
+		showExitConfirm = true;
 	}
 }
+
+function confirmExit() {
+	showExitConfirm = false;
+	endTutorial();
+}
+
+function cancelExit() {
+	showExitConfirm = false;
+}
 </script>
+
+<!-- Resume prompt dialog -->
+{#if showResume}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="tutorial-overlay">
+		<div class="tutorial-overlay-backdrop"></div>
+		<div class="tutorial-dialog" role="dialog" aria-label="チュートリアル再開" tabindex="-1">
+			<div class="tutorial-dialog-header">
+				<span aria-hidden="true">📖</span>
+				<span>チュートリアルの続き</span>
+			</div>
+			<div class="tutorial-dialog-body">
+				<p>前回の途中から続けますか？</p>
+			</div>
+			<div class="tutorial-dialog-actions">
+				<button
+					type="button"
+					class="tutorial-dialog-btn tutorial-dialog-btn--secondary"
+					onclick={dismissResumePrompt}
+				>
+					キャンセル
+				</button>
+				<button
+					type="button"
+					class="tutorial-dialog-btn tutorial-dialog-btn--secondary"
+					onclick={() => startFromBeginning()}
+				>
+					最初から
+				</button>
+				<button
+					type="button"
+					class="tutorial-dialog-btn tutorial-dialog-btn--primary"
+					onclick={() => resumeTutorial()}
+				>
+					続きから
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Exit confirmation dialog -->
+{#if showExitConfirm && active}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="tutorial-confirm-overlay" onclick={cancelExit}>
+		<div
+			class="tutorial-dialog"
+			role="dialog"
+			aria-label="チュートリアル終了確認"
+			tabindex="-1"
+			onclick={(e) => e.stopPropagation()}
+		>
+			<div class="tutorial-dialog-body">
+				<p>チュートリアルを終了しますか？</p>
+				<p class="tutorial-dialog-hint">進捗は保存されるので、後から続きを再開できます。</p>
+			</div>
+			<div class="tutorial-dialog-actions">
+				<button
+					type="button"
+					class="tutorial-dialog-btn tutorial-dialog-btn--secondary"
+					onclick={cancelExit}
+				>
+					続ける
+				</button>
+				<button
+					type="button"
+					class="tutorial-dialog-btn tutorial-dialog-btn--danger"
+					onclick={confirmExit}
+				>
+					終了する
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 {#if active && step && targetRect}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -107,6 +199,12 @@ function handleOverlayClick(e: MouseEvent) {
 		z-index: 100;
 	}
 
+	.tutorial-overlay-backdrop {
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+	}
+
 	.tutorial-overlay-svg {
 		position: absolute;
 		inset: 0;
@@ -117,7 +215,7 @@ function handleOverlayClick(e: MouseEvent) {
 
 	.tutorial-overlay-bg {
 		pointer-events: auto;
-		cursor: pointer;
+		cursor: default;
 	}
 
 	.tutorial-spotlight-ring {
@@ -136,5 +234,140 @@ function handleOverlayClick(e: MouseEvent) {
 		50% {
 			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
 		}
+	}
+
+	/* Confirm overlay — sits above the tutorial overlay */
+	.tutorial-confirm-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 120;
+		background: rgba(0, 0, 0, 0.4);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	/* Dialog shared styles */
+	.tutorial-dialog {
+		position: relative;
+		z-index: 110;
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+		width: 320px;
+		max-width: 90vw;
+		margin: auto;
+		overflow: hidden;
+		animation: dialog-appear 0.2s ease-out;
+		/* Center in overlay */
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+	}
+
+	.tutorial-confirm-overlay .tutorial-dialog {
+		position: relative;
+		top: auto;
+		left: auto;
+		transform: none;
+	}
+
+	@keyframes dialog-appear {
+		from {
+			opacity: 0;
+			transform: translate(-50%, -50%) scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: translate(-50%, -50%) scale(1);
+		}
+	}
+
+	.tutorial-confirm-overlay .tutorial-dialog {
+		animation-name: dialog-appear-centered;
+	}
+
+	@keyframes dialog-appear-centered {
+		from {
+			opacity: 0;
+			transform: scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	.tutorial-dialog-header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 14px 16px;
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		color: white;
+		font-weight: 600;
+		font-size: 0.9rem;
+	}
+
+	.tutorial-dialog-body {
+		padding: 20px 16px 12px;
+	}
+
+	.tutorial-dialog-body p {
+		margin: 0;
+		font-size: 0.9rem;
+		color: #334155;
+		line-height: 1.5;
+	}
+
+	.tutorial-dialog-hint {
+		margin-top: 8px !important;
+		font-size: 0.8rem !important;
+		color: #64748b !important;
+	}
+
+	.tutorial-dialog-actions {
+		display: flex;
+		gap: 8px;
+		padding: 12px 16px 16px;
+		justify-content: flex-end;
+	}
+
+	.tutorial-dialog-btn {
+		padding: 8px 16px;
+		border-radius: 8px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		border: none;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.tutorial-dialog-btn--primary {
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		color: white;
+	}
+
+	.tutorial-dialog-btn--primary:hover {
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
+	}
+
+	.tutorial-dialog-btn--secondary {
+		background: #f1f5f9;
+		color: #475569;
+	}
+
+	.tutorial-dialog-btn--secondary:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-dialog-btn--danger {
+		background: #fef2f2;
+		color: #dc2626;
+	}
+
+	.tutorial-dialog-btn--danger:hover {
+		background: #fee2e2;
 	}
 </style>

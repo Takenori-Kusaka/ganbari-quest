@@ -108,6 +108,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 			<a
 				href="/admin/growth-book"
 				class="text-sm font-medium px-3 py-1.5 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors inline-flex items-center gap-1"
+				data-tutorial="growth-book-link"
 			>
 				📖 記録ブック
 			</a>
@@ -119,7 +120,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 	{/if}
 
 	<!-- Tab navigation -->
-	<div class="flex gap-1 rounded-lg bg-gray-100 p-1">
+	<div class="flex gap-1 rounded-lg bg-gray-100 p-1" data-tutorial="report-tabs">
 		<button
 			class="tab-btn"
 			class:active={activeTab === 'monthly'}
