@@ -2,13 +2,13 @@
 import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import { SIGNUP_CODE_EXPIRY_HOURS } from '$lib/domain/validation/auth';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Divider from '$lib/ui/primitives/Divider.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
-import { SIGNUP_CODE_EXPIRY_HOURS } from '$lib/domain/validation/auth';
 
 let { form } = $props();
 

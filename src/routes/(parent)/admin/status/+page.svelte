@@ -218,7 +218,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 									type="submit"
 									variant="primary"
 									size="sm"
-									class="bg-[var(--color-stat-purple)] hover:bg-[var(--color-stat-purple)] text-xs whitespace-nowrap"
+									class="bg-[var(--color-stat-purple)] hover:brightness-110 text-xs whitespace-nowrap"
 								>
 									保存
 								</Button>
@@ -275,7 +275,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 							type="submit"
 							variant="ghost"
 							size="sm"
-							class="text-sm text-[var(--color-feedback-error-text)] hover:text-[var(--color-feedback-error-text)]"
+							class="text-sm text-[var(--color-feedback-error-text)] hover:brightness-75"
 						>
 							全ての称号をデフォルトに戻す
 						</Button>
