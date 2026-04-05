@@ -2,16 +2,29 @@ import { goto } from '$app/navigation';
 import { TUTORIAL_CHAPTERS } from './tutorial-chapters';
 import type { TutorialChapter, TutorialStep } from './tutorial-types';
 
+// ── localStorage persistence keys ──
+const STORAGE_KEY_CHAPTER = 'tutorial-progress-chapter';
+const STORAGE_KEY_STEP = 'tutorial-progress-step';
+
 interface TutorialState {
 	isActive: boolean;
 	currentChapter: number;
 	currentStepIndex: number;
+	/** Whether a resume prompt is being shown */
+	showResumePrompt: boolean;
+	/** Saved chapter id from previous session */
+	savedChapter: number;
+	/** Saved step index from previous session */
+	savedStepIndex: number;
 }
 
 const state = $state<TutorialState>({
 	isActive: false,
 	currentChapter: 1,
 	currentStepIndex: 0,
+	showResumePrompt: false,
+	savedChapter: 1,
+	savedStepIndex: 0,
 });
 
 // Configurable chapter source (default: parent admin chapters)
@@ -25,6 +38,48 @@ export function setChapters(chapters: TutorialChapter[]) {
 /** Reset to default parent admin chapters */
 export function resetChapters() {
 	activeChapters = TUTORIAL_CHAPTERS;
+}
+
+// ── localStorage helpers (SSR-safe) ──
+function saveProgress(chapterId: number, stepIndex: number) {
+	try {
+		if (typeof window !== 'undefined') {
+			localStorage.setItem(STORAGE_KEY_CHAPTER, String(chapterId));
+			localStorage.setItem(STORAGE_KEY_STEP, String(stepIndex));
+		}
+	} catch {
+		// localStorage unavailable — silently ignore
+	}
+}
+
+function loadSavedProgress(): { chapter: number; stepIndex: number } | null {
+	try {
+		if (typeof window === 'undefined') return null;
+		const ch = localStorage.getItem(STORAGE_KEY_CHAPTER);
+		const st = localStorage.getItem(STORAGE_KEY_STEP);
+		if (ch == null || st == null) return null;
+		const chapter = Number.parseInt(ch, 10);
+		const stepIndex = Number.parseInt(st, 10);
+		if (Number.isNaN(chapter) || Number.isNaN(stepIndex)) return null;
+		// Validate that the saved chapter and step still exist
+		const chapterData = activeChapters.find((c) => c.id === chapter);
+		if (!chapterData) return null;
+		if (stepIndex < 0 || stepIndex >= chapterData.steps.length) return null;
+		return { chapter, stepIndex };
+	} catch {
+		return null;
+	}
+}
+
+function clearSavedProgress() {
+	try {
+		if (typeof window !== 'undefined') {
+			localStorage.removeItem(STORAGE_KEY_CHAPTER);
+			localStorage.removeItem(STORAGE_KEY_STEP);
+		}
+	} catch {
+		// silently ignore
+	}
 }
 
 function flatSteps(): TutorialStep[] {
@@ -60,20 +115,119 @@ export function isTutorialActive(): boolean {
 	return state.isActive;
 }
 
+export function isResumePromptShown(): boolean {
+	return state.showResumePrompt;
+}
+
+export function getSavedProgress(): { chapter: number; stepIndex: number } {
+	return { chapter: state.savedChapter, stepIndex: state.savedStepIndex };
+}
+
 export function getChapters() {
 	return activeChapters;
 }
 
 export async function startTutorial(chapter?: number) {
+	// If no explicit chapter is given, check for saved progress
+	if (chapter == null) {
+		const saved = loadSavedProgress();
+		if (saved && (saved.chapter > 1 || saved.stepIndex > 0)) {
+			// Show resume prompt
+			state.savedChapter = saved.chapter;
+			state.savedStepIndex = saved.stepIndex;
+			state.showResumePrompt = true;
+			return;
+		}
+	}
+
 	const chapterId = chapter ?? 1;
+	state.showResumePrompt = false;
 	state.isActive = true;
 	state.currentChapter = chapterId;
 	state.currentStepIndex = 0;
+	saveProgress(chapterId, 0);
 
 	const step = getCurrentStep();
 	if (step?.page) {
 		await goto(step.page);
 	}
+}
+
+/** Resume from saved progress */
+export async function resumeTutorial() {
+	state.showResumePrompt = false;
+	state.isActive = true;
+	state.currentChapter = state.savedChapter;
+	state.currentStepIndex = state.savedStepIndex;
+
+	const step = getCurrentStep();
+	if (step?.page) {
+		await goto(step.page);
+	}
+}
+
+/** Start from the beginning, discarding saved progress */
+export async function startFromBeginning(chapter?: number) {
+	clearSavedProgress();
+	state.showResumePrompt = false;
+	state.isActive = true;
+	state.currentChapter = chapter ?? 1;
+	state.currentStepIndex = 0;
+	saveProgress(state.currentChapter, 0);
+
+	const step = getCurrentStep();
+	if (step?.page) {
+		await goto(step.page);
+	}
+}
+
+/** Dismiss the resume prompt without starting */
+export function dismissResumePrompt() {
+	state.showResumePrompt = false;
+}
+
+/**
+ * Start tutorial from the chapter most relevant to the current URL path.
+ * Falls back to chapter 1 if no matching chapter is found.
+ */
+export async function startTutorialForPage(pathname: string) {
+	const chapterId = resolveChapterForPath(pathname);
+
+	// If a matching chapter is found (not chapter 1), skip directly there
+	if (chapterId > 1) {
+		state.showResumePrompt = false;
+		state.isActive = true;
+		state.currentChapter = chapterId;
+		state.currentStepIndex = 0;
+		saveProgress(chapterId, 0);
+
+		const step = getCurrentStep();
+		if (step?.page) {
+			await goto(step.page);
+		}
+		return;
+	}
+
+	// Otherwise, fall back to normal start (which may show resume prompt)
+	await startTutorial();
+}
+
+/**
+ * Map a URL pathname to the best-matching tutorial chapter ID.
+ * Returns the chapter id, or 1 (intro) as fallback.
+ */
+function resolveChapterForPath(pathname: string): number {
+	// Build a mapping from page paths to chapter IDs
+	// Check the most specific paths first
+	for (const chapter of activeChapters) {
+		for (const step of chapter.steps) {
+			if (step.page && pathname.startsWith(step.page) && step.page !== '/admin') {
+				return chapter.id;
+			}
+		}
+	}
+	// Default to intro
+	return 1;
 }
 
 export async function nextStep() {
@@ -94,6 +248,8 @@ export async function nextStep() {
 			return;
 		}
 	}
+
+	saveProgress(state.currentChapter, state.currentStepIndex);
 
 	const step = getCurrentStep();
 	if (step?.page && typeof window !== 'undefined') {
@@ -116,6 +272,8 @@ export async function prevStep() {
 		}
 	}
 
+	saveProgress(state.currentChapter, state.currentStepIndex);
+
 	const step = getCurrentStep();
 	if (step?.page && typeof window !== 'undefined') {
 		const currentPath = window.location.pathname;
@@ -131,6 +289,7 @@ export async function skipToChapter(chapterId: number) {
 
 	state.currentChapter = chapterId;
 	state.currentStepIndex = 0;
+	saveProgress(chapterId, 0);
 
 	const step = getCurrentStep();
 	if (step?.page) {
@@ -139,6 +298,10 @@ export async function skipToChapter(chapterId: number) {
 }
 
 export function endTutorial() {
+	// Save current progress before ending so it can be resumed later
+	if (state.isActive) {
+		saveProgress(state.currentChapter, state.currentStepIndex);
+	}
 	state.isActive = false;
 	state.currentChapter = 1;
 	state.currentStepIndex = 0;
@@ -146,6 +309,7 @@ export function endTutorial() {
 
 async function completeTutorial() {
 	state.isActive = false;
+	clearSavedProgress();
 
 	// Persist completion to server
 	try {
