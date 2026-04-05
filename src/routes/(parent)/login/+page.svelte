@@ -45,7 +45,7 @@ function handleSubmit() {
 	</div>
 
 	{#if form?.error}
-		<div class="mb-4 px-4 py-3 bg-red-100 text-red-700 rounded-[var(--radius-md)] text-sm font-medium">
+		<div class="mb-4 px-4 py-3 bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)] rounded-[var(--radius-md)] text-sm font-medium">
 			{form.error}
 		</div>
 	{/if}

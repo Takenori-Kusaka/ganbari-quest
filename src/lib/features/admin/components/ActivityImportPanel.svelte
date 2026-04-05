@@ -14,14 +14,14 @@ let importLoading = $state(false);
 let fileImportLoading = $state(false);
 </script>
 
-<div class="bg-green-50 rounded-xl p-4 shadow-sm space-y-3 border border-green-200">
+<div class="bg-[var(--color-feedback-success-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-feedback-success-border)]">
 	<div class="flex items-center justify-between">
-		<h3 class="font-bold text-green-700">📥 活動パックからインポート</h3>
-		<a href="/admin/packs" class="text-xs text-green-600 hover:text-green-800 underline">すべてのパック →</a>
+		<h3 class="font-bold text-[var(--color-feedback-success-text)]">📥 活動パックからインポート</h3>
+		<a href="/admin/packs" class="text-xs text-[var(--color-feedback-success-text)] hover:text-[var(--color-feedback-success-text)] underline">すべてのパック →</a>
 	</div>
-	<p class="text-xs text-green-600">おすすめの活動セットを一括追加できます（重複はスキップ）</p>
+	<p class="text-xs text-[var(--color-feedback-success-text)]">おすすめの活動セットを一括追加できます（重複はスキップ）</p>
 	{#if activityPacks.length === 0}
-		<p class="text-sm text-gray-500">利用可能なパックがありません</p>
+		<p class="text-sm text-[var(--color-text-muted)]">利用可能なパックがありません</p>
 	{:else}
 		<div class="grid grid-cols-1 gap-2">
 			{#each activityPacks as pack}
@@ -45,14 +45,14 @@ let fileImportLoading = $state(false);
 					<button
 						type="submit"
 						disabled={importLoading}
-						class="w-full flex items-center gap-3 p-3 bg-white rounded-lg border border-green-200 hover:border-green-400 hover:bg-green-50 transition-colors text-left"
+						class="w-full flex items-center gap-3 p-3 bg-[var(--color-surface-card)] rounded-lg border border-[var(--color-feedback-success-border)] hover:border-[var(--color-feedback-success-border)] hover:bg-[var(--color-feedback-success-bg)] transition-colors text-left"
 					>
 						<span class="text-2xl">{pack.icon}</span>
 						<div class="flex-1 min-w-0">
-							<p class="font-bold text-sm text-gray-800">{pack.packName}</p>
-							<p class="text-xs text-gray-500">{pack.activityCount}件 ・ {pack.targetAgeMin}〜{pack.targetAgeMax}歳</p>
+							<p class="font-bold text-sm text-[var(--color-text)]">{pack.packName}</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{pack.activityCount}件 ・ {pack.targetAgeMin}〜{pack.targetAgeMax}歳</p>
 						</div>
-						<span class="text-xs font-bold text-green-600 shrink-0">
+						<span class="text-xs font-bold text-[var(--color-feedback-success-text)] shrink-0">
 							{importLoading ? '処理中...' : '追加'}
 						</span>
 					</button>
@@ -62,9 +62,9 @@ let fileImportLoading = $state(false);
 	{/if}
 
 	<!-- ファイルからインポート -->
-	<div class="border-t border-green-200 pt-3 mt-3">
-		<h4 class="font-bold text-green-700 text-sm mb-2">📁 ファイルからインポート</h4>
-		<p class="text-xs text-green-600 mb-2">JSON または CSV ファイルから活動を一括追加（重複はスキップ）</p>
+	<div class="border-t border-[var(--color-feedback-success-border)] pt-3 mt-3">
+		<h4 class="font-bold text-[var(--color-feedback-success-text)] text-sm mb-2">📁 ファイルからインポート</h4>
+		<p class="text-xs text-[var(--color-feedback-success-text)] mb-2">JSON または CSV ファイルから活動を一括追加（重複はスキップ）</p>
 		<form
 			method="POST"
 			action="?/importFile"
@@ -83,8 +83,8 @@ let fileImportLoading = $state(false);
 			}}
 		>
 			<div class="flex gap-2 items-center">
-				<input type="file" name="file" accept=".json,.csv" class="flex-1 text-sm file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-green-100 file:text-green-700 file:font-bold file:text-xs" required />
-				<button type="submit" disabled={fileImportLoading} class="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 disabled:opacity-50">
+				<input type="file" name="file" accept=".json,.csv" class="flex-1 text-sm file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-[var(--color-feedback-success-bg-strong)] file:text-[var(--color-feedback-success-text)] file:font-bold file:text-xs" required />
+				<button type="submit" disabled={fileImportLoading} class="px-4 py-2 bg-[var(--color-action-success)] text-white rounded-lg text-xs font-bold hover:bg-[var(--color-action-success)] disabled:opacity-50">
 					{fileImportLoading ? '処理中...' : 'インポート'}
 				</button>
 			</div>

@@ -12,6 +12,7 @@ interface Props {
 let { challengeTitle, challengeId, rewardClaimed, siblings, onDismiss }: Props = $props();
 
 // Confetti particles
+// Confetti hex colors: kept as hex because JS array init runs before DOM is available for getComputedStyle
 const confettiColors = ['#8b5cf6', '#f59e0b', '#22c55e', '#ef4444', '#3b82f6', '#ec4899'];
 const confetti = Array.from({ length: 30 }, (_, i) => ({
 	id: i,
@@ -124,7 +125,7 @@ const confetti = Array.from({ length: 30 }, (_, i) => ({
 	.celebration__title {
 		font-size: 1.5rem;
 		font-weight: 800;
-		background: linear-gradient(135deg, #8b5cf6, #f59e0b);
+		background: linear-gradient(135deg, var(--color-violet-500), var(--color-warning));
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
 		background-clip: text;
@@ -133,7 +134,7 @@ const confetti = Array.from({ length: 30 }, (_, i) => ({
 
 	.celebration__challenge {
 		font-size: 0.8125rem;
-		color: #6b7280;
+		color: var(--color-text-muted);
 		margin-bottom: 16px;
 	}
 
@@ -150,11 +151,11 @@ const confetti = Array.from({ length: 30 }, (_, i) => ({
 		align-items: center;
 		gap: 4px;
 		padding: 4px 10px;
-		background: #f5f3ff;
+		background: var(--color-premium-bg);
 		border-radius: 20px;
 		font-size: 0.75rem;
 		font-weight: 600;
-		color: #5b21b6;
+		color: var(--color-violet-600);
 	}
 
 	.celebration__check {
@@ -166,7 +167,7 @@ const confetti = Array.from({ length: 30 }, (_, i) => ({
 		padding: 14px;
 		border: none;
 		border-radius: 12px;
-		background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+		background: var(--gradient-premium);
 		color: white;
 		font-size: 1rem;
 		font-weight: 700;
@@ -175,16 +176,16 @@ const confetti = Array.from({ length: 30 }, (_, i) => ({
 	}
 
 	.celebration__claim-btn:hover {
-		background: linear-gradient(135deg, #7c3aed, #6d28d9);
+		background: linear-gradient(135deg, var(--color-violet-700), var(--color-violet-500));
 	}
 
 	.celebration__close-btn {
 		width: 100%;
 		padding: 12px;
-		border: 1px solid #e5e7eb;
+		border: 1px solid var(--color-border-default);
 		border-radius: 12px;
-		background: white;
-		color: #6b7280;
+		background: var(--color-surface-card);
+		color: var(--color-text-muted);
 		font-size: 0.875rem;
 		font-weight: 600;
 		cursor: pointer;

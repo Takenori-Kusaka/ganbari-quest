@@ -244,7 +244,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						<Button
 							variant="ghost"
 							size="sm"
-							class="bg-purple-50 text-purple-600 hover:bg-purple-100"
+							class="bg-[var(--color-stat-purple-bg)] text-[var(--color-premium)] hover:bg-[var(--color-premium-bg)]"
 							disabled={generating}
 							onclick={generateAvatar}
 						>
@@ -339,7 +339,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						type="button"
 						variant="ghost"
 						size="sm"
-						class="bg-gray-200 text-gray-600 hover:bg-gray-300"
+						class="bg-[var(--color-neutral-200)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
 						onclick={() => { isEditing = false; }}
 					>
 						キャンセル
@@ -371,7 +371,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 								<option value={val} selected={val === (child.birthdayBonusMultiplier ?? 1.0)}>×{val}</option>
 							{/each}
 						</select>
-						<Button type="submit" variant="primary" size="sm" class="bg-amber-500 hover:bg-amber-600">適用</Button>
+						<Button type="submit" variant="primary" size="sm" class="bg-[var(--color-warning)] hover:bg-[var(--color-warning)]">適用</Button>
 						<span class="profile-edit__bonus-preview">
 							→ {child.age}歳 × 100pt × {child.birthdayBonusMultiplier ?? 1.0}倍 = {Math.round(child.age * 100 * (child.birthdayBonusMultiplier ?? 1.0))}pt
 						</span>
@@ -401,7 +401,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						<Button
 							variant="ghost"
 							size="sm"
-							class="bg-gray-200 text-gray-600 hover:bg-gray-300"
+							class="bg-[var(--color-neutral-200)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
 							onclick={() => { confirmDelete = false; }}
 						>
 							やめる
@@ -411,7 +411,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 					<Button
 						variant="ghost"
 						size="sm"
-						class="bg-red-50 text-red-400 hover:bg-red-100"
+						class="bg-[var(--color-feedback-error-bg)] text-[var(--color-action-danger)] hover:bg-[var(--color-feedback-error-bg-strong)]"
 						onclick={() => { confirmDelete = true; }}
 					>
 						🗑 この子供を削除
@@ -440,7 +440,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 			<Button
 				variant="ghost"
 				size="sm"
-				class="bg-blue-50 text-blue-600 hover:bg-blue-100"
+				class="bg-[var(--color-feedback-info-bg)] text-[var(--color-brand-600)] hover:bg-[var(--color-feedback-info-bg-strong)]"
 				onclick={() => { isEditing = true; detailTab = 'info'; }}
 			>
 				✏️ 編集
@@ -545,7 +545,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 												variant={hasChanged ? 'primary' : 'ghost'}
 												size="sm"
 												disabled={!hasChanged}
-												class={hasChanged ? '' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+												class={hasChanged ? '' : 'bg-[var(--color-neutral-200)] text-[var(--color-text-muted)] cursor-not-allowed'}
 											>保存</Button>
 										</div>
 									</form>
@@ -604,7 +604,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						{:else if recordedUrl}
 							<div class="voice-recorder__preview">
 								<audio src={recordedUrl} controls class="voice-recorder__audio"></audio>
-								<Button type="button" variant="ghost" size="sm" onclick={clearRecording} class="text-gray-400 hover:text-red-500">取消</Button>
+								<Button type="button" variant="ghost" size="sm" onclick={clearRecording} class="text-[var(--color-text-muted)] hover:text-[var(--color-feedback-error-text)]">取消</Button>
 							</div>
 						{:else}
 							<Button type="button" variant="danger" size="sm" onclick={startRecording}>
@@ -661,7 +661,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 							type="submit"
 							variant="primary"
 							size="sm"
-							class="bg-purple-500 hover:bg-purple-600"
+							class="bg-[var(--color-stat-purple)] hover:bg-[var(--color-stat-purple)]"
 							disabled={voiceUploading || !voiceLabel}
 						>
 							{voiceUploading ? 'アップロード中...' : '💾 保存'}
@@ -682,12 +682,12 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 										<form method="POST" action="?/activateVoice" use:enhance>
 											<input type="hidden" name="voiceId" value={voice.id} />
 											<input type="hidden" name="childId" value={child.id} />
-											<Button type="submit" variant="ghost" size="sm" class="bg-purple-100 text-purple-600 hover:bg-purple-200">有効化</Button>
+											<Button type="submit" variant="ghost" size="sm" class="bg-[var(--color-premium-bg)] text-[var(--color-premium)] hover:bg-[var(--color-premium-bg)]">有効化</Button>
 										</form>
 									{/if}
 									<form method="POST" action="?/deleteVoice" use:enhance>
 										<input type="hidden" name="voiceId" value={voice.id} />
-										<Button type="submit" variant="ghost" size="sm" class="text-red-400 hover:text-red-600">削除</Button>
+										<Button type="submit" variant="ghost" size="sm" class="text-[var(--color-action-danger)] hover:text-[var(--color-feedback-error-text)]">削除</Button>
 									</form>
 								</div>
 							{/each}

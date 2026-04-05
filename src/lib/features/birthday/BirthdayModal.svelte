@@ -108,7 +108,7 @@ const msg = $derived(getMessageText());
 			</form>
 		{/if}
 
-		<!-- Confetti decoration -->
+		<!-- Confetti decoration — hex colors kept: JS array init before DOM available for getComputedStyle -->
 		<div class="birthday-modal__confetti" aria-hidden="true">
 			{#each Array(12) as _, i}
 				<span
@@ -164,7 +164,7 @@ const msg = $derived(getMessageText());
 	.birthday-modal__age-text {
 		font-size: 0.9375rem;
 		font-weight: 700;
-		color: #92400e;
+		color: var(--color-feedback-warning-text);
 		margin: 0;
 	}
 
@@ -173,8 +173,8 @@ const msg = $derived(getMessageText());
 		flex-direction: column;
 		align-items: center;
 		gap: 4px;
-		background: linear-gradient(135deg, #fffbeb, #fef3c7);
-		border: 2px solid #fbbf24;
+		background: linear-gradient(135deg, var(--color-feedback-warning-bg), var(--color-feedback-warning-bg-strong));
+		border: 2px solid var(--color-gold-400);
 		border-radius: var(--radius-md, 12px);
 		padding: 12px 20px;
 		width: 100%;
@@ -183,13 +183,13 @@ const msg = $derived(getMessageText());
 	.birthday-modal__reward-label {
 		font-size: 0.8125rem;
 		font-weight: 700;
-		color: #92400e;
+		color: var(--color-feedback-warning-text);
 	}
 
 	.birthday-modal__reward-points {
 		font-size: 1.5rem;
 		font-weight: 900;
-		color: #d97706;
+		color: var(--color-stat-amber);
 	}
 
 	.birthday-modal__sub {
@@ -207,8 +207,8 @@ const msg = $derived(getMessageText());
 		color: white;
 		border: none;
 		cursor: pointer;
-		background: linear-gradient(135deg, #f59e0b, #fbbf24);
-		box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+		background: linear-gradient(135deg, var(--color-warning), var(--color-gold-400));
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--color-warning) 30%, transparent);
 	}
 
 	.birthday-modal__btn:disabled {

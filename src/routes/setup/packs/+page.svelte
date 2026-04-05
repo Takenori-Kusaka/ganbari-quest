@@ -59,8 +59,8 @@ $effect(() => {
 	<title>活動パック選択 - がんばりクエスト セットアップ</title>
 </svelte:head>
 
-<h2 class="text-lg font-bold text-gray-700 mb-2">かつどうパックをえらぼう</h2>
-<p class="text-sm text-gray-500 mb-4">
+<h2 class="text-lg font-bold text-[var(--color-text)] mb-2">かつどうパックをえらぼう</h2>
+<p class="text-sm text-[var(--color-text-muted)] mb-4">
 	お子さまの年齢にあわせた活動セットを選んでください。あとから追加・変更できます。
 </p>
 
@@ -86,11 +86,11 @@ $effect(() => {
 				onclick={() => togglePack(pack.packId)}
 				class="relative w-full text-left p-4 rounded-xl border-2 h-auto items-start
 					{selected
-					? 'border-blue-500 bg-blue-50 shadow-sm'
-					: 'border-gray-200 bg-white hover:border-gray-300'}"
+					? 'border-[var(--color-brand-500)] bg-[var(--color-feedback-info-bg)] shadow-sm'
+					: 'border-[var(--color-border-default)] bg-[var(--color-surface-card)] hover:border-[var(--color-border-strong)]'}"
 			>
 				{#if recommended}
-					<span class="absolute -top-2 right-3 text-[10px] font-bold text-white bg-amber-500 rounded-full px-2 py-0.5">
+					<span class="absolute -top-2 right-3 text-[10px] font-bold text-white bg-[var(--color-warning)] rounded-full px-2 py-0.5">
 						おすすめ
 					</span>
 				{/if}
@@ -98,17 +98,17 @@ $effect(() => {
 					<span class="text-2xl mt-0.5">{pack.icon}</span>
 					<div class="flex-1 min-w-0">
 						<div class="flex items-center gap-2">
-							<span class="text-sm font-bold text-gray-700">{pack.packName}</span>
-							<span class="text-xs text-gray-400">{pack.activityCount}件</span>
+							<span class="text-sm font-bold text-[var(--color-text)]">{pack.packName}</span>
+							<span class="text-xs text-[var(--color-text-muted)]">{pack.activityCount}件</span>
 						</div>
-						<p class="text-xs text-gray-500 mt-1 line-clamp-2">{pack.description}</p>
+						<p class="text-xs text-[var(--color-text-muted)] mt-1 line-clamp-2">{pack.description}</p>
 						<div class="flex items-center gap-1 mt-2">
 							{#each pack.tags as tag}
-								<span class="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">{tag}</span>
+								<span class="text-[10px] px-1.5 py-0.5 bg-[var(--color-surface-muted-strong)] text-[var(--color-text-muted)] rounded">{tag}</span>
 							{/each}
 							<button
 								type="button"
-								class="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 ml-auto"
+								class="text-[10px] px-1.5 py-0.5 bg-[var(--color-feedback-info-bg)] text-[var(--color-brand-600)] rounded hover:bg-[var(--color-feedback-info-bg-strong)] ml-auto"
 								onclick={(e) => togglePreview(e, pack.packId)}
 							>
 								{expandedPack === pack.packId ? '▲ とじる' : '▼ なかみ'}
@@ -116,17 +116,17 @@ $effect(() => {
 						</div>
 					</div>
 					<div class="flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center mt-1
-						{selected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'}">
+						{selected ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]' : 'border-[var(--color-border-strong)]'}">
 						{#if selected}
 							<span class="text-white text-xs font-bold">&#10003;</span>
 						{/if}
 					</div>
 				</div>
 				{#if expandedPack === pack.packId && pack.activities?.length}
-					<div class="mt-3 pt-3 border-t border-gray-100" onclick={(e) => e.stopPropagation()}>
+					<div class="mt-3 pt-3 border-t border-[var(--color-border-default)]" onclick={(e) => e.stopPropagation()}>
 						<div class="grid grid-cols-2 gap-1">
 							{#each pack.activities as act}
-								<div class="flex items-center gap-1 text-xs text-gray-600 py-0.5">
+								<div class="flex items-center gap-1 text-xs text-[var(--color-text)] py-0.5">
 									<span>{act.icon}</span>
 									<span class="truncate">{act.name}</span>
 								</div>
@@ -149,17 +149,17 @@ $effect(() => {
 		onclick={selectSkip}
 		class="w-full text-left p-3 rounded-lg border-2 mb-4 h-auto
 			{skipMode
-			? 'border-gray-400 bg-gray-50'
-			: 'border-gray-200 bg-white hover:border-gray-300'}"
+			? 'border-[var(--color-neutral-400)] bg-[var(--color-surface-muted)]'
+			: 'border-[var(--color-border-default)] bg-[var(--color-surface-card)] hover:border-[var(--color-border-strong)]'}"
 	>
 		<div class="flex items-center gap-2">
 			<div class="w-5 h-5 rounded-full border-2 flex items-center justify-center
-				{skipMode ? 'border-gray-500 bg-gray-500' : 'border-gray-300'}">
+				{skipMode ? 'border-[var(--color-neutral-500)] bg-[var(--color-neutral-500)]' : 'border-[var(--color-border-strong)]'}">
 				{#if skipMode}
 					<span class="text-white text-[10px] font-bold">&#10003;</span>
 				{/if}
 			</div>
-			<span class="text-sm text-gray-600">おすすめパックを自動で追加してすすむ</span>
+			<span class="text-sm text-[var(--color-text)]">おすすめパックを自動で追加してすすむ</span>
 		</div>
 	</Button>
 
@@ -167,7 +167,7 @@ $effect(() => {
 	<div class="flex gap-3">
 		<a
 			href="/setup/children"
-			class="flex-1 py-2 text-center text-sm font-bold text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+			class="flex-1 py-2 text-center text-sm font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-muted-strong)] rounded-lg hover:bg-[var(--color-neutral-200)] transition-colors"
 		>
 			&larr; もどる
 		</a>
