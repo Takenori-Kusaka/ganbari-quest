@@ -1,14 +1,32 @@
 <script lang="ts">
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
-import { startGuide } from '$lib/features/demo/demo-guide-state.svelte.js';
+import {
+	getGuideState,
+	resetGuide,
+	restartGuide,
+	startGuide,
+} from '$lib/features/demo/demo-guide-state.svelte.js';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
+const guide = getGuideState();
+
+// Reset guide state when navigating back to /demo top
+// This clears the overlay so it doesn't persist on the top page
+$effect(() => {
+	resetGuide();
+});
+
 function handleGuideStart() {
 	startGuide();
 	trackDemoEvent('demo_guide_start');
+}
+
+function handleGuideRestart() {
+	restartGuide();
+	trackDemoEvent('demo_guide_start', { restart: true });
 }
 
 const modeLabels: Record<string, string> = {
@@ -43,15 +61,27 @@ const modeColors: Record<string, string> = {
 
 		<!-- Guided demo option -->
 		<div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-5 mb-6 text-center">
-			<p class="text-sm font-bold text-gray-700 mb-1">はじめてですか？</p>
-			<p class="text-xs text-gray-500 mb-3">5ステップで主な機能をご案内します</p>
-			<a
-				href="/demo/kinder/home?childId=902"
-				class="block w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl text-sm hover:bg-blue-600 transition-colors"
-				onclick={handleGuideStart}
-			>
-				ガイド付きデモを はじめる
-			</a>
+			{#if guide.dismissed}
+				<p class="text-sm font-bold text-gray-700 mb-1">ガイドをとじました</p>
+				<p class="text-xs text-gray-500 mb-3">もう一度はじめから体験できます</p>
+				<a
+					href="/demo/kinder/home?childId=902"
+					class="block w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl text-sm hover:bg-blue-600 transition-colors"
+					onclick={handleGuideRestart}
+				>
+					ガイドを再開する
+				</a>
+			{:else}
+				<p class="text-sm font-bold text-gray-700 mb-1">はじめてですか？</p>
+				<p class="text-xs text-gray-500 mb-3">5ステップで主な機能をご案内します</p>
+				<a
+					href="/demo/kinder/home?childId=902"
+					class="block w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl text-sm hover:bg-blue-600 transition-colors"
+					onclick={handleGuideStart}
+				>
+					ガイド付きデモを はじめる
+				</a>
+			{/if}
 		</div>
 
 		<!-- Family Introduction -->
