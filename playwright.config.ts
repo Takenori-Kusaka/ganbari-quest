@@ -16,6 +16,7 @@ export default defineConfig({
 	timeout: 30_000,
 	reporter: [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'test-results.json' }]],
 	globalSetup: './tests/e2e/global-setup.ts',
+	globalTeardown: './tests/e2e/global-teardown.ts',
 	use: {
 		baseURL: 'http://localhost:5173',
 		trace: 'on-first-retry',
