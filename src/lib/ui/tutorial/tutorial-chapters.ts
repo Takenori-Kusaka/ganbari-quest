@@ -85,20 +85,20 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 			{
 				id: 'activities-1',
 				chapterId: 3,
-				selector: '[data-tutorial="category-filter"]',
-				title: 'カテゴリで絞り込み',
+				selector: '[data-tutorial="activity-list"]',
+				title: '活動一覧',
 				description:
-					'活動は「うんどう」「べんきょう」「せいかつ」などのカテゴリに分かれています。「うんどう系の活動を見直したい」など、目的に合わせて絞り込めます。',
+					'こどもが記録できる活動の一覧です。各活動の獲得ポイントや1日の上限回数を確認・編集できます。「このポイント多すぎるかな？」と思ったらここで調整しましょう。',
 				position: 'bottom',
 				page: '/admin/activities',
 			},
 			{
 				id: 'activities-2',
 				chapterId: 3,
-				selector: '[data-tutorial="activity-list"]',
-				title: '活動一覧',
+				selector: '[data-tutorial="category-filter"]',
+				title: 'カテゴリで絞り込み',
 				description:
-					'こどもが記録できる活動の一覧です。各活動の獲得ポイントや1日の上限回数を確認・編集できます。「このポイント多すぎるかな？」と思ったらここで調整しましょう。',
+					'活動は「うんどう」「べんきょう」「せいかつ」などのカテゴリに分かれています。「うんどう系の活動を見直したい」など、目的に合わせて絞り込めます。',
 				position: 'bottom',
 				page: '/admin/activities',
 			},

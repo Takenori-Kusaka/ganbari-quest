@@ -104,23 +104,28 @@ function dailyLimitLabel(val: number | null): string {
 	<!-- Activity List (matches production card style) -->
 	<div class="space-y-1">
 		{#each filteredActivities as activity (activity.id)}
+			{@const cat = getCategoryById(activity.categoryId)}
 			<Card padding="none">
 				<div class="px-3 py-2 flex items-center gap-3">
 					<CompoundIcon icon={activity.icon} size="md" />
 					<div class="flex-1 min-w-0">
-						<p class="text-sm font-bold text-gray-700 truncate">{getActivityDisplayNameForAdult(activity)}</p>
-						<p class="text-xs text-gray-400">
-							{getCategoryById(activity.categoryId)?.name ?? ''} / {activity.basePoints}P
+						<div class="flex items-center gap-2 flex-wrap">
+							<p class="text-sm font-bold truncate" style:color="var(--color-text)">{getActivityDisplayNameForAdult(activity)}</p>
+							<span class="activity-points">{fmtPts(activity.basePoints)}</span>
+						</div>
+						<div class="activity-meta">
+							{#if cat}
+								<span class="category-badge" style:background-color="{cat.color}20" style:color={cat.accent}>
+									{cat.icon} {cat.name}
+								</span>
+							{/if}
 							{#if activity.dailyLimit !== null && activity.dailyLimit !== undefined}
-								/ {dailyLimitLabel(activity.dailyLimit)}
+								<span class="meta-item">{dailyLimitLabel(activity.dailyLimit)}</span>
 							{/if}
 							{#if activity.ageMin != null || activity.ageMax != null}
-								/ {activity.ageMin ?? 0}-{activity.ageMax ?? 18}歳
+								<span class="meta-item">{activity.ageMin ?? 0}-{activity.ageMax ?? 18}歳</span>
 							{/if}
-						</p>
-					</div>
-					<div class="text-right">
-						<span class="text-sm font-bold text-amber-500">{fmtPts(activity.basePoints)}</span>
+						</div>
 					</div>
 				</div>
 			</Card>
@@ -138,3 +143,41 @@ function dailyLimitLabel(val: number | null): string {
 		description="登録すると、お子さまに合わせた活動を自由に追加・編集できます。"
 	/>
 </div>
+
+<style>
+	.activity-points {
+		display: inline-flex;
+		align-items: center;
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--color-point);
+		background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.08));
+		padding: 0.125rem 0.5rem;
+		border-radius: var(--radius-full, 9999px);
+		white-space: nowrap;
+	}
+
+	.activity-meta {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		margin-top: 0.25rem;
+		flex-wrap: wrap;
+	}
+
+	.category-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.125rem;
+		font-size: 0.625rem;
+		font-weight: 600;
+		padding: 0.0625rem 0.375rem;
+		border-radius: var(--radius-full, 9999px);
+		white-space: nowrap;
+	}
+
+	.meta-item {
+		font-size: 0.625rem;
+		color: var(--color-text-muted);
+	}
+</style>
