@@ -87,6 +87,9 @@ export const updateInviteStatus: IAuthRepo['updateInviteStatus'] = async () => {
 export const findTenantInvites: IAuthRepo['findTenantInvites'] = async () => {
 	return [];
 };
+export const deleteInvite: IAuthRepo['deleteInvite'] = async () => {
+	// no-op in local mode (invites not supported)
+};
 export const recordConsent: IAuthRepo['recordConsent'] = async (input) => {
 	return { ...input, consentedAt: new Date().toISOString() };
 };

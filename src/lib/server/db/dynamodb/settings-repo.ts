@@ -2,8 +2,9 @@
 // DynamoDB implementation of ISettingsRepo
 
 import { BatchGetCommand, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { deleteItemsByExactPk } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
-import { settingKey } from './keys';
+import { settingKey, tenantPK } from './keys';
 
 /** 設定値を取得 */
 export async function getSetting(key: string, tenantId: string): Promise<string | undefined> {
@@ -58,4 +59,9 @@ export async function getSettings(
 		}
 	}
 	return map;
+}
+
+/** テナントの全設定を削除（PK=T#<tenantId>#SETTING のアイテムをすべて削除） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	await deleteItemsByExactPk(tenantPK('SETTING', tenantId));
 }

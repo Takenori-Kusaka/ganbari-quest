@@ -20,14 +20,17 @@ import type {
 	UpdateChecklistTemplateInput,
 	UpsertChecklistLogInput,
 } from '../types';
+import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
 	checklistItemKey,
 	checklistItemPrefix,
 	checklistLogKey,
+	checklistLogPrefix,
 	checklistOverrideDatePrefix,
 	checklistOverrideKey,
+	checklistOverridePrefix,
 	checklistTemplateKey,
 	checklistTemplatePrefix,
 	childPK,
@@ -416,4 +419,20 @@ export async function deleteOverride(id: number): Promise<void> {
 		}
 		lastKey = result.LastEvaluatedKey;
 	} while (lastKey);
+}
+
+/**
+ * テナントの全チェックリストデータを削除。
+ * - CHILD#* 配下: CKTPL# (テンプレート), CKLOG# (ログ), CKOVER# (オーバーライド)
+ * - CKTPL#* 配下: ITEM# (テンプレートアイテム)
+ */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	// Delete checklist template items (PK=T#<tenantId>#CKTPL#*, SK=ITEM#*)
+	await deleteItemsByPkPrefix(tenantPK('CKTPL#', tenantId));
+	// Delete templates (CHILD#* 配下の CKTPL# アイテム)
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), checklistTemplatePrefix());
+	// Delete logs (CHILD#* 配下の CKLOG# アイテム)
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), checklistLogPrefix());
+	// Delete overrides (CHILD#* 配下の CKOVER# アイテム)
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), checklistOverridePrefix());
 }

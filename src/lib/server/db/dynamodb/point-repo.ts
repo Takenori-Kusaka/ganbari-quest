@@ -3,6 +3,7 @@
 
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { Child, InsertPointLedgerInput, PointLedgerEntry } from '../types';
+import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -12,6 +13,7 @@ import {
 	pointBalanceKey,
 	pointLedgerKey,
 	pointLedgerPrefix,
+	tenantPK,
 } from './keys';
 
 /** Strip PK/SK/GSI keys from a DynamoDB item */
@@ -130,4 +132,12 @@ export async function findChildById(id: number, tenantId: string): Promise<Child
 
 	if (!result.Item) return undefined;
 	return stripKeys(result.Item) as unknown as Child;
+}
+
+/** テナントの全ポイント台帳・残高を削除（CHILD#* 配下の POINT# + BALANCE アイテム） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	// Delete point ledger entries (POINT#...)
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), pointLedgerPrefix());
+	// Delete balance records (BALANCE)
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), 'BALANCE');
 }

@@ -34,4 +34,5 @@ export interface IEvaluationRepo {
 	isRestDay(childId: number, date: string, tenantId: string): Promise<boolean>;
 	countRestDaysInMonth(childId: number, yearMonth: string, tenantId: string): Promise<number>;
 	findRestDays(childId: number, yearMonth: string, tenantId: string): Promise<RestDay[]>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

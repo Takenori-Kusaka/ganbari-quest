@@ -179,3 +179,9 @@ export async function findRestDays(childId: number, yearMonth: string, _tenantId
 		.orderBy(restDays.date)
 		.all();
 }
+
+/** テナントの全評価データを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(restDays).run();
+	db.delete(evaluations).run();
+}
