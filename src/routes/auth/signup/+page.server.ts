@@ -6,6 +6,7 @@ import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
 import {
 	authenticateWithCognito,
 	confirmSignUp,
+	resendConfirmationCode,
 	signUpWithCognito,
 } from '$lib/server/auth/providers/cognito-direct-auth';
 import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
@@ -92,6 +93,39 @@ export const actions: Actions = {
 
 		// 即時確認（auto-verify が有効な場合）
 		redirect(302, '/auth/login?registered=true');
+	},
+
+	resend: async ({ request }) => {
+		const formData = await request.formData();
+		const email = formData.get('email') as string;
+		const licenseKeyInput = (formData.get('licenseKey') as string)?.trim() || '';
+
+		if (!email) {
+			return fail(400, {
+				error: 'メールアドレスが指定されていません',
+				confirmStep: true,
+				email: '',
+				licenseKey: licenseKeyInput,
+			});
+		}
+
+		const result = await resendConfirmationCode(email);
+
+		if (!result.success) {
+			return fail(400, {
+				error: result.message,
+				confirmStep: true,
+				email,
+				licenseKey: licenseKeyInput,
+			});
+		}
+
+		return {
+			confirmStep: true,
+			email,
+			licenseKey: licenseKeyInput,
+			resent: true,
+		};
 	},
 
 	confirm: async ({ request, cookies, locals, getClientAddress }) => {

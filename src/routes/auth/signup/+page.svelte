@@ -17,9 +17,30 @@ let licenseKey = $state('');
 let codeRaw = $state('');
 const code = $derived(codeRaw.replace(/\s/g, ''));
 let loading = $state(false);
+let resending = $state(false);
 let agreedTerms = $state(false);
 let agreedPrivacy = $state(false);
 let showLicenseKey = $state(false);
+
+// 再送クールダウン（60秒）
+let resendCooldown = $state(0);
+let cooldownTimer: ReturnType<typeof setInterval> | null = null;
+let resendSuccess = $state(false);
+
+function startCooldown() {
+	resendCooldown = 60;
+	if (cooldownTimer) clearInterval(cooldownTimer);
+	cooldownTimer = setInterval(() => {
+		resendCooldown -= 1;
+		if (resendCooldown <= 0) {
+			resendCooldown = 0;
+			if (cooldownTimer) {
+				clearInterval(cooldownTimer);
+				cooldownTimer = null;
+			}
+		}
+	}, 1000);
+}
 
 // URL の plan パラメータ（pricing ページからの遷移用）
 const planParam = $derived($page.url.searchParams.get('plan'));
@@ -32,6 +53,18 @@ $effect(() => {
 	if (typeof form?.licenseKey === 'string') {
 		licenseKey = form.licenseKey;
 		if (form.licenseKey) showLicenseKey = true;
+	}
+});
+
+// 再送成功時にクールダウン開始
+$effect(() => {
+	if (form && 'resent' in form && form.resent) {
+		resendSuccess = true;
+		startCooldown();
+		// 3秒後に成功メッセージを消す
+		setTimeout(() => {
+			resendSuccess = false;
+		}, 3000);
 	}
 });
 </script>
@@ -99,6 +132,42 @@ $effect(() => {
 						確認中...
 					{:else}
 						確認する
+					{/if}
+				</Button>
+			</form>
+
+			{#if resendSuccess}
+				<div class="mt-3 p-3 bg-green-50 text-green-600 border border-green-200 rounded-[var(--radius-sm)] text-sm text-center" role="status">
+					確認コードを再送しました
+				</div>
+			{/if}
+
+			<form
+				method="POST"
+				action="?/resend"
+				use:enhance={() => {
+					resending = true;
+					return async ({ update }) => {
+						resending = false;
+						await update({ reset: false });
+					};
+				}}
+				class="mt-4 text-center"
+			>
+				<input type="hidden" name="email" value={email} />
+				<input type="hidden" name="licenseKey" value={licenseKey} />
+				<Button
+					type="submit"
+					variant="ghost"
+					size="sm"
+					disabled={resending || resendCooldown > 0}
+				>
+					{#if resending}
+						再送中...
+					{:else if resendCooldown > 0}
+						コードを再送する（{resendCooldown}秒後に再試行可能）
+					{:else}
+						コードを再送する
 					{/if}
 				</Button>
 			</form>
