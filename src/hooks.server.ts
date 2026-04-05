@@ -39,7 +39,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const ip = event.getClientAddress();
 		const isAuthRoute = path.startsWith('/auth/');
 		const { allowed, remaining, resetAt } = isAuthRoute
-			? checkAuthRateLimit(ip)
+			? checkAuthRateLimit(ip, event.request.method)
 			: checkApiRateLimit(ip);
 
 		if (!allowed) {
