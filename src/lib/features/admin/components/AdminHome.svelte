@@ -3,11 +3,14 @@ import { invalidateAll } from '$app/navigation';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
+import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import {
 	dismissTutorialBanner,
 	markTutorialStarted,
 	startTutorial,
 } from '$lib/ui/tutorial/tutorial-store.svelte';
+import ChildListCard from './ChildListCard.svelte';
 import NotificationPermissionBanner from './NotificationPermissionBanner.svelte';
 import OnboardingChecklist from './OnboardingChecklist.svelte';
 import PremiumWelcome from './PremiumWelcome.svelte';
@@ -17,8 +20,10 @@ interface ChildSummary {
 	nickname: string;
 	age: number;
 	uiMode: string;
+	theme: string;
 	balance: number;
 	avatarUrl?: string | null;
+	birthDate?: string | null;
 	level?: number;
 	levelTitle?: string;
 }
@@ -155,18 +160,12 @@ function childLink(child: ChildSummary): string {
 					<p class="text-sm text-gray-500">チュートリアルで使い方を確認しましょう（約3分）</p>
 				</div>
 				<div class="flex gap-2">
-					<button
-						class="px-3 py-1.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors"
-						onclick={handleStartTutorial}
-					>
+					<Button variant="primary" size="sm" onclick={handleStartTutorial}>
 						開始
-					</button>
-					<button
-						class="px-3 py-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors"
-						onclick={handleDismissBanner}
-					>
+					</Button>
+					<Button variant="ghost" size="sm" onclick={handleDismissBanner}>
 						あとで
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>
@@ -220,17 +219,17 @@ function childLink(child: ChildSummary): string {
 	{/if}
 
 	<!-- Summary Cards -->
-	<div class="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tutorial="summary-cards">
-		<div class="bg-white rounded-xl p-4 shadow-sm text-center">
-			<p class="text-2xl font-bold text-blue-600">{children.length}</p>
-			<p class="text-xs text-gray-500 mt-1">こどもの数</p>
-		</div>
-		<div class="bg-white rounded-xl p-4 shadow-sm text-center">
-			<p class="text-2xl font-bold text-amber-500">
+	<div class="grid grid-cols-2 gap-3" data-tutorial="summary-cards">
+		<Card variant="elevated" class="text-center">
+			<p class="text-2xl font-bold text-[var(--color-action-primary)]">{children.length}</p>
+			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">こどもの数</p>
+		</Card>
+		<Card variant="elevated" class="text-center">
+			<p class="text-2xl font-bold text-[var(--color-gold-500)]">
 				{fmtBal(children.reduce((sum, c) => sum + c.balance, 0))}
 			</p>
-			<p class="text-xs text-gray-500 mt-1">合計{unit}</p>
-		</div>
+			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">合計{unit}</p>
+		</Card>
 	</div>
 
 	<!-- Monthly Summary -->
@@ -272,31 +271,24 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Children Overview -->
 	<section data-tutorial="children-overview">
-		<h2 class="text-lg font-bold text-gray-700 mb-3">こども一覧</h2>
+		<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">こども一覧</h2>
 		{#if children.length === 0}
-			<div class="bg-white rounded-xl p-8 shadow-sm text-center text-gray-400">
+			<Card class="p-8 text-center text-[var(--color-text-tertiary)]">
 				<p>まだこどもが登録されていません</p>
-			</div>
+			</Card>
 		{:else}
 			<div class="grid gap-3">
 				{#each children as child}
-					<a
+					<ChildListCard
+						child={{
+							...child,
+							theme: child.theme,
+							level: child.level ?? 1,
+						}}
+						isSelected={false}
 						href={childLink(child)}
-						class="bg-white rounded-xl p-4 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow"
-					>
-						{#if child.avatarUrl}
-							<img src={child.avatarUrl} alt={child.nickname} class="w-10 h-10 rounded-full object-cover" loading="lazy" />
-						{:else}
-							<span class="text-3xl">👤</span>
-						{/if}
-						<div class="flex-1">
-							<p class="font-bold text-gray-700">{child.nickname}</p>
-							<p class="text-sm text-gray-400">{child.age}歳 / {child.uiMode}</p>
-						</div>
-						<div class="text-right">
-							<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance)}</p>
-						</div>
-					</a>
+						formatBalance={fmtBal}
+					/>
 				{/each}
 			</div>
 		{/if}
