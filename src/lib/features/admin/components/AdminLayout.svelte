@@ -64,8 +64,8 @@ const navCategories: NavCategory[] = $derived([
 		icon: '💬',
 		items: [
 			{ href: `${basePath}/points`, label: 'ポイント', icon: '⭐' },
+			{ href: `${basePath}/messages`, label: 'おうえん', icon: '💌' },
 			{ href: `${basePath}/rewards`, label: 'ごほうび', icon: '🎁' },
-			{ href: `${basePath}/messages`, label: 'メッセージ', icon: '💌' },
 		],
 	},
 	{
@@ -194,7 +194,7 @@ function isItemActive(itemHref: string): boolean {
 	</header>
 
 	<!-- Desktop Navigation (>=768px) — 4カテゴリ + ドロップダウン -->
-	<nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2" aria-label="管理メニュー">
+	<nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2" aria-label="管理メニュー" data-tutorial="nav-desktop">
 		<div class="max-w-4xl mx-auto flex gap-1">
 			{#each navCategories as category}
 				{@const isActive = activeCategoryId === category.id}

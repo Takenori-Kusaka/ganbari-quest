@@ -29,6 +29,14 @@ const themeEmojis: Record<string, string> = {
 	purple: '💜',
 };
 
+const uiModeLabels: Record<string, string> = {
+	baby: 'あかちゃん',
+	kinder: 'ようちえん',
+	lower: 'しょうがく低学年',
+	upper: 'しょうがく高学年',
+	teen: 'ティーン',
+};
+
 function formatBirthday(dateStr: string): string {
 	const d = new Date(dateStr);
 	return `${d.getMonth() + 1}月${d.getDate()}日`;
@@ -48,7 +56,7 @@ function formatBirthday(dateStr: string): string {
 			<div class="child-list-card__info">
 				<p class="child-list-card__name">{child.nickname}</p>
 				<p class="child-list-card__meta">
-					{child.age}歳 / {child.uiMode} / {themeEmojis[child.theme] ?? '🩷'}
+					{child.age}歳 / {uiModeLabels[child.uiMode] ?? child.uiMode} / {themeEmojis[child.theme] ?? '🩷'}
 				</p>
 				{#if child.birthDate}
 					<p class="child-list-card__birthday">🎂 {formatBirthday(child.birthDate)}</p>

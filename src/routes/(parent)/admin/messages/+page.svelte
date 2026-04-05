@@ -36,6 +36,20 @@ function selectStamp(code: string) {
 </svelte:head>
 
 <div class="space-y-6">
+	<!-- Page Description -->
+	<div class="page-description">
+		<p class="page-description__title">💌 おうえんメッセージ</p>
+		<p class="page-description__text">
+			スタンプやメッセージでこどもを応援しましょう。
+			こどもの画面にスタンプが届き、親からの気持ちが伝わります。
+		</p>
+		<p class="page-description__hint">
+			🎁 特別なボーナスポイントの付与は
+			<a href="/admin/rewards" class="page-description__link">ごほうび</a>
+			から行えます
+		</p>
+	</div>
+
 	<!-- Step 1: Select child -->
 	<section>
 		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">1. こどもを選択</h3>
@@ -202,3 +216,38 @@ function selectStamp(code: string) {
 		</section>
 	{/if}
 </div>
+
+<style>
+	.page-description {
+		background: var(--color-surface-card);
+		border-radius: 0.75rem;
+		padding: 1rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+	}
+	.page-description__title {
+		font-size: 0.9375rem;
+		font-weight: 700;
+		color: var(--color-text);
+		margin-bottom: 0.25rem;
+	}
+	.page-description__text {
+		font-size: 0.8125rem;
+		color: var(--color-text-muted);
+		line-height: 1.5;
+	}
+	.page-description__hint {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		margin-top: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.06));
+	}
+	.page-description__link {
+		color: var(--color-action-primary);
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.page-description__link:hover {
+		text-decoration: underline;
+	}
+</style>
