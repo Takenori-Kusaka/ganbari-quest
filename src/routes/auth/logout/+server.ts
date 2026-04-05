@@ -24,7 +24,15 @@ function handleLogout(cookies: import('@sveltejs/kit').Cookies): never {
 
 	// Cognito 本番モードのみ Hosted UI ログアウトにリダイレクト（dev モードは除外）
 	if (getAuthMode() === 'cognito' && !isCognitoDevMode()) {
-		redirect(302, buildLogoutUrl());
+		try {
+			const logoutUrl = buildLogoutUrl();
+			// COGNITO_DOMAIN 未設定時のフォールバック URL を検出してスキップ
+			if (logoutUrl && !logoutUrl.includes('localhost')) {
+				redirect(302, logoutUrl);
+			}
+		} catch {
+			// buildLogoutUrl 失敗時は Cookie 削除済みなのでログインへ
+		}
 	}
 
 	redirect(302, '/auth/login');

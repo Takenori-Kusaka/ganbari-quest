@@ -38,6 +38,11 @@ export class ComputeStack extends cdk.Stack {
 			this,
 			'/ganbari-quest/cognito/client-id',
 		);
+		// Cognito Hosted UI ドメイン（Google OAuth 有効時に auth-stack が SSM に書き込む）
+		const cognitoDomain = ssm.StringParameter.valueForStringParameter(
+			this,
+			'/ganbari-quest/cognito/domain',
+		);
 		const contextTokenSecret = ssm.StringParameter.valueForStringParameter(
 			this,
 			'/ganbari-quest/context-token-secret',
@@ -88,6 +93,8 @@ export class ComputeStack extends cdk.Stack {
 				AUTH_MODE: 'cognito',
 				COGNITO_USER_POOL_ID: cognitoUserPoolId,
 				COGNITO_CLIENT_ID: cognitoClientId,
+				COGNITO_DOMAIN: cognitoDomain,
+				COGNITO_CALLBACK_URL: 'https://ganbari-quest.com/auth/callback',
 				CONTEXT_TOKEN_SECRET: contextTokenSecret,
 				MAINTENANCE_MODE: 'false',
 				...(feedbackDiscordWebhookUrl
