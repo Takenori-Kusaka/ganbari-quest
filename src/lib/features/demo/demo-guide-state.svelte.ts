@@ -11,6 +11,12 @@ export interface GuideStep {
 	matchPath: string;
 	/** URL to navigate to for this step */
 	href: string;
+	/**
+	 * If true, this step requires an explicit action (e.g. recording an activity)
+	 * and should NOT show the "つぎへ" navigation button.
+	 * Advance via advanceStep() from the action handler.
+	 */
+	requiresAction?: boolean;
 }
 
 export const GUIDE_STEPS: GuideStep[] = [
@@ -27,6 +33,7 @@ export const GUIDE_STEPS: GuideStep[] = [
 		description: 'かつどうカードをタップして きろくしてみましょう',
 		matchPath: '/demo/kinder/home',
 		href: '/demo/kinder/home?childId=902',
+		requiresAction: true,
 	},
 	{
 		id: 3,
@@ -62,7 +69,27 @@ export function startGuide() {
 }
 
 export function dismissGuide() {
+	guideActive = false;
 	guideDismissed = true;
+}
+
+/**
+ * Restart a previously dismissed guide from the beginning.
+ */
+export function restartGuide() {
+	guideActive = true;
+	currentStep = 0;
+	guideDismissed = false;
+}
+
+/**
+ * Reset guide state when navigating back to /demo top.
+ * Deactivates the guide without marking it as dismissed,
+ * so the "ガイドを再開" button can offer to restart.
+ */
+export function resetGuide() {
+	guideActive = false;
+	currentStep = 0;
 }
 
 export function advanceStep() {
@@ -71,10 +98,25 @@ export function advanceStep() {
 	}
 }
 
+/**
+ * Go back one step.
+ */
+export function goBack() {
+	if (currentStep > 0) {
+		currentStep--;
+	}
+}
+
 export function getGuideState() {
 	return {
 		get active() {
 			return guideActive && !guideDismissed;
+		},
+		get dismissed() {
+			return guideDismissed;
+		},
+		get wasStarted() {
+			return guideActive || guideDismissed;
 		},
 		get currentStep() {
 			return currentStep;
@@ -84,6 +126,9 @@ export function getGuideState() {
 		},
 		get totalSteps() {
 			return GUIDE_STEPS.length;
+		},
+		get isFirstStep() {
+			return currentStep === 0;
 		},
 		get isLastStep() {
 			return currentStep >= GUIDE_STEPS.length - 1;
@@ -98,6 +143,8 @@ export function getGuideState() {
  * 同一 matchPath が連続するステップ（例: ステップ1→2は共に /demo/kinder/home）では
  * URL遷移だけでは区別できないため auto-advance をスキップする。
  * そのようなステップは advanceStep() で明示的に進める。
+ *
+ * requiresAction ステップも auto-advance をスキップする。
  */
 export function checkAutoAdvance(pathname: string) {
 	if (!guideActive || guideDismissed) return;
@@ -107,6 +154,13 @@ export function checkAutoAdvance(pathname: string) {
 
 	const nextStep = GUIDE_STEPS[nextStepIndex];
 	if (!nextStep || !pathname.startsWith(nextStep.matchPath)) return;
+
+	// 現在のステップが requiresAction なら、パス遷移だけではスキップさせない
+	const currentStepDef = GUIDE_STEPS[currentStep];
+	if (currentStepDef?.requiresAction) return;
+
+	// 次のステップが requiresAction の場合も明示的な advanceStep() を待つ
+	if (nextStep.requiresAction) return;
 
 	// 現在のステップと次のステップが同一パスならスキップ（手動遷移を待つ）
 	const currentMatchPath = GUIDE_STEPS[currentStep]?.matchPath;
