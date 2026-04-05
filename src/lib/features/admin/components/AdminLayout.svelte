@@ -200,7 +200,7 @@ function isItemActive(itemHref: string): boolean {
 		</div>
 	</header>
 
-	<!-- Desktop Navigation (>=768px) -->
+	<!-- Desktop Navigation (>=768px) — 4カテゴリ + ドロップダウン -->
 	<nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2" aria-label="管理メニュー">
 		<div class="max-w-4xl mx-auto flex gap-1">
 			{#each navCategories as category}
@@ -262,7 +262,7 @@ function isItemActive(itemHref: string): boolean {
 		{/if}
 	</main>
 
-	<!-- Mobile Bottom Navigation (<768px) -->
+	<!-- Mobile Bottom Navigation (<768px) — 4カテゴリ -->
 	<nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom" aria-label="メインナビゲーション" data-tutorial="nav-primary">
 		<!-- Expanded submenu panel -->
 		{#if mobileExpandedCategory}

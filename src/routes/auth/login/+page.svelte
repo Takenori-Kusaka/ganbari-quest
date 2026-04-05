@@ -1,4 +1,5 @@
 <script lang="ts">
+import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
@@ -16,21 +17,73 @@ const f = () => form as Record<string, unknown> | null;
 let email = $state('');
 let password = $state('');
 let mfaCodeRaw = $state('');
+let confirmCodeRaw = $state('');
 
-// サーバーレスポンス（form）からのメールアドレス復元
+// サーバーレスポンス（form）からのメールアドレス復元（パスワードはクライアント状態のみ）
 $effect(() => {
 	const formEmail = form?.email;
 	if (typeof formEmail === 'string') email = formEmail;
 });
 const mfaCode = $derived(mfaCodeRaw.replace(/\s/g, ''));
+const confirmCode = $derived(confirmCodeRaw.replace(/\s/g, ''));
 let loading = $state(false);
+let resending = $state(false);
+
+// 再送クールダウン（60秒）
+let resendCooldown = $state(0);
+let cooldownTimer: ReturnType<typeof setInterval> | null = null;
+let messageTimeout: ReturnType<typeof setTimeout> | null = null;
+let resendSuccess = $state(false);
+
+// コンポーネント破棄時にタイマーをクリーンアップ
+onDestroy(() => {
+	if (cooldownTimer) clearInterval(cooldownTimer);
+	if (messageTimeout) clearTimeout(messageTimeout);
+});
+
+function startCooldown() {
+	resendCooldown = 60;
+	if (cooldownTimer) clearInterval(cooldownTimer);
+	cooldownTimer = setInterval(() => {
+		resendCooldown -= 1;
+		if (resendCooldown <= 0) {
+			resendCooldown = 0;
+			if (cooldownTimer) {
+				clearInterval(cooldownTimer);
+				cooldownTimer = null;
+			}
+		}
+	}, 1000);
+}
 
 // MFA ステップ: サーバーから session/challengeName が返ってきた場合
 let mfaStep = $derived((f()?.mfaStep as boolean) ?? false);
 let mfaSession = $derived((f()?.session as string) ?? '');
 let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 
+// 確認コードステップ: UNCONFIRMED ユーザーのリカバリ
+let confirmStep = $derived((f()?.confirmStep as boolean) ?? false);
+
 const passwordReset = $derived($page.url.searchParams.get('passwordReset') === 'true');
+
+// 再送成功時にクールダウン開始
+$effect(() => {
+	if (form && 'resent' in form && form.resent) {
+		resendSuccess = true;
+		startCooldown();
+		if (messageTimeout) clearTimeout(messageTimeout);
+		messageTimeout = setTimeout(() => {
+			resendSuccess = false;
+		}, 3000);
+	}
+});
+
+// 確認ステップに初めて入った時（ログイン時の自動再送後）もクールダウン開始
+$effect(() => {
+	if (confirmStep && resendCooldown === 0 && !resendSuccess) {
+		startCooldown();
+	}
+});
 </script>
 
 <svelte:head>
@@ -59,7 +112,92 @@ const passwordReset = $derived($page.url.searchParams.get('passwordReset') === '
 			</div>
 		{/if}
 
-		{#if mfaStep}
+		{#if confirmStep}
+			<!-- UNCONFIRMED ユーザー: 確認コード入力 -->
+			<p class="text-sm text-[var(--color-text-muted)] text-center mb-2 font-semibold">メール認証</p>
+
+			<form
+				method="POST"
+				action="?/confirmCode"
+				use:enhance={() => {
+					loading = true;
+					return async ({ update }) => {
+						loading = false;
+						await update({ reset: false });
+					};
+				}}
+				class="flex flex-col gap-5"
+			>
+				<input type="hidden" name="email" value={email} />
+				<input type="hidden" name="password" value={password} />
+
+				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
+					<strong>{email}</strong> に確認コードを送信しました。<br />
+					メールに記載された6桁のコードを入力してください。
+				</p>
+
+				<FormField label="確認コード" id="confirmCode">
+					{#snippet children()}
+						<input
+							id="confirmCode"
+							name="code"
+							type="text"
+							bind:value={confirmCodeRaw}
+							placeholder="123456"
+							required
+							inputmode="numeric"
+							autocomplete="one-time-code"
+							class="px-4 py-3 border border-[var(--input-border)] rounded-[var(--input-radius)] text-2xl text-center tracking-[0.5em] font-mono
+								focus:border-[var(--input-border-focus)] focus:ring-2 focus:ring-[var(--color-brand-300)] focus:ring-opacity-50 outline-none transition-colors"
+						/>
+					{/snippet}
+				</FormField>
+
+				<Button type="submit" disabled={loading || confirmCode.length < 1} size="md" class="w-full">
+					{#if loading}
+						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
+						確認中...
+					{:else}
+						確認する
+					{/if}
+				</Button>
+			</form>
+
+			{#if resendSuccess}
+				<div class="mt-3 p-3 bg-green-50 text-green-600 border border-green-200 rounded-[var(--radius-sm)] text-sm text-center" role="status">
+					確認コードを再送しました
+				</div>
+			{/if}
+
+			<form
+				method="POST"
+				action="?/resendFromLogin"
+				use:enhance={() => {
+					resending = true;
+					return async ({ update }) => {
+						resending = false;
+						await update({ reset: false });
+					};
+				}}
+				class="mt-4 text-center"
+			>
+				<input type="hidden" name="email" value={email} />
+				<Button
+					type="submit"
+					variant="ghost"
+					size="sm"
+					disabled={resending || resendCooldown > 0}
+				>
+					{#if resending}
+						再送中...
+					{:else if resendCooldown > 0}
+						コードを再送する（{resendCooldown}秒後に再試行可能）
+					{:else}
+						コードを再送する
+					{/if}
+				</Button>
+			</form>
+		{:else if mfaStep}
 			<!-- MFA コード入力フォーム -->
 			<form
 				method="POST"

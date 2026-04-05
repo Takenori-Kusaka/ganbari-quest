@@ -131,12 +131,12 @@
     <a href="index.html" class="logo">
       <img src="logo-compact.png" alt="がんばりクエスト" height="44">
     </a>
-    <button class="hamburger" aria-label="メニュー" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.textContent==='&#9776;'?'&#10005;':'&#9776;'">&#9776;</button>
-    <nav class="header-nav">
-      <a href="index.html">ホーム</a>
-      <a href="index.html#features">できること</a>
-      <a href="index.html#faq">よくある質問</a>
-      <a href="https://ganbari-quest.com/demo" class="btn btn-outline">デモ体験</a>
+    <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
+    <nav id="main-nav" class="header-nav">
+      <a href="index.html" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="index.html#features" onclick="this.parentElement.classList.remove('open')">できること</a>
+      <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモ体験</a>
       <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
     </nav>
   </div>
@@ -404,8 +404,10 @@
     </div>
     <div class="footer-links">
       <h4>リンク</h4>
-      <a href="index.html">ホーム</a>
+      <a href="pricing.html">料金プラン</a>
       <a href="https://github.com/Takenori-Kusaka/ganbari-quest">GitHub</a>
+      <a href="https://discord.gg/5pWkf4Z5">Discordコミュニティ</a>
+      <a href="https://github.com/sponsors/Takenori-Kusaka">Sponsor</a>
       <a href="https://ganbari-quest.com/auth/login">ログイン</a>
     </div>
     <div class="footer-links">
