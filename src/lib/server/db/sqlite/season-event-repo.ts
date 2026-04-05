@@ -150,3 +150,9 @@ export async function claimReward(
 		.where(and(eq(childEventProgress.childId, childId), eq(childEventProgress.eventId, eventId)))
 		.run();
 }
+
+/** テナントの全シーズンイベントデータを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(childEventProgress).run();
+	db.delete(seasonEvents).run();
+}

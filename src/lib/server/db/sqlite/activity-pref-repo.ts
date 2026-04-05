@@ -145,3 +145,8 @@ export async function getUsageCounts(
 		.groupBy(activityLogs.activityId)
 		.all();
 }
+
+/** テナントの全活動ピン留め設定を削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(childActivityPreferences).run();
+}

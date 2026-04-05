@@ -10,6 +10,7 @@ import type {
 	InsertEvaluationInput,
 	RestDay,
 } from '../types';
+import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -309,4 +310,9 @@ export async function findRestDays(
 	_tenantId: string,
 ): Promise<RestDay[]> {
 	return [];
+}
+
+/** テナントの全評価データを削除（CHILD#* 配下の EVAL# アイテム） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), evaluationPrefix());
 }

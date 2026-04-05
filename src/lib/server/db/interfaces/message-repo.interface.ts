@@ -6,4 +6,5 @@ export interface IMessageRepo {
 	findUnshownMessage(childId: number, tenantId: string): Promise<ParentMessage | undefined>;
 	countUnshownMessages(childId: number, tenantId: string): Promise<number>;
 	markMessageShown(messageId: number, tenantId: string): Promise<ParentMessage | undefined>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

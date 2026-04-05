@@ -50,3 +50,8 @@ export async function updateChildAvatarUrl(childId: number, avatarUrl: string, _
 export async function findChildForImage(childId: number, _tenantId: string) {
 	return db.select().from(children).where(eq(children.id, childId)).get();
 }
+
+/** テナントの全キャラクター画像レコードを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(characterImages).run();
+}

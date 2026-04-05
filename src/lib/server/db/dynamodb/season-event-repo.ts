@@ -83,3 +83,8 @@ export async function claimReward(
 ): Promise<void> {
 	throw new Error(NOT_IMPL);
 }
+
+/** テナントの全シーズンイベントを削除（DynamoDB未実装: 書き込みがないため no-op） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	// DynamoDB season-event repo は未実装のため書き込みデータなし — no-op
+}

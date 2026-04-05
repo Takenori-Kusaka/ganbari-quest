@@ -47,4 +47,7 @@ export interface IChecklistRepo {
 	findOverrides(childId: number, date: string, tenantId: string): Promise<ChecklistOverride[]>;
 	insertOverride(input: InsertChecklistOverrideInput, tenantId: string): Promise<ChecklistOverride>;
 	deleteOverride(id: number, tenantId: string): Promise<void>;
+
+	// Tenant bulk deletion
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

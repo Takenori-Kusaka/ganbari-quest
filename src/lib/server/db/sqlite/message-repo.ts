@@ -57,3 +57,8 @@ export async function markMessageShown(messageId: number, _tenantId: string) {
 		.returning()
 		.get();
 }
+
+/** テナントの全メッセージを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(parentMessages).run();
+}

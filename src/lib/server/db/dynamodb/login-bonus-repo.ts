@@ -3,9 +3,10 @@
 
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { Child, InsertLoginBonusInput, LoginBonus } from '../types';
+import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { childKey, childPK, ENTITY_NAMES, loginBonusKey, loginBonusPrefix } from './keys';
+import { childKey, childPK, ENTITY_NAMES, loginBonusKey, loginBonusPrefix, tenantPK } from './keys';
 
 /** Strip PK/SK/GSI keys from a DynamoDB item */
 function stripKeys<T extends Record<string, unknown>>(
@@ -103,4 +104,9 @@ export async function findChildById(id: number, tenantId: string): Promise<Child
 
 	if (!result.Item) return undefined;
 	return stripKeys(result.Item) as unknown as Child;
+}
+
+/** テナントの全ログインボーナスを削除（CHILD#* 配下の LOGIN# アイテム） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), loginBonusPrefix());
 }

@@ -5,4 +5,5 @@ export interface ISiblingCheerRepo {
 	findUnshownCheers(toChildId: number, tenantId: string): Promise<SiblingCheer[]>;
 	markShown(cheerIds: number[], tenantId: string): Promise<void>;
 	countTodayCheersFrom(fromChildId: number, tenantId: string): Promise<number>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

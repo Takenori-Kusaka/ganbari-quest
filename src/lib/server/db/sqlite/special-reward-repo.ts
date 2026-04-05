@@ -48,3 +48,8 @@ export async function markRewardShown(rewardId: number, _tenantId: string) {
 		.returning()
 		.get();
 }
+
+/** テナントの全特別報酬を削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(specialRewards).run();
+}

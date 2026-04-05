@@ -45,3 +45,8 @@ export async function insertLoginBonus(
 export async function findChildById(id: number, _tenantId: string) {
 	return db.select().from(children).where(eq(children.id, id)).get();
 }
+
+/** テナントの全ログインボーナスを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(loginBonuses).run();
+}
