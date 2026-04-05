@@ -15,6 +15,9 @@ export const findUserById: IAuthRepo['findUserById'] = async () => {
 export const createUser: IAuthRepo['createUser'] = async () => {
 	throw new Error(NOT_SUPPORTED);
 };
+export const deleteUser: IAuthRepo['deleteUser'] = async () => {
+	throw new Error(NOT_SUPPORTED);
+};
 export const findTenantById: IAuthRepo['findTenantById'] = async () => {
 	// local モード用ダミーテナント
 	return {
@@ -50,6 +53,12 @@ export const updateTenantStatus: IAuthRepo['updateTenantStatus'] = async () => {
 };
 export const updateTenantStripe: IAuthRepo['updateTenantStripe'] = async () => {
 	// no-op in local mode
+};
+export const updateTenantOwner: IAuthRepo['updateTenantOwner'] = async () => {
+	throw new Error(NOT_SUPPORTED);
+};
+export const deleteTenant: IAuthRepo['deleteTenant'] = async () => {
+	throw new Error(NOT_SUPPORTED);
 };
 export const findMembership: IAuthRepo['findMembership'] = async () => {
 	throw new Error(NOT_SUPPORTED);
