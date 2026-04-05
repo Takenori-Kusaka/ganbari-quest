@@ -9,8 +9,9 @@ import {
 	findEntriesWithMasterByCardId,
 	insertCard,
 	insertEntry,
-	updateCardStatus,
+	updateCardStatusIfCollecting,
 } from '$lib/server/db/stamp-card-repo';
+import { logger } from '$lib/server/logger';
 
 // レア度別排出確率
 const RARITY_WEIGHTS: Record<string, number> = {
@@ -28,9 +29,14 @@ const RARITY_MULTIPLIER: Record<string, number> = {
 	UR: 8,
 };
 
-const BASE_POINTS_PER_STAMP = 10;
-const COMPLETE_BONUS = 30;
-const MAX_SLOTS = 5;
+/** 押印時に即座に付与されるポイント（固定） */
+const INSTANT_STAMP_POINTS = 5;
+/** 週末redeem時のレアリティ別ボーナス基礎値 */
+const RARITY_BONUS_PER_STAMP = 5;
+/** 7/7コンプリートボーナス（週末redeem時） */
+const COMPLETE_BONUS = 50;
+/** 週間スロット数（月〜日の7日） */
+const MAX_SLOTS = 7;
 
 export interface StampMasterData {
 	id: number;
@@ -64,15 +70,15 @@ export interface StampCardData {
 
 /** 今週の月曜日と日曜日を取得 */
 function getWeekRange(dateStr: string): { weekStart: string; weekEnd: string } {
-	const d = new Date(`${dateStr}T00:00:00`);
-	const day = d.getDay();
+	const d = new Date(`${dateStr}T00:00:00Z`);
+	const day = d.getUTCDay();
 	const diffToMonday = day === 0 ? -6 : 1 - day;
 	const monday = new Date(d);
-	monday.setDate(d.getDate() + diffToMonday);
+	monday.setUTCDate(d.getUTCDate() + diffToMonday);
 	const sunday = new Date(monday);
-	sunday.setDate(monday.getDate() + 6);
+	sunday.setUTCDate(monday.getUTCDate() + 6);
 	const fmt = (dt: Date) =>
-		`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+		`${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
 	return { weekStart: fmt(monday), weekEnd: fmt(sunday) };
 }
 
@@ -164,14 +170,13 @@ export async function getOrCreateCurrentCard(
 	};
 }
 
-/** スタンプを押印する */
+/** スタンプを押印する（即時 INSTANT_STAMP_POINTS pt 付与） */
 export async function stampToday(
 	childId: number,
 	tenantId: string,
-	omikujiRank?: string,
 ): Promise<
 	| { error: 'ALREADY_STAMPED' | 'CARD_FULL' | 'NOT_COLLECTING' }
-	| { stamp: StampEntryData; cardData: StampCardData }
+	| { stamp: StampEntryData; cardData: StampCardData; instantPoints: number }
 > {
 	const today = todayDateJST();
 	const cardData = await getOrCreateCurrentCard(childId, tenantId);
@@ -185,12 +190,12 @@ export async function stampToday(
 		return { error: 'ALREADY_STAMPED' };
 	}
 
-	// 5枠すべて埋まっている
+	// 7枠すべて埋まっている
 	if (cardData.filledSlots >= MAX_SLOTS) {
 		return { error: 'CARD_FULL' };
 	}
 
-	// ランダムスタンプを選出（後方互換のため残す）
+	// ランダムスタンプを選出（レアリティで抽選）
 	const enabledStamps = await getEnabledStamps(tenantId);
 	if (enabledStamps.length === 0) {
 		throw new Error('No enabled stamps available');
@@ -198,12 +203,11 @@ export async function stampToday(
 	const picked = pickRandomStamp(enabledStamps);
 	const nextSlot = cardData.filledSlots + 1;
 
-	// 挿入（omikujiRank があればセット）
 	await insertEntry(
 		{
 			cardId: cardData.id,
 			stampMasterId: picked.id,
-			omikujiRank: omikujiRank ?? null,
+			omikujiRank: null,
 			slot: nextSlot,
 			loginDate: today,
 		},
@@ -213,41 +217,66 @@ export async function stampToday(
 	const entry: StampEntryData = {
 		slot: nextSlot,
 		stampMasterId: picked.id,
-		omikujiRank: omikujiRank ?? null,
-		name: omikujiRank ?? picked.name,
+		omikujiRank: null,
+		name: picked.name,
 		emoji: picked.emoji,
 		rarity: picked.rarity,
 		loginDate: today,
 	};
 
+	// 即時ポイント付与（毎日の小さな報酬）
+	try {
+		await insertPointEntry(
+			{
+				childId,
+				amount: INSTANT_STAMP_POINTS,
+				type: 'stamp_instant',
+				description: `スタンプ押印 +${INSTANT_STAMP_POINTS}pt`,
+			},
+			tenantId,
+		);
+	} catch (error) {
+		logger.error('[stamp] insertPointEntry failed after stamp insert', {
+			error: String(error),
+			context: { childId, tenantId, cardId: cardData.id, slot: nextSlot },
+		});
+	}
+
 	// 更新後のカード取得
 	const updatedCard = await getOrCreateCurrentCard(childId, tenantId);
 
-	return { stamp: entry, cardData: updatedCard };
+	return { stamp: entry, cardData: updatedCard, instantPoints: INSTANT_STAMP_POINTS };
 }
 
-/** スタンプカードのポイントを計算 */
-function calcCardPoints(entries: StampEntryData[]): {
-	stampPoints: number;
+/** スタンプカードの週末 redeem ポイントを計算（レアリティボーナス + コンプリートボーナス） */
+function calcCardPoints(
+	entries: StampEntryData[],
+	loginMultiplier = 1,
+): {
+	rarityPoints: number;
 	completeBonus: number;
+	multiplier: number;
 	total: number;
 } {
-	let stampPoints = 0;
+	let rarityPoints = 0;
 	for (const entry of entries) {
-		const multiplier = RARITY_MULTIPLIER[entry.rarity] ?? 1;
-		stampPoints += BASE_POINTS_PER_STAMP * multiplier;
+		const rMult = RARITY_MULTIPLIER[entry.rarity] ?? 1;
+		rarityPoints += RARITY_BONUS_PER_STAMP * rMult;
 	}
 	const completeBonus = entries.length >= MAX_SLOTS ? COMPLETE_BONUS : 0;
-	return { stampPoints, completeBonus, total: stampPoints + completeBonus };
+	const subtotal = rarityPoints + completeBonus;
+	const total = Math.round(subtotal * loginMultiplier);
+	return { rarityPoints, completeBonus, multiplier: loginMultiplier, total };
 }
 
-/** スタンプカードをポイントに交換 */
+/** スタンプカードをポイントに交換（週末 redeem: レアリティボーナス + コンプリートボーナス） */
 export async function redeemStampCard(
 	childId: number,
 	tenantId: string,
+	loginMultiplier = 1,
 ): Promise<
 	| { error: 'NO_CARD' | 'ALREADY_REDEEMED' | 'EMPTY_CARD' }
-	| { points: number; stampPoints: number; completeBonus: number }
+	| { points: number; rarityPoints: number; completeBonus: number; multiplier: number }
 > {
 	const cardData = await getOrCreateCurrentCard(childId, tenantId);
 
@@ -259,11 +288,14 @@ export async function redeemStampCard(
 		return { error: 'EMPTY_CARD' };
 	}
 
-	const { stampPoints, completeBonus, total } = calcCardPoints(cardData.entries);
+	const { rarityPoints, completeBonus, multiplier, total } = calcCardPoints(
+		cardData.entries,
+		loginMultiplier,
+	);
 
-	// カードを引き換え済みに更新
+	// カードを引き換え済みに更新（冪等ガード: 同時リクエスト対策）
 	const now = new Date().toISOString();
-	await updateCardStatus(
+	const affected = await updateCardStatusIfCollecting(
 		cardData.id,
 		{
 			status: 'redeemed',
@@ -273,6 +305,10 @@ export async function redeemStampCard(
 		},
 		tenantId,
 	);
+
+	if (affected === 0) {
+		return { error: 'ALREADY_REDEEMED' as const };
+	}
 
 	// ポイント付与
 	await insertPointEntry(
@@ -285,7 +321,86 @@ export async function redeemStampCard(
 		tenantId,
 	);
 
-	return { points: total, stampPoints, completeBonus };
+	return { points: total, rarityPoints, completeBonus, multiplier };
+}
+
+/** 前週のカードを自動 redeem する（月曜初ログイン時に呼ばれる） */
+export async function autoRedeemPreviousWeek(
+	childId: number,
+	tenantId: string,
+	loginMultiplier = 1,
+): Promise<null | {
+	points: number;
+	rarityPoints: number;
+	completeBonus: number;
+	multiplier: number;
+	filledSlots: number;
+	totalSlots: number;
+}> {
+	const today = todayDateJST();
+	const { weekStart } = getWeekRange(today);
+
+	// 前週の月曜日を算出（UTC固定で計算し、Lambda環境のTZ影響を避ける）
+	const prevMonday = new Date(`${weekStart}T00:00:00Z`);
+	prevMonday.setUTCDate(prevMonday.getUTCDate() - 7);
+	const prevWeekStart = `${prevMonday.getUTCFullYear()}-${String(prevMonday.getUTCMonth() + 1).padStart(2, '0')}-${String(prevMonday.getUTCDate()).padStart(2, '0')}`;
+
+	const prevCard = await findCardByChildAndWeek(childId, prevWeekStart, tenantId);
+	if (!prevCard || prevCard.status === 'redeemed') {
+		return null;
+	}
+
+	// 前週カードのエントリを取得
+	const rawEntries = await findEntriesWithMasterByCardId(prevCard.id, tenantId);
+	if (rawEntries.length === 0) {
+		return null;
+	}
+
+	const entries: StampEntryData[] = rawEntries.map((e) => ({
+		slot: e.slot,
+		stampMasterId: e.stampMasterId,
+		omikujiRank: e.omikujiRank,
+		name: e.name ?? '?',
+		emoji: e.emoji ?? '',
+		rarity: e.rarity ?? 'N',
+		loginDate: e.loginDate,
+	}));
+
+	const { rarityPoints, completeBonus, multiplier, total } = calcCardPoints(
+		entries,
+		loginMultiplier,
+	);
+
+	// 冪等ガード: 同時リクエストで二重付与を防ぐ
+	const now = new Date().toISOString();
+	const affected = await updateCardStatusIfCollecting(
+		prevCard.id,
+		{ status: 'redeemed', redeemedPoints: total, redeemedAt: now, updatedAt: now },
+		tenantId,
+	);
+
+	if (affected === 0) {
+		return null;
+	}
+
+	await insertPointEntry(
+		{
+			childId,
+			amount: total,
+			type: 'stamp_card',
+			description: `先週のスタンプカード交換 (${entries.length}/${MAX_SLOTS}枠)`,
+		},
+		tenantId,
+	);
+
+	return {
+		points: total,
+		rarityPoints,
+		completeBonus,
+		multiplier,
+		filledSlots: entries.length,
+		totalSlots: MAX_SLOTS,
+	};
 }
 
 /** スタンプカードの状態を取得（ホーム画面用の簡易版） */

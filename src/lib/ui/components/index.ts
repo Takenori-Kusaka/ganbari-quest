@@ -14,6 +14,7 @@ export { default as PremiumBadge } from './PremiumBadge.svelte';
 export { default as PremiumModal } from './PremiumModal.svelte';
 export { default as ProgressMessage } from './ProgressMessage.svelte';
 export { default as RadarChart } from './RadarChart.svelte';
+export { default as StampPressOverlay } from './StampPressOverlay.svelte';
 export { default as StatusBar } from './StatusBar.svelte';
 export { default as StreakDisplay } from './StreakDisplay.svelte';
 export { default as SuccessAlert } from './SuccessAlert.svelte';

@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllChildren } from '$lib/server/db/child-repo';
+import { logger } from '$lib/server/logger';
 import {
 	cancelActivityLog,
 	getTodayRecordedActivityCounts,
@@ -31,6 +32,7 @@ import {
 	getUnshownReward,
 } from '$lib/server/services/special-reward-service';
 import {
+	autoRedeemPreviousWeek,
 	getStampCardStatus,
 	redeemStampCard,
 	stampToday,
@@ -253,20 +255,35 @@ export const actions: Actions = {
 		};
 	},
 
-	/** Unified login stamp: claims bonus + stamps card in one action */
+	/** Unified login stamp: records login + stamps card + auto-redeems previous week */
 	loginStamp: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const childId = Number(cookies.get('selectedChildId'));
 		if (Number.isNaN(childId)) return fail(400, { error: 'パラメータが不正です' });
 
+		// 1. Record login (for consecutive day tracking + multiplier)
 		const bonusResult = await claimLoginBonus(childId, tenantId);
 		const bonus = 'error' in bonusResult ? null : bonusResult;
 
-		const stampResult = await stampToday(childId, tenantId, bonus?.rank);
+		// 2. Stamp the card (instant 5pt)
+		const stampResult = await stampToday(childId, tenantId);
 		const stamp = 'error' in stampResult ? null : stampResult;
 
 		if (!bonus && !stamp) {
 			return fail(409, { error: 'きょうはもうスタンプをおしたよ！' });
+		}
+
+		// 3. Auto-redeem previous week's card (if available)
+		const loginMultiplier = bonus?.multiplier ?? 1;
+		let weeklyRedeem: Awaited<ReturnType<typeof autoRedeemPreviousWeek>> = null;
+		try {
+			weeklyRedeem = await autoRedeemPreviousWeek(childId, tenantId, loginMultiplier);
+		} catch (error) {
+			logger.error('[stamp] autoRedeemPreviousWeek failed', {
+				error: String(error),
+				context: { childId, tenantId },
+			});
+			weeklyRedeem = null;
 		}
 
 		return {
@@ -275,10 +292,11 @@ export const actions: Actions = {
 			stampEmoji: stamp?.stamp.emoji ?? '⭐',
 			stampRarity: stamp?.stamp.rarity ?? 'N',
 			stampName: stamp?.stamp.name ?? '',
-			omikujiRank: bonus?.rank ?? stamp?.stamp.omikujiRank ?? null,
-			totalPoints: bonus?.totalPoints ?? 0,
-			multiplier: bonus?.multiplier ?? 1,
+			instantPoints: stamp?.instantPoints ?? 0,
 			consecutiveLoginDays: bonus?.consecutiveLoginDays ?? 0,
+			multiplier: bonus?.multiplier ?? 1,
+			cardData: stamp?.cardData ?? null,
+			weeklyRedeem,
 		};
 	},
 
@@ -338,7 +356,7 @@ export const actions: Actions = {
 		return {
 			success: true,
 			totalPoints: result.points,
-			stampPoints: result.stampPoints,
+			rarityPoints: result.rarityPoints,
 			completeBonus: result.completeBonus,
 		};
 	},
