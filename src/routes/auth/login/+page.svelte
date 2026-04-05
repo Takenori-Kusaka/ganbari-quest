@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { page } from '$app/stores';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -28,6 +29,8 @@ let loading = $state(false);
 let mfaStep = $derived((f()?.mfaStep as boolean) ?? false);
 let mfaSession = $derived((f()?.session as string) ?? '');
 let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
+
+const passwordReset = $derived($page.url.searchParams.get('passwordReset') === 'true');
 </script>
 
 <svelte:head>
@@ -43,6 +46,12 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 				<p class="text-sm text-[var(--color-text-muted)] mt-2 font-semibold">MFA認証</p>
 			{/if}
 		</div>
+
+		{#if passwordReset}
+			<div class="mb-4 p-3 bg-green-50 text-green-700 border border-green-200 rounded-[var(--radius-sm)] text-sm" role="status">
+				パスワードがリセットされました。新しいパスワードでログインしてください。
+			</div>
+		{/if}
 
 		{#if form?.error}
 			<div class="mb-4 p-3 bg-red-50 text-red-600 border border-red-200 rounded-[var(--radius-sm)] text-sm" role="alert">
@@ -143,6 +152,12 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 					minlength={8}
 					autocomplete="current-password"
 				/>
+
+				<div class="-mt-2 text-right">
+					<a href="/auth/forgot-password" class="text-xs text-[var(--color-text-link)] hover:underline">
+						パスワードを忘れた方はこちら
+					</a>
+				</div>
 
 				<Button type="submit" disabled={loading || !email || !password} size="md" class="w-full">
 					{#if loading}

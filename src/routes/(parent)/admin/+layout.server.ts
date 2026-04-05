@@ -40,6 +40,8 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 		pointSettingsRaw.tutorial_started_at || pointSettingsRaw.tutorial_banner_dismissed
 	);
 
+	const userRole = locals.context?.role ?? 'owner';
+
 	return {
 		pointSettings,
 		authMode,
@@ -47,6 +49,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 		isPremium,
 		planTier,
 		tutorialStarted,
+		userRole,
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,
 			daysRemaining: trialStatus.daysRemaining,

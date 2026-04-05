@@ -20,6 +20,7 @@ export interface IAuthRepo {
 	findUserByEmail(email: string): Promise<AuthUser | undefined>;
 	findUserById(userId: string): Promise<AuthUser | undefined>;
 	createUser(input: CreateUserInput): Promise<AuthUser>;
+	deleteUser(userId: string): Promise<void>;
 
 	// --- Tenant ---
 	findTenantById(tenantId: string): Promise<Tenant | undefined>;
@@ -39,6 +40,8 @@ export interface IAuthRepo {
 			licenseKey?: string;
 		},
 	): Promise<void>;
+	updateTenantOwner(tenantId: string, newOwnerId: string): Promise<void>;
+	deleteTenant(tenantId: string): Promise<void>;
 
 	// --- Membership ---
 	findMembership(userId: string, tenantId: string): Promise<Membership | undefined>;
