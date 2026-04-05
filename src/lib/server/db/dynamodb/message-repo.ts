@@ -35,3 +35,7 @@ export async function markMessageShown(
 ): Promise<ParentMessage | undefined> {
 	return undefined;
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error('DynamoDB deleteByTenantId for message-repo not implemented');
+}

@@ -131,3 +131,7 @@ export async function findChildById(id: number, tenantId: string): Promise<Child
 	if (!result.Item) return undefined;
 	return stripKeys(result.Item) as unknown as Child;
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error('DynamoDB deleteByTenantId for point-repo not implemented');
+}

@@ -32,4 +32,5 @@ export interface ISeasonEventRepo {
 		tenantId: string,
 	): Promise<void>;
 	claimReward(childId: number, eventId: number, tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

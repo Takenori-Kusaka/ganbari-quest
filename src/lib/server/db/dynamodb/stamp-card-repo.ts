@@ -55,3 +55,7 @@ export async function updateCardStatusIfCollecting(
 ): Promise<number> {
 	throw new Error('stamp-card-repo: DynamoDB not implemented');
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error('DynamoDB deleteByTenantId for stamp-card-repo not implemented');
+}

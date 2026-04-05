@@ -131,3 +131,7 @@ export async function getUsageCounts(
 		usageCount,
 	}));
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error('DynamoDB deleteByTenantId for activity-pref-repo not implemented');
+}

@@ -105,3 +105,7 @@ export async function findChildForImage(
 	if (!result.Item) return undefined;
 	return stripKeys(result.Item) as unknown as Child;
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error('DynamoDB deleteByTenantId for image-repo not implemented');
+}

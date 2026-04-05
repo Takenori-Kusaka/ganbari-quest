@@ -26,3 +26,7 @@ export async function upsert(_input: InsertReportDailySummaryInput): Promise<voi
 export async function deleteOlderThan(_tenantId: string, _cutoffDate: string): Promise<number> {
 	throw new Error(NOT_IMPL);
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error(NOT_IMPL);
+}

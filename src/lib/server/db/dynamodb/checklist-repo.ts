@@ -417,3 +417,7 @@ export async function deleteOverride(id: number): Promise<void> {
 		lastKey = result.LastEvaluatedKey;
 	} while (lastKey);
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error('DynamoDB deleteByTenantId for checklists not implemented');
+}

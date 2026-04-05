@@ -154,3 +154,7 @@ export async function markRewardShown(
 	if (!updateResult.Attributes) return undefined;
 	return stripKeys(updateResult.Attributes) as unknown as SpecialReward;
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error('DynamoDB deleteByTenantId for special-reward-repo not implemented');
+}

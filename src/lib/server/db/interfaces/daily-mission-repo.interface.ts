@@ -34,4 +34,5 @@ export interface IDailyMissionRepo {
 		activityId: number,
 		tenantId: string,
 	): Promise<void>;
+	deleteByTenantId(tenantId: string): Promise<void>;
 }

@@ -45,3 +45,7 @@ export async function update(
 export async function expireOldChallenges(_beforeDate: string, _tenantId: string): Promise<number> {
 	throw new Error(NOT_IMPL);
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error(NOT_IMPL);
+}

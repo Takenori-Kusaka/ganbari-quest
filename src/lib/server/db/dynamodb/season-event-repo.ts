@@ -83,3 +83,7 @@ export async function claimReward(
 ): Promise<void> {
 	throw new Error(NOT_IMPL);
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error(NOT_IMPL);
+}

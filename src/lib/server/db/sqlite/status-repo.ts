@@ -206,3 +206,10 @@ export async function findLastActivityDates(childId: number, _tenantId: string) 
 		.groupBy(activityLogs.activityId)
 		.all();
 }
+
+/** テナントの全ステータスデータを削除（SQLite: シングルテナントのため全行削除） */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(statusHistory).run();
+	db.delete(statuses).run();
+	db.delete(marketBenchmarks).run();
+}

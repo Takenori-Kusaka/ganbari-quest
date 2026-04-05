@@ -331,3 +331,7 @@ export async function insertDailyMission(
 		}),
 	);
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error('DynamoDB deleteByTenantId for daily-mission-repo not implemented');
+}

@@ -310,3 +310,7 @@ export async function findRestDays(
 ): Promise<RestDay[]> {
 	return [];
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error('DynamoDB deleteByTenantId for evaluation-repo not implemented');
+}

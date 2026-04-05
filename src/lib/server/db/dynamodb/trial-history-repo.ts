@@ -14,3 +14,7 @@ export async function findLatestByTenant(_tenantId: string): Promise<TrialHistor
 export async function insert(_input: InsertTrialHistoryInput): Promise<void> {
 	// TODO: DynamoDB implementation
 }
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	throw new Error('DynamoDB deleteByTenantId for trial-history-repo not implemented');
+}
