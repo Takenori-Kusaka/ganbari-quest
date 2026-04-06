@@ -96,7 +96,7 @@ describe('checkBirthdayStatus', () => {
 			age: 6,
 			birthDate: '2020-04-01',
 			theme: 'pink',
-			uiMode: 'kinder',
+			uiMode: 'preschool',
 			avatarUrl: null,
 			displayConfig: null,
 			userId: null,
