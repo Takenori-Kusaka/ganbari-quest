@@ -116,6 +116,7 @@ export async function insertTemplate(
 		icon: input.icon ?? '📋',
 		pointsPerItem: input.pointsPerItem ?? 5,
 		completionBonus: input.completionBonus ?? 10,
+		timeSlot: input.timeSlot ?? 'anytime',
 		isActive: input.isActive ?? 1,
 		createdAt: now,
 		updatedAt: now,
