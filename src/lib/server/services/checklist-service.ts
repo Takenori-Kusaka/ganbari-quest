@@ -22,6 +22,34 @@ import { insertPointEntry } from '$lib/server/db/point-repo';
 // Types
 // ============================================================
 
+export type TimeSlot = 'morning' | 'afternoon' | 'evening' | 'anytime';
+
+export const TIME_SLOT_LABELS: Record<TimeSlot, string> = {
+	morning: 'あさ',
+	afternoon: 'ひる',
+	evening: 'よる',
+	anytime: 'いつでも',
+};
+
+export const TIME_SLOT_ICONS: Record<TimeSlot, string> = {
+	morning: '☀️',
+	afternoon: '🌤️',
+	evening: '🌙',
+	anytime: '🕐',
+};
+
+/**
+ * 現在の時間帯を JST ベースで判定する。
+ * あさ: 5:00-11:59, ひる: 12:00-16:59, よる: 17:00-4:59
+ */
+export function getCurrentTimeSlot(): TimeSlot {
+	const now = new Date();
+	const jstHour = (now.getUTCHours() + 9) % 24;
+	if (jstHour >= 5 && jstHour < 12) return 'morning';
+	if (jstHour >= 12 && jstHour < 17) return 'afternoon';
+	return 'evening';
+}
+
 export interface ChecklistItem {
 	/** Template item ID (negative for override-added items) */
 	id: number;
@@ -35,6 +63,7 @@ export interface TodayChecklist {
 	templateId: number;
 	templateName: string;
 	templateIcon: string;
+	timeSlot: TimeSlot;
 	pointsPerItem: number;
 	completionBonus: number;
 	items: ChecklistItem[];
@@ -130,6 +159,7 @@ export async function getTodayChecklist(
 		templateId: template.id,
 		templateName: template.name,
 		templateIcon: template.icon,
+		timeSlot: (template.timeSlot ?? 'anytime') as TimeSlot,
 		pointsPerItem: template.pointsPerItem,
 		completionBonus: template.completionBonus,
 		items,
@@ -142,6 +172,7 @@ export async function getTodayChecklist(
 
 /**
  * 子供のアクティブなテンプレート一覧と当日チェックリストを取得する。
+ * 現在の時間帯に該当するテンプレートを先頭に、次に「いつでも」、その他を後ろにソートする。
  */
 export async function getChecklistsForChild(
 	childId: number,
@@ -156,6 +187,17 @@ export async function getChecklistsForChild(
 		if ('error' in checklist) continue;
 		results.push(checklist);
 	}
+
+	// 現在の時間帯に基づいてソート: 該当時間帯 → いつでも → その他
+	const current = getCurrentTimeSlot();
+	results.sort((a, b) => {
+		const priority = (slot: TimeSlot) => {
+			if (slot === current) return 0;
+			if (slot === 'anytime') return 1;
+			return 2;
+		};
+		return priority(a.timeSlot) - priority(b.timeSlot);
+	});
 
 	return results;
 }
@@ -272,6 +314,7 @@ export async function createTemplate(
 		icon?: string;
 		pointsPerItem?: number;
 		completionBonus?: number;
+		timeSlot?: string;
 	},
 	tenantId: string,
 ) {
@@ -282,6 +325,7 @@ export async function createTemplate(
 			icon: input.icon ?? '📋',
 			pointsPerItem: input.pointsPerItem ?? 2,
 			completionBonus: input.completionBonus ?? 5,
+			timeSlot: input.timeSlot ?? 'anytime',
 		},
 		tenantId,
 	);
@@ -294,6 +338,7 @@ export async function editTemplate(
 		icon?: string;
 		pointsPerItem?: number;
 		completionBonus?: number;
+		timeSlot?: string;
 		isActive?: number;
 	},
 	tenantId: string,

@@ -193,6 +193,7 @@ export interface ChecklistTemplate {
 	icon: string;
 	pointsPerItem: number;
 	completionBonus: number;
+	timeSlot: string;
 	isActive: number;
 	createdAt: string;
 	updatedAt: string;
@@ -358,6 +359,7 @@ export interface InsertChecklistTemplateInput {
 	icon?: string;
 	pointsPerItem?: number;
 	completionBonus?: number;
+	timeSlot?: string;
 	isActive?: number;
 }
 
@@ -366,6 +368,7 @@ export interface UpdateChecklistTemplateInput {
 	icon?: string;
 	pointsPerItem?: number;
 	completionBonus?: number;
+	timeSlot?: string;
 	isActive?: number;
 }
 

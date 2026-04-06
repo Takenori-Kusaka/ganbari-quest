@@ -14,6 +14,8 @@ export const ICON_STATUS = '⭐';
 export const ICON_HISTORY = '📋';
 /** チャレンジきろく */
 export const ICON_ACHIEVEMENTS = '🏆';
+/** もちものチェック / チェックリスト */
+export const ICON_CHECKLIST = '📋';
 /** かぞく / メンバー（子供選択） */
 export const ICON_SWITCH = '👨‍👩‍👧‍👦';
 

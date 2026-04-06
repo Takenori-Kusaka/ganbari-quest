@@ -1,7 +1,11 @@
 import { fail } from '@sveltejs/kit';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
-import { getChecklistsForChild, toggleCheckItem } from '$lib/server/services/checklist-service';
+import {
+	getChecklistsForChild,
+	getCurrentTimeSlot,
+	toggleCheckItem,
+} from '$lib/server/services/checklist-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
@@ -12,7 +16,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	const today = todayDateJST();
 	const checklists = await getChecklistsForChild(child.id, today, tenantId);
 
-	return { checklists };
+	return { checklists, currentTimeSlot: getCurrentTimeSlot() };
 };
 
 export const actions: Actions = {

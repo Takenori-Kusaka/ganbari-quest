@@ -116,6 +116,7 @@ export async function insertTemplate(
 		icon: input.icon ?? '📋',
 		pointsPerItem: input.pointsPerItem ?? 5,
 		completionBonus: input.completionBonus ?? 10,
+		timeSlot: input.timeSlot ?? 'anytime',
 		isActive: input.isActive ?? 1,
 		createdAt: now,
 		updatedAt: now,
@@ -146,7 +147,14 @@ export async function updateTemplate(
 	const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
 	const values: Record<string, unknown> = { ':updatedAt': new Date().toISOString() };
 
-	const fields = ['name', 'icon', 'pointsPerItem', 'completionBonus', 'isActive'] as const;
+	const fields = [
+		'name',
+		'icon',
+		'pointsPerItem',
+		'completionBonus',
+		'timeSlot',
+		'isActive',
+	] as const;
 	for (const field of fields) {
 		if (input[field] !== undefined) {
 			updates.push(`#${field} = :${field}`);

@@ -38,6 +38,7 @@ export async function insertTemplate(
 		icon?: string;
 		pointsPerItem?: number;
 		completionBonus?: number;
+		timeSlot?: string;
 		isActive?: number;
 	},
 	_tenantId: string,
@@ -52,6 +53,7 @@ export async function updateTemplate(
 		icon?: string;
 		pointsPerItem?: number;
 		completionBonus?: number;
+		timeSlot?: string;
 		isActive?: number;
 	},
 	_tenantId: string,
