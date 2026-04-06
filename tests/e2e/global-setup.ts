@@ -25,7 +25,15 @@ export default async function globalSetup() {
 			const table = db
 				.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='children'")
 				.get();
-			db.close();
+			// is_main_quest カラム追加マイグレーション (#549)
+	try {
+		db.exec('ALTER TABLE activities ADD COLUMN is_main_quest INTEGER NOT NULL DEFAULT 0');
+		console.log('[E2E Setup]   Added is_main_quest column to activities.');
+	} catch {
+		// カラムが既に存在する場合は無視
+	}
+
+	db.close();
 			if (!table) needsSchema = true;
 		} catch {
 			needsSchema = true;
@@ -145,7 +153,7 @@ export default async function globalSetup() {
 
 			// あさのしたくプリセット（static/checklist-presets/morning-routine.json 準拠）
 			db.prepare(
-				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus) VALUES (?, 'あさのしたく', '☀️', 2, 5)",
+				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus, time_slot) VALUES (?, 'あさのしたく', '☀️', 2, 5, 'morning')",
 			).run(kinderChild.id);
 			const morningId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
 			const morningItems: [string, string][] = [
@@ -163,7 +171,7 @@ export default async function globalSetup() {
 
 			// よるのじゅんびプリセット（static/checklist-presets/evening-routine.json 準拠）
 			db.prepare(
-				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus) VALUES (?, 'よるのじゅんび', '🌙', 2, 5)",
+				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus, time_slot) VALUES (?, 'よるのじゅんび', '🌙', 2, 5, 'evening')",
 			).run(kinderChild.id);
 			const eveningId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
 			const eveningItems: [string, string][] = [
@@ -528,7 +536,15 @@ export default async function globalSetup() {
 			console.log(`[E2E Setup]   Cleaned ${deletedBonus.changes} login bonus(es) from today.`);
 		}
 
-		db.close();
+		// is_main_quest カラム追加マイグレーション (#549)
+	try {
+		db.exec('ALTER TABLE activities ADD COLUMN is_main_quest INTEGER NOT NULL DEFAULT 0');
+		console.log('[E2E Setup]   Added is_main_quest column to activities.');
+	} catch {
+		// カラムが既に存在する場合は無視
+	}
+
+	db.close();
 	} catch (e) {
 		console.log('[E2E Setup]   Test data setup error:', e);
 	}

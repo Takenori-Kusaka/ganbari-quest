@@ -59,6 +59,7 @@ export const activities = sqliteTable('activities', {
 	nameKana: text('name_kana'),
 	nameKanji: text('name_kanji'),
 	triggerHint: text('trigger_hint'),
+	isMainQuest: integer('is_main_quest').notNull().default(0),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -329,6 +330,7 @@ export const checklistTemplates = sqliteTable('checklist_templates', {
 	icon: text('icon').notNull().default('📋'),
 	pointsPerItem: integer('points_per_item').notNull().default(2),
 	completionBonus: integer('completion_bonus').notNull().default(5),
+	timeSlot: text('time_slot').notNull().default('anytime'),
 	isActive: integer('is_active').notNull().default(1),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),

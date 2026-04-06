@@ -47,6 +47,7 @@ export interface Activity {
 	nameKana: string | null;
 	nameKanji: string | null;
 	triggerHint: string | null;
+	isMainQuest: number;
 	createdAt: string;
 }
 
@@ -193,6 +194,7 @@ export interface ChecklistTemplate {
 	icon: string;
 	pointsPerItem: number;
 	completionBonus: number;
+	timeSlot: string;
 	isActive: number;
 	createdAt: string;
 	updatedAt: string;
@@ -266,6 +268,7 @@ export interface InsertActivityInput {
 	ageMin: number | null;
 	ageMax: number | null;
 	triggerHint?: string | null;
+	isMainQuest?: number;
 }
 
 export interface UpdateActivityInput {
@@ -276,6 +279,7 @@ export interface UpdateActivityInput {
 	ageMin?: number | null;
 	ageMax?: number | null;
 	triggerHint?: string | null;
+	isMainQuest?: number;
 }
 
 export interface InsertActivityLogInput {
@@ -358,6 +362,7 @@ export interface InsertChecklistTemplateInput {
 	icon?: string;
 	pointsPerItem?: number;
 	completionBonus?: number;
+	timeSlot?: string;
 	isActive?: number;
 }
 
@@ -366,6 +371,7 @@ export interface UpdateChecklistTemplateInput {
 	icon?: string;
 	pointsPerItem?: number;
 	completionBonus?: number;
+	timeSlot?: string;
 	isActive?: number;
 }
 

@@ -14,11 +14,13 @@ interface Props {
 	categoryDefs: readonly CategoryDef[];
 	logCount: number;
 	isEditing: boolean;
+	mainQuestCount: number;
+	mainQuestMax: number;
 	onedit: () => void;
 	oncanceledit: () => void;
 }
 
-let { activity, categoryDefs, logCount, isEditing, onedit, oncanceledit }: Props = $props();
+let { activity, categoryDefs, logCount, isEditing, mainQuestCount, mainQuestMax, onedit, oncanceledit }: Props = $props();
 
 const category = $derived(getCategoryById(activity.categoryId));
 
@@ -29,13 +31,16 @@ function dailyLimitLabel(val: number | null): string {
 }
 </script>
 
-<div class="activity-list-item {activity.isVisible ? '' : 'opacity-50'}">
+<div class="activity-list-item {activity.isVisible ? '' : 'opacity-50'} {activity.isMainQuest ? 'main-quest-active' : ''}">
 	<div class="px-3 py-2 flex items-center gap-3">
 		<CompoundIcon icon={activity.icon} size="md" />
 		<div class="flex-1 min-w-0">
 			<div class="flex items-center gap-2 flex-wrap">
 				<p class="text-sm font-bold truncate" style:color="var(--color-text)">{getActivityDisplayNameForAdult(activity)}</p>
 				<span class="activity-points">{activity.basePoints}P</span>
+				{#if activity.isMainQuest}
+					<span class="main-quest-badge">⚔️ メインクエスト ×2</span>
+				{/if}
 			</div>
 			<div class="activity-meta">
 				{#if category}
@@ -70,6 +75,21 @@ function dailyLimitLabel(val: number | null): string {
 					{activity.isVisible ? '表示' : '非表示'}
 				</button>
 			</form>
+			{#if activity.isVisible}
+				<form method="POST" action="?/toggleMainQuest" use:enhance>
+					<input type="hidden" name="id" value={activity.id} />
+					<input type="hidden" name="enabled" value={activity.isMainQuest ? 'false' : 'true'} />
+					<button
+						type="submit"
+						disabled={!activity.isMainQuest && mainQuestCount >= mainQuestMax}
+						class="px-2 py-1 rounded text-xs font-bold transition-colors
+							{activity.isMainQuest ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-[var(--color-neutral-100)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)]'}
+							disabled:opacity-40 disabled:cursor-not-allowed"
+					>
+						{activity.isMainQuest ? '⚔️解除' : '⚔️設定'}
+					</button>
+				</form>
+			{/if}
 		</div>
 	</div>
 
@@ -125,5 +145,22 @@ function dailyLimitLabel(val: number | null): string {
 	.meta-item {
 		font-size: 0.625rem;
 		color: var(--color-text-muted);
+	}
+
+	.main-quest-active {
+		border: 2px solid var(--color-gold-400, #fbbf24);
+		background: linear-gradient(135deg, #fffbeb, #fef3c7);
+	}
+
+	.main-quest-badge {
+		display: inline-flex;
+		align-items: center;
+		font-size: 0.625rem;
+		font-weight: 700;
+		color: #92400e;
+		background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.15));
+		padding: 0.0625rem 0.5rem;
+		border-radius: var(--radius-full, 9999px);
+		white-space: nowrap;
 	}
 </style>
