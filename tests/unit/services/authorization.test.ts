@@ -101,21 +101,21 @@ describe('authorizeCognito', () => {
 		});
 	});
 
-	describe('/kinder ルート — 全ロール', () => {
+	describe('/preschool ルート — 全ロール', () => {
 		it('child はアクセス可能', () => {
-			expect(authorizeCognito('/kinder/home', cognitoIdentity, childContext)).toEqual({
+			expect(authorizeCognito('/preschool/home', cognitoIdentity, childContext)).toEqual({
 				allowed: true,
 			});
 		});
 
 		it('owner もアクセス可能', () => {
-			expect(authorizeCognito('/kinder/home', cognitoIdentity, ownerContext)).toEqual({
+			expect(authorizeCognito('/preschool/home', cognitoIdentity, ownerContext)).toEqual({
 				allowed: true,
 			});
 		});
 
 		it('parent もアクセス可能', () => {
-			expect(authorizeCognito('/kinder/home', cognitoIdentity, parentContext)).toEqual({
+			expect(authorizeCognito('/preschool/home', cognitoIdentity, parentContext)).toEqual({
 				allowed: true,
 			});
 		});

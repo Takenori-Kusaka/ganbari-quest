@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getAgeTierShortLabel } from '$lib/domain/labels';
+import { getAgeTierLabel } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
@@ -11,8 +11,6 @@ let { data } = $props();
 const ps = $derived(data.pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
 const unit = $derived(getUnitLabel(ps.mode, ps.currency));
-
-const uiModeLabel = getAgeTierShortLabel;
 
 // Detail tabs shown on production (read-only in demo)
 const detailTabs = [
@@ -69,7 +67,7 @@ const selectedChild = $derived(
 					{/if}
 					<div class="flex-1 min-w-0">
 						<p class="font-bold text-gray-700">{child.nickname}</p>
-						<p class="text-sm text-gray-400">{child.age}歳 / {uiModeLabel(child.uiMode ?? 'kinder')}</p>
+						<p class="text-sm text-gray-400">{child.age}歳 / {getAgeTierLabel(child.uiMode ?? 'preschool')}</p>
 					</div>
 					<div class="text-right">
 						<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance)}</p>
@@ -101,7 +99,7 @@ const selectedChild = $derived(
 					{/if}
 					<div class="flex-1">
 						<h2 class="text-lg font-bold text-gray-700">{selectedChild.nickname}</h2>
-						<p class="text-sm text-gray-400">{selectedChild.age}歳 / {uiModeLabel(selectedChild.uiMode ?? 'kinder')}</p>
+						<p class="text-sm text-gray-400">{selectedChild.age}歳 / {getAgeTierLabel(selectedChild.uiMode ?? 'preschool')}</p>
 					</div>
 					<div class="text-right">
 						<p class="text-2xl font-bold text-amber-500">{fmtBal(selectedChild.balance)}</p>
@@ -134,8 +132,8 @@ const selectedChild = $derived(
 							<p class="text-lg font-bold text-blue-600">{selectedChild.age}歳</p>
 						</div>
 						<div class="bg-purple-50 rounded-lg p-3 text-center">
-							<p class="text-xs text-gray-500">UIモード</p>
-							<p class="text-lg font-bold text-purple-600">{uiModeLabel(selectedChild.uiMode ?? 'kinder')}</p>
+							<p class="text-xs text-gray-500">年齢区分</p>
+							<p class="text-lg font-bold text-purple-600">{getAgeTierLabel(selectedChild.uiMode ?? 'preschool')}</p>
 						</div>
 						<div class="bg-amber-50 rounded-lg p-3 text-center">
 							<p class="text-xs text-gray-500">{unit}残高</p>

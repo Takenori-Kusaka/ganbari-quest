@@ -1,3 +1,4 @@
+import { NAV_CATEGORIES, NAV_ITEM_LABELS, PLAN_LABELS } from '$lib/domain/labels';
 import type { PlanTier, TutorialChapter } from './tutorial-types';
 
 const TIER_ORDER: Record<PlanTier, number> = { free: 0, standard: 1, family: 2 };
@@ -13,8 +14,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				chapterId: 1,
 				selector: '[data-tutorial="nav-desktop"], [data-tutorial="nav-primary"]',
 				title: 'ナビゲーション',
-				description:
-					'メニューは「みまもり」「はげまし」「カスタマイズ」「設定」の4つのカテゴリに分かれています。それぞれのカテゴリを開くと、詳しいメニューが表示されます。',
+				description: `メニューは「${NAV_CATEGORIES.monitor.label}」「${NAV_CATEGORIES.encourage.label}」「${NAV_CATEGORIES.customize.label}」「${NAV_CATEGORIES.settings.label}」の4つのカテゴリに分かれています。それぞれのカテゴリを開くと、詳しいメニューが表示されます。`,
 				position: 'top',
 				page: '/admin',
 			},
@@ -107,8 +107,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				chapterId: 3,
 				selector: '[data-tutorial="add-activity-btn"]',
 				title: '活動の追加',
-				description:
-					'お子さまの習い事や家庭のルールに合わせたオリジナル活動を追加できます。例えば「ピアノの練習30分」「犬のお散歩」など、ご家庭ならではの活動を登録しましょう。\n\n⭐ 活動の追加・編集はスタンダードプラン以上で利用できます。無料プランでは初期登録されている活動をそのままご利用いただけます。',
+				description: `お子さまの習い事や家庭のルールに合わせたオリジナル活動を追加できます。例えば「ピアノの練習30分」「犬のお散歩」など、ご家庭ならではの活動を登録しましょう。\n\n⭐ 活動の追加・編集は${PLAN_LABELS.standard}以上で利用できます。${PLAN_LABELS.free}では初期登録されている活動をそのままご利用いただけます。`,
 				position: 'bottom',
 				page: '/admin/activities',
 				requiredTier: 'standard',
@@ -144,7 +143,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	},
 	{
 		id: 5,
-		title: 'みまもり（レポート）',
+		title: `${NAV_CATEGORIES.monitor.label}（${NAV_ITEM_LABELS.reports}）`,
 		icon: '📊',
 		steps: [
 			{
@@ -171,7 +170,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	},
 	{
 		id: 6,
-		title: 'はげまし（メッセージ）',
+		title: `${NAV_CATEGORIES.encourage.label}（${NAV_ITEM_LABELS.messages}）`,
 		icon: '💬',
 		steps: [
 			{
@@ -198,7 +197,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	},
 	{
 		id: 7,
-		title: 'カスタマイズ（データ管理）',
+		title: `${NAV_CATEGORIES.customize.label}（データ管理）`,
 		icon: '🎮',
 		steps: [
 			{

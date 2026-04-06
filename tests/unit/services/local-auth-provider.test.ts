@@ -41,8 +41,8 @@ describe('LocalAuthProvider', () => {
 			expect(result).toEqual({ allowed: true });
 		});
 
-		it('/kinder はアクセス可能', () => {
-			const result = provider.authorize('/kinder', localIdentity, localContext);
+		it('/preschool はアクセス可能', () => {
+			const result = provider.authorize('/preschool', localIdentity, localContext);
 			expect(result).toEqual({ allowed: true });
 		});
 

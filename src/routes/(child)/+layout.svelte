@@ -16,7 +16,7 @@ import { resetChapters, setChapters, startTutorial } from '$lib/ui/tutorial/tuto
 let { data, children } = $props();
 
 const theme = $derived(data.child?.theme ?? 'pink');
-const uiMode = $derived(data.uiMode ?? 'kinder');
+const uiMode = $derived(data.uiMode ?? 'preschool');
 // #0289: モード別ラベルを一元定数から取得
 const modeLabels = $derived(getModeLabels(uiMode));
 const navItems = $derived([

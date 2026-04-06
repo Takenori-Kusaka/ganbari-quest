@@ -38,7 +38,7 @@ const mockChild = {
 	nickname: 'テストちゃん',
 	age: 5,
 	theme: 'pink',
-	uiMode: 'kinder',
+	uiMode: 'preschool',
 	tenantId: TENANT,
 	avatarUrl: null,
 	birthDate: null,

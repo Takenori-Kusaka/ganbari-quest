@@ -54,7 +54,7 @@ export function getDemoChildLayoutData(childId: number): DemoChildLayoutData {
 			levelTitle: 'はじめのぼうけんしゃ',
 			avatarConfig: null,
 			allChildren: DEMO_CHILDREN,
-			uiMode: 'kinder',
+			uiMode: 'preschool',
 			pointSettings: DEFAULT_POINT_SETTINGS,
 		};
 	}
@@ -73,7 +73,7 @@ export function getDemoChildLayoutData(childId: number): DemoChildLayoutData {
 		levelTitle: title,
 		avatarConfig: null,
 		allChildren: DEMO_CHILDREN,
-		uiMode: child.uiMode ?? 'kinder',
+		uiMode: child.uiMode ?? 'preschool',
 		pointSettings: DEFAULT_POINT_SETTINGS,
 	};
 }
