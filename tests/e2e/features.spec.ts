@@ -71,7 +71,7 @@ test.describe('#0037: もちものチェックリスト', () => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
 
-		const checklistLink = page.locator('a').filter({ hasText: 'もちものチェック' });
+		const checklistLink = page.locator('a').filter({ hasText: 'もちものチェック' }).first();
 		await expect(checklistLink).toBeVisible();
 	});
 });
