@@ -58,7 +58,7 @@ test.describe('チュートリアル全ステップ検証', () => {
 
 			// ステップ情報を取得
 			const title = await bubble.locator('.tutorial-title').textContent();
-			const description = await bubble.locator('.tutorial-description').textContent();
+			const _description = await bubble.locator('.tutorial-description').textContent();
 			const progress = await bubble.locator('.tutorial-progress-text').textContent();
 
 			console.log(`[Step ${stepNum}] ${title} (${progress})`);
