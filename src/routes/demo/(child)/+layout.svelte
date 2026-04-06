@@ -7,7 +7,7 @@ import Header from '$lib/ui/components/Header.svelte';
 let { data, children } = $props();
 
 const theme = $derived(data.child?.theme ?? 'pink');
-const uiMode = $derived(data.uiMode ?? 'kinder');
+const uiMode = $derived(data.uiMode ?? 'preschool');
 
 // #0289: 本番と同じナビ構成（3項目）に統一
 const modeLabels = $derived(getModeLabels(uiMode));
