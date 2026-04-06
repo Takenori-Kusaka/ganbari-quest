@@ -128,8 +128,8 @@ export async function claimLoginBonus(
 		calcLoginBonusPoints(omikuji.basePoints, multiplier) * loyaltyMultiplier,
 	);
 
-	// DB保存
-	await insertLoginBonus(
+	// DB保存（レースコンディション対策: onConflictDoNothing で重複insert回避）
+	const inserted = await insertLoginBonus(
 		{
 			childId,
 			loginDate: today,
@@ -141,6 +141,9 @@ export async function claimLoginBonus(
 		},
 		tenantId,
 	);
+
+	// 競合で挿入できなかった場合は既受取扱い
+	if (!inserted) return { error: 'ALREADY_CLAIMED' as const };
 
 	// ポイント台帳に記録
 	await insertPointEntry(

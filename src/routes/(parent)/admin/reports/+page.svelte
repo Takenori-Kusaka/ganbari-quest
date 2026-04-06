@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
+import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import SiblingCategoryChart from '$lib/ui/components/SiblingCategoryChart.svelte';
 import SiblingTrendChart from '$lib/ui/components/SiblingTrendChart.svelte';
@@ -97,7 +98,10 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
-		<h2 class="text-lg font-bold">📊 レポート</h2>
+		<div class="flex items-center gap-2">
+			<h2 class="text-lg font-bold">📊 レポート</h2>
+			<PageHelpButton />
+		</div>
 		<div class="flex gap-2">
 			<a
 				href="/admin/certificates"

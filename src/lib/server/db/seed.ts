@@ -3636,7 +3636,7 @@ function seed() {
 			{
 				code: 'premium-reward-2026-04',
 				name: '📦 4がつのプレゼント',
-				description: '有料プラン会員限定！今月の特別プレゼント',
+				description: 'スタンダード以上限定！今月の特別プレゼント',
 				eventType: 'monthly_premium_reward',
 				startDate: '2026-04-01',
 				endDate: '2026-04-30',
@@ -3647,7 +3647,7 @@ function seed() {
 					rewardType: 'title',
 					name: 'はるのぼうけんしゃ',
 					icon: '🌸',
-					description: '2026年4月の有料プラン限定称号',
+					description: '2026年4月のスタンダード以上限定称号',
 				}),
 				missionConfig: null,
 				isActive: 1,

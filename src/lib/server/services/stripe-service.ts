@@ -63,10 +63,10 @@ export async function createCheckoutSession(
 		locale: 'ja',
 		custom_text: {
 			submit: {
-				message: 'お支払い後、すぐに有料プラン機能をご利用いただけます。',
+				message: 'お支払い後、すぐにすべての機能をご利用いただけます。',
 			},
 			after_submit: {
-				message: 'アプリに戻って有料プラン機能をお楽しみください。',
+				message: 'アプリに戻ってすべての機能をお楽しみください。',
 			},
 		},
 		consent_collection: {

@@ -13,7 +13,7 @@ describe('MigrationPipeline リポジトリ統合', () => {
 				nickname: 'テスト',
 				age: 5,
 				theme: 'pink',
-				uiMode: 'kinder',
+				uiMode: 'preschool',
 				createdAt: '2024-01-01',
 				updatedAt: '2024-01-01',
 				// V1: displayConfig, birthdayBonusMultiplier 等が未定義
@@ -31,11 +31,13 @@ describe('MigrationPipeline リポジトリ統合', () => {
 			expect(data.userId).toBeNull();
 		});
 
-		it('child: _sv=2 のレコードは変換しない', () => {
+		it('child: _sv=2 のレコードを V3 に変換する（UiMode 移行）', () => {
 			const raw = {
 				id: 1,
 				nickname: 'テスト',
 				age: 5,
+				uiMode: 'kinder',
+				birthDate: null,
 				[SCHEMA_VERSION_FIELD]: 2,
 				displayConfig: '{"custom": true}',
 				birthdayBonusMultiplier: 2.0,
@@ -43,8 +45,26 @@ describe('MigrationPipeline リポジトリ統合', () => {
 
 			const { data, didMigrate } = hydrate('child', raw);
 
+			expect(didMigrate).toBe(true);
+			expect(data[SCHEMA_VERSION_FIELD]).toBe(3);
+			expect(data.uiMode).toBe('preschool'); // kinder → preschool
+		});
+
+		it('child: _sv=3 のレコードは変換しない', () => {
+			const raw = {
+				id: 1,
+				nickname: 'テスト',
+				age: 5,
+				uiMode: 'preschool',
+				[SCHEMA_VERSION_FIELD]: 3,
+				displayConfig: '{"custom": true}',
+				birthdayBonusMultiplier: 2.0,
+			};
+
+			const { data, didMigrate } = hydrate('child', raw);
+
 			expect(didMigrate).toBe(false);
-			expect(data).toBe(raw); // 同一参照（コピーなし）
+			expect(data).toBe(raw);
 		});
 
 		it('status: _sv なしレコードを V2 に変換する', () => {
