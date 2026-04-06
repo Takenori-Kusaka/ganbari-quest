@@ -145,7 +145,7 @@ export default async function globalSetup() {
 
 			// あさのしたくプリセット（static/checklist-presets/morning-routine.json 準拠）
 			db.prepare(
-				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus) VALUES (?, 'あさのしたく', '☀️', 2, 5)",
+				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus, time_slot) VALUES (?, 'あさのしたく', '☀️', 2, 5, 'morning')",
 			).run(kinderChild.id);
 			const morningId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
 			const morningItems: [string, string][] = [
@@ -163,7 +163,7 @@ export default async function globalSetup() {
 
 			// よるのじゅんびプリセット（static/checklist-presets/evening-routine.json 準拠）
 			db.prepare(
-				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus) VALUES (?, 'よるのじゅんび', '🌙', 2, 5)",
+				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus, time_slot) VALUES (?, 'よるのじゅんび', '🌙', 2, 5, 'evening')",
 			).run(kinderChild.id);
 			const eveningId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
 			const eveningItems: [string, string][] = [
