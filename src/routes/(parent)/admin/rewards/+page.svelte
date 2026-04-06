@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -51,6 +52,10 @@ const categoryLabels: Record<string, string> = {
 </svelte:head>
 
 <div class="space-y-4" data-tutorial="rewards-section">
+	<div class="flex items-center gap-2">
+		<h2 class="text-lg font-bold">🎁 ごほうび</h2>
+		<PageHelpButton />
+	</div>
 	<!-- Page Description -->
 	<div class="page-description">
 		<p class="page-description__title">🎁 とくべつなごほうび</p>

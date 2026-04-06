@@ -31,18 +31,18 @@ function handleGuideRestart() {
 
 const modeLabels: Record<string, string> = {
 	baby: 'はじめの一歩',
-	kinder: 'じぶんでタップ',
-	lower: '冒険スタート',
-	upper: 'チャレンジ',
-	teen: 'みらい設計',
+	preschool: 'じぶんでタップ',
+	elementary: '冒険スタート',
+	junior: 'チャレンジ',
+	senior: 'みらい設計',
 };
 
 const modeColors: Record<string, string> = {
 	baby: 'from-pink-400 to-pink-300',
-	kinder: 'from-green-400 to-emerald-300',
-	lower: 'from-blue-400 to-cyan-300',
-	upper: 'from-orange-400 to-amber-300',
-	teen: 'from-purple-400 to-violet-300',
+	preschool: 'from-green-400 to-emerald-300',
+	elementary: 'from-blue-400 to-cyan-300',
+	junior: 'from-orange-400 to-amber-300',
+	senior: 'from-purple-400 to-violet-300',
 };
 </script>
 
@@ -65,7 +65,7 @@ const modeColors: Record<string, string> = {
 				<p class="text-sm font-bold text-gray-700 mb-1">ガイドをとじました</p>
 				<p class="text-xs text-gray-500 mb-3">もう一度はじめから体験できます</p>
 				<a
-					href="/demo/kinder/home?childId=902"
+					href="/demo/preschool/home?childId=902"
 					class="block w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl text-sm hover:bg-blue-600 transition-colors"
 					onclick={handleGuideRestart}
 				>
@@ -75,7 +75,7 @@ const modeColors: Record<string, string> = {
 				<p class="text-sm font-bold text-gray-700 mb-1">はじめてですか？</p>
 				<p class="text-xs text-gray-500 mb-3">5ステップで主な機能をご案内します</p>
 				<a
-					href="/demo/kinder/home?childId=902"
+					href="/demo/preschool/home?childId=902"
 					class="block w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl text-sm hover:bg-blue-600 transition-colors"
 					onclick={handleGuideStart}
 				>
@@ -90,7 +90,7 @@ const modeColors: Record<string, string> = {
 			<h2 class="text-lg font-bold text-gray-700 mb-4">がんばり家のこどもたち</h2>
 			<div class="grid grid-cols-2 gap-3">
 				{#each data.children as child}
-					{@const mode = child.uiMode ?? 'kinder'}
+					{@const mode = child.uiMode ?? 'preschool'}
 					{@const label = modeLabels[mode] ?? mode}
 					{@const colorClass = modeColors[mode] ?? 'from-gray-400 to-gray-300'}
 					<a
@@ -100,11 +100,11 @@ const modeColors: Record<string, string> = {
 						<div class="text-2xl mb-1">
 							{#if mode === 'baby'}
 								👶
-							{:else if mode === 'kinder'}
+							{:else if mode === 'preschool'}
 								🧒
-							{:else if mode === 'lower'}
+							{:else if mode === 'elementary'}
 								🧑
-							{:else if mode === 'upper'}
+							{:else if mode === 'junior'}
 								💪
 							{:else}
 								🧑‍💻

@@ -112,8 +112,8 @@ export default async function globalSetup() {
 			if (page.url().includes('/setup/children')) {
 				console.log('[AWS E2E Setup]   子供を登録中...');
 
-				// たろうくん（4歳、kinder、pink）
-				await addChildViaSetup(page, 'たろうくん', '4', 'kinder', 'pink');
+				// たろうくん（4歳、preschool、pink）
+				await addChildViaSetup(page, 'たろうくん', '4', 'preschool', 'pink');
 
 				// はなこちゃん（1歳、baby、blue）
 				await addChildViaSetup(page, 'はなこちゃん', '1', 'baby', 'blue');
@@ -145,8 +145,8 @@ export default async function globalSetup() {
 				await page.goto(`${BASE_URL}/admin/children`);
 				await page.waitForLoadState('networkidle');
 
-				// たろうくん（4歳、kinder、pink）
-				await addChildViaAdmin(page, 'たろうくん', '4', 'kinder', 'pink');
+				// たろうくん（4歳、preschool、pink）
+				await addChildViaAdmin(page, 'たろうくん', '4', 'preschool', 'pink');
 
 				// はなこちゃん（1歳、baby、blue）
 				await addChildViaAdmin(page, 'はなこちゃん', '1', 'baby', 'blue');
