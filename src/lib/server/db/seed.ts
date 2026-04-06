@@ -3632,11 +3632,11 @@ function seed() {
 				}),
 				isActive: 1,
 			},
-			// 月替わりプレミアム報酬（4月）
+			// 月替わり有料プラン報酬（4月）
 			{
 				code: 'premium-reward-2026-04',
 				name: '📦 4がつのプレゼント',
-				description: 'プレミアム会員限定！今月の特別プレゼント',
+				description: 'スタンダード以上限定！今月の特別プレゼント',
 				eventType: 'monthly_premium_reward',
 				startDate: '2026-04-01',
 				endDate: '2026-04-30',
@@ -3647,7 +3647,7 @@ function seed() {
 					rewardType: 'title',
 					name: 'はるのぼうけんしゃ',
 					icon: '🌸',
-					description: '2026年4月のプレミアム限定称号',
+					description: '2026年4月のスタンダード以上限定称号',
 				}),
 				missionConfig: null,
 				isActive: 1,

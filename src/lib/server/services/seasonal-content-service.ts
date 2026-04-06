@@ -1,5 +1,5 @@
 // src/lib/server/services/seasonal-content-service.ts
-// 季節コンテンツ管理サービス — シーズンパス + 月替わりプレミアム報酬
+// 季節コンテンツ管理サービス — シーズンパス + 月替わり有料プラン報酬
 
 import {
 	findActiveEvents,
@@ -266,7 +266,7 @@ function parseMonthlyRewardConfig(rewardConfig: string | null): MonthlyRewardCon
 	}
 }
 
-/** 今月のプレミアム報酬を取得 */
+/** 今月の有料プラン報酬を取得 */
 export async function getMonthlyPremiumReward(
 	childId: number,
 	tenantId: string,
@@ -288,7 +288,7 @@ export async function getMonthlyPremiumReward(
 	return { event: rewardEvent, config, claimed };
 }
 
-/** 月替わりプレミアム報酬を受け取る */
+/** 月替わり有料プラン報酬を受け取る */
 export async function claimMonthlyPremiumReward(
 	childId: number,
 	eventId: number,

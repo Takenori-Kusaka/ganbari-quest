@@ -88,6 +88,9 @@ export const PLAN_SHORT_LABELS = {
 
 export type PlanKey = keyof typeof PLAN_LABELS;
 
+/** プラン制限メッセージで使う共通ラベル（「スタンダードプラン以上」） */
+export const PAID_PLAN_LABEL = 'スタンダードプラン以上' as const;
+
 /** プランラベルを取得 */
 export function getPlanLabel(tier: string): string {
 	return PLAN_LABELS[tier as PlanKey] ?? tier;
