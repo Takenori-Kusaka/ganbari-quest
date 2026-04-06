@@ -26,14 +26,14 @@ export default async function globalSetup() {
 				.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='children'")
 				.get();
 			// is_main_quest カラム追加マイグレーション (#549)
-	try {
-		db.exec('ALTER TABLE activities ADD COLUMN is_main_quest INTEGER NOT NULL DEFAULT 0');
-		console.log('[E2E Setup]   Added is_main_quest column to activities.');
-	} catch {
-		// カラムが既に存在する場合は無視
-	}
+			try {
+				db.exec('ALTER TABLE activities ADD COLUMN is_main_quest INTEGER NOT NULL DEFAULT 0');
+				console.log('[E2E Setup]   Added is_main_quest column to activities.');
+			} catch {
+				// カラムが既に存在する場合は無視
+			}
 
-	db.close();
+			db.close();
 			if (!table) needsSchema = true;
 		} catch {
 			needsSchema = true;
@@ -537,14 +537,14 @@ export default async function globalSetup() {
 		}
 
 		// is_main_quest カラム追加マイグレーション (#549)
-	try {
-		db.exec('ALTER TABLE activities ADD COLUMN is_main_quest INTEGER NOT NULL DEFAULT 0');
-		console.log('[E2E Setup]   Added is_main_quest column to activities.');
-	} catch {
-		// カラムが既に存在する場合は無視
-	}
+		try {
+			db.exec('ALTER TABLE activities ADD COLUMN is_main_quest INTEGER NOT NULL DEFAULT 0');
+			console.log('[E2E Setup]   Added is_main_quest column to activities.');
+		} catch {
+			// カラムが既に存在する場合は無視
+		}
 
-	db.close();
+		db.close();
 	} catch (e) {
 		console.log('[E2E Setup]   Test data setup error:', e);
 	}
