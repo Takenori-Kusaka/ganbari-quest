@@ -20,7 +20,16 @@ interface Props {
 	oncanceledit: () => void;
 }
 
-let { activity, categoryDefs, logCount, isEditing, mainQuestCount, mainQuestMax, onedit, oncanceledit }: Props = $props();
+let {
+	activity,
+	categoryDefs,
+	logCount,
+	isEditing,
+	mainQuestCount,
+	mainQuestMax,
+	onedit,
+	oncanceledit,
+}: Props = $props();
 
 const category = $derived(getCategoryById(activity.categoryId));
 
