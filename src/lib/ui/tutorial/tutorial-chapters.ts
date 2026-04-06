@@ -31,6 +31,16 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 			{
 				id: 'intro-3',
 				chapterId: 1,
+				selector: '[data-tutorial="monthly-summary"]',
+				title: '今月のがんばり',
+				description:
+					'こどもごとの今月の活動回数・レベル・実績がひと目で分かるサマリーです。「今月はどのくらい頑張ったかな？」を毎日チェックしてみましょう。詳しくはレポート画面で確認できます。',
+				position: 'bottom',
+				page: '/admin',
+			},
+			{
+				id: 'intro-4',
+				chapterId: 1,
 				selector: '[data-tutorial="children-overview"]',
 				title: 'こども一覧（ホーム）',
 				description:
@@ -71,7 +81,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				selector: '[data-tutorial="child-card"]',
 				title: 'こどもの詳細',
 				description:
-					'各こどもの名前・年齢・ポイント残高が表示されます。「こどもごとの進捗をざっくり把握したい」時にここを見てください。',
+					'各こどもの名前・年齢・ポイント残高が表示されます。「こどもごとの進捗をざっくり把握したい」時にここを見てください。\n\n⭐ 無料プランではこどもを2人まで登録できます。3人以上のきょうだいがいる場合はスタンダードプラン以上で無制限に登録できます。',
 				position: 'bottom',
 				page: '/admin/children',
 			},
@@ -125,7 +135,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				selector: '[data-tutorial="rewards-section"]',
 				title: '特別報酬',
 				description:
-					'「お手伝いを自分から進んでやった」「テストでいい点を取った」など、日常の活動記録とは別に特別なポイントを贈りたい時に使います。理由を添えてポイントを渡しましょう。',
+					'「お手伝いを自分から進んでやった」「テストでいい点を取った」など、日常の活動記録とは別に特別なポイントを贈りたい時に使います。理由を添えてポイントを渡しましょう。\n\n⭐ ごほうびアイテムの設定はスタンダードプラン以上で利用できます。',
 				position: 'bottom',
 				page: '/admin/rewards',
 			},
@@ -268,30 +278,10 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 			{
 				id: 'premium-1',
 				chapterId: 9,
-				selector: '[data-tutorial="summary-cards"]',
-				title: '無料でできること',
-				description:
-					'初期登録されている活動の記録、こども2人の登録、ポイント・レベル機能は無料でお使いいただけます。まずは無料で試してみてください！',
-				position: 'bottom',
-				page: '/admin',
-			},
-			{
-				id: 'premium-2',
-				chapterId: 9,
-				selector: '[data-tutorial="children-overview"]',
-				title: 'スタンダード / ファミリーでもっと便利に',
-				description:
-					'オリジナル活動の追加・編集、チェックリストの自由作成、ごほうびの設定、こどもの登録無制限、データのエクスポートが可能になります。お子さまに合わせた設定で、もっと楽しく！',
-				position: 'bottom',
-				page: '/admin',
-			},
-			{
-				id: 'premium-3',
-				chapterId: 9,
 				selector: '[data-tutorial="upgrade-btn"]',
-				title: 'アップグレード',
+				title: 'プラン比較・アップグレード',
 				description:
-					'管理画面右上の「⭐ アップグレード」ボタンから、いつでも有料プランに切り替えられます。7日間の無料トライアル付きなので、まずはお試しください。',
+					'各機能のガイドで ⭐ マークが付いた機能はスタンダードプラン以上で利用できます。「⭐ アップグレード」ボタンからプラン比較ページへ進み、お子さまに最適なプランをお選びください。7日間の無料トライアル付きです。',
 				position: 'bottom',
 				page: '/admin',
 			},
