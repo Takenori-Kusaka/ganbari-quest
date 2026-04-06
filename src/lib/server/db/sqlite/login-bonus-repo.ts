@@ -38,12 +38,7 @@ export async function insertLoginBonus(
 	},
 	_tenantId: string,
 ) {
-	return db
-		.insert(loginBonuses)
-		.values(input)
-		.onConflictDoNothing()
-		.returning()
-		.get();
+	return db.insert(loginBonuses).values(input).onConflictDoNothing().returning().get();
 }
 
 /** 子供の存在確認 */
