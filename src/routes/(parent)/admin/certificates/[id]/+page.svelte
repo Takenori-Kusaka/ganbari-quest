@@ -104,7 +104,7 @@ async function handleShareDownload() {
 				</Button>
 			{:else}
 				<div class="flex items-center gap-2">
-					<span class="text-xs text-gray-400">PDF保存はプレミアムプラン限定</span>
+					<span class="text-xs text-gray-400">PDF保存はスタンダードプラン以上</span>
 					<a href="/admin/license" class="text-xs text-blue-500 hover:underline">アップグレード</a>
 				</div>
 			{/if}
