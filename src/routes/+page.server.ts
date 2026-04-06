@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ cookies, locals }) => {
 	if (childIdStr) {
 		const child = await getChildById(Number(childIdStr), tenantId);
 		if (child) {
-			const uiMode = child.uiMode ?? 'kinder';
+			const uiMode = child.uiMode ?? 'preschool';
 			redirect(302, `/${uiMode}/home`);
 		}
 	}

@@ -289,8 +289,8 @@ test.describe('#0082: レーダーチャート', () => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
 
-		await page.goto('/kinder/status');
-		await expect(page).toHaveURL(/\/kinder\/status/);
+		await page.goto('/preschool/status');
+		await expect(page).toHaveURL(/\/preschool\/status/);
 
 		// SVG レーダーチャートが描画されている
 		const svg = page.locator('svg[aria-label="ステータスレーダーチャート"]');
@@ -304,7 +304,7 @@ test.describe('#0082: レーダーチャート', () => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
 
-		await page.goto('/kinder/status');
+		await page.goto('/preschool/status');
 
 		// 折りたたみボタンをクリック
 		const detailBtn = page.getByTestId('growth-detail-toggle');

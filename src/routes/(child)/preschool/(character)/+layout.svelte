@@ -5,5 +5,5 @@ import CharacterTabs from '$lib/features/character/CharacterTabs.svelte';
 let { data, children }: { data: { uiMode: string }; children: Snippet } = $props();
 </script>
 
-<CharacterTabs uiMode={data.uiMode ?? 'lower'} />
+<CharacterTabs uiMode={data.uiMode ?? 'preschool'} />
 {@render children()}
