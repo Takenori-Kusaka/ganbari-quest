@@ -2,9 +2,9 @@
 
 | 項目 | 内容 |
 |------|------|
-| 版数 | 2.5 |
+| 版数 | 2.6 |
 | 作成日 | 2026-02-19 |
-| 更新日 | 2026-04-04 |
+| 更新日 | 2026-04-06 |
 | 作成者 | 日下武紀 |
 
 ---
@@ -151,6 +151,13 @@
 | POST | /api/stripe/checkout | Stripe Checkout セッション作成 | owner/parent |
 | POST | /api/stripe/portal | Stripe カスタマーポータル作成 | owner/parent |
 | POST | /api/stripe/webhook | Stripe Webhook 受信 | 不要（Stripe署名検証） |
+
+### アナリティクス
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| POST | /api/v1/analytics | クライアント側イベント記録 | 不要（tenantIdは自動付与） |
+| GET | /api/v1/analytics/status | アナリティクス設定状態取得 | 全ロール |
 
 ---
 
@@ -1019,3 +1026,4 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 | 2026-03-31 | 2.3 | #0257 廃止機能削除に伴い関連記述を除去（キャリアプランAPI、アバターアップロードAPI、データサマリーから廃止項目削除） |
 | 2026-04-03 | 2.4 | #0294 クラウドエクスポート共有機能のAPI追加（export/cloud CRUD、import/cloud PINコードインポート） |
 | 2026-04-04 | 2.5 | #344 実装とのAPI同期: メンバー管理（削除/移譲/脱退）、テナント操作（status/cancel/reactivate）、通知（reminder/streak-warning/subscribe/unsubscribe）、カスタム音声（voices CRUD）、アバター、活動パック export/import、設定（vapid-key/tutorial）、デモ分析、管理用内部API（cleanup-orphans/migration/weekly-report/tenant-cleanup）追加 |
+| 2026-04-06 | 2.6 | #550 アナリティクス基盤: POST /api/v1/analytics（イベント記録）、GET /api/v1/analytics/status（設定確認）追加。3層プロバイダー（Sentry/Umami/DynamoDB）アーキテクチャ |
