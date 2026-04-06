@@ -147,7 +147,7 @@ const conditionTypeLabels: Record<string, string> = {
 					<p class="text-2xl mb-2">🏅</p>
 					<p class="font-bold text-gray-700 mb-1">カスタム実績・称号</p>
 					<p class="text-sm text-gray-500 mb-3">お子さまだけのオリジナル実績を作成できます</p>
-					<a href="/admin/license" class="text-sm text-blue-500 hover:underline">プレミアムプランで利用可能 →</a>
+					<a href="/admin/license" class="text-sm text-blue-500 hover:underline">スタンダードプラン以上で利用可能 →</a>
 				</div>
 				{/snippet}
 			</Card>
