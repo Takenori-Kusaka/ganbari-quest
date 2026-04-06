@@ -107,7 +107,7 @@ describe('getDataSummary', () => {
 		testDb
 			.insert(schema.children)
 			.values([
-				{ nickname: '太郎', age: 5, theme: 'blue', uiMode: 'kinder' },
+				{ nickname: '太郎', age: 5, theme: 'blue', uiMode: 'preschool' },
 				{ nickname: '花子', age: 3, theme: 'pink', uiMode: 'baby' },
 			])
 			.run();
@@ -136,7 +136,7 @@ describe('clearAllFamilyData', () => {
 	it('データあり → 子供が全件削除される', async () => {
 		testDb
 			.insert(schema.children)
-			.values([{ nickname: '太郎', age: 5, theme: 'blue', uiMode: 'kinder' }])
+			.values([{ nickname: '太郎', age: 5, theme: 'blue', uiMode: 'preschool' }])
 			.run();
 
 		testDb
@@ -163,7 +163,7 @@ describe('clearAllFamilyData', () => {
 		testDb
 			.insert(schema.children)
 			.values([
-				{ nickname: '太郎', age: 5, theme: 'blue', uiMode: 'kinder' },
+				{ nickname: '太郎', age: 5, theme: 'blue', uiMode: 'preschool' },
 				{ nickname: '花子', age: 3, theme: 'pink', uiMode: 'baby' },
 			])
 			.run();
@@ -175,7 +175,7 @@ describe('clearAllFamilyData', () => {
 	it('deleteChildFiles失敗 → エラーログのみで処理続行', async () => {
 		testDb
 			.insert(schema.children)
-			.values([{ nickname: '太郎', age: 5, theme: 'blue', uiMode: 'kinder' }])
+			.values([{ nickname: '太郎', age: 5, theme: 'blue', uiMode: 'preschool' }])
 			.run();
 
 		mockDeleteChildFiles.mockRejectedValue(new Error('file delete failed'));
@@ -188,7 +188,7 @@ describe('clearAllFamilyData', () => {
 	it('関連テーブルがカスケード削除される', async () => {
 		testDb
 			.insert(schema.children)
-			.values([{ nickname: '太郎', age: 5, theme: 'blue', uiMode: 'kinder' }])
+			.values([{ nickname: '太郎', age: 5, theme: 'blue', uiMode: 'preschool' }])
 			.run();
 
 		testDb

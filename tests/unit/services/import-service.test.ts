@@ -111,7 +111,7 @@ function makeChild(exportId: string, nickname = 'テスト太郎') {
 		age: 5,
 		birthDate: '2021-01-15',
 		theme: 'blue',
-		uiMode: 'kinder',
+		uiMode: 'preschool',
 		avatarUrl: null,
 		activeTitle: null,
 		createdAt: '2025-06-01T00:00:00Z',
