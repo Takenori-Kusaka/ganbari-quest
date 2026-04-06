@@ -525,28 +525,28 @@
 	--age-icon-size: 4rem;
 }
 
-[data-age-tier="kinder"] {
+[data-age-tier="preschool"] {
 	--age-tap-size: 80px;
 	--age-font-scale: 1.2;
 	--age-border-radius: var(--radius-md);
 	--age-icon-size: 3rem;
 }
 
-[data-age-tier="lower"] {
+[data-age-tier="elementary"] {
 	--age-tap-size: 56px;
 	--age-font-scale: 1;
 	--age-border-radius: var(--radius-md);
 	--age-icon-size: 2.5rem;
 }
 
-[data-age-tier="upper"] {
+[data-age-tier="junior"] {
 	--age-tap-size: 48px;
 	--age-font-scale: 1;
 	--age-border-radius: var(--radius-sm);
 	--age-icon-size: 2rem;
 }
 
-[data-age-tier="teen"] {
+[data-age-tier="senior"] {
 	--age-tap-size: 44px;
 	--age-font-scale: 1;
 	--age-border-radius: var(--radius-sm);
