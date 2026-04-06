@@ -10,7 +10,7 @@ let { planTier, onDismiss }: Props = $props();
 
 const isFamily = $derived(planTier === 'family');
 
-const planLabel = $derived(isFamily ? PLAN_SHORT_LABELS.family : PLAN_SHORT_LABELS.standard);
+const planLabel = $derived(PLAN_SHORT_LABELS[planTier]);
 const planIcon = $derived(isFamily ? '⭐⭐' : '⭐');
 
 const features = $derived(
