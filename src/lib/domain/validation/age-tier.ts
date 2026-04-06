@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AGE_TIER_LABELS } from '../labels';
 
 // 年齢帯モード定義
 export const UI_MODES = ['baby', 'kinder', 'lower', 'upper', 'teen'] as const;
@@ -18,11 +19,11 @@ export const AGE_TIER_CONFIG: Record<
 		fontScale: number;
 	}
 > = {
-	baby: { label: 'ベビー', ageMin: 0, ageMax: 2, tapSize: 120, fontScale: 1.5 },
-	kinder: { label: 'キンダー', ageMin: 3, ageMax: 5, tapSize: 80, fontScale: 1.2 },
-	lower: { label: 'ローワー', ageMin: 6, ageMax: 9, tapSize: 56, fontScale: 1.0 },
-	upper: { label: 'アッパー', ageMin: 10, ageMax: 14, tapSize: 48, fontScale: 1.0 },
-	teen: { label: 'ティーン', ageMin: 15, ageMax: 18, tapSize: 44, fontScale: 1.0 },
+	baby: { label: AGE_TIER_LABELS.baby, ageMin: 0, ageMax: 2, tapSize: 120, fontScale: 1.5 },
+	kinder: { label: AGE_TIER_LABELS.kinder, ageMin: 3, ageMax: 5, tapSize: 80, fontScale: 1.2 },
+	lower: { label: AGE_TIER_LABELS.lower, ageMin: 6, ageMax: 9, tapSize: 56, fontScale: 1.0 },
+	upper: { label: AGE_TIER_LABELS.upper, ageMin: 10, ageMax: 14, tapSize: 48, fontScale: 1.0 },
+	teen: { label: AGE_TIER_LABELS.teen, ageMin: 15, ageMax: 18, tapSize: 44, fontScale: 1.0 },
 };
 
 /** 年齢から推定されるデフォルトUIモードを返す */
