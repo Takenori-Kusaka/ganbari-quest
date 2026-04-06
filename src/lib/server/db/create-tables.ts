@@ -52,6 +52,7 @@ export const SQL_CREATE_TABLES = `
 		name_kana TEXT,
 		name_kanji TEXT,
 		trigger_hint TEXT,
+		is_main_quest INTEGER NOT NULL DEFAULT 0,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -221,6 +222,7 @@ export const SQL_CREATE_TABLES = `
 		icon TEXT NOT NULL DEFAULT '📋',
 		points_per_item INTEGER NOT NULL DEFAULT 2,
 		completion_bonus INTEGER NOT NULL DEFAULT 5,
+		time_slot TEXT NOT NULL DEFAULT 'anytime',
 		is_active INTEGER NOT NULL DEFAULT 1,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

@@ -415,6 +415,7 @@ $effect(() => {
 					{@const borderColor = getCategoryById(activity.categoryId)?.color ?? 'var(--theme-primary)'}
 					{@const actCount = getCount(activity.id)}
 					{@const showMission = activity.isMission && !completed}
+						{@const showMainQuest = !!activity.isMainQuest && !completed}
 					{#if completed}
 						<div
 							class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] border-2 border-[var(--color-gold-400)] bg-[var(--color-gold-100)] shadow-[0_0_0_2px_rgba(251,191,36,0.3)] transition-all duration-150 ease-out tap-target"
@@ -495,13 +496,16 @@ $effect(() => {
 								disabled={submitting}
 								variant="outline"
 								size="sm"
-								class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] border-2 border-solid bg-white shadow-sm cursor-pointer duration-150 ease-out hover:shadow-md active:scale-95 {pendingActivityId === activity.id ? 'baby-card-pending' : ''} {showMission ? 'baby-card-mission' : ''}"
+								class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] border-2 border-solid bg-white shadow-sm cursor-pointer duration-150 ease-out hover:shadow-md active:scale-95 {pendingActivityId === activity.id ? 'baby-card-pending' : ''} {showMission ? 'baby-card-mission' : ''} {showMainQuest ? 'baby-card-main-quest' : ''}"
 								data-testid="activity-card-{activity.id}"
-								style="border-color: {showMission ? 'gold' : borderColor}"
-								aria-label="{activity.displayName}をきろくする{showMission ? '（ミッション）' : ''}"
+								style="border-color: {showMainQuest ? 'var(--color-gold-500, #d97706)' : showMission ? 'gold' : borderColor}"
+								aria-label="{activity.displayName}をきろくする{showMainQuest ? '（メインクエスト×2）' : ''}{showMission ? '（ミッション）' : ''}"
 							>
 								{#if showMission}
 									<span class="absolute -top-1.5 -left-1.5 z-10 text-sm baby-card__mission-star" aria-hidden="true">⭐</span>
+								{/if}
+								{#if showMainQuest}
+									<span class="baby-main-quest-badge" aria-hidden="true">⚔️ 2ばい!</span>
 								{/if}
 								{#if pendingActivityId === activity.id}
 									<span class="baby-card__spinner" aria-hidden="true"></span>
@@ -708,6 +712,26 @@ $effect(() => {
 	@keyframes star-twinkle {
 		0%, 100% { opacity: 0.7; transform: scale(1); }
 		50% { opacity: 1; transform: scale(1.2); }
+	}
+	/* Main Quest styling */
+	:global(.baby-card-main-quest) {
+		box-shadow: 0 0 12px rgba(217, 119, 6, 0.4);
+		background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
+	}
+	.baby-main-quest-badge {
+		position: absolute;
+		top: -0.375rem;
+		right: -0.375rem;
+		z-index: 10;
+		padding: 0.125rem 0.375rem;
+		border-radius: 9999px;
+		background: linear-gradient(135deg, #f59e0b, #d97706);
+		color: white;
+		font-size: 0.625rem;
+		font-weight: 700;
+		line-height: 1;
+		white-space: nowrap;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 	}
 	/* :global() needed because this class is applied to Button component's inner <button> */
 	:global(.baby-card-pending) {
