@@ -62,7 +62,7 @@ const ageTier = $derived.by(() => {
 	if (typeof document === 'undefined') return '';
 	return document.querySelector('[data-age-tier]')?.getAttribute('data-age-tier') ?? '';
 });
-const isYoungTier = $derived(['baby', 'kinder'].includes(ageTier));
+const isYoungTier = $derived(['baby', 'preschool'].includes(ageTier));
 const labelEnd = $derived(isYoungTier ? 'おわり' : '終了');
 const labelPrev = $derived(isYoungTier ? 'もどる' : '戻る');
 const labelNext = $derived(
@@ -343,20 +343,20 @@ function handleEnd() {
 
 	/* 年齢帯別フォントサイズ調整 (G3) */
 	:global([data-age-tier="baby"]) .tutorial-title,
-	:global([data-age-tier="kinder"]) .tutorial-title {
+	:global([data-age-tier="preschool"]) .tutorial-title {
 		font-size: 1.25rem;
 	}
 
 	:global([data-age-tier="baby"]) .tutorial-description,
-	:global([data-age-tier="kinder"]) .tutorial-description {
+	:global([data-age-tier="preschool"]) .tutorial-description {
 		font-size: 1.05rem;
 	}
 
-	:global([data-age-tier="lower"]) .tutorial-title {
+	:global([data-age-tier="elementary"]) .tutorial-title {
 		font-size: 1.125rem;
 	}
 
-	:global([data-age-tier="lower"]) .tutorial-description {
+	:global([data-age-tier="elementary"]) .tutorial-description {
 		font-size: 0.95rem;
 	}
 </style>

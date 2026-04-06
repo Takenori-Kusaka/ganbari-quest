@@ -58,7 +58,7 @@ export const SOUND_TIER_CONFIG: Record<UiMode, SoundTierConfig> = {
 			'stamp-press',
 		],
 	},
-	kinder: {
+	preschool: {
 		defaultVolume: 0.6,
 		enabledSounds: [
 			'tap',
@@ -72,7 +72,7 @@ export const SOUND_TIER_CONFIG: Record<UiMode, SoundTierConfig> = {
 			'stamp-press',
 		],
 	},
-	lower: {
+	elementary: {
 		defaultVolume: 0.4,
 		enabledSounds: [
 			'record-complete',
@@ -83,11 +83,11 @@ export const SOUND_TIER_CONFIG: Record<UiMode, SoundTierConfig> = {
 			'stamp-press',
 		],
 	},
-	upper: {
+	junior: {
 		defaultVolume: 0.3,
 		enabledSounds: ['level-up', 'special-reward'],
 	},
-	teen: {
+	senior: {
 		defaultVolume: 0.2,
 		enabledSounds: ['special-reward'],
 	},

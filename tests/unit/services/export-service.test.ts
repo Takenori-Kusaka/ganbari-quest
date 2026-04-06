@@ -16,7 +16,7 @@ const mockChildren = [
 		age: 5,
 		birthDate: '2021-01-15',
 		theme: 'blue',
-		uiMode: 'kinder',
+		uiMode: 'preschool',
 		avatarUrl: null,
 		activeTitleId: 1,
 		createdAt: '2025-06-01T00:00:00Z',
