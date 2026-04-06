@@ -1,5 +1,6 @@
 import type { GradeLevel, Source } from '$lib/domain/validation/activity';
 import {
+	countMainQuestActivities as countMainQuestActivitiesRepo,
 	deleteActivity as deleteActivityRepo,
 	deleteDailyMissionsByActivity,
 	findActivities,
@@ -9,7 +10,6 @@ import {
 	insertActivity,
 	setActivityVisibility as setActivityVisibilityRepo,
 	updateActivity as updateActivityRepo,
-	countMainQuestActivities as countMainQuestActivitiesRepo,
 } from '$lib/server/db/activity-repo';
 
 export interface CreateActivityInput {
