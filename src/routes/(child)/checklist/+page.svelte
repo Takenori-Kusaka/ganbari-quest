@@ -32,6 +32,24 @@ const DAY_NAMES = [
 
 const todayDayName = $derived(DAY_NAMES[new Date().getDay()]);
 
+// 時間帯ラベル
+const TIME_SLOT_LABELS: Record<string, string> = {
+	morning: 'あさ',
+	afternoon: 'ひる',
+	evening: 'よる',
+	anytime: 'いつでも',
+};
+const TIME_SLOT_ICONS: Record<string, string> = {
+	morning: '☀️',
+	afternoon: '🌤️',
+	evening: '🌙',
+	anytime: '🕐',
+};
+const currentSlot = $derived(data.currentTimeSlot ?? 'morning');
+function isCurrentSlot(slot: string): boolean {
+	return slot === currentSlot || slot === 'anytime';
+}
+
 function handleCompleteClose() {
 	completeOpen = false;
 	completeData = null;
@@ -48,6 +66,9 @@ function handleCompleteClose() {
 	<div class="text-center mb-[var(--sp-md)]">
 		<p class="text-sm text-[var(--color-text-muted)]">きょうは</p>
 		<p class="text-lg font-bold">{todayDayName}</p>
+		<p class="text-sm text-[var(--color-text-muted)]">
+			{TIME_SLOT_ICONS[currentSlot]} いまは <span class="font-bold">{TIME_SLOT_LABELS[currentSlot]}</span> のじかん
+		</p>
 	</div>
 
 	{#if data.checklists.length === 0}
@@ -58,13 +79,16 @@ function handleCompleteClose() {
 		</div>
 	{:else}
 		{#each data.checklists as checklist (checklist.templateId)}
-			<Card padding="none" class="mb-[var(--sp-md)]">
+			<Card padding="none" class="mb-[var(--sp-md)] {isCurrentSlot(checklist.timeSlot) ? 'ring-2 ring-[var(--theme-primary)]' : 'opacity-70'}">
 				{#snippet children()}
 				<!-- Template header -->
 				<div class="px-[var(--sp-md)] py-[var(--sp-sm)] bg-[var(--theme-primary-light)] flex items-center justify-between">
 					<div class="flex items-center gap-[var(--sp-xs)]">
 						<span class="text-xl">{checklist.templateIcon}</span>
 						<span class="font-bold">{checklist.templateName}</span>
+						{#if checklist.timeSlot !== 'anytime'}
+							<span class="text-xs px-1.5 py-0.5 bg-white/50 rounded">{TIME_SLOT_ICONS[checklist.timeSlot]} {TIME_SLOT_LABELS[checklist.timeSlot]}</span>
+						{/if}
 					</div>
 					<div class="text-sm">
 						<span class="font-bold">{checklist.checkedCount}</span>

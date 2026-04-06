@@ -1,6 +1,12 @@
 <script lang="ts">
 import { navigating } from '$app/stores';
-import { getModeLabels, ICON_HOME, ICON_STATUS, ICON_SWITCH } from '$lib/domain/icons';
+import {
+	getModeLabels,
+	ICON_CHECKLIST,
+	ICON_HOME,
+	ICON_STATUS,
+	ICON_SWITCH,
+} from '$lib/domain/icons';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 
@@ -16,6 +22,11 @@ const navItems = $derived([
 		href: `/demo/${uiMode}/home?childId=${data.child?.id ?? ''}`,
 		icon: ICON_HOME,
 		label: 'ホーム',
+	},
+	{
+		href: `/demo/checklist?childId=${data.child?.id ?? ''}`,
+		icon: ICON_CHECKLIST,
+		label: modeLabels.checklist,
 	},
 	{
 		href: `/demo/${uiMode}/status?childId=${data.child?.id ?? ''}`,
