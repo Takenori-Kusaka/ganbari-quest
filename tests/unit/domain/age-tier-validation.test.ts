@@ -16,7 +16,13 @@ describe('age-tier validation', () => {
 	});
 
 	describe('uiModeSchema', () => {
-		it.each(['baby', 'preschool', 'elementary', 'junior', 'senior'])('%s は有効なUIモード', (mode) => {
+		it.each([
+			'baby',
+			'preschool',
+			'elementary',
+			'junior',
+			'senior',
+		])('%s は有効なUIモード', (mode) => {
 			expect(uiModeSchema.safeParse(mode).success).toBe(true);
 		});
 
