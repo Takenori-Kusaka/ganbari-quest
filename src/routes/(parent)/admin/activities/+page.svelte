@@ -7,6 +7,7 @@ import ActivityListItem from '$lib/features/admin/components/ActivityListItem.sv
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
 import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivitiesSection.svelte';
+import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
@@ -89,7 +90,10 @@ function acceptAiPreview(preview: AiPreviewData) {
 <div class="space-y-3">
 	<!-- ヘッダー: タイトル + ツールバー -->
 	<div class="activities-header">
-		<h2 class="activities-title">📋 活動管理</h2>
+		<div class="flex items-center gap-2">
+			<h2 class="activities-title">📋 活動管理</h2>
+			<PageHelpButton />
+		</div>
 		<div class="activities-toolbar">
 			<a
 				href="/api/v1/activities/export"
@@ -176,7 +180,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 	</div>
 
 	<!-- 検索 -->
-	<FormField label="" type="search" bind:value={searchQuery} placeholder="🔍 活動名で検索..." />
+	<FormField id="activity-search" label="活動名で検索" type="search" bind:value={searchQuery} placeholder="🔍 活動名で検索..." />
 
 	<!-- アクションメッセージ -->
 	{#if actionMessage}
@@ -228,10 +232,15 @@ function acceptAiPreview(preview: AiPreviewData) {
 			<span class="fab__icon">+</span>
 		</button>
 	{:else}
-		<div class="fab fab--disabled" aria-label="追加上限">
+		<button
+			type="button"
+			class="fab fab--disabled"
+			aria-label="追加上限"
+			aria-disabled="true"
+			disabled
+		>
 			<span class="fab__icon">+</span>
-			<PremiumBadge size="sm" label="有料プラン限定" />
-		</div>
+		</button>
 	{/if}
 
 	<!-- 追加ダイアログ -->

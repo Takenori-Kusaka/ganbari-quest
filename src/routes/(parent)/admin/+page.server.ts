@@ -59,7 +59,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const tier = resolvePlanTier(locals.context?.licenseStatus ?? 'none', locals.context?.plan);
 
-	// プレミアム歓迎画面フラグ
+	// 有料プラン歓迎画面フラグ
 	const isPaid = tier !== 'free';
 	let showPremiumWelcome = false;
 	if (isPaid) {
@@ -136,7 +136,7 @@ export const actions: Actions = {
 			await setSetting('premium_welcome_shown', 'true', tenantId);
 			return { dismissed: true };
 		} catch {
-			return fail(500, { error: 'プレミアム歓迎画面の非表示に失敗しました' });
+			return fail(500, { error: '歓迎画面の非表示に失敗しました' });
 		}
 	},
 };

@@ -7,7 +7,7 @@ import { statusTransformers } from './transformers/status';
 
 /** エンティティバージョン定義 */
 const ENTITY_VERSIONS = {
-	child: { latest: 2, min: 1 },
+	child: { latest: 3, min: 1 },
 	status: { latest: 2, min: 1 },
 } as const;
 

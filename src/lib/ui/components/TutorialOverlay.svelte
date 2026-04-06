@@ -18,40 +18,132 @@ const active = $derived(isTutorialActive());
 const step = $derived(getCurrentStep());
 const showResume = $derived(isResumePromptShown());
 
+// A. チュートリアル中はナビのz-indexを抑制するためhtml要素にフラグを付与
+$effect(() => {
+	if (active) {
+		document.documentElement.setAttribute('data-tutorial-active', '');
+		return () => document.documentElement.removeAttribute('data-tutorial-active');
+	}
+	document.documentElement.removeAttribute('data-tutorial-active');
+});
+
 /** Find the first visible element matching a selector (handles responsive layouts) */
 function findVisibleElement(selector: string): Element | null {
 	const candidates = document.querySelectorAll(selector);
 	for (const el of candidates) {
 		const rect = el.getBoundingClientRect();
-		// Skip elements with zero dimensions (e.g. hidden by CSS display:none)
 		if (rect.width > 0 && rect.height > 0) return el;
 	}
-	// Fallback to first match even if hidden
 	return candidates[0] ?? null;
+}
+
+/**
+ * B. MutationObserver で対象要素の出現を待機し、位置安定後にフォーカスを設定する。
+ * タイムアウト付き（最大3秒）で、要素が見つからなければ中央表示にフォールバック。
+ */
+function waitForElement(
+	selector: string,
+	callback: (el: Element) => void,
+	signal: AbortSignal,
+	timeoutMs = 3000,
+) {
+	// 即座に見つかる場合
+	const existing = findVisibleElement(selector);
+	if (existing) {
+		requestAnimationFrame(() => {
+			if (!signal.aborted) callback(existing);
+		});
+		return;
+	}
+
+	let timer: ReturnType<typeof setTimeout>;
+
+	const observer = new MutationObserver(() => {
+		const el = findVisibleElement(selector);
+		if (el) {
+			observer.disconnect();
+			clearTimeout(timer);
+			requestAnimationFrame(() => {
+				if (!signal.aborted) callback(el);
+			});
+		}
+	});
+
+	observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+	timer = setTimeout(() => {
+		observer.disconnect();
+		if (!signal.aborted) {
+			// 最終チェック
+			const el = findVisibleElement(selector);
+			if (el) {
+				callback(el);
+			} else {
+				// 要素未発見 — 中央表示フォールバック
+				showCenteredBubble();
+			}
+		}
+	}, timeoutMs);
+
+	signal.addEventListener('abort', () => {
+		observer.disconnect();
+		clearTimeout(timer);
+	});
+}
+
+function showCenteredBubble() {
+	targetRect = new DOMRect(window.innerWidth / 2 - 100, window.innerHeight / 3, 200, 40);
+	animKey++;
+}
+
+function focusElement(el: Element) {
+	el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	// スクロール完了を待って位置を取得
+	requestAnimationFrame(() => {
+		setTimeout(() => {
+			targetRect = el.getBoundingClientRect();
+			animKey++;
+		}, 300);
+	});
 }
 
 $effect(() => {
 	if (active && step) {
-		// Small delay to ensure DOM elements are rendered after page navigation
-		const timer = setTimeout(() => {
-			const el = step.selector ? findVisibleElement(step.selector) : null;
-			if (el) {
-				el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-				// Update rect after scroll settles
-				setTimeout(() => {
-					targetRect = el.getBoundingClientRect();
-					animKey++;
-				}, 350);
-			} else {
-				// Element not found — still show bubble at center
-				targetRect = new DOMRect(window.innerWidth / 2 - 100, window.innerHeight / 3, 200, 40);
-				animKey++;
-			}
-		}, 100);
+		const controller = new AbortController();
 
-		return () => clearTimeout(timer);
+		if (step.selector) {
+			// セレクタ指定あり — MutationObserverで要素出現を待機
+			waitForElement(step.selector, focusElement, controller.signal);
+		} else {
+			// セレクタなし — 中央表示
+			requestAnimationFrame(() => {
+				if (!controller.signal.aborted) showCenteredBubble();
+			});
+		}
+
+		return () => controller.abort();
 	}
 	targetRect = null;
+});
+
+// リサイズ・スクロール時にtargetRectを再計算（バブル位置を動的に追従）
+$effect(() => {
+	if (!active || !step?.selector) return;
+
+	function recalc() {
+		const el = step?.selector ? findVisibleElement(step.selector) : null;
+		if (el) {
+			targetRect = el.getBoundingClientRect();
+		}
+	}
+
+	window.addEventListener('resize', recalc, { passive: true });
+	window.addEventListener('scroll', recalc, { passive: true, capture: true });
+
+	return () => {
+		window.removeEventListener('resize', recalc);
+		window.removeEventListener('scroll', recalc, { capture: true });
+	};
 });
 
 function handleOverlayClick(e: MouseEvent) {
@@ -369,5 +461,13 @@ function cancelExit() {
 
 	.tutorial-dialog-btn--danger:hover {
 		background: #fee2e2;
+	}
+
+	/* A. チュートリアル中はナビ・ヘッダーのz-indexをオーバーレイ以下に抑制 */
+	:global([data-tutorial-active]) :global(.z-30) {
+		z-index: 10 !important;
+	}
+	:global([data-tutorial-active]) :global(.desktop-dropdown) {
+		z-index: 10 !important;
 	}
 </style>

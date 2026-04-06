@@ -44,7 +44,7 @@ test.describe('UC-05: 子供切り替え', () => {
 
 	test('子供を選択するとホーム画面に遷移する', async ({ page }) => {
 		await selectKinderChild(page);
-		await expect(page).toHaveURL(/\/kinder\/home/);
+		await expect(page).toHaveURL(/\/preschool\/home/);
 		await expect(page).toHaveTitle(/ホーム/);
 	});
 });
@@ -167,15 +167,15 @@ test.describe('UC-02: 記録キャンセル', () => {
 test.describe('UC-03: 活動履歴', () => {
 	test('履歴画面が表示される', async ({ page }) => {
 		await selectKinderChildAndDismiss(page);
-		await page.goto('/kinder/history');
-		await expect(page).toHaveURL(/\/kinder\/history/);
+		await page.goto('/preschool/history');
+		await expect(page).toHaveURL(/\/preschool\/history/);
 		// 期間タブが表示されることでページが正しくレンダリングされたことを確認
 		await expect(page.getByTestId('tab-today')).toBeVisible();
 	});
 
 	test('期間タブが表示される', async ({ page }) => {
 		await selectKinderChildAndDismiss(page);
-		await page.goto('/kinder/history');
+		await page.goto('/preschool/history');
 
 		await expect(page.getByTestId('tab-today')).toBeVisible();
 		await expect(page.getByTestId('tab-week')).toBeVisible();
@@ -189,15 +189,15 @@ test.describe('UC-03: 活動履歴', () => {
 test.describe('UC-04: ステータス確認', () => {
 	test('ステータス画面が表示される', async ({ page }) => {
 		await selectKinderChildAndDismiss(page);
-		await page.goto('/kinder/status');
-		await expect(page).toHaveURL(/\/kinder\/status/);
+		await page.goto('/preschool/status');
+		await expect(page).toHaveURL(/\/preschool\/status/);
 		// レーダーチャートセクション見出しでレンダリング確認
 		await expect(page.getByTestId('growth-chart-heading')).toBeVisible();
 	});
 
 	test('レベルとキャラクタータイプが表示される', async ({ page }) => {
 		await selectKinderChildAndDismiss(page);
-		await page.goto('/kinder/status');
+		await page.goto('/preschool/status');
 
 		// レベル表示（ヘッダーとメインの2箇所にあるので main 内を指定）
 		await expect(page.getByRole('main').getByText(/Lv\./).first()).toBeVisible();
@@ -234,11 +234,11 @@ test.describe('ナビゲーション', () => {
 
 		// ホーム → つよさ（ステータス）
 		await nav.locator('a').filter({ hasText: 'つよさ' }).click({ force: true });
-		await expect(page).toHaveURL(/\/kinder\/status/);
+		await expect(page).toHaveURL(/\/preschool\/status/);
 
 		// つよさ → ホーム
 		await nav.locator('a').filter({ hasText: 'ホーム' }).click({ force: true });
-		await expect(page).toHaveURL(/\/kinder\/home/);
+		await expect(page).toHaveURL(/\/preschool\/home/);
 	});
 
 	test('かぞくリンクで /switch に戻れる', async ({ page }) => {

@@ -128,8 +128,8 @@ export async function claimLoginBonus(
 		calcLoginBonusPoints(omikuji.basePoints, multiplier) * loyaltyMultiplier,
 	);
 
-	// DB保存
-	await insertLoginBonus(
+	// DB保存（レースコンディション対策: onConflictDoNothing で重複insert回避）
+	const inserted = await insertLoginBonus(
 		{
 			childId,
 			loginDate: today,
@@ -141,6 +141,9 @@ export async function claimLoginBonus(
 		},
 		tenantId,
 	);
+
+	// 競合で挿入できなかった場合は既受取扱い
+	if (!inserted) return { error: 'ALREADY_CLAIMED' as const };
 
 	// ポイント台帳に記録
 	await insertPointEntry(
@@ -156,9 +159,9 @@ export async function claimLoginBonus(
 	// メッセージ組み立て
 	let message = `${omikuji.rank}！${totalPoints}ポイントゲット！`;
 	if (loyaltyMultiplier > 1 && multiplier > 1) {
-		message = `${omikuji.rank}！${consecutiveDays}にちれんぞく＋プレミアムボーナス！${totalPoints}ポイントゲット！`;
+		message = `${omikuji.rank}！${consecutiveDays}にちれんぞく＋サポーターボーナス！${totalPoints}ポイントゲット！`;
 	} else if (loyaltyMultiplier > 1) {
-		message = `${omikuji.rank}！⭐プレミアムボーナス！${totalPoints}ポイントゲット！`;
+		message = `${omikuji.rank}！⭐サポーターボーナス！${totalPoints}ポイントゲット！`;
 	} else if (multiplier > 1) {
 		message = `${omikuji.rank}！${consecutiveDays}にちれんぞくで${multiplier}ばい！${totalPoints}ポイントゲット！`;
 	}
