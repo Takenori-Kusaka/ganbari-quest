@@ -21,14 +21,14 @@ let claimed = $state(false);
 let claimedPoints = $state(0);
 
 function getMessageText(): { main: string; sub: string; button: string } {
-	if (uiMode === 'baby' || uiMode === 'kinder') {
+	if (uiMode === 'baby' || uiMode === 'preschool') {
 		return {
 			main: `${formatChildName(nickname, 'vocative')}${newAge}さい\nおめでとう！`,
 			sub: 'これからも いっぱい がんばろうね！',
 			button: 'やったー！',
 		};
 	}
-	if (uiMode === 'lower') {
+	if (uiMode === 'elementary') {
 		return {
 			main: `${formatChildName(nickname, 'vocative')}${newAge}さい\nおめでとう！`,
 			sub: 'これからもたくさんチャレンジしよう！',

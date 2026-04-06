@@ -1,7 +1,7 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import { navigating, page } from '$app/stores';
-import { PLAN_LABELS } from '$lib/domain/labels';
+import { NAV_CATEGORIES, NAV_ITEM_LABELS, PLAN_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -52,51 +52,52 @@ $effect(() => {
 
 /** Full plan name for the header badge (#490) */
 const planLabel = $derived.by(() => {
-	if (planTier === 'free') return '';
-	return PLAN_LABELS[planTier] ?? '';
+	if (planTier === 'family') return PLAN_LABELS.family;
+	if (planTier === 'standard') return PLAN_LABELS.standard;
+	return '';
 });
 
 const navCategories: NavCategory[] = $derived([
 	{
 		id: 'monitor',
-		label: '記録・分析',
-		icon: '📊',
+		label: NAV_CATEGORIES.monitor.label,
+		icon: NAV_CATEGORIES.monitor.icon,
 		items: [
-			{ href: `${basePath}/reports`, label: 'レポート', icon: '📊' },
-			{ href: `${basePath}/growth-book`, label: 'グロースブック', icon: '📚' },
-			{ href: `${basePath}/achievements`, label: 'チャレンジ履歴', icon: '🏅' },
+			{ href: `${basePath}/reports`, label: NAV_ITEM_LABELS.reports, icon: '📊' },
+			{ href: `${basePath}/growth-book`, label: NAV_ITEM_LABELS.growthBook, icon: '📚' },
+			{ href: `${basePath}/achievements`, label: NAV_ITEM_LABELS.achievements, icon: '🏅' },
 		],
 	},
 	{
 		id: 'encourage',
-		label: '応援・報酬',
-		icon: '💬',
+		label: NAV_CATEGORIES.encourage.label,
+		icon: NAV_CATEGORIES.encourage.icon,
 		items: [
-			{ href: `${basePath}/points`, label: 'ポイント', icon: '⭐' },
-			{ href: `${basePath}/messages`, label: 'おうえん', icon: '💌' },
-			{ href: `${basePath}/rewards`, label: 'ごほうび', icon: '🎁' },
+			{ href: `${basePath}/points`, label: NAV_ITEM_LABELS.points, icon: '⭐' },
+			{ href: `${basePath}/messages`, label: NAV_ITEM_LABELS.messages, icon: '💌' },
+			{ href: `${basePath}/rewards`, label: NAV_ITEM_LABELS.rewards, icon: '🎁' },
 		],
 	},
 	{
 		id: 'customize',
-		label: '活動設定',
-		icon: '🎮',
+		label: NAV_CATEGORIES.customize.label,
+		icon: NAV_CATEGORIES.customize.icon,
 		items: [
-			{ href: `${basePath}/activities`, label: '活動管理', icon: '📋' },
-			{ href: `${basePath}/checklists`, label: 'チェックリスト', icon: '✅' },
-			{ href: `${basePath}/events`, label: 'イベント', icon: '🎉' },
-			{ href: `${basePath}/challenges`, label: 'チャレンジ', icon: '👥' },
+			{ href: `${basePath}/activities`, label: NAV_ITEM_LABELS.activities, icon: '📋' },
+			{ href: `${basePath}/checklists`, label: NAV_ITEM_LABELS.checklists, icon: '✅' },
+			{ href: `${basePath}/events`, label: NAV_ITEM_LABELS.events, icon: '🎉' },
+			{ href: `${basePath}/challenges`, label: NAV_ITEM_LABELS.challenges, icon: '👥' },
 		],
 	},
 	{
 		id: 'settings',
-		label: 'アカウント',
-		icon: '⚙️',
+		label: NAV_CATEGORIES.settings.label,
+		icon: NAV_CATEGORIES.settings.icon,
 		items: [
-			{ href: `${basePath}/children`, label: 'こども', icon: '👧' },
-			{ href: `${basePath}/settings`, label: '設定', icon: '⚙️' },
-			{ href: `${basePath}/license`, label: 'プラン', icon: '💎' },
-			{ href: `${basePath}/members`, label: 'メンバー', icon: '👥' },
+			{ href: `${basePath}/children`, label: NAV_ITEM_LABELS.children, icon: '👧' },
+			{ href: `${basePath}/settings`, label: NAV_ITEM_LABELS.settings, icon: '⚙️' },
+			{ href: `${basePath}/license`, label: NAV_ITEM_LABELS.license, icon: '💎' },
+			{ href: `${basePath}/members`, label: NAV_ITEM_LABELS.members, icon: '👥' },
 		],
 	},
 ]);
