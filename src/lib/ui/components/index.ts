@@ -9,6 +9,7 @@ export { default as LevelUpOverlay } from './LevelUpOverlay.svelte';
 export { default as LoadingButton } from './LoadingButton.svelte';
 export { default as NumPad } from './NumPad.svelte';
 export { default as OmikujiStampOverlay } from './OmikujiStampOverlay.svelte';
+export { default as PageHelpButton } from './PageHelpButton.svelte';
 export { default as PointDisplay } from './PointDisplay.svelte';
 export { default as PremiumBadge } from './PremiumBadge.svelte';
 export { default as PremiumModal } from './PremiumModal.svelte';
