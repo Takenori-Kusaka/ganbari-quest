@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { getAgeTierLabel, getThemeOptions } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import {
 	formatPointValue,
@@ -313,11 +314,9 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						<div>
 							<label for="edit-theme-{child.id}" class="profile-edit__label">テーマカラー</label>
 							<select id="edit-theme-{child.id}" name="theme" class="profile-edit__select">
-								<option value="pink" selected={child.theme === 'pink'}>🩷 ピンク</option>
-								<option value="blue" selected={child.theme === 'blue'}>💙 ブルー</option>
-								<option value="green" selected={child.theme === 'green'}>💚 みどり</option>
-								<option value="orange" selected={child.theme === 'orange'}>🧡 オレンジ</option>
-								<option value="purple" selected={child.theme === 'purple'}>💜 むらさき</option>
+								{#each getThemeOptions() as opt}
+									<option value={opt.value} selected={child.theme === opt.value}>{opt.emoji} {opt.label}</option>
+								{/each}
 							</select>
 						</div>
 					</div>
@@ -432,7 +431,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 			</div>
 			<div class="profile-header__info">
 				<h3 class="profile-header__name">{child.nickname}</h3>
-				<p class="profile-header__meta">{child.age}歳 / {child.uiMode}</p>
+				<p class="profile-header__meta">{child.age}歳 / {getAgeTierLabel(child.uiMode)}</p>
 				{#if child.birthDate}
 					<p class="profile-header__birthday">🎂 {child.birthDate}</p>
 				{/if}
@@ -469,7 +468,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						<p class="info-card__label">年齢</p>
 					</div>
 					<div class="info-card info-card--purple">
-						<p class="info-card__value">{child.uiMode}</p>
+						<p class="info-card__value">{getAgeTierLabel(child.uiMode)}</p>
 						<p class="info-card__label">UIモード</p>
 					</div>
 					<div class="info-card info-card--amber">

@@ -44,7 +44,7 @@ export interface ModeLabels {
 	checklist: string;
 }
 
-/** 年齢モード別ラベル定義 */
+/** 年齢モード別ラベル定義（#537: 新コード名に対応） */
 export const MODE_LABELS: Record<string, ModeLabels> = {
 	baby: {
 		status: 'つよさ',
@@ -55,7 +55,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		recordSummary: 'きょうの きろく',
 		checklist: 'もちものチェック',
 	},
-	kinder: {
+	preschool: {
 		status: 'つよさ',
 		switch: 'かぞく',
 		history: 'きろく',
@@ -64,7 +64,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		recordSummary: 'きょうの きろく',
 		checklist: 'もちものチェック',
 	},
-	lower: {
+	elementary: {
 		status: 'つよさ',
 		switch: 'かぞく',
 		history: '記録',
@@ -73,7 +73,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		recordSummary: '今日の記録',
 		checklist: '持ち物チェック',
 	},
-	upper: {
+	junior: {
 		status: 'ステータス',
 		switch: 'メンバー',
 		history: '記録',
@@ -82,7 +82,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 		recordSummary: '今日の記録',
 		checklist: '持ち物チェック',
 	},
-	teen: {
+	senior: {
 		status: 'ステータス',
 		switch: 'メンバー',
 		history: '記録',
@@ -93,7 +93,7 @@ export const MODE_LABELS: Record<string, ModeLabels> = {
 	},
 };
 
-const DEFAULT_LABELS: ModeLabels = MODE_LABELS.kinder as ModeLabels;
+const DEFAULT_LABELS: ModeLabels = MODE_LABELS.preschool as ModeLabels;
 
 /** モード別ラベルを安全に取得 */
 export function getModeLabels(uiMode: string): ModeLabels {
