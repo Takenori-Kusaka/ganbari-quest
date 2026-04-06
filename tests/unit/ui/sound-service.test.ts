@@ -39,7 +39,7 @@ describe('SOUND_DEFS', () => {
 
 describe('SOUND_TIER_CONFIG', () => {
 	it('全5モードに設定がある', () => {
-		const modes = ['baby', 'kinder', 'lower', 'upper', 'teen'] as const;
+		const modes = ['baby', 'preschool', 'elementary', 'junior', 'senior'] as const;
 		for (const mode of modes) {
 			expect(SOUND_TIER_CONFIG[mode]).toBeDefined();
 			expect(SOUND_TIER_CONFIG[mode].defaultVolume).toBeGreaterThan(0);
@@ -52,22 +52,22 @@ describe('SOUND_TIER_CONFIG', () => {
 		expect(SOUND_TIER_CONFIG.baby.defaultVolume).toBe(0.8);
 	});
 
-	it('teen が最小音量', () => {
-		expect(SOUND_TIER_CONFIG.teen.defaultVolume).toBe(0.2);
+	it('senior が最小音量', () => {
+		expect(SOUND_TIER_CONFIG.senior.defaultVolume).toBe(0.2);
 	});
 
 	it('年齢が上がるほど音量が下がる', () => {
 		expect(SOUND_TIER_CONFIG.baby.defaultVolume).toBeGreaterThan(
-			SOUND_TIER_CONFIG.kinder.defaultVolume,
+			SOUND_TIER_CONFIG.preschool.defaultVolume,
 		);
-		expect(SOUND_TIER_CONFIG.kinder.defaultVolume).toBeGreaterThan(
-			SOUND_TIER_CONFIG.lower.defaultVolume,
+		expect(SOUND_TIER_CONFIG.preschool.defaultVolume).toBeGreaterThan(
+			SOUND_TIER_CONFIG.elementary.defaultVolume,
 		);
-		expect(SOUND_TIER_CONFIG.lower.defaultVolume).toBeGreaterThan(
-			SOUND_TIER_CONFIG.upper.defaultVolume,
+		expect(SOUND_TIER_CONFIG.elementary.defaultVolume).toBeGreaterThan(
+			SOUND_TIER_CONFIG.junior.defaultVolume,
 		);
-		expect(SOUND_TIER_CONFIG.upper.defaultVolume).toBeGreaterThan(
-			SOUND_TIER_CONFIG.teen.defaultVolume,
+		expect(SOUND_TIER_CONFIG.junior.defaultVolume).toBeGreaterThan(
+			SOUND_TIER_CONFIG.senior.defaultVolume,
 		);
 	});
 
@@ -75,28 +75,28 @@ describe('SOUND_TIER_CONFIG', () => {
 		expect(SOUND_TIER_CONFIG.baby.enabledSounds).toHaveLength(SOUND_IDS.length);
 	});
 
-	it('teen は最小限のサウンドのみ有効', () => {
-		expect(SOUND_TIER_CONFIG.teen.enabledSounds.length).toBeLessThan(SOUND_IDS.length);
-		expect(SOUND_TIER_CONFIG.teen.enabledSounds).toContain('special-reward');
+	it('senior は最小限のサウンドのみ有効', () => {
+		expect(SOUND_TIER_CONFIG.senior.enabledSounds.length).toBeLessThan(SOUND_IDS.length);
+		expect(SOUND_TIER_CONFIG.senior.enabledSounds).toContain('special-reward');
 	});
 
 	it('年齢が上がるほど有効サウンド数が減る', () => {
 		expect(SOUND_TIER_CONFIG.baby.enabledSounds.length).toBeGreaterThanOrEqual(
-			SOUND_TIER_CONFIG.kinder.enabledSounds.length,
+			SOUND_TIER_CONFIG.preschool.enabledSounds.length,
 		);
-		expect(SOUND_TIER_CONFIG.kinder.enabledSounds.length).toBeGreaterThanOrEqual(
-			SOUND_TIER_CONFIG.lower.enabledSounds.length,
+		expect(SOUND_TIER_CONFIG.preschool.enabledSounds.length).toBeGreaterThanOrEqual(
+			SOUND_TIER_CONFIG.elementary.enabledSounds.length,
 		);
-		expect(SOUND_TIER_CONFIG.lower.enabledSounds.length).toBeGreaterThanOrEqual(
-			SOUND_TIER_CONFIG.upper.enabledSounds.length,
+		expect(SOUND_TIER_CONFIG.elementary.enabledSounds.length).toBeGreaterThanOrEqual(
+			SOUND_TIER_CONFIG.junior.enabledSounds.length,
 		);
-		expect(SOUND_TIER_CONFIG.upper.enabledSounds.length).toBeGreaterThanOrEqual(
-			SOUND_TIER_CONFIG.teen.enabledSounds.length,
+		expect(SOUND_TIER_CONFIG.junior.enabledSounds.length).toBeGreaterThanOrEqual(
+			SOUND_TIER_CONFIG.senior.enabledSounds.length,
 		);
 	});
 
 	it('enabledSounds の全要素が有効なSOUND_ID', () => {
-		for (const mode of ['baby', 'kinder', 'lower', 'upper', 'teen'] as const) {
+		for (const mode of ['baby', 'preschool', 'elementary', 'junior', 'senior'] as const) {
 			for (const soundId of SOUND_TIER_CONFIG[mode].enabledSounds) {
 				expect(SOUND_IDS).toContain(soundId);
 			}
@@ -233,23 +233,23 @@ describe('SoundService', () => {
 
 	it('configure で年齢帯設定が適用される', async () => {
 		const service = await createService();
-		service.configure('kinder');
+		service.configure('preschool');
 		expect(service.getVolume()).toBe(0.6);
-		expect(service.getEnabledSounds()).toEqual(SOUND_TIER_CONFIG.kinder.enabledSounds);
+		expect(service.getEnabledSounds()).toEqual(SOUND_TIER_CONFIG.preschool.enabledSounds);
 	});
 
-	it('configure で baby と teen の差異が正しい', async () => {
+	it('configure で baby と senior の差異が正しい', async () => {
 		const service = await createService();
 
 		service.configure('baby');
 		expect(service.getVolume()).toBe(0.8);
 		const babySounds = service.getEnabledSounds();
 
-		service.configure('teen');
+		service.configure('senior');
 		expect(service.getVolume()).toBe(0.2);
-		const teenSounds = service.getEnabledSounds();
+		const seniorSounds = service.getEnabledSounds();
 
-		expect(babySounds.length).toBeGreaterThan(teenSounds.length);
+		expect(babySounds.length).toBeGreaterThan(seniorSounds.length);
 	});
 
 	it('destroy で AudioContext をクローズする', async () => {

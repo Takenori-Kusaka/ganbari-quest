@@ -58,7 +58,11 @@ const DIRECTION_OPTIONS = [
 
 const COMMON_ICONS = ['🏫', '👕', '👟', '🎨', '🎵', '📚', '🧹', '🍱', '💧', '📦', '🎒', '✏️'];
 
+// Dialog exclusion: only one dialog open at a time
+const anyDialogOpen = $derived(addItemOpen || addTemplateOpen || overrideOpen);
+
 function openAddItem(templateId: number) {
+	if (anyDialogOpen) return;
 	addItemTemplateId = templateId;
 	itemName = '';
 	itemIcon = '🏫';
@@ -68,12 +72,14 @@ function openAddItem(templateId: number) {
 }
 
 function openAddTemplate() {
+	if (anyDialogOpen) return;
 	templateName = '';
 	templateIcon = '📋';
 	addTemplateOpen = true;
 }
 
 function openOverride() {
+	if (anyDialogOpen) return;
 	overrideDate = data?.today ?? '';
 	overrideAction = 'add';
 	overrideName = '';
@@ -227,7 +233,7 @@ function directionLabel(dir: string): string {
 				📅 ワンオフ追加
 			</Button>
 			{#if !data.isPremium}
-				<PremiumBadge size="sm" label="プレミアム" />
+				<PremiumBadge size="sm" label="スタンダード以上" />
 			{/if}
 		</div>
 

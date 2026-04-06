@@ -85,7 +85,7 @@ let resultData = $state<{
 // Error state
 let errorMessage = $state('');
 
-// Submitting state
+// Submitting state (多重送信防止)
 let submitting = $state(false);
 
 // Cancel state
@@ -161,7 +161,7 @@ function getCategoryXpWithAnim(categoryId: number) {
 	return base;
 }
 
-// Build recorded counts map: activityId -> count
+// Build recorded counts map: activityId → count
 const recordedMap = $derived(new Map(data.todayRecorded.map((r) => [r.activityId, r.count])));
 
 function getCount(activityId: number): number {
@@ -190,6 +190,8 @@ const focusAllCompleted = $derived(
 	recommendedActivities.length > 0 && focusCompletedCount === recommendedActivities.length,
 );
 function handleActivityTap(activity: { id: number; name: string; icon: string }) {
+	if (submitting || confirmOpen || resultOpen || levelUpOpen || rewardOpen || stampPressOpen)
+		return;
 	soundService.play('tap');
 	selectedActivity = activity;
 	confirmOpen = true;
@@ -247,7 +249,7 @@ function handleResultClose() {
 		}, 900);
 	}
 
-	// Level up overlay
+	// レベルアップがあれば先に表示
 	if (levelUpData) {
 		levelUpOpen = true;
 	} else {
@@ -267,6 +269,7 @@ function handleLevelUpClose() {
 
 function handleStampPressClose() {
 	stampPressOpen = false;
+	// スタンプ後に特別報酬チェック
 	checkSpecialReward();
 	invalidateAll();
 }
@@ -288,7 +291,7 @@ async function handleRewardClose() {
 	rewardOpen = false;
 }
 
-// Auto-show login stamp on page load if not claimed
+// Auto-show login bonus on page load if not claimed
 $effect(() => {
 	if (data.loginBonusStatus && !data.loginBonusStatus.claimedToday && !bonusClaiming) {
 		bonusClaiming = true;
@@ -375,7 +378,7 @@ $effect(() => {
 			{#if data.checklistProgress}
 				<div class="flex items-center gap-[var(--sp-xs)]">
 					{#if data.checklistProgress.allDone}
-						<span class="text-sm font-bold text-[var(--theme-accent)]">✅ 完了</span>
+						<span class="text-sm font-bold text-[var(--theme-accent)]">✅ 完了！</span>
 					{:else}
 						<span class="text-sm text-[var(--color-text-muted)]">
 							{data.checklistProgress.checkedCount}/{data.checklistProgress.totalCount}
@@ -460,66 +463,45 @@ $effect(() => {
 			</CategorySection>
 		{/each}
 
-	<!-- 週間ダッシュボード（Teen固有） -->
+	<!-- 週間アクティビティサマリー（Upper固有） -->
 	{#if data.weeklySummary}
 		{@const ws = data.weeklySummary}
 		{@const todayCount = data.todayRecorded.reduce((sum, r) => sum + r.count, 0)}
 		{@const maxDayCount = Math.max(...ws.days.map((d) => d.count), 1)}
 		<Card padding="md" class="mt-[var(--sp-md)]">
 			{#snippet children()}
-			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-3">📈 ウィークリーダッシュボード</h3>
-			<!-- KPI row -->
-			<div class="grid grid-cols-3 gap-2 mb-3">
-				<div class="text-center p-2 rounded-lg bg-[var(--theme-bg)]">
-					<div class="text-lg font-bold text-[var(--theme-accent)]">{ws.totalCount}</div>
-					<div class="text-[10px] text-[var(--color-text-muted)]">記録数</div>
-				</div>
-				<div class="text-center p-2 rounded-lg bg-[var(--theme-bg)]">
-					<div class="text-lg font-bold text-[var(--color-point)]">{ws.totalPoints}</div>
-					<div class="text-[10px] text-[var(--color-text-muted)]">獲得P</div>
-				</div>
-				<div class="text-center p-2 rounded-lg bg-[var(--theme-bg)]">
-					<div class="text-lg font-bold text-[var(--theme-accent)]">{ws.activeDays}/7</div>
-					<div class="text-[10px] text-[var(--color-text-muted)]">稼働日</div>
-				</div>
+			<div class="flex items-center justify-between mb-2">
+				<h3 class="text-sm font-bold text-[var(--color-text-muted)]">📊 今週のがんばり</h3>
+				<span class="text-xs text-[var(--color-text-muted)]">{ws.totalCount}回 / {ws.totalPoints}P</span>
 			</div>
-			<!-- 7日ストリークカレンダー -->
-			<div class="flex gap-1 mb-3">
+			<!-- 7日バーチャート -->
+			<div class="flex items-end gap-1 h-16 mb-2">
 				{#each ws.days as day}
+					{@const pct = Math.max((day.count / maxDayCount) * 100, 4)}
 					{@const isToday = day.date === ws.days[ws.days.length - 1]?.date}
-					<div class="flex-1 flex flex-col items-center gap-1">
+					<div class="flex-1 flex flex-col items-center gap-0.5">
+						<span class="text-[9px] font-bold text-[var(--color-text-muted)]">{day.count || ''}</span>
+						<div
+							class="w-full rounded-t-sm transition-all duration-300"
+							style="height: {pct}%; background: {isToday ? 'var(--theme-accent)' : 'var(--theme-secondary)'}; opacity: {day.count > 0 ? 1 : 0.3}; min-height: 2px;"
+						></div>
 						<span class="text-[9px] text-[var(--color-text-muted)]">
 							{['日', '月', '火', '水', '木', '金', '土'][new Date(day.date).getDay()]}
 						</span>
-						<div
-							class="w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-bold
-								{day.count > 0 ? 'bg-[var(--theme-accent)] text-white' : 'bg-gray-100 text-gray-300'}
-								{isToday ? 'ring-2 ring-[var(--theme-accent)] ring-offset-1' : ''}"
-						>
-							{day.count || '−'}
-						</div>
 					</div>
 				{/each}
 			</div>
-			<!-- カテゴリバランス -->
+			<!-- カテゴリ別内訳 -->
 			{#if Object.keys(ws.byCategory).length > 0}
-				<div class="border-t border-gray-100 pt-2">
-					<div class="text-[10px] text-[var(--color-text-muted)] mb-1.5">カテゴリバランス</div>
-					<div class="flex flex-col gap-1.5">
-						{#each Object.entries(ws.byCategory) as [catId, cat]}
-							{@const catDef = getCategoryById(Number(catId))}
-							{@const pct = Math.round((cat.count / ws.totalCount) * 100)}
-							{#if catDef}
-								<div class="flex items-center gap-2">
-									<span class="text-[10px] w-14 truncate" style="color: {catDef.color};">{catDef.name}</span>
-									<div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-										<div class="h-full rounded-full transition-all duration-500" style="width: {pct}%; background: {catDef.color};"></div>
-									</div>
-									<span class="text-[10px] text-[var(--color-text-muted)] w-8 text-right">{pct}%</span>
-								</div>
-							{/if}
-						{/each}
-					</div>
+				<div class="flex gap-2 flex-wrap mt-1 pt-2 border-t border-gray-100">
+					{#each Object.entries(ws.byCategory) as [catId, cat]}
+						{@const catDef = getCategoryById(Number(catId))}
+						{#if catDef}
+							<span class="text-[10px] px-2 py-0.5 rounded-full" style="background: {catDef.color}20; color: {catDef.color};">
+								{catDef.name} {cat.count}回
+							</span>
+						{/if}
+					{/each}
 				</div>
 			{/if}
 			{#if todayCount > 0}
@@ -575,9 +557,9 @@ $effect(() => {
 				{#if pinSubmitting}
 					<span class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
 				{:else if pinMenuActivity.isPinned}
-					📌 ピン留め解除
+					📌 ピン留めを解除
 				{:else}
-					📌 ピン留め
+					📌 ピン留めする
 				{/if}
 			</Button>
 			<Button
@@ -685,9 +667,9 @@ $effect(() => {
 					>
 						{#if submitting}
 							<span class="pending-dot" aria-hidden="true"></span>
-							処理中...
+							記録中...
 						{:else}
-							記録
+							記録する
 						{/if}
 					</Button>
 				</form>
@@ -720,13 +702,13 @@ $effect(() => {
 				<div class="relative w-24 h-24 flex items-center justify-center">
 					<CelebrationEffect type={celebEffect} />
 				</div>
-				<p class="text-lg font-bold">{resultData.activityName}を記録しました</p>
+				<p class="text-lg font-bold">{resultData.activityName}を記録しました！</p>
 				<div class="animate-point-pop">
 					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.totalPoints)}</p>
 				</div>
 				{#if resultData.streakDays >= 2}
 					<p class="text-sm text-[var(--theme-accent)]">
-						{resultData.streakDays}日連続 +{resultData.streakBonus}ボーナス
+						{resultData.streakDays}日連続！ +{resultData.streakBonus}ボーナス
 					</p>
 				{/if}
 				{#if resultData.masteryBonus > 0}
@@ -758,13 +740,13 @@ $effect(() => {
 				{#if missionResult}
 					<div class="bg-amber-50 rounded-[var(--radius-md)] px-3 py-2 w-full">
 						<p class="text-sm font-bold text-amber-600">
-							🎯 ミッション達成
+							🎯 ミッション達成！
 							{#if missionResult.bonusAwarded > 0}
 								{fmtPts(missionResult.bonusAwarded)}
 							{/if}
 						</p>
 						{#if missionResult.allComplete}
-							<p class="text-xs font-bold text-amber-500">🎉 全達成</p>
+							<p class="text-xs font-bold text-amber-500">🎉 全クリア！</p>
 						{/if}
 					</div>
 				{/if}

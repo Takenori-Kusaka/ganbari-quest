@@ -1,3 +1,4 @@
+import { NAV_CATEGORIES, NAV_ITEM_LABELS, PLAN_LABELS } from '$lib/domain/labels';
 import type { PlanTier, TutorialChapter } from './tutorial-types';
 
 const TIER_ORDER: Record<PlanTier, number> = { free: 0, standard: 1, family: 2 };
@@ -13,8 +14,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				chapterId: 1,
 				selector: '[data-tutorial="nav-desktop"], [data-tutorial="nav-primary"]',
 				title: 'ナビゲーション',
-				description:
-					'メニューは「みまもり」「はげまし」「カスタマイズ」「設定」の4つのカテゴリに分かれています。それぞれのカテゴリを開くと、詳しいメニューが表示されます。',
+				description: `メニューは「${NAV_CATEGORIES.monitor.label}」「${NAV_CATEGORIES.encourage.label}」「${NAV_CATEGORIES.customize.label}」「${NAV_CATEGORIES.settings.label}」の4つのカテゴリに分かれています。それぞれのカテゴリを開くと、詳しいメニューが表示されます。`,
 				position: 'top',
 				page: '/admin',
 			},
@@ -30,6 +30,16 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 			},
 			{
 				id: 'intro-3',
+				chapterId: 1,
+				selector: '[data-tutorial="monthly-summary"]',
+				title: '今月のがんばり',
+				description:
+					'こどもごとの今月の活動回数・レベル・実績がひと目で分かるサマリーです。「今月はどのくらい頑張ったかな？」を毎日チェックしてみましょう。詳しくはレポート画面で確認できます。',
+				position: 'bottom',
+				page: '/admin',
+			},
+			{
+				id: 'intro-4',
 				chapterId: 1,
 				selector: '[data-tutorial="children-overview"]',
 				title: 'こども一覧（ホーム）',
@@ -71,7 +81,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				selector: '[data-tutorial="child-card"]',
 				title: 'こどもの詳細',
 				description:
-					'各こどもの名前・年齢・ポイント残高が表示されます。「こどもごとの進捗をざっくり把握したい」時にここを見てください。',
+					'各こどもの名前・年齢・ポイント残高が表示されます。「こどもごとの進捗をざっくり把握したい」時にここを見てください。\n\n⭐ 無料プランではこどもを2人まで登録できます。3人以上のきょうだいがいる場合はスタンダードプラン以上で無制限に登録できます。',
 				position: 'bottom',
 				page: '/admin/children',
 			},
@@ -107,8 +117,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				chapterId: 3,
 				selector: '[data-tutorial="add-activity-btn"]',
 				title: '活動の追加',
-				description:
-					'お子さまの習い事や家庭のルールに合わせたオリジナル活動を追加できます。例えば「ピアノの練習30分」「犬のお散歩」など、ご家庭ならではの活動を登録しましょう。\n\n⭐ 活動の追加・編集はスタンダードプラン以上で利用できます。無料プランでは初期登録されている活動をそのままご利用いただけます。',
+				description: `お子さまの習い事や家庭のルールに合わせたオリジナル活動を追加できます。例えば「ピアノの練習30分」「犬のお散歩」など、ご家庭ならではの活動を登録しましょう。\n\n⭐ 活動の追加・編集は${PLAN_LABELS.standard}以上で利用できます。${PLAN_LABELS.free}では初期登録されている活動をそのままご利用いただけます。`,
 				position: 'bottom',
 				page: '/admin/activities',
 				requiredTier: 'standard',
@@ -126,7 +135,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				selector: '[data-tutorial="rewards-section"]',
 				title: '特別報酬',
 				description:
-					'「お手伝いを自分から進んでやった」「テストでいい点を取った」など、日常の活動記録とは別に特別なポイントを贈りたい時に使います。理由を添えてポイントを渡しましょう。',
+					'「お手伝いを自分から進んでやった」「テストでいい点を取った」など、日常の活動記録とは別に特別なポイントを贈りたい時に使います。理由を添えてポイントを渡しましょう。\n\n⭐ ごほうびアイテムの設定はスタンダードプラン以上で利用できます。',
 				position: 'bottom',
 				page: '/admin/rewards',
 			},
@@ -144,7 +153,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	},
 	{
 		id: 5,
-		title: 'みまもり（レポート）',
+		title: `${NAV_CATEGORIES.monitor.label}（${NAV_ITEM_LABELS.reports}）`,
 		icon: '📊',
 		steps: [
 			{
@@ -171,7 +180,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	},
 	{
 		id: 6,
-		title: 'はげまし（メッセージ）',
+		title: `${NAV_CATEGORIES.encourage.label}（${NAV_ITEM_LABELS.messages}）`,
 		icon: '💬',
 		steps: [
 			{
@@ -198,7 +207,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	},
 	{
 		id: 7,
-		title: 'カスタマイズ（データ管理）',
+		title: `${NAV_CATEGORIES.customize.label}（データ管理）`,
 		icon: '🎮',
 		steps: [
 			{
@@ -269,30 +278,10 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 			{
 				id: 'premium-1',
 				chapterId: 9,
-				selector: '[data-tutorial="summary-cards"]',
-				title: '無料でできること',
-				description:
-					'初期登録されている活動の記録、こども2人の登録、ポイント・レベル機能は無料でお使いいただけます。まずは無料で試してみてください！',
-				position: 'bottom',
-				page: '/admin',
-			},
-			{
-				id: 'premium-2',
-				chapterId: 9,
-				selector: '[data-tutorial="children-overview"]',
-				title: 'スタンダード / ファミリーでもっと便利に',
-				description:
-					'オリジナル活動の追加・編集、チェックリストの自由作成、ごほうびの設定、こどもの登録無制限、データのエクスポートが可能になります。お子さまに合わせた設定で、もっと楽しく！',
-				position: 'bottom',
-				page: '/admin',
-			},
-			{
-				id: 'premium-3',
-				chapterId: 9,
 				selector: '[data-tutorial="upgrade-btn"]',
-				title: 'アップグレード',
+				title: 'プラン比較・アップグレード',
 				description:
-					'管理画面右上の「⭐ アップグレード」ボタンから、いつでも有料プランに切り替えられます。7日間の無料トライアル付きなので、まずはお試しください。',
+					'各機能のガイドで ⭐ マークが付いた機能はスタンダードプラン以上で利用できます。「⭐ アップグレード」ボタンからプラン比較ページへ進み、お子さまに最適なプランをお選びください。7日間の無料トライアル付きです。',
 				position: 'bottom',
 				page: '/admin',
 			},

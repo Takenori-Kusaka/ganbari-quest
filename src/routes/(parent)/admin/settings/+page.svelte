@@ -38,6 +38,7 @@ let importResult = $state<{
 let importStep = $state<'select' | 'preview' | 'done'>('select');
 
 async function handleImportFileChange(e: Event) {
+	if (anyFormBusy) return;
 	const input = e.target as HTMLInputElement;
 	importFile = input.files?.[0] ?? null;
 	importError = '';
@@ -81,7 +82,7 @@ async function handleImportFileChange(e: Event) {
 }
 
 async function handleImportExecute() {
-	if (!importFile) return;
+	if (anyFormBusy || !importFile) return;
 	importLoading = true;
 	importError = '';
 	try {
@@ -115,6 +116,7 @@ function resetImport() {
 }
 
 async function handleExport() {
+	if (anyFormBusy) return;
 	exportLoading = true;
 	exportError = '';
 	try {
@@ -185,6 +187,7 @@ async function loadCloudExports() {
 }
 
 async function handleCloudExport() {
+	if (anyFormBusy) return;
 	cloudLoading = true;
 	cloudError = '';
 	cloudSuccess = '';
@@ -221,7 +224,7 @@ async function handleDeleteCloudExport(id: number) {
 }
 
 async function handleCloudImportPreview() {
-	if (!cloudImportPin.trim()) return;
+	if (anyFormBusy || !cloudImportPin.trim()) return;
 	cloudImportLoading = true;
 	cloudImportError = '';
 	try {
@@ -244,6 +247,7 @@ async function handleCloudImportPreview() {
 }
 
 async function handleCloudImportExecute() {
+	if (anyFormBusy) return;
 	cloudImportLoading = true;
 	cloudImportError = '';
 	try {
@@ -297,6 +301,7 @@ const DECAY_OPTIONS = [
 ] as const;
 
 async function saveDecayIntensity() {
+	if (anyFormBusy) return;
 	decaySaving = true;
 	decaySuccess = false;
 	try {
@@ -370,6 +375,7 @@ let deletionInfoLoading = $state(false);
 
 /** Owner 削除時: 他メンバー情報を取得 */
 async function fetchDeletionInfo() {
+	if (anyFormBusy) return;
 	deletionInfoLoading = true;
 	try {
 		const res = await fetch('/api/v1/admin/account/deletion-info');
@@ -385,7 +391,7 @@ async function fetchDeletionInfo() {
 
 /** ロールに応じたアカウント削除 */
 async function handleDeleteAccount() {
-	if (deleteConfirmText !== 'アカウントを削除します') return;
+	if (anyFormBusy || deleteConfirmText !== 'アカウントを削除します') return;
 	deleteSubmitting = true;
 	deleteError = '';
 
@@ -425,7 +431,7 @@ async function handleDeleteAccount() {
 
 /** Owner: 権限移譲して退会 */
 async function handleTransferAndDelete() {
-	if (!transferTargetId) return;
+	if (anyFormBusy || !transferTargetId) return;
 	deleteSubmitting = true;
 	deleteError = '';
 
@@ -450,6 +456,7 @@ async function handleTransferAndDelete() {
 
 /** Owner: 移譲なしで全削除 */
 async function handleFullDelete() {
+	if (anyFormBusy) return;
 	deleteSubmitting = true;
 	deleteError = '';
 
@@ -470,7 +477,7 @@ async function handleFullDelete() {
 }
 
 async function handleCancelAccount() {
-	if (cancelConfirmText !== 'アカウントを削除します') return;
+	if (anyFormBusy || cancelConfirmText !== 'アカウントを削除します') return;
 	cancelSubmitting = true;
 	cancelError = '';
 	try {
@@ -486,6 +493,7 @@ async function handleCancelAccount() {
 }
 
 async function handleReactivate() {
+	if (anyFormBusy) return;
 	reactivateSubmitting = true;
 	try {
 		const res = await fetch('/api/v1/admin/tenant/reactivate', { method: 'POST' });
@@ -502,6 +510,23 @@ async function handleReactivate() {
 const previewPoints = 100;
 const previewFormatted = $derived(
 	formatPointValue(previewPoints, pointMode, pointCurrency, Number.parseFloat(pointRate) || 1),
+);
+
+// Form exclusion: prevent concurrent form operations
+const anyFormBusy = $derived(
+	submitting ||
+		exportLoading ||
+		importLoading ||
+		cloudLoading ||
+		cloudImportLoading ||
+		decaySaving ||
+		pointSubmitting ||
+		feedbackSubmitting ||
+		clearSubmitting ||
+		cancelSubmitting ||
+		reactivateSubmitting ||
+		deleteSubmitting ||
+		deletionInfoLoading,
 );
 </script>
 
@@ -548,7 +573,8 @@ const previewFormatted = $derived(
 		<form
 			method="POST"
 			action="?/changePin"
-			use:enhance={() => {
+			use:enhance={({ cancel }) => {
+				if (anyFormBusy) { cancel(); return; }
 				submitting = true;
 				success = false;
 				return async ({ result, update }) => {
@@ -854,7 +880,8 @@ const previewFormatted = $derived(
 		<form
 			method="POST"
 			action="?/updatePointSettings"
-			use:enhance={() => {
+			use:enhance={({ cancel }) => {
+				if (anyFormBusy) { cancel(); return; }
 				pointSubmitting = true;
 				pointSuccess = false;
 				return async ({ result, update }) => {
@@ -1380,7 +1407,8 @@ const previewFormatted = $derived(
 		<form
 			method="POST"
 			action="?/clearData"
-			use:enhance={() => {
+			use:enhance={({ cancel }) => {
+				if (anyFormBusy) { cancel(); return; }
 				clearSubmitting = true;
 				clearSuccess = false;
 				clearError = '';
@@ -1433,7 +1461,8 @@ const previewFormatted = $derived(
 		<form
 			method="POST"
 			action="?/sendFeedback"
-			use:enhance={() => {
+			use:enhance={({ cancel }) => {
+				if (anyFormBusy) { cancel(); return; }
 				feedbackSubmitting = true;
 				feedbackSuccess = false;
 				feedbackInquiryId = '';

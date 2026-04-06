@@ -12,6 +12,8 @@ export class SoundService {
 	private _muted = false;
 	private _enabledSounds: Set<SoundId> = new Set();
 	private _preloading = false;
+	private _lastPlayTime: Map<SoundId, number> = new Map();
+	private static readonly DEBOUNCE_MS = 300;
 
 	/** AudioContext を遅延初期化（ユーザー操作後に呼出） */
 	ensureContext(): void {
@@ -62,7 +64,7 @@ export class SoundService {
 		this._preloading = false;
 	}
 
-	/** サウンドを再生 */
+	/** サウンドを再生（同一サウンドの300ms以内の連続再生を抑制） */
 	play(soundId: SoundId): void {
 		if (this._muted) return;
 		if (!this.context || !this.gainNode) {
@@ -70,6 +72,12 @@ export class SoundService {
 			if (!this.context || !this.gainNode) return;
 		}
 		if (this._enabledSounds.size > 0 && !this._enabledSounds.has(soundId)) return;
+
+		// Debounce: skip if the same sound was played within DEBOUNCE_MS
+		const now = Date.now();
+		const lastPlay = this._lastPlayTime.get(soundId) ?? 0;
+		if (now - lastPlay < SoundService.DEBOUNCE_MS) return;
+		this._lastPlayTime.set(soundId, now);
 
 		const buffer = this.buffers.get(soundId);
 		if (!buffer) return;
