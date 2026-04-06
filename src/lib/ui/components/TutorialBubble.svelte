@@ -22,36 +22,102 @@ const progress = $derived(getProgress());
 const chapterInfo = $derived(getCurrentChapterInfo());
 const chapters = getChapters();
 
+/**
+ * 動的コリジョン回避バブル位置決めアルゴリズム
+ *
+ * 1. ビューポート上の固定UI要素（ヘッダー・ボトムナビ）の占有領域を検出
+ * 2. ターゲット要素の上下左右の利用可能スペースを計算
+ * 3. step.position がヒントとして使える場合はそれを優先し、
+ *    スペース不足時は最もスペースの大きい方向にフリップ
+ * 4. ビューポート境界 + 固定要素を避けてクランプ
+ */
 const bubbleStyle = $derived.by(() => {
-	const gap = 16;
+	const spotlightRingPad = 12; // スポットライトリングの外側拡張（8px mask + 2px border + 2px glow）
+	const gap = 16 + spotlightRingPad; // ベースgap + リング分 = 28px（リング端から16pxの余白）
 	const bubbleWidth = 320;
-	const pos = step.position === 'auto' ? 'bottom' : step.position;
+	const bubbleEstHeight = 280; // バブルの推定高さ（チャプターヘッダー+コンテンツ+プログレス+ナビ）
+	const edgePad = 12;
 
+	// --- 固定要素の占有領域を動的に検出 ---
+	const stickyHeader = document.querySelector('.admin-header, [class*="sticky"][class*="top-"]');
+	const bottomNav = document.querySelector('[data-tutorial="nav-primary"]');
+
+	const headerH = stickyHeader ? stickyHeader.getBoundingClientRect().bottom : 0;
+	const navTop = bottomNav ? bottomNav.getBoundingClientRect().top : window.innerHeight;
+
+	// セーフゾーン: ヘッダー下端 ～ ボトムナビ上端
+	const safeTop = Math.max(headerH + edgePad, edgePad);
+	const safeBottom = Math.min(navTop - edgePad, window.innerHeight - edgePad);
+
+	// --- 各方向の利用可能スペースを計算 ---
+	const spaceAbove = targetRect.top - safeTop;
+	const spaceBelow = safeBottom - targetRect.bottom;
+	const spaceLeft = targetRect.left - edgePad;
+	const spaceRight = window.innerWidth - targetRect.right - edgePad;
+
+	// --- 方向決定: ヒント優先 → スペース不足時フリップ ---
+	type Placement = 'top' | 'bottom' | 'left' | 'right';
+	const hint: Placement = step.position === 'auto' ? 'bottom' : step.position;
+
+	function canFit(dir: Placement): boolean {
+		if (dir === 'bottom') return spaceBelow >= bubbleEstHeight + gap;
+		if (dir === 'top') return spaceAbove >= bubbleEstHeight + gap;
+		if (dir === 'left') return spaceLeft >= bubbleWidth + gap;
+		return spaceRight >= bubbleWidth + gap;
+	}
+
+	let placement: Placement = hint;
+	if (!canFit(hint)) {
+		// ヒント方向に収まらない場合、対向方向を試す
+		const opposite: Record<Placement, Placement> = {
+			top: 'bottom',
+			bottom: 'top',
+			left: 'right',
+			right: 'left',
+		};
+		if (canFit(opposite[hint])) {
+			placement = opposite[hint];
+		} else {
+			// 対向もダメなら最もスペースが大きい方向を選択
+			const spaces: [Placement, number][] = [
+				['bottom', spaceBelow],
+				['top', spaceAbove],
+				['right', spaceRight],
+				['left', spaceLeft],
+			];
+			spaces.sort((a, b) => b[1] - a[1]);
+			placement = spaces[0]?.[0] ?? 'bottom';
+		}
+	}
+
+	// --- 位置計算 ---
 	let top = 0;
 	let left = 0;
 
-	if (pos === 'bottom') {
+	if (placement === 'bottom') {
 		top = targetRect.bottom + gap;
 		left = targetRect.left + targetRect.width / 2 - bubbleWidth / 2;
-	} else if (pos === 'top') {
-		top = targetRect.top - gap;
+	} else if (placement === 'top') {
+		top = targetRect.top - gap - bubbleEstHeight;
 		left = targetRect.left + targetRect.width / 2 - bubbleWidth / 2;
-	} else if (pos === 'left') {
-		top = targetRect.top + targetRect.height / 2;
+	} else if (placement === 'left') {
+		top = targetRect.top + targetRect.height / 2 - bubbleEstHeight / 2;
 		left = targetRect.left - bubbleWidth - gap;
 	} else {
-		top = targetRect.top + targetRect.height / 2;
+		top = targetRect.top + targetRect.height / 2 - bubbleEstHeight / 2;
 		left = targetRect.right + gap;
 	}
 
-	// Clamp to viewport
-	left = Math.max(12, Math.min(left, window.innerWidth - bubbleWidth - 12));
-	if (pos === 'top') {
-		// Will be transformed upwards
-	}
-	top = Math.max(12, Math.min(top, window.innerHeight - 280));
+	// --- セーフゾーンにクランプ ---
+	left = Math.max(edgePad, Math.min(left, window.innerWidth - bubbleWidth - edgePad));
+	top = Math.max(safeTop, Math.min(top, safeBottom - bubbleEstHeight));
 
-	return { top: `${top}px`, left: `${left}px`, width: `${bubbleWidth}px` };
+	return {
+		top: `${top}px`,
+		left: `${left}px`,
+		width: `${bubbleWidth}px`,
+		placement,
+	};
 });
 
 const isFirst = $derived(progress.current === 1);
@@ -81,7 +147,7 @@ function handleEnd() {
 	style:top={bubbleStyle.top}
 	style:left={bubbleStyle.left}
 	style:width={bubbleStyle.width}
-	class:bubble-top={step.position === 'top'}
+	class:bubble-top={bubbleStyle.placement === 'top'}
 >
 	<!-- Chapter header -->
 	<div class="tutorial-chapter-header">
