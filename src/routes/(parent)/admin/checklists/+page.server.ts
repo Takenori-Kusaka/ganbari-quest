@@ -63,7 +63,23 @@ export const actions: Actions = {
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!name) return fail(400, { error: '名前を入力してください' });
 
-		await createTemplate({ childId, name, icon }, tenantId);
+		const timeSlot = String(formData.get('timeSlot') ?? 'anytime').trim();
+
+		await createTemplate({ childId, name, icon, timeSlot }, tenantId);
+		return { success: true };
+	},
+
+	updateTimeSlot: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const templateId = Number(formData.get('templateId'));
+		const timeSlot = String(formData.get('timeSlot') ?? 'anytime').trim();
+
+		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
+		const validSlots = ['morning', 'afternoon', 'evening', 'anytime'];
+		if (!validSlots.includes(timeSlot)) return fail(400, { error: '時間帯が不正です' });
+
+		await editTemplate(templateId, { timeSlot }, tenantId);
 		return { success: true };
 	},
 
