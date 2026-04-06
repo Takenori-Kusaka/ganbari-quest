@@ -32,6 +32,7 @@ let itemDirection = $state('bring');
 let addTemplateOpen = $state(false);
 let templateName = $state('');
 let templateIcon = $state('📋');
+let templateTimeSlotValue = $state('anytime');
 
 // Override dialog
 let overrideOpen = $state(false);
@@ -55,6 +56,22 @@ const DIRECTION_OPTIONS = [
 	{ value: 'return', label: '持帰' },
 	{ value: 'both', label: '往復' },
 ];
+
+const TIME_SLOT_OPTIONS = [
+	{ value: 'anytime', label: 'いつでも', icon: '🕐' },
+	{ value: 'morning', label: 'あさ', icon: '☀️' },
+	{ value: 'afternoon', label: 'ひる', icon: '🌤️' },
+	{ value: 'evening', label: 'よる', icon: '🌙' },
+];
+
+function getTimeSlot(template: { id: number; timeSlot?: string }): string {
+	return template.timeSlot ?? 'anytime';
+}
+
+function timeSlotLabel(slot: string): string {
+	const opt = TIME_SLOT_OPTIONS.find((o) => o.value === slot);
+	return opt ? `${opt.icon} ${opt.label}` : slot;
+}
 
 const COMMON_ICONS = ['🏫', '👕', '👟', '🎨', '🎵', '📚', '🧹', '🍱', '💧', '📦', '🎒', '✏️'];
 
@@ -140,6 +157,7 @@ function directionLabel(dir: string): string {
 					<div class="flex items-center gap-2">
 						<span class="text-xl">{template.icon}</span>
 						<span class="font-bold text-gray-700">{template.name}</span>
+						<span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded">{timeSlotLabel(getTimeSlot(template))}</span>
 						{#if !template.isActive}
 							<span class="text-xs px-2 py-0.5 bg-gray-200 text-gray-500 rounded">無効</span>
 						{/if}
@@ -171,6 +189,25 @@ function directionLabel(dir: string): string {
 							</Button>
 						</form>
 					</div>
+				</div>
+
+				<!-- Time slot selector -->
+				<div class="flex items-center gap-1 px-4 py-2 bg-white border-b border-gray-50">
+					<span class="text-xs text-gray-500 mr-1">時間帯:</span>
+					{#each TIME_SLOT_OPTIONS as opt}
+						<form method="POST" action="?/updateTimeSlot" use:enhance={() => async () => invalidateAll()}>
+							<input type="hidden" name="templateId" value={template.id} />
+							<input type="hidden" name="timeSlot" value={opt.value} />
+							<Button
+								type="submit"
+								variant="ghost"
+								size="sm"
+								class="text-xs px-2 py-1 {getTimeSlot(template) === opt.value ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}"
+							>
+								{opt.icon} {opt.label}
+							</Button>
+						</form>
+					{/each}
 				</div>
 
 				<!-- Items list -->
@@ -297,6 +334,16 @@ function directionLabel(dir: string): string {
 			</div>
 			<input type="hidden" name="icon" value={templateIcon} />
 		</div>
+
+		<FormField label="時間帯">
+			{#snippet children()}
+				<select name="timeSlot" bind:value={templateTimeSlotValue} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors">
+					{#each TIME_SLOT_OPTIONS as opt}
+						<option value={opt.value}>{opt.icon} {opt.label}</option>
+					{/each}
+				</select>
+			{/snippet}
+		</FormField>
 
 		<Button
 			type="submit"

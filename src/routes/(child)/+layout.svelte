@@ -2,7 +2,13 @@
 import { onMount } from 'svelte';
 import { invalidateAll } from '$app/navigation';
 import { navigating } from '$app/stores';
-import { getModeLabels, ICON_HOME, ICON_STATUS, ICON_SWITCH } from '$lib/domain/icons';
+import {
+	getModeLabels,
+	ICON_CHECKLIST,
+	ICON_HOME,
+	ICON_STATUS,
+	ICON_SWITCH,
+} from '$lib/domain/icons';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
@@ -21,6 +27,7 @@ const uiMode = $derived(data.uiMode ?? 'preschool');
 const modeLabels = $derived(getModeLabels(uiMode));
 const navItems = $derived([
 	{ href: `/${uiMode}/home`, icon: ICON_HOME, label: 'ホーム' },
+	{ href: '/checklist', icon: ICON_CHECKLIST, label: modeLabels.checklist },
 	{ href: `/${uiMode}/status`, icon: ICON_STATUS, label: modeLabels.status },
 	{ href: '/switch', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
