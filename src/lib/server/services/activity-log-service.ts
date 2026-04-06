@@ -149,7 +149,9 @@ export async function recordActivity(
 	const currentLevel = mastery?.level ?? 1;
 	const masteryBonus = calcMasteryBonus(currentLevel);
 
-	const totalPoints = activity.basePoints + streakBonus + masteryBonus;
+	const mainQuestMultiplier = activity.isMainQuest ? 2 : 1;
+	const effectiveBasePoints = activity.basePoints * mainQuestMultiplier;
+	const totalPoints = effectiveBasePoints + streakBonus + masteryBonus;
 
 	// Insert activity log
 	const now = new Date().toISOString();
@@ -157,7 +159,7 @@ export async function recordActivity(
 		{
 			childId,
 			activityId,
-			points: activity.basePoints,
+			points: effectiveBasePoints,
 			streakDays,
 			streakBonus,
 			recordedDate: today,
@@ -176,12 +178,13 @@ export async function recordActivity(
 	await upsertMastery(childId, activityId, newCount, newLevel, tenantId);
 
 	// Insert point ledger entry
+	const mainQuestLabel = activity.isMainQuest ? ' (メインクエスト\u00d72)' : '';
 	await insertPointLedger(
 		{
 			childId,
 			amount: totalPoints,
 			type: 'activity',
-			description: `${activity.name}${streakBonus > 0 ? ` (${streakDays}日連続+${streakBonus})` : ''}${masteryBonus > 0 ? ` (習熟Lv.${newLevel}+${masteryBonus})` : ''}`,
+			description: `${activity.name}${mainQuestLabel}${streakBonus > 0 ? ` (${streakDays}日連続+${streakBonus})` : ''}${masteryBonus > 0 ? ` (習熟Lv.${newLevel}+${masteryBonus})` : ''}`,
 			referenceId: log.id,
 		},
 		tenantId,
@@ -420,7 +423,7 @@ export async function recordActivity(
 		childId,
 		activityId,
 		activityName: getActivityDisplayName(activity, child.age),
-		basePoints: activity.basePoints,
+		basePoints: effectiveBasePoints,
 		streakDays,
 		streakBonus,
 		masteryBonus,

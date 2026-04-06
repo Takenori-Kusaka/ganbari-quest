@@ -440,3 +440,12 @@ export async function insertPointLedger(
 ) {
 	db.insert(pointLedger).values(input).run();
 }
+
+export async function countMainQuestActivities(_tenantId: string): Promise<number> {
+	const result = await db
+		.select({ cnt: count() })
+		.from(activities)
+		.where(and(eq(activities.isMainQuest, 1), eq(activities.isVisible, 1)))
+		.get();
+	return result?.cnt ?? 0;
+}
