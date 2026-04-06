@@ -156,9 +156,9 @@ export async function claimLoginBonus(
 	// メッセージ組み立て
 	let message = `${omikuji.rank}！${totalPoints}ポイントゲット！`;
 	if (loyaltyMultiplier > 1 && multiplier > 1) {
-		message = `${omikuji.rank}！${consecutiveDays}にちれんぞく＋プレミアムボーナス！${totalPoints}ポイントゲット！`;
+		message = `${omikuji.rank}！${consecutiveDays}にちれんぞく＋サポーターボーナス！${totalPoints}ポイントゲット！`;
 	} else if (loyaltyMultiplier > 1) {
-		message = `${omikuji.rank}！⭐プレミアムボーナス！${totalPoints}ポイントゲット！`;
+		message = `${omikuji.rank}！⭐サポーターボーナス！${totalPoints}ポイントゲット！`;
 	} else if (multiplier > 1) {
 		message = `${omikuji.rank}！${consecutiveDays}にちれんぞくで${multiplier}ばい！${totalPoints}ポイントゲット！`;
 	}

@@ -45,7 +45,7 @@ const balanceDisplay = $derived(
 			size="sm"
 		/>
 		<div class="flex flex-col">
-			<span class="font-bold text-lg leading-tight">{nickname}{#if isPremium}<span class="premium-star" title="プレミアム">⭐</span>{/if}</span>
+			<span class="font-bold text-lg leading-tight">{nickname}{#if isPremium}<span class="premium-star" title="有料プラン">⭐</span>{/if}</span>
 		</div>
 	</div>
 	<div class="flex items-center gap-2">

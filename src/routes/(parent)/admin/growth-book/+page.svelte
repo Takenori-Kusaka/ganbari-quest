@@ -50,7 +50,7 @@ function handlePrint() {
 			<div class="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm">
 				<span>⭐</span>
 				<p class="text-amber-700">
-					PDF保存は<a href="/admin/license" class="underline font-medium">プレミアムプラン</a>で利用できます。
+					PDF保存は<a href="/admin/license" class="underline font-medium">スタンダードプラン以上</a>で利用できます。
 				</p>
 			</div>
 		{/if}

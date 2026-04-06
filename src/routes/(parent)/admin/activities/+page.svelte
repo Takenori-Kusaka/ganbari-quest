@@ -116,7 +116,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 					{showImportPanel ? 'キャンセル' : '📥 インポート'}
 				</Button>
 				{#if !data.isPremium}
-					<PremiumBadge size="sm" label="プレミアム" />
+					<PremiumBadge size="sm" label="有料プラン限定" />
 				{/if}
 			</div>
 		{:else}
@@ -129,7 +129,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 				>
 					上限に達しています
 				</Button>
-				<PremiumBadge size="sm" label="プレミアム" />
+				<PremiumBadge size="sm" label="有料プラン限定" />
 			</div>
 		{/if}
 	</div>
