@@ -21,6 +21,7 @@ export interface ActivityItem {
 	nameKana: string | null;
 	nameKanji: string | null;
 	triggerHint: string | null;
+	isMainQuest: number;
 	createdAt: string;
 }
 

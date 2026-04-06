@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
+import { analytics } from '$lib/analytics';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
+import { trackServerError } from '$lib/server/services/analytics-service';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { isSetupRequired } from '$lib/server/services/setup-service';
@@ -53,6 +55,61 @@ const authMode = getAuthMode();
 
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
 const COGNITO_DEV_MODE = process.env.COGNITO_DEV_MODE === 'true';
+
+// Initialize analytics providers (lazy, environment-variable gated)
+analytics.init();
+
+/**
+ * Build dynamic CSP header based on active analytics providers.
+ * Base CSP is extended with provider-specific domains only when enabled.
+ */
+function buildCspHeader(): string {
+	const connectSrc = ["'self'"];
+	const scriptSrc = ["'self'", "'unsafe-inline'"];
+
+	// Sentry CDN and ingest domains
+	if (analytics.isProviderActive('sentry')) {
+		const sentryDsn = process.env.PUBLIC_SENTRY_DSN;
+		if (sentryDsn) {
+			try {
+				const url = new URL(sentryDsn);
+				const sentryDomain = url.hostname;
+				connectSrc.push(`https://${sentryDomain}`);
+				scriptSrc.push('https://browser.sentry-cdn.com');
+			} catch {
+				// Invalid DSN — skip
+			}
+		}
+	}
+
+	// Umami tracking domain
+	const umamiConfig = analytics.getUmamiConfig();
+	if (umamiConfig) {
+		try {
+			const url = new URL(umamiConfig.hostUrl);
+			connectSrc.push(url.origin);
+			scriptSrc.push(url.origin);
+		} catch {
+			// Invalid URL — skip
+		}
+	}
+
+	return [
+		`default-src 'self'`,
+		`script-src ${scriptSrc.join(' ')}`,
+		`style-src 'self' 'unsafe-inline'`,
+		`img-src 'self' data: blob:`,
+		`media-src 'self' blob:`,
+		`font-src 'self'`,
+		`connect-src ${connectSrc.join(' ')}`,
+		`object-src 'none'`,
+		`base-uri 'self'`,
+		`frame-ancestors 'none'`,
+	].join('; ');
+}
+
+/** Cached CSP header (built once at startup) */
+const CSP_HEADER = buildCspHeader();
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const start = Date.now();
@@ -245,10 +302,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	response.headers.set('X-Content-Type-Options', 'nosniff');
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 	response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-	response.headers.set(
-		'Content-Security-Policy',
-		"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
-	);
+	response.headers.set('Content-Security-Policy', CSP_HEADER);
 	if (authMode === 'cognito') {
 		response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 	}
@@ -260,12 +314,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 		response.headers.set('Expires', '0');
 	}
 
-	// 4) リクエストログ（静的ファイルは除外）
+	// 4) リクエストログ + アナリティクス（静的ファイルは除外）
 	if (!path.startsWith('/_app/') && !path.startsWith('/favicon')) {
 		logger.request(event.request.method, path, response.status, Date.now() - start, {
 			requestId: event.locals.requestId,
 			tenantId: context?.tenantId,
 		});
+
+		// Analytics: identify tenant and track page views for HTML requests
+		if (context?.tenantId) {
+			analytics.identify(context.tenantId);
+		}
+		if (event.request.method === 'GET' && acceptsHtml(event.request)) {
+			analytics.trackPageView(path, event.request.headers.get('Referer') ?? undefined);
+		}
 	}
 
 	return response;
@@ -288,6 +350,11 @@ export const handleError: HandleServerError = ({ error, event, status, message }
 		error: error instanceof Error ? error.message : String(error),
 		stack,
 	});
+
+	// Analytics: track all server errors
+	if (error instanceof Error) {
+		trackServerError(error, { method, path, status, requestId, tenantId });
+	}
 
 	// 500 系エラーのみ Discord に通知（4xx は通常エラーなので除外）
 	if (status >= 500) {

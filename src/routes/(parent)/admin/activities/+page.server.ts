@@ -13,8 +13,11 @@ import {
 	deleteActivityWithCleanup,
 	getActivities,
 	getActivityLogCounts,
+	getMainQuestCount,
 	hasActivityLogs,
+	MAIN_QUEST_MAX,
 	setActivityVisibility,
+	setMainQuest,
 	updateActivity,
 } from '$lib/server/services/activity-service';
 import {
@@ -28,6 +31,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
 	const activities = await getActivities(tenantId, { includeHidden: true });
 	const logCounts = await getActivityLogCounts(tenantId);
+	const mainQuestCount = await getMainQuestCount(tenantId);
 
 	// プラン制限情報
 	const licenseStatus = locals.context?.licenseStatus ?? 'none';
@@ -47,6 +51,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		activityLimit,
 		activityPacks,
 		isPremium,
+		mainQuestCount,
+		mainQuestMax: MAIN_QUEST_MAX,
 	};
 };
 
@@ -281,6 +287,21 @@ export const actions: Actions = {
 			});
 			return fail(500, { error: 'インポートに失敗しました' });
 		}
+	},
+
+	toggleMainQuest: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const id = Number(formData.get('id'));
+		const enabled = formData.get('enabled') === 'true';
+
+		if (!id) return fail(400, { error: 'IDが必要です' });
+
+		const result = await setMainQuest(id, enabled, tenantId);
+		if ('error' in result) {
+			return fail(400, { error: result.error });
+		}
+		return { success: true };
 	},
 
 	clearAll: async ({ locals }) => {

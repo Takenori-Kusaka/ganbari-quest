@@ -134,6 +134,9 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		isMission: missionActivityIds.has(a.id),
 	}));
 
+	// メインクエストをリスト上部にソート
+	activitiesWithMission.sort((a, b) => (b.isMainQuest ? 1 : 0) - (a.isMainQuest ? 1 : 0));
+
 	// フォーカスモード: おすすめ活動の選定 (#0264)
 	const recommendations = selectRecommendations(rawActivities, todayDate());
 	const recommendedIds = new Set(recommendations.map((r) => r.activityId));

@@ -55,6 +55,7 @@ const mockActivities = [
 		nameKana: 'はいはいした',
 		nameKanji: null,
 		triggerHint: null,
+		isMainQuest: 0,
 		createdAt: '2025-01-01T00:00:00Z',
 	},
 	{
