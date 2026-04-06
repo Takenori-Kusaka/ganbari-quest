@@ -58,7 +58,7 @@ const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retent
 
 		{#if planTier === 'free'}
 			<a href="/admin/license" class="plan-status__cta plan-status__cta--upgrade">
-				⭐ プレミアムにアップグレード
+				⭐ スタンダードにアップグレード
 			</a>
 		{:else if planTier === 'standard'}
 			<div class="plan-status__actions">
