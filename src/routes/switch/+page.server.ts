@@ -53,7 +53,7 @@ export const actions: Actions = {
 		});
 
 		const child = await getChildById(Number(childId), tenantId);
-		const uiMode = child?.uiMode ?? 'kinder';
+		const uiMode = child?.uiMode ?? 'preschool';
 		redirect(303, `/${uiMode}/home`);
 	},
 
