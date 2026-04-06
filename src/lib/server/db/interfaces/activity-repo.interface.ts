@@ -28,6 +28,7 @@ export interface IActivityRepo {
 	deleteActivity(id: number, tenantId: string): Promise<Activity | undefined>;
 	hasActivityLogs(activityId: number, tenantId: string): Promise<boolean>;
 	getActivityLogCounts(tenantId: string): Promise<Record<number, number>>;
+	countMainQuestActivities(tenantId: string): Promise<number>;
 	deleteDailyMissionsByActivity(activityId: number, tenantId: string): Promise<void>;
 
 	// Children (convenience — shared lookup)

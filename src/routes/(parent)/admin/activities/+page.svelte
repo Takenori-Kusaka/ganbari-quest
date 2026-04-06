@@ -268,6 +268,8 @@ function acceptAiPreview(preview: AiPreviewData) {
 				categoryDefs={data.categoryDefs}
 				logCount={data.logCounts[activity.id] ?? 0}
 				isEditing={editingId === activity.id}
+				mainQuestCount={data.mainQuestCount ?? 0}
+				mainQuestMax={data.mainQuestMax ?? 3}
 				onedit={() => { editingId = activity.id; }}
 				oncanceledit={() => { editingId = null; }}
 			/>
