@@ -61,7 +61,7 @@ function makeMonthlyRewardEvent(overrides?: Partial<SeasonEvent>): SeasonEvent {
 	return {
 		id: 200,
 		code: 'monthly-2026-04',
-		name: '4月プレミアム報酬',
+		name: '4月有料プラン報酬',
 		description: null,
 		eventType: 'monthly_premium_reward',
 		startDate: '2026-04-01',
@@ -170,7 +170,7 @@ describe('getSeasonPassForChild', () => {
 		expect(tracks.every((t) => t === 'free')).toBe(true);
 	});
 
-	it('プレミアムユーザーには free + premium 両トラックを返す', async () => {
+	it('有料プランユーザーには free + premium 両トラックを返す', async () => {
 		mockFindActiveEvents.mockResolvedValue([makeSeasonPassEvent()]);
 		mockFindChildProgress.mockResolvedValue(makeProgress());
 
@@ -330,7 +330,7 @@ describe('incrementSeasonPassProgress', () => {
 // getMonthlyPremiumReward
 // ============================================================
 describe('getMonthlyPremiumReward', () => {
-	it('プレミアムでない場合 null を返す', async () => {
+	it('無料プランの場合 null を返す', async () => {
 		const result = await getMonthlyPremiumReward(CHILD_ID, TENANT, false);
 		expect(result).toBeNull();
 		expect(mockFindActiveEvents).not.toHaveBeenCalled();
@@ -343,7 +343,7 @@ describe('getMonthlyPremiumReward', () => {
 		expect(result).toBeNull();
 	});
 
-	it('プレミアムユーザーに報酬データを返す', async () => {
+	it('有料プランユーザーに報酬データを返す', async () => {
 		const event = makeMonthlyRewardEvent();
 		mockFindActiveEvents.mockResolvedValue([event]);
 		mockFindChildProgress.mockResolvedValue(undefined);
@@ -400,7 +400,7 @@ describe('claimMonthlyPremiumReward', () => {
 		expect(config).toBeNull();
 	});
 
-	it('プレミアムでない場合 null を返す', async () => {
+	it('無料プランの場合 null を返す', async () => {
 		const config = await claimMonthlyPremiumReward(CHILD_ID, 200, TENANT, false);
 		expect(config).toBeNull();
 		expect(mockFindChildProgress).not.toHaveBeenCalled();
