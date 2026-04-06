@@ -253,6 +253,8 @@ function getCategoryCompletedMissionCount(categoryId: number) {
 }
 
 function handleActivityTap(activity: { id: number; name: string; icon: string }) {
+	if (submitting || confirmOpen || resultOpen || levelUpOpen || rewardOpen || stampPressOpen)
+		return;
 	soundService.play('tap');
 	selectedActivity = activity;
 	confirmOpen = true;
