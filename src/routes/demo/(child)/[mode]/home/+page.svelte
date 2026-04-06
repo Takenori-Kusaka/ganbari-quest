@@ -55,12 +55,16 @@ let resultData = $state<{ activityName: string; totalPoints: number; streakDays:
 	null,
 );
 
+// Dialog exclusion: prevent opening confirm while result or another dialog is shown
+const anyDialogOpen = $derived(confirmOpen || resultOpen);
+
 function handleActivityTap(activity: {
 	id: number;
 	name: string;
 	displayName?: string;
 	icon: string;
 }) {
+	if (anyDialogOpen || submitting) return;
 	selectedActivity = activity;
 	confirmOpen = true;
 }
