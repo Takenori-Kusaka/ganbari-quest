@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { formatPointValue } from '$lib/domain/point-display';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
+import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -25,6 +26,10 @@ let showAddForm = $state(false);
 </svelte:head>
 
 <div class="children-page">
+	<div class="flex items-center gap-2 mb-3">
+		<h2 class="text-lg font-bold">👧 こども管理</h2>
+		<PageHelpButton />
+	</div>
 	{#if childLimit && !childLimit.allowed}
 		<div class="children-page__limit-banner">
 			<span class="children-page__limit-icon">⚠️</span>

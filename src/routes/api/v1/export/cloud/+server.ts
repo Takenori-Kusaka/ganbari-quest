@@ -54,7 +54,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ ok: true, ...result }, { status: 201 });
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
-		if (msg.includes('有料プラン') || msg.includes('上限')) {
+		if (msg.includes('スタンダード') || msg.includes('上限')) {
 			return apiError('PLAN_LIMIT_EXCEEDED', msg);
 		}
 		if (msg.includes('SaaS版')) {

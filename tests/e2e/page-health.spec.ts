@@ -89,17 +89,17 @@ test.describe('ページヘルス: Admin', () => {
 });
 
 // ============================================================
-// Kinder child pages — 子供画面（たろうくん = kinder）
+// Preschool child pages — 子供画面（たろうくん = preschool）
 // ============================================================
-test.describe('ページヘルス: Kinder 子供画面', () => {
+test.describe('ページヘルス: Preschool 子供画面', () => {
 	test.beforeEach(async ({ page }) => {
 		await selectKinderChildAndDismiss(page);
 	});
 
 	const kinderPages = [
-		{ path: '/kinder/home', name: 'ホーム' },
-		{ path: '/kinder/history', name: '履歴' },
-		{ path: '/kinder/status', name: 'ステータス' },
+		{ path: '/preschool/home', name: 'ホーム' },
+		{ path: '/preschool/history', name: '履歴' },
+		{ path: '/preschool/status', name: 'ステータス' },
 	];
 
 	for (const { path, name } of kinderPages) {
