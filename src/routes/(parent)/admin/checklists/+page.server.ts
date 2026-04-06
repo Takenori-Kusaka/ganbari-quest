@@ -64,6 +64,8 @@ export const actions: Actions = {
 		if (!name) return fail(400, { error: '名前を入力してください' });
 
 		const timeSlot = String(formData.get('timeSlot') ?? 'anytime').trim();
+		const validSlots = ['morning', 'afternoon', 'evening', 'anytime'];
+		if (!validSlots.includes(timeSlot)) return fail(400, { error: '時間帯が不正です' });
 
 		await createTemplate({ childId, name, icon, timeSlot }, tenantId);
 		return { success: true };
