@@ -25,6 +25,16 @@ test.describe('チュートリアル全ステップ検証', () => {
 		await page.goto('/admin');
 		await page.waitForLoadState('networkidle');
 
+		// PremiumWelcome ダイアログが表示されている場合は先に閉じる
+		const welcomeDialog = page.locator('.welcome-overlay');
+		if (await welcomeDialog.isVisible({ timeout: 1000 }).catch(() => false)) {
+			const dismissBtn = welcomeDialog.locator('button:has-text("さっそく始める")');
+			if (await dismissBtn.isVisible()) {
+				await dismissBtn.click();
+				await welcomeDialog.waitFor({ state: 'hidden', timeout: 3000 });
+			}
+		}
+
 		// チュートリアル開始ボタン（ヘッダーの ? ボタン）をクリック
 		const tutorialBtn = page.locator('[data-tutorial="tutorial-restart"]');
 		if (await tutorialBtn.isVisible()) {
@@ -149,6 +159,16 @@ test.describe('チュートリアル全ステップ検証', () => {
 		await page.setViewportSize({ width: 390, height: 844 });
 		await page.goto('/admin');
 		await page.waitForLoadState('networkidle');
+
+		// PremiumWelcome ダイアログが表示されている場合は先に閉じる
+		const welcomeDialog = page.locator('.welcome-overlay');
+		if (await welcomeDialog.isVisible({ timeout: 1000 }).catch(() => false)) {
+			const dismissBtn = welcomeDialog.locator('button:has-text("さっそく始める")');
+			if (await dismissBtn.isVisible()) {
+				await dismissBtn.click();
+				await welcomeDialog.waitFor({ state: 'hidden', timeout: 3000 });
+			}
+		}
 
 		// チュートリアル開始
 		const tutorialBtn = page.locator('[data-tutorial="tutorial-restart"]');
