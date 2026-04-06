@@ -41,6 +41,7 @@ function makeActivity(overrides: Partial<Activity> & { id: number }): Activity {
 		nameKana: null,
 		nameKanji: null,
 		triggerHint: null,
+		isMainQuest: 0,
 		createdAt: '2026-01-01T00:00:00Z',
 		...overrides,
 	};

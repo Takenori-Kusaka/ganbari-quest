@@ -1,5 +1,6 @@
 import type { GradeLevel, Source } from '$lib/domain/validation/activity';
 import {
+	countMainQuestActivities as countMainQuestActivitiesRepo,
 	deleteActivity as deleteActivityRepo,
 	deleteDailyMissionsByActivity,
 	findActivities,
@@ -73,4 +74,26 @@ export async function getActivityLogCounts(tenantId: string): Promise<Record<num
 export async function deleteActivityWithCleanup(id: number, tenantId: string) {
 	await deleteDailyMissionsByActivity(id, tenantId);
 	return await deleteActivityRepo(id, tenantId);
+}
+
+export const MAIN_QUEST_MAX = 3;
+
+export async function setMainQuest(
+	id: number,
+	enabled: boolean,
+	tenantId: string,
+): Promise<{ success: true } | { error: string }> {
+	if (enabled) {
+		const currentCount = await countMainQuestActivitiesRepo(tenantId);
+		if (currentCount >= MAIN_QUEST_MAX) {
+			return { error: `メインクエストは${MAIN_QUEST_MAX}つまで設定できます` };
+		}
+	}
+	const updated = await updateActivityRepo(id, { isMainQuest: enabled ? 1 : 0 }, tenantId);
+	if (!updated) return { error: '活動が見つかりません' };
+	return { success: true };
+}
+
+export async function getMainQuestCount(tenantId: string): Promise<number> {
+	return await countMainQuestActivitiesRepo(tenantId);
 }

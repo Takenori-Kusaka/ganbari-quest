@@ -22,6 +22,7 @@ interface Props {
 	isPinned?: boolean;
 	frozen?: boolean;
 	triggerHint?: string | null;
+	isMainQuest?: boolean;
 	eventBadge?: string | null;
 	onclick?: () => void;
 	onlongpress?: () => void;
@@ -40,6 +41,7 @@ let {
 	isPinned = false,
 	frozen = false,
 	triggerHint,
+	isMainQuest = false,
 	eventBadge = null,
 	onclick,
 	onlongpress,
@@ -51,6 +53,7 @@ const iconSize = $derived(ICON_SIZE_MAP[cardSize]);
 const textSize = $derived(CARD_SIZE_CSS[cardSize].textSize);
 
 const showMission = $derived(isMission && !completed);
+const showMainQuest = $derived(isMainQuest && !completed);
 
 const borderColor = $derived(getCategoryById(categoryId)?.color ?? 'var(--theme-primary)');
 
@@ -98,10 +101,11 @@ function handleClick(e: Event) {
 		{completed ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-300/50' : 'bg-white hover:shadow-md'}
 		{frozen ? 'card-frozen' : ''}"
 	class:card-mission={showMission}
-	style:border-color={completed ? undefined : (showMission ? 'gold' : (frozen ? 'var(--color-neutral-300)' : borderColor))}
+	class:card-main-quest={showMainQuest}
+	style:border-color={completed ? undefined : (showMainQuest ? 'var(--color-gold-500, #d97706)' : showMission ? 'gold' : (frozen ? 'var(--color-neutral-300)' : borderColor))}
 	disabled={completed}
 	data-testid={activityId != null ? `activity-card-${activityId}` : undefined}
-	aria-label="{name}{completed ? '（きろくずみ）' : ''}{showMission ? '（ミッション）' : ''}{isPinned ? '（ピンどめ）' : ''}{frozen ? '（ロックちゅう）' : ''}"
+	aria-label="{name}{completed ? '（きろくずみ）' : ''}{showMainQuest ? '（メインクエスト×2）' : ''}{showMission ? '（ミッション）' : ''}{isPinned ? '（ピンどめ）' : ''}{frozen ? '（ロックちゅう）' : ''}"
 	onclick={handleClick}
 	onpointerdown={handlePointerDown}
 	onpointerup={handlePointerUp}
@@ -126,6 +130,10 @@ function handleClick(e: Event) {
 		<div class="absolute -top-1 -right-1 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] font-bold shadow-sm" aria-label="{count}かいきろくずみ">
 			{count}
 		</div>
+	{/if}
+
+	{#if showMainQuest}
+		<span class="main-quest-badge" aria-hidden="true">⚔️ 2ばい!</span>
 	{/if}
 
 	{#if eventBadge && !completed}
@@ -269,5 +277,25 @@ function handleClick(e: Event) {
 		15% { opacity: 1; transform: translateX(-50%) translateY(0); }
 		85% { opacity: 1; }
 		100% { opacity: 0; }
+	}
+	/* Main Quest styling */
+	.card-main-quest {
+		box-shadow: 0 0 12px rgba(217, 119, 6, 0.4);
+		background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
+	}
+	.main-quest-badge {
+		position: absolute;
+		top: -0.375rem;
+		right: -0.375rem;
+		z-index: 10;
+		padding: 0.125rem 0.375rem;
+		border-radius: 9999px;
+		background: linear-gradient(135deg, #f59e0b, #d97706);
+		color: white;
+		font-size: 0.625rem;
+		font-weight: 700;
+		line-height: 1;
+		white-space: nowrap;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 	}
 </style>
