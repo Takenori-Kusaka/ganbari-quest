@@ -56,6 +56,9 @@ export const PLAN_SHORT_LABELS: Record<PlanKey, string> = {
 	family: 'ファミリー',
 };
 
+/** 有料プラン共通の表示ラベル（機能制限の案内等で使用） */
+export const PAID_PLAN_LABEL = 'スタンダードプラン以上';
+
 /** プランラベルを取得 */
 export function getPlanLabel(tier: string): string {
 	return PLAN_LABELS[tier as PlanKey] ?? tier;
