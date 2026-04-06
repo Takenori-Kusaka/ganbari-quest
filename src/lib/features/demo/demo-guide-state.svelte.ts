@@ -24,23 +24,23 @@ export const GUIDE_STEPS: GuideStep[] = [
 		id: 1,
 		title: 'こどもの画面をみよう',
 		description: '5さいの たろうくんで ためしてみましょう',
-		matchPath: '/demo/kinder/home',
-		href: '/demo/kinder/home?childId=902',
+		matchPath: '/demo/preschool/home',
+		href: '/demo/preschool/home?childId=902',
 	},
 	{
 		id: 2,
 		title: 'かつどうを きろくしよう',
 		description: 'かつどうカードをタップして きろくしてみましょう',
-		matchPath: '/demo/kinder/home',
-		href: '/demo/kinder/home?childId=902',
+		matchPath: '/demo/preschool/home',
+		href: '/demo/preschool/home?childId=902',
 		requiresAction: true,
 	},
 	{
 		id: 3,
 		title: 'ステータスを みよう',
 		description: 'たろうくんの つよさを チェック！',
-		matchPath: '/demo/kinder/status',
-		href: '/demo/kinder/status?childId=902',
+		matchPath: '/demo/preschool/status',
+		href: '/demo/preschool/status?childId=902',
 	},
 	{
 		id: 4,
@@ -140,7 +140,7 @@ export function getGuideState() {
  * Called on page navigation to auto-advance the guide
  * when the user has navigated to the expected page for the next step.
  *
- * 同一 matchPath が連続するステップ（例: ステップ1→2は共に /demo/kinder/home）では
+ * 同一 matchPath が連続するステップ（例: ステップ1→2は共に /demo/preschool/home）では
  * URL遷移だけでは区別できないため auto-advance をスキップする。
  * そのようなステップは advanceStep() で明示的に進める。
  *

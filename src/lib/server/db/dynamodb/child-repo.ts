@@ -104,7 +104,7 @@ export async function insertChild(input: InsertChildInput, tenantId: string): Pr
 		age: input.age,
 		birthDate: input.birthDate ?? null,
 		theme: input.theme ?? 'pink',
-		uiMode: input.uiMode ?? (input.age <= 2 ? 'baby' : 'kinder'),
+		uiMode: input.uiMode ?? (input.age <= 2 ? 'baby' : 'preschool'),
 		avatarUrl: null,
 		displayConfig: null,
 		userId: null,

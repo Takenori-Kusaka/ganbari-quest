@@ -187,7 +187,7 @@ test.describe('本番環境 - 認証後ページテスト', () => {
 		const childButton = page.locator('button[type="submit"]').first();
 		await expect(childButton).toBeVisible({ timeout: 15000 });
 		await childButton.click();
-		await page.waitForURL(/\/(kinder|baby)\/home/, { timeout: 30000 });
+		await page.waitForURL(/\/(preschool|baby)\/home/, { timeout: 30000 });
 	});
 
 	test('管理画面が表示される（ログイン後）', async ({ page }) => {

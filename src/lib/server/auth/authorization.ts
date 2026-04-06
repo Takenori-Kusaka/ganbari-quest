@@ -41,9 +41,9 @@ const ROUTE_RULES: RouteRule[] = [
 		unauthRedirect: '/auth/login',
 		forbiddenRedirect: '/switch?reason=admin_forbidden',
 	},
-	// 子供画面 — 全ロール（/switch, /kinder/*, /baby/*, /checklist/*）
+	// 子供画面 — 全ロール（/switch, /preschool/*, /baby/*, /checklist/*）
 	{ pattern: '/switch', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
-	{ pattern: '/kinder', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
+	{ pattern: '/preschool', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
 	{ pattern: '/baby', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
 	{ pattern: '/checklist', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
 	// 管理 API — owner + parent
