@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { MESSAGE_TEXT_MAX_LENGTH } from '$lib/domain/validation/message';
+import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -38,7 +39,10 @@ function selectStamp(code: string) {
 <div class="space-y-6">
 	<!-- Page Description -->
 	<div class="page-description">
-		<p class="page-description__title">💌 おうえんメッセージ</p>
+		<div class="flex items-center gap-2">
+			<p class="page-description__title">💌 おうえんメッセージ</p>
+			<PageHelpButton />
+		</div>
 		<p class="page-description__text">
 			スタンプやメッセージでこどもを応援しましょう。
 			こどもの画面にスタンプが届き、親からの気持ちが伝わります。

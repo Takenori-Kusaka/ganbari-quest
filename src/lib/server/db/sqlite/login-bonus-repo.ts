@@ -25,7 +25,7 @@ export async function findRecentBonuses(childId: number, _tenantId: string, limi
 		.all();
 }
 
-/** ログインボーナスを挿入 */
+/** ログインボーナスを挿入（同日重複時は無視） */
 export async function insertLoginBonus(
 	input: {
 		childId: number;
@@ -38,7 +38,7 @@ export async function insertLoginBonus(
 	},
 	_tenantId: string,
 ) {
-	return db.insert(loginBonuses).values(input).returning().get();
+	return db.insert(loginBonuses).values(input).onConflictDoNothing().returning().get();
 }
 
 /** 子供の存在確認 */
