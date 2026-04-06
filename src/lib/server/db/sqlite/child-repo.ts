@@ -73,7 +73,7 @@ export async function insertChild(
 			nickname: input.nickname,
 			age: input.age,
 			theme: input.theme ?? 'pink',
-			uiMode: input.uiMode ?? (input.age <= 2 ? 'baby' : 'kinder'),
+			uiMode: input.uiMode ?? (input.age <= 2 ? 'baby' : 'preschool'),
 			birthDate: input.birthDate ?? null,
 			[SCHEMA_VERSION_FIELD]: ENTITY_VERSIONS.child.latest,
 		})

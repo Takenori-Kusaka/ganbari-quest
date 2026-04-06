@@ -7,6 +7,7 @@ import ActivityListItem from '$lib/features/admin/components/ActivityListItem.sv
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
 import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivitiesSection.svelte';
+import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -75,6 +76,10 @@ function acceptAiPreview(preview: AiPreviewData) {
 </svelte:head>
 
 <div class="space-y-4">
+	<div class="flex items-center gap-2">
+		<h2 class="text-lg font-bold">📋 活動管理</h2>
+		<PageHelpButton />
+	</div>
 	{#if activityLimit && !activityLimit.allowed}
 		<div class="limit-banner">
 			<span class="text-2xl">⚠️</span>
@@ -116,7 +121,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 					{showImportPanel ? 'キャンセル' : '📥 インポート'}
 				</Button>
 				{#if !data.isPremium}
-					<PremiumBadge size="sm" label="有料プラン限定" />
+					<PremiumBadge size="sm" label="スタンダード以上" />
 				{/if}
 			</div>
 		{:else}
@@ -129,7 +134,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 				>
 					上限に達しています
 				</Button>
-				<PremiumBadge size="sm" label="有料プラン限定" />
+				<PremiumBadge size="sm" label="スタンダード以上" />
 			</div>
 		{/if}
 	</div>

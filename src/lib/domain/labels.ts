@@ -1,32 +1,66 @@
 // src/lib/domain/labels.ts
-// UI表示ラベルの Single Source of Truth
-// 全コンポーネントはこのファイルからラベルをインポートして使用する
+// 用語辞書 — UI表示ラベルの Single Source of Truth
+// 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 
 import type { UiMode } from './validation/age-tier';
 
 // ============================================================
-// 年齢区分ラベル
+// ナビゲーションカテゴリ
 // ============================================================
 
-/** 年齢区分の正式ラベル（プロフィール・設定画面向け） */
+export const NAV_CATEGORIES = {
+	monitor: { label: '記録・分析', icon: '📊' },
+	encourage: { label: '応援・報酬', icon: '💬' },
+	customize: { label: '活動設定', icon: '🎮' },
+	settings: { label: 'アカウント', icon: '⚙️' },
+} as const;
+
+export type NavCategoryId = keyof typeof NAV_CATEGORIES;
+
+// ============================================================
+// ナビゲーション項目ラベル
+// ============================================================
+
+export const NAV_ITEM_LABELS = {
+	reports: 'レポート',
+	growthBook: 'グロースブック',
+	achievements: 'チャレンジ履歴',
+	points: 'ポイント',
+	messages: 'おうえん',
+	rewards: 'ごほうび',
+	activities: '活動管理',
+	checklists: 'チェックリスト',
+	events: 'イベント',
+	challenges: 'チャレンジ',
+	children: 'こども',
+	settings: '設定',
+	license: 'プラン',
+	members: 'メンバー',
+} as const;
+
+// ============================================================
+// 年齢区分ラベル（管理画面用）
+// ============================================================
+
+/** 管理画面で保護者に表示する年齢区分ラベル（#537: 日本の学校制度に準拠） */
 export const AGE_TIER_LABELS: Record<UiMode, string> = {
-	baby: '赤ちゃん (0〜2歳)',
-	kinder: '幼児 (3〜5歳)',
-	lower: '小学生 (6〜9歳)',
-	upper: '高学年 (10〜14歳)',
-	teen: '中高生 (15歳〜)',
+	baby: '乳幼児（0〜2歳）',
+	preschool: '幼児（3〜5歳）',
+	elementary: '小学生（6〜12歳）',
+	junior: '中学生（13〜15歳）',
+	senior: '高校生（16〜18歳）',
 };
 
 /** 年齢区分の短縮ラベル（一覧表示・コンパクト表示向け） */
 export const AGE_TIER_SHORT_LABELS: Record<UiMode, string> = {
 	baby: '0〜2歳',
-	kinder: '3〜5歳',
-	lower: '6〜9歳',
-	upper: '10〜14歳',
-	teen: '15歳〜',
+	preschool: '3〜5歳',
+	elementary: '6〜12歳',
+	junior: '13〜15歳',
+	senior: '16〜18歳',
 };
 
-/** 年齢区分ラベルを取得（不明な値はそのまま返す） */
+/** 年齢区分ラベルを安全に取得 */
 export function getAgeTierLabel(mode: string): string {
 	return AGE_TIER_LABELS[mode as UiMode] ?? mode;
 }
@@ -40,24 +74,22 @@ export function getAgeTierShortLabel(mode: string): string {
 // プラン名
 // ============================================================
 
-export type PlanKey = 'free' | 'standard' | 'family';
-
-/** プラン正式名称 */
-export const PLAN_LABELS: Record<PlanKey, string> = {
+export const PLAN_LABELS = {
 	free: '無料プラン',
 	standard: 'スタンダードプラン',
 	family: 'ファミリープラン',
-};
+} as const;
 
-/** プラン短縮名称（ヘッダー・バッジ等） */
-export const PLAN_SHORT_LABELS: Record<PlanKey, string> = {
+export const PLAN_SHORT_LABELS = {
 	free: '無料',
 	standard: 'スタンダード',
 	family: 'ファミリー',
-};
+} as const;
 
-/** 有料プラン共通の表示ラベル（機能制限の案内等で使用） */
-export const PAID_PLAN_LABEL = 'スタンダードプラン以上';
+export type PlanKey = keyof typeof PLAN_LABELS;
+
+/** プラン制限メッセージで使う共通ラベル（「スタンダードプラン以上」） */
+export const PAID_PLAN_LABEL = 'スタンダードプラン以上' as const;
 
 /** プランラベルを取得 */
 export function getPlanLabel(tier: string): string {
@@ -73,27 +105,25 @@ export function getPlanShortLabel(tier: string): string {
 // テーマカラー
 // ============================================================
 
-export type ThemeKey = 'pink' | 'blue' | 'green' | 'orange' | 'purple';
-
-/** テーマカラーの日本語ラベル */
-export const THEME_LABELS: Record<ThemeKey, string> = {
+export const THEME_LABELS = {
 	pink: 'ピンク',
 	blue: 'ブルー',
-	green: 'みどり',
+	green: 'グリーン',
 	orange: 'オレンジ',
-	purple: 'むらさき',
-};
+	purple: 'パープル',
+} as const;
 
-/** テーマカラーの絵文字 */
-export const THEME_EMOJIS: Record<ThemeKey, string> = {
+export const THEME_EMOJIS = {
 	pink: '🩷',
 	blue: '💙',
 	green: '💚',
 	orange: '🧡',
 	purple: '💜',
-};
+} as const;
 
-/** テーマラベルを取得（絵文字 + 日本語名） */
+export type ThemeKey = keyof typeof THEME_LABELS;
+
+/** テーマ名ラベルを安全に取得 */
 export function getThemeLabel(theme: string): string {
 	const key = theme as ThemeKey;
 	const emoji = THEME_EMOJIS[key] ?? '🩷';
@@ -111,38 +141,22 @@ export function getThemeOptions(): { value: ThemeKey; label: string; emoji: stri
 }
 
 // ============================================================
-// ナビゲーションカテゴリ
-// ============================================================
-
-/** ナビカテゴリのID */
-export type NavCategoryId = 'monitor' | 'encourage' | 'customize' | 'settings';
-
-/** ナビカテゴリラベル */
-export const NAV_CATEGORY_LABELS: Record<NavCategoryId, string> = {
-	monitor: '記録・分析',
-	encourage: '応援・報酬',
-	customize: '活動設定',
-	settings: 'アカウント',
-};
-
-// ============================================================
 // 機能名
 // ============================================================
 
-/** 機能の正式名称 */
 export const FEATURE_LABELS = {
 	report: 'レポート',
 	growthBook: 'グロースブック',
-	challengeHistory: 'チャレンジ履歴',
+	message: 'おうえんメッセージ',
+	reward: 'ごほうび',
+	checklist: 'チェックリスト',
+	activity: '活動',
 	points: 'ポイント',
-	messages: 'おうえんメッセージ',
-	rewards: 'ごほうび',
-	activities: '活動管理',
-	checklists: 'チェックリスト',
-	events: 'イベント',
-	challenges: 'チャレンジ',
-	children: 'こども',
-	settings: '設定',
+	loginBonus: 'ログインボーナス',
+	challenge: 'チャレンジ',
+	event: 'イベント',
+	certificate: 'がんばり証明書',
+	stamp: 'スタンプ',
 	plan: 'プラン',
 	members: 'メンバー',
 	dataExport: 'データエクスポート',

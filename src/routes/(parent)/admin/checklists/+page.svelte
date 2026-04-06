@@ -227,7 +227,7 @@ function directionLabel(dir: string): string {
 				📅 ワンオフ追加
 			</Button>
 			{#if !data.isPremium}
-				<PremiumBadge size="sm" label="有料プラン限定" />
+				<PremiumBadge size="sm" label="スタンダード以上" />
 			{/if}
 		</div>
 
