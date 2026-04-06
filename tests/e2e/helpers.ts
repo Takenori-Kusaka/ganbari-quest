@@ -30,7 +30,7 @@ export async function selectChild(page: Page) {
 	const childButton = page.locator('[data-testid^="child-select-"]').first();
 	await expect(childButton).toBeVisible();
 	await childButton.click();
-	await page.waitForURL(/\/(kinder|baby|lower|upper|teen)\/home/);
+	await page.waitForURL(/\/(preschool|baby|elementary|junior|senior)\/home/);
 }
 
 /** 指定の子供を名前で選択してホーム画面に遷移 */
@@ -39,10 +39,10 @@ export async function selectChildByName(page: Page, name: string) {
 	const childButton = page.locator('[data-testid^="child-select-"]').filter({ hasText: name });
 	await expect(childButton).toBeVisible();
 	await childButton.click();
-	await page.waitForURL(/\/(kinder|baby|lower|upper|teen)\/home/);
+	await page.waitForURL(/\/(preschool|baby|elementary|junior|senior)\/home/);
 }
 
-/** たろうくん(kinder)を選択 */
+/** たろうくん(preschool)を選択 */
 export async function selectKinderChild(page: Page) {
 	await selectChildByName(page, 'たろうくん');
 }
@@ -165,7 +165,7 @@ export async function selectChildAndDismiss(page: Page) {
 	await dismissOverlays(page);
 }
 
-/** たろうくん(kinder)を選択してオーバーレイを閉じた状態にする */
+/** たろうくん(preschool)を選択してオーバーレイを閉じた状態にする */
 export async function selectKinderChildAndDismiss(page: Page) {
 	await selectKinderChild(page);
 	await dismissOverlays(page);

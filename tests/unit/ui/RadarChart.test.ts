@@ -3,7 +3,7 @@
 //
 // Svelte 5 コンポーネントのDOMレンダリングテストはjsdom非対応のため、
 // 純粋なロジック（正規化・座標計算）をテストする。
-// 目視確認は baby/kinder 画面で実施。
+// 目視確認は baby/preschool 画面で実施。
 
 import { describe, expect, it } from 'vitest';
 
