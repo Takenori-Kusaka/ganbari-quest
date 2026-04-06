@@ -232,7 +232,7 @@ function childLink(child: ChildSummary): string {
 		{@const monthLabel = currentMonth.replace(/^(\d{4})-0?(\d{1,2})$/, '$1年$2月')}
 		<section>
 			<div class="flex items-center justify-between mb-3">
-				<h2 class="text-lg font-bold text-[var(--color-text)]">📊 {monthLabel}のがんばり</h2>
+				<h2 class="text-lg font-bold text-[var(--color-text)]" data-tutorial="monthly-summary">📊 {monthLabel}のがんばり</h2>
 				<a href="{basePath}/reports" class="text-xs text-[var(--color-brand-500)] hover:underline">詳しく見る →</a>
 			</div>
 			<div class="grid gap-3">
