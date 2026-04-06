@@ -175,7 +175,7 @@ const focusAllCompleted = $derived(
 let focusRecordActivityId = $state<number | null>(null);
 
 function handleActivityTap(activity: { id: number; name: string; icon: string }) {
-	if (submitting) return;
+	if (submitting || resultOpen || levelUpOpen || rewardOpen || stampPressOpen) return;
 	focusRecordActivityId = activity.id;
 	soundService.ensureContext();
 	soundService.play('tap');
@@ -432,7 +432,7 @@ $effect(() => {
 							action="?/record"
 							data-tutorial={groupIdx === 0 && actIdx === 0 ? 'activity-card' : undefined}
 							use:enhance={() => {
-								if (submitting) return ({ update }) => update();
+								if (submitting || resultOpen || levelUpOpen || rewardOpen || stampPressOpen) return ({ update }) => update();
 								submitting = true;
 								pendingActivityId = activity.id;
 								soundService.ensureContext();
