@@ -37,7 +37,9 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	const uiMode = child.uiMode ?? 'preschool';
 
 	// 全モード実装済み (#0167)
-	const effectiveMode = UI_MODES.includes(uiMode as (typeof UI_MODES)[number]) ? uiMode : 'preschool';
+	const effectiveMode = UI_MODES.includes(uiMode as (typeof UI_MODES)[number])
+		? uiMode
+		: 'preschool';
 
 	// 年齢帯不一致チェック: 異なるモードのルートにアクセスした場合リダイレクト
 	const pathSegment = url.pathname.split('/')[1];
