@@ -181,6 +181,7 @@ export async function insertActivity(
 		nameKana: null,
 		nameKanji: null,
 		triggerHint: input.triggerHint ?? null,
+		isMainQuest: 0,
 		createdAt: now,
 	};
 
@@ -243,6 +244,11 @@ export async function updateActivity(
 		expressionParts.push('#triggerHint = :triggerHint');
 		expressionNames['#triggerHint'] = 'triggerHint';
 		expressionValues[':triggerHint'] = input.triggerHint;
+	}
+	if (input.isMainQuest !== undefined) {
+		expressionParts.push('#isMainQuest = :isMainQuest');
+		expressionNames['#isMainQuest'] = 'isMainQuest';
+		expressionValues[':isMainQuest'] = input.isMainQuest;
 	}
 
 	if (expressionParts.length === 0) {
@@ -357,6 +363,12 @@ export async function getActivityLogCounts(_tenantId: string): Promise<Record<nu
 }
 
 /** 特定活動のデイリーミッションを全削除 */
+/** メインクエストに設定された活動数を取得 */
+export async function countMainQuestActivities(_tenantId: string): Promise<number> {
+	const all = await findActivities(_tenantId);
+	return all.filter((a) => a.isMainQuest === 1 && a.isVisible === 1).length;
+}
+
 export async function deleteDailyMissionsByActivity(
 	activityId: number,
 	_tenantId: string,
