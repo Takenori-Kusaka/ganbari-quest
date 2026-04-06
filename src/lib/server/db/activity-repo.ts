@@ -36,6 +36,10 @@ export async function hasActivityLogs(activityId: number, tenantId: string) {
 export async function getActivityLogCounts(tenantId: string) {
 	return getRepos().activity.getActivityLogCounts(tenantId);
 }
+export async function countMainQuestActivities(tenantId: string) {
+	return getRepos().activity.countMainQuestActivities(tenantId);
+}
+
 export async function deleteDailyMissionsByActivity(activityId: number, tenantId: string) {
 	return getRepos().activity.deleteDailyMissionsByActivity(activityId, tenantId);
 }
