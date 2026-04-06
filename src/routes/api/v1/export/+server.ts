@@ -22,7 +22,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	if (!limits.canExport) {
 		return apiError(
 			'PLAN_LIMIT_EXCEEDED',
-			'エクスポート機能はプレミアムプランでご利用いただけます',
+			'エクスポート機能はスタンダードプラン以上でご利用いただけます',
 		);
 	}
 

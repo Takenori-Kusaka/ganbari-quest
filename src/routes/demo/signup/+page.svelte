@@ -90,9 +90,9 @@ function handleCtaClick() {
 			{#snippet children()}
 			<h2 class="text-lg font-bold text-[var(--color-text)] mb-4">料金プラン</h2>
 			<p class="text-sm text-[var(--color-text)] mb-2">
-				<span class="font-bold">フリー</span>（¥0）からスタート。有料プランは<span class="font-bold">スタンダード</span>（月額¥500〜）と<span class="font-bold">ファミリー</span>（月額¥780〜）の2種類。
+				<span class="font-bold">フリー</span>（¥0）からスタート。スタンダード・ファミリーの2プランをご用意。<span class="font-bold">スタンダード</span>（月額¥500〜）と<span class="font-bold">ファミリー</span>（月額¥780〜）。
 			</p>
-			<p class="text-xs text-[var(--color-text-muted)] mb-3">有料プランはすべて7日間の無料トライアル付き</p>
+			<p class="text-xs text-[var(--color-text-muted)] mb-3">スタンダード・ファミリープランはすべて7日間の無料トライアル付き</p>
 			<a href="/pricing" class="block text-center text-sm text-[var(--color-brand-500)] hover:underline">
 				プランの詳細を料金ページで見る →
 			</a>
