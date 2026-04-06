@@ -1,4 +1,5 @@
 <script lang="ts">
+import { getAgeTierShortLabel } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
@@ -11,22 +12,7 @@ const ps = $derived(data.pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
 const unit = $derived(getUnitLabel(ps.mode, ps.currency));
 
-function uiModeLabel(mode: string): string {
-	switch (mode) {
-		case 'baby':
-			return 'ベビー';
-		case 'kinder':
-			return 'キンダー';
-		case 'lower':
-			return '小学生';
-		case 'upper':
-			return '高学年';
-		case 'teen':
-			return 'ティーン';
-		default:
-			return mode;
-	}
-}
+const uiModeLabel = getAgeTierShortLabel;
 
 // Detail tabs shown on production (read-only in demo)
 const detailTabs = [
