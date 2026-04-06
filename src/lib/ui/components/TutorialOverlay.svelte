@@ -56,10 +56,13 @@ function waitForElement(
 		return;
 	}
 
+	let timer: ReturnType<typeof setTimeout>;
+
 	const observer = new MutationObserver(() => {
 		const el = findVisibleElement(selector);
 		if (el) {
 			observer.disconnect();
+			clearTimeout(timer);
 			requestAnimationFrame(() => {
 				if (!signal.aborted) callback(el);
 			});
@@ -68,7 +71,7 @@ function waitForElement(
 
 	observer.observe(document.body, { childList: true, subtree: true, attributes: true });
 
-	const timer = setTimeout(() => {
+	timer = setTimeout(() => {
 		observer.disconnect();
 		if (!signal.aborted) {
 			// 最終チェック

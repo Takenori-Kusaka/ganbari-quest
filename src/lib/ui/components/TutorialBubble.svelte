@@ -42,8 +42,12 @@ const bubbleStyle = $derived.by(() => {
 	const stickyHeader = document.querySelector('.admin-header, [class*="sticky"][class*="top-"]');
 	const bottomNav = document.querySelector('[data-tutorial="nav-primary"]');
 
-	const headerH = stickyHeader ? stickyHeader.getBoundingClientRect().bottom : 0;
-	const navTop = bottomNav ? bottomNav.getBoundingClientRect().top : window.innerHeight;
+	const headerRect = stickyHeader?.getBoundingClientRect();
+	const navRect = bottomNav?.getBoundingClientRect();
+	const headerH =
+		headerRect && headerRect.width > 0 && headerRect.height > 0 ? headerRect.bottom : 0;
+	const navTop =
+		navRect && navRect.width > 0 && navRect.height > 0 ? navRect.top : window.innerHeight;
 
 	// セーフゾーン: ヘッダー下端 ～ ボトムナビ上端
 	const safeTop = Math.max(headerH + edgePad, edgePad);
