@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
+import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -167,7 +168,11 @@ async function handleReceiptFile(event: Event) {
 </svelte:head>
 
 <div class="space-y-6" data-tutorial="points-section">
-	<div class="flex items-center justify-end mb-1">
+	<div class="flex items-center justify-between mb-1">
+		<div class="flex items-center gap-2">
+			<h2 class="text-lg font-bold">⭐ ポイント</h2>
+			<PageHelpButton />
+		</div>
 		<a
 			href="/admin/settings#point-settings"
 			class="text-xs text-gray-400 hover:text-blue-500 flex items-center gap-1 transition-colors"
