@@ -67,7 +67,7 @@ const selectedChild = $derived(
 					{/if}
 					<div class="flex-1 min-w-0">
 						<p class="font-bold text-gray-700">{child.nickname}</p>
-						<p class="text-sm text-gray-400">{child.age}歳 / {getAgeTierLabel(child.uiMode ?? 'kinder')}</p>
+						<p class="text-sm text-gray-400">{child.age}歳 / {getAgeTierLabel(child.uiMode ?? 'preschool')}</p>
 					</div>
 					<div class="text-right">
 						<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance)}</p>
@@ -99,7 +99,7 @@ const selectedChild = $derived(
 					{/if}
 					<div class="flex-1">
 						<h2 class="text-lg font-bold text-gray-700">{selectedChild.nickname}</h2>
-						<p class="text-sm text-gray-400">{selectedChild.age}歳 / {getAgeTierLabel(selectedChild.uiMode ?? 'kinder')}</p>
+						<p class="text-sm text-gray-400">{selectedChild.age}歳 / {getAgeTierLabel(selectedChild.uiMode ?? 'preschool')}</p>
 					</div>
 					<div class="text-right">
 						<p class="text-2xl font-bold text-amber-500">{fmtBal(selectedChild.balance)}</p>
@@ -133,7 +133,7 @@ const selectedChild = $derived(
 						</div>
 						<div class="bg-purple-50 rounded-lg p-3 text-center">
 							<p class="text-xs text-gray-500">年齢区分</p>
-							<p class="text-lg font-bold text-purple-600">{getAgeTierLabel(selectedChild.uiMode ?? 'kinder')}</p>
+							<p class="text-lg font-bold text-purple-600">{getAgeTierLabel(selectedChild.uiMode ?? 'preschool')}</p>
 						</div>
 						<div class="bg-amber-50 rounded-lg p-3 text-center">
 							<p class="text-xs text-gray-500">{unit}残高</p>

@@ -258,10 +258,10 @@ test.describe('未ログイン時の保護ルート', () => {
 		await expect(page).toHaveURL(/\/auth\/login/);
 	});
 
-	test('未ログインで /kinder/home にアクセスすると /auth/login にリダイレクトされる', async ({
+	test('未ログインで /preschool/home にアクセスすると /auth/login にリダイレクトされる', async ({
 		page,
 	}) => {
-		await page.goto('/kinder/home');
+		await page.goto('/preschool/home');
 		await expect(page).toHaveURL(/\/auth\/login/);
 	});
 });
