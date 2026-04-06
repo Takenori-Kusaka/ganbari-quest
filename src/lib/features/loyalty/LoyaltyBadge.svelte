@@ -45,7 +45,7 @@ const progressPct = $derived(
 			<span class="text-xl">🎖️</span>
 			<div>
 				<h3 class="font-bold text-sm">サポーターバッジ</h3>
-				<p class="text-xs text-[var(--color-text-muted)]">プレミアム継続: {subscriptionMonths}ヶ月目</p>
+				<p class="text-xs text-[var(--color-text-muted)]">サポーター継続: {subscriptionMonths}ヶ月目</p>
 			</div>
 		</div>
 

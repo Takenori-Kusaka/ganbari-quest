@@ -30,7 +30,7 @@ const SQL_TABLES = `
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
 		theme TEXT NOT NULL DEFAULT 'pink',
-		ui_mode TEXT NOT NULL DEFAULT 'kinder',
+		ui_mode TEXT NOT NULL DEFAULT 'preschool',
 		avatar_url TEXT,
 		active_title_id INTEGER,
 		display_config TEXT,

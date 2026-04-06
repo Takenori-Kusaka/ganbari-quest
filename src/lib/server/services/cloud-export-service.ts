@@ -138,7 +138,7 @@ export async function createCloudExport(options: CloudExportOptions): Promise<Cl
 	const tier: PlanTier = await resolveFullPlanTier(tenantId, licenseStatus, planId);
 	const limits = getPlanLimits(tier);
 	if (limits.maxCloudExports === 0) {
-		throw new Error('クラウドエクスポートは有料プランでのみ利用可能です');
+		throw new Error('クラウドエクスポートはスタンダードプラン以上でご利用いただけます');
 	}
 
 	// 保管数上限チェック

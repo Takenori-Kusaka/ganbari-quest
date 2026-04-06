@@ -172,7 +172,7 @@ describe('cloud-export-service', () => {
 					exportType: 'template',
 					licenseStatus: 'none',
 				}),
-			).rejects.toThrow('有料プラン');
+			).rejects.toThrow('スタンダードプラン以上');
 		});
 
 		it('保管数上限に達している場合はエラーになる', async () => {

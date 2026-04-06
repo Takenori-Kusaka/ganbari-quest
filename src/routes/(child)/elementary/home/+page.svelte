@@ -6,37 +6,26 @@ import { parseDisplayConfig } from '$lib/domain/display-config';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
-import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
 import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
-import AdventureStartOverlay from '$lib/ui/components/AdventureStartOverlay.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
-import EventBanner from '$lib/ui/components/EventBanner.svelte';
 import FamilyStreakBanner from '$lib/ui/components/FamilyStreakBanner.svelte';
 import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
-import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
-import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
-import SiblingRanking from '$lib/ui/components/SiblingRanking.svelte';
-import SpecialRewardProgress from '$lib/ui/components/SpecialRewardProgress.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
-// First record special celebration (must be before celebEffect)
-let isFirstRecord = $state(false);
-
-const celebEffect = $derived(
-	isFirstRecord ? ('legend' as CelebrationType) : ('default' as CelebrationType),
-);
+const celebEffect: CelebrationType = 'default';
 const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
@@ -57,22 +46,6 @@ function dismissTutorialHint() {
 
 // Birthday bonus state
 let birthdayModalOpen = $state(false);
-
-// Sibling cheer overlay
-let showCheerOverlay = $state(true);
-
-// Sibling celebration (all siblings complete)
-const celebrationChallenge = $derived(
-	data.activeChallenges?.find(
-		(c: { allCompleted: boolean; progress: { childId: number; rewardClaimed: number }[] }) =>
-			c.allCompleted &&
-			c.progress.some(
-				(p: { childId: number; rewardClaimed: number }) =>
-					p.childId === (data.child?.id ?? 0) && p.rewardClaimed === 0,
-			),
-	) ?? null,
-);
-let showCelebration = $state(true);
 
 // Pin context menu state
 let pinMenuOpen = $state(false);
@@ -122,13 +95,6 @@ let cancelledMessage = $state(false);
 
 // Special reward overlay
 let rewardOpen = $state(false);
-
-// Parent message overlay
-let messageOpen = $state(false);
-
-// First-time adventure overlay
-let adventureOpen = $state(false);
-let adventureShown = $state(false);
 
 // Login stamp state (unified bonus + stamp)
 let stampPressOpen = $state(false);
@@ -185,7 +151,6 @@ let xpAnimatingCategoryId = $state<number | null>(null);
 function getCategoryXpWithAnim(categoryId: number) {
 	const base = data.categoryXp?.[categoryId] ?? null;
 	if (!base) return null;
-	// アニメーション中は xpAfter の値で表示
 	if (xpGainData && xpGainData.categoryId === categoryId && xpAnimatingCategoryId === categoryId) {
 		return {
 			...base,
@@ -198,7 +163,6 @@ function getCategoryXpWithAnim(categoryId: number) {
 
 // Build recorded counts map: activityId → count
 const recordedMap = $derived(new Map(data.todayRecorded.map((r) => [r.activityId, r.count])));
-const kinderTodayCount = $derived(data.todayRecorded.reduce((sum, r) => sum + r.count, 0));
 
 function getCount(activityId: number): number {
 	return recordedMap.get(activityId) ?? 0;
@@ -209,13 +173,6 @@ function isCompleted(activity: { id: number; dailyLimit: number | null }): boole
 	if (limit === 0) return false; // unlimited
 	return getCount(activity.id) >= limit;
 }
-
-// Event badge: show first active event's icon on activity cards (#325)
-const activeEventBadge = $derived(
-	data.activeEvents && data.activeEvents.length > 0
-		? (data.activeEvents[0]?.bannerIcon ?? null)
-		: null,
-);
 
 // Group activities by category
 const activitiesByCategory = $derived(
@@ -232,27 +189,9 @@ const focusCompletedCount = $derived(recommendedActivities.filter((a) => isCompl
 const focusAllCompleted = $derived(
 	recommendedActivities.length > 0 && focusCompletedCount === recommendedActivities.length,
 );
-
-// Quest progress summary (mission-based activities)
-const questProgress = $derived.by(() => {
-	const missions = data.activities.filter((a) => a.isMission);
-	const completed = missions.filter((a) => isCompleted(a));
-	return { total: missions.length, completed: completed.length };
-});
-
-// Per-category mission counts
-function getCategoryMissionCount(categoryId: number) {
-	const missions = data.activities.filter((a) => a.categoryId === categoryId && a.isMission);
-	return missions.length;
-}
-function getCategoryCompletedMissionCount(categoryId: number) {
-	const missions = data.activities.filter(
-		(a) => a.categoryId === categoryId && a.isMission && isCompleted(a),
-	);
-	return missions.length;
-}
-
 function handleActivityTap(activity: { id: number; name: string; icon: string }) {
+	if (submitting || confirmOpen || resultOpen || levelUpOpen || rewardOpen || stampPressOpen)
+		return;
 	soundService.play('tap');
 	selectedActivity = activity;
 	confirmOpen = true;
@@ -305,7 +244,6 @@ function handleResultClose() {
 	// XPバーアニメーションを開始
 	if (xpGainData) {
 		xpAnimatingCategoryId = xpGainData.categoryId;
-		// アニメーション完了後にクリア
 		setTimeout(() => {
 			xpAnimatingCategoryId = null;
 		}, 900);
@@ -315,7 +253,6 @@ function handleResultClose() {
 	if (levelUpData) {
 		levelUpOpen = true;
 	} else {
-		isFirstRecord = false;
 		resultData = null;
 		xpGainData = null;
 		invalidateAll();
@@ -325,7 +262,6 @@ function handleResultClose() {
 function handleLevelUpClose() {
 	levelUpOpen = false;
 	levelUpData = null;
-	isFirstRecord = false;
 	resultData = null;
 	xpGainData = null;
 	invalidateAll();
@@ -341,27 +277,7 @@ function handleStampPressClose() {
 function checkSpecialReward() {
 	if (data.latestReward && !rewardOpen) {
 		rewardOpen = true;
-	} else {
-		checkParentMessage();
 	}
-}
-
-function checkParentMessage() {
-	if (data.latestMessage && !messageOpen && !rewardOpen) {
-		messageOpen = true;
-	}
-}
-
-async function handleMessageClose() {
-	if (data.latestMessage) {
-		try {
-			await fetch(`/api/v1/messages/${data.latestMessage.id}/shown`, { method: 'POST' });
-		} catch {
-			// ignore
-		}
-	}
-	messageOpen = false;
-	invalidateAll();
 }
 
 async function handleRewardClose() {
@@ -373,41 +289,13 @@ async function handleRewardClose() {
 		}
 	}
 	rewardOpen = false;
-	checkParentMessage();
 }
 
-// Auto-show adventure overlay for first-time users (once per page load)
+// Auto-show login stamp on page load if not claimed
 $effect(() => {
-	if (data.isFirstTime && !adventureShown && !adventureOpen && !stampPressOpen && !bonusClaiming) {
-		adventureOpen = true;
-		adventureShown = true;
-	}
-});
-
-function handleAdventureClose() {
-	adventureOpen = false;
-	// After adventure, continue with login bonus flow
-	triggerLoginBonus();
-}
-
-function triggerLoginBonus() {
 	if (data.loginBonusStatus && !data.loginBonusStatus.claimedToday && !bonusClaiming) {
 		bonusClaiming = true;
-		tick().then(() => {
-			document.getElementById('claim-bonus-btn')?.click();
-		});
-	}
-}
-
-// Auto-show login bonus on page load if not claimed (skip if adventure is showing)
-$effect(() => {
-	if (
-		data.loginBonusStatus &&
-		!data.loginBonusStatus.claimedToday &&
-		!bonusClaiming &&
-		!adventureOpen
-	) {
-		bonusClaiming = true;
+		// Wait for DOM update then auto-submit the hidden form
 		tick().then(() => {
 			document.getElementById('claim-bonus-btn')?.click();
 		});
@@ -477,36 +365,29 @@ $effect(() => {
 		</form>
 	{/if}
 
-	<!-- Quest progress summary (first view) -->
-	{#if questProgress.total > 0}
-		<div class="flex items-center gap-2 px-[var(--sp-md)] py-[var(--sp-sm)] mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200" data-testid="quest-progress">
-			<span class="text-xl">⚔️</span>
-			<div class="flex-1">
-				<p class="text-xs font-bold text-orange-700">きょうのクエスト</p>
-				<div class="flex items-center gap-1 mt-0.5">
-					{#each Array(questProgress.total) as _, i}
-						<span class="text-base">{i < questProgress.completed ? '⚔️' : '✨'}</span>
-					{/each}
-					<span class="text-xs font-bold text-orange-600 ml-1">{questProgress.completed}/{questProgress.total}</span>
-				</div>
-				{#if questProgress.completed === 0}
-					<p class="text-[10px] text-orange-400 mt-0.5">⬇ したの カードを タップして きろくしよう！</p>
-				{/if}
+	<!-- Checklist shortcut -->
+	{#if data.hasChecklists}
+		<a
+			href="/checklist"
+			class="flex items-center justify-between w-full px-[var(--sp-md)] py-[var(--sp-sm)] mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] tap-target"
+		>
+			<div class="flex items-center gap-[var(--sp-sm)]">
+				<span class="text-2xl">📋</span>
+				<span class="font-bold">持ち物チェック</span>
 			</div>
-			{#if questProgress.completed >= questProgress.total}
-				<span class="text-sm font-bold text-orange-600">コンプリート！</span>
-			{:else}
-				<span class="text-xs text-orange-500">あと{questProgress.total - questProgress.completed}つ！</span>
+			{#if data.checklistProgress}
+				<div class="flex items-center gap-[var(--sp-xs)]">
+					{#if data.checklistProgress.allDone}
+						<span class="text-sm font-bold text-[var(--theme-accent)]">✅ 完了！</span>
+					{:else}
+						<span class="text-sm text-[var(--color-text-muted)]">
+							{data.checklistProgress.checkedCount}/{data.checklistProgress.totalCount}
+						</span>
+					{/if}
+					<span class="text-[var(--color-text-muted)]">›</span>
+				</div>
 			{/if}
-		</div>
-	{/if}
-
-	<!-- Special reward progress indicator -->
-	{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
-		<SpecialRewardProgress
-			remaining={data.specialRewardProgress.remaining}
-			interval={data.specialRewardProgress.interval}
-		/>
+		</a>
 	{/if}
 
 	<!-- Tutorial hint banner (one-time) -->
@@ -528,128 +409,75 @@ $effect(() => {
 
 	<!-- Activity grid by category (always visible) -->
 	{#each activitiesByCategory as group, groupIdx (group.categoryId)}
-		<CategorySection
-			categoryId={group.categoryId}
-			cardSize={displayConfig.cardSize}
-			itemsPerCategory={displayConfig.itemsPerCategory}
-			collapsible={displayConfig.collapsible}
-			itemCount={group.items.length}
-			xpInfo={getCategoryXpWithAnim(group.categoryId)}
-			xpAnimating={xpAnimatingCategoryId === group.categoryId}
-			missionCount={getCategoryMissionCount(group.categoryId)}
-			completedMissionCount={getCategoryCompletedMissionCount(group.categoryId)}
-		>
-			{#each group.items as activity, i (activity.id)}
-				{#if i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
-					<div class="col-span-full flex items-center gap-2 my-0.5" aria-hidden="true" data-testid="pin-separator">
-						<div class="flex-1 border-t border-dashed border-gray-300"></div>
+			<CategorySection
+				categoryId={group.categoryId}
+				cardSize={displayConfig.cardSize}
+				itemsPerCategory={displayConfig.itemsPerCategory}
+				collapsible={displayConfig.collapsible}
+				itemCount={group.items.length}
+				xpInfo={getCategoryXpWithAnim(group.categoryId)}
+				xpAnimating={xpAnimatingCategoryId === group.categoryId}
+			>
+				{#each group.items as activity, i (activity.id)}
+					{#if i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
+						<div class="col-span-full flex items-center gap-2 my-0.5" aria-hidden="true" data-testid="pin-separator">
+							<div class="flex-1 border-t border-dashed border-gray-300"></div>
+						</div>
+					{/if}
+					{#if groupIdx === 0 && i === 0}
+					<div data-tutorial="activity-card">
+					<ActivityCard
+						activityId={activity.id}
+						icon={activity.icon}
+						name={activity.displayName}
+						categoryId={activity.categoryId}
+						cardSize={displayConfig.cardSize}
+						completed={isCompleted(activity)}
+						count={getCount(activity.id)}
+						isMission={activity.isMission}
+						isPinned={activity.isPinned}
+						frozen={!data.isPremium && activity.source === 'custom'}
+						triggerHint={activity.triggerHint}
+						onclick={() => handleActivityTap(activity)}
+						onlongpress={() => handleActivityLongPress(activity)}
+					/>
 					</div>
-				{/if}
-				{#if groupIdx === 0 && i === 0}
-				<div data-tutorial="activity-card">
-				<ActivityCard
-					activityId={activity.id}
-					icon={activity.icon}
-					name={activity.displayName}
-					categoryId={activity.categoryId}
-					cardSize={displayConfig.cardSize}
-					completed={isCompleted(activity)}
-					count={getCount(activity.id)}
-					isMission={activity.isMission}
-					isPinned={activity.isPinned}
-					frozen={!data.isPremium && activity.source === 'custom'}
-					triggerHint={activity.triggerHint}
-					eventBadge={activeEventBadge}
-					onclick={() => handleActivityTap(activity)}
-					onlongpress={() => handleActivityLongPress(activity)}
-				/>
-				</div>
-				{:else}
-				<ActivityCard
-					activityId={activity.id}
-					icon={activity.icon}
-					name={activity.displayName}
-					categoryId={activity.categoryId}
-					cardSize={displayConfig.cardSize}
-					completed={isCompleted(activity)}
-					count={getCount(activity.id)}
-					isMission={activity.isMission}
-					isPinned={activity.isPinned}
-					frozen={!data.isPremium && activity.source === 'custom'}
-					triggerHint={activity.triggerHint}
-					eventBadge={activeEventBadge}
-					onclick={() => handleActivityTap(activity)}
-					onlongpress={() => handleActivityLongPress(activity)}
-				/>
-				{/if}
-			{/each}
-		</CategorySection>
-	{/each}
-
-	<!-- Sibling ranking (1-line summary, below activities) -->
-	{#if data.siblingRanking && data.siblingRanking.rankings.length > 1}
-		<SiblingRanking
-			rankings={data.siblingRanking.rankings}
-			childId={data.child?.id ?? 0}
-		/>
-	{/if}
-
-	<!-- おうえんメッセージ（Kinder固有） -->
-	{#if kinderTodayCount > 0}
-		<div class="mt-[var(--sp-md)] p-4 rounded-2xl bg-[var(--theme-bg)] border border-[var(--theme-secondary)] text-center">
-			<div class="text-3xl mb-1">
-				{#if kinderTodayCount >= 5}
-					🌟
-				{:else if kinderTodayCount >= 3}
-					⭐
-				{:else}
-					😊
-				{/if}
-			</div>
-			<p class="text-sm font-bold" style="color: var(--theme-accent);">
-				{#if kinderTodayCount >= 5}
-					すっごーい！ きょう {kinderTodayCount}かい がんばったね！
-				{:else if kinderTodayCount >= 3}
-					いいかんじ！ {kinderTodayCount}かい できたよ！
-				{:else}
-					がんばってるね！ {kinderTodayCount}かい きろくしたよ！
-				{/if}
-			</p>
-			<div class="flex justify-center gap-1 mt-2">
-				{#each Array(Math.min(kinderTodayCount, 10)) as _}
-					<span class="text-lg">⭐</span>
+					{:else}
+					<ActivityCard
+						activityId={activity.id}
+						icon={activity.icon}
+						name={activity.displayName}
+						categoryId={activity.categoryId}
+						cardSize={displayConfig.cardSize}
+						completed={isCompleted(activity)}
+						count={getCount(activity.id)}
+						isMission={activity.isMission}
+						isPinned={activity.isPinned}
+						frozen={!data.isPremium && activity.source === 'custom'}
+						triggerHint={activity.triggerHint}
+						onclick={() => handleActivityTap(activity)}
+						onlongpress={() => handleActivityLongPress(activity)}
+					/>
+					{/if}
 				{/each}
+			</CategorySection>
+		{/each}
+
+	<!-- 今日のきろくサマリー（lower以上で表示） -->
+	{#if data.todayRecorded.length > 0}
+		<Card padding="md" class="mt-[var(--sp-md)]">
+			{#snippet children()}
+			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">📝 今日の記録</h3>
+			<div class="flex justify-between items-center">
+				<span class="text-sm text-[var(--color-text-muted)]">記録した活動</span>
+				<span class="font-bold">{data.todayRecorded.reduce((sum, r) => sum + r.count, 0)}回</span>
 			</div>
-		</div>
+			{/snippet}
+		</Card>
 	{/if}
 
 	{#if data.activities.length === 0}
 		<ActivityEmptyState uiMode={data.uiMode} />
-	{/if}
-
-	<!-- Checklist shortcut (below activities to reduce first-view clutter) -->
-	{#if data.hasChecklists}
-		<a
-			href="/checklist"
-			class="flex items-center justify-between w-full px-[var(--sp-md)] py-[var(--sp-sm)] mt-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] tap-target"
-		>
-			<div class="flex items-center gap-[var(--sp-sm)]">
-				<span class="text-2xl">📋</span>
-				<span class="font-bold">もちものチェック</span>
-			</div>
-			{#if data.checklistProgress}
-				<div class="flex items-center gap-[var(--sp-xs)]">
-					{#if data.checklistProgress.allDone}
-						<span class="text-sm font-bold text-[var(--theme-accent)]">✅ かんりょう！</span>
-					{:else}
-						<span class="text-sm text-[var(--color-text-muted)]">
-							{data.checklistProgress.checkedCount}/{data.checklistProgress.totalCount}
-						</span>
-					{/if}
-					<span class="text-[var(--color-text-muted)]">›</span>
-				</div>
-			{/if}
-		</a>
 	{/if}
 
 	<!-- Family streak banner (below activities) -->
@@ -659,15 +487,10 @@ $effect(() => {
 			hasRecordedToday={data.familyStreak.hasRecordedToday}
 			todayRecorders={data.familyStreak.todayRecorders}
 			childId={data.child?.id ?? 0}
-			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
+			siblings={data.allChildren ?? []}
 			nextMilestone={data.familyStreak.nextMilestone}
 			compact
 		/>
-	{/if}
-
-	<!-- Season event banners -->
-	{#if data.activeEvents && data.activeEvents.length > 0}
-		<EventBanner events={data.activeEvents} />
 	{/if}
 
 
@@ -676,10 +499,9 @@ $effect(() => {
 		<ChallengeBanner
 			challenges={data.activeChallenges}
 			childId={data.child?.id ?? 0}
-			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
+			siblings={data.allChildren?.map((c) => ({ id: c.id, nickname: c.nickname })) ?? []}
 		/>
 	{/if}
-
 </div>
 
 <!-- Pin context menu -->
@@ -719,7 +541,7 @@ $effect(() => {
 	{#if selectedActivity}
 		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center">
 			<CompoundIcon icon={selectedActivity.icon} size="xl" />
-			<p class="text-lg font-bold">{selectedActivity.displayName ?? selectedActivity.name}を<br />きろくする？</p>
+			<p class="text-lg font-bold">{selectedActivity.displayName ?? selectedActivity.name}を<br />記録する？</p>
 			<div class="flex gap-[var(--sp-sm)] w-full">
 				<Button
 					variant="ghost"
@@ -809,7 +631,7 @@ $effect(() => {
 							<span class="pending-dot" aria-hidden="true"></span>
 							まってね！
 						{:else}
-							きろく！
+							記録！
 						{/if}
 					</Button>
 				</form>
@@ -842,18 +664,13 @@ $effect(() => {
 				<div class="relative w-24 h-24 flex items-center justify-center">
 					<CelebrationEffect type={celebEffect} />
 				</div>
-				{#if isFirstRecord}
-					<p class="text-lg font-bold text-[var(--theme-accent)]">🌟 はじめての いっぽ！ 🌟</p>
-					<p class="text-sm font-bold">{resultData.activityName}をきろくしたよ！</p>
-				{:else}
-					<p class="text-lg font-bold">{resultData.activityName}をきろくしたよ！</p>
-				{/if}
+				<p class="text-lg font-bold">{resultData.activityName}を記録したよ！</p>
 				<div class="animate-point-pop">
 					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.totalPoints)}</p>
 				</div>
 				{#if resultData.streakDays >= 2}
 					<p class="text-sm text-[var(--theme-accent)]">
-						{resultData.streakDays}にちれんぞく！ +{resultData.streakBonus}ボーナス
+						{resultData.streakDays}日れんぞく！ +{resultData.streakBonus}ボーナス
 					</p>
 				{/if}
 				{#if resultData.masteryBonus > 0}
@@ -885,7 +702,7 @@ $effect(() => {
 				{#if missionResult}
 					<div class="bg-amber-50 rounded-[var(--radius-md)] px-3 py-2 w-full">
 						<p class="text-sm font-bold text-amber-600">
-							🎯 ミッションたっせい！
+							🎯 ミッション達成！
 							{#if missionResult.bonusAwarded > 0}
 								{fmtPts(missionResult.bonusAwarded)}
 							{/if}
@@ -968,49 +785,6 @@ $effect(() => {
 	uiMode={data.uiMode}
 />
 
-<!-- Adventure start overlay (first-time users) -->
-{#if data.isFirstTime}
-	<AdventureStartOverlay
-		bind:open={adventureOpen}
-		childName={data.child?.nickname ?? ''}
-		onClose={handleAdventureClose}
-	/>
-{/if}
-
-<!-- Parent message overlay -->
-{#if data.latestMessage}
-	<ParentMessageOverlay
-		bind:open={messageOpen}
-		messageType={data.latestMessage.messageType}
-		stampLabel={data.latestMessage.stampLabel}
-		body={data.latestMessage.body}
-		icon={data.latestMessage.icon}
-		onClose={handleMessageClose}
-	/>
-{/if}
-
-<!-- Sibling celebration (all siblings complete) -->
-{#if showCelebration && celebrationChallenge}
-	<SiblingCelebration
-		challengeTitle={celebrationChallenge.title}
-		challengeId={celebrationChallenge.id}
-		rewardClaimed={false}
-		siblings={celebrationChallenge.progress.map((p: { childId: number; completed: number }) => ({
-			name: data.allChildren?.find((c: { id: number }) => c.id === p.childId)?.nickname ?? `#${p.childId}`,
-			completed: p.completed === 1,
-		}))}
-		onDismiss={() => { showCelebration = false; }}
-	/>
-{/if}
-
-<!-- Sibling cheer overlay -->
-{#if showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0}
-	<SiblingCheerOverlay
-		cheers={data.unshownCheers}
-		onDismiss={() => { showCheerOverlay = false; }}
-	/>
-{/if}
-
 <!-- Monthly premium reward modal -->
 {#if data.monthlyPremiumReward && !data.monthlyPremiumReward.claimed}
 	<MonthlyRewardModal
@@ -1039,8 +813,5 @@ $effect(() => {
 		to { transform: rotate(360deg); }
 	}
 
-	details[open] .ranking-arrow {
-		transform: rotate(180deg);
-	}
 
 </style>

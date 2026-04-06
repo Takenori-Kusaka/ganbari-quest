@@ -43,7 +43,7 @@ const childRow = (
 	nickname: 'テスト',
 	age: 5,
 	theme: 'blue',
-	uiMode: 'kinder',
+	uiMode: 'preschool',
 	...overrides,
 });
 
@@ -74,7 +74,7 @@ describe('getMigrationStats', () => {
 	it('最新バージョンのレコードはupToDate', () => {
 		testDb
 			.insert(schema.children)
-			.values(childRow({ _sv: 2 }))
+			.values(childRow({ _sv: 3 }))
 			.run();
 
 		const stats = getMigrationStats();
@@ -90,7 +90,7 @@ describe('getMigrationStats', () => {
 			.values([
 				childRow({ id: 1, nickname: 'A', _sv: null }),
 				childRow({ id: 2, nickname: 'B', _sv: 1 }),
-				childRow({ id: 3, nickname: 'C', _sv: 2 }),
+				childRow({ id: 3, nickname: 'C', _sv: 3 }),
 			])
 			.run();
 
@@ -98,7 +98,7 @@ describe('getMigrationStats', () => {
 		const childStats = stats.find((s) => s.entityType === 'child');
 		expect(childStats?.totalRecords).toBe(3);
 		expect(childStats?.needsMigration).toBe(2); // null + v1
-		expect(childStats?.upToDate).toBe(1); // v2
+		expect(childStats?.upToDate).toBe(1); // v3
 		expect(childStats?.distribution.length).toBeGreaterThanOrEqual(2);
 	});
 });
@@ -119,7 +119,7 @@ describe('runBatchMigration', () => {
 		expect(row?._sv).toBeNull();
 	});
 
-	it('_sv=NULLのchildレコードをv2にマイグレーション', () => {
+	it('_sv=NULLのchildレコードをv3にマイグレーション', () => {
 		testDb
 			.insert(schema.children)
 			.values(childRow({ _sv: null }))
@@ -131,13 +131,13 @@ describe('runBatchMigration', () => {
 		expect(result.failed).toBe(0);
 
 		const row = testDb.select().from(schema.children).all()[0];
-		expect(row?._sv).toBe(2);
+		expect(row?._sv).toBe(3);
 	});
 
 	it('_sv=1のstatusレコードをv2にマイグレーション', () => {
 		testDb
 			.insert(schema.children)
-			.values(childRow({ id: 1, _sv: 2 }))
+			.values(childRow({ id: 1, _sv: 3 }))
 			.run();
 		testDb
 			.insert(schema.statuses)
@@ -163,7 +163,7 @@ describe('runBatchMigration', () => {
 	it('最新バージョンのレコードはスキップ', () => {
 		testDb
 			.insert(schema.children)
-			.values(childRow({ _sv: 2 }))
+			.values(childRow({ _sv: 3 }))
 			.run();
 
 		const result = runBatchMigration('child', { dryRun: false });

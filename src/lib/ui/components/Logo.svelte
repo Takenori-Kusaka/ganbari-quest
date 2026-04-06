@@ -42,7 +42,7 @@ const dims = $derived.by(() => {
 		class="logo"
 	/>
 	{#if planTier === 'standard'}
-		<span class="plan-label plan-label--standard">⭐ プレミアム</span>
+		<span class="plan-label plan-label--standard">⭐ スタンダード</span>
 	{:else if planTier === 'family'}
 		<span class="plan-label plan-label--family">⭐⭐ ファミリー</span>
 	{/if}

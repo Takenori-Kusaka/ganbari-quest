@@ -2,6 +2,7 @@
 // Stripe 決済サービス (#0131)
 
 import type Stripe from 'stripe';
+import { PLAN_LABELS } from '$lib/domain/labels';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -53,7 +54,7 @@ export async function createCheckoutSession(
 	const stripe = getStripeClient();
 
 	// #314: Stripe 側 trial_period_days を廃止（アプリ側一元管理に移行）
-	const tierLabel = plan.tier === 'family' ? 'ファミリープラン' : 'スタンダードプラン';
+	const tierLabel = PLAN_LABELS[plan.tier as keyof typeof PLAN_LABELS] ?? plan.tier;
 
 	const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
 		mode: 'subscription',
@@ -62,10 +63,10 @@ export async function createCheckoutSession(
 		locale: 'ja',
 		custom_text: {
 			submit: {
-				message: 'お支払い後、すぐにプレミアム機能をご利用いただけます。',
+				message: 'お支払い後、すぐにすべての機能をご利用いただけます。',
 			},
 			after_submit: {
-				message: 'アプリに戻ってプレミアム機能をお楽しみください。',
+				message: 'アプリに戻ってすべての機能をお楽しみください。',
 			},
 		},
 		consent_collection: {

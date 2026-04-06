@@ -89,7 +89,7 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 	PLAN_LIMIT_EXCEEDED: {
 		status: 403,
 		userMessage:
-			'この機能はプレミアムプランでご利用いただけます。プランをアップグレードしてください。',
+			'この機能はスタンダードプラン以上でご利用いただけます。プランをアップグレードしてください。',
 		severity: 'info',
 		action: 'none',
 	},
