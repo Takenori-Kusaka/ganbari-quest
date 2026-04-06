@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getAgeTierShortLabel, THEME_EMOJIS } from '$lib/domain/labels';
+import { getAgeTierLabel, getThemeLabel } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 interface Props {
@@ -41,7 +41,7 @@ function formatBirthday(dateStr: string): string {
 			<div class="child-list-card__info">
 				<p class="child-list-card__name">{child.nickname}</p>
 				<p class="child-list-card__meta">
-					{child.age}歳 / {getAgeTierShortLabel(child.uiMode)} / {THEME_EMOJIS[child.theme as keyof typeof THEME_EMOJIS] ?? '🩷'}
+					{child.age}歳 / {getAgeTierLabel(child.uiMode)} / {getThemeLabel(child.theme)}
 				</p>
 				{#if child.birthDate}
 					<p class="child-list-card__birthday">🎂 {formatBirthday(child.birthDate)}</p>
