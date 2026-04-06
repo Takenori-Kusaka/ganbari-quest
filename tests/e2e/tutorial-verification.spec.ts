@@ -220,7 +220,7 @@ test.describe('チュートリアル全ステップ検証', () => {
 						bubbleBox.y + bubbleBox.height > navBox.y && bubbleBox.y < navBox.y + navBox.height;
 					expect(
 						navOverlap,
-						`Mobile Step ${stepNum} "${title}": バブルがボトムナビに被っていな��`,
+						`Mobile Step ${stepNum} "${title}": バブルがボトムナビに被っていない`,
 					).toBe(false);
 				}
 			}
