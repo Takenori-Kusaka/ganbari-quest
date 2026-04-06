@@ -10,8 +10,8 @@ let { uiMode }: Props = $props();
 
 const labels = $derived(getModeLabels(uiMode));
 
-// upper/teen はステータスアイコンに📊を使用
-const statusIcon = $derived(uiMode === 'upper' || uiMode === 'teen' ? '📊' : ICON_STATUS);
+// junior/senior はステータスアイコンに📊を使用
+const statusIcon = $derived(uiMode === 'junior' || uiMode === 'senior' ? '📊' : ICON_STATUS);
 
 interface TabDef {
 	label: string;
@@ -24,29 +24,29 @@ const tabsByMode: Record<string, TabDef[]> = {
 		{ label: 'つよさ', icon: ICON_STATUS, path: 'status' },
 		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 	],
-	kinder: [
+	preschool: [
 		{ label: 'つよさ', icon: ICON_STATUS, path: 'status' },
 		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: 'きろく', icon: ICON_HISTORY, path: 'history' },
 	],
-	lower: [
+	elementary: [
 		{ label: 'つよさ', icon: ICON_STATUS, path: 'status' },
 		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
 	],
-	upper: [
+	junior: [
 		{ label: 'ステータス', icon: '📊', path: 'status' },
 		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
 	],
-	teen: [
+	senior: [
 		{ label: 'ステータス', icon: '📊', path: 'status' },
 		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
 	],
 };
 
-const tabs = $derived(tabsByMode[uiMode] ?? tabsByMode.kinder);
+const tabs = $derived(tabsByMode[uiMode] ?? tabsByMode.preschool);
 </script>
 
 <nav
@@ -112,14 +112,14 @@ const tabs = $derived(tabsByMode[uiMode] ?? tabsByMode.kinder);
 		white-space: nowrap;
 	}
 
-	/* baby/kinder はアイコンを大きめに */
+	/* baby/preschool はアイコンを大きめに */
 	:global([data-age-tier='baby']) .character-tab__icon,
-	:global([data-age-tier='kinder']) .character-tab__icon {
+	:global([data-age-tier='preschool']) .character-tab__icon {
 		font-size: 1.5rem;
 	}
 
 	:global([data-age-tier='baby']) .character-tab,
-	:global([data-age-tier='kinder']) .character-tab {
+	:global([data-age-tier='preschool']) .character-tab {
 		min-height: 60px;
 		padding: 10px 4px;
 	}

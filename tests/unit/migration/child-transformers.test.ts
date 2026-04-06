@@ -16,7 +16,7 @@ describe('Child Transformer: V1→V2', () => {
 			nickname: '太郎',
 			age: 5,
 			theme: 'blue',
-			uiMode: 'kinder',
+			uiMode: 'preschool',
 		});
 		expect(result.displayConfig).toBeNull();
 		expect(result.birthdayBonusMultiplier).toBe(1.0);

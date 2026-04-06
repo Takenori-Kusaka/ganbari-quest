@@ -65,7 +65,7 @@ const plans = [
 <div class="pricing-page max-w-[960px] mx-auto py-8 px-4">
 	<header class="text-center mb-10">
 		<h1 class="text-[1.75rem] font-bold text-[var(--color-neutral-700)] mb-2">料金プラン</h1>
-		<p class="text-[var(--color-neutral-500)] text-[0.95rem]">基本無料ではじめられます。有料プランはすべて<strong>7日間の無料トライアル</strong>付き</p>
+		<p class="text-[var(--color-neutral-500)] text-[0.95rem]">基本無料ではじめられます。スタンダード・ファミリープランはすべて<strong>7日間の無料トライアル</strong>付き</p>
 	</header>
 
 	<div class="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-6 mb-8">

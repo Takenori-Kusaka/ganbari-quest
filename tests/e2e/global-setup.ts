@@ -81,14 +81,14 @@ export default async function globalSetup() {
 		const childCount = db.prepare('SELECT count(*) as c FROM children').get() as { c: number };
 		if (childCount.c === 0) {
 			db.prepare(
-				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('たろうくん', 4, 'pink', 'kinder')",
+				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('たろうくん', 4, 'pink', 'preschool')",
 			).run();
 			db.prepare(
 				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('はなこちゃん', 1, 'pink', 'baby')",
 			).run();
 
 			// ステータス初期化（カテゴリごとにリアルなレベル差をつける）
-			// たろうくん (kinder): せいかつが得意、べんきょうはこれから
+			// たろうくん (preschool): せいかつが得意、べんきょうはこれから
 			const kinderXp: [number, number, number][] = [
 				// [categoryId, totalXp, level]
 				[1, 80, 4], // undou: よく体を動かす
@@ -131,7 +131,7 @@ export default async function globalSetup() {
 
 		// チェックリストテンプレート作成（デフォルトプリセット準拠）
 		const kinderChild = db
-			.prepare("SELECT id FROM children WHERE ui_mode = 'kinder' LIMIT 1")
+			.prepare("SELECT id FROM children WHERE ui_mode = 'preschool' LIMIT 1")
 			.get() as { id: number } | undefined;
 		if (kinderChild) {
 			// 旧テンプレートをクリーンアップして最新プリセットで再作成

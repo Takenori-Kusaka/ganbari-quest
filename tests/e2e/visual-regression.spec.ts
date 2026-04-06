@@ -47,20 +47,20 @@ test.describe('Visual Regression: Kinder', () => {
 	test('ホーム画面', async ({ page }) => {
 		// 活動カードが描画されるまで待機
 		await expect(page.locator('[data-testid^="activity-card-"]').first()).toBeVisible();
-		await expect(page).toHaveScreenshot('kinder-home.png', DYNAMIC_SCREENSHOT_OPTIONS);
+		await expect(page).toHaveScreenshot('preschool-home.png', DYNAMIC_SCREENSHOT_OPTIONS);
 	});
 
 	test('ステータス画面', async ({ page }) => {
-		await page.goto('/kinder/status');
+		await page.goto('/preschool/status');
 		await expect(page.getByTestId('growth-chart-heading')).toBeVisible();
-		await expect(page).toHaveScreenshot('kinder-status.png', SCREENSHOT_OPTIONS);
+		await expect(page).toHaveScreenshot('preschool-status.png', SCREENSHOT_OPTIONS);
 	});
 
 	// 実績画面は #322 で廃止（チャレンジ管理に転用）
 
 	test('履歴画面', async ({ page }) => {
-		await page.goto('/kinder/history');
+		await page.goto('/preschool/history');
 		await expect(page.getByTestId('tab-today')).toBeVisible();
-		await expect(page).toHaveScreenshot('kinder-history.png', DYNAMIC_SCREENSHOT_OPTIONS);
+		await expect(page).toHaveScreenshot('preschool-history.png', DYNAMIC_SCREENSHOT_OPTIONS);
 	});
 });
