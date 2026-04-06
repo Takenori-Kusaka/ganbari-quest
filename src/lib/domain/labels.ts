@@ -51,9 +51,23 @@ export const AGE_TIER_LABELS: Record<UiMode, string> = {
 	senior: '高校生（16〜18歳）',
 };
 
+/** 年齢区分の短縮ラベル（一覧表示・コンパクト表示向け） */
+export const AGE_TIER_SHORT_LABELS: Record<UiMode, string> = {
+	baby: '0〜2歳',
+	preschool: '3〜5歳',
+	elementary: '6〜12歳',
+	junior: '13〜15歳',
+	senior: '16〜18歳',
+};
+
 /** 年齢区分ラベルを安全に取得 */
 export function getAgeTierLabel(mode: string): string {
 	return AGE_TIER_LABELS[mode as UiMode] ?? mode;
+}
+
+/** 年齢区分の短縮ラベルを取得 */
+export function getAgeTierShortLabel(mode: string): string {
+	return AGE_TIER_SHORT_LABELS[mode as UiMode] ?? mode;
 }
 
 // ============================================================
@@ -73,6 +87,16 @@ export const PLAN_SHORT_LABELS = {
 } as const;
 
 export type PlanKey = keyof typeof PLAN_LABELS;
+
+/** プランラベルを取得 */
+export function getPlanLabel(tier: string): string {
+	return PLAN_LABELS[tier as PlanKey] ?? tier;
+}
+
+/** プラン短縮ラベルを取得 */
+export function getPlanShortLabel(tier: string): string {
+	return PLAN_SHORT_LABELS[tier as PlanKey] ?? tier;
+}
 
 // ============================================================
 // テーマカラー
@@ -98,7 +122,19 @@ export type ThemeKey = keyof typeof THEME_LABELS;
 
 /** テーマ名ラベルを安全に取得 */
 export function getThemeLabel(theme: string): string {
-	return THEME_LABELS[theme as ThemeKey] ?? theme;
+	const key = theme as ThemeKey;
+	const emoji = THEME_EMOJIS[key] ?? '🩷';
+	const label = THEME_LABELS[key] ?? theme;
+	return `${emoji} ${label}`;
+}
+
+/** テーマ選択肢一覧を取得 */
+export function getThemeOptions(): { value: ThemeKey; label: string; emoji: string }[] {
+	return (Object.keys(THEME_LABELS) as ThemeKey[]).map((key) => ({
+		value: key,
+		label: THEME_LABELS[key],
+		emoji: THEME_EMOJIS[key],
+	}));
 }
 
 // ============================================================
@@ -118,4 +154,7 @@ export const FEATURE_LABELS = {
 	event: 'イベント',
 	certificate: 'がんばり証明書',
 	stamp: 'スタンプ',
+	plan: 'プラン',
+	members: 'メンバー',
+	dataExport: 'データエクスポート',
 } as const;
