@@ -83,7 +83,7 @@ export async function findEntriesWithMasterByCardId(
 		.all();
 }
 
-/** スタンプエントリを挿入 */
+/** スタンプエントリを挿入（同日重複時は無視） */
 export async function insertEntry(input: InsertStampEntryInput, _tenantId: string): Promise<void> {
 	db.insert(schema.stampEntries)
 		.values({
@@ -93,6 +93,7 @@ export async function insertEntry(input: InsertStampEntryInput, _tenantId: strin
 			slot: input.slot,
 			loginDate: input.loginDate,
 		})
+		.onConflictDoNothing()
 		.run();
 }
 
