@@ -74,6 +74,9 @@ const thisMonthTotal = $derived.by(() => {
 });
 const allTimeTotal = $derived(convertHistory.reduce((sum, h) => sum + Math.abs(h.amount), 0));
 
+// Operation exclusion: prevent concurrent form/scan operations
+const anyOperationBusy = $derived(submitting || receiptScanning);
+
 const manualAmount = $derived(Math.floor(Number(manualInput) || 0));
 const manualValid = $derived(manualAmount >= 1 && manualAmount <= currentBalance);
 const receiptValid = $derived(
@@ -106,6 +109,7 @@ function resetReceipt() {
 }
 
 async function handleReceiptFile(event: Event) {
+	if (anyOperationBusy) return;
 	const input = event.target as HTMLInputElement;
 	const file = input.files?.[0];
 	if (!file) return;
@@ -212,7 +216,8 @@ async function handleReceiptFile(event: Event) {
 		<Card padding="lg"><form
 			method="POST"
 			action="?/convert"
-			use:enhance={() => {
+			use:enhance={({ cancel }) => {
+				if (anyOperationBusy) { cancel(); return; }
 				submitting = true;
 				return async ({ result, update }) => {
 					submitting = false;
