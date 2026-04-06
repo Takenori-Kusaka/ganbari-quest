@@ -1,4 +1,6 @@
 <script lang="ts">
+import { PLAN_SHORT_LABELS } from '$lib/domain/labels';
+
 interface Props {
 	planTier: 'standard' | 'family';
 	onDismiss: () => void;
@@ -8,7 +10,7 @@ let { planTier, onDismiss }: Props = $props();
 
 const isFamily = $derived(planTier === 'family');
 
-const planLabel = $derived(isFamily ? 'ファミリー' : 'プレミアム');
+const planLabel = $derived(PLAN_SHORT_LABELS[planTier]);
 const planIcon = $derived(isFamily ? '⭐⭐' : '⭐');
 
 const features = $derived(
