@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import { navigating, page } from '$app/stores';
+import { PLAN_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -51,9 +52,8 @@ $effect(() => {
 
 /** Full plan name for the header badge (#490) */
 const planLabel = $derived.by(() => {
-	if (planTier === 'family') return 'ファミリープラン';
-	if (planTier === 'standard') return 'スタンダードプラン';
-	return '';
+	if (planTier === 'free') return '';
+	return PLAN_LABELS[planTier] ?? '';
 });
 
 const navCategories: NavCategory[] = $derived([
