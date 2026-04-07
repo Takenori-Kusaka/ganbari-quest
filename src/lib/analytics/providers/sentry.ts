@@ -45,10 +45,11 @@ export class SentryProvider implements AnalyticsProvider {
 
 		try {
 			// Sentry SDK is an optional dependency — if not installed, disable gracefully.
-			// The actual initialization happens via SvelteKit hooks integration
+			// The actual initialization (Sentry.init()) happens via SvelteKit hooks integration
 			// (handleErrorWithSentry / sentryHandle) which must be set up separately.
-			// This provider handles server-side event capture.
+			// This provider lazily imports the SDK for server-side event capture.
 			this.enabled = true;
+			this.loadSentry();
 			logger.info('[analytics] Sentry: enabled');
 			return true;
 		} catch (err) {
@@ -118,10 +119,44 @@ export class SentryProvider implements AnalyticsProvider {
 	}
 
 	/**
-	 * Get the Sentry SDK instance.
-	 * Returns null if the package is not installed.
-	 * Populated externally when @sentry/sveltekit is set up.
+	 * Lazily import @sentry/sveltekit.
+	 * The SDK must already be initialized via hooks (sentryHandle / handleErrorWithSentry).
+	 * This import only obtains the module reference for calling captureException, etc.
 	 */
+	private loadSentry(): void {
+		// Use a variable to prevent TS from statically resolving the optional dependency
+		const moduleName = '@sentry/sveltekit';
+		import(/* @vite-ignore */ moduleName)
+			.then((mod) => {
+				this.sentry = mod as unknown as SentryLike;
+				logger.debug('[analytics] Sentry: SDK module loaded');
+			})
+			.catch((err) => {
+				logger.warn('[analytics] Sentry: @sentry/sveltekit not installed', {
+					error: err instanceof Error ? err.message : String(err),
+				});
+				this.enabled = false;
+				this.sentry = null;
+			});
+	}
+
+	/**
+	 * Runtime active check used by AnalyticsManager.isProviderActive() and,
+	 * transitively, by the CSP header builder in hooks.server.ts.
+	 *
+	 * `init()` optimistically sets `enabled = true` so the provider gets
+	 * registered, then kicks off an async SDK import. If the import fails
+	 * (e.g. `@sentry/sveltekit` not installed), the .catch branch above
+	 * clears `enabled` back to false and nulls `sentry` — after that flip,
+	 * this method returns false and the CSP builder stops allow-listing
+	 * Sentry domains. The only window where CSP can over-permit is the few
+	 * microticks between init() returning and the import promise settling,
+	 * which is exhausted before any HTTP request is served.
+	 */
+	isActive(): boolean {
+		return this.enabled;
+	}
+
 	private getSentry(): SentryLike | null {
 		return this.sentry;
 	}
