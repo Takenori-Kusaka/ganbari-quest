@@ -1,5 +1,7 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { normalizeUiMode } from '$lib/domain/validation/age-tier';
 import { db } from '../client';
+import { hydrate } from '../migration';
 import { ENTITY_VERSIONS } from '../migration/registry';
 import { SCHEMA_VERSION_FIELD } from '../migration/types';
 import {
@@ -17,44 +19,71 @@ import {
 	statusHistory,
 } from '../schema';
 
-/** SQLite: _sv が未設定のレコードに最新バージョンを書き戻す */
-function writeBackChildSv(id: number): void {
-	try {
-		db.run(
-			sql`UPDATE children SET _sv = ${ENTITY_VERSIONS.child.latest} WHERE id = ${id} AND (_sv IS NULL OR _sv < ${ENTITY_VERSIONS.child.latest})`,
-		);
-	} catch {
-		// Write-back failure is non-fatal
+type ChildRow = typeof children.$inferSelect;
+
+/**
+ * SQLite child row を最新スキーマに hydrate し、必要なら DB に書き戻す。
+ *
+ * #571: 旧 ui_mode コード (kinder/lower/upper/teen) が DB に残っていると
+ * `/${uiMode}/home` リダイレクトが 404 を返す。defensive に
+ * `normalizeUiMode()` を毎回適用し、変化があれば書き戻す。
+ *
+ * 過去バージョン (#NA) の `writeBackChildSv()` は _sv フィールドのみを
+ * 更新し transformer を適用していなかったため、`ui_mode='kinder'` の行が
+ * `_sv=3` でロックされて永久に直らない状態だった。本関数は hydrate を
+ * 走らせた上で、_sv によらず ui_mode を必ず正規化することでこの汚染を
+ * 解消する。
+ */
+function hydrateChildRow(row: ChildRow): ChildRow {
+	// 1. transformer chain を走らせる（_sv が古い場合のみ実効）
+	const { data: migrated, didMigrate } = hydrate(
+		'child',
+		row as unknown as Record<string, unknown>,
+	);
+
+	// 2. defensive: _sv が既に最新でも、過去の broken writeback で
+	//    汚染された ui_mode を必ず正規化する
+	const rawUiMode = (migrated.uiMode as string | null) ?? null;
+	const normalizedUiMode = rawUiMode ? normalizeUiMode(rawUiMode) : rawUiMode;
+	const uiModeChanged = normalizedUiMode !== rawUiMode;
+
+	// 3. 変化があれば書き戻す
+	if (didMigrate || uiModeChanged) {
+		try {
+			db.update(children)
+				.set({
+					uiMode: normalizedUiMode ?? undefined,
+					[SCHEMA_VERSION_FIELD]: ENTITY_VERSIONS.child.latest,
+				})
+				.where(eq(children.id, row.id))
+				.run();
+		} catch {
+			// Write-back failure is non-fatal — caller still gets normalized data
+		}
 	}
+
+	return {
+		...(migrated as unknown as ChildRow),
+		uiMode: normalizedUiMode,
+		[SCHEMA_VERSION_FIELD]: ENTITY_VERSIONS.child.latest,
+	} as ChildRow;
 }
 
 export async function findAllChildren(_tenantId: string) {
 	const rows = db.select().from(children).all();
-	for (const row of rows) {
-		if (row._sv == null || row._sv < ENTITY_VERSIONS.child.latest) {
-			writeBackChildSv(row.id);
-			row._sv = ENTITY_VERSIONS.child.latest;
-		}
-	}
-	return rows;
+	return rows.map(hydrateChildRow);
 }
 
 export async function findChildById(id: number, _tenantId: string) {
 	const row = db.select().from(children).where(eq(children.id, id)).get();
-	if (row && (row._sv == null || row._sv < ENTITY_VERSIONS.child.latest)) {
-		writeBackChildSv(row.id);
-		row._sv = ENTITY_VERSIONS.child.latest;
-	}
-	return row;
+	if (!row) return row;
+	return hydrateChildRow(row);
 }
 
 export async function findChildByUserId(userId: string, _tenantId: string) {
 	const row = db.select().from(children).where(eq(children.userId, userId)).get();
-	if (row && (row._sv == null || row._sv < ENTITY_VERSIONS.child.latest)) {
-		writeBackChildSv(row.id);
-		row._sv = ENTITY_VERSIONS.child.latest;
-	}
-	return row;
+	if (!row) return row;
+	return hydrateChildRow(row);
 }
 
 export async function insertChild(
