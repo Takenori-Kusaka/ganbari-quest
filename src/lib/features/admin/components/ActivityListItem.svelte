@@ -92,7 +92,7 @@ function dailyLimitLabel(val: number | null): string {
 						type="submit"
 						disabled={!activity.isMainQuest && mainQuestCount >= mainQuestMax}
 						class="px-2 py-1 rounded text-xs font-bold transition-colors
-							{activity.isMainQuest ? 'bg-[var(--color-amber-100)] text-[var(--color-amber-700)] hover:bg-[var(--color-amber-200)]' : 'bg-[var(--color-neutral-100)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)]'}
+							{activity.isMainQuest ? 'bg-[var(--color-surface-warning)] text-[var(--color-warning-text)] hover:opacity-80' : 'bg-[var(--color-neutral-100)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)]'}
 							disabled:opacity-40 disabled:cursor-not-allowed"
 					>
 						{activity.isMainQuest ? '⚔️解除' : '⚔️設定'}
@@ -157,8 +157,12 @@ function dailyLimitLabel(val: number | null): string {
 	}
 
 	.main-quest-active {
-		border: 2px solid var(--color-gold-400);
-		background: linear-gradient(135deg, var(--color-gold-100), var(--color-gold-200));
+		border: 2px solid var(--color-border-warning);
+		background: linear-gradient(
+			135deg,
+			var(--color-feedback-warning-bg),
+			var(--color-feedback-warning-bg-strong)
+		);
 	}
 
 	.main-quest-badge {
@@ -169,8 +173,8 @@ function dailyLimitLabel(val: number | null): string {
 		color: var(--color-warning-text);
 		background: linear-gradient(
 			135deg,
-			color-mix(in srgb, var(--color-gold-500) 20%, transparent),
-			color-mix(in srgb, var(--color-gold-600) 15%, transparent)
+			var(--color-feedback-warning-bg-strong),
+			var(--color-feedback-warning-bg)
 		);
 		padding: 0.0625rem 0.5rem;
 		border-radius: var(--radius-full, 9999px);

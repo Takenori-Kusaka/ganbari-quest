@@ -136,7 +136,25 @@ export class SentryProvider implements AnalyticsProvider {
 					error: err instanceof Error ? err.message : String(err),
 				});
 				this.enabled = false;
+				this.sentry = null;
 			});
+	}
+
+	/**
+	 * Runtime active check used by AnalyticsManager.isProviderActive() and,
+	 * transitively, by the CSP header builder in hooks.server.ts.
+	 *
+	 * `init()` optimistically sets `enabled = true` so the provider gets
+	 * registered, then kicks off an async SDK import. If the import fails
+	 * (e.g. `@sentry/sveltekit` not installed), the .catch branch above
+	 * clears `enabled` back to false and nulls `sentry` — after that flip,
+	 * this method returns false and the CSP builder stops allow-listing
+	 * Sentry domains. The only window where CSP can over-permit is the few
+	 * microticks between init() returning and the import promise settling,
+	 * which is exhausted before any HTTP request is served.
+	 */
+	isActive(): boolean {
+		return this.enabled;
 	}
 
 	private getSentry(): SentryLike | null {
