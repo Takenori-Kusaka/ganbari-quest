@@ -11,6 +11,7 @@
  * - Child 5: じろう (15歳, junior)    — Level 15+
  */
 
+import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import type {
 	Activity,
 	ActivityLog,
@@ -54,7 +55,7 @@ export const DEMO_CHILDREN: Child[] = [
 		age: 1,
 		birthDate: '2025-01-15',
 		theme: 'pink',
-		uiMode: 'baby',
+		uiMode: getDefaultUiMode(1),
 		avatarUrl: null,
 		displayConfig: null,
 		userId: null,
@@ -69,7 +70,7 @@ export const DEMO_CHILDREN: Child[] = [
 		age: 5,
 		birthDate: '2021-06-10',
 		theme: 'green',
-		uiMode: 'preschool',
+		uiMode: getDefaultUiMode(5),
 		avatarUrl: null,
 		displayConfig: null,
 		userId: null,
@@ -84,7 +85,7 @@ export const DEMO_CHILDREN: Child[] = [
 		age: 8,
 		birthDate: '2018-03-22',
 		theme: 'blue',
-		uiMode: 'elementary',
+		uiMode: getDefaultUiMode(8),
 		avatarUrl: null,
 		displayConfig: null,
 		userId: null,
@@ -99,7 +100,7 @@ export const DEMO_CHILDREN: Child[] = [
 		age: 10,
 		birthDate: '2016-04-18',
 		theme: 'orange',
-		uiMode: 'elementary',
+		uiMode: getDefaultUiMode(10),
 		avatarUrl: null,
 		displayConfig: null,
 		userId: null,
@@ -114,7 +115,7 @@ export const DEMO_CHILDREN: Child[] = [
 		age: 15,
 		birthDate: '2011-08-05',
 		theme: 'purple',
-		uiMode: 'junior',
+		uiMode: getDefaultUiMode(15),
 		avatarUrl: null,
 		displayConfig: null,
 		userId: null,

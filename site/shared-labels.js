@@ -1,11 +1,9 @@
 /**
- * LP共通用語辞書 (#561)
+ * LP共通用語辞書 (#561, #565)
  *
- * 静的HTMLからの参照用。アプリの src/lib/domain/labels.ts と同期させる。
- *
- * 同期メカニズム:
- * - 手動更新: アプリ側 labels.ts を変更したら、本ファイルも同じ値に更新する
- * - 自動同期: #565 (Tier 2) で `scripts/generate-lp-labels.mjs` を導入予定
+ * ⚠️ このファイルは自動生成されます。直接編集しないでください。
+ * 生成元: src/lib/domain/labels.ts + src/lib/domain/validation/age-tier.ts
+ * 生成コマンド: node scripts/generate-lp-labels.mjs
  *
  * 用法:
  * <script src="shared-labels.js"></script>
@@ -22,47 +20,47 @@
 	'use strict';
 
 	const AGE_TIERS = {
-		baby: {
-			name: '乳幼児モード',
-			range: '0〜2歳',
-			formal: '乳幼児（0〜2歳）',
-			ageMin: 0,
-			ageMax: 2,
+		"baby": {
+			"name": "乳幼児モード",
+			"range": "0〜2歳",
+			"formal": "乳幼児（0〜2歳）",
+			"ageMin": 0,
+			"ageMax": 2
 		},
-		preschool: {
-			name: '幼児モード',
-			range: '3〜5歳',
-			formal: '幼児（3〜5歳）',
-			ageMin: 3,
-			ageMax: 5,
+		"preschool": {
+			"name": "幼児モード",
+			"range": "3〜5歳",
+			"formal": "幼児（3〜5歳）",
+			"ageMin": 3,
+			"ageMax": 5
 		},
-		elementary: {
-			name: '小学生モード',
-			range: '6〜12歳',
-			formal: '小学生（6〜12歳）',
-			ageMin: 6,
-			ageMax: 12,
+		"elementary": {
+			"name": "小学生モード",
+			"range": "6〜12歳",
+			"formal": "小学生（6〜12歳）",
+			"ageMin": 6,
+			"ageMax": 12
 		},
-		junior: {
-			name: '中学生モード',
-			range: '13〜15歳',
-			formal: '中学生（13〜15歳）',
-			ageMin: 13,
-			ageMax: 15,
+		"junior": {
+			"name": "中学生モード",
+			"range": "13〜15歳",
+			"formal": "中学生（13〜15歳）",
+			"ageMin": 13,
+			"ageMax": 15
 		},
-		senior: {
-			name: '高校生モード',
-			range: '16〜18歳',
-			formal: '高校生（16〜18歳）',
-			ageMin: 16,
-			ageMax: 18,
-		},
+		"senior": {
+			"name": "高校生モード",
+			"range": "16〜18歳",
+			"formal": "高校生（16〜18歳）",
+			"ageMin": 16,
+			"ageMax": 18
+		}
 	};
 
 	const PLAN_LABELS = {
-		free: '無料プラン',
-		standard: 'スタンダードプラン',
-		family: 'ファミリープラン',
+		"free": "無料プラン",
+		"standard": "スタンダードプラン",
+		"family": "ファミリープラン"
 	};
 
 	// グローバルへエクスポート
