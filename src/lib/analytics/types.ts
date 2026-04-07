@@ -64,4 +64,15 @@ export interface AnalyticsProvider {
 	 * Flush any buffered events (for graceful shutdown).
 	 */
 	flush(): Promise<void>;
+
+	/**
+	 * Optional runtime active check. Returns true if the provider is currently
+	 * usable (SDK loaded, credentials valid, etc.). Used by CSP generation to
+	 * avoid allow-listing provider domains when the provider is registered but
+	 * not yet (or no longer) usable.
+	 *
+	 * Defaults to true when not implemented — meaning the provider is active
+	 * for as long as it remains registered with the AnalyticsManager.
+	 */
+	isActive?(): boolean;
 }
