@@ -132,9 +132,15 @@ class AnalyticsManager {
 
 	/**
 	 * Check if a specific provider is active.
+	 *
+	 * If the provider exposes an `isActive()` method, its result is used
+	 * (this lets providers with async init — e.g. Sentry loading its SDK
+	 * lazily — report accurately and keep CSP headers tight).
 	 */
 	isProviderActive(name: string): boolean {
-		return this.providers.some((p) => p.name === name);
+		const provider = this.providers.find((p) => p.name === name);
+		if (!provider) return false;
+		return provider.isActive ? provider.isActive() : true;
 	}
 
 	/**

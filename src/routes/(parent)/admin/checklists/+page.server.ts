@@ -14,6 +14,7 @@ import {
 	removeOverride,
 	removeTemplate,
 	removeTemplateItem,
+	VALID_TIME_SLOTS,
 } from '$lib/server/services/checklist-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
@@ -64,6 +65,8 @@ export const actions: Actions = {
 		if (!name) return fail(400, { error: '名前を入力してください' });
 
 		const timeSlot = String(formData.get('timeSlot') ?? 'anytime').trim();
+		if (!(VALID_TIME_SLOTS as readonly string[]).includes(timeSlot))
+			return fail(400, { error: '時間帯が不正です' });
 
 		await createTemplate({ childId, name, icon, timeSlot }, tenantId);
 		return { success: true };
@@ -76,8 +79,8 @@ export const actions: Actions = {
 		const timeSlot = String(formData.get('timeSlot') ?? 'anytime').trim();
 
 		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
-		const validSlots = ['morning', 'afternoon', 'evening', 'anytime'];
-		if (!validSlots.includes(timeSlot)) return fail(400, { error: '時間帯が不正です' });
+		if (!(VALID_TIME_SLOTS as readonly string[]).includes(timeSlot))
+			return fail(400, { error: '時間帯が不正です' });
 
 		await editTemplate(templateId, { timeSlot }, tenantId);
 		return { success: true };
