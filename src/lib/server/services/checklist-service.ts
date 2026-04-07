@@ -24,6 +24,9 @@ import { insertPointEntry } from '$lib/server/db/point-repo';
 
 export type TimeSlot = 'morning' | 'afternoon' | 'evening' | 'anytime';
 
+/** Single source of truth for valid TimeSlot values (used for server-side validation). */
+export const VALID_TIME_SLOTS: readonly TimeSlot[] = ['morning', 'afternoon', 'evening', 'anytime'];
+
 export const TIME_SLOT_LABELS: Record<TimeSlot, string> = {
 	morning: 'あさ',
 	afternoon: 'ひる',
