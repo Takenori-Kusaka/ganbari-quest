@@ -2,12 +2,12 @@
 // 活動パック JSON のスキーマ整合性テスト (#581)
 
 import { describe, expect, it } from 'vitest';
-import { CATEGORY_CODES, GRADE_LEVELS } from '$lib/domain/validation/activity';
 import {
 	activityPackIndex,
 	getActivityPack,
 	getActivityPackIds,
 } from '$lib/data/activity-packs/index';
+import { CATEGORY_CODES, GRADE_LEVELS } from '$lib/domain/validation/activity';
 
 describe('活動パックインデックス', () => {
 	it('formatVersion が 1.0', () => {
@@ -28,7 +28,8 @@ describe('活動パックインデックス', () => {
 		for (const meta of activityPackIndex.packs) {
 			const pack = getActivityPack(meta.packId);
 			expect(pack).not.toBeNull();
-			expect(pack!.activities.length).toBe(meta.activityCount);
+			if (!pack) continue;
+			expect(pack.activities.length).toBe(meta.activityCount);
 		}
 	});
 });
@@ -47,17 +48,23 @@ describe.each([
 	});
 
 	it('formatVersion が 1.0', () => {
-		const pack = getActivityPack(packId)!;
+		const pack = getActivityPack(packId);
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		expect(pack.formatVersion).toBe('1.0');
 	});
 
 	it('packId が正しい', () => {
-		const pack = getActivityPack(packId)!;
+		const pack = getActivityPack(packId);
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		expect(pack.packId).toBe(packId);
 	});
 
 	it('必須フィールドが存在する', () => {
-		const pack = getActivityPack(packId)!;
+		const pack = getActivityPack(packId);
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		expect(pack.packName).toBeTruthy();
 		expect(pack.description).toBeTruthy();
 		expect(pack.icon).toBeTruthy();
@@ -67,19 +74,25 @@ describe.each([
 	});
 
 	it('活動が1つ以上存在する', () => {
-		const pack = getActivityPack(packId)!;
+		const pack = getActivityPack(packId);
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		expect(pack.activities.length).toBeGreaterThan(0);
 	});
 
 	it('全活動の categoryCode が有効', () => {
-		const pack = getActivityPack(packId)!;
+		const pack = getActivityPack(packId);
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		for (const activity of pack.activities) {
 			expect(CATEGORY_CODES).toContain(activity.categoryCode);
 		}
 	});
 
 	it('全活動の gradeLevel が有効（null 許容）', () => {
-		const pack = getActivityPack(packId)!;
+		const pack = getActivityPack(packId);
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		for (const activity of pack.activities) {
 			if (activity.gradeLevel !== null) {
 				expect(GRADE_LEVELS).toContain(activity.gradeLevel);
@@ -88,7 +101,9 @@ describe.each([
 	});
 
 	it('全活動の basePoints が正の整数', () => {
-		const pack = getActivityPack(packId)!;
+		const pack = getActivityPack(packId);
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		for (const activity of pack.activities) {
 			expect(activity.basePoints).toBeGreaterThan(0);
 			expect(Number.isInteger(activity.basePoints)).toBe(true);
@@ -96,7 +111,9 @@ describe.each([
 	});
 
 	it('全活動に name がある', () => {
-		const pack = getActivityPack(packId)!;
+		const pack = getActivityPack(packId);
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		for (const activity of pack.activities) {
 			expect(activity.name).toBeTruthy();
 		}
@@ -105,20 +122,26 @@ describe.each([
 
 describe('中学生チャレンジ (junior-high-challenge)', () => {
 	it('対象年齢が10-14歳', () => {
-		const pack = getActivityPack('junior-high-challenge')!;
+		const pack = getActivityPack('junior-high-challenge');
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		expect(pack.targetAgeMin).toBe(10);
 		expect(pack.targetAgeMax).toBe(14);
 	});
 
 	it('gradeLevel が middle_school', () => {
-		const pack = getActivityPack('junior-high-challenge')!;
+		const pack = getActivityPack('junior-high-challenge');
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		for (const activity of pack.activities) {
 			expect(activity.gradeLevel).toBe('middle_school');
 		}
 	});
 
 	it('5カテゴリをカバー', () => {
-		const pack = getActivityPack('junior-high-challenge')!;
+		const pack = getActivityPack('junior-high-challenge');
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		const categories = new Set(pack.activities.map((a) => a.categoryCode));
 		expect(categories.size).toBe(5);
 	});
@@ -126,20 +149,26 @@ describe('中学生チャレンジ (junior-high-challenge)', () => {
 
 describe('高校生チャレンジ (senior-high-challenge)', () => {
 	it('対象年齢が15-18歳', () => {
-		const pack = getActivityPack('senior-high-challenge')!;
+		const pack = getActivityPack('senior-high-challenge');
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		expect(pack.targetAgeMin).toBe(15);
 		expect(pack.targetAgeMax).toBe(18);
 	});
 
 	it('gradeLevel が high_school', () => {
-		const pack = getActivityPack('senior-high-challenge')!;
+		const pack = getActivityPack('senior-high-challenge');
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		for (const activity of pack.activities) {
 			expect(activity.gradeLevel).toBe('high_school');
 		}
 	});
 
 	it('5カテゴリをカバー', () => {
-		const pack = getActivityPack('senior-high-challenge')!;
+		const pack = getActivityPack('senior-high-challenge');
+		expect(pack).not.toBeNull();
+		if (!pack) return;
 		const categories = new Set(pack.activities.map((a) => a.categoryCode));
 		expect(categories.size).toBe(5);
 	});
