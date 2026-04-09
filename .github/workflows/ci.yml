@@ -57,6 +57,9 @@ jobs:
       - name: Biome lint
         run: npx biome check .
 
+      - name: Parallel implementation sync check (#565)
+        run: npm run lint:parallel
+
       - name: Stylelint (CSS hex check)
         run: npx stylelint "src/**/*.css"
 

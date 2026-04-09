@@ -76,8 +76,8 @@ function handleDismiss() {
 
 				<!-- Content -->
 				<div class="flex-1 min-w-0">
-					<p class="text-sm font-bold text-[var(--color-text)] truncate">{guide.step?.title}</p>
-					<p class="text-xs text-[var(--color-text-muted)] truncate">{guide.step?.description}</p>
+					<p class="text-sm font-bold text-[var(--color-text)] leading-tight">{guide.step?.title}</p>
+					<p class="text-xs text-[var(--color-text-muted)] leading-snug line-clamp-2">{guide.step?.description}</p>
 				</div>
 
 				<!-- Action -->

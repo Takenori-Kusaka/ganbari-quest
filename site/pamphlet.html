@@ -560,30 +560,30 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
   <div class="front-ages">
     <h2>&#x1F308; 0歳から18歳まで &#8212; 5つの年齢モード</h2>
     <div class="age-row">
-      <div class="age-item">
+      <div class="age-item" data-age-tier="baby">
         <div class="ai-emoji">&#x1F476;</div>
-        <div class="ai-name">はじめの一歩</div>
-        <div class="ai-range">0&#x301C;2歳</div>
+        <div class="ai-name" data-label="age-tier-name">乳幼児モード</div>
+        <div class="ai-range" data-label="age-tier-range">0&#x301C;2歳</div>
       </div>
-      <div class="age-item">
+      <div class="age-item" data-age-tier="preschool">
         <div class="ai-emoji">&#x1F9D2;</div>
-        <div class="ai-name">じぶんでタップ</div>
-        <div class="ai-range">3&#x301C;5歳</div>
+        <div class="ai-name" data-label="age-tier-name">幼児モード</div>
+        <div class="ai-range" data-label="age-tier-range">3&#x301C;5歳</div>
       </div>
-      <div class="age-item">
+      <div class="age-item" data-age-tier="elementary">
         <div class="ai-emoji">&#x1F466;</div>
-        <div class="ai-name">冒険スタート</div>
-        <div class="ai-range">6&#x301C;9歳</div>
+        <div class="ai-name" data-label="age-tier-name">小学生モード</div>
+        <div class="ai-range" data-label="age-tier-range">6&#x301C;12歳</div>
       </div>
-      <div class="age-item">
+      <div class="age-item" data-age-tier="junior">
         <div class="ai-emoji">&#x1F9D1;&#x200D;&#x1F393;</div>
-        <div class="ai-name">チャレンジ</div>
-        <div class="ai-range">10&#x301C;14歳</div>
+        <div class="ai-name" data-label="age-tier-name">中学生モード</div>
+        <div class="ai-range" data-label="age-tier-range">13&#x301C;15歳</div>
       </div>
-      <div class="age-item">
+      <div class="age-item" data-age-tier="senior">
         <div class="ai-emoji">&#x1F680;</div>
-        <div class="ai-name">みらい設計</div>
-        <div class="ai-range">15&#x301C;18歳</div>
+        <div class="ai-name" data-label="age-tier-name">高校生モード</div>
+        <div class="ai-range" data-label="age-tier-range">16&#x301C;18歳</div>
       </div>
     </div>
   </div>
@@ -750,5 +750,6 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
 
 </div>
 
+<script src="shared-labels.js"></script>
 </body>
 </html>
