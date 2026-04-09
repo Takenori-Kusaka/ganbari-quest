@@ -180,10 +180,18 @@ test.describe('チュートリアル全ステップ検証', () => {
 			}
 		}
 
-		// チュートリアル開始
+		// チュートリアル開始（PageGuide 対応ページでは tutorial-restart が非表示のため考慮）
 		const tutorialBtn = page.locator('[data-tutorial="tutorial-restart"]');
-		if (await tutorialBtn.isVisible()) {
+		const pageGuideBtn = page.locator('[data-tutorial="page-guide-btn"]');
+		if (await tutorialBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
 			await tutorialBtn.click();
+		} else if (await pageGuideBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+			await page.goto('/admin/license');
+			await page.waitForLoadState('networkidle');
+			const btn = page.locator('[data-tutorial="tutorial-restart"]');
+			if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+				await btn.click();
+			}
 		}
 
 		const restartBtn = page.locator('button:has-text("最初から")');
