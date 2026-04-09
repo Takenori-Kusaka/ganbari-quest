@@ -725,7 +725,7 @@ $effect(() => {
 								size="sm"
 								class="w-full bg-gray-200 text-[var(--color-text-muted)]"
 							>
-								取消 ({cancelCountdown}s)
+								とりけし ({cancelCountdown}s)
 							</Button>
 						</form>
 					{/if}

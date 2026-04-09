@@ -513,9 +513,9 @@ $effect(() => {
 				{#if pinSubmitting}
 					<span class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
 				{:else if pinMenuActivity.isPinned}
-					📌 ピン留め解除
+					📌 ピン留めを解除
 				{:else}
-					📌 ピン留め
+					📌 ピン留めする
 				{/if}
 			</Button>
 			<Button
