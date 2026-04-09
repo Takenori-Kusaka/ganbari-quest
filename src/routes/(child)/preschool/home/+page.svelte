@@ -465,34 +465,6 @@ $effect(() => {
 		</form>
 	{/if}
 
-	<!-- Checklist top card (pinned when not complete) -->
-	{#if data.hasChecklists && data.checklistProgress && !data.checklistProgress.allDone}
-		<a
-			href="/checklist"
-			data-testid="checklist-top-card"
-			class="flex items-center justify-between w-full px-[var(--sp-md)] py-[var(--sp-sm)] mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 shadow-sm tap-target"
-		>
-			<div class="flex items-center gap-[var(--sp-sm)]">
-				<span class="text-2xl">📋</span>
-				<div>
-					<span class="font-bold text-sm">もちものチェック</span>
-					<div class="h-1.5 w-24 bg-gray-200 rounded-full mt-1">
-						<div
-							class="h-full bg-blue-400 rounded-full transition-all"
-							style:width="{data.checklistProgress.totalCount > 0 ? (data.checklistProgress.checkedCount / data.checklistProgress.totalCount) * 100 : 0}%"
-						></div>
-					</div>
-				</div>
-			</div>
-			<div class="flex items-center gap-[var(--sp-xs)]">
-				<span class="text-sm text-[var(--color-text-muted)]">
-					{data.checklistProgress.checkedCount}/{data.checklistProgress.totalCount}
-				</span>
-				<span class="text-[var(--color-text-muted)]">›</span>
-			</div>
-		</a>
-	{/if}
-
 	<!-- Special reward progress indicator -->
 	{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
 		<SpecialRewardProgress
@@ -605,25 +577,6 @@ $effect(() => {
 		<ActivityEmptyState uiMode={data.uiMode} />
 	{/if}
 
-	<!-- Checklist shortcut (bottom — only when all complete) -->
-	{#if data.hasChecklists && data.checklistProgress?.allDone}
-		<a
-			href="/checklist"
-			data-testid="checklist-bottom-card"
-			class="flex items-center justify-between w-full px-[var(--sp-md)] py-[var(--sp-sm)] mt-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] tap-target"
-		>
-			<div class="flex items-center gap-[var(--sp-sm)]">
-				<span class="text-2xl">📋</span>
-				<span class="font-bold">もちものチェック</span>
-			</div>
-			{#if data.checklistProgress}
-				<div class="flex items-center gap-[var(--sp-xs)]">
-					<span class="text-sm font-bold text-[var(--theme-accent)]">✅ かんりょう！</span>
-					<span class="text-[var(--color-text-muted)]">›</span>
-				</div>
-			{/if}
-		</a>
-	{/if}
 
 	<!-- Family streak banner (below activities) -->
 	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
