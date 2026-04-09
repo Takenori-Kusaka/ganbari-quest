@@ -79,13 +79,13 @@ const categories: Record<number, string> = {
 				<span class="text-xl">🔥</span>
 				<h3 class="font-bold text-sm">家族ストリーク: {data.familyStreak.currentStreak}日</h3>
 			</div>
-			<p class="text-xs text-gray-500">
+			<p class="text-xs text-[var(--color-text-muted)]">
 				{data.familyStreak.hasRecordedToday
 					? `今日は${data.familyStreak.todayRecorders.length}人が記録済み`
 					: '今日はまだ誰も記録していません'}
 			</p>
 			{#if data.familyStreak.nextMilestone}
-				<p class="text-xs text-gray-400 mt-1">
+				<p class="text-xs text-[var(--color-text-tertiary)] mt-1">
 					あと{data.familyStreak.nextMilestone.remaining}日で{data.familyStreak.nextMilestone.days}日ボーナス（+{data.familyStreak.nextMilestone.points}P）
 				</p>
 			{/if}
@@ -93,10 +93,10 @@ const categories: Record<number, string> = {
 	{/if}
 
 	{#if !isFamily}
-		<div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
-			<p class="text-sm font-bold text-amber-800">👨‍👩‍👧‍👦 ファミリープラン限定機能</p>
-			<p class="text-xs text-amber-600 mt-1">きょうだいチャレンジと家族ストリークはファミリープランでご利用いただけます</p>
-			<a href="/admin/license" class="inline-block mt-2 px-3 py-1 text-xs font-bold rounded-lg bg-amber-500 text-white">
+		<div class="rounded-xl border border-[var(--color-feedback-warning-border)] bg-[var(--color-feedback-warning-bg)] p-4 text-center">
+			<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">👨‍👩‍👧‍👦 ファミリープラン限定機能</p>
+			<p class="text-xs text-[var(--color-feedback-warning-text)] mt-1">きょうだいチャレンジと家族ストリークはファミリープランでご利用いただけます</p>
+			<a href="/admin/license" class="inline-block mt-2 px-3 py-1 text-xs font-bold rounded-lg bg-[var(--color-stat-amber)] text-white">
 				プランを確認
 			</a>
 		</div>
@@ -114,13 +114,13 @@ const categories: Record<number, string> = {
 	</div>
 
 	{#if form?.error}
-		<div class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{form.error}</div>
+		<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)]">{form.error}</div>
 	{/if}
 	{#if form?.created}
-		<div class="rounded-lg bg-green-50 p-3 text-sm text-green-700">チャレンジを作成しました</div>
+		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]">チャレンジを作成しました</div>
 	{/if}
 	{#if form?.deleted}
-		<div class="rounded-lg bg-gray-50 p-3 text-sm text-gray-700">チャレンジを削除しました</div>
+		<div class="rounded-lg bg-[var(--color-surface-muted)] p-3 text-sm text-[var(--color-text-primary)]">チャレンジを削除しました</div>
 	{/if}
 
 	<!-- 作成フォーム -->
@@ -180,8 +180,8 @@ const categories: Record<number, string> = {
 	{#if data.challenges.length === 0}
 		<div class="rounded-xl border bg-white p-8 text-center">
 			<p class="text-2xl">👥</p>
-			<p class="mt-2 text-sm font-semibold text-gray-500">チャレンジはまだありません</p>
-			<p class="text-xs text-gray-400">上のボタンから作成してください</p>
+			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">チャレンジはまだありません</p>
+			<p class="text-xs text-[var(--color-text-tertiary)]">上のボタンから作成してください</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
@@ -189,22 +189,22 @@ const categories: Record<number, string> = {
 				{@const active = isCurrentlyActive(challenge)}
 				{@const target = parseJSON<TargetConfig>(challenge.targetConfig, { metric: 'count', baseTarget: 0 })}
 				{@const reward = parseJSON<RewardConfig>(challenge.rewardConfig, { points: 0 })}
-				<div class="rounded-xl border bg-white p-4" class:border-blue-300={active}>
+				<div class="rounded-xl border bg-white p-4" class:border-[var(--color-feedback-info-border)]={active}>
 					<div class="flex items-start justify-between gap-2">
 						<div class="flex-1">
 							<h3 class="font-bold text-sm">
 								{challenge.title}
 								{#if challenge.allCompleted}
-									<span class="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">全員クリア！</span>
+									<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">全員クリア！</span>
 								{/if}
 								{#if active}
-									<span class="ml-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">開催中</span>
+									<span class="ml-1 rounded bg-[var(--color-feedback-info-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-info-text)]">開催中</span>
 								{/if}
 								{#if challenge.status === 'expired'}
-									<span class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">終了</span>
+									<span class="ml-1 rounded bg-[var(--color-surface-secondary)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">終了</span>
 								{/if}
 							</h3>
-							<p class="text-xs text-gray-500 mt-0.5">
+							<p class="text-xs text-[var(--color-text-muted)] mt-0.5">
 								{typeLabel(challenge.challengeType)} · {periodLabel(challenge.periodType)}
 								· {formatDate(challenge.startDate)} 〜 {formatDate(challenge.endDate)}
 								· 目標{target.baseTarget}回
@@ -214,7 +214,7 @@ const categories: Record<number, string> = {
 								· 報酬{reward.points}P
 							</p>
 							{#if challenge.description}
-								<p class="text-xs text-gray-600 mt-1">{challenge.description}</p>
+								<p class="text-xs text-[var(--color-text-secondary)] mt-1">{challenge.description}</p>
 							{/if}
 
 							<!-- 進捗表示 -->
@@ -223,16 +223,16 @@ const categories: Record<number, string> = {
 									{#each challenge.progress as prog}
 										{@const child = data.children.find((c: { id: number }) => c.id === prog.childId)}
 										<div class="flex items-center gap-2">
-											<span class="text-xs font-medium text-gray-700 w-16 truncate">
+											<span class="text-xs font-medium text-[var(--color-text-primary)] w-16 truncate">
 												{child?.nickname ?? `#${prog.childId}`}
 											</span>
-											<div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+											<div class="flex-1 h-2 bg-[var(--color-surface-secondary)] rounded-full overflow-hidden">
 												<ProgressFill
 													pct={Math.min(100, Math.round((prog.currentValue / prog.targetValue) * 100))}
-													class="h-full rounded-full transition-all {prog.completed === 1 ? 'bg-green-400' : 'bg-blue-400'}"
+													class="h-full rounded-full transition-all {prog.completed === 1 ? 'bg-[var(--color-feedback-success-border)]' : 'bg-[var(--color-feedback-info-border)]'}"
 												/>
 											</div>
-											<span class="text-[10px] text-gray-500 w-12 text-right">
+											<span class="text-[10px] text-[var(--color-text-muted)] w-12 text-right">
 												{prog.currentValue}/{prog.targetValue}
 												{#if prog.completed === 1}✅{/if}
 											</span>

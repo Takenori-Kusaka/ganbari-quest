@@ -64,14 +64,14 @@ $effect(() => {
 		<Button
 			variant="ghost"
 			size="sm"
-			class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-lg leading-none"
+			class="absolute top-2 right-2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] text-lg leading-none"
 			onclick={() => { floatingCtaDismissed = true; }}
 			aria-label="閉じる"
 		>
 			&times;
 		</Button>
-		<p class="text-sm font-bold text-gray-700 mb-1">お子さまの ぼうけん、はじめよう！</p>
-		<p class="text-xs text-gray-500 mb-3">7日間無料・いつでもキャンセルOK</p>
+		<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">お子さまの ぼうけん、はじめよう！</p>
+		<p class="text-xs text-[var(--color-text-muted)] mb-3">7日間無料・いつでもキャンセルOK</p>
 		<a
 			href="/demo/signup"
 			class="block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-center text-sm"

@@ -71,7 +71,7 @@ function goToComplete() {
 					<span class="text-[var(--color-gold-600)]">→</span>
 					<span class="text-[var(--color-gold-600)] text-2xl">Lv.{resultLevelUp.levelAfter}</span>
 				</div>
-				<p class="text-sm text-amber-600 font-bold">レベルアップ！</p>
+				<p class="text-sm text-[var(--color-feedback-warning-text)] font-bold">レベルアップ！</p>
 			</div>
 		{/if}
 

@@ -1622,35 +1622,35 @@ const anyFormBusy = $derived(
 
 	<!-- アカウント削除（cognito モードの全ロール） -->
 	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== 'grace_period'}
-		<Card padding="lg" class="border-2 border-red-200">
-			<h3 class="text-lg font-bold text-red-600 mb-2">アカウント削除</h3>
+		<Card padding="lg" class="border-2 border-[var(--color-feedback-error-border)]">
+			<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-2">アカウント削除</h3>
 			{#if $page.data.userRole === 'owner'}
 				<!-- Owner: 家族グループ全体に影響 -->
-				<div class="text-sm text-gray-600 space-y-2 mb-4">
+				<div class="text-sm text-[var(--color-text-secondary)] space-y-2 mb-4">
 					<p>オーナーとしてアカウントを削除すると、家族グループ全体のデータが影響を受けます。</p>
-					<ul class="list-disc ml-5 text-gray-500 space-y-1">
+					<ul class="list-disc ml-5 text-[var(--color-text-muted)] space-y-1">
 						<li>子供のプロフィール・活動記録・ポイント履歴</li>
 						<li>アバター画像・音声ファイル</li>
 						<li>設定・チェックリスト・キャリアプラン</li>
 						<li>メンバーシップ・招待情報</li>
 					</ul>
-					<p class="text-red-500 font-medium">
+					<p class="text-[var(--color-feedback-error-text)] font-medium">
 						削除後のデータ復旧はできません。事前にデータをエクスポートすることを強くお勧めします。
 					</p>
 				</div>
 			{:else if $page.data.userRole === 'child'}
 				<!-- Child -->
-				<div class="text-sm text-gray-600 space-y-2 mb-4">
+				<div class="text-sm text-[var(--color-text-secondary)] space-y-2 mb-4">
 					<p>アカウントを削除すると、あなたのログイン情報が削除されます。</p>
 					<p>活動記録やポイントは家族グループに残りますが、このアカウントでのログインはできなくなります。</p>
-					<p class="text-red-500 font-medium">削除後の復旧はできません。</p>
+					<p class="text-[var(--color-feedback-error-text)] font-medium">削除後の復旧はできません。</p>
 				</div>
 			{:else}
 				<!-- Parent (non-owner) -->
-				<div class="text-sm text-gray-600 space-y-2 mb-4">
+				<div class="text-sm text-[var(--color-text-secondary)] space-y-2 mb-4">
 					<p>アカウントを削除すると、家族グループから離脱し、ログイン情報が削除されます。</p>
 					<p>家族グループのデータは引き続き保持されます。</p>
-					<p class="text-red-500 font-medium">削除後の復旧はできません。</p>
+					<p class="text-[var(--color-feedback-error-text)] font-medium">削除後の復旧はできません。</p>
 				</div>
 			{/if}
 
@@ -1661,15 +1661,15 @@ const anyFormBusy = $derived(
 			<!-- 移譲ダイアログ（Owner かつ他メンバーがいる場合） -->
 			{#if showTransferDialog && deletionInfo && !deletionInfo.isOnlyMember}
 				<div class="mt-4 p-4 rounded-lg border-2" style:border-color="var(--color-border-default)" style:background-color="var(--color-surface-card)">
-					<h4 class="font-bold text-gray-700 mb-3">家族グループに他のメンバーがいます</h4>
-					<p class="text-sm text-gray-600 mb-4">
+					<h4 class="font-bold text-[var(--color-text-primary)] mb-3">家族グループに他のメンバーがいます</h4>
+					<p class="text-sm text-[var(--color-text-secondary)] mb-4">
 						オーナー権限を別のメンバーに移譲するか、家族グループを全て削除するか選択してください。
 					</p>
 
 					<div class="space-y-4">
 						<!-- Option A: Transfer -->
 						<div class="p-3 rounded-lg" style:background-color="var(--color-surface-card)">
-							<p class="text-sm font-medium text-gray-700 mb-2">
+							<p class="text-sm font-medium text-[var(--color-text-primary)] mb-2">
 								オーナー権限を移譲して退会する
 							</p>
 							<div class="flex items-center gap-2 mb-2">
@@ -1700,10 +1700,10 @@ const anyFormBusy = $derived(
 
 						<!-- Option B: Full delete -->
 						<div class="p-3 rounded-lg" style:background-color="var(--color-surface-card)">
-							<p class="text-sm font-medium text-red-600 mb-2">
+							<p class="text-sm font-medium text-[var(--color-feedback-error-text)] mb-2">
 								家族グループを全て削除する
 							</p>
-							<p class="text-xs text-gray-500 mb-2">
+							<p class="text-xs text-[var(--color-text-muted)] mb-2">
 								全メンバーの所属が解除され、全データが削除されます。
 							</p>
 							<Button

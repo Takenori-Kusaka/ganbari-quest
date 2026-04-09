@@ -37,8 +37,8 @@ function finish() {
 	{#if total === 0}
 		<div class="flex-1 flex flex-col items-center justify-center p-6">
 			<span class="text-5xl mb-4">📋</span>
-			<p class="text-lg font-bold text-gray-600">表示できる活動がありません</p>
-			<p class="text-sm text-gray-400 mt-1">まず活動を追加してください</p>
+			<p class="text-lg font-bold text-[var(--color-text-secondary)]">表示できる活動がありません</p>
+			<p class="text-sm text-[var(--color-text-tertiary)] mt-1">まず活動を追加してください</p>
 			<Button onclick={finish} variant="ghost" size="sm" class="mt-6">
 				もどる
 			</Button>
@@ -46,11 +46,11 @@ function finish() {
 	{:else if activity}
 		<!-- Progress bar -->
 		<div class="px-4 pt-4 pb-2">
-			<div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+			<div class="flex items-center justify-between text-xs text-[var(--color-text-muted)] mb-1">
 				<span>{currentIndex + 1} / {total} の活動</span>
-				<span class="text-gray-400">{categoryName}</span>
+				<span class="text-[var(--color-text-tertiary)]">{categoryName}</span>
 			</div>
-			<div class="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+			<div class="w-full h-1.5 bg-[var(--color-surface-tertiary)] rounded-full overflow-hidden">
 				<ProgressFill
 					pct={((currentIndex + 1) / total) * 100}
 					color={categoryColor}
@@ -81,32 +81,32 @@ function finish() {
 				</div>
 			{:else if activity.description}
 				<div class="mt-6 w-72">
-					<div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center">
-						<p class="text-xs text-gray-400 font-bold mb-1">活動の説明</p>
-						<p class="text-sm text-gray-600 leading-snug">{activity.description}</p>
+					<div class="bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-xl px-4 py-3 text-center">
+						<p class="text-xs text-[var(--color-text-tertiary)] font-bold mb-1">活動の説明</p>
+						<p class="text-sm text-[var(--color-text-secondary)] leading-snug">{activity.description}</p>
 					</div>
 				</div>
 			{:else}
 				<div class="mt-6 w-72">
-					<div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center">
-						<p class="text-sm text-gray-400">
+					<div class="bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-xl px-4 py-3 text-center">
+						<p class="text-sm text-[var(--color-text-tertiary)]">
 							ヒントはまだ設定されていません
 						</p>
-						<p class="text-xs text-gray-300 mt-1">活動編集画面で「トリガーヒント」を設定できます</p>
+						<p class="text-xs text-[var(--color-text-disabled)] mt-1">活動編集画面で「トリガーヒント」を設定できます</p>
 					</div>
 				</div>
 			{/if}
 
 			<!-- Points info -->
 			<div class="mt-4 text-center">
-				<span class="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-bold">
+				<span class="inline-flex items-center gap-1 px-3 py-1 bg-[var(--color-feedback-info-bg)] text-[var(--color-feedback-info-text)] rounded-full text-xs font-bold">
 					⭐ {activity.basePoints}P
 				</span>
 			</div>
 		</div>
 
 		<!-- Navigation buttons -->
-		<div class="sticky bottom-0 px-4 pb-6 pt-4 space-y-2 bg-white/80 backdrop-blur-sm border-t border-gray-100">
+		<div class="sticky bottom-0 px-4 pb-6 pt-4 space-y-2 bg-white/80 backdrop-blur-sm border-t border-[var(--color-border-light)]">
 			<div class="flex gap-2">
 				<Button onclick={prev} disabled={currentIndex === 0} variant="outline" size="sm" class="flex-1">
 					← まえへ
