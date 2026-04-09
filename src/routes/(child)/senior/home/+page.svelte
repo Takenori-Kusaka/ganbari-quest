@@ -15,7 +15,6 @@ import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelt
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
-import FamilyStreakBanner from '$lib/ui/components/FamilyStreakBanner.svelte';
 import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -420,7 +419,6 @@ $effect(() => {
 	<!-- 週間ダッシュボード（Teen固有） -->
 	{#if data.weeklySummary}
 		{@const ws = data.weeklySummary}
-		{@const todayCount = data.todayRecorded.reduce((sum, r) => sum + r.count, 0)}
 		{@const maxDayCount = Math.max(...ws.days.map((d) => d.count), 1)}
 		<Card padding="md" class="mt-[var(--sp-md)]">
 			{#snippet children()}
@@ -479,12 +477,6 @@ $effect(() => {
 					</div>
 				</div>
 			{/if}
-			{#if todayCount > 0}
-				<div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-					<span class="text-xs text-[var(--color-text-muted)]">📝 今日の記録</span>
-					<span class="text-sm font-bold">{todayCount}回</span>
-				</div>
-			{/if}
 			{/snippet}
 		</Card>
 	{/if}
@@ -493,18 +485,7 @@ $effect(() => {
 		<ActivityEmptyState uiMode={data.uiMode} />
 	{/if}
 
-	<!-- Family streak banner (below activities) -->
-	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
-		<FamilyStreakBanner
-			currentStreak={data.familyStreak.currentStreak}
-			hasRecordedToday={data.familyStreak.hasRecordedToday}
-			todayRecorders={data.familyStreak.todayRecorders}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren ?? []}
-			nextMilestone={data.familyStreak.nextMilestone}
-			compact
-		/>
-	{/if}
+
 
 
 	<!-- Sibling challenge banners -->
@@ -737,6 +718,8 @@ $effect(() => {
 						{/if}
 					</div>
 				{/if}
+
+				<p class="text-xs text-[var(--color-text-muted)]">今日{data.todayRecorded.reduce((sum, r) => sum + r.count, 0) + 1}回目</p>
 
 				<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-sm)]">
 					<!-- Cancel button with countdown -->
