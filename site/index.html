@@ -65,7 +65,7 @@
 .ba-card{border-radius:var(--radius);padding:28px 24px}
 .ba-before{background:#fff5f5;border:1px solid #fecaca}
 .ba-after{background:#f0fdf4;border:1px solid #bbf7d0}
-.ba-arrow{display:flex;align-items:center;font-size:2rem;color:var(--brand-700)}
+.ba-arrow{display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .ba-card h3{font-size:1rem;font-weight:700;margin-bottom:16px}
 .ba-before h3{color:#dc2626}
 .ba-after h3{color:#16a34a}
@@ -77,8 +77,8 @@
 .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
 .feature-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px;transition:box-shadow .2s}
 .feature-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
-.feature-icon{font-size:2rem;margin-bottom:12px}
 .feature-card h3{font-size:1.1rem;font-weight:600;color:var(--gray-900);margin-bottom:4px}
+.feature-card h3 .feature-icon{font-size:1.2em;margin-right:4px;vertical-align:middle}
 .feature-benefit{font-size:.85rem;color:var(--brand-700);font-weight:500;margin-bottom:8px}
 .feature-card p{font-size:.9rem;color:var(--gray-500);line-height:1.6}
 
@@ -182,14 +182,14 @@
 
 /* Feature card screenshots (#298: enlarged sizes) */
 .feature-card .feature-screenshot{margin-bottom:12px;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:240px}
-.feature-card .feature-screenshot img{width:100%;height:100%;object-fit:contain;object-position:top}
+.feature-card .feature-screenshot img{width:100%;height:100%;object-fit:contain;object-position:center}
 @media(min-width:1024px){
   .feature-card .feature-screenshot{aspect-ratio:16/10;max-height:320px}
 }
 
 /* Age card screenshots (#298: enlarged sizes) */
 .age-card .age-screenshot{margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:200px}
-.age-card .age-screenshot img{width:100%;height:100%;object-fit:contain;object-position:top}
+.age-card .age-screenshot img{width:100%;height:100%;object-fit:contain;object-position:center}
 @media(min-width:641px) and (max-width:1023px){
   .age-card .age-screenshot{aspect-ratio:3/4;max-height:240px}
 }
@@ -386,7 +386,7 @@
           <li><span>21:00</span> 「今日も怒っちゃったな&#8230;」と反省</li>
         </ul>
       </div>
-      <div class="ba-arrow">&#x27A1;&#xFE0F;</div>
+      <div class="ba-arrow"><svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="var(--brand-100)" stroke="var(--brand-500)" stroke-width="2"/><path d="M16 24h14M26 18l6 6-6 6" stroke="var(--brand-700)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="24" r="2" fill="var(--brand-400)"/></svg></div>
       <div class="ba-card ba-after">
         <h3>&#x2705; After</h3>
         <ul>
@@ -411,8 +411,7 @@
         <div class="feature-screenshot">
           <picture><source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-point-level.webp" type="image/webp"><img src="screenshots/feature-point-level.webp" alt="ポイント獲得とレベルアップ画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
-        <div class="feature-icon">&#x2B50;</div>
-        <h3>ポイント &amp; レベルアップ</h3>
+        <h3><span class="feature-icon">&#x2B50;</span> ポイント &amp; レベルアップ</h3>
         <div class="feature-benefit">&#x2192; 「やった！」の手応えが毎日ある</div>
         <p>活動を記録するとポイント獲得。知力・体力・創造力・社会性・生活力の5つのチカラが成長し、レベルアップの達成感が次のがんばりにつながります。</p>
       </div>
@@ -420,8 +419,7 @@
         <div class="feature-screenshot">
           <picture><source srcset="screenshots/feature-combo-mission-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-combo-mission.webp" type="image/webp"><img src="screenshots/feature-combo-mission.webp" alt="コンボカウンターとデイリーミッション" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
-        <div class="feature-icon">&#x1F525;</div>
-        <h3>コンボ &amp; デイリーミッション</h3>
+        <h3><span class="feature-icon">&#x1F525;</span> コンボ &amp; デイリーミッション</h3>
         <div class="feature-benefit">&#x2192; シール帳が続かなかった子でも続く</div>
         <p>連続日数に応じてボーナスポイント。毎日変わるミッションが小さな達成感を積み重ね、「もう1日がんばろう」を自然に引き出します。</p>
       </div>
@@ -429,8 +427,7 @@
         <div class="feature-screenshot">
           <picture><source srcset="screenshots/feature-radar-chart-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-radar-chart.webp" type="image/webp"><img src="screenshots/feature-radar-chart.webp" alt="5つのチカラチャート" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
-        <div class="feature-icon">&#x1F4CA;</div>
-        <h3>5つのチカラチャート</h3>
+        <h3><span class="feature-icon">&#x1F4CA;</span> 5つのチカラチャート</h3>
         <div class="feature-benefit">&#x2192; 「すごいね」に根拠が生まれる</div>
         <p>5軸のレーダーチャートでお子さまの強みが一目瞭然。同年齢の目安と比較でき、親として自信を持って「がんばってるね」と褒められます。</p>
       </div>
@@ -438,8 +435,7 @@
         <div class="feature-screenshot">
           <picture><source srcset="screenshots/feature-checklist-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-checklist.webp" type="image/webp"><img src="screenshots/feature-checklist.webp" alt="やることリスト画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
-        <div class="feature-icon">&#x2705;</div>
-        <h3>やることリスト</h3>
+        <h3><span class="feature-icon">&#x2705;</span> やることリスト</h3>
         <div class="feature-benefit">&#x2192; 朝の「はやくして！」が減る</div>
         <p>朝の準備、帰宅後のルーティンをチェックリストに。自分で確認する習慣がつき、声かけなしで準備ができるようになります。</p>
       </div>
@@ -447,8 +443,7 @@
         <div class="feature-screenshot">
           <picture><source srcset="screenshots/feature-growth-record-admin-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-growth-record-admin.webp" type="image/webp"><img src="screenshots/feature-growth-record-admin.webp" alt="成長記録と管理画面" width="390" height="844" loading="lazy" data-lightbox></picture>
         </div>
-        <div class="feature-icon">&#x1F4C8;</div>
-        <h3>成長記録 &amp; 管理画面</h3>
+        <h3><span class="feature-icon">&#x1F4C8;</span> 成長記録 &amp; 管理画面</h3>
         <div class="feature-benefit">&#x2192; がんばりの軌跡がひと目でわかる</div>
         <p>保護者専用の管理画面で、お子さまの活動履歴・ポイント推移・5軸の成長バランスを確認。日々の記録が親子の対話のきっかけになります。</p>
       </div>
