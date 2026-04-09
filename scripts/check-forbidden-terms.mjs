@@ -52,7 +52,7 @@ const FORBIDDEN_TERMS = [
 /**
  * 検索対象ディレクトリとファイル拡張子
  */
-const SEARCH_ROOTS = ['src', 'site', 'docs/design'];
+const SEARCH_ROOTS = ['src', 'site', 'docs/design', 'static'];
 
 const SEARCH_EXTENSIONS = new Set([
 	'.ts',

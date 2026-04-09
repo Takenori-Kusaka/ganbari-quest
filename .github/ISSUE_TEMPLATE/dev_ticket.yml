@@ -133,6 +133,8 @@ body:
         - [ ] カラー・スタイル: hex 直書き・Tailwind デフォルト色の新規追加をしていない（`docs/reference/color-mapping.md` 参照）
         - [ ] Button/Card/FormField 等のプリミティブコンポーネントを使用した
         - [ ] 影響する設計書（`docs/design/`）を更新した
+    validations:
+      required: true
 
   - type: textarea
     id: done-checklist

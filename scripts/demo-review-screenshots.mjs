@@ -6,7 +6,8 @@
  *
  * 前提:
  *   - `npm run dev` でローカルサーバーが起動していること (http://localhost:5173)
- *   - `npm i -D playwright` で playwright がインストール済み
+ *   - 依存関係が `npm ci` または `npm install` でインストール済みであること
+ *   - 必要に応じて `npx playwright install` で Playwright のブラウザがインストール済みであること
  *
  * 使用法:
  *   node scripts/demo-review-screenshots.mjs
