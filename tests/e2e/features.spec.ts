@@ -300,18 +300,13 @@ test.describe('#0082: レーダーチャート', () => {
 		await expect(page.getByTestId('growth-chart-heading')).toBeVisible();
 	});
 
-	test('「くわしくみる」で詳細が展開される', async ({ page }) => {
+	test('カテゴリ別詳細が常時表示される', async ({ page }) => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
 
 		await page.goto('/preschool/status');
 
-		// 折りたたみボタンをクリック
-		const detailBtn = page.getByTestId('growth-detail-toggle');
-		await expect(detailBtn).toBeVisible();
-		await detailBtn.click();
-
-		// プログレスバーが表示される（StatusBar コンポーネント）
+		// StatusBar コンポーネントが常時表示される（折りたたみ廃止）
 		await expect(page.getByText('うんどう').first()).toBeVisible();
 		await expect(page.getByText('べんきょう').first()).toBeVisible();
 	});
