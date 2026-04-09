@@ -127,10 +127,53 @@
 
 ### 5.5 テスト戦略
 
-- Vitest でユニットテスト（1100+ テスト）
-- Playwright で E2E テスト（222 テスト、デスクトップ + モバイル）
+- Vitest でユニットテスト（2300+ テスト）
+- Playwright で E2E テスト（160+ テスト、デスクトップ + モバイル）
 - `data-testid` 属性で要素特定（CSS セレクタに依存しない）
 - CI で biome lint + svelte-check + vitest + playwright を毎回実行
+
+### 5.6 URL リネーム・廃止の中央管理（#578）
+
+**教訓**: #571 で `/kinder` → `/preschool` へのリネーム時、SQLite マイグレーションが漏れた結果、
+404 インシデントが発生した。根本原因は「URL リダイレクトを個別ページで `redirect()` する散在した設計」。
+
+**対策**:
+
+1. `src/lib/server/routing/legacy-url-map.ts` に `LEGACY_URL_MAP` を集約（追加専用・削除禁止）
+2. `hooks.server.ts` で全リクエストを 1 箇所で検査し 308 Permanent Redirect
+3. 長いプレフィックス優先マッチで `/demo/kinder` > `/kinder` を保証
+4. Playwright request fixture + `maxRedirects: 0` で 308 契約を直接検証（page.goto だと下流の挙動に影響される）
+5. CLAUDE.md に「旧 URL 廃止ルール」セクション追加 — 個別 redirect() 禁止
+
+**ポイント**:
+- ブックマーク・PWA ショートカット・外部リンクは永久に残るため、エントリは削除せず append-only
+- 308 は method 保持 + permanent を両立（301 だと POST が GET に落ちる）
+- 認可チェックやセッションリダイレクトは例外的に個別ルートで OK
+
+### 5.7 エラーページの役割別ハンドリング（#577）
+
+子供ロールは 404/403/500 ページでテキストを読ませず、3 秒カウントダウン後に自動でホームへ戻す。
+親ロールは従来通り手動操作（開発者情報として requestId を表示）。
+
+**実装ポイント**:
+- `+layout.server.ts` で `role` と `requestId` を全ページに expose
+- `+error.svelte` は `data-role` 属性で CSS をブランチ
+- 404 を構造化ログ（referer/userAgent/role）で記録し、次の #571 的インシデントを早期検知
+
+### 5.8 既定子供の優先順位チェーン（#576）
+
+ルート `/` の遷移判定を固定化:
+
+```
+1. Cookie selectedChildId が有効 → その子供のホーム（端末ごとの直近選択）
+2. tenant の default_child_id が有効 → そのホーム（家族全体の既定）
+3. 子供が 1 人 → 自動選択（/switch を経由しない）
+4. 子供が複数 & 既定未設定 → /switch
+5. 子供 0 人 → /admin/children
+```
+
+**#571 defensive normalization**: 子供レポが古い `ui_mode` (kinder/lower 等) を返しても
+`normalizeUiMode()` でホーム URL を組み立てる前に正規化する（二重防御）。
 
 ---
 
@@ -139,3 +182,4 @@
 | 日付 | 内容 | 関連チケット |
 |------|------|-------------|
 | 2026-03-31 | 初版作成。既存チケットの知見を集約 | #0079, #0121, #0176, #0243, #0247 |
+| 2026-04-09 | URL 中央管理・エラーページ改善・既定子供機能の知見追記 | #578, #577, #576 |
