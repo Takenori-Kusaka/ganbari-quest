@@ -1,8 +1,8 @@
 {
 	"type": "checklist",
 	"itemId": "morning-kinder",
-	"name": "あさの じゅんび（ようちえん）",
-	"description": "3〜5歳の朝のおしたく。ようちえんに行く前の準備をスムーズにするチェックリストです。",
+	"name": "あさの じゅんび（ようじ）",
+	"description": "3〜5歳の朝のおしたく。おでかけ前の準備をスムーズにするチェックリストです。",
 	"icon": "🌅",
 	"targetAgeMin": 3,
 	"targetAgeMax": 5,

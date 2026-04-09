@@ -1,7 +1,7 @@
 {
 	"type": "checklist",
 	"itemId": "weekend-kinder",
-	"name": "しゅうまつ チェック（ようちえん）",
+	"name": "しゅうまつ チェック（ようじ）",
 	"description": "3〜5歳の週末チェックリスト。遊び・お手伝い・家族時間のバランスを大切にします。",
 	"icon": "🌈",
 	"targetAgeMin": 3,

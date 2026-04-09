@@ -1,7 +1,7 @@
 {
 	"type": "checklist",
 	"itemId": "evening-kinder",
-	"name": "よるの じゅんび（ようちえん）",
+	"name": "よるの じゅんび（ようじ）",
 	"description": "3〜5歳のおやすみ前チェックリスト。明日の準備とリラックスの時間を大切にします。",
 	"icon": "🌙",
 	"targetAgeMin": 3,
