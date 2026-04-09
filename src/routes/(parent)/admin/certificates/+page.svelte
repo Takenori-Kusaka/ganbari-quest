@@ -40,14 +40,14 @@ const categoryNames: Record<string, string> = {
 
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
-		<h2 class="text-lg font-bold text-gray-700">📜 がんばり証明書</h2>
-		<a href="/admin/reports" class="text-sm text-gray-500 hover:text-gray-700">&larr; レポートへ</a>
+		<h2 class="text-lg font-bold text-[var(--color-text-primary)]">📜 がんばり証明書</h2>
+		<a href="/admin/reports" class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">&larr; レポートへ</a>
 	</div>
 
 	{#if !data.isPremium}
-		<div class="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm">
+		<div class="flex items-center gap-2 p-3 rounded-lg bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-sm">
 			<span>⭐</span>
-			<p class="text-amber-700">
+			<p class="text-[var(--color-feedback-warning-text)]">
 				無料プランでは証明書の閲覧のみ可能です。PDF保存は<a href="/admin/license" class="underline font-medium">スタンダードプラン以上</a>で利用できます。
 			</p>
 		</div>
@@ -61,7 +61,7 @@ const categoryNames: Record<string, string> = {
 					type="button"
 					variant={selectedChildId === child.id ? 'primary' : 'outline'}
 					size="sm"
-					class="whitespace-nowrap {selectedChildId === child.id ? '' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}"
+					class="whitespace-nowrap {selectedChildId === child.id ? '' : 'bg-white text-[var(--color-text-secondary)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]'}"
 					onclick={() => {
 						childIdOverride = child.id;
 					}}
@@ -74,7 +74,7 @@ const categoryNames: Record<string, string> = {
 
 		{#if selectedChild}
 			{#if selectedChild.certificates.length === 0}
-				<div class="text-center text-gray-500 py-12">
+				<div class="text-center text-[var(--color-text-muted)] py-12">
 					<p class="text-4xl mb-3">📜</p>
 					<p class="font-bold mb-1">まだ証明書がありません</p>
 					<p class="text-sm">活動を記録すると、マイルストーン達成時に証明書が発行されます</p>
@@ -83,7 +83,7 @@ const categoryNames: Record<string, string> = {
 				{#each categoryOrder as cat}
 					{#if groupedCerts[cat]?.length}
 						<div>
-							<h3 class="text-sm font-bold text-gray-600 mb-2">{categoryNames[cat]}</h3>
+							<h3 class="text-sm font-bold text-[var(--color-text-secondary)] mb-2">{categoryNames[cat]}</h3>
 							<div class="flex flex-col gap-2">
 								{#each groupedCerts[cat] as cert (cert.id)}
 									<CertificateCard certificate={cert} />
@@ -95,7 +95,7 @@ const categoryNames: Record<string, string> = {
 			{/if}
 		{/if}
 	{:else}
-		<div class="text-center text-gray-500 py-12">
+		<div class="text-center text-[var(--color-text-muted)] py-12">
 			<p class="text-4xl mb-2">👧</p>
 			<p class="font-bold">子供が登録されていません</p>
 		</div>

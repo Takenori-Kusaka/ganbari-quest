@@ -57,7 +57,7 @@ function dailyLimitLabel(val: number | null): string {
 			<Button
 				variant="primary"
 				size="sm"
-				class="bg-purple-300 cursor-not-allowed"
+				class="bg-[var(--color-stat-purple)] cursor-not-allowed"
 				disabled
 			>
 				✨ AI追加
@@ -65,7 +65,7 @@ function dailyLimitLabel(val: number | null): string {
 			<Button
 				variant="primary"
 				size="sm"
-				class="bg-blue-300 cursor-not-allowed"
+				class="bg-[var(--color-feedback-info-border)] cursor-not-allowed"
 				disabled
 			>
 				+ 手動追加
@@ -82,7 +82,7 @@ function dailyLimitLabel(val: number | null): string {
 			variant={filterCategoryId === 0 ? 'primary' : 'ghost'}
 			size="sm"
 			class="rounded-full
-				{filterCategoryId === 0 ? '' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+				{filterCategoryId === 0 ? '' : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-tertiary)]'}"
 			onclick={() => filterCategoryId = 0}
 		>
 			すべて ({data.activities.length})
@@ -93,7 +93,7 @@ function dailyLimitLabel(val: number | null): string {
 				variant={filterCategoryId === catDef.id ? 'primary' : 'ghost'}
 				size="sm"
 				class="rounded-full
-					{filterCategoryId === catDef.id ? '' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+					{filterCategoryId === catDef.id ? '' : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-tertiary)]'}"
 				onclick={() => filterCategoryId = catDef.id}
 			>
 				{catDef.name} ({count})
@@ -133,7 +133,7 @@ function dailyLimitLabel(val: number | null): string {
 	</div>
 
 	{#if filteredActivities.length === 0}
-		<div class="text-center py-8 text-gray-400 text-sm">
+		<div class="text-center py-8 text-[var(--color-text-tertiary)] text-sm">
 			該当する活動がありません
 		</div>
 	{/if}

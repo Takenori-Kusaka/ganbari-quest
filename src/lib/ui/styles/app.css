@@ -400,6 +400,9 @@
 
 	/* ---- Surface variants ---- */
 	--color-surface-muted-strong: var(--color-neutral-100);
+	--color-surface-tertiary: var(--color-neutral-200);
+	--color-surface-error: var(--color-feedback-error-bg);
+	--color-surface-error-strong: var(--color-feedback-error-bg-strong);
 }
 
 /* ============================================================

@@ -35,9 +35,9 @@ function handlePrint() {
 <div class="space-y-6">
 	<div class="screen-controls">
 		<div class="flex items-center justify-between">
-			<h2 class="text-lg font-bold text-gray-700">📖 成長記録ブック</h2>
+			<h2 class="text-lg font-bold text-[var(--color-text-primary)]">📖 成長記録ブック</h2>
 			<div class="flex gap-2">
-				<a href="/admin/reports" class="text-sm text-gray-500 hover:text-gray-700">&larr; レポートへ</a>
+				<a href="/admin/reports" class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">&larr; レポートへ</a>
 				{#if data.isPremium && data.book}
 					<Button type="button" variant="primary" size="sm" onclick={handlePrint}>
 						🖨️ 印刷 / PDF
@@ -47,9 +47,9 @@ function handlePrint() {
 		</div>
 
 		{#if !data.isPremium}
-			<div class="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm">
+			<div class="flex items-center gap-2 p-3 rounded-lg bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-sm">
 				<span>⭐</span>
-				<p class="text-amber-700">
+				<p class="text-[var(--color-feedback-warning-text)]">
 					PDF保存は<a href="/admin/license" class="underline font-medium">スタンダードプラン以上</a>で利用できます。
 				</p>
 			</div>
@@ -62,7 +62,7 @@ function handlePrint() {
 						type="button"
 						variant={data.book?.childId === child.id ? 'primary' : 'outline'}
 						size="sm"
-						class="whitespace-nowrap {data.book?.childId === child.id ? '' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}"
+						class="whitespace-nowrap {data.book?.childId === child.id ? '' : 'bg-white text-[var(--color-text-secondary)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]'}"
 						onclick={() => handleChildChange(child.id)}
 					>
 						{child.nickname}
@@ -80,12 +80,12 @@ function handlePrint() {
 			{#snippet children()}
 			<div class="text-center py-4">
 				<p class="text-4xl mb-2">📖</p>
-				<h1 class="text-xl font-bold text-gray-800 mb-1">
+				<h1 class="text-xl font-bold text-[var(--color-text)] mb-1">
 					{formatChildName(book.childName, 'possessive')}がんばり記録
 				</h1>
-				<p class="text-gray-500">{book.fiscalYear}年度（{book.fiscalYear}年4月〜{Number(book.fiscalYear) + 1}年3月）</p>
+				<p class="text-[var(--color-text-muted)]">{book.fiscalYear}年度（{book.fiscalYear}年4月〜{Number(book.fiscalYear) + 1}年3月）</p>
 				{#if book.levelTitle}
-					<p class="mt-2 text-sm font-medium text-blue-600">
+					<p class="mt-2 text-sm font-medium text-[var(--color-feedback-info-text)]">
 						現在レベル: {book.currentLevel}（{book.levelTitle}）
 					</p>
 				{/if}
@@ -96,32 +96,32 @@ function handlePrint() {
 		<!-- Annual Summary -->
 		<Card variant="default" padding="md">
 			{#snippet children()}
-			<h3 class="text-base font-bold text-gray-700 mb-3">📊 年間サマリー</h3>
+			<h3 class="text-base font-bold text-[var(--color-text-primary)] mb-3">📊 年間サマリー</h3>
 			<div class="grid grid-cols-2 gap-3">
-				<div class="text-center p-3 bg-blue-50 rounded-lg">
-					<p class="text-2xl font-bold text-blue-600">{book.totalActivities}</p>
-					<p class="text-xs text-gray-500">活動回数</p>
+				<div class="text-center p-3 bg-[var(--color-feedback-info-bg)] rounded-lg">
+					<p class="text-2xl font-bold text-[var(--color-feedback-info-text)]">{book.totalActivities}</p>
+					<p class="text-xs text-[var(--color-text-muted)]">活動回数</p>
 				</div>
-				<div class="text-center p-3 bg-green-50 rounded-lg">
-					<p class="text-2xl font-bold text-green-600">{book.totalPoints.toLocaleString()}</p>
-					<p class="text-xs text-gray-500">獲得ポイント</p>
+				<div class="text-center p-3 bg-[var(--color-feedback-success-bg)] rounded-lg">
+					<p class="text-2xl font-bold text-[var(--color-feedback-success-text)]">{book.totalPoints.toLocaleString()}</p>
+					<p class="text-xs text-[var(--color-text-muted)]">獲得ポイント</p>
 				</div>
 				<div class="text-center p-3 bg-orange-50 rounded-lg">
 					<p class="text-2xl font-bold text-orange-600">{book.maxStreakDays}</p>
-					<p class="text-xs text-gray-500">さいちょうストリーク</p>
+					<p class="text-xs text-[var(--color-text-muted)]">さいちょうストリーク</p>
 				</div>
-				<div class="text-center p-3 bg-purple-50 rounded-lg">
-					<p class="text-2xl font-bold text-purple-600">{book.certificateCount}</p>
-					<p class="text-xs text-gray-500">しょうめいしょ</p>
+				<div class="text-center p-3 bg-[var(--color-stat-purple-bg)] rounded-lg">
+					<p class="text-2xl font-bold text-[var(--color-stat-purple)]">{book.certificateCount}</p>
+					<p class="text-xs text-[var(--color-text-muted)]">しょうめいしょ</p>
 				</div>
 			</div>
 			{#if book.bestMonth}
-				<p class="text-sm text-gray-600 mt-3">
+				<p class="text-sm text-[var(--color-text-secondary)] mt-3">
 					いちばんがんばった月: <strong>{formatMonth(book.bestMonth)}</strong>
 				</p>
 			{/if}
 			{#if book.bestCategory && categoryNames[book.bestCategory]}
-				<p class="text-sm text-gray-600">
+				<p class="text-sm text-[var(--color-text-secondary)]">
 					とくいなカテゴリ: <strong>{categoryNames[book.bestCategory]}</strong>
 				</p>
 			{/if}
@@ -129,7 +129,7 @@ function handlePrint() {
 		</Card>
 
 		<!-- Monthly pages -->
-		<h3 class="text-base font-bold text-gray-700">📅 月別の記録</h3>
+		<h3 class="text-base font-bold text-[var(--color-text-primary)]">📅 月別の記録</h3>
 		{#each book.months as month (month.month)}
 			{@const hasActivity = month.totalActivities > 0}
 			<Card variant="default" padding="sm">
@@ -138,14 +138,14 @@ function handlePrint() {
 					<div class="flex items-center gap-3">
 						<span class="text-2xl">{hasActivity ? '✅' : '⬜'}</span>
 						<div>
-							<p class="font-bold text-sm text-gray-700">{formatMonth(month.month)}</p>
-							<p class="text-xs text-gray-500">
+							<p class="font-bold text-sm text-[var(--color-text-primary)]">{formatMonth(month.month)}</p>
+							<p class="text-xs text-[var(--color-text-muted)]">
 								{month.totalActivities}回 / {month.daysWithActivity}日活動
 							</p>
 						</div>
 					</div>
 					<div class="text-right">
-						<p class="text-sm font-bold text-blue-600">{month.totalPoints.toLocaleString()}pt</p>
+						<p class="text-sm font-bold text-[var(--color-feedback-info-text)]">{month.totalPoints.toLocaleString()}pt</p>
 						{#if month.maxStreakDays > 0}
 							<p class="text-xs text-orange-500">🔥 {month.maxStreakDays}日連続</p>
 						{/if}
@@ -159,18 +159,18 @@ function handlePrint() {
 		<div class="text-center py-4">
 			<a
 				href="/admin/certificates"
-				class="text-sm font-medium text-blue-600 hover:underline"
+				class="text-sm font-medium text-[var(--color-feedback-info-text)] hover:underline"
 			>
 				📜 証明書一覧を見る →
 			</a>
 		</div>
 	{:else if data.children.length === 0}
-		<div class="text-center text-gray-500 py-12">
+		<div class="text-center text-[var(--color-text-muted)] py-12">
 			<p class="text-4xl mb-2">👧</p>
 			<p class="font-bold">子供が登録されていません</p>
 		</div>
 	{:else}
-		<div class="text-center text-gray-500 py-12">
+		<div class="text-center text-[var(--color-text-muted)] py-12">
 			<p class="text-4xl mb-2">📖</p>
 			<p class="font-bold">データがありません</p>
 		</div>

@@ -200,7 +200,7 @@ $effect(() => {
 			</form>
 
 			{#if resendSuccess}
-				<div class="mt-3 p-3 bg-green-50 text-green-600 border border-green-200 rounded-[var(--radius-sm)] text-sm text-center" role="status">
+				<div class="mt-3 p-3 bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] border border-[var(--color-feedback-success-border)] rounded-[var(--radius-sm)] text-sm text-center" role="status">
 					確認コードを再送しました
 				</div>
 			{/if}

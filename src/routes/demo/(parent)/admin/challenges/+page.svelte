@@ -60,18 +60,18 @@ const categories: Record<number, string> = {
 	{#each data.challenges as challenge (challenge.id)}
 		{@const target = parseJSON<TargetConfig>(challenge.targetConfig, { metric: 'count', baseTarget: 0 })}
 		{@const reward = parseJSON<RewardConfig>(challenge.rewardConfig, { points: 0 })}
-		<div class="rounded-xl border bg-white p-4" class:border-blue-300={challenge.status === 'active'}>
+		<div class="rounded-xl border bg-white p-4" class:border-[var(--color-feedback-info-border)]={challenge.status === 'active'}>
 			<div class="flex-1">
 				<h3 class="font-bold text-sm">
 					{challenge.title}
 					{#if challenge.allCompleted}
-						<span class="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">全員クリア！</span>
+						<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">全員クリア！</span>
 					{/if}
 					{#if challenge.status === 'active'}
-						<span class="ml-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">開催中</span>
+						<span class="ml-1 rounded bg-[var(--color-feedback-info-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-info-text)]">開催中</span>
 					{/if}
 				</h3>
-				<p class="text-xs text-gray-500 mt-0.5">
+				<p class="text-xs text-[var(--color-text-muted)] mt-0.5">
 					{typeLabel(challenge.challengeType)} · {periodLabel(challenge.periodType)}
 					· {formatDate(challenge.startDate)} 〜 {formatDate(challenge.endDate)}
 					· 目標{target.baseTarget}回 · 報酬{reward.points}P
@@ -80,7 +80,7 @@ const categories: Record<number, string> = {
 					{/if}
 				</p>
 				{#if challenge.description}
-					<p class="text-xs text-gray-600 mt-1">{challenge.description}</p>
+					<p class="text-xs text-[var(--color-text-secondary)] mt-1">{challenge.description}</p>
 				{/if}
 
 				{#if challenge.progress.length > 0}
@@ -88,16 +88,16 @@ const categories: Record<number, string> = {
 						{#each challenge.progress as prog}
 							{@const child = data.children.find((c: { id: number }) => c.id === prog.childId)}
 							<div class="flex items-center gap-2">
-								<span class="text-xs font-medium text-gray-700 w-16 truncate">
+								<span class="text-xs font-medium text-[var(--color-text-primary)] w-16 truncate">
 									{child?.nickname ?? `#${prog.childId}`}
 								</span>
-								<div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+								<div class="flex-1 h-2 bg-[var(--color-surface-secondary)] rounded-full overflow-hidden">
 									<ProgressFill
 										pct={Math.min(100, Math.round((prog.currentValue / prog.targetValue) * 100))}
-										class="h-full rounded-full transition-all {prog.completed === 1 ? 'bg-green-400' : 'bg-blue-400'}"
+										class="h-full rounded-full transition-all {prog.completed === 1 ? 'bg-[var(--color-feedback-success-border)]' : 'bg-[var(--color-feedback-info-border)]'}"
 									/>
 								</div>
-								<span class="text-[10px] text-gray-500 w-12 text-right">
+								<span class="text-[10px] text-[var(--color-text-muted)] w-12 text-right">
 									{prog.currentValue}/{prog.targetValue}
 									{#if prog.completed === 1}✅{/if}
 								</span>

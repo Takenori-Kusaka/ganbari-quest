@@ -42,7 +42,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 				class="flex items-center gap-2 whitespace-nowrap
 					{selectedChildId === child.id
 					? 'shadow-sm'
-					: 'bg-white text-gray-600 hover:bg-gray-50 shadow-sm'}"
+					: 'bg-white text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-muted)] shadow-sm'}"
 				onclick={() => selectedChildId = child.id}
 			>
 				{#if child.avatarUrl}
@@ -59,14 +59,14 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 		<!-- Balance Card (matches production) -->
 		<Card padding="lg">
 			<div class="text-center">
-				<p class="text-xs text-gray-400 mb-1">現在の{unit}残高</p>
-				<p class="text-4xl font-bold text-amber-500">{fmtBal(selectedChild.balance)}</p>
+				<p class="text-xs text-[var(--color-text-tertiary)] mb-1">現在の{unit}残高</p>
+				<p class="text-4xl font-bold text-[var(--color-feedback-warning-text)]">{fmtBal(selectedChild.balance)}</p>
 			</div>
 		</Card>
 
 		<!-- Convert Modes (disabled in demo, but shows the UI) -->
 		<Card>
-			<h3 class="text-sm font-bold text-gray-700 mb-3">ポイント変換</h3>
+			<h3 class="text-sm font-bold text-[var(--color-text-primary)] mb-3">ポイント変換</h3>
 			<div class="flex gap-2 mb-4">
 				<Button
 					variant="primary"
@@ -79,7 +79,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 				<Button
 					variant="ghost"
 					size="sm"
-					class="flex-1 bg-gray-100 text-gray-400"
+					class="flex-1 bg-[var(--color-surface-secondary)] text-[var(--color-text-tertiary)]"
 					disabled
 				>
 					自由入力
@@ -87,7 +87,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 				<Button
 					variant="ghost"
 					size="sm"
-					class="flex-1 bg-gray-100 text-gray-400"
+					class="flex-1 bg-[var(--color-surface-secondary)] text-[var(--color-text-tertiary)]"
 					disabled
 				>
 					領収書OCR
@@ -101,7 +101,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 						variant={amount === 500 ? 'outline' : 'ghost'}
 						size="sm"
 						class="py-3 rounded-xl shadow-sm
-							{amount === 500 ? 'bg-blue-50 border-2 border-blue-300 text-blue-700' : 'bg-gray-50 text-gray-400'}"
+							{amount === 500 ? 'bg-[var(--color-feedback-info-bg)] border-2 border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)]' : 'bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)]'}"
 						disabled
 					>
 						{amount}
@@ -112,7 +112,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 			<Button
 				variant="ghost"
 				size="md"
-				class="w-full bg-gray-200 text-gray-400 cursor-not-allowed"
+				class="w-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
 				disabled
 			>
 				デモでは変換できません
@@ -123,14 +123,14 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 		<div class="grid grid-cols-2 gap-3">
 			<Card>
 				<div class="text-center">
-					<p class="text-xs text-gray-400 mb-1">今月の変換合計</p>
-					<p class="text-xl font-bold text-blue-600">{fmtBal(0)}</p>
+					<p class="text-xs text-[var(--color-text-tertiary)] mb-1">今月の変換合計</p>
+					<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">{fmtBal(0)}</p>
 				</div>
 			</Card>
 			<Card>
 				<div class="text-center">
-					<p class="text-xs text-gray-400 mb-1">累計変換合計</p>
-					<p class="text-xl font-bold text-purple-600">{fmtBal(0)}</p>
+					<p class="text-xs text-[var(--color-text-tertiary)] mb-1">累計変換合計</p>
+					<p class="text-xl font-bold text-[var(--color-stat-purple)]">{fmtBal(0)}</p>
 				</div>
 			</Card>
 		</div>
@@ -138,8 +138,8 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 
 	<!-- Explanation -->
 	<Card>
-		<h2 class="text-sm font-bold text-gray-700 mb-2">ポイント変換について</h2>
-		<ul class="text-xs text-gray-500 space-y-1.5">
+		<h2 class="text-sm font-bold text-[var(--color-text-primary)] mb-2">ポイント変換について</h2>
+		<ul class="text-xs text-[var(--color-text-muted)] space-y-1.5">
 			<li>&#x2022; お子さまが活動で貯めたポイントを、おこづかいに変換できます</li>
 			<li>&#x2022; 変換レートは設定画面で自由にカスタマイズ可能です</li>
 			<li>&#x2022; 3つの変換モード: かんたん / 自由入力 / 領収書OCR</li>

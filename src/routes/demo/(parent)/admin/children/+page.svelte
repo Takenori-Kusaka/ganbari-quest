@@ -42,7 +42,7 @@ const selectedChild = $derived(
 			<Button
 				variant="primary"
 				size="sm"
-				class="bg-blue-300 cursor-not-allowed"
+				class="bg-[var(--color-feedback-info-border)] cursor-not-allowed"
 				disabled
 			>
 				+ こどもを追加
@@ -66,11 +66,11 @@ const selectedChild = $derived(
 						<span class="text-3xl">👤</span>
 					{/if}
 					<div class="flex-1 min-w-0">
-						<p class="font-bold text-gray-700">{child.nickname}</p>
-						<p class="text-sm text-gray-400">{child.age}歳 / {getAgeTierLabel(child.uiMode ?? 'preschool')}</p>
+						<p class="font-bold text-[var(--color-text-primary)]">{child.nickname}</p>
+						<p class="text-sm text-[var(--color-text-tertiary)]">{child.age}歳 / {getAgeTierLabel(child.uiMode ?? 'preschool')}</p>
 					</div>
 					<div class="text-right">
-						<p class="text-lg font-bold text-amber-500">{fmtBal(child.balance)}</p>
+						<p class="text-lg font-bold text-[var(--color-feedback-warning-text)]">{fmtBal(child.balance)}</p>
 					</div>
 				</Button>
 			{/each}
@@ -83,7 +83,7 @@ const selectedChild = $derived(
 			<Button
 				variant="ghost"
 				size="sm"
-				class="text-blue-600 hover:text-blue-800 mb-3"
+				class="text-[var(--color-feedback-info-text)] hover:text-[var(--color-feedback-info-text)] mb-3"
 				onclick={() => selectedChildId = null}
 			>
 				← 一覧に戻る
@@ -98,12 +98,12 @@ const selectedChild = $derived(
 						<span class="text-5xl">👤</span>
 					{/if}
 					<div class="flex-1">
-						<h2 class="text-lg font-bold text-gray-700">{selectedChild.nickname}</h2>
-						<p class="text-sm text-gray-400">{selectedChild.age}歳 / {getAgeTierLabel(selectedChild.uiMode ?? 'preschool')}</p>
+						<h2 class="text-lg font-bold text-[var(--color-text-primary)]">{selectedChild.nickname}</h2>
+						<p class="text-sm text-[var(--color-text-tertiary)]">{selectedChild.age}歳 / {getAgeTierLabel(selectedChild.uiMode ?? 'preschool')}</p>
 					</div>
 					<div class="text-right">
-						<p class="text-2xl font-bold text-amber-500">{fmtBal(selectedChild.balance)}</p>
-						<p class="text-xs text-gray-400">{unit}</p>
+						<p class="text-2xl font-bold text-[var(--color-feedback-warning-text)]">{fmtBal(selectedChild.balance)}</p>
+						<p class="text-xs text-[var(--color-text-tertiary)]">{unit}</p>
 					</div>
 				</div>
 			</Card>
@@ -115,7 +115,7 @@ const selectedChild = $derived(
 						variant={detailTab === tab.id ? 'primary' : 'ghost'}
 						size="sm"
 						class="whitespace-nowrap
-							{detailTab === tab.id ? '' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+							{detailTab === tab.id ? '' : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-tertiary)]'}"
 						onclick={() => detailTab = tab.id}
 					>
 						{tab.label}
@@ -127,40 +127,40 @@ const selectedChild = $derived(
 			<Card>
 				{#if detailTab === 'info'}
 					<div class="grid grid-cols-2 gap-3">
-						<div class="bg-blue-50 rounded-lg p-3 text-center">
-							<p class="text-xs text-gray-500">年齢</p>
-							<p class="text-lg font-bold text-blue-600">{selectedChild.age}歳</p>
+						<div class="bg-[var(--color-feedback-info-bg)] rounded-lg p-3 text-center">
+							<p class="text-xs text-[var(--color-text-muted)]">年齢</p>
+							<p class="text-lg font-bold text-[var(--color-feedback-info-text)]">{selectedChild.age}歳</p>
 						</div>
-						<div class="bg-purple-50 rounded-lg p-3 text-center">
-							<p class="text-xs text-gray-500">年齢区分</p>
-							<p class="text-lg font-bold text-purple-600">{getAgeTierLabel(selectedChild.uiMode ?? 'preschool')}</p>
+						<div class="bg-[var(--color-stat-purple-bg)] rounded-lg p-3 text-center">
+							<p class="text-xs text-[var(--color-text-muted)]">年齢区分</p>
+							<p class="text-lg font-bold text-[var(--color-stat-purple)]">{getAgeTierLabel(selectedChild.uiMode ?? 'preschool')}</p>
 						</div>
-						<div class="bg-amber-50 rounded-lg p-3 text-center">
-							<p class="text-xs text-gray-500">{unit}残高</p>
-							<p class="text-lg font-bold text-amber-600">{fmtBal(selectedChild.balance)}</p>
+						<div class="bg-[var(--color-feedback-warning-bg)] rounded-lg p-3 text-center">
+							<p class="text-xs text-[var(--color-text-muted)]">{unit}残高</p>
+							<p class="text-lg font-bold text-[var(--color-feedback-warning-text)]">{fmtBal(selectedChild.balance)}</p>
 						</div>
-						<div class="bg-green-50 rounded-lg p-3 text-center">
-							<p class="text-xs text-gray-500">レベル</p>
-							<p class="text-lg font-bold text-green-600">Lv.{selectedChild.level ?? 1}</p>
+						<div class="bg-[var(--color-feedback-success-bg)] rounded-lg p-3 text-center">
+							<p class="text-xs text-[var(--color-text-muted)]">レベル</p>
+							<p class="text-lg font-bold text-[var(--color-feedback-success-text)]">Lv.{selectedChild.level ?? 1}</p>
 						</div>
 					</div>
 				{:else if detailTab === 'status'}
-					<div class="text-center py-8 text-gray-400">
+					<div class="text-center py-8 text-[var(--color-text-tertiary)]">
 						<p class="text-3xl mb-2">📊</p>
 						<p class="text-sm">ステータス詳細は登録後にご覧いただけます</p>
 					</div>
 				{:else if detailTab === 'logs'}
-					<div class="text-center py-8 text-gray-400">
+					<div class="text-center py-8 text-[var(--color-text-tertiary)]">
 						<p class="text-3xl mb-2">📝</p>
 						<p class="text-sm">活動ログは登録後にご覧いただけます</p>
 					</div>
 				{:else if detailTab === 'achievements'}
-					<div class="text-center py-8 text-gray-400">
+					<div class="text-center py-8 text-[var(--color-text-tertiary)]">
 						<p class="text-3xl mb-2">🏆</p>
 						<p class="text-sm">実績一覧は登録後にご覧いただけます</p>
 					</div>
 				{:else if detailTab === 'voice'}
-					<div class="text-center py-8 text-gray-400">
+					<div class="text-center py-8 text-[var(--color-text-tertiary)]">
 						<p class="text-3xl mb-2">📢</p>
 						<p class="text-sm">おうえんボイスは登録後にご利用いただけます</p>
 					</div>

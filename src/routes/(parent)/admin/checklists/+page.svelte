@@ -127,7 +127,7 @@ function directionLabel(dir: string): string {
 				<Button
 					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
 					size="sm"
-					class={selectedChildId === child.id ? '' : 'bg-white text-gray-600 hover:bg-blue-50'}
+					class={selectedChildId === child.id ? '' : 'bg-white text-[var(--color-text-secondary)] hover:bg-[var(--color-feedback-info-bg)]'}
 					onclick={() => (selectedChildId = child.id)}
 				>
 					{child.nickname}
@@ -141,7 +141,7 @@ function directionLabel(dir: string): string {
 		{#if selectedChild.templates.length === 0}
 			<Card variant="elevated" padding="lg">
 				{#snippet children()}
-				<div class="text-center text-gray-400">
+				<div class="text-center text-[var(--color-text-tertiary)]">
 					<p class="text-3xl mb-2">📋</p>
 					<p>チェックリストがまだありません</p>
 				</div>
@@ -153,13 +153,13 @@ function directionLabel(dir: string): string {
 			<Card variant="default" padding="none">
 				{#snippet children()}
 				<!-- Template header -->
-				<div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
+				<div class="flex items-center justify-between px-4 py-3 bg-[var(--color-surface-muted)] border-b border-[var(--color-border-light)]">
 					<div class="flex items-center gap-2">
 						<span class="text-xl">{template.icon}</span>
-						<span class="font-bold text-gray-700">{template.name}</span>
-						<span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded">{timeSlotLabel(getTimeSlot(template))}</span>
+						<span class="font-bold text-[var(--color-text-primary)]">{template.name}</span>
+						<span class="text-xs px-2 py-0.5 bg-[var(--color-feedback-info-bg)] text-[var(--color-feedback-info-text)] rounded">{timeSlotLabel(getTimeSlot(template))}</span>
 						{#if !template.isActive}
-							<span class="text-xs px-2 py-0.5 bg-gray-200 text-gray-500 rounded">無効</span>
+							<span class="text-xs px-2 py-0.5 bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] rounded">無効</span>
 						{/if}
 					</div>
 					<div class="flex items-center gap-1">
@@ -170,7 +170,7 @@ function directionLabel(dir: string): string {
 								type="submit"
 								variant="ghost"
 								size="sm"
-								class="bg-gray-100 hover:bg-gray-200 text-gray-500"
+								class="bg-[var(--color-surface-secondary)] hover:bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)]"
 								title={template.isActive ? '無効にする' : '有効にする'}
 							>
 								{template.isActive ? '無効化' : '有効化'}
@@ -182,7 +182,7 @@ function directionLabel(dir: string): string {
 								type="submit"
 								variant="ghost"
 								size="sm"
-								class="bg-red-50 hover:bg-red-100 text-red-500"
+								class="bg-[var(--color-feedback-error-bg)] hover:bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]"
 								onclick={(e) => { if (!confirm('削除しますか？')) e.preventDefault(); }}
 							>
 								削除
@@ -192,8 +192,8 @@ function directionLabel(dir: string): string {
 				</div>
 
 				<!-- Time slot selector -->
-				<div class="flex items-center gap-1 px-4 py-2 bg-white border-b border-gray-50">
-					<span class="text-xs text-gray-500 mr-1">時間帯:</span>
+				<div class="flex items-center gap-1 px-4 py-2 bg-white border-b border-[var(--color-surface-muted)]">
+					<span class="text-xs text-[var(--color-text-muted)] mr-1">時間帯:</span>
 					{#each TIME_SLOT_OPTIONS as opt}
 						<form method="POST" action="?/updateTimeSlot" use:enhance={() => async () => invalidateAll()}>
 							<input type="hidden" name="templateId" value={template.id} />
@@ -202,7 +202,7 @@ function directionLabel(dir: string): string {
 								type="submit"
 								variant="ghost"
 								size="sm"
-								class="text-xs px-2 py-1 {getTimeSlot(template) === opt.value ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}"
+								class="text-xs px-2 py-1 {getTimeSlot(template) === opt.value ? 'bg-[var(--color-feedback-info-bg-strong)] text-[var(--color-feedback-info-text)] ring-1 ring-[var(--color-feedback-info-border)]' : 'bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-secondary)]'}"
 							>
 								{opt.icon} {opt.label}
 							</Button>
@@ -217,8 +217,8 @@ function directionLabel(dir: string): string {
 							<div class="flex items-center gap-2">
 								<span>{item.icon}</span>
 								<span class="text-sm font-medium">{item.name}</span>
-								<span class="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-500 rounded">{frequencyLabel(item.frequency)}</span>
-								<span class="text-xs px-1.5 py-0.5 bg-green-50 text-green-500 rounded">{directionLabel(item.direction)}</span>
+								<span class="text-xs px-1.5 py-0.5 bg-[var(--color-feedback-info-bg)] text-[var(--color-feedback-info-text)] rounded">{frequencyLabel(item.frequency)}</span>
+								<span class="text-xs px-1.5 py-0.5 bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] rounded">{directionLabel(item.direction)}</span>
 							</div>
 							<form method="POST" action="?/removeItem" use:enhance={() => async () => invalidateAll()}>
 								<input type="hidden" name="itemId" value={item.id} />
@@ -226,7 +226,7 @@ function directionLabel(dir: string): string {
 									type="submit"
 									variant="ghost"
 									size="sm"
-									class="text-xs text-gray-400 hover:text-red-500 px-1"
+									class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-feedback-error-text)] px-1"
 									title="削除"
 								>
 									✕
@@ -237,11 +237,11 @@ function directionLabel(dir: string): string {
 				</div>
 
 				<!-- Add item button -->
-				<div class="px-4 py-2 border-t border-gray-50">
+				<div class="px-4 py-2 border-t border-[var(--color-surface-muted)]">
 					<Button
 						variant="ghost"
 						size="sm"
-						class="w-full py-2 text-sm text-blue-500 hover:bg-blue-50"
+						class="w-full py-2 text-sm text-[var(--color-feedback-info-text)] hover:bg-[var(--color-feedback-info-bg)]"
 						onclick={() => openAddItem(template.id)}
 					>
 						+ アイテム追加
@@ -278,8 +278,8 @@ function directionLabel(dir: string): string {
 		{#if selectedChild.overrides.length > 0}
 			<Card variant="default" padding="none">
 				{#snippet children()}
-				<div class="px-4 py-3 bg-amber-50 border-b border-amber-100">
-					<span class="font-bold text-gray-700">📅 本日のワンオフ</span>
+				<div class="px-4 py-3 bg-[var(--color-feedback-warning-bg)] border-b border-[var(--color-feedback-warning-bg-strong)]">
+					<span class="font-bold text-[var(--color-text-primary)]">📅 本日のワンオフ</span>
 				</div>
 				<div class="divide-y divide-gray-50">
 					{#each selectedChild.overrides as ov (ov.id)}
@@ -287,13 +287,13 @@ function directionLabel(dir: string): string {
 							<div class="flex items-center gap-2">
 								<span>{ov.icon}</span>
 								<span class="text-sm">{ov.itemName}</span>
-								<span class="text-xs px-1.5 py-0.5 {ov.action === 'add' ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'} rounded">
+								<span class="text-xs px-1.5 py-0.5 {ov.action === 'add' ? 'bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]' : 'bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)]'} rounded">
 									{ov.action === 'add' ? '追加' : '除外'}
 								</span>
 							</div>
 							<form method="POST" action="?/removeOverride" use:enhance={() => async () => invalidateAll()}>
 								<input type="hidden" name="overrideId" value={ov.id} />
-								<Button type="submit" variant="ghost" size="sm" class="text-xs text-gray-400 hover:text-red-500 px-1" title="削除" aria-label="削除">✕</Button>
+								<Button type="submit" variant="ghost" size="sm" class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-feedback-error-text)] px-1" title="削除" aria-label="削除">✕</Button>
 							</form>
 						</div>
 					{/each}
@@ -320,14 +320,14 @@ function directionLabel(dir: string): string {
 		<FormField label="名前" type="text" name="name" bind:value={templateName} placeholder="例: がっこうのもちもの" required />
 
 		<div>
-			<span class="block text-sm font-medium text-gray-700 mb-1">アイコン</span>
+			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">アイコン</span>
 			<div class="flex gap-1 flex-wrap">
 				{#each ['📋', '🎒', '🏫', '📚'] as ic}
 					<Button
 						type="button"
 						variant="ghost"
 						size="sm"
-						class="w-10 h-10 text-xl {templateIcon === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gray-50 hover:bg-gray-100'}"
+						class="w-10 h-10 text-xl {templateIcon === ic ? 'ring-2 ring-[var(--color-border-focus)] bg-[var(--color-feedback-info-bg)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]'}"
 						onclick={() => (templateIcon = ic)}
 					>{ic}</Button>
 				{/each}
@@ -372,14 +372,14 @@ function directionLabel(dir: string): string {
 		<FormField label="名前" type="text" name="name" bind:value={itemName} placeholder="例: ハンカチ" required />
 
 		<div>
-			<span class="block text-sm font-medium text-gray-700 mb-1">アイコン</span>
+			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">アイコン</span>
 			<div class="flex gap-1 flex-wrap">
 				{#each COMMON_ICONS as ic}
 					<Button
 						type="button"
 						variant="ghost"
 						size="sm"
-						class="w-10 h-10 text-xl {itemIcon === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gray-50 hover:bg-gray-100'}"
+						class="w-10 h-10 text-xl {itemIcon === ic ? 'ring-2 ring-[var(--color-border-focus)] bg-[var(--color-feedback-info-bg)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]'}"
 						onclick={() => (itemIcon = ic)}
 					>{ic}</Button>
 				{/each}
@@ -445,14 +445,14 @@ function directionLabel(dir: string): string {
 		<FormField label="アイテム名" type="text" name="itemName" bind:value={overrideName} placeholder="例: リュック（遠足）" required />
 
 		<div>
-			<span class="block text-sm font-medium text-gray-700 mb-1">アイコン</span>
+			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">アイコン</span>
 			<div class="flex gap-1 flex-wrap">
 				{#each COMMON_ICONS as ic}
 					<Button
 						type="button"
 						variant="ghost"
 						size="sm"
-						class="w-10 h-10 text-xl {overrideIcon === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gray-50 hover:bg-gray-100'}"
+						class="w-10 h-10 text-xl {overrideIcon === ic ? 'ring-2 ring-[var(--color-border-focus)] bg-[var(--color-feedback-info-bg)]' : 'bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]'}"
 						onclick={() => (overrideIcon = ic)}
 					>{ic}</Button>
 				{/each}
