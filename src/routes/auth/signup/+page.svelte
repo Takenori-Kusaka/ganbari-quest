@@ -2,7 +2,11 @@
 import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
-import { SIGNUP_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
+import {
+	LICENSE_KEY_LEGACY_FORMAT,
+	LICENSE_KEY_SIGNED_FORMAT,
+	SIGNUP_CODE_EXPIRY_MINUTES,
+} from '$lib/domain/validation/auth';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -15,7 +19,18 @@ let { form } = $props();
 let email = $state('');
 let password = $state('');
 let passwordConfirm = $state('');
-let licenseKey = $state('');
+let licenseKeyRaw = $state('');
+const licenseKey = $derived(licenseKeyRaw.toUpperCase().trim());
+const licenseKeyValid = $derived(
+	licenseKey === '' ||
+		LICENSE_KEY_LEGACY_FORMAT.test(licenseKey) ||
+		LICENSE_KEY_SIGNED_FORMAT.test(licenseKey),
+);
+const licenseKeyError = $derived(
+	licenseKeyRaw && !licenseKeyValid
+		? 'GQ-XXXX-XXXX-XXXX または GQ-XXXX-XXXX-XXXX-XXXXX 形式で入力してください'
+		: undefined,
+);
 let codeRaw = $state('');
 const code = $derived(codeRaw.replace(/\s/g, ''));
 let loading = $state(false);
@@ -60,7 +75,7 @@ let confirmStep = $derived(form?.confirmStep ?? false);
 $effect(() => {
 	if (typeof form?.email === 'string') email = form.email;
 	if (typeof form?.licenseKey === 'string') {
-		licenseKey = form.licenseKey;
+		licenseKeyRaw = form.licenseKey;
 		if (form.licenseKey) showLicenseKey = true;
 	}
 });
@@ -245,20 +260,33 @@ $effect(() => {
 				/>
 
 				{#if showLicenseKey}
-					<FormField label="ライセンスキー" id="licenseKey" hint="購入済みのライセンスキーを入力してください">
+					<FormField
+						label="ライセンスキー"
+						id="licenseKey"
+						hint="購入済みのライセンスキーを入力してください"
+						error={licenseKeyError}
+					>
 						{#snippet children()}
 							<input
 								id="licenseKey"
 								name="licenseKey"
 								type="text"
-								bind:value={licenseKey}
+								bind:value={licenseKeyRaw}
 								placeholder="GQ-XXXX-XXXX-XXXX-XXXXX"
+								required
 								autocomplete="off"
 								class="w-full px-3 py-2 border border-[var(--input-border)] rounded-[var(--input-radius)] text-sm uppercase font-mono tracking-wider
 									focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors"
 							/>
 						{/snippet}
 					</FormField>
+					<button
+						type="button"
+						class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-link)] underline cursor-pointer bg-transparent border-none p-0 -mt-3"
+						onclick={() => { showLicenseKey = false; licenseKeyRaw = ''; }}
+					>
+						ライセンスキーなしで続ける
+					</button>
 				{:else}
 					<input type="hidden" name="licenseKey" value="" />
 				{/if}
@@ -301,13 +329,15 @@ $effect(() => {
 
 				<Button
 					type="submit"
-					disabled={loading || !email || !password || !passwordConfirm || !agreedTerms || !agreedPrivacy}
+					disabled={loading || !email || !password || !passwordConfirm || !agreedTerms || !agreedPrivacy || (showLicenseKey && (!licenseKey || !licenseKeyValid))}
 					size="md"
 					class="w-full"
 				>
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
 						登録中...
+					{:else if showLicenseKey}
+						ライセンスキーで登録
 					{:else if planParam}
 						7日間 無料体験をはじめる
 					{:else}
