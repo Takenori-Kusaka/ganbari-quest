@@ -325,6 +325,7 @@ export const actions: Actions = {
 			stampEmoji: stamp?.stamp.emoji ?? '⭐',
 			stampRarity: stamp?.stamp.rarity ?? 'N',
 			stampName: stamp?.stamp.name ?? '',
+			omikujiRank: stamp?.stamp.omikujiRank ?? null,
 			instantPoints: stamp?.instantPoints ?? 0,
 			consecutiveLoginDays: bonus?.consecutiveLoginDays ?? 0,
 			multiplier: bonus?.multiplier ?? 1,
@@ -389,7 +390,7 @@ export const actions: Actions = {
 		return {
 			success: true,
 			totalPoints: result.points,
-			rarityPoints: result.rarityPoints,
+			stampPoints: result.stampPoints,
 			completeBonus: result.completeBonus,
 		};
 	},
