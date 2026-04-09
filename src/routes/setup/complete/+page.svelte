@@ -1,15 +1,11 @@
 <script lang="ts">
 import { formatChildName } from '$lib/domain/child-display';
-import { AGE_TIER_CONFIG, type UiMode } from '$lib/domain/validation/age-tier';
 
 let { data } = $props();
 
 // 最初の子供の画面URL を算出
 const firstChild = $derived(data.children[0]);
 const childHomeUrl = $derived(firstChild ? `/${firstChild.uiMode}/home` : '/switch');
-const childLabel = $derived(
-	firstChild ? (AGE_TIER_CONFIG[firstChild.uiMode as UiMode]?.label ?? firstChild.uiMode) : '',
-);
 </script>
 
 <svelte:head>

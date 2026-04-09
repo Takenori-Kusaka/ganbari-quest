@@ -5,6 +5,34 @@
 import type { UiMode } from './validation/age-tier';
 
 // ============================================================
+// UiMode 正規化（#573: 循環依存を避けるため labels.ts 内に定義）
+// ============================================================
+// NOTE: validation/age-tier.ts の LEGACY_UI_MODE_MAP / normalizeUiMode と
+// 同じ内容を意図的に複製している。age-tier.ts が labels.ts から
+// AGE_TIER_LABELS を import しているため、逆方向の import は循環依存になる。
+// 変更時は両方を同期させること。
+
+const VALID_UI_MODES: ReadonlySet<UiMode> = new Set([
+	'baby',
+	'preschool',
+	'elementary',
+	'junior',
+	'senior',
+]);
+
+const LEGACY_UI_MODE_MAP_LOCAL: Record<string, UiMode> = {
+	kinder: 'preschool',
+	lower: 'elementary',
+	upper: 'junior',
+	teen: 'senior',
+};
+
+function normalizeUiModeForLabel(value: string): UiMode {
+	if (VALID_UI_MODES.has(value as UiMode)) return value as UiMode;
+	return LEGACY_UI_MODE_MAP_LOCAL[value] ?? 'preschool';
+}
+
+// ============================================================
 // ナビゲーションカテゴリ
 // ============================================================
 
@@ -60,14 +88,25 @@ export const AGE_TIER_SHORT_LABELS: Record<UiMode, string> = {
 	senior: '16〜18歳',
 };
 
-/** 年齢区分ラベルを安全に取得 */
-export function getAgeTierLabel(mode: string): string {
-	return AGE_TIER_LABELS[mode as UiMode] ?? mode;
+/**
+ * 年齢区分ラベルを安全に取得
+ *
+ * #573: 内部コード (kinder/baby/preschool 等) が UI に漏れる回帰防止のため
+ * defensive normalization を実行する。legacy コード (kinder/lower/upper/teen)
+ * も正しい日本語ラベルに変換される。未知のコードの場合は fallback ラベルを返し、
+ * 内部コードを直接露出しない。
+ */
+export function getAgeTierLabel(mode: string | null | undefined): string {
+	if (!mode) return AGE_TIER_LABELS.preschool;
+	const normalized = normalizeUiModeForLabel(mode);
+	return AGE_TIER_LABELS[normalized];
 }
 
-/** 年齢区分の短縮ラベルを取得 */
-export function getAgeTierShortLabel(mode: string): string {
-	return AGE_TIER_SHORT_LABELS[mode as UiMode] ?? mode;
+/** 年齢区分の短縮ラベルを取得（#573: defensive normalization） */
+export function getAgeTierShortLabel(mode: string | null | undefined): string {
+	if (!mode) return AGE_TIER_SHORT_LABELS.preschool;
+	const normalized = normalizeUiModeForLabel(mode);
+	return AGE_TIER_SHORT_LABELS[normalized];
 }
 
 // ============================================================
