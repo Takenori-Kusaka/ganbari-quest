@@ -40,13 +40,13 @@ function formatDate(d: string): string {
 	{#if data.events.length === 0}
 		<div class="rounded-xl border bg-white p-8 text-center">
 			<p class="text-2xl">🎪</p>
-			<p class="mt-2 text-sm font-semibold text-gray-500">イベントはまだありません</p>
+			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">イベントはまだありません</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
 			{#each data.events as event (event.id)}
 				{@const active = isCurrentlyActive(event)}
-				<div class="rounded-xl border bg-white p-4" class:border-amber-300={active}>
+				<div class="rounded-xl border bg-white p-4" class:border-[var(--color-feedback-warning-border)]={active}>
 					<div class="flex items-center gap-2">
 						<span class="text-xl">{event.bannerIcon}</span>
 						<div>
@@ -54,18 +54,18 @@ function formatDate(d: string): string {
 								{event.name}
 								{#if active}
 									<span
-										class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700"
+										class="ml-1 rounded bg-[var(--color-feedback-warning-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-warning-text)]"
 										>開催中</span
 									>
 								{/if}
 							</h3>
-							<p class="text-xs text-gray-500">
-								<code class="rounded bg-gray-100 px-1">{event.code}</code>
+							<p class="text-xs text-[var(--color-text-muted)]">
+								<code class="rounded bg-[var(--color-surface-secondary)] px-1">{event.code}</code>
 								· {formatDate(event.startDate)} 〜 {formatDate(event.endDate)}
 								· {event.eventType}
 							</p>
 							{#if event.description}
-								<p class="mt-1 text-xs text-gray-600">{event.description}</p>
+								<p class="mt-1 text-xs text-[var(--color-text-secondary)]">{event.description}</p>
 							{/if}
 						</div>
 					</div>

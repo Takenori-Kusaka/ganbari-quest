@@ -11,9 +11,16 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 let { data } = $props();
 
 function getAnalysisText(deviationScore: number): { text: string; color: string } {
-	if (deviationScore >= 60) return { text: '同年齢の中でも特に活発です', color: 'text-green-600' };
+	if (deviationScore >= 60)
+		return {
+			text: '同年齢の中でも特に活発です',
+			color: 'text-[var(--color-feedback-success-text)]',
+		};
 	if (deviationScore >= 45)
-		return { text: '平均的なペースで成長しています', color: 'text-blue-600' };
+		return {
+			text: '平均的なペースで成長しています',
+			color: 'text-[var(--color-feedback-info-text)]',
+		};
 	return { text: 'これから伸びる余地がたくさんあります', color: 'text-orange-500' };
 }
 
@@ -69,7 +76,7 @@ let showLevelTitles = $state(false);
 	<div class="flex items-center justify-end">
 		<a
 			href="/demo/admin/children"
-			class="text-sm text-blue-500 hover:text-blue-600 font-bold"
+			class="text-sm text-[var(--color-feedback-info-text)] hover:text-[var(--color-feedback-info-text)] font-bold"
 		>
 			こども管理でステータス編集 →
 		</a>
@@ -78,7 +85,7 @@ let showLevelTitles = $state(false);
 	<!-- 成長レポート -->
 	{#if previewChild?.status}
 		<Card>
-			<h3 class="text-lg font-bold text-gray-700 mb-3">
+			<h3 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">
 				📊 {previewChild.nickname}の成長レポート
 			</h3>
 
@@ -90,13 +97,13 @@ let showLevelTitles = $state(false);
 					size={280}
 				/>
 			</div>
-			<p class="text-xs text-gray-400 text-center mb-4">
+			<p class="text-xs text-[var(--color-text-tertiary)] text-center mb-4">
 				※ 参考値です。お子さまの個性やペースを大切にしてください
 			</p>
 
 			<!-- 分析サマリー -->
-			<div class="bg-gray-50 rounded-lg p-3 mb-4">
-				<h4 class="text-sm font-bold text-gray-600 mb-2">📋 分析サマリー</h4>
+			<div class="bg-[var(--color-surface-muted)] rounded-lg p-3 mb-4">
+				<h4 class="text-sm font-bold text-[var(--color-text-secondary)] mb-2">📋 分析サマリー</h4>
 				<div class="space-y-1">
 					{#each CATEGORY_DEFS as catDef (catDef.id)}
 						{@const stat = previewChild.status?.statuses[catDef.id]}
@@ -104,7 +111,7 @@ let showLevelTitles = $state(false);
 							{@const analysis = getAnalysisText(stat.deviationScore)}
 							<div class="flex items-center gap-2 text-sm">
 								<span class="w-5 text-center">{catDef.icon}</span>
-								<span class="font-bold text-gray-700 w-20">{catDef.name}</span>
+								<span class="font-bold text-[var(--color-text-primary)] w-20">{catDef.name}</span>
 								<span class={analysis.color}>{analysis.text}</span>
 							</div>
 						{/if}
@@ -119,28 +126,28 @@ let showLevelTitles = $state(false);
 		<Button
 			variant="ghost"
 			size="md"
-			class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"
+			class="w-full flex items-center justify-between p-4 text-left hover:bg-[var(--color-surface-muted)]"
 			onclick={() => { showLevelTitles = !showLevelTitles; }}
 		>
-			<h3 class="text-lg font-bold text-gray-700">🏷️ レベル称号カスタマイズ</h3>
-			<span class="text-gray-400 text-sm">{showLevelTitles ? '▲ 閉じる' : '▼ 開く'}</span>
+			<h3 class="text-lg font-bold text-[var(--color-text-primary)]">🏷️ レベル称号カスタマイズ</h3>
+			<span class="text-[var(--color-text-tertiary)] text-sm">{showLevelTitles ? '▲ 閉じる' : '▼ 開く'}</span>
 		</Button>
 
 		{#if showLevelTitles}
 			<div class="px-4 pb-4 space-y-3">
-				<p class="text-xs text-gray-500">
+				<p class="text-xs text-[var(--color-text-muted)]">
 					各レベルの称号を家庭オリジナルに変更できます。空欄にするとデフォルトに戻ります。
 				</p>
 
 				{#each data.levelTitles as lt (lt.level)}
-					<div class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
-						<span class="text-sm font-bold text-gray-500 w-12">Lv.{lt.level}</span>
+					<div class="flex items-center gap-3 bg-[var(--color-surface-muted)] rounded-lg p-3">
+						<span class="text-sm font-bold text-[var(--color-text-muted)] w-12">Lv.{lt.level}</span>
 						<div class="flex-1 min-w-0 flex items-center gap-2">
 							<FormField label="称号" type="text" maxlength={20} placeholder={lt.defaultTitle} disabled class="flex-1" />
 							<Button
 								variant="ghost"
 								size="sm"
-								class="bg-gray-200 text-gray-400 cursor-not-allowed"
+								class="bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
 								disabled
 							>
 								保存
@@ -154,7 +161,7 @@ let showLevelTitles = $state(false);
 
 	<div>
 		<!-- 機能説明 -->
-		<div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
+		<div class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-lg p-3 mb-4 text-sm text-[var(--color-feedback-info-text)]">
 			<p class="font-bold mb-1">ベンチマークとは？</p>
 			<p>
 				子供のステータスを「同じ年齢の目安値」と比べて偏差値を計算するためのデータです。
@@ -165,7 +172,7 @@ let showLevelTitles = $state(false);
 		<!-- プレビュー用の子供選択 -->
 		{#if data.children.length > 0}
 			<div class="flex items-center gap-2 mb-4">
-				<span class="text-xs text-gray-500">プレビュー:</span>
+				<span class="text-xs text-[var(--color-text-muted)]">プレビュー:</span>
 				<div class="flex gap-1 flex-wrap">
 					{#each data.children as child (child.id)}
 						<Button
@@ -173,7 +180,7 @@ let showLevelTitles = $state(false);
 							size="sm"
 							class={previewChildId === child.id
 								? ''
-								: 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}
+								: 'bg-white text-[var(--color-text-muted)] border border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]'}
 							onclick={() => { previewChildIdOverride = child.id; }}
 						>
 							{child.nickname}
@@ -192,7 +199,7 @@ let showLevelTitles = $state(false);
 					class="whitespace-nowrap
 						{benchmarkAge === age
 						? ''
-						: 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}"
+						: 'bg-white text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]'}"
 					onclick={() => { benchmarkAge = age; }}
 				>
 					{age}歳
@@ -201,7 +208,7 @@ let showLevelTitles = $state(false);
 		</div>
 
 		<!-- 年齢別参考値ガイド -->
-		<p class="text-xs text-gray-400 mb-4">
+		<p class="text-xs text-[var(--color-text-tertiary)] mb-4">
 			{benchmarkAge}歳の目安: 平均 {guideMeanLow}〜{guideMeanHigh} XP、SD {guideSdLow}〜{guideSdHigh}（XPベース）
 		</p>
 
@@ -213,7 +220,7 @@ let showLevelTitles = $state(false);
 				<Card>
 					<div class="flex items-center gap-3 flex-wrap">
 						<span class="text-lg">{catDef.icon}</span>
-						<span class="font-bold text-gray-700 w-24">{catDef.name}</span>
+						<span class="font-bold text-[var(--color-text-primary)] w-24">{catDef.name}</span>
 						<div class="flex items-center gap-2 flex-1 min-w-0">
 							<FormField label="平均" type="number" value={inputMean} disabled class="w-24" />
 							<FormField label="SD" type="number" value={inputSd} disabled class="w-24" />
@@ -221,7 +228,7 @@ let showLevelTitles = $state(false);
 						<Button
 							variant="ghost"
 							size="sm"
-							class="bg-gray-200 text-gray-400 cursor-not-allowed"
+							class="bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
 							disabled
 						>
 							保存
@@ -234,7 +241,7 @@ let showLevelTitles = $state(false);
 							{@const childVal = stat.value}
 							{@const deviation = calcDeviationScore(childVal, inputMean, inputSd)}
 							{@const label = getComparisonLabel(deviation)}
-							<p class="text-xs text-gray-400 mt-2 ml-8">
+							<p class="text-xs text-[var(--color-text-tertiary)] mt-2 ml-8">
 								{previewChild.nickname}: 偏差値 {deviation}（{label.emoji} {label.text}）
 							</p>
 						{/if}

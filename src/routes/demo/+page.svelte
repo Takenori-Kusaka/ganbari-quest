@@ -53,30 +53,30 @@ const modeColors: Record<string, string> = {
 			<div class="flex items-center justify-center gap-2 mb-2">
 				<Logo variant="compact" size={180} />
 			</div>
-			<p class="text-xl font-semibold text-gray-600">デモ体験</p>
-			<p class="text-gray-600">
+			<p class="text-xl font-semibold text-[var(--color-text-secondary)]">デモ体験</p>
+			<p class="text-[var(--color-text-secondary)]">
 				がんばり家のみんなと一緒に、アプリの機能を体験してみましょう！
 			</p>
 		</div>
 
 		<!-- Guided demo option -->
-		<div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-5 mb-6 text-center">
+		<div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-[var(--color-feedback-info-border)] p-5 mb-6 text-center">
 			{#if guide.dismissed}
-				<p class="text-sm font-bold text-gray-700 mb-1">ガイドをとじました</p>
-				<p class="text-xs text-gray-500 mb-3">もう一度はじめから体験できます</p>
+				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">ガイドをとじました</p>
+				<p class="text-xs text-[var(--color-text-muted)] mb-3">もう一度はじめから体験できます</p>
 				<a
 					href="/demo/preschool/home?childId=902"
-					class="block w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl text-sm hover:bg-blue-600 transition-colors"
+					class="block w-full py-2.5 bg-[var(--color-stat-blue)] text-white font-bold rounded-xl text-sm hover:bg-[var(--color-action-primary-hover)] transition-colors"
 					onclick={handleGuideRestart}
 				>
 					ガイドを再開する
 				</a>
 			{:else}
-				<p class="text-sm font-bold text-gray-700 mb-1">はじめてですか？</p>
-				<p class="text-xs text-gray-500 mb-3">5ステップで主な機能をご案内します</p>
+				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">はじめてですか？</p>
+				<p class="text-xs text-[var(--color-text-muted)] mb-3">5ステップで主な機能をご案内します</p>
 				<a
 					href="/demo/preschool/home?childId=902"
-					class="block w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl text-sm hover:bg-blue-600 transition-colors"
+					class="block w-full py-2.5 bg-[var(--color-stat-blue)] text-white font-bold rounded-xl text-sm hover:bg-[var(--color-action-primary-hover)] transition-colors"
 					onclick={handleGuideStart}
 				>
 					ガイド付きデモを はじめる
@@ -87,7 +87,7 @@ const modeColors: Record<string, string> = {
 		<!-- Family Introduction -->
 		<Card padding="lg" class="mb-6">
 			{#snippet children()}
-			<h2 class="text-lg font-bold text-gray-700 mb-4">がんばり家のこどもたち</h2>
+			<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-4">がんばり家のこどもたち</h2>
 			<div class="grid grid-cols-2 gap-3">
 				{#each data.children as child}
 					{@const mode = child.uiMode ?? 'preschool'}
@@ -121,13 +121,13 @@ const modeColors: Record<string, string> = {
 		<!-- Admin Link -->
 		<Card padding="lg" class="mb-6">
 			{#snippet children()}
-			<h2 class="text-lg font-bold text-gray-700 mb-3">おやの管理画面</h2>
-			<p class="text-sm text-gray-500 mb-4">
+			<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">おやの管理画面</h2>
+			<p class="text-sm text-[var(--color-text-muted)] mb-4">
 				活動の追加、こどもの管理、ポイント確認などの管理機能を体験できます。
 			</p>
 			<a
 				href="/demo/admin"
-				class="block w-full text-center py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors"
+				class="block w-full text-center py-3 bg-[var(--color-stat-blue)] text-white font-bold rounded-xl hover:bg-[var(--color-action-primary-hover)] transition-colors"
 			>
 				管理画面をみる
 			</a>
@@ -137,33 +137,33 @@ const modeColors: Record<string, string> = {
 		<!-- Feature highlights -->
 		<Card padding="lg" class="mb-6">
 			{#snippet children()}
-			<h2 class="text-lg font-bold text-gray-700 mb-4">体験できる機能</h2>
-			<ul class="space-y-3 text-sm text-gray-600">
+			<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-4">体験できる機能</h2>
+			<ul class="space-y-3 text-sm text-[var(--color-text-secondary)]">
 				<li class="flex gap-2">
 					<span class="text-lg">📋</span>
 					<div>
-						<span class="font-medium text-gray-700">活動きろく</span>
+						<span class="font-medium text-[var(--color-text-primary)]">活動きろく</span>
 						— お子さまの日々のがんばりをワンタップで記録
 					</div>
 				</li>
 				<li class="flex gap-2">
 					<span class="text-lg">⭐</span>
 					<div>
-						<span class="font-medium text-gray-700">ステータス</span>
+						<span class="font-medium text-[var(--color-text-primary)]">ステータス</span>
 						— 5軸のレーダーチャートで成長を可視化
 					</div>
 				</li>
 				<li class="flex gap-2">
 					<span class="text-lg">👥</span>
 					<div>
-						<span class="font-medium text-gray-700">きょうだいチャレンジ</span>
+						<span class="font-medium text-[var(--color-text-primary)]">きょうだいチャレンジ</span>
 						— きょうだいで協力・競争する目標を設定
 					</div>
 				</li>
 				<li class="flex gap-2">
 					<span class="text-lg">🎯</span>
 					<div>
-						<span class="font-medium text-gray-700">デイリーミッション</span>
+						<span class="font-medium text-[var(--color-text-primary)]">デイリーミッション</span>
 						— 毎日の目標で継続をサポート
 					</div>
 				</li>
@@ -173,8 +173,8 @@ const modeColors: Record<string, string> = {
 
 		<!-- Conversion CTA -->
 		<div class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-orange-200 p-6 text-center">
-			<p class="text-sm font-bold text-gray-700 mb-1">お子さまの冒険、はじめませんか？</p>
-			<p class="text-xs text-gray-500 mb-3">7日間無料 ・ いつでもキャンセルOK</p>
+			<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">お子さまの冒険、はじめませんか？</p>
+			<p class="text-xs text-[var(--color-text-muted)] mb-3">7日間無料 ・ いつでもキャンセルOK</p>
 			<a
 				href="/demo/signup"
 				class="block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-sm"

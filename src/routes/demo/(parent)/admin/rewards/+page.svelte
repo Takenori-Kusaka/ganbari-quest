@@ -41,7 +41,7 @@ let selectedTemplate = $state<string | null>(null);
 
 	<!-- Step 1: Select child -->
 	<section>
-		<h3 class="text-sm font-bold text-gray-500 mb-2">1. こどもを選択</h3>
+		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">1. こどもを選択</h3>
 		<div class="flex gap-2 flex-wrap">
 			{#each data.children as child}
 				<Button
@@ -49,7 +49,7 @@ let selectedTemplate = $state<string | null>(null);
 					size="sm"
 					class={selectedChildId === child.id
 						? ''
-						: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}
+						: 'bg-white text-[var(--color-text-secondary)] shadow-sm hover:shadow-md'}
 					onclick={() => (selectedChildId = child.id)}
 				>
 					👤 {child.nickname}
@@ -60,19 +60,19 @@ let selectedTemplate = $state<string | null>(null);
 
 	<!-- Step 2: Select template -->
 	<section>
-		<h3 class="text-sm font-bold text-gray-500 mb-2">2. テンプレートを選択（またはカスタム）</h3>
+		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">2. テンプレートを選択（またはカスタム）</h3>
 		<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
 			{#each data.templates as tmpl}
 				<Button
 					variant="ghost"
 					size="sm"
 					class="bg-white rounded-xl p-3 shadow-sm hover:shadow-md
-						{selectedTemplate === tmpl.title ? 'ring-2 ring-blue-400' : ''}"
+						{selectedTemplate === tmpl.title ? 'ring-2 ring-[var(--color-border-focus)]' : ''}"
 					onclick={() => (selectedTemplate = tmpl.title)}
 				>
 					<span class="text-2xl block">{tmpl.icon}</span>
-					<p class="text-xs font-bold text-gray-600 mt-1">{tmpl.title}</p>
-					<p class="text-xs text-amber-500 font-bold">{tmpl.points}P</p>
+					<p class="text-xs font-bold text-[var(--color-text-secondary)] mt-1">{tmpl.title}</p>
+					<p class="text-xs text-[var(--color-feedback-warning-text)] font-bold">{tmpl.points}P</p>
 				</Button>
 			{/each}
 		</div>
@@ -81,7 +81,7 @@ let selectedTemplate = $state<string | null>(null);
 	<!-- Step 3: Confirm -->
 	<Card>
 		<div class="space-y-3">
-			<h3 class="text-sm font-bold text-gray-500">3. 内容を確認して付与</h3>
+			<h3 class="text-sm font-bold text-[var(--color-text-muted)]">3. 内容を確認して付与</h3>
 
 			<div class="grid grid-cols-2 gap-3">
 				<FormField label="タイトル" type="text" disabled value={selectedTemplate ?? ''} placeholder="テンプレートを選択" />
@@ -90,10 +90,10 @@ let selectedTemplate = $state<string | null>(null);
 			<div class="grid grid-cols-2 gap-3">
 				<FormField label="アイコン" type="text" disabled value="🎁" />
 				<label class="block">
-					<span class="block text-xs font-bold text-gray-500 mb-1">カテゴリ</span>
+					<span class="block text-xs font-bold text-[var(--color-text-muted)] mb-1">カテゴリ</span>
 					<select
 						disabled
-						class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
+						class="w-full px-3 py-2 border rounded-lg text-sm bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] cursor-not-allowed"
 					>
 						<option>とくべつ</option>
 					</select>
@@ -103,7 +103,7 @@ let selectedTemplate = $state<string | null>(null);
 			<Button
 				variant="ghost"
 				size="md"
-				class="w-full bg-gray-200 text-gray-400 cursor-not-allowed"
+				class="w-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
 				disabled
 			>
 				デモでは報酬を付与できません

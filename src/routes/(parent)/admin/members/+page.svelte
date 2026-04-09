@@ -212,30 +212,30 @@ const roleLabel = (role: string) => {
 	<!-- メンバー一覧 -->
 	<Card variant="default" padding="md">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-gray-600 mb-3">現在のメンバー</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">現在のメンバー</h3>
 
 		{#if memberError}
-			<div class="p-3 mb-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+			<div class="p-3 mb-3 bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)] text-sm rounded-lg border border-[var(--color-feedback-error-bg-strong)]">
 				{memberError}
 			</div>
 		{/if}
 
 		{#if data.members.length === 0}
-			<p class="text-gray-400 text-sm">メンバーがいません</p>
+			<p class="text-[var(--color-text-tertiary)] text-sm">メンバーがいません</p>
 		{:else}
 			<div class="divide-y divide-gray-100">
 				{#each data.members as member}
 					<div class="flex items-center justify-between py-3 gap-2">
 						<div class="flex-1 min-w-0">
-							<span class="text-sm font-medium text-gray-700 truncate block">{member.email}</span>
+							<span class="text-sm font-medium text-[var(--color-text-primary)] truncate block">{member.email}</span>
 							<div class="flex items-center gap-2 mt-0.5">
 								<span class="text-xs px-2 py-0.5 rounded-full
-									{member.role === 'owner' ? 'bg-amber-100 text-amber-700'
-									: member.role === 'parent' ? 'bg-blue-100 text-blue-700'
-									: 'bg-green-100 text-green-700'}">
+									{member.role === 'owner' ? 'bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]'
+									: member.role === 'parent' ? 'bg-[var(--color-feedback-info-bg-strong)] text-[var(--color-feedback-info-text)]'
+									: 'bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]'}">
 									{roleLabel(member.role)}
 								</span>
-								<span class="text-xs text-gray-400">
+								<span class="text-xs text-[var(--color-text-tertiary)]">
 									{new Date(member.joinedAt).toLocaleDateString('ja-JP')}
 								</span>
 							</div>
@@ -270,7 +270,7 @@ const roleLabel = (role: string) => {
 
 		<!-- 自主離脱ボタン（parent のみ） -->
 		{#if $page.data.currentRole === 'parent'}
-			<div class="mt-4 pt-4 border-t border-gray-100">
+			<div class="mt-4 pt-4 border-t border-[var(--color-border-light)]">
 				<Button
 					onclick={leaveGroup}
 					variant="danger"
@@ -286,7 +286,7 @@ const roleLabel = (role: string) => {
 	<!-- 招待リンク作成 -->
 	<Card variant="default" padding="md">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-gray-600 mb-3">メンバーを招待</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">メンバーを招待</h3>
 
 		<div class="flex flex-wrap items-end gap-3 mb-3">
 			<FormField label="招待ロール" id="invite-role" class="flex-1 min-w-[120px]">
@@ -328,14 +328,14 @@ const roleLabel = (role: string) => {
 		</div>
 
 		{#if error}
-			<div class="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+			<div class="p-3 bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)] text-sm rounded-lg border border-[var(--color-feedback-error-bg-strong)]">
 				{error}
 			</div>
 		{/if}
 
 		{#if inviteLink}
-			<div class="p-4 bg-green-50 rounded-lg border border-green-100">
-				<p class="text-sm text-green-700 font-medium mb-3">招待リンクが作成されました（7日間有効）</p>
+			<div class="p-4 bg-[var(--color-feedback-success-bg)] rounded-lg border border-[var(--color-feedback-success-bg-strong)]">
+				<p class="text-sm text-[var(--color-feedback-success-text)] font-medium mb-3">招待リンクが作成されました（7日間有効）</p>
 
 				<!-- QRコード -->
 				{#if qrDataUrl}
@@ -344,7 +344,7 @@ const roleLabel = (role: string) => {
 							<img src={qrDataUrl} alt="招待QRコード" class="w-48 h-48" />
 						</div>
 					</div>
-					<p class="text-xs text-center text-gray-500 mb-3">
+					<p class="text-xs text-center text-[var(--color-text-muted)] mb-3">
 						スマートフォンのカメラでスキャンして参加できます
 					</p>
 				{/if}
@@ -357,7 +357,7 @@ const roleLabel = (role: string) => {
 								type="text"
 								value={inviteLink}
 								readonly
-								class="w-full px-3 py-2 bg-white border border-green-200 rounded-[var(--input-radius)] text-xs font-mono"
+								class="w-full px-3 py-2 bg-white border border-[var(--color-feedback-success-border)] rounded-[var(--input-radius)] text-xs font-mono"
 							/>
 						{/snippet}
 					</FormField>
@@ -378,16 +378,16 @@ const roleLabel = (role: string) => {
 	{#if data.invites.length > 0}
 		<Card variant="default" padding="md">
 			{#snippet children()}
-			<h3 class="text-lg font-semibold text-gray-600 mb-3">保留中の招待</h3>
+			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">保留中の招待</h3>
 			<div class="divide-y divide-gray-100">
 				{#each data.invites as invite}
 					<div class="flex items-center justify-between py-3">
 						<div>
 							<span class="text-xs px-2 py-0.5 rounded-full
-								{invite.role === 'parent' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">
+								{invite.role === 'parent' ? 'bg-[var(--color-feedback-info-bg-strong)] text-[var(--color-feedback-info-text)]' : 'bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]'}">
 								{roleLabel(invite.role)}
 							</span>
-							<span class="ml-2 text-xs text-gray-400">
+							<span class="ml-2 text-xs text-[var(--color-text-tertiary)]">
 								期限: {new Date(invite.expiresAt).toLocaleDateString('ja-JP')}
 							</span>
 						</div>
@@ -409,8 +409,8 @@ const roleLabel = (role: string) => {
 	{#if data.isFamily}
 		<Card variant="default" padding="md">
 			{#snippet children()}
-			<h3 class="text-lg font-semibold text-gray-600 mb-3">閲覧リンク</h3>
-			<p class="text-xs text-gray-400 mb-3">
+			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">閲覧リンク</h3>
+			<p class="text-xs text-[var(--color-text-tertiary)] mb-3">
 				祖父母や家族に、お子さまの成長を読み取り専用で共有できます
 			</p>
 
@@ -449,21 +449,21 @@ const roleLabel = (role: string) => {
 			</div>
 
 			{#if viewerError}
-				<div class="p-3 mb-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+				<div class="p-3 mb-3 bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)] text-sm rounded-lg border border-[var(--color-feedback-error-bg-strong)]">
 					{viewerError}
 				</div>
 			{/if}
 
 			{#if viewerLink}
-				<div class="p-4 mb-3 bg-green-50 rounded-lg border border-green-100">
-					<p class="text-sm text-green-700 font-medium mb-3">閲覧リンクが作成されました</p>
+				<div class="p-4 mb-3 bg-[var(--color-feedback-success-bg)] rounded-lg border border-[var(--color-feedback-success-bg-strong)]">
+					<p class="text-sm text-[var(--color-feedback-success-text)] font-medium mb-3">閲覧リンクが作成されました</p>
 					{#if viewerQrDataUrl}
 						<div class="flex justify-center mb-3">
 							<div class="bg-white p-3 rounded-lg shadow-sm">
 								<img src={viewerQrDataUrl} alt="閲覧QRコード" class="w-48 h-48" />
 							</div>
 						</div>
-						<p class="text-xs text-center text-gray-500 mb-3">
+						<p class="text-xs text-center text-[var(--color-text-muted)] mb-3">
 							スマートフォンのカメラでスキャンして閲覧できます
 						</p>
 					{/if}
@@ -474,7 +474,7 @@ const roleLabel = (role: string) => {
 									type="text"
 									value={viewerLink}
 									readonly
-									class="w-full px-3 py-2 bg-white border border-green-200 rounded-[var(--input-radius)] text-xs font-mono"
+									class="w-full px-3 py-2 bg-white border border-[var(--color-feedback-success-border)] rounded-[var(--input-radius)] text-xs font-mono"
 								/>
 							{/snippet}
 						</FormField>
@@ -495,23 +495,23 @@ const roleLabel = (role: string) => {
 					{#each data.viewerTokens as vt}
 						<div class="flex items-center justify-between py-3 gap-2">
 							<div class="flex-1 min-w-0">
-								<span class="text-sm font-medium text-gray-700 truncate block">
+								<span class="text-sm font-medium text-[var(--color-text-primary)] truncate block">
 									{vt.label || '(ラベルなし)'}
 								</span>
 								<div class="flex items-center gap-2 mt-0.5">
 									{#if vt.isRevoked}
-										<span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">無効</span>
+										<span class="text-xs px-2 py-0.5 rounded-full bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]">無効</span>
 									{:else if vt.isExpired}
-										<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">期限切れ</span>
+										<span class="text-xs px-2 py-0.5 rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)]">期限切れ</span>
 									{:else}
-										<span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">有効</span>
+										<span class="text-xs px-2 py-0.5 rounded-full bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]">有効</span>
 									{/if}
 									{#if vt.expiresAt}
-										<span class="text-xs text-gray-400">
+										<span class="text-xs text-[var(--color-text-tertiary)]">
 											期限: {new Date(vt.expiresAt).toLocaleDateString('ja-JP')}
 										</span>
 									{:else}
-										<span class="text-xs text-gray-400">無期限</span>
+										<span class="text-xs text-[var(--color-text-tertiary)]">無期限</span>
 									{/if}
 								</div>
 							</div>
