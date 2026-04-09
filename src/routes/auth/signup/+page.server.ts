@@ -2,14 +2,16 @@
 // Cognito SignUp + メール認証コード確認 + 確認後の自動ログイン
 
 import { fail, redirect } from '@sveltejs/kit';
-import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
+import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
 import {
 	authenticateWithCognito,
 	confirmSignUp,
 	resendConfirmationCode,
 	signUpWithCognito,
 } from '$lib/server/auth/providers/cognito-direct-auth';
+import { verifyIdentityToken } from '$lib/server/auth/providers/cognito-jwt';
 import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
+import type { Identity } from '$lib/server/auth/types';
 import { logger } from '$lib/server/logger';
 import { recordConsent } from '$lib/server/services/consent-service';
 import { notifyNewSignup } from '$lib/server/services/discord-notify-service';
@@ -128,8 +130,29 @@ export const actions: Actions = {
 		};
 	},
 
-	confirm: async ({ request, cookies, locals, getClientAddress }) => {
-		const _tenantId = locals.context?.tenantId;
+	/**
+	 * #589: 確認コード検証 → 自動ログイン → tenant provisioning → consent 記録 → /admin
+	 *
+	 * 旧実装は「tenantId が未確定（'unknown' フォールバック）の状態で recordConsent を呼ぼうとし、
+	 * if (tenantId !== 'unknown') 分岐で常にスキップされる」バグにより、新規ユーザーが
+	 * /admin にアクセスした瞬間 hooks.server.ts の consent チェックで /consent へ無限リダイレクト
+	 * される致命的問題があった。
+	 *
+	 * 本実装では以下の順序を厳守する:
+	 *   1. confirmSignUp で Cognito の確認コード検証
+	 *   2. authenticateWithCognito でトークン取得
+	 *   3. setIdentityCookie で identity cookie を設定
+	 *   4. authProvider.resolveContext で tenant を provisioning（初回ユーザーは新規作成）
+	 *   5. recordConsent で同意を記録（tenantId が揃ったこの時点で初めて可能）
+	 *   6. consumeLicenseKey と notifyNewSignup（Discord）
+	 *   7. /admin へリダイレクト
+	 *
+	 * 途中で失敗した場合はログを残して /auth/login?registered=true へフォールバック。
+	 * 手動ログイン後の初回リクエストで hooks.server.ts が provisionNewUser を走らせるが、
+	 * その時点でも consent は未記録のままなので /consent 画面で明示的に同意してもらう。
+	 */
+	confirm: async (event) => {
+		const { request, cookies, getClientAddress } = event;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
 		const code = (formData.get('code') as string)?.replace(/\s/g, '');
@@ -156,62 +179,97 @@ export const actions: Actions = {
 			});
 		}
 
-		// 新規登録通知（Discord）
-		const tenantId = locals.context?.tenantId ?? 'unknown';
-		notifyNewSignup(tenantId, email).catch(() => {});
+		// パスワードなし（旧フォーム互換）→ 手動ログインへフォールバック
+		if (!password) {
+			logger.warn('[SIGNUP] Confirm action missing password, falling back to manual login', {
+				context: { email },
+			});
+			redirect(302, '/auth/login?registered=true');
+		}
 
-		// ライセンスキーが入力されていた場合、テナントに紐付け
-		if (licenseKeyInput && tenantId !== 'unknown') {
+		// 自動ログインを試みる
+		const loginResult = await authenticateWithCognito(email, password);
+		if (!loginResult.success) {
+			logger.warn('[SIGNUP] Auto-login after confirm failed', {
+				context: {
+					email,
+					error: 'error' in loginResult ? loginResult.error : 'unknown',
+				},
+			});
+			redirect(302, '/auth/login?registered=true');
+		}
+
+		// Identity Cookie を設定（後続のリクエストで認証済みになる）
+		setIdentityCookie(cookies, loginResult.idToken);
+
+		// ID Token から identity を構築（現在のリクエスト内で tenant を解決するため）
+		const claims = await verifyIdentityToken(loginResult.idToken);
+		if (!claims) {
+			logger.error('[SIGNUP] Identity token verification failed after auto-login', {
+				context: { email },
+			});
+			redirect(302, '/auth/login?registered=true');
+		}
+
+		const identity: Identity = {
+			type: 'cognito',
+			userId: claims.sub,
+			email: claims.email,
+		};
+
+		// Tenant を provisioning（初回ユーザーなら provisionNewUser が走る）
+		const authProvider = getAuthProvider();
+		const context = await authProvider.resolveContext(event, identity);
+
+		if (!context) {
+			logger.error('[SIGNUP] Failed to provision tenant after signup confirm', {
+				context: { email, userId: claims.sub },
+			});
+			redirect(302, '/auth/login?registered=true');
+		}
+
+		const tenantId = context.tenantId;
+
+		// 新規登録通知（Discord）— fire-and-forget
+		notifyNewSignup(tenantId, email).catch((err) => {
+			logger.warn('[SIGNUP] Discord notification failed', {
+				context: { error: err instanceof Error ? err.message : String(err) },
+			});
+		});
+
+		// ライセンスキー紐付け（fire-and-forget — 失敗しても /admin 遷移は妨げない）
+		if (licenseKeyInput) {
 			consumeLicenseKey(licenseKeyInput, tenantId).catch((err) => {
 				logger.warn('[SIGNUP] License key consumption failed', {
-					error: err instanceof Error ? err.message : String(err),
+					context: {
+						error: err instanceof Error ? err.message : String(err),
+						tenantId,
+					},
 				});
 			});
 		}
 
-		// 同意記録（サインアップ完了後に記録）
-		if (tenantId !== 'unknown') {
-			const userId = locals.identity?.type === 'cognito' ? locals.identity.userId : 'unknown';
-			const ip = getClientAddress();
-			const ua = request.headers.get('user-agent') ?? '';
-			recordConsent(tenantId, userId, ['terms', 'privacy'], ip, ua).catch((err) => {
-				logger.warn('[CONSENT] Failed to record consent at signup', {
-					error: err instanceof Error ? err.message : String(err),
-				});
+		// Consent 記録（同期実行 — 失敗したら /consent 画面へ誘導）
+		const ip = getClientAddress();
+		const ua = request.headers.get('user-agent') ?? '';
+		try {
+			await recordConsent(tenantId, claims.sub, ['terms', 'privacy'], ip, ua);
+			logger.info('[SIGNUP] Consent recorded at signup', {
+				context: { tenantId, userId: claims.sub },
 			});
+		} catch (err) {
+			logger.error('[SIGNUP] Failed to record consent at signup', {
+				context: {
+					error: err instanceof Error ? err.message : String(err),
+					tenantId,
+					email,
+				},
+			});
+			// Consent 記録失敗 → /consent 画面で再取得
+			redirect(302, '/consent');
 		}
 
-		// 確認成功 → パスワードがあれば自動ログインを試みる
-		if (password) {
-			const loginResult = await autoLogin(email, password, cookies);
-			if (loginResult === 'ok') {
-				redirect(302, '/admin');
-			}
-		}
-
-		// 自動ログインできなかった場合はログインページへ
-		redirect(302, '/auth/login?registered=true');
+		// 正常完了
+		redirect(302, '/admin');
 	},
 };
-
-/** 確認後の自動ログイン（失敗してもエラーにしない） */
-async function autoLogin(
-	email: string,
-	password: string,
-	cookies: import('@sveltejs/kit').Cookies,
-): Promise<'ok' | 'fallback'> {
-	try {
-		const result = await authenticateWithCognito(email, password);
-		if (result.success) {
-			setIdentityCookie(cookies, result.idToken);
-			return 'ok';
-		}
-		// MFA チャレンジやエラーの場合はフォールバック
-		return 'fallback';
-	} catch (e) {
-		logger.warn('[AUTH] Auto-login after signup failed', {
-			context: { error: e instanceof Error ? e.message : String(e) },
-		});
-		return 'fallback';
-	}
-}

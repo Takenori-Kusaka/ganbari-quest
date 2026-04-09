@@ -24,10 +24,20 @@ vi.mock('$lib/server/auth/providers/cognito-oauth', () => ({
 	setIdentityCookie: (...args: unknown[]) => mockSetIdentityCookie(...args),
 }));
 
+// --- Cognito JWT モック (#589: confirm action で identity 解決のため追加) ---
+const mockVerifyIdentityToken = vi.fn();
+vi.mock('$lib/server/auth/providers/cognito-jwt', () => ({
+	verifyIdentityToken: (...args: unknown[]) => mockVerifyIdentityToken(...args),
+}));
+
 // --- Auth Factory モック ---
+// #589: confirm action で tenant provisioning のため getAuthProvider を追加
+const mockResolveContext = vi.fn();
+const mockAuthProvider = { resolveContext: mockResolveContext };
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
 	isCognitoDevMode: () => false,
+	getAuthProvider: () => mockAuthProvider,
 }));
 
 // --- Logger モック ---
@@ -36,8 +46,9 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 // --- Consent Service モック ---
+const mockRecordConsent = vi.fn();
 vi.mock('$lib/server/services/consent-service', () => ({
-	recordConsent: vi.fn().mockResolvedValue(undefined),
+	recordConsent: (...args: unknown[]) => mockRecordConsent(...args),
 	checkConsent: vi.fn().mockResolvedValue({ needsReconsent: false }),
 	CURRENT_TERMS_VERSION: '2026-03-29',
 	CURRENT_PRIVACY_VERSION: '2026-03-29',
@@ -60,6 +71,10 @@ beforeEach(() => {
 	mockAuthenticate.mockReset();
 	mockSetIdentityCookie.mockReset();
 	mockResendConfirmationCode.mockReset();
+	mockVerifyIdentityToken.mockReset();
+	mockResolveContext.mockReset();
+	mockRecordConsent.mockReset();
+	mockRecordConsent.mockResolvedValue(undefined);
 });
 
 /** FormData モック */
@@ -71,10 +86,13 @@ function createFormData(data: Record<string, string>): FormData {
 	return fd;
 }
 
-/** Request モック */
+/** Request モック — user-agent ヘッダも含めて recordConsent 用に再現 */
 function createRequest(data: Record<string, string>): Request {
 	const fd = createFormData(data);
-	return { formData: () => Promise.resolve(fd) } as unknown as Request;
+	return {
+		formData: () => Promise.resolve(fd),
+		headers: { get: (name: string) => (name === 'user-agent' ? 'test-ua' : null) },
+	} as unknown as Request;
 }
 
 /** Cookies モック */
@@ -90,6 +108,19 @@ function createMockCookies() {
 
 /** Mock locals (context is null for unauthenticated signup) */
 const mockLocals = { authenticated: false, identity: null, context: null };
+
+/**
+ * #589: confirm action 用の完全な RequestEvent モックを作成
+ * (action は event 全体を受け取り `getClientAddress()` と `authProvider.resolveContext(event, identity)` を呼ぶ)
+ */
+function createConfirmEvent(formData: Record<string, string>) {
+	return {
+		request: createRequest(formData),
+		cookies: createMockCookies(),
+		locals: mockLocals,
+		getClientAddress: () => '127.0.0.1',
+	};
+}
 
 // ============================================================
 // signup action
@@ -204,12 +235,29 @@ describe('signup action', () => {
 // confirm action
 // ============================================================
 describe('confirm action', () => {
+	// #589: 自動ログイン成功後に tenant を解決できる状態にするヘルパー
+	function setupSuccessfulAutoLogin() {
+		mockConfirmSignUp.mockResolvedValue({ success: true });
+		mockAuthenticate.mockResolvedValue({
+			success: true,
+			idToken: 'new-id-token',
+			accessToken: 'new-access-token',
+		});
+		mockVerifyIdentityToken.mockResolvedValue({
+			sub: 'cognito-user-id-123',
+			email: 'test@example.com',
+		});
+		mockResolveContext.mockResolvedValue({
+			tenantId: 'tenant-abc',
+			userId: 'cognito-user-id-123',
+		});
+	}
+
 	it('email/code が空の場合 400 エラーを返し confirmStep を維持', async () => {
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
-		const request = createRequest({ email: '', code: '' });
-		const cookies = createMockCookies();
+		const event = createConfirmEvent({ email: '', code: '' });
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
-		const result = await (actions.confirm as any)({ request, cookies, locals: mockLocals });
+		const result = await (actions.confirm as any)(event);
 
 		expect(result.status).toBe(400);
 		expect(result.data.confirmStep).toBe(true);
@@ -223,13 +271,12 @@ describe('confirm action', () => {
 		});
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
-		const request = createRequest({
+		const event = createConfirmEvent({
 			email: 'test@example.com',
 			code: '000000',
 		});
-		const cookies = createMockCookies();
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
-		const result = await (actions.confirm as any)({ request, cookies, locals: mockLocals });
+		const result = await (actions.confirm as any)(event);
 
 		expect(result.status).toBe(400);
 		expect(result.data.error).toContain('確認コード');
@@ -237,50 +284,58 @@ describe('confirm action', () => {
 		expect(result.data.confirmStep).toBe(true);
 	});
 
-	it('確認成功 + パスワードあり → 自動ログインして /admin にリダイレクト', async () => {
-		mockConfirmSignUp.mockResolvedValue({ success: true });
-		mockAuthenticate.mockResolvedValue({
-			success: true,
-			idToken: 'new-id-token',
-			accessToken: 'new-access-token',
-		});
+	it('確認成功 + パスワードあり → 自動ログイン + tenant provisioning + consent 記録 → /admin', async () => {
+		setupSuccessfulAutoLogin();
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
-		const request = createRequest({
+		const event = createConfirmEvent({
 			email: 'test@example.com',
 			code: '123456',
 			password: 'Password1',
 		});
-		const cookies = createMockCookies();
 
 		try {
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
-			await (actions.confirm as any)({ request, cookies, locals: mockLocals });
-			// redirect は throw されるのでここには来ないはず
+			await (actions.confirm as any)(event);
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
-			// SvelteKit redirect
 			expect((e as { status: number }).status).toBe(302);
 			expect((e as { location: string }).location).toBe('/admin');
 		}
 
 		// Cookie にトークンがセットされたことを確認
-		expect(mockSetIdentityCookie).toHaveBeenCalledWith(cookies, 'new-id-token');
+		expect(mockSetIdentityCookie).toHaveBeenCalledWith(event.cookies, 'new-id-token');
+		// tenant provisioning が呼ばれる
+		expect(mockResolveContext).toHaveBeenCalledWith(
+			event,
+			expect.objectContaining({
+				type: 'cognito',
+				userId: 'cognito-user-id-123',
+				email: 'test@example.com',
+			}),
+		);
+		// #589 の核心: recordConsent が解決後の tenantId で同期的に呼ばれる
+		expect(mockRecordConsent).toHaveBeenCalledWith(
+			'tenant-abc',
+			'cognito-user-id-123',
+			['terms', 'privacy'],
+			'127.0.0.1',
+			'test-ua',
+		);
 	});
 
-	it('確認成功 + パスワードなし → /auth/login にリダイレクト', async () => {
+	it('確認成功 + パスワードなし → /auth/login にリダイレクト（旧フォーム互換）', async () => {
 		mockConfirmSignUp.mockResolvedValue({ success: true });
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
-		const request = createRequest({
+		const event = createConfirmEvent({
 			email: 'test@example.com',
 			code: '123456',
 		});
-		const cookies = createMockCookies();
 
 		try {
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
-			await (actions.confirm as any)({ request, cookies, locals: mockLocals });
+			await (actions.confirm as any)(event);
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
@@ -289,6 +344,8 @@ describe('confirm action', () => {
 
 		// 自動ログインは試みられていない
 		expect(mockAuthenticate).not.toHaveBeenCalled();
+		// consent 記録も実行されていない
+		expect(mockRecordConsent).not.toHaveBeenCalled();
 	});
 
 	it('確認成功 + 自動ログイン失敗 → /auth/login にフォールバック', async () => {
@@ -300,21 +357,21 @@ describe('confirm action', () => {
 		});
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
-		const request = createRequest({
+		const event = createConfirmEvent({
 			email: 'test@example.com',
 			code: '123456',
 			password: 'Password1',
 		});
-		const cookies = createMockCookies();
 
 		try {
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
-			await (actions.confirm as any)({ request, cookies, locals: mockLocals });
+			await (actions.confirm as any)(event);
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
 			expect((e as { location: string }).location).toBe('/auth/login?registered=true');
 		}
+		expect(mockRecordConsent).not.toHaveBeenCalled();
 	});
 
 	it('確認成功 + MFA チャレンジ → /auth/login にフォールバック', async () => {
@@ -328,21 +385,106 @@ describe('confirm action', () => {
 		});
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
-		const request = createRequest({
+		const event = createConfirmEvent({
 			email: 'test@example.com',
 			code: '123456',
 			password: 'Password1',
 		});
-		const cookies = createMockCookies();
 
 		try {
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
-			await (actions.confirm as any)({ request, cookies, locals: mockLocals });
+			await (actions.confirm as any)(event);
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
 			expect((e as { location: string }).location).toBe('/auth/login?registered=true');
 		}
+	});
+
+	// #589: 以下はバグ修正の回帰防止テスト
+	it('#589: verifyIdentityToken 失敗時 → /auth/login にフォールバック（consent 未記録）', async () => {
+		mockConfirmSignUp.mockResolvedValue({ success: true });
+		mockAuthenticate.mockResolvedValue({
+			success: true,
+			idToken: 'new-id-token',
+			accessToken: 'new-access-token',
+		});
+		mockVerifyIdentityToken.mockResolvedValue(null);
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable('should have thrown redirect');
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+			expect((e as { location: string }).location).toBe('/auth/login?registered=true');
+		}
+
+		expect(mockResolveContext).not.toHaveBeenCalled();
+		expect(mockRecordConsent).not.toHaveBeenCalled();
+	});
+
+	it('#589: tenant provisioning 失敗時 → /auth/login にフォールバック（consent 未記録）', async () => {
+		mockConfirmSignUp.mockResolvedValue({ success: true });
+		mockAuthenticate.mockResolvedValue({
+			success: true,
+			idToken: 'new-id-token',
+			accessToken: 'new-access-token',
+		});
+		mockVerifyIdentityToken.mockResolvedValue({
+			sub: 'cognito-user-id-123',
+			email: 'test@example.com',
+		});
+		mockResolveContext.mockResolvedValue(null);
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable('should have thrown redirect');
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+			expect((e as { location: string }).location).toBe('/auth/login?registered=true');
+		}
+
+		expect(mockRecordConsent).not.toHaveBeenCalled();
+	});
+
+	it('#589: recordConsent 失敗時 → /consent に誘導して再同意を促す', async () => {
+		setupSuccessfulAutoLogin();
+		mockRecordConsent.mockRejectedValue(new Error('DynamoDB unavailable'));
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable('should have thrown redirect');
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+			expect((e as { location: string }).location).toBe('/consent');
+		}
+
+		// tenant は provisioning されているので cookie もセット済み
+		expect(mockSetIdentityCookie).toHaveBeenCalled();
 	});
 });
 
