@@ -2,6 +2,7 @@
 // 誕生日ボーナスポイントの判定・付与サービス
 
 import { todayDateJST } from '$lib/domain/date-utils';
+import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { findChildById, updateChild } from '$lib/server/db/child-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 import type { Child } from '$lib/server/db/types';
@@ -158,11 +159,16 @@ export async function claimBirthdayBonus(
 	const totalPoints = calcBirthdayBonus(newAge, multiplier);
 	const currentYear = new Date(`${today}T00:00:00`).getFullYear();
 
-	// 年齢更新 + 重複防止フラグ設定
+	// #580: 年齢境界（preschool/elementary/junior/senior）を跨いだ場合、
+	// uiMode も自動的に再計算する。ポリシー: 常に自動上書き（手動設定は誕生日後に再調整）。
+	const newUiMode = getDefaultUiMode(newAge);
+
+	// 年齢更新 + uiMode 再計算 + 重複防止フラグ設定
 	await updateChild(
 		childId,
 		{
 			age: newAge,
+			uiMode: newUiMode,
 			lastBirthdayBonusYear: currentYear,
 		},
 		tenantId,
