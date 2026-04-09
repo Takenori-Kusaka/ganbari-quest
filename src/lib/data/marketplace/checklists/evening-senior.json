@@ -1,0 +1,24 @@
+{
+	"type": "checklist",
+	"itemId": "evening-senior",
+	"name": "夜のルーティン（高校生）",
+	"description": "13〜18歳の夜の自律管理。学習・スマホ管理・睡眠リズムを自分でコントロールします。",
+	"icon": "🌙",
+	"targetAgeMin": 13,
+	"targetAgeMax": 18,
+	"tags": ["夜", "自己管理", "高校生"],
+	"personas": ["self-care", "academic-oriented"],
+	"curator": "official",
+	"payload": {
+		"timing": "evening",
+		"items": [
+			{ "label": "学習の振り返り", "icon": "📝", "order": 1 },
+			{ "label": "明日の予定確認", "icon": "📅", "order": 2 },
+			{ "label": "入浴・スキンケア", "icon": "🛁", "order": 3 },
+			{ "label": "歯磨き", "icon": "🪥", "order": 4 },
+			{ "label": "SNSチェック終了", "icon": "📱", "order": 5 },
+			{ "label": "ストレッチ", "icon": "🧘", "order": 6 },
+			{ "label": "23時までに就寝", "icon": "🌙", "order": 7 }
+		]
+	}
+}

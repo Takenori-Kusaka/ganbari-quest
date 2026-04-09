@@ -1,0 +1,35 @@
+{
+	"type": "rule-preset",
+	"itemId": "self-study-reward",
+	"name": "じしゅがくしゅうボーナス",
+	"description": "宿題以外の自主的な学習にボーナスポイント。自ら学ぶ姿勢を育てるルールセットです。",
+	"icon": "📖",
+	"targetAgeMin": 6,
+	"targetAgeMax": 18,
+	"tags": ["ボーナス", "学習", "自主性"],
+	"personas": ["academic-oriented", "achievement-focused"],
+	"curator": "official",
+	"payload": {
+		"ruleType": "bonus",
+		"rules": [
+			{
+				"title": "じしゅがくしゅうボーナス",
+				"description": "宿題以外に自主学習を30分以上したら +10ポイント",
+				"icon": "📖",
+				"pointBonus": 10
+			},
+			{
+				"title": "しんきかもくボーナス",
+				"description": "新しい教科や分野に挑戦したら +15ポイント",
+				"icon": "🆕",
+				"pointBonus": 15
+			},
+			{
+				"title": "ウィークリー学習マスター",
+				"description": "1週間で5日以上自主学習したら +30ポイント",
+				"icon": "🏆",
+				"pointBonus": 30
+			}
+		]
+	}
+}

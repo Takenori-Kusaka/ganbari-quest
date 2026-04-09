@@ -1,0 +1,51 @@
+{
+	"type": "reward-set",
+	"itemId": "screen-time-rewards",
+	"name": "スクリーンタイムごほうび",
+	"description": "ゲームやスマホの時間をポイントで「購入」するスタイル。デジタルとの付き合い方を学べるごほうびセットです。",
+	"icon": "📱",
+	"targetAgeMin": 5,
+	"targetAgeMax": 18,
+	"tags": ["テーマ別", "デジタル", "スクリーンタイム"],
+	"personas": ["game-oriented", "dual-income"],
+	"curator": "official",
+	"payload": {
+		"rewards": [
+			{
+				"title": "ゲーム15分",
+				"points": 15,
+				"icon": "🎮",
+				"category": "other",
+				"description": "ゲームの じかんを 15分 ゲット"
+			},
+			{
+				"title": "YouTube15分",
+				"points": 15,
+				"icon": "▶️",
+				"category": "other",
+				"description": "YouTubeを 15分 みられるよ"
+			},
+			{
+				"title": "タブレット30分",
+				"points": 30,
+				"icon": "📱",
+				"category": "other",
+				"description": "タブレットで 30分 あそべるよ"
+			},
+			{
+				"title": "好きなアプリ30分",
+				"points": 30,
+				"icon": "📲",
+				"category": "other",
+				"description": "好きなアプリで 30分遊べる"
+			},
+			{
+				"title": "映画1本",
+				"points": 50,
+				"icon": "🎬",
+				"category": "creative",
+				"description": "好きな 映画やアニメを 1本みよう"
+			}
+		]
+	}
+}

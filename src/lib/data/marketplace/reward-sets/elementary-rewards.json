@@ -1,0 +1,58 @@
+{
+	"type": "reward-set",
+	"itemId": "elementary-rewards",
+	"name": "しょうがくせいごほうび",
+	"description": "6〜9歳向け。ゲーム時間、お小遣い、友達との遊び時間など、小学生のやる気が出るごほうびセットです。",
+	"icon": "🏆",
+	"targetAgeMin": 6,
+	"targetAgeMax": 9,
+	"tags": ["年齢別", "小学生", "やる気UP"],
+	"personas": ["achievement-focused", "game-oriented"],
+	"curator": "official",
+	"payload": {
+		"rewards": [
+			{
+				"title": "ゲーム30ぷん",
+				"points": 30,
+				"icon": "🎮",
+				"category": "other",
+				"description": "ゲームで30分 あそべるよ"
+			},
+			{
+				"title": "おこづかい100えん",
+				"points": 50,
+				"icon": "💰",
+				"category": "other",
+				"description": "がんばった ごほうびに おこづかい！"
+			},
+			{
+				"title": "ともだちとあそぶ",
+				"points": 20,
+				"icon": "👫",
+				"category": "social",
+				"description": "おともだちと あそぶ じかんをもらおう"
+			},
+			{
+				"title": "すきなほんをかう",
+				"points": 80,
+				"icon": "📚",
+				"category": "academic",
+				"description": "すきな ほんを えらんで かってもらおう"
+			},
+			{
+				"title": "よふかし30ぷん",
+				"points": 40,
+				"icon": "🌙",
+				"category": "other",
+				"description": "とくべつに すこしだけ おそく おきていいよ"
+			},
+			{
+				"title": "おでかけさき えらべる",
+				"points": 60,
+				"icon": "🗺️",
+				"category": "other",
+				"description": "つぎの おやすみの おでかけさきを きめよう"
+			}
+		]
+	}
+}

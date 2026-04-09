@@ -1,0 +1,29 @@
+{
+	"type": "rule-preset",
+	"itemId": "sibling-coop",
+	"name": "きょうだいきょうりょく",
+	"description": "きょうだいで協力して達成するとボーナスがもらえるルール。きょうだい仲を深めます。",
+	"icon": "👫",
+	"targetAgeMin": 3,
+	"targetAgeMax": 12,
+	"tags": ["ボーナス", "きょうだい", "協力"],
+	"personas": ["sibling"],
+	"curator": "official",
+	"payload": {
+		"ruleType": "bonus",
+		"rules": [
+			{
+				"title": "きょうだいいっしょボーナス",
+				"description": "きょうだい全員が同日に活動記録すると +10ポイント（各自に付与）",
+				"icon": "👫",
+				"pointBonus": 10
+			},
+			{
+				"title": "きょうだいおうえんボーナス",
+				"description": "きょうだいの活動を手伝ったら記録して +5ポイント",
+				"icon": "💪",
+				"pointBonus": 5
+			}
+		]
+	}
+}

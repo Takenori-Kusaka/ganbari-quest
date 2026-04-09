@@ -1,0 +1,15 @@
+{
+	"type": "activity-pack",
+	"itemId": "senior-high-challenge",
+	"name": "高校生チャレンジ",
+	"description": "13〜18歳のお子さま向け。受験準備や自己管理、社会性を育てる高校生向け活動セットです。",
+	"icon": "🏫",
+	"targetAgeMin": 13,
+	"targetAgeMax": 18,
+	"tags": ["高校生", "受験", "自己管理"],
+	"personas": ["academic-oriented", "achievement-focused"],
+	"curator": "official",
+	"payload": {
+		"legacyPackId": "senior-high-challenge"
+	}
+}

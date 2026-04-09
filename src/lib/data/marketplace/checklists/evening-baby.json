@@ -1,0 +1,22 @@
+{
+	"type": "checklist",
+	"itemId": "evening-baby",
+	"name": "よるの じゅんび（ベビー）",
+	"description": "0〜2歳のおやすみ前ルーティン。おふろ・はみがき・ねかしつけの流れをチェックリストに。",
+	"icon": "🌙",
+	"targetAgeMin": 0,
+	"targetAgeMax": 2,
+	"tags": ["夜", "生活習慣", "赤ちゃん"],
+	"personas": ["first-child", "routine-focused"],
+	"curator": "official",
+	"payload": {
+		"timing": "evening",
+		"items": [
+			{ "label": "おふろ", "icon": "🛁", "order": 1 },
+			{ "label": "はみがき", "icon": "🪥", "order": 2 },
+			{ "label": "パジャマにきがえ", "icon": "👕", "order": 3 },
+			{ "label": "えほんタイム", "icon": "📚", "order": 4 },
+			{ "label": "おやすみなさい", "icon": "🌙", "order": 5 }
+		]
+	}
+}

@@ -1,0 +1,15 @@
+{
+	"type": "activity-pack",
+	"itemId": "otetsudai-master",
+	"name": "おてつだいマスター",
+	"description": "4〜10歳のお子さま向け。年齢に応じた家事スキルを段階的に身につけ、家族への貢献心を育てます。",
+	"icon": "💪",
+	"targetAgeMin": 4,
+	"targetAgeMax": 10,
+	"tags": ["テーマ別", "お手伝い", "家事スキル"],
+	"personas": ["self-care", "dual-income"],
+	"curator": "official",
+	"payload": {
+		"legacyPackId": "otetsudai-master"
+	}
+}

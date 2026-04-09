@@ -1,0 +1,24 @@
+{
+	"type": "checklist",
+	"itemId": "weekend-junior",
+	"name": "週末チェック（中学生）",
+	"description": "10〜12歳の週末自己管理チェックリスト。学習と遊びのメリハリをつける習慣づくりに。",
+	"icon": "🌈",
+	"targetAgeMin": 10,
+	"targetAgeMax": 12,
+	"tags": ["週末", "自己管理", "中学生"],
+	"personas": ["achievement-focused", "self-care"],
+	"curator": "official",
+	"payload": {
+		"timing": "weekend",
+		"items": [
+			{ "label": "週末の宿題", "icon": "📝", "order": 1 },
+			{ "label": "自主学習30分", "icon": "📖", "order": 2 },
+			{ "label": "運動・外出", "icon": "🏃", "order": 3 },
+			{ "label": "お手伝い", "icon": "🧹", "order": 4 },
+			{ "label": "部屋の整理", "icon": "🗂️", "order": 5 },
+			{ "label": "来週の予定を確認", "icon": "📅", "order": 6 },
+			{ "label": "自由時間", "icon": "🎮", "order": 7 }
+		]
+	}
+}
