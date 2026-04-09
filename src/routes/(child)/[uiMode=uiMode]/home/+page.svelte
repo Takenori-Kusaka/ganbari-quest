@@ -24,7 +24,6 @@ import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
 import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
 import SiblingRanking from '$lib/ui/components/SiblingRanking.svelte';
-import SpecialRewardProgress from '$lib/ui/components/SpecialRewardProgress.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -554,14 +553,6 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		</form>
 	{/if}
 
-	<!-- Special reward progress indicator -->
-	{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
-		<SpecialRewardProgress
-			remaining={data.specialRewardProgress.remaining}
-			interval={data.specialRewardProgress.interval}
-		/>
-	{/if}
-
 	<!-- Tutorial hint banner (one-time) -->
 	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
 
@@ -902,6 +893,11 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{/if}
 
 				<p class="text-xs text-[var(--color-text-muted)]">きょう {todayTotalCount + 1}かいめ！</p>
+				{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
+					<p class="text-xs text-[var(--color-text-muted)]">
+						🎁 あと<strong class="text-[var(--color-point)]">{Math.max(data.specialRewardProgress.remaining - 1, 0)}</strong>かいで とくべつごほうび！
+					</p>
+				{/if}
 
 				<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-sm)]">
 					<!-- Cancel button with countdown -->
