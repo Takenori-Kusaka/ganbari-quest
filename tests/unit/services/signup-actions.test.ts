@@ -51,7 +51,7 @@ vi.mock('$lib/server/services/consent-service', () => ({
 	recordConsent: (...args: unknown[]) => mockRecordConsent(...args),
 	checkConsent: vi.fn().mockResolvedValue({ needsReconsent: false }),
 	CURRENT_TERMS_VERSION: '2026-03-29',
-	CURRENT_PRIVACY_VERSION: '2026-03-29',
+	CURRENT_PRIVACY_VERSION: '2026-04-09',
 }));
 
 // --- Discord Notify Service モック ---
