@@ -1,4 +1,4 @@
-# 0008. Cognito + Google OAuth 認証
+# 0013. Cognito + Google OAuth 認証
 
 | 項目 | 内容 |
 |------|------|

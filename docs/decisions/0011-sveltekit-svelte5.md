@@ -1,4 +1,4 @@
-# 0006. SvelteKit 2 + Svelte 5 (Runes) 採用
+# 0011. SvelteKit 2 + Svelte 5 (Runes) 採用
 
 | 項目 | 内容 |
 |------|------|
@@ -17,7 +17,7 @@
 - デメリット: バンドルサイズ大、PWA対応に追加設定必要
 
 ### 選択肢 B: SvelteKit 2 + Svelte 5
-- メリット: 軽量、コンパイル時最適化、Runes による直感的リアクティビティ、PWA ビルトインサポート
+- メリット: 軽量、コンパイル時最適化、Runes による直感的リアクティビティ、PWA対応しやすい（Service Worker/manifest追加で実現）
 - デメリット: エコシステムが React より小さい
 
 ### 選択肢 C: Nuxt (Vue)

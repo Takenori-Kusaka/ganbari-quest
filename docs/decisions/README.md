@@ -52,8 +52,13 @@
 | 0003 | [設計書は Single Source of Truth](0003-design-doc-as-source-of-truth.md) | accepted | 2026-04-06 |
 | 0004 | [スタンプカード正仕様](0004-stamp-card-spec.md) | accepted | 2026-04-06 |
 | 0005 | [Critical 修正の品質ゲート](0005-critical-fix-quality-gate.md) | accepted | 2026-04-06 |
-| 0006 | [SvelteKit + Svelte 5 採用](0006-sveltekit-svelte5.md) | accepted | 2026-01-15 |
-| 0007 | [DynamoDB シングルテーブル設計](0007-dynamodb-single-table.md) | accepted | 2026-02-20 |
-| 0008 | [Cognito + Google OAuth 認証](0008-cognito-google-oauth.md) | accepted | 2026-02-25 |
-| 0009 | [3層CSSトークンアーキテクチャ](0009-css-token-architecture.md) | accepted | 2026-03-15 |
-| 0010 | [Repository パターンによる DB 抽象化](0010-repository-pattern.md) | accepted | 2026-02-15 |
+| 0006 | [PR レビューは文書化された指摘を必ず出力する](0006-pr-review-must-document-findings.md) | accepted | 2026-04-07 |
+| 0007 | [画像アセットが存在する機能を絵文字に戻すことは明示的デグレ](0007-image-asset-protection.md) | accepted | 2026-04-07 |
+| 0008 | [年齢モード5重複の変更リスク管理](0008-age-mode-duplication-risk.md) | accepted | 2026-04-07 |
+| 0009 | [server→client 型契約の安全性確保](0009-server-client-type-contract.md) | accepted | 2026-04-07 |
+| 0010 | *(欠番 — main で未使用)* | — | — |
+| 0011 | [SvelteKit + Svelte 5 採用](0011-sveltekit-svelte5.md) | accepted | 2026-01-15 |
+| 0012 | [DynamoDB シングルテーブル設計](0012-dynamodb-single-table.md) | accepted | 2026-02-20 |
+| 0013 | [Cognito + Google OAuth 認証](0013-cognito-google-oauth.md) | accepted | 2026-02-25 |
+| 0014 | [3層CSSトークンアーキテクチャ](0014-css-token-architecture.md) | accepted | 2026-03-15 |
+| 0015 | [Repository パターンによる DB 抽象化](0015-repository-pattern.md) | accepted | 2026-02-15 |
