@@ -16,7 +16,7 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import FamilyStreakBanner from '$lib/ui/components/FamilyStreakBanner.svelte';
-import FocusMode from '$lib/ui/components/FocusMode.svelte';
+
 import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
@@ -164,26 +164,6 @@ const activitiesByCategory = $derived(
 	})).filter((g) => g.items.length > 0),
 );
 
-// Focus mode (#0264): recommended activities
-const recommendedIdSet = $derived(new Set(data.recommendedActivityIds ?? []));
-const recommendedActivities = $derived(data.activities.filter((a) => recommendedIdSet.has(a.id)));
-const focusCompletedCount = $derived(recommendedActivities.filter((a) => isCompleted(a)).length);
-const focusAllCompleted = $derived(
-	recommendedActivities.length > 0 && focusCompletedCount === recommendedActivities.length,
-);
-// Focus mode: programmatic record for ActivityCard tap
-let focusRecordActivityId = $state<number | null>(null);
-
-function handleActivityTap(activity: { id: number; name: string; icon: string }) {
-	if (submitting || resultOpen || levelUpOpen || rewardOpen || stampPressOpen) return;
-	focusRecordActivityId = activity.id;
-	soundService.ensureContext();
-	soundService.play('tap');
-	tick().then(() => {
-		document.getElementById('focus-record-btn')?.click();
-	});
-}
-
 function handleActivityLongPress(_activity: { id: number; name: string; isPinned?: boolean }) {
 	// Baby mode does not support long press actions
 }
@@ -327,77 +307,8 @@ $effect(() => {
 		</form>
 	{/if}
 
-	<!-- Hidden form for focus mode programmatic record -->
-	{#if focusRecordActivityId !== null}
-		<form
-			method="POST"
-			action="?/record"
-			use:enhance={() => {
-				submitting = true;
-				pendingActivityId = focusRecordActivityId;
-				return async ({ result }) => {
-					submitting = false;
-					pendingActivityId = null;
-					focusRecordActivityId = null;
-					if (result.type === 'success' && result.data && 'success' in result.data) {
-						const d = result.data as {
-							logId: number; activityName: string; totalPoints: number; streakDays: number; streakBonus: number;
-							masteryBonus?: number; masteryLevel?: number;
-							masteryLeveledUp?: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
-							cancelableUntil: string;
-							comboBonus: { categoryCombo: { categoryId: number; name: string; bonus: number }[]; crossCategoryCombo: { name: string; bonus: number } | null; miniCombo: { uniqueCount: number; bonus: number } | null; hints: { message: string }[]; totalNewBonus: number } | null;
-							missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
-							levelUp: { oldLevel: number; oldTitle: string; newLevel: number; newTitle: string; categoryId?: number; categoryName?: string; spGranted?: number } | null;
-							xpGain?: { categoryId: number; categoryName: string; xpBefore: number; xpAfter: number; maxValue: number; levelBefore: number; levelAfter: number };
-						};
-						resultIcon = '';
-						resultName = d.activityName;
-						resultPoints = d.totalPoints;
-						resultLogId = d.logId;
-						resultComboBonus = d.comboBonus ?? null;
-						resultMasteryBonus = d.masteryBonus ?? 0;
-						resultMasteryLevel = d.masteryLevel ?? 1;
-						resultMasteryLeveledUp = d.masteryLeveledUp ?? null;
-						missionResult = d.missionComplete ?? null;
-						levelUpData = d.levelUp ?? null;
-						xpGainData = d.xpGain ?? null;
-						startCancelCountdown(d.cancelableUntil);
-						soundService.playRecordComplete();
-						setTimeout(() => soundService.play('point-gain'), 300);
-						resultOpen = true;
-					} else if (result.type === 'failure' && result.data && 'error' in result.data) {
-						errorMessage = String(result.data.error);
-						soundService.play('error');
-						setTimeout(() => { errorMessage = ''; }, 3000);
-						invalidateAll();
-					} else {
-						invalidateAll();
-					}
-				};
-			}}
-			class="hidden"
-		>
-			<input type="hidden" name="activityId" value={focusRecordActivityId} />
-			<Button type="submit" id="focus-record-btn" variant="ghost" size="sm">record</Button>
-		</form>
-	{/if}
-
 	<!-- Tutorial hint banner (one-time) -->
 	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
-
-	<!-- Daily Quest: compact recommended activities (#0288) -->
-	{#if data.focusMode && recommendedActivities.length > 0}
-		<div data-tutorial="daily-missions">
-		<FocusMode
-			{recommendedActivities}
-			allCompleted={focusAllCompleted}
-			completedCount={focusCompletedCount}
-			totalCount={recommendedActivities.length}
-			completedIds={new Set(recommendedActivities.filter((a) => isCompleted(a)).map((a) => a.id))}
-			onactivityclick={(activity) => handleActivityTap(activity)}
-		/>
-		</div>
-	{/if}
 
 	<!-- Activity grid by category (always visible) -->
 	{#each activitiesByCategory as group, groupIdx (group.categoryId)}

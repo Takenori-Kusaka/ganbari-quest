@@ -16,7 +16,6 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import FamilyStreakBanner from '$lib/ui/components/FamilyStreakBanner.svelte';
-import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -182,13 +181,6 @@ const activitiesByCategory = $derived(
 	})).filter((g) => g.items.length > 0),
 );
 
-// Focus mode (#0264): recommended activities
-const recommendedIdSet = $derived(new Set(data.recommendedActivityIds ?? []));
-const recommendedActivities = $derived(data.activities.filter((a) => recommendedIdSet.has(a.id)));
-const focusCompletedCount = $derived(recommendedActivities.filter((a) => isCompleted(a)).length);
-const focusAllCompleted = $derived(
-	recommendedActivities.length > 0 && focusCompletedCount === recommendedActivities.length,
-);
 function handleActivityTap(activity: { id: number; name: string; icon: string }) {
 	if (submitting || confirmOpen || resultOpen || levelUpOpen || rewardOpen || stampPressOpen)
 		return;
@@ -394,20 +386,6 @@ $effect(() => {
 
 	<!-- Tutorial hint banner (one-time) -->
 	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
-
-	<!-- Daily Quest: compact recommended activities (#0288) -->
-	{#if data.focusMode && recommendedActivities.length > 0}
-		<div data-tutorial="daily-missions">
-		<FocusMode
-			{recommendedActivities}
-			allCompleted={focusAllCompleted}
-			completedCount={focusCompletedCount}
-			totalCount={recommendedActivities.length}
-			completedIds={new Set(recommendedActivities.filter((a) => isCompleted(a)).map((a) => a.id))}
-			onactivityclick={(activity) => handleActivityTap(activity)}
-		/>
-		</div>
-	{/if}
 
 	<!-- Activity grid by category (always visible) -->
 	{#each activitiesByCategory as group, groupIdx (group.categoryId)}
