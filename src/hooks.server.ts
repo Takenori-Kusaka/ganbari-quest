@@ -4,6 +4,7 @@ import { analytics } from '$lib/analytics';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
+import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legacy-url-map';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
 import { trackServerError } from '$lib/server/services/analytics-service';
 import { checkConsent } from '$lib/server/services/consent-service';
@@ -182,6 +183,30 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.request.headers.set('X-RateLimit-Remaining', String(remaining));
 	}
 
+	// 0-c) 旧 URL の中央リダイレクト（#578）
+	//
+	// 年齢区分リネーム等で廃止された URL は `legacy-url-map.ts` に集約されている。
+	// ここで一括処理することで、個別ルートに散在していた 404 救済ロジックを
+	// 不要にする。クエリ文字列・ハッシュは保持される。
+	//
+	// 認証・セッション解決より前に実行するため、ログイン状態に関係なく
+	// 全ユーザーに対してリダイレクトが効く。
+	const legacyEntry = findLegacyRedirect(path);
+	if (legacyEntry) {
+		const newPath = rewriteLegacyPath(path, legacyEntry);
+		const newUrl = newPath + event.url.search + event.url.hash;
+		logger.info(`Legacy URL redirect: ${path} → ${newPath} (${legacyEntry.issue})`, {
+			requestId: event.locals.requestId,
+			path,
+			context: {
+				from: path,
+				to: newPath,
+				issue: legacyEntry.issue,
+			},
+		});
+		redirect(legacyEntry.status ?? 308, newUrl);
+	}
+
 	// 1) 二層セッション解決
 	// デモモード: /demo 以下は認証不要、ダミーコンテキストをセット
 	if (path.startsWith('/demo')) {
@@ -320,6 +345,26 @@ export const handle: Handle = async ({ event, resolve }) => {
 			requestId: event.locals.requestId,
 			tenantId: context?.tenantId,
 		});
+
+		// 4-a) 404 構造化ログ（#577）
+		//
+		// HTML リクエストの 404 のみを拾い、集計・棚卸しできるようにする。
+		// LEGACY_URL_MAP にヒットしたパスはこの時点で既にリダイレクト済みなので、
+		// ここに来る 404 は「マップ未登録の旧 URL」「タイポ」「外部リンク切れ」の
+		// いずれか。referer / userAgent / role を出力することで原因を分類する。
+		if (response.status === 404 && event.request.method === 'GET' && acceptsHtml(event.request)) {
+			logger.warn(`404 Not Found: ${path}`, {
+				requestId: event.locals.requestId,
+				tenantId: context?.tenantId,
+				path,
+				status: 404,
+				context: {
+					referer: event.request.headers.get('Referer') ?? null,
+					userAgent: event.request.headers.get('User-Agent') ?? null,
+					role: context?.role ?? 'anonymous',
+				},
+			});
+		}
 
 		// Analytics: identify tenant and track page views for HTML requests
 		if (context?.tenantId) {
