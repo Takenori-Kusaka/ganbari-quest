@@ -1,0 +1,58 @@
+{
+	"type": "reward-set",
+	"itemId": "junior-rewards",
+	"name": "中学生ごほうび",
+	"description": "10〜12歳向け。スマホ時間、友達との外出許可、お小遣いアップなど、中学年〜高学年に響くごほうびです。",
+	"icon": "🎯",
+	"targetAgeMin": 10,
+	"targetAgeMax": 12,
+	"tags": ["年齢別", "中学生", "自立"],
+	"personas": ["achievement-focused", "game-oriented"],
+	"curator": "official",
+	"payload": {
+		"rewards": [
+			{
+				"title": "スマホ30分延長",
+				"points": 30,
+				"icon": "📱",
+				"category": "other",
+				"description": "スマホの使用時間を30分延長"
+			},
+			{
+				"title": "お小遣い200円",
+				"points": 50,
+				"icon": "💰",
+				"category": "other",
+				"description": "がんばりポイントでお小遣いGET"
+			},
+			{
+				"title": "友達と遊びに行く",
+				"points": 40,
+				"icon": "🏃",
+				"category": "social",
+				"description": "友達と一緒にお出かけ"
+			},
+			{
+				"title": "好きな漫画を買う",
+				"points": 100,
+				"icon": "📖",
+				"category": "creative",
+				"description": "好きな漫画を1冊選べる"
+			},
+			{
+				"title": "夜ふかし1時間",
+				"points": 60,
+				"icon": "🌙",
+				"category": "other",
+				"description": "週末限定で1時間だけ夜ふかしOK"
+			},
+			{
+				"title": "ゲーム1時間",
+				"points": 50,
+				"icon": "🎮",
+				"category": "other",
+				"description": "ゲーム時間を1時間分ゲット"
+			}
+		]
+	}
+}

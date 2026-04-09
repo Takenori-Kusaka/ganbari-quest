@@ -1,0 +1,116 @@
+{
+	"type": "activity-pack",
+	"itemId": "sports-hero",
+	"name": "スポーツヒーロー",
+	"description": "運動が大好きなお子さまに。様々なスポーツや体を動かす活動を中心にした活動パックです。",
+	"icon": "⚽",
+	"targetAgeMin": 4,
+	"targetAgeMax": 12,
+	"tags": ["テーマ別", "運動", "スポーツ"],
+	"personas": ["sports-oriented", "outdoor", "achievement-focused"],
+	"curator": "official",
+	"payload": {
+		"activities": [
+			{
+				"name": "なわとび",
+				"categoryCode": "undou",
+				"icon": "🏃",
+				"basePoints": 5,
+				"ageMin": 4,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "なわとびを してみよう！"
+			},
+			{
+				"name": "てつぼう",
+				"categoryCode": "undou",
+				"icon": "🤸",
+				"basePoints": 5,
+				"ageMin": 5,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "てつぼうで あそぼう！"
+			},
+			{
+				"name": "サッカー",
+				"categoryCode": "undou",
+				"icon": "⚽",
+				"basePoints": 8,
+				"ageMin": 4,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "ボールを けってみよう！"
+			},
+			{
+				"name": "やきゅう",
+				"categoryCode": "undou",
+				"icon": "⚾",
+				"basePoints": 8,
+				"ageMin": 5,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "キャッチボールを してみよう！"
+			},
+			{
+				"name": "すいえい",
+				"categoryCode": "undou",
+				"icon": "🏊",
+				"basePoints": 10,
+				"ageMin": 4,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "プールで およいでみよう！"
+			},
+			{
+				"name": "かけっこ",
+				"categoryCode": "undou",
+				"icon": "🏃",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "おそとで はしろう！"
+			},
+			{
+				"name": "たいそう",
+				"categoryCode": "undou",
+				"icon": "🤸",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "おうちで たいそうしよう！"
+			},
+			{
+				"name": "ダンス",
+				"categoryCode": "undou",
+				"icon": "💃",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "おんがくに あわせて おどろう！"
+			},
+			{
+				"name": "じてんしゃ",
+				"categoryCode": "undou",
+				"icon": "🚴",
+				"basePoints": 8,
+				"ageMin": 4,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "じてんしゃに のってみよう！"
+			},
+			{
+				"name": "バスケットボール",
+				"categoryCode": "undou",
+				"icon": "🏀",
+				"basePoints": 8,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "シュートを きめよう！"
+			}
+		]
+	}
+}

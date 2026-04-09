@@ -1,0 +1,96 @@
+{
+	"type": "activity-pack",
+	"itemId": "social-butterfly",
+	"name": "なかよしフレンド",
+	"description": "あいさつ、思いやり、協力する力を育てる活動パック。おともだちや家族とのコミュニケーション力がアップします。",
+	"icon": "🤝",
+	"targetAgeMin": 3,
+	"targetAgeMax": 10,
+	"tags": ["テーマ別", "コミュニケーション", "社会性"],
+	"personas": ["sibling", "relaxed"],
+	"curator": "official",
+	"payload": {
+		"activities": [
+			{
+				"name": "あいさつ",
+				"categoryCode": "kouryuu",
+				"icon": "👋",
+				"basePoints": 3,
+				"ageMin": 2,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "げんきに あいさつしよう！"
+			},
+			{
+				"name": "ありがとう",
+				"categoryCode": "kouryuu",
+				"icon": "🙏",
+				"basePoints": 3,
+				"ageMin": 2,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "「ありがとう」を つたえよう！"
+			},
+			{
+				"name": "おともだちと あそんだ",
+				"categoryCode": "kouryuu",
+				"icon": "👫",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "おともだちと なかよく あそぼう！"
+			},
+			{
+				"name": "きょうだいと あそんだ",
+				"categoryCode": "kouryuu",
+				"icon": "👧",
+				"basePoints": 5,
+				"ageMin": 2,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "きょうだいと なかよくしよう！"
+			},
+			{
+				"name": "じゅんばんをまもった",
+				"categoryCode": "kouryuu",
+				"icon": "🔄",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 8,
+				"gradeLevel": null,
+				"triggerHint": "じゅんばんを まもれたかな？"
+			},
+			{
+				"name": "ゆずりあい",
+				"categoryCode": "kouryuu",
+				"icon": "💖",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "やさしく ゆずってあげよう！"
+			},
+			{
+				"name": "おてがみ",
+				"categoryCode": "kouryuu",
+				"icon": "💌",
+				"basePoints": 8,
+				"ageMin": 5,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "おてがみを かこう！"
+			},
+			{
+				"name": "おはなし",
+				"categoryCode": "kouryuu",
+				"icon": "💬",
+				"basePoints": 3,
+				"ageMin": 3,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "きょうの ことを はなそう！"
+			}
+		]
+	}
+}

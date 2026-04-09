@@ -1,0 +1,29 @@
+{
+	"type": "rule-preset",
+	"itemId": "chore-skip",
+	"name": "おてつだいスキップけん",
+	"description": "ポイントを使って1回だけお手伝いをスキップできるルール。計画的なポイント使いを学びます。",
+	"icon": "🎫",
+	"targetAgeMin": 4,
+	"targetAgeMax": 12,
+	"tags": ["特権", "お手伝い", "ポイント交換"],
+	"personas": ["game-oriented", "self-care"],
+	"curator": "official",
+	"payload": {
+		"ruleType": "exchange",
+		"rules": [
+			{
+				"title": "おとうばんスキップ",
+				"description": "1回だけ おとうばんを パスできるよ（週1回まで）",
+				"icon": "🎫",
+				"pointCost": 30
+			},
+			{
+				"title": "おかたづけスキップ",
+				"description": "1回だけ おかたづけを おやすみできるよ",
+				"icon": "🎟️",
+				"pointCost": 20
+			}
+		]
+	}
+}

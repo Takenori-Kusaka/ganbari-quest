@@ -1,0 +1,22 @@
+{
+	"type": "checklist",
+	"itemId": "weekend-baby",
+	"name": "しゅうまつ チェック（ベビー）",
+	"description": "0〜2歳の週末の過ごし方チェック。おそとあそび・おやつ・おひるねのリズムを大切に。",
+	"icon": "🌈",
+	"targetAgeMin": 0,
+	"targetAgeMax": 2,
+	"tags": ["週末", "生活習慣", "赤ちゃん"],
+	"personas": ["first-child", "relaxed"],
+	"curator": "official",
+	"payload": {
+		"timing": "weekend",
+		"items": [
+			{ "label": "おそとで あそぶ", "icon": "🌳", "order": 1 },
+			{ "label": "おひるね", "icon": "😴", "order": 2 },
+			{ "label": "いっしょに えほん", "icon": "📚", "order": 3 },
+			{ "label": "おやつタイム", "icon": "🍪", "order": 4 },
+			{ "label": "かぞくじかん", "icon": "👨‍👩‍👧", "order": 5 }
+		]
+	}
+}

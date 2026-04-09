@@ -1,0 +1,58 @@
+{
+	"type": "reward-set",
+	"itemId": "privilege-rewards",
+	"name": "とくけんごほうび",
+	"description": "「特別に許可される」ことをごほうびに。夜ふかし、メニュー決定権など、子どもが憧れる特権セットです。",
+	"icon": "👑",
+	"targetAgeMin": 5,
+	"targetAgeMax": 15,
+	"tags": ["テーマ別", "特権", "自律"],
+	"personas": ["achievement-focused", "self-care"],
+	"curator": "official",
+	"payload": {
+		"rewards": [
+			{
+				"title": "よふかし30分",
+				"points": 40,
+				"icon": "🌙",
+				"category": "other",
+				"description": "とくべつに いつもより 30分おそく おきていいよ"
+			},
+			{
+				"title": "あさねぼう30分",
+				"points": 30,
+				"icon": "😴",
+				"category": "other",
+				"description": "あしたは 30分 ゆっくり ねていいよ"
+			},
+			{
+				"title": "おでかけさきをきめる",
+				"points": 60,
+				"icon": "🗺️",
+				"category": "other",
+				"description": "つぎの おやすみの おでかけさきを きみが きめよう"
+			},
+			{
+				"title": "おとうばんパス",
+				"points": 30,
+				"icon": "🎫",
+				"category": "life",
+				"description": "1回だけ おとうばんを パスできるよ"
+			},
+			{
+				"title": "テレビのリモコンけん",
+				"points": 25,
+				"icon": "📺",
+				"category": "other",
+				"description": "ばんの テレビは きみが えらんでいいよ"
+			},
+			{
+				"title": "すきなせきにすわる",
+				"points": 15,
+				"icon": "💺",
+				"category": "other",
+				"description": "きょうは すきな せきに すわれるよ"
+			}
+		]
+	}
+}

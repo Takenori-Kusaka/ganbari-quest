@@ -1,0 +1,15 @@
+{
+	"type": "activity-pack",
+	"itemId": "junior-high-challenge",
+	"name": "中学生チャレンジ",
+	"description": "10〜12歳のお子さま向け。自主学習・生活自立・コミュニケーション力を育てる本格的な活動セットです。",
+	"icon": "🎯",
+	"targetAgeMin": 10,
+	"targetAgeMax": 12,
+	"tags": ["中学生", "自主学習", "自立"],
+	"personas": ["academic-oriented", "achievement-focused"],
+	"curator": "official",
+	"payload": {
+		"legacyPackId": "junior-high-challenge"
+	}
+}
