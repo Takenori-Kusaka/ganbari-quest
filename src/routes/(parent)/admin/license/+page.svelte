@@ -41,15 +41,33 @@ const planLabel = (plan: string) => {
 const statusLabel = (status: string) => {
 	switch (status) {
 		case 'active':
-			return { text: '有効', color: 'bg-green-100 text-green-700', icon: '✅' };
+			return {
+				text: '有効',
+				color:
+					'bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]',
+				icon: '✅',
+			};
 		case 'grace_period':
-			return { text: '猶予期間', color: 'bg-yellow-100 text-yellow-700', icon: '⚠️' };
+			return {
+				text: '猶予期間',
+				color:
+					'bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]',
+				icon: '⚠️',
+			};
 		case 'suspended':
 			return { text: '停止中', color: 'bg-orange-100 text-orange-700', icon: '⏸️' };
 		case 'terminated':
-			return { text: '解約済み', color: 'bg-red-100 text-red-700', icon: '❌' };
+			return {
+				text: '解約済み',
+				color: 'bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]',
+				icon: '❌',
+			};
 		default:
-			return { text: status, color: 'bg-gray-100 text-gray-700', icon: '❓' };
+			return {
+				text: status,
+				color: 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]',
+				icon: '❓',
+			};
 	}
 };
 
@@ -98,47 +116,47 @@ async function openPortal() {
 	<!-- 現在のプラン -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-gray-600 mb-4">現在のプラン</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">現在のプラン</h3>
 
 		<div class="grid gap-4">
-			<div class="flex items-center justify-between py-2 border-b border-gray-50">
-				<span class="text-sm text-gray-500">プラン</span>
-				<span class="text-sm font-semibold text-gray-700">{planLabel(license.plan ?? 'free')}</span>
+			<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
+				<span class="text-sm text-[var(--color-text-muted)]">プラン</span>
+				<span class="text-sm font-semibold text-[var(--color-text-primary)]">{planLabel(license.plan ?? 'free')}</span>
 			</div>
 
-			<div class="flex items-center justify-between py-2 border-b border-gray-50">
-				<span class="text-sm text-gray-500">ステータス</span>
+			<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
+				<span class="text-sm text-[var(--color-text-muted)]">ステータス</span>
 				<span class="text-xs font-medium px-2.5 py-1 rounded-full {status.color}">
 					{status.icon} {status.text}
 				</span>
 			</div>
 
 			{#if license.planExpiresAt}
-				<div class="flex items-center justify-between py-2 border-b border-gray-50">
-					<span class="text-sm text-gray-500">有効期限</span>
-					<span class="text-sm text-gray-700">
+				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
+					<span class="text-sm text-[var(--color-text-muted)]">有効期限</span>
+					<span class="text-sm text-[var(--color-text-primary)]">
 						{new Date(license.planExpiresAt).toLocaleDateString('ja-JP')}
 					</span>
 				</div>
 			{/if}
 
 			{#if license.licenseKey}
-				<div class="flex items-center justify-between py-2 border-b border-gray-50">
-					<span class="text-sm text-gray-500">ライセンスキー</span>
-					<code class="text-xs bg-gray-50 px-2 py-1 rounded font-mono text-gray-600">
+				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
+					<span class="text-sm text-[var(--color-text-muted)]">ライセンスキー</span>
+					<code class="text-xs bg-[var(--color-surface-muted)] px-2 py-1 rounded font-mono text-[var(--color-text-secondary)]">
 						{license.licenseKey}
 					</code>
 				</div>
 			{/if}
 
-			<div class="flex items-center justify-between py-2 border-b border-gray-50">
-				<span class="text-sm text-gray-500">家族名</span>
-				<span class="text-sm text-gray-700">{license.tenantName}</span>
+			<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
+				<span class="text-sm text-[var(--color-text-muted)]">家族名</span>
+				<span class="text-sm text-[var(--color-text-primary)]">{license.tenantName}</span>
 			</div>
 
 			<div class="flex items-center justify-between py-2">
-				<span class="text-sm text-gray-500">登録日</span>
-				<span class="text-sm text-gray-700">
+				<span class="text-sm text-[var(--color-text-muted)]">登録日</span>
+				<span class="text-sm text-[var(--color-text-primary)]">
 					{new Date(license.createdAt).toLocaleDateString('ja-JP')}
 				</span>
 			</div>
@@ -164,22 +182,22 @@ async function openPortal() {
 			{#snippet children()}
 			{#if trialStatus.isTrialActive}
 				<div class="text-center">
-					<p class="text-sm font-semibold text-blue-600 mb-1">
+					<p class="text-sm font-semibold text-[var(--color-feedback-info-text)] mb-1">
 						スタンダードプラン トライアル中
 					</p>
-					<p class="text-2xl font-bold text-blue-700">
+					<p class="text-2xl font-bold text-[var(--color-feedback-info-text)]">
 						残り {trialStatus.daysRemaining}日
 					</p>
-					<p class="text-xs text-gray-400 mt-1">
+					<p class="text-xs text-[var(--color-text-tertiary)] mt-1">
 						{trialStatus.trialEndDate} まで
 					</p>
 				</div>
 			{:else if !trialStatus.trialUsed}
 				<div class="text-center">
-					<p class="text-lg font-bold text-gray-700 mb-1">
+					<p class="text-lg font-bold text-[var(--color-text-primary)] mb-1">
 						7日間 無料でお試し
 					</p>
-					<p class="text-sm text-gray-500 mb-4">
+					<p class="text-sm text-[var(--color-text-muted)] mb-4">
 						スタンダードプランの全機能を体験できます
 					</p>
 					<form method="POST" action="?/startTrial">
@@ -192,12 +210,12 @@ async function openPortal() {
 							無料トライアルを開始する
 						</Button>
 					</form>
-					<p class="text-xs text-gray-400 mt-2">
+					<p class="text-xs text-[var(--color-text-tertiary)] mt-2">
 						クレジットカード不要 — 自動で課金されることはありません
 					</p>
 				</div>
 			{:else}
-				<p class="text-sm text-gray-400 text-center">
+				<p class="text-sm text-[var(--color-text-tertiary)] text-center">
 					無料トライアルは使用済みです
 				</p>
 			{/if}
@@ -220,9 +238,9 @@ async function openPortal() {
 
 	<!-- ステータス別メッセージ -->
 	{#if license.status === 'grace_period'}
-		<section class="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
-			<h3 class="text-sm font-semibold text-yellow-800 mb-1">⚠️ 猶予期間中</h3>
-			<p class="text-sm text-yellow-700">
+		<section class="bg-[var(--color-feedback-warning-bg)] rounded-xl p-4 border border-[var(--color-feedback-warning-border)]">
+			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">⚠️ 猶予期間中</h3>
+			<p class="text-sm text-[var(--color-feedback-warning-text)]">
 				お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。
 				期間を過ぎるとサービスが停止されます。
 			</p>
@@ -236,9 +254,9 @@ async function openPortal() {
 			</p>
 		</section>
 	{:else if license.status === 'terminated'}
-		<section class="bg-red-50 rounded-xl p-4 border border-red-200">
-			<h3 class="text-sm font-semibold text-red-800 mb-1">❌ 解約済み</h3>
-			<p class="text-sm text-red-700">
+		<section class="bg-[var(--color-feedback-error-bg)] rounded-xl p-4 border border-[var(--color-feedback-error-border)]">
+			<h3 class="text-sm font-semibold text-[var(--color-feedback-error-text)] mb-1">❌ 解約済み</h3>
+			<p class="text-sm text-[var(--color-feedback-error-text)]">
 				このアカウントは解約されています。データは一定期間保持されますが、
 				その後削除されます。
 			</p>
@@ -248,10 +266,10 @@ async function openPortal() {
 	<!-- プラン管理 -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-gray-600 mb-4">プラン管理</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">プラン管理</h3>
 
 		{#if !stripeEnabled}
-			<p class="text-sm text-gray-400 text-center py-4">
+			<p class="text-sm text-[var(--color-text-tertiary)] text-center py-4">
 				決済機能は現在準備中です
 			</p>
 		{:else if hasSubscription}
@@ -266,7 +284,7 @@ async function openPortal() {
 				>
 					{portalLoading ? '読み込み中...' : 'プラン変更・支払い管理'}
 				</Button>
-				<p class="text-xs text-gray-400 text-center">
+				<p class="text-xs text-[var(--color-text-tertiary)] text-center">
 					Stripeの管理画面でプラン変更・支払い方法の更新・解約ができます
 				</p>
 			</div>
@@ -302,16 +320,16 @@ async function openPortal() {
 				>
 					<div class="flex items-center justify-between mb-2">
 						<div>
-							<p class="font-semibold text-gray-700">スタンダード</p>
-							<p class="text-xs text-gray-500">子供無制限・活動無制限・1年保持</p>
+							<p class="font-semibold text-[var(--color-text-primary)]">スタンダード</p>
+							<p class="text-xs text-[var(--color-text-muted)]">子供無制限・活動無制限・1年保持</p>
 						</div>
 						{#if billingInterval === 'monthly'}
-							<p class="text-xl font-bold text-blue-600">¥500<span class="text-sm font-normal text-gray-500">/月</span></p>
+							<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">¥500<span class="text-sm font-normal text-[var(--color-text-muted)]">/月</span></p>
 						{:else}
-							<p class="text-xl font-bold text-blue-600">¥5,000<span class="text-sm font-normal text-gray-500">/年</span></p>
+							<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">¥5,000<span class="text-sm font-normal text-[var(--color-text-muted)]">/年</span></p>
 						{/if}
 					</div>
-					<ul class="text-xs text-gray-500 space-y-1 mb-3">
+					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
 						<li>子供の登録数 無制限</li>
 						<li>カスタム活動 無制限</li>
 						<li>データ保持 1年間</li>
@@ -332,16 +350,16 @@ async function openPortal() {
 					<span class="recommend-badge">おすすめ</span>
 					<div class="flex items-center justify-between mb-2">
 						<div>
-							<p class="font-semibold text-gray-700">ファミリー</p>
-							<p class="text-xs text-gray-500">家族みんなで見守る+永久保持</p>
+							<p class="font-semibold text-[var(--color-text-primary)]">ファミリー</p>
+							<p class="text-xs text-[var(--color-text-muted)]">家族みんなで見守る+永久保持</p>
 						</div>
 						{#if billingInterval === 'monthly'}
-							<p class="text-xl font-bold text-purple-600">¥780<span class="text-sm font-normal text-gray-500">/月</span></p>
+							<p class="text-xl font-bold text-[var(--color-stat-purple)]">¥780<span class="text-sm font-normal text-[var(--color-text-muted)]">/月</span></p>
 						{:else}
-							<p class="text-xl font-bold text-purple-600">¥7,800<span class="text-sm font-normal text-gray-500">/年</span></p>
+							<p class="text-xl font-bold text-[var(--color-stat-purple)]">¥7,800<span class="text-sm font-normal text-[var(--color-text-muted)]">/年</span></p>
 						{/if}
 					</div>
-					<ul class="text-xs text-gray-500 space-y-1 mb-3">
+					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
 						<li>スタンダードの全機能</li>
 						<li>祖父母・家族向け閲覧リンク</li>
 						<li>自由テキストおうえん</li>
@@ -361,7 +379,7 @@ async function openPortal() {
 					{checkoutLoading ? '処理中...' : `${selectedTier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める`}
 				</Button>
 
-				<p class="text-xs text-gray-400 text-center">
+				<p class="text-xs text-[var(--color-text-tertiary)] text-center">
 					いつでもキャンセル・プラン変更可能
 				</p>
 			</div>
@@ -372,9 +390,9 @@ async function openPortal() {
 	<!-- 支払い履歴 -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-gray-600 mb-4">支払い履歴</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">支払い履歴</h3>
 		{#if hasSubscription}
-			<p class="text-sm text-gray-500 text-center py-4">
+			<p class="text-sm text-[var(--color-text-muted)] text-center py-4">
 				支払い履歴はStripeの管理画面でご確認いただけます
 			</p>
 			<Button
@@ -387,7 +405,7 @@ async function openPortal() {
 				支払い履歴を確認
 			</Button>
 		{:else}
-			<p class="text-sm text-gray-400 text-center py-4">
+			<p class="text-sm text-[var(--color-text-tertiary)] text-center py-4">
 				支払い履歴はまだありません
 			</p>
 		{/if}

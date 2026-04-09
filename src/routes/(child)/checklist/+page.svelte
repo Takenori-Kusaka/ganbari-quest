@@ -97,7 +97,7 @@ function handleCompleteClose() {
 				</div>
 
 				<!-- Progress bar -->
-				<div class="h-1.5 bg-gray-100">
+				<div class="h-1.5 bg-[var(--color-surface-secondary)]">
 					<div
 						class="h-full bg-[var(--theme-primary)] transition-all duration-300"
 						style:width="{checklist.totalCount > 0 ? (checklist.checkedCount / checklist.totalCount) * 100 : 0}%"
@@ -140,7 +140,7 @@ function handleCompleteClose() {
 								type="submit"
 								variant="ghost"
 								size="sm"
-								class="w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors {item.checked ? 'bg-green-50' : 'hover:bg-gray-50'}"
+								class="w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors {item.checked ? 'bg-[var(--color-feedback-success-bg)]' : 'hover:bg-[var(--color-surface-muted)]'}"
 							>
 								<span class="text-2xl flex-shrink-0 {item.checked ? 'opacity-100' : 'opacity-30'}">
 									{item.checked ? '✅' : '☐'}
@@ -155,7 +155,7 @@ function handleCompleteClose() {
 				</div>
 
 				<!-- Footer: points info -->
-				<div class="px-[var(--sp-md)] py-[var(--sp-xs)] bg-gray-50 text-center text-sm text-[var(--color-text-muted)]">
+				<div class="px-[var(--sp-md)] py-[var(--sp-xs)] bg-[var(--color-surface-muted)] text-center text-sm text-[var(--color-text-muted)]">
 					{#if checklist.completedAll}
 						<span class="text-[var(--theme-accent)] font-bold">🎉 ぜんぶできた！ {fmtPts(checklist.pointsAwarded)}</span>
 					{:else}
@@ -171,7 +171,7 @@ function handleCompleteClose() {
 	<div class="text-center mt-[var(--sp-md)]">
 		<a
 			href="/{data.uiMode}/home"
-			class="inline-block px-[var(--sp-lg)] py-[var(--sp-sm)] rounded-[var(--radius-md)] bg-gray-200 font-bold text-sm"
+			class="inline-block px-[var(--sp-lg)] py-[var(--sp-sm)] rounded-[var(--radius-md)] bg-[var(--color-surface-tertiary)] font-bold text-sm"
 		>
 			もどる
 		</a>

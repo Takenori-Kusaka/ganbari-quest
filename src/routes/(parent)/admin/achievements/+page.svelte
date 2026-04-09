@@ -40,7 +40,7 @@ const conditionTypeLabels: Record<string, string> = {
 					type="button"
 					variant={selectedChildId === child.id ? 'primary' : 'outline'}
 					size="sm"
-					class="whitespace-nowrap {selectedChildId === child.id ? '' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}"
+					class="whitespace-nowrap {selectedChildId === child.id ? '' : 'bg-white text-[var(--color-text-secondary)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]'}"
 					onclick={() => {
 						childIdOverride = child.id;
 					}}
@@ -72,14 +72,14 @@ const conditionTypeLabels: Record<string, string> = {
 			<Card variant="default" padding="md">
 				{#snippet children()}
 				<div class="flex items-center justify-between mb-3">
-					<h3 class="text-lg font-bold text-gray-700">🏅 カスタム実績</h3>
+					<h3 class="text-lg font-bold text-[var(--color-text-primary)]">🏅 カスタム実績</h3>
 					<Button type="button" variant="outline" size="sm" onclick={() => { showCustomForm = !showCustomForm; }}>
 						{showCustomForm ? '閉じる' : '+ 作成'}
 					</Button>
 				</div>
 
 				{#if showCustomForm}
-					<form method="POST" action="?/createCustomAchievement" use:enhance class="space-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
+					<form method="POST" action="?/createCustomAchievement" use:enhance class="space-y-3 mb-4 p-3 bg-[var(--color-surface-muted)] rounded-lg">
 						<input type="hidden" name="childId" value={selectedChildId} />
 						<FormField id="ca-name" label="実績名">
 							<input id="ca-name" name="name" type="text" required maxlength="30" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ピアノ100回マスター" />
@@ -112,26 +112,26 @@ const conditionTypeLabels: Record<string, string> = {
 				{/if}
 
 				{#if selectedChild.customAchievements.length === 0}
-					<p class="text-sm text-gray-400 text-center py-2">カスタム実績はまだありません</p>
+					<p class="text-sm text-[var(--color-text-tertiary)] text-center py-2">カスタム実績はまだありません</p>
 				{:else}
 					<div class="flex flex-col gap-2">
 						{#each selectedChild.customAchievements as ca (ca.id)}
-							<div class="flex items-center justify-between p-3 rounded-lg border {ca.unlockedAt ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200 bg-gray-50'}">
+							<div class="flex items-center justify-between p-3 rounded-lg border {ca.unlockedAt ? 'border-[var(--color-feedback-warning-border)] bg-[var(--color-feedback-warning-bg)]' : 'border-[var(--color-border)] bg-[var(--color-surface-muted)]'}">
 								<div class="flex items-center gap-3">
 									<span class="text-2xl">{ca.icon}</span>
 									<div>
-										<p class="font-bold text-sm text-gray-700">{ca.name}</p>
-										<p class="text-xs text-gray-500">
+										<p class="font-bold text-sm text-[var(--color-text-primary)]">{ca.name}</p>
+										<p class="text-xs text-[var(--color-text-muted)]">
 											{conditionTypeLabels[ca.conditionType] ?? ca.conditionType}: {ca.conditionValue}
 											{#if ca.unlockedAt}
-												<span class="text-yellow-600 font-bold ml-1">達成済み ✅</span>
+												<span class="text-[var(--color-feedback-warning-text)] font-bold ml-1">達成済み ✅</span>
 											{/if}
 										</p>
 									</div>
 								</div>
 								<form method="POST" action="?/deleteCustomAchievement" use:enhance>
 									<input type="hidden" name="id" value={ca.id} />
-									<button type="submit" class="text-xs text-red-400 hover:text-red-600">削除</button>
+									<button type="submit" class="text-xs text-[var(--color-feedback-error-text)] hover:text-[var(--color-feedback-error-text)]">削除</button>
 								</form>
 							</div>
 						{/each}
@@ -145,16 +145,16 @@ const conditionTypeLabels: Record<string, string> = {
 				{#snippet children()}
 				<div class="text-center py-4">
 					<p class="text-2xl mb-2">🏅</p>
-					<p class="font-bold text-gray-700 mb-1">カスタム実績・称号</p>
-					<p class="text-sm text-gray-500 mb-3">お子さまだけのオリジナル実績を作成できます</p>
-					<a href="/admin/license" class="text-sm text-blue-500 hover:underline">スタンダードプラン以上で利用可能 →</a>
+					<p class="font-bold text-[var(--color-text-primary)] mb-1">カスタム実績・称号</p>
+					<p class="text-sm text-[var(--color-text-muted)] mb-3">お子さまだけのオリジナル実績を作成できます</p>
+					<a href="/admin/license" class="text-sm text-[var(--color-feedback-info-text)] hover:underline">スタンダードプラン以上で利用可能 →</a>
 				</div>
 				{/snippet}
 			</Card>
 		{/if}
 
 	{:else}
-		<div class="text-center text-gray-500 py-12">
+		<div class="text-center text-[var(--color-text-muted)] py-12">
 			<p class="text-4xl mb-2">👧</p>
 			<p class="font-bold">子供が登録されていません</p>
 		</div>
