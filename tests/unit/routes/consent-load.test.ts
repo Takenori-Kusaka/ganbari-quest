@@ -90,6 +90,8 @@ describe('consent load', () => {
 			privacyVersion: undefined,
 		});
 		const result = await load({ locals: makeLocals() } as Parameters<typeof load>[0]);
+		expect(result).toBeDefined();
+		if (!result) return;
 		expect(result.hasExistingConsent).toBe(false);
 		expect(result.previousTermsVersion).toBeNull();
 		expect(result.previousPrivacyVersion).toBeNull();
@@ -104,6 +106,8 @@ describe('consent load', () => {
 			privacyVersion: '2026-03-01',
 		});
 		const result = await load({ locals: makeLocals() } as Parameters<typeof load>[0]);
+		expect(result).toBeDefined();
+		if (!result) return;
 		expect(result.hasExistingConsent).toBe(true);
 		expect(result.previousTermsVersion).toBe('2026-03-01');
 		expect(result.previousPrivacyVersion).toBe('2026-03-01');
@@ -118,6 +122,8 @@ describe('consent load', () => {
 			privacyVersion: undefined,
 		});
 		const result = await load({ locals: makeLocals() } as Parameters<typeof load>[0]);
+		expect(result).toBeDefined();
+		if (!result) return;
 		expect(result.hasExistingConsent).toBe(true);
 		expect(result.termsAccepted).toBe(true);
 		expect(result.privacyAccepted).toBe(false);
@@ -134,6 +140,8 @@ describe('consent load', () => {
 			privacyVersion: undefined,
 		});
 		const result = await load({ locals: makeLocals() } as Parameters<typeof load>[0]);
+		expect(result).toBeDefined();
+		if (!result) return;
 		expect(result).toHaveProperty('termsAccepted');
 		expect(result).toHaveProperty('privacyAccepted');
 		expect(result).toHaveProperty('currentTermsVersion');
