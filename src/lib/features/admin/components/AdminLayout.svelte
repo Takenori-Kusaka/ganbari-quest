@@ -3,8 +3,11 @@ import type { Snippet } from 'svelte';
 import { navigating, page } from '$app/stores';
 import { NAV_CATEGORIES, NAV_ITEM_LABELS, PLAN_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
+import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import { getPageGuide } from '$lib/ui/tutorial/page-guide-registry';
+import { isPageGuideCompleted, startPageGuide } from '$lib/ui/tutorial/page-guide-store.svelte';
 import { markTutorialStarted, startTutorialForPage } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 interface NavItem {
@@ -36,6 +39,32 @@ async function handleStartTutorial() {
 	await markTutorialStarted();
 	const currentPath = $page.url.pathname;
 	await startTutorialForPage(currentPath);
+}
+
+// ページガイド（v2）: 現在のページのガイドを起動
+let hasPageGuide = $state(false);
+let pageGuideCompleted = $state(false);
+
+$effect(() => {
+	const path = $page.url.pathname;
+	hasPageGuide = false;
+	pageGuideCompleted = false;
+
+	const adminPath = path.replace(basePath, '/admin');
+	getPageGuide(adminPath).then((guide) => {
+		hasPageGuide = guide !== null;
+		if (guide) {
+			pageGuideCompleted = isPageGuideCompleted(guide.pageId);
+		}
+	});
+});
+
+async function handleStartPageGuide() {
+	const path = $page.url.pathname.replace(basePath, '/admin');
+	const guide = await getPageGuide(path);
+	if (guide) {
+		startPageGuide(guide);
+	}
 }
 
 // bfcache recovery (production only)
@@ -178,7 +207,20 @@ function isItemActive(itemHref: string): boolean {
 				{:else if !isDemo && isPremium}
 					<span class="plan-badge plan-badge--{planTier}">{planLabel}</span>
 				{/if}
-				{#if !isDemo}
+				{#if !isDemo && hasPageGuide}
+					<button
+						onclick={handleStartPageGuide}
+						class="page-guide-btn"
+						title="このページの使い方"
+						data-tutorial="page-guide-btn"
+						type="button"
+					>
+						❓
+						{#if !pageGuideCompleted}
+							<span class="page-guide-badge"></span>
+						{/if}
+					</button>
+				{:else if !isDemo}
 					<Button
 						variant="ghost"
 						size="sm"
@@ -314,6 +356,7 @@ function isItemActive(itemHref: string): boolean {
 
 	{#if !isDemo}
 		<TutorialOverlay />
+		<PageGuideOverlay />
 	{/if}
 </div>
 
@@ -532,5 +575,34 @@ function isItemActive(itemHref: string): boolean {
 		background: var(--plan-nav-active, #dbeafe);
 		color: var(--plan-nav-text, var(--color-brand-700));
 		font-weight: 600;
+	}
+	/* Page Guide help button */
+	.page-guide-btn {
+		position: relative;
+		width: 2rem;
+		height: 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 9999px;
+		background: var(--color-surface-card, #e0f2fe);
+		border: 2px solid var(--color-action-primary, #3b82f6);
+		cursor: pointer;
+		font-size: 0.875rem;
+		transition: all 0.15s;
+	}
+	.page-guide-btn:hover {
+		background: var(--color-action-primary, #3b82f6);
+		filter: brightness(1.1);
+	}
+	.page-guide-badge {
+		position: absolute;
+		top: -2px;
+		right: -2px;
+		width: 8px;
+		height: 8px;
+		border-radius: 9999px;
+		background: var(--color-danger, #ef4444);
+		border: 2px solid white;
 	}
 </style>
