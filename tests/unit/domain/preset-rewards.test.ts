@@ -2,11 +2,8 @@
 // プリセット報酬カタログのスキーマ整合性テスト (#581)
 
 import { describe, expect, it } from 'vitest';
+import { getAllPresetRewards, PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
 import { REWARD_CATEGORIES } from '$lib/domain/validation/special-reward';
-import {
-	PRESET_REWARD_GROUPS,
-	getAllPresetRewards,
-} from '$lib/data/preset-rewards';
 
 describe('PRESET_REWARD_GROUPS', () => {
 	it('4グループ存在する', () => {
