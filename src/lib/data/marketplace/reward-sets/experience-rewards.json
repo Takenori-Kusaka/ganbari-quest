@@ -1,0 +1,51 @@
+{
+	"type": "reward-set",
+	"itemId": "experience-rewards",
+	"name": "たいけんごほうび",
+	"description": "モノではなく体験をごほうびに。家族の思い出づくりにもなる特別な体験型ごほうびセットです。",
+	"icon": "✨",
+	"targetAgeMin": 3,
+	"targetAgeMax": 12,
+	"tags": ["テーマ別", "体験型", "家族"],
+	"personas": ["outdoor", "sibling"],
+	"curator": "official",
+	"payload": {
+		"rewards": [
+			{
+				"title": "すきなばしょにおでかけ",
+				"points": 100,
+				"icon": "🚗",
+				"category": "other",
+				"description": "かぞくで すきな ばしょに おでかけ"
+			},
+			{
+				"title": "てづくりピザパーティ",
+				"points": 60,
+				"icon": "🍕",
+				"category": "life",
+				"description": "いっしょに ピザを つくろう！"
+			},
+			{
+				"title": "キャンプ",
+				"points": 200,
+				"icon": "⛺",
+				"category": "sports",
+				"description": "かぞくで キャンプに いこう！"
+			},
+			{
+				"title": "すいぞくかん",
+				"points": 80,
+				"icon": "🐠",
+				"category": "academic",
+				"description": "すいぞくかんに いこう！"
+			},
+			{
+				"title": "ほしぞらかんさつ",
+				"points": 40,
+				"icon": "🌟",
+				"category": "academic",
+				"description": "よぞらの おほしさまを みよう"
+			}
+		]
+	}
+}

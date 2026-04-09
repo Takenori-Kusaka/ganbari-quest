@@ -1,0 +1,96 @@
+{
+	"type": "activity-pack",
+	"itemId": "outdoor-explorer",
+	"name": "おそとたんけんたい",
+	"description": "公園、自然、おでかけなど、外で楽しむ活動がいっぱい。好奇心旺盛なお子さまにぴったりです。",
+	"icon": "🌳",
+	"targetAgeMin": 2,
+	"targetAgeMax": 10,
+	"tags": ["テーマ別", "アウトドア", "自然"],
+	"personas": ["outdoor", "sports-oriented"],
+	"curator": "official",
+	"payload": {
+		"activities": [
+			{
+				"name": "こうえんであそんだ",
+				"categoryCode": "undou",
+				"icon": "🏞️",
+				"basePoints": 5,
+				"ageMin": 1,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "こうえんに いこう！"
+			},
+			{
+				"name": "むしとり",
+				"categoryCode": "souzou",
+				"icon": "🦗",
+				"basePoints": 8,
+				"ageMin": 3,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "むしを さがしてみよう！"
+			},
+			{
+				"name": "おはなをみた",
+				"categoryCode": "souzou",
+				"icon": "🌸",
+				"basePoints": 3,
+				"ageMin": 1,
+				"ageMax": 8,
+				"gradeLevel": null,
+				"triggerHint": "きれいな おはなを みつけよう！"
+			},
+			{
+				"name": "おさんぽ",
+				"categoryCode": "undou",
+				"icon": "🚶",
+				"basePoints": 5,
+				"ageMin": 1,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "おさんぽに でかけよう！"
+			},
+			{
+				"name": "すなあそび",
+				"categoryCode": "souzou",
+				"icon": "🏖️",
+				"basePoints": 5,
+				"ageMin": 1,
+				"ageMax": 6,
+				"gradeLevel": null,
+				"triggerHint": "すなばで あそぼう！"
+			},
+			{
+				"name": "ハイキング",
+				"categoryCode": "undou",
+				"icon": "🥾",
+				"basePoints": 10,
+				"ageMin": 4,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "やまを あるこう！"
+			},
+			{
+				"name": "どうぶつえん",
+				"categoryCode": "kouryuu",
+				"icon": "🦁",
+				"basePoints": 8,
+				"ageMin": 1,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "どうぶつに あいにいこう！"
+			},
+			{
+				"name": "うみであそんだ",
+				"categoryCode": "undou",
+				"icon": "🌊",
+				"basePoints": 8,
+				"ageMin": 2,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "うみで あそぼう！"
+			}
+		]
+	}
+}

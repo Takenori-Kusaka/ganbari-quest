@@ -1,0 +1,29 @@
+{
+	"type": "rule-preset",
+	"itemId": "early-bird",
+	"name": "はやおきチャレンジ",
+	"description": "朝の活動を記録するとボーナスがもらえるルール。朝型の生活リズムづくりを応援します。",
+	"icon": "🌅",
+	"targetAgeMin": 3,
+	"targetAgeMax": 15,
+	"tags": ["ボーナス", "朝活", "生活習慣"],
+	"personas": ["routine-focused", "self-care"],
+	"curator": "official",
+	"payload": {
+		"ruleType": "bonus",
+		"rules": [
+			{
+				"title": "はやおきボーナス",
+				"description": "朝8時までに1つ以上の活動を記録すると +5ポイント",
+				"icon": "🌅",
+				"pointBonus": 5
+			},
+			{
+				"title": "あさかつウィーク",
+				"description": "平日5日連続で朝活すると +25ポイント",
+				"icon": "⭐",
+				"pointBonus": 25
+			}
+		]
+	}
+}
