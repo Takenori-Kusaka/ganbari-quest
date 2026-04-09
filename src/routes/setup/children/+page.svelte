@@ -38,7 +38,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 		<h3 class="text-sm font-bold text-[var(--color-text-secondary)] mb-2">登録済み（{data.children.length}人）</h3>
 		<div class="flex flex-col gap-2">
 			{#each data.children as child (child.id)}
-				<div class="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+				<div class="flex items-center gap-3 p-3 bg-[var(--color-surface-success)] border border-[var(--color-border-success)] rounded-lg">
 					<span class="text-xl">
 						{#if child.theme === 'pink'}
 							👧
@@ -74,7 +74,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 			await update({ reset: true });
 		};
 	}}
-	class="flex flex-col gap-3 mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200"
+	class="flex flex-col gap-3 mb-4 p-4 bg-[var(--color-surface-muted)] rounded-lg border border-[var(--color-border-default)]"
 >
 	<h3 class="text-sm font-bold text-[var(--color-text-secondary)]">子供を追加</h3>
 
@@ -101,14 +101,14 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 		<div class="grid grid-cols-2 gap-2">
 			<label class="theme-option">
 				<input type="radio" name="theme" value="pink" checked class="sr-only peer" />
-				<div class="theme-card peer-checked:border-pink-400 peer-checked:bg-pink-50">
+				<div class="theme-card theme-card--pink">
 					<span class="text-2xl">👧</span>
 					<span class="text-sm font-medium text-[var(--color-text)]">ピンク</span>
 				</div>
 			</label>
 			<label class="theme-option">
 				<input type="radio" name="theme" value="blue" class="sr-only peer" />
-				<div class="theme-card peer-checked:border-blue-400 peer-checked:bg-blue-50">
+				<div class="theme-card theme-card--blue">
 					<span class="text-2xl">👦</span>
 					<span class="text-sm font-medium text-[var(--color-text)]">ブルー</span>
 				</div>
@@ -143,5 +143,15 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 
 	.theme-card:hover {
 		border-color: var(--color-neutral-300);
+	}
+
+	:global(.peer:checked) ~ .theme-card--pink {
+		border-color: var(--color-pink-400);
+		background-color: var(--color-pink-50);
+	}
+
+	:global(.peer:checked) ~ .theme-card--blue {
+		border-color: var(--color-blue-400);
+		background-color: var(--color-blue-50);
 	}
 </style>
