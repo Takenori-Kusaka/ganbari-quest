@@ -15,10 +15,9 @@ import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelt
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
-import FamilyStreakBanner from '$lib/ui/components/FamilyStreakBanner.svelte';
 import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
-import Card from '$lib/ui/primitives/Card.svelte';
+
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -418,35 +417,12 @@ $effect(() => {
 			</CategorySection>
 		{/each}
 
-	<!-- 今日のきろくサマリー（lower以上で表示） -->
-	{#if data.todayRecorded.length > 0}
-		<Card padding="md" class="mt-[var(--sp-md)]">
-			{#snippet children()}
-			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">📝 今日の記録</h3>
-			<div class="flex justify-between items-center">
-				<span class="text-sm text-[var(--color-text-muted)]">記録した活動</span>
-				<span class="font-bold">{data.todayRecorded.reduce((sum, r) => sum + r.count, 0)}回</span>
-			</div>
-			{/snippet}
-		</Card>
-	{/if}
 
 	{#if data.activities.length === 0}
 		<ActivityEmptyState uiMode={data.uiMode} />
 	{/if}
 
-	<!-- Family streak banner (below activities) -->
-	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
-		<FamilyStreakBanner
-			currentStreak={data.familyStreak.currentStreak}
-			hasRecordedToday={data.familyStreak.hasRecordedToday}
-			todayRecorders={data.familyStreak.todayRecorders}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren ?? []}
-			nextMilestone={data.familyStreak.nextMilestone}
-			compact
-		/>
-	{/if}
+
 
 
 	<!-- Sibling challenge banners -->
@@ -679,6 +655,8 @@ $effect(() => {
 						{/if}
 					</div>
 				{/if}
+
+				<p class="text-xs text-[var(--color-text-muted)]">今日 {data.todayRecorded.reduce((sum, r) => sum + r.count, 0) + 1}回目！</p>
 
 				<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-sm)]">
 					<!-- Cancel button with countdown -->
