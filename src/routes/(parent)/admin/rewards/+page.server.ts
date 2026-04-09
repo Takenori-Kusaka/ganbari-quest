@@ -1,12 +1,15 @@
-// /admin/rewards — 特別報酬の付与（#336, #501）
+// /admin/rewards — 特別報酬の付与（#336, #501, #581 プリセット追加）
 
 import { fail } from '@sveltejs/kit';
+import { PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
 	getChildSpecialRewards,
 	getRewardTemplates,
 	grantSpecialReward,
+	type RewardTemplate,
+	saveRewardTemplates,
 } from '$lib/server/services/special-reward-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -29,6 +32,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		children: childrenWithRewards,
 		templates,
+		presetGroups: PRESET_REWARD_GROUPS,
 	};
 };
 
@@ -52,5 +56,31 @@ export const actions: Actions = {
 		}
 
 		return { granted: true, reward: result };
+	},
+
+	addPreset: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const title = String(formData.get('title') ?? '').trim();
+		const points = Number(formData.get('points') ?? 0);
+		const icon = String(formData.get('icon') ?? '🎁');
+		const category = String(formData.get('category') ?? 'other');
+
+		if (!title || points <= 0) return fail(400, { error: 'プリセットデータが不正です' });
+
+		const existing = await getRewardTemplates(tenantId);
+		if (existing.some((t) => t.title === title)) {
+			return { presetAdded: true };
+		}
+
+		const newTemplate: RewardTemplate = {
+			title,
+			points,
+			icon,
+			category: category as RewardTemplate['category'],
+		};
+		await saveRewardTemplates([...existing, newTemplate], tenantId);
+
+		return { presetAdded: true };
 	},
 };

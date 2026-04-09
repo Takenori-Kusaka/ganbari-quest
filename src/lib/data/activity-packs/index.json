@@ -40,6 +40,26 @@
 			"targetAgeMax": 10,
 			"tags": ["テーマ別", "お手伝い", "家事スキル"],
 			"activityCount": 15
+		},
+		{
+			"packId": "junior-high-challenge",
+			"packName": "中学生チャレンジ",
+			"description": "10〜14歳のお子さま向け。学習・自己管理・社会性をバランスよく組み合わせ、自律心を育てます。",
+			"icon": "🎯",
+			"targetAgeMin": 10,
+			"targetAgeMax": 14,
+			"tags": ["中学生", "自律", "学習習慣"],
+			"activityCount": 16
+		},
+		{
+			"packId": "senior-high-challenge",
+			"packName": "高校生チャレンジ",
+			"description": "15〜18歳のお子さま向け。進路準備・自立スキル・キャリアを意識した活動で、社会に出る準備を支援します。",
+			"icon": "🎓",
+			"targetAgeMin": 15,
+			"targetAgeMax": 18,
+			"tags": ["高校生", "進路", "自立"],
+			"activityCount": 16
 		}
 	]
 }
