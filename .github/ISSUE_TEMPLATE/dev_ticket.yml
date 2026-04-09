@@ -209,6 +209,18 @@ body:
         - **チケット管理**: 開発チケットの起票・管理は GitHub Issues に統一すること。`docs/tickets/` は新規チケット管理には使用しない
 
   - type: checkboxes
+    id: close_checklist
+    attributes:
+      label: クローズ前チェック（#612）
+      description: Issue クローズ前に全項目を確認すること。省略不可。
+      options:
+        - label: "Acceptance Criteria の**全項目**にチェックが入っている"
+        - label: "「提案」セクションの対策が**全て実装されている**、または未実装分を別 Issue に切り出した"
+        - label: "テストが追加されている（テスト不要の場合はその理由を記載）"
+        - label: "Critical 修正の場合: E2E 回帰テストを同一 PR 内で追加済み"
+        - label: "Critical 修正の場合: 5年齢モード全てで実機検証しスクリーンショット添付済み"
+
+  - type: checkboxes
     id: done_checklist
     attributes:
       label: 完了チェックリスト
