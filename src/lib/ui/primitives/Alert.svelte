@@ -13,10 +13,13 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 let { variant = 'info', message, children, class: className = '', ...rest }: Props = $props();
 
 const variantClasses: Record<Variant, string> = {
-	success: 'bg-green-50 border-green-200 text-green-800',
-	warning: 'bg-amber-50 border-amber-200 text-amber-800',
-	danger: 'bg-red-50 border-red-200 text-red-800',
-	info: 'bg-blue-50 border-blue-200 text-blue-800',
+	success:
+		'bg-[var(--color-feedback-success-bg)] border-[var(--color-feedback-success-border)] text-[var(--color-feedback-success-text)]',
+	warning:
+		'bg-[var(--color-feedback-warning-bg)] border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)]',
+	danger:
+		'bg-[var(--color-feedback-error-bg)] border-[var(--color-feedback-error-border)] text-[var(--color-feedback-error-text)]',
+	info: 'bg-[var(--color-feedback-info-bg)] border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)]',
 };
 
 const iconMap: Record<Variant, string> = {

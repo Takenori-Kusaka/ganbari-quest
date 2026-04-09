@@ -12,9 +12,11 @@ interface Props {
 let { message, severity = 'error', action = 'none', onretry }: Props = $props();
 
 const styleMap: Record<Severity, string> = {
-	info: 'bg-blue-50 border-blue-200 text-blue-700',
-	warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-	error: 'bg-red-50 border-red-200 text-red-700',
+	info: 'bg-[var(--color-feedback-info-bg)] border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)]',
+	warning:
+		'bg-[var(--color-feedback-warning-bg)] border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)]',
+	error:
+		'bg-[var(--color-feedback-error-bg)] border-[var(--color-feedback-error-border)] text-[var(--color-feedback-error-text)]',
 };
 
 const iconMap: Record<Severity, string> = {
