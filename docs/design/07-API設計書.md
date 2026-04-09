@@ -2,9 +2,9 @@
 
 | 項目 | 内容 |
 |------|------|
-| 版数 | 2.6 |
+| 版数 | 2.7 |
 | 作成日 | 2026-02-19 |
-| 更新日 | 2026-04-06 |
+| 更新日 | 2026-04-09 |
 | 作成者 | 日下武紀 |
 
 ---
@@ -128,6 +128,11 @@
 | POST | /api/v1/admin/weekly-report | 週次レポート生成トリガー | 内部API |
 | POST | /api/v1/admin/notifications/reminder | リマインダー通知送信 | 内部API |
 | POST | /api/v1/admin/notifications/streak-warning | ストリーク途切れ警告送信 | 内部API |
+| POST | /api/v1/admin/account/delete | アカウント（テナント）完全削除 | owner |
+| GET | /api/v1/admin/account/deletion-info | 削除対象データ概要取得 | owner |
+| GET | /api/v1/admin/viewer-tokens | 閲覧専用トークン一覧取得 | owner/parent |
+| POST | /api/v1/admin/viewer-tokens | 閲覧専用トークン作成 | owner/parent |
+| DELETE | /api/v1/admin/viewer-tokens/[id] | 閲覧専用トークン無効化 | owner/parent |
 
 ### 設定 API
 
@@ -997,6 +1002,354 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 - childId が不正: `{ "error": "IDが不正です" }`
 - バトル未生成: `{ "error": "今日のバトルが見つかりません" }`
 - 二重実行: `{ "error": "今日のバトルは既に完了しています" }`
+### 3.17 アカウント管理
+
+#### POST /api/v1/admin/account/delete
+
+テナント（アカウント）の完全削除。全データを不可逆に削除する。
+
+**認証:** owner のみ
+
+**リクエスト:**
+```json
+{
+  "confirmation": "DELETE"
+}
+```
+
+**処理:** テナントに紐づく全エンティティ（子供、活動、ログ、ポイント、設定等）を削除。Stripe 連携がある場合はサブスクリプションもキャンセル。
+
+**レスポンス:** `200 { success: true }`
+
+#### GET /api/v1/admin/account/deletion-info
+
+削除前の影響範囲確認用。削除対象データの概要を返す。
+
+**認証:** owner のみ
+
+**レスポンス:**
+```json
+{
+  "childrenCount": 2,
+  "activitiesCount": 15,
+  "activityLogsCount": 342,
+  "membersCount": 1,
+  "hasActiveSubscription": true
+}
+```
+
+### 3.18 閲覧専用トークン
+
+#### GET /api/v1/admin/viewer-tokens
+
+テナントの閲覧専用トークン一覧を取得。
+
+**認証:** owner/parent
+
+**レスポンス:**
+```json
+{
+  "tokens": [
+    {
+      "id": 1,
+      "token": "abc123...",
+      "label": "おばあちゃん用",
+      "expiresAt": null,
+      "createdAt": "2026-04-01T00:00:00Z",
+      "revokedAt": null
+    }
+  ]
+}
+```
+
+#### POST /api/v1/admin/viewer-tokens
+
+閲覧専用トークンを新規作成。`/view/[token]` で子供の成長記録を閲覧可能にする。
+
+**認証:** owner/parent
+
+**リクエスト:**
+```json
+{
+  "label": "おばあちゃん用",
+  "expiresAt": "2026-12-31"
+}
+```
+
+**レスポンス:** `201 { token: "abc123...", url: "/view/abc123..." }`
+
+#### DELETE /api/v1/admin/viewer-tokens/[id]
+
+閲覧専用トークンを無効化（revoke）。
+
+**認証:** owner/parent
+
+**レスポンス:** `200 { success: true }`
+
+### 3.19 おうえんメッセージ
+
+#### GET /api/v1/messages/[childId]
+
+メッセージ履歴を取得。`?mode=unshown` で未表示のみフィルタ可能。
+
+**認証:** 全ロール
+
+**クエリパラメータ:** `mode` (optional): `'unshown'` — 未表示メッセージのみ
+
+**レスポンス:**
+```json
+{
+  "messages": [
+    {
+      "id": 1,
+      "messageType": "stamp",
+      "stampCode": "heart",
+      "body": null,
+      "icon": "💌",
+      "sentAt": "2026-04-09T10:00:00Z",
+      "shownAt": null
+    }
+  ]
+}
+```
+
+#### POST /api/v1/messages/[childId]
+
+親から子供へメッセージ送信。
+
+**認証:** owner/parent
+
+**リクエスト:**
+```json
+{
+  "messageType": "stamp",
+  "stampCode": "heart",
+  "icon": "💌"
+}
+```
+または
+```json
+{
+  "messageType": "text",
+  "body": "今日もがんばったね！",
+  "icon": "💌"
+}
+```
+
+#### POST /api/v1/messages/[messageId]/shown
+
+メッセージを表示済みにマーク。子供画面でオーバーレイ表示後に呼ばれる。
+
+**認証:** 全ロール
+
+**レスポンス:** `200 { success: true }`
+
+### 3.20 おやすみ日
+
+#### GET /api/v1/rest-days/[childId]
+
+おやすみ日一覧取得。`?month=YYYY-MM` で月別フィルタ。
+
+**認証:** owner/parent
+
+**レスポンス:**
+```json
+{
+  "restDays": [
+    { "id": 1, "date": "2026-04-09", "reason": "sick" }
+  ]
+}
+```
+
+#### POST /api/v1/rest-days/[childId]
+
+おやすみ日を登録。
+
+**認証:** owner/parent
+
+**リクエスト:**
+```json
+{
+  "date": "2026-04-09",
+  "reason": "rest"
+}
+```
+
+#### DELETE /api/v1/rest-days/[childId]
+
+おやすみ日を削除。
+
+**認証:** owner/parent
+
+**リクエスト:**
+```json
+{
+  "date": "2026-04-09"
+}
+```
+
+### 3.21 設定
+
+#### GET /api/v1/settings/decay
+
+ポイント減少強度設定を取得。
+
+**認証:** owner/parent
+
+**レスポンス:**
+```json
+{
+  "decayEnabled": true,
+  "decayRate": 0.05,
+  "decayInterval": "weekly"
+}
+```
+
+#### PUT /api/v1/settings/decay
+
+ポイント減少強度設定を更新。
+
+**認証:** owner/parent
+
+#### POST /api/v1/settings/tutorial
+
+チュートリアル完了をマーク。
+
+**認証:** owner/parent
+
+**リクエスト:**
+```json
+{
+  "completed": true
+}
+```
+
+#### GET /api/v1/settings/vapid-key
+
+Web Push 通知用の VAPID 公開鍵を取得。
+
+**認証:** 不要
+
+**レスポンス:**
+```json
+{
+  "publicKey": "BLa7..."
+}
+```
+
+### 3.22 Push 通知
+
+#### POST /api/v1/notifications/subscribe
+
+Push 通知の購読登録。ブラウザの PushSubscription オブジェクトをサーバーに保存。
+
+**認証:** owner/parent
+
+**リクエスト:**
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+  "keys": {
+    "p256dh": "...",
+    "auth": "..."
+  }
+}
+```
+
+#### POST /api/v1/notifications/unsubscribe
+
+Push 通知の購読解除。
+
+**認証:** owner/parent
+
+**リクエスト:**
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/..."
+}
+```
+
+### 3.23 評価
+
+#### GET /api/v1/evaluations/[childId]
+
+子供の評価履歴を取得。`?period=weekly|monthly` で期間フィルタ。
+
+**認証:** 全ロール
+
+**レスポンス:**
+```json
+{
+  "evaluations": [
+    {
+      "id": 1,
+      "childId": 1,
+      "evaluatedAt": "2026-04-09",
+      "scores": { "undou": 72, "benkyou": 58, "otetsudai": 85 }
+    }
+  ]
+}
+```
+
+### 3.24 ポイント履歴
+
+#### GET /api/v1/points/[childId]/history
+
+ポイントの入出金履歴を取得。
+
+**認証:** 全ロール
+
+**クエリパラメータ:** `limit` (optional, default: 50), `offset` (optional, default: 0)
+
+**レスポンス:**
+```json
+{
+  "history": [
+    {
+      "id": 1,
+      "amount": 5,
+      "type": "earn",
+      "source": "activity_log",
+      "description": "たいそうした",
+      "createdAt": "2026-04-09T10:00:00Z"
+    }
+  ],
+  "total": 150
+}
+```
+
+### 3.25 アナリティクス
+
+#### POST /api/v1/analytics
+
+クライアント側イベントを記録（ページビュー、ボタンクリック等）。
+
+**認証:** 不要（tenantId は自動付与）
+
+**リクエスト:**
+```json
+{
+  "event": "page_view",
+  "properties": { "path": "/admin" }
+}
+```
+
+#### GET /api/v1/analytics/status
+
+アナリティクスプロバイダーの設定状態を取得。
+
+**認証:** 全ロール
+
+**レスポンス:**
+```json
+{
+  "providers": {
+    "sentry": { "enabled": true },
+    "umami": { "enabled": false },
+    "dynamodb": { "enabled": true }
+  }
+}
+```
 
 ---
 
@@ -1103,3 +1456,4 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 | 2026-04-04 | 2.5 | #344 実装とのAPI同期: メンバー管理（削除/移譲/脱退）、テナント操作（status/cancel/reactivate）、通知（reminder/streak-warning/subscribe/unsubscribe）、カスタム音声（voices CRUD）、アバター、活動パック export/import、設定（vapid-key/tutorial）、デモ分析、管理用内部API（cleanup-orphans/migration/weekly-report/tenant-cleanup）追加 |
 | 2026-04-06 | 2.6 | #550 アナリティクス基盤: POST /api/v1/analytics（イベント記録）、GET /api/v1/analytics/status（設定確認）追加。3層プロバイダー（Sentry/Umami/DynamoDB）アーキテクチャ |
 | 2026-04-10 | 2.7 | #605 バトルアドベンチャーAPI追加: GET/POST /api/v1/battle/[childId]（日次バトル取得・実行） |
+| 2026-04-09 | 2.8 | #609 設計書同期: アカウント削除(2)・閲覧専用トークン(3)エンドポイントを一覧追加。未記載だった9カテゴリのエンドポイント詳細仕様（3.17-3.25）を追記 |
