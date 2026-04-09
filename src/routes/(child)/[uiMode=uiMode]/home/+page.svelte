@@ -24,7 +24,6 @@ import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
 import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
 import SiblingRanking from '$lib/ui/components/SiblingRanking.svelte';
-import SpecialRewardProgress from '$lib/ui/components/SpecialRewardProgress.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -554,12 +553,32 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		</form>
 	{/if}
 
-	<!-- Special reward progress indicator -->
-	{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
-		<SpecialRewardProgress
-			remaining={data.specialRewardProgress.remaining}
-			interval={data.specialRewardProgress.interval}
-		/>
+	<!-- Checklist top card (pinned when not complete) -->
+	{#if data.hasChecklists && data.checklistProgress && !data.checklistProgress.allDone}
+		<a
+			href="/checklist"
+			data-testid="checklist-top-card"
+			class="flex items-center justify-between w-full px-[var(--sp-md)] py-[var(--sp-sm)] mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 shadow-sm tap-target"
+		>
+			<div class="flex items-center gap-[var(--sp-sm)]">
+				<span class="text-2xl">📋</span>
+				<div>
+					<span class="font-bold text-sm">もちものチェック</span>
+					<div class="h-1.5 w-24 bg-gray-200 rounded-full mt-1">
+						<div
+							class="h-full bg-blue-400 rounded-full transition-all"
+							style:width="{data.checklistProgress.totalCount > 0 ? (data.checklistProgress.checkedCount / data.checklistProgress.totalCount) * 100 : 0}%"
+						></div>
+					</div>
+				</div>
+			</div>
+			<div class="flex items-center gap-[var(--sp-xs)]">
+				<span class="text-sm text-[var(--color-text-muted)]">
+					{data.checklistProgress.checkedCount}/{data.checklistProgress.totalCount}
+				</span>
+				<span class="text-[var(--color-text-muted)]">›</span>
+			</div>
+		</a>
 	{/if}
 
 	<!-- Tutorial hint banner (one-time) -->
@@ -902,6 +921,11 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{/if}
 
 				<p class="text-xs text-[var(--color-text-muted)]">きょう {todayTotalCount + 1}かいめ！</p>
+				{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
+					<p class="text-xs text-[var(--color-text-muted)]">
+						🎁 あと<strong class="text-[var(--color-point)]">{data.specialRewardProgress.remaining}</strong>かいで とくべつごほうび！
+					</p>
+				{/if}
 
 				<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-sm)]">
 					<!-- Cancel button with countdown -->
