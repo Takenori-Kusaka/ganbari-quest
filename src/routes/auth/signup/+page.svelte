@@ -39,6 +39,39 @@ let agreedTerms = $state(false);
 let agreedPrivacy = $state(false);
 let showLicenseKey = $state(false);
 
+// #588: 規約リンク閲覧追跡（一度クリックして開くまでチェック不可）
+let termsViewed = $state(false);
+let privacyViewed = $state(false);
+let termsHintShown = $state(false);
+let privacyHintShown = $state(false);
+
+// #588: フォーム送信試行追跡（未入力フィールドのエラー表示用）
+let submitAttempted = $state(false);
+
+// #588: 送信可能かの判定
+const canSubmit = $derived(
+	!loading &&
+		!!email &&
+		!!password &&
+		!!passwordConfirm &&
+		password === passwordConfirm &&
+		agreedTerms &&
+		agreedPrivacy &&
+		(!showLicenseKey || (!!licenseKey && licenseKeyValid)),
+);
+
+// #588: 送信不可理由
+const submitBlockReason = $derived(() => {
+	if (!email) return 'メールアドレスを入力してください';
+	if (!password) return 'パスワードを入力してください';
+	if (!passwordConfirm) return 'パスワード（確認）を入力してください';
+	if (password !== passwordConfirm) return 'パスワードが一致しません';
+	if (!agreedTerms) return '利用規約への同意が必要です';
+	if (!agreedPrivacy) return 'プライバシーポリシーへの同意が必要です';
+	if (showLicenseKey && (!licenseKey || !licenseKeyValid)) return 'ライセンスキーを正しく入力してください';
+	return '';
+});
+
 // 再送クールダウン（60秒）
 let resendCooldown = $state(0);
 let cooldownTimer: ReturnType<typeof setInterval> | null = null;
@@ -294,32 +327,52 @@ $effect(() => {
 				{/if}
 
 				<div class="-mt-1">
-					<FormField label="">
+					<FormField label="" error={submitAttempted && !agreedTerms ? '利用規約への同意が必要です' : undefined}>
 						{#snippet children()}
-							<label class="flex items-start gap-2 cursor-pointer">
+							<label class="flex items-start gap-2 {termsViewed ? 'cursor-pointer' : 'cursor-default'}">
 								<input
 									type="checkbox"
 									name="agreedTerms"
 									bind:checked={agreedTerms}
-									class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
+									disabled={!termsViewed}
+									class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)] disabled:opacity-40"
+									onclick={(e) => {
+										if (!termsViewed) {
+											e.preventDefault();
+											termsHintShown = true;
+										}
+									}}
 								/>
 								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-									<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline">利用規約</a>に同意します
+									<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline" onclick={() => { termsViewed = true; termsHintShown = false; }}>利用規約</a>に同意します
+									{#if termsHintShown && !termsViewed}
+										<span class="block text-xs text-[var(--color-warning)] mt-0.5">先に利用規約をお読みください</span>
+									{/if}
 								</span>
 							</label>
 						{/snippet}
 					</FormField>
-					<FormField label="">
+					<FormField label="" error={submitAttempted && !agreedPrivacy ? 'プライバシーポリシーへの同意が必要です' : undefined}>
 						{#snippet children()}
-							<label class="flex items-start gap-2 cursor-pointer">
+							<label class="flex items-start gap-2 {privacyViewed ? 'cursor-pointer' : 'cursor-default'}">
 								<input
 									type="checkbox"
 									name="agreedPrivacy"
 									bind:checked={agreedPrivacy}
-									class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
+									disabled={!privacyViewed}
+									class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)] disabled:opacity-40"
+									onclick={(e) => {
+										if (!privacyViewed) {
+											e.preventDefault();
+											privacyHintShown = true;
+										}
+									}}
 								/>
 								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-									<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline">プライバシーポリシー</a>に同意します
+									<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline" onclick={() => { privacyViewed = true; privacyHintShown = false; }}>プライバシーポリシー</a>に同意します
+									{#if privacyHintShown && !privacyViewed}
+										<span class="block text-xs text-[var(--color-warning)] mt-0.5">先にプライバシーポリシーをお読みください</span>
+									{/if}
 								</span>
 							</label>
 						{/snippet}
@@ -329,11 +382,23 @@ $effect(() => {
 					</p>
 				</div>
 
+				{#if submitAttempted && !canSubmit}
+					<p class="text-xs text-[var(--color-danger)] text-center" role="alert">
+						{submitBlockReason()}
+					</p>
+				{/if}
+
 				<Button
 					type="submit"
-					disabled={loading || !email || !password || !passwordConfirm || !agreedTerms || !agreedPrivacy || (showLicenseKey && (!licenseKey || !licenseKeyValid))}
+					disabled={!canSubmit}
 					size="md"
 					class="w-full"
+					onclick={(e) => {
+						if (!canSubmit) {
+							e.preventDefault();
+							submitAttempted = true;
+						}
+					}}
 				>
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
