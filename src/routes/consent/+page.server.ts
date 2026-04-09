@@ -24,11 +24,20 @@ export const load: PageServerLoad = async ({ locals }) => {
 		redirect(302, '/admin');
 	}
 
+	// #589: 過去の同意がない → 「新規同意」
+	// 過去の同意があり古いバージョン → 「規約更新」
+	// この区別で見出し文言を切り替える
+	const hasExistingConsent =
+		consent.termsVersion !== undefined || consent.privacyVersion !== undefined;
+
 	return {
 		termsAccepted: consent.termsAccepted,
 		privacyAccepted: consent.privacyAccepted,
 		currentTermsVersion: CURRENT_TERMS_VERSION,
 		currentPrivacyVersion: CURRENT_PRIVACY_VERSION,
+		hasExistingConsent,
+		previousTermsVersion: consent.termsVersion ?? null,
+		previousPrivacyVersion: consent.privacyVersion ?? null,
 	};
 };
 
