@@ -274,9 +274,9 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 
 ### 並行実装の注意
 
-- routes は `src/routes/(child)/{baby,preschool,elementary,junior,senior}/` に 5 ディレクトリ
-- **1 つ変更したら 5 つ全て確認** — 並行実装マップ: [docs/design/parallel-implementations.md](design/parallel-implementations.md)
-- 実体: `src/lib/domain/validation/age-tier.ts`
+- routes は `src/routes/(child)/[uiMode=uiMode]/` にパラメータルートで統合済み（#664）
+- 年齢モードの定義: `src/lib/domain/validation/age-tier.ts`
+- 並行実装マップ: [docs/design/parallel-implementations.md](design/parallel-implementations.md)
 
 ---
 
