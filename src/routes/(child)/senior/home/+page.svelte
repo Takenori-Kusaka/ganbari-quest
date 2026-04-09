@@ -318,7 +318,7 @@ $effect(() => {
 
 	<!-- Error toast -->
 	{#if errorMessage}
-		<div class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold animate-bounce-in">
+		<div class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[var(--color-stat-red)] text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold animate-bounce-in">
 			{errorMessage}
 		</div>
 	{/if}
@@ -374,7 +374,7 @@ $effect(() => {
 				{#each group.items as activity, i (activity.id)}
 					{#if i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
 						<div class="col-span-full flex items-center gap-2 my-0.5" aria-hidden="true" data-testid="pin-separator">
-							<div class="flex-1 border-t border-dashed border-gray-300"></div>
+							<div class="flex-1 border-t border-dashed border-[var(--color-border-strong)]"></div>
 						</div>
 					{/if}
 					{#if groupIdx === 0 && i === 0}
@@ -448,7 +448,7 @@ $effect(() => {
 						</span>
 						<div
 							class="w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-bold
-								{day.count > 0 ? 'bg-[var(--theme-accent)] text-white' : 'bg-gray-100 text-gray-300'}
+								{day.count > 0 ? 'bg-[var(--theme-accent)] text-white' : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-disabled)]'}
 								{isToday ? 'ring-2 ring-[var(--theme-accent)] ring-offset-1' : ''}"
 						>
 							{day.count || '−'}
@@ -458,7 +458,7 @@ $effect(() => {
 			</div>
 			<!-- カテゴリバランス -->
 			{#if Object.keys(ws.byCategory).length > 0}
-				<div class="border-t border-gray-100 pt-2">
+				<div class="border-t border-[var(--color-border-light)] pt-2">
 					<div class="text-[10px] text-[var(--color-text-muted)] mb-1.5">カテゴリバランス</div>
 					<div class="flex flex-col gap-1.5">
 						{#each Object.entries(ws.byCategory) as [catId, cat]}
@@ -467,7 +467,7 @@ $effect(() => {
 							{#if catDef}
 								<div class="flex items-center gap-2">
 									<span class="text-[10px] w-14 truncate" style="color: {catDef.color};">{catDef.name}</span>
-									<div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+									<div class="flex-1 h-2 bg-[var(--color-surface-secondary)] rounded-full overflow-hidden">
 										<div class="h-full rounded-full transition-all duration-500" style="width: {pct}%; background: {catDef.color};"></div>
 									</div>
 									<span class="text-[10px] text-[var(--color-text-muted)] w-8 text-right">{pct}%</span>
@@ -506,7 +506,7 @@ $effect(() => {
 			<Button
 				variant={pinMenuActivity.isPinned ? 'ghost' : 'warning'}
 				size="md"
-				class="w-full {pinMenuActivity.isPinned ? 'bg-gray-200 text-gray-700' : 'bg-amber-100 text-amber-700'}"
+				class="w-full {pinMenuActivity.isPinned ? 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-primary)]' : 'bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]'}"
 				disabled={pinSubmitting}
 				onclick={handlePinToggle}
 			>
@@ -521,7 +521,7 @@ $effect(() => {
 			<Button
 				variant="ghost"
 				size="sm"
-				class="w-full text-gray-500"
+				class="w-full text-[var(--color-text-muted)]"
 				onclick={() => { pinMenuOpen = false; pinMenuActivity = null; }}
 			>
 				閉じる
@@ -540,7 +540,7 @@ $effect(() => {
 				<Button
 					variant="ghost"
 					size="md"
-					class="flex-1 bg-gray-200"
+					class="flex-1 bg-[var(--color-surface-tertiary)]"
 					data-testid="confirm-cancel-btn"
 					disabled={submitting}
 					onclick={handleConfirmClose}
@@ -644,7 +644,7 @@ $effect(() => {
 				<Button
 					variant="ghost"
 					size="md"
-					class="w-full bg-gray-200 mt-[var(--sp-sm)]"
+					class="w-full bg-[var(--color-surface-tertiary)] mt-[var(--sp-sm)]"
 					onclick={() => {
 						cancelledMessage = false;
 						resultOpen = false;
@@ -668,13 +668,13 @@ $effect(() => {
 					</p>
 				{/if}
 				{#if resultData.masteryBonus > 0}
-					<p class="text-sm text-purple-600">
+					<p class="text-sm text-[var(--color-stat-purple)]">
 						📗 習熟ボーナス +{resultData.masteryBonus} (Lv.{resultData.masteryLevel})
 					</p>
 				{/if}
 				{#if resultData.masteryLeveledUp}
-					<div class="bg-purple-50 rounded-[var(--radius-md)] px-3 py-2 w-full">
-						<p class="text-sm font-bold text-purple-700">
+					<div class="bg-[var(--color-stat-purple-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+						<p class="text-sm font-bold text-[var(--color-stat-purple)]">
 							🎖️ {resultData.activityName}が Lv.{resultData.masteryLeveledUp.newLevel} になった！
 						</p>
 					</div>
@@ -694,27 +694,27 @@ $effect(() => {
 					</div>
 				{/if}
 				{#if missionResult}
-					<div class="bg-amber-50 rounded-[var(--radius-md)] px-3 py-2 w-full">
-						<p class="text-sm font-bold text-amber-600">
+					<div class="bg-[var(--color-feedback-warning-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+						<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">
 							🎯 ミッション達成
 							{#if missionResult.bonusAwarded > 0}
 								{fmtPts(missionResult.bonusAwarded)}
 							{/if}
 						</p>
 						{#if missionResult.allComplete}
-							<p class="text-xs font-bold text-amber-500">🎉 全達成</p>
+							<p class="text-xs font-bold text-[var(--color-feedback-warning-text)]">🎉 全達成</p>
 						{/if}
 					</div>
 				{/if}
 
 				{#if xpGainData}
 					{@const catDef = getCategoryById(xpGainData.categoryId)}
-					<div class="mt-1 text-center text-xs text-[var(--color-text-muted)] border-t border-gray-100 pt-2 w-full">
+					<div class="mt-1 text-center text-xs text-[var(--color-text-muted)] border-t border-[var(--color-border-light)] pt-2 w-full">
 						<span style:color={catDef?.color ?? 'inherit'}>{xpGainData.categoryName}</span>
 						けいけんち
 						<span class="font-bold text-[var(--color-text)]">+0.3</span>
 						{#if xpGainData.levelAfter > xpGainData.levelBefore}
-							<span class="font-bold text-amber-600"> → Lv.{xpGainData.levelAfter} ↑</span>
+							<span class="font-bold text-[var(--color-feedback-warning-text)]"> → Lv.{xpGainData.levelAfter} ↑</span>
 						{/if}
 					</div>
 				{/if}
@@ -743,7 +743,7 @@ $effect(() => {
 								type="submit"
 								variant="ghost"
 								size="sm"
-								class="w-full bg-gray-200 text-[var(--color-text-muted)]"
+								class="w-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)]"
 							>
 								取消 ({cancelCountdown}s)
 							</Button>

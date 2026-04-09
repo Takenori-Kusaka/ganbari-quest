@@ -493,8 +493,8 @@ $effect(() => {
 				</div>
 			{/if}
 			{#if resultMasteryLeveledUp}
-				<div class="bg-purple-50 rounded-[var(--radius-md)] px-3 py-2 w-full">
-					<p class="text-sm font-bold text-purple-700">
+				<div class="bg-[var(--color-stat-purple-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+					<p class="text-sm font-bold text-[var(--color-stat-purple)]">
 						🎖️ {resultName}が Lv.{resultMasteryLeveledUp.newLevel} になった！
 					</p>
 				</div>
@@ -515,12 +515,12 @@ $effect(() => {
 
 			{#if xpGainData}
 				{@const catDef = getCategoryById(xpGainData.categoryId)}
-				<div class="mt-1 text-center text-xs text-[var(--color-text-muted)] border-t border-gray-100 pt-2 w-full">
+				<div class="mt-1 text-center text-xs text-[var(--color-text-muted)] border-t border-[var(--color-border-light)] pt-2 w-full">
 					<span style:color={catDef?.color ?? 'inherit'}>{xpGainData.categoryName}</span>
 					けいけんち
 					<span class="font-bold text-[var(--color-text)]">+0.3</span>
 					{#if xpGainData.levelAfter > xpGainData.levelBefore}
-						<span class="font-bold text-amber-600"> → Lv.{xpGainData.levelAfter} ↑</span>
+						<span class="font-bold text-[var(--color-feedback-warning-text)]"> → Lv.{xpGainData.levelAfter} ↑</span>
 					{/if}
 				</div>
 			{/if}

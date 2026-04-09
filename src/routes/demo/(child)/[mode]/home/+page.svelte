@@ -210,7 +210,7 @@ function handleResultClose() {
 				{resultData.streakDays}日れんぞく！
 			</p>
 			<p class="text-xs text-[var(--color-text-muted)] mt-1">きょう {data.todayRecorded.reduce((sum: number, r: { activityId: number; count: number }) => sum + r.count, 0) + 1}かいめ！</p>
-			<p class="text-xs text-amber-500 mt-3">
+			<p class="text-xs text-[var(--color-feedback-warning-text)] mt-3">
 				（デモモード：データは保存されません）
 			</p>
 			<a

@@ -48,16 +48,16 @@ function formatDate(d: string): string {
 	</div>
 
 	{#if form?.error}
-		<div class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{form.error}</div>
+		<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)]">{form.error}</div>
 	{/if}
 	{#if form?.created}
-		<div class="rounded-lg bg-green-50 p-3 text-sm text-green-700">イベントを作成しました</div>
+		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]">イベントを作成しました</div>
 	{/if}
 	{#if form?.updated}
-		<div class="rounded-lg bg-blue-50 p-3 text-sm text-blue-700">イベントを更新しました</div>
+		<div class="rounded-lg bg-[var(--color-feedback-info-bg)] p-3 text-sm text-[var(--color-feedback-info-text)]">イベントを更新しました</div>
 	{/if}
 	{#if form?.deleted}
-		<div class="rounded-lg bg-gray-50 p-3 text-sm text-gray-700">イベントを削除しました</div>
+		<div class="rounded-lg bg-[var(--color-surface-muted)] p-3 text-sm text-[var(--color-text-primary)]">イベントを削除しました</div>
 	{/if}
 
 	<!-- Create form -->
@@ -97,14 +97,14 @@ function formatDate(d: string): string {
 	{#if data.events.length === 0}
 		<div class="rounded-xl border bg-white p-8 text-center">
 			<p class="text-2xl">🎪</p>
-			<p class="mt-2 text-sm font-semibold text-gray-500">イベントはまだありません</p>
-			<p class="text-xs text-gray-400">上のボタンから作成してください</p>
+			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">イベントはまだありません</p>
+			<p class="text-xs text-[var(--color-text-tertiary)]">上のボタンから作成してください</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
 			{#each data.events as event (event.id)}
 				{@const active = isCurrentlyActive(event)}
-				<div class="rounded-xl border bg-white p-4" class:border-amber-300={active}>
+				<div class="rounded-xl border bg-white p-4" class:border-[var(--color-feedback-warning-border)]={active}>
 					<div class="flex items-start justify-between gap-2">
 						<div class="flex items-center gap-2">
 							<span class="text-xl">{event.bannerIcon}</span>
@@ -112,19 +112,19 @@ function formatDate(d: string): string {
 								<h3 class="font-bold text-sm">
 									{event.name}
 									{#if active}
-										<span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">開催中</span>
+										<span class="ml-1 rounded bg-[var(--color-feedback-warning-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-warning-text)]">開催中</span>
 									{/if}
 									{#if event.isActive === 0}
-										<span class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">無効</span>
+										<span class="ml-1 rounded bg-[var(--color-surface-secondary)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">無効</span>
 									{/if}
 								</h3>
-								<p class="text-xs text-gray-500">
-									<code class="bg-gray-100 px-1 rounded">{event.code}</code>
+								<p class="text-xs text-[var(--color-text-muted)]">
+									<code class="bg-[var(--color-surface-secondary)] px-1 rounded">{event.code}</code>
 									· {formatDate(event.startDate)} 〜 {formatDate(event.endDate)}
 									· {event.eventType}
 								</p>
 								{#if event.description}
-									<p class="text-xs text-gray-600 mt-1">{event.description}</p>
+									<p class="text-xs text-[var(--color-text-secondary)] mt-1">{event.description}</p>
 								{/if}
 							</div>
 						</div>

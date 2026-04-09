@@ -92,11 +92,11 @@ async function handleShareDownload() {
 <!-- Screen-only controls -->
 <div class="screen-controls">
 	<div class="flex items-center gap-3 mb-4">
-		<a href="/admin/certificates" class="text-sm text-gray-500 hover:text-gray-700">&larr; 一覧に戻る</a>
+		<a href="/admin/certificates" class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">&larr; 一覧に戻る</a>
 	</div>
 
 	<div class="flex items-center justify-between mb-6">
-		<h2 class="text-lg font-bold text-gray-700">📜 証明書プレビュー</h2>
+		<h2 class="text-lg font-bold text-[var(--color-text-primary)]">📜 証明書プレビュー</h2>
 		<div class="flex gap-2">
 			{#if data.isPremium}
 				<Button type="button" variant="primary" size="sm" onclick={handlePrint}>
@@ -104,8 +104,8 @@ async function handleShareDownload() {
 				</Button>
 			{:else}
 				<div class="flex items-center gap-2">
-					<span class="text-xs text-gray-400">PDF保存はスタンダードプラン以上</span>
-					<a href="/admin/license" class="text-xs text-blue-500 hover:underline">アップグレード</a>
+					<span class="text-xs text-[var(--color-text-tertiary)]">PDF保存はスタンダードプラン以上</span>
+					<a href="/admin/license" class="text-xs text-[var(--color-feedback-info-text)] hover:underline">アップグレード</a>
 				</div>
 			{/if}
 		</div>
@@ -124,8 +124,8 @@ async function handleShareDownload() {
 <div class="screen-controls">
 	<Card variant="default" padding="md" class="mt-6">
 		{#snippet children()}
-		<h3 class="text-sm font-bold text-gray-700 mb-3">🎉 がんばりカード</h3>
-		<p class="text-xs text-gray-500 mb-3">達成を画像でダウンロードして、LINEやSNSでシェアできます</p>
+		<h3 class="text-sm font-bold text-[var(--color-text-primary)] mb-3">🎉 がんばりカード</h3>
+		<p class="text-xs text-[var(--color-text-muted)] mb-3">達成を画像でダウンロードして、LINEやSNSでシェアできます</p>
 
 		{#if showShareCard}
 			<div class="mb-4">
@@ -151,7 +151,7 @@ async function handleShareDownload() {
 		{/if}
 
 		{#if shareStatus}
-			<p class="text-xs text-green-600 mt-2 text-center">{shareStatus}</p>
+			<p class="text-xs text-[var(--color-feedback-success-text)] mt-2 text-center">{shareStatus}</p>
 		{/if}
 		{/snippet}
 	</Card>
