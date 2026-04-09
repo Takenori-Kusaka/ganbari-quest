@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { AGE_TIER_CONFIG, getDefaultUiMode, type UiMode } from '$lib/domain/validation/age-tier';
+import { getAgeTierLabel } from '$lib/domain/labels';
+import { AGE_TIER_CONFIG, getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -48,7 +49,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 					<div>
 						<p class="font-bold text-sm text-gray-700">{child.nickname}</p>
 						<p class="text-xs text-gray-500">
-							{child.age}歳 / {AGE_TIER_CONFIG[child.uiMode as UiMode]?.label ?? child.uiMode}モード
+							{child.age}歳 / {getAgeTierLabel(child.uiMode)}モード
 						</p>
 					</div>
 				</div>
