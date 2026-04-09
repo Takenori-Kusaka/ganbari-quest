@@ -47,7 +47,7 @@ let loading = $state(false);
 			</div>
 
 			{#if form?.error}
-				<div class="mb-4 px-4 py-3 bg-red-50 text-red-700 border border-red-200 rounded-[var(--radius-sm)] text-sm" role="alert">{form.error}</div>
+				<div class="mb-4 px-4 py-3 bg-[var(--color-danger-50)] text-[var(--color-danger-700)] border border-[var(--color-danger-200)] rounded-[var(--radius-sm)] text-sm" role="alert">{form.error}</div>
 			{/if}
 
 			<form
@@ -115,7 +115,7 @@ let loading = $state(false);
 	</div>
 
 	<!-- Sticky bottom bar — ボタンが viewport 外に出ない -->
-	<div class="sticky bottom-0 w-full px-4 py-4 bg-white/90 backdrop-blur-sm border-t border-[var(--color-border-default)]">
+	<div class="sticky bottom-0 w-full px-4 py-4 bg-[color-mix(in_srgb,var(--color-surface-card)_90%,transparent)] backdrop-blur-sm border-t border-[var(--color-border-default)]">
 		<div class="max-w-[480px] mx-auto">
 			<Button
 				type="submit"
