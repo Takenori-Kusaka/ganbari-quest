@@ -92,6 +92,12 @@
 	--color-danger: #f44336;
 	--color-point: #ffd700;
 
+	/* ---- Pink (テーマカラー・ピンク系) ---- */
+	--color-pink-50: #fff0f5;
+	--color-pink-100: #ffe4e1;
+	--color-pink-200: #ffb6c1;
+	--color-pink-400: #ff69b4;
+
 	/* ---- Orange Accent (CTA・暖色グラデーション終端) ---- */
 	--color-orange-500: #f97316;
 	--color-orange-50: #fff7ed;
