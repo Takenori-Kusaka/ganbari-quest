@@ -18,7 +18,6 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import EventBanner from '$lib/ui/components/EventBanner.svelte';
-import FamilyStreakBanner from '$lib/ui/components/FamilyStreakBanner.svelte';
 import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
 import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
@@ -544,52 +543,12 @@ $effect(() => {
 		/>
 	{/if}
 
-	<!-- おうえんメッセージ（Kinder固有） -->
-	{#if kinderTodayCount > 0}
-		<div class="mt-[var(--sp-md)] p-4 rounded-2xl bg-[var(--theme-bg)] border border-[var(--theme-secondary)] text-center">
-			<div class="text-3xl mb-1">
-				{#if kinderTodayCount >= 5}
-					🌟
-				{:else if kinderTodayCount >= 3}
-					⭐
-				{:else}
-					😊
-				{/if}
-			</div>
-			<p class="text-sm font-bold" style="color: var(--theme-accent);">
-				{#if kinderTodayCount >= 5}
-					すっごーい！ きょう {kinderTodayCount}かい がんばったね！
-				{:else if kinderTodayCount >= 3}
-					いいかんじ！ {kinderTodayCount}かい できたよ！
-				{:else}
-					がんばってるね！ {kinderTodayCount}かい きろくしたよ！
-				{/if}
-			</p>
-			<div class="flex justify-center gap-1 mt-2">
-				{#each Array(Math.min(kinderTodayCount, 10)) as _}
-					<span class="text-lg">⭐</span>
-				{/each}
-			</div>
-		</div>
-	{/if}
 
 	{#if data.activities.length === 0}
 		<ActivityEmptyState uiMode={data.uiMode} />
 	{/if}
 
 
-	<!-- Family streak banner (below activities) -->
-	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
-		<FamilyStreakBanner
-			currentStreak={data.familyStreak.currentStreak}
-			hasRecordedToday={data.familyStreak.hasRecordedToday}
-			todayRecorders={data.familyStreak.todayRecorders}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
-			nextMilestone={data.familyStreak.nextMilestone}
-			compact
-		/>
-	{/if}
 
 	<!-- Season event banners -->
 	{#if data.activeEvents && data.activeEvents.length > 0}
@@ -833,6 +792,8 @@ $effect(() => {
 						{/if}
 					</div>
 				{/if}
+
+				<p class="text-xs text-[var(--color-text-muted)]">きょう {kinderTodayCount + 1}かいめ！</p>
 
 				<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-sm)]">
 					<!-- Cancel button with countdown -->
