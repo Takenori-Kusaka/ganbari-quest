@@ -172,8 +172,8 @@ const RARITY_WEIGHTS: Record<EnemyRarity, number> = {
 export function selectDailyEnemy(dayOfWeek: number, random: number, consecutiveLosses = 0): Enemy {
 	const available = getAvailableEnemies(dayOfWeek);
 	if (available.length === 0) {
-		// フォールバック: 全敵から選択（通常到達しない）
-		return ENEMIES[0];
+		// フォールバック: 全敵から選択（ENEMIES は空にならない）
+		return ENEMIES[0] as Enemy;
 	}
 
 	// 天井: 2連敗以上なら common のみ
@@ -191,5 +191,5 @@ export function selectDailyEnemy(dayOfWeek: number, random: number, consecutiveL
 		if (threshold <= 0) return enemy;
 	}
 
-	return finalPool[finalPool.length - 1];
+	return finalPool[finalPool.length - 1] as Enemy;
 }

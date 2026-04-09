@@ -435,6 +435,36 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_viewer_tokens_tenant
 				ON viewer_tokens(tenant_id);
 
+			CREATE TABLE IF NOT EXISTS daily_battles (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id),
+				enemy_id INTEGER NOT NULL,
+				date TEXT NOT NULL,
+				status TEXT NOT NULL DEFAULT 'pending',
+				outcome TEXT,
+				reward_points INTEGER NOT NULL DEFAULT 0,
+				turns_used INTEGER NOT NULL DEFAULT 0,
+				player_stats_json TEXT NOT NULL DEFAULT '{}',
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_battles_child_date
+				ON daily_battles(child_id, date);
+			CREATE INDEX IF NOT EXISTS idx_daily_battles_child
+				ON daily_battles(child_id);
+
+			CREATE TABLE IF NOT EXISTS enemy_collection (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id),
+				enemy_id INTEGER NOT NULL,
+				first_defeated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				defeat_count INTEGER NOT NULL DEFAULT 1
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_enemy_collection_child_enemy
+				ON enemy_collection(child_id, enemy_id);
+			CREATE INDEX IF NOT EXISTS idx_enemy_collection_child
+				ON enemy_collection(child_id);
+
 		`);
 
 		// リアルな過去の活動ログを追加（ステータス画面・レーダーチャートの表示用）

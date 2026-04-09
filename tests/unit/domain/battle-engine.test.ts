@@ -6,7 +6,7 @@ import type { BattleStats } from '$lib/domain/battle-types';
 function createFixedRandom(values: number[]): () => number {
 	let index = 0;
 	return () => {
-		const value = values[index % values.length];
+		const value = values[index % values.length] ?? 0.5;
 		index++;
 		return value;
 	};
@@ -104,7 +104,7 @@ describe('executeBattle', () => {
 			random: createFixedRandom([0.5]),
 		});
 		// SPD 100 vs 6 → プレイヤー先攻
-		expect(result.turns[0].firstAttacker).toBe('player');
+		expect(result.turns[0]?.firstAttacker).toBe('player');
 	});
 
 	it('SPD が低い方は後攻する', () => {
@@ -113,7 +113,7 @@ describe('executeBattle', () => {
 			random: createFixedRandom([0.5]),
 		});
 		// SPD 1 vs 6 → 敵先攻
-		expect(result.turns[0].firstAttacker).toBe('enemy');
+		expect(result.turns[0]?.firstAttacker).toBe('enemy');
 	});
 
 	it('SPD 同値は乱数で決まる', () => {
@@ -122,13 +122,13 @@ describe('executeBattle', () => {
 		const result1 = executeBattle(sameSpd, WEAK_ENEMY, {
 			random: createFixedRandom([0.3]),
 		});
-		expect(result1.turns[0].firstAttacker).toBe('player');
+		expect(result1.turns[0]?.firstAttacker).toBe('player');
 
 		// random >= 0.5 → enemy
 		const result2 = executeBattle(sameSpd, WEAK_ENEMY, {
 			random: createFixedRandom([0.7]),
 		});
-		expect(result2.turns[0].firstAttacker).toBe('enemy');
+		expect(result2.turns[0]?.firstAttacker).toBe('enemy');
 	});
 
 	it('HP が 0 以下にならない', () => {
