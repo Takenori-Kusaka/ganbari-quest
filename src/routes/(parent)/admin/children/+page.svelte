@@ -59,7 +59,7 @@ let showAddForm = $state(false);
 			<Button
 				variant="ghost"
 				size="sm"
-				class="bg-gray-300 text-gray-500 cursor-not-allowed"
+				class="bg-[var(--color-border-strong)] text-[var(--color-text-muted)] cursor-not-allowed"
 				disabled
 			>
 				上限に達しています

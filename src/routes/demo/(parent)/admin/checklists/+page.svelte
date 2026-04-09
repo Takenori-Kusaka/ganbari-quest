@@ -33,7 +33,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 				size="sm"
 				class={selectedChildId === child.id
 					? ''
-					: 'bg-white text-gray-600 shadow-sm hover:shadow-md'}
+					: 'bg-white text-[var(--color-text-secondary)] shadow-sm hover:shadow-md'}
 				onclick={() => (selectedChildId = child.id)}
 			>
 				{child.nickname}
@@ -47,7 +47,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 			<Button
 				variant="ghost"
 				size="sm"
-				class="bg-gray-200 text-gray-400 cursor-not-allowed"
+				class="bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
 				disabled
 			>
 				+ テンプレート追加
@@ -60,19 +60,19 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 				{#each selectedChild.checklists as checklist}
 					<Card>
 						<div class="flex items-center justify-between mb-3">
-							<h3 class="text-sm font-bold text-gray-700">
+							<h3 class="text-sm font-bold text-[var(--color-text-primary)]">
 								{checklist.template.icon} {checklist.template.name}
 							</h3>
-							<span class="text-xs text-gray-400">
+							<span class="text-xs text-[var(--color-text-tertiary)]">
 								{checklist.checkedCount}/{checklist.totalCount}
 							</span>
 						</div>
 
 						<!-- 進捗バー -->
-						<div class="w-full bg-gray-200 rounded-full h-2 mb-3">
+						<div class="w-full bg-[var(--color-surface-tertiary)] rounded-full h-2 mb-3">
 							<ProgressFill
 								pct={checklist.totalCount > 0 ? (checklist.checkedCount / checklist.totalCount) * 100 : 0}
-								class="bg-green-500 h-2 rounded-full transition-all"
+								class="bg-[var(--color-stat-green)] h-2 rounded-full transition-all"
 							/>
 						</div>
 
@@ -83,7 +83,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 									<span class="text-sm {item.checked ? 'opacity-50' : ''}">
 										{item.checked ? '☑️' : '⬜'}
 									</span>
-									<span class="text-sm {item.checked ? 'text-gray-400 line-through' : 'text-gray-700'}">
+									<span class="text-sm {item.checked ? 'text-[var(--color-text-tertiary)] line-through' : 'text-[var(--color-text-primary)]'}">
 										{item.icon} {item.name}
 									</span>
 								</div>
@@ -94,7 +94,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 						<Button
 							variant="ghost"
 							size="sm"
-							class="mt-2 text-xs text-gray-400 cursor-not-allowed"
+							class="mt-2 text-xs text-[var(--color-text-tertiary)] cursor-not-allowed"
 							disabled
 						>
 							+ アイテム追加
@@ -104,7 +104,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 			</div>
 		{:else}
 			<Card padding="lg">
-				<div class="text-center text-gray-400">
+				<div class="text-center text-[var(--color-text-tertiary)]">
 					<span class="text-4xl block mb-2">✅</span>
 					<p class="font-bold">チェックリストがありません</p>
 					<p class="text-sm mt-1">登録するとお子さまの持ち物チェックリストを管理できます</p>
