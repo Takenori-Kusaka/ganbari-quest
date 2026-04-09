@@ -6,7 +6,9 @@ import { generateInquiryId, saveInquiry } from '$lib/server/db/inquiry-repo';
 import { getSetting, getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { changePin } from '$lib/server/services/auth-service';
+import { getAllChildren } from '$lib/server/services/child-service';
 import { clearAllFamilyData, getDataSummary } from '$lib/server/services/data-service';
+import { getDefaultChildId, setDefaultChildId } from '$lib/server/services/default-child-service';
 import { notifyInquiry } from '$lib/server/services/discord-notify-service';
 import { sendInquiryConfirmationEmail } from '$lib/server/services/email-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -37,14 +39,19 @@ export const load: PageServerLoad = async ({ locals }) => {
 		quietStart: '21:00',
 		quietEnd: '07:00',
 	};
+	let children: Awaited<ReturnType<typeof getAllChildren>> = [];
+	let defaultChildId: number | null = null;
 
 	try {
-		[dataSummary, decayIntensity, siblingMode, siblingRankingEnabled] = await Promise.all([
-			getDataSummary(tenantId),
-			getSetting('decay_intensity', tenantId).then((v) => v ?? 'normal'),
-			getSetting('sibling_mode', tenantId).then((v) => v ?? 'both'),
-			getSetting('sibling_ranking_enabled', tenantId).then((v) => v ?? 'false'),
-		]);
+		[dataSummary, decayIntensity, siblingMode, siblingRankingEnabled, children, defaultChildId] =
+			await Promise.all([
+				getDataSummary(tenantId),
+				getSetting('decay_intensity', tenantId).then((v) => v ?? 'normal'),
+				getSetting('sibling_mode', tenantId).then((v) => v ?? 'both'),
+				getSetting('sibling_ranking_enabled', tenantId).then((v) => v ?? 'false'),
+				getAllChildren(tenantId),
+				getDefaultChildId(tenantId),
+			]);
 		const ns = await getSettings(
 			[
 				'notification_reminders_enabled',
@@ -74,10 +81,41 @@ export const load: PageServerLoad = async ({ locals }) => {
 		siblingMode,
 		siblingRankingEnabled,
 		notificationSettings,
+		// #576 既定の子供（家族全体の設定）
+		children: children.map((c) => ({ id: c.id, nickname: c.nickname })),
+		defaultChildId,
 	};
 };
 
 export const actions = {
+	/**
+	 * #576: tenant スコープの「既定の子供」を更新する。
+	 * 空文字列 or "none" が渡された場合はクリア（未設定状態に戻す）。
+	 */
+	updateDefaultChild: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const form = await request.formData();
+		const raw = form.get('defaultChildId')?.toString() ?? '';
+
+		if (raw === '' || raw === 'none') {
+			await setDefaultChildId(tenantId, null);
+			return { defaultChildUpdated: true };
+		}
+
+		const childId = Number(raw);
+		if (!Number.isFinite(childId) || childId <= 0) {
+			return fail(400, { defaultChildError: '子供IDが不正です' });
+		}
+
+		// 存在確認（他テナントの子供を指定できないように）
+		const children = await getAllChildren(tenantId);
+		if (!children.some((c) => c.id === childId)) {
+			return fail(400, { defaultChildError: '指定された子供が見つかりません' });
+		}
+
+		await setDefaultChildId(tenantId, childId);
+		return { defaultChildUpdated: true };
+	},
 	changePin: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
