@@ -30,10 +30,9 @@ export const GUIDE_STEPS: GuideStep[] = [
 	{
 		id: 2,
 		title: 'かつどうを きろくしよう',
-		description: 'かつどうカードをタップして きろくしてみましょう',
+		description: 'かつどうカードをタップして きろくしてみましょう（スキップもできます）',
 		matchPath: '/demo/preschool/home',
 		href: '/demo/preschool/home?childId=902',
-		requiresAction: true,
 	},
 	{
 		id: 3,

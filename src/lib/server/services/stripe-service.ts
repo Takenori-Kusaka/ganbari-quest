@@ -56,7 +56,11 @@ export async function createCheckoutSession(
 	// #314: Stripe 側 trial_period_days を廃止（アプリ側一元管理に移行）
 	const tierLabel = PLAN_LABELS[plan.tier as keyof typeof PLAN_LABELS] ?? plan.tier;
 
-	const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+	// #570: Stripe SDK v22 では `create(params?: ...)` と params が optional のため
+	// `Parameters<>[0]` が `SessionCreateParams | undefined` になる。
+	// `NonNullable<>` で undefined を除外して正しい型注釈を得る。
+	// 実行時の挙動は変わらない（型のみの修正）。
+	const sessionParams: NonNullable<Parameters<typeof stripe.checkout.sessions.create>[0]> = {
 		mode: 'subscription',
 		payment_method_types: ['card'],
 		line_items: [{ price: plan.priceId, quantity: 1 }],

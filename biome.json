@@ -68,6 +68,7 @@
 			"!**/coverage",
 			"!**/test-results",
 			"!**/test-results.json",
+			"!**/playwright-report",
 			"!**/*.db",
 			"!**/scripts",
 			"!**/infra",
