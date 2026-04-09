@@ -93,6 +93,7 @@ $effect(() => {
 					required
 					minlength={8}
 					autocomplete="new-password"
+					showToggle
 					hint="8文字以上、大文字・小文字・数字を含む"
 				/>
 
@@ -106,6 +107,9 @@ $effect(() => {
 					required
 					minlength={8}
 					autocomplete="new-password"
+					showToggle
+					error={newPasswordConfirm && newPassword !== newPasswordConfirm ? 'パスワードが一致しません' : undefined}
+					hint={newPasswordConfirm && newPassword === newPasswordConfirm ? 'パスワードが一致しました' : undefined}
 				/>
 
 				<Button type="submit" disabled={loading || code.length < 1 || !newPassword || !newPasswordConfirm} size="md" class="w-full">
