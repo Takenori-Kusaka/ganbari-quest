@@ -8,12 +8,14 @@ interface StampCardEntry {
 	slot: number;
 	emoji: string;
 	rarity: string;
+	omikujiRank: string | null;
 }
 
 interface StampPressData {
 	stampEmoji: string;
 	stampRarity: string;
 	stampName: string;
+	stampOmikujiRank: string | null;
 	instantPoints: number;
 	consecutiveDays: number;
 	multiplier: number;
@@ -109,6 +111,7 @@ let {
 		stampEmoji={stampPressData.stampEmoji}
 		stampRarity={stampPressData.stampRarity}
 		stampName={stampPressData.stampName}
+		stampOmikujiRank={stampPressData.stampOmikujiRank}
 		instantPoints={stampPressData.instantPoints}
 		consecutiveDays={stampPressData.consecutiveDays}
 		multiplier={stampPressData.multiplier}
