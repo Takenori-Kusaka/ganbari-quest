@@ -1,0 +1,58 @@
+{
+	"type": "reward-set",
+	"itemId": "food-rewards",
+	"name": "たべものごほうび",
+	"description": "おやつやスイーツなど、食べること大好きなお子さまが喜ぶごほうびセット。食育にもつながります。",
+	"icon": "🍰",
+	"targetAgeMin": 2,
+	"targetAgeMax": 12,
+	"tags": ["テーマ別", "食べ物", "おやつ"],
+	"personas": ["relaxed", "routine-focused"],
+	"curator": "official",
+	"payload": {
+		"rewards": [
+			{
+				"title": "すきなおやつ",
+				"points": 15,
+				"icon": "🍪",
+				"category": "life",
+				"description": "すきな おやつを えらんで たべよう"
+			},
+			{
+				"title": "アイスクリーム",
+				"points": 20,
+				"icon": "🍦",
+				"category": "life",
+				"description": "とくべつに アイスクリーム！"
+			},
+			{
+				"title": "すきなジュース",
+				"points": 15,
+				"icon": "🧃",
+				"category": "life",
+				"description": "すきな ジュースを のもう"
+			},
+			{
+				"title": "ケーキやさんにいく",
+				"points": 80,
+				"icon": "🎂",
+				"category": "life",
+				"description": "ケーキやさんで すきな ケーキを えらぼう"
+			},
+			{
+				"title": "メニューリクエスト",
+				"points": 30,
+				"icon": "🍽️",
+				"category": "life",
+				"description": "ばんごはんの メニューを リクエストできるよ"
+			},
+			{
+				"title": "いっしょにおかしづくり",
+				"points": 50,
+				"icon": "🧁",
+				"category": "creative",
+				"description": "おとなと いっしょに おかしを つくろう"
+			}
+		]
+	}
+}

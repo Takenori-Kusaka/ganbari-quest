@@ -1,0 +1,58 @@
+{
+	"type": "reward-set",
+	"itemId": "kinder-rewards",
+	"name": "ようじごほうび",
+	"description": "3〜5歳向け。公園遊び、お菓子づくり、好きなDVDなど、幼児が楽しめるごほうびを揃えました。",
+	"icon": "🎁",
+	"targetAgeMin": 3,
+	"targetAgeMax": 5,
+	"tags": ["年齢別", "幼児", "バランス型"],
+	"personas": ["routine-focused", "relaxed"],
+	"curator": "official",
+	"payload": {
+		"rewards": [
+			{
+				"title": "こうえんで30ぷんあそぶ",
+				"points": 20,
+				"icon": "🏞️",
+				"category": "sports",
+				"description": "こうえんで じゆうに あそべるよ"
+			},
+			{
+				"title": "おやつをえらべる",
+				"points": 15,
+				"icon": "🍭",
+				"category": "other",
+				"description": "きょうの おやつは きみがえらぼう"
+			},
+			{
+				"title": "すきなえいがをみる",
+				"points": 30,
+				"icon": "🎬",
+				"category": "creative",
+				"description": "すきな えいがを いっしょにみよう"
+			},
+			{
+				"title": "おかしづくり",
+				"points": 50,
+				"icon": "🧁",
+				"category": "creative",
+				"description": "おとなと いっしょに おかしを つくろう"
+			},
+			{
+				"title": "おもちゃ10ぷん",
+				"points": 15,
+				"icon": "🧸",
+				"category": "other",
+				"description": "すきな おもちゃで じっくりあそぼう"
+			},
+			{
+				"title": "シャボンだまあそび",
+				"points": 20,
+				"icon": "🫧",
+				"category": "sports",
+				"description": "おそとで シャボンだまを とばそう"
+			}
+		]
+	}
+}

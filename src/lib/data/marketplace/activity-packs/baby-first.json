@@ -1,0 +1,15 @@
+{
+	"type": "activity-pack",
+	"itemId": "baby-first",
+	"name": "はじめてのぼうけん",
+	"description": "0〜2歳のお子さま向け。赤ちゃんの生活習慣と基本的な運動を中心に、毎日の小さな成長を記録できます。",
+	"icon": "🍼",
+	"targetAgeMin": 0,
+	"targetAgeMax": 2,
+	"tags": ["初心者向け", "赤ちゃん", "生活習慣"],
+	"personas": ["first-child", "routine-focused"],
+	"curator": "official",
+	"payload": {
+		"legacyPackId": "baby-first"
+	}
+}

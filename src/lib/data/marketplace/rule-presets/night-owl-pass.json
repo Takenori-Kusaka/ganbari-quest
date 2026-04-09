@@ -1,0 +1,29 @@
+{
+	"type": "rule-preset",
+	"itemId": "night-owl-pass",
+	"name": "よふかしパス",
+	"description": "たくさんポイントを貯めたら特別に夜ふかしできるルール。週末限定で使える安心設計です。",
+	"icon": "🌙",
+	"targetAgeMin": 5,
+	"targetAgeMax": 15,
+	"tags": ["特権", "夜ふかし", "ポイント交換"],
+	"personas": ["game-oriented", "achievement-focused"],
+	"curator": "official",
+	"payload": {
+		"ruleType": "exchange",
+		"rules": [
+			{
+				"title": "よふかし30分パス",
+				"description": "週末限定で 30分だけ おそく おきていいよ",
+				"icon": "🌙",
+				"pointCost": 40
+			},
+			{
+				"title": "よふかし1時間パス",
+				"description": "週末限定で 1時間 おそく おきていいよ（月2回まで）",
+				"icon": "🌟",
+				"pointCost": 80
+			}
+		]
+	}
+}

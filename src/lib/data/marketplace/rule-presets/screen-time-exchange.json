@@ -1,0 +1,35 @@
+{
+	"type": "rule-preset",
+	"itemId": "screen-time-exchange",
+	"name": "スクリーンタイム交換",
+	"description": "がんばりポイントでゲームやスマホの時間を「購入」できるルール。デジタルとの付き合い方を学びます。",
+	"icon": "📱",
+	"targetAgeMin": 5,
+	"targetAgeMax": 18,
+	"tags": ["交換", "スクリーンタイム", "デジタル"],
+	"personas": ["game-oriented", "dual-income"],
+	"curator": "official",
+	"payload": {
+		"ruleType": "exchange",
+		"rules": [
+			{
+				"title": "ゲーム15分",
+				"description": "15ポイントで ゲーム15分と こうかん",
+				"icon": "🎮",
+				"pointCost": 15
+			},
+			{
+				"title": "YouTube15分",
+				"description": "15ポイントで YouTube15分と こうかん",
+				"icon": "▶️",
+				"pointCost": 15
+			},
+			{
+				"title": "タブレット30分",
+				"description": "30ポイントで タブレット30分と こうかん",
+				"icon": "📱",
+				"pointCost": 30
+			}
+		]
+	}
+}

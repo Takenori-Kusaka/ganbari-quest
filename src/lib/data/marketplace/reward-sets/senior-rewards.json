@@ -1,0 +1,58 @@
+{
+	"type": "reward-set",
+	"itemId": "senior-rewards",
+	"name": "高校生ごほうび",
+	"description": "13〜18歳向け。外出の自由度、特別な体験、自分へのご褒美など、ティーン向けのモチベーション設計です。",
+	"icon": "🌟",
+	"targetAgeMin": 13,
+	"targetAgeMax": 18,
+	"tags": ["年齢別", "高校生", "自立サポート"],
+	"personas": ["achievement-focused", "relaxed"],
+	"curator": "official",
+	"payload": {
+		"rewards": [
+			{
+				"title": "門限延長30分",
+				"points": 40,
+				"icon": "🕐",
+				"category": "other",
+				"description": "特別に門限を30分延長"
+			},
+			{
+				"title": "好きなものを購入",
+				"points": 150,
+				"icon": "🛍️",
+				"category": "other",
+				"description": "好きなものを1つ購入できる（上限あり）"
+			},
+			{
+				"title": "映画を観に行く",
+				"points": 80,
+				"icon": "🎬",
+				"category": "creative",
+				"description": "映画館で好きな映画を1本"
+			},
+			{
+				"title": "友達とお泊まり",
+				"points": 120,
+				"icon": "🏠",
+				"category": "social",
+				"description": "友達の家にお泊まりOK"
+			},
+			{
+				"title": "特別メニューリクエスト",
+				"points": 50,
+				"icon": "🍽️",
+				"category": "life",
+				"description": "夕食のメニューを1品リクエスト"
+			},
+			{
+				"title": "カフェで勉強",
+				"points": 60,
+				"icon": "☕",
+				"category": "academic",
+				"description": "カフェでの勉強代をサポート"
+			}
+		]
+	}
+}

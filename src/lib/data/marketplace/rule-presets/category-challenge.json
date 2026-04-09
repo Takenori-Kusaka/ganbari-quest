@@ -1,0 +1,29 @@
+{
+	"type": "rule-preset",
+	"itemId": "category-challenge",
+	"name": "カテゴリチャレンジ",
+	"description": "1日に全カテゴリの活動を記録するとボーナスがもらえるルール。バランスよい活動を促します。",
+	"icon": "🏅",
+	"targetAgeMin": 4,
+	"targetAgeMax": 12,
+	"tags": ["ボーナス", "バランス", "チャレンジ"],
+	"personas": ["achievement-focused", "routine-focused"],
+	"curator": "official",
+	"payload": {
+		"ruleType": "bonus",
+		"rules": [
+			{
+				"title": "3カテゴリチャレンジ",
+				"description": "1日に3種類以上のカテゴリで活動すると +15ポイント",
+				"icon": "🥉",
+				"pointBonus": 15
+			},
+			{
+				"title": "オールカテゴリチャレンジ",
+				"description": "1日に全5カテゴリで活動すると +50ポイント",
+				"icon": "🥇",
+				"pointBonus": 50
+			}
+		]
+	}
+}

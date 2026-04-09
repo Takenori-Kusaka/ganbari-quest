@@ -1,0 +1,29 @@
+{
+	"type": "rule-preset",
+	"itemId": "sleep-in-pass",
+	"name": "あさねぼうパス",
+	"description": "がんばったごほうびに、たまには朝ゆっくり起きてもOK。休日限定のルールセットです。",
+	"icon": "😴",
+	"targetAgeMin": 5,
+	"targetAgeMax": 15,
+	"tags": ["特権", "朝寝坊", "ポイント交換"],
+	"personas": ["relaxed", "achievement-focused"],
+	"curator": "official",
+	"payload": {
+		"ruleType": "exchange",
+		"rules": [
+			{
+				"title": "あさねぼう30分パス",
+				"description": "休日に 30分だけ ゆっくり ねていいよ",
+				"icon": "😴",
+				"pointCost": 30
+			},
+			{
+				"title": "おひるまで パス",
+				"description": "とくべつに おひるまで ねていいよ（月1回）",
+				"icon": "💤",
+				"pointCost": 100
+			}
+		]
+	}
+}
