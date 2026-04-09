@@ -1,0 +1,25 @@
+{
+	"type": "checklist",
+	"itemId": "morning-elementary",
+	"name": "あさの じゅんび（しょうがくせい）",
+	"description": "6〜9歳の朝のルーティン。時間割の準備からあいさつまで、自分でできるを応援します。",
+	"icon": "🌅",
+	"targetAgeMin": 6,
+	"targetAgeMax": 9,
+	"tags": ["朝", "生活習慣", "小学生"],
+	"personas": ["routine-focused", "self-care"],
+	"curator": "official",
+	"payload": {
+		"timing": "morning",
+		"items": [
+			{ "label": "じぶんでおきる", "icon": "⏰", "order": 1 },
+			{ "label": "かおをあらう", "icon": "🧴", "order": 2 },
+			{ "label": "おきがえ", "icon": "👕", "order": 3 },
+			{ "label": "あさごはん", "icon": "🍚", "order": 4 },
+			{ "label": "はみがき", "icon": "🪥", "order": 5 },
+			{ "label": "じかんわりチェック", "icon": "📋", "order": 6 },
+			{ "label": "ハンカチ・ティッシュ", "icon": "🧻", "order": 7 },
+			{ "label": "いってきます！", "icon": "👋", "order": 8 }
+		]
+	}
+}

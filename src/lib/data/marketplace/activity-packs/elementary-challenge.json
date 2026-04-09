@@ -1,0 +1,15 @@
+{
+	"type": "activity-pack",
+	"itemId": "elementary-challenge",
+	"name": "しょうがくせいチャレンジ",
+	"description": "6〜9歳のお子さま向け。学習習慣・運動・お手伝いをバランスよく組み合わせ、自主性を育てます。",
+	"icon": "📚",
+	"targetAgeMin": 6,
+	"targetAgeMax": 9,
+	"tags": ["小学生", "学習", "自立"],
+	"personas": ["academic-oriented", "routine-focused"],
+	"curator": "official",
+	"payload": {
+		"legacyPackId": "elementary-challenge"
+	}
+}
