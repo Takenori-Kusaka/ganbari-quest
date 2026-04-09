@@ -1,0 +1,208 @@
+<mxfile host="app.diagrams.net" modified="2026-04-09" agent="Claude" version="24.0.0" type="device">
+  <diagram id="deploy-pipeline" name="Deploy Pipeline">
+    <mxGraphModel dx="1422" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="がんばりクエスト デプロイパイプライン" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="10" width="450" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Pipeline 1: AWS Lambda (SaaS) ===== -->
+        <mxCell id="p1-group" value="Pipeline 1: AWS Lambda SaaS (ganbari-quest.com)" style="swimlane;startSize=25;fillColor=#FFF3E0;strokeColor=#FF9800;rounded=1;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="60" width="1100" height="330" as="geometry" />
+        </mxCell>
+
+        <!-- Trigger -->
+        <mxCell id="p1-trigger" value="git push main&#xa;(GitHub)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontStyle=1;" vertex="1" parent="p1-group">
+          <mxGeometry x="20" y="40" width="120" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- GitHub Actions -->
+        <mxCell id="p1-ga-label" value="GitHub Actions (.github/workflows/deploy.yml)" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=11;fontStyle=2;" vertex="1" parent="p1-group">
+          <mxGeometry x="160" y="35" width="350" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Step 1: Test -->
+        <mxCell id="p1-test" value="1. Test&#xa;biome check&#xa;svelte-check&#xa;vitest run&#xa;playwright test" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p1-group">
+          <mxGeometry x="170" y="60" width="120" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Step 2: Storage CDK -->
+        <mxCell id="p1-storage" value="2. Storage CDK&#xa;S3 バケット&#xa;DynamoDB テーブル" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p1-group">
+          <mxGeometry x="310" y="60" width="130" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Step 3: Docker Build -->
+        <mxCell id="p1-docker" value="3. Docker Build&#xa;ARM64 (Graviton)&#xa;SvelteKit SSR&#xa;node:22-slim" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p1-group">
+          <mxGeometry x="460" y="60" width="130" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Step 4: ECR Push -->
+        <mxCell id="p1-ecr" value="4. ECR Push&#xa;Docker Image&#xa;→ Amazon ECR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p1-group">
+          <mxGeometry x="610" y="60" width="120" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Step 5: CDK Deploy -->
+        <mxCell id="p1-cdk" value="5. CDK Deploy&#xa;CloudFront&#xa;Lambda&#xa;API Gateway&#xa;Cognito&#xa;SES" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p1-group">
+          <mxGeometry x="750" y="50" width="120" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- Step 6: Lambda Update -->
+        <mxCell id="p1-lambda" value="6. Lambda Update&#xa;新イメージ適用&#xa;関数更新" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p1-group">
+          <mxGeometry x="890" y="60" width="120" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows -->
+        <mxCell id="p1-e1" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p1-trigger" target="p1-test" parent="p1-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1-e2" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p1-test" target="p1-storage" parent="p1-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1-e3" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p1-storage" target="p1-docker" parent="p1-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1-e4" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p1-docker" target="p1-ecr" parent="p1-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1-e5" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p1-ecr" target="p1-cdk" parent="p1-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1-e6" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p1-cdk" target="p1-lambda" parent="p1-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- AWS Resources -->
+        <mxCell id="p1-aws-label" value="AWS リソース (ap-northeast-1)" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=11;fontStyle=2;" vertex="1" parent="p1-group">
+          <mxGeometry x="20" y="170" width="250" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p1-cf" value="CloudFront&#xa;(CDN + WAF)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
+          <mxGeometry x="20" y="200" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p1-apigw" value="API Gateway&#xa;(HTTP API)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
+          <mxGeometry x="160" y="200" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p1-lam" value="Lambda&#xa;(ARM64 Docker)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
+          <mxGeometry x="300" y="200" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p1-ddb" value="DynamoDB&#xa;(Single Table)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
+          <mxGeometry x="440" y="200" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p1-s3" value="S3&#xa;(Static Assets)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
+          <mxGeometry x="580" y="200" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p1-cog" value="Cognito&#xa;(Auth)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
+          <mxGeometry x="720" y="200" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p1-ssm" value="SSM&#xa;(Params)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
+          <mxGeometry x="840" y="200" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p1-ses2" value="SES&#xa;(Email)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
+          <mxGeometry x="960" y="200" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p1-aws-e1" style="strokeColor=#999;strokeWidth=1;" edge="1" source="p1-cf" target="p1-apigw" parent="p1-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1-aws-e2" style="strokeColor=#999;strokeWidth=1;" edge="1" source="p1-apigw" target="p1-lam" parent="p1-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1-aws-e3" style="strokeColor=#999;strokeWidth=1;" edge="1" source="p1-lam" target="p1-ddb" parent="p1-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1-aws-e4" style="strokeColor=#999;strokeWidth=1;" edge="1" source="p1-lam" target="p1-s3" parent="p1-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- Note -->
+        <mxCell id="p1-note" value="ブランチ保護: main への直 push 禁止&#xa;Draft PR → CI 全通過 → Ready → レビュー → マージ → 自動デプロイ" style="text;html=1;align=left;verticalAlign=top;strokeColor=#999;fillColor=#FAFAFA;rounded=1;fontSize=10;" vertex="1" parent="p1-group">
+          <mxGeometry x="20" y="270" width="400" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Pipeline 2: NUC Local (LAN) ===== -->
+        <mxCell id="p2-group" value="Pipeline 2: NUC ローカルサーバー (LAN内 192.168.68.79)" style="swimlane;startSize=25;fillColor=#E8F5E9;strokeColor=#4CAF50;rounded=1;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="410" width="1100" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p2-ssh" value="SSH 接続&#xa;kusaka-server&#xa;@192.168.68.79" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+          <mxGeometry x="20" y="40" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-stop" value="1. docker&#xa;compose stop&#xa;(WAL flush)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+          <mxGeometry x="180" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-migrate" value="2. DB Migration&#xa;(コンテナ停止中&#xa;= 競合なし)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+          <mxGeometry x="330" y="40" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-pull" value="3. git pull&#xa;最新コード取得" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+          <mxGeometry x="500" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-build" value="4. docker&#xa;compose build&#xa;(x86_64)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+          <mxGeometry x="650" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-up" value="5. docker&#xa;compose up -d" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+          <mxGeometry x="800" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-health" value="6. Health Check&#xa;curl localhost:3000&#xa;/api/health" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+          <mxGeometry x="950" y="40" width="130" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p2-e1" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p2-ssh" target="p2-stop" parent="p2-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p2-e2" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p2-stop" target="p2-migrate" parent="p2-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p2-e3" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p2-migrate" target="p2-pull" parent="p2-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p2-e4" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p2-pull" target="p2-build" parent="p2-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p2-e5" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p2-build" target="p2-up" parent="p2-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p2-e6" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p2-up" target="p2-health" parent="p2-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- NUC Resources -->
+        <mxCell id="p2-docker-res" value="Docker Container&#xa;SvelteKit (node:22)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A5D6A7;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+          <mxGeometry x="200" y="130" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-sqlite" value="SQLite (WAL mode)&#xa;data/ganbari-quest.db" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A5D6A7;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+          <mxGeometry x="400" y="130" width="170" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-auth" value="PIN認証のみ&#xa;家庭内LAN専用" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A5D6A7;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+          <mxGeometry x="620" y="130" width="130" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- Warning -->
+        <mxCell id="p2-warn" value="⚠ 順序厳守: stop → migrate → build → up&#xa;docker compose up -d だけではWAL不整合でDB破損リスク (#0099)" style="text;html=1;align=left;verticalAlign=top;strokeColor=#F44336;fillColor=#FFEBEE;rounded=1;fontSize=10;fontColor=#B71C1C;" vertex="1" parent="p2-group">
+          <mxGeometry x="800" y="130" width="280" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ===== CI Pipeline ===== -->
+        <mxCell id="p3-group" value="CI Pipeline (.github/workflows/ci.yml)" style="swimlane;startSize=25;fillColor=#E3F2FD;strokeColor=#1565C0;rounded=1;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="630" width="1100" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p3-pr" value="Pull Request&#xa;/ push" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;fontStyle=1;" vertex="1" parent="p3-group">
+          <mxGeometry x="20" y="40" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Parallel jobs -->
+        <mxCell id="p3-lint" value="Lint &amp; Type Check&#xa;biome check .&#xa;svelte-check" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="p3-group">
+          <mxGeometry x="180" y="35" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-unit" value="Unit Test&#xa;vitest run" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="p3-group">
+          <mxGeometry x="350" y="35" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-e2e" value="E2E Test&#xa;playwright test&#xa;(Chromium)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="p3-group">
+          <mxGeometry x="490" y="35" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-docker-check" value="Docker Build&#xa;(validate)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="p3-group">
+          <mxGeometry x="640" y="35" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-codeql" value="CodeQL&#xa;Security Scan" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="p3-group">
+          <mxGeometry x="780" y="35" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Result -->
+        <mxCell id="p3-gate" value="All Checks&#xa;Pass?" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#F57F17;" vertex="1" parent="p3-group">
+          <mxGeometry x="920" y="35" width="100" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p3-e1a" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p3-pr" target="p3-lint" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3-e1b" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p3-pr" target="p3-unit" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3-e1c" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p3-pr" target="p3-e2e" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3-e1d" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p3-pr" target="p3-docker-check" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3-e1e" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p3-pr" target="p3-codeql" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3-e2a" style="strokeColor=#333;strokeWidth=1;" edge="1" source="p3-lint" target="p3-gate" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3-e2b" style="strokeColor=#333;strokeWidth=1;" edge="1" source="p3-unit" target="p3-gate" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3-e2c" style="strokeColor=#333;strokeWidth=1;" edge="1" source="p3-e2e" target="p3-gate" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3-e2d" style="strokeColor=#333;strokeWidth=1;" edge="1" source="p3-docker-check" target="p3-gate" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3-e2e2" style="strokeColor=#333;strokeWidth=1;" edge="1" source="p3-codeql" target="p3-gate" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- Dependabot -->
+        <mxCell id="p3-depbot" value="Dependabot&#xa;auto-merge (patch/minor)&#xa;manual review (major)" style="text;html=1;align=left;verticalAlign=top;strokeColor=#999;fillColor=#FAFAFA;rounded=1;fontSize=10;" vertex="1" parent="p3-group">
+          <mxGeometry x="180" y="120" width="250" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-labels" value="Auto Labels: type:*, area:*, priority:*&#xa;Draft PR → Ready for Review → Merge" style="text;html=1;align=left;verticalAlign=top;strokeColor=#999;fillColor=#FAFAFA;rounded=1;fontSize=10;" vertex="1" parent="p3-group">
+          <mxGeometry x="460" y="120" width="280" height="40" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

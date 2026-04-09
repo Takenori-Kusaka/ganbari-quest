@@ -1,0 +1,153 @@
+<mxfile host="app.diagrams.net" modified="2026-04-09" agent="Claude" version="24.0.0" type="device">
+  <diagram id="sw-arch" name="Software Architecture">
+    <mxGraphModel dx="1422" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="がんばりクエスト ソフトウェアアーキテクチャ" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="10" width="500" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Layer 1: Routes (Presentation) -->
+        <mxCell id="routes-layer" value="Presentation Layer — src/routes/" style="swimlane;startSize=25;fillColor=#E3F2FD;strokeColor=#1565C0;rounded=1;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="1080" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="child-routes" value="(child)/&#xa;baby|kinder|lower|upper|teen&#xa;+page.svelte + +page.server.ts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="routes-layer">
+          <mxGeometry x="20" y="35" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="parent-routes" value="(parent)/admin/&#xa;home|settings|rewards|&#xa;messages|reports|children" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="routes-layer">
+          <mxGeometry x="240" y="35" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="demo-routes" value="demo/&#xa;child|admin&#xa;(デモモード)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="routes-layer">
+          <mxGeometry x="460" y="35" width="140" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="api-routes" value="api/v1/&#xa;activities|children|settings&#xa;notifications|auth|billing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="routes-layer">
+          <mxGeometry x="620" y="35" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ops-routes" value="ops/&#xa;運営管理画面&#xa;(Bearer認証)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="routes-layer">
+          <mxGeometry x="840" y="35" width="140" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Layer 2: Features + UI -->
+        <mxCell id="features-layer" value="Feature &amp; UI Layer — src/lib/" style="swimlane;startSize=25;fillColor=#E8F5E9;strokeColor=#2E7D32;rounded=1;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="210" width="1080" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="features-child" value="features/child/&#xa;ActivityCard, StampCard,&#xa;LevelUpOverlay, ResultDialog" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="features-layer">
+          <mxGeometry x="20" y="35" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="features-admin" value="features/admin/&#xa;ChildForm, RewardForm,&#xa;SettingsPanel, Reports" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="features-layer">
+          <mxGeometry x="240" y="35" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ui-primitives" value="ui/primitives/&#xa;Button, Card, Alert,&#xa;FormField, Dialog, Badge" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="features-layer">
+          <mxGeometry x="460" y="35" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ui-components" value="ui/components/&#xa;AdminLayout, BottomNav,&#xa;ConfettiEffect, Header" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="features-layer">
+          <mxGeometry x="660" y="35" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ui-styles" value="ui/styles/&#xa;app.css (トークン定義)&#xa;Base → Semantic → Component" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="features-layer">
+          <mxGeometry x="860" y="35" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Layer 3: Domain -->
+        <mxCell id="domain-layer" value="Domain Layer — src/lib/domain/" style="swimlane;startSize=25;fillColor=#FFF3E0;strokeColor=#E65100;rounded=1;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="360" width="1080" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="domain-models" value="Models&#xa;Child, Activity, Stamp,&#xa;Reward, Achievement, Event" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="domain-layer">
+          <mxGeometry x="20" y="35" width="200" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="domain-labels" value="labels.ts&#xa;用語辞書 (Single Source)&#xa;ナビ・機能名・プラン名" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="domain-layer">
+          <mxGeometry x="240" y="35" width="200" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="domain-validation" value="Validation&#xa;Zod スキーマ&#xa;入力バリデーション" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="domain-layer">
+          <mxGeometry x="460" y="35" width="160" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="domain-gamification" value="Gamification&#xa;level-calc, stamp-gacha,&#xa;streak, season-pass" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="domain-layer">
+          <mxGeometry x="640" y="35" width="200" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="domain-age" value="Age Mode&#xa;baby|kinder|lower|upper|teen&#xa;ageConfig, categoryMap" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="domain-layer">
+          <mxGeometry x="860" y="35" width="200" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Layer 4: Services -->
+        <mxCell id="services-layer" value="Service Layer — src/lib/server/services/" style="swimlane;startSize=25;fillColor=#F3E5F5;strokeColor=#6A1B9A;rounded=1;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="490" width="1080" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-activity" value="activity-log-service&#xa;記録・ポイント計算&#xa;ストリーク・レベルアップ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#6A1B9A;" vertex="1" parent="services-layer">
+          <mxGeometry x="20" y="35" width="180" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-child" value="child-service&#xa;子供CRUD&#xa;プロフィール管理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#6A1B9A;" vertex="1" parent="services-layer">
+          <mxGeometry x="220" y="35" width="150" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-auth" value="auth-service&#xa;Cognito連携&#xa;PIN認証(ローカル)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#6A1B9A;" vertex="1" parent="services-layer">
+          <mxGeometry x="390" y="35" width="150" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-billing" value="billing-service&#xa;Stripe連携&#xa;プラン管理・課金" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#6A1B9A;" vertex="1" parent="services-layer">
+          <mxGeometry x="560" y="35" width="150" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-email" value="email-service&#xa;SES連携&#xa;週次レポート送信" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#6A1B9A;" vertex="1" parent="services-layer">
+          <mxGeometry x="730" y="35" width="150" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-event" value="event-service&#xa;イベント配信&#xa;シーズンパス" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#6A1B9A;" vertex="1" parent="services-layer">
+          <mxGeometry x="900" y="35" width="160" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Layer 5: DB -->
+        <mxCell id="db-layer" value="Data Access Layer — src/lib/server/db/" style="swimlane;startSize=25;fillColor=#FFEBEE;strokeColor=#B71C1C;rounded=1;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="620" width="1080" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="db-facade" value="Facade (factory.ts)&#xa;環境に応じて SQLite/DynamoDB 切替&#xa;Repository パターン" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCDD2;strokeColor=#B71C1C;" vertex="1" parent="db-layer">
+          <mxGeometry x="20" y="35" width="250" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="db-sqlite" value="SQLite (Drizzle ORM)&#xa;WAL mode&#xa;NUC ローカル用" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCDD2;strokeColor=#B71C1C;" vertex="1" parent="db-layer">
+          <mxGeometry x="300" y="35" width="200" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="db-dynamo" value="DynamoDB (Single Table)&#xa;AWS SDK v3&#xa;SaaS 本番用" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCDD2;strokeColor=#B71C1C;" vertex="1" parent="db-layer">
+          <mxGeometry x="530" y="35" width="200" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="db-schema" value="schema.ts (Drizzle)&#xa;テーブル定義&#xa;型自動生成" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCDD2;strokeColor=#B71C1C;" vertex="1" parent="db-layer">
+          <mxGeometry x="760" y="35" width="160" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="db-demo" value="demo-data.ts&#xa;デモモード用&#xa;インメモリデータ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCDD2;strokeColor=#B71C1C;" vertex="1" parent="db-layer">
+          <mxGeometry x="940" y="35" width="120" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows between layers -->
+        <mxCell id="a1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666;strokeWidth=2;" edge="1" source="routes-layer" target="features-layer" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666;strokeWidth=2;" edge="1" source="features-layer" target="domain-layer" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666;strokeWidth=2;" edge="1" source="routes-layer" target="services-layer" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1140" y="125" />
+              <mxPoint x="1140" y="545" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a3-label" value="+page.server.ts&#xa;(load / actions)" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1145" y="310" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666;strokeWidth=2;" edge="1" source="services-layer" target="db-layer" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666;strokeWidth=2;" edge="1" source="services-layer" target="domain-layer" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="20" y="545" />
+              <mxPoint x="20" y="415" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="依存方向: 上位層 → 下位層のみ&#xa;+page.server.ts は Services を直接呼出&#xa;コンポーネントからの直接 DB アクセス禁止" style="text;html=1;align=left;verticalAlign=top;strokeColor=#999;fillColor=#FAFAFA;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="770" width="300" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
