@@ -7,6 +7,7 @@ import {
 	pinSchema,
 	SESSION_COOKIE_NAME,
 	SESSION_MAX_AGE_SECONDS,
+	signupSchema,
 } from '../../../src/lib/domain/validation/auth';
 
 describe('pinSchema', () => {
@@ -67,6 +68,45 @@ describe('loginSchema', () => {
 
 	it('不正なpin値のオブジェクトを拒否する', () => {
 		const result = loginSchema.safeParse({ pin: '12' });
+		expect(result.success).toBe(false);
+	});
+});
+
+describe('signupSchema — licenseKey', () => {
+	const base = { email: 'test@example.com', password: 'Password1' };
+
+	it('空文字のライセンスキーを受け入れる', () => {
+		const result = signupSchema.safeParse({ ...base, licenseKey: '' });
+		expect(result.success).toBe(true);
+	});
+
+	it('旧形式（3グループ）のライセンスキーを受け入れる', () => {
+		const result = signupSchema.safeParse({ ...base, licenseKey: 'GQ-ABCD-EFGH-JKLM' });
+		expect(result.success).toBe(true);
+	});
+
+	it('署名付き形式（4グループ）のライセンスキーを受け入れる', () => {
+		const result = signupSchema.safeParse({ ...base, licenseKey: 'GQ-ABCD-EFGH-JKLM-NPRST' });
+		expect(result.success).toBe(true);
+	});
+
+	it('不正なプレフィックスを拒否する', () => {
+		const result = signupSchema.safeParse({ ...base, licenseKey: 'XX-ABCD-EFGH-JKLM' });
+		expect(result.success).toBe(false);
+	});
+
+	it('セグメント不足を拒否する', () => {
+		const result = signupSchema.safeParse({ ...base, licenseKey: 'GQ-ABCD-EFGH' });
+		expect(result.success).toBe(false);
+	});
+
+	it('チェックサム長が不正な場合を拒否する', () => {
+		const result = signupSchema.safeParse({ ...base, licenseKey: 'GQ-ABCD-EFGH-JKLM-NP' });
+		expect(result.success).toBe(false);
+	});
+
+	it('特殊文字を含むキーを拒否する', () => {
+		const result = signupSchema.safeParse({ ...base, licenseKey: 'GQ-AB!D-EFGH-JKLM' });
 		expect(result.success).toBe(false);
 	});
 });
