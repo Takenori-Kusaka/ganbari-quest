@@ -1,0 +1,116 @@
+{
+	"type": "activity-pack",
+	"itemId": "study-master",
+	"name": "べんきょうマスター",
+	"description": "学習習慣をしっかり身につけたいお子さまに。読書・計算・漢字など基礎学力向上に役立つ活動セットです。",
+	"icon": "📖",
+	"targetAgeMin": 5,
+	"targetAgeMax": 12,
+	"tags": ["テーマ別", "学習", "基礎学力"],
+	"personas": ["academic-oriented", "indoor", "achievement-focused"],
+	"curator": "official",
+	"payload": {
+		"activities": [
+			{
+				"name": "どくしょ",
+				"categoryCode": "benkyou",
+				"icon": "📖",
+				"basePoints": 5,
+				"ageMin": 4,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "ほんを よんでみよう！"
+			},
+			{
+				"name": "けいさんドリル",
+				"categoryCode": "benkyou",
+				"icon": "🔢",
+				"basePoints": 8,
+				"ageMin": 5,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "さんすうの もんだいを といてみよう！"
+			},
+			{
+				"name": "かんじれんしゅう",
+				"categoryCode": "benkyou",
+				"icon": "✏️",
+				"basePoints": 8,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "かんじを かいてみよう！"
+			},
+			{
+				"name": "えいごのべんきょう",
+				"categoryCode": "benkyou",
+				"icon": "🔤",
+				"basePoints": 8,
+				"ageMin": 5,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "えいごを おぼえよう！"
+			},
+			{
+				"name": "えにっき",
+				"categoryCode": "benkyou",
+				"icon": "📓",
+				"basePoints": 5,
+				"ageMin": 5,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "きょうの ことを かこう！"
+			},
+			{
+				"name": "おんどく",
+				"categoryCode": "benkyou",
+				"icon": "🗣️",
+				"basePoints": 5,
+				"ageMin": 5,
+				"ageMax": 10,
+				"gradeLevel": null,
+				"triggerHint": "こえに だして よんでみよう！"
+			},
+			{
+				"name": "プログラミング",
+				"categoryCode": "benkyou",
+				"icon": "💻",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "プログラミングに ちょうせん！"
+			},
+			{
+				"name": "じっけん",
+				"categoryCode": "benkyou",
+				"icon": "🔬",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "かがくじっけんを しよう！"
+			},
+			{
+				"name": "ちず・ちりのべんきょう",
+				"categoryCode": "benkyou",
+				"icon": "🗺️",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "ちずで しらべてみよう！"
+			},
+			{
+				"name": "しゅくだい",
+				"categoryCode": "benkyou",
+				"icon": "📝",
+				"basePoints": 8,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": null,
+				"triggerHint": "しゅくだいを おわらせよう！"
+			}
+		]
+	}
+}

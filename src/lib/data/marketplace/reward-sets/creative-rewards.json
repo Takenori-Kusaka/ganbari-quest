@@ -1,0 +1,51 @@
+{
+	"type": "reward-set",
+	"itemId": "creative-rewards",
+	"name": "クリエイティブごほうび",
+	"description": "創作好きなお子さまに。画材やクラフト素材など、創造力を刺激するごほうびセットです。",
+	"icon": "🎨",
+	"targetAgeMin": 3,
+	"targetAgeMax": 12,
+	"tags": ["テーマ別", "創造", "アート"],
+	"personas": ["creative-oriented", "indoor"],
+	"curator": "official",
+	"payload": {
+		"rewards": [
+			{
+				"title": "あたらしいいろえんぴつ",
+				"points": 40,
+				"icon": "🖍️",
+				"category": "creative",
+				"description": "すきな いろの えんぴつを もらえるよ"
+			},
+			{
+				"title": "こうさくざいりょう",
+				"points": 50,
+				"icon": "✂️",
+				"category": "creative",
+				"description": "こうさくの ざいりょうを かってもらおう"
+			},
+			{
+				"title": "ぬりえブック",
+				"points": 30,
+				"icon": "🎨",
+				"category": "creative",
+				"description": "あたらしい ぬりえを ゲット"
+			},
+			{
+				"title": "おりがみセット",
+				"points": 25,
+				"icon": "🦢",
+				"category": "creative",
+				"description": "きれいな おりがみを もらおう"
+			},
+			{
+				"title": "じぶんのスケッチブック",
+				"points": 60,
+				"icon": "📓",
+				"category": "creative",
+				"description": "じぶんだけの スケッチブック！"
+			}
+		]
+	}
+}

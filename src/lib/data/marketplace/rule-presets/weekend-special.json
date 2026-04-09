@@ -1,0 +1,29 @@
+{
+	"type": "rule-preset",
+	"itemId": "weekend-special",
+	"name": "しゅうまつスペシャル",
+	"description": "週末に特別なボーナスポイントがもらえるルール。週末のモチベーションを上げます。",
+	"icon": "🌈",
+	"targetAgeMin": 3,
+	"targetAgeMax": 12,
+	"tags": ["ボーナス", "週末", "特別"],
+	"personas": ["relaxed", "outdoor"],
+	"curator": "official",
+	"payload": {
+		"ruleType": "bonus",
+		"rules": [
+			{
+				"title": "しゅうまつ2ばいボーナス",
+				"description": "土日の活動はポイント2倍！",
+				"icon": "✨",
+				"pointBonus": 0
+			},
+			{
+				"title": "かぞくでチャレンジ",
+				"description": "週末に家族全員で活動したら +20ポイント",
+				"icon": "👨‍👩‍👧‍👦",
+				"pointBonus": 20
+			}
+		]
+	}
+}

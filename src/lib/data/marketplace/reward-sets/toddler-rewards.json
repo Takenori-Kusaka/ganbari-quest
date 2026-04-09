@@ -1,0 +1,51 @@
+{
+	"type": "reward-set",
+	"itemId": "toddler-rewards",
+	"name": "ちいさなごほうび",
+	"description": "0〜3歳向け。シール集め、お歌タイム、お気に入りの絵本など、小さなお子さまが喜ぶごほうびセットです。",
+	"icon": "🎀",
+	"targetAgeMin": 0,
+	"targetAgeMax": 3,
+	"tags": ["年齢別", "赤ちゃん", "シンプル"],
+	"personas": ["first-child", "relaxed"],
+	"curator": "official",
+	"payload": {
+		"rewards": [
+			{
+				"title": "シールをはる",
+				"points": 10,
+				"icon": "⭐",
+				"category": "other",
+				"description": "シールちょうに すきな シールを はろう"
+			},
+			{
+				"title": "すきなうたをきく",
+				"points": 15,
+				"icon": "🎵",
+				"category": "creative",
+				"description": "おきにいりの うたを いっしょに きこう"
+			},
+			{
+				"title": "えほんをよんでもらう",
+				"points": 20,
+				"icon": "📚",
+				"category": "academic",
+				"description": "すきな えほんを よんでもらおう"
+			},
+			{
+				"title": "すきなおやつ",
+				"points": 30,
+				"icon": "🍪",
+				"category": "other",
+				"description": "おきにいりの おやつを えらべるよ"
+			},
+			{
+				"title": "おふろのおもちゃ",
+				"points": 25,
+				"icon": "🛁",
+				"category": "life",
+				"description": "おふろで あたらしい おもちゃで あそぼう"
+			}
+		]
+	}
+}

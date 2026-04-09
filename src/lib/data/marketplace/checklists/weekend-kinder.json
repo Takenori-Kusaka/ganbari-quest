@@ -1,0 +1,23 @@
+{
+	"type": "checklist",
+	"itemId": "weekend-kinder",
+	"name": "しゅうまつ チェック（ようちえん）",
+	"description": "3〜5歳の週末チェックリスト。遊び・お手伝い・家族時間のバランスを大切にします。",
+	"icon": "🌈",
+	"targetAgeMin": 3,
+	"targetAgeMax": 5,
+	"tags": ["週末", "生活習慣", "幼児"],
+	"personas": ["relaxed", "outdoor"],
+	"curator": "official",
+	"payload": {
+		"timing": "weekend",
+		"items": [
+			{ "label": "おそとで あそぶ", "icon": "🌳", "order": 1 },
+			{ "label": "おてつだい ひとつ", "icon": "🧹", "order": 2 },
+			{ "label": "おえかき・こうさく", "icon": "🎨", "order": 3 },
+			{ "label": "えほんタイム", "icon": "📚", "order": 4 },
+			{ "label": "おもちゃのおかたづけ", "icon": "🧸", "order": 5 },
+			{ "label": "かぞくで あそぶ", "icon": "👨‍👩‍👧", "order": 6 }
+		]
+	}
+}
