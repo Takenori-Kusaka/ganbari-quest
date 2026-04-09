@@ -18,7 +18,7 @@
         <mxCell id="f1-child" value="子供画面&#xa;アクティビティ選択" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;" vertex="1" parent="1">
           <mxGeometry x="40" y="100" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="f1-api" value="POST&#xa;/api/v1/activities/log" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;" vertex="1" parent="1">
+        <mxCell id="f1-api" value="POST&#xa;/api/v1/activity-logs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;" vertex="1" parent="1">
           <mxGeometry x="210" y="100" width="140" height="60" as="geometry" />
         </mxCell>
         <mxCell id="f1-svc" value="activity-log-service&#xa;ポイント計算&#xa;ストリーク更新" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;" vertex="1" parent="1">
@@ -27,7 +27,7 @@
         <mxCell id="f1-db" value="activity_logs&#xa;INSERT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#B71C1C;" vertex="1" parent="1">
           <mxGeometry x="600" y="100" width="100" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="f1-hooks" value="Hooks (並列)&#xa;- スタンプガチャ&#xa;- レベル判定&#xa;- 実績チェック&#xa;- 兄弟チャレンジ&#xa;- 通知送信" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
+        <mxCell id="f1-hooks" value="Hooks (順次)&#xa;- スタンプガチャ&#xa;- レベル判定&#xa;- 実績チェック&#xa;- 兄弟チャレンジ&#xa;- 通知送信" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
           <mxGeometry x="750" y="80" width="150" height="100" as="geometry" />
         </mxCell>
         <mxCell id="f1-result" value="結果ダイアログ&#xa;ポイント・シール&#xa;レベルアップ表示" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;" vertex="1" parent="1">
@@ -48,16 +48,16 @@
         <mxCell id="f2-trigger" value="活動記録完了&#xa;(activity-log-service)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;" vertex="1" parent="1">
           <mxGeometry x="40" y="250" width="150" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="f2-gacha" value="stamp-gacha&#xa;レアリティ抽選&#xa;N:55% R:30% SR:12% UR:3%" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;" vertex="1" parent="1">
+        <mxCell id="f2-gacha" value="stamp-gacha&#xa;レアリティ抽選&#xa;N:60% R:25% SR:12% UR:3%" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;" vertex="1" parent="1">
           <mxGeometry x="240" y="240" width="200" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="f2-card" value="stamp_cards&#xa;earned_stamps +1&#xa;スタンプ配置記録" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#B71C1C;" vertex="1" parent="1">
+        <mxCell id="f2-card" value="stamp_entries&#xa;INSERT&#xa;スタンプ獲得記録" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#B71C1C;" vertex="1" parent="1">
           <mxGeometry x="490" y="250" width="150" height="50" as="geometry" />
         </mxCell>
         <mxCell id="f2-complete" value="カード完成？&#xa;(earned = total)" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#F57F17;" vertex="1" parent="1">
           <mxGeometry x="690" y="235" width="130" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="f2-new" value="新カード発行&#xa;stamp_cards INSERT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
+        <mxCell id="f2-new" value="満枠のまま保持&#xa;週末にredeem" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
           <mxGeometry x="870" y="250" width="140" height="50" as="geometry" />
         </mxCell>
 
