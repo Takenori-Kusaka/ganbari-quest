@@ -2,7 +2,7 @@
 import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
-import { SIGNUP_CODE_EXPIRY_HOURS } from '$lib/domain/validation/auth';
+import { SIGNUP_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -120,7 +120,7 @@ $effect(() => {
 				</p>
 
 				<p class="text-xs text-[var(--color-text-muted)] text-center">
-					確認コードは{SIGNUP_CODE_EXPIRY_HOURS}時間有効です
+					確認コードは{SIGNUP_CODE_EXPIRY_MINUTES}分以内に入力してください
 				</p>
 
 				<FormField label="確認コード" id="code">
