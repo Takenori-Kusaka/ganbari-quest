@@ -1,4 +1,5 @@
 <script lang="ts">
+import { getStampImagePath } from '$lib/domain/stamp-image';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -6,6 +7,7 @@ interface StampCardEntry {
 	slot: number;
 	emoji: string;
 	rarity: string;
+	omikujiRank: string | null;
 }
 
 interface Props {
@@ -13,6 +15,7 @@ interface Props {
 	stampEmoji: string;
 	stampRarity: string;
 	stampName: string;
+	stampOmikujiRank: string | null;
 	instantPoints: number;
 	consecutiveDays: number;
 	multiplier: number;
@@ -35,6 +38,7 @@ let {
 	stampEmoji,
 	stampRarity,
 	stampName,
+	stampOmikujiRank,
 	instantPoints,
 	consecutiveDays,
 	multiplier,
@@ -59,9 +63,7 @@ const defaultConfig = { glow: 'none', particles: [] as string[], tier: 0 };
 const config = $derived(rarityConfig[stampRarity] ?? defaultConfig);
 const isComplete = $derived(cardFilledSlots >= cardTotalSlots);
 const remaining = $derived(cardTotalSlots - cardFilledSlots);
-
-// Day labels for 7-slot card
-const dayLabels = ['月', '火', '水', '木', '金', '土', '日'];
+const stampImageSrc = $derived(stampOmikujiRank ? getStampImagePath(stampOmikujiRank) : null);
 
 $effect(() => {
 	if (open) {
@@ -109,15 +111,27 @@ function handleClose() {
 					{@const isToday = i + 1 === cardFilledSlots}
 					<div class="sp__slot" class:sp__slot--today={isToday && phase === 'card'}>
 						{#if entry && !(isToday && phase === 'card')}
-							<span class="sp__slot-stamp">{entry.emoji}</span>
+							{#if entry.omikujiRank}
+								<img src={getStampImagePath(entry.omikujiRank)} alt="" class="sp__slot-img" />
+							{:else}
+								<span class="sp__slot-stamp">{entry.emoji}</span>
+							{/if}
 						{:else if isToday && (phase === 'press' || phase === 'points')}
-							<span class="sp__slot-stamp sp__slot-stamp--new" style:filter={config.glow !== 'none' ? `drop-shadow(${config.glow})` : undefined}>
-								{stampEmoji}
-							</span>
+							{#if stampImageSrc}
+								<img
+									src={stampImageSrc}
+									alt={stampName}
+									class="sp__slot-img sp__slot-img--new"
+									style:filter={config.glow !== 'none' ? `drop-shadow(${config.glow})` : undefined}
+								/>
+							{:else}
+								<span class="sp__slot-stamp sp__slot-stamp--new" style:filter={config.glow !== 'none' ? `drop-shadow(${config.glow})` : undefined}>
+									{stampEmoji}
+								</span>
+							{/if}
 						{:else}
 							<span class="sp__slot-empty"></span>
 						{/if}
-						<span class="sp__slot-day">{dayLabels[i]}</span>
 					</div>
 				{/each}
 			</div>
@@ -126,7 +140,11 @@ function handleClose() {
 			{#if phase === 'press' || phase === 'points'}
 				<div class="sp__press-area">
 					<div class="sp__stamp-icon" style:box-shadow={config.glow}>
-						<span class="sp__stamp-emoji">{stampEmoji}</span>
+						{#if stampImageSrc}
+							<img src={stampImageSrc} alt={stampName} class="sp__stamp-main-img" />
+						{:else}
+							<span class="sp__stamp-emoji">{stampEmoji}</span>
+						{/if}
 					</div>
 					{#if config.tier >= 2}
 						<div class="sp__particles">
@@ -214,10 +232,10 @@ function handleClose() {
 		margin: 0;
 	}
 
-	/* Card slots (7 horizontal) */
+	/* Card slots (5 horizontal) */
 	.sp__card-slots {
 		display: flex;
-		gap: 4px;
+		gap: 6px;
 		justify-content: center;
 	}
 
@@ -226,7 +244,7 @@ function handleClose() {
 		flex-direction: column;
 		align-items: center;
 		gap: 2px;
-		width: 36px;
+		width: 40px;
 	}
 
 	.sp__slot--today {
@@ -234,8 +252,8 @@ function handleClose() {
 	}
 
 	.sp__slot-stamp {
-		width: 32px;
-		height: 32px;
+		width: 36px;
+		height: 36px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -246,18 +264,22 @@ function handleClose() {
 		animation: stamp-bounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 	}
 
+	.sp__slot-img {
+		width: 36px;
+		height: 36px;
+		object-fit: contain;
+	}
+
+	.sp__slot-img--new {
+		animation: stamp-bounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+	}
+
 	.sp__slot-empty {
-		width: 28px;
-		height: 28px;
+		width: 32px;
+		height: 32px;
 		border-radius: 50%;
 		border: 2px dashed #d1d5db;
 		background: var(--gray-50, #f8fafc);
-	}
-
-	.sp__slot-day {
-		font-size: 0.5625rem;
-		font-weight: 700;
-		color: var(--color-text-muted, #9ca3af);
 	}
 
 	/* Press area */
@@ -284,6 +306,12 @@ function handleClose() {
 
 	.sp__stamp-emoji {
 		font-size: 2rem;
+	}
+
+	.sp__stamp-main-img {
+		width: 56px;
+		height: 56px;
+		object-fit: contain;
 	}
 
 	.sp__particles {
@@ -476,6 +504,7 @@ function handleClose() {
 	@media (prefers-reduced-motion: reduce) {
 		.sp__slot--today,
 		.sp__slot-stamp--new,
+		.sp__slot-img--new,
 		.sp__stamp-icon,
 		.sp__particle {
 			animation: none;
