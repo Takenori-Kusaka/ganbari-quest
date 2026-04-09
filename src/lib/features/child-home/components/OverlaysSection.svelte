@@ -1,4 +1,5 @@
 <script lang="ts">
+import { untrack } from 'svelte';
 import BirthdayModal from '$lib/features/birthday/BirthdayModal.svelte';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
@@ -80,10 +81,60 @@ let {
 	nickname,
 	uiMode,
 }: Props = $props();
+
+// --- Dialog queue: show only one overlay at a time (#611) ---
+type OverlayType = 'stampPress' | 'levelUp' | 'reward' | 'birthday';
+let queue = $state<OverlayType[]>([]);
+let activeOverlay = $derived<OverlayType | null>(queue[0] ?? null);
+
+function enqueueOverlay(type: OverlayType) {
+	if (!queue.includes(type)) {
+		queue = [...queue, type];
+	}
+}
+
+function dequeueOverlay(type: OverlayType) {
+	if (queue.includes(type)) {
+		queue = queue.filter((t) => t !== type);
+	}
+}
+
+// Enqueue/dequeue based on parent prop changes
+$effect(() => {
+	if (stampPressOpen && stampPressData) {
+		untrack(() => enqueueOverlay('stampPress'));
+	} else if (!stampPressOpen) {
+		untrack(() => dequeueOverlay('stampPress'));
+	}
+});
+
+$effect(() => {
+	if (levelUpOpen && levelUpData) {
+		untrack(() => enqueueOverlay('levelUp'));
+	} else if (!levelUpOpen) {
+		untrack(() => dequeueOverlay('levelUp'));
+	}
+});
+
+$effect(() => {
+	if (rewardOpen && latestReward) {
+		untrack(() => enqueueOverlay('reward'));
+	} else if (!rewardOpen) {
+		untrack(() => dequeueOverlay('reward'));
+	}
+});
+
+$effect(() => {
+	if (birthdayModalOpen && birthdayBonus) {
+		untrack(() => enqueueOverlay('birthday'));
+	} else if (!birthdayModalOpen) {
+		untrack(() => dequeueOverlay('birthday'));
+	}
+});
 </script>
 
-<!-- Level up overlay -->
-{#if levelUpData}
+<!-- Level up overlay — only render when active in queue -->
+{#if levelUpData && activeOverlay === 'levelUp'}
 	<LevelUpOverlay
 		bind:open={levelUpOpen}
 		levelUp={levelUpData}
@@ -92,7 +143,7 @@ let {
 {/if}
 
 <!-- Special reward overlay -->
-{#if latestReward}
+{#if latestReward && activeOverlay === 'reward'}
 	<SpecialRewardOverlay
 		bind:open={rewardOpen}
 		title={latestReward.title}
@@ -103,7 +154,7 @@ let {
 {/if}
 
 <!-- Stamp press overlay -->
-{#if stampPressData}
+{#if stampPressData && activeOverlay === 'stampPress'}
 	<StampPressOverlay
 		bind:open={stampPressOpen}
 		stampEmoji={stampPressData.stampEmoji}
@@ -121,7 +172,7 @@ let {
 {/if}
 
 <!-- Birthday bonus modal -->
-{#if birthdayBonus}
+{#if birthdayBonus && activeOverlay === 'birthday'}
 	<BirthdayModal
 		bind:open={birthdayModalOpen}
 		{nickname}
