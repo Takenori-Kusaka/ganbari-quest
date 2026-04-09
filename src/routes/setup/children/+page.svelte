@@ -19,8 +19,8 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 	<title>子供登録 - がんばりクエスト セットアップ</title>
 </svelte:head>
 
-<h2 class="text-lg font-bold text-gray-700 mb-2">子供を登録しよう</h2>
-<p class="text-sm text-gray-500 mb-4">
+<h2 class="text-lg font-bold text-[var(--color-text)] mb-2">子供を登録しよう</h2>
+<p class="text-sm text-[var(--color-text-muted)] mb-4">
 	がんばりクエストを使う子供を登録してください（1人以上）。
 </p>
 
@@ -35,7 +35,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 <!-- Registered children list -->
 {#if data.children.length > 0}
 	<div class="mb-4">
-		<h3 class="text-sm font-bold text-gray-600 mb-2">登録済み（{data.children.length}人）</h3>
+		<h3 class="text-sm font-bold text-[var(--color-text-secondary)] mb-2">登録済み（{data.children.length}人）</h3>
 		<div class="flex flex-col gap-2">
 			{#each data.children as child (child.id)}
 				<div class="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -47,8 +47,8 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 						{/if}
 					</span>
 					<div>
-						<p class="font-bold text-sm text-gray-700">{child.nickname}</p>
-						<p class="text-xs text-gray-500">
+						<p class="font-bold text-sm text-[var(--color-text)]">{child.nickname}</p>
+						<p class="text-xs text-[var(--color-text-muted)]">
 							{child.age}歳 / {getAgeTierLabel(child.uiMode)}モード
 						</p>
 					</div>
@@ -76,7 +76,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 	}}
 	class="flex flex-col gap-3 mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200"
 >
-	<h3 class="text-sm font-bold text-gray-600">子供を追加</h3>
+	<h3 class="text-sm font-bold text-[var(--color-text-secondary)]">子供を追加</h3>
 
 	<FormField
 		label="ニックネーム"
@@ -97,20 +97,20 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 	/>
 
 	<div>
-		<label for="theme" class="block text-sm font-medium text-gray-600 mb-1">テーマカラー</label>
+		<label for="theme" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">テーマカラー</label>
 		<div class="grid grid-cols-2 gap-2">
 			<label class="theme-option">
 				<input type="radio" name="theme" value="pink" checked class="sr-only peer" />
 				<div class="theme-card peer-checked:border-pink-400 peer-checked:bg-pink-50">
 					<span class="text-2xl">👧</span>
-					<span class="text-sm font-medium text-gray-700">ピンク</span>
+					<span class="text-sm font-medium text-[var(--color-text)]">ピンク</span>
 				</div>
 			</label>
 			<label class="theme-option">
 				<input type="radio" name="theme" value="blue" class="sr-only peer" />
 				<div class="theme-card peer-checked:border-blue-400 peer-checked:bg-blue-50">
 					<span class="text-2xl">👦</span>
-					<span class="text-sm font-medium text-gray-700">ブルー</span>
+					<span class="text-sm font-medium text-[var(--color-text)]">ブルー</span>
 				</div>
 			</label>
 		</div>
