@@ -19,7 +19,6 @@ import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import EventBanner from '$lib/ui/components/EventBanner.svelte';
 import FamilyStreakBanner from '$lib/ui/components/FamilyStreakBanner.svelte';
-import FocusMode from '$lib/ui/components/FocusMode.svelte';
 import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
 import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
@@ -225,21 +224,6 @@ const activitiesByCategory = $derived(
 		items: data.activities.filter((a) => a.categoryId === catDef.id),
 	})).filter((g) => g.items.length > 0),
 );
-
-// Focus mode (#0264): recommended activities
-const recommendedIdSet = $derived(new Set(data.recommendedActivityIds ?? []));
-const recommendedActivities = $derived(data.activities.filter((a) => recommendedIdSet.has(a.id)));
-const focusCompletedCount = $derived(recommendedActivities.filter((a) => isCompleted(a)).length);
-const focusAllCompleted = $derived(
-	recommendedActivities.length > 0 && focusCompletedCount === recommendedActivities.length,
-);
-
-// Quest progress summary (mission-based activities)
-const questProgress = $derived.by(() => {
-	const missions = data.activities.filter((a) => a.isMission);
-	const completed = missions.filter((a) => isCompleted(a));
-	return { total: missions.length, completed: completed.length };
-});
 
 // Per-category mission counts
 function getCategoryMissionCount(categoryId: number) {
@@ -509,30 +493,6 @@ $effect(() => {
 		</a>
 	{/if}
 
-	<!-- Quest progress summary (first view) -->
-	{#if questProgress.total > 0}
-		<div class="flex items-center gap-2 px-[var(--sp-md)] py-[var(--sp-sm)] mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200" data-testid="quest-progress">
-			<span class="text-xl">⚔️</span>
-			<div class="flex-1">
-				<p class="text-xs font-bold text-orange-700">きょうのクエスト</p>
-				<div class="flex items-center gap-1 mt-0.5">
-					{#each Array(questProgress.total) as _, i}
-						<span class="text-base">{i < questProgress.completed ? '⚔️' : '✨'}</span>
-					{/each}
-					<span class="text-xs font-bold text-orange-600 ml-1">{questProgress.completed}/{questProgress.total}</span>
-				</div>
-				{#if questProgress.completed === 0}
-					<p class="text-[10px] text-orange-400 mt-0.5">⬇ したの カードを タップして きろくしよう！</p>
-				{/if}
-			</div>
-			{#if questProgress.completed >= questProgress.total}
-				<span class="text-sm font-bold text-orange-600">コンプリート！</span>
-			{:else}
-				<span class="text-xs text-orange-500">あと{questProgress.total - questProgress.completed}つ！</span>
-			{/if}
-		</div>
-	{/if}
-
 	<!-- Special reward progress indicator -->
 	{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
 		<SpecialRewardProgress
@@ -543,20 +503,6 @@ $effect(() => {
 
 	<!-- Tutorial hint banner (one-time) -->
 	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
-
-	<!-- Daily Quest: compact recommended activities (#0288) -->
-	{#if data.focusMode && recommendedActivities.length > 0}
-		<div data-tutorial="daily-missions">
-		<FocusMode
-			{recommendedActivities}
-			allCompleted={focusAllCompleted}
-			completedCount={focusCompletedCount}
-			totalCount={recommendedActivities.length}
-			completedIds={new Set(recommendedActivities.filter((a) => isCompleted(a)).map((a) => a.id))}
-			onactivityclick={(activity) => handleActivityTap(activity)}
-		/>
-		</div>
-	{/if}
 
 	<!-- Activity grid by category (always visible) -->
 	{#each activitiesByCategory as group, groupIdx (group.categoryId)}
