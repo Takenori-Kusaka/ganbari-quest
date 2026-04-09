@@ -102,12 +102,13 @@ let stampPressData = $state<{
 	stampEmoji: string;
 	stampRarity: string;
 	stampName: string;
+	stampOmikujiRank: string | null;
 	instantPoints: number;
 	consecutiveDays: number;
 	multiplier: number;
 	cardFilledSlots: number;
 	cardTotalSlots: number;
-	cardEntries: { slot: number; emoji: string; rarity: string }[];
+	cardEntries: { slot: number; emoji: string; rarity: string; omikujiRank: string | null }[];
 	weeklyRedeem: {
 		points: number;
 		filledSlots: number;
@@ -341,16 +342,17 @@ $effect(() => {
 				return async ({ result }) => {
 					if (result.type === 'success' && result.data && 'loginStamp' in result.data) {
 						const d = result.data as Record<string, unknown>;
-						const cardData = d.cardData as { filledSlots: number; totalSlots: number; entries: { slot: number; emoji: string; rarity: string }[] } | null;
+						const cardData = d.cardData as { filledSlots: number; totalSlots: number; entries: { slot: number; emoji: string; rarity: string; omikujiRank: string | null }[] } | null;
 						stampPressData = {
 							stampEmoji: (d.stampEmoji as string) || '⭐',
 							stampRarity: (d.stampRarity as string) || 'N',
 							stampName: (d.stampName as string) || '',
+							stampOmikujiRank: (d.omikujiRank as string) ?? null,
 							instantPoints: (d.instantPoints as number) || 0,
 							consecutiveDays: (d.consecutiveLoginDays as number) || 0,
 							multiplier: (d.multiplier as number) || 1,
 							cardFilledSlots: cardData?.filledSlots ?? 0,
-							cardTotalSlots: cardData?.totalSlots ?? 7,
+							cardTotalSlots: cardData?.totalSlots ?? 5,
 							cardEntries: cardData?.entries ?? [],
 							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number } | null,
 						};
