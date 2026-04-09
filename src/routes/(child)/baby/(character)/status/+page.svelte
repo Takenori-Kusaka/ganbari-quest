@@ -2,19 +2,9 @@
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
-import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
-import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
-
-let detailOpen = $state(false);
-
-const trendIcons: Record<string, string> = {
-	up: '📈',
-	down: '📉',
-	stable: '➡️',
-};
 
 const radarCategories = $derived(
 	data.status
@@ -39,86 +29,41 @@ const radarCategories = $derived(
 	<title>つよさ - がんばりクエスト</title>
 </svelte:head>
 
-<div class="px-4 py-1">
+<div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	{#if data.status}
-		<!-- Category levels -->
-		<Card variant="elevated" padding="md" class="mb-6">
-			{#snippet children()}
-			<div class="flex flex-col gap-2">
-				{#each CATEGORY_DEFS as catDef (catDef.id)}
-					{@const stat = data.status.statuses[catDef.id]}
-					{#if stat}
-						{@const pct = stat.level >= 99 ? 100 : (stat.progressPct ?? 0)}
-						<div class="flex items-center gap-1">
-							<span class="text-lg w-7 text-center">{catDef.icon}</span>
-							<div class="flex-1 min-w-0">
-								<div class="flex items-center justify-between mb-0.5">
-									<span class="text-xs font-bold text-[var(--color-text)]">{catDef.name} Lv.{stat.level}</span>
-									{#if stat.level < 99}
-										<span class="text-[10px] text-[var(--color-text-muted)]">あと {Math.round(stat.expToNextLevel)}XP</span>
-									{:else}
-										<span class="text-[10px] font-bold text-[var(--color-point)]">MAX</span>
-									{/if}
-								</div>
-								<div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-									<div class="h-full rounded-full transition-all bg-[var(--theme-accent)]" style:width="{pct}%"></div>
-								</div>
-							</div>
-						</div>
-					{/if}
-				{/each}
-			</div>
-			{/snippet}
-		</Card>
-
 		<!-- Radar chart -->
-		<Card variant="elevated" padding="md" class="mb-3" data-tutorial="radar-chart">
+		<Card variant="elevated" padding="md" class="mb-[var(--sp-md)]" data-tutorial="radar-chart">
 			{#snippet children()}
-			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">ステータス</h2>
+			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">ステータス</h2>
 			<div class="flex justify-center">
 				<RadarChart categories={radarCategories} size={280} />
 			</div>
 			{/snippet}
 		</Card>
 
-		<!-- Collapsible detail -->
-		<Card variant="elevated" padding="none">
+		<!-- Category details (always visible) -->
+		<Card variant="elevated" padding="md">
 			{#snippet children()}
-			<Button
-				variant="ghost"
-				size="sm"
-				class="w-full p-4 flex items-center justify-between text-sm text-[var(--color-text-muted)]"
-				onclick={() => { soundService.play('tap'); detailOpen = !detailOpen; }}
-			>
-				<span data-testid="growth-detail-toggle">{detailOpen ? '▼' : '▶'} くわしくみる</span>
-			</Button>
-			{#if detailOpen}
-				<div class="px-4 pb-4 flex flex-col gap-4">
-					{#each CATEGORY_DEFS as catDef (catDef.id)}
-						{@const status = data.status.statuses[catDef.id]}
-						{#if status}
-							<div>
-								<StatusBar
-									categoryId={catDef.id}
-									value={status.value}
-									level={status.level}
-									progressPct={status.progressPct}
-								/>
-								<div class="flex justify-between items-center mt-1 px-1">
-									<span class="text-xs text-[var(--color-text-muted)]">
-										{trendIcons[status.trend] ?? '➡️'}
-									</span>
-								</div>
-							</div>
-						{/if}
-					{/each}
-				</div>
-			{/if}
+			<div class="flex flex-col gap-[var(--sp-md)]" data-testid="growth-detail-toggle">
+				{#each CATEGORY_DEFS as catDef (catDef.id)}
+					{@const status = data.status.statuses[catDef.id]}
+					{#if status}
+						<div>
+							<StatusBar
+								categoryId={catDef.id}
+								value={status.value}
+								level={status.level}
+								progressPct={status.progressPct}
+							/>
+						</div>
+					{/if}
+				{/each}
+			</div>
 			{/snippet}
 		</Card>
 	{:else}
-		<div class="flex flex-col items-center py-12 text-[var(--color-text-muted)]">
-			<span class="text-[2.5rem] mb-2">⭐</span>
+		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
+			<span class="text-4xl mb-[var(--sp-sm)]">⭐</span>
 			<p class="font-bold">ステータスがまだないよ</p>
 		</div>
 	{/if}
