@@ -1,12 +1,34 @@
 // tests/unit/services/birthday-bonus-service.test.ts
 // 誕生日ボーナスサービスのユニットテスト
 
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Child } from '../../../src/lib/server/db/types';
+
+// --- child-repo モック（#580: claimBirthdayBonus のテスト用） ---
+const mockFindChildById = vi.fn();
+const mockUpdateChild = vi.fn();
+vi.mock('$lib/server/db/child-repo', () => ({
+	findChildById: (...args: unknown[]) => mockFindChildById(...args),
+	updateChild: (...args: unknown[]) => mockUpdateChild(...args),
+}));
+
+// --- point-repo モック ---
+const mockInsertPointEntry = vi.fn();
+vi.mock('$lib/server/db/point-repo', () => ({
+	insertPointEntry: (...args: unknown[]) => mockInsertPointEntry(...args),
+}));
+
+// --- date-utils モック — 誕生日計算を固定日付で制御 ---
+let _mockedToday = '2026-04-01';
+vi.mock('$lib/domain/date-utils', () => ({
+	todayDateJST: () => _mockedToday,
+}));
+
 import {
 	calcBirthdayBonus,
 	calculateAge,
 	checkBirthdayStatus,
+	claimBirthdayBonus,
 	isBirthdayWindow,
 } from '../../../src/lib/server/services/birthday-bonus-service';
 
@@ -160,5 +182,139 @@ describe('checkBirthdayStatus', () => {
 		const child = makeChild({ birthDate: '2020-04-01' });
 		const status = checkBirthdayStatus(child, '2026-04-03');
 		expect(status.eligible).toBe(true);
+	});
+});
+
+// ============================================================
+// #580: claimBirthdayBonus — age + uiMode の同時更新テスト
+// ============================================================
+describe('claimBirthdayBonus — uiMode 自動再計算（#580）', () => {
+	function makeChildForClaim(overrides: Partial<Child> = {}): Child {
+		return {
+			id: 1,
+			nickname: 'テスト',
+			age: 5,
+			birthDate: '2020-04-01',
+			theme: 'pink',
+			uiMode: 'preschool',
+			avatarUrl: null,
+			displayConfig: null,
+			userId: null,
+			birthdayBonusMultiplier: 1.0,
+			lastBirthdayBonusYear: null,
+			createdAt: '2026-01-01',
+			updatedAt: '2026-01-01',
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		mockFindChildById.mockReset();
+		mockUpdateChild.mockReset();
+		mockInsertPointEntry.mockReset();
+		mockInsertPointEntry.mockResolvedValue(undefined);
+		mockUpdateChild.mockResolvedValue(undefined);
+		_mockedToday = '2026-04-01';
+	});
+
+	it('2→3歳境界: baby → preschool に uiMode が遷移する', async () => {
+		mockFindChildById.mockResolvedValue(
+			makeChildForClaim({ age: 2, uiMode: 'baby', birthDate: '2023-04-01' }),
+		);
+
+		const result = await claimBirthdayBonus(1, 'tenant-1');
+
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.newAge).toBe(3);
+		expect(mockUpdateChild).toHaveBeenCalledWith(
+			1,
+			expect.objectContaining({
+				age: 3,
+				uiMode: 'preschool',
+				lastBirthdayBonusYear: 2026,
+			}),
+			'tenant-1',
+		);
+	});
+
+	it('5→6歳境界: preschool → elementary に uiMode が遷移する', async () => {
+		mockFindChildById.mockResolvedValue(
+			makeChildForClaim({ age: 5, uiMode: 'preschool', birthDate: '2020-04-01' }),
+		);
+
+		const result = await claimBirthdayBonus(1, 'tenant-1');
+
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.newAge).toBe(6);
+		expect(mockUpdateChild).toHaveBeenCalledWith(
+			1,
+			expect.objectContaining({ age: 6, uiMode: 'elementary' }),
+			'tenant-1',
+		);
+	});
+
+	it('12→13歳境界: elementary → junior に uiMode が遷移する', async () => {
+		mockFindChildById.mockResolvedValue(
+			makeChildForClaim({ age: 12, uiMode: 'elementary', birthDate: '2013-04-01' }),
+		);
+
+		const result = await claimBirthdayBonus(1, 'tenant-1');
+
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.newAge).toBe(13);
+		expect(mockUpdateChild).toHaveBeenCalledWith(
+			1,
+			expect.objectContaining({ age: 13, uiMode: 'junior' }),
+			'tenant-1',
+		);
+	});
+
+	it('15→16歳境界: junior → senior に uiMode が遷移する', async () => {
+		mockFindChildById.mockResolvedValue(
+			makeChildForClaim({ age: 15, uiMode: 'junior', birthDate: '2010-04-01' }),
+		);
+
+		const result = await claimBirthdayBonus(1, 'tenant-1');
+
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.newAge).toBe(16);
+		expect(mockUpdateChild).toHaveBeenCalledWith(
+			1,
+			expect.objectContaining({ age: 16, uiMode: 'senior' }),
+			'tenant-1',
+		);
+	});
+
+	it('境界でない場合: 6→7歳で uiMode は elementary のまま変化しない', async () => {
+		mockFindChildById.mockResolvedValue(
+			makeChildForClaim({ age: 6, uiMode: 'elementary', birthDate: '2019-04-01' }),
+		);
+
+		const result = await claimBirthdayBonus(1, 'tenant-1');
+
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.newAge).toBe(7);
+		expect(mockUpdateChild).toHaveBeenCalledWith(
+			1,
+			expect.objectContaining({ age: 7, uiMode: 'elementary' }),
+			'tenant-1',
+		);
+	});
+
+	it('NOT_ELIGIBLE (ウィンドウ外): updateChild は呼ばれない', async () => {
+		mockFindChildById.mockResolvedValue(
+			makeChildForClaim({ age: 5, uiMode: 'preschool', birthDate: '2020-08-15' }),
+		);
+
+		const result = await claimBirthdayBonus(1, 'tenant-1');
+
+		expect('error' in result).toBe(true);
+		if ('error' in result) expect(result.error).toBe('NOT_ELIGIBLE');
+		expect(mockUpdateChild).not.toHaveBeenCalled();
 	});
 });
