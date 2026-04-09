@@ -39,7 +39,7 @@ const sizeClasses: Record<Size, string> = {
 </script>
 
 <button
-	class="tap-target inline-flex items-center justify-center font-bold transition-all {variantClasses[variant]} {sizeClasses[size]} disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none {className}"
+	class="tap-target inline-flex items-center justify-center font-bold transition-all {variantClasses[variant]} {sizeClasses[size]} {className}"
 	{...rest}
 >
 	{@render children()}

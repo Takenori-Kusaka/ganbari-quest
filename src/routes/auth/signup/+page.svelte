@@ -68,7 +68,8 @@ const submitBlockReason = $derived(() => {
 	if (password !== passwordConfirm) return 'パスワードが一致しません';
 	if (!agreedTerms) return '利用規約への同意が必要です';
 	if (!agreedPrivacy) return 'プライバシーポリシーへの同意が必要です';
-	if (showLicenseKey && (!licenseKey || !licenseKeyValid)) return 'ライセンスキーを正しく入力してください';
+	if (showLicenseKey && (!licenseKey || !licenseKeyValid))
+		return 'ライセンスキーを正しく入力してください';
 	return '';
 });
 
@@ -392,7 +393,7 @@ $effect(() => {
 					type="submit"
 					disabled={!canSubmit}
 					size="md"
-					class="w-full"
+					class="w-full disabled:opacity-40 disabled:cursor-not-allowed"
 					onclick={(e) => {
 						if (!canSubmit) {
 							e.preventDefault();
