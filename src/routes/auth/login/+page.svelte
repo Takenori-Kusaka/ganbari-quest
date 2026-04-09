@@ -107,7 +107,7 @@ $effect(() => {
 		{/if}
 
 		{#if form?.error}
-			<div class="mb-4 p-3 bg-red-50 text-red-600 border border-red-200 rounded-[var(--radius-sm)] text-sm" role="alert">
+			<div class="mb-4 p-3 bg-[var(--color-danger-50)] text-[var(--color-danger-600)] border border-[var(--color-danger-200)] rounded-[var(--radius-sm)] text-sm" role="alert">
 				{form.error}
 			</div>
 		{/if}
