@@ -32,7 +32,7 @@ function extractSemanticTokens() {
   };
 
   // Match semantic tokens (lines with --color-action-*, --color-surface-*, etc.)
-  const semanticPattern = /^\s*--(color-(?:action|surface|border|text|feedback)-\S+):\s*(.+);/gm;
+  const semanticPattern = /^\s*--(color-(?:action|surface|border|text|feedback)(?:-\S*)?):\s*(.+);/gm;
   let match;
   while ((match = semanticPattern.exec(css)) !== null) {
     const name = `--${match[1]}`;

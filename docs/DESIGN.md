@@ -25,7 +25,7 @@
 |----|------------|------|
 | **Semantic** | routes / features / components すべて | `var(--color-action-primary)` |
 | **Base** | `app.css` の Semantic 定義内のみ | `var(--color-brand-500)` |
-| **Hex 値** | `app.css` の `@theme` ブロック内のみ | `#5ba3e6` |
+| **Hex 値** | `app.css` の `@theme` / `:root` 定義ブロック内のみ | `#5ba3e6` |
 
 ### 禁忌
 
@@ -131,12 +131,12 @@
 
 - **基本フォント**: system-ui (OS デフォルト)
 - **スケール**: 年齢帯ごとに `fontScale` が変動
-  - baby: 1.4 (最大)
-  - kinder: 1.2
-  - lower: 1.0 (基準)
-  - upper: 0.95
-  - teen: 0.9 (最小)
-- **詳細**: [docs/design/22b-タイポグラフィ・スペーシングガイドライン.md](design/22b-タイポグラフィ・スペーシングガイドライン.md)
+  - baby: 1.5 (最大)
+  - preschool: 1.2
+  - elementary: 1.0 (基準)
+  - junior: 1.0
+  - senior: 1.0 (最小)
+- **詳細**: [docs/design/22-タイポグラフィ・スペーシングガイドライン.md](design/22-タイポグラフィ・スペーシングガイドライン.md)
 
 ---
 
@@ -145,10 +145,10 @@
 - **基本グリッド**: 4px base
 - **タップサイズ**: 年齢帯ごとに可変
   - baby: 120px (大きなタップ領域)
-  - kinder: 80px
-  - lower: 60px
-  - upper: 48px
-  - teen: 44px (Material Design 最小推奨)
+  - preschool: 80px
+  - elementary: 56px
+  - junior: 48px
+  - senior: 44px (Material Design 最小推奨)
 - **実体**: `src/lib/domain/validation/age-tier.ts`
 
 ---
@@ -266,15 +266,15 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 
 | コード | 日本語名 | fontScale | tapSize | 特性 |
 |--------|---------|-----------|---------|------|
-| `baby` | あかちゃん (0-2歳) | 1.4 | 120px | 大きなボタン、シンプルな色 |
-| `kinder` | えんじ (3-5歳) | 1.2 | 80px | 丸い形、ひらがなのみ |
-| `lower` | ていがくねん (6-9歳) | 1.0 | 60px | 標準レイアウト、漢字最小限 |
-| `upper` | こうがくねん (10-12歳) | 0.95 | 48px | 情報密度やや高い |
-| `teen` | ちゅうがくせい (13-15歳) | 0.9 | 44px | 情報密度高い、漢字 |
+| `baby` | 乳幼児 (0-2歳) | 1.5 | 120px | 大きなボタン、シンプルな色 |
+| `preschool` | 幼児 (3-5歳) | 1.2 | 80px | 丸い形、ひらがなのみ |
+| `elementary` | 小学生 (6-12歳) | 1.0 | 56px | 標準レイアウト、漢字最小限 |
+| `junior` | 中学生 (13-15歳) | 1.0 | 48px | 情報密度やや高い |
+| `senior` | 高校生 (16-18歳) | 1.0 | 44px | 情報密度高い、漢字 |
 
 ### 並行実装の注意
 
-- routes は `src/routes/(child)/{baby,kinder,lower,upper,teen}/` に 5 ディレクトリ
+- routes は `src/routes/(child)/{baby,preschool,elementary,junior,senior}/` に 5 ディレクトリ
 - **1 つ変更したら 5 つ全て確認** — 並行実装マップ: [docs/design/parallel-implementations.md](design/parallel-implementations.md)
 - 実体: `src/lib/domain/validation/age-tier.ts`
 
