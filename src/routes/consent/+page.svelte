@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import Logo from '$lib/ui/components/Logo.svelte';
+import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -28,26 +29,26 @@ let loading = $state(false);
 			<div class="text-center mb-6">
 				<Logo variant="symbol" size={48} />
 				{#if data.hasExistingConsent}
-					<h1 class="text-lg font-bold text-[var(--color-neutral-900)] mt-2 mb-1" data-testid="consent-heading">規約が更新されました</h1>
-					<p class="text-sm text-[var(--color-neutral-500)]">
+					<h1 class="text-lg font-bold text-[var(--color-text)] mt-2 mb-1" data-testid="consent-heading">規約が更新されました</h1>
+					<p class="text-sm text-[var(--color-text-muted)]">
 						サービスの利用を続けるには、更新された規約への同意が必要です。
 					</p>
 					{#if data.previousTermsVersion || data.previousPrivacyVersion}
-						<p class="text-xs text-[var(--color-neutral-400)] mt-2">
+						<p class="text-xs text-[var(--color-text-tertiary)] mt-2">
 							前回同意: {data.previousTermsVersion ?? '未同意'} →
 							最新: {data.currentTermsVersion}
 						</p>
 					{/if}
 				{:else}
-					<h1 class="text-lg font-bold text-[var(--color-neutral-900)] mt-2 mb-1" data-testid="consent-heading">規約への同意</h1>
-					<p class="text-sm text-[var(--color-neutral-500)]">
+					<h1 class="text-lg font-bold text-[var(--color-text)] mt-2 mb-1" data-testid="consent-heading">規約への同意</h1>
+					<p class="text-sm text-[var(--color-text-muted)]">
 						サービスの利用を開始するには、規約への同意が必要です。
 					</p>
 				{/if}
 			</div>
 
 			{#if form?.error}
-				<div class="mb-4 px-4 py-3 bg-red-50 text-red-700 border border-red-200 rounded-[var(--radius-sm)] text-sm" role="alert">{form.error}</div>
+				<Alert variant="danger" message={form.error} class="mb-4" />
 			{/if}
 
 			<form
@@ -64,18 +65,18 @@ let loading = $state(false);
 			>
 				{#if !data.termsAccepted}
 					<div class="p-4 border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
-						<h2 class="text-base font-semibold text-[var(--color-neutral-900)] mb-1">利用規約</h2>
-						<p class="text-xs text-[var(--color-neutral-400)] mb-2">バージョン: {data.currentTermsVersion}</p>
+						<h2 class="text-base font-semibold text-[var(--color-text)] mb-1">利用規約</h2>
+						<p class="text-xs text-[var(--color-text-tertiary)] mb-2">バージョン: {data.currentTermsVersion}</p>
 						<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-sm text-[var(--color-text-link)] inline-block mb-3">利用規約を確認する</a>
 						<FormField label="">
 							{#snippet children()}
-								<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-neutral-700)]">
+								<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-text-primary)]">
 									<input
 										type="checkbox"
 										name="agreedTerms"
 										bind:checked={agreedTerms}
 										data-testid="consent-terms-checkbox"
-										class="w-[18px] h-[18px] accent-[var(--color-brand-600)]"
+										class="w-[18px] h-[18px] accent-[var(--color-action-primary)]"
 									/>
 									<span>利用規約に同意します</span>
 								</label>
@@ -88,18 +89,18 @@ let loading = $state(false);
 
 				{#if !data.privacyAccepted}
 					<div class="p-4 border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
-						<h2 class="text-base font-semibold text-[var(--color-neutral-900)] mb-1">プライバシーポリシー</h2>
-						<p class="text-xs text-[var(--color-neutral-400)] mb-2">バージョン: {data.currentPrivacyVersion}</p>
+						<h2 class="text-base font-semibold text-[var(--color-text)] mb-1">プライバシーポリシー</h2>
+						<p class="text-xs text-[var(--color-text-tertiary)] mb-2">バージョン: {data.currentPrivacyVersion}</p>
 						<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-sm text-[var(--color-text-link)] inline-block mb-3">プライバシーポリシーを確認する</a>
 						<FormField label="">
 							{#snippet children()}
-								<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-neutral-700)]">
+								<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-text-primary)]">
 									<input
 										type="checkbox"
 										name="agreedPrivacy"
 										bind:checked={agreedPrivacy}
 										data-testid="consent-privacy-checkbox"
-										class="w-[18px] h-[18px] accent-[var(--color-brand-600)]"
+										class="w-[18px] h-[18px] accent-[var(--color-action-primary)]"
 									/>
 									<span>プライバシーポリシーに同意します</span>
 								</label>
@@ -115,7 +116,7 @@ let loading = $state(false);
 	</div>
 
 	<!-- Sticky bottom bar — ボタンが viewport 外に出ない -->
-	<div class="sticky bottom-0 w-full px-4 py-4 bg-white/90 backdrop-blur-sm border-t border-[var(--color-border-default)]">
+	<div class="sticky bottom-0 w-full px-4 py-4 bg-[color-mix(in_srgb,var(--color-surface-card)_90%,transparent)] backdrop-blur-sm border-t border-[var(--color-border-default)]">
 		<div class="max-w-[480px] mx-auto">
 			<Button
 				type="submit"
