@@ -138,7 +138,7 @@ function gridPolygon(pct: number): string {
 			stroke="var(--color-border, #e0e0e0)"
 			stroke-width="1"
 			stroke-dasharray={level < 100 ? '4,4' : '0'}
-			opacity={level === 100 ? 0.6 : 0.3}
+			opacity={level === 100 ? 0.7 : 0.4}
 		/>
 	{/each}
 
@@ -175,7 +175,7 @@ function gridPolygon(pct: number): string {
 		fill="var(--theme-primary, #ff69b4)"
 		fill-opacity="0.25"
 		stroke="var(--theme-primary, #ff69b4)"
-		stroke-width="2"
+		stroke-width="2.5"
 		stroke-linejoin="round"
 	/>
 
@@ -183,7 +183,7 @@ function gridPolygon(pct: number): string {
 	{#each $animatedValues as val, i}
 		{@const p = getPoint(i, val, maxRadius)}
 		{@const color = chartColors[categories[i]?.categoryId ?? 0] ?? 'var(--theme-primary)'}
-		<circle cx={p.x} cy={p.y} r="4" fill={color} stroke="white" stroke-width="1.5" />
+		<circle cx={p.x} cy={p.y} r="5" fill={color} stroke="white" stroke-width="2" />
 	{/each}
 
 	<!-- Labels -->
@@ -226,14 +226,14 @@ function gridPolygon(pct: number): string {
 
 <style>
 	.radar-label {
-		font-size: 12px;
+		font-size: 13px;
 		font-weight: 700;
 	}
-.radar-trend {
-		font-size: 11px;
+	.radar-trend {
+		font-size: 12px;
 	}
 	.radar-legend {
-		font-size: 10px;
+		font-size: 11px;
 		font-weight: 700;
 	}
 </style>
