@@ -1,6 +1,6 @@
 /**
  * Activity preset pack format definition.
- * Packs are stored as static JSON files under static/activity-packs/.
+ * Packs are stored as bundled JSON under src/lib/data/activity-packs/, imported at build time.
  */
 
 import type { CategoryCode, GradeLevel } from './validation/activity.js';
