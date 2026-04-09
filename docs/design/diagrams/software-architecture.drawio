@@ -14,7 +14,7 @@
         <mxCell id="routes-layer" value="Presentation Layer — src/routes/" style="swimlane;startSize=25;fillColor=#E3F2FD;strokeColor=#1565C0;rounded=1;fontSize=13;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="40" y="60" width="1080" height="130" as="geometry" />
         </mxCell>
-        <mxCell id="child-routes" value="(child)/&#xa;baby|kinder|lower|upper|teen&#xa;+page.svelte + +page.server.ts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="routes-layer">
+        <mxCell id="child-routes" value="(child)/&#xa;baby|preschool|elementary|junior|senior&#xa;+page.svelte + +page.server.ts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="routes-layer">
           <mxGeometry x="20" y="35" width="200" height="80" as="geometry" />
         </mxCell>
         <mxCell id="parent-routes" value="(parent)/admin/&#xa;home|settings|rewards|&#xa;messages|reports|children" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="routes-layer">
@@ -66,7 +66,7 @@
         <mxCell id="domain-gamification" value="Gamification&#xa;level-calc, stamp-gacha,&#xa;streak, season-pass" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="domain-layer">
           <mxGeometry x="640" y="35" width="200" height="65" as="geometry" />
         </mxCell>
-        <mxCell id="domain-age" value="Age Mode&#xa;baby|kinder|lower|upper|teen&#xa;ageConfig, categoryMap" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="domain-layer">
+        <mxCell id="domain-age" value="Age Mode&#xa;baby|preschool|elementary|junior|senior&#xa;ageConfig, categoryMap" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="domain-layer">
           <mxGeometry x="860" y="35" width="200" height="65" as="geometry" />
         </mxCell>
 

@@ -36,7 +36,7 @@
         </mxCell>
 
         <!-- Step 3: Docker Build -->
-        <mxCell id="p1-docker" value="3. Docker Build&#xa;ARM64 (Graviton)&#xa;SvelteKit SSR&#xa;node:22-slim" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p1-group">
+        <mxCell id="p1-docker" value="3. Docker Build&#xa;ARM64 (Graviton)&#xa;SvelteKit SSR&#xa;node:22-alpine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p1-group">
           <mxGeometry x="460" y="60" width="130" height="90" as="geometry" />
         </mxCell>
 
@@ -46,7 +46,7 @@
         </mxCell>
 
         <!-- Step 5: CDK Deploy -->
-        <mxCell id="p1-cdk" value="5. CDK Deploy&#xa;CloudFront&#xa;Lambda&#xa;API Gateway&#xa;Cognito&#xa;SES" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p1-group">
+        <mxCell id="p1-cdk" value="5. CDK Deploy&#xa;CloudFront&#xa;Lambda (Function URL)&#xa;Cognito&#xa;SES" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p1-group">
           <mxGeometry x="750" y="50" width="120" height="110" as="geometry" />
         </mxCell>
 
@@ -64,14 +64,14 @@
         <mxCell id="p1-e6" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p1-cdk" target="p1-lambda" parent="p1-group"><mxGeometry relative="1" as="geometry" /></mxCell>
 
         <!-- AWS Resources -->
-        <mxCell id="p1-aws-label" value="AWS リソース (ap-northeast-1)" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=11;fontStyle=2;" vertex="1" parent="p1-group">
+        <mxCell id="p1-aws-label" value="AWS リソース (us-east-1)" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=11;fontStyle=2;" vertex="1" parent="p1-group">
           <mxGeometry x="20" y="170" width="250" height="20" as="geometry" />
         </mxCell>
 
         <mxCell id="p1-cf" value="CloudFront&#xa;(CDN + WAF)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
           <mxGeometry x="20" y="200" width="120" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="p1-apigw" value="API Gateway&#xa;(HTTP API)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
+        <mxCell id="p1-apigw" value="Lambda&#xa;Function URL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
           <mxGeometry x="160" y="200" width="120" height="50" as="geometry" />
         </mxCell>
         <mxCell id="p1-lam" value="Lambda&#xa;(ARM64 Docker)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;" vertex="1" parent="p1-group">
@@ -104,17 +104,17 @@
         </mxCell>
 
         <!-- ===== Pipeline 2: NUC Local (LAN) ===== -->
-        <mxCell id="p2-group" value="Pipeline 2: NUC ローカルサーバー (LAN内 192.168.68.79)" style="swimlane;startSize=25;fillColor=#E8F5E9;strokeColor=#4CAF50;rounded=1;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+        <mxCell id="p2-group" value="Pipeline 2: NUC ローカルサーバー (LAN内 &lt;NUC_HOST&gt;)" style="swimlane;startSize=25;fillColor=#E8F5E9;strokeColor=#4CAF50;rounded=1;fontSize=13;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="30" y="410" width="1100" height="200" as="geometry" />
         </mxCell>
 
-        <mxCell id="p2-ssh" value="SSH 接続&#xa;kusaka-server&#xa;@192.168.68.79" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+        <mxCell id="p2-ssh" value="SSH 接続&#xa;&lt;NUC_USER&gt;&#xa;@&lt;NUC_HOST&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
           <mxGeometry x="20" y="40" width="130" height="60" as="geometry" />
         </mxCell>
         <mxCell id="p2-stop" value="1. docker&#xa;compose stop&#xa;(WAL flush)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
           <mxGeometry x="180" y="40" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="p2-migrate" value="2. DB Migration&#xa;(コンテナ停止中&#xa;= 競合なし)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
+        <mxCell id="p2-migrate" value="2. 手動: DB Migration&#xa;(deploy-nuc.yml外&#xa;必要時のみ実行)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
           <mxGeometry x="330" y="40" width="140" height="60" as="geometry" />
         </mxCell>
         <mxCell id="p2-pull" value="3. git pull&#xa;最新コード取得" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" vertex="1" parent="p2-group">
@@ -175,7 +175,7 @@
         <mxCell id="p3-docker-check" value="Docker Build&#xa;(validate)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="p3-group">
           <mxGeometry x="640" y="35" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="p3-codeql" value="CodeQL&#xa;Security Scan" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="p3-group">
+        <mxCell id="p3-codeql" value="CodeQL&#xa;Security Scan&#xa;(codeql.yml)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="p3-group">
           <mxGeometry x="780" y="35" width="120" height="60" as="geometry" />
         </mxCell>
 
