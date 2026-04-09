@@ -5,12 +5,11 @@
  * demo-service.ts のラッパーで、ChildDataSource インターフェースに準拠する。
  */
 
-import { DEMO_ACTIVITIES } from '$lib/server/demo/demo-data.js';
+import { DEMO_ACTIVITIES, getDemoLogsForChild } from '$lib/server/demo/demo-data.js';
 import {
 	demoCancelRecord,
 	demoRecordActivity,
 	demoTogglePin,
-	getDemoHistoryData,
 	getDemoHomeData,
 	getDemoStatusData,
 } from '$lib/server/demo/demo-service.js';
@@ -112,29 +111,33 @@ export class DemoChildDataSource implements ChildDataSource {
 		childId: number,
 		_dateRange: { from: string; to: string },
 	): Promise<HistoryPageData> {
-		const demo = getDemoHistoryData(childId);
+		const logs = getDemoLogsForChild(childId);
+		const actMap = new Map(DEMO_ACTIVITIES.map((a) => [a.id, a]));
 		const byCategory: Record<string, { count: number; points: number }> = {};
-		for (const log of demo.logs) {
-			const act = DEMO_ACTIVITIES.find((a) => a.id === log.id);
+		for (const log of logs) {
+			const act = actMap.get(log.activityId);
 			const catId = String(act?.categoryId ?? 0);
 			if (!byCategory[catId]) byCategory[catId] = { count: 0, points: 0 };
 			byCategory[catId].count++;
 			byCategory[catId].points += log.points;
 		}
 		return {
-			logs: demo.logs.map((l) => ({
-				id: l.id,
-				activityName: l.activityName,
-				activityIcon: l.activityIcon,
-				categoryId: 0,
-				points: l.points,
-				streakDays: l.streakDays,
-				streakBonus: 0,
-				recordedAt: l.recordedAt,
-			})),
+			logs: logs.map((l) => {
+				const act = actMap.get(l.activityId);
+				return {
+					id: l.id,
+					activityName: act?.name ?? '不明',
+					activityIcon: act?.icon ?? '❓',
+					categoryId: act?.categoryId ?? 0,
+					points: l.points,
+					streakDays: l.streakDays,
+					streakBonus: l.streakBonus,
+					recordedAt: l.recordedAt,
+				};
+			}),
 			summary: {
-				totalCount: demo.logs.length,
-				totalPoints: demo.logs.reduce((sum, l) => sum + l.points, 0),
+				totalCount: logs.length,
+				totalPoints: logs.reduce((sum, l) => sum + l.points, 0),
 				byCategory,
 			},
 			period: 'week',

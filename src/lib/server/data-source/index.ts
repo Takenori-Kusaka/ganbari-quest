@@ -1,12 +1,7 @@
 /**
  * データソースファクトリ
  *
- * リクエストからデモモードを判定し、適切なデータソースを返す。
- *
- * デモ判定ロジック:
- * 1. URL が /demo/ で始まる場合
- * 2. locals.isDemo が true の場合（hooks で設定済み）
- * 3. クエリパラメータ ?demo=true の場合
+ * `locals.isDemo` からデモモードを判定し、適切なデータソースを返す。
  */
 
 import type { ChildDataSource } from './types.js';
@@ -14,8 +9,7 @@ import type { ChildDataSource } from './types.js';
 /**
  * リクエストがデモモードかどうかを判定する。
  *
- * hooks.server.ts の handle 内で URL prefix `/demo/` を検出して
- * locals.isDemo = true を設定しておくことを前提とする。
+ * hooks.server.ts で locals.isDemo = true が設定されていることを前提とする。
  */
 export function isDemoMode(locals: App.Locals): boolean {
 	return (locals as unknown as Record<string, unknown>).isDemo === true;
