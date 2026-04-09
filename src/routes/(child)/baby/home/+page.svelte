@@ -15,7 +15,6 @@ import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelt
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
-import FamilyStreakBanner from '$lib/ui/components/FamilyStreakBanner.svelte';
 
 import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -444,18 +443,6 @@ $effect(() => {
 		<ActivityEmptyState uiMode={data.uiMode} />
 	{/if}
 
-	<!-- Family streak banner (below activities) -->
-	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
-		<FamilyStreakBanner
-			currentStreak={data.familyStreak.currentStreak}
-			hasRecordedToday={data.familyStreak.hasRecordedToday}
-			todayRecorders={data.familyStreak.todayRecorders}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren ?? []}
-			nextMilestone={data.familyStreak.nextMilestone}
-			compact
-		/>
-	{/if}
 
 
 	<!-- Sibling challenge banners -->
@@ -537,6 +524,8 @@ $effect(() => {
 					{/if}
 				</div>
 			{/if}
+
+			<p class="text-xs text-[var(--color-text-muted)]">きょう {data.todayRecorded.reduce((sum, r) => sum + r.count, 0) + 1}かいめ！</p>
 
 			<div class="flex gap-2 w-full">
 				{#if cancelCountdown > 0}
