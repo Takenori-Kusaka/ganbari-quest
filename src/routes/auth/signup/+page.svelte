@@ -280,13 +280,15 @@ $effect(() => {
 							/>
 						{/snippet}
 					</FormField>
-					<button
+					<Button
 						type="button"
-						class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-link)] underline cursor-pointer bg-transparent border-none p-0 -mt-3"
+						variant="ghost"
+						size="sm"
+						class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-link)] underline -mt-3 !p-0"
 						onclick={() => { showLicenseKey = false; licenseKeyRaw = ''; }}
 					>
 						ライセンスキーなしで続ける
-					</button>
+					</Button>
 				{:else}
 					<input type="hidden" name="licenseKey" value="" />
 				{/if}
@@ -355,13 +357,15 @@ $effect(() => {
 			<!-- ライセンスキー / プランの切り替えリンク -->
 			<div class="mt-3 text-center">
 				{#if !showLicenseKey}
-					<button
+					<Button
 						type="button"
-						class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-link)] underline cursor-pointer bg-transparent border-none p-0"
+						variant="ghost"
+						size="sm"
+						class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-link)] underline !p-0"
 						onclick={() => { showLicenseKey = true; }}
 					>
 						ライセンスキーをお持ちの方
-					</button>
+					</Button>
 				{/if}
 			</div>
 		{/if}
