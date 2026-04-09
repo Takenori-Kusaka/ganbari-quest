@@ -289,6 +289,7 @@ $effect(() => {
 					required
 					minlength={8}
 					autocomplete="current-password"
+					showToggle
 				/>
 
 				<div class="-mt-2 text-right">
