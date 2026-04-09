@@ -25,7 +25,7 @@
         </mxCell>
 
         <!-- AWS Cloud -->
-        <mxCell id="aws-cloud" value="AWS Cloud (ap-northeast-1)" style="swimlane;startSize=25;fillColor=#FFF3E0;strokeColor=#FF9800;rounded=1;" vertex="1" parent="1">
+        <mxCell id="aws-cloud" value="AWS Cloud (us-east-1)" style="swimlane;startSize=25;fillColor=#FFF3E0;strokeColor=#FF9800;rounded=1;" vertex="1" parent="1">
           <mxGeometry x="320" y="60" width="530" height="350" as="geometry" />
         </mxCell>
 
@@ -89,8 +89,16 @@
           <mxGeometry x="150" y="35" width="60" height="60" as="geometry" />
         </mxCell>
 
+        <!-- Lambda → SSM -->
+        <mxCell id="lambda-to-ssm" value="設定参照" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6c8ebf;fontSize=10;" edge="1" source="lambda" target="ssm" parent="aws-cloud">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
         <!-- Connections -->
         <mxCell id="e1" edge="1" source="browser" target="cloudfront" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1b" edge="1" source="mobile" target="cloudfront" parent="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e2" edge="1" source="cloudfront" target="lambda" parent="1">
