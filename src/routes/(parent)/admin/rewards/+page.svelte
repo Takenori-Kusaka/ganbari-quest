@@ -28,6 +28,7 @@ let customPoints = $state(100);
 let customIcon = $state('🎁');
 let customCategory = $state('とくべつ');
 let grantSuccess = $state(false);
+let showPresets = $state(false);
 
 function selectTemplate(tmpl: { title: string; points: number; icon?: string; category: string }) {
 	selectedTemplate = { ...tmpl, icon: tmpl.icon ?? '🎁' };
@@ -112,6 +113,49 @@ const categoryLabels: Record<string, string> = {
 				</Button>
 			{/each}
 		</div>
+	</section>
+
+	<!-- Preset Catalog -->
+	<section>
+		<button
+			type="button"
+			class="text-sm font-bold text-[var(--color-text-link)] cursor-pointer bg-transparent border-none p-0 hover:underline"
+			onclick={() => { showPresets = !showPresets; }}
+		>
+			{showPresets ? '▼' : '▶'} プリセットからテンプレートを追加
+		</button>
+
+		{#if showPresets}
+			<div class="mt-2 space-y-3">
+				{#each data.presetGroups as group}
+					<div>
+						<p class="text-xs font-bold text-[var(--color-text-muted)] mb-1">{group.groupIcon} {group.groupName}</p>
+						<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+							{#each group.rewards as preset}
+								<form method="POST" action="?/addPreset" use:enhance={() => {
+									return async ({ update }) => { await update(); };
+								}}>
+									<input type="hidden" name="title" value={preset.title} />
+									<input type="hidden" name="points" value={preset.points} />
+									<input type="hidden" name="icon" value={preset.icon} />
+									<input type="hidden" name="category" value={preset.category} />
+									<Button
+										type="submit"
+										variant="ghost"
+										size="sm"
+										class="w-full bg-[var(--color-surface-card)] rounded-xl p-2 shadow-sm text-center hover:shadow-md flex-col h-auto"
+									>
+										<span class="text-xl block">{preset.icon}</span>
+										<p class="text-xs font-bold text-[var(--color-text-muted)] mt-0.5">{preset.title}</p>
+										<p class="text-xs text-[var(--color-point)] font-bold">{preset.points}P</p>
+									</Button>
+								</form>
+							{/each}
+						</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	</section>
 
 	<!-- Grant Form -->
