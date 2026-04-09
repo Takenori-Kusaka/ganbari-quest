@@ -1,0 +1,126 @@
+<mxfile host="app.diagrams.net" modified="2026-04-09" agent="Claude" version="24.0.0" type="device">
+  <diagram id="system-arch" name="System Architecture">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="がんばりクエスト システムアーキテクチャ" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="350" y="10" width="400" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- User Layer -->
+        <mxCell id="user-group" value="Users" style="swimlane;startSize=20;fillColor=#dae8fc;strokeColor=#6c8ebf;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="60" width="280" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="browser" value="Browser&#xa;(PWA)" style="shape=mxgraph.aws4.client;verticalLabelPosition=bottom;align=center;verticalAlign=top;fillColor=#D4E1F5;strokeColor=#3B82F6;" vertex="1" parent="user-group">
+          <mxGeometry x="30" y="35" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="mobile" value="Mobile&#xa;(PWA)" style="shape=mxgraph.aws4.client;verticalLabelPosition=bottom;align=center;verticalAlign=top;fillColor=#D4E1F5;strokeColor=#3B82F6;" vertex="1" parent="user-group">
+          <mxGeometry x="120" y="35" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="nuc-client" value="LAN&#xa;Client" style="shape=mxgraph.aws4.client;verticalLabelPosition=bottom;align=center;verticalAlign=top;fillColor=#D4E1F5;strokeColor=#3B82F6;" vertex="1" parent="user-group">
+          <mxGeometry x="200" y="35" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- AWS Cloud -->
+        <mxCell id="aws-cloud" value="AWS Cloud (ap-northeast-1)" style="swimlane;startSize=25;fillColor=#FFF3E0;strokeColor=#FF9800;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="60" width="530" height="350" as="geometry" />
+        </mxCell>
+
+        <!-- CloudFront -->
+        <mxCell id="cloudfront" value="CloudFront&#xa;(CDN)" style="shape=mxgraph.aws4.cloudfront;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="aws-cloud">
+          <mxGeometry x="220" y="35" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Lambda -->
+        <mxCell id="lambda" value="Lambda&#xa;(SvelteKit SSR)&#xa;ARM64 / Docker" style="shape=mxgraph.aws4.lambda_function;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="aws-cloud">
+          <mxGeometry x="220" y="140" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- DynamoDB -->
+        <mxCell id="dynamodb" value="DynamoDB&#xa;(Single Table)" style="shape=mxgraph.aws4.dynamodb;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="aws-cloud">
+          <mxGeometry x="60" y="250" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- S3 -->
+        <mxCell id="s3" value="S3&#xa;(Assets)" style="shape=mxgraph.aws4.s3;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="aws-cloud">
+          <mxGeometry x="220" y="250" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Cognito -->
+        <mxCell id="cognito" value="Cognito&#xa;(Auth)" style="shape=mxgraph.aws4.cognito;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="aws-cloud">
+          <mxGeometry x="380" y="140" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- SES -->
+        <mxCell id="ses" value="SES&#xa;(Email)" style="shape=mxgraph.aws4.ses;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="aws-cloud">
+          <mxGeometry x="380" y="250" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- SSM -->
+        <mxCell id="ssm" value="SSM&#xa;(Params)" style="shape=mxgraph.aws4.parameter_store;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="aws-cloud">
+          <mxGeometry x="450" y="35" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- NUC Server -->
+        <mxCell id="nuc-server" value="NUC Server (LAN)" style="swimlane;startSize=25;fillColor=#E8F5E9;strokeColor=#4CAF50;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="880" y="60" width="250" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="docker" value="Docker&#xa;(SvelteKit)" style="shape=mxgraph.aws4.ecs_task;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="nuc-server">
+          <mxGeometry x="30" y="40" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="sqlite" value="SQLite&#xa;(WAL mode)" style="shape=mxgraph.aws4.rds_instance;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="nuc-server">
+          <mxGeometry x="150" y="40" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="nuc-label" value="PIN認証のみ&#xa;家庭内LAN専用" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="nuc-server">
+          <mxGeometry x="40" y="130" width="160" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- External Services -->
+        <mxCell id="ext-group" value="External Services" style="swimlane;startSize=25;fillColor=#F3E5F5;strokeColor=#9C27B0;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="880" y="280" width="250" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="stripe" value="Stripe&#xa;(Billing)" style="shape=mxgraph.aws4.external_sdk;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="ext-group">
+          <mxGeometry x="30" y="35" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="google" value="Google&#xa;(OAuth)" style="shape=mxgraph.aws4.external_sdk;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="ext-group">
+          <mxGeometry x="150" y="35" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Connections -->
+        <mxCell id="e1" edge="1" source="browser" target="cloudfront" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" source="cloudfront" target="lambda" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" source="lambda" target="dynamodb" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" source="lambda" target="s3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" source="lambda" target="cognito" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" source="lambda" target="ses" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" source="nuc-client" target="docker" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" source="docker" target="sqlite" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" source="lambda" target="stripe" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" source="cognito" target="google" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
