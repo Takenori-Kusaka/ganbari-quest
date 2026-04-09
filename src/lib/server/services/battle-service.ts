@@ -30,6 +30,8 @@ export interface TodayBattleInfo {
 	enemy: Enemy;
 	/** プレイヤーのバトルステータス */
 	playerStats: BattleStats;
+	/** スケーリング後の敵最大HP（UI表示用） */
+	scaledEnemyMaxHp: number;
 	/** バトル済みか */
 	completed: boolean;
 	/** バトル結果（完了時のみ） */
@@ -62,7 +64,7 @@ export interface CollectionEntry {
  */
 export async function getTodayBattle(
 	childId: number,
-	_uiMode: string,
+	uiMode: string,
 	categoryXp: Record<number, number>,
 	tenantId: string,
 ): Promise<TodayBattleInfo> {
@@ -76,21 +78,26 @@ export async function getTodayBattle(
 		const enemy = selectDailyEnemy(dayOfWeek, Math.random(), consecutiveLosses);
 		const playerStats = convertToBattleStats(categoryXp);
 
-		const battleId = await insertDailyBattle(childId, enemy.id, today, playerStats, tenantId);
-
-		battle = {
-			id: battleId,
-			childId,
-			enemyId: enemy.id,
-			date: today,
-			status: 'pending',
-			outcome: null,
-			rewardPoints: 0,
-			turnsUsed: 0,
-			playerStatsJson: JSON.stringify(playerStats),
-			createdAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
-		} satisfies DailyBattleRow;
+		try {
+			const battleId = await insertDailyBattle(childId, enemy.id, today, playerStats, tenantId);
+			battle = {
+				id: battleId,
+				childId,
+				enemyId: enemy.id,
+				date: today,
+				status: 'pending',
+				outcome: null,
+				rewardPoints: 0,
+				turnsUsed: 0,
+				playerStatsJson: JSON.stringify(playerStats),
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			} satisfies DailyBattleRow;
+		} catch {
+			// UNIQUE 制約違反（並行リクエスト）→ 再取得
+			battle = await findTodayBattle(childId, today, tenantId);
+			if (!battle) throw new Error('Failed to create or find today battle');
+		}
 	}
 
 	const enemy = getEnemyById(battle.enemyId);
@@ -99,11 +106,14 @@ export async function getTodayBattle(
 	}
 
 	const playerStats: BattleStats = JSON.parse(battle.playerStatsJson);
+	const scaling = getAgeScaling(uiMode);
+	const scaledEnemyStats = scaleEnemyStats(enemy.stats, scaling);
 
 	return {
 		battleId: battle.id,
 		enemy,
 		playerStats,
+		scaledEnemyMaxHp: scaledEnemyStats.hp,
 		completed: battle.status === 'completed',
 		result:
 			battle.status === 'completed' && battle.outcome
@@ -118,25 +128,34 @@ export async function getTodayBattle(
 
 /**
  * バトルを実行する。
+ * サーバ側で今日の pending バトルを再取得し、battleId/enemyId の整合性を検証する。
  */
 export async function executeDailyBattle(
-	battleId: number,
 	childId: number,
-	enemyId: number,
 	uiMode: string,
 	categoryXp: Record<number, number>,
 	tenantId: string,
 ): Promise<BattleExecutionResult> {
-	const enemy = getEnemyById(enemyId);
+	const today = new Date().toISOString().slice(0, 10);
+	const battle = await findTodayBattle(childId, today, tenantId);
+
+	if (!battle) {
+		throw new Error('今日のバトルが見つかりません');
+	}
+	if (battle.status === 'completed') {
+		throw new Error('今日のバトルは既に完了しています');
+	}
+
+	const enemy = getEnemyById(battle.enemyId);
 	if (!enemy) {
-		throw new Error(`Enemy not found: ${enemyId}`);
+		throw new Error(`Enemy not found: ${battle.enemyId}`);
 	}
 
 	const playerStats = convertToBattleStats(categoryXp);
 	const scaling = getAgeScaling(uiMode);
 	const scaledEnemyStats = scaleEnemyStats(enemy.stats, scaling);
 
-	const isWalkMode = uiMode === 'baby' || uiMode === 'kinder';
+	const isWalkMode = uiMode === 'baby' || uiMode === 'preschool';
 
 	const battleResult = executeBattle(playerStats, scaledEnemyStats, {
 		walkMode: isWalkMode,
@@ -148,7 +167,7 @@ export async function executeDailyBattle(
 
 	// DB 更新
 	await completeBattle(
-		battleId,
+		battle.id,
 		battleResult.outcome,
 		rewardPoints,
 		battleResult.totalTurns,
@@ -157,7 +176,7 @@ export async function executeDailyBattle(
 
 	// 勝利時は図鑑に記録
 	if (battleResult.outcome === 'win') {
-		await upsertCollectionEntry(childId, enemyId, tenantId);
+		await upsertCollectionEntry(childId, battle.enemyId, tenantId);
 	}
 
 	return {

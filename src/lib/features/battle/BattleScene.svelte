@@ -7,12 +7,14 @@ import BattleLog from './BattleLog.svelte';
 let {
 	enemy,
 	playerStats,
+	scaledEnemyMaxHp,
 	battleResult = null,
 	onStartBattle,
 	completed = false,
 }: {
 	enemy: Enemy;
 	playerStats: BattleStats;
+	scaledEnemyMaxHp: number;
 	battleResult: BattleResult | null;
 	onStartBattle: () => void;
 	completed: boolean;
@@ -22,7 +24,7 @@ let {
 let animating = $state(false);
 let currentTurn = $state(0);
 let playerHp = $state(playerStats.hp);
-let enemyHp = $state(enemy.stats.hp);
+let enemyHp = $state(scaledEnemyMaxHp);
 let showResult = $state(false);
 let playerShake = $state(false);
 let enemyShake = $state(false);
@@ -41,9 +43,9 @@ async function runAnimation() {
 	playerHp = playerStats.hp;
 	enemyHp = battleResult.turns[0]
 		? battleResult.turns[0].firstAttacker === 'player'
-			? enemy.stats.hp
-			: enemy.stats.hp
-		: enemy.stats.hp;
+			? scaledEnemyMaxHp
+			: scaledEnemyMaxHp
+		: scaledEnemyMaxHp;
 
 	for (const turn of battleResult.turns) {
 		currentTurn = turn.turn;
@@ -102,7 +104,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		<div class="combatant enemy-side">
 			<BattleHPBar
 				current={enemyHp}
-				max={enemy.stats.hp}
+				max={scaledEnemyMaxHp}
 				label={enemy.name}
 				variant="enemy"
 			/>

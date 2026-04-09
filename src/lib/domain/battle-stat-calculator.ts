@@ -62,19 +62,19 @@ export function convertToBattleStats(categoryXp: Record<number, number>): Battle
 
 /**
  * 年齢による敵ステータスのスケーリング係数。
- * baby/kinder はおさんぽモード（弱い敵）、lower 以上で本格バトル。
+ * baby/preschool はおさんぽモード（弱い敵）、elementary 以上で本格バトル。
  */
 export function getAgeScaling(uiMode: string): number {
 	switch (uiMode) {
 		case 'baby':
 			return 0.3;
-		case 'kinder':
+		case 'preschool':
 			return 0.5;
-		case 'lower':
+		case 'elementary':
 			return 0.8;
-		case 'upper':
+		case 'junior':
 			return 1.0;
-		case 'teen':
+		case 'senior':
 			return 1.2;
 		default:
 			return 1.0;

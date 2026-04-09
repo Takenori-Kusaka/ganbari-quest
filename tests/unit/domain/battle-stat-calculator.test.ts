@@ -70,20 +70,20 @@ describe('getAgeScaling', () => {
 		expect(getAgeScaling('baby')).toBe(0.3);
 	});
 
-	it('kinder → 0.5', () => {
-		expect(getAgeScaling('kinder')).toBe(0.5);
+	it('preschool → 0.5', () => {
+		expect(getAgeScaling('preschool')).toBe(0.5);
 	});
 
-	it('lower → 0.8', () => {
-		expect(getAgeScaling('lower')).toBe(0.8);
+	it('elementary → 0.8', () => {
+		expect(getAgeScaling('elementary')).toBe(0.8);
 	});
 
-	it('upper → 1.0', () => {
-		expect(getAgeScaling('upper')).toBe(1.0);
+	it('junior → 1.0', () => {
+		expect(getAgeScaling('junior')).toBe(1.0);
 	});
 
-	it('teen → 1.2', () => {
-		expect(getAgeScaling('teen')).toBe(1.2);
+	it('senior → 1.2', () => {
+		expect(getAgeScaling('senior')).toBe(1.2);
 	});
 
 	it('不明なモードは 1.0', () => {

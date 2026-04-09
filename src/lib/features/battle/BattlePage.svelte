@@ -11,6 +11,7 @@ let {
 			battleId: number;
 			enemy: Enemy;
 			playerStats: BattleStats;
+			scaledEnemyMaxHp: number;
 			completed: boolean;
 			result: { outcome: 'win' | 'lose'; rewardPoints: number; turnsUsed: number } | null;
 		} | null;
@@ -26,12 +27,6 @@ async function handleStartBattle() {
 	try {
 		const res = await fetch(`/api/v1/battle/${data.child.id}`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				battleId: data.battle.battleId,
-				enemyId: data.battle.enemy.id,
-				uiMode: data.child.uiMode,
-			}),
 		});
 		if (res.ok) {
 			const result = await res.json();
@@ -50,6 +45,7 @@ async function handleStartBattle() {
 		<BattleScene
 			enemy={data.battle.enemy}
 			playerStats={data.battle.playerStats}
+			scaledEnemyMaxHp={data.battle.scaledEnemyMaxHp}
 			{battleResult}
 			onStartBattle={handleStartBattle}
 			completed={data.battle.completed}

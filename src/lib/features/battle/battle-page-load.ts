@@ -31,6 +31,7 @@ export async function loadBattlePage(
 			battleId: battle.battleId,
 			enemy: battle.enemy,
 			playerStats: battle.playerStats,
+			scaledEnemyMaxHp: battle.scaledEnemyMaxHp,
 			completed: battle.completed,
 			result: battle.result,
 		},
