@@ -72,7 +72,7 @@ body{line-height:1.8;background:var(--gray-50)}
     <p>サービス機能を提供するために、活動記録（ポイント、レベル等）、チャレンジ、チェックリスト記録をお預かりします。これらの情報はご契約期間中保存されます。</p>
 
     <h3>4. 利用ログ</h3>
-    <p>セキュリティの確保および不正アクセス防止のために、アクセス日時、IPアドレス、デバイス情報（ブラウザ種別等）を収集します。アクセスログは90日間保存し、その後自動的に削除されます。セキュリティインシデント調査に必要な場合は、当該ログを調査完了まで保持することがあります。</p>
+    <p>セキュリティの確保および不正アクセス防止のために、アクセス日時、IPアドレス、デバイス情報（ブラウザ種別等）を収集します。アクセスログはCloudWatch Logsに3日間保存した後、S3にアーカイブして長期保存します。セキュリティインシデント調査に必要な場合は、当該ログを調査完了まで保持することがあります。</p>
 
     <h3>5. 決済情報</h3>
     <p>クレジットカード番号等の決済情報は、運営者のサーバーには保存されません。決済処理は全て外部の決済サービス（Stripe）を通じて行われ、当該サービスのプライバシーポリシーが適用されます。</p>
@@ -104,7 +104,7 @@ body{line-height:1.8;background:var(--gray-50)}
       </li>
       <li>運営者は、サービス提供のために以下の外部サービスを利用しています。各サービスは、それぞれのプライバシーポリシーに基づきデータを取り扱います。
         <ul>
-          <li><strong>Amazon Web Services (AWS)</strong> &#8212; サーバーインフラ（Lambda, DynamoDB）、認証基盤（Cognito）、メール送信（SES）。データは原則として東京リージョン（ap-northeast-1）に保存されます。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li>
+          <li><strong>Amazon Web Services (AWS)</strong> &#8212; サーバーインフラ（Lambda, DynamoDB）、認証基盤（Cognito）、メール送信（SES）。データは原則としてバージニア北部リージョン（us-east-1）に保存されます。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li>
           <li><strong>Google LLC</strong> &#8212; OAuth認証（Googleアカウントによるログイン）。認証時にメールアドレスおよび表示名を取得します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li>
           <li><strong>Stripe, Inc.</strong> &#8212; 決済処理（クレジットカード情報の安全な取扱い）。決済情報はStripeのサーバー（米国）で処理されます。<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li>
           <li><strong>Discord Inc.</strong> &#8212; 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li>
@@ -164,7 +164,7 @@ body{line-height:1.8;background:var(--gray-50)}
 
   <section>
     <h2>第8条（データの国外移転）</h2>
-    <p>本サービスのデータは原則として日本国内（AWS東京リージョン）に保存されます。ただし、以下のサービスの利用に伴い、個人情報の一部が日本国外で処理される場合があります。</p>
+    <p>本サービスのデータは原則として米国（AWSバージニア北部リージョン: us-east-1）に保存されます。ただし、以下のサービスの利用に伴い、個人情報の一部が日本国外で処理される場合があります。</p>
     <ul>
       <li><strong>Stripe, Inc.</strong> &#8212; 決済情報は米国のサーバーで処理されます。Stripeは PCI DSS Level 1 認証を取得しています。</li>
       <li><strong>Google LLC</strong> &#8212; OAuth認証時の認証情報はGoogleのグローバルインフラで処理されます。</li>
