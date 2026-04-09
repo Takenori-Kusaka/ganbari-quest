@@ -158,9 +158,23 @@ closes #
 
 <!-- 変更の影響範囲を漏れなく確認するためのチェック項目。該当しない場合は「N/A」と記入 -->
 
+### 並行実装影響確認（必須）
+
+<!-- docs/design/parallel-implementations.md の並行実装マップを参照し、該当するペアすべてに対応したか確認 -->
+
+- [ ] **本番アプリ** (`src/routes/(child)/`, `src/routes/(parent)/`) — 該当する場合対応済み
+- [ ] **デモ版** (`src/routes/demo/`) — 同等変更が必要な場合対応済み
+- [ ] **LP サイト** (`site/index.html`, `site/pamphlet.html`, `site/shared-labels.js`) — 用語・機能紹介を同期
+- [ ] **全年齢モード** (`baby/preschool/elementary/junior/senior` の 5 ディレクトリ) — 5 モード全てに横展開済み
+- [ ] **ナビゲーション** (`AdminLayout` + `AdminMobileNav` + `BottomNav`) — 3 種全てに反映済み
+- [ ] **E2E/ユニットシード** (`tests/e2e/global-setup.ts`, `tests/unit/helpers/test-db.ts`, `src/lib/server/demo/demo-data.ts`) — スキーマ変更時に同期済み
+- [ ] **チュートリアル + デモガイド** (`tutorial-chapters.ts`, `demo-guide-state.svelte.ts`) — UI 構造変更時に同期済み
+- [ ] **該当なし** — 並行実装の影響範囲外の変更
+
+### その他
+
 - [ ] **用語変更**: 変更した用語が他の画面・コンポーネントにも存在しないか `grep` で全件確認した
 - [ ] **UI構造変更**: チュートリアル（`tutorial-chapters.ts`）の説明文・セレクタが変更と整合しているか確認した
-- [ ] **デモ版**: `/demo` 配下にも同等の変更が必要か確認した（必要なら実施済み）
 - [ ] **カラー・スタイル**: hex カラー直書き・Tailwind デフォルト色クラスの新規追加をしていない（`docs/reference/color-mapping.md` 参照）
 - [ ] **プリミティブ**: Button/Card/FormField 等の共通コンポーネントを使用し、生の `<button>`/`<div>` でUI要素を作っていない
 - [ ] **設計書**: 変更で影響を受ける設計書を更新した（CLAUDE.md「設計書更新ルール」参照）
