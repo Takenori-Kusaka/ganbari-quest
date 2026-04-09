@@ -2,6 +2,7 @@
 // スタンプカードサービス層 — ビジネスロジックのみ。DB操作はリポジトリfacade経由
 
 import { todayDateJST } from '$lib/domain/date-utils';
+import { pickOmikujiRank } from '$lib/domain/stamp-image';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 import {
 	findCardByChildAndWeek,
@@ -29,14 +30,14 @@ const RARITY_MULTIPLIER: Record<string, number> = {
 	UR: 8,
 };
 
-/** 押印時に即座に付与されるポイント（固定） */
-const INSTANT_STAMP_POINTS = 5;
-/** 週末redeem時のレアリティ別ボーナス基礎値 */
-const RARITY_BONUS_PER_STAMP = 5;
-/** 7/7コンプリートボーナス（週末redeem時） */
+/** 押印時の基本ポイント（レア度倍率を掛ける） */
+const INSTANT_STAMP_BASE = 5;
+/** 週末redeem時のスタンプ1個あたりの固定ポイント（レア度無関係） */
+const POINTS_PER_STAMP = 10;
+/** 5/5コンプリートボーナス（週末redeem時） */
 const COMPLETE_BONUS = 50;
-/** 週間スロット数（月〜日の7日） */
-const MAX_SLOTS = 7;
+/** 週間スロット数（曜日非依存、最大5個） */
+const MAX_SLOTS = 5;
 
 export interface StampMasterData {
 	id: number;
@@ -201,13 +202,14 @@ export async function stampToday(
 		throw new Error('No enabled stamps available');
 	}
 	const picked = pickRandomStamp(enabledStamps);
+	const omikujiRank = pickOmikujiRank(picked.rarity);
 	const nextSlot = cardData.filledSlots + 1;
 
 	await insertEntry(
 		{
 			cardId: cardData.id,
 			stampMasterId: picked.id,
-			omikujiRank: null,
+			omikujiRank,
 			slot: nextSlot,
 			loginDate: today,
 		},
@@ -217,21 +219,22 @@ export async function stampToday(
 	const entry: StampEntryData = {
 		slot: nextSlot,
 		stampMasterId: picked.id,
-		omikujiRank: null,
+		omikujiRank,
 		name: picked.name,
 		emoji: picked.emoji,
 		rarity: picked.rarity,
 		loginDate: today,
 	};
 
-	// 即時ポイント付与（毎日の小さな報酬）
+	// 即時ポイント付与（レア度に応じた報酬）
+	const instantPoints = INSTANT_STAMP_BASE * (RARITY_MULTIPLIER[picked.rarity] ?? 1);
 	try {
 		await insertPointEntry(
 			{
 				childId,
-				amount: INSTANT_STAMP_POINTS,
+				amount: instantPoints,
 				type: 'stamp_instant',
-				description: `スタンプ押印 +${INSTANT_STAMP_POINTS}pt`,
+				description: `スタンプ押印 +${instantPoints}pt (${omikujiRank})`,
 			},
 			tenantId,
 		);
@@ -245,28 +248,24 @@ export async function stampToday(
 	// 更新後のカード取得
 	const updatedCard = await getOrCreateCurrentCard(childId, tenantId);
 
-	return { stamp: entry, cardData: updatedCard, instantPoints: INSTANT_STAMP_POINTS };
+	return { stamp: entry, cardData: updatedCard, instantPoints };
 }
 
-/** スタンプカードの週末 redeem ポイントを計算（レアリティボーナス + コンプリートボーナス） */
+/** スタンプカードの週末 redeem ポイントを計算（スタンプ数 × 固定ポイント + コンプリートボーナス） */
 function calcCardPoints(
 	entries: StampEntryData[],
 	loginMultiplier = 1,
 ): {
-	rarityPoints: number;
+	stampPoints: number;
 	completeBonus: number;
 	multiplier: number;
 	total: number;
 } {
-	let rarityPoints = 0;
-	for (const entry of entries) {
-		const rMult = RARITY_MULTIPLIER[entry.rarity] ?? 1;
-		rarityPoints += RARITY_BONUS_PER_STAMP * rMult;
-	}
+	const stampPoints = entries.length * POINTS_PER_STAMP;
 	const completeBonus = entries.length >= MAX_SLOTS ? COMPLETE_BONUS : 0;
-	const subtotal = rarityPoints + completeBonus;
+	const subtotal = stampPoints + completeBonus;
 	const total = Math.round(subtotal * loginMultiplier);
-	return { rarityPoints, completeBonus, multiplier: loginMultiplier, total };
+	return { stampPoints, completeBonus, multiplier: loginMultiplier, total };
 }
 
 /** スタンプカードをポイントに交換（週末 redeem: レアリティボーナス + コンプリートボーナス） */
@@ -276,7 +275,7 @@ export async function redeemStampCard(
 	loginMultiplier = 1,
 ): Promise<
 	| { error: 'NO_CARD' | 'ALREADY_REDEEMED' | 'EMPTY_CARD' }
-	| { points: number; rarityPoints: number; completeBonus: number; multiplier: number }
+	| { points: number; stampPoints: number; completeBonus: number; multiplier: number }
 > {
 	const cardData = await getOrCreateCurrentCard(childId, tenantId);
 
@@ -288,7 +287,7 @@ export async function redeemStampCard(
 		return { error: 'EMPTY_CARD' };
 	}
 
-	const { rarityPoints, completeBonus, multiplier, total } = calcCardPoints(
+	const { stampPoints, completeBonus, multiplier, total } = calcCardPoints(
 		cardData.entries,
 		loginMultiplier,
 	);
@@ -321,7 +320,7 @@ export async function redeemStampCard(
 		tenantId,
 	);
 
-	return { points: total, rarityPoints, completeBonus, multiplier };
+	return { points: total, stampPoints, completeBonus, multiplier };
 }
 
 /** 前週のカードを自動 redeem する（月曜初ログイン時に呼ばれる） */
@@ -331,7 +330,7 @@ export async function autoRedeemPreviousWeek(
 	loginMultiplier = 1,
 ): Promise<null | {
 	points: number;
-	rarityPoints: number;
+	stampPoints: number;
 	completeBonus: number;
 	multiplier: number;
 	filledSlots: number;
@@ -366,7 +365,7 @@ export async function autoRedeemPreviousWeek(
 		loginDate: e.loginDate,
 	}));
 
-	const { rarityPoints, completeBonus, multiplier, total } = calcCardPoints(
+	const { stampPoints, completeBonus, multiplier, total } = calcCardPoints(
 		entries,
 		loginMultiplier,
 	);
@@ -395,7 +394,7 @@ export async function autoRedeemPreviousWeek(
 
 	return {
 		points: total,
-		rarityPoints,
+		stampPoints,
 		completeBonus,
 		multiplier,
 		filledSlots: entries.length,
