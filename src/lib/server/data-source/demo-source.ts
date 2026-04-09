@@ -32,7 +32,7 @@ export class DemoChildDataSource implements ChildDataSource {
 			activities: demo.activities.map((a) => ({
 				...a,
 				isPinned: false,
-				isMainQuest: false,
+				isMainQuest: 0,
 			})),
 			todayRecorded: demo.todayRecorded,
 			loginBonusStatus: demo.loginBonusStatus,

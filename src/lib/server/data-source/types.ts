@@ -35,7 +35,6 @@ export interface ActivityWithDisplay extends Activity {
 	displayName: string;
 	isMission: boolean;
 	isPinned?: boolean;
-	isMainQuest?: boolean;
 }
 
 export interface HomePageData {

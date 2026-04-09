@@ -18,7 +18,7 @@ import type { ChildDataSource } from './types.js';
  * locals.isDemo = true を設定しておくことを前提とする。
  */
 export function isDemoMode(locals: App.Locals): boolean {
-	return (locals as Record<string, unknown>).isDemo === true;
+	return (locals as unknown as Record<string, unknown>).isDemo === true;
 }
 
 /**
