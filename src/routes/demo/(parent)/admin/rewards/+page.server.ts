@@ -1,3 +1,4 @@
+import { PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
 import { getDemoPointBalance } from '$lib/server/demo/demo-data.js';
 import { getDemoAdminData } from '$lib/server/demo/demo-service.js';
 import type { PageServerLoad } from './$types';
@@ -19,5 +20,5 @@ export const load: PageServerLoad = async () => {
 		{ title: 'ともだちのおうち', points: 100, icon: '🏠', category: 'こうりゅう' },
 	];
 
-	return { children, templates };
+	return { children, templates, presetGroups: PRESET_REWARD_GROUPS };
 };
