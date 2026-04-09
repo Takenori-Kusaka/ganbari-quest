@@ -7,7 +7,7 @@ import { logger } from '$lib/server/logger';
 
 /** 規約バージョン（改訂日ベース） */
 export const CURRENT_TERMS_VERSION = '2026-03-29';
-export const CURRENT_PRIVACY_VERSION = '2026-03-29';
+export const CURRENT_PRIVACY_VERSION = '2026-04-09';
 
 export interface ConsentCheck {
 	termsAccepted: boolean;
