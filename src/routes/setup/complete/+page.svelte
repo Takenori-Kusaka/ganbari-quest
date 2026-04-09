@@ -14,8 +14,8 @@ const childHomeUrl = $derived(firstChild ? `/${firstChild.uiMode}/home` : '/swit
 
 <div class="text-center complete-screen">
 	<div class="text-4xl mb-2">⚔️</div>
-	<h2 class="text-xl font-bold text-gray-700 mb-1">ぼうけんのはじまり！</h2>
-	<p class="text-sm text-gray-500 mb-4">
+	<h2 class="text-xl font-bold text-[var(--color-text)] mb-1">ぼうけんのはじまり！</h2>
+	<p class="text-sm text-[var(--color-text-muted)] mb-4">
 		{formatChildName(firstChild?.nickname, 'possessive')}ぼうけんじゅんびが<br />かんりょうしたよ！
 	</p>
 

@@ -51,11 +51,11 @@ function goToComplete() {
 			<span class="celebration-emoji text-[4rem] inline-block">🎉</span>
 		</div>
 
-		<h2 class="text-xl font-bold text-gray-700 mt-4 mb-2">
+		<h2 class="text-xl font-bold text-[var(--color-text)] mt-4 mb-2">
 			{formatChildName(child?.nickname, 'vocative')}すごい！
 		</h2>
 
-		<p class="text-sm text-gray-500 mb-4">
+		<p class="text-sm text-[var(--color-text-muted)] mb-4">
 			「{resultName}」をきろくしたよ！
 		</p>
 
@@ -83,8 +83,8 @@ function goToComplete() {
 	<!-- 活動選択画面 -->
 	<div class="text-center mb-4">
 		<div class="text-3xl mb-2">⚔️</div>
-		<h2 class="text-lg font-bold text-gray-700">はじめてのぼうけん！</h2>
-		<p class="text-sm text-gray-500 mt-1">
+		<h2 class="text-lg font-bold text-[var(--color-text)]">はじめてのぼうけん！</h2>
+		<p class="text-sm text-[var(--color-text-muted)] mt-1">
 			{formatChildName(child?.nickname, 'vocative')}さいしょのがんばりを<br />いっしょにきろくしよう！
 		</p>
 	</div>
@@ -92,7 +92,7 @@ function goToComplete() {
 	{#if data.activities.length === 0}
 		<!-- 活動未登録の場合はスキップ -->
 		<div class="text-center">
-			<p class="text-sm text-gray-400 mb-4">
+			<p class="text-sm text-[var(--color-neutral-400)] mb-4">
 				まだ活動が登録されていません。あとから管理画面で追加できます。
 			</p>
 			<form method="POST" action="?/skip">
@@ -145,7 +145,7 @@ function goToComplete() {
 					{/if}
 				</Button>
 			{:else}
-				<p class="text-xs text-gray-400 text-center mt-4">
+				<p class="text-xs text-[var(--color-neutral-400)] text-center mt-4">
 					がんばりをえらんでね！
 				</p>
 			{/if}
