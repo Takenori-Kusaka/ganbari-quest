@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getStampImagePath } from '$lib/domain/stamp-image';
+import { getStampImagePathForEntry } from '$lib/domain/stamp-image';
 
 interface StampEntry {
 	slot: number;
@@ -58,14 +58,12 @@ function isTodaySlot(slotIndex: number): boolean {
 				{@const isToday = isTodaySlot(i)}
 				<div class="stamp-slot" class:stamp-slot--today={isToday}>
 					<div class="stamp-slot__circle" class:stamp-slot__circle--filled={!!entry}>
-						{#if entry?.omikujiRank}
+						{#if entry}
 							<img
-								src={getStampImagePath(entry.omikujiRank)}
+								src={getStampImagePathForEntry(entry.omikujiRank, entry.rarity)}
 								alt={entry.name}
 								class="stamp-slot__img"
 							/>
-						{:else if entry}
-							<span class="stamp-slot__emoji">{entry.emoji}</span>
 						{:else}
 							<span class="stamp-slot__number">{i + 1}</span>
 						{/if}
@@ -80,14 +78,12 @@ function isTodaySlot(slotIndex: number): boolean {
 				{@const isToday = isTodaySlot(slotIdx)}
 				<div class="stamp-slot" class:stamp-slot--today={isToday}>
 					<div class="stamp-slot__circle" class:stamp-slot__circle--filled={!!entry}>
-						{#if entry?.omikujiRank}
+						{#if entry}
 							<img
-								src={getStampImagePath(entry.omikujiRank)}
+								src={getStampImagePathForEntry(entry.omikujiRank, entry.rarity)}
 								alt={entry.name}
 								class="stamp-slot__img"
 							/>
-						{:else if entry}
-							<span class="stamp-slot__emoji">{entry.emoji}</span>
 						{:else}
 							<span class="stamp-slot__number">{slotIdx + 1}</span>
 						{/if}
@@ -224,10 +220,6 @@ function isTodaySlot(slotIndex: number): boolean {
 		height: 48px;
 		object-fit: contain;
 		filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-	}
-
-	.stamp-slot__emoji {
-		font-size: 1.5rem;
 	}
 
 	.stamp-slot__number {

@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getStampImagePath } from '$lib/domain/stamp-image';
+import { getStampImagePath, getStampImagePathForEntry } from '$lib/domain/stamp-image';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -63,7 +63,7 @@ const defaultConfig = { glow: 'none', particles: [] as string[], tier: 0 };
 const config = $derived(rarityConfig[stampRarity] ?? defaultConfig);
 const isComplete = $derived(cardFilledSlots >= cardTotalSlots);
 const remaining = $derived(cardTotalSlots - cardFilledSlots);
-const stampImageSrc = $derived(stampOmikujiRank ? getStampImagePath(stampOmikujiRank) : null);
+const stampImageSrc = $derived(getStampImagePathForEntry(stampOmikujiRank, stampRarity));
 
 $effect(() => {
 	if (open) {
@@ -111,24 +111,14 @@ function handleClose() {
 					{@const isToday = i + 1 === cardFilledSlots}
 					<div class="sp__slot" class:sp__slot--today={isToday && phase === 'card'}>
 						{#if entry && !(isToday && phase === 'card')}
-							{#if entry.omikujiRank}
-								<img src={getStampImagePath(entry.omikujiRank)} alt="" class="sp__slot-img" />
-							{:else}
-								<span class="sp__slot-stamp">{entry.emoji}</span>
-							{/if}
+							<img src={getStampImagePathForEntry(entry.omikujiRank, entry.rarity)} alt="" class="sp__slot-img" />
 						{:else if isToday && (phase === 'press' || phase === 'points')}
-							{#if stampImageSrc}
-								<img
-									src={stampImageSrc}
-									alt={stampName}
-									class="sp__slot-img sp__slot-img--new"
-									style:filter={config.glow !== 'none' ? `drop-shadow(${config.glow})` : undefined}
-								/>
-							{:else}
-								<span class="sp__slot-stamp sp__slot-stamp--new" style:filter={config.glow !== 'none' ? `drop-shadow(${config.glow})` : undefined}>
-									{stampEmoji}
-								</span>
-							{/if}
+							<img
+								src={stampImageSrc}
+								alt={stampName}
+								class="sp__slot-img sp__slot-img--new"
+								style:filter={config.glow !== 'none' ? `drop-shadow(${config.glow})` : undefined}
+							/>
 						{:else}
 							<span class="sp__slot-empty"></span>
 						{/if}
@@ -140,11 +130,7 @@ function handleClose() {
 			{#if phase === 'press' || phase === 'points'}
 				<div class="sp__press-area">
 					<div class="sp__stamp-icon" style:box-shadow={config.glow}>
-						{#if stampImageSrc}
-							<img src={stampImageSrc} alt={stampName} class="sp__stamp-main-img" />
-						{:else}
-							<span class="sp__stamp-emoji">{stampEmoji}</span>
-						{/if}
+						<img src={stampImageSrc} alt={stampName} class="sp__stamp-main-img" />
 					</div>
 					{#if config.tier >= 2}
 						<div class="sp__particles">
