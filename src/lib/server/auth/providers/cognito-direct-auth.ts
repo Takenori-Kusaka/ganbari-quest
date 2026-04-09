@@ -8,7 +8,7 @@ import {
 	type InitiateAuthCommandOutput,
 	ResendConfirmationCodeCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { SIGNUP_CODE_EXPIRY_HOURS } from '$lib/domain/validation/auth';
+import { SIGNUP_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
 import { logger } from '$lib/server/logger';
 
 interface CognitoDirectAuthConfig {
@@ -131,7 +131,7 @@ export async function authenticateWithCognito(
 			return {
 				success: false,
 				error: 'NOT_CONFIRMED',
-				message: `メールアドレスの確認が完了していません。登録時に送信された確認コード（${SIGNUP_CODE_EXPIRY_HOURS}時間有効）を入力してください`,
+				message: `メールアドレスの確認が完了していません。登録時に送信された確認コード（${SIGNUP_CODE_EXPIRY_MINUTES}分以内に入力してください）を使って確認を完了してください`,
 			};
 		}
 
