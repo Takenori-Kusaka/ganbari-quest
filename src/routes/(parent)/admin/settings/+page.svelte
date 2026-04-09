@@ -687,6 +687,63 @@ const anyFormBusy = $derived(
 		</Button>
 	</Card>
 
+	<!-- 既定の子供（#576） -->
+	{#if data.children.length >= 2}
+		<Card padding="lg">
+			<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">🏠 既定の子供</h3>
+			<p class="text-sm text-[var(--color-text-muted)] mb-4">
+				ホーム画面（/）を開いたときに自動で表示する子供を選べます。<br />
+				これは<strong>この端末ではなく、アカウント全体の既定</strong>です。
+				未設定のときは選択画面が表示されます。
+			</p>
+
+			{#if form?.defaultChildUpdated}
+				<div
+					class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)] mb-4"
+				>
+					既定の子供を更新しました
+				</div>
+			{/if}
+			{#if form?.defaultChildError}
+				<div
+					class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)] mb-4"
+				>
+					{form.defaultChildError}
+				</div>
+			{/if}
+
+			<form method="POST" action="?/updateDefaultChild" use:enhance class="space-y-3">
+				<div class="space-y-2">
+					<label class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors {data.defaultChildId === null ? 'border-[var(--color-brand-400)] bg-[var(--color-feedback-info-bg)]' : 'border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}">
+						<input
+							type="radio"
+							name="defaultChildId"
+							value="none"
+							checked={data.defaultChildId === null}
+						/>
+						<span class="text-sm font-medium text-[var(--color-text)]">未設定（毎回選択画面を表示）</span>
+					</label>
+					{#each data.children as child (child.id)}
+						<label
+							class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors {data.defaultChildId === child.id ? 'border-[var(--color-brand-400)] bg-[var(--color-feedback-info-bg)]' : 'border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}"
+						>
+							<input
+								type="radio"
+								name="defaultChildId"
+								value={child.id}
+								checked={data.defaultChildId === child.id}
+							/>
+							<span class="text-sm font-medium text-[var(--color-text)]">
+								{child.nickname}
+							</span>
+						</label>
+					{/each}
+				</div>
+				<Button type="submit" variant="primary" size="md" class="w-full">既定を保存</Button>
+			</form>
+		</Card>
+	{/if}
+
 	<!-- きょうだいチャレンジ設定 -->
 	<Card padding="lg">
 		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">👥 きょうだいチャレンジ設定</h3>
