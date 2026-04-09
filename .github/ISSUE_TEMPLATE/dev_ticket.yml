@@ -85,19 +85,6 @@ body:
         - [ ]
 
   - type: textarea
-    id: impact-check
-    attributes:
-      label: 影響範囲チェック
-      description: 変更が他の画面やコンポーネントに波及しないか事前に確認する
-      value: |
-        - [ ] この変更は他の画面/コンポーネントに影響するか？
-        - [ ] 用語変更の場合: grep で全件確認したか？
-        - [ ] UIの構造変更の場合: チュートリアル（tutorial-chapters.ts）の更新が必要か？
-        - [ ] E2Eテスト（data-tutorial/data-testid セレクタ）に影響するか？
-    validations:
-      required: true
-
-  - type: textarea
     id: quality-policy
     attributes:
       label: 品質ポリシー（スクラップ&ビルド時 必読）
@@ -126,15 +113,28 @@ body:
   - type: textarea
     id: impact-check
     attributes:
-      label: 影響範囲・横展開チェック
-      description: この変更が他の画面やシステムに及ぼす影響を事前に確認すること
+      label: 影響範囲・並行実装チェック
+      description: |
+        この変更が他の画面やシステムに及ぼす影響を事前に確認すること。
+        並行実装ペアの全リスト: `docs/design/parallel-implementations.md`
       value: |
+        **並行実装ペア（該当するものすべてチェック）**:
+        - [ ] 本番アプリ (`src/routes/(child)/`, `src/routes/(parent)/`)
+        - [ ] デモ (`src/routes/demo/`)
+        - [ ] LP (`site/index.html`, `site/pamphlet.html`, `site/shared-labels.js`)
+        - [ ] 全年齢モード (`baby/preschool/elementary/junior/senior` の 5 ディレクトリ)
+        - [ ] デスクトップナビ + モバイルナビ + ボトムナビ
+        - [ ] E2E/ユニットシード (`tests/e2e/global-setup.ts`, `tests/unit/helpers/test-db.ts`, `src/lib/server/demo/demo-data.ts`)
+        - [ ] 本番チュートリアル + デモガイド (`tutorial-chapters.ts`, `demo-guide-state.svelte.ts`)
+
+        **横展開チェック**:
         - [ ] 用語変更がある場合: `grep` で全件確認し、漏れなく更新した
         - [ ] UI構造変更がある場合: チュートリアル（`tutorial-chapters.ts`）のセレクタ・説明文を更新した
-        - [ ] デモ版（`/demo`）にも同等の変更が必要か確認した
         - [ ] カラー・スタイル: hex 直書き・Tailwind デフォルト色の新規追加をしていない（`docs/reference/color-mapping.md` 参照）
         - [ ] Button/Card/FormField 等のプリミティブコンポーネントを使用した
         - [ ] 影響する設計書（`docs/design/`）を更新した
+    validations:
+      required: true
 
   - type: textarea
     id: done-checklist

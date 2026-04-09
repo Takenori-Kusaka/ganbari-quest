@@ -1,7 +1,7 @@
 {
 	"formatVersion": "1.0",
 	"packId": "kinder-starter",
-	"packName": "ようちえんキッズ",
+	"packName": "ようじキッズ",
 	"description": "3〜5歳のお子さま向け。保育園・幼稚園の日常活動をバランスよくカバーし、自立心を育てます。",
 	"icon": "🎨",
 	"targetAgeMin": 3,
