@@ -225,6 +225,7 @@ $effect(() => {
 					required
 					minlength={8}
 					autocomplete="new-password"
+					showToggle
 					hint="8文字以上、大文字・小文字・数字を含む"
 				/>
 
@@ -238,6 +239,9 @@ $effect(() => {
 					required
 					minlength={8}
 					autocomplete="new-password"
+					showToggle
+					error={passwordConfirm && password !== passwordConfirm ? 'パスワードが一致しません' : undefined}
+					hint={passwordConfirm && password === passwordConfirm ? 'パスワードが一致しました' : undefined}
 				/>
 
 				{#if showLicenseKey}
