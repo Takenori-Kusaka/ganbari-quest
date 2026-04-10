@@ -1023,3 +1023,29 @@ export interface InsertViewerTokenInput {
 	label?: string | null;
 	expiresAt?: string | null;
 }
+
+// ============================================================
+// Daily Battles (バトルアドベンチャー #605)
+// ============================================================
+
+export interface DailyBattleRecord {
+	id: number;
+	childId: number;
+	enemyId: number;
+	date: string;
+	status: 'pending' | 'completed';
+	outcome: 'win' | 'lose' | null;
+	rewardPoints: number;
+	turnsUsed: number;
+	playerStatsJson: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface EnemyCollectionRecord {
+	id: number;
+	childId: number;
+	enemyId: number;
+	firstDefeatedAt: string;
+	defeatCount: number;
+}
