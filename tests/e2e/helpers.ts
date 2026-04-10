@@ -94,7 +94,7 @@ export async function dismissOverlays(page: Page) {
 		try {
 			const closeBtn = page
 				.locator('[data-scope="dialog"][data-state="open"]')
-				.getByRole('button', { name: /とじる|閉じる|OK|やったー/ });
+				.getByRole('button', { name: /とじる|閉じる|OK|やったー|やったね/ });
 			if (await closeBtn.isVisible().catch(() => false)) {
 				await closeBtn.click();
 				await page.waitForTimeout(200);
@@ -182,13 +182,26 @@ export async function clearDialogGhosts(page: Page) {
 		document.body.style.overflow = '';
 		for (const el of document.querySelectorAll('[data-scope="dialog"][data-part="positioner"]')) {
 			const htmlEl = el as HTMLElement;
-			// aria-hidden="true" や data-state="closed" なら完全に閉じたダイアログ → 非表示
 			const ariaHidden = el.getAttribute('aria-hidden') === 'true';
 			const stateClosed = el.getAttribute('data-state') === 'closed';
 			const content = el.querySelector('[data-part="content"]');
 			const contentHidden = !content || window.getComputedStyle(content).display === 'none';
-			if (ariaHidden || stateClosed || contentHidden) {
+
+			// コンテンツが非表示・非存在、またはダイアログが閉じた状態の positioner を非表示にする
+			// また、ダイアログ内にユーザーが操作可能な要素がない場合もゴーストとして処理
+			const hasVisibleInteractive =
+				content &&
+				content.querySelector('button:not([disabled]), a, input, [role="button"]') !== null;
+
+			if (ariaHidden || stateClosed || contentHidden || !hasVisibleInteractive) {
 				htmlEl.style.display = 'none';
+			}
+		}
+		// backdrop のゴーストも処理
+		for (const el of document.querySelectorAll('[data-scope="dialog"][data-part="backdrop"]')) {
+			const sibling = el.nextElementSibling;
+			if (sibling && (sibling as HTMLElement).style.display === 'none') {
+				(el as HTMLElement).style.display = 'none';
 			}
 		}
 	});
@@ -271,6 +284,10 @@ export async function recordAnyActivity(page: Page): Promise<boolean> {
 
 	for (let i = 0; i < Math.min(count, 10); i++) {
 		await dismissOverlays(page);
+		await activities
+			.nth(i)
+			.waitFor({ state: 'visible', timeout: 3000 })
+			.catch(() => {});
 		await activities.nth(i).click();
 
 		// 確認ダイアログが出るのを待つ
