@@ -131,7 +131,6 @@ async function dismissAndVerifyDialogChain(page: import('@playwright/test').Page
 test.describe('全年齢モード E2E', () => {
 	for (const mode of AGE_MODES) {
 		test.describe(`${mode.name} モード (${mode.childName})`, () => {
-
 			test('ホーム画面が表示される', async ({ page }) => {
 				await selectChildByName(page, mode.childName);
 				await dismissOverlays(page);
