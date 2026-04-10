@@ -152,6 +152,13 @@
 | POST | /api/stripe/portal | Stripe カスタマーポータル作成 | owner/parent |
 | POST | /api/stripe/webhook | Stripe Webhook 受信 | 不要（Stripe署名検証） |
 
+### バトルアドベンチャー
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| GET | /api/v1/battle/[childId] | 今日のバトル情報取得（未生成なら自動生成） | 全ロール |
+| POST | /api/v1/battle/[childId] | バトル実行（サーバ側で状態検証） | 全ロール |
+
 ### アナリティクス
 
 | メソッド | パス | 概要 | 認証 |
@@ -923,6 +930,74 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 - MRR 概算
 - Stripe 連携状態
 
+### 3.x バトルアドベンチャー
+
+#### GET /api/v1/battle/[childId]
+
+今日のバトル情報を取得する。未登録の場合は自動生成する。
+
+**パラメータ:**
+- `childId` (path, number): 子供ID
+
+**レスポンス (200):**
+```json
+{
+  "battleId": 42,
+  "enemy": {
+    "id": 3,
+    "name": "スライムん",
+    "icon": "🟢",
+    "stats": { "hp": 40, "atk": 8, "def": 5, "spd": 6, "luk": 3 },
+    "dropPoints": 15,
+    "consolationPoints": 5
+  },
+  "playerStats": { "hp": 50, "atk": 12, "def": 8, "spd": 7, "luk": 5 },
+  "scaledEnemyMaxHp": 32,
+  "completed": false,
+  "result": null
+}
+```
+
+**セキュリティ:**
+- childId はサーバ側で tenant 所属を検証
+- 並行リクエスト時は UNIQUE 制約で重複生成を防止（catch → 再取得）
+
+#### POST /api/v1/battle/[childId]
+
+バトルを実行する。サーバ側で今日の pending バトルを再取得し、整合性を検証してから実行する。
+
+**パラメータ:**
+- `childId` (path, number): 子供ID
+- リクエストボディ不要（battleId/enemyId はサーバ側で決定）
+
+**レスポンス (200):**
+```json
+{
+  "battleResult": {
+    "outcome": "win",
+    "totalTurns": 5,
+    "rewardPoints": 15,
+    "turns": [
+      {
+        "turn": 1,
+        "firstAttacker": "player",
+        "playerAction": { "damage": 10, "critical": false },
+        "enemyAction": { "damage": 6, "critical": false },
+        "playerHpAfter": 44,
+        "enemyHpAfter": 22
+      }
+    ]
+  },
+  "rewardPoints": 15,
+  "enemy": { "id": 3, "name": "スライムん", "icon": "🟢" }
+}
+```
+
+**エラー (400):**
+- childId が不正: `{ "error": "IDが不正です" }`
+- バトル未生成: `{ "error": "今日のバトルが見つかりません" }`
+- 二重実行: `{ "error": "今日のバトルは既に完了しています" }`
+
 ---
 
 ## 4. エラーレスポンス仕様
@@ -1027,3 +1102,4 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 | 2026-04-03 | 2.4 | #0294 クラウドエクスポート共有機能のAPI追加（export/cloud CRUD、import/cloud PINコードインポート） |
 | 2026-04-04 | 2.5 | #344 実装とのAPI同期: メンバー管理（削除/移譲/脱退）、テナント操作（status/cancel/reactivate）、通知（reminder/streak-warning/subscribe/unsubscribe）、カスタム音声（voices CRUD）、アバター、活動パック export/import、設定（vapid-key/tutorial）、デモ分析、管理用内部API（cleanup-orphans/migration/weekly-report/tenant-cleanup）追加 |
 | 2026-04-06 | 2.6 | #550 アナリティクス基盤: POST /api/v1/analytics（イベント記録）、GET /api/v1/analytics/status（設定確認）追加。3層プロバイダー（Sentry/Umami/DynamoDB）アーキテクチャ |
+| 2026-04-10 | 2.7 | #605 バトルアドベンチャーAPI追加: GET/POST /api/v1/battle/[childId]（日次バトル取得・実行） |

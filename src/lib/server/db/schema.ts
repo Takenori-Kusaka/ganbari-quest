@@ -949,3 +949,49 @@ export const viewerTokens = sqliteTable(
 	},
 	(table) => [index('idx_viewer_tokens_tenant').on(table.tenantId)],
 );
+
+// ============================================================
+// daily_battles - 日次バトル記録 (#605)
+// ============================================================
+export const dailyBattles = sqliteTable(
+	'daily_battles',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		enemyId: integer('enemy_id').notNull(),
+		date: text('date').notNull(), // YYYY-MM-DD
+		status: text('status').notNull().default('pending'), // pending | completed
+		outcome: text('outcome'), // win | lose | null
+		rewardPoints: integer('reward_points').notNull().default(0),
+		turnsUsed: integer('turns_used').notNull().default(0),
+		playerStatsJson: text('player_stats_json').notNull().default('{}'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_daily_battles_child_date').on(table.childId, table.date),
+		index('idx_daily_battles_child').on(table.childId),
+	],
+);
+
+// ============================================================
+// enemy_collection - 敵図鑑 (#605)
+// ============================================================
+export const enemyCollection = sqliteTable(
+	'enemy_collection',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		enemyId: integer('enemy_id').notNull(),
+		firstDefeatedAt: text('first_defeated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		defeatCount: integer('defeat_count').notNull().default(1),
+	},
+	(table) => [
+		uniqueIndex('idx_enemy_collection_child_enemy').on(table.childId, table.enemyId),
+		index('idx_enemy_collection_child').on(table.childId),
+	],
+);
