@@ -9,11 +9,16 @@ const databaseUrl = process.env.DATABASE_URL ?? './data/ganbari-quest.db';
 const DB_PATH = path.resolve(databaseUrl);
 
 /**
- * E2E テスト用の子供 ID（global-setup.ts で作成されるテストデータ）
- * セットアップで INSERT される子供の ID は 1, 2 （たろうくん, はなこちゃん）。
- * 削除対象をこれらに限定することで、共用 DB 上の本物のユーザーデータを守る。
+ * E2E テスト用の子供ニックネーム（global-setup.ts と同期）
+ * ニックネームベースで ID を動的に解決し、共用 DB 上の本物のユーザーデータを守る。
  */
-const E2E_CHILD_IDS = [1, 2];
+const E2E_CHILD_NICKNAMES = [
+	'たろうくん',
+	'はなこちゃん',
+	'けんたくん',
+	'ゆうこちゃん',
+	'まさとくん',
+];
 
 export default async function globalTeardown() {
 	if (process.env.E2E_SKIP_TEARDOWN === 'true') {
@@ -32,12 +37,25 @@ export default async function globalTeardown() {
 		const Database = (await import('better-sqlite3')).default;
 		const db = new Database(DB_PATH);
 
-		const childIdPlaceholders = E2E_CHILD_IDS.map(() => '?').join(', ');
+		// テスト用子供の ID をニックネームから動的に解決
+		const nicknamePlaceholders = E2E_CHILD_NICKNAMES.map(() => '?').join(', ');
+		const childRows = db
+			.prepare(`SELECT id FROM children WHERE nickname IN (${nicknamePlaceholders})`)
+			.all(...E2E_CHILD_NICKNAMES) as { id: number }[];
+		const childIds = childRows.map((r) => r.id);
+
+		if (childIds.length === 0) {
+			console.log('[E2E Teardown] No test children found, skipping cleanup.');
+			db.close();
+			return;
+		}
+
+		const childIdPlaceholders = childIds.map(() => '?').join(', ');
 
 		// E2E テスト子供の活動ログを削除（日付条件なし — 子供IDでスコープ限定）
 		const deletedLogs = db
 			.prepare(`DELETE FROM activity_logs WHERE child_id IN (${childIdPlaceholders})`)
-			.run(...E2E_CHILD_IDS);
+			.run(...childIds);
 		if (deletedLogs.changes > 0) {
 			console.log(`[E2E Teardown]   Cleaned ${deletedLogs.changes} activity log(s).`);
 		}
@@ -45,7 +63,7 @@ export default async function globalTeardown() {
 		// E2E テスト子供のログインボーナスを削除
 		const deletedBonus = db
 			.prepare(`DELETE FROM login_bonuses WHERE child_id IN (${childIdPlaceholders})`)
-			.run(...E2E_CHILD_IDS);
+			.run(...childIds);
 		if (deletedBonus.changes > 0) {
 			console.log(`[E2E Teardown]   Cleaned ${deletedBonus.changes} login bonus(es).`);
 		}
@@ -53,7 +71,7 @@ export default async function globalTeardown() {
 		// E2E テスト子供のピン留め設定を削除
 		const deletedPins = db
 			.prepare(`DELETE FROM child_activity_preferences WHERE child_id IN (${childIdPlaceholders})`)
-			.run(...E2E_CHILD_IDS);
+			.run(...childIds);
 		if (deletedPins.changes > 0) {
 			console.log(`[E2E Teardown]   Cleaned ${deletedPins.changes} pin preference(s).`);
 		}
@@ -66,7 +84,7 @@ export default async function globalTeardown() {
 						SELECT id FROM stamp_cards WHERE child_id IN (${childIdPlaceholders})
 					)`,
 				)
-				.run(...E2E_CHILD_IDS);
+				.run(...childIds);
 			if (deletedStamps.changes > 0) {
 				console.log(`[E2E Teardown]   Cleaned ${deletedStamps.changes} stamp entry(ies).`);
 			}
