@@ -10,10 +10,15 @@ const DB_PATH = path.resolve(databaseUrl);
 
 /**
  * E2E テスト用の子供 ID（global-setup.ts で作成されるテストデータ）
- * セットアップで INSERT される子供の ID は 1, 2 （たろうくん, はなこちゃん）。
+ * セットアップで INSERT される子供の ID は 1-5:
+ *   1: たろうくん (preschool)
+ *   2: はなこちゃん (baby)
+ *   3: けんたくん (elementary)
+ *   4: ゆうこちゃん (junior)
+ *   5: まさとくん (senior)
  * 削除対象をこれらに限定することで、共用 DB 上の本物のユーザーデータを守る。
  */
-const E2E_CHILD_IDS = [1, 2];
+const E2E_CHILD_IDS = [1, 2, 3, 4, 5];
 
 export default async function globalTeardown() {
 	if (process.env.E2E_SKIP_TEARDOWN === 'true') {

@@ -30,7 +30,7 @@ export async function selectChild(page: Page) {
 	const childButton = page.locator('[data-testid^="child-select-"]').first();
 	await expect(childButton).toBeVisible();
 	await childButton.click();
-	await page.waitForURL(/\/(preschool|baby|elementary|junior|senior)\/home/);
+	await page.waitForURL(/\/(baby|preschool|elementary|junior|senior)\/home/);
 }
 
 /** 指定の子供を名前で選択してホーム画面に遷移 */
@@ -39,7 +39,7 @@ export async function selectChildByName(page: Page, name: string) {
 	const childButton = page.locator('[data-testid^="child-select-"]').filter({ hasText: name });
 	await expect(childButton).toBeVisible();
 	await childButton.click();
-	await page.waitForURL(/\/(preschool|baby|elementary|junior|senior)\/home/);
+	await page.waitForURL(/\/(baby|preschool|elementary|junior|senior)\/home/);
 }
 
 /** たろうくん(preschool)を選択 */
@@ -50,6 +50,21 @@ export async function selectKinderChild(page: Page) {
 /** はなこちゃん(baby)を選択 */
 export async function selectBabyChild(page: Page) {
 	await selectChildByName(page, 'はなこちゃん');
+}
+
+/** けんたくん(elementary)を選択 */
+export async function selectElementaryChild(page: Page) {
+	await selectChildByName(page, 'けんたくん');
+}
+
+/** ゆうこちゃん(junior)を選択 */
+export async function selectJuniorChild(page: Page) {
+	await selectChildByName(page, 'ゆうこちゃん');
+}
+
+/** まさとくん(senior)を選択 */
+export async function selectSeniorChild(page: Page) {
+	await selectChildByName(page, 'まさとくん');
 }
 
 // ============================================================
@@ -75,13 +90,15 @@ export async function dismissOverlays(page: Page) {
 		// オーバーレイが表示されるのを待つ
 		await stampOverlay.waitFor({ timeout: overlayTimeout });
 
-		// フェーズが進むまで少し待つ（shake → result → stamp）
-		await page.waitForTimeout(3500);
+		// フェーズが進むまで「やったね！」ボタンの出現を待つ（shake → result → stamp）
+		// 旧: waitForTimeout(3500) → ボタンの実際の出現を検知
+		await closeBtn.waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
 
 		// 「やったね！」ボタンで閉じる
 		if (await closeBtn.isVisible().catch(() => false)) {
 			await closeBtn.click();
-			await page.waitForTimeout(500);
+			// ダイアログが閉じるのを待つ
+			await stampOverlay.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
 		}
 	} catch {
 		// オーバーレイが表示されなかった場合（既に受領済み or 未対応）
@@ -90,14 +107,25 @@ export async function dismissOverlays(page: Page) {
 	// 特別報酬や汎用オーバーレイを閉じる
 	// ダイアログ内のボタンのみ対象にし、ページ上の別ボタンを誤クリックしない
 	for (let i = 0; i < 3; i++) {
-		await page.waitForTimeout(200);
 		try {
-			const closeBtn = page
-				.locator('[data-scope="dialog"][data-state="open"]')
-				.getByRole('button', { name: /とじる|閉じる|OK|やったー|やったね/ });
+			const openDialog = page.locator('[data-scope="dialog"][data-state="open"]');
+			// ダイアログが存在するか短いタイムアウトで確認
+			const dialogExists = await openDialog
+				.first()
+				.isVisible()
+				.catch(() => false);
+			if (!dialogExists) break;
+
+			const closeBtn = openDialog.getByRole('button', {
+				name: /とじる|閉じる|OK|やったー/,
+			});
 			if (await closeBtn.isVisible().catch(() => false)) {
 				await closeBtn.click();
-				await page.waitForTimeout(200);
+				// ダイアログが閉じるのを待つ
+				await openDialog
+					.first()
+					.waitFor({ state: 'hidden', timeout: 2000 })
+					.catch(() => {});
 			} else {
 				break;
 			}
@@ -122,7 +150,12 @@ export async function dismissOverlays(page: Page) {
 
 		// closable=true のダイアログは Escape で閉じる
 		await page.keyboard.press('Escape');
-		await page.waitForTimeout(300);
+		// Escape 後のダイアログ状態変化を待つ
+		await page
+			.locator('[data-scope="dialog"][data-part="backdrop"][data-state="open"]')
+			.first()
+			.waitFor({ state: 'hidden', timeout: 1000 })
+			.catch(() => {});
 
 		// closable=false のダイアログ（おみくじ等）はボタンクリックで閉じる
 		// ダイアログ内のボタンのみ対象
@@ -136,7 +169,12 @@ export async function dismissOverlays(page: Page) {
 				.catch(() => false)
 		) {
 			await dialogBtn.first().click();
-			await page.waitForTimeout(300);
+			// ボタンクリック後のダイアログ状態変化を待つ
+			await page
+				.locator('[data-scope="dialog"][data-part="backdrop"][data-state="open"]')
+				.first()
+				.waitFor({ state: 'hidden', timeout: 1000 })
+				.catch(() => {});
 		}
 	}
 
@@ -168,6 +206,24 @@ export async function selectChildAndDismiss(page: Page) {
 /** たろうくん(preschool)を選択してオーバーレイを閉じた状態にする */
 export async function selectKinderChildAndDismiss(page: Page) {
 	await selectKinderChild(page);
+	await dismissOverlays(page);
+}
+
+/** けんたくん(elementary)を選択してオーバーレイを閉じた状態にする */
+export async function selectElementaryChildAndDismiss(page: Page) {
+	await selectElementaryChild(page);
+	await dismissOverlays(page);
+}
+
+/** ゆうこちゃん(junior)を選択してオーバーレイを閉じた状態にする */
+export async function selectJuniorChildAndDismiss(page: Page) {
+	await selectJuniorChild(page);
+	await dismissOverlays(page);
+}
+
+/** まさとくん(senior)を選択してオーバーレイを閉じた状態にする */
+export async function selectSeniorChildAndDismiss(page: Page) {
+	await selectSeniorChild(page);
 	await dismissOverlays(page);
 }
 
@@ -226,7 +282,11 @@ export async function expandFirstCategory(page: Page) {
 		if (!cardVisible) {
 			// JS evaluate で直接クリック（ダイアログゴースト/BottomNav の干渉を回避）
 			await header.evaluate((el) => (el as HTMLElement).click());
-			await page.waitForTimeout(300);
+			// カードが表示されるのを待つ
+			await cards
+				.first()
+				.waitFor({ state: 'visible', timeout: 2000 })
+				.catch(() => {});
 		}
 	}
 }
@@ -248,7 +308,12 @@ export async function expandAllCategories(page: Page) {
 			.catch(() => false);
 		if (!hasCards) {
 			await header.evaluate((el) => (el as HTMLElement).click());
-			await page.waitForTimeout(100);
+			// 展開アニメーション後にカードが表示されるのを待つ
+			await section
+				.locator('[data-testid^="activity-card-"]')
+				.first()
+				.waitFor({ state: 'visible', timeout: 2000 })
+				.catch(() => {});
 		}
 	}
 }
@@ -320,7 +385,11 @@ export async function recordAnyActivity(page: Page): Promise<boolean> {
 			const confirmBtn = page.getByTestId('activity-confirm-btn');
 			if (await confirmBtn.isVisible({ timeout: 500 }).catch(() => false)) {
 				await confirmBtn.click();
-				await page.waitForTimeout(300);
+				// ダイアログが閉じるのを待つ
+				await page
+					.locator('[data-testid="confirm-dialog"]')
+					.waitFor({ state: 'hidden', timeout: 1000 })
+					.catch(() => {});
 			}
 		}
 	}
