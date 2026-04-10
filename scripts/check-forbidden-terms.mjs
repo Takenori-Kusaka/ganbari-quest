@@ -47,6 +47,11 @@ const FORBIDDEN_TERMS = [
 		reason: 'プラン用語統一規約（docs/design/21）で無料プランに統一',
 		replacement: '無料プラン',
 	},
+	{
+		term: 'discord.gg/5pWkf4Z5',
+		reason: '#700 無効化済みDiscord招待リンク（4回再発）',
+		replacement: 'ganbari.quest.support@gmail.com へのメール問い合わせ',
+	},
 ];
 
 /**
@@ -86,6 +91,8 @@ const EXCLUDE_FILES = new Set([
 	'docs/design/parallel-implementations.md',
 	// プラン用語統一規約自体は禁止語を定義しているため除外
 	'docs/design/21-プラン用語統一規約.md',
+	// Discordサーバー設計書は無効化注記として取り消し線で言及
+	'docs/design/23-Discordサーバー設計書.md',
 ]);
 
 function* walkFiles(dir) {
