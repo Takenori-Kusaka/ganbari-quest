@@ -9,15 +9,17 @@ import { closeDb, createTestDb, resetDb, type TestDb, type TestSqlite } from '..
 let sqlite: TestSqlite;
 let testDb: TestDb;
 
-// todayDateJST をモックして日付を制御
+// todayDateJST をモックして日付を制御（toJSTDateString は実装をそのまま使用）
 let mockToday = '2026-03-30'; // 月曜日
-vi.mock('$lib/domain/date-utils', () => ({
-	todayDateJST: () => mockToday,
-	toJSTDateString: (date: Date) => {
-		const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-		return jst.toISOString().slice(0, 10);
-	},
-}));
+vi.mock('$lib/domain/date-utils', async () => {
+	const actual = await vi.importActual<typeof import('$lib/domain/date-utils')>(
+		'$lib/domain/date-utils',
+	);
+	return {
+		...actual,
+		todayDateJST: () => mockToday,
+	};
+});
 
 vi.mock('$lib/server/db', () => ({
 	get db() {
@@ -336,9 +338,9 @@ describe('stamp-card-service', () => {
 	});
 
 	// ============================================================
-	// レアリティ分布テスト（実際の stampToday() 呼び出しで検証）
+	// レアリティ抽選の境界値テスト（実際の stampToday() 呼び出しで検証）
 	// ============================================================
-	describe('レアリティ分布', () => {
+	describe('レアリティ抽選の境界値', () => {
 		it('stampToday で取得されるスタンプのレアリティは有効な値', async () => {
 			seedAll();
 			mockToday = '2026-03-30';
@@ -399,15 +401,53 @@ describe('stamp-card-service', () => {
 			}
 		});
 
-		it('即時ポイントはレアリティに応じた値（N:5, R:10, SR:20, UR:40）', async () => {
+		it('即時ポイント: N レアリティで 5pt', async () => {
 			seedAll();
 			mockToday = '2026-03-30';
-			// N レアリティを強制
 			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01);
 			try {
 				const result = assertSuccess(await stampToday(1, TENANT));
 				expect(result.stamp.rarity).toBe('N');
 				expect(result.instantPoints).toBe(5);
+			} finally {
+				spy.mockRestore();
+			}
+		});
+
+		it('即時ポイント: R レアリティで 10pt', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.61);
+			try {
+				const result = assertSuccess(await stampToday(1, TENANT));
+				expect(result.stamp.rarity).toBe('R');
+				expect(result.instantPoints).toBe(10);
+			} finally {
+				spy.mockRestore();
+			}
+		});
+
+		it('即時ポイント: SR レアリティで 20pt', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.86);
+			try {
+				const result = assertSuccess(await stampToday(1, TENANT));
+				expect(result.stamp.rarity).toBe('SR');
+				expect(result.instantPoints).toBe(20);
+			} finally {
+				spy.mockRestore();
+			}
+		});
+
+		it('即時ポイント: UR レアリティで 40pt', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.98);
+			try {
+				const result = assertSuccess(await stampToday(1, TENANT));
+				expect(result.stamp.rarity).toBe('UR');
+				expect(result.instantPoints).toBe(40);
 			} finally {
 				spy.mockRestore();
 			}
