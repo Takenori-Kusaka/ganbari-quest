@@ -14,10 +14,10 @@ let {
 const pct = $derived(Math.max(0, Math.min(100, (current / max) * 100)));
 const barColor = $derived(
 	pct > 50
-		? 'var(--color-status-success, #22c55e)'
+		? 'var(--color-status-success)'
 		: pct > 20
-			? 'var(--color-status-warning, #f59e0b)'
-			: 'var(--color-status-error, #ef4444)',
+			? 'var(--color-status-warning)'
+			: 'var(--color-status-error)',
 );
 </script>
 
@@ -47,15 +47,15 @@ const barColor = $derived(
 		margin-bottom: 2px;
 	}
 	.hp-name {
-		color: var(--color-text-primary, #1a1a2e);
+		color: var(--color-text-primary);
 	}
 	.hp-value {
-		color: var(--color-text-secondary, #666);
+		color: var(--color-text-secondary);
 		font-variant-numeric: tabular-nums;
 	}
 	.hp-track {
 		height: 10px;
-		background: var(--color-surface-muted, #e5e7eb);
+		background: var(--color-surface-muted);
 		border-radius: 5px;
 		overflow: hidden;
 	}

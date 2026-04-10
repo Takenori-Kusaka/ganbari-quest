@@ -550,6 +550,14 @@ export default async function globalSetup() {
 			console.log(`[E2E Setup]   Cleaned ${deletedPins.changes} pin preference(s).`);
 		}
 
+		// テスト用クリーンアップ: 今日のバトルを削除（バトルテストの安定化）
+		const deletedBattles = db
+			.prepare("DELETE FROM daily_battles WHERE date = date('now', 'localtime')")
+			.run();
+		if (deletedBattles.changes > 0) {
+			console.log(`[E2E Setup]   Cleaned ${deletedBattles.changes} daily battle(s) from today.`);
+		}
+
 		// テスト用クリーンアップ: 今日の活動記録を削除（記録テストの安定化）
 		const deleted = db
 			.prepare("DELETE FROM activity_logs WHERE recorded_date = date('now', 'localtime')")

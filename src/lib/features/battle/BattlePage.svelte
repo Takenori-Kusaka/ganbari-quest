@@ -38,7 +38,7 @@ async function handleStartBattle() {
 }
 </script>
 
-<div class="battle-page">
+<div class="battle-page" data-testid="battle-page">
 	<h2 class="page-title">⚔️ きょうの バトル</h2>
 
 	{#if data.battle}
@@ -68,19 +68,19 @@ async function handleStartBattle() {
 	.battle-page {
 		padding: 1rem;
 		min-height: 100dvh;
-		background: var(--color-surface-base, #f9fafb);
+		background: var(--color-surface-base);
 	}
 	.page-title {
 		text-align: center;
 		font-size: 1.3rem;
 		font-weight: 800;
 		margin: 0 0 1rem;
-		color: var(--color-text-primary, #1a1a2e);
+		color: var(--color-text-primary);
 	}
 	.no-battle {
 		text-align: center;
 		padding: 2rem;
-		color: var(--color-text-secondary, #666);
+		color: var(--color-text-secondary);
 	}
 	.loading-overlay {
 		position: fixed;

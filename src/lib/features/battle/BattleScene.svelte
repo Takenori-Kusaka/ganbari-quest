@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { BattleResult, BattleStats, Enemy } from '$lib/domain/battle-types';
 import { STAT_LABELS } from '$lib/domain/battle-types';
+import Button from '$lib/ui/primitives/Button.svelte';
 import BattleHPBar from './BattleHPBar.svelte';
 import BattleLog from './BattleLog.svelte';
 
@@ -97,11 +98,11 @@ function sleep(ms: number): Promise<void> {
 const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, number][]);
 </script>
 
-<div class="battle-scene">
+<div class="battle-scene" data-testid="battle-scene">
 	<!-- バトルフィールド -->
-	<div class="battle-field">
+	<div class="battle-field" data-testid="battle-field">
 		<!-- 敵サイド -->
-		<div class="combatant enemy-side">
+		<div class="combatant enemy-side" data-testid="enemy-side">
 			<BattleHPBar
 				current={enemyHp}
 				max={scaledEnemyMaxHp}
@@ -111,14 +112,14 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 			<div class="sprite" class:shake={enemyShake} class:defeated={enemyHp <= 0}>
 				<span class="sprite-icon">{enemy.icon}</span>
 			</div>
-			<div class="combatant-name">{enemy.name}</div>
+			<div class="combatant-name" data-testid="enemy-name">{enemy.name}</div>
 		</div>
 
 		<!-- VS 表示 -->
 		<div class="vs-label">VS</div>
 
 		<!-- プレイヤーサイド -->
-		<div class="combatant player-side">
+		<div class="combatant player-side" data-testid="player-side">
 			<BattleHPBar
 				current={playerHp}
 				max={playerStats.hp}
@@ -134,7 +135,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 
 	<!-- ステータス表示 -->
 	{#if !battleResult && !completed}
-		<div class="stats-panel">
+		<div class="stats-panel" data-testid="stats-panel">
 			<h3 class="stats-title">きみのステータス</h3>
 			<div class="stats-grid">
 				{#each statEntries as [stat, value]}
@@ -154,13 +155,13 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 
 	<!-- 結果表示 -->
 	{#if showResult && battleResult}
-		<div class="result-banner" class:win={battleResult.outcome === 'win'} class:lose={battleResult.outcome === 'lose'}>
+		<div class="result-banner" class:win={battleResult.outcome === 'win'} class:lose={battleResult.outcome === 'lose'} data-testid="battle-result">
 			{#if battleResult.outcome === 'win'}
-				<div class="result-text">🎉 かった！</div>
-				<div class="reward-text">+{battleResult.rewardPoints}ポイント</div>
+				<div class="result-text" data-testid="result-text">🎉 かった！</div>
+				<div class="reward-text" data-testid="reward-text">+{battleResult.rewardPoints}ポイント</div>
 			{:else}
-				<div class="result-text">😢 まけちゃった…</div>
-				<div class="reward-text">+{battleResult.rewardPoints}ポイント（なぐさめ）</div>
+				<div class="result-text" data-testid="result-text">😢 まけちゃった…</div>
+				<div class="reward-text" data-testid="reward-text">+{battleResult.rewardPoints}ポイント（なぐさめ）</div>
 				<div class="encourage-text">つぎは かてるよ！ がんばろう！</div>
 			{/if}
 		</div>
@@ -168,11 +169,11 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 
 	<!-- アクションボタン -->
 	{#if !battleResult && !completed}
-		<button class="battle-button" onclick={onStartBattle} disabled={animating}>
+		<Button size="lg" onclick={onStartBattle} disabled={animating} class="w-full" data-testid="battle-start-button">
 			⚔️ バトル かいし！
-		</button>
+		</Button>
 	{:else if completed && !battleResult}
-		<div class="already-done">きょうの バトルは おわったよ！</div>
+		<div class="already-done" data-testid="battle-already-done">きょうの バトルは おわったよ！</div>
 	{/if}
 </div>
 
@@ -189,7 +190,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		gap: 0.5rem;
 		margin-bottom: 1rem;
 		padding: 1rem;
-		background: var(--color-surface-card, #fff);
+		background: var(--color-surface-card);
 		border-radius: 16px;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 	}
@@ -200,7 +201,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	.vs-label {
 		font-size: 1.5rem;
 		font-weight: 900;
-		color: var(--color-text-tertiary, #999);
+		color: var(--color-text-tertiary);
 		flex-shrink: 0;
 	}
 	.sprite {
@@ -224,11 +225,11 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	.combatant-name {
 		font-size: 0.85rem;
 		font-weight: 600;
-		color: var(--color-text-primary, #1a1a2e);
+		color: var(--color-text-primary);
 	}
 
 	.stats-panel {
-		background: var(--color-surface-card, #fff);
+		background: var(--color-surface-card);
 		border-radius: 12px;
 		padding: 0.75rem;
 		margin-bottom: 1rem;
@@ -237,7 +238,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		font-size: 0.85rem;
 		font-weight: 700;
 		margin: 0 0 0.5rem;
-		color: var(--color-text-primary, #1a1a2e);
+		color: var(--color-text-primary);
 	}
 	.stats-grid {
 		display: grid;
@@ -252,12 +253,12 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	}
 	.stat-label {
 		font-size: 0.65rem;
-		color: var(--color-text-tertiary, #999);
+		color: var(--color-text-tertiary);
 	}
 	.stat-value {
 		font-size: 0.9rem;
 		font-weight: 700;
-		color: var(--color-text-primary, #1a1a2e);
+		color: var(--color-text-primary);
 	}
 
 	.result-banner {
@@ -270,14 +271,14 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	.result-banner.win {
 		background: linear-gradient(
 			135deg,
-			var(--color-status-success, #22c55e) 0%,
-			var(--color-brand-400, #4ade80) 100%
+			var(--color-status-success) 0%,
+			var(--color-brand-400) 100%
 		);
 		color: white;
 	}
 	.result-banner.lose {
-		background: var(--color-surface-muted, #f3f4f6);
-		color: var(--color-text-primary, #1a1a2e);
+		background: var(--color-surface-muted);
+		color: var(--color-text-primary);
 	}
 	.result-text {
 		font-size: 1.5rem;
@@ -294,41 +295,13 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		opacity: 0.8;
 	}
 
-	.battle-button {
-		display: block;
-		width: 100%;
-		padding: 1rem;
-		font-size: 1.2rem;
-		font-weight: 800;
-		color: white;
-		background: linear-gradient(
-			135deg,
-			var(--color-action-primary, #667eea) 0%,
-			var(--color-brand-600, #764ba2) 100%
-		);
-		border: none;
-		border-radius: 12px;
-		cursor: pointer;
-		transition: transform 0.1s;
-	}
-	.battle-button:hover:not(:disabled) {
-		transform: scale(1.02);
-	}
-	.battle-button:active:not(:disabled) {
-		transform: scale(0.98);
-	}
-	.battle-button:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-
 	.already-done {
 		text-align: center;
 		padding: 1rem;
 		font-size: 1rem;
 		font-weight: 600;
-		color: var(--color-text-secondary, #666);
-		background: var(--color-surface-muted, #f3f4f6);
+		color: var(--color-text-secondary);
+		background: var(--color-surface-muted);
 		border-radius: 12px;
 	}
 
