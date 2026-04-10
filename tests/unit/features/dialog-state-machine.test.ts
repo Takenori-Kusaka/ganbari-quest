@@ -170,7 +170,7 @@ describe('DialogFSM', () => {
 			expect(fsm.queue).toEqual(['specialReward', 'parentMessage']);
 		});
 
-		it('does not re-enqueue processed dialogs', () => {
+		it('does not re-enqueue processed dialogs with same id', () => {
 			const triggers: DialogTriggers = {
 				adventure: true,
 				stampPress: { emoji: '⭐' },
@@ -188,6 +188,39 @@ describe('DialogFSM', () => {
 			fsm.onDataLoad(triggers);
 			expect(fsm.current).toBe('idle');
 			expect(fsm.queue).toEqual([]);
+		});
+
+		it('re-enqueues same type with different id (processed key: type:id)', () => {
+			// First reward with id=1
+			fsm.onDataLoad({
+				specialReward: { id: 1, title: 'Reward A' },
+			});
+			expect(fsm.current).toBe('specialReward');
+
+			fsm.close(); // idle
+			expect(fsm.current).toBe('idle');
+
+			// New reward with id=2 should trigger even though type was processed
+			fsm.onDataLoad({
+				specialReward: { id: 2, title: 'Reward B' },
+			});
+			expect(fsm.current).toBe('specialReward');
+			expect(fsm.getData('specialReward')).toEqual({ id: 2, title: 'Reward B' });
+		});
+
+		it('uses type as key when payload has no id', () => {
+			fsm.onDataLoad({
+				adventure: { childName: 'test' },
+			});
+			expect(fsm.current).toBe('adventure');
+
+			fsm.close();
+
+			// Same type without id — should NOT re-trigger
+			fsm.onDataLoad({
+				adventure: { childName: 'test2' },
+			});
+			expect(fsm.current).toBe('idle');
 		});
 
 		it('does nothing when no triggers match', () => {
@@ -376,15 +409,32 @@ describe('DialogFSM', () => {
 			fsm.close(); // stampPress -> specialReward
 			fsm.close(); // specialReward -> idle
 
-			// Simulate invalidateAll → page data reloads with same triggers
+			// Simulate invalidateAll → page data reloads with same triggers (same id)
 			fsm.onDataLoad({
 				stampPress: { emoji: '⭐' },
 				specialReward: { id: 1 },
 			});
 
-			// Nothing should happen — both are in processed set
+			// Nothing should happen — both are in processed set (specialReward:1, stampPress)
 			expect(fsm.current).toBe('idle');
 			expect(fsm.queue).toEqual([]);
+		});
+
+		it('onDataLoad after invalidateAll re-triggers with new id', () => {
+			// First load with reward id=1
+			fsm.onDataLoad({
+				specialReward: { id: 1 },
+			});
+			fsm.close(); // idle
+
+			// invalidateAll returns a NEW reward id=2
+			fsm.onDataLoad({
+				specialReward: { id: 2 },
+			});
+
+			// Should re-trigger because id changed
+			expect(fsm.current).toBe('specialReward');
+			expect(fsm.getData('specialReward')).toEqual({ id: 2 });
 		});
 	});
 });

@@ -61,6 +61,7 @@ interface Props {
 	stampPressData: StampPressData | null;
 	onStampPressClose: () => void;
 	birthdayBonus: BirthdayBonus | null;
+	onBirthdayClose: () => void;
 	nickname: string;
 	uiMode: string;
 }
@@ -74,6 +75,7 @@ let {
 	stampPressData,
 	onStampPressClose,
 	birthdayBonus,
+	onBirthdayClose,
 	nickname,
 	uiMode,
 }: Props = $props();
@@ -132,5 +134,6 @@ let birthdayModalOpen = $derived(fsm.current === 'birthday');
 		newAge={birthdayBonus.newAge ?? 0}
 		totalPoints={birthdayBonus.totalPoints ?? 0}
 		{uiMode}
+		onClose={onBirthdayClose}
 	/>
 {/if}

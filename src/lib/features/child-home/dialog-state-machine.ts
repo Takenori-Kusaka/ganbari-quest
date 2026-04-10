@@ -43,8 +43,9 @@ export interface DialogState {
 	queue: DialogType[];
 	/** Data payloads keyed by dialog type. */
 	data: Map<DialogType, unknown>;
-	/** Dialogs already processed this page load (prevents re-triggering). */
-	processed: Set<DialogType>;
+	/** Dialogs already processed this page load (prevents re-triggering).
+	 *  Key format: `${type}:${id}` for payload with id, or `${type}` for others. */
+	processed: Set<string>;
 }
 
 /**
@@ -67,7 +68,15 @@ export class DialogFSM {
 	current: DialogType = 'idle';
 	queue: DialogType[] = [];
 	data: Map<DialogType, unknown> = new Map();
-	processed: Set<DialogType> = new Set();
+	processed: Set<string> = new Set();
+
+	/** Build a processed-set key from type + payload id (if available). */
+	private processedKey(type: DialogType, payload?: unknown): string {
+		if (payload && typeof payload === 'object' && 'id' in payload) {
+			return `${type}:${(payload as { id: unknown }).id}`;
+		}
+		return type;
+	}
 
 	/** Attempt to show a dialog. If idle, show immediately. Otherwise enqueue. */
 	transition(type: DialogType, payload?: unknown): boolean {
@@ -123,11 +132,12 @@ export class DialogFSM {
 		for (const type of PRIORITY_ORDER) {
 			const triggerValue = triggers[type as keyof DialogTriggers];
 			if (!triggerValue) continue;
-			if (this.processed.has(type)) continue;
+			const key = this.processedKey(type, triggerValue);
+			if (this.processed.has(key)) continue;
 			if (this.current === type || this.queue.includes(type)) continue;
 
 			this.data.set(type, triggerValue);
-			this.processed.add(type);
+			this.processed.add(key);
 			toEnqueue.push(type);
 		}
 

@@ -368,7 +368,7 @@ $effect(() => {
 		adventure: shouldShowAdventure ? { childName: data.child?.nickname ?? '' } : undefined,
 		specialReward: shouldShowReward ? data.latestReward : undefined,
 		parentMessage: shouldShowMessage ? data.latestMessage : undefined,
-		birthday: data.birthdayBonus ? data.birthdayBonus : undefined,
+		// birthday は自動トリガーから除外 — バナークリック(handleBirthdayOpen)でのみ開く
 	});
 
 	// If adventure is not showing and login bonus unclaimed, trigger it
@@ -918,6 +918,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{stampPressData}
 	onStampPressClose={handleStampPressClose}
 	birthdayBonus={data.birthdayBonus}
+	onBirthdayClose={() => fsm.close()}
 	nickname={data.child?.nickname ?? ''}
 	uiMode={data.uiMode}
 />
