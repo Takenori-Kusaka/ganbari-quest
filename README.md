@@ -117,9 +117,7 @@ npx drizzle-kit push # DBマイグレーション
 
 ## コミュニティ
 
-[![Discord](https://img.shields.io/badge/Discord-コミュニティ-5865F2?logo=discord&logoColor=white)](https://discord.gg/5pWkf4Z5)
-
-質問・要望・体験談の共有は [Discordコミュニティ](https://discord.gg/5pWkf4Z5) で受け付けています。お気軽にご参加ください。
+質問・要望・体験談の共有は [GitHub Issues](https://github.com/Takenori-Kusaka/ganbari-quest/issues) または [メール](mailto:ganbari.quest.support@gmail.com) で受け付けています。お気軽にご連絡ください。
 
 ## コントリビュート
 

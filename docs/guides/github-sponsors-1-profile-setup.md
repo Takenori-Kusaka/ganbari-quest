@@ -65,7 +65,7 @@ SvelteKit 2 + Svelte 5 + Ark UI + SQLite + Drizzle ORM
 ### リンク
 - 🌐 [がんばりクエスト公式サイト](https://ganbari-quest.com)
 - 🎮 [デモを試す](https://ganbari-quest.com/demo)
-- 💬 [Discord コミュニティ](https://discord.gg/5pWkf4Z5)
+- 💬 [お問い合わせ](mailto:ganbari.quest.support@gmail.com)
 ```
 
 > **ポイント**: 「何のプロジェクトか」「なぜ支援が必要か」「支援金の使い道」の3点が含まれていると、スポンサーの判断材料になります。
