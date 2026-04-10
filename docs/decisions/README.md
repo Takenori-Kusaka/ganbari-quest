@@ -56,9 +56,11 @@
 | 0007 | [画像アセットが存在する機能を絵文字に戻すことは明示的デグレ](0007-image-asset-protection.md) | accepted | 2026-04-07 |
 | 0008 | [年齢モード5重複の変更リスク管理](0008-age-mode-duplication-risk.md) | accepted | 2026-04-07 |
 | 0009 | [server→client 型契約の安全性確保](0009-server-client-type-contract.md) | accepted | 2026-04-07 |
-| 0010 | *(欠番 — main で未使用)* | — | — |
+| 0010 | [Issue 起票・クローズの品質基準](0010-issue-close-quality.md) | accepted | 2026-04-10 |
 | 0011 | [SvelteKit + Svelte 5 採用](0011-sveltekit-svelte5.md) | accepted | 2026-01-15 |
 | 0012 | [DynamoDB シングルテーブル設計](0012-dynamodb-single-table.md) | accepted | 2026-02-20 |
 | 0013 | [Cognito + Google OAuth 認証](0013-cognito-google-oauth.md) | accepted | 2026-02-25 |
 | 0014 | [3層CSSトークンアーキテクチャ](0014-css-token-architecture.md) | accepted | 2026-03-15 |
 | 0015 | [Repository パターンによる DB 抽象化](0015-repository-pattern.md) | accepted | 2026-02-15 |
+| 0016 | [ダイアログ/オーバーレイの状態管理方針](0016-dialog-overlay-management.md) | accepted | 2026-04-10 |
+| 0017 | [テスト品質の劣化を許容しない開発プロセス](0017-test-quality-ratchet.md) | accepted | 2026-04-10 |
