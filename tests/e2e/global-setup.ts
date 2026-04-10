@@ -85,95 +85,88 @@ export default async function globalSetup() {
 			console.log('[E2E Setup]   Created test PIN (1234) for backward compat.');
 		}
 
-		// テスト用子供がいなければ作成
-		const childCount = db.prepare('SELECT count(*) as c FROM children').get() as { c: number };
-		if (childCount.c === 0) {
-			db.prepare(
-				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('たろうくん', 4, 'pink', 'preschool')",
-			).run();
-			db.prepare(
-				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('はなこちゃん', 1, 'pink', 'baby')",
-			).run();
-			db.prepare(
-				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('けんたくん', 8, 'blue', 'elementary')",
-			).run();
-			db.prepare(
-				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('ゆうこちゃん', 13, 'green', 'junior')",
-			).run();
-			db.prepare(
-				"INSERT INTO children (nickname, age, theme, ui_mode) VALUES ('まさとくん', 16, 'purple', 'senior')",
-			).run();
+		// テスト用子供を冪等に作成（nickname ベースの存在チェック）
+		const TEST_CHILDREN = [
+			{ nickname: 'たろうくん', age: 4, theme: 'pink', ui_mode: 'preschool' },
+			{ nickname: 'はなこちゃん', age: 1, theme: 'pink', ui_mode: 'baby' },
+			{ nickname: 'けんたくん', age: 8, theme: 'blue', ui_mode: 'elementary' },
+			{ nickname: 'ゆうこちゃん', age: 13, theme: 'green', ui_mode: 'junior' },
+			{ nickname: 'まさとくん', age: 16, theme: 'purple', ui_mode: 'senior' },
+		];
+		for (const child of TEST_CHILDREN) {
+			const existing = db
+				.prepare('SELECT id FROM children WHERE nickname = ?')
+				.get(child.nickname) as { id: number } | undefined;
+			if (!existing) {
+				db.prepare('INSERT INTO children (nickname, age, theme, ui_mode) VALUES (?, ?, ?, ?)').run(
+					child.nickname,
+					child.age,
+					child.theme,
+					child.ui_mode,
+				);
+				console.log(`[E2E Setup]   Created test child: ${child.nickname} (${child.ui_mode})`);
+			}
+		}
+		// テスト用子供の ID マップ（以降の処理で使用）
+		const testChildIds: Record<string, number> = {};
+		for (const child of TEST_CHILDREN) {
+			const row = db.prepare('SELECT id FROM children WHERE nickname = ?').get(child.nickname) as {
+				id: number;
+			};
+			testChildIds[child.nickname] = row.id;
+		}
 
-			// ステータス初期化（カテゴリごとにリアルなレベル差をつける）
-			// たろうくん (child_id=1, preschool): せいかつが得意、べんきょうはこれから
-			const kinderXp: [number, number, number][] = [
-				// [categoryId, totalXp, level]
+		// ステータス初期化（カテゴリごとにリアルなレベル差をつける — INSERT OR IGNORE で冪等）
+		const statusData: Record<string, [number, number, number][]> = {
+			// [categoryId, totalXp, level]
+			// たろうくん (preschool): せいかつが得意、べんきょうはこれから
+			たろうくん: [
 				[1, 80, 4], // undou: よく体を動かす
 				[2, 30, 2], // benkyou: まだこれから
 				[3, 150, 6], // seikatsu: 生活習慣が一番得意
 				[4, 60, 3], // kouryuu: お友達と遊べる
 				[5, 45, 3], // souzou: おえかき好き
-			];
-			for (const [catId, xp, lv] of kinderXp) {
-				db.prepare(
-					'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (1, ?, ?, ?, ?)',
-				).run(catId, xp, lv, xp);
-			}
-			// はなこちゃん (child_id=2, baby): 全体的にまだ低レベル
-			const babyXp: [number, number, number][] = [
+			],
+			// はなこちゃん (baby): 全体的にまだ低レベル
+			はなこちゃん: [
 				[1, 20, 2], // undou
 				[2, 10, 1], // benkyou
 				[3, 35, 2], // seikatsu
 				[4, 15, 1], // kouryuu
 				[5, 10, 1], // souzou
-			];
-			for (const [catId, xp, lv] of babyXp) {
-				db.prepare(
-					'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (2, ?, ?, ?, ?)',
-				).run(catId, xp, lv, xp);
-			}
-			// けんたくん (child_id=3, elementary): うんどうとべんきょうがバランス良い
-			const elementaryXp: [number, number, number][] = [
+			],
+			// けんたくん (elementary): うんどうとべんきょうがバランス良い
+			けんたくん: [
 				[1, 200, 8], // undou: スポーツクラブ
 				[2, 180, 7], // benkyou: 授業で頑張る
 				[3, 120, 5], // seikatsu: 自分でできる
 				[4, 100, 5], // kouryuu: 友達と協力
 				[5, 90, 4], // souzou: 図工が好き
-			];
-			for (const [catId, xp, lv] of elementaryXp) {
-				db.prepare(
-					'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (3, ?, ?, ?, ?)',
-				).run(catId, xp, lv, xp);
-			}
-			// ゆうこちゃん (child_id=4, junior): べんきょう重視、部活でうんどう
-			const juniorXp: [number, number, number][] = [
+			],
+			// ゆうこちゃん (junior): べんきょう重視、部活でうんどう
+			ゆうこちゃん: [
 				[1, 150, 6], // undou: 部活で運動
 				[2, 300, 10], // benkyou: 受験勉強で高レベル
 				[3, 100, 5], // seikatsu: 自立している
 				[4, 130, 6], // kouryuu: 部活の仲間
 				[5, 70, 4], // souzou: 美術部ではないが趣味で
-			];
-			for (const [catId, xp, lv] of juniorXp) {
-				db.prepare(
-					'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (4, ?, ?, ?, ?)',
-				).run(catId, xp, lv, xp);
-			}
-			// まさとくん (child_id=5, senior): 全体的に高レベル
-			const seniorXp: [number, number, number][] = [
+			],
+			// まさとくん (senior): 全体的に高レベル
+			まさとくん: [
 				[1, 250, 9], // undou: 部活のエース
 				[2, 350, 11], // benkyou: 大学受験に向けて
 				[3, 180, 7], // seikatsu: 完全に自立
 				[4, 200, 8], // kouryuu: リーダーシップ
 				[5, 120, 5], // souzou: 趣味で創作
-			];
-			for (const [catId, xp, lv] of seniorXp) {
+			],
+		};
+		for (const [nickname, xpData] of Object.entries(statusData)) {
+			const childId = testChildIds[nickname];
+			for (const [catId, xp, lv] of xpData) {
 				db.prepare(
-					'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (5, ?, ?, ?, ?)',
-				).run(catId, xp, lv, xp);
+					'INSERT OR IGNORE INTO statuses (child_id, category_id, total_xp, level, peak_xp) VALUES (?, ?, ?, ?, ?)',
+				).run(childId, catId, xp, lv, xp);
 			}
-			console.log(
-				'[E2E Setup]   Created test children (たろうくん, はなこちゃん, けんたくん, ゆうこちゃん, まさとくん).',
-			);
 		}
 
 		// フォーカスモード開始日を過去に設定（3日経過 → フォーカスモード無効化）
@@ -525,7 +518,7 @@ export default async function globalSetup() {
 			)
 			.get() as { c: number };
 		if (pastLogCount.c === 0) {
-			// たろうくん (child_id=1) の過去7日分の活動ログ
+			// たろうくん の過去7日分の活動ログ
 			// kinder-starter パックの活動を使用（seed.ts の活動名と一致）
 			const kinderActivities = db
 				.prepare(
@@ -548,7 +541,7 @@ export default async function globalSetup() {
 						const streak = 8 - daysAgo; // 連続日数
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
 						logStmt.run(
-							1,
+							testChildIds.たろうくん,
 							act.id,
 							act.base_points + bonus,
 							streak,
@@ -561,7 +554,7 @@ export default async function globalSetup() {
 				console.log('[E2E Setup]   Added realistic activity logs for たろうくん (7 days).');
 			}
 
-			// はなこちゃん (child_id=2) の過去5日分
+			// はなこちゃん の過去5日分
 			const babyActivities = db
 				.prepare(
 					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'baby' OR (age_min <= 1 AND (age_max IS NULL OR age_max >= 1)) LIMIT 10",
@@ -580,7 +573,7 @@ export default async function globalSetup() {
 						const act = babyActivities[(daysAgo * 2 + j) % babyActivities.length];
 						if (!act) continue;
 						logStmt2.run(
-							1 + 1,
+							testChildIds.はなこちゃん,
 							act.id,
 							act.base_points,
 							1,
@@ -593,7 +586,7 @@ export default async function globalSetup() {
 				console.log('[E2E Setup]   Added realistic activity logs for はなこちゃん (5 days).');
 			}
 
-			// けんたくん (child_id=3) の過去6日分の活動ログ
+			// けんたくん の過去6日分の活動ログ
 			const elementaryActivities = db
 				.prepare(
 					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'elementary_lower' OR (age_min <= 8 AND (age_max IS NULL OR age_max >= 8)) LIMIT 20",
@@ -614,7 +607,7 @@ export default async function globalSetup() {
 						const streak = 7 - daysAgo;
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
 						logStmt3.run(
-							3,
+							testChildIds.けんたくん,
 							act.id,
 							act.base_points + bonus,
 							streak,
@@ -627,7 +620,7 @@ export default async function globalSetup() {
 				console.log('[E2E Setup]   Added realistic activity logs for けんたくん (6 days).');
 			}
 
-			// ゆうこちゃん (child_id=4) の過去5日分の活動ログ
+			// ゆうこちゃん の過去5日分の活動ログ
 			const juniorActivities = db
 				.prepare(
 					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'middle_school' OR (age_min <= 13 AND (age_max IS NULL OR age_max >= 13)) LIMIT 20",
@@ -648,7 +641,7 @@ export default async function globalSetup() {
 						const streak = 6 - daysAgo;
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
 						logStmt4.run(
-							4,
+							testChildIds.ゆうこちゃん,
 							act.id,
 							act.base_points + bonus,
 							streak,
@@ -661,7 +654,7 @@ export default async function globalSetup() {
 				console.log('[E2E Setup]   Added realistic activity logs for ゆうこちゃん (5 days).');
 			}
 
-			// まさとくん (child_id=5) の過去4日分の活動ログ
+			// まさとくん の過去4日分の活動ログ
 			const seniorActivities = db
 				.prepare(
 					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'high_school' OR (age_min <= 16 AND (age_max IS NULL OR age_max >= 16)) LIMIT 20",
@@ -682,7 +675,7 @@ export default async function globalSetup() {
 						const streak = 5 - daysAgo;
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
 						logStmt5.run(
-							5,
+							testChildIds.まさとくん,
 							act.id,
 							act.base_points + bonus,
 							streak,
