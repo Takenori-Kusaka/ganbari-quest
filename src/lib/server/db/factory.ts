@@ -2,12 +2,12 @@
 // DATA_SOURCE 環境変数による SQLite / DynamoDB バックエンド切り替え
 
 import * as dynamoAccountLockoutRepo from './dynamodb/account-lockout-repo';
-
 import * as dynamoActivityMasteryRepo from './dynamodb/activity-mastery-repo';
 import * as dynamoActivityPrefRepo from './dynamodb/activity-pref-repo';
 import * as dynamoActivityRepo from './dynamodb/activity-repo';
 import * as dynamoAuthRepo from './dynamodb/auth-repo';
 import * as dynamoAutoChallengeRepo from './dynamodb/auto-challenge-repo';
+import * as dynamoBattleRepo from './dynamodb/battle-repo';
 import * as dynamoChecklistRepo from './dynamodb/checklist-repo';
 import * as dynamoChildRepo from './dynamodb/child-repo';
 import * as dynamoCloudExportRepo from './dynamodb/cloud-export-repo';
@@ -33,12 +33,12 @@ import * as dynamoTrialHistoryRepo from './dynamodb/trial-history-repo';
 import * as dynamoViewerTokenRepo from './dynamodb/viewer-token-repo';
 import * as dynamoVoiceRepo from './dynamodb/voice-repo';
 import type { IAccountLockoutRepo } from './interfaces/account-lockout-repo.interface';
-
 import type { IActivityMasteryRepo } from './interfaces/activity-mastery-repo.interface';
 import type { IActivityPrefRepo } from './interfaces/activity-pref-repo.interface';
 import type { IActivityRepo } from './interfaces/activity-repo.interface';
 import type { IAuthRepo } from './interfaces/auth-repo.interface';
 import type { IAutoChallengeRepo } from './interfaces/auto-challenge-repo.interface';
+import type { IBattleRepo } from './interfaces/battle-repo.interface';
 import type { IChecklistRepo } from './interfaces/checklist-repo.interface';
 import type { IChildRepo } from './interfaces/child-repo.interface';
 import type { ICloudExportRepo } from './interfaces/cloud-export-repo.interface';
@@ -64,12 +64,12 @@ import type { ITrialHistoryRepo } from './interfaces/trial-history-repo.interfac
 import type { IViewerTokenRepo } from './interfaces/viewer-token-repo.interface';
 import type { IVoiceRepo } from './interfaces/voice-repo.interface';
 import * as sqliteAccountLockoutRepo from './sqlite/account-lockout-repo';
-
 import * as sqliteActivityMasteryRepo from './sqlite/activity-mastery-repo';
 import * as sqliteActivityPrefRepo from './sqlite/activity-pref-repo';
 import * as sqliteActivityRepo from './sqlite/activity-repo';
 import * as sqliteAuthRepo from './sqlite/auth-repo';
 import * as sqliteAutoChallengeRepo from './sqlite/auto-challenge-repo';
+import * as sqliteBattleRepo from './sqlite/battle-repo';
 import * as sqliteChecklistRepo from './sqlite/checklist-repo';
 import * as sqliteChildRepo from './sqlite/child-repo';
 import * as sqliteCloudExportRepo from './sqlite/cloud-export-repo';
@@ -98,6 +98,7 @@ import * as sqliteVoiceRepo from './sqlite/voice-repo';
 export interface Repositories {
 	accountLockout: IAccountLockoutRepo;
 	autoChallenge: IAutoChallengeRepo;
+	battle: IBattleRepo;
 	auth: IAuthRepo;
 	activity: IActivityRepo;
 	activityMastery: IActivityMasteryRepo;
@@ -138,6 +139,7 @@ export function getRepos(): Repositories {
 		const repos: Repositories = {
 			accountLockout: dynamoAccountLockoutRepo,
 			autoChallenge: dynamoAutoChallengeRepo,
+			battle: dynamoBattleRepo,
 			auth: dynamoAuthRepo,
 			activity: dynamoActivityRepo,
 			activityMastery: dynamoActivityMasteryRepo,
@@ -174,6 +176,7 @@ export function getRepos(): Repositories {
 	const repos: Repositories = {
 		accountLockout: sqliteAccountLockoutRepo,
 		autoChallenge: sqliteAutoChallengeRepo,
+		battle: sqliteBattleRepo,
 		auth: sqliteAuthRepo,
 		activity: sqliteActivityRepo,
 		activityMastery: sqliteActivityMasteryRepo,
