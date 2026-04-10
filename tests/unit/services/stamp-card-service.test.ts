@@ -12,9 +12,8 @@ let testDb: TestDb;
 // todayDateJST をモックして日付を制御（toJSTDateString は実装をそのまま使用）
 let mockToday = '2026-03-30'; // 月曜日
 vi.mock('$lib/domain/date-utils', async () => {
-	const actual = await vi.importActual<typeof import('$lib/domain/date-utils')>(
-		'$lib/domain/date-utils',
-	);
+	const actual =
+		await vi.importActual<typeof import('$lib/domain/date-utils')>('$lib/domain/date-utils');
 	return {
 		...actual,
 		todayDateJST: () => mockToday,
