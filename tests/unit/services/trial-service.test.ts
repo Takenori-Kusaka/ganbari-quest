@@ -1,7 +1,7 @@
 // tests/unit/services/trial-service.test.ts
 // trial-service ユニットテスト (#314 リファクタ)
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // In-memory trial_history store for testing
 let trialRows: Array<{
@@ -299,6 +299,128 @@ describe('trial-service (#314)', () => {
 		it('returns null when no active trial', async () => {
 			const tier = await getTrialTier('tenant1');
 			expect(tier).toBeNull();
+		});
+	});
+
+	describe('date boundary (#689 off-by-one regression)', () => {
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('daysRemaining does not round up due to fractional time (23:59 JST)', async () => {
+			// 2026-04-10 23:59 JST = 2026-04-10 14:59 UTC
+			// JST today = 2026-04-10, endDate = 2026-04-13
+			// Expected daysRemaining = 3 (not 4 due to rounding up)
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2026-04-10T14:59:00Z'));
+
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: '2026-04-08',
+				endDate: '2026-04-13',
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: '2026-04-08T00:00:00Z',
+			});
+
+			const status = await getTrialStatus('tenant1');
+			expect(status.isTrialActive).toBe(true);
+			expect(status.daysRemaining).toBe(3);
+		});
+
+		it('daysRemaining is consistent right after midnight JST', async () => {
+			// 2026-04-11 00:01 JST = 2026-04-10 15:01 UTC
+			// JST today = 2026-04-11, endDate = 2026-04-13
+			// Expected daysRemaining = 2
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2026-04-10T15:01:00Z'));
+
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: '2026-04-08',
+				endDate: '2026-04-13',
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: '2026-04-08T00:00:00Z',
+			});
+
+			const status = await getTrialStatus('tenant1');
+			expect(status.isTrialActive).toBe(true);
+			expect(status.daysRemaining).toBe(2);
+		});
+
+		it('isTrialActive is true and daysRemaining is 0 on the last day', async () => {
+			// 2026-04-13 10:00 JST = 2026-04-13 01:00 UTC
+			// JST today = 2026-04-13, endDate = 2026-04-13
+			// endDate >= todayDate → isActive = true, daysRemaining = 0
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2026-04-13T01:00:00Z'));
+
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: '2026-04-08',
+				endDate: '2026-04-13',
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: '2026-04-08T00:00:00Z',
+			});
+
+			const status = await getTrialStatus('tenant1');
+			expect(status.isTrialActive).toBe(true);
+			expect(status.daysRemaining).toBe(0);
+		});
+
+		it('isTrialActive becomes false the day after endDate', async () => {
+			// 2026-04-14 10:00 JST = 2026-04-14 01:00 UTC
+			// JST today = 2026-04-14, endDate = 2026-04-13
+			// endDate < todayDate → isActive = false
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2026-04-14T01:00:00Z'));
+
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: '2026-04-08',
+				endDate: '2026-04-13',
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: '2026-04-08T00:00:00Z',
+			});
+
+			const status = await getTrialStatus('tenant1');
+			expect(status.isTrialActive).toBe(false);
+			expect(status.daysRemaining).toBe(0);
+		});
+
+		it('no inconsistency: isTrialActive and daysRemaining agree at 23:59 JST on endDate', async () => {
+			// 2026-04-13 23:59 JST = 2026-04-13 14:59 UTC
+			// JST today = 2026-04-13, endDate = 2026-04-13
+			// isActive should be true, daysRemaining should be 0
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2026-04-13T14:59:00Z'));
+
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: '2026-04-08',
+				endDate: '2026-04-13',
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: '2026-04-08T00:00:00Z',
+			});
+
+			const status = await getTrialStatus('tenant1');
+			// Both should be consistent: active with 0 days remaining (last day)
+			expect(status.isTrialActive).toBe(true);
+			expect(status.daysRemaining).toBe(0);
 		});
 	});
 
