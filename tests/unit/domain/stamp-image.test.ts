@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	getFallbackRank,
 	getStampImagePath,
-	getStampImagePathForEntry,
+	getStampImagePathSafe,
 	OMIKUJI_LABELS,
 	OMIKUJI_RANKS,
 	pickOmikujiRank,
@@ -69,21 +70,33 @@ describe('stamp-image', () => {
 		});
 	});
 
-	describe('getStampImagePathForEntry', () => {
-		it('omikujiRankがあればそのランクの画像パスを返す', () => {
-			expect(getStampImagePathForEntry('daikichi', 'SR')).toBe('/assets/stamps/daikichi.png');
-			expect(getStampImagePathForEntry('suekichi', 'N')).toBe('/assets/stamps/suekichi.png');
+	describe('getFallbackRank', () => {
+		it('各レアリティに対応するデフォルトランクを返す', () => {
+			expect(getFallbackRank('UR')).toBe('daidaikichi');
+			expect(getFallbackRank('SR')).toBe('daikichi');
+			expect(getFallbackRank('R')).toBe('chukichi');
+			expect(getFallbackRank('N')).toBe('kichi');
 		});
 
-		it('omikujiRankがnullならレアリティからフォールバック画像パスを返す', () => {
-			expect(getStampImagePathForEntry(null, 'UR')).toBe('/assets/stamps/daidaikichi.png');
-			expect(getStampImagePathForEntry(null, 'SR')).toBe('/assets/stamps/daikichi.png');
-			expect(getStampImagePathForEntry(null, 'R')).toBe('/assets/stamps/chukichi.png');
-			expect(getStampImagePathForEntry(null, 'N')).toBe('/assets/stamps/kichi.png');
+		it('未知のレアリティはkichiを返す', () => {
+			expect(getFallbackRank('UNKNOWN')).toBe('kichi');
+		});
+	});
+
+	describe('getStampImagePathSafe', () => {
+		it('omikujiRankがある場合はそのランクのパスを返す', () => {
+			expect(getStampImagePathSafe('daikichi', 'SR')).toBe('/assets/stamps/daikichi.png');
 		});
 
-		it('未知のレアリティはkichiにフォールバックする', () => {
-			expect(getStampImagePathForEntry(null, 'UNKNOWN')).toBe('/assets/stamps/kichi.png');
+		it('omikujiRankがnullの場合はrarityからフォールバックする', () => {
+			expect(getStampImagePathSafe(null, 'UR')).toBe('/assets/stamps/daidaikichi.png');
+			expect(getStampImagePathSafe(null, 'SR')).toBe('/assets/stamps/daikichi.png');
+			expect(getStampImagePathSafe(null, 'R')).toBe('/assets/stamps/chukichi.png');
+			expect(getStampImagePathSafe(null, 'N')).toBe('/assets/stamps/kichi.png');
+		});
+
+		it('omikujiRankがnullで未知のレアリティの場合はkichiにフォールバックする', () => {
+			expect(getStampImagePathSafe(null, 'UNKNOWN')).toBe('/assets/stamps/kichi.png');
 		});
 	});
 });

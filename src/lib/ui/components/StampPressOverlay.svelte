@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getStampImagePathForEntry } from '$lib/domain/stamp-image';
+import { getStampImagePathSafe } from '$lib/domain/stamp-image';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -12,7 +12,6 @@ interface StampCardEntry {
 
 interface Props {
 	open: boolean;
-	stampEmoji: string;
 	stampRarity: string;
 	stampName: string;
 	stampOmikujiRank: string | null;
@@ -35,7 +34,6 @@ interface Props {
 
 let {
 	open = $bindable(),
-	stampEmoji,
 	stampRarity,
 	stampName,
 	stampOmikujiRank,
@@ -63,7 +61,7 @@ const defaultConfig = { glow: 'none', particles: [] as string[], tier: 0 };
 const config = $derived(rarityConfig[stampRarity] ?? defaultConfig);
 const isComplete = $derived(cardFilledSlots >= cardTotalSlots);
 const remaining = $derived(cardTotalSlots - cardFilledSlots);
-const stampImageSrc = $derived(getStampImagePathForEntry(stampOmikujiRank, stampRarity));
+const stampImageSrc = $derived(getStampImagePathSafe(stampOmikujiRank, stampRarity));
 
 $effect(() => {
 	if (open) {
@@ -111,7 +109,7 @@ function handleClose() {
 					{@const isToday = i + 1 === cardFilledSlots}
 					<div class="sp__slot" class:sp__slot--today={isToday && phase === 'card'}>
 						{#if entry && !(isToday && phase === 'card')}
-							<img src={getStampImagePathForEntry(entry.omikujiRank, entry.rarity)} alt="" class="sp__slot-img" />
+							<img src={getStampImagePathSafe(entry.omikujiRank, entry.rarity)} alt="" class="sp__slot-img" />
 						{:else if isToday && (phase === 'press' || phase === 'points')}
 							<img
 								src={stampImageSrc}
@@ -246,10 +244,6 @@ function handleClose() {
 		font-size: 1.25rem;
 	}
 
-	.sp__slot-stamp--new {
-		animation: stamp-bounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-	}
-
 	.sp__slot-img {
 		width: 36px;
 		height: 36px;
@@ -288,10 +282,6 @@ function handleClose() {
 		align-items: center;
 		justify-content: center;
 		animation: stamp-press-main 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-	}
-
-	.sp__stamp-emoji {
-		font-size: 2rem;
 	}
 
 	.sp__stamp-main-img {
@@ -489,7 +479,6 @@ function handleClose() {
 
 	@media (prefers-reduced-motion: reduce) {
 		.sp__slot--today,
-		.sp__slot-stamp--new,
 		.sp__slot-img--new,
 		.sp__stamp-icon,
 		.sp__particle {

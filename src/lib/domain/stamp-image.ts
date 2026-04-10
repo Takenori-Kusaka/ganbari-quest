@@ -30,19 +30,31 @@ export const OMIKUJI_LABELS: Record<OmikujiRank, string> = {
 	suekichi: '末吉',
 };
 
+/** Default omikuji rank per rarity (first candidate = deterministic fallback) */
+const RARITY_DEFAULT_RANK: Record<string, OmikujiRank> = {
+	UR: 'daidaikichi',
+	SR: 'daikichi',
+	R: 'chukichi',
+	N: 'kichi',
+};
+
+/** Get the fallback omikuji rank for a given rarity */
+export function getFallbackRank(rarity: string): OmikujiRank {
+	return RARITY_DEFAULT_RANK[rarity] ?? 'kichi';
+}
+
 /** Get the stamp image path for an omikuji rank */
 export function getStampImagePath(rank: string): string {
 	return `/assets/stamps/${rank}.png`;
 }
 
-/** Get stamp image path with fallback for entries without omikujiRank (legacy data) */
-export function getStampImagePathForEntry(omikujiRank: string | null, rarity: string): string {
-	if (omikujiRank) {
-		return getStampImagePath(omikujiRank);
-	}
-	// Legacy entries: derive a deterministic rank from the existing rarity mapping
-	const fallbackRank = RARITY_TO_OMIKUJI[rarity]?.[0] ?? 'kichi';
-	return getStampImagePath(fallbackRank);
+/**
+ * Get the stamp image path, falling back to a rarity-based default
+ * when omikujiRank is null (e.g. legacy DB entries).
+ */
+export function getStampImagePathSafe(omikujiRank: string | null, rarity: string): string {
+	const rank = omikujiRank ?? getFallbackRank(rarity);
+	return getStampImagePath(rank);
 }
 
 /** Pick a random omikuji rank based on stamp rarity */
