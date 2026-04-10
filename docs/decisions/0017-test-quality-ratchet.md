@@ -14,8 +14,8 @@
 
 ## 決定
 
-1. **カバレッジ閾値のラチェット**: `scripts/check-coverage-threshold.js` が PR ブランチの閾値を `origin/main` と比較し、引き下げを検出した場合 CI を失敗させる
-2. **テストアンチパターンの検出**: `scripts/check-test-antipatterns.js` が以下を CI でチェック
+1. **カバレッジ閾値のラチェット**: `vite.config.ts` の `thresholds` 値の引き下げは Copilot / PO レビューで `[must]` 所見として検出。ADR + 復元計画なしでは承認しない
+2. **テストアンチパターンの検出**: 以下のパターンは Copilot / PO レビューで `[must]` 所見として検出
    - `clearDialogGhosts()` の `helpers.ts` 外での新規使用
    - `test.skip` / `test.fixme` の増加
 3. **禁止パターン**:
@@ -25,5 +25,5 @@
 
 ## 結果
 
-- CI が閾値引き下げとアンチパターンを自動検出
-- テスト品質の劣化が構造的に防止される
+- Copilot / PO レビューが閾値引き下げとアンチパターンを検出
+- テスト品質の劣化がレビュープロセスで防止される
