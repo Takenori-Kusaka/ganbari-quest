@@ -141,9 +141,9 @@ Breaking this chain is a `[must]` finding:
 
 ## Priority 12: Development Process Compliance
 
-- **Coverage threshold changes**: If `vite.config.ts` `thresholds` are lowered without an ADR and restoration plan in the same PR, mark as `[must]`.
+- **Coverage threshold changes (ADR-0017)**: If `vite.config.ts` `thresholds` are lowered, `scripts/check-coverage-threshold.js` compares against `origin/main` and blocks the PR in CI. Lowering thresholds requires an ADR and restoration plan.
 - **Issue close quality (ADR-0010)**: If a PR closes an Issue that lacks root cause analysis or acceptance criteria, flag as `[ask]`.
-- **Dialog management (ADR-0011)**: Dialog display changes must use the `DialogFSM` class. New `xxxOpen = true` direct state manipulation for overlays is a `[must]` finding.
+- **Dialog management (ADR-0016)**: Dialog/overlay display on the child home page must be centrally managed. New `xxxOpen = true` direct state manipulation for overlays is a `[must]` finding. See ADR-0002 for the original queue requirement.
 - **Design doc sync (ADR-0003)**: Verify design docs are updated for API/DB/UI changes (see Priority 4).
 
 ## Additional Context
@@ -153,7 +153,7 @@ Breaking this chain is a `[must]` finding:
 The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 
 - **ADR-0001**: Renames must maintain backward compatibility via `LEGACY_URL_MAP`
-- **ADR-0002**: ~~Only one dialog/overlay at a time (queue required)~~ — **superseded by ADR-0011**
+- **ADR-0002**: Only one dialog/overlay at a time (queue required) — see also ADR-0016 for updated management guidelines
 - **ADR-0003**: Design docs are Single Source of Truth (merge blocker)
 - **ADR-0004**: Stamp card spec — 5 slots, image-based, redeem flow
 - **ADR-0005**: Critical fix quality gate — 5 mandatory conditions
@@ -162,8 +162,8 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0008**: Age mode changes carry 5x duplication risk (mitigated by #664 consolidation)
 - **ADR-0009**: Server-client type contracts must be explicitly maintained
 - **ADR-0010**: Issue creation requires root cause analysis and structural solution proposals
-- **ADR-0011**: Dialog management uses FSM (DialogFSM class) — replaces distributed $effect + $state flag approach
-- **ADR-0012**: Test quality must not degrade — coverage threshold decreases are CI-blocked, test anti-patterns are prohibited
+- **ADR-0016**: Dialog/overlay state must be centrally managed (extends ADR-0002 with implementation guidelines)
+- **ADR-0017**: Test quality must not degrade — CI ratchet check (`scripts/check-coverage-threshold.js`) blocks threshold decreases, anti-pattern check (`scripts/check-test-antipatterns.js`) blocks test quality regression
 
 ### Team Structure
 
