@@ -150,20 +150,10 @@ test.describe('#611: ダイアログキュー', () => {
 		// 活動を記録
 		await activities.first().click();
 		const dialog = page.locator('[data-testid="confirm-dialog"]');
-		try {
-			await dialog.waitFor({ timeout: 3000 });
-		} catch {
-			test.skip();
-			return;
-		}
+		await expect(dialog).toBeVisible({ timeout: 3000 });
 		await page.locator('[data-testid="confirm-record-btn"]').click();
 
-		try {
-			await page.getByText(/きろくしたよ！/).waitFor({ timeout: 5000 });
-		} catch {
-			test.skip();
-			return;
-		}
+		await expect(page.getByText(/きろくしたよ！/)).toBeVisible({ timeout: 5000 });
 
 		// 全ダイアログを順次閉じる
 		for (let i = 0; i < 10; i++) {
@@ -182,7 +172,6 @@ test.describe('#611: ダイアログキュー', () => {
 				await page.waitForTimeout(300);
 			}
 		}
-		await clearDialogGhosts(page);
 
 		// #671 回帰テスト: 閉じた後 2 秒間ダイアログが再オープンしないことを確認
 		// (無限ループが起きると $effect が再トリガーして即座にダイアログが開く)
@@ -198,10 +187,7 @@ test.describe('#611: ダイアログキュー', () => {
 		await expandFirstCategory(page);
 		const activities = getAvailableActivities(page);
 		const count = await activities.count();
-		if (count === 0) {
-			test.skip();
-			return;
-		}
+		expect(count).toBeGreaterThan(0);
 
 		// 2つの活動を素早く連続タップ（ガードで2つ目はブロックされるはず）
 		await activities.first().click();
@@ -224,6 +210,5 @@ test.describe('#611: ダイアログキュー', () => {
 
 		// クリーンアップ
 		await dismissOverlays(page);
-		await clearDialogGhosts(page);
 	});
 });
