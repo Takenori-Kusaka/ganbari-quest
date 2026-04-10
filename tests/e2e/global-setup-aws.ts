@@ -47,7 +47,7 @@ export default async function globalSetup() {
 			const emailInput = page.getByLabel('メールアドレス');
 			await emailInput.waitFor({ timeout: 15000 });
 			await emailInput.fill(TEST_EMAIL);
-			await page.getByLabel('パスワード').fill(TEST_PASSWORD);
+			await page.getByLabel('パスワード', { exact: true }).fill(TEST_PASSWORD);
 
 			const loginBtn = page.getByRole('button', { name: 'ログイン' });
 			await loginBtn.click();
