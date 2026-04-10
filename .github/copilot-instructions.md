@@ -81,7 +81,7 @@ If the PR has no design doc impact, that is acceptable — but the omission shou
   - All Issue Acceptance Criteria completed
   - All proposed countermeasures implemented (or split to separate Issues)
 - **Schema changes must update test seeds**: `tests/e2e/global-setup.ts`, `tests/unit/helpers/test-db.ts`, and `src/lib/server/demo/demo-data.ts` must stay in sync with DB schema.
-- **Test anti-patterns (ADR-0012)** — the following are `[must]` findings:
+- **Test anti-patterns (ADR-0017)** — the following are `[must]` findings:
   - Coverage threshold decrease in `vite.config.ts` `thresholds` values
   - New `clearDialogGhosts()` usage outside `tests/e2e/helpers.ts` (masks app bugs)
   - New `test.skip()` / `test.fixme()` without documented justification
@@ -141,7 +141,7 @@ Breaking this chain is a `[must]` finding:
 
 ## Priority 12: Development Process Compliance
 
-- **Coverage threshold changes (ADR-0017)**: If `vite.config.ts` `thresholds` are lowered, `scripts/check-coverage-threshold.js` compares against `origin/main` and blocks the PR in CI. Lowering thresholds requires an ADR and restoration plan.
+- **Coverage threshold changes (ADR-0017)**: If `vite.config.ts` `thresholds` values are lowered, this is a `[must]` finding. Lowering thresholds requires an ADR with a restoration plan and explicit PO approval.
 - **Issue close quality (ADR-0010)**: If a PR closes an Issue that lacks root cause analysis or acceptance criteria, flag as `[ask]`.
 - **Dialog management (ADR-0016)**: Dialog/overlay display on the child home page must be centrally managed. New `xxxOpen = true` direct state manipulation for overlays is a `[must]` finding. See ADR-0002 for the original queue requirement.
 - **Design doc sync (ADR-0003)**: Verify design docs are updated for API/DB/UI changes (see Priority 4).
@@ -162,8 +162,13 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0008**: Age mode changes carry 5x duplication risk (mitigated by #664 consolidation)
 - **ADR-0009**: Server-client type contracts must be explicitly maintained
 - **ADR-0010**: Issue creation requires root cause analysis and structural solution proposals
-- **ADR-0016**: Dialog/overlay state must be centrally managed (extends ADR-0002 with implementation guidelines)
-- **ADR-0017**: Test quality must not degrade — CI ratchet check (`scripts/check-coverage-threshold.js`) blocks threshold decreases, anti-pattern check (`scripts/check-test-antipatterns.js`) blocks test quality regression
+- **ADR-0011**: SvelteKit 2 + Svelte 5 (Runes) adoption
+- **ADR-0012**: DynamoDB single-table design
+- **ADR-0013**: Cognito + Google OAuth authentication
+- **ADR-0014**: 3-layer CSS token architecture
+- **ADR-0015**: Repository pattern for DB abstraction
+- **ADR-0016**: Dialog/overlay state must be centrally managed via queue in `OverlaysSection.svelte` (extends ADR-0002)
+- **ADR-0017**: Test quality must not degrade — coverage threshold decreases and test anti-patterns are `[must]` review findings
 
 ### Team Structure
 
