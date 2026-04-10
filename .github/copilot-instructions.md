@@ -81,6 +81,14 @@ If the PR has no design doc impact, that is acceptable — but the omission shou
   - All Issue Acceptance Criteria completed
   - All proposed countermeasures implemented (or split to separate Issues)
 - **Schema changes must update test seeds**: `tests/e2e/global-setup.ts`, `tests/unit/helpers/test-db.ts`, and `src/lib/server/demo/demo-data.ts` must stay in sync with DB schema.
+- **Test anti-patterns (ADR-0012)** — the following are `[must]` findings:
+  - Coverage threshold decrease in `vite.config.ts` `thresholds` values
+  - New `clearDialogGhosts()` usage outside `tests/e2e/helpers.ts` (masks app bugs)
+  - New `test.skip()` / `test.fixme()` without documented justification
+  - New `waitForTimeout()` in E2E tests (use proper wait conditions instead)
+  - Service test files (`*-service.test.ts`) that don't import the service's public API
+  - Test code that re-implements business logic (e.g., `Math.random` probability simulation)
+- **Feature PRs must include tests**: A PR adding a new service file without a corresponding test file is a `[must]` finding. The test must call the service's public API, not manipulate the DB directly.
 
 ## Priority 6: Image Asset Protection (ADR-0007)
 
@@ -119,6 +127,25 @@ This is a children's gamification app where visual quality is core to the produc
 - **COPPA considerations**: This is a children's app. Be alert to data collection or tracking that might raise compliance concerns.
 - **Secrets**: `.env` files, API keys, credentials must never be committed.
 
+## Priority 11: Documentation Chain Integrity
+
+Documentation in this project forms a chain. Each link must stay in sync:
+
+    ADR (docs/decisions/) ←→ CLAUDE.md ←→ copilot-instructions.md ←→ Design Docs (docs/design/)
+
+Breaking this chain is a `[must]` finding:
+
+- **ADR added/changed → CLAUDE.md + copilot-instructions.md must be updated in same PR**: If a PR adds/modifies a file in `docs/decisions/`, verify that `CLAUDE.md` ADR list and `.github/copilot-instructions.md` ADR list are both updated.
+- **Process decision in PR → ADR should be created**: If a PR introduces a new development rule or quality gate, flag as `[ask]`: "Should this be recorded as an ADR?"
+- **CLAUDE.md rule change → copilot-instructions.md should reflect it**: If a PR modifies CLAUDE.md rules, check that copilot-instructions.md has corresponding coverage.
+
+## Priority 12: Development Process Compliance
+
+- **Coverage threshold changes**: If `vite.config.ts` `thresholds` are lowered without an ADR and restoration plan in the same PR, mark as `[must]`.
+- **Issue close quality (ADR-0010)**: If a PR closes an Issue that lacks root cause analysis or acceptance criteria, flag as `[ask]`.
+- **Dialog management (ADR-0011)**: Dialog display changes must use the `DialogFSM` class. New `xxxOpen = true` direct state manipulation for overlays is a `[must]` finding.
+- **Design doc sync (ADR-0003)**: Verify design docs are updated for API/DB/UI changes (see Priority 4).
+
 ## Additional Context
 
 ### Architecture Decision Records (ADRs)
@@ -126,7 +153,7 @@ This is a children's gamification app where visual quality is core to the produc
 The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 
 - **ADR-0001**: Renames must maintain backward compatibility via `LEGACY_URL_MAP`
-- **ADR-0002**: Only one dialog/overlay at a time (queue required)
+- **ADR-0002**: ~~Only one dialog/overlay at a time (queue required)~~ — **superseded by ADR-0011**
 - **ADR-0003**: Design docs are Single Source of Truth (merge blocker)
 - **ADR-0004**: Stamp card spec — 5 slots, image-based, redeem flow
 - **ADR-0005**: Critical fix quality gate — 5 mandatory conditions
@@ -134,6 +161,9 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0007**: Image assets must not be replaced with emoji
 - **ADR-0008**: Age mode changes carry 5x duplication risk (mitigated by #664 consolidation)
 - **ADR-0009**: Server-client type contracts must be explicitly maintained
+- **ADR-0010**: Issue creation requires root cause analysis and structural solution proposals
+- **ADR-0011**: Dialog management uses FSM (DialogFSM class) — replaces distributed $effect + $state flag approach
+- **ADR-0012**: Test quality must not degrade — coverage threshold decreases are CI-blocked, test anti-patterns are prohibited
 
 ### Team Structure
 
