@@ -4,7 +4,6 @@
 
 import { expect, test } from '@playwright/test';
 import {
-	clearDialogGhosts,
 	dismissOverlays,
 	expandFirstCategory,
 	getAvailableActivities,
@@ -124,7 +123,6 @@ async function dismissAndVerifyDialogChain(page: import('@playwright/test').Page
 			});
 	}
 
-	await clearDialogGhosts(page);
 	return closedCount;
 }
 
