@@ -138,6 +138,24 @@ test.describe('ページヘルス: Baby 子供画面', () => {
 });
 
 // ============================================================
+// Demo pages — デモ版ページ
+// ============================================================
+test.describe('ページヘルス: Demo', () => {
+	const demoPages = [
+		{ path: '/demo/preschool/home?childId=902', name: 'デモ ホーム' },
+		{ path: '/demo/preschool/status?childId=902', name: 'デモ ステータス' },
+		{ path: '/demo/preschool/battle?childId=902', name: 'デモ バトル' },
+	];
+
+	for (const { path, name } of demoPages) {
+		test(`${name} (${path}) が 500 にならない`, async ({ page }) => {
+			const response = await page.goto(path);
+			expect(response?.status(), `${path} returned ${response?.status()}`).not.toBe(500);
+		});
+	}
+});
+
+// ============================================================
 // API health — 主要 API エンドポイント
 // ============================================================
 test.describe('ページヘルス: API', () => {
