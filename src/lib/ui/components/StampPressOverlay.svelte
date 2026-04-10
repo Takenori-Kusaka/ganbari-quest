@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getStampImagePath, getStampImagePathForEntry } from '$lib/domain/stamp-image';
+import { getStampImagePathForEntry } from '$lib/domain/stamp-image';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -99,7 +99,7 @@ function handleClose() {
 }
 </script>
 
-<Dialog bind:open closable={false} title="">
+<Dialog bind:open closable={false} ariaLabel="スタンプ">
 	<div class="sp" data-testid="stamp-press-overlay">
 		{#if phase === 'card' || phase === 'press' || phase === 'points'}
 			<!-- Stamp card mini display -->

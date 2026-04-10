@@ -11,6 +11,7 @@ interface Props {
 	closable?: boolean;
 	testid?: string;
 	size?: 'sm' | 'md' | 'lg';
+	ariaLabel?: string;
 }
 
 let {
@@ -21,9 +22,10 @@ let {
 	closable = true,
 	testid,
 	size = 'md',
+	ariaLabel,
 }: Props = $props();
 
-const sizeClasses: Record<string, string> = {
+const sizeClasses: Record<NonNullable<Props['size']>, string> = {
 	sm: 'max-w-[min(20rem,calc(100vw-1rem))]',
 	md: 'max-w-[min(28rem,calc(100vw-1rem))]',
 	lg: 'max-w-[min(36rem,calc(100vw-1rem))]',
@@ -44,10 +46,15 @@ function handleOpenChange(details: { open: boolean }) {
 			<ArkDialog.Content
 				class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] {sizeClasses[size]} max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)]"
 				data-testid={testid}
+				aria-label={!title && ariaLabel ? ariaLabel : undefined}
 			>
 				{#if title}
 					<ArkDialog.Title class="text-xl font-bold mb-[var(--sp-md)]">
 						{title}
+					</ArkDialog.Title>
+				{:else if ariaLabel}
+					<ArkDialog.Title class="sr-only">
+						{ariaLabel}
 					</ArkDialog.Title>
 				{/if}
 				{@render children()}

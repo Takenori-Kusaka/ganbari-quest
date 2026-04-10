@@ -40,14 +40,9 @@ export function getStampImagePathForEntry(omikujiRank: string | null, rarity: st
 	if (omikujiRank) {
 		return getStampImagePath(omikujiRank);
 	}
-	// Legacy entries: derive a deterministic rank from rarity
-	const fallbackRanks: Record<string, string> = {
-		UR: 'daidaikichi',
-		SR: 'daikichi',
-		R: 'chukichi',
-		N: 'kichi',
-	};
-	return getStampImagePath(fallbackRanks[rarity] ?? 'kichi');
+	// Legacy entries: derive a deterministic rank from the existing rarity mapping
+	const fallbackRank = RARITY_TO_OMIKUJI[rarity]?.[0] ?? 'kichi';
+	return getStampImagePath(fallbackRank);
 }
 
 /** Pick a random omikuji rank based on stamp rarity */

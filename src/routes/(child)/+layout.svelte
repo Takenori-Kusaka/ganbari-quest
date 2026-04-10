@@ -88,7 +88,7 @@ function handleStartChildTutorial() {
 
 <!-- Stamp card dialog (opened from header) -->
 {#if data.stampCard}
-	<Dialog bind:open={stampDialogOpen} size="lg">
+	<Dialog bind:open={stampDialogOpen} size="lg" ariaLabel="スタンプカード">
 		<StampCard
 			weekStart={data.stampCard.weekStart}
 			weekEnd={data.stampCard.weekEnd}
