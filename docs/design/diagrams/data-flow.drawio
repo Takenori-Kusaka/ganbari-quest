@@ -1,0 +1,179 @@
+<mxfile host="app.diagrams.net" modified="2026-04-09" agent="Claude" version="24.0.0" type="device">
+  <diagram id="data-flow" name="Data Flow">
+    <mxGraphModel dx="1422" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="がんばりクエスト データフロー図" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="350" y="10" width="400" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Flow 1: Activity Recording (Core Loop) ===== -->
+        <mxCell id="flow1-title" value="1. 活動記録フロー（コアループ）" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="300" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f1-child" value="子供画面&#xa;アクティビティ選択" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f1-api" value="POST&#xa;/api/v1/activity-logs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;" vertex="1" parent="1">
+          <mxGeometry x="210" y="100" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f1-svc" value="activity-log-service&#xa;ポイント計算&#xa;ストリーク更新" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;" vertex="1" parent="1">
+          <mxGeometry x="400" y="100" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f1-db" value="activity_logs&#xa;INSERT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#B71C1C;" vertex="1" parent="1">
+          <mxGeometry x="600" y="100" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f1-hooks" value="Hooks (順次)&#xa;- スタンプガチャ&#xa;- レベル判定&#xa;- 実績チェック&#xa;- 兄弟チャレンジ&#xa;- 通知送信" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
+          <mxGeometry x="750" y="80" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="f1-result" value="結果ダイアログ&#xa;ポイント・シール&#xa;レベルアップ表示" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;" vertex="1" parent="1">
+          <mxGeometry x="950" y="100" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f1-e1" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f1-child" target="f1-api" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f1-e2" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f1-api" target="f1-svc" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f1-e3" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f1-svc" target="f1-db" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f1-e4" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f1-svc" target="f1-hooks" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f1-e5" style="strokeColor=#333;strokeWidth=2;dashed=1;" edge="1" source="f1-hooks" target="f1-result" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ===== Flow 2: Stamp Gacha ===== -->
+        <mxCell id="flow2-title" value="2. スタンプガチャフロー" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="210" width="300" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f2-trigger" value="活動記録完了&#xa;(activity-log-service)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="250" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f2-gacha" value="stamp-gacha&#xa;レアリティ抽選 (weight)&#xa;N:60 R:25 SR:12 UR:3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;" vertex="1" parent="1">
+          <mxGeometry x="240" y="240" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="f2-card" value="stamp_entries&#xa;INSERT&#xa;スタンプ獲得記録" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#B71C1C;" vertex="1" parent="1">
+          <mxGeometry x="490" y="250" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f2-complete" value="カード完成？&#xa;(slots = MAX_SLOTS)" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#F57F17;" vertex="1" parent="1">
+          <mxGeometry x="690" y="235" width="130" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="f2-new" value="満枠のまま保持&#xa;週末にredeemStampCard&#xa;(週単位: getOrCreate&#xa;CurrentCard)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
+          <mxGeometry x="870" y="240" width="160" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f2-e1" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f2-trigger" target="f2-gacha" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f2-e2" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f2-gacha" target="f2-card" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f2-e3" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f2-card" target="f2-complete" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f2-e4" value="Yes" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f2-complete" target="f2-new" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ===== Flow 3: Level & Achievement ===== -->
+        <mxCell id="flow3-title" value="3. レベル・実績判定フロー" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="340" width="300" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f3-points" value="累計ポイント&#xa;(totalPoints)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="380" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f3-levelcalc" value="level-calc&#xa;閾値テーブル参照&#xa;Lv = f(totalPoints)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;" vertex="1" parent="1">
+          <mxGeometry x="210" y="375" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f3-levelup" value="レベルアップ？" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#F57F17;" vertex="1" parent="1">
+          <mxGeometry x="420" y="375" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f3-notify" value="LevelUpOverlay&#xa;表示&#xa;+ 通知送信" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;" vertex="1" parent="1">
+          <mxGeometry x="590" y="380" width="130" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f3-achieve" value="実績判定&#xa;条件マッチング&#xa;(achievements テーブル)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
+          <mxGeometry x="770" y="380" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f3-unlock" value="child_achievements&#xa;アンロック記録" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#B71C1C;" vertex="1" parent="1">
+          <mxGeometry x="980" y="380" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f3-e1" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f3-points" target="f3-levelcalc" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f3-e2" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f3-levelcalc" target="f3-levelup" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f3-e3" value="Yes" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f3-levelup" target="f3-notify" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f3-e4" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f3-notify" target="f3-achieve" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f3-e5" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f3-achieve" target="f3-unlock" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ===== Flow 4: Parent Monitoring ===== -->
+        <mxCell id="flow4-title" value="4. 親の見守りフロー" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="460" width="300" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f4-parent" value="管理画面ホーム&#xa;(load関数)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="500" width="130" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f4-fetch" value="child-service&#xa;全子供ステータス取得&#xa;ポイント・ストリーク・レベル" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;" vertex="1" parent="1">
+          <mxGeometry x="220" y="490" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="f4-dashboard" value="ダッシュボード表示&#xa;子供カード一覧&#xa;今日の記録状況" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;" vertex="1" parent="1">
+          <mxGeometry x="470" y="500" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f4-message" value="おうえんメッセージ&#xa;parent_messages INSERT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
+          <mxGeometry x="680" y="500" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f4-show" value="子供画面に表示&#xa;ParentMessageOverlay" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;" vertex="1" parent="1">
+          <mxGeometry x="890" y="500" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f4-e1" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f4-parent" target="f4-fetch" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f4-e2" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f4-fetch" target="f4-dashboard" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f4-e3" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f4-dashboard" target="f4-message" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f4-e4" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f4-message" target="f4-show" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ===== Flow 5: Weekly Report ===== -->
+        <mxCell id="flow5-title" value="5. 週次レポートフロー" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="580" width="300" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f5-cron" value="Cron トリガー&#xa;POST /api/v1/admin/&#xa;weekly-report" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;" vertex="1" parent="1">
+          <mxGeometry x="40" y="620" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f5-aggregate" value="activity-log-service&#xa;7日間集計&#xa;カテゴリ別サマリ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;" vertex="1" parent="1">
+          <mxGeometry x="240" y="620" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f5-template" value="HTMLテンプレート&#xa;レポート生成" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
+          <mxGeometry x="450" y="630" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f5-ses" value="email-service&#xa;SES 経由送信" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;" vertex="1" parent="1">
+          <mxGeometry x="640" y="630" width="130" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f5-inbox" value="親のメール受信" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;" vertex="1" parent="1">
+          <mxGeometry x="820" y="630" width="120" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f5-e1" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f5-cron" target="f5-aggregate" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f5-e2" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f5-aggregate" target="f5-template" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f5-e3" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f5-template" target="f5-ses" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f5-e4" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f5-ses" target="f5-inbox" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#999;" vertex="1" parent="1">
+          <mxGeometry x="40" y="720" width="500" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value="UI層" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="50" y="730" width="70" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value="API層" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="130" y="730" width="70" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="Service層" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="210" y="730" width="80" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="DB層" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#B71C1C;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="300" y="730" width="70" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5" value="ロジック" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="380" y="730" width="70" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="leg6" value="判定" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#F57F17;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="460" y="725" width="60" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-text" value="実線: 同期処理　破線: レスポンス返却" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="50" y="765" width="250" height="20" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
