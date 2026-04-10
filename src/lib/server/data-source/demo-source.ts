@@ -71,7 +71,6 @@ export class DemoChildDataSource implements ChildDataSource {
 	async claimLoginStamp(_childId: number): Promise<LoginStampResult> {
 		return {
 			loginStamp: true,
-			stampEmoji: '⭐',
 			stampRarity: 'N',
 			stampName: 'デモスタンプ',
 			omikujiRank: 'kichi',

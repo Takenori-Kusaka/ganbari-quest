@@ -327,7 +327,6 @@ export const actions: Actions = {
 		return {
 			success: true,
 			loginStamp: true,
-			stampEmoji: stamp?.stamp.emoji ?? '⭐',
 			stampRarity: stamp?.stamp.rarity ?? 'N',
 			stampName: stamp?.stamp.name ?? '',
 			omikujiRank: stamp?.stamp.omikujiRank ?? null,
@@ -373,7 +372,6 @@ export const actions: Actions = {
 
 		return {
 			success: true,
-			stampEmoji: result.stamp.emoji,
 			stampName: result.stamp.name,
 			stampRarity: result.stamp.rarity,
 			omikujiRank: result.stamp.omikujiRank ?? null,

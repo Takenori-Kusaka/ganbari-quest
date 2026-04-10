@@ -13,7 +13,6 @@ interface StampCardEntry {
 }
 
 interface StampPressData {
-	stampEmoji: string;
 	stampRarity: string;
 	stampName: string;
 	stampOmikujiRank: string | null;
@@ -111,7 +110,6 @@ let birthdayModalOpen = $derived(fsm.current === 'birthday');
 {#if stampPressData && stampPressOpen}
 	<StampPressOverlay
 		open={stampPressOpen}
-		stampEmoji={stampPressData.stampEmoji}
 		stampRarity={stampPressData.stampRarity}
 		stampName={stampPressData.stampName}
 		stampOmikujiRank={stampPressData.stampOmikujiRank}
