@@ -2,13 +2,12 @@
 // #673: スタンプカードダイアログの表示・a11y・画像表示を検証
 
 import { expect, test } from '@playwright/test';
-import { clearDialogGhosts, dismissOverlays, selectKinderChild } from './helpers';
+import { dismissOverlays, selectKinderChild } from './helpers';
 
 test.describe('#673: スタンプカードダイアログ', () => {
 	test.beforeEach(async ({ page }) => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
-		await clearDialogGhosts(page);
 	});
 
 	test('ヘッダーのスタンプボタンからダイアログが開閉できる', async ({ page }) => {
