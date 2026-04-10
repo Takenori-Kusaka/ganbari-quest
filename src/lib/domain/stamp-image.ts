@@ -35,6 +35,16 @@ export function getStampImagePath(rank: string): string {
 	return `/assets/stamps/${rank}.png`;
 }
 
+/** Get stamp image path with fallback for entries without omikujiRank (legacy data) */
+export function getStampImagePathForEntry(omikujiRank: string | null, rarity: string): string {
+	if (omikujiRank) {
+		return getStampImagePath(omikujiRank);
+	}
+	// Legacy entries: derive a deterministic rank from the existing rarity mapping
+	const fallbackRank = RARITY_TO_OMIKUJI[rarity]?.[0] ?? 'kichi';
+	return getStampImagePath(fallbackRank);
+}
+
 /** Pick a random omikuji rank based on stamp rarity */
 export function pickOmikujiRank(rarity: string): OmikujiRank {
 	const candidates = RARITY_TO_OMIKUJI[rarity] ?? RARITY_TO_OMIKUJI.N ?? ['kichi'];

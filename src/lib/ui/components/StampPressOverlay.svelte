@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getStampImagePath } from '$lib/domain/stamp-image';
+import { getStampImagePathForEntry } from '$lib/domain/stamp-image';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -63,7 +63,7 @@ const defaultConfig = { glow: 'none', particles: [] as string[], tier: 0 };
 const config = $derived(rarityConfig[stampRarity] ?? defaultConfig);
 const isComplete = $derived(cardFilledSlots >= cardTotalSlots);
 const remaining = $derived(cardTotalSlots - cardFilledSlots);
-const stampImageSrc = $derived(stampOmikujiRank ? getStampImagePath(stampOmikujiRank) : null);
+const stampImageSrc = $derived(getStampImagePathForEntry(stampOmikujiRank, stampRarity));
 
 $effect(() => {
 	if (open) {
@@ -99,7 +99,7 @@ function handleClose() {
 }
 </script>
 
-<Dialog bind:open closable={false} title="">
+<Dialog bind:open closable={false} ariaLabel="スタンプ">
 	<div class="sp" data-testid="stamp-press-overlay">
 		{#if phase === 'card' || phase === 'press' || phase === 'points'}
 			<!-- Stamp card mini display -->
@@ -111,24 +111,14 @@ function handleClose() {
 					{@const isToday = i + 1 === cardFilledSlots}
 					<div class="sp__slot" class:sp__slot--today={isToday && phase === 'card'}>
 						{#if entry && !(isToday && phase === 'card')}
-							{#if entry.omikujiRank}
-								<img src={getStampImagePath(entry.omikujiRank)} alt="" class="sp__slot-img" />
-							{:else}
-								<span class="sp__slot-stamp">{entry.emoji}</span>
-							{/if}
+							<img src={getStampImagePathForEntry(entry.omikujiRank, entry.rarity)} alt="" class="sp__slot-img" />
 						{:else if isToday && (phase === 'press' || phase === 'points')}
-							{#if stampImageSrc}
-								<img
-									src={stampImageSrc}
-									alt={stampName}
-									class="sp__slot-img sp__slot-img--new"
-									style:filter={config.glow !== 'none' ? `drop-shadow(${config.glow})` : undefined}
-								/>
-							{:else}
-								<span class="sp__slot-stamp sp__slot-stamp--new" style:filter={config.glow !== 'none' ? `drop-shadow(${config.glow})` : undefined}>
-									{stampEmoji}
-								</span>
-							{/if}
+							<img
+								src={stampImageSrc}
+								alt={stampName}
+								class="sp__slot-img sp__slot-img--new"
+								style:filter={config.glow !== 'none' ? `drop-shadow(${config.glow})` : undefined}
+							/>
 						{:else}
 							<span class="sp__slot-empty"></span>
 						{/if}
@@ -140,11 +130,7 @@ function handleClose() {
 			{#if phase === 'press' || phase === 'points'}
 				<div class="sp__press-area">
 					<div class="sp__stamp-icon" style:box-shadow={config.glow}>
-						{#if stampImageSrc}
-							<img src={stampImageSrc} alt={stampName} class="sp__stamp-main-img" />
-						{:else}
-							<span class="sp__stamp-emoji">{stampEmoji}</span>
-						{/if}
+						<img src={stampImageSrc} alt={stampName} class="sp__stamp-main-img" />
 					</div>
 					{#if config.tier >= 2}
 						<div class="sp__particles">
@@ -278,8 +264,8 @@ function handleClose() {
 		width: 32px;
 		height: 32px;
 		border-radius: 50%;
-		border: 2px dashed #d1d5db;
-		background: var(--gray-50, #f8fafc);
+		border: 2px dashed var(--color-text-muted);
+		background: var(--color-surface-muted);
 	}
 
 	/* Press area */
@@ -381,7 +367,7 @@ function handleClose() {
 
 	.sp__complete-sub {
 		font-size: 0.6875rem;
-		color: #92400e;
+		color: var(--color-text-muted);
 		margin: 2px 0 0;
 	}
 
