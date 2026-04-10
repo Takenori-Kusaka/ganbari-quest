@@ -90,8 +90,8 @@
 
 ### コミュニティ
 
-- **Discord**: https://discord.gg/5pWkf4Z5
-- **GitHub Discussions**: https://github.com/Takenori-Kusaka/ganbari-quest/discussions
+- **メール**: ganbari.quest.support@gmail.com
+- **GitHub Issues**: https://github.com/Takenori-Kusaka/ganbari-quest/issues
 
 ---
 
@@ -99,8 +99,7 @@
 
 がんばりクエスト 開発者 日下 武紀
 
-- **メール**: support@ganbari-quest.com
-- **Discord**: https://discord.gg/5pWkf4Z5
+- **メール**: ganbari.quest.support@gmail.com
 - **サービスURL**: https://ganbari-quest.com
 
 ---
