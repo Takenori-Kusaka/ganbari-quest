@@ -1,73 +1,94 @@
-name: Bug Report
-description: Report a bug or unexpected behavior
+name: バグ報告
+description: バグや予期しない動作を報告する
 title: "[Bug] "
-labels: ["bug"]
+labels: ["type:fix"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for reporting a bug! Please fill out the details below.
+        バグ報告ありがとうございます。以下の項目をできるだけ詳しく記入してください。
 
   - type: textarea
     id: description
     attributes:
-      label: Description
-      description: What happened? What did you expect to happen?
+      label: 症状
+      description: 何が起きたか? 本来どう動くべきか?
       placeholder: |
-        Expected: ...
-        Actual: ...
+        期待動作: ...
+        実際の動作: ...
     validations:
       required: true
 
   - type: textarea
     id: steps
     attributes:
-      label: Steps to reproduce
-      description: How can we reproduce this issue?
+      label: 再現手順
+      description: この問題をどのように再現できますか?
       placeholder: |
-        1. Go to ...
-        2. Click on ...
-        3. See error
+        1. ... にアクセス
+        2. ... をクリック
+        3. エラーが発生
     validations:
       required: true
 
   - type: dropdown
     id: environment
     attributes:
-      label: Environment
-      description: Where are you running the app?
+      label: 環境
+      description: アプリをどの環境で実行していますか?
       options:
-        - AWS Lambda (ganbari-quest.com)
-        - Docker (NUC / self-hosted)
-        - Local development (npm run dev)
+        - AWS Lambda 本番 (ganbari-quest.com)
+        - Docker (NUC / セルフホスト)
+        - ローカル開発 (npm run dev)
     validations:
       required: true
 
   - type: input
     id: browser
     attributes:
-      label: Browser / Device
-      description: e.g., Chrome 120 / iPhone Safari / iPad
-      placeholder: Chrome 120 on Android
+      label: ブラウザ / デバイス
+      description: "例: Chrome 120 / iPhone Safari / iPad"
+      placeholder: "Chrome 120 (Android)"
 
   - type: dropdown
-    id: user-type
+    id: screen
     attributes:
-      label: Which screen?
+      label: 発生画面
+      description: どの画面で発生しましたか?
       options:
-        - Child screen (Kinder)
-        - Child screen (Baby)
-        - Parent admin screen
-        - Other
+        - "子供画面 (baby: 0-2歳)"
+        - "子供画面 (preschool: 3-5歳)"
+        - "子供画面 (elementary: 6-9歳)"
+        - "子供画面 (junior: 10-12歳)"
+        - "子供画面 (senior: 13-15歳)"
+        - "親 管理画面"
+        - "デモ画面"
+        - "LP / マーケティングサイト"
+        - "その他"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 深刻度
+      description: ユーザーへの影響度
+      options:
+        - "critical: アプリが使えない / データ消失"
+        - "high: 主要機能が使えない"
+        - "medium: 回避策あり"
+        - "low: 見た目の問題 / 軽微"
+    validations:
+      required: true
 
   - type: textarea
     id: screenshots
     attributes:
-      label: Screenshots
-      description: If applicable, add screenshots to help explain the problem.
+      label: スクリーンショット / 動画
+      description: 問題を説明するスクリーンショットや画面録画があれば添付してください。
 
   - type: textarea
     id: additional
     attributes:
-      label: Additional context
-      description: Any other information that might help.
+      label: 補足情報
+      description: その他、問題の特定に役立つ情報があれば記載してください。
