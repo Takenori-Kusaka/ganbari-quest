@@ -77,8 +77,15 @@ export async function dismissOverlays(page: Page) {
 	// おみくじオーバーレイが遅延表示される。networkidle で API 完了を待つ。
 	if (isAwsEnv()) {
 		await page.waitForLoadState('networkidle').catch(() => {});
-		// クライアント JS がハイドレーション完了し $effect が発火するまで追加待機
-		await page.waitForTimeout(2000);
+		// クライアント JS がハイドレーション完了し $effect が発火するまで待機
+		// body の data-sveltekit-hydrated 属性、またはフォールバックとして activity-card の出現を検知
+		await page
+			.locator(
+				'[data-testid^="activity-card-"], [data-testid="bottom-nav"], [data-testid="omikuji-stamp-overlay"]',
+			)
+			.first()
+			.waitFor({ state: 'visible', timeout: 5000 })
+			.catch(() => {});
 	}
 
 	// おみくじ統合スタンプオーバーレイを閉じる（AWS: 遅延表示対策で長めに待機）
@@ -178,9 +185,6 @@ export async function dismissOverlays(page: Page) {
 		}
 	}
 
-	// Ark UI Dialog のゴースト要素を強制非表示
-	await clearDialogGhosts(page);
-
 	// 月替わりプレゼントオーバーレイを閉じる（Ark UI Dialog ではないため最後に処理）
 	const giftBtn = page.locator('.reward-gift__open-btn');
 	if (await giftBtn.isVisible().catch(() => false)) {
@@ -228,50 +232,11 @@ export async function selectSeniorChildAndDismiss(page: Page) {
 }
 
 // ============================================================
-// Dialog ゴースト要素クリーンアップ
-// ============================================================
-
-/** Ark UI Dialog のゴースト positioner を強制非表示にする */
-export async function clearDialogGhosts(page: Page) {
-	await page.evaluate(() => {
-		document.body.style.pointerEvents = '';
-		document.body.style.overflow = '';
-		for (const el of document.querySelectorAll('[data-scope="dialog"][data-part="positioner"]')) {
-			const htmlEl = el as HTMLElement;
-			const ariaHidden = el.getAttribute('aria-hidden') === 'true';
-			const stateClosed = el.getAttribute('data-state') === 'closed';
-			const content = el.querySelector('[data-part="content"]');
-			const contentHidden = !content || window.getComputedStyle(content).display === 'none';
-
-			// コンテンツが非表示・非存在、またはダイアログが閉じた状態の positioner を非表示にする
-			// また、ダイアログ内にユーザーが操作可能な要素がない場合もゴーストとして処理
-			const hasVisibleInteractive =
-				content &&
-				content.querySelector('button:not([disabled]), a, input, [role="button"]') !== null;
-
-			if (ariaHidden || stateClosed || contentHidden || !hasVisibleInteractive) {
-				htmlEl.style.display = 'none';
-			}
-		}
-		// backdrop のゴーストも処理
-		for (const el of document.querySelectorAll('[data-scope="dialog"][data-part="backdrop"]')) {
-			const sibling = el.nextElementSibling;
-			if (sibling && (sibling as HTMLElement).style.display === 'none') {
-				(el as HTMLElement).style.display = 'none';
-			}
-		}
-	});
-}
-
-// ============================================================
 // カテゴリ展開（compactMode 対応）
 // ============================================================
 
 /** compactMode で折りたたまれた最初のカテゴリを展開する */
 export async function expandFirstCategory(page: Page) {
-	// Ark UI Dialog のゴースト positioner が残留してクリックをブロックすることがある
-	await clearDialogGhosts(page);
-
 	const header = page.locator('[data-testid^="category-header-"]').first();
 	if (await header.isVisible().catch(() => false)) {
 		const cards = page.locator('[data-testid^="activity-card-"]');
@@ -293,8 +258,6 @@ export async function expandFirstCategory(page: Page) {
 
 /** 折りたたまれたカテゴリを全て展開する（冪等 — 既に展開済みなら何もしない） */
 export async function expandAllCategories(page: Page) {
-	await clearDialogGhosts(page);
-
 	const headers = page.locator('[data-testid^="category-header-"]');
 	const count = await headers.count();
 	for (let i = 0; i < count; i++) {
