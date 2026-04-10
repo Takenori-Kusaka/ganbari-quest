@@ -1,3 +1,4 @@
+import { normalizeUiMode } from '$lib/domain/validation/age-tier';
 import { DEMO_CHILDREN } from '$lib/server/demo/demo-data.js';
 import { getDemoChildLayoutData } from '$lib/server/demo/demo-service.js';
 import type { LayoutServerLoad } from './$types';
@@ -8,7 +9,9 @@ export const load: LayoutServerLoad = async ({ url }) => {
 
 	// Extract mode from path: /demo/[mode]/...
 	const segments = url.pathname.split('/');
-	const mode = segments[2]; // /demo/[mode]/...
+	const rawMode = segments[2]; // /demo/[mode]/...
+	// Normalize legacy mode names (kinder→preschool, lower→elementary, etc.)
+	const mode = rawMode ? normalizeUiMode(rawMode) : undefined;
 
 	let childId: number | null = childIdParam ? Number(childIdParam) : null;
 
