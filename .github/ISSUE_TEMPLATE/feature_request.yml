@@ -1,52 +1,61 @@
-name: Feature Request
-description: Suggest a new feature or improvement
+name: 機能リクエスト
+description: 新機能や改善の提案
 title: "[Feature] "
-labels: ["enhancement"]
+labels: ["type:feat"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for your suggestion! Please describe your idea below.
+        機能の提案ありがとうございます。以下の項目を記入してください。
 
   - type: textarea
     id: usecase
     attributes:
-      label: Use case
-      description: What problem does this solve? Who benefits from it?
+      label: ユースケース
+      description: この機能はどんな問題を解決しますか? 誰が恩恵を受けますか?
       placeholder: |
-        As a parent, I want to ...
-        As a child user, I want to ...
+        親として、... したい
+        子供ユーザーとして、... したい
     validations:
       required: true
 
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed solution
-      description: Describe how you'd like this feature to work.
+      label: 提案する解決策
+      description: この機能がどのように動作してほしいか説明してください。
     validations:
       required: true
 
   - type: dropdown
     id: age-group
     attributes:
-      label: Target age group
-      description: Which age group is this most relevant for?
+      label: 対象年齢モード
+      description: どの年齢モードに最も関連しますか?
       options:
-        - Baby (0-2 years)
-        - Kinder (3-6 years)
-        - All ages
-        - Parent/Admin only
-        - Not applicable
+        - "baby (0-2歳)"
+        - "preschool (3-5歳)"
+        - "elementary (6-9歳)"
+        - "junior (10-12歳)"
+        - "senior (13-15歳)"
+        - "全年齢共通"
+        - "親/管理者向け"
+        - "該当なし"
+
+  - type: textarea
+    id: ui-mockup
+    attributes:
+      label: UI イメージ / モックアップ
+      description: 画面のイメージがあれば、ラフスケッチやモックアップを添付してください。
 
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives considered
-      description: Have you considered any alternative solutions or workarounds?
+      label: 検討した代替案
+      description: 他の解決策やワークアラウンドを検討しましたか?
 
   - type: textarea
     id: additional
     attributes:
-      label: Additional context
-      description: Any other information, mockups, or screenshots.
+      label: 補足情報
+      description: その他の情報、参考事例、スクリーンショットなど。
