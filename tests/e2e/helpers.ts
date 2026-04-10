@@ -284,7 +284,10 @@ export async function recordAnyActivity(page: Page): Promise<boolean> {
 
 	for (let i = 0; i < Math.min(count, 10); i++) {
 		await dismissOverlays(page);
-		await activities.nth(i).waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+		await activities
+			.nth(i)
+			.waitFor({ state: 'visible', timeout: 3000 })
+			.catch(() => {});
 		await activities.nth(i).click();
 
 		// 確認ダイアログが出るのを待つ
