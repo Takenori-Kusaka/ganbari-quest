@@ -1,0 +1,64 @@
+# docs/ — 設計書・ADR・画像アセット管理
+
+## 設計書更新ルール（CRITICAL — Done 基準に含む）
+
+設計書は実装の Single Source of Truth。書かれていない仕様は「存在しない仕様」と同じ。
+会話で決まった仕様は必ず設計書に反映する（Issue 起票だけでは不十分）。
+
+### 更新が必須なケース
+
+| 変更種別 | 更新すべき設計書 |
+|---------|---------------|
+| API エンドポイントの追加・変更 | `07-API設計書.md` |
+| DB テーブル・カラムの追加・変更 | `08-データベース設計書.md` |
+| UI 機能・画面・オーバーレイの追加・変更 | `06-UI設計書.md` |
+| AWS インフラ構成の変更 | `13-AWSサーバレスアーキテクチャ設計書.md` |
+| 認証・セキュリティ関連の変更 | `14-セキュリティ設計書.md` |
+| デザイン・ビジュアル変更 | `15-ブランドガイドライン.md` |
+| 会話で確定した機能仕様 | 該当する設計書（なければ新設） |
+
+### 絶対にやってはいけないこと
+- 会話で仕様が決まったのに設計書に反映しないまま実装を進めること
+- Issue 本文に仕様を書いて「設計書は後で」と先送りすること
+- 設計書の更新を別 Issue に切り出して本体を Done にすること
+
+### アーキテクチャ図
+- drawio 形式（`.drawio`）で `docs/design/diagrams/` に保存
+- テキストベースの ASCII 図やマークダウン内の疑似図は禁止
+
+## ADR (Architecture Decision Records)
+
+重要な意思決定・教訓・仕様は `docs/decisions/` に ADR として記録する。
+
+- 新規作成: `docs/decisions/NNNN-kebab-case-title.md`（テンプレートは `docs/decisions/README.md` 参照）
+- 記録すべきもの: 技術選定の根拠、過去のインシデントの教訓、機能仕様の正仕様、品質プロセスの決定
+- Claude Code の memory はユーザーローカル。チームで共有すべき知識は必ず ADR に置く
+- ADR 追加/変更時は CLAUDE.md と `.github/copilot-instructions.md` も同時更新すること
+
+### 現在の ADR 一覧
+- [ADR-0001](decisions/0001-rename-backward-compat.md) — リネーム時の後方互換必須
+- ~~[ADR-0002](decisions/0002-dialog-queue-required.md)~~ — ~~ダイアログキュー必須~~ → **ADR-0016 で実装指針追加**
+- [ADR-0003](decisions/0003-design-doc-as-source-of-truth.md) — 設計書は Single Source of Truth
+- [ADR-0004](decisions/0004-stamp-card-spec.md) — スタンプカード正仕様
+- [ADR-0005](decisions/0005-critical-fix-quality-gate.md) — Critical 修正の品質ゲート
+- [ADR-0006](decisions/0006-pr-review-must-document-findings.md) — PRレビューは文書化された指摘を必ず出力する
+- [ADR-0007](decisions/0007-image-asset-protection.md) — 画像アセットを絵文字に戻すことは明示的デグレ
+- [ADR-0008](decisions/0008-age-mode-duplication-risk.md) — 年齢モード5重複の変更リスク管理
+- [ADR-0009](decisions/0009-server-client-type-contract.md) — server→client 型契約の安全性確保
+- [ADR-0010](decisions/0010-issue-close-quality.md) — Issue 起票・クローズの品質基準
+- [ADR-0011](decisions/0011-sveltekit-svelte5.md) — SvelteKit 2 + Svelte 5 (Runes) 採用
+- [ADR-0012](decisions/0012-dynamodb-single-table.md) — DynamoDB シングルテーブル設計
+- [ADR-0013](decisions/0013-cognito-google-oauth.md) — Cognito + Google OAuth 認証
+- [ADR-0014](decisions/0014-css-token-architecture.md) — 3層 CSS トークンアーキテクチャ
+- [ADR-0015](decisions/0015-repository-pattern.md) — Repository パターンによる DB 抽象化
+- [ADR-0016](decisions/0016-dialog-overlay-management.md) — ダイアログ/オーバーレイの状態管理方針
+- [ADR-0017](decisions/0017-test-quality-ratchet.md) — テスト品質の劣化を許容しない開発プロセス
+- [ADR-0018](decisions/0018-issue-quality-standard.md) — Issue 起票は根本原因の特定と構造的解決策の提示を必須とする
+- [ADR-0019](decisions/0019-dialog-fsm-scrap-and-rebuild.md) — ダイアログ管理は FSM でスクラップ＆ビルド
+- [ADR-0020](decisions/0020-test-quality-ratchet-enforcement.md) — テスト品質の劣化を許容しない（強制プロセス）
+
+## 画像アセット
+
+画像アセットを絵文字で代替してはならない（コアゲーム体験に関わるもの）。
+判断基準・アセットカタログ・生成方法は `docs/design/asset-catalog.md` を参照。
+Gemini API 画像生成ガイド: `docs/reference/gemini_image_generation_guide.md`
