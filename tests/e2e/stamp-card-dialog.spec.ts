@@ -73,8 +73,21 @@ test.describe('#673: スタンプカードダイアログ', () => {
 		// #673 デグレ: タイトルが複数表示される問題の回帰防止
 		// sr-only タイトル + カード内ヘッダーの2箇所は許容（sr-only は非表示）
 		// 目視可能なタイトルが1つのみであることを検証
-		const visibleTitles = dialog.locator(':visible:text("スタンプカード")');
-		const visibleCount = await visibleTitles.count();
+		// Note: Playwright の :visible は sr-only(1x1px) も visible と判定するため evaluate で除外
+		const visibleCount = await dialog.evaluate((el) => {
+			return [...el.querySelectorAll('*')].filter((node) => {
+				const directText = [...node.childNodes]
+					.filter((c) => c.nodeType === 3)
+					.map((c) => c.textContent)
+					.join('');
+				if (!directText.includes('スタンプカード')) return false;
+				if (node.closest('.sr-only')) return false;
+				const style = window.getComputedStyle(node);
+				if (style.display === 'none' || style.visibility === 'hidden') return false;
+				const rect = node.getBoundingClientRect();
+				return rect.width > 2 && rect.height > 2;
+			}).length;
+		});
 		expect(visibleCount).toBeLessThanOrEqual(1);
 
 		await page.keyboard.press('Escape');
