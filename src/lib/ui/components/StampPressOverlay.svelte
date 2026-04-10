@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getStampImagePathForEntry } from '$lib/domain/stamp-image';
+import { getStampImagePathSafe } from '$lib/domain/stamp-image';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -61,7 +61,7 @@ const defaultConfig = { glow: 'none', particles: [] as string[], tier: 0 };
 const config = $derived(rarityConfig[stampRarity] ?? defaultConfig);
 const isComplete = $derived(cardFilledSlots >= cardTotalSlots);
 const remaining = $derived(cardTotalSlots - cardFilledSlots);
-const stampImageSrc = $derived(getStampImagePathForEntry(stampOmikujiRank, stampRarity));
+const stampImageSrc = $derived(getStampImagePathSafe(stampOmikujiRank, stampRarity));
 
 $effect(() => {
 	if (open) {
@@ -109,7 +109,7 @@ function handleClose() {
 					{@const isToday = i + 1 === cardFilledSlots}
 					<div class="sp__slot" class:sp__slot--today={isToday && phase === 'card'}>
 						{#if entry && !(isToday && phase === 'card')}
-							<img src={getStampImagePathForEntry(entry.omikujiRank, entry.rarity)} alt="" class="sp__slot-img" />
+							<img src={getStampImagePathSafe(entry.omikujiRank, entry.rarity)} alt="" class="sp__slot-img" />
 						{:else if isToday && (phase === 'press' || phase === 'points')}
 							<img
 								src={stampImageSrc}
