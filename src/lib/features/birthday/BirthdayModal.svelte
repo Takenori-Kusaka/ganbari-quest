@@ -12,9 +12,10 @@ interface Props {
 	newAge: number;
 	totalPoints: number;
 	uiMode: string;
+	onClose?: () => void;
 }
 
-let { open = $bindable(), nickname, newAge, totalPoints, uiMode }: Props = $props();
+let { open = $bindable(), nickname, newAge, totalPoints, uiMode, onClose }: Props = $props();
 
 let claiming = $state(false);
 let claimed = $state(false);
@@ -65,6 +66,7 @@ const msg = $derived(getMessageText());
 				data-testid="birthday-close-btn"
 				onclick={() => {
 					open = false;
+					onClose?.();
 					invalidateAll();
 				}}
 			>
