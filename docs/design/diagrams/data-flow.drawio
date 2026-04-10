@@ -48,17 +48,17 @@
         <mxCell id="f2-trigger" value="活動記録完了&#xa;(activity-log-service)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;" vertex="1" parent="1">
           <mxGeometry x="40" y="250" width="150" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="f2-gacha" value="stamp-gacha&#xa;レアリティ抽選&#xa;N:60% R:25% SR:12% UR:3%" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;" vertex="1" parent="1">
+        <mxCell id="f2-gacha" value="stamp-gacha&#xa;レアリティ抽選 (weight)&#xa;N:60 R:25 SR:12 UR:3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;" vertex="1" parent="1">
           <mxGeometry x="240" y="240" width="200" height="70" as="geometry" />
         </mxCell>
         <mxCell id="f2-card" value="stamp_entries&#xa;INSERT&#xa;スタンプ獲得記録" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#B71C1C;" vertex="1" parent="1">
           <mxGeometry x="490" y="250" width="150" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="f2-complete" value="カード完成？&#xa;(earned = total)" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#F57F17;" vertex="1" parent="1">
+        <mxCell id="f2-complete" value="カード完成？&#xa;(slots = MAX_SLOTS)" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#F57F17;" vertex="1" parent="1">
           <mxGeometry x="690" y="235" width="130" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="f2-new" value="満枠のまま保持&#xa;週末にredeem" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
-          <mxGeometry x="870" y="250" width="140" height="50" as="geometry" />
+        <mxCell id="f2-new" value="満枠のまま保持&#xa;週末にredeemStampCard&#xa;(週単位: getOrCreate&#xa;CurrentCard)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
+          <mxGeometry x="870" y="240" width="160" height="70" as="geometry" />
         </mxCell>
 
         <mxCell id="f2-e1" style="strokeColor=#333;strokeWidth=2;" edge="1" source="f2-trigger" target="f2-gacha" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
