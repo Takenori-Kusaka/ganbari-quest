@@ -135,7 +135,7 @@ test.describe('#611: ダイアログキュー', () => {
 		expect(countAfter).toBeGreaterThanOrEqual(0);
 	});
 
-	test('高速連続タップでダイアログが重複しない', async ({ page }) => {
+	test('#671 回帰: 記録後ダイアログが閉じた後に再オープンしない', async ({ page }) => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
 
@@ -146,6 +146,48 @@ test.describe('#611: ダイアログキュー', () => {
 			test.skip();
 			return;
 		}
+
+		// 活動を記録
+		await activities.first().click();
+		const dialog = page.locator('[data-testid="confirm-dialog"]');
+		await expect(dialog).toBeVisible({ timeout: 3000 });
+		await page.locator('[data-testid="confirm-record-btn"]').click();
+
+		await expect(page.getByText(/きろくしたよ！/)).toBeVisible({ timeout: 5000 });
+
+		// 全ダイアログを順次閉じる
+		for (let i = 0; i < 10; i++) {
+			const openCount = await countOpenDialogs(page);
+			if (openCount === 0) break;
+
+			const confirmBtn = page.getByTestId('activity-confirm-btn');
+			if (await confirmBtn.isVisible().catch(() => false)) {
+				await confirmBtn.click();
+				await page.waitForTimeout(500);
+				continue;
+			}
+			const closed = await closeOneOverlay(page);
+			if (!closed) {
+				await page.keyboard.press('Escape');
+				await page.waitForTimeout(300);
+			}
+		}
+
+		// #671 回帰テスト: 閉じた後 2 秒間ダイアログが再オープンしないことを確認
+		// (無限ループが起きると $effect が再トリガーして即座にダイアログが開く)
+		await page.waitForTimeout(2000);
+		const reopenedCount = await countOpenDialogs(page);
+		expect(reopenedCount).toBe(0);
+	});
+
+	test('高速連続タップでダイアログが重複しない', async ({ page }) => {
+		await selectKinderChild(page);
+		await dismissOverlays(page);
+
+		await expandFirstCategory(page);
+		const activities = getAvailableActivities(page);
+		const count = await activities.count();
+		expect(count).toBeGreaterThan(0);
 
 		// 2つの活動を素早く連続タップ（ガードで2つ目はブロックされるはず）
 		await activities.first().click();
@@ -168,6 +210,5 @@ test.describe('#611: ダイアログキュー', () => {
 
 		// クリーンアップ
 		await dismissOverlays(page);
-		await clearDialogGhosts(page);
 	});
 });
