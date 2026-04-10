@@ -52,10 +52,7 @@ export function getStampImagePath(rank: string): string {
  * Get the stamp image path, falling back to a rarity-based default
  * when omikujiRank is null (e.g. legacy DB entries).
  */
-export function getStampImagePathSafe(
-	omikujiRank: string | null,
-	rarity: string,
-): string {
+export function getStampImagePathSafe(omikujiRank: string | null, rarity: string): string {
 	const rank = omikujiRank ?? getFallbackRank(rarity);
 	return getStampImagePath(rank);
 }
