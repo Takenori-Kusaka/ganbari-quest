@@ -81,6 +81,14 @@ If the PR has no design doc impact, that is acceptable — but the omission shou
   - All Issue Acceptance Criteria completed
   - All proposed countermeasures implemented (or split to separate Issues)
 - **Schema changes must update test seeds**: `tests/e2e/global-setup.ts`, `tests/unit/helpers/test-db.ts`, and `src/lib/server/demo/demo-data.ts` must stay in sync with DB schema.
+- **Test anti-patterns (ADR-0017)** — the following are `[must]` findings:
+  - Coverage threshold decrease in `vite.config.ts` `thresholds` values
+  - New `clearDialogGhosts()` usage outside `tests/e2e/helpers.ts` (masks app bugs)
+  - New `test.skip()` / `test.fixme()` without documented justification
+  - New `waitForTimeout()` in E2E tests (use proper wait conditions instead)
+  - Service test files (`*-service.test.ts`) that don't import the service's public API
+  - Test code that re-implements business logic (e.g., `Math.random` probability simulation)
+- **Feature PRs must include tests**: A PR adding a new service file without a corresponding test file is a `[must]` finding. The test must call the service's public API, not manipulate the DB directly.
 
 ## Priority 6: Image Asset Protection (ADR-0007)
 
@@ -119,6 +127,25 @@ This is a children's gamification app where visual quality is core to the produc
 - **COPPA considerations**: This is a children's app. Be alert to data collection or tracking that might raise compliance concerns.
 - **Secrets**: `.env` files, API keys, credentials must never be committed.
 
+## Priority 11: Documentation Chain Integrity
+
+Documentation in this project forms a chain. Each link must stay in sync:
+
+    ADR (docs/decisions/) ←→ CLAUDE.md ←→ copilot-instructions.md ←→ Design Docs (docs/design/)
+
+Breaking this chain is a `[must]` finding:
+
+- **ADR added/changed → CLAUDE.md + copilot-instructions.md must be updated in same PR**: If a PR adds/modifies a file in `docs/decisions/`, verify that `CLAUDE.md` ADR list and `.github/copilot-instructions.md` ADR list are both updated.
+- **Process decision in PR → ADR should be created**: If a PR introduces a new development rule or quality gate, flag as `[ask]`: "Should this be recorded as an ADR?"
+- **CLAUDE.md rule change → copilot-instructions.md should reflect it**: If a PR modifies CLAUDE.md rules, check that copilot-instructions.md has corresponding coverage.
+
+## Priority 12: Development Process Compliance
+
+- **Coverage threshold changes (ADR-0017)**: If `vite.config.ts` `thresholds` values are lowered, this is a `[must]` finding. Lowering thresholds requires an ADR with a restoration plan and explicit PO approval.
+- **Issue close quality (ADR-0010)**: If a PR closes an Issue that lacks root cause analysis or acceptance criteria, flag as `[ask]`.
+- **Dialog management (ADR-0016)**: Dialog/overlay display on the child home page must be centrally managed. New `xxxOpen = true` direct state manipulation for overlays is a `[must]` finding. See ADR-0002 for the original queue requirement.
+- **Design doc sync (ADR-0003)**: Verify design docs are updated for API/DB/UI changes (see Priority 4).
+
 ## Additional Context
 
 ### Architecture Decision Records (ADRs)
@@ -126,7 +153,7 @@ This is a children's gamification app where visual quality is core to the produc
 The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 
 - **ADR-0001**: Renames must maintain backward compatibility via `LEGACY_URL_MAP`
-- **ADR-0002**: Only one dialog/overlay at a time (queue required)
+- **ADR-0002**: Only one dialog/overlay at a time (queue required) — see also ADR-0016 for updated management guidelines
 - **ADR-0003**: Design docs are Single Source of Truth (merge blocker)
 - **ADR-0004**: Stamp card spec — 5 slots, image-based, redeem flow
 - **ADR-0005**: Critical fix quality gate — 5 mandatory conditions
@@ -134,6 +161,14 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0007**: Image assets must not be replaced with emoji
 - **ADR-0008**: Age mode changes carry 5x duplication risk (mitigated by #664 consolidation)
 - **ADR-0009**: Server-client type contracts must be explicitly maintained
+- **ADR-0010**: Issue creation requires root cause analysis and structural solution proposals
+- **ADR-0011**: SvelteKit 2 + Svelte 5 (Runes) adoption
+- **ADR-0012**: DynamoDB single-table design
+- **ADR-0013**: Cognito + Google OAuth authentication
+- **ADR-0014**: 3-layer CSS token architecture
+- **ADR-0015**: Repository pattern for DB abstraction
+- **ADR-0016**: Dialog/overlay state must be centrally managed via queue in `OverlaysSection.svelte` (extends ADR-0002)
+- **ADR-0017**: Test quality must not degrade — coverage threshold decreases and test anti-patterns are `[must]` review findings
 
 ### Team Structure
 
