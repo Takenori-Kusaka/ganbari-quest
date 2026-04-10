@@ -240,7 +240,7 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] **UI構造変更**: チュートリアル（`tutorial-chapters.ts`）の説明文・セレクタが変更と整合しているか確認した
 - [ ] **カラー・スタイル**: hex カラー直書き・Tailwind デフォルト色クラスの新規追加をしていない（`docs/reference/color-mapping.md` 参照）
 - [ ] **プリミティブ**: Button/Card/FormField 等の共通コンポーネントを使用し、生の `<button>`/`<div>` でUI要素を作っていない
-- [ ] **設計書（CRITICAL）**: 変更で影響を受ける設計書を**同一PR内で**更新した（UI→06, API→07, DB→08）。設計書未更新の PR は Done にできない
+- [ ] **設計書（CRITICAL）**: 変更で影響を受ける設計書を**同一PR内で**更新した（UI→06, API→07, DB→08, インフラ→13, セキュリティ→14, ブランド→15）。対象一覧は `docs/CLAUDE.md` の設計書更新ルール表を参照。設計書未更新の PR は Done にできない
 
 ## Ready for Review チェックリスト
 
