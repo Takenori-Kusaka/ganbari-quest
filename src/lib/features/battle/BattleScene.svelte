@@ -110,7 +110,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 				variant="enemy"
 			/>
 			<div class="sprite" class:shake={enemyShake} class:defeated={enemyHp <= 0}>
-				<span class="sprite-icon">{enemy.icon}</span>
+				<img class="sprite-img" src={enemy.image} alt={enemy.name} />
 			</div>
 			<div class="combatant-name" data-testid="enemy-name">{enemy.name}</div>
 		</div>
@@ -127,7 +127,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 				variant="player"
 			/>
 			<div class="sprite" class:shake={playerShake} class:defeated={playerHp <= 0}>
-				<span class="sprite-icon">🧒</span>
+				<img class="sprite-img" src="/assets/battle/characters/hero-default.png" alt="きみ" />
 			</div>
 			<div class="combatant-name">きみ</div>
 		</div>
@@ -190,9 +190,10 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		gap: 0.5rem;
 		margin-bottom: 1rem;
 		padding: 1rem;
-		background: var(--color-surface-card);
+		background: url('/assets/battle/backgrounds/meadow.png') center / cover no-repeat;
 		border-radius: 16px;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+		position: relative;
 	}
 	.combatant {
 		flex: 1;
@@ -205,13 +206,15 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		flex-shrink: 0;
 	}
 	.sprite {
-		font-size: 4rem;
-		line-height: 1;
 		margin: 0.5rem 0;
 		transition: all 0.3s ease;
 	}
-	.sprite-icon {
-		display: inline-block;
+	.sprite-img {
+		width: 96px;
+		height: 96px;
+		object-fit: contain;
+		display: block;
+		margin: 0 auto;
 	}
 	.sprite.shake {
 		animation: shake 0.3s ease-in-out;

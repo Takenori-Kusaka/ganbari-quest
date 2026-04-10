@@ -51,6 +51,8 @@ export interface Enemy {
 	id: number;
 	name: string;
 	icon: string;
+	/** 敵キャラクター画像パス（/assets/battle/enemies/ 配下） */
+	image: string;
 	rarity: EnemyRarity;
 	stats: BattleStats;
 	/** ドロップポイント（勝利時） */

@@ -16,6 +16,7 @@ describe('ENEMIES マスタデータ', () => {
 			expect(enemy.id).toBeGreaterThan(0);
 			expect(enemy.name).toBeTruthy();
 			expect(enemy.icon).toBeTruthy();
+			expect(enemy.image).toMatch(/^\/assets\/battle\/enemies\//);
 			expect(['common', 'uncommon', 'rare', 'boss']).toContain(enemy.rarity);
 			expect(enemy.stats.hp).toBeGreaterThan(0);
 			expect(enemy.stats.atk).toBeGreaterThan(0);
