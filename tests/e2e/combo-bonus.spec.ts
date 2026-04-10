@@ -131,21 +131,14 @@ test.describe('#671: コンボボーナスダイアログ回帰防止', () => {
 
 		// 1回目の活動を記録
 		const first = await recordActivityAndCloseChain(page, 0);
-		if (!first.recorded) {
-			test.skip();
-			return;
-		}
+		expect(first.recorded, '1回目の活動記録に成功すること').toBe(true);
 
 		// カテゴリを再展開（ダイアログ閉じた後にリフレッシュ可能性あり）
 		await expandFirstCategory(page);
 
 		// 2回目の活動を記録（同じカテゴリの別の活動でミニコンボが発火する可能性あり）
 		const second = await recordActivityAndCloseChain(page, 0);
-		if (!second.recorded) {
-			// 全活動が記録済みの場合はスキップ（テストの前提条件不足）
-			test.skip();
-			return;
-		}
+		expect(second.recorded, '2回目の活動記録に成功すること').toBe(true);
 
 		// 全ダイアログが閉じていること（無限ループしていないことの証明）
 		const remainingDialogs = page.locator('[data-scope="dialog"][data-state="open"]');
@@ -200,30 +193,17 @@ test.describe('#671: コンボボーナスダイアログ回帰防止', () => {
 
 		const activities = getAvailableActivities(page);
 		const count = await activities.count();
-		if (count === 0) {
-			test.skip();
-			return;
-		}
+		expect(count, '活動カードが1つ以上表示されること').toBeGreaterThan(0);
 
 		// 活動をタップ
 		await activities.first().click();
 
 		const dialog = page.locator('[data-testid="confirm-dialog"]');
-		try {
-			await dialog.waitFor({ state: 'visible', timeout: 3000 });
-		} catch {
-			test.skip();
-			return;
-		}
+		await dialog.waitFor({ state: 'visible', timeout: 3000 });
 
 		await page.locator('[data-testid="confirm-record-btn"]').click();
 
-		try {
-			await page.getByText(/きろくしたよ！/).waitFor({ timeout: 5000 });
-		} catch {
-			test.skip();
-			return;
-		}
+		await page.getByText(/きろくしたよ！/).waitFor({ timeout: 5000 });
 
 		// 結果ダイアログ以降のチェーンを閉じながら、同時表示数を検証
 		for (let i = 0; i < 8; i++) {
