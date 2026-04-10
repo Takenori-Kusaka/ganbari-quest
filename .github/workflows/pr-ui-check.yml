@@ -19,7 +19,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
       - name: Check PR body for screenshots
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const body = context.payload.pull_request.body || '';
@@ -56,7 +56,7 @@ jobs:
           fetch-depth: 0
 
       - name: Check for design doc updates
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { execSync } = require('child_process');
