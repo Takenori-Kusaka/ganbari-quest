@@ -9,15 +9,17 @@ import { closeDb, createTestDb, resetDb, type TestDb, type TestSqlite } from '..
 let sqlite: TestSqlite;
 let testDb: TestDb;
 
-// todayDateJST をモックして日付を制御
+// todayDateJST をモックして日付を制御（toJSTDateString は実装をそのまま使用）
 let mockToday = '2026-03-30'; // 月曜日
-vi.mock('$lib/domain/date-utils', () => ({
-	todayDateJST: () => mockToday,
-	toJSTDateString: (date: Date) => {
-		const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-		return jst.toISOString().slice(0, 10);
-	},
-}));
+vi.mock('$lib/domain/date-utils', async () => {
+	const actual = await vi.importActual<typeof import('$lib/domain/date-utils')>(
+		'$lib/domain/date-utils',
+	);
+	return {
+		...actual,
+		todayDateJST: () => mockToday,
+	};
+});
 
 vi.mock('$lib/server/db', () => ({
 	get db() {
@@ -336,40 +338,173 @@ describe('stamp-card-service', () => {
 	});
 
 	// ============================================================
-	// レアリティ分布テスト
+	// レアリティ抽選の境界値テスト（実際の stampToday() 呼び出しで検証）
 	// ============================================================
-	describe('レアリティ分布', () => {
+	describe('レアリティ抽選の境界値', () => {
+		it('stampToday で取得されるスタンプのレアリティは有効な値', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			const result = assertSuccess(await stampToday(1, TENANT));
+			expect(['N', 'R', 'SR', 'UR']).toContain(result.stamp.rarity);
+		});
+
+		it('Math.random が N/R 境界(60/100) のとき N レアリティが選ばれる', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			// N の確率: 60/100 → roll < 60 で N
+			// roll = 0.599 * 100 = 59.9 → N 範囲内
+			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.599);
+			try {
+				const result = assertSuccess(await stampToday(1, TENANT));
+				expect(result.stamp.rarity).toBe('N');
+			} finally {
+				spy.mockRestore();
+			}
+		});
+
+		it('Math.random が R 範囲のとき R レアリティが選ばれる', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			// roll = 0.61 * 100 = 61 → N(60) を超え R(25) 範囲内
+			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.61);
+			try {
+				const result = assertSuccess(await stampToday(1, TENANT));
+				expect(result.stamp.rarity).toBe('R');
+			} finally {
+				spy.mockRestore();
+			}
+		});
+
+		it('Math.random が SR 範囲のとき SR レアリティが選ばれる', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			// roll = 0.86 * 100 = 86 → N(60)+R(25)=85 を超え SR(12) 範囲内
+			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.86);
+			try {
+				const result = assertSuccess(await stampToday(1, TENANT));
+				expect(result.stamp.rarity).toBe('SR');
+			} finally {
+				spy.mockRestore();
+			}
+		});
+
+		it('Math.random が UR 範囲のとき UR レアリティが選ばれる', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			// roll = 0.98 * 100 = 98 → N(60)+R(25)+SR(12)=97 を超え UR(3) 範囲内
+			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.98);
+			try {
+				const result = assertSuccess(await stampToday(1, TENANT));
+				expect(result.stamp.rarity).toBe('UR');
+			} finally {
+				spy.mockRestore();
+			}
+		});
+
+		it('即時ポイント: N レアリティで 5pt', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01);
+			try {
+				const result = assertSuccess(await stampToday(1, TENANT));
+				expect(result.stamp.rarity).toBe('N');
+				expect(result.instantPoints).toBe(5);
+			} finally {
+				spy.mockRestore();
+			}
+		});
+
+		it('即時ポイント: R レアリティで 10pt', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.61);
+			try {
+				const result = assertSuccess(await stampToday(1, TENANT));
+				expect(result.stamp.rarity).toBe('R');
+				expect(result.instantPoints).toBe(10);
+			} finally {
+				spy.mockRestore();
+			}
+		});
+
+		it('即時ポイント: SR レアリティで 20pt', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.86);
+			try {
+				const result = assertSuccess(await stampToday(1, TENANT));
+				expect(result.stamp.rarity).toBe('SR');
+				expect(result.instantPoints).toBe(20);
+			} finally {
+				spy.mockRestore();
+			}
+		});
+
+		it('即時ポイント: UR レアリティで 40pt', async () => {
+			seedAll();
+			mockToday = '2026-03-30';
+			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.98);
+			try {
+				const result = assertSuccess(await stampToday(1, TENANT));
+				expect(result.stamp.rarity).toBe('UR');
+				expect(result.instantPoints).toBe(40);
+			} finally {
+				spy.mockRestore();
+			}
+		});
+	});
+
+	// ============================================================
+	// 曜日非依存テスト（同一週内の非連続日）
+	// ============================================================
+	describe('曜日非依存: 同一週内の非連続日にスタンプ押印', () => {
 		beforeEach(() => {
 			seedAll();
 		});
 
-		it('1000回のスタンプ押印でN > R > SR > URの分布になる', async () => {
-			const _stamps = await getEnabledStamps(TENANT);
-			const counts = { N: 0, R: 0, SR: 0, UR: 0 };
+		it('月・水・金の非連続3日でスタンプが3枠埋まる', async () => {
+			// 月曜
+			mockToday = '2026-03-30';
+			const mon = assertSuccess(await stampToday(1, TENANT));
+			expect(mon.stamp.slot).toBe(1);
+			expect(mon.cardData.filledSlots).toBe(1);
 
-			for (let i = 0; i < 1000; i++) {
-				const totalWeight = 60 + 25 + 12 + 3;
-				const roll = Math.random() * totalWeight;
-				if (roll <= 60) counts.N++;
-				else if (roll <= 60 + 25) counts.R++;
-				else if (roll <= 60 + 25 + 12) counts.SR++;
-				else counts.UR++;
-			}
+			// 水曜（火曜をスキップ）
+			mockToday = '2026-04-01';
+			const wed = assertSuccess(await stampToday(1, TENANT));
+			expect(wed.stamp.slot).toBe(2);
+			expect(wed.cardData.filledSlots).toBe(2);
 
-			expect(counts.N).toBeGreaterThan(counts.R);
-			expect(counts.R).toBeGreaterThan(counts.SR);
-			expect(counts.SR).toBeGreaterThan(counts.UR);
+			// 金曜（木曜をスキップ）
+			mockToday = '2026-04-03';
+			const fri = assertSuccess(await stampToday(1, TENANT));
+			expect(fri.stamp.slot).toBe(3);
+			expect(fri.cardData.filledSlots).toBe(3);
 
-			expect(counts.N).toBeGreaterThan(400);
-			expect(counts.R).toBeGreaterThan(100);
-			expect(counts.SR).toBeGreaterThan(30);
-			expect(counts.UR).toBeLessThan(100);
+			// 全て同一カードに属している
+			expect(mon.cardData.id).toBe(wed.cardData.id);
+			expect(wed.cardData.id).toBe(fri.cardData.id);
 		});
 
-		it('stampTodayで取得されるスタンプのレアリティは有効な値', async () => {
-			mockToday = '2026-03-30';
-			const result = assertSuccess(await stampToday(1, TENANT));
-			expect(['N', 'R', 'SR', 'UR']).toContain(result.stamp.rarity);
+		it('火・木・土の非連続3日でも同一カード', async () => {
+			// 火曜
+			mockToday = '2026-03-31';
+			const tue = assertSuccess(await stampToday(1, TENANT));
+			expect(tue.stamp.slot).toBe(1);
+
+			// 木曜
+			mockToday = '2026-04-02';
+			const thu = assertSuccess(await stampToday(1, TENANT));
+			expect(thu.stamp.slot).toBe(2);
+
+			// 土曜
+			mockToday = '2026-04-04';
+			const sat = assertSuccess(await stampToday(1, TENANT));
+			expect(sat.stamp.slot).toBe(3);
+
+			// 同一カード
+			expect(tue.cardData.id).toBe(thu.cardData.id);
+			expect(thu.cardData.id).toBe(sat.cardData.id);
 		});
 	});
 
