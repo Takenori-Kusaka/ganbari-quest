@@ -83,7 +83,6 @@ export interface CancelResult {
 
 export interface LoginStampResult {
 	loginStamp: boolean;
-	stampEmoji: string;
 	stampRarity: string;
 	stampName: string;
 	omikujiRank: string | null;
