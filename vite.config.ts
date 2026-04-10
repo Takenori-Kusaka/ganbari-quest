@@ -22,9 +22,9 @@ export default defineConfig({
 			reporter: ['text', 'html', 'lcov'],
 			include: ['src/lib/**/*.ts', 'src/lib/**/*.svelte'],
 			exclude: ['src/lib/**/*.d.ts', 'src/lib/**/index.ts'],
-			// カバレッジ閾値 — ラチェット方式（現在値をベースラインとし、引き上げのみ許可）
-			// 目標: 80/80/75/80。段階的に引き上げる。閾値を下げるPRは原則リジェクト
-			// 2026-04-03 #0276-#0278 大量機能追加（証明書、カスタム実績、家族チャレンジ）でカバレッジ低下
+			// カバレッジ閾値 — ラチェット方式（CI で引き下げを自動拒否: scripts/check-coverage-threshold.js）
+			// 目標: 80/80/75/80。段階的に引き上げる。閾値を下げる PR は CI が自動ブロック
+			// 2026-04-03 現状ベースライン。テスト改善PR (#679, #680) マージ後に引き上げ
 			thresholds: {
 				lines: 38,
 				functions: 27,
