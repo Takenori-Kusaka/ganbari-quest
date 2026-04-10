@@ -1,0 +1,80 @@
+name: UI Change Verification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+    paths:
+      - "src/routes/**"
+      - "src/lib/ui/**"
+      - "src/lib/features/**"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  screenshot-check:
+    runs-on: ubuntu-latest
+    # Draft PRは作業中なのでスキップ
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Check PR body for screenshots
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+
+            // スクリーンショット画像の検出
+            // Markdown画像: ![alt](url) / HTML画像: <img ...>
+            const hasImage = /!\[.*?\]\(.*?\)|<img\s/i.test(body);
+
+            if (!hasImage) {
+              core.setFailed(
+                [
+                  '❌ UI変更PRにはスクリーンショットの添付が必須です。',
+                  '',
+                  '以下のいずれかの方法でスクリーンショットを追加してください:',
+                  '1. PR本文の「スクリーンショット / ビジュアルデモ」セクションに画像を貼り付け',
+                  '2. Playwrightで取得したスクリーンショットを添付',
+                  '',
+                  '対象ファイル: src/routes/**, src/lib/ui/**, src/lib/features/**',
+                  '',
+                  'このチェックはUI関連ファイルを変更したPRでのみ実行されます。',
+                  'Draft PRではスキップされます。Ready for Review に変更する前に添付してください。',
+                ].join('\n')
+              );
+            } else {
+              core.info('✅ スクリーンショットが検出されました。');
+            }
+
+  design-doc-check:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for design doc updates
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+
+            // PR の変更ファイル一覧を取得
+            const base = context.payload.pull_request.base.sha;
+            const head = context.payload.pull_request.head.sha;
+            const diffOutput = execSync(`git diff --name-only ${base}...${head}`, { encoding: 'utf8' });
+            const files = diffOutput.trim().split('\n').filter(Boolean);
+
+            // src/routes/ の変更があるか
+            const hasRouteChanges = files.some(f => f.startsWith('src/routes/'));
+            // docs/design/ の変更があるか
+            const hasDesignDocChanges = files.some(f => f.startsWith('docs/design/'));
+
+            if (hasRouteChanges && !hasDesignDocChanges) {
+              core.warning(
+                '⚠️ src/routes/ に変更がありますが、docs/design/ の更新がありません。' +
+                '設計書の同期更新が必要な場合は同一PR内で更新してください（ADR-0003）。'
+              );
+            }
