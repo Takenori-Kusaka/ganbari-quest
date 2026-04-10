@@ -13,11 +13,8 @@ test.describe('#673: スタンプカードダイアログ', () => {
 
 	test('ヘッダーのスタンプボタンからダイアログが開閉できる', async ({ page }) => {
 		const stampBtn = page.getByTestId('header-stamp-btn');
-		// スタンプボタンが存在しない場合はスキップ（プレミアム限定等）
-		if (!(await stampBtn.isVisible().catch(() => false))) {
-			test.skip();
-			return;
-		}
+		// スタンプボタンが存在しなければテスト対象外
+		await expect(stampBtn).toBeVisible({ timeout: 3000 });
 
 		await stampBtn.click();
 
@@ -46,10 +43,7 @@ test.describe('#673: スタンプカードダイアログ', () => {
 		page,
 	}) => {
 		const stampBtn = page.getByTestId('header-stamp-btn');
-		if (!(await stampBtn.isVisible().catch(() => false))) {
-			test.skip();
-			return;
-		}
+		await expect(stampBtn).toBeVisible({ timeout: 3000 });
 
 		await stampBtn.click();
 		const stampCard = page.getByTestId('stamp-card');
@@ -71,10 +65,7 @@ test.describe('#673: スタンプカードダイアログ', () => {
 
 	test('ダイアログサイズが lg（36rem）で十分な幅がある', async ({ page }) => {
 		const stampBtn = page.getByTestId('header-stamp-btn');
-		if (!(await stampBtn.isVisible().catch(() => false))) {
-			test.skip();
-			return;
-		}
+		await expect(stampBtn).toBeVisible({ timeout: 3000 });
 
 		await stampBtn.click();
 		const dialog = page.locator('[data-scope="dialog"][data-state="open"][data-part="content"]');
