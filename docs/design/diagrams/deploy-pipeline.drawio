@@ -175,7 +175,7 @@
         <mxCell id="p3-docker-check" value="Docker Build&#xa;(validate)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="p3-group">
           <mxGeometry x="640" y="35" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="p3-codeql" value="CodeQL&#xa;Security Scan&#xa;(codeql.yml)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;" vertex="1" parent="p3-group">
+        <mxCell id="p3-codeql" value="CodeQL Security Scan&#xa;(別ワークフロー:&#xa;codeql.yml)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#6A1B9A;dashed=1;dashPattern=5 5;" vertex="1" parent="p3-group">
           <mxGeometry x="780" y="35" width="120" height="60" as="geometry" />
         </mxCell>
 
@@ -188,12 +188,12 @@
         <mxCell id="p3-e1b" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p3-pr" target="p3-unit" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
         <mxCell id="p3-e1c" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p3-pr" target="p3-e2e" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
         <mxCell id="p3-e1d" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p3-pr" target="p3-docker-check" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="p3-e1e" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p3-pr" target="p3-codeql" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3-e1e" style="strokeColor=#999;strokeWidth=1;dashed=1;dashPattern=5 5;" edge="1" source="p3-pr" target="p3-codeql" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
         <mxCell id="p3-e2a" style="strokeColor=#333;strokeWidth=1;" edge="1" source="p3-lint" target="p3-gate" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
         <mxCell id="p3-e2b" style="strokeColor=#333;strokeWidth=1;" edge="1" source="p3-unit" target="p3-gate" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
         <mxCell id="p3-e2c" style="strokeColor=#333;strokeWidth=1;" edge="1" source="p3-e2e" target="p3-gate" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
         <mxCell id="p3-e2d" style="strokeColor=#333;strokeWidth=1;" edge="1" source="p3-docker-check" target="p3-gate" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="p3-e2e2" style="strokeColor=#333;strokeWidth=1;" edge="1" source="p3-codeql" target="p3-gate" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3-e2e2" style="strokeColor=#999;strokeWidth=1;dashed=1;dashPattern=5 5;" edge="1" source="p3-codeql" target="p3-gate" parent="p3-group"><mxGeometry relative="1" as="geometry" /></mxCell>
 
         <!-- Dependabot -->
         <mxCell id="p3-depbot" value="Dependabot&#xa;auto-merge (patch/minor)&#xa;manual review (major)" style="text;html=1;align=left;verticalAlign=top;strokeColor=#999;fillColor=#FAFAFA;rounded=1;fontSize=10;" vertex="1" parent="p3-group">
