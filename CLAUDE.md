@@ -267,10 +267,22 @@ Claude Code は画像生成ができないが、**それを理由に絵文字・
 
 ### 現在の ADR 一覧
 - [ADR-0001](docs/decisions/0001-rename-backward-compat.md) — リネーム時の後方互換必須（#572 の教訓）
-- [ADR-0002](docs/decisions/0002-dialog-queue-required.md) — ダイアログキュー必須（#543/#611 の教訓）
+- [ADR-0002](docs/decisions/0002-dialog-queue-required.md) — ダイアログキュー必須（#543/#611 の教訓）→ ADR-0016 で実装指針を追加
 - [ADR-0003](docs/decisions/0003-design-doc-as-source-of-truth.md) — 設計書は Single Source of Truth
 - [ADR-0004](docs/decisions/0004-stamp-card-spec.md) — スタンプカード正仕様
 - [ADR-0005](docs/decisions/0005-critical-fix-quality-gate.md) — Critical 修正の品質ゲート
+- [ADR-0006](docs/decisions/0006-pr-review-must-document-findings.md) — PRレビューは文書化された指摘を必ず出力する
+- [ADR-0007](docs/decisions/0007-image-asset-protection.md) — 画像アセットを絵文字に戻すことは明示的デグレ
+- [ADR-0008](docs/decisions/0008-age-mode-duplication-risk.md) — 年齢モード5重複の変更リスク管理
+- [ADR-0009](docs/decisions/0009-server-client-type-contract.md) — server→client 型契約の安全性確保
+- [ADR-0010](docs/decisions/0010-issue-close-quality.md) — Issue 起票・クローズの品質基準
+- [ADR-0011](docs/decisions/0011-sveltekit-svelte5.md) — SvelteKit 2 + Svelte 5 (Runes) 採用
+- [ADR-0012](docs/decisions/0012-dynamodb-single-table.md) — DynamoDB シングルテーブル設計
+- [ADR-0013](docs/decisions/0013-cognito-google-oauth.md) — Cognito + Google OAuth 認証
+- [ADR-0014](docs/decisions/0014-css-token-architecture.md) — 3層 CSS トークンアーキテクチャ
+- [ADR-0015](docs/decisions/0015-repository-pattern.md) — Repository パターンによる DB 抽象化
+- [ADR-0016](docs/decisions/0016-dialog-overlay-management.md) — ダイアログ/オーバーレイの状態管理方針（ADR-0002 の実装指針）
+- [ADR-0017](docs/decisions/0017-test-quality-ratchet.md) — テスト品質の劣化を許容しない開発プロセス
 
 ## Further Context
 

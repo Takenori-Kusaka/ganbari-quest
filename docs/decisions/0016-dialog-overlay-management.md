@@ -24,6 +24,12 @@
 
 **注**: ADR-0002（ダイアログキュー必須）の方針を引き継ぎ、具体的な実装指針を追加。
 
+## 現在の実装
+
+- **オーバーレイキュー**: `src/lib/features/child-home/components/OverlaysSection.svelte` 内の `queue` / `activeOverlay` / `enqueueOverlay()` / `dequeueOverlay()` でキュー方式の集中管理を実現
+- `OverlayType` 型で管理対象を定義（`'stampPress' | 'levelUp' | 'reward' | 'birthday'`）
+- 新しいオーバーレイを追加する場合は `OverlayType` に追加し、`enqueueOverlay` / `dequeueOverlay` で管理すること
+
 ## 結果
 
 - 子供ホーム画面のオーバーレイ管理が一元化される
