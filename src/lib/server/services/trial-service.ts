@@ -2,6 +2,7 @@
 // トライアル管理サービス (#314 リファクタ)
 // trial_history テーブルベースに移行。settings の trial_* は後方互換用に読み取りのみ。
 
+import { toJSTDateString } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 
@@ -50,8 +51,11 @@ export async function getTrialStatus(tenantId: string): Promise<TrialStatus> {
 	const now = new Date();
 	const end = new Date(latest.endDate);
 	const isActive = end > now;
+	const todayStr = toJSTDateString(now);
+	const todayDate = new Date(todayStr);
+	const endDate = new Date(latest.endDate);
 	const daysRemaining = isActive
-		? Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+		? Math.round((endDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24))
 		: 0;
 
 	return {
