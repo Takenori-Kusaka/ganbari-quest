@@ -10,6 +10,7 @@ import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
 import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
+import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
 import { getModeVariant } from '$lib/features/child-home/variants';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
@@ -32,6 +33,9 @@ let { data } = $props();
 
 const variant = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode));
 const f = $derived(variant.features);
+
+// --- Dialog FSM: single source of truth for overlay state (#671) ---
+let fsm = $state(new DialogFSM());
 
 // First record special celebration (must be before celebEffect)
 let isFirstRecord = $state(false);
@@ -57,9 +61,6 @@ function dismissTutorialHint() {
 	if (typeof window !== 'undefined') localStorage.setItem(tutorialHintKey, '1');
 }
 
-// Birthday bonus state
-let birthdayModalOpen = $state(false);
-
 // Sibling cheer overlay
 let showCheerOverlay = $state(true);
 
@@ -81,7 +82,8 @@ let pinMenuOpen = $state(false);
 let pinMenuActivity = $state<{ id: number; name: string; isPinned: boolean } | null>(null);
 let pinSubmitting = $state(false);
 
-// Confirm dialog state (non-baby modes)
+// Confirm dialog state (non-baby modes) — kept separate from FSM
+// because confirm/result/levelUp are a sequential user-initiated flow
 let confirmOpen = $state(false);
 let selectedActivity = $state<{
 	id: number;
@@ -125,18 +127,7 @@ let cancelCountdown = $state(0);
 let cancelTimerId = $state<ReturnType<typeof setInterval> | null>(null);
 let cancelledMessage = $state(false);
 
-// Special reward overlay
-let rewardOpen = $state(false);
-
-// Parent message overlay
-let messageOpen = $state(false);
-
-// First-time adventure overlay
-let adventureOpen = $state(false);
-let adventureShown = $state(false);
-
-// Login stamp state (unified bonus + stamp)
-let stampPressOpen = $state(false);
+// Login stamp data (populated by form action result)
 let stampPressData = $state<{
 	stampEmoji: string;
 	stampRarity: string;
@@ -164,8 +155,7 @@ let missionResult = $state<{
 	bonusAwarded: number;
 } | null>(null);
 
-// Level up overlay state
-let levelUpOpen = $state(false);
+// Level up overlay state (kept separate — part of user-initiated record flow)
 let levelUpData = $state<{
 	oldLevel: number;
 	oldTitle: string;
@@ -240,8 +230,7 @@ function getCategoryCompletedMissionCount(categoryId: number) {
 }
 
 function handleActivityTap(activity: { id: number; name: string; icon: string }) {
-	if (submitting || confirmOpen || resultOpen || levelUpOpen || rewardOpen || stampPressOpen)
-		return;
+	if (submitting || confirmOpen || resultOpen) return;
 	soundService.play('tap');
 	selectedActivity = activity;
 	confirmOpen = true;
@@ -300,9 +289,9 @@ function handleResultClose() {
 		}, 900);
 	}
 
-	// レベルアップがあれば先に表示
+	// レベルアップがあれば FSM 経由で表示
 	if (levelUpData) {
-		levelUpOpen = true;
+		fsm.transition('levelUp', levelUpData);
 	} else {
 		isFirstRecord = false;
 		resultData = null;
@@ -312,7 +301,7 @@ function handleResultClose() {
 }
 
 function handleLevelUpClose() {
-	levelUpOpen = false;
+	fsm.close();
 	levelUpData = null;
 	isFirstRecord = false;
 	resultData = null;
@@ -321,23 +310,8 @@ function handleLevelUpClose() {
 }
 
 function handleStampPressClose() {
-	stampPressOpen = false;
-	checkSpecialReward();
+	fsm.close();
 	invalidateAll();
-}
-
-function checkSpecialReward() {
-	if (data.latestReward && !rewardOpen) {
-		rewardOpen = true;
-	} else if (f.showParentMessages) {
-		checkParentMessage();
-	}
-}
-
-function checkParentMessage() {
-	if (data.latestMessage && !messageOpen && !rewardOpen) {
-		messageOpen = true;
-	}
 }
 
 async function handleMessageClose() {
@@ -348,7 +322,7 @@ async function handleMessageClose() {
 			// ignore
 		}
 	}
-	messageOpen = false;
+	fsm.close();
 	invalidateAll();
 }
 
@@ -360,29 +334,11 @@ async function handleRewardClose() {
 			// ignore
 		}
 	}
-	rewardOpen = false;
-	if (f.showParentMessages) {
-		checkParentMessage();
-	}
+	fsm.close();
 }
 
-// Auto-show adventure overlay for first-time users (once per page load)
-$effect(() => {
-	if (
-		f.showAdventureStart &&
-		data.isFirstTime &&
-		!adventureShown &&
-		!adventureOpen &&
-		!stampPressOpen &&
-		!bonusClaiming
-	) {
-		adventureOpen = true;
-		adventureShown = true;
-	}
-});
-
 function handleAdventureClose() {
-	adventureOpen = false;
+	fsm.close();
 	triggerLoginBonus();
 }
 
@@ -395,25 +351,35 @@ function triggerLoginBonus() {
 	}
 }
 
-// Auto-show login bonus on page load if not claimed (skip if adventure is showing)
+function handleBirthdayOpen() {
+	fsm.transition('birthday', data.birthdayBonus);
+}
+
+// --- Page load: enqueue auto-triggered dialogs via FSM (#671) ---
 $effect(() => {
+	if (typeof window === 'undefined') return;
+
+	// Build triggers from page data
+	const shouldShowAdventure = f.showAdventureStart && data.isFirstTime;
+	const shouldShowReward = data.latestReward && !bonusClaiming;
+	const shouldShowMessage = f.showParentMessages && data.latestMessage;
+
+	fsm.onDataLoad({
+		adventure: shouldShowAdventure ? { childName: data.child?.nickname ?? '' } : undefined,
+		specialReward: shouldShowReward ? data.latestReward : undefined,
+		parentMessage: shouldShowMessage ? data.latestMessage : undefined,
+		// birthday は自動トリガーから除外 — バナークリック(handleBirthdayOpen)でのみ開く
+	});
+
+	// If adventure is not showing and login bonus unclaimed, trigger it
+	// Note: use shouldShowAdventure (not fsm.current) to avoid circular $effect dependency
 	if (
+		!shouldShowAdventure &&
 		data.loginBonusStatus &&
 		!data.loginBonusStatus.claimedToday &&
-		!bonusClaiming &&
-		!adventureOpen
+		!bonusClaiming
 	) {
-		bonusClaiming = true;
-		tick().then(() => {
-			document.getElementById('claim-bonus-btn')?.click();
-		});
-	}
-});
-
-// Check special reward on mount (if no bonus to show)
-$effect(() => {
-	if (data.latestReward && !bonusClaiming && !stampPressOpen) {
-		checkSpecialReward();
+		triggerLoginBonus();
 	}
 });
 
@@ -508,7 +474,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			nickname={data.child?.nickname ?? ''}
 			newAge={data.birthdayBonus.newAge ?? 0}
 			totalPoints={data.birthdayBonus.totalPoints ?? 0}
-			onclick={() => { birthdayModalOpen = true; }}
+			onclick={handleBirthdayOpen}
 		/>
 	{/if}
 
@@ -520,7 +486,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{/if}
 
 	<!-- Login stamp auto-claim form (hidden) — unified bonus + stamp -->
-	{#if bonusClaiming && !stampPressOpen}
+	{#if bonusClaiming && fsm.current !== 'stampPress'}
 		<form
 			method="POST"
 			action="?/loginStamp"
@@ -542,7 +508,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 							cardEntries: cardData?.entries ?? [],
 							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number } | null,
 						};
-						stampPressOpen = true;
+						fsm.transition('stampPress', stampPressData);
 					}
 					bonusClaiming = false;
 				};
@@ -638,7 +604,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 							action="?/record"
 							data-tutorial={groupIdx === 0 && i === 0 ? 'activity-card' : undefined}
 							use:enhance={() => {
-								if (submitting || resultOpen || levelUpOpen || rewardOpen || stampPressOpen) return ({ update }) => update();
+								if (submitting || resultOpen) return ({ update }) => update();
 								submitting = true;
 								pendingActivityId = activity.id;
 								soundService.ensureContext();
@@ -944,34 +910,32 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 </Dialog>
 
 <OverlaysSection
-	bind:levelUpOpen
+	{fsm}
 	{levelUpData}
 	onLevelUpClose={handleLevelUpClose}
-	bind:rewardOpen
 	latestReward={data.latestReward}
 	onRewardClose={handleRewardClose}
-	bind:stampPressOpen
 	{stampPressData}
 	onStampPressClose={handleStampPressClose}
-	bind:birthdayModalOpen
 	birthdayBonus={data.birthdayBonus}
+	onBirthdayClose={() => fsm.close()}
 	nickname={data.child?.nickname ?? ''}
 	uiMode={data.uiMode}
 />
 
 <!-- Adventure start overlay (first-time users, non-baby) -->
-{#if f.showAdventureStart && data.isFirstTime}
+{#if f.showAdventureStart && data.isFirstTime && fsm.current === 'adventure'}
 	<AdventureStartOverlay
-		bind:open={adventureOpen}
+		open={true}
 		childName={data.child?.nickname ?? ''}
 		onClose={handleAdventureClose}
 	/>
 {/if}
 
 <!-- Parent message overlay (non-baby) -->
-{#if f.showParentMessages && data.latestMessage}
+{#if f.showParentMessages && data.latestMessage && fsm.current === 'parentMessage'}
 	<ParentMessageOverlay
-		bind:open={messageOpen}
+		open={true}
 		messageType={data.latestMessage.messageType}
 		stampLabel={data.latestMessage.stampLabel}
 		body={data.latestMessage.body}
