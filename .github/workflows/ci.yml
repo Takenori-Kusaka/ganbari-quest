@@ -72,6 +72,14 @@ jobs:
       - name: Unit tests with coverage enforcement
         run: npx vitest run --coverage
 
+      - name: Coverage threshold ratchet check
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-coverage-threshold.js
+
+      - name: Test anti-pattern check
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-test-antipatterns.js
+
       - name: Build
         run: npm run build
 
