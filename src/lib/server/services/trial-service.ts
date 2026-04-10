@@ -50,8 +50,12 @@ export async function getTrialStatus(tenantId: string): Promise<TrialStatus> {
 	const now = new Date();
 	const end = new Date(latest.endDate);
 	const isActive = end > now;
+	// 日付ベースで残日数を計算（時刻の端数による繰り上がりを防ぐ）
+	const todayStr = formatDate(now);
+	const todayDate = new Date(todayStr);
+	const endDate = new Date(latest.endDate);
 	const daysRemaining = isActive
-		? Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+		? Math.round((endDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24))
 		: 0;
 
 	return {

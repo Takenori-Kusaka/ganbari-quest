@@ -264,8 +264,8 @@ function handleClose() {
 		width: 32px;
 		height: 32px;
 		border-radius: 50%;
-		border: 2px dashed #d1d5db;
-		background: var(--gray-50, #f8fafc);
+		border: 2px dashed var(--color-text-muted);
+		background: var(--color-surface-muted);
 	}
 
 	/* Press area */
@@ -367,7 +367,7 @@ function handleClose() {
 
 	.sp__complete-sub {
 		font-size: 0.6875rem;
-		color: #92400e;
+		color: var(--color-text-muted);
 		margin: 2px 0 0;
 	}
 
