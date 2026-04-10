@@ -1,6 +1,6 @@
 <script lang="ts">
-import { untrack } from 'svelte';
 import BirthdayModal from '$lib/features/birthday/BirthdayModal.svelte';
+import type { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
 import SpecialRewardOverlay from '$lib/ui/components/SpecialRewardOverlay.svelte';
 import StampPressOverlay from '$lib/ui/components/StampPressOverlay.svelte';
@@ -53,101 +53,51 @@ interface LevelUpData {
 }
 
 interface Props {
-	levelUpOpen: boolean;
+	fsm: DialogFSM;
 	levelUpData: LevelUpData | null;
 	onLevelUpClose: () => void;
-	rewardOpen: boolean;
 	latestReward: LatestReward | null;
 	onRewardClose: () => void;
-	stampPressOpen: boolean;
 	stampPressData: StampPressData | null;
 	onStampPressClose: () => void;
-	birthdayModalOpen: boolean;
 	birthdayBonus: BirthdayBonus | null;
 	nickname: string;
 	uiMode: string;
 }
 
 let {
-	levelUpOpen = $bindable(),
+	fsm,
 	levelUpData,
 	onLevelUpClose,
-	rewardOpen = $bindable(),
 	latestReward,
 	onRewardClose,
-	stampPressOpen = $bindable(),
 	stampPressData,
 	onStampPressClose,
-	birthdayModalOpen = $bindable(),
 	birthdayBonus,
 	nickname,
 	uiMode,
 }: Props = $props();
 
-// --- Dialog queue: show only one overlay at a time (#611) ---
-type OverlayType = 'stampPress' | 'levelUp' | 'reward' | 'birthday';
-let queue = $state<OverlayType[]>([]);
-let activeOverlay = $derived<OverlayType | null>(queue[0] ?? null);
-
-function enqueueOverlay(type: OverlayType) {
-	if (!queue.includes(type)) {
-		queue = [...queue, type];
-	}
-}
-
-function dequeueOverlay(type: OverlayType) {
-	if (queue.includes(type)) {
-		queue = queue.filter((t) => t !== type);
-	}
-}
-
-// Enqueue/dequeue based on parent prop changes
-$effect(() => {
-	if (stampPressOpen && stampPressData) {
-		untrack(() => enqueueOverlay('stampPress'));
-	} else if (!stampPressOpen) {
-		untrack(() => dequeueOverlay('stampPress'));
-	}
-});
-
-$effect(() => {
-	if (levelUpOpen && levelUpData) {
-		untrack(() => enqueueOverlay('levelUp'));
-	} else if (!levelUpOpen) {
-		untrack(() => dequeueOverlay('levelUp'));
-	}
-});
-
-$effect(() => {
-	if (rewardOpen && latestReward) {
-		untrack(() => enqueueOverlay('reward'));
-	} else if (!rewardOpen) {
-		untrack(() => dequeueOverlay('reward'));
-	}
-});
-
-$effect(() => {
-	if (birthdayModalOpen && birthdayBonus) {
-		untrack(() => enqueueOverlay('birthday'));
-	} else if (!birthdayModalOpen) {
-		untrack(() => dequeueOverlay('birthday'));
-	}
-});
+// Derive open states from FSM current dialog
+let levelUpOpen = $derived(fsm.current === 'levelUp');
+let rewardOpen = $derived(fsm.current === 'specialReward');
+let stampPressOpen = $derived(fsm.current === 'stampPress');
+let birthdayModalOpen = $derived(fsm.current === 'birthday');
 </script>
 
-<!-- Level up overlay — only render when active in queue -->
-{#if levelUpData && activeOverlay === 'levelUp'}
+<!-- Level up overlay — only render when active in FSM -->
+{#if levelUpData && levelUpOpen}
 	<LevelUpOverlay
-		bind:open={levelUpOpen}
+		open={levelUpOpen}
 		levelUp={levelUpData}
 		onClose={onLevelUpClose}
 	/>
 {/if}
 
 <!-- Special reward overlay -->
-{#if latestReward && activeOverlay === 'reward'}
+{#if latestReward && rewardOpen}
 	<SpecialRewardOverlay
-		bind:open={rewardOpen}
+		open={rewardOpen}
 		title={latestReward.title}
 		points={latestReward.points}
 		icon={latestReward.icon}
@@ -156,9 +106,9 @@ $effect(() => {
 {/if}
 
 <!-- Stamp press overlay -->
-{#if stampPressData && activeOverlay === 'stampPress'}
+{#if stampPressData && stampPressOpen}
 	<StampPressOverlay
-		bind:open={stampPressOpen}
+		open={stampPressOpen}
 		stampEmoji={stampPressData.stampEmoji}
 		stampRarity={stampPressData.stampRarity}
 		stampName={stampPressData.stampName}
@@ -175,9 +125,9 @@ $effect(() => {
 {/if}
 
 <!-- Birthday bonus modal -->
-{#if birthdayBonus && activeOverlay === 'birthday'}
+{#if birthdayBonus && birthdayModalOpen}
 	<BirthdayModal
-		bind:open={birthdayModalOpen}
+		open={birthdayModalOpen}
 		{nickname}
 		newAge={birthdayBonus.newAge ?? 0}
 		totalPoints={birthdayBonus.totalPoints ?? 0}
