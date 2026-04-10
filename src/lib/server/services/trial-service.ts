@@ -49,11 +49,10 @@ export async function getTrialStatus(tenantId: string): Promise<TrialStatus> {
 	}
 
 	const now = new Date();
-	const end = new Date(latest.endDate);
-	const isActive = end > now;
 	const todayStr = toJSTDateString(now);
-	const todayDate = new Date(todayStr);
-	const endDate = new Date(latest.endDate);
+	const todayDate = new Date(`${todayStr}T00:00:00Z`);
+	const endDate = new Date(`${latest.endDate}T00:00:00Z`);
+	const isActive = endDate >= todayDate;
 	const daysRemaining = isActive
 		? Math.round((endDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24))
 		: 0;
