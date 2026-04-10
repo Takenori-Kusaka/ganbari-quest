@@ -3,9 +3,8 @@
  * CI test anti-pattern detector.
  *
  * Checks for patterns that degrade test quality:
- * 1. test.skip / test.fixme count increase
- * 2. New usage of clearDialogGhosts outside helpers.ts
- * 3. Empty catch blocks in test files (error swallowing)
+ * 1. New usage of clearDialogGhosts outside helpers.ts
+ * 2. test.skip / test.fixme count increase vs origin/main
  *
  * Usage:
  *   node scripts/check-test-antipatterns.js
@@ -19,17 +18,21 @@ import { execSync } from 'node:child_process';
 
 let hasError = false;
 
+const TEST_SKIP_PATTERN = 'test\\.skip\\|test\\.fixme\\|it\\.skip\\|describe\\.skip';
+
+function sumGitGrepCountOutput(output) {
+	return output
+		.trim()
+		.split('\n')
+		.filter(Boolean)
+		.reduce((sum, line) => {
+			const match = line.match(/:(\d+)$/);
+			return sum + (match ? Number.parseInt(match[1], 10) : 0);
+		}, 0);
+}
+
 // --- 1. Check for new clearDialogGhosts usage in diff ---
 try {
-	const diff = execSync('git diff origin/main -- tests/', { encoding: 'utf-8' });
-	const newGhostCalls = diff
-		.split('\n')
-		.filter((line) => line.startsWith('+') && !line.startsWith('+++'))
-		.filter((line) => line.includes('clearDialogGhosts'))
-		// Allow in helpers.ts (the canonical location)
-		.length;
-
-	// Check if any new calls were added outside helpers.ts
 	const diffFiles = execSync('git diff origin/main --name-only -- tests/', { encoding: 'utf-8' });
 	const changedTestFiles = diffFiles.trim().split('\n').filter(Boolean);
 	const newGhostCallFiles = [];
@@ -66,36 +69,37 @@ try {
 	console.log('  clearDialogGhosts check: skipped (no git diff available)');
 }
 
-// --- 2. Count test.skip / test.fixme ---
+// --- 2. Count test.skip / test.fixme and compare vs origin/main ---
 try {
 	const skipCount = execSync(
-		'git grep -c "test\\.skip\\|test\\.fixme\\|it\\.skip\\|describe\\.skip" -- "tests/e2e/" || echo "0"',
+		`git grep -c "${TEST_SKIP_PATTERN}" -- "tests/e2e/" || echo "0"`,
 		{ encoding: 'utf-8' },
 	);
 
-	const totalSkips = skipCount
-		.trim()
-		.split('\n')
-		.reduce((sum, line) => {
-			const match = line.match(/:(\d+)$/);
-			return sum + (match ? Number.parseInt(match[1]) : 0);
-		}, 0);
+	const totalSkips = sumGitGrepCountOutput(skipCount);
 
 	console.log(`  test.skip/fixme count in e2e: ${totalSkips}`);
 
-	// Check if count increased vs main
+	// Compare vs origin/main without mutating the working tree
 	try {
 		const mainSkipCount = execSync(
-			'git stash -q 2>/dev/null; git checkout origin/main -- tests/e2e/ 2>/dev/null && git grep -c "test\\.skip\\|test\\.fixme\\|it\\.skip\\|describe\\.skip" -- "tests/e2e/" || echo "0"; git checkout HEAD -- tests/e2e/ 2>/dev/null; git stash pop -q 2>/dev/null',
+			`git grep -c "${TEST_SKIP_PATTERN}" origin/main -- "tests/e2e/" || echo "0"`,
 			{ encoding: 'utf-8' },
 		);
-		// This is complex; just report the count for now
-	} catch {
-		// skip comparison if main not available
-	}
+		const mainTotalSkips = sumGitGrepCountOutput(mainSkipCount);
 
-	if (totalSkips > 10) {
-		console.warn(`  WARNING: High test.skip count (${totalSkips}). Review and reduce skips.`);
+		console.log(`  test.skip/fixme count in origin/main e2e: ${mainTotalSkips}`);
+
+		if (totalSkips > mainTotalSkips) {
+			console.error(
+				`BLOCKED: test.skip/fixme count increased in e2e (${mainTotalSkips} -> ${totalSkips}).`,
+			);
+			hasError = true;
+		} else {
+			console.log('  test.skip/fixme: no increase vs origin/main');
+		}
+	} catch {
+		console.log('  test.skip/fixme comparison: skipped (origin/main not available)');
 	}
 } catch {
 	console.log('  test.skip count: check skipped');
