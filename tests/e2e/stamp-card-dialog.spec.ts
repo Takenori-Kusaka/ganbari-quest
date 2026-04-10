@@ -32,10 +32,9 @@ test.describe('#673: スタンプカードダイアログ', () => {
 		// 閉じるボタンで閉じられる
 		const closeBtn = dialog.locator('button[aria-label="とじる"]');
 		await closeBtn.click();
-		await page.waitForTimeout(500);
 
-		// ダイアログが閉じている
-		await expect(stampCard).not.toBeVisible();
+		// ダイアログが閉じるのを待つ
+		await expect(stampCard).not.toBeVisible({ timeout: 3000 });
 	});
 
 	test('スタンプカード内のスタンプ画像が正しく表示される（絵文字fallbackなし）', async ({
@@ -62,6 +61,25 @@ test.describe('#673: スタンプカードダイアログ', () => {
 		await page.keyboard.press('Escape');
 	});
 
+	test('ダイアログタイトルが重複していない', async ({ page }) => {
+		const stampBtn = page.getByTestId('header-stamp-btn');
+		await expect(stampBtn).toBeVisible({ timeout: 3000 });
+
+		await stampBtn.click();
+		const dialog = page.locator('[data-scope="dialog"][data-state="open"][data-part="content"]');
+		await expect(dialog).toBeVisible({ timeout: 3000 });
+
+		// ダイアログ内の「スタンプカード」テキストを検索
+		// #673 デグレ: タイトルが複数表示される問題の回帰防止
+		// sr-only タイトル + カード内ヘッダーの2箇所は許容（sr-only は非表示）
+		// 目視可能なタイトルが1つのみであることを検証
+		const visibleTitles = dialog.locator(':visible:text("スタンプカード")');
+		const visibleCount = await visibleTitles.count();
+		expect(visibleCount).toBeLessThanOrEqual(1);
+
+		await page.keyboard.press('Escape');
+	});
+
 	test('ダイアログサイズが lg（36rem）で十分な幅がある', async ({ page }) => {
 		const stampBtn = page.getByTestId('header-stamp-btn');
 		await expect(stampBtn).toBeVisible({ timeout: 3000 });
@@ -76,6 +94,27 @@ test.describe('#673: スタンプカードダイアログ', () => {
 		if (box) {
 			expect(box.width).toBeGreaterThanOrEqual(280);
 		}
+
+		await page.keyboard.press('Escape');
+	});
+
+	test('スタンプカードの進捗表示が正しい構造を持つ', async ({ page }) => {
+		const stampBtn = page.getByTestId('header-stamp-btn');
+		await expect(stampBtn).toBeVisible({ timeout: 3000 });
+
+		await stampBtn.click();
+		const stampCard = page.getByTestId('stamp-card');
+		await expect(stampCard).toBeVisible({ timeout: 3000 });
+
+		// プログレスバーが存在する
+		const progressBar = stampCard.locator('.stamp-card__progress-bar');
+		await expect(progressBar).toBeVisible();
+
+		// 進捗テキスト（n/m形式）が存在する
+		const progressText = stampCard.locator('.stamp-card__progress-text');
+		await expect(progressText).toBeVisible();
+		const text = await progressText.textContent();
+		expect(text).toMatch(/\d+\/\d+/);
 
 		await page.keyboard.press('Escape');
 	});
