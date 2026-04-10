@@ -16,7 +16,7 @@ async function gotoLogin(page: Page) {
 async function loginAs(page: Page, email: string, password: string, expectedUrl: RegExp) {
 	await gotoLogin(page);
 	await page.getByLabel('メールアドレス').fill(email);
-	await page.getByLabel('パスワード').fill(password);
+	await page.getByLabel('パスワード', { exact: true }).fill(password);
 	await page.getByRole('button', { name: 'ログイン' }).click();
 	await page.waitForURL(expectedUrl, { timeout: 30_000 });
 }
@@ -29,7 +29,7 @@ test.describe('ログインページ', () => {
 		await gotoLogin(page);
 		await expect(page.getByAltText('がんばりクエスト')).toBeVisible();
 		await expect(page.getByLabel('メールアドレス')).toBeVisible();
-		await expect(page.getByLabel('パスワード')).toBeVisible();
+		await expect(page.getByLabel('パスワード', { exact: true })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'ログイン' })).toBeVisible();
 	});
 
@@ -64,7 +64,7 @@ test.describe('ログイン失敗', () => {
 	test('不正なパスワードでエラーが表示される', async ({ page }) => {
 		await gotoLogin(page);
 		await page.getByLabel('メールアドレス').fill('owner@example.com');
-		await page.getByLabel('パスワード').fill('wrongpassword');
+		await page.getByLabel('パスワード', { exact: true }).fill('wrongpassword');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await expect(page.getByText('メールアドレスまたはパスワードが正しくありません')).toBeVisible();
 	});
@@ -72,7 +72,7 @@ test.describe('ログイン失敗', () => {
 	test('存在しないメールアドレスでエラーが表示される', async ({ page }) => {
 		await gotoLogin(page);
 		await page.getByLabel('メールアドレス').fill('nobody@example.com');
-		await page.getByLabel('パスワード').fill('Gq!Dev#Owner2026x');
+		await page.getByLabel('パスワード', { exact: true }).fill('Gq!Dev#Owner2026x');
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await expect(page.getByText('メールアドレスまたはパスワードが正しくありません')).toBeVisible();
 	});
