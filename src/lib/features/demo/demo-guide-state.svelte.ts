@@ -43,13 +43,20 @@ export const GUIDE_STEPS: GuideStep[] = [
 	},
 	{
 		id: 4,
+		title: 'バトルに ちょうせんしよう',
+		description: 'がんばった ぶんだけ つよくなる！',
+		matchPath: '/demo/preschool/battle',
+		href: '/demo/preschool/battle?childId=902',
+	},
+	{
+		id: 5,
 		title: 'おやの画面をみよう',
 		description: 'おやの 管理画面も たいけんできます',
 		matchPath: '/demo/admin',
 		href: '/demo/admin',
 	},
 	{
-		id: 5,
+		id: 6,
 		title: 'いかがでしたか？',
 		description: 'お子さまの ぼうけん、はじめませんか？',
 		matchPath: '/demo/signup',

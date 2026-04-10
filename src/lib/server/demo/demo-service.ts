@@ -6,6 +6,10 @@
  * No DB access, no external API calls.
  */
 
+import { selectDailyEnemy } from '$lib/domain/battle-enemies';
+import { scaleEnemyStats } from '$lib/domain/battle-engine';
+import { convertToBattleStats, getAgeScaling } from '$lib/domain/battle-stat-calculator';
+import type { BattleStats, Enemy } from '$lib/domain/battle-types';
 import { DEFAULT_POINT_SETTINGS, type PointSettings } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getActivityDisplayName } from '$lib/domain/validation/activity';
 import { calcLevelFromXp, calcXpToNextLevel } from '$lib/domain/validation/status';
@@ -333,6 +337,47 @@ export function getDemoChecklistData(childId: number) {
 				completedAll: checkedCount >= tItems.length,
 			};
 		}),
+	};
+}
+
+// ============================================================
+// Battle page data
+// ============================================================
+
+export interface DemoBattleData {
+	battle: {
+		enemy: Enemy;
+		playerStats: BattleStats;
+		scaledEnemyMaxHp: number;
+		completed: false;
+		result: null;
+	} | null;
+}
+
+export function getDemoBattleData(childId: number): DemoBattleData {
+	const child = DEMO_CHILDREN.find((c) => c.id === childId);
+	if (!child) return { battle: null };
+
+	const statuses = getDemoStatusesForChild(childId);
+	const categoryXp: Record<number, number> = {};
+	for (const s of statuses) {
+		categoryXp[s.categoryId] = s.totalXp;
+	}
+
+	const playerStats = convertToBattleStats(categoryXp);
+	const dayOfWeek = new Date().getDay();
+	const enemy = selectDailyEnemy(dayOfWeek, 0.5, 0);
+	const scaling = getAgeScaling(child.uiMode ?? 'preschool');
+	const scaledEnemyStats = scaleEnemyStats(enemy.stats, scaling);
+
+	return {
+		battle: {
+			enemy,
+			playerStats,
+			scaledEnemyMaxHp: scaledEnemyStats.hp,
+			completed: false,
+			result: null,
+		},
 	};
 }
 
