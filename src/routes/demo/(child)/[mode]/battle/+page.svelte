@@ -39,12 +39,19 @@ function handleStartBattle() {
 	<h2 class="page-title">⚔️ きょうの バトル</h2>
 
 	{#if data.battle}
+		{#if !completed}
+			<div class="start-area">
+				<Button variant="primary" size="lg" onclick={handleStartBattle}>
+					バトル かいし！
+				</Button>
+			</div>
+		{/if}
+
 		<BattleScene
 			enemy={data.battle.enemy}
 			playerStats={data.battle.playerStats}
 			scaledEnemyMaxHp={data.battle.scaledEnemyMaxHp}
 			{battleResult}
-			onStartBattle={handleStartBattle}
 			{completed}
 		/>
 
@@ -88,6 +95,10 @@ function handleStartBattle() {
 		font-weight: 800;
 		margin: 0 0 1rem;
 		color: var(--color-text-primary);
+	}
+	.start-area {
+		text-align: center;
+		margin-bottom: 1rem;
 	}
 	.no-battle {
 		text-align: center;
