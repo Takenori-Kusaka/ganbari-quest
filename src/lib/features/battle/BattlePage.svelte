@@ -4,6 +4,8 @@ import BattleScene from './BattleScene.svelte';
 
 let {
 	data,
+	battleResult = null,
+	loading = false,
 }: {
 	data: {
 		child: { id: number; uiMode: string } | null;
@@ -16,26 +18,9 @@ let {
 			result: { outcome: 'win' | 'lose'; rewardPoints: number; turnsUsed: number } | null;
 		} | null;
 	};
+	battleResult: BattleResult | null;
+	loading: boolean;
 } = $props();
-
-let battleResult = $state<BattleResult | null>(null);
-let loading = $state(false);
-
-async function handleStartBattle() {
-	if (!data.battle || !data.child) return;
-	loading = true;
-	try {
-		const res = await fetch(`/api/v1/battle/${data.child.id}`, {
-			method: 'POST',
-		});
-		if (res.ok) {
-			const result = await res.json();
-			battleResult = result.battleResult;
-		}
-	} finally {
-		loading = false;
-	}
-}
 </script>
 
 <div class="battle-page" data-testid="battle-page">
@@ -47,7 +32,6 @@ async function handleStartBattle() {
 			playerStats={data.battle.playerStats}
 			scaledEnemyMaxHp={data.battle.scaledEnemyMaxHp}
 			{battleResult}
-			onStartBattle={handleStartBattle}
 			completed={data.battle.completed}
 		/>
 	{:else}

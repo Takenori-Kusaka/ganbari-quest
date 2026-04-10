@@ -10,14 +10,12 @@ let {
 	playerStats,
 	scaledEnemyMaxHp,
 	battleResult = null,
-	onStartBattle,
 	completed = false,
 }: {
 	enemy: Enemy;
 	playerStats: BattleStats;
 	scaledEnemyMaxHp: number;
 	battleResult: BattleResult | null;
-	onStartBattle: () => void;
 	completed: boolean;
 } = $props();
 
@@ -169,7 +167,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 
 	<!-- アクションボタン -->
 	{#if !battleResult && !completed}
-		<Button size="lg" onclick={onStartBattle} disabled={animating} class="w-full" data-testid="battle-start-button">
+		<Button type="submit" size="lg" disabled={animating} class="w-full" data-testid="battle-start-button">
 			⚔️ バトル かいし！
 		</Button>
 	{:else if completed && !battleResult}

@@ -7,131 +7,132 @@
 import { expect, test } from '@playwright/test';
 import { selectKinderChild } from './helpers';
 
-test.describe.serial('#605: バトルアドベンチャー', () => {
-	// UI テスト: バトルが pending 状態であることを前提
-	test('バトルページが正しく表示される（敵・ステータス・開始ボタン）', async ({ page }) => {
-		await selectKinderChild(page);
-		await page.goto('/preschool/battle');
+test.describe
+	.serial('#605: バトルアドベンチャー', () => {
+		// UI テスト: バトルが pending 状態であることを前提
+		test('バトルページが正しく表示される（敵・ステータス・開始ボタン）', async ({ page }) => {
+			await selectKinderChild(page);
+			await page.goto('/preschool/battle');
 
-		// バトルページが表示される
-		const battlePage = page.getByTestId('battle-page');
-		await expect(battlePage).toBeVisible();
+			// バトルページが表示される
+			const battlePage = page.getByTestId('battle-page');
+			await expect(battlePage).toBeVisible();
 
-		// ページタイトル
-		await expect(page.locator('.page-title')).toContainText('きょうの バトル');
+			// ページタイトル
+			await expect(page.locator('.page-title')).toContainText('きょうの バトル');
 
-		// バトルフィールド（敵・プレイヤー）
-		const battleField = page.getByTestId('battle-field');
-		await expect(battleField).toBeVisible();
+			// バトルフィールド（敵・プレイヤー）
+			const battleField = page.getByTestId('battle-field');
+			await expect(battleField).toBeVisible();
 
-		// 敵名が表示される
-		const enemyName = page.getByTestId('enemy-name');
-		await expect(enemyName).toBeVisible();
-		const name = await enemyName.textContent();
-		expect(name).toBeTruthy();
+			// 敵名が表示される
+			const enemyName = page.getByTestId('enemy-name');
+			await expect(enemyName).toBeVisible();
+			const name = await enemyName.textContent();
+			expect(name).toBeTruthy();
 
-		// プレイヤーステータスが表示される（バトル未実行時のみ）
-		const statsPanel = page.getByTestId('stats-panel');
-		await expect(statsPanel).toBeVisible();
-		await expect(statsPanel).toContainText('きみのステータス');
+			// プレイヤーステータスが表示される（バトル未実行時のみ）
+			const statsPanel = page.getByTestId('stats-panel');
+			await expect(statsPanel).toBeVisible();
+			await expect(statsPanel).toContainText('きみのステータス');
 
-		// バトル開始ボタンが表示される
-		const startButton = page.getByTestId('battle-start-button');
-		await expect(startButton).toBeVisible();
-		await expect(startButton).toContainText('バトル かいし');
-	});
+			// バトル開始ボタンが表示される
+			const startButton = page.getByTestId('battle-start-button');
+			await expect(startButton).toBeVisible();
+			await expect(startButton).toContainText('バトル かいし');
+		});
 
-	// API テスト: GET で情報取得（バトルがまだ pending のはず）
-	test('バトルAPI: GETで今日のバトル情報を取得できる', async ({ request }) => {
-		const res = await request.get('/api/v1/battle/1');
-		expect(res.status()).toBe(200);
+		// API テスト: GET で情報取得（バトルがまだ pending のはず）
+		test('バトルAPI: GETで今日のバトル情報を取得できる', async ({ request }) => {
+			const res = await request.get('/api/v1/battle/1');
+			expect(res.status()).toBe(200);
 
-		const data = await res.json();
-		expect(data).toHaveProperty('battleId');
-		expect(data).toHaveProperty('enemy');
-		expect(data).toHaveProperty('playerStats');
-		expect(data).toHaveProperty('scaledEnemyMaxHp');
-		expect(data).toHaveProperty('completed');
+			const data = await res.json();
+			expect(data).toHaveProperty('battleId');
+			expect(data).toHaveProperty('enemy');
+			expect(data).toHaveProperty('playerStats');
+			expect(data).toHaveProperty('scaledEnemyMaxHp');
+			expect(data).toHaveProperty('completed');
 
-		// 敵の基本情報
-		expect(data.enemy).toHaveProperty('name');
-		expect(data.enemy).toHaveProperty('icon');
-		expect(data.enemy).toHaveProperty('stats');
+			// 敵の基本情報
+			expect(data.enemy).toHaveProperty('name');
+			expect(data.enemy).toHaveProperty('icon');
+			expect(data.enemy).toHaveProperty('stats');
 
-		// プレイヤーステータス
-		expect(data.playerStats).toHaveProperty('hp');
-		expect(data.playerStats).toHaveProperty('atk');
-		expect(data.playerStats).toHaveProperty('def');
-		expect(data.playerStats).toHaveProperty('spd');
-		expect(data.playerStats).toHaveProperty('rec');
+			// プレイヤーステータス
+			expect(data.playerStats).toHaveProperty('hp');
+			expect(data.playerStats).toHaveProperty('atk');
+			expect(data.playerStats).toHaveProperty('def');
+			expect(data.playerStats).toHaveProperty('spd');
+			expect(data.playerStats).toHaveProperty('rec');
 
-		// スケーリング後HP > 0
-		expect(data.scaledEnemyMaxHp).toBeGreaterThan(0);
-	});
+			// スケーリング後HP > 0
+			expect(data.scaledEnemyMaxHp).toBeGreaterThan(0);
+		});
 
-	// API テスト: POST でバトル実行
-	test('バトルAPI: POSTでバトルを実行し結果を取得できる', async ({ request }) => {
-		const getRes = await request.get('/api/v1/battle/1');
-		const getData = await getRes.json();
+		// API テスト: POST でバトル実行
+		test('バトルAPI: POSTでバトルを実行し結果を取得できる', async ({ request }) => {
+			const getRes = await request.get('/api/v1/battle/1');
+			const getData = await getRes.json();
 
-		if (getData.completed) {
-			// 既にバトル済みの場合はPOSTがエラーになることを確認
+			if (getData.completed) {
+				// 既にバトル済みの場合はPOSTがエラーになることを確認
+				const postRes = await request.post('/api/v1/battle/1');
+				expect(postRes.status()).toBe(400);
+				return;
+			}
+
+			// バトル実行
 			const postRes = await request.post('/api/v1/battle/1');
-			expect(postRes.status()).toBe(400);
-			return;
-		}
+			expect(postRes.status()).toBe(200);
 
-		// バトル実行
-		const postRes = await request.post('/api/v1/battle/1');
-		expect(postRes.status()).toBe(200);
+			const postData = await postRes.json();
+			expect(postData).toHaveProperty('battleResult');
+			expect(postData).toHaveProperty('rewardPoints');
+			expect(postData).toHaveProperty('enemy');
 
-		const postData = await postRes.json();
-		expect(postData).toHaveProperty('battleResult');
-		expect(postData).toHaveProperty('rewardPoints');
-		expect(postData).toHaveProperty('enemy');
+			// バトル結果
+			const result = postData.battleResult;
+			expect(result).toHaveProperty('outcome');
+			expect(['win', 'lose']).toContain(result.outcome);
+			expect(result).toHaveProperty('turns');
+			expect(Array.isArray(result.turns)).toBe(true);
+			expect(result.turns.length).toBeGreaterThan(0);
+			expect(result).toHaveProperty('rewardPoints');
+			expect(result.rewardPoints).toBeGreaterThanOrEqual(0);
+		});
 
-		// バトル結果
-		const result = postData.battleResult;
-		expect(result).toHaveProperty('outcome');
-		expect(['win', 'lose']).toContain(result.outcome);
-		expect(result).toHaveProperty('turns');
-		expect(Array.isArray(result.turns)).toBe(true);
-		expect(result.turns.length).toBeGreaterThan(0);
-		expect(result).toHaveProperty('rewardPoints');
-		expect(result.rewardPoints).toBeGreaterThanOrEqual(0);
+		test('バトルAPI: 不正なchildIdでエラーを返す', async ({ request }) => {
+			const res = await request.get('/api/v1/battle/abc');
+			expect(res.status()).toBe(400);
+		});
+
+		// child_id=2（はなこちゃん）でバトル二重実行テスト
+		test('バトルAPI: 二重実行でエラーを返す', async ({ request }) => {
+			// まずGETでバトル生成
+			await request.get('/api/v1/battle/2');
+
+			// 1回目のバトル実行
+			const firstRes = await request.post('/api/v1/battle/2');
+			if (firstRes.status() === 200) {
+				// 2回目はエラー
+				const secondRes = await request.post('/api/v1/battle/2');
+				expect(secondRes.status()).toBe(400);
+			}
+		});
+
+		// UI テスト: バトル完了後の表示確認
+		test('バトル完了後は「おわったよ」メッセージが表示される', async ({ page }) => {
+			await selectKinderChild(page);
+			await page.goto('/preschool/battle');
+
+			// バトルは既に完了済み（前のテストで実行済み）
+			const alreadyDone = page.getByTestId('battle-already-done');
+			await expect(alreadyDone).toBeVisible();
+			await expect(alreadyDone).toContainText('きょうの バトルは おわったよ');
+
+			// 開始ボタンは非表示
+			const startButton = page.getByTestId('battle-start-button');
+			await expect(startButton).not.toBeVisible();
+		});
 	});
-
-	test('バトルAPI: 不正なchildIdでエラーを返す', async ({ request }) => {
-		const res = await request.get('/api/v1/battle/abc');
-		expect(res.status()).toBe(400);
-	});
-
-	// child_id=2（はなこちゃん）でバトル二重実行テスト
-	test('バトルAPI: 二重実行でエラーを返す', async ({ request }) => {
-		// まずGETでバトル生成
-		await request.get('/api/v1/battle/2');
-
-		// 1回目のバトル実行
-		const firstRes = await request.post('/api/v1/battle/2');
-		if (firstRes.status() === 200) {
-			// 2回目はエラー
-			const secondRes = await request.post('/api/v1/battle/2');
-			expect(secondRes.status()).toBe(400);
-		}
-	});
-
-	// UI テスト: バトル完了後の表示確認
-	test('バトル完了後は「おわったよ」メッセージが表示される', async ({ page }) => {
-		await selectKinderChild(page);
-		await page.goto('/preschool/battle');
-
-		// バトルは既に完了済み（前のテストで実行済み）
-		const alreadyDone = page.getByTestId('battle-already-done');
-		await expect(alreadyDone).toBeVisible();
-		await expect(alreadyDone).toContainText('きょうの バトルは おわったよ');
-
-		// 開始ボタンは非表示
-		const startButton = page.getByTestId('battle-start-button');
-		await expect(startButton).not.toBeVisible();
-	});
-});
