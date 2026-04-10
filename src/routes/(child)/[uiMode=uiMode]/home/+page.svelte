@@ -129,7 +129,6 @@ let cancelledMessage = $state(false);
 
 // Login stamp data (populated by form action result)
 let stampPressData = $state<{
-	stampEmoji: string;
 	stampRarity: string;
 	stampName: string;
 	stampOmikujiRank: string | null;
@@ -496,7 +495,6 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 						const d = result.data as Record<string, unknown>;
 						const cardData = d.cardData as { filledSlots: number; totalSlots: number; entries: { slot: number; emoji: string; rarity: string; omikujiRank: string | null }[] } | null;
 						stampPressData = {
-							stampEmoji: (d.stampEmoji as string) || '⭐',
 							stampRarity: (d.stampRarity as string) || 'N',
 							stampName: (d.stampName as string) || '',
 							stampOmikujiRank: (d.omikujiRank as string) ?? null,

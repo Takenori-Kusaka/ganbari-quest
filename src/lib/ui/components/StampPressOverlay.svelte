@@ -12,7 +12,6 @@ interface StampCardEntry {
 
 interface Props {
 	open: boolean;
-	stampEmoji: string;
 	stampRarity: string;
 	stampName: string;
 	stampOmikujiRank: string | null;
@@ -35,7 +34,6 @@ interface Props {
 
 let {
 	open = $bindable(),
-	stampEmoji,
 	stampRarity,
 	stampName,
 	stampOmikujiRank,
@@ -246,10 +244,6 @@ function handleClose() {
 		font-size: 1.25rem;
 	}
 
-	.sp__slot-stamp--new {
-		animation: stamp-bounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-	}
-
 	.sp__slot-img {
 		width: 36px;
 		height: 36px;
@@ -288,10 +282,6 @@ function handleClose() {
 		align-items: center;
 		justify-content: center;
 		animation: stamp-press-main 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-	}
-
-	.sp__stamp-emoji {
-		font-size: 2rem;
 	}
 
 	.sp__stamp-main-img {
@@ -489,7 +479,6 @@ function handleClose() {
 
 	@media (prefers-reduced-motion: reduce) {
 		.sp__slot--today,
-		.sp__slot-stamp--new,
 		.sp__slot-img--new,
 		.sp__stamp-icon,
 		.sp__particle {
