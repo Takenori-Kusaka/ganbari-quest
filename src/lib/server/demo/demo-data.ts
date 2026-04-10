@@ -124,6 +124,21 @@ export const DEMO_CHILDREN: Child[] = [
 		createdAt: '2025-04-01T00:00:00.000Z',
 		updatedAt: NOW,
 	},
+	{
+		id: 906,
+		nickname: 'ゆうき',
+		age: 17,
+		birthDate: '2008-11-20',
+		theme: 'purple',
+		uiMode: getDefaultUiMode(17),
+		avatarUrl: null,
+		displayConfig: null,
+		userId: null,
+		birthdayBonusMultiplier: 1.0,
+		lastBirthdayBonusYear: null,
+		createdAt: '2025-04-01T00:00:00.000Z',
+		updatedAt: NOW,
+	},
 ];
 
 // ============================================================
@@ -1142,6 +1157,64 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 	]),
+	// ゆうき (senior, age 17) — very active, all categories
+	...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].flatMap((d, i) => [
+		{
+			id: 906001 + i * 5,
+			childId: 906,
+			activityId: 7, // うんどうした
+			points: 20,
+			streakDays: 14,
+			streakBonus: 10,
+			recordedDate: daysAgo(d),
+			recordedAt: daysAgoISO(d),
+			cancelled: 0,
+		},
+		{
+			id: 906002 + i * 5,
+			childId: 906,
+			activityId: 17, // 受験勉強した
+			points: 30,
+			streakDays: 14,
+			streakBonus: 12,
+			recordedDate: daysAgo(d),
+			recordedAt: daysAgoISO(d),
+			cancelled: 0,
+		},
+		{
+			id: 906003 + i * 5,
+			childId: 906,
+			activityId: 18, // 資格・検定の勉強
+			points: 25,
+			streakDays: 14,
+			streakBonus: 10,
+			recordedDate: daysAgo(d),
+			recordedAt: daysAgoISO(d),
+			cancelled: 0,
+		},
+		{
+			id: 906004 + i * 5,
+			childId: 906,
+			activityId: 35, // ボランティア活動
+			points: 35,
+			streakDays: 10,
+			streakBonus: 8,
+			recordedDate: daysAgo(d),
+			recordedAt: daysAgoISO(d),
+			cancelled: 0,
+		},
+		{
+			id: 906005 + i * 5,
+			childId: 906,
+			activityId: 8, // 部活・習い事
+			points: 25,
+			streakDays: 14,
+			streakBonus: 10,
+			recordedDate: daysAgo(d),
+			recordedAt: daysAgoISO(d),
+			cancelled: 0,
+		},
+	]),
 ];
 
 // ============================================================
@@ -1179,6 +1252,12 @@ export const DEMO_STATUSES: Status[] = [
 	{ id: 9043, childId: 904, categoryId: 3, totalXp: 1200, level: 15, peakXp: 1200, updatedAt: NOW },
 	{ id: 9044, childId: 904, categoryId: 4, totalXp: 800, level: 10, peakXp: 800, updatedAt: NOW },
 	{ id: 9045, childId: 904, categoryId: 5, totalXp: 1800, level: 17, peakXp: 1800, updatedAt: NOW },
+	// ゆうき (senior, Lv.20+) — 2000-3000 XP
+	{ id: 9061, childId: 906, categoryId: 1, totalXp: 2800, level: 22, peakXp: 2800, updatedAt: NOW },
+	{ id: 9062, childId: 906, categoryId: 2, totalXp: 3000, level: 23, peakXp: 3000, updatedAt: NOW },
+	{ id: 9063, childId: 906, categoryId: 3, totalXp: 2200, level: 19, peakXp: 2200, updatedAt: NOW },
+	{ id: 9064, childId: 906, categoryId: 4, totalXp: 2000, level: 18, peakXp: 2000, updatedAt: NOW },
+	{ id: 9065, childId: 906, categoryId: 5, totalXp: 2500, level: 20, peakXp: 2500, updatedAt: NOW },
 ];
 
 // ============================================================
@@ -1191,6 +1270,7 @@ export const DEMO_POINT_BALANCES: Record<number, number> = {
 	903: 3400, // elementary — active
 	905: 5200, // elementary — active learner
 	904: 8500, // junior — very active
+	906: 12000, // senior — most active
 };
 
 // ============================================================
@@ -1244,6 +1324,10 @@ export const DEMO_DAILY_MISSIONS: DailyMission[] = [
 	{ id: 7, childId: 904, missionDate: TODAY, activityId: 7, completed: 1, completedAt: NOW }, // うんどうした
 	{ id: 8, childId: 904, missionDate: TODAY, activityId: 17, completed: 1, completedAt: NOW }, // 受験勉強した
 	{ id: 9, childId: 904, missionDate: TODAY, activityId: 43, completed: 1, completedAt: NOW }, // ピアノれんしゅう
+	// ゆうき (senior, age 17) — 3 missions, 2 done
+	{ id: 13, childId: 906, missionDate: TODAY, activityId: 17, completed: 1, completedAt: NOW }, // 受験勉強した
+	{ id: 14, childId: 906, missionDate: TODAY, activityId: 8, completed: 1, completedAt: NOW }, // 部活・習い事
+	{ id: 15, childId: 906, missionDate: TODAY, activityId: 35, completed: 0, completedAt: null }, // ボランティア活動
 ];
 
 // ============================================================
