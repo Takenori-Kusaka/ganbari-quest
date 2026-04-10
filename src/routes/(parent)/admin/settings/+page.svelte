@@ -1593,7 +1593,7 @@ const anyFormBusy = $derived(
 		</form>
 		<p class="text-xs text-[var(--color-text-muted)] mt-3 text-center">
 			技術的なご質問・使い方の相談は
-			<a href="https://discord.gg/5pWkf4Z5" target="_blank" rel="noopener noreferrer" class="text-[var(--color-brand-500)] hover:underline">Discord コミュニティ</a>
+			<a href="mailto:ganbari.quest.support@gmail.com" class="text-[var(--color-brand-500)] hover:underline">メール</a>
 			でも受け付けています
 		</p>
 	</Card>
@@ -1609,7 +1609,7 @@ const anyFormBusy = $derived(
 				<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-[var(--color-brand-500)] hover:underline">🔒 プライバシーポリシー</a>
 			</li>
 			<li>
-				<a href="https://discord.gg/5pWkf4Z5" target="_blank" rel="noopener noreferrer" class="text-[var(--color-brand-500)] hover:underline">💬 Discord コミュニティ</a>
+				<a href="mailto:ganbari.quest.support@gmail.com" class="text-[var(--color-brand-500)] hover:underline">💬 お問い合わせ</a>
 			</li>
 			<li>
 				<a href="https://github.com/Takenori-Kusaka/ganbari-quest" target="_blank" rel="noopener noreferrer" class="text-[var(--color-brand-500)] hover:underline">🐙 GitHub</a>
