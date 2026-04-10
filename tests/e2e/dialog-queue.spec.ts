@@ -3,7 +3,6 @@
 
 import { expect, test } from '@playwright/test';
 import {
-	clearDialogGhosts,
 	dismissOverlays,
 	expandFirstCategory,
 	getAvailableActivities,
@@ -27,7 +26,12 @@ async function closeOneOverlay(page: import('@playwright/test').Page): Promise<b
 		.first();
 	if (await closeBtn.isVisible().catch(() => false)) {
 		await closeBtn.click();
-		await page.waitForTimeout(400);
+		// ダイアログが閉じるのを待つ
+		await page
+			.locator('[data-scope="dialog"][data-state="open"]')
+			.first()
+			.waitFor({ state: 'hidden', timeout: 2000 })
+			.catch(() => {});
 		return true;
 	}
 	return false;
@@ -37,8 +41,12 @@ test.describe('#611: ダイアログキュー', () => {
 	test('ログインボーナス→特別報酬の順次表示で同時に2つ開かない', async ({ page }) => {
 		await selectKinderChild(page);
 
-		// ページ読み込み後、オーバーレイが表示されるまで待機
-		await page.waitForTimeout(2000);
+		// ページ読み込み後、おみくじオーバーレイまたはダイアログが表示されるまで待機
+		await page
+			.locator('[data-testid="omikuji-stamp-overlay"], [data-scope="dialog"][data-state="open"]')
+			.first()
+			.waitFor({ state: 'visible', timeout: 5000 })
+			.catch(() => {});
 
 		// 表示されるオーバーレイを順次閉じながら、同時に2つ以上開かないことを検証
 		for (let i = 0; i < 10; i++) {
@@ -50,8 +58,6 @@ test.describe('#611: ダイアログキュー', () => {
 			const closed = await closeOneOverlay(page);
 			if (!closed) break;
 		}
-
-		await clearDialogGhosts(page);
 
 		// 全オーバーレイ閉じた後、ページが操作可能であることを確認
 		await expandFirstCategory(page);
@@ -110,7 +116,12 @@ test.describe('#611: ダイアログキュー', () => {
 			const confirmBtn = page.getByTestId('activity-confirm-btn');
 			if (await confirmBtn.isVisible().catch(() => false)) {
 				await confirmBtn.click();
-				await page.waitForTimeout(500);
+				// ダイアログが閉じるのを待つ
+				await page
+					.locator('[data-scope="dialog"][data-state="open"]')
+					.first()
+					.waitFor({ state: 'hidden', timeout: 2000 })
+					.catch(() => {});
 				continue;
 			}
 
@@ -118,11 +129,13 @@ test.describe('#611: ダイアログキュー', () => {
 			if (!closed) {
 				// ボタンが見つからない場合は Escape で閉じる
 				await page.keyboard.press('Escape');
-				await page.waitForTimeout(300);
+				await page
+					.locator('[data-scope="dialog"][data-state="open"]')
+					.first()
+					.waitFor({ state: 'hidden', timeout: 2000 })
+					.catch(() => {});
 			}
 		}
-
-		await clearDialogGhosts(page);
 
 		// 全ダイアログ閉じた後、ページが操作可能であること
 		const openCount = await countOpenDialogs(page);
@@ -163,19 +176,32 @@ test.describe('#611: ダイアログキュー', () => {
 			const confirmBtn = page.getByTestId('activity-confirm-btn');
 			if (await confirmBtn.isVisible().catch(() => false)) {
 				await confirmBtn.click();
-				await page.waitForTimeout(500);
+				// ダイアログが閉じるのを待つ
+				await page
+					.locator('[data-scope="dialog"][data-state="open"]')
+					.first()
+					.waitFor({ state: 'hidden', timeout: 2000 })
+					.catch(() => {});
 				continue;
 			}
 			const closed = await closeOneOverlay(page);
 			if (!closed) {
 				await page.keyboard.press('Escape');
-				await page.waitForTimeout(300);
+				await page
+					.locator('[data-scope="dialog"][data-state="open"]')
+					.first()
+					.waitFor({ state: 'hidden', timeout: 2000 })
+					.catch(() => {});
 			}
 		}
 
-		// #671 回帰テスト: 閉じた後 2 秒間ダイアログが再オープンしないことを確認
+		// #671 回帰テスト: ダイアログが再オープンしないことを確認
 		// (無限ループが起きると $effect が再トリガーして即座にダイアログが開く)
-		await page.waitForTimeout(2000);
+		// networkidle で非同期処理の完了を待ってから検証
+		await page.waitForLoadState('networkidle').catch(() => {});
+		// 念のため、遅延ダイアログの出現を短時間待機し、出なければ合格
+		const reopenedDialog = page.locator('[data-scope="dialog"][data-state="open"]').first();
+		await reopenedDialog.waitFor({ state: 'visible', timeout: 2000 }).catch(() => {});
 		const reopenedCount = await countOpenDialogs(page);
 		expect(reopenedCount).toBe(0);
 	});
@@ -202,7 +228,12 @@ test.describe('#611: ダイアログキュー', () => {
 			// 確認ダイアログが出ない場合 → ガードが効いている
 		}
 
-		await page.waitForTimeout(500);
+		// ダイアログの状態が安定するのを待つ（確認ダイアログまたはガードによるブロック）
+		await page
+			.locator('[data-scope="dialog"][data-state="open"], [data-testid="confirm-dialog"]')
+			.first()
+			.waitFor({ state: 'visible', timeout: 2000 })
+			.catch(() => {});
 
 		// 開いているダイアログは最大1つ
 		const openCount = await countOpenDialogs(page);
