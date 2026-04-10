@@ -9,7 +9,8 @@ import { selectKinderChild } from './helpers';
 
 test.describe
 	.serial('#605: バトルアドベンチャー', () => {
-		// UI テスト: バトルが pending 状態であることを前提
+		// UI テスト: バトルページの表示確認
+		// mobile/tablet ワーカーが同一DBを共有するため、先にバトル実行済みの場合がある
 		test('バトルページが正しく表示される（敵・ステータス・開始ボタン）', async ({ page }) => {
 			await selectKinderChild(page);
 			await page.goto('/preschool/battle');
@@ -31,15 +32,18 @@ test.describe
 			const name = await enemyName.textContent();
 			expect(name).toBeTruthy();
 
-			// プレイヤーステータスが表示される（バトル未実行時のみ）
-			const statsPanel = page.getByTestId('stats-panel');
-			await expect(statsPanel).toBeVisible();
-			await expect(statsPanel).toContainText('きみのステータス');
-
-			// バトル開始ボタンが表示される
+			// バトル未実行 or 完了済みのいずれかの状態を検証
 			const startButton = page.getByTestId('battle-start-button');
-			await expect(startButton).toBeVisible();
-			await expect(startButton).toContainText('バトル かいし');
+			const alreadyDone = page.getByTestId('battle-already-done');
+			await expect(startButton.or(alreadyDone)).toBeVisible();
+
+			// 未実行の場合: ステータスパネルと開始ボタンが表示される
+			if (await startButton.isVisible().catch(() => false)) {
+				const statsPanel = page.getByTestId('stats-panel');
+				await expect(statsPanel).toBeVisible();
+				await expect(statsPanel).toContainText('きみのステータス');
+				await expect(startButton).toContainText('バトル かいし');
+			}
 		});
 
 		// API テスト: GET で情報取得（バトルがまだ pending のはず）
