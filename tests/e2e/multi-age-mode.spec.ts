@@ -11,6 +11,10 @@ import {
 	selectChildByName,
 } from './helpers';
 
+// ファイル全体を直列実行（fullyParallel: true + workers: 2 環境でもモード間の並列実行を防止）
+// 全モードが同一ローカル DB に対してデータ変更を行うため、並列実行はデータ衝突の原因になる
+test.describe.configure({ mode: 'serial' });
+
 // 全5年齢モードの定義
 // ui_mode は age-tier.ts の UI_MODES と一致: baby, preschool, elementary, junior, senior
 const AGE_MODES = [
@@ -46,17 +50,43 @@ const AGE_MODES = [
 	},
 ] as const;
 
-/** 記録後のダイアログチェーン（結果→コンボ→スタンプ→レベルアップ）を全て閉じる */
-async function dismissPostRecordDialogs(page: import('@playwright/test').Page) {
-	for (let i = 0; i < 5; i++) {
-		const openDialog = page.locator('[data-scope="dialog"][data-state="open"]');
-		const dialogExists = await openDialog
-			.first()
-			.isVisible()
-			.catch(() => false);
-		if (!dialogExists) break;
+/**
+ * 記録後のダイアログチェーン（結果→コンボ→スタンプ→レベルアップ）を
+ * 順次閉じながら、同時に2つ以上のダイアログが開かないことを検証する。
+ *
+ * @returns 閉じたダイアログの数（検証レポート用）
+ */
+async function dismissAndVerifyDialogChain(page: import('@playwright/test').Page): Promise<number> {
+	let closedCount = 0;
 
-		const closeBtn = openDialog
+	for (let i = 0; i < 6; i++) {
+		// 開いているダイアログを検出
+		const openDialogs = page.locator('[data-scope="dialog"][data-state="open"]');
+		const openCount = await openDialogs.count().catch(() => 0);
+
+		// ダイアログが存在しなければ終了
+		if (openCount === 0) break;
+
+		// 同時に2つ以上のダイアログが開いていないことを検証
+		// （Ark UI のダイアログキューが正しく動作していることの確認）
+		const visibleCount = await page
+			.evaluate(() => {
+				const dialogs = document.querySelectorAll(
+					'[data-scope="dialog"][data-state="open"][data-part="content"]',
+				);
+				let visible = 0;
+				for (const d of dialogs) {
+					const style = window.getComputedStyle(d);
+					if (style.display !== 'none' && style.visibility !== 'hidden') {
+						visible++;
+					}
+				}
+				return visible;
+			})
+			.catch(() => 0);
+		expect(visibleCount).toBeLessThanOrEqual(1);
+
+		const closeBtn = openDialogs
 			.getByRole('button', { name: /やったー|やったね|とじる|閉じる|OK|つぎへ/ })
 			.or(page.getByTestId('activity-confirm-btn'))
 			.or(page.getByTestId('login-bonus-confirm'));
@@ -67,30 +97,40 @@ async function dismissPostRecordDialogs(page: import('@playwright/test').Page) {
 			.catch(() => false);
 		if (!btnVisible) {
 			await page.keyboard.press('Escape');
-			await openDialog
+			await openDialogs
 				.first()
 				.waitFor({ state: 'hidden', timeout: 2000 })
 				.catch(() => {});
+			closedCount++;
 			continue;
 		}
 
 		await closeBtn.first().click();
-		await openDialog
+		closedCount++;
+
+		// ダイアログが閉じるのを待つ
+		await openDialogs
 			.first()
 			.waitFor({ state: 'hidden', timeout: 3000 })
 			.catch(() => {});
+
+		// 次のダイアログが表示されるまで少し待機（ダイアログキューの遷移時間）
+		const nextDialog = page.locator('[data-scope="dialog"][data-state="open"]');
+		await nextDialog
+			.first()
+			.waitFor({ state: 'visible', timeout: 1000 })
+			.catch(() => {
+				// 次のダイアログがなければ正常終了
+			});
 	}
+
 	await clearDialogGhosts(page);
+	return closedCount;
 }
 
 test.describe('全年齢モード E2E', () => {
-	// 全モードを直列実行（モード間の並列実行を防止 — DB 変更テスト含む）
-	test.describe.configure({ mode: 'serial' });
-
 	for (const mode of AGE_MODES) {
 		test.describe(`${mode.name} モード (${mode.childName})`, () => {
-			// モード内テストも直列実行（活動記録テストが DB を変更するため）
-			test.describe.configure({ mode: 'serial' });
 
 			test('ホーム画面が表示される', async ({ page }) => {
 				await selectChildByName(page, mode.childName);
@@ -186,14 +226,24 @@ test.describe('全年齢モード E2E', () => {
 					expect(recorded).toBe(true);
 				}
 
-				// ダイアログチェーン検証: 結果 → コンボ → スタンプ → レベルアップを全て閉じる
-				await dismissPostRecordDialogs(page);
+				// ダイアログチェーン検証:
+				// 結果 → コンボ → スタンプ → レベルアップを順次閉じながら、
+				// 同時に2つ以上のダイアログが開かないことを検証する
+				const closedDialogs = await dismissAndVerifyDialogChain(page);
+				// 少なくとも結果ダイアログ（きろくしたよ！）は閉じたはず
+				expect(closedDialogs).toBeGreaterThanOrEqual(1);
 
-				// 操作可能状態に戻ったことを確認
+				// 全ダイアログ閉鎖後: 操作可能状態に戻ったことを確認
 				await expect(page).toHaveURL(mode.urlPattern);
+
 				// ダイアログが全て閉じていることを確認
 				const remainingDialogs = page.locator('[data-scope="dialog"][data-state="open"]');
 				await expect(remainingDialogs).toHaveCount(0, { timeout: 3000 });
+
+				// ホーム画面に戻って操作可能であることを確認（活動カードが再びクリック可能）
+				await expandFirstCategory(page);
+				const postRecordCards = page.locator('[data-testid^="activity-card-"]');
+				await expect(postRecordCards.first()).toBeVisible({ timeout: 3000 });
 			});
 		});
 	}
