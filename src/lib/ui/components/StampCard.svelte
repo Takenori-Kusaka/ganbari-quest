@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getStampImagePathForEntry } from '$lib/domain/stamp-image';
+import { getStampImagePathSafe } from '$lib/domain/stamp-image';
 
 interface StampEntry {
 	slot: number;
@@ -60,7 +60,7 @@ function isTodaySlot(slotIndex: number): boolean {
 					<div class="stamp-slot__circle" class:stamp-slot__circle--filled={!!entry}>
 						{#if entry}
 							<img
-								src={getStampImagePathForEntry(entry.omikujiRank, entry.rarity)}
+								src={getStampImagePathSafe(entry.omikujiRank, entry.rarity)}
 								alt={entry.name}
 								class="stamp-slot__img"
 							/>
@@ -80,7 +80,7 @@ function isTodaySlot(slotIndex: number): boolean {
 					<div class="stamp-slot__circle" class:stamp-slot__circle--filled={!!entry}>
 						{#if entry}
 							<img
-								src={getStampImagePathForEntry(entry.omikujiRank, entry.rarity)}
+								src={getStampImagePathSafe(entry.omikujiRank, entry.rarity)}
 								alt={entry.name}
 								class="stamp-slot__img"
 							/>
