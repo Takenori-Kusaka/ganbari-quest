@@ -153,6 +153,19 @@ function notifyDemoOnly() {
 					class="w-full rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-muted)] px-3 py-2 text-sm font-mono text-[var(--color-text-tertiary)]"
 					data-testid="demo-license-key-input"
 				/>
+
+				<!-- #799: ライセンスキーについてのヘルプ (デモでは常時表示) -->
+				<div
+					class="p-3 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] border border-[var(--color-border-default)] text-xs text-[var(--color-text-muted)] leading-relaxed space-y-1.5"
+					data-testid="demo-license-help"
+				>
+					<p class="font-semibold text-[var(--color-text-primary)] mb-1">ライセンスキーについて</p>
+					<p>・<strong class="text-[var(--color-text-primary)]">一回限りの使用</strong>: 一度有効化すると他のアカウントでは使用できません</p>
+					<p>・<strong class="text-[var(--color-text-primary)]">プラン自動付与</strong>: キーに対応するプランが自動で付与されます</p>
+					<p>・<strong class="text-[var(--color-text-primary)]">紐付け先</strong>: 現在のアカウント（家族）に紐付き、他の家族に付け替えできません</p>
+					<p>・<strong class="text-[var(--color-text-primary)]">取り消し不可</strong>: 適用後の取り消しはできません</p>
+				</div>
+
 				<Button
 					type="button"
 					variant="secondary"

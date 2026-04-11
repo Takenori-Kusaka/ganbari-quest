@@ -36,6 +36,10 @@ let billingInterval = $state<'monthly' | 'yearly'>('monthly');
 let licenseKeyInput = $state('');
 let applyLoading = $state(false);
 let showApplyConfirm = $state(false);
+// #799 折りたたみヘルプ・一回限り使用同意
+let showLicenseHelp = $state(false);
+let agreedLicenseOnce = $state(false);
+let applyFormEl: HTMLFormElement | null = $state(null);
 // form は startTrial と applyLicenseKey の union なので、apply キーの存在で narrow する
 const applyResult = $derived(
 	form && typeof form === 'object' && 'apply' in form
@@ -235,6 +239,7 @@ async function openPortal() {
 			{/if}
 
 			<form
+				bind:this={applyFormEl}
 				method="POST"
 				action="?/applyLicenseKey"
 				use:enhance={() => {
@@ -245,6 +250,7 @@ async function openPortal() {
 						showApplyConfirm = false;
 						if (applySuccess) {
 							licenseKeyInput = '';
+							agreedLicenseOnce = false;
 						}
 					};
 				}}
@@ -262,6 +268,33 @@ async function openPortal() {
 					data-testid="license-key-input"
 					class="w-full rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-card)] px-3 py-2 font-mono text-sm text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
 				/>
+
+				<!-- #799: 折りたたみヘルプ「ライセンスキーについて」 -->
+				<div class="mt-2">
+					<button
+						type="button"
+						class="text-xs text-[var(--color-text-link)] underline hover:no-underline"
+						aria-expanded={showLicenseHelp}
+						aria-controls="admin-license-help"
+						onclick={() => { showLicenseHelp = !showLicenseHelp; }}
+						data-testid="license-help-toggle"
+					>
+						{showLicenseHelp ? '▼' : '▶'} ライセンスキーについて
+					</button>
+					{#if showLicenseHelp}
+						<div
+							id="admin-license-help"
+							class="mt-2 p-3 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] border border-[var(--color-border-default)] text-xs text-[var(--color-text-muted)] leading-relaxed space-y-1.5"
+							data-testid="license-help-body"
+						>
+							<p><strong class="text-[var(--color-text-primary)]">一回限りの使用</strong>: 一度有効化すると、他のアカウントでは使用できません。</p>
+							<p><strong class="text-[var(--color-text-primary)]">プラン上書き</strong>: 現在のプランはキーに対応するプランに上書きされます。</p>
+							<p><strong class="text-[var(--color-text-primary)]">紐付け先</strong>: 現在のアカウント（家族）に紐付き、他の家族へ付け替えることはできません。</p>
+							<p><strong class="text-[var(--color-text-primary)]">取り消し不可</strong>: 適用後に取り消すことはできません。</p>
+						</div>
+					{/if}
+				</div>
+
 				<Button
 					type="button"
 					variant="primary"
@@ -270,15 +303,19 @@ async function openPortal() {
 					disabled={!licenseKeyInput.trim() || applyLoading}
 					data-testid="license-key-apply-button"
 					onclick={() => {
+						agreedLicenseOnce = false;
 						showApplyConfirm = true;
 					}}
 				>
 					ライセンスキーを適用
 				</Button>
 
+			</form>
+
 				<Dialog
 					bind:open={showApplyConfirm}
-					title="ライセンスキーを適用しますか？"
+					title="ライセンスキーを有効化しますか？"
+					testid="license-key-confirm-dialog"
 				>
 					{#snippet children()}
 					<div class="space-y-3 text-sm text-[var(--color-text-primary)]">
@@ -286,13 +323,30 @@ async function openPortal() {
 							入力されたライセンスキーを現在のアカウントに適用します。
 						</p>
 						<ul class="list-disc pl-5 text-[var(--color-text-muted)] space-y-1">
-							<li><strong>一回限り</strong>使用可能です（適用後は無効化されます）</li>
-							<li>現在のプランが上書きされます</li>
-							<li>適用を取り消すことはできません</li>
+							<li><strong>一回限り</strong>使用可能です（適用後は他アカウントで使えなくなります）</li>
+							<li>キーに対応する<strong>プラン</strong>が自動で付与され、現在のプランは上書きされます</li>
+							<li>このキーは<strong>「{license.tenantName}」</strong>に紐付けられ、他の家族に付け替えできません</li>
+							<li>適用を<strong>取り消すことはできません</strong></li>
 						</ul>
-						<p class="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 font-mono text-xs text-[var(--color-text-secondary)]">
-							{licenseKeyInput}
-						</p>
+						<div class="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
+							<p class="text-[10px] text-[var(--color-text-tertiary)] mb-0.5">入力されたキー</p>
+							<p class="font-mono text-xs text-[var(--color-text-secondary)] break-all" data-testid="license-key-confirm-display">
+								{licenseKeyInput}
+							</p>
+						</div>
+
+						<!-- #799: 一回限り使用に同意 -->
+						<label class="flex items-start gap-2 cursor-pointer pt-1">
+							<input
+								type="checkbox"
+								bind:checked={agreedLicenseOnce}
+								class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
+								data-testid="license-key-once-checkbox"
+							/>
+							<span class="text-xs text-[var(--color-text-muted)] leading-relaxed">
+								このライセンスキーが<strong class="text-[var(--color-text-primary)]">一回限り使用</strong>であり、他のアカウントでは使えなくなることに同意します
+							</span>
+						</label>
 					</div>
 					<div class="mt-4 flex justify-end gap-2">
 						<Button
@@ -305,18 +359,20 @@ async function openPortal() {
 							キャンセル
 						</Button>
 						<Button
-							type="submit"
+							type="button"
 							variant="primary"
 							size="md"
-							disabled={applyLoading}
+							disabled={applyLoading || !agreedLicenseOnce}
 							data-testid="license-key-confirm-button"
+							onclick={() => {
+								applyFormEl?.requestSubmit();
+							}}
 						>
 							{applyLoading ? '適用中…' : '適用する'}
 						</Button>
 					</div>
 					{/snippet}
 				</Dialog>
-			</form>
 			{/snippet}
 		</Card>
 	{/if}
