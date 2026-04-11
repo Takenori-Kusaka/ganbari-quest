@@ -52,7 +52,7 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		// 週次メールレポート: cron 未稼働のため掲載保留
 		await expect(standardCard).not.toContainText('週次メールレポート');
 
-		// アバター変更: canCustomAvatar はデッドコンフィグ (#866)
+		// アバター変更: #866 で canCustomAvatar を削除。全プラン共通機能として扱う
 		await expect(standardCard).not.toContainText('アバター変更');
 		await expect(standardCard).not.toContainText('アバター画像');
 
