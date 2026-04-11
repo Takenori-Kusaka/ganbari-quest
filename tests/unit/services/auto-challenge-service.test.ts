@@ -128,7 +128,7 @@ describe('getOrCreateWeeklyChallenge', () => {
 		mockFindByChildAndWeek.mockResolvedValue(existing);
 
 		const result = await getOrCreateWeeklyChallenge(CHILD_ID, TENANT);
-		expect(result).toBeTruthy();
+		expect(result).not.toBeNull();
 		expect(result?.categoryId).toBe(2);
 		expect(result?.currentCount).toBe(1);
 		expect(mockInsert).not.toHaveBeenCalled();
@@ -167,7 +167,7 @@ describe('getOrCreateWeeklyChallenge', () => {
 		mockInsert.mockResolvedValue(newChallenge);
 
 		const result = await getOrCreateWeeklyChallenge(CHILD_ID, TENANT);
-		expect(result).toBeTruthy();
+		expect(result).not.toBeNull();
 		expect(mockInsert).toHaveBeenCalled();
 		expect(mockExpireOldChallenges).toHaveBeenCalled();
 	});
@@ -189,7 +189,7 @@ describe('getActiveChallenge', () => {
 		});
 
 		const result = await getActiveChallenge(CHILD_ID, TENANT);
-		expect(result).toBeTruthy();
+		expect(result).not.toBeNull();
 		expect(result?.progressPercent).toBe(40);
 		expect(result?.description).toContain('うんどう');
 		expect(result?.description).toContain('5回');
