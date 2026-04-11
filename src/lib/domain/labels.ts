@@ -199,4 +199,5 @@ export const FEATURE_LABELS = {
 	plan: 'プラン',
 	members: 'メンバー',
 	dataExport: 'データエクスポート',
+	aiActivitySuggest: 'AI による活動提案',
 } as const;
