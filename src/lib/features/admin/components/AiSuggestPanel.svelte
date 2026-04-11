@@ -7,9 +7,10 @@ import type { AiPreviewData } from './activity-types';
 
 interface Props {
 	onaccept: (preview: AiPreviewData) => void;
+	isPremium?: boolean;
 }
 
-let { onaccept }: Props = $props();
+let { onaccept, isPremium = false }: Props = $props();
 
 let aiInput = $state('');
 let aiLoading = $state(false);
@@ -18,6 +19,10 @@ let aiPreview = $state<AiPreviewData | null>(null);
 
 async function suggestFromAI() {
 	if (!aiInput.trim()) return;
+	if (!isPremium) {
+		aiError = 'AI 活動提案はスタンダードプラン以上でご利用いただけます';
+		return;
+	}
 	aiLoading = true;
 	aiError = '';
 	aiPreview = null;
@@ -48,22 +53,42 @@ function acceptPreview() {
 </script>
 
 <div class="bg-[var(--color-premium-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-border-premium)]">
-	<h3 class="font-bold text-[var(--color-premium)]">✨ やりたいことを教えてください</h3>
+	<h3 class="font-bold text-[var(--color-premium)]">
+		✨ やりたいことを教えてください
+		{#if !isPremium}
+			<span class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle">有料限定</span>
+		{/if}
+	</h3>
 	<p class="text-xs text-[var(--color-premium-light)]">
 		やりたい活動を自由に入力すると、カテゴリ・ポイント・アイコンを自動で提案します
 	</p>
+	{#if !isPremium}
+		<div class="bg-[var(--color-surface-card)] rounded-lg p-3 text-xs space-y-2 border border-[var(--color-border-premium)]">
+			<p class="text-[var(--color-text-primary)]">
+				AI 活動提案はスタンダードプラン以上の機能です。
+			</p>
+			<a
+				href="/admin/license"
+				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold hover:opacity-90 transition-colors"
+				data-testid="ai-suggest-upgrade-cta"
+			>
+				プランを確認する
+			</a>
+		</div>
+	{/if}
 	<div class="flex gap-2">
 		<input
 			type="text"
 			bind:value={aiInput}
 			placeholder="例: ピアノの練習をした、公園で走った、折り紙を作った"
-			class="flex-1 px-3 py-2 border rounded-lg text-sm"
+			class="flex-1 px-3 py-2 border rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+			disabled={!isPremium}
 			onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); suggestFromAI(); } }}
 		/>
 		<button
 			type="button"
-			class="px-4 py-2 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg text-sm font-bold hover:opacity-90 transition-colors disabled:opacity-50"
-			disabled={aiLoading || !aiInput.trim()}
+			class="px-4 py-2 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg text-sm font-bold hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+			disabled={!isPremium || aiLoading || !aiInput.trim()}
 			onclick={suggestFromAI}
 		>
 			{#if aiLoading}
