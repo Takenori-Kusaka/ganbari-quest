@@ -93,15 +93,17 @@ export async function getDataSummary(tenantId: string): Promise<DataSummary> {
 export async function clearAllFamilyData(tenantId: string): Promise<ClearResult> {
 	logger.info('[data-clear] データクリア開始', { context: { tenantId } });
 
-	// 1. 子供データ（ファイル含む）を削除
+	// 1. テナントスコープのデータ（children に紐づかないもの）を削除
+	//    trial_history / settings / checklist templates / special_rewards
+	//    templates / tenant_events / auto_challenges 等が対象
+	//    ⚠ voice.deleteByChild は children の ID を参照するため、
+	//      children 削除より先に実行する必要がある（#739 review fix）
+	const deletedOther = await deleteTenantScopedData(tenantId);
+
+	// 2. 子供データ（ファイル含む）を削除
 	//    子供のカスケード削除により activity_logs / point_ledger / statuses /
 	//    stamp_cards / child_achievements / login_bonuses 等も消える
 	const deletedChildren = await deleteAllChildrenData(tenantId);
-
-	// 2. テナントスコープのデータ（children に紐づかないもの）を削除
-	//    trial_history / settings / checklist templates / special_rewards
-	//    templates / tenant_events / auto_challenges 等が対象
-	const deletedOther = await deleteTenantScopedData(tenantId);
 
 	logger.info('[data-clear] データクリア完了', {
 		context: { deletedChildren, deletedOther },
