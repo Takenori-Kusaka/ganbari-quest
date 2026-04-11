@@ -6,10 +6,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // mock repos
 const mockFindAllChildren = vi.fn();
 const mockFindActivities = vi.fn();
+const mockFindTemplatesByChild = vi.fn();
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		child: { findAllChildren: mockFindAllChildren },
 		activity: { findActivities: mockFindActivities },
+		checklist: { findTemplatesByChild: mockFindTemplatesByChild },
 	}),
 }));
 
@@ -34,6 +36,7 @@ vi.mock('$lib/server/services/trial-service', () => ({
 
 import {
 	checkActivityLimit,
+	checkChecklistTemplateLimit,
 	checkChildLimit,
 	getHistoryCutoffDate,
 	getPlanLimits,
@@ -387,6 +390,99 @@ describe('plan-limit-service', () => {
 			const result = await checkActivityLimit('tenant1', 'none');
 			expect(result.allowed).toBe(true);
 			expect(result.max).toBeNull();
+		});
+	});
+
+	describe('checkChecklistTemplateLimit (#723)', () => {
+		it('standard: always allowed (max=null)', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			const result = await checkChecklistTemplateLimit('tenant1', 'active', 1);
+			expect(result.allowed).toBe(true);
+			expect(result.max).toBeNull();
+			expect(mockFindTemplatesByChild).not.toHaveBeenCalled();
+		});
+
+		it('family: always allowed (max=null)', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			const result = await checkChecklistTemplateLimit('tenant1', 'active', 1);
+			expect(result.allowed).toBe(true);
+			expect(result.max).toBeNull();
+		});
+
+		it('free (cognito): allowed when under limit (0/3)', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTemplatesByChild.mockResolvedValue([]);
+			const result = await checkChecklistTemplateLimit('tenant1', 'none', 1);
+			expect(result.allowed).toBe(true);
+			expect(result.current).toBe(0);
+			expect(result.max).toBe(3);
+		});
+
+		it('free (cognito): allowed at 2/3', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTemplatesByChild.mockResolvedValue([
+				{ id: 1, name: 'あさ', isActive: 1 },
+				{ id: 2, name: 'よる', isActive: 1 },
+			]);
+			const result = await checkChecklistTemplateLimit('tenant1', 'none', 1);
+			expect(result.allowed).toBe(true);
+			expect(result.current).toBe(2);
+			expect(result.max).toBe(3);
+		});
+
+		it('free (cognito): blocked at exactly 3/3', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTemplatesByChild.mockResolvedValue([
+				{ id: 1, name: 'あさ', isActive: 1 },
+				{ id: 2, name: 'ひる', isActive: 1 },
+				{ id: 3, name: 'よる', isActive: 1 },
+			]);
+			const result = await checkChecklistTemplateLimit('tenant1', 'none', 1);
+			expect(result.allowed).toBe(false);
+			expect(result.current).toBe(3);
+			expect(result.max).toBe(3);
+		});
+
+		it('free (cognito): 非アクティブ (無効化) テンプレも上限に含まれる', async () => {
+			// toggle で isActive=0 にしてもスロットは消費。
+			// findTemplatesByChild は includeInactive=true で呼び出される前提。
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTemplatesByChild.mockResolvedValue([
+				{ id: 1, name: 'あさ', isActive: 0 },
+				{ id: 2, name: 'ひる', isActive: 0 },
+				{ id: 3, name: 'よる', isActive: 1 },
+			]);
+			const result = await checkChecklistTemplateLimit('tenant1', 'none', 1);
+			expect(result.allowed).toBe(false);
+			expect(result.current).toBe(3);
+			// 呼び出しは (childId, tenantId, includeInactive=true) の順
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(1, 'tenant1', true);
+		});
+
+		it('free (cognito): 子ごとにカウントされる (childId をそのまま repo に渡す)', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTemplatesByChild.mockResolvedValue([]);
+			await checkChecklistTemplateLimit('tenant1', 'none', 42);
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(42, 'tenant1', true);
+		});
+
+		it('local: always allowed (selfhost = family tier)', async () => {
+			process.env.AUTH_MODE = 'local';
+			const result = await checkChecklistTemplateLimit('tenant1', 'none', 1);
+			expect(result.allowed).toBe(true);
+			expect(result.max).toBeNull();
+		});
+	});
+
+	describe('getPlanLimits - maxChecklistTemplates (#723)', () => {
+		it('free: 3', () => {
+			expect(getPlanLimits('free').maxChecklistTemplates).toBe(3);
+		});
+		it('standard: null (unlimited)', () => {
+			expect(getPlanLimits('standard').maxChecklistTemplates).toBeNull();
+		});
+		it('family: null (unlimited)', () => {
+			expect(getPlanLimits('family').maxChecklistTemplates).toBeNull();
 		});
 	});
 });
