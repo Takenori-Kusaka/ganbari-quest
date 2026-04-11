@@ -733,8 +733,9 @@ test.describe('#0130: ライセンス管理画面', () => {
 		const planEl = page.locator('main').getByText('無料プラン');
 		await planEl.scrollIntoViewIfNeeded();
 		await expect(planEl).toBeVisible();
-		// ステータスバッジが表示される
-		const statusBadge = page.locator('main').getByText('有効');
+		// ステータスバッジが表示される（#796 のキー適用UIでも「有効化」が出てしまうため、
+		// アイコン付きのバッジテキストで一意に絞り込む）
+		const statusBadge = page.locator('main').getByText('✅ 有効');
 		await expect(statusBadge).toBeVisible();
 	});
 
