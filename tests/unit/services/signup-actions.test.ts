@@ -68,6 +68,12 @@ vi.mock('$lib/server/services/license-key-service', () => ({
 	consumeLicenseKey: (...args: unknown[]) => mockConsumeLicenseKey(...args),
 }));
 
+// --- Trial Service モック (#766) ---
+const mockStartTrial = vi.fn();
+vi.mock('$lib/server/services/trial-service', () => ({
+	startTrial: (...args: unknown[]) => mockStartTrial(...args),
+}));
+
 beforeEach(() => {
 	mockSignUp.mockReset();
 	mockConfirmSignUp.mockReset();
@@ -83,6 +89,9 @@ beforeEach(() => {
 	mockValidateLicenseKey.mockResolvedValue({ valid: true, key: null });
 	mockConsumeLicenseKey.mockReset();
 	mockConsumeLicenseKey.mockResolvedValue({ ok: true, plan: 'monthly' });
+	// #766: startTrial モックのデフォルトは成功
+	mockStartTrial.mockReset();
+	mockStartTrial.mockResolvedValue(true);
 });
 
 /** FormData モック */
@@ -570,6 +579,220 @@ describe('confirm action', () => {
 		}
 
 		expect(mockConsumeLicenseKey).not.toHaveBeenCalled();
+	});
+
+	// ========================================================
+	// #766: /auth/signup?plan=X トライアル自動開始
+	// ========================================================
+	it('#766: plan=standard 指定時は startTrial が tier=standard で呼ばれる', async () => {
+		setupSuccessfulAutoLogin();
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			plan: 'standard',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable('should have thrown redirect');
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+			expect((e as { location: string }).location).toBe('/admin');
+		}
+
+		expect(mockStartTrial).toHaveBeenCalledWith({
+			tenantId: 'tenant-abc',
+			source: 'user_initiated',
+			tier: 'standard',
+		});
+	});
+
+	it('#766: plan=family 指定時は startTrial が tier=family で呼ばれる', async () => {
+		setupSuccessfulAutoLogin();
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			plan: 'family',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable('should have thrown redirect');
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+			expect((e as { location: string }).location).toBe('/admin');
+		}
+
+		expect(mockStartTrial).toHaveBeenCalledWith({
+			tenantId: 'tenant-abc',
+			source: 'user_initiated',
+			tier: 'family',
+		});
+	});
+
+	it('#766: plan 未指定時は startTrial が呼ばれない', async () => {
+		setupSuccessfulAutoLogin();
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable('should have thrown redirect');
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+			expect((e as { location: string }).location).toBe('/admin');
+		}
+
+		expect(mockStartTrial).not.toHaveBeenCalled();
+	});
+
+	it('#766: 不正な plan パラメータ（free / 無効値 / 大文字小文字ずれ）は無視される', async () => {
+		setupSuccessfulAutoLogin();
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		// 'free' は有料プランではないのでトライアル対象外
+		const event1 = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			plan: 'free',
+		});
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event1);
+			expect.unreachable();
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+		}
+		expect(mockStartTrial).not.toHaveBeenCalled();
+
+		mockStartTrial.mockClear();
+
+		// 任意の未知値
+		setupSuccessfulAutoLogin();
+		const event2 = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			plan: 'enterprise',
+		});
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event2);
+			expect.unreachable();
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+		}
+		expect(mockStartTrial).not.toHaveBeenCalled();
+	});
+
+	it('#766: plan=STANDARD（大文字）でも小文字に正規化してトライアル開始する', async () => {
+		setupSuccessfulAutoLogin();
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			plan: 'STANDARD',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable();
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+		}
+
+		expect(mockStartTrial).toHaveBeenCalledWith({
+			tenantId: 'tenant-abc',
+			source: 'user_initiated',
+			tier: 'standard',
+		});
+	});
+
+	it('#766: ライセンスキー指定時は plan=standard でも startTrial は呼ばれない（ライセンス優先）', async () => {
+		setupSuccessfulAutoLogin();
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			plan: 'standard',
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable();
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+		}
+
+		// ライセンスキー消費は呼ばれているが、トライアル開始はスキップ
+		expect(mockConsumeLicenseKey).toHaveBeenCalled();
+		expect(mockStartTrial).not.toHaveBeenCalled();
+	});
+
+	it('#766: startTrial が false を返しても（既に使用済み等） /admin に進む', async () => {
+		setupSuccessfulAutoLogin();
+		mockStartTrial.mockResolvedValue(false);
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			plan: 'standard',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable();
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+			expect((e as { location: string }).location).toBe('/admin');
+		}
+	});
+
+	it('#766: startTrial が例外を投げても /admin に進む（ログのみで続行）', async () => {
+		setupSuccessfulAutoLogin();
+		mockStartTrial.mockRejectedValue(new Error('Trial DB unavailable'));
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			plan: 'family',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable();
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
+			expect((e as { location: string }).location).toBe('/admin');
+		}
 	});
 
 	it('#589: recordConsent 失敗時 → /consent に誘導して再同意を促す', async () => {
