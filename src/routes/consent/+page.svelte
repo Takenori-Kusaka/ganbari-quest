@@ -10,6 +10,27 @@ let { data, form } = $props();
 let agreedTerms = $state(false);
 let agreedPrivacy = $state(false);
 let loading = $state(false);
+
+// #708: 規約リンク閲覧追跡（signup画面 #588 と同等パターン）
+let termsViewed = $state(false);
+let privacyViewed = $state(false);
+let termsHintShown = $state(false);
+let privacyHintShown = $state(false);
+
+// #708: 送信可能かの判定（ユーザーに明確なフィードバックを出すため derived で算出）
+const needsTerms = $derived(!data.termsAccepted);
+const needsPrivacy = $derived(!data.privacyAccepted);
+const canSubmit = $derived(
+	!loading && (!needsTerms || agreedTerms) && (!needsPrivacy || agreedPrivacy),
+);
+const submitBlockReason = $derived.by(() => {
+	if (loading) return '';
+	if (needsTerms && !termsViewed) return '利用規約をお読みください';
+	if (needsPrivacy && !privacyViewed) return 'プライバシーポリシーをお読みください';
+	if (needsTerms && !agreedTerms) return '利用規約への同意が必要です';
+	if (needsPrivacy && !agreedPrivacy) return 'プライバシーポリシーへの同意が必要です';
+	return '';
+});
 </script>
 
 <svelte:head>
@@ -67,18 +88,35 @@ let loading = $state(false);
 					<div class="p-4 border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
 						<h2 class="text-base font-semibold text-[var(--color-text)] mb-1">利用規約</h2>
 						<p class="text-xs text-[var(--color-text-tertiary)] mb-2">バージョン: {data.currentTermsVersion}</p>
-						<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-sm text-[var(--color-text-link)] inline-block mb-3">利用規約を確認する</a>
+						<a
+							href="https://www.ganbari-quest.com/terms.html"
+							target="_blank"
+							rel="noopener"
+							class="text-sm text-[var(--color-text-link)] inline-block mb-3"
+							onclick={() => { termsViewed = true; termsHintShown = false; }}
+						>利用規約を確認する ↗</a>
 						<FormField label="">
 							{#snippet children()}
-								<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-text-primary)]">
+								<label class="flex items-start gap-2 {termsViewed ? 'cursor-pointer' : 'cursor-default'} text-sm text-[var(--color-text-primary)]">
 									<input
 										type="checkbox"
 										name="agreedTerms"
 										bind:checked={agreedTerms}
 										data-testid="consent-terms-checkbox"
-										class="w-[18px] h-[18px] accent-[var(--color-action-primary)]"
+										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)] {!termsViewed ? 'opacity-40' : ''}"
+										onclick={(e) => {
+											if (!termsViewed) {
+												e.preventDefault();
+												termsHintShown = true;
+											}
+										}}
 									/>
-									<span>利用規約に同意します</span>
+									<span>
+										利用規約に同意します
+										{#if termsHintShown && !termsViewed}
+											<span class="block text-xs text-[var(--color-feedback-warning-text)] mt-0.5">先に利用規約をお読みください</span>
+										{/if}
+									</span>
 								</label>
 							{/snippet}
 						</FormField>
@@ -91,18 +129,35 @@ let loading = $state(false);
 					<div class="p-4 border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
 						<h2 class="text-base font-semibold text-[var(--color-text)] mb-1">プライバシーポリシー</h2>
 						<p class="text-xs text-[var(--color-text-tertiary)] mb-2">バージョン: {data.currentPrivacyVersion}</p>
-						<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-sm text-[var(--color-text-link)] inline-block mb-3">プライバシーポリシーを確認する</a>
+						<a
+							href="https://www.ganbari-quest.com/privacy.html"
+							target="_blank"
+							rel="noopener"
+							class="text-sm text-[var(--color-text-link)] inline-block mb-3"
+							onclick={() => { privacyViewed = true; privacyHintShown = false; }}
+						>プライバシーポリシーを確認する ↗</a>
 						<FormField label="">
 							{#snippet children()}
-								<label class="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-text-primary)]">
+								<label class="flex items-start gap-2 {privacyViewed ? 'cursor-pointer' : 'cursor-default'} text-sm text-[var(--color-text-primary)]">
 									<input
 										type="checkbox"
 										name="agreedPrivacy"
 										bind:checked={agreedPrivacy}
 										data-testid="consent-privacy-checkbox"
-										class="w-[18px] h-[18px] accent-[var(--color-action-primary)]"
+										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)] {!privacyViewed ? 'opacity-40' : ''}"
+										onclick={(e) => {
+											if (!privacyViewed) {
+												e.preventDefault();
+												privacyHintShown = true;
+											}
+										}}
 									/>
-									<span>プライバシーポリシーに同意します</span>
+									<span>
+										プライバシーポリシーに同意します
+										{#if privacyHintShown && !privacyViewed}
+											<span class="block text-xs text-[var(--color-feedback-warning-text)] mt-0.5">先にプライバシーポリシーをお読みください</span>
+										{/if}
+									</span>
 								</label>
 							{/snippet}
 						</FormField>
@@ -115,16 +170,19 @@ let loading = $state(false);
 		</Card>
 	</div>
 
-	<!-- Sticky bottom bar — ボタンが viewport 外に出ない -->
-	<div class="sticky bottom-0 w-full px-4 py-4 bg-[color-mix(in_srgb,var(--color-surface-card)_90%,transparent)] backdrop-blur-sm border-t border-[var(--color-border-default)]">
+	<!-- Sticky bottom bar — ボタンが viewport 外に出ない (#589 + #708) -->
+	<div class="consent-sticky-bar sticky bottom-0 w-full px-4 py-4 border-t border-[var(--color-border-default)]">
 		<div class="max-w-[480px] mx-auto">
+			{#if !canSubmit && !loading}
+				<p class="text-center text-xs text-[var(--color-text-muted)] mb-2" data-testid="consent-submit-hint">
+					{submitBlockReason}
+				</p>
+			{/if}
 			<Button
 				type="submit"
 				form="consent-form"
-				disabled={loading ||
-					(!data.termsAccepted && !agreedTerms) ||
-					(!data.privacyAccepted && !agreedPrivacy)}
-				class="w-full !bg-[var(--gradient-brand)]"
+				disabled={!canSubmit}
+				class="w-full consent-submit-btn"
 				aria-busy={loading}
 				data-testid="consent-submit"
 			>
@@ -141,5 +199,15 @@ let loading = $state(false);
 <style>
 	.consent-page {
 		background: var(--gradient-brand);
+	}
+	/* #708: stickyバーをページ背景と明確に区別（不透明 + shadow） */
+	.consent-sticky-bar {
+		background: var(--color-surface-card);
+		box-shadow: 0 -4px 16px color-mix(in srgb, var(--color-surface-overlay) 24%, transparent);
+	}
+	/* #708: disabled時に視覚的に明確に無効とわかる（opacity + not-allowed） */
+	.consent-sticky-bar :global(.consent-submit-btn:disabled) {
+		opacity: 0.45;
+		cursor: not-allowed;
 	}
 </style>
