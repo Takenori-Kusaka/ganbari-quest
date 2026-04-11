@@ -14,6 +14,11 @@ import { verifyDevIdentityToken } from './cognito-dev-jwt';
 /**
  * 開発用ダミーユーザー（E2E テストでも使用）
  * ログインフォームでこれらの email/password でログイン可能
+ *
+ * #776: プラン別ゲート E2E 用に、プラン指定付きの owner ユーザーを追加できるように
+ * `licenseStatus` / `plan` を optional フィールドとして持てるようにした。
+ * 未指定（従来の owner/parent/child）は `licenseStatus='active'` / `plan=undefined`
+ * → `resolvePlanTier` では `standard` と解決される。
  */
 export interface DevUser {
 	userId: string;
@@ -21,6 +26,10 @@ export interface DevUser {
 	password: string;
 	tenantId: string;
 	role: Role;
+	/** ライセンス状態（未指定は 'active'） */
+	licenseStatus?: AuthContext['licenseStatus'];
+	/** Stripe price id 相当（例: 'standard_monthly', 'family_monthly'） */
+	plan?: string;
 }
 
 export const DEV_USERS: DevUser[] = [
@@ -44,6 +53,35 @@ export const DEV_USERS: DevUser[] = [
 		password: 'Gq!Dev#Child2026x',
 		tenantId: 'dev-tenant-001',
 		role: 'child',
+	},
+	// ---------- #776: プラン別ゲート E2E 用ユーザー ----------
+	// 各ユーザーは tenant を分けておき、データ干渉を防ぐ。
+	{
+		userId: 'dev-free-owner-001',
+		email: 'free@example.com',
+		password: 'Gq!Dev#Free2026xy',
+		tenantId: 'dev-tenant-free',
+		role: 'owner',
+		licenseStatus: 'none',
+		plan: undefined,
+	},
+	{
+		userId: 'dev-standard-owner-001',
+		email: 'standard@example.com',
+		password: 'Gq!Dev#Std2026xyz',
+		tenantId: 'dev-tenant-standard',
+		role: 'owner',
+		licenseStatus: 'active',
+		plan: 'standard_monthly',
+	},
+	{
+		userId: 'dev-family-owner-001',
+		email: 'family@example.com',
+		password: 'Gq!Dev#Fam2026xyz',
+		tenantId: 'dev-tenant-family',
+		role: 'owner',
+		licenseStatus: 'active',
+		plan: 'family_monthly',
 	},
 ];
 
@@ -108,11 +146,13 @@ export class DevCognitoAuthProvider implements AuthProvider {
 		const devUser = findDevUser(identity.email);
 		if (!devUser) return null;
 
+		// #776: dev user のプラン情報を反映する。未指定時は従来通り active/standard 扱い。
 		const context: AuthContext = {
 			tenantId: devUser.tenantId,
 			role: devUser.role,
-			licenseStatus: 'active',
+			licenseStatus: devUser.licenseStatus ?? 'active',
 			tenantStatus: 'active',
+			plan: devUser.plan,
 		};
 
 		const token = signContext(context);
