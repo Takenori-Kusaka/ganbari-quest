@@ -193,9 +193,83 @@ Stripe で決済 → ライセンスキー発行 → ユーザーが自テナン
 | **Stripe Customer Portal** | なし（Stripe Customer ID 直接） | なし | N/A | Cognito と 1:1 結合、贈答/campaign 不可 |
 | **自作（採用）** | `GQ-XXXX-XXXX-XXXX-YYYYY` | HMAC-SHA256 | 一回限り | UX 優先、個人運営コスト最小、OSS 互換 |
 
+## ログマスク標準（#869 追記、2026-04-11）
+
+ライセンスキーは本質的に認証情報（bearer credential）であり、完全値がログ・監視基盤・Discord 通知に残存すると漏洩リスクが増幅する。以下を本プロジェクトのログマスク標準として定める。
+
+### H-1: マスク方式
+
+- **形式**: 先頭 **7 文字** のみ出力する（`GQ-XXXX` まで）。後続には ` ...` を付与して切り詰めを明示
+- **例**: `GQ-A3K8-Z9PQ-M2NR-WXYZ7` → `GQ-A3K8 ...`
+- **実装例**: `licenseKey.slice(0, 7) + ' ...'`
+- **呼び出し箇所**: `src/lib/server/services/license-key-service.ts` の `issueLicenseKey` / `validateLicenseKey` / `consumeLicenseKey` の logger 呼び出しで既にこの方式を採用（`#869` で `issueLicenseKey` にも遡及適用）
+
+### H-2: 対象
+
+以下のすべての出力経路で完全キー値を出してはならない。
+
+| 経路 | 対応 |
+|------|------|
+| `logger.*` (info/warn/error/debug) | 先頭 7 文字マスクで出力 |
+| `Error` の message / cause | マスク済み値のみ含める |
+| Discord Webhook 通知 | マスク済み値のみ |
+| CloudWatch / Sentry | logger 経由で自動的にマスクされる |
+| 監査ログ（DynamoDB AUDIT アイテム、#804） | ハッシュ値または先頭 7 文字のみ保持 |
+| Stripe metadata / webhook payload | マスク済み値のみ |
+
+### H-3: 根拠
+
+- **先頭 7 文字の情報量**: `GQ-XXXX` は文字セット 32 の 4 桁 = 約 100 万通り。運用時にサポート担当者が「どのキーの話をしているか」概ね特定できる水準
+- **一意特定不可**: 4 文字では DynamoDB の `LICENSE#{完全キー}` PK で絞り込めない（スキャンが必要）ため、ログ漏洩時に攻撃者がキーを悪用することはできない
+- **業界慣例**: Stripe API keys (`sk_live_...`) も同様に先頭 8–10 文字のマスクが標準。GitHub token もダッシュボード表示は同様
+
+### H-4: 禁止事項
+
+以下のアンチパターンを禁止する。
+
+- 完全キー値を `console.log` / `logger.*` に渡す（マスクしない生値）
+- Error メッセージに完全キーを含める（例: `new Error('Invalid key: ' + licenseKey)`）
+- HTTP レスポンスボディに完全キーを含める（エラー返却時は prefix のみ）
+- `JSON.stringify(licenseRecord)` で無加工にシリアライズしてログに出す
+
+### H-5: CI / コードレビュー
+
+- `logger.*(.*licenseKey.*)` / `console\..*licenseKey` の生値出力を検出する ESLint ルール追加を検討（別 issue にスピンオフ可）
+- 既存コード棚卸し: PR 時に `grep -rn "licenseKey" src/` で logger 出力に完全値が含まれていないことを目視確認
+
+## assume-leak 原則の対応状況（#869 追記、2026-04-11）
+
+ライセンスキーは「流出する前提」でセキュリティ設計されるべき（業界標準: Keygen.sh / Lemon Squeezy / Adobe Licensing）。12 原則に対する本プロジェクトの対応状況を記録する。
+
+| # | 原則 | 対応 issue | 状態 | 備考 |
+|---|------|---------|------|------|
+| 1 | 購入者紐付け (owner-only) | #798, #801 | ✅ 対応済 / 予定 | `LicenseRecord.kind` で cross-tenant consume を拒否 |
+| 2 | サブスクリプション期間の有効期限 | #797 | ✅ 対応済 / 予定 | `expiresAt` 90 日デフォルト |
+| 3 | 失効 (revocation) | #797, #805 | ✅ 対応済 / 予定 | `revokeLicenseKey` + 管理画面 (#805) |
+| 4 | 未使用 TTL（発行後 N 日で失効） | — | ⚠️ Pre-PMF 対象外 | #2 の `expiresAt` が実質的に機能（90 日後に失効） |
+| 5 | 監査ログ | #804 | ✅ 予定 | DynamoDB AUDIT アイテム、1 年 TTL |
+| 6 | 異常検知アラート | — | ⚠️ Pre-PMF 対象外 | #804 の監査ログで手動レビュー可能。自動化は将来課題 |
+| 7 | レート制限 | #813 | ✅ 予定 | IP + キー prefix でレート制限 |
+| 8 | HMAC 必須化（legacy 拒否） | #806 | ✅ 対応済 | `AWS_LICENSE_SECRET` 必須化済 |
+| 9 | シークレットローテーション | #807 | ✅ 予定 | 年 1 回、grace period 90 日 |
+| 10 | 一回限り使用の実働 | #795 | ✅ 対応済 | `consumeLicenseKey` で status=active→consumed を atomic に更新 |
+| 11 | **ログマスク** | #869（本追記） | ✅ 本 ADR で標準化 | 先頭 7 文字マスク |
+| 12 | メール経路漏洩代替（ワンクリック署名リンク） | — | ⚠️ Pre-PMF 対象外 | 平文メール送付は業界慣例。署名付き URL は将来課題 |
+
+### 将来検討事項（2026-04-11 判断）
+
+以下 3 項目は Pre-PMF の現時点では対象外とし、個別 issue は起票しない。本 ADR に「将来検討事項」として記録するのみとする。
+
+- **#4 未使用 TTL**: #2 (`expiresAt` 90 日) が実質的に同等機能を提供するため、別建ての未使用 TTL は不要と判断
+- **#6 異常検知アラート**: #5 の監査ログを手動でレビューする運用で十分。Pre-PMF では自動アラート基盤（CloudWatch Metric Filter / Anomaly Detection）の維持コストが便益を上回る
+- **#12 メール経路漏洩代替**: ワンクリック署名 URL（例: `https://app/activate?token=<JWT>`）は UX を向上させるが、既存のメール平文送付方式は Keygen.sh / Lemon Squeezy / Adobe 等でも標準的な実装であり、優先度は低い
+
+対応済 9/12 + 本 ADR でログマスク追加 = **10/12** で Pre-PMF としては十分と判断する。将来 PMF 到達後に #4 #6 #12 を再評価する。
+
 ## 教訓
 
 - **ADR を先に書いてから実装する** — 現行実装（`license-key-service.ts`）は #247 / #319 の積み重ねで決まったが、根拠が文書化されていなかったため #806 / #807 のような後追い指摘が発生した
 - **オプション引数で「省略時フォールバック」を用意すると必ず事故る** — `AWS_LICENSE_SECRET` を optional にした結果、CI テスト環境で legacy format を受け入れる挙動が本番にも漏れた（#806）
 - **Pre-PMF 段階では UX > セキュリティ強度** — 複雑な署名方式は個人運営では運用破綻する。HMAC + シンプルな秘密鍵管理が現実的
 - **有効期限のないリソースは運用負債になる** — 初期実装で無期限キーを発行した結果、未使用キーが DynamoDB に蓄積し、棚卸し運用が生まれた
+- **認証情報のログ出力は「暗黙の規則」では守られない** — ログマスク方式は ADR に明文化し、コードレビューと grep で機械的に検証する仕組みが必要（#869）
