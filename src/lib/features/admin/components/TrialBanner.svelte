@@ -1,15 +1,23 @@
 <script lang="ts">
+import { enhance } from '$app/forms';
+import { invalidateAll } from '$app/navigation';
+
 interface Props {
 	isTrialActive: boolean;
 	daysRemaining: number;
 	trialUsed: boolean;
 	trialEndDate: string | null;
+	planTier?: 'free' | 'standard' | 'family';
 }
 
-let { isTrialActive, daysRemaining, trialUsed, trialEndDate }: Props = $props();
+let { isTrialActive, daysRemaining, trialUsed, trialEndDate, planTier = 'free' }: Props = $props();
 
+// 状態判定: #731 — 未使用 free ユーザーにもトライアル開始導線を表示
 const isTrialExpired = $derived(trialUsed && !isTrialActive && trialEndDate !== null);
+const canStartTrial = $derived(planTier === 'free' && !trialUsed && !isTrialActive);
 const isUrgent = $derived(daysRemaining <= 1);
+
+let submitting = $state(false);
 </script>
 
 {#if isTrialActive}
@@ -25,9 +33,40 @@ const isUrgent = $derived(daysRemaining <= 1);
 			</p>
 			<p class="trial-desc">全機能をお試しいただけます。</p>
 		</div>
-		<a href="/admin/license" class="trial-cta">
+		<a href="/admin/license" class="trial-cta" data-testid="trial-banner-active-cta">
 			プランを見る
 		</a>
+	</div>
+{:else if canStartTrial}
+	<div class="trial-banner not-started" data-testid="trial-banner-not-started">
+		<div class="trial-icon">🎁</div>
+		<div class="trial-content">
+			<p class="trial-title">7日間、全機能を無料で試せます</p>
+			<p class="trial-desc">スタンダードプランのすべての機能をお使いいただけます。カード登録不要。</p>
+		</div>
+		<form
+			method="POST"
+			action="/admin/license?/startTrial"
+			use:enhance={() => {
+				submitting = true;
+				return async ({ result, update }) => {
+					await update({ reset: false });
+					if (result.type === 'success') {
+						await invalidateAll();
+					}
+					submitting = false;
+				};
+			}}
+		>
+			<button
+				type="submit"
+				class="trial-cta"
+				disabled={submitting}
+				data-testid="trial-banner-start-button"
+			>
+				{submitting ? '開始中...' : '7日間 無料で試す'}
+			</button>
+		</form>
 	</div>
 {:else if isTrialExpired}
 	<div class="trial-banner expired">
@@ -36,7 +75,7 @@ const isUrgent = $derived(daysRemaining <= 1);
 			<p class="trial-title">無料体験が終了しました</p>
 			<p class="trial-desc">カスタムデータはアップグレードで復活します。</p>
 		</div>
-		<a href="/admin/license" class="trial-cta upgrade">
+		<a href="/admin/license" class="trial-cta upgrade" data-testid="trial-banner-expired-cta">
 			⭐ アップグレード
 		</a>
 	</div>
@@ -56,6 +95,11 @@ const isUrgent = $derived(daysRemaining <= 1);
 	.trial-banner.urgent {
 		border-color: var(--color-border-trial-urgent);
 		background: var(--gradient-surface-trial-urgent);
+	}
+
+	.trial-banner.not-started {
+		border-color: var(--color-border-trial);
+		background: var(--gradient-surface-trial);
 	}
 
 	.trial-banner.expired {
@@ -92,13 +136,20 @@ const isUrgent = $derived(daysRemaining <= 1);
 		color: var(--color-text-inverse);
 		font-size: 0.75rem;
 		font-weight: 600;
+		border: none;
 		border-radius: 8px;
 		text-decoration: none;
+		cursor: pointer;
 		transition: background 0.15s;
 	}
 
-	.trial-cta:hover {
+	.trial-cta:hover:not(:disabled) {
 		background: var(--color-action-trial-hover);
+	}
+
+	.trial-cta:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 
 	.trial-cta.upgrade {
@@ -107,5 +158,9 @@ const isUrgent = $derived(daysRemaining <= 1);
 
 	.trial-cta.upgrade:hover {
 		background: var(--color-action-trial-upgrade-hover);
+	}
+
+	form {
+		margin: 0;
 	}
 </style>
