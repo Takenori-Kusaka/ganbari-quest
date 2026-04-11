@@ -40,7 +40,7 @@ async function loginAsOwner(page: Page): Promise<boolean> {
 	await emailInput.click();
 	await emailInput.fill('');
 	await emailInput.type(TEST_EMAIL, { delay: 10 });
-	const passwordInput = page.getByLabel('パスワード');
+	const passwordInput = page.getByLabel('パスワード', { exact: true });
 	await passwordInput.click();
 	await passwordInput.type(TEST_PASSWORD, { delay: 10 });
 
@@ -76,7 +76,7 @@ test.describe('本番環境 - 基本動作', () => {
 			timeout: 10000,
 		});
 		await expect(page.getByLabel('メールアドレス')).toBeVisible();
-		await expect(page.getByLabel('パスワード')).toBeVisible();
+		await expect(page.getByLabel('パスワード', { exact: true })).toBeVisible();
 	});
 
 	test('404ページが適切に表示される', async ({ page }) => {
