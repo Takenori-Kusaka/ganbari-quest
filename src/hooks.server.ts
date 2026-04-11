@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
 import { analytics } from '$lib/analytics';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
+import { applyDebugPlanOverride } from '$lib/server/debug-plan';
 import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
 import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legacy-url-map';
@@ -212,11 +213,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (path.startsWith('/demo')) {
 		event.locals.authenticated = false;
 		event.locals.identity = null;
-		event.locals.context = {
+		event.locals.context = applyDebugPlanOverride({
 			tenantId: 'demo',
 			role: 'owner',
 			licenseStatus: 'active',
-		};
+		});
 		const response = await resolve(event);
 		if (!path.startsWith('/_app/') && !path.startsWith('/favicon')) {
 			logger.request(event.request.method, path, response.status, Date.now() - start, {
@@ -228,7 +229,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	const identity = await provider.resolveIdentity(event);
-	const context = await provider.resolveContext(event, identity);
+	const resolvedContext = await provider.resolveContext(event, identity);
+	// DEBUG_PLAN / DEBUG_TRIAL による上書きは、以降の認可・tenantStatus チェックにも
+	// 一貫して適用する必要があるため、ローカル変数 context 自体を上書き後の値で統一する。
+	const context = applyDebugPlanOverride(resolvedContext);
 
 	event.locals.authenticated = identity !== null;
 	event.locals.identity = identity;
