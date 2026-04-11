@@ -4,9 +4,26 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited, ready_for_review]
     paths:
-      - "src/routes/**"
-      - "src/lib/ui/**"
-      - "src/lib/features/**"
+      # ビジュアル変更を含むファイル種別のみに絞る（バックエンド .ts / API endpoint は除外）。
+      # 過去の `src/routes/**` 全体マッチは `+page.server.ts` や `api/.../+server.ts` でも
+      # 発火してしまい、backend-only PR で false-positive を出す不具合があった。
+      - "src/routes/**/*.svelte"
+      - "src/routes/**/*.svelte.ts"
+      - "src/routes/**/*.svelte.js"
+      - "src/routes/**/*.css"
+      - "src/routes/**/*.scss"
+      - "src/lib/ui/**/*.svelte"
+      - "src/lib/ui/**/*.svelte.ts"
+      - "src/lib/ui/**/*.svelte.js"
+      - "src/lib/ui/**/*.css"
+      - "src/lib/ui/**/*.scss"
+      - "src/lib/features/**/*.svelte"
+      - "src/lib/features/**/*.svelte.ts"
+      - "src/lib/features/**/*.svelte.js"
+      - "src/lib/features/**/*.css"
+      - "src/lib/features/**/*.scss"
+      - "src/app.css"
+      - "src/app.html"
 
 permissions:
   contents: read
