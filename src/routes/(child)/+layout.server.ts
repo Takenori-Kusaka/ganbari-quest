@@ -6,7 +6,11 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { markChildScreenVisited } from '$lib/server/services/onboarding-service';
-import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
+import {
+	getPlanLimits,
+	isPaidTier,
+	resolveFullPlanTier,
+} from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getStampCardStatus } from '$lib/server/services/stamp-card-service';
 import { getChildStatus } from '$lib/server/services/status-service';
@@ -79,13 +83,17 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	// オンボーディング「子供の画面を確認する」を自動マーク（fire-and-forget）
 	markChildScreenVisited(tenantId).catch(() => {});
 
-	const isPremium = isPaidTier(
-		await resolveFullPlanTier(
-			tenantId,
-			locals.context?.licenseStatus ?? 'none',
-			locals.context?.plan,
-		),
+	// #789: プラン情報を child UI 配下で一元的に参照できるよう layout に集約する。
+	// 従来は各 +page.server.ts が個別に resolveFullPlanTier を呼び直しており、
+	// 「child 側で planTier を取得する手段が無い」状態だった。
+	// 本 layout で 1 回だけ解決し、planTier / planLimits / isPremium を配布する。
+	const planTier = await resolveFullPlanTier(
+		tenantId,
+		locals.context?.licenseStatus ?? 'none',
+		locals.context?.plan,
 	);
+	const planLimits = getPlanLimits(planTier);
+	const isPremium = isPaidTier(planTier);
 
 	return {
 		child,
@@ -98,5 +106,7 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		stampProgress,
 		stampCard: !stampCardResult || 'error' in stampCardResult ? null : stampCardResult,
 		isPremium,
+		planTier,
+		planLimits,
 	};
 };
