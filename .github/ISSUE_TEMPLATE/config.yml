@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Discord Community
-    url: https://discord.gg/ganbari-quest
-    about: Join the community for questions and discussions
+  - name: メールでお問い合わせ
+    url: mailto:ganbari.quest.support@gmail.com
+    about: バグ報告やご質問はメールでもお寄せいただけます
