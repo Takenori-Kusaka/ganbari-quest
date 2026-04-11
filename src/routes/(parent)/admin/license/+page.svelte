@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { getLicenseHighlights } from '$lib/domain/plan-features';
 import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
 import ChurnPreventionModal from '$lib/features/loyalty/ChurnPreventionModal.svelte';
 import LoyaltyBadge from '$lib/features/loyalty/LoyaltyBadge.svelte';
@@ -474,10 +475,9 @@ async function openPortal() {
 						{/if}
 					</div>
 					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
-						<li>子供の登録数 無制限</li>
-						<li>カスタム活動 無制限</li>
-						<li>データ保持 1年間</li>
-						<li>データエクスポート対応</li>
+						{#each getLicenseHighlights('standard') as highlight}
+							<li>{highlight}</li>
+						{/each}
 					</ul>
 				</div>
 
@@ -504,11 +504,9 @@ async function openPortal() {
 						{/if}
 					</div>
 					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
-						<li>スタンダードの全機能</li>
-						<li>祖父母・家族向け閲覧リンク</li>
-						<li>自由テキストおうえん</li>
-						<li>きょうだいランキング</li>
-						<li>データ保持 <strong>永久</strong></li>
+						{#each getLicenseHighlights('family') as highlight}
+							<li>{highlight}</li>
+						{/each}
 					</ul>
 				</div>
 

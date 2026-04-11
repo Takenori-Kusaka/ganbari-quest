@@ -1,5 +1,6 @@
 <script lang="ts">
 import { PLAN_SHORT_LABELS } from '$lib/domain/labels';
+import { getUnlockedFeatures } from '$lib/domain/plan-features';
 
 interface Props {
 	planTier: 'standard' | 'family';
@@ -13,24 +14,7 @@ const isFamily = $derived(planTier === 'family');
 const planLabel = $derived(PLAN_SHORT_LABELS[planTier]);
 const planIcon = $derived(isFamily ? '⭐⭐' : '⭐');
 
-const features = $derived(
-	isFamily
-		? [
-				{ text: 'オリジナル活動の追加（無制限）', icon: '✅' },
-				{ text: 'チェックリストの自由作成', icon: '✅' },
-				{ text: 'ごほうびのカスタマイズ', icon: '✅' },
-				{ text: '詳細な月次レポート', icon: '✅' },
-				{ text: 'データの永久保持', icon: '✅' },
-				{ text: 'こどもの登録（無制限）', icon: '✅' },
-			]
-		: [
-				{ text: 'オリジナル活動の追加（無制限）', icon: '✅' },
-				{ text: 'チェックリストの自由作成', icon: '✅' },
-				{ text: 'ごほうびのカスタマイズ', icon: '✅' },
-				{ text: '詳細な月次レポート', icon: '✅' },
-				{ text: '1年間のデータ保持', icon: '✅' },
-			],
-);
+const features = $derived(getUnlockedFeatures(planTier));
 </script>
 
 <div class="welcome-overlay" role="dialog" aria-modal="true" aria-label="{planLabel}へようこそ">
