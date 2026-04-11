@@ -40,11 +40,21 @@ $effect(() => {
 <NavigationProgress />
 
 <!-- デモバナー -->
-<div class="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-center py-2 px-4 text-sm font-bold shadow-md flex items-center justify-center gap-3">
-	<span>これはデモです。データは保存されません。</span>
+<div class="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-2 px-4 text-sm font-bold shadow-md flex items-center justify-between gap-2">
+	<!-- HP 戻り導線 (#705): 目立ちすぎずデモ UX を阻害しない位置 -->
+	<a
+		href="https://www.ganbari-quest.com/"
+		class="flex-shrink-0 inline-flex items-center gap-1 text-white/90 hover:text-white text-xs underline-offset-2 hover:underline"
+		data-testid="demo-back-to-lp"
+		onclick={() => trackDemoEvent('demo_back_to_lp', { from: $page.url.pathname })}
+	>
+		<span aria-hidden="true">←</span>
+		<span>HPに戻る</span>
+	</a>
+	<span class="flex-1 text-center truncate">これはデモです。データは保存されません。</span>
 	<a
 		href="/demo/signup"
-		class="inline-block bg-white text-orange-600 px-3 py-1 rounded-full text-xs font-bold hover:bg-orange-50 transition-colors"
+		class="flex-shrink-0 inline-block bg-white text-orange-600 px-3 py-1 rounded-full text-xs font-bold hover:bg-orange-50 transition-colors"
 	>
 		本番で使ってみる
 	</a>
