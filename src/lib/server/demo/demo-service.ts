@@ -14,6 +14,7 @@ import { DEFAULT_POINT_SETTINGS, type PointSettings } from '$lib/domain/point-di
 import { CATEGORY_DEFS, getActivityDisplayName } from '$lib/domain/validation/activity';
 import { calcLevelFromXp, calcXpToNextLevel } from '$lib/domain/validation/status';
 import type { Activity, Child } from '$lib/server/db/types/index.js';
+import type { TodayChecklist } from '$lib/server/services/checklist-service';
 import type { DailyMissionStatus } from '$lib/server/services/daily-mission-service';
 import type { LoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import type { ChildStatus, StatusDetail } from '$lib/server/services/status-service';
@@ -341,7 +342,7 @@ export function getDemoChecklistData(childId: number) {
 }
 
 // #704: 子供画面のチェックリストページ用 — 本番の TodayChecklist と互換性のある形に整形する。
-export function getDemoTodayChecklistsForChild(childId: number) {
+export function getDemoTodayChecklistsForChild(childId: number): TodayChecklist[] {
 	const { templates, items } = getDemoChecklistsForChild(childId);
 	return templates.map((t) => {
 		const tItems = items

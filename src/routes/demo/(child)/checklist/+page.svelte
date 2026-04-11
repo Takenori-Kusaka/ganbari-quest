@@ -12,11 +12,12 @@ const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
 // デモではローカル state でチェック ON/OFF を表現する。
-// data.checklists は SSR でのみ更新され、childId 切替時にも effect で再同期する。
+// SSR 時も data.checklists をそのまま初期値に使い、childId 切替時に $effect で再同期する。
 type DemoChecklist = (typeof data.checklists)[number];
-let localChecklists = $state<DemoChecklist[]>([]);
+let localChecklists = $state<DemoChecklist[]>(structuredClone(data.checklists));
 
 $effect(() => {
+	// childId 切替時に data.checklists が変わったら再同期
 	localChecklists = structuredClone(data.checklists);
 });
 
@@ -53,11 +54,13 @@ function toggleItem(templateId: number, itemId: number) {
 		if (cl.templateId !== templateId) return cl;
 		const items = cl.items.map((it) => (it.id === itemId ? { ...it, checked: !it.checked } : it));
 		const checkedCount = items.filter((i) => i.checked).length;
+		const completedAll = checkedCount === cl.totalCount && cl.totalCount > 0;
 		return {
 			...cl,
 			items,
 			checkedCount,
-			completedAll: checkedCount === cl.totalCount && cl.totalCount > 0,
+			completedAll,
+			pointsAwarded: completedAll ? cl.totalCount * cl.pointsPerItem + cl.completionBonus : 0,
 		};
 	});
 }
