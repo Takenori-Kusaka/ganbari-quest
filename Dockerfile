@@ -7,10 +7,14 @@ RUN npm ci
 
 # Stage 2: Build
 FROM deps AS build
+ARG APP_MAJOR_VERSION=1
+ENV APP_MAJOR_VERSION=${APP_MAJOR_VERSION}
 COPY . .
+# Regenerate APP_VERSION at build time so every deployed image carries the
+# build date, regardless of whether the caller committed a fresh version.ts (#711).
 # SvelteKit postbuild analysis imports server modules including DB client;
-# create data dir so better-sqlite3 doesn't fail during build
-RUN mkdir -p data && npm run build
+# create data dir so better-sqlite3 doesn't fail during build.
+RUN mkdir -p data && npm run version:generate && npm run build
 
 # Stage 3: Runtime (minimal image)
 FROM node:22-alpine AS runtime
