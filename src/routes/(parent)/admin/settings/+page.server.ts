@@ -11,6 +11,7 @@ import { clearAllFamilyData, getDataSummary } from '$lib/server/services/data-se
 import { getDefaultChildId, setDefaultChildId } from '$lib/server/services/default-child-service';
 import { notifyInquiry } from '$lib/server/services/discord-notify-service';
 import { sendInquiryConfirmationEmail } from '$lib/server/services/email-service';
+import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -41,6 +42,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 	let children: Awaited<ReturnType<typeof getAllChildren>> = [];
 	let defaultChildId: number | null = null;
+
+	// #782: プラン判定（きょうだいランキングは family 限定）
+	const planTier = await resolveFullPlanTier(
+		tenantId,
+		locals.context?.licenseStatus ?? 'none',
+		locals.context?.plan,
+	);
+	const planLimits = getPlanLimits(planTier);
 
 	try {
 		[dataSummary, decayIntensity, siblingMode, siblingRankingEnabled, children, defaultChildId] =
@@ -80,6 +89,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		decayIntensity,
 		siblingMode,
 		siblingRankingEnabled,
+		// #782 きょうだいランキングのプランゲート状態
+		canSiblingRanking: planLimits.canSiblingRanking,
 		notificationSettings,
 		// #576 既定の子供（家族全体の設定）
 		children: children.map((c) => ({ id: c.id, nickname: c.nickname })),
@@ -235,11 +246,30 @@ export const actions = {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 		const mode = form.get('siblingMode')?.toString() ?? 'both';
-		const rankingEnabled = form.has('siblingRankingEnabled') ? 'true' : 'false';
+		const rankingRequested = form.has('siblingRankingEnabled');
 
 		if (!['cooperative', 'competitive', 'both'].includes(mode)) {
 			return fail(400, { siblingError: '不正なモードです' });
 		}
+
+		// #782: きょうだいランキングは family プラン限定
+		const planTier = await resolveFullPlanTier(
+			tenantId,
+			locals.context?.licenseStatus ?? 'none',
+			locals.context?.plan,
+		);
+		const planLimits = getPlanLimits(planTier);
+
+		if (rankingRequested && !planLimits.canSiblingRanking) {
+			return fail(403, {
+				siblingError:
+					'きょうだいランキングはファミリープラン限定です。アップグレードすると利用できます。',
+				upgradeRequired: true,
+			});
+		}
+
+		// ゲートが閉じている場合は強制的に false を保存（プラン降格時のクリーンアップ）
+		const rankingEnabled = rankingRequested && planLimits.canSiblingRanking ? 'true' : 'false';
 
 		await setSetting('sibling_mode', mode, tenantId);
 		await setSetting('sibling_ranking_enabled', rankingEnabled, tenantId);
