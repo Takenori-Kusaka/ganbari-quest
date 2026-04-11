@@ -126,6 +126,11 @@ jobs:
         run: npm run build
 
       - name: Run E2E tests
+        # #806: vite preview は NODE_ENV=production で起動するため、
+        # hooks.server.ts の assertLicenseKeyConfigured() が AWS_LICENSE_SECRET を要求する。
+        # E2E はダミーの固定値で良い（本番シークレットとは別物）。
+        env:
+          AWS_LICENSE_SECRET: e2e-test-secret-do-not-use-in-production
         run: npx playwright test
 
       - name: Upload E2E test results
