@@ -80,8 +80,8 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.standard).not.toContain('週次メールレポート');
 		});
 
-		it('standard に canCustomAvatar 関連（アバター変更）は掲載しない (#866 デッドコンフィグ)', () => {
-			// #866: canCustomAvatar は PLAN_LIMITS に存在するが参照ゼロ
+		it('standard にアバター変更関連は掲載しない (#866 削除済み)', () => {
+			// #866: canCustomAvatar を PlanLimits から完全削除。pricing ページでも訴求しない。
 			expect(PRICING_PAGE_FEATURES.standard).not.toContain('アバター変更');
 			expect(PRICING_PAGE_FEATURES.standard).not.toContain('アバター画像の変更');
 		});
