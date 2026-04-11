@@ -90,6 +90,12 @@ aws lambda update-function-configuration \
 curl -s https://ganbari-quest.com/api/health | jq .
 ```
 
+## シークレット運用
+
+| 対象 | 手順書 |
+|------|-------|
+| ライセンスキー HMAC シークレット (`AWS_LICENSE_SECRET`) | [license-key-secrets.md](./license-key-secrets.md) — 生成・ローテーション・漏洩時対応 |
+
 ## 連絡先・リソース
 
 | リソース | URL/情報 |
