@@ -68,6 +68,7 @@ Design documents are the Single Source of Truth. A PR that changes the following
 | DB table/column add/change | `docs/design/08-データベース設計書.md` |
 | UI screen/component add/major change | `docs/design/06-UI設計書.md` |
 | AWS infrastructure change | `docs/design/13-AWSサーバレスアーキテクチャ設計書.md` |
+| Account deletion flow add/change | `docs/design/account-deletion-flow.md` |
 | Auth/security change | Security design doc |
 | Brand/visual change | `docs/design/15-ブランドガイドライン.md` |
 
