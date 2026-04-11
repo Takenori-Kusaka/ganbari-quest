@@ -264,9 +264,41 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 		</div>
 	{:else}
 		<!-- Weekly Report Section (existing) -->
+
+		<!-- #735: 無料プラン向けアップセルバナー —
+			週次メールレポートは standard+ 特典のため free プランでは配信されない。
+			プレビューは引き続き表示するが、メール配信設定はロックしてアップグレード導線を示す。 -->
+		{#if !data.canReceiveWeeklyEmail}
+			<div
+				data-testid="weekly-report-upsell"
+				class="rounded-xl border border-[var(--color-border-premium)] bg-[var(--color-surface-trial)] p-4"
+			>
+				<p class="text-sm font-bold text-[var(--color-text-primary)]">
+					✉️ 週次メールレポートはスタンダードプラン以上の特典です
+				</p>
+				<p class="mt-1 text-xs text-[var(--color-text-secondary)]">
+					毎週設定した曜日に、お子さまのがんばりをまとめたレポートがメールで届きます。
+					下のプレビューはいつでもご覧いただけます。
+				</p>
+				<div class="mt-3">
+					<a
+						href="/pricing"
+						class="inline-flex items-center gap-1 rounded-lg bg-[var(--color-action-trial-upgrade)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-inverse)] hover:bg-[var(--color-action-trial-upgrade-hover)]"
+					>
+						プランを見る →
+					</a>
+				</div>
+			</div>
+		{/if}
+
 		<!-- 設定セクション -->
 		<form method="POST" action="?/updateSettings" use:enhance class="rounded-xl border bg-white p-4">
 			<h3 class="mb-3 text-sm font-bold text-[var(--color-text-primary)]">⚙️ レポート設定</h3>
+			{#if !data.canReceiveWeeklyEmail}
+				<p class="mb-3 text-xs text-[var(--color-text-muted)]">
+					スタンダードプラン以上でメール配信設定を変更できます
+				</p>
+			{/if}
 			<div class="flex flex-wrap items-center gap-4">
 				<FormField label="週次レポートを有効にする">
 					{#snippet children()}
@@ -274,20 +306,25 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 							type="checkbox"
 							name="enabled"
 							checked={data.settings.enabled}
-							class="h-4 w-4 rounded border-[var(--color-border-strong)]"
+							disabled={!data.canReceiveWeeklyEmail}
+							class="h-4 w-4 rounded border-[var(--color-border-strong)] disabled:opacity-50"
 						/>
 					{/snippet}
 				</FormField>
 				<FormField label="配信曜日">
 					{#snippet children()}
-						<select name="day" class="rounded-[var(--input-radius)] border bg-[var(--input-bg)] px-2 py-1 text-sm">
+						<select
+							name="day"
+							disabled={!data.canReceiveWeeklyEmail}
+							class="rounded-[var(--input-radius)] border bg-[var(--input-bg)] px-2 py-1 text-sm disabled:opacity-50"
+						>
 							{#each Object.entries(dayLabels) as [value, label]}
 								<option {value} selected={data.settings.day === value}>{label}</option>
 							{/each}
 						</select>
 					{/snippet}
 				</FormField>
-				<Button type="submit" variant="primary" size="sm">
+				<Button type="submit" variant="primary" size="sm" disabled={!data.canReceiveWeeklyEmail}>
 					保存
 				</Button>
 			</div>

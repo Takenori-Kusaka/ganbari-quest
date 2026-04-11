@@ -3,6 +3,7 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
+import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { computeAllChildrenDetailedReport } from '$lib/server/services/report-service';
 import {
 	getMonthlyRanking,
@@ -31,6 +32,9 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 	// ランキングデータ取得（ファミリープラン用、#373）
 	const parentData = await parent();
 	const isFamily = parentData.planTier === 'family';
+	// #735: 週次メールレポートは standard+ 特典。free はプレビューのみ、設定不可
+	const planTier = parentData.planTier;
+	const canReceiveWeeklyEmail = planTier !== 'free';
 
 	let rankingData: Awaited<ReturnType<typeof getWeeklyRanking>> | null = null;
 	let monthlyRankingData: Awaited<ReturnType<typeof getMonthlyRanking>> | null = null;
@@ -82,6 +86,8 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 			monthlyRankingData,
 			trendData,
 			isFamily,
+			planTier,
+			canReceiveWeeklyEmail,
 		};
 	} catch (e) {
 		logger.error('月次レポート取得エラー', { context: { error: String(e) } });
@@ -99,6 +105,8 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 			monthlyRankingData: null,
 			trendData: null,
 			isFamily,
+			planTier,
+			canReceiveWeeklyEmail,
 		};
 	}
 };
@@ -114,6 +122,21 @@ function getPrevMonth(yearMonth: string): [number, number] {
 export const actions: Actions = {
 	updateSettings: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
+
+		// #735: 無料プランは週次メールレポート設定を変更できない（サーバ側ゲート）。
+		// クライアント側で disabled 表示するが、フォーム改竄による回避を防ぐため
+		// サーバ側でも必ずプランを解決して拒否する。
+		const planTier = await resolveFullPlanTier(
+			tenantId,
+			locals.context?.licenseStatus ?? 'none',
+			locals.context?.plan,
+		);
+		if (planTier === 'free') {
+			return fail(403, {
+				error: '週次メールレポートはスタンダードプラン以上でご利用いただけます',
+			});
+		}
+
 		const fd = await request.formData();
 		const enabled = fd.get('enabled') === 'on' ? '1' : '0';
 		const day = String(fd.get('day') ?? 'monday');
