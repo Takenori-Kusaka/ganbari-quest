@@ -4,6 +4,7 @@
 // クリック不可または「デモでは使えません」表示でモック化する。
 
 import { onMount } from 'svelte';
+import { getLicenseHighlights } from '$lib/domain/plan-features';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -220,10 +221,9 @@ function notifyDemoOnly() {
 						{/if}
 					</div>
 					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
-						<li>子供の登録数 無制限</li>
-						<li>カスタム活動 無制限</li>
-						<li>データ保持 1年間</li>
-						<li>データエクスポート対応</li>
+						{#each getLicenseHighlights('standard') as highlight}
+							<li>{highlight}</li>
+						{/each}
 					</ul>
 				</div>
 
@@ -253,11 +253,9 @@ function notifyDemoOnly() {
 						{/if}
 					</div>
 					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
-						<li>スタンダードの全機能</li>
-						<li>祖父母・家族向け閲覧リンク</li>
-						<li>自由テキストおうえん</li>
-						<li>きょうだいランキング</li>
-						<li>データ保持 <strong>永久</strong></li>
+						{#each getLicenseHighlights('family') as highlight}
+							<li>{highlight}</li>
+						{/each}
 					</ul>
 				</div>
 
