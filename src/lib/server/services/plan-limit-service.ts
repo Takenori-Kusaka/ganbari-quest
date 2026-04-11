@@ -12,7 +12,6 @@ export interface PlanLimits {
 	maxChecklistTemplates: number | null; // 1子あたりのチェックリストテンプレート数 (#723)
 	historyRetentionDays: number | null;
 	canExport: boolean;
-	canCustomAvatar: boolean;
 	canFreeTextMessage: boolean; // 自由テキストメッセージ（ファミリープラン限定）
 	canCustomReward: boolean; // 特別なごほうび設定（スタンダード以上） #728
 	canSiblingRanking: boolean; // きょうだいランキング（ファミリープラン限定） #782
@@ -31,7 +30,6 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxChecklistTemplates: 3,
 		historyRetentionDays: 90,
 		canExport: false,
-		canCustomAvatar: false,
 		canFreeTextMessage: false,
 		canCustomReward: false,
 		canSiblingRanking: false,
@@ -43,7 +41,6 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxChecklistTemplates: null,
 		historyRetentionDays: 365,
 		canExport: true,
-		canCustomAvatar: true,
 		canFreeTextMessage: false,
 		canCustomReward: true,
 		canSiblingRanking: false,
@@ -55,7 +52,6 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxChecklistTemplates: null,
 		historyRetentionDays: null,
 		canExport: true,
-		canCustomAvatar: true,
 		canFreeTextMessage: true,
 		canCustomReward: true,
 		canSiblingRanking: true,
