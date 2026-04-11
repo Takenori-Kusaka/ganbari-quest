@@ -55,6 +55,9 @@ const DEFAULT_TENANT_ID = 'test-tenant-1';
  *
  * `resolveFullPlanTier(tenantId, ctx.licenseStatus, ctx.plan)` は、
  * 同 tenantId に対してアクティブな trial_history が無ければ `'free'` を返す。
+ *
+ * **注意**: 本番環境（AUTH_MODE=cognito）では `licenseStatus` は Cognito
+ * カスタム属性から取得されるため、テストでの `'none'` 固定値と異なる場合がある。
  */
 export function makeFreeContext(overrides: ContextOverrides = {}): AuthContext {
 	return {

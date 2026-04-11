@@ -32,7 +32,7 @@
 ### unit テスト（vitest）での使い方
 
 ```ts
-import { createTestDb, closeDb } from './test-db';
+import { createTestDb, closeDb } from '../helpers/test-db';
 import {
   makeFreeContext,
   makeStandardContext,
@@ -40,7 +40,7 @@ import {
   seedTrialActive,
   seedTrialExpired,
   seedTrialActiveContext,
-} from '../../helpers/plan-fixtures';
+} from '../helpers/plan-fixtures';
 
 const { sqlite, db } = createTestDb();
 
@@ -70,7 +70,8 @@ E2E のローカル認証モードは常に `plan=family` を返すため、本 
 **`DEBUG_PLAN` / `DEBUG_TRIAL` 環境変数（#758）**を使うこと。
 
 ```bash
-DEBUG_PLAN=free npx playwright test tests/e2e/free-plan-spec.ts
+# 例: free プランで任意の E2E テストを実行
+DEBUG_PLAN=free npx playwright test tests/e2e/some-spec.ts
 DEBUG_PLAN=standard DEBUG_TRIAL=active DEBUG_TRIAL_TIER=family npx playwright test ...
 ```
 
