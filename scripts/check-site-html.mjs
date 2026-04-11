@@ -62,11 +62,11 @@ function checkRequiredElements(filePath, content) {
 	// pamphlet は別構造のため一部チェックをスキップ
 	if (fileName === 'pamphlet.html') return violations;
 
-	// フッターに問い合わせリンクが存在するか
-	if (!content.includes('ganbari.quest.support@gmail.com') && !content.includes('mailto:')) {
+	// フッターに正しい問い合わせリンクが存在するか
+	if (!content.includes('mailto:ganbari.quest.support@gmail.com')) {
 		violations.push({
 			file: relPath,
-			issue: '問い合わせ用メールリンクがありません（ganbari.quest.support@gmail.com）',
+			issue: '問い合わせ用メールリンクがありません（mailto:ganbari.quest.support@gmail.com）',
 		});
 	}
 
@@ -83,21 +83,11 @@ function main() {
 	}
 
 	const errors = [];
-	const warnings = [];
 
 	for (const filePath of files) {
 		const content = fs.readFileSync(filePath, 'utf-8');
 		errors.push(...checkInternalLinks(filePath, content));
-		warnings.push(...checkRequiredElements(filePath, content));
-	}
-
-	// 警告は表示のみ（exit code に影響しない）
-	if (warnings.length > 0) {
-		console.warn(`⚠ ${warnings.length} 件の警告:\n`);
-		for (const w of warnings) {
-			console.warn(`  ${w.file}: ${w.issue}`);
-		}
-		console.warn('');
+		errors.push(...checkRequiredElements(filePath, content));
 	}
 
 	if (errors.length === 0) {
