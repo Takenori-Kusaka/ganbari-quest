@@ -7,7 +7,6 @@ import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
-import PinInput from '$lib/ui/primitives/PinInput.svelte';
 
 let { data, form } = $props();
 
@@ -146,8 +145,13 @@ async function openPortal() {
 
 	// 事前バリデーション (サーバーと同じ判定だが UX のため先に弾く)
 	if (pinConfigured) {
-		if (!portalPinValue || portalPinValue.length === 0) {
-			portalError = 'PINコードを入力してください';
+		if (
+			!portalPinValue ||
+			portalPinValue.length < 4 ||
+			portalPinValue.length > 6 ||
+			!/^\d+$/.test(portalPinValue)
+		) {
+			portalError = 'PINコード（4〜6桁の数字）を入力してください';
 			return;
 		}
 	} else {
@@ -198,10 +202,6 @@ async function openPortal() {
 	} finally {
 		portalLoading = false;
 	}
-}
-
-function handlePinComplete(details: { valueAsString: string }) {
-	portalPinValue = details.valueAsString;
 }
 </script>
 
@@ -636,17 +636,27 @@ function handlePinComplete(details: { valueAsString: string }) {
 			</p>
 			<p class="text-[var(--color-feedback-warning-text)] font-semibold">
 				⚠️ 誤操作による解約・ダウングレードを防ぐため、
-				{pinConfigured ? '親 PIN コード' : '確認フレーズ'}を入力してください。
+				{pinConfigured ? '親 PIN コード（4〜6桁）' : '確認フレーズ'}を入力してください。
 			</p>
 
 			{#if pinConfigured}
 				<div class="space-y-2">
 					<label for="portal-pin" class="block text-sm font-medium text-[var(--color-text-primary)]">
-						親 PIN コード (6桁)
+						親 PIN コード（4〜6桁）
 					</label>
-					<div data-testid="portal-pin-input">
-						<PinInput length={6} mask onComplete={handlePinComplete} />
-					</div>
+					<input
+						id="portal-pin"
+						type="password"
+						inputmode="numeric"
+						pattern="[0-9]*"
+						maxlength={6}
+						minlength={4}
+						bind:value={portalPinValue}
+						placeholder="PIN を入力"
+						autocomplete="off"
+						data-testid="portal-pin-input"
+						class="w-full rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-card)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
+					/>
 				</div>
 			{:else}
 				<div class="space-y-2">

@@ -29,8 +29,8 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 	const pinConfigured = await isPinConfigured(tenantId);
 
 	if (pinConfigured) {
-		// PIN 設定済み: PIN 再入力を必須とする
-		if (!body.pin || typeof body.pin !== 'string' || body.pin.length === 0) {
+		// PIN 設定済み: PIN 再入力を必須とする（4〜6桁の数字のみ許容）
+		if (!body.pin || typeof body.pin !== 'string' || !/^\d{4,6}$/.test(body.pin)) {
 			error(401, 'PIN_REQUIRED');
 		}
 		const result = await verifyPin(body.pin, tenantId);
