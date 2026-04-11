@@ -1,8 +1,29 @@
+// src/routes/api/v1/activities/suggest/+server.ts
+// AI 活動提案 API — プランゲート必須 (#727)
+
 import { error, json } from '@sveltejs/kit';
+import { apiError } from '$lib/server/errors';
 import { suggestActivity } from '$lib/server/services/activity-suggest-service';
+import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	// #727: 認証必須 — unauthenticated 呼び出しを 401 で即座に拒否
+	if (!locals.context) {
+		throw error(401, { message: 'Unauthorized' });
+	}
+	const tenantId = locals.context.tenantId;
+
+	// #727: プランゲート — 無料プランは AI 提案を利用不可（コスト流出防止）
+	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+	if (!isPaidTier(tier)) {
+		return apiError(
+			'PLAN_LIMIT_EXCEEDED',
+			'AI 活動提案はスタンダードプラン以上でご利用いただけます',
+		);
+	}
+
 	const body = await request.json();
 	const text = String(body.text ?? '').trim();
 
