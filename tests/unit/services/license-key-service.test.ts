@@ -8,6 +8,7 @@ const mockSaveLicenseKey = vi.fn();
 const mockFindLicenseKey = vi.fn();
 const mockUpdateLicenseKeyStatus = vi.fn();
 const mockUpdateTenantStripe = vi.fn();
+const mockRevokeLicenseKey = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -16,6 +17,7 @@ vi.mock('$lib/server/db/factory', () => ({
 			findLicenseKey: (...args: unknown[]) => mockFindLicenseKey(...args),
 			updateLicenseKeyStatus: (...args: unknown[]) => mockUpdateLicenseKeyStatus(...args),
 			updateTenantStripe: (...args: unknown[]) => mockUpdateTenantStripe(...args),
+			revokeLicenseKey: (...args: unknown[]) => mockRevokeLicenseKey(...args),
 		},
 	}),
 }));
@@ -37,6 +39,7 @@ import {
 	isSignedKeyFormat,
 	issueLicenseKey,
 	type LicenseRecord,
+	revokeLicenseKey,
 	validateLicenseKey,
 	verifyKeySignature,
 } from '$lib/server/services/license-key-service';
@@ -367,6 +370,50 @@ describe('issueLicenseKey', () => {
 		expect(result.kind).toBe('campaign');
 		expect(result.issuedBy).toBe('ops:campaign-2026-spring');
 	});
+
+	// --- #797: expiresAt ---
+
+	it('expiresAt を省略した場合はデフォルト90日後が設定される', async () => {
+		const before = Date.now();
+		const result = await issueLicenseKey({
+			tenantId: 'tenant-default-expiry',
+			plan: 'monthly',
+		});
+		const after = Date.now();
+
+		expect(result.expiresAt).toBeDefined();
+		const expiresMs = new Date(result.expiresAt as string).getTime();
+		const MS_PER_DAY = 24 * 60 * 60 * 1000;
+		// 90 日後 ± 数秒 (テスト実行時間分の誤差)
+		expect(expiresMs).toBeGreaterThanOrEqual(before + 90 * MS_PER_DAY);
+		expect(expiresMs).toBeLessThanOrEqual(after + 90 * MS_PER_DAY);
+	});
+
+	it('expiresAt を明示的に指定した場合はその値が使われる', async () => {
+		const customExpiry = '2027-01-01T00:00:00.000Z';
+		const result = await issueLicenseKey({
+			tenantId: 'tenant-custom-expiry',
+			plan: 'yearly',
+			expiresAt: customExpiry,
+		});
+
+		expect(result.expiresAt).toBe(customExpiry);
+		expect(mockSaveLicenseKey).toHaveBeenCalledWith(
+			expect.objectContaining({ expiresAt: customExpiry }),
+		);
+	});
+
+	it('expiresAt=null を渡すと期限なし (lifetime 扱い)', async () => {
+		const result = await issueLicenseKey({
+			tenantId: 'tenant-lifetime',
+			plan: 'lifetime',
+			expiresAt: null,
+			kind: 'gift',
+			issuedBy: 'ops:admin-1',
+		});
+
+		expect(result.expiresAt).toBeUndefined();
+	});
 });
 
 // ============================================================
@@ -591,6 +638,60 @@ describe('validateLicenseKey', () => {
 			expect(result.record).toEqual(record);
 			expect(result.record.plan).toBe('yearly');
 		}
+	});
+
+	// --- #797: expiresAt ---
+
+	it('期限切れのキーは invalid を返す (active でも expiresAt < now)', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+			expiresAt: '2026-02-01T00:00:00Z', // 過去
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM');
+
+		expect(result.valid).toBe(false);
+		if (!result.valid) {
+			expect(result.reason).toBe('このライセンスキーは有効期限が切れています');
+		}
+	});
+
+	it('未来の expiresAt を持つキーは valid を返す', async () => {
+		const oneYearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-1',
+			plan: 'yearly',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+			expiresAt: oneYearLater,
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM');
+
+		expect(result.valid).toBe(true);
+	});
+
+	it('expiresAt 未設定の legacy レコードは期限チェックをスキップして valid', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2020-01-01T00:00:00Z',
+			// expiresAt なし (legacy)
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM');
+
+		expect(result.valid).toBe(true);
 	});
 });
 
@@ -1015,6 +1116,46 @@ describe('consumeLicenseKey', () => {
 			expect.objectContaining({ plan: 'monthly' }),
 		);
 	});
+
+	// --- #797: expiresAt ---
+
+	it('期限切れキーは consume を拒否する (#797)', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-EXPR-EXPR-EXPR',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+			expiresAt: '2026-02-01T00:00:00Z', // 過去
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await consumeLicenseKey('GQ-EXPR-EXPR-EXPR', 'tenant-1');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toContain('有効期限');
+		}
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+		expect(mockUpdateLicenseKeyStatus).not.toHaveBeenCalled();
+	});
+
+	it('未来の expiresAt を持つキーは consume 成功する (#797)', async () => {
+		const oneYearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-FUTR-FUTR-FUTR',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+			expiresAt: oneYearLater,
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await consumeLicenseKey('GQ-FUTR-FUTR-FUTR', 'tenant-1');
+
+		expect(result.ok).toBe(true);
+	});
 });
 
 // ============================================================
@@ -1151,5 +1292,180 @@ describe('validateLicenseKey legacy 形式の production 拒否 (#806)', () => {
 		const result = await validateLicenseKey(signedKey);
 
 		expect(result.valid).toBe(true);
+	});
+});
+
+// ============================================================
+// #797: revokeLicenseKey
+// ============================================================
+
+describe('revokeLicenseKey (#797)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('active なキーを revoke して repo を呼び出す', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ACTV-ACTV-ACTV',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+		mockRevokeLicenseKey.mockResolvedValue(undefined);
+
+		const result = await revokeLicenseKey({
+			licenseKey: 'GQ-ACTV-ACTV-ACTV',
+			reason: 'ops-manual',
+			revokedBy: 'ops:admin-1',
+		});
+
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.licenseKey).toBe('GQ-ACTV-ACTV-ACTV');
+			expect(result.revokedReason).toBe('ops-manual');
+			expect(result.revokedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+		}
+		expect(mockRevokeLicenseKey).toHaveBeenCalledTimes(1);
+		expect(mockRevokeLicenseKey).toHaveBeenCalledWith(
+			expect.objectContaining({
+				licenseKey: 'GQ-ACTV-ACTV-ACTV',
+				reason: 'ops-manual',
+				revokedBy: 'ops:admin-1',
+				revokedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+			}),
+		);
+	});
+
+	it('小文字入力を正規化して revoke する', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-LOWR-LOWR-LOWR',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+		mockRevokeLicenseKey.mockResolvedValue(undefined);
+
+		const result = await revokeLicenseKey({
+			licenseKey: '  gq-lowr-lowr-lowr  ',
+			reason: 'leaked',
+			revokedBy: 'system',
+		});
+
+		expect(result.ok).toBe(true);
+		expect(mockFindLicenseKey).toHaveBeenCalledWith('GQ-LOWR-LOWR-LOWR');
+		expect(mockRevokeLicenseKey).toHaveBeenCalledWith(
+			expect.objectContaining({
+				licenseKey: 'GQ-LOWR-LOWR-LOWR',
+				reason: 'leaked',
+			}),
+		);
+	});
+
+	it('存在しないキーはエラーを返す', async () => {
+		mockFindLicenseKey.mockResolvedValue(undefined);
+
+		const result = await revokeLicenseKey({
+			licenseKey: 'GQ-NONE-NONE-NONE',
+			reason: 'ops-manual',
+			revokedBy: 'ops:admin-1',
+		});
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toContain('見つかりません');
+		}
+		expect(mockRevokeLicenseKey).not.toHaveBeenCalled();
+	});
+
+	it('既に revoked なキーは冪等にエラーを返し repo を呼ばない', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-REVD-REVD-REVD',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'revoked',
+			createdAt: '2026-01-01T00:00:00Z',
+			revokedAt: '2026-02-01T00:00:00Z',
+			revokedReason: 'leaked',
+			revokedBy: 'system',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await revokeLicenseKey({
+			licenseKey: 'GQ-REVD-REVD-REVD',
+			reason: 'ops-manual',
+			revokedBy: 'ops:admin-1',
+		});
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toContain('無効化');
+		}
+		expect(mockRevokeLicenseKey).not.toHaveBeenCalled();
+	});
+
+	it('consumed 済みのキーは revoke できない', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-CONS-CONS-CONS',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'consumed',
+			createdAt: '2026-01-01T00:00:00Z',
+			consumedAt: '2026-02-01T00:00:00Z',
+			consumedBy: 'tenant-1',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await revokeLicenseKey({
+			licenseKey: 'GQ-CONS-CONS-CONS',
+			reason: 'ops-manual',
+			revokedBy: 'ops:admin-1',
+		});
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toContain('使用');
+		}
+		expect(mockRevokeLicenseKey).not.toHaveBeenCalled();
+	});
+
+	it('revoke 後の validateLicenseKey は invalid を返す', async () => {
+		// revoke 実行
+		const activeRecord: LicenseRecord = {
+			licenseKey: 'GQ-FLOW-FLOW-FLOW',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValueOnce(activeRecord);
+		mockRevokeLicenseKey.mockResolvedValue(undefined);
+
+		const revokeResult = await revokeLicenseKey({
+			licenseKey: 'GQ-FLOW-FLOW-FLOW',
+			reason: 'leaked',
+			revokedBy: 'ops:admin-1',
+		});
+		expect(revokeResult.ok).toBe(true);
+
+		// 次に validate 呼び出し時には revoked 状態で返す
+		const revokedRecord: LicenseRecord = {
+			...activeRecord,
+			status: 'revoked',
+			revokedAt: new Date().toISOString(),
+			revokedReason: 'leaked',
+			revokedBy: 'ops:admin-1',
+		};
+		mockFindLicenseKey.mockResolvedValueOnce(revokedRecord);
+
+		const validateResult = await validateLicenseKey('GQ-FLOW-FLOW-FLOW');
+
+		expect(validateResult.valid).toBe(false);
+		if (!validateResult.valid) {
+			expect(validateResult.reason).toContain('無効');
+		}
 	});
 });
