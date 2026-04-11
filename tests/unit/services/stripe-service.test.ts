@@ -55,8 +55,10 @@ vi.mock('$lib/server/services/email-service', () => ({
 	sendLicenseKeyEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
+const mockIssueLicenseKey = vi.fn();
+
 vi.mock('$lib/server/services/license-key-service', () => ({
-	issueLicenseKey: vi.fn().mockResolvedValue({ licenseKey: 'LK-TEST-001' }),
+	issueLicenseKey: (...args: unknown[]) => mockIssueLicenseKey(...args),
 }));
 
 // ---------- Import after mocks ----------
@@ -92,6 +94,7 @@ beforeEach(() => {
 	mockIsStripeEnabled.mockReturnValue(true);
 	mockFindTenantById.mockResolvedValue(makeTenant());
 	mockUpdateTenantStripe.mockResolvedValue(undefined);
+	mockIssueLicenseKey.mockResolvedValue({ licenseKey: 'LK-TEST-001' });
 });
 
 // ==========================================================
@@ -259,6 +262,17 @@ describe('handleWebhookEvent', () => {
 				stripeSubscriptionId: 'sub_new',
 				plan: 'monthly',
 				status: 'active',
+			}),
+		);
+
+		// #801: Stripe 経由の発行は常に kind='purchase'、issuedBy に session ID を記録
+		expect(mockIssueLicenseKey).toHaveBeenCalledWith(
+			expect.objectContaining({
+				tenantId: 't-test',
+				plan: 'monthly',
+				stripeSessionId: 'cs_test',
+				kind: 'purchase',
+				issuedBy: 'stripe:cs_test',
 			}),
 		);
 	});

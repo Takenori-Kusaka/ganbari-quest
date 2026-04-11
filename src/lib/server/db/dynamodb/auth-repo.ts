@@ -640,6 +640,9 @@ export const saveLicenseKey: IAuthRepo['saveLicenseKey'] = async (record) => {
 				stripeSessionId: record.stripeSessionId,
 				status: record.status,
 				createdAt: record.createdAt,
+				// #801: kind / issuedBy を永続化。undefined のフィールドは DynamoDB に保存しない
+				...(record.kind ? { kind: record.kind } : {}),
+				...(record.issuedBy ? { issuedBy: record.issuedBy } : {}),
 			},
 		}),
 	);
@@ -659,6 +662,10 @@ export const findLicenseKey: IAuthRepo['findLicenseKey'] = async (key) => {
 		consumedBy: item.consumedBy as string | undefined,
 		consumedAt: item.consumedAt as string | undefined,
 		createdAt: item.createdAt as string,
+		// #801: 旧レコードには kind/issuedBy が存在しない。undefined で返し、
+		// サービス層の getRecordKind() で 'purchase' デフォルトに解決する。
+		kind: item.kind as LicenseRecord['kind'],
+		issuedBy: item.issuedBy as string | undefined,
 	};
 };
 

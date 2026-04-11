@@ -89,8 +89,10 @@ GQ-XXXX-XXXX-XXXX-YYYYY
 | `PK` | string | ○ | `LICENSE#<licenseKey>` |
 | `SK` | string | ○ | `LICENSE#<licenseKey>` (同一値) |
 | `licenseKey` | string | ○ | `GQ-XXXX-XXXX-XXXX-YYYYY` |
-| `tenantId` | string | ○ | 発行先テナント ID |
+| `tenantId` | string | ○ | 発行先テナント ID（purchase の場合は buyer tenant にロック） |
 | `plan` | enum | ○ | `'monthly' \| 'yearly' \| 'family-monthly' \| 'family-yearly' \| 'lifetime'` |
+| `kind` | enum | △ | **#801**: `'purchase' \| 'gift' \| 'campaign'`。未設定（legacy）は `'purchase'` として扱う |
+| `issuedBy` | string | △ | **#801**: 発行 actor。`kind='gift' \| 'campaign'` では必須（監査要件）。`purchase` では `stripe:<sessionId>` |
 | `stripeSessionId` | string | — | Stripe Checkout Session ID (発行元) |
 | `status` | enum | ○ | `'active' \| 'consumed' \| 'revoked'` |
 | `consumedBy` | string | — | 消費したユーザー ID (consume 後) |
@@ -98,6 +100,23 @@ GQ-XXXX-XXXX-XXXX-YYYYY
 | `revokedReason` | string | — | 失効理由 (`expired` / `leaked` / `ops-manual` / `refund`) |
 | `revokedAt` | string (ISO8601) | — | 失効日時 |
 | `createdAt` | string (ISO8601) | ○ | 発行日時 |
+
+#### 3.1.1 キー種別 (`kind`) と consume 権限 — #801
+
+`kind` は consume 時の **tenant 制約**を決定する。返金後に buyer が他 tenant にキーを流用する家族プラン悪用を防ぐ目的で導入。
+
+| `kind` | 発行元 | `issuedBy` | consume 権限 | 用途 |
+|--------|-------|-----------|-------------|------|
+| `purchase` | Stripe webhook | `stripe:<sessionId>` | **`record.tenantId === consumedByTenantId` のみ可** | 通常の決済フロー |
+| `gift` | Ops 画面 (#816) | `ops:<uid>` 必須 | 任意の tenant 可 | サポート対応・補填 |
+| `campaign` | Ops 画面 (#816) | `ops:<uid>` または `system:<batchId>` 必須 | 任意の tenant 可 | キャンペーン配布 |
+
+**後方互換**: `kind` フィールドを持たない legacy レコードは `'purchase'` として解決される（`getRecordKind()` ヘルパー）。すべての legacy レコードは Stripe webhook 経由で発行されているため、最も厳格な `purchase` 扱いが安全。
+
+**実装ポイント**:
+- `issueLicenseKey()` は `kind='gift' | 'campaign'` で `issuedBy` 未指定の場合に例外を投げる（監査要件を型ではなくランタイムで強制）
+- `consumeLicenseKey()` は status チェック後に `getRecordKind(record) === 'purchase' && record.tenantId !== consumedByTenantId` をチェックし、不一致なら `LICENSE_WRONG_TENANT` 相当のエラーメッセージを返す
+- `gift` / `campaign` の cross-tenant consume は LicenseEvent (#815) に actor として記録され、監査ログで追跡可能
 
 ### 3.2 GSI (tenant 検索用)
 
@@ -246,6 +265,8 @@ sequenceDiagram
     L->>D: GetItem (status check)
     alt status != active
         L-->>A: 409 / 410 / 404
+    else kind='purchase' かつ tenant 不一致 (#801)
+        L-->>A: 403 LICENSE_WRONG_TENANT
     else status == active
         L->>D: TransactWrite:
         Note over D: 1. Update LICENSE status → consumed<br>2. Update TENANT plan → paid<br>3. Put LicenseEvent (consumed)
@@ -256,6 +277,7 @@ sequenceDiagram
 
 **ポイント**:
 - **TransactWrite で原子性担保**: ライセンス消費とテナント昇格は同一トランザクション
+- **#801 クロステナント拒否**: `kind='purchase'` は buyer tenant にロック。返金後の家族プラン悪用を防止（legacy レコードは purchase 扱い）
 - consumed 状態は**不可逆** (再利用不可)
 - consume 後 `current_period_end` は Stripe subscription の値を参照 (#824)
 
@@ -351,3 +373,4 @@ sequenceDiagram
 | 日付 | 更新内容 | 更新者 |
 |------|---------|--------|
 | 2026-04-11 | 初版作成 (#808) | Claude Code |
+| 2026-04-11 | §3.1 に `kind` / `issuedBy` フィールド追加、§5.4 に cross-tenant 拒否フロー追記 (#801) | Claude Code |
