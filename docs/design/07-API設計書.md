@@ -1375,6 +1375,22 @@ Push 通知の購読解除。
 
 ---
 
+### 3.X ライセンスキー API (#808)
+
+> **SSOT**: [license-key-lifecycle.md §4](./license-key-lifecycle.md#4-api-エンドポイント一覧) を参照。本セクションは要約。
+
+| メソッド | パス | 説明 | 権限 |
+|---------|------|------|------|
+| POST | `/api/v1/license/verify` | キー検証（署名 + DB 照合） | 認証済みユーザー |
+| POST | `/api/v1/license/consume` | キー消費 → 有料プラン昇格 | 認証済みユーザー |
+| GET | `/api/v1/ops/license-keys` | Ops 一覧（フィルタ対応） | Ops ロール |
+| POST | `/api/v1/ops/license-keys` | Ops 手動発行 | Ops ロール |
+| POST | `/api/v1/ops/license-keys/:key/revoke` | Ops 失効 | Ops ロール |
+
+関連エラーコード: `LICENSE_FORMAT_INVALID` / `LICENSE_SIGNATURE_INVALID` / `LICENSE_NOT_FOUND` / `LICENSE_ALREADY_CONSUMED` / `LICENSE_REVOKED` — §4 参照。
+
+---
+
 ## 4. エラーレスポンス仕様
 
 ### 共通エラー形式
@@ -1402,6 +1418,11 @@ Push 通知の購読解除。
 | LOCKED_OUT | 429 | ロックアウト中 |
 | NOT_FOUND | 404 | リソースが見つからない |
 | INTERNAL_ERROR | 500 | サーバー内部エラー |
+| LICENSE_FORMAT_INVALID | 400 | ライセンスキー形式が不正 |
+| LICENSE_SIGNATURE_INVALID | 400 | ライセンスキー HMAC 署名不一致 |
+| LICENSE_NOT_FOUND | 404 | ライセンスキーが存在しない |
+| LICENSE_ALREADY_CONSUMED | 409 | ライセンスキー消費済み |
+| LICENSE_REVOKED | 410 | ライセンスキー失効済み |
 
 ---
 
