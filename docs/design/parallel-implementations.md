@@ -94,6 +94,21 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 - 新しいページを追加したら `src/routes/demo/(child)/[mode]/<新ページ>` も作ること
 - デモシードのデータ構造がスキーマと整合しているか `tests/unit/demo/demo-data-integrity.test.ts` で検証
 
+**本番 admin ⇔ デモ admin の既知の並行ペア**:
+
+| 本番 | デモ | 備考 |
+|------|------|------|
+| `src/routes/(parent)/admin/+page.svelte` | `src/routes/demo/(parent)/admin/+page.svelte` | ホーム |
+| `src/routes/(parent)/admin/activities/` | `src/routes/demo/(parent)/admin/activities/` | 活動管理 |
+| `src/routes/(parent)/admin/children/` | `src/routes/demo/(parent)/admin/children/` | 子供管理 |
+| `src/routes/(parent)/admin/license/` | `src/routes/demo/(parent)/admin/license/` | プラン・お支払い（#790 でデモ追加）。デモは Stripe/ライセンスキー適用を全てモック化 |
+| `src/routes/(parent)/admin/rewards/` | `src/routes/demo/(parent)/admin/rewards/` | 報酬管理 |
+| `src/routes/(parent)/admin/settings/` | `src/routes/demo/(parent)/admin/settings/` | 設定 |
+
+> ⚠️ `AdminLayout.svelte` の `navCategories` はナビ項目を `${basePath}/<slug>` で生成するため、
+> 本番に admin ページを追加したら必ず同じスラッグでデモ側にも実装を追加すること。
+> さもなければ `/demo/admin/<slug>` が 404 を返し、デモ上の導線が破壊される。
+
 ---
 
 ### 🟡 優先度: 高 — 定期的な漏れがある
