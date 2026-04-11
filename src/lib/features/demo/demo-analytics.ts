@@ -13,7 +13,8 @@ type DemoEvent =
 	| 'demo_cta_click'
 	| 'demo_signup_page'
 	| 'demo_back_to_lp'
-	| 'demo_guide_see_pricing';
+	| 'demo_guide_see_pricing'
+	| 'demo_plan_switch';
 
 export function trackDemoEvent(event: DemoEvent, metadata?: Record<string, unknown>): void {
 	try {
