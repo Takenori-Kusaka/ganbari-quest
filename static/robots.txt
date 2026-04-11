@@ -1,3 +1,18 @@
-# allow crawling everything by default
+# がんばりクエスト本体 (SvelteKit app) — 認証領域はクロール禁止
 User-agent: *
-Disallow:
+Allow: /
+Allow: /pricing
+Allow: /legal/
+Allow: /consent
+Allow: /auth/login
+Disallow: /admin
+Disallow: /ops
+Disallow: /api
+Disallow: /switch
+Disallow: /tenants
+Disallow: /setup
+Disallow: /demo/admin
+Disallow: /view
+Disallow: /uploads
+
+Sitemap: https://ganbari-quest.com/sitemap.xml
