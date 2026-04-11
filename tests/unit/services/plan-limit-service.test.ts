@@ -172,6 +172,7 @@ describe('plan-limit-service', () => {
 			expect(limits.canExport).toBe(false);
 			expect(limits.canCustomAvatar).toBe(false);
 			expect(limits.canFreeTextMessage).toBe(false);
+			expect(limits.canCustomReward).toBe(false);
 		});
 
 		it('standard tier limits', () => {
@@ -182,6 +183,7 @@ describe('plan-limit-service', () => {
 			expect(limits.canExport).toBe(true);
 			expect(limits.canCustomAvatar).toBe(true);
 			expect(limits.canFreeTextMessage).toBe(false);
+			expect(limits.canCustomReward).toBe(true);
 		});
 
 		it('family tier limits', () => {
@@ -192,6 +194,7 @@ describe('plan-limit-service', () => {
 			expect(limits.canExport).toBe(true);
 			expect(limits.canCustomAvatar).toBe(true);
 			expect(limits.canFreeTextMessage).toBe(true);
+			expect(limits.canCustomReward).toBe(true);
 		});
 	});
 
