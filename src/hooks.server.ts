@@ -247,7 +247,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 			!path.startsWith('/setup') &&
 			!path.startsWith('/_app') &&
 			!path.startsWith('/favicon') &&
-			!path.startsWith('/api/health')
+			!path.startsWith('/api/health') &&
+			// #832: 公開 SEO エンドポイントはセットアップ前でもクロール可能にする。
+			// プリレンダも hooks.server を通るため、除外しないと /setup へ 302 され
+			// sitemap.xml がビルド時に生成できずビルド失敗する。
+			path !== '/sitemap.xml' &&
+			path !== '/robots.txt'
 		) {
 			if (await isSetupRequired(tenantId)) {
 				redirect(302, '/setup');
