@@ -1,11 +1,11 @@
 // src/lib/server/services/data-service.ts
-// テナントデータクリア・サマリーサービス (#0205)
+// テナントデータクリア・サマリーサービス (#0205, #739)
 // 重要: ファクトリ層 (factory.ts) 経由でDBアクセスすること。
 // $lib/server/db/client を直接importしてはならない（DynamoDB環境でクラッシュする）。
 
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { deleteChildFiles } from './child-service';
+import { deleteAllChildrenData, deleteTenantScopedData } from './tenant-cleanup-service';
 
 // ============================================================
 // Types
@@ -77,37 +77,36 @@ export async function getDataSummary(tenantId: string): Promise<DataSummary> {
 }
 
 /**
- * テナント内の全ユーザーデータを削除する
- * システムマスタ（デフォルト活動・実績・アバターアイテム等）は保持
+ * テナント内の全ユーザーデータを削除する。
+ *
+ * #739: 従来は children テーブルだけを削除していたため、トップレベルの
+ * テナントスコープデータ（trial_history, settings, checklists, special_rewards
+ * テンプレート等）が残ってしまい、アカウント削除との意味論ズレが発生していた。
+ *
+ * この関数は「家族グループはそのまま残す（テナント・メンバーシップ・招待・認証は維持）が、
+ * 中に入っているデータを全部リセットする」という意味を持つ。
+ * - 子供＋そのカスケードを削除
+ * - テナントスコープのデータ（trial_history 含む）を削除
+ *
+ * システムマスタ（デフォルト活動・実績・アバターアイテム等）は保持される。
  */
 export async function clearAllFamilyData(tenantId: string): Promise<ClearResult> {
 	logger.info('[data-clear] データクリア開始', { context: { tenantId } });
 
-	const repos = getRepos();
+	// 1. テナントスコープのデータ（children に紐づかないもの）を削除
+	//    trial_history / settings / checklist templates / special_rewards
+	//    templates / tenant_events / auto_challenges 等が対象
+	//    ⚠ voice.deleteByChild は children の ID を参照するため、
+	//      children 削除より先に実行する必要がある（#739 review fix）
+	const deletedOther = await deleteTenantScopedData(tenantId);
 
-	// 1. ファイル削除（子供ごとのアバター・音声・生成画像）
-	const allChildren = await repos.child.findAllChildren(tenantId);
-	for (const child of allChildren) {
-		try {
-			await deleteChildFiles(child.id, tenantId);
-		} catch (e) {
-			logger.warn(`[data-clear] ファイル削除失敗 childId=${child.id}: ${String(e)}`);
-		}
-	}
-
-	// 2. 子供を削除（リポジトリ経由でカスケード削除）
-	let deletedChildren = 0;
-	for (const child of allChildren) {
-		try {
-			await repos.child.deleteChild(child.id, tenantId);
-			deletedChildren++;
-		} catch (e) {
-			logger.warn(`[data-clear] 子供削除失敗 childId=${child.id}: ${String(e)}`);
-		}
-	}
+	// 2. 子供データ（ファイル含む）を削除
+	//    子供のカスケード削除により activity_logs / point_ledger / statuses /
+	//    stamp_cards / child_achievements / login_bonuses 等も消える
+	const deletedChildren = await deleteAllChildrenData(tenantId);
 
 	logger.info('[data-clear] データクリア完了', {
-		context: { deletedChildren },
+		context: { deletedChildren, deletedOther },
 	});
 
 	return {
@@ -120,7 +119,7 @@ export async function clearAllFamilyData(tenantId: string): Promise<ClearResult>
 			achievements: 0,
 			loginBonuses: 0,
 			checklistTemplates: 0,
-			other: 0,
+			other: deletedOther,
 		},
 	};
 }
