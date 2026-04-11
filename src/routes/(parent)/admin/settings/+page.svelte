@@ -495,9 +495,16 @@ async function handleCancelAccount() {
 async function handleReactivate() {
 	if (anyFormBusy) return;
 	reactivateSubmitting = true;
+	cancelError = '';
 	try {
 		const res = await fetch('/api/v1/admin/tenant/reactivate', { method: 'POST' });
 		const d = await res.json();
+		// #784: Stripe Subscription が既にキャンセル済みの場合、サーバは 409 と
+		// redirectTo を返す。再購読のため /pricing へ誘導する。
+		if (res.status === 409 && d?.reason === 'subscription_cancelled' && d?.redirectTo) {
+			window.location.href = d.redirectTo;
+			return;
+		}
 		if (!res.ok) throw new Error(d.error ?? '解約キャンセルに失敗しました');
 		window.location.reload();
 	} catch (err) {
