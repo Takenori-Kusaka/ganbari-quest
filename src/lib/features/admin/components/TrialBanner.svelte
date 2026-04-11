@@ -48,19 +48,19 @@ const isUrgent = $derived(daysRemaining <= 1);
 		align-items: center;
 		gap: 12px;
 		padding: 12px 16px;
-		border: 1px solid var(--color-violet-200, #ddd6fe);
+		border: 1px solid var(--color-border-trial);
 		border-radius: 12px;
-		background: linear-gradient(135deg, var(--color-violet-50, #f5f3ff), var(--color-blue-50, #eff6ff));
+		background: var(--gradient-surface-trial);
 	}
 
 	.trial-banner.urgent {
-		border-color: var(--color-amber-300, #fcd34d);
-		background: linear-gradient(135deg, var(--color-amber-50, #fffbeb), var(--color-orange-50, #fff7ed));
+		border-color: var(--color-border-trial-urgent);
+		background: var(--gradient-surface-trial-urgent);
 	}
 
 	.trial-banner.expired {
-		border-color: var(--color-neutral-200, #e5e7eb);
-		background: var(--color-neutral-50, #f9fafb);
+		border-color: var(--color-border-trial-expired);
+		background: var(--color-surface-trial-expired);
 	}
 
 	.trial-icon {
@@ -75,21 +75,21 @@ const isUrgent = $derived(daysRemaining <= 1);
 	.trial-title {
 		font-size: 0.85rem;
 		font-weight: 600;
-		color: var(--color-neutral-700, #374151);
+		color: var(--color-text-primary);
 		margin: 0;
 	}
 
 	.trial-desc {
 		font-size: 0.75rem;
-		color: var(--color-neutral-500, #6b7280);
+		color: var(--color-text-secondary);
 		margin: 4px 0 0;
 	}
 
 	.trial-cta {
 		flex-shrink: 0;
 		padding: 6px 12px;
-		background: var(--color-violet-500, #8b5cf6);
-		color: white;
+		background: var(--color-action-trial);
+		color: var(--color-text-inverse);
 		font-size: 0.75rem;
 		font-weight: 600;
 		border-radius: 8px;
@@ -98,14 +98,14 @@ const isUrgent = $derived(daysRemaining <= 1);
 	}
 
 	.trial-cta:hover {
-		background: var(--color-violet-600, #7c3aed);
+		background: var(--color-action-trial-hover);
 	}
 
 	.trial-cta.upgrade {
-		background: var(--color-amber-500, #f59e0b);
+		background: var(--color-action-trial-upgrade);
 	}
 
 	.trial-cta.upgrade:hover {
-		background: var(--color-amber-600, #d97706);
+		background: var(--color-action-trial-upgrade-hover);
 	}
 </style>
