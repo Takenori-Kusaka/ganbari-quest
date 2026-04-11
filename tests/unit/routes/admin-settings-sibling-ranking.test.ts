@@ -91,7 +91,6 @@ function createEvent(
 		maxActivities: null,
 		historyRetentionDays: null,
 		canExport: t !== 'free',
-		canCustomAvatar: t !== 'free',
 		canFreeTextMessage: t === 'family',
 		canCustomReward: t !== 'free',
 		canSiblingRanking: t === 'family',
