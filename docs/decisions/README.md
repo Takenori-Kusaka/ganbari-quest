@@ -68,3 +68,4 @@
 | 0019 | [ダイアログ管理はFSMでスクラップ＆ビルド](0019-dialog-fsm-scrap-and-rebuild.md) | accepted | 2026-04-10 |
 | 0020 | [テスト品質の劣化を許容しない（強制プロセス）](0020-test-quality-ratchet-enforcement.md) | accepted | 2026-04-10 |
 | 0021 | [デプロイ検証ゲート](0021-deploy-verification-gate.md) | accepted | 2026-04-11 |
+| 0022 | [課金サイクルとデータライフサイクルの整合性](0022-billing-data-lifecycle-consistency.md) | accepted | 2026-04-11 |
