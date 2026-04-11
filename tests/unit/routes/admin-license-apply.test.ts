@@ -48,7 +48,8 @@ vi.mock('$lib/server/services/activity-service', () => ({
 
 vi.mock('$lib/server/services/plan-limit-service', () => ({
 	getPlanLimits: () => ({ maxActivities: 10, maxChildren: 3, historyRetentionDays: 90 }),
-	resolvePlanTier: () => 'free',
+	// #732: admin/license/+page.server.ts は resolveFullPlanTier に移行済み
+	resolveFullPlanTier: async () => 'free',
 }));
 
 vi.mock('$lib/server/stripe/client', () => ({

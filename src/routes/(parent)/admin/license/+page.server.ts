@@ -9,7 +9,7 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { consumeLicenseKey, validateLicenseKey } from '$lib/server/services/license-key-service';
 import { getLicenseInfo } from '$lib/server/services/license-service';
 import { getLoyaltyInfo } from '$lib/server/services/loyalty-service';
-import { getPlanLimits, resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { getTrialStatus, startTrial } from '$lib/server/services/trial-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
@@ -23,12 +23,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 		getTrialStatus(tenantId),
 	]);
 
-	// プラン利用状況
-	const tier = resolvePlanTier(
+	// プラン利用状況 (#732: resolveFullPlanTier に統一)
+	const tier = await resolveFullPlanTier(
+		tenantId,
 		locals.context?.licenseStatus ?? 'none',
 		locals.context?.plan,
-		trialStatus.isTrialActive ? trialStatus.trialEndDate : null,
-		trialStatus.isTrialActive ? trialStatus.trialTier : null,
 	);
 	const planLimits = getPlanLimits(tier);
 	let activityCount = 0;
