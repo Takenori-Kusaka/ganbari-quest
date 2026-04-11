@@ -263,7 +263,7 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 
 <!-- PRがmainにマージされた後、以下を確認すること。確認前にIssueをcloseしない -->
 
-- [ ] `gh run list --branch main` でデプロイワークフローが**成功**していることを確認
+- [ ] `gh run list --branch main --workflow deploy.yml` でデプロイワークフローが**成功**していることを確認
 - [ ] site/ の変更がある場合: 本番URL（ganbari-quest.com）で変更が反映されていることを確認
 - [ ] **N/A** — デプロイ検証不要（ドキュメントのみの変更等）
 

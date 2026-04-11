@@ -160,7 +160,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Site HTML validation (#710)
+      - name: Site internal links & required elements (#710)
         run: node scripts/check-site-html.mjs
 
       - name: Forbidden terms check (includes site/)
