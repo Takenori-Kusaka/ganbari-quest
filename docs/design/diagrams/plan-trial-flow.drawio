@@ -1,0 +1,165 @@
+<mxfile host="app.diagrams.net" modified="2026-04-11" agent="Claude" version="24.0.0" type="device">
+  <diagram id="plan-trial-states" name="Plan and Trial States">
+    <mxGraphModel dx="1422" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="プラン/トライアル 状態遷移 (#743)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="350" y="10" width="500" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- State: free not-started -->
+        <mxCell id="s_free_ns" value="free / not-started&#xa;&#xa;license: free&#xa;trial: 未使用&#xa;resolvePlanTier → free&#xa;&#xa;UI: TrialBanner(not-started)&#xa;PlanStatusCard(free)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="120" width="220" height="160" as="geometry" />
+        </mxCell>
+
+        <!-- State: trial active -->
+        <mxCell id="s_trial" value="trial active&#xa;&#xa;license: free&#xa;trial: active (≤7日)&#xa;resolvePlanTier → standard/family&#xa;&#xa;UI: TrialBanner(active|urgent)&#xa;PlanStatusCard(trial-badge)&#xa;有料機能 ON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="380" y="120" width="240" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- State: trial expired -->
+        <mxCell id="s_expired" value="trial expired&#xa;&#xa;license: free&#xa;trial: 終了&#xa;resolvePlanTier → free&#xa;&#xa;UI: TrialBanner(expired)&#xa;PlanStatusCard(free)&#xa;有料機能は disabled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="120" width="240" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- State: standard -->
+        <mxCell id="s_standard" value="standard 契約" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="380" width="240" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="s_standard_d" value="license: standard&#xa;resolvePlanTier → standard&#xa;UI: PlanStatusCard(standard)&#xa;初回ロード時 PremiumWelcome" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=10;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="380" y="430" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- State: family -->
+        <mxCell id="s_family" value="family 契約" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="720" y="380" width="240" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="s_family_d" value="license: family&#xa;resolvePlanTier → family&#xa;UI: PlanStatusCard(family)&#xa;初回ロード時 PremiumWelcome" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=10;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="430" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e_ns_to_trial" value="?/startTrial action&#xa;(TrialBanner CTA)" style="endArrow=block;html=1;fontSize=10;rounded=0;" edge="1" parent="1" source="s_free_ns" target="s_trial">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_trial_to_expired" value="7日経過 / 期限切れ" style="endArrow=block;html=1;fontSize=10;rounded=0;" edge="1" parent="1" source="s_trial" target="s_expired">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_trial_to_standard" value="本契約 (Stripe)" style="endArrow=block;html=1;fontSize=10;rounded=0;dashed=0;strokeColor=#82b366;" edge="1" parent="1" source="s_trial" target="s_standard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_trial_to_family" value="本契約 (Stripe)" style="endArrow=block;html=1;fontSize=10;rounded=0;strokeColor=#d6b656;" edge="1" parent="1" source="s_trial" target="s_family">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_expired_to_standard" value="アップグレード&#xa;(/admin/license)" style="endArrow=block;html=1;fontSize=10;rounded=0;strokeColor=#82b366;" edge="1" parent="1" source="s_expired" target="s_standard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_ns_to_standard" value="（トライアル無し直接契約）" style="endArrow=block;html=1;fontSize=10;rounded=0;dashed=1;strokeColor=#9673A6;" edge="1" parent="1" source="s_free_ns" target="s_standard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_standard_to_family" value="アップグレード" style="endArrow=block;html=1;fontSize=10;rounded=0;strokeColor=#d6b656;" edge="1" parent="1" source="s_standard" target="s_family">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_family_to_standard" value="ダウングレード&#xa;(#738/#754)" style="endArrow=block;html=1;fontSize=10;rounded=0;dashed=1;strokeColor=#b85450;" edge="1" parent="1" source="s_family" target="s_standard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_standard_to_free" value="解約&#xa;(#737/#754)" style="endArrow=block;html=1;fontSize=10;rounded=0;dashed=1;strokeColor=#b85450;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="s_standard" target="s_expired">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="540" width="900" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_t" value="凡例" style="text;html=1;align=left;verticalAlign=top;strokeColor=none;fillColor=none;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="550" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_l1" value="● 実線 = 通常遷移（ユーザー操作 or 自動遷移）" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="575" width="500" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_l2" value="● 破線 = 別 Issue で設計中（#737/#738/#754）" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="595" width="500" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_l3" value="● license plan は契約状態（Stripe）、resolvePlanTier はトライアル考慮後の実効ティア" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="615" width="700" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_l4" value="● PlanStatusCard は trialStatus prop で「license=free だが有料機能が使えている理由」を明示する (#730)" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="635" width="800" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="screen-flow" name="Screen Flow">
+    <mxGraphModel dx="1422" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="アップグレード / Welcome 画面遷移 (#743)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="350" y="10" width="500" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Step 1: admin load -->
+        <mxCell id="step1" value="admin/+page.server.ts (load)&#xa;&#xa;1. resolvePlanTier → planTier&#xa;2. getTrialStatus → trialStatus&#xa;3. isPaidTier(planTier) → isPaid&#xa;4. if isPaid && premium_welcome_shown !== 'true'&#xa;   → showPremiumWelcome=true" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="100" width="320" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- Step 2: admin home -->
+        <mxCell id="step2" value="AdminHome.svelte&#xa;&#xa;{#if trialStatus} TrialBanner&#xa;PlanStatusCard&#xa;... コンテンツ ...&#xa;{#if welcomeVisible} PremiumWelcome" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="440" y="100" width="280" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- Step 3: dismiss -->
+        <mxCell id="step3" value="onDismiss()&#xa;&#xa;fetch ?/dismissPremiumWelcome&#xa;→ setSetting('premium_welcome_shown','true')&#xa;→ welcomeVisible = false" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="780" y="100" width="280" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- Stripe path -->
+        <mxCell id="stripe1" value="TrialBanner / PlanStatusCard / FeatureGate&#xa;CTA → /admin/license" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="320" width="320" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="stripe2" value="Stripe Checkout&#xa;ユーザーが決済完了" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="440" y="320" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="stripe3" value="Stripe webhook&#xa;→ license plan を更新&#xa;(standard / family)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="780" y="320" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="stripe4" value="次回 admin ロード&#xa;→ isPaid=true && premium_welcome_shown!=='true'&#xa;→ PremiumWelcome 表示" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="780" y="440" width="280" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="step1" target="step2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="step2" target="step3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="stripe1" target="stripe2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="stripe2" target="stripe3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="stripe3" target="stripe4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
