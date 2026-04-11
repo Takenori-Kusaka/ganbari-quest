@@ -724,7 +724,9 @@ test.describe('#0129: 招待 API', () => {
 test.describe('#0130: ライセンス管理画面', () => {
 	test('ライセンス管理画面が表示される', async ({ page }) => {
 		await page.goto('/admin/license');
-		await expect(page.getByText('現在のプラン')).toBeVisible();
+		// #796 の確認ダイアログに「現在のプランが上書きされます」という警告文があり、
+		// getByText('現在のプラン') だと strict-mode 違反になるため role で一意化
+		await expect(page.getByRole('heading', { name: '現在のプラン' })).toBeVisible();
 	});
 
 	test('プラン情報が表示される', async ({ page }) => {
