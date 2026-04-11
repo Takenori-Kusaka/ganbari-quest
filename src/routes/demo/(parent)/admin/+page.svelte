@@ -1,11 +1,15 @@
 <script lang="ts">
+import { getPlanLabel } from '$lib/domain/labels';
 import AdminHome from '$lib/features/admin/components/AdminHome.svelte';
-import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
 const planTier = $derived(data.planTier ?? 'standard');
 const planStats = $derived(data.planStats);
+const retentionLabel = $derived(
+	planStats?.retentionDays === null ? '無制限' : `${planStats?.retentionDays}日間`,
+);
 </script>
 
 <div class="demo-admin-plan space-y-4">
@@ -40,15 +44,31 @@ const planStats = $derived(data.planStats);
 		</div>
 	</div>
 
+	<!-- プラン利用状況（デモ版: PlanStatusCard は CTA が /admin/license にハードコードされているため使わない — PR #854 と同じ対応） -->
 	{#if planStats}
-		<PlanStatusCard
-			{planTier}
-			activityCount={planStats.activityCount}
-			activityMax={planStats.activityMax}
-			childCount={planStats.childCount}
-			childMax={planStats.childMax}
-			retentionDays={planStats.retentionDays}
-		/>
+		<Card variant="default" padding="lg">
+			{#snippet children()}
+				<h3 class="plan-stats__title">{getPlanLabel(planTier)}</h3>
+				<div class="plan-stats__grid">
+					<div class="plan-stats__item">
+						<span class="plan-stats__label">カスタム活動</span>
+						<span class="plan-stats__value">
+							{planStats.activityCount} / {planStats.activityMax === null ? '無制限' : planStats.activityMax}
+						</span>
+					</div>
+					<div class="plan-stats__item">
+						<span class="plan-stats__label">こども</span>
+						<span class="plan-stats__value">
+							{planStats.childCount} / {planStats.childMax === null ? '無制限' : planStats.childMax}
+						</span>
+					</div>
+					<div class="plan-stats__item">
+						<span class="plan-stats__label">データ保持</span>
+						<span class="plan-stats__value">{retentionLabel}</span>
+					</div>
+				</div>
+			{/snippet}
+		</Card>
 	{/if}
 
 	<!-- デモでは実際のトライアル状態が無いため、free プランの時のみ CTA を表示 (#731 TrialBanner の "not-started" ステートと同等) -->
@@ -126,6 +146,36 @@ const planStats = $derived(data.planStats);
 		background: var(--color-action-primary);
 		color: var(--color-text-inverse);
 		border-color: var(--color-action-primary);
+	}
+
+	.plan-stats__title {
+		font-size: 0.9rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+		margin: 0 0 0.75rem;
+	}
+
+	.plan-stats__grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 1rem;
+	}
+
+	.plan-stats__item {
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+	}
+
+	.plan-stats__label {
+		font-size: 0.7rem;
+		color: var(--color-text-tertiary);
+	}
+
+	.plan-stats__value {
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: var(--color-text-primary);
 	}
 
 	.demo-trial-cta {
