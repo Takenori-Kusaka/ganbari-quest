@@ -69,6 +69,7 @@ docs/tickets/
 tmp/
 screenshots/
 !site/screenshots/
+!docs/screenshots/
 
 # Storybook
 storybook-static/
