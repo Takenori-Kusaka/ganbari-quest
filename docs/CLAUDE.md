@@ -58,6 +58,7 @@
 - [ADR-0020](decisions/0020-test-quality-ratchet-enforcement.md) — テスト品質の劣化を許容しない（強制プロセス）
 - [ADR-0021](decisions/0021-deploy-verification-gate.md) — デプロイ検証ゲート（Issue完了前の本番確認必須化）
 - [ADR-0022](decisions/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性（アカウント削除時は Stripe を先にキャンセル）
+- [ADR-0023](decisions/0023-pre-pmf-issue-priority-guidelines.md) — Pre-PMF Issue 優先度判断基準（エンジニアバイアス防止）
 
 ## 画像アセット
 
