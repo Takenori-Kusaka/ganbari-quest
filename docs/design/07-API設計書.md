@@ -1017,9 +1017,26 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 }
 ```
 
-**処理:** テナントに紐づく全エンティティ（子供、活動、ログ、ポイント、設定等）を削除。Stripe 連携がある場合はサブスクリプションもキャンセル。
+**処理（#741）:** 以下の順序で実行する。順序は課金継続クレーム防止のため固定。
+
+1. **Stripe Subscription キャンセル**（`stripeSubscriptionId` が存在する場合）
+   - `stripe.subscriptions.cancel()` を即時呼び出し
+   - 失敗時は例外を投げ、以降の DB 削除を**中断**（DB と Stripe の整合性を優先）
+   - `resource_missing`（すでに削除済み）は冪等に成功扱い
+2. S3 / ストレージのテナントプレフィックス以下を全削除
+3. テナントスコープの DB データ削除（子供・活動・ログ等 20+ リポジトリ）
+4. メンバー全員の Cognito + DB ユーザー削除
+5. 招待リンクの物理削除
+6. テナントレコード削除
+
+移譲パターン（Pattern 2a: `transferOwnershipAndLeave`）では **Stripe キャンセルを実行しない**。
+新オーナーが subscription を継承するため。
+
+詳細: ADR-0022「課金サイクルとデータライフサイクルの整合性」
 
 **レスポンス:** `200 { success: true }`
+
+**エラー:** `500 { error: "Stripe cancellation failed" }` — Stripe 呼び出し失敗時（DB は未変更）
 
 #### GET /api/v1/admin/account/deletion-info
 

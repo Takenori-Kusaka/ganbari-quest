@@ -138,6 +138,66 @@ export async function createPortalSession(
 }
 
 // ============================================================
+// Subscription Cancellation (#741)
+// ============================================================
+
+export type CancelSubscriptionResult =
+	| { status: 'cancelled'; subscriptionId: string }
+	| { status: 'already_cancelled'; subscriptionId: string }
+	| { status: 'not_subscribed' }
+	| { status: 'stripe_disabled' };
+
+/**
+ * テナントの Stripe Subscription を即時キャンセルする (#741)
+ *
+ * アカウント削除フローから呼び出される。DB 削除の前に必ず呼び出し、
+ * Stripe 側の呼び出しで予期しないエラーが発生した場合は例外を投げて
+ * DB 削除を中断させる（課金継続クレームを防ぐため）。
+ *
+ * 冪等性: すでに削除済み・存在しない subscription の場合は
+ * 'already_cancelled' を返し、例外は投げない。
+ */
+export async function cancelSubscription(tenantId: string): Promise<CancelSubscriptionResult> {
+	if (!isStripeEnabled()) {
+		logger.info(`[STRIPE] cancelSubscription skipped (disabled): tenant=${tenantId}`);
+		return { status: 'stripe_disabled' };
+	}
+
+	const repos = getRepos();
+	const tenant = await repos.auth.findTenantById(tenantId);
+	if (!tenant?.stripeSubscriptionId) {
+		logger.info(`[STRIPE] cancelSubscription skipped (no subscription): tenant=${tenantId}`);
+		return { status: 'not_subscribed' };
+	}
+
+	const subscriptionId = tenant.stripeSubscriptionId;
+	const stripe = getStripeClient();
+
+	try {
+		await stripe.subscriptions.cancel(subscriptionId);
+		logger.info(
+			`[STRIPE] Subscription cancelled: tenant=${tenantId} subscription=${subscriptionId}`,
+		);
+		return { status: 'cancelled', subscriptionId };
+	} catch (err) {
+		// Stripe returns 'resource_missing' when the subscription is already gone
+		const errorCode =
+			(err as { code?: string; raw?: { code?: string } })?.code ??
+			(err as { raw?: { code?: string } })?.raw?.code;
+		if (errorCode === 'resource_missing') {
+			logger.info(
+				`[STRIPE] Subscription already cancelled: tenant=${tenantId} subscription=${subscriptionId}`,
+			);
+			return { status: 'already_cancelled', subscriptionId };
+		}
+		logger.error(`[STRIPE] Subscription cancel failed: tenant=${tenantId}`, {
+			error: String(err),
+		});
+		throw err;
+	}
+}
+
+// ============================================================
 // Webhook Processing
 // ============================================================
 
