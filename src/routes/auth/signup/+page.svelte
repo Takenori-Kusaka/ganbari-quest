@@ -405,7 +405,7 @@ $effect(() => {
 									}}
 								/>
 								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-									<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline" onclick={() => { termsViewed = true; termsHintShown = false; }}>利用規約</a>に同意します
+									<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline" onclick={() => { termsViewed = true; termsHintShown = false; }}>利用規約</a>に同意します
 									{#if termsHintShown && !termsViewed}
 										<span class="block text-xs text-[var(--color-warning)] mt-0.5">先に利用規約をお読みください</span>
 									{/if}
@@ -430,7 +430,7 @@ $effect(() => {
 									}}
 								/>
 								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-									<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline" onclick={() => { privacyViewed = true; privacyHintShown = false; }}>プライバシーポリシー</a>に同意します
+									<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline" onclick={() => { privacyViewed = true; privacyHintShown = false; }}>プライバシーポリシー</a>に同意します
 									{#if privacyHintShown && !privacyViewed}
 										<span class="block text-xs text-[var(--color-warning)] mt-0.5">先にプライバシーポリシーをお読みください</span>
 									{/if}
@@ -513,9 +513,9 @@ $effect(() => {
 		<div class="mt-4 pt-3 border-t border-[var(--color-border-light)] text-center">
 			<p class="text-xs text-[var(--color-text-tertiary)] leading-relaxed">
 				有料プランをご利用の前に
-				<a href="https://www.ganbari-quest.com/tokushoho.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline mx-1">特定商取引法に基づく表記</a>
+				<a href="https://www.ganbari-quest.com/tokushoho.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline mx-1">特定商取引法に基づく表記</a>
 				および
-				<a href="https://www.ganbari-quest.com/sla.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline mx-1">SLA</a>
+				<a href="https://www.ganbari-quest.com/sla.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline mx-1">SLA</a>
 				をご確認ください
 			</p>
 		</div>
