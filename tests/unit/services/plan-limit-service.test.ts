@@ -242,7 +242,6 @@ describe('plan-limit-service', () => {
 			expect(limits.maxActivities).toBe(3);
 			expect(limits.historyRetentionDays).toBe(90);
 			expect(limits.canExport).toBe(false);
-			expect(limits.canCustomAvatar).toBe(false);
 			expect(limits.canFreeTextMessage).toBe(false);
 			expect(limits.canCustomReward).toBe(false);
 			expect(limits.canSiblingRanking).toBe(false);
@@ -254,7 +253,6 @@ describe('plan-limit-service', () => {
 			expect(limits.maxActivities).toBeNull();
 			expect(limits.historyRetentionDays).toBe(365);
 			expect(limits.canExport).toBe(true);
-			expect(limits.canCustomAvatar).toBe(true);
 			expect(limits.canFreeTextMessage).toBe(false);
 			expect(limits.canCustomReward).toBe(true);
 			expect(limits.canSiblingRanking).toBe(false);
@@ -266,7 +264,6 @@ describe('plan-limit-service', () => {
 			expect(limits.maxActivities).toBeNull();
 			expect(limits.historyRetentionDays).toBeNull();
 			expect(limits.canExport).toBe(true);
-			expect(limits.canCustomAvatar).toBe(true);
 			expect(limits.canFreeTextMessage).toBe(true);
 			expect(limits.canCustomReward).toBe(true);
 			expect(limits.canSiblingRanking).toBe(true);
