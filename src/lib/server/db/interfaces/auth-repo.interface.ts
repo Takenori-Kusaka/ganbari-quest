@@ -13,7 +13,7 @@ import type {
 	RecordConsentInput,
 	Tenant,
 } from '$lib/server/auth/entities';
-import type { LicenseRecord } from '$lib/server/services/license-key-service';
+import type { LicenseRecord, LicenseRevokeReason } from '$lib/server/services/license-key-service';
 
 export interface IAuthRepo {
 	// --- User ---
@@ -77,4 +77,14 @@ export interface IAuthRepo {
 		status: LicenseRecord['status'],
 		consumedBy?: string,
 	): Promise<void>;
+	/**
+	 * #797: ライセンスキーを失効させる。
+	 * status='revoked' + revokedAt + revokedReason + revokedBy を一括更新。
+	 */
+	revokeLicenseKey(params: {
+		licenseKey: string;
+		reason: LicenseRevokeReason;
+		revokedBy: string;
+		revokedAt: string;
+	}): Promise<void>;
 }

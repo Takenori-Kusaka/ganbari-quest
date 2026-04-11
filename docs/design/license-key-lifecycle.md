@@ -99,6 +99,8 @@ GQ-XXXX-XXXX-XXXX-YYYYY
 | `consumedAt` | string (ISO8601) | — | 消費日時 |
 | `revokedReason` | string | — | 失効理由 (`expired` / `leaked` / `ops-manual` / `refund`) |
 | `revokedAt` | string (ISO8601) | — | 失効日時 |
+| `revokedBy` | string | — | **#797**: 失効実行者 (`ops:<uid>` / `system` / `stripe:<eventId>`)。監査要件 |
+| `expiresAt` | string (ISO8601) | △ | **#797**: 有効期限。未設定 (legacy) は期限なし扱い。新規発行は `createdAt + 90 日` をデフォルト |
 | `createdAt` | string (ISO8601) | ○ | 発行日時 |
 
 #### 3.1.1 キー種別 (`kind`) と consume 権限 — #801
@@ -283,12 +285,18 @@ sequenceDiagram
 
 ### 5.5 失効 (revoke)
 
-| トリガ | `revokedReason` | 実施者 |
+| トリガ | `revokedReason` | 実施者 (`revokedBy`) |
 |-------|---------------|-------|
 | 90 日経過バッチ | `'expired'` | `system` |
 | HMAC シークレット漏洩 | `'leaked'` | `ops:<uid>` |
 | Ops 手動失効 | `'ops-manual'` | `ops:<uid>` |
-| Stripe 返金 | `'refund'` | `system` (webhook) |
+| Stripe 返金 | `'refund'` | `stripe:<eventId>` (webhook) |
+
+**#797 実装ポイント**:
+- `revokeLicenseKey(params)` サービスが `IAuthRepo.revokeLicenseKey()` を呼ぶ。`status='revoked'` + `revokedAt` + `revokedReason` + `revokedBy` を**一括更新**する（部分更新で `reason` が欠落するのを防ぐ）
+- `active` 以外のキー (consumed / revoked) は revoke 不可。**冪等**なので既に revoked なキーへの呼び出しはエラー応答のみで副作用なし
+- revoke 後の `validateLicenseKey` / `consumeLicenseKey` は `reason: 'このライセンスキーは無効化されています'` を返す
+- 期限切れ (`expiresAt < now`) は `status='active'` でも `validate` / `consume` で拒否される（バッチ未実行でも安全）
 
 ### 5.6 期限切れバッチ
 
@@ -374,3 +382,4 @@ sequenceDiagram
 |------|---------|--------|
 | 2026-04-11 | 初版作成 (#808) | Claude Code |
 | 2026-04-11 | §3.1 に `kind` / `issuedBy` フィールド追加、§5.4 に cross-tenant 拒否フロー追記 (#801) | Claude Code |
+| 2026-04-11 | §3.1 に `expiresAt` / `revokedBy` フィールド追加、§5.5 に revokeLicenseKey 実装ポイント追記 (#797) | Claude Code |
