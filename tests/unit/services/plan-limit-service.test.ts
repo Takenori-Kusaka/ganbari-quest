@@ -245,6 +245,7 @@ describe('plan-limit-service', () => {
 			expect(limits.canCustomAvatar).toBe(false);
 			expect(limits.canFreeTextMessage).toBe(false);
 			expect(limits.canCustomReward).toBe(false);
+			expect(limits.canSiblingRanking).toBe(false);
 		});
 
 		it('standard tier limits', () => {
@@ -256,6 +257,7 @@ describe('plan-limit-service', () => {
 			expect(limits.canCustomAvatar).toBe(true);
 			expect(limits.canFreeTextMessage).toBe(false);
 			expect(limits.canCustomReward).toBe(true);
+			expect(limits.canSiblingRanking).toBe(false);
 		});
 
 		it('family tier limits', () => {
@@ -267,6 +269,14 @@ describe('plan-limit-service', () => {
 			expect(limits.canCustomAvatar).toBe(true);
 			expect(limits.canFreeTextMessage).toBe(true);
 			expect(limits.canCustomReward).toBe(true);
+			expect(limits.canSiblingRanking).toBe(true);
+		});
+
+		// #782: きょうだいランキングは family 限定
+		it('canSiblingRanking: only family can use sibling ranking', () => {
+			expect(getPlanLimits('free').canSiblingRanking).toBe(false);
+			expect(getPlanLimits('standard').canSiblingRanking).toBe(false);
+			expect(getPlanLimits('family').canSiblingRanking).toBe(true);
 		});
 	});
 

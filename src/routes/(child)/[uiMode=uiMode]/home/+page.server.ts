@@ -22,6 +22,7 @@ import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getUnshownMessage } from '$lib/server/services/message-service';
+import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { selectRecommendations } from '$lib/server/services/recommendation-service';
 import {
 	claimEventReward,
@@ -158,12 +159,20 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 				? birthdayBonusStatus
 				: null;
 
-	// きょうだいランキング（設定有効時のみ）
+	// きょうだいランキング（#782: family プラン + 設定有効時のみ）
 	let siblingRanking: Awaited<ReturnType<typeof getWeeklyRanking>> | null = null;
 	try {
-		const rankingOn = await isRankingEnabled(tenantId);
-		if (rankingOn) {
-			siblingRanking = await getWeeklyRanking(tenantId);
+		const planTier = await resolveFullPlanTier(
+			tenantId,
+			locals.context?.licenseStatus ?? 'none',
+			locals.context?.plan,
+		);
+		const planLimits = getPlanLimits(planTier);
+		if (planLimits.canSiblingRanking) {
+			const rankingOn = await isRankingEnabled(tenantId);
+			if (rankingOn) {
+				siblingRanking = await getWeeklyRanking(tenantId);
+			}
 		}
 	} catch {
 		// ランキング取得失敗はページ全体に影響させない
