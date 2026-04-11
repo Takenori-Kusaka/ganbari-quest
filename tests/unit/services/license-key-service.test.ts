@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockSaveLicenseKey = vi.fn();
 const mockFindLicenseKey = vi.fn();
 const mockUpdateLicenseKeyStatus = vi.fn();
+const mockUpdateTenantStripe = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -14,6 +15,7 @@ vi.mock('$lib/server/db/factory', () => ({
 			saveLicenseKey: (...args: unknown[]) => mockSaveLicenseKey(...args),
 			findLicenseKey: (...args: unknown[]) => mockFindLicenseKey(...args),
 			updateLicenseKeyStatus: (...args: unknown[]) => mockUpdateLicenseKeyStatus(...args),
+			updateTenantStripe: (...args: unknown[]) => mockUpdateTenantStripe(...args),
 		},
 	}),
 }));
@@ -522,9 +524,10 @@ describe('consumeLicenseKey', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockUpdateLicenseKeyStatus.mockResolvedValue(undefined);
+		mockUpdateTenantStripe.mockResolvedValue(undefined);
 	});
 
-	it('active なキーを消費して true を返す', async () => {
+	it('active な monthly キーを消費してテナントを active + 30日期限に昇格する', async () => {
 		const record: LicenseRecord = {
 			licenseKey: 'GQ-ABCD-EFGH-JKLM',
 			tenantId: 'tenant-issuer',
@@ -534,9 +537,28 @@ describe('consumeLicenseKey', () => {
 		};
 		mockFindLicenseKey.mockResolvedValue(record);
 
+		const before = Date.now();
 		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+		const after = Date.now();
 
-		expect(result).toBe(true);
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.plan).toBe('monthly');
+			expect(result.planExpiresAt).toBeDefined();
+			const expiresMs = new Date(result.planExpiresAt ?? '').getTime();
+			// 30 日（±1秒の実行時間許容）
+			expect(expiresMs).toBeGreaterThanOrEqual(before + 30 * 24 * 60 * 60 * 1000);
+			expect(expiresMs).toBeLessThanOrEqual(after + 30 * 24 * 60 * 60 * 1000 + 100);
+		}
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			'tenant-consumer',
+			expect.objectContaining({
+				plan: 'monthly',
+				status: 'active',
+				licenseKey: 'GQ-ABCD-EFGH-JKLM',
+				planExpiresAt: expect.any(String),
+			}),
+		);
 		expect(mockUpdateLicenseKeyStatus).toHaveBeenCalledWith(
 			'GQ-ABCD-EFGH-JKLM',
 			'consumed',
@@ -544,16 +566,151 @@ describe('consumeLicenseKey', () => {
 		);
 	});
 
-	it('キーが見つからない場合は false を返す', async () => {
+	it('yearly キーは 365日期限を付与する', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-issuer',
+			plan: 'yearly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const before = Date.now();
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.plan).toBe('yearly');
+			const expiresMs = new Date(result.planExpiresAt ?? '').getTime();
+			expect(expiresMs).toBeGreaterThanOrEqual(before + 365 * 24 * 60 * 60 * 1000);
+		}
+	});
+
+	it('family-monthly キーは monthly と同じ 30日期限で昇格する', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-issuer',
+			plan: 'family-monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const before = Date.now();
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.plan).toBe('family-monthly');
+			const expiresMs = new Date(result.planExpiresAt ?? '').getTime();
+			expect(expiresMs).toBeGreaterThanOrEqual(before + 30 * 24 * 60 * 60 * 1000);
+		}
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			'tenant-consumer',
+			expect.objectContaining({ plan: 'family-monthly' }),
+		);
+	});
+
+	it('family-yearly キーは 365日期限で昇格する', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-issuer',
+			plan: 'family-yearly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const before = Date.now();
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.plan).toBe('family-yearly');
+			const expiresMs = new Date(result.planExpiresAt ?? '').getTime();
+			expect(expiresMs).toBeGreaterThanOrEqual(before + 365 * 24 * 60 * 60 * 1000);
+		}
+	});
+
+	it('lifetime キーは planExpiresAt=undefined で昇格する', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-issuer',
+			plan: 'lifetime',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.plan).toBe('lifetime');
+			expect(result.planExpiresAt).toBeUndefined();
+		}
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			'tenant-consumer',
+			expect.objectContaining({
+				plan: 'lifetime',
+				status: 'active',
+				planExpiresAt: undefined,
+			}),
+		);
+	});
+
+	it('tenant plan 更新は license status 更新より先に呼ばれる (整合性担保)', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-issuer',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+
+		const tenantOrder = mockUpdateTenantStripe.mock.invocationCallOrder[0];
+		const licenseOrder = mockUpdateLicenseKeyStatus.mock.invocationCallOrder[0];
+		expect(tenantOrder).toBeDefined();
+		expect(licenseOrder).toBeDefined();
+		// tenant の plan 昇格が license consumed マークより必ず先
+		expect(tenantOrder as number).toBeLessThan(licenseOrder as number);
+	});
+
+	it('tenant plan 更新が失敗した場合 license は consumed にならない', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-issuer',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+		mockUpdateTenantStripe.mockRejectedValue(new Error('DynamoDB tenant write failed'));
+
+		await expect(consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer')).rejects.toThrow(
+			'DynamoDB tenant write failed',
+		);
+		expect(mockUpdateLicenseKeyStatus).not.toHaveBeenCalled();
+	});
+
+	it('キーが見つからない場合は {ok:false} を返し tenant/license どちらも更新しない', async () => {
 		mockFindLicenseKey.mockResolvedValue(undefined);
 
 		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
 
-		expect(result).toBe(false);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toBe('ライセンスキーが見つかりません');
+		}
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
 		expect(mockUpdateLicenseKeyStatus).not.toHaveBeenCalled();
 	});
 
-	it('ステータスが consumed のキーは false を返す', async () => {
+	it('ステータスが consumed のキーは {ok:false} を返し何も更新しない', async () => {
 		const record: LicenseRecord = {
 			licenseKey: 'GQ-ABCD-EFGH-JKLM',
 			tenantId: 'tenant-issuer',
@@ -567,11 +724,15 @@ describe('consumeLicenseKey', () => {
 
 		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
 
-		expect(result).toBe(false);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toBe('このライセンスキーは既に使用されています');
+		}
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
 		expect(mockUpdateLicenseKeyStatus).not.toHaveBeenCalled();
 	});
 
-	it('ステータスが revoked のキーは false を返す', async () => {
+	it('ステータスが revoked のキーは {ok:false} を返し何も更新しない', async () => {
 		const record: LicenseRecord = {
 			licenseKey: 'GQ-ABCD-EFGH-JKLM',
 			tenantId: 'tenant-issuer',
@@ -583,11 +744,15 @@ describe('consumeLicenseKey', () => {
 
 		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
 
-		expect(result).toBe(false);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toBe('このライセンスキーは無効化されています');
+		}
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
 		expect(mockUpdateLicenseKeyStatus).not.toHaveBeenCalled();
 	});
 
-	it('小文字のキーを大文字に正規化して検索する', async () => {
+	it('小文字のキーを大文字に正規化して検索・更新する', async () => {
 		const record: LicenseRecord = {
 			licenseKey: 'GQ-WXYZ-WXYZ-WXYZ',
 			tenantId: 'tenant-issuer',
@@ -599,8 +764,12 @@ describe('consumeLicenseKey', () => {
 
 		const result = await consumeLicenseKey('gq-wxyz-wxyz-wxyz', 'tenant-consumer');
 
-		expect(result).toBe(true);
+		expect(result.ok).toBe(true);
 		expect(mockFindLicenseKey).toHaveBeenCalledWith('GQ-WXYZ-WXYZ-WXYZ');
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			'tenant-consumer',
+			expect.objectContaining({ licenseKey: 'GQ-WXYZ-WXYZ-WXYZ' }),
+		);
 		expect(mockUpdateLicenseKeyStatus).toHaveBeenCalledWith(
 			'GQ-WXYZ-WXYZ-WXYZ',
 			'consumed',
@@ -620,11 +789,11 @@ describe('consumeLicenseKey', () => {
 
 		const result = await consumeLicenseKey('  GQ-ABCD-EFGH-JKLM  ', 'tenant-consumer');
 
-		expect(result).toBe(true);
+		expect(result.ok).toBe(true);
 		expect(mockFindLicenseKey).toHaveBeenCalledWith('GQ-ABCD-EFGH-JKLM');
 	});
 
-	it('DB 更新が失敗した場合はエラーが伝播する', async () => {
+	it('license 更新 DB 書き込みが失敗した場合はエラーが伝播する (tenant 更新は成功済み)', async () => {
 		const record: LicenseRecord = {
 			licenseKey: 'GQ-ABCD-EFGH-JKLM',
 			tenantId: 'tenant-issuer',
@@ -638,5 +807,7 @@ describe('consumeLicenseKey', () => {
 		await expect(consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer')).rejects.toThrow(
 			'DynamoDB write failed',
 		);
+		// tenant 更新は既に成功している（順序どおり）
+		expect(mockUpdateTenantStripe).toHaveBeenCalled();
 	});
 });
