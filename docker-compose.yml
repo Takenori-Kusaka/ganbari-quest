@@ -1,6 +1,12 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        # Cache-busting arg (#711 / PR #826 review):
+        # Pass BUILD_TIMESTAMP=<unique value> from deploy workflow to force
+        # version:generate to re-run even when the source layer cache hits.
+        BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-unknown}
     ports:
       - "${PORT:-3000}:3000"
     volumes:
