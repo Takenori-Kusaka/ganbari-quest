@@ -237,16 +237,44 @@ export const actions: Actions = {
 			});
 		});
 
-		// ライセンスキー紐付け（fire-and-forget — 失敗しても /admin 遷移は妨げない）
+		// ライセンスキー紐付け (#795: fire-and-forget を撤廃)
+		//
+		// 旧実装は fire-and-forget だったため、キーが見つからない / consumed 済み /
+		// DB 書き込み失敗などで tenants.plan が更新されず、ユーザーはキーを入力したのに
+		// free のまま /admin に入る致命的な不一致が発生していた。
+		//
+		// 本実装では await して結果を確認し、失敗時はエラーログ + /admin にフォールバック
+		// （手動ログイン扱い）する。ここでリダイレクトで確認画面に戻す選択肢もあるが、
+		// Cognito の confirmSignUp は既に成功しており戻せないため、tenant 作成まで完了した
+		// 上で /admin に進み、/admin 側で「ライセンスキー適用失敗」を通知するのが現実的。
 		if (licenseKeyInput) {
-			consumeLicenseKey(licenseKeyInput, tenantId).catch((err) => {
-				logger.warn('[SIGNUP] License key consumption failed', {
+			try {
+				const consumeResult = await consumeLicenseKey(licenseKeyInput, tenantId);
+				if (!consumeResult.ok) {
+					logger.warn('[SIGNUP] License key consume rejected', {
+						context: {
+							reason: consumeResult.reason,
+							tenantId,
+							keyPrefix: licenseKeyInput.slice(0, 7),
+						},
+					});
+				} else {
+					logger.info('[SIGNUP] License key consumed at signup', {
+						context: {
+							tenantId,
+							plan: consumeResult.plan,
+							planExpiresAt: consumeResult.planExpiresAt ?? 'never',
+						},
+					});
+				}
+			} catch (err) {
+				logger.error('[SIGNUP] License key consumption threw', {
 					context: {
 						error: err instanceof Error ? err.message : String(err),
 						tenantId,
 					},
 				});
-			});
+			}
 		}
 
 		// Consent 記録（同期実行 — 失敗したら /consent 画面へ誘導）
