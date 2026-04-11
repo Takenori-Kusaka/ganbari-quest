@@ -5,15 +5,21 @@ import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/onboarding-service';
-import { resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import { isPaidTier } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
 import { getMemoryTicketStatus } from '$lib/server/services/seasonal-content-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, parent }) => {
 	const tenantId = requireTenantId(locals);
+
+	// #726: 親 layout で解決済みの planTier をそのまま継承する。
+	// ここで独自に resolvePlanTier を呼ぶとトライアル情報を渡し忘れ、
+	// トライアル中でも free と判定される（歓迎画面が出ない）バグにつながる。
+	const parentData = await parent();
+	const tier = parentData.planTier;
 
 	const [children, onboarding] = await Promise.all([
 		getAllChildren(tenantId),
@@ -57,10 +63,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		logger.warn('[admin] 月次サマリー取得フォールバック', { context: { error: String(e) } });
 	}
 
-	const tier = resolvePlanTier(locals.context?.licenseStatus ?? 'none', locals.context?.plan);
-
-	// 有料プラン歓迎画面フラグ
-	const isPaid = tier !== 'free';
+	// 有料プラン歓迎画面フラグ（トライアル中も有料扱い）
+	const isPaid = isPaidTier(tier);
 	let showPremiumWelcome = false;
 	if (isPaid) {
 		const welcomeSettings = await getSettings(['premium_welcome_shown'], tenantId);
