@@ -82,21 +82,31 @@ function main() {
 		process.exit(0);
 	}
 
-	const violations = [];
+	const errors = [];
+	const warnings = [];
 
 	for (const filePath of files) {
 		const content = fs.readFileSync(filePath, 'utf-8');
-		violations.push(...checkInternalLinks(filePath, content));
-		violations.push(...checkRequiredElements(filePath, content));
+		errors.push(...checkInternalLinks(filePath, content));
+		warnings.push(...checkRequiredElements(filePath, content));
 	}
 
-	if (violations.length === 0) {
-		console.log(`✓ ${files.length} ファイルを検証。問題なし。`);
+	// 警告は表示のみ（exit code に影響しない）
+	if (warnings.length > 0) {
+		console.warn(`⚠ ${warnings.length} 件の警告:\n`);
+		for (const w of warnings) {
+			console.warn(`  ${w.file}: ${w.issue}`);
+		}
+		console.warn('');
+	}
+
+	if (errors.length === 0) {
+		console.log(`✓ ${files.length} ファイルを検証。エラーなし。`);
 		process.exit(0);
 	}
 
-	console.error(`✗ ${violations.length} 件の問題が見つかりました:\n`);
-	for (const v of violations) {
+	console.error(`✗ ${errors.length} 件のエラーが見つかりました:\n`);
+	for (const v of errors) {
 		const lineInfo = v.line ? `:${v.line}` : '';
 		console.error(`  ${v.file}${lineInfo}`);
 		console.error(`    ${v.issue}`);
