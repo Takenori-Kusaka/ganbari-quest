@@ -100,4 +100,16 @@ export interface IActivityRepo {
 
 	// Point Ledger
 	insertPointLedger(input: InsertPointLedgerInput, tenantId: string): Promise<void>;
+
+	// Retention cleanup (#717, #729)
+	/**
+	 * 指定した子供の `recorded_date < cutoffDate` に該当する activity_logs を削除する。
+	 * cutoffDate は `YYYY-MM-DD` 形式で、その日自体は削除対象に含まない（strict less than）。
+	 * @returns 削除件数
+	 */
+	deleteActivityLogsBeforeDate(
+		childId: number,
+		cutoffDate: string,
+		tenantId: string,
+	): Promise<number>;
 }
