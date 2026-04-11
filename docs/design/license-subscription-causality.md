@@ -2,9 +2,10 @@
 
 | 項目 | 値 |
 |------|-----|
-| 版数 | 1.0 |
+| 版数 | 1.1 |
 | 作成日 | 2026-04-11 |
-| 関連 Issue | #824 |
+| 最終更新 | 2026-04-11 |
+| 関連 Issue | #824, #795 |
 | 関連 ADR | ADR-0003（設計書 SSOT）, ADR-0024（プラン解決責務分離） |
 | 参照設計書 | `07-API設計書.md`, `08-データベース設計書.md`, `19-プライシング戦略書.md` |
 | 実装状態 | 部分実装（本書と現行実装に差分あり — §8 参照） |
@@ -122,6 +123,31 @@ Stripe に**完全一任**する。自アプリ側で猶予期間ロジックを
 
 **原則**: 運営による手動介入は、Stripe との整合性を崩す可能性があるため、必ず監査ログを残す。
 後続の日次整合性チェックバッチで「Stripe = 正、自アプリ DB = 従属」の差分検知を行う。
+
+### 2.7 サインアップ時のライセンスキー claim（#795）
+
+新規ユーザーが gift / 手動発行された License Key をサインアップ時に入力するフロー。
+
+| 起点 | 前提 | 結果（license） | 結果（tenant plan state） |
+|------|------|-----------------|---------------------------|
+| `/auth/signup` フォームで licenseKey 入力 | `status='active'` | `status='consumed'`, `consumedBy=<新規テナントID>`, `consumedAt=now` | `plan=<license.plan>`, `status='active'`, `licenseKey=<正規化キー>`, `planExpiresAt` = 下表参照 |
+
+#### plan→expiresAt マッピング (Stripe 非経由の一回限り付与)
+
+| license.plan | planExpiresAt |
+|--------------|---------------|
+| `monthly`, `family-monthly` | `now + 30 日` |
+| `yearly`, `family-yearly` | `now + 365 日` |
+| `lifetime` | `undefined`（期限なし） |
+
+#### 実装上の必須ルール
+
+1. **更新順序**: tenant plan 昇格 → license consumed マークの順。先に license を consumed にすると、tenant 更新失敗時に「キーは消費済みだがプランは free」の整合性崩壊が起きる。
+2. **fire-and-forget 禁止**: signup 側は `await consumeLicenseKey()` で待ち、`{ok: false}` もしくは例外をログに記録する（ユーザー通知は現状 /admin 側の将来実装に委譲）。
+3. **Stripe subscription は作らない**: このフローは Stripe を経由しないため、`stripeSubscriptionId` / `stripeCustomerId` は設定されない。後続の invoice 継続課金も発生しない（`planExpiresAt` 到達時点で自動ダウングレードするのがバッチの責務）。
+4. **活用場面**: ①運営が /ops/license から手動発行した gift キーの claim、②Stripe 購入後にキーを他アカウントで使いたい引き継ぎ（Phase 3 想定）。通常の Stripe Checkout フローとは独立した副ルート。
+
+> ⚠️ **将来的な改修ポイント**: Stripe subscription で取得した license を consume すると、元の購入テナントは subscription を持ったまま、新規テナントも同じ license で有料化されるという二重計上になる。将来的には「gift 用に発行された `kind='gift'` キー」のみ consume 可能にすべき（#812 要件定義書参照）。
 
 ---
 
