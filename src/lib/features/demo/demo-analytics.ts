@@ -11,7 +11,9 @@ type DemoEvent =
 	| 'demo_guide_dismiss'
 	| 'demo_record_activity'
 	| 'demo_cta_click'
-	| 'demo_signup_page';
+	| 'demo_signup_page'
+	| 'demo_back_to_lp'
+	| 'demo_guide_see_pricing';
 
 export function trackDemoEvent(event: DemoEvent, metadata?: Record<string, unknown>): void {
 	try {
