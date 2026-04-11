@@ -643,6 +643,11 @@ export const saveLicenseKey: IAuthRepo['saveLicenseKey'] = async (record) => {
 				// #801: kind / issuedBy を永続化。undefined のフィールドは DynamoDB に保存しない
 				...(record.kind ? { kind: record.kind } : {}),
 				...(record.issuedBy ? { issuedBy: record.issuedBy } : {}),
+				// #797: expiresAt / revokedAt / revokedReason / revokedBy を永続化
+				...(record.expiresAt ? { expiresAt: record.expiresAt } : {}),
+				...(record.revokedAt ? { revokedAt: record.revokedAt } : {}),
+				...(record.revokedReason ? { revokedReason: record.revokedReason } : {}),
+				...(record.revokedBy ? { revokedBy: record.revokedBy } : {}),
 			},
 		}),
 	);
@@ -666,6 +671,11 @@ export const findLicenseKey: IAuthRepo['findLicenseKey'] = async (key) => {
 		// サービス層の getRecordKind() で 'purchase' デフォルトに解決する。
 		kind: item.kind as LicenseRecord['kind'],
 		issuedBy: item.issuedBy as string | undefined,
+		// #797: 旧レコードには expiresAt/revokedAt 等が存在しない。undefined で返す。
+		expiresAt: item.expiresAt as string | undefined,
+		revokedAt: item.revokedAt as string | undefined,
+		revokedReason: item.revokedReason as LicenseRecord['revokedReason'],
+		revokedBy: item.revokedBy as string | undefined,
 	};
 };
 
@@ -687,6 +697,27 @@ export const updateLicenseKeyStatus: IAuthRepo['updateLicenseKeyStatus'] = async
 			ExpressionAttributeValues: {
 				':status': status,
 				...(consumedBy ? { ':consumedBy': consumedBy, ':consumedAt': now } : {}),
+			},
+		}),
+	);
+};
+
+// #797: revoke 専用のアトミック更新。status + revokedAt + revokedReason + revokedBy を
+// 1 UpdateItem で書き込むことで、status だけ更新されて理由が欠落する事故を防ぐ。
+export const revokeLicenseKey: IAuthRepo['revokeLicenseKey'] = async (params) => {
+	const keys = licenseKeyFn(params.licenseKey);
+	await doc().send(
+		new UpdateCommand({
+			TableName: TABLE_NAME,
+			Key: keys,
+			UpdateExpression:
+				'SET #status = :status, revokedAt = :revokedAt, revokedReason = :revokedReason, revokedBy = :revokedBy',
+			ExpressionAttributeNames: { '#status': 'status' },
+			ExpressionAttributeValues: {
+				':status': 'revoked',
+				':revokedAt': params.revokedAt,
+				':revokedReason': params.reason,
+				':revokedBy': params.revokedBy,
 			},
 		}),
 	);
