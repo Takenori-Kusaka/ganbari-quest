@@ -149,6 +149,36 @@ Stripe に**完全一任**する。自アプリ側で猶予期間ロジックを
 
 > ⚠️ **将来的な改修ポイント**: Stripe subscription で取得した license を consume すると、元の購入テナントは subscription を持ったまま、新規テナントも同じ license で有料化されるという二重計上になる。将来的には「gift 用に発行された `kind='gift'` キー」のみ consume 可能にすべき（#812 要件定義書参照）。
 
+### 2.8 既存テナントへのライセンスキー適用（#796）
+
+既存ユーザー（owner ロール）が `/admin/license` 画面からライセンスキーを入力してプランを昇格するフロー。
+§2.7（サインアップ時 claim）と同じ `consumeLicenseKey` を使用するが、テナントが既に存在する点が異なる。
+
+| 起点 | 前提 | 結果（license） | 結果（tenant plan state） |
+|------|------|-----------------|---------------------------|
+| `/admin/license` の `applyLicenseKey` action | owner ロール、`status='active'` のキー | `status='consumed'`, `consumedBy=<テナントID>`, `consumedAt=now` | `plan=<license.plan>`, `status='active'`, `licenseKey=<正規化キー>`, `planExpiresAt` = §2.7 の plan→expiresAt マッピング参照 |
+
+#### UI フロー
+
+1. owner が `/admin/license` の「ライセンスキーを適用」カードにキーを入力
+2. 「ライセンスキーを適用」ボタン → 確認ダイアログ（一回限り・上書き・取消不可の警告）
+3. 「適用する」ボタンで SvelteKit form action `applyLicenseKey` を送信
+4. サーバー側: `validateLicenseKey` → `consumeLicenseKey` → 成功/失敗レスポンス
+5. 成功時: Alert（success）表示、`data` リロードでプラン情報が即時反映
+
+#### 表示条件
+
+- **owner ロールのみ表示**: parent / child には「ライセンスキーを適用」カードは非表示
+- **lifetime プラン時は非表示**: 既に永久ライセンスを保持している場合は適用 UI を表示しない
+
+#### 実装上の注意
+
+1. **認可**: `requireRole(locals, ['owner'])` で owner 以外は 403
+2. **事前検証**: `validateLicenseKey` で形式・存在・状態を検証し、不正なキーで `consumeLicenseKey` を呼ばない
+3. **更新順序**: §2.7 と同一（tenant plan 昇格 → license consumed マーク）
+4. **Stripe 非経由**: §2.7 と同様に `stripeSubscriptionId` / `stripeCustomerId` は設定されない
+5. **エラーハンドリング**: `consumeLicenseKey` が `{ok:false}` → ユーザーにエラー表示、例外 → 500 + 汎用エラーメッセージ
+
 ---
 
 ## 3. シーケンス図
