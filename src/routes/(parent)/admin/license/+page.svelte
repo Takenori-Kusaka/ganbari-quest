@@ -80,7 +80,12 @@ const statusLabel = (status: string) => {
 				icon: '⚠️',
 			};
 		case 'suspended':
-			return { text: '停止中', color: 'bg-orange-100 text-orange-700', icon: '⏸️' };
+			return {
+				text: '停止中',
+				color:
+					'bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]',
+				icon: '⏸️',
+			};
 		case 'terminated':
 			return {
 				text: '解約済み',
@@ -385,9 +390,9 @@ async function openPortal() {
 			</p>
 		</section>
 	{:else if license.status === 'suspended'}
-		<section class="bg-orange-50 rounded-xl p-4 border border-orange-200">
-			<h3 class="text-sm font-semibold text-orange-800 mb-1">⏸️ サービス停止中</h3>
-			<p class="text-sm text-orange-700">
+		<section class="bg-[var(--color-feedback-warning-bg)] rounded-xl p-4 border border-[var(--color-feedback-warning-border)]">
+			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">⏸️ サービス停止中</h3>
+			<p class="text-sm text-[var(--color-feedback-warning-text)]">
 				ライセンスが停止されています。データは保持されていますが、
 				新しい活動の記録やポイントの付与はできません。
 			</p>
