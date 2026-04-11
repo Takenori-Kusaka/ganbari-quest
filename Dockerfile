@@ -8,13 +8,20 @@ RUN npm ci
 # Stage 2: Build
 FROM deps AS build
 ARG APP_MAJOR_VERSION=1
+# BUILD_TIMESTAMP is a cache-busting build arg (#711 / PR #826 review).
+# Passing a unique value (e.g. $(date +%s)) on every build causes the
+# RUN layer below to be rebuilt even when COPY . . layer cache hits —
+# ensuring npm run version:generate actually runs and stamps a fresh date.
+ARG BUILD_TIMESTAMP=unknown
 ENV APP_MAJOR_VERSION=${APP_MAJOR_VERSION}
 COPY . .
 # Regenerate APP_VERSION at build time so every deployed image carries the
 # build date, regardless of whether the caller committed a fresh version.ts (#711).
 # SvelteKit postbuild analysis imports server modules including DB client;
 # create data dir so better-sqlite3 doesn't fail during build.
-RUN mkdir -p data && npm run version:generate && npm run build
+# The echo embeds BUILD_TIMESTAMP into the layer's command string, which
+# makes the BuildKit cache key sensitive to the arg value.
+RUN echo "Build at: ${BUILD_TIMESTAMP}" && mkdir -p data && npm run version:generate && npm run build
 
 # Stage 3: Runtime (minimal image)
 FROM node:22-alpine AS runtime
