@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import { getErrorMessage } from '$lib/domain/errors';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
@@ -11,6 +12,9 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 import { APP_VERSION } from '$lib/version';
 
 let { data, form } = $props();
+// #787: form.error / form.siblingError が string | PlanLimitError どちらでも表示できるよう正規化
+const errorMessage = $derived(getErrorMessage(form?.error));
+const siblingErrorMessage = $derived(getErrorMessage(form?.siblingError));
 
 let success = $state(false);
 let submitting = $state(false);
@@ -574,8 +578,8 @@ const anyFormBusy = $derived(
 			<SuccessAlert message="PINコードを変更しました" />
 		{/if}
 
-		{#if form?.error}
-			<ErrorAlert message={form.error} severity="warning" action="fix_input" />
+		{#if errorMessage}
+			<ErrorAlert message={errorMessage} severity="warning" action="fix_input" />
 		{/if}
 
 		<form
@@ -759,8 +763,8 @@ const anyFormBusy = $derived(
 		{#if form?.siblingSuccess}
 			<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)] mb-4">きょうだい設定を保存しました</div>
 		{/if}
-		{#if form?.siblingError}
-			<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)] mb-4">{form.siblingError}</div>
+		{#if siblingErrorMessage}
+			<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)] mb-4">{siblingErrorMessage}</div>
 		{/if}
 
 		<form method="POST" action="?/updateSiblingSettings" use:enhance class="space-y-4">

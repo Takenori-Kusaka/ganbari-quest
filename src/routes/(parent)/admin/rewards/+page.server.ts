@@ -1,10 +1,15 @@
-// /admin/rewards — 特別報酬の付与（#336, #501, #581 プリセット追加, #728 プランゲート）
+// /admin/rewards — 特別報酬の付与（#336, #501, #581 プリセット追加, #728 プランゲート, #787 PlanLimitError 統一）
 
 import { fail } from '@sveltejs/kit';
 import { PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
+import { createPlanLimitError } from '$lib/domain/errors';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
-import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
+import {
+	isPaidTier,
+	type PlanTier,
+	resolveFullPlanTier,
+} from '$lib/server/services/plan-limit-service';
 import {
 	getChildSpecialRewards,
 	getRewardTemplates,
@@ -45,10 +50,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 };
 
-async function ensurePremium(locals: App.Locals, tenantId: string): Promise<boolean> {
+/** 現在のプラン tier を解決して返すヘルパー (#787) */
+async function resolveTier(locals: App.Locals, tenantId: string): Promise<PlanTier> {
 	const licenseStatus = locals.context?.licenseStatus ?? 'none';
-	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-	return isPaidTier(tier);
+	return resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 }
 
 export const actions: Actions = {
@@ -56,8 +61,12 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 
 		// #728: プランゲート — 無料プランはカスタム報酬付与不可
-		if (!(await ensurePremium(locals, tenantId))) {
-			return fail(403, { error: UPGRADE_MESSAGE, code: 'PLAN_LIMIT_EXCEEDED' });
+		// #787: PlanLimitError 形式に統一
+		const tier = await resolveTier(locals, tenantId);
+		if (!isPaidTier(tier)) {
+			return fail(403, {
+				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
+			});
 		}
 
 		const formData = await request.formData();
@@ -83,8 +92,12 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 
 		// #728: プランゲート — 無料プランはプリセットの取り込みも不可
-		if (!(await ensurePremium(locals, tenantId))) {
-			return fail(403, { error: UPGRADE_MESSAGE, code: 'PLAN_LIMIT_EXCEEDED' });
+		// #787: PlanLimitError 形式に統一
+		const tier = await resolveTier(locals, tenantId);
+		if (!isPaidTier(tier)) {
+			return fail(403, {
+				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
+			});
 		}
 
 		const formData = await request.formData();
