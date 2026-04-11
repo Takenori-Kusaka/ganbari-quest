@@ -1,4 +1,5 @@
 <script lang="ts">
+import { getPricingFeatures } from '$lib/domain/plan-features';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 const plans = [
@@ -8,15 +9,7 @@ const plans = [
 		price: '¥0',
 		unit: '',
 		description: '基本機能で気軽にスタート。冒険体験は一切制限なし。',
-		features: [
-			'お子さまの登録：2人まで',
-			'プリセット活動の利用',
-			'オリジナル活動の作成：3個まで',
-			'レベル・ポイント・シールガチャ',
-			'ログインボーナス・コンボ',
-			'チェックリスト（テンプレート）',
-			'90日間の履歴保持',
-		],
+		features: getPricingFeatures('free'),
 	},
 	{
 		id: 'standard' as const,
@@ -25,19 +18,7 @@ const plans = [
 		unit: '/月',
 		yearlyPrice: '年額 ¥5,000（2ヶ月分お得）',
 		description: 'カスタマイズ自由自在。お子さまにぴったりの環境を。',
-		features: [
-			'お子さまの登録人数：無制限',
-			'オリジナル活動の作成：無制限',
-			'AI による活動提案',
-			'活動アイコンの変更',
-			'チェックリスト自由作成',
-			'カスタム報酬設定',
-			'おうえんスタンプ（全種類）',
-			'週次メールレポート',
-			'データエクスポート（JSON）',
-			'1年間の履歴保持',
-			'メール優先サポート',
-		],
+		features: getPricingFeatures('standard'),
 		badge: 'おすすめ',
 		recommended: true,
 	},
@@ -48,14 +29,7 @@ const plans = [
 		unit: '/月',
 		yearlyPrice: '年額 ¥7,800（2ヶ月分お得）',
 		description: '全機能解放。きょうだいの成長をまとめて見守れます。',
-		features: [
-			'スタンダードの全機能',
-			'AI による活動提案',
-			'月次比較レポート',
-			'きょうだいランキング',
-			'無制限の履歴保持',
-			'メール優先サポート（24時間以内応答）',
-		],
+		features: getPricingFeatures('family'),
 	},
 ];
 </script>
