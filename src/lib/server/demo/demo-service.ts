@@ -340,6 +340,40 @@ export function getDemoChecklistData(childId: number) {
 	};
 }
 
+// #704: 子供画面のチェックリストページ用 — 本番の TodayChecklist と互換性のある形に整形する。
+export function getDemoTodayChecklistsForChild(childId: number) {
+	const { templates, items } = getDemoChecklistsForChild(childId);
+	return templates.map((t) => {
+		const tItems = items
+			.filter((i) => i.templateId === t.id)
+			.sort((a, b) => a.sortOrder - b.sortOrder);
+		// デモ表示用にいくつか既にチェック済みの状態を作る（半分程度）
+		const initiallyChecked = Math.floor(tItems.length / 2);
+		const checked = tItems.map((item, idx) => ({
+			id: item.id,
+			name: item.name,
+			icon: item.icon,
+			checked: idx < initiallyChecked,
+			source: 'template' as const,
+		}));
+		const checkedCount = checked.filter((c) => c.checked).length;
+		const completedAll = checkedCount === tItems.length && tItems.length > 0;
+		return {
+			templateId: t.id,
+			templateName: t.name,
+			templateIcon: t.icon,
+			timeSlot: t.timeSlot as 'morning' | 'afternoon' | 'evening' | 'anytime',
+			pointsPerItem: t.pointsPerItem,
+			completionBonus: t.completionBonus,
+			items: checked,
+			checkedCount,
+			totalCount: tItems.length,
+			completedAll,
+			pointsAwarded: completedAll ? tItems.length * t.pointsPerItem + t.completionBonus : 0,
+		};
+	});
+}
+
 // ============================================================
 // Battle page data
 // ============================================================
