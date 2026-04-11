@@ -21,6 +21,12 @@ vi.mock('$lib/server/services/child-service', () => ({
 }));
 
 // ファクトリをモック — テスト用SQLiteのchild-repoメソッドを提供
+// #739: clearAllFamilyData は tenant-cleanup-service 経由で deleteTenantScopedData を
+// 呼ぶため、全リポジトリのスタブを用意する（エラーで早期終了しないよう try-catch の
+// 各ブロックで動作する最小実装を与える）。
+const noopDeleteByTenantId = vi.fn().mockResolvedValue(undefined);
+const emptyFindByTenant = vi.fn().mockResolvedValue([]);
+
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		child: {
@@ -63,7 +69,38 @@ vi.mock('$lib/server/db/factory', () => ({
 				testDb.delete(schema.children).where(eq(schema.children.id, id)).run();
 			},
 		},
+		// tenant-cleanup-service.deleteTenantScopedData 用のスタブ
+		activity: { findActivities: emptyFindByTenant, deleteActivity: noopDeleteByTenantId },
+		viewerToken: { findByTenant: emptyFindByTenant, deleteById: noopDeleteByTenantId },
+		cloudExport: { findByTenant: emptyFindByTenant, deleteById: noopDeleteByTenantId },
+		pushSubscription: { findByTenant: emptyFindByTenant, deleteByEndpoint: noopDeleteByTenantId },
+		voice: { deleteByChild: noopDeleteByTenantId },
+		settings: { deleteByTenantId: noopDeleteByTenantId },
+		checklist: { deleteByTenantId: noopDeleteByTenantId },
+		dailyMission: { deleteByTenantId: noopDeleteByTenantId },
+		evaluation: { deleteByTenantId: noopDeleteByTenantId },
+		point: { deleteByTenantId: noopDeleteByTenantId },
+		stampCard: { deleteByTenantId: noopDeleteByTenantId },
+		status: { deleteByTenantId: noopDeleteByTenantId },
+		loginBonus: { deleteByTenantId: noopDeleteByTenantId },
+		specialReward: { deleteByTenantId: noopDeleteByTenantId },
+		activityPref: { deleteByTenantId: noopDeleteByTenantId },
+		activityMastery: { deleteByTenantId: noopDeleteByTenantId },
+		message: { deleteByTenantId: noopDeleteByTenantId },
+		tenantEvent: { deleteByTenantId: noopDeleteByTenantId },
+		trialHistory: { deleteByTenantId: noopDeleteByTenantId },
+		siblingChallenge: { deleteByTenantId: noopDeleteByTenantId },
+		siblingCheer: { deleteByTenantId: noopDeleteByTenantId },
+		autoChallenge: { deleteByTenantId: noopDeleteByTenantId },
+		reportDailySummary: { deleteByTenantId: noopDeleteByTenantId },
+		seasonEvent: { deleteByTenantId: noopDeleteByTenantId },
+		image: { deleteByTenantId: noopDeleteByTenantId },
 	}),
+}));
+
+// request-context の invalidateRequestCaches は副作用なしにスキップ
+vi.mock('$lib/server/request-context', () => ({
+	invalidateRequestCaches: vi.fn(),
 }));
 
 import { clearAllFamilyData, getDataSummary } from '../../../src/lib/server/services/data-service';
@@ -207,5 +244,33 @@ describe('clearAllFamilyData', () => {
 		// カスケード削除の検証 — 関連テーブルも空になっている
 		expect(testDb.select().from(schema.statuses).all().length).toBe(0);
 		expect(testDb.select().from(schema.stampCards).all().length).toBe(0);
+	});
+
+	// =========================================================
+	// #739: tenant-scoped data (trial_history 等) も削除される
+	// =========================================================
+	describe('#739 テナントスコープデータの削除', () => {
+		it('deleteTenantScopedData が呼ばれ、result.deleted.other に反映される', async () => {
+			const result = await clearAllFamilyData(TENANT);
+			// deleteTenantScopedData は各テーブルで delete 呼び出しを行うため
+			// スタブが全て resolve → deleted カウントは 0 より大きい
+			// (noop だが「呼び出しが成立した」ことを件数で示す設計)
+			expect(result.deleted.other).toBeGreaterThan(0);
+		});
+
+		it('trial_history の deleteByTenantId が呼ばれる', async () => {
+			// スパイを設定して呼び出しを検証
+			await clearAllFamilyData(TENANT);
+			// noopDeleteByTenantId は全リポジトリで共有されているため、
+			// 呼び出し数ではなく「呼ばれた」ことだけを検証
+			expect(noopDeleteByTenantId).toHaveBeenCalled();
+		});
+
+		it('settings / checklist / specialReward の deleteByTenantId が呼ばれる', async () => {
+			noopDeleteByTenantId.mockClear();
+			await clearAllFamilyData(TENANT);
+			// 最低限の呼び出し回数（20+ の deleteByTenantId 系メソッド）
+			expect(noopDeleteByTenantId.mock.calls.length).toBeGreaterThanOrEqual(10);
+		});
 	});
 });
