@@ -187,6 +187,7 @@ export const FEATURE_LABELS = {
 	report: 'レポート',
 	growthBook: 'グロースブック',
 	message: 'おうえんメッセージ',
+	freeTextMessage: 'ひとことメッセージ',
 	reward: 'ごほうび',
 	checklist: 'チェックリスト',
 	activity: '活動',
@@ -200,4 +201,5 @@ export const FEATURE_LABELS = {
 	members: 'メンバー',
 	dataExport: 'データエクスポート',
 	aiActivitySuggest: 'AI による活動提案',
+	siblingRanking: 'きょうだいランキング',
 } as const;
