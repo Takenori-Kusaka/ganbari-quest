@@ -18,12 +18,66 @@ const LEGACY_FORMAT = /^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 const SIGNED_FORMAT = /^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{5}$/;
 
 // ============================================================
-// HMAC署名 (#319)
+// HMAC署名 (#319, #806)
 // ============================================================
 
 /** LICENSE_SECRET 環境変数を取得（未設定なら undefined） */
 function getLicenseSecret(): string | undefined {
 	return process.env.AWS_LICENSE_SECRET || undefined;
+}
+
+/** production 環境かどうか判定 */
+function isProduction(): boolean {
+	return process.env.NODE_ENV === 'production';
+}
+
+/**
+ * Legacy 形式（署名なし）のライセンスキーを受け入れるかどうか判定する (#806)
+ *
+ * - production + secret 未設定: 受け入れない（偽造リスク）
+ * - production + secret 設定済み + `ALLOW_LEGACY_LICENSE_KEYS=true`: 受け入れる（移行期のみ）
+ * - production + secret 設定済み + フラグなし: 受け入れない（新形式に移行済み）
+ * - dev / test: 常に受け入れる（既存キーでの開発/テストを壊さない）
+ */
+function isLegacyFormatAllowed(): boolean {
+	if (!isProduction()) return true;
+	return process.env.ALLOW_LEGACY_LICENSE_KEYS === 'true';
+}
+
+/**
+ * ライセンスキーサービスの起動時設定チェック (#806)
+ *
+ * production で `AWS_LICENSE_SECRET` が未設定だと、署名付きキーの偽造が可能になり、
+ * legacy 形式のキーを総当たりできる状態でサービスが動いてしまう。これは致命的な
+ * セキュリティバグなので、production 起動時に明示的に失敗させる。
+ *
+ * - production: secret 未設定なら throw（起動失敗）
+ * - dev: secret 未設定なら WARN ログ（既存開発フローを壊さない）
+ * - test: サイレント（ユニットテストで env を切り替える都合）
+ *
+ * hooks.server.ts 等の SvelteKit 起動パスから1度だけ呼ぶ想定。
+ */
+export function assertLicenseKeyConfigured(): void {
+	const hasSecret = Boolean(getLicenseSecret());
+	if (hasSecret) return;
+
+	if (isProduction()) {
+		throw new Error(
+			'[LICENSE] AWS_LICENSE_SECRET is required in production. ' +
+				"Generate one with: `node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"` " +
+				'and set it in your environment (e.g. AWS SSM Parameter Store). ' +
+				'See .env.example and docs/decisions/0026-license-key-architecture.md.',
+		);
+	}
+
+	// Avoid noise during `vitest` runs — tests drive env manually.
+	if (process.env.NODE_ENV === 'test') return;
+
+	logger.warn(
+		'[LICENSE] AWS_LICENSE_SECRET is not set. ' +
+			'HMAC-signed license keys will fall back to legacy format. ' +
+			'This is OK for local dev but MUST be set in production.',
+	);
 }
 
 /** ペイロードから HMAC-SHA256 チェックサムを生成 (KEY_CHARS エンコード, 5文字) */
@@ -131,6 +185,17 @@ export async function validateLicenseKey(
 
 	if (!isLegacy && !isSigned) {
 		return { valid: false, reason: 'ライセンスキーの形式が不正です' };
+	}
+
+	// 旧形式キーは production では原則拒否（#806）
+	// 移行期に限り `ALLOW_LEGACY_LICENSE_KEYS=true` で明示的に許可可能。
+	// dev/test では常に受け入れる（既存テスト互換性のため）。
+	if (isLegacy && !isLegacyFormatAllowed()) {
+		logger.warn(
+			`[LICENSE] Legacy format rejected in production: ${normalized.slice(0, 7)}... ` +
+				`Set ALLOW_LEGACY_LICENSE_KEYS=true to temporarily permit (migration window only).`,
+		);
+		return { valid: false, reason: 'ライセンスキーが不正です' };
 	}
 
 	// 署名付きキーの場合: HMAC 署名を検証（DB問い合わせ前に拒否可能）
