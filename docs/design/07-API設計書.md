@@ -2,9 +2,9 @@
 
 | 項目 | 内容 |
 |------|------|
-| 版数 | 2.7 |
+| 版数 | 2.9 |
 | 作成日 | 2026-02-19 |
-| 更新日 | 2026-04-09 |
+| 更新日 | 2026-04-12 |
 | 作成者 | 日下武紀 |
 
 ---
@@ -1423,18 +1423,101 @@ Push 通知の購読解除。
 | VALIDATION_ERROR | 400 | リクエストバリデーション失敗 |
 | CANCEL_EXPIRED | 400 | キャンセル期限超過 |
 | ALREADY_RECORDED | 409 | 同日同活動の重複記録 |
+| DAILY_LIMIT_REACHED | 409 | 1日あたりの記録上限到達 |
 | ALREADY_CLAIMED | 409 | ログインボーナス受取済み |
 | INSUFFICIENT_POINTS | 400 | ポイント残高不足 |
 | INVALID_PIN | 401 | PIN不一致 |
 | UNAUTHORIZED | 401 | 認証が必要 |
 | LOCKED_OUT | 429 | ロックアウト中 |
 | NOT_FOUND | 404 | リソースが見つからない |
+| PLAN_LIMIT_EXCEEDED | 403 | プラン制限により拒否（§4.2 参照） |
 | INTERNAL_ERROR | 500 | サーバー内部エラー |
 | LICENSE_FORMAT_INVALID | 400 | ライセンスキー形式が不正 |
 | LICENSE_SIGNATURE_INVALID | 400 | ライセンスキー HMAC 署名不一致 |
 | LICENSE_NOT_FOUND | 404 | ライセンスキーが存在しない |
 | LICENSE_ALREADY_CONSUMED | 409 | ライセンスキー消費済み |
 | LICENSE_REVOKED | 410 | ライセンスキー失効済み |
+
+### 4.2 プラン制限エラー (`PLAN_LIMIT_EXCEEDED`) — #744
+
+プラン制限（`PLAN_LIMITS` の boolean フラグまたは数値上限）によって拒否されたリクエストは、
+**必ず HTTP 403** と以下の body で応答する。フロントエンドが「どのプランにすれば使えるか」を
+一貫した UI で提示できるよう、`currentTier` / `requiredTier` / `upgradeUrl` を含める。
+
+#### レスポンス body（正仕様）
+
+```ts
+// src/lib/domain/errors.ts
+export interface PlanLimitError {
+  code: 'PLAN_LIMIT_EXCEEDED';
+  message: string;                              // 人間可読（日本語）
+  currentTier: 'free' | 'standard' | 'family';  // リクエスト時点のテナントプラン
+  requiredTier: 'standard' | 'family';          // 許可される最小プラン
+  upgradeUrl: '/admin/license';                 // アップグレード導線。固定
+}
+```
+
+レスポンス例:
+
+```json
+{
+  "error": {
+    "code": "PLAN_LIMIT_EXCEEDED",
+    "message": "AI 活動提案はスタンダードプラン以上でご利用いただけます",
+    "currentTier": "free",
+    "requiredTier": "standard",
+    "upgradeUrl": "/admin/license"
+  }
+}
+```
+
+#### 使い分け（ステータスコード規約）
+
+| コード | 用途 |
+|-------|------|
+| `400 VALIDATION_ERROR` | リクエストボディのバリデーション失敗（プラン制限以外） |
+| `403 PLAN_LIMIT_EXCEEDED` | **プラン制限による拒否のみ**（boolean フラグ / 数値上限いずれも） |
+| `403` （UNAUTHORIZED 系） | ロール不足 / 未認証などの認可エラー。`PLAN_LIMIT_EXCEEDED` とは別コード |
+| `429 LOCKED_OUT` | レートリミット超過 |
+
+#### トライアル中の扱い
+
+- `currentTier` にはトライアル中のティア（`standard` / `family`）が入る。
+- トライアル終了後にもう一度叩かれた場合は `currentTier: 'free'` で 403 が返る。
+- クライアント側でトライアル残日数を表示するには `GET /api/v1/admin/plan-status`（別）を併用する。
+
+#### 実装ヘルパー
+
+- **API エンドポイント (`+server.ts`)**: `src/lib/server/errors.ts` の `planLimitError({ currentTier, requiredTier, message })` を使う。
+- **フォームアクション (`+page.server.ts`)**: `fail(403, { error: createPlanLimitError(currentTier, requiredTier, message) })` を返す。`createPlanLimitError` は `src/lib/domain/errors.ts` から import する。
+- **クライアント**: `isPlanLimitError(result.data?.error)` の型ガードで判定し、`requiredTier` からアップセル先プランのラベルを決定する。
+
+#### プラン制限が適用される主要エンドポイント
+
+現時点でプラン制限（`PLAN_LIMIT_EXCEEDED` 403 を返し得る）が実装済みのエンドポイントを整理する。
+既存実装の body 形式は段階的に `PlanLimitError` 形式へ移行する（別 issue で追跡）。
+
+| エンドポイント / フォームアクション | 必要プラン | 根拠 |
+|----------|---------|------|
+| `POST /api/v1/activities/suggest` | standard | AI 活動提案 (`isPaidTier`) |
+| `POST /api/v1/export` (activity pack export) | standard | `canExport` フラグ |
+| `POST /api/v1/export/cloud` | standard | `canExport` + `maxCloudExports` |
+| `POST /api/v1/children` | 上限付き | `free` は `maxChildren=2` まで |
+| `POST /api/v1/activities` (custom) | 上限付き | `free` は `maxActivities=3` まで |
+| `POST /admin/checklists/+page.server.ts ?/createTemplate` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#723) |
+| `POST /admin/rewards ?/create` | standard | 特別なごほうび (`canCustomReward`, #728) |
+| `POST /admin/rewards ?/importPresets` | standard | 特別なごほうび取り込み (#728) |
+| `POST /admin/messages ?/send` (text モード) | family | 自由テキストメッセージ (`canFreeTextMessage`, #772) |
+| `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | family | きょうだいランキング (`canSiblingRanking`, #782) |
+
+**注意**: 上記以外のエンドポイント（GET 系・基本的な CRUD 等）は**全プラン利用可**。
+新規にプラン制限を追加する際は、本表へ追記し `PlanLimitError` 形式で 403 を返すこと。
+
+#### 移行計画
+
+1. **Phase 1**（本 PR #744）: 仕様定義・型定義・ヘルパー追加。既存実装は変更しない。
+2. **Phase 2** (#787): 全プラン制限箇所を `planLimitError()` / `createPlanLimitError()` に統一。
+3. **Phase 3**: フロント共通エラーハンドラで `isPlanLimitError` を使ったアップセルトーストを実装。
 
 ---
 
@@ -1512,3 +1595,4 @@ Push 通知の購読解除。
 | 2026-04-06 | 2.6 | #550 アナリティクス基盤: POST /api/v1/analytics（イベント記録）、GET /api/v1/analytics/status（設定確認）追加。3層プロバイダー（Sentry/Umami/DynamoDB）アーキテクチャ |
 | 2026-04-10 | 2.7 | #605 バトルアドベンチャーAPI追加: GET/POST /api/v1/battle/[childId]（日次バトル取得・実行） |
 | 2026-04-09 | 2.8 | #609 設計書同期: アカウント削除(2)・閲覧専用トークン(3)エンドポイントを一覧追加。未記載だった9カテゴリのエンドポイント詳細仕様（3.17-3.25）を追記 |
+| 2026-04-12 | 2.9 | #744 プラン制限エラー仕様 (§4.2) 追加。`PLAN_LIMIT_EXCEEDED` の body フォーマット (`currentTier` / `requiredTier` / `upgradeUrl`) を正仕様化。型定義を `src/lib/domain/errors.ts` として新設し client/server で共有。既存実装の移行は #787 で追跡 |
