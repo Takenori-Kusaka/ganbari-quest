@@ -92,6 +92,18 @@ vi.mock('$lib/server/services/email-service', () => ({
 	sendMemberRemovedEmail: vi.fn().mockResolvedValue(true),
 }));
 
+// #741: Stripe subscription cancellation must run before DB deletion
+// vi.hoisted is required because vi.mock factories are hoisted before top-level vars
+const { mockCancelSubscription } = vi.hoisted(() => ({
+	mockCancelSubscription: vi.fn().mockResolvedValue({ status: 'not_subscribed' }),
+}));
+vi.mock('./stripe-service', () => ({
+	cancelSubscription: mockCancelSubscription,
+}));
+vi.mock('$lib/server/services/stripe-service', () => ({
+	cancelSubscription: mockCancelSubscription,
+}));
+
 // Mock Cognito client
 vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
 	const mockSend = vi.fn().mockResolvedValue({});
@@ -127,6 +139,8 @@ describe('account-deletion-service', () => {
 		// Reset env
 		process.env.COGNITO_USER_POOL_ID = 'us-east-1_TestPool';
 		process.env.AWS_REGION = 'us-east-1';
+		// #741: default — no subscription to cancel
+		mockCancelSubscription.mockResolvedValue({ status: 'not_subscribed' });
 	});
 
 	describe('getOwnerDeletionInfo', () => {
@@ -191,6 +205,50 @@ describe('account-deletion-service', () => {
 				'他のメンバーが存在します',
 			);
 		});
+
+		// #741: Stripe subscription cancellation integration
+		it('#741: DB 削除前に Stripe Subscription がキャンセルされる', async () => {
+			mockAuthRepo.findTenantMembers.mockResolvedValue([
+				{ userId: OWNER_ID, tenantId: TENANT_ID, role: 'owner' },
+			]);
+			mockChildRepo.findAllChildren.mockResolvedValue([]);
+			mockAuthRepo.findTenantInvites.mockResolvedValue([]);
+			mockAuthRepo.findUserById.mockResolvedValue({
+				userId: OWNER_ID,
+				email: 'owner@example.com',
+			});
+			mockCancelSubscription.mockResolvedValue({
+				status: 'cancelled',
+				subscriptionId: 'sub_test_123',
+			});
+
+			await deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID);
+
+			expect(mockCancelSubscription).toHaveBeenCalledWith(TENANT_ID);
+			// Cancel must have been called before deleteTenant
+			const cancelOrder = mockCancelSubscription.mock.invocationCallOrder[0] ?? Infinity;
+			const deleteTenantOrder = mockAuthRepo.deleteTenant.mock.invocationCallOrder[0] ?? -Infinity;
+			expect(cancelOrder).toBeLessThan(deleteTenantOrder);
+		});
+
+		it('#741: Stripe キャンセル失敗時は DB 削除を行わない', async () => {
+			mockAuthRepo.findTenantMembers.mockResolvedValue([
+				{ userId: OWNER_ID, tenantId: TENANT_ID, role: 'owner' },
+			]);
+			mockChildRepo.findAllChildren.mockResolvedValue([]);
+			mockAuthRepo.findTenantInvites.mockResolvedValue([]);
+			mockAuthRepo.findUserById.mockResolvedValue({
+				userId: OWNER_ID,
+				email: 'owner@example.com',
+			});
+			mockCancelSubscription.mockRejectedValue(new Error('Stripe API down'));
+
+			await expect(deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID)).rejects.toThrow('Stripe API down');
+
+			// DB は触られていない
+			expect(mockAuthRepo.deleteTenant).not.toHaveBeenCalled();
+			expect(mockAuthRepo.deleteUser).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('Pattern 2a: transferOwnershipAndLeave', () => {
@@ -238,6 +296,23 @@ describe('account-deletion-service', () => {
 				'子供アカウントにはオーナー権限を移譲できません',
 			);
 		});
+
+		// #741: 移譲は新オーナーが subscription を引き継ぐため Stripe キャンセルしない
+		it('#741: 移譲パターンでは Stripe Subscription をキャンセルしない', async () => {
+			mockAuthRepo.findMembership.mockResolvedValue({
+				userId: PARENT_ID,
+				tenantId: TENANT_ID,
+				role: 'parent',
+			});
+			mockAuthRepo.findUserById.mockResolvedValue({
+				userId: OWNER_ID,
+				email: 'owner@example.com',
+			});
+
+			await transferOwnershipAndLeave(TENANT_ID, OWNER_ID, PARENT_ID);
+
+			expect(mockCancelSubscription).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('Pattern 2b: deleteOwnerFullDelete', () => {
@@ -265,6 +340,32 @@ describe('account-deletion-service', () => {
 			expect(result.unaffiliatedMembers).toContain(PARENT_ID);
 			expect(mockAuthRepo.deleteTenant).toHaveBeenCalledWith(TENANT_ID);
 			expect(mockAuthRepo.deleteUser).toHaveBeenCalledWith(OWNER_ID);
+		});
+
+		// #741: Stripe subscription cancellation integration
+		it('#741: Stripe キャンセル失敗時は DB 削除を行わない', async () => {
+			mockAuthRepo.findTenantMembers.mockResolvedValue([
+				{ userId: OWNER_ID, tenantId: TENANT_ID, role: 'owner' },
+				{ userId: PARENT_ID, tenantId: TENANT_ID, role: 'parent' },
+			]);
+			mockChildRepo.findAllChildren.mockResolvedValue([]);
+			mockAuthRepo.findTenantInvites.mockResolvedValue([]);
+			mockAuthRepo.findTenantById.mockResolvedValue({
+				tenantId: TENANT_ID,
+				name: 'テスト家族',
+			});
+			mockAuthRepo.findUserById.mockImplementation(async (userId: string) => {
+				if (userId === OWNER_ID) return { userId: OWNER_ID, email: 'owner@example.com' };
+				if (userId === PARENT_ID) return { userId: PARENT_ID, email: 'parent@example.com' };
+				return undefined;
+			});
+			mockCancelSubscription.mockRejectedValue(new Error('Stripe timeout'));
+
+			await expect(deleteOwnerFullDelete(TENANT_ID, OWNER_ID)).rejects.toThrow('Stripe timeout');
+
+			// DB は触られていない
+			expect(mockAuthRepo.deleteTenant).not.toHaveBeenCalled();
+			expect(mockAuthRepo.deleteUser).not.toHaveBeenCalled();
 		});
 	});
 

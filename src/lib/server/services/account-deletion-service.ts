@@ -17,6 +17,7 @@ import { deleteByPrefix } from '$lib/server/storage';
 import { deleteChildFiles } from './child-service';
 import { notifyDeletionComplete } from './discord-notify-service';
 import { sendMemberRemovedEmail } from './email-service';
+import { cancelSubscription } from './stripe-service';
 
 // ============================================================
 // Types
@@ -403,6 +404,12 @@ async function fullTenantDeletion(
 	tenantId: string,
 	_ownerId: string,
 ): Promise<{ itemsDeleted: number; filesDeleted: number }> {
+	// 0. Stripe Subscription キャンセル (#741)
+	// DB 削除の前に Stripe 側をキャンセルする。
+	// Stripe 呼び出しが失敗したら例外が投げられ、DB 削除は実行されない
+	// (ユーザーの課金継続クレームを防ぐため、整合性を優先する)。
+	await cancelSubscription(tenantId);
+
 	let itemsDeleted = 0;
 
 	// 1. S3 / ストレージファイル削除
@@ -582,6 +589,11 @@ export async function deleteOwnerFullDelete(
 			sendMemberRemovedEmail(user.email, tenant?.name ?? '家族グループ').catch(() => {});
 		}
 	}
+
+	// 0. Stripe Subscription キャンセル (#741)
+	// DB 削除の前に Stripe 側をキャンセルする。失敗したら例外が投げられ
+	// DB 削除は実行されない (課金継続クレーム防止)。
+	await cancelSubscription(tenantId);
 
 	// Full deletion of tenant data, but only delete owner's Cognito account
 	let itemsDeleted = 0;
