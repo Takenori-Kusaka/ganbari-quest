@@ -140,8 +140,8 @@ export function getUserMessage(code: ErrorCode): string {
 /**
  * プラン制限エラーを 403 レスポンスとして返す (#744)。
  *
- * 既存の {@link apiError} が返す `{ error: { code, message, userMessage, ... } }` に加えて
- * `currentTier` / `requiredTier` / `upgradeUrl` を含む {@link PlanLimitError} 形式で body を返す。
+ * {@link apiError} とは別の error shape で `{ error: PlanLimitError }` の形式で body を返す。
+ * `error` には `code` / `message` / `currentTier` / `requiredTier` / `upgradeUrl` が含まれる。
  *
  * クライアントは `error.code === 'PLAN_LIMIT_EXCEEDED'` と `error.requiredTier` を使って
  * アップセル UI を出し分ける。
