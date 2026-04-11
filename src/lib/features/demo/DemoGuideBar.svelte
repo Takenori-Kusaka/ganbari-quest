@@ -83,9 +83,21 @@ function handleDismiss() {
 				<!-- Action -->
 				<div class="flex-shrink-0 flex items-center gap-1">
 					{#if guide.isLastStep}
+						<!-- #705: ガイド完了後の分岐 — プラン比較（HP pricing）と はじめる（signup）の両方を提示 -->
+						<a
+							href="https://www.ganbari-quest.com/pricing.html"
+							class="px-2 py-1.5 text-[var(--color-text-link)] text-xs font-medium hover:underline whitespace-nowrap"
+							data-testid="demo-guide-see-pricing"
+							onclick={() => trackDemoEvent('demo_guide_see_pricing', { step: guide.currentStep + 1 })}
+						>
+							プランを見る
+						</a>
 						<a
 							href="/demo/signup"
-							class="px-3 py-1.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white text-xs font-bold rounded-lg"						>							はじめる
+							class="px-3 py-1.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white text-xs font-bold rounded-lg"
+							data-testid="demo-guide-start"
+						>
+							はじめる
 						</a>
 					{:else if guide.step?.requiresAction}
 						<!-- Action-required step: show hint instead of navigation button -->
