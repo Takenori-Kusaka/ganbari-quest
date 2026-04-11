@@ -92,12 +92,12 @@
 | `--color-border-warm` | `rgba(251, 191, 36, 0.3)` |
 | `--color-border-warning` | `var(--color-feedback-warning-border)` |
 | `--color-border-premium` | `color-mix(in srgb, var(--color-premium) 20%, transparent)` |
-| `--color-border-trial` | `var(--color-premium-200)` |
-| `--color-border-trial-urgent` | `var(--color-feedback-warning-border)` |
-| `--color-border-trial-expired` | `var(--color-neutral-200)` |
 | `--color-border-danger` | `color-mix(in srgb, var(--color-danger) 20%, transparent)` |
 | `--color-border-success` | `color-mix(in srgb, var(--color-success) 20%, transparent)` |
 | `--color-border-success-strong` | `color-mix(in srgb, var(--color-success) 40%, transparent)` |
+| `--color-border-trial` | `var(--color-premium-200)` |
+| `--color-border-trial-urgent` | `var(--color-feedback-warning-border)` |
+| `--color-border-trial-expired` | `var(--color-neutral-200)` |
 
 #### Text（文字）
 

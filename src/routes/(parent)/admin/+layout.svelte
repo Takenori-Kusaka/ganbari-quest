@@ -23,11 +23,14 @@ interface Props {
 let { data, children }: Props = $props();
 
 const trial = $derived(data.trialStatus);
+const planTier = $derived(data.planTier ?? 'free');
 const showTrialBanner = $derived(
 	data.authMode !== 'local' &&
 		trial &&
 		(trial.isTrialActive ||
-			(trial.trialUsed && !trial.isTrialActive && trial.trialEndDate !== null)),
+			(trial.trialUsed && !trial.isTrialActive && trial.trialEndDate !== null) ||
+			// #731: 未使用 free ユーザーにもトライアル開始導線を表示
+			(planTier === 'free' && !trial.trialUsed && !trial.isTrialActive)),
 );
 </script>
 
@@ -39,6 +42,7 @@ const showTrialBanner = $derived(
 				daysRemaining={trial.daysRemaining}
 				trialUsed={trial.trialUsed}
 				trialEndDate={trial.trialEndDate}
+				{planTier}
 			/>
 		</div>
 	{/if}
