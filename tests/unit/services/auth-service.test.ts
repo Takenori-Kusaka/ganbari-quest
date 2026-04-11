@@ -23,10 +23,12 @@ vi.mock('$lib/server/db/client', () => ({
 
 import { getSetting } from '../../../src/lib/server/db/settings-repo';
 import {
+	isPinConfigured,
 	login,
 	logout,
 	setupPin,
 	validateSession,
+	verifyPin,
 } from '../../../src/lib/server/services/auth-service';
 
 const DEFAULT_PIN = '1234';
@@ -237,6 +239,70 @@ describe('auth-service', () => {
 			// PIN変更で失敗カウントリセット
 			await setupPin('5678', 'test-tenant');
 			expect(await getSetting('pin_failed_attempts', 'test-tenant')).toBe('0');
+		});
+	});
+
+	// --- verifyPin (#771) ---
+	describe('verifyPin', () => {
+		it('正しいPINでok: true', async () => {
+			const result = await verifyPin(DEFAULT_PIN, 'test-tenant');
+			expect(result).toEqual({ ok: true });
+		});
+
+		it('正しいPINでもセッショントークンは発行されない', async () => {
+			// login と異なり、検証のみでセッションは作られない
+			await verifyPin(DEFAULT_PIN, 'test-tenant');
+			const token = await getSetting('session_token', 'test-tenant');
+			expect(token).toBe('');
+		});
+
+		it('間違ったPINでINVALID_PIN', async () => {
+			const result = await verifyPin('9999', 'test-tenant');
+			expect(result).toEqual({ ok: false, error: 'INVALID_PIN' });
+		});
+
+		it('間違ったPINで失敗カウントが増加する', async () => {
+			await verifyPin('9999', 'test-tenant');
+			const attempts = await getSetting('pin_failed_attempts', 'test-tenant');
+			expect(attempts).toBe('1');
+		});
+
+		it('PIN未設定の場合はPIN_NOT_SET', async () => {
+			seedAuthSettings('');
+			const result = await verifyPin('1234', 'test-tenant');
+			expect(result).toEqual({ ok: false, error: 'PIN_NOT_SET' });
+		});
+
+		it('5回失敗でロックアウト (login と共通のカウンタ)', async () => {
+			for (let i = 0; i < 5; i++) {
+				await verifyPin('9999', 'test-tenant');
+			}
+			const result = await verifyPin(DEFAULT_PIN, 'test-tenant');
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error).toBe('LOCKED_OUT');
+			}
+		});
+
+		it('成功で失敗カウントがリセットされる', async () => {
+			await verifyPin('9999', 'test-tenant');
+			await verifyPin('9999', 'test-tenant');
+			expect(await getSetting('pin_failed_attempts', 'test-tenant')).toBe('2');
+
+			await verifyPin(DEFAULT_PIN, 'test-tenant');
+			expect(await getSetting('pin_failed_attempts', 'test-tenant')).toBe('0');
+		});
+	});
+
+	// --- isPinConfigured (#771) ---
+	describe('isPinConfigured', () => {
+		it('PIN設定済みでtrue', async () => {
+			expect(await isPinConfigured('test-tenant')).toBe(true);
+		});
+
+		it('PIN未設定でfalse', async () => {
+			seedAuthSettings('');
+			expect(await isPinConfigured('test-tenant')).toBe(false);
 		});
 	});
 });

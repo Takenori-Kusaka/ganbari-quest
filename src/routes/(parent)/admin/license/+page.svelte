@@ -7,6 +7,7 @@ import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import PinInput from '$lib/ui/primitives/PinInput.svelte';
 
 let { data, form } = $props();
 
@@ -16,6 +17,8 @@ const planTier = $derived(data.planTier ?? 'free');
 const planStats = $derived(data.planStats);
 const trialStatus = $derived(data.trialStatus);
 const isOwner = $derived(data.role === 'owner');
+// #771: プラン変更時の二段階確認 (PIN 設定済みなら PIN 必須、未設定なら確認フレーズ)
+const pinConfigured = $derived(data.pinConfigured);
 // #736: 解約時のダウングレード先 (free) の保持期間。PLAN_LIMITS 由来の動的値。
 // null = 無制限（保持期間制限なし → lostItems から除外すべきだが安全のためラベルで対応）。
 const downgradeRetentionDays = $derived(data.downgradeRetentionDays);
@@ -30,6 +33,13 @@ let portalLoading = $state(false);
 let showChurnModal = $state(false);
 let selectedTier = $state<'standard' | 'family'>('standard');
 let billingInterval = $state<'monthly' | 'yearly'>('monthly');
+
+// #771 Portal を開く前の PIN / 確認フレーズ入力
+const DOWNGRADE_CONFIRM_PHRASE = 'プランを変更します';
+let showPortalConfirm = $state(false);
+let portalPinValue = $state('');
+let portalConfirmPhrase = $state('');
+let portalError = $state<string | null>(null);
 
 // #796 ライセンスキー適用 UI 状態
 let licenseKeyInput = $state('');
@@ -121,20 +131,77 @@ async function startCheckout(planId: string) {
 	}
 }
 
+// #771: 「プラン変更・支払い管理」ボタンは直接 Portal に行かず、まず確認ダイアログを開く。
+// 子供が親端末で誤ってダウングレード・解約するのを防ぐため、PIN 再入力 (未設定時は
+// 確認フレーズ入力) を要求してから Stripe Customer Portal へリダイレクトする。
+function requestPortal() {
+	portalPinValue = '';
+	portalConfirmPhrase = '';
+	portalError = null;
+	showPortalConfirm = true;
+}
+
 async function openPortal() {
+	portalError = null;
+
+	// 事前バリデーション (サーバーと同じ判定だが UX のため先に弾く)
+	if (pinConfigured) {
+		if (!portalPinValue || portalPinValue.length === 0) {
+			portalError = 'PINコードを入力してください';
+			return;
+		}
+	} else {
+		if (portalConfirmPhrase !== DOWNGRADE_CONFIRM_PHRASE) {
+			portalError = `「${DOWNGRADE_CONFIRM_PHRASE}」と入力してください`;
+			return;
+		}
+	}
+
 	portalLoading = true;
 	try {
 		const res = await fetch('/api/stripe/portal', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(
+				pinConfigured ? { pin: portalPinValue } : { confirmPhrase: portalConfirmPhrase },
+			),
 		});
-		const data = await res.json();
-		if (data.url) {
-			window.location.href = data.url;
+		if (!res.ok) {
+			// サーバーエラーメッセージ (INVALID_PIN / LOCKED_OUT / CONFIRM_PHRASE_REQUIRED)
+			let message = 'プラン変更の確認に失敗しました';
+			try {
+				const body = (await res.json()) as { message?: string };
+				const raw = body.message ?? '';
+				if (raw === 'INVALID_PIN' || raw === 'PIN_REQUIRED') {
+					message = 'PINコードが正しくありません';
+				} else if (raw.startsWith('LOCKED_OUT')) {
+					message = 'PIN認証のロックアウト中です。しばらく待ってから再度お試しください';
+				} else if (raw === 'CONFIRM_PHRASE_REQUIRED') {
+					message = `「${DOWNGRADE_CONFIRM_PHRASE}」と入力してください`;
+				} else if (raw) {
+					message = raw;
+				}
+			} catch {
+				/* noop */
+			}
+			portalError = message;
+			// セキュリティのため PIN 入力値をクリア
+			portalPinValue = '';
+			return;
 		}
+		const body = (await res.json()) as { url?: string };
+		if (body.url) {
+			window.location.href = body.url;
+		}
+	} catch (err) {
+		portalError = err instanceof Error ? err.message : 'プラン変更の確認に失敗しました';
 	} finally {
 		portalLoading = false;
 	}
+}
+
+function handlePinComplete(details: { valueAsString: string }) {
+	portalPinValue = details.valueAsString;
 }
 </script>
 
@@ -417,19 +484,23 @@ async function openPortal() {
 				決済機能は現在準備中です
 			</p>
 		{:else if hasSubscription}
-			<!-- サブスクリプション有り → Stripe Customer Portal で管理 -->
+			<!-- サブスクリプション有り → Stripe Customer Portal で管理 (#771: PIN 再確認ゲート付き) -->
 			<div class="grid gap-3">
 				<Button
-					onclick={openPortal}
+					onclick={requestPortal}
 					disabled={portalLoading}
 					variant="primary"
 					size="md"
 					class="w-full"
+					data-testid="open-portal-button"
 				>
 					{portalLoading ? '読み込み中...' : 'プラン変更・支払い管理'}
 				</Button>
 				<p class="text-xs text-[var(--color-text-tertiary)] text-center">
 					Stripeの管理画面でプラン変更・支払い方法の更新・解約ができます
+				</p>
+				<p class="text-xs text-[var(--color-feedback-warning-text)] text-center">
+					⚠️ プラン変更には{pinConfigured ? '親 PIN' : '確認フレーズ'}の入力が必要です
 				</p>
 			</div>
 		{:else}
@@ -540,7 +611,7 @@ async function openPortal() {
 				支払い履歴はStripeの管理画面でご確認いただけます
 			</p>
 			<Button
-				onclick={openPortal}
+				onclick={requestPortal}
 				disabled={portalLoading}
 				variant="secondary"
 				size="sm"
@@ -555,6 +626,81 @@ async function openPortal() {
 		{/if}
 		{/snippet}
 	</Card>
+
+	<!-- #771: プラン変更 (Stripe Portal) 前の二段階確認ダイアログ -->
+	<Dialog bind:open={showPortalConfirm} title="プラン変更の確認">
+		{#snippet children()}
+		<div class="space-y-3 text-sm text-[var(--color-text-primary)]">
+			<p>
+				Stripeの管理画面に移動します。この画面からプラン変更・解約・ダウングレードが可能です。
+			</p>
+			<p class="text-[var(--color-feedback-warning-text)] font-semibold">
+				⚠️ 誤操作による解約・ダウングレードを防ぐため、
+				{pinConfigured ? '親 PIN コード' : '確認フレーズ'}を入力してください。
+			</p>
+
+			{#if pinConfigured}
+				<div class="space-y-2">
+					<label for="portal-pin" class="block text-sm font-medium text-[var(--color-text-primary)]">
+						親 PIN コード (6桁)
+					</label>
+					<div data-testid="portal-pin-input">
+						<PinInput length={6} mask onComplete={handlePinComplete} />
+					</div>
+				</div>
+			{:else}
+				<div class="space-y-2">
+					<label for="portal-confirm-phrase" class="block text-sm font-medium text-[var(--color-text-primary)]">
+						確認のため「{DOWNGRADE_CONFIRM_PHRASE}」と入力してください
+					</label>
+					<input
+						id="portal-confirm-phrase"
+						type="text"
+						bind:value={portalConfirmPhrase}
+						placeholder={DOWNGRADE_CONFIRM_PHRASE}
+						autocomplete="off"
+						data-testid="portal-confirm-phrase-input"
+						class="w-full rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-card)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
+					/>
+				</div>
+			{/if}
+
+			{#if portalError}
+				<Alert variant="danger">
+					{#snippet children()}
+					{portalError}
+					{/snippet}
+				</Alert>
+			{/if}
+		</div>
+		<div class="mt-4 flex justify-end gap-2">
+			<Button
+				type="button"
+				variant="secondary"
+				size="md"
+				onclick={() => {
+					showPortalConfirm = false;
+					portalPinValue = '';
+					portalConfirmPhrase = '';
+					portalError = null;
+				}}
+				disabled={portalLoading}
+			>
+				キャンセル
+			</Button>
+			<Button
+				type="button"
+				variant="primary"
+				size="md"
+				onclick={openPortal}
+				disabled={portalLoading}
+				data-testid="portal-confirm-button"
+			>
+				{portalLoading ? '確認中…' : 'プラン変更画面へ'}
+			</Button>
+		</div>
+		{/snippet}
+	</Dialog>
 </div>
 
 <style>
