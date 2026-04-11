@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
+import { svelteTesting } from '@testing-library/svelte/vite';
 import { playwright } from '@vitest/browser-playwright';
 import { defineConfig } from 'vitest/config';
 
@@ -35,6 +36,10 @@ export default defineConfig({
 		projects: [
 			{
 				extends: true,
+				// #777: @testing-library/svelte を使う tests/unit/components 以下のテストで
+				// Svelte 5 の client/server エントリを正しく解決するため、svelteTesting() を適用。
+				// jsdom + resolve.conditions=['browser'] がセットで必要。
+				plugins: [svelteTesting()],
 				test: {
 					include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
 					environment: 'jsdom',
