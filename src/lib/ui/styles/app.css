@@ -242,6 +242,7 @@
 	--color-action-danger: var(--color-danger);
 	--color-action-success: var(--color-success);
 	--color-action-ghost: transparent;
+
 	/* Trial banner actions (#731/#761) */
 	--color-action-trial: var(--color-premium-light);
 	--color-action-trial-hover: var(--color-premium);
@@ -263,6 +264,7 @@
 	--color-surface-warm: #fef3c7;
 	--color-surface-themed: var(--theme-bg);
 	--color-surface-nav: var(--theme-nav);
+
 	/* Trial banner surfaces (#731/#761) */
 	--color-surface-trial: var(--color-premium-50);
 	--color-surface-trial-urgent: var(--color-feedback-warning-bg);
@@ -286,6 +288,7 @@
 	--color-border-danger: color-mix(in srgb, var(--color-danger) 20%, transparent);
 	--color-border-success: color-mix(in srgb, var(--color-success) 20%, transparent);
 	--color-border-success-strong: color-mix(in srgb, var(--color-success) 40%, transparent);
+
 	/* Trial banner borders (#731/#761) */
 	--color-border-trial: var(--color-premium-200);
 	--color-border-trial-urgent: var(--color-feedback-warning-border);
