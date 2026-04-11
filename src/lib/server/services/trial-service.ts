@@ -6,6 +6,7 @@ import { toJSTDateString } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugTrialOverride } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
+import { getRequestContext, invalidateRequestCaches } from '$lib/server/request-context';
 
 const DEFAULT_TRIAL_DAYS = 7;
 const DEFAULT_TRIAL_TIER = 'standard' as const;
@@ -33,8 +34,28 @@ export interface StartTrialInput {
 
 /**
  * トライアル状態を取得（trial_history テーブルから最新レコードを参照）
+ *
+ * #788: 同一リクエスト内の2回目以降は request-context のキャッシュから返す。
+ * layout + 各 page.server + 内部サービスがそれぞれ独立に呼んでも DB は1回で済む。
+ * トライアル開始/終了など状態が変わる操作の直後は `invalidateRequestCaches` が
+ * キャッシュを破棄するため、リクエスト内で stale な値を返すことはない。
  */
 export async function getTrialStatus(tenantId: string): Promise<TrialStatus> {
+	// #788: リクエストスコープのキャッシュを優先
+	const ctx = getRequestContext();
+	const cached = ctx?.trialStatusCache.get(tenantId);
+	if (cached) return cached;
+
+	const status = await computeTrialStatus(tenantId);
+	ctx?.trialStatusCache.set(tenantId, status);
+	return status;
+}
+
+/**
+ * #788: 実際の DB 参照を担うヘルパ。キャッシュなしで常に DB を叩く。
+ * `getTrialStatus` 経由で呼ばれるため、通常は直接呼び出さない。
+ */
+async function computeTrialStatus(tenantId: string): Promise<TrialStatus> {
 	// dev: DEBUG_TRIAL env があればDB参照をスキップして擬似ステータスを返す (#758)
 	const debugOverride = getDebugTrialOverride();
 	if (debugOverride) {
@@ -142,6 +163,10 @@ export async function startTrial(input: StartTrialInput): Promise<boolean> {
 		source,
 		campaignId: campaignId ?? null,
 	});
+
+	// #788: 同一リクエスト内で startTrial 後に getTrialStatus / resolveFullPlanTier が
+	// 呼ばれた時に stale な値を返さないよう、キャッシュを破棄する。
+	invalidateRequestCaches(tenantId);
 
 	logger.info('Trial started', { context: { tenantId, startStr, endStr, tier, source } });
 	return true;
