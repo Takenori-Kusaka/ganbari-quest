@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { activityPackIndex, getActivityPack } from '$lib/data/activity-packs';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import { createPlanLimitError } from '$lib/domain/errors';
 import { CATEGORY_CODES, CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -102,8 +103,14 @@ export const actions: Actions = {
 		const licenseStatus = locals.context?.licenseStatus ?? 'none';
 		const activityLimitCheck = await checkActivityLimit(tenantId, licenseStatus);
 		if (!activityLimitCheck.allowed) {
+			// #787: PlanLimitError 形式に統一。tier は memoize 済み (#788) なので 2 回目の呼び出しは安い
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 			return fail(403, {
-				error: `カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+				),
 			});
 		}
 

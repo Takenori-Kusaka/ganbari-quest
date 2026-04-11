@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { todayDateJST } from '$lib/domain/date-utils';
+import { createPlanLimitError } from '$lib/domain/errors';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	findOverrides,
@@ -80,14 +81,17 @@ export const actions: Actions = {
 			return fail(400, { error: '時間帯が不正です' });
 
 		// #723: Free プランの上限チェック（UI ゲートをバイパスした直接 POST を防ぐ）
-		const limit = await checkChecklistTemplateLimit(
-			tenantId,
-			locals.context?.licenseStatus ?? 'none',
-			childId,
-		);
+		const licenseStatus = locals.context?.licenseStatus ?? 'none';
+		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, childId);
 		if (!limit.allowed) {
+			// #787: PlanLimitError 形式に統一。tier は memoize 済み (#788) なので 2 回目の呼び出しは安い
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 			return fail(403, {
-				error: `フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+				),
 				upgradeRequired: true,
 			});
 		}
