@@ -75,7 +75,8 @@
 			"!**/site",
 			"!**/cdk.out",
 			"!**/storybook-static",
-			"!**/app.css"
+			"!**/app.css",
+			"!**/.claude"
 		]
 	}
 }
