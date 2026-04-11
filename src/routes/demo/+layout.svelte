@@ -8,9 +8,16 @@ import NavigationProgress from '$lib/ui/components/NavigationProgress.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
-let { children } = $props();
+let { data, children } = $props();
 
 const guide = getGuideState();
+
+// #760: デモプラン切替 — `?plan=family|standard|free` で切り替え、cookie で永続化される。
+const PLAN_OPTIONS = [
+	{ key: 'free', label: 'フリー' },
+	{ key: 'standard', label: 'スタンダード' },
+	{ key: 'family', label: 'ファミリー' },
+] as const;
 
 // Track demo page views on navigation
 $effect(() => {
@@ -60,7 +67,28 @@ $effect(() => {
 	</a>
 </div>
 
-<div class="pt-10">
+<!-- #760: デモプラン切替トグル — どのプランで体験中かを明示し、ワンクリックで切替できる -->
+<div
+	class="fixed top-10 left-0 right-0 z-40 bg-white/95 border-b border-[var(--color-border-light)] py-1 px-4 flex items-center justify-center gap-2 text-xs shadow-sm"
+	data-testid="demo-plan-switcher"
+>
+	<span class="text-[var(--color-text-muted)]">プラン体験:</span>
+	{#each PLAN_OPTIONS as opt (opt.key)}
+		<a
+			href="?plan={opt.key}"
+			class="px-2 py-0.5 rounded-full font-bold transition-colors {data.demoPlan === opt.key
+				? 'bg-[var(--color-action-primary)] text-white'
+				: 'bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]'}"
+			data-testid="demo-plan-switch-{opt.key}"
+			data-active={data.demoPlan === opt.key}
+			onclick={() => trackDemoEvent('demo_plan_switch', { from: data.demoPlan, to: opt.key })}
+		>
+			{opt.label}
+		</a>
+	{/each}
+</div>
+
+<div class="pt-16">
 	{@render children()}
 </div>
 

@@ -4,6 +4,11 @@ import { building } from '$app/environment';
 import { analytics } from '$lib/analytics';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { applyDebugPlanOverride } from '$lib/server/debug-plan';
+import {
+	applyDemoPlanToContext,
+	DEMO_PLAN_COOKIE,
+	resolveDemoPlan,
+} from '$lib/server/demo/demo-plan';
 import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
 import { runWithRequestContext } from '$lib/server/request-context';
@@ -229,11 +234,30 @@ export const handle: Handle = ({ event, resolve }) =>
 		if (path.startsWith('/demo')) {
 			event.locals.authenticated = false;
 			event.locals.identity = null;
-			event.locals.context = applyDebugPlanOverride({
-				tenantId: 'demo',
-				role: 'owner',
-				licenseStatus: 'active',
-			});
+
+			// #760: ?plan= クエリ → cookie の優先順でデモプランを決定し、cookie に永続化する。
+			// デフォルトは family（最も価値が伝わるプランを最初に showcase）。
+			const planQuery = event.url.searchParams.get('plan');
+			const planCookie = event.cookies.get(DEMO_PLAN_COOKIE);
+			const demoPlan = resolveDemoPlan(planQuery, planCookie);
+			if (planQuery && planQuery !== planCookie) {
+				event.cookies.set(DEMO_PLAN_COOKIE, demoPlan, {
+					path: '/demo',
+					sameSite: 'lax',
+					httpOnly: false,
+					maxAge: 60 * 60 * 24 * 30, // 30 日
+				});
+			}
+
+			const baseDemoContext = applyDemoPlanToContext(
+				{
+					tenantId: 'demo',
+					role: 'owner',
+					licenseStatus: 'active',
+				},
+				demoPlan,
+			);
+			event.locals.context = applyDebugPlanOverride(baseDemoContext);
 			const response = await resolve(event);
 			if (!path.startsWith('/_app/') && !path.startsWith('/favicon')) {
 				logger.request(event.request.method, path, response.status, Date.now() - start, {
