@@ -172,6 +172,7 @@ $effect(() => {
 				<input type="hidden" name="email" value={email} />
 				<input type="hidden" name="password" value={password} />
 				<input type="hidden" name="licenseKey" value={licenseKey} />
+				<input type="hidden" name="plan" value={planParam ?? ''} />
 
 				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
 					<strong>{email}</strong> に確認コードを送信しました。<br />
@@ -229,6 +230,7 @@ $effect(() => {
 			>
 				<input type="hidden" name="email" value={email} />
 				<input type="hidden" name="licenseKey" value={licenseKey} />
+				<input type="hidden" name="plan" value={planParam ?? ''} />
 				<Button
 					type="submit"
 					variant="ghost"
@@ -264,6 +266,9 @@ $effect(() => {
 				}}
 				class="flex flex-col gap-5"
 			>
+				<!-- #766: /pricing からの遷移で plan パラメータを確認アクションまで引き継ぐ -->
+				<input type="hidden" name="plan" value={planParam ?? ''} />
+
 				<FormField
 					label="メールアドレス"
 					type="email"
