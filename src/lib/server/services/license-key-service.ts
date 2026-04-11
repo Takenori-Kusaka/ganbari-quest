@@ -153,6 +153,19 @@ export function generateLicenseKey(): string {
  */
 export type LicenseKeyKind = 'purchase' | 'gift' | 'campaign';
 
+/**
+ * ライセンスキーの失効理由 (#797)
+ *
+ * - `expired`: 有効期限経過バッチによる自動失効 (#818 の期限切れバッチ)
+ * - `leaked`: HMAC シークレット漏洩等で先行的に revoke (#810)
+ * - `ops-manual`: サポートによる手動失効 (#805)
+ * - `refund`: Stripe 返金 webhook による自動失効 (#824)
+ */
+export type LicenseRevokeReason = 'expired' | 'leaked' | 'ops-manual' | 'refund';
+
+/** #797: デフォルト有効期限（発行から 90 日）。競合他社標準 (Keygen 等) に合わせた値。 */
+export const DEFAULT_LICENSE_VALIDITY_DAYS = 90;
+
 export interface LicenseRecord {
 	licenseKey: string;
 	tenantId: string;
@@ -166,6 +179,14 @@ export interface LicenseRecord {
 	kind?: LicenseKeyKind;
 	/** #801: 発行 actor。gift/campaign では必須。purchase では stripe webhook 由来 */
 	issuedBy?: string;
+	/** #797: キーの有効期限 (発行から N 日で失効)。未設定は「永久有効」ではなく legacy 扱い */
+	expiresAt?: string;
+	/** #797: revoke された日時 (status='revoked' と対になる) */
+	revokedAt?: string;
+	/** #797: revoke 理由。監査ログ・CS 対応のために記録 */
+	revokedReason?: LicenseRevokeReason;
+	/** #797: revoke を実行した actor (`ops:<uid>` / `system` / `stripe:<eventId>`) */
+	revokedBy?: string;
 }
 
 /**
@@ -185,6 +206,11 @@ export async function issueLicenseKey(params: {
 	kind?: LicenseKeyKind;
 	/** #801: 発行 actor (ops user id / 'stripe:<sessionId>' 等)。gift/campaign では必須 */
 	issuedBy?: string;
+	/**
+	 * #797: 有効期限 (ISO8601)。省略時は発行日時 + DEFAULT_LICENSE_VALIDITY_DAYS 日。
+	 * 明示的に `null` を渡すと期限なし（lifetime 的扱い）。ops 発行で使用。
+	 */
+	expiresAt?: string | null;
 }): Promise<LicenseRecord> {
 	const kind = params.kind ?? 'purchase';
 
@@ -196,7 +222,23 @@ export async function issueLicenseKey(params: {
 	}
 
 	const key = generateLicenseKey();
-	const now = new Date().toISOString();
+	const nowDate = new Date();
+	const now = nowDate.toISOString();
+
+	// #797: expiresAt の解決
+	// - undefined: デフォルト 90 日後
+	// - null: 期限なし（ops が明示的に渡した場合）
+	// - string: 指定値をそのまま使う
+	let expiresAt: string | undefined;
+	if (params.expiresAt === null) {
+		expiresAt = undefined;
+	} else if (params.expiresAt === undefined) {
+		expiresAt = new Date(
+			nowDate.getTime() + DEFAULT_LICENSE_VALIDITY_DAYS * 24 * 60 * 60 * 1000,
+		).toISOString();
+	} else {
+		expiresAt = params.expiresAt;
+	}
 
 	const record: LicenseRecord = {
 		licenseKey: key,
@@ -207,13 +249,14 @@ export async function issueLicenseKey(params: {
 		createdAt: now,
 		kind,
 		issuedBy: params.issuedBy,
+		expiresAt,
 	};
 
 	const repos = getRepos();
 	await repos.auth.saveLicenseKey(record);
 
 	logger.info(
-		`[LICENSE] Key issued: ${key} for tenant=${params.tenantId} plan=${params.plan} kind=${kind}`,
+		`[LICENSE] Key issued: ${key} for tenant=${params.tenantId} plan=${params.plan} kind=${kind} expiresAt=${expiresAt ?? 'never'}`,
 	);
 	return record;
 }
@@ -272,7 +315,29 @@ export async function validateLicenseKey(
 		return { valid: false, reason: 'このライセンスキーは無効化されています' };
 	}
 
+	// #797: 有効期限チェック。active でも expiresAt を過ぎていたら reject する。
+	// expiresAt が未設定の legacy レコードは期限チェックをスキップ（後方互換）。
+	if (isLicenseExpired(record)) {
+		logger.info(
+			`[LICENSE] Expired key rejected: ${normalized.slice(0, 7)}... expiresAt=${record.expiresAt}`,
+		);
+		return { valid: false, reason: 'このライセンスキーは有効期限が切れています' };
+	}
+
 	return { valid: true, record };
+}
+
+/**
+ * #797: ライセンスレコードが有効期限切れかどうか判定。
+ * - expiresAt が未設定の legacy レコード → false（期限チェックなし）
+ * - expiresAt が現在時刻より前 → true
+ */
+export function isLicenseExpired(
+	record: Pick<LicenseRecord, 'expiresAt'>,
+	now: Date = new Date(),
+): boolean {
+	if (!record.expiresAt) return false;
+	return new Date(record.expiresAt).getTime() < now.getTime();
 }
 
 /** consumeLicenseKey の結果 */
@@ -337,6 +402,14 @@ export async function consumeLicenseKey(
 		return { ok: false, reason: 'ライセンスキーが使用できません' };
 	}
 
+	// #797: 期限切れは active でも consume 拒否。validateLicenseKey と同じルール。
+	if (isLicenseExpired(record)) {
+		logger.info(
+			`[LICENSE] Expired key consume rejected: ${normalized.slice(0, 7)}... expiresAt=${record.expiresAt}`,
+		);
+		return { ok: false, reason: 'このライセンスキーは有効期限が切れています' };
+	}
+
 	// #801: キー種別に応じた consume 権限チェック。
 	// - purchase: buyer tenant にロック (record.tenantId === consumedByTenantId)
 	// - gift / campaign: 任意 tenant が consume 可能
@@ -370,4 +443,65 @@ export async function consumeLicenseKey(
 		`[LICENSE] Key consumed: ${normalized.slice(0, 7)}... by tenant=${consumedByTenantId} (issued for=${record.tenantId}, kind=${kind}) plan=${record.plan} expiresAt=${planExpiresAt ?? 'never'}`,
 	);
 	return { ok: true, plan: record.plan, planExpiresAt };
+}
+
+// ============================================================
+// Revoke (#797, #805)
+// ============================================================
+
+export type RevokeLicenseKeyResult =
+	| { ok: true; licenseKey: string; revokedReason: LicenseRevokeReason; revokedAt: string }
+	| { ok: false; reason: string };
+
+/**
+ * ライセンスキーを失効させる (#797)
+ *
+ * - active → revoked に状態遷移
+ * - revokedAt / revokedReason / revokedBy を記録して監査証跡を残す
+ * - 既に consumed / revoked のキーは再度 revoke できない（冪等性のため同じ理由なら許容）
+ *
+ * 利用想定:
+ * - Ops 手動失効 (#805): `revokedReason='ops-manual'`, `revokedBy='ops:<uid>'`
+ * - 期限切れバッチ (#818): `revokedReason='expired'`, `revokedBy='system'`
+ * - Stripe 返金 (#824): `revokedReason='refund'`, `revokedBy='stripe:<eventId>'`
+ * - シークレット漏洩 (#810): `revokedReason='leaked'`, `revokedBy='ops:<uid>'`
+ */
+export async function revokeLicenseKey(params: {
+	licenseKey: string;
+	reason: LicenseRevokeReason;
+	revokedBy: string;
+}): Promise<RevokeLicenseKeyResult> {
+	const normalized = params.licenseKey.toUpperCase().trim();
+	const repos = getRepos();
+
+	const record = await repos.auth.findLicenseKey(normalized);
+	if (!record) {
+		return { ok: false, reason: 'ライセンスキーが見つかりません' };
+	}
+
+	if (record.status === 'revoked') {
+		logger.info(
+			`[LICENSE] revokeLicenseKey: already revoked: ${normalized.slice(0, 7)}... (reason=${record.revokedReason ?? 'unknown'})`,
+		);
+		return { ok: false, reason: 'このライセンスキーは既に無効化されています' };
+	}
+
+	if (record.status === 'consumed') {
+		// consumed キーも監査目的で revoke 可能だが、現状ユースケースがないため拒否
+		return { ok: false, reason: 'このライセンスキーは既に使用されています' };
+	}
+
+	const revokedAt = new Date().toISOString();
+	await repos.auth.revokeLicenseKey({
+		licenseKey: normalized,
+		reason: params.reason,
+		revokedBy: params.revokedBy,
+		revokedAt,
+	});
+
+	logger.warn(
+		`[LICENSE] Key revoked: ${normalized.slice(0, 7)}... reason=${params.reason} by=${params.revokedBy}`,
+	);
+
+	return { ok: true, licenseKey: normalized, revokedReason: params.reason, revokedAt };
 }
