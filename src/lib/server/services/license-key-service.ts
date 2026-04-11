@@ -255,8 +255,9 @@ export async function issueLicenseKey(params: {
 	const repos = getRepos();
 	await repos.auth.saveLicenseKey(record);
 
+	// #869: フルキーをログに出さない（ADR-0026 ログマスク標準）
 	logger.info(
-		`[LICENSE] Key issued: ${key} for tenant=${params.tenantId} plan=${params.plan} kind=${kind} expiresAt=${expiresAt ?? 'never'}`,
+		`[LICENSE] Key issued: ${key.slice(0, 7)}... for tenant=${params.tenantId} plan=${params.plan} kind=${kind} expiresAt=${expiresAt ?? 'never'}`,
 	);
 	return record;
 }
