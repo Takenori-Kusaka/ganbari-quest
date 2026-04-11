@@ -229,11 +229,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	const identity = await provider.resolveIdentity(event);
-	const context = await provider.resolveContext(event, identity);
+	const resolvedContext = await provider.resolveContext(event, identity);
+	// DEBUG_PLAN / DEBUG_TRIAL による上書きは、以降の認可・tenantStatus チェックにも
+	// 一貫して適用する必要があるため、ローカル変数 context 自体を上書き後の値で統一する。
+	const context = applyDebugPlanOverride(resolvedContext);
 
 	event.locals.authenticated = identity !== null;
 	event.locals.identity = identity;
-	event.locals.context = applyDebugPlanOverride(context);
+	event.locals.context = context;
 
 	// 2) ルート保護
 
