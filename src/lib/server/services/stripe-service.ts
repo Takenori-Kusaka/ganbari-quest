@@ -144,8 +144,7 @@ export async function createPortalSession(
 export type CancelSubscriptionResult =
 	| { status: 'cancelled'; subscriptionId: string }
 	| { status: 'already_cancelled'; subscriptionId: string }
-	| { status: 'not_subscribed' }
-	| { status: 'stripe_disabled' };
+	| { status: 'not_subscribed' };
 
 /**
  * テナントの Stripe Subscription を即時キャンセルする (#741)
@@ -158,16 +157,20 @@ export type CancelSubscriptionResult =
  * 'already_cancelled' を返し、例外は投げない。
  */
 export async function cancelSubscription(tenantId: string): Promise<CancelSubscriptionResult> {
-	if (!isStripeEnabled()) {
-		logger.info(`[STRIPE] cancelSubscription skipped (disabled): tenant=${tenantId}`);
-		return { status: 'stripe_disabled' };
-	}
-
 	const repos = getRepos();
 	const tenant = await repos.auth.findTenantById(tenantId);
+
 	if (!tenant?.stripeSubscriptionId) {
 		logger.info(`[STRIPE] cancelSubscription skipped (no subscription): tenant=${tenantId}`);
 		return { status: 'not_subscribed' };
+	}
+
+	// Stripe が無効な場合、subscription が存在するのにキャンセルできない
+	// → 課金継続クレームの温床になるため例外で中断する (#741 Copilot [must])
+	if (!isStripeEnabled()) {
+		const msg = `[STRIPE] Cannot cancel subscription ${tenant.stripeSubscriptionId}: Stripe is disabled but tenant has active subscription`;
+		logger.error(msg);
+		throw new Error(msg);
 	}
 
 	const subscriptionId = tenant.stripeSubscriptionId;
