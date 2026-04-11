@@ -16,7 +16,7 @@
 | **支払い失敗** | Stripe (自動) | `invoice.payment_failed` Webhook | DB: `status=grace_period, planExpiresAt=now+7d` → 猶予期間中は機能維持 |
 | **ライセンスキー適用** | `/admin/license` フォーム | `applyLicenseKey` action → `consumeLicenseKey` (Stripe を経由しない) | テナント plan を直接昇格、Stripe 課金は発生しない |
 
-> **重要**: 本プロジェクトでは「アプリ内独自のプラン変更 API」は持たず、ダウングレード・解約・月年額切替は **すべて Stripe Customer Portal に委譲** している (#771)。これは「Stripe = 正、DB = 反映」の原則 (#823 / ADR-0022) を守るため。
+> **重要**: プラン昇降格と月年額切替は **Stripe Customer Portal に委譲** している (#771)。ただし解約については `/admin/settings` から `POST /api/v1/admin/tenant/cancel` を呼ぶアプリ内フローも存在する（#784: Stripe 即時キャンセル → `status=grace_period` + `planExpiresAt` 更新、30日間のデータ保持）。本ドキュメント §3 のスコープは `/admin/license` 経由の Customer Portal 操作に限定し、`/admin/settings` 経由の解約フローは [`account-deletion-flow.md`](account-deletion-flow.md) に記載する。
 
 ---
 
@@ -388,7 +388,7 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 
 ### 11.2 E2E（Playwright）
 
-- 既存: `tests/e2e/license-management.spec.ts`（PIN 確認ダイアログ表示）
+- 既存: `tests/e2e/portal-pin-gate.spec.ts`（PIN 確認ダイアログ表示）
 - **未整備**: アップグレード/ダウングレードの実際の Stripe 統合は test mode key が必要なため CI で動かない
 - ローカル認証モードでは Stripe API 呼び出しはスタブ化されており、Webhook イベントを直接モック注入してハンドラをテストする想定
 
@@ -398,12 +398,12 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 
 - 設計
   - [06-UI設計書.md §10](06-UI設計書.md) — プラン UI パターン全体（#743）
-  - [account-deletion-flow.md](account-deletion-flow.md) — 削除フロー（#746）
+  - [account-deletion-flow.md](account-deletion-flow.md) — 削除フロー（#746、PR #908 でマージ予定）
   - #738 — ダウングレード前警告フロー（超過リソース処理）
   - #786 — 月額↔年額切替の UI 導線改善 / proration 仕様
   - #823 — Tenant plan 状態マシン統一 EPIC
 - ADR
-  - [ADR-0022](decisions/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性
+  - [ADR-0022](../decisions/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性
 - 実装
   - `src/routes/(parent)/admin/license/+page.svelte`
   - `src/routes/(parent)/admin/license/+page.server.ts`
