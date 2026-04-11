@@ -196,6 +196,33 @@ grep -rn "ナビ項目ラベル" src/lib/features/admin/ src/lib/ui/components/B
 
 ---
 
+#### 9. プラン機能リスト
+
+| 場所 | 内容 |
+|------|------|
+| `src/lib/domain/plan-features.ts` | **SSOT**（#762 で新設）— 料金カード・管理画面ハイライト・Welcome解放機能 |
+| `src/lib/server/services/plan-limit-service.ts` | 機能制限のブール値フラグ定義（`PLAN_LIMITS`） |
+| `src/lib/domain/labels.ts` | `FEATURE_LABELS`（機能名の SSOT） |
+| `src/routes/pricing/+page.svelte` | 料金プラン画面 |
+| `src/routes/(parent)/admin/license/+page.svelte` | 管理画面プラン購入カード |
+| `src/routes/demo/(parent)/admin/license/+page.svelte` | デモ版プラン購入カード |
+| `src/lib/features/admin/components/PremiumWelcome.svelte` | アップグレード完了ダイアログ |
+| `site/index.html`, `site/pricing.html`, `site/pamphlet.html` | LP のプラン情報（手動同期） |
+
+**同期メカニズム**:
+- アプリ側 TS/Svelte コンポーネントは `plan-features.ts` を必ず import
+- プラン機能追加時は `plan-limit-service.ts` の `PLAN_LIMITS` ブール値フラグと連動
+- LP 側は手動同期（#762 時点で未自動化）
+
+**修正時チェック**:
+- [ ] プラン機能追加 → `plan-features.ts` の該当プラン配列に追加
+- [ ] 機能フラグ追加 → `plan-limit-service.ts` の `PLAN_LIMITS` にブール値を追加
+- [ ] ラベル追加 → `labels.ts` の `FEATURE_LABELS` に追加
+- [ ] ユニットテスト（`tests/unit/domain/plan-features.test.ts`）の期待値を更新
+- [ ] LP 側（`site/*.html`）を手動同期
+
+---
+
 ## 修正時チェックリスト
 
 **すべての修正前に、以下のどれに該当するか確認し、対応するペアを触ること**:
