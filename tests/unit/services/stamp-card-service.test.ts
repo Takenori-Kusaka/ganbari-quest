@@ -277,7 +277,8 @@ describe('stamp-card-service', () => {
 
 		it('スタンプにはomikujiRankが含まれる', async () => {
 			const result = assertSuccess(await stampToday(1, TENANT));
-			expect(result.stamp.omikujiRank).toBeTruthy();
+			expect(typeof result.stamp.omikujiRank).toBe('string');
+			expect(result.stamp.omikujiRank).not.toBe('');
 			expect(['daidaikichi', 'daikichi', 'chukichi', 'shokichi', 'kichi', 'suekichi']).toContain(
 				result.stamp.omikujiRank,
 			);

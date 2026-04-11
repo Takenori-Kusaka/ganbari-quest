@@ -20,7 +20,8 @@ describe('stamp-image', () => {
 	describe('OMIKUJI_LABELS', () => {
 		it('全ランクに日本語ラベルがある', () => {
 			for (const rank of OMIKUJI_RANKS) {
-				expect(OMIKUJI_LABELS[rank]).toBeTruthy();
+				expect(typeof OMIKUJI_LABELS[rank]).toBe('string');
+				expect(OMIKUJI_LABELS[rank]).not.toBe('');
 			}
 			expect(OMIKUJI_LABELS.daidaikichi).toBe('大大吉');
 			expect(OMIKUJI_LABELS.suekichi).toBe('末吉');

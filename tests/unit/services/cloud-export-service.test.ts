@@ -134,7 +134,8 @@ describe('cloud-export-service', () => {
 
 			expect(result.pinCode).toHaveLength(6);
 			expect(result.exportType).toBe('template');
-			expect(result.expiresAt).toBeTruthy();
+			expect(typeof result.expiresAt).toBe('string');
+			expect(result.expiresAt).not.toBe('');
 			expect(result.fileSizeBytes).toBeGreaterThan(0);
 			expect(mockStorageRepo.saveFile).toHaveBeenCalledOnce();
 			expect(mockCloudExportRepo.insert).toHaveBeenCalledOnce();

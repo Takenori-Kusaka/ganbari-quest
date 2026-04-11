@@ -115,12 +115,12 @@ describe('plan-features.ts SSOT', () => {
 
 		it('全項目に icon と text がある', () => {
 			for (const feat of PREMIUM_UNLOCKED_FEATURES.standard) {
-				expect(feat.icon).toBeTruthy();
-				expect(feat.text).toBeTruthy();
+				expect(feat.icon).not.toBe('');
+				expect(feat.text).not.toBe('');
 			}
 			for (const feat of PREMIUM_UNLOCKED_FEATURES.family) {
-				expect(feat.icon).toBeTruthy();
-				expect(feat.text).toBeTruthy();
+				expect(feat.icon).not.toBe('');
+				expect(feat.text).not.toBe('');
 			}
 		});
 
