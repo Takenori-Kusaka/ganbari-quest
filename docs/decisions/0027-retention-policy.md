@@ -94,7 +94,7 @@
 
 ### テスト
 
-- `tests/unit/services/plan-limit-service.test.ts` に「retention が `null` のとき全期間返す」「cutoff より前の `from` が上書きされる」等のテストが存在することを確認済み
+- `tests/unit/services/plan-limit-service.test.ts` に `getHistoryCutoffDate` のユニットテスト（free=90日/standard=365日/family=null）が存在することを確認済み。`applyRetentionFilter` / `hasArchivedData` のテストは未整備（将来追加推奨）
 - 新しい集計テーブルや物理削除 cron を導入する場合は本 ADR を差し戻して再検討すること
 
 ## 代替案と却下理由
@@ -113,7 +113,7 @@
 
 ## フォローアップ
 
-- [ ] #745 PR で 08-DB 設計書に §6.X 保持期間ポリシーを追記（本 ADR へのリンクを含む）
+- [x] #745 PR で 08-DB 設計書に §6.5 保持期間ポリシーを追記（本 ADR へのリンクを含む）
 - [ ] 将来的に retention を UI 上で変更する機能が出てきたら、「カットオフ日時点のスナップショット」を保存する要件が発生する可能性あり。その時点で本 ADR を再検討
 - [ ] 集計テーブル（`report_daily_summaries` 以外の kind of summary）を追加する場合、本 ADR の「集計値は保持期間の影響を受けない」原則を守ること
 
