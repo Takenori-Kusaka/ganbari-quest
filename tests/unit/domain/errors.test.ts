@@ -1,9 +1,11 @@
 // tests/unit/domain/errors.test.ts
 // #744: PlanLimitError 共有型の単体テスト
+// #787: getErrorMessage ヘルパーの追加
 
 import { describe, expect, it } from 'vitest';
 import {
 	createPlanLimitError,
+	getErrorMessage,
 	isPlanLimitError,
 	type PlanLimitError,
 } from '../../../src/lib/domain/errors';
@@ -108,5 +110,51 @@ describe('#744 PlanLimitError', () => {
 			expect(isPlanLimitError('PLAN_LIMIT_EXCEEDED')).toBe(false);
 			expect(isPlanLimitError(403)).toBe(false);
 		});
+	});
+});
+
+describe('#787 getErrorMessage', () => {
+	it('string をそのまま返す', () => {
+		expect(getErrorMessage('エラーメッセージ')).toBe('エラーメッセージ');
+	});
+
+	it('空文字はそのまま空文字', () => {
+		expect(getErrorMessage('')).toBe('');
+	});
+
+	it('PlanLimitError から message を抽出する', () => {
+		const err = createPlanLimitError(
+			'free',
+			'standard',
+			'スタンダードプラン以上でご利用いただけます',
+		);
+		expect(getErrorMessage(err)).toBe('スタンダードプラン以上でご利用いただけます');
+	});
+
+	it('null は空文字', () => {
+		expect(getErrorMessage(null)).toBe('');
+	});
+
+	it('undefined は空文字', () => {
+		expect(getErrorMessage(undefined)).toBe('');
+	});
+
+	it('message プロパティを持つ任意オブジェクトから文字列を抽出', () => {
+		expect(getErrorMessage({ message: 'バリデーションエラー' })).toBe('バリデーションエラー');
+	});
+
+	it('message プロパティが文字列でない場合は空文字', () => {
+		expect(getErrorMessage({ message: 123 })).toBe('');
+		expect(getErrorMessage({ message: null })).toBe('');
+	});
+
+	it('message プロパティを持たないオブジェクトは空文字', () => {
+		expect(getErrorMessage({})).toBe('');
+		expect(getErrorMessage({ code: 'X' })).toBe('');
+	});
+
+	it('プリミティブ（数値 / boolean）は空文字', () => {
+		expect(getErrorMessage(403)).toBe('');
+		expect(getErrorMessage(true)).toBe('');
 	});
 });

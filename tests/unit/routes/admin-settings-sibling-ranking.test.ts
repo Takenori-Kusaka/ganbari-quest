@@ -111,26 +111,47 @@ describe('POST /admin/settings?/updateSiblingSettings (#782)', () => {
 		vi.clearAllMocks();
 	});
 
-	it('free プランで ranking を ON にしようとすると 403 + upgradeRequired', async () => {
+	it('free プランで ranking を ON にしようとすると 403 + upgradeRequired（PlanLimitError 形式 #787）', async () => {
 		// biome-ignore lint/style/noNonNullAssertion: updateSiblingSettings is defined
-		const result = await actions.updateSiblingSettings!(
+		const result = (await actions.updateSiblingSettings!(
 			createEvent('free', { siblingMode: 'both' }, true),
-		);
-		expect(result).toMatchObject({
-			status: 403,
-			data: { upgradeRequired: true },
+		)) as {
+			status: number;
+			data: {
+				siblingError: { code: string; currentTier: string; requiredTier: string };
+				upgradeRequired: boolean;
+			};
+		};
+		expect(result.status).toBe(403);
+		expect(result.data.upgradeRequired).toBe(true);
+		// #787: siblingError は PlanLimitError 形式
+		expect(result.data.siblingError).toMatchObject({
+			code: 'PLAN_LIMIT_EXCEEDED',
+			currentTier: 'free',
+			requiredTier: 'family',
+			upgradeUrl: '/admin/license',
 		});
 		expect(mockSetSetting).not.toHaveBeenCalled();
 	});
 
-	it('standard プランで ranking を ON にしようとすると 403 + upgradeRequired', async () => {
+	it('standard プランで ranking を ON にしようとすると 403 + upgradeRequired（PlanLimitError 形式 #787）', async () => {
 		// biome-ignore lint/style/noNonNullAssertion: updateSiblingSettings is defined
-		const result = await actions.updateSiblingSettings!(
+		const result = (await actions.updateSiblingSettings!(
 			createEvent('standard', { siblingMode: 'both' }, true),
-		);
-		expect(result).toMatchObject({
-			status: 403,
-			data: { upgradeRequired: true },
+		)) as {
+			status: number;
+			data: {
+				siblingError: { code: string; currentTier: string; requiredTier: string };
+				upgradeRequired: boolean;
+			};
+		};
+		expect(result.status).toBe(403);
+		expect(result.data.upgradeRequired).toBe(true);
+		// #787: currentTier は standard、requiredTier は family
+		expect(result.data.siblingError).toMatchObject({
+			code: 'PLAN_LIMIT_EXCEEDED',
+			currentTier: 'standard',
+			requiredTier: 'family',
 		});
 		expect(mockSetSetting).not.toHaveBeenCalled();
 	});

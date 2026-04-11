@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { createPlanLimitError } from '$lib/domain/errors';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES } from '$lib/domain/point-display';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -267,9 +268,13 @@ export const actions = {
 		const planLimits = getPlanLimits(planTier);
 
 		if (rankingRequested && !planLimits.canSiblingRanking) {
+			// #787: PlanLimitError 形式に統一（siblingError キーは保持、値を PlanLimitError に）
 			return fail(403, {
-				siblingError:
+				siblingError: createPlanLimitError(
+					planTier,
+					'family',
 					'きょうだいランキングはファミリープラン限定です。アップグレードすると利用できます。',
+				),
 				upgradeRequired: true,
 			});
 		}

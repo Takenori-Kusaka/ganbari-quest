@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { getErrorMessage } from '$lib/domain/errors';
 import { formatPointValue } from '$lib/domain/point-display';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
@@ -14,6 +15,8 @@ const childLimit = $derived(
 		| { allowed: boolean; current: number; max: number | null }
 		| undefined,
 );
+// #787: form.error が string | PlanLimitError どちらでも表示できるよう正規化
+const errorMessage = $derived(getErrorMessage(form?.error));
 
 const ps = $derived(data.pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
@@ -128,8 +131,8 @@ let showAddForm = $state(false);
 	{/if}
 
 	<!-- Error display -->
-	{#if form?.error}
-		<div class="children-page__error">{form.error}</div>
+	{#if errorMessage}
+		<div class="children-page__error">{errorMessage}</div>
 	{/if}
 
 	<!-- Children list -->
