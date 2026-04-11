@@ -13,6 +13,7 @@ import {
 import type { Membership } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+import { invalidateRequestCaches } from '$lib/server/request-context';
 import { deleteByPrefix } from '$lib/server/storage';
 import { deleteChildFiles } from './child-service';
 import { notifyDeletionComplete } from './discord-notify-service';
@@ -343,6 +344,8 @@ async function deleteTenantScopedData(tenantId: string): Promise<number> {
 	// Trial history
 	try {
 		await r.trialHistory.deleteByTenantId(tenantId);
+		// #788: 同一リクエスト内のキャッシュも破棄（後続処理が stale 値を見ないよう防衛）
+		invalidateRequestCaches(tenantId);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[account-deletion] trialHistory 削除失敗: ${String(err)}`);

@@ -5,7 +5,7 @@
 | ステータス | accepted |
 | 日付 | 2026-04-11 |
 | 起票者 | Takenori-Kusaka |
-| 関連 Issue | #748, #725, #726, #727, #728, #732 |
+| 関連 Issue | #748, #725, #726, #727, #728, #732, #788 |
 | 関連 ADR | ADR-0003（設計書 SSOT）, ADR-0015（Repository パターン） |
 
 ## コンテキスト
@@ -110,6 +110,39 @@ type PlanLimitError = {
 
 - 既存コード（`admin/+layout.server.ts`, `admin/license/+page.server.ts`）は依然として `resolvePlanTier` を直接呼んでいる。ESLint ルール導入までは規約依存で対処する
 - `resolveFullPlanTier` は DB 2 往復（trial_end / trial_tier の fetch）が必須なため、パフォーマンス観点では低レベル API の方が軽い。ただし Pre-PMF 段階ではユーザー数が少なく、可読性・安全性を優先する
+- 同一リクエスト内で複数の load/service から `resolveFullPlanTier` が呼ばれるため、本番 DynamoDB では N+1 になる懸念があった → **#788 で request-scoped memoize を導入し解決（下記追記参照）**
+
+### 6. 同一リクエスト内の memoize パターン (#788)
+
+**背景**: admin 配下では `(child)/+layout.server.ts` / `admin/+layout.server.ts` / `admin/**/+page.server.ts` / 内部サービスが独立に `resolveFullPlanTier` を呼ぶため、素朴に実装すると 1 リクエストで `trial_history` に 3〜6 回 SELECT が飛ぶ。本番 DynamoDB では RCU コスト・レイテンシの温床になる。
+
+**採用した解決策**: `src/lib/server/request-context.ts` に `AsyncLocalStorage` ベースのリクエスト単位キャッシュを実装し、`hooks.server.ts` の `handle` 全体を `runWithRequestContext(...)` で包む。`resolveFullPlanTier` と `getTrialStatus` は呼ばれるたびに現在のコンテキストからキャッシュを引き、ヒットすれば DB を叩かない。
+
+```text
+handle
+└─ runWithRequestContext(async () => {
+       await resolveFullPlanTier(...)   ← 1回目: DB hit → cache set
+       await resolveFullPlanTier(...)   ← 2回目以降: cache hit
+       // layout / page.server / service のどこから呼ばれても同じ
+   })
+```
+
+**キャッシュキー**:
+- `getTrialStatus`: `tenantId`
+- `resolveFullPlanTier`: `${tenantId}::${licenseStatus}::${planId ?? ''}`
+
+**なぜ ALS なのか**:
+- `event.locals` に planTier を先置きする案は、`resolveFullPlanTier` 呼び出し元 55 箇所すべてを「locals 経由に書き換える」必要があり、広大なリファクタになる。ALS は呼び出し元を一切変更せず透過的に最適化できる。
+- action ハンドラは `parent()` アクセス手段がないので、どうしても `resolveFullPlanTier` を直接呼ばざるを得ない。ALS ならこのケースも同じリクエスト内ならキャッシュが効く。
+
+**無効化**:
+- `startTrial` で trial_history を insert した直後は `invalidateRequestCaches(tenantId)` でキャッシュを破棄。同一リクエスト内で startTrial → getTrialStatus の順で呼ばれても stale な値を返さない。
+- `account-deletion-service` の trial_history 削除時も同様に invalidate（防衛的）。
+
+**規約**:
+- `resolveFullPlanTier` / `getTrialStatus` に新しい引数を追加する時は、`request-context.ts` のキャッシュキーにも反映すること。反映漏れは異なる引数で同じキャッシュを返す事故になる。
+- trial_history に insert/update/delete を追加した場合、直後に `invalidateRequestCaches(tenantId)` を呼ぶ。
+- バックグラウンドジョブ（cron、queue worker 等）からは ALS コンテキスト外で呼ばれるため、キャッシュは効かない（`getRequestContext()` が undefined を返し、キャッシュをスキップする）。これは意図した挙動。
 
 ### 既存呼び出しの段階的移行
 
