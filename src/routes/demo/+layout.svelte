@@ -1,6 +1,7 @@
 <script lang="ts">
 import '$lib/ui/styles/app.css';
 import { page } from '$app/stores';
+import { PLAN_SHORT_LABELS, type PlanKey } from '$lib/domain/labels';
 import DemoGuideBar from '$lib/features/demo/DemoGuideBar.svelte';
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import { getGuideState } from '$lib/features/demo/demo-guide-state.svelte.js';
@@ -13,11 +14,14 @@ let { data, children } = $props();
 const guide = getGuideState();
 
 // #760: デモプラン切替 — `?plan=family|standard|free` で切り替え、cookie で永続化される。
-const PLAN_OPTIONS = [
-	{ key: 'free', label: 'フリー' },
-	{ key: 'standard', label: 'スタンダード' },
-	{ key: 'family', label: 'ファミリー' },
-] as const;
+const PLAN_KEYS: PlanKey[] = ['free', 'standard', 'family'];
+
+/** 現在の URL の searchParams に plan だけ差し替えた URL 文字列を生成 */
+function planSwitchHref(key: string): string {
+	const url = new URL($page.url);
+	url.searchParams.set('plan', key);
+	return `${url.pathname}${url.search}`;
+}
 
 // Track demo page views on navigation
 $effect(() => {
@@ -73,17 +77,21 @@ $effect(() => {
 	data-testid="demo-plan-switcher"
 >
 	<span class="text-[var(--color-text-muted)]">プラン体験:</span>
-	{#each PLAN_OPTIONS as opt (opt.key)}
+	{#each PLAN_KEYS as key (key)}
 		<a
-			href="?plan={opt.key}"
-			class="px-2 py-0.5 rounded-full font-bold transition-colors {data.demoPlan === opt.key
+			href={planSwitchHref(key)}
+			class="px-2 py-0.5 rounded-full font-bold transition-colors {data.demoPlan === key
 				? 'bg-[var(--color-action-primary)] text-white'
 				: 'bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]'}"
-			data-testid="demo-plan-switch-{opt.key}"
-			data-active={data.demoPlan === opt.key}
-			onclick={() => trackDemoEvent('demo_plan_switch', { from: data.demoPlan, to: opt.key })}
+			data-testid="demo-plan-switch-{key}"
+			data-active={data.demoPlan === key}
+			onclick={() => {
+				if (key !== data.demoPlan) {
+					trackDemoEvent('demo_plan_switch', { from: data.demoPlan, to: key });
+				}
+			}}
 		>
-			{opt.label}
+			{PLAN_SHORT_LABELS[key]}
 		</a>
 	{/each}
 </div>

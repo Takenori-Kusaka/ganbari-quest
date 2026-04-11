@@ -7,6 +7,7 @@ import { applyDebugPlanOverride } from '$lib/server/debug-plan';
 import {
 	applyDemoPlanToContext,
 	DEMO_PLAN_COOKIE,
+	isDemoPlan,
 	resolveDemoPlan,
 } from '$lib/server/demo/demo-plan';
 import { sendDiscordAlert } from '$lib/server/discord-alert';
@@ -240,11 +241,11 @@ export const handle: Handle = ({ event, resolve }) =>
 			const planQuery = event.url.searchParams.get('plan');
 			const planCookie = event.cookies.get(DEMO_PLAN_COOKIE);
 			const demoPlan = resolveDemoPlan(planQuery, planCookie);
-			if (planQuery && planQuery !== planCookie) {
+			if (isDemoPlan(planQuery) && planQuery !== planCookie) {
 				event.cookies.set(DEMO_PLAN_COOKIE, demoPlan, {
 					path: '/demo',
 					sameSite: 'lax',
-					httpOnly: false,
+					httpOnly: true,
 					maxAge: 60 * 60 * 24 * 30, // 30 日
 				});
 			}

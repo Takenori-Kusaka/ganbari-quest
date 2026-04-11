@@ -4,21 +4,7 @@ import { getDemoAdminData } from '$lib/server/demo/demo-service.js';
 import { getPlanLimits, type PlanTier } from '$lib/server/services/plan-limit-service';
 import type { PageServerLoad } from './$types';
 
-/**
- * デモ用プランティアを URL クエリから解決する (#791, #760 連動)。
- *
- * `?plan=free|standard|family` で切り替え可能。未指定時は `standard`（最も典型的なユースケース）。
- * これにより「プラン訴求」「有料機能」「無料制限」いずれもデモで体験できる。
- */
-function resolveDemoPlanTier(url: URL): PlanTier {
-	const param = url.searchParams.get('plan');
-	if (param === 'free' || param === 'standard' || param === 'family') {
-		return param;
-	}
-	return 'standard';
-}
-
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ parent }) => {
 	const adminData = getDemoAdminData();
 	const children = adminData.children.map((child) => ({
 		...child,
@@ -27,7 +13,9 @@ export const load: PageServerLoad = async ({ url }) => {
 		levelTitle: '',
 	}));
 
-	const planTier = resolveDemoPlanTier(url);
+	// #760: プランはルート layout の demoPlan から取得（cookie/query の一元管理）
+	const parentData = await parent();
+	const planTier = parentData.demoPlan ?? 'family';
 	const limits = getPlanLimits(planTier);
 
 	// デモ用のプラン統計（固定値）。本番 /admin/license の planStats と同じ shape。
