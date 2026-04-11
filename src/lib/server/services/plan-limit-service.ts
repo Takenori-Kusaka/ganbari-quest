@@ -13,6 +13,7 @@ export interface PlanLimits {
 	canExport: boolean;
 	canCustomAvatar: boolean;
 	canFreeTextMessage: boolean; // 自由テキストメッセージ（ファミリープラン限定）
+	canCustomReward: boolean; // 特別なごほうび設定（スタンダード以上） #728
 	maxCloudExports: number; // クラウド保管の同時保管数上限
 }
 
@@ -26,6 +27,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		canExport: false,
 		canCustomAvatar: false,
 		canFreeTextMessage: false,
+		canCustomReward: false,
 		maxCloudExports: 0,
 	},
 	standard: {
@@ -35,6 +37,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		canExport: true,
 		canCustomAvatar: true,
 		canFreeTextMessage: false,
+		canCustomReward: true,
 		maxCloudExports: 3,
 	},
 	family: {
@@ -44,6 +47,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		canExport: true,
 		canCustomAvatar: true,
 		canFreeTextMessage: true,
+		canCustomReward: true,
 		maxCloudExports: 10,
 	},
 };
