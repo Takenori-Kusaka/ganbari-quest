@@ -62,6 +62,7 @@
 - [ADR-0024](decisions/0024-plan-tier-resolution-pattern.md) — プラン解決 (resolvePlanTier) の責務分離パターン
 - [ADR-0025](decisions/0025-license-subscription-causality.md) — License ↔ Stripe Subscription 因果関係
 - [ADR-0026](decisions/0026-license-key-architecture.md) — ライセンスキーアーキテクチャ
+- [ADR-0027](decisions/0027-retention-policy.md) — プラン別履歴保持期間ポリシー（retention = 表示フィルタ、物理削除禁止）
 
 ## 画像アセット
 
