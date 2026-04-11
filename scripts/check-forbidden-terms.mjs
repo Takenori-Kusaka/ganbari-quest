@@ -57,7 +57,7 @@ const FORBIDDEN_TERMS = [
 /**
  * 検索対象ディレクトリとファイル拡張子
  */
-const SEARCH_ROOTS = ['src', 'site', 'docs/design', 'static'];
+const SEARCH_ROOTS = ['src', 'site', 'docs/design', 'docs/marketing', 'docs/guides', 'static', '.github'];
 
 const SEARCH_EXTENSIONS = new Set([
 	'.ts',
@@ -115,6 +115,24 @@ function main() {
 	console.log('=== 禁止語チェック ===\n');
 
 	const violations = [];
+
+	// ルートの個別ファイルもスキャン対象
+	const ROOT_FILES = ['README.md', 'CLAUDE.md', 'AGENTS.md'];
+	for (const rootFile of ROOT_FILES) {
+		const filePath = path.join(REPO_ROOT, rootFile);
+		if (!fs.existsSync(filePath)) continue;
+		const relPath = rootFile;
+		if (EXCLUDE_FILES.has(relPath)) continue;
+		const content = fs.readFileSync(filePath, 'utf-8');
+		const lines = content.split('\n');
+		for (const { term, reason, replacement } of FORBIDDEN_TERMS) {
+			lines.forEach((line, idx) => {
+				if (line.includes(term)) {
+					violations.push({ file: relPath, line: idx + 1, term, reason, replacement, snippet: line.trim().slice(0, 120) });
+				}
+			});
+		}
+	}
 
 	for (const root of SEARCH_ROOTS) {
 		const rootPath = path.join(REPO_ROOT, root);
