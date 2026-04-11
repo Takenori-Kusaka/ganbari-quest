@@ -47,12 +47,17 @@ const FORBIDDEN_TERMS = [
 		reason: 'プラン用語統一規約（docs/design/21）で無料プランに統一',
 		replacement: '無料プラン',
 	},
+	{
+		term: 'discord.gg/5pWkf4Z5',
+		reason: '#700 無効化済みDiscord招待リンク（4回再発）',
+		replacement: 'ganbari.quest.support@gmail.com へのメール問い合わせ',
+	},
 ];
 
 /**
  * 検索対象ディレクトリとファイル拡張子
  */
-const SEARCH_ROOTS = ['src', 'site', 'docs/design', 'static'];
+const SEARCH_ROOTS = ['src', 'site', 'docs/design', 'docs/marketing', 'docs/guides', 'static', '.github'];
 
 const SEARCH_EXTENSIONS = new Set([
 	'.ts',
@@ -86,6 +91,8 @@ const EXCLUDE_FILES = new Set([
 	'docs/design/parallel-implementations.md',
 	// プラン用語統一規約自体は禁止語を定義しているため除外
 	'docs/design/21-プラン用語統一規約.md',
+	// Discordサーバー設計書は無効化注記として取り消し線で言及
+	'docs/design/23-Discordサーバー設計書.md',
 ]);
 
 function* walkFiles(dir) {
@@ -108,6 +115,24 @@ function main() {
 	console.log('=== 禁止語チェック ===\n');
 
 	const violations = [];
+
+	// ルートの個別ファイルもスキャン対象
+	const ROOT_FILES = ['README.md', 'CLAUDE.md', 'AGENTS.md'];
+	for (const rootFile of ROOT_FILES) {
+		const filePath = path.join(REPO_ROOT, rootFile);
+		if (!fs.existsSync(filePath)) continue;
+		const relPath = rootFile;
+		if (EXCLUDE_FILES.has(relPath)) continue;
+		const content = fs.readFileSync(filePath, 'utf-8');
+		const lines = content.split('\n');
+		for (const { term, reason, replacement } of FORBIDDEN_TERMS) {
+			lines.forEach((line, idx) => {
+				if (line.includes(term)) {
+					violations.push({ file: relPath, line: idx + 1, term, reason, replacement, snippet: line.trim().slice(0, 120) });
+				}
+			});
+		}
+	}
 
 	for (const root of SEARCH_ROOTS) {
 		const rootPath = path.join(REPO_ROOT, root);
