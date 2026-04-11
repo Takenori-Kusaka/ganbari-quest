@@ -35,6 +35,37 @@ export interface StartTrialInput {
  * トライアル状態を取得（trial_history テーブルから最新レコードを参照）
  */
 export async function getTrialStatus(tenantId: string): Promise<TrialStatus> {
+	// dev: DEBUG_TRIAL env があればDB参照をスキップして擬似ステータスを返す (#758)
+	const debugOverride = getDebugTrialOverride();
+	if (debugOverride) {
+		if (debugOverride.endDate) {
+			const todayStr = toJSTDateString(new Date());
+			const todayDate = new Date(`${todayStr}T00:00:00Z`);
+			const endDate = new Date(`${debugOverride.endDate}T00:00:00Z`);
+			const daysRemaining = Math.round(
+				(endDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24),
+			);
+			return {
+				isTrialActive: true,
+				trialUsed: true,
+				trialStartDate: todayStr,
+				trialEndDate: debugOverride.endDate,
+				trialTier: debugOverride.tier,
+				daysRemaining,
+				source: 'admin_grant',
+			};
+		}
+		return {
+			isTrialActive: false,
+			trialUsed: false,
+			trialStartDate: null,
+			trialEndDate: null,
+			trialTier: null,
+			daysRemaining: 0,
+			source: null,
+		};
+	}
+
 	const latest = await getRepos().trialHistory.findLatestByTenant(tenantId);
 
 	if (!latest) {
