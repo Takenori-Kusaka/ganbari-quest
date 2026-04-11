@@ -176,6 +176,7 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0022**: Billing/data lifecycle consistency — cancel Stripe subscription before DB deletion on account delete
 - **ADR-0023**: Pre-PMF issue priority guidelines — mandatory checklist for type:feat to prevent engineer bias
 - **ADR-0024**: Plan tier resolution pattern — use `resolveFullPlanTier` from server load/action, never call `resolvePlanTier` directly
+- **ADR-0025**: License ↔ Stripe Subscription causality — Stripe is source of truth, dunning delegated to Stripe
 
 ### Team Structure
 

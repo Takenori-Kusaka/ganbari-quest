@@ -871,6 +871,11 @@ Stripe カスタマーポータルの URL を作成して返す。
 
 Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（`stripe-signature`）で検証。
 
+**処理する event 種別と因果関係**: `docs/design/license-subscription-causality.md` §2 を参照（SSOT）。
+本エンドポイントの全ての状態遷移は因果関係マップの定義に従う。実装差分がある場合は因果関係マップが正。
+
+**Idempotency**: Stripe webhook は at-least-once 配信のため、`stripe_webhook_events` テーブルで event ID ベースの重複排除を行う（§6 参照）。
+
 ### 3.13 活動ピン留め
 
 #### POST /api/v1/children/[id]/activities/[activityId]/pin
