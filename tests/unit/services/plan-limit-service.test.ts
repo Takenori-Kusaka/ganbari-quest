@@ -1,7 +1,7 @@
 // tests/unit/services/plan-limit-service.test.ts
 // plan-limit-service ユニットテスト (#0196, #0269, #0270)
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // mock repos
 const mockFindAllChildren = vi.fn();
