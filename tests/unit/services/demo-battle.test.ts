@@ -10,19 +10,19 @@ describe('getDemoBattleData', () => {
 	it('returns valid battle data for たろう (preschool)', () => {
 		const result = getDemoBattleData(902);
 		expect(result.battle).not.toBeNull();
-		const battle = result.battle!;
+		if (!result.battle) return;
 
-		expect(battle.enemy).toBeDefined();
-		expect(battle.enemy.id).toBeGreaterThan(0);
-		expect(battle.enemy.name).toBeTruthy();
-		expect(battle.enemy.rarity).toMatch(/^(common|uncommon|rare|boss)$/);
+		expect(result.battle.enemy).toBeDefined();
+		expect(result.battle.enemy.id).toBeGreaterThan(0);
+		expect(result.battle.enemy.name).not.toBe('');
+		expect(result.battle.enemy.rarity).toMatch(/^(common|uncommon|rare|boss)$/);
 
-		expect(battle.playerStats.hp).toBeGreaterThan(0);
-		expect(battle.playerStats.atk).toBeGreaterThan(0);
+		expect(result.battle.playerStats.hp).toBeGreaterThan(0);
+		expect(result.battle.playerStats.atk).toBeGreaterThan(0);
 
-		expect(battle.scaledEnemyMaxHp).toBeGreaterThan(0);
-		expect(battle.completed).toBe(false);
-		expect(battle.result).toBeNull();
+		expect(result.battle.scaledEnemyMaxHp).toBeGreaterThan(0);
+		expect(result.battle.completed).toBe(false);
+		expect(result.battle.result).toBeNull();
 	});
 
 	it('returns scaled enemy HP based on age mode', () => {
@@ -32,10 +32,11 @@ describe('getDemoBattleData', () => {
 
 		expect(baby.battle).not.toBeNull();
 		expect(junior.battle).not.toBeNull();
+		if (!baby.battle || !junior.battle) return;
 
 		// Same enemy selection (deterministic seed 0.5), so same base enemy
 		// But scaling differs
-		expect(baby.battle!.scaledEnemyMaxHp).toBeLessThan(junior.battle!.scaledEnemyMaxHp);
+		expect(baby.battle.scaledEnemyMaxHp).toBeLessThan(junior.battle.scaledEnemyMaxHp);
 	});
 
 	it('returns valid battle data for all demo children', () => {
@@ -43,8 +44,9 @@ describe('getDemoBattleData', () => {
 		for (const id of childIds) {
 			const result = getDemoBattleData(id);
 			expect(result.battle).not.toBeNull();
-			expect(result.battle!.playerStats.hp).toBeGreaterThan(0);
-			expect(result.battle!.enemy.name).toBeTruthy();
+			if (!result.battle) continue;
+			expect(result.battle.playerStats.hp).toBeGreaterThan(0);
+			expect(result.battle.enemy.name).not.toBe('');
 		}
 	});
 
@@ -55,8 +57,9 @@ describe('getDemoBattleData', () => {
 
 		expect(baby.battle).not.toBeNull();
 		expect(junior.battle).not.toBeNull();
+		if (!baby.battle || !junior.battle) return;
 
 		// じろう has much higher XP, so stats should be higher
-		expect(junior.battle!.playerStats.atk).toBeGreaterThan(baby.battle!.playerStats.atk);
+		expect(junior.battle.playerStats.atk).toBeGreaterThan(baby.battle.playerStats.atk);
 	});
 });

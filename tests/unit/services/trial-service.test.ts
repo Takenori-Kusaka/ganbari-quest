@@ -280,7 +280,8 @@ describe('trial-service (#314)', () => {
 		it('returns end date during active trial', async () => {
 			await startTrial({ tenantId: 'tenant1', source: 'user_initiated' });
 			const endDate = await getTrialEndDate('tenant1');
-			expect(endDate).toBeTruthy();
+			expect(typeof endDate).toBe('string');
+			expect(endDate).not.toBe('');
 		});
 
 		it('returns null when no trial', async () => {
