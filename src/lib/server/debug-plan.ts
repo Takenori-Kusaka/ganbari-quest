@@ -6,6 +6,7 @@
 // 場合にのみ有効。本番 (`dev === false`) では常に無効。
 
 import { dev } from '$app/environment';
+import { toJSTDateString } from '$lib/domain/date-utils';
 import type { AuthContext } from '$lib/server/auth/types';
 import type { TrialTier } from '$lib/server/services/trial-service';
 
@@ -82,13 +83,10 @@ export function getDebugTrialOverride(): DebugTrialOverride | null {
 
 	switch (rawTrial as DebugTrial) {
 		case 'active': {
-			// 7 日後を終了日とする
+			// 7 日後を終了日とする（JST固定）
 			const d = new Date();
 			d.setDate(d.getDate() + 7);
-			const y = d.getFullYear();
-			const m = String(d.getMonth() + 1).padStart(2, '0');
-			const day = String(d.getDate()).padStart(2, '0');
-			return { endDate: `${y}-${m}-${day}`, tier };
+			return { endDate: toJSTDateString(d), tier };
 		}
 		case 'expired':
 		case 'not-started':
@@ -116,8 +114,10 @@ export function getDebugPlanSummary(): string | null {
 	}
 	const rawTrial = process.env.DEBUG_TRIAL?.trim().toLowerCase();
 	if (rawTrial && VALID_TRIALS.has(rawTrial)) {
+		// tier はアクティブ時のみ表示（expired/not-started では tier 無関係）
 		const rawTier = process.env.DEBUG_TRIAL_TIER?.trim().toLowerCase();
-		const tierStr = rawTier && VALID_TRIAL_TIERS.has(rawTier) ? `(${rawTier})` : '';
+		const tierStr =
+			rawTrial === 'active' && rawTier && VALID_TRIAL_TIERS.has(rawTier) ? `(${rawTier})` : '';
 		parts.push(`trial=${rawTrial}${tierStr}`);
 	}
 	return parts.length > 0 ? parts.join(' ') : null;
