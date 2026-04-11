@@ -8,6 +8,23 @@ body:
       value: |
         機能の提案ありがとうございます。以下の項目を記入してください。
 
+  - type: checkboxes
+    id: pre_pmf_check
+    attributes:
+      label: Pre-PMF チェック（type:feat 必須 / ADR-0023）
+      description: |
+        新規機能を起票する前に、エンジニアバイアス (「課金基盤を完璧にしたのにユーザーがいない」状態) を防ぐためのチェック。
+        `priority:critical` な bug fix / 法務 / セキュリティ対応はチェック不要。
+        詳細: [ADR-0023](../../docs/decisions/0023-pre-pmf-issue-priority-guidelines.md)
+      options:
+        - label: "どのペルソナ (`docs/design/11-ペルソナ定義書.md` の P1/P2) のどの課題を解決するか、本文に明記した"
+        - label: "`docs/design/34-V2MOM.md` の Method (M1〜M4) に紐づけた"
+        - label: "この機能がなくても Pre-PMF サインアップ 20 名/月 (V2MOM Q2 目標) に到達できるかを自問した（できる → medium 以下 / できない → high 以上 + 本文に根拠記載）"
+        - label: "直近に ユーザー獲得 / オンボーディング / 採算性 系 Issue を 1 本以上起票した（連続する新機能 Issue はバイアスの兆候）"
+        - label: "工数と `docs/design/12-事業計画書.md` Year 1 KPI（EOY MAU 500 / MRR ¥12,000）への寄与が釣り合っている"
+    validations:
+      required: true
+
   - type: textarea
     id: usecase
     attributes:
