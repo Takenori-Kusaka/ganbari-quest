@@ -508,6 +508,17 @@ $effect(() => {
 				既にアカウントをお持ちの方はこちら
 			</a>
 		</div>
+
+		<!-- #709: 有料プラン契約に関する法的開示（特商法第11条準拠） -->
+		<div class="mt-4 pt-3 border-t border-[var(--color-border-light)] text-center">
+			<p class="text-xs text-[var(--color-text-tertiary)] leading-relaxed">
+				有料プランをご利用の前に
+				<a href="https://www.ganbari-quest.com/tokushoho.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline mx-1">特定商取引法に基づく表記</a>
+				および
+				<a href="https://www.ganbari-quest.com/sla.html" target="_blank" rel="noopener" class="text-[var(--color-text-link)] underline mx-1">SLA</a>
+				をご確認ください
+			</p>
+		</div>
 		{/snippet}
 	</Card>
 </div>
