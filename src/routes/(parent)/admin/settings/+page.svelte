@@ -781,10 +781,31 @@ const anyFormBusy = $derived(
 					{/each}
 				</div>
 			</div>
-			<label class="flex items-center gap-2">
-				<input type="checkbox" name="siblingRankingEnabled" checked={data.siblingRankingEnabled === 'true'} class="h-4 w-4 rounded border-[var(--color-border-strong)]" />
-				<span class="text-sm text-[var(--color-text)]">きょうだいランキングを表示する</span>
-			</label>
+			{#if data.canSiblingRanking}
+				<label class="flex items-center gap-2">
+					<input type="checkbox" name="siblingRankingEnabled" checked={data.siblingRankingEnabled === 'true'} class="h-4 w-4 rounded border-[var(--color-border-strong)]" />
+					<span class="text-sm text-[var(--color-text)]">きょうだいランキングを表示する</span>
+				</label>
+			{:else}
+				<div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-muted)] p-3">
+					<label class="flex items-center gap-2 cursor-not-allowed" aria-describedby="sibling-ranking-disabled-reason">
+						<input
+							type="checkbox"
+							disabled
+							aria-disabled="true"
+							checked={false}
+							class="h-4 w-4 rounded border-[var(--color-border-strong)]"
+						/>
+						<span class="text-sm text-[var(--color-text-muted)]">
+							きょうだいランキングを表示する
+							<span class="text-xs font-bold text-[var(--color-point)]">⭐⭐</span>
+						</span>
+					</label>
+					<p id="sibling-ranking-disabled-reason" class="mt-2 text-xs text-[var(--color-text-muted)]">
+						きょうだいランキングはファミリープラン限定の機能です。<a href="/pricing" class="underline text-[var(--color-text-link)]">プランのアップグレード</a>で利用できます。
+					</p>
+				</div>
+			{/if}
 			<Button type="submit" variant="primary" size="md" class="w-full">
 				設定を保存
 			</Button>
