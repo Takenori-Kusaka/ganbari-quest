@@ -29,7 +29,7 @@ let { summary }: { summary: string | null } = $props();
 		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 		font-size: 0.6875rem;
 		font-weight: 600;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--color-surface-overlay) 30%, transparent);
 		pointer-events: none;
 	}
 	.debug-plan-indicator__label {
