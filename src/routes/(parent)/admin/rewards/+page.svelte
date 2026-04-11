@@ -1,11 +1,14 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { getErrorMessage } from '$lib/domain/errors';
 import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data, form } = $props();
+// #787: form.error が string | PlanLimitError どちらでも表示できるよう正規化
+const errorMessage = $derived(getErrorMessage(form?.error));
 
 let selectedChildId = $state(0);
 
@@ -115,9 +118,9 @@ const categoryLabels: Record<string, string> = {
 	</section>
 
 	<!-- Error Display -->
-	{#if form?.error}
+	{#if errorMessage}
 		<div class="bg-[color-mix(in_srgb,var(--color-action-danger)_10%,transparent)] rounded-xl p-3 border border-[color-mix(in_srgb,var(--color-action-danger)_30%,transparent)] text-[var(--color-action-danger)] text-sm">
-			{form.error}
+			{errorMessage}
 		</div>
 	{/if}
 

@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { createPlanLimitError } from '$lib/domain/errors';
 import {
 	MESSAGE_TEXT_MAX_LENGTH,
 	SENDABLE_MESSAGE_TYPES,
@@ -62,7 +63,14 @@ export const actions: Actions = {
 			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 			const limits = getPlanLimits(tier);
 			if (!limits.canFreeTextMessage) {
-				return fail(403, { error: '自由テキストメッセージはファミリープラン限定です' });
+				// #787: PlanLimitError 形式に統一
+				return fail(403, {
+					error: createPlanLimitError(
+						tier,
+						'family',
+						'自由テキストメッセージはファミリープラン限定です',
+					),
+				});
 			}
 			if (!body) {
 				return fail(400, { error: 'メッセージを入力してください' });
