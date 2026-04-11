@@ -102,9 +102,8 @@ const submitBlockReason = $derived.by(() => {
 										type="checkbox"
 										name="agreedTerms"
 										bind:checked={agreedTerms}
-										disabled={!termsViewed}
 										data-testid="consent-terms-checkbox"
-										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)] disabled:opacity-40"
+										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)] {!termsViewed ? 'opacity-40' : ''}"
 										onclick={(e) => {
 											if (!termsViewed) {
 												e.preventDefault();
@@ -144,9 +143,8 @@ const submitBlockReason = $derived.by(() => {
 										type="checkbox"
 										name="agreedPrivacy"
 										bind:checked={agreedPrivacy}
-										disabled={!privacyViewed}
 										data-testid="consent-privacy-checkbox"
-										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)] disabled:opacity-40"
+										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)] {!privacyViewed ? 'opacity-40' : ''}"
 										onclick={(e) => {
 											if (!privacyViewed) {
 												e.preventDefault();
@@ -205,7 +203,7 @@ const submitBlockReason = $derived.by(() => {
 	/* #708: stickyバーをページ背景と明確に区別（不透明 + shadow） */
 	.consent-sticky-bar {
 		background: var(--color-surface-card);
-		box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+		box-shadow: 0 -4px 16px color-mix(in srgb, var(--color-surface-overlay) 24%, transparent);
 	}
 	/* #708: disabled時に視覚的に明確に無効とわかる（opacity + not-allowed） */
 	.consent-sticky-bar :global(.consent-submit-btn:disabled) {
