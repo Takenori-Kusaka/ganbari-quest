@@ -177,6 +177,7 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0023**: Pre-PMF issue priority guidelines — mandatory checklist for type:feat to prevent engineer bias
 - **ADR-0024**: Plan tier resolution pattern — use `resolveFullPlanTier` from server load/action, never call `resolvePlanTier` directly
 - **ADR-0025**: License ↔ Stripe Subscription causality — Stripe is source of truth, dunning delegated to Stripe
+- **ADR-0026**: License key architecture — HMAC-SHA256, 32-char alphabet, single-use, 90-day expiry
 
 ### Team Structure
 
