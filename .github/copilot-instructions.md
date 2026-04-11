@@ -178,6 +178,7 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0024**: Plan tier resolution pattern — use `resolveFullPlanTier` from server load/action, never call `resolvePlanTier` directly
 - **ADR-0025**: License ↔ Stripe Subscription causality — Stripe is source of truth, dunning delegated to Stripe
 - **ADR-0026**: License key architecture — HMAC-SHA256, 32-char alphabet, single-use, 90-day expiry
+- **ADR-0027**: Plan-based history retention policy — retention is a read-time display filter only; no physical delete cron. Summary tables are exempt from retention filtering
 
 ### Team Structure
 
