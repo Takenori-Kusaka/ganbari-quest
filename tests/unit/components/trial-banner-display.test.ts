@@ -13,13 +13,13 @@
 // 別 spec を追加してよい。コンポーネントの分岐が変わった時の安全網としては
 // 本ユニットテストで十分。
 
-import { render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import TrialBanner from '../../../src/lib/features/admin/components/TrialBanner.svelte';
 
 describe('TrialBanner 表示', () => {
 	afterEach(() => {
-		document.body.innerHTML = '';
+		cleanup();
 	});
 
 	// ============================================================
