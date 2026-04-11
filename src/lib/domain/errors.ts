@@ -97,3 +97,25 @@ export function isPlanLimitError(value: unknown): value is PlanLimitError {
 		v.upgradeUrl === '/admin/license'
 	);
 }
+
+/**
+ * `form.error` / `result.data?.error` の値を表示用の文字列に正規化する (#787)。
+ *
+ * サーバ側のフォームアクションが返すエラーは、
+ * - 従来: `{ error: string }` （バリデーションエラー等）
+ * - 新規: `{ error: PlanLimitError }` （プラン制限エラー）
+ *
+ * の 2 形態が混在するため、Svelte 側で `getErrorMessage(form?.error)` を使って
+ * 一貫した文字列を得る。値が空/未定義なら空文字を返す。
+ */
+export function getErrorMessage(value: unknown): string {
+	if (value == null) return '';
+	if (typeof value === 'string') return value;
+	if (isPlanLimitError(value)) return value.message;
+	// 想定外のオブジェクトでも `.message` があれば取り出す（Error 互換）
+	if (typeof value === 'object' && 'message' in value) {
+		const msg = (value as { message: unknown }).message;
+		if (typeof msg === 'string') return msg;
+	}
+	return '';
+}

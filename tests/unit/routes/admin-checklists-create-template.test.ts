@@ -128,7 +128,7 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 		);
 	});
 
-	it('Free で 3/3 到達 → 403 + upgradeRequired', async () => {
+	it('Free で 3/3 到達 → 403 + upgradeRequired（PlanLimitError 形式 #787）', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
 		mockRepoFindTemplatesByChild.mockResolvedValue([
 			{ id: 1, name: 'a' },
@@ -137,13 +137,21 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 		]);
 
 		// biome-ignore lint/style/noNonNullAssertion: createTemplate is defined
-		const result = await actions.createTemplate!(
+		const result = (await actions.createTemplate!(
 			createEvent({ childId: '1', name: '4つめ', icon: '📋', timeSlot: 'anytime' }),
-		);
+		)) as {
+			status: number;
+			data: { error: { code: string; requiredTier: string }; upgradeRequired: boolean };
+		};
 
-		expect(result).toMatchObject({
-			status: 403,
-			data: expect.objectContaining({ upgradeRequired: true }),
+		expect(result.status).toBe(403);
+		expect(result.data.upgradeRequired).toBe(true);
+		// #787: PlanLimitError 形式で返る
+		expect(result.data.error).toMatchObject({
+			code: 'PLAN_LIMIT_EXCEEDED',
+			currentTier: 'free',
+			requiredTier: 'standard',
+			upgradeUrl: '/admin/license',
 		});
 		expect(mockCreateTemplate).not.toHaveBeenCalled();
 	});

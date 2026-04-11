@@ -84,7 +84,8 @@ describe('POST /admin/messages?/send (#772)', () => {
 		mockSendMessage.mockResolvedValue({ id: 1, childId: 1, messageType: 'text', body: 'ok' });
 	});
 
-	it('free プランで text メッセージを送ると 403（ファミリー限定）', async () => {
+	it('free プランで text メッセージを送ると 403（ファミリー限定、PlanLimitError 形式）', async () => {
+		// #787: エラー形式は PlanLimitError オブジェクト
 		// biome-ignore lint/style/noNonNullAssertion: send is defined
 		const result = await actions.send!(
 			createEvent('free', {
@@ -95,12 +96,21 @@ describe('POST /admin/messages?/send (#772)', () => {
 		);
 		expect(result).toMatchObject({
 			status: 403,
-			data: { error: '自由テキストメッセージはファミリープラン限定です' },
+			data: {
+				error: {
+					code: 'PLAN_LIMIT_EXCEEDED',
+					message: '自由テキストメッセージはファミリープラン限定です',
+					currentTier: 'free',
+					requiredTier: 'family',
+					upgradeUrl: '/admin/license',
+				},
+			},
 		});
 		expect(mockSendMessage).not.toHaveBeenCalled();
 	});
 
-	it('standard プランで text メッセージを送ると 403（ファミリー限定）', async () => {
+	it('standard プランで text メッセージを送ると 403（ファミリー限定、PlanLimitError 形式）', async () => {
+		// #787: currentTier は standard、requiredTier は family
 		// biome-ignore lint/style/noNonNullAssertion: send is defined
 		const result = await actions.send!(
 			createEvent('standard', {
@@ -111,7 +121,14 @@ describe('POST /admin/messages?/send (#772)', () => {
 		);
 		expect(result).toMatchObject({
 			status: 403,
-			data: { error: '自由テキストメッセージはファミリープラン限定です' },
+			data: {
+				error: {
+					code: 'PLAN_LIMIT_EXCEEDED',
+					currentTier: 'standard',
+					requiredTier: 'family',
+					upgradeUrl: '/admin/license',
+				},
+			},
 		});
 		expect(mockSendMessage).not.toHaveBeenCalled();
 	});
