@@ -4,14 +4,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- モック ---
-const mockRequireTenantId = vi.fn();
 const mockResolveFullPlanTier = vi.fn();
 const mockSuggestActivity = vi.fn();
-
-vi.mock('$lib/server/auth/factory', () => ({
-	requireTenantId: mockRequireTenantId,
-	getAuthMode: vi.fn(() => 'cognito'),
-}));
 
 vi.mock('$lib/server/services/plan-limit-service', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/services/plan-limit-service')>(
@@ -42,7 +36,7 @@ function makeEvent(
 		headers: { 'Content-Type': 'application/json' },
 		body,
 	});
-	// tenantId: null → context そのものを undefined に（未認証シナリオ）
+	// tenantId: null → context を undefined に（未認証シナリオ）
 	const context =
 		opts.tenantId === null
 			? undefined
@@ -60,18 +54,9 @@ function makeEvent(
 describe('POST /api/v1/activities/suggest', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockRequireTenantId.mockImplementation((locals: { context?: { tenantId?: string } }) => {
-			const tid = locals?.context?.tenantId;
-			if (!tid) {
-				const err = new Error('Unauthorized') as Error & { status?: number };
-				err.status = 401;
-				throw err;
-			}
-			return tid;
-		});
 	});
 
-	it('未認証ユーザー（tenantId なし）は 401 を投げる', async () => {
+	it('未認証ユーザー（context なし）は 401 を投げる', async () => {
 		await expect(
 			POST(
 				makeEvent({
@@ -83,7 +68,6 @@ describe('POST /api/v1/activities/suggest', () => {
 	});
 
 	it('無料プランでは PLAN_LIMIT_EXCEEDED 403 を返す', async () => {
-		mockRequireTenantId.mockReturnValue('tenant-1');
 		mockResolveFullPlanTier.mockResolvedValue('free');
 
 		const response = await POST(makeEvent({ text: 'サッカーの練習', licenseStatus: 'none' }));
@@ -96,7 +80,6 @@ describe('POST /api/v1/activities/suggest', () => {
 	});
 
 	it('スタンダードプランでは suggestActivity を実行', async () => {
-		mockRequireTenantId.mockReturnValue('tenant-1');
 		mockResolveFullPlanTier.mockResolvedValue('standard');
 		mockSuggestActivity.mockResolvedValue({
 			name: 'サッカー',
@@ -119,7 +102,6 @@ describe('POST /api/v1/activities/suggest', () => {
 	});
 
 	it('ファミリープランでは suggestActivity を実行', async () => {
-		mockRequireTenantId.mockReturnValue('tenant-1');
 		mockResolveFullPlanTier.mockResolvedValue('family');
 		mockSuggestActivity.mockResolvedValue({
 			name: '公園で走る',
@@ -142,7 +124,6 @@ describe('POST /api/v1/activities/suggest', () => {
 	});
 
 	it('有料プランでもテキスト空は 400', async () => {
-		mockRequireTenantId.mockReturnValue('tenant-1');
 		mockResolveFullPlanTier.mockResolvedValue('standard');
 
 		await expect(
@@ -158,7 +139,6 @@ describe('POST /api/v1/activities/suggest', () => {
 	});
 
 	it('有料プランでも200文字超は 400', async () => {
-		mockRequireTenantId.mockReturnValue('tenant-1');
 		mockResolveFullPlanTier.mockResolvedValue('standard');
 
 		const longText = 'あ'.repeat(201);
