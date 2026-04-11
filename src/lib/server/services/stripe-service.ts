@@ -258,12 +258,16 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 		trialUsedAt: new Date().toISOString(),
 	});
 
-	// ライセンスキー発行 (#0247)
+	// ライセンスキー発行 (#0247, #801)
+	// #801: Stripe 経由の発行は常に 'purchase' 種別。buyer tenant にロックされ、
+	// 同じ tenant でのみ consume 可能（返金後の他 tenant への流用を防ぐ）。
 	try {
 		const licenseRecord = await issueLicenseKey({
 			tenantId,
 			plan: plan ?? 'monthly',
 			stripeSessionId: session.id,
+			kind: 'purchase',
+			issuedBy: `stripe:${session.id}`,
 		});
 
 		// テナントにライセンスキーを紐付け

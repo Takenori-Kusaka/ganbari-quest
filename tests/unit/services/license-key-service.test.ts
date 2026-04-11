@@ -290,6 +290,83 @@ describe('issueLicenseKey', () => {
 			'DB connection error',
 		);
 	});
+
+	// --- #801: kind / issuedBy ---
+
+	it('kind を省略した場合は purchase 扱いで保存される (後方互換)', async () => {
+		const result = await issueLicenseKey({
+			tenantId: 'tenant-default',
+			plan: 'monthly',
+		});
+
+		expect(result.kind).toBe('purchase');
+		expect(mockSaveLicenseKey).toHaveBeenCalledWith(expect.objectContaining({ kind: 'purchase' }));
+	});
+
+	it('kind=purchase + issuedBy を指定して発行できる (Stripe webhook 相当)', async () => {
+		const result = await issueLicenseKey({
+			tenantId: 'tenant-buyer',
+			plan: 'monthly',
+			kind: 'purchase',
+			issuedBy: 'stripe:cs_test_123',
+			stripeSessionId: 'cs_test_123',
+		});
+
+		expect(result.kind).toBe('purchase');
+		expect(result.issuedBy).toBe('stripe:cs_test_123');
+		expect(mockSaveLicenseKey).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: 'purchase',
+				issuedBy: 'stripe:cs_test_123',
+			}),
+		);
+	});
+
+	it('kind=gift は issuedBy がないと throw する (監査要件)', async () => {
+		await expect(
+			issueLicenseKey({
+				tenantId: 'tenant-gift',
+				plan: 'yearly',
+				kind: 'gift',
+			}),
+		).rejects.toThrow(/issuedBy is required/);
+		expect(mockSaveLicenseKey).not.toHaveBeenCalled();
+	});
+
+	it('kind=campaign は issuedBy がないと throw する (監査要件)', async () => {
+		await expect(
+			issueLicenseKey({
+				tenantId: 'tenant-campaign',
+				plan: 'monthly',
+				kind: 'campaign',
+			}),
+		).rejects.toThrow(/issuedBy is required/);
+		expect(mockSaveLicenseKey).not.toHaveBeenCalled();
+	});
+
+	it('kind=gift + issuedBy を指定して発行できる (Ops 経由相当)', async () => {
+		const result = await issueLicenseKey({
+			tenantId: 'tenant-gift',
+			plan: 'yearly',
+			kind: 'gift',
+			issuedBy: 'ops:admin-user-1',
+		});
+
+		expect(result.kind).toBe('gift');
+		expect(result.issuedBy).toBe('ops:admin-user-1');
+	});
+
+	it('kind=campaign + issuedBy を指定して発行できる (キャンペーン配布相当)', async () => {
+		const result = await issueLicenseKey({
+			tenantId: 'tenant-campaign-pool',
+			plan: 'monthly',
+			kind: 'campaign',
+			issuedBy: 'ops:campaign-2026-spring',
+		});
+
+		expect(result.kind).toBe('campaign');
+		expect(result.issuedBy).toBe('ops:campaign-2026-spring');
+	});
 });
 
 // ============================================================
@@ -539,7 +616,7 @@ describe('consumeLicenseKey', () => {
 		mockFindLicenseKey.mockResolvedValue(record);
 
 		const before = Date.now();
-		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer');
 		const after = Date.now();
 
 		expect(result.ok).toBe(true);
@@ -552,7 +629,7 @@ describe('consumeLicenseKey', () => {
 			expect(expiresMs).toBeLessThanOrEqual(after + 30 * 24 * 60 * 60 * 1000 + 100);
 		}
 		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
-			'tenant-consumer',
+			'tenant-issuer',
 			expect.objectContaining({
 				plan: 'monthly',
 				status: 'active',
@@ -563,7 +640,7 @@ describe('consumeLicenseKey', () => {
 		expect(mockUpdateLicenseKeyStatus).toHaveBeenCalledWith(
 			'GQ-ABCD-EFGH-JKLM',
 			'consumed',
-			'tenant-consumer',
+			'tenant-issuer',
 		);
 	});
 
@@ -578,7 +655,7 @@ describe('consumeLicenseKey', () => {
 		mockFindLicenseKey.mockResolvedValue(record);
 
 		const before = Date.now();
-		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer');
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -599,7 +676,7 @@ describe('consumeLicenseKey', () => {
 		mockFindLicenseKey.mockResolvedValue(record);
 
 		const before = Date.now();
-		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer');
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -608,7 +685,7 @@ describe('consumeLicenseKey', () => {
 			expect(expiresMs).toBeGreaterThanOrEqual(before + 30 * 24 * 60 * 60 * 1000);
 		}
 		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
-			'tenant-consumer',
+			'tenant-issuer',
 			expect.objectContaining({ plan: 'family-monthly' }),
 		);
 	});
@@ -624,7 +701,7 @@ describe('consumeLicenseKey', () => {
 		mockFindLicenseKey.mockResolvedValue(record);
 
 		const before = Date.now();
-		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer');
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -644,7 +721,7 @@ describe('consumeLicenseKey', () => {
 		};
 		mockFindLicenseKey.mockResolvedValue(record);
 
-		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer');
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -652,7 +729,7 @@ describe('consumeLicenseKey', () => {
 			expect(result.planExpiresAt).toBeUndefined();
 		}
 		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
-			'tenant-consumer',
+			'tenant-issuer',
 			expect.objectContaining({
 				plan: 'lifetime',
 				status: 'active',
@@ -671,7 +748,7 @@ describe('consumeLicenseKey', () => {
 		};
 		mockFindLicenseKey.mockResolvedValue(record);
 
-		await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+		await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer');
 
 		const tenantOrder = mockUpdateTenantStripe.mock.invocationCallOrder[0];
 		const licenseOrder = mockUpdateLicenseKeyStatus.mock.invocationCallOrder[0];
@@ -692,7 +769,7 @@ describe('consumeLicenseKey', () => {
 		mockFindLicenseKey.mockResolvedValue(record);
 		mockUpdateTenantStripe.mockRejectedValue(new Error('DynamoDB tenant write failed'));
 
-		await expect(consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer')).rejects.toThrow(
+		await expect(consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer')).rejects.toThrow(
 			'DynamoDB tenant write failed',
 		);
 		expect(mockUpdateLicenseKeyStatus).not.toHaveBeenCalled();
@@ -701,7 +778,7 @@ describe('consumeLicenseKey', () => {
 	it('キーが見つからない場合は {ok:false} を返し tenant/license どちらも更新しない', async () => {
 		mockFindLicenseKey.mockResolvedValue(undefined);
 
-		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer');
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -723,7 +800,7 @@ describe('consumeLicenseKey', () => {
 		};
 		mockFindLicenseKey.mockResolvedValue(record);
 
-		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer');
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -743,7 +820,7 @@ describe('consumeLicenseKey', () => {
 		};
 		mockFindLicenseKey.mockResolvedValue(record);
 
-		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer');
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer');
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -763,18 +840,18 @@ describe('consumeLicenseKey', () => {
 		};
 		mockFindLicenseKey.mockResolvedValue(record);
 
-		const result = await consumeLicenseKey('gq-wxyz-wxyz-wxyz', 'tenant-consumer');
+		const result = await consumeLicenseKey('gq-wxyz-wxyz-wxyz', 'tenant-issuer');
 
 		expect(result.ok).toBe(true);
 		expect(mockFindLicenseKey).toHaveBeenCalledWith('GQ-WXYZ-WXYZ-WXYZ');
 		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
-			'tenant-consumer',
+			'tenant-issuer',
 			expect.objectContaining({ licenseKey: 'GQ-WXYZ-WXYZ-WXYZ' }),
 		);
 		expect(mockUpdateLicenseKeyStatus).toHaveBeenCalledWith(
 			'GQ-WXYZ-WXYZ-WXYZ',
 			'consumed',
-			'tenant-consumer',
+			'tenant-issuer',
 		);
 	});
 
@@ -788,7 +865,7 @@ describe('consumeLicenseKey', () => {
 		};
 		mockFindLicenseKey.mockResolvedValue(record);
 
-		const result = await consumeLicenseKey('  GQ-ABCD-EFGH-JKLM  ', 'tenant-consumer');
+		const result = await consumeLicenseKey('  GQ-ABCD-EFGH-JKLM  ', 'tenant-issuer');
 
 		expect(result.ok).toBe(true);
 		expect(mockFindLicenseKey).toHaveBeenCalledWith('GQ-ABCD-EFGH-JKLM');
@@ -805,11 +882,138 @@ describe('consumeLicenseKey', () => {
 		mockFindLicenseKey.mockResolvedValue(record);
 		mockUpdateLicenseKeyStatus.mockRejectedValue(new Error('DynamoDB write failed'));
 
-		await expect(consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-consumer')).rejects.toThrow(
+		await expect(consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer')).rejects.toThrow(
 			'DynamoDB write failed',
 		);
 		// tenant 更新は既に成功している（順序どおり）
 		expect(mockUpdateTenantStripe).toHaveBeenCalled();
+	});
+
+	// --- #801: kind 別の consume 権限チェック ---
+
+	it('kind=purchase のキーは buyer tenant でのみ consume 可能（自 tenant なら OK）', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-buyer',
+			plan: 'monthly',
+			status: 'active',
+			kind: 'purchase',
+			issuedBy: 'stripe:cs_test_123',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-buyer');
+
+		expect(result.ok).toBe(true);
+		expect(mockUpdateTenantStripe).toHaveBeenCalled();
+		expect(mockUpdateLicenseKeyStatus).toHaveBeenCalled();
+	});
+
+	it('kind=purchase のキーを別 tenant で consume しようとすると拒否する (#801)', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-buyer',
+			plan: 'family-yearly',
+			status: 'active',
+			kind: 'purchase',
+			issuedBy: 'stripe:cs_test_123',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-attacker');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toContain('購入したアカウント');
+		}
+		// tenant/license どちらも更新されない（攻撃を完全に拒否）
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+		expect(mockUpdateLicenseKeyStatus).not.toHaveBeenCalled();
+	});
+
+	it('旧レコード (kind 未設定) は purchase 扱い — 別 tenant での consume を拒否 (#801)', async () => {
+		// 旧データ: #801 の追加前に作成された既存レコードには kind がない。
+		// 後方互換のため 'purchase' として扱い、最も厳しい保護を適用する。
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-LEGC-LEGC-LEGC',
+			tenantId: 'tenant-old-buyer',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2025-06-01T00:00:00Z',
+			// kind 未設定
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await consumeLicenseKey('GQ-LEGC-LEGC-LEGC', 'tenant-different');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toContain('購入したアカウント');
+		}
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+		expect(mockUpdateLicenseKeyStatus).not.toHaveBeenCalled();
+	});
+
+	it('旧レコード (kind 未設定) でも自 tenant の consume は成功する (後方互換)', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-LEGC-LEGC-LEGC',
+			tenantId: 'tenant-legacy',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2025-06-01T00:00:00Z',
+			// kind 未設定
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await consumeLicenseKey('GQ-LEGC-LEGC-LEGC', 'tenant-legacy');
+
+		expect(result.ok).toBe(true);
+		expect(mockUpdateTenantStripe).toHaveBeenCalled();
+		expect(mockUpdateLicenseKeyStatus).toHaveBeenCalled();
+	});
+
+	it('kind=gift のキーは任意 tenant で consume 可能 (#801)', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-GIFT-GIFT-GIFT',
+			tenantId: 'tenant-ops-pool',
+			plan: 'yearly',
+			status: 'active',
+			kind: 'gift',
+			issuedBy: 'ops:support-user-1',
+			createdAt: '2026-03-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await consumeLicenseKey('GQ-GIFT-GIFT-GIFT', 'tenant-recipient');
+
+		expect(result.ok).toBe(true);
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			'tenant-recipient',
+			expect.objectContaining({ plan: 'yearly' }),
+		);
+	});
+
+	it('kind=campaign のキーは任意 tenant で consume 可能 (#801)', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-CAMP-CAMP-CAMP',
+			tenantId: 'tenant-campaign-pool',
+			plan: 'monthly',
+			status: 'active',
+			kind: 'campaign',
+			issuedBy: 'ops:campaign-2026-spring',
+			createdAt: '2026-03-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await consumeLicenseKey('GQ-CAMP-CAMP-CAMP', 'tenant-anyone');
+
+		expect(result.ok).toBe(true);
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			'tenant-anyone',
+			expect.objectContaining({ plan: 'monthly' }),
+		);
 	});
 });
 
