@@ -13,6 +13,7 @@
 | DB テーブル・カラムの追加・変更 | `08-データベース設計書.md` |
 | UI 機能・画面・オーバーレイの追加・変更 | `06-UI設計書.md` |
 | **UI プラン仕様の追加・変更**（FeatureGate / TrialBanner / PlanStatusCard / PremiumWelcome / disabled パターン） | `06-UI設計書.md §10` (#743) |
+| **アカウント削除フローの追加・変更**（5 パターン分岐 / fullTenantDeletion 順序 / Stripe 連動） | `account-deletion-flow.md` (#746) |
 | AWS インフラ構成の変更 | `13-AWSサーバレスアーキテクチャ設計書.md` |
 | 認証・セキュリティ関連の変更 | `14-セキュリティ設計書.md` |
 | デザイン・ビジュアル変更 | `15-ブランドガイドライン.md` |
