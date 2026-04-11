@@ -212,14 +212,17 @@ grep -rn "ナビ項目ラベル" src/lib/features/admin/ src/lib/ui/components/B
 **同期メカニズム**:
 - アプリ側 TS/Svelte コンポーネントは `plan-features.ts` を必ず import
 - プラン機能追加時は `plan-limit-service.ts` の `PLAN_LIMITS` ブール値フラグと連動
-- LP 側は手動同期（#762 時点で未自動化）
+- LP 側は `scripts/check-lp-plan-sync.mjs` で drift を自動検知（#764, `npm run lint:parallel` 経由）
+  - `site/pricing.html`: 全 feature 完全一致（strict）
+  - `site/index.html`, `site/pamphlet.html`: 少なくとも 1 feature 一致（loose, LP トップとパンフ簡略版のため）
+  - 価格（`price` / `yearlyPrice` の数値部）は全ファイルでチェック（pamphlet は月額のみ）
 
 **修正時チェック**:
 - [ ] プラン機能追加 → `plan-features.ts` の該当プラン配列に追加
 - [ ] 機能フラグ追加 → `plan-limit-service.ts` の `PLAN_LIMITS` にブール値を追加
 - [ ] ラベル追加 → `labels.ts` の `FEATURE_LABELS` に追加
 - [ ] ユニットテスト（`tests/unit/domain/plan-features.test.ts`）の期待値を更新
-- [ ] LP 側（`site/*.html`）を手動同期
+- [ ] LP 側（`site/*.html`）を更新 → `npm run lint:lp-plan-sync` で確認
 
 ---
 
