@@ -46,6 +46,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 		retentionDays: planLimits.historyRetentionDays,
 	};
 
+	// #736: 解約時のダウングレード先（常に free プラン）の保持期間を PLAN_LIMITS から取得し、
+	// ChurnPreventionModal のメッセージを動的にする。ハードコードの "90日" はバグ防止の観点でも
+	// PLAN_LIMITS 由来の値に置き換えるべき（ADR-0024 参照）。
+	const downgradeRetentionDays = getPlanLimits('free').historyRetentionDays ?? 90;
+
 	return {
 		license: license ?? {
 			plan: 'free' as const,
@@ -58,6 +63,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		loyaltyInfo,
 		planTier: tier,
 		planStats,
+		downgradeRetentionDays,
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,
 			trialUsed: trialStatus.trialUsed,
