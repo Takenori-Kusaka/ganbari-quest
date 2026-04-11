@@ -1,9 +1,10 @@
-// /admin/rewards — 特別報酬の付与（#336, #501, #581 プリセット追加）
+// /admin/rewards — 特別報酬の付与（#336, #501, #581 プリセット追加, #728 プランゲート）
 
 import { fail } from '@sveltejs/kit';
 import { PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
+import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	getChildSpecialRewards,
 	getRewardTemplates,
@@ -13,8 +14,14 @@ import {
 } from '$lib/server/services/special-reward-service';
 import type { Actions, PageServerLoad } from './$types';
 
+const UPGRADE_MESSAGE = '特別なごほうび設定はスタンダードプラン以上でご利用いただけます';
+
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
+	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+	const isPremium = isPaidTier(tier);
+
 	const children = await getAllChildren(tenantId);
 	const templates = await getRewardTemplates(tenantId);
 
@@ -33,12 +40,26 @@ export const load: PageServerLoad = async ({ locals }) => {
 		children: childrenWithRewards,
 		templates,
 		presetGroups: PRESET_REWARD_GROUPS,
+		isPremium,
+		planTier: tier,
 	};
 };
+
+async function ensurePremium(locals: App.Locals, tenantId: string): Promise<boolean> {
+	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+	return isPaidTier(tier);
+}
 
 export const actions: Actions = {
 	grant: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
+
+		// #728: プランゲート — 無料プランはカスタム報酬付与不可
+		if (!(await ensurePremium(locals, tenantId))) {
+			return fail(403, { error: UPGRADE_MESSAGE, code: 'PLAN_LIMIT_EXCEEDED' });
+		}
+
 		const formData = await request.formData();
 		const childId = Number(formData.get('childId'));
 		const title = String(formData.get('title') ?? '').trim();
@@ -60,6 +81,12 @@ export const actions: Actions = {
 
 	addPreset: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
+
+		// #728: プランゲート — 無料プランはプリセットの取り込みも不可
+		if (!(await ensurePremium(locals, tenantId))) {
+			return fail(403, { error: UPGRADE_MESSAGE, code: 'PLAN_LIMIT_EXCEEDED' });
+		}
+
 		const formData = await request.formData();
 		const title = String(formData.get('title') ?? '').trim();
 		const points = Number(formData.get('points') ?? 0);
