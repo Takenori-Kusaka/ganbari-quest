@@ -103,11 +103,20 @@ describe('AiSuggestPanel プランゲート (#734)', () => {
 			expect(input?.disabled).toBe(false);
 		});
 
-		it('提案ボタンは未入力時のみ disabled（入力で有効化される）', () => {
+		it('提案ボタンは未入力時に disabled、入力後に enabled になる', async () => {
 			render(AiSuggestPanel, props);
 			const btn = document.querySelector<HTMLButtonElement>('button[type="button"]');
-			// 入力が空なので disabled、ただし !isPremium ではなく !aiInput.trim() が理由
+			const input = document.querySelector<HTMLInputElement>('input[type="text"]');
+			// 入力が空なので disabled（!isPremium ではなく !aiInput.trim() が理由）
 			expect(btn?.disabled).toBe(true);
+
+			// 入力後は enabled になる
+			if (input) {
+				// Svelte 5 の $state バインディングを発火するため fireEvent を使う
+				const { fireEvent } = await import('@testing-library/svelte');
+				await fireEvent.input(input, { target: { value: 'テスト活動' } });
+				expect(btn?.disabled).toBe(false);
+			}
 		});
 	});
 
