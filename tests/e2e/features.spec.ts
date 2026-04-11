@@ -724,7 +724,9 @@ test.describe('#0129: 招待 API', () => {
 test.describe('#0130: ライセンス管理画面', () => {
 	test('ライセンス管理画面が表示される', async ({ page }) => {
 		await page.goto('/admin/license');
-		await expect(page.getByText('現在のプラン')).toBeVisible();
+		// #796 の確認ダイアログに「現在のプランが上書きされます」という警告文があり、
+		// getByText('現在のプラン') だと strict-mode 違反になるため role で一意化
+		await expect(page.getByRole('heading', { name: '現在のプラン' })).toBeVisible();
 	});
 
 	test('プラン情報が表示される', async ({ page }) => {
@@ -733,8 +735,9 @@ test.describe('#0130: ライセンス管理画面', () => {
 		const planEl = page.locator('main').getByText('無料プラン');
 		await planEl.scrollIntoViewIfNeeded();
 		await expect(planEl).toBeVisible();
-		// ステータスバッジが表示される
-		const statusBadge = page.locator('main').getByText('有効');
+		// ステータスバッジが表示される（#796 のキー適用UIでも「有効化」が出てしまうため、
+		// アイコン付きのバッジテキストで一意に絞り込む）
+		const statusBadge = page.locator('main').getByText('✅ 有効');
 		await expect(statusBadge).toBeVisible();
 	});
 

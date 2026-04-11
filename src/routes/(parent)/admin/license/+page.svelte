@@ -1,23 +1,40 @@
 <script lang="ts">
+import { enhance } from '$app/forms';
 import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
 import ChurnPreventionModal from '$lib/features/loyalty/ChurnPreventionModal.svelte';
 import LoyaltyBadge from '$lib/features/loyalty/LoyaltyBadge.svelte';
+import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
-let { data } = $props();
+let { data, form } = $props();
 
 const license = $derived(data.license);
 const stripeEnabled = $derived(data.stripeEnabled);
 const planTier = $derived(data.planTier ?? 'free');
 const planStats = $derived(data.planStats);
 const trialStatus = $derived(data.trialStatus);
+const isOwner = $derived(data.role === 'owner');
 
 let checkoutLoading = $state(false);
 let portalLoading = $state(false);
 let showChurnModal = $state(false);
 let selectedTier = $state<'standard' | 'family'>('standard');
 let billingInterval = $state<'monthly' | 'yearly'>('monthly');
+
+// #796 ライセンスキー適用 UI 状態
+let licenseKeyInput = $state('');
+let applyLoading = $state(false);
+let showApplyConfirm = $state(false);
+// form は startTrial と applyLicenseKey の union なので、apply キーの存在で narrow する
+const applyResult = $derived(
+	form && typeof form === 'object' && 'apply' in form
+		? (form.apply as { error?: string; success?: boolean } | undefined)
+		: undefined,
+);
+const applyError = $derived(applyResult?.error ?? null);
+const applySuccess = $derived(applyResult?.success === true);
 
 const planLabel = (plan: string) => {
 	switch (plan) {
@@ -174,6 +191,119 @@ async function openPortal() {
 			childMax={planStats.childMax}
 			retentionDays={planStats.retentionDays}
 		/>
+	{/if}
+
+	<!-- ライセンスキー適用 (#796) -->
+	{#if isOwner && license.plan !== 'lifetime'}
+		<Card variant="default" padding="lg">
+			{#snippet children()}
+			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-2">
+				ライセンスキーを適用
+			</h3>
+			<p class="text-sm text-[var(--color-text-muted)] mb-4">
+				キャンペーン・サポート窓口から受け取ったライセンスキーを入力して、プランを有効化できます。
+			</p>
+
+			{#if applySuccess}
+				<Alert variant="success" class="mb-3">
+					{#snippet children()}
+					ライセンスキーを適用しました。プランが更新されています。
+					{/snippet}
+				</Alert>
+			{/if}
+			{#if applyError}
+				<Alert variant="danger" class="mb-3">
+					{#snippet children()}
+					{applyError}
+					{/snippet}
+				</Alert>
+			{/if}
+
+			<form
+				method="POST"
+				action="?/applyLicenseKey"
+				use:enhance={() => {
+					applyLoading = true;
+					return async ({ update }) => {
+						await update();
+						applyLoading = false;
+						showApplyConfirm = false;
+						if (applySuccess) {
+							licenseKeyInput = '';
+						}
+					};
+				}}
+			>
+				<label for="licenseKey" class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+					ライセンスキー
+				</label>
+				<input
+					id="licenseKey"
+					name="licenseKey"
+					type="text"
+					bind:value={licenseKeyInput}
+					placeholder="GQ-XXXX-XXXX-XXXX"
+					autocomplete="off"
+					data-testid="license-key-input"
+					class="w-full rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-card)] px-3 py-2 font-mono text-sm text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
+				/>
+				<Button
+					type="button"
+					variant="primary"
+					size="md"
+					class="mt-3 w-full"
+					disabled={!licenseKeyInput.trim() || applyLoading}
+					data-testid="license-key-apply-button"
+					onclick={() => {
+						showApplyConfirm = true;
+					}}
+				>
+					ライセンスキーを適用
+				</Button>
+
+				<Dialog
+					bind:open={showApplyConfirm}
+					title="ライセンスキーを適用しますか？"
+				>
+					{#snippet children()}
+					<div class="space-y-3 text-sm text-[var(--color-text-primary)]">
+						<p>
+							入力されたライセンスキーを現在のアカウントに適用します。
+						</p>
+						<ul class="list-disc pl-5 text-[var(--color-text-muted)] space-y-1">
+							<li><strong>一回限り</strong>使用可能です（適用後は無効化されます）</li>
+							<li>現在のプランが上書きされます</li>
+							<li>適用を取り消すことはできません</li>
+						</ul>
+						<p class="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 font-mono text-xs text-[var(--color-text-secondary)]">
+							{licenseKeyInput}
+						</p>
+					</div>
+					<div class="mt-4 flex justify-end gap-2">
+						<Button
+							type="button"
+							variant="secondary"
+							size="md"
+							onclick={() => (showApplyConfirm = false)}
+							disabled={applyLoading}
+						>
+							キャンセル
+						</Button>
+						<Button
+							type="submit"
+							variant="primary"
+							size="md"
+							disabled={applyLoading}
+							data-testid="license-key-confirm-button"
+						>
+							{applyLoading ? '適用中…' : '適用する'}
+						</Button>
+					</div>
+					{/snippet}
+				</Dialog>
+			</form>
+			{/snippet}
+		</Card>
 	{/if}
 
 	<!-- 無料トライアル -->
