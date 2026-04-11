@@ -594,7 +594,7 @@ test.describe('API 正常系: 週次評価', () => {
 test.describe('API 正常系: 認証', () => {
 	test('管理画面にアクセスできる', async ({ request }) => {
 		const res = await request.get('/admin');
-		expect(res.ok()).toBeTruthy();
+		expect(res.ok()).toBe(true);
 	});
 
 	test('PIN ログイン API が 200 を返す（ローカルモード専用）', async ({ request }) => {

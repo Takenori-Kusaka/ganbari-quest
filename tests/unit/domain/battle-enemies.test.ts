@@ -14,8 +14,8 @@ describe('ENEMIES マスタデータ', () => {
 	it('全敵が必須プロパティを持つ', () => {
 		for (const enemy of ENEMIES) {
 			expect(enemy.id).toBeGreaterThan(0);
-			expect(enemy.name).toBeTruthy();
-			expect(enemy.icon).toBeTruthy();
+			expect(enemy.name).not.toBe('');
+			expect(enemy.icon).not.toBe('');
 			expect(enemy.image).toMatch(/^\/assets\/battle\/enemies\//);
 			expect(['common', 'uncommon', 'rare', 'boss']).toContain(enemy.rarity);
 			expect(enemy.stats.hp).toBeGreaterThan(0);
