@@ -120,11 +120,81 @@ export const PREMIUM_UNLOCKED_FEATURES: Record<
 } as const;
 
 /**
+ * 料金ページ (/pricing) に表示する 1 プランの全メタ情報。
+ * #765: プラン名・価格・CTA 等のハードコードを排除するため SSOT 化。
+ *
+ * - `name` / `shortDescription` は料金ページの見出し用。PLAN_LABELS との違いに注意：
+ *   料金ページではブランディング観点で「フリー」を使うが、PLAN_LABELS は
+ *   「無料プラン」を使う（#749 ブランドガイドライン §7.1 参照）。
+ * - `price` / `unit` / `yearlyPrice` は表記揺れ防止のため文字列で持つ（#749 §7.2）。
+ * - `ctaLabel` / `ctaHref` は CTA ボタン文言のハードコード禁止（#749 §7.3「無料体験」統一）。
+ * - `recommended` = true のプランのみ `badge` が表示される（#749 §7.4）。
+ */
+export interface PricingPageMeta {
+	id: PlanKey;
+	name: string;
+	price: string;
+	unit: string;
+	yearlyPrice?: string;
+	shortDescription: string;
+	ctaLabel: string;
+	ctaHref: string;
+	recommended: boolean;
+	badge?: string;
+}
+
+export const PRICING_PAGE_META: Record<PlanKey, PricingPageMeta> = {
+	free: {
+		id: 'free',
+		name: 'フリー',
+		price: '¥0',
+		unit: '',
+		shortDescription: '基本機能で気軽にスタート。冒険体験は一切制限なし。',
+		ctaLabel: '無料ではじめる',
+		ctaHref: '/auth/signup',
+		recommended: false,
+	},
+	standard: {
+		id: 'standard',
+		name: 'スタンダード',
+		price: '¥500',
+		unit: '/月',
+		yearlyPrice: '年額 ¥5,000（2ヶ月分お得）',
+		shortDescription: 'カスタマイズ自由自在。お子さまにぴったりの環境を。',
+		ctaLabel: '7日間 無料体験',
+		ctaHref: '/auth/signup?plan=standard',
+		recommended: true,
+		badge: 'おすすめ',
+	},
+	family: {
+		id: 'family',
+		name: 'ファミリー',
+		price: '¥780',
+		unit: '/月',
+		yearlyPrice: '年額 ¥7,800（2ヶ月分お得）',
+		shortDescription: '全機能解放。きょうだいの成長をまとめて見守れます。',
+		ctaLabel: '7日間 無料体験',
+		ctaHref: '/auth/signup?plan=family',
+		recommended: false,
+	},
+} as const;
+
+/**
  * 料金ページの機能リストを取得する薄いヘルパー。
  * Svelte の `$derived` 等からも呼びやすいよう値コピーで返さず定数を返す。
  */
 export function getPricingFeatures(plan: PlanKey): readonly string[] {
 	return PRICING_PAGE_FEATURES[plan];
+}
+
+/** 料金ページの 1 プランのメタ情報を取得 */
+export function getPricingMeta(plan: PlanKey): PricingPageMeta {
+	return PRICING_PAGE_META[plan];
+}
+
+/** 料金ページに表示する全プランのメタ情報を表示順で取得（free → standard → family） */
+export function getPricingPagePlans(): readonly PricingPageMeta[] {
+	return [PRICING_PAGE_META.free, PRICING_PAGE_META.standard, PRICING_PAGE_META.family];
 }
 
 /** 管理画面のプランハイライトを取得 */
