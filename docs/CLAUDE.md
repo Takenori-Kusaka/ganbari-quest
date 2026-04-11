@@ -60,6 +60,7 @@
 - [ADR-0022](decisions/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性（アカウント削除時は Stripe を先にキャンセル）
 - [ADR-0023](decisions/0023-pre-pmf-issue-priority-guidelines.md) — Pre-PMF Issue 優先度判断基準（エンジニアバイアス防止）
 - [ADR-0024](decisions/0024-plan-tier-resolution-pattern.md) — プラン解決 (resolvePlanTier) の責務分離パターン
+- [ADR-0025](decisions/0025-license-subscription-causality.md) — License ↔ Stripe Subscription 因果関係
 
 ## 画像アセット
 
