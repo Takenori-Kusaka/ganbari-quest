@@ -40,6 +40,32 @@ jobs:
       - name: Pull latest code
         run: git pull origin main
 
+      # Step 2.5: Inject AWS_LICENSE_SECRET into .env (#806, #911)
+      # production NODE_ENV では assertLicenseKeyConfigured() が起動時に必須化しており、
+      # .env から AWS_LICENSE_SECRET が読めないとコンテナが health check に失敗する。
+      # secret は GitHub repo secrets で1度だけ設定すれば、以降の deploy は自動で反映される。
+      - name: Inject AWS_LICENSE_SECRET into .env
+        env:
+          AWS_LICENSE_SECRET: ${{ secrets.AWS_LICENSE_SECRET }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:AWS_LICENSE_SECRET)) {
+            throw "AWS_LICENSE_SECRET is not configured in GitHub repo secrets. See #911 / ADR-0026."
+          }
+          $envFile = ".env"
+          $newLine = "AWS_LICENSE_SECRET=$env:AWS_LICENSE_SECRET"
+          if (Test-Path $envFile) {
+            $content = Get-Content $envFile
+            if ($content -match "^AWS_LICENSE_SECRET=") {
+              $content = $content -replace "^AWS_LICENSE_SECRET=.*", $newLine
+            } else {
+              $content += $newLine
+            }
+            $content | Set-Content $envFile
+          } else {
+            Set-Content -Path $envFile -Value $newLine
+          }
+          Write-Host "AWS_LICENSE_SECRET injected into .env"
+
       # Step 3: Rebuild and start containers (stop -> build -> up order is critical for WAL safety)
       # Dockerfile regenerates APP_VERSION at build time (#711), so no host-side tsx required.
       # BUILD_TIMESTAMP busts the build-stage cache (#711 / PR #826 review) — without this,

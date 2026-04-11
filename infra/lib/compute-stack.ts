@@ -62,6 +62,12 @@ export class ComputeStack extends cdk.Stack {
 		// --- OPS Dashboard（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const opsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
 
+		// --- License HMAC Secret (#806, #911) ---
+		// production では `assertLicenseKeyConfigured()` が起動時に必須化しており、
+		// 未設定だと Lambda が cold start で例外死する。GitHub Secrets の
+		// `AWS_LICENSE_SECRET` を必ず設定すること（ADR-0026）。
+		const awsLicenseSecret = this.node.tryGetContext('awsLicenseSecret') ?? '';
+
 		// --- Discord Webhook URLs（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const feedbackDiscordWebhookUrl = this.node.tryGetContext('feedbackDiscordWebhookUrl') ?? '';
 		const discordWebhookSignup = this.node.tryGetContext('discordWebhookSignup') ?? '';
@@ -110,6 +116,7 @@ export class ComputeStack extends cdk.Stack {
 					? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident }
 					: {}),
 				...(opsSecretKey ? { OPS_SECRET_KEY: opsSecretKey } : {}),
+				...(awsLicenseSecret ? { AWS_LICENSE_SECRET: awsLicenseSecret } : {}),
 				...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
 				...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
 				...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
