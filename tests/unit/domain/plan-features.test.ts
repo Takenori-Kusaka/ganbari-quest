@@ -134,6 +134,12 @@ describe('plan-features.ts SSOT', () => {
 			expect(familyTexts).toContain('きょうだいランキング');
 			expect(standardTexts).not.toContain('きょうだいランキング');
 		});
+
+		it('standard に plan-gate されていない「月次レポート」は含まない (#792)', () => {
+			const standardTexts = PREMIUM_UNLOCKED_FEATURES.standard.map((f) => f.text);
+			expect(standardTexts).not.toContain('詳細な月次レポート');
+			expect(standardTexts).not.toContain('月次比較レポート');
+		});
 	});
 
 	describe('helper functions', () => {

@@ -34,7 +34,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		'オリジナル活動の作成：3個まで',
 		'レベル・ポイント・シールガチャ',
 		'ログインボーナス・コンボ',
-		'チェックリスト（テンプレート 3個まで）',
+		'チェックリスト（テンプレート 3個/子まで）',
 		'90日間の履歴保持',
 	],
 	standard: [
@@ -104,8 +104,8 @@ export const PREMIUM_UNLOCKED_FEATURES: Record<
 	standard: [
 		{ text: 'オリジナル活動の追加（無制限）', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
-		{ text: 'ごほうびのカスタマイズ', icon: '✅' },
-		{ text: '詳細な月次レポート', icon: '✅' },
+		{ text: 'AI による活動提案', icon: '✅' },
+		{ text: '特別なごほうび設定', icon: '✅' },
 		{ text: '1年間のデータ保持', icon: '✅' },
 	],
 	family: [

@@ -66,7 +66,7 @@
 1. **きょうだいランキング**: SiblingTrendChart に `canSiblingRanking` ガード有り
 2. **ひとことメッセージ（自由テキスト）**: ParentMessage に `canFreeTextMessage` ガード有り（standard は定型スタンプのみ）
 3. **無制限の履歴保持**: `historyRetentionDays: null`（standard は 1 年）
-4. **無制限のクラウドバックアップ**: `maxCloudExports: 10`（standard は 3 個）
+4. **クラウドバックアップ 10 世代保管**: `maxCloudExports: 10`（standard は 3 個）
 5. **メール優先サポート 24 時間以内応答**: サポート SLA（非技術的差別化）
 
 ---
@@ -87,8 +87,10 @@
 - `site/pricing.html` plan card 部分: 手動同期
 - `site/index.html` / `site/pamphlet.html`: 該当箇所があれば手動同期
 
-### 比較表（`site/pricing.html` L240-273）
-本 PR のスコープ外。LP 比較表は `/pricing` の features 欄とは別に運用されているため、棚卸し結果との整合は次スプリントで対応する（要 issue 起票）。
+### LP 同期状況
+- `site/pricing.html` plan card + 比較表: 本 PR で棚卸し結果に同期済み
+- `site/index.html` ファミリーカード: 本 PR で同期済み（月次比較レポート → ひとことメッセージ）
+- `site/pamphlet.html` プランカード: 本 PR で同期済み（旧スペック → 棚卸し結果）
 
 ---
 
