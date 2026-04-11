@@ -108,3 +108,6 @@ export const findLicenseKey: IAuthRepo['findLicenseKey'] = async () => {
 export const updateLicenseKeyStatus: IAuthRepo['updateLicenseKeyStatus'] = async () => {
 	// no-op in local mode
 };
+export const revokeLicenseKey: IAuthRepo['revokeLicenseKey'] = async () => {
+	// no-op in local mode (#797)
+};
