@@ -75,10 +75,20 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
-      - run: npx playwright test
+      # #911 / #806: vite preview は NODE_ENV=production で起動するため、
+      # hooks.server.ts の assertLicenseKeyConfigured() が AWS_LICENSE_SECRET を要求する。
+      # 未設定だと webServer が起動失敗 → "Process from config.webServer was not able to start" で
+      # 全 E2E が落ちる。CI 用の固定ダミー値を注入して assertion を通す（本番値とは別物）。
+      - name: E2E tests (local mode)
+        env:
+          AWS_LICENSE_SECRET: ci-deploy-test-secret-do-not-use-in-production
+        run: npx playwright test
 
       # E2E tests (cognito-dev mode)
-      - run: npx playwright test --config playwright.cognito-dev.config.ts
+      - name: E2E tests (cognito-dev mode)
+        env:
+          AWS_LICENSE_SECRET: ci-deploy-test-secret-do-not-use-in-production
+        run: npx playwright test --config playwright.cognito-dev.config.ts
 
   deploy:
     needs: test
@@ -208,6 +218,7 @@ jobs:
           -c stripePriceFamilyYearly=${{ vars.STRIPE_PRICE_FAMILY_YEARLY }}
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+          -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}
 
