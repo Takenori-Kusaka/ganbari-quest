@@ -65,9 +65,9 @@ describe.each([
 		const pack = getActivityPack(packId);
 		expect(pack).not.toBeNull();
 		if (!pack) return;
-		expect(pack.packName).toBeTruthy();
-		expect(pack.description).toBeTruthy();
-		expect(pack.icon).toBeTruthy();
+		expect(pack.packName).not.toBe('');
+		expect(pack.description).not.toBe('');
+		expect(pack.icon).not.toBe('');
 		expect(typeof pack.targetAgeMin).toBe('number');
 		expect(typeof pack.targetAgeMax).toBe('number');
 		expect(pack.tags.length).toBeGreaterThan(0);
@@ -115,7 +115,7 @@ describe.each([
 		expect(pack).not.toBeNull();
 		if (!pack) return;
 		for (const activity of pack.activities) {
-			expect(activity.name).toBeTruthy();
+			expect(activity.name).not.toBe('');
 		}
 	});
 });

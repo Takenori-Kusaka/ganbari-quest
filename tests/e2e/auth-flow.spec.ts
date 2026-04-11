@@ -14,19 +14,19 @@ import { isAwsEnv } from './helpers';
 test.describe('管理画面・API アクセス', () => {
 	test('管理画面にアクセスできる', async ({ request }) => {
 		const res = await request.get('/admin');
-		expect(res.ok()).toBeTruthy();
+		expect(res.ok()).toBe(true);
 	});
 
 	test('API エンドポイントにアクセスできる', async ({ request }) => {
 		const res = await request.get('/api/v1/activities');
-		expect(res.ok()).toBeTruthy();
+		expect(res.ok()).toBe(true);
 		const body = await res.json();
 		expect(body.activities).toBeDefined();
 	});
 
 	test('ヘルスチェックにアクセスできる', async ({ request }) => {
 		const res = await request.get('/api/health');
-		expect(res.ok()).toBeTruthy();
+		expect(res.ok()).toBe(true);
 		const body = await res.json();
 		expect(body.status).toBe('ok');
 	});

@@ -91,7 +91,7 @@ test.describe('認可チェック', () => {
 
 	test('未ログインで /api/v1/activities は 401 相当のリダイレクト', async ({ request }) => {
 		const res = await request.get('/api/health');
-		expect(res.ok()).toBeTruthy();
+		expect(res.ok()).toBe(true);
 	});
 });
 
@@ -168,7 +168,7 @@ test.describe('公開ルート', () => {
 
 	test('/api/health は認証不要', async ({ request }) => {
 		const res = await request.get('/api/health');
-		expect(res.ok()).toBeTruthy();
+		expect(res.ok()).toBe(true);
 		const body = await res.json();
 		expect(body).toHaveProperty('status', 'ok');
 	});
