@@ -190,6 +190,7 @@ async function openPortal() {
 			childCount={planStats.childCount}
 			childMax={planStats.childMax}
 			retentionDays={planStats.retentionDays}
+			{trialStatus}
 		/>
 	{/if}
 

@@ -1,6 +1,14 @@
 <script lang="ts">
 import Card from '$lib/ui/primitives/Card.svelte';
 
+interface TrialStatusProp {
+	isTrialActive: boolean;
+	trialUsed: boolean;
+	daysRemaining: number;
+	trialEndDate: string | null;
+	trialTier?: 'standard' | 'family' | null;
+}
+
 interface Props {
 	planTier: 'free' | 'standard' | 'family';
 	activityCount?: number;
@@ -8,6 +16,8 @@ interface Props {
 	childCount?: number;
 	childMax?: number | null;
 	retentionDays?: number | null;
+	/** #730: トライアル中は plan が standard/family に解決済みでも trial 文脈を表示する */
+	trialStatus?: TrialStatusProp | null;
 }
 
 let {
@@ -17,6 +27,7 @@ let {
 	childCount = 0,
 	childMax = null,
 	retentionDays = null,
+	trialStatus = null,
 }: Props = $props();
 
 const FREE_LABEL = { name: '無料プラン', icon: '' };
@@ -28,6 +39,19 @@ const planLabels: Record<string, { name: string; icon: string }> = {
 
 const label: { name: string; icon: string } = $derived(planLabels[planTier] ?? FREE_LABEL);
 const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retentionDays}日間`);
+
+// #730: free + トライアル中 のケース
+// resolvePlanTier はトライアル中に planTier を standard/family に昇格させるため、
+// "free かつトライアル中" の判定は license plan が free で isTrialActive を見る必要がある。
+// ただし PlanStatusCard は planTier しか受け取らないため、trialStatus.isTrialActive を
+// シグナルとして扱い、planTier が standard/family でも trialStatus があればトライアル扱い。
+const isOnTrial = $derived(trialStatus?.isTrialActive === true);
+const trialDaysRemaining = $derived(trialStatus?.daysRemaining ?? 0);
+const trialTierLabel = $derived(
+	trialStatus?.trialTier
+		? (planLabels[trialStatus.trialTier]?.name ?? 'スタンダード プラン')
+		: 'スタンダード プラン',
+);
 </script>
 
 <Card class="plan-status-card plan-status-card--{planTier}">
@@ -35,6 +59,11 @@ const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retent
 		<h3 class="plan-status__title">
 			{#if label.icon}<span class="plan-status__icon">{label.icon}</span>{/if}
 			{label.name}
+			{#if isOnTrial}
+				<span class="plan-status__trial-badge" data-testid="plan-status-trial-badge">
+					トライアル中（残り{trialDaysRemaining}日）
+				</span>
+			{/if}
 		</h3>
 
 		<div class="plan-status__stats">
@@ -56,8 +85,25 @@ const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retent
 			</div>
 		</div>
 
-		{#if planTier === 'free'}
-			<a href="/admin/license" class="plan-status__cta plan-status__cta--upgrade">
+		{#if isOnTrial}
+			<!-- #730: トライアル中は plan 解決が standard/family だが、license plan は free のまま。
+			     ユーザーに「今使えている理由」を説明し、本契約導線を明示する。 -->
+			<p class="plan-status__trial-note" data-testid="plan-status-trial-note">
+				{trialTierLabel}の全機能を体験中です。トライアル終了後もこのまま使うには本契約が必要です。
+			</p>
+			<a
+				href="/admin/license"
+				class="plan-status__cta plan-status__cta--upgrade"
+				data-testid="plan-status-trial-cta"
+			>
+				本契約する
+			</a>
+		{:else if planTier === 'free'}
+			<a
+				href="/admin/license"
+				class="plan-status__cta plan-status__cta--upgrade"
+				data-testid="plan-status-free-cta"
+			>
 				⭐ スタンダードにアップグレード
 			</a>
 		{:else if planTier === 'standard'}
@@ -80,7 +126,23 @@ const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retent
 		font-weight: 700;
 		display: flex;
 		align-items: center;
+		flex-wrap: wrap;
 		gap: 0.375rem;
+	}
+	.plan-status__trial-badge {
+		font-size: 0.7rem;
+		font-weight: 600;
+		padding: 2px 8px;
+		border-radius: 999px;
+		background: var(--color-premium-bg);
+		color: var(--color-premium);
+		border: 1px solid var(--color-border-premium);
+	}
+	.plan-status__trial-note {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+		margin: 0;
+		line-height: 1.4;
 	}
 	:global(.plan-status-card--free) .plan-status__title {
 		color: var(--color-text-secondary);
