@@ -52,27 +52,37 @@ function acceptPreview() {
 }
 </script>
 
-<div class="bg-[var(--color-premium-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-border-premium)]">
+<div
+	class="bg-[var(--color-premium-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-border-premium)]"
+	data-testid="ai-suggest-panel"
+	data-plan-locked={!isPremium}
+>
 	<h3 class="font-bold text-[var(--color-premium)]">
 		✨ やりたいことを教えてください
 		{#if !isPremium}
-			<span class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle">有料限定</span>
+			<span
+				class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle"
+				data-testid="ai-suggest-locked-badge"
+			>スタンダード限定</span>
 		{/if}
 	</h3>
 	<p class="text-xs text-[var(--color-premium-light)]">
 		やりたい活動を自由に入力すると、カテゴリ・ポイント・アイコンを自動で提案します
 	</p>
 	{#if !isPremium}
-		<div class="bg-[var(--color-surface-card)] rounded-lg p-3 text-xs space-y-2 border border-[var(--color-border-premium)]">
+		<div
+			class="bg-[var(--color-surface-card)] rounded-lg p-3 text-xs space-y-2 border border-[var(--color-border-premium)]"
+			data-testid="ai-suggest-upgrade-card"
+		>
 			<p class="text-[var(--color-text-primary)]">
-				AI 活動提案はスタンダードプラン以上の機能です。
+				AI 活動提案はスタンダードプラン以上で解放されます。
 			</p>
 			<a
 				href="/admin/license"
 				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold hover:opacity-90 transition-colors"
 				data-testid="ai-suggest-upgrade-cta"
 			>
-				プランを確認する
+				スタンダードで解放する
 			</a>
 		</div>
 	{/if}
