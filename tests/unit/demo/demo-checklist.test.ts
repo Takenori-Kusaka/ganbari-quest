@@ -24,8 +24,12 @@ describe('getDemoTodayChecklistsForChild (#704)', () => {
 			for (const cl of checklists) {
 				// source items are sorted; checked items should maintain order
 				for (let i = 1; i < cl.items.length; i++) {
+					const curr = cl.items[i];
+					const prev = cl.items[i - 1];
 					// items.id should be increasing (sortOrder was applied)
-					expect(cl.items[i].id).toBeGreaterThan(cl.items[i - 1].id);
+					expect(curr).toBeDefined();
+					expect(prev).toBeDefined();
+					expect(curr!.id).toBeGreaterThan(prev!.id);
 				}
 			}
 		}
