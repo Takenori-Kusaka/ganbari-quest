@@ -165,18 +165,83 @@ export async function validateLicenseKey(
 	return { valid: true, record };
 }
 
-/** ライセンスキーを消費 (サインアップ時にテナントに紐付け) */
-export async function consumeLicenseKey(key: string, consumedByTenantId: string): Promise<boolean> {
+/** consumeLicenseKey の結果 */
+export type ConsumeLicenseKeyResult =
+	| { ok: true; plan: LicenseRecord['plan']; planExpiresAt?: string }
+	| { ok: false; reason: string };
+
+/**
+ * ライセンスキーの plan から planExpiresAt を計算する。
+ * - monthly / family-monthly: +30 日
+ * - yearly / family-yearly: +365 日
+ * - lifetime: undefined（期限なし）
+ *
+ * Stripe Checkout 経由の購入は Stripe 側が current_period_end を管理するが、
+ * ライセンスキー消費は Stripe サブスクリプションを伴わない一回限りの付与であり、
+ * アプリ側で期限を決める必要がある。
+ */
+function computePlanExpiresAt(
+	plan: LicenseRecord['plan'],
+	now: Date = new Date(),
+): string | undefined {
+	if (plan === 'lifetime') return undefined;
+	const MS_PER_DAY = 24 * 60 * 60 * 1000;
+	const days = plan === 'monthly' || plan === 'family-monthly' ? 30 : 365;
+	return new Date(now.getTime() + days * MS_PER_DAY).toISOString();
+}
+
+/**
+ * ライセンスキーを消費してテナントに有料プランを付与する (サインアップ時の claim 用)
+ *
+ * #795: 従来の実装は `license_keys.status=consumed` に更新するだけで tenants.plan を
+ * 更新していなかったため、新規ユーザーがキー入力しても有料機能が解放されず、
+ * 完全に装飾的な実装になっていた。
+ *
+ * 本実装では:
+ *   1. キーを見つけて active であることを確認（検証失敗時は {ok:false} を即返す）
+ *   2. tenants.plan / status / planExpiresAt を更新（有料プラン昇格）
+ *   3. license_keys.status=consumed に更新（成功確定後）
+ *
+ * 順序の根拠: 先に license を consumed にすると、tenant 更新失敗時に「キーは消費済みだが
+ * プランは free のまま」という整合性崩壊が起きる。tenant 更新を先に行い、失敗時には
+ * 例外を伝播させて呼び出し元（signup）に失敗を通知する。
+ */
+export async function consumeLicenseKey(
+	key: string,
+	consumedByTenantId: string,
+): Promise<ConsumeLicenseKeyResult> {
 	const normalized = key.toUpperCase().trim();
 	const repos = getRepos();
 
 	const record = await repos.auth.findLicenseKey(normalized);
-	if (!record || record.status !== 'active') return false;
+	if (!record) {
+		return { ok: false, reason: 'ライセンスキーが見つかりません' };
+	}
+	if (record.status === 'consumed') {
+		return { ok: false, reason: 'このライセンスキーは既に使用されています' };
+	}
+	if (record.status === 'revoked') {
+		return { ok: false, reason: 'このライセンスキーは無効化されています' };
+	}
+	if (record.status !== 'active') {
+		return { ok: false, reason: 'ライセンスキーが使用できません' };
+	}
 
+	const planExpiresAt = computePlanExpiresAt(record.plan);
+
+	// 先に tenant の plan を昇格（失敗したら license は consumed にしない）
+	await repos.auth.updateTenantStripe(consumedByTenantId, {
+		plan: record.plan,
+		status: 'active',
+		planExpiresAt,
+		licenseKey: normalized,
+	});
+
+	// 成功したので license を consumed としてマーク
 	await repos.auth.updateLicenseKeyStatus(normalized, 'consumed', consumedByTenantId);
 
 	logger.info(
-		`[LICENSE] Key consumed: ${normalized.slice(0, 7)}... by tenant=${consumedByTenantId} (issued for=${record.tenantId})`,
+		`[LICENSE] Key consumed: ${normalized.slice(0, 7)}... by tenant=${consumedByTenantId} (issued for=${record.tenantId}) plan=${record.plan} expiresAt=${planExpiresAt ?? 'never'}`,
 	);
-	return true;
+	return { ok: true, plan: record.plan, planExpiresAt };
 }
