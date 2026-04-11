@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
+import { building } from '$app/environment';
 import { analytics } from '$lib/analytics';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { applyDebugPlanOverride } from '$lib/server/debug-plan';
@@ -15,7 +16,10 @@ import { isSetupRequired } from '$lib/server/services/setup-service';
 
 // #806: production で AWS_LICENSE_SECRET が未設定だと署名付きキーの偽造が可能になる。
 // モジュールロード時に明示的に失敗させることで、誤デプロイを早期検知する。
-assertLicenseKeyConfigured();
+// `building` は vite build / prerender 中のみ true。ビルド時は env が無くても通す。
+if (!building) {
+	assertLicenseKeyConfigured();
+}
 
 /**
  * Accept ヘッダーを検査し、ブラウザ（HTML）リクエストかどうかを判定する
