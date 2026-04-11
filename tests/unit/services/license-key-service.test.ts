@@ -30,6 +30,7 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 import {
+	assertLicenseKeyConfigured,
 	consumeLicenseKey,
 	createHmacChecksum,
 	generateLicenseKey,
@@ -809,5 +810,142 @@ describe('consumeLicenseKey', () => {
 		);
 		// tenant 更新は既に成功している（順序どおり）
 		expect(mockUpdateTenantStripe).toHaveBeenCalled();
+	});
+});
+
+// ============================================================
+// #806: assertLicenseKeyConfigured / production legacy 拒否
+// ============================================================
+
+describe('assertLicenseKeyConfigured (#806)', () => {
+	const originalNodeEnv = process.env.NODE_ENV;
+	const originalSecret = process.env.AWS_LICENSE_SECRET;
+
+	afterEach(() => {
+		process.env.NODE_ENV = originalNodeEnv;
+		process.env.AWS_LICENSE_SECRET = originalSecret;
+	});
+
+	it('production + secret 未設定で throw する（誤デプロイ検知）', () => {
+		process.env.NODE_ENV = 'production';
+		process.env.AWS_LICENSE_SECRET = '';
+
+		expect(() => assertLicenseKeyConfigured()).toThrow(/AWS_LICENSE_SECRET is required/);
+	});
+
+	it('production + secret 設定済みで throw しない', () => {
+		process.env.NODE_ENV = 'production';
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+
+		expect(() => assertLicenseKeyConfigured()).not.toThrow();
+	});
+
+	it('development + secret 未設定で throw しない（ローカル開発を壊さない）', () => {
+		process.env.NODE_ENV = 'development';
+		process.env.AWS_LICENSE_SECRET = '';
+
+		expect(() => assertLicenseKeyConfigured()).not.toThrow();
+	});
+
+	it('test 環境 + secret 未設定で throw しない', () => {
+		process.env.NODE_ENV = 'test';
+		process.env.AWS_LICENSE_SECRET = '';
+
+		expect(() => assertLicenseKeyConfigured()).not.toThrow();
+	});
+});
+
+describe('validateLicenseKey legacy 形式の production 拒否 (#806)', () => {
+	const originalNodeEnv = process.env.NODE_ENV;
+	const originalAllowLegacy = process.env.ALLOW_LEGACY_LICENSE_KEYS;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	afterEach(() => {
+		process.env.NODE_ENV = originalNodeEnv;
+		if (originalAllowLegacy === undefined) {
+			delete process.env.ALLOW_LEGACY_LICENSE_KEYS;
+		} else {
+			process.env.ALLOW_LEGACY_LICENSE_KEYS = originalAllowLegacy;
+		}
+		process.env.AWS_LICENSE_SECRET = '';
+	});
+
+	it('production では legacy 形式キーを DB 問い合わせなしで拒否する', async () => {
+		process.env.NODE_ENV = 'production';
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+		delete process.env.ALLOW_LEGACY_LICENSE_KEYS;
+
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM');
+
+		expect(result.valid).toBe(false);
+		if (!result.valid) {
+			expect(result.reason).toBe('ライセンスキーが不正です');
+		}
+		expect(mockFindLicenseKey).not.toHaveBeenCalled();
+	});
+
+	it('production + ALLOW_LEGACY_LICENSE_KEYS=true では legacy 形式を受け入れる (移行期)', async () => {
+		process.env.NODE_ENV = 'production';
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+		process.env.ALLOW_LEGACY_LICENSE_KEYS = 'true';
+
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM');
+
+		expect(result.valid).toBe(true);
+		expect(mockFindLicenseKey).toHaveBeenCalledWith('GQ-ABCD-EFGH-JKLM');
+	});
+
+	it('development では legacy 形式を引き続き受け入れる（既存開発フローを壊さない）', async () => {
+		process.env.NODE_ENV = 'development';
+		process.env.AWS_LICENSE_SECRET = '';
+		delete process.env.ALLOW_LEGACY_LICENSE_KEYS;
+
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM');
+
+		expect(result.valid).toBe(true);
+	});
+
+	it('production でも署名付きキーは従来どおり受け入れる', async () => {
+		process.env.NODE_ENV = 'production';
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+		delete process.env.ALLOW_LEGACY_LICENSE_KEYS;
+
+		const payload = 'GQ-ABCD-EFGH-JKLM';
+		const checksum = createHmacChecksum(payload, TEST_SECRET);
+		const signedKey = `${payload}-${checksum}`;
+
+		const record: LicenseRecord = {
+			licenseKey: signedKey,
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await validateLicenseKey(signedKey);
+
+		expect(result.valid).toBe(true);
 	});
 });
