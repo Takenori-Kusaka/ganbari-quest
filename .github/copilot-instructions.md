@@ -173,6 +173,7 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0019**: Dialog management must use FSM scrap-and-rebuild approach
 - **ADR-0020**: Test quality ratchet enforcement — coverage thresholds can only increase, never decrease
 - **ADR-0021**: Deploy verification gate — production confirmation required before closing Issues
+- **ADR-0022**: Billing/data lifecycle consistency — cancel Stripe subscription before DB deletion on account delete
 
 ### Team Structure
 
