@@ -169,6 +169,10 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0015**: Repository pattern for DB abstraction
 - **ADR-0016**: Dialog/overlay state must be centrally managed via queue in `OverlaysSection.svelte` (extends ADR-0002)
 - **ADR-0017**: Test quality must not degrade — coverage threshold decreases and test anti-patterns are `[must]` review findings
+- **ADR-0018**: Issue creation requires root cause analysis and structural solution proposals
+- **ADR-0019**: Dialog management must use FSM scrap-and-rebuild approach
+- **ADR-0020**: Test quality ratchet enforcement — coverage thresholds can only increase, never decrease
+- **ADR-0021**: Deploy verification gate — production confirmation required before closing Issues
 
 ### Team Structure
 
