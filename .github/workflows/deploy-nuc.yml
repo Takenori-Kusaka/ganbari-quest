@@ -41,6 +41,7 @@ jobs:
         run: git pull origin main
 
       # Step 3: Rebuild and start containers (stop -> build -> up order is critical for WAL safety)
+      # Dockerfile regenerates APP_VERSION at build time (#711), so no host-side tsx required.
       - name: Build and start
         run: |
           docker compose build
