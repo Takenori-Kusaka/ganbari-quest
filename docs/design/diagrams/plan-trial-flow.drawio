@@ -42,7 +42,7 @@
         </mxCell>
 
         <!-- Edges -->
-        <mxCell id="e_ns_to_trial" value="?/startTrial action&#xa;(TrialBanner CTA)" style="endArrow=block;html=1;fontSize=10;rounded=0;" edge="1" parent="1" source="s_free_ns" target="s_trial">
+        <mxCell id="e_ns_to_trial" value="/admin/license?/startTrial に POST&#xa;(TrialBanner CTA)" style="endArrow=block;html=1;fontSize=10;rounded=0;" edge="1" parent="1" source="s_free_ns" target="s_trial">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
@@ -74,7 +74,16 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <mxCell id="e_standard_to_free" value="解約&#xa;(#737/#754)" style="endArrow=block;html=1;fontSize=10;rounded=0;dashed=1;strokeColor=#b85450;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="s_standard" target="s_expired">
+        <!-- State: canceled free (解約後は trial expired とは別状態) -->
+        <mxCell id="s_canceled_free" value="解約後 free&#xa;&#xa;license: free (解約)&#xa;trial: used (再開始不可)&#xa;resolveFullPlanTier → free&#xa;&#xa;UI: PlanStatusCard(free)&#xa;TrialBanner 非表示&#xa;(試用済みのため)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="380" width="220" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_standard_to_free" value="解約&#xa;(#737/#754)" style="endArrow=block;html=1;fontSize=10;rounded=0;dashed=1;strokeColor=#b85450;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="s_standard" target="s_canceled_free">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_family_to_free" value="解約&#xa;(#737/#754)" style="endArrow=block;html=1;fontSize=10;rounded=0;dashed=1;strokeColor=#b85450;" edge="1" parent="1" source="s_family" target="s_canceled_free">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
@@ -114,7 +123,7 @@
         </mxCell>
 
         <!-- Step 1: admin load -->
-        <mxCell id="step1" value="admin/+page.server.ts (load)&#xa;&#xa;1. resolvePlanTier → planTier&#xa;2. getTrialStatus → trialStatus&#xa;3. isPaidTier(planTier) → isPaid&#xa;4. if isPaid && premium_welcome_shown !== 'true'&#xa;   → showPremiumWelcome=true" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+        <mxCell id="step1" value="admin/+layout.server.ts (load)&#xa;&#xa;1. resolveFullPlanTier → planTier&#xa;2. getTrialStatus → trialStatus&#xa;3. admin/+page.server.ts は parent() から継承&#xa;4. isPaidTier(planTier) → isPaid&#xa;5. if isPaid && premium_welcome_shown !== 'true'&#xa;   → showPremiumWelcome=true" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
           <mxGeometry x="60" y="100" width="320" height="140" as="geometry" />
         </mxCell>
 
