@@ -40,6 +40,36 @@ jobs:
       - name: Pull latest code
         run: git pull origin main
 
+      # Step 2.5: Ensure production secrets are present in .env (#911, #806)
+      # docker-compose.yml は `.env` を `env_file` で読み込む仕組み。
+      # NODE_ENV=production で起動する以上、hooks.server.ts の
+      # assertLicenseKeyConfigured() が AWS_LICENSE_SECRET を要求する。
+      # 未設定だとコンテナ起動時に throw → /api/health が ECONNREFUSED ループ。
+      #
+      # 運用方針: secret は NUC マシンの
+      # `C:\Docker\ganbari-quest\.env.production` に手動で配置済み
+      # （ADR-0026 / infra/CLAUDE.md 参照）。このステップは存在確認と
+      # `.env.production` → `.env` のマージのみを行う。`.env.production` は
+      # git 管理外・runner マシン常駐で、AWS / GitHub Actions には露出しない。
+      - name: Verify production secrets are present
+        run: |
+          if (-not (Test-Path .env.production)) {
+            Write-Host "::error::.env.production not found at C:\Docker\ganbari-quest\.env.production"
+            Write-Host "::error::Place the production secret file manually on the NUC machine."
+            Write-Host "::error::See docs/decisions/0026-license-key-architecture.md and infra/CLAUDE.md."
+            exit 1
+          }
+          $envContent = Get-Content .env.production -Raw
+          if (-not ($envContent -match 'AWS_LICENSE_SECRET=')) {
+            Write-Host "::error::AWS_LICENSE_SECRET is missing from .env.production"
+            Write-Host "::error::Generate with: node -e ""console.log(require('crypto').randomBytes(32).toString('hex'))"""
+            Write-Host "::error::Then add AWS_LICENSE_SECRET=<hex> to C:\Docker\ganbari-quest\.env.production"
+            exit 1
+          }
+          # docker compose が読む .env を .env.production からコピー
+          Copy-Item .env.production .env -Force
+          Write-Host "Merged .env.production into .env (secrets will be loaded by docker compose)"
+
       # Step 3: Rebuild and start containers (stop -> build -> up order is critical for WAL safety)
       # Dockerfile regenerates APP_VERSION at build time (#711), so no host-side tsx required.
       # BUILD_TIMESTAMP busts the build-stage cache (#711 / PR #826 review) — without this,

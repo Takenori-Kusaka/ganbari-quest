@@ -266,6 +266,48 @@ Stripe で決済 → ライセンスキー発行 → ユーザーが自テナン
 
 対応済 9/12 + 本 ADR でログマスク追加 = **10/12** で Pre-PMF としては十分と判断する。将来 PMF 到達後に #4 #6 #12 を再評価する。
 
+## secret 配布の 4 経路（#911 追記、2026-04-12）
+
+PR #863 で `assertLicenseKeyConfigured()` を導入した後、`.github/workflows/ci.yml` にのみ
+`AWS_LICENSE_SECRET` を追加した結果、`deploy.yml` と `deploy-nuc.yml` が **25 連続失敗** した（#911）。
+原因は「assertion はコードに導入したが、secret の配布先を CI の一部しか追加しなかった」という
+構造的な同期漏れ。再発防止のため、本 ADR に **4 経路の配布マップ** を明文化する。
+
+### 4 経路の対応関係
+
+| # | 配布先 | 入力 | 実装箇所 | 値の種類 |
+|---|-------|------|---------|---------|
+| 1 | CI 通常 E2E (`ci.yml` e2e-test) | 直書きダミー値 | `.github/workflows/ci.yml` → `Run E2E tests` ステップ `env:` | ダミー（`e2e-test-secret-do-not-use-in-production`） |
+| 2 | CI デプロイ前 E2E (`deploy.yml` test job) | 直書きダミー値 | `.github/workflows/deploy.yml` → `E2E tests (local / cognito-dev)` ステップ `env:` | ダミー（`ci-deploy-test-secret-do-not-use-in-production`） |
+| 3 | AWS Lambda 本番 | GitHub Secrets → CDK context → Lambda environment | `.github/workflows/deploy.yml` の CDK deploy `-c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }}` + `infra/lib/compute-stack.ts` の `tryGetContext('awsLicenseSecret')` | **本番値**（64 文字 hex） |
+| 4 | NUC ローカル本番 | NUC マシン常駐 `.env.production` → docker compose `env_file` | `.github/workflows/deploy-nuc.yml` の `Verify production secrets are present` ステップ + `C:\Docker\ganbari-quest\.env.production`（手動配置） | **本番値**（#3 と同一） |
+
+### なぜこの配布方式か
+
+- **#1 / #2 はダミー値で十分**: CI の E2E は vite preview を起動するだけで、実際にライセンスキーを発行・検証する経路を踏まない。`assertLicenseKeyConfigured()` が要求する「何か値があること」だけ満たせばよい。本番値を CI に流さないことでセキュリティ表面を最小化
+- **#3 は SSM 経由ではなく Lambda env 直接注入**: 本来は ADR-0026 §2.1 の通り AWS Secrets Manager 経由が推奨だが、恒久実装は #810 の範疇。移行期の暫定として CDK context → Lambda environment 方式で十分（Lambda env は暗号化されている）
+- **#4 は GitHub Secrets 経由で配らない**: NUC は LAN 内限定で外部からアクセス不可のため、secret を GitHub 経由で配ると攻撃面が増える。NUC マシン上の `.env.production` に人間が手動配置する方が安全
+
+### 本番値の同一性要件（CRITICAL）
+
+**#3 (Lambda) と #4 (NUC) は同じ値を使うこと**。異なる値を使うと、NUC で発行したライセンスキーが
+Lambda 本番で署名検証失敗する（または逆）。家族がスマホ（Lambda 経由）と自宅 PC（NUC 経由）の
+両方から同じライセンスキーを使えるようにするための必須要件。
+
+### 新規 env 追加時の必須チェックリスト
+
+production の assertion を新しい env に追加する PR では、**必ず以下を同一 PR 内で実施**すること。
+一つでも欠けると deploy.yml / deploy-nuc.yml が連続失敗する（#911 の教訓）。
+
+- [ ] `.env.example` に placeholder と生成コマンド例を追記
+- [ ] `.github/workflows/ci.yml` e2e-test の env 追加（ダミー値）
+- [ ] `.github/workflows/deploy.yml` test job の env 追加（ダミー値）
+- [ ] `.github/workflows/deploy.yml` deploy job の CDK deploy に `-c xxxKey=${{ secrets.XXX }}` 追加
+- [ ] `infra/lib/compute-stack.ts` (or 該当スタック) で `tryGetContext` + Lambda `environment` に投入
+- [ ] `.github/workflows/deploy-nuc.yml` で `.env.production` 存在確認ステップに項目追加
+- [ ] `infra/CLAUDE.md` の「production 環境変数チェックリスト」表に追記
+- [ ] PR 本文に "PO action required" セクションを書き、手動配布タスク（GitHub Secrets 作成 / Lambda 用 / NUC `.env.production` 配置）を列挙
+
 ## 教訓
 
 - **ADR を先に書いてから実装する** — 現行実装（`license-key-service.ts`）は #247 / #319 の積み重ねで決まったが、根拠が文書化されていなかったため #806 / #807 のような後追い指摘が発生した
@@ -273,3 +315,4 @@ Stripe で決済 → ライセンスキー発行 → ユーザーが自テナン
 - **Pre-PMF 段階では UX > セキュリティ強度** — 複雑な署名方式は個人運営では運用破綻する。HMAC + シンプルな秘密鍵管理が現実的
 - **有効期限のないリソースは運用負債になる** — 初期実装で無期限キーを発行した結果、未使用キーが DynamoDB に蓄積し、棚卸し運用が生まれた
 - **認証情報のログ出力は「暗黙の規則」では守られない** — ログマスク方式は ADR に明文化し、コードレビューと grep で機械的に検証する仕組みが必要（#869）
+- **「assertion の導入」と「secret の配布」は同一 PR で完結させる** — コードに起動時チェックを追加したのに配布先の secret を全環境に届けないと、本番が一斉停止する（#911）。secret を必要とする assertion を追加する PR では、上記 4 経路すべてを同一 PR 内で更新すること
