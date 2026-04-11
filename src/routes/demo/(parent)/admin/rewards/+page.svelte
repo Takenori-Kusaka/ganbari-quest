@@ -27,7 +27,9 @@ let selectedTemplate = $state<string | null>(null);
 
 	<!-- Page Description -->
 	<div class="page-description">
-		<p class="page-description__title">🎁 とくべつなごほうび</p>
+		<p class="page-description__title">🎁 とくべつなごほうび
+			<span class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle">有料限定</span>
+		</p>
 		<p class="page-description__text">
 			がんばったこどもへの特別なごほうびを設定・付与します。
 			日常の活動ポイントとは別に、お手伝いや特別な成果に対してボーナスポイントを贈れます。
@@ -39,17 +41,29 @@ let selectedTemplate = $state<string | null>(null);
 		</p>
 	</div>
 
+	<!-- #728/#793: 無料プラン向けアップグレード誘導（デモ） -->
+	<div class="bg-[var(--color-premium-bg)] rounded-xl p-4 space-y-3 border border-[var(--color-border-premium)]" data-testid="demo-rewards-upgrade-banner">
+		<div class="flex items-start gap-3">
+			<span class="text-2xl">✨</span>
+			<div class="flex-1">
+				<p class="font-bold text-[var(--color-premium)]">特別なごほうび設定はスタンダードプラン以上の機能です</p>
+				<p class="text-xs text-[var(--color-premium-light)] mt-1">
+					無料プランではプリセット閲覧のみ可能です。スタンダードプラン以上にアップグレードすると、カスタムのボーナスごほうびを作成・付与できます。
+				</p>
+			</div>
+		</div>
+	</div>
+
 	<!-- Step 1: Select child -->
 	<section>
 		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">1. こどもを選択</h3>
 		<div class="flex gap-2 flex-wrap">
 			{#each data.children as child}
 				<Button
-					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+					variant="ghost"
 					size="sm"
-					class={selectedChildId === child.id
-						? ''
-						: 'bg-white text-[var(--color-text-secondary)] shadow-sm hover:shadow-md'}
+					disabled
+					class="bg-white text-[var(--color-text-secondary)] shadow-sm"
 					onclick={() => (selectedChildId = child.id)}
 				>
 					👤 {child.nickname}
@@ -66,7 +80,8 @@ let selectedTemplate = $state<string | null>(null);
 				<Button
 					variant="ghost"
 					size="sm"
-					class="bg-white rounded-xl p-3 shadow-sm hover:shadow-md
+					disabled
+					class="bg-white rounded-xl p-3 shadow-sm
 						{selectedTemplate === tmpl.title ? 'ring-2 ring-[var(--color-border-focus)]' : ''}"
 					onclick={() => (selectedTemplate = tmpl.title)}
 				>
