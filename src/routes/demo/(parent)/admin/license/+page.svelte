@@ -4,7 +4,6 @@
 // クリック不可または「デモでは使えません」表示でモック化する。
 
 import { onMount } from 'svelte';
-import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -12,13 +11,13 @@ import Card from '$lib/ui/primitives/Card.svelte';
 let { data } = $props();
 
 const license = $derived(data.license);
-const planTier = $derived(data.planTier ?? 'free');
 const planStats = $derived(data.planStats);
 
 let selectedTier = $state<'standard' | 'family'>('standard');
 let billingInterval = $state<'monthly' | 'yearly'>('monthly');
 let showDemoToast = $state(false);
 let hydrated = $state(false);
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 // E2E hydration マーカー (data-hydrated 属性でハンドラ attach 完了を検知可能にする)
 onMount(() => {
@@ -26,8 +25,9 @@ onMount(() => {
 });
 
 function notifyDemoOnly() {
+	clearTimeout(toastTimer);
 	showDemoToast = true;
-	setTimeout(() => {
+	toastTimer = setTimeout(() => {
 		showDemoToast = false;
 	}, 3000);
 }
@@ -79,16 +79,33 @@ function notifyDemoOnly() {
 		{/snippet}
 	</Card>
 
-	<!-- プラン利用状況 -->
+	<!-- プラン利用状況（デモ版: PlanStatusCard は CTA が /admin/license にハードコードされているため���わない） -->
 	{#if planStats}
-		<PlanStatusCard
-			{planTier}
-			activityCount={planStats.activityCount}
-			activityMax={planStats.activityMax}
-			childCount={planStats.childCount}
-			childMax={planStats.childMax}
-			retentionDays={planStats.retentionDays}
-		/>
+		<Card variant="default" padding="lg">
+			{#snippet children()}
+				<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">プラン利用状況</h3>
+				<div class="grid grid-cols-3 gap-4">
+					<div class="flex flex-col gap-0.5">
+						<span class="text-xs text-[var(--color-text-tertiary)]">カスタム活動</span>
+						<span class="text-sm font-semibold text-[var(--color-text-primary)]">
+							{planStats.activityCount} / {planStats.activityMax === null ? '無制限' : planStats.activityMax}
+						</span>
+					</div>
+					<div class="flex flex-col gap-0.5">
+						<span class="text-xs text-[var(--color-text-tertiary)]">こども</span>
+						<span class="text-sm font-semibold text-[var(--color-text-primary)]">
+							{planStats.childCount} / {planStats.childMax === null ? '無制限' : planStats.childMax}
+						</span>
+					</div>
+					<div class="flex flex-col gap-0.5">
+						<span class="text-xs text-[var(--color-text-tertiary)]">データ保持</span>
+						<span class="text-sm font-semibold text-[var(--color-text-primary)]">
+							{planStats.retentionDays === null ? '無制限' : `${planStats.retentionDays}日間`}
+						</span>
+					</div>
+				</div>
+			{/snippet}
+		</Card>
 	{/if}
 
 	<!-- 無料トライアル（デモ版） -->
