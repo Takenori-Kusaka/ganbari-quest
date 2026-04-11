@@ -33,6 +33,7 @@ vi.mock('$lib/server/auth/factory', () => ({
 		if (!locals.context?.tenantId) throw new Error('Unauthorized');
 		return locals.context.tenantId;
 	},
+	getAuthMode: vi.fn(() => 'cognito'),
 }));
 
 vi.mock('$lib/server/services/child-service', () => ({
