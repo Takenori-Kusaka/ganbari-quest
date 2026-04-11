@@ -17,7 +17,12 @@ import {
 	VALID_TIME_SLOTS,
 } from '$lib/server/services/checklist-service';
 import { getAllChildren } from '$lib/server/services/child-service';
-import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
+import {
+	checkChecklistTemplateLimit,
+	getPlanLimits,
+	isPaidTier,
+	resolveFullPlanTier,
+} from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -42,15 +47,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
-	const isPremium = isPaidTier(
-		await resolveFullPlanTier(
-			tenantId,
-			locals.context?.licenseStatus ?? 'none',
-			locals.context?.plan,
-		),
+	const tier = await resolveFullPlanTier(
+		tenantId,
+		locals.context?.licenseStatus ?? 'none',
+		locals.context?.plan,
 	);
+	const isPremium = isPaidTier(tier);
+	// #723: UI 側で「残り何個作れるか」を表示するための上限情報
+	const checklistTemplateMax = getPlanLimits(tier).maxChecklistTemplates;
 
-	return { children: childrenWithChecklists, today: todayDateJST(), isPremium };
+	return {
+		children: childrenWithChecklists,
+		today: todayDateJST(),
+		isPremium,
+		checklistTemplateMax,
+	};
 };
 
 export const actions: Actions = {
@@ -67,6 +78,19 @@ export const actions: Actions = {
 		const timeSlot = String(formData.get('timeSlot') ?? 'anytime').trim();
 		if (!(VALID_TIME_SLOTS as readonly string[]).includes(timeSlot))
 			return fail(400, { error: '時間帯が不正です' });
+
+		// #723: Free プランの上限チェック（UI ゲートをバイパスした直接 POST を防ぐ）
+		const limit = await checkChecklistTemplateLimit(
+			tenantId,
+			locals.context?.licenseStatus ?? 'none',
+			childId,
+		);
+		if (!limit.allowed) {
+			return fail(403, {
+				error: `フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+				upgradeRequired: true,
+			});
+		}
 
 		await createTemplate({ childId, name, icon, timeSlot }, tenantId);
 		return { success: true };
