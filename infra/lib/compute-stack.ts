@@ -69,8 +69,10 @@ export class ComputeStack extends cdk.Stack {
 		// 恒久的には AWS Secrets Manager 経由の読み込み (#810) に移行予定。
 		const awsLicenseSecret = this.node.tryGetContext('awsLicenseSecret') ?? '';
 		if (!awsLicenseSecret) {
-			// CDK synth は通すが、deploy 時に明示的に失敗させる（誤デプロイ早期検知）
-			cdk.Annotations.of(this).addWarning(
+			// 必須 Secret が未設定のまま誤デプロイされると、Lambda cold start 時に
+			// assertLicenseKeyConfigured() が throw して本番障害になるため、
+			// CDK 側で明示的に失敗させる（addError は deploy を阻止する）。
+			cdk.Annotations.of(this).addError(
 				'[ComputeStack] awsLicenseSecret context is empty. ' +
 					'Pass -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }} in the deploy workflow. ' +
 					'See docs/decisions/0026-license-key-architecture.md and infra/CLAUDE.md.',
