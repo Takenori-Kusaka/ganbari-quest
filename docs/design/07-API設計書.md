@@ -1525,28 +1525,31 @@ export interface PlanLimitError {
 #### プラン制限が適用される主要エンドポイント
 
 現時点でプラン制限（`PLAN_LIMIT_EXCEEDED` 403 を返し得る）が実装済みのエンドポイントを整理する。
-既存実装の body 形式は段階的に `PlanLimitError` 形式へ移行する（別 issue で追跡）。
+#787 で全 form action が `createPlanLimitError()` 形式に統一済み。
 
-| エンドポイント / フォームアクション | 必要プラン | 根拠 |
-|----------|---------|------|
-| `POST /api/v1/activities/suggest` | standard | AI 活動提案 (`isPaidTier`) |
-| `GET /api/v1/export` | standard | `canExport` フラグ |
-| `POST /api/v1/export/cloud` | standard | `canExport` + `maxCloudExports` |
-| `POST /api/v1/children` | 上限付き | `free` は `maxChildren=2` まで |
-| `POST /api/v1/activities` (custom) | 上限付き | `free` は `maxActivities=3` まで |
-| `POST /admin/checklists/+page.server.ts ?/createTemplate` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#723) |
-| `POST /admin/rewards ?/create` | standard | 特別なごほうび (`canCustomReward`, #728) |
-| `POST /admin/rewards ?/importPresets` | standard | 特別なごほうび取り込み (#728) |
-| `POST /admin/messages ?/send` (text モード) | family | 自由テキストメッセージ (`canFreeTextMessage`, #772) |
-| `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | family | きょうだいランキング (`canSiblingRanking`, #782) |
+| エンドポイント / フォームアクション | 必要プラン | 根拠 | 実装状況 |
+|----------|---------|------|---------|
+| `POST /api/v1/activities/suggest` | standard | AI 活動提案 (`isPaidTier`) | `planLimitError()` 済 |
+| `GET /api/v1/export` | standard | `canExport` フラグ | `planLimitError()` 済 |
+| `POST /api/v1/export/cloud` | standard | `canExport` + `maxCloudExports` | `planLimitError()` 済 |
+| `POST /admin/children ?/addChild` | 上限付き | `free` は `maxChildren=2` まで | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/activities ?/create` | 上限付き | `free` は `maxActivities=3` まで | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/checklists ?/createTemplate` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#723) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/rewards ?/grant` | standard | 特別なごほうび (`canCustomReward`, #728) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/rewards ?/addPreset` | standard | 特別なごほうび取り込み (#728) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/messages ?/send` (text モード) | family | 自由テキストメッセージ (`canFreeTextMessage`, #772) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | family | きょうだいランキング (`canSiblingRanking`, #782) | `createPlanLimitError()` 済 (#787) |
 
 **注意**: 上記以外のエンドポイント（GET 系・基本的な CRUD 等）は**全プラン利用可**。
 新規にプラン制限を追加する際は、本表へ追記し `PlanLimitError` 形式で 403 を返すこと。
 
+クライアント側では `getErrorMessage(form?.error)` ヘルパー（`src/lib/domain/errors.ts`）を使うと
+`string | PlanLimitError | null` を一貫して表示用文字列へ正規化できる。
+
 #### 移行計画
 
-1. **Phase 1**（本 PR #744）: 仕様定義・型定義・ヘルパー追加。既存実装は変更しない。
-2. **Phase 2** (#787): 全プラン制限箇所を `planLimitError()` / `createPlanLimitError()` に統一。
+1. **Phase 1**（#744, 完了）: 仕様定義・型定義・ヘルパー追加。既存実装は変更しない。
+2. **Phase 2** (#787, 完了): 全プラン制限箇所を `planLimitError()` / `createPlanLimitError()` に統一。`getErrorMessage()` ヘルパー追加によりクライアント側の表示を共通化。
 3. **Phase 3**: フロント共通エラーハンドラで `isPlanLimitError` を使ったアップセルトーストを実装。
 
 ---
@@ -1626,3 +1629,4 @@ export interface PlanLimitError {
 | 2026-04-10 | 2.7 | #605 バトルアドベンチャーAPI追加: GET/POST /api/v1/battle/[childId]（日次バトル取得・実行） |
 | 2026-04-09 | 2.8 | #609 設計書同期: アカウント削除(2)・閲覧専用トークン(3)エンドポイントを一覧追加。未記載だった9カテゴリのエンドポイント詳細仕様（3.17-3.25）を追記 |
 | 2026-04-12 | 2.9 | #744 プラン制限エラー仕様 (§4.2) 追加。`PLAN_LIMIT_EXCEEDED` の body フォーマット (`currentTier` / `requiredTier` / `upgradeUrl`) を正仕様化。型定義を `src/lib/domain/errors.ts` として新設し client/server で共有。既存実装の移行は #787 で追跡 |
+| 2026-04-11 | 2.10 | #787 プラン制限エラー形式統一。全 form action (`/admin/children`, `/admin/activities`, `/admin/checklists`, `/admin/rewards`, `/admin/messages`, `/admin/settings`) が `createPlanLimitError()` 形式の `PlanLimitError` body を返すように統一。クライアント側表示を共通化する `getErrorMessage()` ヘルパーを `src/lib/domain/errors.ts` に追加 |
