@@ -21,3 +21,58 @@
 - DB スキーマ変更時は `tests/e2e/global-setup.ts` のテストデータ投入も更新すること
 - 全 5 年齢モード（baby/kinder/lower/upper/teen）のテストデータが必要
 - 活動記録の完全フロー（確認→記録→コンボ→スタンプ→レベルアップ→ホーム復帰）を検証すること
+
+## プラン別 seed fixture（#759）
+
+プランティア（free / standard / family）やトライアル状態を持ったテストを書く場合、
+`tests/helpers/plan-fixtures.ts` のヘルパを使う。ローカル SQLite には `licenses`
+テーブルが存在しないため、プラン状態は `AuthContext` + `trial_history` テーブルの
+組み合わせで表現する（詳しい経緯はファイル冒頭の設計メモを参照）。
+
+### unit テスト（vitest）での使い方
+
+```ts
+import { createTestDb, closeDb } from '../helpers/test-db';
+import {
+  makeFreeContext,
+  makeStandardContext,
+  makeFamilyContext,
+  seedTrialActive,
+  seedTrialExpired,
+  seedTrialActiveContext,
+} from '../helpers/plan-fixtures';
+
+const { sqlite, db } = createTestDb();
+
+// 1. 純粋な AuthContext を組み立てる（DB I/O なし）
+const freeCtx     = makeFreeContext({ tenantId: 't-1' });
+const standardCtx = makeStandardContext({ tenantId: 't-2' });
+const familyCtx   = makeFamilyContext({ tenantId: 't-3', role: 'parent', childId: 10 });
+
+// 2. トライアル中のテナントを用意（licenseStatus=none のまま、trial_history で解決）
+const { context, trial } = seedTrialActiveContext(sqlite, {
+  tenantId: 't-trial',
+  tier: 'family',
+  daysOffset: 5,
+});
+// → resolveFullPlanTier('t-trial', 'none') が 'family' を返す
+
+// 3. トライアル終了済み（再開始不可）
+seedTrialExpired(sqlite, { tenantId: 't-used' });
+
+closeDb(sqlite);
+```
+
+### E2E テスト（Playwright）での使い方
+
+E2E のローカル認証モードは常に `plan=family` を返すため、本 seeder を呼んでも
+プラン切替にはならない。E2E からプラン状態を切り替えたいときは
+**`DEBUG_PLAN` / `DEBUG_TRIAL` 環境変数（#758）**を使うこと。
+
+```bash
+# 例: free プランで任意の E2E テストを実行
+DEBUG_PLAN=free npx playwright test tests/e2e/some-spec.ts
+DEBUG_PLAN=standard DEBUG_TRIAL=active DEBUG_TRIAL_TIER=family npx playwright test ...
+```
+
+詳細: `src/lib/server/debug-plan.ts` / `.env.example`
