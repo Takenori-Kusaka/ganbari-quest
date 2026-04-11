@@ -61,7 +61,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 // 注: 本 SSOT は #792 の棚卸しで plan-gate 実装と一致させている。
 // - `plan-features-audit.md` に棚卸し表を記載済み
 // - 月次比較レポート / 5つのチカラの成長グラフは plan-gate されていないため掲載から除外
-// - `canCustomAvatar` は #866 で別途議論中のデッドコンフィグのため掲載しない
+// - アバターアップロードは全プランで利用可能（#866: canCustomAvatar デッドコンフィグを削除）
 // - 週次メールレポートは cron が未稼働のため掲載保留（実稼働後に復活）
 // - ひとことメッセージ（自由テキスト）は #772、きょうだいランキングは #782 で family 専用化済み
 
