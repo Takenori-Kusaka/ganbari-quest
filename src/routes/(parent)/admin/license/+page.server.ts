@@ -5,6 +5,7 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { requireRole } from '$lib/server/auth/guards';
 import { logger } from '$lib/server/logger';
 import { getActivities } from '$lib/server/services/activity-service';
+import { isPinConfigured } from '$lib/server/services/auth-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { consumeLicenseKey, validateLicenseKey } from '$lib/server/services/license-key-service';
 import { getLicenseInfo } from '$lib/server/services/license-service';
@@ -16,11 +17,12 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
-	const [license, loyaltyInfo, children, trialStatus] = await Promise.all([
+	const [license, loyaltyInfo, children, trialStatus, pinConfigured] = await Promise.all([
 		getLicenseInfo(tenantId),
 		getLoyaltyInfo(tenantId).catch(() => null),
 		getAllChildren(tenantId),
 		getTrialStatus(tenantId),
+		isPinConfigured(tenantId),
 	]);
 
 	// プラン利用状況 (#732: resolveFullPlanTier に統一)
@@ -62,6 +64,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		planTier: tier,
 		planStats,
 		downgradeRetentionDays,
+		pinConfigured,
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,
 			trialUsed: trialStatus.trialUsed,
