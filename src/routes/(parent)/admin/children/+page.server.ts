@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { createPlanLimitError } from '$lib/domain/errors';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -170,8 +171,14 @@ export const actions: Actions = {
 		const licenseStatus = locals.context?.licenseStatus ?? 'none';
 		const childLimitCheck = await checkChildLimit(tenantId, licenseStatus);
 		if (!childLimitCheck.allowed) {
+			// #787: PlanLimitError 形式に統一。tier は memoize 済み (#788) なので 2 回目の呼び出しは安い
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 			return fail(403, {
-				error: `子供は最大${childLimitCheck.max}人まで登録できます。プランをアップグレードしてください。`,
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`子供は最大${childLimitCheck.max}人まで登録できます。プランをアップグレードしてください。`,
+				),
 			});
 		}
 

@@ -47,14 +47,29 @@ const mod = await import('../../../src/routes/(parent)/admin/rewards/+page.serve
 const load = mod.load as unknown as (event: {
 	locals: App.Locals;
 }) => Promise<{ isPremium: boolean; planTier: string; children: unknown[]; templates: unknown[] }>;
+type PlanLimitErrorShape = {
+	code: 'PLAN_LIMIT_EXCEEDED';
+	message: string;
+	currentTier: 'free' | 'standard' | 'family';
+	requiredTier: 'standard' | 'family';
+	upgradeUrl: '/admin/license';
+};
 const grantAction = mod.actions.grant as unknown as (event: {
 	request: Request;
 	locals: App.Locals;
-}) => Promise<{ status?: number; data?: { error: string; code?: string }; granted?: boolean }>;
+}) => Promise<{
+	status?: number;
+	data?: { error: PlanLimitErrorShape | string };
+	granted?: boolean;
+}>;
 const addPresetAction = mod.actions.addPreset as unknown as (event: {
 	request: Request;
 	locals: App.Locals;
-}) => Promise<{ status?: number; data?: { error: string; code?: string }; presetAdded?: boolean }>;
+}) => Promise<{
+	status?: number;
+	data?: { error: PlanLimitErrorShape | string };
+	presetAdded?: boolean;
+}>;
 
 function makeLocals(opts: { licenseStatus?: string; plan?: string; tenantId?: string } = {}) {
 	return {
@@ -111,7 +126,7 @@ describe('/admin/rewards page.server', () => {
 	});
 
 	describe('grant action', () => {
-		it('無料プランでは 403 を返し grantSpecialReward を呼ばない', async () => {
+		it('無料プランでは 403 を返し grantSpecialReward を呼ばない（PlanLimitError 形式 #787）', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
 			const result = await grantAction({
 				request: makeFormRequest({ childId: 1, title: 'ごほうび', points: 100, icon: '🎁' }),
@@ -119,7 +134,13 @@ describe('/admin/rewards page.server', () => {
 			});
 
 			expect(result.status).toBe(403);
-			expect(result.data?.code).toBe('PLAN_LIMIT_EXCEEDED');
+			const err = result.data?.error as PlanLimitErrorShape;
+			expect(err).toMatchObject({
+				code: 'PLAN_LIMIT_EXCEEDED',
+				currentTier: 'free',
+				requiredTier: 'standard',
+				upgradeUrl: '/admin/license',
+			});
 			expect(mockGrantSpecialReward).not.toHaveBeenCalled();
 		});
 
@@ -151,7 +172,7 @@ describe('/admin/rewards page.server', () => {
 	});
 
 	describe('addPreset action', () => {
-		it('無料プランでは 403 を返し saveRewardTemplates を呼ばない', async () => {
+		it('無料プランでは 403 を返し saveRewardTemplates を呼ばない（PlanLimitError 形式 #787）', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
 
 			const result = await addPresetAction({
@@ -165,7 +186,12 @@ describe('/admin/rewards page.server', () => {
 			});
 
 			expect(result.status).toBe(403);
-			expect(result.data?.code).toBe('PLAN_LIMIT_EXCEEDED');
+			const err = result.data?.error as PlanLimitErrorShape;
+			expect(err).toMatchObject({
+				code: 'PLAN_LIMIT_EXCEEDED',
+				currentTier: 'free',
+				requiredTier: 'standard',
+			});
 			expect(mockSaveRewardTemplates).not.toHaveBeenCalled();
 		});
 
