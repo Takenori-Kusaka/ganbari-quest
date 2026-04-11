@@ -6,9 +6,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
 	testDir: 'tests/e2e',
-	// #776: plan-gated-features spec も cognito-dev モードでのみ実行可能
-	// （local モードでは resolvePlanTier が常に 'family' を返すため）
-	testMatch: /(cognito-auth|plan-gated-features)\.spec\.ts$/,
+	// #776, #779: plan-gated-features / plan-standard / plan-family spec も
+	// cognito-dev モードでのみ実行可能（local モードでは resolvePlanTier が常に
+	// 'family' を返すため）
+	testMatch: /(cognito-auth|plan-gated-features|plan-standard|plan-family)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
