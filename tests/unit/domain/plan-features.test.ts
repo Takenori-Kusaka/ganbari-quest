@@ -21,12 +21,16 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.free).toHaveLength(7);
 		});
 
-		it('standard プランは 11 項目', () => {
-			expect(PRICING_PAGE_FEATURES.standard).toHaveLength(11);
+		it('standard プランは 9 項目（#792 棚卸し後）', () => {
+			// #792: 月次比較 / 5つのチカラの成長グラフ / 週次メールレポート を削除し
+			// 特別なごほうび設定 / クラウドバックアップの訴求を明確化した結果 9 項目
+			expect(PRICING_PAGE_FEATURES.standard).toHaveLength(9);
 		});
 
-		it('family プランは 7 項目', () => {
-			expect(PRICING_PAGE_FEATURES.family).toHaveLength(7);
+		it('family プランは 6 項目（#792 棚卸し後）', () => {
+			// #792: 「AI による活動提案」を削除（standard 全機能に内包されるため重複）
+			// クラウドバックアップ 10 世代保管を追加
+			expect(PRICING_PAGE_FEATURES.family).toHaveLength(6);
 		});
 
 		it('free には「90日間の履歴保持」が含まれる', () => {
@@ -53,9 +57,33 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.free).not.toContain('ひとことメッセージ（自由テキスト）');
 		});
 
-		it('free プランにはトライアル対象の機能（AI提案・カスタム報酬）が含まれない', () => {
+		it('free プランにはトライアル対象の機能（AI提案・特別なごほうび）が含まれない', () => {
 			expect(PRICING_PAGE_FEATURES.free).not.toContain('AI による活動提案');
-			expect(PRICING_PAGE_FEATURES.free).not.toContain('カスタム報酬設定');
+			expect(PRICING_PAGE_FEATURES.free).not.toContain('特別なごほうび設定（即時付与）');
+		});
+
+		it('standard に AI 提案と特別なごほうび設定が含まれる (#792)', () => {
+			expect(PRICING_PAGE_FEATURES.standard).toContain('AI による活動提案');
+			expect(PRICING_PAGE_FEATURES.standard).toContain('特別なごほうび設定（即時付与）');
+		});
+
+		it('family に AI による活動提案は直接掲載しない (#792 重複排除)', () => {
+			// family は「スタンダードの全機能」を含むため、AI を別途掲載しない
+			expect(PRICING_PAGE_FEATURES.family).not.toContain('AI による活動提案');
+			expect(PRICING_PAGE_FEATURES.family).toContain('スタンダードの全機能');
+		});
+
+		it('family に月次比較レポート / 週次メールレポートは掲載しない (#792 棚卸し)', () => {
+			// 月次比較: plan-gate されていないため除外
+			// 週次メールレポート: cron 未稼働のため除外
+			expect(PRICING_PAGE_FEATURES.family).not.toContain('月次比較レポート');
+			expect(PRICING_PAGE_FEATURES.standard).not.toContain('週次メールレポート');
+		});
+
+		it('standard に canCustomAvatar 関連（アバター変更）は掲載しない (#866 デッドコンフィグ)', () => {
+			// #866: canCustomAvatar は PLAN_LIMITS に存在するが参照ゼロ
+			expect(PRICING_PAGE_FEATURES.standard).not.toContain('アバター変更');
+			expect(PRICING_PAGE_FEATURES.standard).not.toContain('アバター画像の変更');
 		});
 	});
 
