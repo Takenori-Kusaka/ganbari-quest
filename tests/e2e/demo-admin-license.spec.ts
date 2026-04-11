@@ -49,4 +49,15 @@ test.describe('#790 /demo/admin/license', () => {
 		await page.goto('/demo/admin/license', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByTestId('demo-license-key-input')).toBeDisabled();
 	});
+
+	test('#799 ライセンスキーのヘルプ（一回限り使用の注意文言）が表示される', async ({ page }) => {
+		test.slow();
+		await page.goto('/demo/admin/license', { waitUntil: 'domcontentloaded' });
+		const help = page.getByTestId('demo-license-help');
+		await expect(help).toBeVisible();
+		await expect(help).toContainText('一回限り');
+		await expect(help).toContainText('プラン自動付与');
+		await expect(help).toContainText('紐付け先');
+		await expect(help).toContainText('取り消し不可');
+	});
 });
