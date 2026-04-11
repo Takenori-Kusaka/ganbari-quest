@@ -35,6 +35,7 @@ vi.mock('$lib/server/services/trial-service', () => ({
 }));
 
 import {
+	applyRetentionFilter,
 	checkActivityLimit,
 	checkChecklistTemplateLimit,
 	checkChildLimit,
@@ -305,6 +306,94 @@ describe('plan-limit-service', () => {
 		it('cutoff date format is YYYY-MM-DD', () => {
 			const cutoff = getHistoryCutoffDate('free');
 			expect(cutoff).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		});
+	});
+
+	// #756: プラン別保持期間フィルタの挙動検証
+	describe('applyRetentionFilter', () => {
+		// helper: N 日前の YYYY-MM-DD
+		const daysAgo = (n: number) => {
+			const d = new Date();
+			d.setDate(d.getDate() - n);
+			return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+		};
+
+		describe('free プラン (90 日保持)', () => {
+			it('from 未指定 → 90 日前の cutoff を設定する', () => {
+				const result = applyRetentionFilter('free');
+				expect(result.from).toBe(daysAgo(90));
+				expect(result.to).toBeUndefined();
+			});
+
+			it('from が 90 日より古い → cutoff に切り上げる（90 日以前のログは表示されない）', () => {
+				const result = applyRetentionFilter('free', { from: daysAgo(365) });
+				expect(result.from).toBe(daysAgo(90));
+			});
+
+			it('from が 90 日以内 → そのまま保持する', () => {
+				const recent = daysAgo(30);
+				const result = applyRetentionFilter('free', { from: recent });
+				expect(result.from).toBe(recent);
+			});
+
+			it('to は常にそのまま保持する', () => {
+				const to = daysAgo(0);
+				const result = applyRetentionFilter('free', { from: daysAgo(365), to });
+				expect(result.to).toBe(to);
+				expect(result.from).toBe(daysAgo(90));
+			});
+		});
+
+		describe('standard プラン (365 日保持)', () => {
+			it('from 未指定 → 365 日前の cutoff を設定する', () => {
+				const result = applyRetentionFilter('standard');
+				expect(result.from).toBe(daysAgo(365));
+			});
+
+			it('from が 365 日より古い → cutoff に切り上げる（365 日以前は表示されない）', () => {
+				const result = applyRetentionFilter('standard', { from: daysAgo(500) });
+				expect(result.from).toBe(daysAgo(365));
+			});
+
+			it('from が 90 日前 → そのまま保持する（free では cutoff 切り上げだが standard は 90 日以前も見える）', () => {
+				const ninetyDaysAgo = daysAgo(90);
+				const result = applyRetentionFilter('standard', { from: ninetyDaysAgo });
+				expect(result.from).toBe(ninetyDaysAgo);
+			});
+
+			it('from が 200 日前 → そのまま保持する（cutoff より新しいため）', () => {
+				const twoHundredDaysAgo = daysAgo(200);
+				const result = applyRetentionFilter('standard', { from: twoHundredDaysAgo });
+				expect(result.from).toBe(twoHundredDaysAgo);
+			});
+		});
+
+		describe('family プラン (無期限)', () => {
+			it('from 未指定 → options をそのまま返す (cutoff を設定しない)', () => {
+				const result = applyRetentionFilter('family');
+				expect(result.from).toBeUndefined();
+				expect(result.to).toBeUndefined();
+			});
+
+			it('from が非常に古くても切り上げない（全期間のログが表示される）', () => {
+				const veryOld = daysAgo(10000);
+				const result = applyRetentionFilter('family', { from: veryOld });
+				expect(result.from).toBe(veryOld);
+			});
+
+			it('to を含む options をそのまま返す', () => {
+				const from = daysAgo(1000);
+				const to = daysAgo(0);
+				const result = applyRetentionFilter('family', { from, to });
+				expect(result).toEqual({ from, to });
+			});
+		});
+
+		it('options を未指定で呼び出しても安全（デフォルト引数）', () => {
+			// free/standard は cutoff が設定されるが、crash せずに from が埋まる
+			expect(() => applyRetentionFilter('free')).not.toThrow();
+			expect(() => applyRetentionFilter('standard')).not.toThrow();
+			expect(() => applyRetentionFilter('family')).not.toThrow();
 		});
 	});
 
