@@ -93,6 +93,49 @@ export async function setupPin(pin: string, tenantId: string): Promise<void> {
 	await resetFailedAttempts(tenantId);
 }
 
+// --- PIN再確認 (セッション発行を伴わない検証専用) ---
+// #771: 破壊的操作 (ダウングレード等) の二段階確認で使用する。
+// login() と異なりセッションを発行しない純粋な PIN 検証のみを行う。
+// ロックアウトと連続失敗カウンタは login() と共通化している。
+export type VerifyPinResult =
+	| { ok: true }
+	| { ok: false; error: 'INVALID_PIN' }
+	| { ok: false; error: 'LOCKED_OUT'; lockedUntil: string }
+	| { ok: false; error: 'PIN_NOT_SET' };
+
+export async function verifyPin(pin: string, tenantId: string): Promise<VerifyPinResult> {
+	// 1) PIN設定済みか確認
+	const pinHash = await getSetting('pin_hash', tenantId);
+	if (!pinHash) {
+		return { ok: false, error: 'PIN_NOT_SET' };
+	}
+
+	// 2) ロックアウトチェック
+	const lockedUntil = await getSetting('pin_locked_until', tenantId);
+	if (lockedUntil && new Date(lockedUntil) > new Date()) {
+		logger.warn('[AUTH] ロックアウト中のPIN再確認試行', { context: { lockedUntil } });
+		return { ok: false, error: 'LOCKED_OUT', lockedUntil };
+	}
+
+	// 3) PIN検証
+	const isValid = bcrypt.compareSync(pin, pinHash);
+	if (!isValid) {
+		await incrementFailedAttempts(tenantId);
+		logger.warn('[AUTH] PIN再確認失敗');
+		return { ok: false, error: 'INVALID_PIN' };
+	}
+
+	// 4) 成功: カウンターリセットのみ (セッションは発行しない)
+	await resetFailedAttempts(tenantId);
+	return { ok: true };
+}
+
+// --- PIN設定有無の確認 (UI フォールバック判定用) ---
+export async function isPinConfigured(tenantId: string): Promise<boolean> {
+	const pinHash = await getSetting('pin_hash', tenantId);
+	return !!pinHash;
+}
+
 // --- PIN変更 ---
 export async function changePin(
 	currentPin: string,
