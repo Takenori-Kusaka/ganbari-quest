@@ -71,3 +71,4 @@
 | 0022 | [課金サイクルとデータライフサイクルの整合性](0022-billing-data-lifecycle-consistency.md) | accepted | 2026-04-11 |
 | 0023 | [Pre-PMF Issue 優先度判断基準](0023-pre-pmf-issue-priority-guidelines.md) | accepted | 2026-04-11 |
 | 0024 | [プラン解決 (resolvePlanTier) の責務分離パターン](0024-plan-tier-resolution-pattern.md) | accepted | 2026-04-11 |
+| 0025 | [License ↔ Stripe Subscription 因果関係](0025-license-subscription-causality.md) | accepted | 2026-04-11 |
