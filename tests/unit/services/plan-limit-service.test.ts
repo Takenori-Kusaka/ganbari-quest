@@ -311,9 +311,21 @@ describe('plan-limit-service', () => {
 
 	// #756: プラン別保持期間フィルタの挙動検証
 	describe('applyRetentionFilter', () => {
-		// helper: N 日前の YYYY-MM-DD
+		// 日付境界フレーキー対策: テスト中の時刻を固定する
+		const FIXED_NOW = new Date('2026-04-12T12:00:00Z');
+
+		beforeEach(() => {
+			vi.useFakeTimers();
+			vi.setSystemTime(FIXED_NOW);
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		// helper: FIXED_NOW 基準で N 日前の YYYY-MM-DD
 		const daysAgo = (n: number) => {
-			const d = new Date();
+			const d = new Date(FIXED_NOW);
 			d.setDate(d.getDate() - n);
 			return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 		};
