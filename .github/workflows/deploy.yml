@@ -156,6 +156,11 @@ jobs:
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.version.outputs.image-tag }}
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          # BUILD_TIMESTAMP busts the version:generate layer cache (#711 / PR #826 review).
+          # Combined with cache-from: type=gha this ensures the image always stamps
+          # a fresh build date even for workflow_dispatch redeploys of the same SHA.
+          build-args: |
+            BUILD_TIMESTAMP=${{ github.run_id }}-${{ github.run_attempt }}
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
