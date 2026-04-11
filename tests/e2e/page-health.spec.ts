@@ -145,6 +145,7 @@ test.describe('ページヘルス: Demo', () => {
 		{ path: '/demo/preschool/home?childId=902', name: 'デモ ホーム' },
 		{ path: '/demo/preschool/status?childId=902', name: 'デモ ステータス' },
 		{ path: '/demo/preschool/battle?childId=902', name: 'デモ バトル' },
+		{ path: '/demo/admin/license', name: 'デモ プラン・お支払い (#790)' },
 	];
 
 	for (const { path, name } of demoPages) {
