@@ -58,19 +58,39 @@ else                              pattern = 'member';
 
 ADR-0022 の原則に従い、**全データ削除を伴うパターン（1 / 2b）では DB 削除よりも先に Stripe Subscription をキャンセルする**。
 
+**Pattern 1 (`deleteOwnerOnlyAccount` → `fullTenantDeletion`):**
+
 ```
-[fullTenantDeletion]
+fullTenantDeletion(tenantId, ownerId)
   └─ 0. cancelSubscription(tenantId)   ← 失敗したら throw → 以降の処理は走らない
-  └─ 1. S3 削除
-  └─ 2. tenant scoped data 削除
-  └─ 3. children データ削除
-  └─ 4. members の Cognito ユーザー削除 + DB ユーザー削除
-  └─ 5. memberships 削除
-  └─ 6. invites 削除
-  └─ 7. tenant 削除
+  └─ 1. S3 削除 (deleteByPrefix)
+  └─ 2. tenant scoped data 削除 (deleteTenantScopedData)
+  └─ 3. children データ削除 (deleteAllChildrenData)
+  └─ 4. 全メンバーの Cognito + DB ユーザー削除 (findTenantMembers → deleteCognitoUser + deleteUser)
+  └─ 5. 全メンバーシップ削除 (deleteAllMemberships)
+  └─ 6. 招待リンク無効化 + 物理削除 (revokeAndDeleteAllInvites)
+  └─ 7. テナント削除 (deleteTenant)
   └─ 8. notifyDeletionComplete (失敗は無視)
-  └─ 9. (2b のみ) sendMemberRemovedEmail (失敗は無視)
 ```
+
+**Pattern 2b (`deleteOwnerFullDelete` — `fullTenantDeletion` は呼ばない):**
+
+```
+deleteOwnerFullDelete(tenantId, ownerId)
+  └─ 0. 他メンバー一覧 + メール情報を事前収集（削除後は取得不能）
+  └─ 1. cancelSubscription(tenantId)   ← 失敗したら throw
+  └─ 2. S3 削除 (deleteByPrefix)
+  └─ 3. tenant scoped data 削除 (deleteTenantScopedData)
+  └─ 4. children データ削除 (deleteAllChildrenData)
+  └─ 5. 招待リンク無効化 + 物理削除 (revokeAndDeleteAllInvites)
+  └─ 6. 全メンバーシップ削除 (deleteAllMemberships)
+  └─ 7. Owner のみ Cognito + DB ユーザー削除（他メンバーの Cognito は削除しない）
+  └─ 8. テナント削除 (deleteTenant)
+  └─ 9. notifyDeletionComplete (失敗は無視)
+  └─ 10. 他メンバーへ sendMemberRemovedEmail (失敗は無視)
+```
+
+> **Pattern 1 vs 2b の重要な違い**: Pattern 1 の `fullTenantDeletion` は全メンバーの Cognito ユーザーを削除する（テナントに owner しかいないため）。Pattern 2b の `deleteOwnerFullDelete` は **Owner の Cognito のみ削除**し、他メンバーの Cognito は残す（所属解除＋メール通知で対応）。
 
 **理由**: Stripe キャンセルが失敗したまま DB を削除すると、課金は継続しているのにテナントが消滅して問い合わせ窓口を失う。逆順なら、DB は残ったまま再試行できる。
 
@@ -80,11 +100,12 @@ ADR-0022 の原則に従い、**全データ削除を伴うパターン（1 / 2b
 
 **現状**: グレースピリオドは未実装。`fullTenantDeletion` は即時に物理削除する。
 
-**#742 で導入予定**:
+**#742 で導入予定（仕様は #742 で最終確定、以下は提案値）**:
 
-- standard プラン: グレースピリオドなし（即時削除）
-- family プラン: 30 日間の復元期間
-- 削除直後はテナントを `status=pending-delete` に遷移させ、`deletedAt+30d` の cron で実体削除
+- free プラン: グレースピリオドなし（即時削除）
+- standard プラン: 7 日間の復元期間
+- family プラン: 30 日間の復元期間 + 削除前エクスポートメール送信
+- グレースピリオドがあるプランは、削除直後にテナントを `status=pending-delete` に遷移させ、`deletedAt+planRetentionDays` の cron で実体削除
 - 復元 API（`/api/v1/admin/account/restore`）を用意し、メールリンクから 1 クリック復元できるようにする
 
 実装時に本ドキュメントの §2 のマトリクスに「pending-delete 中の状態」列を追加すること。
@@ -147,8 +168,8 @@ ADR-0022 の原則に従い、**全データ削除を伴うパターン（1 / 2b
   - #742 — グレースピリオド
   - #738 / #754 — ダウングレード前確認 / 超過リソース処理
 - ADR
-  - [ADR-0022](decisions/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性
-  - [ADR-0003](decisions/0003-design-doc-as-source-of-truth.md) — 設計書 SSOT
+  - [ADR-0022](../decisions/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性
+  - [ADR-0003](../decisions/0003-design-doc-as-source-of-truth.md) — 設計書 SSOT
 - 実装
   - `src/lib/server/services/account-deletion-service.ts`
   - `src/routes/api/v1/admin/account/delete/+server.ts`
