@@ -4,7 +4,7 @@
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import type { TrialTier } from '$lib/server/services/trial-service';
-import { getTrialEndDate, getTrialTier } from '$lib/server/services/trial-service';
+import { getTrialStatus } from '$lib/server/services/trial-service';
 
 export interface PlanLimits {
 	maxChildren: number | null; // null = 無制限
@@ -52,7 +52,17 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 	},
 };
 
-/** テナントのプランティアを判定 */
+/**
+ * テナントのプランティアを判定する同期版（低レベル・internal 用途）。
+ *
+ * 呼び出し元は自前で trialEndDate / trialTier を取得する必要がある。
+ * アプリケーションコード（routes/load, services）は基本的に
+ * {@link resolveFullPlanTier} を使うこと。テストと同ファイル内の
+ * ラッパからのみ呼び出すことを想定している。
+ *
+ * @internal
+ * @see resolveFullPlanTier - 推奨される非同期ラッパ（trial 取得込み）
+ */
 export function resolvePlanTier(
 	licenseStatus: string,
 	planId?: string,
@@ -72,14 +82,26 @@ export function resolvePlanTier(
 	return 'free';
 }
 
-/** テナントのプランティアを非同期で判定（トライアル状態を自動チェック） */
+/**
+ * テナントのプランティアを非同期で判定する（トライアル状態を自動チェック）。
+ *
+ * #732: 全ての server load / services の呼び出し口をこの関数に統一する。
+ * 内部で `getTrialStatus` を 1 回だけ呼び出し、expired 判定を含めて解決する。
+ *
+ * @param tenantId - テナントID
+ * @param licenseStatus - `locals.context?.licenseStatus` （未設定なら 'none' 扱い）
+ * @param planId - `locals.context?.plan`
+ */
 export async function resolveFullPlanTier(
 	tenantId: string,
 	licenseStatus: string,
 	planId?: string,
 ): Promise<PlanTier> {
-	const trialEnd = await getTrialEndDate(tenantId);
-	const trialTierValue = await getTrialTier(tenantId);
+	// getTrialStatus を 1 回だけ呼ぶ。過去実装は getTrialEndDate + getTrialTier を
+	// 別々に呼び、それぞれ内部で getTrialStatus を実行していたため DB 2 回叩いていた。
+	const status = await getTrialStatus(tenantId);
+	const trialEnd = status.isTrialActive ? status.trialEndDate : null;
+	const trialTierValue = status.isTrialActive ? status.trialTier : null;
 	return resolvePlanTier(licenseStatus, planId, trialEnd, trialTierValue);
 }
 
