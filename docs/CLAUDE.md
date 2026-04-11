@@ -56,6 +56,7 @@
 - [ADR-0018](decisions/0018-issue-quality-standard.md) — Issue 起票は根本原因の特定と構造的解決策の提示を必須とする
 - [ADR-0019](decisions/0019-dialog-fsm-scrap-and-rebuild.md) — ダイアログ管理は FSM でスクラップ＆ビルド
 - [ADR-0020](decisions/0020-test-quality-ratchet-enforcement.md) — テスト品質の劣化を許容しない（強制プロセス）
+- [ADR-0021](decisions/0021-deploy-verification-gate.md) — デプロイ検証ゲート（Issue完了前の本番確認必須化）
 
 ## 画像アセット
 

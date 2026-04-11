@@ -259,6 +259,14 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] 5年齢モード全てで実機検証しスクリーンショット添付済み（該当する場合）
 - [ ] **N/A** — Critical 修正ではない
 
+## デプロイ検証（#710 — マージ後必須）
+
+<!-- PRがmainにマージされた後、以下を確認すること。確認前にIssueをcloseしない -->
+
+- [ ] `gh run list --branch main --workflow deploy.yml` でデプロイワークフローが**成功**していることを確認
+- [ ] site/ の変更がある場合: 本番URL（ganbari-quest.com）で変更が反映されていることを確認
+- [ ] **N/A** — デプロイ検証不要（ドキュメントのみの変更等）
+
 ## 完了チェックリスト
 
 - [ ] `npx biome check .` — lint エラーなし
