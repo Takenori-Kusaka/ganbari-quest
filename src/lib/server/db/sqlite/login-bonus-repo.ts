@@ -1,7 +1,7 @@
 // src/lib/server/db/login-bonus-repo.ts
 // ログインボーナスのリポジトリ層
 
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, lt } from 'drizzle-orm';
 import { db } from '../client';
 import { children, loginBonuses } from '../schema';
 
@@ -49,4 +49,21 @@ export async function findChildById(id: number, _tenantId: string) {
 /** テナントの全ログインボーナスを削除（SQLite: シングルテナントのため全行削除） */
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
 	db.delete(loginBonuses).run();
+}
+
+/**
+ * 指定した子供の `login_date < cutoffDate` に該当する login_bonuses を削除する。
+ * cutoffDate は `YYYY-MM-DD` 形式で、その日自体は削除対象に含まない（strict less than）。
+ * #717, #729
+ */
+export async function deleteLoginBonusesBeforeDate(
+	childId: number,
+	cutoffDate: string,
+	_tenantId: string,
+): Promise<number> {
+	const result = db
+		.delete(loginBonuses)
+		.where(and(eq(loginBonuses.childId, childId), lt(loginBonuses.loginDate, cutoffDate)))
+		.run();
+	return result.changes;
 }

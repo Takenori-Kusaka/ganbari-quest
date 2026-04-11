@@ -1,7 +1,13 @@
 // src/lib/server/db/dynamodb/point-repo.ts
 // DynamoDB implementation of IPointRepo
 
-import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+	BatchWriteCommand,
+	GetCommand,
+	PutCommand,
+	QueryCommand,
+	UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import type { Child, InsertPointLedgerInput, PointLedgerEntry } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
@@ -140,4 +146,64 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
 	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), pointLedgerPrefix());
 	// Delete balance records (BALANCE)
 	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), 'BALANCE');
+}
+
+// ============================================================
+// Retention cleanup (#717, #729)
+// ============================================================
+
+/**
+ * 指定した子供の `created_at < cutoffDate` に該当する point_ledger を削除する。
+ * SK 形式 `POINT#<ISO timestamp>#<id>` の辞書順比較で、`POINT#` (inclusive) 〜
+ * `POINT#<cutoffDate>` (inclusive) を BETWEEN で抽出し BatchWrite で削除する。
+ * cutoffDate 当日 0:00:00Z 以降の `POINT#<cutoffDate>T...` は辞書順で
+ * `POINT#<cutoffDate>` より大きいため対象外（strict less than）。
+ *
+ * 注意: point_ledger の削除は残高 (BALANCE アイテム) には反映されない。
+ * 保持期間切れのエントリは履歴閲覧上から消えるだけで、現在の総残高は変わらない
+ * （#729 の設計: ポイントは消えず、過去明細だけが消える）。
+ */
+export async function deletePointLedgerBeforeDate(
+	childId: number,
+	cutoffDate: string,
+	tenantId: string,
+): Promise<number> {
+	const items: Record<string, unknown>[] = [];
+	let lastKey: Record<string, unknown> | undefined;
+
+	do {
+		const result = await getDocClient().send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				KeyConditionExpression: 'PK = :pk AND SK BETWEEN :lower AND :upper',
+				ExpressionAttributeValues: {
+					':pk': childPK(childId, tenantId),
+					':lower': pointLedgerPrefix(),
+					':upper': `POINT#${cutoffDate}`,
+				},
+				ProjectionExpression: 'PK, SK',
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of result.Items ?? []) {
+			items.push(item as Record<string, unknown>);
+		}
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
+
+	// BatchWrite in chunks of 25
+	for (let i = 0; i < items.length; i += 25) {
+		const chunk = items.slice(i, i + 25);
+		await getDocClient().send(
+			new BatchWriteCommand({
+				RequestItems: {
+					[TABLE_NAME]: chunk.map((it) => ({
+						DeleteRequest: { Key: { PK: it.PK as string, SK: it.SK as string } },
+					})),
+				},
+			}),
+		);
+	}
+
+	return items.length;
 }

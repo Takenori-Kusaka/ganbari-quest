@@ -991,3 +991,50 @@ export async function insertPointLedger(
 		}),
 	);
 }
+
+// ============================================================
+// Retention cleanup (#717, #729)
+// ============================================================
+
+/** Batch-delete PK/SK pairs in chunks of 25 (DynamoDB BatchWriteItem limit). */
+async function batchDeleteKeys(keys: { PK: string; SK: string }[]): Promise<void> {
+	for (let i = 0; i < keys.length; i += 25) {
+		const chunk = keys.slice(i, i + 25);
+		await getDocClient().send(
+			new BatchWriteCommand({
+				RequestItems: {
+					[TABLE_NAME]: chunk.map((k) => ({
+						DeleteRequest: { Key: { PK: k.PK, SK: k.SK } },
+					})),
+				},
+			}),
+		);
+	}
+}
+
+/**
+ * 指定した子供の `recorded_date < cutoffDate` に該当する activity_logs を削除する。
+ * SK 形式 `LOG#<date>#<id>` の辞書順比較で、`LOG#` (inclusive) 〜 `LOG#<cutoffDate>` (inclusive)
+ * を BETWEEN クエリ → BatchWrite で削除。cutoffDate 当日のログ（`LOG#<cutoffDate>#<id>`）は
+ * `LOG#<cutoffDate>` よりも辞書順で大きいため対象外。
+ */
+export async function deleteActivityLogsBeforeDate(
+	childId: number,
+	cutoffDate: string,
+	tenantId: string,
+): Promise<number> {
+	const items = await queryAll({
+		TableName: TABLE_NAME,
+		KeyConditionExpression: 'PK = :pk AND SK BETWEEN :lower AND :upper',
+		ExpressionAttributeValues: {
+			':pk': childPK(childId, tenantId),
+			':lower': activityLogPrefix(),
+			':upper': `LOG#${cutoffDate}`,
+		},
+		ProjectionExpression: 'PK, SK',
+	});
+
+	const keys = items.map((item) => ({ PK: item.PK as string, SK: item.SK as string }));
+	await batchDeleteKeys(keys);
+	return keys.length;
+}
