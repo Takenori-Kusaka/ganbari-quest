@@ -20,6 +20,12 @@ $effect(() => {
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
+// #723: Free プランのテンプレート上限（UI ゲート用）
+// null = 無制限（Standard/Family）
+const checklistMax = $derived(data.checklistTemplateMax);
+const currentCount = $derived(selectedChild?.templates.length ?? 0);
+const atLimit = $derived(checklistMax !== null && currentCount >= checklistMax);
+
 // Add item dialog
 let addItemOpen = $state(false);
 let addItemTemplateId = $state(0);
@@ -90,6 +96,8 @@ function openAddItem(templateId: number) {
 
 function openAddTemplate() {
 	if (anyDialogOpen) return;
+	// #723: Free プランで上限到達時はダイアログを開かない（サーバー側でも 403 で拒否）
+	if (atLimit) return;
 	templateName = '';
 	templateIcon = '📋';
 	addTemplateOpen = true;
@@ -251,12 +259,42 @@ function directionLabel(dir: string): string {
 			</Card>
 		{/each}
 
+		<!-- #723: Free プランで上限到達時のアップグレード誘導 -->
+		{#if !data.isPremium && checklistMax !== null}
+			<div class="px-4 py-3 rounded-lg bg-[var(--color-surface-trial)] border border-[var(--color-border-trial)] text-sm">
+				<div class="flex items-center justify-between gap-2">
+					<div class="flex items-center gap-2">
+						<span class="text-base">📋</span>
+						<span class="text-[var(--color-text-primary)]">
+							{#if atLimit}
+								フリープランの上限 ({checklistMax}個) に達しました
+							{:else}
+								チェックリスト {currentCount} / {checklistMax}
+							{/if}
+						</span>
+					</div>
+					<a
+						href="/pricing"
+						class="text-xs font-bold text-[var(--color-action-primary)] hover:underline"
+					>
+						アップグレード →
+					</a>
+				</div>
+				{#if atLimit}
+					<p class="mt-1 text-xs text-[var(--color-text-secondary)]">
+						スタンダード以上にアップグレードすると無制限に作成できます。
+					</p>
+				{/if}
+			</div>
+		{/if}
+
 		<!-- Actions -->
 		<div class="flex gap-2 items-center">
 			<Button
 				variant="primary"
 				size="md"
 				class="flex-1"
+				disabled={atLimit}
 				onclick={openAddTemplate}
 			>
 				+ テンプレート作成

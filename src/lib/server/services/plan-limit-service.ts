@@ -9,6 +9,7 @@ import { getTrialStatus } from '$lib/server/services/trial-service';
 export interface PlanLimits {
 	maxChildren: number | null; // null = 無制限
 	maxActivities: number | null;
+	maxChecklistTemplates: number | null; // 1子あたりのチェックリストテンプレート数 (#723)
 	historyRetentionDays: number | null;
 	canExport: boolean;
 	canCustomAvatar: boolean;
@@ -23,6 +24,10 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 	free: {
 		maxChildren: 2,
 		maxActivities: 3,
+		// #723: Free は pricing で「チェックリスト（テンプレート）」と表記。
+		// 現状 preset テンプレ機構がないため、maxActivities と同様に「少数で自由作成可」に寄せ、
+		// 1子あたり 3 テンプレまでに制限（朝/昼/夜 の 3 枠想定）。
+		maxChecklistTemplates: 3,
 		historyRetentionDays: 90,
 		canExport: false,
 		canCustomAvatar: false,
@@ -33,6 +38,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 	standard: {
 		maxChildren: null,
 		maxActivities: null,
+		maxChecklistTemplates: null,
 		historyRetentionDays: 365,
 		canExport: true,
 		canCustomAvatar: true,
@@ -43,6 +49,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 	family: {
 		maxChildren: null,
 		maxActivities: null,
+		maxChecklistTemplates: null,
 		historyRetentionDays: null,
 		canExport: true,
 		canCustomAvatar: true,
@@ -206,5 +213,35 @@ export async function checkActivityLimit(
 		allowed: current < limits.maxActivities,
 		current,
 		max: limits.maxActivities,
+	};
+}
+
+/**
+ * チェックリストテンプレート追加の制限チェック (#723)
+ *
+ * Free は 1 子あたり `maxChecklistTemplates` までしか作れない。
+ * Standard/Family は制限なし。
+ *
+ * @param childId - 対象となる子の ID
+ */
+export async function checkChecklistTemplateLimit(
+	tenantId: string,
+	licenseStatus: string,
+	childId: number,
+): Promise<{ allowed: boolean; current: number; max: number | null }> {
+	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
+	if (limits.maxChecklistTemplates === null) {
+		return { allowed: true, current: 0, max: null };
+	}
+
+	const repos = getRepos();
+	// includeInactive=true: 非アクティブ含めてカウント（トグルで無効化しても上限は消費）
+	const templates = await repos.checklist.findTemplatesByChild(childId, tenantId, true);
+	const current = templates.length;
+
+	return {
+		allowed: current < limits.maxChecklistTemplates,
+		current,
+		max: limits.maxChecklistTemplates,
 	};
 }
