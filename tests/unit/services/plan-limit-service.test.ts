@@ -18,11 +18,18 @@ vi.mock('$lib/server/auth/factory', () => ({
 }));
 
 // mock trial-service (resolveFullPlanTier depends on it)
-const mockGetTrialEndDate = vi.fn().mockResolvedValue(null);
-const mockGetTrialTier = vi.fn().mockResolvedValue(null);
+// #732: resolveFullPlanTier は getTrialStatus を 1 回だけ呼ぶ形に変更
+const mockGetTrialStatus = vi.fn().mockResolvedValue({
+	isTrialActive: false,
+	trialUsed: false,
+	trialStartDate: null,
+	trialEndDate: null,
+	trialTier: null,
+	daysRemaining: 0,
+	source: null,
+});
 vi.mock('$lib/server/services/trial-service', () => ({
-	getTrialEndDate: (...args: unknown[]) => mockGetTrialEndDate(...args),
-	getTrialTier: (...args: unknown[]) => mockGetTrialTier(...args),
+	getTrialStatus: (...args: unknown[]) => mockGetTrialStatus(...args),
 }));
 
 import {
@@ -132,18 +139,80 @@ describe('plan-limit-service', () => {
 			process.env.AUTH_MODE = 'cognito';
 			const futureDate = new Date();
 			futureDate.setDate(futureDate.getDate() + 3);
-			mockGetTrialEndDate.mockResolvedValue(futureDate.toISOString().slice(0, 10));
-			mockGetTrialTier.mockResolvedValue('standard');
+			mockGetTrialStatus.mockResolvedValue({
+				isTrialActive: true,
+				trialUsed: true,
+				trialStartDate: '2026-04-01',
+				trialEndDate: futureDate.toISOString().slice(0, 10),
+				trialTier: 'standard',
+				daysRemaining: 3,
+				source: 'user_initiated',
+			});
 			const tier = await resolveFullPlanTier('tenant1', 'none');
 			expect(tier).toBe('standard');
-			expect(mockGetTrialEndDate).toHaveBeenCalledWith('tenant1');
-			expect(mockGetTrialTier).toHaveBeenCalledWith('tenant1');
+			expect(mockGetTrialStatus).toHaveBeenCalledWith('tenant1');
+		});
+
+		it('resolves to family when trial is family-tier', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			const futureDate = new Date();
+			futureDate.setDate(futureDate.getDate() + 3);
+			mockGetTrialStatus.mockResolvedValue({
+				isTrialActive: true,
+				trialUsed: true,
+				trialStartDate: '2026-04-01',
+				trialEndDate: futureDate.toISOString().slice(0, 10),
+				trialTier: 'family',
+				daysRemaining: 3,
+				source: 'user_initiated',
+			});
+			const tier = await resolveFullPlanTier('tenant1', 'none');
+			expect(tier).toBe('family');
 		});
 
 		it('resolves to free when no trial', async () => {
 			process.env.AUTH_MODE = 'cognito';
-			mockGetTrialEndDate.mockResolvedValue(null);
-			mockGetTrialTier.mockResolvedValue(null);
+			mockGetTrialStatus.mockResolvedValue({
+				isTrialActive: false,
+				trialUsed: false,
+				trialStartDate: null,
+				trialEndDate: null,
+				trialTier: null,
+				daysRemaining: 0,
+				source: null,
+			});
+			const tier = await resolveFullPlanTier('tenant1', 'none');
+			expect(tier).toBe('free');
+		});
+
+		it('#732: calls getTrialStatus only once per resolution (no duplicate DB query)', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockGetTrialStatus.mockResolvedValue({
+				isTrialActive: false,
+				trialUsed: false,
+				trialStartDate: null,
+				trialEndDate: null,
+				trialTier: null,
+				daysRemaining: 0,
+				source: null,
+			});
+			await resolveFullPlanTier('tenant1', 'none');
+			expect(mockGetTrialStatus).toHaveBeenCalledTimes(1);
+		});
+
+		it('#725/#732: trial が非アクティブなら trialTier は無視される', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			const pastDate = new Date();
+			pastDate.setDate(pastDate.getDate() - 5);
+			mockGetTrialStatus.mockResolvedValue({
+				isTrialActive: false,
+				trialUsed: true,
+				trialStartDate: '2026-03-01',
+				trialEndDate: pastDate.toISOString().slice(0, 10),
+				trialTier: 'family',
+				daysRemaining: 0,
+				source: 'user_initiated',
+			});
 			const tier = await resolveFullPlanTier('tenant1', 'none');
 			expect(tier).toBe('free');
 		});
