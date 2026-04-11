@@ -1,0 +1,115 @@
+// tests/e2e/plan-gated-features.spec.ts
+// #776: プラン別ゲート UI の E2E 検証
+//
+// ローカル auth モードでは plan-limit-service の resolvePlanTier が
+// 早期 return で常に 'family' を返すため、プランゲートを E2E で検証できない。
+// この spec は AUTH_MODE=cognito + COGNITO_DEV_MODE=true 前提で実行し、
+// DevCognitoAuthProvider のプラン別ダミーユーザー（free/standard/family）で
+// ログイン → 実際のプランゲート UI を検証する。
+//
+// 実行: npx playwright test --config playwright.cognito-dev.config.ts plan-gated-features
+//
+// 対応ゲート:
+//  - /admin/rewards: rewards-upgrade-banner（free のみ表示）
+//  - /admin/messages: ひとことメッセージボタン（free/standard は disabled、family は enabled）
+
+import type { Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+
+const PLAN_USERS = {
+	free: { email: 'free@example.com', password: 'Gq!Dev#Free2026xy' },
+	standard: { email: 'standard@example.com', password: 'Gq!Dev#Std2026xyz' },
+	family: { email: 'family@example.com', password: 'Gq!Dev#Fam2026xyz' },
+} as const;
+
+async function loginAs(page: Page, plan: keyof typeof PLAN_USERS) {
+	const { email, password } = PLAN_USERS[plan];
+	// Vite dev のコールドコンパイルでは load/domcontentloaded が長時間完了しないため、
+	// commit イベントで navigation を解除し、フォーム表示は waitFor で待つ。
+	await page.goto('/auth/login', { waitUntil: 'commit', timeout: 180_000 });
+	await page.getByLabel('メールアドレス').waitFor({ state: 'visible', timeout: 180_000 });
+	await page.getByLabel('メールアドレス').fill(email);
+	await page.getByLabel('パスワード', { exact: true }).fill(password);
+	await page.getByRole('button', { name: 'ログイン' }).click();
+	await page.waitForURL(/\/admin/, { timeout: 120_000 });
+}
+
+// Vite dev のコールドコンパイルで /auth/login と /admin 配下の初回ビルドが
+// 数分かかることがあるため、テスト前に warmup でプリコンパイルを走らせる。
+test.beforeAll(async ({ browser }) => {
+	test.setTimeout(360_000);
+	const ctx = await browser.newContext();
+	const page = await ctx.newPage();
+	try {
+		await page.goto('/auth/login', { waitUntil: 'commit', timeout: 180_000 });
+		await page.getByLabel('メールアドレス').waitFor({ state: 'visible', timeout: 180_000 });
+		// rewards/messages ページもプリコンパイルしておく（login 後にリダイレクトで /admin に飛ぶ）
+		await page.goto('/admin/rewards', { waitUntil: 'commit', timeout: 180_000 }).catch(() => {});
+		await page.goto('/admin/messages', { waitUntil: 'commit', timeout: 180_000 }).catch(() => {});
+	} finally {
+		await ctx.close();
+	}
+});
+
+// ============================================================
+// /admin/rewards — #728 カスタムごほうびプランゲート
+// ============================================================
+test.describe('#776 /admin/rewards プランゲート', () => {
+	test.beforeEach(() => {
+		test.slow(); // Vite dev のコールドコンパイルでタイムアウトを 3x 延長
+	});
+
+	test('free プランではアップグレードバナーが表示される', async ({ page }) => {
+		await loginAs(page, 'free');
+		await page.goto('/admin/rewards');
+		await expect(page.getByTestId('rewards-upgrade-banner')).toBeVisible();
+		await expect(page.getByTestId('rewards-upgrade-cta')).toBeVisible();
+	});
+
+	test('standard プランではアップグレードバナーが表示されない', async ({ page }) => {
+		await loginAs(page, 'standard');
+		await page.goto('/admin/rewards');
+		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
+	});
+
+	test('family プランではアップグレードバナーが表示されない', async ({ page }) => {
+		await loginAs(page, 'family');
+		await page.goto('/admin/rewards');
+		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
+	});
+});
+
+// ============================================================
+// /admin/messages — #0270 自由テキストメッセージプランゲート
+// ============================================================
+test.describe('#776 /admin/messages プランゲート', () => {
+	test.beforeEach(() => {
+		test.slow();
+	});
+
+	test('free プランではひとことメッセージボタンが disabled', async ({ page }) => {
+		await loginAs(page, 'free');
+		await page.goto('/admin/messages');
+		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
+		await expect(textBtn).toBeVisible();
+		await expect(textBtn).toBeDisabled();
+	});
+
+	test('standard プランでもひとことメッセージボタンは disabled（family 限定）', async ({
+		page,
+	}) => {
+		await loginAs(page, 'standard');
+		await page.goto('/admin/messages');
+		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
+		await expect(textBtn).toBeVisible();
+		await expect(textBtn).toBeDisabled();
+	});
+
+	test('family プランではひとことメッセージボタンが有効', async ({ page }) => {
+		await loginAs(page, 'family');
+		await page.goto('/admin/messages');
+		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
+		await expect(textBtn).toBeVisible();
+		await expect(textBtn).toBeEnabled();
+	});
+});
