@@ -103,6 +103,9 @@ ganbari-quest/
 | `ORIGIN` | No | アプリのURL |
 | `GEMINI_API_KEY` | No | アバター画像AI生成用 |
 | `GDRIVE_*` | No | Google Driveバックアップ用 |
+| `DEBUG_PLAN` | No | **dev only** — `free`/`standard`/`family` でプランを上書き (#758) |
+| `DEBUG_TRIAL` | No | **dev only** — `active`/`expired`/`not-started` でトライアル状態を上書き |
+| `DEBUG_TRIAL_TIER` | No | **dev only** — `standard`/`family` でトライアルティア指定 |
 
 ## 開発コマンド
 

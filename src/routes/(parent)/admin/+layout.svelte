@@ -2,12 +2,14 @@
 import type { Snippet } from 'svelte';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
+import DebugPlanIndicator from '$lib/ui/components/DebugPlanIndicator.svelte';
 
 interface Props {
 	data: {
 		isPremium?: boolean;
 		planTier?: 'free' | 'standard' | 'family';
 		authMode?: string;
+		debugPlanSummary?: string | null;
 		trialStatus?: {
 			isTrialActive: boolean;
 			daysRemaining: number;
@@ -42,3 +44,4 @@ const showTrialBanner = $derived(
 	{/if}
 	{@render children()}
 </AdminLayout>
+<DebugPlanIndicator summary={data.debugPlanSummary ?? null} />

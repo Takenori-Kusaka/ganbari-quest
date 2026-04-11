@@ -4,6 +4,7 @@
 
 import { toJSTDateString } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
+import { getDebugTrialOverride } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
 
 const DEFAULT_TRIAL_DAYS = 7;
@@ -34,6 +35,37 @@ export interface StartTrialInput {
  * トライアル状態を取得（trial_history テーブルから最新レコードを参照）
  */
 export async function getTrialStatus(tenantId: string): Promise<TrialStatus> {
+	// dev: DEBUG_TRIAL env があればDB参照をスキップして擬似ステータスを返す (#758)
+	const debugOverride = getDebugTrialOverride();
+	if (debugOverride) {
+		if (debugOverride.endDate) {
+			const todayStr = toJSTDateString(new Date());
+			const todayDate = new Date(`${todayStr}T00:00:00Z`);
+			const endDate = new Date(`${debugOverride.endDate}T00:00:00Z`);
+			const daysRemaining = Math.round(
+				(endDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24),
+			);
+			return {
+				isTrialActive: true,
+				trialUsed: true,
+				trialStartDate: todayStr,
+				trialEndDate: debugOverride.endDate,
+				trialTier: debugOverride.tier,
+				daysRemaining,
+				source: 'admin_grant',
+			};
+		}
+		return {
+			isTrialActive: false,
+			trialUsed: false,
+			trialStartDate: null,
+			trialEndDate: null,
+			trialTier: null,
+			daysRemaining: 0,
+			source: null,
+		};
+	}
+
 	const latest = await getRepos().trialHistory.findLatestByTenant(tenantId);
 
 	if (!latest) {
@@ -127,6 +159,10 @@ export async function isTrialActive(tenantId: string): Promise<boolean> {
  * トライアル終了日を取得（null = トライアルなし or 終了済み）
  */
 export async function getTrialEndDate(tenantId: string): Promise<string | null> {
+	// dev: DEBUG_TRIAL env があれば上書き (#758)
+	const debugOverride = getDebugTrialOverride();
+	if (debugOverride) return debugOverride.endDate;
+
 	const status = await getTrialStatus(tenantId);
 	return status.isTrialActive ? status.trialEndDate : null;
 }
@@ -135,6 +171,10 @@ export async function getTrialEndDate(tenantId: string): Promise<string | null> 
  * アクティブなトライアルのティアを取得
  */
 export async function getTrialTier(tenantId: string): Promise<TrialTier | null> {
+	// dev: DEBUG_TRIAL env があれば上書き (#758)
+	const debugOverride = getDebugTrialOverride();
+	if (debugOverride) return debugOverride.tier;
+
 	const status = await getTrialStatus(tenantId);
 	return status.isTrialActive ? status.trialTier : null;
 }
