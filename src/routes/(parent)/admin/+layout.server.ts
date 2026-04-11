@@ -3,7 +3,7 @@ import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { getDebugPlanSummary } from '$lib/server/debug-plan';
-import { isPaidTier, resolvePlanTier } from '$lib/server/services/plan-limit-service';
+import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';
 import type { LayoutServerLoad } from './$types';
 
@@ -31,13 +31,12 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	};
 
 	const tenantStatus = locals.context?.tenantStatus ?? 'active';
-	// #725: トライアル中にファミリー体験ユーザーが standard 扱いになるバグ修正
-	// trialTier 引数を必ず渡す（トライアル非アクティブ時は null で OK）
-	const planTier = resolvePlanTier(
+	// #732: server load 全体で resolveFullPlanTier に統一。
+	// trial 期限・tier は resolveFullPlanTier が内部で取得する（#725 の両引数漏れも自動解消）。
+	const planTier = await resolveFullPlanTier(
+		tenantId,
 		locals.context?.licenseStatus ?? 'none',
 		locals.context?.plan,
-		trialStatus.isTrialActive ? trialStatus.trialEndDate : null,
-		trialStatus.isTrialActive ? trialStatus.trialTier : null,
 	);
 	const isPremium = isPaidTier(planTier);
 	const tutorialStarted = !!(
