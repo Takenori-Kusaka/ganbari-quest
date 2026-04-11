@@ -62,6 +62,23 @@ export class ComputeStack extends cdk.Stack {
 		// --- OPS Dashboard（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const opsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
 
+		// --- License Key HMAC Secret (#806, #911) ---
+		// production で未設定だと hooks.server.ts の assertLicenseKeyConfigured() が
+		// 起動時に throw するため、Lambda 環境変数として必ず注入する。
+		// ADR-0026 §G2 の grace period 実装までは process.env 直読み方式を維持する。
+		// 恒久的には AWS Secrets Manager 経由の読み込み (#810) に移行予定。
+		const awsLicenseSecret = this.node.tryGetContext('awsLicenseSecret') ?? '';
+		if (!awsLicenseSecret) {
+			// 必須 Secret が未設定のまま誤デプロイされると、Lambda cold start 時に
+			// assertLicenseKeyConfigured() が throw して本番障害になるため、
+			// CDK 側で明示的に失敗させる（addError は deploy を阻止する）。
+			cdk.Annotations.of(this).addError(
+				'[ComputeStack] awsLicenseSecret context is empty. ' +
+					'Pass -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }} in the deploy workflow. ' +
+					'See docs/decisions/0026-license-key-architecture.md and infra/CLAUDE.md.',
+			);
+		}
+
 		// --- Discord Webhook URLs（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const feedbackDiscordWebhookUrl = this.node.tryGetContext('feedbackDiscordWebhookUrl') ?? '';
 		const discordWebhookSignup = this.node.tryGetContext('discordWebhookSignup') ?? '';
@@ -110,6 +127,10 @@ export class ComputeStack extends cdk.Stack {
 					? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident }
 					: {}),
 				...(opsSecretKey ? { OPS_SECRET_KEY: opsSecretKey } : {}),
+				// #911 / #806: assertLicenseKeyConfigured() が必須要求する。
+				// 未設定だと Lambda cold start 時に throw して 500 連発するため、
+				// GitHub Actions Secrets 経由で必ず注入する。
+				...(awsLicenseSecret ? { AWS_LICENSE_SECRET: awsLicenseSecret } : {}),
 				...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
 				...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
 				...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
