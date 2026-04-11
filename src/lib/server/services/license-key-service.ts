@@ -137,6 +137,22 @@ export function generateLicenseKey(): string {
 // DynamoDB 操作
 // ============================================================
 
+/**
+ * ライセンスキーの種別 (#801)
+ *
+ * - `purchase`: Stripe 購入で発行されたキー。buyer tenant にロックされ、
+ *   consume 時に `consumedByTenantId === record.tenantId` を強制する（返金後
+ *   の二重取り防止）。
+ * - `gift`: 個別贈答・サポート補填等で Ops が発行したキー。任意 tenant が
+ *   consume 可能。`issuedBy` に発行 actor を必ず記録する。
+ * - `campaign`: キャンペーン配布の一括発行キー。任意 tenant が consume 可能。
+ *   `issuedBy` に発行 actor を必ず記録する。
+ *
+ * 旧レコード（kind フィールド未設定）は後方互換のため `purchase` として扱う。
+ * これは最も厳しい解釈で、既存 Stripe 発行キーの想定と一致する。
+ */
+export type LicenseKeyKind = 'purchase' | 'gift' | 'campaign';
+
 export interface LicenseRecord {
 	licenseKey: string;
 	tenantId: string;
@@ -146,6 +162,18 @@ export interface LicenseRecord {
 	consumedBy?: string;
 	consumedAt?: string;
 	createdAt: string;
+	/** #801: キー種別。未設定レコードは 'purchase' として扱う（後方互換） */
+	kind?: LicenseKeyKind;
+	/** #801: 発行 actor。gift/campaign では必須。purchase では stripe webhook 由来 */
+	issuedBy?: string;
+}
+
+/**
+ * LicenseRecord から kind を取り出す。旧レコード（kind なし）は 'purchase' 扱い。
+ * 後方互換ロジックを 1 箇所に集約するヘルパー。
+ */
+export function getRecordKind(record: Pick<LicenseRecord, 'kind'>): LicenseKeyKind {
+	return record.kind ?? 'purchase';
 }
 
 /** ライセンスキーを発行して DynamoDB に保存 */
@@ -153,7 +181,20 @@ export async function issueLicenseKey(params: {
 	tenantId: string;
 	plan: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly' | 'lifetime';
 	stripeSessionId?: string;
+	/** #801: キー種別。省略時は 'purchase'（既存呼び出しは Stripe webhook 経由のため） */
+	kind?: LicenseKeyKind;
+	/** #801: 発行 actor (ops user id / 'stripe:<sessionId>' 等)。gift/campaign では必須 */
+	issuedBy?: string;
 }): Promise<LicenseRecord> {
+	const kind = params.kind ?? 'purchase';
+
+	// #801: gift / campaign では発行 actor を記録する（監査性確保）
+	if ((kind === 'gift' || kind === 'campaign') && !params.issuedBy) {
+		throw new Error(
+			`[LICENSE] issueLicenseKey: issuedBy is required for kind=${kind} (audit requirement)`,
+		);
+	}
+
 	const key = generateLicenseKey();
 	const now = new Date().toISOString();
 
@@ -164,12 +205,16 @@ export async function issueLicenseKey(params: {
 		stripeSessionId: params.stripeSessionId,
 		status: 'active',
 		createdAt: now,
+		kind,
+		issuedBy: params.issuedBy,
 	};
 
 	const repos = getRepos();
 	await repos.auth.saveLicenseKey(record);
 
-	logger.info(`[LICENSE] Key issued: ${key} for tenant=${params.tenantId} plan=${params.plan}`);
+	logger.info(
+		`[LICENSE] Key issued: ${key} for tenant=${params.tenantId} plan=${params.plan} kind=${kind}`,
+	);
 	return record;
 }
 
@@ -292,6 +337,22 @@ export async function consumeLicenseKey(
 		return { ok: false, reason: 'ライセンスキーが使用できません' };
 	}
 
+	// #801: キー種別に応じた consume 権限チェック。
+	// - purchase: buyer tenant にロック (record.tenantId === consumedByTenantId)
+	// - gift / campaign: 任意 tenant が consume 可能
+	// 旧レコード (kind なし) は purchase 扱い — 既存 Stripe 発行キーは buyer tenant
+	// に一致するはずで、もし一致しないなら返金後の不正流用の可能性が高い。
+	const kind = getRecordKind(record);
+	if (kind === 'purchase' && record.tenantId !== consumedByTenantId) {
+		logger.warn(
+			`[LICENSE] Cross-tenant purchase consume rejected: key=${normalized.slice(0, 7)}... issued_for=${record.tenantId} attempted_by=${consumedByTenantId}`,
+		);
+		return {
+			ok: false,
+			reason: 'このライセンスキーは購入したアカウントでのみ使用できます',
+		};
+	}
+
 	const planExpiresAt = computePlanExpiresAt(record.plan);
 
 	// 先に tenant の plan を昇格（失敗したら license は consumed にしない）
@@ -306,7 +367,7 @@ export async function consumeLicenseKey(
 	await repos.auth.updateLicenseKeyStatus(normalized, 'consumed', consumedByTenantId);
 
 	logger.info(
-		`[LICENSE] Key consumed: ${normalized.slice(0, 7)}... by tenant=${consumedByTenantId} (issued for=${record.tenantId}) plan=${record.plan} expiresAt=${planExpiresAt ?? 'never'}`,
+		`[LICENSE] Key consumed: ${normalized.slice(0, 7)}... by tenant=${consumedByTenantId} (issued for=${record.tenantId}, kind=${kind}) plan=${record.plan} expiresAt=${planExpiresAt ?? 'never'}`,
 	);
 	return { ok: true, plan: record.plan, planExpiresAt };
 }
