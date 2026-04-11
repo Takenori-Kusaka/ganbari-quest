@@ -17,6 +17,7 @@ import { deleteByPrefix } from '$lib/server/storage';
 import { deleteChildFiles } from './child-service';
 import { notifyDeletionComplete } from './discord-notify-service';
 import { sendMemberRemovedEmail } from './email-service';
+import { cancelSubscription } from './stripe-service';
 
 // ============================================================
 // Types
@@ -403,6 +404,12 @@ async function fullTenantDeletion(
 	tenantId: string,
 	_ownerId: string,
 ): Promise<{ itemsDeleted: number; filesDeleted: number }> {
+	// 0. Stripe Subscription キャンセル (#741)
+	// DB 削除の前に Stripe 側をキャンセルする。
+	// Stripe 呼び出しが失敗したら例外が投げられ、DB 削除は実行されない
+	// (ユーザーの課金継続クレームを防ぐため、整合性を優先する)。
+	await cancelSubscription(tenantId);
+
 	let itemsDeleted = 0;
 
 	// 1. S3 / ストレージファイル削除
@@ -574,14 +581,21 @@ export async function deleteOwnerFullDelete(
 	const otherMembers = members.filter((m) => m.userId !== ownerId);
 	const unaffiliatedMembers = otherMembers.map((m) => m.userId);
 
-	// Notify other members before deletion
+	// メール通知先の情報を先に収集（削除後は取得不能）
+	// 送信自体は Stripe キャンセル・DB 削除成功後に行う (#741 Copilot [must])
 	const tenant = await repos().auth.findTenantById(tenantId);
+	const memberEmails: Array<{ email: string; tenantName: string }> = [];
 	for (const member of otherMembers) {
 		const user = await repos().auth.findUserById(member.userId);
 		if (user?.email) {
-			sendMemberRemovedEmail(user.email, tenant?.name ?? '家族グループ').catch(() => {});
+			memberEmails.push({ email: user.email, tenantName: tenant?.name ?? '家族グループ' });
 		}
 	}
+
+	// 0. Stripe Subscription キャンセル (#741)
+	// DB 削除の前に Stripe 側をキャンセルする。失敗したら例外が投げられ
+	// DB 削除は実行されない (課金継続クレーム防止)。
+	await cancelSubscription(tenantId);
 
 	// Full deletion of tenant data, but only delete owner's Cognito account
 	let itemsDeleted = 0;
@@ -610,8 +624,13 @@ export async function deleteOwnerFullDelete(
 	await repos().auth.deleteTenant(tenantId);
 	itemsDeleted++;
 
-	// 8. Notify
+	// 8. Notify (Discord)
 	notifyDeletionComplete(tenantId, { items: itemsDeleted, files: filesDeleted }).catch(() => {});
+
+	// 9. メンバーへのメール通知（Stripe + DB 削除成功確定後に送信）
+	for (const { email, tenantName } of memberEmails) {
+		sendMemberRemovedEmail(email, tenantName).catch(() => {});
+	}
 
 	logger.info('[account-deletion] Pattern 2b: 全削除完了', {
 		context: { tenantId, itemsDeleted, filesDeleted, unaffiliatedMembers },
