@@ -12,8 +12,8 @@ describe('PRESET_REWARD_GROUPS', () => {
 
 	it('全グループに groupName と groupIcon がある', () => {
 		for (const group of PRESET_REWARD_GROUPS) {
-			expect(group.groupName).toBeTruthy();
-			expect(group.groupIcon).toBeTruthy();
+			expect(group.groupName).not.toBe('');
+			expect(group.groupIcon).not.toBe('');
 		}
 	});
 
@@ -33,7 +33,7 @@ describe('プリセット報酬の個々の項目', () => {
 
 	it('全報酬に title がある', () => {
 		for (const reward of allRewards) {
-			expect(reward.title).toBeTruthy();
+			expect(reward.title).not.toBe('');
 		}
 	});
 
@@ -46,7 +46,7 @@ describe('プリセット報酬の個々の項目', () => {
 
 	it('全報酬に icon がある', () => {
 		for (const reward of allRewards) {
-			expect(reward.icon).toBeTruthy();
+			expect(reward.icon).not.toBe('');
 		}
 	});
 

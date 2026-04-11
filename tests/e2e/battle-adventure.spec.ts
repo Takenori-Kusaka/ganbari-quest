@@ -30,7 +30,8 @@ test.describe
 			const enemyName = page.getByTestId('enemy-name');
 			await expect(enemyName).toBeVisible();
 			const name = await enemyName.textContent();
-			expect(name).toBeTruthy();
+			expect(typeof name).toBe('string');
+			expect(name).not.toBe('');
 
 			// バトル未実行 or 完了済みのいずれかの状態を検証
 			const startButton = page.getByTestId('battle-start-button');
