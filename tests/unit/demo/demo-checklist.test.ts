@@ -22,15 +22,12 @@ describe('getDemoTodayChecklistsForChild (#704)', () => {
 		for (const childId of DEMO_CHILD_IDS) {
 			const checklists = getDemoTodayChecklistsForChild(childId);
 			for (const cl of checklists) {
-				// source items are sorted; checked items should maintain order
-				for (let i = 1; i < cl.items.length; i++) {
-					const curr = cl.items[i];
-					const prev = cl.items[i - 1];
-					// items.id should be increasing (sortOrder was applied)
-					expect(curr).toBeDefined();
-					expect(prev).toBeDefined();
-					expect(curr!.id).toBeGreaterThan(prev!.id);
-				}
+				expect(cl.items.length).toBeGreaterThan(0);
+				// reduce で隣接ペアを比較 — インデックスアクセス不要で型安全
+				cl.items.reduce((prev, curr) => {
+					expect(curr.id).toBeGreaterThan(prev.id);
+					return curr;
+				});
 			}
 		}
 	});
