@@ -31,6 +31,19 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 - Lint: `npx biome check .`
 - DB マイグレーション: `npx drizzle-kit push`
 
+### 開発中のプラン切替（#758、dev only）
+
+`npm run dev` 実行時に `.env.local`（またはシェル env）で以下を設定すると、
+`locals.context.plan` / `licenseStatus` / トライアル状態を上書きできる。
+**本番ビルドでは無効**（`dev === false` でガード）。
+
+- `DEBUG_PLAN=free|standard|family` — プランを直接指定
+- `DEBUG_TRIAL=active|expired|not-started` — トライアル状態を上書き
+- `DEBUG_TRIAL_TIER=standard|family` — `DEBUG_TRIAL=active` 時のティア
+
+admin 画面右下に「DEBUG: plan=family」等のインジケータが表示される。
+詳細は `.env.example` および `src/lib/server/debug-plan.ts` を参照。
+
 ### コミット前チェック（必須）
 
 1. `npx biome check .` — lint エラーなし

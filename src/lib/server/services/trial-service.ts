@@ -4,6 +4,7 @@
 
 import { toJSTDateString } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
+import { getDebugTrialOverride } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
 
 const DEFAULT_TRIAL_DAYS = 7;
@@ -127,6 +128,10 @@ export async function isTrialActive(tenantId: string): Promise<boolean> {
  * トライアル終了日を取得（null = トライアルなし or 終了済み）
  */
 export async function getTrialEndDate(tenantId: string): Promise<string | null> {
+	// dev: DEBUG_TRIAL env があれば上書き (#758)
+	const debugOverride = getDebugTrialOverride();
+	if (debugOverride) return debugOverride.endDate;
+
 	const status = await getTrialStatus(tenantId);
 	return status.isTrialActive ? status.trialEndDate : null;
 }
@@ -135,6 +140,10 @@ export async function getTrialEndDate(tenantId: string): Promise<string | null> 
  * アクティブなトライアルのティアを取得
  */
 export async function getTrialTier(tenantId: string): Promise<TrialTier | null> {
+	// dev: DEBUG_TRIAL env があれば上書き (#758)
+	const debugOverride = getDebugTrialOverride();
+	if (debugOverride) return debugOverride.tier;
+
 	const status = await getTrialStatus(tenantId);
 	return status.isTrialActive ? status.trialTier : null;
 }
