@@ -73,3 +73,4 @@
 | 0024 | [プラン解決 (resolvePlanTier) の責務分離パターン](0024-plan-tier-resolution-pattern.md) | accepted | 2026-04-11 |
 | 0025 | [License ↔ Stripe Subscription 因果関係](0025-license-subscription-causality.md) | accepted | 2026-04-11 |
 | 0026 | [ライセンスキーアーキテクチャ](0026-license-key-architecture.md) | accepted | 2026-04-11 |
+| 0027 | [プラン別履歴保持期間ポリシー（retention = 表示フィルタ）](0027-retention-policy.md) | accepted | 2026-04-12 |
