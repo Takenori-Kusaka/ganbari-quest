@@ -2,11 +2,17 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | accepted |
-| 日付 | 2026-04-12 |
+| ステータス | **superseded by [ADR-0028](0028-retention-physical-delete.md)** |
+| 日付 | 2026-04-12（supersede: 2026-04-11） |
 | 起票者 | Takenori-Kusaka |
-| 関連 Issue | #745, #729, #737 |
+| 関連 Issue | #745, #729, #737, #717 |
 | 関連 ADR | ADR-0003（設計書 SSOT）, ADR-0015（Repository パターン）, ADR-0024（プラン解決パターン）, ADR-0025（License ↔ Subscription 因果関係） |
+
+> **⚠️ この ADR は [ADR-0028](0028-retention-physical-delete.md) により上書きされました。**
+> 本 ADR は「retention = 表示フィルタのみ、物理削除なし」を正仕様としていましたが、
+> pricing page の約束（90 日/1 年/無制限）と実態の乖離（#717）が消費者保護・GDPR Art. 5(1)(e) の
+> 保存制限原則に抵触するため、2026-04-11 に物理削除 cron を導入する方針に変更されました。
+> 現行の正仕様は ADR-0028 を参照してください。
 
 ## コンテキスト
 
