@@ -1,7 +1,7 @@
 // src/lib/server/db/activity-repo.ts
 // 活動関連のリポジトリ層（DBアクセス）
 
-import { and, count, countDistinct, desc, eq, gte, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, count, countDistinct, desc, eq, gte, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { db } from '../client';
 import { activities, activityLogs, children, dailyMissions, pointLedger } from '../schema';
 import type { ActivityFilter } from '../types';
@@ -448,4 +448,24 @@ export async function countMainQuestActivities(_tenantId: string): Promise<numbe
 		.where(and(eq(activities.isMainQuest, 1), eq(activities.isVisible, 1)))
 		.get();
 	return result?.cnt ?? 0;
+}
+
+// ============================================================
+// Retention cleanup (#717, #729)
+// ============================================================
+
+/**
+ * 指定した子供の `recorded_date < cutoffDate` に該当する activity_logs を削除する。
+ * cutoffDate は `YYYY-MM-DD` 形式で、その日自体は削除対象に含まない（strict less than）。
+ */
+export async function deleteActivityLogsBeforeDate(
+	childId: number,
+	cutoffDate: string,
+	_tenantId: string,
+): Promise<number> {
+	const result = db
+		.delete(activityLogs)
+		.where(and(eq(activityLogs.childId, childId), lt(activityLogs.recordedDate, cutoffDate)))
+		.run();
+	return result.changes;
 }

@@ -1,7 +1,7 @@
 // src/lib/server/db/point-repo.ts
 // ポイント関連のリポジトリ層
 
-import { desc, eq, sum } from 'drizzle-orm';
+import { and, desc, eq, lt, sum } from 'drizzle-orm';
 import { db } from '../client';
 import { children, pointLedger } from '../schema';
 
@@ -54,4 +54,24 @@ export async function findChildById(id: number, _tenantId: string) {
 /** テナントの全ポイント台帳を削除（SQLite: シングルテナントのため全行削除） */
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
 	db.delete(pointLedger).run();
+}
+
+/**
+ * 指定した子供の `created_at < cutoffDate` に該当する point_ledger を削除する。
+ * cutoffDate は `YYYY-MM-DD` 形式。point_ledger.created_at は ISO timestamp 形式
+ * (`YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SSZ`) で格納されているが、いずれも先頭の
+ * 日付部分が辞書順で比較できるため、`created_at < cutoffDate` で安全に境界判定できる
+ * （cutoffDate 当日は削除対象に含めない）。
+ * #717, #729
+ */
+export async function deletePointLedgerBeforeDate(
+	childId: number,
+	cutoffDate: string,
+	_tenantId: string,
+): Promise<number> {
+	const result = db
+		.delete(pointLedger)
+		.where(and(eq(pointLedger.childId, childId), lt(pointLedger.createdAt, cutoffDate)))
+		.run();
+	return result.changes;
 }
