@@ -9,10 +9,13 @@ import { describe, expect, it } from 'vitest';
 import {
 	getLicenseHighlights,
 	getPricingFeatures,
+	getPricingMeta,
+	getPricingPagePlans,
 	getUnlockedFeatures,
 	LICENSE_PAGE_HIGHLIGHTS,
 	PREMIUM_UNLOCKED_FEATURES,
 	PRICING_PAGE_FEATURES,
+	PRICING_PAGE_META,
 } from '../../../src/lib/domain/plan-features';
 
 describe('plan-features.ts SSOT', () => {
@@ -142,6 +145,70 @@ describe('plan-features.ts SSOT', () => {
 		});
 	});
 
+	describe('PRICING_PAGE_META (#765)', () => {
+		it('3 プラン全てが定義されている', () => {
+			expect(PRICING_PAGE_META.free).toBeDefined();
+			expect(PRICING_PAGE_META.standard).toBeDefined();
+			expect(PRICING_PAGE_META.family).toBeDefined();
+		});
+
+		it('プラン名は #749 ブランドガイドライン §7.1 準拠（フリー / スタンダード / ファミリー）', () => {
+			expect(PRICING_PAGE_META.free.name).toBe('フリー');
+			expect(PRICING_PAGE_META.standard.name).toBe('スタンダード');
+			expect(PRICING_PAGE_META.family.name).toBe('ファミリー');
+		});
+
+		it('価格表記は半角 ¥ + スラッシュ月額形式（#749 §7.2）', () => {
+			expect(PRICING_PAGE_META.free.price).toBe('¥0');
+			expect(PRICING_PAGE_META.standard.price).toBe('¥500');
+			expect(PRICING_PAGE_META.standard.unit).toBe('/月');
+			expect(PRICING_PAGE_META.family.price).toBe('¥780');
+			expect(PRICING_PAGE_META.family.unit).toBe('/月');
+		});
+
+		it('全角 ￥ / 円 / YEN 表記は含まれない（#749 §7.2）', () => {
+			const allText = Object.values(PRICING_PAGE_META)
+				.map((m) => `${m.price}${m.unit}${m.yearlyPrice ?? ''}`)
+				.join('');
+			expect(allText).not.toMatch(/[￥]/);
+			expect(allText).not.toMatch(/円/);
+			expect(allText).not.toMatch(/YEN/i);
+		});
+
+		it('年額表記は standard / family のみで、お得コピー付き（#749 §7.2）', () => {
+			expect(PRICING_PAGE_META.free.yearlyPrice).toBeUndefined();
+			expect(PRICING_PAGE_META.standard.yearlyPrice).toBe('年額 ¥5,000（2ヶ月分お得）');
+			expect(PRICING_PAGE_META.family.yearlyPrice).toBe('年額 ¥7,800（2ヶ月分お得）');
+		});
+
+		it('CTA 文言は「無料体験」統一、「トライアル」「お試し」は禁止（#749 §7.3）', () => {
+			expect(PRICING_PAGE_META.free.ctaLabel).toBe('無料ではじめる');
+			expect(PRICING_PAGE_META.standard.ctaLabel).toBe('7日間 無料体験');
+			expect(PRICING_PAGE_META.family.ctaLabel).toBe('7日間 無料体験');
+
+			const allCtas = Object.values(PRICING_PAGE_META)
+				.map((m) => m.ctaLabel)
+				.join(' ');
+			expect(allCtas).not.toMatch(/トライアル/);
+			expect(allCtas).not.toMatch(/お試し|おためし/);
+		});
+
+		it('おすすめバッジは standard のみに付く（#749 §7.4）', () => {
+			expect(PRICING_PAGE_META.free.badge).toBeUndefined();
+			expect(PRICING_PAGE_META.standard.badge).toBe('おすすめ');
+			expect(PRICING_PAGE_META.family.badge).toBeUndefined();
+			expect(PRICING_PAGE_META.free.recommended).toBe(false);
+			expect(PRICING_PAGE_META.standard.recommended).toBe(true);
+			expect(PRICING_PAGE_META.family.recommended).toBe(false);
+		});
+
+		it('CTA href は有料プランのみ ?plan クエリ付き', () => {
+			expect(PRICING_PAGE_META.free.ctaHref).toBe('/auth/signup');
+			expect(PRICING_PAGE_META.standard.ctaHref).toBe('/auth/signup?plan=standard');
+			expect(PRICING_PAGE_META.family.ctaHref).toBe('/auth/signup?plan=family');
+		});
+	});
+
 	describe('helper functions', () => {
 		it('getPricingFeatures は PRICING_PAGE_FEATURES と同一参照を返す', () => {
 			expect(getPricingFeatures('free')).toBe(PRICING_PAGE_FEATURES.free);
@@ -157,6 +224,18 @@ describe('plan-features.ts SSOT', () => {
 		it('getUnlockedFeatures は PREMIUM_UNLOCKED_FEATURES と同一参照を返す', () => {
 			expect(getUnlockedFeatures('standard')).toBe(PREMIUM_UNLOCKED_FEATURES.standard);
 			expect(getUnlockedFeatures('family')).toBe(PREMIUM_UNLOCKED_FEATURES.family);
+		});
+
+		it('getPricingMeta は PRICING_PAGE_META と同一参照を返す', () => {
+			expect(getPricingMeta('free')).toBe(PRICING_PAGE_META.free);
+			expect(getPricingMeta('standard')).toBe(PRICING_PAGE_META.standard);
+			expect(getPricingMeta('family')).toBe(PRICING_PAGE_META.family);
+		});
+
+		it('getPricingPagePlans は free → standard → family 表示順で 3 プランを返す', () => {
+			const plans = getPricingPagePlans();
+			expect(plans).toHaveLength(3);
+			expect(plans.map((p) => p.id)).toEqual(['free', 'standard', 'family']);
 		});
 	});
 });

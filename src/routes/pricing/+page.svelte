@@ -1,37 +1,13 @@
 <script lang="ts">
-import { getPricingFeatures } from '$lib/domain/plan-features';
+import { getPricingFeatures, getPricingPagePlans } from '$lib/domain/plan-features';
 import Card from '$lib/ui/primitives/Card.svelte';
 
-const plans = [
-	{
-		id: 'free' as const,
-		name: 'フリー',
-		price: '¥0',
-		unit: '',
-		description: '基本機能で気軽にスタート。冒険体験は一切制限なし。',
-		features: getPricingFeatures('free'),
-	},
-	{
-		id: 'standard' as const,
-		name: 'スタンダード',
-		price: '¥500',
-		unit: '/月',
-		yearlyPrice: '年額 ¥5,000（2ヶ月分お得）',
-		description: 'カスタマイズ自由自在。お子さまにぴったりの環境を。',
-		features: getPricingFeatures('standard'),
-		badge: 'おすすめ',
-		recommended: true,
-	},
-	{
-		id: 'family' as const,
-		name: 'ファミリー',
-		price: '¥780',
-		unit: '/月',
-		yearlyPrice: '年額 ¥7,800（2ヶ月分お得）',
-		description: '全機能解放。きょうだいの成長をまとめて見守れます。',
-		features: getPricingFeatures('family'),
-	},
-];
+// #765: プラン情報は $lib/domain/plan-features.ts の SSOT から取得する。
+// 個別フィールドのハードコード禁止（#749 ブランドガイドライン §7）。
+const plans = getPricingPagePlans().map((meta) => ({
+	...meta,
+	features: getPricingFeatures(meta.id),
+}));
 </script>
 
 <svelte:head>
@@ -40,8 +16,8 @@ const plans = [
 
 <div class="pricing-page max-w-[960px] mx-auto py-8 px-4">
 	<header class="text-center mb-10">
-		<h1 class="text-[1.75rem] font-bold text-[var(--color-neutral-700)] mb-2">料金プラン</h1>
-		<p class="text-[var(--color-neutral-500)] text-[0.95rem]">基本無料ではじめられます。スタンダード・ファミリープランはすべて<strong>7日間の無料トライアル</strong>付き</p>
+		<h1 class="text-[1.75rem] font-bold text-[var(--color-neutral-700)] mb-2" data-testid="pricing-heading">料金プラン</h1>
+		<p class="text-[var(--color-neutral-500)] text-[0.95rem]">基本無料ではじめられます。スタンダード・ファミリープランはすべて<strong>7日間の無料体験</strong>付き</p>
 	</header>
 
 	<div class="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-6 mb-8">
@@ -50,39 +26,34 @@ const plans = [
 				class="plan-card relative bg-[var(--color-surface-card)] border-2 rounded-2xl p-6 flex flex-col"
 				class:recommended={plan.recommended}
 				class:default-border={!plan.recommended}
+				data-testid="pricing-plan-card"
+				data-plan={plan.id}
 			>
 				{#if plan.badge}
-					<span class="absolute -top-3 left-4 bg-[var(--color-violet-500)] text-[var(--color-text-inverse)] text-xs font-bold px-3 py-0.5 rounded-full">{plan.badge}</span>
+					<span class="absolute -top-3 left-4 bg-[var(--color-violet-500)] text-[var(--color-text-inverse)] text-xs font-bold px-3 py-0.5 rounded-full" data-testid="pricing-badge">{plan.badge}</span>
 				{/if}
-				<h2 class="text-[1.1rem] font-semibold text-[var(--color-neutral-700)] mb-2">{plan.name}</h2>
+				<h2 class="text-[1.1rem] font-semibold text-[var(--color-neutral-700)] mb-2" data-testid="pricing-plan-name">{plan.name}</h2>
 				<div class="mb-1">
-					<span class="text-[2rem] font-bold text-[var(--color-neutral-900)]">{plan.price}</span>
+					<span class="text-[2rem] font-bold text-[var(--color-neutral-900)]" data-testid="pricing-plan-price">{plan.price}</span>
 					{#if plan.unit}
 						<span class="text-[0.9rem] text-[var(--color-neutral-500)]">{plan.unit}</span>
 					{/if}
 				</div>
 				{#if plan.yearlyPrice}
-					<p class="text-[0.8rem] text-[var(--color-neutral-500)] mb-3">{plan.yearlyPrice}</p>
+					<p class="text-[0.8rem] text-[var(--color-neutral-500)] mb-3" data-testid="pricing-yearly-price">{plan.yearlyPrice}</p>
 				{:else}
 					<p class="text-[0.8rem] text-[var(--color-neutral-500)] mb-3">&nbsp;</p>
 				{/if}
-				<p class="text-[0.85rem] text-[var(--color-neutral-500)] mb-5">{plan.description}</p>
+				<p class="text-[0.85rem] text-[var(--color-neutral-500)] mb-5">{plan.shortDescription}</p>
 
-				{#if plan.id === 'free'}
-					<a
-						href="/auth/signup"
-						class="plan-cta block text-center py-3 rounded-lg text-[0.9rem] font-semibold no-underline mb-5 transition-colors"
-					>
-						無料ではじめる
-					</a>
-				{:else}
-					<a
-						href="/auth/signup?plan={plan.id}"
-						class="plan-cta primary block text-center py-3 rounded-lg text-[0.9rem] font-semibold no-underline mb-5 transition-colors"
-					>
-						7日間 無料体験
-					</a>
-				{/if}
+				<a
+					href={plan.ctaHref}
+					class="plan-cta block text-center py-3 rounded-lg text-[0.9rem] font-semibold no-underline mb-5 transition-colors"
+					class:primary={plan.id !== 'free'}
+					data-testid="pricing-cta"
+				>
+					{plan.ctaLabel}
+				</a>
 
 				<ul class="plan-features list-none p-0 m-0 flex-1">
 					{#each plan.features as feature}
@@ -104,8 +75,8 @@ const plans = [
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">無料プランでも十分使えますか？</dt>
 			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。プリセットの活動とチェックリストで基本的な機能はお使いいただけます。お子さまの冒険体験は無料でも一切制限ありません。</dd>
 
-			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">無料トライアル中にキャンセルできますか？</dt>
-			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。トライアル期間中にキャンセルすれば一切課金されません。</dd>
+			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">無料体験中にキャンセルできますか？</dt>
+			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">はい。無料体験期間中にキャンセルすれば一切課金されません。</dd>
 
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">解約するとどうなりますか？</dt>
 			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">お支払い済みの期間が終了するまで引き続きご利用いただけます。その後フリープランに自動移行し、データは保持されます。</dd>
