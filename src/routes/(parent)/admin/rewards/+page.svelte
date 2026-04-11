@@ -54,7 +54,11 @@ const categoryLabels: Record<string, string> = {
 
 <div class="space-y-4" data-tutorial="rewards-section">
 	<div class="flex items-center gap-2">
-		<h2 class="text-lg font-bold">🎁 ごほうび</h2>
+		<h2 class="text-lg font-bold">🎁 ごほうび
+			{#if !data.isPremium}
+				<span class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle">有料限定</span>
+			{/if}
+		</h2>
 		<PageHelpButton />
 	</div>
 	<!-- Page Description -->
@@ -70,6 +74,28 @@ const categoryLabels: Record<string, string> = {
 			から送れます
 		</p>
 	</div>
+
+	{#if !data.isPremium}
+		<!-- #728: 無料プラン向けアップグレード誘導 -->
+		<div class="bg-[var(--color-premium-bg)] rounded-xl p-4 space-y-3 border border-[var(--color-border-premium)]" data-testid="rewards-upgrade-banner">
+			<div class="flex items-start gap-3">
+				<span class="text-2xl">✨</span>
+				<div class="flex-1">
+					<p class="font-bold text-[var(--color-premium)]">特別なごほうび設定はスタンダードプラン以上の機能です</p>
+					<p class="text-xs text-[var(--color-premium-light)] mt-1">
+						アップグレードすると、お手伝いや特別な成果に対してカスタムのボーナスごほうびを作成・付与できます。
+					</p>
+				</div>
+			</div>
+			<a
+				href="/admin/license"
+				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
+				data-testid="rewards-upgrade-cta"
+			>
+				プランを確認する
+			</a>
+		</div>
+	{/if}
 
 	<!-- Child Selector -->
 	<section>
@@ -103,6 +129,7 @@ const categoryLabels: Record<string, string> = {
 				<Button
 					variant="ghost"
 					size="sm"
+					disabled={!data.isPremium}
 					class="bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto
 						{selectedTemplate?.title === tmpl.title ? 'ring-2 ring-[var(--color-action-primary)]' : ''}"
 					onclick={() => selectTemplate(tmpl)}
@@ -143,6 +170,7 @@ const categoryLabels: Record<string, string> = {
 										type="submit"
 										variant="ghost"
 										size="sm"
+										disabled={!data.isPremium}
 										class="w-full bg-[var(--color-surface-card)] rounded-xl p-2 shadow-sm text-center hover:shadow-md flex-col h-auto"
 									>
 										<span class="text-xl block">{preset.icon}</span>
@@ -179,14 +207,14 @@ const categoryLabels: Record<string, string> = {
 			<input type="hidden" name="childId" value={selectedChildId} />
 
 			<div class="grid grid-cols-2 gap-3">
-				<FormField label="タイトル" type="text" name="title" bind:value={customTitle} required />
-				<FormField label="ポイント" type="number" name="points" bind:value={customPoints} min={1} max={10000} required />
+				<FormField label="タイトル" type="text" name="title" bind:value={customTitle} disabled={!data.isPremium} required />
+				<FormField label="ポイント" type="number" name="points" bind:value={customPoints} min={1} max={10000} disabled={!data.isPremium} required />
 			</div>
 			<div class="grid grid-cols-2 gap-3">
-				<FormField label="アイコン" type="text" name="icon" bind:value={customIcon} />
+				<FormField label="アイコン" type="text" name="icon" bind:value={customIcon} disabled={!data.isPremium} />
 				<FormField label="カテゴリ">
 					{#snippet children()}
-						<select name="category" bind:value={customCategory} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
+						<select name="category" bind:value={customCategory} disabled={!data.isPremium} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm disabled:opacity-50 disabled:cursor-not-allowed">
 							{#each Object.entries(categoryLabels) as [value, label]}
 								<option {value}>{label}</option>
 							{/each}
@@ -199,6 +227,7 @@ const categoryLabels: Record<string, string> = {
 				type="submit"
 				variant="primary"
 				size="md"
+				disabled={!data.isPremium}
 				class="w-full"
 			>
 				{customIcon} {customTitle || '報酬'} ({customPoints}P) を付与する
