@@ -4,6 +4,9 @@ export default defineConfig({
 	testDir: 'tests/e2e',
 	testIgnore: [
 		'**/cognito-auth.spec.ts',
+		// #776, #779: プラン別ゲート E2E は cognito-dev モード専用
+		// （playwright.cognito-dev.config.ts でのみ実行する）
+		'**/plan-gated-features.spec.ts',
 		'**/production-smoke.spec.ts',
 		// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
 		// CI（Linux）ではスキップし、ローカル開発でのUI崩壊検知にのみ使用する
