@@ -11,6 +11,7 @@ import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import Divider from '$lib/ui/primitives/Divider.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
@@ -39,6 +40,12 @@ let agreedTerms = $state(false);
 let agreedPrivacy = $state(false);
 let showLicenseKey = $state(false);
 
+// #799 ライセンスキー使用時の追加ガード
+let agreedLicenseOnce = $state(false); // 「一回限り使用に同意」
+let showLicenseHelp = $state(false); // 折りたたみヘルプの開閉
+let showLicenseConfirmDialog = $state(false); // 確認ダイアログ
+let signupFormEl: HTMLFormElement | null = $state(null); // dialog から submit を呼ぶため
+
 // #588: 規約リンク閲覧追跡（一度クリックして開くまでチェック不可）
 let termsViewed = $state(false);
 let privacyViewed = $state(false);
@@ -49,6 +56,7 @@ let privacyHintShown = $state(false);
 let submitAttempted = $state(false);
 
 // #588: 送信可能かの判定
+// #799: showLicenseKey 時は「一回限り使用に同意」も必須
 const canSubmit = $derived(
 	!loading &&
 		!!email &&
@@ -57,7 +65,7 @@ const canSubmit = $derived(
 		password === passwordConfirm &&
 		agreedTerms &&
 		agreedPrivacy &&
-		(!showLicenseKey || (!!licenseKey && licenseKeyValid)),
+		(!showLicenseKey || (!!licenseKey && licenseKeyValid && agreedLicenseOnce)),
 );
 
 // #588: 送信不可理由
@@ -70,6 +78,8 @@ const submitBlockReason = $derived(() => {
 	if (!agreedPrivacy) return 'プライバシーポリシーへの同意が必要です';
 	if (showLicenseKey && (!licenseKey || !licenseKeyValid))
 		return 'ライセンスキーを正しく入力してください';
+	if (showLicenseKey && !agreedLicenseOnce)
+		return 'ライセンスキーが一回限り使用であることに同意してください';
 	return '';
 });
 
@@ -241,6 +251,7 @@ $effect(() => {
 
 			<!-- 登録フォーム -->
 			<form
+				bind:this={signupFormEl}
 				method="POST"
 				action="?/signup"
 				use:enhance={() => {
@@ -314,12 +325,56 @@ $effect(() => {
 							/>
 						{/snippet}
 					</FormField>
+
+					<!-- #799: 折りたたみヘルプ「ライセンスキーについて」 -->
+					<div class="-mt-3">
+						<button
+							type="button"
+							class="text-xs text-[var(--color-text-link)] underline hover:no-underline"
+							aria-expanded={showLicenseHelp}
+							aria-controls="license-key-help"
+							onclick={() => { showLicenseHelp = !showLicenseHelp; }}
+							data-testid="signup-license-help-toggle"
+						>
+							{showLicenseHelp ? '▼' : '▶'} ライセンスキーについて
+						</button>
+						{#if showLicenseHelp}
+							<div
+								id="license-key-help"
+								class="mt-2 p-3 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] border border-[var(--color-border-default)] text-xs text-[var(--color-text-muted)] leading-relaxed space-y-1.5"
+								data-testid="signup-license-help"
+							>
+								<p><strong class="text-[var(--color-text-primary)]">一回限りの使用</strong>: 一度有効化すると、他のアカウントでは使用できません。</p>
+								<p><strong class="text-[var(--color-text-primary)]">プラン自動判定</strong>: キーに応じてスタンダード / ファミリープランが自動で付与されます。</p>
+								<p><strong class="text-[var(--color-text-primary)]">紐付け先</strong>: 現在登録中のアカウント（家族）に紐付きます。後から他の家族に付け替えることはできません。</p>
+								<p><strong class="text-[var(--color-text-primary)]">有効期限</strong>: 発行日から所定の期間で失効します（失効後は使用不可）。</p>
+							</div>
+						{/if}
+					</div>
+
+					<!-- #799: 一回限り使用に同意 -->
+					<FormField label="" error={submitAttempted && !agreedLicenseOnce ? '一回限り使用への同意が必要です' : undefined}>
+						{#snippet children()}
+							<label class="flex items-start gap-2 cursor-pointer">
+								<input
+									type="checkbox"
+									bind:checked={agreedLicenseOnce}
+									class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
+									data-testid="signup-license-once-checkbox"
+								/>
+								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
+									このライセンスキーが<strong class="text-[var(--color-text-primary)]">一回限り使用</strong>であり、他のアカウントでは使えなくなることに同意します
+								</span>
+							</label>
+						{/snippet}
+					</FormField>
+
 					<Button
 						type="button"
 						variant="ghost"
 						size="sm"
 						class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-link)] underline -mt-3 !p-0"
-						onclick={() => { showLicenseKey = false; licenseKeyRaw = ''; }}
+						onclick={() => { showLicenseKey = false; licenseKeyRaw = ''; agreedLicenseOnce = false; showLicenseHelp = false; }}
 					>
 						ライセンスキーなしで続ける
 					</Button>
@@ -394,10 +449,17 @@ $effect(() => {
 					disabled={!canSubmit}
 					size="md"
 					class="w-full disabled:opacity-40 disabled:cursor-not-allowed"
+					data-testid="signup-submit-button"
 					onclick={(e) => {
 						if (!canSubmit) {
 							e.preventDefault();
 							submitAttempted = true;
+							return;
+						}
+						// #799: ライセンスキー使用時は確認ダイアログを経由
+						if (showLicenseKey) {
+							e.preventDefault();
+							showLicenseConfirmDialog = true;
 						}
 					}}
 				>
@@ -444,3 +506,67 @@ $effect(() => {
 		{/snippet}
 	</Card>
 </div>
+
+<!-- #799: ライセンスキー有効化 確認ダイアログ -->
+<Dialog
+	bind:open={showLicenseConfirmDialog}
+	title="ライセンスキーを有効化しますか？"
+	size="md"
+	testid="signup-license-confirm-dialog"
+>
+	{#snippet children()}
+		<div class="space-y-4 text-sm">
+			<div class="p-3 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] border border-[var(--color-border-default)]">
+				<p class="text-xs text-[var(--color-text-tertiary)] mb-1">入力されたキー</p>
+				<p class="font-mono text-[var(--color-text-primary)] break-all" data-testid="signup-license-confirm-key">
+					{licenseKey}
+				</p>
+			</div>
+
+			<ul class="space-y-2 text-[var(--color-text-secondary)]">
+				<li class="flex gap-2">
+					<span aria-hidden="true">⚠️</span>
+					<span>このキーは<strong class="text-[var(--color-text-primary)]">一回限り</strong>しか使用できません。有効化後は他のアカウントで再利用できません。</span>
+				</li>
+				<li class="flex gap-2">
+					<span aria-hidden="true">📦</span>
+					<span>キーに対応する<strong class="text-[var(--color-text-primary)]">プラン（スタンダード / ファミリー）</strong>が自動で付与されます。</span>
+				</li>
+				<li class="flex gap-2">
+					<span aria-hidden="true">👤</span>
+					<span>このキーは<strong class="text-[var(--color-text-primary)]">「{email || '入力中のアカウント'}」</strong>に紐付けられ、後から他の家族に付け替えることはできません。</span>
+				</li>
+				<li class="flex gap-2">
+					<span aria-hidden="true">⏳</span>
+					<span>キーには<strong class="text-[var(--color-text-primary)]">有効期限</strong>が設定されています。発行から一定期間で失効します。</span>
+				</li>
+			</ul>
+
+			<div class="flex gap-2 pt-2">
+				<Button
+					type="button"
+					variant="secondary"
+					size="md"
+					class="flex-1"
+					data-testid="signup-license-confirm-cancel"
+					onclick={() => { showLicenseConfirmDialog = false; }}
+				>
+					キャンセル
+				</Button>
+				<Button
+					type="button"
+					variant="primary"
+					size="md"
+					class="flex-1"
+					data-testid="signup-license-confirm-ok"
+					onclick={() => {
+						showLicenseConfirmDialog = false;
+						signupFormEl?.requestSubmit();
+					}}
+				>
+					有効化する
+				</Button>
+			</div>
+		</div>
+	{/snippet}
+</Dialog>
