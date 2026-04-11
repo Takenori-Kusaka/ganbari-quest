@@ -75,7 +75,7 @@ Built with SvelteKit 2, Svelte 5, AWS Lambda, and a lot of love.
 I'd love your feedback — especially from fellow parents! Try the demo (no signup needed) and let me know what you think.
 
 🎮 Demo: https://ganbari-quest.com/demo
-💬 Discord: https://discord.gg/5pWkf4Z5
+💬 Feedback: ganbari.quest.support@gmail.com
 ```
 
 ---
