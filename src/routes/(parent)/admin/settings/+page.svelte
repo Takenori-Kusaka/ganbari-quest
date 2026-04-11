@@ -4,6 +4,7 @@ import { page } from '$app/stores';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -277,9 +278,9 @@ function resetCloudImport() {
 	cloudImportStep = 'input';
 }
 
-// 初回ロード時にクラウドエクスポート一覧を取得
+// 初回ロード時にクラウドエクスポート一覧を取得（#773: maxCloudExports > 0 の有料プランのみ）
 $effect(() => {
-	if ($page.data.authMode === 'cognito' && $page.data.planTier !== 'free') {
+	if ($page.data.authMode === 'cognito' && data.maxCloudExports > 0) {
 		loadCloudExports();
 	}
 });
@@ -1060,14 +1061,19 @@ const anyFormBusy = $derived(
 
 	<!-- データ管理 -->
 	<Card padding="lg" data-tutorial="data-management">
-		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">💾 データ管理</h3>
+		<div class="flex items-center gap-2 mb-4">
+			<h3 class="text-lg font-bold text-[var(--color-text)]">💾 データ管理</h3>
+			{#if !data.canExport}
+				<PremiumBadge size="sm" label="スタンダード以上" showLock />
+			{/if}
+		</div>
 
 		{#if exportError}
 			<ErrorAlert message={exportError} severity="error" action="retry" />
 		{/if}
 
 		<div class="space-y-4">
-			<div>
+			<div data-testid="data-export-section">
 				<p class="text-sm text-[var(--color-text)] mb-3">
 					家族のデータをJSONファイルとしてダウンロードできます。バックアップや別環境への移行に使用できます。
 				</p>
@@ -1080,34 +1086,67 @@ const anyFormBusy = $derived(
 						<li>活動マスタ・きせかえアイテム</li>
 					</ul>
 				</div>
-				<label class="flex items-center gap-2 mb-2 text-sm text-[var(--color-text)] cursor-pointer">
-					<input type="checkbox" bind:checked={includeFiles} class="w-4 h-4 text-[var(--color-brand-500)] rounded" />
-					画像・音声ファイルも含める（ZIP形式）
-				</label>
-				{#if !includeFiles}
-					<div class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-3">
-						<p class="text-xs text-[var(--color-feedback-warning-text)]">画像・音声を含める場合は上のチェックをオンにしてください。ファイルサイズが大きくなる場合があります（最大100MB）。</p>
+				{#if !data.canExport}
+					<!-- #773: free プランは事前にアップセルして 403 を防ぐ -->
+					<div
+						class="bg-[var(--color-surface-muted)] border border-[var(--color-border-default)] rounded-lg p-3 mb-3"
+						data-testid="export-upsell"
+					>
+						<p class="text-sm text-[var(--color-text)] mb-2">
+							🔒 データエクスポートは <strong>スタンダードプラン</strong> 以上でご利用いただけます。
+						</p>
+						<p class="text-xs text-[var(--color-text-muted)] mb-3">
+							家族のデータをJSON/ZIP形式でダウンロードして、バックアップや引っ越しに利用できます。
+						</p>
+						<a
+							href="/pricing"
+							class="inline-block px-4 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] text-sm font-semibold rounded-lg no-underline hover:brightness-110 transition-all"
+							data-testid="export-upsell-cta"
+						>
+							プランを見る
+						</a>
 					</div>
-				{/if}
-				<label class="flex items-center gap-2 mb-3 text-sm text-[var(--color-text)] cursor-pointer">
-					<input type="checkbox" bind:checked={compactFormat} class="w-4 h-4 text-[var(--color-brand-500)] rounded" />
-					圧縮形式でエクスポート（ファイルサイズを削減）
-				</label>
-				<Button
-					type="button"
-					variant="success"
-					size="md"
-					class="w-full flex items-center justify-center gap-2"
-					disabled={exportLoading}
-					onclick={handleExport}
-				>
-					{#if exportLoading}
-						<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
-						エクスポート中...
-					{:else}
-						データをエクスポート
+					<Button
+						type="button"
+						variant="success"
+						size="md"
+						class="w-full flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
+						disabled={true}
+						data-testid="data-export-button"
+					>
+						🔒 データをエクスポート（有料プラン限定）
+					</Button>
+				{:else}
+					<label class="flex items-center gap-2 mb-2 text-sm text-[var(--color-text)] cursor-pointer">
+						<input type="checkbox" bind:checked={includeFiles} class="w-4 h-4 text-[var(--color-brand-500)] rounded" />
+						画像・音声ファイルも含める（ZIP形式）
+					</label>
+					{#if !includeFiles}
+						<div class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-3">
+							<p class="text-xs text-[var(--color-feedback-warning-text)]">画像・音声を含める場合は上のチェックをオンにしてください。ファイルサイズが大きくなる場合があります（最大100MB）。</p>
+						</div>
 					{/if}
-				</Button>
+					<label class="flex items-center gap-2 mb-3 text-sm text-[var(--color-text)] cursor-pointer">
+						<input type="checkbox" bind:checked={compactFormat} class="w-4 h-4 text-[var(--color-brand-500)] rounded" />
+						圧縮形式でエクスポート（ファイルサイズを削減）
+					</label>
+					<Button
+						type="button"
+						variant="success"
+						size="md"
+						class="w-full flex items-center justify-center gap-2"
+						disabled={exportLoading}
+						onclick={handleExport}
+						data-testid="data-export-button"
+					>
+						{#if exportLoading}
+							<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
+							エクスポート中...
+						{:else}
+							データをエクスポート
+						{/if}
+					</Button>
+				{/if}
 			</div>
 
 			<hr class="my-4 border-[var(--color-border-default)]" />
@@ -1257,10 +1296,22 @@ const anyFormBusy = $derived(
 		</div>
 	</Card>
 
-	<!-- クラウドエクスポート共有（SaaS有料プランのみ） -->
-	{#if $page.data.authMode === 'cognito' && $page.data.planTier !== 'free'}
-		<Card padding="lg">
-			<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">☁️ クラウド共有</h3>
+	<!-- クラウドエクスポート共有（SaaSモード専用・free はアップセル表示） -->
+	{#if $page.data.authMode === 'cognito'}
+		<Card padding="lg" data-testid="cloud-export-card">
+			<div class="flex items-center gap-2 mb-4">
+				<h3 class="text-lg font-bold text-[var(--color-text)]">☁️ クラウド共有</h3>
+				{#if data.maxCloudExports === 0}
+					<PremiumBadge size="sm" label="スタンダード以上" showLock />
+				{:else}
+					<span
+						class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] rounded-full"
+						data-testid="cloud-export-slot-counter"
+					>
+						保管枠 {cloudExports.length} / {data.maxCloudExports}
+					</span>
+				{/if}
+			</div>
 
 			{#if cloudError}
 				<ErrorAlert message={cloudError} severity="error" action="retry" />
@@ -1269,6 +1320,27 @@ const anyFormBusy = $derived(
 				<SuccessAlert message={cloudSuccess} />
 			{/if}
 
+			{#if data.maxCloudExports === 0}
+				<!-- #773: free プランはアップセル表示 -->
+				<div
+					class="bg-[var(--color-surface-muted)] border border-[var(--color-border-default)] rounded-lg p-4"
+					data-testid="cloud-export-upsell"
+				>
+					<p class="text-sm text-[var(--color-text)] mb-2">
+						🔒 クラウド共有は <strong>スタンダードプラン</strong> 以上でご利用いただけます。
+					</p>
+					<p class="text-xs text-[var(--color-text-muted)] mb-3">
+						家族のデータをクラウドに保管して、PINコードで別端末や他のアカウントと共有できます（スタンダード: 3枠 / ファミリー: 10枠）。
+					</p>
+					<a
+						href="/pricing"
+						class="inline-block px-4 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] text-sm font-semibold rounded-lg no-underline hover:brightness-110 transition-all"
+						data-testid="cloud-export-upsell-cta"
+					>
+						プランを見る
+					</a>
+				</div>
+			{:else}
 			<div class="space-y-4">
 				<!-- エクスポート作成 -->
 				<div>
@@ -1444,6 +1516,7 @@ const anyFormBusy = $derived(
 					{/if}
 				</div>
 			</div>
+			{/if}
 		</Card>
 	{/if}
 

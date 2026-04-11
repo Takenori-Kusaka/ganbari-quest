@@ -44,6 +44,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	let defaultChildId: number | null = null;
 
 	// #782: プラン判定（きょうだいランキングは family 限定）
+	// #773: エクスポート / クラウドエクスポートも同じ planLimits から UI ゲート情報を配布する。
 	const planTier = await resolveFullPlanTier(
 		tenantId,
 		locals.context?.licenseStatus ?? 'none',
@@ -91,6 +92,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 		siblingRankingEnabled,
 		// #782 きょうだいランキングのプランゲート状態
 		canSiblingRanking: planLimits.canSiblingRanking,
+		// #773 エクスポート / クラウドエクスポートのプランゲート状態
+		// （backend は /api/v1/export で canExport=false を 403 返しするが、UI では
+		// 事前に disable + アップセルを出して「ボタンを押したら謎の 403」を防ぐ）
+		canExport: planLimits.canExport,
+		maxCloudExports: planLimits.maxCloudExports,
 		notificationSettings,
 		// #576 既定の子供（家族全体の設定）
 		children: children.map((c) => ({ id: c.id, nickname: c.nickname })),
