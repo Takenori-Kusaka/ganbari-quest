@@ -30,10 +30,13 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	};
 
 	const tenantStatus = locals.context?.tenantStatus ?? 'active';
+	// #725: トライアル中にファミリー体験ユーザーが standard 扱いになるバグ修正
+	// trialTier 引数を必ず渡す（トライアル非アクティブ時は null で OK）
 	const planTier = resolvePlanTier(
 		locals.context?.licenseStatus ?? 'none',
 		locals.context?.plan,
-		trialStatus.trialEndDate,
+		trialStatus.isTrialActive ? trialStatus.trialEndDate : null,
+		trialStatus.isTrialActive ? trialStatus.trialTier : null,
 	);
 	const isPremium = isPaidTier(planTier);
 	const tutorialStarted = !!(
