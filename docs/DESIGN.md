@@ -48,11 +48,16 @@
 | `--color-action-danger` | `var(--color-danger)` |
 | `--color-action-success` | `var(--color-success)` |
 | `--color-action-ghost` | `transparent` |
+| `--color-action-trial` | `var(--color-premium-light)` |
+| `--color-action-trial-hover` | `var(--color-premium)` |
+| `--color-action-trial-upgrade` | `var(--color-warning)` |
+| `--color-action-trial-upgrade-hover` | `var(--color-warning-hover)` |
 
 #### Surface（背景）
 
 | トークン | 値 |
 |---------|----|
+| `--color-surface` | `white` |
 | `--color-surface-base` | `var(--color-bg)` |
 | `--color-surface-card` | `white` |
 | `--color-surface-overlay` | `rgba(0, 0, 0, 0.5)` |
@@ -66,12 +71,19 @@
 | `--color-surface-warm` | `#fef3c7` |
 | `--color-surface-themed` | `var(--theme-bg)` |
 | `--color-surface-nav` | `var(--theme-nav)` |
+| `--color-surface-trial` | `var(--color-premium-50)` |
+| `--color-surface-trial-urgent` | `var(--color-feedback-warning-bg)` |
+| `--color-surface-trial-expired` | `var(--color-neutral-50)` |
 | `--color-surface-muted-strong` | `var(--color-neutral-100)` |
+| `--color-surface-tertiary` | `var(--color-neutral-200)` |
+| `--color-surface-error` | `var(--color-feedback-error-bg)` |
+| `--color-surface-error-strong` | `var(--color-feedback-error-bg-strong)` |
 
 #### Border（枠線）
 
 | トークン | 値 |
 |---------|----|
+| `--color-border` | `var(--color-neutral-200)` |
 | `--color-border-default` | `var(--color-neutral-200)` |
 | `--color-border-light` | `var(--color-neutral-100)` |
 | `--color-border-strong` | `var(--color-neutral-300)` |
@@ -80,6 +92,9 @@
 | `--color-border-warm` | `rgba(251, 191, 36, 0.3)` |
 | `--color-border-warning` | `var(--color-feedback-warning-border)` |
 | `--color-border-premium` | `color-mix(in srgb, var(--color-premium) 20%, transparent)` |
+| `--color-border-trial` | `var(--color-premium-200)` |
+| `--color-border-trial-urgent` | `var(--color-feedback-warning-border)` |
+| `--color-border-trial-expired` | `var(--color-neutral-200)` |
 | `--color-border-danger` | `color-mix(in srgb, var(--color-danger) 20%, transparent)` |
 | `--color-border-success` | `color-mix(in srgb, var(--color-success) 20%, transparent)` |
 | `--color-border-success-strong` | `color-mix(in srgb, var(--color-success) 40%, transparent)` |
@@ -88,6 +103,7 @@
 
 | トークン | 値 |
 |---------|----|
+| `--color-text` | `#2d2d2d` |
 | `--color-text-muted` | `#8b8b8b` |
 | `--color-text-inverse` | `white` |
 | `--color-text-accent` | `var(--theme-accent)` |
