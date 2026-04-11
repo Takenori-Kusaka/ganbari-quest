@@ -160,16 +160,26 @@ describe('POST /admin/reports?/updateSettings — server side plan gate (#735)',
 		vi.clearAllMocks();
 	});
 
-	it('free プランの POST は 403 で拒否し setSetting は呼ばれない', async () => {
+	it('free プランの POST は 403 + PlanLimitError 形式で拒否し setSetting は呼ばれない (#787)', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
 
 		// biome-ignore lint/style/noNonNullAssertion: action defined
-		const result = await actions.updateSettings!(
+		const result = (await actions.updateSettings!(
 			makeFormEvent('free', { enabled: 'on', day: 'monday' }),
-		);
+		)) as {
+			status: number;
+			data: { error: { code: string; currentTier: string; requiredTier: string } };
+		};
 
 		// ActionFailure はオブジェクトで返る（throw しない）
-		expect((result as { status?: number }).status).toBe(403);
+		expect(result.status).toBe(403);
+		// #787: PlanLimitError 形式で返る
+		expect(result.data.error).toMatchObject({
+			code: 'PLAN_LIMIT_EXCEEDED',
+			currentTier: 'free',
+			requiredTier: 'standard',
+			upgradeUrl: '/admin/license',
+		});
 		expect(mockSetSetting).not.toHaveBeenCalled();
 	});
 

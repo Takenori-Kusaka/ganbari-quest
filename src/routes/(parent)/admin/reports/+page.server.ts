@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { createPlanLimitError } from '$lib/domain/errors';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
@@ -133,7 +134,11 @@ export const actions: Actions = {
 		);
 		if (planTier === 'free') {
 			return fail(403, {
-				error: '週次メールレポートはスタンダードプラン以上でご利用いただけます',
+				error: createPlanLimitError(
+					planTier,
+					'standard',
+					'週次メールレポートはスタンダードプラン以上でご利用いただけます',
+				),
 			});
 		}
 
