@@ -3,6 +3,7 @@
 
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
+import { buildPlanTierCacheKey, getRequestContext } from '$lib/server/request-context';
 import type { TrialTier } from '$lib/server/services/trial-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';
 
@@ -99,6 +100,12 @@ export function resolvePlanTier(
  * #732: 全ての server load / services の呼び出し口をこの関数に統一する。
  * 内部で `getTrialStatus` を 1 回だけ呼び出し、expired 判定を含めて解決する。
  *
+ * #788: 同一リクエスト内の2回目以降は request-context のキャッシュから返す。
+ * これにより `(child)/+layout.server.ts` + 各 `page.server.ts` + 内部サービスが
+ * 独立に呼び出しても、実際に `trial_history` を叩くのは最初の1回だけになる。
+ * `getTrialStatus` 側にもキャッシュがあるため二重防護だが、key にライセンス状態を
+ * 含めるぶんプランティア単位でキャッシュできる利点がある。
+ *
  * @param tenantId - テナントID
  * @param licenseStatus - `locals.context?.licenseStatus` （未設定なら 'none' 扱い）
  * @param planId - `locals.context?.plan`
@@ -108,12 +115,21 @@ export async function resolveFullPlanTier(
 	licenseStatus: string,
 	planId?: string,
 ): Promise<PlanTier> {
+	// #788: リクエストスコープのキャッシュを優先
+	const ctx = getRequestContext();
+	const cacheKey = buildPlanTierCacheKey(tenantId, licenseStatus, planId);
+	const cached = ctx?.planTierCache.get(cacheKey);
+	if (cached) return cached;
+
 	// getTrialStatus を 1 回だけ呼ぶ。過去実装は getTrialEndDate + getTrialTier を
 	// 別々に呼び、それぞれ内部で getTrialStatus を実行していたため DB 2 回叩いていた。
 	const status = await getTrialStatus(tenantId);
 	const trialEnd = status.isTrialActive ? status.trialEndDate : null;
 	const trialTierValue = status.isTrialActive ? status.trialTier : null;
-	return resolvePlanTier(licenseStatus, planId, trialEnd, trialTierValue);
+	const tier = resolvePlanTier(licenseStatus, planId, trialEnd, trialTierValue);
+
+	ctx?.planTierCache.set(cacheKey, tier);
+	return tier;
 }
 
 /** 有料プランかどうか */
