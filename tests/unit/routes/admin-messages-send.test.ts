@@ -6,7 +6,7 @@
 // - standard プランで text メッセージを送ると 403（ファミリー限定エラー）
 // - family プランなら text メッセージを送信できる
 // - stamp メッセージはプランに関係なく送信できる（ゲートされない）
-// - messageType バリデーション / body 必須 / 文字数上限などの基本バリデーション
+// - messageType バリデーション / body 必須などの基本バリデーション
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -63,7 +63,6 @@ function createEvent(tier: PlanTier, formValues: Record<string, string>, tenantI
 		maxActivities: null,
 		historyRetentionDays: null,
 		canExport: t !== 'free',
-		canCustomAvatar: t !== 'free',
 		canFreeTextMessage: t === 'family',
 		canCustomReward: t !== 'free',
 		canSiblingRanking: t === 'family',
