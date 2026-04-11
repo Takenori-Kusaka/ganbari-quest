@@ -42,8 +42,12 @@ jobs:
 
       # Step 3: Rebuild and start containers (stop -> build -> up order is critical for WAL safety)
       # Dockerfile regenerates APP_VERSION at build time (#711), so no host-side tsx required.
+      # BUILD_TIMESTAMP busts the build-stage cache (#711 / PR #826 review) — without this,
+      # a workflow_dispatch redeploy of the same commit would reuse the cached layer and
+      # keep the stale date. Passing a fresh timestamp every run guarantees regeneration.
       - name: Build and start
         run: |
+          $env:BUILD_TIMESTAMP = (Get-Date -Format "yyyyMMddHHmmss")
           docker compose build
           docker compose up -d
 
