@@ -1,0 +1,5 @@
+# がんばりクエスト LP (www.ganbari-quest.com) — クロール許可
+User-agent: *
+Allow: /
+
+Sitemap: https://www.ganbari-quest.com/sitemap.xml
