@@ -16,6 +16,10 @@ const planTier = $derived(data.planTier ?? 'free');
 const planStats = $derived(data.planStats);
 const trialStatus = $derived(data.trialStatus);
 const isOwner = $derived(data.role === 'owner');
+// #736: 解約時のダウングレード先 (free) の保持期間。PLAN_LIMITS 由来の動的値。
+const downgradeRetentionDays = $derived(data.downgradeRetentionDays ?? 90);
+// 解約して失うデータアクセスの表示文言（ハードコード "90日" を排除）
+const churnLostRetentionLabel = $derived(`${downgradeRetentionDays}日以前のデータへのアクセス`);
 
 let checkoutLoading = $state(false);
 let portalLoading = $state(false);
@@ -603,7 +607,7 @@ async function openPortal() {
 			...(data.loyaltyInfo.memoryTickets > 0 ? [`思い出チケット ${data.loyaltyInfo.memoryTickets}枚`] : []),
 			...(data.loyaltyInfo.loginBonusMultiplier > 1 ? [`ログインボーナス ×${data.loyaltyInfo.loginBonusMultiplier}倍`] : []),
 			...(data.loyaltyInfo.currentTier.titleUnlock ? [`「${data.loyaltyInfo.currentTier.titleUnlock}」称号`] : []),
-			'90日以前のデータへのアクセス',
+			churnLostRetentionLabel,
 		]}
 		onKeep={() => { showChurnModal = false; }}
 		onCancel={() => { showChurnModal = false; openPortal(); }}
