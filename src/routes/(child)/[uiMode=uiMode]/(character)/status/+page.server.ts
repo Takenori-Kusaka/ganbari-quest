@@ -1,3 +1,4 @@
+import { todayDateJST } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findWeekEvaluation, hasDecayRunToday } from '$lib/server/db/evaluation-repo';
 import { logger } from '$lib/server/logger';
@@ -10,7 +11,7 @@ import { getChildStatus, getMonthlyComparison } from '$lib/server/services/statu
 import type { PageServerLoad } from './$types';
 
 function todayStr(): string {
-	return new Date().toISOString().slice(0, 10);
+	return todayDateJST();
 }
 
 async function ensureStatusUpToDate(childId: number, tenantId: string) {

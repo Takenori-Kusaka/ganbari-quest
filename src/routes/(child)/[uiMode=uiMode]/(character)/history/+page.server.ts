@@ -1,26 +1,26 @@
+import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
 import { applyRetentionFilter, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { PageServerLoad } from './$types';
 
 function getDateRange(period: string): { from: string; to: string } {
-	const now = new Date();
-	const to = now.toISOString().slice(0, 10);
+	const to = todayDateJST();
 
 	if (period === 'today') {
 		return { from: to, to };
 	}
 
 	if (period === 'month') {
-		const from = new Date(now);
+		const from = new Date();
 		from.setDate(from.getDate() - 30);
-		return { from: from.toISOString().slice(0, 10), to };
+		return { from: toJSTDateString(from), to };
 	}
 
 	// Default: week
-	const from = new Date(now);
+	const from = new Date();
 	from.setDate(from.getDate() - 7);
-	return { from: from.toISOString().slice(0, 10), to };
+	return { from: toJSTDateString(from), to };
 }
 
 export const load: PageServerLoad = async ({ parent, url, locals }) => {
