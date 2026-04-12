@@ -37,12 +37,15 @@ const modeLabels: Record<string, string> = {
 	senior: 'みらい設計',
 };
 
-const modeColors: Record<string, string> = {
-	baby: 'from-pink-400 to-pink-300',
-	preschool: 'from-green-400 to-emerald-300',
-	elementary: 'from-blue-400 to-cyan-300',
-	junior: 'from-orange-400 to-amber-300',
-	senior: 'from-purple-400 to-violet-300',
+// #703: カードカラーは child.theme（個別画面のテーマカラー）と一致させる。
+// uiMode ベースだと「ピンクテーマのはなこが green カードで表示」のような不整合が起きる。
+// Tailwind の各 400/300 は app.css の [data-theme="..."] --theme-400/--theme-300 に近似。
+const themeColors: Record<string, string> = {
+	pink: 'from-pink-400 to-pink-300',
+	blue: 'from-sky-400 to-cyan-300',
+	green: 'from-green-400 to-emerald-300',
+	orange: 'from-orange-400 to-amber-300',
+	purple: 'from-purple-400 to-violet-300',
 };
 </script>
 
@@ -92,22 +95,27 @@ const modeColors: Record<string, string> = {
 				{#each data.children as child}
 					{@const mode = child.uiMode ?? 'preschool'}
 					{@const label = modeLabels[mode] ?? mode}
-					{@const colorClass = modeColors[mode] ?? 'from-gray-400 to-gray-300'}
+					{@const colorClass = themeColors[child.theme ?? ''] ?? 'from-gray-400 to-gray-300'}
 					<a
 						href="/demo/{mode}/home?childId={child.id}"
 						class="block rounded-xl p-4 bg-gradient-to-br {colorClass} text-white shadow-sm hover:shadow-md transition-shadow"
 					>
+						<!--
+							#703: 全員「人物の顔」スタイルで統一する。
+							baby → 👶 / 幼児女子 → 👧 / 小学男子 → 👦 / 中学女子 → 👩 / 高校男子 → 👨
+							（旧実装は 💪 が混在しており「1人だけアイコンが違う」指摘があった）
+						-->
 						<div class="text-2xl mb-1">
 							{#if mode === 'baby'}
 								👶
 							{:else if mode === 'preschool'}
-								🧒
+								👧
 							{:else if mode === 'elementary'}
-								🧑
+								👦
 							{:else if mode === 'junior'}
-								💪
+								👩
 							{:else}
-								🧑‍💻
+								👨
 							{/if}
 						</div>
 						<div class="font-bold text-lg">{child.nickname}</div>
