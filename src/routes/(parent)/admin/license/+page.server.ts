@@ -11,6 +11,7 @@ import { consumeLicenseKey, validateLicenseKey } from '$lib/server/services/lice
 import { getLicenseInfo } from '$lib/server/services/license-service';
 import { getLoyaltyInfo } from '$lib/server/services/loyalty-service';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
+import { restoreArchivedResources } from '$lib/server/services/resource-archive-service';
 import { getTrialStatus, startTrial } from '$lib/server/services/trial-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
@@ -126,6 +127,19 @@ export const actions: Actions = {
 					context: { reason: result.reason, tenantId, keyPrefix: rawKey.slice(0, 7) },
 				});
 				return fail(400, { apply: { error: result.reason, licenseKey: rawKey } });
+			}
+
+			// #783: アップグレード成功時、trial_expired で archive されたリソースを復元
+			try {
+				await restoreArchivedResources(tenantId);
+				logger.info('[LICENSE-APPLY] Archived resources restored', { context: { tenantId } });
+			} catch (restoreErr) {
+				logger.error('[LICENSE-APPLY] Failed to restore archived resources', {
+					context: {
+						tenantId,
+						error: restoreErr instanceof Error ? restoreErr.message : String(restoreErr),
+					},
+				});
 			}
 
 			logger.info('[LICENSE-APPLY] Key applied to existing tenant', {

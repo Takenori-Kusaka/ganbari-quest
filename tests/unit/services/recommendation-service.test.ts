@@ -66,6 +66,8 @@ function makeActivity(overrides: Partial<Activity> & { id: number; categoryId: n
 		nameKanji: null,
 		triggerHint: null,
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		...overrides,
 	};
