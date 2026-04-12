@@ -47,6 +47,8 @@ const mockChild = {
 	userId: null,
 	birthdayBonusMultiplier: 1,
 	lastBirthdayBonusYear: null,
+	isArchived: 0,
+	archivedReason: null,
 	createdAt: '2025-01-01',
 	updatedAt: '2025-01-01',
 };

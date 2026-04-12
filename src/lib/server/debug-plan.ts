@@ -24,6 +24,7 @@ export interface DebugPlanOverride {
 export interface DebugTrialOverride {
 	endDate: string | null;
 	tier: TrialTier | null;
+	trialUsed: boolean;
 }
 
 const VALID_PLANS: ReadonlySet<string> = new Set(['free', 'standard', 'family']);
@@ -86,11 +87,13 @@ export function getDebugTrialOverride(): DebugTrialOverride | null {
 			// 7 日後を終了日とする（JST固定）
 			const d = new Date();
 			d.setDate(d.getDate() + 7);
-			return { endDate: toJSTDateString(d), tier };
+			return { endDate: toJSTDateString(d), tier, trialUsed: true };
 		}
 		case 'expired':
+			// #783: expired は trialUsed=true（archive トリガー判定に必要）
+			return { endDate: null, tier: null, trialUsed: true };
 		case 'not-started':
-			return { endDate: null, tier: null };
+			return { endDate: null, tier: null, trialUsed: false };
 	}
 }
 

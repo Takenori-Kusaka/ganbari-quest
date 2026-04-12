@@ -102,14 +102,14 @@ describe('debug-plan', () => {
 			expect(getDebugTrialOverride()?.tier).toBe('family');
 		});
 
-		it('DEBUG_TRIAL=expired → endDate=null, tier=null', () => {
+		it('DEBUG_TRIAL=expired → endDate=null, tier=null, trialUsed=true', () => {
 			process.env.DEBUG_TRIAL = 'expired';
-			expect(getDebugTrialOverride()).toEqual({ endDate: null, tier: null });
+			expect(getDebugTrialOverride()).toEqual({ endDate: null, tier: null, trialUsed: true });
 		});
 
-		it('DEBUG_TRIAL=not-started → endDate=null, tier=null', () => {
+		it('DEBUG_TRIAL=not-started → endDate=null, tier=null, trialUsed=false', () => {
 			process.env.DEBUG_TRIAL = 'not-started';
-			expect(getDebugTrialOverride()).toEqual({ endDate: null, tier: null });
+			expect(getDebugTrialOverride()).toEqual({ endDate: null, tier: null, trialUsed: false });
 		});
 
 		it('無効値は null', () => {

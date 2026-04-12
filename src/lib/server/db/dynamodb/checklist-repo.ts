@@ -67,6 +67,9 @@ export async function findTemplatesByChild(
 
 	let items = (result.Items ?? []).map((item) => stripKeys(item) as unknown as ChecklistTemplate);
 
+	// #783: archive されたリソースをデフォルトで除外
+	items = items.filter((t) => !t.isArchived || t.isArchived === 0);
+
 	if (!includeInactive) {
 		items = items.filter((t) => t.isActive === 1);
 	}
@@ -118,6 +121,8 @@ export async function insertTemplate(
 		completionBonus: input.completionBonus ?? 10,
 		timeSlot: input.timeSlot ?? 'anytime',
 		isActive: input.isActive ?? 1,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -443,4 +448,80 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
 	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), checklistLogPrefix());
 	// Delete overrides (CHILD#* 配下の CKOVER# アイテム)
 	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), checklistOverridePrefix());
+}
+
+// #783: archive / restore
+
+export async function archiveChecklistTemplates(
+	ids: number[],
+	reason: string,
+	tenantId: string,
+): Promise<void> {
+	for (const id of ids) {
+		// テンプレートの PK は CHILD#<childId> だが id しかわからないため Scan で探す
+		let lastKey: Record<string, unknown> | undefined;
+		do {
+			const result = await getDocClient().send(
+				new ScanCommand({
+					TableName: TABLE_NAME,
+					FilterExpression: 'begins_with(SK, :prefix) AND id = :id',
+					ExpressionAttributeValues: {
+						':prefix': checklistTemplatePrefix(),
+						':id': id,
+					},
+					ExclusiveStartKey: lastKey,
+				}),
+			);
+			for (const item of result.Items ?? []) {
+				await getDocClient().send(
+					new UpdateCommand({
+						TableName: TABLE_NAME,
+						Key: { PK: item.PK, SK: item.SK },
+						UpdateExpression:
+							'SET isArchived = :archived, archivedReason = :reason, updatedAt = :now',
+						ExpressionAttributeValues: {
+							':archived': 1,
+							':reason': reason,
+							':now': new Date().toISOString(),
+						},
+					}),
+				);
+			}
+			lastKey = result.LastEvaluatedKey;
+		} while (lastKey);
+	}
+}
+
+export async function restoreArchivedChecklistTemplates(
+	reason: string,
+	tenantId: string,
+): Promise<void> {
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await getDocClient().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression: 'begins_with(SK, :prefix) AND archivedReason = :reason',
+				ExpressionAttributeValues: {
+					':prefix': checklistTemplatePrefix(),
+					':reason': reason,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of result.Items ?? []) {
+			await getDocClient().send(
+				new UpdateCommand({
+					TableName: TABLE_NAME,
+					Key: { PK: item.PK, SK: item.SK },
+					UpdateExpression: 'SET isArchived = :zero, updatedAt = :now REMOVE archivedReason',
+					ExpressionAttributeValues: {
+						':zero': 0,
+						':now': new Date().toISOString(),
+					},
+				}),
+			);
+		}
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
 }

@@ -53,7 +53,10 @@ export async function findAllChildren(tenantId: string): Promise<Child[]> {
 
 	const items = result.Items ?? [];
 	const hydrated = await Promise.all(items.map((item) => hydrateChild(item, tenantId)));
-	return hydrated.map((item) => stripKeys(item) as unknown as Child);
+	// #783: archive されたリソースをデフォルトで除外
+	return hydrated
+		.filter((item) => !item.isArchived || item.isArchived === 0)
+		.map((item) => stripKeys(item) as unknown as Child);
 }
 
 /** userIdで子供を取得（招待紐づけ用） */
@@ -110,6 +113,8 @@ export async function insertChild(input: InsertChildInput, tenantId: string): Pr
 		userId: null,
 		birthdayBonusMultiplier: 1.0,
 		lastBirthdayBonusYear: null,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -251,4 +256,73 @@ export async function deleteChild(id: number, tenantId: string): Promise<void> {
 			}),
 		);
 	}
+}
+
+// #783: archive / restore
+
+export async function archiveChildren(
+	ids: number[],
+	reason: string,
+	tenantId: string,
+): Promise<void> {
+	for (const id of ids) {
+		await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: childKey(id, tenantId),
+				UpdateExpression: 'SET isArchived = :archived, archivedReason = :reason, updatedAt = :now',
+				ExpressionAttributeValues: {
+					':archived': 1,
+					':reason': reason,
+					':now': new Date().toISOString(),
+				},
+			}),
+		);
+	}
+}
+
+export async function restoreArchivedChildren(reason: string, tenantId: string): Promise<void> {
+	const result = await getDocClient().send(
+		new ScanCommand({
+			TableName: TABLE_NAME,
+			FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk AND archivedReason = :reason',
+			ExpressionAttributeValues: {
+				':prefix': tenantPK('CHILD#', tenantId),
+				':sk': 'PROFILE',
+				':reason': reason,
+			},
+		}),
+	);
+
+	for (const item of result.Items ?? []) {
+		await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: { PK: item.PK, SK: item.SK },
+				UpdateExpression: 'SET isArchived = :zero, updatedAt = :now REMOVE archivedReason',
+				ExpressionAttributeValues: {
+					':zero': 0,
+					':now': new Date().toISOString(),
+				},
+			}),
+		);
+	}
+}
+
+export async function findArchivedChildren(tenantId: string): Promise<Child[]> {
+	const result = await getDocClient().send(
+		new ScanCommand({
+			TableName: TABLE_NAME,
+			FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk AND isArchived = :one',
+			ExpressionAttributeValues: {
+				':prefix': tenantPK('CHILD#', tenantId),
+				':sk': 'PROFILE',
+				':one': 1,
+			},
+		}),
+	);
+
+	const items = result.Items ?? [];
+	const hydrated = await Promise.all(items.map((item) => hydrateChild(item, tenantId)));
+	return hydrated.map((item) => stripKeys(item) as unknown as Child);
 }
