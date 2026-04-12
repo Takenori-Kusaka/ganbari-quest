@@ -13,6 +13,8 @@ export default defineConfig({
 		'**/plan-family.spec.ts',
 		'**/plan-free.spec.ts',
 		'**/premium-welcome.spec.ts',
+		// #752: トライアルフロー E2E は cognito-dev モード専用
+		'**/trial-flow.spec.ts',
 		'**/production-smoke.spec.ts',
 		// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
 		// CI（Linux）ではスキップし、ローカル開発でのUI崩壊検知にのみ使用する
