@@ -12,8 +12,9 @@ const config = {
 		csrf: {
 			// Docker(NUC LAN) ビルドでは DISABLE_CSRF_ORIGIN_CHECK=true を build arg で渡し、
 			// 192.168.68.0/23 内の任意端末からの POST を許可する。
-			// Lambda(本番) ビルドではデフォルト true のまま（Cognito + CloudFront が防御）。
-			checkOrigin: process.env.DISABLE_CSRF_ORIGIN_CHECK !== 'true',
+			// Lambda(本番) ビルドではデフォルト空配列 → ORIGIN env var のみ信頼。
+			trustedOrigins:
+				process.env.DISABLE_CSRF_ORIGIN_CHECK === 'true' ? ['*'] : [],
 		},
 		prerender: {
 			// #832: /sitemap.xml はクローラ経由では到達できない（/ → /setup リダイレクト
