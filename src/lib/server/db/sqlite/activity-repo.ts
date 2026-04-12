@@ -11,6 +11,9 @@ export async function findActivities(_tenantId: string, filter?: ActivityFilter)
 
 	const conditions = [];
 
+	// #783: archive されたリソースをデフォルトで除外
+	conditions.push(eq(activities.isArchived, 0));
+
 	if (filter?.categoryId) {
 		conditions.push(eq(activities.categoryId, filter.categoryId));
 	}
@@ -77,6 +80,24 @@ export async function setActivityVisibility(id: number, visible: boolean, _tenan
 
 export async function deleteActivity(id: number, _tenantId: string) {
 	return db.delete(activities).where(eq(activities.id, id)).returning().get();
+}
+
+// #783: archive / restore
+export async function archiveActivities(ids: number[], reason: string, _tenantId: string) {
+	if (ids.length === 0) return;
+	for (const id of ids) {
+		db.update(activities)
+			.set({ isArchived: 1, archivedReason: reason })
+			.where(eq(activities.id, id))
+			.run();
+	}
+}
+
+export async function restoreArchivedActivities(reason: string, _tenantId: string) {
+	db.update(activities)
+		.set({ isArchived: 0, archivedReason: null })
+		.where(eq(activities.archivedReason, reason))
+		.run();
 }
 
 export async function hasActivityLogs(activityId: number, _tenantId: string): Promise<boolean> {

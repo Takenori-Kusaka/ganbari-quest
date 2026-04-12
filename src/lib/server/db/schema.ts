@@ -34,6 +34,9 @@ export const children = sqliteTable('children', {
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	_sv: integer('_sv'),
+	// #783: トライアル終了時の超過リソース archive
+	isArchived: integer('is_archived').notNull().default(0),
+	archivedReason: text('archived_reason'),
 });
 
 // ============================================================
@@ -61,6 +64,9 @@ export const activities = sqliteTable('activities', {
 	triggerHint: text('trigger_hint'),
 	isMainQuest: integer('is_main_quest').notNull().default(0),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	// #783: トライアル終了時の超過リソース archive
+	isArchived: integer('is_archived').notNull().default(0),
+	archivedReason: text('archived_reason'),
 });
 
 // ============================================================
@@ -334,6 +340,9 @@ export const checklistTemplates = sqliteTable('checklist_templates', {
 	isActive: integer('is_active').notNull().default(1),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	// #783: トライアル終了時の超過リソース archive
+	isArchived: integer('is_archived').notNull().default(0),
+	archivedReason: text('archived_reason'),
 });
 
 // ============================================================
@@ -928,6 +937,10 @@ export const trialHistory = sqliteTable(
 		tier: text('tier').notNull().default('standard'), // 'standard' | 'family'
 		source: text('source').notNull(), // 'user_initiated' | 'campaign' | 'admin_grant'
 		campaignId: text('campaign_id'),
+		// #769: コンバージョン分析用カラム（既存レコードは NULL）
+		stripeSubscriptionId: text('stripe_subscription_id'), // トライアル後に本契約に移行した場合の Stripe subscription ID
+		upgradeReason: text('upgrade_reason'), // 'auto' | 'manual' | 'email_cta' | null
+		trialStartSource: text('trial_start_source'), // トライアル開始のトリガー URL: '/pricing' | '/admin/license' | 'signup_param' | null
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
 	(table) => [index('idx_trial_history_tenant').on(table.tenantId)],

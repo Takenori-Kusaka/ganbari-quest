@@ -8,9 +8,17 @@ interface Props {
 	trialUsed: boolean;
 	trialEndDate: string | null;
 	planTier?: 'free' | 'standard' | 'family';
+	hasArchivedResources?: boolean;
 }
 
-let { isTrialActive, daysRemaining, trialUsed, trialEndDate, planTier = 'free' }: Props = $props();
+let {
+	isTrialActive,
+	daysRemaining,
+	trialUsed,
+	trialEndDate,
+	planTier = 'free',
+	hasArchivedResources = false,
+}: Props = $props();
 
 // 状態判定: #731 — 未使用 free ユーザーにもトライアル開始導線を表示
 const isTrialExpired = $derived(trialUsed && !isTrialActive && trialEndDate !== null);
@@ -69,11 +77,15 @@ let submitting = $state(false);
 		</form>
 	</div>
 {:else if isTrialExpired}
-	<div class="trial-banner expired">
+	<div class="trial-banner expired" data-testid="trial-banner-expired">
 		<div class="trial-icon">📦</div>
 		<div class="trial-content">
 			<p class="trial-title">無料体験が終了しました</p>
-			<p class="trial-desc">カスタムデータはアップグレードで復活します。</p>
+			{#if hasArchivedResources}
+				<p class="trial-desc">一部のデータが制限されています。アップグレードですべて復元できます。</p>
+			{:else}
+				<p class="trial-desc">アップグレードで全機能をご利用いただけます。</p>
+			{/if}
 		</div>
 		<a href="/admin/license" class="trial-cta upgrade" data-testid="trial-banner-expired-cta">
 			⭐ アップグレード

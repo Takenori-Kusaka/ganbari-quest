@@ -58,7 +58,9 @@ export const SQL_TABLES = `
 		last_birthday_bonus_year INTEGER,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		_sv INTEGER
+		_sv INTEGER,
+		is_archived INTEGER NOT NULL DEFAULT 0,
+		archived_reason TEXT
 	);
 
 	-- ============================================================
@@ -83,7 +85,9 @@ export const SQL_TABLES = `
 		name_kanji TEXT,
 		trigger_hint TEXT,
 		is_main_quest INTEGER NOT NULL DEFAULT 0,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		is_archived INTEGER NOT NULL DEFAULT 0,
+		archived_reason TEXT
 	);
 
 	-- ============================================================
@@ -335,7 +339,9 @@ export const SQL_TABLES = `
 		time_slot TEXT NOT NULL DEFAULT 'anytime',
 		is_active INTEGER NOT NULL DEFAULT 1,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		is_archived INTEGER NOT NULL DEFAULT 0,
+		archived_reason TEXT
 	);
 
 	-- ============================================================
@@ -684,6 +690,9 @@ export const SQL_TABLES = `
 		tier TEXT NOT NULL DEFAULT 'standard',
 		source TEXT NOT NULL,
 		campaign_id TEXT,
+		stripe_subscription_id TEXT,
+		upgrade_reason TEXT,
+		trial_start_source TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX idx_trial_history_tenant ON trial_history(tenant_id);

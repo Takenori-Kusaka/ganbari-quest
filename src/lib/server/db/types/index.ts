@@ -25,6 +25,8 @@ export interface Child {
 	userId: string | null;
 	birthdayBonusMultiplier: number;
 	lastBirthdayBonusYear: number | null;
+	isArchived: number;
+	archivedReason: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -48,6 +50,8 @@ export interface Activity {
 	nameKanji: string | null;
 	triggerHint: string | null;
 	isMainQuest: number;
+	isArchived: number;
+	archivedReason: string | null;
 	createdAt: string;
 }
 
@@ -196,6 +200,8 @@ export interface ChecklistTemplate {
 	completionBonus: number;
 	timeSlot: string;
 	isActive: number;
+	isArchived: number;
+	archivedReason: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
