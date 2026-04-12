@@ -1,6 +1,8 @@
 <script lang="ts">
+import { goto } from '$app/navigation';
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import {
+	GUIDE_STEPS,
 	getGuideState,
 	resetGuide,
 	restartGuide,
@@ -19,14 +21,24 @@ $effect(() => {
 	resetGuide();
 });
 
+// #702: ガイド開始は <a href> + onclick ではなく <button> + 明示 goto() で行う。
+// <a href onclick={handleGuideStart}> を使うと、handleGuideStart 内の startGuide()
+// で `guide.active` が true になった瞬間に layout の DemoGuideBar が表示され、
+// そのレイアウトシフトと SvelteKit のリンクナビゲーションが競合してナビゲーションが
+// 失われる（URL が /demo のまま残る）ケースが Playwright で再現する。
+// state 変更前にターゲット URL を確定し、明示的に goto() する。
 function handleGuideStart() {
+	const targetHref = GUIDE_STEPS[0]?.href ?? '/demo/preschool/home?childId=902';
 	startGuide();
 	trackDemoEvent('demo_guide_start');
+	goto(targetHref);
 }
 
 function handleGuideRestart() {
+	const targetHref = GUIDE_STEPS[0]?.href ?? '/demo/preschool/home?childId=902';
 	restartGuide();
 	trackDemoEvent('demo_guide_start', { restart: true });
+	goto(targetHref);
 }
 
 const modeLabels: Record<string, string> = {
@@ -37,13 +49,11 @@ const modeLabels: Record<string, string> = {
 	senior: 'みらい設計',
 };
 
-const modeColors: Record<string, string> = {
-	baby: 'from-pink-400 to-pink-300',
-	preschool: 'from-green-400 to-emerald-300',
-	elementary: 'from-blue-400 to-cyan-300',
-	junior: 'from-orange-400 to-amber-300',
-	senior: 'from-purple-400 to-violet-300',
-};
+// #703: カードカラーは child.theme（個別画面のテーマカラー）と一致させる。
+// uiMode ベースだと「ピンクテーマのはなこが green カードで表示」のような不整合が起きる。
+// 個別画面と完全一致させるため `data-theme={child.theme}` を付与し、
+// app.css の [data-theme="..."] で定義された --theme-300/--theme-400 を利用する。
+// （Tailwind の named color を routes/ で使うとデザイントークンルール違反になるため）
 </script>
 
 <div class="min-h-dvh bg-gradient-to-b from-amber-50 to-orange-50">
@@ -64,23 +74,25 @@ const modeColors: Record<string, string> = {
 			{#if guide.dismissed}
 				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">ガイドをとじました</p>
 				<p class="text-xs text-[var(--color-text-muted)] mb-3">もう一度はじめから体験できます</p>
-				<a
-					href="/demo/preschool/home?childId=902"
+				<button
+					type="button"
 					class="block w-full py-2.5 bg-[var(--color-stat-blue)] text-white font-bold rounded-xl text-sm hover:bg-[var(--color-action-primary-hover)] transition-colors"
 					onclick={handleGuideRestart}
+					data-testid="demo-guide-restart"
 				>
 					ガイドを再開する
-				</a>
+				</button>
 			{:else}
 				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">はじめてですか？</p>
-				<p class="text-xs text-[var(--color-text-muted)] mb-3">5ステップで主な機能をご案内します</p>
-				<a
-					href="/demo/preschool/home?childId=902"
+				<p class="text-xs text-[var(--color-text-muted)] mb-3">6ステップで主な機能をご案内します</p>
+				<button
+					type="button"
 					class="block w-full py-2.5 bg-[var(--color-stat-blue)] text-white font-bold rounded-xl text-sm hover:bg-[var(--color-action-primary-hover)] transition-colors"
 					onclick={handleGuideStart}
+					data-testid="demo-guide-start-link"
 				>
 					ガイド付きデモを はじめる
-				</a>
+				</button>
 			{/if}
 		</div>
 
@@ -92,22 +104,28 @@ const modeColors: Record<string, string> = {
 				{#each data.children as child}
 					{@const mode = child.uiMode ?? 'preschool'}
 					{@const label = modeLabels[mode] ?? mode}
-					{@const colorClass = modeColors[mode] ?? 'from-gray-400 to-gray-300'}
+					{@const theme = child.theme ?? 'admin'}
 					<a
 						href="/demo/{mode}/home?childId={child.id}"
-						class="block rounded-xl p-4 bg-gradient-to-br {colorClass} text-white shadow-sm hover:shadow-md transition-shadow"
+						data-theme={theme}
+						class="block rounded-xl p-4 bg-gradient-to-br from-[var(--theme-400)] to-[var(--theme-300)] text-white shadow-sm hover:shadow-md transition-shadow"
 					>
+						<!--
+							#703: 全員「人物の顔」スタイルで統一する。
+							baby → 👶 / 幼児女子 → 👧 / 小学男子 → 👦 / 中学女子 → 👩 / 高校男子 → 👨
+							（旧実装は 💪 が混在しており「1人だけアイコンが違う」指摘があった）
+						-->
 						<div class="text-2xl mb-1">
 							{#if mode === 'baby'}
 								👶
 							{:else if mode === 'preschool'}
-								🧒
+								👧
 							{:else if mode === 'elementary'}
-								🧑
+								👦
 							{:else if mode === 'junior'}
-								💪
+								👩
 							{:else}
-								🧑‍💻
+								👨
 							{/if}
 						</div>
 						<div class="font-bold text-lg">{child.nickname}</div>
