@@ -4,6 +4,7 @@ import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
+import { trackActivationFirstChildAdded } from '$lib/server/services/analytics-service';
 import {
 	addChild,
 	editChild,
@@ -186,6 +187,13 @@ export const actions: Actions = {
 			{ nickname, age, theme, birthDate: birthDate ?? undefined },
 			tenantId,
 		);
+
+		// #831: Activation Funnel Step 2 — テナント初の子供登録
+		const allChildren = await getAllChildren(tenantId);
+		if (allChildren.length === 1) {
+			trackActivationFirstChildAdded(tenantId, child.id);
+		}
+
 		return { success: true, addedChild: child };
 	},
 
