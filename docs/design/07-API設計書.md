@@ -74,6 +74,7 @@
 | POST | /api/v1/special-rewards/[rewardId]/shown | 報酬表示済みマーク | 全ロール |
 | GET | /api/v1/special-rewards/templates | 報酬テンプレート一覧 | owner/parent |
 | PUT | /api/v1/special-rewards/templates | 報酬テンプレート更新 | owner/parent |
+| POST | /api/v1/special-rewards/suggest | ごほうびサジェスト（AI推定） | owner/parent |
 
 ### おうえんメッセージ
 
@@ -616,6 +617,33 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 #### PUT /api/v1/special-rewards/templates
 
 報酬テンプレートを一括更新する。
+
+#### POST /api/v1/special-rewards/suggest
+
+テキスト入力からごほうびのタイトル・カテゴリ・ポイント・アイコンを AI で推定する。スタンダードプラン以上限定（#719）。
+
+**リクエストボディ:**
+```json
+{
+  "text": "おもちゃを買ってもらう"
+}
+```
+
+**レスポンス:**
+```json
+{
+  "title": "すきなおもちゃ",
+  "points": 500,
+  "icon": "🧸",
+  "category": "もの",
+  "source": "gemini"
+}
+```
+
+- `category`: `もの` | `たいけん` | `おこづかい` | `とくべつ`
+- `source`: `gemini`（Gemini API 推定）| `fallback`（キーワードマッチング）
+- Gemini API が利用不可の場合はキーワード＋プリセットマッチングにフォールバック
+- 無料プランでは `403 PLAN_LIMIT_EXCEEDED` を返す
 
 ### 3.10 画像・エクスポート
 
@@ -1572,6 +1600,7 @@ export interface PlanLimitError {
 | `POST /admin/checklists ?/createTemplate` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#723) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards ?/grant` | standard | 特別なごほうび (`canCustomReward`, #728) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards ?/addPreset` | standard | 特別なごほうび取り込み (#728) | `createPlanLimitError()` 済 (#787) |
+| `POST /api/v1/special-rewards/suggest` | standard | AI ごほうび提案 (`isPaidTier`, #719) | `apiError()` 済 |
 | `POST /admin/messages ?/send` (text モード) | family | 自由テキストメッセージ (`canFreeTextMessage`, #772) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | family | きょうだいランキング (`canSiblingRanking`, #782) | `createPlanLimitError()` 済 (#787) |
 
