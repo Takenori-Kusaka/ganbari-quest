@@ -1,6 +1,8 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { getErrorMessage } from '$lib/domain/errors';
+import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
+import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -49,6 +51,27 @@ const categoryLabels: Record<string, string> = {
 	そうぞう: 'そうぞう',
 	とくべつ: 'とくべつ',
 };
+
+/** AI提案からカテゴリをフォームのカテゴリラベルにマッピング */
+const rewardGroupToCategory: Record<string, string> = {
+	もの: 'とくべつ',
+	たいけん: 'こうりゅう',
+	おこづかい: 'とくべつ',
+	とくべつ: 'とくべつ',
+};
+
+function acceptAiReward(preview: RewardPreviewData) {
+	customTitle = preview.title;
+	customPoints = preview.points;
+	customIcon = preview.icon;
+	customCategory = rewardGroupToCategory[preview.category] ?? preview.category;
+	selectedTemplate = {
+		title: preview.title,
+		points: preview.points,
+		icon: preview.icon,
+		category: customCategory,
+	};
+}
 </script>
 
 <svelte:head>
@@ -123,6 +146,9 @@ const categoryLabels: Record<string, string> = {
 			{errorMessage}
 		</div>
 	{/if}
+
+	<!-- AI Suggest Reward Panel (#719) -->
+	<AiSuggestRewardPanel onaccept={acceptAiReward} isPremium={data.isPremium} />
 
 	<!-- Special Reward Templates -->
 	<section>
