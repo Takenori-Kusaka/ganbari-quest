@@ -1,4 +1,6 @@
 <script lang="ts">
+import { untrack } from 'svelte';
+import { goto } from '$app/navigation';
 import { page } from '$app/stores';
 import { trackDemoEvent } from './demo-analytics.js';
 import {
@@ -12,28 +14,54 @@ import {
 
 const guide = getGuideState();
 
-// Auto-advance when the user navigates to the expected page
+// Auto-advance when the user navigates to the expected page.
+//
+// #702: untrack で囲うことで、checkAutoAdvance 内部で読まれる currentStep の
+// reactive read をこの effect の依存にしない。
+// untrack なしだと「もどる」操作で goBack() → currentStep--- → effect 再実行
+// → 古い pathname (ナビゲーション前の URL) に対して checkAutoAdvance が走り、
+// 「次のステップ (=今いるステップ)」のパスにマッチして currentStep が
+// 即座に元に戻る、という競合が発生する。
+// この effect は "URL 変化を観測してガイド進行を同期する" 役割なので、
+// 依存は $page.url.pathname だけで十分。
 $effect(() => {
-	checkAutoAdvance($page.url.pathname);
+	const pathname = $page.url.pathname;
+	untrack(() => {
+		checkAutoAdvance(pathname);
+	});
 });
 
+// #702: つぎへ / もどる は <a href> ではなく <button> + 明示 goto() で実装する。
+// <a href={nextStep.href}> を使うと、onclick で currentStep を進めた瞬間に Svelte 5 の
+// reactive バインディングが nextStep を *次の次* のステップに再評価し、ブラウザはその
+// 新しい href へナビゲートする → $page 変化を契機に checkAutoAdvance がさらにもう
+// 1 段進めてしまい、1 クリックで 2 ステップ飛ぶ（1→3→5 の症状）。
+// state 変更前に target URL をスナップショットすることで race を断つ。
 function handleAdvance() {
 	const fromStep = guide.currentStep;
+	const targetHref = GUIDE_STEPS[fromStep + 1]?.href;
 	advanceStep();
 	trackDemoEvent('demo_guide_step', {
 		fromStep: fromStep + 1,
 		toStep: guide.currentStep + 1,
 	});
+	if (targetHref) {
+		goto(targetHref);
+	}
 }
 
 function handleBack() {
 	const fromStep = guide.currentStep;
+	const targetHref = GUIDE_STEPS[fromStep - 1]?.href;
 	goBack();
 	trackDemoEvent('demo_guide_step', {
 		fromStep: fromStep + 1,
 		toStep: guide.currentStep + 1,
 		direction: 'back',
 	});
+	if (targetHref) {
+		goto(targetHref);
+	}
 }
 
 function handleDismiss() {
@@ -43,7 +71,7 @@ function handleDismiss() {
 </script>
 
 {#if guide.active}
-	<div class="fixed bottom-0 left-0 right-0 z-40 safe-area-bottom">
+	<div class="fixed bottom-0 left-0 right-0 z-40 safe-area-bottom" data-testid="demo-guide-bar">
 		<div class="mx-3 mb-3 bg-[var(--color-surface-card)] rounded-2xl shadow-xl border border-[var(--color-feedback-info-border)] overflow-hidden">
 			<!-- Progress bar -->
 			<div class="h-1 bg-[var(--color-surface-muted-strong)]">
@@ -54,19 +82,17 @@ function handleDismiss() {
 			</div>
 
 			<div class="p-3 flex items-center gap-3">
-				<!-- Back button -->
+				<!-- Back button (#702: button + 明示 goto で href race を回避) -->
 				{#if !guide.isFirstStep}
-					{@const prevStep = GUIDE_STEPS[guide.currentStep - 1]}
-					{#if prevStep}
-						<a
-							href={prevStep.href}
-							class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-sm hover:bg-gray-200 transition-colors"
-							onclick={handleBack}
-							aria-label="もどる"
-						>
-							&#8249;
-						</a>
-					{/if}
+					<button
+						type="button"
+						class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-sm hover:bg-gray-200 transition-colors"
+						onclick={handleBack}
+						aria-label="もどる"
+						data-testid="demo-guide-back"
+					>
+						&#8249;
+					</button>
 				{/if}
 
 				<!-- Step indicator -->
@@ -104,17 +130,16 @@ function handleDismiss() {
 						<span class="px-2 py-1 text-xs text-blue-500 font-medium">
 							<span aria-hidden="true">👆</span> やってみよう
 						</span>
-					{:else}
-						{@const nextStep = GUIDE_STEPS[guide.currentStep + 1]}
-						{#if nextStep}
-							<a
-								href={nextStep.href}
-								class="px-3 py-1.5 bg-[var(--color-brand-500)] text-white text-xs font-bold rounded-lg"
-								onclick={handleAdvance}
-							>
-								つぎへ
-							</a>
-						{/if}
+					{:else if guide.currentStep + 1 < GUIDE_STEPS.length}
+						<!-- #702: <a href> ではなく button + handleAdvance(goto 内蔵) で進行する -->
+						<button
+							type="button"
+							class="px-3 py-1.5 bg-[var(--color-brand-500)] text-white text-xs font-bold rounded-lg"
+							onclick={handleAdvance}
+							data-testid="demo-guide-next"
+						>
+							つぎへ
+						</button>
 					{/if}
 					<button
 						type="button"

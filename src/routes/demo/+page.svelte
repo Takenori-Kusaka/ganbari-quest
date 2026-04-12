@@ -1,6 +1,8 @@
 <script lang="ts">
+import { goto } from '$app/navigation';
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import {
+	GUIDE_STEPS,
 	getGuideState,
 	resetGuide,
 	restartGuide,
@@ -19,14 +21,24 @@ $effect(() => {
 	resetGuide();
 });
 
+// #702: ガイド開始は <a href> + onclick ではなく <button> + 明示 goto() で行う。
+// <a href onclick={handleGuideStart}> を使うと、handleGuideStart 内の startGuide()
+// で `guide.active` が true になった瞬間に layout の DemoGuideBar が表示され、
+// そのレイアウトシフトと SvelteKit のリンクナビゲーションが競合してナビゲーションが
+// 失われる（URL が /demo のまま残る）ケースが Playwright で再現する。
+// state 変更前にターゲット URL を確定し、明示的に goto() する。
 function handleGuideStart() {
+	const targetHref = GUIDE_STEPS[0]?.href ?? '/demo/preschool/home?childId=902';
 	startGuide();
 	trackDemoEvent('demo_guide_start');
+	goto(targetHref);
 }
 
 function handleGuideRestart() {
+	const targetHref = GUIDE_STEPS[0]?.href ?? '/demo/preschool/home?childId=902';
 	restartGuide();
 	trackDemoEvent('demo_guide_start', { restart: true });
+	goto(targetHref);
 }
 
 const modeLabels: Record<string, string> = {
@@ -64,23 +76,25 @@ const modeColors: Record<string, string> = {
 			{#if guide.dismissed}
 				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">ガイドをとじました</p>
 				<p class="text-xs text-[var(--color-text-muted)] mb-3">もう一度はじめから体験できます</p>
-				<a
-					href="/demo/preschool/home?childId=902"
+				<button
+					type="button"
 					class="block w-full py-2.5 bg-[var(--color-stat-blue)] text-white font-bold rounded-xl text-sm hover:bg-[var(--color-action-primary-hover)] transition-colors"
 					onclick={handleGuideRestart}
+					data-testid="demo-guide-restart"
 				>
 					ガイドを再開する
-				</a>
+				</button>
 			{:else}
 				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">はじめてですか？</p>
-				<p class="text-xs text-[var(--color-text-muted)] mb-3">5ステップで主な機能をご案内します</p>
-				<a
-					href="/demo/preschool/home?childId=902"
+				<p class="text-xs text-[var(--color-text-muted)] mb-3">6ステップで主な機能をご案内します</p>
+				<button
+					type="button"
 					class="block w-full py-2.5 bg-[var(--color-stat-blue)] text-white font-bold rounded-xl text-sm hover:bg-[var(--color-action-primary-hover)] transition-colors"
 					onclick={handleGuideStart}
+					data-testid="demo-guide-start-link"
 				>
 					ガイド付きデモを はじめる
-				</a>
+				</button>
 			{/if}
 		</div>
 
