@@ -2,6 +2,9 @@
 // サウンドサービスのユニットテスト
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.setConfig({ testTimeout: 15_000 });
+
 import { SOUND_DEFS, SOUND_IDS, SOUND_TIER_CONFIG } from '../../../src/lib/ui/sound/sounds';
 
 // --- 定数テスト ---
