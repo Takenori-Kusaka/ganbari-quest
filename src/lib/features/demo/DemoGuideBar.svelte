@@ -86,7 +86,7 @@ function handleDismiss() {
 				{#if !guide.isFirstStep}
 					<button
 						type="button"
-						class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-sm hover:bg-gray-200 transition-colors"
+						class="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] flex items-center justify-center text-sm hover:bg-[var(--color-surface-secondary)] transition-colors"
 						onclick={handleBack}
 						aria-label="もどる"
 						data-testid="demo-guide-back"
@@ -127,7 +127,7 @@ function handleDismiss() {
 						</a>
 					{:else if guide.step?.requiresAction}
 						<!-- Action-required step: show hint instead of navigation button -->
-						<span class="px-2 py-1 text-xs text-blue-500 font-medium">
+						<span class="px-2 py-1 text-xs text-[var(--color-feedback-info-text)] font-medium">
 							<span aria-hidden="true">👆</span> やってみよう
 						</span>
 					{:else if guide.currentStep + 1 < GUIDE_STEPS.length}
