@@ -81,9 +81,9 @@ describe('suggestChecklist (fallback)', () => {
 		expect(result.templateIcon).toBe('📋');
 		expect(result.items.length).toBe(3);
 		// アイコン推定: えんぴつ → ✏️
-		expect(result.items[0]!.icon).toBe('✏️');
+		expect(result.items[0]?.icon).toBe('✏️');
 		// ノート → 📓
-		expect(result.items[1]!.icon).toBe('📓');
+		expect(result.items[1]?.icon).toBe('📓');
 		expect(result.source).toBe('fallback');
 	});
 
@@ -115,10 +115,10 @@ describe('suggestChecklist (fallback)', () => {
 		const result = await suggestChecklist('ハンカチ ティッシュ 水筒');
 		expect(result.items.length).toBe(3);
 		// ハンカチ → 🧣
-		expect(result.items[0]!.icon).toBe('🧣');
+		expect(result.items[0]?.icon).toBe('🧣');
 		// ティッシュ → 🧻
-		expect(result.items[1]!.icon).toBe('🧻');
+		expect(result.items[1]?.icon).toBe('🧻');
 		// 水筒 → 💧
-		expect(result.items[2]!.icon).toBe('💧');
+		expect(result.items[2]?.icon).toBe('💧');
 	});
 });
