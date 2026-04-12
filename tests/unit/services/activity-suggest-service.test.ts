@@ -1,19 +1,19 @@
 // tests/unit/services/activity-suggest-service.test.ts
-// AI活動提案サービスのユニットテスト（フォールバック+JSON抽出）
+// AI活動提案サービスのユニットテスト（フォールバック） (#721: Bedrock 移行後)
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-// Gemini APIをモックして常にnullを返す（フォールバックをテスト）
-vi.mock('@google/generative-ai', () => ({
-	GoogleGenerativeAI: vi.fn(),
+// Bedrock を無効化してフォールバック経由にする
+vi.mock('$lib/server/ai/bedrock-client', () => ({
+	isBedrockAvailable: () => false,
+	converseWithTool: vi.fn(),
 }));
 vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
-// GEMINI_API_KEY を未設定にしてフォールバック経由にする
 beforeAll(() => {
-	process.env.GEMINI_API_KEY = undefined;
+	process.env.BEDROCK_DISABLED = 'true';
 });
 
 import { suggestActivity } from '../../../src/lib/server/services/activity-suggest-service';
