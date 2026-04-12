@@ -106,12 +106,9 @@ test.describe('#754 ダウングレードフロー — アーカイブ API', () 
 		const afterPreview = await afterRes.json();
 		expect(afterPreview.children.excess).toBe(0);
 
-		// 4) クリーンアップ: アーカイブした子供を復元
-		// restoreArchivedResources は直接呼べないため、
-		// DB レベルで復元する（テスト後の他テスト影響を防止）
-		// → Playwright テストでは API 経由では復元できないので
-		//   archive 取り消しは後続テストに影響しない範囲で許容
-		//   （global-teardown が DB をリセットするため）
+		// 4) クリーンアップ: アーカイブしたリソースを復元（他テストへの影響を防止）
+		const restoreRes = await request.post('/api/v1/admin/downgrade-restore');
+		expect(restoreRes.status()).toBe(200);
 	});
 
 	test('選択数が不足するとアーカイブ失敗（400）', async ({ request }) => {
