@@ -6,6 +6,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// フルスイート並列実行時の dynamic import タイムアウト対策
+vi.setConfig({ testTimeout: 30_000 });
+
 // --- Cognito Direct Auth モック ---
 const mockSignUp = vi.fn();
 const mockConfirmSignUp = vi.fn();
