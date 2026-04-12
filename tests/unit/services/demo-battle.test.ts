@@ -7,7 +7,7 @@ describe('getDemoBattleData', () => {
 		expect(result.battle).toBeNull();
 	});
 
-	it('returns valid battle data for たろう (preschool)', () => {
+	it('returns valid battle data for はなこ (preschool)', () => {
 		const result = getDemoBattleData(902);
 		expect(result.battle).not.toBeNull();
 		if (!result.battle) return;
@@ -40,7 +40,8 @@ describe('getDemoBattleData', () => {
 	});
 
 	it('returns valid battle data for all demo children', () => {
-		const childIds = [901, 902, 903, 905, 904];
+		// #703: 5 人構成 — 905 を廃止し、906 (ゆうき/senior) を追加
+		const childIds = [901, 902, 903, 904, 906];
 		for (const id of childIds) {
 			const result = getDemoBattleData(id);
 			expect(result.battle).not.toBeNull();
@@ -51,7 +52,7 @@ describe('getDemoBattleData', () => {
 	});
 
 	it('playerStats reflect category XP differences between children', () => {
-		// はなこ (baby, low XP) vs じろう (junior, high XP)
+		// たろう (baby, low XP) vs さくら (junior, high XP)
 		const baby = getDemoBattleData(901);
 		const junior = getDemoBattleData(904);
 
@@ -59,7 +60,7 @@ describe('getDemoBattleData', () => {
 		expect(junior.battle).not.toBeNull();
 		if (!baby.battle || !junior.battle) return;
 
-		// じろう has much higher XP, so stats should be higher
+		// さくら has much higher XP, so stats should be higher
 		expect(junior.battle.playerStats.atk).toBeGreaterThan(baby.battle.playerStats.atk);
 	});
 });
