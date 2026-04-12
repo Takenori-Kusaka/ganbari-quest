@@ -268,7 +268,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 			</div>
 		{:else if addMode === 'ai'}
 			<Button variant="ghost" size="sm" onclick={() => { addMode = null; }} class="mb-2">← 戻る</Button>
-			<AiSuggestPanel onaccept={acceptAiPreview} isPremium={data.isPremium} />
+			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={data.planTier === 'family'} />
 		{:else if addMode === 'manual'}
 			<Button variant="ghost" size="sm" onclick={() => { addMode = null; }} class="mb-2">← 戻る</Button>
 			<ActivityCreateForm

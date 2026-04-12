@@ -198,12 +198,12 @@ export const actions: Actions = {
 
 		const licenseStatus = locals.context?.licenseStatus ?? 'none';
 		const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-		if (!isPaidTier(tier)) {
+		if (tier !== 'family') {
 			return fail(403, {
 				error: createPlanLimitError(
 					tier,
-					'standard',
-					'AI チェックリスト提案はスタンダードプラン以上でご利用いただけます',
+					'family',
+					'AI チェックリスト提案はファミリープランでご利用いただけます',
 				),
 			});
 		}

@@ -35,7 +35,7 @@
 
 | 機能 | 実装場所 | 現状の gate | 判断 |
 |------|---------|-----------|------|
-| AI による活動提案 | `/api/v1/activities/suggest` | `isPaidTier` ガード有り | ✅ standard 以上の訴求で正しい |
+| AI による活動提案 | `/api/v1/activities/suggest` | `tier !== 'family'` ガード有り | ✅ family 限定の訴求で正しい |
 | 月次比較レポート | `getMonthlyComparison` → `/admin/status` | **gate なし**（全プラン参照可） | ❌ family only 表記は誤り — 掲載から削除 |
 | 5つのチカラの成長グラフ | `status-service.ts` → `/admin/status` | **gate なし**（全プラン参照可） | ❌ standard only 表記は誤り — 掲載から削除 |
 | 週次メールレポート | `api/v1/admin/weekly-report/+server.ts` | エンドポイントは存在、cron は未稼働 | ⚠️ 「準備中」or 掲載保留 |
@@ -77,7 +77,7 @@
 ### 更新ルール
 - 実装で gate されている機能のみ掲載する
 - family の features は「スタンダードの全機能」+ **ファミリー固有の 5 項目を明示**（曖昧さを排除）
-- 「AI による活動提案」は standard 以上で明記。family では「スタンダードの全機能」に含まれるため重複しない
+- 「AI による活動提案」は family 限定で明記（#722 でプランゲートを family に変更）
 - 「月次比較レポート」「5つのチカラの成長グラフ」は plan-gate なしのため features 欄から削除
 - 「週次メールレポート」は cron が未稼働のため削除（復活は実稼働後）
 

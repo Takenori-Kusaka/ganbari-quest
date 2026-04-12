@@ -41,7 +41,6 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		'お子さまの登録人数：無制限',
 		'オリジナル活動の作成：無制限',
 		'チェックリスト自由作成（無制限）',
-		'AI による活動提案',
 		'特別なごほうび設定（即時付与）',
 		'クラウドバックアップ 3 世代保管',
 		'データエクスポート（JSON）',
@@ -50,6 +49,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 	],
 	family: [
 		'スタンダードの全機能',
+		'✨ AI 自動提案（活動・ごほうび・チェックリスト）',
 		'きょうだいランキング',
 		'ひとことメッセージ（自由テキスト）',
 		'クラウドバックアップ 10 世代保管',
@@ -104,13 +104,13 @@ export const PREMIUM_UNLOCKED_FEATURES: Record<
 	standard: [
 		{ text: 'オリジナル活動の追加（無制限）', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
-		{ text: 'AI による活動提案', icon: '✅' },
 		{ text: '特別なごほうび設定', icon: '✅' },
 		{ text: '1年間のデータ保持', icon: '✅' },
 	],
 	family: [
 		{ text: 'オリジナル活動の追加（無制限）', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
+		{ text: 'AI 自動提案（活動・ごほうび・チェックリスト）', icon: '✨' },
 		{ text: 'ごほうびのカスタマイズ', icon: '✅' },
 		{ text: 'きょうだいランキング', icon: '✅' },
 		{ text: 'ひとことメッセージ（自由テキスト）', icon: '✅' },
