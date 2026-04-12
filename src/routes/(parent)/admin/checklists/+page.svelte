@@ -164,7 +164,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 
 	{#if selectedChild}
 		<!-- #720: AI チェックリスト提案パネル -->
-		<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isPremium={data.isPremium} />
+		<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={data.planTier === 'family'} />
 
 		<!-- #720: AI提案の隠しフォーム -->
 		<form

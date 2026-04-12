@@ -11,10 +11,10 @@ export interface RewardPreviewData {
 
 interface Props {
 	onaccept: (preview: RewardPreviewData) => void;
-	isPremium?: boolean;
+	isFamily?: boolean;
 }
 
-let { onaccept, isPremium = false }: Props = $props();
+let { onaccept, isFamily = false }: Props = $props();
 
 let aiInput = $state('');
 let aiLoading = $state(false);
@@ -23,8 +23,8 @@ let aiPreview = $state<RewardPreviewData | null>(null);
 
 async function suggestFromAI() {
 	if (!aiInput.trim()) return;
-	if (!isPremium) {
-		aiError = 'AI ごほうび提案はスタンダードプラン以上でご利用いただけます';
+	if (!isFamily) {
+		aiError = 'AI ごほうび提案はファミリープランでご利用いただけます';
 		return;
 	}
 	aiLoading = true;
@@ -59,34 +59,34 @@ function acceptPreview() {
 <div
 	class="bg-[var(--color-premium-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-border-premium)]"
 	data-testid="ai-suggest-reward-panel"
-	data-plan-locked={!isPremium}
+	data-plan-locked={!isFamily}
 >
 	<h3 class="font-bold text-[var(--color-premium)]">
 		✨ どんなごほうびがいい？
-		{#if !isPremium}
+		{#if !isFamily}
 			<span
 				class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle"
 				data-testid="ai-suggest-reward-locked-badge"
-			>スタンダード限定</span>
+			>ファミリー限定</span>
 		{/if}
 	</h3>
 	<p class="text-xs text-[var(--color-premium-light)]">
 		ごほうびの内容を自由に入力すると、カテゴリ・ポイント・アイコンを自動で提案します
 	</p>
-	{#if !isPremium}
+	{#if !isFamily}
 		<div
 			class="bg-[var(--color-surface-card)] rounded-lg p-3 text-xs space-y-2 border border-[var(--color-border-premium)]"
 			data-testid="ai-suggest-reward-upgrade-card"
 		>
 			<p class="text-[var(--color-text-primary)]">
-				AI ごほうび提案はスタンダードプラン以上で解放されます。
+				AI ごほうび提案はファミリープランで解放されます。
 			</p>
 			<a
-				href="/admin/license"
+				href="/pricing"
 				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold hover:opacity-90 transition-colors"
 				data-testid="ai-suggest-reward-upgrade-cta"
 			>
-				スタンダードで解放する
+				ファミリープランにアップグレード
 			</a>
 		</div>
 	{/if}
@@ -96,13 +96,13 @@ function acceptPreview() {
 			bind:value={aiInput}
 			placeholder="例: おもちゃ、外食、ゲーム時間+30分、おこづかい500円"
 			class="flex-1 px-3 py-2 border rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-			disabled={!isPremium}
+			disabled={!isFamily}
 			onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); suggestFromAI(); } }}
 		/>
 		<button
 			type="button"
 			class="px-4 py-2 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg text-sm font-bold hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-			disabled={!isPremium || aiLoading || !aiInput.trim()}
+			disabled={!isFamily || aiLoading || !aiInput.trim()}
 			onclick={suggestFromAI}
 		>
 			{#if aiLoading}

@@ -4,7 +4,7 @@
 import { error, json } from '@sveltejs/kit';
 import { apiError } from '$lib/server/errors';
 import { suggestChecklist } from '$lib/server/services/checklist-suggest-service';
-import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
+import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -15,10 +15,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const licenseStatus = locals.context?.licenseStatus ?? 'none';
 	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-	if (!isPaidTier(tier)) {
+	if (tier !== 'family') {
 		return apiError(
 			'PLAN_LIMIT_EXCEEDED',
-			'AI チェックリスト提案はスタンダードプラン以上でご利用いただけます',
+			'AI チェックリスト提案はファミリープランでご利用いただけます',
 		);
 	}
 
