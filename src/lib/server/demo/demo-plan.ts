@@ -7,7 +7,7 @@
 //   - standard → licenseStatus='active', plan='monthly'
 //   - family   → licenseStatus='active', plan='family-monthly'
 //
-// デフォルトは family（最も価値が伝わるプランを最初に showcase する）。
+// デフォルトは free（サインアップ後の体験との乖離を防ぐ — #956）。
 
 import type { AuthContext } from '$lib/server/auth/types';
 
@@ -17,7 +17,7 @@ export type DemoPlan = 'free' | 'standard' | 'family';
 export const DEMO_PLAN_COOKIE = 'demo_plan';
 
 /** デフォルトのデモプラン（最初の訪問で showcase される） */
-export const DEFAULT_DEMO_PLAN: DemoPlan = 'family';
+export const DEFAULT_DEMO_PLAN: DemoPlan = 'free';
 
 const VALID_PLANS: ReadonlySet<string> = new Set(['free', 'standard', 'family']);
 
