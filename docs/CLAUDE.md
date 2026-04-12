@@ -67,6 +67,7 @@
 - [ADR-0026](decisions/0026-license-key-architecture.md) — ライセンスキーアーキテクチャ
 - ~~[ADR-0027](decisions/0027-retention-policy.md)~~ — ~~プラン別履歴保持期間ポリシー（retention = 表示フィルタ、物理削除禁止）~~ → **ADR-0028 で物理削除導入に変更**
 - [ADR-0028](decisions/0028-retention-physical-delete.md) — プラン別履歴保持期間ポリシー（retention = 表示フィルタ + 物理削除 cron、ADR-0027 supersede）
+- [ADR-0029](decisions/0029-safety-assertion-erosion-ban.md) — Safety Assertion Erosion Ban（既存 safety を弱める方向の変更を禁じる、新規 env / secret 追加チェック自動化）
 
 ## 画像アセット
 

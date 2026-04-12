@@ -82,6 +82,7 @@ vitest --coverage（カバレッジ閾値）, playwright（E2E）, ESLint（svel
 - URL をリネーム・廃止した際に、個別の `+page.server.ts` や `+page.ts` に `redirect()` を書かない → `src/routes/CLAUDE.md` の旧 URL 廃止ルール参照
 - `vite.config.ts` のカバレッジ閾値（thresholds）を引き下げない → CI が自動拒否（`scripts/check-coverage-threshold.js`）
 - E2E テストで `clearDialogGhosts` を新規使用しない → アプリ側のダイアログバグを隠蔽するため
+- ADR-0029 に違反する safety assertion 緩和 PR を作らない（既存 `assert*Configured()` を warn に落とす / `NODE_ENV==='test'` で本体 skip / `ALLOW_LEGACY_*` 既定 true 化 等）→ CI が自動拒否（`scripts/check-new-required-env.mjs`）
 
 ## Critical バグ修正の必須要件（ADR-0005）
 

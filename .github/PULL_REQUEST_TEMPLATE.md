@@ -267,6 +267,32 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] site/ の変更がある場合: 本番URL（ganbari-quest.com）で変更が反映されていることを確認
 - [ ] **N/A** — デプロイ検証不要（ドキュメントのみの変更等）
 
+## 新規 env / secret 追加チェック（ADR-0029）
+
+<!-- 新しい必須環境変数 / secret を追加する PR では必須。該当しない場合は最後の N/A にチェック -->
+<!-- 詳細: docs/decisions/0029-safety-assertion-erosion-ban.md -->
+
+- [ ] 新規必須 env / secret を**追加していない**、または
+- [ ] CI Secrets / SSM Parameter Store / NUC .env への配布が**完了済み**で、本文に証跡を記載した
+- [ ] 本番デプロイワークフローを単独で実行し green を確認した（ADR-0021）
+- [ ] 該当モジュールが **fail-closed default** である（ADR-0029）
+- [ ] **N/A** — 新規 env / secret 追加なし
+
+<!-- 配布証跡の記載例（該当する場合のみ。CI スクリプトがこのフォーマットを検出します）
+配布済み: AWS_LICENSE_SECRET → GitHub Secrets, SSM Parameter Store, NUC .env
+-->
+
+### safety assertion を弱める変更（ADR-0029 — Chesterton's Fence）
+
+<!-- 既存の assert*Configured / throw を warn に落とす等、safety を弱める変更がある場合のみ -->
+<!-- 該当しない場合は N/A をチェック -->
+
+- [ ] **N/A** — safety assertion を弱める変更なし
+- [ ] 該当 assertion を追加した過去 PR 番号: #
+- [ ] 当時の脅威モデル:
+- [ ] 現在その脅威がどう変わったか:
+- [ ] 例外手続き（別 ADR で旧 ADR を supersede する）を経た: ADR-####
+
 ## 完了チェックリスト
 
 - [ ] `npx biome check .` — lint エラーなし

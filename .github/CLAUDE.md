@@ -16,6 +16,35 @@
 - Draft PR はマージできない（GitHub ルールセットで保護）
 - Dependabot PR は自動的に non-draft で作成されるため、従来通りレビュー → auto-merge
 
+## 新規 env / secret 追加時の必須要件（ADR-0029）
+
+新規必須環境変数 / secret を追加する PR では、以下を全て満たすこと（CI スクリプト `scripts/check-new-required-env.mjs` が機械的にブロックする）。
+
+### 必須チェック
+- [ ] secret を**配布先まで完全に配置**してから PR を出す（後回し禁止）
+  - GitHub Secrets / SSM Parameter Store / NUC `.env` / `.env.production` のうち該当する全配布先
+- [ ] PR 本文に配布証跡を以下フォーマットで記載:
+  ```
+  配布済み: ENV_NAME → GitHub Secrets, SSM Parameter Store, NUC .env
+  ```
+- [ ] 該当モジュールが **fail-closed default**（未設定時に throw）であること
+- [ ] 本番デプロイワークフローを単独で実行し green を確認した（ADR-0021）
+
+### 禁止事項（ADR-0029 違反 — `[must]` 所見扱い）
+- 既存の `assert*Configured()` を `console.warn` に落とす変更
+- `NODE_ENV === 'test'` 等で本体コードの assertion を skip する分岐の混入
+- `ALLOW_LEGACY_*` / `DISABLE_*` / `SKIP_*` の既定値を `true` にする変更
+- 根本原因未解明のまま retry / timeout / health check を増やす変更
+- `.skip` / `.todo` / `// @ts-expect-error` / `// eslint-disable` の追加（Issue 番号 + 30 日 deadline コメント無しの場合）
+
+### 例外手続き
+上記禁止事項を実行する唯一のルート: **別 ADR を書き、旧 ADR を supersede する**。PR 単独では不可。
+
+### 一時的緩和の境界判別
+> その緩和を取り消すときの owner と deadline が PR 本文に書かれているか。書かれていない緩和はすべて禁止。
+
+詳細: [docs/decisions/0029-safety-assertion-erosion-ban.md](../docs/decisions/0029-safety-assertion-erosion-ban.md)
+
 ### コマンド例
 ```bash
 gh issue create --title "feat: 機能名" --label "type:feat,priority:medium"

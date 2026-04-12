@@ -87,6 +87,12 @@ jobs:
         if: github.event_name == 'pull_request'
         run: node scripts/check-test-antipatterns.js
 
+      - name: New required env distribution check (ADR-0029)
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/check-new-required-env.mjs
+
       - name: Build
         run: npm run build
 
