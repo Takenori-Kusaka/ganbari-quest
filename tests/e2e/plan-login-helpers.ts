@@ -12,6 +12,8 @@ export const PLAN_USERS = {
 	free: { email: 'free@example.com', password: 'Gq!Dev#Free2026xy' },
 	standard: { email: 'standard@example.com', password: 'Gq!Dev#Std2026xyz' },
 	family: { email: 'family@example.com', password: 'Gq!Dev#Fam2026xyz' },
+	// #752: トライアル E2E 用（free プランだがトライアル期限切れ済み）
+	'trial-expired': { email: 'trial-expired@example.com', password: 'Gq!Dev#TrialExp26' },
 } as const;
 
 export type PlanUserKey = keyof typeof PLAN_USERS;
