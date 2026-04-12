@@ -747,6 +747,39 @@ export default async function globalSetup() {
 			console.log(`[E2E Setup]   Cleaned ${deletedBonus.changes} login bonus(es) from today.`);
 		}
 
+		// #752: トライアル E2E 用 — dev-tenant-trial-expired に期限切れトライアル履歴をシード
+		const existingTrialExpired = db
+			.prepare(
+				"SELECT count(*) as c FROM trial_history WHERE tenant_id = 'dev-tenant-trial-expired'",
+			)
+			.get() as { c: number };
+		if (existingTrialExpired.c === 0) {
+			const pastEnd = new Date();
+			pastEnd.setDate(pastEnd.getDate() - 3);
+			const pastStart = new Date();
+			pastStart.setDate(pastStart.getDate() - 10);
+			db.prepare(
+				'INSERT INTO trial_history (tenant_id, start_date, end_date, tier, source) VALUES (?, ?, ?, ?, ?)',
+			).run(
+				'dev-tenant-trial-expired',
+				pastStart.toISOString().split('T')[0],
+				pastEnd.toISOString().split('T')[0],
+				'standard',
+				'user_initiated',
+			);
+			console.log('[E2E Setup]   Seeded expired trial for dev-tenant-trial-expired.');
+		}
+
+		// #752: dev-tenant-free のトライアル履歴をクリーン（テスト開始前に未使用状態にする）
+		const cleanedTrialFree = db
+			.prepare("DELETE FROM trial_history WHERE tenant_id = 'dev-tenant-free'")
+			.run();
+		if (cleanedTrialFree.changes > 0) {
+			console.log(
+				`[E2E Setup]   Cleaned ${cleanedTrialFree.changes} trial record(s) for dev-tenant-free.`,
+			);
+		}
+
 		// is_main_quest カラム追加マイグレーション (#549)
 		try {
 			db.exec('ALTER TABLE activities ADD COLUMN is_main_quest INTEGER NOT NULL DEFAULT 0');
