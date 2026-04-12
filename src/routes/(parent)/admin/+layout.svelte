@@ -5,6 +5,7 @@ import FeedbackDialog from '$lib/features/admin/components/FeedbackDialog.svelte
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
 import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.svelte';
 import DebugPlanIndicator from '$lib/ui/components/DebugPlanIndicator.svelte';
+import FeedbackFab from '$lib/ui/components/FeedbackFab.svelte';
 
 interface Props {
 	data: {
@@ -73,18 +74,6 @@ let showFeedback = $state(false);
 	onDismiss={() => { showTrialEndedDialog = false; }}
 />
 <!-- #839: フィードバック FAB + ダイアログ -->
-<button
-	type="button"
-	class="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-20
-		w-12 h-12 rounded-full shadow-lg
-		bg-[var(--color-action-primary)] text-[var(--color-text-inverse)]
-		flex items-center justify-center text-xl
-		hover:opacity-90 transition-opacity"
-	onclick={() => { showFeedback = true; }}
-	aria-label="ご意見・不具合報告"
-	data-testid="feedback-fab"
->
-	💬
-</button>
+<FeedbackFab onclick={() => { showFeedback = true; }} />
 <FeedbackDialog bind:open={showFeedback} />
 <DebugPlanIndicator summary={data.debugPlanSummary ?? null} />
