@@ -128,6 +128,15 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 	</form>
 {/if}
 
+<!-- Escape hatch: セットアップに誤リダイレクトされた場合の脱出用 -->
+<div class="mt-4 text-center">
+	<a
+		href="/"
+		class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)]"
+		data-testid="setup-skip-link"
+	>ホームに戻る</a>
+</div>
+
 <style>
 	.theme-card {
 		display: flex;
