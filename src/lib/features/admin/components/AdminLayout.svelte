@@ -2,6 +2,7 @@
 import type { Snippet } from 'svelte';
 import { navigating, page } from '$app/stores';
 import { NAV_CATEGORIES, NAV_ITEM_LABELS, PLAN_LABELS } from '$lib/domain/labels';
+import FeedbackDialog from '$lib/features/admin/components/FeedbackDialog.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
@@ -180,6 +181,9 @@ function handleDesktopCategoryLeave() {
 function isItemActive(itemHref: string): boolean {
 	return $page.url.pathname.startsWith(itemHref);
 }
+
+// #839: Feedback dialog
+let feedbackOpen = $state(false);
 </script>
 
 <div data-theme="admin" data-plan={planTier} class="admin-shell">
@@ -358,7 +362,20 @@ function isItemActive(itemHref: string): boolean {
 		<TutorialOverlay />
 		<PageGuideOverlay />
 	{/if}
+
+	<!-- #839: Feedback floating button -->
+	<button
+		type="button"
+		class="feedback-fab"
+		onclick={() => { feedbackOpen = true; }}
+		aria-label="ご意見・不具合報告"
+		data-testid="feedback-fab"
+	>
+		<span aria-hidden="true">💬</span>
+	</button>
 </div>
+
+<FeedbackDialog bind:open={feedbackOpen} demo={isDemo} />
 
 <style>
 	.admin-shell {
@@ -604,5 +621,35 @@ function isItemActive(itemHref: string): boolean {
 		border-radius: 9999px;
 		background: var(--color-danger, #ef4444);
 		border: 2px solid white;
+	}
+	/* #839: Feedback floating action button */
+	.feedback-fab {
+		position: fixed;
+		bottom: 5rem;
+		right: 1rem;
+		width: 3rem;
+		height: 3rem;
+		border-radius: 9999px;
+		background: var(--color-action-primary);
+		color: var(--color-text-inverse);
+		border: none;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.25rem;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+		transition: transform 0.15s, box-shadow 0.15s;
+		z-index: 20;
+	}
+	.feedback-fab:hover {
+		transform: scale(1.1);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	}
+	@media (min-width: 768px) {
+		.feedback-fab {
+			bottom: 1.5rem;
+			right: 1.5rem;
+		}
 	}
 </style>
