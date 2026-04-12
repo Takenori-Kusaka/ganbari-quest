@@ -277,7 +277,7 @@ function cancelExit() {
 	</div>
 {/if}
 
-{#if active && step && targetRect}
+{#if active && step && targetRect && !showQuickComplete}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="tutorial-overlay" onclick={handleOverlayClick}>
