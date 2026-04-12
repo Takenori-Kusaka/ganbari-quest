@@ -17,7 +17,11 @@ export type BusinessEventName =
 	| 'special_reward_granted'
 	| 'login_bonus_claimed'
 	| 'daily_mission_completed'
-	| 'page_view';
+	| 'page_view'
+	| 'activation_signup_completed'
+	| 'activation_first_child_added'
+	| 'activation_first_activity_completed'
+	| 'activation_first_reward_seen';
 
 /**
  * Properties that can be attached to a tracking event.
