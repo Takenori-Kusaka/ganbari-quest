@@ -1,6 +1,7 @@
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
+import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { getDebugPlanSummary } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
@@ -12,7 +13,9 @@ import {
 import { getTrialStatus } from '$lib/server/services/trial-service';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ locals }) => {
+const TRIAL_WAS_ACTIVE_COOKIE = 'trial_was_active';
+
+export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 	const tenantId = requireTenantId(locals);
 	const authMode = getAuthMode();
 
@@ -49,6 +52,25 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	);
 
 	const userRole = locals.context?.role ?? 'owner';
+
+	// #770: トライアル終了検知 — cookie で前回の trial 状態を記憶し、
+	// active → inactive の遷移を検出したら trialJustExpired フラグを立てる。
+	const wasTrialActive = cookies.get(TRIAL_WAS_ACTIVE_COOKIE) === '1';
+	const trialJustExpired = wasTrialActive && !trialStatus.isTrialActive;
+
+	if (trialStatus.isTrialActive) {
+		// トライアル中は cookie を維持（30日有効 — トライアルの最長期間を超える）
+		cookies.set(TRIAL_WAS_ACTIVE_COOKIE, '1', {
+			path: '/',
+			httpOnly: true,
+			secure: COOKIE_SECURE,
+			sameSite: 'lax',
+			maxAge: 60 * 60 * 24 * 30,
+		});
+	} else if (trialJustExpired) {
+		// 遷移検知後に cookie を削除（次回リクエストでは trialJustExpired=false になる）
+		cookies.delete(TRIAL_WAS_ACTIVE_COOKIE, { path: '/', secure: COOKIE_SECURE });
+	}
 
 	// #783: トライアル終了後に free プランの上限を超えるリソースを archive する。
 	// 冪等: 既に archive 済みなら超過はなく何もしない。
@@ -97,6 +119,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 			trialUsed: trialStatus.trialUsed,
 			trialEndDate: trialStatus.trialEndDate,
 		},
+		trialJustExpired,
 		archivedSummary,
 		debugPlanSummary: getDebugPlanSummary(),
 	};
