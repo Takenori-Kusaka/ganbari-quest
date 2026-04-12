@@ -83,6 +83,17 @@ export const DEV_USERS: DevUser[] = [
 		licenseStatus: 'active',
 		plan: 'family_monthly',
 	},
+	// ---------- #752: トライアル E2E 用ユーザー ----------
+	// free プランだがトライアル期限切れ済み（global-setup.ts で trial_history をシード）
+	{
+		userId: 'dev-trial-expired-001',
+		email: 'trial-expired@example.com',
+		password: 'Gq!Dev#TrialExp26',
+		tenantId: 'dev-tenant-trial-expired',
+		role: 'owner',
+		licenseStatus: 'none',
+		plan: undefined,
+	},
 ];
 
 /** Email でダミーユーザーを検索 */
