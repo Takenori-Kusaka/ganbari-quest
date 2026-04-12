@@ -77,6 +77,11 @@ vi.mock('$lib/server/services/trial-service', () => ({
 	startTrial: (...args: unknown[]) => mockStartTrial(...args),
 }));
 
+// --- Analytics Service モック (#831) ---
+vi.mock('$lib/server/services/analytics-service', () => ({
+	trackActivationSignupCompleted: vi.fn(),
+}));
+
 beforeEach(() => {
 	mockSignUp.mockReset();
 	mockConfirmSignUp.mockReset();

@@ -13,6 +13,7 @@ import { verifyIdentityToken } from '$lib/server/auth/providers/cognito-jwt';
 import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
 import type { Identity } from '$lib/server/auth/types';
 import { logger } from '$lib/server/logger';
+import { trackActivationSignupCompleted } from '$lib/server/services/analytics-service';
 import { recordConsent } from '$lib/server/services/consent-service';
 import { notifyNewSignup } from '$lib/server/services/discord-notify-service';
 import { consumeLicenseKey, validateLicenseKey } from '$lib/server/services/license-key-service';
@@ -337,6 +338,9 @@ export const actions: Actions = {
 			// Consent 記録失敗 → /consent 画面で再取得
 			redirect(302, '/consent');
 		}
+
+		// #831: Activation Funnel Step 1 — サインアップ完了
+		trackActivationSignupCompleted(tenantId);
 
 		// #766: /auth/signup?plan=X からの遷移ならトライアルを自動開始する
 		//

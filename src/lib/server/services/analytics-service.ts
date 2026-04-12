@@ -110,6 +110,50 @@ export function trackServerError(
 	analytics.trackError(error, context);
 }
 
+// ── Activation Funnel (#831) ──────────────────────────────────
+
+/**
+ * Track: サインアップ + consent 完了 (Step 1)
+ */
+export function trackActivationSignupCompleted(tenantId: string): void {
+	trackBusinessEvent('activation_signup_completed', { step: 1 }, tenantId);
+}
+
+/**
+ * Track: テナント初の子供登録 (Step 2)
+ * 呼び出し側で「初回かどうか」を判定すること。
+ */
+export function trackActivationFirstChildAdded(tenantId: string, childId: number): void {
+	trackBusinessEvent('activation_first_child_added', { step: 2, childId }, tenantId);
+}
+
+/**
+ * Track: テナント初の活動記録完了 (Step 3)
+ * 呼び出し側で「初回かどうか」を判定すること。
+ */
+export function trackActivationFirstActivityCompleted(
+	tenantId: string,
+	childId: number,
+	activityId: number,
+): void {
+	trackBusinessEvent(
+		'activation_first_activity_completed',
+		{ step: 3, childId, activityId },
+		tenantId,
+	);
+}
+
+/**
+ * Track: テナント初の報酬演出表示 (Step 4)
+ * シール獲得またはレベルアップモーダル表示時。
+ */
+export function trackActivationFirstRewardSeen(
+	tenantId: string,
+	rewardType: 'stamp' | 'level_up',
+): void {
+	trackBusinessEvent('activation_first_reward_seen', { step: 4, rewardType }, tenantId);
+}
+
 /**
  * Get analytics system status (for admin/ops dashboard).
  */

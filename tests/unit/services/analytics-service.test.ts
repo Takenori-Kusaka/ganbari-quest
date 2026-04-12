@@ -177,6 +177,107 @@ describe('Analytics providers', () => {
 	});
 });
 
+describe('Activation Funnel helpers (#831)', () => {
+	beforeEach(() => {
+		vi.resetModules();
+		process.env = { ...originalEnv };
+	});
+
+	afterEach(() => {
+		process.env = originalEnv;
+	});
+
+	it('trackActivationSignupCompleted emits activation_signup_completed', async () => {
+		const { analytics } = await import('../../../src/lib/analytics');
+		analytics.reset();
+		analytics.init();
+		const spy = vi.spyOn(analytics, 'trackEvent');
+
+		const { trackActivationSignupCompleted } = await import(
+			'../../../src/lib/server/services/analytics-service'
+		);
+		trackActivationSignupCompleted('t-1');
+
+		expect(spy).toHaveBeenCalledWith('activation_signup_completed', {
+			step: 1,
+			tenantId: 't-1',
+		});
+	});
+
+	it('trackActivationFirstChildAdded emits activation_first_child_added with childId', async () => {
+		const { analytics } = await import('../../../src/lib/analytics');
+		analytics.reset();
+		analytics.init();
+		const spy = vi.spyOn(analytics, 'trackEvent');
+
+		const { trackActivationFirstChildAdded } = await import(
+			'../../../src/lib/server/services/analytics-service'
+		);
+		trackActivationFirstChildAdded('t-2', 42);
+
+		expect(spy).toHaveBeenCalledWith('activation_first_child_added', {
+			step: 2,
+			childId: 42,
+			tenantId: 't-2',
+		});
+	});
+
+	it('trackActivationFirstActivityCompleted emits with childId and activityId', async () => {
+		const { analytics } = await import('../../../src/lib/analytics');
+		analytics.reset();
+		analytics.init();
+		const spy = vi.spyOn(analytics, 'trackEvent');
+
+		const { trackActivationFirstActivityCompleted } = await import(
+			'../../../src/lib/server/services/analytics-service'
+		);
+		trackActivationFirstActivityCompleted('t-3', 10, 5);
+
+		expect(spy).toHaveBeenCalledWith('activation_first_activity_completed', {
+			step: 3,
+			childId: 10,
+			activityId: 5,
+			tenantId: 't-3',
+		});
+	});
+
+	it('trackActivationFirstRewardSeen emits with rewardType=stamp', async () => {
+		const { analytics } = await import('../../../src/lib/analytics');
+		analytics.reset();
+		analytics.init();
+		const spy = vi.spyOn(analytics, 'trackEvent');
+
+		const { trackActivationFirstRewardSeen } = await import(
+			'../../../src/lib/server/services/analytics-service'
+		);
+		trackActivationFirstRewardSeen('t-4', 'stamp');
+
+		expect(spy).toHaveBeenCalledWith('activation_first_reward_seen', {
+			step: 4,
+			rewardType: 'stamp',
+			tenantId: 't-4',
+		});
+	});
+
+	it('trackActivationFirstRewardSeen emits with rewardType=level_up', async () => {
+		const { analytics } = await import('../../../src/lib/analytics');
+		analytics.reset();
+		analytics.init();
+		const spy = vi.spyOn(analytics, 'trackEvent');
+
+		const { trackActivationFirstRewardSeen } = await import(
+			'../../../src/lib/server/services/analytics-service'
+		);
+		trackActivationFirstRewardSeen('t-5', 'level_up');
+
+		expect(spy).toHaveBeenCalledWith('activation_first_reward_seen', {
+			step: 4,
+			rewardType: 'level_up',
+			tenantId: 't-5',
+		});
+	});
+});
+
 describe('AnalyticsManager', () => {
 	beforeEach(() => {
 		vi.resetModules();
