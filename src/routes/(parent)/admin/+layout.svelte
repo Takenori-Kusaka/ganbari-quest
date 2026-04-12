@@ -1,9 +1,11 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
+import FeedbackDialog from '$lib/features/admin/components/FeedbackDialog.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
 import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.svelte';
 import DebugPlanIndicator from '$lib/ui/components/DebugPlanIndicator.svelte';
+import FeedbackFab from '$lib/ui/components/FeedbackFab.svelte';
 
 interface Props {
 	data: {
@@ -47,6 +49,9 @@ $effect(() => {
 		showTrialEndedDialog = true;
 	}
 });
+
+// #839: フィードバックダイアログ
+let showFeedback = $state(false);
 </script>
 
 <AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'}>
@@ -68,4 +73,7 @@ $effect(() => {
 	bind:open={showTrialEndedDialog}
 	onDismiss={() => { showTrialEndedDialog = false; }}
 />
+<!-- #839: フィードバック FAB + ダイアログ -->
+<FeedbackFab onclick={() => { showFeedback = true; }} />
+<FeedbackDialog bind:open={showFeedback} />
 <DebugPlanIndicator summary={data.debugPlanSummary ?? null} />
