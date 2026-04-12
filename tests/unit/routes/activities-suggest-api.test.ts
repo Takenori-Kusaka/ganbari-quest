@@ -79,15 +79,8 @@ describe('POST /api/v1/activities/suggest', () => {
 		expect(mockSuggestActivity).not.toHaveBeenCalled();
 	});
 
-	it('スタンダードプランでは suggestActivity を実行', async () => {
+	it('スタンダードプランでは PLAN_LIMIT_EXCEEDED 403 を返す (#722 ファミリー限定化)', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('standard');
-		mockSuggestActivity.mockResolvedValue({
-			name: 'サッカー',
-			categoryId: 1,
-			icon: '⚽',
-			basePoints: 5,
-			source: 'fallback',
-		});
 
 		const response = await POST(
 			makeEvent({
@@ -97,8 +90,10 @@ describe('POST /api/v1/activities/suggest', () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
-		expect(mockSuggestActivity).toHaveBeenCalledWith('サッカーの練習');
+		expect(response.status).toBe(403);
+		const body = await response.json();
+		expect(body.error.code).toBe('PLAN_LIMIT_EXCEEDED');
+		expect(mockSuggestActivity).not.toHaveBeenCalled();
 	});
 
 	it('ファミリープランでは suggestActivity を実行', async () => {
@@ -123,23 +118,23 @@ describe('POST /api/v1/activities/suggest', () => {
 		expect(mockSuggestActivity).toHaveBeenCalledWith('公園で走った');
 	});
 
-	it('有料プランでもテキスト空は 400', async () => {
-		mockResolveFullPlanTier.mockResolvedValue('standard');
+	it('ファミリープランで���テキスト空は 400', async () => {
+		mockResolveFullPlanTier.mockResolvedValue('family');
 
 		await expect(
 			POST(
 				makeEvent({
 					text: '',
 					licenseStatus: 'active',
-					plan: 'standard_monthly',
+					plan: 'family_monthly',
 				}),
 			),
 		).rejects.toMatchObject({ status: 400 });
 		expect(mockSuggestActivity).not.toHaveBeenCalled();
 	});
 
-	it('有料プランでも200文字超は 400', async () => {
-		mockResolveFullPlanTier.mockResolvedValue('standard');
+	it('ファミリープランでも200文字超は 400', async () => {
+		mockResolveFullPlanTier.mockResolvedValue('family');
 
 		const longText = 'あ'.repeat(201);
 		await expect(
@@ -147,7 +142,7 @@ describe('POST /api/v1/activities/suggest', () => {
 				makeEvent({
 					text: longText,
 					licenseStatus: 'active',
-					plan: 'standard_monthly',
+					plan: 'family_monthly',
 				}),
 			),
 		).rejects.toMatchObject({ status: 400 });

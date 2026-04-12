@@ -655,11 +655,11 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `category`: `もの` | `たいけん` | `おこづかい` | `とくべつ`
 - `source`: `gemini`（Gemini API 推定）| `fallback`（キーワードマッチング）
 - Gemini API が利用不可の場合はキーワード＋プリセットマッチングにフォールバック
-- 無料プランでは `403 PLAN_LIMIT_EXCEEDED` を返す
+- ファミリープラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 #### POST /api/v1/checklists/suggest
 
-テキスト入力からチェックリストのテンプレート名・アイコン・アイテム一覧を AI で推定する。スタンダードプラン以上限定（#720）。
+テキスト入力からチェックリストのテンプレート名・アイコン・アイテム一覧を AI で推定する。ファミリープラン限定（#720, #722）。
 
 **リクエストボディ:**
 ```json
@@ -685,7 +685,7 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `items[].direction`: `bring`（持参）| `return`（持帰）| `both`（往復）
 - `source`: `gemini`（AI 推定）| `fallback`（プリセット/キーワードマッチング）
 - Bedrock API が利用不可の場合は 5 種のプリセット（がっこう/たいいく/プール/えんそく/おとまり）＋キーワード分割にフォールバック
-- 無料プランでは `403 PLAN_LIMIT_EXCEEDED` を返す
+- ファミリープラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 ### 3.10 画像・エクスポート
 
@@ -1638,7 +1638,7 @@ export interface PlanLimitError {
 
 | エンドポイント / フォームアクション | 必要プラン | 根拠 | 実装状況 |
 |----------|---------|------|---------|
-| `POST /api/v1/activities/suggest` | standard | AI 活動提案 (`isPaidTier`) | `planLimitError()` 済 |
+| `POST /api/v1/activities/suggest` | family | AI 活動提案 (`tier !== 'family'`) | `planLimitError()` 済 |
 | `GET /api/v1/export` | standard | `canExport` フラグ | `planLimitError()` 済 |
 | `POST /api/v1/export/cloud` | standard | `canExport` + `maxCloudExports` | `planLimitError()` 済 |
 | `POST /admin/children ?/addChild` | 上限付き | `free` は `maxChildren=2` まで | `createPlanLimitError()` 済 (#787) |
@@ -1646,8 +1646,8 @@ export interface PlanLimitError {
 | `POST /admin/checklists ?/createTemplate` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#723) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards ?/grant` | standard | 特別なごほうび (`canCustomReward`, #728) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards ?/addPreset` | standard | 特別なごほうび取り込み (#728) | `createPlanLimitError()` 済 (#787) |
-| `POST /api/v1/special-rewards/suggest` | standard | AI ごほうび提案 (`isPaidTier`, #719) | `apiError()` 済 |
-| `POST /api/v1/checklists/suggest` | standard | AI チェックリスト提案 (`isPaidTier`, #720) | `apiError()` 済 |
+| `POST /api/v1/special-rewards/suggest` | family | AI ごほうび提案 (`tier !== 'family'`, #719) | `apiError()` 済 |
+| `POST /api/v1/checklists/suggest` | family | AI チェックリスト提案 (`tier !== 'family'`, #720) | `apiError()` 済 |
 | `POST /admin/messages ?/send` (text モード) | family | 自由テキストメッセージ (`canFreeTextMessage`, #772) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | family | きょうだいランキング (`canSiblingRanking`, #782) | `createPlanLimitError()` 済 (#787) |
 
@@ -1752,6 +1752,7 @@ export interface PlanLimitError {
 | 2026-04-12 | 2.9 | #744 プラン制限エラー仕様 (§4.2) 追加。`PLAN_LIMIT_EXCEEDED` の body フォーマット (`currentTier` / `requiredTier` / `upgradeUrl`) を正仕様化。型定義を `src/lib/domain/errors.ts` として新設し client/server で共有。既存実装の移行は #787 で追跡 |
 | 2026-04-11 | 2.10 | #787 プラン制限エラー形式統一。全 form action (`/admin/children`, `/admin/activities`, `/admin/checklists`, `/admin/rewards`, `/admin/messages`, `/admin/settings`) が `createPlanLimitError()` 形式の `PlanLimitError` body を返すように統一。クライアント側表示を共通化する `getErrorMessage()` ヘルパーを `src/lib/domain/errors.ts` に追加 |
 | 2026-04-12 | 2.11 | #721 AIモデルを Gemini → AWS Bedrock Claude Haiku に移行。活動サジェスト・レシートOCR の AI バックエンドを `@aws-sdk/client-bedrock-runtime` の Converse API (tool_use) に変更。構造化出力により `extractJson()` 手動パースを廃止。画像生成（`image-service.ts`）のみ Gemini 維持 |
-| 2026-04-12 | 2.12 | #720 AI チェックリスト提案 API (`POST /api/v1/checklists/suggest`) 追加。Bedrock Claude Haiku + プリセット/キーワードフォールバック。スタンダードプラン以上限定 |
+| 2026-04-12 | 2.12 | #720 AI チェックリスト提案 API (`POST /api/v1/checklists/suggest`) 追加。Bedrock Claude Haiku + プリセット/キーワードフォールバック。ファミリープラン限定 |
 | 2026-04-12 | 2.13 | #770 トライアル終了検知の cookie 仕様追加。admin layout server load で `trial_was_active` cookie（HttpOnly, Secure, SameSite=Lax, 30日有効）を使い、トライアル active → inactive 遷移を検出。遷移検知後は cookie を削除し、`trialJustExpired` フラグをクライアントに返却 |
-| 2026-04-12 | 2.14 | #839 アプリ内フィードバック送信 API (`POST /api/v1/feedback`) 追加。種別（opinion/bug/feature/other）+ テキスト（1000文字以内）+ スクリーンショット（dataURL, 最大 2MB, 任意）を受け取り Discord webhook (inquiry チャネル) に転送。レート制限: 1テナント/5分1件（インメモリ Map、TTL 自動クリーンアップ付き） |
+| 2026-04-12 | 2.14 | #722 AI suggest 3 エンドポイントのプランゲートを `standard` → `family` 限定に変更。`createFromAi` form action も `tier !== 'family'` ガードに統一。デモ版 3 画面に AI 提案パネルを追加 |
+| 2026-04-13 | 2.15 | #839 アプリ内フィードバック送信 API (`POST /api/v1/feedback`) 追加。種別（opinion/bug/feature/other）+ テキスト（1000文字以内）+ スクリーンショット（dataURL, 最大 2MB, 任意）を受け取り Discord webhook (inquiry チャネル) に転送。レート制限: 1テナント/5分1件（インメモリ Map、TTL 自動クリーンアップ付き） |

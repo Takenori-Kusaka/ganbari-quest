@@ -24,16 +24,14 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.free).toHaveLength(7);
 		});
 
-		it('standard プランは 9 項目（#792 棚卸し後）', () => {
-			// #792: 月次比較 / 5つのチカラの成長グラフ / 週次メールレポート を削除し
-			// 特別なごほうび設定 / クラウドバックアップの訴求を明確化した結果 9 項目
-			expect(PRICING_PAGE_FEATURES.standard).toHaveLength(9);
+		it('standard プランは 8 項目（#722 AI提案をfamilyに移動後）', () => {
+			// #722: AI による活動提案を family 限定に変更したため 9→8 項目
+			expect(PRICING_PAGE_FEATURES.standard).toHaveLength(8);
 		});
 
-		it('family プランは 6 項目（#792 棚卸し後）', () => {
-			// #792: 「AI による活動提案」を削除（standard 全機能に内包されるため重複）
-			// クラウドバックアップ 10 世代保管を追加
-			expect(PRICING_PAGE_FEATURES.family).toHaveLength(6);
+		it('family プランは 7 項目（#722 AI自動提案を追加）', () => {
+			// #722: AI 自動提案をファミリー限定機能として追加
+			expect(PRICING_PAGE_FEATURES.family).toHaveLength(7);
 		});
 
 		it('free には「90日間の履歴保持」が含まれる', () => {
@@ -65,14 +63,18 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.free).not.toContain('特別なごほうび設定（即時付与）');
 		});
 
-		it('standard に AI 提案と特別なごほうび設定が含まれる (#792)', () => {
-			expect(PRICING_PAGE_FEATURES.standard).toContain('AI による活動提案');
+		it('standard に特別なごほうび設定が含まれるが、AI提案は含まない (#722)', () => {
+			expect(PRICING_PAGE_FEATURES.standard).not.toContain('AI による活動提案');
 			expect(PRICING_PAGE_FEATURES.standard).toContain('特別なごほうび設定（即時付与）');
 		});
 
-		it('family に AI による活動提案は直接掲載しない (#792 重複排除)', () => {
-			// family は「スタンダードの全機能」を含むため、AI を別途掲載しない
-			expect(PRICING_PAGE_FEATURES.family).not.toContain('AI による活動提案');
+		it('family にのみ AI 自動提案が含まれる (#722)', () => {
+			expect(PRICING_PAGE_FEATURES.family).toContain(
+				'✨ AI 自動提案（活動・ごほうび・チェックリスト）',
+			);
+			expect(PRICING_PAGE_FEATURES.standard).not.toContain(
+				'✨ AI 自動提案（活動・ごほうび・チェックリスト）',
+			);
 			expect(PRICING_PAGE_FEATURES.family).toContain('スタンダードの全機能');
 		});
 
@@ -105,12 +107,12 @@ describe('plan-features.ts SSOT', () => {
 	});
 
 	describe('PREMIUM_UNLOCKED_FEATURES', () => {
-		it('standard は 5 項目', () => {
-			expect(PREMIUM_UNLOCKED_FEATURES.standard).toHaveLength(5);
+		it('standard は 4 項目（#722 AI提案をfamilyに移動後）', () => {
+			expect(PREMIUM_UNLOCKED_FEATURES.standard).toHaveLength(4);
 		});
 
-		it('family は 7 項目', () => {
-			expect(PREMIUM_UNLOCKED_FEATURES.family).toHaveLength(7);
+		it('family は 8 項目（#722 AI自動提案を追加）', () => {
+			expect(PREMIUM_UNLOCKED_FEATURES.family).toHaveLength(8);
 		});
 
 		it('全項目に icon と text がある', () => {
