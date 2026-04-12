@@ -30,9 +30,9 @@ describe('demo-plan helpers (#760)', () => {
 	});
 
 	describe('resolveDemoPlan', () => {
-		it('クエリ・cookie 共に未指定 → デフォルト (family)', () => {
+		it('クエリ・cookie 共に未指定 → デフォルト (free)', () => {
 			expect(resolveDemoPlan(null, undefined)).toBe(DEFAULT_DEMO_PLAN);
-			expect(resolveDemoPlan(null, undefined)).toBe('family');
+			expect(resolveDemoPlan(null, undefined)).toBe('free');
 		});
 
 		it('クエリが優先される', () => {
