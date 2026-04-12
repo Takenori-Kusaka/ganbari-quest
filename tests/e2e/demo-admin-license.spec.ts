@@ -45,14 +45,26 @@ test.describe('#790 /demo/admin/license', () => {
 		await expect(page.getByTestId('demo-toast')).toContainText('デモでは実際の操作はできません');
 	});
 
-	test('ライセンスキー入力は disabled（デモでは適用不可）', async ({ page }) => {
+	test('#817 ライセンスキー入力は enabled（モック適用フロー）', async ({ page }) => {
 		await page.goto('/demo/admin/license', { waitUntil: 'domcontentloaded' });
-		await expect(page.getByTestId('demo-license-key-input')).toBeDisabled();
+		await expect(page.getByTestId('demo-license-key-input')).toBeEnabled();
+		// 空の場合は適用ボタンが disabled
+		await expect(page.getByTestId('demo-license-key-apply-button')).toBeDisabled();
 	});
 
-	test('#799 ライセンスキーのヘルプ（一回限り使用の注意文言）が表示される', async ({ page }) => {
+	test('#799 ライセンスキーのヘルプ（折りたたみ）を展開すると注意文言が表示される', async ({
+		page,
+	}) => {
 		test.slow();
 		await page.goto('/demo/admin/license', { waitUntil: 'domcontentloaded' });
+		// ヘルプは初期非表示
+		await expect(page.getByTestId('demo-license-help')).toHaveCount(0);
+		// ハイドレーション完了待ち
+		await expect(page.getByTestId('demo-license-page')).toHaveAttribute('data-hydrated', 'true', {
+			timeout: 20_000,
+		});
+		// トグルをクリックして展開
+		await page.getByTestId('demo-license-help-toggle').click();
 		const help = page.getByTestId('demo-license-help');
 		await expect(help).toBeVisible();
 		await expect(help).toContainText('一回限り');
