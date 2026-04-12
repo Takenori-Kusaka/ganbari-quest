@@ -10,9 +10,10 @@ const config = {
 			$lib: 'src/lib',
 		},
 		csrf: {
-			// CSRF 検証は ORIGIN 環境変数（adapter-node がランタイムで読む）で制御。
-			// ハードコード IP 禁止 — deploy-nuc.yml が LAN IP を自動検出して .env に書き出す。
-			checkOrigin: true,
+			// Docker(NUC LAN) ビルドでは DISABLE_CSRF_ORIGIN_CHECK=true を build arg で渡し、
+			// 192.168.68.0/23 内の任意端末からの POST を許可する。
+			// Lambda(本番) ビルドではデフォルト true のまま（Cognito + CloudFront が防御）。
+			checkOrigin: process.env.DISABLE_CSRF_ORIGIN_CHECK !== 'true',
 		},
 		prerender: {
 			// #832: /sitemap.xml はクローラ経由では到達できない（/ → /setup リダイレクト

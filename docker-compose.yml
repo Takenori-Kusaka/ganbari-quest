@@ -7,6 +7,8 @@ services:
         # Pass BUILD_TIMESTAMP=<unique value> from deploy workflow to force
         # version:generate to re-run even when the source layer cache hits.
         BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-unknown}
+        # NUC LAN: 同一ネットワーク内の任意端末からの POST を許可 (#962)
+        DISABLE_CSRF_ORIGIN_CHECK: "true"
     ports:
       - "${PORT:-3000}:3000"
     volumes:
@@ -19,7 +21,7 @@ services:
       - DATABASE_URL=./data/ganbari-quest.db
       - HOST=0.0.0.0
       - PORT=3000
-      - ORIGIN=${ORIGIN:-http://localhost:3000}
+      - ORIGIN=${ORIGIN:-http://0.0.0.0:3000}
       - TZ=Asia/Tokyo
     env_file:
       - path: .env
