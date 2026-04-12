@@ -3,7 +3,7 @@
 
 import { error, json } from '@sveltejs/kit';
 import { apiError } from '$lib/server/errors';
-import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
+import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { suggestReward } from '$lib/server/services/reward-suggest-service';
 import type { RequestHandler } from './$types';
 
@@ -15,11 +15,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const licenseStatus = locals.context?.licenseStatus ?? 'none';
 	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-	if (!isPaidTier(tier)) {
-		return apiError(
-			'PLAN_LIMIT_EXCEEDED',
-			'AI ごほうび提案はスタンダードプラン以上でご利用いただけます',
-		);
+	if (tier !== 'family') {
+		return apiError('PLAN_LIMIT_EXCEEDED', 'AI ごほうび提案はファミリープランでご利用いただけます');
 	}
 
 	const body = await request.json();

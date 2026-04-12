@@ -101,6 +101,15 @@ export default async function globalSetup() {
 			console.log('[E2E Setup]   Created test PIN (1234) for backward compat.');
 		}
 
+		// #839: PremiumWelcome ダイアログ抑制
+		// local モードでは plan=family（有料）になるため、premium_welcome_shown が
+		// 未設定だとウェルカムダイアログが表示され他テストの FAB クリック等をブロックする。
+		// premium-welcome.spec.ts は cognito-dev モードで独立実行されるため影響なし。
+		db.prepare(
+			"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('premium_welcome_shown', 'true', datetime('now'))",
+		).run();
+		console.log('[E2E Setup]   Suppressed PremiumWelcome dialog (premium_welcome_shown=true).');
+
 		// テスト用子供を冪等に作成（nickname ベースの存在チェック）
 		const TEST_CHILDREN = [
 			{ nickname: 'たろうくん', age: 4, theme: 'pink', ui_mode: 'preschool' },
