@@ -13,42 +13,14 @@
 //  - /admin/rewards: rewards-upgrade-banner（free のみ表示）
 //  - /admin/messages: ひとことメッセージボタン（free/standard は disabled、family は enabled）
 
-import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-
-const PLAN_USERS = {
-	free: { email: 'free@example.com', password: 'Gq!Dev#Free2026xy' },
-	standard: { email: 'standard@example.com', password: 'Gq!Dev#Std2026xyz' },
-	family: { email: 'family@example.com', password: 'Gq!Dev#Fam2026xyz' },
-} as const;
-
-async function loginAs(page: Page, plan: keyof typeof PLAN_USERS) {
-	const { email, password } = PLAN_USERS[plan];
-	// Vite dev のコールドコンパイルでは load/domcontentloaded が長時間完了しないため、
-	// commit イベントで navigation を解除し、フォーム表示は waitFor で待つ。
-	await page.goto('/auth/login', { waitUntil: 'commit', timeout: 180_000 });
-	await page.getByLabel('メールアドレス').waitFor({ state: 'visible', timeout: 180_000 });
-	await page.getByLabel('メールアドレス').fill(email);
-	await page.getByLabel('パスワード', { exact: true }).fill(password);
-	await page.getByRole('button', { name: 'ログイン' }).click();
-	await page.waitForURL(/\/admin/, { timeout: 120_000 });
-}
+import { loginAsPlan as loginAs, warmupAdminPages } from './plan-login-helpers';
 
 // Vite dev のコールドコンパイルで /auth/login と /admin 配下の初回ビルドが
 // 数分かかることがあるため、テスト前に warmup でプリコンパイルを走らせる。
 test.beforeAll(async ({ browser }) => {
 	test.setTimeout(360_000);
-	const ctx = await browser.newContext();
-	const page = await ctx.newPage();
-	try {
-		await page.goto('/auth/login', { waitUntil: 'commit', timeout: 180_000 });
-		await page.getByLabel('メールアドレス').waitFor({ state: 'visible', timeout: 180_000 });
-		// rewards/messages ページもプリコンパイルしておく（login 後にリダイレクトで /admin に飛ぶ）
-		await page.goto('/admin/rewards', { waitUntil: 'commit', timeout: 180_000 }).catch(() => {});
-		await page.goto('/admin/messages', { waitUntil: 'commit', timeout: 180_000 }).catch(() => {});
-	} finally {
-		await ctx.close();
-	}
+	await warmupAdminPages(browser, ['/admin/rewards', '/admin/messages']);
 });
 
 // ============================================================
