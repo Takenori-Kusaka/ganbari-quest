@@ -20,7 +20,7 @@ import { notifyIncident } from '$lib/server/services/discord-notify-service';
 
 // --- 設定 ---
 
-/** IP 単位: windowMs 内に maxAttempts を超えたらブロッ�� */
+/** IP 単位: windowMs 内に maxAttempts を超えたらブロック */
 const IP_WINDOW_MS = 60 * 1000; // 1 分
 const IP_MAX_ATTEMPTS = 10;
 
@@ -104,7 +104,7 @@ export interface RateLimitResult {
 
 /**
  * ライセンスキー検証のレート制限チェック。
- * IP と email の両方をチェックし、どち��か一方でも超過したらブロック。
+ * IP と email の両方をチェックし、どちらか一方でも超過したらブロック。
  *
  * @param ip - クライアント IP アドレス（SvelteKit `getClientAddress()` 経由）。
  *   AWS Lambda デプロイでは CloudFront → ALB → Lambda の経路で X-Forwarded-For が
@@ -150,7 +150,7 @@ export async function checkLicenseKeyRateLimit(
 			return {
 				allowed: false,
 				retryAfterSec,
-				message: `試行回数が上限を���えました。しばらくし��から再度お試しください`,
+				message: `試行回数が上限を超えました。しばらくしてから再度お試しください`,
 			};
 		}
 	}
