@@ -2,6 +2,10 @@
 // 同意サービスのユニットテスト (#0192)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// フルスイート並列実行時の dynamic import タイムアウト対策
+vi.setConfig({ testTimeout: 15_000 });
+
 import type { ConsentRecord } from '../../../src/lib/server/auth/entities';
 
 const mockFindLatestConsent = vi.fn();
