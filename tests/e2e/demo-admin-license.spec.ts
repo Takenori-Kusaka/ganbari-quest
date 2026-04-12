@@ -52,6 +52,97 @@ test.describe('#790 /demo/admin/license', () => {
 		await expect(page.getByTestId('demo-license-key-apply-button')).toBeDisabled();
 	});
 
+	test('#817 キー入力→「適用」クリックで確認ダイアログが表示される', async ({ page }) => {
+		test.slow();
+		await page.goto('/demo/admin/license', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByTestId('demo-license-page')).toHaveAttribute('data-hydrated', 'true', {
+			timeout: 20_000,
+		});
+
+		// ライセンスキーを入力
+		await page.getByTestId('demo-license-key-input').fill('GQ-TEST-1234-ABCD');
+		// 適用ボタンが有効化されること
+		await expect(page.getByTestId('demo-license-key-apply-button')).toBeEnabled();
+		// 適用ボタンをクリック
+		await page.getByTestId('demo-license-key-apply-button').click();
+		// 確認ダイアログが表示される
+		await expect(page.getByTestId('demo-license-key-confirm-dialog')).toBeVisible();
+		// 入力したキーが確認ダイアログに表示される
+		await expect(page.getByTestId('demo-license-key-confirm-display')).toContainText(
+			'GQ-TEST-1234-ABCD',
+		);
+	});
+
+	test('#817 チェックボックス同意で「適用する」ボタンが有効化される', async ({ page }) => {
+		test.slow();
+		await page.goto('/demo/admin/license', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByTestId('demo-license-page')).toHaveAttribute('data-hydrated', 'true', {
+			timeout: 20_000,
+		});
+
+		// キーを入力して確認ダイアログを開く
+		await page.getByTestId('demo-license-key-input').fill('GQ-TEST-1234-ABCD');
+		await page.getByTestId('demo-license-key-apply-button').click();
+		await expect(page.getByTestId('demo-license-key-confirm-dialog')).toBeVisible();
+
+		// 同意チェックなしでは「適用する」ボタンが無効
+		await expect(page.getByTestId('demo-license-key-confirm-button')).toBeDisabled();
+
+		// チェックボックスをクリックして同意
+		await page.getByTestId('demo-license-key-once-checkbox').check();
+
+		// 「適用する」ボタンが有効化される
+		await expect(page.getByTestId('demo-license-key-confirm-button')).toBeEnabled();
+	});
+
+	test('#817 「適用する」クリックで成功メッセージが表示されプラン表示が更新される', async ({
+		page,
+	}) => {
+		test.slow();
+		await page.goto('/demo/admin/license', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByTestId('demo-license-page')).toHaveAttribute('data-hydrated', 'true', {
+			timeout: 20_000,
+		});
+
+		// 初期プラン表示はフリー
+		await expect(page.getByTestId('demo-current-plan')).toContainText('フリー');
+
+		// キーを入力 → 確認ダイアログ → 同意 → 適用
+		await page.getByTestId('demo-license-key-input').fill('GQ-STANDARD-1234');
+		await page.getByTestId('demo-license-key-apply-button').click();
+		await expect(page.getByTestId('demo-license-key-confirm-dialog')).toBeVisible();
+		await page.getByTestId('demo-license-key-once-checkbox').check();
+		await page.getByTestId('demo-license-key-confirm-button').click();
+
+		// 成功メッセージが表示される
+		await expect(page.getByTestId('demo-apply-success')).toBeVisible();
+		await expect(page.getByTestId('demo-apply-success')).toContainText(
+			'ライセンスキーが適用されました',
+		);
+		// プラン表示がスタンダードに更新される
+		await expect(page.getByTestId('demo-current-plan')).toContainText('スタンダード');
+	});
+
+	test('#817 FAMILY を含むキーでファミリープランに変更される', async ({ page }) => {
+		test.slow();
+		await page.goto('/demo/admin/license', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByTestId('demo-license-page')).toHaveAttribute('data-hydrated', 'true', {
+			timeout: 20_000,
+		});
+
+		// FAMILY を含むキーを入力 → 確認ダイアログ → 同意 → 適用
+		await page.getByTestId('demo-license-key-input').fill('GQ-FAMILY-5678-WXYZ');
+		await page.getByTestId('demo-license-key-apply-button').click();
+		await expect(page.getByTestId('demo-license-key-confirm-dialog')).toBeVisible();
+		await page.getByTestId('demo-license-key-once-checkbox').check();
+		await page.getByTestId('demo-license-key-confirm-button').click();
+
+		// 成功メッセージが表示される
+		await expect(page.getByTestId('demo-apply-success')).toBeVisible();
+		// プラン表示がファミリーに更新される
+		await expect(page.getByTestId('demo-current-plan')).toContainText('ファミリー');
+	});
+
 	test('#799 ライセンスキーのヘルプ（折りたたみ）を展開すると注意文言が表示される', async ({
 		page,
 	}) => {

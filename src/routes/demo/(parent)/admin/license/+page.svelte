@@ -21,6 +21,8 @@ let billingInterval = $state<'monthly' | 'yearly'>('monthly');
 let showDemoToast = $state(false);
 let hydrated = $state(false);
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let applyDelayTimer: ReturnType<typeof setTimeout> | undefined;
+let applySuccessTimer: ReturnType<typeof setTimeout> | undefined;
 
 // #817: ライセンスキー適用モックフロー
 let licenseKeyInput = $state('');
@@ -37,6 +39,11 @@ const currentPlanLabel = $derived(getPlanLabel(appliedPlan));
 // E2E hydration マーカー (data-hydrated 属性でハンドラ attach 完了を検知可能にする)
 onMount(() => {
 	hydrated = true;
+	return () => {
+		clearTimeout(toastTimer);
+		clearTimeout(applyDelayTimer);
+		clearTimeout(applySuccessTimer);
+	};
 });
 
 function notifyDemoOnly() {
@@ -51,7 +58,9 @@ function notifyDemoOnly() {
 function handleMockApply() {
 	applyLoading = true;
 	// 500ms の擬似遅延でリアルな体験を模擬
-	setTimeout(() => {
+	clearTimeout(applyDelayTimer);
+	clearTimeout(applySuccessTimer);
+	applyDelayTimer = setTimeout(() => {
 		// キー入力に "FAMILY" が含まれていればファミリー、それ以外はスタンダード
 		const key = licenseKeyInput.toUpperCase();
 		appliedPlan = key.includes('FAMILY') ? 'family' : 'standard';
@@ -61,7 +70,7 @@ function handleMockApply() {
 		licenseKeyInput = '';
 		agreedLicenseOnce = false;
 		// 5秒後に成功メッセージを非表示
-		setTimeout(() => {
+		applySuccessTimer = setTimeout(() => {
 			showApplySuccess = false;
 		}, 5000);
 	}, 500);

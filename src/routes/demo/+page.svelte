@@ -84,7 +84,7 @@ const modeLabels: Record<string, string> = {
 				</button>
 			{:else}
 				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">はじめてですか？</p>
-				<p class="text-xs text-[var(--color-text-muted)] mb-3">6ステップで主な機能をご案内します</p>
+				<p class="text-xs text-[var(--color-text-muted)] mb-3">{GUIDE_STEPS.length}ステップで主な機能をご案内します</p>
 				<button
 					type="button"
 					class="block w-full py-2.5 bg-[var(--color-stat-blue)] text-white font-bold rounded-xl text-sm hover:bg-[var(--color-action-primary-hover)] transition-colors"
