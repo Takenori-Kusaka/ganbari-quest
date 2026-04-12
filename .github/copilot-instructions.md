@@ -180,6 +180,8 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0025**: License ↔ Stripe Subscription causality — Stripe is source of truth, dunning delegated to Stripe
 - **ADR-0026**: License key architecture — HMAC-SHA256, 32-char alphabet, single-use, 90-day expiry
 - **ADR-0027**: Plan-based history retention policy — retention is a read-time display filter only; no physical delete cron. Summary tables are exempt from retention filtering
+- **ADR-0028**: Plan-based history retention — physical delete via cron (supersedes ADR-0027). Free plan rows older than retention window are physically deleted by scheduled job
+- **ADR-0029**: Safety Assertion Erosion Ban — production guard を弱める変更（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加）は禁止。例外は別 ADR で当該 ADR を supersede すること。新規必須 env / secret 追加時は PR 本文に「配布済み:」証跡が必須（CI で `scripts/check-new-required-env.mjs` が検証）
 
 ### Team Structure
 
