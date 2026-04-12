@@ -75,7 +75,7 @@ vi.mock('$lib/server/demo/demo-plan', () => ({
 	applyDemoPlanToContext: (ctx: unknown) => ctx,
 	DEMO_PLAN_COOKIE: 'demo_plan',
 	isDemoPlan: () => false,
-	resolveDemoPlan: () => 'family',
+	resolveDemoPlan: () => 'free',
 }));
 
 vi.mock('$lib/server/discord-alert', () => ({

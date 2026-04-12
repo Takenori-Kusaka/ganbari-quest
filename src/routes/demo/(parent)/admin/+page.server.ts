@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 
 	// #760: プランはルート layout の demoPlan から取得（cookie/query の一元管理）
 	const parentData = await parent();
-	const planTier = parentData.demoPlan ?? 'family';
+	const planTier = parentData.demoPlan ?? 'free';
 	const limits = getPlanLimits(planTier);
 
 	// デモ用のプラン統計（固定値）。本番 /admin/license の planStats と同じ shape。
