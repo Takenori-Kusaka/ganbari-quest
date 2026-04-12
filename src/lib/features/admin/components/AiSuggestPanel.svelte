@@ -3,6 +3,7 @@ import { splitIcon } from '$lib/domain/icon-utils';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 import type { AiPreviewData } from './activity-types';
 
 interface Props {
@@ -95,9 +96,10 @@ function acceptPreview() {
 			disabled={!isFamily}
 			onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); suggestFromAI(); } }}
 		/>
-		<button
+		<Button
 			type="button"
-			class="px-4 py-2 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg text-sm font-bold hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+			variant="primary"
+			size="sm"
 			disabled={!isFamily || aiLoading || !aiInput.trim()}
 			onclick={suggestFromAI}
 		>
@@ -107,7 +109,7 @@ function acceptPreview() {
 			{:else}
 				提案する
 			{/if}
-		</button>
+		</Button>
 	</div>
 	{#if aiLoading}
 		<ProgressMessage
@@ -141,20 +143,24 @@ function acceptPreview() {
 				</div>
 			</div>
 			<div class="flex gap-2">
-				<button
+				<Button
 					type="button"
-					class="flex-1 py-2 bg-[var(--color-action-success)] text-[var(--color-text-inverse)] rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
+					variant="success"
+					size="sm"
+					class="flex-1"
 					onclick={acceptPreview}
 				>
 					この内容で追加フォームを開く
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					class="px-4 py-2 bg-[var(--color-neutral-200)] rounded-lg font-bold text-sm hover:bg-[var(--color-neutral-300)] transition-colors"
+					variant="ghost"
+					size="sm"
+					class="bg-[var(--color-surface-muted-strong)] hover:bg-[var(--color-surface-tertiary)]"
 					onclick={() => aiPreview = null}
 				>
 					やり直す
-				</button>
+				</Button>
 			</div>
 		</div>
 	{/if}
