@@ -54,7 +54,7 @@ test.describe('#770 ト��イアル終了検知ダイアログ', () => {
 		await expect(dialog).toBeVisible({ timeout: 10_000 });
 
 		await page.getByTestId('trial-ended-dismiss').click();
-		await expect(dialog).toHaveCount(0);
+		await expect(dialog).not.toBeVisible();
 	});
 
 	test('ダイアログ表示後にリロードすると二度目は表示されない（cookie 消去済み）', async ({
@@ -78,11 +78,11 @@ test.describe('#770 ト��イアル終了検知ダイアログ', () => {
 
 		// サーバーが cookie を削除しているため、リロードすると表示されない
 		await page.reload({ waitUntil: 'networkidle' });
-		await expect(page.getByTestId('trial-ended-dialog')).toHaveCount(0);
+		await expect(page.getByTestId('trial-ended-dialog')).not.toBeVisible();
 	});
 
 	test('cookie がない場合はダイアログが表示されない', async ({ page }) => {
 		await page.goto('/admin', { waitUntil: 'networkidle' });
-		await expect(page.getByTestId('trial-ended-dialog')).toHaveCount(0);
+		await expect(page.getByTestId('trial-ended-dialog')).not.toBeVisible();
 	});
 });
