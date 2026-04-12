@@ -191,4 +191,64 @@ export const actions: Actions = {
 		await removeOverride(overrideId, tenantId);
 		return { success: true };
 	},
+
+	// #720: AI提案からテンプレート+アイテムを一括作成
+	createFromAi: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		const licenseStatus = locals.context?.licenseStatus ?? 'none';
+		const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+		if (!isPaidTier(tier)) {
+			return fail(403, {
+				error: createPlanLimitError(tier, 'standard', 'AI チェックリスト提案はスタンダードプラン以上でご利用いただけます'),
+			});
+		}
+
+		const formData = await request.formData();
+		const childId = Number(formData.get('childId'));
+		const templateName = String(formData.get('templateName') ?? '').trim();
+		const templateIcon = String(formData.get('templateIcon') ?? '📋').trim();
+		const itemsJson = String(formData.get('items') ?? '[]');
+
+		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+		if (!templateName) return fail(400, { error: 'テンプレート名が必要です' });
+
+		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, childId);
+		if (!limit.allowed) {
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`フリープランではお子さま1人あたり ${limit.max} 個までです。`,
+				),
+			});
+		}
+
+		const template = await createTemplate(
+			{ childId, name: templateName, icon: templateIcon, timeSlot: 'anytime' },
+			tenantId,
+		);
+
+		let items: { name: string; icon: string; frequency: string; direction: string }[];
+		try {
+			items = JSON.parse(itemsJson);
+		} catch {
+			items = [];
+		}
+
+		for (const item of items.slice(0, 15)) {
+			await addTemplateItem(
+				{
+					templateId: template.id,
+					name: String(item.name ?? '').slice(0, 50),
+					icon: String(item.icon ?? '📦'),
+					frequency: String(item.frequency ?? 'daily'),
+					direction: String(item.direction ?? 'both'),
+				},
+				tenantId,
+			);
+		}
+
+		return { success: true, aiCreated: true };
+	},
 };

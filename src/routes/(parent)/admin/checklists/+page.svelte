@@ -1,6 +1,8 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
+import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -121,6 +123,22 @@ function directionLabel(dir: string): string {
 	const opt = DIRECTION_OPTIONS.find((o) => o.value === dir);
 	return opt?.label ?? dir;
 }
+
+// #720: AI提案からテンプレート+アイテムを一括作成
+let aiFormEl = $state<HTMLFormElement | null>(null);
+let aiTemplateName = $state('');
+let aiTemplateIcon = $state('');
+let aiItemsJson = $state('');
+
+function acceptAiChecklist(preview: ChecklistPreviewData) {
+	aiTemplateName = preview.templateName;
+	aiTemplateIcon = preview.templateIcon;
+	aiItemsJson = JSON.stringify(preview.items);
+	// tick 後にフォーム送信
+	requestAnimationFrame(() => {
+		aiFormEl?.requestSubmit();
+	});
+}
 </script>
 
 <svelte:head>
@@ -145,6 +163,25 @@ function directionLabel(dir: string): string {
 	{/if}
 
 	{#if selectedChild}
+		<!-- #720: AI チェックリスト提案パネル -->
+		<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isPremium={data.isPremium} />
+
+		<!-- #720: AI提案の隠しフォーム -->
+		<form
+			bind:this={aiFormEl}
+			method="POST"
+			action="?/createFromAi"
+			use:enhance={() => {
+				return async () => invalidateAll();
+			}}
+			class="hidden"
+		>
+			<input type="hidden" name="childId" value={selectedChildId} />
+			<input type="hidden" name="templateName" value={aiTemplateName} />
+			<input type="hidden" name="templateIcon" value={aiTemplateIcon} />
+			<input type="hidden" name="items" value={aiItemsJson} />
+		</form>
+
 		<!-- Templates -->
 		{#if selectedChild.templates.length === 0}
 			<Card variant="elevated" padding="lg">
