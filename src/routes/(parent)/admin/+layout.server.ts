@@ -105,7 +105,6 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			? await getArchivedResourceSummary(tenantId)
 			: { archivedChildCount: 0, hasArchivedResources: false };
 
-
 	return {
 		pointSettings,
 		authMode,
