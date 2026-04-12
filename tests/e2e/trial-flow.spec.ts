@@ -8,6 +8,7 @@
 //
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts trial-flow
 
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { loginAsPlan, warmupAdminPages } from './plan-login-helpers';
 
@@ -17,8 +18,32 @@ test.beforeAll(async ({ browser }) => {
 });
 
 test.describe('#752 トライアルフロー', () => {
+	// MUST: テスト 3 はテスト 2 でトライアルが開始された状態に依存するため serial 実行必須
+	// fullyParallel: true（playwright.cognito-dev.config.ts）との矛盾を解消
+	test.describe.configure({ mode: 'serial' });
+
 	test.beforeEach(() => {
 		test.slow(); // Vite dev のコールドコンパイルでタイムアウトを 3x 延長
+	});
+
+	// テスト 2 で dev-tenant-free のトライアルを開始するため、
+	// テスト終了後にクリーンアップして plan-free.spec.ts への副作用を防ぐ
+	test.afterAll(async () => {
+		const Database = (await import('better-sqlite3')).default;
+		const dbPath = path.resolve('data/ganbari-quest.db');
+		const db = new Database(dbPath);
+		try {
+			const result = db
+				.prepare("DELETE FROM trial_history WHERE tenant_id = 'dev-tenant-free'")
+				.run();
+			if (result.changes > 0) {
+				console.log(
+					`[trial-flow cleanup] Removed ${result.changes} trial record(s) for dev-tenant-free.`,
+				);
+			}
+		} finally {
+			db.close();
+		}
 	});
 
 	// ========================================================
