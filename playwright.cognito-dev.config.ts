@@ -9,7 +9,9 @@ export default defineConfig({
 	// #776: plan-gated-features spec も cognito-dev モードでのみ実行可能
 	// （local モードでは resolvePlanTier が常に 'family' を返すため）
 	// #779: plan-standard / plan-family の機能疎通 spec を追加
-	testMatch: /(cognito-auth|plan-gated-features|plan-standard|plan-family)\.spec\.ts$/,
+	// #778: premium-welcome モーダルの初回表示・dismiss spec を追加
+	testMatch:
+		/(cognito-auth|plan-gated-features|plan-standard|plan-family|premium-welcome)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
