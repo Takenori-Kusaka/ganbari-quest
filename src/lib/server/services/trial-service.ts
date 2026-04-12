@@ -24,12 +24,15 @@ export interface TrialStatus {
 	source: TrialSource | null;
 }
 
+export type UpgradeReason = 'auto' | 'manual' | 'email_cta';
+
 export interface StartTrialInput {
 	tenantId: string;
 	source: TrialSource;
 	tier?: TrialTier;
 	durationDays?: number;
 	campaignId?: string;
+	trialStartSource?: string;
 }
 
 /**
@@ -133,6 +136,7 @@ export async function startTrial(input: StartTrialInput): Promise<boolean> {
 		tier = DEFAULT_TRIAL_TIER,
 		durationDays = DEFAULT_TRIAL_DAYS,
 		campaignId,
+		trialStartSource,
 	} = input;
 	const status = await getTrialStatus(tenantId);
 
@@ -162,6 +166,7 @@ export async function startTrial(input: StartTrialInput): Promise<boolean> {
 		tier,
 		source,
 		campaignId: campaignId ?? null,
+		trialStartSource: trialStartSource ?? null,
 	});
 
 	// #788: 同一リクエスト内で startTrial 後に getTrialStatus / resolveFullPlanTier が
