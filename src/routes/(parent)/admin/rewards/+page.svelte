@@ -148,7 +148,7 @@ function acceptAiReward(preview: RewardPreviewData) {
 	{/if}
 
 	<!-- AI Suggest Reward Panel (#719) -->
-	<AiSuggestRewardPanel onaccept={acceptAiReward} isPremium={data.isPremium} />
+	<AiSuggestRewardPanel onaccept={acceptAiReward} isFamily={data.planTier === 'family'} />
 
 	<!-- Special Reward Templates -->
 	<section>

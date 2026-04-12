@@ -1,4 +1,5 @@
 <script lang="ts">
+import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -53,6 +54,9 @@ let selectedTemplate = $state<string | null>(null);
 			</div>
 		</div>
 	</div>
+
+	<!-- AI Suggest Reward Panel (demo: always family) -->
+	<AiSuggestRewardPanel onaccept={() => {}} isFamily={true} />
 
 	<!-- Step 1: Select child -->
 	<section>
