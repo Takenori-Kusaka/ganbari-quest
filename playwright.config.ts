@@ -15,10 +15,11 @@ export default defineConfig({
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
-	// #923 Phase 1: workers を 1 → 4 に引き上げて CI 時間を 12m → ~3m に短縮。
-	// fullyParallel: true なので 4 vCPU を活用する。flake が顕在化した場合は
-	// 個別 fix で対応 (retries: 2 は維持)。
-	workers: process.env.CI ? 4 : 2,
+	// #923 Phase 1: workers を 1 → 2 に引き上げて CI 時間を 12m → ~6m に短縮。
+	// 当初 4 で試したが pin-activity.spec.ts (DB 書き込み + ダイアログ click race)
+	// が 2 連続実行のうち 1 度 flake したため 2 に降格。
+	// fullyParallel: true は維持。さらなる短縮は次フェーズ（shard / DB 分離）で。
+	workers: process.env.CI ? 2 : 2,
 	timeout: 30_000,
 	reporter: [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'test-results.json' }]],
 	globalSetup: './tests/e2e/global-setup.ts',
