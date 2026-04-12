@@ -69,7 +69,6 @@ a:hover{text-decoration:underline}
 }
 
 const provider = getAuthProvider();
-const authMode = getAuthMode();
 
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
 const COGNITO_DEV_MODE = process.env.COGNITO_DEV_MODE === 'true';
@@ -135,6 +134,7 @@ export const handle: Handle = ({ event, resolve }) =>
 	runWithRequestContext(async () => {
 		const start = Date.now();
 		const path = event.url.pathname;
+		const authMode = getAuthMode();
 
 		// リクエストID 生成（相関ID）
 		event.locals.requestId = randomUUID();
