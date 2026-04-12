@@ -1,6 +1,12 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
+	// #702: E2E hydration marker — +layout.svelte で $effect 内からセットし、
+	// Playwright の waitForFunction で Svelte 5 onclick バインド完了を待つ
+	interface Window {
+		__APP_HYDRATED__?: boolean;
+	}
+
 	namespace App {
 		// interface Error {}
 		interface Locals {
