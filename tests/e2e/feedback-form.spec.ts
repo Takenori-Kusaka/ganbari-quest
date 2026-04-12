@@ -35,11 +35,13 @@ test.describe('#839 フィードバック送信フォーム (デモ)', () => {
 		await page.getByTestId('feedback-fab').click();
 		await expect(page.getByTestId('feedback-dialog')).toBeVisible();
 
-		// Select category - click the trigger, then the item
+		// Select category - click the trigger, wait for dropdown, then select
 		const selectTrigger = page.getByTestId('feedback-dialog').locator('button[role="combobox"]');
 		await selectTrigger.click();
-		// Wait for dropdown and select "ご意見"
-		await page.getByRole('option', { name: 'ご意見' }).click();
+		// Ark UI renders Select options in a Portal — wait for content to mount
+		const selectContent = page.locator('[data-scope="select"][data-part="content"]');
+		await selectContent.waitFor({ state: 'visible', timeout: 10000 });
+		await selectContent.locator('[data-part="item"]', { hasText: 'ご意見' }).click();
 
 		// Enter feedback text
 		await page.getByTestId('feedback-text').fill('テスト用のフィードバックです');
@@ -63,7 +65,9 @@ test.describe('#839 フィードバック送信フォーム (デモ)', () => {
 		// Select category
 		const selectTrigger = page.getByTestId('feedback-dialog').locator('button[role="combobox"]');
 		await selectTrigger.click();
-		await page.getByRole('option', { name: '不具合報告' }).click();
+		const selectContent = page.locator('[data-scope="select"][data-part="content"]');
+		await selectContent.waitFor({ state: 'visible', timeout: 10000 });
+		await selectContent.locator('[data-part="item"]', { hasText: '不具合報告' }).click();
 
 		// Enter text over 1000 characters
 		const longText = 'あ'.repeat(1001);
