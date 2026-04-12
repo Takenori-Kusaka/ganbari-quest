@@ -34,6 +34,24 @@ production に新しい env を追加した場合は以下 **4 経路すべて**
 - [ ] 本ファイル（`infra/CLAUDE.md`）の env 一覧表に追記
 - [ ] PR 本文の "PO action required" セクションで `gh secret set XXX --body <value> --repo Takenori-Kusaka/ganbari-quest` を明記（GitHub Secrets 1 回登録するだけで Lambda + NUC 両方に配布される）
 
+## AWS Cost Explorer API 使用制限
+
+Cost Explorer API (`ce:GetCostAndUsage` 等) には以下の制約がある。
+自動化スクリプトや /ops ダッシュボードから呼び出す際は注意すること。
+
+| 制約 | 値 | 補足 |
+|------|---|------|
+| リクエスト数上限 | 25 回/秒（アカウント単位） | スロットリング (`ThrottlingException`) |
+| API コスト | **$0.01 / リクエスト** | 無料枠なし。月 100 回で $1、1000 回で $10 |
+| データ反映遅延 | 12〜24 時間 | 当日分は翌日まで取得不可 |
+
+### 運用ガイドライン
+
+- **定期取得は 1 日 1 回を上限** とし、結果をキャッシュ/DB に保存して再利用する
+- `/ops` ダッシュボードからのリアルタイムクエリは避け、バッチ取得済みデータを表示する
+- CI/CD パイプラインからの CE API 呼び出しは原則禁止（コスト肥大化リスク）
+- コスト監視は **AWS Budgets アラート** (無料) を優先し、CE API は月次レポート等に限定する
+
 ## AWS Lambda 本番（ganbari-quest.com）
 
 - **自動デプロイ**: main ブランチへの push で GitHub Actions が自動実行
