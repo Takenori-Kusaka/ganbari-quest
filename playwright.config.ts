@@ -4,13 +4,14 @@ export default defineConfig({
 	testDir: 'tests/e2e',
 	testIgnore: [
 		'**/cognito-auth.spec.ts',
-		// #776, #779: プラン別ゲート E2E は cognito-dev モード専用
+		// #776, #779, #751: プラン別ゲート E2E は cognito-dev モード専用
 		// （playwright.cognito-dev.config.ts でのみ実行する）
 		// local モードでは email/password ログインフォームが存在せず、
 		// loginAsPlan() が 180s 待ちで CI を hang させるため必ず除外する
 		'**/plan-gated-features.spec.ts',
 		'**/plan-standard.spec.ts',
 		'**/plan-family.spec.ts',
+		'**/plan-free.spec.ts',
 		'**/production-smoke.spec.ts',
 		// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
 		// CI（Linux）ではスキップし、ローカル開発でのUI崩壊検知にのみ使用する
