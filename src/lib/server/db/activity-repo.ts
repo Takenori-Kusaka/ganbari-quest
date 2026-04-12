@@ -147,6 +147,14 @@ export async function countPointLedgerEntriesByTypeAndDate(
 	return getRepos().activity.countPointLedgerEntriesByTypeAndDate(childId, type, date, tenantId);
 }
 
+// #783: archive / restore
+export async function archiveActivities(ids: number[], reason: string, tenantId: string) {
+	return getRepos().activity.archiveActivities(ids, reason, tenantId);
+}
+export async function restoreArchivedActivities(reason: string, tenantId: string) {
+	return getRepos().activity.restoreArchivedActivities(reason, tenantId);
+}
+
 // Point Ledger
 export async function insertPointLedger(input: InsertPointLedgerInput, tenantId: string) {
 	return getRepos().activity.insertPointLedger(input, tenantId);
