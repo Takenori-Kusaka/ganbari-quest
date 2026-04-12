@@ -14,8 +14,8 @@ describe('活動パックインデックス', () => {
 		expect(activityPackIndex.formatVersion).toBe('1.0');
 	});
 
-	it('6パック登録されている', () => {
-		expect(activityPackIndex.packs).toHaveLength(6);
+	it('16パック登録されている', () => {
+		expect(activityPackIndex.packs).toHaveLength(16);
 	});
 
 	it('全パックIDがインデックスに存在する', () => {
@@ -36,11 +36,21 @@ describe('活動パックインデックス', () => {
 
 describe.each([
 	'baby-first',
+	'baby-boy',
+	'baby-girl',
 	'kinder-starter',
+	'kinder-boy',
+	'kinder-girl',
 	'elementary-challenge',
+	'elementary-boy',
+	'elementary-girl',
 	'otetsudai-master',
 	'junior-high-challenge',
+	'junior-boy',
+	'junior-girl',
 	'senior-high-challenge',
+	'senior-boy',
+	'senior-girl',
 ])('パック: %s', (packId) => {
 	it('ローダーから取得できる', () => {
 		const pack = getActivityPack(packId);
