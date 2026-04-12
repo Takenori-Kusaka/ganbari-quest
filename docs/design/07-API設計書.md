@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 版数 | 2.11 |
+| 版数 | 2.12 |
 | 作成日 | 2026-02-19 |
 | 更新日 | 2026-04-12 |
 | 作成者 | 日下武紀 |
@@ -75,6 +75,12 @@
 | GET | /api/v1/special-rewards/templates | 報酬テンプレート一覧 | owner/parent |
 | PUT | /api/v1/special-rewards/templates | 報酬テンプレート更新 | owner/parent |
 | POST | /api/v1/special-rewards/suggest | ごほうびサジェスト（AI推定） | owner/parent |
+
+### チェックリスト
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| POST | /api/v1/checklists/suggest | チェックリストサジェスト（AI推定） | owner/parent |
 
 ### おうえんメッセージ
 
@@ -643,6 +649,36 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `category`: `もの` | `たいけん` | `おこづかい` | `とくべつ`
 - `source`: `gemini`（Gemini API 推定）| `fallback`（キーワードマッチング）
 - Gemini API が利用不可の場合はキーワード＋プリセットマッチングにフォールバック
+- 無料プランでは `403 PLAN_LIMIT_EXCEEDED` を返す
+
+#### POST /api/v1/checklists/suggest
+
+テキスト入力からチェックリストのテンプレート名・アイコン・アイテム一覧を AI で推定する。スタンダードプラン以上限定（#720）。
+
+**リクエストボディ:**
+```json
+{
+  "text": "小学3年生の月曜日の持ち物"
+}
+```
+
+**レスポンス:**
+```json
+{
+  "templateName": "がっこうのもちもの",
+  "templateIcon": "🏫",
+  "items": [
+    { "name": "きょうかしょ", "icon": "📚", "frequency": "daily", "direction": "both" },
+    { "name": "ノート", "icon": "📓", "frequency": "daily", "direction": "both" }
+  ],
+  "source": "gemini"
+}
+```
+
+- `items[].frequency`: `daily` | `weekday:月` | `weekday:火` | ... | `weekday:土`
+- `items[].direction`: `bring`（持参）| `return`（持帰）| `both`（往復）
+- `source`: `gemini`（AI 推定）| `fallback`（プリセット/キーワードマッチング）
+- Bedrock API が利用不可の場合は 5 種のプリセット（がっこう/たいいく/プール/えんそく/おとまり）＋キーワード分割にフォールバック
 - 無料プランでは `403 PLAN_LIMIT_EXCEEDED` を返す
 
 ### 3.10 画像・エクスポート
@@ -1605,6 +1641,7 @@ export interface PlanLimitError {
 | `POST /admin/rewards ?/grant` | standard | 特別なごほうび (`canCustomReward`, #728) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards ?/addPreset` | standard | 特別なごほうび取り込み (#728) | `createPlanLimitError()` 済 (#787) |
 | `POST /api/v1/special-rewards/suggest` | standard | AI ごほうび提案 (`isPaidTier`, #719) | `apiError()` 済 |
+| `POST /api/v1/checklists/suggest` | standard | AI チェックリスト提案 (`isPaidTier`, #720) | `apiError()` 済 |
 | `POST /admin/messages ?/send` (text モード) | family | 自由テキストメッセージ (`canFreeTextMessage`, #772) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | family | きょうだいランキング (`canSiblingRanking`, #782) | `createPlanLimitError()` 済 (#787) |
 
@@ -1699,3 +1736,4 @@ export interface PlanLimitError {
 | 2026-04-12 | 2.9 | #744 プラン制限エラー仕様 (§4.2) 追加。`PLAN_LIMIT_EXCEEDED` の body フォーマット (`currentTier` / `requiredTier` / `upgradeUrl`) を正仕様化。型定義を `src/lib/domain/errors.ts` として新設し client/server で共有。既存実装の移行は #787 で追跡 |
 | 2026-04-11 | 2.10 | #787 プラン制限エラー形式統一。全 form action (`/admin/children`, `/admin/activities`, `/admin/checklists`, `/admin/rewards`, `/admin/messages`, `/admin/settings`) が `createPlanLimitError()` 形式の `PlanLimitError` body を返すように統一。クライアント側表示を共通化する `getErrorMessage()` ヘルパーを `src/lib/domain/errors.ts` に追加 |
 | 2026-04-12 | 2.11 | #721 AIモデルを Gemini → AWS Bedrock Claude Haiku に移行。活動サジェスト・レシートOCR の AI バックエンドを `@aws-sdk/client-bedrock-runtime` の Converse API (tool_use) に変更。構造化出力により `extractJson()` 手動パースを廃止。画像生成（`image-service.ts`）のみ Gemini 維持 |
+| 2026-04-12 | 2.12 | #720 AI チェックリスト提案 API (`POST /api/v1/checklists/suggest`) 追加。Bedrock Claude Haiku + プリセット/キーワードフォールバック。スタンダードプラン以上限定 |
