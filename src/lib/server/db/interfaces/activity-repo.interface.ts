@@ -98,6 +98,10 @@ export interface IActivityRepo {
 		tenantId: string,
 	): Promise<number>;
 
+	// #783: archive / restore
+	archiveActivities(ids: number[], reason: string, tenantId: string): Promise<void>;
+	restoreArchivedActivities(reason: string, tenantId: string): Promise<void>;
+
 	// Point Ledger
 	insertPointLedger(input: InsertPointLedgerInput, tenantId: string): Promise<void>;
 

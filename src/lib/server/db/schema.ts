@@ -34,6 +34,9 @@ export const children = sqliteTable('children', {
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	_sv: integer('_sv'),
+	// #783: トライアル終了時の超過リソース archive
+	isArchived: integer('is_archived').notNull().default(0),
+	archivedReason: text('archived_reason'),
 });
 
 // ============================================================
@@ -61,6 +64,9 @@ export const activities = sqliteTable('activities', {
 	triggerHint: text('trigger_hint'),
 	isMainQuest: integer('is_main_quest').notNull().default(0),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	// #783: トライアル終了時の超過リソース archive
+	isArchived: integer('is_archived').notNull().default(0),
+	archivedReason: text('archived_reason'),
 });
 
 // ============================================================
@@ -334,6 +340,9 @@ export const checklistTemplates = sqliteTable('checklist_templates', {
 	isActive: integer('is_active').notNull().default(1),
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	// #783: トライアル終了時の超過リソース archive
+	isArchived: integer('is_archived').notNull().default(0),
+	archivedReason: text('archived_reason'),
 });
 
 // ============================================================

@@ -115,6 +115,9 @@ export async function findActivities(
 
 	let activities = items.map((item) => stripKeys(item) as unknown as Activity);
 
+	// #783: archive されたリソースをデフォルトで除外
+	activities = activities.filter((a) => !a.isArchived || a.isArchived === 0);
+
 	// Apply filters in memory
 	if (filter?.categoryId) {
 		activities = activities.filter((a) => a.categoryId === filter.categoryId);
@@ -182,6 +185,8 @@ export async function insertActivity(
 		nameKanji: null,
 		triggerHint: input.triggerHint ?? null,
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: now,
 	};
 
@@ -1037,4 +1042,51 @@ export async function deleteActivityLogsBeforeDate(
 	const keys = items.map((item) => ({ PK: item.PK as string, SK: item.SK as string }));
 	await batchDeleteKeys(keys);
 	return keys.length;
+}
+
+// #783: archive / restore
+
+export async function archiveActivities(
+	ids: number[],
+	reason: string,
+	tenantId: string,
+): Promise<void> {
+	for (const id of ids) {
+		await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: activityKey(id, tenantId),
+				UpdateExpression: 'SET isArchived = :archived, archivedReason = :reason',
+				ExpressionAttributeValues: {
+					':archived': 1,
+					':reason': reason,
+				},
+			}),
+		);
+	}
+}
+
+export async function restoreArchivedActivities(reason: string, tenantId: string): Promise<void> {
+	const items = await scanAll({
+		TableName: TABLE_NAME,
+		FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk AND archivedReason = :reason',
+		ExpressionAttributeValues: {
+			':prefix': tenantPK('ACTIVITY#', tenantId),
+			':sk': 'MASTER',
+			':reason': reason,
+		},
+	});
+
+	for (const item of items) {
+		await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: { PK: item.PK, SK: item.SK },
+				UpdateExpression: 'SET isArchived = :zero REMOVE archivedReason',
+				ExpressionAttributeValues: {
+					':zero': 0,
+				},
+			}),
+		);
+	}
 }
