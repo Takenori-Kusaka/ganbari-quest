@@ -51,7 +51,9 @@ jobs:
 
   lint-and-test:
     needs: changes
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    # #923 Phase 1 Copilot指摘: .storybook/** だけ変更された PR でも
+    # lint-and-test 内の Storybook build check を走らせるため stories を含める
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
