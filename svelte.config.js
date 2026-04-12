@@ -10,7 +10,8 @@ const config = {
 			$lib: 'src/lib',
 		},
 		csrf: {
-			trustedOrigins: [],
+			// NUC LAN 配備: ORIGIN と異なるホスト名/IP でアクセスされる場合の許可
+			trustedOrigins: ['http://localhost:3000', 'http://192.168.68.79:3000'],
 		},
 		prerender: {
 			// #832: /sitemap.xml はクローラ経由では到達できない（/ → /setup リダイレクト
