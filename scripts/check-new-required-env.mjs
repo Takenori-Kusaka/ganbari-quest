@@ -32,7 +32,8 @@
  *   2 = git コマンド失敗等の internal error
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
+import { readFileSync, statSync } from 'node:fs';
 
 const BASE_REF = process.env.BASE_REF || 'origin/main';
 const PR_BODY = process.env.PR_BODY || '';
@@ -50,27 +51,78 @@ const baseRef = process.env.BASE_REF || BASE_REF;
  * Get git diff vs base ref. Returns the unified diff as a string.
  *
  * CI モード (PR_BODY あり): `git diff <base>...HEAD` でコミット済みのみ比較
- * ローカルモード (PR_BODY なし): `git diff <base>` で working tree も含めて比較
- *   (どちらも new untracked file 含む — `--no-prefix` ではなく diff コマンドの
- *    通常動作に任せる。新規ファイルは git add 不要で diff に出る)
+ * ローカルモード (PR_BODY なし): `git diff <base>` で staged + working tree を比較。
+ *   `git diff` は untracked file を含まないため、`git status --porcelain` で
+ *   untracked を検出して `git diff --no-index /dev/null <path>` で追加行として合成する。
+ *   これによりローカルでも `git add` 前の新規 guard ファイルを取りこぼさない。
  *
- * Returns empty string when base ref is unreachable (new repo, shallow clone).
+ * Fail-closed (ADR-0029): CI モードで git diff が失敗した場合は exit 2。
+ * ローカルモードでは warn + 空文字列を返す (ローカル開発の利便性のため)。
  */
 function getDiff() {
 	const range = PR_BODY ? `${baseRef}...HEAD` : baseRef;
+	let diff;
 	try {
-		// 新規ファイル含む全 diff (--no-renames で確実に追加行として検出)
-		return execSync(`git diff --no-renames ${range}`, {
+		// 新規ファイル (staged) 含む全 diff (--no-renames で確実に追加行として検出)
+		// execFileSync で arg-array 渡し → shell metachar 注入リスクを排除
+		diff = execFileSync('git', ['diff', '--no-renames', range], {
 			encoding: 'utf-8',
 			maxBuffer: 50 * 1024 * 1024,
 		});
 	} catch (err) {
-		console.warn(
-			`[check-new-required-env] could not git diff against ${range}: ${err.message}`,
-		);
-		console.warn('[check-new-required-env] skipping check (likely new repo or shallow clone)');
+		const msg = `[check-new-required-env] could not git diff against ${range}: ${err.message}`;
+		if (PR_BODY) {
+			// CI モード: fail-closed (ADR-0029) — 検出を素通りさせない
+			console.error(msg);
+			console.error('[check-new-required-env] FAIL-CLOSED in CI mode (ADR-0029)');
+			process.exit(2);
+		}
+		console.warn(msg);
+		console.warn('[check-new-required-env] skipping check (local mode, likely new repo or shallow clone)');
 		return '';
 	}
+
+	// ローカルモードのみ untracked を補完 (CI モードはコミット済みしか見ない)
+	if (!PR_BODY) {
+		try {
+			const status = execFileSync('git', ['status', '--porcelain'], {
+				encoding: 'utf-8',
+				maxBuffer: 10 * 1024 * 1024,
+			});
+			const untracked = status
+				.split('\n')
+				.filter((l) => l.startsWith('?? '))
+				.map((l) => l.slice(3));
+			for (const path of untracked) {
+				// untracked ファイル内容を読み込み、unified diff フォーマットを合成する。
+				// `git diff --no-index /dev/null <path>` は Windows (NUL) との互換性が
+				// 不安定なため、git に頼らず純粋にファイル内容から組み立てる。
+				try {
+					const stat = statSync(path);
+					if (stat.isDirectory()) continue; // ディレクトリは扱わない
+					const content = readFileSync(path, 'utf-8');
+					const lines = content.split('\n');
+					// 末尾の空行を除外（split('\n') が末尾に空文字列を残すため）
+					if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+					const lineCount = lines.length;
+					const header =
+						`diff --git a/${path} b/${path}\n` +
+						`new file mode 100644\n` +
+						`--- /dev/null\n` +
+						`+++ b/${path}\n` +
+						`@@ -0,0 +1,${lineCount} @@\n`;
+					const body = lines.map((l) => `+${l}`).join('\n');
+					diff += header + body + '\n';
+				} catch (e) {
+					console.warn(`[check-new-required-env] could not read untracked ${path}: ${e.message}`);
+				}
+			}
+		} catch (e) {
+			console.warn(`[check-new-required-env] could not enumerate untracked files: ${e.message}`);
+		}
+	}
+
+	return diff;
 }
 
 /**
