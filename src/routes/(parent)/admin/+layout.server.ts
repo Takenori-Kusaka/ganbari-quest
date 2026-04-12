@@ -1,6 +1,7 @@
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
+import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { getDebugPlanSummary } from '$lib/server/debug-plan';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
@@ -57,12 +58,13 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		cookies.set(TRIAL_WAS_ACTIVE_COOKIE, '1', {
 			path: '/',
 			httpOnly: true,
+			secure: COOKIE_SECURE,
 			sameSite: 'lax',
 			maxAge: 60 * 60 * 24 * 30,
 		});
 	} else if (trialJustExpired) {
 		// 遷移検知後に cookie を削除（次回リクエストでは trialJustExpired=false になる）
-		cookies.delete(TRIAL_WAS_ACTIVE_COOKIE, { path: '/' });
+		cookies.delete(TRIAL_WAS_ACTIVE_COOKIE, { path: '/', secure: COOKIE_SECURE });
 	}
 
 	return {

@@ -33,9 +33,15 @@ let { open = $bindable(), onDismiss }: Props = $props();
 		</ul>
 
 		<div class="trial-ended-actions">
-			<a href="/admin/license" class="trial-ended-upgrade-cta" data-testid="trial-ended-upgrade-cta">
+			<Button
+				variant="warning"
+				size="md"
+				class="w-full"
+				onclick={() => { window.location.href = '/admin/license'; }}
+				data-testid="trial-ended-upgrade-cta"
+			>
 				⭐ プランを見る
-			</a>
+			</Button>
 			<Button variant="ghost" onclick={onDismiss} data-testid="trial-ended-dismiss">
 				あとで
 			</Button>
@@ -93,26 +99,5 @@ let { open = $bindable(), onDismiss }: Props = $props();
 		gap: 8px;
 		width: 100%;
 		margin-top: 4px;
-	}
-
-	.trial-ended-upgrade-cta {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 12px 24px;
-		background: var(--color-action-trial-upgrade);
-		color: var(--color-text-inverse);
-		font-size: 1rem;
-		font-weight: 700;
-		border: none;
-		border-radius: var(--radius-md, 8px);
-		text-decoration: none;
-		cursor: pointer;
-		transition: background 0.15s;
-		min-height: 48px;
-	}
-
-	.trial-ended-upgrade-cta:hover {
-		background: var(--color-action-trial-upgrade-hover);
 	}
 </style>

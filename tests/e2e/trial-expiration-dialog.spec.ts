@@ -11,7 +11,7 @@
 
 import { expect, test } from '@playwright/test';
 
-test.describe('#770 ト��イアル終了検知ダイアログ', () => {
+test.describe('#770 トライアル終了検知ダイアログ', () => {
 	test('trial_was_active cookie がある状態で /admin を開くとダイアログが表示される', async ({
 		page,
 		context,

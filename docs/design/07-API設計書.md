@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 版数 | 2.11 |
+| 版数 | 2.12 |
 | 作成日 | 2026-02-19 |
 | 更新日 | 2026-04-12 |
 | 作成者 | 日下武紀 |
@@ -1670,6 +1670,16 @@ export interface PlanLimitError {
 | Identity 有効期限 | 1時間（Cognito 設定） |
 | Context 有効期限 | 24時間（自動再発行） |
 
+### トライアル終了検知（#770）
+
+| 項目 | 仕様 |
+|------|------|
+| Cookie名 | `trial_was_active` |
+| 有効期限 | 30日 |
+| 属性 | HttpOnly, Secure（Lambda環境のみ）, SameSite=Lax, Path=/ |
+| 値 | `1`（トライアル中のみ設定） |
+| 遷移検知 | cookie `1` + `isTrialActive=false` → `trialJustExpired=true` をクライアントに返却し cookie 削除 |
+
 ### セッション管理（local モード）
 
 | 項目 | 仕様 |
@@ -1699,3 +1709,4 @@ export interface PlanLimitError {
 | 2026-04-12 | 2.9 | #744 プラン制限エラー仕様 (§4.2) 追加。`PLAN_LIMIT_EXCEEDED` の body フォーマット (`currentTier` / `requiredTier` / `upgradeUrl`) を正仕様化。型定義を `src/lib/domain/errors.ts` として新設し client/server で共有。既存実装の移行は #787 で追跡 |
 | 2026-04-11 | 2.10 | #787 プラン制限エラー形式統一。全 form action (`/admin/children`, `/admin/activities`, `/admin/checklists`, `/admin/rewards`, `/admin/messages`, `/admin/settings`) が `createPlanLimitError()` 形式の `PlanLimitError` body を返すように統一。クライアント側表示を共通化する `getErrorMessage()` ヘルパーを `src/lib/domain/errors.ts` に追加 |
 | 2026-04-12 | 2.11 | #721 AIモデルを Gemini → AWS Bedrock Claude Haiku に移行。活動サジェスト・レシートOCR の AI バックエンドを `@aws-sdk/client-bedrock-runtime` の Converse API (tool_use) に変更。構造化出力により `extractJson()` 手動パースを廃止。画像生成（`image-service.ts`）のみ Gemini 維持 |
+| 2026-04-12 | 2.12 | #770 トライアル終了検知の cookie 仕様追加。admin layout server load で `trial_was_active` cookie（HttpOnly, Secure, SameSite=Lax, 30日有効）を使い、トライアル active → inactive 遷移を検出。遷移検知後は cookie を削除し、`trialJustExpired` フラグをクライアントに返却 |
