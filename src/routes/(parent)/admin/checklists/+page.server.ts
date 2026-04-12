@@ -200,7 +200,11 @@ export const actions: Actions = {
 		const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 		if (!isPaidTier(tier)) {
 			return fail(403, {
-				error: createPlanLimitError(tier, 'standard', 'AI チェックリスト提案はスタンダードプラン以上でご利用いただけます'),
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					'AI チェックリスト提案はスタンダードプラン以上でご利用いただけます',
+				),
 			});
 		}
 
