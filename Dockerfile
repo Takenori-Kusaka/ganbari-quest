@@ -13,7 +13,11 @@ ARG APP_MAJOR_VERSION=1
 # RUN layer below to be rebuilt even when COPY . . layer cache hits —
 # ensuring npm run version:generate actually runs and stamps a fresh date.
 ARG BUILD_TIMESTAMP=unknown
+# NUC LAN デプロイ時は docker-compose.yml から "true" が渡され、
+# svelte.config.js の csrf.checkOrigin を無効化する (#962)。
+ARG DISABLE_CSRF_ORIGIN_CHECK=false
 ENV APP_MAJOR_VERSION=${APP_MAJOR_VERSION}
+ENV DISABLE_CSRF_ORIGIN_CHECK=${DISABLE_CSRF_ORIGIN_CHECK}
 COPY . .
 # Regenerate APP_VERSION at build time so every deployed image carries the
 # build date, regardless of whether the caller committed a fresh version.ts (#711).
