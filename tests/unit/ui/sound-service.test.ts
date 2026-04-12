@@ -2,6 +2,10 @@
 // サウンドサービスのユニットテスト
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// フルスイート並列実行時の dynamic import タイムアウト対策
+vi.setConfig({ testTimeout: 15_000 });
+
 import { SOUND_DEFS, SOUND_IDS, SOUND_TIER_CONFIG } from '../../../src/lib/ui/sound/sounds';
 
 // --- 定数テスト ---

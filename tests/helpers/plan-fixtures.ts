@@ -114,6 +114,7 @@ export interface SeedTrialOptions {
 	daysOffset?: number;
 	source?: TrialSource;
 	campaignId?: string | null;
+	trialStartSource?: string | null;
 }
 
 export interface SeededTrial {
@@ -139,14 +140,23 @@ function insertTrialRow(
 		tier: TrialTier;
 		source: TrialSource;
 		campaignId: string | null;
+		trialStartSource: string | null;
 	},
 ): void {
 	sqlite
 		.prepare(
-			`INSERT INTO trial_history (tenant_id, start_date, end_date, tier, source, campaign_id)
-			 VALUES (?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO trial_history (tenant_id, start_date, end_date, tier, source, campaign_id, trial_start_source)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		)
-		.run(row.tenantId, row.startDate, row.endDate, row.tier, row.source, row.campaignId);
+		.run(
+			row.tenantId,
+			row.startDate,
+			row.endDate,
+			row.tier,
+			row.source,
+			row.campaignId,
+			row.trialStartSource,
+		);
 }
 
 /**
@@ -179,6 +189,7 @@ export function seedTrialActive(sqlite: TestSqlite, options: SeedTrialOptions = 
 		tier,
 		source: options.source ?? 'user_initiated',
 		campaignId: options.campaignId ?? null,
+		trialStartSource: options.trialStartSource ?? null,
 	});
 
 	return { tenantId, startDate, endDate, tier };
@@ -211,6 +222,7 @@ export function seedTrialExpired(sqlite: TestSqlite, options: SeedTrialOptions =
 		tier,
 		source: options.source ?? 'user_initiated',
 		campaignId: options.campaignId ?? null,
+		trialStartSource: options.trialStartSource ?? null,
 	});
 
 	return { tenantId, startDate, endDate, tier };
