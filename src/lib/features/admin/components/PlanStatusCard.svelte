@@ -55,7 +55,7 @@ const trialTierLabel = $derived(
 </script>
 
 <Card class="plan-status-card plan-status-card--{planTier}">
-	<div class="plan-status">
+	<div class="plan-status" data-testid="plan-status-card" data-plan-tier={planTier}>
 		<h3 class="plan-status__title">
 			{#if label.icon}<span class="plan-status__icon">{label.icon}</span>{/if}
 			{label.name}
