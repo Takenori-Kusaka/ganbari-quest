@@ -65,6 +65,8 @@ export const DEMO_CHILDREN: Child[] = [
 		userId: null,
 		birthdayBonusMultiplier: 1.0,
 		lastBirthdayBonusYear: null,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: NOW,
 	},
@@ -81,6 +83,8 @@ export const DEMO_CHILDREN: Child[] = [
 		userId: null,
 		birthdayBonusMultiplier: 1.0,
 		lastBirthdayBonusYear: null,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: '2025-09-01T00:00:00.000Z',
 		updatedAt: NOW,
 	},
@@ -97,6 +101,8 @@ export const DEMO_CHILDREN: Child[] = [
 		userId: null,
 		birthdayBonusMultiplier: 1.0,
 		lastBirthdayBonusYear: null,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: '2025-04-01T00:00:00.000Z',
 		updatedAt: NOW,
 	},
@@ -113,6 +119,8 @@ export const DEMO_CHILDREN: Child[] = [
 		userId: null,
 		birthdayBonusMultiplier: 1.0,
 		lastBirthdayBonusYear: null,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: '2025-04-01T00:00:00.000Z',
 		updatedAt: NOW,
 	},
@@ -129,6 +137,8 @@ export const DEMO_CHILDREN: Child[] = [
 		userId: null,
 		birthdayBonusMultiplier: 1.0,
 		lastBirthdayBonusYear: null,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: '2025-04-01T00:00:00.000Z',
 		updatedAt: NOW,
 	},
@@ -164,6 +174,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'マットで はいはい してみよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -185,6 +197,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'てを つないで あるいてみよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -206,6 +220,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'おそとの かぜを かんじよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -227,6 +243,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'おそとで いっぱい あそぼう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -248,6 +266,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'なわとび れんしゅう してみよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -269,6 +289,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'おんがくに あわせて おどろう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -290,6 +312,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: '運動した',
 		triggerHint: 'からだを うごかそう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 
@@ -313,6 +337,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'えほんを よんでみよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -334,6 +360,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'いち、に、さん… かぞえよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -355,6 +383,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'ひらがなを かいてみよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -376,6 +406,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: '宿題をした',
 		triggerHint: 'きょうの しゅくだい おわらせよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -397,6 +429,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: '読書した',
 		triggerHint: 'ほんを よもう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -418,6 +452,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: '計算練習',
 		triggerHint: 'けいさんドリルを やろう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 
@@ -441,6 +477,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: '自主学習した',
 		triggerHint: 'じぶんで べんきょうを すすめよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -462,6 +500,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: '受験勉強した',
 		triggerHint: '目標に向かって勉強しよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -483,6 +523,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: '資格・検定の勉強',
 		triggerHint: '資格取得に向けて勉強しよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 
@@ -506,6 +548,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: '部活・習い事',
 		triggerHint: 'きょうの部活・習い事がんばろう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 
@@ -529,6 +573,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'ごはんのあと はみがきしよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -550,6 +596,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'じぶんで おきがえ してみよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -571,6 +619,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'あそんだあと おかたづけ！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -592,6 +642,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'おそとから かえったら てあらい！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -613,6 +665,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'あさ じかんどおりに おきよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -634,6 +688,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'おうちの おてつだい してみよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -655,6 +711,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'もぐもぐ ごはんを たべよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -676,6 +734,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: '時間割の準備',
 		triggerHint: 'あしたの じゅんび しておこう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 
@@ -699,6 +759,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: '家事手伝い',
 		triggerHint: 'おうちの家事を手伝おう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 
@@ -722,6 +784,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'おはよう、ありがとう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -743,6 +807,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'おともだちと あそぼう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -764,6 +830,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'ありがとう って いえるかな？',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -785,6 +853,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'じゅんばんこ できるかな？',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -806,6 +876,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'にこにこ えがおを みせよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 
@@ -829,6 +901,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: 'ボランティア活動',
 		triggerHint: '地域のために活動しよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 
@@ -852,6 +926,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'すきなものを かいてみよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -873,6 +949,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'はさみや のりで つくろう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -894,6 +972,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: null,
 		triggerHint: 'おうたを うたおう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 	{
@@ -915,6 +995,8 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKanji: 'ピアノ練習',
 		triggerHint: 'すきな きょくを ひいてみよう！',
 		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 	},
 ];
@@ -1275,6 +1357,8 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 		completionBonus: 5,
 		timeSlot: 'morning',
 		isActive: 1,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 		updatedAt: NOW,
 	},
@@ -1287,6 +1371,8 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 		completionBonus: 5,
 		timeSlot: 'morning',
 		isActive: 1,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 		updatedAt: NOW,
 	},
@@ -1299,6 +1385,8 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 		completionBonus: 5,
 		timeSlot: 'evening',
 		isActive: 1,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 		updatedAt: NOW,
 	},
@@ -1311,6 +1399,8 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 		completionBonus: 10,
 		timeSlot: 'morning',
 		isActive: 1,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 		updatedAt: NOW,
 	},
@@ -1323,6 +1413,8 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 		completionBonus: 10,
 		timeSlot: 'morning',
 		isActive: 1,
+		isArchived: 0,
+		archivedReason: null,
 		createdAt: NOW,
 		updatedAt: NOW,
 	},
