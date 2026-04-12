@@ -251,7 +251,7 @@ flowchart TD
     E -- revoked --> E5[LICENSE_REVOKED]
 ```
 
-**レート制限**: 同一 IP から 1 分 5 回失敗で 15 分ブロック (#813)
+**レート制限**: IP: 10 req/min、email: 20 req/hour。超過時は HTTP 429 + Discord 通知 (#813)
 
 ### 5.4 消費 (consume)
 
@@ -339,7 +339,7 @@ sequenceDiagram
 | 項目 | 対策 | 関連 |
 |------|-----|------|
 | 偽造防止 | HMAC-SHA256 署名 (5 文字チェックサム) | ADR-0026 §A |
-| 総当たり攻撃 | レート制限 (IP 単位 + テナント単位) | #813 |
+| 総当たり攻撃 | レート制限 (IP: 10 req/min + email: 20 req/hour, Discord incident 通知付き) | #813 |
 | シークレット漏洩 | `AWS_LICENSE_SECRET_PREVIOUS` で grace period 検証 | #807, #810 |
 | 監査トレイル | LicenseEvent に 7 年保持 | §3.3 |
 | CS なりすまし | Ops 操作は 2FA 必須 | #820 |
@@ -370,7 +370,7 @@ sequenceDiagram
 | 2 | HMAC 鍵 grace period | 未実装 | `AWS_LICENSE_SECRET_PREVIOUS` フォールバック | #810 |
 | 3 | LicenseEvent テーブル | 未作成 | DynamoDB に追加 | #815 |
 | 4 | `/ops/license-keys` | 未実装 | Ops 画面作成 | #816 |
-| 5 | レート制限 | 未実装 | consume エンドポイントに導入 | #813 |
+| 5 | レート制限 | 実装済み（IP: 10 req/min, email: 20 req/hour, Discord 通知） | consume エンドポイントに導入 | #813 |
 | 6 | 期限切れバッチ | 未実装 | EventBridge cron | #817 |
 | 7 | 期限切れ通知メール | 未実装 | 7 日前通知 | #818 |
 
@@ -383,3 +383,4 @@ sequenceDiagram
 | 2026-04-11 | 初版作成 (#808) | Claude Code |
 | 2026-04-11 | §3.1 に `kind` / `issuedBy` フィールド追加、§5.4 に cross-tenant 拒否フロー追記 (#801) | Claude Code |
 | 2026-04-11 | §3.1 に `expiresAt` / `revokedBy` フィールド追加、§5.5 に revokeLicenseKey 実装ポイント追記 (#797) | Claude Code |
+| 2026-04-13 | §5.3 レート制限仕様値を実装に合わせて更新（IP: 10 req/min, email: 20 req/hour）、§8 セキュリティ考慮を更新、§10 Gap 表 #813 を実装済みに変更 (#813) | Claude Code |
