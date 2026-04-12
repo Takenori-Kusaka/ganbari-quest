@@ -22,7 +22,7 @@ export async function findTemplatesByChild(
 	const rows = db
 		.select()
 		.from(checklistTemplates)
-		.where(eq(checklistTemplates.childId, childId))
+		.where(and(eq(checklistTemplates.childId, childId), eq(checklistTemplates.isArchived, 0)))
 		.all();
 	return includeInactive ? rows : rows.filter((r) => r.isActive === 1);
 }
@@ -193,4 +193,23 @@ export async function deleteByTenantId(_tenantId: string): Promise<void> {
 	db.delete(checklistLogs).run();
 	db.delete(checklistTemplateItems).run();
 	db.delete(checklistTemplates).run();
+}
+
+// #783: archive / restore
+
+export async function archiveChecklistTemplates(ids: number[], reason: string, _tenantId: string) {
+	if (ids.length === 0) return;
+	for (const id of ids) {
+		db.update(checklistTemplates)
+			.set({ isArchived: 1, archivedReason: reason, updatedAt: new Date().toISOString() })
+			.where(eq(checklistTemplates.id, id))
+			.run();
+	}
+}
+
+export async function restoreArchivedChecklistTemplates(reason: string, _tenantId: string) {
+	db.update(checklistTemplates)
+		.set({ isArchived: 0, archivedReason: null, updatedAt: new Date().toISOString() })
+		.where(eq(checklistTemplates.archivedReason, reason))
+		.run();
 }

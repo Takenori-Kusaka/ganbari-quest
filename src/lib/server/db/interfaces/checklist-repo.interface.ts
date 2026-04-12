@@ -48,6 +48,10 @@ export interface IChecklistRepo {
 	insertOverride(input: InsertChecklistOverrideInput, tenantId: string): Promise<ChecklistOverride>;
 	deleteOverride(id: number, tenantId: string): Promise<void>;
 
+	// #783: archive / restore
+	archiveChecklistTemplates(ids: number[], reason: string, tenantId: string): Promise<void>;
+	restoreArchivedChecklistTemplates(reason: string, tenantId: string): Promise<void>;
+
 	// Tenant bulk deletion
 	deleteByTenantId(tenantId: string): Promise<void>;
 }

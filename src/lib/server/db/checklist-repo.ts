@@ -71,3 +71,11 @@ export async function insertOverride(input: InsertChecklistOverrideInput, tenant
 export async function deleteOverride(id: number, tenantId: string) {
 	return getRepos().checklist.deleteOverride(id, tenantId);
 }
+
+// #783: archive / restore
+export async function archiveChecklistTemplates(ids: number[], reason: string, tenantId: string) {
+	return getRepos().checklist.archiveChecklistTemplates(ids, reason, tenantId);
+}
+export async function restoreArchivedChecklistTemplates(reason: string, tenantId: string) {
+	return getRepos().checklist.restoreArchivedChecklistTemplates(reason, tenantId);
+}

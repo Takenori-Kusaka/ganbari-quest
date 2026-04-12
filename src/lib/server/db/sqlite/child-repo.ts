@@ -70,7 +70,7 @@ function hydrateChildRow(row: ChildRow): ChildRow {
 }
 
 export async function findAllChildren(_tenantId: string) {
-	const rows = db.select().from(children).all();
+	const rows = db.select().from(children).where(eq(children.isArchived, 0)).all();
 	return rows.map(hydrateChildRow);
 }
 
@@ -148,4 +148,28 @@ export async function deleteChild(id: number, _tenantId: string) {
 		tx.delete(activityLogs).where(eq(activityLogs.childId, id)).run();
 		tx.delete(children).where(eq(children.id, id)).run();
 	});
+}
+
+// #783: archive / restore
+
+export async function archiveChildren(ids: number[], reason: string, _tenantId: string) {
+	if (ids.length === 0) return;
+	for (const id of ids) {
+		db.update(children)
+			.set({ isArchived: 1, archivedReason: reason, updatedAt: new Date().toISOString() })
+			.where(eq(children.id, id))
+			.run();
+	}
+}
+
+export async function restoreArchivedChildren(reason: string, _tenantId: string) {
+	db.update(children)
+		.set({ isArchived: 0, archivedReason: null, updatedAt: new Date().toISOString() })
+		.where(eq(children.archivedReason, reason))
+		.run();
+}
+
+export async function findArchivedChildren(_tenantId: string) {
+	const rows = db.select().from(children).where(eq(children.isArchived, 1)).all();
+	return rows.map(hydrateChildRow);
 }
