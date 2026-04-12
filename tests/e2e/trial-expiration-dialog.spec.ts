@@ -21,7 +21,7 @@ test.describe('#770 ト��イアル終了検知ダイアログ', () => {
 			{
 				name: 'trial_was_active',
 				value: '1',
-				url: 'http://localhost:5173',
+				domain: 'localhost',
 				path: '/',
 				httpOnly: true,
 			},
@@ -42,7 +42,7 @@ test.describe('#770 ト��イアル終了検知ダイアログ', () => {
 			{
 				name: 'trial_was_active',
 				value: '1',
-				url: 'http://localhost:5173',
+				domain: 'localhost',
 				path: '/',
 				httpOnly: true,
 			},
@@ -65,7 +65,7 @@ test.describe('#770 ト��イアル終了検知ダイアログ', () => {
 			{
 				name: 'trial_was_active',
 				value: '1',
-				url: 'http://localhost:5173',
+				domain: 'localhost',
 				path: '/',
 				httpOnly: true,
 			},
