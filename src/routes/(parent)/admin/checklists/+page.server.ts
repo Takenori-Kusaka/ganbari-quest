@@ -217,6 +217,18 @@ export const actions: Actions = {
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!templateName) return fail(400, { error: 'テンプレート名が必要です' });
 
+		// JSON パース + バリデーションを DB 作成前に実行（パース失敗時に空テンプレートが残る問題を防ぐ）
+		let items: { name: string; icon: string; frequency: string; direction: string }[];
+		try {
+			const parsed = JSON.parse(itemsJson);
+			if (!Array.isArray(parsed)) {
+				return fail(400, { error: 'items must be an array' });
+			}
+			items = parsed;
+		} catch {
+			return fail(400, { error: 'items must be an array' });
+		}
+
 		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, childId);
 		if (!limit.allowed) {
 			return fail(403, {
@@ -232,17 +244,6 @@ export const actions: Actions = {
 			{ childId, name: templateName, icon: templateIcon, timeSlot: 'anytime' },
 			tenantId,
 		);
-
-		let items: { name: string; icon: string; frequency: string; direction: string }[];
-		try {
-			const parsed = JSON.parse(itemsJson);
-			if (!Array.isArray(parsed)) {
-				return fail(400, { error: 'items must be an array' });
-			}
-			items = parsed;
-		} catch {
-			return fail(400, { error: 'items must be an array' });
-		}
 
 		for (const item of items.slice(0, 15)) {
 			await addTemplateItem(
