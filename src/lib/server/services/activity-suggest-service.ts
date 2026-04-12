@@ -1,9 +1,9 @@
 // src/lib/server/services/activity-suggest-service.ts
-// 自然言語から活動情報を推定するサービス
+// 自然言語から活動情報を推定するサービス (#721: Bedrock Claude Haiku)
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { joinIcon } from '$lib/domain/icon-utils';
 import { getCategoryByName } from '$lib/domain/validation/activity';
+import { converseWithTool, isBedrockAvailable } from '$lib/server/ai/bedrock-client';
 import { logger } from '$lib/server/logger';
 
 export interface SuggestedActivity {
@@ -158,38 +158,35 @@ const NAME_PAIR_TABLE: Record<string, { kana: string; kanji: string }> = {
 	粘土: { kana: 'ねんど', kanji: '粘土' },
 };
 
-function getGeminiClient(): GoogleGenerativeAI | null {
-	const apiKey = process.env.GEMINI_API_KEY;
-	if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-		logger.warn('[activity-suggest] GEMINI_API_KEY未設定: フォールバックモードで動作');
-		return null;
-	}
-	return new GoogleGenerativeAI(apiKey);
-}
-
-/** JSONをレスポンスから安全に抽出 */
-function extractJson(text: string): unknown {
-	// 1. ```json ... ``` コードブロックを探す
-	const codeBlock = text.match(/```json\s*([\s\S]*?)\s*```/);
-	if (codeBlock?.[1]) {
-		return JSON.parse(codeBlock[1]);
-	}
-
-	// 2. ブラケットマッチングで最初の完全なJSONオブジェクトを抽出
-	const start = text.indexOf('{');
-	if (start === -1) return null;
-	let depth = 0;
-	for (let i = start; i < text.length; i++) {
-		if (text[i] === '{') depth++;
-		else if (text[i] === '}') {
-			depth--;
-			if (depth === 0) {
-				return JSON.parse(text.slice(start, i + 1));
-			}
-		}
-	}
-	return null;
-}
+/** Bedrock tool_use 用のスキーマ定義 */
+const ACTIVITY_TOOL = {
+	name: 'suggest_activity',
+	description: '子供の活動テキストからカテゴリ・アイコン・ポイントを推定した結果を返す',
+	inputSchema: {
+		type: 'object' as const,
+		properties: {
+			name: { type: 'string', description: '活動名（ひらがな中心、10文字以内）' },
+			nameKana: { type: 'string', description: '全ひらがな表記（漢字・カタカナを含まない）' },
+			nameKanji: { type: 'string', description: '漢字混じり表記' },
+			category: {
+				type: 'string',
+				enum: ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう'],
+				description: '活動カテゴリ',
+			},
+			mainIcon: { type: 'string', description: '活動の主な対象を表す絵文字' },
+			subIcon: {
+				type: 'string',
+				description: '活動の動作や状態を表す絵文字（不要なら空文字）',
+			},
+			basePoints: {
+				type: 'number',
+				enum: [3, 5, 8, 10],
+				description: 'ポイント（3:簡単, 5:ちょっと頑張る, 8:時間がかかる, 10:特別なチャレンジ）',
+			},
+		},
+		required: ['name', 'nameKana', 'nameKanji', 'category', 'mainIcon', 'basePoints'],
+	},
+};
 
 /** テキストがひらがな・カタカナのみかを判定 */
 function isKanaOnly(text: string): boolean {
@@ -201,36 +198,8 @@ function hasKanji(text: string): boolean {
 	return /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(text);
 }
 
-/** 自然言語テキストから活動情報を推定 */
-export async function suggestActivity(text: string): Promise<SuggestedActivity> {
-	const client = getGeminiClient();
-
-	if (client) {
-		try {
-			return await suggestWithGemini(client, text);
-		} catch (e) {
-			logger.error('[activity-suggest] Gemini API失敗、フォールバック使用', {
-				error: e instanceof Error ? e.message : String(e),
-				stack: e instanceof Error ? e.stack : undefined,
-				context: { text },
-			});
-		}
-	}
-
-	// フォールバック: キーワードベースの簡易推定
-	return suggestByKeywords(text);
-}
-
-async function suggestWithGemini(
-	client: GoogleGenerativeAI,
-	text: string,
-): Promise<SuggestedActivity> {
-	const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
-	const prompt = `あなたは子供の活動をカテゴリ分けするアシスタントです。
-以下の活動テキストを分析し、JSON形式で回答してください。
-
-活動テキスト: "${text}"
+const SYSTEM_PROMPT = `あなたは子供の活動をカテゴリ分けするアシスタントです。
+活動テキストを分析し、suggest_activity ツールを使って結果を返してください。
 
 カテゴリ（必ず以下から1つ選択）:
 - うんどう（体を動かす活動: 走る、泳ぐ、ボール遊び、体操など）
@@ -245,43 +214,52 @@ async function suggestWithGemini(
 - 8: 時間がかかること（宿題、習い事の練習）
 - 10: 特別なチャレンジ（発表、大会参加）
 
-アイコンは「メインアイコン」と「サブアイコン」の2つで構成します。
+アイコンルール:
 - mainIcon: 活動の主な対象を表す絵文字（例: お風呂→🛁、歯→🪥）
-- subIcon: 活動の動作や状態を表す絵文字（例: 掃除→🧹、水→💧）、不要ならnull
-例: お風呂掃除→mainIcon:"🛁",subIcon:"🧹"、歯みがき→mainIcon:"🪥",subIcon:null
+- subIcon: 活動の動作や状態を表す絵文字（例: 掃除→🧹）、不要なら空文字
 
-活動名は3つの表記を必ずすべて返してください（省略禁止）:
+活動名ルール:
 - name: デフォルト表示名（ひらがな中心、10文字以内）
-- nameKana: 小さい子向けの全ひらがな表記（漢字・カタカナを含まない）
-- nameKanji: 小学生以上向けの漢字混じり表記
+- nameKana: 全ひらがな表記（漢字・カタカナを含まない）
+- nameKanji: 漢字混じり表記`;
 
-重要: nameKana と nameKanji は name と同じ内容でも必ず値を返してください。nullにしないでください。
-
-以下のJSON形式のみで回答（説明不要）:
-{"name": "活動名", "nameKana": "ひらがな表記", "nameKanji": "漢字表記", "category": "カテゴリ名", "mainIcon": "メイン絵文字", "subIcon": "サブ絵文字またはnull", "basePoints": 数値}`;
-
-	const result = await model.generateContent(prompt);
-	const responseText = result.response.text();
-
-	// JSONを安全に抽出
-	const parsed = extractJson(responseText);
-	if (!parsed || typeof parsed !== 'object') {
-		throw new Error('No valid JSON in Gemini response');
+/** 自然言語テキストから活動情報を推定 */
+export async function suggestActivity(text: string): Promise<SuggestedActivity> {
+	if (isBedrockAvailable()) {
+		try {
+			return await suggestWithBedrock(text);
+		} catch (e) {
+			logger.error('[activity-suggest] Bedrock API失敗、フォールバック使用', {
+				error: e instanceof Error ? e.message : String(e),
+				stack: e instanceof Error ? e.stack : undefined,
+				context: { text },
+			});
+		}
 	}
 
-	const obj = parsed as Record<string, unknown>;
+	// フォールバック: キーワードベースの簡易推定
+	return suggestByKeywords(text);
+}
+
+async function suggestWithBedrock(text: string): Promise<SuggestedActivity> {
+	const result = await converseWithTool({
+		system: SYSTEM_PROMPT,
+		userMessage: `活動テキスト: "${text}"`,
+		tool: ACTIVITY_TOOL,
+	});
+
+	const obj = result.input;
 
 	// バリデーション
 	const catDef = getCategoryByName(String(obj.category ?? ''));
-	const categoryId = catDef?.id ?? 3; // デフォルト: せいかつ
+	const categoryId = catDef?.id ?? 3;
 	const basePoints = [3, 5, 8, 10].includes(Number(obj.basePoints)) ? Number(obj.basePoints) : 5;
 
-	// 複合アイコン対応: mainIcon+subIcon → icon
-	const mainIcon = String(obj.mainIcon ?? obj.icon ?? '📝');
+	// 複合アイコン対応
+	const mainIcon = String(obj.mainIcon ?? '📝');
 	const subIcon = obj.subIcon ? String(obj.subIcon) : null;
 	const icon = joinIcon(mainIcon, subIcon);
 
-	// Gemini が null/空文字を返した場合は inferNames で補完
 	const fallbackNames = inferNames(text);
 	return {
 		name: String(obj.name ?? text).slice(0, 50),
@@ -290,7 +268,7 @@ async function suggestWithGemini(
 		basePoints,
 		nameKana: obj.nameKana ? String(obj.nameKana).slice(0, 50) : fallbackNames.nameKana,
 		nameKanji: obj.nameKanji ? String(obj.nameKanji).slice(0, 50) : fallbackNames.nameKanji,
-		source: 'gemini',
+		source: 'gemini', // API 互換性のため 'gemini' を維持
 	};
 }
 
