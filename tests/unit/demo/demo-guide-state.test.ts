@@ -38,8 +38,8 @@ describe('demo-guide-state (#702)', () => {
 	});
 
 	describe('GUIDE_STEPS の整合性', () => {
-		it('6 ステップが定義されている', () => {
-			expect(GUIDE_STEPS).toHaveLength(6);
+		it('7 ステップが定義されている', () => {
+			expect(GUIDE_STEPS).toHaveLength(7);
 		});
 
 		it('Step 1 と Step 2 は同一 matchPath を共有する（活動記録は同じ画面で行う）', () => {
@@ -167,7 +167,7 @@ describe('demo-guide-state (#702)', () => {
 			expect(guide.currentStep).toBe(3); // Step 4 のまま (Step 5 にスキップしない)
 		});
 
-		it('全 6 ステップを正しく順番に踏める', () => {
+		it('全 7 ステップを正しく順番に踏める', () => {
 			startGuide();
 			const visited: number[] = [];
 			visited.push(guide.currentStep + 1); // 1
@@ -184,9 +184,12 @@ describe('demo-guide-state (#702)', () => {
 			checkAutoAdvance('/demo/admin'); // step 5 nav
 			visited.push(guide.currentStep + 1); // 5
 			advanceStep();
-			checkAutoAdvance('/demo/signup'); // step 6 nav
+			checkAutoAdvance('/demo/admin/license'); // step 6 nav
 			visited.push(guide.currentStep + 1); // 6
-			expect(visited).toEqual([1, 2, 3, 4, 5, 6]);
+			advanceStep();
+			checkAutoAdvance('/demo/signup'); // step 7 nav
+			visited.push(guide.currentStep + 1); // 7
+			expect(visited).toEqual([1, 2, 3, 4, 5, 6, 7]);
 		});
 	});
 });
