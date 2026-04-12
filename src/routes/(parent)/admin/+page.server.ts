@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findActiveEvents } from '$lib/server/db/season-event-repo';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
@@ -73,7 +74,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 
 	// 季節コンテンツ情報（G6+G7: 思い出チケット＋管理表示）
 	// イベント一覧を一度だけ取得し、seasonalInfo とシーズンパス両方で共有する
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	let allActiveEvents: Awaited<ReturnType<typeof findActiveEvents>> = [];
 	try {
 		allActiveEvents = await findActiveEvents(today, tenantId);
