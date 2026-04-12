@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 版数 | 2.12 |
+| 版数 | 2.14 |
 | 作成日 | 2026-02-19 |
 | 更新日 | 2026-04-12 |
 | 作成者 | 日下武紀 |
@@ -141,6 +141,12 @@
 | GET | /api/v1/admin/viewer-tokens | 閲覧専用トークン一覧取得 | owner/parent |
 | POST | /api/v1/admin/viewer-tokens | 閲覧専用トークン作成 | owner/parent |
 | DELETE | /api/v1/admin/viewer-tokens/[id] | 閲覧専用トークン無効化 | owner/parent |
+
+### フィードバック
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| POST | /api/v1/feedback | アプリ内フィードバック送信（Discord webhook 転送） | 必須 |
 
 ### 設定 API
 
@@ -1749,3 +1755,4 @@ export interface PlanLimitError {
 | 2026-04-12 | 2.12 | #720 AI チェックリスト提案 API (`POST /api/v1/checklists/suggest`) 追加。Bedrock Claude Haiku + プリセット/キーワードフォールバック。ファミリープラン限定 |
 | 2026-04-12 | 2.13 | #770 トライアル終了検知の cookie 仕様追加。admin layout server load で `trial_was_active` cookie（HttpOnly, Secure, SameSite=Lax, 30日有効）を使い、トライアル active → inactive 遷移を検出。遷移検知後は cookie を削除し、`trialJustExpired` フラグをクライアントに返却 |
 | 2026-04-12 | 2.14 | #722 AI suggest 3 エンドポイントのプランゲートを `standard` → `family` 限定に変更。`createFromAi` form action も `tier !== 'family'` ガードに統一。デモ版 3 画面に AI 提案パネルを追加 |
+| 2026-04-13 | 2.15 | #839 アプリ内フィードバック送信 API (`POST /api/v1/feedback`) 追加。種別（opinion/bug/feature/other）+ テキスト（1000文字以内）+ スクリーンショット（dataURL, 最大 2MB, 任意）を受け取り Discord webhook (inquiry チャネル) に転送。レート制限: 1テナント/5分1件（インメモリ Map、TTL 自動クリーンアップ付き） |
