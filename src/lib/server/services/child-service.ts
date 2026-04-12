@@ -2,6 +2,7 @@ import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import {
 	deleteChild,
 	findAllChildren,
+	findArchivedChildren,
 	findChildById,
 	findChildByUserId,
 	insertChild,
@@ -13,6 +14,10 @@ import { childPrefix } from '$lib/server/storage-keys';
 
 export async function getAllChildren(tenantId: string) {
 	return await findAllChildren(tenantId);
+}
+
+export async function getArchivedChildren(tenantId: string) {
+	return await findArchivedChildren(tenantId);
 }
 
 export async function getChildById(id: number, tenantId: string) {

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, isNull, or } from 'drizzle-orm';
 import { normalizeUiMode } from '$lib/domain/validation/age-tier';
 import { db } from '../client';
 import { hydrate } from '../migration';
@@ -70,7 +70,14 @@ function hydrateChildRow(row: ChildRow): ChildRow {
 }
 
 export async function findAllChildren(_tenantId: string) {
-	const rows = db.select().from(children).where(eq(children.isArchived, 0)).all();
+	// #783 互換: is_archived カラムが NULL の既存行も active として扱う。
+	// drizzle-kit push 後の SQLite ALTER TABLE では DEFAULT 0 が即座に反映されるが、
+	// マイグレーション未実行環境や中間状態に備えて defensive に対応。
+	const rows = db
+		.select()
+		.from(children)
+		.where(or(eq(children.isArchived, 0), isNull(children.isArchived)))
+		.all();
 	return rows.map(hydrateChildRow);
 }
 
