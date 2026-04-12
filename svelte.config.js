@@ -10,8 +10,9 @@ const config = {
 			$lib: 'src/lib',
 		},
 		csrf: {
-			// NUC LAN 配備: ORIGIN と異なるホスト名/IP でアクセスされる場合の許可
-			trustedOrigins: ['http://localhost:3000', 'http://192.168.68.79:3000'],
+			// CSRF 検証は ORIGIN 環境変数（adapter-node がランタイムで読む）で制御。
+			// ハードコード IP 禁止 — deploy-nuc.yml が LAN IP を自動検出して .env に書き出す。
+			checkOrigin: true,
 		},
 		prerender: {
 			// #832: /sitemap.xml はクローラ経由では到達できない（/ → /setup リダイレクト
