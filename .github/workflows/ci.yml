@@ -216,13 +216,17 @@ jobs:
     needs: [changes, lint-and-test, e2e-test, docker-build, site-check, new-env-distribution-check]
     runs-on: ubuntu-latest
     steps:
+      # #926: needs を toJSON で一括チェックし、新規 job 追加時に results 配列の更新忘れで
+      # ゲートが素通りする事故を防ぐ。`needs:` リストへの追加だけで自動的にゲート対象になる。
       - name: Check CI results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
         run: |
-          results=("${{ needs.changes.result }}" "${{ needs.lint-and-test.result }}" "${{ needs.e2e-test.result }}" "${{ needs.docker-build.result }}" "${{ needs.site-check.result }}" "${{ needs.new-env-distribution-check.result }}")
-          for r in "${results[@]}"; do
-            if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
-              echo "CI failed: $r"
-              exit 1
-            fi
-          done
-          echo "CI passed (jobs: ${results[*]})"
+          echo "Job results:"
+          echo "$NEEDS" | jq -r 'to_entries[] | "  \(.key): \(.value.result)"'
+          failed=$(echo "$NEEDS" | jq -r '[to_entries[] | select(.value.result == "failure" or .value.result == "cancelled")] | length')
+          if [ "$failed" -gt 0 ]; then
+            echo "CI failed: $failed job(s) failed or cancelled"
+            exit 1
+          fi
+          echo "CI passed"
