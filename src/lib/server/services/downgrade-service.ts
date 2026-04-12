@@ -123,11 +123,18 @@ export async function getDowngradePreview(
  * - アーカイブ後に残るリソース数が targetTier の上限以内であることを検証
  * - 検証に失敗した場合はエラーを返す（上限超え）
  */
+export interface ArchiveResult {
+	ok: true;
+	archivedChildIds: number[];
+	archivedActivityIds: number[];
+	archivedChecklistTemplateIds: number[];
+}
+
 export async function archiveForDowngrade(
 	tenantId: string,
 	targetTier: PlanTier,
 	selection: ArchiveSelection,
-): Promise<{ ok: true } | { ok: false; reason: string }> {
+): Promise<ArchiveResult | { ok: false; reason: string }> {
 	const limits = getPlanLimits(targetTier);
 
 	// --- 事前検証: アーカイブ後に上限以内に収まるか ---
@@ -186,7 +193,12 @@ export async function archiveForDowngrade(
 		await archiveChecklistTemplates(selection.checklistTemplateIds, ARCHIVE_REASON, tenantId);
 	}
 
-	return { ok: true };
+	return {
+		ok: true,
+		archivedChildIds: selection.childIds,
+		archivedActivityIds: selection.activityIds,
+		archivedChecklistTemplateIds: selection.checklistTemplateIds,
+	};
 }
 
 export { ARCHIVE_REASON as DOWNGRADE_ARCHIVE_REASON };

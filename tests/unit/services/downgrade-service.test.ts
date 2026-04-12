@@ -213,6 +213,11 @@ describe('downgrade-service', () => {
 			});
 
 			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.archivedChildIds).toEqual([3]);
+				expect(result.archivedActivityIds).toEqual([4]);
+				expect(result.archivedChecklistTemplateIds).toEqual([]);
+			}
 			expect(mockArchiveChildren).toHaveBeenCalledWith([3], 'downgrade_user_selected', TENANT);
 			expect(mockArchiveActivities).toHaveBeenCalledWith([4], 'downgrade_user_selected', TENANT);
 		});

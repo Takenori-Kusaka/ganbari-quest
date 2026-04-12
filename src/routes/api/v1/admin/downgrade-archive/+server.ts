@@ -57,5 +57,10 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		},
 	});
 
-	return json({ ok: true });
+	return json({
+		ok: true,
+		archivedChildIds: result.archivedChildIds,
+		archivedActivityIds: result.archivedActivityIds,
+		archivedChecklistTemplateIds: result.archivedChecklistTemplateIds,
+	});
 };
