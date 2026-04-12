@@ -29,7 +29,11 @@ describe('demo-guide-state (#702)', () => {
 	const guide = getGuideState();
 
 	beforeEach(() => {
-		// 各テスト前にガイド状態をリセット
+		// 各テスト前にガイド状態を完全リセット
+		// startGuide() で guideDismissed=false に戻してから resetGuide() で
+		// guideActive=false, currentStep=0 にする（resetGuide 単体では
+		// guideDismissed をリセットしないため、前テストの dismissGuide() が残る）
+		startGuide();
 		resetGuide();
 	});
 

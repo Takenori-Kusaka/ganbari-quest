@@ -18,12 +18,9 @@ import { expect, type Page, test } from '@playwright/test';
  * `+layout.svelte` の $effect で `window.__APP_HYDRATED__ = true` が立つのを待つ。
  */
 async function waitForHydration(page: Page): Promise<void> {
-	await page.waitForFunction(
-		// biome-ignore lint/suspicious/noExplicitAny: テストヘルパ内の window アクセス
-		() => (window as any).__APP_HYDRATED__ === true,
-		undefined,
-		{ timeout: 30_000 },
-	);
+	await page.waitForFunction(() => window.__APP_HYDRATED__ === true, undefined, {
+		timeout: 30_000,
+	});
 }
 
 // dev mode の最初の /demo コンパイルは数十秒かかるため、ファイル単位で timeout を延長
@@ -37,7 +34,7 @@ test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 		// 数十秒かかることがあり、Svelte 5 の onclick ハンドラは hydration 後に
 		// バインドされるため、可視になっただけで click すると no-op になる。
 		// `toBeVisible` でボタンが visible であることだけ確認したら、
-		// hydration 完了マーカー（window.__SVELTEKIT_HYDRATED__）を待つ。
+		// hydration 完了マーカー（window.__APP_HYDRATED__）を待つ。
 		await expect(page.getByTestId('demo-guide-start-link')).toBeVisible();
 		await waitForHydration(page);
 		await page.getByTestId('demo-guide-start-link').click();

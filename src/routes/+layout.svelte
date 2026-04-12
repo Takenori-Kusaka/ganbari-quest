@@ -11,8 +11,7 @@ let { children } = $props();
 // 単に visible になっただけで click すると no-op になる回帰が頻発したため
 // （#702 のデモガイド step skip 修正の検証時に発見）。
 $effect(() => {
-	// biome-ignore lint/suspicious/noExplicitAny: window への一時的なフラグ書き込み
-	(window as any).__APP_HYDRATED__ = true;
+	window.__APP_HYDRATED__ = true;
 });
 </script>
 
