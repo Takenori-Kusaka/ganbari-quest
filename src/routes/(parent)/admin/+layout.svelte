@@ -18,6 +18,10 @@ interface Props {
 			trialUsed: boolean;
 			trialEndDate: string | null;
 		};
+		archivedSummary?: {
+			archivedChildCount: number;
+			hasArchivedResources: boolean;
+		};
 	};
 	children: Snippet;
 }
@@ -54,6 +58,7 @@ $effect(() => {
 				trialUsed={trial.trialUsed}
 				trialEndDate={trial.trialEndDate}
 				{planTier}
+				hasArchivedResources={data.archivedSummary?.hasArchivedResources ?? false}
 			/>
 		</div>
 	{/if}

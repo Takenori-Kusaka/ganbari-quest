@@ -4,7 +4,12 @@ import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { getDebugPlanSummary } from '$lib/server/debug-plan';
+import { logger } from '$lib/server/logger';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
+import {
+	archiveExcessResources,
+	getArchivedResourceSummary,
+} from '$lib/server/services/resource-archive-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';
 import type { LayoutServerLoad } from './$types';
 
@@ -67,6 +72,40 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		cookies.delete(TRIAL_WAS_ACTIVE_COOKIE, { path: '/', secure: COOKIE_SECURE });
 	}
 
+	// #783: トライアル終了後に free プランの上限を超えるリソースを archive する。
+	// 冪等: 既に archive 済みなら超過はなく何もしない。
+	const isTrialExpired = trialStatus.trialUsed && !trialStatus.isTrialActive;
+	if (planTier === 'free' && isTrialExpired) {
+		try {
+			const result = await archiveExcessResources(tenantId);
+			if (
+				result.archivedChildIds.length > 0 ||
+				result.archivedActivityIds.length > 0 ||
+				result.archivedChecklistTemplateIds.length > 0
+			) {
+				logger.info('[ARCHIVE] Trial expired — excess resources archived', {
+					context: {
+						tenantId,
+						children: result.archivedChildIds.length,
+						activities: result.archivedActivityIds.length,
+						checklists: result.archivedChecklistTemplateIds.length,
+					},
+				});
+			}
+		} catch (err) {
+			logger.error('[ARCHIVE] Failed to archive excess resources', {
+				context: { tenantId, error: err instanceof Error ? err.message : String(err) },
+			});
+		}
+	}
+
+	// #783: archive 済みリソースの概要（UI 表示用）
+	const archivedSummary =
+		planTier === 'free' && isTrialExpired
+			? await getArchivedResourceSummary(tenantId)
+			: { archivedChildCount: 0, hasArchivedResources: false };
+
+
 	return {
 		pointSettings,
 		authMode,
@@ -82,6 +121,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			trialEndDate: trialStatus.trialEndDate,
 		},
 		trialJustExpired,
+		archivedSummary,
 		debugPlanSummary: getDebugPlanSummary(),
 	};
 };

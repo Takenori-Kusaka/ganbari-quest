@@ -33,6 +33,22 @@ export default async function globalSetup() {
 				// カラムが既に存在する場合は無視
 			}
 
+			// #783: is_archived + archived_reason カラム追加マイグレーション
+			for (const table of ['children', 'activities', 'checklist_templates']) {
+				try {
+					db.exec(`ALTER TABLE ${table} ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0`);
+					console.log(`[E2E Setup]   Added is_archived column to ${table}.`);
+				} catch {
+					// カラムが既に存在する場合は無視
+				}
+				try {
+					db.exec(`ALTER TABLE ${table} ADD COLUMN archived_reason TEXT`);
+					console.log(`[E2E Setup]   Added archived_reason column to ${table}.`);
+				} catch {
+					// カラムが既に存在する場合は無視
+				}
+			}
+
 			db.close();
 			if (!table) needsSchema = true;
 		} catch {
@@ -461,6 +477,9 @@ export default async function globalSetup() {
 				tier TEXT NOT NULL DEFAULT 'standard',
 				source TEXT NOT NULL,
 				campaign_id TEXT,
+				stripe_subscription_id TEXT,
+				upgrade_reason TEXT,
+				trial_start_source TEXT,
 				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 			);
 			CREATE INDEX IF NOT EXISTS idx_trial_history_tenant

@@ -21,3 +21,14 @@ export async function updateChild(id: number, input: UpdateChildInput, tenantId:
 export async function deleteChild(id: number, tenantId: string) {
 	return getRepos().child.deleteChild(id, tenantId);
 }
+
+// #783: archive / restore
+export async function archiveChildren(ids: number[], reason: string, tenantId: string) {
+	return getRepos().child.archiveChildren(ids, reason, tenantId);
+}
+export async function restoreArchivedChildren(reason: string, tenantId: string) {
+	return getRepos().child.restoreArchivedChildren(reason, tenantId);
+}
+export async function findArchivedChildren(tenantId: string) {
+	return getRepos().child.findArchivedChildren(tenantId);
+}
