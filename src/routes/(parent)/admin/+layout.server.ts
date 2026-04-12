@@ -7,7 +7,9 @@ import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit
 import { getTrialStatus } from '$lib/server/services/trial-service';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ locals }) => {
+const TRIAL_WAS_ACTIVE_COOKIE = 'trial_was_active';
+
+export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 	const tenantId = requireTenantId(locals);
 	const authMode = getAuthMode();
 
@@ -45,6 +47,24 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 
 	const userRole = locals.context?.role ?? 'owner';
 
+	// #770: トライアル終了検知 — cookie で前回の trial 状態を記憶し、
+	// active → inactive の遷移を検出したら trialJustExpired フラグを立てる。
+	const wasTrialActive = cookies.get(TRIAL_WAS_ACTIVE_COOKIE) === '1';
+	const trialJustExpired = wasTrialActive && !trialStatus.isTrialActive;
+
+	if (trialStatus.isTrialActive) {
+		// トライアル中は cookie を維持（30日有効 — トライアルの最長期間を超える）
+		cookies.set(TRIAL_WAS_ACTIVE_COOKIE, '1', {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			maxAge: 60 * 60 * 24 * 30,
+		});
+	} else if (trialJustExpired) {
+		// 遷移検知後に cookie を削除（次回リクエストでは trialJustExpired=false になる）
+		cookies.delete(TRIAL_WAS_ACTIVE_COOKIE, { path: '/' });
+	}
+
 	return {
 		pointSettings,
 		authMode,
@@ -59,6 +79,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 			trialUsed: trialStatus.trialUsed,
 			trialEndDate: trialStatus.trialEndDate,
 		},
+		trialJustExpired,
 		debugPlanSummary: getDebugPlanSummary(),
 	};
 };
