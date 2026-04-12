@@ -1,11 +1,28 @@
 // tests/e2e/feedback-form.spec.ts
 // #839: アプリ内フィードバック送信フォーム E2E テスト
 
+import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
+
+/**
+ * PremiumWelcome ダイアログが表示されていたら閉じる。
+ * global-setup で premium_welcome_shown=true をセット済みだが、
+ * DB 状態のタイミングで表示される可能性があるためフォールバック。
+ */
+async function dismissWelcomeIfVisible(page: Page): Promise<void> {
+	const welcomeDialog = page.getByRole('dialog', { name: /ようこそ/ });
+	const isVisible = await welcomeDialog.isVisible().catch(() => false);
+	if (isVisible) {
+		const dismissBtn = page.getByRole('button', { name: /さっそく始める/ });
+		await dismissBtn.click();
+		await expect(welcomeDialog).toHaveCount(0);
+	}
+}
 
 test.describe('#839 フィードバックフォーム', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/admin', { waitUntil: 'networkidle' });
+		await page.goto('/admin', { waitUntil: 'domcontentloaded' });
+		await dismissWelcomeIfVisible(page);
 	});
 
 	test('FAB ボタンが表示される', async ({ page }) => {
@@ -98,14 +115,14 @@ test.describe('#839 フィードバックフォーム', () => {
 	});
 
 	test('デモ版でも FAB が表示される', async ({ page }) => {
-		await page.goto('/demo/admin', { waitUntil: 'networkidle' });
+		await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
 
 		const fab = page.getByTestId('feedback-fab');
 		await expect(fab).toBeVisible();
 	});
 
 	test('デモ版は送信時にモック成功表示', async ({ page }) => {
-		await page.goto('/demo/admin', { waitUntil: 'networkidle' });
+		await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
 
 		await page.getByTestId('feedback-fab').click();
 		await expect(page.getByTestId('feedback-dialog')).toBeVisible();
