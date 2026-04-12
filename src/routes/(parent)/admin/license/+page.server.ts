@@ -11,6 +11,7 @@ import { consumeLicenseKey, validateLicenseKey } from '$lib/server/services/lice
 import { getLicenseInfo } from '$lib/server/services/license-service';
 import { getLoyaltyInfo } from '$lib/server/services/loyalty-service';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
+import { checkLicenseKeyRateLimit } from '$lib/server/services/rate-limit-service';
 import { restoreArchivedResources } from '$lib/server/services/resource-archive-service';
 import { getTrialStatus, startTrial } from '$lib/server/services/trial-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
@@ -103,7 +104,7 @@ export const actions: Actions = {
 	 * - consumeLicenseKey が tenant plan を昇格し、license を consumed にマークする
 	 * - 成功時は `success: true` + 新プラン情報を返し、UI が data をリロードして反映
 	 */
-	applyLicenseKey: async ({ locals, request }) => {
+	applyLicenseKey: async ({ locals, request, getClientAddress }) => {
 		requireRole(locals, ['owner']);
 		const tenantId = requireTenantId(locals);
 
@@ -112,6 +113,15 @@ export const actions: Actions = {
 
 		if (!rawKey) {
 			return fail(400, { apply: { error: 'ライセンスキーを入力してください' } });
+		}
+
+		// #813: レート制限チェック
+		const ip = getClientAddress();
+		const identity = locals.identity;
+		const email = identity?.type === 'cognito' ? identity.email : '';
+		const rateCheck = await checkLicenseKeyRateLimit(ip, email, 'license-apply');
+		if (!rateCheck.allowed) {
+			return fail(429, { apply: { error: rateCheck.message } });
 		}
 
 		// 事前検証: 形式・存在・状態チェック（失敗時は consume を試行しない）
