@@ -654,6 +654,9 @@ export const SQL_CREATE_TABLES = `
 		tier TEXT NOT NULL DEFAULT 'standard',
 		source TEXT NOT NULL,
 		campaign_id TEXT,
+		stripe_subscription_id TEXT,
+		upgrade_reason TEXT,
+		trial_start_source TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX IF NOT EXISTS idx_trial_history_tenant

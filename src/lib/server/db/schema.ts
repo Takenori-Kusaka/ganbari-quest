@@ -937,6 +937,10 @@ export const trialHistory = sqliteTable(
 		tier: text('tier').notNull().default('standard'), // 'standard' | 'family'
 		source: text('source').notNull(), // 'user_initiated' | 'campaign' | 'admin_grant'
 		campaignId: text('campaign_id'),
+		// #769: コンバージョン分析用カラム（既存レコードは NULL）
+		stripeSubscriptionId: text('stripe_subscription_id'), // トライアル後に本契約に移行した場合の Stripe subscription ID
+		upgradeReason: text('upgrade_reason'), // 'auto' | 'manual' | 'email_cta' | null
+		trialStartSource: text('trial_start_source'), // トライアル開始のトリガー URL: '/pricing' | '/admin/license' | 'signup_param' | null
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
 	(table) => [index('idx_trial_history_tenant').on(table.tenantId)],
