@@ -19,7 +19,7 @@ services:
       - DATABASE_URL=./data/ganbari-quest.db
       - HOST=0.0.0.0
       - PORT=3000
-      - ORIGIN=${ORIGIN:-http://localhost:3000}
+      - ORIGIN=${ORIGIN:-http://192.168.68.79:3000}
       - TZ=Asia/Tokyo
     env_file:
       - path: .env
