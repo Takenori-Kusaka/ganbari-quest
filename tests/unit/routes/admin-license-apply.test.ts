@@ -68,7 +68,9 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 vi.mock('$lib/server/services/rate-limit-service', () => ({
-	checkLicenseKeyRateLimit: vi.fn().mockResolvedValue({ allowed: true, retryAfterSec: 0, message: '' }),
+	checkLicenseKeyRateLimit: vi
+		.fn()
+		.mockResolvedValue({ allowed: true, retryAfterSec: 0, message: '' }),
 }));
 
 vi.mock('$lib/server/services/resource-archive-service', () => ({
