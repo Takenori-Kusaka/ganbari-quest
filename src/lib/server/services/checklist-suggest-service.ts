@@ -1,7 +1,7 @@
 // src/lib/server/services/checklist-suggest-service.ts
-// 自然言語からチェックリストアイテムを推定するサービス (#720)
+// 自然言語からチェックリストアイテムを推定するサービス (#720: Bedrock Claude Haiku)
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { converseWithTool, isBedrockAvailable } from '$lib/server/ai/bedrock-client';
 import { logger } from '$lib/server/logger';
 
 export interface SuggestedChecklistItem {
@@ -141,36 +141,59 @@ const PRESET_CHECKLISTS = {
 	},
 };
 
-function getGeminiClient(): GoogleGenerativeAI | null {
-	const apiKey = process.env.GEMINI_API_KEY;
-	if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-		logger.warn('[checklist-suggest] GEMINI_API_KEY未設定: フォールバックモードで動作');
-		return null;
-	}
-	return new GoogleGenerativeAI(apiKey);
-}
+/** Bedrock tool_use 用のスキーマ定義 */
+const CHECKLIST_TOOL = {
+	name: 'suggest_checklist',
+	description: '子供の持ち物チェックリストをテキストから推定した結果を返す',
+	inputSchema: {
+		type: 'object' as const,
+		properties: {
+			templateName: {
+				type: 'string',
+				description: 'テンプレート名（ひらがな中心、15文字以内）',
+			},
+			templateIcon: {
+				type: 'string',
+				description: 'シーンを表す1つの絵文字',
+			},
+			items: {
+				type: 'array',
+				description: '持ち物リスト（5〜10個）',
+				items: {
+					type: 'object',
+					properties: {
+						name: { type: 'string', description: 'アイテム名（ひらがな中心、10文字以内）' },
+						icon: { type: 'string', description: 'アイテムを表す1つの絵文字' },
+						frequency: {
+							type: 'string',
+							description: '頻度（"daily" を基本。特定の曜日なら "weekday:月" 等）',
+						},
+						direction: {
+							type: 'string',
+							enum: ['bring', 'return', 'both'],
+							description: '"bring"（持参）, "return"（持帰）, "both"（往復）',
+						},
+					},
+					required: ['name', 'icon', 'frequency', 'direction'],
+				},
+			},
+		},
+		required: ['templateName', 'templateIcon', 'items'],
+	},
+};
 
-/** JSONをレスポンスから安全に抽出 */
-function extractJson(text: string): unknown {
-	const codeBlock = text.match(/```json\s*([\s\S]*?)\s*```/);
-	if (codeBlock?.[1]) {
-		return JSON.parse(codeBlock[1]);
-	}
+const SYSTEM_PROMPT = `あなたは子供の持ち物チェックリストを作るアシスタントです。
+テキストを分析し、suggest_checklist ツールを使って必要な持ち物リストを返してください。
 
-	const start = text.indexOf('{');
-	if (start === -1) return null;
-	let depth = 0;
-	for (let i = start; i < text.length; i++) {
-		if (text[i] === '{') depth++;
-		else if (text[i] === '}') {
-			depth--;
-			if (depth === 0) {
-				return JSON.parse(text.slice(start, i + 1));
-			}
-		}
-	}
-	return null;
-}
+ルール:
+- 子供（3歳〜15歳）の日常シーンを想定
+- アイテム名はひらがな中心で子供にわかりやすく（10文字以内）
+- アイコンは各アイテムを表す1つの絵文字
+- frequency は "daily"（まいにち）を基本。特定の曜日なら "weekday:月" 等
+- direction は "bring"（持参）, "return"（持帰）, "both"（往復）から選択
+- テンプレート名もひらがな中心で15文字以内
+- テンプレートアイコンもシーンを表す1つの絵文字
+- アイテムは5〜10個が適切`;
 
 /** アイテム名からアイコンを推定 */
 function inferIcon(name: string): string {
@@ -184,13 +207,11 @@ function inferIcon(name: string): string {
 
 /** 自然言語テキストからチェックリストを推定 */
 export async function suggestChecklist(text: string): Promise<SuggestedChecklist> {
-	const client = getGeminiClient();
-
-	if (client) {
+	if (isBedrockAvailable()) {
 		try {
-			return await suggestWithGemini(client, text);
+			return await suggestWithBedrock(text);
 		} catch (e) {
-			logger.error('[checklist-suggest] Gemini API失敗、フォールバック使用', {
+			logger.error('[checklist-suggest] Bedrock API失敗、フォールバック使用', {
 				error: e instanceof Error ? e.message : String(e),
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { text },
@@ -201,45 +222,14 @@ export async function suggestChecklist(text: string): Promise<SuggestedChecklist
 	return suggestByKeywords(text);
 }
 
-async function suggestWithGemini(
-	client: GoogleGenerativeAI,
-	text: string,
-): Promise<SuggestedChecklist> {
-	const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+async function suggestWithBedrock(text: string): Promise<SuggestedChecklist> {
+	const result = await converseWithTool({
+		system: SYSTEM_PROMPT,
+		userMessage: `テキスト: "${text}"`,
+		tool: CHECKLIST_TOOL,
+	});
 
-	const prompt = `あなたは子供の持ち物チェックリストを作るアシスタントです。
-以下のテキストを分析し、必要な持ち物リストをJSON形式で回答してください。
-
-テキスト: "${text}"
-
-ルール:
-- 子供（3歳〜15歳）の日常シーンを想定
-- アイテム名はひらがな中心で子供にわかりやすく（10文字以内）
-- アイコンは各アイテムを表す1つの絵文字
-- frequency は "daily"（まいにち）を基本。特定の曜日なら "weekday:月" 等
-- direction は "bring"（持参）, "return"（持帰）, "both"（往復）から選択
-- テンプレート名もひらがな中心で15文字以内
-- テンプレートアイコンもシーンを表す1つの絵文字
-- アイテムは5〜10個が適切
-
-以下のJSON形式のみで回答（説明不要）:
-{
-  "templateName": "テンプレート名",
-  "templateIcon": "絵文字",
-  "items": [
-    {"name": "アイテム名", "icon": "絵文字", "frequency": "daily", "direction": "both"}
-  ]
-}`;
-
-	const result = await model.generateContent(prompt);
-	const responseText = result.response.text();
-
-	const parsed = extractJson(responseText);
-	if (!parsed || typeof parsed !== 'object') {
-		throw new Error('No valid JSON in Gemini response');
-	}
-
-	const obj = parsed as Record<string, unknown>;
+	const obj = result.input;
 	const rawItems = Array.isArray(obj.items) ? obj.items : [];
 
 	const validDirections = ['bring', 'return', 'both'];
@@ -256,14 +246,14 @@ async function suggestWithGemini(
 		}));
 
 	if (items.length === 0) {
-		throw new Error('No items in Gemini response');
+		throw new Error('No items in Bedrock response');
 	}
 
 	return {
 		templateName: String(obj.templateName ?? '').slice(0, 50) || 'もちものリスト',
 		templateIcon: String(obj.templateIcon ?? '📋'),
 		items,
-		source: 'gemini',
+		source: 'gemini', // API 互換性のため 'gemini' を維持
 	};
 }
 

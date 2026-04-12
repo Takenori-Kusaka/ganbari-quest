@@ -235,9 +235,13 @@ export const actions: Actions = {
 
 		let items: { name: string; icon: string; frequency: string; direction: string }[];
 		try {
-			items = JSON.parse(itemsJson);
+			const parsed = JSON.parse(itemsJson);
+			if (!Array.isArray(parsed)) {
+				return fail(400, { error: 'items must be an array' });
+			}
+			items = parsed;
 		} catch {
-			items = [];
+			return fail(400, { error: 'items must be an array' });
 		}
 
 		for (const item of items.slice(0, 15)) {

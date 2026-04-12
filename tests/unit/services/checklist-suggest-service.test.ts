@@ -1,27 +1,37 @@
 // tests/unit/services/checklist-suggest-service.test.ts
-// AIチェックリスト提案サービスのユニットテスト（フォールバック） (#720)
+// AIチェックリスト提案サービスのユニットテスト (#720: Bedrock 移行後)
 
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@google/generative-ai', () => ({
-	GoogleGenerativeAI: vi.fn(),
+// Bedrock をモック
+vi.mock('$lib/server/ai/bedrock-client', () => ({
+	isBedrockAvailable: vi.fn(() => false),
+	converseWithTool: vi.fn(),
 }));
 vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
 beforeAll(() => {
-	process.env.GEMINI_API_KEY = undefined;
+	process.env.BEDROCK_DISABLED = 'true';
 });
 
+import { converseWithTool, isBedrockAvailable } from '$lib/server/ai/bedrock-client';
 import { suggestChecklist } from '../../../src/lib/server/services/checklist-suggest-service';
 
+const mockedIsBedrockAvailable = vi.mocked(isBedrockAvailable);
+const mockedConverseWithTool = vi.mocked(converseWithTool);
+
 describe('suggestChecklist (fallback)', () => {
+	beforeEach(() => {
+		mockedIsBedrockAvailable.mockReturnValue(false);
+	});
+
 	it('がっこうキーワードで学校プリセットを返す', async () => {
 		const result = await suggestChecklist('がっこうのもちもの');
 		expect(result.templateName).toBe('がっこうのもちもの');
 		expect(result.templateIcon).toBe('🏫');
-		expect(result.items.length).toBeGreaterThanOrEqual(5);
+		expect(result.items.length).toBe(8);
 		expect(result.source).toBe('fallback');
 	});
 
@@ -103,9 +113,11 @@ describe('suggestChecklist (fallback)', () => {
 		for (const keyword of presetKeywords) {
 			const result = await suggestChecklist(keyword);
 			for (const item of result.items) {
-				expect(item.name).toBeTruthy();
-				expect(item.icon).toBeTruthy();
-				expect(item.frequency).toBeTruthy();
+				expect(typeof item.name).toBe('string');
+				expect(item.name.length).toBeGreaterThan(0);
+				expect(typeof item.icon).toBe('string');
+				expect(item.icon.length).toBeGreaterThan(0);
+				expect(item.frequency).toBe('daily');
 				expect(item.direction).toMatch(/^(bring|return|both)$/);
 			}
 		}
@@ -120,5 +132,89 @@ describe('suggestChecklist (fallback)', () => {
 		expect(result.items[1]?.icon).toBe('🧻');
 		// 水筒 → 💧
 		expect(result.items[2]?.icon).toBe('💧');
+	});
+});
+
+describe('suggestChecklist (Bedrock)', () => {
+	beforeEach(() => {
+		mockedIsBedrockAvailable.mockReturnValue(true);
+		mockedConverseWithTool.mockReset();
+	});
+
+	it('Bedrock正常レスポンス時にテンプレート名・アイコン・itemsが正しく返る', async () => {
+		mockedConverseWithTool.mockResolvedValue({
+			toolName: 'suggest_checklist',
+			input: {
+				templateName: 'すいえいのもちもの',
+				templateIcon: '🏊',
+				items: [
+					{ name: 'みずぎ', icon: '🩱', frequency: 'daily', direction: 'both' },
+					{ name: 'ぼうし', icon: '🧢', frequency: 'daily', direction: 'both' },
+					{ name: 'タオル', icon: '🏖️', frequency: 'daily', direction: 'both' },
+					{ name: 'ゴーグル', icon: '🥽', frequency: 'daily', direction: 'both' },
+					{ name: 'すいとう', icon: '💧', frequency: 'daily', direction: 'bring' },
+				],
+			},
+		});
+
+		const result = await suggestChecklist('水泳の授業');
+		expect(result.templateName).toBe('すいえいのもちもの');
+		expect(result.templateIcon).toBe('🏊');
+		expect(result.items.length).toBe(5);
+		expect(result.items[0]?.name).toBe('みずぎ');
+		expect(result.items[0]?.icon).toBe('🩱');
+		expect(result.items[0]?.frequency).toBe('daily');
+		expect(result.items[0]?.direction).toBe('both');
+		expect(result.items[4]?.name).toBe('すいとう');
+		expect(result.items[4]?.direction).toBe('bring');
+		expect(result.source).toBe('gemini'); // API 互換性のため 'gemini' を維持
+	});
+
+	it('Bedrock エラー時にフォールバックに切り替わる', async () => {
+		mockedConverseWithTool.mockRejectedValue(new Error('Bedrock API error'));
+
+		const result = await suggestChecklist('がっこうのもちもの');
+		expect(result.templateName).toBe('がっこうのもちもの');
+		expect(result.templateIcon).toBe('🏫');
+		expect(result.source).toBe('fallback');
+	});
+
+	it('Bedrock レスポンスの items が空の場合フォールバックに切り替わる', async () => {
+		mockedConverseWithTool.mockResolvedValue({
+			toolName: 'suggest_checklist',
+			input: {
+				templateName: 'テスト',
+				templateIcon: '📋',
+				items: [],
+			},
+		});
+
+		const result = await suggestChecklist('がっこうのもちもの');
+		// items が空なので Error が throw され、フォールバックへ
+		expect(result.source).toBe('fallback');
+		expect(result.templateName).toBe('がっこうのもちもの');
+	});
+
+	it('isBedrockAvailable が false の場合フォールバックを使う', async () => {
+		mockedIsBedrockAvailable.mockReturnValue(false);
+
+		const result = await suggestChecklist('プールの日');
+		expect(result.templateName).toBe('プールのもちもの');
+		expect(result.source).toBe('fallback');
+		expect(mockedConverseWithTool).not.toHaveBeenCalled();
+	});
+
+	it('Bedrock レスポンスの direction が不正な場合 "both" にフォールバックする', async () => {
+		mockedConverseWithTool.mockResolvedValue({
+			toolName: 'suggest_checklist',
+			input: {
+				templateName: 'テスト',
+				templateIcon: '📋',
+				items: [{ name: 'テスト', icon: '📦', frequency: 'daily', direction: 'invalid' }],
+			},
+		});
+
+		const result = await suggestChecklist('テスト');
+		expect(result.items[0]?.direction).toBe('both');
 	});
 });
