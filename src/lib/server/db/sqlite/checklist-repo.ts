@@ -1,7 +1,7 @@
 // src/lib/server/db/checklist-repo.ts
 // チェックリスト リポジトリ層
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import { db } from '../client';
 import {
 	checklistLogs,
@@ -22,7 +22,12 @@ export async function findTemplatesByChild(
 	const rows = db
 		.select()
 		.from(checklistTemplates)
-		.where(and(eq(checklistTemplates.childId, childId), eq(checklistTemplates.isArchived, 0)))
+		.where(
+			and(
+				eq(checklistTemplates.childId, childId),
+				or(eq(checklistTemplates.isArchived, 0), isNull(checklistTemplates.isArchived)),
+			),
+		)
 		.all();
 	return includeInactive ? rows : rows.filter((r) => r.isActive === 1);
 }
