@@ -105,7 +105,7 @@ test.describe('#790 /demo/admin/license', () => {
 		});
 
 		// 初期プラン表示はフリー
-		await expect(page.getByTestId('demo-current-plan')).toContainText('フリー');
+		await expect(page.getByTestId('demo-current-plan')).toContainText('無料プラン');
 
 		// キーを入力 → 確認ダイアログ → 同意 → 適用
 		await page.getByTestId('demo-license-key-input').fill('GQ-STANDARD-1234');
