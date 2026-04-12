@@ -16,6 +16,10 @@ interface TutorialState {
 	savedChapter: number;
 	/** Saved step index from previous session */
 	savedStepIndex: number;
+	/** #955: クイックモード — 初回はチャプター1のみ表示し、終了後に継続を提案 */
+	quickMode: boolean;
+	/** #955: クイックモード完了（チャプター1終了後の選択画面） */
+	showQuickComplete: boolean;
 }
 
 const state = $state<TutorialState>({
@@ -25,6 +29,8 @@ const state = $state<TutorialState>({
 	showResumePrompt: false,
 	savedChapter: 1,
 	savedStepIndex: 0,
+	quickMode: false,
+	showQuickComplete: false,
 });
 
 // Configurable chapter source (default: parent admin chapters)
@@ -141,7 +147,11 @@ export async function startTutorial(chapter?: number) {
 	}
 
 	const chapterId = chapter ?? 1;
+	// #955: 明示的なチャプター指定なし（初回開始）の場合はクイックモード
+	const isQuickStart = chapter == null;
 	state.showResumePrompt = false;
+	state.showQuickComplete = false;
+	state.quickMode = isQuickStart;
 	state.isActive = true;
 	state.currentChapter = chapterId;
 	state.currentStepIndex = 0;
@@ -151,6 +161,36 @@ export async function startTutorial(chapter?: number) {
 	if (step?.page) {
 		await goto(step.page);
 	}
+}
+
+/** #955: クイック完了画面が表示中か */
+export function isQuickCompleteShown(): boolean {
+	return state.showQuickComplete;
+}
+
+/** #955: クイック完了から全チュートリアルを継続（チャプター2から） */
+export async function continueFullTutorial() {
+	state.showQuickComplete = false;
+	state.quickMode = false;
+	const nextChapter = activeChapters.find((ch) => ch.id === 2);
+	if (nextChapter) {
+		state.currentChapter = nextChapter.id;
+		state.currentStepIndex = 0;
+		saveProgress(nextChapter.id, 0);
+		const step = getCurrentStep();
+		if (step?.page) {
+			await goto(step.page);
+		}
+	} else {
+		await completeTutorial();
+	}
+}
+
+/** #955: クイック完了でチュートリアルを終了 */
+export async function finishQuickTutorial() {
+	state.showQuickComplete = false;
+	state.quickMode = false;
+	await completeTutorial();
 }
 
 /** Resume from saved progress */
@@ -170,6 +210,9 @@ export async function resumeTutorial() {
 export async function startFromBeginning(chapter?: number) {
 	clearSavedProgress();
 	state.showResumePrompt = false;
+	state.showQuickComplete = false;
+	// #955: 明示的なチャプター指定なし（最初から）の場合はクイックモード
+	state.quickMode = chapter == null;
 	state.isActive = true;
 	state.currentChapter = chapter ?? 1;
 	state.currentStepIndex = 0;
@@ -240,6 +283,11 @@ export async function nextStep() {
 		// Move to next chapter
 		const nextChapter = activeChapters.find((ch) => ch.id === state.currentChapter + 1);
 		if (nextChapter) {
+			// #955: クイックモードではチャプター1終了後に選択画面を表示
+			if (state.quickMode && state.currentChapter === 1) {
+				state.showQuickComplete = true;
+				return;
+			}
 			state.currentChapter = nextChapter.id;
 			state.currentStepIndex = 0;
 		} else {
@@ -305,6 +353,8 @@ export function endTutorial() {
 	state.isActive = false;
 	state.currentChapter = 1;
 	state.currentStepIndex = 0;
+	state.quickMode = false;
+	state.showQuickComplete = false;
 }
 
 async function completeTutorial() {
