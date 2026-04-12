@@ -1,10 +1,10 @@
 // tests/unit/components/ai-suggest-panel-plan-gate.test.ts
-// #734: AiSuggestPanel のクライアント側プランゲート
+// #734 → #722: AiSuggestPanel のクライアント側プランゲート
 //
 // テスト観点:
-// - isPremium=false: ロックバッジ・アップセル CTA が表示され、input/button が disabled
-// - isPremium=true: ロック UI が出ない、input/button が enabled
-// - CTA リンク先は /admin/license
+// - isFamily=false: ロックバッジ・アップセル CTA が表示され、input/button が disabled
+// - isFamily=true: ロック UI が出ない、input/button が enabled
+// - CTA リンク先は /pricing（#722 でファミリー限定に変更）
 //
 // 本来 E2E を推すが、AiSuggestPanel の可視状態を検証するだけなら jsdom で十分。
 // props を直接渡せるので free/standard/family 相当を高速に切替確認できる。
@@ -13,17 +13,17 @@ import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import AiSuggestPanel from '../../../src/lib/features/admin/components/AiSuggestPanel.svelte';
 
-describe('AiSuggestPanel プランゲート (#734)', () => {
+describe('AiSuggestPanel プランゲート (#722)', () => {
 	afterEach(() => {
 		cleanup();
 	});
 
 	// ============================================================
-	// isPremium=false（free / non-paid）
+	// isFamily=false（free / standard）
 	// ============================================================
 
-	describe('無料プラン（isPremium=false）', () => {
-		const props = { onaccept: () => {}, isPremium: false };
+	describe('ファミリープラン未加入（isFamily=false）', () => {
+		const props = { onaccept: () => {}, isFamily: false };
 
 		it('パネル本体は描画される（機能の存在を示す）', () => {
 			render(AiSuggestPanel, props);
@@ -32,11 +32,11 @@ describe('AiSuggestPanel プランゲート (#734)', () => {
 			expect(panel.getAttribute('data-plan-locked')).toBe('true');
 		});
 
-		it('ロックバッジ（スタンダード限定）が表示される', () => {
+		it('ロックバッジ（ファミリー限定）が表示される', () => {
 			render(AiSuggestPanel, props);
 			const badge = screen.getByTestId('ai-suggest-locked-badge');
 			expect(badge).toBeDefined();
-			expect(badge.textContent).toContain('スタンダード');
+			expect(badge.textContent).toContain('ファミリー');
 		});
 
 		it('アップセルカードが表示される', () => {
@@ -44,12 +44,12 @@ describe('AiSuggestPanel プランゲート (#734)', () => {
 			expect(screen.getByTestId('ai-suggest-upgrade-card')).toBeDefined();
 		});
 
-		it('「スタンダードで解放する」CTA が /admin/license へ導線する', () => {
+		it('「ファミリープランにアップグレード」CTA が /pricing へ導線する', () => {
 			render(AiSuggestPanel, props);
 			const cta = screen.getByTestId('ai-suggest-upgrade-cta');
 			expect(cta).toBeDefined();
-			expect(cta.getAttribute('href')).toBe('/admin/license');
-			expect(cta.textContent).toContain('スタンダード');
+			expect(cta.getAttribute('href')).toBe('/pricing');
+			expect(cta.textContent).toContain('ファミリープラン');
 		});
 
 		it('入力フィールドが disabled で入力不可', () => {
@@ -68,11 +68,11 @@ describe('AiSuggestPanel プランゲート (#734)', () => {
 	});
 
 	// ============================================================
-	// isPremium=true（standard / family）
+	// isFamily=true（family プラン）
 	// ============================================================
 
-	describe('有料プラン（isPremium=true）', () => {
-		const props = { onaccept: () => {}, isPremium: true };
+	describe('ファミリープラン（isFamily=true）', () => {
+		const props = { onaccept: () => {}, isFamily: true };
 
 		it('パネル本体が描画され data-plan-locked が false', () => {
 			render(AiSuggestPanel, props);
@@ -107,7 +107,7 @@ describe('AiSuggestPanel プランゲート (#734)', () => {
 			render(AiSuggestPanel, props);
 			const btn = document.querySelector<HTMLButtonElement>('button[type="button"]');
 			const input = document.querySelector<HTMLInputElement>('input[type="text"]');
-			// 入力が空なので disabled（!isPremium ではなく !aiInput.trim() が理由）
+			// 入力が空なので disabled（!isFamily ではなく !aiInput.trim() が理由）
 			expect(btn?.disabled).toBe(true);
 
 			// 入力後は enabled になる
@@ -121,11 +121,11 @@ describe('AiSuggestPanel プランゲート (#734)', () => {
 	});
 
 	// ============================================================
-	// デフォルト props（isPremium 省略時は false 扱い）
+	// isFamily 省略時（デフォルト false）
 	// ============================================================
 
-	describe('isPremium 省略時', () => {
-		it('デフォルトは free 扱い（ロック表示）', () => {
+	describe('isFamily 省略時', () => {
+		it('デフォルトは非ファミリー扱い（ロック表示）', () => {
 			render(AiSuggestPanel, { onaccept: () => {} });
 			expect(screen.getByTestId('ai-suggest-panel').getAttribute('data-plan-locked')).toBe('true');
 			expect(screen.getByTestId('ai-suggest-upgrade-cta')).toBeDefined();

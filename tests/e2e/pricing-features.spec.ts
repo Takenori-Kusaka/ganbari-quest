@@ -19,10 +19,9 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		await expect(standardCard).toBeVisible();
 		await expect(standardCard).toContainText('スタンダード');
 
-		// 棚卸しで確定した項目
+		// 棚卸しで確定した項目（#722: AI 提案は family 専用に移動）
 		await expect(standardCard).toContainText('お子さまの登録人数：無制限');
 		await expect(standardCard).toContainText('オリジナル活動の作成：無制限');
-		await expect(standardCard).toContainText('AI による活動提案');
 		await expect(standardCard).toContainText('特別なごほうび設定');
 		await expect(standardCard).toContainText('1年間の履歴保持');
 	});
@@ -33,8 +32,9 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		const familyCard = page.locator('.plan-card', { hasText: 'ファミリー' }).first();
 		await expect(familyCard).toBeVisible();
 
-		// family 固有の差別化項目
+		// family 固有の差別化項目（#722: AI 自動提案を追加）
 		await expect(familyCard).toContainText('スタンダードの全機能');
+		await expect(familyCard).toContainText('AI 自動提案');
 		await expect(familyCard).toContainText('きょうだいランキング');
 		await expect(familyCard).toContainText('ひとことメッセージ');
 		await expect(familyCard).toContainText('無制限の履歴保持');
@@ -56,11 +56,11 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		await expect(standardCard).not.toContainText('アバター変更');
 		await expect(standardCard).not.toContainText('アバター画像');
 
-		// family 側で AI 活動提案は直接掲載しない（「スタンダードの全機能」に内包）
-		const familyText = await familyCard.textContent();
-		// "AI による活動提案" が family カードに直接含まれていないこと
-		// （"スタンダードの全機能" は含まれる）
-		expect(familyText).not.toMatch(/AI による活動提案/);
+		// #722: AI 提案は standard から削除、family 専用に
+		await expect(standardCard).not.toContainText('AI による活動提案');
+		await expect(standardCard).not.toContainText('AI 自動提案');
+		// family には AI 自動提案が直接表示される
+		await expect(familyCard).toContainText('AI 自動提案');
 	});
 
 	test('free カードの内容は変わらない（回帰防止）', async ({ page }) => {
@@ -70,7 +70,7 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		await expect(freeCard).toContainText('オリジナル活動の作成：3個まで');
 		await expect(freeCard).toContainText('90日間の履歴保持');
 		// 有料機能が誤って free に混入していないこと
-		await expect(freeCard).not.toContainText('AI による活動提案');
+		await expect(freeCard).not.toContainText('AI 自動提案');
 		await expect(freeCard).not.toContainText('特別なごほうび');
 	});
 });
