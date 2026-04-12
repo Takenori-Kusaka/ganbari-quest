@@ -67,6 +67,16 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock('$lib/server/services/rate-limit-service', () => ({
+	checkLicenseKeyRateLimit: vi
+		.fn()
+		.mockResolvedValue({ allowed: true, retryAfterSec: 0, message: '' }),
+}));
+
+vi.mock('$lib/server/services/resource-archive-service', () => ({
+	restoreArchivedResources: vi.fn().mockResolvedValue(undefined),
+}));
+
 const { actions } = await import('../../../src/routes/(parent)/admin/license/+page.server');
 
 // ---------- Helpers ----------
@@ -84,8 +94,10 @@ function createRequest(formValues: Record<string, string>): Request {
 function createEvent(role: Role, formValues: Record<string, string>, tenantId = 't-test') {
 	return {
 		request: createRequest(formValues),
+		getClientAddress: () => '127.0.0.1',
 		locals: {
 			context: { tenantId, role },
+			identity: { type: 'local' as const },
 		},
 	} as unknown as Parameters<NonNullable<typeof actions.applyLicenseKey>>[0];
 }

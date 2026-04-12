@@ -1538,7 +1538,21 @@ Push 通知の購読解除。
 | POST | `/api/v1/ops/license-keys` | Ops 手動発行 | Ops ロール |
 | POST | `/api/v1/ops/license-keys/:key/revoke` | Ops 失効 | Ops ロール |
 
-関連エラーコード: `LICENSE_FORMAT_INVALID` / `LICENSE_SIGNATURE_INVALID` / `LICENSE_NOT_FOUND` / `LICENSE_ALREADY_CONSUMED` / `LICENSE_REVOKED` — §4 参照。
+関連エラーコード: `LICENSE_FORMAT_INVALID` / `LICENSE_SIGNATURE_INVALID` / `LICENSE_NOT_FOUND` / `LICENSE_ALREADY_CONSUMED` / `LICENSE_REVOKED` / `RATE_LIMITED` — §4 参照。
+
+#### レート制限 (#813)
+
+ライセンスキーの検証・消費および signup 時のキー適用には、ブルートフォース攻撃防止のための二次元レート制限が適用される。
+
+| 次元 | 上限 | ウィンドウ | 超過時 |
+|------|------|----------|--------|
+| IP アドレス | 10 req/min | 1 分 | HTTP 429 + `Retry-After` ヘッダ |
+| email アドレス | 20 req/hour | 1 時間 | HTTP 429 + `Retry-After` ヘッダ |
+
+- **適用対象**: `/admin/license?/applyLicenseKey`（form action）、`/auth/signup`（signup 時のキー入力）
+- **超過時のレスポンス**: `{ apply: { error: '試行回数が上限を超えました。N秒後にお試しください' } }`
+- **Discord 通知**: レート制限超過時に incident チャネルへ自動通知（10 分間の重複抑制付き）
+- **実装**: `src/lib/server/services/rate-limit-service.ts`
 
 ---
 
@@ -1576,6 +1590,7 @@ Push 通知の購読解除。
 | LICENSE_NOT_FOUND | 404 | ライセンスキーが存在しない |
 | LICENSE_ALREADY_CONSUMED | 409 | ライセンスキー消費済み |
 | LICENSE_REVOKED | 410 | ライセンスキー失効済み |
+| LICENSE_RATE_LIMITED | 429 | ライセンスキー検証/消費のレート制限超過（IP: 10 req/min, email: 20 req/hour） |
 
 ### 4.2 プラン制限エラー (`PLAN_LIMIT_EXCEEDED`) — #744
 
@@ -1756,3 +1771,4 @@ export interface PlanLimitError {
 | 2026-04-12 | 2.13 | #770 トライアル終了検知の cookie 仕様追加。admin layout server load で `trial_was_active` cookie（HttpOnly, Secure, SameSite=Lax, 30日有効）を使い、トライアル active → inactive 遷移を検出。遷移検知後は cookie を削除し、`trialJustExpired` フラグをクライアントに返却 |
 | 2026-04-12 | 2.14 | #722 AI suggest 3 エンドポイントのプランゲートを `standard` → `family` 限定に変更。`createFromAi` form action も `tier !== 'family'` ガードに統一。デモ版 3 画面に AI 提案パネルを追加 |
 | 2026-04-13 | 2.15 | #839 アプリ内フィードバック送信 API (`POST /api/v1/feedback`) 追加。種別（opinion/bug/feature/other）+ テキスト（1000文字以内）+ スクリーンショット（dataURL, 最大 2MB, 任意）を受け取り Discord webhook (inquiry チャネル) に転送。レート制限: 1テナント/5分1件（インメモリ Map、TTL 自動クリーンアップ付き） |
+| 2026-04-13 | 2.16 | #813 ライセンスキー validate/consume API レート制限仕様追加。§3.X にレート制限表（IP: 10 req/min, email: 20 req/hour）、§4 に `LICENSE_RATE_LIMITED` (429) エラーコード追加 |
