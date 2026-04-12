@@ -39,14 +39,9 @@ const modeLabels: Record<string, string> = {
 
 // #703: カードカラーは child.theme（個別画面のテーマカラー）と一致させる。
 // uiMode ベースだと「ピンクテーマのはなこが green カードで表示」のような不整合が起きる。
-// Tailwind の各 400/300 は app.css の [data-theme="..."] --theme-400/--theme-300 に近似。
-const themeColors: Record<string, string> = {
-	pink: 'from-pink-400 to-pink-300',
-	blue: 'from-sky-400 to-cyan-300',
-	green: 'from-green-400 to-emerald-300',
-	orange: 'from-orange-400 to-amber-300',
-	purple: 'from-purple-400 to-violet-300',
-};
+// 個別画面と完全一致させるため `data-theme={child.theme}` を付与し、
+// app.css の [data-theme="..."] で定義された --theme-300/--theme-400 を利用する。
+// （Tailwind の named color を routes/ で使うとデザイントークンルール違反になるため）
 </script>
 
 <div class="min-h-dvh bg-gradient-to-b from-amber-50 to-orange-50">
@@ -95,10 +90,11 @@ const themeColors: Record<string, string> = {
 				{#each data.children as child}
 					{@const mode = child.uiMode ?? 'preschool'}
 					{@const label = modeLabels[mode] ?? mode}
-					{@const colorClass = themeColors[child.theme ?? ''] ?? 'from-gray-400 to-gray-300'}
+					{@const theme = child.theme ?? 'admin'}
 					<a
 						href="/demo/{mode}/home?childId={child.id}"
-						class="block rounded-xl p-4 bg-gradient-to-br {colorClass} text-white shadow-sm hover:shadow-md transition-shadow"
+						data-theme={theme}
+						class="block rounded-xl p-4 bg-gradient-to-br from-[var(--theme-400)] to-[var(--theme-300)] text-white shadow-sm hover:shadow-md transition-shadow"
 					>
 						<!--
 							#703: 全員「人物の顔」スタイルで統一する。
