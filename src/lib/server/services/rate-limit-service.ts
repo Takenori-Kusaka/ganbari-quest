@@ -1,6 +1,16 @@
 // src/lib/server/services/rate-limit-service.ts
 // #813: ライセンスキー validate / consume API のレート制限
 //
+// NOTE: 本モジュールは `src/lib/server/security/rate-limiter.ts` (汎用レートリミッター)
+// とは意図的に分離している。汎用版は IP 単位のシンプルなスライディングウィンドウカウンタ
+// であり、hooks.server.ts で全 API / 認証ルートに一律適用される。
+// 本サービスは以下のドメイン固有要件を追加するために独立実装:
+//   1. 二次元レート制限 — IP と email を同時にチェックし、片方でも超過すればブロック
+//   2. Discord incident 通知 — 超過検知時に discord-notify-service 経由でアラート送信（重複抑制付き）
+//   3. ライセンスキー固有のビジネスロジック — signup / license-apply のアクション区別、
+//      ユーザー向けメッセージ生成、retryAfterSec の算出
+// 汎用 rate-limiter.ts を拡張するよりも、責務の明確な分離を優先した。
+//
 // インメモリの Map ベースで IP 単位・email 単位のレート制限を行う。
 // Lambda 環境ではインスタンスごとに Map が独立するが、ブルートフォース攻撃は
 // 同一インスタンスに集中する傾向が高いため、実用上十分な防御となる。
@@ -96,7 +106,10 @@ export interface RateLimitResult {
  * ライセンスキー検証のレート制限チェック。
  * IP と email の両方をチェックし、どち��か一方でも超過したらブロック。
  *
- * @param ip - クライアント IP アドレス
+ * @param ip - クライアント IP アドレス（SvelteKit `getClientAddress()` 経由）。
+ *   AWS Lambda デプロイでは CloudFront → ALB → Lambda の経路で X-Forwarded-For が
+ *   インフラ側でセットされるため、IP の信頼性はデプロイ構成に依存する。
+ *   ローカル (NUC) 環境では LAN 内 IP となるため、レート制限の実効性は限定的。
  * @param email - ユーザーのメールアドレス（未認証の場合は空文字可）
  * @param action - アクション名（ログ用: 'signup' | 'license-apply'）
  */
