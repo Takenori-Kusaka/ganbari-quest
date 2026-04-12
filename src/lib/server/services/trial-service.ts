@@ -76,9 +76,10 @@ async function computeTrialStatus(tenantId: string): Promise<TrialStatus> {
 				source: 'admin_grant',
 			};
 		}
+		// #783: expired は trialUsed=true、not-started は trialUsed=false
 		return {
 			isTrialActive: false,
-			trialUsed: false,
+			trialUsed: debugOverride.trialUsed,
 			trialStartDate: null,
 			trialEndDate: null,
 			trialTier: null,

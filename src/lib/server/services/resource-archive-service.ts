@@ -17,7 +17,7 @@ import {
 	findArchivedChildren,
 	restoreArchivedChildren,
 } from '$lib/server/db/child-repo';
-import { getPlanLimits, type PlanTier } from './plan-limit-service';
+import { getPlanLimits } from './plan-limit-service';
 
 const ARCHIVE_REASON = 'trial_expired';
 
