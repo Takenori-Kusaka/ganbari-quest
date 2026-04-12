@@ -284,6 +284,43 @@ Dockerfile.lambda        # Lambda Web Adapter用
 └── release.yml          # リリースノートカテゴリ設定
 ```
 
+## 7.1 AI推論基盤（AWS Bedrock）(#721)
+
+### モデル選定
+
+| 項目 | 内容 |
+|------|------|
+| サービス | Amazon Bedrock (Converse API) |
+| モデル | Claude Haiku 4.5 (`us.anthropic.claude-haiku-4-5-20251001-v1:0`) |
+| 推論方式 | Cross-region inference profile |
+| 構造化出力 | tool_use (function calling) でJSONスキーマ準拠の出力を保証 |
+| 認証 | Lambda 実行ロールの IAM ポリシーで `bedrock:InvokeModel` を許可 |
+
+### モデル選定理由
+
+1. **EoLリスク低減**: Gemini のモデルIDは頻繁にEoLとなり追従が運用負荷。Bedrock はマネージドサービスとしてモデルバージョン管理が安定
+2. **インフラ統一**: Lambda + DynamoDB + Cognito + S3 の AWS 構成に Bedrock を追加することで、IAM ベースの認証に統一。API キー管理（SSM 等）が不要に
+3. **構造化出力の信頼性**: Claude の tool_use で JSON スキーマを定義し、確実に構造化された出力を取得。`extractJson()` のような手動パースが不要
+4. **コスト**: 活動提案・レシートOCR は高度な推論不要。Haiku は最安クラスで、tool_use によりリトライ不要（実効コスト同等以下）
+
+### 使用箇所
+
+| サービス | 用途 | Bedrock 機能 |
+|---------|------|------------|
+| `activity-suggest-service.ts` | 活動名→カテゴリ・アイコン推定 | テキスト + tool_use |
+| `receipt-ocr-service.ts` | レシート画像→金額抽出 | 画像入力 + tool_use |
+| `image-service.ts` | 画像生成 | **Gemini 維持**（Bedrock に画像生成なし） |
+
+### 環境変数
+
+| 変数 | デフォルト | 説明 |
+|------|----------|------|
+| `BEDROCK_MODEL_ID` | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | 使用モデルID |
+| `BEDROCK_REGION` | `AWS_REGION` or `us-east-1` | Bedrock リージョン |
+| `BEDROCK_DISABLED` | (未設定) | `true` でBedrock無効化（フォールバック使用） |
+
+---
+
 ## 8. 完了済み移行
 
 ### Phase 1: インフラ構築 ✅
@@ -316,3 +353,4 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 2026-03-27 | 障害対応基盤追加（CloudFrontエラーページ・Health通知・メンテナンスモード） |
 | 2026-03-27 | デプロイパイプライン改善（タグトリガー・ヘルスチェック強化・ロールバック・Release/通知・Dependabot） |
 | 2026-03-27 | GitHub Pages LP デプロイワークフロー追加 |
+| 2026-04-12 | #721 AI推論基盤（AWS Bedrock）セクション追加。モデル選定理由・使用箇所・環境変数を記載 |
