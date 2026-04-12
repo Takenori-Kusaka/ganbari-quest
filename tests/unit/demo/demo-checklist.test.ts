@@ -7,8 +7,9 @@
 import { describe, expect, it } from 'vitest';
 import { getDemoTodayChecklistsForChild } from '../../../src/lib/server/demo/demo-service';
 
-// デモ子供 ID: 901(baby), 902(preschool), 903(elementary低), 904(junior), 905(elementary高), 906(senior)
-const DEMO_CHILD_IDS = [901, 902, 903, 904, 905, 906];
+// #703: 5 人構成
+// 901(baby たろう), 902(preschool はなこ), 903(elementary けんた), 904(junior さくら), 906(senior ゆうき)
+const DEMO_CHILD_IDS = [901, 902, 903, 904, 906];
 
 describe('getDemoTodayChecklistsForChild (#704)', () => {
 	for (const childId of DEMO_CHILD_IDS) {
