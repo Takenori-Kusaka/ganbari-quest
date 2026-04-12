@@ -182,17 +182,43 @@ jobs:
       - name: Forbidden terms check (includes site/)
         run: node scripts/check-forbidden-terms.mjs
 
+  # ADR-0029 / #914: 新規必須 env / secret 追加チェック
+  # PR diff から `assert*Configured()` / `throw new Error('...required...')` 等を検出し、
+  # PR 本文に「配布済み: <ENV>」証跡が無い場合は CI を red にする。
+  # Pre-PMF 1 人体制で Assertion Erosion (#911 のような assertion 追加 → 配布忘れ →
+  # 連続デプロイ失敗) を機械的に止めるためのゲート。
+  new-env-distribution-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Fetch base ref
+        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+
+      - name: Check new required env / secret distribution evidence (ADR-0029)
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/check-new-required-env.mjs
+
   # Gate job: always runs and reports overall CI status.
   # Required by branch ruleset instead of individual jobs,
   # so skipped jobs (via path filter) don't block merges.
   ci-gate:
     if: always()
-    needs: [changes, lint-and-test, e2e-test, docker-build, site-check]
+    needs: [changes, lint-and-test, e2e-test, docker-build, site-check, new-env-distribution-check]
     runs-on: ubuntu-latest
     steps:
       - name: Check CI results
         run: |
-          results=("${{ needs.changes.result }}" "${{ needs.lint-and-test.result }}" "${{ needs.e2e-test.result }}" "${{ needs.docker-build.result }}" "${{ needs.site-check.result }}")
+          results=("${{ needs.changes.result }}" "${{ needs.lint-and-test.result }}" "${{ needs.e2e-test.result }}" "${{ needs.docker-build.result }}" "${{ needs.site-check.result }}" "${{ needs.new-env-distribution-check.result }}")
           for r in "${results[@]}"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
               echo "CI failed: $r"

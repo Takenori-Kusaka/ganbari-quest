@@ -259,6 +259,32 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] 5年齢モード全てで実機検証しスクリーンショット添付済み（該当する場合）
 - [ ] **N/A** — Critical 修正ではない
 
+## 新規 env / secret 追加チェック（ADR-0029 / #914）
+
+<!-- 本 PR で `assert*Configured()` / `throw new Error('XXX is required')` /
+     `process.env.XXX || (() => { throw ... })()` のような production guard を新規追加した場合のみ記入。
+     `scripts/check-new-required-env.mjs` が CI で同じ検出を行う。 -->
+
+- [ ] **N/A** — 新規 env / secret の追加なし
+
+<!-- 新規 env / secret を追加した場合、以下を全て埋めること。
+     CI の new-env-distribution-check が「配布済み: <ENV>」行を検出できないと red になる -->
+
+### 配布済み env / secret (ADR-0029)
+
+<!-- 例:
+- 配布済み: AWS_LICENSE_SECRET → GitHub Actions Secrets (deploy.yml, deploy-nuc.yml)
+- 配布済み: AWS_LICENSE_SECRET → SSM Parameter Store /ganbari-quest/prod/aws_license_secret
+- 配布済み: AWS_LICENSE_SECRET → NUC .env (本機 + バックアップ機)
+-->
+
+- [ ] GitHub Actions Secrets に登録済み（deploy.yml / deploy-nuc.yml が参照する場合）
+- [ ] SSM Parameter Store に登録済み（Lambda 本番が参照する場合）
+- [ ] NUC `.env` に登録済み（本機 + バックアップ機の両方）
+- [ ] ADR-0029 の禁止 5 項目（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / .skip 等）に該当しないことを確認した
+
+詳細: [docs/decisions/0029-safety-assertion-erosion-ban.md](../docs/decisions/0029-safety-assertion-erosion-ban.md)
+
 ## デプロイ検証（#710 — マージ後必須）
 
 <!-- PRがmainにマージされた後、以下を確認すること。確認前にIssueをcloseしない -->
