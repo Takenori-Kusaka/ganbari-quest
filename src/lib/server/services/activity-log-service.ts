@@ -26,6 +26,7 @@ import {
 	insertPointLedger,
 	markActivityLogCancelled,
 } from '$lib/server/db/activity-repo';
+import { trackActivationFirstActivityCompleted } from '$lib/server/services/analytics-service';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
@@ -167,6 +168,14 @@ export async function recordActivity(
 		},
 		tenantId,
 	);
+
+	// #831: Activation Funnel Step 3 — テナント初の活動記録
+	// この子供のアクティブログが 1 件（今挿入した分のみ）なら初回候補としてトラック。
+	// テナント全体の初回判定は集計層で行う。
+	const activeCount = await countActiveActivityLogs(childId, tenantId);
+	if (activeCount === 1) {
+		trackActivationFirstActivityCompleted(tenantId, childId, activityId);
+	}
 
 	// 習熟度更新（count+1 → レベル再計算）
 	const newCount = (mastery?.totalCount ?? 0) + 1;

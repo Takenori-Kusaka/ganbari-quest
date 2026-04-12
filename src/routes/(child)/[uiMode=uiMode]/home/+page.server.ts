@@ -13,6 +13,7 @@ import {
 	toggleActivityPin,
 } from '$lib/server/services/activity-pin-service';
 import { getActivities } from '$lib/server/services/activity-service';
+import { trackActivationFirstRewardSeen } from '$lib/server/services/analytics-service';
 import {
 	claimBirthdayBonus,
 	getBirthdayBonusStatus,
@@ -229,6 +230,12 @@ export const actions: Actions = {
 			return fail(404, { error: 'みつかりません' });
 		}
 
+		// #831: Activation Funnel Step 4 — 報酬演出（レベルアップ時）
+		// NOTE: 初回判定は集計層で dedup（Step 2/3 とは異なるアプローチ）
+		if (result.levelUp) {
+			trackActivationFirstRewardSeen(tenantId, 'level_up');
+		}
+
 		return {
 			success: true,
 			logId: result.id,
@@ -327,6 +334,12 @@ export const actions: Actions = {
 			weeklyRedeem = null;
 		}
 
+		// #831: Activation Funnel Step 4 — 報酬演出（スタンプ押印成功時）
+		// NOTE: 初回判定は集計層で dedup（Step 2/3 とは異なるアプローチ）
+		if (stamp) {
+			trackActivationFirstRewardSeen(tenantId, 'stamp');
+		}
+
 		return {
 			success: true,
 			loginStamp: true,
@@ -372,6 +385,10 @@ export const actions: Actions = {
 			if (result.error === 'CARD_FULL') return fail(409, { error: 'カードがいっぱいだよ' });
 			return fail(400, { error: 'スタンプをおせませんでした' });
 		}
+
+		// #831: Activation Funnel Step 4 — 報酬演出（スタンプ押印成功時）
+		// NOTE: 初回判定は集計層で dedup（Step 2/3 とは異なるアプローチ）
+		trackActivationFirstRewardSeen(tenantId, 'stamp');
 
 		return {
 			success: true,
