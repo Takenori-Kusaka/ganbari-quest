@@ -124,10 +124,10 @@
 
 - **HMAC 必須化** — `AWS_LICENSE_SECRET` 未設定時は起動失敗
 - **Legacy format** — 既存キーのみ読み取り専用、新規発行は全て署名付き
-- **レート制限** — validate/consume は IP + キー prefix で 10 req/min
+- **レート制限** — validate/consume は IP: 10 req/min + email: 20 req/hour（二次元制限、Discord 通知付き）
 - **警告ダイアログ** — 適用前に「一回限り使用」を明示、確認チェック必須
 - **owner 制約** — 子供アカウントでは UI 自体を表示しない
-- **ブルートフォース対策** — 同一 IP の consume_failed が 5 回/時を超えたら一時ブロック
+- **ブルートフォース対策** — IP: 10 req/min, email: 20 req/hour 超過で一時ブロック + Discord incident 通知
 
 ### 2.8 決済連携
 
@@ -250,7 +250,7 @@ US-10: 開発者として、license key の E2E テストを実行したい
 | **パフォーマンス** | 同時発行 1,000 件/回 を 10 秒以内 | Ops バルク発行時の計測 |
 | **可用性** | license API の月間稼働率 99.9% | CloudWatch SLO アラーム |
 | **セキュリティ** | HMAC 必須、未設定時は起動失敗 | `license-key-service.ts` の初期化で検証 |
-| **セキュリティ** | validate/consume のレート制限 10 req/min | DynamoDB TTL ベースのカウンタ |
+| **セキュリティ** | validate/consume のレート制限 IP: 10 req/min, email: 20 req/hour | インメモリ Map ベース (`rate-limit-service.ts`) |
 | **監査性** | 全イベントログ保持 2 年、validate ログ 90 日 | DynamoDB TTL |
 | **鍵ローテーション** | grace period 30 日（旧鍵有効期間） | AWS Secrets Manager + keyVersion |
 | **運用** | /ops で CSV エクスポート可能 | API Gateway + S3 pre-signed URL |
