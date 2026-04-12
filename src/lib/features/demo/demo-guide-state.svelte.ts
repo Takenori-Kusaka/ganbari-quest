@@ -57,6 +57,13 @@ export const GUIDE_STEPS: GuideStep[] = [
 	},
 	{
 		id: 6,
+		title: 'プラン・お支払いを みよう',
+		description: 'ライセンスキーの 適用を たいけんしてみましょう',
+		matchPath: '/demo/admin/license',
+		href: '/demo/admin/license',
+	},
+	{
+		id: 7,
 		title: 'いかがでしたか？',
 		description: 'お子さまの ぼうけん、はじめませんか？',
 		matchPath: '/demo/signup',
