@@ -11,13 +11,7 @@ let agreedTerms = $state(false);
 let agreedPrivacy = $state(false);
 let loading = $state(false);
 
-// #708: 規約リンク閲覧追跡（signup画面 #588 と同等パターン）
-let termsViewed = $state(false);
-let privacyViewed = $state(false);
-let termsHintShown = $state(false);
-let privacyHintShown = $state(false);
-
-// #708: 送信可能かの判定（ユーザーに明確なフィードバックを出すため derived で算出）
+// 送信可能かの判定（ユーザーに明確なフィードバックを出すため derived で算出）
 const needsTerms = $derived(!data.termsAccepted);
 const needsPrivacy = $derived(!data.privacyAccepted);
 const canSubmit = $derived(
@@ -25,8 +19,6 @@ const canSubmit = $derived(
 );
 const submitBlockReason = $derived.by(() => {
 	if (loading) return '';
-	if (needsTerms && !termsViewed) return '利用規約をお読みください';
-	if (needsPrivacy && !privacyViewed) return 'プライバシーポリシーをお読みください';
 	if (needsTerms && !agreedTerms) return '利用規約への同意が必要です';
 	if (needsPrivacy && !agreedPrivacy) return 'プライバシーポリシーへの同意が必要です';
 	return '';
@@ -93,29 +85,19 @@ const submitBlockReason = $derived.by(() => {
 							target="_blank"
 							rel="noopener"
 							class="text-sm text-[var(--color-text-link)] inline-block mb-3"
-							onclick={() => { termsViewed = true; termsHintShown = false; }}
 						>利用規約を確認する ↗</a>
 						<FormField label="">
 							{#snippet children()}
-								<label class="flex items-start gap-2 {termsViewed ? 'cursor-pointer' : 'cursor-default'} text-sm text-[var(--color-text-primary)]">
+								<label class="flex items-start gap-2 cursor-pointer text-sm text-[var(--color-text-primary)]">
 									<input
 										type="checkbox"
 										name="agreedTerms"
 										bind:checked={agreedTerms}
 										data-testid="consent-terms-checkbox"
-										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)] {!termsViewed ? 'opacity-40' : ''}"
-										onclick={(e) => {
-											if (!termsViewed) {
-												e.preventDefault();
-												termsHintShown = true;
-											}
-										}}
+										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)]"
 									/>
 									<span>
 										利用規約に同意します
-										{#if termsHintShown && !termsViewed}
-											<span class="block text-xs text-[var(--color-feedback-warning-text)] mt-0.5">先に利用規約をお読みください</span>
-										{/if}
 									</span>
 								</label>
 							{/snippet}
@@ -134,29 +116,19 @@ const submitBlockReason = $derived.by(() => {
 							target="_blank"
 							rel="noopener"
 							class="text-sm text-[var(--color-text-link)] inline-block mb-3"
-							onclick={() => { privacyViewed = true; privacyHintShown = false; }}
 						>プライバシーポリシーを確認する ↗</a>
 						<FormField label="">
 							{#snippet children()}
-								<label class="flex items-start gap-2 {privacyViewed ? 'cursor-pointer' : 'cursor-default'} text-sm text-[var(--color-text-primary)]">
+								<label class="flex items-start gap-2 cursor-pointer text-sm text-[var(--color-text-primary)]">
 									<input
 										type="checkbox"
 										name="agreedPrivacy"
 										bind:checked={agreedPrivacy}
 										data-testid="consent-privacy-checkbox"
-										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)] {!privacyViewed ? 'opacity-40' : ''}"
-										onclick={(e) => {
-											if (!privacyViewed) {
-												e.preventDefault();
-												privacyHintShown = true;
-											}
-										}}
+										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)]"
 									/>
 									<span>
 										プライバシーポリシーに同意します
-										{#if privacyHintShown && !privacyViewed}
-											<span class="block text-xs text-[var(--color-feedback-warning-text)] mt-0.5">先にプライバシーポリシーをお読みください</span>
-										{/if}
 									</span>
 								</label>
 							{/snippet}
