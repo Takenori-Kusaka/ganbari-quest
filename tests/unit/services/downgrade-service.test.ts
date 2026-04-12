@@ -156,7 +156,7 @@ describe('downgrade-service', () => {
 
 			expect(preview.hasExcess).toBe(true);
 			expect(preview.checklistTemplates.excessByChild).toHaveLength(1);
-			expect(preview.checklistTemplates.excessByChild[0].excess).toBe(1);
+			expect(preview.checklistTemplates.excessByChild[0]?.excess).toBe(1);
 		});
 
 		it('履歴保持期間の短縮を検出する（family→free: 無制限→90日）', async () => {
