@@ -16,6 +16,7 @@ import { logger } from '$lib/server/logger';
 import { recordConsent } from '$lib/server/services/consent-service';
 import { notifyNewSignup } from '$lib/server/services/discord-notify-service';
 import { consumeLicenseKey, validateLicenseKey } from '$lib/server/services/license-key-service';
+import { checkLicenseKeyRateLimit } from '$lib/server/services/rate-limit-service';
 import { startTrial, type TrialTier } from '$lib/server/services/trial-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -48,7 +49,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	signup: async ({ request, locals }) => {
+	signup: async ({ request, locals, getClientAddress }) => {
 		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
@@ -94,6 +95,20 @@ export const actions: Actions = {
 				licenseKey: licenseKeyInput,
 				plan: planInput,
 			});
+		}
+
+		// #813: ライセンスキー検証のレート制限（キー入力がある場合のみ）
+		if (licenseKeyInput) {
+			const ip = getClientAddress();
+			const rateCheck = await checkLicenseKeyRateLimit(ip, email, 'signup');
+			if (!rateCheck.allowed) {
+				return fail(429, {
+					error: rateCheck.message,
+					email,
+					licenseKey: licenseKeyInput,
+					plan: planInput,
+				});
+			}
 		}
 
 		// ライセンスキーが入力されている場合は事前検証
