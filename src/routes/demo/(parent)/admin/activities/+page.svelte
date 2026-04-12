@@ -5,6 +5,7 @@ import {
 	getActivityDisplayNameForAdult,
 	getCategoryById,
 } from '$lib/domain/validation/activity';
+import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
@@ -72,6 +73,9 @@ function dailyLimitLabel(val: number | null): string {
 			</Button>
 		</div>
 	</div>
+
+	<!-- AI Suggest Panel (demo: always family) -->
+	<AiSuggestPanel onaccept={() => {}} isFamily={true} />
 
 	<!-- Search (matches production) -->
 	<FormField label="活動を検索" type="search" placeholder="🔍 活動を検索..." bind:value={searchQuery} />

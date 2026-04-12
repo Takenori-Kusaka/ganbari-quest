@@ -1,4 +1,5 @@
 <script lang="ts">
+import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
@@ -42,6 +43,9 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 	</div>
 
 	{#if selectedChild}
+		<!-- AI Suggest Checklist Panel (demo: always family) -->
+		<AiSuggestChecklistPanel onaccept={() => {}} isFamily={true} />
+
 		<!-- テンプレート追加ボタン (disabled) -->
 		<div class="flex justify-end">
 			<Button
