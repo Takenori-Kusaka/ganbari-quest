@@ -54,6 +54,41 @@ describe('setup-service', () => {
 			expect(result).toBe(false);
 		});
 
+		it('archived が複数件存在する場合も false（セットアップ済みとみなす）', async () => {
+			// #965: 全員が archived になっても「セットアップは完了している」状態として扱う。
+			// trial_expired による自動 archive → 初回 /setup へのリダイレクトは発生させない。
+			mockGetAllChildren.mockResolvedValue([]);
+			mockGetArchivedChildren.mockResolvedValue([
+				{
+					id: 10,
+					nickname: 'trial_expired 子供1',
+					tenantId: 'tenant-1',
+					isArchived: 1,
+					archivedReason: 'trial_expired',
+				},
+				{
+					id: 11,
+					nickname: 'trial_expired 子供2',
+					tenantId: 'tenant-1',
+					isArchived: 1,
+					archivedReason: 'trial_expired',
+				},
+				{
+					id: 12,
+					nickname: '手動アーカイブ',
+					tenantId: 'tenant-1',
+					isArchived: 1,
+					archivedReason: 'manual',
+				},
+			]);
+
+			const result = await isSetupRequired('tenant-1');
+
+			expect(result).toBe(false);
+			expect(mockGetAllChildren).toHaveBeenCalledTimes(1);
+			expect(mockGetArchivedChildren).toHaveBeenCalledTimes(1);
+		});
+
 		it('子供が複数人いる場合 false を返す', async () => {
 			mockGetAllChildren.mockResolvedValue([
 				{ id: 1, nickname: 'テスト太郎', tenantId: 'tenant-1' },
