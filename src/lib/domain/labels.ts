@@ -154,6 +154,24 @@ export function getPlanShortLabel(tier: string): string {
 }
 
 // ============================================================
+// ライセンスプラン名（課金プラン別）
+// ============================================================
+
+/** 課金プラン値→表示ラベル。LICENSE_PLAN 定数のキーに対応 */
+export const LICENSE_PLAN_LABELS: Record<string, string> = {
+	monthly: 'スタンダード月額',
+	yearly: 'スタンダード年額',
+	'family-monthly': 'ファミリー月額',
+	'family-yearly': 'ファミリー年額',
+	lifetime: '永久ライセンス',
+} as const;
+
+/** ライセンスプランの表示ラベルを取得 */
+export function getLicensePlanLabel(plan: string): string {
+	return LICENSE_PLAN_LABELS[plan] ?? 'スタンダード月額';
+}
+
+// ============================================================
 // テーマカラー
 // ============================================================
 

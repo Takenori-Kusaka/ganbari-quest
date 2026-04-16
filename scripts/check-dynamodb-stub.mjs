@@ -55,11 +55,6 @@ const GRANDFATHERED_STUBS = new Map([
 	['evaluation-repo.ts', 1014], // rest days 機能: follow-up Issue #1014
 	['message-repo.ts', 1015], // parent messages 機能: follow-up Issue #1015
 	['trial-history-repo.ts', 1016], // trial history 機能: follow-up Issue #1016
-	// 注: ops-audit-log-repo.ts は ADR-0034 により機能ごと撤回（#1020 で削除）。
-	// #1020 merge 完了と同時に以下エントリも削除すること。
-	['ops-audit-log-repo.ts', 1020],
-	// 注: license-event-repo.ts は #1003 (license_events) 由来。ADR-0034 により #1020 で削除予定。
-	['license-event-repo.ts', 1020],
 ]);
 
 /**
