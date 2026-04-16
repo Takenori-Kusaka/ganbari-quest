@@ -31,6 +31,7 @@
 | 場所 | 内容 | 技術 |
 |------|------|------|
 | `src/lib/domain/labels.ts` | アプリの用語辞書（Single Source of Truth） | TypeScript |
+| `src/lib/domain/validation/age-tier-types.ts` | UiMode 型・LEGACY_UI_MODE_MAP・normalizeUiMode（#980: labels.ts / age-tier.ts 共通基盤） | TypeScript |
 | `site/index.html` | LP トップページの用語直書き | 静的 HTML |
 | `site/pamphlet.html` | パンフレットページの用語直書き | 静的 HTML |
 | `site/shared-labels.js` | LP 共通用語ラッパ（2026-04-07 新設、#561） | JavaScript |
