@@ -20,6 +20,8 @@ production に新しい env を追加した場合は以下 **4 経路すべて**
 | `STRIPE_SECRET_KEY` | Stripe 課金 | 未設定可 | 未設定可 | 本番値必須 | （NUC は Stripe 無効） | Stripe Dashboard |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook 検証 | 未設定可 | 未設定可 | 本番値必須 | （NUC は Stripe 無効） | Stripe Dashboard |
 | `GEMINI_API_KEY` | Gemini API (任意) | 未設定可 | 未設定可 | 任意 | 任意 | https://aistudio.google.com/ |
+| `CRON_SECRET` | `/api/cron/retention-cleanup` Bearer（#820 / ADR-0033） | 未設定可 | 未設定可 | **本番値必須** | （NUC は cron 無効） | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `OPS_SECRET_KEY` | (deprecated) `CRON_SECRET` 後方互換フォールバック（ADR-0033、PR-D-2 で削除予定） | 未設定可 | 未設定可 | 任意（新規は `CRON_SECRET` 推奨） | （NUC は無効） | 既存値を維持 |
 
 > **重要**: #3 と #4 は **同一値** を使うこと（両環境で署名したライセンスキーが相互に検証できるように）。GitHub Secrets に登録した同一値が、CDK context 経由で Lambda env に注入されると同時に、self-hosted runner 経由で NUC の `.env` にも書き出される。
 
