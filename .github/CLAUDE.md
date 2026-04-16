@@ -16,6 +16,24 @@
 - Draft PR はマージできない（GitHub ルールセットで保護）
 - Dependabot PR は自動的に non-draft で作成されるため、従来通りレビュー → auto-merge
 
+## レビュー必須化（#964 / Postmortem #962）
+
+PR は **APPROVED レビュー 1 件以上なしではマージ禁止**。GitHub Branch Ruleset の
+`required_approving_review_count=1` で強制。
+
+- Copilot の自動レビュー (`COMMENTED`) は APPROVED にならない → 別途明示的な APPROVE が必要
+- PO 1 人体制のため、Claude Code Quality Manager / 他 AI レビュアの APPROVED を APPROVED として運用
+- 緊急修正 (`priority:critical`) は admin bypass (`RepositoryRole=Admin`) で許容、ただし PR 本文に bypass 理由を必ず記載
+- 500 行超えの PR は `pr-size-check.yml` が自動警告コメントを投稿する (分割・スコープ明記を検討)
+
+### Ruleset 変更コマンド (管理者のみ)
+```bash
+# required_approving_review_count を 1 に設定
+gh api --method PUT repos/:owner/:repo/rulesets/<ruleset-id> \
+  --input <patch.json>
+```
+詳細: Issue #964, Postmortem #962
+
 ### コマンド例
 ```bash
 gh issue create --title "feat: 機能名" --label "type:feat,priority:medium"
