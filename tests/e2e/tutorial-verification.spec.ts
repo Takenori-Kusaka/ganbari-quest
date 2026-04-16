@@ -153,6 +153,14 @@ test.describe('チュートリアル全ステップ検証', () => {
 				await nextBtn.click();
 				// ページ遷移の可能性があるのでバブルが再表示されるまで待機
 				await page.waitForTimeout(800);
+
+				// #955: クイック完了ダイアログが表示された場合は「もっと詳しく見る」で継続
+				const continueBtn = page.locator('button:has-text("もっと詳しく見る")');
+				if (await continueBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+					console.log(`  → クイック完了ダイアログ: 「もっと詳しく見る」で全ステップ継続`);
+					await continueBtn.click();
+					await page.waitForTimeout(800);
+				}
 			} else {
 				console.log(`[End] 次へボタンが見つからない (step ${stepNum})`);
 				break;
@@ -253,6 +261,14 @@ test.describe('チュートリアル全ステップ検証', () => {
 				}
 				await nextBtn.click();
 				await page.waitForTimeout(800);
+
+				// #955: クイック完了ダイアログが表示された場合は「もっと詳しく見る」で継続
+				const continueBtn = page.locator('button:has-text("もっと詳しく見る")');
+				if (await continueBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+					console.log(`  → クイック完了ダイアログ: 「もっと詳しく見る」で全ステップ継続`);
+					await continueBtn.click();
+					await page.waitForTimeout(800);
+				}
 			} else {
 				break;
 			}
