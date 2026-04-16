@@ -70,8 +70,6 @@
 			"!**/test-results.json",
 			"!**/playwright-report",
 			"!**/*.db",
-			"!**/scripts",
-			"!**/infra",
 			"!**/site",
 			"!**/cdk.out",
 			"!**/storybook-static",

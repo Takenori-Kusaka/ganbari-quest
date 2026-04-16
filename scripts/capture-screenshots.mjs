@@ -1,12 +1,13 @@
 #!/usr/bin/env node
+
 // scripts/capture-screenshots.mjs
 // Playwright でアプリのスクリーンショットを撮影（マーケティング素材用）
 // 使用法: node scripts/capture-screenshots.mjs
 // 前提: npm run dev でローカルサーバーが起動していること
 
-import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
+import { chromium } from 'playwright';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const OUTPUT_DIR = path.resolve('static/assets/marketing/screenshots');

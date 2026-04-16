@@ -1,10 +1,11 @@
 #!/usr/bin/env node
+
 // scripts/regenerate-all-stamps.mjs
 // 全6スタンプ: Gemini Pro テキストなし生成 → flood-fill透過 → トリム → SVGテキスト個別配置
 
-import { GoogleGenAI } from '@google/genai';
 import fs from 'node:fs';
 import path from 'node:path';
+import { GoogleGenAI } from '@google/genai';
 import sharp from 'sharp';
 
 const API_KEY = process.env.GEMINI_API_KEY;
@@ -54,7 +55,7 @@ BORDER: Double circular border with seigaiha wave patterns. DECORATION: Small cl
 		filename: 'chukichi.png',
 		rank: '中吉',
 		textColor: '#1a4b8c',
-		textY: 0.20, // 元0.25 + offset -50/1024
+		textY: 0.2, // 元0.25 + offset -50/1024
 		prompt: `${BASE_PROMPT}
 INK: Blue (cobalt). ILLUSTRATION: Cute plump sea bream fish (鯛) swimming.
 BORDER: Single circular border with wave decorations. DECORATION: Bubbles.
@@ -84,7 +85,7 @@ BORDER: Single circular border. DECORATION: Small coin or bell.
 		filename: 'suekichi.png',
 		rank: '末吉',
 		textColor: '#5a5a5a',
-		textY: 0.20, // 元0.25 + offset -50/1024
+		textY: 0.2, // 元0.25 + offset -50/1024
 		prompt: `${BASE_PROMPT}
 INK: Warm gray / silver. ILLUSTRATION: Four-leaf clover with cute ladybug.
 BORDER: Single circular border. DECORATION: Morning dew dots.
@@ -188,7 +189,10 @@ async function addText(buffer, text, color, textYRatio) {
 </svg>`;
 
 	const textPng = await sharp(Buffer.from(svg)).resize(width, height).png().toBuffer();
-	return sharp(buffer).composite([{ input: textPng, top: 0, left: 0 }]).png().toBuffer();
+	return sharp(buffer)
+		.composite([{ input: textPng, top: 0, left: 0 }])
+		.png()
+		.toBuffer();
 }
 
 // ===== Gemini生成 =====
@@ -207,7 +211,9 @@ async function generate(prompt, label) {
 
 // ===== メイン =====
 async function main() {
-	console.log('=== 全スタンプ再生成（Proモデル + flood-fill透過 + トリム + 個別テキスト位置）===\n');
+	console.log(
+		'=== 全スタンプ再生成（Proモデル + flood-fill透過 + トリム + 個別テキスト位置）===\n',
+	);
 
 	for (const s of STAMPS) {
 		console.log(`--- ${s.rank} ---`);

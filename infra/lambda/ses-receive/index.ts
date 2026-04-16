@@ -6,8 +6,8 @@
  * 3. 送信者に自動応答メール送信
  */
 
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 
 const ses = new SESClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
 const s3 = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
@@ -41,10 +41,7 @@ export async function handler(event: SESEvent): Promise<void> {
 		const { mail, receipt } = record.ses;
 
 		// スパム・ウイルスチェック
-		if (
-			receipt.spamVerdict.status === 'FAIL' ||
-			receipt.virusVerdict.status === 'FAIL'
-		) {
+		if (receipt.spamVerdict.status === 'FAIL' || receipt.virusVerdict.status === 'FAIL') {
 			console.log('Spam/virus detected, skipping:', mail.messageId);
 			continue;
 		}
@@ -58,9 +55,7 @@ export async function handler(event: SESEvent): Promise<void> {
 		// S3 からメール本文を取得
 		let bodyText = '';
 		try {
-			const obj = await s3.send(
-				new GetObjectCommand({ Bucket: bucketName, Key: s3Key }),
-			);
+			const obj = await s3.send(new GetObjectCommand({ Bucket: bucketName, Key: s3Key }));
 			const raw = (await obj.Body?.transformToString()) ?? '';
 			bodyText = extractPlainText(raw);
 		} catch (e) {
@@ -113,9 +108,7 @@ function decodeBody(text: string): string {
 	// quoted-printable デコード（簡易）
 	const decoded = text
 		.replace(/=\r?\n/g, '')
-		.replace(/=([0-9A-Fa-f]{2})/g, (_, hex) =>
-			String.fromCharCode(Number.parseInt(hex, 16)),
-		);
+		.replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
 	// Base64 の場合（全行が Base64 文字のみなら）
 	if (/^[A-Za-z0-9+/=\r\n]+$/.test(decoded.trim())) {
 		try {
@@ -181,12 +174,8 @@ async function notifyDiscord(params: {
 }
 
 /** 自動応答メール送信 */
-async function sendAutoReply(params: {
-	from: string;
-	subject: string;
-}): Promise<void> {
-	const supportEmail =
-		process.env.SUPPORT_EMAIL ?? 'support@ganbari-quest.com';
+async function sendAutoReply(params: { from: string; subject: string }): Promise<void> {
+	const supportEmail = process.env.SUPPORT_EMAIL ?? 'support@ganbari-quest.com';
 
 	// 自動応答ループ防止
 	if (isAutoReply(params.subject) || isNoReplyAddress(params.from)) {
