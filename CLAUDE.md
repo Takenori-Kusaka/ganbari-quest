@@ -84,6 +84,7 @@ vitest --coverage（カバレッジ閾値）, playwright（E2E）, ESLint（svel
 - E2E テストで `clearDialogGhosts` を新規使用しない → アプリ側のダイアログバグを隠蔽するため
 - `assert*Configured()` / `throw new Error('XXX is required')` / `process.env.X || (() => { throw ... })()` を新規追加するときに、PR 本文へ「配布済み: ENV」証跡を書かない → CI の `new-env-distribution-check` が red になる（ADR-0029、`scripts/check-new-required-env.mjs`）
 - ADR-0029 禁止 5 項目（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加）を行わない → 例外手続きは別 ADR で当該 ADR を supersede すること
+- ライセンスプラン / 購読ステータス / ライセンスキー状態の値を文字列リテラルで直書きしない（#972）→ `$lib/domain/constants/{license-plan,subscription-status,license-key-status,auth-license-status}.ts` の定数経由で参照すること。`'family-monthly'` / `'family-yearly'` / `'grace_period'` は CI (`scripts/check-no-plan-literals.mjs`) が自動拒否
 
 ## Critical バグ修正の必須要件（ADR-0005）
 

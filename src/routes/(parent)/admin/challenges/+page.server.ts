@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
@@ -12,7 +13,7 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 
 	const [challenges, children, familyStreakData] = await Promise.all([

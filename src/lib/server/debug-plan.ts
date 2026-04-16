@@ -6,6 +6,8 @@
 // 場合にのみ有効。本番 (`dev === false`) では常に無効。
 
 import { dev } from '$app/environment';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import { toJSTDateString } from '$lib/domain/date-utils';
 import type { AuthContext } from '$lib/server/auth/types';
 import type { TrialTier } from '$lib/server/services/trial-service';
@@ -47,11 +49,11 @@ export function getDebugPlanOverride(): DebugPlanOverride | null {
 	}
 	switch (raw as DebugPlan) {
 		case 'free':
-			return { licenseStatus: 'none', plan: undefined };
+			return { licenseStatus: AUTH_LICENSE_STATUS.NONE, plan: undefined };
 		case 'standard':
-			return { licenseStatus: 'active', plan: 'monthly' };
+			return { licenseStatus: AUTH_LICENSE_STATUS.ACTIVE, plan: LICENSE_PLAN.MONTHLY };
 		case 'family':
-			return { licenseStatus: 'active', plan: 'family-monthly' };
+			return { licenseStatus: AUTH_LICENSE_STATUS.ACTIVE, plan: LICENSE_PLAN.FAMILY_MONTHLY };
 	}
 }
 

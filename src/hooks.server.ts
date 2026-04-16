@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
 import { building } from '$app/environment';
 import { analytics } from '$lib/analytics';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { applyDebugPlanOverride } from '$lib/server/debug-plan';
 import {
@@ -254,7 +256,7 @@ export const handle: Handle = ({ event, resolve }) =>
 				{
 					tenantId: 'demo',
 					role: 'owner',
-					licenseStatus: 'active',
+					licenseStatus: AUTH_LICENSE_STATUS.ACTIVE,
 				},
 				demoPlan,
 			);
@@ -318,7 +320,7 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		// grace_period 読み取り専用制御（#0193）
-		if (context?.tenantStatus === 'grace_period') {
+		if (context?.tenantStatus === SUBSCRIPTION_STATUS.GRACE_PERIOD) {
 			const method = event.request.method;
 			const isWrite = method !== 'GET' && method !== 'HEAD';
 			const isAllowedWritePath = [
@@ -341,7 +343,7 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		// terminated テナントは完全ブロック（#0193）
-		if (context?.tenantStatus === 'terminated') {
+		if (context?.tenantStatus === SUBSCRIPTION_STATUS.TERMINATED) {
 			if (path.startsWith('/api/')) {
 				return new Response(JSON.stringify({ error: 'アカウントは削除済みです。' }), {
 					status: 403,

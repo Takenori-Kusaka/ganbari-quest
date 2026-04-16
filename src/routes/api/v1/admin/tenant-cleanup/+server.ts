@@ -3,6 +3,7 @@
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { notifyDeletionComplete } from '$lib/server/services/discord-notify-service';
@@ -133,7 +134,7 @@ async function findGracePeriodTenants(): Promise<TenantInfo[]> {
 					ExpressionAttributeValues: {
 						':prefix': 'TENANT#',
 						':sk': 'META',
-						':status': 'grace_period',
+						':status': SUBSCRIPTION_STATUS.GRACE_PERIOD,
 					},
 					ExclusiveStartKey: lastKey,
 				}),
