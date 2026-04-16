@@ -38,6 +38,11 @@ jobs:
               - 'playwright*.config.*'
               - 'vitest.config.*'
               - 'Dockerfile*'
+              - 'scripts/check-dynamodb-stub.mjs'
+              - 'scripts/check-coverage-threshold.js'
+              - 'scripts/check-test-antipatterns.js'
+              - 'scripts/check-no-plan-literals.mjs'
+              - '.github/workflows/ci.yml'
             deps:
               - 'package.json'
               - 'package-lock.json'
