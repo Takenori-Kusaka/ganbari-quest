@@ -2,17 +2,21 @@
 // #717, #729: 保存期間超過データの自動削除クロンエンドポイント
 //
 // EventBridge (Scheduled Rule) または手動実行から呼ばれる。
-// 認証は OPS_SECRET_KEY の Bearer token で行う（OPS ダッシュボードと同じ鍵を共有）。
+// 認証は CRON_SECRET の Bearer token で行う。
+// #820 で /ops ダッシュボードは Cognito ops group 認可に移行したため、
+// このエンドポイントは独自の shared secret (CRON_SECRET) を使う。
+// 移行期間中は後方互換で OPS_SECRET_KEY も読み、どちらかが一致すれば許可する。
+// ADR-0033 参照。
 //
 // 使い方:
 //   POST /api/cron/retention-cleanup
-//   Authorization: Bearer <OPS_SECRET_KEY>
+//   Authorization: Bearer <CRON_SECRET>
 //   Body (任意): { "dryRun": true }
 //
 // レスポンス:
 //   200 { tenantsProcessed, childrenProcessed, activityLogsDeleted, ... }
 //   401 Unauthorized
-//   404 Not Found (OPS_SECRET_KEY 未設定時)
+//   404 Not Found (CRON_SECRET / OPS_SECRET_KEY のいずれも未設定時)
 //   500 Internal Error
 
 import { error, json } from '@sveltejs/kit';
@@ -21,14 +25,19 @@ import { cleanupExpiredData } from '$lib/server/services/retention-cleanup-servi
 import type { RequestHandler } from './$types';
 
 function checkAuth(request: Request): void {
-	const secret = process.env.OPS_SECRET_KEY;
-	if (!secret) {
+	// #820 PR-D: CRON_SECRET を主とし、OPS_SECRET_KEY を後方互換フォールバックとして許可。
+	// 本番 GitHub Secrets のローテーション完了後、OPS_SECRET_KEY サポートは削除予定。
+	const cronSecret = process.env.CRON_SECRET;
+	const legacySecret = process.env.OPS_SECRET_KEY;
+	const accepted = [cronSecret, legacySecret].filter((v): v is string => !!v);
+	if (accepted.length === 0) {
 		// シークレット未設定 = エンドポイント無効化（存在を秘匿）
 		error(404, 'Not Found');
 	}
 
 	const authHeader = request.headers.get('Authorization');
-	if (authHeader !== `Bearer ${secret}`) {
+	const authorized = accepted.some((s) => authHeader === `Bearer ${s}`);
+	if (!authorized) {
 		error(401, 'Unauthorized');
 	}
 }

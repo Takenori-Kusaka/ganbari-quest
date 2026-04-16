@@ -70,6 +70,7 @@
 - [ADR-0029](decisions/0029-safety-assertion-erosion-ban.md) — Safety Assertion Erosion Ban（既存セーフティの段階的弱体化を禁ずる + 新規 env/secret 配布証跡の自動チェック）
 - [ADR-0030](decisions/0030-cognito-e2e-user-lifecycle.md) — Cognito E2E テストユーザーのライフサイクル基盤（Admin API バイパス採用、本番 User Pool を IAM で物理分離）
 - [ADR-0032](decisions/0032-static-analysis-tier-policy.md) — 静的解析ツール実行頻度ポリシー（T1 PR ゲート / T2 並行 / T3 nightly / T4 四半期、既存 CI baseline と新ツール判断フロー）
+- [ADR-0033](decisions/0033-ops-dashboard-cognito-authz.md) — /ops ダッシュボード認可を Cognito ops group ベースに刷新（OPS_SECRET_KEY 廃止 / cron endpoint は CRON_SECRET に概念分離、移行期は両対応）
 
 ## 画像アセット
 
