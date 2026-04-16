@@ -98,6 +98,17 @@ export const DEV_USERS: DevUser[] = [
 		licenseStatus: AUTH_LICENSE_STATUS.NONE,
 		plan: undefined,
 	},
+	// ---------- #820 PR-C: /ops 認可 E2E 用ユーザー ----------
+	// groups: ['ops'] を付与し、Cognito の ops group 所属として扱う。
+	// ops ダッシュボードは単独テナントで閲覧・操作するため、専用 tenant を割り当てる。
+	{
+		userId: 'dev-ops-001',
+		email: 'ops@example.com',
+		password: 'Gq!Dev#Ops2026xyz',
+		tenantId: 'dev-tenant-ops',
+		role: 'owner',
+		groups: ['ops'],
+	},
 ];
 
 /** Email でダミーユーザーを検索 */
