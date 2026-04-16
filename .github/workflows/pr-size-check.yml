@@ -1,0 +1,79 @@
+name: PR Size Check
+
+# #964: PR サイズ警告 (500行超えの変更に警告コメントを自動投稿)。
+# Postmortem #962: 37ファイル/+1273行の巨大 PR が APPROVED なくマージされて本番障害化。
+# 大きすぎる PR は review 品質が落ちるため、500行を閾値として警告する。
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  size-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Compute diff size (excluding generated / lockfile)
+        id: size
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          # lockfile / generated asset は除外
+          CHANGED=$(git diff --numstat "$BASE_SHA..$HEAD_SHA" \
+            -- . \
+            ':(exclude)package-lock.json' \
+            ':(exclude)**/*.lock' \
+            ':(exclude)**/*.min.*' \
+            ':(exclude)**/generated/**' \
+            | awk '{ add += $1; del += $2 } END { print add + del }')
+          CHANGED=${CHANGED:-0}
+          FILES=$(git diff --name-only "$BASE_SHA..$HEAD_SHA" \
+            -- . \
+            ':(exclude)package-lock.json' \
+            ':(exclude)**/*.lock' \
+            | wc -l | tr -d ' ')
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+          echo "PR 変更行数: $CHANGED / 変更ファイル数: $FILES"
+
+      - name: Post size warning comment when over threshold
+        if: steps.size.outputs.changed != '' && fromJSON(steps.size.outputs.changed) > 500
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changed = Number('${{ steps.size.outputs.changed }}');
+            const files = Number('${{ steps.size.outputs.files }}');
+            const marker = '<!-- pr-size-check -->';
+            const body = [
+              marker,
+              '## ⚠️ PR サイズ警告 (#964 / ADR-0020)',
+              '',
+              `- 変更行数: **${changed}** 行 (閾値 500 行)`,
+              `- 変更ファイル数: **${files}**`,
+              '',
+              'レビュー品質を保つため、以下のいずれかを検討してください:',
+              '- スコープを縮小して分割 PR 化',
+              '- レビュー観点を PR 本文で絞り込む (「ここは生成物」等)',
+              '- やむを得ない場合は理由を PR 本文に明記',
+              '',
+              '参考: Postmortem #962 (APPROVED なしマージによる本番障害)',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner, repo, issue_number: pull_number, per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pull_number, body });
+            }
