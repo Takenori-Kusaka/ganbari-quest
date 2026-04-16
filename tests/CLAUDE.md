@@ -16,6 +16,42 @@
 - 新規サービスファイル追加時は、同 PR 内に対応するテストファイルを含めること
 - 「テストは後で追加」は禁止。テストなしの機能追加 PR はドラフトのまま据え置き
 
+## スキーマ変更 PR のテスト要件（ADR-0031）
+
+`src/lib/server/db/schema.ts` を変更する PR は以下を必須とする。#962 (`is_archived` NULL 混在で本番全停止) の再発防止。
+
+### カラム追加時
+
+- [ ] 新カラムに `default()` を必ず設定する（NULL を業務的意味で使う場合を除く）
+- [ ] マイグレーション script (`scripts/add-*.cjs` / `scripts/migrate-*.cjs`) の `ALTER TABLE ADD COLUMN` に **対応する `UPDATE table SET col = <default> WHERE col IS NULL`** を同 script 内に書くこと
+- [ ] 新カラムを `WHERE` / `eq()` / `and()` に使うクエリが 1 つでもあるなら、**NULL 混在行**での動作を検証するテストを `tests/unit/db/` または `tests/unit/services/` に 1 件追加すること
+
+```ts
+// 例: is_archived が NULL の既存行がクエリ結果から不当に除外されないか
+it('is_archived が NULL の既存行もアクティブとして返される', () => {
+  sqlite.exec(`INSERT INTO children (tenant_id, nickname, age, is_archived) VALUES ('t1', 'legacy', 5, NULL)`);
+  const result = findAllChildren('t1');
+  expect(result.map((c) => c.nickname)).toContain('legacy');
+});
+```
+
+### クエリ側の NULL 安全性
+
+新カラム + 既存テーブルの組み合わせで、「NULL = 既定値と同じ扱いにしたい」セマンティクスなら
+`or(eq(col, default), isNull(col))` を使うか、**マイグレーション側で backfill** するかのどちらかを選ぶこと。
+片側だけでは不十分（backfill が走る前にクエリが走るケースがある）。
+
+### CI 自動チェック（warn）
+
+`scripts/check-schema-change-tests.mjs` が PR 差分を走査し、`schema.ts` に diff があるのに
+`tests/unit/db|services/` に diff が無い場合は警告を出す。blocker ではないが、
+PR レビュー側で `[must]` 指摘判断の材料に使う。skip が必要なときは PR 本文に `[skip-schema-test-check]` を含める。
+
+### DynamoDB 並行実装の整合性
+
+`src/lib/server/db/sqlite/*.ts` と `src/lib/server/db/dynamodb/*.ts` に同じエンティティの repo
+があるペアは、新カラム追加時に undefined / null / 既定値のハンドリングを両実装で一致させる。
+
 ## E2E 固有ガイダンス
 
 - DB スキーマ変更時は `tests/e2e/global-setup.ts` のテストデータ投入も更新すること
