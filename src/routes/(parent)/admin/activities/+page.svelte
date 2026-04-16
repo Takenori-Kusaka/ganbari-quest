@@ -228,6 +228,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 			type="button"
 			class="fab"
 			data-tutorial="add-activity-btn"
+			data-testid="add-activity-fab"
 			onclick={() => { showAddDialog = true; addMode = null; }}
 			aria-label="活動を追加"
 		>
