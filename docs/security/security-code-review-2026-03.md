@@ -172,6 +172,9 @@ if (sigBuffer.length !== expectedBuffer.length || !timingSafeEqual(sigBuffer, ex
 
 ### FINDING-05: OPS ダッシュボードの URL パラメータによるトークン漏洩 [Medium]
 
+> **ステータス**: ✅ Resolved（#820 / ADR-0033）— `/ops` は Cognito ops group 認可に刷新され、
+> URL パラメータ / `ops_token` Cookie / `OPS_SECRET_KEY` 平文 Bearer は全廃された。
+
 **対象ファイル**: `src/routes/ops/+layout.server.ts` (行 24-36)
 
 **説明**:
@@ -204,6 +207,10 @@ if (tokenParam === secret) {
 ---
 
 ### FINDING-06: OPS ダッシュボードの認証バイパス（公開ルート分類） [Medium]
+
+> **ステータス**: ✅ Resolved（#820 / ADR-0033）— `/ops` は `isPublicRoute()` から除外され、
+> `+layout.server.ts` が Cognito ops group メンバー判定を行う。`/ops/export/+server.ts` 等の
+> 子ルートも同じ group 判定ロジックを通過する前提に再構成された。
 
 **対象ファイル**: `src/lib/server/auth/authorization.ts` (行 131)
 
