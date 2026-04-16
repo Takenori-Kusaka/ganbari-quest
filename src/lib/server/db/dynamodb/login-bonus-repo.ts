@@ -2,19 +2,14 @@
 // DynamoDB implementation of ILoginBonusRepo
 
 import { BatchWriteCommand, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import type { Child, InsertLoginBonusInput, LoginBonus } from '../types';
+import type { InsertLoginBonusInput, LoginBonus } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { childKey, childPK, ENTITY_NAMES, loginBonusKey, loginBonusPrefix, tenantPK } from './keys';
+import { childPK, ENTITY_NAMES, loginBonusKey, loginBonusPrefix, tenantPK } from './keys';
+import { batchDeleteItems, findChildByIdRaw, stripKeys } from './repo-helpers';
 
-/** Strip PK/SK/GSI keys from a DynamoDB item */
-function stripKeys<T extends Record<string, unknown>>(
-	item: T,
-): Omit<T, 'PK' | 'SK' | 'GSI2PK' | 'GSI2SK'> {
-	const { PK, SK, GSI2PK, GSI2SK, ...rest } = item;
-	return rest;
-}
+export { findChildByIdRaw as findChildById } from './repo-helpers';
 
 /** 今日のログインボーナスを取得 */
 export async function findTodayBonus(
@@ -93,19 +88,6 @@ export async function insertLoginBonus(
 	return bonus;
 }
 
-/** 子供の存在確認 */
-export async function findChildById(id: number, tenantId: string): Promise<Child | undefined> {
-	const result = await getDocClient().send(
-		new GetCommand({
-			TableName: TABLE_NAME,
-			Key: childKey(id, tenantId),
-		}),
-	);
-
-	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as Child;
-}
-
 /** テナントの全ログインボーナスを削除（CHILD#* 配下の LOGIN# アイテム） */
 export async function deleteByTenantId(tenantId: string): Promise<void> {
 	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), loginBonusPrefix());
@@ -164,19 +146,7 @@ export async function deleteLoginBonusesBeforeDate(
 		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
 	} while (lastKey);
 
-	// BatchWrite in chunks of 25
-	for (let i = 0; i < items.length; i += 25) {
-		const chunk = items.slice(i, i + 25);
-		await getDocClient().send(
-			new BatchWriteCommand({
-				RequestItems: {
-					[TABLE_NAME]: chunk.map((it) => ({
-						DeleteRequest: { Key: { PK: it.PK as string, SK: it.SK as string } },
-					})),
-				},
-			}),
-		);
-	}
-
-	return items.length;
+	return batchDeleteItems(
+		items.map((it) => ({ PK: it.PK as string, SK: it.SK as string })),
+	);
 }
