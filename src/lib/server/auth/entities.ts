@@ -33,6 +33,10 @@ export interface Tenant {
 	stripeSubscriptionId?: string;
 	planExpiresAt?: string;
 	trialUsedAt?: string;
+	/** #742: ソフトデリート日時（ISO 8601）。null = 未削除 */
+	softDeletedAt?: string;
+	/** #742: ソフトデリート時のプランティア。grace period 計算に使用 */
+	deletionGracePlanTier?: 'free' | 'standard' | 'family';
 	createdAt: string;
 	updatedAt: string;
 }
