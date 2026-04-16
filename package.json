@@ -11,6 +11,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
+		"dev:cognito": "cross-env AUTH_MODE=cognito COGNITO_DEV_MODE=true vite dev --port 5174",
 		"version:generate": "tsx scripts/generate-version.ts",
 		"build": "vite build",
 		"preview": "vite preview",
@@ -66,6 +67,7 @@
 		"@types/web-push": "^3.6.4",
 		"@typescript-eslint/parser": "^8.58.1",
 		"@vitest/browser-playwright": "^4.1.4",
+		"cross-env": "^7.0.3",
 		"@vitest/coverage-v8": "^4.1.2",
 		"drizzle-kit": "^0.31.10",
 		"eslint": "^10.2.0",
