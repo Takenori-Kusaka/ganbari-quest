@@ -3,6 +3,7 @@
 // (#371)
 
 import { error, json } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { createViewerToken, listViewerTokens } from '$lib/server/services/viewer-token-service';
@@ -12,7 +13,7 @@ async function requireFamily(locals: App.Locals): Promise<string> {
 	const tenantId = requireTenantId(locals);
 	const tier = await resolveFullPlanTier(
 		tenantId,
-		locals.context?.licenseStatus ?? 'none',
+		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 		locals.context?.plan,
 	);
 	if (tier !== 'family') {

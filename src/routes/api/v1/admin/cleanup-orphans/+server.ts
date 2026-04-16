@@ -3,6 +3,7 @@
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { deleteFile, listFiles } from '$lib/server/storage';
@@ -60,7 +61,7 @@ async function detectAndCleanOrphans(dryRun: boolean): Promise<CleanupResult> {
 		// テナント存在チェック
 		if (!tenantCache.has(tenantId)) {
 			const tenant = await repos.auth.findTenantById(tenantId);
-			const exists = !!tenant && tenant.status !== 'terminated';
+			const exists = !!tenant && tenant.status !== SUBSCRIPTION_STATUS.TERMINATED;
 			tenantCache.set(tenantId, exists);
 		}
 		if (!tenantCache.get(tenantId)) {

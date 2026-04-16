@@ -1,6 +1,7 @@
 // src/routes/api/v1/export/+server.ts
 // 家族データエクスポートAPI（JSON / ZIP対応）
 
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireRole, requireTenantId } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
@@ -15,7 +16,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	requireRole(locals, ['owner', 'parent']);
 
 	// プラン制限チェック（エクスポート機能）
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const limits = getPlanLimits(
 		await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan),
 	);
