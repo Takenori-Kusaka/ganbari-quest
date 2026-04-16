@@ -74,6 +74,40 @@
 - [ADR-0033](decisions/0033-ops-dashboard-cognito-authz.md) — /ops ダッシュボード認可を Cognito ops group ベースに刷新（OPS_SECRET_KEY 廃止 / cron endpoint は CRON_SECRET に概念分離、移行期は両対応）
 - [ADR-0034](decisions/0034-pre-pmf-security-minimum.md) — Pre-PMF セキュリティ最小化方針（HMAC + API Gateway throttling + Budgets / 監査ログ DynamoDB / WAF / ブルート検知は Pre-PMF では不採用）
 
+## ローカル Cognito 認証検証環境 (#1026)
+
+認証が絡む画面（login / signup / 管理画面 / ops / プラン別 UI）を目視検証するには `npm run dev:cognito` を使う。
+`npm run dev` の自動認証モードでは `/auth/login` が 302 redirect されてログインフォームが描画されず、UI 検証に使えない。
+
+### 起動
+
+```bash
+npm run dev:cognito
+# → AUTH_MODE=cognito COGNITO_DEV_MODE=true vite dev --port 5174
+# → http://localhost:5174 で Cognito モック認証が有効
+```
+
+### DEV_USERS 一覧
+
+| email | password | role | licenseStatus | plan | groups | 用途 |
+|-------|----------|------|---------------|------|--------|------|
+| `owner@example.com` | `Gq!Dev#Owner2026x` | owner | default (active) | - | - | 親管理画面の標準動作確認 |
+| `parent@example.com` | `Gq!Dev#Parent2026` | parent | default | - | - | 親ロール (非オーナー) 動作確認 |
+| `child@example.com` | `Gq!Dev#Child2026x` | child | default | - | - | 子供画面動作確認 |
+| `free@example.com` | `Gq!Dev#Free2026xy` | owner | `none` | なし | - | Free プランの機能ゲート確認 (#751) |
+| `standard@example.com` | `Gq!Dev#Std2026xyz` | owner | `active` | `standard_monthly` | - | Standard プラン機能疎通確認 (#779) |
+| `family@example.com` | `Gq!Dev#Fam2026xyz` | owner | `active` | `family_monthly` | - | Family プラン機能疎通確認 (#779) |
+| `trial-expired@example.com` | `Gq!Dev#TrialExp26` | owner | `none` | なし | - | トライアル期限切れフロー確認 (#752) |
+| `ops@example.com` | `Gq!Dev#Ops2026xyz` | owner | default | - | `ops` | /ops ダッシュボード認可確認 (#820) |
+
+(SSOT: `src/lib/server/auth/providers/cognito-dev.ts` の `DEV_USERS` 定義。追加・変更時は本表も更新すること)
+
+### いつ使うか
+
+- 認証が絡む画面を変更する PR の **Ready for Review 前のセルフチェック必須**
+- スクリーンショットを PR 本文に添付する際の撮影源（`npm run dev` で撮ると本来の画面が撮れない）
+- ログイン / サインアップ / パスワードリセット / ops group / プラン別 UI / 管理画面のどれかに触る場合は必ず起動
+
 ## 画像アセット
 
 画像アセットを絵文字で代替してはならない（コアゲーム体験に関わるもの）。
