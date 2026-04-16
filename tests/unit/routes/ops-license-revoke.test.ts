@@ -242,7 +242,9 @@ describe('#805 /ops/license/[key]/+page.server.ts load', () => {
 		mockListEventsByLicenseKey.mockResolvedValueOnce([]);
 		const result = (await load({
 			params: { key: 'gq-hit-key' },
-		} as unknown as Parameters<typeof load>[0])) as { record: { licenseKey: string; status: string } };
+		} as unknown as Parameters<typeof load>[0])) as {
+			record: { licenseKey: string; status: string };
+		};
 		expect(result.record).toMatchObject({ licenseKey: 'GQ-HIT-KEY', status: 'active' });
 	});
 });
