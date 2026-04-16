@@ -1008,3 +1008,36 @@ export const enemyCollection = sqliteTable(
 		index('idx_enemy_collection_child').on(table.childId),
 	],
 );
+
+// ============================================================
+// ops_audit_log - /ops 運営ダッシュボード操作監査 (#820)
+// ============================================================
+//
+// `/ops` 配下の mutation アクション（ライセンス発行・テナント停止・データ削除等）を
+// 誰がいつ何にどの IP から行ったかを追跡するため、tenant 非依存の監査ログ。
+// PR-B: テーブル定義 + 書き込みサービス
+// PR-C: /ops の実 mutation endpoint から呼び出し
+export const opsAuditLog = sqliteTable(
+	'ops_audit_log',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		/** Cognito sub (= identity.userId) */
+		actorId: text('actor_id').notNull(),
+		/** 事後追跡用に email も非正規化して保持 */
+		actorEmail: text('actor_email').notNull(),
+		ip: text('ip'),
+		ua: text('ua'),
+		/** ドット区切りの action 名。例: 'license.issue', 'tenant.suspend' */
+		action: text('action').notNull(),
+		/** 操作対象の識別子（例: 'LICENSE#GQ-XXXX-...', 'TENANT#t-abc'）。nullable */
+		target: text('target'),
+		/** 追加メタ情報（JSON 文字列）。nullable */
+		metadata: text('metadata'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		index('idx_ops_audit_log_actor').on(table.actorId),
+		index('idx_ops_audit_log_created').on(table.createdAt),
+		index('idx_ops_audit_log_action').on(table.action),
+	],
+);
