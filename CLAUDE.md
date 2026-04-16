@@ -29,6 +29,7 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 - テスト: `npx vitest run`
 - E2E: `npx playwright test`
 - Lint: `npx biome check .`
+- スペルチェック: `npm run cspell`（任意。CI では warn-only）
 - DB マイグレーション: `npx drizzle-kit push`
 
 ### 開発中のプラン切替（#758、dev only）
