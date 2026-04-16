@@ -211,12 +211,46 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: node scripts/check-new-required-env.mjs
 
+  # ADR-0031 / #963: スキーマ変更時のテスト追加 warn チェック
+  # src/lib/server/db/schema.ts が変更された PR で、tests/unit/db|services/ に
+  # テスト追加/変更が無い場合 warn を出す (exit 0 で blocker にはしない)。
+  # Issue #962 (is_archived NULL 混在で本番全停止) の再発防止。
+  schema-change-tests-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Fetch base ref
+        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+
+      - name: Check schema change has tests (ADR-0031, warn only)
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/check-schema-change-tests.mjs
+
   # Gate job: always runs and reports overall CI status.
   # Required by branch ruleset instead of individual jobs,
   # so skipped jobs (via path filter) don't block merges.
   ci-gate:
     if: always()
-    needs: [changes, lint-and-test, e2e-test, docker-build, site-check, new-env-distribution-check]
+    needs:
+      [
+        changes,
+        lint-and-test,
+        e2e-test,
+        docker-build,
+        site-check,
+        new-env-distribution-check,
+        schema-change-tests-check,
+      ]
     runs-on: ubuntu-latest
     steps:
       # #926: needs を toJSON で一括チェックし、新規 job 追加時に results 配列の更新忘れで
