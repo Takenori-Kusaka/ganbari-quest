@@ -31,6 +31,7 @@ export class CognitoAuthProvider implements AuthProvider {
 					type: 'cognito',
 					userId: claims.sub,
 					email: claims.email,
+					groups: claims['cognito:groups'],
 				};
 			}
 		} catch (e) {
