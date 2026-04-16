@@ -1,5 +1,6 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
+import { TUTORIAL_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
@@ -110,6 +111,14 @@ async function handleDismissBanner() {
 	await invalidateAll();
 }
 
+// #961 QA: クイックモード完了後も全チャプターを明示的に表示する導線
+async function handleViewFullGuide() {
+	await markTutorialStarted();
+	// チャプター1を明示指定 → quickMode=false で全チャプター表示
+	await startTutorial(1);
+	await invalidateAll();
+}
+
 const ps = $derived(pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
 const unit = $derived(getUnitLabel(ps.mode, ps.currency));
@@ -163,6 +172,19 @@ function childLink(child: ChildSummary): string {
 					</Button>
 				</div>
 			</div>
+		</div>
+	{/if}
+
+	<!-- #961 QA: 全チュートリアル導線（クイックモード完了後でもアクセス可能） -->
+	{#if !isDemo}
+		<div class="tutorial-full-guide-card" data-testid="admin-view-full-guide">
+			<div class="tutorial-full-guide-info">
+				<span class="tutorial-full-guide-label">{TUTORIAL_LABELS.viewFullGuide}</span>
+				<span class="tutorial-full-guide-hint">{TUTORIAL_LABELS.viewFullGuideHint}</span>
+			</div>
+			<Button variant="ghost" size="sm" onclick={handleViewFullGuide}>
+				{TUTORIAL_LABELS.openGuide}
+			</Button>
 		</div>
 	{/if}
 
@@ -412,4 +434,34 @@ function childLink(child: ChildSummary): string {
 		white-space: nowrap;
 	}
 
+	/* #961 QA: 全チュートリアル導線カード */
+	.tutorial-full-guide-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		background: var(--color-surface-accent);
+		border: 1px solid var(--color-feedback-info-border);
+		border-radius: var(--radius-lg, 12px);
+	}
+
+	.tutorial-full-guide-info {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.tutorial-full-guide-label {
+		font-size: 0.85rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+	}
+
+	.tutorial-full-guide-hint {
+		font-size: 0.7rem;
+		color: var(--color-text-tertiary);
+	}
 </style>
