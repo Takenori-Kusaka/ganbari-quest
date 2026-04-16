@@ -69,6 +69,7 @@
 - [ADR-0028](decisions/0028-retention-physical-delete.md) — プラン別履歴保持期間ポリシー（retention = 表示フィルタ + 物理削除 cron、ADR-0027 supersede）
 - [ADR-0029](decisions/0029-safety-assertion-erosion-ban.md) — Safety Assertion Erosion Ban（既存セーフティの段階的弱体化を禁ずる + 新規 env/secret 配布証跡の自動チェック）
 - [ADR-0030](decisions/0030-cognito-e2e-user-lifecycle.md) — Cognito E2E テストユーザーのライフサイクル基盤（Admin API バイパス採用、本番 User Pool を IAM で物理分離）
+- [ADR-0032](decisions/0032-static-analysis-tier-policy.md) — 静的解析ツール実行頻度ポリシー（T1 PR ゲート / T2 並行 / T3 nightly / T4 四半期、既存 CI baseline と新ツール判断フロー）
 
 ## 画像アセット
 
