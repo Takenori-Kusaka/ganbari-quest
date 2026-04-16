@@ -21,17 +21,23 @@ export interface DevUserProfile {
 	userId: string;
 	email: string;
 	username?: string;
+	/** #820: ダミー JWT の `cognito:groups` claim に載せる group 一覧 */
+	groups?: string[];
 }
 
 /** ダミー Cognito ID Token を生成 */
 export async function signDevIdentityToken(user: DevUserProfile): Promise<string> {
-	return new SignJWT({
+	const payload: Record<string, unknown> = {
 		sub: user.userId,
 		email: user.email,
 		email_verified: true,
 		'cognito:username': user.username ?? user.email,
 		token_use: 'id',
-	})
+	};
+	if (user.groups && user.groups.length > 0) {
+		payload['cognito:groups'] = user.groups;
+	}
+	return new SignJWT(payload)
 		.setProtectedHeader({ alg: 'HS256' })
 		.setIssuer(DEV_ISSUER)
 		.setAudience(DEV_AUDIENCE)
@@ -50,11 +56,17 @@ export async function verifyDevIdentityToken(token: string): Promise<CognitoClai
 
 		if (payload.token_use !== 'id') return null;
 
+		const rawGroups = payload['cognito:groups'];
+		const groups = Array.isArray(rawGroups)
+			? rawGroups.filter((g): g is string => typeof g === 'string')
+			: undefined;
+
 		return {
 			sub: payload.sub as string,
 			email: payload.email as string,
 			email_verified: payload.email_verified as boolean | undefined,
 			'cognito:username': payload['cognito:username'] as string | undefined,
+			'cognito:groups': groups,
 			iss: payload.iss as string,
 			aud: payload.aud as string,
 		};

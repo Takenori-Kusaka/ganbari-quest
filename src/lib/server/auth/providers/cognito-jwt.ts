@@ -9,6 +9,8 @@ export interface CognitoClaims {
 	email: string;
 	email_verified?: boolean;
 	'cognito:username'?: string;
+	/** #820: ユーザーが所属する Cognito group の一覧（例: ['ops']） */
+	'cognito:groups'?: string[];
 	iss: string;
 	aud: string;
 }
@@ -64,11 +66,17 @@ export async function verifyIdentityToken(token: string): Promise<CognitoClaims 
 			return null;
 		}
 
+		const rawGroups = payload['cognito:groups'];
+		const groups = Array.isArray(rawGroups)
+			? rawGroups.filter((g): g is string => typeof g === 'string')
+			: undefined;
+
 		return {
 			sub: payload.sub as string,
 			email: payload.email as string,
 			email_verified: payload.email_verified as boolean | undefined,
 			'cognito:username': payload['cognito:username'] as string | undefined,
+			'cognito:groups': groups,
 			iss: payload.iss as string,
 			aud: payload.aud as string,
 		};

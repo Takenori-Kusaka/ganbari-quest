@@ -176,6 +176,7 @@ async function handleDevLogin(
 	const idToken = await signDevIdentityToken({
 		userId: user.userId,
 		email: user.email,
+		groups: user.groups,
 	});
 
 	cookies.set(IDENTITY_COOKIE_NAME, idToken, {
