@@ -8,6 +8,7 @@ import {
 } from '$lib/domain/constants/license-key-status';
 import { type LicensePlan, planDurationDays } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 
@@ -240,7 +241,7 @@ export async function issueLicenseKey(params: {
 		expiresAt = undefined;
 	} else if (params.expiresAt === undefined) {
 		expiresAt = new Date(
-			nowDate.getTime() + DEFAULT_LICENSE_VALIDITY_DAYS * 24 * 60 * 60 * 1000,
+			nowDate.getTime() + DEFAULT_LICENSE_VALIDITY_DAYS * MS_PER_DAY,
 		).toISOString();
 	} else {
 		expiresAt = params.expiresAt;
@@ -368,7 +369,6 @@ function computePlanExpiresAt(
 ): string | undefined {
 	const days = planDurationDays(plan);
 	if (days === undefined) return undefined;
-	const MS_PER_DAY = 24 * 60 * 60 * 1000;
 	return new Date(now.getTime() + days * MS_PER_DAY).toISOString();
 }
 

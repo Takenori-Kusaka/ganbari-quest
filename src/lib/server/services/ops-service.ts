@@ -3,6 +3,7 @@
 
 import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { MS_PER_DAY } from '$lib/domain/constants/time';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -212,7 +213,7 @@ export interface AWSCostData {
 
 // メモリキャッシュ（Lambda warm instance 内で1日保持）
 let _costCache: { key: string; data: AWSCostData; fetchedAt: number } | null = null;
-const COST_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24時間
+const COST_CACHE_TTL_MS = MS_PER_DAY;
 
 /**
  * AWS Cost Explorer から当月の費用データを取得（1日キャッシュ）
