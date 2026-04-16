@@ -72,6 +72,19 @@ export class AuthStack extends cdk.Stack {
 			removalPolicy: cdk.RemovalPolicy.RETAIN,
 		});
 
+		// --- #820 PR-C: /ops ダッシュボード用 Cognito group ---
+		// 所属ユーザーのみが /ops/* にアクセスできる（+layout.server.ts で isOpsMember チェック）。
+		// group 名は src/lib/server/auth/ops-authz.ts の OPS_GROUP 定数と一致させること。
+		// 運用メモ（#820）:
+		//   - ユーザーを追加: AWS Console or `aws cognito-idp admin-add-user-to-group --group-name ops`
+		//   - 権限剥奪: `aws cognito-idp admin-remove-user-from-group --group-name ops`
+		new cognito.CfnUserPoolGroup(this, 'OpsGroup', {
+			userPoolId: this.userPool.userPoolId,
+			groupName: 'ops',
+			description: 'Ganbari Quest operations dashboard (/ops) access',
+			precedence: 0,
+		});
+
 		// --- CustomMessage Lambda Trigger (日本語HTML メールテンプレート) ---
 		const customMessageFn = new lambda.Function(this, 'CustomMessageFn', {
 			functionName: 'ganbari-quest-cognito-custom-message',
