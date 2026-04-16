@@ -12,8 +12,9 @@ export default defineConfig({
 	// #751: plan-free の機能ゲート spec を追加
 	// #778: premium-welcome モーダルの初回表示・dismiss spec を追加
 	// #752: trial-flow のトライアルライフサイクル spec を追加
+	// #805: ops-license / ops-license-issue を追加（ops group 認可テスト）
 	testMatch:
-		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow)\.spec\.ts$/,
+		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
