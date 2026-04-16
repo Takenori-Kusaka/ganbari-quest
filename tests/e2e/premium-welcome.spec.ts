@@ -70,10 +70,9 @@ test.describe('#778 PremiumWelcome モーダル', () => {
 		await expect(dialog).toBeVisible();
 		// 「解放された機能」セクションが含まれる
 		await expect(dialog.getByText('解放された機能')).toBeVisible();
-		// standard 固有の項目（PREMIUM_UNLOCKED_FEATURES.standard より）。
-		// AI 提案は #722 で family 限定になったため、standard の代表項目は
-		// 「1年間のデータ保持」を使う。
-		await expect(dialog.getByText('1年間のデータ保持')).toBeVisible();
+		// standard 固有の項目（PREMIUM_UNLOCKED_FEATURES.standard より。
+		// #722 で AI 提案は family 専用に移行したため、standard 専用項目でアサート）
+		await expect(dialog.getByText('特別なごほうび設定')).toBeVisible();
 	});
 
 	test('family プラン初回 /admin で歓迎モーダルが表示される', async ({ page }) => {
