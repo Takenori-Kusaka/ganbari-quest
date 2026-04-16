@@ -17,6 +17,7 @@ import * as dynamoImageRepo from './dynamodb/image-repo';
 import * as dynamoInquiryRepo from './dynamodb/inquiry-repo';
 import * as dynamoLoginBonusRepo from './dynamodb/login-bonus-repo';
 import * as dynamoMessageRepo from './dynamodb/message-repo';
+import * as dynamoOpsAuditLogRepo from './dynamodb/ops-audit-log-repo';
 import * as dynamoPointRepo from './dynamodb/point-repo';
 import * as dynamoPushSubscriptionRepo from './dynamodb/push-subscription-repo';
 import * as dynamoReportDailySummaryRepo from './dynamodb/report-daily-summary-repo';
@@ -48,6 +49,7 @@ import type { IImageRepo } from './interfaces/image-repo.interface';
 import type { IInquiryRepo } from './interfaces/inquiry-repo.interface';
 import type { ILoginBonusRepo } from './interfaces/login-bonus-repo.interface';
 import type { IMessageRepo } from './interfaces/message-repo.interface';
+import type { IOpsAuditLogRepo } from './interfaces/ops-audit-log-repo.interface';
 import type { IPointRepo } from './interfaces/point-repo.interface';
 import type { IPushSubscriptionRepo } from './interfaces/push-subscription-repo.interface';
 import type { IReportDailySummaryRepo } from './interfaces/report-daily-summary-repo.interface';
@@ -79,6 +81,7 @@ import * as sqliteImageRepo from './sqlite/image-repo';
 import * as sqliteInquiryRepo from './sqlite/inquiry-repo';
 import * as sqliteLoginBonusRepo from './sqlite/login-bonus-repo';
 import * as sqliteMessageRepo from './sqlite/message-repo';
+import * as sqliteOpsAuditLogRepo from './sqlite/ops-audit-log-repo';
 import * as sqlitePointRepo from './sqlite/point-repo';
 import * as sqlitePushSubscriptionRepo from './sqlite/push-subscription-repo';
 import * as sqliteReportDailySummaryRepo from './sqlite/report-daily-summary-repo';
@@ -112,6 +115,7 @@ export interface Repositories {
 	inquiry: IInquiryRepo;
 	loginBonus: ILoginBonusRepo;
 	message: IMessageRepo;
+	opsAuditLog: IOpsAuditLogRepo;
 	point: IPointRepo;
 	pushSubscription: IPushSubscriptionRepo;
 	reportDailySummary: IReportDailySummaryRepo;
@@ -153,6 +157,7 @@ export function getRepos(): Repositories {
 			inquiry: dynamoInquiryRepo,
 			loginBonus: dynamoLoginBonusRepo,
 			message: dynamoMessageRepo,
+			opsAuditLog: dynamoOpsAuditLogRepo,
 			point: dynamoPointRepo,
 			pushSubscription: dynamoPushSubscriptionRepo,
 			reportDailySummary: dynamoReportDailySummaryRepo,
@@ -190,6 +195,7 @@ export function getRepos(): Repositories {
 		inquiry: sqliteInquiryRepo,
 		loginBonus: sqliteLoginBonusRepo,
 		message: sqliteMessageRepo,
+		opsAuditLog: sqliteOpsAuditLogRepo,
 		point: sqlitePointRepo,
 		pushSubscription: sqlitePushSubscriptionRepo,
 		reportDailySummary: sqliteReportDailySummaryRepo,
