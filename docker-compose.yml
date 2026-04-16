@@ -7,6 +7,8 @@ services:
         # Pass BUILD_TIMESTAMP=<unique value> from deploy workflow to force
         # version:generate to re-run even when the source layer cache hits.
         BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-unknown}
+        # NUC LAN: 同一ネットワーク内の任意端末からの POST を許可 (#962)
+        DISABLE_CSRF_ORIGIN_CHECK: "true"
     ports:
       - "${PORT:-3000}:3000"
     volumes:

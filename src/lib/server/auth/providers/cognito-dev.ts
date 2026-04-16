@@ -3,6 +3,8 @@
 // 実際の AWS Cognito なしでログイン/認可フローをテスト可能にする
 
 import type { RequestEvent } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { CONTEXT_COOKIE_NAME, IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
@@ -30,6 +32,8 @@ export interface DevUser {
 	licenseStatus?: AuthContext['licenseStatus'];
 	/** Stripe price id 相当（例: 'standard_monthly', 'family_monthly'） */
 	plan?: string;
+	/** #820: Cognito group 疑似所属。未指定は空扱い */
+	groups?: string[];
 }
 
 export const DEV_USERS: DevUser[] = [
@@ -62,7 +66,7 @@ export const DEV_USERS: DevUser[] = [
 		password: 'Gq!Dev#Free2026xy',
 		tenantId: 'dev-tenant-free',
 		role: 'owner',
-		licenseStatus: 'none',
+		licenseStatus: AUTH_LICENSE_STATUS.NONE,
 		plan: undefined,
 	},
 	{
@@ -71,7 +75,7 @@ export const DEV_USERS: DevUser[] = [
 		password: 'Gq!Dev#Std2026xyz',
 		tenantId: 'dev-tenant-standard',
 		role: 'owner',
-		licenseStatus: 'active',
+		licenseStatus: AUTH_LICENSE_STATUS.ACTIVE,
 		plan: 'standard_monthly',
 	},
 	{
@@ -80,7 +84,7 @@ export const DEV_USERS: DevUser[] = [
 		password: 'Gq!Dev#Fam2026xyz',
 		tenantId: 'dev-tenant-family',
 		role: 'owner',
-		licenseStatus: 'active',
+		licenseStatus: AUTH_LICENSE_STATUS.ACTIVE,
 		plan: 'family_monthly',
 	},
 	// ---------- #752: トライアル E2E 用ユーザー ----------
@@ -91,7 +95,7 @@ export const DEV_USERS: DevUser[] = [
 		password: 'Gq!Dev#TrialExp26',
 		tenantId: 'dev-tenant-trial-expired',
 		role: 'owner',
-		licenseStatus: 'none',
+		licenseStatus: AUTH_LICENSE_STATUS.NONE,
 		plan: undefined,
 	},
 ];
@@ -119,6 +123,7 @@ export class DevCognitoAuthProvider implements AuthProvider {
 					type: 'cognito',
 					userId: claims.sub,
 					email: claims.email,
+					groups: claims['cognito:groups'],
 				};
 			}
 		} catch (e) {
@@ -161,8 +166,8 @@ export class DevCognitoAuthProvider implements AuthProvider {
 		const context: AuthContext = {
 			tenantId: devUser.tenantId,
 			role: devUser.role,
-			licenseStatus: devUser.licenseStatus ?? 'active',
-			tenantStatus: 'active',
+			licenseStatus: devUser.licenseStatus ?? AUTH_LICENSE_STATUS.ACTIVE,
+			tenantStatus: SUBSCRIPTION_STATUS.ACTIVE,
 			plan: devUser.plan,
 		};
 

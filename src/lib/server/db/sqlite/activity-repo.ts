@@ -11,8 +11,8 @@ export async function findActivities(_tenantId: string, filter?: ActivityFilter)
 
 	const conditions = [];
 
-	// #783: archive されたリソースをデフォルトで除外
-	conditions.push(eq(activities.isArchived, 0));
+	// #783: archive されたリソースをデフォルトで除外（NULL互換: #962）
+	conditions.push(or(eq(activities.isArchived, 0), isNull(activities.isArchived)));
 
 	if (filter?.categoryId) {
 		conditions.push(eq(activities.categoryId, filter.categoryId));
