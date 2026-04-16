@@ -75,7 +75,7 @@ describe('recordOpsAudit', () => {
 		});
 
 		expect(mockInsert).toHaveBeenCalledTimes(1);
-		const arg = mockInsert.mock.calls[0]![0]!;
+		const arg = mockInsert.mock.calls[0]?.[0];
 		expect(arg.actorId).toBe('u-42');
 		expect(arg.actorEmail).toBe('admin@example.com');
 		expect(arg.ip).toBe('203.0.113.10');
@@ -92,7 +92,7 @@ describe('recordOpsAudit', () => {
 			action: 'ping',
 		});
 
-		const arg = mockInsert.mock.calls[0]![0]!;
+		const arg = mockInsert.mock.calls[0]?.[0];
 		expect(arg.actorId).toBe('local');
 		expect(arg.actorEmail).toBe('local@localhost');
 	});
@@ -104,7 +104,7 @@ describe('recordOpsAudit', () => {
 			action: 'kpi.view',
 		});
 
-		const arg = mockInsert.mock.calls[0]![0]!;
+		const arg = mockInsert.mock.calls[0]?.[0];
 		expect(arg.target).toBeNull();
 		expect(arg.metadata).toBeNull();
 	});
@@ -116,7 +116,7 @@ describe('recordOpsAudit', () => {
 			action: 'login',
 		});
 
-		const arg = mockInsert.mock.calls[0]![0]!;
+		const arg = mockInsert.mock.calls[0]?.[0];
 		expect(arg.ip).toBe('198.51.100.7');
 	});
 
@@ -127,7 +127,7 @@ describe('recordOpsAudit', () => {
 			action: 'login',
 		});
 
-		const arg = mockInsert.mock.calls[0]![0]!;
+		const arg = mockInsert.mock.calls[0]?.[0];
 		expect(arg.ip).toBeNull();
 		expect(arg.ua).toBeNull();
 	});
@@ -178,8 +178,8 @@ describe('listRecentAudits', () => {
 
 		expect(mockFindRecent).toHaveBeenCalledWith(50);
 		expect(result).toHaveLength(2);
-		expect(result[0]!.metadata).toEqual({ reason: 'x' });
-		expect(result[1]!.metadata).toBeNull();
+		expect(result[0]?.metadata).toEqual({ reason: 'x' });
+		expect(result[1]?.metadata).toBeNull();
 	});
 
 	it('不正な JSON metadata は null に変換される', async () => {
@@ -198,7 +198,7 @@ describe('listRecentAudits', () => {
 		]);
 
 		const result = await listRecentAudits(10);
-		expect(result[0]!.metadata).toBeNull();
+		expect(result[0]?.metadata).toBeNull();
 	});
 
 	it('limit 省略時は 100 を渡す', async () => {
