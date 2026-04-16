@@ -16,6 +16,7 @@ import {
 	getAgeCoefficient,
 	getComparisonLabel,
 	getLevelEvaluationText,
+	LEVEL_EVALUATION_TIERS,
 	LEVEL_TABLE,
 } from '../../../src/lib/domain/validation/status';
 
@@ -197,6 +198,28 @@ describe('calcActivitiesToNextLevel', () => {
 // getLevelEvaluationText
 // ================================================================
 
+describe('LEVEL_EVALUATION_TIERS', () => {
+	it('終端（minLevel: 0）が存在する', () => {
+		const terminator = LEVEL_EVALUATION_TIERS.find((t) => t.minLevel === 0);
+		expect(terminator).toBeDefined();
+	});
+
+	it('minLevel が降順にソートされている', () => {
+		for (let i = 1; i < LEVEL_EVALUATION_TIERS.length; i++) {
+			const prev = LEVEL_EVALUATION_TIERS[i - 1];
+			const curr = LEVEL_EVALUATION_TIERS[i];
+			expect(prev?.minLevel).toBeGreaterThan(curr?.minLevel ?? 0);
+		}
+	});
+
+	it('全エントリに text と emoji がある', () => {
+		for (const tier of LEVEL_EVALUATION_TIERS) {
+			expect(tier.text.length).toBeGreaterThan(0);
+			expect(tier.emoji.length).toBeGreaterThan(0);
+		}
+	});
+});
+
 describe('getLevelEvaluationText', () => {
 	it('Lv.1は「はじめのいっぽ」', () => {
 		const result = getLevelEvaluationText(1);
@@ -218,6 +241,28 @@ describe('getLevelEvaluationText', () => {
 
 	it('Lv.50は「でんせつのぼうけんしゃ」', () => {
 		expect(getLevelEvaluationText(50).text).toBe('でんせつのぼうけんしゃ！');
+	});
+
+	// 境界値テスト（AC 要件: level -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 20, 30, 50, 100）
+	it.each([
+		{ level: -1, expectedText: 'はじめのいっぽ！', expectedEmoji: '🌱' },
+		{ level: 0, expectedText: 'はじめのいっぽ！', expectedEmoji: '🌱' },
+		{ level: 1, expectedText: 'はじめのいっぽ！', expectedEmoji: '🌱' },
+		{ level: 2, expectedText: 'そのちょうしだ！', expectedEmoji: '💪' },
+		{ level: 3, expectedText: 'いいかんじ！', expectedEmoji: '😊' },
+		{ level: 4, expectedText: 'いいかんじ！', expectedEmoji: '😊' },
+		{ level: 5, expectedText: 'すごいぞ！', expectedEmoji: '✨' },
+		{ level: 6, expectedText: 'すごいぞ！', expectedEmoji: '✨' },
+		{ level: 7, expectedText: 'たつじんレベル！', expectedEmoji: '⭐' },
+		{ level: 10, expectedText: 'めちゃくちゃがんばってる！', expectedEmoji: '🔥' },
+		{ level: 20, expectedText: 'すばらしいせいちょう！', expectedEmoji: '🌟' },
+		{ level: 30, expectedText: 'もはやたつじん！', expectedEmoji: '🏆' },
+		{ level: 50, expectedText: 'でんせつのぼうけんしゃ！', expectedEmoji: '👑' },
+		{ level: 100, expectedText: 'でんせつのぼうけんしゃ！', expectedEmoji: '👑' },
+	])('level=$level → "$expectedText"', ({ level, expectedText, expectedEmoji }) => {
+		const result = getLevelEvaluationText(level);
+		expect(result.text).toBe(expectedText);
+		expect(result.emoji).toBe(expectedEmoji);
 	});
 });
 
