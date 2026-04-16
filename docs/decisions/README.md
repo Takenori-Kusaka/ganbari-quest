@@ -77,4 +77,5 @@
 | 0028 | [プラン別履歴保持期間ポリシー（retention = 表示フィルタ + 物理削除 cron）](0028-retention-physical-delete.md) | accepted | 2026-04-12 |
 | 0029 | [Safety Assertion Erosion Ban](0029-safety-assertion-erosion-ban.md) | accepted | 2026-04-12 |
 | 0030 | [Cognito E2E テストユーザーのライフサイクル基盤](0030-cognito-e2e-user-lifecycle.md) | accepted | 2026-04-16 |
+| 0031 | [スキーマ変更時の既存データ互換性テスト義務化](0031-schema-change-compat-testing.md) | accepted | 2026-04-16 |
 | 0032 | [静的解析ツール実行頻度ポリシー (T1/T2/T3/T4)](0032-static-analysis-tier-policy.md) | accepted | 2026-04-16 |
