@@ -139,6 +139,74 @@ describe('verifyIdentityToken', () => {
 		expect(claims).toBeNull();
 	});
 
+	it('#820: cognito:groups claim を配列として抽出する', async () => {
+		mockJwtVerify.mockResolvedValue({
+			payload: {
+				sub: 'u-ops-1',
+				email: 'ops@example.com',
+				token_use: 'id',
+				'cognito:groups': ['ops', 'admin'],
+				iss: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_TestPool',
+				aud: 'test-client-id',
+			},
+			protectedHeader: { alg: 'RS256' },
+			// biome-ignore lint/suspicious/noExplicitAny: jose mock type
+		} as any);
+
+		vi.resetModules();
+		const { verifyIdentityToken } = await import(
+			'../../../src/lib/server/auth/providers/cognito-jwt'
+		);
+		const claims = await verifyIdentityToken('ops-token');
+
+		expect(claims?.['cognito:groups']).toEqual(['ops', 'admin']);
+	});
+
+	it('#820: cognito:groups が未定義の場合は undefined を返す', async () => {
+		mockJwtVerify.mockResolvedValue({
+			payload: {
+				sub: 'u-plain-1',
+				email: 'plain@example.com',
+				token_use: 'id',
+				iss: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_TestPool',
+				aud: 'test-client-id',
+			},
+			protectedHeader: { alg: 'RS256' },
+			// biome-ignore lint/suspicious/noExplicitAny: jose mock type
+		} as any);
+
+		vi.resetModules();
+		const { verifyIdentityToken } = await import(
+			'../../../src/lib/server/auth/providers/cognito-jwt'
+		);
+		const claims = await verifyIdentityToken('plain-token');
+
+		expect(claims?.['cognito:groups']).toBeUndefined();
+	});
+
+	it('#820: cognito:groups に非文字列が混在していたら除外する', async () => {
+		mockJwtVerify.mockResolvedValue({
+			payload: {
+				sub: 'u-dirty-1',
+				email: 'dirty@example.com',
+				token_use: 'id',
+				'cognito:groups': ['ops', 42, null, 'admin'],
+				iss: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_TestPool',
+				aud: 'test-client-id',
+			},
+			protectedHeader: { alg: 'RS256' },
+			// biome-ignore lint/suspicious/noExplicitAny: jose mock type
+		} as any);
+
+		vi.resetModules();
+		const { verifyIdentityToken } = await import(
+			'../../../src/lib/server/auth/providers/cognito-jwt'
+		);
+		const claims = await verifyIdentityToken('dirty-token');
+
+		expect(claims?.['cognito:groups']).toEqual(['ops', 'admin']);
+	});
+
 	it('email_verified が false の場合もクレームを返す（ポリシーは呼び出し側で判断）', async () => {
 		mockJwtVerify.mockResolvedValue({
 			payload: {

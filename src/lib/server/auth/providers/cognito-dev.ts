@@ -30,6 +30,8 @@ export interface DevUser {
 	licenseStatus?: AuthContext['licenseStatus'];
 	/** Stripe price id 相当（例: 'standard_monthly', 'family_monthly'） */
 	plan?: string;
+	/** #820: Cognito group 疑似所属。未指定は空扱い */
+	groups?: string[];
 }
 
 export const DEV_USERS: DevUser[] = [
@@ -119,6 +121,7 @@ export class DevCognitoAuthProvider implements AuthProvider {
 					type: 'cognito',
 					userId: claims.sub,
 					email: claims.email,
+					groups: claims['cognito:groups'],
 				};
 			}
 		} catch (e) {
