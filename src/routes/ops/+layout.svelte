@@ -10,6 +10,7 @@ let { children }: { children: Snippet } = $props();
 		<nav>
 			<a href="/ops">KPI</a>
 			<a href="/ops/revenue">収益</a>
+			<a href="/ops/business">採算性</a>
 			<a href="/ops/costs">費用</a>
 			<a href="/ops/export">エクスポート</a>
 		</nav>
