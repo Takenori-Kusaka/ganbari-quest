@@ -19,6 +19,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 
 	const body = await request.json();
 	const planId = body.planId;
+	const returnPath: string | undefined = body.returnPath;
 	const validPlanIds: string[] = [
 		LICENSE_PLAN.MONTHLY,
 		LICENSE_PLAN.YEARLY,
@@ -30,11 +31,16 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	}
 
 	const origin = url.origin;
+	// #767: returnPath が指定された場合、Checkout 完了後にその画面に戻す
+	const successBase = returnPath ?? '/admin/license';
+	const successUrl = `${origin}${successBase}${successBase.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}`;
+	const cancelUrl = returnPath ? `${origin}${returnPath}` : `${origin}/pricing`;
+
 	const result = await createCheckoutSession({
 		tenantId,
 		planId,
-		successUrl: `${origin}/admin/license?session_id={CHECKOUT_SESSION_ID}`,
-		cancelUrl: `${origin}/pricing`,
+		successUrl,
+		cancelUrl,
 	});
 
 	if ('error' in result) {

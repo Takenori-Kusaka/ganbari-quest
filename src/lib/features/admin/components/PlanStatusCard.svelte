@@ -1,4 +1,5 @@
 <script lang="ts">
+import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 interface TrialStatusProp {
@@ -18,6 +19,12 @@ interface Props {
 	retentionDays?: number | null;
 	/** #730: トライアル中は plan が standard/family に解決済みでも trial 文脈を表示する */
 	trialStatus?: TrialStatusProp | null;
+	/** #767: ワンクリックアップグレード — planId を受け取って Stripe Checkout を開始する */
+	onUpgrade?: ((planId: string) => void) | null;
+	/** #767: Checkout 処理中フラグ */
+	upgradeLoading?: boolean;
+	/** リンクのベースパス (デモ用) */
+	basePath?: string;
 }
 
 let {
@@ -28,6 +35,9 @@ let {
 	childMax = null,
 	retentionDays = null,
 	trialStatus = null,
+	onUpgrade = null,
+	upgradeLoading = false,
+	basePath = '/admin',
 }: Props = $props();
 
 const FREE_LABEL = { name: '無料プラン', icon: '' };
@@ -41,10 +51,6 @@ const label: { name: string; icon: string } = $derived(planLabels[planTier] ?? F
 const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retentionDays}日間`);
 
 // #730: free + トライアル中 のケース
-// resolvePlanTier はトライアル中に planTier を standard/family に昇格させるため、
-// "free かつトライアル中" の判定は license plan が free で isTrialActive を見る必要がある。
-// ただし PlanStatusCard は planTier しか受け取らないため、trialStatus.isTrialActive を
-// シグナルとして扱い、planTier が standard/family でも trialStatus があればトライアル扱い。
 const isOnTrial = $derived(trialStatus?.isTrialActive === true);
 const trialDaysRemaining = $derived(trialStatus?.daysRemaining ?? 0);
 const trialTierLabel = $derived(
@@ -86,30 +92,67 @@ const trialTierLabel = $derived(
 		</div>
 
 		{#if isOnTrial}
-			<!-- #730: トライアル中は plan 解決が standard/family だが、license plan は free のまま。
-			     ユーザーに「今使えている理由」を説明し、本契約導線を明示する。 -->
 			<p class="plan-status__trial-note" data-testid="plan-status-trial-note">
 				{trialTierLabel}の全機能を体験中です。トライアル終了後もこのまま使うには本契約が必要です。
 			</p>
-			<a
-				href="/admin/license"
-				class="plan-status__cta plan-status__cta--upgrade"
-				data-testid="plan-status-trial-cta"
-			>
-				本契約する
-			</a>
+			{#if onUpgrade}
+				<Button
+					variant="primary"
+					size="md"
+					class="plan-status__cta--upgrade-btn"
+					disabled={upgradeLoading}
+					data-testid="plan-status-trial-cta"
+					onclick={() => onUpgrade?.('monthly')}
+				>
+					{upgradeLoading ? '処理中...' : '本契約する'}
+				</Button>
+			{:else}
+				<a
+					href="{basePath}/license"
+					class="plan-status__cta plan-status__cta--upgrade"
+					data-testid="plan-status-trial-cta"
+				>
+					本契約する
+				</a>
+			{/if}
 		{:else if planTier === 'free'}
-			<a
-				href="/admin/license"
-				class="plan-status__cta plan-status__cta--upgrade"
-				data-testid="plan-status-free-cta"
-			>
-				⭐ スタンダードにアップグレード
-			</a>
+			{#if onUpgrade}
+				<Button
+					variant="primary"
+					size="md"
+					class="plan-status__cta--upgrade-btn"
+					disabled={upgradeLoading}
+					data-testid="plan-status-free-cta"
+					onclick={() => onUpgrade?.('monthly')}
+				>
+					{upgradeLoading ? '処理中...' : '⭐ スタンダードにアップグレード'}
+				</Button>
+			{:else}
+				<a
+					href="{basePath}/license"
+					class="plan-status__cta plan-status__cta--upgrade"
+					data-testid="plan-status-free-cta"
+				>
+					⭐ スタンダードにアップグレード
+				</a>
+			{/if}
 		{:else if planTier === 'standard'}
 			<div class="plan-status__actions">
-				<a href="/admin/license" class="plan-status__cta plan-status__cta--detail">プランの詳細</a>
-				<a href="/admin/license" class="plan-status__cta plan-status__cta--family">⭐⭐ ファミリーへ</a>
+				<a href="{basePath}/license" class="plan-status__cta plan-status__cta--detail">プランの詳細</a>
+				{#if onUpgrade}
+					<Button
+						variant="primary"
+						size="sm"
+						class="plan-status__cta--family-btn"
+						disabled={upgradeLoading}
+						data-testid="plan-status-family-cta"
+						onclick={() => onUpgrade?.('family-monthly')}
+					>
+						{upgradeLoading ? '処理中...' : '⭐⭐ ファミリーへ'}
+					</Button>
+				{:else}
+					<a href="{basePath}/license" class="plan-status__cta plan-status__cta--family">⭐⭐ ファミリーへ</a>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -212,7 +255,7 @@ const trialTierLabel = $derived(
 		background: var(--color-neutral-200);
 	}
 	.plan-status__cta--family {
-		background: var(--color-gold-100, #fef3c7);
+		background: var(--color-gold-100, var(--color-surface-warm));
 		color: var(--color-gold-700, var(--color-amber-700));
 		flex: 1;
 	}
