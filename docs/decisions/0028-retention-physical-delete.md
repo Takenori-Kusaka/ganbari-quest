@@ -99,8 +99,9 @@ UX 層はそのまま残す。理由:
 ### 5. 認証とスケジュール
 
 - エンドポイント `/api/cron/retention-cleanup/+server.ts`
-- 認証: `OPS_SECRET_KEY` Bearer token（OPS ダッシュボードと同じ鍵を流用）
-- `OPS_SECRET_KEY` 未設定なら 404 を返してエンドポイントの存在を秘匿
+- 認証: `CRON_SECRET` Bearer token（#820 / ADR-0033 で `/ops` ダッシュボードから概念分離。
+  移行期間中は `OPS_SECRET_KEY` も後方互換フォールバックとして受け入れる）
+- `CRON_SECRET` / `OPS_SECRET_KEY` のいずれも未設定なら 404 を返してエンドポイントの存在を秘匿
 - dry-run モード: `POST { "dryRun": true }` で削除実行せず件数のみ返す
 - GET は dry-run 固定（ヘルスチェック用途）
 - CDK での EventBridge スケジュール定義は **本 PR では実施しない**（後続チケット）:
