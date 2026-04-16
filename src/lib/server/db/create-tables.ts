@@ -703,4 +703,22 @@ export const SQL_CREATE_TABLES = `
 		ON enemy_collection(child_id, enemy_id);
 	CREATE INDEX IF NOT EXISTS idx_enemy_collection_child
 		ON enemy_collection(child_id);
+
+	CREATE TABLE IF NOT EXISTS ops_audit_log (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		actor_id TEXT NOT NULL,
+		actor_email TEXT NOT NULL,
+		ip TEXT,
+		ua TEXT,
+		action TEXT NOT NULL,
+		target TEXT,
+		metadata TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX IF NOT EXISTS idx_ops_audit_log_actor
+		ON ops_audit_log(actor_id);
+	CREATE INDEX IF NOT EXISTS idx_ops_audit_log_created
+		ON ops_audit_log(created_at);
+	CREATE INDEX IF NOT EXISTS idx_ops_audit_log_action
+		ON ops_audit_log(action);
 `;
