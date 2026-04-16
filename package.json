@@ -42,6 +42,7 @@
 		"db:seed": "tsx src/lib/server/db/seed.ts",
 		"deploy": "bash scripts/deploy.sh",
 		"start": "node build/index.js",
+		"security:scan": "node scripts/security-scan.mjs",
 		"storybook": "storybook dev -p 6006",
 		"build-storybook": "storybook build"
 	},
