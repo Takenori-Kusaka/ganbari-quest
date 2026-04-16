@@ -69,6 +69,21 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: static_analysis_tier
+    attributes:
+      label: 静的解析階層（infra/lint/静的解析ツール導入時のみ必須、ADR-0032）
+      description: |
+        静的解析ツール・lint ルール・コード品質チェックを導入する Issue では想定階層を指定すること。
+        階層の判断基準は `docs/decisions/0032-static-analysis-tier-policy.md` を参照。
+      options:
+        - "N/A（静的解析ツール導入ではない）"
+        - "T1 PR ゲート（< 30s、merge block）"
+        - "T2 PR 並行レーン（30s-3min、別 job）"
+        - "T3 nightly / 週次（> 3min、PR は止めない）"
+        - "T4 四半期 / 手動（脆弱性スキャン等）"
+        - "未定（PR で実測後に決定）"
+
   - type: textarea
     id: technical
     attributes:
