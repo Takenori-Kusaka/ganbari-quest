@@ -133,7 +133,7 @@ export async function activateVoice(
 }
 
 /** ボイスを非アクティブに（ショップ音に戻す） */
-export async function deactivateVoice(
+async function deactivateVoice(
 	childId: number,
 	scene: string,
 	tenantId: string,

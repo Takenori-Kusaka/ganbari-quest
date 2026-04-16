@@ -132,7 +132,7 @@ export async function evaluateChild(
 }
 
 /** 全子供の週次評価を一括実行 */
-export async function runWeeklyEvaluation(
+async function runWeeklyEvaluation(
 	tenantId: string,
 	date?: Date,
 ): Promise<EvaluationResult[]> {

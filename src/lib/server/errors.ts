@@ -132,11 +132,6 @@ export function validationError(message: string) {
 	return apiError('VALIDATION_ERROR', message);
 }
 
-/** エラーコードからユーザー向けメッセージを取得（page.server.ts の fail() で利用） */
-export function getUserMessage(code: ErrorCode): string {
-	return ERROR_DEFINITIONS[code].userMessage;
-}
-
 /**
  * プラン制限エラーを 403 レスポンスとして返す (#744)。
  *
@@ -157,7 +152,7 @@ export function getUserMessage(code: ErrorCode): string {
  *
  * @see docs/design/07-API設計書.md §4.2 プラン制限エラー
  */
-export function planLimitError(opts: {
+function planLimitError(opts: {
 	currentTier: PlanTier;
 	requiredTier: Exclude<PlanTier, 'free'>;
 	message: string;
@@ -174,7 +169,3 @@ export function planLimitError(opts: {
 	return json({ error: body }, { status: 403 });
 }
 
-/** エラーコードから定義全体を取得 */
-export function getErrorDefinition(code: ErrorCode): ErrorDefinition {
-	return ERROR_DEFINITIONS[code];
-}

@@ -50,7 +50,7 @@ export async function findChildById(id: number, tenantId: string) {
 }
 
 // Activity Logs
-export async function findDailyLog(
+async function findDailyLog(
 	childId: number,
 	activityId: number,
 	date: string,
@@ -92,7 +92,7 @@ export async function getTodayActivityCountsByChild(
 ) {
 	return getRepos().activity.getTodayActivityCountsByChild(childId, date, tenantId);
 }
-export async function findTodayRecordedActivityIds(
+async function findTodayRecordedActivityIds(
 	childId: number,
 	today: string,
 	tenantId: string,
@@ -107,10 +107,10 @@ export async function findDistinctRecordedDates(childId: number, tenantId: strin
 export async function countActiveActivityLogs(childId: number, tenantId: string) {
 	return getRepos().activity.countActiveActivityLogs(childId, tenantId);
 }
-export async function getCategoryCountsByDate(childId: number, tenantId: string) {
+async function getCategoryCountsByDate(childId: number, tenantId: string) {
 	return getRepos().activity.getCategoryCountsByDate(childId, tenantId);
 }
-export async function countDistinctCategories(childId: number, tenantId: string) {
+async function countDistinctCategories(childId: number, tenantId: string) {
 	return getRepos().activity.countDistinctCategories(childId, tenantId);
 }
 export async function findTodayLogsWithCategory(childId: number, date: string, tenantId: string) {
@@ -123,14 +123,14 @@ export async function getComboPointsGranted(
 ) {
 	return getRepos().activity.getComboPointsGranted(childId, descriptionPrefix, tenantId);
 }
-export async function countActiveActivityLogsByCategory(
+async function countActiveActivityLogsByCategory(
 	childId: number,
 	categoryId: number,
 	tenantId: string,
 ) {
 	return getRepos().activity.countActiveActivityLogsByCategory(childId, categoryId, tenantId);
 }
-export async function countPointLedgerEntriesByType(
+async function countPointLedgerEntriesByType(
 	childId: number,
 	type: string,
 	tenantId: string,

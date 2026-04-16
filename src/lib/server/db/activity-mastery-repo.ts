@@ -12,7 +12,7 @@ export async function findByChildAndActivity(
 	return getRepos().activityMastery.findByChildAndActivity(childId, activityId, tenantId);
 }
 
-export async function findAllByChild(
+async function findAllByChild(
 	childId: number,
 	tenantId: string,
 ): Promise<ActivityMastery[]> {

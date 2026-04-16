@@ -190,7 +190,7 @@ export async function executeDailyBattle(
 /**
  * 敵図鑑を取得する。
  */
-export async function getEnemyCollection(
+async function getEnemyCollection(
 	childId: number,
 	tenantId: string,
 ): Promise<CollectionEntry[]> {
@@ -211,7 +211,7 @@ export async function getEnemyCollection(
 /**
  * バトル履歴を取得する。
  */
-export async function getBattleHistory(
+async function getBattleHistory(
 	childId: number,
 	limit: number,
 	tenantId: string,
