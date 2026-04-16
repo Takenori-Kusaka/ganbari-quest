@@ -2,6 +2,8 @@
 // CognitoAuthProvider — Email/Password + MFA + マルチテナント (#0123)
 
 import type { RequestEvent } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import {
 	CONTEXT_COOKIE_NAME,
 	IDENTITY_COOKIE_NAME,
@@ -118,17 +120,18 @@ export class CognitoAuthProvider implements AuthProvider {
 			const tenant = await repos.auth.findTenantById(membership.tenantId);
 
 			// Stripe サブスクリプション状態からライセンスステータスを判定
-			const licenseStatus = tenant?.stripeSubscriptionId
-				? ((tenant.status === 'active' || tenant.status === 'grace_period'
-						? 'active'
-						: 'suspended') as AuthContext['licenseStatus'])
-				: ('none' as AuthContext['licenseStatus']);
+			const licenseStatus: AuthContext['licenseStatus'] = tenant?.stripeSubscriptionId
+				? tenant.status === SUBSCRIPTION_STATUS.ACTIVE ||
+					tenant.status === SUBSCRIPTION_STATUS.GRACE_PERIOD
+					? AUTH_LICENSE_STATUS.ACTIVE
+					: AUTH_LICENSE_STATUS.SUSPENDED
+				: AUTH_LICENSE_STATUS.NONE;
 
 			const context: AuthContext = {
 				tenantId: membership.tenantId,
 				role: membership.role,
 				licenseStatus,
-				tenantStatus: tenant?.status ?? 'active',
+				tenantStatus: tenant?.status ?? SUBSCRIPTION_STATUS.ACTIVE,
 				plan: tenant?.plan,
 			};
 

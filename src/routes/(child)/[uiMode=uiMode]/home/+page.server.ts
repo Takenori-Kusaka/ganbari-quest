@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -555,7 +556,7 @@ export const actions: Actions = {
 			const isPremium = isPaidTier(
 				await resolveFullPlanTier(
 					tenantId,
-					locals.context?.licenseStatus ?? 'none',
+					locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 					locals.context?.plan,
 				),
 			);
