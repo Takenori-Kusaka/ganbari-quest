@@ -68,6 +68,7 @@
 - ~~[ADR-0027](decisions/0027-retention-policy.md)~~ — ~~プラン別履歴保持期間ポリシー（retention = 表示フィルタ、物理削除禁止）~~ → **ADR-0028 で物理削除導入に変更**
 - [ADR-0028](decisions/0028-retention-physical-delete.md) — プラン別履歴保持期間ポリシー（retention = 表示フィルタ + 物理削除 cron、ADR-0027 supersede）
 - [ADR-0029](decisions/0029-safety-assertion-erosion-ban.md) — Safety Assertion Erosion Ban（既存セーフティの段階的弱体化を禁ずる + 新規 env/secret 配布証跡の自動チェック）
+- [ADR-0031](decisions/0031-schema-change-compat-testing.md) — スキーマ変更時の既存データ互換性テスト義務化（NULL 混在行テスト + backfill UPDATE 必須）
 
 ## 画像アセット
 

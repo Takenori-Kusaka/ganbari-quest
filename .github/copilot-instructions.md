@@ -182,6 +182,7 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0027**: Plan-based history retention policy — retention is a read-time display filter only; no physical delete cron. Summary tables are exempt from retention filtering
 - **ADR-0028**: Plan-based history retention — physical delete via cron (supersedes ADR-0027). Free plan rows older than retention window are physically deleted by scheduled job
 - **ADR-0029**: Safety Assertion Erosion Ban — production guard を弱める変更（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加）は禁止。例外は別 ADR で当該 ADR を supersede すること。新規必須 env / secret 追加時は PR 本文に「配布済み:」証跡が必須（CI で `scripts/check-new-required-env.mjs` が検証）
+- **ADR-0031**: スキーマ変更時の既存データ互換性テスト義務化 — `src/lib/server/db/schema.ts` にカラムを追加する PR は、`tests/unit/db|services/` に NULL 混在行でのクエリテストを同梱。マイグレーション script の `ALTER TABLE ADD COLUMN` には `UPDATE ... WHERE col IS NULL` バックフィルを併記。CI は `scripts/check-schema-change-tests.mjs` で warn を出す
 
 ### Team Structure
 
