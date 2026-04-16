@@ -72,6 +72,7 @@
 - [ADR-0031](decisions/0031-schema-change-compat-testing.md) — スキーマ変更時の既存データ互換性テスト義務化（NULL 混在行テスト + backfill UPDATE 必須）
 - [ADR-0032](decisions/0032-static-analysis-tier-policy.md) — 静的解析ツール実行頻度ポリシー（T1 PR ゲート / T2 並行 / T3 nightly / T4 四半期、既存 CI baseline と新ツール判断フロー）
 - [ADR-0033](decisions/0033-ops-dashboard-cognito-authz.md) — /ops ダッシュボード認可を Cognito ops group ベースに刷新（OPS_SECRET_KEY 廃止 / cron endpoint は CRON_SECRET に概念分離、移行期は両対応）
+- [ADR-0034](decisions/0034-pre-pmf-security-minimum.md) — Pre-PMF セキュリティ最小化方針（HMAC + API Gateway throttling + Budgets / 監査ログ DynamoDB / WAF / ブルート検知は Pre-PMF では不採用）
 
 ## 画像アセット
 
