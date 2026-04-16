@@ -1010,6 +1010,47 @@ export const enemyCollection = sqliteTable(
 );
 
 // ============================================================
+// license_events - ライセンスキーライフサイクル監査ログ (#804)
+// ============================================================
+//
+// `issueLicenseKey` / `validateLicenseKey` / `consumeLicenseKey` / `revokeLicenseKey`
+// の各操作をキー別に永続化し、CS 対応・不正利用検知 (validate 失敗の多発 = ブルートフォース)
+// ・返金時の証跡・法的開示請求に備える。
+// DynamoDB 側は PK='LICENSE_EVENT#<licenseKey>', SK='EVENT#<createdAt>' を想定。
+//
+// 設計判断:
+// - `licenseKey` は validation_failed でも検索性のため保存するが、存在しないキーは
+//   先頭 7 文字 + '...' を入れて DB 膨張抑制 + 偽造試行値の漏洩抑制を両立する。
+// - `actorId` は 'stripe:<session>' / 'ops:<uid>' / 'tenant:<id>' / 'system' / null
+//   のいずれか。呼び出し側のコンテキストで決まる。
+// - `metadata` は JSON 文字列。reason / plan / kind / expiresAt / revokedBy 等を格納。
+export const licenseEvents = sqliteTable(
+	'license_events',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		/** 'issued' | 'validated' | 'validation_failed' | 'consumed' | 'consume_failed' | 'revoked' */
+		eventType: text('event_type').notNull(),
+		/** 対象ライセンスキー。validation_failed の未知キーは先頭 7 文字 + '...' */
+		licenseKey: text('license_key').notNull(),
+		/** 関連テナント。発行先 or 消費者。nullable */
+		tenantId: text('tenant_id'),
+		/** 操作主体。'stripe:<s>' / 'ops:<uid>' / 'tenant:<id>' / 'system' / null */
+		actorId: text('actor_id'),
+		ip: text('ip'),
+		ua: text('ua'),
+		/** 追加メタ情報 (JSON 文字列)。reason / plan / kind / revokedBy 等 */
+		metadata: text('metadata'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		index('idx_license_events_key').on(table.licenseKey, table.createdAt),
+		index('idx_license_events_type_created').on(table.eventType, table.createdAt),
+		index('idx_license_events_tenant').on(table.tenantId, table.createdAt),
+		index('idx_license_events_ip_created').on(table.ip, table.createdAt),
+	],
+);
+
+// ============================================================
 // ops_audit_log - /ops 運営ダッシュボード操作監査 (#820)
 // ============================================================
 //
