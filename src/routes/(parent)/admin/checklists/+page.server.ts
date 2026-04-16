@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -50,7 +51,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const tier = await resolveFullPlanTier(
 		tenantId,
-		locals.context?.licenseStatus ?? 'none',
+		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 		locals.context?.plan,
 	);
 	const isPremium = isPaidTier(tier);
@@ -81,7 +82,7 @@ export const actions: Actions = {
 			return fail(400, { error: '時間帯が不正です' });
 
 		// #723: Free プランの上限チェック（UI ゲートをバイパスした直接 POST を防ぐ）
-		const licenseStatus = locals.context?.licenseStatus ?? 'none';
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, childId);
 		if (!limit.allowed) {
 			// #787: PlanLimitError 形式に統一。tier は memoize 済み (#788) なので 2 回目の呼び出しは安い
@@ -196,7 +197,7 @@ export const actions: Actions = {
 	createFromAi: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 
-		const licenseStatus = locals.context?.licenseStatus ?? 'none';
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 		if (tier !== 'family') {
 			return fail(403, {

@@ -1,6 +1,8 @@
 // src/lib/server/services/ops-service.ts
 // 運営管理ダッシュボード: テナントKPI集計サービス (#0176)
 
+import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -63,21 +65,21 @@ async function getTenantStats(): Promise<TenantStats> {
 
 	return {
 		total: tenants.length,
-		active: tenants.filter((t) => t.status === 'active').length,
-		gracePeriod: tenants.filter((t) => t.status === 'grace_period').length,
-		suspended: tenants.filter((t) => t.status === 'suspended').length,
-		terminated: tenants.filter((t) => t.status === 'terminated').length,
+		active: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.ACTIVE).length,
+		gracePeriod: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.GRACE_PERIOD).length,
+		suspended: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.SUSPENDED).length,
+		terminated: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.TERMINATED).length,
 		planBreakdown: countPlans(tenants),
 		newThisMonth: tenants.filter((t) => new Date(t.createdAt) >= monthStart).length,
 	};
 }
 
 function countPlans(tenants: Tenant[]) {
-	const activeTenants = tenants.filter((t) => t.status === 'active');
+	const activeTenants = tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.ACTIVE);
 	return {
-		monthly: activeTenants.filter((t) => t.plan === 'monthly').length,
-		yearly: activeTenants.filter((t) => t.plan === 'yearly').length,
-		lifetime: activeTenants.filter((t) => t.plan === 'lifetime').length,
+		monthly: activeTenants.filter((t) => t.plan === LICENSE_PLAN.MONTHLY).length,
+		yearly: activeTenants.filter((t) => t.plan === LICENSE_PLAN.YEARLY).length,
+		lifetime: activeTenants.filter((t) => t.plan === LICENSE_PLAN.LIFETIME).length,
 		noPlan: activeTenants.filter((t) => !t.plan).length,
 	};
 }

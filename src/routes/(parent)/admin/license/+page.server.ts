@@ -1,6 +1,8 @@
 // /admin/license — ライセンス管理画面 (#0130, #0131, #314, #796)
 
 import { fail } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { requireRole } from '$lib/server/auth/guards';
 import { logger } from '$lib/server/logger';
@@ -30,7 +32,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// プラン利用状況 (#732: resolveFullPlanTier に統一)
 	const tier = await resolveFullPlanTier(
 		tenantId,
-		locals.context?.licenseStatus ?? 'none',
+		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 		locals.context?.plan,
 	);
 	const planLimits = getPlanLimits(tier);
@@ -56,7 +58,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		license: license ?? {
 			plan: 'free' as const,
-			status: 'active' as const,
+			status: SUBSCRIPTION_STATUS.ACTIVE,
 			tenantName: '',
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),

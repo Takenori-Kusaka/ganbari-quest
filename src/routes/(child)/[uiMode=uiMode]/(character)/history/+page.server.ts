@@ -1,3 +1,4 @@
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
@@ -33,7 +34,7 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 	const dateRange = getDateRange(period);
 	const planTier = await resolveFullPlanTier(
 		tenantId,
-		locals.context?.licenseStatus ?? 'none',
+		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 		locals.context?.plan,
 	);
 	const filtered = applyRetentionFilter(planTier, dateRange);

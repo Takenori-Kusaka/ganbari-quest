@@ -1,6 +1,7 @@
 // src/lib/server/auth/authorization.ts
 // ロール × ルート 認可マトリクス (#0123: viewer廃止, device廃止)
 
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import type { AuthContext, AuthResult, Identity, Role } from './types';
 
 interface RouteRule {
@@ -136,11 +137,11 @@ function isPublicRoute(path: string): boolean {
 function checkLicenseAccess(path: string, context: AuthContext): AuthResult {
 	const { licenseStatus } = context;
 
-	if (licenseStatus === 'active' || licenseStatus === 'none') {
+	if (licenseStatus === AUTH_LICENSE_STATUS.ACTIVE || licenseStatus === AUTH_LICENSE_STATUS.NONE) {
 		return { allowed: true };
 	}
 
-	if (licenseStatus === 'expired') {
+	if (licenseStatus === AUTH_LICENSE_STATUS.EXPIRED) {
 		// ライセンス管理・決済ページは期限切れでもアクセス可能（更新促進）
 		if (
 			path.startsWith('/admin/license') ||
@@ -153,7 +154,7 @@ function checkLicenseAccess(path: string, context: AuthContext): AuthResult {
 		return { allowed: false, redirect: '/admin/license?reason=expired' };
 	}
 
-	if (licenseStatus === 'suspended') {
+	if (licenseStatus === AUTH_LICENSE_STATUS.SUSPENDED) {
 		// suspended = 読み取り専用。GET は許可、POST/PUT/DELETE は API レイヤで制御
 		return { allowed: true };
 	}

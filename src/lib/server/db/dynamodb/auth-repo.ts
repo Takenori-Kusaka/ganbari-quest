@@ -10,6 +10,7 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { INVITE_EXPIRY_DAYS } from '$lib/domain/validation/auth';
 import type {
 	AuthUser,
@@ -140,7 +141,7 @@ export const createTenant: IAuthRepo['createTenant'] = async (input) => {
 		tenantId,
 		name: input.name,
 		ownerId: input.ownerId,
-		status: 'active',
+		status: SUBSCRIPTION_STATUS.ACTIVE,
 		licenseKey: input.licenseKey,
 		createdAt: now,
 		updatedAt: now,

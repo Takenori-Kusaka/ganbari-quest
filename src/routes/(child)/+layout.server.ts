@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import { UI_MODES } from '$lib/domain/validation/age-tier';
@@ -89,7 +90,7 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	// 本 layout で 1 回だけ解決し、planTier / planLimits / isPremium を配布する。
 	const planTier = await resolveFullPlanTier(
 		tenantId,
-		locals.context?.licenseStatus ?? 'none',
+		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 		locals.context?.plan,
 	);
 	const planLimits = getPlanLimits(planTier);

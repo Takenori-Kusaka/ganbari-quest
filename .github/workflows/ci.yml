@@ -73,6 +73,9 @@ jobs:
       - name: Parallel implementation sync check (#565)
         run: npm run lint:parallel
 
+      - name: No plan/status literal direct write check (#972)
+        run: node scripts/check-no-plan-literals.mjs
+
       - name: Stylelint (CSS hex check)
         run: npx stylelint "src/**/*.css"
 

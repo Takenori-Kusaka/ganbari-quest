@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import {
 	MESSAGE_TEXT_MAX_LENGTH,
@@ -59,7 +60,7 @@ export const actions: Actions = {
 		}
 		if (validType === 'text') {
 			// ファミリープラン限定チェック（トライアル状態も考慮）
-			const licenseStatus = locals.context?.licenseStatus ?? 'none';
+			const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 			const limits = getPlanLimits(tier);
 			if (!limits.canFreeTextMessage) {

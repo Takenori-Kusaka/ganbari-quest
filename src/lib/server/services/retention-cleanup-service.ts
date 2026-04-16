@@ -14,6 +14,11 @@
 // - `/api/cron/retention-cleanup/+server.ts` (EventBridge スケジュール経由)
 // - 手動実行（OPS_SECRET_KEY 認証）
 
+import {
+	AUTH_LICENSE_STATUS,
+	type AuthLicenseStatus,
+} from '$lib/domain/constants/auth-license-status';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -48,10 +53,15 @@ export interface RetentionCleanupOptions {
 function deriveLicenseStatus(tenant: {
 	stripeSubscriptionId?: string;
 	status: string;
-}): 'active' | 'suspended' | 'none' {
-	if (!tenant.stripeSubscriptionId) return 'none';
-	if (tenant.status === 'active' || tenant.status === 'grace_period') return 'active';
-	return 'suspended';
+}): AuthLicenseStatus {
+	if (!tenant.stripeSubscriptionId) return AUTH_LICENSE_STATUS.NONE;
+	if (
+		tenant.status === SUBSCRIPTION_STATUS.ACTIVE ||
+		tenant.status === SUBSCRIPTION_STATUS.GRACE_PERIOD
+	) {
+		return AUTH_LICENSE_STATUS.ACTIVE;
+	}
+	return AUTH_LICENSE_STATUS.SUSPENDED;
 }
 
 /**

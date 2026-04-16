@@ -2,6 +2,7 @@
 // AI ごほうび提案 API — プランゲート必須 (#719)
 
 import { error, json } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { apiError } from '$lib/server/errors';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { suggestReward } from '$lib/server/services/reward-suggest-service';
@@ -13,7 +14,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 	const tenantId = locals.context.tenantId;
 
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 	if (tier !== 'family') {
 		return apiError('PLAN_LIMIT_EXCEEDED', 'AI ごほうび提案はファミリープランでご利用いただけます');

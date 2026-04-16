@@ -2,6 +2,7 @@
 // SQLite stub for IAuthRepo — local mode does not use auth entities.
 // All methods throw to catch accidental usage in local mode.
 
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { IAuthRepo } from '../interfaces/auth-repo.interface';
 
 const NOT_SUPPORTED = 'Auth repo is not supported in local (SQLite) mode. Set AUTH_MODE=cognito.';
@@ -24,7 +25,7 @@ export const findTenantById: IAuthRepo['findTenantById'] = async () => {
 		tenantId: 'local',
 		name: 'ローカル家族',
 		ownerId: 'local',
-		status: 'active' as const,
+		status: SUBSCRIPTION_STATUS.ACTIVE,
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString(),
 	};
@@ -36,7 +37,7 @@ export const listAllTenants: IAuthRepo['listAllTenants'] = async () => {
 			tenantId: 'local',
 			name: 'ローカル家族',
 			ownerId: 'local',
-			status: 'active' as const,
+			status: SUBSCRIPTION_STATUS.ACTIVE,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 		},
