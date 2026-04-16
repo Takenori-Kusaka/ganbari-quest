@@ -201,3 +201,17 @@ export const FEATURE_LABELS = {
 	dataExport: 'データエクスポート',
 	aiActivitySuggest: 'AI による活動提案',
 } as const;
+
+// ============================================================
+// チュートリアル関連ラベル（#961 QA: quickMode 対応）
+// ============================================================
+
+export const TUTORIAL_LABELS = {
+	/** AdminHome 等から全チャプターを最初から見る導線 */
+	viewFullGuide: 'くわしいガイドを最初から見る',
+	viewFullGuideHint: 'すべてのチャプター（活動管理・報酬・レポートなど）を順番に確認できます',
+	openGuide: 'ガイドを開く',
+	/** クイック完了ダイアログのボタン */
+	quickFinish: '使い始める',
+	quickContinue: 'もっと詳しく見る',
+} as const;

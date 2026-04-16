@@ -1,8 +1,12 @@
 <script lang="ts">
+import { TUTORIAL_LABELS } from '$lib/domain/labels';
 import {
+	continueFullTutorial,
 	dismissResumePrompt,
 	endTutorial,
+	finishQuickTutorial,
 	getCurrentStep,
+	isQuickCompleteShown,
 	isResumePromptShown,
 	isTutorialActive,
 	resumeTutorial,
@@ -17,6 +21,7 @@ let showExitConfirm = $state(false);
 const active = $derived(isTutorialActive());
 const step = $derived(getCurrentStep());
 const showResume = $derived(isResumePromptShown());
+const showQuickComplete = $derived(isQuickCompleteShown());
 
 // A. チュートリアル中はナビのz-indexを抑制するためhtml要素にフラグを付与
 $effect(() => {
@@ -204,6 +209,39 @@ function cancelExit() {
 	</div>
 {/if}
 
+<!-- #955: Quick complete dialog — チャプター1終了後の選択画面 -->
+{#if showQuickComplete}
+	<div class="tutorial-overlay">
+		<div class="tutorial-overlay-backdrop"></div>
+		<div class="tutorial-dialog" role="dialog" aria-label="チュートリアル完了" tabindex="-1">
+			<div class="tutorial-dialog-header">
+				<span aria-hidden="true">🎉</span>
+				<span>基本の使い方を確認しました！</span>
+			</div>
+			<div class="tutorial-dialog-body">
+				<p>ここからは実際にお子さまを登録して使い始めましょう。</p>
+				<p class="tutorial-dialog-hint">残りのガイド（活動管理・報酬・レポートなど）は、いつでもヘッダーの「❓」ボタンから確認できます。</p>
+			</div>
+			<div class="tutorial-dialog-actions">
+				<button
+					type="button"
+					class="tutorial-dialog-btn tutorial-dialog-btn--secondary"
+					onclick={() => continueFullTutorial()}
+				>
+					{TUTORIAL_LABELS.quickContinue}
+				</button>
+				<button
+					type="button"
+					class="tutorial-dialog-btn tutorial-dialog-btn--primary"
+					onclick={() => finishQuickTutorial()}
+				>
+					{TUTORIAL_LABELS.quickFinish}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <!-- Exit confirmation dialog -->
 {#if showExitConfirm && active}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -240,7 +278,7 @@ function cancelExit() {
 	</div>
 {/if}
 
-{#if active && step && targetRect}
+{#if active && step && targetRect && !showQuickComplete}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="tutorial-overlay" onclick={handleOverlayClick}>
