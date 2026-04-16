@@ -182,6 +182,7 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0027**: Plan-based history retention policy — retention is a read-time display filter only; no physical delete cron. Summary tables are exempt from retention filtering
 - **ADR-0028**: Plan-based history retention — physical delete via cron (supersedes ADR-0027). Free plan rows older than retention window are physically deleted by scheduled job
 - **ADR-0029**: Safety Assertion Erosion Ban — production guard を弱める変更（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加）は禁止。例外は別 ADR で当該 ADR を supersede すること。新規必須 env / secret 追加時は PR 本文に「配布済み:」証跡が必須（CI で `scripts/check-new-required-env.mjs` が検証）
+- **ADR-0030**: Cognito E2E テストユーザーのライフサイクル基盤 — 動的 E2E ユーザーは Admin API バイパス方式（`AdminCreateUser(SUPPRESS)` + `AdminSetUserPassword(Permanent)`）で作成。IAM Resource は staging User Pool ARN のみ許可、本番 ARN は絶対に含めない。email は `@ganbari-quest.test` 固定、`e2e-{date}-{sha}-{uuid}` 命名。クリーンアップは afterEach / global-teardown / nightly janitor の 3 段構え。Pre Sign-up Lambda にテスト分岐を入れる案は却下（ADR-0029 §④ に抵触）
 
 ### Team Structure
 
