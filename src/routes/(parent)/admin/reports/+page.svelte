@@ -123,6 +123,32 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]">設定を更新しました</div>
 	{/if}
 
+	<!-- #735: 無料プラン向けアップセルバナー（#967: タブ外に出して常時表示）—
+		週次メールレポートは standard+ 特典のため free プランでは配信されない。
+		タブ切り替えなしで discoverable にし、プレビュー参照の導線も明示する。 -->
+	{#if !data.canReceiveWeeklyEmail}
+		<div
+			data-testid="weekly-report-upsell"
+			class="rounded-xl border border-[var(--color-border-premium)] bg-[var(--color-surface-trial)] p-4"
+		>
+			<p class="text-sm font-bold text-[var(--color-text-primary)]">
+				✉️ 週次メールレポートはスタンダードプラン以上の特典です
+			</p>
+			<p class="mt-1 text-xs text-[var(--color-text-secondary)]">
+				毎週設定した曜日に、お子さまのがんばりをまとめたレポートがメールで届きます。
+				週次レポートタブでプレビューはいつでもご覧いただけます。
+			</p>
+			<div class="mt-3">
+				<a
+					href="/pricing"
+					class="inline-flex items-center gap-1 rounded-lg bg-[var(--color-action-trial-upgrade)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-inverse)] hover:bg-[var(--color-action-trial-upgrade-hover)]"
+				>
+					プランを見る →
+				</a>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Tab navigation -->
 	<div class="flex gap-1 rounded-lg bg-[var(--color-surface-secondary)] p-1" data-tutorial="report-tabs">
 		<button
@@ -264,32 +290,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 		</div>
 	{:else}
 		<!-- Weekly Report Section (existing) -->
-
-		<!-- #735: 無料プラン向けアップセルバナー —
-			週次メールレポートは standard+ 特典のため free プランでは配信されない。
-			プレビューは引き続き表示するが、メール配信設定はロックしてアップグレード導線を示す。 -->
-		{#if !data.canReceiveWeeklyEmail}
-			<div
-				data-testid="weekly-report-upsell"
-				class="rounded-xl border border-[var(--color-border-premium)] bg-[var(--color-surface-trial)] p-4"
-			>
-				<p class="text-sm font-bold text-[var(--color-text-primary)]">
-					✉️ 週次メールレポートはスタンダードプラン以上の特典です
-				</p>
-				<p class="mt-1 text-xs text-[var(--color-text-secondary)]">
-					毎週設定した曜日に、お子さまのがんばりをまとめたレポートがメールで届きます。
-					下のプレビューはいつでもご覧いただけます。
-				</p>
-				<div class="mt-3">
-					<a
-						href="/pricing"
-						class="inline-flex items-center gap-1 rounded-lg bg-[var(--color-action-trial-upgrade)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-inverse)] hover:bg-[var(--color-action-trial-upgrade-hover)]"
-					>
-						プランを見る →
-					</a>
-				</div>
-			</div>
-		{/if}
+		<!-- #967: free 用 upsell バナーはタブ外へ移動済み。設定セクションの disabled 表示は残す。 -->
 
 		<!-- 設定セクション -->
 		<form method="POST" action="?/updateSettings" use:enhance class="rounded-xl border bg-white p-4">
