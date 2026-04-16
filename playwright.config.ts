@@ -15,6 +15,9 @@ export default defineConfig({
 		'**/premium-welcome.spec.ts',
 		// #752: トライアルフロー E2E は cognito-dev モード専用
 		'**/trial-flow.spec.ts',
+		// #805: /ops E2E は cognito-dev モード専用（ops group の認可テストに email/password ログインが必要）
+		'**/ops-license.spec.ts',
+		'**/ops-license-issue.spec.ts',
 		'**/production-smoke.spec.ts',
 		// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
 		// CI（Linux）ではスキップし、ローカル開発でのUI崩壊検知にのみ使用する

@@ -10,6 +10,11 @@ import { type LicensePlan, planDurationDays } from '$lib/domain/constants/licens
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+import {
+	type LicenseEventContext,
+	licenseKeyPrefix,
+	recordLicenseEvent,
+} from '$lib/server/services/license-event-service';
 
 // ============================================================
 // 定数
@@ -217,6 +222,8 @@ export async function issueLicenseKey(params: {
 	 * 明示的に `null` を渡すと期限なし（lifetime 的扱い）。ops 発行で使用。
 	 */
 	expiresAt?: string | null;
+	/** #804: 監査ログ用コンテキスト (ip/ua)。actorId は issuedBy / stripeSessionId から自動解決。 */
+	context?: Pick<LicenseEventContext, 'ip' | 'ua'>;
 }): Promise<LicenseRecord> {
 	const kind = params.kind ?? 'purchase';
 
@@ -265,12 +272,33 @@ export async function issueLicenseKey(params: {
 	logger.info(
 		`[LICENSE] Key issued: ${key.slice(0, 7)}... for tenant=${params.tenantId} plan=${params.plan} kind=${kind} expiresAt=${expiresAt ?? 'never'}`,
 	);
+
+	// #804: 監査ログに issued イベント記録
+	const issuedActor =
+		params.issuedBy ?? (params.stripeSessionId ? `stripe:${params.stripeSessionId}` : 'system');
+	await recordLicenseEvent({
+		eventType: 'issued',
+		licenseKey: key,
+		tenantId: params.tenantId,
+		actorId: issuedActor,
+		ip: params.context?.ip ?? null,
+		ua: params.context?.ua ?? null,
+		metadata: {
+			plan: params.plan,
+			kind,
+			expiresAt: expiresAt ?? null,
+			stripeSessionId: params.stripeSessionId ?? null,
+		},
+	});
+
 	return record;
 }
 
 /** ライセンスキーを検証 (署名チェック + DB 存在チェック + active 状態チェック) */
 export async function validateLicenseKey(
 	key: string,
+	/** #804: 監査ログ用コンテキスト (ip/ua/actor/tenant)。省略時は null で記録。 */
+	context?: LicenseEventContext,
 ): Promise<{ valid: true; record: LicenseRecord } | { valid: false; reason: string }> {
 	const normalized = key.toUpperCase().trim();
 
@@ -278,7 +306,26 @@ export async function validateLicenseKey(
 	const isLegacy = LEGACY_FORMAT.test(normalized);
 	const isSigned = SIGNED_FORMAT.test(normalized);
 
+	// #804: validation_failed の共通記録ヘルパ。
+	// 未知キー (DB に無い形式不正 or 署名不一致) は prefix のみ保存して DB 膨張 + 偽造試行値
+	// の漏洩を抑える。findLicenseKey まで進んだ場合はレコード側と紐付けたいので full key。
+	const recordFailure = async (
+		reason: string,
+		options?: { useFullKey?: boolean; extra?: Record<string, unknown> },
+	) => {
+		await recordLicenseEvent({
+			eventType: 'validation_failed',
+			licenseKey: options?.useFullKey ? normalized : licenseKeyPrefix(normalized),
+			tenantId: context?.tenantId ?? null,
+			actorId: context?.actorId ?? null,
+			ip: context?.ip ?? null,
+			ua: context?.ua ?? null,
+			metadata: { reason, ...(options?.extra ?? {}) },
+		});
+	};
+
 	if (!isLegacy && !isSigned) {
+		await recordFailure('format_invalid');
 		return { valid: false, reason: 'ライセンスキーの形式が不正です' };
 	}
 
@@ -290,6 +337,7 @@ export async function validateLicenseKey(
 			`[LICENSE] Legacy format rejected in production: ${normalized.slice(0, 7)}... ` +
 				`Set ALLOW_LEGACY_LICENSE_KEYS=true to temporarily permit (migration window only).`,
 		);
+		await recordFailure('legacy_format_rejected');
 		return { valid: false, reason: 'ライセンスキーが不正です' };
 	}
 
@@ -298,6 +346,7 @@ export async function validateLicenseKey(
 		const secret = getLicenseSecret();
 		if (secret && !verifyKeySignature(normalized, secret)) {
 			logger.warn(`[LICENSE] Signature verification failed: ${normalized.slice(0, 7)}...`);
+			await recordFailure('signature_mismatch');
 			return { valid: false, reason: 'ライセンスキーが不正です' };
 		}
 	}
@@ -311,14 +360,23 @@ export async function validateLicenseKey(
 	const record = await repos.auth.findLicenseKey(normalized);
 
 	if (!record) {
+		await recordFailure('not_found');
 		return { valid: false, reason: 'ライセンスキーが見つかりません' };
 	}
 
 	if (record.status === LICENSE_KEY_STATUS.CONSUMED) {
+		await recordFailure('already_consumed', {
+			useFullKey: true,
+			extra: { issuedFor: record.tenantId },
+		});
 		return { valid: false, reason: 'このライセンスキーは既に使用されています' };
 	}
 
 	if (record.status === LICENSE_KEY_STATUS.REVOKED) {
+		await recordFailure('revoked', {
+			useFullKey: true,
+			extra: { revokedReason: record.revokedReason ?? null },
+		});
 		return { valid: false, reason: 'このライセンスキーは無効化されています' };
 	}
 
@@ -328,8 +386,23 @@ export async function validateLicenseKey(
 		logger.info(
 			`[LICENSE] Expired key rejected: ${normalized.slice(0, 7)}... expiresAt=${record.expiresAt}`,
 		);
+		await recordFailure('expired', {
+			useFullKey: true,
+			extra: { expiresAt: record.expiresAt ?? null },
+		});
 		return { valid: false, reason: 'このライセンスキーは有効期限が切れています' };
 	}
+
+	// #804: 検証成功を記録 (ブルートフォース検知の母数にもなる)
+	await recordLicenseEvent({
+		eventType: 'validated',
+		licenseKey: normalized,
+		tenantId: context?.tenantId ?? record.tenantId,
+		actorId: context?.actorId ?? null,
+		ip: context?.ip ?? null,
+		ua: context?.ua ?? null,
+		metadata: { plan: record.plan, kind: getRecordKind(record) },
+	});
 
 	return { valid: true, record };
 }
@@ -391,21 +464,49 @@ function computePlanExpiresAt(
 export async function consumeLicenseKey(
 	key: string,
 	consumedByTenantId: string,
+	/** #804: 監査ログ用コンテキスト (ip/ua)。actorId は 'tenant:<id>' を自動付与。 */
+	context?: Pick<LicenseEventContext, 'ip' | 'ua'>,
 ): Promise<ConsumeLicenseKeyResult> {
 	const normalized = key.toUpperCase().trim();
 	const repos = getRepos();
 
+	const ip = context?.ip ?? null;
+	const ua = context?.ua ?? null;
+	const actorId = `tenant:${consumedByTenantId}`;
+	const recordFailure = async (reason: string, extra?: Record<string, unknown>) =>
+		recordLicenseEvent({
+			eventType: 'consume_failed',
+			licenseKey: normalized,
+			tenantId: consumedByTenantId,
+			actorId,
+			ip,
+			ua,
+			metadata: { reason, ...(extra ?? {}) },
+		});
+
 	const record = await repos.auth.findLicenseKey(normalized);
 	if (!record) {
+		await recordLicenseEvent({
+			eventType: 'consume_failed',
+			licenseKey: licenseKeyPrefix(normalized),
+			tenantId: consumedByTenantId,
+			actorId,
+			ip,
+			ua,
+			metadata: { reason: 'not_found' },
+		});
 		return { ok: false, reason: 'ライセンスキーが見つかりません' };
 	}
 	if (record.status === LICENSE_KEY_STATUS.CONSUMED) {
+		await recordFailure('already_consumed', { issuedFor: record.tenantId });
 		return { ok: false, reason: 'このライセンスキーは既に使用されています' };
 	}
 	if (record.status === LICENSE_KEY_STATUS.REVOKED) {
+		await recordFailure('revoked', { revokedReason: record.revokedReason ?? null });
 		return { ok: false, reason: 'このライセンスキーは無効化されています' };
 	}
 	if (record.status !== LICENSE_KEY_STATUS.ACTIVE) {
+		await recordFailure('not_active', { status: record.status });
 		return { ok: false, reason: 'ライセンスキーが使用できません' };
 	}
 
@@ -414,6 +515,7 @@ export async function consumeLicenseKey(
 		logger.info(
 			`[LICENSE] Expired key consume rejected: ${normalized.slice(0, 7)}... expiresAt=${record.expiresAt}`,
 		);
+		await recordFailure('expired', { expiresAt: record.expiresAt ?? null });
 		return { ok: false, reason: 'このライセンスキーは有効期限が切れています' };
 	}
 
@@ -427,6 +529,10 @@ export async function consumeLicenseKey(
 		logger.warn(
 			`[LICENSE] Cross-tenant purchase consume rejected: key=${normalized.slice(0, 7)}... issued_for=${record.tenantId} attempted_by=${consumedByTenantId}`,
 		);
+		await recordFailure('cross_tenant_purchase', {
+			issuedFor: record.tenantId,
+			kind,
+		});
 		return {
 			ok: false,
 			reason: 'このライセンスキーは購入したアカウントでのみ使用できます',
@@ -453,6 +559,23 @@ export async function consumeLicenseKey(
 	logger.info(
 		`[LICENSE] Key consumed: ${normalized.slice(0, 7)}... by tenant=${consumedByTenantId} (issued for=${record.tenantId}, kind=${kind}) plan=${record.plan} expiresAt=${planExpiresAt ?? 'never'}`,
 	);
+
+	// #804: 監査ログに consumed イベント記録
+	await recordLicenseEvent({
+		eventType: 'consumed',
+		licenseKey: normalized,
+		tenantId: consumedByTenantId,
+		actorId,
+		ip,
+		ua,
+		metadata: {
+			plan: record.plan,
+			kind,
+			issuedFor: record.tenantId,
+			planExpiresAt: planExpiresAt ?? null,
+		},
+	});
+
 	return { ok: true, plan: record.plan, planExpiresAt };
 }
 
@@ -481,6 +604,8 @@ export async function revokeLicenseKey(params: {
 	licenseKey: string;
 	reason: LicenseRevokeReason;
 	revokedBy: string;
+	/** #804: 監査ログ用コンテキスト (ip/ua)。actorId は revokedBy を使う。 */
+	context?: Pick<LicenseEventContext, 'ip' | 'ua'>;
 }): Promise<RevokeLicenseKeyResult> {
 	const normalized = params.licenseKey.toUpperCase().trim();
 	const repos = getRepos();
@@ -513,6 +638,21 @@ export async function revokeLicenseKey(params: {
 	logger.warn(
 		`[LICENSE] Key revoked: ${normalized.slice(0, 7)}... reason=${params.reason} by=${params.revokedBy}`,
 	);
+
+	// #804: 監査ログに revoked イベント記録
+	await recordLicenseEvent({
+		eventType: 'revoked',
+		licenseKey: normalized,
+		tenantId: record.tenantId,
+		actorId: params.revokedBy,
+		ip: params.context?.ip ?? null,
+		ua: params.context?.ua ?? null,
+		metadata: {
+			reason: params.reason,
+			plan: record.plan,
+			kind: getRecordKind(record),
+		},
+	});
 
 	return { ok: true, licenseKey: normalized, revokedReason: params.reason, revokedAt };
 }

@@ -760,6 +760,25 @@ export const SQL_TABLES = `
 	CREATE INDEX idx_ops_audit_log_actor ON ops_audit_log(actor_id);
 	CREATE INDEX idx_ops_audit_log_created ON ops_audit_log(created_at);
 	CREATE INDEX idx_ops_audit_log_action ON ops_audit_log(action);
+
+	-- ============================================================
+	-- license_events (#804)
+	-- ============================================================
+	CREATE TABLE license_events (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		event_type TEXT NOT NULL,
+		license_key TEXT NOT NULL,
+		tenant_id TEXT,
+		actor_id TEXT,
+		ip TEXT,
+		ua TEXT,
+		metadata TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_license_events_key ON license_events(license_key, created_at);
+	CREATE INDEX idx_license_events_type_created ON license_events(event_type, created_at);
+	CREATE INDEX idx_license_events_tenant ON license_events(tenant_id, created_at);
+	CREATE INDEX idx_license_events_ip_created ON license_events(ip, created_at);
 `;
 
 // ============================================================
@@ -767,6 +786,7 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'license_events',
 	'ops_audit_log',
 	'enemy_collection',
 	'daily_battles',

@@ -9,6 +9,10 @@ const mockFindLicenseKey = vi.fn();
 const mockUpdateLicenseKeyStatus = vi.fn();
 const mockUpdateTenantStripe = vi.fn();
 const mockRevokeLicenseKey = vi.fn();
+const mockLicenseEventInsert = vi.fn();
+const mockLicenseEventFindByKey = vi.fn();
+const mockLicenseEventFindRecent = vi.fn();
+const mockLicenseEventCountFailures = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -18,6 +22,12 @@ vi.mock('$lib/server/db/factory', () => ({
 			updateLicenseKeyStatus: (...args: unknown[]) => mockUpdateLicenseKeyStatus(...args),
 			updateTenantStripe: (...args: unknown[]) => mockUpdateTenantStripe(...args),
 			revokeLicenseKey: (...args: unknown[]) => mockRevokeLicenseKey(...args),
+		},
+		licenseEvent: {
+			insert: (...args: unknown[]) => mockLicenseEventInsert(...args),
+			findByLicenseKey: (...args: unknown[]) => mockLicenseEventFindByKey(...args),
+			findRecent: (...args: unknown[]) => mockLicenseEventFindRecent(...args),
+			countRecentFailuresByIp: (...args: unknown[]) => mockLicenseEventCountFailures(...args),
 		},
 	}),
 }));
@@ -1467,5 +1477,288 @@ describe('revokeLicenseKey (#797)', () => {
 		if (!validateResult.valid) {
 			expect(validateResult.reason).toContain('無効');
 		}
+	});
+});
+
+// ============================================================
+// #804: ライセンスキー監査ログ (license_events) の記録
+// ============================================================
+
+describe('ライセンスキー監査ログ記録 (#804)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockSaveLicenseKey.mockResolvedValue(undefined);
+		mockUpdateLicenseKeyStatus.mockResolvedValue(undefined);
+		mockUpdateTenantStripe.mockResolvedValue(undefined);
+		mockRevokeLicenseKey.mockResolvedValue(undefined);
+		mockLicenseEventInsert.mockResolvedValue(undefined);
+		process.env.AWS_LICENSE_SECRET = '';
+	});
+
+	afterEach(() => {
+		process.env.AWS_LICENSE_SECRET = '';
+	});
+
+	describe('issueLicenseKey', () => {
+		it('Stripe webhook 経由の発行で issued イベントを記録する', async () => {
+			const result = await issueLicenseKey({
+				tenantId: 'tenant-issue-1',
+				plan: 'monthly',
+				stripeSessionId: 'cs_test_evt',
+			});
+
+			expect(mockLicenseEventInsert).toHaveBeenCalledTimes(1);
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('issued');
+			expect(call.licenseKey).toBe(result.licenseKey);
+			expect(call.tenantId).toBe('tenant-issue-1');
+			expect(call.actorId).toBe('stripe:cs_test_evt');
+			expect(call.metadata.plan).toBe('monthly');
+			expect(call.metadata.kind).toBe('purchase');
+			expect(call.metadata.stripeSessionId).toBe('cs_test_evt');
+		});
+
+		it('gift キーの発行で actorId に issuedBy を記録する', async () => {
+			await issueLicenseKey({
+				tenantId: 'tenant-gift',
+				plan: 'lifetime',
+				kind: 'gift',
+				issuedBy: 'ops:admin-1',
+				expiresAt: null,
+			});
+
+			expect(mockLicenseEventInsert).toHaveBeenCalledTimes(1);
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('issued');
+			expect(call.actorId).toBe('ops:admin-1');
+			expect(call.metadata.kind).toBe('gift');
+			expect(call.metadata.expiresAt).toBeNull();
+		});
+
+		it('context (ip/ua) を渡すと監査ログに保存される', async () => {
+			await issueLicenseKey({
+				tenantId: 'tenant-ctx',
+				plan: 'yearly',
+				kind: 'campaign',
+				issuedBy: 'ops:admin-2',
+				context: { ip: '203.0.113.5', ua: 'ops-cli/1.0' },
+			});
+
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.ip).toBe('203.0.113.5');
+			expect(call.ua).toBe('ops-cli/1.0');
+		});
+	});
+
+	describe('validateLicenseKey', () => {
+		it('形式不正 → validation_failed (prefix のみ、reason=format_invalid)', async () => {
+			const result = await validateLicenseKey('INVALID-KEY');
+			expect(result.valid).toBe(false);
+
+			expect(mockLicenseEventInsert).toHaveBeenCalledTimes(1);
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('validation_failed');
+			expect(call.licenseKey.length).toBeLessThanOrEqual(11); // prefix + '...'
+			expect(call.metadata.reason).toBe('format_invalid');
+		});
+
+		it('存在しないキー → validation_failed (prefix, reason=not_found)', async () => {
+			mockFindLicenseKey.mockResolvedValueOnce(null);
+			await validateLicenseKey('GQ-AAAA-BBBB-CCCC');
+
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('validation_failed');
+			expect(call.licenseKey).toContain('...'); // prefix + '...'
+			expect(call.metadata.reason).toBe('not_found');
+		});
+
+		it('consumed キー → validation_failed (full key, reason=already_consumed)', async () => {
+			mockFindLicenseKey.mockResolvedValueOnce({
+				licenseKey: 'GQ-AAAA-BBBB-CCCC',
+				tenantId: 'tenant-x',
+				plan: 'monthly',
+				status: 'consumed',
+				createdAt: '2026-01-01T00:00:00Z',
+			} satisfies LicenseRecord);
+
+			await validateLicenseKey('GQ-AAAA-BBBB-CCCC');
+
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('validation_failed');
+			expect(call.licenseKey).toBe('GQ-AAAA-BBBB-CCCC'); // full key
+			expect(call.metadata.reason).toBe('already_consumed');
+			expect(call.metadata.issuedFor).toBe('tenant-x');
+		});
+
+		it('署名不一致 → validation_failed (reason=signature_mismatch)', async () => {
+			process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+			// 署名なし payload に適当な 5 文字を付与 → 署名不一致になる
+			await validateLicenseKey('GQ-ABCD-EFGH-JKLM-ZZZZZ');
+
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('validation_failed');
+			expect(call.metadata.reason).toBe('signature_mismatch');
+		});
+
+		it('成功時 → validated イベントを記録', async () => {
+			mockFindLicenseKey.mockResolvedValueOnce({
+				licenseKey: 'GQ-AAAA-BBBB-CCCC',
+				tenantId: 'tenant-ok',
+				plan: 'yearly',
+				status: 'active',
+				createdAt: '2026-01-01T00:00:00Z',
+			} satisfies LicenseRecord);
+
+			const result = await validateLicenseKey('GQ-AAAA-BBBB-CCCC', {
+				ip: '198.51.100.1',
+				ua: 'ua-test',
+			});
+			expect(result.valid).toBe(true);
+
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('validated');
+			expect(call.licenseKey).toBe('GQ-AAAA-BBBB-CCCC');
+			expect(call.tenantId).toBe('tenant-ok');
+			expect(call.ip).toBe('198.51.100.1');
+			expect(call.ua).toBe('ua-test');
+			expect(call.metadata.plan).toBe('yearly');
+			expect(call.metadata.kind).toBe('purchase');
+		});
+
+		it('期限切れ → validation_failed (reason=expired, expiresAt が metadata に入る)', async () => {
+			mockFindLicenseKey.mockResolvedValueOnce({
+				licenseKey: 'GQ-AAAA-BBBB-CCCC',
+				tenantId: 'tenant-exp',
+				plan: 'monthly',
+				status: 'active',
+				createdAt: '2024-01-01T00:00:00Z',
+				expiresAt: '2024-02-01T00:00:00Z',
+			} satisfies LicenseRecord);
+
+			await validateLicenseKey('GQ-AAAA-BBBB-CCCC');
+
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('validation_failed');
+			expect(call.metadata.reason).toBe('expired');
+			expect(call.metadata.expiresAt).toBe('2024-02-01T00:00:00Z');
+		});
+	});
+
+	describe('consumeLicenseKey', () => {
+		it('成功時 → consumed イベント (actorId=tenant:<id>, plan/kind/planExpiresAt を metadata)', async () => {
+			mockFindLicenseKey.mockResolvedValueOnce({
+				licenseKey: 'GQ-AAAA-BBBB-CCCC',
+				tenantId: 'tenant-buyer',
+				plan: 'monthly',
+				status: 'active',
+				createdAt: '2026-01-01T00:00:00Z',
+			} satisfies LicenseRecord);
+
+			const result = await consumeLicenseKey('GQ-AAAA-BBBB-CCCC', 'tenant-buyer', {
+				ip: '203.0.113.9',
+				ua: 'browser',
+			});
+			expect(result.ok).toBe(true);
+
+			expect(mockLicenseEventInsert).toHaveBeenCalledTimes(1);
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('consumed');
+			expect(call.actorId).toBe('tenant:tenant-buyer');
+			expect(call.ip).toBe('203.0.113.9');
+			expect(call.metadata.plan).toBe('monthly');
+			expect(call.metadata.kind).toBe('purchase');
+			expect(call.metadata.planExpiresAt).toBeTruthy();
+		});
+
+		it('cross-tenant 試行 → consume_failed (reason=cross_tenant_purchase, issuedFor 記録)', async () => {
+			mockFindLicenseKey.mockResolvedValueOnce({
+				licenseKey: 'GQ-AAAA-BBBB-CCCC',
+				tenantId: 'tenant-buyer',
+				plan: 'monthly',
+				status: 'active',
+				createdAt: '2026-01-01T00:00:00Z',
+			} satisfies LicenseRecord);
+
+			const result = await consumeLicenseKey('GQ-AAAA-BBBB-CCCC', 'tenant-attacker');
+			expect(result.ok).toBe(false);
+
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('consume_failed');
+			expect(call.actorId).toBe('tenant:tenant-attacker');
+			expect(call.metadata.reason).toBe('cross_tenant_purchase');
+			expect(call.metadata.issuedFor).toBe('tenant-buyer');
+		});
+
+		it('存在しないキー → consume_failed (prefix のみ)', async () => {
+			mockFindLicenseKey.mockResolvedValueOnce(null);
+
+			await consumeLicenseKey('GQ-ZZZZ-YYYY-XXXX', 'tenant-x');
+
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('consume_failed');
+			expect(call.licenseKey).toContain('...');
+			expect(call.metadata.reason).toBe('not_found');
+		});
+	});
+
+	describe('revokeLicenseKey', () => {
+		it('成功時 → revoked イベント (actorId=revokedBy, reason/plan/kind を metadata)', async () => {
+			mockFindLicenseKey.mockResolvedValueOnce({
+				licenseKey: 'GQ-AAAA-BBBB-CCCC',
+				tenantId: 'tenant-rev',
+				plan: 'yearly',
+				status: 'active',
+				createdAt: '2026-01-01T00:00:00Z',
+			} satisfies LicenseRecord);
+
+			await revokeLicenseKey({
+				licenseKey: 'GQ-AAAA-BBBB-CCCC',
+				reason: 'leaked',
+				revokedBy: 'ops:admin-9',
+				context: { ip: '198.51.100.9', ua: 'ops' },
+			});
+
+			expect(mockLicenseEventInsert).toHaveBeenCalledTimes(1);
+			const call = mockLicenseEventInsert.mock.calls[0]![0]!;
+			expect(call.eventType).toBe('revoked');
+			expect(call.actorId).toBe('ops:admin-9');
+			expect(call.tenantId).toBe('tenant-rev');
+			expect(call.ip).toBe('198.51.100.9');
+			expect(call.metadata.reason).toBe('leaked');
+			expect(call.metadata.plan).toBe('yearly');
+			expect(call.metadata.kind).toBe('purchase');
+		});
+
+		it('既に revoked 済みのキーは revoked イベントを記録しない', async () => {
+			mockFindLicenseKey.mockResolvedValueOnce({
+				licenseKey: 'GQ-AAAA-BBBB-CCCC',
+				tenantId: 'tenant-rev',
+				plan: 'yearly',
+				status: 'revoked',
+				createdAt: '2026-01-01T00:00:00Z',
+				revokedAt: '2026-02-01T00:00:00Z',
+				revokedReason: 'ops-manual',
+				revokedBy: 'ops:admin-1',
+			} satisfies LicenseRecord);
+
+			const result = await revokeLicenseKey({
+				licenseKey: 'GQ-AAAA-BBBB-CCCC',
+				reason: 'leaked',
+				revokedBy: 'ops:admin-2',
+			});
+
+			expect(result.ok).toBe(false);
+			expect(mockLicenseEventInsert).not.toHaveBeenCalled();
+		});
+	});
+
+	it('監査ログ insert が throw しても本体処理は完走する (エラー分離)', async () => {
+		mockLicenseEventInsert.mockRejectedValueOnce(new Error('db down'));
+		const result = await issueLicenseKey({
+			tenantId: 'tenant-err',
+			plan: 'monthly',
+		});
+		expect(result.status).toBe('active');
+		expect(mockSaveLicenseKey).toHaveBeenCalledTimes(1);
 	});
 });

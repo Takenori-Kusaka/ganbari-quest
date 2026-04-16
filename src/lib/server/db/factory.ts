@@ -15,6 +15,7 @@ import * as dynamoDailyMissionRepo from './dynamodb/daily-mission-repo';
 import * as dynamoEvaluationRepo from './dynamodb/evaluation-repo';
 import * as dynamoImageRepo from './dynamodb/image-repo';
 import * as dynamoInquiryRepo from './dynamodb/inquiry-repo';
+import * as dynamoLicenseEventRepo from './dynamodb/license-event-repo';
 import * as dynamoLoginBonusRepo from './dynamodb/login-bonus-repo';
 import * as dynamoMessageRepo from './dynamodb/message-repo';
 import * as dynamoOpsAuditLogRepo from './dynamodb/ops-audit-log-repo';
@@ -47,6 +48,7 @@ import type { IDailyMissionRepo } from './interfaces/daily-mission-repo.interfac
 import type { IEvaluationRepo } from './interfaces/evaluation-repo.interface';
 import type { IImageRepo } from './interfaces/image-repo.interface';
 import type { IInquiryRepo } from './interfaces/inquiry-repo.interface';
+import type { ILicenseEventRepo } from './interfaces/license-event-repo.interface';
 import type { ILoginBonusRepo } from './interfaces/login-bonus-repo.interface';
 import type { IMessageRepo } from './interfaces/message-repo.interface';
 import type { IOpsAuditLogRepo } from './interfaces/ops-audit-log-repo.interface';
@@ -79,6 +81,7 @@ import * as sqliteDailyMissionRepo from './sqlite/daily-mission-repo';
 import * as sqliteEvaluationRepo from './sqlite/evaluation-repo';
 import * as sqliteImageRepo from './sqlite/image-repo';
 import * as sqliteInquiryRepo from './sqlite/inquiry-repo';
+import * as sqliteLicenseEventRepo from './sqlite/license-event-repo';
 import * as sqliteLoginBonusRepo from './sqlite/login-bonus-repo';
 import * as sqliteMessageRepo from './sqlite/message-repo';
 import * as sqliteOpsAuditLogRepo from './sqlite/ops-audit-log-repo';
@@ -113,6 +116,7 @@ export interface Repositories {
 	evaluation: IEvaluationRepo;
 	image: IImageRepo;
 	inquiry: IInquiryRepo;
+	licenseEvent: ILicenseEventRepo;
 	loginBonus: ILoginBonusRepo;
 	message: IMessageRepo;
 	opsAuditLog: IOpsAuditLogRepo;
@@ -155,6 +159,7 @@ export function getRepos(): Repositories {
 			evaluation: dynamoEvaluationRepo,
 			image: dynamoImageRepo,
 			inquiry: dynamoInquiryRepo,
+			licenseEvent: dynamoLicenseEventRepo,
 			loginBonus: dynamoLoginBonusRepo,
 			message: dynamoMessageRepo,
 			opsAuditLog: dynamoOpsAuditLogRepo,
@@ -193,6 +198,7 @@ export function getRepos(): Repositories {
 		evaluation: sqliteEvaluationRepo,
 		image: sqliteImageRepo,
 		inquiry: sqliteInquiryRepo,
+		licenseEvent: sqliteLicenseEventRepo,
 		loginBonus: sqliteLoginBonusRepo,
 		message: sqliteMessageRepo,
 		opsAuditLog: sqliteOpsAuditLogRepo,
