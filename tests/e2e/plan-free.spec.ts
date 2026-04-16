@@ -58,7 +58,16 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 	test('/admin/reports — weekly-report-upsell バナーが表示される', async ({ page }) => {
 		await loginAsPlan(page, 'free');
 		await page.goto('/admin/reports');
-		await expect(page.getByTestId('weekly-report-upsell')).toBeVisible();
+		// 週次メールレポート機能は weekly タブに閉じ込められている。
+		// 既定は monthly タブなので、upsell バナーを見るにはタブ切替が必要。
+		// Vite dev のコールドコンパイル中は click が hydration 前に着弾して state が
+		// 切り替わらないことがあるため、toPass でリトライする。
+		const weeklyTab = page.getByRole('button', { name: '週次レポート', exact: true });
+		await weeklyTab.waitFor({ state: 'visible', timeout: 30_000 });
+		await expect(async () => {
+			await weeklyTab.click();
+			await expect(page.getByTestId('weekly-report-upsell')).toBeVisible({ timeout: 3_000 });
+		}).toPass({ timeout: 30_000 });
 	});
 
 	test('/admin/settings — エクスポートはアップセル表示で disabled', async ({ page }) => {
@@ -77,6 +86,18 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 	}) => {
 		await loginAsPlan(page, 'free');
 		await page.goto('/admin/activities');
+		// AiSuggestPanel は 追加ダイアログの "AIで追加" モード内にのみ描画される。
+		// FAB → 追加ダイアログ → "AIで追加" カードを辿って到達する。
+		// Vite dev のコールドコンパイル中は click が hydration 前に着弾して
+		// ダイアログが開かないことがあるため、toPass でリトライする。
+		const fab = page.getByRole('button', { name: '活動を追加' });
+		await fab.waitFor({ state: 'visible', timeout: 30_000 });
+		const addDialog = page.getByTestId('add-activity-dialog');
+		await expect(async () => {
+			await fab.click();
+			await expect(addDialog).toBeVisible({ timeout: 3_000 });
+		}).toPass({ timeout: 30_000 });
+		await page.getByRole('button', { name: /AIで追加/ }).click();
 		const panel = page.getByTestId('ai-suggest-panel');
 		await expect(panel).toBeVisible();
 		await expect(panel).toHaveAttribute('data-plan-locked', 'true');
