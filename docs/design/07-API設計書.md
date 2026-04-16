@@ -1175,6 +1175,7 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 - `license-key-service.issueLicenseKey` を `quantity` 回呼び、`kind='campaign'` / `issuedBy='ops:<userId>'` のキーを生成
 - `license_events` に `eventType='issued'` を各キー分記録 (#804)
 - `ops_audit_log` に `action='license.issue'` / `target=<tenantId>` / `metadata={plan, quantity, reason, keys, errors?}` を 1 件記録 (#820)
+
 ### 3.x バトルアドベンチャー
 
 #### GET /api/v1/battle/[childId]
