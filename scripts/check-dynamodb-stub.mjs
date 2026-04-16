@@ -58,6 +58,8 @@ const GRANDFATHERED_STUBS = new Map([
 	// 注: ops-audit-log-repo.ts は ADR-0034 により機能ごと撤回（#1020 で削除）。
 	// #1020 merge 完了と同時に以下エントリも削除すること。
 	['ops-audit-log-repo.ts', 1020],
+	// 注: license-event-repo.ts は #1003 (license_events) 由来。ADR-0034 により #1020 で削除予定。
+	['license-event-repo.ts', 1020],
 ]);
 
 /**
