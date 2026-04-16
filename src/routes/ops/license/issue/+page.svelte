@@ -1,6 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { getPlanLabel } from '$lib/domain/labels';
+import { getLicensePlanLabel } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data, form } = $props();
@@ -72,7 +72,7 @@ async function copyAll() {
 					class="px-3 py-2 border border-[var(--color-border-default)] rounded text-sm"
 				>
 					{#each plans as plan (plan)}
-						<option value={plan}>{getPlanLabel(plan)}</option>
+						<option value={plan}>{getLicensePlanLabel(plan)}</option>
 					{/each}
 				</select>
 			</label>
@@ -149,7 +149,7 @@ async function copyAll() {
 				<div>
 					<h2 class="text-base font-semibold m-0 mb-1">発行結果 ({form.keys.length} 件)</h2>
 					<p class="text-sm text-[var(--color-text-muted)] m-0">
-						プラン: {getPlanLabel(form.plan)} ／ 理由: {form.reason} ／ 有効期限: {form.expiresAt}
+						プラン: {getLicensePlanLabel(form.plan)} ／ 理由: {form.reason} ／ 有効期限: {form.expiresAt}
 					</p>
 				</div>
 				<div class="flex gap-2">

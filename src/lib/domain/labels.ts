@@ -130,9 +130,22 @@ export type PlanKey = keyof typeof PLAN_LABELS;
 /** プラン制限メッセージで使う共通ラベル（「スタンダードプラン以上」） */
 export const PAID_PLAN_LABEL = 'スタンダードプラン以上' as const;
 
+export const LICENSE_PLAN_LABELS: Record<string, string> = {
+	monthly: 'スタンダード月額',
+	yearly: 'スタンダード年額',
+	'family-monthly': 'ファミリー月額',
+	'family-yearly': 'ファミリー年額',
+	lifetime: 'ライフタイム',
+} as const;
+
 /** プランラベルを取得 */
 export function getPlanLabel(tier: string): string {
 	return PLAN_LABELS[tier as PlanKey] ?? tier;
+}
+
+/** ライセンスプランラベルを取得 (license-plan.ts の値 → 表示ラベル) */
+export function getLicensePlanLabel(plan: string): string {
+	return LICENSE_PLAN_LABELS[plan] ?? plan;
 }
 
 /** プラン短縮ラベルを取得 */
