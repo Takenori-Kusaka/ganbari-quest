@@ -74,3 +74,6 @@
 | 0025 | [License ↔ Stripe Subscription 因果関係](0025-license-subscription-causality.md) | accepted | 2026-04-11 |
 | 0026 | [ライセンスキーアーキテクチャ](0026-license-key-architecture.md) | accepted | 2026-04-11 |
 | 0027 | [プラン別履歴保持期間ポリシー（retention = 表示フィルタ）](0027-retention-policy.md) | accepted | 2026-04-12 |
+| 0028 | [プラン別履歴保持期間ポリシー（retention = 表示フィルタ + 物理削除 cron）](0028-retention-physical-delete.md) | accepted | 2026-04-12 |
+| 0029 | [Safety Assertion Erosion Ban](0029-safety-assertion-erosion-ban.md) | accepted | 2026-04-12 |
+| 0030 | [Cognito E2E テストユーザーのライフサイクル基盤](0030-cognito-e2e-user-lifecycle.md) | accepted | 2026-04-16 |
