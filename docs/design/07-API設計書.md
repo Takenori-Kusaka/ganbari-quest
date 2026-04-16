@@ -1080,8 +1080,54 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 > 非メンバーは 403 Forbidden。実装は `src/routes/ops/+layout.server.ts` が `isOpsMember(locals.identity)` で判定する。
 >
 > 旧 `OPS_SECRET_KEY` Bearer token / `ops_token` Cookie / URL token 認証はすべて廃止済み。
-> なお `/api/cron/retention-cleanup` は EventBridge から呼ばれる別経路のため、独自の shared secret
+> なお `/api/cron/retention-cleanup` / `/api/cron/license-expire` は EventBridge から呼ばれる別経路のため、独自の shared secret
 > （`CRON_SECRET`、移行期は `OPS_SECRET_KEY` も後方互換で受け入れ）を使用する（ADR-0033）。
+
+#### POST /api/cron/license-expire （期限切れライセンスキー自動失効バッチ #821）
+
+**認証:** `Authorization: Bearer <CRON_SECRET>` （移行期は `OPS_SECRET_KEY` も許可）
+
+**呼び出し元:** EventBridge Scheduled Rule（日次 JST 00:00）または運用手動
+
+**処理:**
+
+1. `auth.listActiveExpiredKeys(now)` で `status='active'` かつ `expiresAt <= now` のキーを全列挙
+2. 各キーに `revokeLicenseKey({reason:'expired', revokedBy:'system'})` を順次実行
+3. 失敗は `failures` に記録、1 件失敗しても他は続行
+4. `license_events` に `revoked` イベントが記録される（#804）
+
+**リクエストボディ (任意):**
+
+```json
+{ "dryRun": true }
+```
+
+`dryRun=true` のときは対象件数のみ返し、revoke は実行しない（ヘルスチェック用）。
+
+**レスポンス (200):**
+
+```json
+{
+  "ok": true,
+  "scanned": 12,
+  "revoked": 12,
+  "failures": [],
+  "dryRun": false
+}
+```
+
+- `scanned`: 対象として抽出された active + expired なキー総数
+- `revoked`: 実際に revoke 成功した件数
+- `failures`: `{licenseKey, reason}` の配列。DynamoDB throttle 等で失敗したキー
+- `dryRun`: リクエスト通りのフラグ
+
+**エラー:**
+
+- `401 Unauthorized`: Bearer token 不一致
+- `404 Not Found`: `CRON_SECRET` / `OPS_SECRET_KEY` どちらも未設定（エンドポイント無効化）
+- `500 Internal Error`: `listActiveExpiredKeys` 自体が throw（DynamoDB 障害等）。部分失敗は 200 に含める
+
+**GET /api/cron/license-expire** はヘルスチェック用の dry-run 固定版（副作用なし）。
 
 #### GET /ops （KPI サマリーページ）
 

@@ -567,3 +567,89 @@ export async function revokeLicenseKey(params: {
 	// #804: 監査ログに revoked イベント記録
 	return { ok: true, licenseKey: normalized, revokedReason: params.reason, revokedAt };
 }
+
+// ============================================================
+// Expire batch (#821)
+// ============================================================
+
+/**
+ * 期限切れライセンスキー自動失効バッチの結果 (#821)
+ *
+ * - `scanned`: 対象として抽出された active + expired なキー総数
+ * - `revoked`: 実際に revoke 成功した件数
+ * - `failures`: revoke に失敗したキーと理由 (CS 対応・リトライ判断用)
+ * - `dryRun`: true のとき revoke を実行せずに scanned のみ返す
+ */
+export interface ExpireLicenseKeysResult {
+	scanned: number;
+	revoked: number;
+	failures: Array<{ licenseKey: string; reason: string }>;
+	dryRun: boolean;
+}
+
+/**
+ * 期限切れの active ライセンスキーを一括 revoke する (#821)
+ *
+ * EventBridge Scheduled Rule (日次 JST 00:00) から
+ * `/api/cron/license-expire` 経由で呼ばれる。
+ *
+ * - listActiveExpiredKeys で status='active' + expiresAt <= now のキーを抽出
+ * - 各キーに revokeLicenseKey({reason:'expired', revokedBy:'system'}) を順次呼ぶ
+ *   （件数は通常数十件/日想定、並列化は不要）
+ * - 1 件失敗しても他のキーは続行する (失敗は failures に記録)
+ *
+ * dryRun=true なら scanned 件数のみ返し、revoke は行わない（ヘルスチェック用）。
+ */
+export async function expireLicenseKeys(
+	opts: { dryRun?: boolean; now?: Date } = {},
+): Promise<ExpireLicenseKeysResult> {
+	const dryRun = opts.dryRun ?? false;
+	const now = (opts.now ?? new Date()).toISOString();
+	const repos = getRepos();
+
+	const expired = await repos.auth.listActiveExpiredKeys(now);
+	const result: ExpireLicenseKeysResult = {
+		scanned: expired.length,
+		revoked: 0,
+		failures: [],
+		dryRun,
+	};
+
+	if (dryRun) {
+		logger.info(
+			`[LICENSE] expireLicenseKeys dry-run: ${expired.length} active keys past expiresAt`,
+		);
+		return result;
+	}
+
+	for (const record of expired) {
+		try {
+			const r = await revokeLicenseKey({
+				licenseKey: record.licenseKey,
+				reason: 'expired',
+				revokedBy: 'system',
+			});
+			if (r.ok) {
+				result.revoked++;
+			} else {
+				// revokeLicenseKey 自体は「既に revoked/consumed」でも ok:false を返す。
+				// 期限切れ時点で状態が変わった (同時に返金等) 可能性があるため failure 扱いしない。
+				logger.info(
+					`[LICENSE] expireLicenseKeys: skip ${record.licenseKey.slice(0, 7)}... reason=${r.reason}`,
+				);
+			}
+		} catch (e) {
+			const reason = e instanceof Error ? e.message : String(e);
+			result.failures.push({ licenseKey: record.licenseKey, reason });
+			logger.error(
+				`[LICENSE] expireLicenseKeys: revoke failed for ${record.licenseKey.slice(0, 7)}...`,
+				{ error: reason },
+			);
+		}
+	}
+
+	logger.info(
+		`[LICENSE] expireLicenseKeys: scanned=${result.scanned} revoked=${result.revoked} failures=${result.failures.length}`,
+	);
+	return result;
+}
