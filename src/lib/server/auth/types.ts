@@ -12,8 +12,14 @@ export type Role = 'owner' | 'parent' | 'child';
 /** Layer 1: Identity（誰であるか）
  * - local: LAN内認証なし（NUC/Docker）
  * - cognito: Cognito Email/Password + MFA（AWS SaaS）
+ *
+ * #820: Cognito `cognito:groups` claim を surfaces する `groups` フィールドを追加。
+ * /ops のような group ベース認可は `groups.includes('ops')` で判定する。
+ * PR-A 時点ではフィールドを追加するのみで、既存の認可ロジックは未変更。
  */
-export type Identity = { type: 'local' } | { type: 'cognito'; userId: string; email: string };
+export type Identity =
+	| { type: 'local' }
+	| { type: 'cognito'; userId: string; email: string; groups?: string[] };
 
 /** Layer 2: Context（何として操作しているか） */
 export interface AuthContext {
