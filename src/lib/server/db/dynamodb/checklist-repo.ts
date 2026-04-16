@@ -493,7 +493,7 @@ export async function archiveChecklistTemplates(
 }
 
 export async function restoreArchivedChecklistTemplates(
-	_reason: string,
+	reason: string,
 	_tenantId: string,
 ): Promise<void> {
 	let lastKey: Record<string, unknown> | undefined;
