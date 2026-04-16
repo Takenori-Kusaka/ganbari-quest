@@ -1,4 +1,5 @@
 <script lang="ts">
+import { TUTORIAL_LABELS } from '$lib/domain/labels';
 import {
 	continueFullTutorial,
 	dismissResumePrompt,
@@ -227,14 +228,14 @@ function cancelExit() {
 					class="tutorial-dialog-btn tutorial-dialog-btn--secondary"
 					onclick={() => continueFullTutorial()}
 				>
-					もっと詳しく見る
+					{TUTORIAL_LABELS.quickContinue}
 				</button>
 				<button
 					type="button"
 					class="tutorial-dialog-btn tutorial-dialog-btn--primary"
 					onclick={() => finishQuickTutorial()}
 				>
-					使い始める
+					{TUTORIAL_LABELS.quickFinish}
 				</button>
 			</div>
 		</div>

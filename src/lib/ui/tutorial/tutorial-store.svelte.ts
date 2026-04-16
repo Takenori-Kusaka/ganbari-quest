@@ -20,6 +20,11 @@ interface TutorialState {
 	quickMode: boolean;
 	/** #955: クイックモード完了（チャプター1終了後の選択画面） */
 	showQuickComplete: boolean;
+	/**
+	 * #961 QA: クイックモード対象（親チャプター）かどうか。
+	 * 子チャプターに切替中は false になり、quickMode は有効化されない。
+	 */
+	isParentChapters: boolean;
 }
 
 const state = $state<TutorialState>({
@@ -31,6 +36,7 @@ const state = $state<TutorialState>({
 	savedStepIndex: 0,
 	quickMode: false,
 	showQuickComplete: false,
+	isParentChapters: true,
 });
 
 // Configurable chapter source (default: parent admin chapters)
@@ -39,11 +45,14 @@ let activeChapters = $state<TutorialChapter[]>(TUTORIAL_CHAPTERS);
 /** Switch the chapter set (e.g. for child tutorial) */
 export function setChapters(chapters: TutorialChapter[]) {
 	activeChapters = chapters;
+	// #961 QA: 親チャプター（TUTORIAL_CHAPTERS）のみクイックモード対象
+	state.isParentChapters = chapters === TUTORIAL_CHAPTERS;
 }
 
 /** Reset to default parent admin chapters */
 export function resetChapters() {
 	activeChapters = TUTORIAL_CHAPTERS;
+	state.isParentChapters = true;
 }
 
 // ── localStorage helpers (SSR-safe) ──
@@ -148,7 +157,8 @@ export async function startTutorial(chapter?: number) {
 
 	const chapterId = chapter ?? 1;
 	// #955: 明示的なチャプター指定なし（初回開始）の場合はクイックモード
-	const isQuickStart = chapter == null;
+	// #961 QA: ただし親チャプター中のみ有効。子チャプター等では全ステップ通常表示
+	const isQuickStart = chapter == null && state.isParentChapters;
 	state.showResumePrompt = false;
 	state.showQuickComplete = false;
 	state.quickMode = isQuickStart;
@@ -166,6 +176,11 @@ export async function startTutorial(chapter?: number) {
 /** #955: クイック完了画面が表示中か */
 export function isQuickCompleteShown(): boolean {
 	return state.showQuickComplete;
+}
+
+/** #955: クイックモード中か（チャプター1のみ表示） */
+export function isQuickModeActive(): boolean {
+	return state.quickMode;
 }
 
 /** #955: クイック完了から全チュートリアルを継続（チャプター2から） */
@@ -212,7 +227,8 @@ export async function startFromBeginning(chapter?: number) {
 	state.showResumePrompt = false;
 	state.showQuickComplete = false;
 	// #955: 明示的なチャプター指定なし（最初から）の場合はクイックモード
-	state.quickMode = chapter == null;
+	// #961 QA: ただし親チャプター中のみ有効
+	state.quickMode = chapter == null && state.isParentChapters;
 	state.isActive = true;
 	state.currentChapter = chapter ?? 1;
 	state.currentStepIndex = 0;
