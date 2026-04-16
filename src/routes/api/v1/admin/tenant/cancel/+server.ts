@@ -17,6 +17,7 @@
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { error, json } from '@sveltejs/kit';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -40,10 +41,10 @@ export const POST: RequestHandler = async ({ locals }) => {
 		return json({ error: 'テナントが見つかりません' }, { status: 404 });
 	}
 
-	if (tenant.status === 'grace_period') {
+	if (tenant.status === SUBSCRIPTION_STATUS.GRACE_PERIOD) {
 		return json({ error: '既に解約手続き中です' }, { status: 409 });
 	}
-	if (tenant.status === 'terminated') {
+	if (tenant.status === SUBSCRIPTION_STATUS.TERMINATED) {
 		return json({ error: 'アカウントは既に削除済みです' }, { status: 409 });
 	}
 
@@ -67,7 +68,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 	const graceEndAt = graceEnd.toISOString();
 
 	await repos.auth.updateTenantStripe(tenantId, {
-		status: 'grace_period',
+		status: SUBSCRIPTION_STATUS.GRACE_PERIOD,
 		planExpiresAt: graceEndAt,
 	});
 

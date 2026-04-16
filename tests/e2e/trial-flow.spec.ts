@@ -89,12 +89,16 @@ test.describe('#752 トライアルフロー', () => {
 	// 3. トライアル開始後 — /admin/license でトライアルステータス表示
 	// ========================================================
 	test('トライアル開始後に /admin/license でトライアル情報が表示される', async ({ page }) => {
-		// Note: 前のテストでトライアルが開始されている前提（同一 tenant DB が共有）
+		// Note: 前のテストでトライアルが開始されている前提（同一 tenant DB が共有）。
+		// トライアル中は resolvePlanTier() が planTier='standard' に昇格させるため、
+		// license ページの `{#if planTier === 'free'}` トライアルセクションは表示されない。
+		// 代わりに PlanStatusCard の trial-badge（isTrialActive で描画）で検証する。
 		await loginAsPlan(page, 'free');
 		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
 
-		// トライアルセクションが表示される（active 状態）
-		await expect(page.getByText(/残り.*日/)).toBeVisible({ timeout: 30_000 });
+		const trialBadge = page.getByTestId('plan-status-trial-badge');
+		await expect(trialBadge).toBeVisible({ timeout: 30_000 });
+		await expect(trialBadge).toContainText(/残り.*日/);
 	});
 
 	// ========================================================

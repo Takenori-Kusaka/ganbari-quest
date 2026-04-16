@@ -20,6 +20,8 @@ import {
 import { getPlanLimits } from './plan-limit-service';
 
 const ARCHIVE_REASON = 'trial_expired';
+// #738: downgrade-service と同じ値。循環参照を避けるため直接定義
+const DOWNGRADE_ARCHIVE_REASON = 'downgrade_user_selected';
 
 /**
  * トライアル終了時に free プランの上限を超えるリソースを archive する。
@@ -89,12 +91,17 @@ export async function archiveExcessResources(tenantId: string): Promise<{
 }
 
 /**
- * アップグレード時に trial_expired で archive されたリソースを全て復元する。
+ * アップグレード時に trial_expired / downgrade_user_selected で archive されたリソースを全て復元する。
  */
 export async function restoreArchivedResources(tenantId: string): Promise<void> {
+	// #783: trial_expired で archive されたリソースを復元
 	await restoreArchivedChildren(ARCHIVE_REASON, tenantId);
 	await restoreArchivedActivities(ARCHIVE_REASON, tenantId);
 	await restoreArchivedChecklistTemplates(ARCHIVE_REASON, tenantId);
+	// #738: downgrade_user_selected で archive されたリソースも復元
+	await restoreArchivedChildren(DOWNGRADE_ARCHIVE_REASON, tenantId);
+	await restoreArchivedActivities(DOWNGRADE_ARCHIVE_REASON, tenantId);
+	await restoreArchivedChecklistTemplates(DOWNGRADE_ARCHIVE_REASON, tenantId);
 }
 
 /**

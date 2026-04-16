@@ -182,7 +182,9 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0027**: Plan-based history retention policy — retention is a read-time display filter only; no physical delete cron. Summary tables are exempt from retention filtering
 - **ADR-0028**: Plan-based history retention — physical delete via cron (supersedes ADR-0027). Free plan rows older than retention window are physically deleted by scheduled job
 - **ADR-0029**: Safety Assertion Erosion Ban — production guard を弱める変更（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加）は禁止。例外は別 ADR で当該 ADR を supersede すること。新規必須 env / secret 追加時は PR 本文に「配布済み:」証跡が必須（CI で `scripts/check-new-required-env.mjs` が検証）
+- **ADR-0030**: Cognito E2E テストユーザーのライフサイクル基盤 — 動的 E2E ユーザーは Admin API バイパス方式（`AdminCreateUser(SUPPRESS)` + `AdminSetUserPassword(Permanent)`）で作成。IAM Resource は staging User Pool ARN のみ許可、本番 ARN は絶対に含めない。email は `@ganbari-quest.test` 固定、`e2e-{date}-{sha}-{uuid}` 命名。クリーンアップは afterEach / global-teardown / nightly janitor の 3 段構え。Pre Sign-up Lambda にテスト分岐を入れる案は却下（ADR-0029 §④ に抵触）
 - **ADR-0031**: スキーマ変更時の既存データ互換性テスト義務化 — `src/lib/server/db/schema.ts` にカラムを追加する PR は、`tests/unit/db|services/` に NULL 混在行でのクエリテストを同梱。マイグレーション script の `ALTER TABLE ADD COLUMN` には `UPDATE ... WHERE col IS NULL` バックフィルを併記。CI は `scripts/check-schema-change-tests.mjs` で warn を出す
+- **ADR-0032**: Static analysis tier policy — 4 階層で実行頻度を分類: T1 PR ゲート（< 30s、merge block）/ T2 PR 並行レーン（30s-3min、別 job）/ T3 nightly 週次（> 3min or debt 検知、PR は止めない）/ T4 四半期 手動（脆弱性スキャン等）。新ツール導入は実行時間 → blast radius の判断フローで階層決定。T1 合計予算は 3min 以下、新規追加は +30s 以下目安
 
 ### Team Structure
 

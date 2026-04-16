@@ -70,8 +70,9 @@ test.describe('#778 PremiumWelcome モーダル', () => {
 		await expect(dialog).toBeVisible();
 		// 「解放された機能」セクションが含まれる
 		await expect(dialog.getByText('解放された機能')).toBeVisible();
-		// standard 固有の項目（PREMIUM_UNLOCKED_FEATURES.standard より）
-		await expect(dialog.getByText('AI による活動提案')).toBeVisible();
+		// standard 固有の項目（PREMIUM_UNLOCKED_FEATURES.standard より。
+		// #722 で AI 提案は family 専用に移行したため、standard 専用項目でアサート）
+		await expect(dialog.getByText('特別なごほうび設定')).toBeVisible();
 	});
 
 	test('family プラン初回 /admin で歓迎モーダルが表示される', async ({ page }) => {

@@ -1,6 +1,10 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import type { DowngradePreview } from '$lib/domain/downgrade-types';
 import { getLicenseHighlights } from '$lib/domain/plan-features';
+import DowngradeResourceSelector from '$lib/features/admin/components/DowngradeResourceSelector.svelte';
 import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
 import ChurnPreventionModal from '$lib/features/loyalty/ChurnPreventionModal.svelte';
 import LoyaltyBadge from '$lib/features/loyalty/LoyaltyBadge.svelte';
@@ -41,6 +45,12 @@ let portalPinValue = $state('');
 let portalConfirmPhrase = $state('');
 let portalError = $state<string | null>(null);
 
+// #738 ダウングレード前警告フロー
+let downgradePreview = $state<DowngradePreview | null>(null);
+let showDowngradeSelector = $state(false);
+let downgradeLoading = $state(false);
+let downgradeError = $state<string | null>(null);
+
 // #796 ライセンスキー適用 UI 状態
 let licenseKeyInput = $state('');
 let applyLoading = $state(false);
@@ -60,15 +70,15 @@ const applySuccess = $derived(applyResult?.success === true);
 
 const planLabel = (plan: string) => {
 	switch (plan) {
-		case 'monthly':
+		case LICENSE_PLAN.MONTHLY:
 			return 'スタンダード月額（¥500/月）';
-		case 'yearly':
+		case LICENSE_PLAN.YEARLY:
 			return 'スタンダード年額（¥5,000/年）';
-		case 'family-monthly':
+		case LICENSE_PLAN.FAMILY_MONTHLY:
 			return 'ファミリー月額（¥780/月）';
-		case 'family-yearly':
+		case LICENSE_PLAN.FAMILY_YEARLY:
 			return 'ファミリー年額（¥7,800/年）';
-		case 'lifetime':
+		case LICENSE_PLAN.LIFETIME:
 			return '永久ライセンス';
 		case 'free':
 			return '無料プラン';
@@ -79,28 +89,28 @@ const planLabel = (plan: string) => {
 
 const statusLabel = (status: string) => {
 	switch (status) {
-		case 'active':
+		case SUBSCRIPTION_STATUS.ACTIVE:
 			return {
 				text: '有効',
 				color:
 					'bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]',
 				icon: '✅',
 			};
-		case 'grace_period':
+		case SUBSCRIPTION_STATUS.GRACE_PERIOD:
 			return {
 				text: '猶予期間',
 				color:
 					'bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]',
 				icon: '⚠️',
 			};
-		case 'suspended':
+		case SUBSCRIPTION_STATUS.SUSPENDED:
 			return {
 				text: '停止中',
 				color:
 					'bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]',
 				icon: '⏸️',
 			};
-		case 'terminated':
+		case SUBSCRIPTION_STATUS.TERMINATED:
 			return {
 				text: '解約済み',
 				color: 'bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]',
@@ -135,13 +145,77 @@ async function startCheckout(planId: string) {
 	}
 }
 
+// #738: ダウングレードプレビューを取得し、超過がある場合はリソース選択画面を表示
+async function fetchDowngradePreview() {
+	downgradeLoading = true;
+	downgradeError = null;
+	try {
+		// free へのダウングレードプレビューを取得（最も厳しい制限）
+		const res = await fetch('/api/v1/admin/downgrade-preview?targetTier=free');
+		if (!res.ok) {
+			downgradeError = 'ダウングレード情報の取得に失敗しました';
+			return null;
+		}
+		return await res.json();
+	} catch {
+		downgradeError = 'ダウングレード情報の取得に失敗しました';
+		return null;
+	} finally {
+		downgradeLoading = false;
+	}
+}
+
+// #738: ダウングレード用リソースアーカイブを実行
+async function executeDowngradeArchive(selection: {
+	childIds: number[];
+	activityIds: number[];
+	checklistTemplateIds: number[];
+}) {
+	downgradeLoading = true;
+	downgradeError = null;
+	try {
+		const res = await fetch('/api/v1/admin/downgrade-archive', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				targetTier: 'free',
+				...selection,
+			}),
+		});
+		if (!res.ok) {
+			const body = await res.json().catch(() => ({}));
+			downgradeError =
+				(body as { message?: string }).message ?? 'リソースのアーカイブに失敗しました';
+			return false;
+		}
+		return true;
+	} catch {
+		downgradeError = 'リソースのアーカイブに失敗しました';
+		return false;
+	} finally {
+		downgradeLoading = false;
+	}
+}
+
 // #771: 「プラン変更・支払い管理」ボタンは直接 Portal に行かず、まず確認ダイアログを開く。
 // 子供が親端末で誤ってダウングレード・解約するのを防ぐため、PIN 再入力 (未設定時は
 // 確認フレーズ入力) を要求してから Stripe Customer Portal へリダイレクトする。
-function requestPortal() {
+// #738: 有料プランの場合、Portal 遷移前にダウングレードプレビューを取得
+async function requestPortal() {
 	portalPinValue = '';
 	portalConfirmPhrase = '';
 	portalError = null;
+
+	// #738: 有料プランの場合、ダウングレードプレビューを先に取得
+	if (planTier !== 'free') {
+		const preview = await fetchDowngradePreview();
+		if (preview?.hasExcess) {
+			downgradePreview = preview;
+			showDowngradeSelector = true;
+			return;
+		}
+	}
+
 	showPortalConfirm = true;
 }
 
@@ -505,7 +579,7 @@ async function openPortal() {
 	{/if}
 
 	<!-- ステータス別メッセージ -->
-	{#if license.status === 'grace_period'}
+	{#if license.status === SUBSCRIPTION_STATUS.GRACE_PERIOD}
 		<section class="bg-[var(--color-feedback-warning-bg)] rounded-xl p-4 border border-[var(--color-feedback-warning-border)]">
 			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">⚠️ 猶予期間中</h3>
 			<p class="text-sm text-[var(--color-feedback-warning-text)]">
@@ -513,7 +587,7 @@ async function openPortal() {
 				期間を過ぎるとサービスが停止されます。
 			</p>
 		</section>
-	{:else if license.status === 'suspended'}
+	{:else if license.status === SUBSCRIPTION_STATUS.SUSPENDED}
 		<section class="bg-[var(--color-feedback-warning-bg)] rounded-xl p-4 border border-[var(--color-feedback-warning-border)]">
 			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">⏸️ サービス停止中</h3>
 			<p class="text-sm text-[var(--color-feedback-warning-text)]">
@@ -521,7 +595,7 @@ async function openPortal() {
 				新しい活動の記録やポイントの付与はできません。
 			</p>
 		</section>
-	{:else if license.status === 'terminated'}
+	{:else if license.status === SUBSCRIPTION_STATUS.TERMINATED}
 		<section class="bg-[var(--color-feedback-error-bg)] rounded-xl p-4 border border-[var(--color-feedback-error-border)]">
 			<h3 class="text-sm font-semibold text-[var(--color-feedback-error-text)] mb-1">❌ 解約済み</h3>
 			<p class="text-sm text-[var(--color-feedback-error-text)]">
@@ -833,3 +907,24 @@ async function openPortal() {
 		onCancel={() => { showChurnModal = false; openPortal(); }}
 	/>
 {/if}
+
+<!-- #738: ダウングレード前リソース選択ダイアログ -->
+<DowngradeResourceSelector
+	bind:open={showDowngradeSelector}
+	preview={downgradePreview}
+	loading={downgradeLoading}
+	error={downgradeError}
+	onConfirm={async (selection) => {
+		if (downgradePreview?.hasExcess) {
+			const ok = await executeDowngradeArchive(selection);
+			if (!ok) return;
+		}
+		showDowngradeSelector = false;
+		downgradePreview = null;
+		showPortalConfirm = true;
+	}}
+	onCancel={() => {
+		showDowngradeSelector = false;
+		downgradePreview = null;
+	}}
+/>

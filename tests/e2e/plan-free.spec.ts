@@ -58,6 +58,7 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 	test('/admin/reports — weekly-report-upsell バナーが表示される', async ({ page }) => {
 		await loginAsPlan(page, 'free');
 		await page.goto('/admin/reports');
+		// #735: 無料プラン向け upsell はタブの外に出し、ページ到達時点で常に表示される
 		await expect(page.getByTestId('weekly-report-upsell')).toBeVisible();
 	});
 
@@ -77,6 +78,19 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 	}) => {
 		await loginAsPlan(page, 'free');
 		await page.goto('/admin/activities');
+		// Svelte ハイドレーション完了を待つ（FAB の onclick ハンドラ束縛を保証）。
+		// networkidle だけでは Vite dev のコールドコンパイル後の late import で不十分なことが
+		// あるため、FAB の確実な可視化とロード状態の両方を待つ。
+		await page.waitForLoadState('networkidle');
+		const fab = page.getByTestId('add-activity-fab');
+		await expect(fab).toBeVisible();
+
+		// FAB から追加ダイアログを開き、AI モードを選択
+		// （AiSuggestPanel は Dialog 内 addMode='ai' のときのみ描画される）
+		await fab.click();
+		await expect(page.getByTestId('add-activity-dialog')).toBeVisible();
+		await page.getByRole('button', { name: /AIで追加/ }).click();
+
 		const panel = page.getByTestId('ai-suggest-panel');
 		await expect(panel).toBeVisible();
 		await expect(panel).toHaveAttribute('data-plan-locked', 'true');

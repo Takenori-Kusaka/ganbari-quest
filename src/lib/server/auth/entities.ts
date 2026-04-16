@@ -1,6 +1,8 @@
 // src/lib/server/auth/entities.ts
 // マルチテナント認証エンティティの型定義 (#0123)
 
+import type { LicensePlan } from '$lib/domain/constants/license-plan';
+import type { SubscriptionStatus } from '$lib/domain/constants/subscription-status';
 import type { Role } from './types';
 
 /** Cognito ユーザー（Email/Password 認証） */
@@ -24,9 +26,9 @@ export interface Tenant {
 	tenantId: string;
 	name: string;
 	ownerId: string;
-	status: 'active' | 'suspended' | 'grace_period' | 'terminated';
+	status: SubscriptionStatus;
 	licenseKey?: string;
-	plan?: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly' | 'lifetime';
+	plan?: LicensePlan;
 	stripeCustomerId?: string;
 	stripeSubscriptionId?: string;
 	planExpiresAt?: string;

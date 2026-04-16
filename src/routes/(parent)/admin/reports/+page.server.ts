@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
@@ -129,7 +130,7 @@ export const actions: Actions = {
 		// サーバ側でも必ずプランを解決して拒否する。
 		const planTier = await resolveFullPlanTier(
 			tenantId,
-			locals.context?.licenseStatus ?? 'none',
+			locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 			locals.context?.plan,
 		);
 		if (planTier === 'free') {

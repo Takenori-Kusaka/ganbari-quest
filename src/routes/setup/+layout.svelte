@@ -48,9 +48,7 @@ const currentStepIndex = $derived(
 		</div>
 
 		<Card padding="lg">
-			{#snippet children()}
 			{@render children()}
-			{/snippet}
 		</Card>
 	</div>
 </div>

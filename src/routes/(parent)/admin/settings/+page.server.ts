@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES } from '$lib/domain/point-display';
@@ -48,7 +49,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// #773: エクスポート / クラウドエクスポートも同じ planLimits から UI ゲート情報を配布する。
 	const planTier = await resolveFullPlanTier(
 		tenantId,
-		locals.context?.licenseStatus ?? 'none',
+		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 		locals.context?.plan,
 	);
 	const planLimits = getPlanLimits(planTier);
@@ -262,7 +263,7 @@ export const actions = {
 		// #782: きょうだいランキングは family プラン限定
 		const planTier = await resolveFullPlanTier(
 			tenantId,
-			locals.context?.licenseStatus ?? 'none',
+			locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 			locals.context?.plan,
 		);
 		const planLimits = getPlanLimits(planTier);
