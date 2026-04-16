@@ -721,4 +721,24 @@ export const SQL_CREATE_TABLES = `
 		ON ops_audit_log(created_at);
 	CREATE INDEX IF NOT EXISTS idx_ops_audit_log_action
 		ON ops_audit_log(action);
+
+	CREATE TABLE IF NOT EXISTS license_events (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		event_type TEXT NOT NULL,
+		license_key TEXT NOT NULL,
+		tenant_id TEXT,
+		actor_id TEXT,
+		ip TEXT,
+		ua TEXT,
+		metadata TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX IF NOT EXISTS idx_license_events_key
+		ON license_events(license_key, created_at);
+	CREATE INDEX IF NOT EXISTS idx_license_events_type_created
+		ON license_events(event_type, created_at);
+	CREATE INDEX IF NOT EXISTS idx_license_events_tenant
+		ON license_events(tenant_id);
+	CREATE INDEX IF NOT EXISTS idx_license_events_ip_created
+		ON license_events(ip, created_at);
 `;
