@@ -1,4 +1,5 @@
 import { and, count, eq, gte, isNull } from 'drizzle-orm';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { db } from '../client';
 import { siblingCheers } from '../schema';
 import type { InsertSiblingCheerInput, SiblingCheer } from '../types';
@@ -45,7 +46,7 @@ export async function countTodayCheersFrom(
 	fromChildId: number,
 	_tenantId: string,
 ): Promise<number> {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const result = db
 		.select({ value: count() })
 		.from(siblingCheers)
