@@ -59,8 +59,14 @@ export class ComputeStack extends cdk.Stack {
 		const stripePriceFamilyMonthly = this.node.tryGetContext('stripePriceFamilyMonthly') ?? '';
 		const stripePriceFamilyYearly = this.node.tryGetContext('stripePriceFamilyYearly') ?? '';
 
-		// --- OPS Dashboard（CDK context 経由で GitHub Actions Secrets から取得） ---
-		const opsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
+		// --- Cron Endpoint Bearer Secret (#820 PR-D / ADR-0033) ---
+		// /api/cron/retention-cleanup の Bearer 認証に使用。
+		// /ops ダッシュボードは Cognito ops group 認可に移行したため、この鍵は共有しない。
+		// 後方互換: 既存 GitHub Secret `OPS_SECRET_KEY` を cronSecret context として渡す運用が続く間は、
+		// CDK でも OPS_SECRET_KEY / CRON_SECRET の両方の env を Lambda に注入し、
+		// アプリ側 (checkAuth) がどちらでも通るようにする。
+		const cronSecret = this.node.tryGetContext('cronSecret') ?? '';
+		const legacyOpsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
 
 		// --- License Key HMAC Secret (#806, #911) ---
 		// production で未設定だと hooks.server.ts の assertLicenseKeyConfigured() が
@@ -126,7 +132,8 @@ export class ComputeStack extends cdk.Stack {
 				...(discordWebhookIncident
 					? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident }
 					: {}),
-				...(opsSecretKey ? { OPS_SECRET_KEY: opsSecretKey } : {}),
+				...(cronSecret ? { CRON_SECRET: cronSecret } : {}),
+				...(legacyOpsSecretKey ? { OPS_SECRET_KEY: legacyOpsSecretKey } : {}),
 				// #911 / #806: assertLicenseKeyConfigured() が必須要求する。
 				// 未設定だと Lambda cold start 時に throw して 500 連発するため、
 				// GitHub Actions Secrets 経由で必ず注入する。

@@ -217,6 +217,7 @@ jobs:
           -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }}
           -c stripePriceFamilyYearly=${{ vars.STRIPE_PRICE_FAMILY_YEARLY }}
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
+          -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
