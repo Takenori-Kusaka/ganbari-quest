@@ -3,21 +3,9 @@
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
+import { verifyCronAuth } from '$lib/server/auth/cron-auth';
 import { getMigrationStats, runAllBatchMigrations } from '$lib/server/db/migration/batch';
 import { logger } from '$lib/server/logger';
-
-function verifyCronAuth(request: Request): Response | null {
-	const cronSecret = process.env.CRON_SECRET;
-	if (cronSecret) {
-		const authHeader = request.headers.get('x-cron-secret');
-		if (authHeader !== cronSecret) {
-			return json({ error: 'Unauthorized' }, { status: 401 }) as unknown as Response;
-		}
-	} else if (process.env.AUTH_MODE !== 'local') {
-		return json({ error: 'CRON_SECRET not configured' }, { status: 500 }) as unknown as Response;
-	}
-	return null;
-}
 
 /** GET: マイグレーション統計を返す */
 export const GET: RequestHandler = async ({ request }) => {
