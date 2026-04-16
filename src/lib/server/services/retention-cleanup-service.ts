@@ -12,7 +12,7 @@
 //
 // 呼び出し元:
 // - `/api/cron/retention-cleanup/+server.ts` (EventBridge スケジュール経由)
-// - 手動実行（OPS_SECRET_KEY 認証）
+// - 手動実行（CRON_SECRET Bearer 認証 / ADR-0033）
 
 import {
 	AUTH_LICENSE_STATUS,

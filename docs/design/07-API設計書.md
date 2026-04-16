@@ -1074,13 +1074,18 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 
 ---
 
-### 3.16 運営管理ダッシュボード（#0176）
+### 3.16 運営管理ダッシュボード（#0176 / #820 / ADR-0033）
 
-> `/ops` 配下は既存のテナント認証とは完全に分離。`OPS_SECRET_KEY` 環境変数による Bearer token 認証。
+> `/ops` 配下は **Cognito User Pool の `ops` group メンバーのみがアクセス可能**（#820 / ADR-0033）。
+> 非メンバーは 403 Forbidden。実装は `src/routes/ops/+layout.server.ts` が `isOpsMember(locals.identity)` で判定する。
+>
+> 旧 `OPS_SECRET_KEY` Bearer token / `ops_token` Cookie / URL token 認証はすべて廃止済み。
+> なお `/api/cron/retention-cleanup` は EventBridge から呼ばれる別経路のため、独自の shared secret
+> （`CRON_SECRET`、移行期は `OPS_SECRET_KEY` も後方互換で受け入れ）を使用する（ADR-0033）。
 
 #### GET /ops （KPI サマリーページ）
 
-**認証:** `Authorization: Bearer <OPS_SECRET_KEY>` または `ops_token` Cookie または `?token=<OPS_SECRET_KEY>` クエリパラメータ
+**認証:** Cognito User Pool `ops` group メンバーであること（通常の Cognito ログインセッション）
 
 **レスポンス:** HTML ページ（SSR）。テナント統計・プラン別内訳・MRR概算を表示。
 
