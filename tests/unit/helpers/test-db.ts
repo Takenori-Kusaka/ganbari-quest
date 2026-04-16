@@ -742,6 +742,24 @@ export const SQL_TABLES = `
 	);
 	CREATE UNIQUE INDEX idx_enemy_collection_child_enemy ON enemy_collection(child_id, enemy_id);
 	CREATE INDEX idx_enemy_collection_child ON enemy_collection(child_id);
+
+	-- ============================================================
+	-- ops_audit_log (#820)
+	-- ============================================================
+	CREATE TABLE ops_audit_log (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		actor_id TEXT NOT NULL,
+		actor_email TEXT NOT NULL,
+		ip TEXT,
+		ua TEXT,
+		action TEXT NOT NULL,
+		target TEXT,
+		metadata TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_ops_audit_log_actor ON ops_audit_log(actor_id);
+	CREATE INDEX idx_ops_audit_log_created ON ops_audit_log(created_at);
+	CREATE INDEX idx_ops_audit_log_action ON ops_audit_log(action);
 `;
 
 // ============================================================
@@ -749,6 +767,7 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'ops_audit_log',
 	'enemy_collection',
 	'daily_battles',
 	'trial_history',
