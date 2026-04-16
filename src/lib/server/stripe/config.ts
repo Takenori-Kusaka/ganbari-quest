@@ -1,7 +1,10 @@
 // src/lib/server/stripe/config.ts
 // Stripe 決済設定・プラン定義 (#0131, #0271)
 
-export type PlanId = 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly';
+import { LICENSE_PLAN, type LicensePlan } from '$lib/domain/constants/license-plan';
+
+/** Stripe で購入可能なプラン (lifetime は Stripe サブスク対象外) */
+export type PlanId = Exclude<LicensePlan, typeof LICENSE_PLAN.LIFETIME>;
 
 export interface PlanConfig {
 	priceId: string;
@@ -14,28 +17,28 @@ export interface PlanConfig {
 /** 環境変数から Price ID を取得し、プラン設定を構築 */
 function buildPlanConfigs(): Record<PlanId, PlanConfig> {
 	return {
-		monthly: {
+		[LICENSE_PLAN.MONTHLY]: {
 			priceId: process.env.STRIPE_PRICE_MONTHLY ?? '',
 			amount: 500,
 			interval: 'month',
 			tier: 'standard',
 			label: 'スタンダード月額（¥500/月）',
 		},
-		yearly: {
+		[LICENSE_PLAN.YEARLY]: {
 			priceId: process.env.STRIPE_PRICE_YEARLY ?? '',
 			amount: 5000,
 			interval: 'year',
 			tier: 'standard',
 			label: 'スタンダード年額（¥5,000/年）',
 		},
-		'family-monthly': {
+		[LICENSE_PLAN.FAMILY_MONTHLY]: {
 			priceId: process.env.STRIPE_PRICE_FAMILY_MONTHLY ?? '',
 			amount: 780,
 			interval: 'month',
 			tier: 'family',
 			label: 'ファミリー月額（¥780/月）',
 		},
-		'family-yearly': {
+		[LICENSE_PLAN.FAMILY_YEARLY]: {
 			priceId: process.env.STRIPE_PRICE_FAMILY_YEARLY ?? '',
 			amount: 7800,
 			interval: 'year',

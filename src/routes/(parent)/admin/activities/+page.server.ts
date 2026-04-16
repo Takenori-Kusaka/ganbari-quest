@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { activityPackIndex, getActivityPack } from '$lib/data/activity-packs';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { CATEGORY_CODES, CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -35,7 +36,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const mainQuestCount = await getMainQuestCount(tenantId);
 
 	// プラン制限情報
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const activityLimit = await checkActivityLimit(tenantId, licenseStatus);
 
 	// プリセットパック一覧
@@ -100,7 +101,7 @@ export const actions: Actions = {
 		}
 
 		// プラン制限チェック（カスタム活動数）
-		const licenseStatus = locals.context?.licenseStatus ?? 'none';
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const activityLimitCheck = await checkActivityLimit(tenantId, licenseStatus);
 		if (!activityLimitCheck.allowed) {
 			// #787: PlanLimitError 形式に統一。tier は memoize 済み (#788) なので 2 回目の呼び出しは安い

@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireTenantId } from '$lib/server/auth/factory';
 import type { CustomAchievementConditionType } from '$lib/server/db/types';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -14,7 +15,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
 	const children = await getAllChildren(tenantId);
 
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 	const isPremium = isPaidTier(planTier);
 
@@ -53,7 +54,7 @@ export const actions = {
 			return fail(400, { error: '必須項目を入力してください' });
 		}
 
-		const licenseStatus = locals.context?.licenseStatus ?? 'none';
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 
 		const result = await createCustomAchievement(

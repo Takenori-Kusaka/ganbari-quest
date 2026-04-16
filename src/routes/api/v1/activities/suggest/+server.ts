@@ -2,6 +2,7 @@
 // AI 活動提案 API — プランゲート必須 (#727)
 
 import { error, json } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { apiError } from '$lib/server/errors';
 import { suggestActivity } from '$lib/server/services/activity-suggest-service';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
@@ -15,7 +16,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const tenantId = locals.context.tenantId;
 
 	// #727: プランゲート — 無料プランは AI 提案を利用不可（コスト流出防止）
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 	if (tier !== 'family') {
 		return apiError('PLAN_LIMIT_EXCEEDED', 'AI 活動提案はファミリープランでご利用いただけます');

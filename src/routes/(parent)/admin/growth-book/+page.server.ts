@@ -1,3 +1,4 @@
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { buildGrowthBook } from '$lib/server/services/growth-book-service';
@@ -26,7 +27,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		buildGrowthBook(selectedChildId, fiscalYear, tenantId),
 		resolveFullPlanTier(
 			tenantId,
-			locals.context?.licenseStatus ?? 'none',
+			locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 			locals.context?.plan,
 		).then(isPaidTier),
 	]);

@@ -1,6 +1,7 @@
 // src/lib/server/services/plan-limit-service.ts
 // プラン別機能制限サービス (#0196, #0269, #0270)
 
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { buildPlanTierCacheKey, getRequestContext } from '$lib/server/request-context';
@@ -80,7 +81,7 @@ export function resolvePlanTier(
 	// ローカル版（セルフホスト）は常に全機能解放
 	if (getAuthMode() === 'local') return 'family';
 	// アクティブな有料プラン
-	if (licenseStatus === 'active') {
+	if (licenseStatus === AUTH_LICENSE_STATUS.ACTIVE) {
 		return planId?.startsWith('family') ? 'family' : 'standard';
 	}
 	// トライアル期間中 → トライアルのティアを適用（デフォルト: standard）

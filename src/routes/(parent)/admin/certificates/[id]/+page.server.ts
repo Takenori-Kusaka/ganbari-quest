@@ -1,4 +1,5 @@
 import { error } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { buildRenderData, getCertificateDetail } from '$lib/server/services/certificate-service';
 import { getChildById } from '$lib/server/services/child-service';
@@ -18,7 +19,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const renderData = buildRenderData(cert, child.nickname);
 
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const isPremium = isPaidTier(
 		await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan),
 	);
