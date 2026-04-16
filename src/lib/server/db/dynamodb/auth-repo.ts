@@ -636,6 +636,9 @@ export const saveLicenseKey: IAuthRepo['saveLicenseKey'] = async (record) => {
 			TableName: TABLE_NAME,
 			Item: {
 				...keys,
+				// #816: GSI2 でテナント別一覧を引けるようにする
+				GSI2PK: `TENANT#${record.tenantId}`,
+				GSI2SK: `LICENSE#${record.createdAt}`,
 				tenantId: record.tenantId,
 				plan: record.plan,
 				stripeSessionId: record.stripeSessionId,
@@ -722,4 +725,211 @@ export const revokeLicenseKey: IAuthRepo['revokeLicenseKey'] = async (params) =>
 			},
 		}),
 	);
+};
+
+// ============================================================
+// License Key Search (#816)
+// ============================================================
+
+const DEFAULT_PAGE_SIZE = 50;
+
+/** カーソルを Base64 エンコードされた DynamoDB ExclusiveStartKey として扱う */
+function decodeCursor(cursor: string): Record<string, unknown> {
+	return JSON.parse(Buffer.from(cursor, 'base64url').toString('utf-8'));
+}
+
+function encodeCursor(lastKey: Record<string, unknown>): string {
+	return Buffer.from(JSON.stringify(lastKey), 'utf-8').toString('base64url');
+}
+
+function itemToLicenseRecord(item: Record<string, unknown>): LicenseRecord {
+	return {
+		licenseKey: (item.PK as string).replace('LICENSE#', ''),
+		tenantId: item.tenantId as string,
+		plan: item.plan as LicenseRecord['plan'],
+		stripeSessionId: item.stripeSessionId as string | undefined,
+		status: item.status as LicenseRecord['status'],
+		consumedBy: item.consumedBy as string | undefined,
+		consumedAt: item.consumedAt as string | undefined,
+		createdAt: item.createdAt as string,
+		kind: item.kind as LicenseRecord['kind'],
+		issuedBy: item.issuedBy as string | undefined,
+		expiresAt: item.expiresAt as string | undefined,
+		revokedAt: item.revokedAt as string | undefined,
+		revokedReason: item.revokedReason as LicenseRecord['revokedReason'],
+		revokedBy: item.revokedBy as string | undefined,
+	};
+}
+
+export const listLicenseKeysByTenant: IAuthRepo['listLicenseKeysByTenant'] = async (
+	tenantId,
+	limit = DEFAULT_PAGE_SIZE,
+	cursor,
+) => {
+	const result = await doc().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			IndexName: GSI.GSI2,
+			KeyConditionExpression: 'GSI2PK = :pk AND begins_with(GSI2SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': `TENANT#${tenantId}`,
+				':prefix': 'LICENSE#',
+			},
+			ScanIndexForward: false, // 直近発行順
+			Limit: limit,
+			...(cursor ? { ExclusiveStartKey: decodeCursor(cursor) } : {}),
+		}),
+	);
+
+	const items = (result.Items ?? []).map((item) =>
+		itemToLicenseRecord(item as Record<string, unknown>),
+	);
+
+	return {
+		items,
+		cursor: result.LastEvaluatedKey ? encodeCursor(result.LastEvaluatedKey) : null,
+	};
+};
+
+export const listLicenseKeysByStatus: IAuthRepo['listLicenseKeysByStatus'] = async (
+	status,
+	limit = DEFAULT_PAGE_SIZE,
+	cursor,
+) => {
+	// DynamoDB の LICENSE# パーティションは status でインデックスされていないため、
+	// Scan + FilterExpression を使用。Pre-PMF 段階ではキー数が限定的。
+	// 本番スケール時は GSI 追加を検討（ADR-0034 準拠で過剰設計を避ける）。
+	const items: LicenseRecord[] = [];
+	let lastKey = cursor ? decodeCursor(cursor) : undefined;
+	let scannedCount = 0;
+
+	// Scan は FilterExpression 適用前の Limit なので、十分な件数が集まるまでループする
+	while (items.length < limit) {
+		const result = await doc().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression: 'begins_with(PK, :prefix) AND #status = :status',
+				ExpressionAttributeNames: { '#status': 'status' },
+				ExpressionAttributeValues: {
+					':prefix': 'LICENSE#',
+					':status': status,
+				},
+				ExclusiveStartKey: lastKey,
+				// 多めにスキャンしてフィルタで絞る
+				Limit: Math.max(limit * 3, 100),
+			}),
+		);
+
+		for (const item of result.Items ?? []) {
+			if (items.length >= limit) break;
+			items.push(itemToLicenseRecord(item as Record<string, unknown>));
+		}
+
+		lastKey = result.LastEvaluatedKey;
+		scannedCount++;
+
+		// テーブル末尾到達 or 安全弁（最大 10 ラウンド）
+		if (!lastKey || scannedCount >= 10) break;
+	}
+
+	return {
+		items,
+		cursor: lastKey ? encodeCursor(lastKey) : null,
+	};
+};
+
+export const listExpiringSoon: IAuthRepo['listExpiringSoon'] = async (days) => {
+	const now = new Date();
+	const threshold = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+	const nowIso = now.toISOString();
+	const thresholdIso = threshold.toISOString();
+
+	const items: LicenseRecord[] = [];
+	let lastKey: Record<string, unknown> | undefined;
+
+	do {
+		const result = await doc().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression:
+					'begins_with(PK, :prefix) AND #status = :active AND expiresAt BETWEEN :now AND :threshold',
+				ExpressionAttributeNames: { '#status': 'status' },
+				ExpressionAttributeValues: {
+					':prefix': 'LICENSE#',
+					':active': 'active',
+					':now': nowIso,
+					':threshold': thresholdIso,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+
+		for (const item of result.Items ?? []) {
+			items.push(itemToLicenseRecord(item as Record<string, unknown>));
+		}
+
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
+
+	return items;
+};
+
+export const countLicenseKeys: IAuthRepo['countLicenseKeys'] = async (filter) => {
+	let count = 0;
+	let lastKey: Record<string, unknown> | undefined;
+
+	// テナント指定がある場合は GSI2 Query を使用
+	if (filter?.tenantId) {
+		do {
+			const result = await doc().send(
+				new QueryCommand({
+					TableName: TABLE_NAME,
+					IndexName: GSI.GSI2,
+					KeyConditionExpression: 'GSI2PK = :pk AND begins_with(GSI2SK, :prefix)',
+					ExpressionAttributeValues: {
+						':pk': `TENANT#${filter.tenantId}`,
+						':prefix': 'LICENSE#',
+						...(filter.status ? { ':status': filter.status } : {}),
+					},
+					...(filter.status
+						? {
+								FilterExpression: '#status = :status',
+								ExpressionAttributeNames: { '#status': 'status' },
+							}
+						: {}),
+					Select: 'COUNT',
+					ExclusiveStartKey: lastKey,
+				}),
+			);
+			count += result.Count ?? 0;
+			lastKey = result.LastEvaluatedKey;
+		} while (lastKey);
+
+		return count;
+	}
+
+	// テナント指定なし: Scan
+	do {
+		const hasStatusFilter = !!filter?.status;
+
+		const result = await doc().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression: hasStatusFilter
+					? 'begins_with(PK, :prefix) AND #status = :status'
+					: 'begins_with(PK, :prefix)',
+				...(hasStatusFilter ? { ExpressionAttributeNames: { '#status': 'status' } } : {}),
+				ExpressionAttributeValues: {
+					':prefix': 'LICENSE#',
+					...(hasStatusFilter ? { ':status': filter.status } : {}),
+				},
+				Select: 'COUNT',
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		count += result.Count ?? 0;
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
+
+	return count;
 };
