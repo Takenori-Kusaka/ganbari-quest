@@ -93,6 +93,10 @@ jobs:
         continue-on-error: true
         run: npx eslint "src/**/*.ts"
 
+      - name: Knip (unused exports/files/deps detection, #970)
+        continue-on-error: true
+        run: npx knip
+
       - name: Svelte check
         run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json
 

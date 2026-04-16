@@ -45,7 +45,8 @@
 		"security:scan": "node scripts/security-scan.mjs",
 		"storybook": "storybook dev -p 6006",
 		"build-storybook": "storybook build",
-		"type-coverage": "type-coverage -p . --at-least 97 --strict --ignore-catch --detail"
+		"type-coverage": "type-coverage -p . --at-least 97 --strict --ignore-catch --detail",
+		"knip": "knip"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.10",
@@ -78,6 +79,7 @@
 		"eslint-plugin-svelte": "^3.17.0",
 		"googleapis": "^171.4.0",
 		"jsdom": "^29.0.2",
+		"knip": "^6.4.1",
 		"playwright": "^1.59.1",
 		"sharp": "^0.34.5",
 		"storybook": "^10.3.4",
