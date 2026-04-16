@@ -2,6 +2,8 @@
 // Stripe 決済サービス (#0131)
 
 import type Stripe from 'stripe';
+import { LICENSE_PLAN, type LicensePlan } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { PLAN_LABELS } from '$lib/domain/labels';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
@@ -24,7 +26,8 @@ import {
 
 export interface CreateCheckoutInput {
 	tenantId: string;
-	planId: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly';
+	/** lifetime は Checkout 対象外。Stripe サブスク対象のみ。 */
+	planId: Exclude<LicensePlan, typeof LICENSE_PLAN.LIFETIME>;
 	successUrl: string;
 	cancelUrl: string;
 }
@@ -247,13 +250,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 	const subscriptionId =
 		typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
 
-	const plan = (planId as Tenant['plan']) ?? 'monthly';
+	const plan = (planId as Tenant['plan']) ?? LICENSE_PLAN.MONTHLY;
 	const repos = getRepos();
 	await repos.auth.updateTenantStripe(tenantId, {
 		stripeCustomerId: customerId ?? undefined,
 		stripeSubscriptionId: subscriptionId ?? undefined,
 		plan,
-		status: 'active',
+		status: SUBSCRIPTION_STATUS.ACTIVE,
 		trialUsedAt: new Date().toISOString(),
 	});
 
@@ -263,7 +266,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 	try {
 		const licenseRecord = await issueLicenseKey({
 			tenantId,
-			plan: plan ?? 'monthly',
+			plan: plan ?? LICENSE_PLAN.MONTHLY,
 			stripeSessionId: session.id,
 			kind: 'purchase',
 			issuedBy: `stripe:${session.id}`,
@@ -275,11 +278,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 		// Stripe Customer のメールアドレスにキーを送信
 		const customerEmail = session.customer_details?.email ?? session.customer_email;
 		if (customerEmail) {
-			sendLicenseKeyEmail(customerEmail, licenseRecord.licenseKey, plan ?? 'monthly').catch(
-				(err) => {
-					logger.warn('[STRIPE] License key email failed', { error: String(err) });
-				},
-			);
+			sendLicenseKeyEmail(
+				customerEmail,
+				licenseRecord.licenseKey,
+				plan ?? LICENSE_PLAN.MONTHLY,
+			).catch((err) => {
+				logger.warn('[STRIPE] License key email failed', { error: String(err) });
+			});
 		}
 	} catch (err) {
 		logger.error('[STRIPE] License key issuance failed', { error: String(err) });
@@ -312,8 +317,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 
 	const repos = getRepos();
 	await repos.auth.updateTenantStripe(tenant.tenantId, {
-		status: 'active',
-		plan: plan ?? tenant.plan ?? 'monthly',
+		status: SUBSCRIPTION_STATUS.ACTIVE,
+		plan: plan ?? tenant.plan ?? LICENSE_PLAN.MONTHLY,
 	});
 
 	logger.info(`[STRIPE] Invoice paid: tenant=${tenant.tenantId}`);
@@ -336,7 +341,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 	const repos = getRepos();
 	const graceExpires = new Date(Date.now() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString();
 	await repos.auth.updateTenantStripe(tenant.tenantId, {
-		status: 'grace_period',
+		status: SUBSCRIPTION_STATUS.GRACE_PERIOD,
 		planExpiresAt: graceExpires,
 	});
 
@@ -359,16 +364,18 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 	const plan = priceId ? planIdFromPriceId(priceId) : null;
 
 	const repos = getRepos();
-	const status =
+	// Stripe SDK 側の subscription.status ('active'|'trialing'|'past_due'|…) を
+	// アプリ内部の SUBSCRIPTION_STATUS に正規化する。
+	const status: Tenant['status'] =
 		subscription.status === 'active' || subscription.status === 'trialing'
-			? 'active'
+			? SUBSCRIPTION_STATUS.ACTIVE
 			: subscription.status === 'past_due'
-				? 'grace_period'
-				: 'suspended';
+				? SUBSCRIPTION_STATUS.GRACE_PERIOD
+				: SUBSCRIPTION_STATUS.SUSPENDED;
 
 	await repos.auth.updateTenantStripe(tenant.tenantId, {
-		plan: plan ?? tenant.plan ?? 'monthly',
-		status: status as Tenant['status'],
+		plan: plan ?? tenant.plan ?? LICENSE_PLAN.MONTHLY,
+		status,
 	});
 
 	logger.info(`[STRIPE] Subscription updated: tenant=${tenant.tenantId} status=${status}`);
@@ -391,7 +398,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 	await repos.auth.updateTenantStripe(tenant.tenantId, {
 		stripeSubscriptionId: undefined,
 		plan: undefined,
-		status: 'suspended',
+		status: SUBSCRIPTION_STATUS.SUSPENDED,
 	});
 
 	logger.info(`[STRIPE] Subscription deleted: tenant=${tenant.tenantId}`);

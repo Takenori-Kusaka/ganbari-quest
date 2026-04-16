@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -41,7 +42,7 @@ function calculateAge(birthDate: string): number {
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const tenantId = requireTenantId(locals);
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const children = await getAllChildren(tenantId);
 	const selectedId = url.searchParams.get('id');
 
@@ -169,7 +170,7 @@ export const actions: Actions = {
 		}
 
 		// プラン制限チェック
-		const licenseStatus = locals.context?.licenseStatus ?? 'none';
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const childLimitCheck = await checkChildLimit(tenantId, licenseStatus);
 		if (!childLimitCheck.allowed) {
 			// #787: PlanLimitError 形式に統一。tier は memoize 済み (#788) なので 2 回目の呼び出しは安い

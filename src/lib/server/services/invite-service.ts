@@ -1,6 +1,7 @@
 // src/lib/server/services/invite-service.ts
 // 招待リンクサービス (#0129)
 
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Invite, Membership } from '$lib/server/auth/entities';
 import type { Role } from '$lib/server/auth/types';
 import { getRepos } from '$lib/server/db/factory';
@@ -69,7 +70,7 @@ export async function acceptInvite(
 
 	// テナントの存在確認
 	const tenant = await repos().auth.findTenantById(invite.tenantId);
-	if (!tenant || tenant.status !== 'active') {
+	if (!tenant || tenant.status !== SUBSCRIPTION_STATUS.ACTIVE) {
 		return { error: 'TENANT_NOT_FOUND' };
 	}
 

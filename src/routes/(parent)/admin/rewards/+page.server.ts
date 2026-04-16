@@ -2,6 +2,7 @@
 
 import { fail } from '@sveltejs/kit';
 import { PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -23,7 +24,7 @@ const UPGRADE_MESSAGE = '特別なごほうび設定はスタンダードプラ�
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 	const isPremium = isPaidTier(tier);
 
@@ -52,7 +53,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 /** 現在のプラン tier を解決して返すヘルパー (#787) */
 async function resolveTier(locals: App.Locals, tenantId: string): Promise<PlanTier> {
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	return resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 }
 

@@ -2,6 +2,7 @@
 // LocalAuthProvider — 認証なし（LAN内限定、#0123 要件: PIN廃止）
 
 import type { RequestEvent } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import type { AuthContext, AuthProvider, AuthResult, Identity } from '../types';
 
 export class LocalAuthProvider implements AuthProvider {
@@ -15,7 +16,7 @@ export class LocalAuthProvider implements AuthProvider {
 		return {
 			tenantId: 'local',
 			role: 'owner',
-			licenseStatus: 'none',
+			licenseStatus: AUTH_LICENSE_STATUS.NONE,
 		};
 	}
 

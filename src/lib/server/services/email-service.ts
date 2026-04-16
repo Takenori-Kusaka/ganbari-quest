@@ -4,6 +4,7 @@
 
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
+import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import { logger } from '$lib/server/logger';
 
 // ============================================================
@@ -234,11 +235,11 @@ export async function sendLicenseKeyEmail(
 	plan: string,
 ): Promise<boolean> {
 	const planLabels: Record<string, string> = {
-		monthly: 'スタンダード月額プラン',
-		yearly: 'スタンダード年額プラン',
-		'family-monthly': 'ファミリー月額プラン',
-		'family-yearly': 'ファミリー年額プラン',
-		lifetime: '永久ライセンス',
+		[LICENSE_PLAN.MONTHLY]: 'スタンダード月額プラン',
+		[LICENSE_PLAN.YEARLY]: 'スタンダード年額プラン',
+		[LICENSE_PLAN.FAMILY_MONTHLY]: 'ファミリー月額プラン',
+		[LICENSE_PLAN.FAMILY_YEARLY]: 'ファミリー年額プラン',
+		[LICENSE_PLAN.LIFETIME]: '永久ライセンス',
 	};
 	const planLabel = planLabels[plan] ?? '月額プラン';
 	return sendEmail({
