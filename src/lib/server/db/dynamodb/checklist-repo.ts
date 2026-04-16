@@ -455,7 +455,7 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
 export async function archiveChecklistTemplates(
 	ids: number[],
 	reason: string,
-	tenantId: string,
+	_tenantId: string,
 ): Promise<void> {
 	for (const id of ids) {
 		// テンプレートの PK は CHILD#<childId> だが id しかわからないため Scan で探す
@@ -493,8 +493,8 @@ export async function archiveChecklistTemplates(
 }
 
 export async function restoreArchivedChecklistTemplates(
-	reason: string,
-	tenantId: string,
+	_reason: string,
+	_tenantId: string,
 ): Promise<void> {
 	let lastKey: Record<string, unknown> | undefined;
 	do {
