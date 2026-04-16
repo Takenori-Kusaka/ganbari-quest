@@ -1,12 +1,12 @@
 // tests/unit/services/activity-suggest-service.test.ts
-// AI活動提案サービスのユニットテスト（フォールバック） (#721: Bedrock 移行後)
+// AI活動提案サービスのユニットテスト（フォールバック） (#721, #987: provider 層移行)
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-// Bedrock を無効化してフォールバック経由にする
-vi.mock('$lib/server/ai/bedrock-client', () => ({
-	isBedrockAvailable: () => false,
-	converseWithTool: vi.fn(),
+// AI provider factory をモック — AI 無効でフォールバック経由にする
+vi.mock('$lib/server/ai/factory', () => ({
+	isAiAvailable: () => false,
+	getAiProvider: vi.fn(),
 }));
 vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
