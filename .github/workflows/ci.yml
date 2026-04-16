@@ -76,6 +76,9 @@ jobs:
       - name: No plan/status literal direct write check (#972)
         run: node scripts/check-no-plan-literals.mjs
 
+      - name: DynamoDB stub/no-op implementation check (#1012)
+        run: node scripts/check-dynamodb-stub.mjs
+
       - name: Stylelint (CSS hex check)
         run: npx stylelint "src/**/*.css"
 

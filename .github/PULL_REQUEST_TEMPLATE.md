@@ -112,6 +112,22 @@ closes #
 **網羅性の判断根拠**:
 <!-- なぜこのテスト範囲で十分と判断したか。カバーしていないリスクがあれば明記 -->
 
+### DynamoDB 実装完成度（#1012 — 段階的対応禁止）
+
+<!-- `src/lib/server/db/dynamodb/*.ts` の新規追加・変更がある PR は必須。無い場合は「N/A」 -->
+
+- [ ] **N/A** — DynamoDB 実装の追加・変更なし
+
+<!-- 該当する場合、以下を全てチェック -->
+- [ ] interface を追加した PR で **SQLite + DynamoDB 両実装を完成**させた（stub / no-op / TODO なし）
+- [ ] `scripts/check-dynamodb-stub.mjs` がローカルで PASS する
+- [ ] CDK (`infra/lib/storage-stack.ts`) の DynamoDB テーブル / GSI 定義も同じ PR に含めた（新規テーブル / GSI の場合）
+- [ ] `DATA_SOURCE=dynamodb` 相当（staging）で実機動作確認した（critical / 監査 / 認可 / 課金関連の場合）
+- [ ] DynamoDB コンソールで当該テーブルに書込みが発生することを確認した（critical / 監査 / 認可 / 課金関連の場合）
+- [ ] Lambda CloudWatch Logs に想定イベントが出ることを確認した（critical / 監査 / 認可 / 課金関連の場合）
+
+詳細: docs/sessions/dev-session.md 「段階的リリース禁止」セクション、Issue #1012
+
 ## 品質観点チェック
 
 <!-- 該当する項目のみ記載。該当しない場合は「対象外」と明記 -->
