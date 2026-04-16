@@ -198,13 +198,13 @@
 
 ## 5. ダウングレード時の超過リソース処理（#738 連動）
 
-### 5.1 現状
+### 5.1 実装状況
 
-**未実装**。`checkChildLimit` は新規作成のみブロックし、既存リソースのアーカイブ機構はない。
+**#738 で実装済み**。`/admin/license` の「プラン変更・支払い管理」ボタン押下時に、ダウングレード先プランの上限を���えるリソースがある場合は、Portal 遷移前にリソース選���ダイアログを表示する。
 
-### 5.2 #738 で実装予定の挙動
+### 5.2 挙動
 
-ダウングレード前確認画面で:
+ダウングレード前確認ダイアログ（`DowngradeResourceSelector`）で:
 
 | 項目 | 仕様 |
 |------|------|
@@ -212,21 +212,58 @@
 | ダウングレード先制限 | 子供 2 人 / 活動 3 個 / 履歴 90 日 (free) |
 | 超過分 | 「N - 2 人分」「M - 3 個分」を明示 |
 | 残すリソース選択 | チェックボックスで「残す」「アーカイブ」を選択 |
-| アーカイブ動作 | `is_archived = true` フラグ。物理削除しない |
-| アップグレード時の復元 | `is_archived = false` に戻すだけで完全復元可能 |
+| アーカイブ動作 | `is_archived = true, archived_reason = 'downgrade_user_selected'`。物理削除しない |
+| アップグレード時の復元 | `is_archived = false` に戻すだけで完全復元可能（既存の `restoreArchivedResources` が `trial_expired` を復元するのと同じ機構） |
 | 履歴保持の警告 | 現在の保持日数 > 新プランの保持日数なら「古い履歴は閲覧不可になります」警告 |
+| 超���なしの場合 | プレビューで超過なしなら選択画面をスキップし��直接 PIN 確認ダイアログへ進む |
 
-### 5.3 ダウングレード経路への組み込み案
+### 5.3 ダウングレード経路のフロー
 
-現状は Customer Portal を直叩きしているため、超過リソース処理を **Portal 遷移前** に実施する必要がある。実装方針:
+```
+[/admin/license]
+  └─ 「プラン変更・支払い管理」ボタン
+        │
+        ▼
+  GET /api/v1/admin/downgrade-preview?targetTier=free
+        │
+        ├─ hasExcess === true
+        │    └─ DowngradeResourceSelector ダイアログ表示
+        │         │
+        │         ├─ ユーザーがアーカイブするリソースを選択
+        │         ├─ 「アーカイブしてプラン変更へ��む」ボタン
+        │         ▼
+        │    POST /api/v1/admin/downgrade-archive
+        │      body: { targetTier, childIds, activityIds, checklistTemplateIds }
+        │         │
+        │         ├─ サーバーで is_archived を更新
+        │         ├─ 残数が上限以内か検証��失敗→エラー返却）
+        │         ▼
+        │    成功 → PIN 確認ダイアログ (#771) へ進む
+        │
+        ├─ hasExcess === false
+        │    └─ PIN 確認ダイアログへ直接進む
+        ▼
+  PIN 確認 → POST /api/stripe/portal → Customer Portal
+```
 
-1. `/admin/license` で「ダウングレード」を選んだ時点で、まず先に超過リソースチェック画面を表示
-2. ユーザーが残すリソースを選択 → サーバーで `is_archived` を更新
-3. 確認完了後に Customer Portal セッションを発行
-4. Portal でユーザーが実際にダウングレード → Webhook で `plan` を更新
-5. Webhook 受信時、新プランの上限に対して `is_archived = false` のリソース数をアサート（不整合なら追加でアーカイブ）
+### 5.4 API エンドポイント
 
-> 詳細仕様は #738 で定義。
+| メソッド | パス | 認可 | 説明 |
+|---------|------|------|------|
+| GET | `/api/v1/admin/downgrade-preview?targetTier={free\|standard\|family}` | owner, parent | 超過リソースのプレビュー取得 |
+| POST | `/api/v1/admin/downgrade-archive` | owner, parent | 選択したリソースのアーカイブ実行 |
+
+### 5.5 実装ファイル
+
+| ファイル | 役割 |
+|---------|------|
+| `src/lib/domain/downgrade-types.ts` | クライアント/サーバー共有型定義 |
+| `src/lib/server/services/downgrade-service.ts` | プレビュー計算・アーカイブ実行 |
+| `src/routes/api/v1/admin/downgrade-preview/+server.ts` | プレビュー API |
+| `src/routes/api/v1/admin/downgrade-archive/+server.ts` | アーカイブ API |
+| `src/lib/features/admin/components/DowngradeResourceSelector.svelte` | リソース選択 UI |
+| `src/routes/(parent)/admin/license/+page.svelte` | フロー統合 |
+| `tests/unit/services/downgrade-service.test.ts` | ユニットテスト |
 
 ---
 
