@@ -26,6 +26,34 @@ body:
       required: true
 
   - type: textarea
+    id: customer-value
+    attributes:
+      label: 顧客価値（誰が・どんな状況で・何を得るか）
+      description: |
+        この Issue が完了したとき、顧客 / 運営の誰が、どんな状況で、何を得るかを具体的に書いてください。
+        「土台提供」「follow-up で本実装」は原則禁止です。段階分割する場合は各段階の顧客価値を明記してください。
+      placeholder: |
+        例: 「ops 担当者は、不正利用が疑われる IP を確認するときに、/ops 画面で直近 10 分間の検証失敗回数上位を一覧できる」
+        例: 「親ユーザーは、子供の週間レポートをダッシュボードで確認でき、どの活動に最も時間を使ったか一目で分かる」
+    validations:
+      required: true
+
+  - type: textarea
+    id: production-definition
+    attributes:
+      label: 本番で「動く」状態の定義
+      description: |
+        本番環境（DATA_SOURCE=dynamodb）で、この機能が「動いている」と判断できる観測可能な条件を書いてください。
+        URL / 画面 / DynamoDB テーブル / CloudWatch ログ / メトリクス等、具体的に。
+      placeholder: |
+        例:
+        - /ops/audit-log 画面に直近 10 分の検証失敗ログが表示される
+        - DynamoDB OpsAuditLog テーブルに action=LICENSE_VERIFY_FAIL のレコードが入る
+        - CloudWatch Logs に [AUDIT] prefix のログが出力される
+    validations:
+      required: true
+
+  - type: textarea
     id: usecase
     attributes:
       label: ユースケース
