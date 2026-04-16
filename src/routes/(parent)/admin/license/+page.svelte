@@ -2,7 +2,9 @@
 import { enhance } from '$app/forms';
 import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import type { DowngradePreview } from '$lib/domain/downgrade-types';
 import { getLicenseHighlights } from '$lib/domain/plan-features';
+import DowngradeResourceSelector from '$lib/features/admin/components/DowngradeResourceSelector.svelte';
 import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
 import ChurnPreventionModal from '$lib/features/loyalty/ChurnPreventionModal.svelte';
 import LoyaltyBadge from '$lib/features/loyalty/LoyaltyBadge.svelte';
@@ -42,6 +44,12 @@ let showPortalConfirm = $state(false);
 let portalPinValue = $state('');
 let portalConfirmPhrase = $state('');
 let portalError = $state<string | null>(null);
+
+// #738 ダウングレード前警告フロー
+let downgradePreview = $state<DowngradePreview | null>(null);
+let showDowngradeSelector = $state(false);
+let downgradeLoading = $state(false);
+let downgradeError = $state<string | null>(null);
 
 // #796 ライセンスキー適用 UI 状態
 let licenseKeyInput = $state('');
@@ -137,13 +145,77 @@ async function startCheckout(planId: string) {
 	}
 }
 
+// #738: ダウングレードプレビューを取得し、超過がある場合はリソース選択画面を表示
+async function fetchDowngradePreview() {
+	downgradeLoading = true;
+	downgradeError = null;
+	try {
+		// free へのダウングレードプレビューを取得（最も厳しい制限）
+		const res = await fetch('/api/v1/admin/downgrade-preview?targetTier=free');
+		if (!res.ok) {
+			downgradeError = 'ダウングレード情報の取得に失敗しました';
+			return null;
+		}
+		return await res.json();
+	} catch {
+		downgradeError = 'ダウングレード情報の取得に失敗しました';
+		return null;
+	} finally {
+		downgradeLoading = false;
+	}
+}
+
+// #738: ダウングレード用リソースアーカイブを実行
+async function executeDowngradeArchive(selection: {
+	childIds: number[];
+	activityIds: number[];
+	checklistTemplateIds: number[];
+}) {
+	downgradeLoading = true;
+	downgradeError = null;
+	try {
+		const res = await fetch('/api/v1/admin/downgrade-archive', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				targetTier: 'free',
+				...selection,
+			}),
+		});
+		if (!res.ok) {
+			const body = await res.json().catch(() => ({}));
+			downgradeError =
+				(body as { message?: string }).message ?? 'リソースのアーカイブに失敗しました';
+			return false;
+		}
+		return true;
+	} catch {
+		downgradeError = 'リソースのアーカイブに失敗しました';
+		return false;
+	} finally {
+		downgradeLoading = false;
+	}
+}
+
 // #771: 「プラン変更・支払い管理」ボタンは直接 Portal に行かず、まず確認ダイアログを開く。
 // 子供が親端末で誤ってダウングレード・解約するのを防ぐため、PIN 再入力 (未設定時は
 // 確認フレーズ入力) を要求してから Stripe Customer Portal へリダイレクトする。
-function requestPortal() {
+// #738: 有料プランの場合、Portal 遷移前にダウングレードプレビューを取得
+async function requestPortal() {
 	portalPinValue = '';
 	portalConfirmPhrase = '';
 	portalError = null;
+
+	// #738: 有料プランの場合、ダウングレードプレビューを先に取得
+	if (planTier !== 'free') {
+		const preview = await fetchDowngradePreview();
+		if (preview?.hasExcess) {
+			downgradePreview = preview;
+			showDowngradeSelector = true;
+			return;
+		}
+	}
+
 	showPortalConfirm = true;
 }
 
@@ -835,3 +907,24 @@ async function openPortal() {
 		onCancel={() => { showChurnModal = false; openPortal(); }}
 	/>
 {/if}
+
+<!-- #738: ダウングレード前リソース選択ダイアログ -->
+<DowngradeResourceSelector
+	bind:open={showDowngradeSelector}
+	preview={downgradePreview}
+	loading={downgradeLoading}
+	error={downgradeError}
+	onConfirm={async (selection) => {
+		if (downgradePreview?.hasExcess) {
+			const ok = await executeDowngradeArchive(selection);
+			if (!ok) return;
+		}
+		showDowngradeSelector = false;
+		downgradePreview = null;
+		showPortalConfirm = true;
+	}}
+	onCancel={() => {
+		showDowngradeSelector = false;
+		downgradePreview = null;
+	}}
+/>
