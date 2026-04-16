@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
@@ -548,7 +549,7 @@ const anyFormBusy = $derived(
 
 <div class="space-y-6">
 	<!-- grace_period バナー -->
-	{#if $page.data.tenantStatus === 'grace_period'}
+	{#if $page.data.tenantStatus === SUBSCRIPTION_STATUS.GRACE_PERIOD}
 		<div class="bg-[var(--color-feedback-error-bg)] border-2 border-[var(--color-feedback-error-border)] rounded-xl p-6">
 			<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-2">解約手続き中です</h3>
 			<p class="text-sm text-[var(--color-feedback-error-text)] mb-4">
@@ -1726,7 +1727,7 @@ const anyFormBusy = $derived(
 	</Card>
 
 	<!-- アカウント削除（cognito モードの全ロール） -->
-	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== 'grace_period'}
+	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== SUBSCRIPTION_STATUS.GRACE_PERIOD}
 		<Card padding="lg" class="border-2 border-[var(--color-feedback-error-border)]">
 			<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-2">アカウント削除</h3>
 			{#if $page.data.userRole === 'owner'}

@@ -1,3 +1,5 @@
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
@@ -38,12 +40,12 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		rate: Number.parseFloat(pointSettingsRaw.point_rate ?? '') || DEFAULT_POINT_SETTINGS.rate,
 	};
 
-	const tenantStatus = locals.context?.tenantStatus ?? 'active';
+	const tenantStatus = locals.context?.tenantStatus ?? SUBSCRIPTION_STATUS.ACTIVE;
 	// #732: server load 全体で resolveFullPlanTier に統一。
 	// trial 期限・tier は resolveFullPlanTier が内部で取得する（#725 の両引数漏れも自動解消）。
 	const planTier = await resolveFullPlanTier(
 		tenantId,
-		locals.context?.licenseStatus ?? 'none',
+		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 		locals.context?.plan,
 	);
 	const isPremium = isPaidTier(planTier);

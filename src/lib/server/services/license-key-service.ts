@@ -2,6 +2,12 @@
 // ライセンスキー生成・検証・消費サービス (#0247, #319 HMAC署名対応)
 
 import { createHmac, randomBytes } from 'node:crypto';
+import {
+	LICENSE_KEY_STATUS,
+	type LicenseKeyStatus,
+} from '$lib/domain/constants/license-key-status';
+import { type LicensePlan, planDurationDays } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 
@@ -169,9 +175,9 @@ export const DEFAULT_LICENSE_VALIDITY_DAYS = 90;
 export interface LicenseRecord {
 	licenseKey: string;
 	tenantId: string;
-	plan: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly' | 'lifetime';
+	plan: LicensePlan;
 	stripeSessionId?: string;
-	status: 'active' | 'consumed' | 'revoked';
+	status: LicenseKeyStatus;
 	consumedBy?: string;
 	consumedAt?: string;
 	createdAt: string;
@@ -200,7 +206,7 @@ export function getRecordKind(record: Pick<LicenseRecord, 'kind'>): LicenseKeyKi
 /** ライセンスキーを発行して DynamoDB に保存 */
 export async function issueLicenseKey(params: {
 	tenantId: string;
-	plan: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly' | 'lifetime';
+	plan: LicensePlan;
 	stripeSessionId?: string;
 	/** #801: キー種別。省略時は 'purchase'（既存呼び出しは Stripe webhook 経由のため） */
 	kind?: LicenseKeyKind;
@@ -245,7 +251,7 @@ export async function issueLicenseKey(params: {
 		tenantId: params.tenantId,
 		plan: params.plan,
 		stripeSessionId: params.stripeSessionId,
-		status: 'active',
+		status: LICENSE_KEY_STATUS.ACTIVE,
 		createdAt: now,
 		kind,
 		issuedBy: params.issuedBy,
@@ -308,11 +314,11 @@ export async function validateLicenseKey(
 		return { valid: false, reason: 'ライセンスキーが見つかりません' };
 	}
 
-	if (record.status === 'consumed') {
+	if (record.status === LICENSE_KEY_STATUS.CONSUMED) {
 		return { valid: false, reason: 'このライセンスキーは既に使用されています' };
 	}
 
-	if (record.status === 'revoked') {
+	if (record.status === LICENSE_KEY_STATUS.REVOKED) {
 		return { valid: false, reason: 'このライセンスキーは無効化されています' };
 	}
 
@@ -360,9 +366,9 @@ function computePlanExpiresAt(
 	plan: LicenseRecord['plan'],
 	now: Date = new Date(),
 ): string | undefined {
-	if (plan === 'lifetime') return undefined;
+	const days = planDurationDays(plan);
+	if (days === undefined) return undefined;
 	const MS_PER_DAY = 24 * 60 * 60 * 1000;
-	const days = plan === 'monthly' || plan === 'family-monthly' ? 30 : 365;
 	return new Date(now.getTime() + days * MS_PER_DAY).toISOString();
 }
 
@@ -393,13 +399,13 @@ export async function consumeLicenseKey(
 	if (!record) {
 		return { ok: false, reason: 'ライセンスキーが見つかりません' };
 	}
-	if (record.status === 'consumed') {
+	if (record.status === LICENSE_KEY_STATUS.CONSUMED) {
 		return { ok: false, reason: 'このライセンスキーは既に使用されています' };
 	}
-	if (record.status === 'revoked') {
+	if (record.status === LICENSE_KEY_STATUS.REVOKED) {
 		return { ok: false, reason: 'このライセンスキーは無効化されています' };
 	}
-	if (record.status !== 'active') {
+	if (record.status !== LICENSE_KEY_STATUS.ACTIVE) {
 		return { ok: false, reason: 'ライセンスキーが使用できません' };
 	}
 
@@ -432,13 +438,17 @@ export async function consumeLicenseKey(
 	// 先に tenant の plan を昇格（失敗したら license は consumed にしない）
 	await repos.auth.updateTenantStripe(consumedByTenantId, {
 		plan: record.plan,
-		status: 'active',
+		status: SUBSCRIPTION_STATUS.ACTIVE,
 		planExpiresAt,
 		licenseKey: normalized,
 	});
 
 	// 成功したので license を consumed としてマーク
-	await repos.auth.updateLicenseKeyStatus(normalized, 'consumed', consumedByTenantId);
+	await repos.auth.updateLicenseKeyStatus(
+		normalized,
+		LICENSE_KEY_STATUS.CONSUMED,
+		consumedByTenantId,
+	);
 
 	logger.info(
 		`[LICENSE] Key consumed: ${normalized.slice(0, 7)}... by tenant=${consumedByTenantId} (issued for=${record.tenantId}, kind=${kind}) plan=${record.plan} expiresAt=${planExpiresAt ?? 'never'}`,
@@ -480,14 +490,14 @@ export async function revokeLicenseKey(params: {
 		return { ok: false, reason: 'ライセンスキーが見つかりません' };
 	}
 
-	if (record.status === 'revoked') {
+	if (record.status === LICENSE_KEY_STATUS.REVOKED) {
 		logger.info(
 			`[LICENSE] revokeLicenseKey: already revoked: ${normalized.slice(0, 7)}... (reason=${record.revokedReason ?? 'unknown'})`,
 		);
 		return { ok: false, reason: 'このライセンスキーは既に無効化されています' };
 	}
 
-	if (record.status === 'consumed') {
+	if (record.status === LICENSE_KEY_STATUS.CONSUMED) {
 		// consumed キーも監査目的で revoke 可能だが、現状ユースケースがないため拒否
 		return { ok: false, reason: 'このライセンスキーは既に使用されています' };
 	}
