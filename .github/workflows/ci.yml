@@ -96,6 +96,9 @@ jobs:
       - name: Svelte check
         run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json
 
+      - name: Type coverage ratchet check (#978)
+        run: npm run type-coverage
+
       - name: Unit tests with coverage enforcement
         run: npx vitest run --coverage
 
