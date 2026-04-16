@@ -1,5 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getLicenseHighlights } from '$lib/domain/plan-features';
 import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
 import ChurnPreventionModal from '$lib/features/loyalty/ChurnPreventionModal.svelte';
@@ -60,15 +62,15 @@ const applySuccess = $derived(applyResult?.success === true);
 
 const planLabel = (plan: string) => {
 	switch (plan) {
-		case 'monthly':
+		case LICENSE_PLAN.MONTHLY:
 			return 'スタンダード月額（¥500/月）';
-		case 'yearly':
+		case LICENSE_PLAN.YEARLY:
 			return 'スタンダード年額（¥5,000/年）';
-		case 'family-monthly':
+		case LICENSE_PLAN.FAMILY_MONTHLY:
 			return 'ファミリー月額（¥780/月）';
-		case 'family-yearly':
+		case LICENSE_PLAN.FAMILY_YEARLY:
 			return 'ファミリー年額（¥7,800/年）';
-		case 'lifetime':
+		case LICENSE_PLAN.LIFETIME:
 			return '永久ライセンス';
 		case 'free':
 			return '無料プラン';
@@ -79,28 +81,28 @@ const planLabel = (plan: string) => {
 
 const statusLabel = (status: string) => {
 	switch (status) {
-		case 'active':
+		case SUBSCRIPTION_STATUS.ACTIVE:
 			return {
 				text: '有効',
 				color:
 					'bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]',
 				icon: '✅',
 			};
-		case 'grace_period':
+		case SUBSCRIPTION_STATUS.GRACE_PERIOD:
 			return {
 				text: '猶予期間',
 				color:
 					'bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]',
 				icon: '⚠️',
 			};
-		case 'suspended':
+		case SUBSCRIPTION_STATUS.SUSPENDED:
 			return {
 				text: '停止中',
 				color:
 					'bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]',
 				icon: '⏸️',
 			};
-		case 'terminated':
+		case SUBSCRIPTION_STATUS.TERMINATED:
 			return {
 				text: '解約済み',
 				color: 'bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]',
@@ -505,7 +507,7 @@ async function openPortal() {
 	{/if}
 
 	<!-- ステータス別メッセージ -->
-	{#if license.status === 'grace_period'}
+	{#if license.status === SUBSCRIPTION_STATUS.GRACE_PERIOD}
 		<section class="bg-[var(--color-feedback-warning-bg)] rounded-xl p-4 border border-[var(--color-feedback-warning-border)]">
 			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">⚠️ 猶予期間中</h3>
 			<p class="text-sm text-[var(--color-feedback-warning-text)]">
@@ -513,7 +515,7 @@ async function openPortal() {
 				期間を過ぎるとサービスが停止されます。
 			</p>
 		</section>
-	{:else if license.status === 'suspended'}
+	{:else if license.status === SUBSCRIPTION_STATUS.SUSPENDED}
 		<section class="bg-[var(--color-feedback-warning-bg)] rounded-xl p-4 border border-[var(--color-feedback-warning-border)]">
 			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">⏸️ サービス停止中</h3>
 			<p class="text-sm text-[var(--color-feedback-warning-text)]">
@@ -521,7 +523,7 @@ async function openPortal() {
 				新しい活動の記録やポイントの付与はできません。
 			</p>
 		</section>
-	{:else if license.status === 'terminated'}
+	{:else if license.status === SUBSCRIPTION_STATUS.TERMINATED}
 		<section class="bg-[var(--color-feedback-error-bg)] rounded-xl p-4 border border-[var(--color-feedback-error-border)]">
 			<h3 class="text-sm font-semibold text-[var(--color-feedback-error-text)] mb-1">❌ 解約済み</h3>
 			<p class="text-sm text-[var(--color-feedback-error-text)]">

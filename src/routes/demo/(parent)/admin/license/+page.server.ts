@@ -2,6 +2,7 @@
 // 本番 /admin/license の UI をミラーしつつ、Stripe/ライセンスサービスは全てモック化する。
 // デモは認証レスなので tenant 情報は固定値。クリックしても Stripe には到達しない。
 
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
@@ -10,7 +11,7 @@ export const load: PageServerLoad = async () => {
 	return {
 		license: {
 			plan: 'free' as const,
-			status: 'active' as const,
+			status: SUBSCRIPTION_STATUS.ACTIVE,
 			tenantName: 'デモファミリー',
 			createdAt: '2026-01-01T00:00:00Z',
 			updatedAt: '2026-01-01T00:00:00Z',

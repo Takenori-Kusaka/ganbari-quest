@@ -2,6 +2,7 @@
 // クラウドエクスポートAPI（一覧取得 + 新規作成）
 
 import { json } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireRole, requireTenantId } from '$lib/server/auth/factory';
 import type { CloudExportType } from '$lib/server/db/types';
 import { apiError, validationError } from '$lib/server/errors';
@@ -40,7 +41,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return validationError('exportType は template または full を指定してください');
 	}
 
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const planId = locals.context?.plan;
 
 	try {

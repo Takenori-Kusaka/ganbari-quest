@@ -2,6 +2,7 @@
 // AI チェックリスト提案 API — プランゲート必須 (#720)
 
 import { error, json } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { apiError } from '$lib/server/errors';
 import { suggestChecklist } from '$lib/server/services/checklist-suggest-service';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
@@ -13,7 +14,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 	const tenantId = locals.context.tenantId;
 
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 	if (tier !== 'family') {
 		return apiError(
