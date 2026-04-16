@@ -93,8 +93,12 @@ test.describe('#752 トライアルフロー', () => {
 		await loginAsPlan(page, 'free');
 		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
 
-		// トライアルセクションが表示される（active 状態）
-		await expect(page.getByText(/残り.*日/)).toBeVisible({ timeout: 30_000 });
+		// トライアルセクションが表示される（active 状態）。
+		// /admin/license では TrialBanner（+layout.svelte 由来）と
+		// PlanStatusCard の両方が「残り○日」を表示するため、
+		// getByText(/残り.*日/) は strict mode 違反になる。
+		// PlanStatusCard 側の testid でピンポイントに検証する。
+		await expect(page.getByTestId('plan-status-trial-badge')).toBeVisible({ timeout: 30_000 });
 	});
 
 	// ========================================================
