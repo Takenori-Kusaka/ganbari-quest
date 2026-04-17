@@ -1,0 +1,88 @@
+name: Revert to Draft on CI Failure
+
+# #1074: CI 失敗時に Ready PR を自動で Draft に戻すガードレール。
+# Ready for Review にしたが CI が失敗した PR を検出し、自動的に Draft に戻す。
+# QA チームに「レビュー可能」と誤ったシグナルを送ることを防止する。
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  revert-to-draft:
+    # CI が失敗し、かつ pull_request イベントで起動された場合のみ実行
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Revert non-draft PRs to Draft
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const headSha = context.payload.workflow_run.head_sha;
+            const headBranch = context.payload.workflow_run.head_branch;
+
+            // workflow_run の head_branch から PR を検索
+            const { data: prs } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head: `${owner}:${headBranch}`,
+              per_page: 5,
+            });
+
+            for (const pr of prs) {
+              // Draft でない PR のみ対象
+              if (pr.draft) {
+                console.log(`PR #${pr.number} is already a draft — skipping`);
+                continue;
+              }
+
+              // head SHA が一致する PR のみ対象（安全策）
+              if (pr.head.sha !== headSha) {
+                console.log(`PR #${pr.number} head SHA mismatch — skipping`);
+                continue;
+              }
+
+              console.log(`Reverting PR #${pr.number} to Draft (CI failed on ${headSha.slice(0, 7)})`);
+
+              await github.graphql(`
+                mutation($id: ID!) {
+                  convertPullRequestToDraft(input: {pullRequestId: $id}) {
+                    pullRequest { isDraft }
+                  }
+                }
+              `, { id: pr.node_id });
+
+              // PR にコメントを投稿して通知
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pr.number,
+                body: [
+                  '## :rotating_light: CI 失敗により Draft に戻しました (#1074)',
+                  '',
+                  `CI ワークフローが失敗したため、この PR を自動的に Draft に戻しました。`,
+                  '',
+                  '### 次のステップ',
+                  '1. CI の失敗原因を確認・修正してください',
+                  '2. 修正を push してください',
+                  '3. CI が全て通過したことを確認してから `gh pr ready` で Ready に戻してください',
+                  '',
+                  `失敗コミット: \`${headSha.slice(0, 7)}\``,
+                ].join('\n'),
+              });
+
+              console.log(`PR #${pr.number} reverted to Draft and comment posted`);
+            }
+
+            if (prs.length === 0) {
+              console.log(`No open PRs found for branch ${headBranch}`);
+            }
