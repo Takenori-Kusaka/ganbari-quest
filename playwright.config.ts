@@ -22,6 +22,9 @@ export default defineConfig({
 		'**/upgrade-flow.spec.ts',
 		// #757: pricing → signup トライアル自動開始 E2E は cognito-dev モード専用
 		'**/pricing-page-signup.spec.ts',
+		// #750: 以下は cognito-dev モード専用（loginAsPlan を使用）
+		'**/trial-banner-display.spec.ts',
+		'**/account-deletion.spec.ts',
 		'**/production-smoke.spec.ts',
 		// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
 		// CI（Linux）ではスキップし、ローカル開発でのUI崩壊検知にのみ使用する
