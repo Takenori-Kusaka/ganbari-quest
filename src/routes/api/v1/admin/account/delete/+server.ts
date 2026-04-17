@@ -4,7 +4,6 @@
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
 	deleteChildAccount,
@@ -21,13 +20,14 @@ interface DeleteRequestBody {
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const tenantId = requireTenantId(locals);
 	const context = locals.context;
 	const identity = locals.identity;
 
 	if (!context || !identity || identity.type !== 'cognito') {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
+
+	const tenantId = context.tenantId;
 
 	let body: DeleteRequestBody;
 	try {
