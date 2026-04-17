@@ -2,9 +2,9 @@
 
 | 項目 | 内容 |
 |------|------|
-| 版数 | 2.14 |
+| 版数 | 2.17 |
 | 作成日 | 2026-02-19 |
-| 更新日 | 2026-04-12 |
+| 更新日 | 2026-04-17 |
 | 作成者 | 日下武紀 |
 
 ---
@@ -1879,6 +1879,61 @@ export interface PlanLimitError {
 | 値 | ランダムトークン（crypto.randomUUID()） |
 | サーバー保存 | settings テーブルにトークンと有効期限を保存 |
 
+### cron エンドポイント認証パターン（`verifyCronAuth`）
+
+EventBridge / 手動トリガー用の内部エンドポイントは、Cognito セッション認証の対象外であり、
+独自の shared secret（`CRON_SECRET`）で認証する。共通ヘルパー `verifyCronAuth` を使用する。
+
+> 参照: [ADR-0033](../decisions/0033-ops-dashboard-cognito-authz.md) — `/ops` ダッシュボード認可と cron 認証の概念分離
+
+#### 実装（`src/lib/server/auth/cron-auth.ts`）
+
+```ts
+export function verifyCronAuth(request: Request): Response | null {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    const authHeader = request.headers.get('x-cron-secret');
+    if (authHeader !== cronSecret) {
+      return json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  } else if (process.env.AUTH_MODE !== 'local') {
+    return json({ error: 'CRON_SECRET not configured' }, { status: 500 });
+  }
+  return null;
+}
+```
+
+#### 呼び出しパターン（全 cron `+server.ts` で統一）
+
+```ts
+const authError = verifyCronAuth(request);
+if (authError) return authError;
+```
+
+認証成功時は `null` を返し、失敗時は `Response` を返す。
+呼び出し側はガード節で早期 return するだけでよい。
+
+#### 環境別挙動
+
+| 環境 | `CRON_SECRET` | `AUTH_MODE` | 挙動 |
+|------|--------------|-------------|------|
+| 本番（Lambda） | 設定済み | `cognito` | `x-cron-secret` ヘッダ必須。不一致で 401 Unauthorized |
+| CI / E2E テスト | 未設定 | `local` | 認証スキップ（テスト実行を阻害しない） |
+| ステージング | 未設定 | `cognito` | 500 Internal Server Error（`CRON_SECRET` 未設定は設定漏れ） |
+
+#### 使用エンドポイント一覧
+
+| パス | メソッド | 概要 |
+|------|---------|------|
+| `/api/cron/retention-cleanup` | POST / GET | 保持期間超過データの物理削除（ADR-0028） |
+| `/api/cron/trial-notifications` | POST | トライアル通知の日次送信 |
+| `/api/v1/admin/tenant-cleanup` | POST | テナントクリーンアップ |
+| `/api/v1/admin/cleanup-orphans` | POST | 孤立データクリーンアップ |
+| `/api/v1/admin/migration` | GET / POST | マイグレーション統計取得・実行 |
+| `/api/v1/admin/weekly-report` | POST | 週次レポート生成トリガー |
+| `/api/v1/admin/notifications/reminder` | POST | リマインダー通知送信 |
+| `/api/v1/admin/notifications/streak-warning` | POST | ストリーク途切れ警告送信 |
+
 ---
 
 ## 6. 更新履歴
@@ -1903,3 +1958,4 @@ export interface PlanLimitError {
 | 2026-04-12 | 2.14 | #722 AI suggest 3 エンドポイントのプランゲートを `standard` → `family` 限定に変更。`createFromAi` form action も `tier !== 'family'` ガードに統一。デモ版 3 画面に AI 提案パネルを追加 |
 | 2026-04-13 | 2.15 | #839 アプリ内フィードバック送信 API (`POST /api/v1/feedback`) 追加。種別（opinion/bug/feature/other）+ テキスト（1000文字以内）+ スクリーンショット（dataURL, 最大 2MB, 任意）を受け取り Discord webhook (inquiry チャネル) に転送。レート制限: 1テナント/5分1件（インメモリ Map、TTL 自動クリーンアップ付き） |
 | 2026-04-13 | 2.16 | #813 ライセンスキー validate/consume API レート制限仕様追加。§3.X にレート制限表（IP: 10 req/min, email: 20 req/hour）、§4 に `LICENSE_RATE_LIMITED` (429) エラーコード追加 |
+| 2026-04-17 | 2.17 | #1093 cron エンドポイント認証パターン（`verifyCronAuth`）を §5 に追加。実装コード・呼び出しパターン・環境別挙動・使用エンドポイント一覧を文書化。ADR-0033 への相互参照 |
