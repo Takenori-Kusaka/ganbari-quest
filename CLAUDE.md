@@ -113,6 +113,15 @@ vitest --coverage（カバレッジ閾値）, playwright（E2E）, ESLint（svel
 - テストを同梱しているか → `tests/CLAUDE.md` のテスト要件を確認
 - UI 変更時のデザインシステム準拠 → `src/routes/CLAUDE.md` を確認
 
+## Session Agents & Skills
+
+セッション起動時は `.claude/agents/` のファイルでロール自動活性化:
+- `po-session.md` — PO: Issue 起票・優先度・事業判断（5ロール + フェーズゲート）
+- `dev-session.md` — Dev: 実装・CI/CD・設計書同期（6ロール + 並行実装チェック）
+- `qa-session.md` — QA: PR レビュー・品質ゲート（5ロール + 8項目チェックリスト）
+
+タスク固有ワークフローは `.claude/skills/` でオンデマンド発火（11 Skills 定義済み）。
+
 ## Context-specific Rules（フォルダ作業時に自動ロード）
 
 | ファイル | 内容 |
