@@ -31,8 +31,8 @@ function changeRate(current: number, prev: number): string {
 }
 
 function changeColorClass(current: number, prev: number): string {
-	if (current > prev) return 'text-[var(--color-success)]';
-	if (current < prev) return 'text-[var(--color-danger)]';
+	if (current > prev) return 'text-[var(--color-action-success)]';
+	if (current < prev) return 'text-[var(--color-action-danger)]';
 	return 'text-[var(--color-text-muted)]';
 }
 </script>
@@ -229,7 +229,7 @@ function changeColorClass(current: number, prev: number): string {
 	.section-title {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: var(--color-neutral-700);
+		color: var(--color-text-primary);
 		margin-bottom: 0.75rem;
 	}
 
@@ -244,7 +244,7 @@ function changeColorClass(current: number, prev: number): string {
 	.kpi-value {
 		font-size: 1.75rem;
 		font-weight: 700;
-		color: var(--color-neutral-900);
+		color: var(--color-text);
 	}
 
 	.analytics-table {
@@ -257,7 +257,7 @@ function changeColorClass(current: number, prev: number): string {
 	.analytics-table td {
 		padding: 0.5rem 0.75rem;
 		text-align: left;
-		border-bottom: 1px solid var(--color-neutral-100);
+		border-bottom: 1px solid var(--color-border-light);
 	}
 
 	.analytics-table th {
