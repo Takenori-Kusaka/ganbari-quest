@@ -34,14 +34,7 @@ import {
 	statusPrefix,
 	tenantPK,
 } from './keys';
-
-/** Strip PK/SK/GSI keys from a DynamoDB item */
-function stripKeys<T extends Record<string, unknown>>(
-	item: T,
-): Omit<T, 'PK' | 'SK' | 'GSI2PK' | 'GSI2SK'> {
-	const { PK, SK, GSI2PK, GSI2SK, ...rest } = item;
-	return rest;
-}
+import { queryAllItems, stripKeys } from './repo-helpers';
 
 /** DynamoDB アイテムをマイグレーション（必要なら Write-Back） */
 async function hydrateStatus(
@@ -372,32 +365,12 @@ export async function findLastActivityDates(
 	const pk = childPK(childId, tenantId);
 	const prefix = activityLogPrefix();
 
-	// Query all activity logs for this child
-	const items: Record<string, unknown>[] = [];
-	let lastKey: Record<string, unknown> | undefined;
-
-	do {
-		const result = await getDocClient().send(
-			new QueryCommand({
-				TableName: TABLE_NAME,
-				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-				FilterExpression: '#cancelled = :zero',
-				ExpressionAttributeNames: { '#cancelled': 'cancelled' },
-				ExpressionAttributeValues: {
-					':pk': pk,
-					':prefix': prefix,
-					':zero': 0,
-				},
-				ProjectionExpression: 'activityId, recordedDate',
-				ExclusiveStartKey: lastKey,
-			}),
-		);
-
-		for (const item of result.Items ?? []) {
-			items.push(item);
-		}
-		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-	} while (lastKey);
+	const items = await queryAllItems(pk, prefix, {
+		filterExpression: '#cancelled = :zero',
+		expressionAttributeNames: { '#cancelled': 'cancelled' },
+		expressionAttributeValues: { ':zero': 0 },
+		projectionExpression: 'activityId, recordedDate',
+	});
 
 	// Group by activityId and find max date
 	const activityMaxDate = new Map<number, string>();
