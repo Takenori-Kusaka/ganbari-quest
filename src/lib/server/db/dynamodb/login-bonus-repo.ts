@@ -146,7 +146,5 @@ export async function deleteLoginBonusesBeforeDate(
 		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
 	} while (lastKey);
 
-	return batchDeleteItems(
-		items.map((it) => ({ PK: it.PK as string, SK: it.SK as string })),
-	);
+	return batchDeleteItems(items.map((it) => ({ PK: it.PK as string, SK: it.SK as string })));
 }

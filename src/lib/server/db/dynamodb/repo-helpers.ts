@@ -71,9 +71,7 @@ export async function queryAllItems(
  * PK/SK キーの配列を 25 件ずつ BatchWriteCommand で削除する。
  * login-bonus-repo / point-repo / child-repo で重複していた BatchWrite ループを共通化。
  */
-export async function batchDeleteItems(
-	keys: Array<{ PK: string; SK: string }>,
-): Promise<number> {
+export async function batchDeleteItems(keys: Array<{ PK: string; SK: string }>): Promise<number> {
 	const doc = getDocClient();
 
 	for (let i = 0; i < keys.length; i += BATCH_SIZE) {
@@ -100,10 +98,7 @@ export async function batchDeleteItems(
  * Note: child-repo.ts の findChildById は hydration + write-back を含むため別物。
  * この関数は簡易的な存在確認用途。
  */
-export async function findChildByIdRaw(
-	id: number,
-	tenantId: string,
-): Promise<Child | undefined> {
+export async function findChildByIdRaw(id: number, tenantId: string): Promise<Child | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
