@@ -3,11 +3,14 @@
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 
 	const repos = getRepos();
 	const tenant = await repos.auth.findTenantById(tenantId);

@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { validationError } from '$lib/server/errors';
 import { executeDailyBattle, getTodayBattle } from '$lib/server/services/battle-service';
 import { getChildById } from '$lib/server/services/child-service';
@@ -18,7 +17,11 @@ async function resolveChildBattleContext(
 	params: { childId: string },
 	locals: App.Locals,
 ): Promise<BattleContext | Response> {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const childId = Number(params.childId);
 	if (Number.isNaN(childId)) return validationError('IDが不正です');
 

@@ -1,5 +1,4 @@
 import { error, json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	countRestDaysInMonth,
 	deleteRestDay,
@@ -13,7 +12,11 @@ const VALID_REASONS = ['sick', 'trip', 'rest'] as const;
 
 /** おやすみ日一覧取得 (GET /api/v1/rest-days/:childId?month=2026-03) */
 export const GET: RequestHandler = async ({ params, url, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const childId = Number(params.childId);
 	if (!childId) throw error(400, 'Invalid childId');
 
@@ -26,7 +29,11 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
 /** おやすみ日登録 (POST /api/v1/rest-days/:childId) */
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const childId = Number(params.childId);
 	if (!childId) throw error(400, 'Invalid childId');
 
@@ -53,7 +60,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 /** おやすみ日削除 (DELETE /api/v1/rest-days/:childId) */
 export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const childId = Number(params.childId);
 	if (!childId) throw error(400, 'Invalid childId');
 

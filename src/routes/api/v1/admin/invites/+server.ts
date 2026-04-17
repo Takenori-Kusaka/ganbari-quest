@@ -4,19 +4,26 @@
 
 import { error, json } from '@sveltejs/kit';
 import { createInviteSchema } from '$lib/domain/validation/auth';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { validationError } from '$lib/server/errors';
 import { createInvite, listInvites } from '$lib/server/services/invite-service';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const invites = await listInvites(tenantId);
 	return json({ invites });
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const identity = locals.identity;
 	if (!identity || identity.type !== 'cognito') {
 		error(401, 'Unauthorized');

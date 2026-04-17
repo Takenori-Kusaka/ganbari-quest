@@ -2,7 +2,7 @@
 // PINコードによるクラウドインポートAPI
 
 import { json } from '@sveltejs/kit';
-import { requireRole, requireTenantId } from '$lib/server/auth/factory';
+import { requireRole } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { fetchCloudExportByPin } from '$lib/server/services/cloud-export-service';
@@ -22,7 +22,11 @@ import type { RequestHandler } from './$types';
  * フルインポート: 既存import-serviceのフローを利用
  */
 export const POST: RequestHandler = async ({ request, url, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	requireRole(locals, ['owner', 'parent']);
 
 	const mode = url.searchParams.get('mode') ?? 'preview';

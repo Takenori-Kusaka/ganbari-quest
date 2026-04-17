@@ -2,12 +2,15 @@
 // (#371)
 
 import { error, json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { deleteViewerToken, revokeViewerToken } from '$lib/server/services/viewer-token-service';
 import type { RequestHandler } from './$types';
 
 export const DELETE: RequestHandler = async ({ params, locals, url }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const id = Number(params.id);
 	if (!Number.isFinite(id)) {
 		error(400, '不正なID');
