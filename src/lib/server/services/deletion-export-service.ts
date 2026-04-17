@@ -95,9 +95,7 @@ export function resolveExportScope(planTier: PlanTier): ExportScope {
  * 子供名と活動サマリのみ含む。法的要件（個人情報保護法のデータポータビリティ権）に
  * 最低限対応するためのもの。
  */
-export async function generateMinimalExport(
-	tenantId: string,
-): Promise<MinimalExportData> {
+export async function generateMinimalExport(tenantId: string): Promise<MinimalExportData> {
 	const repos = getRepos();
 	const allChildren = await repos.child.findAllChildren(tenantId);
 	const allActivities = await repos.activity.findActivities(tenantId);
@@ -150,9 +148,7 @@ export async function generateMinimalExport(
  * standard 以上向けのフルエクスポートを生成する。
  * 既存の export-service.ts の exportFamilyData をそのまま利用する。
  */
-export async function generateFullExport(
-	tenantId: string,
-): Promise<ExportData> {
+export async function generateFullExport(tenantId: string): Promise<ExportData> {
 	// dynamic import で循環参照を回避
 	const { exportFamilyData } = await import('./export-service');
 	return exportFamilyData({ tenantId });

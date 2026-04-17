@@ -18,11 +18,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 	const licenseStatus = locals.context?.licenseStatus ?? 'none';
 	const planId = locals.context?.plan;
 
-	const result = await generateDeletionExportForTenant(
-		tenantId,
-		licenseStatus,
-		planId,
-	);
+	const result = await generateDeletionExportForTenant(tenantId, licenseStatus, planId);
 
 	return json(result);
 };
