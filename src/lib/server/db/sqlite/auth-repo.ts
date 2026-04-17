@@ -112,3 +112,15 @@ export const updateLicenseKeyStatus: IAuthRepo['updateLicenseKeyStatus'] = async
 export const revokeLicenseKey: IAuthRepo['revokeLicenseKey'] = async () => {
 	// no-op in local mode (#797)
 };
+export const listLicenseKeysByTenant: IAuthRepo['listLicenseKeysByTenant'] = async () => {
+	return { items: [], cursor: null }; // no-op in local mode (#816)
+};
+export const listLicenseKeysByStatus: IAuthRepo['listLicenseKeysByStatus'] = async () => {
+	return { items: [], cursor: null }; // no-op in local mode (#816)
+};
+export const listExpiringSoon: IAuthRepo['listExpiringSoon'] = async () => {
+	return []; // no-op in local mode (#816)
+};
+export const countLicenseKeys: IAuthRepo['countLicenseKeys'] = async () => {
+	return 0; // no-op in local mode (#816)
+};
