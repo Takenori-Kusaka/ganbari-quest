@@ -1,6 +1,7 @@
 // src/lib/server/db/interfaces/auth-repo.interface.ts
 // マルチテナント認証リポジトリインターフェース (#0123)
 
+import type { LicenseKeyStatus } from '$lib/domain/constants/license-key-status';
 import type {
 	AuthUser,
 	ConsentRecord,
@@ -14,6 +15,19 @@ import type {
 	Tenant,
 } from '$lib/server/auth/entities';
 import type { LicenseRecord, LicenseRevokeReason } from '$lib/server/services/license-key-service';
+
+/** ページネーション用カーソル (#816) */
+export interface LicenseKeyPage {
+	items: LicenseRecord[];
+	/** 次ページのカーソル。null なら最終ページ */
+	cursor: string | null;
+}
+
+/** ライセンスキー検索フィルタ (#816) */
+export interface LicenseKeyCountFilter {
+	tenantId?: string;
+	status?: LicenseKeyStatus;
+}
 
 export interface IAuthRepo {
 	// --- User ---
@@ -87,4 +101,26 @@ export interface IAuthRepo {
 		revokedBy: string;
 		revokedAt: string;
 	}): Promise<void>;
+
+	// --- License Key Search (#816) ---
+
+	/** テナントに紐付く全ライセンスキーを取得（ページネーション対応） */
+	listLicenseKeysByTenant(
+		tenantId: string,
+		limit?: number,
+		cursor?: string,
+	): Promise<LicenseKeyPage>;
+
+	/** ステータス別のライセンスキー一覧（ページネーション対応） */
+	listLicenseKeysByStatus(
+		status: LicenseKeyStatus,
+		limit?: number,
+		cursor?: string,
+	): Promise<LicenseKeyPage>;
+
+	/** N 日以内に有効期限が切れるアクティブなキー一覧 */
+	listExpiringSoon(days: number): Promise<LicenseRecord[]>;
+
+	/** ライセンスキーの集計 */
+	countLicenseKeys(filter?: LicenseKeyCountFilter): Promise<number>;
 }
