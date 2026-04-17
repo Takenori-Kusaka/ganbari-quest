@@ -277,6 +277,55 @@ describe('handleWebhookEvent', () => {
 		);
 	});
 
+	it('checkout.session.completed — 100% OFF プロモコード (amount_total=0) でも同じフロー (#803)', async () => {
+		// Stripe Dashboard で発行した 100% OFF Coupon + Promotion code が適用された Checkout
+		// が完了したときの payload。`amount_total=0` / `total_details.amount_discount` が全額分
+		// になるが、session.metadata と subscription は通常購入と同じ形で付与される。
+		// license は `kind='purchase'` / `issuedBy='stripe:<sessionId>'` で通常どおり発行され、
+		// tenant.plan も通常どおり昇格する（Checkout を経由していれば 100% OFF でも
+		// 「Stripe で本人確認を通った正規購入」扱い）。
+		const event = {
+			type: 'checkout.session.completed',
+			data: {
+				object: {
+					id: 'cs_promo_100off',
+					amount_total: 0,
+					amount_subtotal: 500,
+					total_details: { amount_discount: 500, amount_tax: 0, amount_shipping: 0 },
+					metadata: { tenantId: 't-promo', planId: 'monthly' },
+					customer: 'cus_promo',
+					subscription: 'sub_promo',
+					customer_details: { email: 'promo@example.com' },
+					customer_email: null,
+				},
+			},
+		};
+
+		await handleWebhookEvent(event as never);
+
+		// 通常購入と同じく tenant.plan と subscription が紐付けられる
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-promo',
+			expect.objectContaining({
+				stripeCustomerId: 'cus_promo',
+				stripeSubscriptionId: 'sub_promo',
+				plan: 'monthly',
+				status: 'active',
+			}),
+		);
+
+		// license も通常どおり kind='purchase' で発行 (campaign key ではない)
+		expect(mockIssueLicenseKey).toHaveBeenCalledWith(
+			expect.objectContaining({
+				tenantId: 't-promo',
+				plan: 'monthly',
+				stripeSessionId: 'cs_promo_100off',
+				kind: 'purchase',
+				issuedBy: 'stripe:cs_promo_100off',
+			}),
+		);
+	});
+
 	it('checkout.session.completed — metadata に tenantId なし → 何もしない', async () => {
 		const event = {
 			type: 'checkout.session.completed',
