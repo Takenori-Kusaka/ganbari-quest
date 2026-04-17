@@ -6,7 +6,7 @@
 // 「standard だからこそ表示される / されない」UI を一通り確認する。
 //
 // 設計意図:
-//  - free 専用のアップセル UI（weekly-report-upsell / export-upsell / plan-quick-link--free）が
+//  - free 専用のアップセル UI（weekly-report-upsell / export-upsell / plan-status-free-cta）が
 //    出ないことを negative assertion で押さえる
 //  - 同時に「ある機能はまだ family 限定で disabled のままか」も確認し、
 //    standard ↔ family のプラン境界を回帰検知できるようにする
@@ -44,11 +44,15 @@ test.describe('#779 standard プラン — 機能疎通', () => {
 		await expect(page.getByTestId('plan-status-trial-badge')).toHaveCount(0);
 	});
 
-	test('/admin にホームを開いても free 用 quick-link が出ない', async ({ page }) => {
+	test('/admin にホームを開いても free 用アップグレード CTA が出ない', async ({ page }) => {
 		await loginAsPlan(page, 'standard');
 		await page.goto('/admin');
-		// free のときだけ表示される「無料プラン もっと便利に使いませんか？」リンク
-		await expect(page.locator('.plan-quick-link--free')).toHaveCount(0);
+		// standard のときは PlanStatusCard が data-plan-tier="standard" で表示される
+		const card = page.getByTestId('plan-status-card');
+		await expect(card).toBeVisible({ timeout: 30_000 });
+		await expect(card).toHaveAttribute('data-plan-tier', 'standard');
+		// free 専用の CTA は表示されない
+		await expect(page.getByTestId('plan-status-free-cta')).toHaveCount(0);
 	});
 
 	test('/admin/reports — weekly-report-upsell バナーが出ない', async ({ page }) => {

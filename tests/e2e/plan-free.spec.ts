@@ -48,11 +48,15 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 		await expect(page.getByTestId('plan-status-trial-badge')).toHaveCount(0);
 	});
 
-	test('/admin ホームに無料プラン用 quick-link が表示される', async ({ page }) => {
+	test('/admin ホームに無料プラン用 PlanStatusCard が表示される', async ({ page }) => {
 		await loginAsPlan(page, 'free');
 		await page.goto('/admin');
-		// free のときだけ表示される「無料プラン もっと便利に使いませんか？」リンク
-		await expect(page.locator('.plan-quick-link--free')).toBeVisible();
+		// free のときは PlanStatusCard が data-plan-tier="free" で表示される
+		const card = page.getByTestId('plan-status-card');
+		await expect(card).toBeVisible({ timeout: 30_000 });
+		await expect(card).toHaveAttribute('data-plan-tier', 'free');
+		// free 専用のアップグレード CTA が表示される
+		await expect(page.getByTestId('plan-status-free-cta')).toBeVisible();
 	});
 
 	test('/admin/reports — weekly-report-upsell バナーが表示される', async ({ page }) => {
