@@ -80,6 +80,7 @@ export class ComputeStack extends cdk.Stack {
 			// CDK 側で明示的に失敗させる（addError は deploy を阻止する）。
 			cdk.Annotations.of(this).addError(
 				'[ComputeStack] awsLicenseSecret context is empty. ' +
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax, not JS template literal
 					'Pass -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }} in the deploy workflow. ' +
 					'See docs/decisions/0026-license-key-architecture.md and infra/CLAUDE.md.',
 			);

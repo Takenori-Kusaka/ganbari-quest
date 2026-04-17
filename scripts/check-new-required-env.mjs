@@ -41,7 +41,6 @@ const PR_BODY = process.env.PR_BODY || '';
 // CLI args
 for (const arg of process.argv.slice(2)) {
 	if (arg.startsWith('--base=')) {
-		// biome-ignore lint/suspicious/noGlobalAssign: CLI override
 		process.env.BASE_REF = arg.slice('--base='.length);
 	}
 }
