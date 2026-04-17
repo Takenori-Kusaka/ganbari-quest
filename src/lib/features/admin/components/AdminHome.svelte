@@ -14,6 +14,7 @@ import {
 import ChildListCard from './ChildListCard.svelte';
 import NotificationPermissionBanner from './NotificationPermissionBanner.svelte';
 import OnboardingChecklist from './OnboardingChecklist.svelte';
+import PlanStatusCard from './PlanStatusCard.svelte';
 import PremiumWelcome from './PremiumWelcome.svelte';
 
 interface ChildSummary {
@@ -50,6 +51,22 @@ interface MemoryTicketInfo {
 	nextTicketAt: number;
 }
 
+interface PlanStats {
+	activityCount: number;
+	activityMax: number | null;
+	childCount: number;
+	childMax: number | null;
+	retentionDays: number | null;
+}
+
+interface TrialStatusProp {
+	isTrialActive: boolean;
+	trialUsed: boolean;
+	daysRemaining: number;
+	trialEndDate: string | null;
+	trialTier?: 'standard' | 'family' | null;
+}
+
 interface Props {
 	children: ChildSummary[];
 	pointSettings: PointSettings;
@@ -65,6 +82,10 @@ interface Props {
 		activeEvents: SeasonEventInfo[];
 		memoryTicket: MemoryTicketInfo | null;
 	} | null;
+	/** #767: ダッシュボードにプラン利用状況を表示 + ワンクリックアップグレード */
+	planStats?: PlanStats | null;
+	trialStatus?: TrialStatusProp | null;
+	stripeEnabled?: boolean;
 }
 
 let {
@@ -79,6 +100,9 @@ let {
 	planTier = 'free',
 	showPremiumWelcome = false,
 	seasonalInfo = null,
+	planStats = null,
+	trialStatus = null,
+	stripeEnabled = false,
 }: Props = $props();
 
 let welcomeVisible = $state(showPremiumWelcome);
@@ -99,6 +123,27 @@ const showOnboarding = $derived(
 	!isDemo && onboarding && !onboarding.dismissed && !onboarding.allCompleted,
 );
 const onboardingComplete = $derived(!isDemo && onboarding?.allCompleted && !onboarding?.dismissed);
+
+// #767: ワンクリックアップグレード — ダッシュボードから直接 Stripe Checkout に遷移
+let upgradeLoading = $state(false);
+
+async function handleOneClickUpgrade(planId: string) {
+	if (upgradeLoading || isDemo || !stripeEnabled) return;
+	upgradeLoading = true;
+	try {
+		const res = await fetch('/api/stripe/checkout', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ planId, returnPath: `${basePath}` }),
+		});
+		const data = await res.json();
+		if (data.url) {
+			window.location.href = data.url;
+		}
+	} finally {
+		upgradeLoading = false;
+	}
+}
 
 async function handleStartTutorial() {
 	await markTutorialStarted();
@@ -193,8 +238,21 @@ function childLink(child: ChildSummary): string {
 		<NotificationPermissionBanner />
 	{/if}
 
-	<!-- Plan quick link (details moved to /admin/license page) -->
-	{#if !isDemo && planTier === 'free'}
+	<!-- #767: ダッシュボードにプラン利用状況 + ワンクリックアップグレード導線 -->
+	{#if !isDemo && planStats}
+		<PlanStatusCard
+			{planTier}
+			activityCount={planStats.activityCount}
+			activityMax={planStats.activityMax}
+			childCount={planStats.childCount}
+			childMax={planStats.childMax}
+			retentionDays={planStats.retentionDays}
+			{trialStatus}
+			onUpgrade={stripeEnabled ? handleOneClickUpgrade : null}
+			{upgradeLoading}
+			{basePath}
+		/>
+	{:else if !isDemo && planTier === 'free'}
 		<a href="{basePath}/license" class="plan-quick-link plan-quick-link--free">
 			<span class="plan-quick-link__info">
 				<span class="plan-quick-link__name">無料プラン</span>
