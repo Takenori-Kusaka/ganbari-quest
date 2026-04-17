@@ -96,7 +96,7 @@ test.describe('#750 TrialBanner 表示 — 有料プラン', () => {
 		await page.goto('/admin', { waitUntil: 'commit', timeout: 180_000 });
 
 		// /admin のメインコンテンツが描画されるまで待つ
-		await page.waitForLoadState('networkidle').catch(() => {});
+		await page.waitForLoadState('domcontentloaded');
 
 		// TrialBanner の全 3 状態がいずれも表示されない
 		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
@@ -109,7 +109,7 @@ test.describe('#750 TrialBanner 表示 — 有料プラン', () => {
 		await loginAsPlan(page, 'family');
 		await page.goto('/admin', { waitUntil: 'commit', timeout: 180_000 });
 
-		await page.waitForLoadState('networkidle').catch(() => {});
+		await page.waitForLoadState('domcontentloaded');
 
 		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
 		await expect(page.getByTestId('trial-banner-expired')).toHaveCount(0);
