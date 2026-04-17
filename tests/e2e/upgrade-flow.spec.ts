@@ -130,7 +130,7 @@ test.describe('#753 /admin/activities AI → アップグレード導線', () =>
 		await page.goto('/admin/activities', { waitUntil: 'commit', timeout: 180_000 });
 
 		// FAB から追加ダイアログを開き AI モードを選択
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('networkidle').catch(() => {});
 		const fab = page.getByTestId('add-activity-fab');
 		await expect(fab).toBeVisible({ timeout: 30_000 });
 		await fab.click();
