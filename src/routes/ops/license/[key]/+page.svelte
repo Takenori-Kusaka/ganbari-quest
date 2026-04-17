@@ -4,7 +4,6 @@ import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data, form } = $props();
 const record = $derived(data.record);
-const events = $derived(data.events);
 const licenseKey = $derived(data.licenseKey);
 
 let confirmOpen = $state(false);
@@ -14,25 +13,6 @@ let submitting = $state(false);
 
 const isActive = $derived(record?.status === 'active');
 const canRevoke = $derived(isActive);
-
-function eventTypeLabel(t: string): string {
-	switch (t) {
-		case 'issued':
-			return '発行';
-		case 'validated':
-			return '検証成功';
-		case 'validation_failed':
-			return '検証失敗';
-		case 'consumed':
-			return '使用';
-		case 'consume_failed':
-			return '使用失敗';
-		case 'revoked':
-			return '失効';
-		default:
-			return t;
-	}
-}
 
 function statusLabel(s: string): string {
 	switch (s) {
@@ -140,8 +120,7 @@ function reasonLabel(r: string): string {
 		{:else}
 			<p class="mt-4 text-sm text-[var(--color-text-muted)]">
 				このキーの永続レコードが見つかりません（SQLite ローカルモードでは永続化されません）。
-				以下のイベント履歴があれば、過去に発行 / 検証された形跡があります。
-			</p>
+				</p>
 		{/if}
 
 		{#if canRevoke}
@@ -166,50 +145,6 @@ function reasonLabel(r: string): string {
 		{#if form?.error}
 			<div class="mt-4 p-3 bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)] rounded text-sm">
 				{form.error}
-			</div>
-		{/if}
-	</Card>
-
-	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">
-			イベント履歴 ({events.length} 件)
-		</h2>
-		{#if events.length === 0}
-			<p class="text-sm text-[var(--color-text-muted)]">イベントがありません。</p>
-		{:else}
-			<div class="overflow-x-auto">
-				<table class="ops-table w-full">
-					<thead>
-						<tr>
-							<th>時刻</th>
-							<th>種別</th>
-							<th>Actor</th>
-							<th>IP</th>
-							<th>メタデータ</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each events as ev (ev.id)}
-							<tr>
-								<td class="whitespace-nowrap">{new Date(ev.createdAt).toLocaleString('ja-JP')}</td>
-								<td>
-									<span class="event-badge event-{ev.eventType}">
-										{eventTypeLabel(ev.eventType)}
-									</span>
-								</td>
-								<td class="font-mono text-xs">{ev.actorId ?? '-'}</td>
-								<td class="text-xs">{ev.ip ?? '-'}</td>
-								<td class="text-xs font-mono">
-									{#if ev.metadata}
-										{JSON.stringify(ev.metadata)}
-									{:else}
-										-
-									{/if}
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
 			</div>
 		{/if}
 	</Card>
@@ -333,31 +268,6 @@ function reasonLabel(r: string): string {
 	.status-badge.status-missing {
 		background: var(--color-surface-muted);
 		color: var(--color-text-muted);
-	}
-
-	.event-badge {
-		display: inline-block;
-		padding: 0.125rem 0.5rem;
-		border-radius: 0.25rem;
-		font-size: 0.7rem;
-		font-weight: 600;
-		background: var(--color-surface-muted);
-		color: var(--color-text-secondary);
-	}
-	.event-badge.event-issued,
-	.event-badge.event-validated,
-	.event-badge.event-consumed {
-		background: var(--color-feedback-success-bg);
-		color: var(--color-feedback-success-text);
-	}
-	.event-badge.event-revoked {
-		background: var(--color-feedback-error-bg);
-		color: var(--color-feedback-error-text);
-	}
-	.event-badge.event-validation_failed,
-	.event-badge.event-consume_failed {
-		background: var(--color-feedback-warning-bg);
-		color: var(--color-feedback-warning-text);
 	}
 
 	.overlay {

@@ -4,16 +4,13 @@
 // load: key で LicenseRecord を取り、license_events の履歴と併記する。
 // actions.revoke: ops ユーザが「失効」ボタンを押したときの form action。
 //   - license-key-service.revokeLicenseKey を呼ぶ（自動で license_events に revoked 記録）
-//   - 追加で ops_audit_log にも「誰が運営画面から操作したか」を記録 (#820 準拠)
 
 import { error, fail } from '@sveltejs/kit';
 import { getRepos } from '$lib/server/db/factory';
-import { listEventsByLicenseKey } from '$lib/server/services/license-event-service';
 import {
 	type LicenseRevokeReason,
 	revokeLicenseKey,
 } from '$lib/server/services/license-key-service';
-import { recordOpsAudit } from '$lib/server/services/ops-audit-log-service';
 import type { Actions, PageServerLoad } from './$types';
 
 const VALID_REASONS: readonly LicenseRevokeReason[] = [
@@ -26,11 +23,9 @@ const VALID_REASONS: readonly LicenseRevokeReason[] = [
 export const load: PageServerLoad = async ({ params }) => {
 	const key = decodeURIComponent(params.key).toUpperCase().trim();
 	const record = await getRepos().auth.findLicenseKey(key);
-	const events = await listEventsByLicenseKey(key, 200);
 	return {
 		licenseKey: key,
 		record: record ?? null,
-		events,
 	};
 };
 
@@ -73,14 +68,6 @@ export const actions: Actions = {
 		if (!result.ok) {
 			return fail(409, { error: result.reason });
 		}
-
-		await recordOpsAudit({
-			identity,
-			event,
-			action: 'license.revoke',
-			target: key,
-			metadata: { reason, note },
-		});
 
 		return { revoked: true, revokedAt: result.revokedAt, reason };
 	},
