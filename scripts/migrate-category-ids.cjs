@@ -23,26 +23,26 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = OFF'); // テーブル再作成中はFK無効化
 
 const CATEGORY_MAP = {
-  'うんどう': 1,
-  'べんきょう': 2,
-  'せいかつ': 3,
-  'こうりゅう': 4,
-  'そうぞう': 5,
+	うんどう: 1,
+	べんきょう: 2,
+	せいかつ: 3,
+	こうりゅう: 4,
+	そうぞう: 5,
 };
 
 try {
-  db.exec('BEGIN TRANSACTION');
+	db.exec('BEGIN TRANSACTION');
 
-  // ============================================================
-  // Step 1: categories マスタテーブル作成
-  // ============================================================
-  const hasCategoriesTable = db.prepare(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name='categories'"
-  ).get();
+	// ============================================================
+	// Step 1: categories マスタテーブル作成
+	// ============================================================
+	const hasCategoriesTable = db
+		.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='categories'")
+		.get();
 
-  if (!hasCategoriesTable) {
-    console.log('[Step 1] Creating categories master table...');
-    db.exec(`
+	if (!hasCategoriesTable) {
+		console.log('[Step 1] Creating categories master table...');
+		db.exec(`
       CREATE TABLE categories (
         id INTEGER PRIMARY KEY,
         code TEXT NOT NULL UNIQUE,
@@ -56,40 +56,46 @@ try {
       INSERT INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
       INSERT INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
     `);
-    console.log('  ✓ categories table created with 5 rows');
-  } else {
-    console.log('[Step 1] categories table already exists, skipping');
-  }
+		console.log('  ✓ categories table created with 5 rows');
+	} else {
+		console.log('[Step 1] categories table already exists, skipping');
+	}
 
-  // ============================================================
-  // Step 2: activities テーブルの category → category_id 変換
-  // ============================================================
-  const activitiesCols = db.prepare("PRAGMA table_info('activities')").all();
-  const hasOldCategoryCol = activitiesCols.some(c => c.name === 'category');
-  const hasNewCategoryIdCol = activitiesCols.some(c => c.name === 'category_id');
+	// ============================================================
+	// Step 2: activities テーブルの category → category_id 変換
+	// ============================================================
+	const activitiesCols = db.prepare("PRAGMA table_info('activities')").all();
+	const hasOldCategoryCol = activitiesCols.some((c) => c.name === 'category');
+	const hasNewCategoryIdCol = activitiesCols.some((c) => c.name === 'category_id');
 
-  if (hasOldCategoryCol && !hasNewCategoryIdCol) {
-    console.log('[Step 2a] Migrating activities.category → category_id...');
+	if (hasOldCategoryCol && !hasNewCategoryIdCol) {
+		console.log('[Step 2a] Migrating activities.category → category_id...');
 
-    // Add new column
-    db.exec('ALTER TABLE activities ADD COLUMN category_id INTEGER');
+		// Add new column
+		db.exec('ALTER TABLE activities ADD COLUMN category_id INTEGER');
 
-    // Map data
-    for (const [name, id] of Object.entries(CATEGORY_MAP)) {
-      const result = db.prepare('UPDATE activities SET category_id = ? WHERE category = ?').run(id, name);
-      console.log(`  mapped "${name}" → ${id}: ${result.changes} rows`);
-    }
+		// Map data
+		for (const [name, id] of Object.entries(CATEGORY_MAP)) {
+			const result = db
+				.prepare('UPDATE activities SET category_id = ? WHERE category = ?')
+				.run(id, name);
+			console.log(`  mapped "${name}" → ${id}: ${result.changes} rows`);
+		}
 
-    // Check for unmapped
-    const unmapped = db.prepare('SELECT COUNT(*) as cnt FROM activities WHERE category_id IS NULL').get();
-    if (unmapped.cnt > 0) {
-      console.log(`  ⚠ ${unmapped.cnt} activities have NULL category_id, defaulting to 3 (せいかつ)`);
-      db.exec('UPDATE activities SET category_id = 3 WHERE category_id IS NULL');
-    }
+		// Check for unmapped
+		const unmapped = db
+			.prepare('SELECT COUNT(*) as cnt FROM activities WHERE category_id IS NULL')
+			.get();
+		if (unmapped.cnt > 0) {
+			console.log(
+				`  ⚠ ${unmapped.cnt} activities have NULL category_id, defaulting to 3 (せいかつ)`,
+			);
+			db.exec('UPDATE activities SET category_id = 3 WHERE category_id IS NULL');
+		}
 
-    // Recreate table without old column
-    console.log('  Recreating activities table...');
-    db.exec(`
+		// Recreate table without old column
+		console.log('  Recreating activities table...');
+		db.exec(`
       CREATE TABLE activities_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -116,27 +122,27 @@ try {
       ALTER TABLE activities_new RENAME TO activities;
       CREATE INDEX idx_activities_category ON activities(category_id);
     `);
-    console.log('  ✓ activities migrated');
-  } else if (hasNewCategoryIdCol) {
-    console.log('[Step 2a] activities already has category_id, skipping');
-  }
+		console.log('  ✓ activities migrated');
+	} else if (hasNewCategoryIdCol) {
+		console.log('[Step 2a] activities already has category_id, skipping');
+	}
 
-  // ============================================================
-  // Step 3: statuses テーブルの category → category_id 変換
-  // ============================================================
-  const statusesCols = db.prepare("PRAGMA table_info('statuses')").all();
-  const statusHasOld = statusesCols.some(c => c.name === 'category');
-  const statusHasNew = statusesCols.some(c => c.name === 'category_id');
+	// ============================================================
+	// Step 3: statuses テーブルの category → category_id 変換
+	// ============================================================
+	const statusesCols = db.prepare("PRAGMA table_info('statuses')").all();
+	const statusHasOld = statusesCols.some((c) => c.name === 'category');
+	const statusHasNew = statusesCols.some((c) => c.name === 'category_id');
 
-  if (statusHasOld && !statusHasNew) {
-    console.log('[Step 3] Migrating statuses.category → category_id...');
-    db.exec('ALTER TABLE statuses ADD COLUMN category_id INTEGER');
-    for (const [name, id] of Object.entries(CATEGORY_MAP)) {
-      db.prepare('UPDATE statuses SET category_id = ? WHERE category = ?').run(id, name);
-    }
-    db.exec('UPDATE statuses SET category_id = 3 WHERE category_id IS NULL');
+	if (statusHasOld && !statusHasNew) {
+		console.log('[Step 3] Migrating statuses.category → category_id...');
+		db.exec('ALTER TABLE statuses ADD COLUMN category_id INTEGER');
+		for (const [name, id] of Object.entries(CATEGORY_MAP)) {
+			db.prepare('UPDATE statuses SET category_id = ? WHERE category = ?').run(id, name);
+		}
+		db.exec('UPDATE statuses SET category_id = 3 WHERE category_id IS NULL');
 
-    db.exec(`
+		db.exec(`
       CREATE TABLE statuses_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         child_id INTEGER NOT NULL REFERENCES children(id),
@@ -149,27 +155,27 @@ try {
       ALTER TABLE statuses_new RENAME TO statuses;
       CREATE UNIQUE INDEX idx_statuses_child_category ON statuses(child_id, category_id);
     `);
-    console.log('  ✓ statuses migrated');
-  } else if (statusHasNew) {
-    console.log('[Step 3] statuses already has category_id, skipping');
-  }
+		console.log('  ✓ statuses migrated');
+	} else if (statusHasNew) {
+		console.log('[Step 3] statuses already has category_id, skipping');
+	}
 
-  // ============================================================
-  // Step 4: status_history テーブルの category → category_id 変換
-  // ============================================================
-  const histCols = db.prepare("PRAGMA table_info('status_history')").all();
-  const histHasOld = histCols.some(c => c.name === 'category');
-  const histHasNew = histCols.some(c => c.name === 'category_id');
+	// ============================================================
+	// Step 4: status_history テーブルの category → category_id 変換
+	// ============================================================
+	const histCols = db.prepare("PRAGMA table_info('status_history')").all();
+	const histHasOld = histCols.some((c) => c.name === 'category');
+	const histHasNew = histCols.some((c) => c.name === 'category_id');
 
-  if (histHasOld && !histHasNew) {
-    console.log('[Step 4] Migrating status_history.category → category_id...');
-    db.exec('ALTER TABLE status_history ADD COLUMN category_id INTEGER');
-    for (const [name, id] of Object.entries(CATEGORY_MAP)) {
-      db.prepare('UPDATE status_history SET category_id = ? WHERE category = ?').run(id, name);
-    }
-    db.exec('UPDATE status_history SET category_id = 3 WHERE category_id IS NULL');
+	if (histHasOld && !histHasNew) {
+		console.log('[Step 4] Migrating status_history.category → category_id...');
+		db.exec('ALTER TABLE status_history ADD COLUMN category_id INTEGER');
+		for (const [name, id] of Object.entries(CATEGORY_MAP)) {
+			db.prepare('UPDATE status_history SET category_id = ? WHERE category = ?').run(id, name);
+		}
+		db.exec('UPDATE status_history SET category_id = 3 WHERE category_id IS NULL');
 
-    db.exec(`
+		db.exec(`
       CREATE TABLE status_history_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         child_id INTEGER NOT NULL REFERENCES children(id),
@@ -184,27 +190,27 @@ try {
       ALTER TABLE status_history_new RENAME TO status_history;
       CREATE INDEX idx_status_history_child_cat ON status_history(child_id, category_id, recorded_at);
     `);
-    console.log('  ✓ status_history migrated');
-  } else if (histHasNew) {
-    console.log('[Step 4] status_history already has category_id, skipping');
-  }
+		console.log('  ✓ status_history migrated');
+	} else if (histHasNew) {
+		console.log('[Step 4] status_history already has category_id, skipping');
+	}
 
-  // ============================================================
-  // Step 5: market_benchmarks テーブルの category → category_id 変換
-  // ============================================================
-  const benchCols = db.prepare("PRAGMA table_info('market_benchmarks')").all();
-  const benchHasOld = benchCols.some(c => c.name === 'category');
-  const benchHasNew = benchCols.some(c => c.name === 'category_id');
+	// ============================================================
+	// Step 5: market_benchmarks テーブルの category → category_id 変換
+	// ============================================================
+	const benchCols = db.prepare("PRAGMA table_info('market_benchmarks')").all();
+	const benchHasOld = benchCols.some((c) => c.name === 'category');
+	const benchHasNew = benchCols.some((c) => c.name === 'category_id');
 
-  if (benchHasOld && !benchHasNew) {
-    console.log('[Step 5] Migrating market_benchmarks.category → category_id...');
-    db.exec('ALTER TABLE market_benchmarks ADD COLUMN category_id INTEGER');
-    for (const [name, id] of Object.entries(CATEGORY_MAP)) {
-      db.prepare('UPDATE market_benchmarks SET category_id = ? WHERE category = ?').run(id, name);
-    }
-    db.exec('UPDATE market_benchmarks SET category_id = 3 WHERE category_id IS NULL');
+	if (benchHasOld && !benchHasNew) {
+		console.log('[Step 5] Migrating market_benchmarks.category → category_id...');
+		db.exec('ALTER TABLE market_benchmarks ADD COLUMN category_id INTEGER');
+		for (const [name, id] of Object.entries(CATEGORY_MAP)) {
+			db.prepare('UPDATE market_benchmarks SET category_id = ? WHERE category = ?').run(id, name);
+		}
+		db.exec('UPDATE market_benchmarks SET category_id = 3 WHERE category_id IS NULL');
 
-    db.exec(`
+		db.exec(`
       CREATE TABLE market_benchmarks_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         age INTEGER NOT NULL,
@@ -219,33 +225,32 @@ try {
       ALTER TABLE market_benchmarks_new RENAME TO market_benchmarks;
       CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks(age, category_id);
     `);
-    console.log('  ✓ market_benchmarks migrated');
-  } else if (benchHasNew) {
-    console.log('[Step 5] market_benchmarks already has category_id, skipping');
-  }
+		console.log('  ✓ market_benchmarks migrated');
+	} else if (benchHasNew) {
+		console.log('[Step 5] market_benchmarks already has category_id, skipping');
+	}
 
-  db.exec('COMMIT');
-  console.log('\n[migrate-category-ids] ✅ Migration completed successfully!');
+	db.exec('COMMIT');
+	console.log('\n[migrate-category-ids] ✅ Migration completed successfully!');
 
-  // WAL checkpoint + VACUUM to rebuild rootpages after table recreation
-  console.log('  Running WAL checkpoint + VACUUM...');
-  db.pragma('wal_checkpoint(TRUNCATE)');
-  db.exec('VACUUM');
-  console.log('  ✓ VACUUM completed');
+	// WAL checkpoint + VACUUM to rebuild rootpages after table recreation
+	console.log('  Running WAL checkpoint + VACUUM...');
+	db.pragma('wal_checkpoint(TRUNCATE)');
+	db.exec('VACUUM');
+	console.log('  ✓ VACUUM completed');
 
-  // Re-enable FK and verify
-  db.pragma('foreign_keys = ON');
-  const fkCheck = db.prepare('PRAGMA foreign_key_check').all();
-  if (fkCheck.length > 0) {
-    console.error('⚠ Foreign key violations found:', fkCheck);
-  } else {
-    console.log('  ✓ Foreign key check passed');
-  }
-
+	// Re-enable FK and verify
+	db.pragma('foreign_keys = ON');
+	const fkCheck = db.prepare('PRAGMA foreign_key_check').all();
+	if (fkCheck.length > 0) {
+		console.error('⚠ Foreign key violations found:', fkCheck);
+	} else {
+		console.log('  ✓ Foreign key check passed');
+	}
 } catch (err) {
-  db.exec('ROLLBACK');
-  console.error('[migrate-category-ids] ❌ Migration failed, rolled back:', err);
-  process.exit(1);
+	db.exec('ROLLBACK');
+	console.error('[migrate-category-ids] ❌ Migration failed, rolled back:', err);
+	process.exit(1);
 } finally {
-  db.close();
+	db.close();
 }
