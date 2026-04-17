@@ -10,18 +10,22 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { notifyCancellationReverted } from '$lib/server/services/discord-notify-service';
 
 export const POST: RequestHandler = async ({ locals }) => {
-	const tenantId = requireTenantId(locals);
 	const context = locals.context;
 
-	if (!context || context.role !== 'owner') {
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+
+	if (context.role !== 'owner') {
 		return json({ error: 'owner のみ解約キャンセルできます' }, { status: 403 });
 	}
+
+	const tenantId = context.tenantId;
 
 	const repos = getRepos();
 	const tenant = await repos.auth.findTenantById(tenantId);

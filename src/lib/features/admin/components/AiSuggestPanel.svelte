@@ -79,7 +79,7 @@ function acceptPreview() {
 				AI 活動提案はファミリープランで解放されます。
 			</p>
 			<a
-				href="/pricing"
+				href="/admin/license"
 				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold hover:opacity-90 transition-colors"
 				data-testid="ai-suggest-upgrade-cta"
 			>

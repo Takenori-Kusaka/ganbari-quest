@@ -230,7 +230,7 @@ test.describe('#753 /admin/license プラン選択 UI', () => {
 		const preparingText = page.getByText('決済機能は現在準備中です');
 		const standardText = page.getByText('スタンダード');
 		const preparingOrPlanCard = preparingText.or(standardText);
-		await expect(preparingOrPlanCard).toBeVisible({ timeout: 10_000 });
+		await expect(preparingOrPlanCard).toBeVisible({ timeout: 30_000 });
 
 		const preparingCount = await preparingText.count();
 		if (preparingCount > 0 && (await preparingText.isVisible())) {

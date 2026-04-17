@@ -3,7 +3,6 @@
 
 import { error, json } from '@sveltejs/kit';
 import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { createCheckoutSession } from '$lib/server/services/stripe-service';
 import type { RequestHandler } from './$types';
 
@@ -17,14 +16,17 @@ function validateReturnPath(path: string | undefined): string {
 }
 
 export const POST: RequestHandler = async ({ request, locals, url }) => {
-	// 認証 + テナント検証（サーバー側の署名付きContextから取得 — 偽造不可）
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		error(401, '認証が必要です');
+	}
 
 	// ロールチェック: owner/parent のみ決済操作を許可
-	const role = locals.context?.role;
-	if (role !== 'owner' && role !== 'parent') {
+	if (context.role !== 'owner' && context.role !== 'parent') {
 		error(403, 'サブスクリプションの管理は保護者のみ可能です');
 	}
+
+	const tenantId = context.tenantId;
 
 	const body = await request.json();
 	const planId = body.planId;
