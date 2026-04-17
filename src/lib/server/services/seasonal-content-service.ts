@@ -159,7 +159,7 @@ export async function getSeasonPassForChild(
  * auto-join をスキップするため、閲覧だけで参加レコードが作られない。
  * passEvent を外部から渡すことで findActiveEvents の N+1 呼び出しを回避する。
  */
-export async function getSeasonPassForChildReadOnly(
+async function getSeasonPassForChildReadOnly(
 	childId: number,
 	passEvent: SeasonEvent,
 	tenantId: string,

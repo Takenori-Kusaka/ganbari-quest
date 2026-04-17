@@ -52,7 +52,7 @@ export async function findProgressByChallenge(
 	return getRepos().siblingChallenge.findProgressByChallenge(challengeId, tenantId);
 }
 
-export async function findProgressByChild(
+async function findProgressByChild(
 	childId: number,
 	tenantId: string,
 ): Promise<SiblingChallengeProgress[]> {
