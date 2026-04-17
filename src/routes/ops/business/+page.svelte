@@ -35,14 +35,14 @@ const progressColor = $derived(
 		<div class="flex flex-col gap-3">
 			<div class="flex justify-between items-end">
 				<div>
-					<span class="text-3xl font-bold text-[var(--color-neutral-900)]">{bep.currentPaidUsers}</span>
+					<span class="text-3xl font-bold text-[var(--color-text)]">{bep.currentPaidUsers}</span>
 					<span class="text-[var(--color-text-muted)] text-sm"> / {bep.breakevenUsers} 名</span>
 				</div>
 				<div class="text-right">
 					{#if bep.progressRate >= 1}
 						<Badge variant="success" size="md">黒字達成</Badge>
 					{:else}
-						<span class="text-sm text-[var(--color-text-muted)]">あと <strong class="text-[var(--color-neutral-900)]">{Math.max(0, bep.breakevenUsers - bep.currentPaidUsers)}</strong> 名</span>
+						<span class="text-sm text-[var(--color-text-muted)]">あと <strong class="text-[var(--color-text)]">{Math.max(0, bep.breakevenUsers - bep.currentPaidUsers)}</strong> 名</span>
 					{/if}
 				</div>
 			</div>
@@ -174,23 +174,23 @@ const progressColor = $derived(
 		<div class="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-4">
 			<div class="text-center">
 				<div class="ops-kpi-label">MRR</div>
-				<div class="text-lg font-bold text-[var(--color-neutral-900)]">&yen;{bep.metrics.mrr.toLocaleString()}</div>
+				<div class="text-lg font-bold text-[var(--color-text)]">&yen;{bep.metrics.mrr.toLocaleString()}</div>
 			</div>
 			<div class="text-center">
 				<div class="ops-kpi-label">ARR</div>
-				<div class="text-lg font-bold text-[var(--color-neutral-900)]">&yen;{bep.metrics.arr.toLocaleString()}</div>
+				<div class="text-lg font-bold text-[var(--color-text)]">&yen;{bep.metrics.arr.toLocaleString()}</div>
 			</div>
 			<div class="text-center">
 				<div class="ops-kpi-label">ARPU</div>
-				<div class="text-lg font-bold text-[var(--color-neutral-900)]">&yen;{bep.metrics.arpu.toLocaleString()}</div>
+				<div class="text-lg font-bold text-[var(--color-text)]">&yen;{bep.metrics.arpu.toLocaleString()}</div>
 			</div>
 			<div class="text-center">
 				<div class="ops-kpi-label">転換率</div>
-				<div class="text-lg font-bold text-[var(--color-neutral-900)]">{(bep.metrics.trialToActiveRate * 100).toFixed(1)}%</div>
+				<div class="text-lg font-bold text-[var(--color-text)]">{(bep.metrics.trialToActiveRate * 100).toFixed(1)}%</div>
 			</div>
 			<div class="text-center">
 				<div class="ops-kpi-label">解約率</div>
-				<div class="text-lg font-bold text-[var(--color-neutral-900)]">{(bep.metrics.monthlyChurnRate * 100).toFixed(1)}%</div>
+				<div class="text-lg font-bold text-[var(--color-text)]">{(bep.metrics.monthlyChurnRate * 100).toFixed(1)}%</div>
 			</div>
 		</div>
 	</Card>
@@ -212,7 +212,7 @@ const progressColor = $derived(
 	.ops-kpi-value {
 		font-size: 1.75rem;
 		font-weight: 700;
-		color: var(--color-neutral-900);
+		color: var(--color-text);
 	}
 
 	.ops-kpi-value--danger {

@@ -226,7 +226,7 @@ const chartPoints = $derived(
 	.ops-kpi-value {
 		font-size: 1.75rem;
 		font-weight: 700;
-		color: var(--color-neutral-900);
+		color: var(--color-text);
 	}
 
 	.ops-kpi-value--danger {
