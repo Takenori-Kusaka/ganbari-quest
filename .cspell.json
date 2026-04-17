@@ -1,85 +1,74 @@
 {
-  "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
-  "version": "0.2",
-  "language": "en",
-  "dictionaryDefinitions": [
-    {
-      "name": "project-words",
-      "path": "./.cspell/project-words.txt",
-      "addWords": true
-    }
-  ],
-  "dictionaries": [
-    "project-words",
-    "softwareTerms",
-    "fonts"
-  ],
-  "ignorePaths": [
-    "node_modules",
-    ".svelte-kit",
-    "build",
-    "dist",
-    "coverage",
-    "playwright-report",
-    "test-results",
-    "storybook-static",
-    "drizzle",
-    "package-lock.json",
-    "*.db",
-    "*.db-journal",
-    "static/generated",
-    "static/uploads",
-    "static/tenants",
-    "infra/cdk.out",
-    ".claude",
-    "reports",
-    "tmp",
-    "screenshots",
-    "*.png",
-    "*.jpg",
-    "*.jpeg",
-    "*.gif",
-    "*.svg",
-    "*.ico",
-    "*.webp",
-    "*.woff",
-    "*.woff2",
-    "*.ttf",
-    "*.eot",
-    "*.mp3",
-    "*.mp4",
-    "*.webm"
-  ],
-  "ignoreRegExpList": [
-    "/[\\u3040-\\u309F\\u30A0-\\u30FF\\u4E00-\\u9FFF\\u3000-\\u303F\\uFF00-\\uFFEF]+/g",
-    "/\\b[0-9a-fA-F]{6,}\\b/g",
-    "/#[0-9a-fA-F]{3,8}\\b/g",
-    "/\\bvar\\(--[a-zA-Z0-9-]+\\)/g",
-    "/--[a-zA-Z0-9-]+/g",
-    "/@[a-zA-Z0-9/_.-]+/g",
-    "/\\$lib\\/[a-zA-Z0-9/_.-]+/g",
-    "/https?:\\/\\/[^\\s]+/g",
-    "/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g"
-  ],
-  "overrides": [
-    {
-      "filename": "**/*.css",
-      "ignoreRegExpList": [
-        "/[a-zA-Z0-9-]+:\\s*[^;]+;/g"
-      ]
-    },
-    {
-      "filename": "**/package.json",
-      "ignoreRegExpList": [
-        "/\"@?[a-zA-Z0-9/_.-]+\"\\s*:/g"
-      ]
-    },
-    {
-      "filename": "infra/**/*.ts",
-      "ignoreRegExpList": [
-        "/[a-z0-9]{20,}/g",
-        "/\\._domainkey/g"
-      ]
-    }
-  ]
+	"$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
+	"version": "0.2",
+	"language": "en",
+	"dictionaryDefinitions": [
+		{
+			"name": "project-words",
+			"path": "./.cspell/project-words.txt",
+			"addWords": true
+		}
+	],
+	"dictionaries": ["project-words", "softwareTerms", "fonts"],
+	"ignorePaths": [
+		"node_modules",
+		".svelte-kit",
+		"build",
+		"dist",
+		"coverage",
+		"playwright-report",
+		"test-results",
+		"storybook-static",
+		"drizzle",
+		"package-lock.json",
+		"*.db",
+		"*.db-journal",
+		"static/generated",
+		"static/uploads",
+		"static/tenants",
+		"infra/cdk.out",
+		".claude",
+		"reports",
+		"tmp",
+		"screenshots",
+		"*.png",
+		"*.jpg",
+		"*.jpeg",
+		"*.gif",
+		"*.svg",
+		"*.ico",
+		"*.webp",
+		"*.woff",
+		"*.woff2",
+		"*.ttf",
+		"*.eot",
+		"*.mp3",
+		"*.mp4",
+		"*.webm"
+	],
+	"ignoreRegExpList": [
+		"/[\\u3040-\\u309F\\u30A0-\\u30FF\\u4E00-\\u9FFF\\u3000-\\u303F\\uFF00-\\uFFEF]+/g",
+		"/\\b[0-9a-fA-F]{6,}\\b/g",
+		"/#[0-9a-fA-F]{3,8}\\b/g",
+		"/\\bvar\\(--[a-zA-Z0-9-]+\\)/g",
+		"/--[a-zA-Z0-9-]+/g",
+		"/@[a-zA-Z0-9/_.-]+/g",
+		"/\\$lib\\/[a-zA-Z0-9/_.-]+/g",
+		"/https?:\\/\\/[^\\s]+/g",
+		"/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g"
+	],
+	"overrides": [
+		{
+			"filename": "**/*.css",
+			"ignoreRegExpList": ["/[a-zA-Z0-9-]+:\\s*[^;]+;/g"]
+		},
+		{
+			"filename": "**/package.json",
+			"ignoreRegExpList": ["/\"@?[a-zA-Z0-9/_.-]+\"\\s*:/g"]
+		},
+		{
+			"filename": "infra/**/*.ts",
+			"ignoreRegExpList": ["/[a-z0-9]{20,}/g", "/\\._domainkey/g"]
+		}
+	]
 }
