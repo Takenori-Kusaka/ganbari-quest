@@ -44,27 +44,27 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 
 <div class="flex flex-col gap-8">
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">確定申告用CSVエクスポート</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">確定申告用CSVエクスポート</h2>
 		<div class="flex gap-4 items-center mb-6 flex-wrap">
-			<label class="flex gap-2 items-center text-sm text-[var(--color-neutral-600)]">
+			<label class="flex gap-2 items-center text-sm text-[var(--color-text-secondary)]">
 				年:
-				<select bind:value={year} class="py-1.5 px-3 border border-[var(--color-neutral-300)] rounded-md text-sm">
+				<select bind:value={year} class="py-1.5 px-3 border border-[var(--color-border-strong)] rounded-md text-sm">
 					{#each Array.from({length: 3}, (_, i) => data.currentYear - i) as y}
 						<option value={y}>{y}年</option>
 					{/each}
 				</select>
 			</label>
-			<label class="flex gap-2 items-center text-sm text-[var(--color-neutral-600)]">
+			<label class="flex gap-2 items-center text-sm text-[var(--color-text-secondary)]">
 				開始月:
-				<select bind:value={monthFrom} class="py-1.5 px-3 border border-[var(--color-neutral-300)] rounded-md text-sm">
+				<select bind:value={monthFrom} class="py-1.5 px-3 border border-[var(--color-border-strong)] rounded-md text-sm">
 					{#each Array.from({length: 12}, (_, i) => i + 1) as m}
 						<option value={m}>{m}月</option>
 					{/each}
 				</select>
 			</label>
-			<label class="flex gap-2 items-center text-sm text-[var(--color-neutral-600)]">
+			<label class="flex gap-2 items-center text-sm text-[var(--color-text-secondary)]">
 				終了月:
-				<select bind:value={monthTo} class="py-1.5 px-3 border border-[var(--color-neutral-300)] rounded-md text-sm">
+				<select bind:value={monthTo} class="py-1.5 px-3 border border-[var(--color-border-strong)] rounded-md text-sm">
 					{#each Array.from({length: 12}, (_, i) => i + 1) as m}
 						<option value={m}>{m}月</option>
 					{/each}
@@ -98,7 +98,7 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 	</Card>
 
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">注意事項</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">注意事項</h2>
 		<ul class="pl-6 text-[0.8125rem] text-[var(--color-text-muted)] leading-[1.8]">
 			<li>AWS 費用は Cost Explorer API から取得（USD→JPY はレート ¥150/$ で概算）</li>
 			<li>Stripe 手数料は 3.6% + ¥40/件 の概算値です</li>
@@ -119,7 +119,7 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 		font-size: 0.9375rem;
 		font-weight: 600;
 		margin: 0 0 0.5rem;
-		color: var(--color-neutral-700);
+		color: var(--color-text-primary);
 	}
 
 	.export-card p {
