@@ -21,6 +21,8 @@ export interface TenantStats {
 	planBreakdown: {
 		monthly: number;
 		yearly: number;
+		familyMonthly: number;
+		familyYearly: number;
 		lifetime: number;
 		noPlan: number;
 	};
@@ -79,6 +81,8 @@ function countPlans(tenants: Tenant[]) {
 	return {
 		monthly: activeTenants.filter((t) => t.plan === LICENSE_PLAN.MONTHLY).length,
 		yearly: activeTenants.filter((t) => t.plan === LICENSE_PLAN.YEARLY).length,
+		familyMonthly: activeTenants.filter((t) => t.plan === LICENSE_PLAN.FAMILY_MONTHLY).length,
+		familyYearly: activeTenants.filter((t) => t.plan === LICENSE_PLAN.FAMILY_YEARLY).length,
 		lifetime: activeTenants.filter((t) => t.plan === LICENSE_PLAN.LIFETIME).length,
 		noPlan: activeTenants.filter((t) => !t.plan).length,
 	};
@@ -170,7 +174,9 @@ export async function getRevenueData(from: Date, to: Date): Promise<RevenueData>
 		const tenantStats = await getTenantStats();
 		const mrr =
 			tenantStats.planBreakdown.monthly * 500 +
-			Math.round((tenantStats.planBreakdown.yearly * 5000) / 12);
+			Math.round((tenantStats.planBreakdown.yearly * 5000) / 12) +
+			tenantStats.planBreakdown.familyMonthly * 780 +
+			Math.round((tenantStats.planBreakdown.familyYearly * 7800) / 12);
 		const arr = mrr * 12;
 
 		return { invoices: rows, totalRevenue, totalStripeFees, monthlyBreakdown, mrr, arr };

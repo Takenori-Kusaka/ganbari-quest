@@ -77,6 +77,8 @@ describe('getKpiSummary', () => {
 		expect(result.tenantStats.planBreakdown).toEqual({
 			monthly: 0,
 			yearly: 0,
+			familyMonthly: 0,
+			familyYearly: 0,
 			lifetime: 0,
 			noPlan: 0,
 		});
@@ -128,6 +130,8 @@ describe('getKpiSummary', () => {
 		expect(result.tenantStats.planBreakdown).toEqual({
 			monthly: 1,
 			yearly: 1,
+			familyMonthly: 0,
+			familyYearly: 0,
 			lifetime: 1,
 			noPlan: 1,
 		});
