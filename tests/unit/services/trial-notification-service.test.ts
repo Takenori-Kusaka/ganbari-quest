@@ -57,9 +57,9 @@ import {
 	getTrialExpirationInfo,
 	markTrialExpirationModalShown,
 	processTrialNotifications,
+	sendTrialEndedTodayEmail,
 	sendTrialEnding1DayEmail,
 	sendTrialEnding3DaysEmail,
-	sendTrialEndedTodayEmail,
 } from '$lib/server/services/trial-notification-service';
 
 describe('trial-notification-service', () => {
@@ -161,11 +161,7 @@ describe('trial-notification-service', () => {
 
 	describe('sendTrialEnding3DaysEmail', () => {
 		it('standard プランの3日前メールを送信する', async () => {
-			const result = await sendTrialEnding3DaysEmail(
-				'test@example.com',
-				'2026-04-20',
-				'standard',
-			);
+			const result = await sendTrialEnding3DaysEmail('test@example.com', '2026-04-20', 'standard');
 			expect(result).toBe(true);
 			expect(mockSendEmail).toHaveBeenCalledTimes(1);
 			const call = mockSendEmail.mock.calls[0][0];
@@ -183,11 +179,7 @@ describe('trial-notification-service', () => {
 
 	describe('sendTrialEnding1DayEmail', () => {
 		it('1日前メールを送信する', async () => {
-			const result = await sendTrialEnding1DayEmail(
-				'test@example.com',
-				'2026-04-18',
-				'standard',
-			);
+			const result = await sendTrialEnding1DayEmail('test@example.com', '2026-04-18', 'standard');
 			expect(result).toBe(true);
 			const call = mockSendEmail.mock.calls[0][0];
 			expect(call.subject).toContain('明日終了');
@@ -268,9 +260,7 @@ describe('trial-notification-service', () => {
 				source: 'user_initiated',
 			});
 			mockGetSettings.mockResolvedValue({});
-			mockFindArchivedChildren.mockResolvedValue([
-				{ id: 3, nickname: 'child3' },
-			]);
+			mockFindArchivedChildren.mockResolvedValue([{ id: 3, nickname: 'child3' }]);
 
 			const result = await getTrialExpirationInfo('tenant-1', 'none');
 			expect(result.isExpired).toBe(true);

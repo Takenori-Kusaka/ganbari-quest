@@ -3,11 +3,10 @@
 // - 終了3日前 / 1日前 / 当日のメール通知
 // - トライアル終了後の初回ログイン時モーダルフラグ管理
 
-import { toJSTDateString } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { sendEmail } from './email-service';
-import type { TrialStatus, TrialTier } from './trial-service';
+import type { TrialTier } from './trial-service';
 import { getTrialStatus } from './trial-service';
 
 // ============================================================
@@ -40,7 +39,7 @@ export interface TrialExpirationInfo {
 // Constants
 // ============================================================
 
-const NOTIFICATION_THRESHOLDS = [3, 1, 0] as const;
+const _NOTIFICATION_THRESHOLDS = [3, 1, 0] as const;
 
 // ============================================================
 // Notification schedule
@@ -200,10 +199,7 @@ export async function getTrialExpirationInfo(
 
 	// モーダル表示済みフラグをチェック
 	const repos = getRepos();
-	const settings = await repos.settings.getSettings(
-		['trial_expiration_modal_shown'],
-		tenantId,
-	);
+	const settings = await repos.settings.getSettings(['trial_expiration_modal_shown'], tenantId);
 	const alreadyShown = settings.trial_expiration_modal_shown === 'true';
 
 	// アーカイブ済みリソース数を取得
@@ -223,11 +219,7 @@ export async function getTrialExpirationInfo(
  */
 export async function markTrialExpirationModalShown(tenantId: string): Promise<void> {
 	const repos = getRepos();
-	await repos.settings.upsertSetting(
-		'trial_expiration_modal_shown',
-		'true',
-		tenantId,
-	);
+	await repos.settings.upsertSetting('trial_expiration_modal_shown', 'true', tenantId);
 	logger.info('[trial-notification] Trial expiration modal marked as shown', {
 		context: { tenantId },
 	});
