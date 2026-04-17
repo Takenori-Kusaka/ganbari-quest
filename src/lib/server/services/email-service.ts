@@ -4,7 +4,7 @@
 
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
-import { getLicensePlanLabel } from '$lib/domain/labels';
+import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import { logger } from '$lib/server/logger';
 
 // ============================================================
