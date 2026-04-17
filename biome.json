@@ -93,9 +93,7 @@
 			"!**/storybook-static",
 			"!**/app.css",
 			"!**/.claude",
-			"!**/*.md",
-			"!infra/**",
-			"!scripts/**"
+			"!**/*.md"
 		]
 	}
 }
