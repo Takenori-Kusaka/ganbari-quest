@@ -132,10 +132,7 @@ export async function evaluateChild(
 }
 
 /** 全子供の週次評価を一括実行 */
-export async function runWeeklyEvaluation(
-	tenantId: string,
-	date?: Date,
-): Promise<EvaluationResult[]> {
+async function runWeeklyEvaluation(tenantId: string, date?: Date): Promise<EvaluationResult[]> {
 	const { weekStart, weekEnd } = getWeekRange(date);
 	const allChildren = await findAllChildren(tenantId);
 

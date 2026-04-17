@@ -134,10 +134,6 @@ export function isResumePromptShown(): boolean {
 	return state.showResumePrompt;
 }
 
-export function getSavedProgress(): { chapter: number; stepIndex: number } {
-	return { chapter: state.savedChapter, stepIndex: state.savedStepIndex };
-}
-
 export function getChapters() {
 	return activeChapters;
 }

@@ -83,7 +83,7 @@ export async function markCheersShown(cheerIds: number[], tenantId: string): Pro
 }
 
 /** きょうだい一覧（自分以外）を取得 — スタンプ送信先選択用 */
-export async function getSiblingList(
+async function getSiblingList(
 	childId: number,
 	tenantId: string,
 ): Promise<{ id: number; nickname: string }[]> {

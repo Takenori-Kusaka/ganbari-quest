@@ -348,16 +348,6 @@ export const AGE_MAX_TABLE: { age: number; maxValue: number }[] = [
 	{ age: 18, maxValue: 8000 },
 ];
 
-/**
- * @deprecated Use calcLevelFromXp instead. Kept temporarily for migration.
- */
-export function getMaxForAge(age: number): number {
-	const entry = AGE_MAX_TABLE.find((e) => e.age === age);
-	if (entry) return entry.maxValue;
-	if (age < 1) return AGE_MAX_TABLE[0]?.maxValue ?? 0;
-	return AGE_MAX_TABLE[AGE_MAX_TABLE.length - 1]?.maxValue ?? 0;
-}
-
 // ================================================================
 // Zod Schemas
 // ================================================================

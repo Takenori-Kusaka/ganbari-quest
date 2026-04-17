@@ -3,12 +3,5 @@
 
 export { playSound } from './play-sound';
 export { SoundService, soundService } from './sound-service';
-export {
-	getSoundMuted,
-	getSoundVolume,
-	loadSoundSettings,
-	setSoundMuted,
-	setSoundVolume,
-} from './sound-state.svelte';
-export type { SoundId, SoundTierConfig } from './sounds';
-export { SOUND_DEFS, SOUND_IDS, SOUND_TIER_CONFIG } from './sounds';
+export { loadSoundSettings } from './sound-state.svelte';
+export { SOUND_TIER_CONFIG } from './sounds';

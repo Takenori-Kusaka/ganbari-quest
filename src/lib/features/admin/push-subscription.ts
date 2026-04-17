@@ -77,7 +77,7 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
 }
 
 /** プッシュ通知の購読を解除 */
-export async function unsubscribeFromPush(): Promise<boolean> {
+async function unsubscribeFromPush(): Promise<boolean> {
 	if (!isPushSupported()) return false;
 
 	const registration = await navigator.serviceWorker.ready;
@@ -94,12 +94,4 @@ export async function unsubscribeFromPush(): Promise<boolean> {
 	});
 
 	return true;
-}
-
-/** 現在プッシュ通知を購読中か */
-export async function isPushSubscribed(): Promise<boolean> {
-	if (!isPushSupported()) return false;
-	const registration = await navigator.serviceWorker.ready;
-	const subscription = await registration.pushManager.getSubscription();
-	return subscription !== null;
 }

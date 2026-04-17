@@ -1,0 +1,30 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"ignore": [
+		"scripts/**",
+		"infra/**",
+		"site/**",
+		"tests/**",
+		"playwright.aws.config.ts",
+		"vitest.shims.d.ts",
+		"src/lib/ui/primitives/PinInput.svelte",
+		"src/lib/ui/primitives/Toast.svelte",
+		"src/lib/ui/components/FeatureGate.svelte",
+		"src/lib/ui/components/PremiumModal.svelte",
+		"src/lib/server/db/dynamodb/**"
+	],
+	"ignoreDependencies": [
+		"@biomejs/biome",
+		"@sveltejs/adapter-auto",
+		"@sveltejs/vite-plugin-svelte",
+		"eslint",
+		"googleapis",
+		"@google/genai",
+		"playwright",
+		"stylelint",
+		"svelte-check",
+		"tsx",
+		"vite"
+	],
+	"ignoreExportsUsedInFile": true
+}

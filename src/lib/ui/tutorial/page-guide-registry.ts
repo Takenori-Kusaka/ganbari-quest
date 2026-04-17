@@ -53,11 +53,6 @@ export async function getPageGuide(path: string): Promise<PageGuide | null> {
 	}
 }
 
-/** ガイドが存在するパスの一覧 */
-export function getGuidePagePaths(): string[] {
-	return Object.keys(GUIDE_LOADERS);
-}
-
 /** 全ガイドのページID一覧（完了状態表示用） */
 export const ALL_PAGE_IDS = [
 	'admin-home',

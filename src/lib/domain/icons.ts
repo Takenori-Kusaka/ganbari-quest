@@ -20,19 +20,6 @@ export const ICON_CHECKLIST = '📋';
 export const ICON_SWITCH = '👨‍👩‍👧‍👦';
 
 // ============================================================
-// セクション・機能アイコン
-// ============================================================
-
-/** 今日の記録サマリー */
-export const ICON_RECORD_SUMMARY = '📝';
-/** しょうごう / 称号 */
-export const ICON_TITLES = '🎖️';
-/** ポイント */
-export const ICON_POINTS = '⭐';
-/** スタンプ */
-export const ICON_STAMP = '💮';
-
-// ============================================================
 // 年齢モード別ラベル
 // ============================================================
 
@@ -47,7 +34,7 @@ export interface ModeLabels {
 }
 
 /** 年齢モード別ラベル定義（#537: 新コード名に対応） */
-export const MODE_LABELS: Record<string, ModeLabels> = {
+const MODE_LABELS: Record<string, ModeLabels> = {
 	baby: {
 		status: 'つよさ',
 		switch: 'かぞく',
