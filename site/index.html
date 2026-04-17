@@ -270,6 +270,34 @@
   .age-card .age-screenshot{aspect-ratio:16/10;max-height:280px}
 }
 
+/* Testimonials section (#1091) */
+.bg-testimonials{background:linear-gradient(135deg,var(--brand-50) 0%,#fef9e7 100%)}
+.testimonials-placeholder{max-width:640px;margin:0 auto;text-align:center;background:#fff;border:2px dashed var(--brand-300);border-radius:var(--radius);padding:40px 24px}
+.testimonials-placeholder p{font-size:.95rem;color:var(--gray-500);line-height:1.7;margin-bottom:12px}
+.testimonials-placeholder .btn{margin-top:8px}
+
+/* Testimonial form (#1091) */
+.testimonial-form-wrapper{max-width:640px;margin:0 auto}
+.testimonial-form{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:32px 24px}
+.testimonial-form .form-group{margin-bottom:20px}
+.testimonial-form label{display:block;font-size:.9rem;font-weight:600;color:var(--gray-900);margin-bottom:6px}
+.testimonial-form .label-optional{font-size:.75rem;font-weight:400;color:var(--gray-500);margin-left:4px}
+.testimonial-form input[type="text"],
+.testimonial-form select,
+.testimonial-form textarea{width:100%;padding:10px 14px;border:1px solid var(--gray-300);border-radius:8px;font-size:.9rem;font-family:inherit;color:var(--gray-700);background:#fff;transition:border-color .2s}
+.testimonial-form input[type="text"]:focus,
+.testimonial-form select:focus,
+.testimonial-form textarea:focus{outline:none;border-color:var(--brand-500);box-shadow:0 0 0 3px rgba(91,163,230,.15)}
+.testimonial-form textarea{resize:vertical;min-height:120px}
+.testimonial-form .char-count{font-size:.75rem;color:var(--gray-500);text-align:right;margin-top:4px}
+.testimonial-form .privacy-note{background:var(--brand-50);border:1px solid var(--brand-200);border-radius:8px;padding:12px 16px;font-size:.82rem;color:var(--gray-500);line-height:1.6;margin-bottom:20px}
+.testimonial-form .privacy-note strong{color:var(--gray-700)}
+.testimonial-form .consent-group{display:flex;align-items:flex-start;gap:10px;margin-bottom:24px}
+.testimonial-form .consent-group input[type="checkbox"]{margin-top:3px;width:18px;height:18px;flex-shrink:0;accent-color:var(--brand-700)}
+.testimonial-form .consent-group label{font-size:.85rem;font-weight:400;color:var(--gray-700);cursor:pointer}
+.testimonial-form .form-actions{text-align:center}
+.testimonial-form .btn[disabled]{opacity:.5;cursor:not-allowed;pointer-events:none}
+
 @media(max-width:640px){
   .hero h1{font-size:1.8rem}
   .hero-cta{flex-direction:column;align-items:center}
@@ -279,6 +307,7 @@
   .carousel-track{width:220px;height:476px;border-radius:24px;box-shadow:0 12px 40px rgba(56,120,184,.2),0 0 0 6px var(--gray-900)}
   .feature-card .feature-screenshot{max-height:240px}
   .age-card .age-screenshot{max-height:200px}
+  .testimonial-form{padding:24px 16px}
 }
 </style>
 </head>
@@ -397,6 +426,19 @@
           <div class="pain-detail">がんばりの評価がカンと気分頼りに。何をどれだけがんばったか分からないから、「まとめて何か買ってあげる」になりがち。</div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- Testimonials — social proof (#1091) -->
+<section class="section bg-testimonials" id="testimonials">
+  <div class="section-inner">
+    <h2 class="section-title">保護者の声</h2>
+    <p class="section-desc">がんばりクエストを使ってみた保護者の方々の体験談を募集しています</p>
+    <div class="testimonials-placeholder">
+      <p>&#x1F4AC; 現在、ご利用いただいている保護者の方々から体験談を募集しています。</p>
+      <p>がんばりクエストを使ってみた感想をぜひお聞かせください。<br>お寄せいただいた声は、このページでご紹介させていただく場合があります。</p>
+      <a href="#testimonial-form" class="btn btn-outline">体験談を投稿する</a>
     </div>
   </div>
 </section>
@@ -864,6 +906,66 @@
   </div>
 </section>
 
+<!-- Testimonial submission form (#1091) -->
+<section class="section bg-gray" id="testimonial-form">
+  <div class="section-inner">
+    <h2 class="section-title">体験談を投稿する</h2>
+    <p class="section-desc">がんばりクエストを使ってみた感想をお聞かせください</p>
+    <div class="testimonial-form-wrapper">
+      <form class="testimonial-form" id="testimonialForm" novalidate>
+        <div class="form-group">
+          <label for="tf-nickname">ニックネーム<span class="label-optional">（任意）</span></label>
+          <input type="text" id="tf-nickname" name="nickname" placeholder="例: ゆうママ" maxlength="30" autocomplete="off">
+        </div>
+
+        <div class="form-group">
+          <label for="tf-age-tier">お子さまの年齢帯</label>
+          <select id="tf-age-tier" name="ageTier" required aria-required="true">
+            <option value="" disabled selected>選択してください</option>
+            <option value="0-2歳">0&#x301C;2歳</option>
+            <option value="3-5歳">3&#x301C;5歳</option>
+            <option value="6-12歳">6&#x301C;12歳</option>
+            <option value="13-15歳">13&#x301C;15歳</option>
+            <option value="16-18歳">16&#x301C;18歳</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="tf-duration">ご利用期間</label>
+          <select id="tf-duration" name="duration" required aria-required="true">
+            <option value="" disabled selected>選択してください</option>
+            <option value="1週間未満">1週間未満</option>
+            <option value="1週間〜1ヶ月">1週間&#x301C;1ヶ月</option>
+            <option value="1〜3ヶ月">1&#x301C;3ヶ月</option>
+            <option value="3ヶ月以上">3ヶ月以上</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="tf-testimonial">体験談</label>
+          <textarea id="tf-testimonial" name="testimonial" placeholder="がんばりクエストを使ってみてどう変わりましたか？お子さまの反応や、うれしかったエピソードなど、自由にお書きください。" maxlength="500" required aria-required="true"></textarea>
+          <div class="char-count"><span id="tf-char-count">0</span> / 500文字</div>
+        </div>
+
+        <div class="privacy-note">
+          <strong>&#x26A0;&#xFE0F; プライバシーについて</strong><br>
+          お子さまの個人情報（本名・顔写真等）は記載しないでください。<br>
+          投稿内容は、個人を特定できない形でサイトに掲載させていただく場合があります。
+        </div>
+
+        <div class="consent-group">
+          <input type="checkbox" id="tf-consent" name="consent" required aria-required="true">
+          <label for="tf-consent">投稿内容がサイトに掲載される場合があることに同意します</label>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="tf-submit" disabled>体験談を送信する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
 <!-- Community invitation -->
 <section class="section bg-white" id="community">
   <div class="section-inner">
@@ -885,7 +987,8 @@
     </div>
     <p style="text-align:center;margin-top:32px;font-size:.85rem;color:var(--gray-500);">
       &#x1F4AC; あなたの体験談もお待ちしています &#8212;
-      <a href="https://ganbari-quest.com/demo">デモで体験する</a> /
+      <a href="#testimonial-form">体験談を投稿する</a> /
+      <a href="https://ganbari-quest.com/demo">まずはデモで試してみる</a> /
       <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="">メールで声を聞かせてください</a>
     </p>
   </div>
@@ -1165,6 +1268,76 @@
   }
   window.addEventListener('scroll',check,{passive:true});
   check();
+})();
+</script>
+<!-- Testimonial form logic (#1091) -->
+<script>
+(function() {
+  'use strict';
+  var form = document.getElementById('testimonialForm');
+  if (!form) return;
+
+  var textarea = document.getElementById('tf-testimonial');
+  var charCount = document.getElementById('tf-char-count');
+  var consent = document.getElementById('tf-consent');
+  var submitBtn = document.getElementById('tf-submit');
+  var ageTier = document.getElementById('tf-age-tier');
+  var duration = document.getElementById('tf-duration');
+
+  // Character counter
+  textarea.addEventListener('input', function() {
+    var len = this.value.length;
+    charCount.textContent = len;
+    if (len > 500) {
+      charCount.style.color = '#dc2626';
+    } else {
+      charCount.style.color = '';
+    }
+    updateSubmitState();
+  });
+
+  // Consent + required fields validation
+  function updateSubmitState() {
+    var valid = consent.checked
+      && ageTier.value !== ''
+      && duration.value !== ''
+      && textarea.value.trim().length > 0
+      && textarea.value.length <= 500;
+    submitBtn.disabled = !valid;
+  }
+
+  consent.addEventListener('change', updateSubmitState);
+  ageTier.addEventListener('change', updateSubmitState);
+  duration.addEventListener('change', updateSubmitState);
+
+  // Submit via mailto
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    var nickname = document.getElementById('tf-nickname').value.trim() || '（未入力）';
+    var subject = 'がんばりクエスト体験談';
+    var body = [
+      '【体験談投稿フォームからの送信】',
+      '',
+      'ニックネーム: ' + nickname,
+      'お子さまの年齢帯: ' + ageTier.value,
+      'ご利用期間: ' + duration.value,
+      '',
+      '--- 体験談 ---',
+      textarea.value.trim(),
+      '',
+      '--- 同意事項 ---',
+      '投稿内容がサイトに掲載される場合があることに同意済み',
+      '',
+      '---',
+      '送信元: ' + location.href,
+      '送信日時: ' + new Date().toLocaleString('ja-JP')
+    ].join('\n');
+
+    window.location.href = 'mailto:ganbari.quest.support@gmail.com'
+      + '?subject=' + encodeURIComponent(subject)
+      + '&body=' + encodeURIComponent(body);
+  });
 })();
 </script>
 <script src="shared-labels.js"></script>
