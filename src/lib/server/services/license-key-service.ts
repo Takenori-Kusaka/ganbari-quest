@@ -268,9 +268,6 @@ export async function issueLicenseKey(params: {
 		`[LICENSE] Key issued: ${key.slice(0, 7)}... for tenant=${params.tenantId} plan=${params.plan} kind=${kind} expiresAt=${expiresAt ?? 'never'}`,
 	);
 
-	// #804: 監査ログに issued イベント記録
-	const issuedActor =
-		params.issuedBy ?? (params.stripeSessionId ? `stripe:${params.stripeSessionId}` : 'system');
 	return record;
 }
 
