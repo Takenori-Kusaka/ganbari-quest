@@ -124,27 +124,29 @@ test.describe('#754 ダウングレードフロー — アーカイブ API', () 
 		const previewRes = await request.get('/api/v1/admin/downgrade-preview?targetTier=free');
 		const preview = await previewRes.json();
 
-		// 超過がある場合のみテスト（通常は超過あり）
-		if (preview.children.excess > 0) {
-			// 必要数より 1 少なく選択
-			const sortedChildren = [...preview.children.current].sort(
-				(a: { id: number }, b: { id: number }) => a.id - b.id,
-			);
-			const insufficientIds = sortedChildren
-				.slice(preview.children.max ?? sortedChildren.length)
-				.slice(0, preview.children.excess - 1)
-				.map((c: { id: number }) => c.id);
+		// 前提条件: テストデータに超過が必要
+		expect(preview.children.excess, 'テストデータに free プランの子供超過が必要').toBeGreaterThan(
+			0,
+		);
 
-			const res = await request.post('/api/v1/admin/downgrade-archive', {
-				data: {
-					targetTier: 'free',
-					childIds: insufficientIds,
-					activityIds: [],
-					checklistTemplateIds: [],
-				},
-			});
-			expect(res.status()).toBe(400);
-		}
+		// 必要数より 1 少なく選択
+		const sortedChildren = [...preview.children.current].sort(
+			(a: { id: number }, b: { id: number }) => a.id - b.id,
+		);
+		const insufficientIds = sortedChildren
+			.slice(preview.children.max ?? sortedChildren.length)
+			.slice(0, preview.children.excess - 1)
+			.map((c: { id: number }) => c.id);
+
+		const res = await request.post('/api/v1/admin/downgrade-archive', {
+			data: {
+				targetTier: 'free',
+				childIds: insufficientIds,
+				activityIds: [],
+				checklistTemplateIds: [],
+			},
+		});
+		expect(res.status()).toBe(400);
 	});
 
 	test('targetTier 未指定でアーカイブ失敗（400）', async ({ request }) => {
@@ -173,19 +175,25 @@ test.describe('#754 ダウングレードフロー — UI', () => {
 	}) => {
 		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
 
-		// プラン管理のポータルボタンがあるか確認
+		// ポータルボタン or 「準備中」テキストのどちらかが必ず表示される
 		const portalButton = page.getByTestId('open-portal-button');
-		const isVisible = await portalButton.isVisible({ timeout: 5000 }).catch(() => false);
+		const preparingText = page.getByText('決済機能は現在準備中です');
+		const portalOrPreparing = portalButton.or(preparingText);
+		await expect(portalOrPreparing).toBeVisible({ timeout: 10_000 });
 
-		if (isVisible) {
+		const portalCount = await portalButton.count();
+		if (portalCount > 0) {
 			await portalButton.click();
 
 			// family プラン（5子供）で free にダウングレード試行
-			// → DowngradeResourceSelector が表示される
+			// → DowngradeResourceSelector or PIN ダイアログが表示される
 			const selector = page.getByTestId('downgrade-preview-content');
-			const selectorVisible = await selector.isVisible({ timeout: 5000 }).catch(() => false);
+			const pinDialog = page.getByTestId('pin-dialog');
+			const selectorOrPin = selector.or(pinDialog);
+			await expect(selectorOrPin).toBeVisible({ timeout: 10_000 });
 
-			if (selectorVisible) {
+			const selectorCount = await selector.count();
+			if (selectorCount > 0) {
 				// 超過子供リストが表示される
 				const childList = page.getByTestId('downgrade-child-list');
 				await expect(childList).toBeVisible();
@@ -193,10 +201,14 @@ test.describe('#754 ダウングレードフロー — UI', () => {
 				// 確認ボタンは初期状態で無効（選択不足）
 				const confirmButton = page.getByTestId('downgrade-confirm-button');
 				await expect(confirmButton).toBeDisabled();
+			} else {
+				// Stripe 未設定: PIN ダイアログが表示される
+				await expect(pinDialog).toBeVisible();
 			}
-			// Stripe 未設定の場合は直接 PIN ダイアログが出る可能性もある
+		} else {
+			// Stripe 未設定: 「準備中」テキストが表示される
+			await expect(preparingText).toBeVisible();
 		}
-		// ポータルボタンが無い場合（Stripe 未設定でプラン管理セクションが非表示）はスキップ
 	});
 });
 
@@ -241,8 +253,11 @@ test.describe('#754 アーカイブ → 復元サイクル', () => {
 		const beforePreview = await beforeRes.json();
 		const originalChildCount = beforePreview.children.current.length;
 
-		// 超過がない場合はこのテストをスキップ
-		if (beforePreview.children.excess === 0) return;
+		// 前提条件: テストデータに超過がなければテスト成立しない
+		expect(
+			beforePreview.children.excess,
+			'テストデータに free プランの子供超過が必要（5子供 > max 2）',
+		).toBeGreaterThan(0);
 
 		// 2) 超過分をアーカイブ
 		const sortedChildren = [...beforePreview.children.current].sort(
@@ -377,21 +392,20 @@ test.describe('#754 ChurnPreventionModal — UI', () => {
 		// モーダルの「解約する前に...」タイトルは Dialog コンポーネント経由で描画される
 		// Portal ボタンクリック → showChurnModal=true で開く導線
 
+		// ポータルボタン or 「準備中」テキストのどちらかが必ず表示される
 		const portalButton = page.getByTestId('open-portal-button');
-		const hasPortal = await portalButton.isVisible({ timeout: 5000 }).catch(() => false);
+		const preparingText = page.getByText('決済機能は現在準備中です');
+		const portalOrPreparing = portalButton.or(preparingText);
+		await expect(portalOrPreparing).toBeVisible({ timeout: 10_000 });
 
-		if (hasPortal) {
+		const portalCount = await portalButton.count();
+		if (portalCount > 0) {
 			// ポータルボタンがある = Stripe 有効環境
 			// ChurnPreventionModal は showChurnModal state で制御される
-			// ここでは /admin/license ページが正常にロードされることを確認
 			await expect(page.getByText('プラン管理')).toBeVisible();
 		} else {
 			// Stripe 未設定環境: 「決済機能は現在準備中です」が表示される
-			const preparingText = page.getByText('決済機能は現在準備中です');
-			const isPreparing = await preparingText.isVisible({ timeout: 5000 }).catch(() => false);
-			if (isPreparing) {
-				await expect(preparingText).toBeVisible();
-			}
+			await expect(preparingText).toBeVisible();
 		}
 	});
 });
