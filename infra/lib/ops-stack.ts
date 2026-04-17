@@ -1,12 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import * as budgets from 'aws-cdk-lib/aws-budgets';
-import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import type * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as events_targets from 'aws-cdk-lib/aws-events-targets';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
+import type * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import type { Construct } from 'constructs';
@@ -22,7 +22,7 @@ export class OpsStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props: OpsStackProps) {
 		super(scope, id, props);
 
-		const opsEmail = props.opsEmail ?? this.node.tryGetContext('opsEmail') as string | undefined;
+		const opsEmail = props.opsEmail ?? (this.node.tryGetContext('opsEmail') as string | undefined);
 
 		// ================================================================
 		// 1. SNS Topic — all alarms send here
@@ -287,11 +287,7 @@ export class OpsStack extends cdk.Stack {
 				[
 					new cloudwatch.SingleValueWidget({
 						title: 'Alarm Status',
-						metrics: [
-							lambdaErrors.metric,
-							dynamoSystemErrors.metric,
-							lambdaUrl5xx.metric,
-						],
+						metrics: [lambdaErrors.metric, dynamoSystemErrors.metric, lambdaUrl5xx.metric],
 						width: 24,
 					}),
 				],

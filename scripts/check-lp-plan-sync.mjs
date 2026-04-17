@@ -79,9 +79,7 @@ function parsePlanFeatures() {
 	//   standard: { ..., price: '¥500', unit: '/月', yearlyPrice: '年額 ¥5,000 ...' },
 	//   ...
 	// }
-	const metaBlockMatch = src.match(
-		/export const PRICING_PAGE_META[^{]*{([\s\S]*?)\n} as const;/,
-	);
+	const metaBlockMatch = src.match(/export const PRICING_PAGE_META[^{]*{([\s\S]*?)\n} as const;/);
 	if (!metaBlockMatch) {
 		throw new Error('PRICING_PAGE_META block not found in plan-features.ts');
 	}
@@ -208,7 +206,9 @@ function main() {
 	if (totalErrors > 0) {
 		console.error('');
 		console.error(`✗ LP と plan-features.ts が ${totalErrors} 箇所で drift しています。`);
-		console.error('  LP 側（site/*.html）を src/lib/domain/plan-features.ts に合わせて更新してください。');
+		console.error(
+			'  LP 側（site/*.html）を src/lib/domain/plan-features.ts に合わせて更新してください。',
+		);
 		if (CHECK_MODE) {
 			process.exit(1);
 		}
