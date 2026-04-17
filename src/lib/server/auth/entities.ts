@@ -33,6 +33,9 @@ export interface Tenant {
 	stripeSubscriptionId?: string;
 	planExpiresAt?: string;
 	trialUsedAt?: string;
+	// #742: Soft delete state (softDeletedAt / deletionGracePlanTier) is stored
+	// in settings table (not Tenant entity) to avoid schema migration on DynamoDB.
+	// See grace-period-service.ts for details.
 	createdAt: string;
 	updatedAt: string;
 }
