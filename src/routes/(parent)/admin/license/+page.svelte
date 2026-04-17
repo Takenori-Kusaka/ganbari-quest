@@ -752,6 +752,16 @@ async function openPortal() {
 				支払い履歴はまだありません
 			</p>
 		{/if}
+		<div class="mt-4 pt-3 border-t border-[var(--color-border-light)]">
+			<a
+				href="/admin/billing"
+				class="flex items-center justify-between text-sm text-[var(--color-text-link)] hover:underline"
+				data-testid="license-to-billing"
+			>
+				<span>🧾 請求書・支払い方法の管理</span>
+				<span>&rarr;</span>
+			</a>
+		</div>
 		{/snippet}
 	</Card>
 
