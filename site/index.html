@@ -163,6 +163,16 @@
 .pack-activity{font-size:.75rem;color:var(--gray-500);background:var(--brand-50);border:1px solid var(--brand-200);border-radius:4px;padding:2px 8px}
 .pack-count{font-size:.8rem;color:var(--gray-500);font-weight:600;margin-bottom:8px}
 .pack-note{max-width:700px;margin:32px auto 0;text-align:center;font-size:.9rem;color:var(--gray-500);line-height:1.7}
+.pack-card details{margin-top:12px}
+.pack-card details summary{font-size:.82rem;color:var(--brand-700);cursor:pointer;font-weight:600;list-style:none;display:flex;align-items:center;gap:4px;user-select:none}
+.pack-card details summary::before{content:'▶';font-size:.65rem;transition:transform .2s}
+.pack-card details[open] summary::before{transform:rotate(90deg)}
+.pack-card details .pack-details{padding-top:12px;border-top:1px solid var(--gray-200);margin-top:8px}
+.pack-card details .pack-details ul{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.pack-card details .pack-details li{font-size:.75rem;color:var(--gray-600);display:flex;align-items:center;gap:4px}
+.pack-card details .pack-details li span{flex-shrink:0}
+.pack-supplement{max-width:700px;margin:24px auto 0;text-align:center;font-size:.88rem;color:var(--gray-600);line-height:1.7}
+.pack-supplement strong{color:var(--brand-700)}
 
 /* Diff section */
 .diff-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
@@ -630,7 +640,7 @@
         <p>統計やグラフで自分の成長を分析。目標を立てて計画的に取り組めます。</p>
       </div>
       <div class="age-card" data-age-tier="senior">
-        <div class="age-emoji">&#x1F680;</div>
+        <div class="age-emoji">&#x1F9D1;&#x200D;&#x1F4BB;</div>
         <h3 data-label="age-tier-name">高校生モード</h3>
         <div class="age-range" data-label="age-tier-range">16&#x301C;18歳</div>
         <div class="age-screenshot">
@@ -668,12 +678,29 @@
           <span class="pack-tag">生活習慣</span>
         </div>
         <div class="pack-activities">
-          <span class="pack-activity">&#x1F476; はいはいした</span>
-          <span class="pack-activity">&#x1F6B6; あんよした</span>
-          <span class="pack-activity">&#x1F37D;&#xFE0F; ごはんたべた</span>
-          <span class="pack-activity">&#x1F6C1; おふろはいった</span>
-          <span class="pack-activity">&#x1F4A4; おひるねした</span>
+          <span class="pack-activity">&#x1F423; はいはいした</span>
+          <span class="pack-activity">&#x1F463; あんよした</span>
+          <span class="pack-activity">&#x1F35A; ごはんをたべた</span>
+          <span class="pack-activity">&#x1F6C1; おふろにはいった</span>
+          <span class="pack-activity">&#x1F319; おやすみした</span>
         </div>
+        <details>
+          <summary>すべての活動を見る</summary>
+          <div class="pack-details">
+            <ul>
+              <li><span>&#x1F33F;</span> おそとにでた</li>
+              <li><span>&#x1F938;</span> からだをうごかした</li>
+              <li><span>&#x1F9FC;</span> てをあらった</li>
+              <li><span>&#x1F455;</span> おきがえした</li>
+              <li><span>&#x1FAA5;</span> はみがきした</li>
+              <li><span>&#x1F4D6;</span> えほんをよんだ</li>
+              <li><span>&#x1F3B5;</span> おうたをうたった</li>
+              <li><span>&#x1F58D;&#xFE0F;</span> おえかきした</li>
+              <li><span>&#x1F60A;</span> にこにこした</li>
+              <li><span>&#x1F44B;</span> あいさつした</li>
+            </ul>
+          </div>
+        </details>
       </div>
       <div class="pack-card">
         <div class="pack-icon">&#x1F3A8;</div>
@@ -686,12 +713,34 @@
           <span class="pack-tag">バランス型</span>
         </div>
         <div class="pack-activities">
-          <span class="pack-activity">&#x1F45F; おきがえした</span>
           <span class="pack-activity">&#x1FAA5; はみがきした</span>
-          <span class="pack-activity">&#x1F3C3; おそとであそんだ</span>
-          <span class="pack-activity">&#x270D;&#xFE0F; おえかきした</span>
-          <span class="pack-activity">&#x1F4D6; えほんよんだ</span>
+          <span class="pack-activity">&#x1F455; おきがえした</span>
+          <span class="pack-activity">&#x1F9F9; おかたづけした</span>
+          <span class="pack-activity">&#x1F9FC; てをあらった</span>
+          <span class="pack-activity">&#x23F0; はやおきした</span>
         </div>
+        <details>
+          <summary>すべての活動を見る</summary>
+          <div class="pack-details">
+            <ul>
+              <li><span>&#x1FAE7;</span> おてつだいした</li>
+              <li><span>&#x1F938;</span> からだをうごかした</li>
+              <li><span>&#x1FAA2;</span> なわとびした</li>
+              <li><span>&#x1F483;</span> ダンスした</li>
+              <li><span>&#x1F58D;&#xFE0F;</span> おえかきした</li>
+              <li><span>&#x2702;&#xFE0F;</span> こうさくした</li>
+              <li><span>&#x1F3B5;</span> おうたをうたった</li>
+              <li><span>&#x1F4D6;</span> えほんをよんだ</li>
+              <li><span>&#x1F522;</span> すうじをかぞえた</li>
+              <li><span>&#x270F;&#xFE0F;</span> ひらがなれんしゅう</li>
+              <li><span>&#x1F91D;</span> いっしょにあそんだ</li>
+              <li><span>&#x1F64B;</span> じゅんばんをまもった</li>
+              <li><span>&#x1F44B;</span> あいさつした</li>
+              <li><span>&#x1F495;</span> ありがとうをいった</li>
+              <li><span>&#x1F647;</span> ごめんなさいをいった</li>
+            </ul>
+          </div>
+        </details>
       </div>
       <div class="pack-card">
         <div class="pack-icon">&#x1F4DA;</div>
@@ -704,12 +753,30 @@
           <span class="pack-tag">自立</span>
         </div>
         <div class="pack-activities">
-          <span class="pack-activity">&#x1F4D6; しゅくだいした</span>
+          <span class="pack-activity">&#x1F4DD; しゅくだいをした</span>
           <span class="pack-activity">&#x1F4D6; どくしょした</span>
           <span class="pack-activity">&#x1F3C3; うんどうした</span>
-          <span class="pack-activity">&#x1F9F9; おそうじした</span>
-          <span class="pack-activity">&#x1F373; りょうりてつだった</span>
+          <span class="pack-activity">&#x1F9F9; じぶんのへやをそうじ</span>
+          <span class="pack-activity">&#x1FAE7; おてつだいした</span>
         </div>
+        <details>
+          <summary>すべての活動を見る</summary>
+          <div class="pack-details">
+            <ul>
+              <li><span>&#x1F522;</span> けいさんれんしゅう</li>
+              <li><span>&#x270F;&#xFE0F;</span> かんじれんしゅう</li>
+              <li><span>&#x1F392;</span> じかんわりのじゅんび</li>
+              <li><span>&#x23F0;</span> はやおきした</li>
+              <li><span>&#x1FAA5;</span> はみがきした</li>
+              <li><span>&#x1FAA2;</span> なわとびした</li>
+              <li><span>&#x1F3CA;</span> すいえいした</li>
+              <li><span>&#x1F3A8;</span> おえかき・こうさく</li>
+              <li><span>&#x1F3B9;</span> がっきのれんしゅう</li>
+              <li><span>&#x1F91D;</span> ともだちとあそんだ</li>
+              <li><span>&#x1F4AC;</span> かぞくとはなした</li>
+            </ul>
+          </div>
+        </details>
       </div>
       <div class="pack-card">
         <div class="pack-icon">&#x1F4AA;</div>
@@ -722,12 +789,29 @@
           <span class="pack-tag">家事スキル</span>
         </div>
         <div class="pack-activities">
-          <span class="pack-activity">&#x1F9F9; おへやをそうじ</span>
-          <span class="pack-activity">&#x1F45A; せんたくものたたみ</span>
-          <span class="pack-activity">&#x1F37D;&#xFE0F; しょっきあらい</span>
-          <span class="pack-activity">&#x1F6D2; おかいものてつだい</span>
-          <span class="pack-activity">&#x1F331; みずやりした</span>
+          <span class="pack-activity">&#x1F37D;&#xFE0F; しょっきをはこんだ</span>
+          <span class="pack-activity">&#x1F9FD; テーブルをふいた</span>
+          <span class="pack-activity">&#x1F454; せんたくものをたたんだ</span>
+          <span class="pack-activity">&#x1F6D2; かいものにつきあった</span>
+          <span class="pack-activity">&#x1F331; しょくぶつのみずやり</span>
         </div>
+        <details>
+          <summary>すべての活動を見る</summary>
+          <div class="pack-details">
+            <ul>
+              <li><span>&#x1F6C1;</span> おふろそうじした</li>
+              <li><span>&#x1F9F9;</span> そうじきをかけた</li>
+              <li><span>&#x1F373;</span> りょうりのおてつだい</li>
+              <li><span>&#x1FAE7;</span> おさらあらいした</li>
+              <li><span>&#x1F5D1;&#xFE0F;</span> ゴミだしした</li>
+              <li><span>&#x1F415;</span> ペットのおせわ</li>
+              <li><span>&#x1F45F;</span> くつをそろえた</li>
+              <li><span>&#x1F6CF;&#xFE0F;</span> ふとんをたたんだ</li>
+              <li><span>&#x1F371;</span> おべんとうばこをあらった</li>
+              <li><span>&#x1F495;</span> ありがとうをいった</li>
+            </ul>
+          </div>
+        </details>
       </div>
       <div class="pack-card">
         <div class="pack-icon">&#x1F3AF;</div>
@@ -746,6 +830,24 @@
           <span class="pack-activity">&#x1F4AA; 筋トレ・ストレッチした</span>
           <span class="pack-activity">&#x26BD; 部活・習い事に行った</span>
         </div>
+        <details>
+          <summary>すべての活動を見る</summary>
+          <div class="pack-details">
+            <ul>
+              <li><span>&#x1F4D6;</span> 読書した</li>
+              <li><span>&#x1F4CB;</span> テスト勉強をした</li>
+              <li><span>&#x1F305;</span> 朝活した</li>
+              <li><span>&#x1F6CF;&#xFE0F;</span> 規則正しく寝た</li>
+              <li><span>&#x1F371;</span> お弁当箱を洗った</li>
+              <li><span>&#x1F9F9;</span> 自分の部屋を掃除した</li>
+              <li><span>&#x1F3C3;</span> ランニング・散歩した</li>
+              <li><span>&#x1F373;</span> 料理を手伝った</li>
+              <li><span>&#x1F3B8;</span> 楽器の練習をした</li>
+              <li><span>&#x1F468;&#x200D;&#x1F469;&#x200D;&#x1F467;&#x200D;&#x1F466;</span> 家族会議に参加した</li>
+              <li><span>&#x1F4F0;</span> ニュースを読んだ</li>
+            </ul>
+          </div>
+        </details>
       </div>
       <div class="pack-card">
         <div class="pack-icon">&#x1F393;</div>
@@ -764,12 +866,39 @@
           <span class="pack-activity">&#x1F91D; ボランティアに参加した</span>
           <span class="pack-activity">&#x1F50D; 進路について調べた</span>
         </div>
+        <details>
+          <summary>すべての活動を見る</summary>
+          <div class="pack-details">
+            <ul>
+              <li><span>&#x1F4D6;</span> 読書・論文を読んだ</li>
+              <li><span>&#x1F305;</span> 朝活した</li>
+              <li><span>&#x1F373;</span> 料理をした</li>
+              <li><span>&#x1F455;</span> 洗濯をした</li>
+              <li><span>&#x1F4B0;</span> 家計簿をつけた</li>
+              <li><span>&#x1F6D2;</span> 買い物をした</li>
+              <li><span>&#x1F4AA;</span> 筋トレ・運動した</li>
+              <li><span>&#x1F3C5;</span> 部活動に参加した</li>
+              <li><span>&#x1F3A8;</span> 創作活動をした</li>
+              <li><span>&#x1F4DC;</span> 資格の勉強をした</li>
+              <li><span>&#x1F4AC;</span> 家族と将来の話をした</li>
+            </ul>
+          </div>
+        </details>
       </div>
     </div>
     <p class="pack-note">
       0&#x301C;18歳まで、6つの活動パックで全年齢をカバー。<br>
       セットアップ時にお子さまの年齢にぴったりのパックを自動でおすすめ。<br>
       もちろん、活動パックはあとからいつでも追加・カスタマイズできます。
+    </p>
+    <p class="pack-supplement">
+      &#x1F466;&#x1F467; <strong>年齢と性別に合わせた活動を自動提案</strong> &#8212;
+      男の子向け・女の子向けの活動バリエーションも用意。お子さまにぴったりの内容でスタートできます。
+    </p>
+    <p class="pack-supplement">
+      &#x2705; <strong>朝の準備チェックリスト</strong>など、日常のルーティンもサポート。
+      朝・夜・週末の3タイプ &times; 全年齢分のチェックリストプリセットで、
+      「やることリスト」をすぐに始められます。
     </p>
   </div>
 </section>
