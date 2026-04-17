@@ -18,7 +18,8 @@ import { processTrialNotifications } from '$lib/server/services/trial-notificati
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
-	verifyCronAuth(request);
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 
 	try {
 		const body = (await request.json().catch(() => ({}))) as {

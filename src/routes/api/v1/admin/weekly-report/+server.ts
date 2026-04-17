@@ -19,7 +19,8 @@ import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
-	verifyCronAuth(request);
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 
 	try {
 		const body = (await request.json()) as {

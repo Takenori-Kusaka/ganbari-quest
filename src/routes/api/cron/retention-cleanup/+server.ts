@@ -26,7 +26,8 @@ import { cleanupExpiredData } from '$lib/server/services/retention-cleanup-servi
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
-	verifyCronAuth(request);
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 
 	let dryRun = false;
 	try {
@@ -56,7 +57,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 // GET も許容（ヘルスチェック的用途。dry-run 実行）
 export const GET: RequestHandler = async ({ request }) => {
-	verifyCronAuth(request);
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 	try {
 		const result = await cleanupExpiredData({ dryRun: true });
 		return json({

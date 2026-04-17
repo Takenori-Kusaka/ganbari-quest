@@ -10,7 +10,8 @@ import { logger } from '$lib/server/logger';
 import { deleteFile, listFiles } from '$lib/server/storage';
 
 export const POST: RequestHandler = async ({ request }) => {
-	verifyCronAuth(request);
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 
 	const body = (await request.json().catch(() => ({}))) as { dryRun?: boolean };
 	const dryRun = body.dryRun ?? true;

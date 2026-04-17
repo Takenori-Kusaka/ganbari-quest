@@ -9,7 +9,8 @@ import { logger } from '$lib/server/logger';
 
 /** GET: マイグレーション統計を返す */
 export const GET: RequestHandler = async ({ request }) => {
-	verifyCronAuth(request);
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 
 	try {
 		const stats = getMigrationStats();
@@ -22,7 +23,8 @@ export const GET: RequestHandler = async ({ request }) => {
 
 /** POST: バッチマイグレーションを実行 */
 export const POST: RequestHandler = async ({ request }) => {
-	verifyCronAuth(request);
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 
 	const body = (await request.json().catch(() => ({}))) as {
 		dryRun?: boolean;
