@@ -943,3 +943,52 @@ export const countLicenseKeys: IAuthRepo['countLicenseKeys'] = async (filter) =>
 
 	return count;
 };
+
+// #821: 期限切れキー列挙。日次バッチで対象抽出に使う。
+// LICENSE# パーティションを Scan + FilterExpression で絞り込む。件数は通常数十件/日で、
+// 全ライセンスキー数も数千オーダー想定なので Scan コストは許容範囲。将来高頻度化するなら
+// status + expiresAt を GSI に切る選択肢もあるが、現時点では過剰設計。
+export const listActiveExpiredKeys: IAuthRepo['listActiveExpiredKeys'] = async (now) => {
+	const results: LicenseRecord[] = [];
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const resp = await doc().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression:
+					'begins_with(PK, :licensePrefix) AND SK = :sk AND #status = :active AND attribute_exists(expiresAt) AND expiresAt <= :now',
+				ExpressionAttributeNames: { '#status': 'status' },
+				ExpressionAttributeValues: {
+					':licensePrefix': 'LICENSE#',
+					':sk': 'META',
+					':active': 'active',
+					':now': now,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of resp.Items ?? []) {
+			const it = item as Record<string, unknown>;
+			const pk = it.PK as string;
+			const licenseKeyValue = pk.startsWith('LICENSE#') ? pk.slice('LICENSE#'.length) : pk;
+			results.push({
+				licenseKey: licenseKeyValue,
+				tenantId: it.tenantId as string,
+				plan: it.plan as LicenseRecord['plan'],
+				stripeSessionId: it.stripeSessionId as string | undefined,
+				status: it.status as LicenseRecord['status'],
+				consumedBy: it.consumedBy as string | undefined,
+				consumedAt: it.consumedAt as string | undefined,
+				createdAt: it.createdAt as string,
+				kind: it.kind as LicenseRecord['kind'],
+				issuedBy: it.issuedBy as string | undefined,
+				expiresAt: it.expiresAt as string | undefined,
+				revokedAt: it.revokedAt as string | undefined,
+				revokedReason: it.revokedReason as LicenseRecord['revokedReason'],
+				revokedBy: it.revokedBy as string | undefined,
+			});
+		}
+		lastKey = resp.LastEvaluatedKey;
+	} while (lastKey);
+	return results;
+};

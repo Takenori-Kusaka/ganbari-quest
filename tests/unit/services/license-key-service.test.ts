@@ -9,6 +9,7 @@ const mockFindLicenseKey = vi.fn();
 const mockUpdateLicenseKeyStatus = vi.fn();
 const mockUpdateTenantStripe = vi.fn();
 const mockRevokeLicenseKey = vi.fn();
+const mockListActiveExpiredKeys = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -18,6 +19,7 @@ vi.mock('$lib/server/db/factory', () => ({
 			updateLicenseKeyStatus: (...args: unknown[]) => mockUpdateLicenseKeyStatus(...args),
 			updateTenantStripe: (...args: unknown[]) => mockUpdateTenantStripe(...args),
 			revokeLicenseKey: (...args: unknown[]) => mockRevokeLicenseKey(...args),
+			listActiveExpiredKeys: (...args: unknown[]) => mockListActiveExpiredKeys(...args),
 		},
 	}),
 }));
@@ -35,6 +37,7 @@ import {
 	assertLicenseKeyConfigured,
 	consumeLicenseKey,
 	createHmacChecksum,
+	expireLicenseKeys,
 	generateLicenseKey,
 	isSignedKeyFormat,
 	issueLicenseKey,
@@ -1467,5 +1470,111 @@ describe('revokeLicenseKey (#797)', () => {
 		if (!validateResult.valid) {
 			expect(validateResult.reason).toContain('無効');
 		}
+	});
+});
+
+// ============================================================
+// expireLicenseKeys (#821 期限切れ自動 revoke バッチ)
+// ============================================================
+
+describe('#821 expireLicenseKeys', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	function makeExpiredRecord(overrides: Partial<LicenseRecord> = {}): LicenseRecord {
+		return {
+			licenseKey: 'GQ-AAAA-BBBB-CCCC-EXP01',
+			tenantId: 't-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2025-12-01T00:00:00.000Z',
+			expiresAt: '2026-03-01T00:00:00.000Z',
+			kind: 'purchase',
+			...overrides,
+		};
+	}
+
+	it('対象 0 件 → scanned=0 revoked=0', async () => {
+		mockListActiveExpiredKeys.mockResolvedValueOnce([]);
+		const r = await expireLicenseKeys();
+		expect(r).toEqual({ scanned: 0, revoked: 0, failures: [], dryRun: false });
+		expect(mockRevokeLicenseKey).not.toHaveBeenCalled();
+	});
+
+	it('dryRun=true は revoke を呼ばず scanned のみ返す', async () => {
+		mockListActiveExpiredKeys.mockResolvedValueOnce([
+			makeExpiredRecord({ licenseKey: 'GQ-AAAA-BBBB-CCCC-EXP01' }),
+			makeExpiredRecord({ licenseKey: 'GQ-AAAA-BBBB-CCCC-EXP02' }),
+		]);
+		const r = await expireLicenseKeys({ dryRun: true });
+		expect(r).toEqual({ scanned: 2, revoked: 0, failures: [], dryRun: true });
+		expect(mockRevokeLicenseKey).not.toHaveBeenCalled();
+	});
+
+	it('3 件全て成功 → revoked=3, revokeLicenseKey に reason=expired/revokedBy=system が渡る', async () => {
+		const records = [
+			makeExpiredRecord({ licenseKey: 'GQ-AAAA-BBBB-CCCC-EXP01', tenantId: 't-1' }),
+			makeExpiredRecord({ licenseKey: 'GQ-AAAA-BBBB-CCCC-EXP02', tenantId: 't-2' }),
+			makeExpiredRecord({ licenseKey: 'GQ-AAAA-BBBB-CCCC-EXP03', tenantId: 't-3' }),
+		];
+		mockListActiveExpiredKeys.mockResolvedValueOnce(records);
+		// revokeLicenseKey 内部で findLicenseKey → revokeLicenseKey を呼ぶので両方モック
+		mockFindLicenseKey.mockImplementation(async (key: string) => {
+			const rec = records.find((r) => r.licenseKey === key);
+			return rec;
+		});
+		mockRevokeLicenseKey.mockResolvedValue(undefined);
+
+		const r = await expireLicenseKeys();
+		expect(r.scanned).toBe(3);
+		expect(r.revoked).toBe(3);
+		expect(r.failures).toEqual([]);
+		expect(mockRevokeLicenseKey).toHaveBeenCalledTimes(3);
+
+		const firstCall = mockRevokeLicenseKey.mock.calls[0]?.[0] as Record<string, unknown>;
+		expect(firstCall.reason).toBe('expired');
+		expect(firstCall.revokedBy).toBe('system');
+	});
+
+	it('1 件失敗しても他は続行 → failures に記録', async () => {
+		const records = [
+			makeExpiredRecord({ licenseKey: 'GQ-AAAA-BBBB-CCCC-EXP01' }),
+			makeExpiredRecord({ licenseKey: 'GQ-AAAA-BBBB-CCCC-EXP02' }),
+			makeExpiredRecord({ licenseKey: 'GQ-AAAA-BBBB-CCCC-EXP03' }),
+		];
+		mockListActiveExpiredKeys.mockResolvedValueOnce(records);
+		mockFindLicenseKey.mockImplementation(async (key: string) =>
+			records.find((r) => r.licenseKey === key),
+		);
+		mockRevokeLicenseKey
+			.mockResolvedValueOnce(undefined)
+			.mockRejectedValueOnce(new Error('dynamodb throttled'))
+			.mockResolvedValueOnce(undefined);
+
+		const r = await expireLicenseKeys();
+		expect(r.scanned).toBe(3);
+		expect(r.revoked).toBe(2);
+		expect(r.failures).toHaveLength(1);
+		expect(r.failures[0]?.licenseKey).toBe('GQ-AAAA-BBBB-CCCC-EXP02');
+		expect(r.failures[0]?.reason).toContain('throttled');
+	});
+
+	it('findLicenseKey が undefined を返す (同時に削除) → ok:false で skip 扱い、revoked カウントされず failures にも入らない', async () => {
+		const records = [makeExpiredRecord({ licenseKey: 'GQ-AAAA-BBBB-CCCC-GONE0' })];
+		mockListActiveExpiredKeys.mockResolvedValueOnce(records);
+		mockFindLicenseKey.mockResolvedValue(undefined); // レース: 既に消えた
+
+		const r = await expireLicenseKeys();
+		expect(r.scanned).toBe(1);
+		expect(r.revoked).toBe(0);
+		expect(r.failures).toEqual([]);
+	});
+
+	it('listActiveExpiredKeys に now が ISO 文字列で渡る', async () => {
+		mockListActiveExpiredKeys.mockResolvedValueOnce([]);
+		const fixedNow = new Date('2026-04-16T00:00:00.000Z');
+		await expireLicenseKeys({ now: fixedNow });
+		expect(mockListActiveExpiredKeys).toHaveBeenCalledWith('2026-04-16T00:00:00.000Z');
 	});
 });

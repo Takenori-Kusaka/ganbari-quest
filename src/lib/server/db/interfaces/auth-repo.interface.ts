@@ -123,4 +123,12 @@ export interface IAuthRepo {
 
 	/** ライセンスキーの集計 */
 	countLicenseKeys(filter?: LicenseKeyCountFilter): Promise<number>;
+
+	/**
+	 * #821: status='active' かつ expiresAt <= now のキーを列挙する。
+	 * 日次の期限切れ revoke バッチ (/api/cron/license-expire) で対象抽出に使う。
+	 * 件数は通常数十件/日を想定。DynamoDB 側は LICENSE# パーティションの Scan
+	 * + FilterExpression で実装する（GSI を足すほど頻度が高くない）。
+	 */
+	listActiveExpiredKeys(now: string): Promise<LicenseRecord[]>;
 }
