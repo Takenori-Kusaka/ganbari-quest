@@ -13,6 +13,8 @@
 
 - PR は `gh pr create --draft` で Draft PR として作成
 - 作業完了・CI 全通過後に `gh pr ready <番号>` で Ready for Review に変更
+- **Ready 変更前に `gh pr checks <番号>` で CI 全緑を必ず確認すること**（#1074）
+- CI 失敗中の PR を Ready にした場合、`draft-on-ci-fail.yml` が自動で Draft に戻す
 - Draft PR はマージできない（GitHub ルールセットで保護）
 - Dependabot PR は自動的に non-draft で作成されるため、従来通りレビュー → auto-merge
 
