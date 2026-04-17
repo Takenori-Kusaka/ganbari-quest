@@ -21,6 +21,21 @@ export function isLocalEnv(): boolean {
 }
 
 // ============================================================
+// cron エンドポイント
+// ============================================================
+
+/** cron エンドポイント用ヘッダーを返す（CRON_SECRET 設定時のみ x-cron-secret を含む） */
+export function getCronHeaders(): Record<string, string> {
+	const cronSecret = process.env.CRON_SECRET;
+	return cronSecret ? { 'x-cron-secret': cronSecret } : {};
+}
+
+/** cron 認証がスキップされる環境か判定（CRON_SECRET 未設定 + AUTH_MODE=local） */
+export function isCronAuthSkipped(): boolean {
+	return !process.env.CRON_SECRET && (process.env.AUTH_MODE === 'local' || !process.env.AUTH_MODE);
+}
+
+// ============================================================
 // 子供選択
 // ============================================================
 

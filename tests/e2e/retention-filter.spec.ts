@@ -12,10 +12,10 @@
 // 実行: npx playwright test retention-filter
 
 import { expect, test } from '@playwright/test';
+import { getCronHeaders, isCronAuthSkipped } from './helpers';
 
 const cronSecret = process.env.CRON_SECRET;
-const isLocalAuth =
-	process.env.AUTH_MODE === 'local' || !process.env.AUTH_MODE;
+const authSkipped = isCronAuthSkipped();
 
 // ============================================================
 // 認証ガード
@@ -27,22 +27,20 @@ test.describe('#750 retention-cleanup — 認証ガード', () => {
 		const res = await request.post('/api/cron/retention-cleanup');
 		if (cronSecret) {
 			expect(res.status()).toBe(401);
-		} else if (isLocalAuth) {
+		} else if (authSkipped) {
 			expect([200, 500]).toContain(res.status());
 		} else {
 			expect(res.status()).toBe(500);
 		}
 	});
 
-	test('不正な x-cron-secret で POST すると認証エラー', async ({
-		request,
-	}) => {
+	test('不正な x-cron-secret で POST すると認証エラー', async ({ request }) => {
 		const res = await request.post('/api/cron/retention-cleanup', {
 			headers: { 'x-cron-secret': 'invalid-token-12345' },
 		});
 		if (cronSecret) {
 			expect(res.status()).toBe(401);
-		} else if (isLocalAuth) {
+		} else if (authSkipped) {
 			expect([200, 500]).toContain(res.status());
 		} else {
 			expect(res.status()).toBe(500);
@@ -55,7 +53,7 @@ test.describe('#750 retention-cleanup — 認証ガード', () => {
 		const res = await request.get('/api/cron/retention-cleanup');
 		if (cronSecret) {
 			expect(res.status()).toBe(401);
-		} else if (isLocalAuth) {
+		} else if (authSkipped) {
 			expect([200, 500]).toContain(res.status());
 		} else {
 			expect(res.status()).toBe(500);
@@ -68,7 +66,7 @@ test.describe('#750 retention-cleanup — 認証ガード', () => {
 // ============================================================
 test.describe('#750 retention-cleanup — dryRun', () => {
 	test('dryRun POST', async ({ request }) => {
-		if (!cronSecret && !isLocalAuth) {
+		if (!cronSecret && !authSkipped) {
 			const res = await request.post('/api/cron/retention-cleanup', {
 				data: { dryRun: true },
 			});
@@ -76,17 +74,14 @@ test.describe('#750 retention-cleanup — dryRun', () => {
 			return;
 		}
 
-		const headers: Record<string, string> = {};
-		if (cronSecret) {
-			headers['x-cron-secret'] = cronSecret;
-		}
+		const headers = getCronHeaders();
 
 		const res = await request.post('/api/cron/retention-cleanup', {
 			headers,
 			data: { dryRun: true },
 		});
 
-		if (!cronSecret && isLocalAuth) {
+		if (!cronSecret && authSkipped) {
 			expect([200, 500]).toContain(res.status());
 			if (res.status() !== 200) return;
 		} else {
@@ -103,22 +98,19 @@ test.describe('#750 retention-cleanup — dryRun', () => {
 	});
 
 	test('GET ヘルスチェック', async ({ request }) => {
-		if (!cronSecret && !isLocalAuth) {
+		if (!cronSecret && !authSkipped) {
 			const res = await request.get('/api/cron/retention-cleanup');
 			expect(res.status()).toBe(500);
 			return;
 		}
 
-		const headers: Record<string, string> = {};
-		if (cronSecret) {
-			headers['x-cron-secret'] = cronSecret;
-		}
+		const headers = getCronHeaders();
 
 		const res = await request.get('/api/cron/retention-cleanup', {
 			headers,
 		});
 
-		if (!cronSecret && isLocalAuth) {
+		if (!cronSecret && authSkipped) {
 			expect([200, 500]).toContain(res.status());
 			if (res.status() !== 200) return;
 		} else {
