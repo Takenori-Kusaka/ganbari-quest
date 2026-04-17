@@ -4,6 +4,7 @@
 
 import webpush from 'web-push';
 import { formatChildName } from '$lib/domain/child-display';
+import { todayDateJST } from '$lib/domain/date-utils';
 import {
 	countTodayLogs,
 	deleteByEndpoint,
@@ -125,7 +126,7 @@ export async function canSendNotification(tenantId: string): Promise<boolean> {
 	}
 
 	// 日次上限チェック
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const count = await countTodayLogs(tenantId, today);
 	return count < MAX_DAILY_NOTIFICATIONS;
 }
