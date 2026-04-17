@@ -2,15 +2,11 @@
 // #717, #729: 保存期間超過データの自動削除クロンエンドポイント
 //
 // EventBridge (Scheduled Rule) または手動実行から呼ばれる。
-// 認証は CRON_SECRET の Bearer token で行う。
-// #820 で /ops ダッシュボードは Cognito ops group 認可に移行したため、
-// このエンドポイントは独自の shared secret (CRON_SECRET) を使う。
-// 移行期間中は後方互換で OPS_SECRET_KEY も読み、どちらかが一致すれば許可する。
-// ADR-0033 参照。
+// 認証は x-cron-secret ヘッダで行う（verifyCronAuth 共通ヘルパー）。
 //
 // 使い方:
 //   POST /api/cron/retention-cleanup
-//   Authorization: Bearer <CRON_SECRET>
+//   x-cron-secret: <CRON_SECRET>
 //   Body (任意): { "dryRun": true }
 //
 // レスポンス:
@@ -19,31 +15,15 @@
 //   404 Not Found (CRON_SECRET / OPS_SECRET_KEY のいずれも未設定時)
 //   500 Internal Error
 
-import { error, json } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
+import { verifyCronAuth } from '$lib/server/auth/cron-auth';
 import { logger } from '$lib/server/logger';
 import { cleanupExpiredData } from '$lib/server/services/retention-cleanup-service';
 import type { RequestHandler } from './$types';
 
-function checkAuth(request: Request): void {
-	// #820 PR-D: CRON_SECRET を主とし、OPS_SECRET_KEY を後方互換フォールバックとして許可。
-	// 本番 GitHub Secrets のローテーション完了後、OPS_SECRET_KEY サポートは削除予定。
-	const cronSecret = process.env.CRON_SECRET;
-	const legacySecret = process.env.OPS_SECRET_KEY;
-	const accepted = [cronSecret, legacySecret].filter((v): v is string => !!v);
-	if (accepted.length === 0) {
-		// シークレット未設定 = エンドポイント無効化（存在を秘匿）
-		error(404, 'Not Found');
-	}
-
-	const authHeader = request.headers.get('Authorization');
-	const authorized = accepted.some((s) => authHeader === `Bearer ${s}`);
-	if (!authorized) {
-		error(401, 'Unauthorized');
-	}
-}
-
 export const POST: RequestHandler = async ({ request }) => {
-	checkAuth(request);
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 
 	let dryRun = false;
 	try {
@@ -73,7 +53,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 // GET も許容（ヘルスチェック的用途。dry-run 実行）
 export const GET: RequestHandler = async ({ request }) => {
-	checkAuth(request);
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 	try {
 		const result = await cleanupExpiredData({ dryRun: true });
 		return json({

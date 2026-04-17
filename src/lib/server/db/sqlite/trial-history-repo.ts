@@ -1,7 +1,7 @@
 // src/lib/server/db/sqlite/trial-history-repo.ts
 // SQLite implementation of ITrialHistoryRepo (#314, #769)
 
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, gte } from 'drizzle-orm';
 import { db } from '../client';
 import type {
 	InsertTrialHistoryInput,
@@ -18,6 +18,12 @@ export async function findLatestByTenant(tenantId: string): Promise<TrialHistory
 		.orderBy(desc(trialHistory.id))
 		.limit(1);
 	return rows[0];
+}
+
+/** endDate が今日以降のトライアル履歴を返す（cron 通知対象の取得用） */
+export async function findActiveTrials(): Promise<TrialHistoryRow[]> {
+	const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+	return db.select().from(trialHistory).where(gte(trialHistory.endDate, today));
 }
 
 export async function insert(input: InsertTrialHistoryInput): Promise<void> {
