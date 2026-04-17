@@ -51,7 +51,23 @@ jobs:
       - name: Generate version
         run: npm run version:generate
       - run: npx biome check .
+
+      - name: Stylelint (CSS hex check)
+        run: npx stylelint "src/**/*.css"
+
+      - name: ESLint SonarJS (duplicate strings / cognitive complexity, #977)
+        continue-on-error: true
+        run: npx eslint "src/**/*.ts"
+
+      - name: Knip (unused exports/files/deps detection, #970)
+        continue-on-error: true
+        run: npx knip
+
       - run: npx svelte-check
+
+      - name: Type coverage ratchet check (#978)
+        run: npm run type-coverage
+
       - name: Security audit (high/critical vulnerabilities)
         run: npm audit --audit-level=high || true
       - run: npx vitest run --coverage
