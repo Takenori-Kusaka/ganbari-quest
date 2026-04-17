@@ -548,10 +548,7 @@ export async function getTodayRecordedActivityCounts(
 }
 
 /** Get today's recorded activity IDs for a child (backward-compatible wrapper). */
-export async function getTodayRecordedActivityIds(
-	childId: number,
-	tenantId: string,
-): Promise<number[]> {
+async function getTodayRecordedActivityIds(childId: number, tenantId: string): Promise<number[]> {
 	return (await getTodayRecordedActivityCounts(childId, tenantId)).map((r) => r.activityId);
 }
 

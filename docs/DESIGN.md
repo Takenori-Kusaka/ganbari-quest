@@ -221,10 +221,10 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `THEME_LABELS` | const | テーマ名 |
 | `THEME_EMOJIS` | const | テーマ絵文字 |
 | `FEATURE_LABELS` | const | 機能名ラベル |
+| `TUTORIAL_LABELS` | const |  |
 | `getAgeTierLabel` | function | 年齢区分ラベル取得 |
 | `getAgeTierShortLabel` | function | 年齢区分短縮ラベル取得 |
 | `getPlanLabel` | function | プランラベル取得 |
-| `getPlanShortLabel` | function | プラン短縮ラベル取得 |
 | `getThemeLabel` | function | テーマラベル取得 |
 | `getThemeOptions` | function | テーマ選択肢一覧 |
 | `NavCategoryId` | type |  |

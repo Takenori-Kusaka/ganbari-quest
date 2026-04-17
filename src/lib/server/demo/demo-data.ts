@@ -1715,10 +1715,6 @@ export const DEMO_LOGIN_BONUSES: LoginBonus[] = [
 // Helper: Get demo data for a specific child
 // ============================================================
 
-export function getDemoChild(childId: number): Child | undefined {
-	return DEMO_CHILDREN.find((c) => c.id === childId);
-}
-
 export function getDemoActivitiesForChild(childAge: number): Activity[] {
 	return DEMO_ACTIVITIES.filter(
 		(a) =>
@@ -1750,10 +1746,6 @@ export function getDemoChecklistsForChild(childId: number): {
 
 export function getDemoPointBalance(childId: number): number {
 	return DEMO_POINT_BALANCES[childId] ?? 0;
-}
-
-export function getDemoAchievementsForChild(childId: number): ChildAchievement[] {
-	return DEMO_CHILD_ACHIEVEMENTS.filter((a) => a.childId === childId);
 }
 
 export { DEMO_TENANT_ID, NOW, TODAY };

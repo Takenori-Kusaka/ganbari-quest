@@ -35,6 +35,6 @@ export async function countTodayLogs(tenantId: string, today: string): Promise<n
 	return getRepos().pushSubscription.countTodayLogs(tenantId, today);
 }
 
-export async function findRecentLogs(tenantId: string, limit: number): Promise<NotificationLog[]> {
+async function findRecentLogs(tenantId: string, limit: number): Promise<NotificationLog[]> {
 	return getRepos().pushSubscription.findRecentLogs(tenantId, limit);
 }

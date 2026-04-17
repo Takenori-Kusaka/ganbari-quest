@@ -293,10 +293,6 @@ export function getAllSteps() {
 	return TUTORIAL_CHAPTERS.flatMap((ch) => ch.steps);
 }
 
-export function getTotalStepCount() {
-	return getAllSteps().length;
-}
-
 /** プランティアに応じてフィルタされたチャプターを返す */
 export function getChaptersForPlan(planTier: PlanTier): TutorialChapter[] {
 	return TUTORIAL_CHAPTERS.map((ch) => ({
@@ -306,9 +302,4 @@ export function getChaptersForPlan(planTier: PlanTier): TutorialChapter[] {
 			return TIER_ORDER[planTier] >= TIER_ORDER[step.requiredTier];
 		}),
 	})).filter((ch) => ch.steps.length > 0);
-}
-
-/** プランティアに応じてフィルタされた全ステップを返す */
-export function getStepsForPlan(planTier: PlanTier) {
-	return getChaptersForPlan(planTier).flatMap((ch) => ch.steps);
 }
