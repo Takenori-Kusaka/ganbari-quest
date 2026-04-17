@@ -4,7 +4,7 @@
 // テスト観点:
 // - isFamily=false: ロックバッジ・アップセル CTA が表示され、input/button が disabled
 // - isFamily=true: ロック UI が出ない、input/button が enabled
-// - CTA リンク先は /pricing（#722 でファミリー限定に変更）
+// - CTA リンク先は /admin/license（ライセンス管理ページへ導線）
 //
 // 本来 E2E を推すが、AiSuggestPanel の可視状態を検証するだけなら jsdom で十分。
 // props を直接渡せるので free/standard/family 相当を高速に切替確認できる。
@@ -44,11 +44,11 @@ describe('AiSuggestPanel プランゲート (#722)', () => {
 			expect(screen.getByTestId('ai-suggest-upgrade-card')).toBeDefined();
 		});
 
-		it('「ファミリープランにアップグレード」CTA が /pricing へ導線する', () => {
+		it('「ファミリープランにアップグレード」CTA が /admin/license へ導線する', () => {
 			render(AiSuggestPanel, props);
 			const cta = screen.getByTestId('ai-suggest-upgrade-cta');
 			expect(cta).toBeDefined();
-			expect(cta.getAttribute('href')).toBe('/pricing');
+			expect(cta.getAttribute('href')).toBe('/admin/license');
 			expect(cta.textContent).toContain('ファミリープラン');
 		});
 

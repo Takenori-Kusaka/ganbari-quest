@@ -43,10 +43,15 @@ test.describe('#779 family プラン — 全機能解放確認', () => {
 		await expect(page.getByTestId('plan-status-trial-badge')).toHaveCount(0);
 	});
 
-	test('/admin にホームを開いても free 用 quick-link が出ない', async ({ page }) => {
+	test('/admin にホームを開いても free 用アップグレード CTA が出ない', async ({ page }) => {
 		await loginAsPlan(page, 'family');
 		await page.goto('/admin');
-		await expect(page.locator('.plan-quick-link--free')).toHaveCount(0);
+		// family のときは PlanStatusCard が data-plan-tier="family" で表示される
+		const card = page.getByTestId('plan-status-card');
+		await expect(card).toBeVisible({ timeout: 30_000 });
+		await expect(card).toHaveAttribute('data-plan-tier', 'family');
+		// free 専用の CTA は表示されない
+		await expect(page.getByTestId('plan-status-free-cta')).toHaveCount(0);
 	});
 
 	test('/admin/reports — weekly-report-upsell バナーが出ない', async ({ page }) => {

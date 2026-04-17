@@ -3,18 +3,18 @@
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 
 export const POST: RequestHandler = async ({ locals }) => {
-	const tenantId = requireTenantId(locals);
 	const context = locals.context;
 	const identity = locals.identity;
 
 	if (!context || !identity || identity.type !== 'cognito') {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
+
+	const tenantId = context.tenantId;
 
 	// owner は離脱不可（権限を移譲してから）
 	if (context.role === 'owner') {

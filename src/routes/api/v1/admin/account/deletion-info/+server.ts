@@ -3,17 +3,17 @@
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { getOwnerDeletionInfo } from '$lib/server/services/account-deletion-service';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	const tenantId = requireTenantId(locals);
 	const context = locals.context;
 	const identity = locals.identity;
 
 	if (!context || !identity || identity.type !== 'cognito') {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
+
+	const tenantId = context.tenantId;
 
 	if (context.role !== 'owner') {
 		return json({ error: 'owner のみ取得できます' }, { status: 403 });
