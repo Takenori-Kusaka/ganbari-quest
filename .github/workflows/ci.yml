@@ -90,6 +90,10 @@ jobs:
       - name: Color usage report
         run: node scripts/lint-color-classes.mjs || true
 
+      - name: ESLint SonarJS (duplicate strings / cognitive complexity, #977)
+        continue-on-error: true
+        run: npx eslint "src/**/*.ts"
+
       - name: Svelte check
         run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json
 
