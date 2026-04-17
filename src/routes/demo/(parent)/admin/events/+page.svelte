@@ -1,4 +1,5 @@
 <script lang="ts">
+import { todayDateJST } from '$lib/domain/date-utils';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 
@@ -19,7 +20,7 @@ interface SeasonEvent {
 }
 
 function isCurrentlyActive(event: SeasonEvent): boolean {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	return event.isActive === 1 && event.startDate <= today && event.endDate >= today;
 }
 

@@ -1,6 +1,7 @@
 // src/lib/server/services/season-event-service.ts
 // シーズンイベント管理サービス
 
+import { todayDateJST } from '$lib/domain/date-utils';
 import {
 	findActiveEvents,
 	findAllEvents,
@@ -27,7 +28,7 @@ export async function getAllEvents(tenantId: string): Promise<SeasonEvent[]> {
 
 /** 現在開催中のイベント一覧 */
 export async function getActiveEvents(tenantId: string): Promise<SeasonEvent[]> {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	return findActiveEvents(today, tenantId);
 }
 
@@ -36,7 +37,7 @@ export async function getActiveEventsForChild(
 	childId: number,
 	tenantId: string,
 ): Promise<SeasonEventWithProgress[]> {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const events = await findActiveEvents(today, tenantId);
 
 	const result: SeasonEventWithProgress[] = [];
@@ -90,7 +91,7 @@ export async function checkEventMissionProgress(
 	childId: number,
 	tenantId: string,
 ): Promise<{ eventId: number; missionComplete: boolean; eventName: string }[]> {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const events = await findActiveEvents(today, tenantId);
 	const results: { eventId: number; missionComplete: boolean; eventName: string }[] = [];
 
