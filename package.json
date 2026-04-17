@@ -44,7 +44,8 @@
 		"start": "node build/index.js",
 		"security:scan": "node scripts/security-scan.mjs",
 		"storybook": "storybook dev -p 6006",
-		"build-storybook": "storybook build"
+		"build-storybook": "storybook build",
+		"type-coverage": "type-coverage -p . --at-least 97 --strict --ignore-catch --detail"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.10",
@@ -68,8 +69,8 @@
 		"@types/web-push": "^3.6.4",
 		"@typescript-eslint/parser": "^8.58.1",
 		"@vitest/browser-playwright": "^4.1.4",
-		"cross-env": "^7.0.3",
 		"@vitest/coverage-v8": "^4.1.2",
+		"cross-env": "^7.0.3",
 		"drizzle-kit": "^0.31.10",
 		"eslint": "^10.2.0",
 		"eslint-plugin-sonarjs": "^4.0.3",
@@ -87,6 +88,7 @@
 		"svelte-eslint-parser": "^1.6.0",
 		"tailwindcss": "^4.2.2",
 		"tsx": "^4.19.0",
+		"type-coverage": "^2.29.7",
 		"typescript": "^6.0.2",
 		"vite": "^8.0.8",
 		"vitest": "^4.1.2"
@@ -110,5 +112,21 @@
 		"stripe": "^22.0.1",
 		"web-push": "^3.6.7",
 		"zod": "^4.3.6"
+	},
+	"typeCoverage": {
+		"atLeast": 97,
+		"strict": true,
+		"ignoreCatch": true,
+		"detail": true,
+		"ignoreFiles": [
+			"build/**",
+			"storybook-static/**",
+			"coverage/**",
+			"infra/cdk.out/**",
+			"**/*.test.ts",
+			"**/*.spec.ts",
+			"src/lib/server/db/migrations/**",
+			"eslint-plugin-local/**/*.js"
+		]
 	}
 }
