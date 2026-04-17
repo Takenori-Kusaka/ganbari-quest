@@ -4,21 +4,14 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { verifyCronAuth } from '$lib/server/auth/cron-auth';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { deleteFile, listFiles } from '$lib/server/storage';
 
 export const POST: RequestHandler = async ({ request }) => {
-	// 内部 cron 認証
-	const cronSecret = process.env.CRON_SECRET;
-	if (cronSecret) {
-		const authHeader = request.headers.get('x-cron-secret');
-		if (authHeader !== cronSecret) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
-	} else if (process.env.AUTH_MODE !== 'local') {
-		return json({ error: 'CRON_SECRET not configured' }, { status: 500 });
-	}
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 
 	const body = (await request.json().catch(() => ({}))) as { dryRun?: boolean };
 	const dryRun = body.dryRun ?? true;

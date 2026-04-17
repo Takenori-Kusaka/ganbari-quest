@@ -1,39 +1,15 @@
 // src/routes/api/v1/checklists/suggest/+server.ts
 // AI チェックリスト提案 API — プランゲート必須 (#720)
 
-import { error, json } from '@sveltejs/kit';
-import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { apiError } from '$lib/server/errors';
+import { json } from '@sveltejs/kit';
+import { validateSuggestRequest } from '$lib/server/api/suggest-plan-gate';
 import { suggestChecklist } from '$lib/server/services/checklist-suggest-service';
-import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.context) {
-		throw error(401, { message: 'Unauthorized' });
-	}
-	const tenantId = locals.context.tenantId;
+	const result = await validateSuggestRequest(locals, request, 'AI チェックリスト提案');
+	if (!result.ok) return result.response;
 
-	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
-	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-	if (tier !== 'family') {
-		return apiError(
-			'PLAN_LIMIT_EXCEEDED',
-			'AI チェックリスト提案はファミリープランでご利用いただけます',
-		);
-	}
-
-	const body = await request.json();
-	const text = String(body.text ?? '').trim();
-
-	if (!text) {
-		throw error(400, { message: 'テキストを入力してください' });
-	}
-
-	if (text.length > 200) {
-		throw error(400, { message: 'テキストは200文字以内にしてください' });
-	}
-
-	const suggestion = await suggestChecklist(text);
+	const suggestion = await suggestChecklist(result.text);
 	return json(suggestion);
 };
