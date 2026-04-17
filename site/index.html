@@ -243,7 +243,7 @@
 .carousel-track{position:relative;width:280px;height:606px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
 .carousel-slide{position:absolute;inset:0;opacity:0;transition:opacity .8s ease}
 .carousel-slide.active{opacity:1}
-.carousel-slide img{display:block;width:100%;height:100%;object-fit:cover;object-position:top;border-radius:24px}
+.carousel-slide img{display:block;width:100%;height:100%;object-fit:cover;object-position:top;border-radius:24px;cursor:zoom-in}
 .carousel-dots{display:flex;gap:8px;margin-top:16px}
 .carousel-dot{width:8px;height:8px;border-radius:50%;background:var(--gray-300);border:none;cursor:pointer;padding:0;transition:background .3s}
 .carousel-dot.active{background:var(--brand-700);width:24px;border-radius:4px}
@@ -317,10 +317,10 @@
     <span class="badge">&#x2705; 基本無料</span>
     <span class="badge">&#x1F512; データは家族だけのもの</span>
     <span class="badge">&#x1F4F1; スマホ対応</span>
-    <span class="badge">&#x1F310; セルフホスト可</span>
+    <a href="selfhost.html" class="badge" style="text-decoration:none">&#x1F310; セルフホスト可</a>
   </div>
-  <div class="hero-carousel" id="hero-carousel">
-    <div class="carousel-track">
+  <div class="hero-carousel" id="hero-carousel" role="region" aria-roledescription="carousel" aria-label="アプリのスクリーンショット">
+    <div class="carousel-track" tabindex="0">
       <div class="carousel-slide active" data-label="子供のホーム画面 &#8212; 活動を記録してポイントゲット">
         <picture>
           <source srcset="screenshots/carousel-1-child-home-desktop.webp" media="(min-width:1024px)" type="image/webp">
@@ -352,7 +352,7 @@
       <button class="carousel-dot" data-index="2" aria-label="スライド3"></button>
       <button class="carousel-dot" data-index="3" aria-label="スライド4"></button>
     </div>
-    <div class="carousel-label">子供のホーム画面 &#8212; 活動を記録してポイントゲット</div>
+    <div class="carousel-label" aria-live="polite">子供のホーム画面 &#8212; 活動を記録してポイントゲット</div>
   </div>
 </section>
 
@@ -902,11 +902,11 @@
       </details>
       <details class="faq-item">
         <summary>子供のデータは安全ですか？</summary>
-        <div class="faq-answer">SaaS版はAWS上でTLS暗号化通信・AES-256暗号化保存されています。お子さまの本名の入力は不要で、ニックネームでご利用いただけます。データの第三者への販売・共有は一切行いません。プライバシーが気になる方はセルフホスト版もあります。</div>
+        <div class="faq-answer">お子さまのデータは銀行レベルのセキュリティで保護されています。通信・保存ともに暗号化されており、第三者がアクセスすることはできません。お子さまの本名の入力は不要で、ニックネームでご利用いただけます。データの第三者への販売・共有は一切行いません。プライバシーをより重視される方には<a href="selfhost.html">セルフホスト版</a>もご用意しています。</div>
       </details>
       <details class="faq-item">
         <summary>料金はかかりますか？</summary>
-        <div class="faq-answer">基本機能は無料でお使いいただけます。セルフホスト版はオープンソースとして完全無料です。SaaS版の有料プランについては<a href="pricing.html">料金プランページ</a>をご覧ください。</div>
+        <div class="faq-answer">基本機能は無料でお使いいただけます。ポイント、レベルアップ、シールくじなどの冒険体験は無料プランでも制限なく楽しめます。より多くの機能をお使いになりたい方には有料プランもご用意しています。詳しくは<a href="pricing.html">料金プランページ</a>をご覧ください。</div>
       </details>
       <details class="faq-item">
         <summary>何歳から使えますか？</summary>
@@ -1024,26 +1024,36 @@
 <section class="section bg-gray" id="setup">
   <div class="section-inner">
     <h2 class="section-title">はじめ方</h2>
-    <p class="section-desc">2つの方法からお選びいただけます</p>
-    <div class="setup-grid">
-      <div class="setup-option">
-        <h3>&#x2601;&#xFE0F; SaaS版（おすすめ）</h3>
-        <span class="setup-label label-free">基本無料</span>
-        <p>インストール不要、ブラウザからすぐに使えます。データはAWS上に安全に保存。基本機能は無料でお使いいただけます。</p>
-        <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
-      </div>
-      <div class="setup-option">
-        <h3>&#x1F4E6; セルフホスト版</h3>
-        <span class="setup-label label-free">無料・OSS</span>
-        <p>自宅サーバーやNASで動作。データは完全にご自身の管理下に。Dockerで簡単に起動できます。</p>
-        <div class="setup-code">
-          git clone https://github.com/Takenori-Kusaka/ganbari-quest.git<br>
-          cd ganbari-quest<br>
-          docker compose up -d
+    <p class="section-desc">かんたん3ステップですぐに始められます</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>アカウント登録（無料）</h3>
+          <p>メールアドレスまたはGoogleアカウントで1分で完了。クレジットカードは不要です。</p>
         </div>
-        <a href="https://github.com/Takenori-Kusaka/ganbari-quest" class="btn btn-outline">GitHubで詳細を見る</a>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>お子さまの情報を入力</h3>
+          <p>ニックネームと年齢を入力するだけ。年齢に合った活動パックを自動でおすすめします。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>冒険スタート！</h3>
+          <p>お子さまが活動を記録するたびにポイント獲得。今日から冒険が始まります。</p>
+        </div>
       </div>
     </div>
+    <div style="text-align:center;margin-top:32px">
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">無料ではじめる</a>
+    </div>
+    <p style="text-align:center;margin-top:24px;font-size:.85rem;color:var(--gray-500)">
+      &#x1F4BB; エンジニアの方へ: セルフホスト版（OSS）も利用可能です &#8594; <a href="selfhost.html">詳しく見る</a>
+    </p>
   </div>
 </section>
 
@@ -1057,6 +1067,7 @@
     <div class="footer-links">
       <h4>リンク</h4>
       <a href="pricing.html">料金プラン</a>
+      <a href="selfhost.html">セルフホスト版</a>
       <a href="https://github.com/Takenori-Kusaka/ganbari-quest">GitHub</a>
       <a href="https://github.com/sponsors/Takenori-Kusaka">Sponsor</a>
       <a href="https://ganbari-quest.com/auth/login">ログイン</a>
@@ -1086,6 +1097,7 @@
 (()=> {
   var carousel=document.getElementById('hero-carousel');
   if(!carousel)return;
+  var track=carousel.querySelector('.carousel-track');
   var slides=carousel.querySelectorAll('.carousel-slide');
   var dots=carousel.querySelectorAll('.carousel-dot');
   var label=carousel.querySelector('.carousel-label');
@@ -1103,9 +1115,10 @@
     if(label)label.innerHTML=slides[current].getAttribute('data-label')||'';
   }
 
-  function next(){show((current+1)%total)}
+  function nextSlide(){show((current+1)%total)}
+  function prevSlide(){show((current-1+total)%total)}
 
-  function startTimer(){timer=setInterval(next,interval)}
+  function startTimer(){timer=setInterval(nextSlide,interval)}
   function resetTimer(){clearInterval(timer);startTimer()}
 
   dots.forEach((dot)=> {
@@ -1113,6 +1126,29 @@
       show(parseInt(this.getAttribute('data-index')));
       resetTimer();
     });
+  });
+
+  // Touch/swipe support (#1089)
+  var touchStartX=0;
+  var touchEndX=0;
+  track.addEventListener('touchstart',function(e){touchStartX=e.changedTouches[0].screenX},{passive:true});
+  track.addEventListener('touchend',function(e){
+    touchEndX=e.changedTouches[0].screenX;
+    var diff=touchStartX-touchEndX;
+    if(Math.abs(diff)>50){
+      if(diff>0)nextSlide();else prevSlide();
+      resetTimer();
+    }
+  });
+
+  // Hover pause (#1089)
+  carousel.addEventListener('mouseenter',function(){clearInterval(timer)});
+  carousel.addEventListener('mouseleave',function(){startTimer()});
+
+  // Keyboard navigation (#1089)
+  track.addEventListener('keydown',function(e){
+    if(e.key==='ArrowLeft'){prevSlide();resetTimer();e.preventDefault()}
+    if(e.key==='ArrowRight'){nextSlide();resetTimer();e.preventDefault()}
   });
 
   startTimer();
