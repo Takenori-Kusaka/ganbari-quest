@@ -96,6 +96,7 @@ vitest --coverage（カバレッジ閾値）, playwright（E2E）, ESLint（svel
 - Pre-PMF で過剰防衛設計（汎用監査ログ DynamoDB テーブル / S3+Athena / AWS WAF / IP 単位ブルートフォース検知 等）を新規追加しない（ADR-0034）→ HMAC 鍵強度 + API Gateway スロットリング + AWS Budgets + 既存 state カラムで Pre-PMF 段階は十分。採用するには ADR-0034 を supersede する新 ADR を先に起票すること
 - **認証が絡む UI 画面** (login / signup / 管理画面 / ops / プラン別 UI) を `npm run dev` の自動認証モードだけで検証した状態で PR を Ready にしない（#1026）→ `npm run dev` は `/auth/login` を 302 redirect するためログインフォームが描画されず UI 検証ができない。必ず `npm run dev:cognito` で Cognito モックモード (port 5174) を起動し、`DEV_USERS` の該当アカウントでログインした上で `docs/DESIGN.md` §9 禁忌事項のセルフチェックを行うこと
 - **スクリーンショットは CI を通すためではなく UI/UX デザイナー視点の自己判定証跡**として貼る（#1026）→ PR 本文に `![...](...)` さえあれば screenshot-check は通るが、それは目的ではない。撮った画像を自分で見て違和感があれば修正すること。PR template の「スクリーンショット / ビジュアルデモ」セクション冒頭の目的説明に従うこと
+- jscpd を PR の hard-fail に昇格させない（別 ADR なしには）（#971）→ jscpd は週次レポートとして T3 階層で運用。PR ゲートに含めると開発体験が悪化する
 
 ## Critical バグ修正の必須要件（ADR-0005）
 

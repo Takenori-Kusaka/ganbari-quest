@@ -1,0 +1,23 @@
+{
+	"$schema": "https://jscpd.dev/schema/jscpd.json",
+	"threshold": 1,
+	"minTokens": 50,
+	"minLines": 5,
+	"reporters": ["html", "json", "console"],
+	"output": "./reports/jscpd/",
+	"format": ["typescript", "svelte", "javascript"],
+	"ignore": [
+		".svelte-kit/**",
+		"drizzle/**",
+		"tests/e2e/fixtures/**",
+		"**/*.test.ts",
+		"**/*.spec.ts",
+		"site/**",
+		"personal/**",
+		"node_modules/**",
+		"build/**",
+		"storybook-static/**",
+		"reports/**",
+		"coverage/**"
+	]
+}
