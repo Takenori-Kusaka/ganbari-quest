@@ -42,8 +42,6 @@ for (const col of columns) {
 	added++;
 }
 
-console.log(
-	`[migrate-trial-history-columns] Done: ${added} column(s) added, ${skipped} skipped`,
-);
+console.log(`[migrate-trial-history-columns] Done: ${added} column(s) added, ${skipped} skipped`);
 
 db.close();

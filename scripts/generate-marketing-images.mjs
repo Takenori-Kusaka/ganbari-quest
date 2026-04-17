@@ -1,13 +1,14 @@
 #!/usr/bin/env node
+
 // scripts/generate-marketing-images.mjs
 // Gemini API で SNS バナー画像・OGP 画像を生成するスクリプト
 // 使用法: GEMINI_API_KEY=xxx node scripts/generate-marketing-images.mjs
 //
 // ロゴキャラクター（site/icon-character.png）を参照し、各種マーケティング画像を生成。
 
-import { GoogleGenAI } from '@google/genai';
 import fs from 'node:fs';
 import path from 'node:path';
+import { GoogleGenAI } from '@google/genai';
 
 const API_KEY = process.env.GEMINI_API_KEY;
 if (!API_KEY) {
@@ -222,7 +223,9 @@ async function main() {
 	}
 
 	if (successCount < IMAGES.length) {
-		console.log(`\n${IMAGES.length - successCount} 枚の画像生成に失敗しました。再実行してください。`);
+		console.log(
+			`\n${IMAGES.length - successCount} 枚の画像生成に失敗しました。再実行してください。`,
+		);
 	}
 }
 

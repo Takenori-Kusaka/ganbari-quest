@@ -4,7 +4,7 @@
 // 使用方法: npx tsx scripts/generate-pwa-icons.ts
 // 依存: npm install -D sharp (初回のみ)
 
-import { readFileSync, mkdirSync, existsSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..');
@@ -25,7 +25,10 @@ async function main() {
 
 	for (const size of SIZES) {
 		// 通常アイコン
-		await sharp(svg).resize(size, size).png().toFile(join(ICONS_DIR, `icon-${size}.png`));
+		await sharp(svg)
+			.resize(size, size)
+			.png()
+			.toFile(join(ICONS_DIR, `icon-${size}.png`));
 		console.log(`Generated icon-${size}.png`);
 	}
 

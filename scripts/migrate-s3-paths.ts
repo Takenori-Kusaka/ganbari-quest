@@ -27,11 +27,7 @@ import {
 	ListObjectsV2Command,
 	S3Client,
 } from '@aws-sdk/client-s3';
-import {
-	DynamoDBDocumentClient,
-	ScanCommand,
-	UpdateCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'crypto';
 
 // ============================================================
@@ -49,9 +45,7 @@ const TENANT_ID = tenantIdIdx !== -1 ? args[tenantIdIdx + 1] : undefined;
 
 if (!TENANT_ID) {
 	console.error('Error: --tenant-id <tenantId> is required');
-	console.error(
-		'Usage: npx tsx scripts/migrate-s3-paths.ts --tenant-id t-xxxxx [--dry-run]',
-	);
+	console.error('Usage: npx tsx scripts/migrate-s3-paths.ts --tenant-id t-xxxxx [--dry-run]');
 	process.exit(1);
 }
 
@@ -227,7 +221,8 @@ async function findChildrenWithOldAvatars(): Promise<DbUpdate[]> {
 		const res = await docClient.send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'SK = :sk AND attribute_exists(avatarUrl) AND NOT begins_with(avatarUrl, :newPrefix)',
+				FilterExpression:
+					'SK = :sk AND attribute_exists(avatarUrl) AND NOT begins_with(avatarUrl, :newPrefix)',
 				ExpressionAttributeValues: {
 					':sk': 'PROFILE',
 					':newPrefix': `/tenants/${TENANT_ID}/`,
@@ -278,7 +273,8 @@ async function findOldCharacterImages(): Promise<CharImageUpdate[]> {
 		const res = await docClient.send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :skPrefix) AND attribute_exists(imageUrl) AND NOT begins_with(imageUrl, :newPrefix)',
+				FilterExpression:
+					'begins_with(SK, :skPrefix) AND attribute_exists(imageUrl) AND NOT begins_with(imageUrl, :newPrefix)',
 				ExpressionAttributeValues: {
 					':skPrefix': 'CHARIMG#',
 					':newPrefix': `/tenants/${TENANT_ID}/`,

@@ -67,7 +67,9 @@ console.log(`\n合計: ${totalChanged}件の活動を更新しました`);
 
 // 確認出力
 const updated = db
-	.prepare('SELECT id, name, daily_limit FROM activities WHERE daily_limit IS NOT NULL ORDER BY daily_limit DESC, id')
+	.prepare(
+		'SELECT id, name, daily_limit FROM activities WHERE daily_limit IS NOT NULL ORDER BY daily_limit DESC, id',
+	)
 	.all();
 console.log('\n更新された活動一覧:');
 for (const r of updated) {

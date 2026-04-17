@@ -19,11 +19,11 @@ db.pragma('journal_mode = WAL');
 
 // カテゴリ名 → ID マッピング
 const CATEGORY_MAP = {
-	'うんどう': 1,
-	'べんきょう': 2,
-	'せいかつ': 3,
-	'こうりゅう': 4,
-	'そうぞう': 5,
+	うんどう: 1,
+	べんきょう: 2,
+	せいかつ: 3,
+	こうりゅう: 4,
+	そうぞう: 5,
 };
 
 // Step 1: スキーマ移行（category TEXT → category_id INTEGER）
@@ -50,7 +50,9 @@ if (hasOldSchema && !hasNewSchema) {
 			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)
 	`);
-	db.exec('CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks (age, category_id)');
+	db.exec(
+		'CREATE UNIQUE INDEX idx_benchmarks_age_category ON market_benchmarks (age, category_id)',
+	);
 
 	// 旧データを新スキーマで再投入
 	const insertMigrated = db.prepare(
@@ -169,7 +171,11 @@ const upsertAll = db.transaction(() => {
 		if (!existing) {
 			insert.run(b.age, b.category_id, b.mean, b.std_dev, b.source);
 			inserted++;
-		} else if (existing.mean !== b.mean || existing.std_dev !== b.std_dev || existing.source !== b.source) {
+		} else if (
+			existing.mean !== b.mean ||
+			existing.std_dev !== b.std_dev ||
+			existing.source !== b.source
+		) {
 			update.run(b.mean, b.std_dev, b.source, existing.id);
 			updated++;
 		} else {
