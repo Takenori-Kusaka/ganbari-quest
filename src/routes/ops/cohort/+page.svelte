@@ -15,9 +15,9 @@ function fmtPct(value: number | null): string {
 /** 残存率に基づく色クラス */
 function retentionColorClass(value: number | null): string {
 	if (value === null) return 'text-[var(--color-text-muted)]';
-	if (value >= 0.7) return 'text-[var(--color-success)]';
+	if (value >= 0.7) return 'text-[var(--color-feedback-success-text)]';
 	if (value >= 0.4) return 'text-[var(--color-feedback-warning-text)]';
-	return 'text-[var(--color-danger)]';
+	return 'text-[var(--color-feedback-error-text)]';
 }
 </script>
 
@@ -31,19 +31,19 @@ function retentionColorClass(value: number | null): string {
 	<div class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
 		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">ARPU</div>
-			<div class="text-[1.75rem] font-bold text-[var(--color-neutral-900)]">
+			<div class="text-[1.75rem] font-bold text-[var(--color-text)]">
 				&yen;{analysis.arpu.toLocaleString()}
 			</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">月次解約率</div>
-			<div class="text-[1.75rem] font-bold text-[var(--color-neutral-900)]">
+			<div class="text-[1.75rem] font-bold text-[var(--color-text)]">
 				{(analysis.monthlyChurnRate * 100).toFixed(1)}%
 			</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">理論値 LTV</div>
-			<div class="text-[1.75rem] font-bold text-[var(--color-neutral-900)]">
+			<div class="text-[1.75rem] font-bold text-[var(--color-text)]">
 				&yen;{analysis.theoreticalLtv.toLocaleString()}
 			</div>
 			<div class="text-xs text-[var(--color-text-muted)] mt-1">ARPU / 月次解約率</div>
@@ -52,11 +52,11 @@ function retentionColorClass(value: number | null): string {
 
 	<!-- コホート別リテンションカーブ（表形式） -->
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">
 			月次コホート別リテンション（過去{data.monthsBack}ヶ月）
 		</h2>
 		{#if cohorts.length === 0}
-			<p class="text-[var(--color-neutral-400)] text-sm text-center p-8">
+			<p class="text-[var(--color-text-tertiary)] text-sm text-center p-8">
 				コホートデータがありません
 			</p>
 		{:else}
@@ -112,7 +112,7 @@ function retentionColorClass(value: number | null): string {
 
 	<!-- コホート別 LTV 比較 -->
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">
 			コホート別 LTV 比較
 		</h2>
 		<div class="flex flex-col gap-2">
@@ -170,7 +170,7 @@ function retentionColorClass(value: number | null): string {
 	.ops-table td {
 		padding: 0.5rem 0.75rem;
 		text-align: left;
-		border-bottom: 1px solid var(--color-neutral-100);
+		border-bottom: 1px solid var(--color-border-light);
 	}
 
 	.ops-table th {

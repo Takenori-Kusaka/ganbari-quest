@@ -2,6 +2,7 @@
 // コホート別 LTV / チャーン率推移（リテンションカーブ）サービス (#838)
 // 12-事業計画書 §7.3 の LTV 計算式と整合する実測値を算出
 
+import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
@@ -238,11 +239,11 @@ function calculateArpu(paidTenants: Tenant[]): number {
 
 	// プラン単価 (月額換算)
 	const planPrices: Record<string, number> = {
-		monthly: 500,
-		yearly: Math.round(5000 / 12), // 417
-		'family-monthly': 780,
-		'family-yearly': Math.round(7800 / 12), // 650
-		lifetime: 0,
+		[LICENSE_PLAN.MONTHLY]: 500,
+		[LICENSE_PLAN.YEARLY]: Math.round(5000 / 12), // 417
+		[LICENSE_PLAN.FAMILY_MONTHLY]: 780,
+		[LICENSE_PLAN.FAMILY_YEARLY]: Math.round(7800 / 12), // 650
+		[LICENSE_PLAN.LIFETIME]: 0,
 	};
 
 	const totalRevenue = paidTenants.reduce((sum, t) => {

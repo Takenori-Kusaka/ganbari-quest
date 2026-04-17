@@ -2,6 +2,8 @@
 // コホート別 LTV / チャーン率推移サービスのユニットテスト (#838)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Tenant } from '../../../src/lib/server/auth/entities';
 
 // --- Top-level mock fns ---
@@ -37,7 +39,7 @@ function makeTenant(overrides: Partial<Tenant> & { tenantId: string }): Tenant {
 	return {
 		name: `テナント-${overrides.tenantId}`,
 		ownerId: 'owner-1',
-		status: 'active',
+		status: SUBSCRIPTION_STATUS.ACTIVE,
 		createdAt: '2026-01-15T00:00:00Z',
 		updatedAt: '2026-01-15T00:00:00Z',
 		...overrides,
@@ -104,12 +106,12 @@ describe('getCohortAnalysis', () => {
 			makeTenant({
 				tenantId: 't1',
 				createdAt: monthDate(thisMonth),
-				plan: 'monthly',
+				plan: LICENSE_PLAN.MONTHLY,
 			}),
 			makeTenant({
 				tenantId: 't2',
 				createdAt: monthDate(thisMonth),
-				plan: 'family-monthly',
+				plan: LICENSE_PLAN.FAMILY_MONTHLY,
 			}),
 			makeTenant({
 				tenantId: 't3',
@@ -132,7 +134,7 @@ describe('getCohortAnalysis', () => {
 				makeTenant({
 					tenantId: `t${i}`,
 					createdAt: monthDate(thisMonth),
-					plan: 'monthly',
+					plan: LICENSE_PLAN.MONTHLY,
 				}),
 			);
 		}
@@ -153,7 +155,7 @@ describe('getCohortAnalysis', () => {
 				makeTenant({
 					tenantId: `t${i}`,
 					createdAt: monthDate(thisMonth),
-					plan: 'monthly',
+					plan: LICENSE_PLAN.MONTHLY,
 				}),
 			);
 		}
@@ -172,14 +174,14 @@ describe('getCohortAnalysis', () => {
 			makeTenant({
 				tenantId: 't1',
 				createdAt: monthDate(thisMonth),
-				plan: 'monthly',
-				status: 'active',
+				plan: LICENSE_PLAN.MONTHLY,
+				status: SUBSCRIPTION_STATUS.ACTIVE,
 			}),
 			makeTenant({
 				tenantId: 't2',
 				createdAt: monthDate(thisMonth),
-				plan: 'family-monthly',
-				status: 'active',
+				plan: LICENSE_PLAN.FAMILY_MONTHLY,
+				status: SUBSCRIPTION_STATUS.ACTIVE,
 			}),
 		]);
 
@@ -200,8 +202,8 @@ describe('getCohortAnalysis', () => {
 				makeTenant({
 					tenantId: `t${i}`,
 					createdAt: monthDate(thisMonth, 1),
-					plan: 'monthly',
-					status: 'active',
+					plan: LICENSE_PLAN.MONTHLY,
+					status: SUBSCRIPTION_STATUS.ACTIVE,
 				}),
 			);
 		}
@@ -209,8 +211,8 @@ describe('getCohortAnalysis', () => {
 			makeTenant({
 				tenantId: 'terminated',
 				createdAt: monthDate(thisMonth, 1),
-				plan: 'monthly',
-				status: 'terminated',
+				plan: LICENSE_PLAN.MONTHLY,
+				status: SUBSCRIPTION_STATUS.TERMINATED,
 				updatedAt: new Date().toISOString(), // terminated this month
 			}),
 		);
@@ -232,8 +234,8 @@ describe('getCohortAnalysis', () => {
 			makeTenant({
 				tenantId: 't1',
 				createdAt: monthDate(thisMonth),
-				plan: 'monthly',
-				status: 'active',
+				plan: LICENSE_PLAN.MONTHLY,
+				status: SUBSCRIPTION_STATUS.ACTIVE,
 			}),
 		]);
 
@@ -253,7 +255,7 @@ describe('getCohortAnalysis', () => {
 			makeTenant({
 				tenantId: 't1',
 				createdAt: monthDate(oldMonth),
-				status: 'active',
+				status: SUBSCRIPTION_STATUS.ACTIVE,
 			}),
 		]);
 
@@ -278,7 +280,7 @@ describe('getCohortAnalysis', () => {
 			makeTenant({
 				tenantId: 't1',
 				createdAt: now.toISOString(),
-				status: 'active',
+				status: SUBSCRIPTION_STATUS.ACTIVE,
 			}),
 		]);
 
@@ -325,12 +327,12 @@ describe('getCohortAnalysis', () => {
 			makeTenant({
 				tenantId: 't1',
 				createdAt: signupDate.toISOString(),
-				status: 'active',
+				status: SUBSCRIPTION_STATUS.ACTIVE,
 			}),
 			makeTenant({
 				tenantId: 't2',
 				createdAt: signupDate.toISOString(),
-				status: 'terminated',
+				status: SUBSCRIPTION_STATUS.TERMINATED,
 				updatedAt: terminatedDate.toISOString(),
 			}),
 		]);
