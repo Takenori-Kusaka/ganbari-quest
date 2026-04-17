@@ -12,6 +12,7 @@ export interface PlanLimits {
 	maxChildren: number | null; // null = 無制限
 	maxActivities: number | null;
 	maxChecklistTemplates: number | null; // 1子あたりのチェックリストテンプレート数 (#723)
+	maxFamilyMembers: number | null; // null = 無制限, 招待によるメンバー上限（owner含む） (#1111)
 	historyRetentionDays: number | null;
 	canExport: boolean;
 	canFreeTextMessage: boolean; // 自由テキストメッセージ（ファミリープラン限定）
@@ -30,6 +31,8 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		// 現状 preset テンプレ機構がないため、maxActivities と同様に「少数で自由作成可」に寄せ、
 		// 1子あたり 3 テンプレまでに制限（朝/昼/夜 の 3 枠想定）。
 		maxChecklistTemplates: 3,
+		// #1111: フリープランは招待不可（owner のみ）
+		maxFamilyMembers: 1,
 		historyRetentionDays: 90,
 		canExport: false,
 		canFreeTextMessage: false,
@@ -41,6 +44,8 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxChildren: null,
 		maxActivities: null,
 		maxChecklistTemplates: null,
+		// #1111: スタンダードは owner + 3人 = 計4人まで（核家族想定）
+		maxFamilyMembers: 4,
 		historyRetentionDays: 365,
 		canExport: true,
 		canFreeTextMessage: false,
@@ -52,6 +57,8 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxChildren: null,
 		maxActivities: null,
 		maxChecklistTemplates: null,
+		// #1111: ファミリープランは無制限
+		maxFamilyMembers: null,
 		historyRetentionDays: null,
 		canExport: true,
 		canFreeTextMessage: true,
@@ -260,5 +267,32 @@ export async function checkChecklistTemplateLimit(
 		allowed: current < limits.maxChecklistTemplates,
 		current,
 		max: limits.maxChecklistTemplates,
+	};
+}
+
+/**
+ * 家族メンバー（招待）の制限チェック (#1111)
+ *
+ * Free は 1（owner のみ、招待不可）。
+ * Standard は 4（owner + 3人、核家族想定）。
+ * Family は null（無制限）。
+ */
+export async function checkFamilyMemberLimit(
+	tenantId: string,
+	licenseStatus: string,
+): Promise<{ allowed: boolean; current: number; max: number | null }> {
+	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
+	if (limits.maxFamilyMembers === null) {
+		return { allowed: true, current: 0, max: null };
+	}
+
+	const repos = getRepos();
+	const members = await repos.auth.findTenantMembers(tenantId);
+	const current = members.length;
+
+	return {
+		allowed: current < limits.maxFamilyMembers,
+		current,
+		max: limits.maxFamilyMembers,
 	};
 }
