@@ -189,17 +189,32 @@ export function calcActivitiesToNextLevel(totalXp: number, avgPointsPerActivity 
 // Level-based Evaluation Text (replaces deviation-based for child UI)
 // ================================================================
 
+export type LevelEvaluationTier = {
+	readonly minLevel: number;
+	readonly text: string;
+	readonly emoji: string;
+};
+
+/** minLevel 降順。配列要素の追加は他要素に影響しない（データ駆動） */
+export const LEVEL_EVALUATION_TIERS: readonly LevelEvaluationTier[] = [
+	{ minLevel: 50, text: 'でんせつのぼうけんしゃ！', emoji: '👑' },
+	{ minLevel: 30, text: 'もはやたつじん！', emoji: '🏆' },
+	{ minLevel: 20, text: 'すばらしいせいちょう！', emoji: '🌟' },
+	{ minLevel: 10, text: 'めちゃくちゃがんばってる！', emoji: '🔥' },
+	{ minLevel: 7, text: 'たつじんレベル！', emoji: '⭐' },
+	{ minLevel: 5, text: 'すごいぞ！', emoji: '✨' },
+	{ minLevel: 3, text: 'いいかんじ！', emoji: '😊' },
+	{ minLevel: 2, text: 'そのちょうしだ！', emoji: '💪' },
+	{ minLevel: 0, text: 'はじめのいっぽ！', emoji: '🌱' },
+] as const;
+
 /** レベルに連動した評価文（子供画面用） */
 export function getLevelEvaluationText(level: number): { text: string; emoji: string } {
-	if (level >= 50) return { text: 'でんせつのぼうけんしゃ！', emoji: '👑' };
-	if (level >= 30) return { text: 'もはやたつじん！', emoji: '🏆' };
-	if (level >= 20) return { text: 'すばらしいせいちょう！', emoji: '🌟' };
-	if (level >= 10) return { text: 'めちゃくちゃがんばってる！', emoji: '🔥' };
-	if (level >= 7) return { text: 'たつじんレベル！', emoji: '⭐' };
-	if (level >= 5) return { text: 'すごいぞ！', emoji: '✨' };
-	if (level >= 3) return { text: 'いいかんじ！', emoji: '😊' };
-	if (level >= 2) return { text: 'そのちょうしだ！', emoji: '💪' };
-	return { text: 'はじめのいっぽ！', emoji: '🌱' };
+	const tier =
+		LEVEL_EVALUATION_TIERS.find((t) => level >= t.minLevel) ??
+		LEVEL_EVALUATION_TIERS[LEVEL_EVALUATION_TIERS.length - 1];
+	if (!tier) throw new Error('LEVEL_EVALUATION_TIERS must include minLevel: 0 terminator');
+	return { text: tier.text, emoji: tier.emoji };
 }
 
 // ================================================================
