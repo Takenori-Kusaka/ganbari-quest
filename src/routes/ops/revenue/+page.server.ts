@@ -1,7 +1,8 @@
 // src/routes/ops/revenue/+page.server.ts
-// 収益詳細ページ (#0176 Phase 2)
+// 収益詳細ページ (#0176 Phase 2, #835 Stripe 収益指標追加)
 
 import { getRevenueData } from '$lib/server/services/ops-service';
+import { getStripeMetrics } from '$lib/server/services/stripe-metrics-service';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
@@ -12,7 +13,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	const from = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
 	const to = now;
 
-	const revenue = await getRevenueData(from, to);
+	const [revenue, metrics] = await Promise.all([getRevenueData(from, to), getStripeMetrics()]);
 
-	return { revenue, monthsBack };
+	return { revenue, metrics, monthsBack };
 };
