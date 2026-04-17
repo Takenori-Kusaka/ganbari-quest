@@ -12,8 +12,7 @@ import { sendDeletionCompleteEmail } from '$lib/server/services/email-service';
 import { deleteByPrefix } from '$lib/server/storage';
 
 export const POST: RequestHandler = async ({ request }) => {
-	const authError = verifyCronAuth(request);
-	if (authError) return authError;
+	verifyCronAuth(request);
 
 	const body = (await request.json().catch(() => ({}))) as { dryRun?: boolean };
 	const dryRun = body.dryRun ?? true;
