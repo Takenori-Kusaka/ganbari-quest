@@ -316,6 +316,15 @@ export const handle: Handle = ({ event, resolve }) =>
 		// 認可チェック（Provider 固有のルート保護）
 		const authResult = provider.authorize(path, identity, context);
 		if (!authResult.allowed) {
+			if (path.startsWith('/api/')) {
+				const status = authResult.status ?? 401;
+				return new Response(
+					JSON.stringify({
+						error: status === 403 ? 'アクセスが拒否されました' : '認証が必要です',
+					}),
+					{ status, headers: { 'Content-Type': 'application/json' } },
+				);
+			}
 			redirect(302, authResult.redirect);
 		}
 
