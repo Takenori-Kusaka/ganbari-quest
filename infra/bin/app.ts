@@ -67,6 +67,7 @@ new SesStack(app, `${appName}Ses`, {
 
 // OpsStack: 監視・アラート + コスト防衛 (deploy with -c opsEmail=you@example.com)
 const opsEmail = app.node.tryGetContext('opsEmail') as string | undefined;
+const discordWebhookHealth = app.node.tryGetContext('discordWebhookHealth') as string | undefined;
 new OpsStack(app, `${appName}Ops`, {
 	env,
 	description: 'Monitoring, Alerts, Budgets, Cost Management for Ganbari Quest',
@@ -74,6 +75,7 @@ new OpsStack(app, `${appName}Ops`, {
 	table: storage.table,
 	distribution: network.distribution,
 	opsEmail,
+	discordWebhookHealth,
 });
 
 app.synth();
