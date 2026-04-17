@@ -84,11 +84,7 @@ const results = [];
 // ----- 1. npm audit -----
 {
 	const outputFile = join(outputDir, 'npm-audit.json');
-	const result = runTool(
-		'npm audit',
-		'npm audit --json',
-		outputFile,
-	);
+	const result = runTool('npm audit', 'npm audit --json', outputFile);
 	results.push({ tool: 'npm audit', ...result });
 
 	// Also generate human-readable output
@@ -111,7 +107,10 @@ const results = [];
 		console.log('  Install: brew install osv-scanner');
 		console.log('  Or: go install github.com/google/osv-scanner/cmd/osv-scanner@latest');
 		console.log('  See: docs/security/scan.md');
-		writeFileSync(outputFile, JSON.stringify({ skipped: true, reason: 'osv-scanner not installed' }, null, 2));
+		writeFileSync(
+			outputFile,
+			JSON.stringify({ skipped: true, reason: 'osv-scanner not installed' }, null, 2),
+		);
 		results.push({ tool: 'osv-scanner', success: false, findings: false, skipped: true });
 	}
 }
@@ -131,7 +130,10 @@ const results = [];
 		console.log('  Install: pip install semgrep');
 		console.log('  Or: brew install semgrep');
 		console.log('  See: docs/security/scan.md');
-		writeFileSync(outputFile, JSON.stringify({ skipped: true, reason: 'semgrep not installed' }, null, 2));
+		writeFileSync(
+			outputFile,
+			JSON.stringify({ skipped: true, reason: 'semgrep not installed' }, null, 2),
+		);
 		results.push({ tool: 'semgrep', success: false, findings: false, skipped: true });
 	}
 }
@@ -156,18 +158,21 @@ for (const r of results) {
 }
 
 const summaryFile = join(outputDir, 'summary.txt');
-writeFileSync(summaryFile, [
-	`Security Scan Summary — ${today}`,
-	'',
-	...summaryLines,
-	'',
-	`Full results: ${outputDir}/`,
-	'',
-	'Next steps:',
-	'- severity high 以上の finding は個別 Issue として起票する',
-	'- low/info は本 Issue のコメントに集約可',
-	'- 詳細手順: docs/security/scan.md',
-].join('\n'));
+writeFileSync(
+	summaryFile,
+	[
+		`Security Scan Summary — ${today}`,
+		'',
+		...summaryLines,
+		'',
+		`Full results: ${outputDir}/`,
+		'',
+		'Next steps:',
+		'- severity high 以上の finding は個別 Issue として起票する',
+		'- low/info は本 Issue のコメントに集約可',
+		'- 詳細手順: docs/security/scan.md',
+	].join('\n'),
+);
 
 console.log(`\nSummary written to: ${summaryFile}`);
 
