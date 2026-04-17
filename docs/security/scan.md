@@ -1,10 +1,11 @@
 # OSS 脆弱性診断ガイド
 
-> Issue #985 / ADR-0032 T4（四半期 / 手動実行）
+> Issue #985, #986 / ADR-0032 T4（四半期 / 自動 + 手動実行）
 
 ## 概要
 
 3 つの OSS ツールでプロジェクトの脆弱性を検査する。
+四半期ごとに `npm audit` を GitHub Actions で自動実行し、検出された脆弱性を GitHub Issue として自動起票する。
 
 | ツール | 対象 | インストール | 必須 |
 |--------|------|-------------|------|
@@ -12,13 +13,26 @@
 | **osv-scanner** | lockfile → OSV.dev DB | brew / go install | NO（推奨） |
 | **semgrep** | ソースコード脆弱パターン | pip / brew | NO（推奨） |
 
-## クイックスタート
+## トリガ方法
+
+### 自動実行 (cron)
+
+- **スケジュール**: 毎四半期初日 00:00 UTC (1/1, 4/1, 7/1, 10/1)
+- **ワークフロー**: `.github/workflows/security-scan.yml`
+- 手動介入不要
+
+### 手動実行 (workflow_dispatch)
+
+1. GitHub リポジトリの Actions タブを開く
+2. 左メニューから "Quarterly Security Scan" を選択
+3. "Run workflow" ボタンをクリック
+4. ブランチを `main` のまま "Run workflow" を実行
 
 ```bash
-# 最小構成（npm audit のみ）
-npm run security:scan
+# gh CLI から
+gh workflow run security-scan.yml
 
-# 全ツール使用（osv-scanner + semgrep をインストール済みの場合）
+# ローカル実行（全ツール）
 npm run security:scan
 ```
 
@@ -109,17 +123,35 @@ reports/security/YYYY-MM-DD/
 
 > `reports/security/` は `.gitignore` に含まれる（機密情報を含む可能性があるため）。
 
-## finding の対処フロー
+## Finding Issue への対応フロー
 
-### 1. 重要度の判定
+### severity: high / critical
 
-| Severity | 対応 |
-|----------|------|
-| **critical / high** | 即座に個別 Issue を起票。修正 PR を優先 |
-| **moderate** | 個別 Issue を起票。次スプリントで対応 |
-| **low / info** | 本 Issue (#985) のコメントに集約。次回スキャンまでに対応 |
+- 個別 Issue が自動起票される
+- ラベル: `priority:high`, `type:fix`, `security`
+- **対応期限**: 起票から 30 日以内
+- 対応手順:
+  1. 影響範囲を確認
+  2. `npm audit fix` または手動で依存更新
+  3. テスト全通過を確認
+  4. PR 作成 → マージ
 
-### 2. Issue 起票テンプレート
+### severity: moderate / low
+
+- 1 つのサマリ Issue に集約される
+- ラベル: `priority:low`, `type:fix`, `security`
+- **対応期限**: 次回四半期スキャンまで
+- 対応手順:
+  1. サマリを確認し、対応可能なものから更新
+  2. breaking change がある場合は個別に判断
+
+### 重複防止
+
+- スクリプトは起票前に `gh issue list --search` で既存 Open Issue を検索
+- 同一 advisory ID / パッケージ名の Issue が Open の場合は skip
+- 解決済み Issue (Closed) は重複とみなさない
+
+### Issue 起票テンプレート（手動起票時）
 
 ```markdown
 ## 脆弱性報告
@@ -134,7 +166,7 @@ reports/security/YYYY-MM-DD/
 - **検出日**: YYYY-MM-DD
 ```
 
-### 3. 修正方法
+### 修正方法
 
 #### npm 依存パッケージの脆弱性
 
@@ -188,10 +220,19 @@ tests/
 
 > **重要**: 例外登録は PR レビューで正当性を必ず確認すること。「面倒だから ignore」は禁止。
 
-## 関連
+## 関連ファイル
 
-- ADR-0032: 静的解析ツール実行頻度ポリシー（T4 = 四半期/手動）
+| ファイル | 役割 |
+|---------|------|
+| `.github/workflows/security-scan.yml` | GitHub Actions ワークフロー定義 |
+| `scripts/security-findings-to-issues.mjs` | audit 結果 → Issue 起票スクリプト |
+| `.github/workflows/codeql.yml` | CodeQL（JS/TS コードパターン検出） |
+| `.github/workflows/dependency-review.yml` | PR 時の依存差分レビュー |
+
+## 参照
+
+- Issue #985: ローカル実行セキュリティスキャン
+- Issue #986: 四半期自動セキュリティスキャン
 - ADR-0029: Safety Assertion Erosion Ban
+- ADR-0032: 静的解析ティアポリシー (T4 四半期)
 - ADR-0034: Pre-PMF セキュリティ最小化方針
-- `.github/workflows/codeql.yml`: CodeQL（JS/TS コードパターン検出）
-- `.github/workflows/dependency-review.yml`: PR 時の依存差分レビュー
