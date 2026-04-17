@@ -72,6 +72,44 @@ gh pr diff <番号>
 4. 設計書同期済み
 5. レビュー指摘が全て解決済み
 
+## 運用ナレッジ
+
+### Admin Bypass の判断基準
+
+E2E/unit/docker-build/site-check が全 PASS で lint-and-test のみ失敗、かつ lint 失敗が PR 変更ファイルと無関係な場合 → admin bypass でマージ可。PR body に bypass 理由を必ず記載すること。
+
+### 修正 Agent への指示テンプレート
+
+- 修正対象ファイルのパス・現在内容を明示する
+- 既存実装パターン（例: `verifyCronAuth` の `Response|null` 返却パターン）を Agent プロンプトに含める
+- Agent が独自解釈で互換性のない実装を作らないよう制約を明記する
+
+### Rebase 手順（OneDrive 環境）
+
+OneDrive が `.git/HEAD` を壊すため、`/c/tmp/` に GitHub URL から直接 clone して rebase する:
+1. `git clone --single-branch -b <branch> <GitHub URL> /c/tmp/<repo>`
+2. `git fetch origin main`
+3. `git rebase origin/main`
+4. `git push --force-with-lease`
+
+### Cascade Conflict 対応
+
+- マージ順序を考慮する（依存なし → 依存あり の順）
+- マージ後に他 PR が DIRTY になった場合 → rebase が必要
+- Dependabot PR 同士は `package.json` / `package-lock.json` の競合が頻発するため注意
+
+### CI pull_request イベント未発火時の対処
+
+外部クローンからの push 後に `synchronize` イベントが未発火の場合がある:
+1. `gh workflow run ci.yml --ref <branch>` で `workflow_dispatch` を手動トリガー
+2. それでも反映されない場合は空コミットを再 push
+
+### Dependabot PR 処理フロー
+
+1. `dependency-review` check が PASS していることを確認
+2. メジャーバージョンアップは Node 要件・breaking changes を確認
+3. `package.json` 競合が予測される場合はマージ順序を計画する
+
 ## 参照すべきドキュメント
 
 - テスト品質: `tests/CLAUDE.md`（ADR-0020）
