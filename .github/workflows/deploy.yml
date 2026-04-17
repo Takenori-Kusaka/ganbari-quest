@@ -36,7 +36,8 @@ env:
   APP_MAJOR_VERSION: "1"
 
 jobs:
-  test:
+  # #1006: deploy.yml の test を lint / E2E shard / cognito に分離して並列化
+  test-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -56,10 +57,26 @@ jobs:
       - run: npx vitest run --coverage
         name: Unit tests with coverage enforcement
 
+  # #1006: E2E local tests を 3 shard に分割
+  test-e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
       # Build before E2E (preview mode eliminates Vite JIT compilation overhead)
       - run: npm run build
 
-      # E2E tests (local mode)
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v5
@@ -79,19 +96,66 @@ jobs:
       # hooks.server.ts の assertLicenseKeyConfigured() が AWS_LICENSE_SECRET を要求する。
       # 未設定だと webServer が起動失敗 → "Process from config.webServer was not able to start" で
       # 全 E2E が落ちる。CI 用の固定ダミー値を注入して assertion を通す（本番値とは別物）。
-      - name: E2E tests (local mode)
+      - name: E2E tests (local mode, shard ${{ matrix.shard }}/3)
         env:
           AWS_LICENSE_SECRET: ci-deploy-test-secret-do-not-use-in-production
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/3
 
-      # E2E tests (cognito-dev mode)
+  # #1006: cognito-dev E2E は spec が少ないため shard 不要
+  test-cognito:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright deps (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
       - name: E2E tests (cognito-dev mode)
         env:
           AWS_LICENSE_SECRET: ci-deploy-test-secret-do-not-use-in-production
         run: npx playwright test --config playwright.cognito-dev.config.ts
 
+  # #1006: 全 test job の結果を集約する gate job (deploy の依存先)
+  test-gate:
+    if: always()
+    needs: [test-lint, test-e2e, test-cognito]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check test results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "Test job results:"
+          echo "$NEEDS" | jq -r 'to_entries[] | "  \(.key): \(.value.result)"'
+          failed=$(echo "$NEEDS" | jq -r '[to_entries[] | select(.value.result == "failure" or .value.result == "cancelled")] | length')
+          if [ "$failed" -gt 0 ]; then
+            echo "Tests failed: $failed job(s) failed or cancelled"
+            exit 1
+          fi
+          echo "All tests passed"
+
   deploy:
-    needs: test
+    needs: test-gate
     runs-on: ubuntu-24.04-arm
     environment: production
     outputs:
