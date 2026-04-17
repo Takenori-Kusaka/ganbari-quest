@@ -71,6 +71,9 @@ screenshots/
 !site/screenshots/
 !docs/screenshots/
 
+# Security scan reports (may contain sensitive info)
+reports/security/
+
 # Storybook
 storybook-static/
 
