@@ -2,15 +2,11 @@
 // #717, #729: 保存期間超過データの自動削除クロンエンドポイント
 //
 // EventBridge (Scheduled Rule) または手動実行から呼ばれる。
-// 認証は CRON_SECRET の Bearer token で行う。
-// #820 で /ops ダッシュボードは Cognito ops group 認可に移行したため、
-// このエンドポイントは独自の shared secret (CRON_SECRET) を使う。
-// 移行期間中は後方互換で OPS_SECRET_KEY も読み、どちらかが一致すれば許可する。
-// ADR-0033 参照。
+// 認証は x-cron-secret ヘッダで行う（verifyCronAuth 共通ヘルパー）。
 //
 // 使い方:
 //   POST /api/cron/retention-cleanup
-//   Authorization: Bearer <CRON_SECRET>
+//   x-cron-secret: <CRON_SECRET>
 //   Body (任意): { "dryRun": true }
 //
 // レスポンス:

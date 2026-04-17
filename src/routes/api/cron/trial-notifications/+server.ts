@@ -1,11 +1,11 @@
 // POST /api/cron/trial-notifications — トライアル終了通知 cron (#737)
 //
 // EventBridge (Scheduled Rule) から日次で呼び出される想定。
-// 認証は CRON_SECRET の Bearer token で行う。
+// 認証は x-cron-secret ヘッダで行う（verifyCronAuth 共通ヘルパー）。
 //
 // 使い方:
 //   POST /api/cron/trial-notifications
-//   Authorization: Bearer <CRON_SECRET>
+//   x-cron-secret: <CRON_SECRET>
 //   Body (任意): { "tenantIds": ["tenant-1", ...] }
 //
 // tenantIds を省略した場合はアクティブなトライアルを持つ全テナントを対象にする。
