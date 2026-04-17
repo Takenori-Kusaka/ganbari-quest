@@ -12,6 +12,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { LICENSE_KEY_STATUS } from '$lib/domain/constants/license-key-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { INVITE_EXPIRY_DAYS } from '$lib/domain/validation/auth';
 import type {
 	AuthUser,
@@ -387,7 +388,7 @@ export const deleteMembership: IAuthRepo['deleteMembership'] = async (userId, te
 export const createInvite: IAuthRepo['createInvite'] = async (input) => {
 	const inviteCode = `inv-${randomUUID()}`;
 	const now = new Date();
-	const expiresAt = new Date(now.getTime() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+	const expiresAt = new Date(now.getTime() + INVITE_EXPIRY_DAYS * MS_PER_DAY);
 	const invite: Invite = {
 		inviteCode,
 		tenantId: input.tenantId,

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MS_PER_DAY, MS_PER_MINUTE, SECONDS_PER_DAY } from '$lib/domain/constants/time';
 
 // Cookie名
 export const IDENTITY_COOKIE_NAME = 'identity_token';
@@ -8,9 +9,9 @@ export const CONTEXT_COOKIE_NAME = 'context_token';
 export const PIN_MIN_LENGTH = 4;
 export const PIN_MAX_LENGTH = 6;
 export const MAX_FAILED_ATTEMPTS = 5;
-export const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15分
-export const SESSION_MAX_AGE_SECONDS = 365 * 24 * 60 * 60; // 1年
-export const SESSION_REFRESH_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000; // 残り30日未満でリフレッシュ
+export const LOCKOUT_DURATION_MS = 15 * MS_PER_MINUTE;
+export const SESSION_MAX_AGE_SECONDS = 365 * SECONDS_PER_DAY;
+export const SESSION_REFRESH_THRESHOLD_MS = 30 * MS_PER_DAY;
 export const SESSION_COOKIE_NAME = 'sessionToken';
 
 // Zodスキーマ（PIN認証用 — 後方互換）
