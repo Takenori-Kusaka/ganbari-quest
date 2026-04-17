@@ -1,7 +1,7 @@
 // src/lib/server/services/receipt-ocr-service.ts
 // 領収書画像から Bedrock Claude Haiku で金額を読み取るサービス (#721)
 
-import { converseWithImageAndTool, isBedrockAvailable } from '$lib/server/ai/bedrock-client';
+import { getAiProvider, isAiAvailable } from '$lib/server/ai/factory';
 import { logger } from '$lib/server/logger';
 
 export interface ReceiptOcrResult {
@@ -36,12 +36,13 @@ export async function ocrReceipt(
 	imageBase64: string,
 	mimeType: string,
 ): Promise<ReceiptOcrResult | { error: 'NO_API_KEY' } | { error: 'OCR_FAILED'; message: string }> {
-	if (!isBedrockAvailable()) {
+	if (!isAiAvailable()) {
 		return { error: 'NO_API_KEY' };
 	}
 
 	try {
-		const result = await converseWithImageAndTool({
+		const provider = getAiProvider();
+		const result = await provider.converseWithImageAndTool({
 			system: SYSTEM_PROMPT,
 			userText: 'この画像の領収書から合計金額を読み取ってください。',
 			imageBase64,
@@ -52,7 +53,7 @@ export async function ocrReceipt(
 		const amount = Math.floor(Number(result.input.amount) || 0);
 		const rawText = String(result.input.rawText ?? '');
 
-		logger.info('[receipt-ocr] Bedrock response', { context: { amount, rawText } });
+		logger.info('[receipt-ocr] AI response', { context: { amount, rawText } });
 
 		if (amount <= 0) {
 			return { error: 'OCR_FAILED', message: rawText || '金額を読み取れませんでした' };
@@ -60,7 +61,7 @@ export async function ocrReceipt(
 
 		return { amount, rawText };
 	} catch (err) {
-		logger.error('[receipt-ocr] Bedrock API error', {
+		logger.error('[receipt-ocr] AI API error', {
 			error: err instanceof Error ? err.message : String(err),
 			stack: err instanceof Error ? err.stack : undefined,
 		});

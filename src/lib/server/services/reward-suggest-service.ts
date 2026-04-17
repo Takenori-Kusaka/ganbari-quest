@@ -1,8 +1,8 @@
 // src/lib/server/services/reward-suggest-service.ts
-// 自然言語からごほうび情報を推定するサービス (#719)
+// 自然言語からごほうび情報を推定するサービス (#719, #987: provider 層移行)
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
+import { getAiProvider, isAiAvailable } from '$lib/server/ai/factory';
 import { logger } from '$lib/server/logger';
 
 export interface SuggestedReward {
@@ -159,66 +159,36 @@ const REWARD_KEYWORD_MAP: {
 	},
 ];
 
-function getGeminiClient(): GoogleGenerativeAI | null {
-	const apiKey = process.env.GEMINI_API_KEY;
-	if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-		logger.warn('[reward-suggest] GEMINI_API_KEY未設定: フォールバックモードで動作');
-		return null;
-	}
-	return new GoogleGenerativeAI(apiKey);
-}
+/** Bedrock / Gemini 共通の tool_use スキーマ */
+const REWARD_TOOL = {
+	name: 'suggest_reward',
+	description: '子供へのごほうびを推定した結果を返す',
+	inputSchema: {
+		type: 'object' as const,
+		properties: {
+			title: {
+				type: 'string',
+				description: 'ごほうびタイトル（ひらがな中心、15文字以内）',
+			},
+			category: {
+				type: 'string',
+				enum: ['もの', 'たいけん', 'おこづかい', 'とくべつ'],
+				description: 'カテゴリ名',
+			},
+			icon: { type: 'string', description: 'ごほうびを表す1つの絵文字' },
+			points: {
+				type: 'number',
+				enum: [50, 100, 150, 200, 300, 500, 1000],
+				description:
+					'ポイント（50:とても小さい, 100:小さい, 200:中くらい, 300:やや大きい, 500:大きい, 1000:特大）',
+			},
+		},
+		required: ['title', 'category', 'icon', 'points'],
+	},
+};
 
-/** JSONをレスポンスから安全に抽出 */
-function extractJson(text: string): unknown {
-	const codeBlock = text.match(/```json\s*([\s\S]*?)\s*```/);
-	if (codeBlock?.[1]) {
-		return JSON.parse(codeBlock[1]);
-	}
-
-	const start = text.indexOf('{');
-	if (start === -1) return null;
-	let depth = 0;
-	for (let i = start; i < text.length; i++) {
-		if (text[i] === '{') depth++;
-		else if (text[i] === '}') {
-			depth--;
-			if (depth === 0) {
-				return JSON.parse(text.slice(start, i + 1));
-			}
-		}
-	}
-	return null;
-}
-
-/** 自然言語テキストからごほうび情報を推定 */
-export async function suggestReward(text: string): Promise<SuggestedReward> {
-	const client = getGeminiClient();
-
-	if (client) {
-		try {
-			return await suggestWithGemini(client, text);
-		} catch (e) {
-			logger.error('[reward-suggest] Gemini API失敗、フォールバック使用', {
-				error: e instanceof Error ? e.message : String(e),
-				stack: e instanceof Error ? e.stack : undefined,
-				context: { text },
-			});
-		}
-	}
-
-	return suggestByKeywords(text);
-}
-
-async function suggestWithGemini(
-	client: GoogleGenerativeAI,
-	text: string,
-): Promise<SuggestedReward> {
-	const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
-	const prompt = `あなたは子供へのごほうびを提案するアシスタントです。
-以下のテキストを分析し、子供向けのごほうびとしてJSON形式で回答してください。
-
-テキスト: "${text}"
+const SYSTEM_PROMPT = `あなたは子供へのごほうびを提案するアシスタントです。
+テキストを分析し、suggest_reward ツールを使って結果を返してください。
 
 カテゴリ（必ず以下から1つ選択）:
 - もの（物品: おもちゃ、本、お菓子、文房具、服など）
@@ -235,20 +205,34 @@ async function suggestWithGemini(
 - 1000: 特大のごほうび（旅行貯金、ゲームソフト、お小遣い1000円）
 
 アイコンは活動の内容を表す1つの絵文字を選んでください。
-タイトルは子供にわかりやすいひらがな中心の表現で、15文字以内にしてください。
+タイトルは子供にわかりやすいひらがな中心の表現で、15文字以内にしてください。`;
 
-以下のJSON形式のみで回答（説明不要）:
-{"title": "ごほうびタイトル", "category": "カテゴリ名", "icon": "絵文字", "points": 数値}`;
-
-	const result = await model.generateContent(prompt);
-	const responseText = result.response.text();
-
-	const parsed = extractJson(responseText);
-	if (!parsed || typeof parsed !== 'object') {
-		throw new Error('No valid JSON in Gemini response');
+/** 自然言語テキストからごほうび情報を推定 */
+export async function suggestReward(text: string): Promise<SuggestedReward> {
+	if (isAiAvailable()) {
+		try {
+			return await suggestWithAi(text);
+		} catch (e) {
+			logger.error('[reward-suggest] AI API失敗、フォールバック使用', {
+				error: e instanceof Error ? e.message : String(e),
+				stack: e instanceof Error ? e.stack : undefined,
+				context: { text },
+			});
+		}
 	}
 
-	const obj = parsed as Record<string, unknown>;
+	return suggestByKeywords(text);
+}
+
+async function suggestWithAi(text: string): Promise<SuggestedReward> {
+	const provider = getAiProvider();
+	const result = await provider.converseWithTool({
+		system: SYSTEM_PROMPT,
+		userMessage: `テキスト: "${text}"`,
+		tool: REWARD_TOOL,
+	});
+
+	const obj = result.input;
 
 	const validCategories = ['もの', 'たいけん', 'おこづかい', 'とくべつ'];
 	const category = validCategories.includes(String(obj.category ?? ''))
@@ -266,11 +250,11 @@ async function suggestWithGemini(
 		points,
 		icon: String(obj.icon ?? '🎁'),
 		category,
-		source: 'gemini',
+		source: 'gemini', // API 互換性のため 'gemini' を維持
 	};
 }
 
-/** キーワードベースの簡易推定（Gemini APIがない場合のフォールバック） */
+/** キーワードベースの簡易推定（AI APIがない場合のフォールバック） */
 function suggestByKeywords(text: string): SuggestedReward {
 	const lower = text.toLowerCase();
 

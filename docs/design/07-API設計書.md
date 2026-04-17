@@ -1096,6 +1096,86 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 - MRR 概算
 - Stripe 連携状態
 
+#### GET /ops/license （ライセンスキー管理 - 一覧 / 検索 #805）
+
+**認証:** Cognito User Pool `ops` group メンバーであること
+
+**機能:**
+- 最近のライセンスイベント一覧 (`license_events` 最新 50 件) の表示
+- 特定キーへの検索フォーム（POST → `/ops/license/[key]` へリダイレクト）
+
+**URL パラメータ:**
+- `limit` (query, number): イベント取得件数。デフォルト 50、最大 200
+
+#### GET /ops/license/[key] （ライセンスキー詳細 #805）
+
+**認証:** Cognito User Pool `ops` group メンバーであること
+
+**パラメータ:**
+- `key` (path): ライセンスキー（URL エンコード。内部で upper-case に正規化）
+
+**機能:**
+- `LicenseRecord` の全フィールド表示（tenantId / plan / kind / createdAt / expiresAt / consumedBy / revokedAt 等）
+- 当該キーの `license_events` 履歴（最新 200 件）
+- `status='active'` のときのみ「失効」ボタンを表示
+
+#### POST /ops/license/[key]?/revoke （ライセンスキー失効 form action #805）
+
+**認証:** Cognito User Pool `ops` group メンバーであること
+
+**入力 (form-data):**
+| フィールド | 型 | 必須 | 説明 |
+|-----------|----|------|------|
+| reason | `'ops-manual' \| 'leaked' \| 'refund' \| 'expired'` | ✓ | 失効理由 |
+| note | string | - | CS チケット番号・状況メモ |
+
+**レスポンス:**
+| status | 意味 | ケース |
+|--------|------|--------|
+| 200 (form success) | `{ revoked: true, reason, revokedAt }` | 成功 |
+| 400 (form failure) | `{ error: '失効理由が不正です' }` | reason が enum 外 |
+| 403 | `Forbidden` | identity が ops group 未所属（layout で既に弾かれる想定） |
+| 409 (form failure) | `{ error: string }` | `findLicenseKey` で記録が見つからない / 既に revoked / consumed |
+
+**副作用:**
+- `license-key-service.revokeLicenseKey` が `status='revoked'` + `revokedAt` + `revokedReason` + `revokedBy='ops:<userId>'` を更新
+- `license_events` に `eventType='revoked'` を記録 (#804)
+- `ops_audit_log` に `action='license.revoke'` / `target=<key>` / `metadata={reason, note}` を記録 (#820)
+
+#### GET /ops/license/issue （キャンペーンキー一括発行ページ #802）
+
+**認証:** Cognito User Pool `ops` group メンバーであること
+
+**機能:**
+- Stripe を経由しないキャンペーン配布・サポート補償・プレゼント用のライセンスキーを一括発行する入力画面
+- 発行結果は同一ページでテキスト表示 + CSV ダウンロード（`campaign-keys-YYYY-MM-DD.csv`）
+
+#### POST /ops/license/issue?/issue （キャンペーンキー一括発行 form action #802）
+
+**認証:** Cognito User Pool `ops` group メンバーであること
+
+**入力 (form-data):**
+| フィールド | 型 | 必須 | 説明 |
+|-----------|----|------|------|
+| plan | `LicensePlan` (monthly / yearly / family-monthly / family-yearly / lifetime) | ✓ | 発行するキーのプラン |
+| quantity | number (1-500) | ✓ | 発行件数。500 件/req が上限 |
+| reason | string (1-200) | ✓ | キャンペーン名・理由。`ops_audit_log.metadata.reason` と `record.tenantId` の自動採番に使われる |
+| expiresAt | `'default' \| 'never' \| ISO8601` | - | `default`=90日後、`never`=期限なし、その他は指定日時 |
+| tenantId | string | - | `record.tenantId` に入る発行プール識別子。省略時は `campaign:<reason>` を自動採番 |
+
+**レスポンス:**
+| status | 意味 | ケース |
+|--------|------|--------|
+| 200 (form success) | `{ issued: true, plan, reason, tenantId, issuedBy, expiresAt, keys: string[], errors?: string[] }` | 全件または一部成功 |
+| 400 (form failure) | `{ error: string }` | plan / quantity / reason / expiresAt の検証失敗 |
+| 403 | `Forbidden` | identity が ops group 未所属 |
+| 500 (form failure) | `{ error: string }` | 全件発行失敗（DB エラー等） |
+
+**副作用:**
+- `license-key-service.issueLicenseKey` を `quantity` 回呼び、`kind='campaign'` / `issuedBy='ops:<userId>'` のキーを生成
+- `license_events` に `eventType='issued'` を各キー分記録 (#804)
+- `ops_audit_log` に `action='license.issue'` / `target=<tenantId>` / `metadata={plan, quantity, reason, keys, errors?}` を 1 件記録 (#820)
+
 ### 3.x バトルアドベンチャー
 
 #### GET /api/v1/battle/[childId]

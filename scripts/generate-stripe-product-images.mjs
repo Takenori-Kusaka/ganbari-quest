@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 // scripts/generate-stripe-product-images.mjs
 // Gemini API で Stripe 商品画像を生成するスクリプト
 // 使用法: GEMINI_API_KEY=xxx node scripts/generate-stripe-product-images.mjs
@@ -6,9 +7,9 @@
 // ロゴ（site/icon-character.png）をベースに、スタンダード/ファミリー各プランの商品画像を生成。
 // Stripe 商品画像の推奨サイズ: 690×690px (正方形)
 
-import { GoogleGenAI } from '@google/genai';
 import fs from 'node:fs';
 import path from 'node:path';
+import { GoogleGenAI } from '@google/genai';
 
 const API_KEY = process.env.GEMINI_API_KEY;
 if (!API_KEY) {

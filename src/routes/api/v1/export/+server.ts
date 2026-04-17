@@ -2,6 +2,7 @@
 // 家族データエクスポートAPI（JSON / ZIP対応）
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { requireRole, requireTenantId } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
@@ -39,7 +40,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	try {
 		const exportData = await exportFamilyData({ tenantId, childIds, compact });
-		const now = new Date().toISOString().slice(0, 10);
+		const now = todayDateJST();
 
 		if (format === 'zip') {
 			return await buildZipResponse(exportData, tenantId, now, compact);

@@ -3,7 +3,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
+import type * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -37,16 +37,13 @@ export class NetworkStack extends cdk.Stack {
 
 			// Use existing ACM certificate (created and validated manually)
 			if (props.certificateArn) {
-				certificate = acm.Certificate.fromCertificateArn(
-					this,
-					'Certificate',
-					props.certificateArn,
-				);
+				certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', props.certificateArn);
 			}
 		}
 
 		// --- Admin IP allowlist (from CDK context, comma-separated) ---
-		const adminAllowedIps = (this.node.tryGetContext('adminAllowedIps') as string | undefined) ?? '';
+		const adminAllowedIps =
+			(this.node.tryGetContext('adminAllowedIps') as string | undefined) ?? '';
 
 		// --- CloudFront Function: query slash encode + admin IP filter ---
 		// 1. Admin IP restriction: /admin/* and /api/v1/admin/* require allowlisted IPs
@@ -60,7 +57,12 @@ function handler(event) {
 
   // Admin IP restriction
   if (uri.startsWith('/admin') || uri.startsWith('/api/v1/admin') || uri.startsWith('/ops')) {
-    var ALLOWED_IPS = ${JSON.stringify(adminAllowedIps.split(',').map((ip: string) => ip.trim()).filter(Boolean))};
+    var ALLOWED_IPS = ${JSON.stringify(
+			adminAllowedIps
+				.split(',')
+				.map((ip: string) => ip.trim())
+				.filter(Boolean),
+		)};
     var clientIp = event.viewer.ip;
     if (ALLOWED_IPS.indexOf(clientIp) === -1) {
       return {
@@ -205,16 +207,12 @@ function handler(event) {
 		if (hostedZone && props.domainName) {
 			new route53.ARecord(this, 'AliasRecord', {
 				zone: hostedZone,
-				target: route53.RecordTarget.fromAlias(
-					new targets.CloudFrontTarget(this.distribution),
-				),
+				target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(this.distribution)),
 			});
 
 			new route53.AaaaRecord(this, 'AliasRecordAAAA', {
 				zone: hostedZone,
-				target: route53.RecordTarget.fromAlias(
-					new targets.CloudFrontTarget(this.distribution),
-				),
+				target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(this.distribution)),
 			});
 
 			// www → GitHub Pages LP

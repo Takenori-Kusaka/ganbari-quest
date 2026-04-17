@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 // scripts/capture-hp-screenshots.mjs
 // HP (site/index.html) 用のプロダクトスクリーンショットを自動取得
 // 使用法: node scripts/capture-hp-screenshots.mjs [--webp] [--only carousel|feature|age]
@@ -8,9 +9,9 @@
 //   --webp    PNG撮影後にWebPへ自動変換（sharp Node API を使用）
 //   --only X  指定グループのみ撮影 (carousel, feature, age)
 
-import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
+import { chromium } from 'playwright';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const OUTPUT_DIR = path.resolve('site/screenshots');
@@ -26,9 +27,7 @@ let onlyGroup = null;
 if (onlyIdx >= 0) {
 	const nextArg = args[onlyIdx + 1];
 	if (!nextArg || !VALID_GROUPS.has(nextArg)) {
-		console.error(
-			`Error: --only requires a valid group name: ${[...VALID_GROUPS].join(', ')}`,
-		);
+		console.error(`Error: --only requires a valid group name: ${[...VALID_GROUPS].join(', ')}`);
 		console.error(
 			'Usage: node scripts/capture-hp-screenshots.mjs [--webp] [--only carousel|feature|age]',
 		);
@@ -155,7 +154,7 @@ const AGE_SCREENSHOTS = [
 ];
 
 // Merge all screenshots with group filtering
-let ALL_SCREENSHOTS = [];
+const ALL_SCREENSHOTS = [];
 if (!onlyGroup || onlyGroup === 'carousel') ALL_SCREENSHOTS.push(...CAROUSEL_SCREENSHOTS);
 if (!onlyGroup || onlyGroup === 'feature') ALL_SCREENSHOTS.push(...FEATURE_SCREENSHOTS);
 if (!onlyGroup || onlyGroup === 'age') ALL_SCREENSHOTS.push(...AGE_SCREENSHOTS);
@@ -207,8 +206,7 @@ async function captureScreenshots() {
 		for (const [sizeName, viewport] of Object.entries(shot.viewports)) {
 			totalFiles++;
 			// Carousel uses "-mobile" suffix; feature/age use no suffix for mobile
-			const suffix =
-				sizeName === 'mobile' ? (shot.mobileSuffix ?? '') : `-${sizeName}`;
+			const suffix = sizeName === 'mobile' ? (shot.mobileSuffix ?? '') : `-${sizeName}`;
 			const filename = `${shot.name}${suffix}`;
 
 			try {

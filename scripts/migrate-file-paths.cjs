@@ -18,7 +18,8 @@ const crypto = require('crypto');
 // --- Config ---
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
-const dbPath = args.find((a) => !a.startsWith('--')) || path.join(__dirname, '..', 'data', 'ganbari-quest.db');
+const dbPath =
+	args.find((a) => !a.startsWith('--')) || path.join(__dirname, '..', 'data', 'ganbari-quest.db');
 const TENANT_ID = 'local'; // NUC は常に local テナント
 const STATIC_DIR = path.join(path.dirname(dbPath), '..', 'static');
 
@@ -40,7 +41,9 @@ db.pragma('journal_mode = WAL');
 // --- Phase 1: アバター画像の移行 ---
 console.log('--- Phase 1: Avatar files ---');
 
-const children = db.prepare('SELECT id, nickname, avatar_url FROM children WHERE avatar_url IS NOT NULL').all();
+const children = db
+	.prepare('SELECT id, nickname, avatar_url FROM children WHERE avatar_url IS NOT NULL')
+	.all();
 console.log(`Children with avatars: ${children.length}`);
 
 const avatarUpdates = [];
@@ -64,12 +67,21 @@ for (const child of children) {
 	const newFilePath = path.join(STATIC_DIR, newKey);
 
 	if (!fs.existsSync(oldFilePath)) {
-		console.log(`  [WARN] child ${child.id} (${child.nickname}): old file not found at ${oldFilePath}`);
+		console.log(
+			`  [WARN] child ${child.id} (${child.nickname}): old file not found at ${oldFilePath}`,
+		);
 		// DB は更新しない（ファイルが存在しないなら新パスに更新しても意味がない）
 		continue;
 	}
 
-	avatarUpdates.push({ childId: child.id, nickname: child.nickname, oldUrl, newUrl, oldFilePath, newFilePath });
+	avatarUpdates.push({
+		childId: child.id,
+		nickname: child.nickname,
+		oldUrl,
+		newUrl,
+		oldFilePath,
+		newFilePath,
+	});
 	console.log(`  [MOVE] child ${child.id} (${child.nickname}): ${oldUrl} → ${newUrl}`);
 }
 
@@ -81,7 +93,9 @@ const generatedDir = path.join(STATIC_DIR, 'generated');
 const generatedFiles = [];
 
 if (fs.existsSync(generatedDir)) {
-	const files = fs.readdirSync(generatedDir).filter((f) => !fs.statSync(path.join(generatedDir, f)).isDirectory());
+	const files = fs
+		.readdirSync(generatedDir)
+		.filter((f) => !fs.statSync(path.join(generatedDir, f)).isDirectory());
 	console.log(`Generated files found: ${files.length}`);
 
 	for (const file of files) {
@@ -109,9 +123,13 @@ if (fs.existsSync(generatedDir)) {
 console.log('');
 console.log('--- Phase 3: character_images DB update ---');
 
-let charImageUpdates = [];
+const charImageUpdates = [];
 try {
-	const charImages = db.prepare("SELECT id, child_id, image_url FROM character_images WHERE image_url IS NOT NULL AND image_url NOT LIKE '/tenants/%'").all();
+	const charImages = db
+		.prepare(
+			"SELECT id, child_id, image_url FROM character_images WHERE image_url IS NOT NULL AND image_url NOT LIKE '/tenants/%'",
+		)
+		.all();
 	console.log(`Character images to migrate: ${charImages.length}`);
 
 	for (const img of charImages) {

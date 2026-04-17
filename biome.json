@@ -5,6 +5,16 @@
 		"enabled": true,
 		"rules": {
 			"recommended": true,
+			"complexity": {
+				"noExcessiveCognitiveComplexity": {
+					"level": "warn",
+					"options": { "maxAllowedComplexity": 20 }
+				},
+				"useMaxParams": {
+					"level": "warn",
+					"options": { "max": 5 }
+				}
+			},
 			"style": {
 				"noNonNullAssertion": "warn",
 				"useConst": "error"
@@ -12,7 +22,15 @@
 			"suspicious": {
 				"noExplicitAny": "error",
 				"noRedeclare": "warn",
-				"noAssignInExpressions": "warn"
+				"noAssignInExpressions": "warn",
+				"noConsole": {
+					"level": "warn",
+					"options": { "allow": ["warn", "error", "info"] }
+				},
+				"noImportCycles": "error"
+			},
+			"performance": {
+				"noBarrelFile": "warn"
 			},
 			"correctness": {
 				"noUnusedVariables": "warn",
@@ -70,13 +88,12 @@
 			"!**/test-results.json",
 			"!**/playwright-report",
 			"!**/*.db",
-			"!**/scripts",
-			"!**/infra",
 			"!**/site",
 			"!**/cdk.out",
 			"!**/storybook-static",
 			"!**/app.css",
-			"!**/.claude"
+			"!**/.claude",
+			"!**/*.md"
 		]
 	}
 }
