@@ -67,11 +67,6 @@ export function planIdFromPriceId(priceId: string): PlanId | null {
 	return null;
 }
 
-/** PlanId からプランティアを取得 */
-export function planTierFromPlanId(planId: PlanId): 'standard' | 'family' {
-	return getPlans()[planId].tier;
-}
-
 /** 無料トライアル日数 */
 export const TRIAL_PERIOD_DAYS = 7;
 

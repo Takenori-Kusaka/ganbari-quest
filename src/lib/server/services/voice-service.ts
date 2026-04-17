@@ -133,11 +133,7 @@ export async function activateVoice(
 }
 
 /** ボイスを非アクティブに（ショップ音に戻す） */
-export async function deactivateVoice(
-	childId: number,
-	scene: string,
-	tenantId: string,
-): Promise<void> {
+async function deactivateVoice(childId: number, scene: string, tenantId: string): Promise<void> {
 	const voices = await getRepos().voice.findByChild(childId, scene, tenantId);
 	for (const v of voices) {
 		if (v.isActive === 1) {

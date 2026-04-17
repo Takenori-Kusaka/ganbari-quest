@@ -44,7 +44,7 @@ export async function findCustomAchievements(
 		.all() as CustomAchievement[];
 }
 
-export async function findCustomAchievementById(
+async function findCustomAchievementById(
 	id: number,
 	tenantId: string,
 ): Promise<CustomAchievement | undefined> {

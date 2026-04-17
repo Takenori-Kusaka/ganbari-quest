@@ -1,7 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { createPlanLimitError, type PlanLimitError } from '$lib/domain/errors';
 import { logger } from '$lib/server/logger';
-import type { PlanTier } from '$lib/server/services/plan-limit-service';
 
 export type ErrorCode =
 	| 'VALIDATION_ERROR'
@@ -130,51 +128,4 @@ export function notFound(message = 'みつかりませんでした') {
 
 export function validationError(message: string) {
 	return apiError('VALIDATION_ERROR', message);
-}
-
-/** エラーコードからユーザー向けメッセージを取得（page.server.ts の fail() で利用） */
-export function getUserMessage(code: ErrorCode): string {
-	return ERROR_DEFINITIONS[code].userMessage;
-}
-
-/**
- * プラン制限エラーを 403 レスポンスとして返す (#744)。
- *
- * {@link apiError} とは別の error shape で `{ error: PlanLimitError }` の形式で body を返す。
- * `error` には `code` / `message` / `currentTier` / `requiredTier` / `upgradeUrl` が含まれる。
- *
- * クライアントは `error.code === 'PLAN_LIMIT_EXCEEDED'` と `error.requiredTier` を使って
- * アップセル UI を出し分ける。
- *
- * @example
- * ```ts
- * return planLimitError({
- *   currentTier: 'free',
- *   requiredTier: 'standard',
- *   message: 'AI 活動提案はスタンダードプラン以上でご利用いただけます',
- * });
- * ```
- *
- * @see docs/design/07-API設計書.md §4.2 プラン制限エラー
- */
-export function planLimitError(opts: {
-	currentTier: PlanTier;
-	requiredTier: Exclude<PlanTier, 'free'>;
-	message: string;
-	context?: Record<string, unknown>;
-}) {
-	const body: PlanLimitError = createPlanLimitError(
-		opts.currentTier,
-		opts.requiredTier,
-		opts.message,
-	);
-	logger.warn(`[API] PLAN_LIMIT_EXCEEDED: ${opts.message}`, {
-		context: { ...opts.context, currentTier: opts.currentTier, requiredTier: opts.requiredTier },
-	});
-	return json({ error: body }, { status: 403 });
-}
-
-/** エラーコードから定義全体を取得 */
-export function getErrorDefinition(code: ErrorCode): ErrorDefinition {
-	return ERROR_DEFINITIONS[code];
 }

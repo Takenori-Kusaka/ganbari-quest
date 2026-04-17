@@ -461,12 +461,3 @@ export function demoTogglePin(pinned: boolean) {
 }
 
 // ============================================================
-// Switch page data
-// ============================================================
-
-export function getDemoSwitchData() {
-	return {
-		children: DEMO_CHILDREN,
-		adminLink: '/demo/admin',
-	};
-}

@@ -27,7 +27,7 @@ export async function insertEntry(input: InsertStampEntryInput, tenantId: string
 	return getRepos().stampCard.insertEntry(input, tenantId);
 }
 
-export async function updateCardStatus(
+async function updateCardStatus(
 	cardId: number,
 	input: UpdateStampCardStatusInput,
 	tenantId: string,

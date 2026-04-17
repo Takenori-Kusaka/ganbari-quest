@@ -124,11 +124,6 @@ export function getLicensePlanLabel(plan: string): string {
 	return LICENSE_PLAN_LABELS[plan] ?? plan;
 }
 
-/** プラン短縮ラベルを取得 */
-export function getPlanShortLabel(tier: string): string {
-	return PLAN_SHORT_LABELS[tier as PlanKey] ?? tier;
-}
-
 // ============================================================
 // テーマカラー
 // ============================================================

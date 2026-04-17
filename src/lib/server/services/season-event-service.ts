@@ -27,7 +27,7 @@ export async function getAllEvents(tenantId: string): Promise<SeasonEvent[]> {
 }
 
 /** 現在開催中のイベント一覧 */
-export async function getActiveEvents(tenantId: string): Promise<SeasonEvent[]> {
+async function getActiveEvents(tenantId: string): Promise<SeasonEvent[]> {
 	const today = todayDateJST();
 	return findActiveEvents(today, tenantId);
 }
@@ -58,7 +58,7 @@ export async function joinEvent(childId: number, eventId: number, tenantId: stri
 }
 
 /** イベント進捗更新 */
-export async function updateProgress(
+async function updateProgress(
 	childId: number,
 	eventId: number,
 	progressJson: string,

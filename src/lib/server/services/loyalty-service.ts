@@ -211,7 +211,7 @@ export async function consumeMemoryTicket(
 }
 
 /** 年額プラン購入時のボーナス適用 */
-export async function applyAnnualPlanBonus(tenantId: string): Promise<{
+async function applyAnnualPlanBonus(tenantId: string): Promise<{
 	monthsSet: number;
 	ticketsAwarded: number;
 }> {

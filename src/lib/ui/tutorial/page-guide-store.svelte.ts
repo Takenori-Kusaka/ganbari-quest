@@ -51,12 +51,6 @@ export function isPageGuideCompleted(pageId: string): boolean {
 	return getCompletedPages().has(pageId);
 }
 
-/** 全ページの完了状態をリセット */
-export function resetAllPageGuides() {
-	if (typeof localStorage === 'undefined') return;
-	localStorage.removeItem(STORAGE_KEY);
-}
-
 // ──────────────────────────────────────
 // ガイドの起動・ナビゲーション
 // ──────────────────────────────────────
