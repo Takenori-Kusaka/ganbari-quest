@@ -1,6 +1,7 @@
 // src/lib/server/services/seasonal-content-service.ts
 // 季節コンテンツ管理サービス — シーズンパス + 月替わり有料プラン報酬
 
+import { todayDateJST } from '$lib/domain/date-utils';
 import {
 	findActiveEvents,
 	findChildProgress,
@@ -145,7 +146,7 @@ export async function getSeasonPassForChild(
 	tenantId: string,
 	isPremium: boolean,
 ): Promise<SeasonPassData | null> {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const events = await findActiveEvents(today, tenantId);
 	const passEvent = events.find((e) => e.eventType === 'season_pass');
 	if (!passEvent) return null;
@@ -189,7 +190,7 @@ export async function claimSeasonPassMilestone(
 	if (progress.count < target) return null;
 
 	// Find the milestone reward
-	const events = await findActiveEvents(new Date().toISOString().slice(0, 10), tenantId);
+	const events = await findActiveEvents(todayDateJST(), tenantId);
 	const passEvent = events.find((e) => e.id === eventId);
 	if (!passEvent) return null;
 
@@ -221,7 +222,7 @@ export async function incrementSeasonPassProgress(
 	childId: number,
 	tenantId: string,
 ): Promise<{ eventId: number; newCount: number; newMilestones: SeasonPassMilestone[] } | null> {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const events = await findActiveEvents(today, tenantId);
 	const passEvent = events.find((e) => e.eventType === 'season_pass');
 	if (!passEvent) return null;
@@ -274,7 +275,7 @@ export async function getMonthlyPremiumReward(
 ): Promise<MonthlyRewardData | null> {
 	if (!isPremium) return null;
 
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const events = await findActiveEvents(today, tenantId);
 	const rewardEvent = events.find((e) => e.eventType === 'monthly_premium_reward');
 	if (!rewardEvent) return null;
@@ -303,7 +304,7 @@ export async function claimMonthlyPremiumReward(
 	if (progressRow?.status === 'reward_claimed') return null;
 
 	// Find the event
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const events = await findActiveEvents(today, tenantId);
 	const rewardEvent = events.find((e) => e.id === eventId);
 	if (!rewardEvent) return null;
