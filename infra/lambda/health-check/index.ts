@@ -10,8 +10,8 @@
  * - Timeout: 10s per check, 30s total Lambda timeout
  */
 
-import * as https from 'node:https';
 import * as http from 'node:http';
+import * as https from 'node:https';
 
 // ----------------------------------------------------------------
 // Types
@@ -134,10 +134,7 @@ async function checkEndpoint(url: string): Promise<HealthCheckResult> {
 // HTTP client (built-in, no dependencies)
 // ----------------------------------------------------------------
 
-function httpGet(
-	url: string,
-	timeoutMs: number,
-): Promise<{ statusCode: number; body: string }> {
+function httpGet(url: string, timeoutMs: number): Promise<{ statusCode: number; body: string }> {
 	return new Promise((resolve, reject) => {
 		const client = url.startsWith('https') ? https : http;
 
