@@ -1,35 +1,21 @@
 {
-  "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": [
-    "src/routes/**/+{page,layout,server,error}.{ts,svelte}",
-    "src/routes/**/+server.ts",
-    "src/hooks.{server,client}.ts",
-    "src/app.html",
-    "tests/**/*.{test,spec}.ts",
-    "scripts/**/*.{js,mjs,ts}"
-  ],
-  "project": [
-    "src/**/*.{ts,svelte}",
-    "scripts/**/*.{js,mjs,ts}"
-  ],
-  "ignore": [
-    ".svelte-kit/**",
-    "drizzle/**",
-    "site/**",
-    "personal/**"
-  ],
-  "ignoreDependencies": [
-    "@sveltejs/adapter-auto",
-    "tailwindcss"
-  ],
-  "rules": {
-    "unlisted": "warn",
-    "unresolved": "off"
-  },
-  "svelte": {
-    "entry": [
-      "src/routes/**/+{page,layout,server,error}.{ts,svelte}",
-      "svelte.config.js"
-    ]
-  }
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"entry": [
+		"src/routes/**/+{page,layout,server,error}.{ts,svelte}",
+		"src/routes/**/+server.ts",
+		"src/hooks.{server,client}.ts",
+		"src/app.html",
+		"tests/**/*.{test,spec}.ts",
+		"scripts/**/*.{js,mjs,ts}"
+	],
+	"project": ["src/**/*.{ts,svelte}", "scripts/**/*.{js,mjs,ts}"],
+	"ignore": [".svelte-kit/**", "drizzle/**", "site/**", "personal/**"],
+	"ignoreDependencies": ["@sveltejs/adapter-auto", "tailwindcss"],
+	"rules": {
+		"unlisted": "warn",
+		"unresolved": "off"
+	},
+	"svelte": {
+		"entry": ["src/routes/**/+{page,layout,server,error}.{ts,svelte}", "svelte.config.js"]
+	}
 }
