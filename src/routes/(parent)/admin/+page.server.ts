@@ -4,13 +4,15 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { findActiveEvents } from '$lib/server/db/season-event-repo';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
+import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/onboarding-service';
-import { isPaidTier } from '$lib/server/services/plan-limit-service';
+import { getPlanLimits, isPaidTier } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
 import { getMemoryTicketStatus } from '$lib/server/services/seasonal-content-service';
 import { getChildStatus } from '$lib/server/services/status-service';
+import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, parent }) => {
@@ -115,6 +117,23 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		// 季節情報取得失敗はページに影響させない
 	}
 
+	// #767: ダッシュボードにプラン利用状況を表示
+	const planLimits = getPlanLimits(tier);
+	let activityCount = 0;
+	try {
+		const acts = await getActivities(tenantId, { includeHidden: false });
+		activityCount = acts.filter((a) => a.source === 'parent').length;
+	} catch {
+		/* fallback */
+	}
+	const planStats = {
+		activityCount,
+		activityMax: planLimits.maxActivities,
+		childCount: children.length,
+		childMax: planLimits.maxChildren,
+		retentionDays: planLimits.historyRetentionDays,
+	};
+
 	return {
 		children: childrenWithStatus,
 		onboarding,
@@ -122,6 +141,8 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		currentMonth: yearMonth,
 		showPremiumWelcome,
 		seasonalInfo,
+		planStats,
+		stripeEnabled: isStripeEnabled(),
 	};
 };
 
