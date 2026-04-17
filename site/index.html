@@ -45,7 +45,7 @@
       "name": "フリー",
       "price": "0",
       "priceCurrency": "JPY",
-      "description": "無料プラン。子供1人、活動5個まで、履歴30日",
+      "description": "無料プラン。子供2人まで、活動3個まで、履歴90日",
       "availability": "https://schema.org/InStock"
     },
     {
@@ -53,7 +53,7 @@
       "name": "スタンダード",
       "price": "500",
       "priceCurrency": "JPY",
-      "description": "月額500円。フル機能、子供3人、データエクスポート",
+      "description": "月額500円。フル機能、子供無制限、データエクスポート",
       "availability": "https://schema.org/InStock",
       "priceSpecification": {
         "@type": "UnitPriceSpecification",
@@ -67,7 +67,7 @@
       "name": "ファミリー",
       "price": "780",
       "priceCurrency": "JPY",
-      "description": "月額780円。子供無制限、AI 自動提案、優先サポート",
+      "description": "月額780円。子供無制限、AI 自動提案、きょうだいランキング",
       "availability": "https://schema.org/InStock",
       "priceSpecification": {
         "@type": "UnitPriceSpecification",
@@ -191,7 +191,7 @@
 .community-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px;text-align:center}
 .community-icon{font-size:2rem;margin-bottom:8px}
 .community-label{font-size:1.05rem;font-weight:700;color:var(--gray-900);margin-bottom:8px}
-.community-detail{font-size:.88rem;color:var(--gray-600);line-height:1.7;margin:0}
+.community-detail{font-size:.88rem;color:var(--gray-600);line-height:1.7;margin:0;word-break:keep-all;overflow-wrap:break-word}
 
 /* FAQ */
 .faq-list{max-width:720px;margin:0 auto}
@@ -295,7 +295,7 @@
       <a href="index.html" onclick="this.parentElement.classList.remove('open')">ホーム</a>
       <a href="#features" onclick="this.parentElement.classList.remove('open')">できること</a>
       <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
-      <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモ体験</a>
+      <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモで体験する</a>
       <a href="https://ganbari-quest.com/auth/login" class="btn btn-primary">ログイン</a>
     </nav>
   </div>
@@ -310,7 +310,7 @@
     RPG風の冒険に変えて、「自分からやる力」を育てます。
   </p>
   <div class="hero-cta">
-    <a href="https://ganbari-quest.com/demo" class="btn btn-demo btn-lg">&#x1F3AE; まずはデモで体験する</a>
+    <a href="https://ganbari-quest.com/demo" class="btn btn-demo btn-lg">&#x1F3AE; デモで体験する</a>
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">無料ではじめる</a>
   </div>
   <div class="hero-badges">
@@ -528,7 +528,7 @@
 <div class="cta-bar">
   <div class="cta-bar-inner">
     <p class="cta-bar-text"><strong>7日間、全機能を無料で体験</strong> &#8212; クレジットカード不要ですぐ始められます</p>
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で始める</a>
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
   </div>
 </div>
 
@@ -646,7 +646,7 @@
 <div class="cta-bar">
   <div class="cta-bar-inner">
     <p class="cta-bar-text">お子さまの年齢に最適化された画面を<strong>今すぐ体験</strong></p>
-    <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを試す</a>
+    <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモで体験する</a>
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
   </div>
 </div>
@@ -783,7 +783,7 @@
       <div class="pack-card">
         <div class="pack-icon">&#x1F4DA;</div>
         <h3>がくしゅう系ごほうび</h3>
-        <div class="pack-age">全年齢 &#x30FB; academic カテゴリ</div>
+        <div class="pack-age">全年齢 &#x30FB; がくしゅうカテゴリ</div>
         <p>テスト100点・漢字検定合格・自由研究完成など、学習成果を特別に称えます。</p>
         <div class="pack-tags">
           <span class="pack-tag">学習</span>
@@ -798,7 +798,7 @@
       <div class="pack-card">
         <div class="pack-icon">&#x1F3C6;</div>
         <h3>うんどう系ごほうび</h3>
-        <div class="pack-age">全年齢 &#x30FB; sports カテゴリ</div>
+        <div class="pack-age">全年齢 &#x30FB; うんどうカテゴリ</div>
         <p>大会出場・記録更新・継続達成など、運動・スポーツの頑張りを評価します。</p>
         <div class="pack-tags">
           <span class="pack-tag">運動</span>
@@ -813,7 +813,7 @@
       <div class="pack-card">
         <div class="pack-icon">&#x1F91D;</div>
         <h3>しゃかい系ごほうび</h3>
-        <div class="pack-age">全年齢 &#x30FB; social カテゴリ</div>
+        <div class="pack-age">全年齢 &#x30FB; しゃかいカテゴリ</div>
         <p>お友達とのトラブル解決・ボランティア参加・年下のお世話など、社会性を育む達成を讃えます。</p>
         <div class="pack-tags">
           <span class="pack-tag">社会性</span>
@@ -828,7 +828,7 @@
       <div class="pack-card">
         <div class="pack-icon">&#x1F3A8;</div>
         <h3>そうぞう系ごほうび</h3>
-        <div class="pack-age">全年齢 &#x30FB; creative カテゴリ</div>
+        <div class="pack-age">全年齢 &#x30FB; そうぞうカテゴリ</div>
         <p>絵画コンクール入選・楽器発表会・作品完成など、表現活動の成果を称えます。</p>
         <div class="pack-tags">
           <span class="pack-tag">創造</span>
@@ -843,7 +843,7 @@
       <div class="pack-card">
         <div class="pack-icon">&#x1F33F;</div>
         <h3>せいかつ系ごほうび</h3>
-        <div class="pack-age">全年齢 &#x30FB; life カテゴリ</div>
+        <div class="pack-age">全年齢 &#x30FB; せいかつカテゴリ</div>
         <p>長期の生活習慣達成・自立行動・特別なお手伝いなど、生活面の頑張りを讃えます。</p>
         <div class="pack-tags">
           <span class="pack-tag">生活習慣</span>
@@ -880,12 +880,12 @@
         <div class="community-icon">&#x1F3AE;</div>
         <div class="community-label">まずはデモで体験</div>
         <p class="community-detail">アカウント不要・30秒で操作感を体験できます。<br>お子さまと一緒に試してみてください。</p>
-        <a href="https://ganbari-quest.com/demo" class="btn btn-outline" style="margin-top:12px">デモを試す</a>
+        <a href="https://ganbari-quest.com/demo" class="btn btn-outline" style="margin-top:12px">デモで体験する</a>
       </div>
     </div>
     <p style="text-align:center;margin-top:32px;font-size:.85rem;color:var(--gray-500);">
       &#x1F4AC; あなたの体験談もお待ちしています &#8212;
-      <a href="https://ganbari-quest.com/demo">まずはデモで試してみる</a> /
+      <a href="https://ganbari-quest.com/demo">デモで体験する</a> /
       <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="">メールで声を聞かせてください</a>
     </p>
   </div>
@@ -981,7 +981,7 @@
   <h2>お子さまの「がんばる力」、<br>一緒に育てませんか？</h2>
   <p>登録は1分で完了。お子さまの名前と年齢を入れるだけで、今日から冒険が始まります。</p>
   <div class="cta-buttons">
-    <a href="https://ganbari-quest.com/demo" class="btn btn-demo btn-lg">&#x1F3AE; デモで試す</a>
+    <a href="https://ganbari-quest.com/demo" class="btn btn-demo btn-lg">&#x1F3AE; デモで体験する</a>
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">無料ではじめる</a>
   </div>
   <p style="margin-top:16px;font-size:.85rem;color:var(--gray-500);">
@@ -1030,7 +1030,7 @@
         <h3>&#x2601;&#xFE0F; SaaS版（おすすめ）</h3>
         <span class="setup-label label-free">基本無料</span>
         <p>インストール不要、ブラウザからすぐに使えます。データはAWS上に安全に保存。基本機能は無料でお使いいただけます。</p>
-        <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で登録する</a>
+        <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
       </div>
       <div class="setup-option">
         <h3>&#x1F4E6; セルフホスト版</h3>
@@ -1078,7 +1078,7 @@
 <div class="floating-cta" id="floating-cta" aria-hidden="true">
   <div class="floating-cta-inner">
     <div class="floating-cta-text">7日間、全機能を無料で体験<small>クレジットカード不要</small></div>
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料体験</a>
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
   </div>
 </div>
 
