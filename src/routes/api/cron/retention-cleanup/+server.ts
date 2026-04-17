@@ -19,31 +19,14 @@
 //   404 Not Found (CRON_SECRET / OPS_SECRET_KEY のいずれも未設定時)
 //   500 Internal Error
 
-import { error, json } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
+import { checkCronAuth } from '$lib/server/auth/cron-auth';
 import { logger } from '$lib/server/logger';
 import { cleanupExpiredData } from '$lib/server/services/retention-cleanup-service';
 import type { RequestHandler } from './$types';
 
-function checkAuth(request: Request): void {
-	// #820 PR-D: CRON_SECRET を主とし、OPS_SECRET_KEY を後方互換フォールバックとして許可。
-	// 本番 GitHub Secrets のローテーション完了後、OPS_SECRET_KEY サポートは削除予定。
-	const cronSecret = process.env.CRON_SECRET;
-	const legacySecret = process.env.OPS_SECRET_KEY;
-	const accepted = [cronSecret, legacySecret].filter((v): v is string => !!v);
-	if (accepted.length === 0) {
-		// シークレット未設定 = エンドポイント無効化（存在を秘匿）
-		error(404, 'Not Found');
-	}
-
-	const authHeader = request.headers.get('Authorization');
-	const authorized = accepted.some((s) => authHeader === `Bearer ${s}`);
-	if (!authorized) {
-		error(401, 'Unauthorized');
-	}
-}
-
 export const POST: RequestHandler = async ({ request }) => {
-	checkAuth(request);
+	checkCronAuth(request);
 
 	let dryRun = false;
 	try {
@@ -73,7 +56,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 // GET も許容（ヘルスチェック的用途。dry-run 実行）
 export const GET: RequestHandler = async ({ request }) => {
-	checkAuth(request);
+	checkCronAuth(request);
 	try {
 		const result = await cleanupExpiredData({ dryRun: true });
 		return json({

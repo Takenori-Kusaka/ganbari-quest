@@ -3,8 +3,10 @@
 // - 終了3日前 / 1日前 / 当日のメール通知
 // - トライアル終了後の初回ログイン時モーダルフラグ管理
 
+import { getPlanShortLabel } from '$lib/domain/labels';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+import { getPlanLimits } from '$lib/server/services/plan-limit-service';
 import { sendEmail } from './email-service';
 import type { TrialTier } from './trial-service';
 import { getTrialStatus } from './trial-service';
@@ -94,7 +96,8 @@ export async function sendTrialEnding3DaysEmail(
 	trialEndDate: string,
 	trialTier: TrialTier,
 ): Promise<boolean> {
-	const tierLabel = trialTier === 'family' ? 'ファミリー' : 'スタンダード';
+	const tierLabel = getPlanShortLabel(trialTier);
+	const freeLimits = getPlanLimits('free');
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアル期間が残り3日です',
@@ -103,9 +106,9 @@ export async function sendTrialEnding3DaysEmail(
       <p>現在ご利用中の<strong>${tierLabel}プラン</strong>のトライアル期間は <strong>${trialEndDate}</strong> に終了します。</p>
       <p>トライアル終了後は、フリープランに切り替わります。フリープランでは以下の制限があります:</p>
       <ul>
-        <li>登録できる子供の数: 2人まで</li>
-        <li>カスタム活動数: 3個まで</li>
-        <li>データ保持期間: 90日</li>
+        <li>登録できる子供の数: ${freeLimits.maxChildren}人まで</li>
+        <li>カスタム活動数: ${freeLimits.maxActivities}個まで</li>
+        <li>データ保持期間: ${freeLimits.historyRetentionDays}日</li>
       </ul>
       <p>引き続きすべての機能をご利用いただくには、本契約へのお申し込みをお願いいたします。</p>
       <p style="text-align: center; margin: 24px 0;">
@@ -124,7 +127,7 @@ export async function sendTrialEnding1DayEmail(
 	trialEndDate: string,
 	trialTier: TrialTier,
 ): Promise<boolean> {
-	const tierLabel = trialTier === 'family' ? 'ファミリー' : 'スタンダード';
+	const tierLabel = getPlanShortLabel(trialTier);
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアルが明日終了します',
@@ -148,7 +151,7 @@ export async function sendTrialEndedTodayEmail(
 	email: string,
 	trialTier: TrialTier,
 ): Promise<boolean> {
-	const tierLabel = trialTier === 'family' ? 'ファミリー' : 'スタンダード';
+	const tierLabel = getPlanShortLabel(trialTier);
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアル期間が終了しました',

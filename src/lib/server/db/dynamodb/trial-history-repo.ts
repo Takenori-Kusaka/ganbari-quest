@@ -14,7 +14,8 @@ export async function findLatestByTenant(_tenantId: string): Promise<TrialHistor
 
 /** endDate が今日以降のトライアル履歴を返す（DynamoDB未実装） */
 export async function findActiveTrials(): Promise<TrialHistoryRow[]> {
-	// TODO: DynamoDB implementation
+	// DynamoDB 未実装: #1033 のスコープ外。本番は DynamoDB だが Pre-PMF 段階では SQLite テスト用。
+	// GRANDFATHERED_STUBS (scripts/check-dynamodb-stub.mjs) に登録済み — follow-up Issue #1016
 	return [];
 }
 

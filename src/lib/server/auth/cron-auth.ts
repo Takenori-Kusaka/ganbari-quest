@@ -1,26 +1,34 @@
 // src/lib/server/auth/cron-auth.ts
-// 共通 cron 認証ヘルパー — EventBridge / 手動トリガー用の内部エンドポイント認証
+// Cron エンドポイント共通の認証ヘルパー (#1033)
+//
+// EventBridge / 手動呼び出しから利用される cron エンドポイントで
+// 共通の Bearer token 認証を行う。
+// CRON_SECRET を主とし、OPS_SECRET_KEY を後方互換フォールバックとして許可。
+// #820 PR-D: 本番 GitHub Secrets のローテーション完了後、OPS_SECRET_KEY サポートは削除予定。
 
-import { json } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 
 /**
- * CRON_SECRET ヘッダによる内部 cron 認証を検証する。
+ * Cron エンドポイントの認証チェック。
  *
- * - CRON_SECRET が設定されている場合: x-cron-secret ヘッダと照合
- * - CRON_SECRET が未設定 かつ AUTH_MODE=local: 認証スキップ（ローカル開発用）
- * - CRON_SECRET が未設定 かつ AUTH_MODE≠local: 500 エラー
+ * CRON_SECRET / OPS_SECRET_KEY のいずれかが Authorization: Bearer ヘッダに
+ * 一致すれば OK。両方未設定の場合はエンドポイント自体を 404 として秘匿する。
  *
- * @returns 認証失敗時は Response を返す。成功時は null。
+ * @throws HttpError 401 認証失敗
+ * @throws HttpError 404 シークレット未設定（エンドポイント無効化）
  */
-export function verifyCronAuth(request: Request): Response | null {
+export function checkCronAuth(request: Request): void {
 	const cronSecret = process.env.CRON_SECRET;
-	if (cronSecret) {
-		const authHeader = request.headers.get('x-cron-secret');
-		if (authHeader !== cronSecret) {
-			return json({ error: 'Unauthorized' }, { status: 401 }) as unknown as Response;
-		}
-	} else if (process.env.AUTH_MODE !== 'local') {
-		return json({ error: 'CRON_SECRET not configured' }, { status: 500 }) as unknown as Response;
+	const legacySecret = process.env.OPS_SECRET_KEY;
+	const accepted = [cronSecret, legacySecret].filter((v): v is string => !!v);
+	if (accepted.length === 0) {
+		// シークレット未設定 = エンドポイント無効化（存在を秘匿）
+		error(404, 'Not Found');
 	}
-	return null;
+
+	const authHeader = request.headers.get('Authorization');
+	const authorized = accepted.some((s) => authHeader === `Bearer ${s}`);
+	if (!authorized) {
+		error(401, 'Unauthorized');
+	}
 }

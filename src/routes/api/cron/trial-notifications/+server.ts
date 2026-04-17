@@ -10,29 +10,15 @@
 //
 // tenantIds を省略した場合はアクティブなトライアルを持つ全テナントを対象にする。
 
-import { error, json } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
+import { checkCronAuth } from '$lib/server/auth/cron-auth';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { processTrialNotifications } from '$lib/server/services/trial-notification-service';
 import type { RequestHandler } from './$types';
 
-function checkAuth(request: Request): void {
-	const cronSecret = process.env.CRON_SECRET;
-	const legacySecret = process.env.OPS_SECRET_KEY;
-	const accepted = [cronSecret, legacySecret].filter((v): v is string => !!v);
-	if (accepted.length === 0) {
-		error(404, 'Not Found');
-	}
-
-	const authHeader = request.headers.get('Authorization');
-	const authorized = accepted.some((s) => authHeader === `Bearer ${s}`);
-	if (!authorized) {
-		error(401, 'Unauthorized');
-	}
-}
-
 export const POST: RequestHandler = async ({ request }) => {
-	checkAuth(request);
+	checkCronAuth(request);
 
 	try {
 		const body = (await request.json().catch(() => ({}))) as {
