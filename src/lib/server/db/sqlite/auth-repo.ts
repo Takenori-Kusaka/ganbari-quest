@@ -124,3 +124,7 @@ export const listExpiringSoon: IAuthRepo['listExpiringSoon'] = async () => {
 export const countLicenseKeys: IAuthRepo['countLicenseKeys'] = async () => {
 	return 0; // no-op in local mode (#816)
 };
+export const listActiveExpiredKeys: IAuthRepo['listActiveExpiredKeys'] = async () => {
+	// no-op in local mode (#821)。local モードはライセンスキーを保存しないため常に空配列。
+	return [];
+};
