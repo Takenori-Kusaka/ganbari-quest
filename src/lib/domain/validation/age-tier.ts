@@ -1,26 +1,15 @@
 import { z } from 'zod';
 import { AGE_TIER_LABELS } from '../labels';
+import type { UiMode } from './age-tier-types';
+import { LEGACY_UI_MODE_MAP, UI_MODES } from './age-tier-types';
 
-// 年齢帯モード定義（#537: 日本の学校制度に合わせたコード名に改修）
-export const UI_MODES = ['baby', 'preschool', 'elementary', 'junior', 'senior'] as const;
-export type UiMode = (typeof UI_MODES)[number];
+export type { UiMode } from './age-tier-types';
+// 型・定数・正規化関数は age-tier-types.ts に集約（#980: 循環依存解消）
+// 既存の import path を維持するため re-export する
+export { LEGACY_UI_MODE_MAP, normalizeUiMode, UI_MODES } from './age-tier-types';
 
 // Zod スキーマ
 export const uiModeSchema = z.enum(UI_MODES);
-
-// 旧コード → 新コード マッピング（遅延マイグレーション・互換チェック用）
-export const LEGACY_UI_MODE_MAP: Record<string, UiMode> = {
-	kinder: 'preschool',
-	lower: 'elementary',
-	upper: 'junior',
-	teen: 'senior',
-};
-
-/** 旧コードを含む値を新コードに変換する */
-export function normalizeUiMode(value: string): UiMode {
-	if (UI_MODES.includes(value as UiMode)) return value as UiMode;
-	return LEGACY_UI_MODE_MAP[value] ?? 'preschool';
-}
 
 // 年齢帯設定
 export const AGE_TIER_CONFIG: Record<
