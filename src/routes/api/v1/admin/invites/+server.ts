@@ -1,11 +1,12 @@
 // POST /api/v1/admin/invites — 招待リンク作成
 // GET  /api/v1/admin/invites — 招待一覧取得
-// (#0129)
+// (#0129, #1111)
 
 import { error, json } from '@sveltejs/kit';
 import { createInviteSchema } from '$lib/domain/validation/auth';
 import { validationError } from '$lib/server/errors';
 import { createInvite, listInvites } from '$lib/server/services/invite-service';
+import { checkFamilyMemberLimit } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -34,6 +35,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const parsed = createInviteSchema.safeParse(body);
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
+	}
+
+	// #1111: プラン別メンバー上限チェック
+	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const memberLimit = await checkFamilyMemberLimit(tenantId, licenseStatus);
+	if (!memberLimit.allowed) {
+		return json(
+			{
+				error: 'MEMBER_LIMIT_REACHED',
+				message: `メンバー上限（${memberLimit.max}人）に達しています。プランをアップグレードしてください。`,
+				current: memberLimit.current,
+				max: memberLimit.max,
+			},
+			{ status: 403 },
+		);
 	}
 
 	const invite = await createInvite(tenantId, userId, parsed.data.role, parsed.data.childId);
