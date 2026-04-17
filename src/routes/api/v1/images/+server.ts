@@ -1,5 +1,3 @@
-import { requireTenantId } from '$lib/server/auth/factory';
-
 // POST /api/v1/images - Generate avatar or favicon
 // GET /api/v1/images?type=favicon - Get favicon path
 
@@ -14,7 +12,11 @@ import { getChildStatus } from '$lib/server/services/status-service';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const type = url.searchParams.get('type');
 
 	if (type === 'favicon') {
@@ -26,7 +28,11 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const body = await request.json().catch(() => null);
 	if (!body || typeof body !== 'object') {
 		return validationError('リクエストボディが不正です');

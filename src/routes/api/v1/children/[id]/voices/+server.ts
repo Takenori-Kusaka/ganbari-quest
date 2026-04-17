@@ -1,11 +1,14 @@
 import { error, json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { listVoices, uploadVoice } from '$lib/server/services/voice-service';
 import type { RequestHandler } from './$types';
 
 /** GET /api/v1/children/:id/voices?scene=complete */
 export const GET: RequestHandler = async ({ params, url, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const childId = Number(params.id);
 	if (!childId || Number.isNaN(childId)) throw error(400, { message: '不正なIDです' });
 
@@ -16,7 +19,11 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
 /** POST /api/v1/children/:id/voices */
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const childId = Number(params.id);
 	if (!childId || Number.isNaN(childId)) throw error(400, { message: '不正なIDです' });
 

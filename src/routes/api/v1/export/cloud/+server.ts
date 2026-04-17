@@ -3,7 +3,7 @@
 
 import { json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { requireRole, requireTenantId } from '$lib/server/auth/factory';
+import { requireRole } from '$lib/server/auth/factory';
 import type { CloudExportType } from '$lib/server/db/types';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
@@ -12,7 +12,11 @@ import type { RequestHandler } from './$types';
 
 /** GET /api/v1/export/cloud — 自テナントのクラウドエクスポート一覧 */
 export const GET: RequestHandler = async ({ locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	requireRole(locals, ['owner', 'parent']);
 
 	try {
@@ -26,7 +30,11 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 /** POST /api/v1/export/cloud — クラウドエクスポート作成 */
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	requireRole(locals, ['owner', 'parent']);
 
 	let body: { exportType?: string; label?: string };
