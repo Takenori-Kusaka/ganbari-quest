@@ -53,11 +53,16 @@ test.describe('#753 PlanStatusCard → /admin/license', () => {
 		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
 
 		const familyCta = page.getByTestId('plan-status-family-cta');
-		// PlanStatusCard で family CTA がある場合のみ
-		const hasFamilyCta = await familyCta.isVisible({ timeout: 10_000 }).catch(() => false);
-		if (hasFamilyCta) {
-			await expect(familyCta).toContainText(/ファミリー/);
+		const count = await familyCta.count();
+		if (count === 0) {
+			test.info().annotations.push({
+				type: 'skip-reason',
+				description: 'family CTA が PlanStatusCard に存在しないレイアウトのためスキップ',
+			});
+			return;
 		}
+		await expect(familyCta).toBeVisible({ timeout: 10_000 });
+		await expect(familyCta).toContainText(/ファミリー/);
 	});
 
 	test('standard プランの PlanStatusCard にファミリーアップグレード CTA がある', async ({
@@ -72,10 +77,16 @@ test.describe('#753 PlanStatusCard → /admin/license', () => {
 
 		// standard → family CTA が表示される
 		const familyCta = page.getByTestId('plan-status-family-cta');
-		const hasFamilyCta = await familyCta.isVisible({ timeout: 10_000 }).catch(() => false);
-		if (hasFamilyCta) {
-			await expect(familyCta).toContainText(/ファミリー/);
+		const count = await familyCta.count();
+		if (count === 0) {
+			test.info().annotations.push({
+				type: 'skip-reason',
+				description: 'family CTA が PlanStatusCard に存在しないレイアウトのためスキップ',
+			});
+			return;
 		}
+		await expect(familyCta).toBeVisible({ timeout: 10_000 });
+		await expect(familyCta).toContainText(/ファミリー/);
 	});
 
 	test('family プランの PlanStatusCard にアップグレード CTA は表示されない', async ({ page }) => {
@@ -130,7 +141,7 @@ test.describe('#753 /admin/activities AI → アップグレード導線', () =>
 		await page.goto('/admin/activities', { waitUntil: 'commit', timeout: 180_000 });
 
 		// FAB から追加ダイアログを開き AI モードを選択
-		await page.waitForLoadState('networkidle').catch(() => {});
+		await page.waitForLoadState('domcontentloaded');
 		const fab = page.getByTestId('add-activity-fab');
 		await expect(fab).toBeVisible({ timeout: 30_000 });
 		await fab.click();
@@ -217,20 +228,30 @@ test.describe('#753 /admin/license プラン選択 UI', () => {
 		await loginAsPlan(page, 'free');
 		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
 
-		// Stripe が無効な環境では「決済機能は現在準備中です」が出る可能性がある。
+		// Stripe が無効な環境では「決済機能は現在準備中です」が出る。
 		// Stripe 有効環境ではプラン選択カードが表示される。
+		// どちらかが必ず表示されることを検証する。
 		const preparingText = page.getByText('決済機能は現在準備中です');
-		const isPreparing = await preparingText.isVisible({ timeout: 10_000 }).catch(() => false);
+		const standardText = page.getByText('スタンダード');
+		const preparingOrPlanCard = preparingText.or(standardText);
+		await expect(preparingOrPlanCard).toBeVisible({ timeout: 10_000 });
 
-		if (!isPreparing) {
-			// スタンダード / ファミリーの選択カードが表示される
-			await expect(page.getByText('スタンダード')).toBeVisible();
-			await expect(page.getByText('ファミリー')).toBeVisible();
-
-			// 月額 / 年額の切り替えがある
-			await expect(page.getByText('月額')).toBeVisible();
-			await expect(page.getByText(/年額/)).toBeVisible();
+		const preparingCount = await preparingText.count();
+		if (preparingCount > 0 && (await preparingText.isVisible())) {
+			test.info().annotations.push({
+				type: 'skip-reason',
+				description: 'Stripe 未設定環境のためプラン選択カードの詳細検証をスキップ',
+			});
+			return;
 		}
+
+		// Stripe 有効環境: スタンダード / ファミリーの選択カードが表示される
+		await expect(standardText).toBeVisible();
+		await expect(page.getByText('ファミリー')).toBeVisible();
+
+		// 月額 / 年額の切り替えがある
+		await expect(page.getByText('月額')).toBeVisible();
+		await expect(page.getByText(/年額/)).toBeVisible();
 	});
 
 	test('standard プランでは Stripe Portal ボタンが表示される（サブスク有りの場合）', async ({
@@ -243,12 +264,8 @@ test.describe('#753 /admin/license プラン選択 UI', () => {
 		// または dev 環境では Stripe 未設定で「決済機能は現在準備中です」が出る
 		const portalBtn = page.getByTestId('open-portal-button');
 		const preparingText = page.getByText('決済機能は現在準備中です');
-
-		const hasPortal = await portalBtn.isVisible({ timeout: 10_000 }).catch(() => false);
-		const isPreparing = await preparingText.isVisible({ timeout: 5_000 }).catch(() => false);
-
-		// どちらかが表示される
-		expect(hasPortal || isPreparing).toBe(true);
+		const portalOrPreparing = portalBtn.or(preparingText);
+		await expect(portalOrPreparing).toBeVisible({ timeout: 10_000 });
 	});
 });
 
