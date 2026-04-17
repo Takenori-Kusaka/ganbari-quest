@@ -7,12 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockFindAllChildren = vi.fn();
 const mockFindActivities = vi.fn();
+const mockFindActivityLogs = vi.fn();
 const mockFindStatuses = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		child: { findAllChildren: mockFindAllChildren },
-		activity: { findActivities: mockFindActivities },
+		activity: { findActivities: mockFindActivities, findActivityLogs: mockFindActivityLogs },
 		status: { findStatuses: mockFindStatuses },
 	}),
 }));
@@ -131,11 +132,14 @@ describe('deletion-export-service', () => {
 					createdAt: '2026-02-01T00:00:00.000Z',
 				},
 			]);
-			mockFindActivities.mockResolvedValue([{ id: 1, name: 'うんどう', source: 'seed' }]);
 			mockFindStatuses.mockResolvedValue([
 				{ categoryId: 1, totalXp: 100, level: 3, peakXp: 100, updatedAt: '2026-04-17' },
 				{ categoryId: 2, totalXp: 50, level: 2, peakXp: 50, updatedAt: '2026-04-17' },
 			]);
+			// たろう: 5件、はなこ: 3件の活動ログ
+			mockFindActivityLogs
+				.mockResolvedValueOnce([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }])
+				.mockResolvedValueOnce([{ id: 6 }, { id: 7 }, { id: 8 }]);
 
 			const result = await generateMinimalExport('tenant-1');
 
@@ -145,11 +149,16 @@ describe('deletion-export-service', () => {
 			expect(result.children[0]!.nickname).toBe('たろう');
 			expect(result.activitySummary).toHaveLength(2);
 			expect(result.activitySummary[0]!.totalPoints).toBe(150);
+			// 子供ごとの活動数が正しくカウントされること
+			expect(result.activitySummary[0]!.totalActivities).toBe(5);
+			expect(result.activitySummary[1]!.totalActivities).toBe(3);
+			// カテゴリ名がSSOTから取得されること
+			expect(result.activitySummary[0]!.categories[0]!.name).toBe('うんどう');
+			expect(result.activitySummary[0]!.categories[1]!.name).toBe('べんきょう');
 		});
 
 		it('子供がいない場合も空の結果を返す', async () => {
 			mockFindAllChildren.mockResolvedValue([]);
-			mockFindActivities.mockResolvedValue([]);
 
 			const result = await generateMinimalExport('tenant-1');
 
@@ -193,7 +202,6 @@ describe('deletion-export-service', () => {
 	describe('generateDeletionExport', () => {
 		it('free プランで minimal エクスポートを生成する', async () => {
 			mockFindAllChildren.mockResolvedValue([]);
-			mockFindActivities.mockResolvedValue([]);
 
 			const result = await generateDeletionExport({
 				tenantId: 'tenant-1',

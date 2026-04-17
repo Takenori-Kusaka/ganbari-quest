@@ -6,7 +6,8 @@
 // - standard: フルエクスポート（活動ログ全件、スタンプカード、特別報酬、メッセージ）
 // - family:   上記 + きょうだい比較データ
 
-import type { ExportData, ExportOptions } from '$lib/domain/export-format';
+import type { ExportData } from '$lib/domain/export-format';
+import { getCategoryById } from '$lib/domain/validation/activity';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import type { PlanTier } from './plan-limit-service';
@@ -25,7 +26,7 @@ export interface DeletionExportOptions {
 
 export interface DeletionExportResult {
 	scope: ExportScope;
-	data: MinimalExportData | ExportData;
+	data: MinimalExportData | ExportData | FamilyExportData;
 	generatedAt: string;
 }
 
@@ -66,6 +67,11 @@ export interface SiblingComparisonExport {
 	}>;
 }
 
+/** family プラン向けエクスポート（フルエクスポート + きょうだい比較） */
+export interface FamilyExportData extends ExportData {
+	siblingComparison: SiblingComparisonExport;
+}
+
 // ============================================================
 // Scope resolution
 // ============================================================
@@ -98,7 +104,6 @@ export function resolveExportScope(planTier: PlanTier): ExportScope {
 export async function generateMinimalExport(tenantId: string): Promise<MinimalExportData> {
 	const repos = getRepos();
 	const allChildren = await repos.child.findAllChildren(tenantId);
-	const allActivities = await repos.activity.findActivities(tenantId);
 
 	const children: MinimalChildExport[] = allChildren.map((c) => ({
 		nickname: c.nickname,
@@ -111,18 +116,22 @@ export async function generateMinimalExport(tenantId: string): Promise<MinimalEx
 
 	for (const child of allChildren) {
 		const statuses = await repos.status.findStatuses(child.id, tenantId);
+		const childLogs = await repos.activity.findActivityLogs(child.id, tenantId);
 
 		// カテゴリ別集計
-		const categories = statuses.map((s) => ({
-			name: getCategoryName(s.categoryId),
-			count: s.totalXp,
-		}));
+		const categories = statuses.map((s) => {
+			const catDef = getCategoryById(s.categoryId);
+			return {
+				name: catDef?.name ?? 'その他',
+				count: s.totalXp,
+			};
+		});
 
 		const totalPoints = statuses.reduce((sum, s) => sum + s.totalXp, 0);
 
 		activitySummary.push({
 			childNickname: child.nickname,
-			totalActivities: allActivities.length,
+			totalActivities: childLogs.length,
 			totalPoints,
 			categories,
 			firstRecordDate: child.createdAt.split('T')[0] ?? null,
@@ -172,11 +181,14 @@ export async function generateSiblingComparison(
 	for (const child of allChildren) {
 		const statuses = await repos.status.findStatuses(child.id, tenantId);
 
-		const categorySummary = statuses.map((s) => ({
-			categoryCode: getCategoryCode(s.categoryId),
-			totalXp: s.totalXp,
-			level: s.level,
-		}));
+		const categorySummary = statuses.map((s) => {
+			const catDef = getCategoryById(s.categoryId);
+			return {
+				categoryCode: catDef?.code ?? 'unknown',
+				totalXp: s.totalXp,
+				level: s.level,
+			};
+		});
 
 		const totalPoints = statuses.reduce((sum, s) => sum + s.totalXp, 0);
 		const maxLevel = statuses.reduce((max, s) => Math.max(max, s.level), 0);
@@ -227,11 +239,11 @@ export async function generateDeletionExport(
 			const data = await generateFullExport(tenantId);
 			const siblingData = await generateSiblingComparison(tenantId);
 			// family エクスポートでは sibling comparison を data に追加
-			const familyData = {
+			const familyData: FamilyExportData = {
 				...data,
 				siblingComparison: siblingData,
 			};
-			return { scope, data: familyData as ExportData, generatedAt };
+			return { scope, data: familyData, generatedAt };
 		}
 	}
 }
@@ -246,32 +258,4 @@ export async function generateDeletionExportForTenant(
 ): Promise<DeletionExportResult> {
 	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, planId);
 	return generateDeletionExport({ tenantId, planTier });
-}
-
-// ============================================================
-// Helpers
-// ============================================================
-
-const CATEGORY_NAMES: Record<number, string> = {
-	1: 'うんどう',
-	2: 'べんきょう',
-	3: 'せいかつ',
-	4: 'こうりゅう',
-	5: 'そうぞう',
-};
-
-const CATEGORY_CODES: Record<number, string> = {
-	1: 'undou',
-	2: 'benkyou',
-	3: 'seikatsu',
-	4: 'kouryuu',
-	5: 'souzou',
-};
-
-function getCategoryName(categoryId: number): string {
-	return CATEGORY_NAMES[categoryId] ?? 'その他';
-}
-
-function getCategoryCode(categoryId: number): string {
-	return CATEGORY_CODES[categoryId] ?? 'unknown';
 }
