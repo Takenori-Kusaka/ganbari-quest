@@ -15,8 +15,9 @@ export default defineConfig({
 	// #805: ops-license / ops-license-issue を追加（ops group 認可テスト）
 	// #753: upgrade-flow のアップグレード導線 spec を追加
 	// #757: pricing-page-signup のトライアル自動開始 spec を追加
+	// #750: trial-banner-display / account-deletion を追加
 	testMatch:
-		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup)\.spec\.ts$/,
+		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
