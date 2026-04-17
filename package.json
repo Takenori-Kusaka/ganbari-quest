@@ -45,7 +45,7 @@
 		"security:scan": "node scripts/security-scan.mjs",
 		"storybook": "storybook dev -p 6006",
 		"build-storybook": "storybook build",
-		"type-coverage": "type-coverage -p . --at-least 77.33 --strict --ignore-catch"
+		"type-coverage": "type-coverage -p . --at-least 97 --strict --ignore-catch --detail"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.10",
@@ -114,10 +114,15 @@
 		"zod": "^4.3.6"
 	},
 	"typeCoverage": {
-		"atLeast": 77.33,
+		"atLeast": 97,
 		"strict": true,
 		"ignoreCatch": true,
+		"detail": true,
 		"ignoreFiles": [
+			"build/**",
+			"storybook-static/**",
+			"coverage/**",
+			"infra/cdk.out/**",
 			"**/*.test.ts",
 			"**/*.spec.ts",
 			"src/lib/server/db/migrations/**",
