@@ -3,6 +3,7 @@
 // (#0129, #1111)
 
 import { error, json } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createInviteSchema } from '$lib/domain/validation/auth';
 import { validationError } from '$lib/server/errors';
 import { createInvite, listInvites } from '$lib/server/services/invite-service';
@@ -38,7 +39,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	// #1111: プラン別メンバー上限チェック
-	const licenseStatus = locals.context?.licenseStatus ?? 'none';
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const memberLimit = await checkFamilyMemberLimit(tenantId, licenseStatus);
 	if (!memberLimit.allowed) {
 		return json(
