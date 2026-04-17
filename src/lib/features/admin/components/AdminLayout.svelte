@@ -126,6 +126,7 @@ const navCategories: NavCategory[] = $derived([
 			{ href: `${basePath}/children`, label: NAV_ITEM_LABELS.children, icon: '👧' },
 			{ href: `${basePath}/settings`, label: NAV_ITEM_LABELS.settings, icon: '⚙️' },
 			{ href: `${basePath}/license`, label: NAV_ITEM_LABELS.license, icon: '💎' },
+			{ href: `${basePath}/billing`, label: NAV_ITEM_LABELS.billing, icon: '🧾' },
 			{ href: `${basePath}/members`, label: NAV_ITEM_LABELS.members, icon: '👥' },
 		],
 	},

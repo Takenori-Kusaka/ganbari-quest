@@ -63,6 +63,7 @@ export const NAV_ITEM_LABELS = {
 	children: 'こども',
 	settings: '設定',
 	license: 'プラン',
+	billing: '請求管理',
 	members: 'メンバー',
 } as const;
 
