@@ -3,18 +3,20 @@
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { sendMemberJoinedEmail } from '$lib/server/services/email-service';
 
 export const POST: RequestHandler = async ({ params, locals }) => {
-	const tenantId = requireTenantId(locals);
 	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const identity = locals.identity;
 	const targetUserId = (params as Record<string, string>).userId ?? '';
 
-	if (!context || context.role !== 'owner') {
+	if (context.role !== 'owner') {
 		return json({ error: 'owner のみ権限を移譲できます' }, { status: 403 });
 	}
 

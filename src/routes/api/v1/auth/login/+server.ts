@@ -4,14 +4,17 @@ import {
 	SESSION_COOKIE_NAME,
 	SESSION_MAX_AGE_SECONDS,
 } from '$lib/domain/validation/auth';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { apiError, validationError } from '$lib/server/errors';
 import { login } from '$lib/server/services/auth-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const body = await request.json();
 	const parsed = loginSchema.safeParse(body);
 	if (!parsed.success) {
