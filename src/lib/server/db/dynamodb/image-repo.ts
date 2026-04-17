@@ -2,19 +2,14 @@
 // DynamoDB implementation of IImageRepo
 
 import { GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import type { CharacterImage, Child, InsertCharacterImageInput } from '../types';
+import type { CharacterImage, InsertCharacterImageInput } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import { characterImageKey, characterImagePrefix, childKey, ENTITY_NAMES, tenantPK } from './keys';
+import { findChildByIdRaw, stripKeys } from './repo-helpers';
 
-/** Strip PK/SK/GSI keys from a DynamoDB item */
-function stripKeys<T extends Record<string, unknown>>(
-	item: T,
-): Omit<T, 'PK' | 'SK' | 'GSI2PK' | 'GSI2SK'> {
-	const { PK, SK, GSI2PK, GSI2SK, ...rest } = item;
-	return rest;
-}
+export { findChildByIdRaw as findChildForImage } from './repo-helpers';
 
 /** キャッシュされた画像を取得 */
 export async function findCachedImage(
@@ -89,22 +84,6 @@ export async function updateChildAvatarUrl(
 			},
 		}),
 	);
-}
-
-/** 子供情報を取得 */
-export async function findChildForImage(
-	childId: number,
-	tenantId: string,
-): Promise<Child | undefined> {
-	const result = await getDocClient().send(
-		new GetCommand({
-			TableName: TABLE_NAME,
-			Key: childKey(childId, tenantId),
-		}),
-	);
-
-	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as Child;
 }
 
 /** テナントの全キャラクター画像レコードを削除（CHILD#* 配下の IMG# アイテム） */

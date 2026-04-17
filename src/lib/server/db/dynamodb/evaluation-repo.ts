@@ -22,14 +22,7 @@ import {
 	statusHistoryPrefix,
 	tenantPK,
 } from './keys';
-
-/** Strip PK/SK/GSI keys from a DynamoDB item */
-function stripKeys<T extends Record<string, unknown>>(
-	item: T,
-): Omit<T, 'PK' | 'SK' | 'GSI2PK' | 'GSI2SK'> {
-	const { PK, SK, GSI2PK, GSI2SK, ...rest } = item;
-	return rest;
-}
+import { queryAllItems, stripKeys } from './repo-helpers';
 
 /** 指定期間のカテゴリ別活動回数を集計 */
 export async function countActivitiesByCategory(
@@ -41,38 +34,20 @@ export async function countActivitiesByCategory(
 	const pk = childPK(childId, tenantId);
 	const prefix = activityLogPrefix();
 
-	// Query all activity logs for this child, filter by date range
-	const items: Record<string, unknown>[] = [];
-	let lastKey: Record<string, unknown> | undefined;
-
-	do {
-		const result = await getDocClient().send(
-			new QueryCommand({
-				TableName: TABLE_NAME,
-				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-				FilterExpression:
-					'#cancelled = :zero AND #recordedDate >= :weekStart AND #recordedDate <= :weekEnd',
-				ExpressionAttributeNames: {
-					'#cancelled': 'cancelled',
-					'#recordedDate': 'recordedDate',
-				},
-				ExpressionAttributeValues: {
-					':pk': pk,
-					':prefix': prefix,
-					':zero': 0,
-					':weekStart': weekStart,
-					':weekEnd': weekEnd,
-				},
-				ProjectionExpression: 'activityId, categoryId, points',
-				ExclusiveStartKey: lastKey,
-			}),
-		);
-
-		for (const item of result.Items ?? []) {
-			items.push(item);
-		}
-		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-	} while (lastKey);
+	const items = await queryAllItems(pk, prefix, {
+		filterExpression:
+			'#cancelled = :zero AND #recordedDate >= :weekStart AND #recordedDate <= :weekEnd',
+		expressionAttributeNames: {
+			'#cancelled': 'cancelled',
+			'#recordedDate': 'recordedDate',
+		},
+		expressionAttributeValues: {
+			':zero': 0,
+			':weekStart': weekStart,
+			':weekEnd': weekEnd,
+		},
+		projectionExpression: 'activityId, categoryId, points',
+	});
 
 	// Group by categoryId and count + sum points
 	const catMap = new Map<number, { count: number; totalPoints: number }>();
@@ -138,7 +113,9 @@ export async function findAllChildren(tenantId: string): Promise<Child[]> {
 		}),
 	);
 
-	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as Child);
+	return (result.Items ?? []).map(
+		(item) => stripKeys(item as Record<string, unknown>) as unknown as Child,
+	);
 }
 
 /** 子供の評価履歴を取得 */
@@ -224,32 +201,12 @@ export async function findLastActivityDateByCategory(
 	const pk = childPK(childId, tenantId);
 	const prefix = activityLogPrefix();
 
-	// Query all activity logs for this child
-	const items: Record<string, unknown>[] = [];
-	let lastKey: Record<string, unknown> | undefined;
-
-	do {
-		const result = await getDocClient().send(
-			new QueryCommand({
-				TableName: TABLE_NAME,
-				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-				FilterExpression: '#cancelled = :zero',
-				ExpressionAttributeNames: { '#cancelled': 'cancelled' },
-				ExpressionAttributeValues: {
-					':pk': pk,
-					':prefix': prefix,
-					':zero': 0,
-				},
-				ProjectionExpression: 'categoryId, recordedDate',
-				ExclusiveStartKey: lastKey,
-			}),
-		);
-
-		for (const item of result.Items ?? []) {
-			items.push(item);
-		}
-		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-	} while (lastKey);
+	const items = await queryAllItems(pk, prefix, {
+		filterExpression: '#cancelled = :zero',
+		expressionAttributeNames: { '#cancelled': 'cancelled' },
+		expressionAttributeValues: { ':zero': 0 },
+		projectionExpression: 'categoryId, recordedDate',
+	});
 
 	// Group by categoryId and find max date
 	const catMaxDate = new Map<number, string>();
