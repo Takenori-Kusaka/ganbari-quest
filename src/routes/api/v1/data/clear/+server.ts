@@ -2,7 +2,7 @@
 // テナントデータクリア API (#0205)
 
 import { json } from '@sveltejs/kit';
-import { requireRole, requireTenantId } from '$lib/server/auth/factory';
+import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { clearAllFamilyData } from '$lib/server/services/data-service';
@@ -10,7 +10,11 @@ import type { RequestHandler } from './$types';
 
 /** POST /api/v1/data/clear */
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	requireRole(locals, ['owner']);
 
 	let body: { confirm?: string };

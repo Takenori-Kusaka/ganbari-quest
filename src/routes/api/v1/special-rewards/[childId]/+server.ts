@@ -3,7 +3,6 @@ import {
 	grantSpecialRewardSchema,
 	specialRewardQuerySchema,
 } from '$lib/domain/validation/special-reward';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { notFound, validationError } from '$lib/server/errors';
 import {
 	getChildSpecialRewards,
@@ -12,7 +11,11 @@ import {
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const parsed = specialRewardQuerySchema.safeParse({ childId: params.childId });
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
@@ -23,7 +26,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const body = await request.json();
 
 	const parsed = grantSpecialRewardSchema.safeParse({
