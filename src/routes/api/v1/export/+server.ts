@@ -1,9 +1,10 @@
 // src/routes/api/v1/export/+server.ts
 // 家族データエクスポートAPI（JSON / ZIP対応）
+import { json } from '@sveltejs/kit';
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
-import { requireRole, requireTenantId } from '$lib/server/auth/factory';
+import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { exportFamilyData } from '$lib/server/services/export-service';
@@ -13,7 +14,11 @@ import { tenantPrefix } from '$lib/server/storage-keys';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	requireRole(locals, ['owner', 'parent']);
 
 	// プラン制限チェック（エクスポート機能）

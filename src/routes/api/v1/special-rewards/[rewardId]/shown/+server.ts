@@ -1,10 +1,13 @@
 import { error, json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { markRewardShown } from '$lib/server/services/special-reward-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ params, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const rewardId = Number(params.rewardId);
 	if (Number.isNaN(rewardId)) {
 		error(400, 'Invalid reward ID');
