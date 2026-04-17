@@ -7,13 +7,11 @@
 // ダウンロード漏れを抑制できる）。
 //
 // - 認可: Cognito identity が必要 (layout の isOpsMember で原則ブロック済み、念のためのガード)
-// - 監査: ops_audit_log に action='license.issue' で 1 件記録 (metadata に発行件数・理由・全キー)
 // - 上限: 1 request あたり 500 件（運用上まとめて配る最大想定）
 
 import { error, fail } from '@sveltejs/kit';
 import { ALL_LICENSE_PLANS, type LicensePlan } from '$lib/domain/constants/license-plan';
 import { issueLicenseKey } from '$lib/server/services/license-key-service';
-import { recordOpsAudit } from '$lib/server/services/ops-audit-log-service';
 import type { Actions, PageServerLoad } from './$types';
 
 const MAX_BATCH = 500;
@@ -101,22 +99,6 @@ export const actions: Actions = {
 				error: `発行に失敗しました: ${errors[0] ?? 'unknown error'}`,
 			});
 		}
-
-		await recordOpsAudit({
-			identity,
-			event,
-			action: 'license.issue',
-			target: tenantId,
-			metadata: {
-				plan,
-				quantity: issuedKeys.length,
-				requested: quantity,
-				reason,
-				expiresAt: expiresAtArg ?? 'default',
-				keys: issuedKeys,
-				errors: errors.length > 0 ? errors : undefined,
-			},
-		});
 
 		return {
 			issued: true,
