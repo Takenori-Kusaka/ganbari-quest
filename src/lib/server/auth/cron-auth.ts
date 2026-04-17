@@ -17,7 +17,7 @@ import { error } from '@sveltejs/kit';
  * @throws HttpError 401 認証失敗
  * @throws HttpError 404 シークレット未設定（エンドポイント無効化）
  */
-export function checkCronAuth(request: Request): void {
+export function verifyCronAuth(request: Request): void {
 	const cronSecret = process.env.CRON_SECRET;
 	const legacySecret = process.env.OPS_SECRET_KEY;
 	const accepted = [cronSecret, legacySecret].filter((v): v is string => !!v);

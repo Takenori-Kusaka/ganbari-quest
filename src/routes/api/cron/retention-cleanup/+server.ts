@@ -20,13 +20,13 @@
 //   500 Internal Error
 
 import { json } from '@sveltejs/kit';
-import { checkCronAuth } from '$lib/server/auth/cron-auth';
+import { verifyCronAuth } from '$lib/server/auth/cron-auth';
 import { logger } from '$lib/server/logger';
 import { cleanupExpiredData } from '$lib/server/services/retention-cleanup-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
-	checkCronAuth(request);
+	verifyCronAuth(request);
 
 	let dryRun = false;
 	try {
@@ -56,7 +56,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 // GET も許容（ヘルスチェック的用途。dry-run 実行）
 export const GET: RequestHandler = async ({ request }) => {
-	checkCronAuth(request);
+	verifyCronAuth(request);
 	try {
 		const result = await cleanupExpiredData({ dryRun: true });
 		return json({

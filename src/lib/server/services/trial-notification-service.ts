@@ -3,7 +3,7 @@
 // - 終了3日前 / 1日前 / 当日のメール通知
 // - トライアル終了後の初回ログイン時モーダルフラグ管理
 
-import { getPlanShortLabel } from '$lib/domain/labels';
+import { getPlanLabel } from '$lib/domain/labels';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { getPlanLimits } from '$lib/server/services/plan-limit-service';
@@ -96,7 +96,7 @@ export async function sendTrialEnding3DaysEmail(
 	trialEndDate: string,
 	trialTier: TrialTier,
 ): Promise<boolean> {
-	const tierLabel = getPlanShortLabel(trialTier);
+	const tierLabel = getPlanLabel(trialTier);
 	const freeLimits = getPlanLimits('free');
 	return sendEmail({
 		to: email,
@@ -127,7 +127,7 @@ export async function sendTrialEnding1DayEmail(
 	trialEndDate: string,
 	trialTier: TrialTier,
 ): Promise<boolean> {
-	const tierLabel = getPlanShortLabel(trialTier);
+	const tierLabel = getPlanLabel(trialTier);
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアルが明日終了します',
@@ -151,7 +151,7 @@ export async function sendTrialEndedTodayEmail(
 	email: string,
 	trialTier: TrialTier,
 ): Promise<boolean> {
-	const tierLabel = getPlanShortLabel(trialTier);
+	const tierLabel = getPlanLabel(trialTier);
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアル期間が終了しました',
