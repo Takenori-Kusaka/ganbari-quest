@@ -1,4 +1,5 @@
 <script lang="ts">
+import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -102,7 +103,7 @@ const trialTierLabel = $derived(
 					class="plan-status__cta--upgrade-btn"
 					disabled={upgradeLoading}
 					data-testid="plan-status-trial-cta"
-					onclick={() => onUpgrade?.('monthly')}
+					onclick={() => onUpgrade?.(LICENSE_PLAN.MONTHLY)}
 				>
 					{upgradeLoading ? '処理中...' : '本契約する'}
 				</Button>
@@ -123,7 +124,7 @@ const trialTierLabel = $derived(
 					class="plan-status__cta--upgrade-btn"
 					disabled={upgradeLoading}
 					data-testid="plan-status-free-cta"
-					onclick={() => onUpgrade?.('monthly')}
+					onclick={() => onUpgrade?.(LICENSE_PLAN.MONTHLY)}
 				>
 					{upgradeLoading ? '処理中...' : '⭐ スタンダードにアップグレード'}
 				</Button>
@@ -146,7 +147,7 @@ const trialTierLabel = $derived(
 						class="plan-status__cta--family-btn"
 						disabled={upgradeLoading}
 						data-testid="plan-status-family-cta"
-						onclick={() => onUpgrade?.('family-monthly')}
+						onclick={() => onUpgrade?.(LICENSE_PLAN.FAMILY_MONTHLY)}
 					>
 						{upgradeLoading ? '処理中...' : '⭐⭐ ファミリーへ'}
 					</Button>
@@ -252,10 +253,10 @@ const trialTierLabel = $derived(
 		flex: 1;
 	}
 	.plan-status__cta--detail:hover {
-		background: var(--color-neutral-200);
+		background: var(--color-surface-tertiary);
 	}
 	.plan-status__cta--family {
-		background: var(--color-gold-100, var(--color-surface-warm));
+		background: var(--color-surface-warm);
 		color: var(--color-gold-700, var(--color-amber-700));
 		flex: 1;
 	}

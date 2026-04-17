@@ -7,6 +7,15 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { createCheckoutSession } from '$lib/server/services/stripe-service';
 import type { RequestHandler } from './$types';
 
+/** オープンリダイレクト防止: returnPath は相対パス（/ 始まり）のみ許可 */
+function validateReturnPath(path: string | undefined): string {
+	if (!path) return '/admin';
+	if (!path.startsWith('/') || path.startsWith('//') || path.includes('://')) {
+		return '/admin';
+	}
+	return path;
+}
+
 export const POST: RequestHandler = async ({ request, locals, url }) => {
 	// 認証 + テナント検証（サーバー側の署名付きContextから取得 — 偽造不可）
 	const tenantId = requireTenantId(locals);
@@ -32,9 +41,11 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 
 	const origin = url.origin;
 	// #767: returnPath が指定された場合、Checkout 完了後にその画面に戻す
-	const successBase = returnPath ?? '/admin/license';
+	// オープンリダイレクト防止: 相対パスのみ許可
+	const safePath = validateReturnPath(returnPath);
+	const successBase = returnPath ? safePath : '/admin/license';
 	const successUrl = `${origin}${successBase}${successBase.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}`;
-	const cancelUrl = returnPath ? `${origin}${returnPath}` : `${origin}/pricing`;
+	const cancelUrl = returnPath ? `${origin}${safePath}` : `${origin}/pricing`;
 
 	const result = await createCheckoutSession({
 		tenantId,
