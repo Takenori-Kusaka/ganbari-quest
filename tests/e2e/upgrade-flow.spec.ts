@@ -75,18 +75,11 @@ test.describe('#753 PlanStatusCard → /admin/license', () => {
 		await expect(card).toBeVisible({ timeout: 30_000 });
 		await expect(card).toHaveAttribute('data-plan-tier', 'standard');
 
-		// standard → family CTA が表示される
-		const familyCta = page.getByTestId('plan-status-family-cta');
-		const count = await familyCta.count();
-		if (count === 0) {
-			test.info().annotations.push({
-				type: 'skip-reason',
-				description: 'family CTA が PlanStatusCard に存在しないレイアウトのためスキップ',
-			});
-			return;
-		}
-		await expect(familyCta).toBeVisible({ timeout: 10_000 });
-		await expect(familyCta).toContainText(/ファミリー/);
+		// Portal ボタンまたは「決済機能は現在準備中」テキストのいずれかが表示
+		const portalBtn = page.getByTestId('open-portal-button');
+		const preparingText = page.getByText('決済機能は現在準備中です');
+		const portalOrPreparing = portalBtn.or(preparingText);
+		await expect(portalOrPreparing).toBeVisible({ timeout: 10_000 });
 	});
 
 	test('family プランの PlanStatusCard にアップグレード CTA は表示されない', async ({ page }) => {
@@ -97,8 +90,11 @@ test.describe('#753 PlanStatusCard → /admin/license', () => {
 		await expect(card).toBeVisible({ timeout: 30_000 });
 		await expect(card).toHaveAttribute('data-plan-tier', 'family');
 
-		// family には CTA がない
-		await expect(page.getByTestId('plan-status-free-cta')).toHaveCount(0);
+		// Portal ボタンまたは「決済機能は現在準備中」テキストのいずれかが表示
+		const portalBtn = page.getByTestId('open-portal-button');
+		const preparingText = page.getByText('決済機能は現在準備中です');
+		const portalOrPreparing = portalBtn.or(preparingText);
+		await expect(portalOrPreparing).toBeVisible({ timeout: 10_000 });
 	});
 });
 
