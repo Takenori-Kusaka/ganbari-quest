@@ -132,7 +132,18 @@ jobs:
       - run: npm ci
 
       - name: Unit tests with coverage (shard ${{ matrix.shard }}/2)
-        run: npx vitest run --reporter=blob --coverage.enabled --coverage.reporter=json --shard=${{ matrix.shard }}/2
+        # shard 単体では全テストの一部しか走らないため coverage threshold は必ず未達になる。
+        # threshold は unit-test-merge の --merge-reports 時に vite.config.ts の値で検証する。
+        run: >-
+          npx vitest run
+          --reporter=blob
+          --coverage.enabled
+          --coverage.reporter=json
+          --coverage.thresholds.lines=0
+          --coverage.thresholds.functions=0
+          --coverage.thresholds.branches=0
+          --coverage.thresholds.statements=0
+          --shard=${{ matrix.shard }}/2
 
       - name: Upload vitest blob report
         if: always()
@@ -140,14 +151,7 @@ jobs:
         with:
           name: vitest-blob-${{ matrix.shard }}
           path: .vitest-reports/
-          retention-days: 3
-
-      - name: Upload coverage JSON
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: vitest-coverage-${{ matrix.shard }}
-          path: coverage/coverage-final.json
+          include-hidden-files: true
           retention-days: 3
 
   # #1006: shard 分割された vitest 結果を merge してラチェット検証
