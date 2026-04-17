@@ -172,7 +172,10 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）', ()
 
 		if (deleteSectionCount === 0) {
 			// ローカルモード (authMode !== 'cognito') ではセクション非表示
-			test.skip(true, 'アカウント削除セクションが非表示（ローカルモード）');
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: 'アカウント削除セクションが非表示（ローカルモード）',
+			});
 			return;
 		}
 
@@ -192,7 +195,10 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）', ()
 		const deleteSectionCount = await deleteSection.count();
 
 		if (deleteSectionCount === 0) {
-			test.skip(true, 'アカウント削除セクションが非表示（ローカルモード）');
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: 'アカウント削除セクションが非表示（ローカルモード）',
+			});
 			return;
 		}
 
@@ -212,7 +218,10 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）', ()
 		const deleteSectionCount = await deleteSection.count();
 
 		if (deleteSectionCount === 0) {
-			test.skip(true, 'アカウント削除セクションが非表示（ローカルモード）');
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: 'アカウント削除セクションが非表示（ローカルモード）',
+			});
 			return;
 		}
 
@@ -241,7 +250,10 @@ test.describe('#755 権限移譲ダイアログ — UI', () => {
 		const deleteSectionCount = await deleteSection.count();
 
 		if (deleteSectionCount === 0) {
-			test.skip(true, 'アカウント削除セクションが非表示（ローカルモード）');
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: 'アカウント削除セクションが非表示（ローカルモード）',
+			});
 			return;
 		}
 
@@ -264,7 +276,10 @@ test.describe('#755 権限移譲ダイアログ — UI', () => {
 
 		if (transferDialogCount === 0) {
 			// owner-only テナント（他メンバーなし）の場合、移譲ダイアログは出ない
-			test.skip(true, '移譲ダイアログ非表示（owner-only テナントの可能性）');
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: '移譲ダイアログ非表示（owner-only テナントの可能性）',
+			});
 			return;
 		}
 
