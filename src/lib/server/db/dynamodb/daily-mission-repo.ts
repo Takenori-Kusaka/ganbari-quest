@@ -8,14 +8,13 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-import type { Activity, Child, DailyMissionWithActivity } from '../types';
+import type { Activity, DailyMissionWithActivity } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
 	activityKey,
 	activityLogPrefix,
-	childKey,
 	childPK,
 	dailyMissionDatePrefix,
 	dailyMissionKey,
@@ -24,13 +23,9 @@ import {
 	pointLedgerPrefix,
 	tenantPK,
 } from './keys';
+import { findChildByIdRaw, stripKeys } from './repo-helpers';
 
-function stripKeys<T extends Record<string, unknown>>(
-	item: T,
-): Omit<T, 'PK' | 'SK' | 'GSI2PK' | 'GSI2SK'> {
-	const { PK, SK, GSI2PK, GSI2SK, ...rest } = item;
-	return rest;
-}
+export { findChildByIdRaw as findChildForMission } from './repo-helpers';
 
 /** 今日のミッション一覧（活動情報付き） */
 export async function findTodayMissions(
@@ -178,22 +173,6 @@ export async function findAllMissionStatuses(
 	return (result.Items ?? []).map((item) => ({
 		completed: item.completed as number,
 	}));
-}
-
-/** ミッション用の子供情報取得 */
-export async function findChildForMission(
-	childId: number,
-	tenantId: string,
-): Promise<Child | undefined> {
-	const result = await getDocClient().send(
-		new GetCommand({
-			TableName: TABLE_NAME,
-			Key: childKey(childId, tenantId),
-		}),
-	);
-
-	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as Child;
 }
 
 /** 表示可能な全活動を取得 */
