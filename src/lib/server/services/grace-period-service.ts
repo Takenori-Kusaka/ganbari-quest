@@ -89,14 +89,9 @@ export async function softDeleteTenant(
 		};
 	}
 
-	// ソフトデリート情報を Tenant に保存
+	// Soft delete state is stored in settings table (not Tenant entity)
+	// to avoid schema migration on DynamoDB.
 	const repos = getRepos();
-	await repos.auth.updateTenantStripe(tenantId, {
-		// soft delete fields は updateTenantStripe の拡張で対応
-		// 既存の updateTenantStripe に softDeletedAt / deletionGracePlanTier を追加する必要がある
-	});
-
-	// settings テーブルにグレースピリオド情報を保存（DynamoDB auth-repo の拡張を避ける）
 	await repos.settings.setSetting('soft_deleted_at', softDeletedAt, tenantId);
 	await repos.settings.setSetting('deletion_grace_plan_tier', planTier, tenantId);
 	await repos.settings.setSetting('physical_deletion_date', physicalDeletionDate, tenantId);
@@ -192,6 +187,7 @@ export async function restoreSoftDeletedTenant(tenantId: string): Promise<Restor
 	}
 
 	// ソフトデリート情報をクリア
+	// Empty string = unset (deleteSetting が存在しないため)
 	const repos = getRepos();
 	await repos.settings.setSetting('soft_deleted_at', '', tenantId);
 	await repos.settings.setSetting('deletion_grace_plan_tier', '', tenantId);
@@ -217,9 +213,7 @@ export async function restoreSoftDeletedTenant(tenantId: string): Promise<Restor
 export async function findExpiredSoftDeletedTenants(): Promise<
 	Array<{ tenantId: string; planTier: PlanTier; physicalDeletionDate: string }>
 > {
-	// NOTE: 本来は全テナントの settings をスキャンする必要があるが、
-	// 効率的な実装は DynamoDB GSI / SQLite index 追加で対応する。
-	// 暫定的に listAllTenants して settings を個別取得する。
+	// N+1: Pre-PMF (<100 tenants) では許容。スケール時は GSI or バッチ取得に移行 (ADR-0034)
 	const repos = getRepos();
 	const allTenants = await repos.auth.listAllTenants();
 	const expired: Array<{
