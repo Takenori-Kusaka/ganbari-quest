@@ -95,4 +95,3 @@ async function unsubscribeFromPush(): Promise<boolean> {
 
 	return true;
 }
-

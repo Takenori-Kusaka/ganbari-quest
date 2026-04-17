@@ -190,10 +190,7 @@ export async function executeDailyBattle(
 /**
  * 敵図鑑を取得する。
  */
-async function getEnemyCollection(
-	childId: number,
-	tenantId: string,
-): Promise<CollectionEntry[]> {
+async function getEnemyCollection(childId: number, tenantId: string): Promise<CollectionEntry[]> {
 	const rows = await findCollection(childId, tenantId);
 	return rows
 		.map((row: EnemyCollectionRow) => {

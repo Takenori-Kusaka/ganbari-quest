@@ -50,12 +50,7 @@ export async function findChildById(id: number, tenantId: string) {
 }
 
 // Activity Logs
-async function findDailyLog(
-	childId: number,
-	activityId: number,
-	date: string,
-	tenantId: string,
-) {
+async function findDailyLog(childId: number, activityId: number, date: string, tenantId: string) {
 	return getRepos().activity.findDailyLog(childId, activityId, date, tenantId);
 }
 export async function findStreakLogs(childId: number, activityId: number, tenantId: string) {
@@ -92,11 +87,7 @@ export async function getTodayActivityCountsByChild(
 ) {
 	return getRepos().activity.getTodayActivityCountsByChild(childId, date, tenantId);
 }
-async function findTodayRecordedActivityIds(
-	childId: number,
-	today: string,
-	tenantId: string,
-) {
+async function findTodayRecordedActivityIds(childId: number, today: string, tenantId: string) {
 	return getRepos().activity.findTodayRecordedActivityIds(childId, today, tenantId);
 }
 
@@ -130,11 +121,7 @@ async function countActiveActivityLogsByCategory(
 ) {
 	return getRepos().activity.countActiveActivityLogsByCategory(childId, categoryId, tenantId);
 }
-async function countPointLedgerEntriesByType(
-	childId: number,
-	type: string,
-	tenantId: string,
-) {
+async function countPointLedgerEntriesByType(childId: number, type: string, tenantId: string) {
 	return getRepos().activity.countPointLedgerEntriesByType(childId, type, tenantId);
 }
 

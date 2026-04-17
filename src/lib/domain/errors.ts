@@ -29,7 +29,7 @@ import type { PlanTier } from '$lib/server/services/plan-limit-service';
  *
  * ## 使い方（server）
  *
- * - API エンドポイント: `src/lib/server/errors.ts` の `planLimitError()` を使う
+ * - API エンドポイント: `apiError('PLAN_LIMIT_EXCEEDED', ...)` を使う
  * - フォームアクション: `fail(403, { error: createPlanLimitError(...) })` を返す
  *
  * ## 使い方（client）
