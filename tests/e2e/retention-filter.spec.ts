@@ -36,13 +36,23 @@ test.describe('#750 retention-cleanup — 認証ガード', () => {
 });
 
 // ============================================================
-// dryRun 実行（CRON_SECRET 設定時のみ）
+// dryRun 実行（CRON_SECRET 設定時のみ検証可能）
 // ============================================================
-test.describe('#750 retention-cleanup — dryRun', () => {
-	const cronSecret = process.env.CRON_SECRET;
+// CRON_SECRET が未設定の場合はエンドポイントが 404 を返すため、
+// その挙動を検証する。環境に応じたアサーションで分岐する。
+const cronSecret = process.env.CRON_SECRET;
 
-	test('CRON_SECRET が設定されている場合、dryRun で正常レスポンスを返す', async ({ request }) => {
-		test.skip(!cronSecret, 'CRON_SECRET が未設定のため dryRun テストをスキップ');
+test.describe('#750 retention-cleanup — dryRun (CRON_SECRET 設定時)', () => {
+	test('dryRun POST — CRON_SECRET 設定時は 200、未設定時は 404', async ({ request }) => {
+		if (!cronSecret) {
+			// CRON_SECRET 未設定: エンドポイント自体が存在しない
+			const res = await request.post('/api/cron/retention-cleanup', {
+				headers: { Authorization: 'Bearer dummy' },
+				data: { dryRun: true },
+			});
+			expect(res.status()).toBe(404);
+			return;
+		}
 
 		const res = await request.post('/api/cron/retention-cleanup', {
 			headers: { Authorization: `Bearer ${cronSecret}` },
@@ -59,10 +69,14 @@ test.describe('#750 retention-cleanup — dryRun', () => {
 		expect(typeof body.activityLogsDeleted).toBe('number');
 	});
 
-	test('CRON_SECRET が設定されている場合、GET（dry-run ヘルスチェック）で正常レスポンスを返す', async ({
-		request,
-	}) => {
-		test.skip(!cronSecret, 'CRON_SECRET が未設定のため GET テストをスキップ');
+	test('GET ヘルスチェック — CRON_SECRET 設定時は 200、未設定時は 404', async ({ request }) => {
+		if (!cronSecret) {
+			const res = await request.get('/api/cron/retention-cleanup', {
+				headers: { Authorization: 'Bearer dummy' },
+			});
+			expect(res.status()).toBe(404);
+			return;
+		}
 
 		const res = await request.get('/api/cron/retention-cleanup', {
 			headers: { Authorization: `Bearer ${cronSecret}` },
