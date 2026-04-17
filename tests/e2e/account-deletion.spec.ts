@@ -39,8 +39,9 @@ test.describe('#755 アカウント削除 — API バリデーション', () => 
 			data: {},
 		});
 
-		// 認証状態による: 400 (pattern 不足) or 401/403 (未認証)
-		expect([400, 401, 403]).toContain(res.status());
+		// 未認証なら 401、認証済みなら pattern 不足で 400
+		const status = res.status();
+		expect(status === 400 || status === 401).toBe(true);
 	});
 
 	test('不正な pattern で POST すると 400', async ({ request }) => {
@@ -49,7 +50,8 @@ test.describe('#755 アカウント削除 — API バリデーション', () => 
 			data: { pattern: 'invalid-pattern' },
 		});
 
-		expect([400, 401, 403]).toContain(res.status());
+		const status = res.status();
+		expect(status === 400 || status === 401).toBe(true);
 	});
 
 	test('owner-with-transfer に newOwnerId なしで POST すると 400', async ({ request }) => {
@@ -58,8 +60,9 @@ test.describe('#755 アカウント削除 — API バリデーション', () => 
 			data: { pattern: 'owner-with-transfer' },
 		});
 
-		// 認証状態による: 400 (newOwnerId 不足) or 401/403 (未認証)
-		expect([400, 401, 403]).toContain(res.status());
+		// 未認証なら 401、認証済みなら newOwnerId 不足で 400
+		const status = res.status();
+		expect(status === 400 || status === 401).toBe(true);
 	});
 
 	test('body が不正な JSON で POST すると 400', async ({ request }) => {
@@ -68,7 +71,8 @@ test.describe('#755 アカウント削除 — API バリデーション', () => 
 			data: 'invalid json',
 		});
 
-		expect([400, 401, 403]).toContain(res.status());
+		const status = res.status();
+		expect(status === 400 || status === 401).toBe(true);
 	});
 });
 
@@ -77,22 +81,23 @@ test.describe('#755 アカウント削除 — API バリデーション', () => 
 // ============================================================
 
 test.describe('#755 deletion-info — API', () => {
-	test('GET /api/v1/admin/account/deletion-info に未認証でアクセスすると 401/403', async ({
-		request,
-	}) => {
+	test('GET /api/v1/admin/account/deletion-info の応答構造を検証', async ({ request }) => {
 		const res = await request.get('/api/v1/admin/account/deletion-info');
+		const status = res.status();
 
-		// ローカルモードでは auto-auth が効くため 200 の場合もある
-		// cognito-dev モードでは未認証で 401/403
-		expect([200, 401, 403]).toContain(res.status());
+		// ローカルモードでは auto-auth が効くため 200
+		// cognito-dev モードでは未認証で 401
+		expect(status === 200 || status === 401).toBe(true);
 
-		if (res.status() === 200) {
+		if (status === 200) {
 			const body = await res.json();
-			// 応答構造を検証
 			expect(body).toHaveProperty('isOnlyMember');
 			expect(body).toHaveProperty('otherMembers');
 			expect(typeof body.isOnlyMember).toBe('boolean');
 			expect(Array.isArray(body.otherMembers)).toBe(true);
+		} else {
+			// 未認証: 応答構造の検証はスキップ（ステータス検証は上で完了）
+			expect(status).toBe(401);
 		}
 	});
 });
@@ -102,15 +107,18 @@ test.describe('#755 deletion-info — API', () => {
 // ============================================================
 
 test.describe('#755 メンバー離脱 — API', () => {
-	test('POST /api/v1/admin/members/leave に未認証で 401/403', async ({ request }) => {
+	test('POST /api/v1/admin/members/leave に未認証で 401 または owner で 400', async ({
+		request,
+	}) => {
 		const res = await request.post('/api/v1/admin/members/leave', {
 			headers: { 'Content-Type': 'application/json' },
 			data: {},
 		});
 
-		// ローカルモードでは owner ロールなので 400 (owner は離脱不可)
-		// cognito-dev モードでは未認証で 401/403
-		expect([400, 401, 403]).toContain(res.status());
+		// ローカルモード: owner auto-auth → 400 (owner は離脱不可)
+		// cognito-dev モード: 未認証 → 401
+		const status = res.status();
+		expect(status === 400 || status === 401).toBe(true);
 	});
 });
 
@@ -119,24 +127,27 @@ test.describe('#755 メンバー離脱 — API', () => {
 // ============================================================
 
 test.describe('#755 Stripe 連動 — サブスクキャンセル (mock)', () => {
-	test('POST /api/v1/admin/tenant/cancel に未認証で 401/403/500', async ({ request }) => {
+	test('POST /api/v1/admin/tenant/cancel に未認証で 401 または 500', async ({ request }) => {
 		const res = await request.post('/api/v1/admin/tenant/cancel', {
 			headers: { 'Content-Type': 'application/json' },
 			data: {},
 		});
 
-		// テナント解約は Cognito 認証 + Stripe 連動が必要
-		// ローカルモードでは Cognito 未設定のため 500 になる場合がある
-		expect([401, 403, 500]).toContain(res.status());
+		// Cognito 認証 + Stripe 連動が必要
+		// ローカルモード: Cognito 未設定のため 500
+		// cognito-dev モード: 未認証で 401
+		const status = res.status();
+		expect(status === 401 || status === 500).toBe(true);
 	});
 
-	test('POST /api/v1/admin/tenant/reactivate に未認証で 401/403/500', async ({ request }) => {
+	test('POST /api/v1/admin/tenant/reactivate に未認証で 401 または 500', async ({ request }) => {
 		const res = await request.post('/api/v1/admin/tenant/reactivate', {
 			headers: { 'Content-Type': 'application/json' },
 			data: {},
 		});
 
-		expect([401, 403, 500]).toContain(res.status());
+		const status = res.status();
+		expect(status === 401 || status === 500).toBe(true);
 	});
 });
 
@@ -157,19 +168,20 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）', ()
 
 		// cognito モードではアカウント削除セクションが表示される
 		const deleteSection = page.getByText('アカウント削除');
-		const hasDeletion = await deleteSection.isVisible({ timeout: 15_000 }).catch(() => false);
+		const deleteSectionCount = await deleteSection.count();
 
-		if (hasDeletion) {
-			await expect(deleteSection).toBeVisible();
-
-			// 「アカウントを削除します」の確認入力フィールドが存在する
-			const confirmInput = page.locator('#deleteConfirm');
-			const hasConfirm = await confirmInput.isVisible({ timeout: 5_000 }).catch(() => false);
-			if (hasConfirm) {
-				await expect(confirmInput).toBeVisible();
-			}
+		if (deleteSectionCount === 0) {
+			// ローカルモード (authMode !== 'cognito') ではセクション非表示
+			test.skip(true, 'アカウント削除セクションが非表示（ローカルモード）');
+			return;
 		}
-		// ローカルモード (authMode !== 'cognito') ではセクション非表示
+
+		// ここからは無条件アサーション
+		await expect(deleteSection.first()).toBeVisible({ timeout: 15_000 });
+
+		// 「アカウントを削除します」の確認入力フィールドが存在する
+		const confirmInput = page.locator('#deleteConfirm');
+		await expect(confirmInput).toBeVisible({ timeout: 5_000 });
 	});
 
 	test('owner ログインで削除ボタンは確認テキスト未入力で無効', async ({ page }) => {
@@ -177,32 +189,35 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）', ()
 		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 180_000 });
 
 		const deleteSection = page.getByText('アカウント削除');
-		const hasDeletion = await deleteSection.isVisible({ timeout: 15_000 }).catch(() => false);
+		const deleteSectionCount = await deleteSection.count();
 
-		if (hasDeletion) {
-			// 確認テキスト入力前は削除ボタンが disabled
-			const deleteButton = page.getByRole('button', { name: /削除する|退会する/ });
-			const hasButton = await deleteButton
-				.first()
-				.isVisible({ timeout: 5_000 })
-				.catch(() => false);
-			if (hasButton) {
-				await expect(deleteButton.first()).toBeDisabled();
-			}
+		if (deleteSectionCount === 0) {
+			test.skip(true, 'アカウント削除セクションが非表示（ローカルモード）');
+			return;
 		}
+
+		await expect(deleteSection.first()).toBeVisible({ timeout: 15_000 });
+
+		// 確認テキスト入力前は削除ボタンが disabled
+		const deleteButton = page.getByRole('button', { name: /削除する|退会する/ }).first();
+		await expect(deleteButton).toBeVisible({ timeout: 5_000 });
+		await expect(deleteButton).toBeDisabled();
 	});
 
 	test('free プランの owner でもアカウント削除セクションが表示される', async ({ page }) => {
 		await loginAsPlan(page, 'free');
 		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 180_000 });
 
-		// free プランでもアカウント削除は利用可能
 		const deleteSection = page.getByText('アカウント削除');
-		const hasDeletion = await deleteSection.isVisible({ timeout: 15_000 }).catch(() => false);
+		const deleteSectionCount = await deleteSection.count();
 
-		if (hasDeletion) {
-			await expect(deleteSection).toBeVisible();
+		if (deleteSectionCount === 0) {
+			test.skip(true, 'アカウント削除セクションが非表示（ローカルモード）');
+			return;
 		}
+
+		// free プランでもアカウント削除は利用可能
+		await expect(deleteSection.first()).toBeVisible({ timeout: 15_000 });
 	});
 });
 
@@ -221,40 +236,44 @@ test.describe('#755 権限移譲ダイアログ — UI', () => {
 		await loginAsPlan(page, 'family');
 		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 180_000 });
 
+		// 前提条件: アカウント削除セクションが表示されること
 		const deleteSection = page.getByText('アカウント削除');
-		const hasDeletion = await deleteSection.isVisible({ timeout: 15_000 }).catch(() => false);
+		const deleteSectionCount = await deleteSection.count();
 
-		if (hasDeletion) {
-			// 確認テキストを入力
-			const confirmInput = page.locator('#deleteConfirm');
-			const hasConfirm = await confirmInput.isVisible({ timeout: 5_000 }).catch(() => false);
-
-			if (hasConfirm) {
-				await confirmInput.fill('アカウントを削除します');
-
-				// 削除ボタンをクリック
-				const deleteButton = page.getByRole('button', { name: /削除する|退会する/ }).first();
-				const isEnabled = await deleteButton.isEnabled({ timeout: 3_000 }).catch(() => false);
-
-				if (isEnabled) {
-					await deleteButton.click();
-
-					// 他メンバーがいる場合: 移譲ダイアログが表示される
-					// dev-tenant には owner 以外のメンバー（parent, child）がいるため
-					const transferDialog = page.getByText('家族グループに他のメンバーがいます');
-					const hasTransfer = await transferDialog.isVisible({ timeout: 5_000 }).catch(() => false);
-
-					if (hasTransfer) {
-						// 移譲先選択と全削除の2つのオプションがある
-						await expect(page.getByText('オーナー権限を移譲して退会する')).toBeVisible();
-						await expect(page.getByText('家族グループを全て削除する')).toBeVisible();
-
-						// キャンセルボタンで閉じられる
-						await page.getByRole('button', { name: 'キャンセル' }).click();
-					}
-				}
-			}
+		if (deleteSectionCount === 0) {
+			test.skip(true, 'アカウント削除セクションが非表示（ローカルモード）');
+			return;
 		}
+
+		await expect(deleteSection.first()).toBeVisible({ timeout: 15_000 });
+
+		// 確認テキストを入力
+		const confirmInput = page.locator('#deleteConfirm');
+		await expect(confirmInput).toBeVisible({ timeout: 5_000 });
+		await confirmInput.fill('アカウントを削除します');
+
+		// 削除ボタンが有効化されていることを確認してクリック
+		const deleteButton = page.getByRole('button', { name: /削除する|退会する/ }).first();
+		await expect(deleteButton).toBeEnabled({ timeout: 3_000 });
+		await deleteButton.click();
+
+		// 他メンバーがいる場合: 移譲ダイアログが表示される
+		// dev-tenant には owner 以外のメンバー（parent, child）がいるため
+		const transferDialog = page.getByText('家族グループに他のメンバーがいます');
+		const transferDialogCount = await transferDialog.count();
+
+		if (transferDialogCount === 0) {
+			// owner-only テナント（他メンバーなし）の場合、移譲ダイアログは出ない
+			test.skip(true, '移譲ダイアログ非表示（owner-only テナントの可能性）');
+			return;
+		}
+
+		// 移譲先選択と全削除の2つのオプションがある
+		await expect(page.getByText('オーナー権限を移譲して退会する')).toBeVisible();
+		await expect(page.getByText('家族グループを全て削除する')).toBeVisible();
+
+		// キャンセルボタンで閉じられる
+		await page.getByRole('button', { name: 'キャンセル' }).click();
 	});
 });
 
@@ -300,8 +319,7 @@ test.describe('#755 プラン別サインアップ → プラン確認', () => {
 // ============================================================
 
 test.describe('#755 ロール別アクセス — 削除 API', () => {
-	test('child ロールで owner-only パターンは 403', async ({ request }) => {
-		// child ロールでは owner パターンは使用不可
+	test('child ロールで owner-only パターンは 403 または認証エラー', async ({ request }) => {
 		const res = await request.post('/api/v1/admin/account/delete', {
 			headers: { 'Content-Type': 'application/json' },
 			data: { pattern: 'owner-only' },
@@ -309,12 +327,12 @@ test.describe('#755 ロール別アクセス — 削除 API', () => {
 
 		// ローカルモード: owner auto-auth → 200 成功の可能性
 		// cognito-dev: child ロール → 403
-		// 未認証: 401/403
-		expect([200, 401, 403]).toContain(res.status());
+		// 未認証: 401
+		const status = res.status();
+		expect(status === 200 || status === 401 || status === 403).toBe(true);
 	});
 
 	test('member パターンで owner ロールは 400', async ({ request }) => {
-		// owner は member パターンで削除できない（owner-only/with-transfer/full-delete を使う）
 		const res = await request.post('/api/v1/admin/account/delete', {
 			headers: { 'Content-Type': 'application/json' },
 			data: { pattern: 'member' },
@@ -322,7 +340,8 @@ test.describe('#755 ロール別アクセス — 削除 API', () => {
 
 		// ローカルモード: owner auto-auth → 400 (owner は member パターン不可)
 		// cognito-dev: owner → 400
-		// 未認証: 401/403
-		expect([400, 401, 403]).toContain(res.status());
+		// 未認証: 401
+		const status = res.status();
+		expect(status === 400 || status === 401).toBe(true);
 	});
 });
