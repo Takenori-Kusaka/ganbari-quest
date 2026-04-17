@@ -24,6 +24,7 @@ export default defineConfig({
 		'**/pricing-page-signup.spec.ts',
 		// #750: 以下は cognito-dev モード専用（loginAsPlan を使用）
 		'**/trial-banner-display.spec.ts',
+		// #755: アカウント削除 E2E は cognito-dev モード専用（loginAsPlan が Cognito ログインフォームに依存）
 		'**/account-deletion.spec.ts',
 		'**/production-smoke.spec.ts',
 		// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
