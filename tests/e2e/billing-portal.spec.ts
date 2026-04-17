@@ -65,6 +65,6 @@ test.describe('#768 Billing page', () => {
 		const hasPortal = await portalButton.isVisible({ timeout: 3000 }).catch(() => false);
 
 		// 少なくとも一方が表示される（Stripe有効→ポータルボタン or 未開始メッセージ、無効→準備中）
-		expect(hasDisabled || hasPortal || true).toBe(true);
+		expect(hasDisabled || hasPortal).toBe(true);
 	});
 });

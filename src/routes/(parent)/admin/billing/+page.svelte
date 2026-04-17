@@ -3,6 +3,7 @@ import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 let { data } = $props();
 
@@ -10,30 +11,75 @@ const stripeEnabled = $derived(data.stripeEnabled);
 const hasSubscription = $derived(data.hasSubscription);
 const hasCustomer = $derived(data.hasCustomer);
 const canAccessPortal = $derived(stripeEnabled && hasCustomer);
+// #771: PIN 設定済みなら PIN 必須、未設定なら確認フレーズ
+const pinConfigured = $derived(data.pinConfigured);
 
 let portalLoading = $state(false);
 let portalError = $state<string | null>(null);
 
-async function openPortal() {
-	portalLoading = true;
+// #771 Portal を開く前の PIN / 確認フレーズ入力
+const CONFIRM_PHRASE = 'プランを変更します';
+let showPortalConfirm = $state(false);
+let portalPinValue = $state('');
+let portalConfirmPhrase = $state('');
+
+function requestPortal() {
+	portalPinValue = '';
+	portalConfirmPhrase = '';
 	portalError = null;
+	showPortalConfirm = true;
+}
+
+async function openPortal() {
+	portalError = null;
+
+	// 事前バリデーション (サーバーと同じ判定だが UX のため先に弾く)
+	if (pinConfigured) {
+		if (
+			!portalPinValue ||
+			portalPinValue.length < 4 ||
+			portalPinValue.length > 6 ||
+			!/^\d+$/.test(portalPinValue)
+		) {
+			portalError = 'PINコード（4〜6桁の数字）を入力してください';
+			return;
+		}
+	} else {
+		if (portalConfirmPhrase !== CONFIRM_PHRASE) {
+			portalError = `「${CONFIRM_PHRASE}」と入力してください`;
+			return;
+		}
+	}
+
+	portalLoading = true;
 	try {
 		const res = await fetch('/api/stripe/portal', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ confirmPhrase: 'プランを変更します' }),
+			body: JSON.stringify(
+				pinConfigured ? { pin: portalPinValue } : { confirmPhrase: portalConfirmPhrase },
+			),
 		});
 		if (!res.ok) {
 			let message = '請求管理画面を開けませんでした';
 			try {
 				const body = (await res.json()) as { message?: string };
-				if (body.message) {
-					message = body.message;
+				const raw = body.message ?? '';
+				if (raw === 'INVALID_PIN' || raw === 'PIN_REQUIRED') {
+					message = 'PINコードが正しくありません';
+				} else if (raw.startsWith('LOCKED_OUT')) {
+					message = 'PIN認証のロックアウト中です。しばらく待ってから再度お試しください';
+				} else if (raw === 'CONFIRM_PHRASE_REQUIRED') {
+					message = `「${CONFIRM_PHRASE}」と入力してください`;
+				} else if (raw) {
+					message = raw;
 				}
 			} catch {
 				/* noop */
 			}
 			portalError = message;
+			// セキュリティのため PIN 入力値をクリア
+			portalPinValue = '';
 			return;
 		}
 		const body = (await res.json()) as { url?: string };
@@ -120,7 +166,7 @@ const statusLabel = $derived.by(() => {
 			<li>次回請求日の確認</li>
 		</ul>
 
-		{#if portalError}
+		{#if portalError && !showPortalConfirm}
 			<Alert variant="danger" class="mb-3">
 				{#snippet children()}
 				{portalError}
@@ -141,12 +187,15 @@ const statusLabel = $derived.by(() => {
 				class="w-full"
 				disabled={portalLoading}
 				data-testid="billing-open-portal"
-				onclick={openPortal}
+				onclick={requestPortal}
 			>
 				{portalLoading ? '読み込み中...' : '請求管理画面を開く'}
 			</Button>
 			<p class="text-xs text-[var(--color-text-tertiary)] text-center mt-2">
 				Stripe の安全な管理画面に移動します
+			</p>
+			<p class="text-xs text-[var(--color-feedback-warning-text)] text-center mt-1">
+				⚠️ {pinConfigured ? '親 PIN' : '確認フレーズ'}の入力が必要です
 			</p>
 		{:else}
 			<Alert variant="info" class="mb-3">
@@ -175,6 +224,91 @@ const statusLabel = $derived.by(() => {
 		</a>
 	</div>
 </div>
+
+<!-- #771: 請求管理画面を開く前の PIN / 確認フレーズ確認ダイアログ -->
+<Dialog bind:open={showPortalConfirm} title="請求管理画面を開く">
+	{#snippet children()}
+	<div class="space-y-3 text-sm text-[var(--color-text-primary)]">
+		<p>
+			Stripeの管理画面に移動します。この画面から支払い方法の変更・プラン切り替えが可能です。
+		</p>
+		<p class="text-[var(--color-feedback-warning-text)] font-semibold">
+			⚠️ 誤操作を防ぐため、
+			{pinConfigured ? '親 PIN コード（4〜6桁）' : '確認フレーズ'}を入力してください。
+		</p>
+
+		{#if pinConfigured}
+			<div class="space-y-2">
+				<label for="billing-portal-pin" class="block text-sm font-medium text-[var(--color-text-primary)]">
+					親 PIN コード（4〜6桁）
+				</label>
+				<input
+					id="billing-portal-pin"
+					type="password"
+					inputmode="numeric"
+					pattern="[0-9]*"
+					maxlength={6}
+					minlength={4}
+					bind:value={portalPinValue}
+					placeholder="PIN を入力"
+					autocomplete="off"
+					data-testid="billing-portal-pin-input"
+					class="w-full rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-card)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
+				/>
+			</div>
+		{:else}
+			<div class="space-y-2">
+				<label for="billing-portal-confirm-phrase" class="block text-sm font-medium text-[var(--color-text-primary)]">
+					確認のため「{CONFIRM_PHRASE}」と入力してください
+				</label>
+				<input
+					id="billing-portal-confirm-phrase"
+					type="text"
+					bind:value={portalConfirmPhrase}
+					placeholder={CONFIRM_PHRASE}
+					autocomplete="off"
+					data-testid="billing-portal-confirm-phrase-input"
+					class="w-full rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-card)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
+				/>
+			</div>
+		{/if}
+
+		{#if portalError}
+			<Alert variant="danger">
+				{#snippet children()}
+				{portalError}
+				{/snippet}
+			</Alert>
+		{/if}
+	</div>
+	<div class="mt-4 flex justify-end gap-2">
+		<Button
+			type="button"
+			variant="secondary"
+			size="md"
+			onclick={() => {
+				showPortalConfirm = false;
+				portalPinValue = '';
+				portalConfirmPhrase = '';
+				portalError = null;
+			}}
+			disabled={portalLoading}
+		>
+			キャンセル
+		</Button>
+		<Button
+			type="button"
+			variant="primary"
+			size="md"
+			onclick={openPortal}
+			disabled={portalLoading}
+			data-testid="billing-portal-confirm-button"
+		>
+			{portalLoading ? '確認中…' : '請求管理画面へ'}
+		</Button>
+	</div>
+	{/snippet}
+</Dialog>
 
 <style>
 	.billing-info-grid {

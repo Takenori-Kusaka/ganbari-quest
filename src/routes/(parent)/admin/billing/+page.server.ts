@@ -5,6 +5,7 @@
 // Stripe 側の標準 UI に委ねる。
 
 import { requireTenantId } from '$lib/server/auth/factory';
+import { isPinConfigured } from '$lib/server/services/auth-service';
 import { getLicenseInfo } from '$lib/server/services/license-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { PageServerLoad } from './$types';
@@ -13,7 +14,10 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	const tenantId = requireTenantId(locals);
 	const parentData = await parent();
 
-	const license = await getLicenseInfo(tenantId);
+	const [license, pinConfigured] = await Promise.all([
+		getLicenseInfo(tenantId),
+		isPinConfigured(tenantId),
+	]);
 	const hasSubscription = !!license?.stripeSubscriptionId;
 	const hasCustomer = !!license?.stripeCustomerId;
 
@@ -22,6 +26,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		stripeEnabled: isStripeEnabled(),
 		hasSubscription,
 		hasCustomer,
+		pinConfigured,
 		plan: license?.plan ?? 'free',
 		status: license?.status ?? 'active',
 		planExpiresAt: license?.planExpiresAt ?? null,
