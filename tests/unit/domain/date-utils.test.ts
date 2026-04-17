@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { prevDateJST, todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
+import {
+	formatJSTDate,
+	formatJSTDateTime,
+	prevDateJST,
+	todayDateJST,
+	toJSTDateString,
+} from '$lib/domain/date-utils';
 
 describe('date-utils', () => {
 	afterEach(() => {
@@ -55,6 +61,54 @@ describe('date-utils', () => {
 
 		it('年をまたぐ', () => {
 			expect(prevDateJST('2026-01-01')).toBe('2025-12-31');
+		});
+	});
+
+	describe('formatJSTDate', () => {
+		it('YYYY-MM-DD を年月日形式に変換', () => {
+			expect(formatJSTDate('2026-04-13')).toBe('2026年4月13日');
+		});
+
+		it('1月1日のゼロ埋めなし', () => {
+			expect(formatJSTDate('2026-01-01')).toBe('2026年1月1日');
+		});
+	});
+
+	describe('formatJSTDateTime', () => {
+		it('Date を JST 日時文字列に変換', () => {
+			// UTC 2026-04-13 01:00 → JST 2026-04-13 10:00
+			const date = new Date('2026-04-13T01:00:00Z');
+			const result = formatJSTDateTime(date);
+			// toLocaleString のフォーマットは実行環境依存だが、日本語で年月日時分が含まれること
+			expect(result).toContain('2026');
+			expect(result).toContain('4');
+			expect(result).toContain('13');
+		});
+	});
+
+	describe('todayDateJST vs UTC の差異（#966 回帰防止）', () => {
+		it('0:00〜9:00 JST (= 前日15:00〜当日0:00 UTC) で todayDateJST は JST の今日を返す', () => {
+			vi.useFakeTimers();
+			// JST 2026-04-14 03:00 = UTC 2026-04-13 18:00
+			vi.setSystemTime(new Date('2026-04-13T18:00:00Z'));
+			const jstToday = todayDateJST();
+			const utcToday = new Date().toISOString().slice(0, 10);
+
+			// JST は 4/14 だが UTC は 4/13 → 不一致が発生する時間帯
+			expect(jstToday).toBe('2026-04-14');
+			expect(utcToday).toBe('2026-04-13');
+			expect(jstToday).not.toBe(utcToday);
+		});
+
+		it('9:00 JST 以降 (= 当日0:00 UTC 以降) では JST と UTC の日付は一致する', () => {
+			vi.useFakeTimers();
+			// JST 2026-04-14 12:00 = UTC 2026-04-14 03:00
+			vi.setSystemTime(new Date('2026-04-14T03:00:00Z'));
+			const jstToday = todayDateJST();
+			const utcToday = new Date().toISOString().slice(0, 10);
+
+			expect(jstToday).toBe('2026-04-14');
+			expect(utcToday).toBe('2026-04-14');
 		});
 	});
 });

@@ -5,6 +5,7 @@ import { getEnemyById, selectDailyEnemy } from '$lib/domain/battle-enemies';
 import { executeBattle, scaleEnemyStats } from '$lib/domain/battle-engine';
 import { convertToBattleStats, getAgeScaling } from '$lib/domain/battle-stat-calculator';
 import type { BattleResult, BattleStats, Enemy } from '$lib/domain/battle-types';
+import { todayDateJST } from '$lib/domain/date-utils';
 import {
 	completeBattle,
 	countConsecutiveLosses,
@@ -68,7 +69,7 @@ export async function getTodayBattle(
 	categoryXp: Record<number, number>,
 	tenantId: string,
 ): Promise<TodayBattleInfo> {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	let battle = await findTodayBattle(childId, today, tenantId);
 
 	if (!battle) {
@@ -136,7 +137,7 @@ export async function executeDailyBattle(
 	categoryXp: Record<number, number>,
 	tenantId: string,
 ): Promise<BattleExecutionResult> {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const battle = await findTodayBattle(childId, today, tenantId);
 
 	if (!battle) {

@@ -1,15 +1,9 @@
 // src/lib/server/services/family-streak-service.ts
 // 家族ストリーク — 家族の誰かが毎日記録していれば維持されるストリーク
 
+import { todayDateJST } from '$lib/domain/date-utils';
 import { findDistinctRecordedDates } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
-
-/** 今日の日付を JST で取得 */
-function todayDateJST(): string {
-	const now = new Date();
-	const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-	return jst.toISOString().slice(0, 10);
-}
 
 export interface FamilyStreakInfo {
 	currentStreak: number;

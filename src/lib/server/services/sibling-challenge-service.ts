@@ -1,6 +1,7 @@
 // src/lib/server/services/sibling-challenge-service.ts
 // きょうだいチャレンジ — 協力＆ライバル機能のサービス層
 
+import { todayDateJST } from '$lib/domain/date-utils';
 import { insertPointLedger } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import {
@@ -105,7 +106,7 @@ export async function getActiveChallengesForChild(
 	childId: number,
 	tenantId: string,
 ): Promise<SiblingChallengeWithProgress[]> {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const challenges = await findActiveChallenges(today, tenantId);
 	const result: SiblingChallengeWithProgress[] = [];
 
@@ -152,7 +153,7 @@ export async function checkChallengeProgress(
 	categoryId: number,
 	tenantId: string,
 ): Promise<{ challengeId: number; allSiblingsComplete: boolean; challengeTitle: string }[]> {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	const challenges = await findActiveChallenges(today, tenantId);
 	const results: { challengeId: number; allSiblingsComplete: boolean; challengeTitle: string }[] =
 		[];
