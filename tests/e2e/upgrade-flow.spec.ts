@@ -228,8 +228,8 @@ test.describe('#753 /admin/license プラン選択 UI', () => {
 		// Stripe 有効環境ではプラン選択カードが表示される。
 		// どちらかが必ず表示されることを検証する。
 		const preparingText = page.getByText('決済機能は現在準備中です');
-		const standardText = page.getByText('スタンダード');
-		const preparingOrPlanCard = preparingText.or(standardText);
+		const standardPlanCard = page.getByTestId('standard-plan-card');
+		const preparingOrPlanCard = preparingText.or(standardPlanCard);
 		await expect(preparingOrPlanCard).toBeVisible({ timeout: 30_000 });
 
 		const preparingCount = await preparingText.count();
@@ -242,8 +242,8 @@ test.describe('#753 /admin/license プラン選択 UI', () => {
 		}
 
 		// Stripe 有効環境: スタンダード / ファミリーの選択カードが表示される
-		await expect(standardText).toBeVisible();
-		await expect(page.getByText('ファミリー')).toBeVisible();
+		await expect(standardPlanCard).toBeVisible();
+		await expect(page.getByTestId('family-plan-card')).toBeVisible();
 
 		// 月額 / 年額の切り替えがある
 		await expect(page.getByText('月額')).toBeVisible();
