@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { todayDateJST } from '$lib/domain/date-utils';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -37,7 +38,7 @@ function isCurrentlyActive(challenge: {
 	startDate: string;
 	endDate: string;
 }): boolean {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	return (
 		challenge.isActive === 1 &&
 		challenge.status === 'active' &&
