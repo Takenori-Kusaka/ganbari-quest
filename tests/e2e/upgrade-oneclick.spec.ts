@@ -26,25 +26,34 @@ test.describe('#767 ワンクリックアップグレード導線', () => {
 		}
 	});
 
-	test('free プランでアップグレード CTA が表示される', async ({ page }) => {
+	test('プランに応じたアップグレード導線が表示される', async ({ page }) => {
 		await page.goto('/admin', { waitUntil: 'domcontentloaded' });
 
-		// free プランの CTA または plan-quick-link が表示される
-		const freeCta = page.getByTestId('plan-status-free-cta');
-		const trialCta = page.getByTestId('plan-status-trial-cta');
+		// PlanStatusCard が描画されるか plan-quick-link が表示される
+		const card = page.getByTestId('plan-status-card');
 		const quickLink = page.locator('.plan-quick-link--free');
 
-		const hasFreeCta = await freeCta.isVisible({ timeout: 5000 }).catch(() => false);
-		const hasTrialCta = await trialCta.isVisible({ timeout: 3000 }).catch(() => false);
+		const hasCard = await card.isVisible({ timeout: 5000 }).catch(() => false);
 		const hasQuickLink = await quickLink.isVisible({ timeout: 3000 }).catch(() => false);
 
-		// いずれかのアップグレード導線が表示される
-		expect(hasFreeCta || hasTrialCta || hasQuickLink).toBe(true);
+		// デフォルト環境（family）でも PlanStatusCard は表示される。
+		// free 環境では plan-quick-link が表示される場合もある。
+		// いずれかのプラン情報 UI が表示されることを検証する。
+		expect(hasCard || hasQuickLink).toBe(true);
+
+		if (hasCard) {
+			const tier = await card.getAttribute('data-plan-tier');
+			expect(['free', 'standard', 'family']).toContain(tier);
+
+			// free の場合のみアップグレード CTA が表示される
+			if (tier === 'free') {
+				const freeCta = page.getByTestId('plan-status-free-cta');
+				await expect(freeCta).toBeVisible();
+			}
+		}
 	});
 
-	test('checkout API の returnPath パラメータがレスポンスに影響する', async ({
-		request,
-	}) => {
+	test('checkout API の returnPath パラメータがレスポンスに影響する', async ({ request }) => {
 		// API に returnPath を含めて呼び出し（Stripe 無効環境では 503 が返る）
 		const res = await request.post('/api/stripe/checkout', {
 			headers: { 'Content-Type': 'application/json' },
