@@ -35,6 +35,13 @@ function eventTypeLabel(t: string): string {
 </svelte:head>
 
 <div class="flex flex-col gap-6">
+	<div class="flex justify-end">
+		<a
+			href="/ops/license/issue"
+			class="px-3 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] rounded text-sm font-medium no-underline"
+		>＋ キャンペーンキーを発行</a>
+	</div>
+
 	<Card padding="lg">
 		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">
 			ライセンスキー検索

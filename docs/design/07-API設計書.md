@@ -1142,6 +1142,40 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 - `license_events` に `eventType='revoked'` を記録 (#804)
 - `ops_audit_log` に `action='license.revoke'` / `target=<key>` / `metadata={reason, note}` を記録 (#820)
 
+#### GET /ops/license/issue （キャンペーンキー一括発行ページ #802）
+
+**認証:** Cognito User Pool `ops` group メンバーであること
+
+**機能:**
+- Stripe を経由しないキャンペーン配布・サポート補償・プレゼント用のライセンスキーを一括発行する入力画面
+- 発行結果は同一ページでテキスト表示 + CSV ダウンロード（`campaign-keys-YYYY-MM-DD.csv`）
+
+#### POST /ops/license/issue?/issue （キャンペーンキー一括発行 form action #802）
+
+**認証:** Cognito User Pool `ops` group メンバーであること
+
+**入力 (form-data):**
+| フィールド | 型 | 必須 | 説明 |
+|-----------|----|------|------|
+| plan | `LicensePlan` (monthly / yearly / family-monthly / family-yearly / lifetime) | ✓ | 発行するキーのプラン |
+| quantity | number (1-500) | ✓ | 発行件数。500 件/req が上限 |
+| reason | string (1-200) | ✓ | キャンペーン名・理由。`ops_audit_log.metadata.reason` と `record.tenantId` の自動採番に使われる |
+| expiresAt | `'default' \| 'never' \| ISO8601` | - | `default`=90日後、`never`=期限なし、その他は指定日時 |
+| tenantId | string | - | `record.tenantId` に入る発行プール識別子。省略時は `campaign:<reason>` を自動採番 |
+
+**レスポンス:**
+| status | 意味 | ケース |
+|--------|------|--------|
+| 200 (form success) | `{ issued: true, plan, reason, tenantId, issuedBy, expiresAt, keys: string[], errors?: string[] }` | 全件または一部成功 |
+| 400 (form failure) | `{ error: string }` | plan / quantity / reason / expiresAt の検証失敗 |
+| 403 | `Forbidden` | identity が ops group 未所属 |
+| 500 (form failure) | `{ error: string }` | 全件発行失敗（DB エラー等） |
+
+**副作用:**
+- `license-key-service.issueLicenseKey` を `quantity` 回呼び、`kind='campaign'` / `issuedBy='ops:<userId>'` のキーを生成
+- `license_events` に `eventType='issued'` を各キー分記録 (#804)
+- `ops_audit_log` に `action='license.issue'` / `target=<tenantId>` / `metadata={plan, quantity, reason, keys, errors?}` を 1 件記録 (#820)
+
 ### 3.x バトルアドベンチャー
 
 #### GET /api/v1/battle/[childId]
