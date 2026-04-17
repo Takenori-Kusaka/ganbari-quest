@@ -1,36 +1,15 @@
 // src/routes/api/v1/special-rewards/suggest/+server.ts
 // AI ごほうび提案 API — プランゲート必須 (#719)
 
-import { error, json } from '@sveltejs/kit';
-import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { apiError } from '$lib/server/errors';
-import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
+import { json } from '@sveltejs/kit';
+import { validateSuggestRequest } from '$lib/server/api/suggest-plan-gate';
 import { suggestReward } from '$lib/server/services/reward-suggest-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.context) {
-		throw error(401, { message: 'Unauthorized' });
-	}
-	const tenantId = locals.context.tenantId;
+	const result = await validateSuggestRequest(locals, request, 'AI ごほうび提案');
+	if (!result.ok) return result.response;
 
-	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
-	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-	if (tier !== 'family') {
-		return apiError('PLAN_LIMIT_EXCEEDED', 'AI ごほうび提案はファミリープランでご利用いただけます');
-	}
-
-	const body = await request.json();
-	const text = String(body.text ?? '').trim();
-
-	if (!text) {
-		throw error(400, { message: 'テキストを入力してください' });
-	}
-
-	if (text.length > 200) {
-		throw error(400, { message: 'テキストは200文字以内にしてください' });
-	}
-
-	const suggestion = await suggestReward(text);
+	const suggestion = await suggestReward(result.text);
 	return json(suggestion);
 };

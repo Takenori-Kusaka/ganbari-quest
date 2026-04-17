@@ -63,6 +63,31 @@ interface GrantInput {
 
 const TEMPLATES_KEY = 'reward_templates';
 
+// --- DB行 → SpecialRewardResult マッピング ---
+
+/** DB の報酬レコードを SpecialRewardResult にマッピング */
+function toRewardResult(row: {
+	id: number;
+	childId: number;
+	title: string;
+	description: string | null;
+	points: number;
+	icon: string | null;
+	category: string;
+	grantedAt: string;
+}): SpecialRewardResult {
+	return {
+		id: row.id,
+		childId: row.childId,
+		title: row.title,
+		description: row.description,
+		points: row.points,
+		icon: row.icon,
+		category: row.category,
+		grantedAt: row.grantedAt,
+	};
+}
+
 // --- 特別報酬付与 ---
 
 export async function grantSpecialReward(
@@ -96,16 +121,7 @@ export async function grantSpecialReward(
 		tenantId,
 	);
 
-	return {
-		id: reward.id,
-		childId: reward.childId,
-		title: reward.title,
-		description: reward.description,
-		points: reward.points,
-		icon: reward.icon,
-		category: reward.category,
-		grantedAt: reward.grantedAt,
-	};
+	return toRewardResult(reward);
 }
 
 // --- 履歴取得 ---
@@ -122,16 +138,7 @@ export async function getChildSpecialRewards(
 	let totalPoints = 0;
 	const rewards: SpecialRewardResult[] = rows.map((r) => {
 		totalPoints += r.points;
-		return {
-			id: r.id,
-			childId: r.childId,
-			title: r.title,
-			description: r.description,
-			points: r.points,
-			icon: r.icon,
-			category: r.category,
-			grantedAt: r.grantedAt,
-		};
+		return toRewardResult(r);
 	});
 
 	return { rewards, totalPoints };
@@ -145,16 +152,7 @@ export async function getUnshownReward(
 ): Promise<SpecialRewardResult | null> {
 	const row = await findUnshownReward(childId, tenantId);
 	if (!row) return null;
-	return {
-		id: row.id,
-		childId: row.childId,
-		title: row.title,
-		description: row.description,
-		points: row.points,
-		icon: row.icon,
-		category: row.category,
-		grantedAt: row.grantedAt,
-	};
+	return toRewardResult(row);
 }
 
 // --- 報酬表示済みマーク ---
@@ -229,16 +227,7 @@ export async function checkAndGrantFixedIntervalReward(
 		tenantId,
 	);
 
-	return {
-		id: reward.id,
-		childId: reward.childId,
-		title: reward.title,
-		description: reward.description,
-		points: reward.points,
-		icon: reward.icon,
-		category: reward.category,
-		grantedAt: reward.grantedAt,
-	};
+	return toRewardResult(reward);
 }
 
 /**
