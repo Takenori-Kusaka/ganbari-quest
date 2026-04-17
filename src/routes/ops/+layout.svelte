@@ -13,6 +13,7 @@ let { children }: { children: Snippet } = $props();
 			<a href="/ops/business">採算性</a>
 			<a href="/ops/costs">費用</a>
 			<a href="/ops/license">ライセンス</a>
+			<a href="/ops/analytics">分析</a>
 			<a href="/ops/export">エクスポート</a>
 		</nav>
 	</header>
