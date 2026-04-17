@@ -47,7 +47,8 @@
 		"storybook": "storybook dev -p 6006",
 		"build-storybook": "storybook build",
 		"type-coverage": "type-coverage -p . --at-least 97 --strict --ignore-catch --detail",
-		"knip": "knip"
+		"knip": "knip",
+		"jscpd": "jscpd ."
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.10",
@@ -82,6 +83,7 @@
 		"eslint-plugin-storybook": "^10.3.5",
 		"eslint-plugin-svelte": "^3.17.0",
 		"googleapis": "^171.4.0",
+		"jscpd": "^4.0.9",
 		"jsdom": "^29.0.2",
 		"knip": "^6.4.1",
 		"playwright": "^1.59.1",
