@@ -1,0 +1,35 @@
+name: Code Quality Weekly (jscpd)
+
+on:
+  schedule:
+    # Every Monday 00:00 UTC = 09:00 JST
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  jscpd:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run jscpd (code clone detection)
+        run: npm run jscpd
+
+      - name: Upload jscpd report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jscpd-report
+          path: reports/jscpd/
+          retention-days: 30
