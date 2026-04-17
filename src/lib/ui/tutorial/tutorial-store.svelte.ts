@@ -142,6 +142,25 @@ export function getChapters() {
 	return activeChapters;
 }
 
+/**
+ * 共通のチュートリアル開始処理: state をリセットして最初のステップのページへ遷移する。
+ * startTutorial / startFromBeginning / startTutorialForPage で共通利用。
+ */
+async function activateChapter(chapterId: number, quickMode: boolean) {
+	state.showResumePrompt = false;
+	state.showQuickComplete = false;
+	state.quickMode = quickMode;
+	state.isActive = true;
+	state.currentChapter = chapterId;
+	state.currentStepIndex = 0;
+	saveProgress(chapterId, 0);
+
+	const step = getCurrentStep();
+	if (step?.page) {
+		await goto(step.page);
+	}
+}
+
 export async function startTutorial(chapter?: number) {
 	// If no explicit chapter is given, check for saved progress
 	if (chapter == null) {
@@ -159,18 +178,7 @@ export async function startTutorial(chapter?: number) {
 	// #955: 明示的なチャプター指定なし（初回開始）の場合はクイックモード
 	// #961 QA: ただし親チャプター中のみ有効。子チャプター等では全ステップ通常表示
 	const isQuickStart = chapter == null && state.isParentChapters;
-	state.showResumePrompt = false;
-	state.showQuickComplete = false;
-	state.quickMode = isQuickStart;
-	state.isActive = true;
-	state.currentChapter = chapterId;
-	state.currentStepIndex = 0;
-	saveProgress(chapterId, 0);
-
-	const step = getCurrentStep();
-	if (step?.page) {
-		await goto(step.page);
-	}
+	await activateChapter(chapterId, isQuickStart);
 }
 
 /** #955: クイック完了画面が表示中か */
@@ -224,20 +232,9 @@ export async function resumeTutorial() {
 /** Start from the beginning, discarding saved progress */
 export async function startFromBeginning(chapter?: number) {
 	clearSavedProgress();
-	state.showResumePrompt = false;
-	state.showQuickComplete = false;
 	// #955: 明示的なチャプター指定なし（最初から）の場合はクイックモード
 	// #961 QA: ただし親チャプター中のみ有効
-	state.quickMode = chapter == null && state.isParentChapters;
-	state.isActive = true;
-	state.currentChapter = chapter ?? 1;
-	state.currentStepIndex = 0;
-	saveProgress(state.currentChapter, 0);
-
-	const step = getCurrentStep();
-	if (step?.page) {
-		await goto(step.page);
-	}
+	await activateChapter(chapter ?? 1, chapter == null && state.isParentChapters);
 }
 
 /** Dismiss the resume prompt without starting */
@@ -254,16 +251,7 @@ export async function startTutorialForPage(pathname: string) {
 
 	// If a matching chapter is found (not chapter 1), skip directly there
 	if (chapterId > 1) {
-		state.showResumePrompt = false;
-		state.isActive = true;
-		state.currentChapter = chapterId;
-		state.currentStepIndex = 0;
-		saveProgress(chapterId, 0);
-
-		const step = getCurrentStep();
-		if (step?.page) {
-			await goto(step.page);
-		}
+		await activateChapter(chapterId, false);
 		return;
 	}
 
