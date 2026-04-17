@@ -179,7 +179,7 @@ jobs:
       - run: npm ci
 
       - name: Download vitest blob reports
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: vitest-blob-*
           path: .vitest-reports
@@ -275,7 +275,7 @@ jobs:
       - run: npm ci
 
       - name: Download all blob reports
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: e2e-blob-report-*
           path: all-blob-reports
