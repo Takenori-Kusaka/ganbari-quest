@@ -81,8 +81,10 @@ export function extractDefaultClause(col: {
 	// SQL 式 (sql`CURRENT_TIMESTAMP` 等) — 非定数
 	if (d instanceof SQL) {
 		const chunks = (d as unknown as { queryChunks: Array<{ value: string[] }> }).queryChunks;
-		if (chunks?.length > 0 && chunks[0]?.value?.length > 0) {
-			return { clause: chunks[0].value[0], isConstant: false };
+		const firstChunk = chunks?.[0];
+		const firstValue = firstChunk?.value?.[0];
+		if (firstValue !== undefined) {
+			return { clause: firstValue, isConstant: false };
 		}
 	}
 

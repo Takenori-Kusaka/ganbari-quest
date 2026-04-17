@@ -176,7 +176,8 @@ describe('validateAndMigrate — DEFAULT 抽出 + backfill', () => {
 		const rows = sqlite.prepare('SELECT source FROM activities').all() as Array<{
 			source: string | null;
 		}>;
-		expect(rows[0].source).toBe('seed');
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.source).toBe('seed');
 	});
 
 	it('REAL DEFAULT カラム追加時に数値 DEFAULT が付与される', () => {
@@ -206,7 +207,8 @@ describe('validateAndMigrate — DEFAULT 抽出 + backfill', () => {
 		const rows = sqlite.prepare('SELECT birthday_bonus_multiplier FROM children').all() as Array<{
 			birthday_bonus_multiplier: number | null;
 		}>;
-		expect(rows[0].birthday_bonus_multiplier).toBe(1);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.birthday_bonus_multiplier).toBe(1);
 	});
 
 	it('DEFAULT なしの nullable カラムは backfill なしで追加される', () => {
@@ -240,7 +242,8 @@ describe('validateAndMigrate — DEFAULT 抽出 + backfill', () => {
 		const rows = sqlite.prepare('SELECT avatar_url FROM children').all() as Array<{
 			avatar_url: string | null;
 		}>;
-		expect(rows[0].avatar_url).toBeNull();
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.avatar_url).toBeNull();
 	});
 
 	it('回帰テスト: NULL 混在行 → auto-migrate → eq(is_archived, 0) で既存行が返る', () => {
@@ -308,7 +311,8 @@ describe('validateAndMigrate — DEFAULT 抽出 + backfill', () => {
 		const rows = sqlite.prepare('SELECT created_at FROM children').all() as Array<{
 			created_at: string | null;
 		}>;
-		expect(rows[0].created_at).not.toBeNull();
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.created_at).not.toBeNull();
 	});
 
 	it('create-tables.ts と validator で同じ結果になる（完全テーブル vs ALTER TABLE）', () => {
