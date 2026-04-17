@@ -289,10 +289,9 @@ export async function validateLicenseKey(
 	// 未知キー (DB に無い形式不正 or 署名不一致) は prefix のみ保存して DB 膨張 + 偽造試行値
 	// の漏洩を抑える。findLicenseKey まで進んだ場合はレコード側と紐付けたいので full key。
 	const recordFailure = async (
-		reason: string,
-		options?: { useFullKey?: boolean; extra?: Record<string, unknown> },
-	) => {
-	};
+		_reason: string,
+		_options?: { useFullKey?: boolean; extra?: Record<string, unknown> },
+	) => {};
 
 	if (!isLegacy && !isSigned) {
 		await recordFailure('format_invalid');
@@ -429,10 +428,7 @@ export async function consumeLicenseKey(
 	const normalized = key.toUpperCase().trim();
 	const repos = getRepos();
 
-	const ip = context?.ip ?? null;
-	const ua = context?.ua ?? null;
-	const actorId = `tenant:${consumedByTenantId}`;
-	const recordFailure = async (reason: string, extra?: Record<string, unknown>) =>
+	const recordFailure = async (_reason: string, _extra?: Record<string, unknown>) => {};
 	const record = await repos.auth.findLicenseKey(normalized);
 	if (!record) {
 		return { ok: false, reason: 'ライセンスキーが見つかりません' };
