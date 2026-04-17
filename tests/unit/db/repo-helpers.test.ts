@@ -26,6 +26,14 @@ import {
 	stripKeys,
 } from '../../../src/lib/server/db/dynamodb/repo-helpers';
 
+/** mockSend.mock.calls[n][0] を型安全に取得するヘルパー */
+// biome-ignore lint/suspicious/noExplicitAny: テストヘルパー — mock の戻り値型が不定
+function getSentCommand(callIndex: number): any {
+	const call = mockSend.mock.calls[callIndex];
+	if (!call) throw new Error(`mock call[${callIndex}] is undefined`);
+	return call[0];
+}
+
 beforeEach(() => {
 	mockSend.mockReset();
 });
@@ -90,7 +98,7 @@ describe('queryAllItems', () => {
 		expect(result[0]).toEqual({ PK: 'T#t1#CHILD#1', SK: 'LOG#2026-01-01', id: 1 });
 		expect(mockSend).toHaveBeenCalledTimes(1);
 
-		const command = mockSend.mock.calls[0][0];
+		const command = getSentCommand(0);
 		expect(command).toBeInstanceOf(QueryCommand);
 	});
 
@@ -149,7 +157,7 @@ describe('queryAllItems', () => {
 			projectionExpression: 'id, #s',
 		});
 
-		const command = mockSend.mock.calls[0][0] as QueryCommand;
+		const command = getSentCommand(0) as QueryCommand;
 		const input = command.input;
 		expect(input.FilterExpression).toBe('#s = :status');
 		expect(input.ExpressionAttributeNames).toEqual({ '#s': 'status' });
@@ -179,7 +187,7 @@ describe('batchDeleteItems', () => {
 		expect(count).toBe(2);
 		expect(mockSend).toHaveBeenCalledTimes(1);
 
-		const command = mockSend.mock.calls[0][0];
+		const command = getSentCommand(0);
 		expect(command).toBeInstanceOf(BatchWriteCommand);
 		const requestItems = command.input.RequestItems?.['test-table'];
 		expect(requestItems).toHaveLength(2);
@@ -199,8 +207,8 @@ describe('batchDeleteItems', () => {
 		// 25 + 5 = 2 batches
 		expect(mockSend).toHaveBeenCalledTimes(2);
 
-		const firstBatch = mockSend.mock.calls[0][0].input.RequestItems?.['test-table'];
-		const secondBatch = mockSend.mock.calls[1][0].input.RequestItems?.['test-table'];
+		const firstBatch = getSentCommand(0).input.RequestItems?.['test-table'];
+		const secondBatch = getSentCommand(1).input.RequestItems?.['test-table'];
 		expect(firstBatch).toHaveLength(25);
 		expect(secondBatch).toHaveLength(5);
 	});
@@ -251,7 +259,7 @@ describe('findChildByIdRaw', () => {
 		expect(child).not.toHaveProperty('PK');
 		expect(child).not.toHaveProperty('SK');
 
-		const command = mockSend.mock.calls[0][0];
+		const command = getSentCommand(0);
 		expect(command).toBeInstanceOf(GetCommand);
 		expect(command.input.Key).toEqual({
 			PK: 'T#tenant1#CHILD#1',
