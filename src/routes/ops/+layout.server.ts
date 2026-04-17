@@ -8,7 +8,7 @@
 //   - cookie 平文保存の既知課題（docs/security/security-code-review-2026-03.md:189）
 //
 // 新実装（PR-C）: Cognito `ops` group 所属チェック。
-//   - actor 識別 = Cognito sub（PR-B の ops_audit_log で利用）
+//   - actor 識別 = Cognito sub
 //   - 非所属は 403（以前は 401）
 //   - hooks.server.ts で resolveIdentity 済みの `locals.identity` を使用
 //   - cognito-dev mode（ローカル / CI）では DEV_USERS の `groups: ['ops']` 指定で通過
