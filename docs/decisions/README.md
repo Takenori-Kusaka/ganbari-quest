@@ -81,3 +81,4 @@
 | 0032 | [静的解析ツール実行頻度ポリシー (T1/T2/T3/T4)](0032-static-analysis-tier-policy.md) | accepted | 2026-04-16 |
 | 0033 | [/ops ダッシュボード認可を Cognito ops group ベースに刷新（OPS_SECRET_KEY 廃止）](0033-ops-dashboard-cognito-authz.md) | accepted | 2026-04-16 |
 | 0034 | [Pre-PMF セキュリティ最小化方針（HMAC + API Gateway throttling + Budgets）](0034-pre-pmf-security-minimum.md) | accepted | 2026-04-16 |
+| 0035 | [設計ポリシー先行確認フロー（新機能は実装前に PO 合意必須）](0035-design-policy-pre-approval.md) | accepted | 2026-04-17 |

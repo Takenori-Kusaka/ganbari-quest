@@ -187,6 +187,7 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0032**: Static analysis tier policy — 4 階層で実行頻度を分類: T1 PR ゲート（< 30s、merge block）/ T2 PR 並行レーン（30s-3min、別 job）/ T3 nightly 週次（> 3min or debt 検知、PR は止めない）/ T4 四半期 手動（脆弱性スキャン等）。新ツール導入は実行時間 → blast radius の判断フローで階層決定。T1 合計予算は 3min 以下、新規追加は +30s 以下目安
 - **ADR-0033**: /ops dashboard authz Cognito group migration — `OPS_SECRET_KEY` shared secret を廃止し Cognito ops group + `isOpsMember(identity)` ベースに刷新（PR-A/B/C/D 段階実装）。cron endpoint (`/api/cron/retention-cleanup`) は shared secret のままだが概念分離して `CRON_SECRET` にリネーム、移行期は `OPS_SECRET_KEY` を後方互換フォールバックとして受け入れる。PR-D-2（3 ヶ月後）で `OPS_SECRET_KEY` を完全削除予定
 - **ADR-0034**: Pre-PMF セキュリティ最小化方針 — HMAC-SHA256 鍵強度（ADR-0026）+ API Gateway 標準スロットリング + AWS Budgets + 既存 state カラム（`licenses` / `license_keys` / Stripe webhook）で Pre-PMF の防御は十分とする。**採用しない**: 汎用監査ログ DynamoDB テーブル / S3+Athena 監査基盤 / AWS WAF / IP 単位ブルートフォース検知 / CloudWatch Logs 長期保管。ADR-0029 とは対象が逆（本 ADR は新規セーフティの過剰採用を禁止、ADR-0029 は既存セーフティの劣化を禁止）。PMF 後再評価トリガ: 月商 ¥10,000 超 or 有料顧客 100 人超 or セキュリティインシデント 1 件 or 法的要請
+- **ADR-0035**: 設計ポリシー先行確認フロー — 新テーブル / 新 interface / セキュリティ機能 / 課金変更 / AWS リソース追加 / 3 人日以上の工数に該当する PR は、実装着手前に PO 設計ポリシー合意が必須。PR 本文の「設計ポリシー確認」セクションに合意の根拠（Issue ラベル / ADR / PO コメント）を記載。根拠がない場合は Reviewer がレビューを開始せず差し戻し。Reviewer / PO は Dev の実装作業を肩代わりしない（#1022 越境禁止ルール）
 
 ### Team Structure
 
