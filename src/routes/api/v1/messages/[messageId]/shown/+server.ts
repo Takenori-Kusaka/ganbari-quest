@@ -1,11 +1,14 @@
 import { json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { notFound } from '$lib/server/errors';
 import { markAsShown } from '$lib/server/services/message-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ params, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const messageId = Number(params.messageId);
 	if (!messageId || Number.isNaN(messageId)) {
 		return notFound('メッセージが見つかりません');

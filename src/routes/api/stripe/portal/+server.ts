@@ -5,7 +5,6 @@
 //       PIN 未設定テナントは確認フレーズ (`プランを変更します`) でフォールバックする。
 
 import { error, json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { isPinConfigured, verifyPin } from '$lib/server/services/auth-service';
 import { createPortalSession } from '$lib/server/services/stripe-service';
 import type { RequestHandler } from './$types';
@@ -13,7 +12,11 @@ import type { RequestHandler } from './$types';
 const DOWNGRADE_CONFIRM_PHRASE = 'プランを変更します';
 
 export const POST: RequestHandler = async ({ locals, url, request }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		error(401, '認証が必要です');
+	}
+	const tenantId = context.tenantId;
 
 	const role = locals.context?.role;
 	if (role !== 'owner' && role !== 'parent') {

@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import { messageQuerySchema, sendMessageSchema } from '$lib/domain/validation/message';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { validationError } from '$lib/server/errors';
 import {
 	getMessageHistory,
@@ -11,7 +10,11 @@ import {
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const parsed = messageQuerySchema.safeParse({ childId: params.childId });
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
@@ -31,7 +34,11 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const body = await request.json();
 
 	const parsed = sendMessageSchema.safeParse({

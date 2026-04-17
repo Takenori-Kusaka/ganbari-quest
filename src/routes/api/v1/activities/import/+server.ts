@@ -1,7 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
-import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	importActivities,
 	previewActivityImport,
@@ -45,7 +44,11 @@ function validateActivities(data: unknown): ActivityPackItem[] {
 }
 
 export const POST: RequestHandler = async ({ request, url, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const mode = url.searchParams.get('mode') ?? 'preview';
 
 	let body: unknown;

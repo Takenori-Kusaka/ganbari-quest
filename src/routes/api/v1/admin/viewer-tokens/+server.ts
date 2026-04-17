@@ -4,13 +4,16 @@
 
 import { error, json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { createViewerToken, listViewerTokens } from '$lib/server/services/viewer-token-service';
 import type { RequestHandler } from './$types';
 
 async function requireFamily(locals: App.Locals): Promise<string> {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		throw error(401, '認証が必要です');
+	}
+	const tenantId = context.tenantId;
 	const tier = await resolveFullPlanTier(
 		tenantId,
 		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,

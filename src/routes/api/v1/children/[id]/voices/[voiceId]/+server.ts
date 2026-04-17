@@ -1,11 +1,14 @@
 import { error, json } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { activateVoice, deleteVoice } from '$lib/server/services/voice-service';
 import type { RequestHandler } from './$types';
 
 /** PATCH /api/v1/children/:id/voices/:voiceId — アクティブ切替 */
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const childId = Number(params.id);
 	const voiceId = Number(params.voiceId);
 	if (!childId || !voiceId) throw error(400, { message: '不正なIDです' });
@@ -21,7 +24,11 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 /** DELETE /api/v1/children/:id/voices/:voiceId — ボイス削除 */
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const voiceId = Number(params.voiceId);
 	if (!voiceId) throw error(400, { message: '不正なIDです' });
 

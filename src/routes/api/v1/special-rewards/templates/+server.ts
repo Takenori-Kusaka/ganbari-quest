@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { validationError } from '$lib/server/errors';
 import {
 	getRewardTemplates,
@@ -9,13 +8,21 @@ import {
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const templates = await getRewardTemplates(tenantId);
 	return json({ templates });
 };
 
 export const PUT: RequestHandler = async ({ request, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const body = await request.json();
 
 	const parsed = rewardTemplatesArraySchema.safeParse(body.templates ?? body);
