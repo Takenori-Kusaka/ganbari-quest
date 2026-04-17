@@ -277,7 +277,12 @@ export async function issueLicenseKey(params: {
 export async function validateLicenseKey(
 	key: string,
 	/** #804: 監査ログ用コンテキスト (ip/ua/actor/tenant)。省略時は null で記録。 */
-	context?: { actorId?: string | null; tenantId?: string | null; ip?: string | null; ua?: string | null },
+	context?: {
+		actorId?: string | null;
+		tenantId?: string | null;
+		ip?: string | null;
+		ua?: string | null;
+	},
 ): Promise<{ valid: true; record: LicenseRecord } | { valid: false; reason: string }> {
 	const normalized = key.toUpperCase().trim();
 

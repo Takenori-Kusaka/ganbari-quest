@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Card from '$lib/ui/primitives/Card.svelte';
+import Card from '$lib/ui/primitives/Card.svelte';
 
-	let { form } = $props();
+let { form } = $props();
 </script>
 
 <svelte:head>

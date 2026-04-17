@@ -153,7 +153,6 @@ export function getPlanShortLabel(tier: string): string {
 	return PLAN_SHORT_LABELS[tier as PlanKey] ?? tier;
 }
 
-
 // ============================================================
 // テーマカラー
 // ============================================================
