@@ -59,7 +59,7 @@ export async function setActivityVisibility(id: number, visible: boolean, tenant
 	return await setActivityVisibilityRepo(id, visible, tenantId);
 }
 
-export async function deleteActivity(id: number, tenantId: string) {
+async function deleteActivity(id: number, tenantId: string) {
 	return await deleteActivityRepo(id, tenantId);
 }
 

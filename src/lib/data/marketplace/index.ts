@@ -160,16 +160,6 @@ export function getMarketplaceIndex(): MarketplaceItemMeta[] {
 	return allItems.map(toMeta);
 }
 
-/** Get items filtered by type */
-export function getMarketplaceByType(type: MarketplaceItemType): MarketplaceItemMeta[] {
-	return allItems.filter((i) => i.type === type).map(toMeta);
-}
-
-/** Get items matching age range */
-export function getMarketplaceByAge(age: number): MarketplaceItemMeta[] {
-	return allItems.filter((i) => i.targetAgeMin <= age && i.targetAgeMax >= age).map(toMeta);
-}
-
 /** Get a single item with full payload */
 export function getMarketplaceItem(
 	type: MarketplaceItemType,
