@@ -10,6 +10,7 @@
 // という三重の問題があった。本エンドポイントでプラン解決→free は早期 return する。
 
 import { json } from '@sveltejs/kit';
+import { verifyCronAuth } from '$lib/server/auth/cron-auth';
 import { logger } from '$lib/server/logger';
 import type { WeeklyReportData } from '$lib/server/services/email-service';
 import { sendWeeklyReportEmail } from '$lib/server/services/email-service';
@@ -18,16 +19,8 @@ import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
-	// 内部 cron 認証（CRON_SECRET ヘッダ）
-	const cronSecret = process.env.CRON_SECRET;
-	if (cronSecret) {
-		const authHeader = request.headers.get('x-cron-secret');
-		if (authHeader !== cronSecret) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
-	} else if (process.env.AUTH_MODE !== 'local') {
-		return json({ error: 'CRON_SECRET not configured' }, { status: 500 });
-	}
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 
 	try {
 		const body = (await request.json()) as {
