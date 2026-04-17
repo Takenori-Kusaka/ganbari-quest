@@ -78,6 +78,7 @@ export class ComputeStack extends cdk.Stack {
 			// 必須 Secret が未設定のまま誤デプロイされると、Lambda cold start 時に
 			// assertLicenseKeyConfigured() が throw して本番障害になるため、
 			// CDK 側で明示的に失敗させる（addError は deploy を阻止する）。
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax, not JS template literal
 			cdk.Annotations.of(this).addError(
 				'[ComputeStack] awsLicenseSecret context is empty. ' +
 					'Pass -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }} in the deploy workflow. ' +
