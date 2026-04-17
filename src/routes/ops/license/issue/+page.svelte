@@ -52,6 +52,28 @@ async function copyAll() {
 			発行操作はすべて監査ログに記録されます。
 		</p>
 
+		<details class="mb-4 p-3 bg-[var(--color-surface-info)] text-[var(--color-feedback-info-text)] rounded text-sm">
+			<summary class="cursor-pointer font-medium">Stripe 100% OFF プロモコードを使う場合（#803）</summary>
+			<div class="mt-2 text-[var(--color-text-primary)]">
+				<p class="m-0 mb-2">
+					公開キャンペーン（SNS 等で URL を配布する）や、Stripe の本人確認を通したい場合は、
+					この画面ではなく <strong>Stripe Dashboard の Coupons / Promotion codes</strong> を使ってください。
+					100% OFF の Coupon + Promotion code を発行し、「プランを契約する」ボタンから Checkout → プロモコード適用のフローでプランが解放されます。
+				</p>
+				<ul class="m-0 ml-4 mb-2 list-disc">
+					<li>使い分け・運用手順: <code>docs/design/19-プライシング戦略書.md §8</code></li>
+					<li>流出対策: Coupon 作成時に Max redemptions / Expires at / First-time order only を必ず設定</li>
+					<li>経路 A (本画面) と経路 B (Stripe) の両方とも、発行結果は <a href="/ops" class="underline">/ops の監査ログ</a> または Stripe Dashboard で確認可能</li>
+				</ul>
+				<a
+					href="https://dashboard.stripe.com/coupons"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="underline"
+				>Stripe Dashboard → Coupons を開く</a>
+			</div>
+		</details>
+
 		<form
 			method="POST"
 			action="?/issue"
