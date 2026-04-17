@@ -661,6 +661,7 @@ async function openPortal() {
 					class:selected={selectedTier === 'standard'}
 					role="button"
 					tabindex="0"
+					data-testid="standard-plan-card"
 					onclick={() => (selectedTier = 'standard')}
 					onkeydown={(e) => e.key === 'Enter' && (selectedTier = 'standard')}
 				>
@@ -689,6 +690,7 @@ async function openPortal() {
 					class:recommended={true}
 					role="button"
 					tabindex="0"
+					data-testid="family-plan-card"
 					onclick={() => (selectedTier = 'family')}
 					onkeydown={(e) => e.key === 'Enter' && (selectedTier = 'family')}
 				>
