@@ -61,6 +61,16 @@ function makeTenant(overrides: Partial<Tenant> & { tenantId: string }): Tenant {
 	};
 }
 
+/** Stripe サブスクリプション保持の有料テナントを作成する */
+function makePaidTenant(overrides: Partial<Tenant> & { tenantId: string }): Tenant {
+	return makeTenant({
+		plan: 'monthly',
+		stripeSubscriptionId: `sub_${overrides.tenantId}`,
+		stripeCustomerId: `cus_${overrides.tenantId}`,
+		...overrides,
+	});
+}
+
 function makeMetrics(overrides: Partial<MonthlyMetrics> = {}): MonthlyMetrics {
 	return {
 		month: '2026-04',
@@ -286,7 +296,7 @@ describe('runPricingTriggerCheck', () => {
 	});
 
 	it('有料ユーザー < 10 のときはスキップする', async () => {
-		// 5 active tenants, none with plan = 5 paid users (< 10)
+		// 5 active tenants, none with stripeSubscriptionId = 0 paid users (< 10)
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({ tenantId: 't1', status: 'active' }),
 			makeTenant({ tenantId: 't2', status: 'active' }),
@@ -302,11 +312,34 @@ describe('runPricingTriggerCheck', () => {
 		expect(report.firedTriggers).toHaveLength(0);
 	});
 
-	it('有料ユーザー >= 10 のときは判定が実行される', async () => {
+	it('トライアルユーザー（plan あり・stripeSubscriptionId なし）は有料にカウントしない', async () => {
+		// 15 active tenants with plan set but no stripeSubscriptionId (trial users)
 		const tenants: Tenant[] = [];
 		for (let i = 0; i < 15; i++) {
 			tenants.push(
 				makeTenant({
+					tenantId: `t${i}`,
+					status: 'active',
+					plan: 'monthly',
+					trialUsedAt: '2026-04-01T00:00:00Z',
+					// stripeSubscriptionId is NOT set → trial user, not paid
+				}),
+			);
+		}
+		mockListAllTenants.mockResolvedValue(tenants);
+
+		const report = await runPricingTriggerCheck(2026, 4);
+
+		// All are trial users, paidUserCount should be 0 → skipped
+		expect(report.skipped).toBe(true);
+		expect(report.paidUserCount).toBe(0);
+	});
+
+	it('有料ユーザー >= 10 のときは判定が実行される', async () => {
+		const tenants: Tenant[] = [];
+		for (let i = 0; i < 15; i++) {
+			tenants.push(
+				makePaidTenant({
 					tenantId: `t${i}`,
 					status: 'active',
 					plan: 'monthly',
@@ -326,7 +359,7 @@ describe('runPricingTriggerCheck', () => {
 		const tenants: Tenant[] = [];
 		for (let i = 0; i < 20; i++) {
 			tenants.push(
-				makeTenant({
+				makePaidTenant({
 					tenantId: `t${i}`,
 					status: 'active',
 					plan: 'monthly',
@@ -343,16 +376,20 @@ describe('runPricingTriggerCheck', () => {
 	});
 
 	it('トリガー未発火時は Discord 通知が呼ばれない', async () => {
-		// 正常範囲のメトリクス
+		// 正常範囲のメトリクス: 5 paid + 95 free
 		const tenants: Tenant[] = [];
 		for (let i = 0; i < 100; i++) {
 			tenants.push(
-				makeTenant({
-					tenantId: `t${i}`,
-					status: 'active',
-					// 5% が有料
-					...(i < 5 ? { plan: 'monthly' as const } : {}),
-				}),
+				i < 5
+					? makePaidTenant({
+							tenantId: `t${i}`,
+							status: 'active',
+							plan: 'monthly',
+						})
+					: makeTenant({
+							tenantId: `t${i}`,
+							status: 'active',
+						}),
 			);
 		}
 		mockListAllTenants.mockResolvedValue(tenants);

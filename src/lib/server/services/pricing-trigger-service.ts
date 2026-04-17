@@ -60,6 +60,9 @@ export interface MonthlyMetrics {
 
 const DEFAULT_MIN_PAID_USERS = 10;
 
+/** USD→JPY の概算換算レート。為替変動時は手動で更新する */
+const USD_TO_JPY_RATE = 150;
+
 function getMinPaidUsers(): number {
 	const envVal = env.PRICING_TRIGGER_MIN_PAID_USERS;
 	if (envVal) {
@@ -146,9 +149,11 @@ export async function collectMonthlyMetrics(year: number, month: number): Promis
 	const activeTenants = tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.ACTIVE);
 	const totalActiveUsers = activeTenants.length;
 
-	const paidUsers = activeTenants.filter((t) => t.plan != null).length;
+	// 有料ユーザー = Stripe サブスクリプション保持者（trialUsedAt のみのトライアルユーザーを除外）
+	// retention-cleanup-service.ts の deriveLicenseStatus() と同じ判定基準
+	const paidUsers = activeTenants.filter((t) => t.stripeSubscriptionId != null).length;
 	const familyPlanUsers = activeTenants.filter(
-		(t) => t.plan != null && FAMILY_PLANS.includes(t.plan),
+		(t) => t.stripeSubscriptionId != null && t.plan != null && FAMILY_PLANS.includes(t.plan),
 	).length;
 
 	const conversionRate = totalActiveUsers > 0 ? paidUsers / totalActiveUsers : 0;
@@ -178,7 +183,7 @@ export async function collectMonthlyMetrics(year: number, month: number): Promis
 	let awsCost = 0;
 	try {
 		const costData = await getAWSCostData(year, month);
-		awsCost = Math.round(costData.total * 150); // USD → JPY
+		awsCost = Math.round(costData.total * USD_TO_JPY_RATE);
 	} catch {
 		logger.warn('[pricing-trigger] Failed to fetch AWS cost data');
 	}
