@@ -30,6 +30,7 @@ export interface UpdateTrialConversionInput {
 
 export interface ITrialHistoryRepo {
 	findLatestByTenant(tenantId: string): Promise<TrialHistoryRow | undefined>;
+	findActiveTrials(): Promise<TrialHistoryRow[]>;
 	insert(input: InsertTrialHistoryInput): Promise<void>;
 	updateConversion(input: UpdateTrialConversionInput): Promise<void>;
 	deleteByTenantId(tenantId: string): Promise<void>;
