@@ -219,7 +219,7 @@ export async function getTrialExpirationInfo(
  */
 export async function markTrialExpirationModalShown(tenantId: string): Promise<void> {
 	const repos = getRepos();
-	await repos.settings.upsertSetting('trial_expiration_modal_shown', 'true', tenantId);
+	await repos.settings.setSetting('trial_expiration_modal_shown', 'true', tenantId);
 	logger.info('[trial-notification] Trial expiration modal marked as shown', {
 		context: { tenantId },
 	});

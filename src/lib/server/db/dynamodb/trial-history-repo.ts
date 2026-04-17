@@ -12,6 +12,12 @@ export async function findLatestByTenant(_tenantId: string): Promise<TrialHistor
 	return undefined;
 }
 
+/** endDate が今日以降のトライアル履歴を返す（DynamoDB未実装） */
+export async function findActiveTrials(): Promise<TrialHistoryRow[]> {
+	// TODO: DynamoDB implementation
+	return [];
+}
+
 export async function insert(_input: InsertTrialHistoryInput): Promise<void> {
 	// TODO: DynamoDB implementation
 }

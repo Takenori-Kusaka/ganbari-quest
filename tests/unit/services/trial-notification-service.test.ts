@@ -11,7 +11,7 @@ const mockFindTenantMembers = vi.fn();
 const mockFindUserById = vi.fn();
 const mockFindArchivedChildren = vi.fn();
 const mockGetSettings = vi.fn();
-const mockUpsertSetting = vi.fn();
+const mockSetSetting = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -25,7 +25,7 @@ vi.mock('$lib/server/db/factory', () => ({
 		},
 		settings: {
 			getSettings: mockGetSettings,
-			upsertSetting: mockUpsertSetting,
+			setSetting: mockSetSetting,
 		},
 	}),
 }));
@@ -164,7 +164,7 @@ describe('trial-notification-service', () => {
 			const result = await sendTrialEnding3DaysEmail('test@example.com', '2026-04-20', 'standard');
 			expect(result).toBe(true);
 			expect(mockSendEmail).toHaveBeenCalledTimes(1);
-			const call = mockSendEmail.mock.calls[0][0];
+			const call = mockSendEmail.mock.calls[0]![0];
 			expect(call.to).toBe('test@example.com');
 			expect(call.subject).toContain('残り3日');
 			expect(call.htmlBody).toContain('スタンダード');
@@ -172,7 +172,7 @@ describe('trial-notification-service', () => {
 
 		it('family プランの3日前メールを送信する', async () => {
 			await sendTrialEnding3DaysEmail('test@example.com', '2026-04-20', 'family');
-			const call = mockSendEmail.mock.calls[0][0];
+			const call = mockSendEmail.mock.calls[0]![0];
 			expect(call.htmlBody).toContain('ファミリー');
 		});
 	});
@@ -181,7 +181,7 @@ describe('trial-notification-service', () => {
 		it('1日前メールを送信する', async () => {
 			const result = await sendTrialEnding1DayEmail('test@example.com', '2026-04-18', 'standard');
 			expect(result).toBe(true);
-			const call = mockSendEmail.mock.calls[0][0];
+			const call = mockSendEmail.mock.calls[0]![0];
 			expect(call.subject).toContain('明日終了');
 		});
 	});
@@ -190,7 +190,7 @@ describe('trial-notification-service', () => {
 		it('当日メールを送信する', async () => {
 			const result = await sendTrialEndedTodayEmail('test@example.com', 'family');
 			expect(result).toBe(true);
-			const call = mockSendEmail.mock.calls[0][0];
+			const call = mockSendEmail.mock.calls[0]![0];
 			expect(call.subject).toContain('終了しました');
 			expect(call.htmlBody).toContain('ファミリー');
 		});
@@ -297,7 +297,7 @@ describe('trial-notification-service', () => {
 	describe('markTrialExpirationModalShown', () => {
 		it('settings にフラグを保存する', async () => {
 			await markTrialExpirationModalShown('tenant-1');
-			expect(mockUpsertSetting).toHaveBeenCalledWith(
+			expect(mockSetSetting).toHaveBeenCalledWith(
 				'trial_expiration_modal_shown',
 				'true',
 				'tenant-1',

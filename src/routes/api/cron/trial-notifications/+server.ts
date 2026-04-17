@@ -39,13 +39,13 @@ export const POST: RequestHandler = async ({ request }) => {
 			tenantIds?: string[];
 		};
 
-		let tenantIds = body.tenantIds;
+		let tenantIds: string[] = body.tenantIds ?? [];
 
 		// tenantIds が指定されなかった場合、アクティブなトライアルを持つテナントを取得
-		if (!tenantIds || tenantIds.length === 0) {
+		if (tenantIds.length === 0) {
 			const repos = getRepos();
 			const activeTrials = await repos.trialHistory.findActiveTrials();
-			tenantIds = activeTrials.map((t) => t.tenantId);
+			tenantIds = activeTrials.map((t: { tenantId: string }) => t.tenantId);
 		}
 
 		const result = await processTrialNotifications(tenantIds);
