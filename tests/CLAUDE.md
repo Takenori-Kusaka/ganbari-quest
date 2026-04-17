@@ -112,3 +112,78 @@ DEBUG_PLAN=standard DEBUG_TRIAL=active DEBUG_TRIAL_TIER=family npx playwright te
 ```
 
 詳細: `src/lib/server/debug-plan.ts` / `.env.example`
+
+## cron E2E テストの書き方
+
+`/api/cron/*` エンドポイントの E2E テストでは、`tests/e2e/helpers.ts` の cron ヘルパーを使う。
+
+### ヘルパー
+
+| 関数 | 用途 |
+|------|------|
+| `getCronHeaders()` | cron 認証用ヘッダーを返す（`CRON_SECRET` 設定時のみ `x-cron-secret` を含む） |
+| `isCronAuthSkipped()` | cron 認証がスキップされる環境か判定（`CRON_SECRET` 未設定 + `AUTH_MODE=local`） |
+
+### 認証の 3 パターン
+
+`verifyCronAuth`（`src/lib/server/auth/cron-auth.ts`）は環境変数に応じて 3 通りの動作をする。
+テストでは `getCronHeaders()` と `isCronAuthSkipped()` でこの分岐を吸収する。
+
+| 条件 | 動作 | テストでの期待値 |
+|------|------|----------------|
+| `CRON_SECRET` 設定済み + ヘッダー一致 | 認証成功 | `200` |
+| `CRON_SECRET` 設定済み + ヘッダー不一致/なし | 認証失敗 | `401` |
+| `CRON_SECRET` 未設定 + `AUTH_MODE=local` | 認証スキップ | `[200, 500]`（DB 未初期化で 500 の場合あり） |
+| `CRON_SECRET` 未設定 + `AUTH_MODE≠local` | 設定ミス | `500` |
+
+### 使用例
+
+```ts
+import { expect, test } from '@playwright/test';
+import { getCronHeaders, isCronAuthSkipped } from './helpers';
+
+const cronSecret = process.env.CRON_SECRET;
+const authSkipped = isCronAuthSkipped();
+
+test('正常リクエスト', async ({ request }) => {
+  // 認証不可能な環境では早期リターン
+  if (!cronSecret && !authSkipped) {
+    const res = await request.post('/api/cron/my-endpoint');
+    expect(res.status()).toBe(500);
+    return;
+  }
+
+  // getCronHeaders() が環境に応じた認証ヘッダーを返す
+  const res = await request.post('/api/cron/my-endpoint', {
+    headers: getCronHeaders(),
+    data: { dryRun: true },
+  });
+
+  if (!cronSecret && authSkipped) {
+    expect([200, 500]).toContain(res.status());
+    if (res.status() !== 200) return;
+  } else {
+    expect(res.status()).toBe(200);
+  }
+
+  const body = await res.json();
+  expect(body.ok).toBe(true);
+});
+
+test('認証エラー', async ({ request }) => {
+  const res = await request.post('/api/cron/my-endpoint');
+  if (cronSecret) {
+    expect(res.status()).toBe(401);
+  } else if (authSkipped) {
+    expect([200, 500]).toContain(res.status());
+  } else {
+    expect(res.status()).toBe(500);
+  }
+});
+```
+
+### 注意事項
+
+- インラインで `process.env.CRON_SECRET` / `AUTH_MODE` を直接参照してヘッダーを組み立てない。必ずヘルパーを使う
+- `isCronAuthSkipped()` の判定ロジックは `verifyCronAuth` と同期している。cron-auth.ts のロジック変更時はヘルパーも更新すること
+- ローカル開発環境（`AUTH_MODE=local`）では DB が未初期化で 500 を返す場合があるため、`[200, 500]` を許容する
