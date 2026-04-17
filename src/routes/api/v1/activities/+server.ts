@@ -1,13 +1,16 @@
 import { json } from '@sveltejs/kit';
 import { activitiesQuerySchema, createActivitySchema } from '$lib/domain/validation/activity';
-import { requireTenantId } from '$lib/server/auth/factory';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { validationError } from '$lib/server/errors';
 import { createActivity, getActivities } from '$lib/server/services/activity-service';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const parsed = activitiesQuerySchema.safeParse(Object.fromEntries(url.searchParams));
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
@@ -29,7 +32,11 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const tenantId = requireTenantId(locals);
+	const context = locals.context;
+	if (!context) {
+		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	const tenantId = context.tenantId;
 	const body = await request.json();
 	const parsed = createActivitySchema.safeParse(body);
 	if (!parsed.success) {
