@@ -3,7 +3,7 @@
 
 import { joinIcon } from '$lib/domain/icon-utils';
 import { getCategoryByName } from '$lib/domain/validation/activity';
-import { converseWithTool, isBedrockAvailable } from '$lib/server/ai/bedrock-client';
+import { getAiProvider, isAiAvailable } from '$lib/server/ai/factory';
 import { logger } from '$lib/server/logger';
 
 export interface SuggestedActivity {
@@ -225,11 +225,11 @@ const SYSTEM_PROMPT = `あなたは子供の活動をカテゴリ分けするア
 
 /** 自然言語テキストから活動情報を推定 */
 export async function suggestActivity(text: string): Promise<SuggestedActivity> {
-	if (isBedrockAvailable()) {
+	if (isAiAvailable()) {
 		try {
-			return await suggestWithBedrock(text);
+			return await suggestWithAi(text);
 		} catch (e) {
-			logger.error('[activity-suggest] Bedrock API失敗、フォールバック使用', {
+			logger.error('[activity-suggest] AI API失敗、フォールバック使用', {
 				error: e instanceof Error ? e.message : String(e),
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { text },
@@ -241,8 +241,9 @@ export async function suggestActivity(text: string): Promise<SuggestedActivity> 
 	return suggestByKeywords(text);
 }
 
-async function suggestWithBedrock(text: string): Promise<SuggestedActivity> {
-	const result = await converseWithTool({
+async function suggestWithAi(text: string): Promise<SuggestedActivity> {
+	const provider = getAiProvider();
+	const result = await provider.converseWithTool({
 		system: SYSTEM_PROMPT,
 		userMessage: `活動テキスト: "${text}"`,
 		tool: ACTIVITY_TOOL,

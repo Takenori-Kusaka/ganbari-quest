@@ -1,7 +1,7 @@
 // src/lib/server/services/checklist-suggest-service.ts
 // 自然言語からチェックリストアイテムを推定するサービス (#720: Bedrock Claude Haiku)
 
-import { converseWithTool, isBedrockAvailable } from '$lib/server/ai/bedrock-client';
+import { getAiProvider, isAiAvailable } from '$lib/server/ai/factory';
 import { logger } from '$lib/server/logger';
 
 export interface SuggestedChecklistItem {
@@ -207,11 +207,11 @@ function inferIcon(name: string): string {
 
 /** 自然言語テキストからチェックリストを推定 */
 export async function suggestChecklist(text: string): Promise<SuggestedChecklist> {
-	if (isBedrockAvailable()) {
+	if (isAiAvailable()) {
 		try {
-			return await suggestWithBedrock(text);
+			return await suggestWithAi(text);
 		} catch (e) {
-			logger.error('[checklist-suggest] Bedrock API失敗、フォールバック使用', {
+			logger.error('[checklist-suggest] AI API失敗、フォールバック使用', {
 				error: e instanceof Error ? e.message : String(e),
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { text },
@@ -222,8 +222,9 @@ export async function suggestChecklist(text: string): Promise<SuggestedChecklist
 	return suggestByKeywords(text);
 }
 
-async function suggestWithBedrock(text: string): Promise<SuggestedChecklist> {
-	const result = await converseWithTool({
+async function suggestWithAi(text: string): Promise<SuggestedChecklist> {
+	const provider = getAiProvider();
+	const result = await provider.converseWithTool({
 		system: SYSTEM_PROMPT,
 		userMessage: `テキスト: "${text}"`,
 		tool: CHECKLIST_TOOL,

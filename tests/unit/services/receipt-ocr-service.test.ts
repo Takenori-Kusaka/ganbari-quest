@@ -1,14 +1,16 @@
 // tests/unit/services/receipt-ocr-service.test.ts
-// receipt-ocr-service ユニットテスト — Bedrock Claude Haiku による領収書OCR (#721)
+// receipt-ocr-service ユニットテスト — AI provider による領収書OCR (#721, #987: provider 層移行)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockConverseWithImageAndTool = vi.fn();
-const mockIsBedrockAvailable = vi.fn();
+const mockIsAiAvailable = vi.fn();
 
-vi.mock('$lib/server/ai/bedrock-client', () => ({
-	isBedrockAvailable: () => mockIsBedrockAvailable(),
-	converseWithImageAndTool: (...args: unknown[]) => mockConverseWithImageAndTool(...args),
+vi.mock('$lib/server/ai/factory', () => ({
+	isAiAvailable: () => mockIsAiAvailable(),
+	getAiProvider: () => ({
+		converseWithImageAndTool: (...args: unknown[]) => mockConverseWithImageAndTool(...args),
+	}),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -20,12 +22,12 @@ import { ocrReceipt } from '$lib/server/services/receipt-ocr-service';
 describe('receipt-ocr-service', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockIsBedrockAvailable.mockReturnValue(true);
+		mockIsAiAvailable.mockReturnValue(true);
 	});
 
-	describe('Bedrock 未利用時', () => {
-		it('Bedrock が無効の場合 NO_API_KEY を返す', async () => {
-			mockIsBedrockAvailable.mockReturnValue(false);
+	describe('AI 未利用時', () => {
+		it('AI が無効の場合 NO_API_KEY を返す', async () => {
+			mockIsAiAvailable.mockReturnValue(false);
 			const result = await ocrReceipt('base64data', 'image/jpeg');
 			expect(result).toEqual({ error: 'NO_API_KEY' });
 			expect(mockConverseWithImageAndTool).not.toHaveBeenCalled();
@@ -51,7 +53,7 @@ describe('receipt-ocr-service', () => {
 			expect(result).toEqual({ amount: 1234, rawText: '合計 1234.99円' });
 		});
 
-		it('Bedrock に正しい引数を渡す', async () => {
+		it('AI provider に正しい引数を渡す', async () => {
 			mockConverseWithImageAndTool.mockResolvedValueOnce({
 				toolName: 'read_receipt',
 				input: { amount: 100, rawText: '合計100円' },
@@ -100,7 +102,7 @@ describe('receipt-ocr-service', () => {
 	});
 
 	describe('API例外', () => {
-		it('Bedrock APIがエラーを投げた場合 OCR_FAILED を返す', async () => {
+		it('AI APIがエラーを投げた場合 OCR_FAILED を返す', async () => {
 			mockConverseWithImageAndTool.mockRejectedValueOnce(new Error('API rate limit exceeded'));
 			const result = await ocrReceipt('base64data', 'image/jpeg');
 			expect(result).toEqual({

@@ -1,10 +1,12 @@
 // tests/unit/services/reward-suggest-service.test.ts
-// AIごほうび提案サービスのユニットテスト（フォールバック） (#719)
+// AIごほうび提案サービスのユニットテスト（フォールバック） (#719, #987: provider 層移行)
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@google/generative-ai', () => ({
-	GoogleGenerativeAI: vi.fn(),
+// AI provider factory をモック — AI 無効でフォールバック経由にする
+vi.mock('$lib/server/ai/factory', () => ({
+	isAiAvailable: () => false,
+	getAiProvider: vi.fn(),
 }));
 vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },

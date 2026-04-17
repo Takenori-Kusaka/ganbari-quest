@@ -1,12 +1,17 @@
 // tests/unit/services/checklist-suggest-service.test.ts
-// AIチェックリスト提案サービスのユニットテスト (#720: Bedrock 移行後)
+// AIチェックリスト提案サービスのユニットテスト (#720, #987: provider 層移行)
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Bedrock をモック
-vi.mock('$lib/server/ai/bedrock-client', () => ({
-	isBedrockAvailable: vi.fn(() => false),
-	converseWithTool: vi.fn(),
+const mockIsAiAvailable = vi.fn(() => false);
+const mockConverseWithTool = vi.fn();
+
+// AI provider factory をモック
+vi.mock('$lib/server/ai/factory', () => ({
+	isAiAvailable: () => mockIsAiAvailable(),
+	getAiProvider: () => ({
+		converseWithTool: (...args: unknown[]) => mockConverseWithTool(...args),
+	}),
 }));
 vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
@@ -16,15 +21,11 @@ beforeAll(() => {
 	process.env.BEDROCK_DISABLED = 'true';
 });
 
-import { converseWithTool, isBedrockAvailable } from '$lib/server/ai/bedrock-client';
 import { suggestChecklist } from '../../../src/lib/server/services/checklist-suggest-service';
-
-const mockedIsBedrockAvailable = vi.mocked(isBedrockAvailable);
-const mockedConverseWithTool = vi.mocked(converseWithTool);
 
 describe('suggestChecklist (fallback)', () => {
 	beforeEach(() => {
-		mockedIsBedrockAvailable.mockReturnValue(false);
+		mockIsAiAvailable.mockReturnValue(false);
 	});
 
 	it('がっこうキーワードで学校プリセットを返す', async () => {
@@ -135,14 +136,14 @@ describe('suggestChecklist (fallback)', () => {
 	});
 });
 
-describe('suggestChecklist (Bedrock)', () => {
+describe('suggestChecklist (AI provider)', () => {
 	beforeEach(() => {
-		mockedIsBedrockAvailable.mockReturnValue(true);
-		mockedConverseWithTool.mockReset();
+		mockIsAiAvailable.mockReturnValue(true);
+		mockConverseWithTool.mockReset();
 	});
 
-	it('Bedrock正常レスポンス時にテンプレート名・アイコン・itemsが正しく返る', async () => {
-		mockedConverseWithTool.mockResolvedValue({
+	it('AI正常レスポンス時にテンプレート名・アイコン・itemsが正しく返る', async () => {
+		mockConverseWithTool.mockResolvedValue({
 			toolName: 'suggest_checklist',
 			input: {
 				templateName: 'すいえいのもちもの',
@@ -170,8 +171,8 @@ describe('suggestChecklist (Bedrock)', () => {
 		expect(result.source).toBe('gemini'); // API 互換性のため 'gemini' を維持
 	});
 
-	it('Bedrock エラー時にフォールバックに切り替わる', async () => {
-		mockedConverseWithTool.mockRejectedValue(new Error('Bedrock API error'));
+	it('AI エラー時にフォールバックに切り替わる', async () => {
+		mockConverseWithTool.mockRejectedValue(new Error('AI API error'));
 
 		const result = await suggestChecklist('がっこうのもちもの');
 		expect(result.templateName).toBe('がっこうのもちもの');
@@ -179,8 +180,8 @@ describe('suggestChecklist (Bedrock)', () => {
 		expect(result.source).toBe('fallback');
 	});
 
-	it('Bedrock レスポンスの items が空の場合フォールバックに切り替わる', async () => {
-		mockedConverseWithTool.mockResolvedValue({
+	it('AI レスポンスの items が空の場合フォールバックに切り替わる', async () => {
+		mockConverseWithTool.mockResolvedValue({
 			toolName: 'suggest_checklist',
 			input: {
 				templateName: 'テスト',
@@ -195,17 +196,17 @@ describe('suggestChecklist (Bedrock)', () => {
 		expect(result.templateName).toBe('がっこうのもちもの');
 	});
 
-	it('isBedrockAvailable が false の場合フォールバックを使う', async () => {
-		mockedIsBedrockAvailable.mockReturnValue(false);
+	it('isAiAvailable が false の場合フォールバックを使う', async () => {
+		mockIsAiAvailable.mockReturnValue(false);
 
 		const result = await suggestChecklist('プールの日');
 		expect(result.templateName).toBe('プールのもちもの');
 		expect(result.source).toBe('fallback');
-		expect(mockedConverseWithTool).not.toHaveBeenCalled();
+		expect(mockConverseWithTool).not.toHaveBeenCalled();
 	});
 
-	it('Bedrock レスポンスの direction が不正な場合 "both" にフォールバックする', async () => {
-		mockedConverseWithTool.mockResolvedValue({
+	it('AI レスポンスの direction が不正な場合 "both" にフォールバックする', async () => {
+		mockConverseWithTool.mockResolvedValue({
 			toolName: 'suggest_checklist',
 			input: {
 				templateName: 'テスト',
