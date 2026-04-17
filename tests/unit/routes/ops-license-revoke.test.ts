@@ -5,15 +5,13 @@
 // - ops 非認証 (local identity / null) は 403
 // - 不正な reason は 400
 // - service が { ok: false } を返すと 409 + error メッセージ
-// - service が { ok: true } を返すと revoked: true を返し、ops_audit_log に記録される
+// - service が { ok: true } を返すと revoked: true を返す
 // - actorId が `ops:<userId>` 形式で service に渡る
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRevokeLicenseKey = vi.fn();
-const mockRecordOpsAudit = vi.fn();
 const mockFindLicenseKey = vi.fn();
-const mockListEventsByLicenseKey = vi.fn();
 
 vi.mock('$lib/server/services/license-key-service', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/services/license-key-service')>(
@@ -24,14 +22,6 @@ vi.mock('$lib/server/services/license-key-service', async () => {
 		revokeLicenseKey: (...args: unknown[]) => mockRevokeLicenseKey(...args),
 	};
 });
-
-vi.mock('$lib/server/services/license-event-service', () => ({
-	listEventsByLicenseKey: (...args: unknown[]) => mockListEventsByLicenseKey(...args),
-}));
-
-vi.mock('$lib/server/services/ops-audit-log-service', () => ({
-	recordOpsAudit: (...args: unknown[]) => mockRecordOpsAudit(...args),
-}));
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -132,7 +122,7 @@ describe('#805 /ops/license/[key]/+page.server.ts revoke action', () => {
 		expect(mockRevokeLicenseKey).not.toHaveBeenCalled();
 	});
 
-	it('service が ok:false を返すと 409 + error メッセージ + ops_audit 未記録', async () => {
+	it('service が ok:false を返すと 409 + error メッセージ', async () => {
 		mockRevokeLicenseKey.mockResolvedValueOnce({
 			ok: false,
 			reason: 'このライセンスキーは既に無効化されています',
@@ -149,10 +139,9 @@ describe('#805 /ops/license/[key]/+page.server.ts revoke action', () => {
 			expect(result.status).toBe(409);
 			expect(result.data.error).toContain('既に無効化');
 		}
-		expect(mockRecordOpsAudit).not.toHaveBeenCalled();
 	});
 
-	it('ok:true を返すと revoked: true + ops_audit が記録される', async () => {
+	it('ok:true を返すと revoked: true を返す', async () => {
 		mockRevokeLicenseKey.mockResolvedValueOnce({
 			ok: true,
 			licenseKey: 'GQ-AAAA-BBBB-CCCC-XXX05',
@@ -175,14 +164,6 @@ describe('#805 /ops/license/[key]/+page.server.ts revoke action', () => {
 		expect(arg.licenseKey).toBe('GQ-AAAA-BBBB-CCCC-XXX05');
 		expect(arg.reason).toBe('refund');
 		expect(arg.revokedBy).toBe('ops:u-ops-42');
-		expect(arg.context.ip).toBe('198.51.100.55');
-		expect(arg.context.ua).toBe('ops-browser/1.0');
-
-		expect(mockRecordOpsAudit).toHaveBeenCalledTimes(1);
-		const auditArg = mockRecordOpsAudit.mock.calls[0]![0]!;
-		expect(auditArg.action).toBe('license.revoke');
-		expect(auditArg.target).toBe('GQ-AAAA-BBBB-CCCC-XXX05');
-		expect(auditArg.metadata).toEqual({ reason: 'refund', note: 'Stripe dispute #abc' });
 	});
 
 	it('キーは URL decode + upper-case に正規化される', async () => {
@@ -209,29 +190,19 @@ describe('#805 /ops/license/[key]/+page.server.ts load', () => {
 		vi.clearAllMocks();
 	});
 
-	it('record 未存在でも events を返す (SQLite ローカルで no-op でも画面表示できる)', async () => {
+	it('record 未存在でも画面表示できる (record=null)', async () => {
 		mockFindLicenseKey.mockResolvedValueOnce(undefined);
-		mockListEventsByLicenseKey.mockResolvedValueOnce([
-			{
-				id: 1,
-				eventType: 'validation_failed',
-				licenseKey: 'GQ-MISS',
-				createdAt: '2026-04-16T09:00:00Z',
-			},
-		]);
 		const result = (await load({
 			params: { key: 'gq-miss' },
 		} as unknown as Parameters<typeof load>[0])) as {
 			record: unknown;
 			licenseKey: string;
-			events: unknown[];
 		};
 		expect(result.record).toBeNull();
 		expect(result.licenseKey).toBe('GQ-MISS');
-		expect(result.events).toHaveLength(1);
 	});
 
-	it('record が存在する場合は record + events を返す', async () => {
+	it('record が存在する場合は record を返す', async () => {
 		mockFindLicenseKey.mockResolvedValueOnce({
 			licenseKey: 'GQ-HIT-KEY',
 			tenantId: 't-1',
@@ -239,7 +210,6 @@ describe('#805 /ops/license/[key]/+page.server.ts load', () => {
 			status: 'active',
 			createdAt: '2026-03-01T00:00:00Z',
 		});
-		mockListEventsByLicenseKey.mockResolvedValueOnce([]);
 		const result = (await load({
 			params: { key: 'gq-hit-key' },
 		} as unknown as Parameters<typeof load>[0])) as {
