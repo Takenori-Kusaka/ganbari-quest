@@ -63,7 +63,8 @@ jobs:
         continue-on-error: true
         run: npx knip
 
-      - run: npx svelte-check
+      - name: Svelte check
+        run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json
 
       - name: Type coverage ratchet check (#978)
         run: npm run type-coverage
