@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
 import * as budgets from 'aws-cdk-lib/aws-budgets';
 import type * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
@@ -6,7 +7,9 @@ import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as events_targets from 'aws-cdk-lib/aws-events-targets';
-import type * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import type { Construct } from 'constructs';
@@ -16,6 +19,7 @@ export interface OpsStackProps extends cdk.StackProps {
 	table: dynamodb.TableV2;
 	distribution: cloudfront.Distribution;
 	opsEmail?: string;
+	discordWebhookHealth?: string;
 }
 
 export class OpsStack extends cdk.Stack {
@@ -359,11 +363,57 @@ export class OpsStack extends cdk.Stack {
 		});
 
 		// ================================================================
+		// 7. External Health Check Prober (#1121)
+		// Separate Lambda that pings /api/health every 1 hour.
+		// Reports failures/degradation to Discord webhook.
+		// ================================================================
+		const discordWebhookHealth =
+			props.discordWebhookHealth ??
+			(this.node.tryGetContext('discordWebhookHealth') as string | undefined) ??
+			'';
+
+		const healthCheckLogGroup = new logs.LogGroup(this, 'HealthCheckLogGroup', {
+			logGroupName: '/aws/lambda/ganbari-quest-health-check',
+			retention: logs.RetentionDays.THREE_DAYS,
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		});
+
+		const healthCheckFn = new lambdaNode.NodejsFunction(this, 'HealthCheckFn', {
+			functionName: 'ganbari-quest-health-check',
+			entry: path.join(__dirname, '..', 'lambda', 'health-check', 'index.ts'),
+			handler: 'handler',
+			runtime: lambda.Runtime.NODEJS_20_X,
+			architecture: lambda.Architecture.ARM_64,
+			memorySize: 128,
+			timeout: cdk.Duration.seconds(30),
+			environment: {
+				HEALTH_CHECK_URL: 'https://ganbari-quest.com',
+				...(discordWebhookHealth ? { DISCORD_WEBHOOK_HEALTH: discordWebhookHealth } : {}),
+			},
+			bundling: {
+				minify: true,
+				sourceMap: false,
+			},
+		});
+		healthCheckFn.node.addDependency(healthCheckLogGroup);
+
+		// EventBridge Rule: trigger every 1 hour
+		new events.Rule(this, 'HealthCheckSchedule', {
+			ruleName: 'ganbari-quest-health-check',
+			description: 'External health check prober: 1時間ごとに /api/health を確認',
+			schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+			targets: [new events_targets.LambdaFunction(healthCheckFn)],
+		});
+
+		// ================================================================
 		// Outputs
 		// ================================================================
 		new cdk.CfnOutput(this, 'OpsTopicArn', { value: opsTopic.topicArn });
 		new cdk.CfnOutput(this, 'DashboardUrl', {
 			value: `https://${this.region}.console.aws.amazon.com/cloudwatch/home?region=${this.region}#dashboards:name=ganbari-quest-ops`,
+		});
+		new cdk.CfnOutput(this, 'HealthCheckFunctionArn', {
+			value: healthCheckFn.functionArn,
 		});
 	}
 }
