@@ -16,4 +16,7 @@ let { data } = $props();
 	planTier={data.planTier}
 	showPremiumWelcome={data.showPremiumWelcome}
 	seasonalInfo={data.seasonalInfo}
+	planStats={data.planStats}
+	trialStatus={data.trialStatus}
+	stripeEnabled={data.stripeEnabled}
 />
