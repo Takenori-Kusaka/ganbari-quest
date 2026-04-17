@@ -1,10 +1,13 @@
 <script lang="ts">
+import Badge from '$lib/ui/primitives/Badge.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 const kpi = $derived(data.kpi);
 const stats = $derived(kpi.tenantStats);
 const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
+const triggerReport = $derived(data.triggerReport);
+const firedTriggers = $derived(triggerReport.firedTriggers);
 </script>
 
 <svelte:head>
@@ -82,6 +85,55 @@ const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 				</tr>
 			</tbody>
 		</table>
+	</Card>
+
+	<!-- 価格見直しトリガー (#837) -->
+	<Card padding="lg">
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">
+			価格見直しトリガー
+			{#if firedTriggers.length > 0}
+				<Badge variant="warning" size="sm">{firedTriggers.length}件発動中</Badge>
+			{:else if triggerReport.skipped}
+				<Badge variant="neutral" size="sm">スキップ</Badge>
+			{:else}
+				<Badge variant="success" size="sm">正常</Badge>
+			{/if}
+		</h2>
+		{#if triggerReport.skipped}
+			<p class="text-sm text-[var(--color-text-muted)]">
+				{triggerReport.skipReason}
+			</p>
+		{:else}
+			<div class="flex flex-col gap-3">
+				{#each triggerReport.triggers as trigger}
+					<div class="flex items-start gap-3 p-3 rounded-lg {trigger.fired ? 'bg-[var(--color-surface-warning)]' : 'bg-[var(--color-surface-muted)]'}">
+						<div class="flex-1">
+							<div class="flex items-center gap-2 mb-1">
+								<span class="font-medium text-sm">{trigger.description}</span>
+								{#if trigger.fired}
+									<Badge variant="warning" size="sm">発動</Badge>
+								{:else}
+									<Badge variant="success" size="sm">正常</Badge>
+								{/if}
+							</div>
+							<div class="text-xs text-[var(--color-text-muted)]">
+								現在値: {(trigger.value * 100).toFixed(1)}% / 閾値: {(trigger.threshold * 100).toFixed(1)}%
+								({trigger.consecutiveMonths}/{trigger.requiredMonths}ヶ月)
+							</div>
+							{#if trigger.fired}
+								<div class="text-xs text-[var(--color-feedback-warning-text)] mt-1">
+									推奨: {trigger.recommendation}
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
+		<div class="text-xs text-[var(--color-text-muted)] mt-3">
+			評価日時: {new Date(triggerReport.evaluatedAt).toLocaleString('ja-JP')}
+			| 有料ユーザー: {triggerReport.paidUserCount}人
+		</div>
 	</Card>
 
 	<!-- ステータス -->
