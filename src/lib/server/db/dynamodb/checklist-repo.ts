@@ -37,13 +37,7 @@ import {
 	ENTITY_NAMES,
 	tenantPK,
 } from './keys';
-
-function stripKeys<T extends Record<string, unknown>>(
-	item: T,
-): Omit<T, 'PK' | 'SK' | 'GSI2PK' | 'GSI2SK'> {
-	const { PK, SK, GSI2PK, GSI2SK, ...rest } = item;
-	return rest;
-}
+import { stripKeys } from './repo-helpers';
 
 // ============================================================
 // Templates

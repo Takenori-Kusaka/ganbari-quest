@@ -2,7 +2,6 @@
 // DynamoDB implementation of IChildRepo
 
 import {
-	BatchWriteCommand,
 	GetCommand,
 	PutCommand,
 	QueryCommand,
@@ -15,14 +14,7 @@ import type { Child, InsertChildInput, UpdateChildInput } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import { childKey, childPK, ENTITY_NAMES, tenantPK } from './keys';
-
-/** Strip PK/SK/GSI keys from a DynamoDB item */
-function stripKeys<T extends Record<string, unknown>>(
-	item: T,
-): Omit<T, 'PK' | 'SK' | 'GSI2PK' | 'GSI2SK'> {
-	const { PK, SK, GSI2PK, GSI2SK, ...rest } = item;
-	return rest;
-}
+import { batchDeleteItems, stripKeys } from './repo-helpers';
 
 /** DynamoDB アイテムをマイグレーション（必要なら Write-Back） */
 async function hydrateChild(
@@ -242,20 +234,7 @@ export async function deleteChild(id: number, tenantId: string): Promise<void> {
 		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
 	} while (lastKey);
 
-	// Batch delete in chunks of 25 (DynamoDB limit)
-	const BATCH_SIZE = 25;
-	for (let i = 0; i < allKeys.length; i += BATCH_SIZE) {
-		const batch = allKeys.slice(i, i + BATCH_SIZE);
-		await getDocClient().send(
-			new BatchWriteCommand({
-				RequestItems: {
-					[TABLE_NAME]: batch.map((key) => ({
-						DeleteRequest: { Key: key },
-					})),
-				},
-			}),
-		);
-	}
+	await batchDeleteItems(allKeys);
 }
 
 // #783: archive / restore
