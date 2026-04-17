@@ -217,8 +217,7 @@ export async function issueLicenseKey(params: {
 	 * 明示的に `null` を渡すと期限なし（lifetime 的扱い）。ops 発行で使用。
 	 */
 	expiresAt?: string | null;
-	/** #804: 監査ログ用コンテキスト (ip/ua)。actorId は issuedBy / stripeSessionId から自動解決。 */
-	context?: Pick<LicenseEventContext, 'ip' | 'ua'>;
+	context?: { ip?: string | null; ua?: string | null };
 }): Promise<LicenseRecord> {
 	const kind = params.kind ?? 'purchase';
 
@@ -425,8 +424,7 @@ function computePlanExpiresAt(
 export async function consumeLicenseKey(
 	key: string,
 	consumedByTenantId: string,
-	/** #804: 監査ログ用コンテキスト (ip/ua)。actorId は 'tenant:<id>' を自動付与。 */
-	context?: Pick<LicenseEventContext, 'ip' | 'ua'>,
+	context?: { ip?: string | null; ua?: string | null },
 ): Promise<ConsumeLicenseKeyResult> {
 	const normalized = key.toUpperCase().trim();
 	const repos = getRepos();
@@ -531,8 +529,7 @@ export async function revokeLicenseKey(params: {
 	licenseKey: string;
 	reason: LicenseRevokeReason;
 	revokedBy: string;
-	/** #804: 監査ログ用コンテキスト (ip/ua)。actorId は revokedBy を使う。 */
-	context?: Pick<LicenseEventContext, 'ip' | 'ua'>;
+	context?: { ip?: string | null; ua?: string | null };
 }): Promise<RevokeLicenseKeyResult> {
 	const normalized = params.licenseKey.toUpperCase().trim();
 	const repos = getRepos();
