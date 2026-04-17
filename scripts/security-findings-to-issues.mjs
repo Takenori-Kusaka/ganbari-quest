@@ -15,18 +15,29 @@
  * Requires: gh CLI authenticated
  */
 
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
-const LABELS_HIGH = "priority:high,type:fix,security";
-const LABELS_LOW = "priority:low,type:fix,security";
+const LABELS_HIGH = 'priority:high,type:fix,security';
+const LABELS_LOW = 'priority:low,type:fix,security';
 
 function issueExists(searchTerm) {
 	try {
 		const result = execFileSync(
-			"gh",
-			["issue", "list", "--state", "open", "--search", searchTerm, "--json", "number", "--limit", "1"],
-			{ encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 },
+			'gh',
+			[
+				'issue',
+				'list',
+				'--state',
+				'open',
+				'--search',
+				searchTerm,
+				'--json',
+				'number',
+				'--limit',
+				'1',
+			],
+			{ encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 },
 		).trim();
 		const issues = JSON.parse(result);
 		return issues.length > 0;
@@ -38,11 +49,11 @@ function issueExists(searchTerm) {
 function createIssue(title, body, labels) {
 	try {
 		const result = execFileSync(
-			"gh",
-			["issue", "create", "--title", title, "--body", body, "--label", labels],
-			{ encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 },
+			'gh',
+			['issue', 'create', '--title', title, '--body', body, '--label', labels],
+			{ encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 },
 		).trim();
-		console.log(`Created issue: ${result}`);
+		console.info(`Created issue: ${result}`);
 		return result;
 	} catch (e) {
 		console.error(`Failed to create issue: ${title}`, e.message);
@@ -50,64 +61,52 @@ function createIssue(title, body, labels) {
 	}
 }
 
-function main() {
-	const inputFile = process.argv[2];
-	if (!inputFile) {
-		console.error("Usage: node scripts/security-findings-to-issues.mjs <audit-result.json>");
-		process.exit(1);
+function parseAuditFile(inputFile) {
+	const raw = readFileSync(inputFile, 'utf-8');
+	return JSON.parse(raw);
+}
+
+function formatFixAvailable(fixAvailable) {
+	if (typeof fixAvailable === 'boolean') {
+		return fixAvailable ? 'Yes' : 'No';
 	}
-
-	let auditData;
-	try {
-		const raw = readFileSync(inputFile, "utf-8");
-		auditData = JSON.parse(raw);
-	} catch (e) {
-		console.error(`Failed to read/parse ${inputFile}:`, e.message);
-		process.exit(1);
+	if (fixAvailable?.name) {
+		return `Update ${fixAvailable.name} to ${fixAvailable.version}`;
 	}
+	return 'Unknown';
+}
 
-	// npm audit v2 format: auditData.vulnerabilities is an object keyed by package name
-	const vulnerabilities = auditData.vulnerabilities || {};
-
+function classifyFindings(vulnerabilities) {
 	const highFindings = [];
 	const lowFindings = [];
 
 	for (const [pkgName, vuln] of Object.entries(vulnerabilities)) {
-		const severity = vuln.severity || "info";
+		const severity = vuln.severity || 'info';
 		const advisoryIds = (vuln.via || [])
-			.filter((v) => typeof v === "object")
-			.map((v) => v.url || v.name || "unknown")
-			.join(", ");
-		const range = vuln.range || "unknown";
-		const fixAvailable = vuln.fixAvailable;
+			.filter((v) => typeof v === 'object')
+			.map((v) => v.url || v.name || 'unknown')
+			.join(', ');
+		const range = vuln.range || 'unknown';
 
 		const finding = {
 			pkgName,
 			severity,
 			advisoryIds,
 			range,
-			fixAvailable:
-				typeof fixAvailable === "boolean"
-					? fixAvailable
-						? "Yes"
-						: "No"
-					: fixAvailable?.name
-						? `Update ${fixAvailable.name} to ${fixAvailable.version}`
-						: "Unknown",
+			fixAvailable: formatFixAvailable(vuln.fixAvailable),
 		};
 
-		if (severity === "high" || severity === "critical") {
+		if (severity === 'high' || severity === 'critical') {
 			highFindings.push(finding);
 		} else {
 			lowFindings.push(finding);
 		}
 	}
 
-	console.log(
-		`Found ${highFindings.length} high/critical, ${lowFindings.length} moderate/low findings`,
-	);
+	return { highFindings, lowFindings };
+}
 
-	// Create individual issues for high/critical
+function createHighSeverityIssues(highFindings) {
 	let createdCount = 0;
 	let skippedCount = 0;
 
@@ -116,14 +115,14 @@ function main() {
 		const title = `security: [${f.severity}] ${f.pkgName} (${searchId})`;
 
 		if (issueExists(searchId)) {
-			console.log(`Skipping (duplicate): ${title}`);
+			console.info(`Skipping (duplicate): ${title}`);
 			skippedCount++;
 			continue;
 		}
 
 		const body = [
-			"## Vulnerability Details",
-			"",
+			'## Vulnerability Details',
+			'',
 			`| Field | Value |`,
 			`|-------|-------|`,
 			`| **Package** | \`${f.pkgName}\` |`,
@@ -131,59 +130,93 @@ function main() {
 			`| **Advisory** | ${f.advisoryIds} |`,
 			`| **Affected range** | \`${f.range}\` |`,
 			`| **Fix available** | ${f.fixAvailable} |`,
-			"",
-			"## Action Required",
-			"",
-			"- [ ] Update the affected package to a non-vulnerable version",
-			"- [ ] Verify the fix does not break existing functionality",
-			"- [ ] Run full test suite after update",
-			"",
-			"---",
-			"*Auto-generated by quarterly security scan*",
-		].join("\n");
+			'',
+			'## Action Required',
+			'',
+			'- [ ] Update the affected package to a non-vulnerable version',
+			'- [ ] Verify the fix does not break existing functionality',
+			'- [ ] Run full test suite after update',
+			'',
+			'---',
+			'*Auto-generated by quarterly security scan*',
+		].join('\n');
 
 		createIssue(title, body, LABELS_HIGH);
 		createdCount++;
 	}
 
-	// Create summary issue for moderate/low
-	if (lowFindings.length > 0) {
-		const now = new Date().toISOString().slice(0, 10);
-		const summaryTitle = `security: [summary] ${lowFindings.length} moderate/low findings (${now})`;
+	return { createdCount, skippedCount };
+}
 
-		if (issueExists(`security: [summary]`)) {
-			console.log("Skipping summary issue (existing open summary found)");
-			skippedCount++;
-		} else {
-			const rows = lowFindings
-				.map(
-					(f) =>
-						`| \`${f.pkgName}\` | ${f.severity} | ${f.advisoryIds} | \`${f.range}\` | ${f.fixAvailable} |`,
-				)
-				.join("\n");
-
-			const body = [
-				"## Moderate/Low Vulnerability Summary",
-				"",
-				"| Package | Severity | Advisory | Range | Fix |",
-				"|---------|----------|----------|-------|-----|",
-				rows,
-				"",
-				"## Action",
-				"",
-				"- Review findings and update packages where feasible",
-				"- Close this issue when all findings are addressed or triaged",
-				"",
-				"---",
-				"*Auto-generated by quarterly security scan*",
-			].join("\n");
-
-			createIssue(summaryTitle, body, LABELS_LOW);
-			createdCount++;
-		}
+function createLowSeveritySummary(lowFindings) {
+	if (lowFindings.length === 0) {
+		return { createdCount: 0, skippedCount: 0 };
 	}
 
-	console.log(`\nDone: ${createdCount} issues created, ${skippedCount} skipped (duplicates)`);
+	const now = new Date().toISOString().slice(0, 10);
+	const summaryTitle = `security: [summary] ${lowFindings.length} moderate/low findings (${now})`;
+
+	if (issueExists('security: [summary]')) {
+		console.info('Skipping summary issue (existing open summary found)');
+		return { createdCount: 0, skippedCount: 1 };
+	}
+
+	const rows = lowFindings
+		.map(
+			(f) =>
+				`| \`${f.pkgName}\` | ${f.severity} | ${f.advisoryIds} | \`${f.range}\` | ${f.fixAvailable} |`,
+		)
+		.join('\n');
+
+	const body = [
+		'## Moderate/Low Vulnerability Summary',
+		'',
+		'| Package | Severity | Advisory | Range | Fix |',
+		'|---------|----------|----------|-------|-----|',
+		rows,
+		'',
+		'## Action',
+		'',
+		'- Review findings and update packages where feasible',
+		'- Close this issue when all findings are addressed or triaged',
+		'',
+		'---',
+		'*Auto-generated by quarterly security scan*',
+	].join('\n');
+
+	createIssue(summaryTitle, body, LABELS_LOW);
+	return { createdCount: 1, skippedCount: 0 };
+}
+
+function main() {
+	const inputFile = process.argv[2];
+	if (!inputFile) {
+		console.error('Usage: node scripts/security-findings-to-issues.mjs <audit-result.json>');
+		process.exit(1);
+	}
+
+	let auditData;
+	try {
+		auditData = parseAuditFile(inputFile);
+	} catch (e) {
+		console.error(`Failed to read/parse ${inputFile}:`, e.message);
+		process.exit(1);
+	}
+
+	const vulnerabilities = auditData.vulnerabilities || {};
+	const { highFindings, lowFindings } = classifyFindings(vulnerabilities);
+
+	console.info(
+		`Found ${highFindings.length} high/critical, ${lowFindings.length} moderate/low findings`,
+	);
+
+	const high = createHighSeverityIssues(highFindings);
+	const low = createLowSeveritySummary(lowFindings);
+
+	const createdCount = high.createdCount + low.createdCount;
+	const skippedCount = high.skippedCount + low.skippedCount;
+
+	console.info(`\nDone: ${createdCount} issues created, ${skippedCount} skipped (duplicates)`);
 }
 
 main();
