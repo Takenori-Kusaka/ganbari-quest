@@ -78,6 +78,7 @@ test.describe('ページヘルス: Admin', () => {
 		{ path: '/admin/settings', name: '設定' },
 		{ path: '/admin/members', name: 'メンバー管理' },
 		{ path: '/admin/license', name: 'ライセンス' },
+		{ path: '/admin/billing', name: '請求管理' },
 	];
 
 	for (const { path, name } of adminPages) {
