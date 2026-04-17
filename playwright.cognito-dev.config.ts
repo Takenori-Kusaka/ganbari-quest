@@ -16,6 +16,7 @@ export default defineConfig({
 	// #753: upgrade-flow のアップグレード導線 spec を追加
 	// #757: pricing-page-signup のトライアル自動開始 spec を追加
 	// #750: trial-banner-display / account-deletion を追加
+	// #755: account-deletion のアカウント削除フロー spec を追加
 	testMatch:
 		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion)\.spec\.ts$/,
 	fullyParallel: true,
