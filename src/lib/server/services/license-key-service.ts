@@ -10,11 +10,6 @@ import { type LicensePlan, planDurationDays } from '$lib/domain/constants/licens
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import {
-	type LicenseEventContext,
-	licenseKeyPrefix,
-	recordLicenseEvent,
-} from '$lib/server/services/license-event-service';
 
 // ============================================================
 // 定数
@@ -276,21 +271,6 @@ export async function issueLicenseKey(params: {
 	// #804: 監査ログに issued イベント記録
 	const issuedActor =
 		params.issuedBy ?? (params.stripeSessionId ? `stripe:${params.stripeSessionId}` : 'system');
-	await recordLicenseEvent({
-		eventType: 'issued',
-		licenseKey: key,
-		tenantId: params.tenantId,
-		actorId: issuedActor,
-		ip: params.context?.ip ?? null,
-		ua: params.context?.ua ?? null,
-		metadata: {
-			plan: params.plan,
-			kind,
-			expiresAt: expiresAt ?? null,
-			stripeSessionId: params.stripeSessionId ?? null,
-		},
-	});
-
 	return record;
 }
 
@@ -298,7 +278,7 @@ export async function issueLicenseKey(params: {
 export async function validateLicenseKey(
 	key: string,
 	/** #804: 監査ログ用コンテキスト (ip/ua/actor/tenant)。省略時は null で記録。 */
-	context?: LicenseEventContext,
+	context?: { actorId?: string | null; tenantId?: string | null; ip?: string | null; ua?: string | null },
 ): Promise<{ valid: true; record: LicenseRecord } | { valid: false; reason: string }> {
 	const normalized = key.toUpperCase().trim();
 
@@ -313,15 +293,6 @@ export async function validateLicenseKey(
 		reason: string,
 		options?: { useFullKey?: boolean; extra?: Record<string, unknown> },
 	) => {
-		await recordLicenseEvent({
-			eventType: 'validation_failed',
-			licenseKey: options?.useFullKey ? normalized : licenseKeyPrefix(normalized),
-			tenantId: context?.tenantId ?? null,
-			actorId: context?.actorId ?? null,
-			ip: context?.ip ?? null,
-			ua: context?.ua ?? null,
-			metadata: { reason, ...(options?.extra ?? {}) },
-		});
 	};
 
 	if (!isLegacy && !isSigned) {
@@ -394,16 +365,6 @@ export async function validateLicenseKey(
 	}
 
 	// #804: 検証成功を記録 (ブルートフォース検知の母数にもなる)
-	await recordLicenseEvent({
-		eventType: 'validated',
-		licenseKey: normalized,
-		tenantId: context?.tenantId ?? record.tenantId,
-		actorId: context?.actorId ?? null,
-		ip: context?.ip ?? null,
-		ua: context?.ua ?? null,
-		metadata: { plan: record.plan, kind: getRecordKind(record) },
-	});
-
 	return { valid: true, record };
 }
 
@@ -474,27 +435,8 @@ export async function consumeLicenseKey(
 	const ua = context?.ua ?? null;
 	const actorId = `tenant:${consumedByTenantId}`;
 	const recordFailure = async (reason: string, extra?: Record<string, unknown>) =>
-		recordLicenseEvent({
-			eventType: 'consume_failed',
-			licenseKey: normalized,
-			tenantId: consumedByTenantId,
-			actorId,
-			ip,
-			ua,
-			metadata: { reason, ...(extra ?? {}) },
-		});
-
 	const record = await repos.auth.findLicenseKey(normalized);
 	if (!record) {
-		await recordLicenseEvent({
-			eventType: 'consume_failed',
-			licenseKey: licenseKeyPrefix(normalized),
-			tenantId: consumedByTenantId,
-			actorId,
-			ip,
-			ua,
-			metadata: { reason: 'not_found' },
-		});
 		return { ok: false, reason: 'ライセンスキーが見つかりません' };
 	}
 	if (record.status === LICENSE_KEY_STATUS.CONSUMED) {
@@ -561,21 +503,6 @@ export async function consumeLicenseKey(
 	);
 
 	// #804: 監査ログに consumed イベント記録
-	await recordLicenseEvent({
-		eventType: 'consumed',
-		licenseKey: normalized,
-		tenantId: consumedByTenantId,
-		actorId,
-		ip,
-		ua,
-		metadata: {
-			plan: record.plan,
-			kind,
-			issuedFor: record.tenantId,
-			planExpiresAt: planExpiresAt ?? null,
-		},
-	});
-
 	return { ok: true, plan: record.plan, planExpiresAt };
 }
 
@@ -640,19 +567,5 @@ export async function revokeLicenseKey(params: {
 	);
 
 	// #804: 監査ログに revoked イベント記録
-	await recordLicenseEvent({
-		eventType: 'revoked',
-		licenseKey: normalized,
-		tenantId: record.tenantId,
-		actorId: params.revokedBy,
-		ip: params.context?.ip ?? null,
-		ua: params.context?.ua ?? null,
-		metadata: {
-			reason: params.reason,
-			plan: record.plan,
-			kind: getRecordKind(record),
-		},
-	});
-
 	return { ok: true, licenseKey: normalized, revokedReason: params.reason, revokedAt };
 }
