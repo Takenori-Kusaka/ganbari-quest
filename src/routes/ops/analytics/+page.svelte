@@ -1,4 +1,5 @@
 <script lang="ts">
+import { getPlanLabel } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
@@ -59,7 +60,7 @@ const a = $derived(data.analytics);
 					<tbody>
 						{#each a.planBreakdown as pb}
 							<tr>
-								<td>{pb.plan}</td>
+								<td>{pb.plan === 'none' ? '未設定（トライアル等）' : getPlanLabel(pb.plan)}</td>
 								<td class="ops-num">{pb.count}</td>
 								<td class="ops-num">¥{pb.mrr.toLocaleString()}</td>
 								<td class="ops-num">{pb.percentage}%</td>
@@ -141,13 +142,13 @@ const a = $derived(data.analytics);
 		<h2 class="ops-section-title m-0 mb-4">データソース</h2>
 		<div class="flex flex-col gap-2 text-sm">
 			<div class="flex gap-2 items-center">
-				<span class="font-medium text-[var(--color-neutral-600)]">Stripe 連携:</span>
+				<span class="font-medium text-[var(--color-text-secondary)]">Stripe 連携:</span>
 				<span class={a.stripeEnabled ? 'font-semibold text-[var(--color-success)]' : 'font-semibold text-[var(--color-warning)]'}>
 					{a.stripeEnabled ? '有効' : '無効（ローカルモード）'}
 				</span>
 			</div>
 			<div class="flex gap-2 items-center">
-				<span class="font-medium text-[var(--color-neutral-600)]">データパイプライン:</span>
+				<span class="font-medium text-[var(--color-text-secondary)]">データパイプライン:</span>
 				<span class="text-[var(--color-text-muted)]">
 					DB 直接集計（リアルタイム、追加コストなし）
 				</span>
@@ -164,7 +165,7 @@ const a = $derived(data.analytics);
 	.ops-section-title {
 		font-size: 1rem;
 		font-weight: 600;
-		color: var(--color-neutral-700);
+		color: var(--color-text-primary);
 		margin-bottom: 0.75rem;
 	}
 
@@ -179,7 +180,7 @@ const a = $derived(data.analytics);
 	.ops-kpi-value {
 		font-size: 1.75rem;
 		font-weight: 700;
-		color: var(--color-neutral-900);
+		color: var(--color-text);
 	}
 
 	.ops-table {
@@ -192,7 +193,7 @@ const a = $derived(data.analytics);
 	.ops-table td {
 		padding: 0.5rem 0.75rem;
 		text-align: left;
-		border-bottom: 1px solid var(--color-neutral-100);
+		border-bottom: 1px solid var(--color-border-light);
 	}
 
 	.ops-table th {
