@@ -17,7 +17,11 @@ export const POST: RequestHandler = async ({ locals }) => {
 
 	if (!result.success) {
 		return json(
-			{ error: 'RESTORE_FAILED', message: 'アカウントを復元できませんでした。グレースピリオドが終了している可能性があります。' },
+			{
+				error: 'RESTORE_FAILED',
+				message:
+					'アカウントを復元できませんでした。グレースピリオドが終了している可能性があります。',
+			},
 			{ status: 400 },
 		);
 	}

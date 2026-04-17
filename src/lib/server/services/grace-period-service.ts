@@ -97,21 +97,9 @@ export async function softDeleteTenant(
 	});
 
 	// settings テーブルにグレースピリオド情報を保存（DynamoDB auth-repo の拡張を避ける）
-	await repos.settings.upsertSetting(
-		'soft_deleted_at',
-		softDeletedAt,
-		tenantId,
-	);
-	await repos.settings.upsertSetting(
-		'deletion_grace_plan_tier',
-		planTier,
-		tenantId,
-	);
-	await repos.settings.upsertSetting(
-		'physical_deletion_date',
-		physicalDeletionDate,
-		tenantId,
-	);
+	await repos.settings.setSetting('soft_deleted_at', softDeletedAt, tenantId);
+	await repos.settings.setSetting('deletion_grace_plan_tier', planTier, tenantId);
+	await repos.settings.setSetting('physical_deletion_date', physicalDeletionDate, tenantId);
 
 	logger.info('[grace-period] Tenant soft deleted', {
 		context: { tenantId, planTier, graceDays, physicalDeletionDate },
@@ -133,9 +121,7 @@ export async function softDeleteTenant(
 /**
  * テナントのグレースピリオド状態を取得する。
  */
-export async function getGracePeriodStatus(
-	tenantId: string,
-): Promise<GracePeriodStatus> {
+export async function getGracePeriodStatus(tenantId: string): Promise<GracePeriodStatus> {
 	const repos = getRepos();
 	const values = await repos.settings.getSettings(
 		['soft_deleted_at', 'deletion_grace_plan_tier', 'physical_deletion_date'],
@@ -188,9 +174,7 @@ export async function getGracePeriodStatus(
  * グレースピリオド内であれば、ソフトデリート情報をクリアして
  * テナントを通常状態に戻す。
  */
-export async function restoreSoftDeletedTenant(
-	tenantId: string,
-): Promise<RestoreResult> {
+export async function restoreSoftDeletedTenant(tenantId: string): Promise<RestoreResult> {
 	const status = await getGracePeriodStatus(tenantId);
 
 	if (!status.isSoftDeleted) {
@@ -209,9 +193,9 @@ export async function restoreSoftDeletedTenant(
 
 	// ソフトデリート情報をクリア
 	const repos = getRepos();
-	await repos.settings.upsertSetting('soft_deleted_at', '', tenantId);
-	await repos.settings.upsertSetting('deletion_grace_plan_tier', '', tenantId);
-	await repos.settings.upsertSetting('physical_deletion_date', '', tenantId);
+	await repos.settings.setSetting('soft_deleted_at', '', tenantId);
+	await repos.settings.setSetting('deletion_grace_plan_tier', '', tenantId);
+	await repos.settings.setSetting('physical_deletion_date', '', tenantId);
 
 	logger.info('[grace-period] Tenant restored from soft delete', {
 		context: { tenantId },

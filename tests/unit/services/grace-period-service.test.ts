@@ -13,11 +13,9 @@ const mockGetSettings = vi.fn(async (keys: string[], _tenantId: string) => {
 	}
 	return result;
 });
-const mockUpsertSetting = vi.fn(
-	async (key: string, value: string, _tenantId: string) => {
-		settingsStore.set(key, value);
-	},
-);
+const mockSetSetting = vi.fn(async (key: string, value: string, _tenantId: string) => {
+	settingsStore.set(key, value);
+});
 const mockListAllTenants = vi.fn().mockResolvedValue([]);
 const mockUpdateTenantStripe = vi.fn();
 
@@ -25,7 +23,7 @@ vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		settings: {
 			getSettings: mockGetSettings,
-			upsertSetting: mockUpsertSetting,
+			setSetting: mockSetSetting,
 		},
 		auth: {
 			listAllTenants: mockListAllTenants,
@@ -131,12 +129,12 @@ describe('grace-period-service', () => {
 			expect(result.requiresImmediateDeletion).toBe(false);
 
 			// settings にグレースピリオド情報が保存される
-			expect(mockUpsertSetting).toHaveBeenCalledWith(
+			expect(mockSetSetting).toHaveBeenCalledWith(
 				'soft_deleted_at',
 				expect.any(String),
 				'tenant-1',
 			);
-			expect(mockUpsertSetting).toHaveBeenCalledWith(
+			expect(mockSetSetting).toHaveBeenCalledWith(
 				'deletion_grace_plan_tier',
 				'standard',
 				'tenant-1',
@@ -213,7 +211,7 @@ describe('grace-period-service', () => {
 
 			expect(result.success).toBe(true);
 			// settings がクリアされている
-			expect(mockUpsertSetting).toHaveBeenCalledWith('soft_deleted_at', '', 'tenant-1');
+			expect(mockSetSetting).toHaveBeenCalledWith('soft_deleted_at', '', 'tenant-1');
 		});
 
 		it('ソフトデリートされていない場合は失敗する', async () => {
@@ -263,8 +261,8 @@ describe('grace-period-service', () => {
 			const result = await findExpiredSoftDeletedTenants();
 
 			expect(result).toHaveLength(1);
-			expect(result[0].tenantId).toBe('tenant-expired');
-			expect(result[0].planTier).toBe('family');
+			expect(result[0]?.tenantId).toBe('tenant-expired');
+			expect(result[0]?.planTier).toBe('family');
 		});
 
 		it('期限切れテナントがない場合は空配列を返す', async () => {
