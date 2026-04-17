@@ -31,9 +31,9 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { getLicensePlanLabel } from '$lib/domain/labels';
 // AUTH_MODE=cognito（本番モード）がデフォルト
 import {
-	resolvePlanLabel,
 	sendCancellationEmail,
 	sendDeletionCompleteEmail,
 	sendEmail,
@@ -165,13 +165,13 @@ describe('email-service', () => {
 			expect(result).toBe(true);
 		});
 
-		it('プランラベルが正しく解決される', () => {
-			expect(resolvePlanLabel(LICENSE_PLAN.MONTHLY)).toBe('スタンダード月額プラン');
-			expect(resolvePlanLabel(LICENSE_PLAN.YEARLY)).toBe('スタンダード年額プラン');
-			expect(resolvePlanLabel(LICENSE_PLAN.FAMILY_MONTHLY)).toBe('ファミリー月額プラン');
-			expect(resolvePlanLabel(LICENSE_PLAN.FAMILY_YEARLY)).toBe('ファミリー年額プラン');
-			expect(resolvePlanLabel(LICENSE_PLAN.LIFETIME)).toBe('永久ライセンス');
-			expect(resolvePlanLabel('unknown')).toBe('スタンダード月額プラン');
+		it('プランラベルが labels.ts (SSOT) から正しく解決される', () => {
+			expect(getLicensePlanLabel(LICENSE_PLAN.MONTHLY)).toBe('スタンダード月額');
+			expect(getLicensePlanLabel(LICENSE_PLAN.YEARLY)).toBe('スタンダード年額');
+			expect(getLicensePlanLabel(LICENSE_PLAN.FAMILY_MONTHLY)).toBe('ファミリー月額');
+			expect(getLicensePlanLabel(LICENSE_PLAN.FAMILY_YEARLY)).toBe('ファミリー年額');
+			expect(getLicensePlanLabel(LICENSE_PLAN.LIFETIME)).toBe('ライフタイム');
+			expect(getLicensePlanLabel('unknown')).toBe('unknown');
 		});
 	});
 });

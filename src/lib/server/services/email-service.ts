@@ -4,7 +4,7 @@
 
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { getLicensePlanLabel } from '$lib/domain/labels';
 import { logger } from '$lib/server/logger';
 
 // ============================================================
@@ -230,20 +230,8 @@ export async function sendMemberJoinedEmail(
 
 // ============================================================
 // ライセンスキー配布メール (#815)
-// プランラベルの一元管理 + 3ステップ適用手順 + ヘルプリンク
+// プランラベルは labels.ts (SSOT) の getLicensePlanLabel() を使用
 // ============================================================
-
-/** プランコードから表示用ラベルを解決する。email-service 内で一元管理 (#815) */
-export function resolvePlanLabel(plan: string): string {
-	const planLabels: Record<string, string> = {
-		[LICENSE_PLAN.MONTHLY]: 'スタンダード月額プラン',
-		[LICENSE_PLAN.YEARLY]: 'スタンダード年額プラン',
-		[LICENSE_PLAN.FAMILY_MONTHLY]: 'ファミリー月額プラン',
-		[LICENSE_PLAN.FAMILY_YEARLY]: 'ファミリー年額プラン',
-		[LICENSE_PLAN.LIFETIME]: '永久ライセンス',
-	};
-	return planLabels[plan] ?? 'スタンダード月額プラン';
-}
 
 /** ライセンスキー配布メール (#0247, #815 テンプレート刷新) */
 export async function sendLicenseKeyEmail(
@@ -252,7 +240,7 @@ export async function sendLicenseKeyEmail(
 	plan: string,
 	expiresAt?: string,
 ): Promise<boolean> {
-	const planLabel = resolvePlanLabel(plan);
+	const planLabel = getLicensePlanLabel(plan);
 	const expiresLabel = expiresAt
 		? new Date(expiresAt).toLocaleDateString('ja-JP', {
 				year: 'numeric',
