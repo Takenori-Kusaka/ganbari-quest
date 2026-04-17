@@ -10,6 +10,7 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { LICENSE_KEY_STATUS } from '$lib/domain/constants/license-key-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { INVITE_EXPIRY_DAYS } from '$lib/domain/validation/auth';
 import type {
@@ -735,7 +736,15 @@ const DEFAULT_PAGE_SIZE = 50;
 
 /** カーソルを Base64 エンコードされた DynamoDB ExclusiveStartKey として扱う */
 function decodeCursor(cursor: string): Record<string, unknown> {
-	return JSON.parse(Buffer.from(cursor, 'base64url').toString('utf-8'));
+	try {
+		const parsed: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf-8'));
+		if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+			throw new TypeError('Cursor must decode to a non-null object');
+		}
+		return parsed as Record<string, unknown>;
+	} catch {
+		throw new Error('Invalid pagination cursor');
+	}
 }
 
 function encodeCursor(lastKey: Record<string, unknown>): string {
@@ -856,7 +865,7 @@ export const listExpiringSoon: IAuthRepo['listExpiringSoon'] = async (days) => {
 				ExpressionAttributeNames: { '#status': 'status' },
 				ExpressionAttributeValues: {
 					':prefix': 'LICENSE#',
-					':active': 'active',
+					':active': LICENSE_KEY_STATUS.ACTIVE,
 					':now': nowIso,
 					':threshold': thresholdIso,
 				},

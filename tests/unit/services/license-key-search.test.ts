@@ -307,3 +307,36 @@ describe('DynamoDB auth-repo — license key search (#816)', () => {
 		});
 	});
 });
+
+// ============================================================
+// decodeCursor security (#816 QA review)
+// ============================================================
+
+describe('DynamoDB auth-repo — decodeCursor security (#816)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('不正な Base64 カーソル文字列でエラーをスローする', async () => {
+		const mod = await import('$lib/server/db/dynamodb/auth-repo');
+		await expect(mod.listLicenseKeysByTenant('t-1', 10, 'not-valid-base64!!!')).rejects.toThrow(
+			'Invalid pagination cursor',
+		);
+	});
+
+	it('配列をデコードした場合もエラーをスローする', async () => {
+		const arrayCursor = Buffer.from(JSON.stringify([1, 2, 3]), 'utf-8').toString('base64url');
+		const mod = await import('$lib/server/db/dynamodb/auth-repo');
+		await expect(mod.listLicenseKeysByTenant('t-1', 10, arrayCursor)).rejects.toThrow(
+			'Invalid pagination cursor',
+		);
+	});
+
+	it('null をデコードした場合もエラーをスローする', async () => {
+		const nullCursor = Buffer.from('null', 'utf-8').toString('base64url');
+		const mod = await import('$lib/server/db/dynamodb/auth-repo');
+		await expect(mod.listLicenseKeysByTenant('t-1', 10, nullCursor)).rejects.toThrow(
+			'Invalid pagination cursor',
+		);
+	});
+});
