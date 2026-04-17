@@ -57,7 +57,7 @@ export async function findChildProgress(
 	return getRepos().seasonEvent.findChildProgress(childId, eventId, tenantId);
 }
 
-export async function findChildActiveEvents(
+async function findChildActiveEvents(
 	childId: number,
 	today: string,
 	tenantId: string,

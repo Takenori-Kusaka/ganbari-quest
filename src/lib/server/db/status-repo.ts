@@ -6,7 +6,7 @@ import type { InsertStatusHistoryInput } from './types';
 export async function findStatuses(childId: number, tenantId: string) {
 	return getRepos().status.findStatuses(childId, tenantId);
 }
-export async function findStatus(childId: number, categoryId: number, tenantId: string) {
+async function findStatus(childId: number, categoryId: number, tenantId: string) {
 	return getRepos().status.findStatus(childId, categoryId, tenantId);
 }
 export async function upsertStatus(
@@ -57,6 +57,6 @@ export async function upsertBenchmark(
 export async function findChildById(id: number, tenantId: string) {
 	return getRepos().status.findChildById(id, tenantId);
 }
-export async function findLastActivityDates(childId: number, tenantId: string) {
+async function findLastActivityDates(childId: number, tenantId: string) {
 	return getRepos().status.findLastActivityDates(childId, tenantId);
 }

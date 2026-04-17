@@ -112,7 +112,3 @@ export const CHILD_TUTORIAL_CHAPTERS: TutorialChapter[] = [
 export function getChildAllSteps() {
 	return CHILD_TUTORIAL_CHAPTERS.flatMap((ch) => ch.steps);
 }
-
-export function getChildTotalStepCount() {
-	return getChildAllSteps().length;
-}
