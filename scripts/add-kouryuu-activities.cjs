@@ -85,7 +85,9 @@ insertAll();
 
 // 確認
 const count = db
-	.prepare(`SELECT COUNT(*) as cnt FROM activities WHERE category_id = 4 AND grade_level = 'kinder'`)
+	.prepare(
+		`SELECT COUNT(*) as cnt FROM activities WHERE category_id = 4 AND grade_level = 'kinder'`,
+	)
 	.get();
 console.log(`\nkinder こうりゅう活動数: ${count.cnt}個`);
 

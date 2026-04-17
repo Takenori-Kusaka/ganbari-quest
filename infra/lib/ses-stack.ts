@@ -111,32 +111,26 @@ export class SesStack extends cdk.Stack {
 		);
 
 		// 9. メール受信処理 Lambda
-		const receiveHandler = new lambdaNode.NodejsFunction(
-			this,
-			'SesReceiveHandler',
-			{
-				functionName: 'ganbari-quest-ses-receive',
-				entry: path.join(__dirname, '..', 'lambda', 'ses-receive', 'index.ts'),
-				handler: 'handler',
-				runtime: lambda.Runtime.NODEJS_20_X,
-				architecture: lambda.Architecture.ARM_64,
-				memorySize: 256,
-				timeout: cdk.Duration.seconds(30),
-				environment: {
-					MAIL_BUCKET: mailBucket.bucketName,
-					SUPPORT_EMAIL: `support@${domainName}`,
-					DOMAIN_NAME: domainName,
-					...(discordWebhookSupport
-						? { DISCORD_WEBHOOK_SUPPORT: discordWebhookSupport }
-						: {}),
-				},
-				bundling: {
-					minify: true,
-					sourceMap: false,
-					externalModules: ['@aws-sdk/client-ses', '@aws-sdk/client-s3'],
-				},
+		const receiveHandler = new lambdaNode.NodejsFunction(this, 'SesReceiveHandler', {
+			functionName: 'ganbari-quest-ses-receive',
+			entry: path.join(__dirname, '..', 'lambda', 'ses-receive', 'index.ts'),
+			handler: 'handler',
+			runtime: lambda.Runtime.NODEJS_20_X,
+			architecture: lambda.Architecture.ARM_64,
+			memorySize: 256,
+			timeout: cdk.Duration.seconds(30),
+			environment: {
+				MAIL_BUCKET: mailBucket.bucketName,
+				SUPPORT_EMAIL: `support@${domainName}`,
+				DOMAIN_NAME: domainName,
+				...(discordWebhookSupport ? { DISCORD_WEBHOOK_SUPPORT: discordWebhookSupport } : {}),
 			},
-		);
+			bundling: {
+				minify: true,
+				sourceMap: false,
+				externalModules: ['@aws-sdk/client-ses', '@aws-sdk/client-s3'],
+			},
+		});
 
 		// Lambda に S3 読み取り + SES 送信権限
 		mailBucket.grantRead(receiveHandler);

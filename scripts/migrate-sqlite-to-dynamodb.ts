@@ -1,4 +1,5 @@
 #!/usr/bin/env npx tsx
+
 // scripts/migrate-sqlite-to-dynamodb.ts
 // SQLite → DynamoDB data migration script
 //
@@ -10,8 +11,8 @@
 //   - DynamoDB table already created (via CDK deploy)
 //   - @aws-sdk/lib-dynamodb installed
 
-import { BatchWriteCommand, DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { BatchWriteCommand, DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import Database from 'better-sqlite3';
 
 const DB_PATH = process.argv[2] ?? './data/ganbari-quest.db';
@@ -361,7 +362,10 @@ function migrateChecklistTemplates(db: InstanceType<typeof Database>): Record<st
 }
 
 function migrateChecklistItems(db: InstanceType<typeof Database>): Record<string, unknown>[] {
-	const rows = db.prepare('SELECT * FROM checklist_template_items').all() as Record<string, unknown>[];
+	const rows = db.prepare('SELECT * FROM checklist_template_items').all() as Record<
+		string,
+		unknown
+	>[];
 	return rows.map((r) => ({
 		PK: `CKTPL#${r.template_id}`,
 		SK: `ITEM#${padId(r.sort_order as number)}#${padId(r.id as number)}`,
@@ -541,7 +545,9 @@ function buildCounterItems(db: InstanceType<typeof Database>): Record<string, un
 
 	for (const [entity, table] of tables) {
 		try {
-			const row = db.prepare(`SELECT MAX(id) as maxId FROM ${table}`).get() as { maxId: number | null };
+			const row = db.prepare(`SELECT MAX(id) as maxId FROM ${table}`).get() as {
+				maxId: number | null;
+			};
 			const maxId = row?.maxId ?? 0;
 			counters.push({
 				PK: 'COUNTER',

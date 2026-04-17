@@ -1,11 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as ecr from 'aws-cdk-lib/aws-ecr';
+import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import type * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as firehose from 'aws-cdk-lib/aws-kinesisfirehose';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as s3 from 'aws-cdk-lib/aws-s3';
+import type * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 
@@ -129,9 +129,7 @@ export class ComputeStack extends cdk.Stack {
 				...(feedbackDiscordWebhookUrl
 					? { DISCORD_WEBHOOK_INQUIRY: feedbackDiscordWebhookUrl }
 					: {}),
-				...(discordWebhookIncident
-					? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident }
-					: {}),
+				...(discordWebhookIncident ? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident } : {}),
 				...(cronSecret ? { CRON_SECRET: cronSecret } : {}),
 				...(legacyOpsSecretKey ? { OPS_SECRET_KEY: legacyOpsSecretKey } : {}),
 				// #911 / #806: assertLicenseKeyConfigured() が必須要求する。
@@ -143,7 +141,9 @@ export class ComputeStack extends cdk.Stack {
 				...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
 				...(stripePriceMonthly ? { STRIPE_PRICE_MONTHLY: stripePriceMonthly } : {}),
 				...(stripePriceYearly ? { STRIPE_PRICE_YEARLY: stripePriceYearly } : {}),
-				...(stripePriceFamilyMonthly ? { STRIPE_PRICE_FAMILY_MONTHLY: stripePriceFamilyMonthly } : {}),
+				...(stripePriceFamilyMonthly
+					? { STRIPE_PRICE_FAMILY_MONTHLY: stripePriceFamilyMonthly }
+					: {}),
 				...(stripePriceFamilyYearly ? { STRIPE_PRICE_FAMILY_YEARLY: stripePriceFamilyYearly } : {}),
 				COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
 				SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',

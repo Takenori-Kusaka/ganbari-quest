@@ -1,5 +1,5 @@
-import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cdk from 'aws-cdk-lib';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as route53 from 'aws-cdk-lib/aws-route53';
@@ -109,7 +109,10 @@ export class AuthStack extends cdk.Stack {
 			const certificateArn = props.certificateArn;
 			const useCustomDomain = !!(certificateArn && appDomain);
 			if (useCustomDomain) {
-				const certificateArnComponents = cdk.Arn.split(certificateArn, cdk.ArnFormat.SLASH_RESOURCE_NAME);
+				const certificateArnComponents = cdk.Arn.split(
+					certificateArn,
+					cdk.ArnFormat.SLASH_RESOURCE_NAME,
+				);
 				if (certificateArnComponents.region !== 'us-east-1') {
 					throw new Error(
 						`Cognito custom domain requires an ACM certificate in us-east-1, but got: ${certificateArn}`,
@@ -122,7 +125,9 @@ export class AuthStack extends cdk.Stack {
 				// カスタムドメイン: auth.ganbari-quest.com
 				const authDomainName = `auth.${appDomain}`;
 				const authCertificate = acm.Certificate.fromCertificateArn(
-					this, 'AuthCertificate', certificateArn!,
+					this,
+					'AuthCertificate',
+					certificateArn!,
 				);
 
 				const domain = this.userPool.addDomain('CognitoDomain', {
@@ -204,18 +209,12 @@ export class AuthStack extends cdk.Stack {
 				? {
 						oAuth: {
 							flows: { authorizationCodeGrant: true },
-							scopes: [
-								cognito.OAuthScope.OPENID,
-								cognito.OAuthScope.EMAIL,
-							],
+							scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL],
 							callbackUrls: [
 								`https://${appDomain}/auth/callback`,
 								'http://localhost:5173/auth/callback',
 							],
-							logoutUrls: [
-								`https://${appDomain}/auth/login`,
-								'http://localhost:5173/auth/login',
-							],
+							logoutUrls: [`https://${appDomain}/auth/login`, 'http://localhost:5173/auth/login'],
 						},
 						supportedIdentityProviders: [
 							cognito.UserPoolClientIdentityProvider.COGNITO,

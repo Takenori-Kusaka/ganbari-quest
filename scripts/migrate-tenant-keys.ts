@@ -1,4 +1,5 @@
 #!/usr/bin/env npx tsx
+
 // scripts/migrate-tenant-keys.ts
 // DynamoDB テナントプレフィックス移行スクリプト
 //
@@ -19,12 +20,8 @@
 //   - AWS credentials configured (AWS_PROFILE or env vars)
 //   - DynamoDB table already exists
 
-import {
-	BatchWriteCommand,
-	DynamoDBDocumentClient,
-	ScanCommand,
-} from '@aws-sdk/lib-dynamodb';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { BatchWriteCommand, DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 // ============================================================
 // Configuration
@@ -240,9 +237,7 @@ async function migrate(items: Record<string, unknown>[], tenantId: string) {
 		if (toMigrate.length > 0) {
 			console.log('\nSample migrations (first 5):');
 			for (const { oldItem, newItem } of toMigrate.slice(0, 5)) {
-				console.log(
-					`  ${oldItem.PK}/${oldItem.SK} → ${newItem.PK}/${newItem.SK}`,
-				);
+				console.log(`  ${oldItem.PK}/${oldItem.SK} → ${newItem.PK}/${newItem.SK}`);
 				if (oldItem.GSI2PK && oldItem.GSI2PK !== newItem.GSI2PK) {
 					console.log(`    GSI2PK: ${oldItem.GSI2PK} → ${newItem.GSI2PK}`);
 				}
@@ -313,9 +308,7 @@ async function rollback(items: Record<string, unknown>[], tenantId: string) {
 		if (toRollback.length > 0) {
 			console.log('\nSample rollbacks (first 5):');
 			for (const { oldItem, newItem } of toRollback.slice(0, 5)) {
-				console.log(
-					`  ${oldItem.PK}/${oldItem.SK} → ${newItem.PK}/${newItem.SK}`,
-				);
+				console.log(`  ${oldItem.PK}/${oldItem.SK} → ${newItem.PK}/${newItem.SK}`);
 			}
 		}
 		return;
