@@ -7,11 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockFindAllChildren = vi.fn();
 const mockFindActivities = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
+const mockFindTenantMembers = vi.fn();
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		child: { findAllChildren: mockFindAllChildren },
 		activity: { findActivities: mockFindActivities },
 		checklist: { findTemplatesByChild: mockFindTemplatesByChild },
+		auth: { findTenantMembers: mockFindTenantMembers },
 	}),
 }));
 
@@ -39,6 +41,7 @@ import {
 	checkActivityLimit,
 	checkChecklistTemplateLimit,
 	checkChildLimit,
+	checkFamilyMemberLimit,
 	getHistoryCutoffDate,
 	getPlanLimits,
 	isPaidTier,
@@ -591,6 +594,78 @@ describe('plan-limit-service', () => {
 		});
 		it('family: null (unlimited)', () => {
 			expect(getPlanLimits('family').maxChecklistTemplates).toBeNull();
+		});
+	});
+
+	// #1111: 家族メンバー招待のプラン別制限
+	describe('getPlanLimits - maxFamilyMembers (#1111)', () => {
+		it('free: 1 (owner only, no invites)', () => {
+			expect(getPlanLimits('free').maxFamilyMembers).toBe(1);
+		});
+		it('standard: 4 (owner + 3 family members)', () => {
+			expect(getPlanLimits('standard').maxFamilyMembers).toBe(4);
+		});
+		it('family: null (unlimited)', () => {
+			expect(getPlanLimits('family').maxFamilyMembers).toBeNull();
+		});
+	});
+
+	describe('checkFamilyMemberLimit (#1111)', () => {
+		it('free (cognito): blocked (owner only, max=1)', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTenantMembers.mockResolvedValue([
+				{ userId: 'owner', tenantId: 'tenant1', role: 'owner', joinedAt: new Date().toISOString() },
+			]);
+			const result = await checkFamilyMemberLimit('tenant1', 'none');
+			expect(result.allowed).toBe(false);
+			expect(result.current).toBe(1);
+			expect(result.max).toBe(1);
+		});
+
+		it('standard (cognito): allowed when under limit (1/4)', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTenantMembers.mockResolvedValue([
+				{ userId: 'owner', tenantId: 'tenant1', role: 'owner', joinedAt: new Date().toISOString() },
+			]);
+			const result = await checkFamilyMemberLimit('tenant1', 'active');
+			expect(result.allowed).toBe(true);
+			expect(result.current).toBe(1);
+			expect(result.max).toBe(4);
+		});
+
+		it('standard (cognito): allowed at 3/4', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTenantMembers.mockResolvedValue([
+				{ userId: 'u1', tenantId: 'tenant1', role: 'owner', joinedAt: new Date().toISOString() },
+				{ userId: 'u2', tenantId: 'tenant1', role: 'parent', joinedAt: new Date().toISOString() },
+				{ userId: 'u3', tenantId: 'tenant1', role: 'child', joinedAt: new Date().toISOString() },
+			]);
+			const result = await checkFamilyMemberLimit('tenant1', 'active');
+			expect(result.allowed).toBe(true);
+			expect(result.current).toBe(3);
+			expect(result.max).toBe(4);
+		});
+
+		it('standard (cognito): blocked at exactly 4/4', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTenantMembers.mockResolvedValue([
+				{ userId: 'u1', tenantId: 'tenant1', role: 'owner', joinedAt: new Date().toISOString() },
+				{ userId: 'u2', tenantId: 'tenant1', role: 'parent', joinedAt: new Date().toISOString() },
+				{ userId: 'u3', tenantId: 'tenant1', role: 'child', joinedAt: new Date().toISOString() },
+				{ userId: 'u4', tenantId: 'tenant1', role: 'child', joinedAt: new Date().toISOString() },
+			]);
+			const result = await checkFamilyMemberLimit('tenant1', 'active');
+			expect(result.allowed).toBe(false);
+			expect(result.current).toBe(4);
+			expect(result.max).toBe(4);
+		});
+
+		it('local: always allowed (selfhost = family tier, max=null)', async () => {
+			process.env.AUTH_MODE = 'local';
+			const result = await checkFamilyMemberLimit('tenant1', 'none');
+			expect(result.allowed).toBe(true);
+			expect(result.max).toBeNull();
+			expect(mockFindTenantMembers).not.toHaveBeenCalled();
 		});
 	});
 });
