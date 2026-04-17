@@ -53,6 +53,7 @@ export const NAV_ITEM_LABELS = {
 	reports: 'レポート',
 	growthBook: 'グロースブック',
 	achievements: 'チャレンジ履歴',
+	analytics: 'アナリティクス',
 	points: 'ポイント',
 	messages: 'おうえん',
 	rewards: 'ごほうび',
