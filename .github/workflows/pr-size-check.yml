@@ -46,7 +46,7 @@ jobs:
 
       - name: Post size warning comment when over threshold
         if: steps.size.outputs.changed != '' && fromJSON(steps.size.outputs.changed) > 500
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const changed = Number('${{ steps.size.outputs.changed }}');
