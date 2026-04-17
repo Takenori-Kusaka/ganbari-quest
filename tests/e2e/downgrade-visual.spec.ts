@@ -23,6 +23,20 @@ const OUT_DIR = path.resolve('docs/screenshots/downgrade-flow');
 // 年齢モードの定義（global-setup.ts のテストデータと対応）
 const AGE_MODES = ['baby', 'preschool', 'elementary', 'junior', 'senior'] as const;
 
+/**
+ * ライセンスページを開いて PlanStatusCard の表示を確認する共通セットアップ。
+ * 全テストで最低 1 つの意味あるアサーションを保証する。
+ */
+async function navigateToLicensePage(page: import('@playwright/test').Page) {
+	await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
+	await page.locator('body').waitFor({ state: 'visible', timeout: 30_000 });
+
+	// 全テスト共通: PlanStatusCard が表示されることを必ずアサート
+	const card = page.getByTestId('plan-status-card');
+	await expect(card).toBeVisible({ timeout: 15_000 });
+	return card;
+}
+
 // ============================================================
 // Desktop (1280x800) ビューポートでの検証
 // ============================================================
@@ -34,12 +48,7 @@ test.describe('#1011 ダウングレード前警告 — Desktop', () => {
 	});
 
 	test('ライセンスページ初期表示', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
-		await page.locator('body').waitFor({ state: 'visible', timeout: 30_000 });
-
-		// PlanStatusCard が表示される
-		const card = page.getByTestId('plan-status-card');
-		await expect(card).toBeVisible({ timeout: 15_000 });
+		await navigateToLicensePage(page);
 
 		await page.screenshot({
 			path: path.join(OUT_DIR, 'desktop-license-page.png'),
@@ -48,15 +57,17 @@ test.describe('#1011 ダウングレード前警告 — Desktop', () => {
 	});
 
 	test('ダウングレードプレビューダイアログ表示', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
-		await page.locator('body').waitFor({ state: 'visible', timeout: 30_000 });
+		await navigateToLicensePage(page);
 
-		// プラン管理ボタンをクリック
+		// プラン管理ボタンの存在を確認
 		const portalButton = page.getByTestId('open-portal-button');
-		const isVisible = await portalButton.isVisible({ timeout: 10_000 }).catch(() => false);
+		const portalCount = await portalButton.count();
 
-		if (!isVisible) {
-			// Stripe 未設定でポータルボタンが非表示の場合はスクリーンショットだけ撮る
+		if (portalCount === 0) {
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: 'Stripe 未設定環境: ポータルボタン非表示',
+			});
 			await page.screenshot({
 				path: path.join(OUT_DIR, 'desktop-no-portal-button.png'),
 				fullPage: true,
@@ -64,17 +75,16 @@ test.describe('#1011 ダウングレード前警告 — Desktop', () => {
 			return;
 		}
 
+		await expect(portalButton).toBeVisible();
 		await portalButton.click();
 
 		// ダウングレードプレビューダイアログまたは PIN ダイアログが表示されるまで待機
 		const previewContent = page.getByTestId('downgrade-preview-content');
-		const previewVisible = await previewContent
-			.waitFor({ state: 'visible', timeout: 10_000 })
-			.then(() => true)
-			.catch(() => false);
+		const previewCount = await previewContent.count();
 
-		if (previewVisible) {
+		if (previewCount > 0 && (await previewContent.isVisible())) {
 			// ダウングレードプレビューが表示された（超過リソースあり）
+			await expect(previewContent).toBeVisible();
 			await page.screenshot({
 				path: path.join(OUT_DIR, 'desktop-downgrade-preview.png'),
 				fullPage: true,
@@ -82,8 +92,8 @@ test.describe('#1011 ダウングレード前警告 — Desktop', () => {
 
 			// 超過子供リストが表示されている
 			const childList = page.getByTestId('downgrade-child-list');
-			const childListVisible = await childList.isVisible().catch(() => false);
-			if (childListVisible) {
+			const childListCount = await childList.count();
+			if (childListCount > 0) {
 				await expect(childList).toBeVisible();
 
 				// 全 5 年齢モードの子供が表示されていることを確認
@@ -97,7 +107,8 @@ test.describe('#1011 ダウングレード前警告 — Desktop', () => {
 				await expect(confirmButton).toBeDisabled();
 			}
 		} else {
-			// 超過リソースなし or PIN ダイアログが表示された
+			// 超過リソースなし or PIN ダイアログが表示された — ページは正常に表示されている
+			await expect(page.locator('body')).toBeVisible();
 			await page.screenshot({
 				path: path.join(OUT_DIR, 'desktop-portal-confirm.png'),
 				fullPage: true,
@@ -106,38 +117,48 @@ test.describe('#1011 ダウングレード前警告 — Desktop', () => {
 	});
 
 	test('ダウングレードプレビュー — 子供選択操作', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
-		await page.locator('body').waitFor({ state: 'visible', timeout: 30_000 });
+		await navigateToLicensePage(page);
 
 		const portalButton = page.getByTestId('open-portal-button');
-		const isVisible = await portalButton.isVisible({ timeout: 10_000 }).catch(() => false);
-		if (!isVisible) return;
+		const portalCount = await portalButton.count();
+		if (portalCount === 0) {
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: 'Stripe 未設定環境: ポータルボタン非表示',
+			});
+			return;
+		}
 
 		await portalButton.click();
 
 		const previewContent = page.getByTestId('downgrade-preview-content');
-		const previewVisible = await previewContent
-			.waitFor({ state: 'visible', timeout: 10_000 })
-			.then(() => true)
-			.catch(() => false);
-		if (!previewVisible) return;
+		const previewCount = await previewContent.count();
+		if (previewCount === 0 || !(await previewContent.isVisible())) {
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: '超過リソースなし: プレビュー非表示',
+			});
+			return;
+		}
+		await expect(previewContent).toBeVisible();
 
 		// 超過子供のチェックボックスをいくつか選択
 		const childItems = page.locator('[data-testid^="downgrade-child-item-"]');
 		const childCount = await childItems.count();
+		expect(childCount).toBeGreaterThan(0);
 
-		if (childCount > 0) {
-			// 最初の子供を選択
-			const firstCheckbox = childItems.first().locator('input[type="checkbox"]');
-			const hasCheckbox = await firstCheckbox.isVisible().catch(() => false);
-			if (hasCheckbox) {
-				await firstCheckbox.check();
-				await page.screenshot({
-					path: path.join(OUT_DIR, 'desktop-downgrade-child-selected.png'),
-					fullPage: true,
-				});
-			}
-		}
+		// 最初の子供を選択
+		const firstCheckbox = childItems.first().locator('input[type="checkbox"]');
+		const checkboxCount = await firstCheckbox.count();
+		expect(checkboxCount).toBeGreaterThan(0);
+
+		await firstCheckbox.check();
+		await expect(firstCheckbox).toBeChecked();
+
+		await page.screenshot({
+			path: path.join(OUT_DIR, 'desktop-downgrade-child-selected.png'),
+			fullPage: true,
+		});
 	});
 });
 
@@ -152,11 +173,7 @@ test.describe('#1011 ダウングレード前警告 — Mobile', () => {
 	});
 
 	test('ライセンスページ初期表示 (Mobile)', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
-		await page.locator('body').waitFor({ state: 'visible', timeout: 30_000 });
-
-		const card = page.getByTestId('plan-status-card');
-		await expect(card).toBeVisible({ timeout: 15_000 });
+		await navigateToLicensePage(page);
 
 		await page.screenshot({
 			path: path.join(OUT_DIR, 'mobile-license-page.png'),
@@ -165,13 +182,16 @@ test.describe('#1011 ダウングレード前警告 — Mobile', () => {
 	});
 
 	test('ダウングレードプレビューダイアログ表示 (Mobile)', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
-		await page.locator('body').waitFor({ state: 'visible', timeout: 30_000 });
+		await navigateToLicensePage(page);
 
 		const portalButton = page.getByTestId('open-portal-button');
-		const isVisible = await portalButton.isVisible({ timeout: 10_000 }).catch(() => false);
+		const portalCount = await portalButton.count();
 
-		if (!isVisible) {
+		if (portalCount === 0) {
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: 'Stripe 未設定環境: ポータルボタン非表示',
+			});
 			await page.screenshot({
 				path: path.join(OUT_DIR, 'mobile-no-portal-button.png'),
 				fullPage: true,
@@ -179,15 +199,14 @@ test.describe('#1011 ダウングレード前警告 — Mobile', () => {
 			return;
 		}
 
+		await expect(portalButton).toBeVisible();
 		await portalButton.click();
 
 		const previewContent = page.getByTestId('downgrade-preview-content');
-		const previewVisible = await previewContent
-			.waitFor({ state: 'visible', timeout: 10_000 })
-			.then(() => true)
-			.catch(() => false);
+		const previewCount = await previewContent.count();
 
-		if (previewVisible) {
+		if (previewCount > 0 && (await previewContent.isVisible())) {
+			await expect(previewContent).toBeVisible();
 			await page.screenshot({
 				path: path.join(OUT_DIR, 'mobile-downgrade-preview.png'),
 				fullPage: true,
@@ -195,8 +214,8 @@ test.describe('#1011 ダウングレード前警告 — Mobile', () => {
 
 			// モバイルでのテキスト折り返しやボタン配置の崩れがないことをスクリーンショットで確認
 			const childList = page.getByTestId('downgrade-child-list');
-			const childListVisible = await childList.isVisible().catch(() => false);
-			if (childListVisible) {
+			const childListCount = await childList.count();
+			if (childListCount > 0) {
 				await expect(childList).toBeVisible();
 
 				// 確認ボタンの表示を検証
@@ -204,6 +223,7 @@ test.describe('#1011 ダウングレード前警告 — Mobile', () => {
 				await expect(confirmButton).toBeDisabled();
 			}
 		} else {
+			await expect(page.locator('body')).toBeVisible();
 			await page.screenshot({
 				path: path.join(OUT_DIR, 'mobile-portal-confirm.png'),
 				fullPage: true,
@@ -212,36 +232,46 @@ test.describe('#1011 ダウングレード前警告 — Mobile', () => {
 	});
 
 	test('ダウングレードプレビュー — 子供選択操作 (Mobile)', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
-		await page.locator('body').waitFor({ state: 'visible', timeout: 30_000 });
+		await navigateToLicensePage(page);
 
 		const portalButton = page.getByTestId('open-portal-button');
-		const isVisible = await portalButton.isVisible({ timeout: 10_000 }).catch(() => false);
-		if (!isVisible) return;
+		const portalCount = await portalButton.count();
+		if (portalCount === 0) {
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: 'Stripe 未設定環境: ポータルボタン非表示',
+			});
+			return;
+		}
 
 		await portalButton.click();
 
 		const previewContent = page.getByTestId('downgrade-preview-content');
-		const previewVisible = await previewContent
-			.waitFor({ state: 'visible', timeout: 10_000 })
-			.then(() => true)
-			.catch(() => false);
-		if (!previewVisible) return;
+		const previewCount = await previewContent.count();
+		if (previewCount === 0 || !(await previewContent.isVisible())) {
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: '超過リソースなし: プレビュー非表示',
+			});
+			return;
+		}
+		await expect(previewContent).toBeVisible();
 
 		const childItems = page.locator('[data-testid^="downgrade-child-item-"]');
 		const childCount = await childItems.count();
+		expect(childCount).toBeGreaterThan(0);
 
-		if (childCount > 0) {
-			const firstCheckbox = childItems.first().locator('input[type="checkbox"]');
-			const hasCheckbox = await firstCheckbox.isVisible().catch(() => false);
-			if (hasCheckbox) {
-				await firstCheckbox.check();
-				await page.screenshot({
-					path: path.join(OUT_DIR, 'mobile-downgrade-child-selected.png'),
-					fullPage: true,
-				});
-			}
-		}
+		const firstCheckbox = childItems.first().locator('input[type="checkbox"]');
+		const checkboxCount = await firstCheckbox.count();
+		expect(checkboxCount).toBeGreaterThan(0);
+
+		await firstCheckbox.check();
+		await expect(firstCheckbox).toBeChecked();
+
+		await page.screenshot({
+			path: path.join(OUT_DIR, 'mobile-downgrade-child-selected.png'),
+			fullPage: true,
+		});
 	});
 });
 
@@ -256,13 +286,15 @@ test.describe('#1011 ダウングレード前警告 — 年齢モード確認', 
 
 	test('ダウングレードプレビューに全 5 年齢モードの子供が表示される', async ({ page }) => {
 		await page.setViewportSize({ width: 1280, height: 800 });
-		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
-		await page.locator('body').waitFor({ state: 'visible', timeout: 30_000 });
+		await navigateToLicensePage(page);
 
 		const portalButton = page.getByTestId('open-portal-button');
-		const isVisible = await portalButton.isVisible({ timeout: 10_000 }).catch(() => false);
-		if (!isVisible) {
-			// Stripe 未設定環境ではポータルボタンが非表示 — スクリーンショットだけ撮って終了
+		const portalCount = await portalButton.count();
+		if (portalCount === 0) {
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: 'Stripe 未設定環境: ポータルボタン非表示',
+			});
 			await page.screenshot({
 				path: path.join(OUT_DIR, 'desktop-no-portal-button-age-modes.png'),
 				fullPage: true,
@@ -273,13 +305,13 @@ test.describe('#1011 ダウングレード前警告 — 年齢モード確認', 
 		await portalButton.click();
 
 		const previewContent = page.getByTestId('downgrade-preview-content');
-		const previewVisible = await previewContent
-			.waitFor({ state: 'visible', timeout: 10_000 })
-			.then(() => true)
-			.catch(() => false);
+		const previewCount = await previewContent.count();
 
-		if (!previewVisible) {
-			// 超過リソースなし — プレビュー非表示は正常動作。スクリーンショットのみ
+		if (previewCount === 0 || !(await previewContent.isVisible())) {
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: '超過リソースなし: プレビュー非表示',
+			});
 			await page.screenshot({
 				path: path.join(OUT_DIR, 'desktop-no-preview-age-modes.png'),
 				fullPage: true,
@@ -323,11 +355,20 @@ test.describe('#1011 ダウングレード前警告 — 年齢モード確認', 
 		const previewRes = await page.request.get('/api/v1/admin/downgrade-preview?targetTier=free');
 
 		if (previewRes.status() !== 200) {
-			// API 未実装 or 環境未設定 — テスト対象外としてスキップ
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: `API 非対応環境: status=${previewRes.status()}`,
+			});
+			// 最低限のアサーション: ステータスコードがサーバーエラーではないことを確認
+			expect(previewRes.status()).toBeLessThan(500);
 			return;
 		}
 
 		const preview = await previewRes.json();
+
+		// 応答構造がプレビュー形式を持つことを確認
+		expect(preview).toHaveProperty('children');
+		expect(preview).toHaveProperty('hasExcess');
 
 		// 各子供が name と uiMode を持つ
 		for (const child of preview.children.current) {
