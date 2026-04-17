@@ -147,6 +147,47 @@ describe('plan-features.ts SSOT', () => {
 		});
 	});
 
+	describe('Discord サポート文言の排除 (#781)', () => {
+		it('全プランの pricing features に Discord の文言が含まれないこと', () => {
+			const allFeatures = [
+				...PRICING_PAGE_FEATURES.free,
+				...PRICING_PAGE_FEATURES.standard,
+				...PRICING_PAGE_FEATURES.family,
+			];
+			for (const feature of allFeatures) {
+				expect(feature.toLowerCase()).not.toContain('discord');
+			}
+		});
+
+		it('全プランの license highlights に Discord の文言が含まれないこと', () => {
+			const allHighlights = [
+				...LICENSE_PAGE_HIGHLIGHTS.standard,
+				...LICENSE_PAGE_HIGHLIGHTS.family,
+			];
+			for (const highlight of allHighlights) {
+				expect(highlight.toLowerCase()).not.toContain('discord');
+			}
+		});
+
+		it('全プランの unlocked features に Discord の文言が含まれないこと', () => {
+			const allTexts = [
+				...PREMIUM_UNLOCKED_FEATURES.standard.map((f) => f.text),
+				...PREMIUM_UNLOCKED_FEATURES.family.map((f) => f.text),
+			];
+			for (const text of allTexts) {
+				expect(text.toLowerCase()).not.toContain('discord');
+			}
+		});
+
+		it('サポート表記がメール優先サポートに統一されていること', () => {
+			const standardFeatures = PRICING_PAGE_FEATURES.standard;
+			const familyFeatures = PRICING_PAGE_FEATURES.family;
+
+			expect(standardFeatures).toContain('メール優先サポート');
+			expect(familyFeatures).toContain('メール優先サポート（24時間以内応答）');
+		});
+	});
+
 	describe('PRICING_PAGE_META (#765)', () => {
 		it('3 プラン全てが定義されている', () => {
 			expect(PRICING_PAGE_META.free).toBeDefined();
