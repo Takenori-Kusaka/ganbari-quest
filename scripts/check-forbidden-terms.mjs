@@ -57,7 +57,15 @@ const FORBIDDEN_TERMS = [
 /**
  * 検索対象ディレクトリとファイル拡張子
  */
-const SEARCH_ROOTS = ['src', 'site', 'docs/design', 'docs/marketing', 'docs/guides', 'static', '.github'];
+const SEARCH_ROOTS = [
+	'src',
+	'site',
+	'docs/design',
+	'docs/marketing',
+	'docs/guides',
+	'static',
+	'.github',
+];
 
 const SEARCH_EXTENSIONS = new Set([
 	'.ts',
@@ -128,7 +136,14 @@ function main() {
 		for (const { term, reason, replacement } of FORBIDDEN_TERMS) {
 			lines.forEach((line, idx) => {
 				if (line.includes(term)) {
-					violations.push({ file: relPath, line: idx + 1, term, reason, replacement, snippet: line.trim().slice(0, 120) });
+					violations.push({
+						file: relPath,
+						line: idx + 1,
+						term,
+						reason,
+						replacement,
+						snippet: line.trim().slice(0, 120),
+					});
 				}
 			});
 		}

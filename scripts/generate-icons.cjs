@@ -19,17 +19,11 @@ async function generate() {
 	console.log('Generating favicons from:', faviconSvgPath);
 
 	// favicon-32x32.png
-	await sharp(faviconSvgPath)
-		.resize(32, 32)
-		.png()
-		.toFile(path.join(outDir, 'favicon-32x32.png'));
+	await sharp(faviconSvgPath).resize(32, 32).png().toFile(path.join(outDir, 'favicon-32x32.png'));
 	console.log('  favicon-32x32.png');
 
 	// favicon-16x16.png
-	await sharp(faviconSvgPath)
-		.resize(16, 16)
-		.png()
-		.toFile(path.join(outDir, 'favicon-16x16.png'));
+	await sharp(faviconSvgPath).resize(16, 16).png().toFile(path.join(outDir, 'favicon-16x16.png'));
 	console.log('  favicon-16x16.png');
 
 	// Sync to site/ if directory exists

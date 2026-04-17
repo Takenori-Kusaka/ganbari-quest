@@ -78,7 +78,9 @@ function getDiff() {
 			process.exit(2);
 		}
 		console.warn(msg);
-		console.warn('[check-new-required-env] skipping check (local mode, likely new repo or shallow clone)');
+		console.warn(
+			'[check-new-required-env] skipping check (local mode, likely new repo or shallow clone)',
+		);
 		return '';
 	}
 
@@ -181,11 +183,13 @@ function detectNewRequiredEnvs(addedLines) {
 	const found = new Set();
 
 	const assertFnRe = /assert([A-Z]\w*?)Configured\s*\(/;
-	const processEnvThrowRe = /process\.env\.([A-Z][A-Z0-9_]+)\s*\|\|\s*\(?\s*\(\s*\)\s*=>\s*\{[^}]*throw/;
+	const processEnvThrowRe =
+		/process\.env\.([A-Z][A-Z0-9_]+)\s*\|\|\s*\(?\s*\(\s*\)\s*=>\s*\{[^}]*throw/;
 	// 「FOO_BAR is required」「FOO_BAR is not set」「FOO_BAR must be set」等
 	// 案件の env 名は ALL_CAPS_SNAKE_CASE のみを対象 (camelCase の JSON フィールド名は除外)
 	// アンダースコアを 1 つ以上含むものを必須にして "PORT" 等の単語を弾く
-	const envInStringRe = /\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b\s+(?:is\s+(?:not\s+set|required|missing|undefined)|must\s+be\s+set)/;
+	const envInStringRe =
+		/\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b\s+(?:is\s+(?:not\s+set|required|missing|undefined)|must\s+be\s+set)/;
 
 	// 全追加行を結合して走査することで、複数行に渡る `throw new Error(...)` も拾う
 	const fullText = addedLines.join('\n');
@@ -294,8 +298,12 @@ function main() {
 		console.error('PR 本文に次の形式で配布済み証跡を記載してください:');
 		console.error('');
 		console.error('  ## 配布済み env / secret (ADR-0029)');
-		console.error(`  - 配布済み: ${missing[0]} → GitHub Actions Secrets (deploy.yml, deploy-nuc.yml)`);
-		console.error(`  - 配布済み: ${missing[0]} → SSM Parameter Store /ganbari-quest/prod/${missing[0].toLowerCase()}`);
+		console.error(
+			`  - 配布済み: ${missing[0]} → GitHub Actions Secrets (deploy.yml, deploy-nuc.yml)`,
+		);
+		console.error(
+			`  - 配布済み: ${missing[0]} → SSM Parameter Store /ganbari-quest/prod/${missing[0].toLowerCase()}`,
+		);
 		console.error(`  - 配布済み: ${missing[0]} → NUC .env (本機 + バックアップ機)`);
 		console.error('');
 		console.error('See: docs/decisions/0029-safety-assertion-erosion-ban.md');

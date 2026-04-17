@@ -1,11 +1,12 @@
 #!/usr/bin/env node
+
 // scripts/generate-stamp-images.mjs
 // Gemini API で全6ランクのおみくじスタンプ画像を生成するスクリプト
 // 使用法: GEMINI_API_KEY=xxx node scripts/generate-stamp-images.mjs
 
-import { GoogleGenAI } from '@google/genai';
 import fs from 'node:fs';
 import path from 'node:path';
+import { GoogleGenAI } from '@google/genai';
 
 const API_KEY = process.env.GEMINI_API_KEY;
 if (!API_KEY) {

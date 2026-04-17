@@ -83,9 +83,7 @@ function walk(dir, out = []) {
 
 function makeMatchers(pattern) {
 	const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	return [
-		new RegExp(`['"\`]${escaped}['"\`]`),
-	];
+	return [new RegExp(`['"\`]${escaped}['"\`]`)];
 }
 
 function checkFile(filePath) {

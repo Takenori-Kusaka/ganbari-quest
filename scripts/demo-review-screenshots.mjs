@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * scripts/demo-review-screenshots.mjs (#563)
  *
@@ -19,9 +20,9 @@
  *   - デスクトップ・モバイル両方
  */
 
-import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
+import { chromium } from 'playwright';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const OUTPUT_DIR = path.resolve('tmp/demo-review');
@@ -51,7 +52,9 @@ async function captureGuideTour(browser, viewport) {
 	await shot('10-demo-top');
 
 	// 2. ガイド開始
-	const startBtn = page.locator('a:has-text("ガイド付きデモを はじめる"), a:has-text("ガイドを再開する")').first();
+	const startBtn = page
+		.locator('a:has-text("ガイド付きデモを はじめる"), a:has-text("ガイドを再開する")')
+		.first();
 	if ((await startBtn.count()) === 0) {
 		console.log('  ✗ ガイド開始ボタンが見つかりません');
 		await context.close();

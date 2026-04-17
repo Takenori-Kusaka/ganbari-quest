@@ -1,4 +1,5 @@
 #!/usr/bin/env npx tsx
+
 // scripts/seed-cognito-test-data.ts
 // Cognito + DynamoDB テストデータ投入スクリプト (#0133)
 //
@@ -14,8 +15,8 @@
 //   - DynamoDB table already created (via CDK deploy)
 //   - カテゴリ・活動マスタが既に投入済み（migrate-sqlite-to-dynamodb.ts で移行済み）
 
-import { BatchWriteCommand, DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { BatchWriteCommand, DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE ?? 'ganbari-quest';
 const REGION = process.env.AWS_REGION ?? 'ap-northeast-1';
@@ -360,7 +361,7 @@ function buildActivityLogItems(): Record<string, unknown>[] {
 			const activitiesPerDay = 2 + (daysAgo % 2);
 			for (let a = 0; a < activitiesPerDay; a++) {
 				const actId = (a % 5) + 1; // 活動ID 1〜5 をローテーション
-				const points = 5 + (actId * 2);
+				const points = 5 + actId * 2;
 
 				items.push({
 					PK: tenantPK(`CHILD#${child.id}`, FAMILY_A.tenantId),
@@ -392,7 +393,7 @@ function buildActivityLogItems(): Record<string, unknown>[] {
 			const activitiesPerDay = 2;
 			for (let a = 0; a < activitiesPerDay; a++) {
 				const actId = (a % 3) + 1;
-				const points = 5 + (actId * 2);
+				const points = 5 + actId * 2;
 
 				items.push({
 					PK: tenantPK(`CHILD#${child.id}`, FAMILY_B.tenantId),
@@ -551,7 +552,9 @@ async function main() {
 	console.log('⚠️  Cognito ユーザーは別途 AWS CLI で作成してください:');
 	console.log('  aws cognito-idp admin-create-user --user-pool-id <POOL_ID> \\');
 	console.log('    --username test-owner@example.com --temporary-password TestOwner123! \\');
-	console.log('    --user-attributes Name=email,Value=test-owner@example.com Name=email_verified,Value=true');
+	console.log(
+		'    --user-attributes Name=email,Value=test-owner@example.com Name=email_verified,Value=true',
+	);
 }
 
 main().catch((err) => {

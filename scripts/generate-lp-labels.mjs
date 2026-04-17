@@ -87,7 +87,10 @@ function parseAgeTierTs() {
 	const modes = ['baby', 'preschool', 'elementary', 'junior', 'senior'];
 	for (const mode of modes) {
 		// 例: baby: { label: ..., ageMin: 0, ageMax: 2, ... }
-		const modePattern = new RegExp(`${mode}:\\s*{[^}]*ageMin:\\s*(\\d+)[^}]*ageMax:\\s*(\\d+)`, 's');
+		const modePattern = new RegExp(
+			`${mode}:\\s*{[^}]*ageMin:\\s*(\\d+)[^}]*ageMax:\\s*(\\d+)`,
+			's',
+		);
 		const m = configSrc.match(modePattern);
 		if (!m) throw new Error(`AGE_TIER_CONFIG.${mode} not parseable`);
 		config[mode] = { ageMin: Number(m[1]), ageMax: Number(m[2]) };
@@ -224,7 +227,9 @@ function main() {
 
 	if (CHECK_MODE) {
 		if (!fs.existsSync(OUTPUT_JS)) {
-			console.error(`✗ ${OUTPUT_JS} が存在しません。\`node scripts/generate-lp-labels.mjs\` を実行してください。`);
+			console.error(
+				`✗ ${OUTPUT_JS} が存在しません。\`node scripts/generate-lp-labels.mjs\` を実行してください。`,
+			);
 			process.exit(1);
 		}
 		const current = fs.readFileSync(OUTPUT_JS, 'utf-8');

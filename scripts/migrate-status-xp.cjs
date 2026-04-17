@@ -18,11 +18,27 @@ db.pragma('journal_mode = WAL');
 // 99レベルテーブル（status.ts の generateLevelTable と同等）
 function generateLevelTable() {
 	const keyPoints = [
-		[1, 0], [2, 15], [5, 60], [10, 500], [15, 1200],
-		[20, 2500], [25, 4200], [30, 6500], [35, 9500],
-		[40, 13500], [45, 18500], [50, 24500], [55, 31500],
-		[60, 39500], [65, 46500], [70, 52000], [75, 55500],
-		[80, 60000], [85, 69000], [90, 86000], [95, 96500],
+		[1, 0],
+		[2, 15],
+		[5, 60],
+		[10, 500],
+		[15, 1200],
+		[20, 2500],
+		[25, 4200],
+		[30, 6500],
+		[35, 9500],
+		[40, 13500],
+		[45, 18500],
+		[50, 24500],
+		[55, 31500],
+		[60, 39500],
+		[65, 46500],
+		[70, 52000],
+		[75, 55500],
+		[80, 60000],
+		[85, 69000],
+		[90, 86000],
+		[95, 96500],
 		[99, 100000],
 	];
 
@@ -76,7 +92,9 @@ if (hasTotalXp && hasLevel && hasPeakXp && !hasValue) {
 }
 
 if (!hasValue && !hasTotalXp) {
-	console.error('[migrate-status-xp] ERROR: statuses table has neither "value" nor "total_xp" column.');
+	console.error(
+		'[migrate-status-xp] ERROR: statuses table has neither "value" nor "total_xp" column.',
+	);
 	db.close();
 	process.exit(1);
 }
@@ -97,7 +115,9 @@ try {
 		const rows = db.prepare('SELECT id, value FROM statuses').all();
 		console.log(`[migrate-status-xp] Converting ${rows.length} rows...`);
 
-		const updateStmt = db.prepare('UPDATE statuses SET total_xp = ?, level = ?, peak_xp = ? WHERE id = ?');
+		const updateStmt = db.prepare(
+			'UPDATE statuses SET total_xp = ?, level = ?, peak_xp = ? WHERE id = ?',
+		);
 
 		for (const row of rows) {
 			const totalXp = Math.round((row.value || 0) * DECAY_SCALE);
@@ -107,7 +127,9 @@ try {
 		}
 
 		console.log(`[migrate-status-xp] Converted ${rows.length} rows.`);
-		console.log('[migrate-status-xp] Note: old "value" column is kept for safety. Remove manually after verification.');
+		console.log(
+			'[migrate-status-xp] Note: old "value" column is kept for safety. Remove manually after verification.',
+		);
 	} else if (hasTotalXp) {
 		console.log('[migrate-status-xp] total_xp column already exists.');
 
@@ -139,8 +161,12 @@ try {
 	if (hasHistoryValue) {
 		const historyCount = db.prepare('SELECT COUNT(*) as cnt FROM status_history').get();
 		if (historyCount.cnt > 0) {
-			console.log(`[migrate-status-xp] Scaling status_history values (${historyCount.cnt} rows)...`);
-			db.exec(`UPDATE status_history SET value = ROUND(value * ${DECAY_SCALE}), change_amount = ROUND(change_amount * ${DECAY_SCALE})`);
+			console.log(
+				`[migrate-status-xp] Scaling status_history values (${historyCount.cnt} rows)...`,
+			);
+			db.exec(
+				`UPDATE status_history SET value = ROUND(value * ${DECAY_SCALE}), change_amount = ROUND(change_amount * ${DECAY_SCALE})`,
+			);
 			console.log('[migrate-status-xp] status_history scaled.');
 		}
 	}

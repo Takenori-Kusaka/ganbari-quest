@@ -35,8 +35,7 @@ function checkInternalLinks(filePath, content) {
 
 	// href="xxx.html" パターンを検出（外部URL・アンカー・mailto・tel を除外）
 	const linkPattern = /href="([^"#]+\.html)"/g;
-	let match;
-	while ((match = linkPattern.exec(content)) !== null) {
+	for (const match of content.matchAll(linkPattern)) {
 		const linked = match[1];
 		// 外部URLはスキップ
 		if (linked.startsWith('http://') || linked.startsWith('https://')) continue;

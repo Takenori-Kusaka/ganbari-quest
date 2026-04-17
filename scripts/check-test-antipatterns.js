@@ -43,7 +43,9 @@ try {
 			const fileDiff = execSync(`git diff origin/main -- "${file}"`, { encoding: 'utf-8' });
 			const addedLines = fileDiff
 				.split('\n')
-				.filter((l) => l.startsWith('+') && !l.startsWith('+++') && l.includes('clearDialogGhosts'));
+				.filter(
+					(l) => l.startsWith('+') && !l.startsWith('+++') && l.includes('clearDialogGhosts'),
+				);
 			if (addedLines.length > 0) {
 				newGhostCallFiles.push(file);
 			}
@@ -71,10 +73,9 @@ try {
 
 // --- 2. Count test.skip / test.fixme and compare vs origin/main ---
 try {
-	const skipCount = execSync(
-		`git grep -c "${TEST_SKIP_PATTERN}" -- "tests/e2e/" || echo "0"`,
-		{ encoding: 'utf-8' },
-	);
+	const skipCount = execSync(`git grep -c "${TEST_SKIP_PATTERN}" -- "tests/e2e/" || echo "0"`, {
+		encoding: 'utf-8',
+	});
 
 	const totalSkips = sumGitGrepCountOutput(skipCount);
 
