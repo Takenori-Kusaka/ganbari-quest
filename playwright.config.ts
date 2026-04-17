@@ -37,7 +37,11 @@ export default defineConfig({
 	// CI / ローカルとも同値のため三項演算子は不要（意図せず差を入れる事故防止）。
 	workers: 2,
 	timeout: 30_000,
-	reporter: [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'test-results.json' }]],
+	// CI shard 時は blob reporter で結果を個別出力し、merge-reports で集約する。
+	// ローカル / 非 shard CI では従来の list + html + json を維持。
+	reporter: process.env.CI
+		? [['blob', { outputDir: 'blob-report' }], ['list']]
+		: [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'test-results.json' }]],
 	globalSetup: './tests/e2e/global-setup.ts',
 	globalTeardown: './tests/e2e/global-teardown.ts',
 	use: {
