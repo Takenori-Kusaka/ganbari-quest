@@ -4,6 +4,7 @@
 import type Stripe from 'stripe';
 import { LICENSE_PLAN, type LicensePlan } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { PLAN_LABELS } from '$lib/domain/labels';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
@@ -339,7 +340,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 	}
 
 	const repos = getRepos();
-	const graceExpires = new Date(Date.now() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+	const graceExpires = new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString();
 	await repos.auth.updateTenantStripe(tenant.tenantId, {
 		status: SUBSCRIPTION_STATUS.GRACE_PERIOD,
 		planExpiresAt: graceExpires,
