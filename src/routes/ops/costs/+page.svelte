@@ -15,7 +15,7 @@ const diffColorClass = $derived(
 		? 'text-[var(--color-success)]'
 		: costDiff > 0
 			? 'text-[var(--color-danger)]'
-			: 'text-[var(--color-neutral-900)]',
+			: 'text-[var(--color-text)]',
 );
 </script>
 
@@ -35,7 +35,7 @@ const diffColorClass = $derived(
 	<div class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
 		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">当月 AWS 費用</div>
-			<div class="text-[1.75rem] font-bold text-[var(--color-neutral-900)]">${costs.total.toFixed(2)}</div>
+			<div class="text-[1.75rem] font-bold text-[var(--color-text)]">${costs.total.toFixed(2)}</div>
 			<div class="text-xs text-[var(--color-text-muted)] mt-1">≒ ¥{Math.round(costs.total * usdToJpy).toLocaleString()}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
@@ -49,15 +49,15 @@ const diffColorClass = $derived(
 		</Card>
 		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">サービス数</div>
-			<div class="text-[1.75rem] font-bold text-[var(--color-neutral-900)]">{costs.services.length}</div>
+			<div class="text-[1.75rem] font-bold text-[var(--color-text)]">{costs.services.length}</div>
 		</Card>
 	</div>
 
 	<!-- サービス別内訳 -->
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">サービス別費用内訳</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">サービス別費用内訳</h2>
 		{#if costs.services.length === 0}
-			<p class="text-[var(--color-neutral-400)] text-sm text-center p-8">費用データがありません（AWS Cost Explorer API が利用不可、またはデータなし）</p>
+			<p class="text-[var(--color-text-muted)] text-sm text-center p-8">費用データがありません（AWS Cost Explorer API が利用不可、またはデータなし）</p>
 		{:else}
 			<table class="ops-table">
 				<thead>
@@ -88,7 +88,7 @@ const diffColorClass = $derived(
 		{/if}
 	</Card>
 
-	<div class="text-xs text-[var(--color-neutral-400)] text-right">
+	<div class="text-xs text-[var(--color-text-muted)] text-right">
 		最終取得: {costs.fetchedAt ? new Date(costs.fetchedAt).toLocaleString('ja-JP') : '-'}
 		（24時間キャッシュ、API費用: $0.01/リクエスト）
 	</div>
@@ -113,7 +113,7 @@ const diffColorClass = $derived(
 	.ops-table td {
 		padding: 0.5rem 0.75rem;
 		text-align: left;
-		border-bottom: 1px solid var(--color-neutral-100);
+		border-bottom: 1px solid var(--color-border-light);
 	}
 
 	.ops-table th {

@@ -21,31 +21,31 @@ const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 	<div class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
 		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">総テナント数</div>
-			<div class="text-[2rem] font-bold text-[var(--color-neutral-900)]">{stats.total}</div>
+			<div class="text-[2rem] font-bold text-[var(--color-text)]">{stats.total}</div>
 			<div class="text-xs text-[var(--color-success)] mt-1">+{stats.newThisMonth} 今月</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">アクティブ</div>
-			<div class="text-[2rem] font-bold text-[var(--color-neutral-900)]">{stats.active}</div>
+			<div class="text-[2rem] font-bold text-[var(--color-text)]">{stats.active}</div>
 			<div class="text-xs text-[var(--color-success)] mt-1">{activeRate}%</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">猶予期間</div>
-			<div class="text-[2rem] font-bold text-[var(--color-neutral-900)]">{stats.gracePeriod}</div>
+			<div class="text-[2rem] font-bold text-[var(--color-text)]">{stats.gracePeriod}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">停止中</div>
-			<div class="text-[2rem] font-bold text-[var(--color-neutral-900)]">{stats.suspended}</div>
+			<div class="text-[2rem] font-bold text-[var(--color-text)]">{stats.suspended}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">退会済み</div>
-			<div class="text-[2rem] font-bold text-[var(--color-neutral-900)]">{stats.terminated}</div>
+			<div class="text-[2rem] font-bold text-[var(--color-text)]">{stats.terminated}</div>
 		</Card>
 	</div>
 
 	<!-- プラン内訳 -->
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">プラン別内訳（アクティブテナント）</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">プラン別内訳（アクティブテナント）</h2>
 		<table class="ops-table">
 			<thead>
 				<tr>
@@ -86,10 +86,10 @@ const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 
 	<!-- ステータス -->
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">システム状態</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">システム状態</h2>
 		<div class="flex flex-col gap-2">
 			<div class="flex gap-2 items-center">
-				<span class="font-medium text-[var(--color-neutral-600)]">Stripe 連携:</span>
+				<span class="font-medium text-[var(--color-text-secondary)]">Stripe 連携:</span>
 				<span class={kpi.stripeEnabled ? 'font-semibold text-[var(--color-success)]' : 'font-semibold text-[var(--color-warning)]'}>
 					{kpi.stripeEnabled ? '有効' : '無効（ローカルモード）'}
 				</span>
@@ -116,7 +116,7 @@ const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 	.ops-table td {
 		padding: 0.5rem 1rem;
 		text-align: left;
-		border-bottom: 1px solid var(--color-neutral-100);
+		border-bottom: 1px solid var(--color-border-light);
 	}
 
 	.ops-table th {
