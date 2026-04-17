@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { todayDateJST } from '$lib/domain/date-utils';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
@@ -22,7 +23,7 @@ interface SeasonEvent {
 }
 
 function isCurrentlyActive(event: SeasonEvent): boolean {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	return event.isActive === 1 && event.startDate <= today && event.endDate >= today;
 }
 
