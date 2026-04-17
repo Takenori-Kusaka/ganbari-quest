@@ -38,6 +38,16 @@ jobs:
           path: audit-result.json
           retention-days: 90
 
+      - name: Ensure required labels exist
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create security --color D93F0B --description "Security vulnerability" --force
+          gh label create priority:high --force || true
+          gh label create priority:low --force || true
+          gh label create type:fix --force || true
+
       - name: Create issues from findings
         if: always()
         env:
