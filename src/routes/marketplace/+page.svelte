@@ -204,7 +204,6 @@ const activeTag = $derived(data.filters.tag);
 				>
 					無料で はじめる
 				</a>
-				<p class="text-xs text-[var(--color-text-tertiary)] mt-2">7日間無料トライアル付き</p>
 			</div>
 			{/snippet}
 		</Card>
