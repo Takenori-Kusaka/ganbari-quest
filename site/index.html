@@ -232,14 +232,8 @@
 .cta-bottom p{color:var(--gray-500);margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto}
 .cta-bottom .cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 
-/* Setup */
-.setup-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:32px}
-.setup-option{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:32px 24px}
-.setup-option h3{font-size:1.2rem;font-weight:600;color:var(--gray-900);margin-bottom:8px}
-.setup-label{display:inline-block;padding:4px 12px;border-radius:2rem;font-size:.75rem;font-weight:600;margin-bottom:16px}
-.label-free{background:#dcfce7;color:#166534}
-.setup-option p{font-size:.9rem;color:var(--gray-500);margin-bottom:16px}
-.setup-code{background:var(--gray-900);color:#e2e8f0;padding:16px;border-radius:8px;font-family:monospace;font-size:.85rem;overflow-x:auto;margin-bottom:16px}
+/* Steps CTA */
+.steps-cta{text-align:center;margin-top:32px}
 
 /* How it works */
 .steps{max-width:720px;margin:0 auto;counter-reset:step}
@@ -1225,38 +1219,7 @@
 <section class="section bg-white" id="how-it-works">
   <div class="section-inner">
     <h2 class="section-title">かんたん3ステップ</h2>
-    <p class="section-desc">アカウント作成から、すぐに使い始められます</p>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <h3>アカウント登録（無料）</h3>
-          <p>メールアドレスまたはGoogleアカウントで登録完了。お子さまのニックネームと年齢を登録します。</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <h3>お子さまの年齢と性別を設定</h3>
-          <p>年齢と性別に合わせた活動・チェックリストが自動でセットアップされます。</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <h3>冒険スタート！</h3>
-          <p>お子さまが活動を記録するたびにポイント獲得。レベルアップやチャレンジで、がんばりが目に見える形に。</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Setup -->
-<section class="section bg-gray" id="setup">
-  <div class="section-inner">
-    <h2 class="section-title">はじめ方</h2>
-    <p class="section-desc">かんたん3ステップですぐに始められます</p>
+    <p class="section-desc">1分で登録完了。クレジットカードは不要です</p>
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
@@ -1268,24 +1231,21 @@
       <div class="step">
         <div class="step-num">2</div>
         <div class="step-body">
-          <h3>お子さまの情報を入力</h3>
-          <p>ニックネームと年齢を入力するだけ。年齢に合った活動パックを自動でおすすめします。</p>
+          <h3>お子さまを追加</h3>
+          <p>ニックネーム・年齢・性別を入力するだけ。おすすめの活動パックとチェックリストが自動でセットアップされます。</p>
         </div>
       </div>
       <div class="step">
         <div class="step-num">3</div>
         <div class="step-body">
           <h3>冒険スタート！</h3>
-          <p>お子さまが活動を記録するたびにポイント獲得。今日から冒険が始まります。</p>
+          <p>お子さまが活動を記録するたびにポイント獲得。レベルアップやシールくじで、がんばりが目に見える形に。</p>
         </div>
       </div>
     </div>
-    <div style="text-align:center;margin-top:32px">
+    <div class="steps-cta">
       <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">無料ではじめる</a>
     </div>
-    <p style="text-align:center;margin-top:24px;font-size:.85rem;color:var(--gray-500)">
-      &#x1F4BB; エンジニアの方へ: セルフホスト版（OSS）も利用可能です &#8594; <a href="selfhost.html">詳しく見る</a>
-    </p>
   </div>
 </section>
 
