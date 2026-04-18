@@ -89,8 +89,9 @@ Dev セッションでは Issue を **1 件ずつ直列に**進める。Agent (s
    - `npx svelte-check` — 型エラーなし
    - `npx vitest run` — ユニットテスト全通過
    - `npx playwright test` — E2E テスト全通過
-5. Draft PR で push: `gh pr create --draft`
-6. CI 全通過後に Ready for Review: `gh pr ready <番号>`
+5. **AC 検証マップを全行埋める（ADR-0038 必須）** — 実装完了後、PR 作成前に PR 本文の「AC 検証マップ」の全行を埋めること。空行がある場合は**実装未了と見なす**（コマンド結果 / スクリーンショットパス / grep 結果で埋める）
+6. Draft PR で push: `gh pr create --draft`
+7. CI 全通過後に Ready for Review: `gh pr ready <番号>`
 
 ### 新規実装時
 
