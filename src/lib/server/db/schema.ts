@@ -343,6 +343,8 @@ export const checklistTemplates = sqliteTable('checklist_templates', {
 	// #783: トライアル終了時の超過リソース archive
 	isArchived: integer('is_archived').notNull().default(0),
 	archivedReason: text('archived_reason'),
+	// #1168: 持ち物チェックリスト (item) / ルーティンチェックリスト (routine) の種別分離
+	kind: text('kind').notNull().default('routine'),
 });
 
 // ============================================================
