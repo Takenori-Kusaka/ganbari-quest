@@ -279,6 +279,13 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 ### その他
 
 - [ ] **用語変更**: 変更した用語が他の画面・コンポーネントにも存在しないか `grep` で全件確認した
+- [ ] **labels SSOT (ADR-0037)**: 追加/変更したユーザー向け文言 (プラン名・年齢モード名・機能名・固有名詞) が以下を満たすか確認した
+  - [ ] 文字列は `src/lib/domain/labels.ts` に定数/関数として定義されている (新規追加時)
+  - [ ] アプリ側 (`src/**`) は `labels.ts` から import して使用 (リテラル直書きなし)
+  - [ ] LP 側 (`site/**`) は `site/shared-labels.js` の `data-label` 属性経由で注入 (HTML 直書きなし)
+  - [ ] 新規 label 追加時: `node scripts/generate-lp-labels.mjs` を実行して `site/shared-labels.js` を再生成した
+  - [ ] SEO 用 `<meta>` タグなど SSOT 例外ケースは ADR-0037 の例外条件に合致し、`labels.ts` の値と完全一致することを手動確認した
+  - [ ] N/A — ユーザー向け文言の追加/変更なし
 - [ ] **UI構造変更**: チュートリアル（`tutorial-chapters.ts`）の説明文・セレクタが変更と整合しているか確認した
 - [ ] **カラー・スタイル**: hex カラー直書き・Tailwind デフォルト色クラスの新規追加をしていない（`docs/reference/color-mapping.md` 参照）
 - [ ] **プリミティブ**: Button/Card/FormField 等の共通コンポーネントを使用し、生の `<button>`/`<div>` でUI要素を作っていない
