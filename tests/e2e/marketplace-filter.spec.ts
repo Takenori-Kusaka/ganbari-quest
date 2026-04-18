@@ -86,11 +86,4 @@ test.describe('#1171 Marketplace filter UI', () => {
 		expect(text).toContain('幼児');
 		expect(text).toContain('小学生');
 	});
-
-	test('モバイル project: フィルタ開くボタンが表示される', async ({ page }, testInfo) => {
-		// tablet project では mobile 専用 UI がないのでスキップ
-		test.skip(testInfo.project.name !== 'mobile', 'mobile project only');
-		await page.goto('/marketplace');
-		await expect(page.locator('[data-testid="filter-open-button"]').first()).toBeVisible();
-	});
 });

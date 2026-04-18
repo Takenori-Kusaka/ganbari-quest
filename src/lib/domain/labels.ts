@@ -383,7 +383,6 @@ export const MARKETPLACE_FILTER_LABELS = {
 export type MarketplaceGender = 'boy' | 'girl' | 'neutral';
 export type MarketplaceSortKey = keyof typeof MARKETPLACE_FILTER_LABELS.sortOptions;
 
-
 // ============================================================
 // チュートリアル関連ラベル（#961 QA: quickMode 対応）
 // ============================================================
