@@ -38,7 +38,7 @@ gh pr diff <番号>
 | B. Issue AC 突合 | Acceptance Criteria を 1 行ずつ検証 |
 | C. テスト品質 | ADR-0020 準拠、境界値・異常系・競合をカバー |
 | D. 横展開 | parallel-implementations.md の 8 カテゴリをチェック |
-| E. CSS/デザイン | docs/DESIGN.md §9 禁忌事項 5 点（色/タップサイズ/用語/プリミティブ/内部コード露出） |
+| E. CSS/デザイン | docs/DESIGN.md §9 禁忌事項 5 点（色/タップサイズ/用語/プリミティブ/内部コード露出）。**ADR-0037: LP の静的置換 PR を見たら即「SSOT 化できないか」を問う** |
 | F. 設計書同期 | docs/CLAUDE.md の更新ルール表に該当する変更があれば設計書更新済みか |
 | G. セキュリティ | 入力検証・認証・XSS・SQLi・OWASP Top 10 |
 | H. 文書化 | 発見事項を全て文書化（指摘ゼロでマージは禁止） |
