@@ -75,6 +75,7 @@
 - [ADR-0034](decisions/0034-pre-pmf-security-minimum.md) — Pre-PMF セキュリティ最小化方針（HMAC + API Gateway throttling + Budgets / 監査ログ DynamoDB / WAF / ブルート検知は Pre-PMF では不採用）
 - [ADR-0035](decisions/0035-design-policy-pre-approval.md) — 設計ポリシー先行確認フロー（新機能 / 新 interface は実装前に PO 合意を必須化）
 - [ADR-0036](decisions/0036-marketplace-public-access.md) — マーケットプレイス公開アクセス設計（閲覧パブリック / インポート認証必須）
+- [ADR-0037](decisions/0037-labels-ssot-principle.md) — 全ユーザー向け文言の SSOT 化原則（labels.ts + shared-labels.js を介さないハードコード禁止、BANNED_TERMS で CI 検出）
 
 ## ローカル Cognito 認証検証環境 (#1026)
 
