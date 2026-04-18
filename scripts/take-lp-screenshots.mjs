@@ -70,7 +70,7 @@ const FEATURE_SCREENSHOTS = [
 		label: '機能: 成長記録(管理)',
 	},
 	{ url: '/demo/elementary/achievements', file: 'feature-titles', label: '機能: 称号' },
-	{ url: '/demo/checklist', file: 'feature-checklist', label: '機能: チェックリスト' },
+	{ url: '/demo/checklist', file: 'feature-belongings-checklist', label: '機能: 持ち物チェックリスト' },
 ];
 
 async function waitForApp(page) {

@@ -107,9 +107,9 @@ const FEATURE_SCREENSHOTS = [
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 	{
-		name: 'feature-checklist',
-		url: '/demo/admin/checklists',
-		description: 'Features: やることリスト',
+		name: 'feature-belongings-checklist',
+		url: '/demo/checklist',
+		description: 'Features: 持ち物チェックリスト (子供画面)',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 	{
