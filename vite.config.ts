@@ -46,8 +46,12 @@ export default defineConfig({
 					globals: true,
 				},
 			},
-			// Storybook browser test — ローカルのみ（CIではPlaywrightブラウザ未インストール）
-			...(process.env.CI
+			// Storybook browser test — 明示的 opt-in（STORYBOOK_TESTS=true）時のみ有効。
+			// CIは `process.env.CI` で skip、ローカルの `npx vitest run` は既定で skip。
+			// #1168: 並列実行時にChromium接続が不安定で周辺テストを巻き添え timeout させていたため、
+			// 明示指定なしでは起動しない方針に変更（Storybook テストを実行したい場合は
+			// `STORYBOOK_TESTS=true npx vitest run` または `npm run test:storybook` を使う）。
+			...(process.env.CI || process.env.STORYBOOK_TESTS !== 'true'
 				? []
 				: [
 						{
