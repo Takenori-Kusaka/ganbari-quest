@@ -201,7 +201,7 @@ async function notifyDiscord(result: OverallStatus): Promise<void> {
 	try {
 		const payload = JSON.stringify({ embeds: [embed] });
 
-		await new Promise<void>((resolve, reject) => {
+		await new Promise<void>((resolve, _reject) => {
 			const url = new URL(DISCORD_WEBHOOK_URL);
 			const options: https.RequestOptions = {
 				hostname: url.hostname,

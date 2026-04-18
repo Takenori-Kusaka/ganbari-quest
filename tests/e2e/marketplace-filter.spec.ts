@@ -37,9 +37,7 @@ test.describe('#1171 Marketplace filter UI', () => {
 		await expect(page).toHaveURL(/\/marketplace\/?$/);
 	});
 
-	test('年齢フィルタのラベルは内部コード (kinder/preschool 等) を露出しない', async ({
-		page,
-	}) => {
+	test('年齢フィルタのラベルは内部コード (kinder/preschool 等) を露出しない', async ({ page }) => {
 		await page.goto('/marketplace');
 		const desktopPanel = page.locator('[data-testid="filter-panel-desktop"]').first();
 		const text = (await desktopPanel.textContent()) ?? '';
