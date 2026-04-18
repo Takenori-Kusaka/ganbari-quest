@@ -7,6 +7,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 
 const TERMS = ['持ち物チェックリスト', 'ルーティンチェックリスト', 'やることリスト'] as const;
@@ -16,29 +17,19 @@ function loadHtml(relPath: string): string {
 }
 
 /**
- * <p>, <li>, <h1>..<h6>, <span> のテキストノードを抽出。
- * HTML コメントとタグは剥がす。AST 的には <br> は段落境界とみなさない
- * （同一段落内に存在 = 混在とみなす）。
+ * <p>, <li>, <h1>..<h6>, <td>, <th> のテキストノードを抽出。
+ * JSDOM ベースで正確に AST パース（正規表現による HTML ストリップは CodeQL
+ * js/incomplete-multi-character-sanitization で警告されるため避ける）。
+ * <br> は段落境界とみなさない（同一段落内に存在 = 混在とみなす）。
  */
 function extractParagraphTexts(html: string): string[] {
-	// script/style ブロック除去
-	const stripped = html
-		.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-		.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
-		.replace(/<!--[\s\S]*?-->/g, '');
-
+	const dom = new JSDOM(html);
+	const doc = dom.window.document;
 	const paragraphs: string[] = [];
-	// <p>, <h1>-<h6>, <li>, <td>, <th> — いずれも同タグがネストしない前提のブロック要素のみ。
-	// <div>/<span> は再帰ネストするため greedy/lazy 双方で壊れるので対象外 (mixing 検出は個別要素で十分)。
-	const tagRegex = /<(p|li|h[1-6]|td|th)\b[^>]*>([\s\S]*?)<\/\1>/gi;
-	for (const match of stripped.matchAll(tagRegex)) {
-		// 内部のタグを剥がして生のテキストだけにする
-		const rawInner = match[2] ?? '';
-		const inner = rawInner
-			.replace(/<[^>]+>/g, ' ')
-			.replace(/\s+/g, ' ')
-			.trim();
-		if (inner.length > 0) paragraphs.push(inner);
+	const selectors = ['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'td', 'th'];
+	for (const el of doc.querySelectorAll(selectors.join(','))) {
+		const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+		if (text.length > 0) paragraphs.push(text);
 	}
 	return paragraphs;
 }
