@@ -9,6 +9,7 @@ import {
 	checklistTemplateItems,
 	checklistTemplates,
 } from '../schema';
+import type { InsertChecklistTemplateInput, UpdateChecklistTemplateInput } from '../types';
 
 // ============================================================
 // Templates
@@ -36,31 +37,13 @@ export async function findTemplateById(id: number, _tenantId: string) {
 	return db.select().from(checklistTemplates).where(eq(checklistTemplates.id, id)).get();
 }
 
-export async function insertTemplate(
-	input: {
-		childId: number;
-		name: string;
-		icon?: string;
-		pointsPerItem?: number;
-		completionBonus?: number;
-		timeSlot?: string;
-		isActive?: number;
-	},
-	_tenantId: string,
-) {
+export async function insertTemplate(input: InsertChecklistTemplateInput, _tenantId: string) {
 	return db.insert(checklistTemplates).values(input).returning().get();
 }
 
 export async function updateTemplate(
 	id: number,
-	input: {
-		name?: string;
-		icon?: string;
-		pointsPerItem?: number;
-		completionBonus?: number;
-		timeSlot?: string;
-		isActive?: number;
-	},
+	input: UpdateChecklistTemplateInput,
 	_tenantId: string,
 ) {
 	return db
