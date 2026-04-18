@@ -38,7 +38,7 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		await expect(familyCard).toContainText('きょうだいランキング');
 		await expect(familyCard).toContainText('ひとことメッセージ');
 		await expect(familyCard).toContainText('無制限の履歴保持');
-		await expect(familyCard).toContainText('24時間以内応答');
+		await expect(familyCard).toContainText('メールサポート');
 	});
 
 	test('棚卸しで削除された項目は standard / family カードに表示されない', async ({ page }) => {
