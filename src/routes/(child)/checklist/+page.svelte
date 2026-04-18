@@ -1,6 +1,11 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import {
+	CHECKLIST_KIND_ICONS,
+	CHECKLIST_KIND_LABELS,
+	type ChecklistKind,
+} from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
@@ -55,6 +60,17 @@ function handleCompleteClose() {
 	completeData = null;
 	invalidateAll();
 }
+
+// #1168: 種別ごとにグルーピング（ルーティンを先に表示）
+const kindOrder: ChecklistKind[] = ['routine', 'item'];
+const groupedChecklists = $derived(
+	kindOrder
+		.map((kind) => ({
+			kind,
+			lists: data.checklists.filter((cl) => (cl.kind ?? 'routine') === kind),
+		}))
+		.filter((g) => g.lists.length > 0),
+);
 </script>
 
 <svelte:head>
@@ -78,7 +94,12 @@ function handleCompleteClose() {
 			<p class="text-sm">おやにおねがいしてね</p>
 		</div>
 	{:else}
-		{#each data.checklists as checklist (checklist.templateId)}
+		{#each groupedChecklists as group (group.kind)}
+			<!-- #1168: 種別見出し -->
+			<h2 class="text-base font-bold mt-[var(--sp-md)] mb-[var(--sp-xs)] px-[var(--sp-xs)] text-[var(--color-text-secondary)]">
+				{CHECKLIST_KIND_ICONS[group.kind]} {CHECKLIST_KIND_LABELS[group.kind]}
+			</h2>
+			{#each group.lists as checklist (checklist.templateId)}
 			<Card padding="none" class="mb-[var(--sp-md)] {isCurrentSlot(checklist.timeSlot) ? 'ring-2 ring-[var(--theme-primary)]' : 'opacity-70'}">
 				{#snippet children()}
 				<!-- Template header -->
@@ -164,6 +185,7 @@ function handleCompleteClose() {
 				</div>
 				{/snippet}
 			</Card>
+			{/each}
 		{/each}
 	{/if}
 
