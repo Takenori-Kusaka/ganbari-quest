@@ -202,6 +202,8 @@ export interface ChecklistTemplate {
 	isActive: number;
 	isArchived: number;
 	archivedReason: string | null;
+	// #1168: 持ち物 ('item') / ルーティン ('routine') チェックリスト種別
+	kind: string;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -370,6 +372,8 @@ export interface InsertChecklistTemplateInput {
 	completionBonus?: number;
 	timeSlot?: string;
 	isActive?: number;
+	// #1168: 'item' | 'routine' (default 'routine')
+	kind?: string;
 }
 
 export interface UpdateChecklistTemplateInput {
@@ -379,6 +383,7 @@ export interface UpdateChecklistTemplateInput {
 	completionBonus?: number;
 	timeSlot?: string;
 	isActive?: number;
+	kind?: string;
 }
 
 export interface InsertChecklistTemplateItemInput {

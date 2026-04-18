@@ -67,6 +67,8 @@ export interface TodayChecklist {
 	templateName: string;
 	templateIcon: string;
 	timeSlot: TimeSlot;
+	// #1168: 'item' | 'routine' — 子供画面で種別グルーピング表示に使用
+	kind: string;
 	pointsPerItem: number;
 	completionBonus: number;
 	items: ChecklistItem[];
@@ -163,6 +165,7 @@ export async function getTodayChecklist(
 		templateName: template.name,
 		templateIcon: template.icon,
 		timeSlot: (template.timeSlot ?? 'anytime') as TimeSlot,
+		kind: template.kind ?? 'routine',
 		pointsPerItem: template.pointsPerItem,
 		completionBonus: template.completionBonus,
 		items,
@@ -318,6 +321,8 @@ export async function createTemplate(
 		pointsPerItem?: number;
 		completionBonus?: number;
 		timeSlot?: string;
+		// #1168: 'item' | 'routine' — default 'routine'
+		kind?: string;
 	},
 	tenantId: string,
 ) {
@@ -329,6 +334,7 @@ export async function createTemplate(
 			pointsPerItem: input.pointsPerItem ?? 2,
 			completionBonus: input.completionBonus ?? 5,
 			timeSlot: input.timeSlot ?? 'anytime',
+			kind: input.kind ?? 'routine',
 		},
 		tenantId,
 	);
@@ -343,6 +349,7 @@ export async function editTemplate(
 		completionBonus?: number;
 		timeSlot?: string;
 		isActive?: number;
+		kind?: string;
 	},
 	tenantId: string,
 ) {

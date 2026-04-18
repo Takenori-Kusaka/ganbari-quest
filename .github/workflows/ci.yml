@@ -196,6 +196,44 @@ jobs:
         if: github.event_name == 'pull_request'
         run: node scripts/check-test-antipatterns.js
 
+  # #1168: Storybook browser test を CI 必須化（従来はローカルのみ flaky 運用で品質ゲート外だった）。
+  # playwright/chromium をインストールして npm run test:storybook を実行する。
+  # stories / primitives / components / .storybook のいずれか変更時に走る。
+  storybook-test:
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright deps (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run Storybook tests
+        run: npm run test:storybook
+
   e2e-test:
     runs-on: ubuntu-latest
     # #923 Phase 1: lint-and-test 依存を外して並列化 (-2m 44s)。
@@ -384,6 +422,7 @@ jobs:
         lint-and-test,
         unit-test,
         unit-test-merge,
+        storybook-test,
         e2e-test,
         e2e-merge-reports,
         docker-build,
