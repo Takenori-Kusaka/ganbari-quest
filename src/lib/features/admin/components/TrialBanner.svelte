@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { TRIAL_LABELS } from '$lib/domain/labels';
 
 interface Props {
 	isTrialActive: boolean;
@@ -34,23 +35,23 @@ let submitting = $state(false);
 		<div class="trial-content">
 			<p class="trial-title">
 				{#if isUrgent}
-					無料体験は明日で終了します
+					{TRIAL_LABELS.bannerTitleUrgent}
 				{:else}
-					無料体験中（残り{daysRemaining}日）
+					{TRIAL_LABELS.bannerTitleActive(daysRemaining)}
 				{/if}
 			</p>
-			<p class="trial-desc">全機能をお試しいただけます。</p>
+			<p class="trial-desc">{TRIAL_LABELS.bannerDescActive}</p>
 		</div>
 		<a href="/admin/license" class="trial-cta" data-testid="trial-banner-active-cta">
-			プランを見る
+			{TRIAL_LABELS.bannerCtaNotStarted}
 		</a>
 	</div>
 {:else if canStartTrial}
 	<div class="trial-banner not-started" data-testid="trial-banner-not-started">
 		<div class="trial-icon">🎁</div>
 		<div class="trial-content">
-			<p class="trial-title">7日間、全機能を無料で試せます</p>
-			<p class="trial-desc">スタンダードプランのすべての機能をお使いいただけます。カード登録不要。</p>
+			<p class="trial-title">{TRIAL_LABELS.bannerTitleNotStarted}</p>
+			<p class="trial-desc">{TRIAL_LABELS.bannerDescNotStarted}</p>
 		</div>
 		<form
 			method="POST"
@@ -72,7 +73,7 @@ let submitting = $state(false);
 				disabled={submitting}
 				data-testid="trial-banner-start-button"
 			>
-				{submitting ? '開始中...' : '7日間 無料で試す'}
+				{submitting ? TRIAL_LABELS.bannerCtaSubmitting : TRIAL_LABELS.bannerCtaStart}
 			</button>
 		</form>
 	</div>
@@ -80,15 +81,15 @@ let submitting = $state(false);
 	<div class="trial-banner expired" data-testid="trial-banner-expired">
 		<div class="trial-icon">📦</div>
 		<div class="trial-content">
-			<p class="trial-title">無料体験が終了しました</p>
+			<p class="trial-title">{TRIAL_LABELS.bannerTitleExpired}</p>
 			{#if hasArchivedResources}
-				<p class="trial-desc">一部のデータが制限されています。アップグレードですべて復元できます。</p>
+				<p class="trial-desc">{TRIAL_LABELS.bannerDescExpiredWithArchive}</p>
 			{:else}
-				<p class="trial-desc">アップグレードで全機能をご利用いただけます。</p>
+				<p class="trial-desc">{TRIAL_LABELS.bannerDescExpired}</p>
 			{/if}
 		</div>
 		<a href="/admin/license" class="trial-cta upgrade" data-testid="trial-banner-expired-cta">
-			⭐ アップグレード
+			{TRIAL_LABELS.bannerCtaExpired}
 		</a>
 	</div>
 {/if}

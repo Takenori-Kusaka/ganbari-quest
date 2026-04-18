@@ -20,6 +20,7 @@
 //  5. tests/unit/domain/plan-features.test.ts の期待値を更新
 
 import type { PlanKey } from './labels';
+import { ACTION_LABELS, TRIAL_LABELS } from './labels';
 
 /**
  * プラン料金カードに表示する機能リスト（/pricing/+page.svelte 用）
@@ -161,7 +162,7 @@ export const PRICING_PAGE_META: Record<PlanKey, PricingPageMeta> = {
 		unit: '/月',
 		yearlyPrice: '年額 ¥5,000（2ヶ月分お得）',
 		shortDescription: 'カスタマイズ自由自在。お子さまにぴったりの環境を。',
-		ctaLabel: '7日間 無料体験',
+		ctaLabel: `${TRIAL_LABELS.durationDays}日間 ${ACTION_LABELS.freeTrial}`,
 		ctaHref: '/auth/signup?plan=standard',
 		recommended: true,
 		badge: 'おすすめ',
@@ -173,7 +174,7 @@ export const PRICING_PAGE_META: Record<PlanKey, PricingPageMeta> = {
 		unit: '/月',
 		yearlyPrice: '年額 ¥7,800（2ヶ月分お得）',
 		shortDescription: '全機能解放。きょうだいの成長をまとめて見守れます。',
-		ctaLabel: '7日間 無料体験',
+		ctaLabel: `${TRIAL_LABELS.durationDays}日間 ${ACTION_LABELS.freeTrial}`,
 		ctaHref: '/auth/signup?plan=family',
 		recommended: false,
 	},
