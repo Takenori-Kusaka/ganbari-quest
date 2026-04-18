@@ -1,4 +1,5 @@
 <script lang="ts">
+import { PLAN_SHORT_LABELS, PREMIUM_MODAL_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
@@ -16,48 +17,43 @@ function handleOpenChange(details: { open: boolean }) {
 }
 </script>
 
-<Dialog bind:open onOpenChange={handleOpenChange} title="⭐ プランをアップグレード" testid="premium-modal">
+<Dialog bind:open onOpenChange={handleOpenChange} title={PREMIUM_MODAL_LABELS.dialogTitle} testid="premium-modal">
 	<p class="modal-description">
-		カスタマイズ機能でお子さまにぴったりの環境を作りましょう！
+		{PREMIUM_MODAL_LABELS.description}
 	</p>
 
 	<!-- スタンダードプラン -->
 	<div class="plan-card">
 		<div class="plan-header">
-			<h3 class="plan-name">スタンダード</h3>
-			<span class="plan-price">¥500<span class="plan-price-unit">/月〜</span></span>
+			<h3 class="plan-name">{PLAN_SHORT_LABELS.standard}</h3>
+			<span class="plan-price">{PREMIUM_MODAL_LABELS.priceStandard}<span class="plan-price-unit">{PREMIUM_MODAL_LABELS.priceUnit}</span></span>
 		</div>
 		<ul class="plan-features">
-			<li>✅ オリジナル活動の追加・編集</li>
-			<li>✅ チェックリストのカスタマイズ</li>
-			<li>✅ ごほうびリストの自由設定</li>
-			<li>✅ 子供の登録無制限</li>
-			<li>✅ データのエクスポート</li>
+			{#each PREMIUM_MODAL_LABELS.standardFeatures as feature (feature)}
+				<li>{feature}</li>
+			{/each}
 		</ul>
 	</div>
 
 	<!-- ファミリープラン -->
 	<div class="plan-card plan-card--family">
 		<div class="plan-header">
-			<h3 class="plan-name">ファミリー</h3>
-			<span class="plan-price">¥780<span class="plan-price-unit">/月〜</span></span>
+			<h3 class="plan-name">{PLAN_SHORT_LABELS.family}</h3>
+			<span class="plan-price">{PREMIUM_MODAL_LABELS.priceFamily}<span class="plan-price-unit">{PREMIUM_MODAL_LABELS.priceUnit}</span></span>
 		</div>
 		<ul class="plan-features">
-			<li>✅ スタンダードの全機能</li>
-			<li>✅ 無制限の履歴保持</li>
-			<li>✅ きょうだいの比較</li>
-			<li>✅ 年間サマリーレポート</li>
+			{#each PREMIUM_MODAL_LABELS.familyFeatures as feature (feature)}
+				<li>{feature}</li>
+			{/each}
 		</ul>
 	</div>
 
-	<p class="trial-note">7日間の無料トライアル付き</p>
-
 	<div class="modal-actions">
 		<Button variant="primary" size="lg" class="w-full" onclick={() => { window.location.href = '/admin/license'; }}>
-			アップグレードする
+			{PREMIUM_MODAL_LABELS.ctaUpgrade}
 		</Button>
 		<button type="button" class="later-link" onclick={onclose}>
-			あとで
+			{PREMIUM_MODAL_LABELS.ctaLater}
 		</button>
 	</div>
 </Dialog>
@@ -114,14 +110,6 @@ function handleOpenChange(details: { open: boolean }) {
 		flex-direction: column;
 		gap: 4px;
 		font-size: 0.85rem;
-	}
-
-	.trial-note {
-		text-align: center;
-		color: var(--color-premium);
-		font-size: 0.85rem;
-		font-weight: 600;
-		margin: var(--sp-md) 0;
 	}
 
 	.modal-actions {

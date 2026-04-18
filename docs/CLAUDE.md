@@ -90,6 +90,7 @@
 - [ADR-0035](decisions/0035-design-policy-pre-approval.md) — 設計ポリシー先行確認フロー（新機能 / 新 interface は実装前に PO 合意を必須化）
 - [ADR-0036](decisions/0036-marketplace-public-access.md) — マーケットプレイス公開アクセス設計（閲覧パブリック / インポート認証必須）
 - [ADR-0037](decisions/0037-labels-ssot-principle.md) — 全ユーザー向け文言の SSOT 化原則（labels.ts + shared-labels.js を介さないハードコード禁止、BANNED_TERMS で CI 検出）
+- [ADR-0038](decisions/0038-ac-verification-evidence.md) — AC 検証エビデンス必須化（Issue テンプレ ac-verification-plan / PR AC 検証マップ / CI による機械強制）
 
 ## ローカル Cognito 認証検証環境 (#1026)
 
@@ -100,8 +101,9 @@
 
 ```bash
 npm run dev:cognito
-# → AUTH_MODE=cognito COGNITO_DEV_MODE=true vite dev --port 5174
+# → AUTH_MODE=cognito COGNITO_DEV_MODE=true vite dev --port 5174 --strictPort
 # → http://localhost:5174 で Cognito モック認証が有効
+# → 既に 5174 が使用中だと即 fail する（--strictPort: #1168 で 5175 fallback の 500 回避）
 ```
 
 ### DEV_USERS 一覧
