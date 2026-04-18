@@ -83,3 +83,5 @@
 | 0034 | [Pre-PMF セキュリティ最小化方針（HMAC + API Gateway throttling + Budgets）](0034-pre-pmf-security-minimum.md) | accepted | 2026-04-16 |
 | 0035 | [設計ポリシー先行確認フロー（新機能は実装前に PO 合意必須）](0035-design-policy-pre-approval.md) | accepted | 2026-04-17 |
 | 0036 | [マーケットプレイス公開アクセス設計（閲覧パブリック / インポート認証必須）](0036-marketplace-public-access.md) | accepted | 2026-04-18 |
+| 0037 | [全ユーザー向け文言の SSOT 化原則](0037-labels-ssot-principle.md) | accepted | 2026-04-18 |
+| 0038 | [AC 検証エビデンス必須化 (Issue close gate + PR AC 検証マップ)](0038-ac-verification-evidence.md) | accepted | 2026-04-18 |
