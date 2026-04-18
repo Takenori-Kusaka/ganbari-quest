@@ -221,6 +221,88 @@ export function getChecklistKindShortLabel(kind: string): string {
 }
 
 // ============================================================
+// UI アクション共通ラベル（一括置換容易化のための SSOT）
+// ============================================================
+
+/**
+ * UI アクションで頻出する動詞・CTA 文言の SSOT。
+ * 「アップグレード」「プランを見る」「あとで」「無料体験」等、
+ * プロダクト全体で一貫させたい用語をここに集約する。
+ *
+ * labels.ts 内でもハードコードせず ACTION_LABELS を参照することで、
+ * 将来「アップグレード → プラン変更」等の一括置換がこのファイル 1 行の
+ * 変更で済むようにする（#1166 + #1174）。
+ */
+export const ACTION_LABELS = {
+	upgrade: 'アップグレード',
+	viewPlans: 'プランを見る',
+	later: 'あとで',
+	freeTrial: '無料体験',
+	freeTrialWord: '無料で試す',
+	submitting: '開始中...',
+} as const;
+
+// ============================================================
+// トライアル関連ラベル（#1166 景品表示法準拠）
+// ============================================================
+
+/**
+ * トライアル仕様の仕様書:
+ *  - Stripe Checkout 側は trial_period_days を使用しない（stripe-service.ts #314）
+ *  - アプリ内 trial-service で一元管理（DEFAULT_TRIAL_DAYS = 7）
+ *  - ユーザーが /admin/license から明示的にボタンを押して開始
+ *  - クレジットカード登録不要、7 日後の自動課金なし
+ *  - 終了後は無料プランに自動移行（tokushoho.html / terms.html と整合）
+ *
+ * 上記仕様のため、登録 CTA の下に「付帯」表記を書くと「登録すれば自動で
+ * トライアル付帯」と誤認させる景品表示法リスクがある（Issue #1166 参照）。
+ * 登録・購入系 CTA には「付帯」「付き」などの表記を書かないこと。
+ * CI: scripts/check-forbidden-terms.mjs が完全一致禁止語を検出する。
+ */
+export const TRIAL_LABELS = {
+	durationDays: 7,
+	bannerTitleActive: (days: number) => `${ACTION_LABELS.freeTrial}中（残り${days}日）`,
+	bannerTitleUrgent: `${ACTION_LABELS.freeTrial}は明日で終了します`,
+	bannerDescActive: '全機能をお試しいただけます。',
+	bannerTitleNotStarted: `7日間、全機能を${ACTION_LABELS.freeTrialWord}ます`,
+	bannerDescNotStarted: `${PLAN_LABELS.standard}のすべての機能をお使いいただけます。カード登録不要。`,
+	bannerCtaNotStarted: ACTION_LABELS.viewPlans,
+	bannerCtaStart: `7日間 ${ACTION_LABELS.freeTrialWord}`,
+	bannerCtaSubmitting: ACTION_LABELS.submitting,
+	bannerTitleExpired: `${ACTION_LABELS.freeTrial}が終了しました`,
+	bannerDescExpired: `${ACTION_LABELS.upgrade}で全機能をご利用いただけます。`,
+	bannerDescExpiredWithArchive: `一部のデータが制限されています。${ACTION_LABELS.upgrade}ですべて復元できます。`,
+	bannerCtaExpired: `⭐ ${ACTION_LABELS.upgrade}`,
+} as const;
+
+// ============================================================
+// PremiumModal 用ラベル（#1166 labels.ts SSOT 化）
+// ============================================================
+
+export const PREMIUM_MODAL_LABELS = {
+	dialogTitle: `⭐ プランを${ACTION_LABELS.upgrade}`,
+	description: 'カスタマイズ機能でお子さまにぴったりの環境を作りましょう！',
+	standardFeatures: [
+		'✅ オリジナル活動の追加・編集',
+		'✅ チェックリストのカスタマイズ',
+		'✅ ごほうびリストの自由設定',
+		'✅ 子供の登録無制限',
+		'✅ データのエクスポート',
+	],
+	familyFeatures: [
+		`✅ ${PLAN_SHORT_LABELS.standard}の全機能`,
+		'✅ 無制限の履歴保持',
+		'✅ きょうだいの比較',
+		'✅ 年間サマリーレポート',
+	],
+	priceStandard: '¥500',
+	priceFamily: '¥780',
+	priceUnit: '/月〜',
+	ctaUpgrade: `${ACTION_LABELS.upgrade}する`,
+	ctaLater: ACTION_LABELS.later,
+} as const;
+
+// ============================================================
 // チュートリアル関連ラベル（#961 QA: quickMode 対応）
 // ============================================================
 
