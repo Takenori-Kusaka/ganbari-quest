@@ -123,7 +123,8 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 
 		expect(result).toEqual({ success: true });
 		expect(mockCreateTemplate).toHaveBeenCalledWith(
-			{ childId: 1, name: 'あさの準備', icon: '☀️', timeSlot: 'morning' },
+			// #1168: kind デフォルトは 'routine'
+			{ childId: 1, name: 'あさの準備', icon: '☀️', timeSlot: 'morning', kind: 'routine' },
 			't-test',
 		);
 	});

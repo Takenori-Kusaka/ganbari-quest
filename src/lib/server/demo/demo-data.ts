@@ -1455,6 +1455,8 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 		isActive: 1,
 		isArchived: 0,
 		archivedReason: null,
+		// #1168: 持ち物系（おむつ・きがえ・ぼうし 等のパッキング）
+		kind: 'item',
 		createdAt: NOW,
 		updatedAt: NOW,
 	},
@@ -1469,6 +1471,8 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 		isActive: 1,
 		isArchived: 0,
 		archivedReason: null,
+		// #1168: ルーティン（はみがき・きがえ・あさごはん 等の行動）
+		kind: 'routine',
 		createdAt: NOW,
 		updatedAt: NOW,
 	},
@@ -1483,6 +1487,8 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 		isActive: 1,
 		isArchived: 0,
 		archivedReason: null,
+		// #1168: ルーティン（おふろ・はみがき 等）
+		kind: 'routine',
 		createdAt: NOW,
 		updatedAt: NOW,
 	},
@@ -1497,6 +1503,8 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 		isActive: 1,
 		isArchived: 0,
 		archivedReason: null,
+		// #1168: 持ち物系（教科書・体操着・弁当 等の持ち物チェック）
+		kind: 'item',
 		createdAt: NOW,
 		updatedAt: NOW,
 	},
@@ -1511,6 +1519,8 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 		isActive: 1,
 		isArchived: 0,
 		archivedReason: null,
+		// #1168: 持ち物系
+		kind: 'item',
 		createdAt: NOW,
 		updatedAt: NOW,
 	},

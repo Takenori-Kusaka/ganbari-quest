@@ -1,6 +1,12 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import {
+	CHECKLIST_KIND_ICONS,
+	CHECKLIST_KIND_LABELS,
+	CHECKLIST_KIND_SHORT_LABELS,
+	type ChecklistKind,
+} from '$lib/domain/labels';
 import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
@@ -12,6 +18,8 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 let { data } = $props();
 
 let selectedChildId = $state(0);
+// #1168: 選択中のチェックリスト種別タブ（'item' | 'routine'）
+let selectedKind = $state<ChecklistKind>('routine');
 
 $effect(() => {
 	const first = data.children[0];
@@ -22,9 +30,15 @@ $effect(() => {
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
+// #1168: タブで絞ったテンプレート一覧（既存データは kind='routine' にbackfill済み）
+const filteredTemplates = $derived(
+	selectedChild?.templates.filter((t) => (t.kind ?? 'routine') === selectedKind) ?? [],
+);
+
 // #723: Free プランのテンプレート上限（UI ゲート用）
 // null = 無制限（Standard/Family）
 const checklistMax = $derived(data.checklistTemplateMax);
+// 上限は kind 合算で判定（プラン制約は種別に依らない）
 const currentCount = $derived(selectedChild?.templates.length ?? 0);
 const atLimit = $derived(checklistMax !== null && currentCount >= checklistMax);
 
@@ -41,6 +55,8 @@ let addTemplateOpen = $state(false);
 let templateName = $state('');
 let templateIcon = $state('📋');
 let templateTimeSlotValue = $state('anytime');
+// #1168: 作成時の種別選択。ダイアログを開いたタブを初期値にする
+let templateKind = $state<ChecklistKind>('routine');
 
 // Override dialog
 let overrideOpen = $state(false);
@@ -101,7 +117,9 @@ function openAddTemplate() {
 	// #723: Free プランで上限到達時はダイアログを開かない（サーバー側でも 403 で拒否）
 	if (atLimit) return;
 	templateName = '';
-	templateIcon = '📋';
+	// #1168: 現在のタブに応じて初期アイコンと kind を決める
+	templateKind = selectedKind;
+	templateIcon = selectedKind === 'item' ? '🎒' : '📋';
 	addTemplateOpen = true;
 }
 
@@ -163,6 +181,23 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 	{/if}
 
 	{#if selectedChild}
+		<!-- #1168: 種別タブ（持ち物 / ルーティン） -->
+		<div class="flex gap-2" role="tablist" aria-label="チェックリスト種別">
+			{#each (['routine', 'item'] as const) as kind}
+				{@const count = selectedChild.templates.filter((t) => (t.kind ?? 'routine') === kind).length}
+				<Button
+					variant={selectedKind === kind ? 'primary' : 'ghost'}
+					size="sm"
+					class={selectedKind === kind ? '' : 'bg-white text-[var(--color-text-secondary)] hover:bg-[var(--color-feedback-info-bg)]'}
+					role="tab"
+					aria-selected={selectedKind === kind}
+					onclick={() => (selectedKind = kind)}
+				>
+					{CHECKLIST_KIND_ICONS[kind]} {CHECKLIST_KIND_SHORT_LABELS[kind]} ({count})
+				</Button>
+			{/each}
+		</div>
+
 		<!-- #720: AI チェックリスト提案パネル -->
 		<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={data.planTier === 'family'} />
 
@@ -182,19 +217,19 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 			<input type="hidden" name="items" value={aiItemsJson} />
 		</form>
 
-		<!-- Templates -->
-		{#if selectedChild.templates.length === 0}
+		<!-- Templates (filtered by selected kind) -->
+		{#if filteredTemplates.length === 0}
 			<Card variant="elevated" padding="lg">
 				{#snippet children()}
 				<div class="text-center text-[var(--color-text-tertiary)]">
-					<p class="text-3xl mb-2">📋</p>
-					<p>チェックリストがまだありません</p>
+					<p class="text-3xl mb-2">{CHECKLIST_KIND_ICONS[selectedKind]}</p>
+					<p>{CHECKLIST_KIND_LABELS[selectedKind]}がまだありません</p>
 				</div>
 				{/snippet}
 			</Card>
 		{/if}
 
-		{#each selectedChild.templates as template (template.id)}
+		{#each filteredTemplates as template (template.id)}
 			<Card variant="default" padding="none">
 				{#snippet children()}
 				<!-- Template header -->
@@ -380,7 +415,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 </div>
 
 <!-- Add template dialog -->
-<Dialog bind:open={addTemplateOpen} closable={true} title="テンプレート作成">
+<Dialog bind:open={addTemplateOpen} closable={true} title={`${CHECKLIST_KIND_LABELS[templateKind]}テンプレート作成`}>
 	<form
 		method="POST"
 		action="?/createTemplate"
@@ -392,7 +427,26 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 	>
 		<input type="hidden" name="childId" value={selectedChildId} />
 
-		<FormField label="名前" type="text" name="name" bind:value={templateName} placeholder="例: がっこうのもちもの" required />
+		<!-- #1168: 種別選択（持ち物 / ルーティン） -->
+		<div>
+			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">種別</span>
+			<div class="flex gap-2">
+				{#each (['routine', 'item'] as const) as kind}
+					<Button
+						type="button"
+						variant={templateKind === kind ? 'primary' : 'ghost'}
+						size="sm"
+						class={templateKind === kind ? 'flex-1' : 'flex-1 bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]'}
+						onclick={() => (templateKind = kind)}
+					>
+						{CHECKLIST_KIND_ICONS[kind]} {CHECKLIST_KIND_LABELS[kind]}
+					</Button>
+				{/each}
+			</div>
+			<input type="hidden" name="kind" value={templateKind} />
+		</div>
+
+		<FormField label="名前" type="text" name="name" bind:value={templateName} placeholder={templateKind === 'item' ? '例: がっこうのもちもの' : '例: あさのルーティン'} required />
 
 		<div>
 			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">アイコン</span>

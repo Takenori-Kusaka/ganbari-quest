@@ -32,7 +32,10 @@ export const NAV_ITEM_LABELS = {
 	messages: 'おうえん',
 	rewards: 'ごほうび',
 	activities: '活動管理',
+	// #1168: チェックリスト（ナビは単一、ページ内タブで「持ち物」「ルーティン」に分離）
 	checklists: 'チェックリスト',
+	itemChecklists: '持ち物チェックリスト',
+	routineChecklists: 'ルーティン',
 	events: 'イベント',
 	challenges: 'チャレンジ',
 	children: 'こども',
@@ -172,7 +175,9 @@ export const FEATURE_LABELS = {
 	growthBook: 'グロースブック',
 	message: 'おうえんメッセージ',
 	reward: 'ごほうび',
-	checklist: 'チェックリスト',
+	// #1168: チェックリストを「持ち物」「ルーティン」に分離
+	checklistItem: '持ち物チェックリスト',
+	checklistRoutine: 'ルーティン',
 	activity: '活動',
 	points: 'ポイント',
 	loginBonus: 'ログインボーナス',
@@ -185,6 +190,35 @@ export const FEATURE_LABELS = {
 	dataExport: 'データエクスポート',
 	aiActivitySuggest: 'AI による活動提案',
 } as const;
+
+// ============================================================
+// チェックリスト種別ラベル（#1168: 持ち物 / ルーティン分離）
+// ============================================================
+
+export const CHECKLIST_KIND_LABELS = {
+	item: '持ち物チェックリスト',
+	routine: 'ルーティン',
+} as const;
+
+export const CHECKLIST_KIND_SHORT_LABELS = {
+	item: '持ち物',
+	routine: 'ルーティン',
+} as const;
+
+export const CHECKLIST_KIND_ICONS = {
+	item: '🎒',
+	routine: '📋',
+} as const;
+
+export type ChecklistKind = keyof typeof CHECKLIST_KIND_LABELS;
+
+export function getChecklistKindLabel(kind: string): string {
+	return CHECKLIST_KIND_LABELS[kind as ChecklistKind] ?? CHECKLIST_KIND_LABELS.routine;
+}
+
+export function getChecklistKindShortLabel(kind: string): string {
+	return CHECKLIST_KIND_SHORT_LABELS[kind as ChecklistKind] ?? CHECKLIST_KIND_SHORT_LABELS.routine;
+}
 
 // ============================================================
 // UI アクション共通ラベル（一括置換容易化のための SSOT）

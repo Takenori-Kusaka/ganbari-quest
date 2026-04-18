@@ -341,7 +341,9 @@ export const SQL_TABLES = `
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		is_archived INTEGER NOT NULL DEFAULT 0,
-		archived_reason TEXT
+		archived_reason TEXT,
+		-- #1168: 持ち物 ('item') / ルーティン ('routine') 種別
+		kind TEXT NOT NULL DEFAULT 'routine'
 	);
 
 	-- ============================================================
