@@ -240,6 +240,8 @@ export const ACTION_LABELS = {
 	freeTrial: '無料体験',
 	freeTrialWord: '無料で試す',
 	submitting: '開始中...',
+	// #1167: 詳細ページへの誘導 CTA。活動パック / マーケット一覧の「中身を確認する」導線に使用
+	viewDetail: 'くわしく見る',
 } as const;
 
 // ============================================================
