@@ -43,6 +43,28 @@ const args = process.argv.slice(2);
 const CHECK_MODE = args.includes('--check');
 
 /**
+ * SSOT 外の野良用語リスト (#1149)。
+ *
+ * LP に混入してはならない非正規用語。正規用語は `src/lib/domain/labels.ts` の
+ * PLAN_LABELS / PLAN_SHORT_LABELS を参照。検出された場合は CI を red にして
+ * 「labels.ts を参照して正規名に差し替える」ことを強制する。
+ *
+ * 追加時は `term` と `canonical` (推奨置換) を両方書くこと。canonical は
+ * エラーメッセージにそのまま出る → 開発者が次に取る行動が自明になる。
+ */
+const BANNED_TERMS = [
+	{ term: 'フリープラン', canonical: '無料プラン (PLAN_LABELS.free)' },
+	{
+		term: 'カスタマーポータル',
+		canonical: 'お支払い管理 / マイページ 等、SSOT に定義した日本語ラベル',
+	},
+	{
+		term: 'サブスクリプション',
+		canonical: '定期プラン / 月額プラン 等、SSOT に定義した日本語ラベル',
+	},
+];
+
+/**
  * `plan-features.ts` から PRICING_PAGE_META と PRICING_PAGE_FEATURES を抽出する。
  * TS コンパイラを使わないので regex ベース。変更に追従するため失敗時は詳細な
  * エラーを投げて早期検知する。
@@ -127,11 +149,18 @@ function htmlContains(haystack, needle) {
  *
  * @param {string} filePath
  * @param {ReturnType<typeof parsePlanFeatures>} ssot
- * @param {{ strictFeatures: boolean; checkYearlyPrice: boolean }} opts
+ * @param {{ strictFeatures: boolean; checkYearlyPrice: boolean; checkFeatures?: boolean }} opts
  *   strictFeatures=true: 全 feature が含まれる必要
- *   checkYearlyPrice=true: 年額価格もチェックする（pamphlet は月額のみなので除外）
+ *   checkYearlyPrice=true: 年額価格もチェックする（pamphlet / index は月額のみなので除外）
+ *   checkFeatures=false: features チェック自体をスキップ（#1141 以降の index.html
+ *     のように feature を要約して書き直す summary セクション用。pricing.html への
+ *     リンクがあり詳細は別ページで担保される場合に使う）
  */
-function verifyHtmlFile(filePath, ssot, { strictFeatures, checkYearlyPrice }) {
+function verifyHtmlFile(
+	filePath,
+	ssot,
+	{ strictFeatures, checkYearlyPrice, checkFeatures = true },
+) {
 	const rel = path.relative(REPO_ROOT, filePath);
 	if (!fs.existsSync(filePath)) {
 		return { rel, errors: [`${rel} が存在しない`] };
@@ -158,22 +187,24 @@ function verifyHtmlFile(filePath, ssot, { strictFeatures, checkYearlyPrice }) {
 	}
 
 	// --- 特典リストチェック ---
-	for (const plan of /** @type {const} */ (['free', 'standard', 'family'])) {
-		const features = ssot.features[plan];
-		if (strictFeatures) {
-			// 完全一致: 全 feature が HTML に substring として存在する必要
-			for (const feature of features) {
-				if (!htmlContains(html, feature)) {
-					errors.push(`[${plan}] feature "${feature}" が HTML に現れない`);
+	if (checkFeatures) {
+		for (const plan of /** @type {const} */ (['free', 'standard', 'family'])) {
+			const features = ssot.features[plan];
+			if (strictFeatures) {
+				// 完全一致: 全 feature が HTML に substring として存在する必要
+				for (const feature of features) {
+					if (!htmlContains(html, feature)) {
+						errors.push(`[${plan}] feature "${feature}" が HTML に現れない`);
+					}
 				}
-			}
-		} else {
-			// 緩和: 少なくとも 1 feature は現れる（プランセクションの存在確認）
-			const anyMatch = features.some((f) => htmlContains(html, f));
-			if (!anyMatch) {
-				errors.push(
-					`[${plan}] features のうち少なくとも 1 つは HTML に現れる必要がある（SSOT と完全に乖離）`,
-				);
+			} else {
+				// 緩和: 少なくとも 1 feature は現れる（プランセクションの存在確認）
+				const anyMatch = features.some((f) => htmlContains(html, f));
+				if (!anyMatch) {
+					errors.push(
+						`[${plan}] features のうち少なくとも 1 つは HTML に現れる必要がある（SSOT と完全に乖離）`,
+					);
+				}
 			}
 		}
 	}
@@ -181,14 +212,50 @@ function verifyHtmlFile(filePath, ssot, { strictFeatures, checkYearlyPrice }) {
 	return { rel, errors };
 }
 
+/**
+ * SSOT 外の野良用語が LP HTML に混入していないかを検証する (#1149)。
+ * 検出した場合は行番号付きで列挙する — grep で該当箇所へ飛びやすいように。
+ *
+ * @param {string} filePath
+ * @returns {{ rel: string; errors: string[] }}
+ */
+function verifyNoBannedTerms(filePath) {
+	const rel = path.relative(REPO_ROOT, filePath);
+	if (!fs.existsSync(filePath)) {
+		return { rel, errors: [] };
+	}
+	const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
+	/** @type {string[]} */
+	const errors = [];
+	for (const { term, canonical } of BANNED_TERMS) {
+		lines.forEach((line, idx) => {
+			if (line.includes(term)) {
+				errors.push(`L${idx + 1}: 野良用語 "${term}" を検出 → 正規用語: ${canonical}`);
+			}
+		});
+	}
+	return { rel, errors };
+}
+
 function main() {
 	const ssot = parsePlanFeatures();
 
+	const lpFiles = [SITE_PRICING_HTML, SITE_INDEX_HTML, SITE_PAMPHLET_HTML];
+
 	const results = [
 		verifyHtmlFile(SITE_PRICING_HTML, ssot, { strictFeatures: true, checkYearlyPrice: true }),
-		verifyHtmlFile(SITE_INDEX_HTML, ssot, { strictFeatures: false, checkYearlyPrice: true }),
+		// #1141 以降、index.html の料金セクションは summary カード (月額のみ・詳細は
+		// pricing.html へリンク) に簡素化された。yearly 価格と feature 詳細は
+		// pricing.html 側で strict チェックされるのでここでは月額価格のみ検証する。
+		verifyHtmlFile(SITE_INDEX_HTML, ssot, {
+			strictFeatures: false,
+			checkYearlyPrice: false,
+			checkFeatures: false,
+		}),
 		verifyHtmlFile(SITE_PAMPHLET_HTML, ssot, { strictFeatures: false, checkYearlyPrice: false }),
 	];
+
+	const bannedResults = lpFiles.map(verifyNoBannedTerms);
 
 	let totalErrors = 0;
 	for (const result of results) {
@@ -203,18 +270,39 @@ function main() {
 		}
 	}
 
-	if (totalErrors > 0) {
+	let totalBanned = 0;
+	for (const result of bannedResults) {
+		if (result.errors.length === 0) {
+			console.log(`✓ ${result.rel}: 野良用語なし`);
+		} else {
+			console.error(`✗ ${result.rel}: 野良用語 ${result.errors.length} 件検出`);
+			for (const err of result.errors) {
+				console.error(`    ${err}`);
+			}
+			totalBanned += result.errors.length;
+		}
+	}
+
+	if (totalErrors > 0 || totalBanned > 0) {
 		console.error('');
-		console.error(`✗ LP と plan-features.ts が ${totalErrors} 箇所で drift しています。`);
-		console.error(
-			'  LP 側（site/*.html）を src/lib/domain/plan-features.ts に合わせて更新してください。',
-		);
+		if (totalErrors > 0) {
+			console.error(`✗ LP と plan-features.ts が ${totalErrors} 箇所で drift しています。`);
+			console.error(
+				'  LP 側（site/*.html）を src/lib/domain/plan-features.ts に合わせて更新してください。',
+			);
+		}
+		if (totalBanned > 0) {
+			console.error(`✗ LP に SSOT 外の野良用語が ${totalBanned} 箇所混入しています (#1149)。`);
+			console.error(
+				'  src/lib/domain/labels.ts の PLAN_LABELS を参照し、正規用語に置換してください。',
+			);
+		}
 		if (CHECK_MODE) {
 			process.exit(1);
 		}
 	} else {
 		console.log('');
-		console.log('✓ 全 LP ファイルが plan-features.ts と同期されています');
+		console.log('✓ 全 LP ファイルが plan-features.ts と同期され、野良用語もありません');
 	}
 }
 
