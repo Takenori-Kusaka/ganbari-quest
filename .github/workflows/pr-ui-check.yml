@@ -24,6 +24,15 @@ on:
       - "src/lib/features/**/*.scss"
       - "src/app.css"
       - "src/app.html"
+      # LP (site/**) — 静的 HTML/CSS/JS/画像のビジュアル変更
+      - "site/**/*.html"
+      - "site/**/*.css"
+      - "site/**/*.js"
+      - "site/**/*.svg"
+      - "site/**/*.png"
+      - "site/**/*.jpg"
+      - "site/**/*.jpeg"
+      - "site/**/*.webp"
 
 permissions:
   contents: read
@@ -54,7 +63,7 @@ jobs:
                   '1. PR本文の「スクリーンショット / ビジュアルデモ」セクションに画像を貼り付け',
                   '2. Playwrightで取得したスクリーンショットを添付',
                   '',
-                  '対象ファイル: src/routes/**, src/lib/ui/**, src/lib/features/**',
+                  '対象ファイル: src/routes/**, src/lib/ui/**, src/lib/features/**, site/**',
                   '',
                   'このチェックはUI関連ファイルを変更したPRでのみ実行されます。',
                   'Draft PRではスキップされます。Ready for Review に変更する前に添付してください。',
