@@ -1,0 +1,56 @@
+name: LP Metrics (dimensions / forbidden terms / CTA variants)
+
+# #1163: LP (site/index.html) のページ肥大化・開発者語彙・CTA 文言散乱を CI で自動検知
+# 閾値違反 / 禁止用語出現 / CTA バリエーション過多 を FAIL にする
+# ratchet ルール: 閾値は下げることのみ許可、上げるには ADR が必要
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "site/**"
+      - "scripts/measure-lp-dimensions.mjs"
+      - ".github/workflows/lp-metrics.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "site/**"
+      - "scripts/measure-lp-dimensions.mjs"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  measure:
+    name: Measure LP dimensions and lint forbidden terms
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run LP metrics
+        run: node scripts/measure-lp-dimensions.mjs --site-dir=site --output=lp-metrics.json
+
+      - name: Upload lp-metrics.json
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lp-metrics
+          path: lp-metrics.json
+          retention-days: 30

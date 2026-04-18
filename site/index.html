@@ -82,146 +82,122 @@
 </script>
 <style>
 /* Hero */
-.hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:80px 16px 60px;text-align:center}
-.hero h1{font-size:2.5rem;font-weight:800;color:var(--gray-900);margin-bottom:16px;line-height:1.3}
+.hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:64px 16px 48px;text-align:center}
+.hero h1{font-size:2.4rem;font-weight:800;color:var(--gray-900);margin-bottom:16px;line-height:1.3}
 .hero h1 span{color:var(--brand-700)}
-.hero-sub{font-size:1.15rem;color:var(--gray-500);margin-bottom:32px;max-width:600px;margin-left:auto;margin-right:auto}
-.hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
-.hero-badges{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
-.badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#fff;border:1px solid var(--gray-300);border-radius:2rem;font-size:.8rem;color:var(--gray-500)}
-.solution-layout{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;max-width:960px;margin:0 auto}
-.solution-text{text-align:left}
-.solution-text h3{font-size:1.3rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
-.solution-text p{font-size:1rem;color:var(--gray-500);margin-bottom:24px;line-height:1.7}
-.solution-illustration{border-radius:16px;overflow:hidden}
-.solution-illustration img{width:100%;height:auto;display:block}
-@media(max-width:768px){.solution-layout{grid-template-columns:1fr;gap:24px}.solution-text{text-align:center}.solution-illustration{max-width:400px;margin:0 auto;border-radius:12px;order:-1}}
+.hero-sub{font-size:1.05rem;color:var(--gray-600);margin-bottom:28px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.7}
+.hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+.hero-note{font-size:.85rem;color:var(--gray-500);margin-bottom:24px}
 
 /* Section */
-.section{padding:64px 16px}
+.section{padding:56px 16px}
 .section-inner{max-width:1080px;margin:0 auto}
-.section-title{font-size:1.8rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:12px}
-.section-desc{text-align:center;color:var(--gray-500);margin-bottom:48px;font-size:1rem}
+.section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:10px;line-height:1.4}
+.section-desc{text-align:center;color:var(--gray-600);margin-bottom:40px;font-size:.98rem;line-height:1.7;max-width:640px;margin-left:auto;margin-right:auto}
 .bg-white{background:#fff}
 .bg-gray{background:var(--gray-50)}
 
-/* Pain scenes */
-.pain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;max-width:900px;margin:0 auto}
-.pain-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px;display:flex;gap:16px;align-items:flex-start}
-.pain-card .pain-icon{font-size:2rem;flex-shrink:0}
-.pain-card .pain-quote{font-size:.95rem;color:var(--gray-700);font-weight:500;margin-bottom:4px}
-.pain-card .pain-detail{font-size:.82rem;color:var(--gray-500);line-height:1.6}
-
-/* Solution */
-.solution-points{display:flex;gap:24px;flex-wrap:wrap;margin-top:24px}
-@media(max-width:768px){.solution-points{justify-content:center}}
-.solution-point{text-align:center;max-width:160px}
-.solution-point .sp-icon{font-size:2rem;margin-bottom:8px}
-.solution-point .sp-label{font-size:.9rem;font-weight:600;color:var(--gray-900)}
-
-/* Before/After */
-.ba-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:24px;max-width:900px;margin:0 auto;align-items:stretch}
-.ba-card{border-radius:var(--radius);padding:28px 24px}
-.ba-before{background:#fff5f5;border:1px solid #fecaca}
-.ba-after{background:#f0fdf4;border:1px solid #bbf7d0}
-.ba-arrow{display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.ba-card h3{font-size:1rem;font-weight:700;margin-bottom:16px}
-.ba-before h3{color:#dc2626}
-.ba-after h3{color:#16a34a}
-.ba-card ul{list-style:none;padding:0}
-.ba-card li{font-size:.9rem;padding:6px 0;display:flex;gap:8px;align-items:flex-start}
-.ba-card li span{flex-shrink:0}
-
-/* Features */
-.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
-.feature-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px;transition:box-shadow .2s}
-.feature-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
-.feature-card h3{font-size:1.1rem;font-weight:600;color:var(--gray-900);margin-bottom:4px}
-.feature-card h3 .feature-icon{font-size:1.2em;margin-right:4px;vertical-align:middle}
-.feature-benefit{font-size:.85rem;color:var(--brand-700);font-weight:500;margin-bottom:8px}
-.feature-card p{font-size:.9rem;color:var(--gray-500);line-height:1.6}
-
-/* Age Modes */
-.age-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px}
-.age-card{text-align:center;background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 16px;transition:box-shadow .2s}
-.age-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
-.age-emoji{font-size:2.5rem;margin-bottom:12px}
-.age-card h3{font-size:1rem;font-weight:600;color:var(--gray-900);margin-bottom:4px}
-.age-range{font-size:.85rem;color:var(--brand-700);font-weight:600;margin-bottom:8px}
-.age-card p{font-size:.82rem;color:var(--gray-500);line-height:1.5}
-
-/* Template Packs */
-.pack-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px;max-width:1000px;margin:0 auto}
-.pack-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px;transition:box-shadow .2s}
-.pack-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
-.pack-icon{font-size:2.5rem;margin-bottom:12px}
-.pack-card h3{font-size:1.05rem;font-weight:600;color:var(--gray-900);margin-bottom:2px}
-.pack-age{font-size:.8rem;color:var(--brand-700);font-weight:600;margin-bottom:8px}
-.pack-card p{font-size:.85rem;color:var(--gray-500);line-height:1.6;margin-bottom:12px}
-.pack-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.pack-tag{font-size:.72rem;padding:3px 10px;background:var(--gray-100);color:var(--gray-500);border-radius:2rem}
-.pack-activities{display:flex;flex-wrap:wrap;gap:4px}
-.pack-activity{font-size:.75rem;color:var(--gray-500);background:var(--brand-50);border:1px solid var(--brand-200);border-radius:4px;padding:2px 8px}
-.pack-count{font-size:.8rem;color:var(--gray-500);font-weight:600;margin-bottom:8px}
-.pack-note{max-width:700px;margin:32px auto 0;text-align:center;font-size:.9rem;color:var(--gray-500);line-height:1.7}
-.pack-card details{margin-top:12px}
-.pack-card details summary{font-size:.82rem;color:var(--brand-700);cursor:pointer;font-weight:600;list-style:none;display:flex;align-items:center;gap:4px;user-select:none}
-.pack-card details summary::before{content:'▶';font-size:.65rem;transition:transform .2s}
-.pack-card details[open] summary::before{transform:rotate(90deg)}
-.pack-card details .pack-details{padding-top:12px;border-top:1px solid var(--gray-200);margin-top:8px}
-.pack-card details .pack-details ul{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:4px}
-.pack-card details .pack-details li{font-size:.75rem;color:var(--gray-600);display:flex;align-items:center;gap:4px}
-.pack-card details .pack-details li span{flex-shrink:0}
-.pack-supplement{max-width:700px;margin:24px auto 0;text-align:center;font-size:.88rem;color:var(--gray-600);line-height:1.7}
-.pack-supplement strong{color:var(--brand-700)}
-
-/* Diff section */
-.diff-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
-.diff-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px}
-.diff-card h3{font-size:1rem;font-weight:600;color:var(--gray-900);margin-bottom:4px}
-.diff-card .diff-issue{font-size:.85rem;color:#dc2626;margin-bottom:8px}
-.diff-card .diff-solve{font-size:.85rem;color:#16a34a}
-
-/* Evolution section */
-.evo-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;max-width:900px;margin:0 auto}
-.evo-card{border-radius:var(--radius);padding:28px 24px}
-.evo-card h3{font-size:1.1rem;font-weight:700;margin-bottom:16px}
-.evo-sticker{background:#fff;border:1px solid var(--gray-300)}
-.evo-sticker h3{color:var(--gray-700)}
-.evo-quest{background:linear-gradient(135deg,var(--brand-100),#fef9e7);border:1px solid var(--brand-300)}
-.evo-quest h3{color:var(--brand-700)}
-.evo-card ul{list-style:none;padding:0}
-.evo-card li{font-size:.9rem;padding:6px 0;display:flex;gap:8px;align-items:flex-start;line-height:1.6}
-.evo-card li span{flex-shrink:0}
+/* Age switcher tabs */
+.age-switcher{max-width:900px;margin:0 auto}
+.age-tabs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:28px}
+.age-tab{padding:10px 18px;background:#fff;border:1.5px solid var(--gray-300);border-radius:2rem;cursor:pointer;font-size:.92rem;color:var(--gray-700);font-weight:600;transition:all .2s}
+.age-tab:hover{border-color:var(--brand-300)}
+.age-tab.active{background:var(--brand-700);color:#fff;border-color:var(--brand-700)}
+.age-panel{display:none;grid-template-columns:1fr 1fr;gap:32px;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:32px 28px}
+.age-panel.active{display:grid}
+.age-panel-shot{border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);max-width:280px;margin:0 auto;aspect-ratio:390/844}
+.age-panel-shot img{width:100%;height:100%;display:block;object-fit:cover;object-position:top}
+.age-panel-body h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
+.age-panel-feature{display:inline-block;font-size:.8rem;color:var(--brand-700);font-weight:700;background:var(--brand-50);padding:3px 10px;border-radius:4px;margin-bottom:10px}
+.age-panel-desc{font-size:.92rem;color:var(--gray-600);line-height:1.7;margin-bottom:16px}
+.age-panel-cta{text-align:left}
 @media(max-width:640px){
-  .evo-grid{grid-template-columns:1fr}
+  .age-panel.active{grid-template-columns:1fr;padding:24px 20px;gap:20px;text-align:center}
+  .age-panel-cta{text-align:center}
 }
 
-/* Community invitation */
-.community-cta{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:720px;margin:0 auto}
-.community-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px;text-align:center}
-.community-icon{font-size:2rem;margin-bottom:8px}
-.community-label{font-size:1.05rem;font-weight:700;color:var(--gray-900);margin-bottom:8px}
-.community-detail{font-size:.88rem;color:var(--gray-600);line-height:1.7;margin:0;word-break:keep-all;overflow-wrap:break-word}
+/* Core loop */
+.core-loop{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:900px;margin:0 auto 28px}
+.core-loop-step{background:#fff;border:2px solid var(--brand-200);border-radius:var(--radius);padding:24px 18px;text-align:center;position:relative}
+.core-loop-step .cls-num{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.12em;margin-bottom:6px}
+.core-loop-step .cls-icon{font-size:2.2rem;margin-bottom:8px;line-height:1}
+.core-loop-step h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
+.core-loop-step p{font-size:.85rem;color:var(--gray-600);line-height:1.6}
+.core-loop-visual{max-width:320px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:360px}
+.core-loop-visual img{width:100%;height:100%;display:block;object-fit:cover;object-position:top}
+.core-loop-note{max-width:640px;margin:20px auto 0;text-align:center;font-size:.88rem;color:var(--gray-600);line-height:1.7}
+.core-loop-note strong{color:var(--brand-800)}
+@media(max-width:640px){
+  .core-loop{grid-template-columns:1fr;gap:12px}
+}
+
+/* Machine tour (4-act) */
+.machine-tour{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:1080px;margin:0 auto}
+.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;display:flex;flex-direction:column}
+.tour-card .tour-phase{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.1em;margin-bottom:6px}
+.tour-card .tour-emoji{font-size:2rem;margin-bottom:8px;line-height:1}
+.tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
+.tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px;flex:1}
+.tour-card .tour-shot{border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:220px;margin-top:auto}
+.tour-card .tour-shot img{width:100%;height:100%;object-fit:cover;object-position:top}
+
+/* Soft features */
+.soft-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
+.soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px}
+.soft-card .soft-icon{font-size:2rem;margin-bottom:10px}
+.soft-card h3{font-size:1.1rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
+.soft-card p{font-size:.9rem;color:var(--gray-600);line-height:1.7}
+
+/* Social proof */
+.proof-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;max-width:800px;margin:0 auto}
+.proof-stat{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;text-align:center}
+.proof-stat .ps-num{font-size:1.8rem;font-weight:800;color:var(--brand-700);margin-bottom:4px;line-height:1.2}
+.proof-stat .ps-label{font-size:.82rem;color:var(--gray-600);line-height:1.5}
+.proof-note{max-width:640px;margin:20px auto 0;text-align:center;font-size:.82rem;color:var(--gray-500);line-height:1.7}
+
+/* Pricing summary */
+.pricing-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:960px;margin:0 auto 24px}
+.pricing-summary-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 22px;text-align:center;position:relative}
+.pricing-summary-card.recommended{border:2px solid #8b5cf6;box-shadow:0 4px 20px rgba(139,92,246,.12)}
+.pricing-summary-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#8b5cf6;color:#fff;font-size:.72rem;font-weight:700;padding:3px 14px;border-radius:2rem}
+.pricing-summary-name{font-size:1rem;font-weight:700;color:var(--gray-900);margin-bottom:8px}
+.pricing-summary-price{font-size:1.9rem;font-weight:800;color:var(--gray-900);margin-bottom:12px;line-height:1.2}
+.pricing-summary-price .pricing-summary-unit{font-size:.85rem;font-weight:400;color:var(--gray-500)}
+.pricing-summary-features{list-style:none;padding:0;margin:0 0 16px;text-align:left}
+.pricing-summary-features li{font-size:.85rem;color:var(--gray-700);padding:4px 0;display:flex;gap:6px;align-items:flex-start;line-height:1.5}
+.pricing-summary-features li::before{content:"✓";color:var(--brand-700);font-weight:700;flex-shrink:0}
+.pricing-summary-trial{font-size:.78rem;font-weight:700;color:#8b5cf6;background:#f5f3ff;padding:4px 10px;border-radius:4px;display:inline-block;margin-bottom:12px}
+.pricing-summary-cta{text-align:center;margin-top:24px}
+.pricing-summary-cta a{font-size:.92rem;color:var(--brand-700);font-weight:600}
+
+/* Trust badges */
+.trust-badges{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;max-width:900px;margin:0 auto}
+.trust-badge{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;text-align:center}
+.trust-badge .tb-icon{font-size:2rem;margin-bottom:10px;line-height:1}
+.trust-badge h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
+.trust-badge p{font-size:.85rem;color:var(--gray-600);line-height:1.6;margin-bottom:8px}
+.trust-badge a{color:var(--brand-700);text-decoration:none;font-size:.82rem;font-weight:600}
+.trust-badge a:hover{text-decoration:underline}
 
 /* FAQ */
 .faq-list{max-width:720px;margin:0 auto}
-.faq-item{border-bottom:1px solid var(--gray-300);padding:20px 0}
-.faq-item summary{font-size:1rem;font-weight:600;color:var(--gray-900);cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
-.faq-item summary::before{content:"Q.";color:var(--brand-700);font-weight:700;font-size:1.1rem}
-.faq-item[open] summary{margin-bottom:12px}
-.faq-answer{font-size:.9rem;color:var(--gray-500);padding-left:28px;line-height:1.7}
+.faq-item{border-bottom:1px solid var(--gray-300);padding:18px 0}
+.faq-item summary{font-size:.98rem;font-weight:600;color:var(--gray-900);cursor:pointer;list-style:none;display:flex;align-items:flex-start;gap:8px;line-height:1.5}
+.faq-item summary::before{content:"Q.";color:var(--brand-700);font-weight:700;font-size:1.05rem;flex-shrink:0}
+.faq-item[open] summary{margin-bottom:10px}
+.faq-answer{font-size:.88rem;color:var(--gray-600);padding-left:24px;line-height:1.75}
+.faq-footnote{max-width:640px;margin:28px auto 0;text-align:center;font-size:.85rem;color:var(--gray-500)}
+.faq-footnote a{color:var(--brand-700);font-weight:600}
 
-/* Inline CTA bar (#583) */
-.cta-bar{background:linear-gradient(90deg,var(--brand-50) 0%,#fef9e7 50%,var(--brand-50) 100%);padding:24px 16px;text-align:center;border-top:1px solid var(--brand-200);border-bottom:1px solid var(--brand-200)}
-.cta-bar-inner{max-width:640px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
-.cta-bar-text{font-size:.95rem;color:var(--gray-700);font-weight:500}
-.cta-bar-text strong{color:var(--brand-800)}
+/* Final CTA */
+.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:56px 16px;text-align:center}
+.cta-bottom h2{font-size:1.7rem;font-weight:700;color:var(--gray-900);margin-bottom:12px;line-height:1.4}
+.cta-bottom p{color:var(--gray-600);margin-bottom:28px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.7}
+.cta-bottom .cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.cta-bottom-note{margin-top:16px;font-size:.85rem;color:var(--gray-500)}
+.cta-bottom-note a{color:var(--brand-700)}
 
-/* CTA bottom */
-.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:64px 16px;text-align:center}
-
-/* Floating CTA — mobile only (#583) */
+/* Floating CTA */
 .floating-cta{display:none;position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--gray-900);padding:10px 16px;transform:translateY(100%);transition:transform .3s ease;box-shadow:0 -2px 12px rgba(0,0,0,.15)}
 .floating-cta.visible{transform:translateY(0)}
 .floating-cta-inner{max-width:480px;margin:0 auto;display:flex;align-items:center;gap:10px;justify-content:space-between}
@@ -229,83 +205,29 @@
 .floating-cta-text small{display:block;font-size:.72rem;font-weight:400;color:var(--gray-400)}
 .floating-cta .btn{white-space:nowrap;padding:8px 16px;font-size:.82rem;flex-shrink:0}
 @media(min-width:769px){.floating-cta{display:none!important}}
-.cta-bottom h2{font-size:1.8rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
-.cta-bottom p{color:var(--gray-500);margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto}
-.cta-bottom .cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 
-/* Steps CTA */
-.steps-cta{text-align:center;margin-top:32px}
-
-/* How it works */
-.steps{max-width:720px;margin:0 auto;counter-reset:step}
-.step{display:flex;gap:20px;margin-bottom:32px;align-items:flex-start}
-.step-num{width:40px;height:40px;min-width:40px;border-radius:50%;background:var(--brand-700);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem}
-.step-body h3{font-size:1.05rem;font-weight:600;color:var(--gray-900);margin-bottom:4px}
-.step-body p{font-size:.9rem;color:var(--gray-500)}
+/* NAV — login as text link only */
+.header-nav a.nav-text{padding:8px 12px;color:var(--gray-700);font-size:.92rem;font-weight:500}
+.header-nav a.nav-text:hover{color:var(--brand-700)}
 
 /* Hero carousel — Splide */
-.hero-carousel{margin-top:16px;display:flex;flex-direction:column;align-items:center}
-#hero-carousel .splide__track{width:280px;height:606px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
+.hero-carousel{margin-top:20px;display:flex;flex-direction:column;align-items:center}
+#hero-carousel .splide__track{width:260px;height:562px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
 #hero-carousel .splide__slide img{display:block;width:100%;height:100%;object-fit:cover;object-position:top;border-radius:24px;cursor:zoom-in}
-#hero-carousel .splide__pagination{display:flex;gap:8px;margin-top:16px;position:static;padding:0;bottom:auto}
+#hero-carousel .splide__pagination{display:flex;gap:8px;margin-top:14px;position:static;padding:0;bottom:auto}
 #hero-carousel .splide__pagination__page{width:8px;height:8px;border-radius:50%;background:var(--gray-300);border:none;cursor:pointer;padding:0;transition:background .3s,width .3s,border-radius .3s;opacity:1;margin:0}
 #hero-carousel .splide__pagination__page.is-active{background:var(--brand-700);width:24px;border-radius:4px}
-.carousel-label{margin-top:8px;font-size:.85rem;color:var(--gray-500);min-height:1.5em;transition:opacity .3s}
+.carousel-label{margin-top:8px;font-size:.82rem;color:var(--gray-500);min-height:1.5em;transition:opacity .3s;text-align:center}
 @media(min-width:1024px){
-  #hero-carousel .splide__track{width:720px;height:450px;border-radius:12px;box-shadow:0 20px 60px rgba(56,120,184,.2),0 0 0 4px var(--gray-900)}
+  #hero-carousel .splide__track{width:680px;height:425px;border-radius:12px;box-shadow:0 20px 60px rgba(56,120,184,.2),0 0 0 4px var(--gray-900)}
   #hero-carousel .splide__slide img{border-radius:8px}
 }
 
-/* Feature card screenshots (#298: enlarged sizes) */
-.feature-card .feature-screenshot{margin-bottom:12px;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:240px}
-.feature-card .feature-screenshot img{width:100%;height:100%;object-fit:contain;object-position:center}
-@media(min-width:1024px){
-  .feature-card .feature-screenshot{aspect-ratio:16/10;max-height:320px}
-}
-
-/* Age card screenshots (#298: enlarged sizes) */
-.age-card .age-screenshot{margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:200px}
-.age-card .age-screenshot img{width:100%;height:100%;object-fit:contain;object-position:center}
-@media(min-width:641px) and (max-width:1023px){
-  .age-card .age-screenshot{aspect-ratio:3/4;max-height:240px}
-}
-@media(min-width:1024px){
-  .age-card .age-screenshot{aspect-ratio:16/10;max-height:280px}
-}
-
-/* Testimonials section (#1091) */
-.bg-testimonials{background:linear-gradient(135deg,var(--brand-50) 0%,#fef9e7 100%)}
-.testimonials-placeholder{max-width:640px;margin:0 auto;text-align:center;background:#fff;border:2px dashed var(--brand-300);border-radius:var(--radius);padding:40px 24px}
-.testimonials-placeholder p{font-size:.95rem;color:var(--gray-500);line-height:1.7;margin-bottom:12px}
-.testimonials-placeholder .btn{margin-top:8px}
-
-/* Community card button */
-.community-card-btn{margin-top:12px}
-
-/* CTA bottom contact */
-.cta-bottom-contact{margin-top:16px;font-size:.85rem;color:var(--gray-500)}
-
-/* Pricing summary */
-.pricing-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px;max-width:900px;margin:0 auto 32px}
-.pricing-summary-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px;text-align:center;position:relative}
-.pricing-summary-card.recommended{border:2px solid #8b5cf6;box-shadow:0 4px 20px rgba(139,92,246,.12)}
-.pricing-summary-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#8b5cf6;color:#fff;font-size:.72rem;font-weight:700;padding:3px 14px;border-radius:2rem}
-.pricing-summary-name{font-size:1rem;font-weight:700;color:var(--gray-900);margin-bottom:8px}
-.pricing-summary-price{font-size:2rem;font-weight:800;color:var(--gray-900);margin-bottom:12px}
-.pricing-summary-unit{font-size:.85rem;font-weight:400;color:var(--gray-500)}
-.pricing-summary-desc{font-size:.85rem;color:var(--gray-500);line-height:1.6;margin:0}
-.pricing-summary-cta{text-align:center;margin-top:0}
-.pricing-summary-cta a{font-size:.9rem;color:var(--brand-700)}
-
 @media(max-width:640px){
-  .hero h1{font-size:1.8rem}
-  .hero-cta{flex-direction:column;align-items:center}
-  .age-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
-  .ba-grid{grid-template-columns:1fr;gap:16px}
-  .ba-arrow{justify-content:center;transform:rotate(90deg)}
+  .hero h1{font-size:1.85rem}
+  .hero-cta{flex-direction:column;align-items:stretch}
+  .hero-cta .btn{width:100%}
   #hero-carousel .splide__track{width:220px;height:476px;border-radius:24px;box-shadow:0 12px 40px rgba(56,120,184,.2),0 0 0 6px var(--gray-900)}
-  .feature-card .feature-screenshot{max-height:240px}
-  .age-card .age-screenshot{max-height:200px}
 }
 </style>
 </head>
@@ -319,33 +241,26 @@
     </a>
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
     <nav id="main-nav" class="header-nav">
-      <a href="index.html" onclick="this.parentElement.classList.remove('open')">ホーム</a>
-      <a href="#features" onclick="this.parentElement.classList.remove('open')">できること</a>
-      <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
-      <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモで体験する</a>
-      <a href="https://ganbari-quest.com/auth/login" class="btn btn-primary">ログイン</a>
+      <a href="index.html" class="nav-text" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="pricing.html" class="nav-text" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="https://ganbari-quest.com/auth/login" class="nav-text" onclick="this.parentElement.classList.remove('open')">ログイン</a>
     </nav>
   </div>
 </header>
 
-<!-- Hero — empathy-first -->
+<!-- [01] Hero -->
 <section class="hero">
-  <h1>「やりなさい」を<br><span>「やりたい！」</span>に変える</h1>
+  <h1>「やりなさい」を<br><span>「やりたい！」</span>に変える<br>家族 RPG</h1>
   <p class="hero-sub">
-    声をかけなくても、自分から動いてくれたら &#8212;<br>
-    がんばりクエストは、お子さまの毎日のがんばりを<br>
-    RPG風の冒険に変えて、「自分からやる力」を育てます。
+    3〜18 歳の毎日の習慣を、<br>
+    ポイント・シール・称号で冒険に変える。<br>
+    声をかけなくても、自分から動きだす家族時間へ。
   </p>
   <div class="hero-cta">
-    <a href="https://ganbari-quest.com/demo" class="btn btn-demo btn-lg">&#x1F3AE; デモで体験する</a>
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">無料ではじめる</a>
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">無料で始める</a>
+    <a href="https://ganbari-quest.com/demo" class="btn btn-demo btn-lg">デモを見る</a>
   </div>
-  <div class="hero-badges">
-    <span class="badge">&#x2705; 基本無料</span>
-    <span class="badge">&#x1F512; データは家族だけのもの</span>
-    <span class="badge">&#x1F4F1; スマホ対応</span>
-    <a href="selfhost.html" class="badge" style="text-decoration:none">&#x1F310; セルフホスト可</a>
-  </div>
+  <p class="hero-note">家族何人でも無料ではじめられます / クレジットカード登録不要</p>
   <div class="hero-carousel">
     <div class="splide" id="hero-carousel" aria-label="アプリのスクリーンショット">
       <div class="splide__track">
@@ -377,778 +292,307 @@
         </ul>
       </div>
     </div>
-    <div class="carousel-label" aria-live="polite">子供のホーム画面 &#8212; 活動を記録してポイントゲット</div>
+    <div class="carousel-label" aria-live="polite">子供のホーム画面 — 活動を記録してポイントゲット</div>
   </div>
 </section>
 
-<!-- Pain scenes — empathy -->
-<section class="section bg-white" id="pain">
+<!-- [02] 年齢スイッチャー -->
+<section class="section bg-white" id="age-switcher">
   <div class="section-inner">
-    <h2 class="section-title">こんな経験、ありませんか？</h2>
-    <p class="section-desc">毎日の声かけ、本当に大変ですよね。</p>
-    <div class="pain-grid">
-      <div class="pain-card">
-        <div class="pain-icon">&#x23F0;</div>
-        <div>
-          <div class="pain-quote">「はやくして！」が朝のあいさつになってる</div>
-          <div class="pain-detail">何度呼んでも着替えない。朝から声を荒げてしまって、自己嫌悪&#8230;</div>
+    <h2 class="section-title">お子さまの年齢で、画面とむずかしさが変わります</h2>
+    <p class="section-desc">0 歳から 18 歳まで、5 つのモードが自動で切り替わり。<br>タップで「今のお子さまに合う UI」をご覧ください。</p>
+    <div class="age-switcher">
+      <div class="age-tabs" role="tablist">
+        <button type="button" class="age-tab active" data-age="baby" role="tab" aria-selected="true">乳幼児 (0-2)</button>
+        <button type="button" class="age-tab" data-age="kinder" role="tab" aria-selected="false">幼児 (3-5)</button>
+        <button type="button" class="age-tab" data-age="lower" role="tab" aria-selected="false">小学生 (6-12)</button>
+        <button type="button" class="age-tab" data-age="upper" role="tab" aria-selected="false">中学生 (13-15)</button>
+        <button type="button" class="age-tab" data-age="teen" role="tab" aria-selected="false">高校生 (16-18)</button>
+      </div>
+      <div class="age-panel active" data-panel="baby" role="tabpanel">
+        <div class="age-panel-shot"><img src="screenshots/age-baby.webp" alt="乳幼児向け画面" data-lightbox></div>
+        <div class="age-panel-body">
+          <h3>大きなタップ領域・シンプルな色</h3>
+          <span class="age-panel-feature">代表機能: 絵本のようなシール帳</span>
+          <p class="age-panel-desc">トイレやおむつ交換など、親が記録する活動を中心に設計。シールをタップするたびにアニメーションで「できたね！」を祝います。</p>
+          <p class="age-panel-cta"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
-      <div class="pain-card">
-        <div class="pain-icon">&#x1F4DA;</div>
-        <div>
-          <div class="pain-quote">「宿題やった？」→「まだ〜」が毎日ループ</div>
-          <div class="pain-detail">帰宅後の宿題バトル。言いたくないのに、言わないと始まらない。</div>
+      <div class="age-panel" data-panel="kinder" role="tabpanel">
+        <div class="age-panel-shot"><img src="screenshots/age-kinder.webp" alt="幼児向け画面" data-lightbox></div>
+        <div class="age-panel-body">
+          <h3>ひらがな中心・丸みのあるボタン</h3>
+          <span class="age-panel-feature">代表機能: 活動パック（プリセット）</span>
+          <p class="age-panel-desc">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣がプリセット済み。ポイントで光るシールガチャに夢中になります。</p>
+          <p class="age-panel-cta"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
-      <div class="pain-card">
-        <div class="pain-icon">&#x1F3AE;</div>
-        <div>
-          <div class="pain-quote">ゲームなら自分からやるのに&#8230;</div>
-          <div class="pain-detail">集中力はあるはず。お手伝いや勉強にも、あのやる気が向いてくれたら。</div>
+      <div class="age-panel" data-panel="lower" role="tabpanel">
+        <div class="age-panel-shot"><img src="screenshots/age-lower.webp" alt="小学生向け画面" data-lightbox></div>
+        <div class="age-panel-body">
+          <h3>標準レイアウト・漢字最小限</h3>
+          <span class="age-panel-feature">代表機能: 実績と称号で自走</span>
+          <p class="age-panel-desc">宿題やお手伝い、習い事の記録へ。実績解放と称号アップで「次は何をクリアしよう？」と子供自身が計画を立てるようになります。</p>
+          <p class="age-panel-cta"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
-      <div class="pain-card">
-        <div class="pain-icon">&#x2B50;</div>
-        <div>
-          <div class="pain-quote">シール帳、3週間で飽きちゃった</div>
-          <div class="pain-detail">100均のごほうびシール、手作りスタンプカード。最初は喜んだけど、いつも途中で終わる。</div>
+      <div class="age-panel" data-panel="upper" role="tabpanel">
+        <div class="age-panel-shot"><img src="screenshots/age-upper.webp" alt="中学生向け画面" data-lightbox></div>
+        <div class="age-panel-body">
+          <h3>情報密度を高め、RPG バトル解放</h3>
+          <span class="age-panel-feature">代表機能: RPG バトル・ボス討伐</span>
+          <p class="age-panel-desc">コンボを積み上げて強敵ボスに挑戦。テスト勉強や部活の記録がそのまま冒険の RPG バトルにつながり、ゲーム世代に刺さります。</p>
+          <p class="age-panel-cta"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
-      <div class="pain-card">
-        <div class="pain-icon">&#x1F4B0;</div>
-        <div>
-          <div class="pain-quote">「がんばったからおもちゃ買ってあげるね」</div>
-          <div class="pain-detail">がんばりの評価がカンと気分頼りに。何をどれだけがんばったか分からないから、「まとめて何か買ってあげる」になりがち。</div>
+      <div class="age-panel" data-panel="teen" role="tabpanel">
+        <div class="age-panel-shot"><img src="screenshots/age-teen.webp" alt="高校生向け画面" data-lightbox></div>
+        <div class="age-panel-body">
+          <h3>高情報密度・漢字表記・目標管理</h3>
+          <span class="age-panel-feature">代表機能: 長期目標と称号の系譜</span>
+          <p class="age-panel-desc">資格・受験・バイトなど、自分で決めた目標を積み上げる UI。称号の系譜で「自分の歴史」が形に残り、進路選びの自己肯定感を支えます。</p>
+          <p class="age-panel-cta"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Testimonials — social proof (#1091) -->
-<section class="section bg-testimonials" id="testimonials">
+<!-- [03] コアループ -->
+<section class="section bg-gray" id="core-loop">
   <div class="section-inner">
-    <h2 class="section-title">保護者の声</h2>
-    <p class="section-desc">がんばりクエストを使ってみた保護者の方々の体験談を募集しています</p>
-    <div class="testimonials-placeholder">
-      <p>&#x1F4AC; 現在、体験談を募集中です。使ってみた感想をぜひお聞かせください。</p>
-      <a href="mailto:ganbari.quest.support@gmail.com?subject=%E4%BD%93%E9%A8%93%E8%AB%87" class="btn btn-outline" data-contact-context="体験談">体験談をメールで送る</a>
+    <h2 class="section-title">毎日まわる、がんばりのコアループ</h2>
+    <p class="section-desc">「活動 → ポイント → レベル → シールガチャ」。<br>この 3 ステップが毎日まわり続けるのが、がんばりクエストの心臓部です。</p>
+    <div class="core-loop">
+      <div class="core-loop-step">
+        <div class="cls-num">STEP 1</div>
+        <div class="cls-icon">&#x1F4DD;</div>
+        <h3>活動を記録</h3>
+        <p>「はみがきした」「宿題おわった」をタップするだけ。活動ごとにポイントがもらえます。</p>
+      </div>
+      <div class="core-loop-step">
+        <div class="cls-num">STEP 2</div>
+        <div class="cls-icon">&#x2B50;</div>
+        <h3>レベルアップ</h3>
+        <p>ポイントがたまるとレベルアップ。勇者の肩書きが変わり、子供の目が輝きます。</p>
+      </div>
+      <div class="core-loop-step">
+        <div class="cls-num">STEP 3</div>
+        <div class="cls-icon">&#x1F381;</div>
+        <h3>シールガチャ</h3>
+        <p>ポイントを使って 16 種類のシールを収集。SR・UR のレアシールを狙うドキドキ感が止まりません。</p>
+      </div>
     </div>
+    <div class="core-loop-visual">
+      <picture>
+        <source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp">
+        <img src="screenshots/feature-point-level.webp" alt="ポイント・レベル・シール獲得画面" data-lightbox>
+      </picture>
+    </div>
+    <p class="core-loop-note"><strong>レアリティは N / R / SR / UR の 4 段階。</strong>SR と UR は出現率 15% 以下。「今日こそ UR を引く！」が明日の活動のエンジンになります。</p>
   </div>
 </section>
 
-<!-- Solution -->
-<section class="section bg-gray" id="solution">
+<!-- [04] 機構ツアー（4 幕） -->
+<section class="section bg-white" id="machine-tour">
   <div class="section-inner">
-    <div class="solution-layout">
-      <div class="solution-text">
-        <h3>お子さまの「がんばり」を、冒険に変えよう</h3>
-        <p>
-          シール帳やスタンプカードでは見えなかった
-          一つひとつのがんばりが、ポイントとして蓄積。
-          お子さまは冒険の主人公のようにレベルアップし、
-          親御さんは「何をどれだけがんばったか」を
-          根拠を持って褒められるようになります。
-        </p>
-        <div class="solution-points">
-          <div class="solution-point">
-            <div class="sp-icon">&#x1F4E2;</div>
-            <div class="sp-label">声かけが減る</div>
-          </div>
-          <div class="solution-point">
-            <div class="sp-icon">&#x1F4C8;</div>
-            <div class="sp-label">成長が見える</div>
-          </div>
-          <div class="solution-point">
-            <div class="sp-icon">&#x1F525;</div>
-            <div class="sp-label">続く仕組み</div>
-          </div>
-          <div class="solution-point">
-            <div class="sp-icon">&#x1F46A;</div>
-            <div class="sp-label">親子で楽しめる</div>
-          </div>
+    <h2 class="section-title">4 幕のしかけで、飽きずに続く</h2>
+    <p class="section-desc">即効の楽しみから、長期の達成感、習慣エンジン、そして冒険のクライマックスへ。<br>時間軸に沿った 4 つのしかけが、日々のがんばりを支えます。</p>
+    <div class="machine-tour">
+      <div class="tour-card">
+        <div class="tour-phase">&#9312; 即効の楽しみ</div>
+        <div class="tour-emoji">&#x1F3B4;</div>
+        <h3>おみくじ</h3>
+        <p>ログインするだけで 1 日 1 回の運試し。「大吉」が出るとボーナスポイントが獲得でき、毎朝アプリを開く習慣がつきます。</p>
+      </div>
+      <div class="tour-card">
+        <div class="tour-phase">&#9313; 長期の達成感</div>
+        <div class="tour-emoji">&#x1F3C6;</div>
+        <h3>実績 &amp; 称号</h3>
+        <p>「はじめのぼうけんしゃ」から「でんせつのゆうしゃ」へ。長期の積み重ねが称号として永久に刻まれ、子供の自己肯定感を支えます。</p>
+        <div class="tour-shot">
+          <picture>
+            <source srcset="screenshots/feature-titles-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-titles.webp" alt="称号獲得画面" data-lightbox>
+          </picture>
         </div>
       </div>
-      <div class="solution-illustration">
-        <picture>
-          <source srcset="hero-illustration.webp" type="image/webp">
-          <img src="hero-illustration.png" alt="冒険の旅に出る勇者キャラクター — ポイント、宝箱、バッジを集めながらレベルアップ" width="1584" height="672" loading="lazy">
-        </picture>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Before / After -->
-<section class="section bg-white" id="before-after">
-  <div class="section-inner">
-    <h2 class="section-title">夕方の風景が変わります</h2>
-    <p class="section-desc">ある日の帰宅後 &#8212; Before と After</p>
-    <div class="ba-grid">
-      <div class="ba-card ba-before">
-        <h3>&#x274C; Before</h3>
-        <ul>
-          <li><span>17:30</span> 「宿題やりなさい」「やだ〜」</li>
-          <li><span>18:00</span> ゲームを取り上げてケンカに</li>
-          <li><span>18:30</span> しぶしぶ宿題。泣きながら&#8230;</li>
-          <li><span>19:00</span> お手伝い？ もうクタクタで頼めない</li>
-          <li><span>21:00</span> 「今日も怒っちゃったな&#8230;」と反省</li>
-        </ul>
-      </div>
-      <div class="ba-arrow"><svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="var(--brand-100)" stroke="var(--brand-500)" stroke-width="2"/><path d="M16 24h14M26 18l6 6-6 6" stroke="var(--brand-700)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="24" r="2" fill="var(--brand-400)"/></svg></div>
-      <div class="ba-card ba-after">
-        <h3>&#x2705; After</h3>
-        <ul>
-          <li><span>17:30</span> 「ミッション確認！宿題やろ！」</li>
-          <li><span>18:00</span> 宿題完了 → ポイントゲット！</li>
-          <li><span>18:30</span> 「お皿運びもやる！コンボだ！」</li>
-          <li><span>19:00</span> レベルアップ → 家族で「すごい！」</li>
-          <li><span>21:00</span> 「今日もがんばったね」と笑顔で就寝</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Features — with emotional benefits -->
-<section class="section bg-gray" id="features">
-  <div class="section-inner">
-    <h2 class="section-title">「がんばる」が楽しくなる仕組み</h2>
-    <p class="section-desc">ゲームに夢中になるあの集中力を、日常のがんばりに</p>
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-point-level.webp" type="image/webp"><img src="screenshots/feature-point-level.webp" alt="ポイント獲得とレベルアップ画面" width="390" height="844" loading="lazy" data-lightbox></picture>
+      <div class="tour-card">
+        <div class="tour-phase">&#9314; 習慣エンジン</div>
+        <div class="tour-emoji">&#x1F525;</div>
+        <h3>コンボ &amp; チェックリスト</h3>
+        <p>連続達成で倍率アップ。「持ち物チェック」「朝のルーティン」をチェックリスト化し、コンボが途切れないよう自分から動くようになります。</p>
+        <div class="tour-shot">
+          <picture>
+            <source srcset="screenshots/feature-combo-mission-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-combo-mission.webp" alt="コンボ獲得画面" data-lightbox>
+          </picture>
         </div>
-        <h3><span class="feature-icon">&#x2B50;</span> ポイント &amp; レベルアップ</h3>
-        <div class="feature-benefit">&#x2192; 「やった！」の手応えが毎日ある</div>
-        <p>活動を記録するとポイント獲得。知力・体力・創造力・社会性・生活力の5つのチカラが成長し、レベルアップの達成感が次のがんばりにつながります。</p>
       </div>
-      <div class="feature-card">
-        <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-combo-mission-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-combo-mission.webp" type="image/webp"><img src="screenshots/feature-combo-mission.webp" alt="コンボカウンターとデイリーミッション" width="390" height="844" loading="lazy" data-lightbox></picture>
-        </div>
-        <h3><span class="feature-icon">&#x1F525;</span> コンボ &amp; デイリーミッション</h3>
-        <div class="feature-benefit">&#x2192; シール帳が続かなかった子でも続く</div>
-        <p>連続日数に応じてボーナスポイント。毎日変わるミッションが小さな達成感を積み重ね、「もう1日がんばろう」を自然に引き出します。</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-radar-chart-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-radar-chart.webp" type="image/webp"><img src="screenshots/feature-radar-chart.webp" alt="5つのチカラチャート" width="390" height="844" loading="lazy" data-lightbox></picture>
-        </div>
-        <h3><span class="feature-icon">&#x1F4CA;</span> 5つのチカラチャート</h3>
-        <div class="feature-benefit">&#x2192; 「すごいね」に根拠が生まれる</div>
-        <p>5軸のレーダーチャートでお子さまの強みが一目瞭然。同年齢の目安と比較でき、親として自信を持って「がんばってるね」と褒められます。</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-checklist-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-checklist.webp" type="image/webp"><img src="screenshots/feature-checklist.webp" alt="やることリスト画面" width="390" height="844" loading="lazy" data-lightbox></picture>
-        </div>
-        <h3><span class="feature-icon">&#x2705;</span> やることリスト</h3>
-        <div class="feature-benefit">&#x2192; 朝の「はやくして！」が減る</div>
-        <p>朝の準備、帰宅後のルーティンをチェックリストに。自分で確認する習慣がつき、声かけなしで準備ができるようになります。</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-screenshot">
-          <picture><source srcset="screenshots/feature-growth-record-admin-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/feature-growth-record-admin.webp" type="image/webp"><img src="screenshots/feature-growth-record-admin.webp" alt="成長記録と管理画面" width="390" height="844" loading="lazy" data-lightbox></picture>
-        </div>
-        <h3><span class="feature-icon">&#x1F4C8;</span> 成長記録 &amp; 管理画面</h3>
-        <div class="feature-benefit">&#x2192; がんばりの軌跡がひと目でわかる</div>
-        <p>保護者専用の管理画面で、お子さまの活動履歴・ポイント推移・5軸の成長バランスを確認。日々の記録が親子の対話のきっかけになります。</p>
+      <div class="tour-card">
+        <div class="tour-phase">&#9315; 冒険のクライマックス</div>
+        <div class="tour-emoji">&#x2694;&#xFE0F;</div>
+        <h3>RPG バトル</h3>
+        <p>コンボで貯めたエネルギーでボスに挑戦。中高生が「もっとやる」モードに切り替わる、冒険の山場です。</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Inline CTA 1: After features -->
-<div class="cta-bar">
-  <div class="cta-bar-inner">
-    <p class="cta-bar-text"><strong>7日間、全機能を無料で体験</strong> &#8212; クレジットカード不要ですぐ始められます</p>
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
-  </div>
-</div>
-
-<!-- What makes it different -->
-<section class="section bg-white" id="difference">
+<!-- [05] ソフト機能（親の安心） -->
+<section class="section bg-gray" id="soft-features">
   <div class="section-inner">
-    <h2 class="section-title">シール帳やアプリと何が違うの？</h2>
-    <p class="section-desc">がんばりクエストが続く3つの理由</p>
-    <div class="diff-grid">
-      <div class="diff-card">
-        <h3>&#x1F4DD; シール帳・スタンプカード</h3>
-        <div class="diff-issue">&#x274C; 飽きる。がんばりが見えない。「おもちゃ買ってあげる」式のまとめ報酬になりがち。</div>
-        <div class="diff-solve">&#x2705; 個々の活動がポイントに変わり、がんばりが数字で見える。ポイントをお小遣いに変換すれば、がんばりと報酬が直接つながります。</div>
+    <h2 class="section-title">遊びだけで終わらせない、親のための機能</h2>
+    <p class="section-desc">ゲーミフィケーションの裏で、親がちゃんと伴走できる設計。<br>「遊ばせっぱなし」の不安を取り除く 2 つの機能です。</p>
+    <div class="soft-grid">
+      <div class="soft-card">
+        <div class="soft-icon">&#x1F4E6;</div>
+        <h3>活動パック（すぐ始められる）</h3>
+        <p>年齢別にプリセットされた活動テンプレート。「朝のしたく」「かたづけ」「しゅくだい」など、初日から迷わず運用できます。カスタマイズも自由自在。</p>
       </div>
-      <div class="diff-card">
-        <h3>&#x1F4B0; お小遣いアプリ</h3>
-        <div class="diff-issue">&#x274C; お金だけが動機になると、報酬がないと動かなくなる。</div>
-        <div class="diff-solve">&#x2705; ポイントはお小遣いにも使えるが、レベルやチャレンジなど金銭以外の動機づけが中心。</div>
-      </div>
-      <div class="diff-card">
-        <h3>&#x1F4F1; 他の子育てアプリ</h3>
-        <div class="diff-issue">&#x274C; 幼児には難しい。中高生には子供っぽい。1つの年齢層だけ。</div>
-        <div class="diff-solve">&#x2705; 0歳から18歳まで、年齢に応じてUIが自動で変わる。きょうだいでずっと使える。</div>
+      <div class="soft-card">
+        <div class="soft-icon">&#x1F4AC;</div>
+        <h3>おうえんメッセージ</h3>
+        <p>親から子への自由テキスト。「よくがんばったね」の一言が子供のホーム画面に届き、ゲーム以上の動機になります。Family プランで家族全員から送れます。</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Evolution — sticker chart to quest -->
-<section class="section bg-gray" id="evolution">
+<!-- [06] 社会的証明 (Pre-PMF) -->
+<section class="section bg-white" id="social-proof">
   <div class="section-inner">
-    <h2 class="section-title">シール帳の「いいところ」は、そのまま</h2>
-    <p class="section-desc">足りなかったところを、がんばりクエストが補います</p>
-    <div class="evo-grid">
-      <div class="evo-card evo-sticker">
-        <h3>&#x2B50; シール帳</h3>
-        <ul>
-          <li><span>&#x2705;</span> がんばったらシールで褒める &#8212; 嬉しい</li>
-          <li><span>&#x26A0;&#xFE0F;</span> 何をどれだけがんばったか、記録に残らない</li>
-          <li><span>&#x26A0;&#xFE0F;</span> 「がんばったからおもちゃ」&#8212; 報酬がアバウトに</li>
-          <li><span>&#x26A0;&#xFE0F;</span> 親の気分やタイミングで評価がブレやすい</li>
-          <li><span>&#x26A0;&#xFE0F;</span> 2&#x301C;3週間で新鮮さが薄れてしまう</li>
-        </ul>
+    <h2 class="section-title">現在のご利用状況</h2>
+    <p class="section-desc">β 期間中、数値はそのまま公開しています。<br>嘘のない数字で、プロダクトの育ち方をごらんください。</p>
+    <div class="proof-stats">
+      <div class="proof-stat">
+        <div class="ps-num">β</div>
+        <div class="ps-label">現在 β 期間中<br>ご意見を直接反映しています</div>
       </div>
-      <div class="evo-card evo-quest">
-        <h3>&#x1F3AE; がんばりクエスト</h3>
-        <ul>
-          <li><span>&#x2705;</span> がんばりがポイントに &#8212; 褒める根拠がデータで残る</li>
-          <li><span>&#x2705;</span> 個々の活動にポイントがつくから、報酬と1対1で結びつく</li>
-          <li><span>&#x2705;</span> レーダーチャートで成長が見える &#8212; 「すごいね」がフェアに</li>
-          <li><span>&#x2705;</span> コンボ・チャレンジ・レベルアップ &#8212; ゲームのように続く</li>
-          <li><span>&#x2705;</span> お小遣い変換で「がんばり = 価値」が伝わる</li>
-        </ul>
+      <div class="proof-stat">
+        <div class="ps-num">0-18</div>
+        <div class="ps-label">対応年齢<br>5 つの UI モード</div>
+      </div>
+      <div class="proof-stat">
+        <div class="ps-num">36+</div>
+        <div class="ps-label">ゲーミフィケーション要素<br>アチーブメント / 称号 / コンボ 他</div>
+      </div>
+      <div class="proof-stat">
+        <div class="ps-num">OSS</div>
+        <div class="ps-label">ソースコード公開<br>家族のデータは家族のもの</div>
       </div>
     </div>
+    <p class="proof-note">※ ユーザー数・レビュー評価は誠実に開示するため、PMF 到達後に掲載します（<a href="https://github.com/Takenori-Kusaka/ganbari-quest" style="color:var(--brand-700)">GitHub リポジトリ</a> にて進捗公開中）。</p>
   </div>
 </section>
 
-<!-- Age Modes -->
-<section class="section bg-white" id="age-modes">
-  <div class="section-inner">
-    <h2 class="section-title">お子さまの成長に合わせて</h2>
-    <p class="section-desc">0歳から18歳まで、年齢に応じて画面が自動で変わります</p>
-    <div class="age-grid">
-      <div class="age-card" data-age-tier="baby">
-        <div class="age-emoji">&#x1F476;</div>
-        <h3 data-label="age-tier-name">乳幼児モード</h3>
-        <div class="age-range" data-label="age-tier-range">0&#x301C;2歳</div>
-        <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-baby-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-baby-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-baby.webp" type="image/webp"><img src="screenshots/age-baby.webp" alt="0-2歳向け 乳幼児モード画面" width="390" height="844" loading="lazy" data-lightbox></picture>
-        </div>
-        <p>保護者がお子さまの活動を記録します。大きなアイコンでシンプルな画面です。</p>
-      </div>
-      <div class="age-card" data-age-tier="preschool">
-        <div class="age-emoji">&#x1F9D2;</div>
-        <h3 data-label="age-tier-name">幼児モード</h3>
-        <div class="age-range" data-label="age-tier-range">3&#x301C;5歳</div>
-        <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-kinder-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-kinder-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-kinder.webp" type="image/webp"><img src="screenshots/age-kinder.webp" alt="3-5歳向け 幼児モード画面" width="390" height="844" loading="lazy" data-lightbox></picture>
-        </div>
-        <p>ひらがな表示と大きなボタンで、お子さま自身が「できた！」をタップできます。</p>
-      </div>
-      <div class="age-card" data-age-tier="elementary">
-        <div class="age-emoji">&#x1F466;</div>
-        <h3 data-label="age-tier-name">小学生モード</h3>
-        <div class="age-range" data-label="age-tier-range">6&#x301C;12歳</div>
-        <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-lower-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-lower-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-lower.webp" type="image/webp"><img src="screenshots/age-lower.webp" alt="6-12歳向け 小学生モード画面" width="390" height="844" loading="lazy" data-lightbox></picture>
-        </div>
-        <p>自分で活動を選んで記録。チャレンジやコンボで、がんばりが楽しくなります。</p>
-      </div>
-      <div class="age-card" data-age-tier="junior">
-        <div class="age-emoji">&#x1F9D1;&#x200D;&#x1F393;</div>
-        <h3 data-label="age-tier-name">中学生モード</h3>
-        <div class="age-range" data-label="age-tier-range">13&#x301C;15歳</div>
-        <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-upper-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-upper-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-upper.webp" type="image/webp"><img src="screenshots/age-upper.webp" alt="13-15歳向け 中学生モード画面" width="390" height="844" loading="lazy" data-lightbox></picture>
-        </div>
-        <p>統計やグラフで自分の成長を分析。目標を立てて計画的に取り組めます。</p>
-      </div>
-      <div class="age-card" data-age-tier="senior">
-        <div class="age-emoji">&#x1F9D1;&#x200D;&#x1F4BB;</div>
-        <h3 data-label="age-tier-name">高校生モード</h3>
-        <div class="age-range" data-label="age-tier-range">16&#x301C;18歳</div>
-        <div class="age-screenshot">
-          <picture><source srcset="screenshots/age-teen-desktop.webp" media="(min-width:1024px)" type="image/webp"><source srcset="screenshots/age-teen-tablet.webp" media="(min-width:641px)" type="image/webp"><source srcset="screenshots/age-teen.webp" type="image/webp"><img src="screenshots/age-teen.webp" alt="16-18歳向け 高校生モード画面" width="390" height="844" loading="lazy" data-lightbox></picture>
-        </div>
-        <p>全機能を活用。詳細な統計とグラフで自分の成長を振り返り、主体的に目標を設定できます。</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Inline CTA 2: After age-modes -->
-<div class="cta-bar">
-  <div class="cta-bar-inner">
-    <p class="cta-bar-text">お子さまの年齢に最適化された画面を<strong>今すぐ体験</strong></p>
-    <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモで体験する</a>
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
-  </div>
-</div>
-
-<!-- Template Packs -->
-<section class="section bg-gray" id="templates">
-  <div class="section-inner">
-    <h2 class="section-title">すぐ始められる活動パック</h2>
-    <p class="section-desc">年齢に合わせた活動セットをワンタップでインポート。<br>何を登録すればいいか迷いません。</p>
-    <div class="pack-grid">
-      <div class="pack-card">
-        <div class="pack-icon">&#x1F476;</div>
-        <h3>はじめてのぼうけん</h3>
-        <div class="pack-age">0&#x301C;2歳向け &#x30FB; 15件の活動</div>
-        <p>赤ちゃんの生活習慣と基本的な運動を中心に、毎日の小さな成長を記録できます。</p>
-        <div class="pack-tags">
-          <span class="pack-tag">初心者向け</span>
-          <span class="pack-tag">赤ちゃん</span>
-          <span class="pack-tag">生活習慣</span>
-        </div>
-        <div class="pack-activities">
-          <span class="pack-activity">&#x1F423; はいはいした</span>
-          <span class="pack-activity">&#x1F463; あんよした</span>
-          <span class="pack-activity">&#x1F35A; ごはんをたべた</span>
-          <span class="pack-activity">&#x1F6C1; おふろにはいった</span>
-          <span class="pack-activity">&#x1F319; おやすみした</span>
-        </div>
-        <details>
-          <summary>すべての活動を見る</summary>
-          <div class="pack-details">
-            <ul>
-              <li><span>&#x1F33F;</span> おそとにでた</li>
-              <li><span>&#x1F938;</span> からだをうごかした</li>
-              <li><span>&#x1F9FC;</span> てをあらった</li>
-              <li><span>&#x1F455;</span> おきがえした</li>
-              <li><span>&#x1FAA5;</span> はみがきした</li>
-              <li><span>&#x1F4D6;</span> えほんをよんだ</li>
-              <li><span>&#x1F3B5;</span> おうたをうたった</li>
-              <li><span>&#x1F58D;&#xFE0F;</span> おえかきした</li>
-              <li><span>&#x1F60A;</span> にこにこした</li>
-              <li><span>&#x1F44B;</span> あいさつした</li>
-            </ul>
-          </div>
-        </details>
-      </div>
-      <div class="pack-card">
-        <div class="pack-icon">&#x1F9D2;</div>
-        <h3>ようじキッズ</h3>
-        <div class="pack-age">3&#x301C;5歳向け &#x30FB; 20件の活動</div>
-        <p>保育園・幼稚園の日常活動をバランスよくカバーし、自立心を育てます。</p>
-        <div class="pack-tags">
-          <span class="pack-tag">初心者向け</span>
-          <span class="pack-tag">幼児</span>
-          <span class="pack-tag">バランス型</span>
-          <span class="pack-tag">&#x1F466;&#x1F467; 性別バリエーション</span>
-        </div>
-        <div class="pack-activities">
-          <span class="pack-activity">&#x1FAA5; はみがきした</span>
-          <span class="pack-activity">&#x1F455; おきがえした</span>
-          <span class="pack-activity">&#x1F9F9; おかたづけした</span>
-          <span class="pack-activity">&#x1F9FC; てをあらった</span>
-          <span class="pack-activity">&#x23F0; はやおきした</span>
-        </div>
-        <details>
-          <summary>すべての活動を見る</summary>
-          <div class="pack-details">
-            <ul>
-              <li><span>&#x1FAE7;</span> おてつだいした</li>
-              <li><span>&#x1F938;</span> からだをうごかした</li>
-              <li><span>&#x1FAA2;</span> なわとびした</li>
-              <li><span>&#x1F483;</span> ダンスした</li>
-              <li><span>&#x1F58D;&#xFE0F;</span> おえかきした</li>
-              <li><span>&#x2702;&#xFE0F;</span> こうさくした</li>
-              <li><span>&#x1F3B5;</span> おうたをうたった</li>
-              <li><span>&#x1F4D6;</span> えほんをよんだ</li>
-              <li><span>&#x1F522;</span> すうじをかぞえた</li>
-              <li><span>&#x270F;&#xFE0F;</span> ひらがなれんしゅう</li>
-              <li><span>&#x1F91D;</span> いっしょにあそんだ</li>
-              <li><span>&#x1F64B;</span> じゅんばんをまもった</li>
-              <li><span>&#x1F44B;</span> あいさつした</li>
-              <li><span>&#x1F495;</span> ありがとうをいった</li>
-              <li><span>&#x1F647;</span> ごめんなさいをいった</li>
-            </ul>
-          </div>
-        </details>
-      </div>
-      <div class="pack-card">
-        <div class="pack-icon">&#x1F466;</div>
-        <h3>しょうがくせいチャレンジ</h3>
-        <div class="pack-age">6&#x301C;9歳向け &#x30FB; 16件の活動</div>
-        <p>学習習慣・運動・お手伝いをバランスよく組み合わせ、自主性を育てます。</p>
-        <div class="pack-tags">
-          <span class="pack-tag">小学生</span>
-          <span class="pack-tag">学習</span>
-          <span class="pack-tag">自立</span>
-          <span class="pack-tag">&#x1F466;&#x1F467; 性別バリエーション</span>
-        </div>
-        <div class="pack-activities">
-          <span class="pack-activity">&#x1F4DD; しゅくだいをした</span>
-          <span class="pack-activity">&#x1F4D6; どくしょした</span>
-          <span class="pack-activity">&#x1F3C3; うんどうした</span>
-          <span class="pack-activity">&#x1F9F9; じぶんのへやをそうじ</span>
-          <span class="pack-activity">&#x1FAE7; おてつだいした</span>
-        </div>
-        <details>
-          <summary>すべての活動を見る</summary>
-          <div class="pack-details">
-            <ul>
-              <li><span>&#x1F522;</span> けいさんれんしゅう</li>
-              <li><span>&#x270F;&#xFE0F;</span> かんじれんしゅう</li>
-              <li><span>&#x1F392;</span> じかんわりのじゅんび</li>
-              <li><span>&#x23F0;</span> はやおきした</li>
-              <li><span>&#x1FAA5;</span> はみがきした</li>
-              <li><span>&#x1FAA2;</span> なわとびした</li>
-              <li><span>&#x1F3CA;</span> すいえいした</li>
-              <li><span>&#x1F3A8;</span> おえかき・こうさく</li>
-              <li><span>&#x1F3B9;</span> がっきのれんしゅう</li>
-              <li><span>&#x1F91D;</span> ともだちとあそんだ</li>
-              <li><span>&#x1F4AC;</span> かぞくとはなした</li>
-            </ul>
-          </div>
-        </details>
-      </div>
-      <div class="pack-card">
-        <div class="pack-icon">&#x1F4AA;</div>
-        <h3>おてつだいマスター</h3>
-        <div class="pack-age">4&#x301C;10歳向け &#x30FB; 15件の活動</div>
-        <p>年齢に応じた家事スキルを段階的に身につけ、家族への貢献心を育てます。</p>
-        <div class="pack-tags">
-          <span class="pack-tag">テーマ別</span>
-          <span class="pack-tag">お手伝い</span>
-          <span class="pack-tag">家事スキル</span>
-        </div>
-        <div class="pack-activities">
-          <span class="pack-activity">&#x1F37D;&#xFE0F; しょっきをはこんだ</span>
-          <span class="pack-activity">&#x1F9FD; テーブルをふいた</span>
-          <span class="pack-activity">&#x1F454; せんたくものをたたんだ</span>
-          <span class="pack-activity">&#x1F6D2; かいものにつきあった</span>
-          <span class="pack-activity">&#x1F331; しょくぶつのみずやり</span>
-        </div>
-        <details>
-          <summary>すべての活動を見る</summary>
-          <div class="pack-details">
-            <ul>
-              <li><span>&#x1F6C1;</span> おふろそうじした</li>
-              <li><span>&#x1F9F9;</span> そうじきをかけた</li>
-              <li><span>&#x1F373;</span> りょうりのおてつだい</li>
-              <li><span>&#x1FAE7;</span> おさらあらいした</li>
-              <li><span>&#x1F5D1;&#xFE0F;</span> ゴミだしした</li>
-              <li><span>&#x1F415;</span> ペットのおせわ</li>
-              <li><span>&#x1F45F;</span> くつをそろえた</li>
-              <li><span>&#x1F6CF;&#xFE0F;</span> ふとんをたたんだ</li>
-              <li><span>&#x1F371;</span> おべんとうばこをあらった</li>
-              <li><span>&#x1F495;</span> ありがとうをいった</li>
-            </ul>
-          </div>
-        </details>
-      </div>
-      <div class="pack-card">
-        <div class="pack-icon">&#x1F9D1;&#x200D;&#x1F393;</div>
-        <h3>中学生チャレンジ</h3>
-        <div class="pack-age">10&#x301C;14歳向け &#x30FB; 16件の活動</div>
-        <p>学習・自己管理・社会性をバランスよく組み合わせ、自律心を育てます。</p>
-        <div class="pack-tags">
-          <span class="pack-tag">中学生</span>
-          <span class="pack-tag">自律</span>
-          <span class="pack-tag">学習習慣</span>
-          <span class="pack-tag">&#x1F466;&#x1F467; 性別バリエーション</span>
-        </div>
-        <div class="pack-activities">
-          <span class="pack-activity">&#x1F4DD; 予習・復習した</span>
-          <span class="pack-activity">&#x1F30F; 英語の勉強をした</span>
-          <span class="pack-activity">&#x1F4BB; プログラミングをした</span>
-          <span class="pack-activity">&#x1F4AA; 筋トレ・ストレッチした</span>
-          <span class="pack-activity">&#x26BD; 部活・習い事に行った</span>
-        </div>
-        <details>
-          <summary>すべての活動を見る</summary>
-          <div class="pack-details">
-            <ul>
-              <li><span>&#x1F4D6;</span> 読書した</li>
-              <li><span>&#x1F4CB;</span> テスト勉強をした</li>
-              <li><span>&#x1F305;</span> 朝活した</li>
-              <li><span>&#x1F6CF;&#xFE0F;</span> 規則正しく寝た</li>
-              <li><span>&#x1F371;</span> お弁当箱を洗った</li>
-              <li><span>&#x1F9F9;</span> 自分の部屋を掃除した</li>
-              <li><span>&#x1F3C3;</span> ランニング・散歩した</li>
-              <li><span>&#x1F373;</span> 料理を手伝った</li>
-              <li><span>&#x1F3B8;</span> 楽器の練習をした</li>
-              <li><span>&#x1F468;&#x200D;&#x1F469;&#x200D;&#x1F467;&#x200D;&#x1F466;</span> 家族会議に参加した</li>
-              <li><span>&#x1F4F0;</span> ニュースを読んだ</li>
-            </ul>
-          </div>
-        </details>
-      </div>
-      <div class="pack-card">
-        <div class="pack-icon">&#x1F9D1;&#x200D;&#x1F4BB;</div>
-        <h3>高校生チャレンジ</h3>
-        <div class="pack-age">15&#x301C;18歳向け &#x30FB; 16件の活動</div>
-        <p>進路準備・自立スキル・キャリアを意識した活動で、社会に出る準備を支援します。</p>
-        <div class="pack-tags">
-          <span class="pack-tag">高校生</span>
-          <span class="pack-tag">進路</span>
-          <span class="pack-tag">自立</span>
-          <span class="pack-tag">&#x1F466;&#x1F467; 性別バリエーション</span>
-        </div>
-        <div class="pack-activities">
-          <span class="pack-activity">&#x1F4DD; 受験勉強・自主学習した</span>
-          <span class="pack-activity">&#x1F30F; 英語学習した</span>
-          <span class="pack-activity">&#x1F4BB; プログラミング・IT学習した</span>
-          <span class="pack-activity">&#x1F91D; ボランティアに参加した</span>
-          <span class="pack-activity">&#x1F50D; 進路について調べた</span>
-        </div>
-        <details>
-          <summary>すべての活動を見る</summary>
-          <div class="pack-details">
-            <ul>
-              <li><span>&#x1F4D6;</span> 読書・論文を読んだ</li>
-              <li><span>&#x1F305;</span> 朝活した</li>
-              <li><span>&#x1F373;</span> 料理をした</li>
-              <li><span>&#x1F455;</span> 洗濯をした</li>
-              <li><span>&#x1F4B0;</span> 家計簿をつけた</li>
-              <li><span>&#x1F6D2;</span> 買い物をした</li>
-              <li><span>&#x1F4AA;</span> 筋トレ・運動した</li>
-              <li><span>&#x1F3C5;</span> 部活動に参加した</li>
-              <li><span>&#x1F3A8;</span> 創作活動をした</li>
-              <li><span>&#x1F4DC;</span> 資格の勉強をした</li>
-              <li><span>&#x1F4AC;</span> 家族と将来の話をした</li>
-            </ul>
-          </div>
-        </details>
-      </div>
-    </div>
-    <p class="pack-note">
-      0&#x301C;18歳まで、6つの活動パックで全年齢をカバー。<br>
-      セットアップ時にお子さまの年齢にぴったりのパックを自動でおすすめ。<br>
-      もちろん、活動パックはあとからいつでも追加・カスタマイズできます。
-    </p>
-    <p class="pack-supplement">
-      &#x1F466;&#x1F467; <strong>年齢と性別に合わせた活動を自動提案</strong> &#8212;
-      男の子向け・女の子向けの活動バリエーションも用意。お子さまにぴったりの内容でスタートできます。
-    </p>
-    <p class="pack-supplement">
-      &#x2705; <strong>朝の準備チェックリスト</strong>など、日常のルーティンもサポート。
-      朝・夜・週末の3タイプ &times; 全年齢分のチェックリストプリセットで、
-      「やることリスト」をすぐに始められます。
-    </p>
-  </div>
-</section>
-
-<!-- Reward Packs (#699) -->
-<section class="section bg-white" id="reward-packs">
-  <div class="section-inner">
-    <h2 class="section-title">特別なごほうび &#8212; がんばりを「価値」に変える</h2>
-    <p class="section-desc">毎日のシール・ポイントとは別に、「特別なごほうび」で大きな達成を称えられます。<br>年齢に応じた推奨ごほうびテンプレートを用意しています。</p>
-    <div class="pack-grid">
-      <div class="pack-card">
-        <div class="pack-icon">&#x1F4DA;</div>
-        <h3>がくしゅう系ごほうび</h3>
-        <div class="pack-age">全年齢 &#x30FB; がくしゅうカテゴリ</div>
-        <p>テスト100点・漢字検定合格・自由研究完成など、学習成果を特別に称えます。</p>
-        <div class="pack-tags">
-          <span class="pack-tag">学習</span>
-          <span class="pack-tag">高ポイント</span>
-        </div>
-        <div class="pack-activities">
-          <span class="pack-activity">&#x1F4AF; テスト100点</span>
-          <span class="pack-activity">&#x1F396;&#xFE0F; 検定合格</span>
-          <span class="pack-activity">&#x1F4DD; 自由研究完成</span>
-        </div>
-      </div>
-      <div class="pack-card">
-        <div class="pack-icon">&#x1F3C6;</div>
-        <h3>うんどう系ごほうび</h3>
-        <div class="pack-age">全年齢 &#x30FB; うんどうカテゴリ</div>
-        <p>大会出場・記録更新・継続達成など、運動・スポーツの頑張りを評価します。</p>
-        <div class="pack-tags">
-          <span class="pack-tag">運動</span>
-          <span class="pack-tag">継続</span>
-        </div>
-        <div class="pack-activities">
-          <span class="pack-activity">&#x1F3C5; 大会出場</span>
-          <span class="pack-activity">&#x1F3C3; 記録更新</span>
-          <span class="pack-activity">&#x26BD; 1ヶ月皆勤</span>
-        </div>
-      </div>
-      <div class="pack-card">
-        <div class="pack-icon">&#x1F91D;</div>
-        <h3>しゃかい系ごほうび</h3>
-        <div class="pack-age">全年齢 &#x30FB; しゃかいカテゴリ</div>
-        <p>お友達とのトラブル解決・ボランティア参加・年下のお世話など、社会性を育む達成を讃えます。</p>
-        <div class="pack-tags">
-          <span class="pack-tag">社会性</span>
-          <span class="pack-tag">思いやり</span>
-        </div>
-        <div class="pack-activities">
-          <span class="pack-activity">&#x1F4AC; なかなおりできた</span>
-          <span class="pack-activity">&#x1F49D; ボランティア参加</span>
-          <span class="pack-activity">&#x1F476; 年下のお世話</span>
-        </div>
-      </div>
-      <div class="pack-card">
-        <div class="pack-icon">&#x1F3A8;</div>
-        <h3>そうぞう系ごほうび</h3>
-        <div class="pack-age">全年齢 &#x30FB; そうぞうカテゴリ</div>
-        <p>絵画コンクール入選・楽器発表会・作品完成など、表現活動の成果を称えます。</p>
-        <div class="pack-tags">
-          <span class="pack-tag">創造</span>
-          <span class="pack-tag">表現</span>
-        </div>
-        <div class="pack-activities">
-          <span class="pack-activity">&#x1F3A8; 作品完成</span>
-          <span class="pack-activity">&#x1F3B5; 発表会出演</span>
-          <span class="pack-activity">&#x1F4F8; 撮影・編集</span>
-        </div>
-      </div>
-      <div class="pack-card">
-        <div class="pack-icon">&#x1F33F;</div>
-        <h3>せいかつ系ごほうび</h3>
-        <div class="pack-age">全年齢 &#x30FB; せいかつカテゴリ</div>
-        <p>長期の生活習慣達成・自立行動・特別なお手伝いなど、生活面の頑張りを讃えます。</p>
-        <div class="pack-tags">
-          <span class="pack-tag">生活習慣</span>
-          <span class="pack-tag">自立</span>
-        </div>
-        <div class="pack-activities">
-          <span class="pack-activity">&#x1F305; 早起き1ヶ月</span>
-          <span class="pack-activity">&#x1F37D;&#xFE0F; 1人で食事の準備</span>
-          <span class="pack-activity">&#x1F4B0; お小遣い管理</span>
-        </div>
-      </div>
-    </div>
-    <p class="pack-note">
-      &#x1F4A1; 特別なごほうびは、保護者がタイミングを見て即時付与できる「がんばりの価値化」装置です。<br>
-      お子さまにとって本当に大事な達成を、家庭ごとの基準で評価しましょう。<br>
-      <a href="https://ganbari-quest.com/marketplace">マーケットプレイス</a>でテンプレートを探して、すぐに使い始められます。
-    </p>
-  </div>
-</section>
-
-<!-- Community — OSS contribution -->
-<section class="section bg-white" id="community">
-  <div class="section-inner">
-    <h2 class="section-title">一緒に作りませんか？</h2>
-    <p class="section-desc">がんばりクエストはオープンソースで開発中。<br>ご家庭の「こうだったらいいな」を、一緒にカタチにしましょう。</p>
-    <div class="community-cta">
-      <div class="community-card">
-        <div class="community-icon">&#x1F4BB;</div>
-        <div class="community-label">GitHub で開発に参加</div>
-        <p class="community-detail">Issue で機能リクエストやバグ報告ができます。Pull Request も歓迎です。</p>
-        <a href="https://github.com/Takenori-Kusaka/ganbari-quest" class="btn btn-outline community-card-btn">GitHub を見る</a>
-      </div>
-      <div class="community-card">
-        <div class="community-icon">&#x2615;</div>
-        <div class="community-label">開発を応援する</div>
-        <p class="community-detail">GitHub Sponsors で個人開発を支援できます。いただいた支援はサーバー費用に充てられます。</p>
-        <a href="https://github.com/sponsors/Takenori-Kusaka" class="btn btn-outline community-card-btn">Sponsor</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- FAQ — anxiety-first -->
-<section class="section bg-gray" id="faq">
-  <div class="section-inner">
-    <h2 class="section-title">よくある質問</h2>
-    <div class="faq-list">
-      <details class="faq-item">
-        <summary>本当に効果がありますか？子供が飽きないか心配です</summary>
-        <div class="faq-answer">レベルアップ、チャレンジ、コンボボーナス、デイリーミッションなど、ゲームと同じ「続けたくなる仕組み」を取り入れています。シール帳と違い、達成するたびに新しい目標が生まれるため、飽きにくい設計です。まずは<a href="https://ganbari-quest.com/demo">デモ</a>で操作感をお試しください。</div>
-      </details>
-      <details class="faq-item">
-        <summary>子供のデータは安全ですか？</summary>
-        <div class="faq-answer">お子さまのデータは厳重に保護されています。お子さまの本名は入力不要で、ニックネームだけで使えます。データは暗号化して保管しており、第三者への販売や共有は一切行いません。詳しくは<a href="privacy.html">プライバシーポリシー</a>をご覧ください。</div>
-      </details>
-      <details class="faq-item">
-        <summary>料金はかかりますか？</summary>
-        <div class="faq-answer">基本機能は無料でお使いいただけます。ポイント、レベルアップ、シールくじなどの冒険体験は無料プランでも制限なく楽しめます。より多くの機能をお使いになりたい方には有料プランもご用意しています。詳しくは<a href="pricing.html">料金プランページ</a>をご覧ください。</div>
-      </details>
-      <details class="faq-item">
-        <summary>何歳から使えますか？</summary>
-        <div class="faq-answer">0歳からお使いいただけます。0〜2歳は保護者が記録するモード、3歳ごろからはお子さま自身がタップして記録できるようになります。年齢に合わせて画面が自動的に変わります。</div>
-      </details>
-      <details class="faq-item">
-        <summary>きょうだいで使えますか？</summary>
-        <div class="faq-answer">はい。1つの家族アカウントに複数のお子さまを登録できます。年齢に応じてUIが変わるので、幼児と小学生のきょうだいでもそれぞれに合った画面で使えます。</div>
-      </details>
-      <details class="faq-item">
-        <summary>スマートフォンで使えますか？</summary>
-        <div class="faq-answer">はい。Webアプリなのでお手持ちのスマートフォンのブラウザからすぐにご利用いただけます。ホーム画面に追加すれば、アプリのように使えます。</div>
-      </details>
-    </div>
-  </div>
-</section>
-
-<!-- Pricing (summary — details at pricing.html) -->
-<section class="section bg-white" id="pricing">
+<!-- [07] 料金サマリ -->
+<section class="section bg-gray" id="pricing">
   <div class="section-inner">
     <h2 class="section-title">料金プラン</h2>
-    <p class="section-desc">基本無料ではじめられます。ポイント・レベルアップ・シールガチャなどの冒険体験はすべてのプランで制限なし。</p>
+    <p class="section-desc">基本はずっと無料。家族構成に合わせて選べる 3 プラン。<br>有料プランは <strong>7 日間の無料トライアル付き</strong>。</p>
     <div class="pricing-summary">
       <div class="pricing-summary-card">
-        <div class="pricing-summary-name">無料プラン</div>
+        <div class="pricing-summary-name">フリー</div>
         <div class="pricing-summary-price">&#165;0</div>
-        <p class="pricing-summary-desc">お子さま2人まで。プリセット活動・90日間の履歴。</p>
+        <ul class="pricing-summary-features">
+          <li>お子さま 2 人まで</li>
+          <li>プリセット活動 + オリジナル 3 個</li>
+          <li>90 日間の履歴保持</li>
+        </ul>
       </div>
       <div class="pricing-summary-card recommended">
         <span class="pricing-summary-badge">おすすめ</span>
         <div class="pricing-summary-name">スタンダード</div>
-        <div class="pricing-summary-price">&#165;500<span class="pricing-summary-unit">/月〜</span></div>
-        <p class="pricing-summary-desc">お子さま無制限。オリジナル活動・1年間の履歴。</p>
+        <div class="pricing-summary-price">&#165;500<span class="pricing-summary-unit">/月</span></div>
+        <span class="pricing-summary-trial">7 日間 無料トライアル付き</span>
+        <ul class="pricing-summary-features">
+          <li>お子さま・活動 無制限</li>
+          <li>チェックリスト自由作成</li>
+          <li>1 年間の履歴保持 + ダウンロード</li>
+        </ul>
       </div>
       <div class="pricing-summary-card">
         <div class="pricing-summary-name">ファミリー</div>
-        <div class="pricing-summary-price">&#165;780<span class="pricing-summary-unit">/月〜</span></div>
-        <p class="pricing-summary-desc">スタンダードの全機能 + AI 自動提案・無制限の履歴。</p>
+        <div class="pricing-summary-price">&#165;780<span class="pricing-summary-unit">/月</span></div>
+        <span class="pricing-summary-trial">7 日間 無料トライアル付き</span>
+        <ul class="pricing-summary-features">
+          <li>スタンダードの全機能</li>
+          <li>AI 自動提案 + きょうだいランキング</li>
+          <li>無制限の履歴 + 家族 6 人まで</li>
+        </ul>
       </div>
     </div>
-    <p class="pricing-summary-cta"><a href="pricing.html">全プランの機能比較・無料体験の詳細を見る &#8594;</a></p>
+    <p class="pricing-summary-cta"><a href="pricing.html">全プランの機能比較・家族での使い方を見る &#8594;</a></p>
   </div>
 </section>
 
-<!-- CTA bottom -->
-<section class="cta-bottom">
-  <h2>お子さまの「がんばる力」、<br>一緒に育てませんか？</h2>
-  <p>登録は1分で完了。お子さまの名前と年齢を入れるだけで、今日から冒険が始まります。</p>
-  <div class="cta-buttons">
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">無料ではじめる</a>
-    <a href="https://ganbari-quest.com/demo" class="btn btn-demo btn-lg">&#x1F3AE; デモで体験する</a>
-  </div>
-  <p class="cta-bottom-contact">ご質問・ご要望は<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="LP CTA">メール</a>でお気軽にどうぞ</p>
-</section>
-
-<!-- How it works -->
-<section class="section bg-white" id="how-it-works">
+<!-- [08] 安心訴求 -->
+<section class="section bg-white" id="trust">
   <div class="section-inner">
-    <h2 class="section-title">かんたん3ステップ</h2>
-    <p class="section-desc">1分で登録完了。クレジットカードは不要です</p>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <h3>アカウント登録（無料）</h3>
-          <p>メールアドレスまたはGoogleアカウントで1分で完了。クレジットカードは不要です。</p>
-        </div>
+    <h2 class="section-title">お子さまのデータは、家族だけのものです</h2>
+    <p class="section-desc">広告なし・家族限定・ソースコード公開。<br>「こっそり外に持ち出される」不安をゼロにする 3 つの約束。</p>
+    <div class="trust-badges">
+      <div class="trust-badge">
+        <div class="tb-icon">&#x1F6AB;</div>
+        <h3>広告なし</h3>
+        <p>子供の画面に広告を出しません。行動データを広告に利用することもありません。</p>
+        <a href="privacy.html">プライバシーポリシー &#8594;</a>
       </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <h3>お子さまを追加</h3>
-          <p>ニックネーム・年齢・性別を入力するだけ。おすすめの活動パックとチェックリストが自動でセットアップされます。</p>
-        </div>
+      <div class="trust-badge">
+        <div class="tb-icon">&#x1F46A;</div>
+        <h3>家族限定</h3>
+        <p>家族メンバー以外はお子さまのデータを閲覧できません。招待制で閉じた空間を維持します。</p>
       </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <h3>冒険スタート！</h3>
-          <p>お子さまが活動を記録するたびにポイント獲得。レベルアップやシールくじで、がんばりが目に見える形に。</p>
-        </div>
+      <div class="trust-badge">
+        <div class="tb-icon">&#x1F310;</div>
+        <h3>ソースコード公開 (OSS)</h3>
+        <p>アプリ全体を OSS として公開しています。ご家庭のサーバーでの自前運用も可能です。</p>
+        <a href="selfhost.html">OSS / 自前運用 &#8594;</a>
       </div>
-    </div>
-    <div class="steps-cta">
-      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">無料ではじめる</a>
     </div>
   </div>
+</section>
+
+<!-- [09] FAQ -->
+<section class="section bg-gray" id="faq">
+  <div class="section-inner">
+    <h2 class="section-title">よくあるご質問</h2>
+    <p class="section-desc">ご契約前に気になる 5 つ。</p>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>フリーと有料プランの違いは？</summary>
+        <p class="faq-answer">フリープランでも活動記録・ポイント・レベルアップ・シールガチャなどの冒険体験はすべてご利用いただけます。有料プランでは「お子さま・活動の人数制限解除」「長期の履歴保持」「AI 自動提案」「きょうだいランキング」が解放されます。</p>
+      </details>
+      <details class="faq-item">
+        <summary>トライアル後は自動課金されますか？</summary>
+        <p class="faq-answer">7 日間のトライアル期間中にキャンセルいただけば、課金は発生しません。期間終了時に自動でフリープランに戻す設定もあります（自動課金への切り替えは明示的な同意が必要です）。</p>
+      </details>
+      <details class="faq-item">
+        <summary>子供のデータが広告に使われることはありませんか？</summary>
+        <p class="faq-answer">ありません。広告配信自体を行っておらず、子供の行動データを第三者に提供することもありません。詳細は <a href="privacy.html">プライバシーポリシー</a> をご参照ください。</p>
+      </details>
+      <details class="faq-item">
+        <summary>お子さまが複数いても使えますか？</summary>
+        <p class="faq-answer">フリープランで 2 人まで、スタンダード以上で人数無制限。ファミリープランでは祖父母・おじおばなど 6 人までの家族アカウントで共有できます。</p>
+      </details>
+      <details class="faq-item">
+        <summary>スマホ・タブレット・PC、何台まで使えますか？</summary>
+        <p class="faq-answer">デバイス数の制限はありません。Web ブラウザがあればどこからでもログイン可能。PWA としてホーム画面にも追加できます。</p>
+      </details>
+    </div>
+    <p class="faq-footnote">ほかのご質問は <a href="pricing.html">料金プランページの FAQ</a> をご覧ください。</p>
+  </div>
+</section>
+
+<!-- [10] 最終 CTA -->
+<section class="cta-bottom">
+  <h2>7 日間、家族で試してみる</h2>
+  <p>クレジットカード登録不要 / いつでもキャンセル可能。<br>今日からお子さまの「やりたい！」を育てませんか？</p>
+  <div class="cta-buttons">
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">無料で始める</a>
+  </div>
+  <p class="cta-bottom-note">ご質問・ご要望は<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="LP CTA">メール</a>でお気軽にどうぞ</p>
 </section>
 
 <!-- Footer -->
@@ -1161,7 +605,7 @@
     <div class="footer-links">
       <h4>リンク</h4>
       <a href="pricing.html">料金プラン</a>
-      <a href="selfhost.html">セルフホスト版</a>
+      <a href="selfhost.html">ソースコード公開 (OSS)</a>
       <a href="https://github.com/Takenori-Kusaka/ganbari-quest">GitHub</a>
       <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="トップページ">お問い合わせ</a>
       <a href="https://github.com/sponsors/Takenori-Kusaka">Sponsor</a>
@@ -1182,37 +626,42 @@
 <!-- Floating CTA — mobile only (#583) -->
 <div class="floating-cta" id="floating-cta" aria-hidden="true">
   <div class="floating-cta-inner">
-    <div class="floating-cta-text">7日間、全機能を無料で体験<small>クレジットカード不要</small></div>
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
+    <div class="floating-cta-text">7 日間、全機能を無料で体験<small>クレジットカード不要</small></div>
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で始める</a>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js" integrity="sha384-RbYB5yr9jD1p+2OHlV3KzOBLAY48CbFsJ87bXEFYINGgOlQJNE4cEjTUf+Q2fygb" crossorigin="anonymous"></script>
 <script>
+// Hero Splide carousel
 (()=> {
   var el=document.getElementById('hero-carousel');
   if(!el)return;
   var label=document.querySelector('.carousel-label');
-
   var splide=new Splide('#hero-carousel',{
-    type:'fade',
-    rewind:true,
-    autoplay:true,
-    interval:4000,
-    pauseOnHover:true,
-    pauseOnFocus:true,
-    arrows:false,
-    pagination:true,
-    speed:800,
-    keyboard:true
+    type:'fade',rewind:true,autoplay:true,interval:4000,pauseOnHover:true,pauseOnFocus:true,
+    arrows:false,pagination:true,speed:800,keyboard:true
   });
-
   splide.on('mounted move',function(){
     var slide=splide.Components.Slides.getAt(splide.index);
     if(label&&slide)label.innerHTML=slide.slide.getAttribute('data-label')||'';
   });
-
   splide.mount();
+})();
+</script>
+<script>
+// Age switcher tabs
+(()=> {
+  var tabs=document.querySelectorAll('.age-tab');
+  var panels=document.querySelectorAll('.age-panel');
+  if(!tabs.length)return;
+  tabs.forEach(function(tab){
+    tab.addEventListener('click',function(){
+      var age=tab.getAttribute('data-age');
+      tabs.forEach(function(t){t.classList.toggle('active',t===tab);t.setAttribute('aria-selected',t===tab)});
+      panels.forEach(function(p){p.classList.toggle('active',p.getAttribute('data-panel')===age)});
+    });
+  });
 })();
 </script>
 
@@ -1227,19 +676,13 @@
   if(!overlay)return;
   var lbImg=overlay.querySelector('img');
   var closeBtn=overlay.querySelector('.lightbox-close');
-
   function open(src,alt){
-    lbImg.src=src;
-    lbImg.alt=alt||'';
-    overlay.classList.add('active');
-    overlay.setAttribute('aria-hidden','false');
+    lbImg.src=src;lbImg.alt=alt||'';
+    overlay.classList.add('active');overlay.setAttribute('aria-hidden','false');
   }
   function close(){
-    overlay.classList.remove('active');
-    overlay.setAttribute('aria-hidden','true');
-    lbImg.src='';
+    overlay.classList.remove('active');overlay.setAttribute('aria-hidden','true');lbImg.src='';
   }
-
   document.querySelectorAll('img[data-lightbox]').forEach((img)=> {
     img.addEventListener('click',function(){open(this.currentSrc||this.src,this.alt)});
   });
@@ -1249,7 +692,7 @@
 })();
 </script>
 <script>
-// Floating CTA — show after scrolling past hero, hide near footer (#583)
+// Floating CTA — show after hero, hide near footer
 (()=> {
   var el=document.getElementById('floating-cta');
   if(!el||window.innerWidth>=769)return;
