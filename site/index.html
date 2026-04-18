@@ -21,6 +21,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4/dist/css/splide-core.min.css">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -248,19 +249,17 @@
 .step-body h3{font-size:1.05rem;font-weight:600;color:var(--gray-900);margin-bottom:4px}
 .step-body p{font-size:.9rem;color:var(--gray-500)}
 
-/* Hero carousel */
+/* Hero carousel — Splide */
 .hero-carousel{margin-top:16px;display:flex;flex-direction:column;align-items:center}
-.carousel-track{position:relative;width:280px;height:606px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
-.carousel-slide{position:absolute;inset:0;opacity:0;transition:opacity .8s ease}
-.carousel-slide.active{opacity:1}
-.carousel-slide img{display:block;width:100%;height:100%;object-fit:cover;object-position:top;border-radius:24px;cursor:zoom-in}
-.carousel-dots{display:flex;gap:8px;margin-top:16px}
-.carousel-dot{width:8px;height:8px;border-radius:50%;background:var(--gray-300);border:none;cursor:pointer;padding:0;transition:background .3s}
-.carousel-dot.active{background:var(--brand-700);width:24px;border-radius:4px}
+#hero-carousel .splide__track{width:280px;height:606px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
+#hero-carousel .splide__slide img{display:block;width:100%;height:100%;object-fit:cover;object-position:top;border-radius:24px;cursor:zoom-in}
+#hero-carousel .splide__pagination{display:flex;gap:8px;margin-top:16px;position:static;padding:0;bottom:auto}
+#hero-carousel .splide__pagination__page{width:8px;height:8px;border-radius:50%;background:var(--gray-300);border:none;cursor:pointer;padding:0;transition:background .3s,width .3s,border-radius .3s;opacity:1;margin:0}
+#hero-carousel .splide__pagination__page.is-active{background:var(--brand-700);width:24px;border-radius:4px}
 .carousel-label{margin-top:8px;font-size:.85rem;color:var(--gray-500);min-height:1.5em;transition:opacity .3s}
 @media(min-width:1024px){
-  .carousel-track{width:720px;height:450px;border-radius:12px;box-shadow:0 20px 60px rgba(56,120,184,.2),0 0 0 4px var(--gray-900)}
-  .carousel-slide img{border-radius:8px}
+  #hero-carousel .splide__track{width:720px;height:450px;border-radius:12px;box-shadow:0 20px 60px rgba(56,120,184,.2),0 0 0 4px var(--gray-900)}
+  #hero-carousel .splide__slide img{border-radius:8px}
 }
 
 /* Feature card screenshots (#298: enlarged sizes) */
@@ -314,7 +313,7 @@
   .age-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
   .ba-grid{grid-template-columns:1fr;gap:16px}
   .ba-arrow{justify-content:center;transform:rotate(90deg)}
-  .carousel-track{width:220px;height:476px;border-radius:24px;box-shadow:0 12px 40px rgba(56,120,184,.2),0 0 0 6px var(--gray-900)}
+  #hero-carousel .splide__track{width:220px;height:476px;border-radius:24px;box-shadow:0 12px 40px rgba(56,120,184,.2),0 0 0 6px var(--gray-900)}
   .feature-card .feature-screenshot{max-height:240px}
   .age-card .age-screenshot{max-height:200px}
   .testimonial-form{padding:24px 16px}
@@ -358,38 +357,36 @@
     <span class="badge">&#x1F4F1; スマホ対応</span>
     <a href="selfhost.html" class="badge" style="text-decoration:none">&#x1F310; セルフホスト可</a>
   </div>
-  <div class="hero-carousel" id="hero-carousel" role="region" aria-roledescription="carousel" aria-label="アプリのスクリーンショット">
-    <div class="carousel-track" tabindex="0">
-      <div class="carousel-slide active" data-label="子供のホーム画面 &#8212; 活動を記録してポイントゲット">
-        <picture>
-          <source srcset="screenshots/carousel-1-child-home-desktop.webp" media="(min-width:1024px)" type="image/webp">
-          <img src="screenshots/carousel-1-child-home-mobile.webp" alt="子供のホーム画面 — 活動記録とポイント獲得" width="390" height="844" data-lightbox>
-        </picture>
+  <div class="hero-carousel">
+    <div class="splide" id="hero-carousel" aria-label="アプリのスクリーンショット">
+      <div class="splide__track">
+        <ul class="splide__list">
+          <li class="splide__slide" data-label="子供のホーム画面 &#8212; 活動を記録してポイントゲット">
+            <picture>
+              <source srcset="screenshots/carousel-1-child-home-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/carousel-1-child-home-mobile.webp" alt="子供のホーム画面 — 活動記録とポイント獲得" width="390" height="844" data-lightbox>
+            </picture>
+          </li>
+          <li class="splide__slide" data-label="成長チャート &#8212; 5つのチカラが見える化">
+            <picture>
+              <source srcset="screenshots/carousel-2-child-status-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/carousel-2-child-status-mobile.webp" alt="成長レーダーチャートとステータス画面" width="390" height="844" data-lightbox>
+            </picture>
+          </li>
+          <li class="splide__slide" data-label="親の管理画面 &#8212; お子さまの活動を一覧で把握">
+            <picture>
+              <source srcset="screenshots/carousel-3-admin-main-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/carousel-3-admin-main-mobile.webp" alt="親の管理ダッシュボード" width="390" height="844" data-lightbox>
+            </picture>
+          </li>
+          <li class="splide__slide" data-label="活動の設定 &#8212; がんばってほしいことを自由にカスタマイズ">
+            <picture>
+              <source srcset="screenshots/carousel-4-admin-sub-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/carousel-4-admin-sub-mobile.webp" alt="活動管理画面" width="390" height="844" data-lightbox>
+            </picture>
+          </li>
+        </ul>
       </div>
-      <div class="carousel-slide" data-label="成長チャート &#8212; 5つのチカラが見える化">
-        <picture>
-          <source srcset="screenshots/carousel-2-child-status-desktop.webp" media="(min-width:1024px)" type="image/webp">
-          <img src="screenshots/carousel-2-child-status-mobile.webp" alt="成長レーダーチャートとステータス画面" width="390" height="844" data-lightbox>
-        </picture>
-      </div>
-      <div class="carousel-slide" data-label="親の管理画面 &#8212; お子さまの活動を一覧で把握">
-        <picture>
-          <source srcset="screenshots/carousel-3-admin-main-desktop.webp" media="(min-width:1024px)" type="image/webp">
-          <img src="screenshots/carousel-3-admin-main-mobile.webp" alt="親の管理ダッシュボード" width="390" height="844" data-lightbox>
-        </picture>
-      </div>
-      <div class="carousel-slide" data-label="活動の設定 &#8212; がんばってほしいことを自由にカスタマイズ">
-        <picture>
-          <source srcset="screenshots/carousel-4-admin-sub-desktop.webp" media="(min-width:1024px)" type="image/webp">
-          <img src="screenshots/carousel-4-admin-sub-mobile.webp" alt="活動管理画面" width="390" height="844" data-lightbox>
-        </picture>
-      </div>
-    </div>
-    <div class="carousel-dots">
-      <button class="carousel-dot active" data-index="0" aria-label="スライド1"></button>
-      <button class="carousel-dot" data-index="1" aria-label="スライド2"></button>
-      <button class="carousel-dot" data-index="2" aria-label="スライド3"></button>
-      <button class="carousel-dot" data-index="3" aria-label="スライド4"></button>
     </div>
     <div class="carousel-label" aria-live="polite">子供のホーム画面 &#8212; 活動を記録してポイントゲット</div>
   </div>
@@ -1325,65 +1322,32 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4/dist/js/splide.min.js"></script>
 <script>
 (()=> {
-  var carousel=document.getElementById('hero-carousel');
-  if(!carousel)return;
-  var track=carousel.querySelector('.carousel-track');
-  var slides=carousel.querySelectorAll('.carousel-slide');
-  var dots=carousel.querySelectorAll('.carousel-dot');
-  var label=carousel.querySelector('.carousel-label');
-  var current=0;
-  var total=slides.length;
-  var interval=4000;
-  var timer;
+  var el=document.getElementById('hero-carousel');
+  if(!el)return;
+  var label=document.querySelector('.carousel-label');
 
-  function show(index){
-    slides[current].classList.remove('active');
-    dots[current].classList.remove('active');
-    current=index;
-    slides[current].classList.add('active');
-    dots[current].classList.add('active');
-    if(label)label.innerHTML=slides[current].getAttribute('data-label')||'';
-  }
-
-  function nextSlide(){show((current+1)%total)}
-  function prevSlide(){show((current-1+total)%total)}
-
-  function startTimer(){timer=setInterval(nextSlide,interval)}
-  function resetTimer(){clearInterval(timer);startTimer()}
-
-  dots.forEach((dot)=> {
-    dot.addEventListener('click',function(){
-      show(parseInt(this.getAttribute('data-index')));
-      resetTimer();
-    });
+  var splide=new Splide('#hero-carousel',{
+    type:'fade',
+    rewind:true,
+    autoplay:true,
+    interval:4000,
+    pauseOnHover:true,
+    pauseOnFocus:true,
+    arrows:false,
+    pagination:true,
+    speed:800,
+    keyboard:true
   });
 
-  // Touch/swipe support (#1089)
-  var touchStartX=0;
-  var touchEndX=0;
-  track.addEventListener('touchstart',function(e){touchStartX=e.changedTouches[0].screenX},{passive:true});
-  track.addEventListener('touchend',function(e){
-    touchEndX=e.changedTouches[0].screenX;
-    var diff=touchStartX-touchEndX;
-    if(Math.abs(diff)>50){
-      if(diff>0)nextSlide();else prevSlide();
-      resetTimer();
-    }
+  splide.on('mounted move',function(){
+    var slide=splide.Components.Slides.getAt(splide.index);
+    if(label&&slide)label.innerHTML=slide.slide.getAttribute('data-label')||'';
   });
 
-  // Hover pause (#1089)
-  carousel.addEventListener('mouseenter',function(){clearInterval(timer)});
-  carousel.addEventListener('mouseleave',function(){startTimer()});
-
-  // Keyboard navigation (#1089)
-  track.addEventListener('keydown',function(e){
-    if(e.key==='ArrowLeft'){prevSlide();resetTimer();e.preventDefault()}
-    if(e.key==='ArrowRight'){nextSlide();resetTimer();e.preventDefault()}
-  });
-
-  startTimer();
+  splide.mount();
 })();
 </script>
 
