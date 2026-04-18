@@ -52,6 +52,7 @@ body:
       description: |
         「何が・どう表示/動作したら完了か」を具体的に書く。
         ⚠️ 「修正する」「改善する」等の曖昧な記述は禁止。
+        AC は**測定可能な数値・文字列・ファイルパス**で書くこと（ADR-0038）。
         スクリーンショット・操作手順・期待結果のセットで書くこと。
       value: |
         **現状（Before）**: <!-- スクリーンショット or 具体的な表示テキスト -->
@@ -66,6 +67,26 @@ body:
         **実機検証手順**:
         1. <!-- 例: 「/admin にアクセスし、チュートリアルを最初から開始」 -->
         2. <!-- 例: 「ステップ1〜18を全て通して操作し、ナビ被り・フォーカスずれがないことを確認」 -->
+    validations:
+      required: true
+
+  - type: textarea
+    id: ac-verification-plan
+    attributes:
+      label: AC 検証計画（ADR-0038 必須）
+      description: |
+        上記ゴールの各 AC を**どの機械手段で検証するか**を列挙する。
+        PR 作成時に「AC 検証マップ」として転記されるため、ここで曖昧だと PR も曖昧になる。
+        ⚠️ 「目視確認」だけでは不可。コマンド・ファイルパス・期待文字列を書くこと。
+      value: |
+        <!-- 例:
+        - AC1 「Mobile 高 <= 15000px」: `node scripts/measure-lp-dimensions.mjs` で mobileHeight を assert
+        - AC2 「禁止用語 0 件」: `rg '7日間無料トライアル付き' site/` が 0 matches
+        - AC3 「CTA 文言 3 種以下」: measure script の `ctaVariants.length <= 3`
+        - AC4 「Playwright スクリーンショットが存在」: `tests/e2e/lp-first-view.spec.ts` が緑、`docs/screenshots/1163-lp-redesign/mobile-fold.png` が repo に追加
+        -->
+        - AC1: <!-- 検証手段 -->
+        - AC2: <!-- 検証手段 -->
     validations:
       required: true
 
