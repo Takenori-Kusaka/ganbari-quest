@@ -616,7 +616,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		subcategory: null,
 		description: 'おもちゃ・部屋の片付け',
 		nameKana: 'おかたづけした',
-		nameKanji: null,
+		nameKanji: '片付けした',
 		triggerHint: 'あそんだあと おかたづけ！',
 		isMainQuest: 0,
 		isArchived: 0,
@@ -662,7 +662,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		subcategory: null,
 		description: '決まった時間に起床',
 		nameKana: 'はやおきした',
-		nameKanji: null,
+		nameKanji: '早起きした',
 		triggerHint: 'あさ じかんどおりに おきよう！',
 		isMainQuest: 0,
 		isArchived: 0,
@@ -685,7 +685,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		subcategory: null,
 		description: '食事の準備・配膳のお手伝い等',
 		nameKana: 'おてつだいした',
-		nameKanji: null,
+		nameKanji: 'お手伝いした',
 		triggerHint: 'おうちの おてつだい してみよう！',
 		isMainQuest: 0,
 		isArchived: 0,
@@ -781,7 +781,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		subcategory: null,
 		description: '元気な挨拶・お礼',
 		nameKana: 'あいさつした',
-		nameKanji: null,
+		nameKanji: '挨拶した',
 		triggerHint: 'おはよう、ありがとう！',
 		isMainQuest: 0,
 		isArchived: 0,
@@ -804,7 +804,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		subcategory: null,
 		description: 'お友達との協力遊び',
 		nameKana: 'いっしょにあそんだ',
-		nameKanji: null,
+		nameKanji: '一緒に遊んだ',
 		triggerHint: 'おともだちと あそぼう！',
 		isMainQuest: 0,
 		isArchived: 0,
@@ -946,7 +946,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		subcategory: null,
 		description: '折り紙・切り貼り・工作',
 		nameKana: 'こうさくした',
-		nameKanji: null,
+		nameKanji: '工作した',
 		triggerHint: 'はさみや のりで つくろう！',
 		isMainQuest: 0,
 		isArchived: 0,
@@ -994,6 +994,102 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		nameKana: 'ぴあのれんしゅう',
 		nameKanji: 'ピアノ練習',
 		triggerHint: 'すきな きょくを ひいてみよう！',
+		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
+		createdAt: NOW,
+	},
+
+	// ============================================================
+	// senior 専用 (age 16+) — #1147 中高生差別化
+	// ============================================================
+	{
+		id: 50,
+		name: '大学受験勉強した',
+		categoryId: 2,
+		icon: '🎯',
+		basePoints: 25,
+		ageMin: 16,
+		ageMax: null,
+		isVisible: 1,
+		dailyLimit: null,
+		sortOrder: 10,
+		source: 'pack',
+		gradeLevel: 'high_school',
+		subcategory: null,
+		description: '大学受験・共通テスト対策',
+		nameKana: 'だいがくじゅけんべんきょうした',
+		nameKanji: '大学受験勉強した',
+		triggerHint: '志望校合格に向けて勉強しよう！',
+		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
+		createdAt: NOW,
+	},
+	{
+		id: 51,
+		name: 'アルバイトした',
+		categoryId: 3,
+		icon: '💼',
+		basePoints: 20,
+		ageMin: 16,
+		ageMax: null,
+		isVisible: 1,
+		dailyLimit: null,
+		sortOrder: 10,
+		source: 'pack',
+		gradeLevel: 'high_school',
+		subcategory: null,
+		description: 'アルバイト・社会経験',
+		nameKana: 'あるばいとした',
+		nameKanji: 'アルバイトした',
+		triggerHint: '社会経験を積もう！',
+		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
+		createdAt: NOW,
+	},
+	{
+		id: 52,
+		name: '自動車学校',
+		categoryId: 2,
+		icon: '🚗',
+		basePoints: 15,
+		ageMin: 17,
+		ageMax: null,
+		isVisible: 1,
+		dailyLimit: null,
+		sortOrder: 11,
+		source: 'pack',
+		gradeLevel: 'high_school',
+		subcategory: null,
+		description: '自動車学校・教習所',
+		nameKana: 'じどうしゃがっこう',
+		nameKanji: '自動車学校',
+		triggerHint: '運転免許取得に向けて頑張ろう！',
+		isMainQuest: 0,
+		isArchived: 0,
+		archivedReason: null,
+		createdAt: NOW,
+	},
+	{
+		id: 53,
+		name: '進路相談',
+		categoryId: 4,
+		icon: '🎓',
+		basePoints: 15,
+		ageMin: 16,
+		ageMax: null,
+		isVisible: 1,
+		dailyLimit: null,
+		sortOrder: 7,
+		source: 'pack',
+		gradeLevel: 'high_school',
+		subcategory: null,
+		description: '進路について先生・家族と相談',
+		nameKana: 'しんろそうだん',
+		nameKanji: '進路相談',
+		triggerHint: '将来について話してみよう！',
 		isMainQuest: 0,
 		isArchived: 0,
 		archivedReason: null,
@@ -1181,15 +1277,15 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 	]),
-	// 906 ゆうき (senior, age 17) — very active, all categories
+	// 906 ゆうき (senior, age 17) — very active, senior 専用活動中心
 	...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].flatMap((d, i) => [
 		{
 			id: 906001 + i * 5,
 			childId: 906,
-			activityId: 7, // うんどうした
-			points: 20,
+			activityId: 50, // 大学受験勉強した (senior 専用)
+			points: 35,
 			streakDays: 14,
-			streakBonus: 10,
+			streakBonus: 12,
 			recordedDate: daysAgo(d),
 			recordedAt: daysAgoISO(d),
 			cancelled: 0,
@@ -1197,10 +1293,10 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 		{
 			id: 906002 + i * 5,
 			childId: 906,
-			activityId: 17, // 受験勉強した
-			points: 30,
-			streakDays: 14,
-			streakBonus: 12,
+			activityId: 51, // アルバイトした (senior 専用)
+			points: 28,
+			streakDays: 10,
+			streakBonus: 8,
 			recordedDate: daysAgo(d),
 			recordedAt: daysAgoISO(d),
 			cancelled: 0,
@@ -1219,10 +1315,10 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 		{
 			id: 906004 + i * 5,
 			childId: 906,
-			activityId: 35, // ボランティア活動
-			points: 35,
-			streakDays: 10,
-			streakBonus: 8,
+			activityId: 52, // 自動車学校 (senior 専用)
+			points: 20,
+			streakDays: 7,
+			streakBonus: 5,
 			recordedDate: daysAgo(d),
 			recordedAt: daysAgoISO(d),
 			cancelled: 0,
@@ -1230,8 +1326,8 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 		{
 			id: 906005 + i * 5,
 			childId: 906,
-			activityId: 8, // 部活・習い事
-			points: 25,
+			activityId: 7, // 運動した
+			points: 20,
 			streakDays: 14,
 			streakBonus: 10,
 			recordedDate: daysAgo(d),
@@ -1331,10 +1427,10 @@ export const DEMO_DAILY_MISSIONS: DailyMission[] = [
 	{ id: 7, childId: 904, missionDate: TODAY, activityId: 7, completed: 1, completedAt: NOW }, // うんどうした
 	{ id: 8, childId: 904, missionDate: TODAY, activityId: 17, completed: 1, completedAt: NOW }, // 受験勉強した
 	{ id: 9, childId: 904, missionDate: TODAY, activityId: 43, completed: 1, completedAt: NOW }, // ピアノれんしゅう
-	// 906 ゆうき (senior, age 17) — 3 missions, 2 done
-	{ id: 13, childId: 906, missionDate: TODAY, activityId: 17, completed: 1, completedAt: NOW }, // 受験勉強した
-	{ id: 14, childId: 906, missionDate: TODAY, activityId: 8, completed: 1, completedAt: NOW }, // 部活・習い事
-	{ id: 15, childId: 906, missionDate: TODAY, activityId: 35, completed: 0, completedAt: null }, // ボランティア活動
+	// 906 ゆうき (senior, age 17) — 3 missions, 2 done (senior 専用: 大学受験 + アルバイト)
+	{ id: 13, childId: 906, missionDate: TODAY, activityId: 50, completed: 1, completedAt: NOW }, // 大学受験勉強した
+	{ id: 14, childId: 906, missionDate: TODAY, activityId: 51, completed: 1, completedAt: NOW }, // アルバイトした
+	{ id: 15, childId: 906, missionDate: TODAY, activityId: 52, completed: 0, completedAt: null }, // 自動車学校
 ];
 
 // ============================================================
