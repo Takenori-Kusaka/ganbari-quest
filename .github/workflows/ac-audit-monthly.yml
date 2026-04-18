@@ -1,0 +1,82 @@
+name: AC audit monthly (ADR-0038)
+
+# #1165 / ADR-0038: 直近 30 日に close した Issue の AC 未チェック率を月次で算出し、
+# 閾値超過 (未チェック率 > 5%) なら Epic Issue を自動起票する。
+# 初期リリース: レポート出力のみ (Issue 自動起票はしない)。2 週間の実測後に有効化。
+
+on:
+  schedule:
+    # 毎月 1 日 00:00 UTC (JST 09:00)
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    name: Audit AC completeness on recently closed issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Audit recent closed issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+              since: thirtyDaysAgo.toISOString(),
+              per_page: 100,
+            });
+
+            // PR を除外 (issues API は PR も返す)
+            const realIssues = issues.filter(i => !i.pull_request);
+
+            let incompleteCount = 0;
+            const incompleteList = [];
+
+            for (const issue of realIssues) {
+              const labels = (issue.labels || []).map(l => typeof l === 'string' ? l : l.name);
+              if (labels.includes('wontfix') || labels.includes('duplicate')) continue;
+
+              const body = issue.body || '';
+              const unchecked = (body.match(/^\s*-\s*\[\s\]/gm) || []).length;
+              if (unchecked > 0) {
+                incompleteCount++;
+                incompleteList.push(`- #${issue.number} (${unchecked} unchecked): ${issue.title}`);
+              }
+            }
+
+            const total = realIssues.length;
+            const ratio = total > 0 ? (incompleteCount / total) * 100 : 0;
+
+            core.summary
+              .addHeading('ADR-0038 月次 AC 監査レポート')
+              .addRaw(`期間: ${thirtyDaysAgo.toISOString().slice(0, 10)} 〜 now\n\n`)
+              .addRaw(`- 対象 closed Issue 数: **${total}**\n`)
+              .addRaw(`- AC 未チェックで close された Issue: **${incompleteCount}** (${ratio.toFixed(1)}%)\n\n`);
+
+            if (incompleteList.length > 0) {
+              core.summary.addHeading('AC 未チェック Issue 一覧', 3).addRaw(incompleteList.join('\n'));
+            }
+
+            await core.summary.write();
+
+            // 閾値超過時の Epic Issue 自動起票 (初期リリースでは無効化)
+            if (ratio > 5) {
+              core.warning(`AC 未チェック率 ${ratio.toFixed(1)}% が閾値 5% を超えています`);
+              // 将来有効化する時に解放:
+              // await github.rest.issues.create({
+              //   owner: context.repo.owner,
+              //   repo: context.repo.repo,
+              //   title: `infra: ADR-0038 AC 未チェック率 ${ratio.toFixed(1)}% (月次監査 ${new Date().toISOString().slice(0, 7)})`,
+              //   body: `### 月次 AC 監査 (ADR-0038)\n\n未チェック率: ${ratio.toFixed(1)}%\n\n${incompleteList.join('\n')}`,
+              //   labels: ['quality:audit-pending', 'priority:high'],
+              // });
+            }

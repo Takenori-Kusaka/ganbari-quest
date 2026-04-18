@@ -188,6 +188,9 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0033**: /ops dashboard authz Cognito group migration — `OPS_SECRET_KEY` shared secret を廃止し Cognito ops group + `isOpsMember(identity)` ベースに刷新（PR-A/B/C/D 段階実装）。cron endpoint (`/api/cron/retention-cleanup`) は shared secret のままだが概念分離して `CRON_SECRET` にリネーム、移行期は `OPS_SECRET_KEY` を後方互換フォールバックとして受け入れる。PR-D-2（3 ヶ月後）で `OPS_SECRET_KEY` を完全削除予定
 - **ADR-0034**: Pre-PMF セキュリティ最小化方針 — HMAC-SHA256 鍵強度（ADR-0026）+ API Gateway 標準スロットリング + AWS Budgets + 既存 state カラム（`licenses` / `license_keys` / Stripe webhook）で Pre-PMF の防御は十分とする。**採用しない**: 汎用監査ログ DynamoDB テーブル / S3+Athena 監査基盤 / AWS WAF / IP 単位ブルートフォース検知 / CloudWatch Logs 長期保管。ADR-0029 とは対象が逆（本 ADR は新規セーフティの過剰採用を禁止、ADR-0029 は既存セーフティの劣化を禁止）。PMF 後再評価トリガ: 月商 ¥10,000 超 or 有料顧客 100 人超 or セキュリティインシデント 1 件 or 法的要請
 - **ADR-0035**: 設計ポリシー先行確認フロー — 新テーブル / 新 interface / セキュリティ機能 / 課金変更 / AWS リソース追加 / 3 人日以上の工数に該当する PR は、実装着手前に PO 設計ポリシー合意が必須。PR 本文の「設計ポリシー確認」セクションに合意の根拠（Issue ラベル / ADR / PO コメント）を記載。根拠がない場合は Reviewer がレビューを開始せず差し戻し。Reviewer / PO は Dev の実装作業を肩代わりしない（#1022 越境禁止ルール）
+- **ADR-0036**: マーケットプレイス公開アクセス設計 — 閲覧パブリック / インポート認証必須。未ログインユーザーはプリセット一覧・詳細を閲覧可能、「自分の子供に適用」などの書込み操作時のみ login flow に誘導
+- **ADR-0037**: 全ユーザー向け文言の SSOT 化原則 — プラン名 / 年齢モード名 / 機能名などは `src/lib/domain/labels.ts` に定数定義、LP は `site/shared-labels.js` の `data-label` 属性経由。BANNED_TERMS を CI (`scripts/check-banned-terms.mjs`) で自動検出
+- **ADR-0038**: AC 検証エビデンス必須化 — Issue テンプレに `ac-verification-plan` (required)、PR テンプレに「AC 検証マップ」セクション、CI 3 本 (`pr-ac-verification-check` / `issue-close-gate` / `ac-audit-monthly`) で機械強制。初期リリースは warn-only、2 週間後に block 化予定。`<!-- ac-verification-skip: <理由> -->` で例外可 (監査ログ記録)。`quality:ac-incomplete` / `quality:audit-pending` ラベルで隔離
 
 ### Team Structure
 

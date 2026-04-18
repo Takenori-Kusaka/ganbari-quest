@@ -72,6 +72,40 @@ body:
     validations:
       required: true
 
+  - type: textarea
+    id: goals
+    attributes:
+      label: ゴール（Acceptance Criteria）
+      description: |
+        この機能が完了したと判断できる条件を列挙する。
+        AC は**測定可能な数値・文字列・ファイルパス**で書くこと（ADR-0038）。
+        「〜が改善される」「UXが向上する」等の抽象表現は不可。
+      value: |
+        - [ ] <!-- 例: 「/ops/audit-log 画面に直近 10 分の検証失敗ログが表形式で表示される」 -->
+        - [ ] <!-- 例: 「DynamoDB OpsAuditLog テーブルに action=LICENSE_VERIFY_FAIL のレコードが insert される」 -->
+        - [ ] <!-- 例: 「Playwright E2E `tests/e2e/ops-audit.spec.ts` が新規追加され、全 assert が緑」 -->
+    validations:
+      required: true
+
+  - type: textarea
+    id: ac-verification-plan
+    attributes:
+      label: AC 検証計画（ADR-0038 必須）
+      description: |
+        上記ゴールの各 AC を**どの機械手段で検証するか**を列挙する。
+        PR 作成時に「AC 検証マップ」として転記されるため、ここで曖昧だと PR も曖昧になる。
+        ⚠️ 「目視確認」だけでは不可。コマンド・ファイルパス・期待文字列を書くこと。
+      value: |
+        <!-- 例:
+        - AC1: Playwright (`tests/e2e/ops-audit.spec.ts`) で UI 要素 `getByTestId('audit-log-table')` を assert
+        - AC2: `aws dynamodb query --table-name OpsAuditLog --index-name action-index ...` で 1 件以上ヒット
+        - AC3: `cat tests/e2e/ops-audit.spec.ts | grep -c 'test('` が 1 以上
+        -->
+        - AC1: <!-- 検証手段 -->
+        - AC2: <!-- 検証手段 -->
+    validations:
+      required: true
+
   - type: dropdown
     id: age-group
     attributes:

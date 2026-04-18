@@ -1,0 +1,75 @@
+name: Issue close gate (ADR-0038)
+
+# #1165 / ADR-0038: Issue クローズ時に AC (`- [ ]`) が未チェックで残っている場合、
+# 自動で reopen + `quality:ac-incomplete` ラベル付与 + PO にメンション。
+# 初期リリース: warn-only (reopen はせず、コメントのみ)。2 週間の実測後に block 化する。
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  gate:
+    name: AC completeness check on close
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check AC checkboxes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const labels = (issue.labels || []).map(l => l.name);
+
+            // 除外条件
+            if (labels.includes('wontfix') || labels.includes('duplicate')) {
+              core.info(`Issue #${issue.number}: ${labels.join(', ')} ラベル付きのため skip`);
+              return;
+            }
+
+            const body = issue.body || '';
+
+            // "完了条件" / "Acceptance Criteria" / "Goals" セクションのチェックボックス行を検出
+            // マークダウンの `- [ ]` / `- [x]` / `- [X]` を拾う
+            const uncheckedMatches = body.match(/^\s*-\s*\[\s\]/gm) || [];
+            const checkedMatches = body.match(/^\s*-\s*\[(x|X)\]/gm) || [];
+
+            core.info(
+              `Issue #${issue.number}: unchecked=${uncheckedMatches.length}, checked=${checkedMatches.length}`,
+            );
+
+            if (uncheckedMatches.length === 0) {
+              core.info('全 AC チェック済み ✓');
+              return;
+            }
+
+            // warn-only: コメントのみで通知 (初期リリース)
+            const message = `⚠️ **ADR-0038: AC 検証未完了の懸念**\n\n` +
+              `この Issue には未チェックの AC (\`- [ ]\`) が ${uncheckedMatches.length} 件残った状態で close されました。\n\n` +
+              `2 週間の warn-only 運用期間を経て、block モードに昇格する予定です。\n` +
+              `意図的な残存の場合は \`wontfix\` / \`duplicate\` ラベルを付けるか、AC を \`[x]\` に更新してください。`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: message,
+            });
+
+            // 将来 block 化する時に有効にする:
+            // await github.rest.issues.addLabels({
+            //   owner: context.repo.owner,
+            //   repo: context.repo.repo,
+            //   issue_number: issue.number,
+            //   labels: ['quality:ac-incomplete'],
+            // });
+            // await github.rest.issues.update({
+            //   owner: context.repo.owner,
+            //   repo: context.repo.repo,
+            //   issue_number: issue.number,
+            //   state: 'open',
+            // });
