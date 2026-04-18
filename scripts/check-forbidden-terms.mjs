@@ -52,6 +52,13 @@ const FORBIDDEN_TERMS = [
 		reason: '#700 無効化済みDiscord招待リンク（4回再発）',
 		replacement: 'ganbari.quest.support@gmail.com へのメール問い合わせ',
 	},
+	{
+		term: '7日間無料トライアル付き',
+		reason:
+			'#1166 景品表示法リスク — 登録CTAの下にこの完全一致表記があると「登録で自動付帯」と誤認させる。実際はユーザーが /admin/license から明示操作で開始する仕様（カード登録不要・自動課金なし）',
+		replacement:
+			'（削除する / もしくは「7日間の無料体験付き」のようにプラン付帯を明示する表現を pricing.html 文脈で使う）',
+	},
 ];
 
 /**
