@@ -1,0 +1,88 @@
+name: PR AC verification check (ADR-0038)
+
+# #1165 / ADR-0038: PR 本文の「AC 検証マップ」が全行埋まっているかを機械検証する
+# 初期リリース: warn-only (continue-on-error: true)。2 週間の実測後に block 化する。
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    name: Verify AC map in PR body
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    timeout-minutes: 3
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check AC verification map
+        uses: actions/github-script@v7
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        with:
+          script: |
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            // 除外条件 1: type:docs ラベル
+            if (labels.includes('type:docs')) {
+              core.info('PR is type:docs, skipping AC verification check');
+              return;
+            }
+
+            // 除外条件 2: 明示的 skip コメント
+            const skipMatch = body.match(/<!--\s*ac-verification-skip:\s*(.+?)\s*-->/);
+            if (skipMatch) {
+              core.warning(`AC verification skipped: ${skipMatch[1]}`);
+              return;
+            }
+
+            // AC 検証マップの行を抽出 (パイプで区切られた 4 列のマークダウン行)
+            // ヘッダー行 (`| AC 番号 | AC 内容 ...`) とセパレーター (`|---|---|`) を除く
+            const mapHeaderIdx = body.indexOf('AC 検証マップ');
+            if (mapHeaderIdx === -1) {
+              core.warning('PR 本文に「AC 検証マップ」セクションが見つかりません (ADR-0038)');
+              return;
+            }
+
+            const section = body.slice(mapHeaderIdx);
+            // 4-column table rows: | AC... | ... | ... | ... |
+            const rows = section
+              .split('\n')
+              .filter(l => /^\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|/.test(l))
+              .filter(l => !/^\|\s*-+\s*\|/.test(l)) // separator
+              .filter(l => !/AC 番号\s*\|\s*AC 内容/.test(l)); // header
+
+            // テンプレのプレースホルダ (`<!-- ... -->`) や空白のみの行を検出
+            const emptyRows = rows.filter(row => {
+              const cells = row.split('|').slice(1, -1).map(c => c.trim());
+              // 各セルが placeholder / 空白 / <!-- --> コメントだけかを判定
+              return cells.some(c => c === '' || /^<!--.*-->$/.test(c));
+            });
+
+            core.info(`AC map rows found: ${rows.length}, empty/placeholder rows: ${emptyRows.length}`);
+
+            if (rows.length === 0) {
+              core.warning('AC 検証マップに行が 1 件もありません。Issue の AC ごとに 1 行埋めてください (ADR-0038)');
+              return;
+            }
+
+            if (emptyRows.length > 0) {
+              core.warning(
+                `AC 検証マップに ${emptyRows.length} 件の空欄/プレースホルダ行があります。全行を埋めてください (ADR-0038)`,
+              );
+              for (const r of emptyRows) {
+                core.warning(`  空行: ${r.slice(0, 120)}`);
+              }
+              return;
+            }
+
+            core.info('AC 検証マップ: 全行 埋まっています ✓');
