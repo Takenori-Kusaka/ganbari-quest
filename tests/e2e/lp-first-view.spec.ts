@@ -31,7 +31,7 @@ let baseUrl: string;
 test.beforeAll(async () => {
 	await new Promise<void>((resolvePromise, rejectPromise) => {
 		server = createServer((req, res) => {
-			let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+			let urlPath = decodeURIComponent((req.url || '/').split('?')[0] ?? '/');
 			if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
 			const filePath = join(SITE_DIR, urlPath);
 			if (!filePath.startsWith(SITE_DIR)) {
