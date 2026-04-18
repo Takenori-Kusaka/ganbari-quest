@@ -179,12 +179,12 @@ describe('plan-features.ts SSOT', () => {
 			}
 		});
 
-		it('サポート表記がメール優先サポートに統一されていること', () => {
+		it('サポート表記がメールサポートに統一されていること (#1109)', () => {
 			const standardFeatures = PRICING_PAGE_FEATURES.standard;
 			const familyFeatures = PRICING_PAGE_FEATURES.family;
 
-			expect(standardFeatures).toContain('メール優先サポート');
-			expect(familyFeatures).toContain('メール優先サポート（24時間以内応答）');
+			expect(standardFeatures).toContain('メールサポート');
+			expect(familyFeatures).toContain('メールサポート');
 		});
 	});
 
