@@ -210,11 +210,36 @@ function generateSharedLabelsJs() {
 		});
 	}
 
+	/**
+	 * data-plan + data-label 属性を持つ要素を辞書値で上書きする
+	 *
+	 * data-label の値:
+	 *   - "plan-name": プラン名（無料プラン/スタンダードプラン/ファミリープラン）
+	 */
+	function applyPlanLabels() {
+		var elements = document.querySelectorAll('[data-plan][data-label]');
+		elements.forEach(function(el) {
+			var plan = el.getAttribute('data-plan');
+			var labelType = el.getAttribute('data-label');
+			var planName = PLAN_LABELS[plan];
+			if (!planName) return;
+
+			if (labelType === 'plan-name') {
+				el.textContent = planName;
+			}
+		});
+	}
+
+	function applyAll() {
+		applyAgeTierLabels();
+		applyPlanLabels();
+	}
+
 	// DOMContentLoaded 後に適用
 	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', applyAgeTierLabels);
+		document.addEventListener('DOMContentLoaded', applyAll);
 	} else {
-		applyAgeTierLabels();
+		applyAll();
 	}
 })();
 `;
