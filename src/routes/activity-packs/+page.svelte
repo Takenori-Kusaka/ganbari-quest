@@ -56,7 +56,6 @@ let { data } = $props();
 				href="/auth/signup"
 				class="block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-sm"			>				無料で はじめる
 			</a>
-			<p class="text-xs text-[var(--color-text-muted)] mt-2">7日間無料トライアル付き</p>
 			{/snippet}
 		</Card>
 
