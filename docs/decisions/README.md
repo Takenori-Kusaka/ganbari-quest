@@ -82,3 +82,4 @@
 | 0033 | [/ops ダッシュボード認可を Cognito ops group ベースに刷新（OPS_SECRET_KEY 廃止）](0033-ops-dashboard-cognito-authz.md) | accepted | 2026-04-16 |
 | 0034 | [Pre-PMF セキュリティ最小化方針（HMAC + API Gateway throttling + Budgets）](0034-pre-pmf-security-minimum.md) | accepted | 2026-04-16 |
 | 0035 | [設計ポリシー先行確認フロー（新機能は実装前に PO 合意必須）](0035-design-policy-pre-approval.md) | accepted | 2026-04-17 |
+| 0036 | [マーケットプレイス公開アクセス設計（閲覧パブリック / インポート認証必須）](0036-marketplace-public-access.md) | accepted | 2026-04-18 |

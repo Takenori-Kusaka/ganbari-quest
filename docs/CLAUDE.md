@@ -74,6 +74,7 @@
 - [ADR-0033](decisions/0033-ops-dashboard-cognito-authz.md) — /ops ダッシュボード認可を Cognito ops group ベースに刷新（OPS_SECRET_KEY 廃止 / cron endpoint は CRON_SECRET に概念分離、移行期は両対応）
 - [ADR-0034](decisions/0034-pre-pmf-security-minimum.md) — Pre-PMF セキュリティ最小化方針（HMAC + API Gateway throttling + Budgets / 監査ログ DynamoDB / WAF / ブルート検知は Pre-PMF では不採用）
 - [ADR-0035](decisions/0035-design-policy-pre-approval.md) — 設計ポリシー先行確認フロー（新機能 / 新 interface は実装前に PO 合意を必須化）
+- [ADR-0036](decisions/0036-marketplace-public-access.md) — マーケットプレイス公開アクセス設計（閲覧パブリック / インポート認証必須）
 
 ## ローカル Cognito 認証検証環境 (#1026)
 
