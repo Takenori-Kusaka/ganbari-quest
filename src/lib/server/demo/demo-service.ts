@@ -158,7 +158,7 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 			}
 		: null;
 
-	// Daily missions — enrich with activity names/icons
+	// Daily missions — enrich with activity names/icons (age-appropriate display)
 	let dailyMissions: DailyMissionStatus | null = null;
 	if (missions.length > 0) {
 		const completedCount = missions.filter((m) => m.completed === 1).length;
@@ -168,7 +168,7 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 				return {
 					id: m.id,
 					activityId: m.activityId,
-					activityName: act?.name ?? '不明',
+					activityName: act ? getActivityDisplayName(act, child.age) : '不明',
 					activityIcon: act?.icon ?? '❓',
 					categoryId: act?.categoryId ?? 0,
 					completed: m.completed === 1,
@@ -274,6 +274,8 @@ export interface DemoHistoryData {
 }
 
 export function getDemoHistoryData(childId: number): DemoHistoryData {
+	const child = DEMO_CHILDREN.find((c) => c.id === childId);
+	const age = child?.age ?? 6;
 	const logs = getDemoLogsForChild(childId);
 	return {
 		logs: logs
@@ -283,7 +285,7 @@ export function getDemoHistoryData(childId: number): DemoHistoryData {
 				const cat = CATEGORY_DEFS.find((c) => c.id === act?.categoryId);
 				return {
 					id: l.id,
-					activityName: act?.name ?? '不明',
+					activityName: act ? getActivityDisplayName(act, age) : '不明',
 					activityIcon: act?.icon ?? '❓',
 					categoryName: cat?.name ?? '不明',
 					points: l.points,
