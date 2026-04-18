@@ -199,9 +199,6 @@ const hasLegacyPack = $derived(
 					がんばりクエストに登録してインポート
 				</Button>
 			</a>
-			<p class="text-xs text-[var(--color-text-tertiary)] text-center">
-				7日間無料トライアル付き
-			</p>
 		</div>
 
 		<!-- Back -->
