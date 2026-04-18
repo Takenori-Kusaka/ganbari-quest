@@ -117,6 +117,8 @@ export async function insertTemplate(
 		isActive: input.isActive ?? 1,
 		isArchived: 0,
 		archivedReason: null,
+		// #1168: default 'routine' (既存資産と互換)
+		kind: input.kind ?? 'routine',
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -153,6 +155,7 @@ export async function updateTemplate(
 		'completionBonus',
 		'timeSlot',
 		'isActive',
+		'kind',
 	] as const;
 	for (const field of fields) {
 		if (input[field] !== undefined) {

@@ -126,6 +126,21 @@ describe('getTodayChecklist', () => {
 		expect(result.target).toBe('template');
 	});
 
+	// #1168 + ADR-0031: kind カラム未設定 / NULL 既存行は 'routine' として扱う
+	it('template.kind が undefined の既存行は TodayChecklist.kind を "routine" で返す', async () => {
+		mockFindTemplateById.mockResolvedValue({ ...baseTemplate, kind: undefined });
+		const { getTodayChecklist } = await import('$lib/server/services/checklist-service');
+		const result = assertSuccess(await getTodayChecklist(CHILD_ID, TEMPLATE_ID, DATE, TENANT));
+		expect(result.kind).toBe('routine');
+	});
+
+	it('template.kind が "item" の場合は TodayChecklist.kind を "item" で返す', async () => {
+		mockFindTemplateById.mockResolvedValue({ ...baseTemplate, kind: 'item' });
+		const { getTodayChecklist } = await import('$lib/server/services/checklist-service');
+		const result = assertSuccess(await getTodayChecklist(CHILD_ID, TEMPLATE_ID, DATE, TENANT));
+		expect(result.kind).toBe('item');
+	});
+
 	it('childId が一致しない場合 NOT_FOUND を返す', async () => {
 		const { getTodayChecklist } = await import('$lib/server/services/checklist-service');
 		const result = assertError(await getTodayChecklist(999, TEMPLATE_ID, DATE, TENANT));

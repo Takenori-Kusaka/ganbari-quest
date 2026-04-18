@@ -49,6 +49,19 @@ export default async function globalSetup() {
 				}
 			}
 
+			// #1168: checklist_templates.kind カラム追加 + NULL backfill (ADR-0031)
+			try {
+				db.exec("ALTER TABLE checklist_templates ADD COLUMN kind TEXT NOT NULL DEFAULT 'routine'");
+				console.log('[E2E Setup]   Added kind column to checklist_templates.');
+			} catch {
+				// カラムが既に存在する場合は無視
+			}
+			try {
+				db.exec("UPDATE checklist_templates SET kind = 'routine' WHERE kind IS NULL");
+			} catch {
+				// backfill 済み / カラム未適用
+			}
+
 			db.close();
 			if (!table) needsSchema = true;
 		} catch {

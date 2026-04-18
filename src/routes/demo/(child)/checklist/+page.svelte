@@ -1,6 +1,11 @@
 <script lang="ts">
 // #704: デモ画面のもちものチェック (本番 src/routes/(child)/checklist/+page.svelte に相当)
 // 書き込みは行わず、UI 操作はクライアント側の $state でのみ反映する。
+import {
+	CHECKLIST_KIND_ICONS,
+	CHECKLIST_KIND_LABELS,
+	type ChecklistKind,
+} from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -49,6 +54,17 @@ function isCurrentSlot(slot: string): boolean {
 	return slot === currentSlot || slot === 'anytime';
 }
 
+// #1168: kind ごとにグループ表示（ルーティン → 持ち物 の順）
+const kindOrder: ChecklistKind[] = ['routine', 'item'];
+const groupedChecklists = $derived(
+	kindOrder
+		.map((kind) => ({
+			kind,
+			lists: localChecklists.filter((cl) => (cl.kind ?? 'routine') === kind),
+		}))
+		.filter((g) => g.lists.length > 0),
+);
+
 function toggleItem(templateId: number, itemId: number) {
 	localChecklists = localChecklists.map((cl) => {
 		if (cl.templateId !== templateId) return cl;
@@ -92,7 +108,11 @@ function toggleItem(templateId: number, itemId: number) {
 			<p class="text-sm">おやにおねがいしてね</p>
 		</div>
 	{:else}
-		{#each localChecklists as checklist (checklist.templateId)}
+		{#each groupedChecklists as group (group.kind)}
+			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-xs)] mt-[var(--sp-md)] first:mt-0">
+				{CHECKLIST_KIND_ICONS[group.kind]} {CHECKLIST_KIND_LABELS[group.kind]}
+			</h2>
+			{#each group.lists as checklist (checklist.templateId)}
 			<Card padding="none" class="mb-[var(--sp-md)] {isCurrentSlot(checklist.timeSlot) ? 'ring-2 ring-[var(--theme-primary)]' : 'opacity-70'}">
 				{#snippet children()}
 				<!-- Template header -->
@@ -150,6 +170,7 @@ function toggleItem(templateId: number, itemId: number) {
 				</div>
 				{/snippet}
 			</Card>
+			{/each}
 		{/each}
 	{/if}
 
