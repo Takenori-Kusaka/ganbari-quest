@@ -34,7 +34,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		'オリジナル活動の作成：3個まで',
 		'レベル・ポイント・シールガチャ',
 		'ログインボーナス・コンボ',
-		'チェックリスト（テンプレート 3個/子まで）',
+		'チェックリスト（持ち物/ルーティン 合計3個/子まで）',
 		'90日間の履歴保持',
 	],
 	standard: [
