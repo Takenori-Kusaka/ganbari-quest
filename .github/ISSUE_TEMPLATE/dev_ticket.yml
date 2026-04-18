@@ -81,7 +81,7 @@ body:
       value: |
         <!-- 例:
         - AC1 「Mobile 高 <= 15000px」: `node scripts/measure-lp-dimensions.mjs` で mobileHeight を assert
-        - AC2 「禁止用語 0 件」: `rg '7日間無料トライアル付き' site/` が 0 matches
+        - AC2 「禁止用語 0 件」: `node scripts/check-forbidden-terms.mjs` が exit 0
         - AC3 「CTA 文言 3 種以下」: measure script の `ctaVariants.length <= 3`
         - AC4 「Playwright スクリーンショットが存在」: `tests/e2e/lp-first-view.spec.ts` が緑、`docs/screenshots/1163-lp-redesign/mobile-fold.png` が repo に追加
         -->
