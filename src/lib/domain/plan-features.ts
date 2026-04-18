@@ -74,7 +74,7 @@ export const LICENSE_PAGE_HIGHLIGHTS: Record<'standard' | 'family', readonly str
 		'子供の登録数 無制限',
 		'カスタム活動 無制限',
 		'データ保持 1年間',
-		'データエクスポート対応',
+		'データのダウンロード',
 	],
 	family: [
 		'スタンダードの全機能',
