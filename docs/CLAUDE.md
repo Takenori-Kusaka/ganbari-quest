@@ -18,7 +18,21 @@
 | AWS インフラ構成の変更 | `13-AWSサーバレスアーキテクチャ設計書.md` |
 | 認証・セキュリティ関連の変更 | `14-セキュリティ設計書.md` |
 | デザイン・ビジュアル変更 | `15-ブランドガイドライン.md` |
+| **LP (`site/**`) の情報アーキテクチャ変更** | `docs/design/lp-content-map.md` (#1163) |
 | 会話で確定した機能仕様 | 該当する設計書（なければ新設） |
+
+### LP メトリクス ratchet ルール (#1163)
+
+`site/**` を変更する PR は、`scripts/measure-lp-dimensions.mjs` が以下の閾値を破らないこと。CI (`.github/workflows/lp-metrics.yml`) が自動 FAIL する。
+
+| 指標 | 現閾値 | 方針 |
+|------|--------|------|
+| `mobileHeight` | 15000 px | 引き上げ禁止（下げるのは自由） |
+| `desktopHeight` | 8000 px | 同上 |
+| `forbiddenTerms` | 全 0 | 新規の開発者語彙 (`git clone` / `docker compose` / `SaaS版` / `セルフホスト版` / `TLS` / `AES-256` / `AWS`) を追加しない |
+| `ctaVariants` | 3 以下 | CTA 文言は `無料で始める` / `デモを見る` + NAV の `ログイン` の 3 種のみ |
+
+閾値を緩める変更は ADR で合意を得てから `scripts/measure-lp-dimensions.mjs` の `THRESHOLDS` を更新する。
 
 ### 絶対にやってはいけないこと
 - 会話で仕様が決まったのに設計書に反映しないまま実装を進めること
