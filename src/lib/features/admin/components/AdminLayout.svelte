@@ -117,6 +117,8 @@ const navCategories: NavCategory[] = $derived([
 			{ href: `${basePath}/checklists`, label: NAV_ITEM_LABELS.checklists, icon: '✅' },
 			{ href: `${basePath}/events`, label: NAV_ITEM_LABELS.events, icon: '🎉' },
 			{ href: `${basePath}/challenges`, label: NAV_ITEM_LABELS.challenges, icon: '👥' },
+			// #1170: マケプレをグローバルナビ昇格（customize の一員として導線短縮）
+			{ href: '/marketplace', label: NAV_ITEM_LABELS.marketplace, icon: '🛍️' },
 		],
 	},
 	{
