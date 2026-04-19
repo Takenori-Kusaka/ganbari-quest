@@ -40,8 +40,8 @@ let showModal = $state(false);
 {/if}
 
 {#if showModal}
-	{#await import('./PremiumModal.svelte') then { default: PremiumModal }}
-		<PremiumModal onclose={() => (showModal = false)} />
+	{#await import('./PremiumDialog.svelte') then { default: PremiumDialog }}
+		<PremiumDialog onclose={() => (showModal = false)} />
 	{/await}
 {/if}
 
