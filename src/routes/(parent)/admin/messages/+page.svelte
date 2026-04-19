@@ -128,17 +128,15 @@ function selectStamp(code: string) {
 			</div>
 		{:else}
 			<Card>
-				<FormField label="メッセージ（{TEXT_MAX}文字以内）" hint="{textBody.length}/{TEXT_MAX}">
-					<textarea
-						bind:value={textBody}
-						maxlength={TEXT_MAX}
-						placeholder="がんばってるね！だいすき！ いつもおうえんしてるよ"
-						rows="3"
-						class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
-							border-[var(--input-border)] focus:border-[var(--input-border-focus)]
-							focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors resize-none"
-					></textarea>
-				</FormField>
+				<FormField
+					label="メッセージ（{TEXT_MAX}文字以内）"
+					type="textarea"
+					rows={3}
+					maxlength={TEXT_MAX}
+					placeholder="がんばってるね！だいすき！ いつもおうえんしてるよ"
+					hint="{textBody.length}/{TEXT_MAX}"
+					bind:value={textBody}
+				/>
 			</Card>
 		{/if}
 	</section>
