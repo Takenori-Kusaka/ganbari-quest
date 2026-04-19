@@ -72,7 +72,7 @@ jobs:
       - run: npm ci
 
       - name: Biome lint
-        run: npx biome check .
+        run: npx biome check --max-diagnostics=2000 --reporter=github .
 
       - name: Parallel implementation sync check (#565)
         run: npm run lint:parallel
