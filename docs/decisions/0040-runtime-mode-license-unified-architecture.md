@@ -216,7 +216,7 @@ export function ensureCan(ctx: EvaluationContext, cap: Capability): void;
 | **P2** RuntimeMode 解決 | `src/lib/runtime/runtime-mode.ts` + `resolveRuntimeMode(env, url, cookie)` | 5 モード判定が `hooks.server.ts` から分離 |
 | **P3** EvaluationContext | `src/lib/runtime/evaluation-context.ts` + hooks 組立 + `runWithRequestContext` 拡張 | load fn / services から `getEvaluationContext()` で読める |
 | **P4** Policy Gate | `src/lib/policy/capabilities.ts` + `can()` / `ensureCan()` + 既存分岐の段階的置換 | 主要 capability 10 件を `can()` 経由に置換。旧コードと並走 |
-| **P5** テストマトリクス | `playwright.config.ts` の projects で `{mode} × {plan}` マトリクス | 代表 5 シナリオ（demo × free / local-debug × family / aws-prod × trial-expired / nuc-prod × license-valid / nuc-prod × license-expired）の E2E が緑 |
+| **P5** テストマトリクス | `playwright.matrix.config.ts` の projects で `{mode} × {plan}` マトリクス + `DEBUG_LICENSE_KEY_VALID` env（dev-only）(#1221) | 代表 5 シナリオ（demo × free / local-debug × family / aws-prod × trial-expired / nuc-prod × license-valid / nuc-prod × license-expired）の E2E smoke が `npm run test:e2e:matrix` で緑 |
 
 ### 不採用事項（Pre-PMF 原則に従う）
 
