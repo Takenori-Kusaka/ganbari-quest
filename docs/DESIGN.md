@@ -218,18 +218,30 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `PLAN_LABELS` | const | プラン名（フル） |
 | `PLAN_SHORT_LABELS` | const | プラン名（短縮） |
 | `PAID_PLAN_LABEL` | const | 有料プラン総称ラベル |
+| `LICENSE_PLAN_LABELS` | const |  |
 | `THEME_LABELS` | const | テーマ名 |
 | `THEME_EMOJIS` | const | テーマ絵文字 |
 | `FEATURE_LABELS` | const | 機能名ラベル |
+| `CHECKLIST_KIND_LABELS` | const |  |
+| `CHECKLIST_KIND_SHORT_LABELS` | const |  |
+| `CHECKLIST_KIND_ICONS` | const |  |
+| `ACTION_LABELS` | const |  |
+| `TRIAL_LABELS` | const |  |
+| `PREMIUM_MODAL_LABELS` | const |  |
+| `MARKETPLACE_LABELS` | const |  |
 | `TUTORIAL_LABELS` | const |  |
 | `getAgeTierLabel` | function | 年齢区分ラベル取得 |
 | `getAgeTierShortLabel` | function | 年齢区分短縮ラベル取得 |
 | `getPlanLabel` | function | プランラベル取得 |
+| `getLicensePlanLabel` | function |  |
 | `getThemeLabel` | function | テーマラベル取得 |
 | `getThemeOptions` | function | テーマ選択肢一覧 |
+| `getChecklistKindLabel` | function |  |
+| `getChecklistKindShortLabel` | function |  |
 | `NavCategoryId` | type |  |
 | `PlanKey` | type |  |
 | `ThemeKey` | type |  |
+| `ChecklistKind` | type |  |
 <!-- /AUTOGEN:labels -->
 
 ### ルール

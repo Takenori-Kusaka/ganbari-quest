@@ -1,4 +1,5 @@
 <script lang="ts">
+import { MARKETPLACE_LABELS } from '$lib/domain/labels';
 import type { MarketplaceItemType } from '$lib/domain/marketplace-item';
 import {
 	AGE_BANDS,
@@ -28,11 +29,8 @@ const activeTag = $derived(data.filters.tag);
 </script>
 
 <svelte:head>
-	<title>マーケットプレイス - がんばりクエスト</title>
-	<meta
-		name="description"
-		content="活動パック・ごほうびセット・チェックリスト・特別ルールを探そう。がんばりクエストの公式コンテンツカタログです。"
-	/>
+	<title>{MARKETPLACE_LABELS.pageTitle} - がんばりクエスト</title>
+	<meta name="description" content={MARKETPLACE_LABELS.metaDescription} />
 </svelte:head>
 
 <div class="min-h-dvh bg-[var(--color-surface-base)]">
@@ -43,10 +41,10 @@ const activeTag = $derived(data.filters.tag);
 				<Logo variant="compact" size={160} />
 			</div>
 			<h1 class="text-2xl font-bold text-[var(--color-text-primary)] mb-2">
-				マーケットプレイス
+				{MARKETPLACE_LABELS.pageTitle}
 			</h1>
 			<p class="text-sm text-[var(--color-text-secondary)]">
-				お子さまの年齢にぴったりの活動・ごほうび・チェックリストを見つけよう
+				{MARKETPLACE_LABELS.pageDescription}
 			</p>
 		</div>
 
@@ -119,7 +117,7 @@ const activeTag = $derived(data.filters.tag);
 					href="/marketplace"
 					class="text-xs text-[var(--color-action-primary)] hover:underline"
 				>
-					フィルタをクリア
+					{MARKETPLACE_LABELS.filterClear}
 				</a>
 			</div>
 		{/if}
@@ -177,13 +175,13 @@ const activeTag = $derived(data.filters.tag);
 		{#if data.items.length === 0}
 			<div class="text-center py-12">
 				<p class="text-lg text-[var(--color-text-secondary)]">
-					条件に合うコンテンツがありません
+					{MARKETPLACE_LABELS.emptyState}
 				</p>
 				<a
 					href="/marketplace"
 					class="text-sm text-[var(--color-action-primary)] hover:underline mt-2 inline-block"
 				>
-					フィルタをクリア
+					{MARKETPLACE_LABELS.filterClear}
 				</a>
 			</div>
 		{/if}
@@ -193,16 +191,16 @@ const activeTag = $derived(data.filters.tag);
 			{#snippet children()}
 			<div class="text-center">
 				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">
-					コンテンツをインポートするには
+					{MARKETPLACE_LABELS.ctaHeading}
 				</p>
 				<p class="text-xs text-[var(--color-text-secondary)] mb-3">
-					アカウント登録後、管理画面からワンタップでインポートできます
+					{MARKETPLACE_LABELS.ctaSubheading}
 				</p>
 				<a
 					href="/auth/signup"
 					class="inline-block px-6 py-2.5 bg-[var(--color-action-primary)] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
 				>
-					無料で はじめる
+					{MARKETPLACE_LABELS.ctaStart}
 				</a>
 			</div>
 			{/snippet}
@@ -211,10 +209,10 @@ const activeTag = $derived(data.filters.tag);
 		<!-- Back links -->
 		<div class="text-center mt-6 flex justify-center gap-4">
 			<a href="/" class="text-sm text-[var(--color-action-primary)] hover:underline">
-				トップページへ
+				{MARKETPLACE_LABELS.backToHome}
 			</a>
 			<a href="/demo" class="text-sm text-[var(--color-action-primary)] hover:underline">
-				デモを体験
+				{MARKETPLACE_LABELS.backToDemo}
 			</a>
 		</div>
 	</div>
