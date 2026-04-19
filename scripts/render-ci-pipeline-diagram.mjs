@@ -89,7 +89,7 @@ async function main() {
 	const page = await context.newPage();
 	await page.setContent(HTML, { waitUntil: 'networkidle' });
 	await page.waitForFunction(() => window.__mermaidReady === true, { timeout: 10000 });
-	await page.waitForTimeout(500); // mermaid SVG の描画完了待ち
+	await page.waitForSelector('.mermaid svg', { state: 'visible', timeout: 10000 });
 
 	const outPath = path.join(OUTPUT_DIR, 'ci-pipeline-flow.png');
 	await page.screenshot({ path: outPath, fullPage: true });

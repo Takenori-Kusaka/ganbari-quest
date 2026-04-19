@@ -16,6 +16,7 @@ import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
 // biome-ignore lint/suspicious/noConsole: CLI script requires console output
 const log = (...a) => console.log(...a);
@@ -131,7 +132,7 @@ async function extractCtaVariants(page) {
 async function measureHeight(page, url, width) {
 	await page.setViewportSize({ width, height: 900 });
 	await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-	await page.waitForTimeout(500);
+	await waitForStablePage(page);
 	return await page.evaluate(() => document.body.scrollHeight);
 }
 

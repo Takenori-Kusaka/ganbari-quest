@@ -5,6 +5,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.resolve(__dirname, '..', 'docs/screenshots/1168-checklist-kind-split');
@@ -27,7 +28,8 @@ async function login(page, email, password) {
 	await page.locator('button[type="submit"]:not([disabled])').waitFor({ timeout: 10000 });
 	await page.click('button[type="submit"]');
 	await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
-	await page.waitForTimeout(2000);
+	await page.waitForURL((url) => !url.pathname.startsWith('/auth/login'), { timeout: 30000 });
+	await waitForStablePage(page);
 }
 
 async function shot(page, name) {
@@ -44,15 +46,23 @@ async function shot(page, name) {
 	// 1. 親: 管理画面 チェックリスト（タブ: ルーティン / 持ち物）
 	await login(page, 'family@example.com', 'Gq!Dev#Fam2026xyz');
 	await page.goto(`${BASE}/admin/checklists`);
-	await page.waitForLoadState('networkidle');
-	await page.waitForTimeout(1000);
+	await waitForStablePage(page, { selector: 'button[role="tab"]' });
 	await shot(page, 'admin-checklists-routine-tab');
 
 	// 2. 持ち物タブをクリック
 	const itemTab = page.locator('button[role="tab"]').filter({ hasText: '持ち物' });
 	if (await itemTab.count()) {
 		await itemTab.first().click();
-		await page.waitForTimeout(500);
+		await page
+			.waitForFunction(
+				() =>
+					document
+						.querySelector('[role="tab"][aria-selected="true"]')
+						?.textContent?.includes('持ち物'),
+				{ timeout: 5000 },
+			)
+			.catch(() => {});
+		await waitForStablePage(page, { skipNetworkIdle: true });
 		await shot(page, 'admin-checklists-item-tab');
 	}
 
@@ -60,7 +70,7 @@ async function shot(page, name) {
 	const addBtn = page.locator('button').filter({ hasText: 'テンプレート作成' }).first();
 	if (await addBtn.count()) {
 		await addBtn.click();
-		await page.waitForTimeout(800);
+		await waitForStablePage(page, { selector: '[role="dialog"]', skipNetworkIdle: true });
 		await shot(page, 'admin-checklists-create-dialog');
 	} else {
 		console.log('⚠️  "テンプレート作成" ボタンが見つからない');

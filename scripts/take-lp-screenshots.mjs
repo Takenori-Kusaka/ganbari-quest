@@ -2,7 +2,11 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
-import { convertToWebP, withScreenshotParam } from './lib/screenshot-helpers.mjs';
+import {
+	convertToWebP,
+	waitForStablePage,
+	withScreenshotParam,
+} from './lib/screenshot-helpers.mjs';
 
 // biome-ignore lint/suspicious/noConsole: CLI script requires console output
 const log = (...a) => console.log(...a);
@@ -84,7 +88,8 @@ async function waitForApp(page) {
 			timeout: 15000,
 		});
 	} catch {
-		await page.waitForTimeout(3000);
+		// `window.__APP_HYDRATED__` が立たない route は DOM の主要要素で代替待機
+		await page.waitForSelector('body > *', { state: 'visible', timeout: 5000 }).catch(() => {});
 	}
 }
 
@@ -98,7 +103,7 @@ async function captureAgeMode(browser, { mode, filePrefix }) {
 
 		await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 		await waitForApp(page);
-		await page.waitForTimeout(500);
+		await waitForStablePage(page, { skipNetworkIdle: true });
 
 		const filePath = `${OUTPUT_DIR}/${filePrefix}${suffix}.webp`;
 		await page.screenshot({ path: filePath, fullPage: false, type: 'png' });
@@ -122,7 +127,7 @@ async function captureGeneric(browser, screenshots, viewportKeys, mobileSuffix =
 				timeout: 60000,
 			});
 			await waitForApp(page);
-			await page.waitForTimeout(500);
+			await waitForStablePage(page, { skipNetworkIdle: true });
 
 			const filePath = `${OUTPUT_DIR}/${file}${suffix}.webp`;
 			await page.screenshot({ path: filePath, fullPage: false, type: 'png' });

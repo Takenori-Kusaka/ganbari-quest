@@ -12,7 +12,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { convertToWebP, withScreenshotParam } from './lib/screenshot-helpers.mjs';
+import {
+	convertToWebP,
+	waitForStablePage,
+	withScreenshotParam,
+} from './lib/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const OUTPUT_DIR = path.resolve('site/screenshots');
@@ -203,14 +207,12 @@ async function captureScreenshots() {
 					timeout: 15000,
 				});
 
-				// Wait for animations to settle
-				await page.waitForTimeout(1500);
+				await waitForStablePage(page);
 
-				// Scroll to specific element if specified
 				if (shot.scrollTo) {
 					try {
 						await page.locator(shot.scrollTo).first().scrollIntoViewIfNeeded();
-						await page.waitForTimeout(500);
+						await waitForStablePage(page, { skipNetworkIdle: true });
 					} catch {
 						// Element not found, take screenshot from current position
 					}

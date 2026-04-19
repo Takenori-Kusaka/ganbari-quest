@@ -91,6 +91,9 @@ jobs:
       - name: DynamoDB stub/no-op implementation check (#1021 / ADR-0034)
         run: node scripts/check-dynamodb-stub.mjs
 
+      - name: No waitForTimeout in scripts/ check (#1208)
+        run: node scripts/check-no-waitfortimeout.mjs
+
       - name: Spell check (cspell, warn-only) (#979 / ADR-0032 T3→T1)
         run: npm run cspell || true
 

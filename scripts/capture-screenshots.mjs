@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const OUTPUT_DIR = path.resolve('static/assets/marketing/screenshots');
@@ -68,8 +69,7 @@ async function captureScreenshots() {
 				waitUntil: 'networkidle',
 				timeout: 15000,
 			});
-			// Wait for animations to settle
-			await tab.waitForTimeout(1000);
+			await waitForStablePage(tab);
 
 			const outputPath = path.join(OUTPUT_DIR, `${page.name}.png`);
 			await tab.screenshot({
