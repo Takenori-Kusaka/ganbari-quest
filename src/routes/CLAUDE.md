@@ -47,6 +47,30 @@ URL をリネーム・廃止したら、**必ず** `src/lib/server/routing/legac
 - `tests/unit/routing/legacy-url-map.test.ts` のテストケースと `tests/e2e/legacy-url-redirect.spec.ts` のスモーク E2E も追加
 - `LEGACY_URL_MAP` のエントリは永久に残す（ブックマークが生き続けるため削除禁止）
 
+## demo 配下の `?screenshot=1` モード（#1164 / #1209）
+
+LP スクリーンショット撮影用に、`/demo/**` には `?screenshot=1` で demo 固有 UI
+（バナー・プラン切替・ガイドバー・黄色注意書き 等）を一括で非表示にする仕組みがある。
+
+- 値の SSOT は `src/routes/demo/+layout.svelte` の 1 箇所だけ。layout で
+  `setScreenshotModeContext(() => isScreenshotMode)` を呼び、
+  `$lib/features/demo/screenshot-mode.ts` の context に配置する
+- 配下 page / component で参照するときは `getScreenshotMode()` を使う:
+
+  ```svelte
+  <script>
+  import { getScreenshotMode } from '$lib/features/demo/screenshot-mode.js';
+  </script>
+
+  {#if !getScreenshotMode()}
+    <div class="demo-only-notice">…</div>
+  {/if}
+  ```
+
+- **禁止**: page 側で `$page.url.searchParams.get('screenshot')` を再度呼ぶこと / props drilling /
+  global `$state` 化。layout の SSOT が唯一の真実の源
+- リグレッション検出: `tests/e2e/demo-screenshot-mode.spec.ts`
+
 ## UI/デザイン変更の Done 基準
 
 1. **ビジュアル検証**: ブラウザで実際に開き、変更前と比較して意図通りであることを確認
