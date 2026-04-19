@@ -3,6 +3,7 @@ import '$lib/ui/styles/app.css';
 import { page } from '$app/stores';
 import DemoBanner from '$lib/features/demo/DemoBanner.svelte';
 import NavigationProgress from '$lib/ui/components/NavigationProgress.svelte';
+import Toast from '$lib/ui/primitives/Toast.svelte';
 
 let { children, data } = $props();
 
@@ -34,4 +35,5 @@ $effect(() => {
 
 <NavigationProgress />
 <DemoBanner {isDemo} />
+<Toast />
 {@render children()}
