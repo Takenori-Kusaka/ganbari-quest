@@ -117,6 +117,8 @@ const navCategories: NavCategory[] = $derived([
 			{ href: `${basePath}/checklists`, label: NAV_ITEM_LABELS.checklists, icon: '✅' },
 			{ href: `${basePath}/events`, label: NAV_ITEM_LABELS.events, icon: '🎉' },
 			{ href: `${basePath}/challenges`, label: NAV_ITEM_LABELS.challenges, icon: '👥' },
+			// #1170: マケプレをグローバルナビ昇格（customize の一員として導線短縮）
+			{ href: '/marketplace', label: NAV_ITEM_LABELS.marketplace, icon: '🛍️' },
 		],
 	},
 	{
@@ -280,6 +282,7 @@ function isItemActive(itemHref: string): boolean {
 									href={item.href}
 									class="dropdown-item {isItemActive(item.href) ? 'dropdown-item--active' : ''}"
 									role="menuitem"
+									data-testid={item.href === '/marketplace' ? 'nav-marketplace' : undefined}
 								>
 									<span aria-hidden="true">{item.icon}</span>
 									{item.label}
@@ -328,6 +331,7 @@ function isItemActive(itemHref: string): boolean {
 							<a
 								href={item.href}
 								class="mobile-submenu-item {isItemActive(item.href) ? 'mobile-submenu-item--active' : ''}"
+								data-testid={item.href === '/marketplace' ? 'nav-marketplace-mobile' : undefined}
 							>
 								<span class="text-lg" aria-hidden="true">{item.icon}</span>
 								<span class="text-[10px] font-medium leading-tight text-center">{item.label}</span>

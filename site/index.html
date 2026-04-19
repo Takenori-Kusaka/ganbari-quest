@@ -242,6 +242,7 @@
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
     <nav id="main-nav" class="header-nav">
       <a href="index.html" class="nav-text" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="https://ganbari-quest.com/marketplace" class="nav-text" data-testid="lp-nav-marketplace" onclick="this.parentElement.classList.remove('open')">マケプレで探す</a>
       <a href="pricing.html" class="nav-text" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
       <a href="https://ganbari-quest.com/auth/login" class="nav-text" onclick="this.parentElement.classList.remove('open')">ログイン</a>
     </nav>
