@@ -2,6 +2,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { convertToWebP, withScreenshotParam } from './lib/screenshot-helpers.mjs';
 
 // biome-ignore lint/suspicious/noConsole: CLI script requires console output
 const log = (...a) => console.log(...a);
@@ -85,25 +86,6 @@ async function waitForApp(page) {
 	} catch {
 		await page.waitForTimeout(3000);
 	}
-}
-
-async function convertToWebP(filePath) {
-	try {
-		const sharp = await import('sharp');
-		const webpBuf = await sharp.default(filePath).webp({ quality: 85 }).toBuffer();
-		writeFileSync(filePath, webpBuf);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-// `?screenshot=1` で demo 固有 UI（バナー・プラン切替・ガイドバー・フローティング CTA）を
-// 非表示にし、実アプリと同じ見た目の SS を取得する。根本解決（demo/app 統合）は別 Issue。
-const SCREENSHOT_QUERY = 'screenshot=1';
-
-function withScreenshotParam(path) {
-	return `${path}${path.includes('?') ? '&' : '?'}${SCREENSHOT_QUERY}`;
 }
 
 async function captureAgeMode(browser, { mode, filePrefix }) {
