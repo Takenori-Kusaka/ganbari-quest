@@ -41,8 +41,9 @@ test.describe('#790 /demo/admin/license', () => {
 		});
 		const btn = page.getByTestId('demo-checkout-button');
 		await btn.click();
-		await expect(page.getByTestId('demo-toast')).toBeVisible();
-		await expect(page.getByTestId('demo-toast')).toContainText('デモでは実際の操作はできません');
+		// #1238: Toast primitive 化に伴い role=alert で検出（div data-testid=demo-toast は撤去）
+		const toast = page.getByRole('alert').filter({ hasText: 'デモでは実際の操作はできません' });
+		await expect(toast).toBeVisible();
 	});
 
 	test('#817 ライセンスキー入力は enabled（モック適用フロー）', async ({ page }) => {
