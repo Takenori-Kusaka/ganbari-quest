@@ -94,8 +94,16 @@ async function convertToWebP(filePath) {
 	}
 }
 
+// `?screenshot=1` で demo 固有 UI（バナー・プラン切替・ガイドバー・フローティング CTA）を
+// 非表示にし、実アプリと同じ見た目の SS を取得する。根本解決（demo/app 統合）は別 Issue。
+const SCREENSHOT_QUERY = 'screenshot=1';
+
+function withScreenshotParam(path) {
+	return `${path}${path.includes('?') ? '&' : '?'}${SCREENSHOT_QUERY}`;
+}
+
 async function captureAgeMode(browser, { mode, filePrefix }) {
-	const url = `${BASE_URL}/demo/${mode}/home`;
+	const url = `${BASE_URL}${withScreenshotParam(`/demo/${mode}/home`)}`;
 
 	for (const [vpName, viewport] of Object.entries(VIEWPORTS)) {
 		const suffix = vpName === 'mobile' ? '' : `-${vpName}`;
@@ -123,7 +131,10 @@ async function captureGeneric(browser, screenshots, viewportKeys, mobileSuffix =
 			const ctx = await browser.newContext({ viewport });
 			const page = await ctx.newPage();
 
-			await page.goto(`${BASE_URL}${url}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.goto(`${BASE_URL}${withScreenshotParam(url)}`, {
+				waitUntil: 'domcontentloaded',
+				timeout: 60000,
+			});
 			await waitForApp(page);
 			await page.waitForTimeout(500);
 
