@@ -12,9 +12,19 @@ import {
 
 type Page = import('@playwright/test').Page;
 
-/** 右クリックで contextmenu を発火してピンメニューを開く */
+/** 右クリックで contextmenu を発火してピンメニューを開く（#1213: 長押し待ちの安定化） */
 async function openPinMenu(card: import('@playwright/test').Locator) {
+	await card.scrollIntoViewIfNeeded();
+	await expect(card).toBeVisible();
 	await card.click({ button: 'right' });
+}
+
+/** ピン API の invalidateAll 完了まで待機（#1213: waitForTimeout(1000) の置換） */
+function waitForPinApi(page: Page) {
+	return page.waitForResponse(
+		(res) => /\/api\/v1\/children\/\d+\/activities\/\d+\/pin/.test(res.url()) && res.ok(),
+		{ timeout: 10_000 },
+	);
 }
 
 /** 最初の未完了（disabled でない）活動カードを取得 */
@@ -84,13 +94,16 @@ test.describe
 
 			const pinBtn = getPinButton(page);
 			await expect(pinBtn).toBeVisible({ timeout: 3000 });
+
+			// API レスポンス + invalidateAll を明示待機（#1213）
+			const pinResp = waitForPinApi(page);
 			await pinBtn.click();
+			await pinResp;
 
 			// ダイアログが閉じてページ更新
 			await expect(pinBtn).not.toBeVisible({ timeout: 5000 });
-			await page.waitForTimeout(1000);
 
-			// ピン留め済みカードが表示される
+			// ピン留め済みカードが表示される（locator 自体がポーリングするので固定待機は不要）
 			const pinnedCard = page.locator(
 				`[data-testid^="activity-card-"][aria-label*="${pinnedActivityName}"][aria-label*="ピンどめ"]`,
 			);
@@ -135,11 +148,15 @@ test.describe
 
 			const unpinBtn = getUnpinButton(page);
 			await expect(unpinBtn).toBeVisible({ timeout: 3000 });
-			await unpinBtn.click();
-			await expect(unpinBtn).not.toBeVisible({ timeout: 5000 });
-			await page.waitForTimeout(1000);
 
-			// ピン留め済みカードがなくなる
+			// API レスポンス + invalidateAll を明示待機（#1213）
+			const unpinResp = waitForPinApi(page);
+			await unpinBtn.click();
+			await unpinResp;
+
+			await expect(unpinBtn).not.toBeVisible({ timeout: 5000 });
+
+			// ピン留め済みカードがなくなる（toHaveCount もポーリングする）
 			const remaining = page.locator('[data-testid^="activity-card-"][aria-label*="ピンどめ"]');
 			await expect(remaining).toHaveCount(0, { timeout: 5000 });
 
