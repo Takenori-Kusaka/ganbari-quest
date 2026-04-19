@@ -80,6 +80,9 @@ jobs:
       - name: No plan/status literal direct write check (#972)
         run: node scripts/check-no-plan-literals.mjs
 
+      - name: No direct process.env access check (#1202 / ADR-0040 P1)
+        run: node scripts/check-no-direct-env-access.mjs
+
       - name: DynamoDB stub/no-op implementation check (#1021 / ADR-0034)
         run: node scripts/check-dynamodb-stub.mjs
 
