@@ -3,6 +3,25 @@ import Logo from '$lib/ui/components/Logo.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
+
+// #1167: マーケットプレイスに同 itemId で収録されている活動パックは、
+// パック詳細ではなくマーケットプレイス詳細ページを一次的な導線にする。
+// 同時に `/activity-packs/<packId>` は legacy-url-map で 301 redirect されるため、
+// 将来的に収録数が増えたら Set を拡張するだけでよい。
+const MARKETPLACE_PACK_IDS = new Set([
+	'baby-first',
+	'kinder-starter',
+	'elementary-challenge',
+	'otetsudai-master',
+	'junior-high-challenge',
+	'senior-high-challenge',
+]);
+
+function packHref(packId: string): string {
+	return MARKETPLACE_PACK_IDS.has(packId)
+		? `/marketplace/activity-pack/${packId}`
+		: `/activity-packs/${packId}`;
+}
 </script>
 
 <svelte:head>
@@ -24,7 +43,7 @@ let { data } = $props();
 		<div class="grid grid-cols-2 gap-4 mb-8">
 			{#each data.packs as pack}
 				<a
-					href="/activity-packs/{pack.packId}"
+					href={packHref(pack.packId)}
 					class="block hover:shadow-md transition-shadow"
 				>
 					<Card padding="lg">
