@@ -5,7 +5,9 @@
  * into a unified browsable catalog.
  */
 
+import { AGE_TIER_LABELS } from './labels.js';
 import type { CategoryCode, GradeLevel } from './validation/activity.js';
+import type { UiMode } from './validation/age-tier-types.js';
 import type { RewardCategory } from './validation/special-reward.js';
 
 // ── Content Type ─────────────────────────────────────────────
@@ -53,15 +55,17 @@ export const PERSONA_LABELS: Record<PersonaTag, string> = {
 };
 
 // ── Age Band ─────────────────────────────────────────────────
+// #1171: age-tier.ts の UiMode (baby/preschool/elementary/junior/senior) と統一。
+// ラベルは labels.ts の AGE_TIER_LABELS を SSOT として参照する。
 
-export type AgeBand = 'baby' | 'kinder' | 'elementary' | 'junior' | 'senior';
+export type AgeBand = UiMode;
 
 export const AGE_BANDS: { id: AgeBand; label: string; min: number; max: number }[] = [
-	{ id: 'baby', label: '0〜2歳', min: 0, max: 2 },
-	{ id: 'kinder', label: '3〜5歳', min: 3, max: 5 },
-	{ id: 'elementary', label: '6〜9歳', min: 6, max: 9 },
-	{ id: 'junior', label: '10〜12歳', min: 10, max: 12 },
-	{ id: 'senior', label: '13〜18歳', min: 13, max: 18 },
+	{ id: 'baby', label: AGE_TIER_LABELS.baby, min: 0, max: 2 },
+	{ id: 'preschool', label: AGE_TIER_LABELS.preschool, min: 3, max: 5 },
+	{ id: 'elementary', label: AGE_TIER_LABELS.elementary, min: 6, max: 12 },
+	{ id: 'junior', label: AGE_TIER_LABELS.junior, min: 13, max: 15 },
+	{ id: 'senior', label: AGE_TIER_LABELS.senior, min: 16, max: 18 },
 ];
 
 // ── Item-type-specific payloads ──────────────────────────────
@@ -121,6 +125,10 @@ export interface MarketplacePayloadMap {
 
 // ── Unified MarketplaceItem ──────────────────────────────────
 
+// ── Gender target (#1171) ────────────────────────────────────
+
+export type MarketplaceGender = 'boy' | 'girl' | 'neutral';
+
 export interface MarketplaceItem<T extends MarketplaceItemType = MarketplaceItemType> {
 	type: T;
 	itemId: string;
@@ -131,6 +139,8 @@ export interface MarketplaceItem<T extends MarketplaceItemType = MarketplaceItem
 	targetAgeMax: number;
 	tags: string[];
 	personas: PersonaTag[];
+	/** #1171: ターゲット性別。未指定 / 'neutral' は性別不問として扱う。 */
+	gender?: MarketplaceGender;
 	curator: 'official' | string;
 	payload: MarketplacePayloadMap[T];
 }
@@ -147,6 +157,7 @@ export interface MarketplaceItemMeta {
 	targetAgeMax: number;
 	tags: string[];
 	personas: PersonaTag[];
+	gender: MarketplaceGender;
 	curator: 'official' | string;
 	itemCount: number;
 }
