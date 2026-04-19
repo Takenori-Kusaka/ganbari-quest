@@ -1,36 +1,41 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// local モード共通で除外するスペック。mobile project の testIgnore もこれを継承する
+// （Playwright は project 側 testIgnore が top-level を override するため、
+//  mobile 側でこの配列を include してから追加除外ファイルを足す必要がある）。
+const BASE_TEST_IGNORE = [
+	'**/cognito-auth.spec.ts',
+	// #776, #779, #751, #778: プラン別ゲート E2E は cognito-dev モード専用
+	// （playwright.cognito-dev.config.ts でのみ実行する）
+	// local モードでは email/password ログインフォームが存在せず、
+	// loginAsPlan() が 180s 待ちで CI を hang させるため必ず除外する
+	'**/plan-gated-features.spec.ts',
+	'**/plan-standard.spec.ts',
+	'**/plan-family.spec.ts',
+	'**/plan-free.spec.ts',
+	'**/premium-welcome.spec.ts',
+	// #752: トライアルフロー E2E は cognito-dev モード専用
+	'**/trial-flow.spec.ts',
+	// #805: /ops E2E は cognito-dev モード専用（ops group の認可テストに email/password ログインが必要）
+	'**/ops-license.spec.ts',
+	'**/ops-license-issue.spec.ts',
+	// #753: upgrade-flow E2E は cognito-dev モード専用（loginAsPlan でプラン別ユーザーにログインする）
+	'**/upgrade-flow.spec.ts',
+	// #757: pricing → signup トライアル自動開始 E2E は cognito-dev モード専用
+	'**/pricing-page-signup.spec.ts',
+	// #750: 以下は cognito-dev モード専用（loginAsPlan を使用）
+	'**/trial-banner-display.spec.ts',
+	// #755: アカウント削除 E2E は cognito-dev モード専用（loginAsPlan が Cognito ログインフォームに依存）
+	'**/account-deletion.spec.ts',
+	'**/production-smoke.spec.ts',
+	// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
+	// CI（Linux）ではスキップし、ローカル開発でのUI崩壊検知にのみ使用する
+	...(process.env.CI ? ['**/visual-regression.spec.ts'] : []),
+];
+
 export default defineConfig({
 	testDir: 'tests/e2e',
-	testIgnore: [
-		'**/cognito-auth.spec.ts',
-		// #776, #779, #751, #778: プラン別ゲート E2E は cognito-dev モード専用
-		// （playwright.cognito-dev.config.ts でのみ実行する）
-		// local モードでは email/password ログインフォームが存在せず、
-		// loginAsPlan() が 180s 待ちで CI を hang させるため必ず除外する
-		'**/plan-gated-features.spec.ts',
-		'**/plan-standard.spec.ts',
-		'**/plan-family.spec.ts',
-		'**/plan-free.spec.ts',
-		'**/premium-welcome.spec.ts',
-		// #752: トライアルフロー E2E は cognito-dev モード専用
-		'**/trial-flow.spec.ts',
-		// #805: /ops E2E は cognito-dev モード専用（ops group の認可テストに email/password ログインが必要）
-		'**/ops-license.spec.ts',
-		'**/ops-license-issue.spec.ts',
-		// #753: upgrade-flow E2E は cognito-dev モード専用（loginAsPlan でプラン別ユーザーにログインする）
-		'**/upgrade-flow.spec.ts',
-		// #757: pricing → signup トライアル自動開始 E2E は cognito-dev モード専用
-		'**/pricing-page-signup.spec.ts',
-		// #750: 以下は cognito-dev モード専用（loginAsPlan を使用）
-		'**/trial-banner-display.spec.ts',
-		// #755: アカウント削除 E2E は cognito-dev モード専用（loginAsPlan が Cognito ログインフォームに依存）
-		'**/account-deletion.spec.ts',
-		'**/production-smoke.spec.ts',
-		// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
-		// CI（Linux）ではスキップし、ローカル開発でのUI崩壊検知にのみ使用する
-		...(process.env.CI ? ['**/visual-regression.spec.ts'] : []),
-	],
+	testIgnore: BASE_TEST_IGNORE,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
@@ -68,7 +73,10 @@ export default defineConfig({
 		{
 			name: 'mobile',
 			dependencies: ['tablet'],
-			testIgnore: '**/tutorial-dialog-primitive-screenshots.spec.ts',
+			// #1192: tablet 固定のスクショ E2E は mobile では実行しない。
+			// Playwright は project 側 testIgnore が top-level を override するため、
+			// BASE_TEST_IGNORE を include した上で追加ファイルを足す必要がある。
+			testIgnore: [...BASE_TEST_IGNORE, '**/tutorial-dialog-primitive-screenshots.spec.ts'],
 			use: {
 				...devices['Pixel 7'],
 			},
