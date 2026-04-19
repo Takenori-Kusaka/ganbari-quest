@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-// @ts-expect-error — JS module, no types
 import { SCREENSHOT_QUERY, withScreenshotParam } from '../../../scripts/lib/screenshot-helpers.mjs';
 
 describe('scripts/lib/screenshot-helpers — #1206 SSOT', () => {

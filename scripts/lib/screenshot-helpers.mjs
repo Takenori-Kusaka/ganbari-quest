@@ -52,6 +52,6 @@ export async function convertToWebP(filePath, options = {}) {
 		fs.writeFileSync(filePath, webpBuf);
 		return { ok: true, outPath: filePath };
 	} catch (error) {
-		return { ok: false, error };
+		return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
 	}
 }
