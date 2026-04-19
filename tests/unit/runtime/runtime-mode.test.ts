@@ -36,9 +36,9 @@ describe('runtime/runtime-mode resolveRuntimeMode (ADR-0040 P2)', () => {
 
 	it('returns local-debug when isDemoRequest=false even if pathname is /demo', () => {
 		// 明示的に isDemoRequest=false を渡した場合は pathname フォールバックも抑止される
-		expect(
-			resolveRuntimeMode({ env: baseEnv, pathname: '/demo', isDemoRequest: false }),
-		).toBe('local-debug');
+		expect(resolveRuntimeMode({ env: baseEnv, pathname: '/demo', isDemoRequest: false })).toBe(
+			'local-debug',
+		);
 	});
 
 	it('returns demo via pathname fallback when isDemoRequest is undefined', () => {
