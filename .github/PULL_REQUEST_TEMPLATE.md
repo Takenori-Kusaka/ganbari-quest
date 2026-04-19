@@ -368,3 +368,26 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] `npx vitest run` — ユニットテスト全通過
 - [ ] `npx playwright test` — E2Eテスト全通過
 - [ ] PRのサイズが適切（目安: 500行/10ファイル以内。超える場合は分割を検討）
+
+## Quality Manager レビュー結果（QM が記入 — #1197 / #1198）
+
+<!-- QM が approve するときに記入。PR 作者は空欄のままでよい。
+     CI 緑 = approve ではない。Issue AC 照合と SS 目視が必須（docs/sessions/qa-session.md「QM approve 前の必須実行手順」参照）。 -->
+
+- [ ] Issue AC 全項目が PR diff で達成されていることを確認した（`gh issue view <番号>` で開いて 1 対 1 突合）
+- [ ] 添付スクリーンショットを **全て Read tool で開いて目視** し、UI/UX デザイナー観点で違和感が無いことを確認した
+- [ ] `docs/DESIGN.md` §9 禁忌事項 6 点（色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超え）のいずれにも該当しないことを確認した
+- [ ] 並行実装（デモ / 5 年齢モード / LP / ナビ 3 種）の同期漏れが無いことを確認した
+- [ ] スコープ外の気付きがあれば Issue 起票済み（スルー禁止）
+- [ ] CI 全緑を **上記チェック後の補助情報として** 確認した（先に CI を見ると proxy 退行が再発する）
+
+### QM 所見（スクリーンショット 1 枚ごとに 1 行以上）
+
+<!-- 「見ました」とだけ書くのは禁止。色・形・tapSize・violate の有無など具体所見を残す。
+例:
+- `marketplace-desktop-viewport.png`: フィルタチップが `var(--color-action-primary)` 使用 / Button primitive 利用 / hex 直書き無し
+- `marketplace-mobile-dialog.png`: bottom sheet 高さ 60% で親指操作圏 (#1171 AC3) を満たす / elementary tapSize=56px 相当
+- `free-plan-status.png`: プラン表記 `フリープラン` が `labels.ts` 定数経由 (ADR-0037) / 内部コード `free_trial` の露出無し
+-->
+
+
