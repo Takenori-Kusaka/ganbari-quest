@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
-import type { HTMLInputAttributes } from 'svelte/elements';
+import type { HTMLInputAttributes, HTMLTextareaAttributes } from 'svelte/elements';
 
 type InputType =
 	| 'text'
@@ -12,9 +12,10 @@ type InputType =
 	| 'search'
 	| 'date'
 	| 'time'
-	| 'datetime-local';
+	| 'datetime-local'
+	| 'textarea';
 
-interface Props extends Omit<HTMLInputAttributes, 'type'> {
+interface Props extends Omit<HTMLInputAttributes & HTMLTextareaAttributes, 'type'> {
 	label: string;
 	type?: InputType;
 	error?: string;
@@ -22,7 +23,9 @@ interface Props extends Omit<HTMLInputAttributes, 'type'> {
 	value?: string | number;
 	/** #587: type="password" 時に表示/非表示トグルを付けるか */
 	showToggle?: boolean;
-	/** Override default input with custom content (e.g. textarea, select) */
+	/** textarea 用の行数。`type='textarea'` 時のみ有効 */
+	rows?: number;
+	/** Override default input with custom content (e.g. select) */
 	children?: Snippet;
 }
 
@@ -34,6 +37,7 @@ let {
 	id,
 	value = $bindable(),
 	showToggle = false,
+	rows = 4,
 	children,
 	class: className = '',
 	...rest
@@ -44,6 +48,7 @@ let passwordVisible = $state(false);
 const effectiveType = $derived(
 	type === 'password' && showToggle && passwordVisible ? 'text' : type,
 );
+const isTextarea = $derived(type === 'textarea');
 </script>
 
 <div class="flex flex-col gap-1 {className}">
@@ -52,6 +57,20 @@ const effectiveType = $derived(
 	</label>
 	{#if children}
 		{@render children()}
+	{:else if isTextarea}
+		<textarea
+			id={fieldId}
+			bind:value
+			{rows}
+			class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm resize-y
+				{error
+				? 'border-[var(--color-danger)] focus:ring-[var(--color-danger)]'
+				: 'border-[var(--input-border)] focus:border-[var(--input-border-focus)]'}
+				focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors"
+			aria-invalid={error ? 'true' : undefined}
+			aria-describedby={error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined}
+			{...rest}
+		></textarea>
 	{:else}
 		<div class="relative">
 			<input
