@@ -1,6 +1,7 @@
 <script lang="ts">
 // #704: デモ画面のもちものチェック (本番 src/routes/(child)/checklist/+page.svelte に相当)
 // 書き込みは行わず、UI 操作はクライアント側の $state でのみ反映する。
+import { page } from '$app/stores';
 import {
 	CHECKLIST_KIND_ICONS,
 	CHECKLIST_KIND_LABELS,
@@ -12,6 +13,11 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
+
+// #1164: LP スクリーンショット撮影用モード。`?screenshot=1` で黄色のデモ注意書きを非表示にする。
+// `src/routes/demo/+layout.svelte:19-22` と同じ派生式を page 側で再導出。
+// layout -> page への props/context 経由は scope 過大のため band-aid を踏襲。
+const isScreenshotMode = $derived($page.url.searchParams.get('screenshot') === '1');
 
 const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
@@ -96,10 +102,12 @@ function toggleItem(templateId: number, itemId: number) {
 		</p>
 	</div>
 
-	<!-- デモ注意書き -->
-	<div class="mb-[var(--sp-md)] p-[var(--sp-sm)] rounded-[var(--radius-md)] bg-[var(--color-surface-warning)] text-xs text-[var(--color-text-warm)] text-center">
-		これはデモです。チェックは保存されません。
-	</div>
+	<!-- デモ注意書き (LP SS 撮影時 (`?screenshot=1`) は非表示にする: #1164) -->
+	{#if !isScreenshotMode}
+		<div class="mb-[var(--sp-md)] p-[var(--sp-sm)] rounded-[var(--radius-md)] bg-[var(--color-surface-warning)] text-xs text-[var(--color-text-warm)] text-center">
+			これはデモです。チェックは保存されません。
+		</div>
+	{/if}
 
 	{#if localChecklists.length === 0}
 		<div class="flex flex-col items-center justify-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
@@ -109,7 +117,10 @@ function toggleItem(templateId: number, itemId: number) {
 		</div>
 	{:else}
 		{#each groupedChecklists as group (group.kind)}
-			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-xs)] mt-[var(--sp-md)] first:mt-0">
+			<h2
+				class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-xs)] mt-[var(--sp-md)] first:mt-0"
+				data-testid="checklist-group-{group.kind}"
+			>
 				{CHECKLIST_KIND_ICONS[group.kind]} {CHECKLIST_KIND_LABELS[group.kind]}
 			</h2>
 			{#each group.lists as checklist (checklist.templateId)}
