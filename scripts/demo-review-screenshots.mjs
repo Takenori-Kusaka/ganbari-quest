@@ -23,6 +23,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const OUTPUT_DIR = path.resolve('tmp/demo-review');
@@ -48,7 +49,7 @@ async function captureGuideTour(browser, viewport) {
 
 	// 1. /demo トップページ
 	await page.goto(`${BASE_URL}/demo`, { waitUntil: 'networkidle' });
-	await page.waitForTimeout(500);
+	await waitForStablePage(page);
 	await shot('10-demo-top');
 
 	// 2. ガイド開始
@@ -61,8 +62,7 @@ async function captureGuideTour(browser, viewport) {
 		return;
 	}
 	await startBtn.click();
-	await page.waitForLoadState('networkidle');
-	await page.waitForTimeout(800); // DOM安定待ち
+	await waitForStablePage(page);
 	await shot('40-guide-step1');
 
 	// 3. Step 1 → Step 5 まで順に つぎへ を押す
@@ -74,8 +74,7 @@ async function captureGuideTour(browser, viewport) {
 			break;
 		}
 		await nextBtn.click();
-		await page.waitForLoadState('networkidle').catch(() => {});
-		await page.waitForTimeout(800); // DOM安定待ち
+		await waitForStablePage(page);
 		await shot(`${40 + (i - 1) * 10}-guide-step${i}`);
 	}
 
