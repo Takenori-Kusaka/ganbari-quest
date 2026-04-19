@@ -84,6 +84,9 @@ vi.mock('$lib/server/discord-alert', () => ({
 
 vi.mock('$lib/server/request-context', () => ({
 	runWithRequestContext: (fn: () => unknown) => fn(),
+	// ADR-0040 P3 (#1215): hooks.server.ts が setEvaluationContext 経由で参照する。
+	// ALS 外扱い（undefined 返却）で setEvaluationContext は no-op になる。
+	getRequestContext: () => undefined,
 }));
 
 vi.mock('$lib/server/routing/legacy-url-map', () => ({
