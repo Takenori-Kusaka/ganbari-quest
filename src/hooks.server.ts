@@ -9,7 +9,7 @@ import { env } from '$lib/runtime/env';
 import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evaluation-context';
 import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
-import { applyDebugPlanOverride } from '$lib/server/debug-plan';
+import { applyDebugPlanOverride, getDebugLicenseKeyOverride } from '$lib/server/debug-plan';
 import {
 	DEMO_MODE_COOKIE,
 	DEMO_MODE_COOKIE_MAX_AGE,
@@ -100,6 +100,22 @@ function shouldReturnDemoNoop(method: string, path: string, mode: RuntimeMode): 
 	return (
 		!DEMO_WRITE_ALLOWLIST.some((prefix) => path.startsWith(prefix)) && !path.startsWith('/_app/')
 	);
+}
+
+/**
+ * ADR-0040 P5 (#1221): EvaluationContext ビルダのラッパー。
+ *
+ * nuc-prod モードで `DEBUG_LICENSE_KEY_VALID` env が立っていれば licenseKey を注入する。
+ * Playwright matrix (`playwright.matrix.config.ts`) で license valid/invalid を
+ * 切り替えるための dev-only フック。本番ビルドでは `getDebugLicenseKeyOverride()` が
+ * 常に null を返すため常に従来通りの動作になる。
+ */
+function resolveEvaluationContextForRequest(mode: RuntimeMode) {
+	const debugLicense = mode === 'nuc-prod' ? getDebugLicenseKeyOverride() : null;
+	return buildEvaluationContext({
+		mode,
+		licenseKey: debugLicense ? { valid: debugLicense.valid, expiresAt: null } : null,
+	});
 }
 
 // Initialize analytics providers (lazy, environment-variable gated)
@@ -394,11 +410,7 @@ export const handle: Handle = ({ event, resolve }) =>
 		// P3 スコープでは mode のみ真面目に投影し、user / plan / licenseKey の詳細投影は
 		// P4 で capability 判定が必要になった時点で追加する（resolvePlanTier の I/O を
 		// hooks で先取りしないため）。既存の event.locals.* は互換のため変更しない。
-		setEvaluationContext(
-			buildEvaluationContext({
-				mode: event.locals.runtimeMode,
-			}),
-		);
+		setEvaluationContext(resolveEvaluationContextForRequest(event.locals.runtimeMode));
 
 		// 2) ルート保護
 
