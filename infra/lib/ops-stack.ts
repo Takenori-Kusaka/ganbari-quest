@@ -18,6 +18,11 @@ export interface OpsStackProps extends cdk.StackProps {
 	lambdaFn: lambda.Function;
 	table: dynamodb.TableV2;
 	distribution: cloudfront.Distribution;
+	/**
+	 * #1214: health-check Lambda が叩くターゲット URL を Function URL に直結するため。
+	 * CloudFront 経由だと geoRestriction('JP') で us-east-1 Lambda からは 403 になる。
+	 */
+	functionUrl: lambda.FunctionUrl;
 	opsEmail?: string;
 	discordWebhookHealth?: string;
 }
@@ -378,6 +383,10 @@ export class OpsStack extends cdk.Stack {
 			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
 
+		// #1214: CloudFront は geoRestriction('JP') を掛けているため、us-east-1 Lambda
+		// からは常時 403 になる。Function URL (authType: NONE) を直叩きして Lambda/DB の
+		// 生存確認に用途を限定する。CloudFront 層の障害は本 Lambda では検知できない
+		// （別途 CloudWatch Synthetics 等で補完する方針 — 本 Issue のスコープ外）。
 		const healthCheckFn = new lambdaNode.NodejsFunction(this, 'HealthCheckFn', {
 			functionName: 'ganbari-quest-health-check',
 			entry: path.join(__dirname, '..', 'lambda', 'health-check', 'index.ts'),
@@ -387,7 +396,7 @@ export class OpsStack extends cdk.Stack {
 			memorySize: 128,
 			timeout: cdk.Duration.seconds(30),
 			environment: {
-				HEALTH_CHECK_URL: 'https://ganbari-quest.com',
+				HEALTH_CHECK_URL: props.functionUrl.url,
 				...(discordWebhookHealth ? { DISCORD_WEBHOOK_HEALTH: discordWebhookHealth } : {}),
 			},
 			bundling: {

@@ -74,6 +74,9 @@ new OpsStack(app, `${appName}Ops`, {
 	lambdaFn: compute.fn,
 	table: storage.table,
 	distribution: network.distribution,
+	// #1214: health-check Lambda が叩くターゲット。CloudFront 経由は geoRestriction('JP')
+	// に阻まれるため、Function URL (authType: NONE) を直接参照する。
+	functionUrl: compute.functionUrl,
 	opsEmail,
 	discordWebhookHealth,
 });
