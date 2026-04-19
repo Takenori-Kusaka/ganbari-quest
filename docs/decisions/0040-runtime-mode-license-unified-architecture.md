@@ -96,25 +96,53 @@ export type TypedEnv = z.infer<typeof envSchema>;
 OpenFeature の evaluation context 概念を参考にした**リクエスト単位の "文脈オブジェクト"**。
 
 ```ts
-// src/lib/runtime/evaluation-context.ts (設計のみ、実装は P3 で行う)
-export type RuntimeMode = 'build' | 'demo' | 'local-debug' | 'aws-prod' | 'nuc-prod';
+// src/lib/runtime/evaluation-context.ts (実装は P3 / #1215 で完了)
+import type { RuntimeMode } from './runtime-mode';
+
+export interface EvaluationUser {
+  id: string;
+  role: 'owner' | 'parent' | 'child';
+  groups: readonly string[];
+}
+
+export interface EvaluationPlan {
+  tier: 'free' | 'standard' | 'family';
+  status: 'none' | 'active' | 'grace_period' | 'canceled';
+  trialState: 'none' | 'active' | 'expired';
+}
+
+export interface EvaluationLicenseKey {
+  valid: boolean;
+  expiresAt: Date | null;
+}
 
 export interface EvaluationContext {
   /** 実行モード。env + URL + cookie から P2 の resolveRuntimeMode が決定 */
   mode: RuntimeMode;
-
-  /** 認証結果。demo / build では null */
-  user: { id: string; role: 'owner' | 'parent' | 'child'; groups: readonly string[] } | null;
-
-  /** ライセンスプラン（ADR-0024 の resolvePlanTier 結果）*/
-  plan: { tier: 'free' | 'standard' | 'family'; status: 'none' | 'active' | 'grace_period' | 'canceled'; trialState: 'none' | 'active' | 'expired'; } | null;
-
-  /** NUC モードのみ ADR-0026 のライセンスキー検証結果が入る */
-  licenseKey: { valid: boolean; expiresAt: Date | null } | null;
-
-  /** 現在時刻（テストで固定化するためのファネル）*/
+  /** 認証結果。demo / build / 未ログインでは null */
+  user: EvaluationUser | null;
+  /** ライセンスプラン（ADR-0024 の resolvePlanTier 結果）。demo / 未認証は null */
+  plan: EvaluationPlan | null;
+  /** nuc-prod モードのみ ADR-0026 のライセンスキー検証結果が入る */
+  licenseKey: EvaluationLicenseKey | null;
+  /** 現在時刻（テストで固定化するためのファネル） */
   now: Date;
 }
+
+/** 純関数ビルダ。I/O は hooks.server.ts 側で行う */
+export function buildEvaluationContext(input: {
+  mode: RuntimeMode;
+  user?: EvaluationUser | null;
+  plan?: EvaluationPlan | null;
+  licenseKey?: EvaluationLicenseKey | null;
+  now?: Date;
+}): EvaluationContext;
+
+/** AsyncLocalStorage 外 (build script / 未ラップのテスト) では undefined */
+export function getEvaluationContext(): EvaluationContext | undefined;
+
+/** hooks.server.ts が 1 リクエスト 1 回だけ呼ぶ。AsyncLocalStorage 外では no-op */
+export function setEvaluationContext(ctx: EvaluationContext): void;
 ```
 
 - `hooks.server.ts` で **1 リクエスト 1 回だけ** 構築し、#788 で導入済みの `runWithRequestContext` (AsyncLocalStorage) に注入

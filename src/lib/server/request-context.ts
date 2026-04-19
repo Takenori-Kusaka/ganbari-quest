@@ -15,6 +15,7 @@
 // 同一リクエスト内で状態が変わる操作の直後に呼ぶ。
 
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { EvaluationContext } from '$lib/runtime/evaluation-context';
 import type { PlanTier } from '$lib/server/services/plan-limit-service';
 import type { TrialStatus } from '$lib/server/services/trial-service';
 
@@ -23,6 +24,12 @@ interface RequestContext {
 	planTierCache: Map<string, PlanTier>;
 	/** key: tenantId */
 	trialStatusCache: Map<string, TrialStatus>;
+	/**
+	 * ADR-0040 P3 (#1215): hooks.server.ts で認証解決完了後に 1 回だけ構築される
+	 * 実行文脈。Policy Gate (P4) が `can()` で参照する。
+	 * hooks が注入する前は undefined。
+	 */
+	evaluationContext?: EvaluationContext;
 }
 
 const store = new AsyncLocalStorage<RequestContext>();
