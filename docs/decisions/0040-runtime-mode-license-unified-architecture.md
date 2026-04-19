@@ -249,6 +249,17 @@ export function ensureCan(ctx: EvaluationContext, cap: Capability): void;
 - **"機能が使えるか" は純粋関数で表現できる** — Side effect（認可エラー throw）は呼び出し側の `ensureCan()` に閉じ込める
 - **Pre-PMF では外部依存より内部整理** — SaaS を入れる前に、自社コードの境界を整えるほうが ROI が高い（ADR-0034 と同じ哲学）
 
+## 実装補正メモ (P1)
+
+ADR-0003（設計書は Single Source of Truth）に基づき、実装と本 ADR 擬似コードの乖離は ADR 側で追認する。以下は P1 実装 (PR #1204) 時点で本文擬似コードと差分が発生した箇所の追認メモ。本 ADR の status / 決定事項自体は変更しない（supersede ではなく補足）。
+
+| 項目 | 本文擬似コード | P1 実装 (`src/lib/runtime/env.ts`) | 追認理由 |
+|------|---------------|----------------------------------|---------|
+| `AUTH_MODE` enum | `z.enum(['auto', 'cognito'])` | `z.enum(['local', 'cognito'])` | 既存 `src/lib/server/auth/` 参照が `local\|cognito` 前提のため、実装を正とした。`auto` は `DEV` mode + `AUTH_MODE` 未指定時の派生状態として `resolveAuthMode()` で扱う |
+| `COGNITO_DEV_MODE` | `z.coerce.boolean().optional()` | `booleanStringSchema`（独自） | `z.coerce.boolean()` は JS の `Boolean("false") === true` 挙動を継承し、`"false"` を `true` と解釈してしまう。`booleanStringSchema` は `'true'` / `'false'` / `'1'` / `'0'` を明示的に判定する |
+
+(Issue #1211 / レビュー agentId `a962a9ce212bd4ec5` の指摘を反映)
+
 ## 参考
 
 - Martin Fowler, "Branch by Abstraction" — https://martinfowler.com/bliki/BranchByAbstraction.html
