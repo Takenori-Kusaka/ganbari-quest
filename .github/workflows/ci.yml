@@ -5,7 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
+    # #1218: `ready_for_review` をトリガーに含めない。
+    # 本 CI は Draft PR でも opened/synchronize で実行されるため、Draft→Ready 化で
+    # 同一 SHA を再実行しても結果が変わらず、runtime（特に e2e-test）が無駄になる。
+    # Draft スキップ系 workflow (pr-ui-check / pr-ac-verification-check / lp-metrics)
+    # とは役割が異なる点に注意。
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
