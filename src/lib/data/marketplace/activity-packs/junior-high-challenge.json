@@ -10,6 +10,183 @@
 	"personas": ["academic-oriented", "achievement-focused"],
 	"curator": "official",
 	"payload": {
-		"legacyPackId": "junior-high-challenge"
+		"activities": [
+			{
+				"name": "予習・復習した",
+				"categoryCode": "benkyou",
+				"icon": "📝",
+				"basePoints": 15,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "明日の授業の予習をしよう！",
+				"description": "教科書やノートで予習・復習"
+			},
+			{
+				"name": "読書した",
+				"categoryCode": "benkyou",
+				"icon": "📖",
+				"basePoints": 10,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "好きな本を読もう！",
+				"description": "本・小説・新書などの読書"
+			},
+			{
+				"name": "英語の勉強をした",
+				"categoryCode": "benkyou",
+				"icon": "🌏",
+				"basePoints": 15,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "英語の練習をしよう！",
+				"description": "英単語・英会話・リスニング練習"
+			},
+			{
+				"name": "プログラミングをした",
+				"categoryCode": "benkyou",
+				"icon": "💻",
+				"basePoints": 15,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "コードを書いてみよう！",
+				"description": "Scratch・Python等のプログラミング学習"
+			},
+			{
+				"name": "テスト勉強をした",
+				"categoryCode": "benkyou",
+				"icon": "📋",
+				"basePoints": 20,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "テストに向けて頑張ろう！",
+				"description": "定期テスト・模試の対策勉強"
+			},
+			{
+				"name": "朝活した",
+				"categoryCode": "seikatsu",
+				"icon": "🌅",
+				"basePoints": 10,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "早起きして朝の時間を有効に！",
+				"description": "早起きして勉強・運動・読書など"
+			},
+			{
+				"name": "規則正しく寝た",
+				"categoryCode": "seikatsu",
+				"icon": "🛏️",
+				"basePoints": 5,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "決まった時間に寝よう！",
+				"description": "就寝時間を守る"
+			},
+			{
+				"name": "お弁当箱を洗った",
+				"categoryCode": "seikatsu",
+				"icon": "🍱",
+				"basePoints": 5,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "帰ったらお弁当箱を洗おう！",
+				"description": "帰宅後にお弁当箱を片付ける"
+			},
+			{
+				"name": "自分の部屋を掃除した",
+				"categoryCode": "seikatsu",
+				"icon": "🧹",
+				"basePoints": 10,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "部屋をきれいに保とう！",
+				"description": "自分の部屋の整理整頓・掃除"
+			},
+			{
+				"name": "筋トレ・ストレッチした",
+				"categoryCode": "undou",
+				"icon": "💪",
+				"basePoints": 10,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "体を鍛えよう！",
+				"description": "腕立て・腹筋・ストレッチ等"
+			},
+			{
+				"name": "部活・習い事に行った",
+				"categoryCode": "undou",
+				"icon": "⚽",
+				"basePoints": 15,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "今日も頑張ろう！",
+				"description": "部活動や習い事への参加"
+			},
+			{
+				"name": "ランニング・散歩した",
+				"categoryCode": "undou",
+				"icon": "🏃",
+				"basePoints": 10,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "外で体を動かそう！",
+				"description": "ジョギングやウォーキング"
+			},
+			{
+				"name": "料理を手伝った",
+				"categoryCode": "souzou",
+				"icon": "🍳",
+				"basePoints": 15,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "今日のごはんを一緒に作ろう！",
+				"description": "食事の準備・調理の手伝い"
+			},
+			{
+				"name": "楽器の練習をした",
+				"categoryCode": "souzou",
+				"icon": "🎸",
+				"basePoints": 10,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "楽器の練習をしよう！",
+				"description": "ピアノ・ギター・吹奏楽等"
+			},
+			{
+				"name": "家族会議に参加した",
+				"categoryCode": "kouryuu",
+				"icon": "👨‍👩‍👧‍👦",
+				"basePoints": 10,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "家族で話し合おう！",
+				"description": "家族との話し合い・相談"
+			},
+			{
+				"name": "ニュースを読んだ",
+				"categoryCode": "kouryuu",
+				"icon": "📰",
+				"basePoints": 10,
+				"ageMin": 10,
+				"ageMax": 14,
+				"gradeLevel": "middle_school",
+				"triggerHint": "今日のニュースをチェック！",
+				"description": "新聞やニュースサイトで社会を知る"
+			}
+		]
 	}
 }

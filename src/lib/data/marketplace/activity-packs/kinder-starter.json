@@ -10,6 +10,227 @@
 	"personas": ["routine-focused", "first-child"],
 	"curator": "official",
 	"payload": {
-		"legacyPackId": "kinder-starter"
+		"activities": [
+			{
+				"name": "はみがきした",
+				"categoryCode": "seikatsu",
+				"icon": "🪥",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "ごはんのあと はみがきしよう！",
+				"description": "食後の歯磨き"
+			},
+			{
+				"name": "おきがえした",
+				"categoryCode": "seikatsu",
+				"icon": "👕",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "じぶんで おきがえ してみよう！",
+				"description": "自分で着替え"
+			},
+			{
+				"name": "おかたづけした",
+				"categoryCode": "seikatsu",
+				"icon": "🧹",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "あそんだあと おかたづけ！",
+				"description": "おもちゃ・部屋の片付け"
+			},
+			{
+				"name": "てをあらった",
+				"categoryCode": "seikatsu",
+				"icon": "🧼",
+				"basePoints": 3,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おそとから かえったら てあらい！",
+				"description": "帰宅時・食前の手洗い"
+			},
+			{
+				"name": "はやおきした",
+				"categoryCode": "seikatsu",
+				"icon": "⏰",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "あさ じかんどおりに おきよう！",
+				"description": "決まった時間に起床"
+			},
+			{
+				"name": "おてつだいした",
+				"categoryCode": "seikatsu",
+				"icon": "🫧",
+				"basePoints": 10,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おうちの おてつだい してみよう！",
+				"description": "食事の準備・配膳のお手伝い等"
+			},
+			{
+				"name": "からだをうごかした",
+				"categoryCode": "undou",
+				"icon": "🤸",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おそとで いっぱい あそぼう！",
+				"description": "外遊び・体操・かけっこ"
+			},
+			{
+				"name": "なわとびした",
+				"categoryCode": "undou",
+				"icon": "🪢",
+				"basePoints": 5,
+				"ageMin": 4,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "なわとび れんしゅう してみよう！",
+				"description": "縄跳びの練習"
+			},
+			{
+				"name": "ダンスした",
+				"categoryCode": "undou",
+				"icon": "💃",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おんがくに あわせて おどろう！",
+				"description": "音楽に合わせたダンス"
+			},
+			{
+				"name": "おえかきした",
+				"categoryCode": "souzou",
+				"icon": "🖍️",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "すきなものを かいてみよう！",
+				"description": "自由にお絵描き"
+			},
+			{
+				"name": "こうさくした",
+				"categoryCode": "souzou",
+				"icon": "✂️",
+				"basePoints": 10,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "はさみや のりで つくろう！",
+				"description": "折り紙・切り貼り・工作"
+			},
+			{
+				"name": "おうたをうたった",
+				"categoryCode": "souzou",
+				"icon": "🎵",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おうたを うたおう！",
+				"description": "童謡やリズム遊び"
+			},
+			{
+				"name": "えほんをよんだ",
+				"categoryCode": "benkyou",
+				"icon": "📖",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "えほんを よんでみよう！",
+				"description": "絵本を読む・読み聞かせ"
+			},
+			{
+				"name": "すうじをかぞえた",
+				"categoryCode": "benkyou",
+				"icon": "🔢",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "いち、に、さん… かぞえよう！",
+				"description": "1〜10の数を数える"
+			},
+			{
+				"name": "ひらがなれんしゅう",
+				"categoryCode": "benkyou",
+				"icon": "✏️",
+				"basePoints": 10,
+				"ageMin": 4,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "ひらがなを かいてみよう！",
+				"description": "ひらがなの読み書き練習"
+			},
+			{
+				"name": "いっしょにあそんだ",
+				"categoryCode": "kouryuu",
+				"icon": "🤝",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おともだちと あそぼう！",
+				"description": "お友達との協力遊び"
+			},
+			{
+				"name": "じゅんばんをまもった",
+				"categoryCode": "kouryuu",
+				"icon": "🙋",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "じゅんばんこ できるかな？",
+				"description": "順番を守る・交代する"
+			},
+			{
+				"name": "あいさつした",
+				"categoryCode": "kouryuu",
+				"icon": "👋",
+				"basePoints": 3,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おはよう、ありがとう！",
+				"description": "元気な挨拶・お礼"
+			},
+			{
+				"name": "ありがとうをいった",
+				"categoryCode": "kouryuu",
+				"icon": "💕",
+				"basePoints": 3,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "ありがとう って いえるかな？",
+				"description": "感謝の気持ちを伝える"
+			},
+			{
+				"name": "ごめんなさいをいった",
+				"categoryCode": "kouryuu",
+				"icon": "🙇",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "「ごめんなさい」 いえたね！",
+				"description": "自分から謝れる"
+			}
+		]
 	}
 }
