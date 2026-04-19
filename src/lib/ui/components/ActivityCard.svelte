@@ -1,6 +1,7 @@
 <script lang="ts">
 import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
 import { getCategoryById } from '$lib/domain/validation/activity';
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import CompoundIcon from './CompoundIcon.svelte';
 
 const ICON_SIZE_MAP: Record<CardSize, 'md' | 'lg' | 'xl'> = {
@@ -47,8 +48,6 @@ let {
 	onlongpress,
 }: Props = $props();
 
-let showFrozenToast = $state(false);
-
 const iconSize = $derived(ICON_SIZE_MAP[cardSize]);
 const textSize = $derived(CARD_SIZE_CSS[cardSize].textSize);
 
@@ -84,10 +83,7 @@ function handleClick(e: Event) {
 		return;
 	}
 	if (frozen) {
-		showFrozenToast = true;
-		setTimeout(() => {
-			showFrozenToast = false;
-		}, 2000);
+		showToast('おうちのひとに おねがいしてね', undefined, 'info');
 		return;
 	}
 	onclick?.();
@@ -162,10 +158,6 @@ function handleClick(e: Event) {
 		</div>
 	{/if}
 </button>
-
-{#if showFrozenToast}
-	<div class="frozen-toast">おうちのひとに おねがいしてね</div>
-{/if}
 
 <style>
 	/* Holographic rainbow border (#0170) */
@@ -255,29 +247,6 @@ function handleClick(e: Event) {
 		filter: grayscale(0.3);
 	}
 
-	.frozen-toast {
-		position: absolute;
-		bottom: -28px;
-		left: 50%;
-		transform: translateX(-50%);
-		white-space: nowrap;
-		font-size: 0.65rem;
-		font-weight: 600;
-		color: var(--color-premium, #7c3aed);
-		background: white;
-		padding: 2px 8px;
-		border-radius: var(--radius-full);
-		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-		z-index: 20;
-		animation: toast-fade 2s ease-out forwards;
-	}
-
-	@keyframes toast-fade {
-		0% { opacity: 0; transform: translateX(-50%) translateY(4px); }
-		15% { opacity: 1; transform: translateX(-50%) translateY(0); }
-		85% { opacity: 1; }
-		100% { opacity: 0; }
-	}
 	/* Main Quest styling */
 	.card-main-quest {
 		box-shadow: 0 0 12px rgba(217, 119, 6, 0.4);
