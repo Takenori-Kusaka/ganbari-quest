@@ -249,9 +249,24 @@ export function ensureCan(ctx: EvaluationContext, cap: Capability): void;
 - **"機能が使えるか" は純粋関数で表現できる** — Side effect（認可エラー throw）は呼び出し側の `ensureCan()` に閉じ込める
 - **Pre-PMF では外部依存より内部整理** — SaaS を入れる前に、自社コードの境界を整えるほうが ROI が高い（ADR-0034 と同じ哲学）
 
+## 実装補正メモ (P1) — #1211
+
+P1 実装 (PR #1204: `src/lib/runtime/env.ts`) 時点で、本 ADR 本文の擬似コードと実装に次の 2 件の差分が発生した。
+**ADR-0003「設計書は Single Source of Truth」に基づき、本 ADR の擬似コードは実装側の記述を正とする**（本 ADR 本文は改訂せず、補足としてここに追認する — supersede ではない）。
+
+| 項目 | 本 ADR 擬似コード | P1 実装 (`src/lib/runtime/env.ts`) | 採用 | 理由 |
+|------|------------------|------------------------------------|------|------|
+| `AUTH_MODE` enum | `['auto', 'cognito']` | `['local', 'cognito']` | **実装が正** | 既存コード (`src/lib/server/auth/`) が以前から `local \| cognito` を参照しており、`'auto'` を導入すると既存参照を全て書き換える必要がある。既存整合性を優先 |
+| `COGNITO_DEV_MODE` schema | `z.coerce.boolean().optional()` | `booleanStringSchema` (`z.enum(['true', 'false']).transform(...)`) | **実装が正** | `z.coerce.boolean()` は `Boolean("false")` が JS 仕様で `true` になる落とし穴があり、`COGNITO_DEV_MODE=false` が truthy 判定される不具合を生む。`z.enum(['true', 'false']).transform((v) => v === 'true')` で文字列比較する方式を採用 |
+
+### スコープ
+
+本補正は ADR のヘッダ (`status: accepted`) を変更しない。supersede ではなく、P1 実装時点での「正仕様」を補足情報として記録する。今後の P2〜P5 でも類似の実装補正が発生した場合は本セクションに追記する。
+
 ## 参考
 
 - Martin Fowler, "Branch by Abstraction" — https://martinfowler.com/bliki/BranchByAbstraction.html
 - OpenFeature Evaluation Context 仕様 — https://openfeature.dev/specification/sections/evaluation-context
 - [SvelteKit Hooks docs](https://svelte.dev/docs/kit/hooks)
 - ADR-0039 (前身) — デモモードを実行モードとして統合
+- ADR-0003 — 設計書は Single Source of Truth（本 ADR 補正メモの根拠）
