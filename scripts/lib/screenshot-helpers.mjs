@@ -55,3 +55,46 @@ export async function convertToWebP(filePath, options = {}) {
 		return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
 	}
 }
+
+/**
+ * ページ描画安定待ち (#1208 — `waitForTimeout` 置換の SSOT)
+ *
+ * `scripts/**` 内で `page.waitForTimeout(N)` を使っていた「DOM/アニメ settle 待ち」を
+ * 決定論的な待機に置換するためのヘルパー。`waitForTimeout` を内包しない実装。
+ *
+ * 次の順序で待機する:
+ *   1. `waitForLoadState('networkidle')` (任意 / `networkIdleTimeout` ms でタイムアウトを許容)
+ *   2. `options.selector` があれば `waitForSelector` (visible 状態まで)
+ *   3. `document.fonts.ready` + 2 フレーム requestAnimationFrame
+ *      — フォントレイアウトとアニメーション 1 フレーム分の settle を保証
+ *
+ * pixel diff への影響を最小化するため、従来の固定待機とほぼ同じ安定度が得られる。
+ *
+ * @param {import('playwright').Page} page
+ * @param {object} [options]
+ * @param {string} [options.selector] - 表示を待つ要素 (visible)
+ * @param {number} [options.networkIdleTimeout=5000] - networkidle 待機の最大 ms
+ * @param {boolean} [options.skipNetworkIdle=false] - networkidle 待機をスキップ
+ */
+export async function waitForStablePage(page, options = {}) {
+	const { selector, networkIdleTimeout = 5000, skipNetworkIdle = false } = options;
+	if (!skipNetworkIdle) {
+		await page.waitForLoadState('networkidle', { timeout: networkIdleTimeout }).catch(() => {
+			// ネットワーク活動が続いていても他のシグナルで進む
+		});
+	}
+	if (selector) {
+		await page.waitForSelector(selector, { state: 'visible', timeout: 10000 });
+	}
+	await page.evaluate(
+		() =>
+			new Promise((resolve) => {
+				const finish = () => requestAnimationFrame(() => requestAnimationFrame(resolve));
+				if (document.fonts?.ready) {
+					document.fonts.ready.then(finish);
+				} else {
+					finish();
+				}
+			}),
+	);
+}
