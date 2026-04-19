@@ -4,6 +4,8 @@ import { building } from '$app/environment';
 import { analytics } from '$lib/analytics';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { env } from '$lib/runtime/env';
+import { resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { applyDebugPlanOverride } from '$lib/server/debug-plan';
 import {
@@ -275,6 +277,17 @@ export const handle: Handle = ({ event, resolve }) =>
 
 			event.locals.isDemo = demoActive;
 		}
+
+		// ADR-0040 P2: 実行モードをリクエスト単位で解決。以降のガード／UI 出力は
+		// 本モードを起点に判断する想定（P4 で capability gate に昇格予定）。
+		// isDemo 解決より後に呼ぶことで、`?mode=demo` / cookie / `/demo/*` すべて
+		// を 'demo' に正しく落とし込む。
+		event.locals.runtimeMode = resolveRuntimeMode({
+			env,
+			pathname: path,
+			isBuilding: building,
+			isDemoRequest: event.locals.isDemo,
+		});
 
 		// 2) デモ入口/退出ルート
 		// /demo/exit: cookie を消して本番に戻す
