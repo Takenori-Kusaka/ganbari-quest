@@ -149,6 +149,7 @@ function toMeta(item: MarketplaceItem): MarketplaceItemMeta {
 		targetAgeMax: item.targetAgeMax,
 		tags: item.tags,
 		personas: item.personas,
+		gender: item.gender ?? 'neutral',
 		curator: item.curator,
 		itemCount: countPayloadItems(item),
 	};

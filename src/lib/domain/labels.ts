@@ -346,6 +346,44 @@ export const MARKETPLACE_LABELS = {
 } as const;
 
 // ============================================================
+// マーケットプレイス フィルタラベル（#1171 SSOT）
+// ============================================================
+
+/**
+ * マーケットプレイスのフィルタ UI で使うラベルの SSOT。
+ * #1171: フィルタ UI 刷新（年齢ラベル統一 / 性別 / 並び替え / モバイル bottom sheet）。
+ * `src/routes/marketplace/+page.svelte` からハードコードを排除する。
+ */
+export const MARKETPLACE_FILTER_LABELS = {
+	sectionTitle: 'しぼりこむ',
+	age: '年齢',
+	gender: '性別',
+	tag: 'タグ',
+	type: '種類',
+	sort: 'ならべかえ',
+	resultCount: (n: number) => `${n}件`,
+	reset: 'フィルタをクリア',
+	open: 'フィルタ',
+	close: 'とじる',
+	apply: 'この条件で探す',
+	empty: '条件に合うコンテンツがありません',
+	genderOptions: {
+		all: 'すべて',
+		boy: '男の子向け',
+		girl: '女の子向け',
+		neutral: 'どちらも',
+	},
+	sortOptions: {
+		popularity: '人気順',
+		newest: '新着順',
+		ageFit: '年齢順',
+	},
+} as const;
+
+export type MarketplaceGender = 'boy' | 'girl' | 'neutral';
+export type MarketplaceSortKey = keyof typeof MARKETPLACE_FILTER_LABELS.sortOptions;
+
+// ============================================================
 // チュートリアル関連ラベル（#961 QA: quickMode 対応）
 // ============================================================
 

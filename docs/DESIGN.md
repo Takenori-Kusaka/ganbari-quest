@@ -229,6 +229,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `TRIAL_LABELS` | const |  |
 | `PREMIUM_MODAL_LABELS` | const |  |
 | `MARKETPLACE_LABELS` | const |  |
+| `MARKETPLACE_FILTER_LABELS` | const |  |
 | `TUTORIAL_LABELS` | const |  |
 | `getAgeTierLabel` | function | 年齢区分ラベル取得 |
 | `getAgeTierShortLabel` | function | 年齢区分短縮ラベル取得 |
@@ -242,6 +243,8 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `PlanKey` | type |  |
 | `ThemeKey` | type |  |
 | `ChecklistKind` | type |  |
+| `MarketplaceGender` | type |  |
+| `MarketplaceSortKey` | type |  |
 <!-- /AUTOGEN:labels -->
 
 ### ルール
