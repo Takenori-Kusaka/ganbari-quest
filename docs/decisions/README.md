@@ -54,15 +54,15 @@
 | 0005 | [Critical 修正の品質ゲート](0005-critical-fix-quality-gate.md) | accepted | 2026-04-06 |
 | 0006 | [PR レビューは文書化された指摘を必ず出力する](0006-pr-review-must-document-findings.md) | accepted | 2026-04-07 |
 | 0007 | [画像アセットが存在する機能を絵文字に戻すことは明示的デグレ](0007-image-asset-protection.md) | accepted | 2026-04-07 |
-| 0008 | [年齢モード5重複の変更リスク管理](0008-age-mode-duplication-risk.md) | accepted | 2026-04-07 |
-| 0009 | [server→client 型契約の安全性確保](0009-server-client-type-contract.md) | accepted | 2026-04-07 |
+| 0008 | ~~[年齢モード5重複の変更リスク管理](0008-age-mode-duplication-risk.md)~~ | superseded (2026-04-19) | 2026-04-07 |
+| 0009 | ~~[server→client 型契約の安全性確保](0009-server-client-type-contract.md)~~ | superseded (2026-04-19) | 2026-04-07 |
 | 0010 | [Issue 起票・クローズの品質基準](0010-issue-close-quality.md) | accepted | 2026-04-10 |
 | 0011 | [SvelteKit + Svelte 5 採用](0011-sveltekit-svelte5.md) | accepted | 2026-01-15 |
 | 0012 | [DynamoDB シングルテーブル設計](0012-dynamodb-single-table.md) | accepted | 2026-02-20 |
 | 0013 | [Cognito + Google OAuth 認証](0013-cognito-google-oauth.md) | accepted | 2026-02-25 |
 | 0014 | [3層CSSトークンアーキテクチャ](0014-css-token-architecture.md) | accepted | 2026-03-15 |
 | 0015 | [Repository パターンによる DB 抽象化](0015-repository-pattern.md) | accepted | 2026-02-15 |
-| 0016 | [ダイアログ/オーバーレイの状態管理方針](0016-dialog-overlay-management.md) | accepted | 2026-04-10 |
+| 0016 | ~~[ダイアログ/オーバーレイの状態管理方針](0016-dialog-overlay-management.md)~~ | superseded by 0019 (2026-04-19) | 2026-04-10 |
 | 0017 | [テスト品質の劣化を許容しない開発プロセス](0017-test-quality-ratchet.md) | accepted | 2026-04-10 |
 | 0018 | [Issue起票は根本原因特定と構造的解決策を必須とする](0018-issue-quality-standard.md) | accepted | 2026-04-10 |
 | 0019 | [ダイアログ管理はFSMでスクラップ＆ビルド](0019-dialog-fsm-scrap-and-rebuild.md) | accepted | 2026-04-10 |
@@ -85,3 +85,9 @@
 | 0036 | [マーケットプレイス公開アクセス設計（閲覧パブリック / インポート認証必須）](0036-marketplace-public-access.md) | accepted | 2026-04-18 |
 | 0037 | [全ユーザー向け文言の SSOT 化原則](0037-labels-ssot-principle.md) | accepted | 2026-04-18 |
 | 0038 | [AC 検証エビデンス必須化 (Issue close gate + PR AC 検証マップ)](0038-ac-verification-evidence.md) | accepted | 2026-04-18 |
+| 0039 | [デモモードをアプリ実行モードに統合](0039-demo-mode-app-execution-mode.md) | accepted | 2026-04-19 |
+| 0040 | [実行モード × ライセンス統括アーキテクチャ (Typed env + EvaluationContext + Policy Gate)](0040-runtime-mode-license-unified-architecture.md) | accepted | 2026-04-19 |
+
+## 棚卸レポート
+
+- [adr-inventory-2026-04-19.md](adr-inventory-2026-04-19.md) — 0001〜0039 の棚卸（0008 / 0009 / 0016 を supersede）
