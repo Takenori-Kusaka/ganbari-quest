@@ -246,7 +246,13 @@ export const handle: Handle = ({ event, resolve }) =>
 		// 本番ルートツリー上で同一コードパスを流すことで、
 		// `src/routes/demo/**` 別ツリー起因の乖離 (#296/#1129/#1147/#1180) を構造解消する。
 		// Phase 2 で /demo/* が削除されたら `fromLegacyPath` 経路も除去する。
-		{
+		//
+		// prerender 中は SvelteKit が url.searchParams へのアクセスを禁ずる
+		// （deterministic でなくなるため）。building 時はデモ判定をスキップして
+		// false 固定にする — 静的ページは常に非デモ状態で生成される。
+		if (building) {
+			event.locals.isDemo = false;
+		} else {
 			const modeQuery = event.url.searchParams.get('mode');
 			const demoCookie = event.cookies.get(DEMO_MODE_COOKIE);
 			const {
