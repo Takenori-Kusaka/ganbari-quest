@@ -200,6 +200,50 @@
 - 新しい UI パターンが必要な場合は **先に primitives に追加してから** routes で使う
 - 実体: `src/lib/ui/primitives/`
 
+### 使用パターンガイド（Toast / PinInput）
+
+`#1175` UI 監査で検出された未活用 primitive について、正しい使用場面を明記する。
+
+#### Toast（一時通知）
+
+- **現状の使用**: アプリ本体では未使用（`ActivityCard.svelte` / `demo/admin/license/+page.svelte` に独自の toast 実装が存在し、`showToast()` 経由の統一動線が無い）
+- **使うべき場面**:
+  - 保存・削除・操作完了の成功フィードバック（例: `showToast('保存しました', undefined, 'success')`）
+  - 非同期操作のエラー告知（dialog ほど侵襲的でない軽量通知）
+  - 自動消滅 (3s) で十分な情報量のもの
+- **使わない場面**:
+  - 確認を要する操作 → `Dialog.svelte`
+  - 永続する警告・注意 → `Alert.svelte`
+- **使用方法**:
+
+  ```svelte
+  <script>
+  import { showToast } from '$lib/ui/primitives/Toast.svelte';
+  // ...
+  showToast('タイトル', '説明 (任意)', 'success' | 'error' | 'info');
+  </script>
+  ```
+  root layout には `<Toast />` を一度配置する必要あり。
+
+- **未活用箇所（follow-up 起票対象）**: `ActivityCard.svelte` の `frozen-toast`、`demo/admin/license` の `demo-toast` など独自実装箇所を Toast primitive に置換する
+
+#### PinInput（数値 PIN 入力）
+
+- **現状の使用**: 全体で 0 箇所（primitive 自身のみ）
+- **使うべき場面**:
+  - 家族 PIN / 保護者 PIN 等、数値のみの短い認証入力
+  - onComplete callback で即時バリデーションが欲しい UI
+- **使わない場面**:
+  - 通常のパスワード入力 → `FormField.svelte` with `type="password"`
+  - 任意長さのコード入力 → `FormField.svelte`
+- **使用方法**:
+
+  ```svelte
+  <PinInput length={6} mask onComplete={({ valueAsString }) => verify(valueAsString)} />
+  ```
+
+- **未活用箇所（follow-up 起票対象）**: 保護者 PIN 設定 / 確認画面、家族招待コード入力、その他 4〜6 桁入力
+
 ---
 
 ## 6. 用語辞書（SSOT）
