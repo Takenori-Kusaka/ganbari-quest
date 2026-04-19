@@ -1,11 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import { type Handle, type HandleServerError, redirect } from '@sveltejs/kit';
+import { type Handle, type HandleServerError, json, redirect } from '@sveltejs/kit';
 import { building } from '$app/environment';
 import { analytics } from '$lib/analytics';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { applyDebugPlanOverride } from '$lib/server/debug-plan';
+import {
+	DEMO_MODE_COOKIE,
+	DEMO_MODE_COOKIE_MAX_AGE,
+	DEMO_WRITE_ALLOWLIST,
+	DEMO_WRITE_METHODS,
+	resolveDemoActive,
+} from '$lib/server/demo/demo-mode';
 import {
 	applyDemoPlanToContext,
 	DEMO_PLAN_COOKIE,
@@ -232,20 +239,75 @@ export const handle: Handle = ({ event, resolve }) =>
 			redirect(legacyEntry.status ?? 308, newUrl);
 		}
 
-		// 1) 二層セッション解決
-		// デモモード: /demo 以下は認証不要、ダミーコンテキストをセット
-		if (path.startsWith('/demo')) {
+		// 1) デモ実行モード判定（ADR-0039 / #1180）
+		//
+		// `?mode=demo` クエリ → cookie `gq_demo=1` → `/demo/*` パス（Phase 1 backward compat）
+		// の順でデモ状態を解決。event.locals.isDemo を server-side SSOT として設定する。
+		// 本番ルートツリー上で同一コードパスを流すことで、
+		// `src/routes/demo/**` 別ツリー起因の乖離 (#296/#1129/#1147/#1180) を構造解消する。
+		// Phase 2 で /demo/* が削除されたら `fromLegacyPath` 経路も除去する。
+		{
+			const modeQuery = event.url.searchParams.get('mode');
+			const demoCookie = event.cookies.get(DEMO_MODE_COOKIE);
+			const {
+				isDemo: demoActive,
+				fromQuery: demoFromQuery,
+				fromLegacyPath: demoFromLegacyPath,
+			} = resolveDemoActive(modeQuery, demoCookie, path);
+
+			// cookie 未設定でデモ入口を踏んだ場合のみ発行する（毎リクエスト発行しない）。
+			const shouldIssueCookie =
+				(demoFromQuery || demoFromLegacyPath) && demoCookie !== '1' && !path.startsWith('/_app/');
+			if (shouldIssueCookie) {
+				event.cookies.set(DEMO_MODE_COOKIE, '1', {
+					path: '/',
+					sameSite: 'lax',
+					httpOnly: true,
+					maxAge: DEMO_MODE_COOKIE_MAX_AGE,
+				});
+			}
+
+			event.locals.isDemo = demoActive;
+		}
+
+		// 2) デモ入口/退出ルート
+		// /demo/exit: cookie を消して本番に戻す
+		if (path === '/demo/exit') {
+			event.cookies.delete(DEMO_MODE_COOKIE, { path: '/' });
+			event.cookies.delete(DEMO_PLAN_COOKIE, { path: '/' });
+			redirect(302, '/');
+		}
+
+		// 3) デモ状態なら書き込みを 200 no-op で抑止
+		//
+		// UI 側の form actions / fetch は「成功した」と認識して正常に
+		// リダイレクト・再描画するので、子供向け UX にエラーが出ない。
+		// 実際の DB・外部 API は呼ばれないので副作用なし（Stripe test mode と同じ設計）。
+		if (event.locals.isDemo && DEMO_WRITE_METHODS.has(event.request.method)) {
+			if (
+				!DEMO_WRITE_ALLOWLIST.some((prefix) => path.startsWith(prefix)) &&
+				!path.startsWith('/_app/')
+			) {
+				logger.info(`Demo write no-op: ${event.request.method} ${path}`, {
+					requestId: event.locals.requestId,
+					path,
+				});
+				return json({ ok: true, demo: true });
+			}
+		}
+
+		// 4) デモ時はダミー context を合成（本番ルートをそのまま駆動する）
+		if (event.locals.isDemo) {
 			event.locals.authenticated = false;
 			event.locals.identity = null;
 
 			// #760: ?plan= クエリ → cookie の優先順でデモプランを決定し、cookie に永続化する。
-			// デフォルトは family（最も価値が伝わるプランを最初に showcase）。
 			const planQuery = event.url.searchParams.get('plan');
 			const planCookie = event.cookies.get(DEMO_PLAN_COOKIE);
 			const demoPlan = resolveDemoPlan(planQuery, planCookie);
 			if (isDemoPlan(planQuery) && planQuery !== planCookie) {
 				event.cookies.set(DEMO_PLAN_COOKIE, demoPlan, {
-					path: '/demo',
+					path: '/',
 					sameSite: 'lax',
 					httpOnly: true,
 					maxAge: 60 * 60 * 24 * 30, // 30 日

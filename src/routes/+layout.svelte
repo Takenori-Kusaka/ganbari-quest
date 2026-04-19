@@ -1,8 +1,15 @@
 <script lang="ts">
 import '$lib/ui/styles/app.css';
+import { page } from '$app/stores';
+import DemoBanner from '$lib/features/demo/DemoBanner.svelte';
 import NavigationProgress from '$lib/ui/components/NavigationProgress.svelte';
 
-let { children } = $props();
+let { children, data } = $props();
+
+// ADR-0039 / #1180: `hooks.server.ts` で `?mode=demo` / cookie から判定された
+// `locals.isDemo` を `+layout.server.ts` が `data.isDemo` として配布。
+// root layout 上部に DemoBanner を常時マウントし、デモ状態を全ページで可視化する。
+const isDemo = $derived(data?.isDemo ?? $page.data?.isDemo ?? false);
 
 // #702: E2E hydration marker. $effect は SSR では走らずクライアント mount 後にのみ
 // 走るため、ここで window.__APP_HYDRATED__ を立てると Playwright から
@@ -21,4 +28,5 @@ $effect(() => {
 </svelte:head>
 
 <NavigationProgress />
+<DemoBanner {isDemo} />
 {@render children()}
