@@ -46,6 +46,7 @@ Claude Code がUI実装時に「絵文字で済ませるか、画像アセット
 | **カテゴリアイコン（5 軸）** | 🏃📚🏠🤝🎨 | 統一デザインのカテゴリアイコン | `static/assets/categories/` | 128×128 SVG/PNG | 5 |
 | **レベルアップ演出** | ✨🌟 絵文字パーティクル | エフェクト画像 or Lottie アニメ | `static/assets/effects/` | 可変 | 3-5 |
 | **特別報酬アイコン** | 🎓🏆🎤🎨🙏 | 報酬種別ごとのイラスト | `static/assets/rewards/` | 256×256 PNG | 6 |
+| **持ち物チェックリスト LP スクショ** (#1164) | `site/screenshots/feature-belongings-checklist{,-desktop}.webp` (`/demo/checklist` 撮影) | 高解像度の持ち物タブ実画面 | `site/screenshots/` | 780×1688 (mobile@2x) / 2880×1800 (desktop@2x) WebP | 2 |
 
 ### 優先度: 中（体験向上）
 
