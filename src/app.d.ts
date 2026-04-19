@@ -8,7 +8,11 @@ declare global {
 	}
 
 	namespace App {
-		// interface Error {}
+		interface Error {
+			message: string;
+			/** ADR-0040 P4: policy gate deny reason (`ensureCan()` から伝搬) */
+			reason?: string;
+		}
 		interface Locals {
 			requestId: string;
 			authenticated: boolean;

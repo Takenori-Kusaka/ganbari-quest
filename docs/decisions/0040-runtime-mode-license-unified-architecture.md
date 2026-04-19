@@ -154,20 +154,40 @@ export function setEvaluationContext(ctx: EvaluationContext): void;
 **`can(ctx, capability)` という純粋関数** で全ての機能ゲート判断を集約する。
 
 ```ts
-// src/lib/policy/capabilities.ts (設計のみ、実装は P4 で行う)
+// src/lib/policy/capabilities.ts (P4 実装済み / #1217)
 export type Capability =
   | 'record.activity'
   | 'invite.family_member'
   | 'export.activity_history'
   | 'access.ops_dashboard'
+  | 'view.ops_license_dashboard'
   | 'purchase.upgrade'
-  | 'write.db' // mode が demo のとき常に false を返す
+  | 'redeem.license_key'
+  | 'manage.child_profile'
+  | 'write.db' // mode が demo / build のとき、または nuc-prod かつ license invalid のとき deny
   | 'debug.plan_override';
 
-export function can(ctx: EvaluationContext, cap: Capability): PolicyResult {
-  // 宣言的に：モード × ロール × プラン × ライセンスキーの組合せで evaluate
-  // 返り値は { allowed: boolean; reason?: 'demo-readonly' | 'plan-tier-insufficient' | 'license-expired' | ... }
+export type DenyReason =
+  | 'demo-readonly'
+  | 'build-time-readonly'
+  | 'unauthenticated'
+  | 'role-insufficient'
+  | 'plan-tier-insufficient'
+  | 'license-key-invalid'
+  | 'mode-mismatch'
+  | 'dev-only'
+  | 'ops-only';
+
+export interface PolicyResult {
+  allowed: boolean;
+  reason?: DenyReason;
 }
+
+/** 純関数。I/O なし、時刻参照は ctx.now 経由 */
+export function can(ctx: EvaluationContext, cap: Capability): PolicyResult;
+
+/** denied なら SvelteKit error(403) を throw。route / action 先頭用 */
+export function ensureCan(ctx: EvaluationContext, cap: Capability): void;
 ```
 
 - **UI**: `{#if can(ctx, 'invite.family_member').allowed}` で表示制御
