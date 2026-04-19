@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { chromium } from 'playwright';
+import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://192.168.68.79:3000';
 
@@ -13,7 +14,7 @@ async function main() {
 
 	// 1. Child selection page
 	await page.goto(`${BASE_URL}/kinder/home`, { waitUntil: 'networkidle', timeout: 15000 });
-	await page.waitForTimeout(1000);
+	await waitForStablePage(page);
 	await page.screenshot({ path: 'tmp/nuc-1-childselect.png', fullPage: true });
 	console.log('1. Child selection page saved');
 
@@ -21,7 +22,7 @@ async function main() {
 	const childBtn = page.locator('[data-testid^="child-select-"]').first();
 	if (await childBtn.isVisible({ timeout: 3000 })) {
 		await childBtn.click();
-		await page.waitForTimeout(3000);
+		await waitForStablePage(page);
 		await page.screenshot({ path: 'tmp/nuc-2-afterselect.png', fullPage: true });
 		console.log('2. After child select saved');
 
@@ -33,7 +34,7 @@ async function main() {
 				.first();
 			if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
 				await btn.click();
-				await page.waitForTimeout(1000);
+				await waitForStablePage(page, { skipNetworkIdle: true });
 			}
 		}
 		await page.screenshot({ path: 'tmp/nuc-3-home.png', fullPage: true });
@@ -54,7 +55,7 @@ async function main() {
 		// 5. Try clicking stamp button
 		if (await stampBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
 			await stampBtn.click();
-			await page.waitForTimeout(800);
+			await waitForStablePage(page, { selector: '[role="dialog"]', skipNetworkIdle: true });
 			await page.screenshot({ path: 'tmp/nuc-4-stampcard.png', fullPage: false });
 			console.log('4. Stamp card dialog saved');
 		} else {
