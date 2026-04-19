@@ -294,6 +294,14 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] **チュートリアル + デモガイド** (`tutorial-chapters.ts`, `demo-guide-state.svelte.ts`) — UI 構造変更時に同期済み
 - [ ] **該当なし** — 並行実装の影響範囲外の変更
 
+### 並行 PR 影響確認 (#1200)
+
+- [ ] 本 PR が変更するファイルを **同時期に変更する open PR が他に無い** ことを確認した
+  - CI の `pr-file-overlap.yml` が overlap を検出して警告コメントを貼る
+  - overlap がある場合: マージ順序と rebase 方針を **両 PR 作者間で合意** した上で Ready にする
+  - 特に `site/index.html` などの UI full rewrite 系は先行の小粒 PR を待つ
+  - 参考: PR #1143/#1144/#1178 の上書き事故（Issue #1200）
+
 ### その他
 
 - [ ] **用語変更**: 変更した用語が他の画面・コンポーネントにも存在しないか `grep` で全件確認した
