@@ -16,6 +16,11 @@ const guide = getGuideState();
 // #760: デモプラン切替 — `?plan=family|standard|free` で切り替え、cookie で永続化される。
 const PLAN_KEYS: PlanKey[] = ['free', 'standard', 'family'];
 
+// LP スクリーンショット撮影用モード。`?screenshot=1` でデモ固有 UI（バナー・プラン切替・
+// ガイドバー・フローティング CTA）を全て非表示にし、実アプリと同じ画面を取得できるようにする。
+// デモ版とアプリ版の実装乖離が続くため band-aid として導入。根本解決は別 Issue。
+const isScreenshotMode = $derived($page.url.searchParams.get('screenshot') === '1');
+
 /** 現在の URL の searchParams に plan だけ差し替えた URL 文字列を生成 */
 function planSwitchHref(key: string): string {
 	const url = new URL($page.url);
@@ -50,6 +55,7 @@ $effect(() => {
 
 <NavigationProgress />
 
+{#if !isScreenshotMode}
 <!-- デモバナー -->
 <div class="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-2 px-4 text-sm font-bold shadow-md flex items-center justify-between gap-2">
 	<!-- HP 戻り導線 (#705): 目立ちすぎずデモ UX を阻害しない位置 -->
@@ -95,16 +101,19 @@ $effect(() => {
 		</a>
 	{/each}
 </div>
+{/if}
 
-<div class="pt-16">
+<div class:pt-16={!isScreenshotMode}>
 	{@render children()}
 </div>
 
 <!-- ガイド付きデモバー -->
-<DemoGuideBar />
+{#if !isScreenshotMode}
+	<DemoGuideBar />
+{/if}
 
 <!-- 5分後に表示されるフローティングCTA（ガイドが非アクティブ時のみ） -->
-{#if showFloatingCta && !floatingCtaDismissed && !guide.active}
+{#if !isScreenshotMode && showFloatingCta && !floatingCtaDismissed && !guide.active}
 	<Card variant="elevated" padding="md" class="fixed bottom-20 left-4 right-4 z-40 border border-orange-200 animate-slide-up">
 		{#snippet children()}
 		<Button
