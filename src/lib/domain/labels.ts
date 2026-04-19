@@ -38,6 +38,8 @@ export const NAV_ITEM_LABELS = {
 	routineChecklists: 'ルーティン',
 	events: 'イベント',
 	challenges: 'チャレンジ',
+	// #1170: マーケットプレイス グローバルナビ昇格
+	marketplace: 'マケプレ',
 	children: 'こども',
 	settings: '設定',
 	license: 'プラン',

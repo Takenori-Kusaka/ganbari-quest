@@ -114,21 +114,37 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 
 ### 🟡 優先度: 高 — 定期的な漏れがある
 
-#### 4. デスクトップナビ vs モバイルナビ
+#### 4. デスクトップナビ vs モバイルナビ（管理画面 + 子供画面）
 
 | 場所 | 内容 |
 |------|------|
-| `src/lib/features/admin/components/AdminLayout.svelte` | デスクトップの親ナビ（ドロップダウン） |
-| `src/lib/ui/components/BottomNav.svelte` | モバイルのボトムナビ |
-| `src/lib/features/admin/components/AdminMobileNav.svelte` | モバイルの親ナビ |
+| `src/lib/features/admin/components/AdminLayout.svelte` | 管理画面の Desktop ドロップダウン + **Mobile ボトムナビ（同居）** |
+| `src/lib/ui/components/BottomNav.svelte` | 子供画面の BottomNav（ホーム / つよさ / かぞく） |
+
+> **実態**: `AdminMobileNav.svelte` は**存在しない**（2026-04-19 時点）。
+> 管理画面のモバイルナビは `AdminLayout.svelte` の同一ファイル内に Desktop ドロップダウンと並列で定義されており、
+> `md:hidden` / `md:block` の Tailwind responsive クラスで表示切替している
+> （`navCategories` は `$derived` で 1 回だけ構築し両方で共有）。
+> 以前の計画では `AdminMobileNav.svelte` の分離を想定していたが、
+> ナビ項目の多重化を避けるため単一ファイルで統合する現行設計を採用している。
+
+**BottomNav との棲み分け**:
+- `BottomNav.svelte` は**子供画面専用**（ホーム / つよさ / かぞく）で、管理画面のナビではない
+- 管理画面への導線（マケプレ等の親向け機能）は `BottomNav` の対象外
+- よってマケプレのような親向け機能を追加する際は `AdminLayout` のみ更新し、`BottomNav` への追加は不要
 
 **同期メカニズム**:
-- **現状（手動）**: 1 箇所でメニュー追加 → 全ナビで追加
-- **Tier 2（#565 で予定）**: `src/lib/domain/navigation.ts` に一元化
+- **現状（手動）**: 管理画面ナビ項目追加 → `AdminLayout.svelte` の `navCategories` 配列に 1 エントリ追記（Desktop / Mobile の両方が自動で反映される）
+- 子供画面ナビが変わる場合のみ `BottomNav.svelte` を別途更新
+- **Tier 2（#565 で予定）**: `src/lib/domain/navigation.ts` に一元化（現行は `AdminLayout` 内同居で十分機能しているため優先度低）
 
 **修正時チェック**:
 ```bash
-grep -rn "ナビ項目ラベル" src/lib/features/admin/ src/lib/ui/components/BottomNav.svelte
+# 管理画面ナビ項目の横串検索（AdminLayout 1 ファイルで Desktop+Mobile 両方に効く）
+grep -n "navCategories\|NAV_ITEM_LABELS" src/lib/features/admin/components/AdminLayout.svelte
+
+# 子供画面 BottomNav は独立
+grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 ```
 
 ---
@@ -235,7 +251,7 @@ grep -rn "ナビ項目ラベル" src/lib/features/admin/ src/lib/ui/components/B
 - [ ] **年齢モード** → `src/routes/(child)/{baby,preschool,elementary,junior,senior}/` の 5 ディレクトリ全て
 - [ ] **本番画面** → 同等機能が `src/routes/demo/` にも存在しないか確認
 - [ ] **アプリ機能** → LP (`site/`) で紹介している場合は文言同期
-- [ ] **ナビゲーション** → デスクトップ (`AdminLayout`) + モバイル (`AdminMobileNav`) + ボトムナビ (`BottomNav`)
+- [ ] **ナビゲーション** → 管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない / 2026-04-19 実態確認）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外
 - [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
 - [ ] **チュートリアル** → 本番 (`tutorial-chapters.ts`) + デモ (`demo-guide-state.svelte.ts`)
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
