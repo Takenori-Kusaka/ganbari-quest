@@ -5,6 +5,7 @@ import { analytics } from '$lib/analytics';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { env } from '$lib/runtime/env';
+import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evaluation-context';
 import { resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { applyDebugPlanOverride } from '$lib/server/debug-plan';
@@ -342,6 +343,16 @@ export const handle: Handle = ({ event, resolve }) =>
 				demoPlan,
 			);
 			event.locals.context = applyDebugPlanOverride(baseDemoContext);
+
+			// ADR-0040 P3 (#1215): デモ実行時の EvaluationContext を注入。
+			// demo は非認証のため user / plan / licenseKey は null。
+			// mode='demo' により P4 Policy Gate で write 系 capability が deny される。
+			setEvaluationContext(
+				buildEvaluationContext({
+					mode: event.locals.runtimeMode,
+				}),
+			);
+
 			const response = await resolve(event);
 			if (!path.startsWith('/_app/') && !path.startsWith('/favicon')) {
 				logger.request(event.request.method, path, response.status, Date.now() - start, {
@@ -361,6 +372,16 @@ export const handle: Handle = ({ event, resolve }) =>
 		event.locals.authenticated = identity !== null;
 		event.locals.identity = identity;
 		event.locals.context = context;
+
+		// ADR-0040 P3 (#1215): 認証解決完了後の EvaluationContext を注入。
+		// P3 スコープでは mode のみ真面目に投影し、user / plan / licenseKey の詳細投影は
+		// P4 で capability 判定が必要になった時点で追加する（resolvePlanTier の I/O を
+		// hooks で先取りしないため）。既存の event.locals.* は互換のため変更しない。
+		setEvaluationContext(
+			buildEvaluationContext({
+				mode: event.locals.runtimeMode,
+			}),
+		);
 
 		// 2) ルート保護
 
