@@ -18,6 +18,8 @@ declare global {
 			// cookie `gq_demo=1` から確定。`+layout.server.ts` が `data.isDemo` として
 			// client に配布する。
 			isDemo: boolean;
+			/** ADR-0040 P2: リクエストごとの実行モード（hooks.server.ts で解決） */
+			runtimeMode: import('$lib/runtime/runtime-mode').RuntimeMode;
 		}
 		// interface PageData {}
 		// interface PageState {}
