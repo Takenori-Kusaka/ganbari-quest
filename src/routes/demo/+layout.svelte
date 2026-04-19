@@ -5,6 +5,7 @@ import { PLAN_SHORT_LABELS, type PlanKey } from '$lib/domain/labels';
 import DemoGuideBar from '$lib/features/demo/DemoGuideBar.svelte';
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import { getGuideState } from '$lib/features/demo/demo-guide-state.svelte.js';
+import { setScreenshotModeContext } from '$lib/features/demo/screenshot-mode.js';
 import NavigationProgress from '$lib/ui/components/NavigationProgress.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -18,8 +19,9 @@ const PLAN_KEYS: PlanKey[] = ['free', 'standard', 'family'];
 
 // LP スクリーンショット撮影用モード。`?screenshot=1` でデモ固有 UI（バナー・プラン切替・
 // ガイドバー・フローティング CTA）を全て非表示にし、実アプリと同じ画面を取得できるようにする。
-// デモ版とアプリ版の実装乖離が続くため band-aid として導入。根本解決は別 Issue。
+// デモ配下の page からは `$lib/features/demo/screenshot-mode` の `getScreenshotMode()` で取得する（#1209）。
 const isScreenshotMode = $derived($page.url.searchParams.get('screenshot') === '1');
+setScreenshotModeContext(() => isScreenshotMode);
 
 /** 現在の URL の searchParams に plan だけ差し替えた URL 文字列を生成 */
 function planSwitchHref(key: string): string {
