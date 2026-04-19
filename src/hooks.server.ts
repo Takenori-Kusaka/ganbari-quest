@@ -4,9 +4,10 @@ import { building } from '$app/environment';
 import { analytics } from '$lib/analytics';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { can } from '$lib/policy/capabilities';
 import { env } from '$lib/runtime/env';
 import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evaluation-context';
-import { resolveRuntimeMode } from '$lib/runtime/runtime-mode';
+import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { applyDebugPlanOverride } from '$lib/server/debug-plan';
 import {
@@ -84,6 +85,22 @@ const provider = getAuthProvider();
 
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
 const COGNITO_DEV_MODE = process.env.COGNITO_DEV_MODE === 'true';
+
+/**
+ * ADR-0040 P4 (#1217): Policy Gate `can(ctx, 'write.db')` 経由で "demo 書き込み no-op"
+ * を判定する参考実装。hooks main handler の cognitive complexity を上げないために、
+ * 判定をここへ切り出している。true を返したら呼び側で 200 `{ ok: true, demo: true }`
+ * を返す。他の write 拒否理由 (build-time-readonly / license-key-invalid) は
+ * 本ブロックではなく P4.1 以降で個別ガードに置き換える想定。
+ */
+function shouldReturnDemoNoop(method: string, path: string, mode: RuntimeMode): boolean {
+	if (!DEMO_WRITE_METHODS.has(method)) return false;
+	const writeResult = can(buildEvaluationContext({ mode }), 'write.db');
+	if (writeResult.allowed || writeResult.reason !== 'demo-readonly') return false;
+	return (
+		!DEMO_WRITE_ALLOWLIST.some((prefix) => path.startsWith(prefix)) && !path.startsWith('/_app/')
+	);
+}
 
 // Initialize analytics providers (lazy, environment-variable gated)
 analytics.init();
@@ -303,17 +320,17 @@ export const handle: Handle = ({ event, resolve }) =>
 		// UI 側の form actions / fetch は「成功した」と認識して正常に
 		// リダイレクト・再描画するので、子供向け UX にエラーが出ない。
 		// 実際の DB・外部 API は呼ばれないので副作用なし（Stripe test mode と同じ設計）。
-		if (event.locals.isDemo && DEMO_WRITE_METHODS.has(event.request.method)) {
-			if (
-				!DEMO_WRITE_ALLOWLIST.some((prefix) => path.startsWith(prefix)) &&
-				!path.startsWith('/_app/')
-			) {
-				logger.info(`Demo write no-op: ${event.request.method} ${path}`, {
-					requestId: event.locals.requestId,
-					path,
-				});
-				return json({ ok: true, demo: true });
-			}
+		//
+		// ADR-0040 P4 (#1217): 判定は `shouldReturnDemoNoop` に切り出し Policy Gate
+		// `can(ctx, 'write.db')` 経由で評価する。`demo-readonly` 理由のみ no-op にし、
+		// 他の write 拒否理由 (build-time-readonly / license-key-invalid) は P4.1 以降
+		// で個別ガードに置き換える。
+		if (shouldReturnDemoNoop(event.request.method, path, event.locals.runtimeMode)) {
+			logger.info(`Demo write no-op: ${event.request.method} ${path}`, {
+				requestId: event.locals.requestId,
+				path,
+			});
+			return json({ ok: true, demo: true });
 		}
 
 		// 4) デモ時はダミー context を合成（本番ルートをそのまま駆動する）
