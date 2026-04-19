@@ -87,35 +87,32 @@ test.describe('#1170 マケプレ グローバルナビ導線', () => {
 	// ============================================================
 	// 2. 管理画面 Desktop: 活動設定 dropdown に nav-marketplace が含まれる
 	// AdminLayout は md:block / md:hidden で Desktop/Mobile を切り替えているため、
-	// mobile viewport (Pixel 7) では `nav[data-tutorial="nav-desktop"]` 自体が hidden。
-	// よって Desktop 専用テストとして viewport.width >= 768 の場合のみ実行する。
+	// mobile project のデフォルト viewport では `nav[data-tutorial="nav-desktop"]` が hidden。
+	// `browser.newContext` で明示的に 1280x800 を作ることで、どの project でも Desktop viewport を保証する。
 	// ============================================================
-	test('Desktop 管理画面: 活動設定 dropdown に nav-marketplace が visible', async ({
-		page,
-		viewport,
-	}) => {
-		test.skip(
-			!viewport || viewport.width < 768,
-			'Desktop-only: AdminLayout Desktop nav is hidden on mobile viewport (md:hidden)',
-		);
+	test('Desktop 管理画面: 活動設定 dropdown に nav-marketplace が visible', async ({ browser }) => {
 		test.slow(); // Vite dev cold compile
-		await page.goto('/admin', { waitUntil: 'domcontentloaded' });
+		const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+		const page = await ctx.newPage();
+		try {
+			await page.goto('/admin', { waitUntil: 'domcontentloaded' });
 
-		// 「活動設定」カテゴリボタンを hover して dropdown を開く
-		// navCategories[].id === 'customize' / label は NAV_CATEGORIES.customize.label
-		// ボタン内のテキスト 'アクティビティ' or equivalent — data-tutorial は nav-desktop
-		const desktopNav = page.locator('nav[data-tutorial="nav-desktop"]');
-		await expect(desktopNav).toBeVisible();
+			// 「活動設定」カテゴリボタンを hover して dropdown を開く
+			// navCategories[].id === 'customize' / label は NAV_CATEGORIES.customize.label
+			const desktopNav = page.locator('nav[data-tutorial="nav-desktop"]');
+			await expect(desktopNav).toBeVisible();
 
-		// category.label は NAV_CATEGORIES.customize.label ('活動設定')
-		const customizeBtn = desktopNav.getByRole('button', { name: /活動設定/ });
-		await expect(customizeBtn).toBeVisible();
-		await customizeBtn.hover();
+			const customizeBtn = desktopNav.getByRole('button', { name: /活動設定/ });
+			await expect(customizeBtn).toBeVisible();
+			await customizeBtn.hover();
 
-		// dropdown 内の nav-marketplace link
-		const marketplaceLink = page.getByTestId('nav-marketplace');
-		await expect(marketplaceLink).toBeVisible();
-		await expect(marketplaceLink).toHaveAttribute('href', '/marketplace');
+			// dropdown 内の nav-marketplace link
+			const marketplaceLink = page.getByTestId('nav-marketplace');
+			await expect(marketplaceLink).toBeVisible();
+			await expect(marketplaceLink).toHaveAttribute('href', '/marketplace');
+		} finally {
+			await ctx.close();
+		}
 	});
 
 	// ============================================================
