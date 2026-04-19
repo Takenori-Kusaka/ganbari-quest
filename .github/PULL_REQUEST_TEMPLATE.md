@@ -368,3 +368,26 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] `npx vitest run` — ユニットテスト全通過
 - [ ] `npx playwright test` — E2Eテスト全通過
 - [ ] PRのサイズが適切（目安: 500行/10ファイル以内。超える場合は分割を検討）
+
+---
+
+## Quality Manager レビュー結果（QM が記入 — #1197 / #1198）
+
+<!-- ⚠️ QM が approve するときに記入。PR 作者は空欄のまま Ready にしてよい。
+     CI 緑 = approve ではない。以下 5 項目を実行した証跡を残さずに approve しない。 -->
+
+- [ ] **Issue AC 照合**: `closes #X` の Issue を開き、Acceptance Criteria 全項目が PR diff で達成されていることを確認した
+- [ ] **スクリーンショット実視認**: 添付画像を全て目視し、UI/UX デザイナー観点で違和感が無いことを確認した
+- [ ] **禁忌事項チェック**: `docs/DESIGN.md` §9 禁忌事項 6 点（色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超え）のいずれにも該当しないことを確認した
+- [ ] **並行実装同期**: デモ / 5 年齢モード / LP / ナビ 3 種の同期漏れが無いことを確認した
+- [ ] **スコープ外起票**: 気付きがあれば Issue 起票済み（スルー禁止）
+
+### QM 所見（スクリーンショット 1 枚ごとに 1 行以上）
+
+<!-- 「見た」とだけ書かない。具体的に何を確認したかを残す。
+例:
+- `marketplace-desktop-viewport.png`: フィルタチップが `var(--color-action-primary)` を使用、Button primitive 利用確認
+- `marketplace-mobile-dialog.png`: bottom sheet が高さ 60% で親指操作圏 (#1171 AC3) を満たす
+-->
+
+詳細手順: `docs/sessions/qa-session.md` 「QM approve 前の必須実行手順」

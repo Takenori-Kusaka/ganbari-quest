@@ -19,6 +19,45 @@ description: Use when reviewing PRs, running quality checks, performing regressi
 
 Ready for Review の PR を検出してレビュー・修正・マージする。Dev セッションの成果を商品品質に引き上げる最後の砦。
 
+## QM approve 前の必須実行手順（CI 緑でも approve 出さない — #1197 / #1198）
+
+以下を **1 PR につき全て実行** する。どれか 1 つでも欠けていれば approve しない。
+順序を逆転させない（CI 確認は最後）。
+
+1. **Issue 照合**:
+   - `gh issue view <closes #X の X>` で Issue を開く
+   - Acceptance Criteria の各項目を PR diff と 1 対 1 で突合
+   - ずれがあれば blocking で指摘（PR 作者に質問）
+
+2. **スクリーンショット実視認**（PR 本文の `![]()` / `<img>` / 外部 URL 全て）:
+   - 画像を Read tool または外部ビューアで **実際に開いて見る**
+   - **見たと書くだけでなく、1 画像につき最低 1 行の所見を approve body に残す**
+   - 観点: `docs/DESIGN.md` §9 禁忌事項 6 点 / 年齢モード別 tapSize・fontScale /
+     競合比較 / ダークパターン混入 / Before/After の変化が意図通りか
+
+3. **スクリーンショット欠落の検知**:
+   - UI / LP 変更を含む PR に画像添付が無い → blocking で指摘
+   - CI の `screenshot-check` は「画像があるか」のみ検証。内容吟味は QM 専権
+
+4. **CI ステータス確認**:
+   - `gh pr checks <番号>` で全緑を**補助情報として**確認
+   - 上記 1–3 を終えた後に実施。順序を逆転させない
+
+5. **承認 / マージ判断**:
+   - 全項目クリア → `gh pr review --approve --body "<所見をまとめる>"`
+   - マージは `gh pr merge --squash`（PR 本文・設計書が最新を再確認後）
+   - マージ後: `gh run watch` でデプロイ結果まで追跡
+
+### QM が絶対にやってはいけないこと
+
+- **CI 緑 = approve**: 自動マージツール化した瞬間に QM ロールは終わる
+- **スクリーンショット未視認で approve**: 添付されているだけで内容未確認は不可
+- **Issue の closes #X の X を開かずに approve**: AC 照合漏れの温床
+- **「見ました」とだけ書く所見**: 具体的な所見（色・形・tapSize・違和感の有無）を残す
+- **複数 PR 同時処理**: 1 件ずつ精査。まとめ承認は品質粒度を落とす
+
+起動時に必ず `memory/feedback_quality_manager_is_not_ci_gate.md` を読み直す。
+
 ## PR レビューフロー
 
 ### 1. コンテキスト理解
