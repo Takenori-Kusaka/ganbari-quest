@@ -1,0 +1,90 @@
+name: PR File Overlap Check
+
+# #1200: 同一ファイルを変更する複数 open PR がある場合に警告する。
+# 先行 PR (#1144: 性別タグ追加) を後続 full rewrite PR (#1178) が無意識に消滅させた事故の再発防止。
+# block はせず、マージ順序と rebase 方針を人間に促すのが目的。
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  overlap-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run overlap check
+        id: overlap
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          OUTPUT_MODE: json
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/check-pr-file-overlap.mjs > /tmp/overlap.json
+          cat /tmp/overlap.json
+          OVERLAP_COUNT=$(node -e "const j=require('/tmp/overlap.json'); console.log((j.overlaps || []).length)")
+          echo "overlap_count=$OVERLAP_COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Post overlap warning comment
+        if: steps.overlap.outputs.overlap_count != '' && fromJSON(steps.overlap.outputs.overlap_count) > 0
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('/tmp/overlap.json', 'utf-8'));
+            const marker = '<!-- pr-file-overlap-check -->';
+            const overlapsMd = (data.overlaps || []).map((o) => {
+              const files = o.sharedFiles.map((f) => `    - \`${f}\``).join('\n');
+              const draft = o.isDraft ? ' (Draft)' : '';
+              return `- #${o.number}${draft} by @${o.author}: ${o.title}\n${files}`;
+            }).join('\n');
+            const body = [
+              marker,
+              '## ⚠️ 並行 PR による同ファイル上書きリスク (#1200)',
+              '',
+              `本 PR が変更しているファイルと重複する open PR が **${data.overlaps.length} 件** あります。`,
+              '',
+              overlapsMd,
+              '',
+              '### 推奨アクション',
+              '',
+              '- どちらを先にマージするか **両 PR の作者間で合意する**',
+              '- 後続 PR は先行 PR マージ後に rebase する (特に full rewrite 系)',
+              '- スコープを分けられる場合は、本 PR から重複ファイルを外すか検討する',
+              '',
+              '参考: [Issue #1200](https://github.com/Takenori-Kusaka/ganbari-quest/issues/1200) — PR #1143/#1144/#1178 前例',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner, repo, issue_number: pull_number, per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pull_number, body });
+            }
+
+      - name: Remove stale overlap comment when no overlap remains
+        if: steps.overlap.outputs.overlap_count == '0'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const marker = '<!-- pr-file-overlap-check -->';
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner, repo, issue_number: pull_number, per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });
+            }
