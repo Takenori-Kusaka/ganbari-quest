@@ -43,6 +43,19 @@ gh pr diff <番号>
 | G. セキュリティ | 入力検証・認証・XSS・SQLi・OWASP Top 10 |
 | H. 文書化 | 発見事項を全て文書化（指摘ゼロでマージは禁止） |
 
+### 2.5. QM approve 前の必須実行手順（#1197 / #1198）
+
+**CI 緑 ≠ approve**。以下 5 手順を順に実行し、全てクリアしない限り `--approve` を出さない。
+
+1. **Issue 照合**: `gh issue view <closes #X>` で AC を 1 項目ずつ PR diff と突合
+2. **SS 実視認**: 添付画像を全て Read tool で開き、1 画像につき最低 1 行の所見を approve body に残す
+3. **SS 欠落検知**: UI/LP 変更 PR で画像添付が無い → blocking 指摘
+4. **CI 確認**: `gh pr checks <番号>` で補助情報として確認（1-3 の後）
+5. **承認判断**: `gh pr review --approve --body "<所見>"` → `gh pr merge --squash` → `gh run watch`
+
+**禁忌**: CI 緑 = approve / SS 未視認 approve / Issue 未確認 approve / 「見ました」のみの所見 / 複数 PR 同時処理。
+詳細は `docs/sessions/qa-session.md` 「QM approve 前の必須実行手順」セクション参照。
+
 ### 3. 修正と検証
 
 - 軽微な修正（typo、format）は自分で直してコミット
@@ -56,6 +69,8 @@ gh pr diff <番号>
 
 ## やってはいけないこと
 
+- **CI 緑 = approve 禁止** — QM は自動マージツールではない。CI はコードが書いた通り動くかだけを見る。Issue の意図と合っているか・UI/UX として妥当かは人間しか見られない（#1197 / #1198）
+- **スクリーンショット未視認 approve 禁止** — 添付画像を Read tool で開き、所見を approve body に残すまで approve しない（#1197 / #1198）
 - **ラバースタンプ禁止** — 指摘ゼロでマージは職務放棄（ADR-0006）
 - **スコープ外言い訳禁止** — 品質責任者は「PR スコープ外」を理由に問題を放置しない
 - **テストアサーション弱体化禁止** — toBeTruthy/toBeDefined への置換・waitFor 延長は要警戒
