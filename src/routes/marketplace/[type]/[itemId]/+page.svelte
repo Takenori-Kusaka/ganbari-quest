@@ -1,4 +1,5 @@
 <script lang="ts">
+import { MARKETPLACE_LABELS } from '$lib/domain/labels';
 import type {
 	ActivityPackPayload,
 	ChecklistPayload,
@@ -30,10 +31,10 @@ const hasLegacyPack = $derived(
 </script>
 
 <svelte:head>
-	<title>{item.name} - マーケットプレイス - がんばりクエスト</title>
+	<title>{item.name} - {MARKETPLACE_LABELS.pageTitle} - がんばりクエスト</title>
 	<meta name="description" content={item.description} />
 	<!-- OGP for SNS sharing -->
-	<meta property="og:title" content="{item.name} - がんばりクエスト マーケットプレイス" />
+	<meta property="og:title" content="{item.name} - がんばりクエスト {MARKETPLACE_LABELS.pageTitle}" />
 	<meta property="og:description" content={item.description} />
 	<meta property="og:type" content="website" />
 </svelte:head>
@@ -42,7 +43,7 @@ const hasLegacyPack = $derived(
 	<div class="max-w-2xl mx-auto px-4 py-8">
 		<!-- Breadcrumb -->
 		<nav class="text-xs text-[var(--color-text-tertiary)] mb-6">
-			<a href="/marketplace" class="hover:text-[var(--color-action-primary)]">マーケットプレイス</a>
+			<a href="/marketplace" class="hover:text-[var(--color-action-primary)]">{MARKETPLACE_LABELS.breadcrumbRoot}</a>
 			<span class="mx-1">/</span>
 			<a
 				href="/marketplace?type={item.type}"
@@ -105,13 +106,13 @@ const hasLegacyPack = $derived(
 			{#snippet children()}
 			<h2 class="text-sm font-bold text-[var(--color-text-primary)] mb-3">
 				{#if isActivityPack}
-					ふくまれる活動
+					{MARKETPLACE_LABELS.detailIncludedActivities}
 				{:else if isRewardSet}
-					ふくまれるごほうび
+					{MARKETPLACE_LABELS.detailIncludedRewards}
 				{:else if isChecklist}
-					チェック項目
+					{MARKETPLACE_LABELS.detailChecklistItems}
 				{:else if isRulePreset}
-					ルール内容
+					{MARKETPLACE_LABELS.detailRuleContent}
 				{/if}
 			</h2>
 
@@ -133,11 +134,11 @@ const hasLegacyPack = $derived(
 				</div>
 			{:else if isActivityPack && hasLegacyPack}
 				<p class="text-sm text-[var(--color-text-secondary)]">
-					既存の活動パックからインポートされます。詳しくは
+					{MARKETPLACE_LABELS.detailLegacyPackNote}
 					<a href="/activity-packs/{item.itemId}" class="text-[var(--color-action-primary)] hover:underline">
-						パック詳細ページ
+						{MARKETPLACE_LABELS.detailLegacyPackLink}
 					</a>
-					をご覧ください。
+					{MARKETPLACE_LABELS.detailLegacyPackSuffix}
 				</p>
 			{:else if isRewardSet}
 				{@const payload = item.payload as RewardSetPayload}
@@ -177,12 +178,12 @@ const hasLegacyPack = $derived(
 							<p class="text-xs text-[var(--color-text-secondary)] ml-8">{rule.description}</p>
 							{#if rule.pointCost}
 								<p class="text-xs text-[var(--color-status-error)] ml-8 mt-1">
-									必要ポイント: {rule.pointCost}P
+									{MARKETPLACE_LABELS.detailRulePointCost}: {rule.pointCost}P
 								</p>
 							{/if}
 							{#if rule.pointBonus}
 								<p class="text-xs text-[var(--color-status-success)] ml-8 mt-1">
-									ボーナス: +{rule.pointBonus}P
+									{MARKETPLACE_LABELS.detailRulePointBonus}: +{rule.pointBonus}P
 								</p>
 							{/if}
 						</div>
@@ -196,7 +197,7 @@ const hasLegacyPack = $derived(
 		<div class="mt-6 space-y-3">
 			<a href="/auth/signup" class="block">
 				<Button variant="primary" size="lg" class="w-full">
-					がんばりクエストに登録してインポート
+					{MARKETPLACE_LABELS.detailCtaSignup}
 				</Button>
 			</a>
 		</div>
@@ -207,7 +208,7 @@ const hasLegacyPack = $derived(
 				href="/marketplace?type={item.type}"
 				class="text-sm text-[var(--color-action-primary)] hover:underline"
 			>
-				{MARKETPLACE_TYPE_LABELS[item.type]}一覧に戻る
+				{MARKETPLACE_TYPE_LABELS[item.type]}{MARKETPLACE_LABELS.backToTypeListSuffix}
 			</a>
 		</div>
 	</div>
