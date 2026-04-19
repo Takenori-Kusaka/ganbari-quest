@@ -22,7 +22,10 @@ const STORIES = [
 ];
 
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 560, height: 340 }, deviceScaleFactor: 2 });
+const ctx = await browser.newContext({
+	viewport: { width: 560, height: 340 },
+	deviceScaleFactor: 2,
+});
 const page = await ctx.newPage();
 
 for (const [name, id] of STORIES) {
@@ -33,9 +36,17 @@ for (const [name, id] of STORIES) {
 			const root = document.getElementById('storybook-root');
 			return root && root.children.length > 0 && (root.textContent?.trim().length ?? 0) > 0;
 		},
-		{ timeout: 60000 }
+		{ timeout: 60000 },
 	);
-	await page.waitForTimeout(300);
+	// document.fonts.ready + 2× RAF でアニメ・フォント settle を待つ (#1208: waitForTimeout 禁止)
+	await page.evaluate(
+		() =>
+			new Promise((resolve) => {
+				const finish = () => requestAnimationFrame(() => requestAnimationFrame(resolve));
+				if (document.fonts?.ready) document.fonts.ready.then(finish);
+				else finish();
+			}),
+	);
 	const file = path.join(OUT, `${name}.png`);
 	await page.screenshot({ path: file, timeout: 60000 });
 	console.log(`captured ${file}`);
