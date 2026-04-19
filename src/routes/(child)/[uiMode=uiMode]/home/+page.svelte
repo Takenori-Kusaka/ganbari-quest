@@ -21,7 +21,7 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import EventBanner from '$lib/ui/components/EventBanner.svelte';
-import MonthlyRewardModal from '$lib/ui/components/MonthlyRewardModal.svelte';
+import MonthlyRewardDialog from '$lib/ui/components/MonthlyRewardDialog.svelte';
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
 import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
 import SiblingRanking from '$lib/ui/components/SiblingRanking.svelte';
@@ -966,7 +966,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 
 <!-- Monthly premium reward modal -->
 {#if data.monthlyPremiumReward && !data.monthlyPremiumReward.claimed}
-	<MonthlyRewardModal
+	<MonthlyRewardDialog
 		eventId={data.monthlyPremiumReward.event.id}
 		rewardName={data.monthlyPremiumReward.config.name}
 		rewardIcon={data.monthlyPremiumReward.config.icon}
