@@ -3,7 +3,13 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ['site/**']
+    # site/** 以外の変更でも、アプリ画面が変わればスクリーンショットに影響するため
+    # src/** と scripts/capture-hp-screenshots.mjs も対象に含める (#1157)
+    paths:
+      - 'site/**'
+      - 'src/**'
+      - 'scripts/capture-hp-screenshots.mjs'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,13 +22,82 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  capture-and-deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright deps (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Build app for preview
+        run: npm run build
+
+      - name: Start preview server
+        # vite preview は NODE_ENV=production で起動するため、
+        # hooks.server.ts の assertLicenseKeyConfigured() が AWS_LICENSE_SECRET を要求する。
+        # LP スクリーンショット撮影用のダミー値（本番シークレットとは別物）。
+        env:
+          AWS_LICENSE_SECRET: pages-capture-secret-do-not-use-in-production
+        run: |
+          npm run preview -- --port 5173 --host 0.0.0.0 > /tmp/preview.log 2>&1 &
+          echo "PREVIEW_PID=$!" >> $GITHUB_ENV
+          # 起動待機 (最大 60 秒)
+          for i in {1..60}; do
+            if curl -sf http://localhost:5173 > /dev/null 2>&1; then
+              echo "Preview server ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Preview server failed to start within 60s"
+          cat /tmp/preview.log
+          exit 1
+
+      - name: Capture LP screenshots
+        env:
+          BASE_URL: http://localhost:5173
+        # 撮影失敗時は workflow を fail させる (ADR-0029: 無言で古い画像を残さない)
+        run: node scripts/capture-hp-screenshots.mjs --webp
+
+      - name: Stop preview server
+        if: always()
+        run: |
+          if [ -n "$PREVIEW_PID" ]; then
+            kill $PREVIEW_PID 2>/dev/null || true
+          fi
+
+      - name: Verify screenshots exist
+        # AC: 撮影失敗時はワークフローを fail させる
+        run: |
+          count=$(ls site/screenshots/*.webp 2>/dev/null | wc -l)
+          echo "Captured $count WebP screenshots"
+          if [ "$count" -lt 20 ]; then
+            echo "::error::Expected at least 20 screenshots, got $count"
+            exit 1
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v6
