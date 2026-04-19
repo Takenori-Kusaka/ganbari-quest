@@ -126,7 +126,8 @@
 			"!**/storybook-static",
 			"!**/app.css",
 			"!**/.claude",
-			"!**/*.md"
+			"!**/*.md",
+			"!**/lp-metrics.json"
 		]
 	}
 }
