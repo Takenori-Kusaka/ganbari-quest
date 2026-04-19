@@ -10,6 +10,7 @@ import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 let { data } = $props();
 
@@ -18,9 +19,7 @@ const planStats = $derived(data.planStats);
 
 let selectedTier = $state<'standard' | 'family'>('standard');
 let billingInterval = $state<'monthly' | 'yearly'>('monthly');
-let showDemoToast = $state(false);
 let hydrated = $state(false);
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let applyDelayTimer: ReturnType<typeof setTimeout> | undefined;
 let applySuccessTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -40,18 +39,13 @@ const currentPlanLabel = $derived(getPlanLabel(appliedPlan));
 onMount(() => {
 	hydrated = true;
 	return () => {
-		clearTimeout(toastTimer);
 		clearTimeout(applyDelayTimer);
 		clearTimeout(applySuccessTimer);
 	};
 });
 
 function notifyDemoOnly() {
-	clearTimeout(toastTimer);
-	showDemoToast = true;
-	toastTimer = setTimeout(() => {
-		showDemoToast = false;
-	}, 3000);
+	showToast('デモでは実際の操作はできません', undefined, 'info');
 }
 
 /** #817: デモ用ライセンスキー適用モック。入力値に応じてプランを変更する演出 */
@@ -443,11 +437,6 @@ function handleMockApply() {
 		{/snippet}
 	</Card>
 
-	{#if showDemoToast}
-		<div class="demo-toast" role="status" data-testid="demo-toast">
-			デモでは実際の操作はできません
-		</div>
-	{/if}
 </div>
 
 <style>
@@ -499,18 +488,4 @@ function handleMockApply() {
 		border-radius: 9999px;
 	}
 
-	.demo-toast {
-		position: fixed;
-		bottom: 24px;
-		left: 50%;
-		transform: translateX(-50%);
-		background: var(--color-feedback-info-bg-strong);
-		color: var(--color-feedback-info-text);
-		padding: 12px 20px;
-		border-radius: 8px;
-		font-size: 0.875rem;
-		font-weight: 600;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-		z-index: 1000;
-	}
 </style>
