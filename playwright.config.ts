@@ -68,6 +68,7 @@ export default defineConfig({
 		{
 			name: 'mobile',
 			dependencies: ['tablet'],
+			testIgnore: '**/tutorial-dialog-primitive-screenshots.spec.ts',
 			use: {
 				...devices['Pixel 7'],
 			},

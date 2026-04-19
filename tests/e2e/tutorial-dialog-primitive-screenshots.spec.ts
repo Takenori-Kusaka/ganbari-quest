@@ -37,10 +37,7 @@ async function gotoPageWithRestartBtn(page: import('@playwright/test').Page) {
 test.describe('#1192 TutorialQuickCompleteDialog 3 ダイアログ撮影', () => {
 	test.setTimeout(120_000);
 
-	test('01 Resume prompt', async ({ page, browserName }, testInfo) => {
-		test.skip(browserName !== 'chromium', 'screenshot は chromium のみ');
-		test.skip(testInfo.project.name !== 'tablet', 'tablet プロジェクトのみ');
-
+	test('01 Resume prompt', async ({ page }) => {
 		await page.setViewportSize({ width: 1280, height: 800 });
 		await gotoPageWithRestartBtn(page);
 
@@ -67,10 +64,7 @@ test.describe('#1192 TutorialQuickCompleteDialog 3 ダイアログ撮影', () =>
 		});
 	});
 
-	test('02 Quick complete', async ({ page, browserName }, testInfo) => {
-		test.skip(browserName !== 'chromium', 'screenshot は chromium のみ');
-		test.skip(testInfo.project.name !== 'tablet', 'tablet プロジェクトのみ');
-
+	test('02 Quick complete', async ({ page }) => {
 		await page.setViewportSize({ width: 1280, height: 800 });
 		await gotoPageWithRestartBtn(page);
 		await page.evaluate(() => {
@@ -115,10 +109,7 @@ test.describe('#1192 TutorialQuickCompleteDialog 3 ダイアログ撮影', () =>
 		});
 	});
 
-	test('03 Exit confirm', async ({ page, browserName }, testInfo) => {
-		test.skip(browserName !== 'chromium', 'screenshot は chromium のみ');
-		test.skip(testInfo.project.name !== 'tablet', 'tablet プロジェクトのみ');
-
+	test('03 Exit confirm', async ({ page }) => {
 		await page.setViewportSize({ width: 1280, height: 800 });
 		await gotoPageWithRestartBtn(page);
 		await page.evaluate(() => {
