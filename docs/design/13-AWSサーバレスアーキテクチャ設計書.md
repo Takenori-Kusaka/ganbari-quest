@@ -142,6 +142,21 @@
 - イベントカテゴリ: issue（障害）, scheduledChange（計画メンテ）
 - 通知先: SNS Topic（OpsAlerts）
 
+**外部ヘルスチェック Prober（#1121 / #1214）:**
+
+本番の稼働監視は **2 層構成** で行う。どちらか片方で検知できない障害があるため、役割分担を明示する:
+
+| 層 | 実装 | 対象 | 検知できる障害 | 検知できない障害 |
+|----|------|------|--------------|----------------|
+| L1: アプリ層 | Health Check Lambda (`ganbari-quest-health-check`) → **Lambda Function URL** を 1 時間ごとに GET | Lambda / DynamoDB / アプリケーションコード | 500 / タイムアウト / DynamoDB スロットル | CloudFront 障害 / WAF 誤検知 / DNS 障害 / TLS 証明書期限切れ |
+| L2: エッジ層 | （別 Issue で補完予定。CloudWatch Synthetics を JP 許可リージョンで、または UptimeRobot 等を `ganbari-quest.com` 宛に設定） | CloudFront / Route 53 / ACM / geoRestriction | L1 で検知できないエッジ層の失敗 | アプリ層の内部障害（L1 の役割） |
+
+**なぜ L1 が Function URL 直叩きなのか（#1214）**: CloudFront に `geoRestriction('JP')` (`infra/lib/network-stack.ts`) が掛かっているため、us-east-1 の Lambda IP から `https://ganbari-quest.com/api/health` を叩くと常時 403 になる（#1121 導入時の盲点）。Function URL (`authType: NONE`) を直接叩くことで地理制限を迂回し、「L1 = アプリ層の生存確認」という責務に集中させる。Function URL は CloudFront 背後の実体なので公開 URL としては露出しない方針を維持する。
+
+**Lambda 環境変数**:
+- `HEALTH_CHECK_URL`: `compute.functionUrl.url`（CDK cross-stack 参照）。末尾スラッシュは Lambda 側で trim するため、何が来ても `/api/health` 連結が破綻しない
+- `DISCORD_WEBHOOK_HEALTH`: 通知先 webhook（`-c discordWebhookHealth=...`、未設定時は通知スキップ）
+
 ### 3.5 NetworkStack
 
 **CloudFront:**
