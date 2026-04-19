@@ -86,8 +86,18 @@ test.describe('#1170 マケプレ グローバルナビ導線', () => {
 
 	// ============================================================
 	// 2. 管理画面 Desktop: 活動設定 dropdown に nav-marketplace が含まれる
+	// AdminLayout は md:block / md:hidden で Desktop/Mobile を切り替えているため、
+	// mobile viewport (Pixel 7) では `nav[data-tutorial="nav-desktop"]` 自体が hidden。
+	// よって Desktop 専用テストとして viewport.width >= 768 の場合のみ実行する。
 	// ============================================================
-	test('Desktop 管理画面: 活動設定 dropdown に nav-marketplace が visible', async ({ page }) => {
+	test('Desktop 管理画面: 活動設定 dropdown に nav-marketplace が visible', async ({
+		page,
+		viewport,
+	}) => {
+		test.skip(
+			!viewport || viewport.width < 768,
+			'Desktop-only: AdminLayout Desktop nav is hidden on mobile viewport (md:hidden)',
+		);
 		test.slow(); // Vite dev cold compile
 		await page.goto('/admin', { waitUntil: 'domcontentloaded' });
 
@@ -137,24 +147,34 @@ test.describe('#1170 マケプレ グローバルナビ導線', () => {
 	});
 
 	// ============================================================
-	// 4. LP /index.html header-nav: lp-nav-marketplace が visible で absolute URL を指す
+	// 4. LP /index.html header-nav: lp-nav-marketplace が absolute URL を指す
+	// site/shared.css: @media (max-width: 768px) で `.header-nav { display: none }` かつ
+	// `.hamburger` を表示。mobile では hamburger を開いてから visibility 検証する。
 	// ============================================================
 	test('LP /index.html: lp-nav-marketplace が visible で /marketplace に遷移する', async ({
 		page,
+		viewport,
 	}) => {
 		await page.goto(`${lpBaseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
+		if (viewport && viewport.width <= 768) {
+			await page.locator('button.hamburger').click();
+		}
 		const link = page.getByTestId('lp-nav-marketplace');
 		await expect(link).toBeVisible();
 		await expect(link).toHaveAttribute('href', 'https://ganbari-quest.com/marketplace');
 	});
 
 	// ============================================================
-	// 5. LP /pricing.html header-nav: lp-nav-marketplace が visible で absolute URL を指す
+	// 5. LP /pricing.html header-nav: lp-nav-marketplace が absolute URL を指す
 	// ============================================================
 	test('LP /pricing.html: lp-nav-marketplace が visible で /marketplace に遷移する', async ({
 		page,
+		viewport,
 	}) => {
 		await page.goto(`${lpBaseUrl}/pricing.html`, { waitUntil: 'domcontentloaded' });
+		if (viewport && viewport.width <= 768) {
+			await page.locator('button.hamburger').click();
+		}
 		const link = page.getByTestId('lp-nav-marketplace');
 		await expect(link).toBeVisible();
 		await expect(link).toHaveAttribute('href', 'https://ganbari-quest.com/marketplace');
