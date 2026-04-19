@@ -395,6 +395,23 @@ export const TUTORIAL_LABELS = {
 	/** クイック完了ダイアログのボタン */
 	quickFinish: '使い始める',
 	quickContinue: 'もっと詳しく見る',
+	/** #1192: 再開プロンプト */
+	resumeTitle: 'チュートリアルの続き',
+	resumePrompt: '前回の途中から続けますか？',
+	resumeCancel: 'キャンセル',
+	resumeFromStart: '最初から',
+	resumeContinue: '続きから',
+	/** #1192: クイック完了ダイアログ本文 */
+	quickCompleteTitle: '基本の使い方を確認しました！',
+	quickCompleteBody: 'ここからは実際にお子さまを登録して使い始めましょう。',
+	quickCompleteHint:
+		'残りのガイド（活動管理・報酬・レポートなど）は、いつでもヘッダーの「❓」ボタンから確認できます。',
+	/** #1192: 終了確認ダイアログ */
+	exitConfirmAriaLabel: 'チュートリアル終了確認',
+	exitConfirmPrompt: 'チュートリアルを終了しますか？',
+	exitConfirmHint: '進捗は保存されるので、後から続きを再開できます。',
+	exitConfirmCancel: '続ける',
+	exitConfirmConfirm: '終了する',
 } as const;
 
 // ============================================================
