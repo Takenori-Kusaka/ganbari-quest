@@ -160,15 +160,15 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0005**: Critical fix quality gate — 5 mandatory conditions
 - **ADR-0006**: PR review must document findings (no silent approvals)
 - **ADR-0007**: Image assets must not be replaced with emoji
-- **ADR-0008**: Age mode changes carry 5x duplication risk (mitigated by #664 consolidation)
-- **ADR-0009**: Server-client type contracts must be explicitly maintained
+- ~~**ADR-0008**: Age mode changes carry 5x duplication risk~~ → **superseded (2026-04-19)** #567 の `[uiMode=uiMode]` 統合完了により不要化
+- ~~**ADR-0009**: Server-client type contracts must be explicitly maintained~~ → **superseded (2026-04-19)** ADR-0031（schema-change-compat-testing）+ ADR-0037（labels SSOT）で代替
 - **ADR-0010**: Issue creation requires root cause analysis and structural solution proposals
 - **ADR-0011**: SvelteKit 2 + Svelte 5 (Runes) adoption
 - **ADR-0012**: DynamoDB single-table design
 - **ADR-0013**: Cognito + Google OAuth authentication
 - **ADR-0014**: 3-layer CSS token architecture
 - **ADR-0015**: Repository pattern for DB abstraction
-- **ADR-0016**: Dialog/overlay state must be centrally managed via queue in `OverlaysSection.svelte` (extends ADR-0002)
+- ~~**ADR-0016**: Dialog/overlay state must be centrally managed via queue~~ → **superseded by ADR-0019 (2026-04-19)** OverlaysSection キューは FSM に置換済み
 - **ADR-0017**: Test quality must not degrade — coverage threshold decreases and test anti-patterns are `[must]` review findings
 - **ADR-0018**: Issue creation requires root cause analysis and structural solution proposals
 - **ADR-0019**: Dialog management must use FSM scrap-and-rebuild approach
@@ -191,6 +191,12 @@ The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
 - **ADR-0036**: マーケットプレイス公開アクセス設計 — 閲覧パブリック / インポート認証必須。未ログインユーザーはプリセット一覧・詳細を閲覧可能、「自分の子供に適用」などの書込み操作時のみ login flow に誘導
 - **ADR-0037**: 全ユーザー向け文言の SSOT 化原則 — プラン名 / 年齢モード名 / 機能名などは `src/lib/domain/labels.ts` に定数定義、LP は `site/shared-labels.js` の `data-label` 属性経由。BANNED_TERMS を CI (`scripts/check-banned-terms.mjs`) で自動検出
 - **ADR-0038**: AC 検証エビデンス必須化 — Issue テンプレに `ac-verification-plan` (required)、PR テンプレに「AC 検証マップ」セクション、CI 3 本 (`pr-ac-verification-check` / `issue-close-gate` / `ac-audit-monthly`) で機械強制。初期リリースは warn-only、2 週間後に block 化予定。`<!-- ac-verification-skip: <理由> -->` で例外可 (監査ログ記録)。`quality:ac-incomplete` / `quality:audit-pending` ラベルで隔離
+- **ADR-0039**: デモモードをアプリ実行モードに統合 — `src/routes/demo/**` の別ルートツリーを廃止し、`?mode=demo` / `gq_demo` cookie / `/demo/*` プレフィックス の 3 段で `event.locals.isDemo` を判定。書き込みは `hooks.server.ts` で no-op 化（200 `{ ok: true, demo: true }`）、4h cookie、`/api/demo/exit` で明示退出
+- **ADR-0040**: 実行モード × ライセンス統括アーキテクチャ — 5 実行モード (build / demo / local-debug / aws-prod / nuc-prod) × ライセンスプランを 3 層ハイブリッドで統括。(1) Typed env `src/lib/runtime/env.ts` (Zod) + (2) EvaluationContext（OpenFeature 準拠の概念） + (3) Policy Gate `capabilities.ts` の `can(ctx, cap)`。外部 SaaS (LaunchDarkly / Stripe Entitlements) は Pre-PMF で不採用 (ADR-0034 準拠)。5 フェーズ移行 (P1 typed env → P2 RuntimeMode → P3 EvaluationContext → P4 Policy Gate → P5 Playwright matrix)
+
+### ADR 棚卸レポート
+
+- [adr-inventory-2026-04-19.md](../docs/decisions/adr-inventory-2026-04-19.md) — 0001〜0039 棚卸。0008 / 0009 / 0016 を supersede、active-primary 12 件特定
 
 ### Team Structure
 
