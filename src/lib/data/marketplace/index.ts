@@ -131,7 +131,6 @@ for (const item of allItems) {
 
 function countPayloadItems(item: MarketplaceItem): number {
 	const p = item.payload as unknown as Record<string, unknown>;
-	if ('legacyPackId' in p) return 0; // legacy wrapper, count resolved at runtime
 	if ('activities' in p) return (p.activities as unknown[]).length;
 	if ('rewards' in p) return (p.rewards as unknown[]).length;
 	if ('items' in p) return (p.items as unknown[]).length;
