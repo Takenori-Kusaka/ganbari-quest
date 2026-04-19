@@ -96,7 +96,10 @@ const groupedChecklists = $derived(
 	{:else}
 		{#each groupedChecklists as group (group.kind)}
 			<!-- #1168: 種別見出し -->
-			<h2 class="text-base font-bold mt-[var(--sp-md)] mb-[var(--sp-xs)] px-[var(--sp-xs)] text-[var(--color-text-secondary)]">
+			<h2
+				class="text-base font-bold mt-[var(--sp-md)] mb-[var(--sp-xs)] px-[var(--sp-xs)] text-[var(--color-text-secondary)]"
+				data-testid="checklist-group-{group.kind}"
+			>
 				{CHECKLIST_KIND_ICONS[group.kind]} {CHECKLIST_KIND_LABELS[group.kind]}
 			</h2>
 			{#each group.lists as checklist (checklist.templateId)}

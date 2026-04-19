@@ -107,10 +107,16 @@ const FEATURE_SCREENSHOTS = [
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 	{
-		name: 'feature-checklist',
-		url: '/demo/admin/checklists',
-		description: 'Features: やることリスト',
+		name: 'feature-belongings-checklist',
+		// #1164: デフォルト子供 (childId=902 小学生) には item kind テンプレートがなく、
+		// routine のみが表示されてしまう。LP 訴求コピー「通学・習い事の持ち物を
+		// 子どもがタップ確認」と被写体を一致させるため、item kind を持つ childId=904
+		// (中学生の登校準備: 教科書・体操着・弁当 等) を明示指定する。
+		url: '/demo/checklist?childId=904',
+		description: 'Features: 持ち物チェックリスト (子供画面)',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
+		// item グループが確実に画面内に映るようスクロール位置を固定
+		scrollTo: '[data-testid="checklist-group-item"]',
 	},
 	{
 		name: 'feature-growth-record-admin',
