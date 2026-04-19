@@ -4,6 +4,16 @@
  * Runs independently from the app (via EventBridge Scheduler, every 1 hour).
  * Checks /api/health and reports failures/degradation to Discord webhook.
  *
+ * Monitoring layer (#1214):
+ * - **This Lambda targets the Lambda Function URL directly**, not the public
+ *   CloudFront domain. CloudFront has `geoRestriction('JP')` configured
+ *   (infra/lib/network-stack.ts), so requests originating from us-east-1
+ *   Lambda IPs are rejected with 403 before ever reaching Lambda.
+ * - Scope: Lambda + DynamoDB liveness (the app tier).
+ * - Out of scope: CloudFront / WAF / edge-layer failures — these need a
+ *   complementary monitor (CloudWatch Synthetics from a JP-allowed IP, or
+ *   an external service like UptimeRobot). Tracked separately from #1214.
+ *
  * Design:
  * - Uses Node.js built-in https module (no dependencies)
  * - Notifies Discord only on failure/degraded (v1: no state tracking)
@@ -35,7 +45,13 @@ interface OverallStatus {
 // Configuration
 // ----------------------------------------------------------------
 
-const HEALTH_CHECK_URL = process.env.HEALTH_CHECK_URL ?? 'https://ganbari-quest.com';
+// Function URL (`https://xxx.lambda-url.us-east-1.on.aws/`) は末尾スラッシュ付きで
+// 渡ってくるため、そのまま `${URL}/api/health` と連結すると `//api/health` になって
+// Lambda adapter が 404 を返す。ここで必ず末尾スラッシュを剥がす。
+const HEALTH_CHECK_URL = (process.env.HEALTH_CHECK_URL ?? 'https://ganbari-quest.com').replace(
+	/\/+$/,
+	'',
+);
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_HEALTH ?? '';
 const REQUEST_TIMEOUT_MS = 10_000;
 const DEGRADED_THRESHOLD_MS = 3_000;
