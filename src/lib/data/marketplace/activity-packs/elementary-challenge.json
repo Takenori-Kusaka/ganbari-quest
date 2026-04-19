@@ -10,6 +10,183 @@
 	"personas": ["academic-oriented", "routine-focused"],
 	"curator": "official",
 	"payload": {
-		"legacyPackId": "elementary-challenge"
+		"activities": [
+			{
+				"name": "しゅくだいをした",
+				"categoryCode": "benkyou",
+				"icon": "📝",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "きょうの しゅくだい おわらせよう！",
+				"description": "学校の宿題を完了"
+			},
+			{
+				"name": "どくしょした",
+				"categoryCode": "benkyou",
+				"icon": "📖",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "ほんを よもう！",
+				"description": "本・図書を読む"
+			},
+			{
+				"name": "けいさんれんしゅう",
+				"categoryCode": "benkyou",
+				"icon": "🔢",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "けいさんドリルを やろう！",
+				"description": "計算ドリル・算数プリント"
+			},
+			{
+				"name": "かんじれんしゅう",
+				"categoryCode": "benkyou",
+				"icon": "✏️",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "かんじを れんしゅうしよう！",
+				"description": "漢字の書き取り練習"
+			},
+			{
+				"name": "じかんわりのじゅんび",
+				"categoryCode": "seikatsu",
+				"icon": "🎒",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "あしたの じゅんび しておこう！",
+				"description": "翌日の持ち物・教科書の準備"
+			},
+			{
+				"name": "はやおきした",
+				"categoryCode": "seikatsu",
+				"icon": "⏰",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "じかんどおりに おきよう！",
+				"description": "決まった時間に起床"
+			},
+			{
+				"name": "はみがきした",
+				"categoryCode": "seikatsu",
+				"icon": "🪥",
+				"basePoints": 3,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "ごはんのあと はみがき！",
+				"description": "食後の歯磨き"
+			},
+			{
+				"name": "おてつだいした",
+				"categoryCode": "seikatsu",
+				"icon": "🫧",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "おうちの おてつだい しよう！",
+				"description": "食事準備・洗濯畳み等"
+			},
+			{
+				"name": "じぶんのへやをそうじ",
+				"categoryCode": "seikatsu",
+				"icon": "🧹",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "おへやを きれいに しよう！",
+				"description": "自分の部屋の片付け・掃除"
+			},
+			{
+				"name": "うんどうした",
+				"categoryCode": "undou",
+				"icon": "🏃",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "からだを うごかそう！",
+				"description": "ジョギング・サッカー等の運動"
+			},
+			{
+				"name": "なわとびした",
+				"categoryCode": "undou",
+				"icon": "🪢",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "なわとび れんしゅう！",
+				"description": "縄跳びの練習"
+			},
+			{
+				"name": "すいえいした",
+				"categoryCode": "undou",
+				"icon": "🏊",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "プールで およごう！",
+				"description": "水泳・プール練習"
+			},
+			{
+				"name": "おえかき・こうさく",
+				"categoryCode": "souzou",
+				"icon": "🎨",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "すきなものを つくろう！",
+				"description": "自由な創作活動"
+			},
+			{
+				"name": "がっきのれんしゅう",
+				"categoryCode": "souzou",
+				"icon": "🎹",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "がっき れんしゅう しよう！",
+				"description": "ピアノ・リコーダー等"
+			},
+			{
+				"name": "ともだちとあそんだ",
+				"categoryCode": "kouryuu",
+				"icon": "🤝",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "おともだちと たのしくすごそう！",
+				"description": "友達との交流"
+			},
+			{
+				"name": "かぞくとはなした",
+				"categoryCode": "kouryuu",
+				"icon": "💬",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "きょうの できごとを はなそう！",
+				"description": "家族との会話・報告"
+			}
+		]
 	}
 }
