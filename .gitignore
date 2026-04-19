@@ -68,7 +68,8 @@ docs/tickets/
 # Temporary files
 tmp/
 screenshots/
-!site/screenshots/
+# LP screenshots are generated at GitHub Pages deploy time (#1157)
+site/screenshots/
 !docs/screenshots/
 
 # Reports (jscpd, type-coverage, security scan, etc.)
