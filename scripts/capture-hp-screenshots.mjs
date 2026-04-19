@@ -210,7 +210,6 @@ async function captureScreenshots() {
 
 				// Wait for animations to settle
 				await page.waitForTimeout(1500);
-				await page.waitForTimeout(300);
 
 				// Scroll to specific element if specified
 				if (shot.scrollTo) {
