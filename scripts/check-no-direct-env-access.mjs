@@ -122,11 +122,15 @@ export function detectEnvAccessInLine(line) {
  * @param {string} text
  * @returns {Array<{ line: number; kind: 'process.env' | '$env-import'; match: string; snippet: string }>}
  */
+/**
+ * @param {string} text
+ * @returns {Array<{line: number, kind: string, match: string, snippet: string}>}
+ */
 export function detectEnvAccessInText(text) {
 	const lines = text.split(/\r?\n/);
 	const hits = [];
 	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i];
+		const line = lines[i] ?? '';
 		// block comments / line comments で import 例示などは許す
 		if (/^\s*\/\//.test(line) || /^\s*\*/.test(line)) continue;
 		const hit = detectEnvAccessInLine(line);
@@ -142,12 +146,18 @@ export function detectEnvAccessInText(text) {
 	return hits;
 }
 
+/** @param {string} absFile */
 function shouldExclude(absFile) {
 	const rel = path.relative(REPO_ROOT, absFile);
 	if (rel.replace(/\\/g, '/') === SSOT) return true;
 	return EXCLUDE_PATTERNS.some((p) => p.test(rel));
 }
 
+/**
+ * @param {string} dir
+ * @param {string[]} [out]
+ * @returns {string[]}
+ */
 function walk(dir, out = []) {
 	if (!fs.existsSync(dir)) return out;
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -160,6 +170,7 @@ function walk(dir, out = []) {
 	return out;
 }
 
+/** @param {string} absFile */
 function checkFile(absFile) {
 	const rel = path.relative(REPO_ROOT, absFile);
 	if (GRANDFATHER.has(rel)) return null; // allowed for now
@@ -170,6 +181,7 @@ function checkFile(absFile) {
 }
 
 function main() {
+	/** @type {string[]} */
 	const files = [];
 	for (const root of SEARCH_ROOTS) {
 		walk(path.join(REPO_ROOT, root), files);

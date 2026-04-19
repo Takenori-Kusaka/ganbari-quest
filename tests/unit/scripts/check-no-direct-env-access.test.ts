@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-// @ts-expect-error — JS module, no types
 import {
 	detectEnvAccessInLine,
 	detectEnvAccessInText,
@@ -94,12 +93,12 @@ const a = process.env.FOO;
 const b = process.env['BAR'];`;
 			const hits = detectEnvAccessInText(text);
 			expect(hits).toHaveLength(3);
-			expect(hits[0].line).toBe(1);
-			expect(hits[0].kind).toBe('$env-import');
-			expect(hits[1].line).toBe(2);
-			expect(hits[1].kind).toBe('process.env');
-			expect(hits[2].line).toBe(3);
-			expect(hits[2].kind).toBe('process.env');
+			expect(hits[0]?.line).toBe(1);
+			expect(hits[0]?.kind).toBe('$env-import');
+			expect(hits[1]?.line).toBe(2);
+			expect(hits[1]?.kind).toBe('process.env');
+			expect(hits[2]?.line).toBe(3);
+			expect(hits[2]?.kind).toBe('process.env');
 		});
 
 		it('// コメント行はスキップする', () => {
@@ -107,8 +106,8 @@ const b = process.env['BAR'];`;
 const real = process.env.REAL;`;
 			const hits = detectEnvAccessInText(text);
 			expect(hits).toHaveLength(1);
-			expect(hits[0].line).toBe(2);
-			expect(hits[0].match).toContain('REAL');
+			expect(hits[0]?.line).toBe(2);
+			expect(hits[0]?.match).toContain('REAL');
 		});
 
 		it('* ブロックコメント行はスキップする', () => {
@@ -116,7 +115,7 @@ const real = process.env.REAL;`;
 const real = process.env.REAL;`;
 			const hits = detectEnvAccessInText(text);
 			expect(hits).toHaveLength(1);
-			expect(hits[0].match).toContain('REAL');
+			expect(hits[0]?.match).toContain('REAL');
 		});
 
 		it('検出がゼロなら空配列を返す', () => {
