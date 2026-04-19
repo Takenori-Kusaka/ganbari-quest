@@ -2,8 +2,11 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | accepted |
+| ステータス | superseded |
 | 日付 | 2026-04-10 |
+| supersede 日 | 2026-04-19 |
+| supersede 先 | ADR-0019（ダイアログ管理は FSM でスクラップ＆ビルド） |
+| supersede 理由 | 本 ADR の OverlaysSection 内部キュー実装は ADR-0019「廃止するもの」に明記され、FSM 方式に置き換え済み |
 | 起票者 | PO |
 | 関連 Issue | #671, #543, #611 |
 
