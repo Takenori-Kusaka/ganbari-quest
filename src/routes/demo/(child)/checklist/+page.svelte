@@ -1,23 +1,18 @@
 <script lang="ts">
 // #704: デモ画面のもちものチェック (本番 src/routes/(child)/checklist/+page.svelte に相当)
 // 書き込みは行わず、UI 操作はクライアント側の $state でのみ反映する。
-import { page } from '$app/stores';
 import {
 	CHECKLIST_KIND_ICONS,
 	CHECKLIST_KIND_LABELS,
 	type ChecklistKind,
 } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
+import { getScreenshotMode } from '$lib/features/demo/screenshot-mode.js';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
-
-// #1164: LP スクリーンショット撮影用モード。`?screenshot=1` で黄色のデモ注意書きを非表示にする。
-// `src/routes/demo/+layout.svelte:19-22` と同じ派生式を page 側で再導出。
-// layout -> page への props/context 経由は scope 過大のため band-aid を踏襲。
-const isScreenshotMode = $derived($page.url.searchParams.get('screenshot') === '1');
 
 const ps = $derived(data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
@@ -102,8 +97,8 @@ function toggleItem(templateId: number, itemId: number) {
 		</p>
 	</div>
 
-	<!-- デモ注意書き (LP SS 撮影時 (`?screenshot=1`) は非表示にする: #1164) -->
-	{#if !isScreenshotMode}
+	<!-- デモ注意書き (LP SS 撮影時 (`?screenshot=1`) は非表示にする: #1164 / context 化 #1209) -->
+	{#if !getScreenshotMode()}
 		<div class="mb-[var(--sp-md)] p-[var(--sp-sm)] rounded-[var(--radius-md)] bg-[var(--color-surface-warning)] text-xs text-[var(--color-text-warm)] text-center">
 			これはデモです。チェックは保存されません。
 		</div>
