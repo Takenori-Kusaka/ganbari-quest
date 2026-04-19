@@ -24,10 +24,6 @@ const isActivityPack = $derived(item.type === 'activity-pack');
 const isRewardSet = $derived(item.type === 'reward-set');
 const isChecklist = $derived(item.type === 'checklist');
 const isRulePreset = $derived(item.type === 'rule-preset');
-
-const hasLegacyPack = $derived(
-	isActivityPack && 'legacyPackId' in (item.payload as unknown as Record<string, unknown>),
-);
 </script>
 
 <svelte:head>
@@ -116,7 +112,7 @@ const hasLegacyPack = $derived(
 				{/if}
 			</h2>
 
-			{#if isActivityPack && !hasLegacyPack}
+			{#if isActivityPack}
 				{@const payload = item.payload as ActivityPackPayload}
 				<div class="space-y-2">
 					{#each payload.activities as act}
@@ -132,14 +128,6 @@ const hasLegacyPack = $derived(
 						</div>
 					{/each}
 				</div>
-			{:else if isActivityPack && hasLegacyPack}
-				<p class="text-sm text-[var(--color-text-secondary)]">
-					{MARKETPLACE_LABELS.detailLegacyPackNote}
-					<a href="/activity-packs/{item.itemId}" class="text-[var(--color-action-primary)] hover:underline">
-						{MARKETPLACE_LABELS.detailLegacyPackLink}
-					</a>
-					{MARKETPLACE_LABELS.detailLegacyPackSuffix}
-				</p>
 			{:else if isRewardSet}
 				{@const payload = item.payload as RewardSetPayload}
 				<div class="space-y-2">
