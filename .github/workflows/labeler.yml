@@ -2,7 +2,8 @@ name: "Labeler"
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review]
+    # #1218: ready_for_review は除外（Draft でも走るため再実行は無駄）。
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
