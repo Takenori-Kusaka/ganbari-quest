@@ -84,6 +84,60 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		issue: '#571',
 		reason: 'デモページ年齢区分リネーム',
 	},
+	// #1167: 活動パック詳細 → マーケットプレイス詳細に集約
+	// /activity-packs/[packId] は /marketplace/activity-pack/[itemId] の二重実装だった。
+	// 購入前プレビューはマーケットプレイス詳細で行う設計に変更したため、
+	// マーケットに同名 item が存在する 6 パックは 301 で恒久移動させる。
+	// 性別バリアント (baby-boy/girl 等 11 pack) はマーケット未収録のため redirect しない。
+	// 性別バリアントを含む完全統合は #1169 で扱う。
+	{
+		from: '/activity-packs/baby-first',
+		to: '/marketplace/activity-pack/baby-first',
+		deletedAt: '2026-04-18',
+		issue: '#1167',
+		reason: '活動パック詳細をマーケットプレイス詳細に集約（購入前プレビュー強化）',
+		status: 301,
+	},
+	{
+		from: '/activity-packs/kinder-starter',
+		to: '/marketplace/activity-pack/kinder-starter',
+		deletedAt: '2026-04-18',
+		issue: '#1167',
+		reason: '活動パック詳細をマーケットプレイス詳細に集約',
+		status: 301,
+	},
+	{
+		from: '/activity-packs/elementary-challenge',
+		to: '/marketplace/activity-pack/elementary-challenge',
+		deletedAt: '2026-04-18',
+		issue: '#1167',
+		reason: '活動パック詳細をマーケットプレイス詳細に集約',
+		status: 301,
+	},
+	{
+		from: '/activity-packs/otetsudai-master',
+		to: '/marketplace/activity-pack/otetsudai-master',
+		deletedAt: '2026-04-18',
+		issue: '#1167',
+		reason: '活動パック詳細をマーケットプレイス詳細に集約',
+		status: 301,
+	},
+	{
+		from: '/activity-packs/junior-high-challenge',
+		to: '/marketplace/activity-pack/junior-high-challenge',
+		deletedAt: '2026-04-18',
+		issue: '#1167',
+		reason: '活動パック詳細をマーケットプレイス詳細に集約',
+		status: 301,
+	},
+	{
+		from: '/activity-packs/senior-high-challenge',
+		to: '/marketplace/activity-pack/senior-high-challenge',
+		deletedAt: '2026-04-18',
+		issue: '#1167',
+		reason: '活動パック詳細をマーケットプレイス詳細に集約',
+		status: 301,
+	},
 ] as const;
 
 /**
