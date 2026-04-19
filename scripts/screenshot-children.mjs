@@ -1,5 +1,6 @@
 // Quick screenshot script for #0273 visual verification
 import { chromium } from 'playwright';
+import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
 const BASE = 'http://localhost:5173';
 
@@ -15,7 +16,7 @@ async function main() {
 
 	// Navigate to children page
 	await mPage.goto(`${BASE}/admin/children`, { waitUntil: 'networkidle' });
-	await mPage.waitForTimeout(500);
+	await waitForStablePage(mPage);
 	await mPage.screenshot({ path: 'screenshots/0273-children-list-mobile.png', fullPage: true });
 	console.log('✅ Mobile: children list');
 
@@ -23,7 +24,7 @@ async function main() {
 	const firstChild = mPage.locator('[data-tutorial="child-card"]');
 	if (await firstChild.count()) {
 		await firstChild.click();
-		await mPage.waitForTimeout(500);
+		await waitForStablePage(mPage, { skipNetworkIdle: true });
 		await mPage.screenshot({ path: 'screenshots/0273-children-detail-mobile.png', fullPage: true });
 		console.log('✅ Mobile: children detail (view mode)');
 
@@ -31,7 +32,7 @@ async function main() {
 		const editBtn = mPage.locator('button:has-text("編集")').first();
 		if (await editBtn.count()) {
 			await editBtn.click();
-			await mPage.waitForTimeout(300);
+			await waitForStablePage(mPage, { skipNetworkIdle: true });
 			await mPage.screenshot({ path: 'screenshots/0273-children-edit-mobile.png', fullPage: true });
 			console.log('✅ Mobile: children edit mode');
 		}
@@ -44,14 +45,14 @@ async function main() {
 	});
 	const tPage = await tablet.newPage();
 	await tPage.goto(`${BASE}/admin/children`, { waitUntil: 'networkidle' });
-	await tPage.waitForTimeout(500);
+	await waitForStablePage(tPage);
 	await tPage.screenshot({ path: 'screenshots/0273-children-list-tablet.png', fullPage: true });
 	console.log('✅ Tablet: children list');
 
 	const firstChildTab = tPage.locator('[data-tutorial="child-card"]');
 	if (await firstChildTab.count()) {
 		await firstChildTab.click();
-		await tPage.waitForTimeout(500);
+		await waitForStablePage(tPage, { skipNetworkIdle: true });
 		await tPage.screenshot({ path: 'screenshots/0273-children-detail-tablet.png', fullPage: true });
 		console.log('✅ Tablet: children detail (view mode)');
 	}
