@@ -100,7 +100,7 @@
 			}
 		},
 		{
-			"includes": ["scripts/**/*.cjs"],
+			"includes": ["scripts/**/*.cjs", "scripts/**/*.mjs", "scripts/**/*.js"],
 			"linter": {
 				"rules": {
 					"suspicious": {

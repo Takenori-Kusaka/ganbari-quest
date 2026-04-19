@@ -9,6 +9,27 @@
 - ラベル体系: `type:feat|fix|refactor|infra|design|docs|marketing|test`, `priority:critical|high|medium|low`, `status:blocked|in-progress|on-hold`, `area:auth|billing|child-ui|admin|lp|db`
 - コミットメッセージや PR 本文で `#<issue番号>` を参照し、完了時は `closes #<issue番号>` で自動クローズ
 
+## 並行 PR 上書き防止ルール (#1200)
+
+同一ファイルを変更する open PR が複数ある場合、後続 PR (特に full rewrite 系) が先行 PR の成果を
+無意識に消滅させる事故が実際に発生している (PR #1143/#1144/#1178)。再発防止ルール:
+
+### ルール
+
+1. **PR open/synchronize 時に `pr-file-overlap.yml` が自動で overlap を検出** し、警告コメントを PR に投稿する（block しない）
+2. overlap 警告が出た PR を **Ready for Review にする前に** 両 PR 作者間で以下を合意すること
+   - どちらを先にマージするか
+   - 後続 PR はどのタイミングで rebase するか
+   - スコープを分けられる場合は重複ファイルを外すか
+3. **full rewrite 系 PR (単一ファイルの -50% 行以上を変更) は、先行の小粒 PR のマージを待ってから rebase する**
+   - 先に full rewrite をマージすると小粒 PR の意図を機械的には拾えない
+   - どうしても先にやる必要がある場合、小粒 PR の内容を手動で取り込む責任を full rewrite 作者が負う
+4. ローカル検証: `PR_NUMBER=<num> REPO=owner/repo node scripts/check-pr-file-overlap.mjs`
+
+### 免除
+- Dependabot PR は auto-merge 運用のため overlap 警告は無視してよい
+- docs-only 変更同士の overlap は merge conflict 解決で十分
+
 ## Draft PR 運用
 
 - PR は `gh pr create --draft` で Draft PR として作成
