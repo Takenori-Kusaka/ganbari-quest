@@ -35,6 +35,18 @@ describe('legacy-url-map', () => {
 			const froms = LEGACY_URL_MAP.map((e) => e.from);
 			expect(new Set(froms).size).toBe(froms.length);
 		});
+
+		it('#1167 活動パックの 6 エントリは 301 ステータスを明示する', () => {
+			const activityPackEntries = LEGACY_URL_MAP.filter((e) =>
+				e.from.startsWith('/activity-packs/'),
+			);
+			expect(activityPackEntries).toHaveLength(6);
+			for (const entry of activityPackEntries) {
+				expect(entry.status).toBe(301);
+				expect(entry.issue).toBe('#1167');
+				expect(entry.to).toMatch(/^\/marketplace\/activity-pack\//);
+			}
+		});
 	});
 
 	describe('findLegacyRedirect()', () => {
@@ -54,12 +66,26 @@ describe('legacy-url-map', () => {
 			// デモ（より長いプレフィックスが優先されること）
 			['/demo/kinder', '/demo/kinder'],
 			['/demo/kinder/home', '/demo/kinder'],
+			// #1167: 活動パック → マーケットプレイス 301 — 完全一致（対象 6 パック）
+			['/activity-packs/baby-first', '/activity-packs/baby-first'],
+			['/activity-packs/kinder-starter', '/activity-packs/kinder-starter'],
+			['/activity-packs/elementary-challenge', '/activity-packs/elementary-challenge'],
+			['/activity-packs/otetsudai-master', '/activity-packs/otetsudai-master'],
+			['/activity-packs/junior-high-challenge', '/activity-packs/junior-high-challenge'],
+			['/activity-packs/senior-high-challenge', '/activity-packs/senior-high-challenge'],
 			// 新 URL はマッチしない
 			['/preschool/home', null],
 			['/elementary/home', null],
 			['/junior/home', null],
 			['/senior/home', null],
 			['/demo/preschool/home', null],
+			['/marketplace/activity-pack/baby-first', null],
+			// 性別バリアント（marketplace 未収録）はマッチしない
+			['/activity-packs/baby-boy', null],
+			['/activity-packs/kinder-girl', null],
+			['/activity-packs/senior-boy', null],
+			// 一覧ページ自体はリダイレクトせず従来どおり表示する
+			['/activity-packs', null],
 			// 部分文字列のみ一致する偽陽性はマッチしない
 			['/kindergarten', null], // /kinder で始まるが境界が違う
 			['/lowercase', null],
@@ -97,6 +123,13 @@ describe('legacy-url-map', () => {
 			// デモ（長いプレフィックス優先）
 			['/demo/kinder', '/demo/preschool'],
 			['/demo/kinder/home', '/demo/preschool/home'],
+			// #1167: 活動パック → マーケットプレイス 301
+			['/activity-packs/baby-first', '/marketplace/activity-pack/baby-first'],
+			['/activity-packs/kinder-starter', '/marketplace/activity-pack/kinder-starter'],
+			['/activity-packs/elementary-challenge', '/marketplace/activity-pack/elementary-challenge'],
+			['/activity-packs/otetsudai-master', '/marketplace/activity-pack/otetsudai-master'],
+			['/activity-packs/junior-high-challenge', '/marketplace/activity-pack/junior-high-challenge'],
+			['/activity-packs/senior-high-challenge', '/marketplace/activity-pack/senior-high-challenge'],
 		];
 
 		for (const [input, expected] of cases) {

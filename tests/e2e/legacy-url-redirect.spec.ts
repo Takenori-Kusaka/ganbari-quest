@@ -88,6 +88,46 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 	});
 
 	// ============================================================
+	// #1167: 活動パック → マーケットプレイス集約（301）
+	// ============================================================
+	test('/activity-packs/baby-first → /marketplace/activity-pack/baby-first (301)', async ({
+		request,
+	}) => {
+		await expectRedirect(
+			request,
+			'/activity-packs/baby-first',
+			'/marketplace/activity-pack/baby-first',
+			301,
+		);
+	});
+
+	test('/activity-packs/otetsudai-master → /marketplace/activity-pack/otetsudai-master (301)', async ({
+		request,
+	}) => {
+		await expectRedirect(
+			request,
+			'/activity-packs/otetsudai-master',
+			'/marketplace/activity-pack/otetsudai-master',
+			301,
+		);
+	});
+
+	test('活動パック性別バリアントはリダイレクトされない（マーケット未収録）', async ({
+		request,
+	}) => {
+		// /activity-packs/baby-boy はマーケットに無いので従来どおり活動パック詳細を表示する
+		const response = await request.get('/activity-packs/baby-boy', { maxRedirects: 0 });
+		expect(response.status()).not.toBe(301);
+		expect(response.status()).not.toBe(308);
+	});
+
+	test('/activity-packs 一覧自体はリダイレクトされない', async ({ request }) => {
+		const response = await request.get('/activity-packs', { maxRedirects: 0 });
+		expect(response.status()).not.toBe(301);
+		expect(response.status()).not.toBe(308);
+	});
+
+	// ============================================================
 	// 偽陽性の防止
 	// ============================================================
 	test('/kindergarten は /kinder と誤マッチしない', async ({ request }) => {

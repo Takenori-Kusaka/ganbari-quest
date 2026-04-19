@@ -1,10 +1,26 @@
 <script lang="ts">
+import { ACTION_LABELS } from '$lib/domain/labels';
 import { getCategoryByCode } from '$lib/domain/validation/activity.js';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
 const pack = $derived(data.pack);
+
+// #1167: マケプレに同 itemId で収録されている場合は「くわしく見る」CTA でマケプレ詳細に誘導する。
+// このページに辿り着く pack は未収録バリアント（gender 系）想定。ただし legacy-url-map の
+// redirect を bypass するテスト・デバッグ経路のために導線のみ残す。
+const MARKETPLACE_PACK_IDS = new Set([
+	'baby-first',
+	'kinder-starter',
+	'elementary-challenge',
+	'otetsudai-master',
+	'junior-high-challenge',
+	'senior-high-challenge',
+]);
+const marketplaceHref = $derived(
+	MARKETPLACE_PACK_IDS.has(pack.packId) ? `/marketplace/activity-pack/${pack.packId}` : null,
+);
 
 // Group activities by category
 const groupedActivities = $derived.by(() => {
@@ -79,13 +95,31 @@ const groupedActivities = $derived.by(() => {
 			</Card>
 		{/each}
 
-		<!-- CTA -->
-		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] rounded-2xl border border-[var(--color-feedback-warning-border)] p-6 text-center mb-6">			<p class="text-sm font-bold text-[var(--color-text)] mb-1">このパックを使ってみませんか？</p>			<p class="text-xs text-[var(--color-text-muted)] mb-3">				アカウント登録後、管理画面からインポートできます
+		<!-- CTA (#1167: まずマケプレ詳細で内容確認 → インポートの二段階導線) -->
+		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] rounded-2xl border border-[var(--color-feedback-warning-border)] p-6 text-center mb-6">
+			<p class="text-sm font-bold text-[var(--color-text)] mb-1">このパックを使ってみませんか？</p>
+			<p class="text-xs text-[var(--color-text-muted)] mb-3">
+				{#if marketplaceHref}
+					マーケットプレイスで詳しい内容を確認してから登録できます
+				{:else}
+					アカウント登録後、管理画面からインポートできます
+				{/if}
 			</p>
-			<a
-				href="/auth/signup"
-				class="block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-sm"			>				無料で はじめる
-			</a>
+			{#if marketplaceHref}
+				<a
+					href={marketplaceHref}
+					class="block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-sm"
+				>
+					{ACTION_LABELS.viewDetail}
+				</a>
+			{:else}
+				<a
+					href="/auth/signup"
+					class="block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-sm"
+				>
+					無料で はじめる
+				</a>
+			{/if}
 		</div>
 
 		<!-- Demo link -->
