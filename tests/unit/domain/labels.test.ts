@@ -8,6 +8,7 @@ import {
 	AGE_TIER_SHORT_LABELS,
 	getAgeTierLabel,
 	getAgeTierShortLabel,
+	NAV_ITEM_LABELS,
 } from '../../../src/lib/domain/labels';
 
 describe('getAgeTierLabel', () => {
@@ -96,5 +97,11 @@ describe('getAgeTierShortLabel', () => {
 	it('#573: null / undefined は fallback を返す', () => {
 		expect(getAgeTierShortLabel(null)).toBe(AGE_TIER_SHORT_LABELS.preschool);
 		expect(getAgeTierShortLabel(undefined)).toBe(AGE_TIER_SHORT_LABELS.preschool);
+	});
+});
+
+describe('NAV_ITEM_LABELS', () => {
+	it('#1170: マケプレをグローバルナビに昇格した labels SSOT エントリ', () => {
+		expect(NAV_ITEM_LABELS.marketplace).toBe('マケプレ');
 	});
 });
