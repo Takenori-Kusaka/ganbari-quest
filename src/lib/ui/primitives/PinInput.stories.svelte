@@ -6,43 +6,15 @@ const { Story } = defineMeta({
 	title: 'Primitives/PinInput',
 	component: PinInput,
 	tags: ['autodocs'],
+	args: {
+		length: 6,
+		mask: true,
+	},
 });
 </script>
 
-<script>
-let lastValue = $state('');
-let completedValue = $state('');
-</script>
+<Story name="Default" args={{ length: 6, mask: true }} />
 
-<Story name="Default">
-  {#snippet children()}
-    <div class="flex flex-col gap-3 items-center">
-      <p class="text-sm text-[var(--color-text-muted)]">6 桁 PIN を入力 (mask: on)</p>
-      <PinInput onComplete={({ valueAsString }) => (completedValue = valueAsString)} />
-      {#if completedValue}
-        <p class="text-sm">onComplete: <strong>{completedValue}</strong></p>
-      {/if}
-    </div>
-  {/snippet}
-</Story>
+<Story name="Unmasked" args={{ length: 6, mask: false }} />
 
-<Story name="Unmasked">
-  {#snippet children()}
-    <div class="flex flex-col gap-3 items-center">
-      <p class="text-sm text-[var(--color-text-muted)]">mask: off (値が見える)</p>
-      <PinInput mask={false} onComplete={({ valueAsString }) => (lastValue = valueAsString)} />
-      {#if lastValue}
-        <p class="text-sm">入力値: <strong>{lastValue}</strong></p>
-      {/if}
-    </div>
-  {/snippet}
-</Story>
-
-<Story name="Length4">
-  {#snippet children()}
-    <div class="flex flex-col gap-3 items-center">
-      <p class="text-sm text-[var(--color-text-muted)]">短い 4 桁 PIN</p>
-      <PinInput length={4} />
-    </div>
-  {/snippet}
-</Story>
+<Story name="Length4" args={{ length: 4, mask: true }} />
