@@ -160,29 +160,15 @@ if (!onlyGroup || onlyGroup === 'feature') ALL_SCREENSHOTS.push(...FEATURE_SCREE
 if (!onlyGroup || onlyGroup === 'age') ALL_SCREENSHOTS.push(...AGE_SCREENSHOTS);
 
 // ============================================================
-// Helper: hide demo banner & guide bar for clean screenshots
+// Helper: `?screenshot=1` で demo 固有 UI を非表示化
 // ============================================================
 
-async function hideDemoOverlays(page) {
-	// Inject CSS to hide all demo overlays — more reliable than DOM manipulation
-	await page.addStyleTag({
-		content: `
-			/* Hide demo banner at top (fixed amber/orange gradient bar) */
-			.fixed.top-0.left-0.right-0.z-50 { display: none !important; }
+// `?screenshot=1` で demo 固有 UI（バナー・プラン切替・ガイドバー・フローティング CTA）を
+// 非表示にし、実アプリと同じ見た目の SS を取得する。根本解決（demo/app 統合）は別 Issue。
+const SCREENSHOT_QUERY = 'screenshot=1';
 
-			/* Remove top padding added for demo banner (.pt-10 = padding-top: 2.5rem) */
-			.pt-10 { padding-top: 0 !important; }
-
-			/* Hide DemoGuideBar at bottom */
-			.fixed.bottom-0.left-0.right-0.z-40 { display: none !important; }
-
-			/* Hide floating CTA card */
-			.fixed.bottom-20 { display: none !important; }
-
-			/* Hide any safe-area-bottom overlay */
-			.safe-area-bottom.fixed { display: none !important; }
-		`,
-	});
+function withScreenshotParam(path) {
+	return `${path}${path.includes('?') ? '&' : '?'}${SCREENSHOT_QUERY}`;
 }
 
 // ============================================================
@@ -217,16 +203,13 @@ async function captureScreenshots() {
 					locale: 'ja-JP',
 				});
 				const page = await context.newPage();
-				await page.goto(`${BASE_URL}${shot.url}`, {
+				await page.goto(`${BASE_URL}${withScreenshotParam(shot.url)}`, {
 					waitUntil: 'networkidle',
 					timeout: 15000,
 				});
 
 				// Wait for animations to settle
 				await page.waitForTimeout(1500);
-
-				// Hide demo overlays (banner, guide bar, floating CTA)
-				await hideDemoOverlays(page);
 				await page.waitForTimeout(300);
 
 				// Scroll to specific element if specified
@@ -234,8 +217,6 @@ async function captureScreenshots() {
 					try {
 						await page.locator(shot.scrollTo).first().scrollIntoViewIfNeeded();
 						await page.waitForTimeout(500);
-						// Re-hide overlays after scroll (in case new ones appeared)
-						await hideDemoOverlays(page);
 					} catch {
 						// Element not found, take screenshot from current position
 					}
