@@ -303,6 +303,45 @@ export const PREMIUM_MODAL_LABELS = {
 } as const;
 
 // ============================================================
+// マーケットプレイス関連ラベル（#1174 ADR-0037 SSOT 化）
+// ============================================================
+
+/**
+ * マーケットプレイス (`src/routes/marketplace/**`) の UI 文言 SSOT。
+ * 既存の `MARKETPLACE_TYPE_LABELS` (`src/lib/domain/marketplace-item.ts`) は
+ * アイテム種別（activity-pack / reward-set / 等）のみを扱うため、
+ * それ以外のページ内テキストをここに集約する。
+ *
+ * LP (`site/`) で同語を扱う場合は `site/shared-labels.js` 経由で同期すること
+ * （現状 LP には marketplace 文言なし、2026-04-18 時点）。
+ */
+export const MARKETPLACE_LABELS = {
+	pageTitle: 'マーケットプレイス',
+	pageDescription: 'お子さまの年齢にぴったりの活動・ごほうび・チェックリストを見つけよう',
+	metaDescription:
+		'活動パック・ごほうびセット・チェックリスト・特別ルールを探そう。がんばりクエストの公式コンテンツカタログです。',
+	filterClear: 'フィルタをクリア',
+	emptyState: '条件に合うコンテンツがありません',
+	ctaHeading: 'コンテンツをインポートするには',
+	ctaSubheading: 'アカウント登録後、管理画面からワンタップでインポートできます',
+	ctaStart: '無料で はじめる',
+	backToHome: 'トップページへ',
+	backToDemo: 'デモを体験',
+	breadcrumbRoot: 'マーケットプレイス',
+	detailIncludedActivities: 'ふくまれる活動',
+	detailIncludedRewards: 'ふくまれるごほうび',
+	detailChecklistItems: 'チェック項目',
+	detailRuleContent: 'ルール内容',
+	detailLegacyPackNote: '既存の活動パックからインポートされます。詳しくは',
+	detailLegacyPackLink: 'パック詳細ページ',
+	detailLegacyPackSuffix: 'をご覧ください。',
+	detailRulePointCost: '必要ポイント',
+	detailRulePointBonus: 'ボーナス',
+	detailCtaSignup: 'がんばりクエストに登録してインポート',
+	backToTypeListSuffix: '一覧に戻る',
+} as const;
+
+// ============================================================
 // チュートリアル関連ラベル（#961 QA: quickMode 対応）
 // ============================================================
 
