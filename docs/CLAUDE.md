@@ -60,15 +60,15 @@
 - [ADR-0005](decisions/0005-critical-fix-quality-gate.md) — Critical 修正の品質ゲート
 - [ADR-0006](decisions/0006-pr-review-must-document-findings.md) — PRレビューは文書化された指摘を必ず出力する
 - [ADR-0007](decisions/0007-image-asset-protection.md) — 画像アセットを絵文字に戻すことは明示的デグレ
-- [ADR-0008](decisions/0008-age-mode-duplication-risk.md) — 年齢モード5重複の変更リスク管理
-- [ADR-0009](decisions/0009-server-client-type-contract.md) — server→client 型契約の安全性確保
+- ~~[ADR-0008](decisions/0008-age-mode-duplication-risk.md)~~ — ~~年齢モード5重複の変更リスク管理~~ → **#567 統合完了により 2026-04-19 supersede**
+- ~~[ADR-0009](decisions/0009-server-client-type-contract.md)~~ — ~~server→client 型契約の安全性確保~~ → **2026-04-19 supersede（短期ガードは #567 完了で不要化、中期施策は ADR-0037/0031 で運用中）**
 - [ADR-0010](decisions/0010-issue-close-quality.md) — Issue 起票・クローズの品質基準
 - [ADR-0011](decisions/0011-sveltekit-svelte5.md) — SvelteKit 2 + Svelte 5 (Runes) 採用
 - [ADR-0012](decisions/0012-dynamodb-single-table.md) — DynamoDB シングルテーブル設計
 - [ADR-0013](decisions/0013-cognito-google-oauth.md) — Cognito + Google OAuth 認証
 - [ADR-0014](decisions/0014-css-token-architecture.md) — 3層 CSS トークンアーキテクチャ
 - [ADR-0015](decisions/0015-repository-pattern.md) — Repository パターンによる DB 抽象化
-- [ADR-0016](decisions/0016-dialog-overlay-management.md) — ダイアログ/オーバーレイの状態管理方針
+- ~~[ADR-0016](decisions/0016-dialog-overlay-management.md)~~ — ~~ダイアログ/オーバーレイの状態管理方針~~ → **ADR-0019 で 2026-04-19 supersede（OverlaysSection 内部キューは FSM に置換済み）**
 - [ADR-0017](decisions/0017-test-quality-ratchet.md) — テスト品質の劣化を許容しない開発プロセス
 - [ADR-0018](decisions/0018-issue-quality-standard.md) — Issue 起票は根本原因の特定と構造的解決策の提示を必須とする
 - [ADR-0019](decisions/0019-dialog-fsm-scrap-and-rebuild.md) — ダイアログ管理は FSM でスクラップ＆ビルド
@@ -91,6 +91,12 @@
 - [ADR-0036](decisions/0036-marketplace-public-access.md) — マーケットプレイス公開アクセス設計（閲覧パブリック / インポート認証必須）
 - [ADR-0037](decisions/0037-labels-ssot-principle.md) — 全ユーザー向け文言の SSOT 化原則（labels.ts + shared-labels.js を介さないハードコード禁止、BANNED_TERMS で CI 検出）
 - [ADR-0038](decisions/0038-ac-verification-evidence.md) — AC 検証エビデンス必須化（Issue テンプレ ac-verification-plan / PR AC 検証マップ / CI による機械強制）
+- [ADR-0039](decisions/0039-demo-mode-app-execution-mode.md) — デモモードをアプリ実行モードに統合（`?mode=demo` / `gq_demo` cookie / 本番ルート上で判定、`/demo/**` 別ルートを廃止）
+- [ADR-0040](decisions/0040-runtime-mode-license-unified-architecture.md) — 実行モード × ライセンス統括アーキテクチャ（Typed env + EvaluationContext + Policy Gate の 3 層ハイブリッド）
+
+## ADR 棚卸レポート
+
+- [adr-inventory-2026-04-19.md](decisions/adr-inventory-2026-04-19.md) — 0001〜0039 の棚卸。0008 / 0009 / 0016 を supersede、active-primary 12 件特定
 
 ## ローカル Cognito 認証検証環境 (#1026)
 
