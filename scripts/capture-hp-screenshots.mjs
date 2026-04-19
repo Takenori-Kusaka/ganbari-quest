@@ -12,6 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { convertToWebP, withScreenshotParam } from './lib/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const OUTPUT_DIR = path.resolve('site/screenshots');
@@ -166,18 +167,6 @@ if (!onlyGroup || onlyGroup === 'feature') ALL_SCREENSHOTS.push(...FEATURE_SCREE
 if (!onlyGroup || onlyGroup === 'age') ALL_SCREENSHOTS.push(...AGE_SCREENSHOTS);
 
 // ============================================================
-// Helper: `?screenshot=1` で demo 固有 UI を非表示化
-// ============================================================
-
-// `?screenshot=1` で demo 固有 UI（バナー・プラン切替・ガイドバー・フローティング CTA）を
-// 非表示にし、実アプリと同じ見た目の SS を取得する。根本解決（demo/app 統合）は別 Issue。
-const SCREENSHOT_QUERY = 'screenshot=1';
-
-function withScreenshotParam(path) {
-	return `${path}${path.includes('?') ? '&' : '?'}${SCREENSHOT_QUERY}`;
-}
-
-// ============================================================
 // Main capture function
 // ============================================================
 
@@ -249,23 +238,22 @@ async function captureScreenshots() {
 	await browser.close();
 	console.log(`\n撮影完了: ${successCount}/${totalFiles} ファイル`);
 
-	// WebP conversion using sharp Node API
+	// WebP conversion using scripts/lib/screenshot-helpers.mjs
 	if (doWebp && pngFiles.length > 0) {
-		const sharp = (await import('sharp')).default;
 		console.log('\n=== WebP変換 ===');
 		let convertCount = 0;
 		for (const pngPath of pngFiles) {
 			const webpPath = pngPath.replace(/\.png$/, '.webp');
-			try {
-				await sharp(pngPath).webp({ quality: 80 }).toFile(webpPath);
+			const result = await convertToWebP(pngPath, { quality: 80, outPath: webpPath });
+			if (result.ok) {
 				const stat = fs.statSync(webpPath);
 				console.log(`  -> ${path.basename(webpPath)} (${(stat.size / 1024).toFixed(0)} KB)`);
 				convertCount++;
-			} catch (error) {
+			} else {
 				console.error(`  WebP変換失敗: ${path.basename(pngPath)}`);
-				console.error(`    原因: ${error.message}`);
-				if (error.stderr) {
-					console.error(`    stderr: ${error.stderr}`);
+				console.error(`    原因: ${result.error.message}`);
+				if (result.error.stderr) {
+					console.error(`    stderr: ${result.error.stderr}`);
 				}
 			}
 		}
