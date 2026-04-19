@@ -13,5 +13,8 @@ export const load: LayoutServerLoad = ({ locals }) => {
 	return {
 		role: locals.context?.role ?? null,
 		requestId: locals.requestId ?? null,
+		// ADR-0039 / #1180: デモ実行モードのフラグを全ページに配布。
+		// DemoBanner / DemoGuideBar のマウント判定、CTA 文言切替、E2E 判定に使う。
+		isDemo: locals.isDemo ?? false,
 	};
 };

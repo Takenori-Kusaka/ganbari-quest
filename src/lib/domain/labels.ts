@@ -315,3 +315,26 @@ export const TUTORIAL_LABELS = {
 	quickFinish: '使い始める',
 	quickContinue: 'もっと詳しく見る',
 } as const;
+
+// ============================================================
+// デモ実行モード関連ラベル（#1180 / ADR-0039）
+// ============================================================
+
+/**
+ * デモモード（`?mode=demo`）関連の文言 SSOT。
+ * ハードコードせず本定数を介して参照すること（ADR-0037 準拠）。
+ * baby / preschool モードではひらがな併記を優先する。
+ */
+export const DEMO_LABELS = {
+	/** 上部バナーのメイン文言 */
+	bannerTitle: 'おためしモード',
+	bannerDescription: 'これはおためしです。記録やせっていはほぞんされません。',
+	/** 「ほんとうに始める」CTA */
+	ctaStart: 'ほんとうに始める',
+	/** 退出ボタン */
+	ctaExit: 'おためしをやめる',
+	/** 退出先（ログイン誘導ではなく LP に戻す） */
+	exitHref: '/demo/exit',
+	/** サインアップ CTA 先 */
+	signupHref: '/auth/signup',
+} as const;

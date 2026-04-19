@@ -14,6 +14,10 @@ declare global {
 			authenticated: boolean;
 			identity: import('$lib/server/auth/types').Identity | null;
 			context: import('$lib/server/auth/types').AuthContext | null;
+			// #1180 / ADR-0039: デモ実行モード判定。hooks.server.ts で `?mode=demo` or
+			// cookie `gq_demo=1` から確定。`+layout.server.ts` が `data.isDemo` として
+			// client に配布する。
+			isDemo: boolean;
 		}
 		// interface PageData {}
 		// interface PageState {}
