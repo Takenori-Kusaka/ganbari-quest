@@ -200,6 +200,27 @@
 - 新しい UI パターンが必要な場合は **先に primitives に追加してから** routes で使う
 - 実体: `src/lib/ui/primitives/`
 
+### FormField の `type` 一覧（#1191）
+
+`<input>` / `<textarea>` 直書きの代替として `FormField.svelte` が以下 variant を提供する。
+
+| type | 描画要素 | 用途 |
+|------|---------|------|
+| `text` (default) | `<input type="text">` | 汎用テキスト |
+| `email` | `<input type="email">` | メールアドレス |
+| `password` | `<input type="password">` | パスワード。`showToggle` で表示/非表示 (#587) |
+| `number` | `<input type="number">` | 数値（`min` / `max` / `step` プロパティ併用） |
+| `tel` | `<input type="tel">` | 電話番号 |
+| `url` | `<input type="url">` | URL |
+| `search` | `<input type="search">` | 検索 |
+| `date` | `<input type="date">` | 日付 |
+| `time` | `<input type="time">` | 時刻 |
+| `datetime-local` | `<input type="datetime-local">` | 日時 |
+| `textarea` | `<textarea>` | 複数行入力（`rows` でサイズ制御、既定 4） |
+
+`label` / `error` / `hint` / `disabled` / `required` / `aria-invalid` / `aria-describedby` は全 type で一貫。
+routes/features で `<input>` / `<textarea>` を直書きする前に、この表の type で賄えないかを先に確認する。
+
 ### 使用パターンガイド（Toast / PinInput）
 
 `#1175` UI 監査で検出された未活用 primitive について、正しい使用場面を明記する。
