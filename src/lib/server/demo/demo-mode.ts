@@ -25,12 +25,17 @@ export const DEMO_WRITE_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', '
  * - `/api/demo-analytics`: デモファネル分析（funnel tracking）
  * - `/api/demo/exit`: デモ退出（cookie 削除）
  * - `/api/health`: ヘルスチェック
+ * - `/demo/`: Phase 1 backward compat。legacy /demo/** 配下の form actions は
+ *   すでに demo-service 経由で in-memory に閉じている（実 DB を叩かない）ため
+ *   guard で no-op 化すると結果データが返らず UI が壊れる。Phase 2 で /demo/**
+ *   を削除した際に本エントリも削除する。
  */
 export const DEMO_WRITE_ALLOWLIST: readonly string[] = [
 	'/api/feedback',
 	'/api/demo-analytics',
 	'/api/demo/exit',
 	'/api/health',
+	'/demo/',
 ];
 
 /**
