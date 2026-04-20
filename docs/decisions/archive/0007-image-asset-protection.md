@@ -1,5 +1,8 @@
 # ADR-0007: 画像アセットが存在する機能を絵文字に戻すことは明示的デグレ
 
+> **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |

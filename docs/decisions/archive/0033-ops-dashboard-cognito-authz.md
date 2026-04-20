@@ -1,5 +1,8 @@
 # 0033. /ops ダッシュボード認可を Cognito ops group ベースに刷新（OPS_SECRET_KEY 廃止）
 
+> **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |

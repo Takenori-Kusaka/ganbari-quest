@@ -70,7 +70,7 @@
 ## ADR 棚卸レポート
 
 - [adr-inventory-2026-04-19.md](decisions/adr-inventory-2026-04-19.md) — 旧 0001〜0039 の棚卸。0008 / 0009 / 0016 を supersede、active-primary 12 件特定
-- `adr-inventory-2026-04-20.md`（#1262 sub-7 で作成予定）— 新体系 0001-0010 + archive 25 件の最終棚卸
+- [adr-inventory-2026-04-20.md](decisions/adr-inventory-2026-04-20.md) — 新体系 0001-0010 + archive 25 件の最終棚卸（#1262 sub-7 完了）
 
 ## Issue 起票・チケット運用ルール
 
