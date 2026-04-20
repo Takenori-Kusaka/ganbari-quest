@@ -1,5 +1,7 @@
 # ADR-0007: 画像アセットが存在する機能を絵文字に戻すことは明示的デグレ
 
+> **Archived (2026-04-20)**: 画像アセット保護方針。`docs/DESIGN.md` §7 と `docs/design/asset-catalog.md` に統合済み
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |

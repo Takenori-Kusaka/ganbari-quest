@@ -1,5 +1,7 @@
 # ADR-0025: License ↔ Stripe Subscription 因果関係の決定
 
+> **Archived (2026-04-20)**: ライセンス・購読因果関係。Stripe webhook 連携実装完了
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |

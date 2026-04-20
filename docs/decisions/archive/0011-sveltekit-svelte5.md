@@ -1,5 +1,7 @@
 # 0011. SvelteKit 2 + Svelte 5 (Runes) 採用
 
+> **Archived (2026-04-20)**: 技術選定理由（SvelteKit 2 + Svelte 5）。選定確定、常時参照不要
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |

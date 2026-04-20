@@ -1,5 +1,7 @@
 # 0033. /ops ダッシュボード認可を Cognito ops group ベースに刷新（OPS_SECRET_KEY 廃止）
 
+> **Archived (2026-04-20)**: ops dashboard 認可。実装完了、運用段階
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |
