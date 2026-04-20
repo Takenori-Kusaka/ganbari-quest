@@ -89,17 +89,15 @@ export async function selectSeniorChild(page: Page) {
 /** ログインボーナスのおみくじ・誕生日レビュー・各種オーバーレイを閉じる */
 export async function dismissOverlays(page: Page) {
 	// AWS 環境ではログインボーナス API（Lambda cold start）に時間がかかるため、
-	// おみくじオーバーレイが遅延表示される。networkidle で API 完了を待つ。
+	// おみくじオーバーレイが遅延表示される。クライアント JS がハイドレーション完了し
+	// $effect が発火するまで待機（activity-card / bottom-nav / omikuji-overlay のいずれか）
 	if (isAwsEnv()) {
-		await page.waitForLoadState('networkidle').catch(() => {});
-		// クライアント JS がハイドレーション完了し $effect が発火するまで待機
-		// body の data-sveltekit-hydrated 属性、またはフォールバックとして activity-card の出現を検知
 		await page
 			.locator(
 				'[data-testid^="activity-card-"], [data-testid="bottom-nav"], [data-testid="omikuji-stamp-overlay"]',
 			)
 			.first()
-			.waitFor({ state: 'visible', timeout: 5000 })
+			.waitFor({ state: 'visible', timeout: 10000 })
 			.catch(() => {});
 	}
 
