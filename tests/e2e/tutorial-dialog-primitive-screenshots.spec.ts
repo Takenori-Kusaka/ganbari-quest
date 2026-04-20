@@ -55,7 +55,10 @@ test.describe('#1192 TutorialQuickCompleteDialog 3 ダイアログ撮影', () =>
 		// Resume prompt の dialog を text ベースで取得 (data-testid propagation 不確実)
 		const resume = page.locator('[role="dialog"]').filter({ hasText: '前回の途中から続けますか' });
 		await resume.waitFor({ state: 'visible', timeout: 10_000 });
-		await page.waitForTimeout(400);
+		// #1259: 開閉 animation 完了を Web Animations API で待つ (waitForTimeout 置換)
+		await resume.evaluate((el) =>
+			Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)).then(() => {}),
+		);
 		await page.screenshot({
 			path: path.join(OUT, '01-resume-prompt.png'),
 			fullPage: false,
@@ -93,14 +96,17 @@ test.describe('#1192 TutorialQuickCompleteDialog 3 ダイアログ撮影', () =>
 			const nextBtn = bubble.locator('button:has-text("次へ"), button:has-text("完了")');
 			if (await nextBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
 				await nextBtn.click();
-				await page.waitForTimeout(500);
+				// #1259: 次のバブル or qcLocator が出るまで次ループで polling するため待機不要
 			} else {
 				break;
 			}
 		}
 
 		await qcLocator.waitFor({ state: 'visible', timeout: 10_000 });
-		await page.waitForTimeout(400);
+		// #1259: 開閉 animation 完了を Web Animations API で待つ (waitForTimeout 置換)
+		await qcLocator.evaluate((el) =>
+			Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)).then(() => {}),
+		);
 		await page.screenshot({
 			path: path.join(OUT, '02-quick-complete.png'),
 			fullPage: false,
@@ -127,7 +133,10 @@ test.describe('#1192 TutorialQuickCompleteDialog 3 ダイアログ撮影', () =>
 			.locator('[role="dialog"]')
 			.filter({ hasText: 'チュートリアルを終了しますか' });
 		await exitDlg.waitFor({ state: 'visible', timeout: 10_000 });
-		await page.waitForTimeout(400);
+		// #1259: 開閉 animation 完了を Web Animations API で待つ (waitForTimeout 置換)
+		await exitDlg.evaluate((el) =>
+			Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)).then(() => {}),
+		);
 		await page.screenshot({
 			path: path.join(OUT, '03-exit-confirm.png'),
 			fullPage: false,
