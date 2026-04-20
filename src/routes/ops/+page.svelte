@@ -8,6 +8,7 @@ const stats = $derived(kpi.tenantStats);
 const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 const triggerReport = $derived(data.triggerReport);
 const firedTriggers = $derived(triggerReport.firedTriggers);
+const adminBypass = $derived(data.adminBypass);
 </script>
 
 <svelte:head>
@@ -133,6 +134,64 @@ const firedTriggers = $derived(triggerReport.firedTriggers);
 		<div class="text-xs text-[var(--color-text-muted)] mt-3">
 			評価日時: {new Date(triggerReport.evaluatedAt).toLocaleString('ja-JP')}
 			| 有料ユーザー: {triggerReport.paidUserCount}人
+		</div>
+	</Card>
+
+	<!-- admin bypass merge メトリクス (#1201 / ADR-0044) -->
+	<Card padding="lg">
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">
+			admin bypass merge メトリクス
+			{#if adminBypass.available}
+				{#if adminBypass.totalEvidenceMissing > 0}
+					<Badge variant="warning" size="sm">{adminBypass.totalEvidenceMissing}件 証跡欠落</Badge>
+				{:else}
+					<Badge variant="success" size="sm">正常</Badge>
+				{/if}
+			{:else}
+				<Badge variant="neutral" size="sm">データ未取得</Badge>
+			{/if}
+		</h2>
+		{#if !adminBypass.available}
+			<p class="text-sm text-[var(--color-text-muted)]">
+				{adminBypass.reason ?? 'GitHub API に接続できませんでした'}（GITHUB_TOKEN 未設定時は非表示。ADR-0044 参照）
+			</p>
+		{:else if adminBypass.monthly.length === 0}
+			<p class="text-sm text-[var(--color-text-muted)]">
+				直近 {adminBypass.lookbackMonths} ヶ月の admin bypass merge は 0 件です。
+			</p>
+		{:else}
+			<table class="ops-table">
+				<thead>
+					<tr>
+						<th>月</th>
+						<th>merge 総数</th>
+						<th>admin bypass</th>
+						<th>証跡欠落</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each adminBypass.monthly as m (m.month)}
+						<tr>
+							<td>{m.month}</td>
+							<td>{m.mergedCount}</td>
+							<td>{m.adminBypassCount}</td>
+							<td class={m.evidenceMissingCount > 0 ? 'text-[var(--color-feedback-warning-text)]' : ''}>
+								{m.evidenceMissingCount}
+							</td>
+						</tr>
+					{/each}
+					<tr class="total-row">
+						<td>合計</td>
+						<td>-</td>
+						<td>{adminBypass.totalAdminBypass}</td>
+						<td>{adminBypass.totalEvidenceMissing}</td>
+					</tr>
+				</tbody>
+			</table>
+		{/if}
+		<div class="text-xs text-[var(--color-text-muted)] mt-3">
+			取得日時: {new Date(adminBypass.fetchedAt).toLocaleString('ja-JP')}
+			| 運用ルール: <a href="https://github.com/Takenori-Kusaka/ganbari-quest/blob/main/docs/decisions/0044-admin-bypass-evidence.md" class="underline">ADR-0044</a>
 		</div>
 	</Card>
 
