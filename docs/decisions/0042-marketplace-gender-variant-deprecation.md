@@ -41,27 +41,43 @@
 1. 性別パックの差分活動 (色ラベル / 例示玩具など) を中立パックに **追加吸収** (削除しない、ユーザー体験の幅を維持)
 2. 性別固有の文言 (例: 「男の子向けの〜」) は **中立化** (「みんなの〜」「自由に選べる〜」)
 3. 性別パック JSON 10 件を物理削除
-4. `LEGACY_URL_MAP` に以下 10 件の ID redirect を追加:
+4. **2 機構を分離**:
+   - **URL 前方一致** (`LEGACY_URL_MAP`): 1 entry — `/activity-packs` → `/marketplace` (308)。前方一致なので `/activity-packs/baby-boy` など全サブパスを自動カバー
+   - **Pack ID alias** (新設 `src/lib/data/marketplace/legacy-pack-id-map.ts`): 10 entries で旧 ID → 新 ID 解決
 
    ```ts
-   'baby-boy' → 'baby-first'
-   'baby-girl' → 'baby-first'
-   'kinder-boy' → 'kinder-starter'
-   'kinder-girl' → 'kinder-starter'
-   'elementary-boy' → 'elementary-challenge'
-   'elementary-girl' → 'elementary-challenge'
-   'junior-boy' → 'junior-high-challenge'
-   'junior-girl' → 'junior-high-challenge'
-   'senior-boy' → 'senior-high-challenge'
-   'senior-girl' → 'senior-high-challenge'
+   // src/lib/data/marketplace/legacy-pack-id-map.ts (新設)
+   export const LEGACY_PACK_ID_MAP: Readonly<Record<string, string>> = {
+     'baby-boy': 'baby-first',
+     'baby-girl': 'baby-first',
+     'kinder-boy': 'kinder-starter',
+     'kinder-girl': 'kinder-starter',
+     'elementary-boy': 'elementary-challenge',
+     'elementary-girl': 'elementary-challenge',
+     'junior-boy': 'junior-high-challenge',
+     'junior-girl': 'junior-high-challenge',
+     'senior-boy': 'senior-high-challenge',
+     'senior-girl': 'senior-high-challenge',
+   };
    ```
 
-5. `tests/e2e/legacy-url-redirect.spec.ts` に 10 件の redirect E2E 検証を追加 (ADR-0001 準拠)
-6. drift 検出 unit test (`tests/unit/marketplace-pack-coverage.test.ts`) で「性別パック ID は LEGACY_URL_MAP 経由のみ」を不変条件化
+   `getMarketplaceItem('activity-pack', id)` の冒頭で `LEGACY_PACK_ID_MAP[id] ?? id` を適用し、DB 永続 ID も透過解決。
+
+5. `tests/e2e/legacy-url-redirect.spec.ts` に URL redirect E2E (`/activity-packs/baby-boy` 等 11 パターン) を追加 (ADR-0001 準拠)
+6. drift 検出 unit test (`tests/unit/marketplace-pack-coverage.test.ts`) で「`getMarketplaceItem('activity-pack', 'baby-boy')` が `baby-first` を返す」を不変条件化
 
 ### DB 移行
 
-DB に保存済みの `pack_id` カラムは redirect で透過的に解決される (アプリ層の `getMarketplaceItem` API が LEGACY_URL_MAP を先に解決)。**物理 UPDATE は不要**。
+DB に保存済みの `pack_id` カラム値 (`baby-boy` 等) は `LEGACY_PACK_ID_MAP` 経由でアプリ層が透過解決する。**物理 UPDATE は不要**。
+
+### 設計上の補足
+
+`LEGACY_URL_MAP` (URL 前方一致) と `LEGACY_PACK_ID_MAP` (ID 解決) を分離する理由:
+
+- `LEGACY_URL_MAP` は SvelteKit hooks 層で `req.url.pathname` を見て 308 redirect を返す機構 (`src/lib/server/routing/legacy-url-map.ts`)。**URL は変わる**
+- Pack ID は DB に永続保存されており、URL 層では解決できない。アプリ層の getter で透過解決する必要がある。**ID は変わらない (記録上は旧 ID のまま、表示時に新 ID にマップ)**
+
+両者は異なる責務であり、混同すると `LEGACY_URL_MAP` を ID 解決に流用するとパス前方一致のセマンティクスと衝突する。
 
 ## 検討した選択肢
 

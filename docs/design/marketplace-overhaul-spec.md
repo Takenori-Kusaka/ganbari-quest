@@ -373,7 +373,16 @@ interface ActivityItem {
 | `senior-high-challenge.json` | `senior-high-challenge.json` (既存) | targetAgeMin=13 を 16 に修正 |
 | `senior-boy.json`, `senior-girl.json` | `senior-high-challenge.json` に統合 | 同上 |
 
-合計 **11 redirect** を `LEGACY_URL_MAP` に追加 (`baby-boy/girl`, `kinder-boy/girl`, `elementary-boy/girl`, `junior-boy/girl`, `senior-boy/girl` の 10 件 + ルート `/activity-packs` 1 件 = 11)。
+**redirect は 2 機構に分離する** (LEGACY_URL_MAP は URL 前方一致のみ、ID 解決は別レイヤ):
+
+1. **URL 前方一致** (`LEGACY_URL_MAP`): 1 entry — `/activity-packs` → `/marketplace` (308)
+2. **Pack ID alias** (新設 `LEGACY_PACK_ID_MAP` / `src/lib/data/marketplace/legacy-pack-id-map.ts`): 10 entries
+   - `baby-boy` / `baby-girl` → `baby-first`
+   - `kinder-boy` / `kinder-girl` → `kinder-starter`
+   - `elementary-boy` / `elementary-girl` → `elementary-challenge`
+   - `junior-boy` / `junior-girl` → `junior-high-challenge`
+   - `senior-boy` / `senior-girl` → `senior-high-challenge`
+   - `getMarketplaceItem('activity-pack', id)` の冒頭で `LEGACY_PACK_ID_MAP[id] ?? id` で透過解決
 
 #### 6.3.3 Import 修正対象 (4 ファイル)
 
@@ -386,7 +395,7 @@ src/lib/domain/activity-pack.ts
 
 すべて `$lib/data/activity-packs` → `$lib/data/marketplace` に書き換え、`getActivityPack(id)` → `getMarketplaceItem('activity-pack', id)` に置換。
 
-#### 6.3.4 ルート廃止 (3 ファイル + 2 ディレクトリ)
+#### 6.3.4 ルート廃止 (4 ファイル + 2 ディレクトリ)
 
 ```
 src/routes/activity-packs/+page.svelte
@@ -395,7 +404,7 @@ src/routes/activity-packs/[packId]/+page.svelte
 src/routes/activity-packs/[packId]/+page.server.ts
 ```
 
-LEGACY_URL_MAP に `/activity-packs` → `/admin/packs` (または `/marketplace`) を追加。`tests/e2e/legacy-url-redirect.spec.ts` で 18 件 (11 性別バリアント + ルート) を E2E 検証。
+LEGACY_URL_MAP に `/activity-packs` → `/marketplace` を追加 (1 entry, 前方一致で `/activity-packs/[packId]` も自動カバー)。`tests/e2e/legacy-url-redirect.spec.ts` で `/activity-packs` ルート + `/activity-packs/baby-boy` 等 11 パターンを E2E 検証。
 
 #### 6.3.5 drift 検出 unit test
 
@@ -403,7 +412,8 @@ LEGACY_URL_MAP に `/activity-packs` → `/admin/packs` (または `/marketplace
 
 - marketplace activity-packs に必要な ID 全 14 件が存在すること
 - 旧 activity-packs の活動内容 (中立差分含む) が marketplace 側に統合済みであること
-- 性別パック ID `baby-boy` 等が `LEGACY_URL_MAP` に存在すること
+- 性別パック ID `baby-boy` 等が `LEGACY_PACK_ID_MAP` に存在し、`getMarketplaceItem('activity-pack', 'baby-boy')` が `baby-first` を返すこと
+- `LEGACY_URL_MAP` に `/activity-packs` エントリが存在すること
 
 ---
 
