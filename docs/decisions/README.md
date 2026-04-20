@@ -37,13 +37,73 @@
 この決定により何が変わるか。トレードオフは何か。
 ```
 
+## ボリューム上限ルール
+
+ADR を現場の常時参照ルールとして機能させるため、以下の上限を設ける。
+
+| 項目 | 上限 | 根拠 |
+|------|------|------|
+| `docs/decisions/` 直下 active ADR 総数 | **≤ 10 件** | Miller's Law (7±2) の認知限界。毎週以上参照するルールとして記憶し得る現実的上限 |
+| per-ADR 本文 | ≤ 150 行 | 5 分以内に通読可能な分量 |
+| per-ADR 章立て | ≤ 7 セクション | コンテキスト / 選択肢 / 決定 / 結果 + 固有セクション ≤ 3 |
+
+超過時の運用:
+
+- per-ADR が 150 行を超える場合、補助ドキュメント（`docs/design/*.md`）に詳細を分離
+- 章立てが 7 を超える場合、統合またはサブセクション化
+
+上限数値は暫定値。6 ヶ月ごとの棚卸で見直し可能。
+
+## 新規 ADR 追加 gate
+
+以下のいずれかを満たさない限り、新規 ADR を起票しない。
+
+1. **機械強制できない判断原則** — 定性的方針で CI / lint / テンプレで表現できないもの
+2. **後から改訂時に背景理解が必須な決定** — 技術選定根拠・トレードオフ記録等
+3. **既存 ADR と矛盾する新判断** — supersede 必須
+
+上記いずれでもなければ、以下に配置する:
+
+- CI / lint / workflow（`.github/workflows/*`, `scripts/*`）
+- Issue / PR テンプレート（`.github/ISSUE_TEMPLATE/*`, `PULL_REQUEST_TEMPLATE.md`）
+- CLAUDE.md（ルート / `docs/` / `src/` / `tests/` / `.github/` / `infra/`）
+
+## 10 枠超過時の義務（1-in-1-out）
+
+- 10 枠が埋まっている状態で新規追加する場合、既存 1 件以上を archive 送りまたは supersede することを同 PR 内で必須とする
+- 同梱なしの PR は CI で自動 fail させる（CI 実装は follow-up で別 Issue 化）
+- 該当する既存 ADR が見つからない場合、新規 ADR 起票自体を取り下げる
+
+## archive 運用ルール
+
+`docs/decisions/archive/` は歴史的価値はあるが現場の常時参照ルールではない ADR の退避先。
+
+- **退避時**: `git mv docs/decisions/XXXX-*.md docs/decisions/archive/` で元番号のまま移動、git rename 履歴を継承
+- **ヘッダ追記**: `archived (YYYY-MM-DD): reason` を必ず明記
+- **再活性化**: archive から直下に戻す際は、同 PR 内で active 10 件のうち 1 件を archive 送りにする（1-in-1-out）
+- **完全削除判断**: archive 内でも以下に該当すれば削除可（定期棚卸で判断）
+  - 既に別 ADR で内容が完全カバーされている
+  - 対象コード / プロセスが廃止済みで再活性化の可能性ゼロ
+
+## renumber 規約
+
+原則: **ADR 番号は不変ではない**。Pre-PMF 個人開発段階では renumber コスト < 認知負荷コスト であり、統合・整理のたびに番号を振り直して構わない。ただし混乱を避けるため以下手順を守る。
+
+- **1:1 renumber**: `git mv OLD-*.md NEW-*.md` で履歴継承、フロントマター内の番号更新
+- **N:1 統合**: 新番号で新規作成、旧ファイルは `git rm`（内容は新 ADR の「コンテキスト」セクションに統合元として記載）
+- **renumber PR** は 1 つに集約（分割厳禁）、参照更新（CLAUDE.md / copilot-instructions / docs/design 等）を同時または直後の別 PR で行う
+- **過去 PR / コミット本文** の ADR 番号参照は更新しない（git 履歴として保全）
+
 ## 命名規則
 
 - ファイル名: `NNNN-kebab-case-title.md`
-- 番号は 0001 から連番
-- ステータスが `deprecated` / `superseded` になっても削除しない
+- 番号は 0001 から連番（欠番は renumber 時に詰める）
+- active は `docs/decisions/` 直下、archive は `docs/decisions/archive/` に配置
+- ステータスが `superseded` / `archived` になったファイルも、明示的削除判断がない限り git 履歴として残す
 
-## 一覧
+## 一覧（TOP 10 active）
+
+> 本セクションは #1262 の sub-A / sub-7 完了時点で新 0001-0010 に更新される。現時点では過渡期として旧採番を掲載。
 
 | # | タイトル | ステータス | 日付 |
 |---|--------|----------|------|
@@ -87,7 +147,16 @@
 | 0038 | [AC 検証エビデンス必須化 (Issue close gate + PR AC 検証マップ)](0038-ac-verification-evidence.md) | accepted | 2026-04-18 |
 | 0039 | [デモモードをアプリ実行モードに統合](0039-demo-mode-app-execution-mode.md) | accepted | 2026-04-19 |
 | 0040 | [実行モード × ライセンス統括アーキテクチャ (Typed env + EvaluationContext + Policy Gate)](0040-runtime-mode-license-unified-architecture.md) | accepted | 2026-04-19 |
+| 0041 | [マーケットプレイス命名テンプレート](0041-marketplace-naming-template.md) | accepted | 2026-04-19 |
+| 0042 | [マーケットプレイス ジェンダーバリアントポリシー](0042-marketplace-gender-variant-policy.md) | accepted | 2026-04-19 |
+
+## archive 一覧
+
+> `docs/decisions/archive/` 配下。#1262 の sub-B 完了時点で 23 件が移動される予定。現時点では空。
+
+_（sub-B 完了後に一覧表が挿入される）_
 
 ## 棚卸レポート
 
 - [adr-inventory-2026-04-19.md](adr-inventory-2026-04-19.md) — 0001〜0039 の棚卸（0008 / 0009 / 0016 を supersede）
+- `adr-inventory-2026-04-20.md`（予定）— #1262 sub-7 完了時に刷新
