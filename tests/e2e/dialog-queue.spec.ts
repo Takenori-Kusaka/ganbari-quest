@@ -197,9 +197,7 @@ test.describe('#611: ダイアログキュー', () => {
 
 		// #671 回帰テスト: ダイアログが再オープンしないことを確認
 		// (無限ループが起きると $effect が再トリガーして即座にダイアログが開く)
-		// networkidle で非同期処理の完了を待ってから検証
-		await page.waitForLoadState('networkidle').catch(() => {});
-		// 念のため、遅延ダイアログの出現を短時間待機し、出なければ合格
+		// 遅延ダイアログの出現を短時間待機し、出なければ合格
 		const reopenedDialog = page.locator('[data-scope="dialog"][data-state="open"]').first();
 		await reopenedDialog.waitFor({ state: 'visible', timeout: 2000 }).catch(() => {});
 		const reopenedCount = await countOpenDialogs(page);
