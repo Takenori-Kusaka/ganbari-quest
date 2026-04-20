@@ -134,6 +134,56 @@ body:
       description: 他の解決策やワークアラウンドを検討しましたか?
 
   - type: textarea
+    id: blocked_by
+    attributes:
+      label: Blocked by（上流依存）
+      description: |
+        この機能の実装を着手する前に完了すべき**上流 Issue 番号**を列挙する。
+        未確定の企画・ADR・設計方針が上流にある場合はここに列挙し、それらが closed になるまで実装着手しない。
+      placeholder: |
+        #123 (ADR: Pre-PMF 判断基準)
+        #456 (企画: 顧客範囲確定)
+
+  - type: textarea
+    id: blocks
+    attributes:
+      label: Blocks（下流への影響）
+      description: |
+        この機能完了後にアンブロックされる**下流 Issue 番号**を列挙する。
+      placeholder: |
+        #789 (設計: アーキテクチャ)
+        #790 (実装: 画面)
+
+  - type: textarea
+    id: related
+    attributes:
+      label: Related（参考のみ・依存関係なし）
+      description: "関連するが依存関係を持たない Issue / ADR / ドキュメントを列挙"
+      placeholder: |
+        #234 (類似実装の参考)
+        ADR-0023
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: 工程区分（P0-P7 / N/A）
+      description: |
+        下流 Phase の Issue は上流 Phase が閉じるまで着手しない。
+        新機能は通常 P6 だが、ADR / 企画 / アーキ判断を伴う場合は上流の工程を選択。
+      options:
+        - "P0: インフラ・プロセス更改"
+        - "P1: ポリシー・判断基準 (ADR)"
+        - "P2: プロダクト定義・顧客範囲（企画）"
+        - "P3: アーキテクチャ・技術選定 (ADR)"
+        - "P4: 戦略・構造設計"
+        - "P5: 実装・コンテンツ"
+        - "P6: 機能実装"
+        - "P7: バグ修正・クリーンアップ"
+        - "N/A（独立タスク）"
+    validations:
+      required: true
+
+  - type: textarea
     id: additional
     attributes:
       label: 補足情報
