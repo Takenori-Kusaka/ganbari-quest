@@ -26,6 +26,9 @@ import seniorBoy from './activity-packs/senior-boy.json';
 import seniorGirl from './activity-packs/senior-girl.json';
 import seniorHighChallenge from './activity-packs/senior-high-challenge.json';
 // ── Checklists ──────────────────────────────────────────────
+import eventFieldTrip from './checklists/event-field-trip.json';
+import eventPool from './checklists/event-pool.json';
+import eventSchoolStart from './checklists/event-school-start.json';
 import eveningBaby from './checklists/evening-baby.json';
 import eveningElementary from './checklists/evening-elementary.json';
 import eveningJunior from './checklists/evening-junior.json';
@@ -111,6 +114,9 @@ const allItems: MarketplaceItem[] = [
 	weekendElementary,
 	weekendJunior,
 	weekendSenior,
+	eventSchoolStart,
+	eventPool,
+	eventFieldTrip,
 	// Rule presets
 	nightOwlPass,
 	sleepInPass,

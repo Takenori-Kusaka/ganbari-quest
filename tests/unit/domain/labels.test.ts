@@ -101,7 +101,7 @@ describe('getAgeTierShortLabel', () => {
 });
 
 describe('NAV_ITEM_LABELS', () => {
-	it('#1170: マケプレをグローバルナビに昇格した labels SSOT エントリ', () => {
-		expect(NAV_ITEM_LABELS.marketplace).toBe('マケプレ');
+	it('#1170: マケプレをグローバルナビに昇格 → #1212-H ADR-0041 テンプレート呼称へ移行', () => {
+		expect(NAV_ITEM_LABELS.marketplace).toBe('テンプレート');
 	});
 });

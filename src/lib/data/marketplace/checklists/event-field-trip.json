@@ -1,0 +1,29 @@
+{
+	"type": "checklist",
+	"itemId": "event-field-trip",
+	"name": "えんそく・こうがいがくしゅう もちもの",
+	"description": "遠足・校外学習・社会科見学の前日に親子で確認したい持ち物リストです。",
+	"icon": "🗺️",
+	"targetAgeMin": 4,
+	"targetAgeMax": 12,
+	"tags": ["イベント", "遠足", "校外学習"],
+	"personas": ["routine-focused", "outdoor"],
+	"curator": "official",
+	"payload": {
+		"timing": "daily",
+		"items": [
+			{ "label": "おべんとう", "icon": "🍱", "order": 1 },
+			{ "label": "すいとう・みずとう", "icon": "💧", "order": 2 },
+			{ "label": "おかし・おやつ（しおり確認）", "icon": "🍪", "order": 3 },
+			{ "label": "レジャーシート", "icon": "🧺", "order": 4 },
+			{ "label": "リュックサック", "icon": "🎒", "order": 5 },
+			{ "label": "ティッシュ・ウェットティッシュ", "icon": "🧻", "order": 6 },
+			{ "label": "ビニールぶくろ（ゴミ・よごれもの用）", "icon": "🛍️", "order": 7 },
+			{ "label": "しおり・行程表", "icon": "📖", "order": 8 },
+			{ "label": "ぼうし", "icon": "🧢", "order": 9 },
+			{ "label": "雨具（折りたたみ傘・レインコート）", "icon": "☂️", "order": 10 },
+			{ "label": "常備薬・酔い止め（必要時）", "icon": "💊", "order": 11 },
+			{ "label": "バンソウコウ・絆創膏", "icon": "🩹", "order": 12 }
+		]
+	}
+}

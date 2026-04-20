@@ -134,6 +134,17 @@
 				"description": "うんてい・のぼり棒・アスレチック"
 			},
 			{
+				"name": "たいそうした",
+				"categoryCode": "undou",
+				"icon": "🤸",
+				"basePoints": 3,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "からだを のばして たいそう！",
+				"description": "準備体操・ラジオ体操"
+			},
+			{
 				"name": "ブロックであそんだ",
 				"categoryCode": "souzou",
 				"icon": "🧱",
@@ -165,6 +176,28 @@
 				"gradeLevel": "kinder",
 				"triggerHint": "すきなものを かいてみよう！",
 				"description": "自由にお絵描き"
+			},
+			{
+				"name": "おうたをうたった",
+				"categoryCode": "souzou",
+				"icon": "🎵",
+				"basePoints": 3,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おうたを うたおう！",
+				"description": "童謡・合唱・表現活動"
+			},
+			{
+				"name": "ごっこあそびをした",
+				"categoryCode": "souzou",
+				"icon": "🦸",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "ヒーローや おしごと ごっこ！",
+				"description": "ごっこ遊び（表現＋人間関係）"
 			},
 			{
 				"name": "えほんをよんだ",
@@ -200,6 +233,28 @@
 				"description": "ひらがなの読み書き練習"
 			},
 			{
+				"name": "しぜんをかんさつした",
+				"categoryCode": "benkyou",
+				"icon": "🐛",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "むしや はっぱ みつけよう！",
+				"description": "虫・花・葉などの自然観察（環境領域）"
+			},
+			{
+				"name": "かたちをみつけた",
+				"categoryCode": "benkyou",
+				"icon": "🔺",
+				"basePoints": 3,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "まる・しかく・さんかく さがそう！",
+				"description": "図形の認識（環境領域）"
+			},
+			{
 				"name": "いっしょにあそんだ",
 				"categoryCode": "kouryuu",
 				"icon": "🤝",
@@ -231,6 +286,28 @@
 				"gradeLevel": "kinder",
 				"triggerHint": "おはよう、ありがとう！",
 				"description": "元気な挨拶・お礼"
+			},
+			{
+				"name": "ありがとうをいった",
+				"categoryCode": "kouryuu",
+				"icon": "💕",
+				"basePoints": 3,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "ありがとう って いえるかな？",
+				"description": "感謝の気持ちを伝える"
+			},
+			{
+				"name": "ごめんなさいをいった",
+				"categoryCode": "kouryuu",
+				"icon": "🙇",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "「ごめんなさい」 いえたね！",
+				"description": "自分から謝れる"
 			}
 		]
 	}

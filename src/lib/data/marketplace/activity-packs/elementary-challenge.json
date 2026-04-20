@@ -56,6 +56,17 @@
 				"description": "漢字の書き取り練習"
 			},
 			{
+				"name": "おんどくした",
+				"categoryCode": "benkyou",
+				"icon": "🗣️",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "きょうかしょを おんどくしよう！",
+				"description": "教科書の音読（国語）"
+			},
+			{
 				"name": "じかんわりのじゅんび",
 				"categoryCode": "seikatsu",
 				"icon": "🎒",
@@ -254,6 +265,28 @@
 				"description": "水泳・プール練習"
 			},
 			{
+				"name": "じてんしゃにのった",
+				"categoryCode": "undou",
+				"icon": "🚲",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "じてんしゃで でかけよう！",
+				"description": "自転車の練習・サイクリング"
+			},
+			{
+				"name": "ボールうんどうした",
+				"categoryCode": "undou",
+				"icon": "⚽",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "サッカー・やきゅう・バスケ！",
+				"description": "ボール運動（球技）"
+			},
+			{
 				"name": "おえかき・こうさく",
 				"categoryCode": "souzou",
 				"icon": "🎨",
@@ -276,6 +309,39 @@
 				"description": "ピアノ・リコーダー等"
 			},
 			{
+				"name": "おりがみをした",
+				"categoryCode": "souzou",
+				"icon": "🦢",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "すきな おりがみ おろう！",
+				"description": "折り紙で造形"
+			},
+			{
+				"name": "にっきをかいた",
+				"categoryCode": "souzou",
+				"icon": "📓",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "きょうの できごと かいてみよう！",
+				"description": "絵日記・作文（表現活動）"
+			},
+			{
+				"name": "おかしづくりした",
+				"categoryCode": "souzou",
+				"icon": "🍪",
+				"basePoints": 15,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "てづくりおかし つくろう！",
+				"description": "お菓子・パン作り（家庭科＋表現）"
+			},
+			{
 				"name": "ともだちとあそんだ",
 				"categoryCode": "kouryuu",
 				"icon": "🤝",
@@ -296,6 +362,39 @@
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "きょうの できごとを はなそう！",
 				"description": "家族との会話・報告"
+			},
+			{
+				"name": "とうばんかつどうした",
+				"categoryCode": "kouryuu",
+				"icon": "🧽",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "きゅうしょく・そうじ とうばん おつかれさま！",
+				"description": "給食当番・掃除当番（特別活動）"
+			},
+			{
+				"name": "いいんかいをした",
+				"categoryCode": "kouryuu",
+				"icon": "🏅",
+				"basePoints": 10,
+				"ageMin": 8,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "いいんかい・かかりかつどう がんばろう！",
+				"description": "委員会・係活動（社会参画）"
+			},
+			{
+				"name": "ありがとうとつたえた",
+				"categoryCode": "kouryuu",
+				"icon": "💝",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 9,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "ありがとう って つたえよう！",
+				"description": "感謝を言葉で伝える"
 			}
 		]
 	}

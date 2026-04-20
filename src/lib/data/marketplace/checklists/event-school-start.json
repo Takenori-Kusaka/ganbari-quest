@@ -1,0 +1,28 @@
+{
+	"type": "checklist",
+	"itemId": "event-school-start",
+	"name": "にゅうえん・にゅうがく じゅんび",
+	"description": "入園・入学の直前に家族でそろえておきたい持ち物を、最大公約数でまとめたチェックリスト。",
+	"icon": "🎒",
+	"targetAgeMin": 3,
+	"targetAgeMax": 7,
+	"tags": ["イベント", "春", "入園", "入学"],
+	"personas": ["first-child", "routine-focused"],
+	"curator": "official",
+	"payload": {
+		"timing": "daily",
+		"items": [
+			{ "label": "ランドセル・かばん", "icon": "🎒", "order": 1 },
+			{ "label": "ふでばこ・えんぴつ・けしゴム", "icon": "✏️", "order": 2 },
+			{ "label": "うわばき・うわばきぶくろ", "icon": "👟", "order": 3 },
+			{ "label": "たいそうふく・たいそうぶくろ", "icon": "👕", "order": 4 },
+			{ "label": "きゅうしょくぶくろ・ナプキン", "icon": "🍽️", "order": 5 },
+			{ "label": "ハンカチ・ティッシュ", "icon": "🧻", "order": 6 },
+			{ "label": "なふだ・もちものへのきめい", "icon": "🏷️", "order": 7 },
+			{ "label": "れんらくぶくろ・れんらくちょう", "icon": "📚", "order": 8 },
+			{ "label": "ぼうし・つうがくぼう", "icon": "🧢", "order": 9 },
+			{ "label": "お手ふきタオル・コップぶくろ", "icon": "🧺", "order": 10 },
+			{ "label": "ぞうきん（学校指定）", "icon": "🧽", "order": 11 }
+		]
+	}
+}

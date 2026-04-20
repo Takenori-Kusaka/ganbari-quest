@@ -155,6 +155,28 @@
 				"description": "音楽に合わせたダンス"
 			},
 			{
+				"name": "かけっこした",
+				"categoryCode": "undou",
+				"icon": "🏃",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "よーい、どん！ はしってみよう！",
+				"description": "基本的な走る動作・かけっこ"
+			},
+			{
+				"name": "のぼりぼうをした",
+				"categoryCode": "undou",
+				"icon": "🧗",
+				"basePoints": 5,
+				"ageMin": 4,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "のぼりぼうや うんてい やってみよう！",
+				"description": "粗大運動・登はん遊び"
+			},
+			{
 				"name": "おえかきした",
 				"categoryCode": "souzou",
 				"icon": "🖍️",
@@ -188,6 +210,28 @@
 				"description": "童謡やリズム遊び"
 			},
 			{
+				"name": "ねんどでつくった",
+				"categoryCode": "souzou",
+				"icon": "🎨",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "ねんどで すきなもの つくろう！",
+				"description": "粘土・ブロックで造形"
+			},
+			{
+				"name": "ごっこあそびをした",
+				"categoryCode": "souzou",
+				"icon": "🎭",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おままごとや ヒーローごっこ！",
+				"description": "ごっこ遊び（表現＋人間関係）"
+			},
+			{
 				"name": "えほんをよんだ",
 				"categoryCode": "benkyou",
 				"icon": "📖",
@@ -219,6 +263,28 @@
 				"gradeLevel": "kinder",
 				"triggerHint": "ひらがなを かいてみよう！",
 				"description": "ひらがなの読み書き練習"
+			},
+			{
+				"name": "かたちをみつけた",
+				"categoryCode": "benkyou",
+				"icon": "🔺",
+				"basePoints": 3,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "まる・しかく・さんかく さがしてみよう！",
+				"description": "図形の認識（環境領域）"
+			},
+			{
+				"name": "しぜんをかんさつした",
+				"categoryCode": "benkyou",
+				"icon": "🐞",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "むしや はっぱを みつけよう！",
+				"description": "虫・花・葉などの自然観察（環境領域）"
 			},
 			{
 				"name": "いっしょにあそんだ",

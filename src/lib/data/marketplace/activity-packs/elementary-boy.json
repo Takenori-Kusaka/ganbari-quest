@@ -212,7 +212,7 @@
 			},
 			{
 				"name": "プログラミングした",
-				"categoryCode": "souzou",
+				"categoryCode": "benkyou",
 				"icon": "💻",
 				"basePoints": 15,
 				"ageMin": 8,
@@ -220,6 +220,50 @@
 				"gradeLevel": "elementary_upper",
 				"triggerHint": "プログラミングに挑戦しよう！",
 				"description": "Scratch・ロボット教室等"
+			},
+			{
+				"name": "がっきのれんしゅう",
+				"categoryCode": "souzou",
+				"icon": "🎹",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "がっき れんしゅう しよう！",
+				"description": "ピアノ・リコーダー等"
+			},
+			{
+				"name": "にっきをかいた",
+				"categoryCode": "souzou",
+				"icon": "📓",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "きょうの できごと かいてみよう！",
+				"description": "絵日記・作文（表現活動）"
+			},
+			{
+				"name": "おりがみをした",
+				"categoryCode": "souzou",
+				"icon": "🦢",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "すきな おりがみ おろう！",
+				"description": "折り紙で造形"
+			},
+			{
+				"name": "おうたをうたった",
+				"categoryCode": "souzou",
+				"icon": "🎵",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "すきな うたを うたおう！",
+				"description": "歌・合唱（表現）"
 			},
 			{
 				"name": "ともだちとあそんだ",
@@ -242,6 +286,39 @@
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "きょうの できごとを はなそう！",
 				"description": "家族との会話・報告"
+			},
+			{
+				"name": "とうばんかつどうした",
+				"categoryCode": "kouryuu",
+				"icon": "🧽",
+				"basePoints": 10,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "きゅうしょく・そうじ とうばん おつかれさま！",
+				"description": "給食当番・掃除当番（特別活動）"
+			},
+			{
+				"name": "いいんかいをした",
+				"categoryCode": "kouryuu",
+				"icon": "🏅",
+				"basePoints": 10,
+				"ageMin": 8,
+				"ageMax": 12,
+				"gradeLevel": "elementary_upper",
+				"triggerHint": "いいんかい・かかりかつどう がんばろう！",
+				"description": "委員会・係活動（社会参画）"
+			},
+			{
+				"name": "ありがとうとつたえた",
+				"categoryCode": "kouryuu",
+				"icon": "💝",
+				"basePoints": 5,
+				"ageMin": 6,
+				"ageMax": 12,
+				"gradeLevel": "elementary_lower",
+				"triggerHint": "ありがとう って つたえよう！",
+				"description": "感謝を言葉で伝える"
 			}
 		]
 	}

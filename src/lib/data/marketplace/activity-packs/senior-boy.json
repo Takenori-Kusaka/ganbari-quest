@@ -112,6 +112,17 @@
 				"description": "お小遣い帳・支出の記録"
 			},
 			{
+				"name": "身だしなみを整えた",
+				"categoryCode": "seikatsu",
+				"icon": "🪞",
+				"basePoints": 5,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "制服・頭髪をチェック！",
+				"description": "制服・髪型・スキンケアなど自己管理"
+			},
+			{
 				"name": "筋トレ・運動した",
 				"categoryCode": "undou",
 				"icon": "💪",
@@ -145,6 +156,28 @@
 				"description": "ジョギング・ランニング"
 			},
 			{
+				"name": "球技・武道した",
+				"categoryCode": "undou",
+				"icon": "⚾",
+				"basePoints": 10,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "球技や武道に打ち込もう！",
+				"description": "野球・サッカー・剣道・柔道等"
+			},
+			{
+				"name": "ダンス・表現うんどうした",
+				"categoryCode": "undou",
+				"icon": "🕺",
+				"basePoints": 10,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "ダンス・表現運動にも挑戦！",
+				"description": "ダンス・表現運動（高校体育）"
+			},
+			{
 				"name": "創作活動をした",
 				"categoryCode": "souzou",
 				"icon": "🎨",
@@ -167,6 +200,39 @@
 				"description": "ITパスポート・基本情報・英検等"
 			},
 			{
+				"name": "小論文・レポートを書いた",
+				"categoryCode": "souzou",
+				"icon": "✍️",
+				"basePoints": 15,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "自分の考えを文章にまとめよう！",
+				"description": "小論文・探究レポート・エッセイ"
+			},
+			{
+				"name": "動画・コンテンツ制作した",
+				"categoryCode": "souzou",
+				"icon": "🎬",
+				"basePoints": 15,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "好きなテーマで発信しよう！",
+				"description": "動画編集・ブログ・SNS等での自己表現"
+			},
+			{
+				"name": "楽器・音楽活動した",
+				"categoryCode": "souzou",
+				"icon": "🎸",
+				"basePoints": 10,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "楽器を演奏しよう！",
+				"description": "楽器の練習・バンド・作曲"
+			},
+			{
 				"name": "ボランティアに参加した",
 				"categoryCode": "kouryuu",
 				"icon": "🤝",
@@ -187,6 +253,39 @@
 				"gradeLevel": "high_school",
 				"triggerHint": "将来のことを家族と話そう！",
 				"description": "進路・将来について家族と相談"
+			},
+			{
+				"name": "生徒会・委員会活動した",
+				"categoryCode": "kouryuu",
+				"icon": "🏛️",
+				"basePoints": 15,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "学校運営に関わろう！",
+				"description": "生徒会・委員会・特別活動"
+			},
+			{
+				"name": "アルバイト・職場体験した",
+				"categoryCode": "kouryuu",
+				"icon": "💼",
+				"basePoints": 15,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "社会で働く経験を積もう！",
+				"description": "アルバイト・インターン・職場体験"
+			},
+			{
+				"name": "友人・先輩と相談した",
+				"categoryCode": "kouryuu",
+				"icon": "🤝",
+				"basePoints": 10,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "悩みや進路を相談しよう！",
+				"description": "友人・先輩・先生との相談"
 			}
 		]
 	}

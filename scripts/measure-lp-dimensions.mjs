@@ -37,6 +37,7 @@ const OUTPUT_PATH = resolve(args.output || 'lp-metrics.json');
 const TARGET_HTML = args.target || 'index.html';
 
 // #1088 / #1163 の禁止語（開発者向け語彙を LP に残さない）
+// #1212-H / ADR-0041: 「マーケットプレイス」「マケプレ」→「みんなのテンプレート」「テンプレート」へ移行済。再混入を CI 検出
 const FORBIDDEN_TERMS = [
 	'git clone',
 	'docker compose',
@@ -45,6 +46,8 @@ const FORBIDDEN_TERMS = [
 	'TLS',
 	'AES-256',
 	'AWS',
+	'マーケットプレイス',
+	'マケプレ',
 ];
 
 const THRESHOLDS = {
