@@ -440,7 +440,7 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
   - #786 — 月額↔年額切替の UI 導線改善 / proration 仕様
   - #823 — Tenant plan 状態マシン統一 EPIC
 - ADR
-  - [ADR-0022](../decisions/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性
+  - [ADR-0022（archive）](../decisions/archive/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性
 - 実装
   - `src/routes/(parent)/admin/license/+page.svelte`
   - `src/routes/(parent)/admin/license/+page.server.ts`

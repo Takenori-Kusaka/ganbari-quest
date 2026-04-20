@@ -1,5 +1,8 @@
 # ADR-0041: マーケットプレイス命名「みんなのテンプレート」採用
 
+> **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+
+
 - Status: proposed
 - Date: 2026-04-20
 - Issue: #1212
