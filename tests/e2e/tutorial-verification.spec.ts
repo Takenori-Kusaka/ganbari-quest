@@ -148,15 +148,13 @@ test.describe('チュートリアル全ステップ検証', () => {
 					break;
 				}
 				await nextBtn.click();
-				// ページ遷移の可能性があるのでバブルが再表示されるまで待機
-				await page.waitForTimeout(800);
 
-				// #955: クイック完了ダイアログが表示された場合は「もっと詳しく見る」で継続
+				// #955 / #1259: クイック完了ダイアログが出るまで 2.5s polling で待つ (出なければ次ループ先頭の bubble.waitFor が担保)
 				const continueBtn = page.locator('button:has-text("もっと詳しく見る")');
-				if (await continueBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+				if (await continueBtn.isVisible({ timeout: 2500 }).catch(() => false)) {
 					console.log(`  → クイック完了ダイアログ: 「もっと詳しく見る」で全ステップ継続`);
 					await continueBtn.click();
-					await page.waitForTimeout(800);
+					// 次のバブル出現は次ループ先頭で待機
 				}
 			} else {
 				console.log(`[End] 次へボタンが見つからない (step ${stepNum})`);
@@ -255,14 +253,13 @@ test.describe('チュートリアル全ステップ検証', () => {
 					break;
 				}
 				await nextBtn.click();
-				await page.waitForTimeout(800);
 
-				// #955: クイック完了ダイアログが表示された場合は「もっと詳しく見る」で継続
+				// #955 / #1259: クイック完了ダイアログが出るまで 2.5s polling で待つ (出なければ次ループ先頭の bubble.waitFor が担保)
 				const continueBtn = page.locator('button:has-text("もっと詳しく見る")');
-				if (await continueBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+				if (await continueBtn.isVisible({ timeout: 2500 }).catch(() => false)) {
 					console.log(`  → クイック完了ダイアログ: 「もっと詳しく見る」で全ステップ継続`);
 					await continueBtn.click();
-					await page.waitForTimeout(800);
+					// 次のバブル出現は次ループ先頭で待機
 				}
 			} else {
 				break;
