@@ -1,0 +1,27 @@
+{
+	"type": "checklist",
+	"itemId": "event-pool",
+	"name": "プールの もちもの",
+	"description": "小学校・幼稚園のプール授業・習い事の水泳教室で忘れがちな持ち物をカバーします。",
+	"icon": "🏊",
+	"targetAgeMin": 4,
+	"targetAgeMax": 12,
+	"tags": ["イベント", "夏", "プール", "水泳"],
+	"personas": ["routine-focused", "outdoor", "sports-oriented"],
+	"curator": "official",
+	"payload": {
+		"timing": "daily",
+		"items": [
+			{ "label": "みずぎ・ラッシュガード", "icon": "👙", "order": 1 },
+			{ "label": "プールバッグ", "icon": "🎒", "order": 2 },
+			{ "label": "ビーチタオル・バスタオル", "icon": "🏖️", "order": 3 },
+			{ "label": "プールぼうし", "icon": "🧢", "order": 4 },
+			{ "label": "ゴーグル", "icon": "🥽", "order": 5 },
+			{ "label": "ビニールぶくろ（ぬれたもの用）", "icon": "🛍️", "order": 6 },
+			{ "label": "プールカード・けんこうチェック表", "icon": "📋", "order": 7 },
+			{ "label": "日やけどめ（学校許可時のみ）", "icon": "🧴", "order": 8 },
+			{ "label": "サンダル（屋外プール時）", "icon": "🩴", "order": 9 },
+			{ "label": "飲みもの（水筒）", "icon": "🥤", "order": 10 }
+		]
+	}
+}
