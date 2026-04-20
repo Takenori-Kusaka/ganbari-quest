@@ -2,11 +2,11 @@
 	"type": "reward-set",
 	"itemId": "kinder-rewards",
 	"name": "ようじごほうび",
-	"description": "3〜5歳向け。公園遊び、お菓子づくり、好きなDVDなど、幼児が楽しめるごほうびを揃えました。",
+	"description": "3〜5歳向け。承認・シール集め・ちょっとした特別ごほうびで「自発性」を伸ばす幼児向けセット。",
 	"icon": "🎁",
 	"targetAgeMin": 3,
 	"targetAgeMax": 5,
-	"tags": ["年齢別", "幼児", "バランス型"],
+	"tags": ["年齢別", "幼児", "承認・シール", "自発性"],
 	"personas": ["routine-focused", "relaxed"],
 	"curator": "official",
 	"payload": {
@@ -52,6 +52,34 @@
 				"icon": "🫧",
 				"category": "sports",
 				"description": "おそとで シャボンだまを とばそう"
+			},
+			{
+				"title": "おとうさん・おかあさん と ねる",
+				"points": 30,
+				"icon": "🛏️",
+				"category": "social",
+				"description": "こんやは いっしょに ねんね"
+			},
+			{
+				"title": "すきな えほんを 3さつよんでもらう",
+				"points": 25,
+				"icon": "📚",
+				"category": "academic",
+				"description": "すきな えほんを 3さつ よんでもらおう"
+			},
+			{
+				"title": "ごほうびシール もらえる",
+				"points": 10,
+				"icon": "🌟",
+				"category": "other",
+				"description": "きょうの ごほうびシールを 1まい もらおう"
+			},
+			{
+				"title": "すきな のみものえらべる",
+				"points": 15,
+				"icon": "🥤",
+				"category": "life",
+				"description": "きょうは すきな のみものが のめるよ"
 			}
 		]
 	}

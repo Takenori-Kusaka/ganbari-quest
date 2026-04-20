@@ -2,11 +2,11 @@
 	"type": "reward-set",
 	"itemId": "junior-rewards",
 	"name": "中学生ごほうび",
-	"description": "10〜12歳向け。スマホ時間、友達との外出許可、お小遣いアップなど、中学年〜高学年に響くごほうびです。",
+	"description": "10〜12歳向け。自分で選ぶ目標・自己ベスト更新・数値達成で「自己効力感」を育てる中学生向けセット。",
 	"icon": "🎯",
 	"targetAgeMin": 10,
 	"targetAgeMax": 12,
-	"tags": ["年齢別", "中学生", "自立"],
+	"tags": ["年齢別", "中学生", "自己効力感", "自律"],
 	"personas": ["achievement-focused", "game-oriented"],
 	"curator": "official",
 	"payload": {
@@ -52,6 +52,34 @@
 				"icon": "🎮",
 				"category": "other",
 				"description": "ゲーム時間を1時間分ゲット"
+			},
+			{
+				"title": "習い事の追加レッスン",
+				"points": 80,
+				"icon": "📚",
+				"category": "academic",
+				"description": "行きたい塾・習い事の体験・追加レッスン"
+			},
+			{
+				"title": "自己ベスト更新記念",
+				"points": 40,
+				"icon": "🏅",
+				"category": "other",
+				"description": "連続記録の自己ベスト更新を家族で祝う"
+			},
+			{
+				"title": "推しグッズを買う",
+				"points": 120,
+				"icon": "🎁",
+				"category": "creative",
+				"description": "好きなアーティスト・キャラのグッズを1点"
+			},
+			{
+				"title": "家族外食のお店を選ぶ",
+				"points": 60,
+				"icon": "🍴",
+				"category": "social",
+				"description": "週末の外食先を自分でプレゼン・決定"
 			}
 		]
 	}
