@@ -305,7 +305,7 @@ function main() {
 		);
 		console.error(`  - 配布済み: ${missing[0]} → NUC .env (本機 + バックアップ機)`);
 		console.error('');
-		console.error('See: docs/decisions/0029-safety-assertion-erosion-ban.md');
+		console.error('See: docs/decisions/0006-safety-assertion-erosion-ban.md');
 		process.exit(1);
 	}
 

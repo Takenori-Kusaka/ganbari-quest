@@ -99,7 +99,7 @@ function main() {
 	console.warn('⚠️  If this PR is a pure format/comment change, add');
 	console.warn(`⚠️  "${SKIP_MARKER}" to the PR body to silence this warning.`);
 	console.warn('');
-	console.warn('⚠️  Reference: docs/decisions/0031-schema-change-compat-testing.md');
+	console.warn('⚠️  Reference: docs/decisions/archive/0031-schema-change-compat-testing.md');
 	console.warn('');
 }
 
