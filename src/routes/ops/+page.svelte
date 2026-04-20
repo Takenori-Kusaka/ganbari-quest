@@ -191,7 +191,7 @@ const adminBypass = $derived(data.adminBypass);
 		{/if}
 		<div class="text-xs text-[var(--color-text-muted)] mt-3">
 			取得日時: {new Date(adminBypass.fetchedAt).toLocaleString('ja-JP')}
-			| 運用ルール: <a href="https://github.com/Takenori-Kusaka/ganbari-quest/blob/main/docs/decisions/0044-admin-bypass-evidence.md" class="underline">ADR-0044</a>
+			| 運用ルール: <a href="https://github.com/Takenori-Kusaka/ganbari-quest/blob/main/docs/decisions/archive/0044-admin-bypass-evidence.md" class="underline">ADR-0044 (archive)</a>
 		</div>
 	</Card>
 
