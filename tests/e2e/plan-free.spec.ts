@@ -83,11 +83,9 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 		await loginAsPlan(page, 'free');
 		await page.goto('/admin/activities');
 		// Svelte ハイドレーション完了を待つ（FAB の onclick ハンドラ束縛を保証）。
-		// networkidle だけでは Vite dev のコールドコンパイル後の late import で不十分なことが
-		// あるため、FAB の確実な可視化とロード状態の両方を待つ。
-		await page.waitForLoadState('networkidle');
+		// FAB の確実な可視化で ready 状態を検知する（auto-retry assertion）。
 		const fab = page.getByTestId('add-activity-fab');
-		await expect(fab).toBeVisible();
+		await expect(fab).toBeVisible({ timeout: 15_000 });
 
 		// FAB から追加ダイアログを開き、AI モードを選択
 		// （AiSuggestPanel は Dialog 内 addMode='ai' のときのみ描画される）

@@ -20,7 +20,6 @@ async function loginAsOwner(page: Page): Promise<boolean> {
 	if (!TEST_EMAIL || !TEST_PASSWORD) return false;
 
 	await page.goto(`${BASE_URL}/auth/login`);
-	await page.waitForLoadState('networkidle');
 
 	const emailInput = page.getByLabel('メールアドレス');
 	if (!(await emailInput.isVisible({ timeout: 10000 }).catch(() => false))) {
@@ -172,7 +171,6 @@ test.describe('本番環境 - 認証後ページテスト', () => {
 		const ok = await loginAsOwner(page);
 		test.skip(!ok, '本番Cognitoへのログインに失敗');
 		await page.goto(`${BASE_URL}/switch`);
-		await page.waitForLoadState('networkidle');
 		await expect(page).toHaveTitle(/がんばりクエスト|Ganbari/i, { timeout: 15000 });
 		const childButton = page.locator('button[type="submit"]').first();
 		await expect(childButton).toBeVisible({ timeout: 15000 });
@@ -183,7 +181,6 @@ test.describe('本番環境 - 認証後ページテスト', () => {
 		const ok = await loginAsOwner(page);
 		test.skip(!ok, '本番Cognitoへのログインに失敗');
 		await page.goto(`${BASE_URL}/switch`);
-		await page.waitForLoadState('networkidle');
 		const childButton = page.locator('button[type="submit"]').first();
 		await expect(childButton).toBeVisible({ timeout: 15000 });
 		await childButton.click();
