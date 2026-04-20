@@ -36,7 +36,9 @@ try {
 		// Preview ボタンを force click
 		const previewBtn = page.locator('button:has-text("Preview")').first();
 		await previewBtn.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
-		await previewBtn.click({ force: true }).catch((e) => console.error('preview click failed:', e.message));
+		await previewBtn
+			.click({ force: true })
+			.catch((e) => console.error('preview click failed:', e.message));
 		await page.waitForTimeout(3500);
 		const path = `${OUT}/${t.name}.png`;
 		await page.screenshot({ path, fullPage: true });
