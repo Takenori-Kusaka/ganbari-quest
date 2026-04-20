@@ -72,6 +72,14 @@
 - [adr-inventory-2026-04-19.md](decisions/adr-inventory-2026-04-19.md) — 旧 0001〜0039 の棚卸。0008 / 0009 / 0016 を supersede、active-primary 12 件特定
 - `adr-inventory-2026-04-20.md`（#1262 sub-7 で作成予定）— 新体系 0001-0010 + archive 25 件の最終棚卸
 
+## Issue 起票・チケット運用ルール
+
+Issue の起票運用・テンプレート（Blocked by / Blocks / Related / 工程区分 phase dropdown）・admin bypass 証跡等のルールは [`.github/CLAUDE.md`](../.github/CLAUDE.md) を SSOT とする。特に以下は設計書更新と密接に関わるため押さえておくこと:
+
+- **依存関係 3 分割フィールド** (`blocked_by` / `blocks` / `related`) — 起票時に「待つべき Issue」「自分が詰まるとブロックする Issue」「参考のみ」を分離する（#1261）
+- **工程区分 dropdown** (P0-P7 / N/A) — 下流 Phase は上流 Phase が閉じるまで着手しない（ADR / 企画 / アーキ未確定のまま実装に進まない）
+- Pre-PMF スコープ判断（ADR-0010）/ レビュー & AC 検証品質（ADR-0004）/ Issue 起票・クローズ品質（ADR-0003）
+
 ## ローカル Cognito 認証検証環境 (#1026)
 
 認証が絡む画面（login / signup / 管理画面 / ops / プラン別 UI）を目視検証するには `npm run dev:cognito` を使う。

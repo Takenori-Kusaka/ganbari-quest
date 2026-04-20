@@ -88,6 +88,48 @@ body:
       description: 問題を説明するスクリーンショットや画面録画があれば添付してください。
 
   - type: textarea
+    id: blocked_by
+    attributes:
+      label: Blocked by（上流依存）
+      description: |
+        このバグ修正を着手する前に完了すべき**上流 Issue 番号**を列挙する。
+        同じエリアの先行 PR / 未確定ポリシー等。
+      placeholder: "#123 (ADR: 該当ポリシー)"
+
+  - type: textarea
+    id: blocks
+    attributes:
+      label: Blocks（下流への影響）
+      description: |
+        このバグ修正完了後にアンブロックされる**下流 Issue 番号**を列挙する。
+      placeholder: "#789 (依存する機能実装)"
+
+  - type: textarea
+    id: related
+    attributes:
+      label: Related（参考のみ・依存関係なし）
+      description: "関連するが依存関係を持たない Issue / ADR / 過去インシデントを列挙"
+      placeholder: "#234 (類似バグ)"
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: 工程区分（P0-P7 / N/A）
+      description: "バグ修正は通常 P7 だが、ポリシーや仕様の見直しが必要な場合は該当工程を選択"
+      options:
+        - "P0: インフラ・プロセス更改"
+        - "P1: ポリシー・判断基準 (ADR)"
+        - "P2: プロダクト定義・顧客範囲（企画）"
+        - "P3: アーキテクチャ・技術選定 (ADR)"
+        - "P4: 戦略・構造設計"
+        - "P5: 実装・コンテンツ"
+        - "P6: 機能実装"
+        - "P7: バグ修正・クリーンアップ"
+        - "N/A（独立タスク）"
+    validations:
+      required: true
+
+  - type: textarea
     id: additional
     attributes:
       label: 補足情報
