@@ -87,6 +87,9 @@
 | 0038 | [AC 検証エビデンス必須化 (Issue close gate + PR AC 検証マップ)](0038-ac-verification-evidence.md) | accepted | 2026-04-18 |
 | 0039 | [デモモードをアプリ実行モードに統合](0039-demo-mode-app-execution-mode.md) | accepted | 2026-04-19 |
 | 0040 | [実行モード × ライセンス統括アーキテクチャ (Typed env + EvaluationContext + Policy Gate)](0040-runtime-mode-license-unified-architecture.md) | accepted | 2026-04-19 |
+| 0041 | [マーケットプレイス命名テンプレート](0041-marketplace-naming-template.md) | accepted | 2026-04-20 |
+| 0042 | [マーケットプレイス 性別バリアント方針](0042-marketplace-gender-variant-policy.md) | accepted | 2026-04-20 |
+| 0043 | [NativeSelect primitive を採用（raw select 全置換）](0043-native-select-primitive.md) | accepted | 2026-04-20 |
 
 ## 棚卸レポート
 

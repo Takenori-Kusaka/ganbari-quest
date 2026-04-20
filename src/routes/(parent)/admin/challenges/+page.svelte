@@ -4,6 +4,7 @@ import { todayDateJST } from '$lib/domain/date-utils';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data, form } = $props();
 
@@ -135,29 +136,36 @@ const categories: Record<number, string> = {
 			<div class="grid grid-cols-3 gap-3">
 				<FormField label="種別">
 					{#snippet children()}
-						<select name="challengeType" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
-							<option value="cooperative">協力</option>
-							<option value="competitive">競争</option>
-						</select>
+						<NativeSelect
+							name="challengeType"
+							options={[
+								{ value: 'cooperative', label: '協力' },
+								{ value: 'competitive', label: '競争' },
+							]}
+						/>
 					{/snippet}
 				</FormField>
 				<FormField label="期間">
 					{#snippet children()}
-						<select name="periodType" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
-							<option value="weekly">週間</option>
-							<option value="monthly">月間</option>
-							<option value="custom">カスタム</option>
-						</select>
+						<NativeSelect
+							name="periodType"
+							options={[
+								{ value: 'weekly', label: '週間' },
+								{ value: 'monthly', label: '月間' },
+								{ value: 'custom', label: 'カスタム' },
+							]}
+						/>
 					{/snippet}
 				</FormField>
 				<FormField label="カテゴリ（任意）">
 					{#snippet children()}
-						<select name="categoryId" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
-							<option value="">全カテゴリ</option>
-							{#each Object.entries(categories) as [id, name]}
-								<option value={id}>{name}</option>
-							{/each}
-						</select>
+						<NativeSelect
+							name="categoryId"
+							options={[
+								{ value: '', label: '全カテゴリ' },
+								...Object.entries(categories).map(([id, name]) => ({ value: id, label: name })),
+							]}
+						/>
 					{/snippet}
 				</FormField>
 			</div>
