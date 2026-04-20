@@ -4,11 +4,12 @@ import { page } from '$app/stores';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data } = $props();
 
 let inviteRole = $state<'parent' | 'child'>('parent');
-let inviteChildId = $state<number | undefined>(undefined);
+let inviteChildId = $state<number | '' | undefined>(undefined);
 let creating = $state(false);
 let inviteLink = $state('');
 let qrDataUrl = $state('');
@@ -291,29 +292,27 @@ const roleLabel = (role: string) => {
 		<div class="flex flex-wrap items-end gap-3 mb-3">
 			<FormField label="招待ロール" id="invite-role" class="flex-1 min-w-[120px]">
 				{#snippet children()}
-					<select
+					<NativeSelect
 						id="invite-role"
 						bind:value={inviteRole}
 						onchange={() => { inviteChildId = undefined; }}
-						class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm"
-					>
-						<option value="parent">保護者</option>
-						<option value="child">こども</option>
-					</select>
+						options={[
+							{ value: 'parent', label: '保護者' },
+							{ value: 'child', label: 'こども' },
+						]}
+					/>
 				{/snippet}
 			</FormField>
 			{#if inviteRole === 'child' && availableChildren.length > 0}
 				<FormField label="対象の子供（任意）" class="flex-1 min-w-[120px]">
 					{#snippet children()}
-						<select
+						<NativeSelect
 							bind:value={inviteChildId}
-							class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm"
-						>
-							<option value={undefined}>-- 後で紐づけ --</option>
-							{#each availableChildren as child}
-								<option value={child.id}>{child.nickname}</option>
-							{/each}
-						</select>
+							options={[
+								{ value: '', label: '-- 後で紐づけ --' },
+								...availableChildren.map((child) => ({ value: child.id, label: child.nickname })),
+							]}
+						/>
 					{/snippet}
 				</FormField>
 			{/if}
@@ -428,14 +427,14 @@ const roleLabel = (role: string) => {
 				</FormField>
 				<FormField label="有効期限" class="min-w-[100px]">
 					{#snippet children()}
-						<select
+						<NativeSelect
 							bind:value={viewerDuration}
-							class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm"
-						>
-							<option value="7d">7日間</option>
-							<option value="30d">30日間</option>
-							<option value="unlimited">無期限</option>
-						</select>
+							options={[
+								{ value: '7d', label: '7日間' },
+								{ value: '30d', label: '30日間' },
+								{ value: 'unlimited', label: '無期限' },
+							]}
+						/>
 					{/snippet}
 				</FormField>
 				<Button

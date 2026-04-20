@@ -10,6 +10,7 @@ import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 import { APP_VERSION } from '$lib/version';
 
 let { data, form } = $props();
@@ -1012,23 +1013,16 @@ const anyFormBusy = $derived(
 			</div>
 
 			{#if pointMode === 'currency'}
-				<div>
-					<label for="pointCurrency" class="block text-sm font-medium text-[var(--color-text)] mb-1">
-						通貨
-					</label>
-					<select
-						id="pointCurrency"
-						name="point_currency"
-						bind:value={pointCurrency}
-						class="w-full px-3 py-2 border border-[var(--color-border-strong)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-300)]"
-					>
-						{#each CURRENCY_CODES as code}
-							<option value={code}>
-								{CURRENCY_DEFS[code].flag} {code} ({CURRENCY_DEFS[code].symbol})
-							</option>
-						{/each}
-					</select>
-				</div>
+				<NativeSelect
+					id="pointCurrency"
+					name="point_currency"
+					label="通貨"
+					bind:value={pointCurrency}
+					options={CURRENCY_CODES.map((code) => ({
+						value: code,
+						label: `${CURRENCY_DEFS[code].flag} ${code} (${CURRENCY_DEFS[code].symbol})`,
+					}))}
+				/>
 
 				<FormField
 					label="レート（1P = ？{CURRENCY_DEFS[pointCurrency].symbol}）"
@@ -1643,21 +1637,17 @@ const anyFormBusy = $derived(
 			}}
 			class="flex flex-col gap-4"
 		>
-			<div>
-				<label for="feedbackCategory" class="block text-sm font-medium text-[var(--color-text)] mb-1">
-					カテゴリ
-				</label>
-				<select
-					id="feedbackCategory"
-					name="category"
-					bind:value={feedbackCategory}
-					class="w-full px-3 py-2 border border-[var(--color-border-strong)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-300)]"
-				>
-					<option value="feature">機能要望</option>
-					<option value="bug">バグ報告</option>
-					<option value="other">その他</option>
-				</select>
-			</div>
+			<NativeSelect
+				id="feedbackCategory"
+				name="category"
+				label="カテゴリ"
+				bind:value={feedbackCategory}
+				options={[
+					{ value: 'feature', label: '機能要望' },
+					{ value: 'bug', label: 'バグ報告' },
+					{ value: 'other', label: 'その他' },
+				]}
+			/>
 
 			<div>
 				<label for="feedbackText" class="block text-sm font-medium text-[var(--color-text)] mb-1">
@@ -1779,19 +1769,20 @@ const anyFormBusy = $derived(
 								オーナー権限を移譲して退会する
 							</p>
 							<div class="flex items-center gap-2 mb-2">
-								<select
-									bind:value={transferTargetId}
-									class="flex-1 rounded-lg border px-3 py-2 text-sm"
-									style:border-color="var(--color-border-default)"
-								>
-									<option value="">移譲先を選択...</option>
-									{#each deletionInfo.otherMembers.filter((m) => m.role !== 'child') as member}
-										<option value={member.userId}>
-											{member.displayName ?? member.email ?? member.userId}
-											（{member.role}）
-										</option>
-									{/each}
-								</select>
+								<div class="flex-1">
+									<NativeSelect
+										bind:value={transferTargetId}
+										options={[
+											{ value: '', label: '移譲先を選択...' },
+											...deletionInfo.otherMembers
+												.filter((m) => m.role !== 'child')
+												.map((member) => ({
+													value: member.userId,
+													label: `${member.displayName ?? member.email ?? member.userId}（${member.role}）`,
+												})),
+										]}
+									/>
+								</div>
 								<Button
 									type="button"
 									variant="danger"

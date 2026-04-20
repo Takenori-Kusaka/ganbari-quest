@@ -4,6 +4,7 @@ import { ErrorAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data, form } = $props();
 
@@ -96,13 +97,17 @@ const conditionTypeLabels: Record<string, string> = {
 							</FormField>
 						</div>
 						<FormField id="ca-condType" label="条件タイプ">
-							<select id="ca-condType" name="conditionType" class="w-full px-3 py-2 border rounded-lg text-sm">
-								<option value="total_count">活動 総回数</option>
-								<option value="activity_count">特定活動の回数</option>
-								<option value="category_count">カテゴリ回数</option>
-								<option value="streak_days">連続日数</option>
-								<option value="activity_streak">特定活動の連続日数</option>
-							</select>
+							<NativeSelect
+								id="ca-condType"
+								name="conditionType"
+								options={[
+									{ value: 'total_count', label: '活動 総回数' },
+									{ value: 'activity_count', label: '特定活動の回数' },
+									{ value: 'category_count', label: 'カテゴリ回数' },
+									{ value: 'streak_days', label: '連続日数' },
+									{ value: 'activity_streak', label: '特定活動の連続日数' },
+								]}
+							/>
 						</FormField>
 						<FormField id="ca-condValue" label="目標値">
 							<input id="ca-condValue" name="conditionValue" type="number" required min="1" max="9999" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="100" />

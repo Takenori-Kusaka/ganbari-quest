@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { todayDateJST } from '$lib/domain/date-utils';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data, form } = $props();
 
@@ -73,11 +74,14 @@ function formatDate(d: string): string {
 			<div class="grid grid-cols-3 gap-3">
 				<FormField label="種別">
 					{#snippet children()}
-						<select name="eventType" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm">
-							<option value="seasonal">季節</option>
-							<option value="monthly">月次</option>
-							<option value="campaign">キャンペーン</option>
-						</select>
+						<NativeSelect
+							name="eventType"
+							options={[
+								{ value: 'seasonal', label: '季節' },
+								{ value: 'monthly', label: '月次' },
+								{ value: 'campaign', label: 'キャンペーン' },
+							]}
+						/>
 					{/snippet}
 				</FormField>
 				<FormField label="開始日" type="date" name="startDate" required />

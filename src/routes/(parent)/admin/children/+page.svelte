@@ -8,6 +8,7 @@ import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data, form } = $props();
 const childLimit = $derived(
@@ -114,16 +115,18 @@ let showAddForm = $state(false);
 						required
 						placeholder="4"
 					/>
-					<div>
-						<label for="add-theme" class="children-page__label">テーマカラー</label>
-						<select id="add-theme" name="theme" class="children-page__select">
-							<option value="pink">🩷 ピンク</option>
-							<option value="blue">💙 ブルー</option>
-							<option value="green">💚 みどり</option>
-							<option value="orange">🧡 オレンジ</option>
-							<option value="purple">💜 むらさき</option>
-						</select>
-					</div>
+					<NativeSelect
+						id="add-theme"
+						name="theme"
+						label="テーマカラー"
+						options={[
+							{ value: 'pink', label: '🩷 ピンク' },
+							{ value: 'blue', label: '💙 ブルー' },
+							{ value: 'green', label: '💚 みどり' },
+							{ value: 'orange', label: '🧡 オレンジ' },
+							{ value: 'purple', label: '💜 むらさき' },
+						]}
+					/>
 				</div>
 				<Button type="submit" variant="success" size="sm">追加する</Button>
 			</form>
@@ -221,20 +224,6 @@ let showAddForm = $state(false);
 		.children-page__add-grid {
 			grid-template-columns: 1fr;
 		}
-	}
-	.children-page__label {
-		display: block;
-		font-size: 0.75rem;
-		font-weight: 700;
-		color: var(--color-text-tertiary, #6b7280);
-		margin-bottom: 0.25rem;
-	}
-	.children-page__select {
-		width: 100%;
-		padding: 0.5rem 0.75rem;
-		border: 1px solid var(--input-border, #d1d5db);
-		border-radius: 0.5rem;
-		font-size: 0.875rem;
 	}
 	.children-page__error {
 		background: #fef2f2;

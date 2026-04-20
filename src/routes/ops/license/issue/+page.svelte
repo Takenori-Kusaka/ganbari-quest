@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import { getLicensePlanLabel } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data, form } = $props();
 const plans = $derived(data.plans);
@@ -86,18 +87,12 @@ async function copyAll() {
 			}}
 			class="flex flex-col gap-4"
 		>
-			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">プラン（必須）</span>
-				<select
-					name="plan"
-					required
-					class="px-3 py-2 border border-[var(--color-border-default)] rounded text-sm"
-				>
-					{#each plans as plan (plan)}
-						<option value={plan}>{getLicensePlanLabel(plan)}</option>
-					{/each}
-				</select>
-			</label>
+			<NativeSelect
+				name="plan"
+				label="プラン（必須）"
+				required
+				options={plans.map((plan: string) => ({ value: plan, label: getLicensePlanLabel(plan) }))}
+			/>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-sm font-medium">数量（必須・1〜500）</span>
@@ -125,16 +120,14 @@ async function copyAll() {
 				<span class="text-xs text-[var(--color-text-muted)]">監査ログとレコードの tenantId に記録されます。</span>
 			</label>
 
-			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">有効期限</span>
-				<select
-					name="expiresAt"
-					class="px-3 py-2 border border-[var(--color-border-default)] rounded text-sm"
-				>
-					<option value="default">デフォルト (発行から 90 日)</option>
-					<option value="never">期限なし (lifetime 的扱い)</option>
-				</select>
-			</label>
+			<NativeSelect
+				name="expiresAt"
+				label="有効期限"
+				options={[
+					{ value: 'default', label: 'デフォルト (発行から 90 日)' },
+					{ value: 'never', label: '期限なし (lifetime 的扱い)' },
+				]}
+			/>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-sm font-medium">発行プール ID（任意）</span>

@@ -5,6 +5,7 @@ import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data } = $props();
 
@@ -108,15 +109,11 @@ let selectedTemplate = $state<string | null>(null);
 			</div>
 			<div class="grid grid-cols-2 gap-3">
 				<FormField label="アイコン" type="text" disabled value="🎁" />
-				<label class="block">
-					<span class="block text-xs font-bold text-[var(--color-text-muted)] mb-1">カテゴリ</span>
-					<select
-						disabled
-						class="w-full px-3 py-2 border rounded-lg text-sm bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] cursor-not-allowed"
-					>
-						<option>とくべつ</option>
-					</select>
-				</label>
+				<NativeSelect
+					label="カテゴリ"
+					disabled
+					options={[{ value: 'special', label: 'とくべつ' }]}
+				/>
 			</div>
 
 			<Button

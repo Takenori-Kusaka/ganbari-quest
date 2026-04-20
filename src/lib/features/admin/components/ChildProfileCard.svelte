@@ -12,6 +12,7 @@ import type { CategoryDef } from '$lib/domain/validation/activity';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 interface PointSettings {
 	mode: PointUnitMode;
@@ -311,14 +312,16 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 								/>
 							{/snippet}
 						</FormField>
-						<div>
-							<label for="edit-theme-{child.id}" class="profile-edit__label">テーマカラー</label>
-							<select id="edit-theme-{child.id}" name="theme" class="profile-edit__select">
-								{#each getThemeOptions() as opt}
-									<option value={opt.value} selected={child.theme === opt.value}>{opt.emoji} {opt.label}</option>
-								{/each}
-							</select>
-						</div>
+						<NativeSelect
+							id="edit-theme-{child.id}"
+							name="theme"
+							label="テーマカラー"
+							value={child.theme}
+							options={getThemeOptions().map((opt) => ({
+								value: opt.value,
+								label: `${opt.emoji} ${opt.label}`,
+							}))}
+						/>
 					</div>
 				</div>
 
@@ -360,16 +363,15 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 				>
 					<input type="hidden" name="childId" value={child.id} />
 					<div class="profile-edit__bonus-row">
-						<label for="edit-multiplier-{child.id}" class="profile-edit__bonus-label">倍率:</label>
-						<select
-							id="edit-multiplier-{child.id}"
-							name="multiplier"
-							class="profile-edit__bonus-select"
-						>
-							{#each [0.5, 1.0, 1.5, 2.0, 2.5, 3.0] as val}
-								<option value={val} selected={val === (child.birthdayBonusMultiplier ?? 1.0)}>×{val}</option>
-							{/each}
-						</select>
+						<div class="profile-edit__bonus-select-wrap">
+							<NativeSelect
+								id="edit-multiplier-{child.id}"
+								name="multiplier"
+								label="倍率"
+								value={child.birthdayBonusMultiplier ?? 1.0}
+								options={[0.5, 1.0, 1.5, 2.0, 2.5, 3.0].map((val) => ({ value: val, label: `×${val}` }))}
+							/>
+						</div>
 						<Button type="submit" variant="primary" size="sm" class="bg-[var(--color-warning)] hover:opacity-90">適用</Button>
 						<span class="profile-edit__bonus-preview">
 							→ {child.age}歳 × 100pt × {child.birthdayBonusMultiplier ?? 1.0}倍 = {Math.round(child.age * 100 * (child.birthdayBonusMultiplier ?? 1.0))}pt
@@ -820,20 +822,6 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 		background: var(--color-surface-secondary, #f3f4f6);
 		color: var(--color-text-tertiary, #9ca3af);
 	}
-	.profile-edit__label {
-		display: block;
-		font-size: 0.75rem;
-		font-weight: 700;
-		color: var(--color-text-tertiary, #6b7280);
-		margin-bottom: 0.25rem;
-	}
-	.profile-edit__select {
-		width: 100%;
-		padding: 0.5rem 0.75rem;
-		border: 1px solid var(--input-border, #d1d5db);
-		border-radius: 0.5rem;
-		font-size: 0.875rem;
-	}
 	.profile-edit__actions {
 		display: flex;
 		gap: 0.5rem;
@@ -860,18 +848,6 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 		align-items: center;
 		gap: 0.5rem;
 		flex-wrap: wrap;
-	}
-	.profile-edit__bonus-label {
-		font-size: 0.75rem;
-		color: var(--color-warning-text, #92400e);
-		white-space: nowrap;
-	}
-	.profile-edit__bonus-select {
-		padding: 0.25rem 0.5rem;
-		border: 1px solid var(--color-border-warning, #fde68a);
-		border-radius: 0.25rem;
-		font-size: 0.875rem;
-		background: white;
 	}
 	.profile-edit__bonus-preview {
 		font-size: 0.75rem;
