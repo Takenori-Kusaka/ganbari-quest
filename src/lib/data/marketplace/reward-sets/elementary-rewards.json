@@ -75,11 +75,11 @@
 				"description": "すきな カード・おもちゃ・ステーショナリー 1こ"
 			},
 			{
-				"title": "連続記録バッジGET",
-				"points": 70,
-				"icon": "🥇",
+				"title": "くじびき 1かい",
+				"points": 30,
+				"icon": "🎰",
 				"category": "other",
-				"description": "連続達成でバッジがもらえる（コレクション）"
+				"description": "おうちの くじびき・ガチャを 1かいひける"
 			}
 		]
 	}
