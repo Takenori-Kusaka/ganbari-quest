@@ -107,6 +107,9 @@ jobs:
         continue-on-error: true
         run: npx eslint "src/**/*.ts"
 
+      - name: ESLint Playwright (no-networkidle / no-wait-for-timeout, #1259)
+        run: npx eslint "tests/**/*.ts"
+
       - name: Knip (unused exports/files/deps detection, #970)
         continue-on-error: true
         run: npx knip

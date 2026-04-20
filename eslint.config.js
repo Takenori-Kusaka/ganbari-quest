@@ -1,6 +1,7 @@
 // For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
 
 import tsParser from '@typescript-eslint/parser';
+import playwright from 'eslint-plugin-playwright';
 import sonarjs from 'eslint-plugin-sonarjs';
 import storybook from 'eslint-plugin-storybook';
 import svelte from 'eslint-plugin-svelte';
@@ -111,4 +112,20 @@ export default [
 		},
 	},
 	...storybook.configs['flat/recommended'],
+	// Playwright: tests/**/*.ts で非推奨 API の新規流入を error で自動拒否 (#1259 Phase 3)
+	// - no-wait-for-timeout: 固定待機禁止 (tests/CLAUDE.md 明記済み、Phase 2 で既存箇所排除)
+	// - no-networkidle: Playwright 公式 API ref で DISCOURAGED (Phase 1 で既存箇所排除)
+	{
+		files: ['tests/**/*.ts'],
+		plugins: {
+			playwright,
+		},
+		languageOptions: {
+			parser: tsParser,
+		},
+		rules: {
+			'playwright/no-wait-for-timeout': 'error',
+			'playwright/no-networkidle': 'error',
+		},
+	},
 ];
