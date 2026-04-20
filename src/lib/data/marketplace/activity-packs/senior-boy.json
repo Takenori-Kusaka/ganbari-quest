@@ -1,0 +1,193 @@
+{
+	"type": "activity-pack",
+	"itemId": "senior-boy",
+	"name": "高校生チャレンジ（男の子）",
+	"description": "16〜18歳の男の子向け。進路準備・自立スキル・部活を意識した活動で、社会に出る準備を支援します。",
+	"icon": "🎓",
+	"targetAgeMin": 16,
+	"targetAgeMax": 18,
+	"tags": ["高校生", "男の子", "進路", "自立"],
+	"personas": ["academic-oriented", "self-care", "achievement-focused"],
+	"curator": "official",
+	"gender": "boy",
+	"payload": {
+		"activities": [
+			{
+				"name": "受験勉強・自主学習した",
+				"categoryCode": "benkyou",
+				"icon": "📝",
+				"basePoints": 20,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "今日も自主学習を頑張ろう！",
+				"description": "受験対策・参考書・問題集に取り組む"
+			},
+			{
+				"name": "英語学習した",
+				"categoryCode": "benkyou",
+				"icon": "🌏",
+				"basePoints": 15,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "英語力を伸ばそう！",
+				"description": "英検・TOEIC対策・リスニング・英会話"
+			},
+			{
+				"name": "プログラミング・IT学習した",
+				"categoryCode": "benkyou",
+				"icon": "💻",
+				"basePoints": 15,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "スキルアップしよう！",
+				"description": "プログラミング・IT資格の勉強"
+			},
+			{
+				"name": "読書・論文を読んだ",
+				"categoryCode": "benkyou",
+				"icon": "📖",
+				"basePoints": 10,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "知識を広げよう！",
+				"description": "書籍・論文・専門書の読書"
+			},
+			{
+				"name": "進路について調べた",
+				"categoryCode": "benkyou",
+				"icon": "🔍",
+				"basePoints": 15,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "将来のことを考えよう！",
+				"description": "大学・専門学校・就職先のリサーチ"
+			},
+			{
+				"name": "朝活した",
+				"categoryCode": "seikatsu",
+				"icon": "🌅",
+				"basePoints": 10,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "朝の時間を有効に使おう！",
+				"description": "早起きして勉強・運動・読書"
+			},
+			{
+				"name": "料理をした",
+				"categoryCode": "seikatsu",
+				"icon": "🍳",
+				"basePoints": 15,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "自分で作ってみよう！",
+				"description": "食事の準備・自炊"
+			},
+			{
+				"name": "洗濯をした",
+				"categoryCode": "seikatsu",
+				"icon": "👕",
+				"basePoints": 10,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "自分の洗濯物を片付けよう！",
+				"description": "洗濯・干す・畳む"
+			},
+			{
+				"name": "家計簿をつけた",
+				"categoryCode": "seikatsu",
+				"icon": "💰",
+				"basePoints": 10,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "お金の管理をしよう！",
+				"description": "お小遣い帳・支出の記録"
+			},
+			{
+				"name": "筋トレ・運動した",
+				"categoryCode": "undou",
+				"icon": "💪",
+				"basePoints": 10,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "体を鍛えよう！",
+				"description": "ジム・自重トレーニング・ランニング"
+			},
+			{
+				"name": "部活動に参加した",
+				"categoryCode": "undou",
+				"icon": "🏅",
+				"basePoints": 15,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "部活を頑張ろう！",
+				"description": "部活動・クラブ活動"
+			},
+			{
+				"name": "ランニングした",
+				"categoryCode": "undou",
+				"icon": "🏃",
+				"basePoints": 10,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "外で走ろう！",
+				"description": "ジョギング・ランニング"
+			},
+			{
+				"name": "創作活動をした",
+				"categoryCode": "souzou",
+				"icon": "🎨",
+				"basePoints": 15,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "自分の作品を作ろう！",
+				"description": "音楽・動画・プログラミング等の創作"
+			},
+			{
+				"name": "資格の勉強をした",
+				"categoryCode": "souzou",
+				"icon": "📜",
+				"basePoints": 15,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "資格取得を目指そう！",
+				"description": "ITパスポート・基本情報・英検等"
+			},
+			{
+				"name": "ボランティアに参加した",
+				"categoryCode": "kouryuu",
+				"icon": "🤝",
+				"basePoints": 20,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "社会に貢献しよう！",
+				"description": "地域ボランティア・学校行事の手伝い"
+			},
+			{
+				"name": "家族と将来の話をした",
+				"categoryCode": "kouryuu",
+				"icon": "💬",
+				"basePoints": 10,
+				"ageMin": 16,
+				"ageMax": 18,
+				"gradeLevel": "high_school",
+				"triggerHint": "将来のことを家族と話そう！",
+				"description": "進路・将来について家族と相談"
+			}
+		]
+	}
+}

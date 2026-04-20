@@ -1,14 +1,15 @@
 {
 	"type": "activity-pack",
-	"itemId": "kinder-starter",
-	"name": "ようじキッズ",
-	"description": "3〜5歳のお子さま向け。幼児期の日常活動をバランスよくカバーし、自立心を育てます。",
-	"icon": "🎨",
+	"itemId": "kinder-girl",
+	"name": "ようじキッズ（おんなのこ）",
+	"description": "3〜5歳の女の子向け。お絵描きやごっこ遊びを楽しみながら、生活習慣と自立心を育てます。",
+	"icon": "🧚",
 	"targetAgeMin": 3,
 	"targetAgeMax": 5,
-	"tags": ["初心者向け", "幼児", "バランス型"],
-	"personas": ["routine-focused", "first-child"],
+	"tags": ["幼児", "女の子", "バランス型"],
+	"personas": ["routine-focused", "creative-oriented", "indoor"],
 	"curator": "official",
+	"gender": "girl",
 	"payload": {
 		"activities": [
 			{
@@ -25,7 +26,7 @@
 			{
 				"name": "おきがえした",
 				"categoryCode": "seikatsu",
-				"icon": "👕",
+				"icon": "👗",
 				"basePoints": 5,
 				"ageMin": 3,
 				"ageMax": 5,
@@ -75,29 +76,7 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "おうちの おてつだい してみよう！",
-				"description": "食事の準備・配膳のお手伝い等"
-			},
-			{
-				"name": "しょっきをはこんだ",
-				"categoryCode": "seikatsu",
-				"icon": "🍽️",
-				"basePoints": 5,
-				"ageMin": 4,
-				"ageMax": 5,
-				"gradeLevel": "kinder",
-				"triggerHint": "おさらを はこぼう！",
-				"description": "食卓への配膳・下げ膳"
-			},
-			{
-				"name": "テーブルをふいた",
-				"categoryCode": "seikatsu",
-				"icon": "🧽",
-				"basePoints": 5,
-				"ageMin": 4,
-				"ageMax": 5,
-				"gradeLevel": "kinder",
-				"triggerHint": "テーブルを ピカピカに しよう！",
-				"description": "食後のテーブル拭き"
+				"description": "食事の準備・配膳・しょっき運び等"
 			},
 			{
 				"name": "くつをそろえた",
@@ -111,15 +90,15 @@
 				"description": "玄関の靴をきれいに揃える"
 			},
 			{
-				"name": "しょくぶつのみずやり",
-				"categoryCode": "seikatsu",
-				"icon": "🌱",
+				"name": "ダンスした",
+				"categoryCode": "undou",
+				"icon": "💃",
 				"basePoints": 5,
-				"ageMin": 4,
+				"ageMin": 3,
 				"ageMax": 5,
 				"gradeLevel": "kinder",
-				"triggerHint": "おはなに おみず あげよう！",
-				"description": "植物・花への水やり"
+				"triggerHint": "おんがくに あわせて おどろう！",
+				"description": "音楽に合わせたダンス"
 			},
 			{
 				"name": "からだをうごかした",
@@ -142,17 +121,6 @@
 				"gradeLevel": "kinder",
 				"triggerHint": "なわとび れんしゅう してみよう！",
 				"description": "縄跳びの練習"
-			},
-			{
-				"name": "ダンスした",
-				"categoryCode": "undou",
-				"icon": "💃",
-				"basePoints": 5,
-				"ageMin": 3,
-				"ageMax": 5,
-				"gradeLevel": "kinder",
-				"triggerHint": "おんがくに あわせて おどろう！",
-				"description": "音楽に合わせたダンス"
 			},
 			{
 				"name": "おえかきした",
@@ -186,6 +154,17 @@
 				"gradeLevel": "kinder",
 				"triggerHint": "おうたを うたおう！",
 				"description": "童謡やリズム遊び"
+			},
+			{
+				"name": "おままごとした",
+				"categoryCode": "souzou",
+				"icon": "🍳",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おりょうりごっこ しよう！",
+				"description": "ごっこ遊び・おままごと"
 			},
 			{
 				"name": "えほんをよんだ",
@@ -252,28 +231,6 @@
 				"gradeLevel": "kinder",
 				"triggerHint": "おはよう、ありがとう！",
 				"description": "元気な挨拶・お礼"
-			},
-			{
-				"name": "ありがとうをいった",
-				"categoryCode": "kouryuu",
-				"icon": "💕",
-				"basePoints": 3,
-				"ageMin": 3,
-				"ageMax": 5,
-				"gradeLevel": "kinder",
-				"triggerHint": "ありがとう って いえるかな？",
-				"description": "感謝の気持ちを伝える"
-			},
-			{
-				"name": "ごめんなさいをいった",
-				"categoryCode": "kouryuu",
-				"icon": "🙇",
-				"basePoints": 5,
-				"ageMin": 3,
-				"ageMax": 5,
-				"gradeLevel": "kinder",
-				"triggerHint": "「ごめんなさい」 いえたね！",
-				"description": "自分から謝れる"
 			}
 		]
 	}
