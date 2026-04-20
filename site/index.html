@@ -148,13 +148,6 @@
 .soft-card h3{font-size:1.1rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .soft-card p{font-size:.9rem;color:var(--gray-600);line-height:1.7}
 
-/* Social proof */
-.proof-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;max-width:800px;margin:0 auto}
-.proof-stat{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;text-align:center}
-.proof-stat .ps-num{font-size:1.8rem;font-weight:800;color:var(--brand-700);margin-bottom:4px;line-height:1.2}
-.proof-stat .ps-label{font-size:.82rem;color:var(--gray-600);line-height:1.5}
-.proof-note{max-width:640px;margin:20px auto 0;text-align:center;font-size:.82rem;color:var(--gray-500);line-height:1.7}
-
 /* Pricing summary */
 .pricing-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:960px;margin:0 auto 24px}
 .pricing-summary-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 22px;text-align:center;position:relative}
@@ -472,35 +465,8 @@
   </div>
 </section>
 
-<!-- [06] 社会的証明 (Pre-PMF) -->
-<section class="section bg-white" id="social-proof">
-  <div class="section-inner">
-    <h2 class="section-title">現在のご利用状況</h2>
-    <p class="section-desc">β 期間中、数値はそのまま公開しています。<br>嘘のない数字で、プロダクトの育ち方をごらんください。</p>
-    <div class="proof-stats">
-      <div class="proof-stat">
-        <div class="ps-num">β</div>
-        <div class="ps-label">現在 β 期間中<br>ご意見を直接反映しています</div>
-      </div>
-      <div class="proof-stat">
-        <div class="ps-num">0-18</div>
-        <div class="ps-label">対応年齢<br>5 つの UI モード</div>
-      </div>
-      <div class="proof-stat">
-        <div class="ps-num">36+</div>
-        <div class="ps-label">ゲーミフィケーション要素<br>アチーブメント / 称号 / コンボ 他</div>
-      </div>
-      <div class="proof-stat">
-        <div class="ps-num">OSS</div>
-        <div class="ps-label">ソースコード公開<br>家族のデータは家族のもの</div>
-      </div>
-    </div>
-    <p class="proof-note">※ ユーザー数・レビュー評価は誠実に開示するため、PMF 到達後に掲載します（<a href="https://github.com/Takenori-Kusaka/ganbari-quest" style="color:var(--brand-700)">GitHub リポジトリ</a> にて進捗公開中）。</p>
-  </div>
-</section>
-
-<!-- [07] 料金サマリ -->
-<section class="section bg-gray" id="pricing">
+<!-- [06] 料金サマリ (旧 [07]。#1282 で旧 [06] 社会的証明を削除、番号を繰り上げ) -->
+<section class="section bg-white" id="pricing">
   <div class="section-inner">
     <h2 class="section-title">料金プラン</h2>
     <p class="section-desc">基本はずっと無料。家族構成に合わせて選べる 3 プラン。<br>有料プランは <strong>7 日間の無料トライアル付き</strong>。</p>
@@ -540,8 +506,8 @@
   </div>
 </section>
 
-<!-- [08] 安心訴求 -->
-<section class="section bg-white" id="trust">
+<!-- [07] 安心訴求 -->
+<section class="section bg-gray" id="trust">
   <div class="section-inner">
     <h2 class="section-title">お子さまのデータは、家族だけのものです</h2>
     <p class="section-desc">広告なし・家族限定・ソースコード公開。<br>「こっそり外に持ち出される」不安をゼロにする 3 つの約束。</p>
@@ -567,8 +533,8 @@
   </div>
 </section>
 
-<!-- [09] FAQ -->
-<section class="section bg-gray" id="faq">
+<!-- [08] FAQ -->
+<section class="section bg-white" id="faq">
   <div class="section-inner">
     <h2 class="section-title">よくあるご質問</h2>
     <p class="section-desc">ご契約前に気になる 5 つ。</p>
@@ -598,7 +564,7 @@
   </div>
 </section>
 
-<!-- [10] 最終 CTA -->
+<!-- [09] 最終 CTA -->
 <section class="cta-bottom">
   <h2>7 日間、家族で試してみる</h2>
   <p>クレジットカード登録不要 / いつでもキャンセル可能。<br>今日からお子さまの「やりたい！」を育てませんか？</p>
