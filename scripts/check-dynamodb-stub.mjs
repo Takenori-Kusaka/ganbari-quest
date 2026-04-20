@@ -165,8 +165,8 @@ function main() {
 	console.error(
 		'\nPO 方針: main マージ = 即本番デプロイ = 即顧客提供。\n' +
 			'interface を追加した PR で SQLite + DynamoDB 両実装を完成させてください。\n' +
-			'Pre-PMF で不採用の機能は interface 自体を追加しないこと（ADR-0034）。\n' +
-			'詳細: docs/sessions/dev-session.md 「段階的リリース禁止」セクション / docs/decisions/0034-pre-pmf-security-minimum.md',
+			'Pre-PMF で不採用の機能は interface 自体を追加しないこと（ADR-0010）。\n' +
+			'詳細: docs/sessions/dev-session.md 「段階的リリース禁止」セクション / docs/decisions/0010-pre-pmf-scope-judgment.md',
 	);
 	process.exit(1);
 }

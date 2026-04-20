@@ -82,7 +82,7 @@ export class ComputeStack extends cdk.Stack {
 				'[ComputeStack] awsLicenseSecret context is empty. ' +
 					// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax, not JS template literal
 					'Pass -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }} in the deploy workflow. ' +
-					'See docs/decisions/0026-license-key-architecture.md and infra/CLAUDE.md.',
+					'See docs/decisions/archive/0026-license-key-architecture.md and infra/CLAUDE.md.',
 			);
 		}
 

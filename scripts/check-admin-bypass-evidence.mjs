@@ -207,7 +207,7 @@ async function postMissingEvidenceComment(prNumber) {
 		'（`npm run dev:cognito` での手動確認ログ 等）',
 		'```',
 		'',
-		'参考: [ADR-0044](https://github.com/Takenori-Kusaka/ganbari-quest/blob/main/docs/decisions/0044-admin-bypass-evidence.md) / [Issue #1201](https://github.com/Takenori-Kusaka/ganbari-quest/issues/1201)',
+		'参考: [ADR-0044 (archive)](https://github.com/Takenori-Kusaka/ganbari-quest/blob/main/docs/decisions/archive/0044-admin-bypass-evidence.md) / [Issue #1201](https://github.com/Takenori-Kusaka/ganbari-quest/issues/1201)',
 	].join('\n');
 
 	if (DRY_RUN) {
