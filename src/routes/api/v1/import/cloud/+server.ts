@@ -186,7 +186,7 @@ async function handleFullImport(
 	}
 
 	if (mode === 'preview') {
-		const preview = previewImport(validation.data);
+		const preview = await previewImport(validation.data, tenantId);
 		return json({ ok: true, preview: { exportType: 'full', ...preview } });
 	}
 
