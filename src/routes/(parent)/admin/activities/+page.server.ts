@@ -1,8 +1,9 @@
 import { fail } from '@sveltejs/kit';
-import { activityPackIndex, getActivityPack } from '$lib/data/activity-packs';
+import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
+import type { ActivityPackPayload } from '$lib/domain/marketplace-item';
 import { CATEGORY_CODES, CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -39,8 +40,19 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const activityLimit = await checkActivityLimit(tenantId, licenseStatus);
 
-	// プリセットパック一覧
-	const activityPacks = activityPackIndex.packs;
+	// プリセットパック一覧（marketplace SSOT から activity-pack のみ抽出してレガシー形状に整形）
+	const activityPacks = getMarketplaceIndex()
+		.filter((m) => m.type === 'activity-pack')
+		.map((m) => ({
+			packId: m.itemId,
+			packName: m.name,
+			description: m.description,
+			icon: m.icon,
+			targetAgeMin: m.targetAgeMin,
+			targetAgeMax: m.targetAgeMax,
+			tags: m.tags,
+			activityCount: m.itemCount,
+		}));
 
 	const isPremium = isPaidTier(
 		await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan),
@@ -200,15 +212,16 @@ export const actions: Actions = {
 
 		if (!packId) return fail(400, { error: 'パックIDが必要です' });
 
-		const pack = getActivityPack(packId);
+		const pack = getMarketplaceItem('activity-pack', packId);
 		if (!pack) return fail(404, { error: 'パックが見つかりません' });
 
 		try {
-			const preview = await previewActivityImport(pack.activities, tenantId);
-			const result = await importActivities(pack.activities, tenantId);
+			const activities = (pack.payload as ActivityPackPayload).activities as ActivityPackItem[];
+			const preview = await previewActivityImport(activities, tenantId);
+			const result = await importActivities(activities, tenantId);
 			return {
 				importResult: true,
-				packName: pack.packName,
+				packName: pack.name,
 				imported: result.imported,
 				skipped: result.skipped,
 				total: preview.total,
