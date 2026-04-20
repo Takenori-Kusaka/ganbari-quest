@@ -127,9 +127,7 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 	});
 
 	// #1212-A: /activity-packs 一覧も廃止 → マーケット一覧へ集約
-	test('/activity-packs → /marketplace?type=activity-pack (301, 一覧廃止)', async ({
-		request,
-	}) => {
+	test('/activity-packs → /marketplace?type=activity-pack (301, 一覧廃止)', async ({ request }) => {
 		await expectRedirect(request, '/activity-packs', '/marketplace?type=activity-pack', 301);
 	});
 
