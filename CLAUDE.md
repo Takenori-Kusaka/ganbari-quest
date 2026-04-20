@@ -93,10 +93,10 @@ vitest --coverage（カバレッジ閾値）, playwright（E2E）, ESLint（svel
 - URL をリネーム・廃止した際に、個別の `+page.server.ts` や `+page.ts` に `redirect()` を書かない → `src/routes/CLAUDE.md` の旧 URL 廃止ルール参照
 - `vite.config.ts` のカバレッジ閾値（thresholds）を引き下げない → CI が自動拒否（`scripts/check-coverage-threshold.js`）
 - E2E テストで `clearDialogGhosts` を新規使用しない → アプリ側のダイアログバグを隠蔽するため
-- `assert*Configured()` / `throw new Error('XXX is required')` / `process.env.X || (() => { throw ... })()` を新規追加するときに、PR 本文へ「配布済み: ENV」証跡を書かない → CI の `new-env-distribution-check` が red になる（ADR-0029、`scripts/check-new-required-env.mjs`）
-- ADR-0029 禁止 5 項目（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加）を行わない → 例外手続きは別 ADR で当該 ADR を supersede すること
+- `assert*Configured()` / `throw new Error('XXX is required')` / `process.env.X || (() => { throw ... })()` を新規追加するときに、PR 本文へ「配布済み: ENV」証跡を書かない → CI の `new-env-distribution-check` が red になる（ADR-0006、`scripts/check-new-required-env.mjs`）
+- ADR-0006 禁止 5 項目（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加）を行わない → 例外手続きは別 ADR で当該 ADR を supersede すること
 - ライセンスプラン / 購読ステータス / ライセンスキー状態の値を文字列リテラルで直書きしない（#972）→ `$lib/domain/constants/{license-plan,subscription-status,license-key-status,auth-license-status}.ts` の定数経由で参照すること。`'family-monthly'` / `'family-yearly'` / `'grace_period'` は CI (`scripts/check-no-plan-literals.mjs`) が自動拒否
-- Pre-PMF で過剰防衛設計（汎用監査ログ DynamoDB テーブル / S3+Athena / AWS WAF / IP 単位ブルートフォース検知 等）を新規追加しない（ADR-0034）→ HMAC 鍵強度 + API Gateway スロットリング + AWS Budgets + 既存 state カラムで Pre-PMF 段階は十分。採用するには ADR-0034 を supersede する新 ADR を先に起票すること
+- Pre-PMF で過剰防衛設計（汎用監査ログ DynamoDB テーブル / S3+Athena / AWS WAF / IP 単位ブルートフォース検知 等）を新規追加しない（ADR-0010）→ HMAC 鍵強度 + API Gateway スロットリング + AWS Budgets + 既存 state カラムで Pre-PMF 段階は十分。採用するには ADR-0010 を supersede する新 ADR を先に起票すること
 - **認証が絡む UI 画面** (login / signup / 管理画面 / ops / プラン別 UI) を `npm run dev` の自動認証モードだけで検証した状態で PR を Ready にしない（#1026）→ `npm run dev` は `/auth/login` を 302 redirect するためログインフォームが描画されず UI 検証ができない。必ず `npm run dev:cognito` で Cognito モックモード (port 5174) を起動し、`DEV_USERS` の該当アカウントでログインした上で `docs/DESIGN.md` §9 禁忌事項のセルフチェックを行うこと
 - **スクリーンショットは CI を通すためではなく UI/UX デザイナー視点の自己判定証跡**として貼る（#1026）→ PR 本文に `![...](...)` さえあれば screenshot-check は通るが、それは目的ではない。撮った画像を自分で見て違和感があれば修正すること。PR template の「スクリーンショット / ビジュアルデモ」セクション冒頭の目的説明に従うこと
 - jscpd を PR の hard-fail に昇格させない（別 ADR なしには）（#971）→ jscpd は週次レポートとして T3 階層で運用。PR ゲートに含めると開発体験が悪化する
@@ -131,9 +131,9 @@ vitest --coverage（カバレッジ閾値）, playwright（E2E）, ESLint（svel
 | ファイル | 内容 |
 |---------|------|
 | `src/routes/CLAUDE.md` | UI実装ルール、デザインシステム、用語管理、チュートリアル、Done基準 |
-| `tests/CLAUDE.md` | テスト品質ルール（ADR-0020）、E2E固有ガイダンス |
+| `tests/CLAUDE.md` | テスト品質ルール（ADR-0005）、E2E固有ガイダンス |
 | `docs/CLAUDE.md` | 設計書更新ルール、ADR管理・一覧、画像アセットルール |
-| `.github/CLAUDE.md` | チケット管理、Draft PR運用、Issue起票ルール（ADR-0018） |
+| `.github/CLAUDE.md` | チケット管理、Draft PR運用、Issue起票ルール（ADR-0003） |
 | `infra/CLAUDE.md` | AWS Lambda / NUC デプロイ手順 |
 
 ## Further Context
