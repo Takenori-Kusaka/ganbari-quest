@@ -5,6 +5,7 @@
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
 const BRANCH = 'feat/1261-issue-template-dependencies';
 const REPO = 'Takenori-Kusaka/ganbari-quest';
@@ -32,14 +33,14 @@ try {
 		const ctx = await browser.newContext({ viewport: { width: 1400, height: 1600 } });
 		const page = await ctx.newPage();
 		await page.goto(t.url, { waitUntil: 'domcontentloaded', timeout: 90000 });
-		await page.waitForTimeout(3000);
+		await waitForStablePage(page);
 		// Preview ボタンを force click
 		const previewBtn = page.locator('button:has-text("Preview")').first();
 		await previewBtn.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
 		await previewBtn
 			.click({ force: true })
 			.catch((e) => console.error('preview click failed:', e.message));
-		await page.waitForTimeout(3500);
+		await waitForStablePage(page, { skipNetworkIdle: true });
 		const path = `${OUT}/${t.name}.png`;
 		await page.screenshot({ path, fullPage: true });
 		console.log(`OK -> ${path}`);
