@@ -203,6 +203,7 @@ describe('questionnaire-service', () => {
 					icon: '☀️',
 					pointsPerItem: 2,
 					completionBonus: 5,
+					sourcePresetId: 'morning-routine',
 				},
 				TENANT,
 			);

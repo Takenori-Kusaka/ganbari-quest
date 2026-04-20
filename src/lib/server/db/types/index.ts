@@ -53,6 +53,8 @@ export interface Activity {
 	isArchived: number;
 	archivedReason: string | null;
 	createdAt: string;
+	// #1254 G1: プリセット非由来は NULL / 未設定
+	sourcePresetId?: string | null;
 }
 
 export interface ActivityLog {
@@ -189,6 +191,8 @@ export interface SpecialReward {
 	category: string;
 	grantedAt: string;
 	shownAt: string | null;
+	// #1254 G1: プリセット非由来は NULL / 未設定
+	sourcePresetId?: string | null;
 }
 
 export interface ChecklistTemplate {
@@ -206,6 +210,8 @@ export interface ChecklistTemplate {
 	kind: string;
 	createdAt: string;
 	updatedAt: string;
+	// #1254 G1: プリセット非由来は NULL / 未設定
+	sourcePresetId?: string | null;
 }
 
 export interface ChecklistTemplateItem {
@@ -277,6 +283,7 @@ export interface InsertActivityInput {
 	ageMax: number | null;
 	triggerHint?: string | null;
 	isMainQuest?: number;
+	sourcePresetId?: string | null;
 }
 
 export interface UpdateActivityInput {
@@ -354,6 +361,7 @@ export interface InsertSpecialRewardInput {
 	points: number;
 	icon?: string;
 	category: string;
+	sourcePresetId?: string | null;
 }
 
 export interface InsertStatusHistoryInput {
@@ -374,6 +382,8 @@ export interface InsertChecklistTemplateInput {
 	isActive?: number;
 	// #1168: 'item' | 'routine' (default 'routine')
 	kind?: string;
+	// #1254 G1: マーケットプレイスプリセット由来の識別子
+	sourcePresetId?: string | null;
 }
 
 export interface UpdateChecklistTemplateInput {

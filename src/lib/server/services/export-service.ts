@@ -103,6 +103,7 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		nameKana: a.nameKana,
 		nameKanji: a.nameKanji,
 		triggerHint: a.triggerHint,
+		sourcePresetId: a.sourcePresetId,
 	}));
 
 	// 称号システム廃止（#322）— 空配列
@@ -320,6 +321,7 @@ async function collectTransactionData(
 				icon: sr.icon,
 				category: sr.category,
 				grantedAt: sr.grantedAt,
+				sourcePresetId: sr.sourcePresetId,
 			});
 		}
 
@@ -333,6 +335,7 @@ async function collectTransactionData(
 				pointsPerItem: tpl.pointsPerItem,
 				completionBonus: tpl.completionBonus,
 				isActive: tpl.isActive === 1,
+				sourcePresetId: tpl.sourcePresetId,
 				items: items.map((item) => ({
 					name: item.name,
 					icon: item.icon,

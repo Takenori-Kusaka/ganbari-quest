@@ -12,6 +12,7 @@ export async function insertSpecialReward(
 		points: number;
 		icon?: string;
 		category: string;
+		sourcePresetId?: string | null;
 	},
 	_tenantId: string,
 ) {
