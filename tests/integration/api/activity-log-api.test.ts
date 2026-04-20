@@ -56,6 +56,7 @@ const SQL_TABLES = `
 		name_kanji TEXT,
 		trigger_hint TEXT,
 		is_main_quest INTEGER NOT NULL DEFAULT 0,
+		source_preset_id TEXT,
 		is_archived INTEGER NOT NULL DEFAULT 0,
 		archived_reason TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

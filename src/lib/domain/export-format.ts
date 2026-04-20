@@ -2,7 +2,8 @@
 // エクスポートファイルのフォーマット型定義
 
 export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
-export const EXPORT_VERSION = '1.1.0' as const;
+// #1254 G1: 1.2.0 で `sourcePresetId` フィールドを追加 (activities / specialRewards / checklistTemplates)
+export const EXPORT_VERSION = '1.2.0' as const;
 
 // ============================================================
 // マスタデータ型
@@ -25,6 +26,8 @@ export interface ExportActivity {
 	nameKana: string | null;
 	nameKanji: string | null;
 	triggerHint: string | null;
+	// #1254 G1: マーケットプレイスプリセット由来の識別子 (v1.2.0+)
+	sourcePresetId?: string | null;
 }
 
 export interface ExportTitle {
@@ -140,6 +143,8 @@ export interface ExportSpecialReward {
 	icon: string | null;
 	category: string;
 	grantedAt: string;
+	// #1254 G1: マーケットプレイスプリセット由来の識別子 (v1.2.0+)
+	sourcePresetId?: string | null;
 }
 
 export interface ExportChecklistTemplate {
@@ -150,6 +155,8 @@ export interface ExportChecklistTemplate {
 	completionBonus: number;
 	isActive: boolean;
 	items: ExportChecklistTemplateItem[];
+	// #1254 G1: マーケットプレイスプリセット由来の識別子 (v1.2.0+)
+	sourcePresetId?: string | null;
 }
 
 export interface ExportChecklistTemplateItem {

@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // ---------- Top-level mocks ----------
 
 const mockFindActivities = vi.fn();
+const mockFindActivityLogs = vi.fn();
 const mockInsertActivity = vi.fn();
 const mockInsertActivityLog = vi.fn();
 const mockInsertPointLedger = vi.fn();
@@ -14,14 +15,17 @@ const mockUpsertStatus = vi.fn();
 const mockInsertStatusHistory = vi.fn();
 const mockFindAllAchievements = vi.fn();
 const mockInsertChildAchievement = vi.fn();
+const mockFindRecentBonuses = vi.fn();
 const mockInsertLoginBonus = vi.fn();
 const mockInsertTemplate = vi.fn();
 const mockInsertTemplateItem = vi.fn();
+const mockFindTemplatesByChild = vi.fn();
 const mockFindSpecialRewards = vi.fn();
 const mockInsertSpecialReward = vi.fn();
 
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: (...args: unknown[]) => mockFindActivities(...args),
+	findActivityLogs: (...args: unknown[]) => mockFindActivityLogs(...args),
 	insertActivity: (...args: unknown[]) => mockInsertActivity(...args),
 	insertActivityLog: (...args: unknown[]) => mockInsertActivityLog(...args),
 	insertPointLedger: (...args: unknown[]) => mockInsertPointLedger(...args),
@@ -42,12 +46,14 @@ vi.mock('$lib/server/db/achievement-repo', () => ({
 }));
 
 vi.mock('$lib/server/db/login-bonus-repo', () => ({
+	findRecentBonuses: (...args: unknown[]) => mockFindRecentBonuses(...args),
 	insertLoginBonus: (...args: unknown[]) => mockInsertLoginBonus(...args),
 }));
 
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	insertTemplate: (...args: unknown[]) => mockInsertTemplate(...args),
 	insertTemplateItem: (...args: unknown[]) => mockInsertTemplateItem(...args),
+	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
 }));
 
 vi.mock('$lib/server/db/special-reward-repo', () => ({
@@ -132,8 +138,11 @@ beforeEach(() => {
 
 	// Default: lookup mocks return empty arrays
 	mockFindActivities.mockResolvedValue([]);
+	mockFindActivityLogs.mockResolvedValue([]);
 	mockFindAllAchievements.mockResolvedValue([]);
+	mockFindRecentBonuses.mockResolvedValue([]);
 	mockFindSpecialRewards.mockResolvedValue([]);
+	mockFindTemplatesByChild.mockResolvedValue([]);
 });
 
 // ============================================================
@@ -256,7 +265,7 @@ describe('validateExportData', () => {
 // ============================================================
 
 describe('previewImport', () => {
-	it('各データセクションの件数を正しく返す', () => {
+	it('各データセクションの件数を正しく返す', async () => {
 		const data = makeExportData();
 		data.family.children = [makeChild('c1'), makeChild('c2', 'テスト花子')];
 		data.data.activityLogs = [
@@ -367,7 +376,7 @@ describe('previewImport', () => {
 			},
 		];
 
-		const preview = previewImport(data);
+		const preview = await previewImport(data, TENANT);
 
 		expect(preview.children).toBe(2);
 		expect(preview.activityLogs).toBe(1);
@@ -377,11 +386,12 @@ describe('previewImport', () => {
 		expect(preview.loginBonuses).toBe(2);
 		expect(preview.checklistTemplates).toBe(1);
 		expect(preview.specialRewards).toBe(2);
+		expect(preview.duplicates).toBeDefined();
 	});
 
-	it('空の配列の場合は全てゼロを返す', () => {
+	it('空の配列の場合は全てゼロを返す', async () => {
 		const data = makeExportData();
-		const preview = previewImport(data);
+		const preview = await previewImport(data, TENANT);
 
 		expect(preview.children).toBe(0);
 		expect(preview.activityLogs).toBe(0);

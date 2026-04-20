@@ -80,7 +80,7 @@ export const actions: Actions = {
 			return { success: true, imported: 0, message: 'すべての活動は登録済みです' };
 		}
 
-		await importActivities(activities, tenantId);
+		await importActivities(activities, tenantId, packId);
 		redirect(302, '/admin/packs');
 	},
 };

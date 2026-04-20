@@ -265,6 +265,7 @@ describe('importActivities', () => {
 				ageMin: 4,
 				ageMax: 10,
 				triggerHint: 'おかたづけの後',
+				sourcePresetId: null,
 			},
 			TENANT,
 		);

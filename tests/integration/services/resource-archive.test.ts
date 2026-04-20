@@ -57,6 +57,7 @@ const SQL_TABLES = `
 		name_kanji TEXT,
 		trigger_hint TEXT,
 		is_main_quest INTEGER NOT NULL DEFAULT 0,
+		source_preset_id TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		is_archived INTEGER NOT NULL DEFAULT 0,
 		archived_reason TEXT
@@ -76,7 +77,8 @@ const SQL_TABLES = `
 		is_archived INTEGER NOT NULL DEFAULT 0,
 		archived_reason TEXT,
 		-- #1168: 持ち物 ('item') / ルーティン ('routine') 種別
-		kind TEXT NOT NULL DEFAULT 'routine'
+		kind TEXT NOT NULL DEFAULT 'routine',
+		source_preset_id TEXT
 	);
 `;
 

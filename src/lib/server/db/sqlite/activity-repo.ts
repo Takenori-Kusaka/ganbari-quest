@@ -47,6 +47,7 @@ export async function insertActivity(
 		ageMin: number | null;
 		ageMax: number | null;
 		triggerHint?: string | null;
+		sourcePresetId?: string | null;
 	},
 	_tenantId: string,
 ) {

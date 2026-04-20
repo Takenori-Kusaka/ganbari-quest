@@ -62,6 +62,16 @@ export default async function globalSetup() {
 				// backfill 済み / カラム未適用
 			}
 
+			// #1254 G1: source_preset_id カラム追加（nullable、プリセット非由来は NULL）
+			for (const table of ['activities', 'special_rewards', 'checklist_templates']) {
+				try {
+					db.exec(`ALTER TABLE ${table} ADD COLUMN source_preset_id TEXT`);
+					console.log(`[E2E Setup]   Added source_preset_id column to ${table}.`);
+				} catch {
+					// カラムが既に存在する場合は無視
+				}
+			}
+
 			db.close();
 			if (!table) needsSchema = true;
 		} catch {

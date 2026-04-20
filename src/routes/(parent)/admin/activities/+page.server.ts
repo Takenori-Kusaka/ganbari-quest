@@ -218,7 +218,7 @@ export const actions: Actions = {
 		try {
 			const activities = (pack.payload as ActivityPackPayload).activities as ActivityPackItem[];
 			const preview = await previewActivityImport(activities, tenantId);
-			const result = await importActivities(activities, tenantId);
+			const result = await importActivities(activities, tenantId, packId);
 			return {
 				importResult: true,
 				packName: pack.name,
