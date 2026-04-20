@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { joinIcon, splitIcon } from '$lib/domain/icon-utils';
 import type { CategoryDef } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 import { type ActivityItem, DAILY_LIMIT_OPTIONS, SUB_ICON_PRESETS } from './activity-types';
 
 interface Props {
@@ -76,14 +77,12 @@ let actionMessage = $state('');
 			</div>
 		</div>
 		<div class="grid grid-cols-2 gap-2">
-			<label class="block">
-				<span class="text-xs font-bold text-[var(--color-text-muted)]">カテゴリ</span>
-				<select name="categoryId" bind:value={editCategoryId} class="w-full px-2 py-1.5 border rounded text-sm">
-					{#each categoryDefs as catDef}
-						<option value={catDef.id}>{catDef.name}</option>
-					{/each}
-				</select>
-			</label>
+			<NativeSelect
+				name="categoryId"
+				label="カテゴリ"
+				bind:value={editCategoryId}
+				options={categoryDefs.map((catDef) => ({ value: catDef.id, label: catDef.name }))}
+			/>
 			<label class="block">
 				<span class="text-xs font-bold text-[var(--color-text-muted)]">ポイント</span>
 				<input type="number" name="basePoints" bind:value={editPoints} min="1" max="100" class="w-full px-2 py-1.5 border rounded text-sm" />

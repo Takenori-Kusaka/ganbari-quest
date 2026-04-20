@@ -93,6 +93,9 @@
 - [ADR-0038](decisions/0038-ac-verification-evidence.md) — AC 検証エビデンス必須化（Issue テンプレ ac-verification-plan / PR AC 検証マップ / CI による機械強制）
 - [ADR-0039](decisions/0039-demo-mode-app-execution-mode.md) — デモモードをアプリ実行モードに統合（`?mode=demo` / `gq_demo` cookie / 本番ルート上で判定、`/demo/**` 別ルートを廃止）
 - [ADR-0040](decisions/0040-runtime-mode-license-unified-architecture.md) — 実行モード × ライセンス統括アーキテクチャ（Typed env + EvaluationContext + Policy Gate の 3 層ハイブリッド）
+- [ADR-0041](decisions/0041-marketplace-naming-template.md) — マーケットプレイス命名テンプレート
+- [ADR-0042](decisions/0042-marketplace-gender-variant-policy.md) — マーケットプレイス 性別バリアント方針
+- [ADR-0043](decisions/0043-native-select-primitive.md) — NativeSelect primitive を採用（raw select 全置換、Select.svelte との使い分け基準）
 
 ## ADR 棚卸レポート
 
