@@ -65,10 +65,7 @@ async function capture(name, { validChecksum, viewport }) {
 		{ timeout: 30000 },
 	);
 	const json = buildExportJson({
-		activities: [
-			{ name: 'ごみすて' },
-			{ name: 'おかたづけ', sourcePresetId: 'seikatsu/basic' },
-		],
+		activities: [{ name: 'ごみすて' }, { name: 'おかたづけ', sourcePresetId: 'seikatsu/basic' }],
 		validChecksum,
 	});
 	await page.getByTestId('import-file-input').setInputFiles({
