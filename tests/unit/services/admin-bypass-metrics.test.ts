@@ -11,7 +11,7 @@ describe('admin-bypass-metrics-service', () => {
 	});
 
 	it('GITHUB_TOKEN 未設定時は available=false で reason を返す', async () => {
-		vi.doMock('$env/dynamic/private', () => ({ env: {} }));
+		vi.doMock('$lib/runtime/env', () => ({ env: {} }));
 		const { getAdminBypassMetrics } = await import(
 			'../../../src/lib/server/services/admin-bypass-metrics-service'
 		);
@@ -22,7 +22,7 @@ describe('admin-bypass-metrics-service', () => {
 	});
 
 	it('API 404 時は available=false で GitHub API エラー文字列を返す', async () => {
-		vi.doMock('$env/dynamic/private', () => ({ env: { GITHUB_TOKEN: 'ghp_test' } }));
+		vi.doMock('$lib/runtime/env', () => ({ env: { GITHUB_TOKEN: 'ghp_test' } }));
 		const fetchSpy = vi
 			.spyOn(globalThis, 'fetch')
 			.mockResolvedValueOnce(new Response('not found', { status: 404 }));
@@ -36,7 +36,7 @@ describe('admin-bypass-metrics-service', () => {
 	});
 
 	it('merged PR が無い場合は monthly 空配列 / totals=0', async () => {
-		vi.doMock('$env/dynamic/private', () => ({ env: { GITHUB_TOKEN: 'ghp_test' } }));
+		vi.doMock('$lib/runtime/env', () => ({ env: { GITHUB_TOKEN: 'ghp_test' } }));
 		vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
 			new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }),
 		);
@@ -51,7 +51,7 @@ describe('admin-bypass-metrics-service', () => {
 	});
 
 	it('APPROVED review 無し + Self-Review 証跡 無しは evidenceMissing に計上される', async () => {
-		vi.doMock('$env/dynamic/private', () => ({ env: { GITHUB_TOKEN: 'ghp_test' } }));
+		vi.doMock('$lib/runtime/env', () => ({ env: { GITHUB_TOKEN: 'ghp_test' } }));
 		const now = new Date();
 		const mergedAt = new Date(now.getTime() - 86400000).toISOString();
 		const prs = [
@@ -85,7 +85,7 @@ describe('admin-bypass-metrics-service', () => {
 	});
 
 	it('Self-Review 証跡 があれば evidenceMissing に計上されない', async () => {
-		vi.doMock('$env/dynamic/private', () => ({ env: { GITHUB_TOKEN: 'ghp_test' } }));
+		vi.doMock('$lib/runtime/env', () => ({ env: { GITHUB_TOKEN: 'ghp_test' } }));
 		const now = new Date();
 		const mergedAt = new Date(now.getTime() - 86400000).toISOString();
 		const prs = [
@@ -117,7 +117,7 @@ describe('admin-bypass-metrics-service', () => {
 	});
 
 	it('APPROVED review があれば admin bypass に計上されない', async () => {
-		vi.doMock('$env/dynamic/private', () => ({ env: { GITHUB_TOKEN: 'ghp_test' } }));
+		vi.doMock('$lib/runtime/env', () => ({ env: { GITHUB_TOKEN: 'ghp_test' } }));
 		const now = new Date();
 		const mergedAt = new Date(now.getTime() - 86400000).toISOString();
 		const prs = [

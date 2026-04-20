@@ -5,8 +5,8 @@
 // admin bypass merge を月次で集計する。GH_TOKEN が未設定 / API 失敗時は
 // 空データを返す（dashboard 側で "データ取得できず" と表示する前提）。
 
-import { env } from '$env/dynamic/private';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
+import { env } from '$lib/runtime/env';
 import { logger } from '$lib/server/logger';
 
 const REPO = 'Takenori-Kusaka/ganbari-quest';
