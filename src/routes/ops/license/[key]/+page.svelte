@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import Card from '$lib/ui/primitives/Card.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data, form } = $props();
 const record = $derived(data.record);
@@ -177,20 +178,20 @@ function reasonLabel(r: string): string {
 					};
 				}}
 			>
-				<label class="flex flex-col gap-1 mb-3">
-					<span class="text-xs text-[var(--color-text-muted)]">失効理由（必須）</span>
-					<select
+				<div class="mb-3">
+					<NativeSelect
 						name="reason"
+						label="失効理由（必須）"
 						bind:value={selectedReason}
 						required
-						class="px-3 py-2 border border-[var(--color-border-default)] rounded text-sm"
-					>
-						<option value="ops-manual">{reasonLabel('ops-manual')}</option>
-						<option value="leaked">{reasonLabel('leaked')}</option>
-						<option value="refund">{reasonLabel('refund')}</option>
-						<option value="expired">{reasonLabel('expired')}</option>
-					</select>
-				</label>
+						options={[
+							{ value: 'ops-manual', label: reasonLabel('ops-manual') },
+							{ value: 'leaked', label: reasonLabel('leaked') },
+							{ value: 'refund', label: reasonLabel('refund') },
+							{ value: 'expired', label: reasonLabel('expired') },
+						]}
+					/>
+				</div>
 
 				<label class="flex flex-col gap-1 mb-4">
 					<span class="text-xs text-[var(--color-text-muted)]">メモ（任意）</span>
