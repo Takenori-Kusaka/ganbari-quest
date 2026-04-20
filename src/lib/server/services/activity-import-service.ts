@@ -61,10 +61,14 @@ export async function previewActivityImport(
 
 /**
  * 活動をインポート（mergeモード: 重複はスキップ）
+ *
+ * @param presetId マーケットプレイスプリセット由来の場合、パックID
+ *                 （#1254 G1: import 時の preset_duplicate 検知に利用）
  */
 export async function importActivities(
 	activities: ActivityPackItem[],
 	tenantId: string,
+	presetId?: string,
 ): Promise<ActivityImportResult> {
 	const existing = await findActivities(tenantId);
 	const existingNames = new Set(existing.map((a) => a.name));
@@ -94,6 +98,7 @@ export async function importActivities(
 					ageMin: a.ageMin,
 					ageMax: a.ageMax,
 					triggerHint: a.triggerHint ?? null,
+					sourcePresetId: presetId ?? null,
 				},
 				tenantId,
 			);
@@ -105,7 +110,7 @@ export async function importActivities(
 	}
 
 	logger.info('[activity-import] インポート完了', {
-		context: { tenantId, imported, skipped, errors: errors.length },
+		context: { tenantId, imported, skipped, errors: errors.length, presetId: presetId ?? null },
 	});
 
 	return { imported, skipped, errors };

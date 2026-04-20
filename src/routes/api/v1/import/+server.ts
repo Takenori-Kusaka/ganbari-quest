@@ -2,6 +2,7 @@
 // 家族データインポートAPI
 
 import { json } from '@sveltejs/kit';
+import { IMPORT_LABELS } from '$lib/domain/labels';
 import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
@@ -10,6 +11,7 @@ import {
 	importFamilyData,
 	previewImport,
 	validateExportData,
+	verifyChecksum,
 } from '$lib/server/services/import-service';
 import type { RequestHandler } from './$types';
 
@@ -36,8 +38,14 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		return apiError('VALIDATION_ERROR', validation.error);
 	}
 
+	// #1254 G4: checksum 検証 (tampering / corruption 検出)
+	const checksumOk = await verifyChecksum(validation.data);
+	if (!checksumOk) {
+		return apiError('VALIDATION_ERROR', IMPORT_LABELS.errorChecksumMismatch);
+	}
+
 	if (mode === 'preview') {
-		const preview = previewImport(validation.data);
+		const preview = await previewImport(validation.data, tenantId);
 		return json({ ok: true, preview });
 	}
 

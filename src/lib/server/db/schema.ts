@@ -67,6 +67,8 @@ export const activities = sqliteTable('activities', {
 	// #783: トライアル終了時の超過リソース archive
 	isArchived: integer('is_archived').notNull().default(0),
 	archivedReason: text('archived_reason'),
+	// #1254 G1: マーケットプレイスプリセット由来の識別子（import 時の preset_duplicate 検知に利用）
+	sourcePresetId: text('source_preset_id'),
 });
 
 // ============================================================
@@ -320,6 +322,8 @@ export const specialRewards = sqliteTable(
 		category: text('category').notNull(),
 		grantedAt: text('granted_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 		shownAt: text('shown_at'),
+		// #1254 G1: プリセット由来のごほうびを識別（import 時の preset_duplicate 検知に利用）
+		sourcePresetId: text('source_preset_id'),
 	},
 	(table) => [index('idx_special_rewards_child').on(table.childId, table.grantedAt)],
 );
@@ -345,6 +349,8 @@ export const checklistTemplates = sqliteTable('checklist_templates', {
 	archivedReason: text('archived_reason'),
 	// #1168: 持ち物チェックリスト (item) / ルーティンチェックリスト (routine) の種別分離
 	kind: text('kind').notNull().default('routine'),
+	// #1254 G1: マーケットプレイスプリセット由来の識別子（import 時の preset_duplicate 検知に利用）
+	sourcePresetId: text('source_preset_id'),
 });
 
 // ============================================================

@@ -121,6 +121,7 @@ export async function insertTemplate(
 		kind: input.kind ?? 'routine',
 		createdAt: now,
 		updatedAt: now,
+		sourcePresetId: input.sourcePresetId ?? null,
 	};
 
 	await getDocClient().send(
