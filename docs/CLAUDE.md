@@ -52,55 +52,25 @@
 - Claude Code の memory はユーザーローカル。チームで共有すべき知識は必ず ADR に置く
 - ADR 追加/変更時は CLAUDE.md と `.github/copilot-instructions.md` も同時更新すること
 
-### 現在の ADR 一覧
-- [ADR-0001](decisions/0001-rename-backward-compat.md) — リネーム時の後方互換必須
-- ~~[ADR-0002](decisions/0002-dialog-queue-required.md)~~ — ~~ダイアログキュー必須~~ → **ADR-0016 で実装指針追加**
-- [ADR-0003](decisions/0003-design-doc-as-source-of-truth.md) — 設計書は Single Source of Truth
-- [ADR-0004](decisions/0004-stamp-card-spec.md) — スタンプカード正仕様
-- [ADR-0005](decisions/0005-critical-fix-quality-gate.md) — Critical 修正の品質ゲート
-- [ADR-0006](decisions/0006-pr-review-must-document-findings.md) — PRレビューは文書化された指摘を必ず出力する
-- [ADR-0007](decisions/0007-image-asset-protection.md) — 画像アセットを絵文字に戻すことは明示的デグレ
-- ~~[ADR-0008](decisions/0008-age-mode-duplication-risk.md)~~ — ~~年齢モード5重複の変更リスク管理~~ → **#567 統合完了により 2026-04-19 supersede**
-- ~~[ADR-0009](decisions/0009-server-client-type-contract.md)~~ — ~~server→client 型契約の安全性確保~~ → **2026-04-19 supersede（短期ガードは #567 完了で不要化、中期施策は ADR-0037/0031 で運用中）**
-- [ADR-0010](decisions/0010-issue-close-quality.md) — Issue 起票・クローズの品質基準
-- [ADR-0011](decisions/0011-sveltekit-svelte5.md) — SvelteKit 2 + Svelte 5 (Runes) 採用
-- [ADR-0012](decisions/0012-dynamodb-single-table.md) — DynamoDB シングルテーブル設計
-- [ADR-0013](decisions/0013-cognito-google-oauth.md) — Cognito + Google OAuth 認証
-- [ADR-0014](decisions/0014-css-token-architecture.md) — 3層 CSS トークンアーキテクチャ
-- [ADR-0015](decisions/0015-repository-pattern.md) — Repository パターンによる DB 抽象化
-- ~~[ADR-0016](decisions/0016-dialog-overlay-management.md)~~ — ~~ダイアログ/オーバーレイの状態管理方針~~ → **ADR-0019 で 2026-04-19 supersede（OverlaysSection 内部キューは FSM に置換済み）**
-- [ADR-0017](decisions/0017-test-quality-ratchet.md) — テスト品質の劣化を許容しない開発プロセス
-- [ADR-0018](decisions/0018-issue-quality-standard.md) — Issue 起票は根本原因の特定と構造的解決策の提示を必須とする
-- [ADR-0019](decisions/0019-dialog-fsm-scrap-and-rebuild.md) — ダイアログ管理は FSM でスクラップ＆ビルド
-- [ADR-0020](decisions/0020-test-quality-ratchet-enforcement.md) — テスト品質の劣化を許容しない（強制プロセス）
-- [ADR-0021](decisions/0021-deploy-verification-gate.md) — デプロイ検証ゲート（Issue完了前の本番確認必須化）
-- [ADR-0022](decisions/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性（アカウント削除時は Stripe を先にキャンセル）
-- [ADR-0023](decisions/0023-pre-pmf-issue-priority-guidelines.md) — Pre-PMF Issue 優先度判断基準（エンジニアバイアス防止）
-- [ADR-0024](decisions/0024-plan-tier-resolution-pattern.md) — プラン解決 (resolvePlanTier) の責務分離パターン
-- [ADR-0025](decisions/0025-license-subscription-causality.md) — License ↔ Stripe Subscription 因果関係
-- [ADR-0026](decisions/0026-license-key-architecture.md) — ライセンスキーアーキテクチャ
-- ~~[ADR-0027](decisions/0027-retention-policy.md)~~ — ~~プラン別履歴保持期間ポリシー（retention = 表示フィルタ、物理削除禁止）~~ → **ADR-0028 で物理削除導入に変更**
-- [ADR-0028](decisions/0028-retention-physical-delete.md) — プラン別履歴保持期間ポリシー（retention = 表示フィルタ + 物理削除 cron、ADR-0027 supersede）
-- [ADR-0029](decisions/0029-safety-assertion-erosion-ban.md) — Safety Assertion Erosion Ban（既存セーフティの段階的弱体化を禁ずる + 新規 env/secret 配布証跡の自動チェック）
-- [ADR-0030](decisions/0030-cognito-e2e-user-lifecycle.md) — Cognito E2E テストユーザーのライフサイクル基盤（Admin API バイパス採用、本番 User Pool を IAM で物理分離）
-- [ADR-0031](decisions/0031-schema-change-compat-testing.md) — スキーマ変更時の既存データ互換性テスト義務化（NULL 混在行テスト + backfill UPDATE 必須）
-- [ADR-0032](decisions/0032-static-analysis-tier-policy.md) — 静的解析ツール実行頻度ポリシー（T1 PR ゲート / T2 並行 / T3 nightly / T4 四半期、既存 CI baseline と新ツール判断フロー）
-- [ADR-0033](decisions/0033-ops-dashboard-cognito-authz.md) — /ops ダッシュボード認可を Cognito ops group ベースに刷新（OPS_SECRET_KEY 廃止 / cron endpoint は CRON_SECRET に概念分離、移行期は両対応）
-- [ADR-0034](decisions/0034-pre-pmf-security-minimum.md) — Pre-PMF セキュリティ最小化方針（HMAC + API Gateway throttling + Budgets / 監査ログ DynamoDB / WAF / ブルート検知は Pre-PMF では不採用）
-- [ADR-0035](decisions/0035-design-policy-pre-approval.md) — 設計ポリシー先行確認フロー（新機能 / 新 interface は実装前に PO 合意を必須化）
-- [ADR-0036](decisions/0036-marketplace-public-access.md) — マーケットプレイス公開アクセス設計（閲覧パブリック / インポート認証必須）
-- [ADR-0037](decisions/0037-labels-ssot-principle.md) — 全ユーザー向け文言の SSOT 化原則（labels.ts + shared-labels.js を介さないハードコード禁止、BANNED_TERMS で CI 検出）
-- [ADR-0038](decisions/0038-ac-verification-evidence.md) — AC 検証エビデンス必須化（Issue テンプレ ac-verification-plan / PR AC 検証マップ / CI による機械強制）
-- [ADR-0039](decisions/0039-demo-mode-app-execution-mode.md) — デモモードをアプリ実行モードに統合（`?mode=demo` / `gq_demo` cookie / 本番ルート上で判定、`/demo/**` 別ルートを廃止）
-- [ADR-0040](decisions/0040-runtime-mode-license-unified-architecture.md) — 実行モード × ライセンス統括アーキテクチャ（Typed env + EvaluationContext + Policy Gate の 3 層ハイブリッド）
-- [ADR-0041](decisions/0041-marketplace-naming-template.md) — マーケットプレイス命名テンプレート
-- [ADR-0042](decisions/0042-marketplace-gender-variant-policy.md) — マーケットプレイス 性別バリアント方針
-- [ADR-0043](decisions/0043-native-select-primitive.md) — NativeSelect primitive を採用（raw select 全置換、Select.svelte との使い分け基準）
-- [ADR-0044](decisions/0044-admin-bypass-evidence.md) — admin bypass merge 証跡記録運用（Self-Review 証跡必須 / 月次レポート / ADR-0005・ADR-0038 と連動）
+### 現在の ADR 一覧（TOP 10 active、#1262 sub-A 完了時点）
+
+- [ADR-0001](decisions/0001-design-doc-as-source-of-truth.md) — 設計書は Single Source of Truth
+- [ADR-0002](decisions/0002-critical-fix-quality-gate.md) — Critical 修正の品質ゲート
+- [ADR-0003](decisions/0003-issue-quality-standard.md) — Issue 起票・クローズ品質（根本原因 + 構造的解決）
+- [ADR-0004](decisions/0004-review-and-ac-verification.md) — レビュー & AC 検証品質
+- [ADR-0005](decisions/0005-test-quality-ratchet.md) — テスト品質 ratchet
+- [ADR-0006](decisions/0006-safety-assertion-erosion-ban.md) — Safety Assertion Erosion Ban
+- [ADR-0007](decisions/0007-static-analysis-tier-policy.md) — 静的解析 tier ポリシー (T1/T2/T3/T4)
+- [ADR-0008](decisions/0008-design-policy-pre-approval.md) — 設計ポリシー先行確認フロー
+- [ADR-0009](decisions/0009-labels-ssot-principle.md) — labels.ts SSOT 化原則
+- [ADR-0010](decisions/0010-pre-pmf-scope-judgment.md) — Pre-PMF スコープ判断（3 バケット + セキュリティ最小化 + 優先度）
+
+> 注: 旧採番ファイル（旧 0001-0044 のうち未削除分）は過渡期として `docs/decisions/` 直下に残存。#1262 sub-B で archive 行き（25 件）または削除（5 件）される。詳細は `docs/decisions/README.md` の「旧採番ファイル（sub-B 待ち、過渡期）」参照。
 
 ## ADR 棚卸レポート
 
-- [adr-inventory-2026-04-19.md](decisions/adr-inventory-2026-04-19.md) — 0001〜0039 の棚卸。0008 / 0009 / 0016 を supersede、active-primary 12 件特定
+- [adr-inventory-2026-04-19.md](decisions/adr-inventory-2026-04-19.md) — 旧 0001〜0039 の棚卸。0008 / 0009 / 0016 を supersede、active-primary 12 件特定
+- `adr-inventory-2026-04-20.md`（#1262 sub-7 で作成予定）— 新体系 0001-0010 + archive 25 件の最終棚卸
 
 ## ローカル Cognito 認証検証環境 (#1026)
 
