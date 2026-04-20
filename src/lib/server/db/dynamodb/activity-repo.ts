@@ -188,6 +188,7 @@ export async function insertActivity(
 		isArchived: 0,
 		archivedReason: null,
 		createdAt: now,
+		sourcePresetId: input.sourcePresetId ?? null,
 	};
 
 	const keys = activityKeyWithGSI2(id, input.categoryId, activity.sortOrder, tenantId);

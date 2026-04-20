@@ -117,6 +117,7 @@ export async function applyChecklistPresets(
 					icon: preset.icon,
 					pointsPerItem: preset.pointsPerItem,
 					completionBonus: preset.completionBonus,
+					sourcePresetId: presetId,
 				},
 				tenantId,
 			);

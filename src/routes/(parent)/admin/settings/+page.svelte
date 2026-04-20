@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
+import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
@@ -12,6 +13,8 @@ import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 import { APP_VERSION } from '$lib/version';
+
+type DuplicateEntry = { label: string; reason: ImportSkipReason };
 
 let { data, form } = $props();
 // #787: form.error / form.siblingError が string | PlanLimitError どちらでも表示できるよう正規化
@@ -31,7 +34,18 @@ let includeFiles = $state(false);
 let importFile = $state<File | null>(null);
 let importLoading = $state(false);
 let importError = $state('');
-let importPreview = $state<Record<string, number> | null>(null);
+let importPreview = $state<
+	| (Record<string, number> & {
+			duplicates?: {
+				activities: DuplicateEntry[];
+				specialRewards: DuplicateEntry[];
+				checklistTemplates: DuplicateEntry[];
+				activityLogs: DuplicateEntry[];
+				loginBonuses: DuplicateEntry[];
+			};
+	  })
+	| null
+>(null);
 let importResult = $state<{
 	childrenImported: number;
 	activitiesCreated: number;
@@ -1187,11 +1201,20 @@ const anyFormBusy = $derived(
 						{:else}
 							JSONファイルを選択
 						{/if}
-						<input type="file" accept=".json" onchange={handleImportFileChange} class="hidden" />
+						<input
+							type="file"
+							accept=".json"
+							onchange={handleImportFileChange}
+							class="hidden"
+							data-testid="import-file-input"
+						/>
 					</label>
 				{:else if importStep === 'preview' && importPreview}
-					<div class="bg-[var(--color-feedback-warning-bg)] rounded-lg p-4 mb-3">
-						<p class="text-sm font-bold text-[var(--color-feedback-warning-text)] mb-2">インポート内容の確認</p>
+					<div class="bg-[var(--color-feedback-warning-bg)] rounded-lg p-4 mb-3" data-testid="import-preview-summary">
+						<p class="text-sm font-bold text-[var(--color-feedback-warning-text)] mb-2">{IMPORT_LABELS.previewDialogTitle}</p>
+						<p class="text-xs text-[var(--color-feedback-success-text)] mb-2" data-testid="import-preview-checksum-ok">
+							✓ ファイルの整合性を確認しました
+						</p>
 						<ul class="text-xs text-[var(--color-feedback-warning-text)] space-y-1">
 							<li>子供: {importPreview.children}人</li>
 							<li>活動ログ: {importPreview.activityLogs}件</li>
@@ -1206,6 +1229,44 @@ const anyFormBusy = $derived(
 							{/if}
 						</ul>
 					</div>
+					{#if importPreview.duplicates && (importPreview.duplicates.activities.length + importPreview.duplicates.specialRewards.length + importPreview.duplicates.checklistTemplates.length) > 0}
+						<div
+							class="bg-[var(--color-surface-muted)] border border-[var(--color-border-default)] rounded-lg p-4 mb-3"
+							data-testid="import-preview-duplicates"
+						>
+							<p class="text-sm font-bold text-[var(--color-text)] mb-2">
+								{IMPORT_LABELS.previewDialogDuplicatesHeading}
+							</p>
+							{#each [
+								{ title: '活動マスタ', items: importPreview.duplicates.activities, testid: 'duplicates-activities' },
+								{ title: 'ごほうび', items: importPreview.duplicates.specialRewards, testid: 'duplicates-rewards' },
+								{ title: '持ち物・ルーティン', items: importPreview.duplicates.checklistTemplates, testid: 'duplicates-templates' },
+							] as group (group.title)}
+								{#if group.items.length > 0}
+									<div class="mt-2" data-testid={group.testid}>
+										<p class="text-xs font-semibold text-[var(--color-text-secondary)]">
+											{group.title} ({group.items.length}件)
+										</p>
+										<ul class="text-xs text-[var(--color-text-secondary)] ml-3 mt-1 space-y-0.5">
+											{#each group.items.slice(0, 5) as entry}
+												<li>
+													<span class="font-medium">{entry.label}</span>
+													<span class="text-[var(--color-text-tertiary)]">
+														— {entry.reason === 'preset_duplicate'
+															? IMPORT_LABELS.previewDialogPresetDuplicate
+															: IMPORT_LABELS.previewDialogNameDuplicate}
+													</span>
+												</li>
+											{/each}
+											{#if group.items.length > 5}
+												<li class="text-[var(--color-text-tertiary)]">...他 {group.items.length - 5}件</li>
+											{/if}
+										</ul>
+									</div>
+								{/if}
+							{/each}
+						</div>
+					{/if}
 					<div class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-3">
 						{#if importMode === 'replace'}
 							<p class="text-xs text-[var(--color-feedback-error-text)] font-bold">
