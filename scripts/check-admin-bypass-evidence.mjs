@@ -27,6 +27,48 @@
 
 import { execFileSync } from 'node:child_process';
 
+/**
+ * @typedef {Object} PrFile
+ * @property {string} path
+ * @property {number} [additions]
+ * @property {number} [deletions]
+ */
+
+/**
+ * @typedef {Object} PrAuthor
+ * @property {string} login
+ */
+
+/**
+ * @typedef {Object} PrLabel
+ * @property {string} name
+ */
+
+/**
+ * @typedef {Object} GhPr
+ * @property {number} number
+ * @property {string} title
+ * @property {PrAuthor | null} author
+ * @property {string | null} body
+ * @property {string | null} mergedAt
+ * @property {string | null} reviewDecision
+ * @property {boolean} [isCrossRepository]
+ * @property {PrLabel[]} labels
+ * @property {PrFile[]} files
+ * @property {string} [baseRefName]
+ */
+
+/**
+ * @typedef {Object} ClassifiedResult
+ * @property {number} number
+ * @property {string} title
+ * @property {string | undefined} author
+ * @property {'ok' | 'missing' | 'exempted'} status
+ * @property {string} [reason]
+ * @property {string | null} [mergedAt]
+ * @property {boolean} [hasEvidence]
+ */
+
 const REPO = process.env.REPO;
 const LOOKBACK_HOURS = Number(process.env.LOOKBACK_HOURS || '2');
 const DRY_RUN = process.env.DRY_RUN === 'true';
@@ -45,6 +87,10 @@ if (!REPO) {
 	process.exit(2);
 }
 
+/**
+ * @param {string[]} args
+ * @returns {string}
+ */
 function gh(args) {
 	try {
 		return execFileSync('gh', args, {
@@ -52,18 +98,27 @@ function gh(args) {
 			encoding: 'utf-8',
 			maxBuffer: 20 * 1024 * 1024,
 		});
-	} catch (err) {
+	} catch (/** @type {unknown} */ err) {
 		console.error(`[admin-bypass-evidence] gh command failed: ${args.join(' ')}`);
-		console.error(err?.message || err);
+		const msg = err instanceof Error ? err.message : String(err);
+		console.error(msg);
 		process.exit(2);
 	}
 }
 
+/**
+ * @param {number} hours
+ * @returns {string}
+ */
 function hoursAgo(hours) {
 	const d = new Date(Date.now() - hours * 60 * 60 * 1000);
 	return d.toISOString();
 }
 
+/**
+ * @param {string} sinceIso
+ * @returns {GhPr[]}
+ */
 function listRecentMergedPrs(sinceIso) {
 	const out = gh([
 		'pr',
@@ -77,10 +132,14 @@ function listRecentMergedPrs(sinceIso) {
 		'--json',
 		'number,title,author,body,mergedAt,reviewDecision,isCrossRepository,labels,files,baseRefName',
 	]);
-	const all = JSON.parse(out);
-	return all.filter((pr) => pr.mergedAt && pr.mergedAt >= sinceIso);
+	const all = /** @type {GhPr[]} */ (JSON.parse(out));
+	return all.filter((/** @type {GhPr} */ pr) => pr.mergedAt && pr.mergedAt >= sinceIso);
 }
 
+/**
+ * @param {GhPr} pr
+ * @returns {{ exempted: boolean, reason?: string }}
+ */
 function isExempted(pr) {
 	const author = pr.author?.login || '';
 	if (author.endsWith('[bot]')) return { exempted: true, reason: 'bot-authored PR' };
@@ -88,23 +147,38 @@ function isExempted(pr) {
 		return { exempted: true, reason: 'dependabot/renovate' };
 	}
 	const files = pr.files || [];
-	const nonDocs = files.filter((f) => !f.path.startsWith('docs/'));
-	const totalChanges = files.reduce((sum, f) => sum + (f.additions || 0) + (f.deletions || 0), 0);
+	const nonDocs = files.filter((/** @type {PrFile} */ f) => !f.path.startsWith('docs/'));
+	const totalChanges = files.reduce(
+		(/** @type {number} */ sum, /** @type {PrFile} */ f) =>
+			sum + (f.additions || 0) + (f.deletions || 0),
+		0,
+	);
 	if (nonDocs.length === 0 && totalChanges < 50) {
 		return { exempted: true, reason: 'docs-only <50 lines' };
 	}
 	return { exempted: false };
 }
 
+/**
+ * @param {string | null} body
+ * @returns {boolean}
+ */
 function hasEvidenceSection(body) {
 	if (!body) return false;
 	return EVIDENCE_MARKER_PATTERNS.some((re) => re.test(body));
 }
 
+/**
+ * @param {GhPr} pr
+ * @returns {boolean}
+ */
 function isAdminBypass(pr) {
 	return !pr.reviewDecision || pr.reviewDecision === '' || pr.reviewDecision === 'REVIEW_REQUIRED';
 }
 
+/**
+ * @param {number} prNumber
+ */
 async function postMissingEvidenceComment(prNumber) {
 	const body = [
 		BOT_COMMENT_MARKER,
@@ -145,6 +219,10 @@ async function postMissingEvidenceComment(prNumber) {
 	gh(['pr', 'comment', String(prNumber), '--repo', REPO, '--body', body]);
 }
 
+/**
+ * @param {GhPr} pr
+ * @returns {Promise<ClassifiedResult>}
+ */
 async function classifyPr(pr) {
 	const exemption = isExempted(pr);
 	if (exemption.exempted) {
@@ -170,6 +248,21 @@ async function classifyPr(pr) {
 	};
 }
 
+/**
+ * @typedef {Object} SummaryStats
+ * @property {string} sinceIso
+ * @property {number} lookbackHours
+ * @property {number} mergedCount
+ * @property {number} adminBypassCount
+ * @property {number} evidenceMissingCount
+ * @property {number} exemptedCount
+ */
+
+/**
+ * @param {string} sinceIso
+ * @param {SummaryStats} summary
+ * @param {ClassifiedResult[]} results
+ */
 function printTextSummary(sinceIso, summary, results) {
 	console.log(`[admin-bypass-evidence] since ${sinceIso}`);
 	console.log(
@@ -188,11 +281,13 @@ async function main() {
 	const mergedPrs = listRecentMergedPrs(sinceIso);
 	const adminBypassPrs = mergedPrs.filter(isAdminBypass);
 
+	/** @type {ClassifiedResult[]} */
 	const results = [];
 	for (const pr of adminBypassPrs) {
 		results.push(await classifyPr(pr));
 	}
 
+	/** @type {SummaryStats} */
 	const summary = {
 		sinceIso,
 		lookbackHours: LOOKBACK_HOURS,
@@ -211,7 +306,8 @@ async function main() {
 	process.exit(0);
 }
 
-main().catch((err) => {
-	console.error('[admin-bypass-evidence] unexpected error', err);
+main().catch((/** @type {unknown} */ err) => {
+	const msg = err instanceof Error ? err.message : String(err);
+	console.error('[admin-bypass-evidence] unexpected error', msg);
 	process.exit(2);
 });

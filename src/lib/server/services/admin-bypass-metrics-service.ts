@@ -120,15 +120,16 @@ export async function getAdminBypassMetrics(lookbackMonths = 3): Promise<AdminBy
 
 		for (const pr of mergedInRange) {
 			const m = monthKey(pr.merged_at || '');
-			if (!monthBuckets.has(m)) {
-				monthBuckets.set(m, {
+			let bucket = monthBuckets.get(m);
+			if (!bucket) {
+				bucket = {
 					month: m,
 					mergedCount: 0,
 					adminBypassCount: 0,
 					evidenceMissingCount: 0,
-				});
+				};
+				monthBuckets.set(m, bucket);
 			}
-			const bucket = monthBuckets.get(m) as MonthlyAdminBypassMetric;
 			bucket.mergedCount++;
 
 			const decision = await fetchReviewDecision(pr.number, token);
