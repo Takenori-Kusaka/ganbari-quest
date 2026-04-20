@@ -7,6 +7,7 @@ import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data, form } = $props();
 // #787: form.error が string | PlanLimitError どちらでも表示できるよう正規化
@@ -243,11 +244,12 @@ function acceptAiReward(preview: RewardPreviewData) {
 				<FormField label="アイコン" type="text" name="icon" bind:value={customIcon} disabled={!data.isPremium} />
 				<FormField label="カテゴリ">
 					{#snippet children()}
-						<select name="category" bind:value={customCategory} disabled={!data.isPremium} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-							{#each Object.entries(categoryLabels) as [value, label]}
-								<option {value}>{label}</option>
-							{/each}
-						</select>
+						<NativeSelect
+							name="category"
+							bind:value={customCategory}
+							disabled={!data.isPremium}
+							options={Object.entries(categoryLabels).map(([value, label]) => ({ value, label }))}
+						/>
 					{/snippet}
 				</FormField>
 			</div>

@@ -14,6 +14,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data } = $props();
 
@@ -87,6 +88,11 @@ const TIME_SLOT_OPTIONS = [
 	{ value: 'afternoon', label: 'ひる', icon: '🌤️' },
 	{ value: 'evening', label: 'よる', icon: '🌙' },
 ];
+
+const TIME_SLOT_SELECT_OPTIONS = TIME_SLOT_OPTIONS.map((o) => ({
+	value: o.value,
+	label: `${o.icon} ${o.label}`,
+}));
 
 function getTimeSlot(template: { id: number; timeSlot?: string }): string {
 	return template.timeSlot ?? 'anytime';
@@ -466,11 +472,11 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 
 		<FormField label="時間帯">
 			{#snippet children()}
-				<select name="timeSlot" bind:value={templateTimeSlotValue} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors">
-					{#each TIME_SLOT_OPTIONS as opt}
-						<option value={opt.value}>{opt.icon} {opt.label}</option>
-					{/each}
-				</select>
+				<NativeSelect
+					name="timeSlot"
+					bind:value={templateTimeSlotValue}
+					options={TIME_SLOT_SELECT_OPTIONS}
+				/>
 			{/snippet}
 		</FormField>
 
@@ -518,21 +524,13 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 
 		<FormField label="頻度">
 			{#snippet children()}
-				<select name="frequency" bind:value={itemFrequency} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors">
-					{#each FREQUENCY_OPTIONS as opt}
-						<option value={opt.value}>{opt.label}</option>
-					{/each}
-				</select>
+				<NativeSelect name="frequency" bind:value={itemFrequency} options={FREQUENCY_OPTIONS} />
 			{/snippet}
 		</FormField>
 
 		<FormField label="方向">
 			{#snippet children()}
-				<select name="direction" bind:value={itemDirection} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors">
-					{#each DIRECTION_OPTIONS as opt}
-						<option value={opt.value}>{opt.label}</option>
-					{/each}
-				</select>
+				<NativeSelect name="direction" bind:value={itemDirection} options={DIRECTION_OPTIONS} />
 			{/snippet}
 		</FormField>
 
@@ -564,10 +562,14 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 
 		<FormField label="操作">
 			{#snippet children()}
-				<select name="action" bind:value={overrideAction} class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors">
-					<option value="add">追加</option>
-					<option value="remove">除外</option>
-				</select>
+				<NativeSelect
+					name="action"
+					bind:value={overrideAction}
+					options={[
+						{ value: 'add', label: '追加' },
+						{ value: 'remove', label: '除外' },
+					]}
+				/>
 			{/snippet}
 		</FormField>
 
