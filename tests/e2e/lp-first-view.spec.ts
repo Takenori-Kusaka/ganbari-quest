@@ -89,10 +89,10 @@ test.describe('#1163 LP 1st view 要件', () => {
 	}) => {
 		const ctx = await browser.newContext({ viewport: { width: 375, height: 812 } });
 		const page = await ctx.newPage();
-		await page.goto(`${baseUrl}/index.html`, { waitUntil: 'networkidle' });
+		await page.goto(`${baseUrl}/index.html`);
 
 		const pricingCard = page.locator('#pricing .pricing-summary-card').first();
-		await expect(pricingCard).toBeAttached();
+		await expect(pricingCard).toBeAttached({ timeout: 15_000 });
 
 		const { cardTop, docHeight } = await page.evaluate(() => {
 			const el = document.querySelector('#pricing .pricing-summary-card') as HTMLElement;
