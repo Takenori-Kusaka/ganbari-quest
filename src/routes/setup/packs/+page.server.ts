@@ -1,5 +1,7 @@
 import { redirect } from '@sveltejs/kit';
-import { activityPackIndex, getActivityPack } from '$lib/data/activity-packs';
+import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import type { ActivityPackPayload } from '$lib/domain/marketplace-item';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	importActivities,
@@ -26,13 +28,27 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const minAge = Math.min(...ages);
 	const maxAge = Math.max(...ages);
 
+	const activityPackMetas = getMarketplaceIndex().filter((m) => m.type === 'activity-pack');
+
 	// Pack preview: include activity names for each pack
-	const packsWithPreview = activityPackIndex.packs.map((p) => {
-		const full = getActivityPack(p.packId);
+	const packsWithPreview = activityPackMetas.map((p) => {
+		const full = getMarketplaceItem('activity-pack', p.itemId);
+		const payload = full?.payload as ActivityPackPayload | undefined;
 		return {
-			...p,
-			activities: full
-				? full.activities.map((a) => ({ name: a.name, icon: a.icon, categoryCode: a.categoryCode }))
+			packId: p.itemId,
+			packName: p.name,
+			description: p.description,
+			icon: p.icon,
+			targetAgeMin: p.targetAgeMin,
+			targetAgeMax: p.targetAgeMax,
+			tags: p.tags,
+			activityCount: p.itemCount,
+			activities: payload
+				? payload.activities.map((a) => ({
+						name: a.name,
+						icon: a.icon,
+						categoryCode: a.categoryCode,
+					}))
 				: [],
 		};
 	});
@@ -61,15 +77,16 @@ export const actions: Actions = {
 
 		for (const packId of packIds) {
 			try {
-				const pack = getActivityPack(packId);
+				const pack = getMarketplaceItem('activity-pack', packId);
 				if (!pack) {
 					allErrors.push(`パック「${packId}」が見つかりません`);
 					continue;
 				}
-				const preview = await previewActivityImport(pack.activities, tenantId);
+				const activities = (pack.payload as ActivityPackPayload).activities as ActivityPackItem[];
+				const preview = await previewActivityImport(activities, tenantId);
 
 				if (preview.newActivities > 0) {
-					const result = await importActivities(pack.activities, tenantId);
+					const result = await importActivities(activities, tenantId);
 					totalImported += result.imported;
 					totalSkipped += result.skipped;
 					allErrors.push(...result.errors);
@@ -97,14 +114,16 @@ export const actions: Actions = {
 		const maxAge = Math.max(...ages);
 
 		let autoImported = 0;
-		for (const p of activityPackIndex.packs) {
+		const activityPackMetas = getMarketplaceIndex().filter((m) => m.type === 'activity-pack');
+		for (const p of activityPackMetas) {
 			if (p.targetAgeMin <= maxAge && p.targetAgeMax >= minAge) {
 				try {
-					const pack = getActivityPack(p.packId);
+					const pack = getMarketplaceItem('activity-pack', p.itemId);
 					if (!pack) continue;
-					const preview = await previewActivityImport(pack.activities, tenantId);
+					const activities = (pack.payload as ActivityPackPayload).activities as ActivityPackItem[];
+					const preview = await previewActivityImport(activities, tenantId);
 					if (preview.newActivities > 0) {
-						const result = await importActivities(pack.activities, tenantId);
+						const result = await importActivities(activities, tenantId);
 						autoImported += result.imported;
 					}
 				} catch {

@@ -1,6 +1,9 @@
 /**
- * Activity preset pack format definition.
- * Packs are stored as bundled JSON under src/lib/data/activity-packs/, imported at build time.
+ * Activity import row shape — used by CSV / JSON ファイルインポート時のパース中間型。
+ *
+ * プリセット配布は `$lib/data/marketplace` の SSOT に一本化されたため、
+ * かつての `ActivityPack` / `ActivityPackMeta` / `ActivityPackIndex` は削除した。
+ * ユーザがアップロードする CSV・JSON の 1 行を表現する型のみ残す。
  */
 
 import type { CategoryCode, GradeLevel } from './validation/activity.js';
@@ -17,32 +20,4 @@ export interface ActivityPackItem {
 	gradeLevel: GradeLevel | null;
 	triggerHint?: string;
 	description?: string;
-}
-
-export interface ActivityPack {
-	formatVersion: '1.0';
-	packId: string;
-	packName: string;
-	description: string;
-	icon: string;
-	targetAgeMin: number;
-	targetAgeMax: number;
-	tags: string[];
-	activities: ActivityPackItem[];
-}
-
-export interface ActivityPackMeta {
-	packId: string;
-	packName: string;
-	description: string;
-	icon: string;
-	targetAgeMin: number;
-	targetAgeMax: number;
-	tags: string[];
-	activityCount: number;
-}
-
-export interface ActivityPackIndex {
-	formatVersion: '1.0';
-	packs: ActivityPackMeta[];
 }

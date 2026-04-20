@@ -101,30 +101,34 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		);
 	});
 
-	test('/activity-packs/otetsudai-master → /marketplace/activity-pack/otetsudai-master (301)', async ({
+	// #1212-A: otetsudai-master は年齢プリセット (kinder-starter / elementary-challenge) に吸収廃止
+	// 旧 URL はマーケット一覧 (activity-pack フィルタ) にフォールバック
+	test('/activity-packs/otetsudai-master → /marketplace?type=activity-pack (301, 廃止パック)', async ({
 		request,
 	}) => {
 		await expectRedirect(
 			request,
 			'/activity-packs/otetsudai-master',
-			'/marketplace/activity-pack/otetsudai-master',
+			'/marketplace?type=activity-pack',
 			301,
 		);
 	});
 
-	test('活動パック性別バリアントはリダイレクトされない（マーケット未収録）', async ({
+	// #1212-A: 性別バリアント (baby-boy/girl 等) をマーケットに正式収録 → 個別詳細へ 301
+	test('/activity-packs/baby-boy → /marketplace/activity-pack/baby-boy (301, 性別バリアント正式収録)', async ({
 		request,
 	}) => {
-		// /activity-packs/baby-boy はマーケットに無いので従来どおり活動パック詳細を表示する
-		const response = await request.get('/activity-packs/baby-boy', { maxRedirects: 0 });
-		expect(response.status()).not.toBe(301);
-		expect(response.status()).not.toBe(308);
+		await expectRedirect(
+			request,
+			'/activity-packs/baby-boy',
+			'/marketplace/activity-pack/baby-boy',
+			301,
+		);
 	});
 
-	test('/activity-packs 一覧自体はリダイレクトされない', async ({ request }) => {
-		const response = await request.get('/activity-packs', { maxRedirects: 0 });
-		expect(response.status()).not.toBe(301);
-		expect(response.status()).not.toBe(308);
+	// #1212-A: /activity-packs 一覧も廃止 → マーケット一覧へ集約
+	test('/activity-packs → /marketplace?type=activity-pack (301, 一覧廃止)', async ({ request }) => {
+		await expectRedirect(request, '/activity-packs', '/marketplace?type=activity-pack', 301);
 	});
 
 	// ============================================================

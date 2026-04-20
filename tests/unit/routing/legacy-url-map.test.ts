@@ -36,16 +36,24 @@ describe('legacy-url-map', () => {
 			expect(new Set(froms).size).toBe(froms.length);
 		});
 
-		it('#1167 活動パックの 6 エントリは 301 ステータスを明示する', () => {
-			const activityPackEntries = LEGACY_URL_MAP.filter((e) =>
+		it('活動パック → マーケットプレイス redirect は 16 エントリすべて 301', () => {
+			// #1167: 5 neutral 詳細 (baby-first/kinder-starter/elementary-challenge/junior-high/senior-high)
+			// #1212: otetsudai-master 廃止 + 10 性別バリアント詳細 + 一覧ページ
+			const activityPackDetails = LEGACY_URL_MAP.filter((e) =>
 				e.from.startsWith('/activity-packs/'),
 			);
-			expect(activityPackEntries).toHaveLength(6);
-			for (const entry of activityPackEntries) {
+			expect(activityPackDetails).toHaveLength(16);
+			for (const entry of activityPackDetails) {
 				expect(entry.status).toBe(301);
-				expect(entry.issue).toBe('#1167');
-				expect(entry.to).toMatch(/^\/marketplace\/activity-pack\//);
+				expect(['#1167', '#1212']).toContain(entry.issue);
 			}
+		});
+
+		it('/activity-packs 一覧ページも 301 で /marketplace に redirect する', () => {
+			const listEntry = LEGACY_URL_MAP.find((e) => e.from === '/activity-packs');
+			expect(listEntry).toBeDefined();
+			expect(listEntry?.status).toBe(301);
+			expect(listEntry?.to).toBe('/marketplace?type=activity-pack');
 		});
 	});
 
@@ -66,13 +74,25 @@ describe('legacy-url-map', () => {
 			// デモ（より長いプレフィックスが優先されること）
 			['/demo/kinder', '/demo/kinder'],
 			['/demo/kinder/home', '/demo/kinder'],
-			// #1167: 活動パック → マーケットプレイス 301 — 完全一致（対象 6 パック）
+			// #1167 / #1212: 活動パック → マーケットプレイス 301 — 完全一致（15 詳細 + 廃止 1）
 			['/activity-packs/baby-first', '/activity-packs/baby-first'],
+			['/activity-packs/baby-boy', '/activity-packs/baby-boy'],
+			['/activity-packs/baby-girl', '/activity-packs/baby-girl'],
 			['/activity-packs/kinder-starter', '/activity-packs/kinder-starter'],
+			['/activity-packs/kinder-boy', '/activity-packs/kinder-boy'],
+			['/activity-packs/kinder-girl', '/activity-packs/kinder-girl'],
 			['/activity-packs/elementary-challenge', '/activity-packs/elementary-challenge'],
+			['/activity-packs/elementary-boy', '/activity-packs/elementary-boy'],
+			['/activity-packs/elementary-girl', '/activity-packs/elementary-girl'],
 			['/activity-packs/otetsudai-master', '/activity-packs/otetsudai-master'],
 			['/activity-packs/junior-high-challenge', '/activity-packs/junior-high-challenge'],
+			['/activity-packs/junior-boy', '/activity-packs/junior-boy'],
+			['/activity-packs/junior-girl', '/activity-packs/junior-girl'],
 			['/activity-packs/senior-high-challenge', '/activity-packs/senior-high-challenge'],
+			['/activity-packs/senior-boy', '/activity-packs/senior-boy'],
+			['/activity-packs/senior-girl', '/activity-packs/senior-girl'],
+			// #1212: 一覧ページも redirect
+			['/activity-packs', '/activity-packs'],
 			// 新 URL はマッチしない
 			['/preschool/home', null],
 			['/elementary/home', null],
@@ -80,12 +100,6 @@ describe('legacy-url-map', () => {
 			['/senior/home', null],
 			['/demo/preschool/home', null],
 			['/marketplace/activity-pack/baby-first', null],
-			// 性別バリアント（marketplace 未収録）はマッチしない
-			['/activity-packs/baby-boy', null],
-			['/activity-packs/kinder-girl', null],
-			['/activity-packs/senior-boy', null],
-			// 一覧ページ自体はリダイレクトせず従来どおり表示する
-			['/activity-packs', null],
 			// 部分文字列のみ一致する偽陽性はマッチしない
 			['/kindergarten', null], // /kinder で始まるが境界が違う
 			['/lowercase', null],
@@ -123,13 +137,26 @@ describe('legacy-url-map', () => {
 			// デモ（長いプレフィックス優先）
 			['/demo/kinder', '/demo/preschool'],
 			['/demo/kinder/home', '/demo/preschool/home'],
-			// #1167: 活動パック → マーケットプレイス 301
+			// #1167 / #1212: 活動パック → マーケットプレイス 301
 			['/activity-packs/baby-first', '/marketplace/activity-pack/baby-first'],
+			['/activity-packs/baby-boy', '/marketplace/activity-pack/baby-boy'],
+			['/activity-packs/baby-girl', '/marketplace/activity-pack/baby-girl'],
 			['/activity-packs/kinder-starter', '/marketplace/activity-pack/kinder-starter'],
+			['/activity-packs/kinder-boy', '/marketplace/activity-pack/kinder-boy'],
+			['/activity-packs/kinder-girl', '/marketplace/activity-pack/kinder-girl'],
 			['/activity-packs/elementary-challenge', '/marketplace/activity-pack/elementary-challenge'],
-			['/activity-packs/otetsudai-master', '/marketplace/activity-pack/otetsudai-master'],
+			['/activity-packs/elementary-boy', '/marketplace/activity-pack/elementary-boy'],
+			['/activity-packs/elementary-girl', '/marketplace/activity-pack/elementary-girl'],
 			['/activity-packs/junior-high-challenge', '/marketplace/activity-pack/junior-high-challenge'],
+			['/activity-packs/junior-boy', '/marketplace/activity-pack/junior-boy'],
+			['/activity-packs/junior-girl', '/marketplace/activity-pack/junior-girl'],
 			['/activity-packs/senior-high-challenge', '/marketplace/activity-pack/senior-high-challenge'],
+			['/activity-packs/senior-boy', '/marketplace/activity-pack/senior-boy'],
+			['/activity-packs/senior-girl', '/marketplace/activity-pack/senior-girl'],
+			// #1212: otetsudai-master 廃止 → マーケット一覧
+			['/activity-packs/otetsudai-master', '/marketplace?type=activity-pack'],
+			// #1212: 一覧ページ廃止 → マーケット一覧
+			['/activity-packs', '/marketplace?type=activity-pack'],
 		];
 
 		for (const [input, expected] of cases) {

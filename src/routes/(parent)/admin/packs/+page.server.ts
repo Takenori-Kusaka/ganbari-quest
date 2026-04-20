@@ -1,5 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { activityPackIndex, getActivityPack } from '$lib/data/activity-packs';
+import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import type { ActivityPackPayload } from '$lib/domain/marketplace-item';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	importActivities,
@@ -22,10 +24,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const maxAge = children.length > 0 ? Math.max(...ages) : 18;
 	const existingNames = new Set(existingActivities.map((a) => a.name));
 
-	const packsWithStatus = activityPackIndex.packs.map((p) => {
-		const full = getActivityPack(p.packId);
-		const activities = full
-			? full.activities.map((a) => ({
+	const activityPackMetas = getMarketplaceIndex().filter((m) => m.type === 'activity-pack');
+	const packsWithStatus = activityPackMetas.map((p) => {
+		const full = getMarketplaceItem('activity-pack', p.itemId);
+		const payload = full?.payload as ActivityPackPayload | undefined;
+		const activities = payload
+			? payload.activities.map((a) => ({
 					name: a.name,
 					icon: a.icon,
 					categoryCode: a.categoryCode,
@@ -37,7 +41,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 		const isRecommended = p.targetAgeMin <= maxAge && p.targetAgeMax >= minAge;
 
 		return {
-			...p,
+			packId: p.itemId,
+			packName: p.name,
+			description: p.description,
+			icon: p.icon,
+			targetAgeMin: p.targetAgeMin,
+			targetAgeMax: p.targetAgeMax,
+			tags: p.tags,
+			activityCount: p.itemCount,
 			activities,
 			importedCount,
 			isFullyImported: importedCount === activities.length,
@@ -60,15 +71,16 @@ export const actions: Actions = {
 
 		if (!packId) return fail(400, { error: 'パックIDが必要です' });
 
-		const pack = getActivityPack(packId);
+		const pack = getMarketplaceItem('activity-pack', packId);
 		if (!pack) return fail(404, { error: 'パックが見つかりません' });
 
-		const preview = await previewActivityImport(pack.activities, tenantId);
+		const activities = (pack.payload as ActivityPackPayload).activities as ActivityPackItem[];
+		const preview = await previewActivityImport(activities, tenantId);
 		if (preview.newActivities === 0) {
 			return { success: true, imported: 0, message: 'すべての活動は登録済みです' };
 		}
 
-		await importActivities(pack.activities, tenantId);
+		await importActivities(activities, tenantId);
 		redirect(302, '/admin/packs');
 	},
 };

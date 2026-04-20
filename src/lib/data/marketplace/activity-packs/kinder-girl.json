@@ -1,14 +1,15 @@
 {
 	"type": "activity-pack",
-	"itemId": "kinder-starter",
-	"name": "ようじキッズ",
-	"description": "3〜5歳のお子さま向け。幼児期の日常活動をバランスよくカバーし、自立心を育てます。",
-	"icon": "🎨",
+	"itemId": "kinder-girl",
+	"name": "ようじキッズ（おんなのこ）",
+	"description": "3〜5歳の女の子向け。お絵描きやごっこ遊びを楽しみながら、生活習慣と自立心を育てます。",
+	"icon": "🧚",
 	"targetAgeMin": 3,
 	"targetAgeMax": 5,
-	"tags": ["初心者向け", "幼児", "バランス型"],
-	"personas": ["routine-focused", "first-child"],
+	"tags": ["幼児", "女の子", "バランス型"],
+	"personas": ["routine-focused", "creative-oriented", "indoor"],
 	"curator": "official",
+	"gender": "girl",
 	"payload": {
 		"activities": [
 			{
@@ -25,7 +26,7 @@
 			{
 				"name": "おきがえした",
 				"categoryCode": "seikatsu",
-				"icon": "👕",
+				"icon": "👗",
 				"basePoints": 5,
 				"ageMin": 3,
 				"ageMax": 5,
@@ -75,29 +76,7 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "おうちの おてつだい してみよう！",
-				"description": "食事の準備・配膳のお手伝い等"
-			},
-			{
-				"name": "しょっきをはこんだ",
-				"categoryCode": "seikatsu",
-				"icon": "🍽️",
-				"basePoints": 5,
-				"ageMin": 4,
-				"ageMax": 5,
-				"gradeLevel": "kinder",
-				"triggerHint": "おさらを はこぼう！",
-				"description": "食卓への配膳・下げ膳"
-			},
-			{
-				"name": "テーブルをふいた",
-				"categoryCode": "seikatsu",
-				"icon": "🧽",
-				"basePoints": 5,
-				"ageMin": 4,
-				"ageMax": 5,
-				"gradeLevel": "kinder",
-				"triggerHint": "テーブルを ピカピカに しよう！",
-				"description": "食後のテーブル拭き"
+				"description": "食事の準備・配膳・しょっき運び等"
 			},
 			{
 				"name": "くつをそろえた",
@@ -111,15 +90,15 @@
 				"description": "玄関の靴をきれいに揃える"
 			},
 			{
-				"name": "しょくぶつのみずやり",
-				"categoryCode": "seikatsu",
-				"icon": "🌱",
+				"name": "ダンスした",
+				"categoryCode": "undou",
+				"icon": "💃",
 				"basePoints": 5,
-				"ageMin": 4,
+				"ageMin": 3,
 				"ageMax": 5,
 				"gradeLevel": "kinder",
-				"triggerHint": "おはなに おみず あげよう！",
-				"description": "植物・花への水やり"
+				"triggerHint": "おんがくに あわせて おどろう！",
+				"description": "音楽に合わせたダンス"
 			},
 			{
 				"name": "からだをうごかした",
@@ -144,17 +123,6 @@
 				"description": "縄跳びの練習"
 			},
 			{
-				"name": "ダンスした",
-				"categoryCode": "undou",
-				"icon": "💃",
-				"basePoints": 5,
-				"ageMin": 3,
-				"ageMax": 5,
-				"gradeLevel": "kinder",
-				"triggerHint": "おんがくに あわせて おどろう！",
-				"description": "音楽に合わせたダンス"
-			},
-			{
 				"name": "かけっこした",
 				"categoryCode": "undou",
 				"icon": "🏃",
@@ -163,18 +131,18 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "よーい、どん！ はしってみよう！",
-				"description": "基本的な走る動作・かけっこ"
+				"description": "走る・追いかけっこ"
 			},
 			{
-				"name": "のぼりぼうをした",
+				"name": "ボールであそんだ",
 				"categoryCode": "undou",
-				"icon": "🧗",
+				"icon": "⚽",
 				"basePoints": 5,
-				"ageMin": 4,
+				"ageMin": 3,
 				"ageMax": 5,
 				"gradeLevel": "kinder",
-				"triggerHint": "のぼりぼうや うんてい やってみよう！",
-				"description": "粗大運動・登はん遊び"
+				"triggerHint": "ボールを ころがして あそぼう！",
+				"description": "ボール遊び・キャッチボール"
 			},
 			{
 				"name": "おえかきした",
@@ -210,6 +178,17 @@
 				"description": "童謡やリズム遊び"
 			},
 			{
+				"name": "おままごとした",
+				"categoryCode": "souzou",
+				"icon": "🍳",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おりょうりごっこ しよう！",
+				"description": "ごっこ遊び・おままごと"
+			},
+			{
 				"name": "ねんどでつくった",
 				"categoryCode": "souzou",
 				"icon": "🎨",
@@ -219,17 +198,6 @@
 				"gradeLevel": "kinder",
 				"triggerHint": "ねんどで すきなもの つくろう！",
 				"description": "粘土・ブロックで造形"
-			},
-			{
-				"name": "ごっこあそびをした",
-				"categoryCode": "souzou",
-				"icon": "🎭",
-				"basePoints": 5,
-				"ageMin": 3,
-				"ageMax": 5,
-				"gradeLevel": "kinder",
-				"triggerHint": "おままごとや ヒーローごっこ！",
-				"description": "ごっこ遊び（表現＋人間関係）"
 			},
 			{
 				"name": "えほんをよんだ",
@@ -265,6 +233,17 @@
 				"description": "ひらがなの読み書き練習"
 			},
 			{
+				"name": "しぜんをかんさつした",
+				"categoryCode": "benkyou",
+				"icon": "🌼",
+				"basePoints": 5,
+				"ageMin": 3,
+				"ageMax": 5,
+				"gradeLevel": "kinder",
+				"triggerHint": "おはな や はっぱ みつけよう！",
+				"description": "虫・花・葉などの自然観察（環境領域）"
+			},
+			{
 				"name": "かたちをみつけた",
 				"categoryCode": "benkyou",
 				"icon": "🔺",
@@ -272,19 +251,8 @@
 				"ageMin": 3,
 				"ageMax": 5,
 				"gradeLevel": "kinder",
-				"triggerHint": "まる・しかく・さんかく さがしてみよう！",
+				"triggerHint": "まる・しかく・さんかく さがそう！",
 				"description": "図形の認識（環境領域）"
-			},
-			{
-				"name": "しぜんをかんさつした",
-				"categoryCode": "benkyou",
-				"icon": "🐞",
-				"basePoints": 5,
-				"ageMin": 3,
-				"ageMax": 5,
-				"gradeLevel": "kinder",
-				"triggerHint": "むしや はっぱを みつけよう！",
-				"description": "虫・花・葉などの自然観察（環境領域）"
 			},
 			{
 				"name": "いっしょにあそんだ",

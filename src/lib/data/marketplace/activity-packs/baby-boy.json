@@ -1,14 +1,15 @@
 {
 	"type": "activity-pack",
-	"itemId": "baby-first",
-	"name": "はじめてのぼうけん",
-	"description": "0〜2歳のお子さま向け。生活・運動・ことば・表現・人とのふれあいの5領域をバランスよく、毎日の小さな成長を記録できます。",
-	"icon": "🍼",
+	"itemId": "baby-boy",
+	"name": "はじめてのぼうけん（男の子むけ）",
+	"description": "0〜2歳の男の子向け。乗り物や体を動かす遊びをやや多めに、5領域をバランスよく網羅。",
+	"icon": "👶",
 	"targetAgeMin": 0,
 	"targetAgeMax": 2,
-	"tags": ["初心者向け", "赤ちゃん", "生活習慣"],
-	"personas": ["first-child", "routine-focused"],
+	"tags": ["赤ちゃん", "男の子", "生活習慣"],
+	"personas": ["first-child", "routine-focused", "outdoor"],
 	"curator": "official",
+	"gender": "boy",
 	"payload": {
 		"activities": [
 			{
@@ -75,7 +76,7 @@
 				"ageMax": 2,
 				"gradeLevel": "baby",
 				"triggerHint": "おふとんで ねんね しよう！",
-				"description": "規則正しい睡眠（11〜14時間／厚労省睡眠ガイド）"
+				"description": "規則正しい睡眠"
 			},
 			{
 				"name": "はいはいした",
@@ -100,6 +101,28 @@
 				"description": "歩行の練習・伝い歩き"
 			},
 			{
+				"name": "ボールをけった",
+				"categoryCode": "undou",
+				"icon": "⚽",
+				"basePoints": 3,
+				"ageMin": 1,
+				"ageMax": 2,
+				"gradeLevel": "baby",
+				"triggerHint": "ボールを けって みよう！",
+				"description": "ボール蹴り・追いかけっこ（粗大運動）"
+			},
+			{
+				"name": "おしぐるまであそんだ",
+				"categoryCode": "undou",
+				"icon": "🚗",
+				"basePoints": 3,
+				"ageMin": 0,
+				"ageMax": 2,
+				"gradeLevel": "baby",
+				"triggerHint": "おしぐるまで よちよち！",
+				"description": "手押し車・乗用玩具で歩行補助"
+			},
+			{
 				"name": "おそとにでた",
 				"categoryCode": "undou",
 				"icon": "🌿",
@@ -111,28 +134,6 @@
 				"description": "戸外で外気に触れ体を動かす"
 			},
 			{
-				"name": "からだをうごかした",
-				"categoryCode": "undou",
-				"icon": "🤸",
-				"basePoints": 3,
-				"ageMin": 0,
-				"ageMax": 2,
-				"gradeLevel": "baby",
-				"triggerHint": "おうちで からだを うごかそう！",
-				"description": "室内での体操・ダンスなど"
-			},
-			{
-				"name": "ボールであそんだ",
-				"categoryCode": "undou",
-				"icon": "⚽",
-				"basePoints": 3,
-				"ageMin": 1,
-				"ageMax": 2,
-				"gradeLevel": "baby",
-				"triggerHint": "ボールを ころがして あそぼう！",
-				"description": "ボール転がし・キャッチ（粗大運動）"
-			},
-			{
 				"name": "えほんをよんだ",
 				"categoryCode": "benkyou",
 				"icon": "📖",
@@ -141,7 +142,40 @@
 				"ageMax": 2,
 				"gradeLevel": "baby",
 				"triggerHint": "えほんを いっしょに よもう！",
-				"description": "絵本の読み聞かせ（ブックスタート推奨）"
+				"description": "絵本の読み聞かせ"
+			},
+			{
+				"name": "つみきであそんだ",
+				"categoryCode": "benkyou",
+				"icon": "🧱",
+				"basePoints": 3,
+				"ageMin": 0,
+				"ageMax": 2,
+				"gradeLevel": "baby",
+				"triggerHint": "つみきを たかく つもう！",
+				"description": "微細運動・空間認知の発達"
+			},
+			{
+				"name": "はたらくくるまをみた",
+				"categoryCode": "benkyou",
+				"icon": "🚒",
+				"basePoints": 3,
+				"ageMin": 1,
+				"ageMax": 2,
+				"gradeLevel": "baby",
+				"triggerHint": "きょうは どんな くるま みたかな？",
+				"description": "働く車の図鑑や実物観察"
+			},
+			{
+				"name": "どうぶつのなまえをいった",
+				"categoryCode": "benkyou",
+				"icon": "🐶",
+				"basePoints": 3,
+				"ageMin": 1,
+				"ageMax": 2,
+				"gradeLevel": "baby",
+				"triggerHint": "わんわん！ にゃんにゃん！ なまえいえるかな？",
+				"description": "語彙の獲得・物の名前"
 			},
 			{
 				"name": "ゆびさしした",
@@ -155,37 +189,15 @@
 				"description": "共同注意・指差し（言語発達の基礎）"
 			},
 			{
-				"name": "いないいないばあをした",
-				"categoryCode": "benkyou",
-				"icon": "🙈",
-				"basePoints": 3,
-				"ageMin": 0,
-				"ageMax": 1,
-				"gradeLevel": "baby",
-				"triggerHint": "ばあ！ で にっこり しよう！",
-				"description": "対象の永続性・予測・記憶の発達"
-			},
-			{
-				"name": "ことばをまねした",
-				"categoryCode": "benkyou",
-				"icon": "🗣️",
-				"basePoints": 3,
+				"name": "おえかきした",
+				"categoryCode": "souzou",
+				"icon": "🖍️",
+				"basePoints": 5,
 				"ageMin": 1,
 				"ageMax": 2,
 				"gradeLevel": "baby",
-				"triggerHint": "まま、ぱぱ、まんま…… まねっこしてみよう！",
-				"description": "喃語・一語文・二語文の獲得"
-			},
-			{
-				"name": "つみきであそんだ",
-				"categoryCode": "benkyou",
-				"icon": "🧱",
-				"basePoints": 3,
-				"ageMin": 0,
-				"ageMax": 2,
-				"gradeLevel": "baby",
-				"triggerHint": "つみきを つんで あそぼう！",
-				"description": "微細運動・空間認知の発達"
+				"triggerHint": "くれよんで かいてみよう！",
+				"description": "なぐり描き・クレヨン遊び"
 			},
 			{
 				"name": "おうたをうたった",
@@ -199,15 +211,26 @@
 				"description": "童謡・手遊び歌"
 			},
 			{
-				"name": "おえかきした",
+				"name": "たいこをたたいた",
 				"categoryCode": "souzou",
-				"icon": "🖍️",
-				"basePoints": 5,
+				"icon": "🥁",
+				"basePoints": 3,
+				"ageMin": 0,
+				"ageMax": 2,
+				"gradeLevel": "baby",
+				"triggerHint": "どんどん たいこを たたこう！",
+				"description": "楽器遊び・リズム感"
+			},
+			{
+				"name": "ねんどであそんだ",
+				"categoryCode": "souzou",
+				"icon": "🟡",
+				"basePoints": 3,
 				"ageMin": 1,
 				"ageMax": 2,
 				"gradeLevel": "baby",
-				"triggerHint": "くれよんで かいてみよう！",
-				"description": "なぐり描き・クレヨン遊び"
+				"triggerHint": "こねこね ねんどで つくろう！",
+				"description": "感触遊び・造形表現"
 			},
 			{
 				"name": "てあそびした",
@@ -221,28 +244,6 @@
 				"description": "手遊び歌でリズム感を育てる"
 			},
 			{
-				"name": "ねんどであそんだ",
-				"categoryCode": "souzou",
-				"icon": "🟡",
-				"basePoints": 3,
-				"ageMin": 1,
-				"ageMax": 2,
-				"gradeLevel": "baby",
-				"triggerHint": "こねこね ねんどを さわってみよう！",
-				"description": "感触遊び・造形表現の入口"
-			},
-			{
-				"name": "がっきをならした",
-				"categoryCode": "souzou",
-				"icon": "🔔",
-				"basePoints": 3,
-				"ageMin": 0,
-				"ageMax": 2,
-				"gradeLevel": "baby",
-				"triggerHint": "すず、たいこ、ならしてみよう！",
-				"description": "音の出るおもちゃ・楽器遊び"
-			},
-			{
 				"name": "にこにこした",
 				"categoryCode": "kouryuu",
 				"icon": "😊",
@@ -251,7 +252,7 @@
 				"ageMax": 2,
 				"gradeLevel": "baby",
 				"triggerHint": "にこにこ えがおを みせよう！",
-				"description": "社会的微笑の強化"
+				"description": "笑顔のコミュニケーション"
 			},
 			{
 				"name": "ばいばいした",

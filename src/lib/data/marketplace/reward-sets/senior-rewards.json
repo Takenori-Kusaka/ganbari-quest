@@ -2,11 +2,11 @@
 	"type": "reward-set",
 	"itemId": "senior-rewards",
 	"name": "高校生ごほうび",
-	"description": "13〜18歳向け。外出の自由度、特別な体験、自分へのご褒美など、ティーン向けのモチベーション設計です。",
+	"description": "13〜18歳向け。進路・資格・探究などの外的成果と連動した「自己決定」を促すティーン向けセット。",
 	"icon": "🌟",
 	"targetAgeMin": 13,
 	"targetAgeMax": 18,
-	"tags": ["年齢別", "高校生", "自立サポート"],
+	"tags": ["年齢別", "高校生", "自己決定", "外的成果連動"],
 	"personas": ["achievement-focused", "relaxed"],
 	"curator": "official",
 	"payload": {
@@ -52,6 +52,34 @@
 				"icon": "☕",
 				"category": "academic",
 				"description": "カフェでの勉強代をサポート"
+			},
+			{
+				"title": "参考書・問題集を買う",
+				"points": 100,
+				"icon": "📘",
+				"category": "academic",
+				"description": "受験勉強に必要な参考書を1冊"
+			},
+			{
+				"title": "資格受験料をサポート",
+				"points": 200,
+				"icon": "📜",
+				"category": "academic",
+				"description": "英検・TOEIC・ITパスポート等の受験料"
+			},
+			{
+				"title": "趣味・ファッションにかける時間",
+				"points": 80,
+				"icon": "💄",
+				"category": "creative",
+				"description": "自分のために使える特別な時間"
+			},
+			{
+				"title": "ライブ・イベントチケット",
+				"points": 250,
+				"icon": "🎤",
+				"category": "creative",
+				"description": "ライブ・コンサート・舞台観覧の費用サポート"
 			}
 		]
 	}
