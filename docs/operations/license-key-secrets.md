@@ -6,7 +6,7 @@
 | 最終更新 | 2026-04-11 |
 | 対象シークレット | `AWS_LICENSE_SECRET`, `AWS_LICENSE_SECRET_PREVIOUS` |
 | 対象環境 | Lambda (prod / staging), ローカル dev |
-| 関連 ADR | [ADR-0026](../decisions/0026-license-key-architecture.md) |
+| 関連 ADR | [ADR-0026（archive）](../decisions/archive/0026-license-key-architecture.md) |
 | 関連 Issue | #807, #806 |
 | 関連設計書 | [license-key-requirements.md](../design/license-key-requirements.md), [license-subscription-causality.md](../design/license-subscription-causality.md) |
 
@@ -245,7 +245,7 @@ export function verifyLicenseKey(licenseKey: string): boolean {
 
 | ドキュメント | 役割 |
 |------------|------|
-| [ADR-0026](../decisions/0026-license-key-architecture.md) | ライセンスキーアーキテクチャ決定記録（上位） |
+| [ADR-0026（archive）](../decisions/archive/0026-license-key-architecture.md) | ライセンスキーアーキテクチャ決定記録（上位） |
 | [license-key-requirements.md](../design/license-key-requirements.md) | 要件定義書（should-be） |
 | [license-subscription-causality.md](../design/license-subscription-causality.md) | License ↔ Stripe 因果関係マップ |
 | [runbook.md](./runbook.md) | 障害対応ランブック（上位） |

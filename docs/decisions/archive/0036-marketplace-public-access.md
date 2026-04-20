@@ -1,5 +1,8 @@
 # ADR-0036: マーケットプレイス公開アクセス設計
 
+> **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+
+
 - Status: accepted
 - Date: 2026-04-18
 - Issue: #1099
