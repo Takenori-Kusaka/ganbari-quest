@@ -448,3 +448,35 @@ export const DEMO_LABELS = {
 	/** サインアップ CTA 先 */
 	signupHref: '/auth/signup',
 } as const;
+
+// ============================================================
+// インポート関連（#1254）
+// ============================================================
+
+/**
+ * 家族データインポート機能のラベル SSOT (#1254)
+ * エラーメッセージ、ダイアログ文言、スキップ理由など
+ */
+export const IMPORT_LABELS = {
+	// エラーメッセージ
+	errorChecksumMismatch: 'ファイルが破損しているか改ざんされています',
+	errorInvalidJson: 'JSONの解析に失敗しました',
+	errorImportFailed: 'インポートに失敗しました',
+
+	// 事前確認ダイアログ
+	previewDialogTitle: 'インポート内容の確認',
+	previewDialogConfirm: 'スキップして続行',
+	previewDialogCancel: 'キャンセル',
+	previewDialogDuplicatesHeading: '以下は既存と重複するためスキップされます',
+	previewDialogPresetDuplicate: 'このプリセットは既にインポート済みです',
+	previewDialogNameDuplicate: '名前が既存と同じため',
+	previewDialogLogConstraint: '記録日時が既存と同じため',
+} as const;
+
+/**
+ * スキップ理由 enum (#1254 G2)
+ * - preset_duplicate: source_preset_id 一致
+ * - name_duplicate: 名前一致
+ * - log_constraint: 複合 unique 制約 (activity_logs, login_bonuses, status_history)
+ */
+export type ImportSkipReason = 'preset_duplicate' | 'name_duplicate' | 'log_constraint';
