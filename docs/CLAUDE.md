@@ -52,7 +52,7 @@
 - Claude Code の memory はユーザーローカル。チームで共有すべき知識は必ず ADR に置く
 - ADR 追加/変更時は CLAUDE.md と `.github/copilot-instructions.md` も同時更新すること
 
-### 現在の ADR 一覧（TOP 10 active、#1262 sub-A 完了時点）
+### 現在の ADR 一覧（TOP 10 active、#1262 sub-A + sub-B 完了時点）
 
 - [ADR-0001](decisions/0001-design-doc-as-source-of-truth.md) — 設計書は Single Source of Truth
 - [ADR-0002](decisions/0002-critical-fix-quality-gate.md) — Critical 修正の品質ゲート
@@ -65,7 +65,7 @@
 - [ADR-0009](decisions/0009-labels-ssot-principle.md) — labels.ts SSOT 化原則
 - [ADR-0010](decisions/0010-pre-pmf-scope-judgment.md) — Pre-PMF スコープ判断（3 バケット + セキュリティ最小化 + 優先度）
 
-> 注: 旧採番ファイル（旧 0001-0044 のうち未削除分）は過渡期として `docs/decisions/` 直下に残存。#1262 sub-B で archive 行き（25 件）または削除（5 件）される。詳細は `docs/decisions/README.md` の「旧採番ファイル（sub-B 待ち、過渡期）」参照。
+> 旧 0001-0044 のうち 25 件は `docs/decisions/archive/` に移動済み（archive ヘッダで supersede 先を明示）、5 件（旧 0002 / 0008 / 0009 / 0016 / 0027）は supersede chain 終端のため削除済み。詳細は `docs/decisions/README.md` と [adr-inventory-2026-04-20.md](decisions/adr-inventory-2026-04-20.md) を参照。
 
 ## ADR 棚卸レポート
 
