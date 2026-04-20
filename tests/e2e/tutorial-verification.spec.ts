@@ -73,9 +73,10 @@ test.describe('チュートリアル全ステップ検証', () => {
 			const bubble = page.locator('.tutorial-bubble');
 			await bubble.waitFor({ state: 'visible', timeout: 8000 });
 			// #1259 Phase 3: bubble-appear animation (0.3s) 完了を Web Animations API で待つ
-			// （旧 waitForTimeout(800) の正しい置換。未完了で boundingBox 取得するとビューポート越え誤検知になる）
+			// .finished は Svelte 再レンダでアニメが cancel されると AbortError で reject する。
+			// positioning 再計算による再レンダ耐性のため catch で吸収する
 			await bubble.evaluate((el) =>
-				Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)).then(() => {}),
+				Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {}))),
 			);
 
 			// ステップ情報を取得
@@ -216,8 +217,10 @@ test.describe('チュートリアル全ステップ検証', () => {
 			const bubble = page.locator('.tutorial-bubble');
 			await bubble.waitFor({ state: 'visible', timeout: 8000 });
 			// #1259 Phase 3: bubble-appear animation (0.3s) 完了を Web Animations API で待つ
+			// .finished は Svelte 再レンダでアニメが cancel されると AbortError で reject する。
+			// positioning 再計算による再レンダ耐性のため catch で吸収する
 			await bubble.evaluate((el) =>
-				Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)).then(() => {}),
+				Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {}))),
 			);
 
 			const title = await bubble.locator('.tutorial-title').textContent();
