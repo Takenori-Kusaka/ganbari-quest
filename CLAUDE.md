@@ -28,7 +28,7 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 - ビルド: `npm run build`
 - テスト: `npx vitest run`
 - E2E: `npx playwright test`
-- E2E mode × plan マトリクス (ADR-0040 P5, #1221): `npm run test:e2e:matrix` — 5 projects (demo-free / local-debug-family / aws-prod-trial-expired / nuc-prod-license-valid / nuc-prod-license-expired) を port 5201-5205 で並行起動し smoke 検証。デフォルト CI には含めない（P5.1 で別途 CI 組込予定）
+- E2E mode × plan マトリクス (ADR-0040（archive） P5, #1221): `npm run test:e2e:matrix` — 5 projects (demo-free / local-debug-family / aws-prod-trial-expired / nuc-prod-license-valid / nuc-prod-license-expired) を port 5201-5205 で並行起動し smoke 検証。デフォルト CI には含めない（P5.1 で別途 CI 組込予定）
 - Lint: `npx biome check .`
 - スペルチェック: `npm run cspell`（任意。CI では warn-only）
 - DB マイグレーション: `npx drizzle-kit push`
@@ -42,7 +42,7 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 - `DEBUG_PLAN=free|standard|family` — プランを直接指定
 - `DEBUG_TRIAL=active|expired|not-started` — トライアル状態を上書き
 - `DEBUG_TRIAL_TIER=standard|family` — `DEBUG_TRIAL=active` 時のティア
-- `DEBUG_LICENSE_KEY_VALID=true|false` — nuc-prod モード時のライセンスキー有効/無効を上書き（ADR-0040 P5 matrix 用、#1221）
+- `DEBUG_LICENSE_KEY_VALID=true|false` — nuc-prod モード時のライセンスキー有効/無効を上書き（ADR-0040（archive） P5 matrix 用、#1221）
 
 admin 画面右下に「DEBUG: plan=family」等のインジケータが表示される。
 詳細は `.env.example` および `src/lib/server/debug-plan.ts` を参照。

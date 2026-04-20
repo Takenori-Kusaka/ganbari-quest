@@ -1,5 +1,8 @@
 # ADR-0043: NativeSelect primitive を案A で採用する
 
+> **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+
+
 - **Status**: Accepted
 - **Date**: 2026-04-20
 - **Issue**: #1194

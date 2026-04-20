@@ -1905,7 +1905,7 @@ export interface PlanLimitError {
 EventBridge / 手動トリガー用の内部エンドポイントは、Cognito セッション認証の対象外であり、
 独自の shared secret（`CRON_SECRET`）で認証する。共通ヘルパー `verifyCronAuth` を使用する。
 
-> 参照: [ADR-0033](../decisions/0033-ops-dashboard-cognito-authz.md) — `/ops` ダッシュボード認可と cron 認証の概念分離
+> 参照: [ADR-0033（archive）](../decisions/archive/0033-ops-dashboard-cognito-authz.md) — `/ops` ダッシュボード認可と cron 認証の概念分離
 
 #### 実装（`src/lib/server/auth/cron-auth.ts`）
 
