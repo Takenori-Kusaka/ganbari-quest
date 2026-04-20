@@ -253,8 +253,17 @@ async function addChildViaSetup(
 	const addBtn = page.getByRole('button', { name: /追加|登録/ });
 	await addBtn.click();
 
-	// 成功メッセージまたは登録済みリストの更新を待つ
-	await page.waitForTimeout(1000);
+	// 成功メッセージまたは nickname input のクリアを待つ (#1259: waitForTimeout 置換)
+	await page
+		.waitForFunction(
+			() => {
+				const input = document.querySelector('input[name="nickname"]') as HTMLInputElement | null;
+				return !input || input.value === '';
+			},
+			null,
+			{ timeout: 3000 },
+		)
+		.catch(() => {});
 }
 
 /** API 経由で E2E テスト用の活動マスタデータを投入する */
@@ -334,9 +343,8 @@ async function addChildViaAdmin(
 	const addToggle = page.getByRole('button', { name: /こどもを追加/ });
 	await addToggle.waitFor({ timeout: 10000 });
 	await addToggle.click();
-	await page.waitForTimeout(500);
 
-	// フォームが表示されるのを待つ
+	// フォームが表示されるのを待つ (#1259: アコーディオン animation 後の出現を nicknameInput.waitFor で待つ)
 	const nicknameInput = page.locator('input[name="nickname"]');
 	await nicknameInput.waitFor({ timeout: 5000 });
 	await nicknameInput.fill(nickname);
