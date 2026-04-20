@@ -293,7 +293,7 @@ Dockerfile.lambda        # Lambda Web Adapter用
 .github/
 ├── workflows/
 │   ├── ci.yml           # テスト・ビルド（main push / PR）
-│   ├── deploy.yml       # AWS デプロイ（test → deploy → e2e → release → notify）
+│   ├── deploy.yml       # AWS デプロイ（deploy → e2e-production smoke → release → notify; #1277 以降 pre-deploy test は ci.yml）
 │   └── pages.yml        # GitHub Pages LP デプロイ（site/ 変更時）
 ├── dependabot.yml       # 依存パッケージ自動更新（Actions + npm + infra）
 └── release.yml          # リリースノートカテゴリ設定

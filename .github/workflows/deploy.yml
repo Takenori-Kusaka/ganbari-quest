@@ -36,143 +36,15 @@ env:
   APP_MAJOR_VERSION: "1"
 
 jobs:
-  # #1006: deploy.yml の test を lint / E2E shard / cognito に分離して並列化
-  test-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - run: npm ci
-      - name: Generate version
-        run: npm run version:generate
-      - run: npx biome check .
-
-      - name: Stylelint (CSS hex check)
-        run: npx stylelint "src/**/*.css"
-
-      - name: ESLint SonarJS (duplicate strings / cognitive complexity, #977)
-        continue-on-error: true
-        run: npx eslint "src/**/*.ts"
-
-      - name: Knip (unused exports/files/deps detection, #970)
-        continue-on-error: true
-        run: npx knip
-
-      - name: Svelte check
-        run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json
-
-      - name: Type coverage ratchet check (#978)
-        run: npm run type-coverage
-
-      - name: Security audit (high/critical vulnerabilities)
-        run: npm audit --audit-level=high || true
-      - run: npx vitest run --coverage
-        name: Unit tests with coverage enforcement
-
-  # #1006: E2E local tests を 3 shard に分割
-  test-e2e:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3]
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - run: npm ci
-
-      # Build before E2E (preview mode eliminates Vite JIT compilation overhead)
-      - run: npm run build
-
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-
-      - name: Install Playwright deps (cached browsers)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-
-      # #911 / #806: vite preview は NODE_ENV=production で起動するため、
-      # hooks.server.ts の assertLicenseKeyConfigured() が AWS_LICENSE_SECRET を要求する。
-      # 未設定だと webServer が起動失敗 → "Process from config.webServer was not able to start" で
-      # 全 E2E が落ちる。CI 用の固定ダミー値を注入して assertion を通す（本番値とは別物）。
-      - name: E2E tests (local mode, shard ${{ matrix.shard }}/3)
-        env:
-          AWS_LICENSE_SECRET: ci-deploy-test-secret-do-not-use-in-production
-        run: npx playwright test --shard=${{ matrix.shard }}/3
-
-  # #1006: cognito-dev E2E は spec が少ないため shard 不要
-  test-cognito:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - run: npm ci
-      - run: npm run build
-
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-
-      - name: Install Playwright deps (cached browsers)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-
-      - name: E2E tests (cognito-dev mode)
-        env:
-          AWS_LICENSE_SECRET: ci-deploy-test-secret-do-not-use-in-production
-        run: npx playwright test --config playwright.cognito-dev.config.ts
-
-  # #1006: 全 test job の結果を集約する gate job (deploy の依存先)
-  test-gate:
-    if: always()
-    needs: [test-lint, test-e2e, test-cognito]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check test results
-        env:
-          NEEDS: ${{ toJSON(needs) }}
-        run: |
-          echo "Test job results:"
-          echo "$NEEDS" | jq -r 'to_entries[] | "  \(.key): \(.value.result)"'
-          failed=$(echo "$NEEDS" | jq -r '[to_entries[] | select(.value.result == "failure" or .value.result == "cancelled")] | length')
-          if [ "$failed" -gt 0 ]; then
-            echo "Tests failed: $failed job(s) failed or cancelled"
-            exit 1
-          fi
-          echo "All tests passed"
+  # #1277: pre-deploy の test-lint / test-e2e / test-cognito / test-gate は
+  # ci.yml (PR CI) と完全重複しており、flaky が 2 回走って main が詰まる温床だった。
+  # - PR merge 前: ci.yml が Branch ruleset の required_status_checks で強制
+  # - PR merge 後: deploy.yml は build + deploy + health-check のみ
+  # - 本番稼働確認: e2e-production (post-deploy smoke on Lambda URL) が担う
+  # - 障害時: Rollback on failure step が previous image に戻す
+  # 歴史的インシデント: #911 / #967 / #1084 / #1097 / #1277
 
   deploy:
-    needs: test-gate
     runs-on: ubuntu-24.04-arm
     environment: production
     outputs:
