@@ -1,5 +1,7 @@
 # ADR-0024: プラン解決 (resolvePlanTier) の責務分離パターン
 
+> **Archived (2026-04-20)**: プランティア解決パターン。`src/lib/domain/plan.ts` で実装完了
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |

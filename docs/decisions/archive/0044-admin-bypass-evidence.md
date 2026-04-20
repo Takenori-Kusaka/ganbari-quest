@@ -1,5 +1,7 @@
 # ADR-0044: admin bypass merge 証跡記録運用
 
+> **Archived (2026-04-20)**: admin bypass 証跡記録運用。PR #1260 で運用開始済み
+
 - **Status**: Accepted
 - **Date**: 2026-04-20
 - **Issue**: #1201

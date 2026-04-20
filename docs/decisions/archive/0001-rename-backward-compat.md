@@ -1,5 +1,7 @@
 # 0001. リネーム時の後方互換必須
 
+> **Archived (2026-04-20)**: URL リネーム後方互換ルール。`scripts/check-rename-backward-compat.mjs` と `LEGACY_URL_MAP` で運用化済み、常時参照不要
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |

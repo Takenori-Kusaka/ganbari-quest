@@ -1,5 +1,7 @@
 # ADR-0043: NativeSelect primitive を案A で採用する
 
+> **Archived (2026-04-20)**: NativeSelect primitive 新設。PR #1258 で置換完了
+
 - **Status**: Accepted
 - **Date**: 2026-04-20
 - **Issue**: #1194
