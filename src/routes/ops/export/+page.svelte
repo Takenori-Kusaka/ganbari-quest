@@ -1,6 +1,7 @@
 <script lang="ts">
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data } = $props();
 
@@ -45,31 +46,22 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 <div class="flex flex-col gap-8">
 	<Card padding="lg">
 		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">確定申告用CSVエクスポート</h2>
-		<div class="flex gap-4 items-center mb-6 flex-wrap">
-			<label class="flex gap-2 items-center text-sm text-[var(--color-text-secondary)]">
-				年:
-				<select bind:value={year} class="py-1.5 px-3 border border-[var(--color-border-strong)] rounded-md text-sm">
-					{#each Array.from({length: 3}, (_, i) => data.currentYear - i) as y}
-						<option value={y}>{y}年</option>
-					{/each}
-				</select>
-			</label>
-			<label class="flex gap-2 items-center text-sm text-[var(--color-text-secondary)]">
-				開始月:
-				<select bind:value={monthFrom} class="py-1.5 px-3 border border-[var(--color-border-strong)] rounded-md text-sm">
-					{#each Array.from({length: 12}, (_, i) => i + 1) as m}
-						<option value={m}>{m}月</option>
-					{/each}
-				</select>
-			</label>
-			<label class="flex gap-2 items-center text-sm text-[var(--color-text-secondary)]">
-				終了月:
-				<select bind:value={monthTo} class="py-1.5 px-3 border border-[var(--color-border-strong)] rounded-md text-sm">
-					{#each Array.from({length: 12}, (_, i) => i + 1) as m}
-						<option value={m}>{m}月</option>
-					{/each}
-				</select>
-			</label>
+		<div class="flex gap-4 items-end mb-6 flex-wrap">
+			<NativeSelect
+				label="年"
+				bind:value={year}
+				options={Array.from({length: 3}, (_, i) => data.currentYear - i).map((y) => ({ value: y, label: `${y}年` }))}
+			/>
+			<NativeSelect
+				label="開始月"
+				bind:value={monthFrom}
+				options={Array.from({length: 12}, (_, i) => i + 1).map((m) => ({ value: m, label: `${m}月` }))}
+			/>
+			<NativeSelect
+				label="終了月"
+				bind:value={monthTo}
+				options={Array.from({length: 12}, (_, i) => i + 1).map((m) => ({ value: m, label: `${m}月` }))}
+			/>
 		</div>
 
 		<div class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-4">
