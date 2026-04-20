@@ -26,8 +26,12 @@ test.describe('#577 エラー画面フォールバック', () => {
 
 		test('404 画面から自動リダイレクトしない（親ロール）', async ({ page }) => {
 			await page.goto('/this-path-does-not-exist-xyz');
-			// 4 秒待機しても /switch に飛ばない
-			await page.waitForTimeout(4000);
+			// 4 秒以内に /switch にリダイレクトしないことを negative wait で検証 (#1259)
+			const redirected = await page
+				.waitForURL(/\/switch/, { timeout: 4000 })
+				.then(() => true)
+				.catch(() => false);
+			expect(redirected).toBe(false);
 			expect(page.url()).toMatch(/this-path-does-not-exist-xyz/);
 		});
 	});
