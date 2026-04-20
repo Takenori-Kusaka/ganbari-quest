@@ -17,6 +17,8 @@ const mockInsertChildAchievement = vi.fn();
 const mockInsertLoginBonus = vi.fn();
 const mockInsertTemplate = vi.fn();
 const mockInsertTemplateItem = vi.fn();
+const mockFindSpecialRewards = vi.fn();
+const mockInsertSpecialReward = vi.fn();
 
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: (...args: unknown[]) => mockFindActivities(...args),
@@ -46,6 +48,11 @@ vi.mock('$lib/server/db/login-bonus-repo', () => ({
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	insertTemplate: (...args: unknown[]) => mockInsertTemplate(...args),
 	insertTemplateItem: (...args: unknown[]) => mockInsertTemplateItem(...args),
+}));
+
+vi.mock('$lib/server/db/special-reward-repo', () => ({
+	findSpecialRewards: (...args: unknown[]) => mockFindSpecialRewards(...args),
+	insertSpecialReward: (...args: unknown[]) => mockInsertSpecialReward(...args),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -126,6 +133,7 @@ beforeEach(() => {
 	// Default: lookup mocks return empty arrays
 	mockFindActivities.mockResolvedValue([]);
 	mockFindAllAchievements.mockResolvedValue([]);
+	mockFindSpecialRewards.mockResolvedValue([]);
 });
 
 // ============================================================
@@ -338,6 +346,26 @@ describe('previewImport', () => {
 				items: [],
 			},
 		];
+		data.data.specialRewards = [
+			{
+				childRef: 'c1',
+				title: 'おこづかい',
+				description: null,
+				points: 100,
+				icon: null,
+				category: 'money',
+				grantedAt: '2026-03-15T00:00:00Z',
+			},
+			{
+				childRef: 'c2',
+				title: 'おもちゃ',
+				description: null,
+				points: 50,
+				icon: null,
+				category: 'toy',
+				grantedAt: '2026-03-15T00:00:00Z',
+			},
+		];
 
 		const preview = previewImport(data);
 
@@ -348,6 +376,7 @@ describe('previewImport', () => {
 		expect(preview.achievements).toBe(1);
 		expect(preview.loginBonuses).toBe(2);
 		expect(preview.checklistTemplates).toBe(1);
+		expect(preview.specialRewards).toBe(2);
 	});
 
 	it('空の配列の場合は全てゼロを返す', () => {
@@ -361,6 +390,7 @@ describe('previewImport', () => {
 		expect(preview.achievements).toBe(0);
 		expect(preview.loginBonuses).toBe(0);
 		expect(preview.checklistTemplates).toBe(0);
+		expect(preview.specialRewards).toBe(0);
 	});
 });
 
@@ -1041,6 +1071,147 @@ describe('importFamilyData', () => {
 			expect(result.errors).toEqual(
 				expect.arrayContaining([expect.stringContaining('失敗リスト')]),
 			);
+		});
+	});
+
+	describe('特別報酬 (ごほうび) のインポート (#1253)', () => {
+		const baseReward = {
+			childRef: 'c1' as const,
+			description: null,
+			icon: null,
+			category: 'money',
+			grantedAt: '2026-03-15T00:00:00Z',
+		};
+
+		it('既存と重複しない場合は全件 insert される', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.specialRewards = [
+				{ ...baseReward, title: 'おこづかい', points: 100 },
+				{ ...baseReward, title: 'おもちゃ', points: 50 },
+			];
+
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockFindSpecialRewards.mockResolvedValue([]);
+			mockInsertSpecialReward.mockResolvedValue({ id: 1 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.specialRewardsImported).toBe(2);
+			expect(result.specialRewardsSkipped).toBe(0);
+			expect(mockInsertSpecialReward).toHaveBeenCalledTimes(2);
+			expect(mockInsertSpecialReward).toHaveBeenCalledWith(
+				expect.objectContaining({
+					childId: 101,
+					title: 'おこづかい',
+					points: 100,
+					category: 'money',
+				}),
+				TENANT,
+			);
+		});
+
+		it('全件同名で既存と重複する場合は全件 skip される', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.specialRewards = [
+				{ ...baseReward, title: 'おこづかい', points: 100 },
+				{ ...baseReward, title: 'おもちゃ', points: 50 },
+			];
+
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockFindSpecialRewards.mockResolvedValue([
+				{ id: 10, title: 'おこづかい' },
+				{ id: 11, title: 'おもちゃ' },
+			]);
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.specialRewardsImported).toBe(0);
+			expect(result.specialRewardsSkipped).toBe(2);
+			expect(mockInsertSpecialReward).not.toHaveBeenCalled();
+			expect(result.warnings).toEqual(expect.arrayContaining([expect.stringContaining('2 件')]));
+		});
+
+		it('一部重複の場合は部分 skip + 件数レポートが正しい', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.specialRewards = [
+				{ ...baseReward, title: 'おこづかい', points: 100 },
+				{ ...baseReward, title: '新作ゲーム', points: 200 },
+				{ ...baseReward, title: 'おもちゃ', points: 50 },
+			];
+
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockFindSpecialRewards.mockResolvedValue([{ id: 10, title: 'おこづかい' }]);
+			mockInsertSpecialReward.mockResolvedValue({ id: 1 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.specialRewardsImported).toBe(2);
+			expect(result.specialRewardsSkipped).toBe(1);
+			expect(mockInsertSpecialReward).toHaveBeenCalledTimes(2);
+			const calledTitles = mockInsertSpecialReward.mock.calls.map((c) => c[0].title);
+			expect(calledTitles).toEqual(expect.arrayContaining(['新作ゲーム', 'おもちゃ']));
+			expect(calledTitles).not.toContain('おこづかい');
+		});
+
+		it('childRef が不明な場合は skip され insert されない', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.specialRewards = [
+				{ ...baseReward, childRef: 'unknown', title: 'ghost', points: 10 },
+			];
+
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.specialRewardsImported).toBe(0);
+			expect(result.specialRewardsSkipped).toBe(0);
+			expect(mockInsertSpecialReward).not.toHaveBeenCalled();
+			expect(mockFindSpecialRewards).not.toHaveBeenCalled();
+		});
+
+		it('複数子供に対して existing titles が独立してキャッシュされる', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1', 'たろう'), makeChild('c2', 'はなこ')];
+			data.data.specialRewards = [
+				{ ...baseReward, childRef: 'c1', title: 'おこづかい', points: 100 },
+				{ ...baseReward, childRef: 'c2', title: 'おこづかい', points: 200 },
+			];
+
+			mockInsertChild.mockResolvedValueOnce({ id: 101 }).mockResolvedValueOnce({ id: 102 });
+			// c1 has existing 'おこづかい', c2 has none
+			mockFindSpecialRewards
+				.mockResolvedValueOnce([{ id: 5, title: 'おこづかい' }]) // childId 101
+				.mockResolvedValueOnce([]); // childId 102
+			mockInsertSpecialReward.mockResolvedValue({ id: 1 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.specialRewardsImported).toBe(1);
+			expect(result.specialRewardsSkipped).toBe(1);
+			expect(mockInsertSpecialReward).toHaveBeenCalledTimes(1);
+			expect(mockInsertSpecialReward).toHaveBeenCalledWith(
+				expect.objectContaining({ childId: 102, title: 'おこづかい' }),
+				TENANT,
+			);
+		});
+
+		it('insertSpecialReward の失敗時はエラーが追加される', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.specialRewards = [{ ...baseReward, title: '失敗', points: 100 }];
+
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockFindSpecialRewards.mockResolvedValue([]);
+			mockInsertSpecialReward.mockRejectedValue(new Error('DB error'));
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.specialRewardsImported).toBe(0);
+			expect(result.errors).toEqual(expect.arrayContaining([expect.stringContaining('失敗')]));
 		});
 	});
 
