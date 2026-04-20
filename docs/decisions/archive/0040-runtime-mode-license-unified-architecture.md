@@ -1,5 +1,8 @@
 # 0040. 実行モード × ライセンス統括アーキテクチャ (Typed env + EvaluationContext + Policy Gate)
 
+> **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |
