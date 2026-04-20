@@ -8,7 +8,6 @@ import {
 	withScreenshotParam,
 } from './lib/screenshot-helpers.mjs';
 
-// biome-ignore lint/suspicious/noConsole: CLI script requires console output
 const log = (...a) => console.log(...a);
 const logErr = (...a) => console.error(...a);
 
