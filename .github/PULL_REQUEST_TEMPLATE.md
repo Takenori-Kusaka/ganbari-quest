@@ -16,7 +16,7 @@
 <!-- closes #123 で自動クローズ。複数の場合は全て列挙 -->
 closes #
 
-## AC 検証マップ (ADR-0038)
+## AC 検証マップ (ADR-0004)
 
 <!-- ⚠️ 必須: このチェックリストは自己確認用で全部 [x] を狙うものではありませんが、
      **AC 検証マップは必ず全行を埋めること**。空欄のまま Ready for Review にできません。
@@ -94,7 +94,7 @@ closes #
 **意図的に対応しなかった範囲とその理由**:
 <!-- YAGNI原則に基づき、現時点で不要と判断したもの -->
 
-## 設計ポリシー確認（新機能 / 新 interface の場合 — #1023 / ADR-0035）
+## 設計ポリシー確認（新機能 / 新 interface の場合 — #1023 / ADR-0008）
 
 <!-- 新テーブル / 新スキーマ / 新 interface / セキュリティ機能 / 課金変更 / AWS リソース追加 / 3人日以上の工数 に該当する場合のみ記入 -->
 
@@ -140,14 +140,14 @@ closes #
 **網羅性の判断根拠**:
 <!-- なぜこのテスト範囲で十分と判断したか。カバーしていないリスクがあれば明記 -->
 
-### DynamoDB 実装完成度（#1021 — 段階的対応禁止 / ADR-0034）
+### DynamoDB 実装完成度（#1021 — 段階的対応禁止 / ADR-0010）
 
 <!-- `src/lib/server/db/dynamodb/*.ts` の新規追加・変更がある PR は必須。無い場合は「N/A」 -->
 
 - [ ] **N/A** — DynamoDB 実装の追加・変更なし
 
 <!-- 該当する場合、以下を全てチェック -->
-- [ ] ADR-0034（Pre-PMF セキュリティ最小化方針）の採用マトリクスで **interface を追加すべき機能** と判定した
+- [ ] ADR-0010（Pre-PMF セキュリティ最小化方針）の採用マトリクスで **interface を追加すべき機能** と判定した
 - [ ] interface を追加した PR で **SQLite + DynamoDB 両実装を完成**させた（stub / no-op / TODO なし）
 - [ ] `scripts/check-dynamodb-stub.mjs` がローカルで PASS する
 - [ ] CDK (`infra/lib/storage-stack.ts`) の DynamoDB テーブル / GSI 定義も同じ PR に含めた（新規テーブル / GSI の場合）
@@ -155,7 +155,7 @@ closes #
 - [ ] DynamoDB コンソールで当該テーブルに書込みが発生することを確認した（critical / 監査 / 認可 / 課金関連の場合）
 - [ ] Lambda CloudWatch Logs に想定イベントが出ることを確認した（critical / 監査 / 認可 / 課金関連の場合）
 
-詳細: docs/sessions/dev-session.md 「段階的リリース禁止」セクション、ADR-0034（docs/decisions/0034-pre-pmf-security-minimum.md）
+詳細: docs/sessions/dev-session.md 「段階的リリース禁止」セクション、ADR-0010（docs/decisions/0010-pre-pmf-scope-judgment.md）
 
 ## 品質観点チェック
 
@@ -305,12 +305,12 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 ### その他
 
 - [ ] **用語変更**: 変更した用語が他の画面・コンポーネントにも存在しないか `grep` で全件確認した
-- [ ] **labels SSOT (ADR-0037)**: 追加/変更したユーザー向け文言 (プラン名・年齢モード名・機能名・固有名詞) が以下を満たすか確認した
+- [ ] **labels SSOT (ADR-0009)**: 追加/変更したユーザー向け文言 (プラン名・年齢モード名・機能名・固有名詞) が以下を満たすか確認した
   - [ ] 文字列は `src/lib/domain/labels.ts` に定数/関数として定義されている (新規追加時)
   - [ ] アプリ側 (`src/**`) は `labels.ts` から import して使用 (リテラル直書きなし)
   - [ ] LP 側 (`site/**`) は `site/shared-labels.js` の `data-label` 属性経由で注入 (HTML 直書きなし)
   - [ ] 新規 label 追加時: `node scripts/generate-lp-labels.mjs` を実行して `site/shared-labels.js` を再生成した
-  - [ ] SEO 用 `<meta>` タグなど SSOT 例外ケースは ADR-0037 の例外条件に合致し、`labels.ts` の値と完全一致することを手動確認した
+  - [ ] SEO 用 `<meta>` タグなど SSOT 例外ケースは ADR-0009 の例外条件に合致し、`labels.ts` の値と完全一致することを手動確認した
   - [ ] N/A — ユーザー向け文言の追加/変更なし
 - [ ] **UI構造変更**: チュートリアル（`tutorial-chapters.ts`）の説明文・セレクタが変更と整合しているか確認した
 - [ ] **カラー・スタイル**: hex カラー直書き・Tailwind デフォルト色クラスの新規追加をしていない（`docs/reference/color-mapping.md` 参照）
@@ -335,7 +335,7 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] 5年齢モード全てで実機検証しスクリーンショット添付済み（該当する場合）
 - [ ] **N/A** — Critical 修正ではない
 
-## 新規 env / secret 追加チェック（ADR-0029 / #914）
+## 新規 env / secret 追加チェック（ADR-0006 / #914）
 
 <!-- 本 PR で `assert*Configured()` / `throw new Error('XXX is required')` /
      `process.env.XXX || (() => { throw ... })()` のような production guard を新規追加した場合のみ記入。
@@ -346,7 +346,7 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 <!-- 新規 env / secret を追加した場合、以下を全て埋めること。
      CI の new-env-distribution-check が「配布済み: <ENV>」行を検出できないと red になる -->
 
-### 配布済み env / secret (ADR-0029)
+### 配布済み env / secret (ADR-0006)
 
 <!-- 例:
 - 配布済み: AWS_LICENSE_SECRET → GitHub Actions Secrets (deploy.yml, deploy-nuc.yml)
@@ -357,9 +357,9 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] GitHub Actions Secrets に登録済み（deploy.yml / deploy-nuc.yml が参照する場合）
 - [ ] SSM Parameter Store に登録済み（Lambda 本番が参照する場合）
 - [ ] NUC `.env` に登録済み（本機 + バックアップ機の両方）
-- [ ] ADR-0029 の禁止 5 項目（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / .skip 等）に該当しないことを確認した
+- [ ] ADR-0006 の禁止 5 項目（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / .skip 等）に該当しないことを確認した
 
-詳細: [docs/decisions/0029-safety-assertion-erosion-ban.md](../docs/decisions/0029-safety-assertion-erosion-ban.md)
+詳細: [docs/decisions/0006-safety-assertion-erosion-ban.md](../docs/decisions/0006-safety-assertion-erosion-ban.md)
 
 ## デプロイ検証（#710 — マージ後必須）
 
@@ -395,7 +395,7 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 例:
 - `marketplace-desktop-viewport.png`: フィルタチップが `var(--color-action-primary)` 使用 / Button primitive 利用 / hex 直書き無し
 - `marketplace-mobile-dialog.png`: bottom sheet 高さ 60% で親指操作圏 (#1171 AC3) を満たす / elementary tapSize=56px 相当
-- `free-plan-status.png`: プラン表記 `フリープラン` が `labels.ts` 定数経由 (ADR-0037) / 内部コード `free_trial` の露出無し
+- `free-plan-status.png`: プラン表記 `フリープラン` が `labels.ts` 定数経由 (ADR-0009) / 内部コード `free_trial` の露出無し
 -->
 
 

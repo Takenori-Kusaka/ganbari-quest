@@ -35,7 +35,7 @@ These are the highest-priority review items. Always check for:
 - **Null/undefined safety**: Optional chaining where required, nullish coalescing with correct fallback values, TypeScript strict compliance
 - **Data integrity**: DB transactions where multiple writes must be atomic, race conditions in concurrent operations
 
-## Priority 2: Design System & CSS Rules (ADR-0003, Project Rule)
+## Priority 2: Design System & CSS Rules ([archive/0014](../docs/decisions/archive/0014-css-token-architecture.md), Project Rule)
 
 This project enforces a 3-layer CSS token architecture. Violations are `[must]` findings:
 
@@ -58,7 +58,7 @@ Changes that affect shared functionality must be applied everywhere. Missing lat
 - **Terminology**: UI labels must come from `src/lib/domain/labels.ts` (the terminology dictionary). Hardcoded strings that duplicate dictionary entries are a `[must]` finding.
 - **Tutorial**: UI structure changes may break tutorial overlays (`tutorial-chapters.ts`). Check that selectors and step descriptions still match.
 
-## Priority 4: Design Document Sync (ADR-0003 — Merge Blocker)
+## Priority 4: Design Document Sync (ADR-0001 — Merge Blocker)
 
 Design documents are the Single Source of Truth. A PR that changes the following without updating the corresponding design doc is a `[must]` finding:
 
@@ -77,12 +77,12 @@ If the PR has no design doc impact, that is acceptable — but the omission shou
 ## Priority 5: Test Coverage
 
 - **Bug fixes must include regression tests**: A bug fix PR without a corresponding test (unit or E2E) is a `[must]` finding. The fix will be lost in the next refactoring without a test.
-- **Critical bug fixes (priority:critical label)** have additional requirements (ADR-0005):
+- **Critical bug fixes (priority:critical label)** have additional requirements (ADR-0002):
   - E2E regression test in the same PR
   - All Issue Acceptance Criteria completed
   - All proposed countermeasures implemented (or split to separate Issues)
 - **Schema changes must update test seeds**: `tests/e2e/global-setup.ts`, `tests/unit/helpers/test-db.ts`, and `src/lib/server/demo/demo-data.ts` must stay in sync with DB schema.
-- **Test anti-patterns (ADR-0017)** — the following are `[must]` findings:
+- **Test anti-patterns (ADR-0005)** — the following are `[must]` findings:
   - Coverage threshold decrease in `vite.config.ts` `thresholds` values
   - New `clearDialogGhosts()` usage outside `tests/e2e/helpers.ts` (masks app bugs)
   - New `test.skip()` / `test.fixme()` without documented justification
@@ -91,7 +91,7 @@ If the PR has no design doc impact, that is acceptable — but the omission shou
   - Test code that re-implements business logic (e.g., `Math.random` probability simulation)
 - **Feature PRs must include tests**: A PR adding a new service file without a corresponding test file is a `[must]` finding. The test must call the service's public API, not manipulate the DB directly.
 
-## Priority 6: Image Asset Protection (ADR-0007)
+## Priority 6: Image Asset Protection ([archive/0007](../docs/decisions/archive/0007-image-asset-protection.md))
 
 This is a children's gamification app where visual quality is core to the product experience:
 
@@ -99,7 +99,7 @@ This is a children's gamification app where visual quality is core to the produc
 - **Check `docs/design/asset-catalog.md`**: The "emoji NG" list defines which elements require image assets.
 - **Orphan check**: If a PR removes references to images in `static/assets/`, verify the images are intentionally being retired (not accidentally orphaned).
 
-## Priority 7: Type Safety (ADR-0009)
+## Priority 7: Type Safety (Project Rule)
 
 - **`as any` is prohibited** in new code. Flag as `[must]`.
 - **Non-null assertions (`!`)** should be avoided unless the invariant is obvious and documented.
@@ -111,7 +111,7 @@ This is a children's gamification app where visual quality is core to the produc
 - **Business logic must not live in route files** (`src/routes/`). Logic belongs in `$lib/server/services/` or `$lib/domain/`.
 - **DB access must go through `$lib/server/db`**, never direct ORM calls from `+server.ts`.
 - **API errors** must use `@sveltejs/kit`'s `error()` and `json()` for consistent responses.
-- **URL redirects**: When URLs are renamed or retired, add entries to `src/lib/server/routing/legacy-url-map.ts` instead of writing `redirect()` in individual route files (ADR-0001).
+- **URL redirects**: When URLs are renamed or retired, add entries to `src/lib/server/routing/legacy-url-map.ts` instead of writing `redirect()` in individual route files ([archive/0001](../docs/decisions/archive/0001-rename-backward-compat.md)).
 - **Data fetching**: Use `+page.ts` / `+layout.ts` `load` functions. No direct `fetch()` inside components.
 
 ## Priority 9: Performance
@@ -142,61 +142,46 @@ Breaking this chain is a `[must]` finding:
 
 ## Priority 12: Development Process Compliance
 
-- **Coverage threshold changes (ADR-0017)**: If `vite.config.ts` `thresholds` values are lowered, this is a `[must]` finding. Lowering thresholds requires an ADR with a restoration plan and explicit PO approval.
-- **Issue close quality (ADR-0010)**: If a PR closes an Issue that lacks root cause analysis or acceptance criteria, flag as `[ask]`.
-- **Dialog management (ADR-0016)**: Dialog/overlay display on the child home page must be centrally managed. New `xxxOpen = true` direct state manipulation for overlays is a `[must]` finding. See ADR-0002 for the original queue requirement.
-- **Design doc sync (ADR-0003)**: Verify design docs are updated for API/DB/UI changes (see Priority 4).
+- **Coverage threshold changes (ADR-0005)**: If `vite.config.ts` `thresholds` values are lowered, this is a `[must]` finding. Lowering thresholds requires an ADR with a restoration plan and explicit PO approval.
+- **Issue close quality (ADR-0003)**: If a PR closes an Issue that lacks root cause analysis or acceptance criteria, flag as `[ask]`.
+- **Dialog management ([archive/0019](../docs/decisions/archive/0019-dialog-fsm-scrap-and-rebuild.md))**: Dialog/overlay display on the child home page must use the FSM scrap-and-rebuild approach. New `xxxOpen = true` direct state manipulation for overlays is a `[must]` finding.
+- **Design doc sync (ADR-0001)**: Verify design docs are updated for API/DB/UI changes (see Priority 4).
 
 ## Additional Context
 
 ### Architecture Decision Records (ADRs)
 
-The project maintains ADRs in `docs/decisions/`. Key decisions to be aware of:
+The project maintains ADRs in `docs/decisions/`. #1262 で旧 0001-0044 を 10 件の active ADR に再編済み。active は `docs/decisions/NNNN-*.md`、archived (25 件) は `docs/decisions/archive/NNNN-*.md`、supersede chain 終端 5 件 (旧 0002 / 0008 / 0009 / 0016 / 0027) は削除済み。
 
-- **ADR-0001**: Renames must maintain backward compatibility via `LEGACY_URL_MAP`
-- **ADR-0002**: Only one dialog/overlay at a time (queue required) — see also ADR-0016 for updated management guidelines
-- **ADR-0003**: Design docs are Single Source of Truth (merge blocker)
-- **ADR-0004**: Stamp card spec — 5 slots, image-based, redeem flow
-- **ADR-0005**: Critical fix quality gate — 5 mandatory conditions
-- **ADR-0006**: PR review must document findings (no silent approvals)
-- **ADR-0007**: Image assets must not be replaced with emoji
-- ~~**ADR-0008**: Age mode changes carry 5x duplication risk~~ → **superseded (2026-04-19)** #567 の `[uiMode=uiMode]` 統合完了により不要化
-- ~~**ADR-0009**: Server-client type contracts must be explicitly maintained~~ → **superseded (2026-04-19)** ADR-0031（schema-change-compat-testing）+ ADR-0037（labels SSOT）で代替
-- **ADR-0010**: Issue creation requires root cause analysis and structural solution proposals
-- **ADR-0011**: SvelteKit 2 + Svelte 5 (Runes) adoption
-- **ADR-0012**: DynamoDB single-table design
-- **ADR-0013**: Cognito + Google OAuth authentication
-- **ADR-0014**: 3-layer CSS token architecture
-- **ADR-0015**: Repository pattern for DB abstraction
-- ~~**ADR-0016**: Dialog/overlay state must be centrally managed via queue~~ → **superseded by ADR-0019 (2026-04-19)** OverlaysSection キューは FSM に置換済み
-- **ADR-0017**: Test quality must not degrade — coverage threshold decreases and test anti-patterns are `[must]` review findings
-- **ADR-0018**: Issue creation requires root cause analysis and structural solution proposals
-- **ADR-0019**: Dialog management must use FSM scrap-and-rebuild approach
-- **ADR-0020**: Test quality ratchet enforcement — coverage thresholds can only increase, never decrease
-- **ADR-0021**: Deploy verification gate — production confirmation required before closing Issues
-- **ADR-0022**: Billing/data lifecycle consistency — cancel Stripe subscription before DB deletion on account delete
-- **ADR-0023**: Pre-PMF issue priority guidelines — mandatory checklist for type:feat to prevent engineer bias
-- **ADR-0024**: Plan tier resolution pattern — use `resolveFullPlanTier` from server load/action, never call `resolvePlanTier` directly
-- **ADR-0025**: License ↔ Stripe Subscription causality — Stripe is source of truth, dunning delegated to Stripe
-- **ADR-0026**: License key architecture — HMAC-SHA256, 32-char alphabet, single-use, 90-day expiry
-- **ADR-0027**: Plan-based history retention policy — retention is a read-time display filter only; no physical delete cron. Summary tables are exempt from retention filtering
-- **ADR-0028**: Plan-based history retention — physical delete via cron (supersedes ADR-0027). Free plan rows older than retention window are physically deleted by scheduled job
-- **ADR-0029**: Safety Assertion Erosion Ban — production guard を弱める変更（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加）は禁止。例外は別 ADR で当該 ADR を supersede すること。新規必須 env / secret 追加時は PR 本文に「配布済み:」証跡が必須（CI で `scripts/check-new-required-env.mjs` が検証）
-- **ADR-0030**: Cognito E2E テストユーザーのライフサイクル基盤 — 動的 E2E ユーザーは Admin API バイパス方式（`AdminCreateUser(SUPPRESS)` + `AdminSetUserPassword(Permanent)`）で作成。IAM Resource は staging User Pool ARN のみ許可、本番 ARN は絶対に含めない。email は `@ganbari-quest.test` 固定、`e2e-{date}-{sha}-{uuid}` 命名。クリーンアップは afterEach / global-teardown / nightly janitor の 3 段構え。Pre Sign-up Lambda にテスト分岐を入れる案は却下（ADR-0029 §④ に抵触）
-- **ADR-0031**: スキーマ変更時の既存データ互換性テスト義務化 — `src/lib/server/db/schema.ts` にカラムを追加する PR は、`tests/unit/db|services/` に NULL 混在行でのクエリテストを同梱。マイグレーション script の `ALTER TABLE ADD COLUMN` には `UPDATE ... WHERE col IS NULL` バックフィルを併記。CI は `scripts/check-schema-change-tests.mjs` で warn を出す
-- **ADR-0032**: Static analysis tier policy — 4 階層で実行頻度を分類: T1 PR ゲート（< 30s、merge block）/ T2 PR 並行レーン（30s-3min、別 job）/ T3 nightly 週次（> 3min or debt 検知、PR は止めない）/ T4 四半期 手動（脆弱性スキャン等）。新ツール導入は実行時間 → blast radius の判断フローで階層決定。T1 合計予算は 3min 以下、新規追加は +30s 以下目安
-- **ADR-0033**: /ops dashboard authz Cognito group migration — `OPS_SECRET_KEY` shared secret を廃止し Cognito ops group + `isOpsMember(identity)` ベースに刷新（PR-A/B/C/D 段階実装）。cron endpoint (`/api/cron/retention-cleanup`) は shared secret のままだが概念分離して `CRON_SECRET` にリネーム、移行期は `OPS_SECRET_KEY` を後方互換フォールバックとして受け入れる。PR-D-2（3 ヶ月後）で `OPS_SECRET_KEY` を完全削除予定
-- **ADR-0034**: Pre-PMF セキュリティ最小化方針 — HMAC-SHA256 鍵強度（ADR-0026）+ API Gateway 標準スロットリング + AWS Budgets + 既存 state カラム（`licenses` / `license_keys` / Stripe webhook）で Pre-PMF の防御は十分とする。**採用しない**: 汎用監査ログ DynamoDB テーブル / S3+Athena 監査基盤 / AWS WAF / IP 単位ブルートフォース検知 / CloudWatch Logs 長期保管。ADR-0029 とは対象が逆（本 ADR は新規セーフティの過剰採用を禁止、ADR-0029 は既存セーフティの劣化を禁止）。PMF 後再評価トリガ: 月商 ¥10,000 超 or 有料顧客 100 人超 or セキュリティインシデント 1 件 or 法的要請
-- **ADR-0035**: 設計ポリシー先行確認フロー — 新テーブル / 新 interface / セキュリティ機能 / 課金変更 / AWS リソース追加 / 3 人日以上の工数に該当する PR は、実装着手前に PO 設計ポリシー合意が必須。PR 本文の「設計ポリシー確認」セクションに合意の根拠（Issue ラベル / ADR / PO コメント）を記載。根拠がない場合は Reviewer がレビューを開始せず差し戻し。Reviewer / PO は Dev の実装作業を肩代わりしない（#1022 越境禁止ルール）
-- **ADR-0036**: マーケットプレイス公開アクセス設計 — 閲覧パブリック / インポート認証必須。未ログインユーザーはプリセット一覧・詳細を閲覧可能、「自分の子供に適用」などの書込み操作時のみ login flow に誘導
-- **ADR-0037**: 全ユーザー向け文言の SSOT 化原則 — プラン名 / 年齢モード名 / 機能名などは `src/lib/domain/labels.ts` に定数定義、LP は `site/shared-labels.js` の `data-label` 属性経由。BANNED_TERMS を CI (`scripts/check-banned-terms.mjs`) で自動検出
-- **ADR-0038**: AC 検証エビデンス必須化 — Issue テンプレに `ac-verification-plan` (required)、PR テンプレに「AC 検証マップ」セクション、CI 3 本 (`pr-ac-verification-check` / `issue-close-gate` / `ac-audit-monthly`) で機械強制。初期リリースは warn-only、2 週間後に block 化予定。`<!-- ac-verification-skip: <理由> -->` で例外可 (監査ログ記録)。`quality:ac-incomplete` / `quality:audit-pending` ラベルで隔離
-- **ADR-0039**: デモモードをアプリ実行モードに統合 — `src/routes/demo/**` の別ルートツリーを廃止し、`?mode=demo` / `gq_demo` cookie / `/demo/*` プレフィックス の 3 段で `event.locals.isDemo` を判定。書き込みは `hooks.server.ts` で no-op 化（200 `{ ok: true, demo: true }`）、4h cookie、`/api/demo/exit` で明示退出
-- **ADR-0040**: 実行モード × ライセンス統括アーキテクチャ — 5 実行モード (build / demo / local-debug / aws-prod / nuc-prod) × ライセンスプランを 3 層ハイブリッドで統括。(1) Typed env `src/lib/runtime/env.ts` (Zod) + (2) EvaluationContext（OpenFeature 準拠の概念） + (3) Policy Gate `capabilities.ts` の `can(ctx, cap)`。外部 SaaS (LaunchDarkly / Stripe Entitlements) は Pre-PMF で不採用 (ADR-0034 準拠)。5 フェーズ移行 (P1 typed env → P2 RuntimeMode → P3 EvaluationContext → P4 Policy Gate → P5 Playwright matrix)
+#### Active ADRs (TOP 10)
+
+- **ADR-0001**: [設計書は Single Source of Truth](../docs/decisions/0001-design-doc-as-source-of-truth.md) — 会話で決まった仕様は設計書に反映、Issue だけでは不十分
+- **ADR-0002**: [Critical 修正の品質ゲート](../docs/decisions/0002-critical-fix-quality-gate.md) — 5 年齢モード実機検証 + 回帰 E2E + AC 全項目完了
+- **ADR-0003**: [Issue 起票・クローズ品質](../docs/decisions/0003-issue-quality-standard.md) — 根本原因特定 + 構造的解決 + スクラップ&ビルド + 単一解決策
+- **ADR-0004**: [レビュー & AC 検証品質](../docs/decisions/0004-review-and-ac-verification.md) — Issue `ac-verification-plan` 必須、PR「AC 検証マップ」、CI 3 本 (`pr-ac-verification-check` / `issue-close-gate` / `ac-audit-monthly`) で機械強制
+- **ADR-0005**: [テスト品質 ratchet](../docs/decisions/0005-test-quality-ratchet.md) — カバレッジ閾値は上げるのみ、アンチパターン検出は `[must]` 所見化
+- **ADR-0006**: [Safety Assertion Erosion Ban](../docs/decisions/0006-safety-assertion-erosion-ban.md) — production guard 劣化禁止 5 項目 (warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加)。新規必須 env は PR 本文に「配布済み:」証跡必須 (`scripts/check-new-required-env.mjs`)
+- **ADR-0007**: [静的解析 tier ポリシー](../docs/decisions/0007-static-analysis-tier-policy.md) — T1 PR ゲート (< 30s、merge block) / T2 並行レーン / T3 nightly / T4 四半期。T1 合計予算 3min 以下、新規追加は +30s 以下目安
+- **ADR-0008**: [設計ポリシー先行確認フロー](../docs/decisions/0008-design-policy-pre-approval.md) — 新テーブル / 新 interface / セキュリティ機能 / 課金変更 / AWS リソース追加 / 3 人日以上は実装着手前に PO 合意必須
+- **ADR-0009**: [labels.ts SSOT 化原則](../docs/decisions/0009-labels-ssot-principle.md) — プラン名 / 年齢モード名 / 機能名は `src/lib/domain/labels.ts` / LP は `site/shared-labels.js` 経由。BANNED_TERMS を CI (`scripts/check-banned-terms.mjs`) で自動検出
+- **ADR-0010**: [Pre-PMF スコープ判断](../docs/decisions/0010-pre-pmf-scope-judgment.md) — 3 バケット (A 実装+LP / B LP のみ / C 沈黙) + セキュリティ最小化 + `type:feat` 優先度チェックリスト。汎用監査ログ / WAF / IP 単位ブルートフォース検知は不採用
+
+#### Archived ADRs (参照のみ)
+
+archive 配下のファイルは supersede ヘッダで新 ADR への統合先を明示。参照が必要な場合のみ `docs/decisions/archive/` を辿ること。代表例:
+
+- 技術スタック採用: SvelteKit 2 + Svelte 5 / DynamoDB 単一テーブル / Cognito + Google OAuth / 3-layer CSS トークン / Repository pattern → [archive/0011-0015](../docs/decisions/archive/)
+- Dialog FSM scrap-and-rebuild → [archive/0019-dialog-fsm-scrap-and-rebuild.md](../docs/decisions/archive/0019-dialog-fsm-scrap-and-rebuild.md)
+- Billing/License: Stripe causality / license key HMAC / retention physical delete → [archive/0022 / 0025 / 0026 / 0028](../docs/decisions/archive/)
+- E2E / schema / ops authz: Cognito E2E user lifecycle / schema change compat testing / ops dashboard authz → [archive/0030 / 0031 / 0033](../docs/decisions/archive/)
+- Marketplace: public access / naming / gender variant → [archive/0036 / 0041 / 0042](../docs/decisions/archive/)
+- Demo mode / runtime mode: demo 統合 / 実行モード × license 統括 → [archive/0039-0040](../docs/decisions/archive/)
+- Primitive / bypass evidence: native select / admin bypass evidence → [archive/0043-0044](../docs/decisions/archive/)
 
 ### ADR 棚卸レポート
 
-- [adr-inventory-2026-04-19.md](../docs/decisions/adr-inventory-2026-04-19.md) — 0001〜0039 棚卸。0008 / 0009 / 0016 を supersede、active-primary 12 件特定
+- [adr-inventory-2026-04-19.md](../docs/decisions/adr-inventory-2026-04-19.md) — 旧 0001〜0039 棚卸。0008 / 0009 / 0016 を supersede、active-primary 12 件特定
+- [adr-inventory-2026-04-20.md](../docs/decisions/adr-inventory-2026-04-20.md) — 新体系 0001-0010 + archive 25 件の最終棚卸 (#1262 sub-7 完了)
 
 ### Team Structure
 

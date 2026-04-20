@@ -52,7 +52,7 @@ body:
       description: |
         「何が・どう表示/動作したら完了か」を具体的に書く。
         ⚠️ 「修正する」「改善する」等の曖昧な記述は禁止。
-        AC は**測定可能な数値・文字列・ファイルパス**で書くこと（ADR-0038）。
+        AC は**測定可能な数値・文字列・ファイルパス**で書くこと（ADR-0004）。
         スクリーンショット・操作手順・期待結果のセットで書くこと。
       value: |
         **現状（Before）**: <!-- スクリーンショット or 具体的な表示テキスト -->
@@ -73,7 +73,7 @@ body:
   - type: textarea
     id: ac-verification-plan
     attributes:
-      label: AC 検証計画（ADR-0038 必須）
+      label: AC 検証計画（ADR-0004 必須）
       description: |
         上記ゴールの各 AC を**どの機械手段で検証するか**を列挙する。
         PR 作成時に「AC 検証マップ」として転記されるため、ここで曖昧だと PR も曖昧になる。
@@ -93,10 +93,10 @@ body:
   - type: dropdown
     id: static_analysis_tier
     attributes:
-      label: 静的解析階層（infra/lint/静的解析ツール導入時のみ必須、ADR-0032）
+      label: 静的解析階層（infra/lint/静的解析ツール導入時のみ必須、ADR-0007）
       description: |
         静的解析ツール・lint ルール・コード品質チェックを導入する Issue では想定階層を指定すること。
-        階層の判断基準は `docs/decisions/0032-static-analysis-tier-policy.md` を参照。
+        階層の判断基準は `docs/decisions/0007-static-analysis-tier-policy.md` を参照。
       options:
         - "N/A（静的解析ツール導入ではない）"
         - "T1 PR ゲート（< 30s、merge block）"
@@ -231,7 +231,7 @@ body:
         「Blocked by / Blocks」に該当しないもののみここに書く（関連の意味を薄めないため）。
       placeholder: |
         #234 (類似実装の参考)
-        ADR-0018
+        ADR-0003
 
   - type: dropdown
     id: phase

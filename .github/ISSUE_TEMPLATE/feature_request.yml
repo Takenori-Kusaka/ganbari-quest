@@ -11,11 +11,11 @@ body:
   - type: checkboxes
     id: pre_pmf_check
     attributes:
-      label: Pre-PMF チェック（type:feat 必須 / ADR-0023）
+      label: Pre-PMF チェック（type:feat 必須 / ADR-0010）
       description: |
         新規機能を起票する前に、エンジニアバイアス (「課金基盤を完璧にしたのにユーザーがいない」状態) を防ぐためのチェック。
         `priority:critical` な bug fix / 法務 / セキュリティ対応はチェック不要。
-        詳細: [ADR-0023](../../docs/decisions/0023-pre-pmf-issue-priority-guidelines.md)
+        詳細: [ADR-0010](../../docs/decisions/0010-pre-pmf-scope-judgment.md)
       options:
         - label: "どのペルソナ (`docs/design/11-ペルソナ定義書.md` の P1/P2) のどの課題を解決するか、本文に明記した"
         - label: "`docs/design/34-V2MOM.md` の Method (M1〜M4) に紐づけた"
@@ -78,7 +78,7 @@ body:
       label: ゴール（Acceptance Criteria）
       description: |
         この機能が完了したと判断できる条件を列挙する。
-        AC は**測定可能な数値・文字列・ファイルパス**で書くこと（ADR-0038）。
+        AC は**測定可能な数値・文字列・ファイルパス**で書くこと（ADR-0004）。
         「〜が改善される」「UXが向上する」等の抽象表現は不可。
       value: |
         - [ ] <!-- 例: 「/ops/audit-log 画面に直近 10 分の検証失敗ログが表形式で表示される」 -->
@@ -90,7 +90,7 @@ body:
   - type: textarea
     id: ac-verification-plan
     attributes:
-      label: AC 検証計画（ADR-0038 必須）
+      label: AC 検証計画（ADR-0004 必須）
       description: |
         上記ゴールの各 AC を**どの機械手段で検証するか**を列挙する。
         PR 作成時に「AC 検証マップ」として転記されるため、ここで曖昧だと PR も曖昧になる。
@@ -161,7 +161,7 @@ body:
       description: "関連するが依存関係を持たない Issue / ADR / ドキュメントを列挙"
       placeholder: |
         #234 (類似実装の参考)
-        ADR-0023
+        ADR-0010
 
   - type: dropdown
     id: phase
