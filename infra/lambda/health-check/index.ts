@@ -54,7 +54,17 @@ const HEALTH_CHECK_URL = (process.env.HEALTH_CHECK_URL ?? 'https://ganbari-quest
 );
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_HEALTH ?? '';
 const REQUEST_TIMEOUT_MS = 10_000;
-const DEGRADED_THRESHOLD_MS = 3_000;
+// #1257 G2: コールドスタート実態との乖離を解消
+// Lambda init (1-2s) + SvelteKit 初期化 (1-2s) + DynamoDB DescribeTable 初回 SDK init (0.5-1s)
+// = 3-5 秒は正常範囲。余裕を持って 8 秒。PMF 接近時に再評価。
+const DEGRADED_THRESHOLD_MS = Number.parseInt(process.env.DEGRADED_THRESHOLD_MS ?? '8000', 10);
+// #1257 G1: Discord 通知で生 URL を露出させないための論理名
+// Function URL (authType: NONE) は秘密ではないが、運用通知に載せると CloudFront/WAF を
+// 回避する導線を宣伝することになる。CloudWatch ログには引き続き実 URL を出力する。
+const HEALTH_CHECK_LABEL = process.env.HEALTH_CHECK_LABEL ?? 'App Lambda (/api/health)';
+const HEALTH_CHECK_ENVIRONMENT = process.env.HEALTH_CHECK_ENVIRONMENT ?? 'production';
+// #1257 G3: 二段プローブの間隔 (1 回目 degraded/down → 10s 待ち → 2 回目)
+const RETRY_DELAY_MS = Number.parseInt(process.env.HEALTH_CHECK_RETRY_DELAY_MS ?? '10000', 10);
 
 // ----------------------------------------------------------------
 // Handler
@@ -62,23 +72,34 @@ const DEGRADED_THRESHOLD_MS = 3_000;
 
 export async function handler(): Promise<OverallStatus> {
 	const timestamp = new Date().toISOString();
+	const target = `${HEALTH_CHECK_URL}/api/health`;
 
-	const healthCheck = await checkEndpoint(`${HEALTH_CHECK_URL}/api/health`);
+	// #1257 G3: 二段プローブで一時的な blip を通知しない
+	// 1 回目が degraded/down なら 10s 待って 2 回目を打ち、2 回目も非正常なら通知。
+	const firstCheck = await checkEndpoint(target);
+	let finalCheck = firstCheck;
+	let retried = false;
 
-	const checks = [healthCheck];
-
-	// Determine overall status
-	const hasDown = checks.some((c) => c.status === 'down');
-	const hasDegraded = checks.some((c) => c.status === 'degraded');
-
-	let overallStatus: OverallStatus['status'];
-	if (hasDown) {
-		overallStatus = 'down';
-	} else if (hasDegraded) {
-		overallStatus = 'degraded';
-	} else {
-		overallStatus = 'normal';
+	if (firstCheck.status !== 'ok') {
+		console.warn(
+			JSON.stringify({
+				level: 'warn',
+				message: 'first probe non-ok, retrying',
+				firstCheck,
+			}),
+		);
+		await sleep(RETRY_DELAY_MS);
+		finalCheck = await checkEndpoint(target);
+		retried = true;
 	}
+
+	const checks = [finalCheck];
+	const overallStatus: OverallStatus['status'] =
+		finalCheck.status === 'down'
+			? 'down'
+			: finalCheck.status === 'degraded'
+				? 'degraded'
+				: 'normal';
 
 	const result: OverallStatus = {
 		status: overallStatus,
@@ -86,15 +107,28 @@ export async function handler(): Promise<OverallStatus> {
 		timestamp,
 	};
 
-	// v1: Only notify Discord on failure/degraded (skip success to avoid noise)
+	// 2 回連続で非正常なときだけ Discord 通知 (silent on transient blip)
 	if (overallStatus !== 'normal') {
 		await notifyDiscord(result);
+	} else if (retried) {
+		console.log(
+			JSON.stringify({
+				level: 'info',
+				message: 'second probe recovered, suppressing notification',
+				firstCheck,
+				finalCheck,
+			}),
+		);
 	}
 
-	// Always log result for CloudWatch
+	// Always log result for CloudWatch (生 URL は調査用に残す)
 	console.log(JSON.stringify(result));
 
 	return result;
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ----------------------------------------------------------------
@@ -188,15 +222,16 @@ async function notifyDiscord(result: OverallStatus): Promise<void> {
 	const statusEmoji = result.status === 'down' ? '\u{1F534}' : '\u{1F7E1}'; // Red or Yellow circle
 	const statusLabel = result.status === 'down' ? 'down' : 'degraded';
 
+	// #1257 G1: 生 URL の代わりに論理名を表示
 	const checkDetails = result.checks
 		.map((c) => {
 			if (c.status === 'ok') {
-				return `\u{1F7E2} ${c.endpoint} | ${c.responseTimeMs}ms`;
+				return `\u{1F7E2} ${HEALTH_CHECK_LABEL} | ${c.responseTimeMs}ms`;
 			}
 			if (c.status === 'degraded') {
-				return `\u{1F7E1} ${c.endpoint} | ${c.responseTimeMs}ms (slow)`;
+				return `\u{1F7E1} ${HEALTH_CHECK_LABEL} | ${c.responseTimeMs}ms (slow)`;
 			}
-			return `\u{1F534} ${c.endpoint} | ${c.error ?? `HTTP ${c.statusCode}`}`;
+			return `\u{1F534} ${HEALTH_CHECK_LABEL} | ${c.error ?? `HTTP ${c.statusCode}`}`;
 		})
 		.join('\n');
 
@@ -205,6 +240,11 @@ async function notifyDiscord(result: OverallStatus): Promise<void> {
 		description: checkDetails,
 		color: result.status === 'down' ? 0xff0000 : 0xffcc00,
 		fields: [
+			{
+				name: '環境',
+				value: HEALTH_CHECK_ENVIRONMENT,
+				inline: true,
+			},
 			{
 				name: 'Timestamp',
 				value: result.timestamp,
@@ -219,9 +259,11 @@ async function notifyDiscord(result: OverallStatus): Promise<void> {
 
 		await new Promise<void>((resolve, _reject) => {
 			const url = new URL(DISCORD_WEBHOOK_URL);
+			const isHttps = url.protocol === 'https:';
+			const client = isHttps ? https : http;
 			const options: https.RequestOptions = {
 				hostname: url.hostname,
-				port: 443,
+				port: url.port ? Number(url.port) : isHttps ? 443 : 80,
 				path: url.pathname + url.search,
 				method: 'POST',
 				headers: {
@@ -231,7 +273,7 @@ async function notifyDiscord(result: OverallStatus): Promise<void> {
 				timeout: 5_000,
 			};
 
-			const req = https.request(options, (res) => {
+			const req = client.request(options, (res) => {
 				let body = '';
 				res.on('data', (chunk: Buffer) => {
 					body += chunk.toString();
