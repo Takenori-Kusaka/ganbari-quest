@@ -10,7 +10,6 @@ test.describe('チュートリアル全ステップ検証', () => {
 	test.beforeEach(async ({ page }) => {
 		// チュートリアル進捗をクリアして最初から開始できるようにする
 		await page.goto('/admin');
-		await page.waitForLoadState('networkidle');
 		await page.evaluate(() => {
 			localStorage.removeItem('tutorial-progress-chapter');
 			localStorage.removeItem('tutorial-progress-step');
@@ -23,7 +22,6 @@ test.describe('チュートリアル全ステップ検証', () => {
 
 		await page.setViewportSize({ width: 1280, height: 800 });
 		await page.goto('/admin');
-		await page.waitForLoadState('networkidle');
 
 		// PremiumWelcome ダイアログが表示されている場合は先に閉じる
 		const welcomeDialog = page.locator('.welcome-overlay');
@@ -44,7 +42,6 @@ test.describe('チュートリアル全ステップ検証', () => {
 		} else if (await pageGuideBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
 			// PageGuide 対応ページ: ガイドなしページに移動してチュートリアルボタンを探す
 			await page.goto('/admin/license');
-			await page.waitForLoadState('networkidle');
 			const btn = page.locator('[data-tutorial="tutorial-restart"]');
 			if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
 				await btn.click();
@@ -176,7 +173,6 @@ test.describe('チュートリアル全ステップ検証', () => {
 
 		await page.setViewportSize({ width: 390, height: 844 });
 		await page.goto('/admin');
-		await page.waitForLoadState('networkidle');
 
 		// PremiumWelcome ダイアログが表示されている場合は先に閉じる
 		const welcomeDialog = page.locator('.welcome-overlay');
@@ -195,7 +191,6 @@ test.describe('チュートリアル全ステップ検証', () => {
 			await tutorialBtn.click();
 		} else if (await pageGuideBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
 			await page.goto('/admin/license');
-			await page.waitForLoadState('networkidle');
 			const btn = page.locator('[data-tutorial="tutorial-restart"]');
 			if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
 				await btn.click();

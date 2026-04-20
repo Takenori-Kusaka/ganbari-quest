@@ -4,7 +4,7 @@
 // 出力: docs/screenshots/1192-tutorial-dialog-primitive/
 //
 // 注意: tutorial-verification.spec.ts の動作パターンに準拠
-// - networkidle 待ち (domcontentloaded だと Svelte マウント前に click して失敗する)
+// - page.goto の既定 waitUntil='load' + dismissWelcome + restartBtn.waitFor で同期
 // - welcome-overlay の先行ディスミス
 // - .tutorial-overlay 出現待ち
 
@@ -30,7 +30,6 @@ async function dismissWelcome(page: import('@playwright/test').Page) {
  */
 async function gotoPageWithRestartBtn(page: import('@playwright/test').Page) {
 	await page.goto('/admin/license');
-	await page.waitForLoadState('networkidle');
 	await dismissWelcome(page);
 }
 
@@ -47,7 +46,6 @@ test.describe('#1192 TutorialQuickCompleteDialog 3 ダイアログ撮影', () =>
 			localStorage.setItem('tutorial-progress-step', '0');
 		});
 		await page.reload();
-		await page.waitForLoadState('networkidle');
 		await dismissWelcome(page);
 
 		const restartBtn = page.locator('[data-tutorial="tutorial-restart"]').first();
