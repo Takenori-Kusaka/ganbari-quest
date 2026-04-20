@@ -35,6 +35,7 @@ export async function insertSpecialReward(
 		category: input.category,
 		grantedAt: now,
 		shownAt: null,
+		sourcePresetId: input.sourcePresetId ?? null,
 	};
 
 	const key = specialRewardKey(input.childId, now, id, tenantId);

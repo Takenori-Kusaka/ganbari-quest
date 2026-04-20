@@ -58,6 +58,7 @@ const SQL_TABLES = `
 		is_main_quest INTEGER NOT NULL DEFAULT 0,
 		is_archived INTEGER NOT NULL DEFAULT 0,
 		archived_reason TEXT,
+		source_preset_id TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE activity_logs (

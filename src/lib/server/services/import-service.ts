@@ -11,7 +11,11 @@ import {
 	insertActivityLog,
 	insertPointLedger,
 } from '$lib/server/db/activity-repo';
-import { insertTemplate, insertTemplateItem } from '$lib/server/db/checklist-repo';
+import {
+	findTemplatesByChild,
+	insertTemplate,
+	insertTemplateItem,
+} from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
 import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
@@ -100,7 +104,7 @@ export function validateExportData(
 	if (d.format !== EXPORT_FORMAT) {
 		return { valid: false, error: `フォーマットが不正です（期待: ${EXPORT_FORMAT}）` };
 	}
-	const supportedVersions = [EXPORT_VERSION, '1.0.0'];
+	const supportedVersions = [EXPORT_VERSION, '1.1.0', '1.0.0'];
 	if (!supportedVersions.includes(d.version as string)) {
 		return {
 			valid: false,
@@ -160,21 +164,25 @@ export async function previewImport(data: ExportData, tenantId: string): Promise
 		loginBonuses: [],
 	};
 
-	// 活動マスタの名前重複
+	// 活動マスタの重複 (#1254 G1: preset_duplicate 優先、次点 name_duplicate)
 	if (data.master?.activities?.length) {
 		const existing = await findActivities(tenantId);
 		const existingNames = new Set(existing.map((a) => a.name));
+		const existingPresetIds = new Set(
+			existing.map((a) => a.sourcePresetId).filter((p): p is string => !!p),
+		);
 		for (const a of data.master.activities) {
-			if (existingNames.has(a.name)) {
+			if (a.sourcePresetId && existingPresetIds.has(a.sourcePresetId)) {
+				duplicates.activities.push({ label: a.name, reason: 'preset_duplicate' });
+			} else if (existingNames.has(a.name)) {
 				duplicates.activities.push({ label: a.name, reason: 'name_duplicate' });
 			}
 		}
 	}
 
-	// NOTE: specialRewards / checklistTemplates / activityLogs / loginBonuses の重複検出には
-	//       子供単位の pre-fetch が必要だが、preview 段階では child_id が確定していない
-	//       (新規作成前)。そのため、「同名ごほうびが既存全子供に存在する場合」のような
-	//       保守的推定に留める。実インポート時は importFamilyData 側で正確に判定する。
+	// NOTE: activityLogs / loginBonuses の重複検出には子供単位の pre-fetch が必要だが、
+	//       preview 段階では child_id が確定していない (新規作成前)。
+	//       実インポート時は importFamilyData 側で正確に判定する。
 
 	return {
 		children: data.family.children.length,
@@ -254,8 +262,16 @@ async function importActivityMaster(
 
 	const existingActivities = await findActivities(tenantId);
 	const existingNames = new Set(existingActivities.map((a) => a.name));
+	const existingPresetIds = new Set(
+		existingActivities.map((a) => a.sourcePresetId).filter((p): p is string => !!p),
+	);
 
 	for (const exportActivity of data.master.activities) {
+		// #1254 G1: preset_duplicate を name_duplicate より先に判定
+		if (exportActivity.sourcePresetId && existingPresetIds.has(exportActivity.sourcePresetId)) {
+			result.skipped.preset++;
+			continue;
+		}
 		if (existingNames.has(exportActivity.name)) {
 			result.skipped.name++;
 			continue;
@@ -277,11 +293,15 @@ async function importActivityMaster(
 					ageMin: null,
 					ageMax: null,
 					triggerHint: exportActivity.triggerHint,
+					sourcePresetId: exportActivity.sourcePresetId ?? null,
 				},
 				tenantId,
 			);
 			result.activitiesCreated++;
 			existingNames.add(exportActivity.name);
+			if (exportActivity.sourcePresetId) {
+				existingPresetIds.add(exportActivity.sourcePresetId);
+			}
 		} catch (e) {
 			result.warnings.push(`活動「${exportActivity.name}」の作成に失敗: ${String(e)}`);
 		}
@@ -518,9 +538,31 @@ async function importChecklistTemplatesData(
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
+	const existingByChild = new Map<number, { names: Set<string>; presetIds: Set<string> }>();
+
 	for (const tpl of data.data.checklistTemplates) {
 		const childId = childIdMap.get(tpl.childRef);
 		if (!childId) continue;
+
+		let existing = existingByChild.get(childId);
+		if (!existing) {
+			const rows = await findTemplatesByChild(childId, tenantId, true);
+			existing = {
+				names: new Set(rows.map((r) => r.name)),
+				presetIds: new Set(rows.map((r) => r.sourcePresetId).filter((p): p is string => !!p)),
+			};
+			existingByChild.set(childId, existing);
+		}
+
+		// #1254 G1: preset_duplicate → name_duplicate の順で判定
+		if (tpl.sourcePresetId && existing.presetIds.has(tpl.sourcePresetId)) {
+			result.skipped.preset++;
+			continue;
+		}
+		if (existing.names.has(tpl.name)) {
+			result.skipped.name++;
+			continue;
+		}
 
 		try {
 			const newTpl = await insertTemplate(
@@ -531,9 +573,12 @@ async function importChecklistTemplatesData(
 					pointsPerItem: tpl.pointsPerItem,
 					completionBonus: tpl.completionBonus,
 					isActive: tpl.isActive ? 1 : 0,
+					sourcePresetId: tpl.sourcePresetId ?? null,
 				},
 				tenantId,
 			);
+			existing.names.add(tpl.name);
+			if (tpl.sourcePresetId) existing.presetIds.add(tpl.sourcePresetId);
 			for (const item of tpl.items) {
 				await insertTemplateItem(
 					{
@@ -595,19 +640,28 @@ async function importSpecialRewards(
 	result: ImportResult,
 ): Promise<void> {
 	const { errors, warnings } = result;
-	const existingRewardsByChild = new Map<number, Set<string>>();
+	const existingByChild = new Map<number, { titles: Set<string>; presetIds: Set<string> }>();
 	for (const sr of data.data.specialRewards) {
 		const childId = childIdMap.get(sr.childRef);
 		if (!childId) continue;
 
-		if (!existingRewardsByChild.has(childId)) {
-			const existing = await findSpecialRewards(childId, tenantId);
-			existingRewardsByChild.set(childId, new Set(existing.map((e) => e.title)));
+		let existing = existingByChild.get(childId);
+		if (!existing) {
+			const rows = await findSpecialRewards(childId, tenantId);
+			existing = {
+				titles: new Set(rows.map((r) => r.title)),
+				presetIds: new Set(rows.map((r) => r.sourcePresetId).filter((p): p is string => !!p)),
+			};
+			existingByChild.set(childId, existing);
 		}
-		const existingTitles = existingRewardsByChild.get(childId);
-		if (!existingTitles) continue;
 
-		if (existingTitles.has(sr.title)) {
+		// #1254 G1: preset_duplicate → name_duplicate の順で判定
+		if (sr.sourcePresetId && existing.presetIds.has(sr.sourcePresetId)) {
+			result.specialRewardsSkipped++;
+			result.skipped.preset++;
+			continue;
+		}
+		if (existing.titles.has(sr.title)) {
 			result.specialRewardsSkipped++;
 			result.skipped.name++;
 			continue;
@@ -622,18 +676,20 @@ async function importSpecialRewards(
 					points: sr.points,
 					icon: sr.icon ?? undefined,
 					category: sr.category,
+					sourcePresetId: sr.sourcePresetId ?? null,
 				},
 				tenantId,
 			);
 			result.specialRewardsImported++;
-			existingTitles.add(sr.title);
+			existing.titles.add(sr.title);
+			if (sr.sourcePresetId) existing.presetIds.add(sr.sourcePresetId);
 		} catch (e) {
 			errors.push(`ごほうび「${sr.title}」のインポートに失敗: ${String(e)}`);
 		}
 	}
 	if (result.specialRewardsSkipped > 0) {
 		warnings.push(
-			`ごほうび ${result.specialRewardsSkipped} 件が既存と同名のためスキップされました`,
+			`ごほうび ${result.specialRewardsSkipped} 件が既存と同名または同一プリセットのためスキップされました`,
 		);
 	}
 }

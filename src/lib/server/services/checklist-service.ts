@@ -323,6 +323,7 @@ export async function createTemplate(
 		timeSlot?: string;
 		// #1168: 'item' | 'routine' — default 'routine'
 		kind?: string;
+		sourcePresetId?: string | null;
 	},
 	tenantId: string,
 ) {
@@ -335,6 +336,7 @@ export async function createTemplate(
 			completionBonus: input.completionBonus ?? 5,
 			timeSlot: input.timeSlot ?? 'anytime',
 			kind: input.kind ?? 'routine',
+			sourcePresetId: input.sourcePresetId ?? null,
 		},
 		tenantId,
 	);

@@ -19,6 +19,7 @@ const mockFindRecentBonuses = vi.fn();
 const mockInsertLoginBonus = vi.fn();
 const mockInsertTemplate = vi.fn();
 const mockInsertTemplateItem = vi.fn();
+const mockFindTemplatesByChild = vi.fn();
 const mockFindSpecialRewards = vi.fn();
 const mockInsertSpecialReward = vi.fn();
 
@@ -52,6 +53,7 @@ vi.mock('$lib/server/db/login-bonus-repo', () => ({
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	insertTemplate: (...args: unknown[]) => mockInsertTemplate(...args),
 	insertTemplateItem: (...args: unknown[]) => mockInsertTemplateItem(...args),
+	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
 }));
 
 vi.mock('$lib/server/db/special-reward-repo', () => ({
@@ -140,6 +142,7 @@ beforeEach(() => {
 	mockFindAllAchievements.mockResolvedValue([]);
 	mockFindRecentBonuses.mockResolvedValue([]);
 	mockFindSpecialRewards.mockResolvedValue([]);
+	mockFindTemplatesByChild.mockResolvedValue([]);
 });
 
 // ============================================================

@@ -17,6 +17,7 @@ const mockFindRecentBonuses = vi.fn();
 const mockInsertLoginBonus = vi.fn();
 const mockInsertTemplate = vi.fn();
 const mockInsertTemplateItem = vi.fn();
+const mockFindTemplatesByChild = vi.fn();
 const mockFindSpecialRewards = vi.fn();
 const mockInsertSpecialReward = vi.fn();
 
@@ -45,6 +46,7 @@ vi.mock('$lib/server/db/login-bonus-repo', () => ({
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	insertTemplate: (...args: unknown[]) => mockInsertTemplate(...args),
 	insertTemplateItem: (...args: unknown[]) => mockInsertTemplateItem(...args),
+	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
 }));
 
 vi.mock('$lib/server/db/special-reward-repo', () => ({
@@ -137,6 +139,7 @@ beforeEach(() => {
 	mockFindActivityLogs.mockResolvedValue([]);
 	mockFindRecentBonuses.mockResolvedValue([]);
 	mockFindSpecialRewards.mockResolvedValue([]);
+	mockFindTemplatesByChild.mockResolvedValue([]);
 });
 
 // ============================================================
@@ -410,5 +413,231 @@ describe('validateExportData + verifyChecksum separation', () => {
 		data.checksum = 'sha256:wrong-value';
 		const result = validateExportData(data);
 		expect(result.valid).toBe(true);
+	});
+
+	it('version 1.2.0 / 1.1.0 / 1.0.0 を受け入れる (supportedVersions)', () => {
+		for (const v of ['1.2.0', '1.1.0', '1.0.0']) {
+			const data = makeExportData({ version: v });
+			data.family.children = [makeChild('c1')];
+			const result = validateExportData(data);
+			expect(result.valid, `version ${v} should be accepted`).toBe(true);
+		}
+	});
+});
+
+// ============================================================
+// G1: preset_duplicate 検知 + NULL 混在安全性 (ADR-0031)
+// ============================================================
+
+describe('preset_duplicate detection (#1254 G1)', () => {
+	it('活動マスタ: 同 sourcePresetId があれば preset_duplicate、nameのみ一致なら name_duplicate', async () => {
+		const data = makeExportData();
+		data.family.children = [makeChild('c1')];
+		data.master.activities = [
+			{
+				name: 'プリセットA活動',
+				categoryCode: 'undou',
+				icon: '🏃',
+				basePoints: 10,
+				gradeLevel: null,
+				nameKana: null,
+				nameKanji: null,
+				triggerHint: null,
+				sourcePresetId: 'pack-morning-routine',
+			},
+			{
+				name: '名前だけ同じ',
+				categoryCode: 'benkyou',
+				icon: '📚',
+				basePoints: 8,
+				gradeLevel: null,
+				nameKana: null,
+				nameKanji: null,
+				triggerHint: null,
+				sourcePresetId: null,
+			},
+		];
+		mockFindActivities.mockResolvedValue([
+			{ id: 1, name: '既存-プリセットA-別名', sourcePresetId: 'pack-morning-routine' },
+			{ id: 2, name: '名前だけ同じ', sourcePresetId: null },
+		]);
+
+		const preview = await previewImport(data, TENANT);
+
+		expect(preview.duplicates.activities).toEqual([
+			{ label: 'プリセットA活動', reason: 'preset_duplicate' },
+			{ label: '名前だけ同じ', reason: 'name_duplicate' },
+		]);
+	});
+
+	it('NULL source_preset_id の既存行はプリセット重複とみなされない (ADR-0031 NULL 混在)', async () => {
+		const data = makeExportData();
+		data.family.children = [makeChild('c1')];
+		data.master.activities = [
+			{
+				name: '新規プリセット活動',
+				categoryCode: 'undou',
+				icon: '🏃',
+				basePoints: 10,
+				gradeLevel: null,
+				nameKana: null,
+				nameKanji: null,
+				triggerHint: null,
+				sourcePresetId: 'pack-new',
+			},
+		];
+		// 既存行は 3 件、全て NULL (プリセット非由来)
+		mockFindActivities.mockResolvedValue([
+			{ id: 1, name: 'レガシー1', sourcePresetId: null },
+			{ id: 2, name: 'レガシー2', sourcePresetId: null },
+			{ id: 3, name: 'レガシー3', sourcePresetId: null },
+		]);
+
+		const preview = await previewImport(data, TENANT);
+
+		// pack-new は既存の NULL 行と照合されない → duplicates は空
+		expect(preview.duplicates.activities).toEqual([]);
+	});
+
+	it('importActivityMaster: 同 sourcePresetId は skipped.preset に計上、insertActivity は呼ばれない', async () => {
+		const data = makeExportData();
+		data.family.children = [makeChild('c1')];
+		data.master.activities = [
+			{
+				name: 'プリセットX',
+				categoryCode: 'undou',
+				icon: '🏃',
+				basePoints: 10,
+				gradeLevel: null,
+				nameKana: null,
+				nameKanji: null,
+				triggerHint: null,
+				sourcePresetId: 'pack-x',
+			},
+		];
+		mockInsertChild.mockResolvedValue({ id: 101 });
+		mockFindActivities.mockResolvedValue([{ id: 1, name: '既存-別名', sourcePresetId: 'pack-x' }]);
+
+		const result = await importFamilyData(data, TENANT);
+
+		expect(result.activitiesCreated).toBe(0);
+		expect(result.skipped.preset).toBe(1);
+		expect(result.skipped.name).toBe(0);
+		expect(mockInsertActivity).not.toHaveBeenCalled();
+	});
+
+	it('importActivityMaster: sourcePresetId を insertActivity に round-trip 渡す', async () => {
+		const data = makeExportData();
+		data.family.children = [makeChild('c1')];
+		data.master.activities = [
+			{
+				name: '新規プリセット活動',
+				categoryCode: 'undou',
+				icon: '🏃',
+				basePoints: 10,
+				gradeLevel: null,
+				nameKana: null,
+				nameKanji: null,
+				triggerHint: null,
+				sourcePresetId: 'pack-new',
+			},
+		];
+		mockInsertChild.mockResolvedValue({ id: 101 });
+		mockFindActivities.mockResolvedValue([]);
+		mockInsertActivity.mockResolvedValue({ id: 99 });
+
+		await importFamilyData(data, TENANT);
+
+		expect(mockInsertActivity).toHaveBeenCalledWith(
+			expect.objectContaining({ sourcePresetId: 'pack-new' }),
+			TENANT,
+		);
+	});
+
+	it('ごほうび: 同 sourcePresetId は skipped.preset に計上', async () => {
+		const data = makeExportData();
+		data.family.children = [makeChild('c1')];
+		data.data.specialRewards = [
+			{
+				childRef: 'c1',
+				title: 'おこづかい（新版）',
+				description: null,
+				points: 100,
+				icon: null,
+				category: 'money',
+				grantedAt: '2026-03-15T00:00:00Z',
+				sourcePresetId: 'reward-pack-money',
+			},
+		];
+		mockInsertChild.mockResolvedValue({ id: 101 });
+		mockFindSpecialRewards.mockResolvedValue([
+			{ id: 10, title: '既存おこづかい', sourcePresetId: 'reward-pack-money' },
+		]);
+
+		const result = await importFamilyData(data, TENANT);
+
+		expect(result.specialRewardsImported).toBe(0);
+		expect(result.specialRewardsSkipped).toBe(1);
+		expect(result.skipped.preset).toBe(1);
+		expect(result.skipped.name).toBe(0);
+		expect(mockInsertSpecialReward).not.toHaveBeenCalled();
+	});
+
+	it('チェックリスト: 同 sourcePresetId は skipped.preset に計上', async () => {
+		const data = makeExportData();
+		data.family.children = [makeChild('c1')];
+		data.data.checklistTemplates = [
+			{
+				childRef: 'c1',
+				name: 'あさのしたく（プリセット）',
+				icon: '🌅',
+				pointsPerItem: 2,
+				completionBonus: 5,
+				isActive: true,
+				sourcePresetId: 'checklist-morning',
+				items: [],
+			},
+		];
+		mockInsertChild.mockResolvedValue({ id: 101 });
+		mockFindTemplatesByChild.mockResolvedValue([
+			{ id: 50, name: '既存モーニング', sourcePresetId: 'checklist-morning' },
+		]);
+
+		const result = await importFamilyData(data, TENANT);
+
+		expect(result.skipped.preset).toBe(1);
+		expect(mockInsertTemplate).not.toHaveBeenCalled();
+	});
+
+	it('チェックリスト: NULL source_preset_id の既存行とは重複扱いしない (ADR-0031)', async () => {
+		const data = makeExportData();
+		data.family.children = [makeChild('c1')];
+		data.data.checklistTemplates = [
+			{
+				childRef: 'c1',
+				name: '新規プリセット',
+				icon: '📋',
+				pointsPerItem: 2,
+				completionBonus: 5,
+				isActive: true,
+				sourcePresetId: 'checklist-new',
+				items: [],
+			},
+		];
+		mockInsertChild.mockResolvedValue({ id: 101 });
+		mockFindTemplatesByChild.mockResolvedValue([
+			{ id: 1, name: 'レガシー', sourcePresetId: null },
+			{ id: 2, name: 'レガシー2', sourcePresetId: null },
+		]);
+		mockInsertTemplate.mockResolvedValue({ id: 999 });
+
+		const result = await importFamilyData(data, TENANT);
+
+		expect(result.skipped.preset).toBe(0);
+		expect(result.skipped.name).toBe(0);
+		expect(mockInsertTemplate).toHaveBeenCalledWith(
+			expect.objectContaining({ sourcePresetId: 'checklist-new' }),
+			TENANT,
+		);
 	});
 });
