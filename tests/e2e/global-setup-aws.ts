@@ -34,7 +34,6 @@ export default async function globalSetup() {
 		// ============================================================
 		console.log('[AWS E2E Setup] ログイン中...');
 		await page.goto('/auth/login');
-		await page.waitForLoadState('networkidle');
 
 		// ログイン済みチェック（リダイレクトされた場合）
 		if (page.url().includes('/admin') || page.url().includes('/switch')) {
@@ -134,16 +133,14 @@ export default async function globalSetup() {
 		// ============================================================
 		{
 			// /switch に行って子供がいるか確認
+			// #1259: page.goto の既定 waitUntil='load' で DOM 準備完了を保証
 			await page.goto(`${BASE_URL}/switch`);
-			await page.waitForLoadState('networkidle');
-
 			const childButtons = page.locator('[data-testid^="child-select-"]');
 			const childCount = await childButtons.count();
 
 			if (childCount === 0) {
 				console.log('[AWS E2E Setup] 子供が未登録。管理画面から追加中...');
 				await page.goto(`${BASE_URL}/admin/children`);
-				await page.waitForLoadState('networkidle');
 
 				// たろうくん（4歳、preschool、pink）
 				await addChildViaAdmin(page, 'たろうくん', '4', 'preschool', 'pink');
@@ -166,7 +163,6 @@ export default async function globalSetup() {
 
 			// /switch で子供IDを確認
 			await page.goto(`${BASE_URL}/switch`);
-			await page.waitForLoadState('networkidle');
 			const childButtons = page.locator('[data-testid^="child-select-"]');
 			const childCount = await childButtons.count();
 

@@ -8,7 +8,6 @@ import { expect, test } from '@playwright/test';
 /** ログインページに遷移し、フォームの表示を待つ */
 async function gotoLogin(page: Page) {
 	await page.goto('/auth/login');
-	await page.waitForLoadState('networkidle');
 	await page.getByLabel('メールアドレス').waitFor({ state: 'visible', timeout: 15_000 });
 }
 
