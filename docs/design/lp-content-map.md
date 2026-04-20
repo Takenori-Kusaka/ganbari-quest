@@ -5,7 +5,7 @@
 >
 > **関連 Issue**: #1088 (LP 情報設計リストラクチャ)、#1158 (「楽しくなる仕組み」重複解消)、#1159 (企画書コア要素 LP 訴求追加)、#1163 (AC 再検証と未達完了)
 >
-> **関連 ADR**: ADR-0023 (Pre-PMF Issue 優先度)、ADR-0037 (labels.ts SSOT)
+> **関連 ADR**: ADR-0010 (Pre-PMF Issue 優先度)、ADR-0009 (labels.ts SSOT)
 
 ---
 

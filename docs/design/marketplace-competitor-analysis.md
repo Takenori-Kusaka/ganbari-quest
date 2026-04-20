@@ -145,7 +145,7 @@
 **弱み**: 米国市場前提（プリペイドデビットカードが基本）。日本の子供向け金融文化（子ども銀行口座、お年玉、お小遣い帳）と整合せず、そのまま転用は不可。
 
 **がんばりクエスト視点での示唆**:
-- 金融教育の本格機能は **Pre-PMF では明示的に対象外**（ADR-0023 / ADR-0034 系の Pre-PMF 防衛設計禁止と整合）。ただし、「お小遣い相当の何か」（スクリーンタイム交換 / 特権交換）は本アプリ既存実装と整合し、Greenlight/FamZoo の「親レビュー後の付与」UI パターンは参考にできる。
+- 金融教育の本格機能は **Pre-PMF では明示的に対象外**（ADR-0010 / ADR-0010 系の Pre-PMF 防衛設計禁止と整合）。ただし、「お小遣い相当の何か」（スクリーンタイム交換 / 特権交換）は本アプリ既存実装と整合し、Greenlight/FamZoo の「親レビュー後の付与」UI パターンは参考にできる。
 
 [Greenlight Chores & Allowance App](https://greenlight.com/chores-and-allowance-app-for-kids) / [Best Allowance Apps for Kids 2025 | CoFinancially](https://cofinancially.com/best-allowance-apps-for-kids/)
 

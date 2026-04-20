@@ -7,13 +7,13 @@ description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, ma
 
 新しい Issue を起票する前に、以下の 6 ステップを順番に実行してください。
 
-## ステップ 1: 根本原因の特定（ADR-0018）
+## ステップ 1: 根本原因の特定（ADR-0003）
 
 - 症状ではなく原因を特定する
 - 「X が壊れている」ではなく「Y の処理で Z が考慮されていないため X が発生」
 - 再現手順を明記
 
-## ステップ 2: Pre-PMF バイアスチェック（ADR-0023）
+## ステップ 2: Pre-PMF バイアスチェック（ADR-0010）
 
 | 質問 | 回答 |
 |------|------|

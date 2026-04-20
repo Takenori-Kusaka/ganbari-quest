@@ -27,7 +27,7 @@ push to main
        ├── node scripts/capture-hp-screenshots.mjs --webp
        │   └── BASE_URL=http://localhost:5173 で撮影
        ├── Verify: site/screenshots/*.webp が 20 枚以上
-       │   └── 不足時は workflow fail (ADR-0029: 無言で古い画像を残さない)
+       │   └── 不足時は workflow fail (ADR-0006: 無言で古い画像を残さない)
        ├── actions/upload-pages-artifact@v5    # site/ 配下を artifact に同梱
        └── actions/deploy-pages@v5              # GitHub Pages に反映
 ```
@@ -56,7 +56,7 @@ push to main
 - `site/index.html` / `site/pamphlet.html` / `site/shared-labels.js` / `site/assets/` は引き続き git 管理
 - スクリーンショット参照パス (`./screenshots/feature-xxx.webp`) は相対パスのまま変更なし
 
-## 4. 撮影失敗時の挙動（ADR-0029 準拠）
+## 4. 撮影失敗時の挙動（ADR-0006 準拠）
 
 | 事象 | 挙動 | 理由 |
 |------|------|------|

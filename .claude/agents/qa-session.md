@@ -36,9 +36,9 @@ gh pr diff <番号>
 |------|------------|
 | A. ファイル存在・依存 | import 先・設定参照先が実在するか |
 | B. Issue AC 突合 | Acceptance Criteria を 1 行ずつ検証 |
-| C. テスト品質 | ADR-0020 準拠、境界値・異常系・競合をカバー |
+| C. テスト品質 | ADR-0005 準拠、境界値・異常系・競合をカバー |
 | D. 横展開 | parallel-implementations.md の 8 カテゴリをチェック |
-| E. CSS/デザイン | docs/DESIGN.md §9 禁忌事項 5 点（色/タップサイズ/用語/プリミティブ/内部コード露出）。**ADR-0037: LP の静的置換 PR を見たら即「SSOT 化できないか」を問う** |
+| E. CSS/デザイン | docs/DESIGN.md §9 禁忌事項 5 点（色/タップサイズ/用語/プリミティブ/内部コード露出）。**ADR-0009: LP の静的置換 PR を見たら即「SSOT 化できないか」を問う** |
 | F. 設計書同期 | docs/CLAUDE.md の更新ルール表に該当する変更があれば設計書更新済みか |
 | G. セキュリティ | 入力検証・認証・XSS・SQLi・OWASP Top 10 |
 | H. 文書化 | 発見事項を全て文書化（指摘ゼロでマージは禁止） |
@@ -127,8 +127,8 @@ OneDrive が `.git/HEAD` を壊すため、`/c/tmp/` に GitHub URL から直接
 
 ## 参照すべきドキュメント
 
-- テスト品質: `tests/CLAUDE.md`（ADR-0020）
+- テスト品質: `tests/CLAUDE.md`（ADR-0005）
 - デザイン禁忌: `docs/DESIGN.md` §9
 - 設計書更新ルール: `docs/CLAUDE.md`
 - 並行実装マップ: `docs/design/parallel-implementations.md`
-- PR レビュー文書化: `docs/decisions/0006-pr-review-must-document-findings.md`
+- PR レビュー文書化: `docs/decisions/0004-review-and-ac-verification.md`
