@@ -168,8 +168,8 @@ deleteOwnerFullDelete(tenantId, ownerId)
   - #742 — グレースピリオド
   - #738 / #754 — ダウングレード前確認 / 超過リソース処理
 - ADR
-  - [ADR-0022](../decisions/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性
-  - [ADR-0003](../decisions/0003-design-doc-as-source-of-truth.md) — 設計書 SSOT
+  - [ADR-0022（archive）](../decisions/archive/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性
+  - [ADR-0001](../decisions/0001-design-doc-as-source-of-truth.md) — 設計書 SSOT
 - 実装
   - `src/lib/server/services/account-deletion-service.ts`
   - `src/routes/api/v1/admin/account/delete/+server.ts`

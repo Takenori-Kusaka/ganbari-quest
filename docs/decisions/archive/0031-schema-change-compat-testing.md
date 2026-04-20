@@ -1,5 +1,8 @@
 # 0031. スキーマ変更時の既存データ互換性テスト義務化
 
+> **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |

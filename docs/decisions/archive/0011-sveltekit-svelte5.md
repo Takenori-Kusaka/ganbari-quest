@@ -1,5 +1,8 @@
 # 0011. SvelteKit 2 + Svelte 5 (Runes) 採用
 
+> **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |
