@@ -1,0 +1,38 @@
+name: Admin Bypass Evidence Check
+
+# #1201 / ADR-0044: admin bypass merge された PR に Self-Review 証跡セクションが
+# 含まれているかを検証し、欠落 PR に追記要求コメントを投稿する。
+# block はしない（事後 merge を revert することは運用上困難なため、事後追記を促す）。
+
+on:
+  schedule:
+    # 毎時 10 分に起動（LOOKBACK_HOURS=2 と組み合わせて merge 後 1h 以内に拾えるようにする）
+    - cron: '10 * * * *'
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: 'Lookback window in hours (default 2)'
+        required: false
+        default: '2'
+      dry_run:
+        description: 'Skip comment posting (for testing)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  evidence-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run admin bypass evidence check
+        env:
+          REPO: ${{ github.repository }}
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '2' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/check-admin-bypass-evidence.mjs

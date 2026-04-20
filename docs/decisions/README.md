@@ -90,6 +90,7 @@
 | 0041 | [マーケットプレイス命名テンプレート](0041-marketplace-naming-template.md) | accepted | 2026-04-20 |
 | 0042 | [マーケットプレイス 性別バリアント方針](0042-marketplace-gender-variant-policy.md) | accepted | 2026-04-20 |
 | 0043 | [NativeSelect primitive を採用（raw select 全置換）](0043-native-select-primitive.md) | accepted | 2026-04-20 |
+| 0044 | [admin bypass merge 証跡記録運用](0044-admin-bypass-evidence.md) | accepted | 2026-04-20 |
 
 ## 棚卸レポート
 

@@ -96,6 +96,7 @@
 - [ADR-0041](decisions/0041-marketplace-naming-template.md) — マーケットプレイス命名テンプレート
 - [ADR-0042](decisions/0042-marketplace-gender-variant-policy.md) — マーケットプレイス 性別バリアント方針
 - [ADR-0043](decisions/0043-native-select-primitive.md) — NativeSelect primitive を採用（raw select 全置換、Select.svelte との使い分け基準）
+- [ADR-0044](decisions/0044-admin-bypass-evidence.md) — admin bypass merge 証跡記録運用（Self-Review 証跡必須 / 月次レポート / ADR-0005・ADR-0038 と連動）
 
 ## ADR 棚卸レポート
 
