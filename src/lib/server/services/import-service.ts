@@ -12,6 +12,7 @@ import {
 import { insertTemplate, insertTemplateItem } from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
 import { insertLoginBonus } from '$lib/server/db/login-bonus-repo';
+import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
 import { insertStatusHistory, upsertStatus } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
 
@@ -31,6 +32,8 @@ export interface ImportResult {
 	statusesImported: number;
 	achievementsImported: number;
 	titlesImported: number;
+	specialRewardsImported: number;
+	specialRewardsSkipped: number;
 	errors: string[];
 	warnings: string[];
 }
@@ -86,6 +89,7 @@ export function previewImport(data: ExportData) {
 		titles: data.data.childTitles.length,
 		loginBonuses: data.data.loginBonuses.length,
 		checklistTemplates: data.data.checklistTemplates.length,
+		specialRewards: data.data.specialRewards.length,
 	};
 }
 
@@ -105,6 +109,8 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 		statusesImported: 0,
 		achievementsImported: 0,
 		titlesImported: 0,
+		specialRewardsImported: 0,
+		specialRewardsSkipped: 0,
 		errors,
 		warnings,
 	};
@@ -323,6 +329,9 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 		}
 	}
 
+	// 9. 特別報酬 (ごほうび) (#1253)
+	await importSpecialRewards(data, childIdMap, tenantId, result);
+
 	// 10. ステータス履歴
 	for (const sh of data.data.statusHistory) {
 		const childId = childIdMap.get(sh.childRef);
@@ -347,4 +356,53 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 
 	logger.info('[import] インポート完了', { context: { ...result } });
 	return result;
+}
+
+async function importSpecialRewards(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	const { errors, warnings } = result;
+	const existingRewardsByChild = new Map<number, Set<string>>();
+	for (const sr of data.data.specialRewards) {
+		const childId = childIdMap.get(sr.childRef);
+		if (!childId) continue;
+
+		if (!existingRewardsByChild.has(childId)) {
+			const existing = await findSpecialRewards(childId, tenantId);
+			existingRewardsByChild.set(childId, new Set(existing.map((e) => e.title)));
+		}
+		const existingTitles = existingRewardsByChild.get(childId);
+		if (!existingTitles) continue;
+
+		if (existingTitles.has(sr.title)) {
+			result.specialRewardsSkipped++;
+			continue;
+		}
+
+		try {
+			await insertSpecialReward(
+				{
+					childId,
+					title: sr.title,
+					description: sr.description ?? undefined,
+					points: sr.points,
+					icon: sr.icon ?? undefined,
+					category: sr.category,
+				},
+				tenantId,
+			);
+			result.specialRewardsImported++;
+			existingTitles.add(sr.title);
+		} catch (e) {
+			errors.push(`ごほうび「${sr.title}」のインポートに失敗: ${String(e)}`);
+		}
+	}
+	if (result.specialRewardsSkipped > 0) {
+		warnings.push(
+			`ごほうび ${result.specialRewardsSkipped} 件が既存と同名のためスキップされました`,
+		);
+	}
 }
