@@ -10,26 +10,30 @@ import type {
 } from '$lib/domain/marketplace-item';
 
 // ── Activity Packs ──────────────────────────────────────────
+import babyBoy from './activity-packs/baby-boy.json';
 import babyFirst from './activity-packs/baby-first.json';
-import creativeArtist from './activity-packs/creative-artist.json';
+import babyGirl from './activity-packs/baby-girl.json';
+import elementaryBoy from './activity-packs/elementary-boy.json';
 import elementaryChallenge from './activity-packs/elementary-challenge.json';
-import examPrep from './activity-packs/exam-prep.json';
+import elementaryGirl from './activity-packs/elementary-girl.json';
+import juniorBoy from './activity-packs/junior-boy.json';
+import juniorGirl from './activity-packs/junior-girl.json';
 import juniorHighChallenge from './activity-packs/junior-high-challenge.json';
+import kinderBoy from './activity-packs/kinder-boy.json';
+import kinderGirl from './activity-packs/kinder-girl.json';
 import kinderStarter from './activity-packs/kinder-starter.json';
-import lifeSkillsBaby from './activity-packs/life-skills-baby.json';
-import otetsudaiMaster from './activity-packs/otetsudai-master.json';
-import outdoorExplorer from './activity-packs/outdoor-explorer.json';
+import seniorBoy from './activity-packs/senior-boy.json';
+import seniorGirl from './activity-packs/senior-girl.json';
 import seniorHighChallenge from './activity-packs/senior-high-challenge.json';
-import socialButterfly from './activity-packs/social-butterfly.json';
-import sportsHero from './activity-packs/sports-hero.json';
-import studyMaster from './activity-packs/study-master.json';
-import weekendFun from './activity-packs/weekend-fun.json';
-// ── Checklists ──────────────────────────────────────────────
 import eveningBaby from './checklists/evening-baby.json';
 import eveningElementary from './checklists/evening-elementary.json';
 import eveningJunior from './checklists/evening-junior.json';
 import eveningKinder from './checklists/evening-kinder.json';
 import eveningSenior from './checklists/evening-senior.json';
+// ── Checklists ──────────────────────────────────────────────
+import eventFieldTrip from './checklists/event-field-trip.json';
+import eventPool from './checklists/event-pool.json';
+import eventSchoolStart from './checklists/event-school-start.json';
 import morningBaby from './checklists/morning-baby.json';
 import morningElementary from './checklists/morning-elementary.json';
 import morningJunior from './checklists/morning-junior.json';
@@ -67,21 +71,22 @@ import weekendSpecial from './rule-presets/weekend-special.json';
 // ── Build item map ──────────────────────────────────────────
 
 const allItems: MarketplaceItem[] = [
-	// Activity packs
+	// Activity packs (15 items: 5 neutral defaults + 10 gender variants)
 	babyFirst,
+	babyBoy,
+	babyGirl,
 	kinderStarter,
+	kinderBoy,
+	kinderGirl,
 	elementaryChallenge,
-	otetsudaiMaster,
+	elementaryBoy,
+	elementaryGirl,
 	juniorHighChallenge,
+	juniorBoy,
+	juniorGirl,
 	seniorHighChallenge,
-	sportsHero,
-	studyMaster,
-	creativeArtist,
-	socialButterfly,
-	outdoorExplorer,
-	lifeSkillsBaby,
-	examPrep,
-	weekendFun,
+	seniorBoy,
+	seniorGirl,
 	// Reward sets
 	toddlerRewards,
 	kinderRewards,
@@ -109,6 +114,9 @@ const allItems: MarketplaceItem[] = [
 	weekendElementary,
 	weekendJunior,
 	weekendSenior,
+	eventSchoolStart,
+	eventPool,
+	eventFieldTrip,
 	// Rule presets
 	nightOwlPass,
 	sleepInPass,

@@ -2,11 +2,11 @@
 	"type": "reward-set",
 	"itemId": "elementary-rewards",
 	"name": "しょうがくせいごほうび",
-	"description": "6〜9歳向け。ゲーム時間、お小遣い、友達との遊び時間など、小学生のやる気が出るごほうびセットです。",
+	"description": "6〜9歳向け。バッジ・称号・連続記録などの「達成記録」で勤勉性を伸ばす小学生向けセット。",
 	"icon": "🏆",
 	"targetAgeMin": 6,
 	"targetAgeMax": 9,
-	"tags": ["年齢別", "小学生", "やる気UP"],
+	"tags": ["年齢別", "小学生", "達成記録", "コレクション"],
 	"personas": ["achievement-focused", "game-oriented"],
 	"curator": "official",
 	"payload": {
@@ -52,6 +52,34 @@
 				"icon": "🗺️",
 				"category": "other",
 				"description": "つぎの おやすみの おでかけさきを きめよう"
+			},
+			{
+				"title": "ばんごはんのメニューえらぶ",
+				"points": 40,
+				"icon": "🍽️",
+				"category": "life",
+				"description": "きょうの ばんごはんは きみが リクエスト！"
+			},
+			{
+				"title": "えいが・どうがかんしょう",
+				"points": 50,
+				"icon": "🎬",
+				"category": "creative",
+				"description": "すきな えいがや どうがを 1ぽん みられる"
+			},
+			{
+				"title": "しゅみグッズ 1こかってもらう",
+				"points": 100,
+				"icon": "🛍️",
+				"category": "other",
+				"description": "すきな カード・おもちゃ・ステーショナリー 1こ"
+			},
+			{
+				"title": "連続記録バッジGET",
+				"points": 70,
+				"icon": "🥇",
+				"category": "other",
+				"description": "連続達成でバッジがもらえる（コレクション）"
 			}
 		]
 	}
