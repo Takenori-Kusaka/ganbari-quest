@@ -73,7 +73,7 @@ export function assertLicenseKeyConfigured(): void {
 			'[LICENSE] AWS_LICENSE_SECRET is required in production. ' +
 				"Generate one with: `node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"` " +
 				'and set it in your environment (e.g. AWS SSM Parameter Store). ' +
-				'See .env.example and docs/decisions/0026-license-key-architecture.md.',
+				'See .env.example and docs/decisions/archive/0026-license-key-architecture.md.',
 		);
 	}
 
