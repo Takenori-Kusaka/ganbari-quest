@@ -40,7 +40,7 @@ npx playwright test <spec-file> --project=chromium
 
 ### 4. 修正方針
 
-- waitFor の延長は最終手段（アサーション弱体化禁止 — ADR-0020）
-- `.skip` の追加は禁止（ADR-0029）
+- waitFor の延長は最終手段（アサーション弱体化禁止 — ADR-0005）
+- `.skip` の追加は禁止（ADR-0006）
 - 根本原因を特定してアプリ側またはテスト側を修正
 - 修正後は 5 回連続成功を確認

@@ -17,7 +17,7 @@ description: Use when reviewing a pull request. Enforces the mandatory 8-point c
 - [ ] 部分実装で `closes` していないか（AC 全項目必須）
 - [ ] Issue で提案された対策が全て実装されているか
 
-### C. テスト品質（ADR-0020）
+### C. テスト品質（ADR-0005）
 - [ ] 新規コードにユニットテストが同梱されているか
 - [ ] 境界値・異常系・競合のテストケースがあるか
 - [ ] アサーション弱体化（toBeTruthy/toBeDefined への置換）がないか
