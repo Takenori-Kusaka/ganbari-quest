@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
 const BASE = 'http://localhost:5173';
 const OUT = resolve('docs/screenshots/1254-import-verify-dialog');
@@ -83,7 +84,7 @@ async function capture(name, { validChecksum, viewport }) {
 			.getByText('ファイルが破損しているか改ざんされています')
 			.waitFor({ state: 'visible', timeout: 15000 });
 	}
-	await page.waitForTimeout(500);
+	await waitForStablePage(page, { skipNetworkIdle: true });
 
 	const path = `${OUT}/${name}.png`;
 	await page.screenshot({ path, fullPage: true });
