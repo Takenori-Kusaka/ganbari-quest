@@ -1,11 +1,11 @@
 ---
 name: Pre-PMF Check
-description: Use when evaluating whether a feature or task is appropriate for the pre-PMF stage. Checks against ADR-0023 bias prevention guidelines and ADR-0034 security minimization.
+description: Use when evaluating whether a feature or task is appropriate for the pre-PMF stage. Checks against ADR-0010 (Pre-PMF scope judgment — bias prevention + security minimization + priority guidelines).
 ---
 
-# Pre-PMF バイアスチェック
+# Pre-PMF バイアスチェック (ADR-0010)
 
-## ADR-0023: エンジニアバイアス防止
+## エンジニアバイアス防止
 
 ### 優先度判断マトリクス
 
@@ -25,7 +25,7 @@ description: Use when evaluating whether a feature or task is appropriate for th
 - 「技術的に面白いから」→ 事業貢献は？
 - 「他プロジェクトではこうしている」→ Pre-PMF の制約は？
 
-## ADR-0034: セキュリティ最小化方針
+## セキュリティ最小化方針
 
 Pre-PMF で**採用しない**もの:
 - 汎用監査ログ DynamoDB テーブル
@@ -44,4 +44,4 @@ Pre-PMF で**十分な**もの:
 - [ ] この機能は今月のサインアップ目標に貢献するか？
 - [ ] この機能がなくてもユーザーはアプリを使えるか？
 - [ ] 3ヶ月後に振り返って「やってよかった」と言えるか？
-- [ ] ADR-0034 の禁止リストに抵触していないか？
+- [ ] ADR-0010 の禁止リストに抵触していないか？

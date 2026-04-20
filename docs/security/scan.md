@@ -1,6 +1,6 @@
 # OSS 脆弱性診断ガイド
 
-> Issue #985, #986 / ADR-0032 T4（四半期 / 自動 + 手動実行）
+> Issue #985, #986 / ADR-0007 T4（四半期 / 自動 + 手動実行）
 
 ## 概要
 
@@ -233,6 +233,6 @@ tests/
 
 - Issue #985: ローカル実行セキュリティスキャン
 - Issue #986: 四半期自動セキュリティスキャン
-- ADR-0029: Safety Assertion Erosion Ban
-- ADR-0032: 静的解析ティアポリシー (T4 四半期)
-- ADR-0034: Pre-PMF セキュリティ最小化方針
+- ADR-0006: Safety Assertion Erosion Ban
+- ADR-0007: 静的解析ティアポリシー (T4 四半期)
+- ADR-0010: Pre-PMF セキュリティ最小化方針
