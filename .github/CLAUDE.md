@@ -49,6 +49,52 @@ PR は **APPROVED レビュー 1 件以上なしではマージ禁止**。GitHub
 - 緊急修正 (`priority:critical`) は admin bypass (`RepositoryRole=Admin`) で許容、ただし PR 本文に bypass 理由を必ず記載
 - 500 行超えの PR は `pr-size-check.yml` が自動警告コメントを投稿する (分割・スコープ明記を検討)
 
+## admin bypass merge の証跡記録運用（#1201 / ADR-0044）
+
+PO 1 人体制（#964 Postmortem）のため、`required_approving_review_count=1` を admin 権限で
+bypass して merge する運用が実際には発生している。レビュー観点が PR 本体に記録されないまま
+main に入ることを防ぐため、admin bypass merge を行うときは **PR 本文または merge 前コメントに
+Self-Review 証跡セクションを必ず記載する**。
+
+### Self-Review 証跡テンプレート
+
+PR 本文または merge 前コメントに以下セクションを含めること。`scripts/check-admin-bypass-evidence.mjs`
+が自動検出する。
+
+```markdown
+## Self-Review 証跡 (admin bypass)
+
+### 確認した観点
+- [ ] Issue AC 全項目突合（Issue #<番号> の Acceptance Criteria に対する達成状況）
+- [ ] UI/UX 禁忌事項（DESIGN.md §9）セルフチェック
+- [ ] 並行実装ペア（`docs/design/parallel-implementations.md`）の同期確認
+- [ ] テスト同梱（unit / E2E / Storybook のうち該当するもの）
+- [ ] 設計書同期（`docs/CLAUDE.md` 更新表）
+- [ ] セキュリティ・プライバシー影響無し（該当する場合は詳細）
+
+### 添付スクリーンショット
+- 主要変更画面の before/after 画像 or 該当なしの理由
+- モバイル / デスクトップ両視点（UI 変更の場合）
+
+### 実機確認ログ
+- `npm run dev:cognito` での手動動作ログ（認証絡む画面の場合）
+- 実行したコマンド・確認した URL・発見した事象
+```
+
+### 検出 & bot 通知
+
+- merge 後 1 時間以内に `scripts/check-admin-bypass-evidence.mjs` が admin bypass PR を走査
+- Self-Review セクションが無い PR には GitHub Actions bot が追記コメントを投稿
+- 月次で `/ops` ダッシュボードに admin bypass merge 件数レポートを掲示（過剰運用検知）
+
+### 免除
+
+- Dependabot / renovate 等の bot 作成 PR
+- `docs/` のみを変更した 50 行未満の typo 修正 PR
+- これらは `scripts/check-admin-bypass-evidence.mjs` が自動スキップする
+
+詳細: [ADR-0044](../docs/decisions/0044-admin-bypass-evidence.md)
+
 ### Ruleset 変更コマンド (管理者のみ)
 ```bash
 # required_approving_review_count を 1 に設定

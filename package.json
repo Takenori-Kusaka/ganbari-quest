@@ -138,7 +138,9 @@
 			"**/*.test.ts",
 			"**/*.spec.ts",
 			"src/lib/server/db/migrations/**",
-			"eslint-plugin-local/**/*.js"
+			"eslint-plugin-local/**/*.js",
+			"scripts/**/*.cjs",
+			"scripts/**/*.mjs"
 		]
 	}
 }

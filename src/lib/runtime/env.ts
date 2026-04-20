@@ -116,6 +116,10 @@ const envSchema = z.object({
 
 	// ----- Context Token -----
 	CONTEXT_TOKEN_SECRET: z.string().optional(),
+
+	// ----- GitHub API (#1201 / ADR-0044 /ops admin bypass metrics) -----
+	GITHUB_TOKEN: z.string().optional(),
+	GH_TOKEN: z.string().optional(),
 });
 
 export type TypedEnv = z.infer<typeof envSchema>;
