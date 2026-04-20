@@ -68,11 +68,11 @@
 				"description": "すきな えほんを 3さつ よんでもらおう"
 			},
 			{
-				"title": "ごほうびシール もらえる",
-				"points": 10,
-				"icon": "🌟",
+				"title": "すきな おもちゃで 30ぷん",
+				"points": 20,
+				"icon": "🧩",
 				"category": "other",
-				"description": "きょうの ごほうびシールを 1まい もらおう"
+				"description": "すきな おもちゃで 30ぷん じっくりあそぼう"
 			},
 			{
 				"title": "すきな のみものえらべる",
