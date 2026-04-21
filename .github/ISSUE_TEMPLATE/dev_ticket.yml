@@ -106,6 +106,22 @@ body:
         - "未定（PR で実測後に決定）"
 
   - type: textarea
+    id: oss-research
+    attributes:
+      label: OSS / 確立パターン調査結果（#1350 / type:feat・type:refactor・type:infra の新規実装で必須）
+      description: |
+        独自実装 (10 行超見込み) を含む Issue では、**OSS / 確立パターンを最低 2 件**調査すること。
+        「世間が使っているものを見もしないまま独自実装」「半完成機構の放置」を構造的に防ぐ (#1346 再発防止)。
+        該当が無い場合は「探した範囲」を書くこと（どのキーワードで探し、なぜ該当がなかったか）。
+        type:docs / type:fix / type:test 等の純粋な保守タスクでは「N/A（独自実装なし）」で可。
+      placeholder: |
+        例:
+        - 候補 A: zod (https://github.com/colinhacks/zod) — stars 34k / 採用実績 / bundle 14KB / TS 型推論。△ i18n メッセージは別途必要
+        - 候補 B: valibot (https://github.com/fabian-hiller/valibot) — bundle 1KB / tree-shake / 学習コスト低。△ エコシステムまだ小さい
+        - 決定: 候補 A を採用（理由: 既にエコシステム内で標準、既存コードから移行が容易）
+        - Pre-PMF コスト (ADR-0010): bundle +14KB は許容範囲、学習コスト既習
+
+  - type: textarea
     id: technical
     attributes:
       label: 技術メモ
