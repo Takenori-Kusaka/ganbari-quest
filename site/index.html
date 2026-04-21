@@ -124,7 +124,7 @@
 .core-loop-step h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .core-loop-step p{font-size:.85rem;color:var(--gray-600);line-height:1.6}
 /* #1284: aspect-ratio を維持しつつ画像全体を表示するため max-height 拡張 + object-fit:contain に変更。
-   旧: cover + position:top で縦長 SS の上半分のみ表示されシールガチャ等が見切れていた */
+   旧: cover + position:top で縦長 SS の上半分のみ表示されスタンプカード等が見切れていた (#1311 で シールガチャ 語彙撤回) */
 .core-loop-visual{max-width:320px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:540px;background:var(--gray-50)}
 .core-loop-visual img{width:100%;height:100%;display:block;object-fit:contain;object-position:center}
 .core-loop-note{max-width:640px;margin:20px auto 0;text-align:center;font-size:.88rem;color:var(--gray-600);line-height:1.7}
@@ -328,7 +328,7 @@
         <div class="age-panel-body">
           <h3>ひらがな中心・丸みのあるボタン</h3>
           <span class="age-panel-feature">代表機能: 活動パック（プリセット）</span>
-          <p class="age-panel-desc">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣がプリセット済み。ポイントで光るシールガチャに夢中になります。</p>
+          <p class="age-panel-desc">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣がプリセット済み。ログインボーナスで毎日おみくじが 1 回引けて、スタンプカードが週末に 1 枚完成します。</p>
           <p class="age-panel-cta"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
@@ -363,38 +363,70 @@
   </div>
 </section>
 
-<!-- [03] コアループ -->
+<!-- [03] コアループ（2 系統: 活動系 + ログインボーナス系） -->
+<!-- 用語 SSOT: src/lib/domain/labels.ts FEATURE_LABELS (activity/points/levelUp/loginBonus/omikuji/stampCard) -->
 <section class="section bg-gray" id="core-loop">
   <div class="section-inner">
-    <h2 class="section-title">毎日まわる、がんばりのコアループ</h2>
-    <p class="section-desc">「活動 → ポイント → レベル → シールガチャ」。<br>この 3 ステップが毎日まわり続けるのが、がんばりクエストの心臓部です。</p>
-    <div class="core-loop">
-      <div class="core-loop-step">
-        <div class="cls-num">STEP 1</div>
-        <div class="cls-icon">&#x1F4DD;</div>
-        <h3>活動を記録</h3>
-        <p>「はみがきした」「宿題おわった」をタップするだけ。活動ごとにポイントがもらえます。</p>
-      </div>
-      <div class="core-loop-step">
-        <div class="cls-num">STEP 2</div>
-        <div class="cls-icon">&#x2B50;</div>
-        <h3>レベルアップ</h3>
-        <p>ポイントがたまるとレベルアップ。勇者の肩書きが変わり、子供の目が輝きます。</p>
-      </div>
-      <div class="core-loop-step">
-        <div class="cls-num">STEP 3</div>
-        <div class="cls-icon">&#x1F381;</div>
-        <h3>シールガチャ</h3>
-        <p>ポイントを使って 16 種類のシールを収集。SR・UR のレアシールを狙うドキドキ感が止まりません。</p>
+    <h2 class="section-title">2 つの独立サイクルで、毎日の動機を支える</h2>
+    <p class="section-desc">活動を記録してレベルアップする仕組みと、毎日のログインボーナスでおみくじのスタンプカードを集める仕組み。<br>動機の源が違う 2 つのサイクルが独立してまわります。</p>
+
+    <!-- (A) 活動の記録サイクル -->
+    <div class="core-loop-track" data-track="activity">
+      <h3 class="core-loop-track-title"><span class="cls-track-label">(A)</span> 活動 × ポイント × レベルアップ</h3>
+      <div class="core-loop">
+        <div class="core-loop-step">
+          <div class="cls-num">STEP 1</div>
+          <div class="cls-icon">&#x1F4DD;</div>
+          <h4>活動を記録</h4>
+          <p>「はみがきした」「宿題おわった」をタップするだけ。活動ごとにポイントがもらえます。</p>
+        </div>
+        <div class="core-loop-step">
+          <div class="cls-num">STEP 2</div>
+          <div class="cls-icon">&#x1F4CA;</div>
+          <h4>ポイントがたまる</h4>
+          <p>記録した活動に応じてポイントが加算。「今日どれだけ頑張ったか」が数字で見えます。</p>
+        </div>
+        <div class="core-loop-step">
+          <div class="cls-num">STEP 3</div>
+          <div class="cls-icon">&#x2B50;</div>
+          <h4>レベルアップ</h4>
+          <p>ポイントの累計でレベルアップ。勇者の肩書きが変わり、長期のがんばりが可視化されます。</p>
+        </div>
       </div>
     </div>
+
+    <!-- (B) ログインボーナス × おみくじ × スタンプカード -->
+    <div class="core-loop-track" data-track="login">
+      <h3 class="core-loop-track-title"><span class="cls-track-label">(B)</span> ログインボーナス × おみくじ × スタンプカード</h3>
+      <div class="core-loop">
+        <div class="core-loop-step">
+          <div class="cls-num">STEP 1</div>
+          <div class="cls-icon">&#x1F305;</div>
+          <h4>ログインボーナスを受け取る</h4>
+          <p>1 日 1 回だけ。ログインすればその日の権利が発生します（日 1 回 cap）。</p>
+        </div>
+        <div class="core-loop-step">
+          <div class="cls-num">STEP 2</div>
+          <div class="cls-icon">&#x1F3B4;</div>
+          <h4>おみくじを 1 回引く</h4>
+          <p>大吉が出るとボーナスポイント。同じ日に何度も引くことはできません（射幸性を抑えた設計）。</p>
+        </div>
+        <div class="core-loop-step">
+          <div class="cls-num">STEP 3</div>
+          <div class="cls-icon">&#x1F4C7;</div>
+          <h4>スタンプカードに押印</h4>
+          <p>おみくじ結果がスタンプとしてスタンプカードに 1 マス押印。1 週間続くとカードが 1 枚完成します。</p>
+        </div>
+      </div>
+    </div>
+
     <div class="core-loop-visual">
       <picture>
         <source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp">
-        <img src="screenshots/feature-point-level.webp" alt="ポイント・レベル・シール獲得画面" data-lightbox>
+        <img src="screenshots/feature-point-level.webp" alt="ポイント・レベル・スタンプカード画面" data-lightbox>
       </picture>
     </div>
-    <p class="core-loop-note"><strong>レアリティは N / R / SR / UR の 4 段階。</strong>SR と UR は出現率 15% 以下。「今日こそ UR を引く！」が明日の活動のエンジンになります。</p>
+    <p class="core-loop-note"><strong>(A) と (B) は独立した仕組みです。</strong>活動を頑張らなくてもログインすればおみくじが 1 回引けて、ログインし忘れても活動記録のポイントは積み上がります。「引き続ければもっと貰える」誘導はありません（日 1 回 cap）。</p>
   </div>
 </section>
 
