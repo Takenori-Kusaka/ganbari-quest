@@ -67,8 +67,11 @@
 - [ADR-0011](decisions/0011-baby-mode-as-parent-preparation.md) — 0-2 歳 baby モードは「親の準備モード」（コアターゲット 3-18 歳に再定義）（#1299）
 - [ADR-0012](decisions/0012-anti-engagement-principle.md) — Anti-engagement 原則（滞在時間 = 価値毀損）（#1309）
 - [ADR-0013](decisions/0013-lp-truth-from-implementation.md) — LP 文言は実装の事実を SSOT とする（Committed/Aspirational 分離）（#1310）
+- [ADR-0014](decisions/0014-labels-i18n-mechanism.md) — labels / i18n 機構選定（OSS 先調査）（proposed, #1346）
+- [ADR-0015](decisions/0015-age-tier-variant-architecture.md) — 年齢帯 variant 管理アーキテクチャ（proposed, #1353）
+- [ADR-0016](decisions/0016-japanese-text-wrap.md) — 日本語テキスト折り返し方針（proposed, #1353）
 
-> **注**: #1307 (B9) / #1298 (B3) 派生で ADR-0011 / ADR-0012 / ADR-0013 が同時期に提案されている。10 枠上限ルールの 1-in-1-out は、3 本が揃って merge されるタイミングでまとめて棚卸する（PO 判断）。本 CLAUDE.md の 10-active 表現は一時的に 11+ に膨らむ可能性がある。
+> **注**: #1307 (B9) / #1298 (B3) / #1346 (labels/i18n) / #1353 (variant/text-wrap) 派生で ADR-0011〜0016 が同時期に提案されている。10 枠上限ルールの 1-in-1-out は、6 本が揃って merge されるタイミングでまとめて棚卸する（PO 判断）。本 CLAUDE.md の 10-active 表現は一時的に 11+ に膨らむ可能性がある。
 >
 > 旧 0001-0044 のうち 25 件は `docs/decisions/archive/` に移動済み（archive ヘッダで supersede 先を明示）、5 件（旧 0002 / 0008 / 0009 / 0016 / 0027）は supersede chain 終端のため削除済み。詳細は `docs/decisions/README.md` と [adr-inventory-2026-04-20.md](decisions/adr-inventory-2026-04-20.md) を参照。
 
