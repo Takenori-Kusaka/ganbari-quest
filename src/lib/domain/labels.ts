@@ -187,6 +187,12 @@ export const FEATURE_LABELS = {
 	event: 'イベント',
 	certificate: 'がんばり証明書',
 	stamp: 'スタンプ',
+	// #1311: 「シールガチャ」語彙を撤回、実装実体 (日 1 回 cap login omikuji + 週次 stamp card) に合わせた SSOT
+	// 旧: 'シールガチャ' → 新: 'おみくじ' + 'スタンプカード' の 2 mechanic 分離 (ADR-0012 / ADR-0013 準拠)
+	omikuji: 'おみくじ',
+	stampCard: 'スタンプカード',
+	levelUp: 'レベルアップ',
+	rpgBattle: 'RPG バトル',
 	plan: 'プラン',
 	members: 'メンバー',
 	dataExport: 'データエクスポート',
