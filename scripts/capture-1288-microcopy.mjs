@@ -1,7 +1,7 @@
 #!/usr/bin/env node
+import { existsSync, readFileSync, statSync } from 'node:fs';
 // #1288 用: マイクロコピー変更箇所の検証スクリーンショット
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 
@@ -53,16 +53,12 @@ async function main() {
 		await dp.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
 		await dp.locator('#machine-tour').scrollIntoViewIfNeeded();
 		await dp.waitForTimeout(400);
-		await dp
-			.locator('#machine-tour')
-			.screenshot({ path: join(OUT_DIR, 'tour-title-desktop.png') });
+		await dp.locator('#machine-tour').screenshot({ path: join(OUT_DIR, 'tour-title-desktop.png') });
 		console.log('captured tour-title-desktop.png');
 
 		await dp.locator('.cta-bottom').scrollIntoViewIfNeeded();
 		await dp.waitForTimeout(400);
-		await dp
-			.locator('.cta-bottom')
-			.screenshot({ path: join(OUT_DIR, 'cta-bottom-desktop.png') });
+		await dp.locator('.cta-bottom').screenshot({ path: join(OUT_DIR, 'cta-bottom-desktop.png') });
 		console.log('captured cta-bottom-desktop.png');
 
 		// pricing.html 機能比較テーブル (ルーティン → 朝夜の習慣リスト)
@@ -81,9 +77,7 @@ async function main() {
 		await mp.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
 		await mp.locator('.cta-bottom').scrollIntoViewIfNeeded();
 		await mp.waitForTimeout(500);
-		await mp
-			.locator('.cta-bottom')
-			.screenshot({ path: join(OUT_DIR, 'cta-bottom-mobile.png') });
+		await mp.locator('.cta-bottom').screenshot({ path: join(OUT_DIR, 'cta-bottom-mobile.png') });
 		console.log('captured cta-bottom-mobile.png');
 
 		// Floating CTA: scroll to middle so #floating-cta is visible
