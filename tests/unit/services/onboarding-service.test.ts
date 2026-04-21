@@ -10,6 +10,7 @@ const mockGetActivities = vi.fn();
 const mockGetSetting = vi.fn();
 const mockSetSetting = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
+const mockGetRewardTemplates = vi.fn();
 
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
@@ -28,6 +29,10 @@ vi.mock('$lib/server/services/child-service', () => ({
 	getAllChildren: (...args: unknown[]) => mockGetAllChildren(...args),
 }));
 
+vi.mock('$lib/server/services/special-reward-service', () => ({
+	getRewardTemplates: (...args: unknown[]) => mockGetRewardTemplates(...args),
+}));
+
 import {
 	dismissOnboarding,
 	getOnboardingProgress,
@@ -43,6 +48,7 @@ function setupDefaults(
 	overrides: {
 		children?: { id: number }[];
 		activities?: { id: number }[];
+		rewardTemplates?: unknown[];
 		pinHash?: string | null;
 		dismissed?: string | null;
 		childScreenVisited?: string | null;
@@ -52,6 +58,7 @@ function setupDefaults(
 	const {
 		children = [],
 		activities = [],
+		rewardTemplates = [],
 		pinHash = null,
 		dismissed = null,
 		childScreenVisited = null,
@@ -60,6 +67,7 @@ function setupDefaults(
 
 	mockGetAllChildren.mockResolvedValue(children);
 	mockGetActivities.mockResolvedValue(activities);
+	mockGetRewardTemplates.mockResolvedValue(rewardTemplates);
 
 	mockGetSetting.mockImplementation((key: string, _tenantId: string) => {
 		if (key === 'pin_hash') return Promise.resolve(pinHash);
@@ -83,13 +91,13 @@ describe('onboarding-service', () => {
 	});
 
 	describe('getOnboardingProgress', () => {
-		it('全項目未完了: 子供なし・活動なし・PINなし・チェックリストなし・未訪問', async () => {
+		it('全項目未完了: 子供なし・活動なし・ごほうびなし・PINなし・チェックリストなし・未訪問', async () => {
 			setupDefaults();
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
 
 			expect(result.completedCount).toBe(0);
-			expect(result.totalCount).toBe(5);
+			expect(result.totalCount).toBe(6);
 			expect(result.allCompleted).toBe(false);
 			expect(result.dismissed).toBe(false);
 
@@ -102,6 +110,7 @@ describe('onboarding-service', () => {
 			setupDefaults({
 				children: [{ id: 1 }],
 				activities: [{ id: 10 }],
+				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: 'hashed-pin-value',
 				dismissed: 'true',
 				childScreenVisited: 'true',
@@ -110,8 +119,8 @@ describe('onboarding-service', () => {
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
 
-			expect(result.completedCount).toBe(5);
-			expect(result.totalCount).toBe(5);
+			expect(result.completedCount).toBe(6);
+			expect(result.totalCount).toBe(6);
 			expect(result.allCompleted).toBe(true);
 			expect(result.dismissed).toBe(true);
 			expect(result.nextRecommendation).toBeNull();
@@ -121,7 +130,7 @@ describe('onboarding-service', () => {
 			}
 		});
 
-		it('部分的な完了: 子供あり・活動あり・PINなし・チェックリストなし・未訪問', async () => {
+		it('部分的な完了: 子供あり・活動あり・ごほうびなし・PINなし・チェックリストなし・未訪問', async () => {
 			setupDefaults({
 				children: [{ id: 1 }],
 				activities: [{ id: 10 }],
@@ -131,16 +140,17 @@ describe('onboarding-service', () => {
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
 
 			expect(result.completedCount).toBe(2);
-			expect(result.totalCount).toBe(5);
+			expect(result.totalCount).toBe(6);
 			expect(result.allCompleted).toBe(false);
 
 			// children: completed, activities: completed
 			expect(result.items[0]?.completed).toBe(true);
 			expect(result.items[1]?.completed).toBe(true);
-			// pin: incomplete, checklist: incomplete, child_screen: incomplete
+			// rewards: incomplete, pin: incomplete, checklist: incomplete, child_screen: incomplete
 			expect(result.items[2]?.completed).toBe(false);
 			expect(result.items[3]?.completed).toBe(false);
 			expect(result.items[4]?.completed).toBe(false);
+			expect(result.items[5]?.completed).toBe(false);
 		});
 
 		it('nextRecommendation は最初の未完了項目を指す', async () => {
@@ -161,6 +171,7 @@ describe('onboarding-service', () => {
 			setupDefaults({
 				children: [{ id: 1 }],
 				activities: [{ id: 10 }],
+				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: 'some-hash',
 				childScreenVisited: 'true',
 				templatesByChild: { 1: [{ id: 100 }] },
@@ -183,7 +194,7 @@ describe('onboarding-service', () => {
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
 
 			expect(result.completedCount).toBe(3);
-			expect(result.totalCount).toBe(5);
+			expect(result.totalCount).toBe(6);
 		});
 
 		it('basePath が href に正しく適用される', async () => {
@@ -194,10 +205,11 @@ describe('onboarding-service', () => {
 
 			expect(result.items[0]?.href).toBe('/custom/path/members');
 			expect(result.items[1]?.href).toBe('/custom/path/activities');
-			expect(result.items[2]?.href).toBe('/custom/path/settings');
-			expect(result.items[3]?.href).toBe('/custom/path/checklists');
+			expect(result.items[2]?.href).toBe('/custom/path/rewards');
+			expect(result.items[3]?.href).toBe('/custom/path/settings');
+			expect(result.items[4]?.href).toBe('/custom/path/checklists');
 			// child_screen is always /switch regardless of basePath
-			expect(result.items[4]?.href).toBe('/switch');
+			expect(result.items[5]?.href).toBe('/switch');
 		});
 
 		it('子供がテンプレートを持っている場合 checklist は completed', async () => {
@@ -298,17 +310,52 @@ describe('onboarding-service', () => {
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
 
-			expect(result.items).toHaveLength(5);
+			expect(result.items).toHaveLength(6);
 			expect(result.items[0]?.key).toBe('children');
 			expect(result.items[0]?.label).toBe('子供を登録する');
 			expect(result.items[1]?.key).toBe('activities');
 			expect(result.items[1]?.label).toBe('活動パックを選ぶ');
-			expect(result.items[2]?.key).toBe('pin');
-			expect(result.items[2]?.label).toBe('PINコードを設定する');
-			expect(result.items[3]?.key).toBe('checklist');
-			expect(result.items[3]?.label).toBe('チェックリストを作る');
-			expect(result.items[4]?.key).toBe('child_screen');
-			expect(result.items[4]?.label).toBe('子供の画面を確認する');
+			expect(result.items[2]?.key).toBe('rewards');
+			expect(result.items[2]?.label).toBe('ごほうびプリセットを選ぶ');
+			expect(result.items[3]?.key).toBe('pin');
+			expect(result.items[3]?.label).toBe('PINコードを設定する');
+			expect(result.items[4]?.key).toBe('checklist');
+			expect(result.items[4]?.label).toBe('チェックリストを作る');
+			expect(result.items[5]?.key).toBe('child_screen');
+			expect(result.items[5]?.label).toBe('子供の画面を確認する');
+		});
+
+		it('rewardTemplates が空の場合 rewards は incomplete', async () => {
+			setupDefaults({ rewardTemplates: [] });
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			const rewardsItem = result.items.find((i) => i.key === 'rewards');
+			expect(rewardsItem?.completed).toBe(false);
+		});
+
+		it('rewardTemplates に 1 件以上あれば rewards は completed', async () => {
+			setupDefaults({
+				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			const rewardsItem = result.items.find((i) => i.key === 'rewards');
+			expect(rewardsItem?.completed).toBe(true);
+		});
+
+		it('rewards の nextRecommendation: activities 完了後 rewards が未完なら rewards を指す', async () => {
+			setupDefaults({
+				children: [{ id: 1 }],
+				activities: [{ id: 10 }],
+				rewardTemplates: [],
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			expect(result.nextRecommendation?.key).toBe('rewards');
+			expect(result.nextRecommendation?.href).toBe(`${BASE_PATH}/rewards`);
 		});
 
 		it('子供がいない場合 findTemplatesByChild は呼ばれない', async () => {
