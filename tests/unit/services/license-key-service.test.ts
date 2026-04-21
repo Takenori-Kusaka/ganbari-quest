@@ -195,6 +195,25 @@ describe('generateLicenseKey', () => {
 		expect(segments[3]).toHaveLength(4);
 		expect(segments[4]).toHaveLength(5);
 	});
+
+	// #1387: crypto.randomInt 移行後の分布テスト。modulo bias があれば偏りが出るので検知できる。
+	it('1000 回生成したキー本体の文字分布が偏らない（CodeQL modulo-bias 回帰防止）', () => {
+		process.env.AWS_LICENSE_SECRET = '';
+		const charCounts = new Map<string, number>();
+		for (let i = 0; i < 1000; i++) {
+			const key = generateLicenseKey();
+			// "GQ-" を除いた 12 文字（ハイフンを除去）
+			const body = key.replace(/^GQ-/, '').replace(/-/g, '');
+			for (const c of body) {
+				charCounts.set(c, (charCounts.get(c) ?? 0) + 1);
+			}
+		}
+		const counts = Array.from(charCounts.values());
+		const mean = counts.reduce((a, b) => a + b, 0) / counts.length;
+		const maxDev = Math.max(...counts.map((c) => Math.abs(c - mean)));
+		// 平均からの最大乖離が 25% 以内（1000 サンプルの一様分布近似）
+		expect(maxDev / mean).toBeLessThan(0.25);
+	});
 });
 
 // ============================================================
