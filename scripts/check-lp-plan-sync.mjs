@@ -145,21 +145,78 @@ function htmlContains(haystack, needle) {
 }
 
 /**
+ * #1293: 価格プロミスバンドの最低有料価格 + 安心シグナル検証。
+ * 全プラン網羅は pricing.html 側の strict チェックに委ねる。
+ *
+ * @param {string} html
+ * @param {ReturnType<typeof parsePlanFeatures>} ssot
+ * @returns {string[]}
+ */
+function verifyMinPaidPricePolicy(html, ssot) {
+	/** @type {string[]} */
+	const errors = [];
+	const { price: standardPrice } = ssot.meta.standard;
+	if (!htmlContains(html, standardPrice)) {
+		errors.push(
+			`[standard] price "${standardPrice}" が HTML に現れない (価格プロミスバンドに最低有料価格は必須)`,
+		);
+	}
+	const TRIAL_SIGNALS = ['7 日間無料', '7日間無料'];
+	if (!TRIAL_SIGNALS.some((s) => htmlContains(html, s))) {
+		errors.push(
+			`安心シグナル「7 日間無料」(または「7日間無料」) が HTML に現れない (#1293 価格プロミスバンド要件)`,
+		);
+	}
+	if (!htmlContains(html, 'いつでも解約')) {
+		errors.push(`安心シグナル「いつでも解約」が HTML に現れない (#1293 価格プロミスバンド要件)`);
+	}
+	return errors;
+}
+
+/**
+ * 全プラン価格 (+ 条件次第で年額) を検証する既定ポリシー。
+ *
+ * @param {string} html
+ * @param {ReturnType<typeof parsePlanFeatures>} ssot
+ * @param {boolean} checkYearlyPrice
+ * @returns {string[]}
+ */
+function verifyAllPricesPolicy(html, ssot, checkYearlyPrice) {
+	/** @type {string[]} */
+	const errors = [];
+	for (const plan of /** @type {const} */ (['free', 'standard', 'family'])) {
+		const { price, yearlyPrice } = ssot.meta[plan];
+		if (!htmlContains(html, price)) {
+			errors.push(`[${plan}] price "${price}" が HTML に現れない`);
+		}
+		if (checkYearlyPrice && yearlyPrice) {
+			const yearlyMatch = yearlyPrice.match(/年額\s*¥[\d,]+/);
+			if (yearlyMatch && !htmlContains(html, yearlyMatch[0])) {
+				errors.push(`[${plan}] yearlyPrice "${yearlyMatch[0]}" が HTML に現れない`);
+			}
+		}
+	}
+	return errors;
+}
+
+/**
  * 1 つの LP HTML ファイルを検証する。
  *
  * @param {string} filePath
  * @param {ReturnType<typeof parsePlanFeatures>} ssot
- * @param {{ strictFeatures: boolean; checkYearlyPrice: boolean; checkFeatures?: boolean }} opts
+ * @param {{ strictFeatures: boolean; checkYearlyPrice: boolean; checkFeatures?: boolean; pricePolicy?: 'all' | 'minPaid' }} opts
  *   strictFeatures=true: 全 feature が含まれる必要
  *   checkYearlyPrice=true: 年額価格もチェックする（pamphlet / index は月額のみなので除外）
  *   checkFeatures=false: features チェック自体をスキップ（#1141 以降の index.html
  *     のように feature を要約して書き直す summary セクション用。pricing.html への
  *     リンクがあり詳細は別ページで担保される場合に使う）
+ *   pricePolicy='all': 全プランの price が HTML に現れる必要（既定）
+ *   pricePolicy='minPaid': 最低有料価格（standard の price）のみチェック（#1293: 価格プロミスバンド）
  */
 function verifyHtmlFile(
 	filePath,
 	ssot,
-	{ strictFeatures, checkYearlyPrice, checkFeatures = true },
+	{ strictFeatures, checkYearlyPrice, checkFeatures = true, pricePolicy = 'all' },
 ) {
 	const rel = path.relative(REPO_ROOT, filePath);
 	if (!fs.existsSync(filePath)) {
@@ -171,20 +228,11 @@ function verifyHtmlFile(
 	const errors = [];
 
 	// --- 価格チェック ---
-	for (const plan of /** @type {const} */ (['free', 'standard', 'family'])) {
-		const { price, yearlyPrice } = ssot.meta[plan];
-		if (!htmlContains(html, price)) {
-			errors.push(`[${plan}] price "${price}" が HTML に現れない`);
-		}
-		// yearlyPrice は標準/ファミリーのみ。全文字列はマーケ文言を含むので
-		// 「年額 ¥5,000」部分（price 数値）だけ緩くチェックする。pamphlet は月額のみ。
-		if (checkYearlyPrice && yearlyPrice) {
-			const yearlyMatch = yearlyPrice.match(/年額\s*¥[\d,]+/);
-			if (yearlyMatch && !htmlContains(html, yearlyMatch[0])) {
-				errors.push(`[${plan}] yearlyPrice "${yearlyMatch[0]}" が HTML に現れない`);
-			}
-		}
-	}
+	const priceErrors =
+		pricePolicy === 'minPaid'
+			? verifyMinPaidPricePolicy(html, ssot)
+			: verifyAllPricesPolicy(html, ssot, checkYearlyPrice);
+	errors.push(...priceErrors);
 
 	// --- 特典リストチェック ---
 	if (checkFeatures) {
@@ -244,13 +292,15 @@ function main() {
 
 	const results = [
 		verifyHtmlFile(SITE_PRICING_HTML, ssot, { strictFeatures: true, checkYearlyPrice: true }),
-		// #1141 以降、index.html の料金セクションは summary カード (月額のみ・詳細は
-		// pricing.html へリンク) に簡素化された。yearly 価格と feature 詳細は
-		// pricing.html 側で strict チェックされるのでここでは月額価格のみ検証する。
+		// #1293 以降、index.html の料金セクションは「価格プロミスバンド」に簡素化された
+		// (freemium × 低価格帯での price disambiguation / 配置原則は lp-content-map.md 参照)。
+		// 最低有料価格と安心シグナル文言のみ pricePolicy='minPaid' で検証し、
+		// 全プラン網羅・年額・feature 詳細は pricing.html 側で strict チェックする。
 		verifyHtmlFile(SITE_INDEX_HTML, ssot, {
 			strictFeatures: false,
 			checkYearlyPrice: false,
 			checkFeatures: false,
+			pricePolicy: 'minPaid',
 		}),
 		verifyHtmlFile(SITE_PAMPHLET_HTML, ssot, { strictFeatures: false, checkYearlyPrice: false }),
 	];
