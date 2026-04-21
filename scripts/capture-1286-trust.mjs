@@ -4,6 +4,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
 const SITE_DIR = resolve('site');
 const OUT_DIR = resolve('docs/screenshots/1286-lp-trust-section');
@@ -49,7 +50,7 @@ async function main() {
 		const dp = await dctx.newPage();
 		await dp.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
 		await dp.locator('#trust').scrollIntoViewIfNeeded();
-		await dp.waitForTimeout(500);
+		await waitForStablePage(dp, { skipNetworkIdle: true });
 		await dp.locator('#trust').screenshot({ path: join(OUT_DIR, 'trust-desktop.png') });
 		console.log('captured trust-desktop.png');
 
@@ -58,7 +59,7 @@ async function main() {
 		const mp = await mctx.newPage();
 		await mp.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
 		await mp.locator('#trust').scrollIntoViewIfNeeded();
-		await mp.waitForTimeout(500);
+		await waitForStablePage(mp, { skipNetworkIdle: true });
 		await mp.locator('#trust').screenshot({ path: join(OUT_DIR, 'trust-mobile.png') });
 		console.log('captured trust-mobile.png');
 
