@@ -5,6 +5,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
 const SITE_DIR = resolve('site');
 const OUT_DIR = resolve('docs/screenshots/1290-header-persistent-cta');
@@ -51,7 +52,7 @@ async function capture({ page, url, width, height, name, scroll = 0 }) {
 	await page.waitForLoadState('networkidle').catch(() => {});
 	if (scroll > 0) {
 		await page.evaluate((y) => window.scrollTo(0, y), scroll);
-		await page.waitForTimeout(300);
+		await waitForStablePage(page, { skipNetworkIdle: true });
 	}
 	const path = join(OUT_DIR, `${name}.png`);
 	// header-only clip for focus (top 200px)
@@ -91,7 +92,7 @@ async function main() {
 			name: 'index-desktop-1440-header-top',
 		});
 		await page.evaluate(() => window.scrollTo(0, 2500));
-		await page.waitForTimeout(400);
+		await waitForStablePage(page, { skipNetworkIdle: true });
 		await page.screenshot({
 			path: join(OUT_DIR, 'index-desktop-1440-header-scrolled.png'),
 			clip: { x: 0, y: 0, width: 1440, height: 200 },
@@ -118,7 +119,7 @@ async function main() {
 		console.log('saved index-mobile-390-header-closed.png');
 		// open hamburger
 		await page.click('.hamburger');
-		await page.waitForTimeout(300);
+		await waitForStablePage(page, { skipNetworkIdle: true });
 		await page.screenshot({
 			path: join(OUT_DIR, 'index-mobile-390-hamburger-open.png'),
 			clip: { x: 0, y: 0, width: 390, height: 500 },
