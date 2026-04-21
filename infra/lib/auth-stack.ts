@@ -30,13 +30,18 @@ export class AuthStack extends cdk.Stack {
 		const sesDomainArn = `arn:aws:ses:us-east-1:${this.account}:identity/ganbari-quest.com`;
 
 		// --- Cognito User Pool (Email/Password + MFA) ---
-		this.userPool = new cognito.UserPool(this, 'UserPool', {
-			userPoolName: 'ganbari-quest-users',
+		// 論理 ID は 'UserPoolV2' を使用 (ADR-0018)。
+		// 旧 'UserPool' は ADR-0017 deploy 失敗後に UPDATE_ROLLBACK_COMPLETE 状態で残存しており、
+		// `mutable: true` に変更するには CloudFormation に Replacement を強制する必要がある。
+		// 論理 ID を変えることで新 Pool を新規作成 → 旧 Pool は RETAIN により orphan として残る
+		// (deploy 成功後に手動で削除する)。Pre-PMF 境界内で既存 federated ユーザー消失を許容。
+		this.userPool = new cognito.UserPool(this, 'UserPoolV2', {
+			userPoolName: 'ganbari-quest-users-v2',
 			selfSignUpEnabled: true,
 			signInAliases: { email: true },
 			autoVerify: { email: true },
 			standardAttributes: {
-				// ADR-0017: mutable: true で Google IdP 再認証時の email 更新拒否エラーを解消 (#1366)
+				// federated IdP (Google OAuth) 経由の email 更新を許容する (#1366 根本解決)。
 				email: { required: true, mutable: true },
 			},
 			// SES 経由でメール送信（DKIM/SPF 付き ganbari-quest.com ドメインから）
