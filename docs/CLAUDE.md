@@ -70,8 +70,9 @@
 - [ADR-0014](decisions/0014-labels-i18n-mechanism.md) — labels / i18n 機構選定（OSS 先調査）（proposed, #1346）
 - [ADR-0015](decisions/0015-age-tier-variant-architecture.md) — 年齢帯 variant 管理アーキテクチャ（proposed, #1353）
 - [ADR-0016](decisions/0016-japanese-text-wrap.md) — 日本語テキスト折り返し方針（proposed, #1353）
+- [ADR-0017](decisions/0017-cognito-pool-recreation-email-mutable.md) — Cognito User Pool 再作成による email mutable 化（accepted, #1366）
 
-> **注**: #1307 (B9) / #1298 (B3) / #1346 (labels/i18n) / #1353 (variant/text-wrap) 派生で ADR-0011〜0016 が同時期に提案されている。10 枠上限ルールの 1-in-1-out は、6 本が揃って merge されるタイミングでまとめて棚卸する（PO 判断）。本 CLAUDE.md の 10-active 表現は一時的に 11+ に膨らむ可能性がある。
+> **注**: #1307 (B9) / #1298 (B3) / #1346 (labels/i18n) / #1353 (variant/text-wrap) / #1366 (Cognito email) 派生で ADR-0011〜0017 が同時期に提案されている。10 枠上限ルールの 1-in-1-out は、まとまって merge されるタイミングでまとめて棚卸する（PO 判断）。本 CLAUDE.md の 10-active 表現は一時的に 11+ に膨らむ可能性がある。
 >
 > 旧 0001-0044 のうち 25 件は `docs/decisions/archive/` に移動済み（archive ヘッダで supersede 先を明示）、5 件（旧 0002 / 0008 / 0009 / 0016 / 0027）は supersede chain 終端のため削除済み。詳細は `docs/decisions/README.md` と [adr-inventory-2026-04-20.md](decisions/adr-inventory-2026-04-20.md) を参照。
 
