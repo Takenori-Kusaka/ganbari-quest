@@ -25,6 +25,11 @@ export class AuthStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props: AuthStackProps) {
 		super(scope, id, props);
 
+		// GoogleIdP を UserPoolClient より先に用意し、CloudFormation に明示依存を付けるために
+		// ローカル変数として保持する。supportedIdentityProviders に Google を含めるクライアントは
+		// IdP がまだ作成途中だと "The provider Google does not exist" で失敗するため。
+		let googleIdP: cognito.UserPoolIdentityProviderGoogle | undefined;
+
 		// --- SES domain ARN (us-east-1 固定 — Cognito はメール送信を us-east-1 SES で行う) ---
 		// biome-ignore lint/correctness/noUnusedVariables: prepared for SES configuration in email settings below
 		const sesDomainArn = `arn:aws:ses:us-east-1:${this.account}:identity/ganbari-quest.com`;
@@ -173,7 +178,7 @@ export class AuthStack extends cdk.Stack {
 				domainValue = `${domain.domainName}.auth.${this.region}.amazoncognito.com`;
 			}
 
-			new cognito.UserPoolIdentityProviderGoogle(this, 'GoogleIdP', {
+			googleIdP = new cognito.UserPoolIdentityProviderGoogle(this, 'GoogleIdP', {
 				userPool: this.userPool,
 				clientId: googleClientId,
 				clientSecretValue: cdk.SecretValue.unsafePlainText(googleClientSecret),
@@ -201,6 +206,8 @@ export class AuthStack extends cdk.Stack {
 
 		// --- User Pool Client (パブリッククライアント、USER_PASSWORD_AUTH + OAuth) ---
 		// 新しい論理ID 'PublicClient' を使い、旧 'AppClient' の export への依存を回避
+		// GoogleIdP 作成完了を待ってから UserPoolClient を作成する (race 回避)。
+		// Deploy 失敗ログ: "The provider Google does not exist for User Pool ..." (2026-04-21)
 		this.userPoolClient = this.userPool.addClient('PublicClient', {
 			userPoolClientName: 'ganbari-quest-public',
 			generateSecret: false, // InitiateAuth (USER_PASSWORD_AUTH) はパブリッククライアント必須
@@ -230,6 +237,13 @@ export class AuthStack extends cdk.Stack {
 					}
 				: {}),
 		});
+
+		// 明示的依存: UserPoolClient は GoogleIdP の作成完了後に作成される必要がある
+		// (supportedIdentityProviders に GOOGLE を含むため)。CDK/CloudFormation の暗黙依存では
+		// 並列作成されて race が発生する (2026-04-21 deploy 失敗の直接原因)。
+		if (googleIdP) {
+			this.userPoolClient.node.addDependency(googleIdP);
+		}
 
 		// --- SSM Parameters (スタック間依存の切り離し) ---
 		new ssm.StringParameter(this, 'UserPoolIdParam', {
