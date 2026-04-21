@@ -52,12 +52,10 @@ That's how Ganbari Quest was born. It's a web app that turns everyday activities
 - Kids log completions and earn points
 - Points drive level-ups, combo bonuses, title collection, and daily missions
 
-🧒 **5 age-adaptive modes (0-18 years):**
-- Baby (0-2): Parent logs activities with a simple tap interface
-- Kinder (3-5): Hiragana text, big buttons — kids tap "I did it!"
-- Lower (6-9): Full RPG experience with quests and titles
-- Upper (10-14): Stats, radar charts, goal planning
-- Teen (15-18): Career planning and self-directed growth
+🧒 **Age-adaptive UI (0-18 years):**
+- Baby mode (0-2): Parent preparation mode — parent logs with a simple tap interface
+- Kinder (3-5): Hiragana text, large tap targets — kids tap "I did it!"
+- Primary-plus (6-18): Kanji + higher information density, with grade-specific preset activities (elementary homework, junior-high club prep, high-school self-study). Core gamification (stamp card, omikuji, RPG battle, radar chart) is shared across all ages from elementary up — differentiation is UI + presets, not feature set.
 
 📊 **Growth radar chart:**
 Tracks 5 dimensions — Intelligence, Physical, Creativity, Social, and Life Skills — giving parents data-backed reasons to say "Great job!"
@@ -90,9 +88,9 @@ I'd love your feedback — especially from fellow parents! Try the demo (no sign
 ---
 
 ### Image 2: Age-Adaptive UI
-**Caption:** 5 age modes: from parent-assisted baby tracking to teen self-management
+**Caption:** Age-adaptive UI with grade-specific presets — from parent-prepared baby mode to teen self-management
 
-**Description:** Side-by-side comparison of the 5 age modes — baby (simple icons), kinder (hiragana + big buttons), lower (RPG adventure), upper (stats + charts), teen (career planning). Show how the same app adapts to each developmental stage.
+**Description:** Side-by-side comparison of the age-adaptive UI — baby (parent preparation mode), kinder (hiragana + large tap targets), primary-plus (kanji + higher information density, covering 6-18 years with grade-specific preset activities). Differentiation is UI + preset content, not feature set: the core gamification (stamp card / omikuji / RPG battle) is available across all ages from elementary up.
 
 ---
 

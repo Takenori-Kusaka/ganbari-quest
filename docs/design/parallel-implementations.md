@@ -53,11 +53,18 @@ grep -rn "変更前の用語" site/ src/lib/domain/labels.ts
 
 | 場所 | 内容 |
 |------|------|
-| `src/routes/(child)/baby/` | 乳幼児モード（0〜2歳） |
+| `src/routes/(child)/baby/` | 乳幼児モード（0〜2歳）— **ADR-0011 で「親の準備モード」として別軸扱い** (#1299) |
 | `src/routes/(child)/preschool/` | 幼児モード（3〜5歳） |
 | `src/routes/(child)/elementary/` | 小学生モード（6〜12歳） |
 | `src/routes/(child)/junior/` | 中学生モード（13〜15歳） |
 | `src/routes/(child)/senior/` | 高校生モード（16〜18歳） |
+
+**差別化軸の実態** (#1320 §2.1、`lp-content-map.md` §2.1):
+
+- **preschool vs 小学生以降 (elementary/junior/senior)**: UI 軸差 (ひらがな vs 漢字 / タップ 80px vs 44-56px / fontScale 1.2 vs 1.0)
+- **elementary / junior / senior の相互差**: コード上は **ゼロ** (活動プリセットの差のみ)
+- **baby**: 準備モード (ADR-0011)、コアゲーム体験なし
+- **機能差別化**: LP で「中学生から解放」「upper 専用機能」等の訴求を書かないこと (LP truth、ADR-0013)
 
 **同期メカニズム**:
 - **現状（手動）**: 1 モード修正 → 残り 4 モードを手動で横展開
