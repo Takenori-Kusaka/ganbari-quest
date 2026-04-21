@@ -1,7 +1,7 @@
 // src/lib/server/services/license-key-service.ts
 // ライセンスキー生成・検証・消費サービス (#0247, #319 HMAC署名対応)
 
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHmac, randomInt } from 'node:crypto';
 import {
 	LICENSE_KEY_STATUS,
 	type LicenseKeyStatus,
@@ -119,13 +119,15 @@ export function verifyKeySignature(key: string, secret: string): boolean {
 
 /** ライセンスキーを生成。秘密鍵があれば HMAC 署名付き形式 */
 export function generateLicenseKey(): string {
-	const bytes = randomBytes(12);
+	// #1387: randomBytes()[i] % KEY_CHARS.length は CodeQL js/biased-cryptographic-random が
+	// 警告する modulo-bias パターン。KEY_CHARS.length=32 は偶然 256 の約数で実害ゼロだが、
+	// ruleset 上 fix 対象。randomInt(0, n) は Node.js 内部で rejection sampling を行い、
+	// [0, n) で真に一様分布する整数を返す。
 	const segments: string[] = [];
 	for (let s = 0; s < 3; s++) {
 		let seg = '';
 		for (let i = 0; i < 4; i++) {
-			const b = bytes[s * 4 + i] ?? 0;
-			seg += KEY_CHARS[b % KEY_CHARS.length];
+			seg += KEY_CHARS[randomInt(0, KEY_CHARS.length)];
 		}
 		segments.push(seg);
 	}

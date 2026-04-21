@@ -1,6 +1,7 @@
 // src/lib/server/services/cloud-export-service.ts
 // クラウドエクスポート共有サービス（PIN付きS3保管 + インポート）
 
+import { randomInt } from 'node:crypto';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import type { CloudExportRecord, CloudExportType } from '$lib/server/db/types';
@@ -19,9 +20,12 @@ const EXPIRY_DAYS = 7;
 
 /** PIN コードを生成（6桁英数字） */
 function generatePin(): string {
+	// #1387: Math.random() は暗号論的に非安全で PIN が予測可能になる。
+	// 家族データ共有エクスポートを保護する PIN のため crypto.randomInt で
+	// 真に一様な乱数を使う。
 	let pin = '';
 	for (let i = 0; i < PIN_LENGTH; i++) {
-		pin += PIN_CHARS[Math.floor(Math.random() * PIN_CHARS.length)];
+		pin += PIN_CHARS[randomInt(0, PIN_CHARS.length)];
 	}
 	return pin;
 }
