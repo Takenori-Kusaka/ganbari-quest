@@ -1,4 +1,15 @@
 #!/usr/bin/env node
+// scripts/take-lp-screenshots.mjs
+//
+// LP スクリーンショット "compare / promote" 専用ツール (#1129)。
+// - デフォルトは `tmp/screenshots-staging/` に撮影して既存 `site/screenshots/` と
+//   ファイルサイズ差分を比較 (デグレ検知)。
+// - `--promote` で staging を本番パスにコピー。
+//
+// ※ LP 本番用スクリーンショットの生成は `scripts/capture-hp-screenshots.mjs` が SSOT。
+//    CI (`.github/workflows/pages.yml`) はそちらを呼ぶ。詳細は
+//    `docs/design/lp-deploy-pipeline.md` 参照。
+// ※ 本スクリプトは `npm run screenshots:lp:compare` から呼ばれる (#1283)。
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
