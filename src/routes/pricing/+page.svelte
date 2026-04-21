@@ -65,7 +65,7 @@ const plans = getPricingPagePlans().map((meta) => ({
 	</div>
 
 	<p class="text-center text-[0.85rem] text-[var(--color-neutral-500)] mb-12">
-		&#x1F4A1; お子さまが楽しめる冒険の仕組み（レベル・シールガチャ・ログインボーナス・コンボなど）は<strong>全プラン共通</strong>で制限なし
+		&#x1F4A1; お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・コンボなど）は<strong>全プラン共通</strong>で制限なし
 	</p>
 
 	<Card padding="lg" class="bg-[var(--color-surface-muted)]">
