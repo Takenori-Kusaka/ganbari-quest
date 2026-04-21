@@ -57,8 +57,8 @@ test.describe('#752 トライアルフロー', () => {
 		await expect(banner).toBeVisible({ timeout: 30_000 });
 		// "7日間 無料で試す" ボタンが存在
 		await expect(page.getByTestId('trial-banner-start-button')).toBeVisible();
-		// バナーに「7日間、全機能を無料で試せます」テキスト
-		await expect(banner).toContainText('7日間');
+		// #1383: 誤字「試すます」→「試せます」を検知できるよう完全一致でアサート
+		await expect(banner).toContainText('7日間、全機能を無料で試せます');
 	});
 
 	// ========================================================
