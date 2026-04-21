@@ -54,7 +54,7 @@ Dev セッションでは Issue を **1 件ずつ直列に**進める。Agent (s
 
 | 操作 | 方針 |
 |------|------|
-| Issue の着手順 | **1 件ずつ直列**。前 Issue の PR が Ready (CI 全緑) になってから次へ。**複数 Issue 並列着手禁止** |
+| Issue の着手順 | **1 件ずつ直列**。前 Issue の PR が Ready (CI 全緑) になってから次へ。**複数 Issue 並列着手禁止**。**`pending` ラベル付き Issue はスキップ**（下記「pending ラベル運用」参照） |
 | 実装（コード編集・新規ファイル作成・削除・リファクタ） | **Claude 本体が primary implementer**。Read / Edit / Write で直接手を動かす |
 | Agent の活用目的 | ✅ **単一 Issue を多角的観点でセルフレビュー**（例: security-engineer に認可観点レビュー依頼、quality-engineer にテストカバレッジ観点レビュー依頼、refactoring-expert に可読性観点レビュー依頼、self-review に実装後の整合性確認依頼）<br>❌ **別 Issue を並列処理させる**、**単一 Issue の実装を丸投げする** |
 | 調査系 Agent (Explore / Plan) | 同一 Issue の context 保護目的で使用可。返ってきた結果を元に実装するのは Claude 本体 |
@@ -78,6 +78,23 @@ Dev セッションでは Issue を **1 件ずつ直列に**進める。Agent (s
 - 複数 Issue を並列で別 Agent に振り分けて同時進行させる
 - 単一 Issue の実装フェーズを丸ごと Agent に任せ、Claude 本体が結果だけ受け取って PR にする
 - Agent の指摘を精査せずに鵜呑みに反映する（PO ルールと矛盾した「一般的ベストプラクティス」を盲信する Agent が存在するため）
+
+#### pending ラベル運用（2026-04-21 PO 指示）
+
+`pending` ラベルが付いた Issue は、PO 判断待ち・上流依存待ち・情報収集待ち等の理由で**現時点では着手してはいけない Issue** を意味する。Dev セッションでは以下を徹底する:
+
+- Issue 一覧を取得する際は `gh issue list --label "..." | grep -v pending` 等で **pending を除外**してから優先度判定する
+- pending 付きの Issue を自律的に開始しない。PO からラベル除去の明示指示があるまで保留
+- pending の Issue に依存する下流 Issue（`Blocked by` に pending Issue が載っているもの）も同様に保留
+- 誤って pending Issue に着手した場合は commit / push する前に作業を中断し、PO に確認する
+
+確認コマンド例:
+
+```bash
+# pending を除く優先度 high の open Issue
+gh issue list --state open --label "priority:high" --json number,title,labels \
+  --jq '.[] | select(.labels | map(.name) | contains(["pending"]) | not) | "\(.number) \(.title)"'
+```
 
 ### PR 作業時（レビュー指摘対応含む）
 
