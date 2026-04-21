@@ -210,7 +210,7 @@
 .floating-cta .btn{white-space:nowrap;padding:8px 16px;font-size:.82rem;flex-shrink:0}
 @media(min-width:769px){.floating-cta{display:none!important}}
 
-/* NAV — login as text link only */
+/* NAV — text links (ログインの ghost button スタイルは shared.css .nav-login を参照、#1285) */
 .header-nav a.nav-text{padding:8px 12px;color:var(--gray-700);font-size:.92rem;font-weight:500}
 .header-nav a.nav-text:hover{color:var(--brand-700)}
 
@@ -248,7 +248,7 @@
       <a href="index.html" class="nav-text" onclick="this.parentElement.classList.remove('open')">ホーム</a>
       <a href="https://ganbari-quest.com/marketplace" class="nav-text" data-testid="lp-nav-marketplace" onclick="this.parentElement.classList.remove('open')">テンプレートを探す</a>
       <a href="pricing.html" class="nav-text" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
-      <a href="https://ganbari-quest.com/auth/login" class="nav-text" onclick="this.parentElement.classList.remove('open')">ログイン</a>
+      <a href="https://ganbari-quest.com/auth/login" class="nav-login" data-testid="lp-nav-login" onclick="this.parentElement.classList.remove('open')">ログイン</a>
     </nav>
   </div>
 </header>
