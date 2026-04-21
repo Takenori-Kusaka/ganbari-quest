@@ -36,7 +36,8 @@ export class AuthStack extends cdk.Stack {
 			signInAliases: { email: true },
 			autoVerify: { email: true },
 			standardAttributes: {
-				email: { required: true, mutable: false },
+				// ADR-0017: mutable: true で Google IdP 再認証時の email 更新拒否エラーを解消 (#1366)
+				email: { required: true, mutable: true },
 			},
 			// SES 経由でメール送信（DKIM/SPF 付き ganbari-quest.com ドメインから）
 			email: cognito.UserPoolEmail.withSES({

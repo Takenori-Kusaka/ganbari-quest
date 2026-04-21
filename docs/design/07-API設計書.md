@@ -580,6 +580,8 @@ Cognito モードのログイン。Email + Password で Cognito に認証し、J
 
 Cognito OAuth コールバック。認可コードを受け取り、トークンを Cookie に設定してリダイレクト。
 
+> **Cognito User Pool の email 属性は `mutable: true`** (ADR-0017 / #1366)。Google OAuth 再認証時に IdP から同じ email を「属性更新」として処理する Cognito の既定挙動に合わせるための設定。`mutable: false` 運用時は `user.email: Attribute cannot be updated` エラーで再ログインが不能になる。
+
 ### 3.8 実績関連
 
 #### GET /api/v1/achievements/[childId]
