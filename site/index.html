@@ -123,12 +123,22 @@
 .core-loop-step .cls-icon{font-size:2.2rem;margin-bottom:8px;line-height:1}
 .core-loop-step h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .core-loop-step p{font-size:.85rem;color:var(--gray-600);line-height:1.6}
-.core-loop-visual{max-width:320px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:360px}
-.core-loop-visual img{width:100%;height:100%;display:block;object-fit:cover;object-position:top}
+/* #1284: aspect-ratio を維持しつつ画像全体を表示するため max-height 拡張 + object-fit:contain に変更。
+   旧: cover + position:top で縦長 SS の上半分のみ表示されシールガチャ等が見切れていた */
+.core-loop-visual{max-width:320px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:540px;background:var(--gray-50)}
+.core-loop-visual img{width:100%;height:100%;display:block;object-fit:contain;object-position:center}
 .core-loop-note{max-width:640px;margin:20px auto 0;text-align:center;font-size:.88rem;color:var(--gray-600);line-height:1.7}
 .core-loop-note strong{color:var(--brand-800)}
 @media(max-width:640px){
   .core-loop{grid-template-columns:1fr;gap:12px}
+}
+
+/* #1284: desktop の picture source は 1280x800 の横長画像に切り替わるため
+   コンテナの aspect-ratio も横長にする（縦長コンテナに横長画像を contain すると
+   画像が小さく見えてしまうため） */
+@media(min-width:1024px){
+  .core-loop-visual{aspect-ratio:1280/800;max-width:720px;max-height:460px}
+  .tour-card .tour-shot{aspect-ratio:1280/800;max-height:200px}
 }
 
 /* Machine tour (4-act) */
@@ -138,8 +148,9 @@
 .tour-card .tour-emoji{font-size:2rem;margin-bottom:8px;line-height:1}
 .tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px;flex:1}
-.tour-card .tour-shot{border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:220px;margin-top:auto}
-.tour-card .tour-shot img{width:100%;height:100%;object-fit:cover;object-position:top}
+/* #1284: tour-shot も同様に全画面表示へ修正。称号/コンボ画面などの主要要素が見えるように */
+.tour-card .tour-shot{border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:360px;margin-top:auto;background:var(--gray-50)}
+.tour-card .tour-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 
 /* Soft features */
 .soft-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
