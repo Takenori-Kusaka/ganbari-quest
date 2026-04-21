@@ -128,6 +128,23 @@ body:
       description: 画面のイメージがあれば、ラフスケッチやモックアップを添付してください。
 
   - type: textarea
+    id: oss-research
+    attributes:
+      label: OSS / 確立パターン調査結果（#1350 実装 Issue 必須）
+      description: |
+        独自実装前に **OSS / 確立パターンを最低 2 件**調査すること（#1350 / ADR-0009 派生ルール）。
+        「世間が使っているものを見もしないまま独自実装」を構造的に防ぐ。
+        該当が無い場合は「探した範囲」を書くこと（どのキーワードで探し、なぜ該当がなかったか）。
+      placeholder: |
+        例:
+        - 候補 A: svelte-i18n (https://github.com/kaisermann/svelte-i18n) — stars 1.6k / 採用実績あり / bundle 12KB / 学習コスト低。△ runtime 束縛のみで CI 検出は別実装
+        - 候補 B: Paraglide JS (https://inlang.com/m/gerre34r/library-inlang-paraglideJs) — 型安全 / CI 検出あり / bundle 8KB / 学習コスト中
+        - 候補 C: 独自実装 — labels.ts + data-label + runtime resolver。2 件と比較して...
+        - 決定: 候補 B を採用 / 独自を採用（理由: ...）
+    validations:
+      required: false
+
+  - type: textarea
     id: alternatives
     attributes:
       label: 検討した代替案
