@@ -5,6 +5,7 @@ import { findTemplatesByChild } from '$lib/server/db/checklist-repo';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
+import { getRewardTemplates } from '$lib/server/services/special-reward-service';
 
 export interface OnboardingItem {
 	key: string;
@@ -29,13 +30,15 @@ export async function getOnboardingProgress(
 	tenantId: string,
 	basePath: string,
 ): Promise<OnboardingProgress> {
-	const [children, activities, pinHash, dismissed, childScreenVisited] = await Promise.all([
-		getAllChildren(tenantId),
-		getActivities(tenantId),
-		getSetting('pin_hash', tenantId),
-		getSetting(DISMISSED_KEY, tenantId),
-		getSetting(CHILD_SCREEN_VISITED_KEY, tenantId),
-	]);
+	const [children, activities, rewardTemplates, pinHash, dismissed, childScreenVisited] =
+		await Promise.all([
+			getAllChildren(tenantId),
+			getActivities(tenantId),
+			getRewardTemplates(tenantId),
+			getSetting('pin_hash', tenantId),
+			getSetting(DISMISSED_KEY, tenantId),
+			getSetting(CHILD_SCREEN_VISITED_KEY, tenantId),
+		]);
 
 	// Item 4: Check if any child has a checklist template
 	let hasChecklist = false;
@@ -59,6 +62,12 @@ export async function getOnboardingProgress(
 			label: '活動パックを選ぶ',
 			completed: activities.length > 0,
 			href: `${basePath}/activities`,
+		},
+		{
+			key: 'rewards',
+			label: 'ごほうびプリセットを選ぶ',
+			completed: rewardTemplates.length > 0,
+			href: `${basePath}/rewards`,
 		},
 		{
 			key: 'pin',
