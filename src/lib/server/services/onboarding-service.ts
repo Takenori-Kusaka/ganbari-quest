@@ -55,7 +55,7 @@ export async function getOnboardingProgress(
 			key: 'children',
 			label: '子供を登録する',
 			completed: children.length > 0,
-			href: `${basePath}/members`,
+			href: `${basePath}/children`,
 		},
 		{
 			key: 'activities',
