@@ -64,6 +64,7 @@
 - [ADR-0008](decisions/0008-design-policy-pre-approval.md) — 設計ポリシー先行確認フロー
 - [ADR-0009](decisions/0009-labels-ssot-principle.md) — labels.ts SSOT 化原則
 - [ADR-0010](decisions/0010-pre-pmf-scope-judgment.md) — Pre-PMF スコープ判断（3 バケット + セキュリティ最小化 + 優先度）
+- [ADR-0011](decisions/0011-baby-mode-as-parent-preparation.md) — 0-2 歳 baby モードは「親の準備モード」（コアターゲット 3-18 歳に再定義）（#1299）
 - [ADR-0012](decisions/0012-anti-engagement-principle.md) — Anti-engagement 原則（滞在時間 = 価値毀損）（#1309）
 - [ADR-0013](decisions/0013-lp-truth-from-implementation.md) — LP 文言は実装の事実を SSOT とする（Committed/Aspirational 分離）（#1310）
 
