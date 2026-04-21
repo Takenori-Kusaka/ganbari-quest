@@ -247,6 +247,10 @@ export const ACTION_LABELS = {
 	later: 'あとで',
 	freeTrial: '無料体験',
 	freeTrialWord: '無料で試す',
+	// #1383: タイトル文脈用の可能形 (「7日間、全機能を無料で試せます」)。
+	// freeTrialWord (終止形) を「〜ます」に連結すると「試すます」と非文法になるため、
+	// 完全活用済みの文言を個別定数化する。
+	freeTrialDesc: '無料で試せます',
 	submitting: '開始中...',
 	// #1167: 詳細ページへの誘導 CTA。活動パック / マーケット一覧の「中身を確認する」導線に使用
 	viewDetail: 'くわしく見る',
@@ -274,7 +278,7 @@ export const TRIAL_LABELS = {
 	bannerTitleActive: (days: number) => `${ACTION_LABELS.freeTrial}中（残り${days}日）`,
 	bannerTitleUrgent: `${ACTION_LABELS.freeTrial}は明日で終了します`,
 	bannerDescActive: '全機能をお試しいただけます。',
-	bannerTitleNotStarted: `7日間、全機能を${ACTION_LABELS.freeTrialWord}ます`,
+	bannerTitleNotStarted: `7日間、全機能を${ACTION_LABELS.freeTrialDesc}`,
 	bannerDescNotStarted: `${PLAN_LABELS.standard}のすべての機能をお使いいただけます。カード登録不要。`,
 	bannerCtaNotStarted: ACTION_LABELS.viewPlans,
 	bannerCtaStart: `7日間 ${ACTION_LABELS.freeTrialWord}`,
