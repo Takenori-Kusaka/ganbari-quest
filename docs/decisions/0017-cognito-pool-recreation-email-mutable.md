@@ -1,8 +1,47 @@
-# 0017. Cognito User Pool 再作成による email mutable 化（Pre-PMF 破壊的変更許容）
+# 0017. Cognito User Pool 再作成による email mutable 化（Pre-PMF 破壊的変更許容） — **Rejected**
 
-- **Status**: Accepted
+- **Status**: Rejected (deployment failed 2026-04-21) — superseded by [ADR-0018](0018-cognito-user-pool-logical-id-replacement.md)
 - **Date**: 2026-04-21
-- **Related Issue**: #1366
+- **Related Issue**: #1366 (ADR-0018 で再設計して解決)
+
+## ポストモーテム (2026-04-21 07:43 JST)
+
+本 ADR の決定に基づいて `mutable: true` を deploy したところ、CloudFormation が **in-place UpdateUserPool** を試行し AWS Cognito から `Invalid AttributeDataType input` エラーを受信、`UPDATE_ROLLBACK_FAILED` で stuck した。
+
+**想定と現実の乖離**:
+
+| 項目 | ADR-0017 の想定 | 実際の挙動 |
+|------|----------------|----------|
+| CloudFormation の動作 | `mutable` 変更 → User Pool Replacement (新 Pool 作成 → 既存破棄) | in-place UpdateUserPool 試行 → Cognito が拒否 |
+| 既存ユーザー | 全 federated ユーザー消失 (破壊) | **破壊されず** 3 名健在 (update が rejected されたため) |
+| 結果 | 新 Pool で #1366 解決 | スタック UPDATE_ROLLBACK_FAILED で stuck、#1366 未解決 |
+
+**復旧手順 (実施済)**:
+1. `aws cloudformation continue-update-rollback --stack-name GanbariQuestAuth --resources-to-skip UserPool6BA7E5F2` で UserPool を skip して rollback 完走 → stack = `UPDATE_ROLLBACK_COMPLETE`
+2. revert 案は**却下** (2026-04-21 PO 指摘: 「revert ではなくて、ちゃんと目的を達成できるように修正してもらいたい」)
+3. [ADR-0018](0018-cognito-user-pool-logical-id-replacement.md) で**論理 ID を変更する明示的 Replacement 方式**に切り替えて #1366 を根本解決する設計に再起動
+
+**根本原因**:
+- CloudFormation `AWS::Cognito::UserPool` の `Mutable` 属性変更は **Update requires: Replacement** と AWS 公式ドキュメントに記載されているが、**CloudFormation 側がそれを Update にしか使わない** (置換トリガーとして扱わない) という既知のギャップがある
+- 正攻法: 論理 ID を `UserPool6BA7E5F2` → `UserPoolV2` 等に変更して **明示的に新リソース作成** させる、または `RemovalPolicy.DESTROY` + 別 stack で新 Pool を parallel 構築
+
+**教訓**:
+- ADR で「CloudFormation が Replacement する」と書くときは必ず AWS 公式ドキュメントの `Update requires` 節を verbatim 引用し、さらに staging 環境で検証してから Accept する
+- 本番 deploy 先行の破壊的変更は、まず **staging / CDK synth diff** で Replacement 挙動を確認する段取りが ADR に含まれていなかったのが構造的欠陥
+- Pre-PMF だから破壊可能、だから staging 省略、という連鎖は `ADR-0010` の誤適用
+
+**後続 ADR で再設計する点** → [ADR-0018](0018-cognito-user-pool-logical-id-replacement.md) で採択済み (2026-04-21):
+- ~~User Pool 論理 ID を変える~~ → **採用** (`UserPool` → `UserPoolV2`)
+- ~~bulk import 手順~~ → **不要** (ユーザー全員 Pre-PMF テストアカウントで消失許容と確認済み)
+- SSM パラメータは CDK が自動追従
+- rollback 計画: `removalPolicy: RETAIN` 継続により旧 Pool は orphan として残存、deploy 成功後に手動削除
+
+**関連して起票する Issue**:
+- Cognito ユーザーバックアップ / リストア運用確立 (DynamoDB 側 user ID との紐付け方法含む) — 本件のような Pool 再作成時にユーザーを失わないため
+
+---
+
+## 以下、元の ADR 本文 (履歴として保持)
 
 ## コンテキスト
 
