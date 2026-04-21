@@ -119,27 +119,27 @@ test.describe('#1163 LP 1st view 要件', () => {
 		await ctx.close();
 	});
 
-	test('料金カードがドキュメント高さの 75% 以内（最終 CTA の前）に存在する', async ({
+	test('料金プロミスバンドがドキュメント高さの 75% 以内（最終 CTA の前）に存在する (#1293)', async ({
 		browser,
 	}) => {
 		const ctx = await browser.newContext({ viewport: { width: 375, height: 812 } });
 		const page = await ctx.newPage();
 		await page.goto(`${baseUrl}/index.html`);
 
-		const pricingCard = page.locator('#pricing .pricing-summary-card').first();
-		await expect(pricingCard).toBeAttached({ timeout: 15_000 });
+		const pricingBand = page.locator('#pricing .pp-band').first();
+		await expect(pricingBand).toBeAttached({ timeout: 15_000 });
 
-		const { cardTop, docHeight } = await page.evaluate(() => {
-			const el = document.querySelector('#pricing .pricing-summary-card') as HTMLElement;
+		const { bandTop, docHeight } = await page.evaluate(() => {
+			const el = document.querySelector('#pricing .pp-band') as HTMLElement;
 			return {
-				cardTop: el.getBoundingClientRect().top + window.scrollY,
+				bandTop: el.getBoundingClientRect().top + window.scrollY,
 				docHeight: document.body.scrollHeight,
 			};
 		});
-		const ratio = cardTop / docHeight;
+		const ratio = bandTop / docHeight;
 		expect(
 			ratio,
-			`料金カード Y=${cardTop}/docHeight=${docHeight} (=${(ratio * 100).toFixed(1)}%) が 75% 以内`,
+			`料金プロミスバンド Y=${bandTop}/docHeight=${docHeight} (=${(ratio * 100).toFixed(1)}%) が 75% 以内`,
 		).toBeLessThanOrEqual(0.75);
 
 		await ctx.close();
