@@ -9,10 +9,27 @@ type Page = import('@playwright/test').Page;
 // 環境判定
 // ============================================================
 
-/** AWS 環境で実行中かどうか（playwright.aws.config.ts 経由） */
+/** AWS 環境で実行中かどうか（playwright.aws.config.ts 経由）
+ *
+ * #1386: `.includes()` による部分一致は URL の位置を検証せず、
+ * `https://evil.com/ganbari-quest.com/` や `https://ganbari-quest.com.attacker.com/`
+ * のような suffix / path 攻撃を誤って true と判定してしまう
+ * (CodeQL js/incomplete-url-substring-sanitization, severity:high)。
+ * `new URL()` で hostname を取り出し、完全一致 / サブドメイン一致で判定する。
+ */
 export function isAwsEnv(): boolean {
 	const baseUrl = process.env.E2E_BASE_URL ?? '';
-	return baseUrl.includes('ganbari-quest.com') || baseUrl.includes('amazonaws.com');
+	if (!baseUrl) return false;
+	try {
+		const host = new URL(baseUrl).hostname.toLowerCase();
+		return (
+			host === 'ganbari-quest.com' ||
+			host.endsWith('.ganbari-quest.com') ||
+			host.endsWith('.amazonaws.com')
+		);
+	} catch {
+		return false;
+	}
 }
 
 /** ローカル環境で実行中かどうか */
