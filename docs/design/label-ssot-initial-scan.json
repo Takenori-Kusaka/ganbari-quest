@@ -1,0 +1,897 @@
+{
+  "totalLabels": 135,
+  "appFindings": [
+    {
+      "file": "src\\routes\\(child)\\[uiMode=uiMode]\\(character)\\history\\+page.svelte",
+      "line": 63,
+      "literal": "ポイント",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "points",
+      "snippet": "<span class=\"text-sm text-[var(--color-text-muted)]\">ポイント</span>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\activities\\+page.server.ts",
+      "line": 235,
+      "literal": "インポートに失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorImportFailed",
+      "snippet": "return fail(500, { error: 'インポートに失敗しました' });"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\activities\\+page.server.ts",
+      "line": 309,
+      "literal": "インポートに失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorImportFailed",
+      "snippet": "return fail(500, { error: 'インポートに失敗しました' });"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\activities\\_guide.ts",
+      "line": 5,
+      "literal": "活動管理",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "activities",
+      "snippet": "title: '活動管理',"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\analytics\\+page.svelte",
+      "line": 46,
+      "literal": "アナリティクス",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "analytics",
+      "snippet": "<h1 class=\"text-xl font-bold text-[var(--color-text)]\">アナリティクス</h1>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\analytics\\+page.svelte",
+      "line": 159,
+      "literal": "イベント",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "events",
+      "snippet": "<th>イベント</th>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\analytics\\+page.svelte",
+      "line": 184,
+      "literal": "イベント",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "events",
+      "snippet": "<th>イベント</th>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\certificates\\[id]\\+page.svelte",
+      "line": 108,
+      "literal": "アップグレード",
+      "sourceObject": "ACTION_LABELS",
+      "key": "upgrade",
+      "snippet": "<a href=\"/admin/license\" class=\"text-xs text-[var(--color-feedback-info-text)] hover:underline\">アップグレード</a>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\children\\+page.svelte",
+      "line": 109,
+      "literal": "年齢",
+      "sourceObject": "MARKETPLACE_FILTER_LABELS",
+      "key": "age",
+      "snippet": "label=\"年齢\""
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\license\\+page.svelte",
+      "line": 84,
+      "literal": "無料プラン",
+      "sourceObject": "PLAN_LABELS",
+      "key": "free",
+      "snippet": "return '無料プラン';"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\license\\+page.svelte",
+      "line": 299,
+      "literal": "プラン",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "license",
+      "snippet": "<span class=\"text-sm text-[var(--color-text-muted)]\">プラン</span>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\license\\+page.svelte",
+      "line": 468,
+      "literal": "プラン",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "license",
+      "snippet": "<li>キーに対応する<strong>プラン</strong>が自動で付与され、現在のプランは上書きされます</li>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\license\\+page.svelte",
+      "line": 670,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "<p class=\"font-semibold text-[var(--color-text-primary)]\">スタンダード</p>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\license\\+page.svelte",
+      "line": 700,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "<p class=\"font-semibold text-[var(--color-text-primary)]\">ファミリー</p>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\license\\+page.svelte",
+      "line": 724,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "{checkoutLoading ? '処理中...' : `${selectedTier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める`}"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\license\\+page.svelte",
+      "line": 724,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "{checkoutLoading ? '処理中...' : `${selectedTier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める`}"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\members\\+page.svelte",
+      "line": 201,
+      "literal": "こども",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "children",
+      "snippet": "return 'こども';"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\members\\+page.svelte",
+      "line": 301,
+      "literal": "こども",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "children",
+      "snippet": "{ value: 'child', label: 'こども' },"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\messages\\+page.svelte",
+      "line": 52,
+      "literal": "ごほうび",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "rewards",
+      "snippet": "<a href=\"/admin/rewards\" class=\"page-description__link\">ごほうび</a>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\reports\\+page.svelte",
+      "line": 202,
+      "literal": "活動",
+      "sourceObject": "FEATURE_LABELS",
+      "key": "activity",
+      "snippet": "<p class=\"text-xs text-[var(--color-feedback-info-text)]\">活動</p>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\reports\\+page.svelte",
+      "line": 212,
+      "literal": "ポイント",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "points",
+      "snippet": "<p class=\"text-xs text-[var(--color-feedback-warning-text)]\">ポイント</p>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\reports\\+page.svelte",
+      "line": 353,
+      "literal": "活動",
+      "sourceObject": "FEATURE_LABELS",
+      "key": "activity",
+      "snippet": "<p class=\"text-xs text-[var(--color-feedback-info-text)]\">活動</p>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\reports\\+page.svelte",
+      "line": 358,
+      "literal": "ポイント",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "points",
+      "snippet": "<p class=\"text-xs text-[var(--color-feedback-warning-text)]\">ポイント</p>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\reports\\_guide.ts",
+      "line": 5,
+      "literal": "レポート",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "reports",
+      "snippet": "title: 'レポート',"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\rewards\\+page.svelte",
+      "line": 100,
+      "literal": "おうえんメッセージ",
+      "sourceObject": "FEATURE_LABELS",
+      "key": "message",
+      "snippet": "<a href=\"/admin/messages\" class=\"page-description__link\">おうえんメッセージ</a>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\rewards\\+page.svelte",
+      "line": 241,
+      "literal": "ポイント",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "points",
+      "snippet": "<FormField label=\"ポイント\" type=\"number\" name=\"points\" bind:value={customPoints} min={1} max={10000} disabled={!data.isPremium} required />"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\settings\\+page.svelte",
+      "line": 120,
+      "literal": "インポートに失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorImportFailed",
+      "snippet": "throw new Error(data?.error?.message ?? 'インポートに失敗しました');"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\settings\\+page.svelte",
+      "line": 125,
+      "literal": "インポートに失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorImportFailed",
+      "snippet": "importError = err instanceof Error ? err.message : 'インポートに失敗しました';"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\settings\\+page.svelte",
+      "line": 282,
+      "literal": "インポートに失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorImportFailed",
+      "snippet": "throw new Error(d?.error?.message ?? 'インポートに失敗しました');"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\settings\\+page.svelte",
+      "line": 287,
+      "literal": "インポートに失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorImportFailed",
+      "snippet": "cloudImportError = err instanceof Error ? err.message : 'インポートに失敗しました';"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\settings\\+page.svelte",
+      "line": 1109,
+      "literal": "スタンダードプラン",
+      "sourceObject": "PLAN_LABELS",
+      "key": "standard",
+      "snippet": "🔒 データエクスポートは <strong>スタンダードプラン</strong> 以上でご利用いただけます。"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\settings\\+page.svelte",
+      "line": 1242,
+      "literal": "ごほうび",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "rewards",
+      "snippet": "{ title: 'ごほうび', items: importPreview.duplicates.specialRewards, testid: 'duplicates-rewards' },"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\settings\\+page.svelte",
+      "line": 1390,
+      "literal": "スタンダードプラン",
+      "sourceObject": "PLAN_LABELS",
+      "key": "standard",
+      "snippet": "🔒 クラウド共有は <strong>スタンダードプラン</strong> 以上でご利用いただけます。"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\settings\\+page.svelte",
+      "line": 1456,
+      "literal": "テンプレート",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "marketplace",
+      "snippet": "{exp.exportType === 'template' ? 'テンプレート' : 'フルバックアップ'}"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\settings\\+page.svelte",
+      "line": 1516,
+      "literal": "インポート内容の確認",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "previewDialogTitle",
+      "snippet": "<p class=\"text-sm font-bold text-[var(--color-feedback-info-text)] mb-2\">インポート内容の確認</p>"
+    },
+    {
+      "file": "src\\routes\\(parent)\\admin\\settings\\_guide.ts",
+      "line": 5,
+      "literal": "設定",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "settings",
+      "snippet": "title: '設定',"
+    },
+    {
+      "file": "src\\routes\\api\\v1\\activities\\import\\+server.ts",
+      "line": 58,
+      "literal": "JSONの解析に失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorInvalidJson",
+      "snippet": "error(400, 'JSONの解析に失敗しました');"
+    },
+    {
+      "file": "src\\routes\\api\\v1\\activity-logs\\+server.ts",
+      "line": 28,
+      "literal": "こども",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "children",
+      "snippet": "`${result.target === 'child' ? 'こども' : 'かつどう'}がみつかりません`,"
+    },
+    {
+      "file": "src\\routes\\api\\v1\\data\\clear\\+server.ts",
+      "line": 24,
+      "literal": "JSONの解析に失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorInvalidJson",
+      "snippet": "return apiError('VALIDATION_ERROR', 'JSONの解析に失敗しました');"
+    },
+    {
+      "file": "src\\routes\\api\\v1\\export\\cloud\\+server.ts",
+      "line": 44,
+      "literal": "JSONの解析に失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorInvalidJson",
+      "snippet": "return validationError('JSONの解析に失敗しました');"
+    },
+    {
+      "file": "src\\routes\\api\\v1\\export\\cloud\\+server.ts",
+      "line": 66,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "if (msg.includes('スタンダード') || msg.includes('上限')) {"
+    },
+    {
+      "file": "src\\routes\\api\\v1\\import\\+server.ts",
+      "line": 33,
+      "literal": "JSONの解析に失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorInvalidJson",
+      "snippet": "return apiError('VALIDATION_ERROR', 'JSONの解析に失敗しました');"
+    },
+    {
+      "file": "src\\routes\\api\\v1\\import\\+server.ts",
+      "line": 58,
+      "literal": "インポートに失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorImportFailed",
+      "snippet": "return apiError('INTERNAL_ERROR', 'インポートに失敗しました');"
+    },
+    {
+      "file": "src\\routes\\api\\v1\\import\\cloud\\+server.ts",
+      "line": 41,
+      "literal": "JSONの解析に失敗しました",
+      "sourceObject": "IMPORT_LABELS",
+      "key": "errorInvalidJson",
+      "snippet": "return validationError('JSONの解析に失敗しました');"
+    },
+    {
+      "file": "src\\routes\\auth\\invite\\[code]\\+page.svelte",
+      "line": 34,
+      "literal": "こども",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "children",
+      "snippet": "{data.invite.role === 'parent' ? '保護者' : 'こども'}"
+    },
+    {
+      "file": "src\\routes\\auth\\signup\\+page.svelte",
+      "line": 459,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "セットアップ後に {planParam === 'family' ? 'ファミリー' : 'スタンダード'}プランのトライアルが開始されます"
+    },
+    {
+      "file": "src\\routes\\auth\\signup\\+page.svelte",
+      "line": 459,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "セットアップ後に {planParam === 'family' ? 'ファミリー' : 'スタンダード'}プランのトライアルが開始されます"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\+page.svelte",
+      "line": 60,
+      "literal": "こども",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "children",
+      "snippet": "<span class=\"plan-stats__label\">こども</span>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\children\\+page.svelte",
+      "line": 131,
+      "literal": "年齢",
+      "sourceObject": "MARKETPLACE_FILTER_LABELS",
+      "key": "age",
+      "snippet": "<p class=\"text-xs text-[var(--color-text-muted)]\">年齢</p>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\license\\+page.svelte",
+      "line": 110,
+      "literal": "プラン",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "license",
+      "snippet": "<span class=\"text-sm text-[var(--color-text-muted)]\">プラン</span>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\license\\+page.svelte",
+      "line": 146,
+      "literal": "こども",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "children",
+      "snippet": "<span class=\"text-xs text-[var(--color-text-tertiary)]\">こども</span>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\license\\+page.svelte",
+      "line": 266,
+      "literal": "プラン",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "license",
+      "snippet": "<li>キーに対応する<strong>プラン</strong>が自動で付与されます</li>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\license\\+page.svelte",
+      "line": 359,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "<p class=\"font-semibold text-[var(--color-text-primary)]\">スタンダード</p>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\license\\+page.svelte",
+      "line": 391,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "<p class=\"font-semibold text-[var(--color-text-primary)]\">ファミリー</p>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\license\\+page.svelte",
+      "line": 420,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "{selectedTier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\license\\+page.svelte",
+      "line": 420,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "{selectedTier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\members\\+page.svelte",
+      "line": 46,
+      "literal": "メンバー",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "members",
+      "snippet": "<p class=\"text-xs text-[var(--color-text-tertiary)]\">メンバー</p>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\members\\+page.svelte",
+      "line": 58,
+      "literal": "メンバー",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "members",
+      "snippet": "<li>&#x2022; <span class=\"font-bold\">メンバー</span>: 活動記録・閲覧が可能（設定変更は不可）</li>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\messages\\+page.svelte",
+      "line": 40,
+      "literal": "ごほうび",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "rewards",
+      "snippet": "<a href=\"/demo/admin/rewards\" class=\"page-description__link\">ごほうび</a>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\reports\\+page.svelte",
+      "line": 41,
+      "literal": "活動",
+      "sourceObject": "FEATURE_LABELS",
+      "key": "activity",
+      "snippet": "<p class=\"text-xs text-[var(--color-feedback-info-text)]\">活動</p>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\reports\\+page.svelte",
+      "line": 46,
+      "literal": "ポイント",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "points",
+      "snippet": "<p class=\"text-xs text-[var(--color-feedback-warning-text)]\">ポイント</p>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\rewards\\+page.svelte",
+      "line": 41,
+      "literal": "おうえんメッセージ",
+      "sourceObject": "FEATURE_LABELS",
+      "key": "message",
+      "snippet": "<a href=\"/demo/admin/messages\" class=\"page-description__link\">おうえんメッセージ</a>"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\rewards\\+page.svelte",
+      "line": 108,
+      "literal": "ポイント",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "points",
+      "snippet": "<FormField label=\"ポイント\" type=\"number\" disabled value={100} />"
+    },
+    {
+      "file": "src\\routes\\demo\\(parent)\\admin\\settings\\+page.svelte",
+      "line": 26,
+      "literal": "設定",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "settings",
+      "snippet": "<h1 class=\"text-lg font-bold text-[var(--color-text-primary)]\">設定</h1>"
+    },
+    {
+      "file": "src\\routes\\demo\\+page.svelte",
+      "line": 48,
+      "literal": "チャレンジ",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "challenges",
+      "snippet": "junior: 'チャレンジ',"
+    },
+    {
+      "file": "src\\routes\\demo\\signup\\+page.svelte",
+      "line": 93,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "<span class=\"font-bold\">フリー</span>（¥0）からスタート。スタンダード・ファミリーの2プランをご用意。<span class=\"font-bold\">スタンダード</span>（月額¥500〜）と<span class=\"font-bold\">ファ"
+    },
+    {
+      "file": "src\\routes\\demo\\signup\\+page.svelte",
+      "line": 93,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "<span class=\"font-bold\">フリー</span>（¥0）からスタート。スタンダード・ファミリーの2プランをご用意。<span class=\"font-bold\">スタンダード</span>（月額¥500〜）と<span class=\"font-bold\">ファ"
+    },
+    {
+      "file": "src\\routes\\ops\\+page.svelte",
+      "line": 56,
+      "literal": "プラン",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "license",
+      "snippet": "<th>プラン</th>"
+    },
+    {
+      "file": "src\\routes\\ops\\+page.svelte",
+      "line": 73,
+      "literal": "ライフタイム",
+      "sourceObject": "LICENSE_PLAN_LABELS",
+      "key": "lifetime",
+      "snippet": "<td>ライフタイム</td>"
+    },
+    {
+      "file": "src\\routes\\ops\\analytics\\+page.svelte",
+      "line": 54,
+      "literal": "プラン",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "license",
+      "snippet": "<th>プラン</th>"
+    },
+    {
+      "file": "src\\routes\\ops\\license\\[key]\\+page.svelte",
+      "line": 80,
+      "literal": "プラン",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "license",
+      "snippet": "<dt class=\"text-[var(--color-text-muted)]\">プラン</dt>"
+    },
+    {
+      "file": "src\\routes\\setup\\children\\+page.svelte",
+      "line": 89,
+      "literal": "年齢",
+      "sourceObject": "MARKETPLACE_FILTER_LABELS",
+      "key": "age",
+      "snippet": "label=\"年齢\""
+    },
+    {
+      "file": "src\\routes\\setup\\children\\+page.svelte",
+      "line": 106,
+      "literal": "ピンク",
+      "sourceObject": "THEME_LABELS",
+      "key": "pink",
+      "snippet": "<span class=\"text-sm font-medium text-[var(--color-text)]\">ピンク</span>"
+    },
+    {
+      "file": "src\\routes\\setup\\children\\+page.svelte",
+      "line": 113,
+      "literal": "ブルー",
+      "sourceObject": "THEME_LABELS",
+      "key": "blue",
+      "snippet": "<span class=\"text-sm font-medium text-[var(--color-text)]\">ブルー</span>"
+    },
+    {
+      "file": "src\\routes\\setup\\complete\\+page.svelte",
+      "line": 27,
+      "literal": "こども",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "children",
+      "snippet": "<div class=\"text-[0.625rem] text-[var(--color-text-muted)]\">こども</div>"
+    },
+    {
+      "file": "src\\routes\\view\\[token]\\+page.svelte",
+      "line": 42,
+      "literal": "ポイント",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "points",
+      "snippet": "<span class=\"stat-label\">ポイント</span>"
+    },
+    {
+      "file": "src\\lib\\features\\admin\\components\\ActivityCreateForm.svelte",
+      "line": 201,
+      "literal": "ポイント",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "points",
+      "snippet": "<span class=\"block text-xs font-bold text-[var(--color-text-muted)] mb-1\">ポイント</span>"
+    },
+    {
+      "file": "src\\lib\\features\\admin\\components\\ActivityCreateForm.svelte",
+      "line": 282,
+      "literal": "活動",
+      "sourceObject": "FEATURE_LABELS",
+      "key": "activity",
+      "snippet": "{formIcon} {formName || '活動'} を追加する"
+    },
+    {
+      "file": "src\\lib\\features\\admin\\components\\ActivityEditForm.svelte",
+      "line": 87,
+      "literal": "ポイント",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "points",
+      "snippet": "<span class=\"text-xs font-bold text-[var(--color-text-muted)]\">ポイント</span>"
+    },
+    {
+      "file": "src\\lib\\features\\admin\\components\\AdminHome.svelte",
+      "line": 258,
+      "literal": "無料プラン",
+      "sourceObject": "PLAN_LABELS",
+      "key": "free",
+      "snippet": "<span class=\"plan-quick-link__name\">無料プラン</span>"
+    },
+    {
+      "file": "src\\lib\\features\\admin\\components\\ChildProfileCard.svelte",
+      "line": 470,
+      "literal": "年齢",
+      "sourceObject": "MARKETPLACE_FILTER_LABELS",
+      "key": "age",
+      "snippet": "<p class=\"info-card__label\">年齢</p>"
+    },
+    {
+      "file": "src\\lib\\features\\admin\\components\\PlanStatusCard.svelte",
+      "line": 44,
+      "literal": "無料プラン",
+      "sourceObject": "PLAN_LABELS",
+      "key": "free",
+      "snippet": "const FREE_LABEL = { name: '無料プラン', icon: '' };"
+    },
+    {
+      "file": "src\\lib\\features\\admin\\components\\PlanStatusCard.svelte",
+      "line": 84,
+      "literal": "こども",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "children",
+      "snippet": "<span class=\"plan-status__stat-label\">こども</span>"
+    },
+    {
+      "file": "src\\lib\\features\\certificate\\CertificateTemplate.svelte",
+      "line": 36,
+      "literal": "がんばり証明書",
+      "sourceObject": "FEATURE_LABELS",
+      "key": "certificate",
+      "snippet": "<h1 class=\"cert-title\">がんばり証明書</h1>"
+    },
+    {
+      "file": "src\\lib\\features\\character\\CharacterTabs.svelte",
+      "line": 25,
+      "literal": "チャレンジ",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "challenges",
+      "snippet": "{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },"
+    },
+    {
+      "file": "src\\lib\\features\\character\\CharacterTabs.svelte",
+      "line": 29,
+      "literal": "チャレンジ",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "challenges",
+      "snippet": "{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },"
+    },
+    {
+      "file": "src\\lib\\features\\character\\CharacterTabs.svelte",
+      "line": 34,
+      "literal": "チャレンジ",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "challenges",
+      "snippet": "{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },"
+    },
+    {
+      "file": "src\\lib\\features\\character\\CharacterTabs.svelte",
+      "line": 39,
+      "literal": "チャレンジ",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "challenges",
+      "snippet": "{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },"
+    },
+    {
+      "file": "src\\lib\\features\\character\\CharacterTabs.svelte",
+      "line": 44,
+      "literal": "チャレンジ",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "challenges",
+      "snippet": "{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },"
+    },
+    {
+      "file": "src\\lib\\ui\\components\\FeatureGate.svelte",
+      "line": 34,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "standard: 'スタンダード',"
+    },
+    {
+      "file": "src\\lib\\ui\\components\\FeatureGate.svelte",
+      "line": 35,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "family: 'ファミリー',"
+    },
+    {
+      "file": "src\\lib\\ui\\components\\FeatureGate.svelte",
+      "line": 59,
+      "literal": "アップグレード",
+      "sourceObject": "ACTION_LABELS",
+      "key": "upgrade",
+      "snippet": "<PremiumBadge size=\"md\" label=\"アップグレード\" />"
+    },
+    {
+      "file": "src\\lib\\ui\\components\\StampPressOverlay.svelte",
+      "line": 100,
+      "literal": "スタンプ",
+      "sourceObject": "FEATURE_LABELS",
+      "key": "stamp",
+      "snippet": "<Dialog bind:open closable={false} ariaLabel=\"スタンプ\">"
+    },
+    {
+      "file": "src\\lib\\ui\\primitives\\Dialog.svelte",
+      "line": 64,
+      "literal": "とじる",
+      "sourceObject": "MARKETPLACE_FILTER_LABELS",
+      "key": "close",
+      "snippet": "aria-label=\"とじる\""
+    },
+    {
+      "file": "src\\lib\\ui\\primitives\\Toast.svelte",
+      "line": 49,
+      "literal": "とじる",
+      "sourceObject": "MARKETPLACE_FILTER_LABELS",
+      "key": "close",
+      "snippet": "aria-label=\"とじる\""
+    },
+    {
+      "file": "src\\lib\\ui\\tutorial\\tutorial-chapters.ts",
+      "line": 173,
+      "literal": "グロースブック",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "growthBook",
+      "snippet": "title: 'グロースブック',"
+    },
+    {
+      "file": "src\\lib\\ui\\tutorial\\tutorial-chapters.ts",
+      "line": 275,
+      "literal": "アップグレード",
+      "sourceObject": "ACTION_LABELS",
+      "key": "upgrade",
+      "snippet": "title: 'アップグレード',"
+    }
+  ],
+  "lpFindings": [
+    {
+      "file": "site\\index.html",
+      "line": 54,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "\"name\": \"スタンダード\","
+    },
+    {
+      "file": "site\\index.html",
+      "line": 68,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "\"name\": \"ファミリー\","
+    },
+    {
+      "file": "site\\index.html",
+      "line": 440,
+      "literal": "持ち物チェックリスト",
+      "sourceObject": "NAV_ITEM_LABELS",
+      "key": "itemChecklists",
+      "snippet": "<h3>持ち物チェックリスト</h3>"
+    },
+    {
+      "file": "site\\index.html",
+      "line": 472,
+      "literal": "おうえんメッセージ",
+      "sourceObject": "FEATURE_LABELS",
+      "key": "message",
+      "snippet": "<h3>おうえんメッセージ</h3>"
+    },
+    {
+      "file": "site\\index.html",
+      "line": 496,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "<div class=\"pricing-summary-name\">スタンダード</div>"
+    },
+    {
+      "file": "site\\index.html",
+      "line": 506,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "<div class=\"pricing-summary-name\">ファミリー</div>"
+    },
+    {
+      "file": "site\\index.html",
+      "line": 574,
+      "literal": "をご覧ください。",
+      "sourceObject": "MARKETPLACE_LABELS",
+      "key": "detailLegacyPackSuffix",
+      "snippet": "<p class=\"faq-footnote\">ほかのご質問は <a href=\"pricing.html\">料金プランページの FAQ</a> をご覧ください。</p>"
+    },
+    {
+      "file": "site\\pamphlet.html",
+      "line": 642,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "<h3>スタンダード</h3>"
+    },
+    {
+      "file": "site\\pamphlet.html",
+      "line": 656,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "<h3>ファミリー</h3>"
+    },
+    {
+      "file": "site\\pamphlet.html",
+      "line": 729,
+      "literal": "をご覧ください。",
+      "sourceObject": "MARKETPLACE_LABELS",
+      "key": "detailLegacyPackSuffix",
+      "snippet": "<div class=\"fq-a\">有料プラン購入後にメールでライセンスキーをお届けします。管理画面の「ライセンス」ページでキーを入力するだけで有料機能が有効になります。詳しくは <a href=\"https://www.ganbari-quest.com/help/licens"
+    },
+    {
+      "file": "site\\pricing.html",
+      "line": 179,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "<div class=\"plan-name\">スタンダード</div>"
+    },
+    {
+      "file": "site\\pricing.html",
+      "line": 199,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "<div class=\"plan-name\">ファミリー</div>"
+    },
+    {
+      "file": "site\\pricing.html",
+      "line": 236,
+      "literal": "スタンダード",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "standard",
+      "snippet": "<th style=\"width:20%\" class=\"highlight-col\">スタンダード</th>"
+    },
+    {
+      "file": "site\\pricing.html",
+      "line": 237,
+      "literal": "ファミリー",
+      "sourceObject": "PLAN_SHORT_LABELS",
+      "key": "family",
+      "snippet": "<th style=\"width:20%\">ファミリー</th>"
+    }
+  ],
+  "total": 111,
+  "phase": "warn"
+}

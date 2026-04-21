@@ -85,6 +85,10 @@ jobs:
       - name: No plan/status literal direct write check (#972)
         run: node scripts/check-no-plan-literals.mjs
 
+      - name: No hardcoded labels check (Phase 1 warn-only, #1346)
+        continue-on-error: true
+        run: node scripts/check-no-hardcoded-labels.mjs
+
       - name: No direct process.env access check (#1202 / ADR-0040 P1)
         run: node scripts/check-no-direct-env-access.mjs
 
