@@ -115,6 +115,39 @@ aws cognito-idp delete-user-pool --user-pool-id <旧 Pool ID> --region us-east-1
 | SSM パラメータ切替タイミングで compute-stack が旧 Pool ID を参照 | auth-stack → compute-stack の順で CDK deploy される。deploy 完了後に Lambda を明示的に再起動することでコールドスタート時に新 Pool ID を読み直す。`deploy.yml` は CDK deploy all なので自動で compute-stack も更新される |
 | deploy 途中失敗で旧 Pool が残ったまま stack が壊れる | `removalPolicy: RETAIN` により旧 Pool の実体は保護される。rollback 時は論理 ID を元に戻して再 deploy すれば旧 Pool が再紐付けされる |
 
+## 初回 deploy で発覚した 2 つの副次問題 (2026-04-21 15:40 JST)
+
+本 ADR で論理 ID 変更のみを実施して deploy したところ、新 Pool 自体は `CREATE_COMPLETE` で作成されたものの以下 2 点で rollback した:
+
+### 問題 1: `UserPoolDomain: "Domain already exists"`
+
+旧 User Pool (`us-east-1_npIBAB80w`) が `auth.ganbari-quest.com` カスタムドメインを保持したまま残存していたため、新 Pool が同じドメインを claim できなかった。
+
+**対処**: CloudFormation は User Pool Custom Domain に `RETAIN` 指定を適用しないため、旧 Pool の domain は deploy 前に手動で解放する必要がある:
+
+```bash
+aws cognito-idp delete-user-pool-domain \
+  --domain auth.ganbari-quest.com \
+  --user-pool-id us-east-1_npIBAB80w \
+  --region us-east-1
+```
+
+本 ADR の「Deploy 後の手動クリーンアップ」手順より**前に**実施すること。
+
+### 問題 2: `UserPoolClient: "The provider Google does not exist"`
+
+新 Pool の `UserPoolClient` (`supportedIdentityProviders: [COGNITO, GOOGLE]` 指定) が、`UserPoolIdentityProviderGoogle` 作成完了より先に CloudFormation で作成開始され、Google IdP 未登録エラーで失敗した。CDK の暗黙依存は UserPool への参照しか張られず、IdP と Client は並列作成される。
+
+**対処**: `auth-stack.ts` で `userPoolClient.node.addDependency(googleIdP)` を明示的に追加。これで CloudFormation が GoogleIdP を先に作成してから Client を作成する。
+
+### 新 Pool の orphan (deploy 失敗時)
+
+rollback 時に `UserPoolV2` は `DELETE_SKIPPED` になる (removalPolicy: RETAIN のため)。次回 deploy は新しい物理 Pool を CREATE するため orphan が累積する。失敗直後に以下で削除:
+
+```bash
+aws cognito-idp delete-user-pool --user-pool-id <orphan Pool ID> --region us-east-1
+```
+
 ## Post-deploy 検証チェックリスト (Issue #1366 AC 連動)
 
 - [ ] `git push` → GitHub Actions `deploy.yml` 成功 (test → CDK deploy all)
