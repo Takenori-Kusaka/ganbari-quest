@@ -1,7 +1,7 @@
 #!/usr/bin/env node
+import { existsSync, readFileSync, statSync } from 'node:fs';
 // #1286 用: 安心訴求セクションの PC / mobile スクリーンショット
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 
@@ -50,9 +50,7 @@ async function main() {
 		await dp.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
 		await dp.locator('#trust').scrollIntoViewIfNeeded();
 		await dp.waitForTimeout(500);
-		await dp
-			.locator('#trust')
-			.screenshot({ path: join(OUT_DIR, 'trust-desktop.png') });
+		await dp.locator('#trust').screenshot({ path: join(OUT_DIR, 'trust-desktop.png') });
 		console.log('captured trust-desktop.png');
 
 		// Mobile 375×812
@@ -61,9 +59,7 @@ async function main() {
 		await mp.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
 		await mp.locator('#trust').scrollIntoViewIfNeeded();
 		await mp.waitForTimeout(500);
-		await mp
-			.locator('#trust')
-			.screenshot({ path: join(OUT_DIR, 'trust-mobile.png') });
+		await mp.locator('#trust').screenshot({ path: join(OUT_DIR, 'trust-mobile.png') });
 		console.log('captured trust-mobile.png');
 
 		await dctx.close();
