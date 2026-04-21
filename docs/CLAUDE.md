@@ -65,6 +65,7 @@
 - [ADR-0009](decisions/0009-labels-ssot-principle.md) — labels.ts SSOT 化原則
 - [ADR-0010](decisions/0010-pre-pmf-scope-judgment.md) — Pre-PMF スコープ判断（3 バケット + セキュリティ最小化 + 優先度）
 - [ADR-0012](decisions/0012-anti-engagement-principle.md) — Anti-engagement 原則（滞在時間 = 価値毀損）（#1309）
+- [ADR-0013](decisions/0013-lp-truth-from-implementation.md) — LP 文言は実装の事実を SSOT とする（Committed/Aspirational 分離）（#1310）
 
 > **注**: #1307 (B9) / #1298 (B3) 派生で ADR-0011 / ADR-0012 / ADR-0013 が同時期に提案されている。10 枠上限ルールの 1-in-1-out は、3 本が揃って merge されるタイミングでまとめて棚卸する（PO 判断）。本 CLAUDE.md の 10-active 表現は一時的に 11+ に膨らむ可能性がある。
 >
