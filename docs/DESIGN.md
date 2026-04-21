@@ -155,6 +155,16 @@
   - senior: 1.0 (最小)
 - **詳細**: [docs/design/22-タイポグラフィ・スペーシングガイドライン.md](design/22-タイポグラフィ・スペーシングガイドライン.md)
 
+### 日本語テキスト折り返し（ADR-0016）
+
+日本語は空白区切りがないため、見出し・ボタン・カードタイトルが不自然な位置で折り返される問題への方針:
+
+- **第一選択（CSS, 0KB）**: `h1`, `h2`, `h3`, `.heading`, `.tutorial-title`, `.btn-label` に `text-wrap: balance; word-break: auto-phrase;` を適用（`app.css`）
+- **フォールバック（BudouX, ~15KB）**: 古いブラウザ / 長文段落 / チュートリアル本文で `use:budoux` Svelte action を必要箇所のみ適用（`$lib/ui/actions/budoux.ts`）
+- **LP 側**: CDN Web Component (`<budoux-ja>`) で追加バンドルなし
+
+SSR 二重適用は `data-budoux-applied` フラグで回避。詳細は [ADR-0016](decisions/0016-japanese-text-wrap.md)。
+
 ---
 
 ## 4. スペーシング
