@@ -71,7 +71,9 @@ test.describe('#1163 LP 1st view 要件', () => {
 		const page = await ctx.newPage();
 		await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
 
-		const signupCta = page.locator('a.btn-primary', { hasText: '無料で始める' }).first();
+		// #1290: 先頭 DOM 要素はヘッダーの `.nav-signup` だがモバイルでは `display:none`。
+		// 1st view 要件は hero 本体に無料で始める CTA が見えることなので hero 配下を検査する。
+		const signupCta = page.locator('.hero a.btn-primary', { hasText: '無料で始める' }).first();
 		await expect(signupCta).toBeVisible();
 
 		const box = await signupCta.boundingBox();
@@ -80,6 +82,39 @@ test.describe('#1163 LP 1st view 要件', () => {
 			expect(box.y, 'signup CTA が初回ビューポート内 (y < 812) に収まる').toBeLessThan(812);
 			expect(box.y, 'signup CTA は hero セクション内（y > 0）').toBeGreaterThanOrEqual(0);
 		}
+
+		await ctx.close();
+	});
+
+	test('#1290 Desktop ヘッダーに常時 `.nav-signup` primary CTA が表示される (PC persistent)', async ({
+		browser,
+	}) => {
+		const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+		const page = await ctx.newPage();
+		await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
+
+		const headerSignup = page.locator('.header-nav a.nav-signup');
+		await expect(headerSignup, 'PC ヘッダーに `.nav-signup` が存在する').toBeVisible();
+		await expect(headerSignup).toHaveAttribute('href', /\/auth\/signup/);
+		await expect(headerSignup).toHaveText('無料で始める');
+		await expect(headerSignup).toHaveAttribute('data-testid', 'lp-nav-signup');
+
+		// スクロール後もヘッダーごと sticky で追従し、CTA が見え続ける
+		await page.evaluate(() => window.scrollTo(0, 3000));
+		await expect(headerSignup, 'スクロール後もヘッダーの signup CTA が可視').toBeVisible();
+
+		await ctx.close();
+	});
+
+	test('#1290 Mobile 375 では `.nav-signup` は非表示 (floating-cta と二重表示回避)', async ({
+		browser,
+	}) => {
+		const ctx = await browser.newContext({ viewport: { width: 375, height: 812 } });
+		const page = await ctx.newPage();
+		await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
+
+		const headerSignup = page.locator('.header-nav a.nav-signup');
+		await expect(headerSignup, 'モバイルでは `.nav-signup` は display:none').toBeHidden();
 
 		await ctx.close();
 	});
