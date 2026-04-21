@@ -51,7 +51,8 @@
 		"type-coverage": "type-coverage -p . --at-least 97 --strict --ignore-catch --detail",
 		"knip": "knip",
 		"jscpd": "jscpd .",
-		"screenshots:lp": "node scripts/take-lp-screenshots.mjs"
+		"screenshots:lp": "node scripts/capture-hp-screenshots.mjs --webp",
+		"screenshots:lp:compare": "node scripts/take-lp-screenshots.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.10",
