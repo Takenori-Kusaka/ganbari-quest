@@ -26,7 +26,7 @@ const submitBlockReason = $derived.by(() => {
 </script>
 
 <svelte:head>
-	<title>規約への同意 - がんばりクエスト</title>
+	<title>{data.hasExistingConsent ? '規約に変更がありました' : '規約への同意'} - がんばりクエスト</title>
 </svelte:head>
 
 <!--
