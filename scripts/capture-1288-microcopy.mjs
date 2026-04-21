@@ -4,6 +4,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
 const SITE_DIR = resolve('site');
 const OUT_DIR = resolve('docs/screenshots/1288-lp-microcopy');
@@ -52,19 +53,19 @@ async function main() {
 
 		await dp.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
 		await dp.locator('#machine-tour').scrollIntoViewIfNeeded();
-		await dp.waitForTimeout(400);
+		await waitForStablePage(dp, { skipNetworkIdle: true });
 		await dp.locator('#machine-tour').screenshot({ path: join(OUT_DIR, 'tour-title-desktop.png') });
 		console.log('captured tour-title-desktop.png');
 
 		await dp.locator('.cta-bottom').scrollIntoViewIfNeeded();
-		await dp.waitForTimeout(400);
+		await waitForStablePage(dp, { skipNetworkIdle: true });
 		await dp.locator('.cta-bottom').screenshot({ path: join(OUT_DIR, 'cta-bottom-desktop.png') });
 		console.log('captured cta-bottom-desktop.png');
 
 		// pricing.html 機能比較テーブル (ルーティン → 朝夜の習慣リスト)
 		await dp.goto(`${baseUrl}/pricing.html`, { waitUntil: 'domcontentloaded' });
 		await dp.locator('text=/朝夜の習慣リスト/').first().scrollIntoViewIfNeeded();
-		await dp.waitForTimeout(400);
+		await waitForStablePage(dp, { skipNetworkIdle: true });
 		await dp
 			.locator('.feature-matrix, .pricing-table, table')
 			.first()
@@ -76,13 +77,13 @@ async function main() {
 		const mp = await mctx.newPage();
 		await mp.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
 		await mp.locator('.cta-bottom').scrollIntoViewIfNeeded();
-		await mp.waitForTimeout(500);
+		await waitForStablePage(mp, { skipNetworkIdle: true });
 		await mp.locator('.cta-bottom').screenshot({ path: join(OUT_DIR, 'cta-bottom-mobile.png') });
 		console.log('captured cta-bottom-mobile.png');
 
 		// Floating CTA: scroll to middle so #floating-cta is visible
 		await mp.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
-		await mp.waitForTimeout(600);
+		await waitForStablePage(mp, { skipNetworkIdle: true });
 		await mp.screenshot({
 			path: join(OUT_DIR, 'floating-cta-mobile.png'),
 			clip: { x: 0, y: 712, width: 375, height: 100 },
@@ -91,7 +92,7 @@ async function main() {
 
 		// Mobile machine-tour title
 		await mp.locator('#machine-tour').scrollIntoViewIfNeeded();
-		await mp.waitForTimeout(400);
+		await waitForStablePage(mp, { skipNetworkIdle: true });
 		await mp
 			.locator('#machine-tour .section-title')
 			.screenshot({ path: join(OUT_DIR, 'tour-title-mobile.png') });
