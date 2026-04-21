@@ -196,6 +196,20 @@ img {
 	text-decoration: none;
 }
 
+/* #1290: ヘッダー常時 signup CTA (index.html のみ、floating-cta との二重表示回避)。
+   デスクトップ: .nav-login ghost button と並列に新規登録導線を常時表示。
+   モバイル: ハンバーガー展開時に floating-cta と重複するため非表示、floating-cta に集約。
+   pricing/terms/privacy 等は floating-cta を持たないため .nav-signup class を付けず通常表示。 */
+.header-nav a.nav-signup {
+	padding: 8px 18px;
+	font-size: 0.9rem;
+}
+@media (max-width: 768px) {
+	.header-nav a.nav-signup {
+		display: none;
+	}
+}
+
 /* --- Footer (full footer for index/pricing) --- */
 .footer {
 	background: var(--gray-900);
