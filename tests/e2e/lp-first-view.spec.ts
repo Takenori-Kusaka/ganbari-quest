@@ -2,7 +2,7 @@
 // #1163: LP (site/index.html) の 1st view 要件を E2E で担保
 //   - Mobile 375×812 viewport で初回ビューポートに signup CTA が存在
 //   - 料金カードがドキュメント高さの 75% 以内（最終 CTA より前）に存在
-//   - ログインはボタン化されず NAV テキストリンクのみ (CTA policy §7.2)
+//   - ログインは NAV 内に `.nav-login` ghost button として描画される (#1285、CTA policy §7.2)
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -110,17 +110,32 @@ test.describe('#1163 LP 1st view 要件', () => {
 		await ctx.close();
 	});
 
-	test('ログインはボタン化されず、NAV 内のテキストリンクのみ', async ({ browser }) => {
+	test('ログインは NAV 内の ghost button (.nav-login) として視覚的に区別される', async ({
+		browser,
+	}) => {
 		const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 		const page = await ctx.newPage();
 		await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
 
-		const loginLink = page.locator('.header-nav a.nav-text', { hasText: 'ログイン' });
+		// #1285: ログインは `.nav-login` ghost button (border + transparent bg) で NAV 内に描画される
+		const loginLink = page.locator('.header-nav a.nav-login', { hasText: 'ログイン' });
 		await expect(loginLink).toBeVisible();
 		await expect(loginLink).toHaveAttribute('href', /\/auth\/login/);
+		await expect(loginLink).toHaveAttribute('data-testid', 'lp-nav-login');
 
-		const loginButton = page.locator('.btn', { hasText: 'ログイン' });
-		await expect(loginButton, 'ログインは .btn 化されないこと').toHaveCount(0);
+		// ghost button は border をもつ（nav-text とは視覚的に区別される）
+		const borderWidth = await loginLink.evaluate((el) => getComputedStyle(el).borderTopWidth);
+		expect(
+			borderWidth,
+			`ログインは枠線を持つ ghost button であること (borderTopWidth=${borderWidth})`,
+		).not.toBe('0px');
+
+		// `.nav-login` はプライマリ CTA と同じ `.btn-primary` 装飾にはしない（role 区別のため）
+		const primaryLogin = page.locator('a.btn-primary', { hasText: 'ログイン' });
+		await expect(
+			primaryLogin,
+			'ログインは .btn-primary 化しないこと (サインアップと役割を分離)',
+		).toHaveCount(0);
 
 		await ctx.close();
 	});

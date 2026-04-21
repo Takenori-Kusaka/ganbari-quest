@@ -177,6 +177,25 @@ img {
 	font-size: 1.1rem;
 }
 
+/* #1285: ヘッダー右上 ログイン の ghost button スタイル。
+   他の nav-text と視覚的に区別し、既存ユーザーのマイページ復帰導線を明示する。 */
+.header-nav a.nav-login {
+	padding: 6px 14px;
+	font-size: 0.88rem;
+	font-weight: 600;
+	border: 1.5px solid var(--brand-300);
+	border-radius: 8px;
+	color: var(--brand-700);
+	background: #fff;
+	transition: background 0.15s, border-color 0.15s;
+}
+.header-nav a.nav-login:hover {
+	background: var(--brand-50);
+	border-color: var(--brand-500);
+	color: var(--brand-700);
+	text-decoration: none;
+}
+
 /* --- Footer (full footer for index/pricing) --- */
 .footer {
 	background: var(--gray-900);
