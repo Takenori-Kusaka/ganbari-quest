@@ -203,13 +203,22 @@ describe('onboarding-service', () => {
 
 			const result = await getOnboardingProgress(TENANT, customBase);
 
-			expect(result.items[0]?.href).toBe('/custom/path/members');
+			expect(result.items[0]?.href).toBe('/custom/path/children');
 			expect(result.items[1]?.href).toBe('/custom/path/activities');
 			expect(result.items[2]?.href).toBe('/custom/path/rewards');
 			expect(result.items[3]?.href).toBe('/custom/path/settings');
 			expect(result.items[4]?.href).toBe('/custom/path/checklists');
 			// child_screen is always /switch regardless of basePath
 			expect(result.items[5]?.href).toBe('/switch');
+		});
+
+		it('children 項目の href は /admin/children (members ではない) を指す (#1363)', async () => {
+			setupDefaults();
+
+			const result = await getOnboardingProgress(TENANT, '/admin');
+
+			const childrenItem = result.items.find((i) => i.key === 'children');
+			expect(childrenItem?.href).toBe('/admin/children');
 		});
 
 		it('子供がテンプレートを持っている場合 checklist は completed', async () => {
