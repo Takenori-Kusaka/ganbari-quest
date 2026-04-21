@@ -263,6 +263,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **チュートリアル** → 本番 (`tutorial-chapters.ts`) + デモ (`demo-guide-state.svelte.ts`)
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
 - [ ] **認証が絡む画面** (#1026) → `npm run dev:cognito` で **自分の目で** ログイン/サインアップ/ops 経路を通り、`docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / プリミティブ再実装) に違反がないか確認。`npm run dev` の自動認証モードだけで済ませない (ログインフォームが描画されないため UI 検証が抜ける)
+- [ ] **年齢帯 variant ラベル** (ADR-0015) → `labels.ts` の tier-aware key（例: `encourage.complete`）を更新した場合、`child-home/variants/index.ts` + `tutorial-chapters.ts` + tips / dialog コンポーネント側の独自分岐が残っていないか grep。`if (uiMode === 'baby')` 散在（A1 アンチパターン）を検出したら `getLabel(key, ctx)` 経由に寄せる
+- [ ] **日本語折り返し** (ADR-0016) → 見出し / Dialog タイトル / チュートリアルステップ追加時は、`app.css` の `text-wrap: balance; word-break: auto-phrase;` が効くセレクタ配下か確認。長文段落 / 古いブラウザ対応が必要な箇所は `use:budoux` action を個別適用。LP 側 (`site/*.html`) は `<budoux-ja>` CDN Web Component で wrap
 
 ---
 
