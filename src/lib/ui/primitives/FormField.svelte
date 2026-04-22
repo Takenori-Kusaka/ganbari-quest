@@ -15,7 +15,7 @@ type InputType =
 	| 'datetime-local'
 	| 'textarea';
 
-interface Props extends Omit<HTMLInputAttributes & HTMLTextareaAttributes, 'type'> {
+interface Props extends Omit<HTMLInputAttributes & HTMLTextareaAttributes, 'type' | 'children'> {
 	label: string;
 	type?: InputType;
 	error?: string;
@@ -26,7 +26,7 @@ interface Props extends Omit<HTMLInputAttributes & HTMLTextareaAttributes, 'type
 	/** textarea 用の行数。`type='textarea'` 時のみ有効 */
 	rows?: number;
 	/** Override default input with custom content (e.g. select) */
-	children?: Snippet;
+	children?: Snippet<[{ id: string; 'aria-describedby': string | undefined }]>;
 }
 
 let {
@@ -56,7 +56,10 @@ const isTextarea = $derived(type === 'textarea');
 		{label}
 	</label>
 	{#if children}
-		{@render children()}
+		{@render children({
+			id: fieldId,
+			'aria-describedby': error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined,
+		})}
 	{:else if isTextarea}
 		<textarea
 			id={fieldId}
