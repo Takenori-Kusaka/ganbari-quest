@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { getErrorMessage } from '$lib/domain/errors';
+import { getThemeOptions } from '$lib/domain/labels';
 import { formatPointValue } from '$lib/domain/point-display';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
@@ -8,7 +9,7 @@ import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
-import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
+import Select from '$lib/ui/primitives/Select.svelte';
 
 let { data, form } = $props();
 const childLimit = $derived(
@@ -23,6 +24,7 @@ const ps = $derived(data.pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
 
 let showAddForm = $state(false);
+let themeValue = $state('blue');
 </script>
 
 <svelte:head>
@@ -115,18 +117,16 @@ let showAddForm = $state(false);
 						required
 						placeholder="4"
 					/>
-					<NativeSelect
-						id="add-theme"
-						name="theme"
+					<Select
 						label="テーマカラー"
-						options={[
-							{ value: 'pink', label: '🩷 ピンク' },
-							{ value: 'blue', label: '💙 ブルー' },
-							{ value: 'green', label: '💚 みどり' },
-							{ value: 'orange', label: '🧡 オレンジ' },
-							{ value: 'purple', label: '💜 むらさき' },
-						]}
+						items={getThemeOptions().map((opt) => ({
+							value: opt.value,
+							label: `${opt.emoji} ${opt.label}`
+						}))}
+						value={[themeValue]}
+						onValueChange={(d) => (themeValue = d.value[0] ?? 'blue')}
 					/>
+					<input type="hidden" name="theme" value={themeValue} />
 				</div>
 				<Button type="submit" variant="success" size="sm">追加する</Button>
 			</form>
@@ -154,11 +154,13 @@ let showAddForm = $state(false);
 	<!-- Selected child detail -->
 	{#if data.selectedChild}
 		<div class="children-page__detail">
-			<ChildProfileCard
-				child={data.selectedChild}
-				categoryDefs={data.categoryDefs}
-				pointSettings={ps}
-			/>
+			{#key data.selectedChild.id}
+				<ChildProfileCard
+					child={data.selectedChild}
+					categoryDefs={data.categoryDefs}
+					pointSettings={ps}
+				/>
+			{/key}
 		</div>
 	{/if}
 </div>
