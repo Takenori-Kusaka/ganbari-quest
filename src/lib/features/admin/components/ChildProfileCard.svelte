@@ -13,6 +13,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
+import Select from '$lib/ui/primitives/Select.svelte';
 
 interface PointSettings {
 	mode: PointUnitMode;
@@ -64,9 +65,16 @@ let { child, categoryDefs, pointSettings: ps, onDelete }: Props = $props();
 
 // --- State ---
 let isEditing = $state(false);
+let themeValue = $state(child.theme);
 let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'voice'>('info');
 let statusEditSuccess = $state(false);
 let sliderValues: Record<number, number> = $state({});
+
+$effect(() => {
+	if (!isEditing) {
+		themeValue = child.theme;
+	}
+});
 
 // Avatar
 let generating = $state(false);
@@ -312,16 +320,16 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 								/>
 							{/snippet}
 						</FormField>
-						<NativeSelect
-							id="edit-theme-{child.id}"
-							name="theme"
+						<Select
 							label="テーマカラー"
-							value={child.theme}
-							options={getThemeOptions().map((opt) => ({
+							items={getThemeOptions().map((opt) => ({
 								value: opt.value,
-								label: `${opt.emoji} ${opt.label}`,
+								label: `${opt.emoji} ${opt.label}`
 							}))}
+							value={[themeValue]}
+							onValueChange={(d) => (themeValue = d.value[0] ?? 'blue')}
 						/>
+						<input type="hidden" name="theme" value={themeValue} />
 					</div>
 				</div>
 
