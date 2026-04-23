@@ -164,6 +164,7 @@ PRレビューは、タスクの性質と難易度に応じて、Claude Code の
 | ドキュメント | いつ参照するか |
 |------------|--------------|
 | docs/DESIGN.md | デザインシステム準拠のレビュー |
+| docs/guides/gemini-claude-integration.md | Gemini CLI との連携時 |
 | tests/CLAUDE.md | テスト品質基準の確認 |
 | docs/design/parallel-implementations.md | 並行実装の同期漏れチェック |
 | src/routes/CLAUDE.md | UI 実装ルールの確認 |
