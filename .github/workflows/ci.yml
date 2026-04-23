@@ -20,6 +20,8 @@ permissions:
 jobs:
   changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       app: ${{ steps.filter.outputs.app }}
       deps: ${{ steps.filter.outputs.deps }}
@@ -64,6 +66,8 @@ jobs:
     # lint-and-test 内の Storybook build check を走らせるため stories を含める
     if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
         with:
@@ -136,6 +140,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -180,6 +186,8 @@ jobs:
     needs: [unit-test]
     if: always() && (needs.unit-test.result == 'success' || needs.unit-test.result == 'failure')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
         with:
@@ -218,6 +226,8 @@ jobs:
     if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
         with:
@@ -255,6 +265,8 @@ jobs:
     # #1006 Phase 2: --shard matrix で 3 並列化 (7m 37s → ~3m 目標)
     needs: [changes]
     if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -316,6 +328,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [e2e-test]
     if: always() && (needs.e2e-test.result == 'success' || needs.e2e-test.result == 'failure')
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -348,6 +362,8 @@ jobs:
     # #923 Phase 1: lint-and-test 依存を外して並列化 (e2e-test と同じ理由)
     needs: [changes]
     if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -361,6 +377,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.site == 'true' || needs.changes.outputs.app == 'true'
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -382,6 +400,9 @@ jobs:
   new-env-distribution-check:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v6
         with:
@@ -407,6 +428,9 @@ jobs:
   schema-change-tests-check:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v6
         with:
@@ -430,6 +454,8 @@ jobs:
   # so skipped jobs (via path filter) don't block merges.
   ci-gate:
     if: always()
+    permissions:
+      contents: read
     needs:
       [
         changes,
