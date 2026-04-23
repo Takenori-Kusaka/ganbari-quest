@@ -144,5 +144,9 @@
 			"scripts/**/*.cjs",
 			"scripts/**/*.mjs"
 		]
+	},
+	"overrides": {
+		"esbuild": ">=0.25.0",
+		"cookie": ">=0.7.0"
 	}
 }
