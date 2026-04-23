@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { getErrorMessage } from '$lib/domain/errors';
+import { getThemeOptions } from '$lib/domain/labels';
 import { formatPointValue } from '$lib/domain/point-display';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
@@ -119,13 +120,10 @@ let showAddForm = $state(false);
 						id="add-theme"
 						name="theme"
 						label="テーマカラー"
-						options={[
-							{ value: 'pink', label: '🩷 ピンク' },
-							{ value: 'blue', label: '💙 ブルー' },
-							{ value: 'green', label: '💚 みどり' },
-							{ value: 'orange', label: '🧡 オレンジ' },
-							{ value: 'purple', label: '💜 むらさき' },
-						]}
+						options={getThemeOptions().map((opt) => ({
+						value: opt.value,
+						label: `${opt.emoji} ${opt.label}`,
+					}))}
 					/>
 				</div>
 				<Button type="submit" variant="success" size="sm">追加する</Button>
