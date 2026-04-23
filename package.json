@@ -52,7 +52,10 @@
 		"knip": "knip",
 		"jscpd": "jscpd .",
 		"screenshots:lp": "node scripts/capture-hp-screenshots.mjs --webp",
-		"screenshots:lp:compare": "node scripts/take-lp-screenshots.mjs"
+		"screenshots:lp:compare": "node scripts/take-lp-screenshots.mjs",
+		"capture": "node scripts/capture.mjs",
+		"capture:admin": "node scripts/capture.mjs --config scripts/capture-specs/admin.mjs --out tmp/screenshots/",
+		"capture:lp": "node scripts/capture.mjs --config scripts/capture-specs/lp.mjs --out tmp/screenshots/"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.10",

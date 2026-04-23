@@ -11,10 +11,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright';
 import {
 	convertToWebP,
-	waitForStablePage,
+	ScreenshotCapture,
 	withScreenshotParam,
 } from './lib/screenshot-helpers.mjs';
 
@@ -45,15 +44,14 @@ if (onlyIdx >= 0) {
 // Viewport definitions
 // ============================================================
 
-const MOBILE = { width: 390, height: 844 };
-const TABLET = { width: 768, height: 1024 };
-const DESKTOP = { width: 1440, height: 900 };
+const MOBILE = { width: 390, height: 844, deviceScaleFactor: 2 };
+const TABLET = { width: 768, height: 1024, deviceScaleFactor: 2 };
+const DESKTOP = { width: 1440, height: 900, deviceScaleFactor: 2 };
 
 // ============================================================
 // Screenshot definitions
 // ============================================================
 
-// Carousel uses "-mobile" suffix for mobile viewport (unlike feature/age which use no suffix)
 const CAROUSEL_SCREENSHOTS = [
 	{
 		name: 'carousel-1-child-home',
@@ -113,14 +111,9 @@ const FEATURE_SCREENSHOTS = [
 	},
 	{
 		name: 'feature-belongings-checklist',
-		// #1164: デフォルト子供 (childId=902 小学生) には item kind テンプレートがなく、
-		// routine のみが表示されてしまう。LP 訴求コピー「通学・習い事の持ち物を
-		// 子どもがタップ確認」と被写体を一致させるため、item kind を持つ childId=904
-		// (中学生の登校準備: 教科書・体操着・弁当 等) を明示指定する。
 		url: '/demo/checklist?childId=904',
 		description: 'Features: 持ち物チェックリスト (子供画面)',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
-		// item グループが確実に画面内に映るようスクロール位置を固定
 		scrollTo: '[data-testid="checklist-group-item"]',
 	},
 	{
@@ -164,7 +157,6 @@ const AGE_SCREENSHOTS = [
 	},
 ];
 
-// Merge all screenshots with group filtering
 const ALL_SCREENSHOTS = [];
 if (!onlyGroup || onlyGroup === 'carousel') ALL_SCREENSHOTS.push(...CAROUSEL_SCREENSHOTS);
 if (!onlyGroup || onlyGroup === 'feature') ALL_SCREENSHOTS.push(...FEATURE_SCREENSHOTS);
@@ -182,7 +174,9 @@ async function captureScreenshots() {
 	if (doWebp) console.log('WebP conversion: enabled');
 	console.log('');
 
-	const browser = await chromium.launch({ headless: true });
+	const capturer = new ScreenshotCapture({ baseUrl: BASE_URL, outputDir: OUTPUT_DIR });
+	await capturer.setup();
+
 	let successCount = 0;
 	let totalFiles = 0;
 	const pngFiles = [];
@@ -190,57 +184,37 @@ async function captureScreenshots() {
 	for (const shot of ALL_SCREENSHOTS) {
 		for (const [sizeName, viewport] of Object.entries(shot.viewports)) {
 			totalFiles++;
-			// Carousel uses "-mobile" suffix; feature/age use no suffix for mobile
 			const suffix = sizeName === 'mobile' ? (shot.mobileSuffix ?? '') : `-${sizeName}`;
 			const filename = `${shot.name}${suffix}`;
 
-			try {
-				console.log(`Capturing ${shot.description} [${sizeName}] ...`);
-				const context = await browser.newContext({
-					viewport,
-					deviceScaleFactor: 2,
-					locale: 'ja-JP',
-				});
-				const page = await context.newPage();
-				await page.goto(`${BASE_URL}${withScreenshotParam(shot.url)}`, {
-					waitUntil: 'networkidle',
-					timeout: 15000,
-				});
+			console.log(`Capturing ${shot.description} [${sizeName}] ...`);
 
-				await waitForStablePage(page);
+			// For scrollTo, we use a custom selector option
+			const result = await capturer.capture({
+				url: withScreenshotParam(shot.url),
+				name: filename,
+				viewport,
+				fullPage: false,
+				format: 'png',
+				selector: shot.scrollTo,
+			});
 
-				if (shot.scrollTo) {
-					try {
-						await page.locator(shot.scrollTo).first().scrollIntoViewIfNeeded();
-						await waitForStablePage(page, { skipNetworkIdle: true });
-					} catch {
-						// Element not found, take screenshot from current position
-					}
-				}
-
-				const pngPath = path.join(OUTPUT_DIR, `${filename}.png`);
-				await page.screenshot({
-					path: pngPath,
-					fullPage: false,
-				});
-
-				const stat = fs.statSync(pngPath);
+			if (result.ok) {
 				console.log(
-					`  -> ${filename}.png (${(stat.size / 1024).toFixed(0)} KB, ${viewport.width}x${viewport.height}@2x)`,
+					`  -> ${filename}.png (${(result.size / 1024).toFixed(0)} KB, ${viewport.width}x${viewport.height}@${viewport.deviceScaleFactor ?? 2}x)`,
 				);
-				pngFiles.push(pngPath);
+				pngFiles.push(result.filePath);
 				successCount++;
-				await context.close();
-			} catch (error) {
-				console.error(`  Error capturing ${filename}:`, error.message);
+			} else {
+				console.error(`  Error capturing ${filename}:`, result.error.message);
 			}
 		}
 	}
 
-	await browser.close();
+	await capturer.teardown();
 	console.log(`\n撮影完了: ${successCount}/${totalFiles} ファイル`);
 
-	// WebP conversion using scripts/lib/screenshot-helpers.mjs
+	// WebP conversion
 	if (doWebp && pngFiles.length > 0) {
 		console.log('\n=== WebP変換 ===');
 		let convertCount = 0;
@@ -248,22 +222,18 @@ async function captureScreenshots() {
 			const webpPath = pngPath.replace(/\.png$/, '.webp');
 			const result = await convertToWebP(pngPath, { quality: 80, outPath: webpPath });
 			if (result.ok) {
-				const stat = fs.statSync(webpPath);
-				console.log(`  -> ${path.basename(webpPath)} (${(stat.size / 1024).toFixed(0)} KB)`);
+				const { size } = await import('node:fs').then((m) => ({ size: m.statSync(webpPath).size }));
+				console.log(`  -> ${path.basename(webpPath)} (${(size / 1024).toFixed(0)} KB)`);
 				convertCount++;
 			} else {
 				console.error(`  WebP変換失敗: ${path.basename(pngPath)}`);
 				console.error(`    原因: ${result.error.message}`);
-				if (result.error.stderr) {
-					console.error(`    stderr: ${result.error.stderr}`);
-				}
 			}
 		}
 		console.log(`変換完了: ${convertCount}/${pngFiles.length} ファイル`);
 	} else if (!doWebp) {
 		console.log('\n次のステップ: WebP変換');
 		console.log('  node scripts/capture-hp-screenshots.mjs --webp');
-		console.log('  または手動で WebP に変換してください');
 	}
 }
 
