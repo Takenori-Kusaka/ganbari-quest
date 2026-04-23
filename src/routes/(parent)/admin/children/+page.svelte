@@ -6,6 +6,7 @@ import { formatPointValue } from '$lib/domain/point-display';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
 import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
+import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -99,12 +100,9 @@ let themeValue = $state('blue');
 						required
 						placeholder="例: たろうくん"
 					/>
-					<FormField
-						label="たんじょうび"
-						type="date"
-						id="add-birthDate"
+					<BirthdayInput
 						name="birthDate"
-						max={new Date().toISOString().split('T')[0]}
+						id="add-birthDate"
 						hint="設定すると年齢が自動計算されます"
 					/>
 					<FormField
