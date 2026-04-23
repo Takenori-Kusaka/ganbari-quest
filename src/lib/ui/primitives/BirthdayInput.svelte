@@ -1,4 +1,5 @@
 <script lang="ts">
+import { untrack } from 'svelte';
 import FormField from './FormField.svelte';
 import NativeSelect from './NativeSelect.svelte';
 
@@ -35,47 +36,53 @@ let yearStr = $state('');
 let monthStr = $state('');
 let dayStr = $state('');
 
-// Initialize from value prop
+// value（外部）→ year/month/day の同期。書き込みは untrack で循環を断ち切る
 $effect(() => {
-	if (value) {
-		const [y, m, d] = value.split('-');
-		yearStr = y ?? '';
-		monthStr = m ? String(Number(m)) : '';
-		dayStr = d ? String(Number(d)) : '';
-	} else {
-		yearStr = '';
-		monthStr = '';
-		dayStr = '';
-	}
+	const v = value;
+	untrack(() => {
+		if (v) {
+			const [y, m, d] = v.split('-');
+			yearStr = y ?? '';
+			monthStr = m ? String(Number(m)) : '';
+			dayStr = d ? String(Number(d)) : '';
+		} else {
+			yearStr = '';
+			monthStr = '';
+			dayStr = '';
+		}
+	});
 });
 
-// Update value prop when selections change
+// year/month/day → value（外部）の同期。書き込みは untrack で循環を断ち切る
 $effect(() => {
-	if (yearStr && monthStr && dayStr) {
-		const m = monthStr.padStart(2, '0');
-		const d = dayStr.padStart(2, '0');
-		value = `${yearStr}-${m}-${d}`;
-	} else if (!yearStr && !monthStr && !dayStr) {
-		value = undefined;
-	}
+	const y = yearStr;
+	const m = monthStr;
+	const d = dayStr;
+	untrack(() => {
+		if (y && m && d) {
+			value = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+		} else if (!y && !m && !d) {
+			value = undefined;
+		}
+	});
 });
 
-const daysInMonth = $derived(() => {
+const daysInMonth = $derived.by(() => {
 	if (!yearStr || !monthStr) return 31;
 	return new Date(Number(yearStr), Number(monthStr), 0).getDate();
 });
 
-const dayOptions = $derived(() => {
-	return Array.from({ length: daysInMonth() }, (_, i) => ({
+const dayOptions = $derived.by(() => {
+	return Array.from({ length: daysInMonth }, (_, i) => ({
 		value: String(i + 1),
 		label: `${i + 1}日`,
 	}));
 });
 
-// Reset day if it becomes invalid
+// 月変更で日数が減った場合、選択済みの日をリセット
 $effect(() => {
-	if (dayStr && Number(dayStr) > daysInMonth()) {
-		dayStr = String(daysInMonth());
+	if (dayStr && Number(dayStr) > daysInMonth) {
+		dayStr = String(daysInMonth);
 	}
 });
 </script>
@@ -84,14 +91,14 @@ $effect(() => {
 	{#snippet children({ id: fieldId, 'aria-describedby': describedby })}
 		<div class="birthday-input" aria-describedby={describedby}>
 			<NativeSelect
-				aria-label="Year of birth"
+				aria-label="生まれた年"
 				bind:value={yearStr}
 				options={yearOptions}
 				placeholder="----年"
 				required={required}
 			/>
 			<NativeSelect
-				aria-label="Month of birth"
+				aria-label="生まれた月"
 				bind:value={monthStr}
 				options={monthOptions}
 				placeholder="--月"
@@ -99,9 +106,9 @@ $effect(() => {
 				required={required}
 			/>
 			<NativeSelect
-				aria-label="Day of birth"
+				aria-label="生まれた日"
 				bind:value={dayStr}
-				options={dayOptions()}
+				options={dayOptions}
 				placeholder="--日"
 				disabled={!monthStr}
 				required={required}
