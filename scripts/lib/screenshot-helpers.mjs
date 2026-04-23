@@ -19,7 +19,7 @@ export const SCREENSHOT_QUERY = 'screenshot=1';
 
 /**
  * パスに screenshot パラメータを追加する。
- * @param {string} path - 例: `/demo/lower/home`
+ * @param {string} urlPath - 例: `/demo/lower/home`
  */
 export function withScreenshotParam(urlPath) {
 	return `${urlPath}${urlPath.includes('?') ? '&' : '?'}${SCREENSHOT_QUERY}`;
@@ -97,7 +97,7 @@ export const PRESETS = {
  * @returns {{ width: number; height: number; deviceScaleFactor: number }}
  */
 export function resolvePreset(name) {
-	const preset = PRESETS[name];
+	const preset = PRESETS[/** @type {keyof typeof PRESETS} */ (name)];
 	if (!preset) {
 		throw new Error(`Unknown preset: "${name}". Valid options: ${Object.keys(PRESETS).join(', ')}`);
 	}
@@ -147,6 +147,7 @@ export function generateMarkdownSnippet(flowName, steps, relativePath) {
  * setup() → capture() × N → teardown() のライフサイクルで使用する。
  */
 export class ScreenshotCapture {
+	/** @type {import('playwright').Browser | null} */
 	#browser = null;
 	#baseUrl;
 	#outputDir;
@@ -185,7 +186,7 @@ export class ScreenshotCapture {
 	 * @param {'png'|'webp'|'jpeg'} [opts.format='png']
 	 * @param {number} [opts.quality=85] - WebP 品質 (0-100)
 	 * @param {string} [opts.selector] - 表示まで待つ要素
-	 * @param {string|object} [opts.storageState] - 認証済みセッション
+	 * @param {import('playwright').BrowserContextOptions['storageState']} [opts.storageState] - 認証済みセッション
 	 * @returns {Promise<{ ok: true; filePath: string; size: number } | { ok: false; error: Error }>}
 	 */
 	async capture({
@@ -283,7 +284,7 @@ export class FlowRecorder {
 	 * @param {string} opts.flowName - フロー名（出力ファイル名に使用）
 	 * @param {(page: import('playwright').Page, capture: (label: string) => Promise<string>) => Promise<void>} opts.actions
 	 * @param {'mobile'|'tablet'|'desktop'} [opts.preset='desktop']
-	 * @param {string|object} [opts.storageState]
+	 * @param {import('playwright').BrowserContextOptions['storageState']} [opts.storageState]
 	 * @returns {Promise<{ stepsDir: string; compositePath: string|null; markdownSnippet: string; stepCount: number }>}
 	 */
 	async record({ url, flowName, actions, preset = 'desktop', storageState }) {
@@ -320,6 +321,7 @@ export class FlowRecorder {
 		}
 		await waitForStablePage(page, { skipNetworkIdle: true });
 
+		/** @type {Array<{ label: string; pngPath: string; stepName: string }>} */
 		const steps = [];
 		let stepIndex = 0;
 		const maxSteps = this.#maxSteps;
@@ -327,6 +329,7 @@ export class FlowRecorder {
 		const cellWidth = this.#cellWidth;
 		const cellHeight = this.#cellHeight;
 
+		/** @param {string} label */
 		const captureStep = async (label) => {
 			stepIndex++;
 			if (stepIndex > maxSteps) {
@@ -357,11 +360,12 @@ export class FlowRecorder {
 			return pngPath;
 		};
 
+		/** @type {Error | null} */
 		let actionsError = null;
 		try {
 			await actions(page, captureStep);
 		} catch (err) {
-			actionsError = err;
+			actionsError = err instanceof Error ? err : new Error(String(err));
 			if (steps.length > 0) {
 				console.error(
 					`[WARN] アクション中にエラーが発生しました (${steps.length} ステップまで保存済み): ${actionsError.message}`,
@@ -391,6 +395,10 @@ export class FlowRecorder {
 		return { stepsDir, compositePath, markdownSnippet, stepCount: steps.length };
 	}
 
+	/**
+	 * @param {Array<{ label: string; pngPath: string; stepName: string }>} steps
+	 * @param {string} outputPath
+	 */
 	async #compositeSteps(steps, outputPath) {
 		let sharp;
 		try {
@@ -433,6 +441,10 @@ export class FlowRecorder {
 			.toFile(outputPath);
 	}
 
+	/**
+	 * @param {Array<{ label: string; pngPath: string; stepName: string }>} steps
+	 * @param {string} compositePath
+	 */
 	#printReport(steps, compositePath) {
 		const layout = buildGridLayout(
 			steps.length,
