@@ -19,8 +19,8 @@
 //   GDRIVE_FOLDER_ID=<create a folder in GDrive and copy its ID from URL>
 
 const { google } = require('googleapis');
-const http = require('http');
-const url = require('url');
+const http = require('node:http');
+const url = require('node:url');
 
 const clientId = process.argv[2];
 const clientSecret = process.argv[3];
@@ -61,7 +61,7 @@ const server = http.createServer(async (req, res) => {
 	if (parsed.pathname === '/oauth2callback') {
 		const code = parsed.query.code;
 		if (!code) {
-			res.writeHead(400);
+			res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
 			res.end('Error: No authorization code received');
 			return;
 		}
@@ -91,8 +91,10 @@ const server = http.createServer(async (req, res) => {
 			server.close();
 			process.exit(0);
 		} catch (err) {
-			res.writeHead(500);
-			res.end('Error: ' + err.message);
+			// #1388: err.message をレスポンスに埋めると XSS 経路になる (CodeQL js/xss-through-exception)。
+			// Content-Type を text/plain に固定しつつ固定文言のみ返す。詳細は CLI console に出力。
+			res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+			res.end('OAuth token exchange failed. See CLI console for details.');
 			console.error('Token exchange failed:', err.message);
 		}
 	}
