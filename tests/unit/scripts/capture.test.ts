@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-	PRESETS,
 	buildGridLayout,
 	generateMarkdownSnippet,
+	PRESETS,
 	resolvePreset,
 } from '../../../scripts/lib/screenshot-helpers.mjs';
 
@@ -99,7 +99,11 @@ describe('generateMarkdownSnippet (#1424)', () => {
 	];
 
 	it('フロー名・ステップ数が見出しに反映される', () => {
-		const md = generateMarkdownSnippet('add-activity', steps, 'tmp/screenshots/add-activity-flow.webp');
+		const md = generateMarkdownSnippet(
+			'add-activity',
+			steps,
+			'tmp/screenshots/add-activity-flow.webp',
+		);
 		expect(md).toContain('### add-activityフロー（4 ステップ）');
 	});
 
