@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
 	buildGridLayout,
+	checkImageNotBlank,
+	checkStepLimit,
 	generateMarkdownSnippet,
 	PRESETS,
 	resolvePreset,
@@ -152,5 +157,100 @@ describe('ScreenshotCapture / FlowRecorder — 設定検証 (#1424)', () => {
 	it('gridLayout: maxSteps=12, gridCols=2 の最大解像度は 800×1800px（4000px 以下）', () => {
 		const layout = buildGridLayout(12, 2, 400, 300);
 		expect(layout.totalHeight).toBeLessThanOrEqual(4000);
+	});
+});
+
+describe('checkStepLimit (#1424)', () => {
+	it('正常範囲内のステップはエラーをスローしない', () => {
+		expect(() => checkStepLimit(1, 12, 2, 400, 300)).not.toThrow();
+		expect(() => checkStepLimit(12, 12, 2, 400, 300)).not.toThrow();
+	});
+
+	it('maxSteps + 1 でエラーをスローし、ステップ番号を明示する', () => {
+		expect(() => checkStepLimit(13, 12, 2, 400, 300)).toThrowError(/ステップ上限超過/);
+		expect(() => checkStepLimit(13, 12, 2, 400, 300)).toThrowError(/13 > 12/);
+		expect(() => checkStepLimit(13, 12, 2, 400, 300)).toThrowError(/--max-steps/);
+	});
+
+	it('80% 閾値以下（floor(12 * 0.8) = 9）は warn=false を返す', () => {
+		const result = checkStepLimit(9, 12, 2, 400, 300);
+		expect(result.warn).toBe(false);
+		expect(result.layout).toBeNull();
+	});
+
+	it('80% 閾値超過（stepIndex=10 > 9）は warn=true + layout を返す', () => {
+		const result = checkStepLimit(10, 12, 2, 400, 300);
+		expect(result.warn).toBe(true);
+		expect(result.layout).not.toBeNull();
+		expect(result.layout?.totalWidth).toBe(800);
+	});
+
+	it('maxSteps=10 の場合 floor(10 * 0.8)=8、stepIndex=9 で warn=true', () => {
+		const under = checkStepLimit(8, 10, 2, 400, 300);
+		expect(under.warn).toBe(false);
+
+		const over = checkStepLimit(9, 10, 2, 400, 300);
+		expect(over.warn).toBe(true);
+	});
+});
+
+describe('checkImageNotBlank (#1424)', () => {
+	let tmpDir: string;
+	let whitePng: string;
+	let blackPng: string;
+	let normalPng: string;
+
+	beforeAll(async () => {
+		tmpDir = mkdtempSync(join(tmpdir(), 'capture-test-'));
+		whitePng = join(tmpDir, 'white.png');
+		blackPng = join(tmpDir, 'black.png');
+		normalPng = join(tmpDir, 'normal.png');
+
+		const sharp = (await import('sharp')).default;
+
+		await sharp({
+			create: { width: 10, height: 10, channels: 3, background: { r: 255, g: 255, b: 255 } },
+		})
+			.png()
+			.toFile(whitePng);
+
+		await sharp({
+			create: { width: 10, height: 10, channels: 3, background: { r: 0, g: 0, b: 0 } },
+		})
+			.png()
+			.toFile(blackPng);
+
+		// 非均一画像（グラデーション）
+		const buf = Buffer.alloc(10 * 10 * 3);
+		for (let i = 0; i < 100; i++) {
+			buf[i * 3] = i * 2; // 0〜198 の範囲
+			buf[i * 3 + 1] = 100;
+			buf[i * 3 + 2] = 50;
+		}
+		await sharp(buf, { raw: { width: 10, height: 10, channels: 3 } })
+			.png()
+			.toFile(normalPng);
+	});
+
+	afterAll(() => {
+		rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	it('全白画像は blank=true・reason に「全白」を含む', async () => {
+		const result = await checkImageNotBlank(whitePng);
+		expect(result.blank).toBe(true);
+		expect(result.reason).toContain('全白');
+	});
+
+	it('全黒画像は blank=true・reason に「全黒」を含む', async () => {
+		const result = await checkImageNotBlank(blackPng);
+		expect(result.blank).toBe(true);
+		expect(result.reason).toContain('全黒');
+	});
+
+	it('通常画像（非均一）は blank=false・reason が空', async () => {
+		const result = await checkImageNotBlank(normalPng);
+		expect(result.blank).toBe(false);
+		expect(result.reason).toBe('');
 	});
 });

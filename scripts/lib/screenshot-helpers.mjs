@@ -119,6 +119,64 @@ export function buildGridLayout(stepCount, gridColumns, cellWidth, cellHeight) {
 }
 
 /**
+ * 画像が全白または全黒の blank 画像でないかを sharp で検証する。
+ * @param {string} pngPath - 検証対象の画像ファイルパス
+ * @returns {Promise<{ blank: boolean; reason: string }>}
+ */
+export async function checkImageNotBlank(pngPath) {
+	let sharp;
+	try {
+		sharp = (await import('sharp')).default;
+	} catch {
+		throw new Error('sharp が見つかりません。npm install を実行してください。');
+	}
+	const { data } = await sharp(pngPath)
+		.resize({ width: 50, height: 50, fit: 'fill' })
+		.greyscale()
+		.raw()
+		.toBuffer({ resolveWithObject: true });
+
+	let minVal = 255;
+	let maxVal = 0;
+	for (const v of data) {
+		if (v < minVal) minVal = v;
+		if (v > maxVal) maxVal = v;
+	}
+
+	if (maxVal <= 5) {
+		return { blank: true, reason: `全黒画像 (最大輝度値: ${maxVal})` };
+	}
+	if (minVal >= 250) {
+		return { blank: true, reason: `全白画像 (最小輝度値: ${minVal})` };
+	}
+	return { blank: false, reason: '' };
+}
+
+/**
+ * フロー記録のステップ上限・警告を検証する（純粋関数）。
+ * @param {number} stepIndex - 1-based step index
+ * @param {number} maxSteps
+ * @param {number} gridColumns
+ * @param {number} cellWidth
+ * @param {number} cellHeight
+ * @returns {{ warn: boolean; layout: ReturnType<typeof buildGridLayout> | null }}
+ * @throws {Error} ステップ上限を超過した場合
+ */
+export function checkStepLimit(stepIndex, maxSteps, gridColumns, cellWidth, cellHeight) {
+	if (stepIndex > maxSteps) {
+		throw new Error(
+			`ステップ上限超過: ${stepIndex} > ${maxSteps}。--max-steps で上限を変更できます。`,
+		);
+	}
+	const warnThreshold = Math.floor(maxSteps * 0.8);
+	if (stepIndex > warnThreshold) {
+		const layout = buildGridLayout(maxSteps, gridColumns, cellWidth, cellHeight);
+		return { warn: true, layout };
+	}
+	return { warn: false, layout: null };
+}
+
+/**
  * フロースタンプシートの Markdown スニペットを生成する（純粋関数）。
  * @param {string} flowName
  * @param {Array<{ label: string }>} steps
@@ -332,16 +390,10 @@ export class FlowRecorder {
 		/** @param {string} label */
 		const captureStep = async (label) => {
 			stepIndex++;
-			if (stepIndex > maxSteps) {
-				throw new Error(
-					`ステップ上限超過: ${stepIndex} > ${maxSteps}。--max-steps で上限を変更できます。`,
-				);
-			}
-			const warnThreshold = Math.floor(maxSteps * 0.8);
-			if (stepIndex > warnThreshold) {
-				const layout = buildGridLayout(maxSteps, gridColumns, cellWidth, cellHeight);
+			const limitCheck = checkStepLimit(stepIndex, maxSteps, gridColumns, cellWidth, cellHeight);
+			if (limitCheck.warn && limitCheck.layout) {
 				console.warn(
-					`[WARN] ステップ ${stepIndex}/${maxSteps} (80%超)。合成後推定サイズ: ${layout.totalWidth}×${layout.totalHeight}px`,
+					`[WARN] ステップ ${stepIndex}/${maxSteps} (80%超)。合成後推定サイズ: ${limitCheck.layout.totalWidth}×${limitCheck.layout.totalHeight}px`,
 				);
 			}
 
@@ -354,6 +406,17 @@ export class FlowRecorder {
 			const stat = fs.statSync(pngPath);
 			if (stat.size === 0) {
 				throw new Error(`ステップ ${stepIndex} の PNG が空ファイルです: ${pngPath}`);
+			}
+
+			// 全白・全黒画像チェック
+			const blankCheck = await checkImageNotBlank(pngPath).catch((e) => {
+				console.warn(
+					`[WARN] 画像品質チェックをスキップしました: ${/** @type {Error} */ (e).message}`,
+				);
+				return null;
+			});
+			if (blankCheck?.blank) {
+				throw new Error(`ステップ ${stepIndex} の PNG が ${blankCheck.reason} です: ${pngPath}`);
 			}
 
 			steps.push({ label, pngPath, stepName });
