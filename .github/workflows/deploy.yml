@@ -84,7 +84,17 @@ jobs:
         working-directory: infra/
         run: npm ci
 
-      # Phase 1: Deploy Storage stack (ECR repo, DynamoDB, S3)
+      # Phase 1: Replacement check + Deploy Storage stack (ECR repo, DynamoDB, S3)
+      # #1400: cdk diff で Replacement/Destroy リソースを検出し、未承認なら deploy をブロック
+      - name: CDK diff — replacement check (Storage)
+        working-directory: infra/
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          npx cdk diff GanbariQuestStorage \
+            -c domainName=${{ env.DOMAIN_NAME }} \
+            -c certificateArn=${{ env.CERTIFICATE_ARN }} \
+            2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
+
       - name: CDK Deploy Storage
         working-directory: infra/
         run: >-
@@ -153,7 +163,33 @@ jobs:
           fi
           # Note: Cost Anomaly Monitoring はデフォルトモニターを使用（CDK管理外）
 
-      # Phase 3: Deploy Compute + Network stacks (Lambda, CloudFront)
+      # Phase 3: Replacement check + Deploy Compute + Network stacks (Lambda, CloudFront)
+      # #1400: Auth / Network / Compute スタック（特に Cognito User Pool）の Replacement を検知
+      - name: CDK diff — replacement check (all stacks)
+        working-directory: infra/
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          npx cdk diff --all \
+            -c domainName=${{ env.DOMAIN_NAME }} \
+            -c certificateArn=${{ env.CERTIFICATE_ARN }} \
+            -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }} \
+            -c geminiApiKey=${{ secrets.GEMINI_API_KEY }} \
+            -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }} \
+            -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }} \
+            -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+            -c stripePriceMonthly=${{ vars.STRIPE_PRICE_MONTHLY }} \
+            -c stripePriceYearly=${{ vars.STRIPE_PRICE_YEARLY }} \
+            -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }} \
+            -c stripePriceFamilyYearly=${{ vars.STRIPE_PRICE_FAMILY_YEARLY }} \
+            -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }} \
+            -c cronSecret=${{ secrets.CRON_SECRET }} \
+            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }} \
+            -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }} \
+            ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }} \
+            ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }} \
+            2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
+
       - name: CDK Deploy all stacks
         working-directory: infra/
         run: >-
