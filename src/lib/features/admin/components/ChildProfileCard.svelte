@@ -9,6 +9,7 @@ import {
 	getUnitLabel,
 } from '$lib/domain/point-display';
 import type { CategoryDef } from '$lib/domain/validation/activity';
+import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -298,13 +299,10 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 							name="nickname"
 							value={child.nickname}
 						/>
-						<FormField
-							label="たんじょうび"
-							type="date"
-							id="edit-birthDate-{child.id}"
+						<BirthdayInput
 							name="birthDate"
-							max={new Date().toISOString().split('T')[0]}
-							value={child.birthDate ?? ''}
+							id="edit-birthDate-{child.id}"
+							value={child.birthDate ?? undefined}
 						/>
 						<FormField label="年齢{child.birthDate ? '（自動計算）' : ''}">
 							{#snippet children()}
