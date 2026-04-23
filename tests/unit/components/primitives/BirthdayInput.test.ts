@@ -1,5 +1,5 @@
-import { render, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect } from 'vitest';
+import { fireEvent, render } from '@testing-library/svelte';
+import { describe, expect, it } from 'vitest';
 import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 
 describe('BirthdayInput', () => {
@@ -26,7 +26,10 @@ describe('BirthdayInput', () => {
 	});
 
 	it('handles leap years correctly (29 days in Feb)', async () => {
-		const { getByLabelText, getByText } = render(BirthdayInput, { value: '2024-02-01', name: 'birthDate' });
+		const { getByLabelText, getByText } = render(BirthdayInput, {
+			value: '2024-02-01',
+			name: 'birthDate',
+		});
 
 		const daySelect = getByLabelText('生まれた日') as HTMLSelectElement;
 		const options = Array.from(daySelect.querySelectorAll('option')).filter((o) => o.value !== '');
