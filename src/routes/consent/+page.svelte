@@ -20,8 +20,8 @@ const canSubmit = $derived(
 );
 const submitBlockReason = $derived.by(() => {
 	if (loading) return '';
-	if (needsTerms && !agreedTerms) return '利用規約への同意が必要です';
-	if (needsPrivacy && !agreedPrivacy) return 'プライバシーポリシーへの同意が必要です';
+	if (needsTerms && !agreedTerms) return CONSENT_LABELS.errors.termsRequired;
+	if (needsPrivacy && !agreedPrivacy) return CONSENT_LABELS.errors.privacyRequired;
 	return '';
 });
 </script>
