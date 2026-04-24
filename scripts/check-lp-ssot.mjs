@@ -38,8 +38,9 @@ function hasSsotAttribute(line) {
 }
 
 function hasVisibleJpText(line) {
-	const textOnly = line.replace(/<[^<>]*>/g, '').trim();
-	return JP_REGEX.test(textOnly);
+	// Split on angle brackets to isolate text nodes (even indices) from tag content (odd indices)
+	const segments = line.split(/[<>]/);
+	return segments.filter((_, i) => i % 2 === 0).some((t) => JP_REGEX.test(t));
 }
 
 function updateBlockState(line, state) {
