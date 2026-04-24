@@ -45,7 +45,7 @@ onMount(() => {
 });
 
 function notifyDemoOnly() {
-	showToast(LICENSE_PAGE_LABELS.demoNoticeToast(LICENSE_PAGE_LABELS.demoNotice), undefined, 'info');
+	showToast(LICENSE_PAGE_LABELS.demoNoticeToastText, undefined, 'info');
 }
 
 /** #817: デモ用ライセンスキー適用モック。入力値に応じてプランを変更する演出 */

@@ -1053,6 +1053,7 @@ export const LICENSE_PAGE_LABELS = {
 	demoNotice: 'これはデモ画面です',
 	demoNoticeOperationsDisabled: '実際の操作はできません',
 	demoNoticeToast: (notice: string) => `${notice} - 実際の操作はできません`,
+	demoNoticeToastText: 'デモでは実際の操作はできません',
 	demoNoticeDesc:
 		'本番の /admin/license と同じ画面構成ですが、Stripe決済・ライセンスキー適用・トライアル開始はすべて無効化されています。クリックしても課金は発生しません。',
 	demoApplySuccessTitle: 'ライセンスキーが適用されました（デモ）',
