@@ -1,7 +1,13 @@
 <script lang="ts">
 import '$lib/ui/styles/app.css';
 import { page } from '$app/stores';
-import { APP_LABELS, DEMO_LAYOUT_LABELS, PAGE_TITLES, PLAN_SHORT_LABELS, type PlanKey } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	DEMO_LAYOUT_LABELS,
+	PAGE_TITLES,
+	PLAN_SHORT_LABELS,
+	type PlanKey,
+} from '$lib/domain/labels';
 import DemoGuideBar from '$lib/features/demo/DemoGuideBar.svelte';
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import { getGuideState } from '$lib/features/demo/demo-guide-state.svelte.js';

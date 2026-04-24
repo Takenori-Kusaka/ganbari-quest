@@ -1,5 +1,10 @@
 <script lang="ts">
-import { APP_LABELS, MARKETPLACE_FILTER_LABELS, MARKETPLACE_LABELS, type MarketplaceSortKey } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	MARKETPLACE_FILTER_LABELS,
+	MARKETPLACE_LABELS,
+	type MarketplaceSortKey,
+} from '$lib/domain/labels';
 import type { MarketplaceGender, MarketplaceItemType } from '$lib/domain/marketplace-item';
 import { MARKETPLACE_TYPE_ICONS, MARKETPLACE_TYPE_LABELS } from '$lib/domain/marketplace-item';
 import Logo from '$lib/ui/components/Logo.svelte';

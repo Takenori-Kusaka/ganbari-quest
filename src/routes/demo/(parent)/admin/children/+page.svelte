@@ -1,5 +1,10 @@
 <script lang="ts">
-import { ADMIN_CHILDREN_LABELS, APP_LABELS, PAGE_TITLES, getAgeTierLabel } from '$lib/domain/labels';
+import {
+	ADMIN_CHILDREN_LABELS,
+	APP_LABELS,
+	getAgeTierLabel,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';

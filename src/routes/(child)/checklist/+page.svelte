@@ -1,7 +1,13 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
-import { APP_LABELS, CHECKLIST_KIND_ICONS, CHECKLIST_KIND_LABELS, PAGE_TITLES, type ChecklistKind } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	CHECKLIST_KIND_ICONS,
+	CHECKLIST_KIND_LABELS,
+	type ChecklistKind,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';

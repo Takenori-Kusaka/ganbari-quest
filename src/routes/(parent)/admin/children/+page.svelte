@@ -1,7 +1,12 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { getErrorMessage } from '$lib/domain/errors';
-import { ADMIN_CHILDREN_PAGE_LABELS, APP_LABELS, PAGE_TITLES, getThemeOptions } from '$lib/domain/labels';
+import {
+	ADMIN_CHILDREN_PAGE_LABELS,
+	APP_LABELS,
+	getThemeOptions,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import { formatPointValue } from '$lib/domain/point-display';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';

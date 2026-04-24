@@ -1,8 +1,8 @@
 <script lang="ts">
 import { formatChildName } from '$lib/domain/child-display';
+import { CERTIFICATE_DETAIL_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import CertificateTemplate from '$lib/features/certificate/CertificateTemplate.svelte';
 import ShareCard from '$lib/features/certificate/ShareCard.svelte';
-import { CERTIFICATE_DETAIL_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 

@@ -1,7 +1,7 @@
 <script lang="ts">
-import { APP_LABELS, DEMO_CHILD_HOME_LABELS, PAGE_TITLES, formatStreak } from '$lib/domain/labels';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { APP_LABELS, DEMO_CHILD_HOME_LABELS, formatStreak, PAGE_TITLES } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';

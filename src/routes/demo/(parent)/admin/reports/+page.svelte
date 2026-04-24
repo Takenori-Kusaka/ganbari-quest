@@ -1,6 +1,6 @@
 <script lang="ts">
-import { APP_LABELS, DEMO_REPORTS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { formatChildName } from '$lib/domain/child-display';
+import { APP_LABELS, DEMO_REPORTS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
