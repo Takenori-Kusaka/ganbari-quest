@@ -31,7 +31,7 @@ try {
 	});
 } catch (e) {
 	const stdout = e.stdout;
-	output = typeof stdout === 'string' ? stdout : (stdout ? stdout.toString('utf-8') : '');
+	output = typeof stdout === 'string' ? stdout : stdout ? stdout.toString('utf-8') : '';
 }
 
 let results;
@@ -63,7 +63,9 @@ if (count > baselineCount) {
 }
 
 if (count < baselineCount) {
-	console.log(`\nGreat! Count reduced by ${baselineCount - count}. Consider updating the baseline.`);
+	console.log(
+		`\nGreat! Count reduced by ${baselineCount - count}. Consider updating the baseline.`,
+	);
 }
 
 console.log('OK: Hardcoded JP text count is within baseline.');
