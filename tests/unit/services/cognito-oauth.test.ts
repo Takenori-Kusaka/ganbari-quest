@@ -16,6 +16,7 @@ import {
 	exchangeCodeForTokens,
 	getCognitoOAuthConfig,
 	refreshCognitoIdToken,
+	revokeCognitoRefreshToken,
 	setRefreshCookie,
 	verifyOAuthState,
 } from '../../../src/lib/server/auth/providers/cognito-oauth';
@@ -266,6 +267,56 @@ describe('cognito-oauth', () => {
 
 			expect(result).toBeNull();
 			expect(cookies._store.has('gq_refresh')).toBe(false);
+		});
+	});
+
+	describe('revokeCognitoRefreshToken', () => {
+		it('Refresh Token が存在する場合 revoke エンドポイントを呼び出す', async () => {
+			const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+			vi.stubGlobal('fetch', fetchMock);
+
+			const cookies = createMockCookies();
+			cookies.set('gq_refresh', 'valid-refresh-token');
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await revokeCognitoRefreshToken(cookies as any);
+
+			expect(fetchMock).toHaveBeenCalledOnce();
+			const [url, opts] = fetchMock.mock.calls[0];
+			expect(url).toContain('/oauth2/revoke');
+			expect(opts.method).toBe('POST');
+		});
+
+		it('Refresh Token が存在しない場合 fetch を呼び出さない', async () => {
+			const fetchMock = vi.fn();
+			vi.stubGlobal('fetch', fetchMock);
+
+			const cookies = createMockCookies();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await revokeCognitoRefreshToken(cookies as any);
+
+			expect(fetchMock).not.toHaveBeenCalled();
+		});
+
+		it('revoke エンドポイントがエラーを返しても例外を投げない（warn ログのみ）', async () => {
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+			const cookies = createMockCookies();
+			cookies.set('gq_refresh', 'invalid-token');
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await expect(revokeCognitoRefreshToken(cookies as any)).resolves.not.toThrow();
+		});
+
+		it('fetch 自体が失敗しても例外を投げない（warn ログのみ）', async () => {
+			vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')));
+
+			const cookies = createMockCookies();
+			cookies.set('gq_refresh', 'some-token');
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await expect(revokeCognitoRefreshToken(cookies as any)).resolves.not.toThrow();
 		});
 	});
 });

@@ -229,6 +229,41 @@ export async function refreshCognitoIdToken(cookies: Cookies): Promise<{ idToken
 	return { idToken: data.id_token };
 }
 
+/**
+ * Cognito Refresh Token を失効させる（ログアウト時に呼び出す）
+ * 失敗しても Cookie 削除は続行するため、エラーは warn ログのみ
+ */
+export async function revokeCognitoRefreshToken(cookies: Cookies): Promise<void> {
+	const refreshToken = cookies.get(REFRESH_COOKIE_NAME);
+	if (!refreshToken) return;
+
+	const config = getCognitoOAuthConfig();
+	const revokeUrl = `https://${config.domain}/oauth2/revoke`;
+
+	const body = new URLSearchParams({ token: refreshToken });
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/x-www-form-urlencoded',
+	};
+
+	if (config.clientSecret) {
+		const credentials = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64');
+		headers.Authorization = `Basic ${credentials}`;
+	}
+
+	try {
+		const response = await fetch(revokeUrl, { method: 'POST', headers, body: body.toString() });
+		if (!response.ok) {
+			logger.warn('[AUTH] Refresh token revocation failed', {
+				context: { status: response.status },
+			});
+		}
+	} catch (e) {
+		logger.warn('[AUTH] Refresh token revocation request failed', {
+			context: { error: e instanceof Error ? e.message : String(e) },
+		});
+	}
+}
+
 /** Cognito ログアウト URL を生成する */
 export function buildLogoutUrl(): string {
 	const config = getCognitoOAuthConfig();

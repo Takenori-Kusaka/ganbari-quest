@@ -10,7 +10,10 @@ import {
 	SESSION_COOKIE_NAME,
 } from '$lib/domain/validation/auth';
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
-import { buildLogoutUrl } from '$lib/server/auth/providers/cognito-oauth';
+import {
+	buildLogoutUrl,
+	revokeCognitoRefreshToken,
+} from '$lib/server/auth/providers/cognito-oauth';
 import type { RequestHandler } from './$types';
 
 function clearSessionCookies(cookies: import('@sveltejs/kit').Cookies) {
@@ -21,7 +24,12 @@ function clearSessionCookies(cookies: import('@sveltejs/kit').Cookies) {
 	cookies.delete(REFRESH_COOKIE_NAME, { path: '/' }); // #1365: Refresh Token も削除
 }
 
-function handleLogout(cookies: import('@sveltejs/kit').Cookies): never {
+async function handleLogout(cookies: import('@sveltejs/kit').Cookies): Promise<never> {
+	// Cognito 本番モード: Refresh Token を失効させてから Cookie 削除 (#1365)
+	if (getAuthMode() === 'cognito' && !isCognitoDevMode()) {
+		await revokeCognitoRefreshToken(cookies);
+	}
+
 	clearSessionCookies(cookies);
 
 	// Cognito 本番モードのみ Hosted UI ログアウトにリダイレクト（dev モードは除外）
@@ -41,10 +49,10 @@ function handleLogout(cookies: import('@sveltejs/kit').Cookies): never {
 }
 
 export const POST: RequestHandler = async ({ cookies }) => {
-	handleLogout(cookies);
+	await handleLogout(cookies);
 };
 
 // GET でもログアウト可能にする（リンクからの遷移用）
 export const GET: RequestHandler = async ({ cookies }) => {
-	handleLogout(cookies);
+	await handleLogout(cookies);
 };
