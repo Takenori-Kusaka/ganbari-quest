@@ -327,7 +327,7 @@ describe('onboarding-service', () => {
 			expect(result.items[2]?.key).toBe('rewards');
 			expect(result.items[2]?.label).toBe('ごほうびプリセットを選ぶ');
 			expect(result.items[3]?.key).toBe('pin');
-			expect(result.items[3]?.label).toBe('PINコードを設定する');
+			expect(result.items[3]?.label).toBe('おやカギコードを変更する');
 			expect(result.items[4]?.key).toBe('checklist');
 			expect(result.items[4]?.label).toBe('チェックリストを作る');
 			expect(result.items[5]?.key).toBe('child_screen');
@@ -382,6 +382,31 @@ describe('onboarding-service', () => {
 
 			const pinItem = result.items.find((i) => i.key === 'pin');
 			expect(pinItem?.completed).toBe(false);
+		});
+
+		it('pin は required: false（任意項目）', async () => {
+			setupDefaults();
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			const pinItem = result.items.find((i) => i.key === 'pin');
+			expect(pinItem?.required).toBe(false);
+		});
+
+		it('pin 未設定でも必須項目が全完了なら allCompleted は true (#1360)', async () => {
+			setupDefaults({
+				children: [{ id: 1 }],
+				activities: [{ id: 10 }],
+				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
+				pinHash: null,
+				childScreenVisited: 'true',
+				templatesByChild: { 1: [{ id: 100 }] },
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			expect(result.allCompleted).toBe(true);
+			expect(result.completedCount).toBe(5);
 		});
 	});
 

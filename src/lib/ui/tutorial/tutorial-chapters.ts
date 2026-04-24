@@ -1,4 +1,4 @@
-import { NAV_CATEGORIES, NAV_ITEM_LABELS, PLAN_LABELS } from '$lib/domain/labels';
+import { NAV_CATEGORIES, NAV_ITEM_LABELS, OYAKAGI_LABELS, PLAN_LABELS } from '$lib/domain/labels';
 import type { PlanTier, TutorialChapter } from './tutorial-types';
 
 const TIER_ORDER: Record<PlanTier, number> = { free: 0, standard: 1, family: 2 };
@@ -233,8 +233,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				chapterId: 8,
 				selector: '[data-tutorial="switch-to-child"]',
 				title: 'こども画面へ切替',
-				description:
-					'こどもにタブレットやスマホを渡す時に使います。こども専用のゲーム画面に切り替わり、自分で活動を記録できるようになります。管理画面に戻るにはPINコードが必要です。\n\n💡 こども画面にも「❓」ボタンからアクセスできる操作ガイドがあります。お子さまが自分で使い方を確認できるので安心です。',
+				description: `こどもにタブレットやスマホを渡す時に使います。こども専用のゲーム画面に切り替わり、自分で活動を記録できるようになります。管理画面に戻るには${OYAKAGI_LABELS.name}が必要です。\n\n💡 こども画面にも「❓」ボタンからアクセスできる操作ガイドがあります。お子さまが自分で使い方を確認できるので安心です。`,
 				position: 'bottom',
 				page: '/admin',
 			},
@@ -242,9 +241,8 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				id: 'settings-2',
 				chapterId: 8,
 				selector: '[data-tutorial="pin-settings"]',
-				title: 'PINコード設定',
-				description:
-					'管理画面へのアクセスを保護するPINコードを変更できます。こどもに勝手にポイントを変えられないよう、定期的に変更するのがおすすめです。',
+				title: OYAKAGI_LABELS.sectionTitle,
+				description: `管理画面へのアクセスを保護する${OYAKAGI_LABELS.name}を変更できます。こどもに勝手にポイントを変えられないよう、定期的に変更するのがおすすめです。${OYAKAGI_LABELS.defaultValueHint}。`,
 				position: 'bottom',
 				page: '/admin/settings',
 			},

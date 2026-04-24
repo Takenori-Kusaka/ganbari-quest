@@ -3,7 +3,7 @@ import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
-import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
+import { IMPORT_LABELS, type ImportSkipReason, OYAKAGI_LABELS } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
@@ -586,12 +586,13 @@ const anyFormBusy = $derived(
 		</div>
 	{/if}
 
-	<!-- PIN変更 -->
+	<!-- おやカギコード変更 -->
 	<Card padding="lg" data-tutorial="pin-settings">
-		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">🔒 PINコード変更</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">{OYAKAGI_LABELS.sectionTitle}</h3>
+		<p class="text-sm text-[var(--color-text-muted)] mb-4">{OYAKAGI_LABELS.defaultValueHint}</p>
 
 		{#if success}
-			<SuccessAlert message="PINコードを変更しました" />
+			<SuccessAlert message={OYAKAGI_LABELS.changeSuccess} />
 		{/if}
 
 		{#if errorMessage}
@@ -615,7 +616,7 @@ const anyFormBusy = $derived(
 			}}
 			class="flex flex-col gap-4"
 		>
-			<FormField label="現在のPIN">
+			<FormField label={`現在の${OYAKAGI_LABELS.name}`}>
 				{#snippet children()}
 					<input
 						type="password"
@@ -630,7 +631,7 @@ const anyFormBusy = $derived(
 				{/snippet}
 			</FormField>
 
-			<FormField label="新しいPIN（4〜8桁）">
+			<FormField label={`新しい${OYAKAGI_LABELS.name}（4〜8桁）`}>
 				{#snippet children()}
 					<input
 						type="password"
@@ -646,7 +647,7 @@ const anyFormBusy = $derived(
 				{/snippet}
 			</FormField>
 
-			<FormField label="新しいPIN（確認）">
+			<FormField label={`新しい${OYAKAGI_LABELS.name}（確認）`}>
 				{#snippet children()}
 					<input
 						type="password"
@@ -669,7 +670,7 @@ const anyFormBusy = $derived(
 				class="w-full"
 				disabled={submitting}
 			>
-				{submitting ? '変更中...' : 'PINを変更'}
+				{submitting ? '変更中...' : OYAKAGI_LABELS.changeAction}
 			</Button>
 		</form>
 	</Card>

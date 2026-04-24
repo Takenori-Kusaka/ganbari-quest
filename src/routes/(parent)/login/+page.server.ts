@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { OYAKAGI_LABELS } from '$lib/domain/labels';
 import {
 	pinSchema,
 	SESSION_COOKIE_NAME,
@@ -23,7 +24,7 @@ export const actions: Actions = {
 		const parsed = pinSchema.safeParse(pin);
 		if (!parsed.success) {
 			return fail(400, {
-				error: 'PINは4〜6桁の数字を入力してください',
+				error: OYAKAGI_LABELS.formatError,
 			});
 		}
 
@@ -33,16 +34,11 @@ export const actions: Actions = {
 		if ('error' in result) {
 			if (result.error === 'LOCKED_OUT') {
 				return fail(429, {
-					error: 'ロックされています。しばらくしてからもう一度お試しください',
-				});
-			}
-			if (result.error === 'PIN_NOT_SET') {
-				return fail(500, {
-					error: 'PINが設定されていません',
+					error: OYAKAGI_LABELS.lockedError,
 				});
 			}
 			return fail(401, {
-				error: 'PINがちがいます',
+				error: OYAKAGI_LABELS.invalidError,
 			});
 		}
 

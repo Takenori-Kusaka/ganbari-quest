@@ -1,6 +1,7 @@
 // src/lib/server/services/onboarding-service.ts
 // オンボーディングチェックリスト — 自動完了検知
 
+import { OYAKAGI_LABELS } from '$lib/domain/labels';
 import { findTemplatesByChild } from '$lib/server/db/checklist-repo';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { getActivities } from '$lib/server/services/activity-service';
@@ -12,6 +13,8 @@ export interface OnboardingItem {
 	label: string;
 	completed: boolean;
 	href: string;
+	/** false のアイテムは allCompleted 判定から除外される（Sub3 で折りたたみ UI が参照） */
+	required: boolean;
 }
 
 export interface OnboardingProgress {
@@ -56,42 +59,48 @@ export async function getOnboardingProgress(
 			label: '子供を登録する',
 			completed: children.length > 0,
 			href: `${basePath}/children`,
+			required: true,
 		},
 		{
 			key: 'activities',
 			label: '活動パックを選ぶ',
 			completed: activities.length > 0,
 			href: `${basePath}/activities`,
+			required: true,
 		},
 		{
 			key: 'rewards',
 			label: 'ごほうびプリセットを選ぶ',
 			completed: rewardTemplates.length > 0,
 			href: `${basePath}/rewards`,
+			required: true,
 		},
 		{
 			key: 'pin',
-			label: 'PINコードを設定する',
+			label: OYAKAGI_LABELS.setupStep,
 			completed: !!pinHash,
 			href: `${basePath}/settings`,
+			required: false,
 		},
 		{
 			key: 'checklist',
 			label: 'チェックリストを作る',
 			completed: hasChecklist,
 			href: `${basePath}/checklists`,
+			required: true,
 		},
 		{
 			key: 'child_screen',
 			label: '子供の画面を確認する',
 			completed: childScreenVisited === 'true',
 			href: '/switch',
+			required: true,
 		},
 	];
 
 	const completedCount = items.filter((i) => i.completed).length;
 	const totalCount = items.length;
-	const allCompleted = completedCount === totalCount;
+	const allCompleted = items.filter((i) => i.required).every((i) => i.completed);
 	const nextRecommendation = items.find((i) => !i.completed) ?? null;
 
 	return {

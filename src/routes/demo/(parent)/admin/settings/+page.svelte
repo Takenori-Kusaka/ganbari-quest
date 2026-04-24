@@ -1,4 +1,5 @@
 <script lang="ts">
+import { OYAKAGI_LABELS } from '$lib/domain/labels';
 import { CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
@@ -27,16 +28,16 @@ const decayOptions = [
 
 	<DemoBanner />
 
-	<!-- PIN Settings -->
+	<!-- おやカギコード設定 -->
 	<Card>
 		<div class="space-y-3">
-			<h2 class="text-sm font-bold text-[var(--color-text-primary)]">&#x1F512; PINコード設定</h2>
+			<h2 class="text-sm font-bold text-[var(--color-text-primary)]">{OYAKAGI_LABELS.sectionTitle}</h2>
 			<p class="text-xs text-[var(--color-text-muted)]">
-				管理画面にアクセスするためのPINコードを変更できます。
+				管理画面にアクセスするための{OYAKAGI_LABELS.name}を変更できます。{OYAKAGI_LABELS.defaultValueHint}。
 			</p>
 			<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-				<FormField label="現在のPIN" type="password" disabled placeholder="****" />
-				<FormField label="新しいPIN" type="password" disabled placeholder="****" />
+				<FormField label={`現在の${OYAKAGI_LABELS.shortName}`} type="password" disabled placeholder="****" />
+				<FormField label={`新しい${OYAKAGI_LABELS.shortName}`} type="password" disabled placeholder="****" />
 				<FormField label="確認" type="password" disabled placeholder="****" />
 			</div>
 		</div>

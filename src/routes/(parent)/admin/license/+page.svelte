@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
+import { OYAKAGI_LABELS } from '$lib/domain/labels';
 import { getLicenseHighlights } from '$lib/domain/plan-features';
 import DowngradeResourceSelector from '$lib/features/admin/components/DowngradeResourceSelector.svelte';
 import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
@@ -231,7 +232,7 @@ async function openPortal() {
 			portalPinValue.length > 6 ||
 			!/^\d+$/.test(portalPinValue)
 		) {
-			portalError = 'PINコード（4〜6桁の数字）を入力してください';
+			portalError = OYAKAGI_LABELS.formatError;
 			return;
 		}
 	} else {
@@ -257,9 +258,9 @@ async function openPortal() {
 				const body = (await res.json()) as { message?: string };
 				const raw = body.message ?? '';
 				if (raw === 'INVALID_PIN' || raw === 'PIN_REQUIRED') {
-					message = 'PINコードが正しくありません';
+					message = OYAKAGI_LABELS.invalidError;
 				} else if (raw.startsWith('LOCKED_OUT')) {
-					message = 'PIN認証のロックアウト中です。しばらく待ってから再度お試しください';
+					message = OYAKAGI_LABELS.lockedError;
 				} else if (raw === 'CONFIRM_PHRASE_REQUIRED') {
 					message = `「${DOWNGRADE_CONFIRM_PHRASE}」と入力してください`;
 				} else if (raw) {
@@ -777,13 +778,13 @@ async function openPortal() {
 			</p>
 			<p class="text-[var(--color-feedback-warning-text)] font-semibold">
 				⚠️ 誤操作による解約・ダウングレードを防ぐため、
-				{pinConfigured ? '親 PIN コード（4〜6桁）' : '確認フレーズ'}を入力してください。
+				{pinConfigured ? OYAKAGI_LABELS.inputLabel : '確認フレーズ'}を入力してください。
 			</p>
 
 			{#if pinConfigured}
 				<div class="space-y-2">
 					<label for="portal-pin" class="block text-sm font-medium text-[var(--color-text-primary)]">
-						親 PIN コード（4〜6桁）
+						{OYAKAGI_LABELS.inputLabel}
 					</label>
 					<input
 						id="portal-pin"
@@ -793,7 +794,7 @@ async function openPortal() {
 						maxlength={6}
 						minlength={4}
 						bind:value={portalPinValue}
-						placeholder="PIN を入力"
+						placeholder={OYAKAGI_LABELS.inputPlaceholder}
 						autocomplete="off"
 						data-testid="portal-pin-input"
 						class="w-full rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-card)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"

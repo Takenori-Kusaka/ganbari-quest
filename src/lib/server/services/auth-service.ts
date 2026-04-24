@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcrypt';
+import { DEFAULT_PIN } from '$lib/domain/constants/oyakagi';
 import {
 	LOCKOUT_DURATION_MS,
 	MAX_FAILED_ATTEMPTS,
@@ -23,13 +24,9 @@ export type LoginResult =
 
 export type SessionResult = { valid: true; refreshed: boolean } | { valid: false };
 
-// --- PIN認証 ---
+// --- おやカギコード認証 ---
 export async function login(pin: string, tenantId: string): Promise<LoginResult> {
-	// 1) PIN設定済みか確認
 	const pinHash = await getSetting('pin_hash', tenantId);
-	if (!pinHash) {
-		return { error: 'PIN_NOT_SET' };
-	}
 
 	// 2) ロックアウトチェック
 	const lockedUntil = await getSetting('pin_locked_until', tenantId);
@@ -38,11 +35,16 @@ export async function login(pin: string, tenantId: string): Promise<LoginResult>
 		return { error: 'LOCKED_OUT', lockedUntil };
 	}
 
-	// 3) PIN検証
-	const isValid = bcrypt.compareSync(pin, pinHash);
+	// 3) おやカギコード検証（pin_hash 未設定 → DEFAULT_PIN と照合）
+	let isValid: boolean;
+	if (!pinHash) {
+		isValid = pin === DEFAULT_PIN;
+	} else {
+		isValid = bcrypt.compareSync(pin, pinHash);
+	}
 	if (!isValid) {
 		await incrementFailedAttempts(tenantId);
-		logger.warn('[AUTH] PIN認証失敗');
+		logger.warn('[AUTH] おやカギコード認証失敗');
 		return { error: 'INVALID_PIN' };
 	}
 
@@ -104,24 +106,25 @@ export type VerifyPinResult =
 	| { ok: false; error: 'PIN_NOT_SET' };
 
 export async function verifyPin(pin: string, tenantId: string): Promise<VerifyPinResult> {
-	// 1) PIN設定済みか確認
 	const pinHash = await getSetting('pin_hash', tenantId);
-	if (!pinHash) {
-		return { ok: false, error: 'PIN_NOT_SET' };
-	}
 
 	// 2) ロックアウトチェック
 	const lockedUntil = await getSetting('pin_locked_until', tenantId);
 	if (lockedUntil && new Date(lockedUntil) > new Date()) {
-		logger.warn('[AUTH] ロックアウト中のPIN再確認試行', { context: { lockedUntil } });
+		logger.warn('[AUTH] ロックアウト中のおやカギコード再確認試行', { context: { lockedUntil } });
 		return { ok: false, error: 'LOCKED_OUT', lockedUntil };
 	}
 
-	// 3) PIN検証
-	const isValid = bcrypt.compareSync(pin, pinHash);
+	// 3) おやカギコード検証（pin_hash 未設定 → DEFAULT_PIN と照合）
+	let isValid: boolean;
+	if (!pinHash) {
+		isValid = pin === DEFAULT_PIN;
+	} else {
+		isValid = bcrypt.compareSync(pin, pinHash);
+	}
 	if (!isValid) {
 		await incrementFailedAttempts(tenantId);
-		logger.warn('[AUTH] PIN再確認失敗');
+		logger.warn('[AUTH] おやカギコード再確認失敗');
 		return { ok: false, error: 'INVALID_PIN' };
 	}
 
@@ -153,20 +156,26 @@ export async function changePin(
 		return { error: 'LOCKED_OUT', lockedUntil };
 	}
 
-	// 現在のPIN検証
+	// 現在のおやカギコード検証（pin_hash 未設定 → DEFAULT_PIN と照合）
 	const pinHash = await getSetting('pin_hash', tenantId);
-	if (!pinHash || !bcrypt.compareSync(currentPin, pinHash)) {
+	let isCurrentValid: boolean;
+	if (!pinHash) {
+		isCurrentValid = currentPin === DEFAULT_PIN;
+	} else {
+		isCurrentValid = bcrypt.compareSync(currentPin, pinHash);
+	}
+	if (!isCurrentValid) {
 		await incrementFailedAttempts(tenantId);
-		logger.warn('[AUTH] PIN変更: 現在のPIN認証失敗');
+		logger.warn('[AUTH] おやカギコード変更: 現在のコード認証失敗');
 		return { error: 'INVALID_CURRENT_PIN' };
 	}
 
-	// 新しいPINを設定
+	// 新しいおやカギコードを設定
 	const newHash = bcrypt.hashSync(newPin, 10);
 	await setSetting('pin_hash', newHash, tenantId);
 	await resetFailedAttempts(tenantId);
 
-	logger.info('[AUTH] PIN変更完了');
+	logger.info('[AUTH] おやカギコード変更完了');
 	return { success: true };
 }
 

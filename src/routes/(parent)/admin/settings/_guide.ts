@@ -1,3 +1,4 @@
+import { OYAKAGI_LABELS } from '$lib/domain/labels';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
 export const SETTINGS_GUIDE: PageGuide = {
@@ -8,12 +9,12 @@ export const SETTINGS_GUIDE: PageGuide = {
 		{
 			id: 'settings-pin',
 			selector: '[data-tutorial="pin-settings"]',
-			title: 'PINコード設定',
-			what: '管理画面へのアクセスを保護するPINコード（4桁の数字）を変更できます。お子さまが誤って管理画面に入るのを防ぎます。',
-			how: '1. 現在のPINコードを入力\n2. 新しいPINコード（4桁）を入力\n3. 確認のためもう一度入力\n4. 「変更する」をタップ',
-			goal: 'PINコードが更新され、次回のログインから新しいPINが必要になります。',
+			title: OYAKAGI_LABELS.sectionTitle,
+			what: `管理画面へのアクセスを保護する${OYAKAGI_LABELS.name}（4桁の数字）を変更できます。お子さまが誤って管理画面に入るのを防ぎます。${OYAKAGI_LABELS.defaultValueHint}。`,
+			how: `1. 現在の${OYAKAGI_LABELS.name}を入力\n2. 新しい${OYAKAGI_LABELS.name}（4桁）を入力\n3. 確認のためもう一度入力\n4. 「変更する」をタップ`,
+			goal: `${OYAKAGI_LABELS.name}が更新され、次回のログインから新しいコードが必要になります。`,
 			tips: [
-				'PINコードを忘れた場合は、ブラウザのCookieをクリアすると再設定できます（ローカル版の場合）',
+				`${OYAKAGI_LABELS.name}を忘れた場合は、ブラウザのCookieをクリアすると再設定できます（ローカル版の場合）`,
 			],
 			position: 'bottom',
 		},
@@ -33,7 +34,7 @@ export const SETTINGS_GUIDE: PageGuide = {
 			goal: 'お子さまの頑張りの記録が安全にバックアップされます。新しいデバイスでもデータを復元できるので、記録が失われる心配がありません。',
 			tips: [
 				'月に1回のバックアップをおすすめします',
-				'クラウドエクスポート機能（PINコードで共有）も利用できます',
+				'クラウドエクスポート機能（共有コードで別端末と共有）も利用できます',
 			],
 			position: 'bottom',
 		},
