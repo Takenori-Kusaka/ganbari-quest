@@ -1,4 +1,6 @@
 <script lang="ts">
+import { APP_LABELS, VIEW_PAGE_LABELS } from '$lib/domain/labels';
+
 let { data } = $props();
 
 const CATEGORY_LABELS: Record<number, { name: string; icon: string }> = {
@@ -11,21 +13,21 @@ const CATEGORY_LABELS: Record<number, { name: string; icon: string }> = {
 </script>
 
 <svelte:head>
-	<title>{data.label ? `${data.label} — ` : ''}がんばりクエスト</title>
+	<title>{data.label ? `${data.label} — ` : ''}{APP_LABELS.name}</title>
 </svelte:head>
 
 <div class="viewer-page">
 	<header class="viewer-header">
-		<h1>がんばりクエスト</h1>
+		<h1>{VIEW_PAGE_LABELS.appTitle}</h1>
 		{#if data.label}
 			<p class="viewer-label">{data.label}</p>
 		{/if}
-		<p class="viewer-notice">閲覧専用リンク</p>
+		<p class="viewer-notice">{VIEW_PAGE_LABELS.viewOnlyNotice}</p>
 	</header>
 
 	{#if data.childrenData.length === 0}
 		<div class="viewer-empty">
-			<p>まだ お子さまが とうろくされていません</p>
+			<p>{VIEW_PAGE_LABELS.emptyChildren}</p>
 		</div>
 	{:else}
 		<div class="viewer-children">
@@ -33,17 +35,17 @@ const CATEGORY_LABELS: Record<number, { name: string; icon: string }> = {
 				<div class="child-card">
 					<div class="child-header">
 						<h2 class="child-name">{child.nickname}</h2>
-						<span class="child-age">{child.age}さい</span>
+						<span class="child-age">{child.age + 'さい'}</span>
 					</div>
 
 					<div class="child-stats">
 						<div class="stat-item">
 							<span class="stat-value">{child.totalPoints.toLocaleString()}</span>
-							<span class="stat-label">ポイント</span>
+							<span class="stat-label">{VIEW_PAGE_LABELS.statPointLabel}</span>
 						</div>
 						<div class="stat-item">
 							<span class="stat-value">Lv.{child.totalLevel}</span>
-							<span class="stat-label">そうごうレベル</span>
+							<span class="stat-label">{VIEW_PAGE_LABELS.statLevelLabel}</span>
 						</div>
 					</div>
 
@@ -67,7 +69,7 @@ const CATEGORY_LABELS: Record<number, { name: string; icon: string }> = {
 	{/if}
 
 	<footer class="viewer-footer">
-		<p>がんばりクエスト — こどもの がんばりを みんなで おうえん</p>
+		<p>{VIEW_PAGE_LABELS.footerText}</p>
 	</footer>
 </div>
 

@@ -5,7 +5,9 @@ import {
 	APP_LABELS,
 	CHECKLIST_KIND_ICONS,
 	CHECKLIST_KIND_LABELS,
+	CHILD_CHECKLIST_LABELS,
 	type ChecklistKind,
+	DEMO_CHILD_CHECKLIST_LABELS,
 	PAGE_TITLES,
 } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
@@ -93,25 +95,25 @@ function toggleItem(templateId: number, itemId: number) {
 <div class="px-[var(--sp-sm)] py-[var(--sp-sm)]">
 	<!-- Day of week header -->
 	<div class="text-center mb-[var(--sp-md)]">
-		<p class="text-sm text-[var(--color-text-muted)]">きょうは</p>
+		<p class="text-sm text-[var(--color-text-muted)]">{CHILD_CHECKLIST_LABELS.todayPrefix}</p>
 		<p class="text-lg font-bold">{todayDayName}</p>
 		<p class="text-sm text-[var(--color-text-muted)]">
-			{TIME_SLOT_ICONS[currentSlot]} いまは <span class="font-bold">{TIME_SLOT_LABELS[currentSlot]}</span> のじかん
+			{TIME_SLOT_ICONS[currentSlot]} {CHILD_CHECKLIST_LABELS.nowPrefix} <span class="font-bold">{TIME_SLOT_LABELS[currentSlot]}</span> {CHILD_CHECKLIST_LABELS.nowSuffix}
 		</p>
 	</div>
 
 	<!-- デモ注意書き (LP SS 撮影時 (`?screenshot=1`) は非表示にする: #1164 / context 化 #1209) -->
 	{#if !getScreenshotMode()}
 		<div class="mb-[var(--sp-md)] p-[var(--sp-sm)] rounded-[var(--radius-md)] bg-[var(--color-surface-warning)] text-xs text-[var(--color-text-warm)] text-center">
-			これはデモです。チェックは保存されません。
+			{DEMO_CHILD_CHECKLIST_LABELS.demoNotice}
 		</div>
 	{/if}
 
 	{#if localChecklists.length === 0}
 		<div class="flex flex-col items-center justify-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-md)]">📋</span>
-			<p class="text-lg font-bold">チェックリストがないよ</p>
-			<p class="text-sm">おやにおねがいしてね</p>
+			<p class="text-lg font-bold">{CHILD_CHECKLIST_LABELS.emptyTitle}</p>
+			<p class="text-sm">{CHILD_CHECKLIST_LABELS.emptyDesc}</p>
 		</div>
 	{:else}
 		{#each groupedChecklists as group (group.kind)}
@@ -172,9 +174,9 @@ function toggleItem(templateId: number, itemId: number) {
 				<!-- Footer: points info -->
 				<div class="px-[var(--sp-md)] py-[var(--sp-xs)] bg-[var(--color-surface-muted)] text-center text-sm text-[var(--color-text-muted)]">
 					{#if checklist.completedAll}
-						<span class="text-[var(--theme-accent)] font-bold">🎉 ぜんぶできた！ {fmtPts(checklist.totalCount * checklist.pointsPerItem + checklist.completionBonus)}</span>
+						<span class="text-[var(--theme-accent)] font-bold">{CHILD_CHECKLIST_LABELS.completedAll} {fmtPts(checklist.totalCount * checklist.pointsPerItem + checklist.completionBonus)}</span>
 					{:else}
-						ぜんぶチェックしたら <span class="font-bold text-[var(--color-point)]">{fmtPts(checklist.totalCount * checklist.pointsPerItem + checklist.completionBonus)}</span>
+						{CHILD_CHECKLIST_LABELS.checkForPoints} <span class="font-bold text-[var(--color-point)]">{fmtPts(checklist.totalCount * checklist.pointsPerItem + checklist.completionBonus)}</span>
 					{/if}
 				</div>
 				{/snippet}
@@ -189,7 +191,7 @@ function toggleItem(templateId: number, itemId: number) {
 			href="/demo/{data.uiMode}/home?childId={data.child?.id ?? ''}"
 			class="inline-block px-[var(--sp-lg)] py-[var(--sp-sm)] rounded-[var(--radius-md)] bg-[var(--color-surface-tertiary)] font-bold text-sm"
 		>
-			もどる
+			{CHILD_CHECKLIST_LABELS.backButton}
 		</a>
 	</div>
 </div>

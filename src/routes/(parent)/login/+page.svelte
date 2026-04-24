@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { PARENT_LOGIN_LABELS } from '$lib/domain/labels';
 import { PIN_MAX_LENGTH } from '$lib/domain/validation/auth';
 import Logo from '$lib/ui/components/Logo.svelte';
 import NumPad from '$lib/ui/components/NumPad.svelte';
@@ -30,17 +31,17 @@ function handleSubmit() {
 <div data-theme="admin" class="min-h-dvh flex flex-col items-center justify-center bg-gradient-to-b from-[var(--color-brand-100)] to-[var(--color-brand-200)] p-4 relative">
 	<!-- もどるボタン -->
 	<a href="/switch" class="absolute top-4 left-4 text-[var(--color-text-muted)] text-sm no-underline px-3 py-2 rounded-[var(--radius-sm)] transition-colors hover:bg-black/5">
-		← もどる
+		← {PARENT_LOGIN_LABELS.backLink}
 	</a>
 
 	<div class="text-center mb-8">
 		<Logo variant="symbol" size={56} />
 		<h1 class="text-[1.375rem] font-bold text-[var(--color-text)] leading-relaxed m-0">
-			おとうさん・おかあさんの<br />ページだよ
+			{PARENT_LOGIN_LABELS.pageTitle}<br />{PARENT_LOGIN_LABELS.pageTitleLine2}
 		</h1>
 		<p class="text-sm text-[var(--color-text-muted)] mt-3 leading-relaxed">
-			ここから先はおとうさん・おかあさんに<br />
-			ひみつのばんごうを入れてもらってね
+			{PARENT_LOGIN_LABELS.pageDescLine1}<br />
+			{PARENT_LOGIN_LABELS.pageDescLine2}
 		</p>
 	</div>
 
@@ -66,7 +67,7 @@ function handleSubmit() {
 		<input type="hidden" name="pin" value={pin} />
 
 		<!-- ドット表示 -->
-		<div class="flex justify-center gap-3 mb-8" aria-label="おやカギコード入力状態">
+		<div class="flex justify-center gap-3 mb-8" aria-label={PARENT_LOGIN_LABELS.pinInputAriaLabel}>
 			{#each Array(PIN_MAX_LENGTH) as _, i}
 				<div
 					class="w-4 h-4 rounded-full transition-all duration-200

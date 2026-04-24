@@ -26,6 +26,8 @@ dist/
 
 # Claude Code
 .claude/settings.local.json
+.claude/worktrees/
+.playwright-mcp/
 
 # OS
 .DS_Store
