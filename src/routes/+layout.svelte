@@ -1,6 +1,7 @@
 <script lang="ts">
 import '$lib/ui/styles/app.css';
 import { page } from '$app/stores';
+import { APP_LABELS } from '$lib/domain/labels';
 import DemoBanner from '$lib/features/demo/DemoBanner.svelte';
 import NavigationProgress from '$lib/ui/components/NavigationProgress.svelte';
 import Toast from '$lib/ui/primitives/Toast.svelte';
@@ -29,8 +30,8 @@ $effect(() => {
 </script>
 
 <svelte:head>
-	<title>がんばりクエスト</title>
-	<meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ" />
+	<title>{APP_LABELS.name}</title>
+	<meta name="description" content={APP_LABELS.tagline} />
 </svelte:head>
 
 <NavigationProgress />
