@@ -95,7 +95,7 @@ const FEATURE_SCREENSHOTS = [
 		url: '/demo/lower/home',
 		description: 'Features: コンボ＆デイリーミッション',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
-		scrollTo: '.combo-counter, [data-testid="daily-missions"]',
+		scrollTo: '[data-testid="category-header-1"]',
 	},
 	{
 		name: 'feature-radar-chart',
