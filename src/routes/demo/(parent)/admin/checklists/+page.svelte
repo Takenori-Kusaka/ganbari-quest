@@ -1,4 +1,10 @@
 <script lang="ts">
+import {
+	APP_LABELS,
+	DEMO_CHECKLISTS_LABELS,
+	FEATURE_LABELS,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
@@ -20,7 +26,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 </script>
 
 <svelte:head>
-	<title>もちものチェックリスト - がんばりクエスト デモ</title>
+	<title>{PAGE_TITLES.demoAdminChecklists}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -54,7 +60,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 				class="bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
 				disabled
 			>
-				+ テンプレート追加
+				{DEMO_CHECKLISTS_LABELS.addTemplateButton}
 			</Button>
 		</div>
 
@@ -101,7 +107,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 							class="mt-2 text-xs text-[var(--color-text-tertiary)] cursor-not-allowed"
 							disabled
 						>
-							+ アイテム追加
+							{DEMO_CHECKLISTS_LABELS.addItemButton}
 						</Button>
 					</Card>
 				{/each}
@@ -110,8 +116,8 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 			<Card padding="lg">
 				<div class="text-center text-[var(--color-text-tertiary)]">
 					<span class="text-4xl block mb-2">✅</span>
-					<p class="font-bold">チェックリストがありません</p>
-					<p class="text-sm mt-1">登録するとお子さまの持ち物チェックリストを管理できます</p>
+					<p class="font-bold">{DEMO_CHECKLISTS_LABELS.emptyTitle}</p>
+					<p class="text-sm mt-1">{DEMO_CHECKLISTS_LABELS.emptyDesc}</p>
 				</div>
 			</Card>
 		{/if}

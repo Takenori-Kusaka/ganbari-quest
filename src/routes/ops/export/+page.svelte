@@ -1,4 +1,5 @@
 <script lang="ts">
+import { OPS_EXPORT_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
@@ -40,12 +41,12 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 </script>
 
 <svelte:head>
-	<title>OPS - エクスポート</title>
+	<title>{OPS_EXPORT_LABELS.pageTitle}</title>
 </svelte:head>
 
 <div class="flex flex-col gap-8">
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">確定申告用CSVエクスポート</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">{OPS_EXPORT_LABELS.exportTitle}</h2>
 		<div class="flex gap-4 items-end mb-6 flex-wrap">
 			<NativeSelect
 				label="年"
@@ -66,36 +67,36 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 
 		<div class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-4">
 			<div class="export-card">
-				<h3>売上台帳</h3>
-				<p>Stripe 請求書ベースの収入記録。青色申告決算書 第1面「収入金額」に対応。</p>
+				<h3>{OPS_EXPORT_LABELS.salesTitle}</h3>
+				<p>{OPS_EXPORT_LABELS.salesDesc}</p>
 				<Button variant="primary" size="sm" onclick={() => downloadCsv('sales')} disabled={downloading}>
-					CSV ダウンロード
+					{OPS_EXPORT_LABELS.salesDownload}
 				</Button>
 			</div>
 			<div class="export-card">
-				<h3>経費台帳</h3>
-				<p>AWS 費用 + Stripe 手数料。勘定科目付き。青色申告決算書「必要経費」に対応。</p>
+				<h3>{OPS_EXPORT_LABELS.expensesTitle}</h3>
+				<p>{OPS_EXPORT_LABELS.expensesDesc}</p>
 				<Button variant="primary" size="sm" onclick={() => downloadCsv('expenses')} disabled={downloading}>
-					CSV ダウンロード
+					{OPS_EXPORT_LABELS.expensesDownload}
 				</Button>
 			</div>
 			<div class="export-card">
-				<h3>収支サマリー</h3>
-				<p>売上・経費・差引利益の一覧。確定申告前の概要確認用。</p>
+				<h3>{OPS_EXPORT_LABELS.summaryTitle}</h3>
+				<p>{OPS_EXPORT_LABELS.summaryDesc}</p>
 				<Button variant="primary" size="sm" onclick={() => downloadCsv('summary')} disabled={downloading}>
-					テキスト ダウンロード
+					{OPS_EXPORT_LABELS.summaryDownload}
 				</Button>
 			</div>
 		</div>
 	</Card>
 
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">注意事項</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">{OPS_EXPORT_LABELS.notesTitle}</h2>
 		<ul class="pl-6 text-[0.8125rem] text-[var(--color-text-muted)] leading-[1.8]">
-			<li>AWS 費用は Cost Explorer API から取得（USD→JPY はレート ¥150/$ で概算）</li>
-			<li>Stripe 手数料は 3.6% + ¥40/件 の概算値です</li>
-			<li>消費税区分はインボイス登録状況に応じて調整が必要です</li>
-			<li>本データは概算値です。正式な申告は税理士に相談してください</li>
+			<li>{OPS_EXPORT_LABELS.note1}</li>
+			<li>{OPS_EXPORT_LABELS.note2}</li>
+			<li>{OPS_EXPORT_LABELS.note3}</li>
+			<li>{OPS_EXPORT_LABELS.note4}</li>
 		</ul>
 	</Card>
 </div>

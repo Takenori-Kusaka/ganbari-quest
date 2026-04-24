@@ -1,4 +1,5 @@
 <script lang="ts">
+import { APP_LABELS, CERTIFICATES_PAGE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import CertificateCard from '$lib/features/certificate/CertificateCard.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -35,20 +36,20 @@ const categoryNames: Record<string, string> = {
 </script>
 
 <svelte:head>
-	<title>がんばり証明書 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.certificates}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
-		<h2 class="text-lg font-bold text-[var(--color-text-primary)]">📜 がんばり証明書</h2>
-		<a href="/admin/reports" class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">&larr; レポートへ</a>
+		<h2 class="text-lg font-bold text-[var(--color-text-primary)]">{CERTIFICATES_PAGE_LABELS.pageTitle}</h2>
+		<a href="/admin/reports" class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">&larr; {CERTIFICATES_PAGE_LABELS.backToReportsLink}</a>
 	</div>
 
 	{#if !data.isPremium}
 		<div class="flex items-center gap-2 p-3 rounded-lg bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-sm">
 			<span>⭐</span>
 			<p class="text-[var(--color-feedback-warning-text)]">
-				無料プランでは証明書の閲覧のみ可能です。PDF保存は<a href="/admin/license" class="underline font-medium">スタンダードプラン以上</a>で利用できます。
+				{CERTIFICATES_PAGE_LABELS.freePlanNotePrefix}<a href="/admin/license" class="underline font-medium">{CERTIFICATES_PAGE_LABELS.freePlanNoteLink}</a>{CERTIFICATES_PAGE_LABELS.freePlanNoteSuffix}
 			</p>
 		</div>
 	{/if}
@@ -76,8 +77,8 @@ const categoryNames: Record<string, string> = {
 			{#if selectedChild.certificates.length === 0}
 				<div class="text-center text-[var(--color-text-muted)] py-12">
 					<p class="text-4xl mb-3">📜</p>
-					<p class="font-bold mb-1">まだ証明書がありません</p>
-					<p class="text-sm">活動を記録すると、マイルストーン達成時に証明書が発行されます</p>
+					<p class="font-bold mb-1">{CERTIFICATES_PAGE_LABELS.emptyTitle}</p>
+					<p class="text-sm">{CERTIFICATES_PAGE_LABELS.emptyDesc}</p>
 				</div>
 			{:else}
 				{#each categoryOrder as cat}
@@ -97,7 +98,7 @@ const categoryNames: Record<string, string> = {
 	{:else}
 		<div class="text-center text-[var(--color-text-muted)] py-12">
 			<p class="text-4xl mb-2">👧</p>
-			<p class="font-bold">子供が登録されていません</p>
+			<p class="font-bold">{CERTIFICATES_PAGE_LABELS.noChildrenTitle}</p>
 		</div>
 	{/if}
 </div>

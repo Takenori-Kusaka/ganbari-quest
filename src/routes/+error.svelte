@@ -2,6 +2,7 @@
 import { onDestroy, onMount } from 'svelte';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
+import { APP_LABELS, ERROR_PAGE_LABELS } from '$lib/domain/labels';
 
 /**
  * #577: ロール別の自動復帰 + エラー種別ごとの導線
@@ -53,7 +54,7 @@ function handleRetry() {
 </script>
 
 <svelte:head>
-	<title>{status} エラー - がんばりクエスト</title>
+	<title>{status}{APP_LABELS.errorPageTitlePart}</title>
 </svelte:head>
 
 <div class="error-page" data-role={isChild ? 'child' : 'parent'}>
@@ -61,35 +62,35 @@ function handleRetry() {
 		<p class="error-status">{status}</p>
 		<h1 class="error-title">
 			{#if status === 404}
-				ページが みつかりません
+				{ERROR_PAGE_LABELS.title404}
 			{:else if status === 429}
-				アクセスが こんでいます
+				{ERROR_PAGE_LABELS.title429}
 			{:else if status === 403}
-				アクセスが きょか されていません
+				{ERROR_PAGE_LABELS.title403}
 			{:else}
-				エラーが はっせいしました
+				{ERROR_PAGE_LABELS.titleDefault}
 			{/if}
 		</h1>
 
 		<p class="error-description">
 			{#if status === 404}
 				{#if isChild}
-					おうちの がめんに もどります…
+					{ERROR_PAGE_LABELS.desc404Child}
 				{:else}
-					お探しのページは存在しないか、移動した可能性があります。
+					{ERROR_PAGE_LABELS.desc404Parent}
 				{/if}
 			{:else if status === 429}
-				しばらくしてから再度お試しください。
+				{ERROR_PAGE_LABELS.desc429}
 			{:else if status === 403}
 				{#if isChild}
-					おうちの がめんに もどります…
+					{ERROR_PAGE_LABELS.desc403Child}
 				{:else}
-					このページにアクセスする権限がありません。ログインし直してください。
+					{ERROR_PAGE_LABELS.desc403Parent}
 				{/if}
 			{:else if isChild}
-				おうちの がめんに もどります…
+				{ERROR_PAGE_LABELS.descGenericChild}
 			{:else}
-				予期しないエラーが発生しました。時間をおいて再度お試しください。
+				{ERROR_PAGE_LABELS.descGenericParent}
 			{/if}
 		</p>
 
@@ -103,29 +104,29 @@ function handleRetry() {
 			{#if isChild}
 				<!-- 子供は単一の大きな戻るボタン（カウントダウン中も手動で即遷移可能） -->
 				<a href="/switch" class="btn btn-primary btn-child">
-					いますぐ もどる
+					{ERROR_PAGE_LABELS.btnBackNow}
 				</a>
 			{:else}
 				<!-- 親は状況に応じた導線 -->
 				{#if status === 403}
-					<a href="/auth/login" class="btn btn-primary">ログインし直す</a>
-					<a href="/" class="btn btn-secondary">トップページへ戻る</a>
+					<a href="/auth/login" class="btn btn-primary">{ERROR_PAGE_LABELS.btnLoginAgain}</a>
+					<a href="/" class="btn btn-secondary">{ERROR_PAGE_LABELS.btnBackToTop}</a>
 				{:else if status === 500}
 					<button type="button" class="btn btn-primary" onclick={handleRetry}>
-						もう一度試す
+						{ERROR_PAGE_LABELS.btnRetry}
 					</button>
-					<a href="/" class="btn btn-secondary">トップページへ戻る</a>
+					<a href="/" class="btn btn-secondary">{ERROR_PAGE_LABELS.btnBackToTop}</a>
 				{:else if status === 429}
-					<a href="/" class="btn btn-secondary">トップページへ戻る</a>
+					<a href="/" class="btn btn-secondary">{ERROR_PAGE_LABELS.btnBackToTop}</a>
 				{:else}
-					<a href="/" class="btn btn-primary">トップページへ戻る</a>
+					<a href="/" class="btn btn-primary">{ERROR_PAGE_LABELS.btnBackToTop}</a>
 				{/if}
 			{/if}
 		</div>
 
 		{#if requestId && !isChild}
 			<p class="error-id">
-				エラーID: <code>{requestId}</code>
+				{ERROR_PAGE_LABELS.errorIdPrefix}<code>{requestId}</code>
 			</p>
 		{/if}
 	</div>
@@ -207,7 +208,7 @@ function handleRetry() {
 		border: 1px solid var(--color-border);
 	}
 
-	/* 子供ロール: 大きめのタップ領域 + シンプルな単一導線 */
+	/* child role: larger tap target + simple single action */
 	.error-page[data-role='child'] .error-title {
 		font-size: 1.75rem;
 	}

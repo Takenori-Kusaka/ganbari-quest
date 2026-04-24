@@ -1,6 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { getLicensePlanLabel } from '$lib/domain/labels';
+import { getLicensePlanLabel, OPS_LICENSE_ISSUE_LABELS } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
@@ -33,7 +33,7 @@ async function copyAll() {
 </script>
 
 <svelte:head>
-	<title>OPS - キャンペーンキー発行</title>
+	<title>{OPS_LICENSE_ISSUE_LABELS.pageTitle}</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
@@ -42,36 +42,36 @@ async function copyAll() {
 		<a
 			href="/ops/license"
 			class="text-sm text-[var(--color-text-link)] hover:underline"
-		>← ライセンス一覧に戻る</a>
+		>{OPS_LICENSE_ISSUE_LABELS.backLink}</a>
 	</div>
 
 	<Card padding="lg">
-		<h1 class="text-lg font-bold m-0 mb-1">キャンペーンキー一括発行</h1>
+		<h1 class="text-lg font-bold m-0 mb-1">{OPS_LICENSE_ISSUE_LABELS.cardTitle}</h1>
 		<p class="text-sm text-[var(--color-text-muted)] mt-0 mb-4">
-			Stripe を経由せず、プレゼント・サポート補償・キャンペーン配布用のライセンスキーを発行します。
-			発行結果は CSV ダウンロードで受け取り、運営ツール (メール/LINE 等) で配布してください。
-			発行操作はすべて監査ログに記録されます。
+			{OPS_LICENSE_ISSUE_LABELS.cardDesc1}
+			{OPS_LICENSE_ISSUE_LABELS.cardDesc2}
+			{OPS_LICENSE_ISSUE_LABELS.cardDesc3}
 		</p>
 
 		<details class="mb-4 p-3 bg-[var(--color-surface-info)] text-[var(--color-feedback-info-text)] rounded text-sm">
-			<summary class="cursor-pointer font-medium">Stripe 100% OFF プロモコードを使う場合（#803）</summary>
+			<summary class="cursor-pointer font-medium">{OPS_LICENSE_ISSUE_LABELS.promoCodeSummary}</summary>
 			<div class="mt-2 text-[var(--color-text-primary)]">
 				<p class="m-0 mb-2">
-					公開キャンペーン（SNS 等で URL を配布する）や、Stripe の本人確認を通したい場合は、
-					この画面ではなく <strong>Stripe Dashboard の Coupons / Promotion codes</strong> を使ってください。
-					100% OFF の Coupon + Promotion code を発行し、「プランを契約する」ボタンから Checkout → プロモコード適用のフローでプランが解放されます。
+					{OPS_LICENSE_ISSUE_LABELS.promoCodeDesc1}
+					{OPS_LICENSE_ISSUE_LABELS.promoCodeDesc2Prefix}<strong>{OPS_LICENSE_ISSUE_LABELS.promoCodeDesc2Strong}</strong>{OPS_LICENSE_ISSUE_LABELS.promoCodeDesc2Suffix1}
+					{OPS_LICENSE_ISSUE_LABELS.promoCodeDesc2Suffix2}
 				</p>
 				<ul class="m-0 ml-4 mb-2 list-disc">
-					<li>使い分け・運用手順: <code>docs/design/19-プライシング戦略書.md §8</code></li>
-					<li>流出対策: Coupon 作成時に Max redemptions / Expires at / First-time order only を必ず設定</li>
-					<li>経路 A (本画面) と経路 B (Stripe) の両方とも、発行結果は <a href="/ops" class="underline">/ops の監査ログ</a> または Stripe Dashboard で確認可能</li>
+					<li>{OPS_LICENSE_ISSUE_LABELS.promoCodeList1} <code>{OPS_LICENSE_ISSUE_LABELS.promoCodeList1CodePath}</code></li>
+					<li>{OPS_LICENSE_ISSUE_LABELS.promoCodeList2}</li>
+					<li>{OPS_LICENSE_ISSUE_LABELS.promoCodeList3Prefix}<a href="/ops" class="underline">{OPS_LICENSE_ISSUE_LABELS.promoCodeList3Link}</a>{OPS_LICENSE_ISSUE_LABELS.promoCodeList3Suffix}</li>
 				</ul>
 				<a
 					href="https://dashboard.stripe.com/coupons"
 					target="_blank"
 					rel="noopener noreferrer"
 					class="underline"
-				>Stripe Dashboard → Coupons を開く</a>
+				>{OPS_LICENSE_ISSUE_LABELS.promoCodeDashboardLink}</a>
 			</div>
 		</details>
 
@@ -89,13 +89,13 @@ async function copyAll() {
 		>
 			<NativeSelect
 				name="plan"
-				label="プラン（必須）"
+				label={OPS_LICENSE_ISSUE_LABELS.planLabel}
 				required
 				options={plans.map((plan: string) => ({ value: plan, label: getLicensePlanLabel(plan) }))}
 			/>
 
 			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">数量（必須・1〜500）</span>
+				<span class="text-sm font-medium">{OPS_LICENSE_ISSUE_LABELS.quantityLabel}</span>
 				<input
 					type="number"
 					name="quantity"
@@ -108,36 +108,36 @@ async function copyAll() {
 			</label>
 
 			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">キャンペーン名 / 理由（必須）</span>
+				<span class="text-sm font-medium">{OPS_LICENSE_ISSUE_LABELS.reasonLabel}</span>
 				<input
 					type="text"
 					name="reason"
-					placeholder="例: 2026春_幼稚園キャンペーン / CS-1234 補填"
+					placeholder={OPS_LICENSE_ISSUE_LABELS.reasonPlaceholder}
 					required
 					maxlength="200"
 					class="px-3 py-2 border border-[var(--color-border-default)] rounded text-sm"
 				/>
-				<span class="text-xs text-[var(--color-text-muted)]">監査ログとレコードの tenantId に記録されます。</span>
+				<span class="text-xs text-[var(--color-text-muted)]">{OPS_LICENSE_ISSUE_LABELS.reasonHint}</span>
 			</label>
 
 			<NativeSelect
 				name="expiresAt"
 				label="有効期限"
 				options={[
-					{ value: 'default', label: 'デフォルト (発行から 90 日)' },
-					{ value: 'never', label: '期限なし (lifetime 的扱い)' },
+					{ value: 'default', label: OPS_LICENSE_ISSUE_LABELS.expiresAtDefault },
+					{ value: 'never', label: OPS_LICENSE_ISSUE_LABELS.expiresAtNever },
 				]}
 			/>
 
 			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">発行プール ID（任意）</span>
+				<span class="text-sm font-medium">{OPS_LICENSE_ISSUE_LABELS.tenantIdLabel}</span>
 				<input
 					type="text"
 					name="tenantId"
-					placeholder="省略時は campaign:<理由> を自動採番"
+					placeholder={OPS_LICENSE_ISSUE_LABELS.tenantIdPlaceholder}
 					class="px-3 py-2 border border-[var(--color-border-default)] rounded text-sm font-mono"
 				/>
-				<span class="text-xs text-[var(--color-text-muted)]">record.tenantId に入る値。同一キャンペーンで揃えると後から検索しやすい。</span>
+				<span class="text-xs text-[var(--color-text-muted)]">{OPS_LICENSE_ISSUE_LABELS.tenantIdHint}</span>
 			</label>
 
 			<div class="flex gap-2 justify-end mt-2">
@@ -146,7 +146,7 @@ async function copyAll() {
 					disabled={submitting}
 					class="px-4 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] rounded font-medium disabled:opacity-50"
 				>
-					{submitting ? '発行中...' : 'キーを発行する'}
+					{submitting ? OPS_LICENSE_ISSUE_LABELS.submitLoading : OPS_LICENSE_ISSUE_LABELS.submitButton}
 				</button>
 			</div>
 		</form>
@@ -162,9 +162,9 @@ async function copyAll() {
 		<Card padding="lg">
 			<div class="flex justify-between items-start gap-4 flex-wrap mb-4">
 				<div>
-					<h2 class="text-base font-semibold m-0 mb-1">発行結果 ({form.keys.length} 件)</h2>
+					<h2 class="text-base font-semibold m-0 mb-1">{OPS_LICENSE_ISSUE_LABELS.resultTitle(form.keys.length)}</h2>
 					<p class="text-sm text-[var(--color-text-muted)] m-0">
-						プラン: {getLicensePlanLabel(form.plan)} ／ 理由: {form.reason} ／ 有効期限: {form.expiresAt}
+						{OPS_LICENSE_ISSUE_LABELS.resultPlanPrefix}{getLicensePlanLabel(form.plan)}{OPS_LICENSE_ISSUE_LABELS.resultReasonPrefix}{form.reason}{OPS_LICENSE_ISSUE_LABELS.resultExpiresPrefix}{form.expiresAt}
 					</p>
 				</div>
 				<div class="flex gap-2">
@@ -172,18 +172,18 @@ async function copyAll() {
 						type="button"
 						onclick={copyAll}
 						class="px-3 py-2 border border-[var(--color-border-default)] rounded text-sm"
-					>全てコピー</button>
+					>{OPS_LICENSE_ISSUE_LABELS.copyAllButton}</button>
 					<button
 						type="button"
 						onclick={downloadCsv}
 						class="px-3 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] rounded text-sm font-medium"
-					>CSV ダウンロード</button>
+					>{OPS_LICENSE_ISSUE_LABELS.downloadCsvButton}</button>
 				</div>
 			</div>
 
 			{#if form.errors}
 				<div class="mb-3 p-3 bg-[var(--color-feedback-warning-bg)] text-[var(--color-feedback-warning-text)] rounded text-sm">
-					{form.errors.length} 件は発行に失敗しました（ログを確認してください）。
+					{OPS_LICENSE_ISSUE_LABELS.errorCount(form.errors.length)}
 				</div>
 			{/if}
 

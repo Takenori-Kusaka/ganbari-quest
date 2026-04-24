@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { todayDateJST } from '$lib/domain/date-utils';
+import { APP_LABELS, CHALLENGES_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -48,29 +49,32 @@ function isCurrentlyActive(challenge: {
 	);
 }
 
-const typeLabel = (t: string) => (t === 'cooperative' ? '協力' : '競争');
+const typeLabel = (t: string) =>
+	t === 'cooperative'
+		? CHALLENGES_LABELS.typeLabelCooperative
+		: CHALLENGES_LABELS.typeLabelCompetitive;
 const periodLabel = (t: string) => {
 	switch (t) {
 		case 'weekly':
-			return '週間';
+			return CHALLENGES_LABELS.periodLabelWeekly;
 		case 'monthly':
-			return '月間';
+			return CHALLENGES_LABELS.periodLabelMonthly;
 		default:
-			return 'カスタム';
+			return CHALLENGES_LABELS.periodLabelCustom;
 	}
 };
 
 const categories: Record<number, string> = {
-	1: 'うんどう',
-	2: 'べんきょう',
-	3: 'せいかつ',
-	4: 'こうりゅう',
-	5: 'そうぞう',
+	1: CHALLENGES_LABELS.categoryUndou,
+	2: CHALLENGES_LABELS.categoryBenkyou,
+	3: CHALLENGES_LABELS.categorySeikatsu,
+	4: CHALLENGES_LABELS.categoryKouryuu,
+	5: CHALLENGES_LABELS.categorySouzou,
 };
 </script>
 
 <svelte:head>
-	<title>きょうだいチャレンジ - がんばりクエスト</title>
+	<title>{PAGE_TITLES.challenges}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-4">
@@ -79,16 +83,16 @@ const categories: Record<number, string> = {
 		<div class="rounded-xl border bg-white p-4">
 			<div class="flex items-center gap-2 mb-2">
 				<span class="text-xl">🔥</span>
-				<h3 class="font-bold text-sm">家族ストリーク: {data.familyStreak.currentStreak}日</h3>
+				<h3 class="font-bold text-sm">{CHALLENGES_LABELS.familyStreakTitle(data.familyStreak.currentStreak)}</h3>
 			</div>
 			<p class="text-xs text-[var(--color-text-muted)]">
 				{data.familyStreak.hasRecordedToday
-					? `今日は${data.familyStreak.todayRecorders.length}人が記録済み`
+					? `今日は${data.familyStreak.todayRecorders.length + '人'}が記録済み`
 					: '今日はまだ誰も記録していません'}
 			</p>
 			{#if data.familyStreak.nextMilestone}
 				<p class="text-xs text-[var(--color-text-tertiary)] mt-1">
-					あと{data.familyStreak.nextMilestone.remaining}日で{data.familyStreak.nextMilestone.days}日ボーナス（+{data.familyStreak.nextMilestone.points}P）
+					{CHALLENGES_LABELS.familyStreakMilestone(data.familyStreak.nextMilestone.remaining, data.familyStreak.nextMilestone.days, data.familyStreak.nextMilestone.points)}
 				</p>
 			{/if}
 		</div>
@@ -96,22 +100,22 @@ const categories: Record<number, string> = {
 
 	{#if !isFamily}
 		<div class="rounded-xl border border-[var(--color-feedback-warning-border)] bg-[var(--color-feedback-warning-bg)] p-4 text-center">
-			<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">👨‍👩‍👧‍👦 ファミリープラン限定機能</p>
-			<p class="text-xs text-[var(--color-feedback-warning-text)] mt-1">きょうだいチャレンジと家族ストリークはファミリープランでご利用いただけます</p>
+			<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">{CHALLENGES_LABELS.familyPlanTitle}</p>
+			<p class="text-xs text-[var(--color-feedback-warning-text)] mt-1">{CHALLENGES_LABELS.familyPlanDesc}</p>
 			<a href="/admin/license" class="inline-block mt-2 px-3 py-1 text-xs font-bold rounded-lg bg-[var(--color-stat-amber)] text-white">
-				プランを確認
+				{CHALLENGES_LABELS.familyPlanButton}
 			</a>
 		</div>
 	{:else}
 
 	<div class="flex items-center justify-between">
-		<h2 class="text-lg font-bold">👥 きょうだいチャレンジ</h2>
+		<h2 class="text-lg font-bold">{CHALLENGES_LABELS.sectionTitle}</h2>
 		<Button
 			variant={creating ? 'ghost' : 'primary'}
 			size="sm"
 			onclick={() => { creating = !creating; }}
 		>
-			{creating ? 'キャンセル' : '＋ 新規チャレンジ'}
+			{creating ? CHALLENGES_LABELS.cancelButton : CHALLENGES_LABELS.createButton}
 		</Button>
 	</div>
 
@@ -119,22 +123,22 @@ const categories: Record<number, string> = {
 		<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)]">{form.error}</div>
 	{/if}
 	{#if form?.created}
-		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]">チャレンジを作成しました</div>
+		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]">{CHALLENGES_LABELS.createdNotice}</div>
 	{/if}
 	{#if form?.deleted}
-		<div class="rounded-lg bg-[var(--color-surface-muted)] p-3 text-sm text-[var(--color-text-primary)]">チャレンジを削除しました</div>
+		<div class="rounded-lg bg-[var(--color-surface-muted)] p-3 text-sm text-[var(--color-text-primary)]">{CHALLENGES_LABELS.deletedNotice}</div>
 	{/if}
 
 	<!-- 作成フォーム -->
 	{#if creating}
 		<form method="POST" action="?/create" use:enhance class="rounded-xl border bg-white p-4 space-y-3">
-			<h3 class="font-bold text-sm">新規チャレンジ作成</h3>
+			<h3 class="font-bold text-sm">{CHALLENGES_LABELS.formTitle}</h3>
 			<div class="grid grid-cols-2 gap-3">
-				<FormField label="タイトル" type="text" name="title" placeholder="みんなで今週3回うんどう！" required class="col-span-2" />
-				<FormField label="説明（任意）" type="text" name="description" placeholder="家族みんなでうんどうしよう" class="col-span-2" />
+				<FormField label={CHALLENGES_LABELS.titleLabel} type="text" name="title" placeholder={CHALLENGES_LABELS.titlePlaceholder} required class="col-span-2" />
+				<FormField label={CHALLENGES_LABELS.descLabel} type="text" name="description" placeholder={CHALLENGES_LABELS.descPlaceholder} class="col-span-2" />
 			</div>
 			<div class="grid grid-cols-3 gap-3">
-				<FormField label="種別">
+				<FormField label={CHALLENGES_LABELS.typeLabel}>
 					{#snippet children()}
 						<NativeSelect
 							name="challengeType"
@@ -145,7 +149,7 @@ const categories: Record<number, string> = {
 						/>
 					{/snippet}
 				</FormField>
-				<FormField label="期間">
+				<FormField label={CHALLENGES_LABELS.periodLabel}>
 					{#snippet children()}
 						<NativeSelect
 							name="periodType"
@@ -157,12 +161,12 @@ const categories: Record<number, string> = {
 						/>
 					{/snippet}
 				</FormField>
-				<FormField label="カテゴリ（任意）">
+				<FormField label={CHALLENGES_LABELS.categoryLabel}>
 					{#snippet children()}
 						<NativeSelect
 							name="categoryId"
 							options={[
-								{ value: '', label: '全カテゴリ' },
+								{ value: '', label: CHALLENGES_LABELS.categoryAll },
 								...Object.entries(categories).map(([id, name]) => ({ value: id, label: name })),
 							]}
 						/>
@@ -170,17 +174,17 @@ const categories: Record<number, string> = {
 				</FormField>
 			</div>
 			<div class="grid grid-cols-2 gap-3">
-				<FormField label="開始日" type="date" name="startDate" required />
-				<FormField label="終了日" type="date" name="endDate" required />
+				<FormField label={CHALLENGES_LABELS.startDateLabel} type="date" name="startDate" required />
+				<FormField label={CHALLENGES_LABELS.endDateLabel} type="date" name="endDate" required />
 			</div>
 			<div class="grid grid-cols-3 gap-3">
-				<FormField label="目標回数" type="number" name="baseTarget" value={3} min={1} required />
-				<FormField label="報酬ポイント" type="number" name="rewardPoints" value={50} min={1} required />
-				<FormField label="達成メッセージ（任意）" type="text" name="rewardMessage" placeholder="みんなすごい！" />
+				<FormField label={CHALLENGES_LABELS.targetLabel} type="number" name="baseTarget" value={3} min={1} required />
+				<FormField label={CHALLENGES_LABELS.rewardPointsLabel} type="number" name="rewardPoints" value={50} min={1} required />
+				<FormField label={CHALLENGES_LABELS.rewardMessageLabel} type="text" name="rewardMessage" placeholder={CHALLENGES_LABELS.rewardMessagePlaceholder} />
 			</div>
 			<input type="hidden" name="metric" value="count" />
 			<Button type="submit" variant="primary" size="sm" class="w-full">
-				作成
+				{CHALLENGES_LABELS.submitButton}
 			</Button>
 		</form>
 	{/if}
@@ -188,9 +192,9 @@ const categories: Record<number, string> = {
 	<!-- チャレンジ一覧 -->
 	{#if data.challenges.length === 0}
 		<div class="rounded-xl border bg-white p-8 text-center">
-			<p class="text-2xl">👥</p>
-			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">チャレンジはまだありません</p>
-			<p class="text-xs text-[var(--color-text-tertiary)]">上のボタンから作成してください</p>
+			<p class="text-2xl">{CHALLENGES_LABELS.noChallengeTitleIcon}</p>
+			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">{CHALLENGES_LABELS.noChallengeTitle}</p>
+			<p class="text-xs text-[var(--color-text-tertiary)]">{CHALLENGES_LABELS.noChallengeDesc}</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
@@ -204,23 +208,23 @@ const categories: Record<number, string> = {
 							<h3 class="font-bold text-sm">
 								{challenge.title}
 								{#if challenge.allCompleted}
-									<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">全員クリア！</span>
+									<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">{CHALLENGES_LABELS.badgeAllCompleted}</span>
 								{/if}
 								{#if active}
-									<span class="ml-1 rounded bg-[var(--color-feedback-info-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-info-text)]">開催中</span>
+									<span class="ml-1 rounded bg-[var(--color-feedback-info-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-info-text)]">{CHALLENGES_LABELS.badgeActive}</span>
 								{/if}
 								{#if challenge.status === 'expired'}
-									<span class="ml-1 rounded bg-[var(--color-surface-secondary)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">終了</span>
+									<span class="ml-1 rounded bg-[var(--color-surface-secondary)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">{CHALLENGES_LABELS.badgeExpired}</span>
 								{/if}
 							</h3>
 							<p class="text-xs text-[var(--color-text-muted)] mt-0.5">
 								{typeLabel(challenge.challengeType)} · {periodLabel(challenge.periodType)}
-								· {formatDate(challenge.startDate)} 〜 {formatDate(challenge.endDate)}
-								· 目標{target.baseTarget}回
+								· {formatDate(challenge.startDate)}{CHALLENGES_LABELS.dateSeparator}{formatDate(challenge.endDate)}
+								· {CHALLENGES_LABELS.targetGoal(target.baseTarget)}
 								{#if target.categoryId}
 									· {categories[target.categoryId] ?? ''}
 								{/if}
-								· 報酬{reward.points}P
+								· {CHALLENGES_LABELS.rewardLabel(reward.points)}
 							</p>
 							{#if challenge.description}
 								<p class="text-xs text-[var(--color-text-secondary)] mt-1">{challenge.description}</p>
@@ -251,10 +255,10 @@ const categories: Record<number, string> = {
 							{/if}
 						</div>
 						<form method="POST" action="?/delete" use:enhance
-							onsubmit={(e) => { if (!confirm(`「${challenge.title}」を削除しますか？`)) e.preventDefault(); }}
+							onsubmit={(e) => { if (!confirm(CHALLENGES_LABELS.deleteConfirm(challenge.title))) e.preventDefault(); }}
 						>
 							<input type="hidden" name="id" value={challenge.id} />
-							<Button type="submit" variant="danger" size="sm">削除</Button>
+							<Button type="submit" variant="danger" size="sm">{CHALLENGES_LABELS.deleteButton}</Button>
 						</form>
 					</div>
 				</div>

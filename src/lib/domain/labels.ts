@@ -7,6 +7,172 @@ import type { UiMode } from './validation/age-tier-types';
 import { normalizeUiMode } from './validation/age-tier-types';
 
 // ============================================================
+// アプリ情報 (#1452 Phase B)
+// ============================================================
+
+export const APP_LABELS = {
+	name: 'がんばりクエスト',
+	tagline: '子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ',
+	demoName: 'がんばりクエスト デモ',
+	pageTitleSuffix: ' - がんばりクエスト',
+	demoPageTitleSuffix: ' - がんばりクエスト デモ',
+	setupPageTitleSuffix: ' - がんばりクエスト セットアップ',
+	errorPageTitlePart: ' エラー - がんばりクエスト',
+} as const;
+
+// ============================================================
+// ページタイトル（<title> タグ用、#1452 Phase B）
+// ============================================================
+
+export const PAGE_TITLES = {
+	// 管理画面
+	activities: '活動管理',
+	activitiesIntroduce: '活動紹介スライド',
+	reports: 'レポート',
+	achievements: 'チャレンジ管理',
+	growth: '成長記録ブック',
+	points: 'ポイント管理',
+	messages: 'おうえんメッセージ',
+	rewards: 'ごほうび',
+	checklists: 'チェックリスト管理',
+	events: 'イベント管理',
+	challenges: 'きょうだいチャレンジ',
+	children: 'こども管理',
+	members: 'メンバー管理',
+	settings: '設定',
+	analytics: 'アナリティクス',
+	billing: '請求書・支払い管理',
+	certificates: 'がんばり証明書',
+	license: 'プラン・お支払い',
+	statusBenchmark: 'ベンチマーク管理',
+	packs: '活動パック',
+	// 認証
+	login: 'ログイン',
+	signup: 'アカウント登録',
+	invite: '招待',
+	forgotPassword: 'パスワードリセット',
+	// セットアップ
+	setup: 'セットアップ',
+	// 子供用
+	childAchievements: 'チャレンジきろく',
+	childStatus: 'つよさ',
+	childHome: 'ホーム',
+	childChecklist: 'もちものチェック',
+	// デモ子供用
+	demoChildAchievements: 'チャレンジきろく',
+	demoChildStatus: 'つよさ',
+	demoChildBattle: 'バトル',
+	demoChildHome: 'ホーム',
+	demoChildChecklist: 'もちものチェック (デモ)',
+	// デモ管理画面
+	demoAdminAchievements: 'チャレンジ履歴（デモ）',
+	demoAdminActivities: '活動管理',
+	demoAdminChallenges: 'きょうだいチャレンジ（デモ）',
+	demoAdminChecklists: 'もちものチェックリスト',
+	demoAdminChildren: 'こども管理',
+	demoAdminEvents: 'イベント管理（デモ）',
+	demoAdminLicense: 'プラン・お支払い（デモ）',
+	demoAdminMembers: 'メンバー管理',
+	demoAdminMessages: 'おうえんメッセージ',
+	demoAdminPoints: 'ポイント管理',
+	demoAdminReports: '週間レポート（デモ）',
+	demoAdminRewards: '特別報酬',
+	demoAdminSettings: '設定',
+	// デモ
+	demo: 'デモ体験',
+	demoSignup: 'デモ体験ありがとうございます',
+	demoChildHistory: 'きろく',
+	// セットアップ完了・各ステップ
+	setupComplete: 'ぼうけんのはじまり！',
+	setupChildren: '子供登録',
+	setupFirstAdventure: 'はじめてのぼうけん',
+	setupPacks: '活動パック選択',
+	// ユーザー切替
+	switchUser: 'だれがつかう？',
+	// その他
+	marketplace: 'テンプレート',
+	consent: '規約への同意',
+	consentUpdate: '規約に変更がありました',
+	pricing: '料金プラン',
+} as const;
+
+// ============================================================
+// 汎用 UI メッセージ (#1452 Phase B)
+// ============================================================
+
+export const UI_LABELS = {
+	redirecting: 'リダイレクト中...',
+	back: '戻る',
+	backWithArrow: '← 戻る',
+	loading: '読み込み中...',
+	saving: '保存中...',
+	saved: '保存しました',
+	deleting: '削除中...',
+	deleted: '削除しました',
+	adding: '追加中...',
+	added: '追加しました',
+	error: 'エラー',
+	close: '閉じる',
+	cancel: 'キャンセル',
+	confirm: '確認',
+	delete: '削除',
+	add: '追加',
+	edit: '編集',
+	save: '保存',
+	update: '更新',
+	send: '送信',
+	register: '登録',
+	next: '次へ',
+	prev: '前へ',
+	skip: 'スキップ',
+	upgrade: 'アップグレード',
+	points: 'ポイント',
+	level: 'レベル',
+	status: 'ステータス',
+	clear: 'クリア！',
+	noData: 'データがありません',
+	noStatus: 'ステータスがまだないよ',
+	noHistory: 'きろくがまだないよ',
+	all: 'すべて',
+	required: '必須',
+	optional: '任意',
+} as const;
+
+// ============================================================
+// フォーマット関数 (#1452 Phase B)
+// ============================================================
+
+export function formatCount(n: number): string {
+	return `${n}件`;
+}
+export function formatAge(n: number): string {
+	return `${n}歳`;
+}
+export function formatAgeRange(min: number, max: number): string {
+	return `${min}〜${max}歳`;
+}
+export function formatStreak(n: number): string {
+	return `${n}日れんぞく`;
+}
+export function formatTimes(n: number): string {
+	return `${n}回`;
+}
+export function formatPeople(n: number): string {
+	return `${n}人`;
+}
+export function formatDateRange(start: string, end: string): string {
+	return `${start} 〜 ${end}`;
+}
+
+// ============================================================
+// セットアップフロー (#1452 Phase B)
+// ============================================================
+
+export const SETUP_LABELS = {
+	layoutTitle: '初期セットアップ',
+} as const;
+
+// ============================================================
 // ナビゲーションカテゴリ
 // ============================================================
 
@@ -514,3 +680,2286 @@ export const IMPORT_LABELS = {
  * - log_constraint: 複合 unique 制約 (activity_logs, login_bonuses, status_history)
  */
 export type ImportSkipReason = 'preset_duplicate' | 'name_duplicate' | 'log_constraint';
+
+// ============================================================
+// 設定ページ関連ラベル（#1452 Phase B）
+// ============================================================
+
+export const SETTINGS_LABELS = {
+	// grace_period バナー
+	gracePeriodTitle: '解約手続き中です',
+	gracePeriodDesc:
+		'現在、アカウントは解約手続き中で読み取り専用モードです。期限までにキャンセルしないとデータが完全に削除されます。',
+	reactivateSubmitting: 'キャンセル中...',
+	reactivateAction: '解約をキャンセルして通常利用に戻る',
+
+	// ステータス減少設定
+	decaySectionTitle: '📊 ステータス減少設定',
+	decaySectionDesc:
+		'活動をお休みした日のステータス減少の強さを設定できます。どの設定でも最初の2日間は減少しません。',
+	decaySaving: '保存中...',
+	decaySaveAction: '設定を保存',
+	decaySaved: 'ステータス減少設定を保存しました',
+
+	// 既定の子供
+	defaultChildSectionTitle: '🏠 既定の子供',
+	defaultChildDesc: 'ホーム画面（/）を開いたときに自動で表示する子供を選べます。',
+	defaultChildDescNote: 'これは',
+	defaultChildDescNoteStrong: 'この端末ではなく、アカウント全体の既定',
+	defaultChildDescNoteSuffix: 'です。未設定のときは選択画面が表示されます。',
+	defaultChildUpdated: '既定の子供を更新しました',
+	defaultChildNone: '未設定（毎回選択画面を表示）',
+	defaultChildSaveAction: '既定を保存',
+
+	// きょうだいチャレンジ設定
+	siblingSectionTitle: '👥 きょうだいチャレンジ設定',
+	siblingSaved: 'きょうだい設定を保存しました',
+	siblingChallengeMode: 'チャレンジモード',
+	siblingRankingLabel: 'きょうだいランキングを表示する',
+	siblingRankingUpsell: 'きょうだいランキングはファミリープラン限定の機能です。',
+	siblingRankingUpsellLink: 'プランのアップグレード',
+	siblingRankingUpsellSuffix: 'で利用できます。',
+	siblingSaveAction: '設定を保存',
+
+	// 通知設定
+	notificationSectionTitle: '🔔 通知設定',
+	notificationSaved: '通知設定を保存しました',
+	notificationBrowserLabel: 'ブラウザ通知',
+	notificationChecking: '確認中...',
+	notificationEnableAction: '通知を有効にする',
+	notificationDisableAction: '通知を無効にする',
+	notificationReminderLabel: 'リマインダー通知（毎日の記録を促す）',
+	notificationStreakLabel: 'ストリーク警告（連続記録が途切れそうな時）',
+	notificationAchievementLabel: '達成通知（記録完了・レベルアップ時）',
+	notificationQuietSeparator: '〜',
+	notificationSaveAction: '通知設定を保存',
+
+	// ポイント表示設定
+	pointSectionTitle: '💰 ポイント表示設定',
+	pointSaved: 'ポイント表示設定を保存しました',
+	pointDisplayMode: '表示モード',
+	pointModePoint: 'ポイント（P）',
+	pointModeCurrency: '通貨で表示',
+	pointPreviewLabel: (n: number) => `プレビュー（${n}P の場合）`,
+	pointSaveAction: 'ポイント設定を保存',
+
+	// データ管理
+	dataSectionTitle: '💾 データ管理',
+	dataExportDesc:
+		'家族のデータをJSONファイルとしてダウンロードできます。バックアップや別環境への移行に使用できます。',
+	dataExportTarget: 'エクスポート対象:',
+	dataExportItem1: '子供プロフィール・活動記録・ポイント履歴',
+	dataExportItem2: 'ステータス・実績・称号・ログインボーナス',
+	dataExportItem3: 'チェックリスト・誕生日振り返り',
+	dataExportItem4: '活動マスタ・きせかえアイテム',
+	dataExportUpsellTitle: '🔒 データエクスポートは ',
+	dataExportUpsellPlan: 'スタンダードプラン',
+	dataExportUpsellSuffix: ' 以上でご利用いただけます。',
+	dataExportUpsellDesc:
+		'家族のデータをJSON/ZIP形式でダウンロードして、バックアップや引っ越しに利用できます。',
+	dataExportUpsellCta: 'プランを見る',
+	dataExportLockedButton: '🔒 データをエクスポート（有料プラン限定）',
+	dataExportIncludeFiles: '画像・音声ファイルも含める（ZIP形式）',
+	dataExportIncludeFilesHint:
+		'画像・音声を含める場合は上のチェックをオンにしてください。ファイルサイズが大きくなる場合があります（最大100MB）。',
+	dataExportCompact: '圧縮形式でエクスポート（ファイルサイズを削減）',
+	dataExporting: 'エクスポート中...',
+	dataExportAction: 'データをエクスポート',
+
+	// インポート
+	dataImportTitle: 'データのインポート',
+	dataImportDesc: 'エクスポートしたJSONファイルからデータを復元できます。',
+	dataImportMode: 'インポートモード',
+	dataImportModeReplace: '置換（既存データを削除してインポート）',
+	dataImportModeAdd: '追加（既存データを残して追加）',
+	dataImportModeReplaceWarning:
+		'既存の子供・活動ログ・ポイント等のデータをすべて削除してからインポートします。',
+	dataImportModeAddNote: '新しい子供データとして追加されます（既存データは上書きされません）。',
+	dataImportLoading: '読み込み中...',
+	dataImportSelectFile: 'JSONファイルを選択',
+	dataImportChecksumOk: '✓ ファイルの整合性を確認しました',
+	dataImportPreviewChildren: (n: number | string | undefined) => `子供: ${n}人`,
+	dataImportPreviewActivityLogs: (n: number | string | undefined) => `活動ログ: ${n}件`,
+	dataImportPreviewPointLedger: (n: number | string | undefined) => `ポイント履歴: ${n}件`,
+	dataImportPreviewStatuses: (n: number | string | undefined) => `ステータス: ${n}件`,
+	dataImportPreviewAchievements: (n: number | string | undefined) => `実績: ${n}件`,
+	dataImportPreviewLoginBonuses: (n: number | string | undefined) => `ログインボーナス: ${n}件`,
+	dataImportPreviewChecklists: (n: number | string | undefined) => `チェックリスト: ${n}件`,
+	dataImportMoreItems: (n: number) => `...他 ${n}件`,
+	dataImportReplaceConfirm:
+		'既存データをすべて削除してからインポートします。この操作は取り消せません。',
+	dataImportAddConfirm:
+		'インポートすると新しい子供データとして追加されます。この操作は取り消せません。',
+	dataImportCancel: 'キャンセル',
+	dataImporting: 'インポート中...',
+	dataImportAction: 'インポートを実行',
+	dataImportComplete: 'インポート完了',
+	dataImportResultChildren: (n: number | string) => `子供: ${n}人 作成`,
+	dataImportResultActivities: (n: number | string) => `活動マスタ: ${n}件 新規作成`,
+	dataImportResultActivityLogs: (imported: number | string, skipped: number | string) =>
+		`活動ログ: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
+	dataImportResultPointLedger: (imported: number | string, skipped: number | string) =>
+		`ポイント: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
+	dataImportWarningsTitle: (n: number | string) => `警告 (${n}件):`,
+	dataImportErrorsTitle: (n: number | string) => `エラー (${n}件):`,
+	dataImportClose: '閉じる',
+
+	// クラウドエクスポート
+	cloudSectionTitle: '☁️ クラウド共有',
+	cloudSlotCounter: (current: number, max: number) => `保管枠 ${current} / ${max}`,
+	cloudUpsellTitle: '🔒 クラウド共有は ',
+	cloudUpsellPlan: 'スタンダードプラン',
+	cloudUpsellSuffix: ' 以上でご利用いただけます。',
+	cloudUpsellDesc:
+		'家族のデータをクラウドに保管して、PINコードで別端末や他のアカウントと共有できます（スタンダード: 3枠 / ファミリー: 10枠）。',
+	cloudUpsellCta: 'プランを見る',
+	cloudExportDesc: '設定やデータをクラウドに保管してPINコードで他のアカウントと共有できます。',
+	cloudExportType: 'エクスポートタイプ',
+	cloudExportTypeTemplate: 'テンプレート（活動・チェックリスト）',
+	cloudExportTypeFull: 'フルバックアップ',
+	cloudExportTypeTemplateDesc: '活動設定やチェックリストのみ共有します（個人データは含みません）。',
+	cloudExportTypeFullDesc: '子供データ・活動ログ等すべてのデータを含みます。環境移行用です。',
+	cloudSaving: '保管中...',
+	cloudSaveAction: 'クラウドに保管',
+	cloudStoredTitle: '保管済みデータ',
+	cloudStoredExpiry: (date: string) => `期限: ${date}`,
+	cloudStoredDownloads: (count: number | string, max: number | string) => `DL: ${count}/${max}回`,
+	cloudStoredDelete: '削除',
+	cloudImportTitle: 'PINコードでインポート',
+	cloudImportDesc: '共有されたPINコードを入力してデータを取り込みます。',
+	cloudImportPinPlaceholder: 'PINコード（6桁）',
+	cloudImportChecking: '確認中...',
+	cloudImportConfirmAction: '確認',
+	cloudImportPreviewTitle: 'インポート内容の確認',
+	cloudImportPreviewActivities: (n: number | string | unknown) => `活動マスタ: ${n}件`,
+	cloudImportPreviewChecklists: (n: number | string | unknown) => `チェックリスト: ${n}件`,
+	cloudImportTemplateNote: '既存の設定に追加されます（重複はスキップ）。',
+	cloudImportFullNote: 'フルバックアップデータです。追加インポートされます。',
+	cloudImportCancel: 'キャンセル',
+	cloudImporting: 'インポート中...',
+	cloudImportAction: 'インポート実行',
+	cloudImportComplete: 'インポート完了',
+	cloudImportResultActivities: (n: number | string | unknown) => `活動マスタ: ${n}件 追加`,
+	cloudImportResultChecklists: (n: number | string | unknown) => `チェックリスト: ${n}件 追加`,
+	cloudImportResultChildren: (n: number | string | unknown) => `子供データ: ${n}人 追加`,
+	cloudImportClose: '閉じる',
+
+	// データクリア
+	clearSectionTitle: '🗑️ データクリア',
+	clearDesc:
+		'すべての家族データ（子供・活動ログ・ポイント・ステータス等）を一括削除します。活動マスタ・カテゴリなどのシステムデータは保持されます。',
+	clearCurrentDataTitle: '現在のデータ件数',
+	clearIrreversibleWarning:
+		'この操作は取り消せません。事前にデータをエクスポートすることをお勧めします。',
+	clearCompleted: 'データクリアが完了しました。ページを再読み込みしてください。',
+
+	// フィードバック
+	feedbackSectionTitle: '💬 フィードバック・ご意見',
+	feedbackContentLabel: '内容',
+	feedbackContentPlaceholder: 'ご意見・ご要望をお聞かせください...',
+	feedbackContactNote: '技術的なご質問・使い方の相談は',
+	feedbackContactLinkLabel: 'メール',
+	feedbackContactSuffix: 'でも受け付けています',
+
+	// アプリ情報
+	appInfoSectionTitle: 'ℹ️ アプリ情報',
+	appInfoTermsLink: '📄 利用規約',
+	appInfoPrivacyLink: '🔒 プライバシーポリシー',
+	appInfoContactLink: '💬 お問い合わせ',
+	appInfoGithubLink: '🐙 GitHub',
+	appInfoVersionLabel: 'バージョン: ',
+
+	// アカウント削除
+	accountDeleteSectionTitle: 'アカウント削除',
+	accountDeleteOwnerDesc:
+		'オーナーとしてアカウントを削除すると、家族グループ全体のデータが影響を受けます。',
+	accountDeleteOwnerItem1: '子供のプロフィール・活動記録・ポイント履歴',
+	accountDeleteOwnerItem2: 'アバター画像・音声ファイル',
+	accountDeleteOwnerItem3: '設定・チェックリスト・キャリアプラン',
+	accountDeleteOwnerItem4: 'メンバーシップ・招待情報',
+	accountDeleteOwnerWarning:
+		'削除後のデータ復旧はできません。事前にデータをエクスポートすることを強くお勧めします。',
+	accountDeleteChildDesc: 'アカウントを削除すると、あなたのログイン情報が削除されます。',
+	accountDeleteChildDesc2:
+		'活動記録やポイントは家族グループに残りますが、このアカウントでのログインはできなくなります。',
+	accountDeleteChildWarning: '削除後の復旧はできません。',
+	accountDeleteMemberDesc:
+		'アカウントを削除すると、家族グループから離脱し、ログイン情報が削除されます。',
+	accountDeleteMemberDesc2: '家族グループのデータは引き続き保持されます。',
+	accountDeleteMemberWarning: '削除後の復旧はできません。',
+	accountDeleteTransferTitle: '家族グループに他のメンバーがいます',
+	accountDeleteTransferDesc:
+		'オーナー権限を別のメンバーに移譲するか、家族グループを全て削除するか選択してください。',
+	accountDeleteTransferOption: 'オーナー権限を移譲して退会する',
+	accountDeleteFullOption: '家族グループを全て削除する',
+	accountDeleteFullOptionDesc: '全メンバーの所属が解除され、全データが削除されます。',
+	accountDeleteCancelAction: 'キャンセル',
+
+	// ログアウト
+	logoutSectionTitle: 'ログアウト',
+	logoutDesc:
+		'このデバイスからがんばりクエストのアカウントからログアウトします。再度ログインするにはメールアドレスとパスワードが必要です。',
+	logoutAction: 'アカウントからログアウト',
+} as const;
+
+export const LICENSE_PAGE_LABELS = {
+	// 現在のプラン
+	currentPlanTitle: '現在のプラン',
+	currentPlanLabel: 'プラン',
+	currentPlanStatus: 'ステータス',
+	currentPlanExpiry: '有効期限',
+	currentPlanLicenseKey: 'ライセンスキー',
+	currentPlanFamilyName: '家族名',
+	currentPlanCreatedAt: '登録日',
+
+	// ライセンスキー適用
+	licenseKeyTitle: 'ライセンスキーを適用',
+	licenseKeyDesc:
+		'キャンペーン・サポート窓口から受け取ったライセンスキーを入力して、プランを有効化できます。',
+	licenseKeyApplySuccess: 'ライセンスキーを適用しました。プランが更新されています。',
+	licenseKeyInputLabel: 'ライセンスキー',
+	licenseKeyHelpToggle: 'ライセンスキーについて',
+	licenseKeyHelpOnce: '一回限りの使用',
+	licenseKeyHelpOnceDesc: '一度有効化すると、他のアカウントでは使用できません。',
+	licenseKeyHelpOverwrite: 'プラン上書き',
+	licenseKeyHelpOverwriteDesc: '現在のプランはキーに対応するプランに上書きされます。',
+	licenseKeyHelpBound: '紐付け先',
+	licenseKeyHelpBoundDesc:
+		'現在のアカウント（家族）に紐付き、他の家族へ付け替えることはできません。',
+	licenseKeyHelpIrreversible: '取り消し不可',
+	licenseKeyHelpIrreversibleDesc: '適用後に取り消すことはできません。',
+	licenseKeyApplyButton: 'ライセンスキーを適用',
+
+	// ライセンスキー確認ダイアログ
+	licenseKeyConfirmTitle: 'ライセンスキーを有効化しますか？',
+	licenseKeyConfirmDesc: '入力されたライセンスキーを現在のアカウントに適用します。',
+	licenseKeyConfirmOnce: '一回限り',
+	licenseKeyConfirmOnceDesc: '使用可能です（適用後は他アカウントで使えなくなります）',
+	licenseKeyConfirmPlan: 'プラン',
+	licenseKeyConfirmPlanDesc: 'が自動で付与され、現在のプランは上書きされます',
+	licenseKeyConfirmBoundPrefix: 'このキーは',
+	licenseKeyConfirmBoundSuffix: (tenantName: string) =>
+		`「${tenantName}」に紐付けられ、他の家族に付け替えできません`,
+	licenseKeyConfirmIrreversible: '取り消すことはできません',
+	licenseKeyEnteredKey: '入力されたキー',
+	licenseKeyAgreeOnce: '一回限り使用',
+	licenseKeyAgreeOnceDesc: 'であり、他のアカウントでは使えなくなることに同意します',
+	licenseKeyAgreePrefix: 'このライセンスキーが',
+	licenseKeyCancel: 'キャンセル',
+	licenseKeyConfirmPlanPrefix: 'キーに対応する',
+	licenseKeyConfirmIrreversiblePrefix: '適用を',
+	licenseKeyApplyLoading: '適用中…',
+	licenseKeyApplyConfirm: '適用する',
+
+	// プランラベル
+	planLabelMonthly: 'スタンダード月額（¥500/月）',
+	planLabelYearly: 'スタンダード年額（¥5,000/年）',
+	planLabelFamilyMonthly: 'ファミリー月額（¥780/月）',
+	planLabelFamilyYearly: 'ファミリー年額（¥7,800/年）',
+	planLabelLifetime: '永久ライセンス',
+	planLabelFree: '無料プラン',
+
+	// ステータスラベル
+	statusActive: '有効',
+	statusGracePeriod: '猶予期間',
+	statusSuspended: '停止中',
+	statusTerminated: '解約済み',
+
+	// 無料トライアル
+	trialActiveTitle: 'スタンダードプラン トライアル中',
+	trialActiveDays: (days: number | string) => `残り ${days}日`,
+	trialActiveUntil: (date: string | null) => `${date ?? ''} まで`,
+	trialStartTitle: '7日間 無料でお試し',
+	trialStartDesc: 'スタンダードプランの全機能を体験できます',
+	trialStartButton: '無料トライアルを開始する',
+	trialStartNote: 'クレジットカード不要 — 自動で課金されることはありません',
+	trialUsed: '無料トライアルは使用済みです',
+
+	// ステータス別メッセージ
+	gracePeriodTitle: '⚠️ 猶予期間中',
+	gracePeriodDesc:
+		'お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎるとサービスが停止されます。',
+	suspendedTitle: '⏸️ サービス停止中',
+	suspendedDesc:
+		'ライセンスが停止されています。データは保持されていますが、新しい活動の記録やポイントの付与はできません。',
+	terminatedTitle: '❌ 解約済み',
+	terminatedDesc:
+		'このアカウントは解約されています。データは一定期間保持されますが、その後削除されます。',
+
+	// プラン管理
+	planManagementTitle: 'プラン管理',
+	planManagementUnavailable: '決済機能は現在準備中です',
+	portalButton: (loading: boolean) => (loading ? '読み込み中...' : 'プラン変更・支払い管理'),
+	portalNote: 'Stripeの管理画面でプラン変更・支払い方法の更新・解約ができます',
+	portalPinNote: (usesPin: boolean) =>
+		`⚠️ プラン変更には${usesPin ? '親 PIN' : '確認フレーズ'}の入力が必要です`,
+	billingMonthly: '月額',
+	billingYearly: '年額（17% OFF）',
+
+	// スタンダードプラン
+	standardPlanName: 'スタンダード',
+	standardPlanDesc: '子供無制限・活動無制限・1年保持',
+	standardPriceMonthly: '¥500',
+	standardPriceYearly: '¥5,000',
+	standardPerMonth: '/月',
+	standardPerYear: '/年',
+
+	// ファミリープラン
+	familyPlanName: 'ファミリー',
+	familyPlanDesc: '家族みんなで見守る+永久保持',
+	familyPriceMonthly: '¥780',
+	familyPriceYearly: '¥7,800',
+	familyRecommendBadge: 'おすすめ',
+
+	// 購入ボタン
+	checkoutButton: (tier: string, loading: boolean) =>
+		loading ? '処理中...' : `${tier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める`,
+	checkoutNote: 'いつでもキャンセル・プラン変更可能',
+
+	// 支払い履歴
+	paymentHistoryTitle: '支払い履歴',
+	paymentHistoryPortalNote: '支払い履歴はStripeの管理画面でご確認いただけます',
+	paymentHistoryPortalButton: '支払い履歴を確認',
+	paymentHistoryEmpty: '支払い履歴はまだありません',
+	paymentHistoryBillingLink: '🧾 請求書・支払い方法の管理',
+
+	// Portal 確認ダイアログ
+	portalConfirmTitle: 'プラン変更の確認',
+	portalConfirmDesc:
+		'Stripeの管理画面に移動します。この画面からプラン変更・解約・ダウングレードが可能です。',
+	portalConfirmWarning: '⚠️ 誤操作による解約・ダウングレードを防ぐため、',
+	portalConfirmWarningPin: 'を入力してください。',
+	portalConfirmWarningPhrase: '確認フレーズ',
+	portalConfirmCancel: 'キャンセル',
+	portalConfirmLoading: '確認中…',
+	portalConfirmSubmit: 'プラン変更画面へ',
+
+	// ダウングレードエラー
+	downgradeInfoError: 'ダウングレード情報の取得に失敗しました',
+	downgradeArchiveError: 'リソースのアーカイブに失敗しました',
+	portalFetchError: 'プラン変更の確認に失敗しました',
+	portalConfirmPhraseError: (phrase: string) => `「${phrase}」と入力してください`,
+	portalConfirmPhraseLabel: (phrase: string) => `確認のため「${phrase}」と入力してください`,
+
+	// Churn prevention
+	churnLostItemMonthly: (months: number | string) => `月替わり限定アイテム ${months}個`,
+	churnLostItemTickets: (count: number | string) => `思い出チケット ${count}枚`,
+	churnLostItemBonus: (multiplier: number | string) => `ログインボーナス ×${multiplier}倍`,
+	churnLostItemTitle: (title: string) => `「${title}」称号`,
+	churnLostRetentionDays: (days: number | string) => `${days}日以前のデータへのアクセス`,
+
+	// デモ版固有ラベル
+	demoNotice: 'これはデモ画面です',
+	demoNoticeOperationsDisabled: '実際の操作はできません',
+	demoNoticeToast: (notice: string) => `${notice} - 実際の操作はできません`,
+	demoNoticeDesc:
+		'本番の /admin/license と同じ画面構成ですが、Stripe決済・ライセンスキー適用・トライアル開始はすべて無効化されています。クリックしても課金は発生しません。',
+	demoApplySuccessTitle: 'ライセンスキーが適用されました（デモ）',
+	demoApplySuccessDesc: (planName: string) =>
+		`プランが ${planName} に変更されました。これはデモの模擬動作です。実際のプラン変更は行われていません。`,
+	demoCurrentPlanTitle: '現在のプラン（デモ）',
+	demoPlanUsageTitle: 'プラン利用状況',
+	demoPlanUsageActivity: 'カスタム活動',
+	demoPlanUsageChildren: 'こども',
+	demoPlanUsageRetention: 'データ保持',
+	demoPlanUsageRetentionValue: (days: number | null) => (days === null ? '無制限' : `${days}日間`),
+	demoPlanUsageMaxValue: (max: number | null) => (max === null ? '無制限' : String(max)),
+	demoTrialNote: 'デモではトライアルは開始できません',
+	demoLicenseKeyTitle: '💎 ライセンスキーをお持ちの方',
+	demoLicenseKeyDesc: '買い切りライセンスキーをお持ちの場合は、こちらで適用できます。',
+	demoLicenseKeyNote: 'デモでは実際の適用は行われません（画面の変化を体験できます）', // full text including parenthesized part
+	demoLicenseKeyHelpAutoGrant: 'プラン自動付与',
+	demoLicenseKeyHelpAutoGrantDesc: 'キーに対応するプランが自動で付与されます。',
+	demoLicenseKeyHelpBoundDesc: '現在のアカウント（家族）に紐付き、他の家族に付け替えできません。',
+	demoLicenseKeyHelpIrreversibleDesc: '適用後の取り消しはできません。',
+	demoLicenseKeyConfirmBound: (name: string) => `このキーは「${name}」に紐付けられます`,
+	demoLicenseKeyConfirmPlanDesc: 'が自動で付与されます',
+	demoLicenseKeyMockNote: 'これはデモの模擬操作です。実際のキー消費やプラン変更は行われません。',
+	demoLicenseKeyAgreeDesc:
+		'であり、\n\t\t\t\t\t\t\t\t他のアカウントでは使えなくなることに同意します',
+	demoCheckoutButton: (tier: string) =>
+		`${tier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める`,
+	demoCheckoutNote: 'デモでは実際の決済は行われません',
+	demoPlanManagementTitle: 'プラン管理',
+	demoPaymentHistoryTitle: '支払い履歴',
+} as const;
+
+export const REPORTS_LABELS = {
+	// ページヘッダー
+	pageTitle: '📊 レポート',
+	certificatesLink: '📜 証明書',
+	growthBookLink: '📖 記録ブック',
+
+	// 設定更新完了
+	settingsUpdated: '設定を更新しました',
+
+	// アップセルバナー
+	weeklyEmailUpsellTitle: '✉️ 週次メールレポートはスタンダードプラン以上の特典です',
+	weeklyEmailUpsellDesc:
+		'毎週設定した曜日に、お子さまのがんばりをまとめたレポートがメールで届きます。週次レポートタブでプレビューはいつでもご覧いただけます。',
+	weeklyEmailUpsellLink: 'プランを見る →',
+
+	// タブ
+	tabMonthly: '月次レポート',
+	tabWeekly: '週次レポート',
+
+	// 月次レポート
+	monthlyEmpty: (monthLabel: string) => `${monthLabel}のレポートがありません`,
+	monthlyEmptyNote: '活動を記録すると、月次レポートが生成されます',
+	monthlyChildReport: (childName: string) => `${childName}の がんばりレポート`,
+	monthlyActivityLabel: '活動',
+	monthlyActivityUnit: '回',
+	monthlyPointsLabel: 'ポイント',
+	monthlyPointsUnit: 'pt',
+	monthlyLevelLabel: 'レベル',
+	monthlyStreakLabel: '連続',
+	monthlyStreakUnit: '日',
+	monthlyAchievementsLabel: '実績',
+	monthlyAchievementsUnit: '獲得',
+	monthlyActiveDaysLabel: '活動日数',
+	monthlyActiveDaysOf: (total: number | string) => `/ ${total}日`,
+	monthlyAvgLabel: '1日平均',
+	monthlyAvgUnit: '回',
+	monthlyPrevMonth: '先月比',
+	monthlyCategoryTitle: '📈 カテゴリ別の様子',
+	monthlyCategoryCount: (count: number | string) => `${count}回`,
+
+	// 週次レポート - 設定セクション
+	weeklySettingsTitle: '⚙️ レポート設定',
+	weeklySettingsUpgradeNote: 'スタンダードプラン以上でメール配信設定を変更できます',
+	weeklySettingsEnableLabel: '週次レポートを有効にする',
+	weeklySettingsDayLabel: '配信曜日',
+	weeklySettingsSave: '保存',
+
+	// 週次レポート - 空状態
+	weeklyEmpty: 'レポートがありません',
+	weeklyEmptyNote: '子どもを登録すると、毎週レポートが生成されます',
+
+	// 週次レポート - カード
+	weeklyChildReport: (childName: string) => `${childName}の 週間レポート`,
+	weeklyActivityLabel: '活動',
+	weeklyActivityUnit: '回',
+	weeklyPointsLabel: 'ポイント',
+	weeklyPointsUnit: 'pt',
+	weeklyAchievementsLabel: '実績',
+	weeklyAchievementsUnit: '獲得',
+	weeklyHighlightsTitle: '🏆 今週のハイライト',
+	weeklyCategoryTitle: '📈 カテゴリ別の様子',
+	weeklyAchievementsTitle: '🎖️ 獲得した実績',
+	weeklyAdviceTitle: '💡 アドバイス',
+	weeklyCategoryCount: (count: number | string) => `${count}回`,
+
+	// きょうだいランキング
+	rankingTitle: '👫 きょうだいランキング',
+	rankingWeekSummaryTitle: '📊 今週のまとめ',
+	rankingMostActive: (childName: string, count: number | string) =>
+		`🏆 もっとも活発: ${childName}（${count}回）`,
+	rankingWeekTrendTitle: '📈 週別 活動数のうつりかわり',
+	rankingWeekCategoryTitle: '📊 今週のカテゴリ別くらべっこ',
+	rankingMonthCategoryTitle: '📊 今月のカテゴリ別くらべっこ',
+	rankingMonthMostActive: (childName: string, count: number | string) =>
+		`🏆 今月もっとも活発: ${childName}（${count}回）`,
+} as const;
+
+export const OPS_LABELS = {
+	// ページタイトル
+	pageTitle: 'OPS - KPI サマリー',
+
+	// フェッチ時刻
+	fetchedAt: (dateStr: string) => `${dateStr} 時点`,
+
+	// KPI カード
+	kpiLabelTotal: '総テナント数',
+	kpiLabelActive: 'アクティブ',
+	kpiLabelGracePeriod: '猶予期間',
+	kpiLabelSuspended: '停止中',
+	kpiLabelTerminated: '退会済み',
+	kpiNewThisMonth: (n: number | string) => `+${n} 今月`,
+
+	// プラン別内訳
+	planBreakdownTitle: 'プラン別内訳（アクティブテナント）',
+	planColPlan: 'プラン',
+	planColTenants: 'テナント数',
+	planColMrr: 'MRR 概算',
+	planMonthly: '月額 (¥500/月)',
+	planYearly: '年額 (¥5,000/年)',
+	planLifetime: 'ライフタイム',
+	planNone: '未設定（トライアル等）',
+	planTotalMrr: '合計 MRR',
+
+	// 価格見直しトリガー
+	triggerTitle: '価格見直しトリガー',
+	triggerFired: (n: number | string) => `${n}件発動中`,
+	triggerSkipped: 'スキップ',
+	triggerNormal: '正常',
+	triggerFiredBadge: '発動',
+	triggerCurrentValue: (val: string, threshold: string, months: string, required: string) =>
+		`現在値: ${val}% / 閾値: ${threshold}% (${months}/${required}ヶ月)`,
+	triggerRecommendation: (rec: string) => `推奨: ${rec}`,
+	triggerEvaluatedAt: (dateStr: string, paidUsers: string) =>
+		`評価日時: ${dateStr} | 有料ユーザー: ${paidUsers}人`,
+
+	// admin bypass メトリクス
+	bypassTitle: 'admin bypass merge メトリクス',
+	bypassEvidenceMissing: (n: number | string) => `${n}件 証跡欠落`,
+	bypassNormal: '正常',
+	bypassUnavailable: 'データ未取得',
+	bypassUnavailableReason: (reason: string | null | undefined) =>
+		`${reason ?? 'GitHub API に接続できませんでした'}（GITHUB_TOKEN 未設定時は非表示。ADR-0044 参照）`,
+	bypassEmpty: (months: number | string) =>
+		`直近 ${months} ヶ月の admin bypass merge は 0 件です。`,
+	bypassColMonth: '月',
+	bypassColTotal: 'merge 総数',
+	bypassColBypass: 'admin bypass',
+	bypassColMissing: '証跡欠落',
+	bypassSummaryTotal: '合計',
+	bypassFetchedAt: (dateStr: string) => `取得日時: ${dateStr} | 運用ルール:`,
+	bypassAdrLink: 'ADR-0044 (archive)',
+
+	// システム状態
+	systemTitle: 'システム状態',
+	stripeLabel: 'Stripe 連携:',
+	stripeEnabled: '有効',
+	stripeDisabled: '無効（ローカルモード）',
+} as const;
+
+export const POINTS_LABELS = {
+	// ページヘッダー
+	pageTitle: '⭐ ポイント',
+	displaySetting: (isCurrencyMode: boolean, currency: string) =>
+		`表示: ${isCurrencyMode ? currency : 'ポイント（P）'}`,
+
+	// 残高カード
+	convertableLabel: (amount: string) => `変換可能: ${amount}`,
+
+	// 変換フォーム
+	convertFormTitle: (childName: string) => `${childName}のおこづかいにかえる`,
+	currencyModeHint: '💡 変換した金額を実際にお子さまへお渡しください',
+
+	// モードタブ
+	tabPreset: 'かんたん',
+	tabManual: '自由入力',
+	tabReceipt: '領収書',
+
+	// プリセットモード
+	presetLabel: (unit: string, minAmount: string) => `変換${unit}数（${minAmount}単位）`,
+	presetMinAmountNote: (minAmount: string, current: string) =>
+		`${minAmount}以上で変換できます（現在 ${current}）`,
+
+	// 手動モード
+	manualLabel: (unit: string) => `変換${unit}数（自由入力）`,
+	manualOverBalanceError: '残高を超えています',
+	manualMinError: '1P以上を入力してください',
+	manualHintCurrency: (current: string) => `残高: ${current}`,
+	manualHintPoints: (current: string) => `1P = 1円 / 残高: ${current}`,
+	manualPlaceholder: '金額を入力',
+	manualMaxButton: '全額変換',
+
+	// 領収書モード
+	receiptLabel: '領収書を撮影して金額を読み取り',
+	receiptCaptureButtonTitle: '領収書を撮影 / 画像を選択',
+	receiptCaptureButtonNote: 'JPEG, PNG, WebP（5MB以下）',
+	receiptPreviewAlt: '領収書プレビュー',
+	receiptPreviewClose: 'プレビューを閉じる',
+	receiptScanningText: '金額を読み取り中...',
+	receiptRetakeButton: '再撮影する',
+	receiptResultLabel: '読み取り結果',
+	receiptAmountHint: '金額が違う場合は修正できます',
+	receiptCurrencyUnit: '円',
+	receiptOverBalance: (balance: string) => `残高（${balance}）を超えています`,
+	receiptConfirmButton: 'この金額で変換する',
+	receiptConfirmedLabel: '金額確定済み',
+	receiptRetakeOtherButton: '別の領収書を撮影する',
+
+	// 変換プレビュー
+	convertPreviewBalance: (current: string, after: string) => `残高: ${current} → ${after}`,
+	convertPreviewMonthTotal: (current: string, after: string) =>
+		`／今月の合計: ${current} → ${after}`,
+	convertPreviewYenUnit: '円',
+	convertPreviewSuffix: '分のおこづかい',
+	convertSubmitLoading: '変換中...',
+	convertSubmitCurrency: (amount: string) => `${amount} を渡す`,
+	convertSubmitPoints: (amount: string) => `${amount} を変換する`,
+
+	// 空状態
+	noConvertable: (unit: string) => `変換可能な${unit}がありません`,
+
+	// 変換結果
+	resultBalance: (balance: string) => `残高: ${balance}`,
+
+	// 変換履歴
+	historyTitle: 'おこづかい変換りれき',
+	historySummaryThisMonth: '今月の合計',
+	historySummaryAllTime: '累計',
+	historyFilterThisMonth: '今月',
+	historyFilterLastMonth: '先月',
+	historyFilterAll: '全期間',
+	historyEmpty: 'この期間の変換履歴はありません',
+} as const;
+
+export const SIGNUP_LABELS = {
+	// 確認コード入力ステップ
+	confirmEmailSent: (email: string) => `${email} に確認コードを送信しました。`,
+	confirmEmailNote: 'メールに記載された6桁のコードを入力してください。',
+	confirmCodeExpiry: (minutes: number | string) => `確認コードは${minutes}分以内に入力してください`,
+	confirmCodeLabel: '確認コード',
+	confirmSubmitLoading: '確認中...',
+	confirmSubmitButton: '確認する',
+	resendSuccess: '確認コードを再送しました',
+	resendLoading: '再送中...',
+	resendCooldown: (seconds: number | string) => `コードを再送する（${seconds}秒後に再試行可能）`,
+	resendButton: 'コードを再送する',
+
+	// サインアップフォーム
+	googleSignupLabel: 'Google で登録',
+	dividerOr: 'または',
+	emailLabel: 'メールアドレス',
+	emailPlaceholder: 'example@email.com',
+	passwordLabel: 'パスワード',
+	passwordPlaceholder: '8文字以上（大小英字・数字を含む）',
+	passwordHint: '8文字以上、大文字・小文字・数字を含む',
+	passwordConfirmLabel: 'パスワード（確認）',
+	passwordConfirmPlaceholder: 'パスワードを再入力',
+	passwordMismatchError: 'パスワードが一致しません',
+	passwordMatchHint: 'パスワードが一致しました',
+	licenseKeyLabel: 'ライセンスキー',
+	licenseKeyHint: '購入済みのライセンスキーを入力してください',
+	licenseKeyHelpToggle: 'ライセンスキーについて',
+	licenseKeyHelpOnce: '一回限りの使用',
+	licenseKeyHelpOnceDesc: '一度有効化すると、他のアカウントでは使用できません。',
+	licenseKeyHelpAutoDetect: 'プラン自動判定',
+	licenseKeyHelpAutoDetectDesc: 'キーに応じてスタンダード / ファミリープランが自動で付与されます。',
+	licenseKeyHelpBound: '紐付け先',
+	licenseKeyHelpBoundDesc:
+		'現在登録中のアカウント（家族）に紐付きます。後から他の家族に付け替えることはできません。',
+	licenseKeyHelpExpiry: '有効期限',
+	licenseKeyHelpExpiryDesc: '発行日から所定の期間で失効します（失効後は使用不可）。',
+	licenseKeyOnceAgreePrefix: 'このライセンスキーが',
+	licenseKeyOnceAgreeStrong: '一回限り使用',
+	licenseKeyOnceAgreeSuffix: 'であり、他のアカウントでは使えなくなることに同意します',
+	licenseKeyOnceAgreeError: '一回限り使用への同意が必要です',
+	licenseKeySkipButton: 'ライセンスキーなしで続ける',
+	licenseKeyLinkButton: 'ライセンスキーをお持ちの方',
+	termsAgreePrefix: '',
+	termsAgreeLink: '利用規約',
+	termsAgreeSuffix: 'に同意します',
+	termsAgreeError: '利用規約への同意が必要です',
+	privacyAgreePrefix: '',
+	privacyAgreeLink: 'プライバシーポリシー',
+	privacyAgreeSuffix: 'に同意します',
+	privacyAgreeError: 'プライバシーポリシーへの同意が必要です',
+	parentalConsentNote: '※ 本サービスは子供のデータを扱います。保護者として上記に同意してください。',
+	submitLoading: '登録中...',
+	submitWithLicenseKey: 'ライセンスキーで登録',
+	submitWithTrial: '7日間 無料体験をはじめる',
+	submitFree: '無料ではじめる',
+	trialPlanNote: (planName: string) =>
+		`セットアップ後に ${planName}プランのトライアルが開始されます`,
+	trialPlanStandard: 'スタンダード',
+	trialPlanFamily: 'ファミリー',
+	loginLink: '既にアカウントをお持ちの方はこちら',
+	legalNote: '有料プランをご利用の前に',
+	legalTokushoho: '特定商取引法に基づく表記',
+	legalSlaAnd: 'および',
+	legalSla: 'SLA',
+	legalNoteEnd: 'をご確認ください',
+
+	// ライセンスキー確認ダイアログ
+	licenseConfirmTitle: 'ライセンスキーを有効化しますか？',
+	licenseConfirmKeyLabel: '入力されたキー',
+	licenseConfirmOnce: '一回',
+	licenseConfirmOnceDesc: 'しか使用できません。有効化後は他のアカウントで再利用できません。',
+	licenseConfirmPlanPrefix: 'キーに対応する',
+	licenseConfirmPlanStrong: 'プラン（スタンダード / ファミリー）',
+	licenseConfirmPlanSuffix: 'が自動で付与されます。',
+	licenseConfirmBoundPrefix: 'このキーは',
+	licenseConfirmBoundEmail: (email: string) => `「${email || '入力中のアカウント'}」`,
+	licenseConfirmBoundSuffix: 'に紐付けられ、後から他の家族に付け替えることはできません。',
+	licenseConfirmExpiry: '有効期限',
+	licenseConfirmExpirySuffix: 'が設定されています。発行から一定期間で失効します。',
+	licenseConfirmCancel: 'キャンセル',
+	licenseConfirmOk: '有効化する',
+
+	// submitBlockReason (JS, shown in template)
+	blockEmailRequired: 'メールアドレスを入力してください',
+	blockPasswordRequired: 'パスワードを入力してください',
+	blockPasswordConfirmRequired: 'パスワード（確認）を入力してください',
+	blockPasswordMismatch: 'パスワードが一致しません',
+	blockTermsRequired: '利用規約への同意が必要です',
+	blockPrivacyRequired: 'プライバシーポリシーへの同意が必要です',
+	blockLicenseKeyInvalid: 'ライセンスキーを正しく入力してください',
+	blockLicenseOnceRequired: 'ライセンスキーが一回限り使用であることに同意してください',
+} as const;
+
+export const ANALYTICS_LABELS = {
+	pageTitle: 'アナリティクス - 管理画面',
+	pageHeading: 'アナリティクス',
+
+	// Umami not configured alert
+	umamiNotConfiguredTitle: 'Umami が設定されていません',
+	umamiConfigVar1Prefix: 'アナリティクスを有効にするには、環境変数 ',
+	umamiConfigVar1Suffix: ' と',
+	umamiConfigVar2Suffix: ' を設定してください。',
+	umamiConfigApiKeyPrefix: 'API アクセスには ',
+	umamiConfigApiKeySuffix: ' も必要です。',
+	umamiErrorTitle: 'データ取得に失敗しました',
+
+	// Overview section
+	overviewTitle: '過去 30 日間の概要',
+	kpiLabelPageViews: 'ページビュー',
+	kpiLabelUniqueVisitors: 'ユニーク訪問者',
+	kpiLabelVisits: '訪問数',
+	kpiLabelBounceRate: '直帰率',
+	prevPeriodCompare: (rate: string) => `${rate} (前期比)`,
+
+	// Pages table
+	pagesTitle: 'ページ別訪問数 (トップ 10)',
+	tableColPage: 'ページ',
+	tableColVisits: '訪問数',
+
+	// Referrers table
+	referrersTitle: '流入元 (リファラ)',
+	tableColReferrer: '参照元',
+	directAccess: '(直接アクセス)',
+
+	// UI mode events table
+	uiModeEventsTitle: '年齢モード別イベント',
+	tableColEvent: 'イベント',
+	tableColCount: '件数',
+
+	// Error events table
+	errorEventsTitle: 'エラーイベント',
+
+	// All events table
+	allEventsTitle: 'イベント一覧 (トップ 20)',
+	tableColEventName: 'イベント名',
+} as const;
+
+export const BILLING_LABELS = {
+	pageHeading: '請求書・支払い管理',
+
+	// Subscription overview
+	subscriptionOverviewTitle: 'サブスクリプション状況',
+	statusLabel: 'ステータス',
+	statusActive: '有効',
+	statusGracePeriod: '猶予期間',
+	statusSuspended: '停止中',
+	statusTerminated: '解約済み',
+	stripeConnectionLabel: 'Stripe 連携',
+	stripeConnected: '✅ 連携済み',
+	stripeNotConnected: '未連携',
+	expiresLabel: '有効期限',
+
+	// Billing portal section
+	billingPortalTitle: '請求書・支払い方法',
+	billingPortalDesc: 'Stripe の管理画面で以下の操作ができます:',
+	featureInvoices: '過去の請求書の確認・ダウンロード',
+	featurePaymentMethod: '支払い方法（クレジットカード）の変更',
+	featurePlanSwitch: '月額 / 年額プランの切り替え',
+	featureNextBilling: '次回請求日の確認',
+	notReadyAlert: '決済機能は現在準備中です',
+	openPortalError: '請求管理画面を開けませんでした',
+	openPortalLoading: '読み込み中...',
+	openPortalButton: '請求管理画面を開く',
+	openPortalNote: 'Stripe の安全な管理画面に移動します',
+	openPortalPinRequired: (label: string) => `⚠️ ${label}の入力が必要です`,
+	openPortalPinRequiredPin: '親 PIN',
+	openPortalPinRequiredPhrase: '確認フレーズ',
+	noCustomerAlert: 'サブスクリプションが未開始のため、請求情報はまだありません。',
+	noCustomerAlertSelectPlan: 'プランを選択',
+	noCustomerAlertSuffix: 'すると利用可能になります。',
+	noSubscriptionAlert: 'Stripe Customer Portal を利用するには、サブスクリプションが必要です。',
+
+	// Nav link
+	navLinkTitle: 'プラン管理',
+	navLinkHint: 'プランの選択・変更・トライアル開始',
+
+	// Dialog
+	dialogTitle: '請求管理画面を開く',
+	dialogDesc:
+		'Stripeの管理画面に移動します。この画面から支払い方法の変更・プラン切り替えが可能です。',
+	dialogPinRequired: (label: string) => `⚠️ 誤操作を防ぐため、${label}を入力してください。`,
+	dialogPinOrPhrase: '確認フレーズ',
+	dialogConfirmPhraseLabel: (phrase: string) => `確認のため「${phrase}」と入力してください`,
+	dialogCancelButton: 'キャンセル',
+	dialogConfirmLoading: '確認中…',
+	dialogConfirmButton: '請求管理画面へ',
+} as const;
+
+export const OPS_LICENSE_ISSUE_LABELS = {
+	pageTitle: 'OPS - キャンペーンキー発行',
+	backLink: '← ライセンス一覧に戻る',
+
+	// Issue form card
+	cardTitle: 'キャンペーンキー一括発行',
+	cardDesc1:
+		'Stripe を経由せず、プレゼント・サポート補償・キャンペーン配布用のライセンスキーを発行します。',
+	cardDesc2:
+		'発行結果は CSV ダウンロードで受け取り、運営ツール (メール/LINE 等) で配布してください。',
+	cardDesc3: '発行操作はすべて監査ログに記録されます。',
+
+	// Stripe promo details
+	promoCodeSummary: 'Stripe 100% OFF プロモコードを使う場合（#803）',
+	promoCodeDesc1:
+		'公開キャンペーン（SNS 等で URL を配布する）や、Stripe の本人確認を通したい場合は、',
+	promoCodeDesc2Prefix: 'この画面ではなく ',
+	promoCodeDesc2Strong: 'Stripe Dashboard の Coupons / Promotion codes',
+	promoCodeDesc2Suffix1: ' を使ってください。',
+	promoCodeDesc2Suffix2:
+		'100% OFF の Coupon + Promotion code を発行し、「プランを契約する」ボタンから Checkout → プロモコード適用のフローでプランが解放されます。',
+	promoCodeList1: '使い分け・運用手順:',
+	promoCodeList1CodePath: 'docs/design/19-プライシング戦略書.md §8',
+	promoCodeList2:
+		'流出対策: Coupon 作成時に Max redemptions / Expires at / First-time order only を必ず設定',
+	promoCodeList3Prefix: '経路 A (本画面) と経路 B (Stripe) の両方とも、発行結果は ',
+	promoCodeList3Link: '/ops の監査ログ',
+	promoCodeList3Suffix: ' または Stripe Dashboard で確認可能',
+	promoCodeDashboardLink: 'Stripe Dashboard → Coupons を開く',
+
+	// Form fields
+	planLabel: 'プラン（必須）',
+	quantityLabel: '数量（必須・1〜500）',
+	reasonLabel: 'キャンペーン名 / 理由（必須）',
+	reasonPlaceholder: '例: 2026春_幼稚園キャンペーン / CS-1234 補填',
+	reasonHint: '監査ログとレコードの tenantId に記録されます。',
+	expiresAtLabel: '有効期限',
+	expiresAtDefault: 'デフォルト (発行から 90 日)',
+	expiresAtNever: '期限なし (lifetime 的扱い)',
+	tenantIdLabel: '発行プール ID（任意）',
+	tenantIdPlaceholder: '省略時は campaign:<理由> を自動採番',
+	tenantIdHint: 'record.tenantId に入る値。同一キャンペーンで揃えると後から検索しやすい。',
+	submitLoading: '発行中...',
+	submitButton: 'キーを発行する',
+
+	// Issue result
+	resultTitle: (count: number | string) => `発行結果 (${count} 件)`,
+	resultPlanPrefix: 'プラン: ',
+	resultReasonPrefix: '／ 理由: ',
+	resultExpiresPrefix: '／ 有効期限: ',
+	copyAllButton: '全てコピー',
+	downloadCsvButton: 'CSV ダウンロード',
+	errorCount: (count: number | string) =>
+		`${count} 件は発行に失敗しました（ログを確認してください）。`,
+} as const;
+
+export const OPS_REVENUE_LABELS = {
+	pageTitle: 'OPS - 収益',
+	mockModeBadge: 'MOCK MODE: ダミーデータを表示中 (STRIPE_MOCK=true)',
+
+	// Stripe KPI section
+	stripeKpiTitle: 'Stripe 収益指標',
+	kpiLabelPaidUsers: '有料ユーザー数',
+	kpiLabelConversionRate: '転換率 (90日)',
+	kpiLabelChurnRate: '月次解約率',
+
+	// Trend chart
+	trendTitle: '(過去6か月)',
+	trendChartAriaLabel: 'MRR トレンドグラフ',
+	kpiTrendTitle: 'KPI トレンド',
+	tableColMonth: '月',
+	tableColPaidCount: '有料数',
+	tableColChurnRate: '解約率',
+
+	// DB-based revenue section
+	dbRevenueTitle: 'Stripe 請求書ベース収益',
+	kpiLabelMrrDb: 'MRR (DB)',
+	kpiLabelArrDb: 'ARR (DB)',
+	kpiLabelPeriodRevenue: '期間売上合計',
+	kpiLabelStripeFeeTotal: 'Stripe手数料合計',
+
+	// Monthly breakdown
+	monthlyBreakdownTitle: '月次推移',
+	monthlyBreakdownSuffix: (months: number | string) => `(過去${months}か月)`,
+	tableColRevenue: '売上',
+	tableColCount: '件数',
+	tableColFee: '手数料',
+	tableColNetIncome: '純収入',
+
+	// Invoices
+	invoicesTitle: '請求書一覧',
+	invoicesTitleSuffix: '直近',
+	invoicesTitleSuffix2: '件',
+	invoicesEmpty: '請求書データがありません (Stripe未設定 or 期間内に決済なし)',
+	tableColPaidAt: '支払日',
+	tableColCustomer: '顧客',
+	tableColContent: '内容',
+	tableColAmount: '金額',
+	tableColFeeLabel: '手数料',
+
+	// Footer
+	fetchedAt: (dateStr: string) => `最終取得: ${dateStr}`,
+	cacheNote: '(1時間キャッシュ)',
+} as const;
+
+export const OPS_BUSINESS_LABELS = {
+	pageTitle: 'OPS - 事業採算性',
+	mockModeBadge: 'MOCK MODE: ダミーデータを表示中 (STRIPE_MOCK=true)',
+
+	// Breakeven progress card
+	breakevenProgressTitle: '損益分岐点 進捗',
+	breakevenUsersUnit: (current: number | string, target: number | string) =>
+		`${current} / ${target} 名`,
+	breakevenUsersUnitSuffix: '名',
+	breakevenAchievedBadge: '黒字達成',
+	breakevenRemainingUsers: (n: number | string) => `あと ${n} 名`,
+	breakevenProgressLabel: '損益分岐点達成率',
+
+	// KPI cards
+	kpiLabelRevenue: '今月の収益',
+	kpiLabelAwsCost: 'AWS 原価',
+	kpiAwsCostUsdSuffix: (usd: string) => `(${usd} USD)`,
+	kpiLabelStripeFee: 'Stripe 手数料',
+	kpiStripeFeeNote: '(売上 x 3.6%)',
+	kpiLabelFixedCosts: '固定費',
+	kpiLabelMonthlyProfit: '月間利益',
+	kpiProfitLoss: '赤字',
+
+	// Warning card
+	warningTitle: '月間利益がマイナスです',
+	warningDesc: (n: number | string) => `損益分岐点達成まで有料ユーザー ${n} 名の追加が必要です。`,
+
+	// Breakdown table
+	breakdownTitle: '損益内訳',
+	tableColItem: '項目',
+	tableColAmount: '金額',
+	tableRowRevenue: '売上 (Stripe)',
+	tableRowAwsCost: '- AWS 原価',
+	tableRowStripeFee: '- Stripe 手数料 (3.6%)',
+	tableRowMonthlyProfit: '月間利益',
+
+	// Scale tiers
+	scaleTiersTitle: '規模帯比較',
+	scaleTiersCurrentBadge: '現在',
+	scaleTiersUsersRange: (min: number | string, max: string) => `${min}${max} 名`,
+	scaleTiersMonthlyRevenue: (yen: string) => `¥${yen}/月`,
+	scaleTiersMonthlyRevenueSuffix: '/月',
+
+	// KPI summary
+	kpiSummaryTitle: 'Stripe KPI',
+	kpiLabelMrr: 'MRR',
+	kpiLabelArr: 'ARR',
+	kpiLabelArpu: 'ARPU',
+	kpiLabelConversionRate: '転換率',
+	kpiLabelChurnRate: '解約率',
+
+	// Footer
+	fetchedAt: (dateStr: string) => `最終取得: ${dateStr}`,
+} as const;
+
+export const CHILD_HOME_LABELS = {
+	// Baby mode: completed card aria-label
+	completedAriaLabel: (name: string) => `${name}（きろくずみ）`,
+
+	// Baby mode: inline form submit button states
+	babyCardMainQuestBadge: '⚔️ 2ばい!',
+	babyCardPendingText: 'まってね！',
+
+	// Baby mode: aria-label for submit button
+	babyCardRecordAriaLabel: (name: string) => `${name}をきろくする`,
+	babyCardRecordMainQuestSuffix: '（メインクエスト×2）',
+	babyCardRecordMissionSuffix: '（ミッション）',
+
+	// Pin context menu
+	pinActionUnpin: '📌 ピンどめをはずす',
+	pinActionPin: '📌 ピンどめする',
+	pinCloseButton: 'とじる',
+
+	// Confirm dialog
+	confirmTitle: (name: string) => `${name}を\nきろくする？`,
+	confirmTitleBr: (name: string) => `${name}を`,
+	confirmTitleBrLine2: 'きろくする？',
+	confirmCancelButton: 'やめる',
+	confirmSubmitLoading: 'まってね！',
+	confirmSubmitButton: 'きろく！',
+
+	// Record result overlay
+	resultCancelledIcon: '↩️',
+	resultCancelledTitle: 'とりけしました',
+	resultCancelledClose: 'とじる',
+	resultFirstRecord: '🌟 はじめての いっぽ！ 🌟',
+	resultActivityRecorded: (name: string) => `${name}をきろくしたよ！`,
+	resultStreakBonus: (days: number | string, bonus: number | string) =>
+		`${days}にちれんぞく！ +${bonus}ボーナス`,
+	resultMasteryBonus: (bonus: number | string, level: number | string) =>
+		`📗 なれてきたボーナス +${bonus} (Lv.${level})`,
+	resultMasteryLevelUp: (name: string, level: number | string) =>
+		`🎖️ ${name}が Lv.${level} になった！`,
+	resultComboCategoryCombo: (name: string, catName: string) => `${name}コンボ！（${catName}）`,
+	resultXpLabel: 'けいけんち',
+	resultMissionComplete: '🎯 ミッションたっせい！',
+	resultMissionAllClear: '🎉 ぜんぶクリア！',
+	resultTodayCount: (n: number | string) => `きょう ${n}かいめ！`,
+	resultSpecialRewardRemaining: (n: number | string) => `🎁 あと${n}かいで とくべつごほうび！`,
+	resultCancelButton: (s: number | string) => `とりけし (${s}s)`,
+	resultConfirmButton: 'やったね！',
+	crossComboBang: '！',
+} as const;
+
+export const DEMO_SIGNUP_LABELS = {
+	// Hero section
+	heroTitle: 'デモ体験ありがとうございます！',
+	heroDesc1: 'お子さまの「がんばり」を',
+	heroDesc2: '冒険に変えてみませんか？',
+
+	// Primary CTA card
+	trialHeading: '7日間の無料トライアル',
+	trialSubheading: 'クレジットカード登録不要で今すぐ始められます',
+	ctaStartFree: '無料で はじめる',
+	ctaCancelNote: 'いつでもキャンセルOK・違約金なし',
+
+	// Value propositions
+	featuresHeading: 'がんばりクエストでできること',
+	feature1Title: 'お子さまの名前で記録',
+	feature1Desc: 'デモでは保存されませんが、本番ではすべて安全に保存されます',
+	feature2Title: '成長の可視化',
+	feature2Desc: '月次レポートでお子さまの成長傾向をレーダーチャートで確認',
+	feature3Title: 'デイリーミッション',
+	feature3Desc: '毎日の目標で「続ける力」を自然に育てます',
+	feature4Title: '家族みんなで管理',
+	feature4Desc: 'きょうだいをまとめて管理。家族メンバーの招待も可能',
+	feature5Title: '安心・安全',
+	feature5Desc: 'PIN認証で子供のデータを保護。広告なし・データ販売なし',
+
+	// Pricing summary
+	pricingHeading: '料金プラン',
+	pricingFreeLabel: 'フリー',
+	pricingFreePrice: '（¥0）からスタート。スタンダード・ファミリーの2プランをご用意。',
+	pricingStandardLabel: 'スタンダード',
+	pricingStandardPrice: '（月額¥500〜）と',
+	pricingFamilyLabel: 'ファミリー',
+	pricingFamilyPrice: '（月額¥780〜）。',
+	pricingTrialNote: 'スタンダード・ファミリープランはすべて7日間の無料トライアル付き',
+	pricingDetailsLink: 'プランの詳細を料金ページで見る →',
+
+	// Testimonials
+	testimonialsHeading: 'ご利用者の声',
+	testimonial1: '「毎朝、自分からスタンプを押したがるようになりました」',
+	testimonial1Author: '— 5歳男の子のママ',
+	testimonial2: '「お手伝いが楽しいゲームに変わった。親も記録が楽」',
+	testimonial2Author: '— 8歳女の子のパパ',
+
+	// Secondary CTA
+	ctaStartTrial: '無料トライアルを はじめる',
+	ctaTrialNote: '7日間無料 ・ いつでもキャンセルOK',
+
+	// Back to demo
+	backToDemo: 'デモに戻る',
+} as const;
+
+// ============================================================
+// admin/challenges ページ (#1452 Phase B)
+// ============================================================
+
+export const CHALLENGES_LABELS = {
+	// Family streak
+	familyStreakTitle: (days: number) => `家族ストリーク: ${days}日`,
+	familyStreakRecorded: (count: number) => `今日は${count}人が記録済み`,
+	familyStreakNone: '今日はまだ誰も記録していません',
+	familyStreakMilestone: (remaining: number, days: number, points: number) =>
+		`あと${remaining}日で${days}日ボーナス（+${points}P）`,
+
+	// Family plan notice
+	familyPlanTitle: '👨‍👩‍👧‍👦 ファミリープラン限定機能',
+	familyPlanDesc: 'きょうだいチャレンジと家族ストリークはファミリープランでご利用いただけます',
+	familyPlanButton: 'プランを確認',
+
+	// Challenge section
+	sectionTitle: '👥 きょうだいチャレンジ',
+	cancelButton: 'キャンセル',
+	createButton: '＋ 新規チャレンジ',
+
+	// Notifications
+	createdNotice: 'チャレンジを作成しました',
+	deletedNotice: 'チャレンジを削除しました',
+
+	// Create form
+	formTitle: '新規チャレンジ作成',
+	titleLabel: 'タイトル',
+	titlePlaceholder: 'みんなで今週3回うんどう！',
+	descLabel: '説明（任意）',
+	descPlaceholder: '家族みんなでうんどうしよう',
+	typeLabel: '種別',
+	typeCooperative: '協力',
+	typeCompetitive: '競争',
+	periodLabel: '期間',
+	periodWeekly: '週間',
+	periodMonthly: '月間',
+	periodCustom: 'カスタム',
+	categoryLabel: 'カテゴリ（任意）',
+	categoryAll: '全カテゴリ',
+	startDateLabel: '開始日',
+	endDateLabel: '終了日',
+	targetLabel: '目標回数',
+	rewardPointsLabel: '報酬ポイント',
+	rewardMessageLabel: '達成メッセージ（任意）',
+	rewardMessagePlaceholder: 'みんなすごい！',
+	submitButton: '作成',
+
+	// Empty state
+	noChallengeTitleIcon: '👥',
+	noChallengeTitle: 'チャレンジはまだありません',
+	noChallengeDesc: '上のボタンから作成してください',
+
+	// Challenge card
+	badgeAllCompleted: '全員クリア！',
+	badgeActive: '開催中',
+	badgeExpired: '終了',
+	targetGoal: (count: number) => `目標${count}回`,
+	rewardLabel: (points: number) => `報酬${points}P`,
+	deleteButton: '削除',
+	deleteConfirm: (title: string) => `「${title}」を削除しますか？`,
+
+	dateSeparator: ' 〜 ',
+
+	// Challenge type/period labels
+	typeLabelCooperative: '協力',
+	typeLabelCompetitive: '競争',
+	periodLabelWeekly: '週間',
+	periodLabelMonthly: '月間',
+	periodLabelCustom: 'カスタム',
+
+	// Category names (same as GROWTH_BOOK_LABELS)
+	categoryUndou: 'うんどう',
+	categoryBenkyou: 'べんきょう',
+	categorySeikatsu: 'せいかつ',
+	categoryKouryuu: 'こうりゅう',
+	categorySouzou: 'そうぞう',
+} as const;
+
+// ============================================================
+// auth/login ページ (#1452 Phase B)
+// ============================================================
+
+export const LOGIN_LABELS = {
+	mfaBadge: 'MFA認証',
+	passwordResetSuccess: 'パスワードがリセットされました。新しいパスワードでログインしてください。',
+
+	// Confirm code step
+	confirmBadge: 'メール認証',
+	confirmDesc1Suffix: ' に確認コードを送信しました。',
+	confirmDesc2: 'メールに記載された6桁のコードを入力してください。',
+	confirmCodeLabel: '確認コード',
+	confirmLoading: '確認中...',
+	confirmButton: '確認する',
+	confirmResendSuccess: '確認コードを再送しました',
+	confirmResendLoading: '再送中...',
+	confirmResendCooldown: (seconds: number) => `コードを再送する（${seconds}秒後に再試行可能）`,
+	confirmResendButton: 'コードを再送する',
+
+	// MFA step
+	mfaDesc: '認証アプリに表示されている6桁のコードを入力してください。',
+	mfaCodeLabel: '認証コード',
+	mfaLoading: '認証中...',
+	mfaButton: '認証する',
+
+	// Login form
+	dividerLabel: 'または',
+	emailLabel: 'メールアドレス',
+	emailPlaceholder: 'example@email.com',
+	passwordLabel: 'パスワード',
+	passwordPlaceholder: '8文字以上',
+	forgotPasswordLink: 'パスワードを忘れた方はこちら',
+	loginLoading: 'ログイン中...',
+	loginButton: 'ログイン',
+	signupLink: 'アカウントをお持ちでない方はこちら',
+
+	// Dev mode test accounts
+	devAccountsSummary: 'テスト用アカウント',
+	devAccountOwnerRole: '(管理者)',
+	devAccountParentRole: '(親)',
+	devAccountChildRole: '(子供)',
+} as const;
+
+// ============================================================
+// admin/members ページ (#1452 Phase B)
+// ============================================================
+
+export const MEMBERS_LABELS = {
+	// Role labels
+	roleOwner: 'オーナー',
+	roleParent: '保護者',
+	roleChild: 'こども',
+
+	// Current members section
+	currentMembersTitle: '現在のメンバー',
+	noMembersText: 'メンバーがいません',
+	transferButton: '移譲',
+	removeButton: '削除',
+	leaveGroupButton: '家族グループを離れる',
+
+	// Invite section
+	inviteSectionTitle: 'メンバーを招待',
+	inviteRoleLabel: '招待ロール',
+	inviteChildLabel: '対象の子供（任意）',
+	inviteChildNone: '-- 後で紐づけ --',
+	inviteCreateLoading: '作成中...',
+	inviteCreateButton: '招待リンクを作成',
+	inviteSuccessMsg: '招待リンクが作成されました（7日間有効）',
+	inviteQrAlt: '招待QRコード',
+	inviteQrNote: 'スマートフォンのカメラでスキャンして参加できます',
+	inviteUrlLabel: '招待URL',
+	inviteCopied: 'コピー済み',
+	inviteCopy: 'コピー',
+
+	// Pending invites section
+	pendingInvitesTitle: '保留中の招待',
+	inviteExpiresPrefix: '期限: ',
+	inviteRevokeButton: '取消し',
+
+	// Error messages
+	inviteCreateError: '招待リンクの作成に失敗しました',
+	networkError: '通信エラーが発生しました',
+	removeError: '削除に失敗しました',
+	transferError: '移譲に失敗しました',
+	leaveError: '離脱に失敗しました',
+
+	// Confirm dialogs
+	revokeConfirm: 'この招待リンクを取り消しますか？',
+	removeMemberConfirm: (email: string) =>
+		`${email} をメンバーから削除しますか？この操作は取り消せません。`,
+	transferConfirm: (email: string) =>
+		`${email} にオーナー権限を移譲しますか？\n移譲後、あなたは「保護者」ロールになります。この操作は取り消せません。`,
+	leaveGroupConfirm: '家族グループを離れますか？この操作は取り消せません。',
+
+	// Viewer link section
+	viewerSectionTitle: '閲覧リンク',
+	viewerSectionDesc: '祖父母や家族に、お子さまの成長を読み取り専用で共有できます',
+	viewerLabelField: 'ラベル（任意）',
+	viewerLabelPlaceholder: '例: おばあちゃん用',
+	viewerDurationLabel: '有効期限',
+	viewerDuration7d: '7日間',
+	viewerDuration30d: '30日間',
+	viewerDurationUnlimited: '無期限',
+	viewerCreateLoading: '作成中...',
+	viewerCreateButton: '閲覧リンクを作成',
+	viewerSuccessMsg: '閲覧リンクが作成されました',
+	viewerQrAlt: '閲覧QRコード',
+	viewerQrNote: 'スマートフォンのカメラでスキャンして閲覧できます',
+	viewerUrlLabel: '閲覧URL',
+	viewerCopied: 'コピー済み',
+	viewerCopy: 'コピー',
+	viewerNoLabel: '(ラベルなし)',
+	viewerStatusInvalid: '無効',
+	viewerStatusExpired: '期限切れ',
+	viewerStatusValid: '有効',
+	viewerExpiresPrefix: '期限: ',
+	viewerExpiresNone: '無期限',
+	viewerRevokeButton: '無効化',
+	viewerDeleteButton: '削除',
+	viewerRevokeConfirm: 'この閲覧リンクを無効にしますか？',
+	viewerDeleteConfirm: 'この閲覧リンクを削除しますか？',
+	viewerCreateError: '閲覧リンクの作成に失敗しました',
+
+	// Button titles
+	transferTitle: 'オーナー権限を移譲',
+	removeTitle: 'メンバーを削除',
+} as const;
+
+// ============================================================
+// demo/+page.svelte (#1452 Phase B)
+// ============================================================
+
+export const DEMO_TOP_LABELS = {
+	// Hero
+	heroSubtitle: 'デモ体験',
+	heroDesc: 'がんばり家のみんなと一緒に、アプリの機能を体験してみましょう！',
+
+	// Guide section
+	guideDismissedTitle: 'ガイドをとじました',
+	guideDismissedDesc: 'もう一度はじめから体験できます',
+	guideRestartButton: 'ガイドを再開する',
+	guideFirstTimeTitle: 'はじめてですか？',
+	guideStepsDesc: (n: number) => `${n}ステップで主な機能をご案内します`,
+	guideStartButton: 'ガイド付きデモを はじめる',
+
+	// Family section
+	familyTitle: 'がんばり家のこどもたち',
+	childAgeLabel: (age: number) => `${age}さい`,
+	childAgeModeLabel: (age: number, modeLabel: string) => `${age}さい・${modeLabel}`,
+
+	// Mode labels
+	modeBaby: 'はじめの一歩',
+	modePreschool: 'じぶんでタップ',
+	modeElementary: '冒険スタート',
+	modeJunior: 'チャレンジ',
+	modeSenior: 'みらい設計',
+
+	// Admin link section
+	adminTitle: 'おやの管理画面',
+	adminDesc: '活動の追加、こどもの管理、ポイント確認などの管理機能を体験できます。',
+	adminButton: '管理画面をみる',
+
+	// Feature highlights
+	featuresTitle: '体験できる機能',
+	feature1Title: '活動きろく',
+	feature1Desc: '— お子さまの日々のがんばりをワンタップで記録',
+	feature2Title: 'ステータス',
+	feature2Desc: '— 5軸のレーダーチャートで成長を可視化',
+	feature3Title: 'きょうだいチャレンジ',
+	feature3Desc: '— きょうだいで協力・競争する目標を設定',
+	feature4Title: 'デイリーミッション',
+	feature4Desc: '— 毎日の目標で継続をサポート',
+
+	// Conversion CTA
+	ctaTitle: 'お子さまの冒険、はじめませんか？',
+	ctaNote: '7日間無料 ・ いつでもキャンセルOK',
+	ctaButton: '無料で はじめる',
+} as const;
+
+// ============================================================
+// admin/growth-book ページ (#1452 Phase B)
+// ============================================================
+
+export const GROWTH_BOOK_LABELS = {
+	pageHeading: '📖 成長記録ブック',
+	backToReports: '← レポートへ',
+	printButton: '🖨️ 印刷 / PDF',
+	premiumNotePrefix: 'PDF保存は',
+	premiumNoteLink: 'スタンダードプラン以上',
+	premiumNoteSuffix: 'で利用できます。',
+
+	// Cover
+	titleSuffix: 'がんばり記録',
+	fiscalYearRange: (year: number) => `${year}年度（${year}年4月〜${year + 1}年3月）`,
+	currentLevel: (level: number, title: string) => `現在レベル: ${level}（${title}）`,
+
+	// Annual summary
+	annualSummaryTitle: '📊 年間サマリー',
+	statActivities: '活動回数',
+	statPoints: '獲得ポイント',
+	statMaxStreak: 'さいちょうストリーク',
+	statCertificates: 'しょうめいしょ',
+	bestMonthLabel: 'いちばんがんばった月: ',
+	bestCategoryLabel: 'とくいなカテゴリ: ',
+
+	// Monthly pages
+	monthlyTitle: '📅 月別の記録',
+	monthlyActivities: (count: number) => `${count}回`,
+	monthlyDays: (days: number) => `${days}日活動`,
+	monthlyStreak: (days: number) => `🔥 ${days}日連続`,
+
+	// Certificate link
+	certificateLink: '📜 証明書一覧を見る →',
+
+	// Empty states
+	noChildrenEmoji: '👧',
+	noChildrenText: '子供が登録されていません',
+	noDataEmoji: '📖',
+	noDataText: 'データがありません',
+
+	// Activity category names
+	categoryUndou: 'うんどう',
+	categoryBenkyou: 'べんきょう',
+	categorySeikatsu: 'せいかつ',
+	categoryKouryuu: 'こうりゅう',
+	categorySouzou: 'そうぞう',
+} as const;
+
+// ============================================================
+// ops/analytics ページ (#1452 Phase B)
+// ============================================================
+
+export const OPS_ANALYTICS_LABELS = {
+	pageTitle: 'OPS - 分析基盤',
+	fetchedAt: (dateStr: string) => `${dateStr} 時点`,
+
+	// LTV section
+	ltvSectionTitle: 'LTV 推計',
+	ltvEstimatedLabel: '推定 LTV',
+	ltvEstimatedNote: '= ARPU x 平均継続月',
+	ltvArpuLabel: '月次 ARPU',
+	ltvArpuNote: (count: number) => `有料会員 ${count} 名`,
+	ltvAvgMonthsLabel: '平均継続月数',
+	ltvAvgMonthsUnit: 'ヶ月',
+	ltvChurnRateLabel: 'チャーンレート',
+	ltvChurnedNote: (count: number) => `解約 ${count} 件`,
+
+	// Plan breakdown section
+	planBreakdownTitle: 'プラン別 MRR 内訳',
+	planColPlan: 'プラン',
+	planColTenants: 'テナント数',
+	planColMrr: 'MRR',
+	planColShare: '割合',
+	planNone: '未設定（トライアル等）',
+
+	// Monthly acquisitions section
+	acquisitionTitle: '月次ユーザー獲得数（過去 12 ヶ月）',
+	acquisitionColMonth: '月',
+	acquisitionColNew: '新規登録',
+
+	// Cohort section
+	cohortTitle: 'コホート残存分析（入会月別）',
+	cohortColMonth: '入会月',
+	cohortColSignups: '登録数',
+	cohortNote: 'M0 = 入会月、M1 = 1ヶ月後の残存数（残存率%）。現時点のステータスベースの簡易推計。',
+
+	// Data source section
+	dataSourceTitle: 'データソース',
+	stripeLabel: 'Stripe 連携:',
+	stripeEnabled: '有効',
+	stripeDisabled: '無効（ローカルモード）',
+	pipelineLabel: 'データパイプライン:',
+	pipelineDesc: 'DB 直接集計（リアルタイム、追加コストなし）',
+	costNote:
+		'コスト試算: DB 直接クエリのため追加 AWS コストは $0。DynamoDB Streams + Athena への移行はユーザー数 1,000+ で検討（推定 $5-10/月）。',
+} as const;
+
+// ============================================================
+// デモ版設定ページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_SETTINGS_LABELS = {
+	pageTitle: '設定',
+
+	// おやカギ section
+	oyakagiDesc1: '管理画面にアクセスするための',
+	oyakagiDesc2: 'を変更できます。',
+	oyakagiDesc3: '。',
+	oyakagiConfirmLabel: '確認',
+
+	// ポイント表示設定 section
+	pointSectionTitle: '&#x2B50; ポイント表示設定',
+	pointSectionDesc: 'ポイントの表示方法を「ポイント (P)」または「通貨」に切り替えられます。',
+	pointModeTitle: '&#x1F4CA; ポイントモード',
+	pointModeExample: (val: string) => `例: ${val}`,
+	currencyModeTitle: '&#x1F4B0; 通貨モード',
+	currencyModeExample: (val: string) => `例: ${val}`,
+	currencyListTitle: '対応通貨',
+
+	// 減衰設定 section
+	decaySectionTitle: '&#x1F4C9; ステータス減衰設定',
+	decaySectionDesc:
+		'活動をサボるとステータスがゆっくり下がります。お子さまに合った強度を選べます。',
+
+	// データ管理 section
+	dataSectionTitle: '&#x1F4BE; データ管理',
+	dataSectionDesc: '登録すると、データのエクスポート・インポート・初期化が利用できます。',
+	dataExport: 'エクスポート',
+	dataImport: 'インポート',
+	dataReset: '初期化',
+
+	// フィードバック section
+	feedbackSectionTitle: '&#x1F4AC; フィードバック',
+	feedbackSectionDesc: 'ご意見・ご要望・バグ報告をお寄せください。登録後に利用可能です。',
+
+	// CTA
+	ctaTitle: 'すべての設定を利用しませんか？',
+	ctaDesc: '登録すると、PIN設定・ポイント表示・減衰設定などが自由にカスタマイズできます。',
+} as const;
+
+// ============================================================
+// エラーページ (#1452 Phase B)
+// ============================================================
+
+export const ERROR_PAGE_LABELS = {
+	// Page titles (by status code)
+	title404: 'ページが みつかりません',
+	title429: 'アクセスが こんでいます',
+	title403: 'アクセスが きょか されていません',
+	titleDefault: 'エラーが はっせいしました',
+
+	// Descriptions
+	desc404Child: 'おうちの がめんに もどります…',
+	desc404Parent: 'お探しのページは存在しないか、移動した可能性があります。',
+	desc429: 'しばらくしてから再度お試しください。',
+	desc403Child: 'おうちの がめんに もどります…',
+	desc403Parent: 'このページにアクセスする権限がありません。ログインし直してください。',
+	descGenericChild: 'おうちの がめんに もどります…',
+	descGenericParent: '予期しないエラーが発生しました。時間をおいて再度お試しください。',
+
+	// Action buttons
+	btnBackNow: 'いますぐ もどる',
+	btnLoginAgain: 'ログインし直す',
+	btnRetry: 'もう一度試す',
+	btnBackToTop: 'トップページへ戻る',
+
+	// Error ID
+	errorIdPrefix: 'エラーID: ',
+} as const;
+
+// ============================================================
+// Ops ライセンスキー詳細ページ (#1452 Phase B)
+// ============================================================
+
+export const OPS_LICENSE_KEY_LABELS = {
+	// Navigation
+	backLink: '← ライセンス一覧に戻る',
+
+	// Key info
+	keyLabel: 'ライセンスキー',
+	missingRecord: 'レコードなし',
+	noRecordNote:
+		'このキーの永続レコードが見つかりません（SQLite ローカルモードでは永続化されません）。',
+
+	// Detail fields
+	fieldPlan: 'プラン',
+	fieldKind: '種別',
+	fieldIssuedAt: '発行日時',
+	fieldExpiresAt: '有効期限',
+	fieldIssuedBy: '発行者',
+	fieldConsumedBy: '使用テナント',
+	fieldConsumedAt: '使用日時',
+	fieldRevokedAt: '失効日時',
+	fieldRevokedReason: '失効理由',
+	fieldRevokedBy: '失効実行者',
+
+	// Revoke button
+	revokeButton: 'このキーを失効させる',
+
+	// Revoke result messages
+	revokedSuccess: (reason: string) => `キーを失効させました (理由: ${reason})`,
+
+	// Revoke modal
+	modalTitle: 'ライセンスキーを失効させる',
+	modalDesc: 'この操作は取り消せません。失効後、このキーはすぐに validate で拒否されます。',
+	reasonLabel: '失効理由（必須）',
+	noteLabel: 'メモ（任意）',
+	notePlaceholder: 'CS チケット番号や状況メモ',
+	cancelButton: 'キャンセル',
+	submitButton: (submitting: boolean) => (submitting ? '処理中...' : '失効を確定'),
+} as const;
+
+// ============================================================
+// ベンチマーク管理ページ (#1452 Phase B)
+// ============================================================
+
+export const STATUS_LABELS = {
+	// Navigation link
+	childrenEditLink: 'こども管理でステータス編集 →',
+
+	// Growth report
+	growthReportTitle: (nickname: string) => `📊 ${nickname}の成長レポート`,
+	radarChartNote: '※ 参考値です。お子さまの個性やペースを大切にしてください',
+	analysisSummaryTitle: '📋 分析サマリー',
+	monthlyChangeTitle: '📈 先月からの変化',
+	comparisonLabel: '同年齢の平均',
+
+	// Level title customization
+	levelTitleSectionTitle: '🏷️ レベル称号カスタマイズ',
+	levelTitleDesc:
+		'各レベルの称号を家庭オリジナルに変更できます。空欄にするとデフォルトに戻ります。',
+	levelTitleSaveButton: '保存',
+	levelTitleResetButton: 'リセット',
+	levelTitleResetTooltip: 'デフォルトに戻す',
+	levelTitleResetAllButton: '全ての称号をデフォルトに戻す',
+	levelTitleSaveSuccess: '称号を更新しました',
+	levelTitleOpenLabel: '▼ 開く',
+	levelTitleCloseLabel: '▲ 閉じる',
+
+	// Benchmark info box
+	benchmarkInfoTitle: 'ベンチマークとは？',
+	benchmarkInfoDesc1:
+		'子供のステータスを「同じ年齢の目安値」と比べて偏差値を計算するためのデータです。',
+	benchmarkInfoDesc2:
+		'設定すると、子供画面に「みんなよりすごい！」などの比較メッセージが表示されます。',
+
+	// Preview label
+	previewLabel: 'プレビュー:',
+
+	// Benchmark guide
+	benchmarkGuide: (age: number, meanLow: number, meanHigh: number, sdLow: number, sdHigh: number) =>
+		`${age}歳の目安: 平均 ${meanLow}〜${meanHigh} XP、SD ${sdLow}〜${sdHigh}（XPベース）`,
+	benchmarkUnsetWarning: (age: number) =>
+		`${age}歳のベンチマークが未設定のカテゴリがあります。設定すると子供画面の比較メッセージが正しく機能します。`,
+	benchmarkSaveButton: '保存',
+	benchmarkSaveSuccess: 'ベンチマークを更新しました',
+
+	// Deviation preview
+	deviationPreview: (nickname: string, deviation: number, emoji: string, text: string) =>
+		`${nickname}: 偏差値 ${deviation}（${emoji} ${text}）`,
+
+	// Form labels
+	meanLabel: '平均（目安値）',
+	sdLabel: 'SD（ばらつき）',
+} as const;
+
+// ============================================================
+// 料金プランページ (#1452 Phase B)
+// ============================================================
+
+export const PRICING_PAGE_LABELS = {
+	heading: '料金プラン',
+	subtitle1: '基本無料ではじめられます。スタンダード・ファミリープランはすべて',
+	subtitleTrialDays: '7日間の無料体験',
+	subtitle2: '付き',
+	featureNote:
+		'お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・コンボなど）は',
+	featureNoteStrong: '全プラン共通',
+	featureNoteSuffix: 'で制限なし',
+	faqTitle: 'よくある質問',
+	faqFreePlanQ: '無料プランでも十分使えますか？',
+	faqFreePlanA:
+		'はい。プリセットの活動とチェックリストで基本的な機能はお使いいただけます。お子さまの冒険体験は無料でも一切制限ありません。',
+	faqCancelTrialQ: '無料体験中にキャンセルできますか？',
+	faqCancelTrialA: 'はい。無料体験期間中にキャンセルすれば一切課金されません。',
+	faqCancelQ: '解約するとどうなりますか？',
+	faqCancelA:
+		'お支払い済みの期間が終了するまで引き続きご利用いただけます。その後フリープランに自動移行し、データは保持されます。',
+	faqBillingDateQ: '課金日はいつですか？',
+	faqBillingDateA: 'お申し込み日を起算日として毎月（または毎年）自動更新されます。',
+	faqPaymentQ: '支払い方法は？',
+	faqPaymentA:
+		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しています。',
+	faqPlanChangeQ: 'プランの変更はできますか？',
+	faqPlanChangeA:
+		'はい。スタンダード↔ファミリー、月額↔年額の切り替えがいつでも可能です。管理画面の「プラン・お支払い」から変更できます。',
+	faqSelfHostQ: 'セルフホスト版はありますか？',
+	faqSelfHostA:
+		'はい。全機能を無料でお使いいただけるオープンソース版があります。DockerとNode.jsの基本的な知識が必要です。',
+} as const;
+
+// ============================================================
+// 同意ページ (#1452 Phase B)
+// ============================================================
+
+export const CONSENT_LABELS = {
+	// Page titles
+	titleUpdated: '規約に変更がありました',
+	titleNew: '規約への同意',
+
+	// Section headings
+	headingUpdated: '規約が更新されました',
+	descUpdated: 'サービスの利用を続けるには、更新された規約への同意が必要です。',
+	headingNew: '規約への同意',
+	descNew: 'サービスの利用を開始するには、規約への同意が必要です。',
+
+	// Previous consent info
+	previousConsentPrefix: '前回同意: ',
+	previousConsentArrow: ' → ',
+	previousConsentLatest: '最新: ',
+	previousConsentNone: '未同意',
+
+	// Terms
+	termsSectionTitle: '利用規約',
+	termsVersionPrefix: 'バージョン: ',
+	termsReadLink: '利用規約を確認する ↗',
+	termsCheckLabel: '利用規約に同意します',
+
+	// Privacy
+	privacySectionTitle: 'プライバシーポリシー',
+	privacyVersionPrefix: 'バージョン: ',
+	privacyReadLink: 'プライバシーポリシーを確認する ↗',
+	privacyCheckLabel: 'プライバシーポリシーに同意します',
+
+	// Submit button
+	submitLoading: '同意中...',
+	submitButton: '同意して続ける',
+} as const;
+
+// ============================================================
+// デモ版ベンチマーク管理ページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_STATUS_LABELS = {
+	ctaTitle: 'ベンチマークを自由に設定しませんか？',
+	ctaDesc: '登録すると、年齢別の目安値を自由に設定して成長レポートをカスタマイズできます。',
+	levelTitleLabel: '称号',
+	meanLabel: '平均',
+	sdLabel: 'SD',
+} as const;
+
+// ============================================================
+// Ops AWS費用ページ (#1452 Phase B)
+// ============================================================
+
+export const OPS_COSTS_LABELS = {
+	pageTitle: 'OPS - AWS費用',
+	prevMonthLink: '← 前月',
+	nextMonthLink: '翌月 →',
+	yearMonthDisplay: (year: number, month: number) => `${year}年${month}月`,
+	currentCostLabel: '当月 AWS 費用',
+	prevMonthDiffLabel: '前月比',
+	serviceCountLabel: 'サービス数',
+	serviceBreakdownTitle: 'サービス別費用内訳',
+	noCostData: '費用データがありません（AWS Cost Explorer API が利用不可、またはデータなし）',
+	colService: 'サービス',
+	colCostUsd: '費用 (USD)',
+	colCostJpy: '概算 (JPY)',
+	colRatio: '割合',
+	totalRow: '合計',
+	lastFetchedPrefix: '最終取得: ',
+	cacheNote: '（24時間キャッシュ、API費用: $0.01/リクエスト）',
+} as const;
+
+// ============================================================
+// ごほうびページ (#1452 Phase B)
+// ============================================================
+
+export const REWARDS_LABELS = {
+	sectionTitle: '🎁 ごほうび',
+	premiumBadge: '有料限定',
+	pageDescTitle: '🎁 とくべつなごほうび',
+	pageDescText1: 'がんばったこどもへの特別なごほうびを設定・付与します。',
+	pageDescText2:
+		'日常の活動ポイントとは別に、お手伝いや特別な成果に対してボーナスポイントを贈れます。',
+	pageDescHintPrefix: '💌 スタンプやメッセージは',
+	pageDescHintLink: 'おうえんメッセージ',
+	pageDescHintSuffix: 'から送れます',
+	upgradeBannerTitle: '特別なごほうび設定はスタンダードプラン以上の機能です',
+	upgradeBannerDesc:
+		'アップグレードすると、お手伝いや特別な成果に対してカスタムのボーナスごほうびを作成・付与できます。',
+	upgradeButton: 'プランを確認する',
+	selectChildTitle: 'こどもを選択',
+	selectTemplateTitle: 'テンプレートを選択',
+	presetToggle: (open: boolean) => `${open ? '▼' : '▶'} プリセットからテンプレートを追加`,
+	confirmGrantTitle: '内容を確認して付与',
+	titleLabel: 'タイトル',
+	pointsLabel: 'ポイント',
+	iconLabel: 'アイコン',
+	categoryLabel: 'カテゴリ',
+	grantButton: (icon: string, title: string, points: number) =>
+		`${icon} ${title || '報酬'} (${points}P) を付与する`,
+	grantSuccess: '特別報酬を付与しました！',
+} as const;
+
+// ============================================================
+// デモメンバー管理ページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_MEMBERS_LABELS = {
+	sectionTitle: '👥 メンバー管理',
+	sectionDesc:
+		'QRコードでご家族をかんたんに招待できます。パートナーやおじいちゃん・おばあちゃんもお子さまの成長を一緒に見守れます。',
+	qrPlaceholder: '登録するとQRコードが生成されます',
+	invitedMembersTitle: '招待済みメンバー',
+	demoMember1Name: 'がんばり太郎',
+	demoMember1Role: 'オーナー',
+	demoMember2Name: 'がんばり花子',
+	demoMember2Role: 'メンバー',
+	memberStatusActive: 'アクティブ',
+	permissionsTitle: '権限について',
+	permissionOwner: 'オーナー',
+	permissionOwnerDesc: 'すべての設定変更・メンバー管理が可能',
+	permissionMember: 'メンバー',
+	permissionMemberDesc: '活動記録・閲覧が可能（設定変更は不可）',
+	inviteLimit: '招待は最大5名まで（オーナー含む）',
+	ctaTitle: 'ご家族みんなで使いませんか？',
+	ctaDesc: '登録すると、QRコードで簡単にご家族を招待できます。',
+} as const;
+
+// ============================================================
+// OPS エクスポートページ (#1452 Phase B)
+// ============================================================
+
+export const OPS_EXPORT_LABELS = {
+	pageTitle: 'OPS - エクスポート',
+	exportTitle: '確定申告用CSVエクスポート',
+	salesTitle: '売上台帳',
+	salesDesc: 'Stripe 請求書ベースの収入記録。青色申告決算書 第1面「収入金額」に対応。',
+	salesDownload: 'CSV ダウンロード',
+	expensesTitle: '経費台帳',
+	expensesDesc: 'AWS 費用 + Stripe 手数料。勘定科目付き。青色申告決算書「必要経費」に対応。',
+	expensesDownload: 'CSV ダウンロード',
+	summaryTitle: '収支サマリー',
+	summaryDesc: '売上・経費・差引利益の一覧。確定申告前の概要確認用。',
+	summaryDownload: 'テキスト ダウンロード',
+	notesTitle: '注意事項',
+	note1: 'AWS 費用は Cost Explorer API から取得（USD→JPY はレート ¥150/$ で概算）',
+	note2: 'Stripe 手数料は 3.6% + ¥40/件 の概算値です',
+	note3: '消費税区分はインボイス登録状況に応じて調整が必要です',
+	note4: '本データは概算値です。正式な申告は税理士に相談してください',
+} as const;
+
+// ============================================================
+// おうえんメッセージページ (#1452 Phase B)
+// ============================================================
+
+export const MESSAGES_LABELS = {
+	pageDescTitle: '💌 おうえんメッセージ',
+	pageDescText1: 'スタンプやメッセージでこどもを応援しましょう。',
+	pageDescText2: 'こどもの画面にスタンプが届き、親からの気持ちが伝わります。',
+	pageDescHintPrefix: '🎁 特別なボーナスポイントの付与は',
+	pageDescHintLink: 'ごほうび',
+	pageDescHintSuffix: 'から行えます',
+	selectChildTitle: '1. こどもを選択',
+	messageTypeTitle: '2. おうえんの種類',
+	stampButton: 'スタンプ',
+	textMessageButton: 'ひとことメッセージ',
+	textMessageDisabledTitle: 'ファミリープラン限定',
+	textMessageDisabledSrOnly:
+		'ひとことメッセージはファミリープラン限定の機能です。ご利用にはプランのアップグレードが必要です。',
+	sendSuccess: 'おうえんメッセージを送りました！',
+	recentMessagesTitle: '最近のメッセージ',
+	msgRead: '既読',
+	msgUnread: '未読',
+} as const;
+
+// ============================================================
+// OPS コホート分析ページ (#1452 Phase B)
+// ============================================================
+
+export const OPS_COHORT_LABELS = {
+	pageTitle: 'OPS - コホート分析',
+	monthlyChurnRateLabel: '月次解約率',
+	theoreticalLtvLabel: '理論値 LTV',
+	theoreticalLtvNote: 'ARPU / 月次解約率',
+	retentionTableTitle: (monthsBack: number) =>
+		`月次コホート別リテンション（過去${monthsBack}ヶ月）`,
+	noDataMessage: 'コホートデータがありません',
+	colCohort: 'コホート',
+	colTenantCount: 'テナント数',
+	colPaid: '有料',
+	insufficientSampleBadge: 'サンプル不足',
+	ltvCompareTitle: 'コホート別 LTV 比較',
+	theoreticalLtvSummary: (ltv: number) => `理論値 LTV (ARPU/月次解約率): ¥${ltv.toLocaleString()}`,
+	lastFetchedPrefix: '最終取得: ',
+} as const;
+
+// ============================================================
+// はじめてのぼうけんページ (#1452 Phase B)
+// ============================================================
+
+export const SETUP_FIRST_ADVENTURE_LABELS = {
+	successTitle: (nicknameVocative: string) => `${nicknameVocative}すごい！`,
+	recordedDesc: (activityName: string) => `「${activityName}」をきろくしたよ！`,
+	pointsGetLabel: 'ポイントゲット！',
+	levelUpLabel: 'レベルアップ！',
+	startAdventureButton: 'ぼうけんをはじめる！',
+	selectActivityTitle: 'はじめてのぼうけん！',
+	selectActivityDescPart1: 'さいしょのがんばりを',
+	selectActivityDescPart2: 'いっしょにきろくしよう！',
+	noActivitiesMsg: 'まだ活動が登録されていません。あとから管理画面で追加できます。',
+	nextButton: '次へすすむ',
+	recordingLabel: 'きろくちゅう...',
+	recordButton: 'タップしてきろく！',
+	selectActivityHint: 'がんばりをえらんでね！',
+	skipButton: 'あとでやる（スキップ）',
+} as const;
+
+// ============================================================
+// デモポイント変換ページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_POINTS_LABELS = {
+	currentBalanceLabel: (unit: string) => `現在の${unit}残高`,
+	convertSectionTitle: 'ポイント変換',
+	modeSimple: 'かんたん',
+	modeFreeInput: '自由入力',
+	modeOcr: '領収書OCR',
+	demoConvertDisabled: 'デモでは変換できません',
+	thisMonthConvertLabel: '今月の変換合計',
+	totalConvertLabel: '累計変換合計',
+	aboutTitle: 'ポイント変換について',
+	aboutNote1: 'お子さまが活動で貯めたポイントを、おこづかいに変換できます',
+	aboutNote2: '変換レートは設定画面で自由にカスタマイズ可能です',
+	aboutNote3: '3つの変換モード: かんたん / 自由入力 / 領収書OCR',
+	aboutNote4: '変換履歴も記録されるので、安心して管理できます',
+	ctaTitle: 'ポイントをおこづかいに変換しませんか？',
+	ctaDesc: '登録すると、ポイント変換やレート設定が自由にできます。',
+} as const;
+
+// ============================================================
+// 実績ページ (#1452 Phase B)
+// ============================================================
+
+export const ACHIEVEMENTS_LABELS = {
+	challengeEmptyTitle: 'チャレンジきろくはまだありません',
+	challengeEmptyDesc: 'チャレンジ機能は今後リリース予定です',
+	customSectionTitle: '🏅 カスタム実績',
+	toggleOpen: '閉じる',
+	toggleCreate: '+ 作成',
+	fieldNameLabel: '実績名',
+	fieldNamePlaceholder: 'ピアノ100回マスター',
+	fieldDescLabel: '説明（任意）',
+	fieldDescPlaceholder: 'ピアノの練習を100回がんばった！',
+	fieldIconLabel: 'アイコン',
+	fieldBonusLabel: 'ボーナスPT',
+	fieldCondTypeLabel: '条件タイプ',
+	fieldCondValueLabel: '目標値',
+	createButton: '作成する',
+	noCustomAchievements: 'カスタム実績はまだありません',
+	achievedLabel: '達成済み ✅',
+	deleteButton: '削除',
+	upgradeTitle: 'カスタム実績・称号',
+	upgradeDesc: 'お子さまだけのオリジナル実績を作成できます',
+	upgradeLink: 'スタンダードプラン以上で利用可能 →',
+	noChildrenMessage: '子供が登録されていません',
+} as const;
+
+// ============================================================
+// 活動紹介ページ (#1452 Phase B)
+// ============================================================
+
+export const ACTIVITIES_INTRODUCE_LABELS = {
+	noActivitiesTitle: '表示できる活動がありません',
+	noActivitiesDesc: 'まず活動を追加してください',
+	backButton: 'もどる',
+	progressSuffix: 'の活動',
+	triggerHintGuide: 'つかいかたを みせてあげてね',
+	triggerHintOpen: '「',
+	triggerHintClose: '」',
+	activityDescLabel: '活動の説明',
+	noHintMessage: 'ヒントはまだ設定されていません',
+	noHintEditNote: '活動編集画面で「トリガーヒント」を設定できます',
+	prevButton: '← まえへ',
+	nextButton: 'つぎへ →',
+	finishButton: 'おわる',
+} as const;
+
+// ============================================================
+// デモメッセージページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_MESSAGES_LABELS = {
+	formLabel: 'メッセージ（30文字以内）',
+	formPlaceholder: 'がんばってるね！だいすき！',
+	sendDisabled: 'デモではメッセージを送れません',
+	ctaTitle: 'おうえんメッセージで親子のつながりを深めませんか？',
+	ctaDesc: '登録すると、スタンプやメッセージでお子さまを応援できます。',
+} as const;
+
+// ============================================================
+// イベント管理ページ (#1452 Phase B)
+// ============================================================
+
+export const EVENTS_LABELS = {
+	pageTitle: '🎉 シーズンイベント管理',
+	createdMessage: 'イベントを作成しました',
+	updatedMessage: 'イベントを更新しました',
+	deletedMessage: 'イベントを削除しました',
+	createFormTitle: '新規イベント作成',
+	createButton: '作成',
+	noEventsTitle: 'イベントはまだありません',
+	noEventsDesc: '上のボタンから作成してください',
+	activeLabel: '開催中',
+	inactiveLabel: '無効',
+	separatorLabel: '〜',
+	deleteButton: '削除',
+} as const;
+
+// ============================================================
+// パスワードリセットページ (#1452 Phase B)
+// ============================================================
+
+export const FORGOT_PASSWORD_LABELS = {
+	pageSubtitle: 'パスワードリセット',
+	step2ConfirmSentPrefix: 'に確認コードを送信しました。',
+	step2ConfirmEnterInstruction: 'メールに記載されたコードと新しいパスワードを入力してください。',
+	step2CodeExpiryPrefix: '確認コードは',
+	step2CodeExpirySuffix: '分間有効です。届かない場合は再送してください',
+	resettingLabel: 'リセット中...',
+	resetButton: 'パスワードをリセット',
+	step1Instruction1: '登録済みのメールアドレスを入力してください。',
+	step1Instruction2: 'パスワードリセット用の確認コードを送信します。',
+	sendingLabel: '送信中...',
+	sendButton: '確認コードを送信',
+	backToLoginLink: 'ログインに戻る',
+} as const;
+
+// ============================================================
+// デモごほうびページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_REWARDS_LABELS = {
+	upgradeBannerDesc:
+		'無料プランではプリセット閲覧のみ可能です。スタンダードプラン以上にアップグレードすると、カスタムのボーナスごほうびを作成・付与できます。',
+	selectTemplateTitleDemo: '2. テンプレートを選択（またはカスタム）',
+	confirmGrantTitleDemo: '3. 内容を確認して付与',
+	demoGrantDisabled: 'デモでは報酬を付与できません',
+	ctaTitle: '特別報酬で子どもをもっと応援しませんか？',
+	ctaDesc: '登録すると、テンプレートやカスタム報酬を自由に付与できます。',
+} as const;
+
+// ============================================================
+// セットアップ完了ページ (#1452 Phase B)
+// ============================================================
+
+export const SETUP_COMPLETE_LABELS = {
+	title: 'ぼうけんのはじまり！',
+	descPart1: 'ぼうけんじゅんびが',
+	descPart2: 'かんりょうしたよ！',
+	childCountUnit: '人',
+	childCountLabel: 'こども',
+	activityCountUnit: 'こ',
+	activityCountLabel: 'かつどう',
+	nextMissionLabel: 'つぎのミッション',
+	nextMissionText: '「きょうの がんばりを 3つ きろくしよう！」',
+	ctaPrimary: 'こどもがめんをひらく',
+	ctaSecondary: 'おやのせっていをみる',
+	pinHintPrefix: '💡 管理画面の「せってい」から',
+	pinHintMiddle: 'を変更すると、おやの画面を守れるよ。',
+} as const;
+
+export const CERTIFICATE_DETAIL_LABELS = {
+	pageTitle: 'がんばり証明書',
+	backLink: '一覧に戻る',
+	previewTitle: '📜 証明書プレビュー',
+	printButton: '🖨️ 印刷 / PDF保存',
+	pdfUpgradeNote: 'PDF保存はスタンダードプラン以上',
+	upgradeLink: 'アップグレード',
+	shareCardTitle: '🎉 がんばりカード',
+	shareCardDesc: '達成を画像でダウンロードして、LINEやSNSでシェアできます',
+	downloadButton: '📥 画像をダウンロード',
+	closeButton: '閉じる',
+	showShareCardButton: '🎉 シェアカードを表示',
+} as const;
+
+export const DEMO_CHILD_HOME_LABELS = {
+	checklistTitle: 'もちものチェック',
+	checklistDone: '✅ かんりょう！',
+	dailyMissionTitle: 'きょうのミッション',
+	missionComplete: (pts: string) => `🎉 ミッションコンプリート！ ${pts}`,
+	activitiesEmpty: 'かつどうがまだありません',
+	recordingLabel: 'きろくちゅう...',
+	recordButton: 'きろくする！',
+	resultStreakSuffix: '！',
+	resultTodayPrefix: 'きょう',
+	resultTodaySuffix: 'かいめ！',
+	demoDataNote: '（デモモード：データは保存されません）',
+	signupCta: 'お子さまの名前で はじめる →',
+	closeButton: 'とじる',
+} as const;
+
+export const DEMO_ADMIN_HOME_LABELS = {
+	planSwitcherAriaLabel: 'デモ用プラン切替',
+	planSwitcherLabel: 'デモ: プランを切り替えて体験',
+	freePlanButton: '無料プラン',
+	standardPlanButton: '⭐ スタンダード',
+	familyPlanButton: '⭐⭐ ファミリー',
+	statsActivityLabel: 'カスタム活動',
+	statsChildLabel: 'こども',
+	statsRetentionLabel: 'データ保持',
+	trialCtaTitle: '7日間の無料体験',
+	trialCtaDesc: 'スタンダードプランの全機能を7日間無料で体験できます。',
+	trialCtaButton: 'プランを見る',
+} as const;
+
+export const SETUP_CHILDREN_LABELS = {
+	pageTitle: '子供を登録しよう',
+	pageDesc: 'がんばりクエストを使う子供を登録してください（1人以上）。',
+	registeredTitle: (count: number) => `登録済み（${count}人）`,
+	ageModeSuffix: 'モード',
+	addFormTitle: '子供を追加',
+	themeColorLabel: 'テーマカラー',
+	themePink: 'ピンク',
+	themeBlue: 'ブルー',
+	submittingLabel: '登録中...',
+	addButton: '追加する',
+	nextButton: '次へ',
+	backToHome: 'ホームに戻る',
+	addSuccessMessage: '子供を登録しました！',
+} as const;
+
+export const ADMIN_CHILDREN_LABELS = {
+	addButton: '+ こどもを追加',
+	backToList: '← 一覧に戻る',
+	statAgeLabel: '年齢',
+	statAgeTierLabel: '年齢区分',
+	statBalanceSuffix: '残高',
+	statLevelLabel: 'レベル',
+	statusTabEmpty: 'ステータス詳細は登録後にご覧いただけます',
+	logsTabEmpty: '活動ログは登録後にご覧いただけます',
+	achievementsTabEmpty: '実績一覧は登録後にご覧いただけます',
+	voiceTabEmpty: 'おうえんボイスは登録後にご利用いただけます',
+} as const;
+
+export const DEMO_REPORTS_LABELS = {
+	pageTitle: '📊 週間レポート',
+	reportTitleSuffix: '週間レポート',
+	statActivityLabel: '活動',
+	statActivityUnit: '回',
+	statPointLabel: 'ポイント',
+	statAchievementLabel: '実績',
+	statAchievementUnit: '獲得',
+	highlightTitle: '🏆 今週のハイライト',
+	categoryTitle: '📈 カテゴリ別の様子',
+	adviceTitle: '💡 アドバイス',
+} as const;
+
+export const ADMIN_CHILDREN_PAGE_LABELS = {
+	pageTitle: '👧 こども管理',
+	limitBannerTitle: 'こどもの登録上限に達しています',
+	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
+	limitUpgradeLink: '🚀 プランをアップグレードする →',
+	cancelButton: 'キャンセル',
+	limitReachedButton: '上限に達しています',
+	addFormTitle: 'こどもを追加',
+	nicknameLabel: 'ニックネーム',
+	birthdayHint: '設定すると年齢が自動計算されます',
+	themeColorLabel: 'テーマカラー',
+	addButton: '追加する',
+} as const;
+
+export const CERTIFICATES_PAGE_LABELS = {
+	pageTitle: '📜 がんばり証明書',
+	backToReportsLink: 'レポートへ',
+	freePlanNotePrefix: '無料プランでは証明書の閲覧のみ可能です。PDF保存は',
+	freePlanNoteLink: 'スタンダードプラン以上',
+	freePlanNoteSuffix: 'で利用できます。',
+	emptyTitle: 'まだ証明書がありません',
+	emptyDesc: '活動を記録すると、マイルストーン達成時に証明書が発行されます',
+	noChildrenTitle: '子供が登録されていません',
+} as const;
+
+export const PACKS_PAGE_LABELS = {
+	pageTitle: '活動パック',
+	pageDesc:
+		'年齢に合わせた活動セットをインポートできます。同じ名前の活動は自動的にスキップされます。',
+	recommendedBadge: 'おすすめ',
+	importedBadge: 'インポート済',
+	partiallyImportedSuffix: '件 登録済',
+	activityCountSuffix: '件の活動',
+	importingLabel: 'インポート中...',
+	importButton: (count: number) => `${count}件の新しい活動をインポート`,
+} as const;
+
+export const OPS_LAYOUT_LABELS = {
+	headerTitle: 'がんばりクエスト 運営ダッシュボード',
+	navKpi: 'KPI',
+	navRevenue: '収益',
+	navBusiness: '採算性',
+	navCosts: '費用',
+	navLicense: 'ライセンス',
+	navAnalytics: '分析',
+	navCohort: 'コホート',
+	navExport: 'エクスポート',
+} as const;
+
+export const SETUP_QUESTIONNAIRE_LABELS = {
+	pageTitle: '📋 かんたんアンケート',
+	pageDesc: 'お子さまに合った設定を自動でご用意します',
+	q1Legend: 'Q1. お子さまの課題は？（いくつでも）',
+	q2Legend: 'Q2. 1にちに どれくらい きろくする？',
+	recommendedBadge: 'おすすめ',
+	q3Legend: 'Q3. チェックリストを自動作成する？',
+	q3Hint: 'えらんだリストが自動で作成されます（あとから変更できます）',
+	submittingLabel: 'せっていちゅう...',
+	startButton: 'この設定ではじめる！',
+	skipButton: 'あとで設定する（スキップ）',
+} as const;
+
+export const CHILD_STATUS_LABELS = {
+	growthChartTitle: 'せいちょうチャート',
+	growthBestCatPrefix: '💬 ',
+	growthBestCatSuffix: 'が',
+	growthHighMessage: 'すごくのびたね！',
+	growthLowMessage: 'ちょっとずつ せいちょうしてるよ！',
+	growthStableMessage: '💬 あんていしてるね！ またがんばろう！',
+	growthWeakCatPrefix: '🌟 ',
+	growthWeakCatSuffix: 'にチャレンジすると のびしろがたくさん！',
+	emptyStatus: 'ステータスがまだないよ',
+} as const;
+
+export const AUTH_INVITE_LABELS = {
+	appTitle: 'がんばりクエスト',
+	invalidLinkDesc: '招待した方に新しいリンクを発行してもらってください。',
+	loginPageLink: 'ログインページへ',
+	inviteMessage: '家族グループへの招待が届いています。',
+	roleLabel: '参加ロール:',
+	signupButton: '新規アカウントを作成して参加',
+	loginButton: '既存アカウントでログインして参加',
+} as const;
+
+export const DEMO_ACHIEVEMENTS_LABELS = {
+	pageTitle: '🏅 チャレンジ履歴',
+	pageDesc: '過去に完了したチャレンジの記録です。',
+	allClearedBadge: '全員クリア！',
+	completedBadge: '完了',
+	dateSeparator: '〜',
+	targetPrefix: '· 目標',
+	targetUnit: '回',
+	rewardPrefix: '· 報酬',
+} as const;
+
+export const DEMO_LAYOUT_LABELS = {
+	backToHpLink: 'HPに戻る',
+	demoNotice: 'これはデモです。データは保存されません。',
+	tryRealButton: '本番で使ってみる',
+	planSwitcherLabel: 'プラン体験:',
+	floatingCtaTitle: 'お子さまの ぼうけん、はじめよう！',
+	floatingCtaDesc: '7日間無料・いつでもキャンセルOK',
+	floatingCtaButton: '無料で はじめる →',
+} as const;
+
+export const SETUP_PACKS_LABELS = {
+	pageTitle: 'かつどうパックをえらぼう',
+	pageDesc: 'お子さまの年齢にあわせた活動セットを選んでください。あとから追加・変更できます。',
+	recommendedBadge: 'おすすめ',
+	autoAddOption: 'おすすめパックを自動で追加してすすむ',
+	backButton: 'もどる',
+	importingLabel: 'インポート中...',
+	addPacksButton: (count: number) => `${count}件のパックを追加`,
+	processingLabel: '処理中...',
+	skipNextButton: 'おすすめで次へ',
+} as const;
+
+export const PARENT_LOGIN_LABELS = {
+	backLink: 'もどる',
+	pageTitle: 'おとうさん・おかあさんの',
+	pageTitleLine2: 'ページだよ',
+	pageDescLine1: 'ここから先はおとうさん・おかあさんに',
+	pageDescLine2: 'ひみつのばんごうを入れてもらってね',
+	pinInputAriaLabel: 'おやカギコード入力状態',
+} as const;
+
+export const VIEW_PAGE_LABELS = {
+	appTitle: 'がんばりクエスト',
+	viewOnlyNotice: '閲覧専用リンク',
+	emptyChildren: 'まだ お子さまが とうろくされていません',
+	statPointLabel: 'ポイント',
+	statLevelLabel: 'そうごうレベル',
+	footerText: 'がんばりクエスト — こどもの がんばりを みんなで おうえん',
+} as const;
+
+export const DEMO_BATTLE_LABELS = {
+	pageTitle: '⚔️ きょうの バトル',
+	startButton: 'バトル かいし！',
+	demoNotice: '（デモモード：データは保存されません）',
+	signupLink: 'お子さまの名前で はじめる →',
+	replayButton: 'もういちど あそぶ',
+	loadErrorMessage: 'バトルじょうほうを よみこめませんでした',
+} as const;
+
+export const DEMO_ACTIVITIES_LABELS = {
+	aiAddButton: '✨ AI追加',
+	manualAddButton: '+ 手動追加',
+	allFilter: 'すべて',
+	emptyFilter: '該当する活動がありません',
+} as const;
+
+export const DEMO_CHECKLISTS_LABELS = {
+	addTemplateButton: '+ テンプレート追加',
+	addItemButton: '+ アイテム追加',
+	emptyTitle: 'チェックリストがありません',
+	emptyDesc: '登録するとお子さまの持ち物チェックリストを管理できます',
+} as const;
+
+export const DEMO_EVENTS_LABELS = {
+	sectionTitle: '🎉 シーズンイベント管理',
+	emptyNotice: 'イベントはまだありません',
+	activeBadge: '開催中',
+	dateRangeSeparator: '〜',
+} as const;
+
+export const SWITCH_PAGE_LABELS = {
+	adminForbiddenNotice: 'おやのアカウントでログインしてね',
+	heading: 'だれがつかう？',
+	emptyTitle: 'こどもがまだいないよ',
+	emptyDesc: 'おやがかんりがめんからついかしてね',
+	adminLink: '🔒 おやのかんりがめん',
+} as const;
+
+export const OPS_LICENSE_PAGE_LABELS = {
+	pageTitle: 'OPS - ライセンスキー管理',
+	issueButton: '＋ キャンペーンキーを発行',
+	searchTitle: 'ライセンスキー検索',
+	keyInputLabel: 'ライセンスキー',
+	searchButton: '検索',
+} as const;
+
+export const DEMO_CHALLENGES_LABELS = {
+	sectionTitle: '👥 きょうだいチャレンジ',
+	allClearedBadge: '全員クリア！',
+	activeBadge: '開催中',
+	dateRangeSeparator: '〜',
+	targetPrefix: '目標',
+	rewardPrefix: '報酬',
+} as const;
+
+export const DEMO_CHILD_ACHIEVEMENTS_LABELS = {
+	sectionTitle: '🏅 チャレンジきろく',
+	emptyTitle: 'まだチャレンジきろくがないよ',
+	emptyDesc: 'チャレンジがはじまったら ここにきろくされるよ',
+	clearedBadge: 'クリア！',
+	inProgressBadge: 'ちょうせん中',
+} as const;

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { APP_LABELS, DEMO_CHILD_HOME_LABELS, formatStreak, PAGE_TITLES } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
@@ -80,7 +81,7 @@ function handleResultClose() {
 </script>
 
 <svelte:head>
-	<title>ホーム - がんばりクエスト デモ</title>
+	<title>{PAGE_TITLES.childHome}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-sm)] py-1">
@@ -91,12 +92,12 @@ function handleResultClose() {
 		>
 			<div class="flex items-center gap-[var(--sp-sm)]">
 				<span class="text-2xl">📋</span>
-				<span class="font-bold">もちものチェック</span>
+				<span class="font-bold">{DEMO_CHILD_HOME_LABELS.checklistTitle}</span>
 			</div>
 			{#if data.checklistProgress}
 				<div class="flex items-center gap-[var(--sp-xs)]">
 					{#if data.checklistProgress.allDone}
-						<span class="text-sm font-bold text-[var(--theme-accent)]">✅ かんりょう！</span>
+						<span class="text-sm font-bold text-[var(--theme-accent)]">{DEMO_CHILD_HOME_LABELS.checklistDone}</span>
 					{:else}
 						<span class="text-sm text-[var(--color-text-muted)]">
 							{data.checklistProgress.checkedCount}/{data.checklistProgress.totalCount}
@@ -112,7 +113,7 @@ function handleResultClose() {
 		<div class="mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
 			<div class="flex items-center gap-[var(--sp-xs)] px-[var(--sp-md)] pt-[var(--sp-sm)] pb-1">
 				<span class="text-lg">🎯</span>
-				<span class="font-bold text-sm">きょうのミッション</span>
+				<span class="font-bold text-sm">{DEMO_CHILD_HOME_LABELS.dailyMissionTitle}</span>
 				<span class="text-xs text-[var(--color-text-muted)] ml-auto">
 					{data.dailyMissions.completedCount}/{data.dailyMissions.missions.length}
 				</span>
@@ -129,7 +130,7 @@ function handleResultClose() {
 				{/each}
 				{#if data.dailyMissions.allComplete}
 					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-[var(--theme-bg)]">
-						<span class="text-sm font-bold text-[var(--theme-accent)]">🎉 ミッションコンプリート！ {fmtPts(data.dailyMissions.bonusAwarded)}</span>
+						<span class="text-sm font-bold text-[var(--theme-accent)]">{DEMO_CHILD_HOME_LABELS.missionComplete(fmtPts(data.dailyMissions.bonusAwarded))}</span>
 					</div>
 				{/if}
 			</div>
@@ -157,7 +158,7 @@ function handleResultClose() {
 	{#if data.activities.length === 0}
 		<div class="flex flex-col items-center justify-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-md)]">📋</span>
-			<p class="text-[var(--font-md)]">かつどうがまだありません</p>
+			<p class="text-[var(--font-md)]">{DEMO_CHILD_HOME_LABELS.activitiesEmpty}</p>
 		</div>
 	{/if}
 </div>
@@ -192,7 +193,7 @@ function handleResultClose() {
 					disabled={submitting}
 					class="w-full bg-[var(--theme-accent)] disabled:opacity-50"
 				>
-					{submitting ? 'きろくちゅう...' : 'きろくする！'}
+					{submitting ? DEMO_CHILD_HOME_LABELS.recordingLabel : DEMO_CHILD_HOME_LABELS.recordButton}
 				</Button>
 			</form>
 		</div>
@@ -207,17 +208,17 @@ function handleResultClose() {
 				{fmtPts(resultData.totalPoints)}
 			</p>
 			<p class="text-sm text-[var(--color-text-muted)]">
-				{resultData.streakDays}日れんぞく！
+				{formatStreak(resultData.streakDays)}{DEMO_CHILD_HOME_LABELS.resultStreakSuffix}
 			</p>
-			<p class="text-xs text-[var(--color-text-muted)] mt-1">きょう {data.todayRecorded.reduce((sum: number, r: { activityId: number; count: number }) => sum + r.count, 0) + 1}かいめ！</p>
+			<p class="text-xs text-[var(--color-text-muted)] mt-1">{DEMO_CHILD_HOME_LABELS.resultTodayPrefix} {data.todayRecorded.reduce((sum: number, r: { activityId: number; count: number }) => sum + r.count, 0) + 1}{DEMO_CHILD_HOME_LABELS.resultTodaySuffix}</p>
 			<p class="text-xs text-[var(--color-feedback-warning-text)] mt-3">
-				（デモモード：データは保存されません）
+				{DEMO_CHILD_HOME_LABELS.demoDataNote}
 			</p>
 			<a
 				href="/demo/signup"
 				class="mt-3 block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-[var(--radius-lg)] text-center text-sm"
 			>
-				お子さまの名前で はじめる →
+				{DEMO_CHILD_HOME_LABELS.signupCta}
 			</a>
 			<Button
 				variant="primary"
@@ -225,7 +226,7 @@ function handleResultClose() {
 				class="mt-2 w-full bg-[var(--theme-accent)]"
 				onclick={handleResultClose}
 			>
-				とじる
+				{DEMO_CHILD_HOME_LABELS.closeButton}
 			</Button>
 		</div>
 	{/if}

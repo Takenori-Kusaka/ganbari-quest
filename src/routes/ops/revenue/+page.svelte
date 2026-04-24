@@ -1,4 +1,5 @@
 <script lang="ts">
+import { OPS_REVENUE_LABELS } from '$lib/domain/labels';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -30,7 +31,7 @@ const chartPoints = $derived(
 </script>
 
 <svelte:head>
-	<title>OPS - 収益</title>
+	<title>{OPS_REVENUE_LABELS.pageTitle}</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
@@ -38,12 +39,12 @@ const chartPoints = $derived(
 	<!-- モック表示 -->
 	{#if current.isMock}
 		<div class="text-center">
-			<Badge variant="warning" size="md">MOCK MODE: ダミーデータを表示中 (STRIPE_MOCK=true)</Badge>
+			<Badge variant="warning" size="md">{OPS_REVENUE_LABELS.mockModeBadge}</Badge>
 		</div>
 	{/if}
 
 	<!-- Stripe KPI カード (#835) -->
-	<h2 class="text-lg font-bold text-[var(--color-text-primary)] m-0">Stripe 収益指標</h2>
+	<h2 class="text-lg font-bold text-[var(--color-text-primary)] m-0">{OPS_REVENUE_LABELS.stripeKpiTitle}</h2>
 	<div class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
 		<Card padding="none" class="p-5 text-center">
 			<div class="ops-kpi-label">MRR</div>
@@ -58,15 +59,15 @@ const chartPoints = $derived(
 			<div class="ops-kpi-value">&yen;{current.arpu.toLocaleString()}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">有料ユーザー数</div>
+			<div class="ops-kpi-label">{OPS_REVENUE_LABELS.kpiLabelPaidUsers}</div>
 			<div class="ops-kpi-value">{current.activePaidCount}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">転換率 (90日)</div>
+			<div class="ops-kpi-label">{OPS_REVENUE_LABELS.kpiLabelConversionRate}</div>
 			<div class="ops-kpi-value">{(current.trialToActiveRate * 100).toFixed(1)}%</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">月次解約率</div>
+			<div class="ops-kpi-label">{OPS_REVENUE_LABELS.kpiLabelChurnRate}</div>
 			<div class="ops-kpi-value {current.monthlyChurnRate > 0.1 ? 'ops-kpi-value--danger' : ''}">{(current.monthlyChurnRate * 100).toFixed(1)}%</div>
 		</Card>
 	</div>
@@ -74,11 +75,11 @@ const chartPoints = $derived(
 	<!-- トレンド表 (#835) -->
 	{#if trend.length > 0}
 		<Card padding="lg">
-			<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">KPI トレンド (過去6か月)</h2>
+			<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">{OPS_REVENUE_LABELS.kpiTrendTitle} {OPS_REVENUE_LABELS.trendTitle}</h2>
 
 			<!-- SVG 折れ線グラフ -->
 			<div class="ops-chart-container">
-				<svg viewBox="0 0 {chartW} {chartH}" class="ops-chart-svg" role="img" aria-label="MRR トレンドグラフ">
+				<svg viewBox="0 0 {chartW} {chartH}" class="ops-chart-svg" role="img" aria-label={OPS_REVENUE_LABELS.trendChartAriaLabel}>
 					<!-- Grid lines -->
 					{#each [0, 0.25, 0.5, 0.75, 1] as ratio}
 						{@const y = padT + innerH * (1 - ratio)}
@@ -105,10 +106,10 @@ const chartPoints = $derived(
 			<table class="ops-table mt-4">
 				<thead>
 					<tr>
-						<th>月</th>
+						<th>{OPS_REVENUE_LABELS.tableColMonth}</th>
 						<th class="ops-num">MRR</th>
-						<th class="ops-num">有料数</th>
-						<th class="ops-num">解約率</th>
+						<th class="ops-num">{OPS_REVENUE_LABELS.tableColPaidCount}</th>
+						<th class="ops-num">{OPS_REVENUE_LABELS.tableColChurnRate}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -126,22 +127,22 @@ const chartPoints = $derived(
 	{/if}
 
 	<!-- 既存: Stripe MRR/ARR (DB ベース) -->
-	<h2 class="text-lg font-bold text-[var(--color-text-primary)] m-0">Stripe 請求書ベース収益</h2>
+	<h2 class="text-lg font-bold text-[var(--color-text-primary)] m-0">{OPS_REVENUE_LABELS.dbRevenueTitle}</h2>
 	<div class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">MRR (DB)</div>
+			<div class="ops-kpi-label">{OPS_REVENUE_LABELS.kpiLabelMrrDb}</div>
 			<div class="ops-kpi-value">&yen;{rev.mrr.toLocaleString()}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">ARR (DB)</div>
+			<div class="ops-kpi-label">{OPS_REVENUE_LABELS.kpiLabelArrDb}</div>
 			<div class="ops-kpi-value">&yen;{rev.arr.toLocaleString()}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">期間売上合計</div>
+			<div class="ops-kpi-label">{OPS_REVENUE_LABELS.kpiLabelPeriodRevenue}</div>
 			<div class="ops-kpi-value">&yen;{rev.totalRevenue.toLocaleString()}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">Stripe手数料合計</div>
+			<div class="ops-kpi-label">{OPS_REVENUE_LABELS.kpiLabelStripeFeeTotal}</div>
 			<div class="ops-kpi-value ops-kpi-value--danger">&yen;{rev.totalStripeFees.toLocaleString()}</div>
 		</Card>
 	</div>
@@ -149,15 +150,15 @@ const chartPoints = $derived(
 	<!-- 月次推移 -->
 	{#if rev.monthlyBreakdown.length > 0}
 		<Card padding="lg">
-			<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">月次推移 (過去{data.monthsBack}か月)</h2>
+			<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">{OPS_REVENUE_LABELS.monthlyBreakdownTitle} {OPS_REVENUE_LABELS.monthlyBreakdownSuffix(data.monthsBack)}</h2>
 			<table class="ops-table">
 				<thead>
 					<tr>
-						<th>月</th>
-						<th class="ops-num">売上</th>
-						<th class="ops-num">件数</th>
-						<th class="ops-num">手数料</th>
-						<th class="ops-num">純収入</th>
+						<th>{OPS_REVENUE_LABELS.tableColMonth}</th>
+						<th class="ops-num">{OPS_REVENUE_LABELS.tableColRevenue}</th>
+						<th class="ops-num">{OPS_REVENUE_LABELS.tableColCount}</th>
+						<th class="ops-num">{OPS_REVENUE_LABELS.tableColFee}</th>
+						<th class="ops-num">{OPS_REVENUE_LABELS.tableColNetIncome}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -177,19 +178,19 @@ const chartPoints = $derived(
 
 	<!-- 請求書一覧 -->
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">Stripe 請求書一覧 (直近{rev.invoices.length}件)</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">{OPS_REVENUE_LABELS.invoicesTitle} ({OPS_REVENUE_LABELS.invoicesTitleSuffix}{rev.invoices.length}{OPS_REVENUE_LABELS.invoicesTitleSuffix2})</h2>
 		{#if rev.invoices.length === 0}
-			<p class="text-[var(--color-text-muted)] text-sm text-center p-8">請求書データがありません (Stripe未設定 or 期間内に決済なし)</p>
+			<p class="text-[var(--color-text-muted)] text-sm text-center p-8">{OPS_REVENUE_LABELS.invoicesEmpty}</p>
 		{:else}
 			<div class="overflow-x-auto">
 				<table class="ops-table">
 					<thead>
 						<tr>
-							<th>支払日</th>
-							<th>顧客</th>
-							<th>内容</th>
-							<th class="ops-num">金額</th>
-							<th class="ops-num">手数料</th>
+							<th>{OPS_REVENUE_LABELS.tableColPaidAt}</th>
+							<th>{OPS_REVENUE_LABELS.tableColCustomer}</th>
+							<th>{OPS_REVENUE_LABELS.tableColContent}</th>
+							<th class="ops-num">{OPS_REVENUE_LABELS.tableColAmount}</th>
+							<th class="ops-num">{OPS_REVENUE_LABELS.tableColFeeLabel}</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -209,8 +210,8 @@ const chartPoints = $derived(
 	</Card>
 
 	<div class="text-xs text-[var(--color-text-muted)] text-right">
-		最終取得: {current.fetchedAt ? new Date(current.fetchedAt).toLocaleString('ja-JP') : '-'}
-		(1時間キャッシュ)
+		{OPS_REVENUE_LABELS.fetchedAt(current.fetchedAt ? new Date(current.fetchedAt).toLocaleString('ja-JP') : '-')}
+		{OPS_REVENUE_LABELS.cacheNote}
 	</div>
 </div>
 
