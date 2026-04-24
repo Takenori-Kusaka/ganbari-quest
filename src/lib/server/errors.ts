@@ -64,7 +64,7 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 	},
 	INVALID_PIN: {
 		status: 401,
-		userMessage: 'PINが正しくありません。もう一度入力してください。',
+		userMessage: 'おやカギコードが正しくありません。もう一度入力してください。',
 		severity: 'warning',
 		action: 'fix_input',
 	},

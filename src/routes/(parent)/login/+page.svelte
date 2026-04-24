@@ -66,7 +66,7 @@ function handleSubmit() {
 		<input type="hidden" name="pin" value={pin} />
 
 		<!-- ドット表示 -->
-		<div class="flex justify-center gap-3 mb-8" aria-label="PIN入力状態">
+		<div class="flex justify-center gap-3 mb-8" aria-label="おやカギコード入力状態">
 			{#each Array(PIN_MAX_LENGTH) as _, i}
 				<div
 					class="w-4 h-4 rounded-full transition-all duration-200
