@@ -2102,3 +2102,207 @@ export const OPS_ANALYTICS_LABELS = {
 	costNote:
 		'コスト試算: DB 直接クエリのため追加 AWS コストは $0。DynamoDB Streams + Athena への移行はユーザー数 1,000+ で検討（推定 $5-10/月）。',
 } as const;
+
+// ============================================================
+// デモ版設定ページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_SETTINGS_LABELS = {
+	pageTitle: '設定',
+
+	// おやカギ section
+	oyakagiDesc1: '管理画面にアクセスするための',
+	oyakagiDesc2: 'を変更できます。',
+	oyakagiDesc3: '。',
+	oyakagiConfirmLabel: '確認',
+
+	// ポイント表示設定 section
+	pointSectionTitle: '&#x2B50; ポイント表示設定',
+	pointSectionDesc: 'ポイントの表示方法を「ポイント (P)」または「通貨」に切り替えられます。',
+	pointModeTitle: '&#x1F4CA; ポイントモード',
+	pointModeExample: (val: string) => `例: ${val}`,
+	currencyModeTitle: '&#x1F4B0; 通貨モード',
+	currencyModeExample: (val: string) => `例: ${val}`,
+	currencyListTitle: '対応通貨',
+
+	// 減衰設定 section
+	decaySectionTitle: '&#x1F4C9; ステータス減衰設定',
+	decaySectionDesc:
+		'活動をサボるとステータスがゆっくり下がります。お子さまに合った強度を選べます。',
+
+	// データ管理 section
+	dataSectionTitle: '&#x1F4BE; データ管理',
+	dataSectionDesc: '登録すると、データのエクスポート・インポート・初期化が利用できます。',
+	dataExport: 'エクスポート',
+	dataImport: 'インポート',
+	dataReset: '初期化',
+
+	// フィードバック section
+	feedbackSectionTitle: '&#x1F4AC; フィードバック',
+	feedbackSectionDesc: 'ご意見・ご要望・バグ報告をお寄せください。登録後に利用可能です。',
+
+	// CTA
+	ctaTitle: 'すべての設定を利用しませんか？',
+	ctaDesc: '登録すると、PIN設定・ポイント表示・減衰設定などが自由にカスタマイズできます。',
+} as const;
+
+// ============================================================
+// エラーページ (#1452 Phase B)
+// ============================================================
+
+export const ERROR_PAGE_LABELS = {
+	// Page titles (by status code)
+	title404: 'ページが みつかりません',
+	title429: 'アクセスが こんでいます',
+	title403: 'アクセスが きょか されていません',
+	titleDefault: 'エラーが はっせいしました',
+
+	// Descriptions
+	desc404Child: 'おうちの がめんに もどります…',
+	desc404Parent: 'お探しのページは存在しないか、移動した可能性があります。',
+	desc429: 'しばらくしてから再度お試しください。',
+	desc403Child: 'おうちの がめんに もどります…',
+	desc403Parent: 'このページにアクセスする権限がありません。ログインし直してください。',
+	descGenericChild: 'おうちの がめんに もどります…',
+	descGenericParent: '予期しないエラーが発生しました。時間をおいて再度お試しください。',
+
+	// Action buttons
+	btnBackNow: 'いますぐ もどる',
+	btnLoginAgain: 'ログインし直す',
+	btnRetry: 'もう一度試す',
+	btnBackToTop: 'トップページへ戻る',
+
+	// Error ID
+	errorIdPrefix: 'エラーID: ',
+} as const;
+
+// ============================================================
+// Ops ライセンスキー詳細ページ (#1452 Phase B)
+// ============================================================
+
+export const OPS_LICENSE_KEY_LABELS = {
+	// Navigation
+	backLink: '← ライセンス一覧に戻る',
+
+	// Key info
+	keyLabel: 'ライセンスキー',
+	missingRecord: 'レコードなし',
+	noRecordNote:
+		'このキーの永続レコードが見つかりません（SQLite ローカルモードでは永続化されません）。',
+
+	// Detail fields
+	fieldPlan: 'プラン',
+	fieldKind: '種別',
+	fieldIssuedAt: '発行日時',
+	fieldExpiresAt: '有効期限',
+	fieldIssuedBy: '発行者',
+	fieldConsumedBy: '使用テナント',
+	fieldConsumedAt: '使用日時',
+	fieldRevokedAt: '失効日時',
+	fieldRevokedReason: '失効理由',
+	fieldRevokedBy: '失効実行者',
+
+	// Revoke button
+	revokeButton: 'このキーを失効させる',
+
+	// Revoke result messages
+	revokedSuccess: (reason: string) => `キーを失効させました (理由: ${reason})`,
+
+	// Revoke modal
+	modalTitle: 'ライセンスキーを失効させる',
+	modalDesc: 'この操作は取り消せません。失効後、このキーはすぐに validate で拒否されます。',
+	reasonLabel: '失効理由（必須）',
+	noteLabel: 'メモ（任意）',
+	notePlaceholder: 'CS チケット番号や状況メモ',
+	cancelButton: 'キャンセル',
+	submitButton: (submitting: boolean) => (submitting ? '処理中...' : '失効を確定'),
+} as const;
+
+// ============================================================
+// ベンチマーク管理ページ (#1452 Phase B)
+// ============================================================
+
+export const STATUS_LABELS = {
+	// Navigation link
+	childrenEditLink: 'こども管理でステータス編集 →',
+
+	// Growth report
+	growthReportTitle: (nickname: string) => `📊 ${nickname}の成長レポート`,
+	radarChartNote: '※ 参考値です。お子さまの個性やペースを大切にしてください',
+	analysisSummaryTitle: '📋 分析サマリー',
+	monthlyChangeTitle: '📈 先月からの変化',
+	comparisonLabel: '同年齢の平均',
+
+	// Level title customization
+	levelTitleSectionTitle: '🏷️ レベル称号カスタマイズ',
+	levelTitleDesc:
+		'各レベルの称号を家庭オリジナルに変更できます。空欄にするとデフォルトに戻ります。',
+	levelTitleSaveButton: '保存',
+	levelTitleResetButton: 'リセット',
+	levelTitleResetTooltip: 'デフォルトに戻す',
+	levelTitleResetAllButton: '全ての称号をデフォルトに戻す',
+	levelTitleSaveSuccess: '称号を更新しました',
+	levelTitleOpenLabel: '▼ 開く',
+	levelTitleCloseLabel: '▲ 閉じる',
+
+	// Benchmark info box
+	benchmarkInfoTitle: 'ベンチマークとは？',
+	benchmarkInfoDesc1:
+		'子供のステータスを「同じ年齢の目安値」と比べて偏差値を計算するためのデータです。',
+	benchmarkInfoDesc2:
+		'設定すると、子供画面に「みんなよりすごい！」などの比較メッセージが表示されます。',
+
+	// Preview label
+	previewLabel: 'プレビュー:',
+
+	// Benchmark guide
+	benchmarkGuide: (age: number, meanLow: number, meanHigh: number, sdLow: number, sdHigh: number) =>
+		`${age}歳の目安: 平均 ${meanLow}〜${meanHigh} XP、SD ${sdLow}〜${sdHigh}（XPベース）`,
+	benchmarkUnsetWarning: (age: number) =>
+		`${age}歳のベンチマークが未設定のカテゴリがあります。設定すると子供画面の比較メッセージが正しく機能します。`,
+	benchmarkSaveButton: '保存',
+	benchmarkSaveSuccess: 'ベンチマークを更新しました',
+
+	// Deviation preview
+	deviationPreview: (nickname: string, deviation: number, emoji: string, text: string) =>
+		`${nickname}: 偏差値 ${deviation}（${emoji} ${text}）`,
+
+	// Form labels
+	meanLabel: '平均（目安値）',
+	sdLabel: 'SD（ばらつき）',
+} as const;
+
+// ============================================================
+// 料金プランページ (#1452 Phase B)
+// ============================================================
+
+export const PRICING_PAGE_LABELS = {
+	heading: '料金プラン',
+	subtitle1: '基本無料ではじめられます。スタンダード・ファミリープランはすべて',
+	subtitleTrialDays: '7日間の無料体験',
+	subtitle2: '付き',
+	featureNote:
+		'お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・コンボなど）は',
+	featureNoteStrong: '全プラン共通',
+	featureNoteSuffix: 'で制限なし',
+	faqTitle: 'よくある質問',
+	faqFreePlanQ: '無料プランでも十分使えますか？',
+	faqFreePlanA:
+		'はい。プリセットの活動とチェックリストで基本的な機能はお使いいただけます。お子さまの冒険体験は無料でも一切制限ありません。',
+	faqCancelTrialQ: '無料体験中にキャンセルできますか？',
+	faqCancelTrialA: 'はい。無料体験期間中にキャンセルすれば一切課金されません。',
+	faqCancelQ: '解約するとどうなりますか？',
+	faqCancelA:
+		'お支払い済みの期間が終了するまで引き続きご利用いただけます。その後フリープランに自動移行し、データは保持されます。',
+	faqBillingDateQ: '課金日はいつですか？',
+	faqBillingDateA: 'お申し込み日を起算日として毎月（または毎年）自動更新されます。',
+	faqPaymentQ: '支払い方法は？',
+	faqPaymentA:
+		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しています。',
+	faqPlanChangeQ: 'プランの変更はできますか？',
+	faqPlanChangeA:
+		'はい。スタンダード↔ファミリー、月額↔年額の切り替えがいつでも可能です。管理画面の「プラン・お支払い」から変更できます。',
+	faqSelfHostQ: 'セルフホスト版はありますか？',
+	faqSelfHostA:
+		'はい。全機能を無料でお使いいただけるオープンソース版があります。DockerとNode.jsの基本的な知識が必要です。',
+} as const;
