@@ -269,7 +269,9 @@ export class ScreenshotCapture {
 		const page = await context.newPage();
 
 		try {
-			const targetUrl = `${this.#baseUrl}${url}`;
+			// Normalize: strip duplicate leading slashes (Windows Git Bash expands /foo to //foo)
+			const normalizedPath = `/${url.replace(/^\/+/, '')}`;
+			const targetUrl = `${this.#baseUrl}${normalizedPath}`;
 			await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {
 				throw new Error(
 					`サーバーに接続できません: ${targetUrl}\nnpm run dev または npm run dev:cognito でサーバーを起動してください。`,
@@ -367,7 +369,8 @@ export class FlowRecorder {
 		});
 		const page = await context.newPage();
 
-		const targetUrl = `${this.#baseUrl}${url}`;
+		const normalizedFlowPath = `/${url.replace(/^\/+/, '')}`;
+		const targetUrl = `${this.#baseUrl}${normalizedFlowPath}`;
 		try {
 			await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
 		} catch {
