@@ -39,6 +39,7 @@ const mockChild = {
 	age: 5,
 	theme: 'pink',
 	uiMode: 'preschool',
+	uiModeManuallySet: 0,
 	tenantId: TENANT,
 	avatarUrl: null,
 	birthDate: null,
