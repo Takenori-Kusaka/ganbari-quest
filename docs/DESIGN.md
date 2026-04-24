@@ -189,12 +189,14 @@ SSR 二重適用は `data-budoux-applied` フラグで回避。詳細は [ADR-00
 |--------------|---------------|
 | Alert | `$lib/ui/primitives/Alert.svelte` |
 | Badge | `$lib/ui/primitives/Badge.svelte` |
+| BirthdayInput | `$lib/ui/primitives/BirthdayInput.svelte` |
 | Button | `$lib/ui/primitives/Button.svelte` |
 | Card | `$lib/ui/primitives/Card.svelte` |
 | Dialog | `$lib/ui/primitives/Dialog.svelte` |
 | Divider | `$lib/ui/primitives/Divider.svelte` |
 | FormField | `$lib/ui/primitives/FormField.svelte` |
 | IconButton | `$lib/ui/primitives/IconButton.svelte` |
+| NativeSelect | `$lib/ui/primitives/NativeSelect.svelte` |
 | PinInput | `$lib/ui/primitives/PinInput.svelte` |
 | Progress | `$lib/ui/primitives/Progress.svelte` |
 | Select | `$lib/ui/primitives/Select.svelte` |
@@ -287,6 +289,10 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 <!-- AUTOGEN:labels -->
 | エクスポート | 種類 | 用途 |
 |------------|------|------|
+| `APP_LABELS` | const |  |
+| `PAGE_TITLES` | const |  |
+| `UI_LABELS` | const |  |
+| `SETUP_LABELS` | const |  |
 | `NAV_CATEGORIES` | const | ナビゲーションカテゴリ名 |
 | `NAV_ITEM_LABELS` | const | ナビゲーション項目ラベル |
 | `AGE_TIER_LABELS` | const | 年齢区分ラベル（フル） |
@@ -307,6 +313,83 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `MARKETPLACE_LABELS` | const |  |
 | `MARKETPLACE_FILTER_LABELS` | const |  |
 | `TUTORIAL_LABELS` | const |  |
+| `DEMO_LABELS` | const |  |
+| `OYAKAGI_LABELS` | const |  |
+| `IMPORT_LABELS` | const |  |
+| `SETTINGS_LABELS` | const |  |
+| `LICENSE_PAGE_LABELS` | const |  |
+| `REPORTS_LABELS` | const |  |
+| `OPS_LABELS` | const |  |
+| `POINTS_LABELS` | const |  |
+| `SIGNUP_LABELS` | const |  |
+| `ANALYTICS_LABELS` | const |  |
+| `BILLING_LABELS` | const |  |
+| `OPS_LICENSE_ISSUE_LABELS` | const |  |
+| `OPS_REVENUE_LABELS` | const |  |
+| `OPS_BUSINESS_LABELS` | const |  |
+| `CHILD_HOME_LABELS` | const |  |
+| `DEMO_SIGNUP_LABELS` | const |  |
+| `CHALLENGES_LABELS` | const |  |
+| `LOGIN_LABELS` | const |  |
+| `MEMBERS_LABELS` | const |  |
+| `DEMO_TOP_LABELS` | const |  |
+| `GROWTH_BOOK_LABELS` | const |  |
+| `OPS_ANALYTICS_LABELS` | const |  |
+| `DEMO_SETTINGS_LABELS` | const |  |
+| `ERROR_PAGE_LABELS` | const |  |
+| `OPS_LICENSE_KEY_LABELS` | const |  |
+| `STATUS_LABELS` | const |  |
+| `PRICING_PAGE_LABELS` | const |  |
+| `CONSENT_LABELS` | const |  |
+| `DEMO_STATUS_LABELS` | const |  |
+| `OPS_COSTS_LABELS` | const |  |
+| `REWARDS_LABELS` | const |  |
+| `DEMO_MEMBERS_LABELS` | const |  |
+| `OPS_EXPORT_LABELS` | const |  |
+| `MESSAGES_LABELS` | const |  |
+| `OPS_COHORT_LABELS` | const |  |
+| `SETUP_FIRST_ADVENTURE_LABELS` | const |  |
+| `DEMO_POINTS_LABELS` | const |  |
+| `ACHIEVEMENTS_LABELS` | const |  |
+| `ACTIVITIES_INTRODUCE_LABELS` | const |  |
+| `DEMO_MESSAGES_LABELS` | const |  |
+| `EVENTS_LABELS` | const |  |
+| `FORGOT_PASSWORD_LABELS` | const |  |
+| `DEMO_REWARDS_LABELS` | const |  |
+| `SETUP_COMPLETE_LABELS` | const |  |
+| `CERTIFICATE_DETAIL_LABELS` | const |  |
+| `DEMO_CHILD_HOME_LABELS` | const |  |
+| `DEMO_ADMIN_HOME_LABELS` | const |  |
+| `SETUP_CHILDREN_LABELS` | const |  |
+| `ADMIN_CHILDREN_LABELS` | const |  |
+| `DEMO_REPORTS_LABELS` | const |  |
+| `ADMIN_CHILDREN_PAGE_LABELS` | const |  |
+| `CERTIFICATES_PAGE_LABELS` | const |  |
+| `PACKS_PAGE_LABELS` | const |  |
+| `OPS_LAYOUT_LABELS` | const |  |
+| `SETUP_QUESTIONNAIRE_LABELS` | const |  |
+| `CHILD_STATUS_LABELS` | const |  |
+| `AUTH_INVITE_LABELS` | const |  |
+| `DEMO_ACHIEVEMENTS_LABELS` | const |  |
+| `DEMO_LAYOUT_LABELS` | const |  |
+| `SETUP_PACKS_LABELS` | const |  |
+| `PARENT_LOGIN_LABELS` | const |  |
+| `VIEW_PAGE_LABELS` | const |  |
+| `DEMO_BATTLE_LABELS` | const |  |
+| `DEMO_ACTIVITIES_LABELS` | const |  |
+| `DEMO_CHECKLISTS_LABELS` | const |  |
+| `DEMO_EVENTS_LABELS` | const |  |
+| `SWITCH_PAGE_LABELS` | const |  |
+| `OPS_LICENSE_PAGE_LABELS` | const |  |
+| `DEMO_CHALLENGES_LABELS` | const |  |
+| `DEMO_CHILD_ACHIEVEMENTS_LABELS` | const |  |
+| `formatCount` | function |  |
+| `formatAge` | function |  |
+| `formatAgeRange` | function |  |
+| `formatStreak` | function |  |
+| `formatTimes` | function |  |
+| `formatPeople` | function |  |
+| `formatDateRange` | function |  |
 | `getAgeTierLabel` | function | 年齢区分ラベル取得 |
 | `getAgeTierShortLabel` | function | 年齢区分短縮ラベル取得 |
 | `getPlanLabel` | function | プランラベル取得 |
@@ -321,6 +404,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `ChecklistKind` | type |  |
 | `MarketplaceGender` | type |  |
 | `MarketplaceSortKey` | type |  |
+| `ImportSkipReason` | type |  |
 <!-- /AUTOGEN:labels -->
 
 ### ルール

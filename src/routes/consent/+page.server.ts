@@ -1,6 +1,7 @@
 // /consent — 規約再同意ページ (#0192)
 
 import { fail, redirect } from '@sveltejs/kit';
+import { CONSENT_LABELS } from '$lib/domain/labels';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -44,7 +45,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 export const actions: Actions = {
 	default: async ({ request, locals, getClientAddress }) => {
 		if (!locals.authenticated || !locals.context?.tenantId) {
-			return fail(401, { error: 'ログインが必要です' });
+			return fail(401, { error: CONSENT_LABELS.errors.loginRequired });
 		}
 
 		const formData = await request.formData();
@@ -53,7 +54,7 @@ export const actions: Actions = {
 
 		if (!agreedTerms || !agreedPrivacy) {
 			return fail(400, {
-				error: '利用規約とプライバシーポリシーの両方に同意してください',
+				error: CONSENT_LABELS.errors.bothRequired,
 			});
 		}
 
@@ -68,7 +69,7 @@ export const actions: Actions = {
 			logger.error('[CONSENT] Failed to record re-consent', {
 				error: err instanceof Error ? err.message : String(err),
 			});
-			return fail(500, { error: '同意の記録に失敗しました。もう一度お試しください。' });
+			return fail(500, { error: CONSENT_LABELS.errors.recordFailed });
 		}
 
 		redirect(302, '/admin');
