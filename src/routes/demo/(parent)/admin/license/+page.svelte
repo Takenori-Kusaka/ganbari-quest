@@ -4,7 +4,7 @@
 // ライセンスキー適用はモックフロー（入力→確認ダイアログ→プラン変化アニメーション）で再現。
 
 import { onMount } from 'svelte';
-import { getPlanLabel } from '$lib/domain/labels';
+import { APP_LABELS, getPlanLabel, LICENSE_PAGE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { getLicenseHighlights } from '$lib/domain/plan-features';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -45,7 +45,7 @@ onMount(() => {
 });
 
 function notifyDemoOnly() {
-	showToast('デモでは実際の操作はできません', undefined, 'info');
+	showToast(LICENSE_PAGE_LABELS.demoNoticeToast(LICENSE_PAGE_LABELS.demoNotice), undefined, 'info');
 }
 
 /** #817: デモ用ライセンスキー適用モック。入力値に応じてプランを変更する演出 */
@@ -72,17 +72,16 @@ function handleMockApply() {
 </script>
 
 <svelte:head>
-	<title>プラン・お支払い（デモ） - がんばりクエスト</title>
+	<title>{PAGE_TITLES.demoAdminLicense}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6" data-testid="demo-license-page" data-hydrated={hydrated ? 'true' : 'false'}>
 	<!-- デモ説明 -->
 	<Alert variant="info" data-testid="demo-license-notice">
 		{#snippet children()}
-			<p class="text-sm font-semibold mb-1">これはデモ画面です</p>
+			<p class="text-sm font-semibold mb-1">{LICENSE_PAGE_LABELS.demoNotice}</p>
 			<p class="text-xs">
-				本番の /admin/license と同じ画面構成ですが、Stripe決済・ライセンスキー適用・
-				トライアル開始はすべて無効化されています。クリックしても課金は発生しません。
+				{LICENSE_PAGE_LABELS.demoNoticeDesc}
 			</p>
 		{/snippet}
 	</Alert>
@@ -91,10 +90,9 @@ function handleMockApply() {
 	{#if showApplySuccess}
 		<Alert variant="success" data-testid="demo-apply-success">
 			{#snippet children()}
-				<p class="text-sm font-semibold">ライセンスキーが適用されました（デモ）</p>
+				<p class="text-sm font-semibold">{LICENSE_PAGE_LABELS.demoApplySuccessTitle}</p>
 				<p class="text-xs mt-1">
-					プランが <strong>{currentPlanLabel}</strong> に変更されました。
-					これはデモの模擬動作です。実際のプラン変更は行われていません。
+					{LICENSE_PAGE_LABELS.demoApplySuccessDesc(currentPlanLabel)}
 				</p>
 			{/snippet}
 		</Alert>
@@ -103,25 +101,25 @@ function handleMockApply() {
 	<!-- 現在のプラン -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">現在のプラン（デモ）</h3>
+			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{LICENSE_PAGE_LABELS.demoCurrentPlanTitle}</h3>
 
 			<div class="grid gap-4">
 				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
-					<span class="text-sm text-[var(--color-text-muted)]">プラン</span>
+					<span class="text-sm text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.currentPlanLabel}</span>
 					<span class="text-sm font-semibold text-[var(--color-text-primary)]" data-testid="demo-current-plan">{currentPlanLabel}</span>
 				</div>
 				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
-					<span class="text-sm text-[var(--color-text-muted)]">ステータス</span>
+					<span class="text-sm text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.currentPlanStatus}</span>
 					<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]">
-						✅ 有効
+						✅ {LICENSE_PAGE_LABELS.statusActive}
 					</span>
 				</div>
 				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
-					<span class="text-sm text-[var(--color-text-muted)]">家族名</span>
+					<span class="text-sm text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.currentPlanFamilyName}</span>
 					<span class="text-sm text-[var(--color-text-primary)]">{license.tenantName}</span>
 				</div>
 				<div class="flex items-center justify-between py-2">
-					<span class="text-sm text-[var(--color-text-muted)]">登録日</span>
+					<span class="text-sm text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.currentPlanCreatedAt}</span>
 					<span class="text-sm text-[var(--color-text-primary)]">
 						{new Date(license.createdAt).toLocaleDateString('ja-JP')}
 					</span>
@@ -134,24 +132,24 @@ function handleMockApply() {
 	{#if planStats}
 		<Card variant="default" padding="lg">
 			{#snippet children()}
-				<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">プラン利用状況</h3>
+				<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{LICENSE_PAGE_LABELS.demoPlanUsageTitle}</h3>
 				<div class="grid grid-cols-3 gap-4">
 					<div class="flex flex-col gap-0.5">
-						<span class="text-xs text-[var(--color-text-tertiary)]">カスタム活動</span>
+						<span class="text-xs text-[var(--color-text-tertiary)]">{LICENSE_PAGE_LABELS.demoPlanUsageActivity}</span>
 						<span class="text-sm font-semibold text-[var(--color-text-primary)]">
-							{planStats.activityCount} / {planStats.activityMax === null ? '無制限' : planStats.activityMax}
+							{planStats.activityCount} / {LICENSE_PAGE_LABELS.demoPlanUsageMaxValue(planStats.activityMax)}
 						</span>
 					</div>
 					<div class="flex flex-col gap-0.5">
-						<span class="text-xs text-[var(--color-text-tertiary)]">こども</span>
+						<span class="text-xs text-[var(--color-text-tertiary)]">{LICENSE_PAGE_LABELS.demoPlanUsageChildren}</span>
 						<span class="text-sm font-semibold text-[var(--color-text-primary)]">
-							{planStats.childCount} / {planStats.childMax === null ? '無制限' : planStats.childMax}
+							{planStats.childCount} / {LICENSE_PAGE_LABELS.demoPlanUsageMaxValue(planStats.childMax)}
 						</span>
 					</div>
 					<div class="flex flex-col gap-0.5">
-						<span class="text-xs text-[var(--color-text-tertiary)]">データ保持</span>
+						<span class="text-xs text-[var(--color-text-tertiary)]">{LICENSE_PAGE_LABELS.demoPlanUsageRetention}</span>
 						<span class="text-sm font-semibold text-[var(--color-text-primary)]">
-							{planStats.retentionDays === null ? '無制限' : `${planStats.retentionDays}日間`}
+							{LICENSE_PAGE_LABELS.demoPlanUsageRetentionValue(planStats.retentionDays)}
 						</span>
 					</div>
 				</div>
@@ -164,10 +162,10 @@ function handleMockApply() {
 		{#snippet children()}
 			<div class="text-center">
 				<p class="text-lg font-bold text-[var(--color-text-primary)] mb-1">
-					7日間 無料でお試し
+					{LICENSE_PAGE_LABELS.trialStartTitle}
 				</p>
 				<p class="text-sm text-[var(--color-text-muted)] mb-4">
-					スタンダードプランの全機能を体験できます
+					{LICENSE_PAGE_LABELS.trialStartDesc}
 				</p>
 				<Button
 					type="button"
@@ -177,10 +175,10 @@ function handleMockApply() {
 					onclick={notifyDemoOnly}
 					data-testid="demo-trial-start-button"
 				>
-					無料トライアルを開始する
+					{LICENSE_PAGE_LABELS.trialStartButton}
 				</Button>
 				<p class="text-xs text-[var(--color-text-tertiary)] mt-2">
-					デモではトライアルは開始できません
+					{LICENSE_PAGE_LABELS.demoTrialNote}
 				</p>
 			</div>
 		{/snippet}
@@ -190,14 +188,14 @@ function handleMockApply() {
 	<Card variant="default" padding="lg">
 		{#snippet children()}
 			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">
-				💎 ライセンスキーをお持ちの方
+				{LICENSE_PAGE_LABELS.demoLicenseKeyTitle}
 			</h3>
 			<p class="text-sm text-[var(--color-text-muted)] mb-3">
-				買い切りライセンスキーをお持ちの場合は、こちらで適用できます。
+				{LICENSE_PAGE_LABELS.demoLicenseKeyDesc}
 			</p>
 			<div class="space-y-3">
 				<label for="demoLicenseKey" class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-					ライセンスキー
+					{LICENSE_PAGE_LABELS.licenseKeyInputLabel}
 				</label>
 				<input
 					id="demoLicenseKey"
@@ -218,17 +216,17 @@ function handleMockApply() {
 						onclick={() => { showLicenseHelp = !showLicenseHelp; }}
 						data-testid="demo-license-help-toggle"
 					>
-						{showLicenseHelp ? '▼' : '▶'} ライセンスキーについて
+						{showLicenseHelp ? '▼' : '▶'} {LICENSE_PAGE_LABELS.licenseKeyHelpToggle}
 					</button>
 					{#if showLicenseHelp}
 						<div
 							class="mt-2 p-3 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] border border-[var(--color-border-default)] text-xs text-[var(--color-text-muted)] leading-relaxed space-y-1.5"
 							data-testid="demo-license-help"
 						>
-							<p><strong class="text-[var(--color-text-primary)]">一回限りの使用</strong>: 一度有効化すると、他のアカウントでは使用できません。</p>
-							<p><strong class="text-[var(--color-text-primary)]">プラン自動付与</strong>: キーに対応するプランが自動で付与されます。</p>
-							<p><strong class="text-[var(--color-text-primary)]">紐付け先</strong>: 現在のアカウント（家族）に紐付き、他の家族に付け替えできません。</p>
-							<p><strong class="text-[var(--color-text-primary)]">取り消し不可</strong>: 適用後の取り消しはできません。</p>
+							<p><strong class="text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.licenseKeyHelpOnce}</strong>: {LICENSE_PAGE_LABELS.licenseKeyHelpOnceDesc}</p>
+							<p><strong class="text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.demoLicenseKeyHelpAutoGrant}</strong>: {LICENSE_PAGE_LABELS.demoLicenseKeyHelpAutoGrantDesc}</p>
+							<p><strong class="text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.licenseKeyHelpBound}</strong>: {LICENSE_PAGE_LABELS.demoLicenseKeyHelpBoundDesc}</p>
+							<p><strong class="text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.licenseKeyHelpIrreversible}</strong>: {LICENSE_PAGE_LABELS.demoLicenseKeyHelpIrreversibleDesc}</p>
 						</div>
 					{/if}
 				</div>
@@ -245,30 +243,30 @@ function handleMockApply() {
 					}}
 					data-testid="demo-license-key-apply-button"
 				>
-					ライセンスキーを適用
+					{LICENSE_PAGE_LABELS.licenseKeyApplyButton}
 				</Button>
 				<p class="text-xs text-[var(--color-text-tertiary)] text-center">
-					デモでは実際の適用は行われません（画面の変化を体験できます）
+					{LICENSE_PAGE_LABELS.demoLicenseKeyNote}
 				</p>
 			</div>
 
 			<!-- #817: 確認ダイアログ（本番同等） -->
 			<Dialog
 				bind:open={showApplyConfirm}
-				title="ライセンスキーを有効化しますか？"
+				title={LICENSE_PAGE_LABELS.licenseKeyConfirmTitle}
 				testid="demo-license-key-confirm-dialog"
 			>
 				{#snippet children()}
 				<div class="space-y-3 text-sm text-[var(--color-text-primary)]">
-					<p>入力されたライセンスキーを現在のアカウントに適用します。</p>
+					<p>{LICENSE_PAGE_LABELS.licenseKeyConfirmDesc}</p>
 					<ul class="list-disc pl-5 text-[var(--color-text-muted)] space-y-1">
-						<li><strong>一回限り</strong>使用可能です（適用後は他アカウントで使えなくなります）</li>
-						<li>キーに対応する<strong>プラン</strong>が自動で付与されます</li>
-						<li>このキーは<strong>「デモファミリー」</strong>に紐付けられます</li>
-						<li>適用を<strong>取り消すことはできません</strong></li>
+						<li><strong>{LICENSE_PAGE_LABELS.licenseKeyConfirmOnce}</strong>{LICENSE_PAGE_LABELS.licenseKeyConfirmOnceDesc}</li>
+						<li>{LICENSE_PAGE_LABELS.licenseKeyConfirmPlanPrefix}<strong>{LICENSE_PAGE_LABELS.licenseKeyConfirmPlan}</strong>{LICENSE_PAGE_LABELS.demoLicenseKeyConfirmPlanDesc}</li>
+						<li>{LICENSE_PAGE_LABELS.demoLicenseKeyConfirmBound("デモファミリー")}</li>
+						<li>{LICENSE_PAGE_LABELS.licenseKeyConfirmIrreversiblePrefix}<strong>{LICENSE_PAGE_LABELS.licenseKeyConfirmIrreversible}</strong></li>
 					</ul>
 					<div class="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
-						<p class="text-[10px] text-[var(--color-text-tertiary)] mb-0.5">入力されたキー</p>
+						<p class="text-[10px] text-[var(--color-text-tertiary)] mb-0.5">{LICENSE_PAGE_LABELS.licenseKeyEnteredKey}</p>
 						<p class="font-mono text-xs text-[var(--color-text-secondary)] break-all" data-testid="demo-license-key-confirm-display">
 							{licenseKeyInput}
 						</p>
@@ -282,14 +280,13 @@ function handleMockApply() {
 							data-testid="demo-license-key-once-checkbox"
 						/>
 						<span class="text-xs text-[var(--color-text-muted)] leading-relaxed">
-							このライセンスキーが<strong class="text-[var(--color-text-primary)]">一回限り使用</strong>であり、
-							他のアカウントでは使えなくなることに同意します
+							{LICENSE_PAGE_LABELS.licenseKeyAgreePrefix}<strong class="text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.licenseKeyAgreeOnce}</strong>{LICENSE_PAGE_LABELS.licenseKeyAgreeOnceDesc}
 						</span>
 					</label>
 
 					<Alert variant="info">
 						{#snippet children()}
-							<p class="text-xs">これはデモの模擬操作です。実際のキー消費やプラン変更は行われません。</p>
+							<p class="text-xs">{LICENSE_PAGE_LABELS.demoLicenseKeyMockNote}</p>
 						{/snippet}
 					</Alert>
 				</div>
@@ -301,7 +298,7 @@ function handleMockApply() {
 						onclick={() => (showApplyConfirm = false)}
 						disabled={applyLoading}
 					>
-						キャンセル
+						{LICENSE_PAGE_LABELS.licenseKeyCancel}
 					</Button>
 					<Button
 						type="button"
@@ -311,7 +308,7 @@ function handleMockApply() {
 						data-testid="demo-license-key-confirm-button"
 						onclick={handleMockApply}
 					>
-						{applyLoading ? '適用中…' : '適用する'}
+						{applyLoading ? LICENSE_PAGE_LABELS.licenseKeyApplyLoading : LICENSE_PAGE_LABELS.licenseKeyApplyConfirm}
 					</Button>
 				</div>
 				{/snippet}
@@ -322,7 +319,7 @@ function handleMockApply() {
 	<!-- プラン管理 -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">プラン管理</h3>
+			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{LICENSE_PAGE_LABELS.demoPlanManagementTitle}</h3>
 
 			<div class="grid gap-4">
 				<!-- 請求間隔切り替え -->
@@ -333,7 +330,7 @@ function handleMockApply() {
 						class:active={billingInterval === 'monthly'}
 						onclick={() => (billingInterval = 'monthly')}
 					>
-						月額
+						{LICENSE_PAGE_LABELS.billingMonthly}
 					</button>
 					<button
 						type="button"
@@ -341,7 +338,7 @@ function handleMockApply() {
 						class:active={billingInterval === 'yearly'}
 						onclick={() => (billingInterval = 'yearly')}
 					>
-						年額（17% OFF）
+						{LICENSE_PAGE_LABELS.billingYearly}
 					</button>
 				</div>
 
@@ -356,16 +353,16 @@ function handleMockApply() {
 				>
 					<div class="flex items-center justify-between mb-2">
 						<div>
-							<p class="font-semibold text-[var(--color-text-primary)]">スタンダード</p>
-							<p class="text-xs text-[var(--color-text-muted)]">子供無制限・活動無制限・1年保持</p>
+							<p class="font-semibold text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.standardPlanName}</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPlanDesc}</p>
 						</div>
 						{#if billingInterval === 'monthly'}
 							<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">
-								¥500<span class="text-sm font-normal text-[var(--color-text-muted)]">/月</span>
+								{LICENSE_PAGE_LABELS.standardPriceMonthly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerMonth}</span>
 							</p>
 						{:else}
 							<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">
-								¥5,000<span class="text-sm font-normal text-[var(--color-text-muted)]">/年</span>
+								{LICENSE_PAGE_LABELS.standardPriceYearly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerYear}</span>
 							</p>
 						{/if}
 					</div>
@@ -385,19 +382,19 @@ function handleMockApply() {
 					onclick={() => (selectedTier = 'family')}
 					onkeydown={(e) => e.key === 'Enter' && (selectedTier = 'family')}
 				>
-					<span class="recommend-badge">おすすめ</span>
+					<span class="recommend-badge">{LICENSE_PAGE_LABELS.familyRecommendBadge}</span>
 					<div class="flex items-center justify-between mb-2">
 						<div>
-							<p class="font-semibold text-[var(--color-text-primary)]">ファミリー</p>
-							<p class="text-xs text-[var(--color-text-muted)]">家族みんなで見守る+永久保持</p>
+							<p class="font-semibold text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.familyPlanName}</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.familyPlanDesc}</p>
 						</div>
 						{#if billingInterval === 'monthly'}
 							<p class="text-xl font-bold text-[var(--color-stat-purple)]">
-								¥780<span class="text-sm font-normal text-[var(--color-text-muted)]">/月</span>
+								{LICENSE_PAGE_LABELS.familyPriceMonthly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerMonth}</span>
 							</p>
 						{:else}
 							<p class="text-xl font-bold text-[var(--color-stat-purple)]">
-								¥7,800<span class="text-sm font-normal text-[var(--color-text-muted)]">/年</span>
+								{LICENSE_PAGE_LABELS.familyPriceYearly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerYear}</span>
 							</p>
 						{/if}
 					</div>
@@ -417,11 +414,11 @@ function handleMockApply() {
 					onclick={notifyDemoOnly}
 					data-testid="demo-checkout-button"
 				>
-					{selectedTier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める
+					{LICENSE_PAGE_LABELS.demoCheckoutButton(selectedTier)}
 				</Button>
 
 				<p class="text-xs text-[var(--color-text-tertiary)] text-center">
-					デモでは実際の決済は行われません
+					{LICENSE_PAGE_LABELS.demoCheckoutNote}
 				</p>
 			</div>
 		{/snippet}
@@ -430,9 +427,9 @@ function handleMockApply() {
 	<!-- 支払い履歴 -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">支払い履歴</h3>
+			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{LICENSE_PAGE_LABELS.demoPaymentHistoryTitle}</h3>
 			<p class="text-sm text-[var(--color-text-tertiary)] text-center py-4">
-				支払い履歴はまだありません
+				{LICENSE_PAGE_LABELS.paymentHistoryEmpty}
 			</p>
 		{/snippet}
 	</Card>

@@ -1,5 +1,5 @@
 <script lang="ts">
-import { MARKETPLACE_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, formatAgeRange, MARKETPLACE_LABELS } from '$lib/domain/labels';
 import type {
 	ActivityPackPayload,
 	ChecklistPayload,
@@ -28,10 +28,10 @@ const isRulePreset = $derived(item.type === 'rule-preset');
 </script>
 
 <svelte:head>
-	<title>{item.name} - {MARKETPLACE_LABELS.pageTitle} - がんばりクエスト</title>
+	<title>{item.name} - {MARKETPLACE_LABELS.pageTitle}{APP_LABELS.pageTitleSuffix}</title>
 	<meta name="description" content={item.description} />
 	<!-- OGP for SNS sharing -->
-	<meta property="og:title" content="{item.name} - がんばりクエスト {MARKETPLACE_LABELS.pageTitle}" />
+	<meta property="og:title" content="{item.name} - {APP_LABELS.name} {MARKETPLACE_LABELS.pageTitle}" />
 	<meta property="og:description" content={item.description} />
 	<meta property="og:type" content="website" />
 </svelte:head>
@@ -61,7 +61,7 @@ const isRulePreset = $derived(item.type === 'rule-preset');
 						{MARKETPLACE_TYPE_ICONS[item.type]} {MARKETPLACE_TYPE_LABELS[item.type]}
 					</Badge>
 					<Badge variant="info" size="sm">
-						{item.targetAgeMin}〜{item.targetAgeMax}歳
+						{formatAgeRange(item.targetAgeMin, item.targetAgeMax)}
 					</Badge>
 				</div>
 				<h1 class="text-xl font-bold text-[var(--color-text-primary)]">

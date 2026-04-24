@@ -531,6 +531,7 @@ export const MARKETPLACE_LABELS = {
 	detailRulePointBonus: 'ボーナス',
 	detailCtaSignup: 'がんばりクエストに登録して使ってみる',
 	backToTypeListSuffix: '一覧に戻る',
+	typeCountSuffix: '種',
 } as const;
 
 // ============================================================
@@ -2908,6 +2909,49 @@ export const DEMO_BATTLE_LABELS = {
 	signupLink: 'お子さまの名前で はじめる →',
 	replayButton: 'もういちど あそぶ',
 	loadErrorMessage: 'バトルじょうほうを よみこめませんでした',
+} as const;
+
+export const CHILD_CHECKLIST_LABELS = {
+	todayPrefix: 'きょうは',
+	nowPrefix: 'いまは',
+	nowSuffix: 'のじかん',
+	emptyTitle: 'チェックリストがないよ',
+	emptyDesc: 'おやにおねがいしてね',
+	completedAll: '🎉 ぜんぶできた！',
+	checkForPoints: 'ぜんぶチェックしたら',
+	backButton: 'もどる',
+	completeTitle: 'ぜんぶできたよ！',
+	pointsSuffix: 'ポイント！',
+	completeMsg: 'わすれものなし！すごい！',
+	completeButton: 'やったね！',
+} as const;
+
+export const DEMO_CHILD_CHECKLIST_LABELS = {
+	demoNotice: 'これはデモです。チェックは保存されません。',
+} as const;
+
+export const ADMIN_CHECKLISTS_PAGE_LABELS = {
+	tabAriaLabel: 'チェックリスト種別',
+	emptyKindSuffix: 'がまだありません',
+	inactiveBadge: '無効',
+	deleteButton: '削除',
+	timeSlotLabel: '時間帯:',
+	addItemButton: '+ アイテム追加',
+	limitReachedText: (max: number | string) => `フリープランの上限 (${max}個) に達しました`,
+	limitCountText: (current: number | string, max: number | string) =>
+		`チェックリスト ${current} / ${max}`,
+	upgradeLink: 'アップグレード →',
+	upgradeDesc: 'スタンダード以上にアップグレードすると無制限に作成できます。',
+	addTemplateButton: '+ テンプレート作成',
+	addOverrideButton: '📅 ワンオフ追加',
+	todayOverrideTitle: '📅 本日のワンオフ',
+	formKindLabel: '種別',
+	formIconLabel: 'アイコン',
+	createButton: '作成',
+	addButton: '追加',
+	addItemDialogTitle: 'アイテム追加',
+	overrideDialogTitle: 'ワンオフ追加/除外',
+	premiumBadgeLabel: 'スタンダード以上',
 } as const;
 
 export const DEMO_ACTIVITIES_LABELS = {

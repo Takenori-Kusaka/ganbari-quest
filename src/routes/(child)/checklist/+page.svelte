@@ -5,6 +5,7 @@ import {
 	APP_LABELS,
 	CHECKLIST_KIND_ICONS,
 	CHECKLIST_KIND_LABELS,
+	CHILD_CHECKLIST_LABELS,
 	type ChecklistKind,
 	PAGE_TITLES,
 } from '$lib/domain/labels';
@@ -82,18 +83,18 @@ const groupedChecklists = $derived(
 <div class="px-[var(--sp-sm)] py-[var(--sp-sm)]">
 	<!-- Day of week header -->
 	<div class="text-center mb-[var(--sp-md)]">
-		<p class="text-sm text-[var(--color-text-muted)]">きょうは</p>
+		<p class="text-sm text-[var(--color-text-muted)]">{CHILD_CHECKLIST_LABELS.todayPrefix}</p>
 		<p class="text-lg font-bold">{todayDayName}</p>
 		<p class="text-sm text-[var(--color-text-muted)]">
-			{TIME_SLOT_ICONS[currentSlot]} いまは <span class="font-bold">{TIME_SLOT_LABELS[currentSlot]}</span> のじかん
+			{TIME_SLOT_ICONS[currentSlot]} {CHILD_CHECKLIST_LABELS.nowPrefix} <span class="font-bold">{TIME_SLOT_LABELS[currentSlot]}</span> {CHILD_CHECKLIST_LABELS.nowSuffix}
 		</p>
 	</div>
 
 	{#if data.checklists.length === 0}
 		<div class="flex flex-col items-center justify-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-md)]">📋</span>
-			<p class="text-lg font-bold">チェックリストがないよ</p>
-			<p class="text-sm">おやにおねがいしてね</p>
+			<p class="text-lg font-bold">{CHILD_CHECKLIST_LABELS.emptyTitle}</p>
+			<p class="text-sm">{CHILD_CHECKLIST_LABELS.emptyDesc}</p>
 		</div>
 	{:else}
 		{#each groupedChecklists as group (group.kind)}
@@ -183,9 +184,9 @@ const groupedChecklists = $derived(
 				<!-- Footer: points info -->
 				<div class="px-[var(--sp-md)] py-[var(--sp-xs)] bg-[var(--color-surface-muted)] text-center text-sm text-[var(--color-text-muted)]">
 					{#if checklist.completedAll}
-						<span class="text-[var(--theme-accent)] font-bold">🎉 ぜんぶできた！ {fmtPts(checklist.pointsAwarded)}</span>
+						<span class="text-[var(--theme-accent)] font-bold">{CHILD_CHECKLIST_LABELS.completedAll} {fmtPts(checklist.pointsAwarded)}</span>
 					{:else}
-						ぜんぶチェックしたら <span class="font-bold text-[var(--color-point)]">{fmtPts(checklist.totalCount * checklist.pointsPerItem + checklist.completionBonus)}</span>
+						{CHILD_CHECKLIST_LABELS.checkForPoints} <span class="font-bold text-[var(--color-point)]">{fmtPts(checklist.totalCount * checklist.pointsPerItem + checklist.completionBonus)}</span>
 					{/if}
 				</div>
 				{/snippet}
@@ -200,7 +201,7 @@ const groupedChecklists = $derived(
 			href="/{data.uiMode}/home"
 			class="inline-block px-[var(--sp-lg)] py-[var(--sp-sm)] rounded-[var(--radius-md)] bg-[var(--color-surface-tertiary)] font-bold text-sm"
 		>
-			もどる
+			{CHILD_CHECKLIST_LABELS.backButton}
 		</a>
 	</div>
 </div>
@@ -212,13 +213,13 @@ const groupedChecklists = $derived(
 			<div class="relative w-24 h-24 flex items-center justify-center">
 				<CelebrationEffect type={celebEffect} />
 			</div>
-			<p class="text-lg font-bold">{completeData.templateName}<br />ぜんぶできたよ！</p>
+			<p class="text-lg font-bold">{completeData.templateName}<br />{CHILD_CHECKLIST_LABELS.completeTitle}</p>
 			<div class="animate-point-pop">
-				<p class="text-2xl font-bold text-[var(--color-point)]">+{completeData.pointsAwarded} ポイント！</p>
+				<p class="text-2xl font-bold text-[var(--color-point)]">{'+' + completeData.pointsAwarded + ' ' + CHILD_CHECKLIST_LABELS.pointsSuffix}</p>
 			</div>
-			<p class="text-sm text-[var(--color-text-muted)]">わすれものなし！すごい！</p>
+			<p class="text-sm text-[var(--color-text-muted)]">{CHILD_CHECKLIST_LABELS.completeMsg}</p>
 			<Button variant="primary" size="lg" class="w-full" onclick={handleCompleteClose}>
-				やったね！
+				{CHILD_CHECKLIST_LABELS.completeButton}
 			</Button>
 		</div>
 	{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+import { APP_LABELS, formatStreak, PAGE_TITLES, UI_LABELS } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -29,16 +30,16 @@ function formatDate(dateStr: string): string {
 </script>
 
 <svelte:head>
-	<title>きろく - がんばりクエスト デモ</title>
+	<title>{PAGE_TITLES.demoChildHistory}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
-	<h2 class="text-lg font-bold mb-[var(--sp-md)]">きろく</h2>
+	<h2 class="text-lg font-bold mb-[var(--sp-md)]">{PAGE_TITLES.demoChildHistory}</h2>
 
 	{#if data.logs.length === 0}
 		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-sm)]">📋</span>
-			<p class="font-bold">きろくがまだないよ</p>
+			<p class="font-bold">{UI_LABELS.noHistory}</p>
 		</div>
 	{:else}
 		{#each groupedLogs() as [date, logs] (date)}
@@ -59,7 +60,7 @@ function formatDate(dateStr: string): string {
 								<div class="text-right">
 									<p class="font-bold text-sm text-[var(--color-point)]">{fmtPts(log.points)}</p>
 									{#if log.streakDays > 1}
-										<p class="text-xs text-[var(--color-text-muted)]">{log.streakDays}日れんぞく</p>
+										<p class="text-xs text-[var(--color-text-muted)]">{formatStreak(log.streakDays)}</p>
 									{/if}
 								</div>
 							</div>
