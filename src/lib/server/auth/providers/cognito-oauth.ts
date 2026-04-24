@@ -3,7 +3,7 @@
 
 import { randomBytes } from 'node:crypto';
 import type { Cookies } from '@sveltejs/kit';
-import { IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
+import { IDENTITY_COOKIE_NAME, REFRESH_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
 
@@ -154,6 +154,79 @@ export function setIdentityCookie(cookies: Cookies, idToken: string): void {
 		secure: COOKIE_SECURE,
 		maxAge: 60 * 60, // 1時間（Cognito ID Token の有効期限に合わせる）
 	});
+}
+
+/** Refresh Token を Cookie に設定する（maxAge: 30 日） */
+export function setRefreshCookie(cookies: Cookies, refreshToken: string): void {
+	cookies.set(REFRESH_COOKIE_NAME, refreshToken, {
+		path: '/',
+		httpOnly: true,
+		sameSite: 'strict',
+		secure: COOKIE_SECURE,
+		maxAge: 60 * 60 * 24 * 30, // 30日（Cognito Refresh Token 有効期限に合わせる）
+	});
+}
+
+/** Refresh Token Cookie を削除する */
+export function clearRefreshCookie(cookies: Cookies): void {
+	cookies.delete(REFRESH_COOKIE_NAME, { path: '/' });
+}
+
+/**
+ * Refresh Token で新しい ID Token を取得するサイレントリフレッシュ
+ * 成功時: 新 ID Token を Cookie に設定し { idToken } を返す
+ * 失敗時（refresh token 無効/期限切れ）: Cookie を削除し null を返す
+ */
+export async function refreshCognitoIdToken(cookies: Cookies): Promise<{ idToken: string } | null> {
+	const refreshToken = cookies.get(REFRESH_COOKIE_NAME);
+	if (!refreshToken) return null;
+
+	const config = getCognitoOAuthConfig();
+	const tokenUrl = `https://${config.domain}/oauth2/token`;
+
+	const body = new URLSearchParams({
+		grant_type: 'refresh_token',
+		refresh_token: refreshToken,
+		client_id: config.clientId,
+	});
+
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/x-www-form-urlencoded',
+	};
+
+	if (config.clientSecret) {
+		const credentials = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64');
+		headers.Authorization = `Basic ${credentials}`;
+	}
+
+	const response = await fetch(tokenUrl, {
+		method: 'POST',
+		headers,
+		body: body.toString(),
+	});
+
+	if (!response.ok) {
+		clearRefreshCookie(cookies);
+		logger.warn('[AUTH] Refresh token exchange failed', {
+			context: { status: response.status },
+		});
+		return null;
+	}
+
+	const data = (await response.json()) as {
+		id_token: string;
+		access_token: string;
+		refresh_token?: string;
+	};
+
+	setIdentityCookie(cookies, data.id_token);
+
+	// Cognito がリフレッシュトークンをローテーションした場合は更新する
+	if (data.refresh_token) {
+		setRefreshCookie(cookies, data.refresh_token);
+	}
+
+	return { idToken: data.id_token };
 }
 
 /** Cognito ログアウト URL を生成する */
