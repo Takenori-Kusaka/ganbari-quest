@@ -1,7 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { getErrorMessage } from '$lib/domain/errors';
-import { getThemeOptions } from '$lib/domain/labels';
+import { ADMIN_CHILDREN_PAGE_LABELS, APP_LABELS, PAGE_TITLES, getThemeOptions } from '$lib/domain/labels';
 import { formatPointValue } from '$lib/domain/point-display';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
@@ -29,24 +29,24 @@ let themeValue = $state('blue');
 </script>
 
 <svelte:head>
-	<title>こども管理 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.children}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="children-page">
 	<div class="flex items-center gap-2 mb-3">
-		<h2 class="text-lg font-bold">👧 こども管理</h2>
+		<h2 class="text-lg font-bold">{ADMIN_CHILDREN_PAGE_LABELS.pageTitle}</h2>
 		<PageHelpButton />
 	</div>
 	{#if childLimit && !childLimit.allowed}
 		<div class="children-page__limit-banner">
 			<span class="children-page__limit-icon">⚠️</span>
 			<div>
-				<p class="children-page__limit-title">こどもの登録上限に達しています</p>
+				<p class="children-page__limit-title">{ADMIN_CHILDREN_PAGE_LABELS.limitBannerTitle}</p>
 				<p class="children-page__limit-desc">
-					現在 {childLimit.current}人 / 最大 {childLimit.max}人。
+					{ADMIN_CHILDREN_PAGE_LABELS.limitBannerDesc(childLimit.current, childLimit.max ?? 0)}
 				</p>
 				<a href="/admin/license" class="children-page__limit-link">
-					🚀 プランをアップグレードする →
+					{ADMIN_CHILDREN_PAGE_LABELS.limitUpgradeLink}
 				</a>
 			</div>
 		</div>
@@ -60,7 +60,7 @@ let themeValue = $state('blue');
 				onclick={() => showAddForm = !showAddForm}
 				data-tutorial="add-child-btn"
 			>
-				{showAddForm ? 'キャンセル' : '+ こどもを追加'}
+				{showAddForm ? ADMIN_CHILDREN_PAGE_LABELS.cancelButton : ADMIN_CHILDREN_PAGE_LABELS.addButton}
 			</Button>
 		{:else}
 			<Button
@@ -69,7 +69,7 @@ let themeValue = $state('blue');
 				class="bg-[var(--color-border-strong)] text-[var(--color-text-muted)] cursor-not-allowed"
 				disabled
 			>
-				上限に達しています
+				{ADMIN_CHILDREN_PAGE_LABELS.limitReachedButton}
 			</Button>
 		{/if}
 	</div>
@@ -90,10 +90,10 @@ let themeValue = $state('blue');
 				}}
 				class="children-page__add-form"
 			>
-				<h3 class="children-page__add-title">こどもを追加</h3>
+				<h3 class="children-page__add-title">{ADMIN_CHILDREN_PAGE_LABELS.addFormTitle}</h3>
 				<div class="children-page__add-grid">
 					<FormField
-						label="ニックネーム"
+						label={ADMIN_CHILDREN_PAGE_LABELS.nicknameLabel}
 						type="text"
 						id="add-nickname"
 						name="nickname"
@@ -103,7 +103,7 @@ let themeValue = $state('blue');
 					<BirthdayInput
 						name="birthDate"
 						id="add-birthDate"
-						hint="設定すると年齢が自動計算されます"
+						hint={ADMIN_CHILDREN_PAGE_LABELS.birthdayHint}
 					/>
 					<FormField
 						label="年齢"
@@ -116,7 +116,7 @@ let themeValue = $state('blue');
 						placeholder="4"
 					/>
 					<Select
-						label="テーマカラー"
+						label={ADMIN_CHILDREN_PAGE_LABELS.themeColorLabel}
 						items={getThemeOptions().map((opt) => ({
 							value: opt.value,
 							label: `${opt.emoji} ${opt.label}`
@@ -126,7 +126,7 @@ let themeValue = $state('blue');
 					/>
 					<input type="hidden" name="theme" value={themeValue} />
 				</div>
-				<Button type="submit" variant="success" size="sm">追加する</Button>
+				<Button type="submit" variant="success" size="sm">{ADMIN_CHILDREN_PAGE_LABELS.addButton}</Button>
 			</form>
 		</Card>
 	{/if}

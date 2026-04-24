@@ -2764,3 +2764,65 @@ export const DEMO_REPORTS_LABELS = {
 	categoryTitle: '📈 カテゴリ別の様子',
 	adviceTitle: '💡 アドバイス',
 } as const;
+
+export const ADMIN_CHILDREN_PAGE_LABELS = {
+	pageTitle: '👧 こども管理',
+	limitBannerTitle: 'こどもの登録上限に達しています',
+	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
+	limitUpgradeLink: '🚀 プランをアップグレードする →',
+	cancelButton: 'キャンセル',
+	limitReachedButton: '上限に達しています',
+	addFormTitle: 'こどもを追加',
+	nicknameLabel: 'ニックネーム',
+	birthdayHint: '設定すると年齢が自動計算されます',
+	themeColorLabel: 'テーマカラー',
+	addButton: '追加する',
+} as const;
+
+export const CERTIFICATES_PAGE_LABELS = {
+	pageTitle: '📜 がんばり証明書',
+	backToReportsLink: 'レポートへ',
+	freePlanNotePrefix: '無料プランでは証明書の閲覧のみ可能です。PDF保存は',
+	freePlanNoteLink: 'スタンダードプラン以上',
+	freePlanNoteSuffix: 'で利用できます。',
+	emptyTitle: 'まだ証明書がありません',
+	emptyDesc: '活動を記録すると、マイルストーン達成時に証明書が発行されます',
+	noChildrenTitle: '子供が登録されていません',
+} as const;
+
+export const PACKS_PAGE_LABELS = {
+	pageTitle: '活動パック',
+	pageDesc:
+		'年齢に合わせた活動セットをインポートできます。同じ名前の活動は自動的にスキップされます。',
+	recommendedBadge: 'おすすめ',
+	importedBadge: 'インポート済',
+	partiallyImportedSuffix: '件 登録済',
+	activityCountSuffix: '件の活動',
+	importingLabel: 'インポート中...',
+	importButton: (count: number) => `${count}件の新しい活動をインポート`,
+} as const;
+
+export const OPS_LAYOUT_LABELS = {
+	headerTitle: 'がんばりクエスト 運営ダッシュボード',
+	navKpi: 'KPI',
+	navRevenue: '収益',
+	navBusiness: '採算性',
+	navCosts: '費用',
+	navLicense: 'ライセンス',
+	navAnalytics: '分析',
+	navCohort: 'コホート',
+	navExport: 'エクスポート',
+} as const;
+
+export const SETUP_QUESTIONNAIRE_LABELS = {
+	pageTitle: '📋 かんたんアンケート',
+	pageDesc: 'お子さまに合った設定を自動でご用意します',
+	q1Legend: 'Q1. お子さまの課題は？（いくつでも）',
+	q2Legend: 'Q2. 1にちに どれくらい きろくする？',
+	recommendedBadge: 'おすすめ',
+	q3Legend: 'Q3. チェックリストを自動作成する？',
+	q3Hint: 'えらんだリストが自動で作成されます（あとから変更できます）',
+	submittingLabel: 'せっていちゅう...',
+	startButton: 'この設定ではじめる！',
+	skipButton: 'あとで設定する（スキップ）',
+} as const;
