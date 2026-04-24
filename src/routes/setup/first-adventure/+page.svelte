@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
+import { APP_LABELS, PAGE_TITLES, SETUP_FIRST_ADVENTURE_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
@@ -41,7 +42,7 @@ function goToComplete() {
 </script>
 
 <svelte:head>
-	<title>はじめてのぼうけん - がんばりクエスト セットアップ</title>
+	<title>{PAGE_TITLES.setupFirstAdventure}{APP_LABELS.setupPageTitleSuffix}</title>
 </svelte:head>
 
 {#if recorded}
@@ -52,16 +53,16 @@ function goToComplete() {
 		</div>
 
 		<h2 class="text-xl font-bold text-[var(--color-text)] mt-4 mb-2">
-			{formatChildName(child?.nickname, 'vocative')}すごい！
+			{SETUP_FIRST_ADVENTURE_LABELS.successTitle(formatChildName(child?.nickname, 'vocative'))}
 		</h2>
 
 		<p class="text-sm text-[var(--color-text-muted)] mb-4">
-			「{resultName}」をきろくしたよ！
+			{SETUP_FIRST_ADVENTURE_LABELS.recordedDesc(resultName)}
 		</p>
 
 		<div class="points-display border-2 border-[var(--color-gold-600)] rounded-2xl p-4 my-4">
 			<div class="text-[2rem] font-extrabold text-[var(--color-gold-700)]">+{resultPoints}pt</div>
-			<div class="text-sm text-[var(--color-gold-700)] font-semibold">ポイントゲット！</div>
+			<div class="text-sm text-[var(--color-gold-700)] font-semibold">{SETUP_FIRST_ADVENTURE_LABELS.pointsGetLabel}</div>
 		</div>
 
 		{#if resultLevelUp}
@@ -71,21 +72,22 @@ function goToComplete() {
 					<span class="text-[var(--color-gold-600)]">→</span>
 					<span class="text-[var(--color-gold-600)] text-2xl">Lv.{resultLevelUp.levelAfter}</span>
 				</div>
-				<p class="text-sm text-[var(--color-feedback-warning-text)] font-bold">レベルアップ！</p>
+				<p class="text-sm text-[var(--color-feedback-warning-text)] font-bold">{SETUP_FIRST_ADVENTURE_LABELS.levelUpLabel}</p>
 			</div>
 		{/if}
 
 		<Button onclick={goToComplete} variant="primary" size="md" class="w-full mt-6 text-sm">
-			ぼうけんをはじめる！
+			{SETUP_FIRST_ADVENTURE_LABELS.startAdventureButton}
 		</Button>
 	</div>
 {:else}
 	<!-- 活動選択画面 -->
 	<div class="text-center mb-4">
 		<div class="text-3xl mb-2">⚔️</div>
-		<h2 class="text-lg font-bold text-[var(--color-text)]">はじめてのぼうけん！</h2>
+		<h2 class="text-lg font-bold text-[var(--color-text)]">{SETUP_FIRST_ADVENTURE_LABELS.selectActivityTitle}</h2>
 		<p class="text-sm text-[var(--color-text-muted)] mt-1">
-			{formatChildName(child?.nickname, 'vocative')}さいしょのがんばりを<br />いっしょにきろくしよう！
+			{formatChildName(child?.nickname, 'vocative')}{SETUP_FIRST_ADVENTURE_LABELS.selectActivityDescPart1}<br />
+			{SETUP_FIRST_ADVENTURE_LABELS.selectActivityDescPart2}
 		</p>
 	</div>
 
@@ -93,10 +95,10 @@ function goToComplete() {
 		<!-- 活動未登録の場合はスキップ -->
 		<div class="text-center">
 			<p class="text-sm text-[var(--color-neutral-400)] mb-4">
-				まだ活動が登録されていません。あとから管理画面で追加できます。
+				{SETUP_FIRST_ADVENTURE_LABELS.noActivitiesMsg}
 			</p>
 			<form method="POST" action="?/skip">
-				<Button type="submit" variant="primary" size="md" class="w-full text-sm">次へすすむ</Button>
+				<Button type="submit" variant="primary" size="md" class="w-full text-sm">{SETUP_FIRST_ADVENTURE_LABELS.nextButton}</Button>
 			</form>
 		</div>
 	{:else}
@@ -139,14 +141,14 @@ function goToComplete() {
 					class="w-full mt-4 text-sm record-button"
 				>
 					{#if submitting}
-						きろくちゅう...
+						{SETUP_FIRST_ADVENTURE_LABELS.recordingLabel}
 					{:else}
-						タップしてきろく！
+						{SETUP_FIRST_ADVENTURE_LABELS.recordButton}
 					{/if}
 				</Button>
 			{:else}
 				<p class="text-xs text-[var(--color-neutral-400)] text-center mt-4">
-					がんばりをえらんでね！
+					{SETUP_FIRST_ADVENTURE_LABELS.selectActivityHint}
 				</p>
 			{/if}
 		</form>
@@ -154,7 +156,7 @@ function goToComplete() {
 		<div class="text-center mt-3">
 			<form method="POST" action="?/skip">
 				<Button type="submit" variant="ghost" size="sm" class="text-xs underline">
-					あとでやる（スキップ）
+					{SETUP_FIRST_ADVENTURE_LABELS.skipButton}
 				</Button>
 			</form>
 		</div>

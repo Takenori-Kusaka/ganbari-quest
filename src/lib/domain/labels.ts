@@ -2379,3 +2379,148 @@ export const OPS_COSTS_LABELS = {
 	lastFetchedPrefix: '最終取得: ',
 	cacheNote: '（24時間キャッシュ、API費用: $0.01/リクエスト）',
 } as const;
+
+// ============================================================
+// ごほうびページ (#1452 Phase B)
+// ============================================================
+
+export const REWARDS_LABELS = {
+	sectionTitle: '🎁 ごほうび',
+	premiumBadge: '有料限定',
+	pageDescTitle: '🎁 とくべつなごほうび',
+	pageDescText1: 'がんばったこどもへの特別なごほうびを設定・付与します。',
+	pageDescText2:
+		'日常の活動ポイントとは別に、お手伝いや特別な成果に対してボーナスポイントを贈れます。',
+	pageDescHintPrefix: '💌 スタンプやメッセージは',
+	pageDescHintLink: 'おうえんメッセージ',
+	pageDescHintSuffix: 'から送れます',
+	upgradeBannerTitle: '特別なごほうび設定はスタンダードプラン以上の機能です',
+	upgradeBannerDesc:
+		'アップグレードすると、お手伝いや特別な成果に対してカスタムのボーナスごほうびを作成・付与できます。',
+	upgradeButton: 'プランを確認する',
+	selectChildTitle: 'こどもを選択',
+	selectTemplateTitle: 'テンプレートを選択',
+	presetToggle: (open: boolean) => `${open ? '▼' : '▶'} プリセットからテンプレートを追加`,
+	confirmGrantTitle: '内容を確認して付与',
+	titleLabel: 'タイトル',
+	pointsLabel: 'ポイント',
+	iconLabel: 'アイコン',
+	categoryLabel: 'カテゴリ',
+	grantButton: (icon: string, title: string, points: number) =>
+		`${icon} ${title || '報酬'} (${points}P) を付与する`,
+	grantSuccess: '特別報酬を付与しました！',
+} as const;
+
+// ============================================================
+// デモメンバー管理ページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_MEMBERS_LABELS = {
+	sectionTitle: '👥 メンバー管理',
+	sectionDesc:
+		'QRコードでご家族をかんたんに招待できます。パートナーやおじいちゃん・おばあちゃんもお子さまの成長を一緒に見守れます。',
+	qrPlaceholder: '登録するとQRコードが生成されます',
+	invitedMembersTitle: '招待済みメンバー',
+	demoMember1Name: 'がんばり太郎',
+	demoMember1Role: 'オーナー',
+	demoMember2Name: 'がんばり花子',
+	demoMember2Role: 'メンバー',
+	memberStatusActive: 'アクティブ',
+	permissionsTitle: '権限について',
+	permissionOwner: 'オーナー',
+	permissionOwnerDesc: 'すべての設定変更・メンバー管理が可能',
+	permissionMember: 'メンバー',
+	permissionMemberDesc: '活動記録・閲覧が可能（設定変更は不可）',
+	inviteLimit: '招待は最大5名まで（オーナー含む）',
+	ctaTitle: 'ご家族みんなで使いませんか？',
+	ctaDesc: '登録すると、QRコードで簡単にご家族を招待できます。',
+} as const;
+
+// ============================================================
+// OPS エクスポートページ (#1452 Phase B)
+// ============================================================
+
+export const OPS_EXPORT_LABELS = {
+	pageTitle: 'OPS - エクスポート',
+	exportTitle: '確定申告用CSVエクスポート',
+	salesTitle: '売上台帳',
+	salesDesc: 'Stripe 請求書ベースの収入記録。青色申告決算書 第1面「収入金額」に対応。',
+	salesDownload: 'CSV ダウンロード',
+	expensesTitle: '経費台帳',
+	expensesDesc: 'AWS 費用 + Stripe 手数料。勘定科目付き。青色申告決算書「必要経費」に対応。',
+	expensesDownload: 'CSV ダウンロード',
+	summaryTitle: '収支サマリー',
+	summaryDesc: '売上・経費・差引利益の一覧。確定申告前の概要確認用。',
+	summaryDownload: 'テキスト ダウンロード',
+	notesTitle: '注意事項',
+	note1: 'AWS 費用は Cost Explorer API から取得（USD→JPY はレート ¥150/$ で概算）',
+	note2: 'Stripe 手数料は 3.6% + ¥40/件 の概算値です',
+	note3: '消費税区分はインボイス登録状況に応じて調整が必要です',
+	note4: '本データは概算値です。正式な申告は税理士に相談してください',
+} as const;
+
+// ============================================================
+// おうえんメッセージページ (#1452 Phase B)
+// ============================================================
+
+export const MESSAGES_LABELS = {
+	pageDescTitle: '💌 おうえんメッセージ',
+	pageDescText1: 'スタンプやメッセージでこどもを応援しましょう。',
+	pageDescText2: 'こどもの画面にスタンプが届き、親からの気持ちが伝わります。',
+	pageDescHintPrefix: '🎁 特別なボーナスポイントの付与は',
+	pageDescHintLink: 'ごほうび',
+	pageDescHintSuffix: 'から行えます',
+	selectChildTitle: '1. こどもを選択',
+	messageTypeTitle: '2. おうえんの種類',
+	stampButton: 'スタンプ',
+	textMessageButton: 'ひとことメッセージ',
+	textMessageDisabledTitle: 'ファミリープラン限定',
+	textMessageDisabledSrOnly:
+		'ひとことメッセージはファミリープラン限定の機能です。ご利用にはプランのアップグレードが必要です。',
+	sendSuccess: 'おうえんメッセージを送りました！',
+	recentMessagesTitle: '最近のメッセージ',
+	msgRead: '既読',
+	msgUnread: '未読',
+} as const;
+
+// ============================================================
+// OPS コホート分析ページ (#1452 Phase B)
+// ============================================================
+
+export const OPS_COHORT_LABELS = {
+	pageTitle: 'OPS - コホート分析',
+	monthlyChurnRateLabel: '月次解約率',
+	theoreticalLtvLabel: '理論値 LTV',
+	theoreticalLtvNote: 'ARPU / 月次解約率',
+	retentionTableTitle: (monthsBack: number) =>
+		`月次コホート別リテンション（過去${monthsBack}ヶ月）`,
+	noDataMessage: 'コホートデータがありません',
+	colCohort: 'コホート',
+	colTenantCount: 'テナント数',
+	colPaid: '有料',
+	insufficientSampleBadge: 'サンプル不足',
+	ltvCompareTitle: 'コホート別 LTV 比較',
+	theoreticalLtvSummary: (ltv: number) => `理論値 LTV (ARPU/月次解約率): ¥${ltv.toLocaleString()}`,
+	lastFetchedPrefix: '最終取得: ',
+} as const;
+
+// ============================================================
+// はじめてのぼうけんページ (#1452 Phase B)
+// ============================================================
+
+export const SETUP_FIRST_ADVENTURE_LABELS = {
+	successTitle: (nicknameVocative: string) => `${nicknameVocative}すごい！`,
+	recordedDesc: (activityName: string) => `「${activityName}」をきろくしたよ！`,
+	pointsGetLabel: 'ポイントゲット！',
+	levelUpLabel: 'レベルアップ！',
+	startAdventureButton: 'ぼうけんをはじめる！',
+	selectActivityTitle: 'はじめてのぼうけん！',
+	selectActivityDescPart1: 'さいしょのがんばりを',
+	selectActivityDescPart2: 'いっしょにきろくしよう！',
+	noActivitiesMsg: 'まだ活動が登録されていません。あとから管理画面で追加できます。',
+	nextButton: '次へすすむ',
+	recordingLabel: 'きろくちゅう...',
+	recordButton: 'タップしてきろく！',
+	selectActivityHint: 'がんばりをえらんでね！',
+	skipButton: 'あとでやる（スキップ）',
+} as const;
