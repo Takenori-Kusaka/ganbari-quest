@@ -63,7 +63,7 @@ async function openPortal() {
 			),
 		});
 		if (!res.ok) {
-			let message = BILLING_LABELS.openPortalError;
+			let message: string = BILLING_LABELS.openPortalError;
 			try {
 				const body = (await res.json()) as { message?: string };
 				const raw = body.message ?? '';

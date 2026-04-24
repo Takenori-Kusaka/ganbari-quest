@@ -84,7 +84,7 @@ function handlePrint() {
 				<h1 class="text-xl font-bold text-[var(--color-text)] mb-1">
 					{formatChildName(book.childName, 'possessive')}{GROWTH_BOOK_LABELS.titleSuffix}
 				</h1>
-				<p class="text-[var(--color-text-muted)]">{GROWTH_BOOK_LABELS.fiscalYearRange(book.fiscalYear)}</p>
+				<p class="text-[var(--color-text-muted)]">{GROWTH_BOOK_LABELS.fiscalYearRange(Number(book.fiscalYear))}</p>
 				{#if book.levelTitle}
 					<p class="mt-2 text-sm font-medium text-[var(--color-feedback-info-text)]">
 						{GROWTH_BOOK_LABELS.currentLevel(book.currentLevel, book.levelTitle)}
