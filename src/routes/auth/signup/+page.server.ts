@@ -10,7 +10,7 @@ import {
 	signUpWithCognito,
 } from '$lib/server/auth/providers/cognito-direct-auth';
 import { verifyIdentityToken } from '$lib/server/auth/providers/cognito-jwt';
-import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
+import { setIdentityCookie, setRefreshCookie } from '$lib/server/auth/providers/cognito-oauth';
 import type { Identity } from '$lib/server/auth/types';
 import { logger } from '$lib/server/logger';
 import { trackActivationSignupCompleted } from '$lib/server/services/analytics-service';
@@ -259,6 +259,10 @@ export const actions: Actions = {
 
 		// Identity Cookie を設定（後続のリクエストで認証済みになる）
 		setIdentityCookie(cookies, loginResult.idToken);
+		// Refresh Token Cookie を設定（#1365: email サインアップも 30 日セッション対象）
+		if (loginResult.refreshToken) {
+			setRefreshCookie(cookies, loginResult.refreshToken);
+		}
 
 		// ID Token から identity を構築（現在のリクエスト内で tenant を解決するため）
 		const claims = await verifyIdentityToken(loginResult.idToken);
