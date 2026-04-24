@@ -410,6 +410,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 5. 画像が必要かは §7 の判断基準に従う
 6. 年齢モードの差異は §8 を参照
 7. §9 の禁忌事項に違反しない
+8. **LP / pricing ページ文言を書く前に ADR-0013 の committed/aspirational 区別を確認する**（`docs/design/19-プライシング戦略書.md` 附則参照）。Aspirational は LP に記載しない
 
 ---
 
