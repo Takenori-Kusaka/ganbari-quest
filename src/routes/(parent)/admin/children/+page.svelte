@@ -31,6 +31,7 @@ const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.r
 
 let showAddForm = $state(false);
 let themeValue = $state('blue');
+let addBirthDate = $state<string | undefined>(undefined);
 </script>
 
 <svelte:head>
@@ -89,6 +90,7 @@ let themeValue = $state('blue');
 					return async ({ result, update }) => {
 						if (result.type === 'success') {
 							showAddForm = false;
+							addBirthDate = undefined;
 						}
 						await update();
 					};
@@ -108,17 +110,18 @@ let themeValue = $state('blue');
 					<BirthdayInput
 						name="birthDate"
 						id="add-birthDate"
+						bind:value={addBirthDate}
 						hint={ADMIN_CHILDREN_PAGE_LABELS.birthdayHint}
 					/>
 					<FormField
-						label="年齢"
+						label={addBirthDate ? ADMIN_CHILDREN_PAGE_LABELS.ageLabelAutoCalc : ADMIN_CHILDREN_PAGE_LABELS.ageLabel}
 						type="number"
 						id="add-age"
 						name="age"
 						min="0"
 						max="18"
-						required
-						placeholder="4"
+						disabled={!!addBirthDate}
+						placeholder={addBirthDate ? '' : ADMIN_CHILDREN_PAGE_LABELS.agePlaceholder}
 					/>
 					<Select
 						label={ADMIN_CHILDREN_PAGE_LABELS.themeColorLabel}

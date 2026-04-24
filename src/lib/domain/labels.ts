@@ -2780,6 +2780,11 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	birthdayHint: '設定すると年齢が自動計算されます',
 	themeColorLabel: 'テーマカラー',
 	addButton: '追加する',
+	ageLabel: '年齢',
+	ageLabelAutoCalc: '年齢（誕生日から自動計算）',
+	agePlaceholder: '4',
+	birthdayOrAgeRequired: '誕生日または年齢を入力してください',
+	ageRange: '0〜18で入力してください',
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
