@@ -1,0 +1,6 @@
+{
+	"count": 1607,
+	"rule": "local/no-hardcoded-jp-text",
+	"scope": "src/routes/**/*.svelte",
+	"note": "Issue #1452 Phase A: existing violations are grandfathered. CI fails if count increases."
+}

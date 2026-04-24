@@ -98,6 +98,9 @@ jobs:
       - name: No waitForTimeout in scripts/ check (#1208)
         run: node scripts/check-no-waitfortimeout.mjs
 
+      - name: Hardcoded JP text baseline check (#1452 Phase A)
+        run: node scripts/check-hardcoded-strings.mjs
+
       - name: No demo route duplication check (ADR-0039 / #1180)
         run: npm run check:no-demo-route-dup
 
