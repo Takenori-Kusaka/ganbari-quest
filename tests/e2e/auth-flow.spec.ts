@@ -65,9 +65,7 @@ test.describe('公開ルートアクセス', () => {
 test.describe('おやカギコード認証 API（ローカルモード）', () => {
 	test.skip(isAwsEnv(), 'AWS 環境ではおやカギコード認証 API は存在しない');
 
-	test('おやカギコード認証 API が正しいコードで 200 を返す（bcrypt パス）', async ({
-		request,
-	}) => {
+	test('おやカギコード認証 API が正しいコードで 200 を返す（bcrypt パス）', async ({ request }) => {
 		// global-setup により pin_hash=bcrypt('1234') が初期化済み
 		const res = await request.post('/api/v1/auth/login', {
 			data: { pin: '1234' },
