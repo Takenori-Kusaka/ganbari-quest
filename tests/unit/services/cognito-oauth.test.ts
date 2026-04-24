@@ -12,8 +12,11 @@ vi.mock('$lib/server/logger', () => ({
 import {
 	buildAuthorizeUrl,
 	buildLogoutUrl,
+	clearRefreshCookie,
 	exchangeCodeForTokens,
 	getCognitoOAuthConfig,
+	refreshCognitoIdToken,
+	setRefreshCookie,
 	verifyOAuthState,
 } from '../../../src/lib/server/auth/providers/cognito-oauth';
 
@@ -177,6 +180,92 @@ describe('cognito-oauth', () => {
 			await expect(exchangeCodeForTokens('bad-code', cookies as any)).rejects.toThrow(
 				'Token exchange failed: 400',
 			);
+		});
+	});
+
+	describe('setRefreshCookie / clearRefreshCookie', () => {
+		it('Refresh Token を Cookie に設定する', () => {
+			const cookies = createMockCookies();
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			setRefreshCookie(cookies as any, 'refresh-token-value');
+			expect(cookies._store.get('gq_refresh')).toBe('refresh-token-value');
+		});
+
+		it('clearRefreshCookie で Cookie を削除する', () => {
+			const cookies = createMockCookies();
+			cookies.set('gq_refresh', 'some-refresh-token');
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			clearRefreshCookie(cookies as any);
+			expect(cookies._store.has('gq_refresh')).toBe(false);
+		});
+	});
+
+	describe('refreshCognitoIdToken', () => {
+		it('Refresh Token がない場合 null を返す', async () => {
+			const cookies = createMockCookies();
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			const result = await refreshCognitoIdToken(cookies as any);
+			expect(result).toBeNull();
+		});
+
+		it('正常なリフレッシュで新しい ID Token を返す', async () => {
+			const mockResponse = {
+				ok: true,
+				json: async () => ({
+					id_token: 'new-id-token',
+					access_token: 'new-access-token',
+				}),
+			};
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
+
+			const cookies = createMockCookies();
+			cookies.set('gq_refresh', 'valid-refresh-token');
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			const result = await refreshCognitoIdToken(cookies as any);
+
+			expect(result).not.toBeNull();
+			expect(result?.idToken).toBe('new-id-token');
+			// identity_token Cookie が更新されること
+			expect(cookies._store.get('identity_token')).toBe('new-id-token');
+		});
+
+		it('Cognito がリフレッシュトークンをローテーションした場合は更新する', async () => {
+			const mockResponse = {
+				ok: true,
+				json: async () => ({
+					id_token: 'new-id-token',
+					access_token: 'new-access-token',
+					refresh_token: 'rotated-refresh-token',
+				}),
+			};
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
+
+			const cookies = createMockCookies();
+			cookies.set('gq_refresh', 'old-refresh-token');
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await refreshCognitoIdToken(cookies as any);
+
+			expect(cookies._store.get('gq_refresh')).toBe('rotated-refresh-token');
+		});
+
+		it('トークンエンドポイントがエラーを返した場合 null を返して Refresh Cookie を削除する', async () => {
+			const mockResponse = {
+				ok: false,
+				status: 400,
+				json: async () => ({ error: 'invalid_grant' }),
+			};
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse));
+
+			const cookies = createMockCookies();
+			cookies.set('gq_refresh', 'expired-refresh-token');
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			const result = await refreshCognitoIdToken(cookies as any);
+
+			expect(result).toBeNull();
+			expect(cookies._store.has('gq_refresh')).toBe(false);
 		});
 	});
 });
