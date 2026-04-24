@@ -31,21 +31,24 @@ import {
 	verifyPin,
 } from '../../../src/lib/server/services/auth-service';
 
-const DEFAULT_PIN = '1234';
-let defaultPinHash: string;
+// テスト用 PIN（bcrypt ハッシュして seed する任意の値）
+const TEST_PIN = '1234';
+// おやカギコードのデフォルト値 (#1360)
+const OYAKAGI_DEFAULT_PIN = '5086';
+let testPinHash: string;
 
 beforeAll(() => {
 	const t = createTestDb();
 	sqlite = t.sqlite;
 	testDb = t.db;
-	defaultPinHash = bcrypt.hashSync(DEFAULT_PIN, 10);
+	testPinHash = bcrypt.hashSync(TEST_PIN, 10);
 });
 
 afterAll(() => {
 	closeDb(sqlite);
 });
 
-function seedAuthSettings(pinHash: string = defaultPinHash) {
+function seedAuthSettings(pinHash: string = testPinHash) {
 	// settings テーブルをクリア
 	sqlite.exec('DELETE FROM settings');
 	testDb
@@ -68,14 +71,14 @@ describe('auth-service', () => {
 	// --- login ---
 	describe('login', () => {
 		it('正しいPINでログイン成功', async () => {
-			const result = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			const result = assertSuccess(await login(TEST_PIN, 'test-tenant'));
 			expect(result.sessionToken).toBeDefined();
 			expect(result.sessionToken.length).toBeGreaterThan(0);
 			expect(result.expiresAt).toBeDefined();
 		});
 
 		it('ログイン成功後にsettingsにセッションが保存される', async () => {
-			const result = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			const result = assertSuccess(await login(TEST_PIN, 'test-tenant'));
 			const storedToken = await getSetting('session_token', 'test-tenant');
 			expect(storedToken).toBe(result.sessionToken);
 		});
@@ -85,10 +88,17 @@ describe('auth-service', () => {
 			expect(result).toEqual({ error: 'INVALID_PIN' });
 		});
 
-		it('PIN未設定の場合はPIN_NOT_SET', async () => {
+		// #1360: pin_hash 未設定時は DEFAULT_PIN (5086) でフォールバック
+		it('pin_hash 未設定時はデフォルトおやカギコード 5086 でログイン成功', async () => {
+			seedAuthSettings('');
+			const result = await login(OYAKAGI_DEFAULT_PIN, 'test-tenant');
+			expect('error' in result).toBe(false);
+		});
+
+		it('pin_hash 未設定時に 5086 以外は INVALID_PIN', async () => {
 			seedAuthSettings('');
 			const result = await login('1234', 'test-tenant');
-			expect(result).toEqual({ error: 'PIN_NOT_SET' });
+			expect(result).toEqual({ error: 'INVALID_PIN' });
 		});
 
 		it('間違ったPINで失敗カウントが増加する', async () => {
@@ -101,7 +111,7 @@ describe('auth-service', () => {
 			for (let i = 0; i < 5; i++) {
 				await login('9999', 'test-tenant');
 			}
-			const result = assertError(await login(DEFAULT_PIN, 'test-tenant'));
+			const result = assertError(await login(TEST_PIN, 'test-tenant'));
 			expect(result.error).toBe('LOCKED_OUT');
 		});
 
@@ -121,7 +131,7 @@ describe('auth-service', () => {
 				})
 				.run();
 
-			assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			assertSuccess(await login(TEST_PIN, 'test-tenant'));
 		});
 
 		it('ログイン成功で失敗カウントがリセットされる', async () => {
@@ -132,7 +142,7 @@ describe('auth-service', () => {
 			expect(await getSetting('pin_failed_attempts', 'test-tenant')).toBe('3');
 
 			// 正しいPINで成功
-			await login(DEFAULT_PIN, 'test-tenant');
+			await login(TEST_PIN, 'test-tenant');
 			expect(await getSetting('pin_failed_attempts', 'test-tenant')).toBe('0');
 		});
 	});
@@ -140,13 +150,13 @@ describe('auth-service', () => {
 	// --- validateSession ---
 	describe('validateSession', () => {
 		it('有効なトークンでvalid: true', async () => {
-			const loginResult = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			const loginResult = assertSuccess(await login(TEST_PIN, 'test-tenant'));
 			const result = await validateSession(loginResult.sessionToken, 'test-tenant');
 			expect(result.valid).toBe(true);
 		});
 
 		it('不正なトークンでvalid: false', async () => {
-			await login(DEFAULT_PIN, 'test-tenant');
+			await login(TEST_PIN, 'test-tenant');
 			const result = await validateSession('invalid-token', 'test-tenant');
 			expect(result.valid).toBe(false);
 		});
@@ -157,7 +167,7 @@ describe('auth-service', () => {
 		});
 
 		it('期限切れトークンでvalid: false', async () => {
-			const loginResult = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			const loginResult = assertSuccess(await login(TEST_PIN, 'test-tenant'));
 			// 期限を過去に設定
 			const pastDate = new Date(Date.now() - 1000).toISOString();
 			testDb
@@ -174,7 +184,7 @@ describe('auth-service', () => {
 		});
 
 		it('リフレッシュ閾値以下でrefreshed: true', async () => {
-			const loginResult = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			const loginResult = assertSuccess(await login(TEST_PIN, 'test-tenant'));
 			// 残り10日に設定（閾値は30日）
 			const nearExpiry = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString();
 			testDb
@@ -191,7 +201,7 @@ describe('auth-service', () => {
 		});
 
 		it('十分な残り期間ではrefreshed: false', async () => {
-			const loginResult = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			const loginResult = assertSuccess(await login(TEST_PIN, 'test-tenant'));
 			const result = await validateSession(loginResult.sessionToken, 'test-tenant');
 			expect(result).toEqual({ valid: true, refreshed: false });
 		});
@@ -200,14 +210,14 @@ describe('auth-service', () => {
 	// --- logout ---
 	describe('logout', () => {
 		it('セッショントークンがクリアされる', async () => {
-			await login(DEFAULT_PIN, 'test-tenant');
+			await login(TEST_PIN, 'test-tenant');
 			await logout('test-tenant');
 			const token = await getSetting('session_token', 'test-tenant');
 			expect(token).toBe('');
 		});
 
 		it('ログアウト後のトークンは無効', async () => {
-			const loginResult = assertSuccess(await login(DEFAULT_PIN, 'test-tenant'));
+			const loginResult = assertSuccess(await login(TEST_PIN, 'test-tenant'));
 			await logout('test-tenant');
 			const result = await validateSession(loginResult.sessionToken, 'test-tenant');
 			expect(result.valid).toBe(false);
@@ -245,13 +255,13 @@ describe('auth-service', () => {
 	// --- verifyPin (#771) ---
 	describe('verifyPin', () => {
 		it('正しいPINでok: true', async () => {
-			const result = await verifyPin(DEFAULT_PIN, 'test-tenant');
+			const result = await verifyPin(TEST_PIN, 'test-tenant');
 			expect(result).toEqual({ ok: true });
 		});
 
 		it('正しいPINでもセッショントークンは発行されない', async () => {
 			// login と異なり、検証のみでセッションは作られない
-			await verifyPin(DEFAULT_PIN, 'test-tenant');
+			await verifyPin(TEST_PIN, 'test-tenant');
 			const token = await getSetting('session_token', 'test-tenant');
 			expect(token).toBe('');
 		});
@@ -267,17 +277,24 @@ describe('auth-service', () => {
 			expect(attempts).toBe('1');
 		});
 
-		it('PIN未設定の場合はPIN_NOT_SET', async () => {
+		// #1360: pin_hash 未設定時は DEFAULT_PIN (5086) でフォールバック
+		it('pin_hash 未設定時はデフォルトおやカギコード 5086 でok: true', async () => {
+			seedAuthSettings('');
+			const result = await verifyPin(OYAKAGI_DEFAULT_PIN, 'test-tenant');
+			expect(result).toEqual({ ok: true });
+		});
+
+		it('pin_hash 未設定時に 5086 以外は INVALID_PIN', async () => {
 			seedAuthSettings('');
 			const result = await verifyPin('1234', 'test-tenant');
-			expect(result).toEqual({ ok: false, error: 'PIN_NOT_SET' });
+			expect(result).toEqual({ ok: false, error: 'INVALID_PIN' });
 		});
 
 		it('5回失敗でロックアウト (login と共通のカウンタ)', async () => {
 			for (let i = 0; i < 5; i++) {
 				await verifyPin('9999', 'test-tenant');
 			}
-			const result = await verifyPin(DEFAULT_PIN, 'test-tenant');
+			const result = await verifyPin(TEST_PIN, 'test-tenant');
 			expect(result.ok).toBe(false);
 			if (!result.ok) {
 				expect(result.error).toBe('LOCKED_OUT');
@@ -289,7 +306,7 @@ describe('auth-service', () => {
 			await verifyPin('9999', 'test-tenant');
 			expect(await getSetting('pin_failed_attempts', 'test-tenant')).toBe('2');
 
-			await verifyPin(DEFAULT_PIN, 'test-tenant');
+			await verifyPin(TEST_PIN, 'test-tenant');
 			expect(await getSetting('pin_failed_attempts', 'test-tenant')).toBe('0');
 		});
 	});

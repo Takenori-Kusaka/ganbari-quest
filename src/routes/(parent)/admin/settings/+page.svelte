@@ -586,12 +586,13 @@ const anyFormBusy = $derived(
 		</div>
 	{/if}
 
-	<!-- PIN変更 -->
+	<!-- おやカギコード変更 -->
 	<Card padding="lg" data-tutorial="pin-settings">
-		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">🔒 PINコード変更</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-1">🔒 おやカギコード変更</h3>
+		<p class="text-sm text-[var(--color-text-muted)] mb-4">初期値は 5086（がんばり）です</p>
 
 		{#if success}
-			<SuccessAlert message="PINコードを変更しました" />
+			<SuccessAlert message="おやカギコードを変更しました" />
 		{/if}
 
 		{#if errorMessage}
@@ -615,7 +616,7 @@ const anyFormBusy = $derived(
 			}}
 			class="flex flex-col gap-4"
 		>
-			<FormField label="現在のPIN">
+			<FormField label="現在のおやカギコード">
 				{#snippet children()}
 					<input
 						type="password"
@@ -630,7 +631,7 @@ const anyFormBusy = $derived(
 				{/snippet}
 			</FormField>
 
-			<FormField label="新しいPIN（4〜8桁）">
+			<FormField label="新しいおやカギコード（4〜8桁）">
 				{#snippet children()}
 					<input
 						type="password"
@@ -646,7 +647,7 @@ const anyFormBusy = $derived(
 				{/snippet}
 			</FormField>
 
-			<FormField label="新しいPIN（確認）">
+			<FormField label="新しいおやカギコード（確認）">
 				{#snippet children()}
 					<input
 						type="password"
@@ -669,7 +670,7 @@ const anyFormBusy = $derived(
 				class="w-full"
 				disabled={submitting}
 			>
-				{submitting ? '変更中...' : 'PINを変更'}
+				{submitting ? '変更中...' : 'おやカギコードを変更'}
 			</Button>
 		</form>
 	</Card>

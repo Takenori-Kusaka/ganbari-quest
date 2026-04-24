@@ -23,7 +23,7 @@ export const actions: Actions = {
 		const parsed = pinSchema.safeParse(pin);
 		if (!parsed.success) {
 			return fail(400, {
-				error: 'PINは4〜6桁の数字を入力してください',
+				error: 'おやカギコードは4〜6桁の数字を入力してください',
 			});
 		}
 
@@ -36,13 +36,8 @@ export const actions: Actions = {
 					error: 'ロックされています。しばらくしてからもう一度お試しください',
 				});
 			}
-			if (result.error === 'PIN_NOT_SET') {
-				return fail(500, {
-					error: 'PINが設定されていません',
-				});
-			}
 			return fail(401, {
-				error: 'PINがちがいます',
+				error: 'おやカギコードがちがいます',
 			});
 		}
 
