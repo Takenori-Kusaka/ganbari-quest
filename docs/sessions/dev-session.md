@@ -119,6 +119,13 @@ gh issue list --state open --label "priority:high" --json number,title,labels \
    - `npx playwright test` — E2E テスト全通過
 5. **AC 検証マップを全行埋める（ADR-0004 必須）** — 実装完了後、PR 作成前に PR 本文の「AC 検証マップ」の全行を埋めること。空行がある場合は**実装未了と見なす**（コマンド結果 / スクリーンショットパス / grep 結果で埋める）
 6. Draft PR で push: `gh pr create --draft`
+6.5. **UI 変更がある場合（`gh pr ready` 前に必須）**: スクリーンショットを取得して PR 本文「スクリーンショット / ビジュアルデモ」セクションに貼り付ける。
+   ```bash
+   npm run capture -- --url /demo/admin --presets mobile,desktop --out tmp/screenshots/
+   ```
+   - `screenshot-check` CI は **Draft PR 中はスキップ**される（`.github/workflows/pr-ui-check.yml` の `if: github.event.pull_request.draft == false`）。Draft CI 全緑でも `gh pr ready` 後に初めて発火するため、**Ready 前に必ず撮影・添付すること**
+   - 対象: `src/routes/**/*.svelte` / `src/lib/ui/**/*.svelte` / `src/lib/features/**/*.svelte` / `site/**` を変更した PR
+   - 撮ったスクショを自分で見て、意図通りの表示になっていることを確認してから添付する（CI 通過のためではなく自己判定の証跡）
 7. CI 全通過後に Ready for Review: `gh pr ready <番号>`
 
 ### 新規実装時
@@ -130,13 +137,18 @@ gh issue list --state open --label "priority:high" --json number,title,labels \
 5. **UI 変更時は「UI/UX デザイナー視点」での目視検証が必須**:
    - 非認証画面は `npm run dev` で確認
    - 認証が絡む画面 (login / signup / 管理画面 / ops / プラン別 UI) は `npm run dev:cognito` (#1026) で確認。`npm run dev` は自動認証モードでログインフォームが描画されないため UI 検証に使えない
-   - 目視で以下 6 点を **1 つずつ自分で判定**:
-     - 色: `docs/DESIGN.md` §2 セマンティックトークン準拠 (hex 直書き / Tailwind arbitrary hex が画面に紛れ込んでいないか)
-     - 形: `docs/DESIGN.md` §5 プリミティブ使用 (生の `<button class="...">` が描画されていないか)
-     - 用語: `docs/DESIGN.md` §6 用語辞書準拠 (内部コード `uiMode` 等が画面露出していないか / 用語ハードコードが他画面と不整合を起こしていないか)
-     - 間隔・タップサイズ: `docs/DESIGN.md` §4 年齢帯別タップサイズに対して極端な小ささ・詰めすぎがないか
-     - 状態: ローディング / エラー / 空状態 / 認証前後 / 失敗状態 の各遷移が UI として成立しているか
-     - 5 年齢モード (baby/preschool/elementary/junior/senior): 該当する画面なら fontScale・タップサイズの差異が破綻していないか
+   - 目視で以下の点を **1 つずつ自分で判定**:
+     - **色**: `docs/DESIGN.md` §2 セマンティックトークン準拠 (hex 直書き / Tailwind arbitrary hex が画面に紛れ込んでいないか)
+     - **形**: `docs/DESIGN.md` §5 プリミティブ使用 (生の `<button class="...">` が描画されていないか)
+     - **用語**: `docs/DESIGN.md` §6 用語辞書準拠 (内部コード `uiMode` 等が画面露出していないか / 用語ハードコードが他画面と不整合を起こしていないか)
+     - **間隔・タップサイズ**: `docs/DESIGN.md` §4 年齢帯別タップサイズに対して極端な小ささ・詰めすぎがないか
+     - **状態**: ローディング / エラー / 空状態 / 認証前後 / 失敗状態 の各遷移が UI として成立しているか
+     - **5 年齢モード** (baby/preschool/elementary/junior/senior): 該当する画面なら fontScale・タップサイズの差異が破綻していないか
+     - **ユーザビリティ**: 初見ユーザーが 3 秒以内に目的操作に気づけるか。次のアクションへの誘導が明確か（確認方法: 画面を初めて見るつもりで「何をすべきか」を声に出して言えるか試す）
+     - **アクセシビリティ**: キーボード（Tab 移動・Enter 確定）のみで操作できるか。スクリーンリーダー用 `aria-label` / `aria-describedby` が付いているか。コントラスト比 4.5:1 以上か（確認方法: DevTools の Accessibility タブ / Chrome Lighthouse で簡易チェック）
+     - **読解容易性**: テキストが 3-15 歳の子供・保護者の語彙に合っているか（難解用語・英語が混入していないか）。1 センテンスが 40 字以内か（確認方法: 声に出して読んで詰まる箇所がないか）
+     - **レイアウト**: mobile 390px / desktop 1280px の両ビューポートでレイアウト崩れがないか（確認方法: `npm run capture -- --url <path> --presets mobile,desktop` または DevTools レスポンシブモード）
+     - **日本語折り返し**: 見出し・ボタンラベルが不自然な位置で折り返されていないか（`docs/DESIGN.md` §3 ADR-0016 参照。確認方法: 画面を縮めて折り返し位置が文節境界になっているかチェック）
    - **判定結果の証跡**としてスクリーンショットを PR 本文に添付する (順序を逆に捉えないこと — スクショは CI 通過のためではなく自己判定の証跡)
    - 撮ったスクショを自分で再度見て、`docs/DESIGN.md` §9 禁忌事項のどれにも該当しないことを確認してから PR を Ready にする
 
