@@ -2344,6 +2344,15 @@ export const CONSENT_LABELS = {
 	// Submit button
 	submitLoading: '同意中...',
 	submitButton: '同意して続ける',
+
+	// Error messages (used in +page.svelte and +page.server.ts)
+	errors: {
+		loginRequired: 'ログインが必要です',
+		bothRequired: '利用規約とプライバシーポリシーの両方に同意してください',
+		recordFailed: '同意の記録に失敗しました。もう一度お試しください。',
+		termsRequired: '利用規約への同意が必要です',
+		privacyRequired: 'プライバシーポリシーへの同意が必要です',
+	},
 } as const;
 
 // ============================================================
