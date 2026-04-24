@@ -350,6 +350,7 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] セルフレビュー済み（不要な差分・デバッグコードがないこと）
 - [ ] UI 変更がある場合、**UI/UX デザイナー視点**で `docs/DESIGN.md` §9 禁忌事項 6 点 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超え) に該当しないことを**目視確認し、証跡としてスクリーンショットを添付**した
 - [ ] 認証が絡む画面を変更した場合、`npm run dev:cognito` (#1026) で実ブラウザ操作した結果のスクリーンショットを添付した
+- [ ] **hardcoded JP text (#1452 Phase A)**: `node scripts/check-hardcoded-strings.mjs` を実行して件数が baseline（1607件）以下であることを確認した（`src/routes/**/*.svelte` 内の日本語ハードコード増加ゼロ）
 
 ## Critical 修正の追加要件（#612）
 

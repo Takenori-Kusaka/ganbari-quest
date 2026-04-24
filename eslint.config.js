@@ -8,6 +8,7 @@ import svelte from 'eslint-plugin-svelte';
 import svelteParser from 'svelte-eslint-parser';
 import maxStyleLines from './eslint-plugin-local/max-style-lines.js';
 import maxSvelteLines from './eslint-plugin-local/max-svelte-lines.js';
+import noHardcodedJpText from './eslint-plugin-local/no-hardcoded-jp-text.js';
 import noRawButton from './eslint-plugin-local/no-raw-button.js';
 import noStyleAttribute from './eslint-plugin-local/no-style-attribute.js';
 import noTailwindArbitraryHex from './eslint-plugin-local/no-tailwind-arbitrary-hex.js';
@@ -42,6 +43,7 @@ export default [
 					'no-style-attribute': noStyleAttribute,
 					'no-tailwind-arbitrary-hex': noTailwindArbitraryHex,
 					'no-raw-button': noRawButton,
+					'no-hardcoded-jp-text': noHardcodedJpText,
 					'max-style-lines': maxStyleLines,
 					'max-svelte-lines': maxSvelteLines,
 				},
@@ -51,6 +53,7 @@ export default [
 			'local/no-style-attribute': 'error',
 			'local/no-tailwind-arbitrary-hex': 'error',
 			'local/no-raw-button': 'error',
+			'local/no-hardcoded-jp-text': 'warn',
 			'local/max-style-lines': ['error', { max: 50 }],
 			'local/max-svelte-lines': ['warn', { max: 500 }],
 		},
