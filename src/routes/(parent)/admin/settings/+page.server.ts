@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
+import { OYAKAGI_LABELS } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES } from '$lib/domain/point-display';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -147,24 +148,24 @@ export const actions = {
 		}
 
 		if (newPin.length < 4 || newPin.length > 8) {
-			return fail(400, { error: 'PINは4〜8桁で設定してください' });
+			return fail(400, { error: OYAKAGI_LABELS.formatError });
 		}
 
 		if (!/^\d+$/.test(newPin)) {
-			return fail(400, { error: 'PINは数字のみで設定してください' });
+			return fail(400, { error: OYAKAGI_LABELS.numberOnlyError });
 		}
 
 		if (newPin !== confirmPin) {
-			return fail(400, { error: '新しいPINが一致しません' });
+			return fail(400, { error: `新しい${OYAKAGI_LABELS.name}が一致しません` });
 		}
 
 		const result = await changePin(currentPin, newPin, tenantId);
 		if ('error' in result) {
 			if (result.error === 'INVALID_CURRENT_PIN') {
-				return fail(400, { error: '現在のPINが正しくありません' });
+				return fail(400, { error: `現在の${OYAKAGI_LABELS.name}が正しくありません` });
 			}
 			if (result.error === 'LOCKED_OUT') {
-				return fail(429, { error: 'ロックアウト中です。しばらくお待ちください' });
+				return fail(429, { error: OYAKAGI_LABELS.lockedError });
 			}
 		}
 

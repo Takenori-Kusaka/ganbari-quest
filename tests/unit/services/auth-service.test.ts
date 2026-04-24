@@ -85,10 +85,16 @@ describe('auth-service', () => {
 			expect(result).toEqual({ error: 'INVALID_PIN' });
 		});
 
-		it('PIN未設定の場合はPIN_NOT_SET', async () => {
+		it('pin_hash 未設定時に DEFAULT_PIN (5086) でログイン成功', async () => {
+			seedAuthSettings('');
+			const result = assertSuccess(await login('5086', 'test-tenant'));
+			expect(result.sessionToken).toBeDefined();
+		});
+
+		it('pin_hash 未設定時に DEFAULT_PIN 以外でログイン失敗 (INVALID_PIN)', async () => {
 			seedAuthSettings('');
 			const result = await login('1234', 'test-tenant');
-			expect(result).toEqual({ error: 'PIN_NOT_SET' });
+			expect(result).toEqual({ error: 'INVALID_PIN' });
 		});
 
 		it('間違ったPINで失敗カウントが増加する', async () => {
@@ -267,10 +273,16 @@ describe('auth-service', () => {
 			expect(attempts).toBe('1');
 		});
 
-		it('PIN未設定の場合はPIN_NOT_SET', async () => {
+		it('pin_hash 未設定時に DEFAULT_PIN (5086) で verifyPin 成功', async () => {
+			seedAuthSettings('');
+			const result = await verifyPin('5086', 'test-tenant');
+			expect(result).toEqual({ ok: true });
+		});
+
+		it('pin_hash 未設定時に DEFAULT_PIN 以外で verifyPin 失敗 (INVALID_PIN)', async () => {
 			seedAuthSettings('');
 			const result = await verifyPin('1234', 'test-tenant');
-			expect(result).toEqual({ ok: false, error: 'PIN_NOT_SET' });
+			expect(result).toEqual({ ok: false, error: 'INVALID_PIN' });
 		});
 
 		it('5回失敗でロックアウト (login と共通のカウンタ)', async () => {
