@@ -1,4 +1,5 @@
 <script lang="ts">
+import { OPS_BUSINESS_LABELS } from '$lib/domain/labels';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Progress from '$lib/ui/primitives/Progress.svelte';
@@ -17,7 +18,7 @@ const progressColor = $derived(
 </script>
 
 <svelte:head>
-	<title>OPS - 事業採算性</title>
+	<title>{OPS_BUSINESS_LABELS.pageTitle}</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
@@ -25,31 +26,31 @@ const progressColor = $derived(
 	<!-- モック表示 -->
 	{#if bep.isMock}
 		<div class="text-center">
-			<Badge variant="warning" size="md">MOCK MODE: ダミーデータを表示中 (STRIPE_MOCK=true)</Badge>
+			<Badge variant="warning" size="md">{OPS_BUSINESS_LABELS.mockModeBadge}</Badge>
 		</div>
 	{/if}
 
 	<!-- 損益分岐点 進捗バー -->
 	<Card padding="lg">
-		<h2 class="text-lg font-bold m-0 mb-4 text-[var(--color-text-primary)]">損益分岐点 進捗</h2>
+		<h2 class="text-lg font-bold m-0 mb-4 text-[var(--color-text-primary)]">{OPS_BUSINESS_LABELS.breakevenProgressTitle}</h2>
 		<div class="flex flex-col gap-3">
 			<div class="flex justify-between items-end">
 				<div>
 					<span class="text-3xl font-bold text-[var(--color-text)]">{bep.currentPaidUsers}</span>
-					<span class="text-[var(--color-text-muted)] text-sm"> / {bep.breakevenUsers} 名</span>
+					<span class="text-[var(--color-text-muted)] text-sm"> / {bep.breakevenUsers} {OPS_BUSINESS_LABELS.breakevenUsersUnitSuffix}</span>
 				</div>
 				<div class="text-right">
 					{#if bep.progressRate >= 1}
-						<Badge variant="success" size="md">黒字達成</Badge>
+						<Badge variant="success" size="md">{OPS_BUSINESS_LABELS.breakevenAchievedBadge}</Badge>
 					{:else}
-						<span class="text-sm text-[var(--color-text-muted)]">あと <strong class="text-[var(--color-text)]">{Math.max(0, bep.breakevenUsers - bep.currentPaidUsers)}</strong> 名</span>
+						<span class="text-sm text-[var(--color-text-muted)]">{OPS_BUSINESS_LABELS.breakevenRemainingUsers(Math.max(0, bep.breakevenUsers - bep.currentPaidUsers))}</span>
 					{/if}
 				</div>
 			</div>
 			<Progress
 				value={progressPct}
 				max={100}
-				label="損益分岐点達成率"
+				label={OPS_BUSINESS_LABELS.breakevenProgressLabel}
 				color={progressColor}
 				size="lg"
 			/>
@@ -59,21 +60,21 @@ const progressColor = $derived(
 	<!-- 収支カード -->
 	<div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">今月の収益</div>
+			<div class="ops-kpi-label">{OPS_BUSINESS_LABELS.kpiLabelRevenue}</div>
 			<div class="ops-kpi-value">&yen;{bep.monthlyRevenue.toLocaleString()}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">AWS 原価</div>
+			<div class="ops-kpi-label">{OPS_BUSINESS_LABELS.kpiLabelAwsCost}</div>
 			<div class="ops-kpi-value">&yen;{bep.awsCostJpy.toLocaleString()}</div>
-			<div class="text-xs text-[var(--color-text-muted)] mt-1">(${bep.awsCostUsd.toFixed(2)} USD)</div>
+			<div class="text-xs text-[var(--color-text-muted)] mt-1">{OPS_BUSINESS_LABELS.kpiAwsCostUsdSuffix(`${bep.awsCostUsd.toFixed(2)}`)}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">Stripe 手数料</div>
+			<div class="ops-kpi-label">{OPS_BUSINESS_LABELS.kpiLabelStripeFee}</div>
 			<div class="ops-kpi-value">&yen;{bep.stripeFee.toLocaleString()}</div>
-			<div class="text-xs text-[var(--color-text-muted)] mt-1">(売上 x 3.6%)</div>
+			<div class="text-xs text-[var(--color-text-muted)] mt-1">{OPS_BUSINESS_LABELS.kpiStripeFeeNote}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">固定費</div>
+			<div class="ops-kpi-label">{OPS_BUSINESS_LABELS.kpiLabelFixedCosts}</div>
 			<div class="ops-kpi-value">&yen;{bep.fixedCosts.toLocaleString()}</div>
 			{#if bep.fixedCostBreakdown.length > 0}
 				<div class="text-xs text-[var(--color-text-muted)] mt-1">
@@ -82,12 +83,12 @@ const progressColor = $derived(
 			{/if}
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">月間利益</div>
+			<div class="ops-kpi-label">{OPS_BUSINESS_LABELS.kpiLabelMonthlyProfit}</div>
 			<div class="ops-kpi-value {isProfit ? '' : 'ops-kpi-value--danger'}">
 				&yen;{bep.monthlyProfit.toLocaleString()}
 			</div>
 			{#if !isProfit}
-				<div class="text-xs mt-1 text-[var(--color-feedback-error-text)]">赤字</div>
+				<div class="text-xs mt-1 text-[var(--color-feedback-error-text)]">{OPS_BUSINESS_LABELS.kpiProfitLoss}</div>
 			{/if}
 		</Card>
 	</div>
@@ -98,9 +99,9 @@ const progressColor = $derived(
 			<div class="flex items-center gap-3">
 				<span class="text-2xl">&#x26A0;</span>
 				<div>
-					<div class="font-bold text-[var(--color-feedback-error-text)]">月間利益がマイナスです</div>
+					<div class="font-bold text-[var(--color-feedback-error-text)]">{OPS_BUSINESS_LABELS.warningTitle}</div>
 					<div class="text-sm text-[var(--color-feedback-error-text)]">
-						損益分岐点達成まで有料ユーザー {Math.max(0, bep.breakevenUsers - bep.currentPaidUsers)} 名の追加が必要です。
+						{OPS_BUSINESS_LABELS.warningDesc(Math.max(0, bep.breakevenUsers - bep.currentPaidUsers))}
 					</div>
 				</div>
 			</div>
@@ -109,25 +110,25 @@ const progressColor = $derived(
 
 	<!-- 損益内訳テーブル -->
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">損益内訳</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">{OPS_BUSINESS_LABELS.breakdownTitle}</h2>
 		<table class="ops-table">
 			<thead>
 				<tr>
-					<th>項目</th>
-					<th class="ops-num">金額</th>
+					<th>{OPS_BUSINESS_LABELS.tableColItem}</th>
+					<th class="ops-num">{OPS_BUSINESS_LABELS.tableColAmount}</th>
 				</tr>
 			</thead>
 			<tbody>
 				<tr>
-					<td>売上 (Stripe)</td>
+					<td>{OPS_BUSINESS_LABELS.tableRowRevenue}</td>
 					<td class="ops-num">&yen;{bep.monthlyRevenue.toLocaleString()}</td>
 				</tr>
 				<tr class="ops-expense">
-					<td>- AWS 原価</td>
+					<td>{OPS_BUSINESS_LABELS.tableRowAwsCost}</td>
 					<td class="ops-num">-&yen;{bep.awsCostJpy.toLocaleString()}</td>
 				</tr>
 				<tr class="ops-expense">
-					<td>- Stripe 手数料 (3.6%)</td>
+					<td>{OPS_BUSINESS_LABELS.tableRowStripeFee}</td>
 					<td class="ops-num">-&yen;{bep.stripeFee.toLocaleString()}</td>
 				</tr>
 				{#each bep.fixedCostBreakdown as cost}
@@ -137,7 +138,7 @@ const progressColor = $derived(
 					</tr>
 				{/each}
 				<tr class="total-row">
-					<td>月間利益</td>
+					<td>{OPS_BUSINESS_LABELS.tableRowMonthlyProfit}</td>
 					<td class="ops-num {isProfit ? '' : 'ops-text-danger'}">&yen;{bep.monthlyProfit.toLocaleString()}</td>
 				</tr>
 			</tbody>
@@ -146,7 +147,7 @@ const progressColor = $derived(
 
 	<!-- 規模帯比較 (19-プライシング戦略書 §6.3) -->
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">規模帯比較</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">{OPS_BUSINESS_LABELS.scaleTiersTitle}</h2>
 		<div class="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
 			{#each bep.scaleTiers as tier}
 				{@const isCurrentTier = tier.id === bep.currentScaleTier.id}
@@ -154,14 +155,14 @@ const progressColor = $derived(
 					<div class="flex items-center justify-between mb-1">
 						<span class="text-sm font-bold">{tier.label}</span>
 						{#if isCurrentTier}
-							<Badge variant="accent" size="sm">現在</Badge>
+							<Badge variant="accent" size="sm">{OPS_BUSINESS_LABELS.scaleTiersCurrentBadge}</Badge>
 						{/if}
 					</div>
 					<div class="text-xs text-[var(--color-text-muted)]">
-						{tier.minUsers}{tier.maxUsers ? `-${tier.maxUsers}` : '+'} 名
+						{tier.minUsers}{tier.maxUsers ? `-${tier.maxUsers}` : '+'} {OPS_BUSINESS_LABELS.breakevenUsersUnitSuffix}
 					</div>
 					<div class="text-sm font-semibold mt-1">
-						&yen;{tier.monthlyRevenueEstimate.toLocaleString()}/月
+						¥{tier.monthlyRevenueEstimate.toLocaleString()}{OPS_BUSINESS_LABELS.scaleTiersMonthlyRevenueSuffix}
 					</div>
 				</div>
 			{/each}
@@ -170,33 +171,33 @@ const progressColor = $derived(
 
 	<!-- KPI サマリー -->
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">Stripe KPI</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">{OPS_BUSINESS_LABELS.kpiSummaryTitle}</h2>
 		<div class="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-4">
 			<div class="text-center">
-				<div class="ops-kpi-label">MRR</div>
+				<div class="ops-kpi-label">{OPS_BUSINESS_LABELS.kpiLabelMrr}</div>
 				<div class="text-lg font-bold text-[var(--color-text)]">&yen;{bep.metrics.mrr.toLocaleString()}</div>
 			</div>
 			<div class="text-center">
-				<div class="ops-kpi-label">ARR</div>
+				<div class="ops-kpi-label">{OPS_BUSINESS_LABELS.kpiLabelArr}</div>
 				<div class="text-lg font-bold text-[var(--color-text)]">&yen;{bep.metrics.arr.toLocaleString()}</div>
 			</div>
 			<div class="text-center">
-				<div class="ops-kpi-label">ARPU</div>
+				<div class="ops-kpi-label">{OPS_BUSINESS_LABELS.kpiLabelArpu}</div>
 				<div class="text-lg font-bold text-[var(--color-text)]">&yen;{bep.metrics.arpu.toLocaleString()}</div>
 			</div>
 			<div class="text-center">
-				<div class="ops-kpi-label">転換率</div>
+				<div class="ops-kpi-label">{OPS_BUSINESS_LABELS.kpiLabelConversionRate}</div>
 				<div class="text-lg font-bold text-[var(--color-text)]">{(bep.metrics.trialToActiveRate * 100).toFixed(1)}%</div>
 			</div>
 			<div class="text-center">
-				<div class="ops-kpi-label">解約率</div>
+				<div class="ops-kpi-label">{OPS_BUSINESS_LABELS.kpiLabelChurnRate}</div>
 				<div class="text-lg font-bold text-[var(--color-text)]">{(bep.metrics.monthlyChurnRate * 100).toFixed(1)}%</div>
 			</div>
 		</div>
 	</Card>
 
 	<div class="text-xs text-[var(--color-text-muted)] text-right">
-		最終取得: {bep.fetchedAt ? new Date(bep.fetchedAt).toLocaleString('ja-JP') : '-'}
+		{OPS_BUSINESS_LABELS.fetchedAt(bep.fetchedAt ? new Date(bep.fetchedAt).toLocaleString('ja-JP') : '-')}
 	</div>
 </div>
 

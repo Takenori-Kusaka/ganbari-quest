@@ -1,17 +1,18 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
+import { APP_LABELS, GROWTH_BOOK_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 
 const categoryNames: Record<string, string> = {
-	'1': 'うんどう',
-	'2': 'べんきょう',
-	'3': 'せいかつ',
-	'4': 'こうりゅう',
-	'5': 'そうぞう',
+	'1': GROWTH_BOOK_LABELS.categoryUndou,
+	'2': GROWTH_BOOK_LABELS.categoryBenkyou,
+	'3': GROWTH_BOOK_LABELS.categorySeikatsu,
+	'4': GROWTH_BOOK_LABELS.categoryKouryuu,
+	'5': GROWTH_BOOK_LABELS.categorySouzou,
 };
 
 function formatMonth(ym: string): string {
@@ -29,18 +30,18 @@ function handlePrint() {
 </script>
 
 <svelte:head>
-	<title>成長記録ブック - がんばりクエスト</title>
+	<title>{PAGE_TITLES.growth}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6">
 	<div class="screen-controls">
 		<div class="flex items-center justify-between">
-			<h2 class="text-lg font-bold text-[var(--color-text-primary)]">📖 成長記録ブック</h2>
+			<h2 class="text-lg font-bold text-[var(--color-text-primary)]">{GROWTH_BOOK_LABELS.pageHeading}</h2>
 			<div class="flex gap-2">
-				<a href="/admin/reports" class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">&larr; レポートへ</a>
+				<a href="/admin/reports" class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">{GROWTH_BOOK_LABELS.backToReports}</a>
 				{#if data.isPremium && data.book}
 					<Button type="button" variant="primary" size="sm" onclick={handlePrint}>
-						🖨️ 印刷 / PDF
+						{GROWTH_BOOK_LABELS.printButton}
 					</Button>
 				{/if}
 			</div>
@@ -50,7 +51,7 @@ function handlePrint() {
 			<div class="flex items-center gap-2 p-3 rounded-lg bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-sm">
 				<span>⭐</span>
 				<p class="text-[var(--color-feedback-warning-text)]">
-					PDF保存は<a href="/admin/license" class="underline font-medium">スタンダードプラン以上</a>で利用できます。
+					{GROWTH_BOOK_LABELS.premiumNotePrefix}<a href="/admin/license" class="underline font-medium">{GROWTH_BOOK_LABELS.premiumNoteLink}</a>{GROWTH_BOOK_LABELS.premiumNoteSuffix}
 				</p>
 			</div>
 		{/if}
@@ -81,12 +82,12 @@ function handlePrint() {
 			<div class="text-center py-4">
 				<p class="text-4xl mb-2">📖</p>
 				<h1 class="text-xl font-bold text-[var(--color-text)] mb-1">
-					{formatChildName(book.childName, 'possessive')}がんばり記録
+					{formatChildName(book.childName, 'possessive')}{GROWTH_BOOK_LABELS.titleSuffix}
 				</h1>
-				<p class="text-[var(--color-text-muted)]">{book.fiscalYear}年度（{book.fiscalYear}年4月〜{Number(book.fiscalYear) + 1}年3月）</p>
+				<p class="text-[var(--color-text-muted)]">{GROWTH_BOOK_LABELS.fiscalYearRange(book.fiscalYear)}</p>
 				{#if book.levelTitle}
 					<p class="mt-2 text-sm font-medium text-[var(--color-feedback-info-text)]">
-						現在レベル: {book.currentLevel}（{book.levelTitle}）
+						{GROWTH_BOOK_LABELS.currentLevel(book.currentLevel, book.levelTitle)}
 					</p>
 				{/if}
 			</div>
@@ -96,40 +97,40 @@ function handlePrint() {
 		<!-- Annual Summary -->
 		<Card variant="default" padding="md">
 			{#snippet children()}
-			<h3 class="text-base font-bold text-[var(--color-text-primary)] mb-3">📊 年間サマリー</h3>
+			<h3 class="text-base font-bold text-[var(--color-text-primary)] mb-3">{GROWTH_BOOK_LABELS.annualSummaryTitle}</h3>
 			<div class="grid grid-cols-2 gap-3">
 				<div class="text-center p-3 bg-[var(--color-feedback-info-bg)] rounded-lg">
 					<p class="text-2xl font-bold text-[var(--color-feedback-info-text)]">{book.totalActivities}</p>
-					<p class="text-xs text-[var(--color-text-muted)]">活動回数</p>
+					<p class="text-xs text-[var(--color-text-muted)]">{GROWTH_BOOK_LABELS.statActivities}</p>
 				</div>
 				<div class="text-center p-3 bg-[var(--color-feedback-success-bg)] rounded-lg">
 					<p class="text-2xl font-bold text-[var(--color-feedback-success-text)]">{book.totalPoints.toLocaleString()}</p>
-					<p class="text-xs text-[var(--color-text-muted)]">獲得ポイント</p>
+					<p class="text-xs text-[var(--color-text-muted)]">{GROWTH_BOOK_LABELS.statPoints}</p>
 				</div>
 				<div class="text-center p-3 bg-orange-50 rounded-lg">
 					<p class="text-2xl font-bold text-orange-600">{book.maxStreakDays}</p>
-					<p class="text-xs text-[var(--color-text-muted)]">さいちょうストリーク</p>
+					<p class="text-xs text-[var(--color-text-muted)]">{GROWTH_BOOK_LABELS.statMaxStreak}</p>
 				</div>
 				<div class="text-center p-3 bg-[var(--color-stat-purple-bg)] rounded-lg">
 					<p class="text-2xl font-bold text-[var(--color-stat-purple)]">{book.certificateCount}</p>
-					<p class="text-xs text-[var(--color-text-muted)]">しょうめいしょ</p>
+					<p class="text-xs text-[var(--color-text-muted)]">{GROWTH_BOOK_LABELS.statCertificates}</p>
 				</div>
 			</div>
 			{#if book.bestMonth}
 				<p class="text-sm text-[var(--color-text-secondary)] mt-3">
-					いちばんがんばった月: <strong>{formatMonth(book.bestMonth)}</strong>
+					{GROWTH_BOOK_LABELS.bestMonthLabel}<strong>{formatMonth(book.bestMonth)}</strong>
 				</p>
 			{/if}
 			{#if book.bestCategory && categoryNames[book.bestCategory]}
 				<p class="text-sm text-[var(--color-text-secondary)]">
-					とくいなカテゴリ: <strong>{categoryNames[book.bestCategory]}</strong>
+					{GROWTH_BOOK_LABELS.bestCategoryLabel}<strong>{categoryNames[book.bestCategory]}</strong>
 				</p>
 			{/if}
 			{/snippet}
 		</Card>
 
 		<!-- Monthly pages -->
-		<h3 class="text-base font-bold text-[var(--color-text-primary)]">📅 月別の記録</h3>
+		<h3 class="text-base font-bold text-[var(--color-text-primary)]">{GROWTH_BOOK_LABELS.monthlyTitle}</h3>
 		{#each book.months as month (month.month)}
 			{@const hasActivity = month.totalActivities > 0}
 			<Card variant="default" padding="sm">
@@ -140,14 +141,14 @@ function handlePrint() {
 						<div>
 							<p class="font-bold text-sm text-[var(--color-text-primary)]">{formatMonth(month.month)}</p>
 							<p class="text-xs text-[var(--color-text-muted)]">
-								{month.totalActivities}回 / {month.daysWithActivity}日活動
+								{GROWTH_BOOK_LABELS.monthlyActivities(month.totalActivities)} / {GROWTH_BOOK_LABELS.monthlyDays(month.daysWithActivity)}
 							</p>
 						</div>
 					</div>
 					<div class="text-right">
 						<p class="text-sm font-bold text-[var(--color-feedback-info-text)]">{month.totalPoints.toLocaleString()}pt</p>
 						{#if month.maxStreakDays > 0}
-							<p class="text-xs text-orange-500">🔥 {month.maxStreakDays}日連続</p>
+							<p class="text-xs text-orange-500">{GROWTH_BOOK_LABELS.monthlyStreak(month.maxStreakDays)}</p>
 						{/if}
 					</div>
 				</div>
@@ -161,18 +162,18 @@ function handlePrint() {
 				href="/admin/certificates"
 				class="text-sm font-medium text-[var(--color-feedback-info-text)] hover:underline"
 			>
-				📜 証明書一覧を見る →
+				{GROWTH_BOOK_LABELS.certificateLink}
 			</a>
 		</div>
 	{:else if data.children.length === 0}
 		<div class="text-center text-[var(--color-text-muted)] py-12">
 			<p class="text-4xl mb-2">👧</p>
-			<p class="font-bold">子供が登録されていません</p>
+			<p class="font-bold">{GROWTH_BOOK_LABELS.noChildrenText}</p>
 		</div>
 	{:else}
 		<div class="text-center text-[var(--color-text-muted)] py-12">
 			<p class="text-4xl mb-2">📖</p>
-			<p class="font-bold">データがありません</p>
+			<p class="font-bold">{GROWTH_BOOK_LABELS.noDataText}</p>
 		</div>
 	{/if}
 </div>

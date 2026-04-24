@@ -1,6 +1,7 @@
 <script lang="ts">
 import QRCode from 'qrcode';
 import { page } from '$app/stores';
+import { APP_LABELS, MEMBERS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -42,7 +43,7 @@ async function createInvite() {
 		});
 		if (!res.ok) {
 			const data = await res.json();
-			error = data.message ?? '招待リンクの作成に失敗しました';
+			error = data.message ?? MEMBERS_LABELS.inviteCreateError;
 			return;
 		}
 		const result = await res.json();
@@ -54,14 +55,14 @@ async function createInvite() {
 			color: { dark: '#1e293b', light: '#ffffff' },
 		});
 	} catch {
-		error = '通信エラーが発生しました';
+		error = MEMBERS_LABELS.networkError;
 	} finally {
 		creating = false;
 	}
 }
 
 async function revokeInvite(code: string) {
-	if (!confirm('この招待リンクを取り消しますか？')) return;
+	if (!confirm(MEMBERS_LABELS.revokeConfirm)) return;
 	await fetch(`/api/v1/admin/invites/${code}`, { method: 'DELETE' });
 	window.location.reload();
 }
@@ -97,7 +98,7 @@ async function createViewerLink() {
 		});
 		if (!res.ok) {
 			const d = await res.json();
-			viewerError = d.message ?? '閲覧リンクの作成に失敗しました';
+			viewerError = d.message ?? MEMBERS_LABELS.viewerCreateError;
 			return;
 		}
 		const result = await res.json();
@@ -108,20 +109,20 @@ async function createViewerLink() {
 			color: { dark: '#1e293b', light: '#ffffff' },
 		});
 	} catch {
-		viewerError = '通信エラーが発生しました';
+		viewerError = MEMBERS_LABELS.networkError;
 	} finally {
 		creatingViewer = false;
 	}
 }
 
 async function revokeViewerToken(id: number) {
-	if (!confirm('この閲覧リンクを無効にしますか？')) return;
+	if (!confirm(MEMBERS_LABELS.viewerRevokeConfirm)) return;
 	await fetch(`/api/v1/admin/viewer-tokens/${id}?action=revoke`, { method: 'DELETE' });
 	window.location.reload();
 }
 
 async function deleteViewerToken(id: number) {
-	if (!confirm('この閲覧リンクを削除しますか？')) return;
+	if (!confirm(MEMBERS_LABELS.viewerDeleteConfirm)) return;
 	await fetch(`/api/v1/admin/viewer-tokens/${id}`, { method: 'DELETE' });
 	window.location.reload();
 }
@@ -137,28 +138,23 @@ async function copyViewerLink() {
 let memberError = $state('');
 
 async function removeMember(userId: string, email: string) {
-	if (!confirm(`${email} をメンバーから削除しますか？この操作は取り消せません。`)) return;
+	if (!confirm(MEMBERS_LABELS.removeMemberConfirm(email))) return;
 	memberError = '';
 	try {
 		const res = await fetch(`/api/v1/admin/members/${userId}`, { method: 'DELETE' });
 		if (!res.ok) {
 			const d = await res.json();
-			memberError = d.error ?? '削除に失敗しました';
+			memberError = d.error ?? MEMBERS_LABELS.removeError;
 			return;
 		}
 		window.location.reload();
 	} catch {
-		memberError = '通信エラーが発生しました';
+		memberError = MEMBERS_LABELS.networkError;
 	}
 }
 
 async function transferOwnership(userId: string, email: string) {
-	if (
-		!confirm(
-			`${email} にオーナー権限を移譲しますか？\n移譲後、あなたは「保護者」ロールになります。この操作は取り消せません。`,
-		)
-	)
-		return;
+	if (!confirm(MEMBERS_LABELS.transferConfirm(email))) return;
 	memberError = '';
 	try {
 		const res = await fetch(`/api/v1/admin/members/${userId}/transfer-ownership`, {
@@ -166,39 +162,39 @@ async function transferOwnership(userId: string, email: string) {
 		});
 		if (!res.ok) {
 			const d = await res.json();
-			memberError = d.error ?? '移譲に失敗しました';
+			memberError = d.error ?? MEMBERS_LABELS.transferError;
 			return;
 		}
 		window.location.reload();
 	} catch {
-		memberError = '通信エラーが発生しました';
+		memberError = MEMBERS_LABELS.networkError;
 	}
 }
 
 async function leaveGroup() {
-	if (!confirm('家族グループを離れますか？この操作は取り消せません。')) return;
+	if (!confirm(MEMBERS_LABELS.leaveGroupConfirm)) return;
 	memberError = '';
 	try {
 		const res = await fetch('/api/v1/admin/members/leave', { method: 'POST' });
 		if (!res.ok) {
 			const d = await res.json();
-			memberError = d.error ?? '離脱に失敗しました';
+			memberError = d.error ?? MEMBERS_LABELS.leaveError;
 			return;
 		}
 		window.location.href = '/auth/login';
 	} catch {
-		memberError = '通信エラーが発生しました';
+		memberError = MEMBERS_LABELS.networkError;
 	}
 }
 
 const roleLabel = (role: string) => {
 	switch (role) {
 		case 'owner':
-			return 'オーナー';
+			return MEMBERS_LABELS.roleOwner;
 		case 'parent':
-			return '保護者';
+			return MEMBERS_LABELS.roleParent;
 		case 'child':
-			return 'こども';
+			return MEMBERS_LABELS.roleChild;
 		default:
 			return role;
 	}
@@ -206,14 +202,14 @@ const roleLabel = (role: string) => {
 </script>
 
 <svelte:head>
-	<title>メンバー管理 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.members}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6">
 	<!-- メンバー一覧 -->
 	<Card variant="default" padding="md">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">現在のメンバー</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.currentMembersTitle}</h3>
 
 		{#if memberError}
 			<div class="p-3 mb-3 bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)] text-sm rounded-lg border border-[var(--color-feedback-error-bg-strong)]">
@@ -222,7 +218,7 @@ const roleLabel = (role: string) => {
 		{/if}
 
 		{#if data.members.length === 0}
-			<p class="text-[var(--color-text-tertiary)] text-sm">メンバーがいません</p>
+			<p class="text-[var(--color-text-tertiary)] text-sm">{MEMBERS_LABELS.noMembersText}</p>
 		{:else}
 			<div class="divide-y divide-gray-100">
 				{#each data.members as member}
@@ -249,17 +245,17 @@ const roleLabel = (role: string) => {
 										onclick={() => transferOwnership(member.userId, member.email)}
 										variant="ghost"
 										size="sm"
-										title="オーナー権限を移譲"
+										title={MEMBERS_LABELS.transferTitle}
 									>
-										移譲
+										{MEMBERS_LABELS.transferButton}
 									</Button>
 									<Button
 										onclick={() => removeMember(member.userId, member.email)}
 										variant="danger"
 										size="sm"
-										title="メンバーを削除"
+										title={MEMBERS_LABELS.removeTitle}
 									>
-										削除
+										{MEMBERS_LABELS.removeButton}
 									</Button>
 								{/if}
 							</div>
@@ -277,7 +273,7 @@ const roleLabel = (role: string) => {
 					variant="danger"
 					size="sm"
 				>
-					家族グループを離れる
+					{MEMBERS_LABELS.leaveGroupButton}
 				</Button>
 			</div>
 		{/if}
@@ -287,10 +283,10 @@ const roleLabel = (role: string) => {
 	<!-- 招待リンク作成 -->
 	<Card variant="default" padding="md">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">メンバーを招待</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.inviteSectionTitle}</h3>
 
 		<div class="flex flex-wrap items-end gap-3 mb-3">
-			<FormField label="招待ロール" id="invite-role" class="flex-1 min-w-[120px]">
+			<FormField label={MEMBERS_LABELS.inviteRoleLabel} id="invite-role" class="flex-1 min-w-[120px]">
 				{#snippet children()}
 					<NativeSelect
 						id="invite-role"
@@ -304,12 +300,12 @@ const roleLabel = (role: string) => {
 				{/snippet}
 			</FormField>
 			{#if inviteRole === 'child' && availableChildren.length > 0}
-				<FormField label="対象の子供（任意）" class="flex-1 min-w-[120px]">
+				<FormField label={MEMBERS_LABELS.inviteChildLabel} class="flex-1 min-w-[120px]">
 					{#snippet children()}
 						<NativeSelect
 							bind:value={inviteChildId}
 							options={[
-								{ value: '', label: '-- 後で紐づけ --' },
+								{ value: '', label: MEMBERS_LABELS.inviteChildNone },
 								...availableChildren.map((child) => ({ value: child.id, label: child.nickname })),
 							]}
 						/>
@@ -322,7 +318,7 @@ const roleLabel = (role: string) => {
 				variant="primary"
 				size="sm"
 			>
-				{creating ? '作成中...' : '招待リンクを作成'}
+				{creating ? MEMBERS_LABELS.inviteCreateLoading : MEMBERS_LABELS.inviteCreateButton}
 			</Button>
 		</div>
 
@@ -334,23 +330,23 @@ const roleLabel = (role: string) => {
 
 		{#if inviteLink}
 			<div class="p-4 bg-[var(--color-feedback-success-bg)] rounded-lg border border-[var(--color-feedback-success-bg-strong)]">
-				<p class="text-sm text-[var(--color-feedback-success-text)] font-medium mb-3">招待リンクが作成されました（7日間有効）</p>
+				<p class="text-sm text-[var(--color-feedback-success-text)] font-medium mb-3">{MEMBERS_LABELS.inviteSuccessMsg}</p>
 
 				<!-- QRコード -->
 				{#if qrDataUrl}
 					<div class="flex justify-center mb-3">
 						<div class="bg-white p-3 rounded-lg shadow-sm">
-							<img src={qrDataUrl} alt="招待QRコード" class="w-48 h-48" />
+							<img src={qrDataUrl} alt={MEMBERS_LABELS.inviteQrAlt} class="w-48 h-48" />
 						</div>
 					</div>
 					<p class="text-xs text-center text-[var(--color-text-muted)] mb-3">
-						スマートフォンのカメラでスキャンして参加できます
+						{MEMBERS_LABELS.inviteQrNote}
 					</p>
 				{/if}
 
 				<!-- URL コピー -->
 				<div class="flex items-end gap-2">
-					<FormField label="招待URL" class="flex-1">
+					<FormField label={MEMBERS_LABELS.inviteUrlLabel} class="flex-1">
 						{#snippet children()}
 							<input
 								type="text"
@@ -365,7 +361,7 @@ const roleLabel = (role: string) => {
 						variant={copyButtonVariant}
 						size="sm"
 					>
-						{copied ? 'コピー済み' : 'コピー'}
+						{copied ? MEMBERS_LABELS.inviteCopied : MEMBERS_LABELS.inviteCopy}
 					</Button>
 				</div>
 			</div>
@@ -377,7 +373,7 @@ const roleLabel = (role: string) => {
 	{#if data.invites.length > 0}
 		<Card variant="default" padding="md">
 			{#snippet children()}
-			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">保留中の招待</h3>
+			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.pendingInvitesTitle}</h3>
 			<div class="divide-y divide-gray-100">
 				{#each data.invites as invite}
 					<div class="flex items-center justify-between py-3">
@@ -387,7 +383,7 @@ const roleLabel = (role: string) => {
 								{roleLabel(invite.role)}
 							</span>
 							<span class="ml-2 text-xs text-[var(--color-text-tertiary)]">
-								期限: {new Date(invite.expiresAt).toLocaleDateString('ja-JP')}
+								{MEMBERS_LABELS.inviteExpiresPrefix}{new Date(invite.expiresAt).toLocaleDateString('ja-JP')}
 							</span>
 						</div>
 						<Button
@@ -395,7 +391,7 @@ const roleLabel = (role: string) => {
 							variant="danger"
 							size="sm"
 						>
-							取消し
+							{MEMBERS_LABELS.inviteRevokeButton}
 						</Button>
 					</div>
 				{/each}
@@ -408,24 +404,24 @@ const roleLabel = (role: string) => {
 	{#if data.isFamily}
 		<Card variant="default" padding="md">
 			{#snippet children()}
-			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">閲覧リンク</h3>
+			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.viewerSectionTitle}</h3>
 			<p class="text-xs text-[var(--color-text-tertiary)] mb-3">
-				祖父母や家族に、お子さまの成長を読み取り専用で共有できます
+				{MEMBERS_LABELS.viewerSectionDesc}
 			</p>
 
 			<div class="flex flex-wrap items-end gap-3 mb-3">
-				<FormField label="ラベル（任意）" class="flex-1 min-w-[120px]">
+				<FormField label={MEMBERS_LABELS.viewerLabelField} class="flex-1 min-w-[120px]">
 					{#snippet children()}
 						<input
 							type="text"
 							bind:value={viewerLabel}
-							placeholder="例: おばあちゃん用"
+							placeholder={MEMBERS_LABELS.viewerLabelPlaceholder}
 							maxlength="50"
 							class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm"
 						/>
 					{/snippet}
 				</FormField>
-				<FormField label="有効期限" class="min-w-[100px]">
+				<FormField label={MEMBERS_LABELS.viewerDurationLabel} class="min-w-[100px]">
 					{#snippet children()}
 						<NativeSelect
 							bind:value={viewerDuration}
@@ -443,7 +439,7 @@ const roleLabel = (role: string) => {
 					variant="primary"
 					size="sm"
 				>
-					{creatingViewer ? '作成中...' : '閲覧リンクを作成'}
+					{creatingViewer ? MEMBERS_LABELS.viewerCreateLoading : MEMBERS_LABELS.viewerCreateButton}
 				</Button>
 			</div>
 
@@ -455,19 +451,19 @@ const roleLabel = (role: string) => {
 
 			{#if viewerLink}
 				<div class="p-4 mb-3 bg-[var(--color-feedback-success-bg)] rounded-lg border border-[var(--color-feedback-success-bg-strong)]">
-					<p class="text-sm text-[var(--color-feedback-success-text)] font-medium mb-3">閲覧リンクが作成されました</p>
+					<p class="text-sm text-[var(--color-feedback-success-text)] font-medium mb-3">{MEMBERS_LABELS.viewerSuccessMsg}</p>
 					{#if viewerQrDataUrl}
 						<div class="flex justify-center mb-3">
 							<div class="bg-white p-3 rounded-lg shadow-sm">
-								<img src={viewerQrDataUrl} alt="閲覧QRコード" class="w-48 h-48" />
+								<img src={viewerQrDataUrl} alt={MEMBERS_LABELS.viewerQrAlt} class="w-48 h-48" />
 							</div>
 						</div>
 						<p class="text-xs text-center text-[var(--color-text-muted)] mb-3">
-							スマートフォンのカメラでスキャンして閲覧できます
+							{MEMBERS_LABELS.viewerQrNote}
 						</p>
 					{/if}
 					<div class="flex items-end gap-2">
-						<FormField label="閲覧URL" class="flex-1">
+						<FormField label={MEMBERS_LABELS.viewerUrlLabel} class="flex-1">
 							{#snippet children()}
 								<input
 									type="text"
@@ -482,7 +478,7 @@ const roleLabel = (role: string) => {
 							variant={viewerCopied ? 'secondary' : 'success'}
 							size="sm"
 						>
-							{viewerCopied ? 'コピー済み' : 'コピー'}
+							{viewerCopied ? MEMBERS_LABELS.viewerCopied : MEMBERS_LABELS.viewerCopy}
 						</Button>
 					</div>
 				</div>
@@ -495,22 +491,22 @@ const roleLabel = (role: string) => {
 						<div class="flex items-center justify-between py-3 gap-2">
 							<div class="flex-1 min-w-0">
 								<span class="text-sm font-medium text-[var(--color-text-primary)] truncate block">
-									{vt.label || '(ラベルなし)'}
+									{vt.label || MEMBERS_LABELS.viewerNoLabel}
 								</span>
 								<div class="flex items-center gap-2 mt-0.5">
 									{#if vt.isRevoked}
-										<span class="text-xs px-2 py-0.5 rounded-full bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]">無効</span>
+										<span class="text-xs px-2 py-0.5 rounded-full bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]">{MEMBERS_LABELS.viewerStatusInvalid}</span>
 									{:else if vt.isExpired}
-										<span class="text-xs px-2 py-0.5 rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)]">期限切れ</span>
+										<span class="text-xs px-2 py-0.5 rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)]">{MEMBERS_LABELS.viewerStatusExpired}</span>
 									{:else}
-										<span class="text-xs px-2 py-0.5 rounded-full bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]">有効</span>
+										<span class="text-xs px-2 py-0.5 rounded-full bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]">{MEMBERS_LABELS.viewerStatusValid}</span>
 									{/if}
 									{#if vt.expiresAt}
 										<span class="text-xs text-[var(--color-text-tertiary)]">
-											期限: {new Date(vt.expiresAt).toLocaleDateString('ja-JP')}
+											{MEMBERS_LABELS.viewerExpiresPrefix}{new Date(vt.expiresAt).toLocaleDateString('ja-JP')}
 										</span>
 									{:else}
-										<span class="text-xs text-[var(--color-text-tertiary)]">無期限</span>
+										<span class="text-xs text-[var(--color-text-tertiary)]">{MEMBERS_LABELS.viewerExpiresNone}</span>
 									{/if}
 								</div>
 							</div>
@@ -521,7 +517,7 @@ const roleLabel = (role: string) => {
 										variant="ghost"
 										size="sm"
 									>
-										無効化
+										{MEMBERS_LABELS.viewerRevokeButton}
 									</Button>
 								{/if}
 								<Button
@@ -529,7 +525,7 @@ const roleLabel = (role: string) => {
 									variant="danger"
 									size="sm"
 								>
-									削除
+									{MEMBERS_LABELS.viewerDeleteButton}
 								</Button>
 							</div>
 						</div>

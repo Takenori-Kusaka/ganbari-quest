@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
+import { DEMO_TOP_LABELS } from '$lib/domain/labels';
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import {
 	GUIDE_STEPS,
@@ -42,11 +43,11 @@ function handleGuideRestart() {
 }
 
 const modeLabels: Record<string, string> = {
-	baby: 'はじめの一歩',
-	preschool: 'じぶんでタップ',
-	elementary: '冒険スタート',
-	junior: 'チャレンジ',
-	senior: 'みらい設計',
+	baby: DEMO_TOP_LABELS.modeBaby,
+	preschool: DEMO_TOP_LABELS.modePreschool,
+	elementary: DEMO_TOP_LABELS.modeElementary,
+	junior: DEMO_TOP_LABELS.modeJunior,
+	senior: DEMO_TOP_LABELS.modeSenior,
 };
 
 // #703: カードカラーは child.theme（個別画面のテーマカラー）と一致させる。
@@ -63,35 +64,35 @@ const modeLabels: Record<string, string> = {
 			<div class="flex items-center justify-center gap-2 mb-2">
 				<Logo variant="compact" size={180} />
 			</div>
-			<p class="text-xl font-semibold text-[var(--color-text-secondary)]">デモ体験</p>
+			<p class="text-xl font-semibold text-[var(--color-text-secondary)]">{DEMO_TOP_LABELS.heroSubtitle}</p>
 			<p class="text-[var(--color-text-secondary)]">
-				がんばり家のみんなと一緒に、アプリの機能を体験してみましょう！
+				{DEMO_TOP_LABELS.heroDesc}
 			</p>
 		</div>
 
 		<!-- Guided demo option -->
 		<div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-[var(--color-feedback-info-border)] p-5 mb-6 text-center">
 			{#if guide.dismissed}
-				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">ガイドをとじました</p>
-				<p class="text-xs text-[var(--color-text-muted)] mb-3">もう一度はじめから体験できます</p>
+				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">{DEMO_TOP_LABELS.guideDismissedTitle}</p>
+				<p class="text-xs text-[var(--color-text-muted)] mb-3">{DEMO_TOP_LABELS.guideDismissedDesc}</p>
 				<button
 					type="button"
 					class="block w-full py-2.5 bg-[var(--color-stat-blue)] text-white font-bold rounded-xl text-sm hover:bg-[var(--color-action-primary-hover)] transition-colors"
 					onclick={handleGuideRestart}
 					data-testid="demo-guide-restart"
 				>
-					ガイドを再開する
+					{DEMO_TOP_LABELS.guideRestartButton}
 				</button>
 			{:else}
-				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">はじめてですか？</p>
-				<p class="text-xs text-[var(--color-text-muted)] mb-3">{GUIDE_STEPS.length}ステップで主な機能をご案内します</p>
+				<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">{DEMO_TOP_LABELS.guideFirstTimeTitle}</p>
+				<p class="text-xs text-[var(--color-text-muted)] mb-3">{DEMO_TOP_LABELS.guideStepsDesc(GUIDE_STEPS.length)}</p>
 				<button
 					type="button"
 					class="block w-full py-2.5 bg-[var(--color-stat-blue)] text-white font-bold rounded-xl text-sm hover:bg-[var(--color-action-primary-hover)] transition-colors"
 					onclick={handleGuideStart}
 					data-testid="demo-guide-start-link"
 				>
-					ガイド付きデモを はじめる
+					{DEMO_TOP_LABELS.guideStartButton}
 				</button>
 			{/if}
 		</div>
@@ -99,7 +100,7 @@ const modeLabels: Record<string, string> = {
 		<!-- Family Introduction -->
 		<Card padding="lg" class="mb-6">
 			{#snippet children()}
-			<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-4">がんばり家のこどもたち</h2>
+			<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-4">{DEMO_TOP_LABELS.familyTitle}</h2>
 			<div class="grid grid-cols-2 gap-3">
 				{#each data.children as child}
 					{@const mode = child.uiMode ?? 'preschool'}
@@ -129,7 +130,7 @@ const modeLabels: Record<string, string> = {
 							{/if}
 						</div>
 						<div class="font-bold text-lg">{child.nickname}</div>
-						<div class="text-sm opacity-90">{child.age}さい・{label}</div>
+						<div class="text-sm opacity-90">{DEMO_TOP_LABELS.childAgeModeLabel(child.age, label)}</div>
 					</a>
 				{/each}
 			</div>
@@ -139,15 +140,15 @@ const modeLabels: Record<string, string> = {
 		<!-- Admin Link -->
 		<Card padding="lg" class="mb-6">
 			{#snippet children()}
-			<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">おやの管理画面</h2>
+			<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">{DEMO_TOP_LABELS.adminTitle}</h2>
 			<p class="text-sm text-[var(--color-text-muted)] mb-4">
-				活動の追加、こどもの管理、ポイント確認などの管理機能を体験できます。
+				{DEMO_TOP_LABELS.adminDesc}
 			</p>
 			<a
 				href="/demo/admin"
 				class="block w-full text-center py-3 bg-[var(--color-stat-blue)] text-white font-bold rounded-xl hover:bg-[var(--color-action-primary-hover)] transition-colors"
 			>
-				管理画面をみる
+				{DEMO_TOP_LABELS.adminButton}
 			</a>
 			{/snippet}
 		</Card>
@@ -155,34 +156,34 @@ const modeLabels: Record<string, string> = {
 		<!-- Feature highlights -->
 		<Card padding="lg" class="mb-6">
 			{#snippet children()}
-			<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-4">体験できる機能</h2>
+			<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-4">{DEMO_TOP_LABELS.featuresTitle}</h2>
 			<ul class="space-y-3 text-sm text-[var(--color-text-secondary)]">
 				<li class="flex gap-2">
 					<span class="text-lg">📋</span>
 					<div>
-						<span class="font-medium text-[var(--color-text-primary)]">活動きろく</span>
-						— お子さまの日々のがんばりをワンタップで記録
+						<span class="font-medium text-[var(--color-text-primary)]">{DEMO_TOP_LABELS.feature1Title}</span>
+						{DEMO_TOP_LABELS.feature1Desc}
 					</div>
 				</li>
 				<li class="flex gap-2">
 					<span class="text-lg">⭐</span>
 					<div>
-						<span class="font-medium text-[var(--color-text-primary)]">ステータス</span>
-						— 5軸のレーダーチャートで成長を可視化
+						<span class="font-medium text-[var(--color-text-primary)]">{DEMO_TOP_LABELS.feature2Title}</span>
+						{DEMO_TOP_LABELS.feature2Desc}
 					</div>
 				</li>
 				<li class="flex gap-2">
 					<span class="text-lg">👥</span>
 					<div>
-						<span class="font-medium text-[var(--color-text-primary)]">きょうだいチャレンジ</span>
-						— きょうだいで協力・競争する目標を設定
+						<span class="font-medium text-[var(--color-text-primary)]">{DEMO_TOP_LABELS.feature3Title}</span>
+						{DEMO_TOP_LABELS.feature3Desc}
 					</div>
 				</li>
 				<li class="flex gap-2">
 					<span class="text-lg">🎯</span>
 					<div>
-						<span class="font-medium text-[var(--color-text-primary)]">デイリーミッション</span>
-						— 毎日の目標で継続をサポート
+						<span class="font-medium text-[var(--color-text-primary)]">{DEMO_TOP_LABELS.feature4Title}</span>
+						{DEMO_TOP_LABELS.feature4Desc}
 					</div>
 				</li>
 			</ul>
@@ -191,13 +192,13 @@ const modeLabels: Record<string, string> = {
 
 		<!-- Conversion CTA -->
 		<div class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-orange-200 p-6 text-center">
-			<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">お子さまの冒険、はじめませんか？</p>
-			<p class="text-xs text-[var(--color-text-muted)] mb-3">7日間無料 ・ いつでもキャンセルOK</p>
+			<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">{DEMO_TOP_LABELS.ctaTitle}</p>
+			<p class="text-xs text-[var(--color-text-muted)] mb-3">{DEMO_TOP_LABELS.ctaNote}</p>
 			<a
 				href="/demo/signup"
 				class="block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-sm"
 			>
-				無料で はじめる
+				{DEMO_TOP_LABELS.ctaButton}
 			</a>
 		</div>
 	</div>
