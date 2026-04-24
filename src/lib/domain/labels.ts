@@ -2644,3 +2644,123 @@ export const FORGOT_PASSWORD_LABELS = {
 	sendButton: '確認コードを送信',
 	backToLoginLink: 'ログインに戻る',
 } as const;
+
+// ============================================================
+// デモごほうびページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_REWARDS_LABELS = {
+	upgradeBannerDesc:
+		'無料プランではプリセット閲覧のみ可能です。スタンダードプラン以上にアップグレードすると、カスタムのボーナスごほうびを作成・付与できます。',
+	selectTemplateTitleDemo: '2. テンプレートを選択（またはカスタム）',
+	confirmGrantTitleDemo: '3. 内容を確認して付与',
+	demoGrantDisabled: 'デモでは報酬を付与できません',
+	ctaTitle: '特別報酬で子どもをもっと応援しませんか？',
+	ctaDesc: '登録すると、テンプレートやカスタム報酬を自由に付与できます。',
+} as const;
+
+// ============================================================
+// セットアップ完了ページ (#1452 Phase B)
+// ============================================================
+
+export const SETUP_COMPLETE_LABELS = {
+	title: 'ぼうけんのはじまり！',
+	descPart1: 'ぼうけんじゅんびが',
+	descPart2: 'かんりょうしたよ！',
+	childCountUnit: '人',
+	childCountLabel: 'こども',
+	activityCountUnit: 'こ',
+	activityCountLabel: 'かつどう',
+	nextMissionLabel: 'つぎのミッション',
+	nextMissionText: '「きょうの がんばりを 3つ きろくしよう！」',
+	ctaPrimary: 'こどもがめんをひらく',
+	ctaSecondary: 'おやのせっていをみる',
+	pinHintPrefix: '💡 管理画面の「せってい」から',
+	pinHintMiddle: 'を変更すると、おやの画面を守れるよ。',
+} as const;
+
+export const CERTIFICATE_DETAIL_LABELS = {
+	pageTitle: 'がんばり証明書',
+	backLink: '一覧に戻る',
+	previewTitle: '📜 証明書プレビュー',
+	printButton: '🖨️ 印刷 / PDF保存',
+	pdfUpgradeNote: 'PDF保存はスタンダードプラン以上',
+	upgradeLink: 'アップグレード',
+	shareCardTitle: '🎉 がんばりカード',
+	shareCardDesc: '達成を画像でダウンロードして、LINEやSNSでシェアできます',
+	downloadButton: '📥 画像をダウンロード',
+	closeButton: '閉じる',
+	showShareCardButton: '🎉 シェアカードを表示',
+} as const;
+
+export const DEMO_CHILD_HOME_LABELS = {
+	checklistTitle: 'もちものチェック',
+	checklistDone: '✅ かんりょう！',
+	dailyMissionTitle: 'きょうのミッション',
+	missionComplete: (pts: string) => `🎉 ミッションコンプリート！ ${pts}`,
+	activitiesEmpty: 'かつどうがまだありません',
+	recordingLabel: 'きろくちゅう...',
+	recordButton: 'きろくする！',
+	resultStreakSuffix: '！',
+	resultTodayPrefix: 'きょう',
+	resultTodaySuffix: 'かいめ！',
+	demoDataNote: '（デモモード：データは保存されません）',
+	signupCta: 'お子さまの名前で はじめる →',
+	closeButton: 'とじる',
+} as const;
+
+export const DEMO_ADMIN_HOME_LABELS = {
+	planSwitcherAriaLabel: 'デモ用プラン切替',
+	planSwitcherLabel: 'デモ: プランを切り替えて体験',
+	freePlanButton: '無料プラン',
+	standardPlanButton: '⭐ スタンダード',
+	familyPlanButton: '⭐⭐ ファミリー',
+	statsActivityLabel: 'カスタム活動',
+	statsChildLabel: 'こども',
+	statsRetentionLabel: 'データ保持',
+	trialCtaTitle: '7日間の無料体験',
+	trialCtaDesc: 'スタンダードプランの全機能を7日間無料で体験できます。',
+	trialCtaButton: 'プランを見る',
+} as const;
+
+export const SETUP_CHILDREN_LABELS = {
+	pageTitle: '子供を登録しよう',
+	pageDesc: 'がんばりクエストを使う子供を登録してください（1人以上）。',
+	registeredTitle: (count: number) => `登録済み（${count}人）`,
+	ageModeSuffix: 'モード',
+	addFormTitle: '子供を追加',
+	themeColorLabel: 'テーマカラー',
+	themePink: 'ピンク',
+	themeBlue: 'ブルー',
+	submittingLabel: '登録中...',
+	addButton: '追加する',
+	nextButton: '次へ',
+	backToHome: 'ホームに戻る',
+	addSuccessMessage: '子供を登録しました！',
+} as const;
+
+export const ADMIN_CHILDREN_LABELS = {
+	addButton: '+ こどもを追加',
+	backToList: '← 一覧に戻る',
+	statAgeLabel: '年齢',
+	statAgeTierLabel: '年齢区分',
+	statBalanceSuffix: '残高',
+	statLevelLabel: 'レベル',
+	statusTabEmpty: 'ステータス詳細は登録後にご覧いただけます',
+	logsTabEmpty: '活動ログは登録後にご覧いただけます',
+	achievementsTabEmpty: '実績一覧は登録後にご覧いただけます',
+	voiceTabEmpty: 'おうえんボイスは登録後にご利用いただけます',
+} as const;
+
+export const DEMO_REPORTS_LABELS = {
+	pageTitle: '📊 週間レポート',
+	reportTitleSuffix: '週間レポート',
+	statActivityLabel: '活動',
+	statActivityUnit: '回',
+	statPointLabel: 'ポイント',
+	statAchievementLabel: '実績',
+	statAchievementUnit: '獲得',
+	highlightTitle: '🏆 今週のハイライト',
+	categoryTitle: '📈 カテゴリ別の様子',
+	adviceTitle: '💡 アドバイス',
+} as const;

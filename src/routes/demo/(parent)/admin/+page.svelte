@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getPlanLabel } from '$lib/domain/labels';
+import { DEMO_ADMIN_HOME_LABELS, getPlanLabel } from '$lib/domain/labels';
 import AdminHome from '$lib/features/admin/components/AdminHome.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -14,8 +14,8 @@ const retentionLabel = $derived(
 
 <div class="demo-admin-plan space-y-4">
 	<!-- プラン切替トグル (#791, #760): デモ用にクエリパラメータで全プランを体験できる -->
-	<div class="plan-switcher" role="group" aria-label="デモ用プラン切替">
-		<span class="plan-switcher__label">デモ: プランを切り替えて体験</span>
+	<div class="plan-switcher" role="group" aria-label={DEMO_ADMIN_HOME_LABELS.planSwitcherAriaLabel}>
+		<span class="plan-switcher__label">{DEMO_ADMIN_HOME_LABELS.planSwitcherLabel}</span>
 		<div class="plan-switcher__buttons">
 			<a
 				href="/demo/admin?plan=free"
@@ -23,7 +23,7 @@ const retentionLabel = $derived(
 				class:plan-switcher__button--active={planTier === 'free'}
 				data-testid="demo-plan-switch-free"
 			>
-				無料プラン
+				{DEMO_ADMIN_HOME_LABELS.freePlanButton}
 			</a>
 			<a
 				href="/demo/admin?plan=standard"
@@ -31,7 +31,7 @@ const retentionLabel = $derived(
 				class:plan-switcher__button--active={planTier === 'standard'}
 				data-testid="demo-plan-switch-standard"
 			>
-				⭐ スタンダード
+				{DEMO_ADMIN_HOME_LABELS.standardPlanButton}
 			</a>
 			<a
 				href="/demo/admin?plan=family"
@@ -39,7 +39,7 @@ const retentionLabel = $derived(
 				class:plan-switcher__button--active={planTier === 'family'}
 				data-testid="demo-plan-switch-family"
 			>
-				⭐⭐ ファミリー
+				{DEMO_ADMIN_HOME_LABELS.familyPlanButton}
 			</a>
 		</div>
 	</div>
@@ -51,19 +51,19 @@ const retentionLabel = $derived(
 				<h3 class="plan-stats__title">{getPlanLabel(planTier)}</h3>
 				<div class="plan-stats__grid">
 					<div class="plan-stats__item">
-						<span class="plan-stats__label">カスタム活動</span>
+						<span class="plan-stats__label">{DEMO_ADMIN_HOME_LABELS.statsActivityLabel}</span>
 						<span class="plan-stats__value">
 							{planStats.activityCount} / {planStats.activityMax === null ? '無制限' : planStats.activityMax}
 						</span>
 					</div>
 					<div class="plan-stats__item">
-						<span class="plan-stats__label">こども</span>
+						<span class="plan-stats__label">{DEMO_ADMIN_HOME_LABELS.statsChildLabel}</span>
 						<span class="plan-stats__value">
 							{planStats.childCount} / {planStats.childMax === null ? '無制限' : planStats.childMax}
 						</span>
 					</div>
 					<div class="plan-stats__item">
-						<span class="plan-stats__label">データ保持</span>
+						<span class="plan-stats__label">{DEMO_ADMIN_HOME_LABELS.statsRetentionLabel}</span>
 						<span class="plan-stats__value">{retentionLabel}</span>
 					</div>
 				</div>
@@ -76,13 +76,13 @@ const retentionLabel = $derived(
 		<div class="demo-trial-cta" data-testid="demo-trial-cta">
 			<div class="demo-trial-cta__icon">🎁</div>
 			<div class="demo-trial-cta__content">
-				<p class="demo-trial-cta__title">7日間の無料体験</p>
+				<p class="demo-trial-cta__title">{DEMO_ADMIN_HOME_LABELS.trialCtaTitle}</p>
 				<p class="demo-trial-cta__desc">
-					スタンダードプランの全機能を7日間無料で体験できます。
+					{DEMO_ADMIN_HOME_LABELS.trialCtaDesc}
 				</p>
 			</div>
 			<a href="/demo/admin/license" class="demo-trial-cta__button">
-				プランを見る
+				{DEMO_ADMIN_HOME_LABELS.trialCtaButton}
 			</a>
 		</div>
 	{/if}

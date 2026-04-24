@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getAgeTierLabel } from '$lib/domain/labels';
+import { ADMIN_CHILDREN_LABELS, APP_LABELS, PAGE_TITLES, getAgeTierLabel } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
@@ -30,7 +30,7 @@ const selectedChild = $derived(
 </script>
 
 <svelte:head>
-	<title>こども管理 - がんばりクエスト デモ</title>
+	<title>{PAGE_TITLES.children}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-4">
@@ -45,7 +45,7 @@ const selectedChild = $derived(
 				class="bg-[var(--color-feedback-info-border)] cursor-not-allowed"
 				disabled
 			>
-				+ こどもを追加
+				{ADMIN_CHILDREN_LABELS.addButton}
 			</Button>
 		</div>
 	</div>
@@ -67,7 +67,7 @@ const selectedChild = $derived(
 					{/if}
 					<div class="flex-1 min-w-0">
 						<p class="font-bold text-[var(--color-text-primary)]">{child.nickname}</p>
-						<p class="text-sm text-[var(--color-text-tertiary)]">{child.age}歳 / {getAgeTierLabel(child.uiMode ?? 'preschool')}</p>
+						<p class="text-sm text-[var(--color-text-tertiary)]">{child.age + '歳'} / {getAgeTierLabel(child.uiMode ?? 'preschool')}</p>
 					</div>
 					<div class="text-right">
 						<p class="text-lg font-bold text-[var(--color-feedback-warning-text)]">{fmtBal(child.balance)}</p>
@@ -86,7 +86,7 @@ const selectedChild = $derived(
 				class="text-[var(--color-feedback-info-text)] hover:text-[var(--color-feedback-info-text)] mb-3"
 				onclick={() => selectedChildId = null}
 			>
-				← 一覧に戻る
+				{ADMIN_CHILDREN_LABELS.backToList}
 			</Button>
 
 			<!-- Child Header -->
@@ -99,7 +99,7 @@ const selectedChild = $derived(
 					{/if}
 					<div class="flex-1">
 						<h2 class="text-lg font-bold text-[var(--color-text-primary)]">{selectedChild.nickname}</h2>
-						<p class="text-sm text-[var(--color-text-tertiary)]">{selectedChild.age}歳 / {getAgeTierLabel(selectedChild.uiMode ?? 'preschool')}</p>
+						<p class="text-sm text-[var(--color-text-tertiary)]">{selectedChild.age + '歳'} / {getAgeTierLabel(selectedChild.uiMode ?? 'preschool')}</p>
 					</div>
 					<div class="text-right">
 						<p class="text-2xl font-bold text-[var(--color-feedback-warning-text)]">{fmtBal(selectedChild.balance)}</p>
@@ -128,41 +128,41 @@ const selectedChild = $derived(
 				{#if detailTab === 'info'}
 					<div class="grid grid-cols-2 gap-3">
 						<div class="bg-[var(--color-feedback-info-bg)] rounded-lg p-3 text-center">
-							<p class="text-xs text-[var(--color-text-muted)]">年齢</p>
-							<p class="text-lg font-bold text-[var(--color-feedback-info-text)]">{selectedChild.age}歳</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{ADMIN_CHILDREN_LABELS.statAgeLabel}</p>
+							<p class="text-lg font-bold text-[var(--color-feedback-info-text)]">{selectedChild.age + '歳'}</p>
 						</div>
 						<div class="bg-[var(--color-stat-purple-bg)] rounded-lg p-3 text-center">
-							<p class="text-xs text-[var(--color-text-muted)]">年齢区分</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{ADMIN_CHILDREN_LABELS.statAgeTierLabel}</p>
 							<p class="text-lg font-bold text-[var(--color-stat-purple)]">{getAgeTierLabel(selectedChild.uiMode ?? 'preschool')}</p>
 						</div>
 						<div class="bg-[var(--color-feedback-warning-bg)] rounded-lg p-3 text-center">
-							<p class="text-xs text-[var(--color-text-muted)]">{unit}残高</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{unit}{ADMIN_CHILDREN_LABELS.statBalanceSuffix}</p>
 							<p class="text-lg font-bold text-[var(--color-feedback-warning-text)]">{fmtBal(selectedChild.balance)}</p>
 						</div>
 						<div class="bg-[var(--color-feedback-success-bg)] rounded-lg p-3 text-center">
-							<p class="text-xs text-[var(--color-text-muted)]">レベル</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{ADMIN_CHILDREN_LABELS.statLevelLabel}</p>
 							<p class="text-lg font-bold text-[var(--color-feedback-success-text)]">Lv.{selectedChild.level ?? 1}</p>
 						</div>
 					</div>
 				{:else if detailTab === 'status'}
 					<div class="text-center py-8 text-[var(--color-text-tertiary)]">
 						<p class="text-3xl mb-2">📊</p>
-						<p class="text-sm">ステータス詳細は登録後にご覧いただけます</p>
+						<p class="text-sm">{ADMIN_CHILDREN_LABELS.statusTabEmpty}</p>
 					</div>
 				{:else if detailTab === 'logs'}
 					<div class="text-center py-8 text-[var(--color-text-tertiary)]">
 						<p class="text-3xl mb-2">📝</p>
-						<p class="text-sm">活動ログは登録後にご覧いただけます</p>
+						<p class="text-sm">{ADMIN_CHILDREN_LABELS.logsTabEmpty}</p>
 					</div>
 				{:else if detailTab === 'achievements'}
 					<div class="text-center py-8 text-[var(--color-text-tertiary)]">
 						<p class="text-3xl mb-2">🏆</p>
-						<p class="text-sm">実績一覧は登録後にご覧いただけます</p>
+						<p class="text-sm">{ADMIN_CHILDREN_LABELS.achievementsTabEmpty}</p>
 					</div>
 				{:else if detailTab === 'voice'}
 					<div class="text-center py-8 text-[var(--color-text-tertiary)]">
 						<p class="text-3xl mb-2">📢</p>
-						<p class="text-sm">おうえんボイスは登録後にご利用いただけます</p>
+						<p class="text-sm">{ADMIN_CHILDREN_LABELS.voiceTabEmpty}</p>
 					</div>
 				{/if}
 			</Card>

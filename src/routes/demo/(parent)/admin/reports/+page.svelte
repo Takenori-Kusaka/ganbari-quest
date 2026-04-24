@@ -1,4 +1,5 @@
 <script lang="ts">
+import { APP_LABELS, DEMO_REPORTS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { formatChildName } from '$lib/domain/child-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
@@ -21,42 +22,42 @@ function progressPct(xp: number, level: number): number {
 </script>
 
 <svelte:head>
-	<title>週間レポート（デモ） - がんばりクエスト</title>
+	<title>{PAGE_TITLES.demoAdminReports}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <DemoBanner />
 
 <div class="space-y-6">
-	<h2 class="text-lg font-bold">📊 週間レポート</h2>
+	<h2 class="text-lg font-bold">{DEMO_REPORTS_LABELS.pageTitle}</h2>
 
 	{#each data.reports as report}
 		<div class="rounded-xl border bg-white shadow-sm">
 			<div class="rounded-t-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3 text-white">
-				<h3 class="text-base font-bold">{formatChildName(report.childName, 'possessive')}週間レポート</h3>
+				<h3 class="text-base font-bold">{formatChildName(report.childName, 'possessive')}{DEMO_REPORTS_LABELS.reportTitleSuffix}</h3>
 				<p class="text-xs opacity-80">{formatWeek(report.weekStart, report.weekEnd)}</p>
 			</div>
 			<div class="space-y-4 p-4">
 				<div class="flex gap-3">
 					<div class="flex-1 rounded-lg bg-[var(--color-feedback-info-bg)] p-3 text-center">
-						<p class="text-xs text-[var(--color-feedback-info-text)]">活動</p>
+						<p class="text-xs text-[var(--color-feedback-info-text)]">{DEMO_REPORTS_LABELS.statActivityLabel}</p>
 						<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">{report.totalActivities}</p>
-						<p class="text-[10px] text-[var(--color-feedback-info-text)]">回</p>
+						<p class="text-[10px] text-[var(--color-feedback-info-text)]">{DEMO_REPORTS_LABELS.statActivityUnit}</p>
 					</div>
 					<div class="flex-1 rounded-lg bg-[var(--color-feedback-warning-bg)] p-3 text-center">
-						<p class="text-xs text-[var(--color-feedback-warning-text)]">ポイント</p>
+						<p class="text-xs text-[var(--color-feedback-warning-text)]">{DEMO_REPORTS_LABELS.statPointLabel}</p>
 						<p class="text-xl font-bold text-[var(--color-feedback-warning-text)]">{report.totalPoints}</p>
 						<p class="text-[10px] text-[var(--color-feedback-warning-text)]">pt</p>
 					</div>
 					<div class="flex-1 rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-center">
-						<p class="text-xs text-[var(--color-feedback-success-text)]">実績</p>
+						<p class="text-xs text-[var(--color-feedback-success-text)]">{DEMO_REPORTS_LABELS.statAchievementLabel}</p>
 						<p class="text-xl font-bold text-[var(--color-feedback-success-text)]">{report.newAchievements.length}</p>
-						<p class="text-[10px] text-[var(--color-feedback-success-text)]">獲得</p>
+						<p class="text-[10px] text-[var(--color-feedback-success-text)]">{DEMO_REPORTS_LABELS.statAchievementUnit}</p>
 					</div>
 				</div>
 
 				{#if report.highlights.length > 0}
 					<div>
-						<h4 class="mb-2 text-xs font-bold text-[var(--color-text-secondary)]">🏆 今週のハイライト</h4>
+						<h4 class="mb-2 text-xs font-bold text-[var(--color-text-secondary)]">{DEMO_REPORTS_LABELS.highlightTitle}</h4>
 						<div class="space-y-1.5">
 							{#each report.highlights as highlight}
 								<div class="flex items-center gap-2 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
@@ -69,7 +70,7 @@ function progressPct(xp: number, level: number): number {
 				{/if}
 
 				<div>
-					<h4 class="mb-2 text-xs font-bold text-[var(--color-text-secondary)]">📈 カテゴリ別の様子</h4>
+					<h4 class="mb-2 text-xs font-bold text-[var(--color-text-secondary)]">{DEMO_REPORTS_LABELS.categoryTitle}</h4>
 					<div class="space-y-2">
 						{#each report.categories as cat}
 							<div class="flex items-center gap-2">
@@ -84,14 +85,14 @@ function progressPct(xp: number, level: number): number {
 									</div>
 								</div>
 								<span class="w-12 text-right text-[10px] font-bold text-[var(--color-text-muted)]">Lv.{cat.level}</span>
-								<span class="w-8 text-right text-[10px] text-[var(--color-text-tertiary)]">{cat.activityCount}回</span>
+								<span class="w-8 text-right text-[10px] text-[var(--color-text-tertiary)]">{cat.activityCount + '回'}</span>
 							</div>
 						{/each}
 					</div>
 				</div>
 
 				<div class="rounded-lg border-l-4 border-[var(--color-feedback-info-border)] bg-[var(--color-feedback-info-bg)] p-3">
-					<p class="text-xs font-bold text-[var(--color-feedback-info-text)]">💡 アドバイス</p>
+					<p class="text-xs font-bold text-[var(--color-feedback-info-text)]">{DEMO_REPORTS_LABELS.adviceTitle}</p>
 					<p class="mt-1 text-xs text-[var(--color-feedback-info-text)]">{report.advice.message}</p>
 				</div>
 			</div>
