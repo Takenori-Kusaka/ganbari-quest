@@ -87,3 +87,6 @@ storybook-static/
 
 # Logo candidates (deleted from history via git filter-repo in #1443)
 docs/design/logo-candidates/
+
+# PR証跡スクリーンショット（GitHub PR に直接アップロードすること。git管理不要）
+docs/pr-screenshots/
