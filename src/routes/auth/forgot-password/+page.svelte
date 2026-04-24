@@ -116,7 +116,7 @@ $effect(() => {
 				<Button type="submit" disabled={loading || code.length < 1 || !newPassword || !newPasswordConfirm} size="md" class="w-full">
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
-						{FORGOT_PASSWORD_LABELS.resetingLabel}
+						{FORGOT_PASSWORD_LABELS.resettingLabel}
 					{:else}
 						{FORGOT_PASSWORD_LABELS.resetButton}
 					{/if}

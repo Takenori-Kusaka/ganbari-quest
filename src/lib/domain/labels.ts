@@ -1396,7 +1396,7 @@ export const ANALYTICS_LABELS = {
 	pageHeading: 'アナリティクス',
 
 	// Umami not configured alert
-	unamiNotConfiguredTitle: 'Umami が設定されていません',
+	umamiNotConfiguredTitle: 'Umami が設定されていません',
 	umamiConfigVar1Prefix: 'アナリティクスを有効にするには、環境変数 ',
 	umamiConfigVar1Suffix: ' と',
 	umamiConfigVar2Suffix: ' を設定してください。',
@@ -2637,7 +2637,7 @@ export const FORGOT_PASSWORD_LABELS = {
 	step2ConfirmEnterInstruction: 'メールに記載されたコードと新しいパスワードを入力してください。',
 	step2CodeExpiryPrefix: '確認コードは',
 	step2CodeExpirySuffix: '分間有効です。届かない場合は再送してください',
-	resetingLabel: 'リセット中...',
+	resettingLabel: 'リセット中...',
 	resetButton: 'パスワードをリセット',
 	step1Instruction1: '登録済みのメールアドレスを入力してください。',
 	step1Instruction2: 'パスワードリセット用の確認コードを送信します。',
