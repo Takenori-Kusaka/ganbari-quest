@@ -297,3 +297,8 @@ totaltime
 xlabel
 NOPQR
 hanami
+
+# ===== おやカギコード (#1360) =====
+oyakagi
+OYAKAGI
+Oyakagi
