@@ -1,9 +1,5 @@
 <script lang="ts">
-import {
-	MARKETPLACE_FILTER_LABELS,
-	MARKETPLACE_LABELS,
-	type MarketplaceSortKey,
-} from '$lib/domain/labels';
+import { APP_LABELS, MARKETPLACE_FILTER_LABELS, MARKETPLACE_LABELS, type MarketplaceSortKey } from '$lib/domain/labels';
 import type { MarketplaceGender, MarketplaceItemType } from '$lib/domain/marketplace-item';
 import { MARKETPLACE_TYPE_ICONS, MARKETPLACE_TYPE_LABELS } from '$lib/domain/marketplace-item';
 import Logo from '$lib/ui/components/Logo.svelte';
@@ -68,7 +64,7 @@ const genderKeys: MarketplaceGender[] = ['boy', 'girl', 'neutral'];
 </script>
 
 <svelte:head>
-	<title>{MARKETPLACE_LABELS.pageTitle} - がんばりクエスト</title>
+	<title>{MARKETPLACE_LABELS.pageTitle}{APP_LABELS.pageTitleSuffix}</title>
 	<meta name="description" content={MARKETPLACE_LABELS.metaDescription} />
 </svelte:head>
 
@@ -267,11 +263,11 @@ const genderKeys: MarketplaceGender[] = ['boy', 'girl', 'neutral'];
 											</p>
 											<div class="flex items-center gap-2 mt-2">
 												<span class="text-[10px] text-[var(--color-text-tertiary)]">
-													{item.targetAgeMin}〜{item.targetAgeMax}歳
+													{item.targetAgeMin + '〜'}{item.targetAgeMax + '歳'}
 												</span>
 												{#if item.itemCount > 0}
 													<span class="text-[10px] text-[var(--color-text-tertiary)]">
-														{item.itemCount}件
+														{item.itemCount + '件'}
 													</span>
 												{/if}
 											</div>

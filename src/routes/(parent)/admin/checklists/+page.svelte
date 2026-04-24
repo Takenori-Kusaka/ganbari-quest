@@ -1,12 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
-import {
-	CHECKLIST_KIND_ICONS,
-	CHECKLIST_KIND_LABELS,
-	CHECKLIST_KIND_SHORT_LABELS,
-	type ChecklistKind,
-} from '$lib/domain/labels';
+import { APP_LABELS, CHECKLIST_KIND_ICONS, CHECKLIST_KIND_LABELS, CHECKLIST_KIND_SHORT_LABELS, PAGE_TITLES, type ChecklistKind } from '$lib/domain/labels';
 import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
@@ -166,7 +161,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 </script>
 
 <svelte:head>
-	<title>チェックリスト管理 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.checklists}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-4">

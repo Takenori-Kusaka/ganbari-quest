@@ -1,4 +1,5 @@
 <script lang="ts">
+import { APP_LABELS, DEMO_ACTIVITIES_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { formatPointValue } from '$lib/domain/point-display';
 import {
 	CATEGORY_DEFS,
@@ -41,12 +42,12 @@ const filteredActivities = $derived.by(() => {
 function dailyLimitLabel(val: number | null): string {
 	if (val === null) return '1回/日';
 	if (val === 0) return '無制限';
-	return `${val}回/日`;
+	return `${val + '回'}/日`;
 }
 </script>
 
 <svelte:head>
-	<title>活動管理 - がんばりクエスト デモ</title>
+	<title>{PAGE_TITLES.activities}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-4">
@@ -61,7 +62,7 @@ function dailyLimitLabel(val: number | null): string {
 				class="bg-[var(--color-stat-purple)] cursor-not-allowed"
 				disabled
 			>
-				✨ AI追加
+				{DEMO_ACTIVITIES_LABELS.aiAddButton}
 			</Button>
 			<Button
 				variant="primary"
@@ -69,7 +70,7 @@ function dailyLimitLabel(val: number | null): string {
 				class="bg-[var(--color-feedback-info-border)] cursor-not-allowed"
 				disabled
 			>
-				+ 手動追加
+				{DEMO_ACTIVITIES_LABELS.manualAddButton}
 			</Button>
 		</div>
 	</div>
@@ -89,7 +90,7 @@ function dailyLimitLabel(val: number | null): string {
 				{filterCategoryId === 0 ? '' : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-tertiary)]'}"
 			onclick={() => filterCategoryId = 0}
 		>
-			すべて ({data.activities.length})
+			{DEMO_ACTIVITIES_LABELS.allFilter} ({data.activities.length})
 		</Button>
 		{#each data.categoryDefs as catDef}
 			{@const count = data.activities.filter((a: { categoryId: number }) => a.categoryId === catDef.id).length}
@@ -127,7 +128,7 @@ function dailyLimitLabel(val: number | null): string {
 								<span class="meta-item">{dailyLimitLabel(activity.dailyLimit)}</span>
 							{/if}
 							{#if activity.ageMin != null || activity.ageMax != null}
-								<span class="meta-item">{activity.ageMin ?? 0}-{activity.ageMax ?? 18}歳</span>
+								<span class="meta-item">{activity.ageMin ?? 0}-{activity.ageMax ?? 18 + '歳'}</span>
 							{/if}
 						</div>
 					</div>
@@ -138,7 +139,7 @@ function dailyLimitLabel(val: number | null): string {
 
 	{#if filteredActivities.length === 0}
 		<div class="text-center py-8 text-[var(--color-text-tertiary)] text-sm">
-			該当する活動がありません
+			{DEMO_ACTIVITIES_LABELS.emptyFilter}
 		</div>
 	{/if}
 

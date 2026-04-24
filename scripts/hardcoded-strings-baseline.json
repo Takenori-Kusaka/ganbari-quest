@@ -1,6 +1,6 @@
 {
-  "count": 1607,
+  "count": 0,
   "rule": "local/no-hardcoded-jp-text",
   "scope": "src/routes/**/*.svelte",
-  "note": "Issue #1452 Phase A: existing violations are grandfathered. CI fails if count increases."
+  "note": "Issue #1452 Phase B complete: all hardcoded Japanese strings migrated to labels.ts SSOT (was 1496 at Phase A start)."
 }

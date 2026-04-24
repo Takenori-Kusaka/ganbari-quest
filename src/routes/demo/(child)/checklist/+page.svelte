@@ -1,11 +1,7 @@
 <script lang="ts">
 // #704: デモ画面のもちものチェック (本番 src/routes/(child)/checklist/+page.svelte に相当)
 // 書き込みは行わず、UI 操作はクライアント側の $state でのみ反映する。
-import {
-	CHECKLIST_KIND_ICONS,
-	CHECKLIST_KIND_LABELS,
-	type ChecklistKind,
-} from '$lib/domain/labels';
+import { APP_LABELS, CHECKLIST_KIND_ICONS, CHECKLIST_KIND_LABELS, PAGE_TITLES, type ChecklistKind } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode.js';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
@@ -85,7 +81,7 @@ function toggleItem(templateId: number, itemId: number) {
 </script>
 
 <svelte:head>
-	<title>もちものチェック (デモ) - がんばりクエスト</title>
+	<title>{PAGE_TITLES.demoChildChecklist}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-sm)] py-[var(--sp-sm)]">

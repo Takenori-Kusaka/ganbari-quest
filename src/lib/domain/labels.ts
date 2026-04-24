@@ -1632,6 +1632,7 @@ export const OPS_BUSINESS_LABELS = {
 	scaleTiersCurrentBadge: '現在',
 	scaleTiersUsersRange: (min: number | string, max: string) => `${min}${max} 名`,
 	scaleTiersMonthlyRevenue: (yen: string) => `¥${yen}/月`,
+	scaleTiersMonthlyRevenueSuffix: '/月',
 
 	// KPI summary
 	kpiSummaryTitle: 'Stripe KPI',
@@ -2880,4 +2881,85 @@ export const SETUP_PACKS_LABELS = {
 	addPacksButton: (count: number) => `${count}件のパックを追加`,
 	processingLabel: '処理中...',
 	skipNextButton: 'おすすめで次へ',
+} as const;
+
+export const PARENT_LOGIN_LABELS = {
+	backLink: 'もどる',
+	pageTitle: 'おとうさん・おかあさんの',
+	pageTitleLine2: 'ページだよ',
+	pageDescLine1: 'ここから先はおとうさん・おかあさんに',
+	pageDescLine2: 'ひみつのばんごうを入れてもらってね',
+	pinInputAriaLabel: 'おやカギコード入力状態',
+} as const;
+
+export const VIEW_PAGE_LABELS = {
+	appTitle: 'がんばりクエスト',
+	viewOnlyNotice: '閲覧専用リンク',
+	emptyChildren: 'まだ お子さまが とうろくされていません',
+	statPointLabel: 'ポイント',
+	statLevelLabel: 'そうごうレベル',
+	footerText: 'がんばりクエスト — こどもの がんばりを みんなで おうえん',
+} as const;
+
+export const DEMO_BATTLE_LABELS = {
+	pageTitle: '⚔️ きょうの バトル',
+	startButton: 'バトル かいし！',
+	demoNotice: '（デモモード：データは保存されません）',
+	signupLink: 'お子さまの名前で はじめる →',
+	replayButton: 'もういちど あそぶ',
+	loadErrorMessage: 'バトルじょうほうを よみこめませんでした',
+} as const;
+
+export const DEMO_ACTIVITIES_LABELS = {
+	aiAddButton: '✨ AI追加',
+	manualAddButton: '+ 手動追加',
+	allFilter: 'すべて',
+	emptyFilter: '該当する活動がありません',
+} as const;
+
+export const DEMO_CHECKLISTS_LABELS = {
+	addTemplateButton: '+ テンプレート追加',
+	addItemButton: '+ アイテム追加',
+	emptyTitle: 'チェックリストがありません',
+	emptyDesc: '登録するとお子さまの持ち物チェックリストを管理できます',
+} as const;
+
+export const DEMO_EVENTS_LABELS = {
+	sectionTitle: '🎉 シーズンイベント管理',
+	emptyNotice: 'イベントはまだありません',
+	activeBadge: '開催中',
+	dateRangeSeparator: '〜',
+} as const;
+
+export const SWITCH_PAGE_LABELS = {
+	adminForbiddenNotice: 'おやのアカウントでログインしてね',
+	heading: 'だれがつかう？',
+	emptyTitle: 'こどもがまだいないよ',
+	emptyDesc: 'おやがかんりがめんからついかしてね',
+	adminLink: '🔒 おやのかんりがめん',
+} as const;
+
+export const OPS_LICENSE_PAGE_LABELS = {
+	pageTitle: 'OPS - ライセンスキー管理',
+	issueButton: '＋ キャンペーンキーを発行',
+	searchTitle: 'ライセンスキー検索',
+	keyInputLabel: 'ライセンスキー',
+	searchButton: '検索',
+} as const;
+
+export const DEMO_CHALLENGES_LABELS = {
+	sectionTitle: '👥 きょうだいチャレンジ',
+	allClearedBadge: '全員クリア！',
+	activeBadge: '開催中',
+	dateRangeSeparator: '〜',
+	targetPrefix: '目標',
+	rewardPrefix: '報酬',
+} as const;
+
+export const DEMO_CHILD_ACHIEVEMENTS_LABELS = {
+	sectionTitle: '🏅 チャレンジきろく',
+	emptyTitle: 'まだチャレンジきろくがないよ',
+	emptyDesc: 'チャレンジがはじまったら ここにきろくされるよ',
+	clearedBadge: 'クリア！',
+	inProgressBadge: 'ちょうせん中',
 } as const;
