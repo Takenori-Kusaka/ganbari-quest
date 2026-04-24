@@ -58,6 +58,21 @@ export default [
 			'local/max-svelte-lines': ['warn', { max: 500 }],
 		},
 	},
+	// src/lib/ 配下: no-hardcoded-jp-text を適用 (#1465 Phase A)
+	// stories 含む全 svelte が対象（SSOT 対象外セクション削除済み）
+	{
+		files: ['src/lib/**/*.svelte'],
+		plugins: {
+			local: {
+				rules: {
+					'no-hardcoded-jp-text': noHardcodedJpText,
+				},
+			},
+		},
+		rules: {
+			'local/no-hardcoded-jp-text': 'error',
+		},
+	},
 	// routes 配下の .ts ファイル用パーサー設定
 	// （.svelte は上の共通設定ブロックでパーサーが設定済み）
 	{

@@ -1,5 +1,5 @@
 /**
- * LP共通用語辞書 (#561, #565)
+ * LP共通用語辞書 (#561, #565, #1344)
  *
  * ⚠️ このファイルは自動生成されます。直接編集しないでください。
  * 生成元: src/lib/domain/labels.ts + src/lib/domain/validation/age-tier.ts
@@ -8,13 +8,14 @@
  * 用法:
  * <script src="shared-labels.js"></script>
  * <div data-age-tier="elementary" data-label="age-tier-name">小学生モード</div>
- *
- * → 本スクリプトが data-age-tier 属性を見て data-label の値を辞書から差し替える。
+ * <h2 data-lp-key="retention.sectionTitle">三日坊主にならない設計</h2>
  *
  * data-label の値:
  *   - "age-tier-name"  : モード名（乳幼児モード/幼児モード/小学生モード/中学生モード/高校生モード）
  *   - "age-tier-range" : 年齢範囲（0〜2歳 等）
  *   - "age-tier-formal": 正式名（乳幼児（0〜2歳） 等）
+ *
+ * data-lp-key の値: "セクション名.キー名" 形式 (LP_LABELS を参照)
  */
 (function () {
 	'use strict';
@@ -63,10 +64,25 @@
 		"family": "ファミリープラン"
 	};
 
+	const LP_LABELS = {
+		"retention": {
+			"sectionTitle": "三日坊主にならない設計",
+			"sectionDesc": "「有料アプリって三日坊主になりがち…」という不安に先回りで答えます。スタンプカードのレア度分散は行動心理学の「変動比率強化」— 最も強固な習慣形成メカニズムです。",
+			"card1Title": "飽きを防ぐレア度分散",
+			"card1Desc": "普通のスタンプ (N) から超レアスタンプ (UR) まで 4 段階。毎回違うスタンプが押される「変動比率強化」が、子供の「明日もやろう」を支えます。",
+			"card2Title": "習慣化が目的のメタ層",
+			"card2Desc": "ログイン → おみくじ → スタンプカード、というサイクルは活動記録 (L1) とは独立した L2 習慣エンジン。射幸心ではなく「毎朝アプリを開くこと」を習慣にする設計です。",
+			"card3Title": "1 日 1 回 cap — 煽らない設計",
+			"card3Desc": "「もっと引きたい」の誘導はありません。1 日 1 回という制限が、逆に「明日もやろう」という継続を生みます。",
+			"pamphletNote": "スタンプカードのレア度分散（N/R/SR/UR）は変動比率強化による習慣形成エンジン。射幸心ではなく、三日坊主を防ぐ設計です。"
+		}
+	};
+
 	// グローバルへエクスポート
 	window.GANBARI_LABELS = {
 		ageTiers: AGE_TIERS,
 		plans: PLAN_LABELS,
+		lp: LP_LABELS,
 	};
 
 	/**
@@ -145,9 +161,34 @@
 		});
 	}
 
+	/**
+	 * data-lp-key 属性を持つ要素を LP_LABELS 辞書値で上書きする (#1344)
+	 *
+	 * data-lp-key の形式: "section.key" (例: "retention.sectionTitle")
+	 * SEO のため HTML 側にはフォールバックテキストを残してよい。
+	 * JS ロード後に labels.ts の値で確認・置換する。
+	 */
+	function applyLpKeys() {
+		var elements = document.querySelectorAll('[data-lp-key]');
+		elements.forEach(function(el) {
+			var key = el.getAttribute('data-lp-key');
+			var parts = key.split('.');
+			if (parts.length !== 2) return;
+			var section = parts[0];
+			var field = parts[1];
+			var sectionData = LP_LABELS[section];
+			if (!sectionData) return;
+			var value = sectionData[field];
+			if (value !== undefined) {
+				el.textContent = value;
+			}
+		});
+	}
+
 	function applyAll() {
 		applyAgeTierLabels();
 		applyPlanLabels();
+		applyLpKeys();
 	}
 
 	// DOMContentLoaded 後に適用
