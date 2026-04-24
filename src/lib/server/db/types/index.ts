@@ -20,6 +20,7 @@ export interface Child {
 	birthDate: string | null;
 	theme: string;
 	uiMode: string;
+	uiModeManuallySet: number;
 	avatarUrl: string | null;
 	displayConfig: string | null;
 	userId: string | null;
@@ -328,6 +329,7 @@ export interface UpdateChildInput {
 	age?: number;
 	theme?: string;
 	uiMode?: string;
+	uiModeManuallySet?: number;
 	birthDate?: string | null;
 	displayConfig?: string | null;
 	userId?: string | null;

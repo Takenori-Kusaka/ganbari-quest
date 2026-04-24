@@ -1,4 +1,5 @@
-import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
+import type { UiMode } from '$lib/domain/validation/age-tier';
+import { recalcUiMode } from '$lib/domain/validation/age-tier';
 import {
 	deleteChild,
 	findAllChildren,
@@ -48,6 +49,7 @@ export async function editChild(
 		age?: number;
 		theme?: string;
 		uiMode?: string;
+		uiModeManuallySet?: number;
 		birthDate?: string | null;
 		displayConfig?: string | null;
 		birthdayBonusMultiplier?: number;
@@ -55,12 +57,22 @@ export async function editChild(
 	},
 	tenantId: string,
 ) {
-	// #580: age が変更された場合は uiMode も自動再計算（年齢境界越え対応）。
-	// 呼び出し側が uiMode を明示的に指定している場合はその値を尊重する（手動上書きを許容）。
 	const patched: typeof input = { ...input };
-	if (patched.age !== undefined && patched.uiMode === undefined) {
-		patched.uiMode = getDefaultUiMode(patched.age);
+
+	if (patched.uiMode !== undefined) {
+		// #1382: 保護者が明示的に UIMode を指定 → 手動フラグを立てる
+		patched.uiModeManuallySet = 1;
+	} else if (patched.age !== undefined) {
+		// #580/#1382: age 変更時は既存フラグを参照して自動再計算するか判断する
+		const existing = await findChildById(id, tenantId);
+		if (existing) {
+			patched.uiMode = recalcUiMode(
+				{ uiMode: existing.uiMode as UiMode, uiModeManuallySet: existing.uiModeManuallySet ?? 0 },
+				patched.age,
+			);
+		}
 	}
+
 	return await updateChild(id, patched, tenantId);
 }
 

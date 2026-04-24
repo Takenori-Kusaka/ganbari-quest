@@ -63,6 +63,18 @@ export function getDefaultUiMode(age: number): UiMode {
 	return 'senior';
 }
 
+/**
+ * uiModeManuallySet フラグを考慮して、年齢変更時の UIMode を決定する。
+ * フラグが立っている場合は保護者が手動設定した値を維持する。
+ */
+export function recalcUiMode(
+	child: { uiMode: UiMode; uiModeManuallySet: number },
+	newAge: number,
+): UiMode {
+	if (child.uiModeManuallySet) return child.uiMode;
+	return getDefaultUiMode(newAge);
+}
+
 /** 値が有効なUIモードか判定する（旧コード含む） */
 export function isValidUiMode(value: string): value is UiMode {
 	return UI_MODES.includes(value as UiMode) || value in LEGACY_UI_MODE_MAP;
