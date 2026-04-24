@@ -103,6 +103,7 @@ vitest --coverage（カバレッジ閾値）, playwright（E2E）, ESLint（svel
 - **OSS / 確立パターンを見もしないまま独自実装を始めない（#1350）** → 独自実装が 10 行超えそうなら先に npm / GitHub で既存 OSS / 確立パターンを 2 件以上探す。見つかれば Issue / ADR に比較を書き加え選定理由を残す。ADR テンプレ「検討した選択肢」節と Issue テンプレ「OSS / 確立パターン調査結果」節が空のまま起票・起案しない。半完成機構の放置（#1346 / #566 / #1126 / #1150）を繰り返さない
 - **LP・設計書に「ガチャ」「抽選」「コンプリート」等のギャンブル語彙を書かない（#1312/#1313）** → `scripts/measure-lp-dimensions.mjs` の `FORBIDDEN_TERMS` に追加済みで CI が自動拒否。ゲーミフィケーション要素を説明する際は「おみくじ」「ランダム報酬」等の代替語を使うこと。LP や `site/index.html` の文言を変更する前に `FORBIDDEN_TERMS` リストを確認すること
 - **LP・プライシング設計書に未実装機能を「実装済み」として書かない（ADR-0013、#1312）** → `docs/decisions/0013-lp-truth-from-implementation.md` の Committed/Aspirational 区分を確認し、実装パスが存在しない機能は LP に記載禁止。`docs/design/19-プライシング戦略書.md` の附則「Committed / Aspirational 機能区分」を参照すること
+- **`scripts/` に使い捨てスクリプトを追加しない（#1442）** → `scripts/` への新規ファイル追加は「A: CI/CD から参照あり」「B: `package.json` の `scripts` セクションに定義された `npm run <name>` で呼べる手動ツール」のいずれかに必ず属すること。Issue 番号付き使い捨てスクリーンショットスクリプト（`capture-XXXX-*.mjs` 等）は禁止 — `npm run capture` (`scripts/capture.mjs`) を使用・拡充すること
 
 ## Critical バグ修正の必須要件（ADR-0005）
 
