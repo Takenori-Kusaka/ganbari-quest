@@ -37,8 +37,12 @@ jobs:
         run: docker compose stop app
 
       # Step 2: Pull latest code from main
+      # git pull は merge commit を作ろうとして git identity を要求するため
+      # fetch + reset --hard で remote に強制同期する（デプロイ用途では常に remote が正）
       - name: Pull latest code
-        run: git pull origin main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
 
       # Step 2.5: Generate .env from GitHub Actions Secrets (#911, #806)
       # docker-compose.yml は `.env` を `env_file` で読み込む仕組み。
