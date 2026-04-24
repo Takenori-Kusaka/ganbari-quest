@@ -34,42 +34,88 @@ const args = process.argv.slice(2);
 const CHECK_MODE = args.includes('--check');
 
 /**
+ * labels.ts の単純な `key: 'value'` ブロックを行単位でパース
+ */
+function parseSimpleBlock(src, constName) {
+	const pattern = new RegExp(`export const ${constName}[^{]*{([^}]+)}`, 's');
+	const match = src.match(pattern);
+	if (!match) throw new Error(`${constName} not found in labels.ts`);
+	const result = {};
+	for (const line of match[1].split('\n')) {
+		const m = line.match(/(\w+):\s*'([^']+)'/);
+		if (m) result[m[1]] = m[2];
+	}
+	return result;
+}
+
+/**
+ * labels.ts のブロックを行単位でパース
+ * Biome が key: / 'value' と 2 行に分割する場合にも対応
+ */
+function parseBlock(src, constName) {
+	const startIdx = src.indexOf(`export const ${constName}`);
+	if (startIdx === -1) throw new Error(`${constName} not found in labels.ts`);
+
+	const blockStart = src.indexOf('{', startIdx);
+	let depth = 0;
+	let i = blockStart;
+	while (i < src.length) {
+		if (src[i] === '{') depth++;
+		else if (src[i] === '}') {
+			depth--;
+			if (depth === 0) break;
+		}
+		i++;
+	}
+	const block = src.slice(blockStart + 1, i);
+
+	const result = {};
+	const lines = block.split('\n');
+	let pendingKey = null;
+
+	for (const line of lines) {
+		const trimmed = line.trim();
+
+		// key: 'value', — same line
+		const sameLine = trimmed.match(/^(\w+):\s*'((?:[^'\\]|\\.)*)',?$/);
+		if (sameLine) {
+			result[sameLine[1]] = sameLine[2];
+			pendingKey = null;
+			continue;
+		}
+
+		// key: — key only, value on next line (Biome multi-line format)
+		const keyOnly = trimmed.match(/^(\w+):$/);
+		if (keyOnly) {
+			pendingKey = keyOnly[1];
+			continue;
+		}
+
+		// 'value', — continuation of pending key
+		if (pendingKey) {
+			const valueOnly = trimmed.match(/^'((?:[^'\\]|\\.)*)',?$/);
+			if (valueOnly) {
+				result[pendingKey] = valueOnly[1];
+				pendingKey = null;
+			}
+		}
+	}
+
+	return result;
+}
+
+/**
  * labels.ts から定数を抽出する簡易パーサ（TS コンパイラなしで読み取る）
  */
 function parseLabelsTs() {
 	const src = fs.readFileSync(LABELS_TS, 'utf-8');
 
-	// AGE_TIER_LABELS ブロック抽出
-	const ageMatch = src.match(/export const AGE_TIER_LABELS[^{]*{([^}]+)}/s);
-	if (!ageMatch) throw new Error('AGE_TIER_LABELS not found in labels.ts');
+	const ageTierLabels = parseSimpleBlock(src, 'AGE_TIER_LABELS');
+	const ageTierShort = parseSimpleBlock(src, 'AGE_TIER_SHORT_LABELS');
+	const planLabels = parseSimpleBlock(src, 'PLAN_LABELS');
+	const lpRetentionLabels = parseBlock(src, 'LP_RETENTION_LABELS');
 
-	const ageTierLabels = {};
-	for (const line of ageMatch[1].split('\n')) {
-		const m = line.match(/(\w+):\s*'([^']+)'/);
-		if (m) ageTierLabels[m[1]] = m[2];
-	}
-
-	// AGE_TIER_SHORT_LABELS ブロック抽出
-	const shortMatch = src.match(/export const AGE_TIER_SHORT_LABELS[^{]*{([^}]+)}/s);
-	if (!shortMatch) throw new Error('AGE_TIER_SHORT_LABELS not found in labels.ts');
-
-	const ageTierShort = {};
-	for (const line of shortMatch[1].split('\n')) {
-		const m = line.match(/(\w+):\s*'([^']+)'/);
-		if (m) ageTierShort[m[1]] = m[2];
-	}
-
-	// PLAN_LABELS ブロック抽出
-	const planMatch = src.match(/export const PLAN_LABELS\s*=\s*{([^}]+)}/s);
-	if (!planMatch) throw new Error('PLAN_LABELS not found in labels.ts');
-
-	const planLabels = {};
-	for (const line of planMatch[1].split('\n')) {
-		const m = line.match(/(\w+):\s*'([^']+)'/);
-		if (m) planLabels[m[1]] = m[2];
-	}
-
-	return { ageTierLabels, ageTierShort, planLabels };
+	return { ageTierLabels, ageTierShort, planLabels, lpRetentionLabels };
 }
 
 /**
@@ -103,7 +149,7 @@ function parseAgeTierTs() {
  * LP 用 shared-labels.js コンテンツを生成する
  */
 function generateSharedLabelsJs() {
-	const { ageTierLabels, ageTierShort, planLabels } = parseLabelsTs();
+	const { ageTierLabels, ageTierShort, planLabels, lpRetentionLabels } = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
 	// 各年齢区分の name / range / formal / ageMin / ageMax を統合
@@ -123,8 +169,13 @@ function generateSharedLabelsJs() {
 		};
 	}
 
+	// LP コンテンツ辞書をネストした構造に組み立て
+	const lpLabels = {
+		retention: lpRetentionLabels,
+	};
+
 	const header = `/**
- * LP共通用語辞書 (#561, #565)
+ * LP共通用語辞書 (#561, #565, #1344)
  *
  * ⚠️ このファイルは自動生成されます。直接編集しないでください。
  * 生成元: src/lib/domain/labels.ts + src/lib/domain/validation/age-tier.ts
@@ -133,13 +184,14 @@ function generateSharedLabelsJs() {
  * 用法:
  * <script src="shared-labels.js"></script>
  * <div data-age-tier="elementary" data-label="age-tier-name">小学生モード</div>
- *
- * → 本スクリプトが data-age-tier 属性を見て data-label の値を辞書から差し替える。
+ * <h2 data-lp-key="retention.sectionTitle">三日坊主にならない設計</h2>
  *
  * data-label の値:
  *   - "age-tier-name"  : モード名（乳幼児モード/幼児モード/小学生モード/中学生モード/高校生モード）
  *   - "age-tier-range" : 年齢範囲（0〜2歳 等）
  *   - "age-tier-formal": 正式名（乳幼児（0〜2歳） 等）
+ *
+ * data-lp-key の値: "セクション名.キー名" 形式 (LP_LABELS を参照)
  */
 (function () {
 	'use strict';
@@ -148,10 +200,13 @@ function generateSharedLabelsJs() {
 
 	const PLAN_LABELS = ${JSON.stringify(planLabels, null, '\t').replace(/\n/g, '\n\t')};
 
+	const LP_LABELS = ${JSON.stringify(lpLabels, null, '\t').replace(/\n/g, '\n\t')};
+
 	// グローバルへエクスポート
 	window.GANBARI_LABELS = {
 		ageTiers: AGE_TIERS,
 		plans: PLAN_LABELS,
+		lp: LP_LABELS,
 	};
 
 	/**
@@ -230,9 +285,34 @@ function generateSharedLabelsJs() {
 		});
 	}
 
+	/**
+	 * data-lp-key 属性を持つ要素を LP_LABELS 辞書値で上書きする (#1344)
+	 *
+	 * data-lp-key の形式: "section.key" (例: "retention.sectionTitle")
+	 * SEO のため HTML 側にはフォールバックテキストを残してよい。
+	 * JS ロード後に labels.ts の値で確認・置換する。
+	 */
+	function applyLpKeys() {
+		var elements = document.querySelectorAll('[data-lp-key]');
+		elements.forEach(function(el) {
+			var key = el.getAttribute('data-lp-key');
+			var parts = key.split('.');
+			if (parts.length !== 2) return;
+			var section = parts[0];
+			var field = parts[1];
+			var sectionData = LP_LABELS[section];
+			if (!sectionData) return;
+			var value = sectionData[field];
+			if (value !== undefined) {
+				el.textContent = value;
+			}
+		});
+	}
+
 	function applyAll() {
 		applyAgeTierLabels();
 		applyPlanLabels();
+		applyLpKeys();
 	}
 
 	// DOMContentLoaded 後に適用

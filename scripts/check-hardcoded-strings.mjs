@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
- * check-hardcoded-strings.mjs — Issue #1452 Phase A
+ * check-hardcoded-strings.mjs — Issue #1452 Phase A / #1465 Phase A
  *
- * Runs ESLint with the no-hardcoded-jp-text rule and compares the warning count
- * against the stored baseline. Fails if the count has increased.
+ * ESLint (no-hardcoded-jp-text) で src/**​/*.svelte を検査する。
+ * baseline より増加した場合は exit 1。
+ *
+ * HTML チェックは scripts/check-lp-ssot.mjs が担当。
  *
  * Usage: node scripts/check-hardcoded-strings.mjs
  */
@@ -20,52 +22,60 @@ const baselineFile = join(__dirname, 'hardcoded-strings-baseline.json');
 const baseline = JSON.parse(readFileSync(baselineFile, 'utf-8'));
 const { count: baselineCount, rule } = baseline;
 
+// =====================================================================
+// Svelte チェック (ESLint)
+// =====================================================================
+
 const eslintBin = join(root, 'node_modules', '.bin', 'eslint');
 
-let output = '';
+let eslintOutput = '';
 try {
-	output = execSync(`"${eslintBin}" --format json "src/routes/**/*.svelte"`, {
+	eslintOutput = execSync(`"${eslintBin}" --format json "src/**/*.svelte"`, {
 		encoding: 'utf-8',
 		cwd: root,
 		maxBuffer: 64 * 1024 * 1024,
 	});
 } catch (e) {
 	const stdout = e.stdout;
-	output = typeof stdout === 'string' ? stdout : stdout ? stdout.toString('utf-8') : '';
+	eslintOutput = typeof stdout === 'string' ? stdout : stdout ? stdout.toString('utf-8') : '';
 }
 
-let results;
+let eslintResults;
 try {
-	results = JSON.parse(output);
+	eslintResults = JSON.parse(eslintOutput);
 } catch {
 	console.error('Failed to parse ESLint JSON output.');
 	process.exit(1);
 }
 
-let count = 0;
-for (const file of results) {
+let svelteCount = 0;
+for (const file of eslintResults) {
 	for (const msg of file.messages) {
 		if (msg.ruleId === rule) {
-			count++;
+			svelteCount++;
 		}
 	}
 }
 
-console.log(`Hardcoded JP text violations: ${count} (baseline: ${baselineCount})`);
+// =====================================================================
+// 結果表示とゲート判定
+// =====================================================================
 
-if (count > baselineCount) {
+console.log(`[Svelte] Hardcoded JP text violations: ${svelteCount} (baseline: ${baselineCount})`);
+
+if (svelteCount > baselineCount) {
 	console.error(
-		`\nERROR: Hardcoded JP text count increased by ${count - baselineCount} since baseline.`,
+		`\nERROR [Svelte]: Hardcoded JP text count increased by ${svelteCount - baselineCount} since baseline.`,
 	);
 	console.error('Use constants from $lib/domain/labels.ts instead of inline Japanese text.');
 	console.error('Update scripts/hardcoded-strings-baseline.json only when REDUCING the count.');
 	process.exit(1);
 }
 
-if (count < baselineCount) {
+if (svelteCount < baselineCount) {
 	console.log(
-		`\nGreat! Count reduced by ${baselineCount - count}. Consider updating the baseline.`,
+		`\n[Svelte] Great! Count reduced by ${baselineCount - svelteCount}. Consider updating the baseline.`,
 	);
 }
 
-console.log('OK: Hardcoded JP text count is within baseline.');
+console.log('OK: Hardcoded JP text counts are within baseline.');
