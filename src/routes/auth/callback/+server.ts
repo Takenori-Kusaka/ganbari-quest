@@ -5,6 +5,7 @@ import { redirect } from '@sveltejs/kit';
 import {
 	exchangeCodeForTokens,
 	setIdentityCookie,
+	setRefreshCookie,
 	verifyOAuthState,
 } from '$lib/server/auth/providers/cognito-oauth';
 import { logger } from '$lib/server/logger';
@@ -39,6 +40,11 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
 		// ID Token を Cookie にセット
 		setIdentityCookie(cookies, tokens.idToken);
+
+		// Refresh Token を保存してセッションを30日に延長 (#1365)
+		if (tokens.refreshToken) {
+			setRefreshCookie(cookies, tokens.refreshToken);
+		}
 
 		// 認証成功 → 管理画面へ（resolveContext で自動的にテナント選択される）
 		redirect(302, '/admin');

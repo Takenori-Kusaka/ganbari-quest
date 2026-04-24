@@ -68,6 +68,9 @@ export const SIGNUP_CODE_EXPIRY_MINUTES = 15;
 /** パスワードリセット確認コードの有効期限（分） */
 export const PASSWORD_RESET_CODE_EXPIRY_MINUTES = 30;
 
+// Cognito Refresh Token Cookie (#1365)
+export const REFRESH_COOKIE_NAME = 'gq_refresh';
+
 // 招待リンク関連
 export const INVITE_COOKIE_NAME = 'invite_code';
 export const INVITE_EXPIRY_DAYS = 7;
