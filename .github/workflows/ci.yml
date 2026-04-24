@@ -81,7 +81,7 @@ jobs:
       - run: npm ci
 
       - name: Biome lint
-        run: npx biome check .
+        run: npx biome check --error-on-warnings .
 
       - name: Parallel implementation sync check (#565)
         run: npm run lint:parallel
@@ -119,7 +119,7 @@ jobs:
         run: npx knip
 
       - name: Svelte check
-        run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json
+        run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json --fail-on-warnings
 
       - name: Type coverage ratchet check (#978)
         run: npm run type-coverage

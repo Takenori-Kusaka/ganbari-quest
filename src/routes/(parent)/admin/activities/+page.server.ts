@@ -92,6 +92,7 @@ export const actions: Actions = {
 		}
 	},
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 	create: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -155,6 +156,7 @@ export const actions: Actions = {
 		}
 	},
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 	edit: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();

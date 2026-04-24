@@ -45,6 +45,7 @@ export async function findStatus(childId: number, categoryId: number, _tenantId:
 }
 
 /** ステータスを更新（upsert） */
+// biome-ignore lint/complexity/useMaxParams: 既存コード、別Issueで対応予定
 export async function upsertStatus(
 	childId: number,
 	categoryId: number,
@@ -153,6 +154,7 @@ export async function findAllBenchmarks(_tenantId: string) {
 }
 
 /** ベンチマークをupsert */
+// biome-ignore lint/complexity/useMaxParams: 既存コード、別Issueで対応予定
 export async function upsertBenchmark(
 	age: number,
 	categoryId: number,

@@ -55,6 +55,7 @@ function formatBirthday(dateStr: string): string {
 	</Card>
 </a>
 
+<!-- svelte-ignore css_unused_selector -->
 <style>
 	.child-list-card {
 		transition: box-shadow 0.2s, border-color 0.2s;

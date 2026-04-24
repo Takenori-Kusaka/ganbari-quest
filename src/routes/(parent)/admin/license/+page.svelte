@@ -219,6 +219,7 @@ async function requestPortal() {
 	showPortalConfirm = true;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 async function openPortal() {
 	portalError = null;
 

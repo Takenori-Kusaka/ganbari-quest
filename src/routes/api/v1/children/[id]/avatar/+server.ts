@@ -11,6 +11,7 @@ import type { RequestHandler } from './$types';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const context = locals.context;
 	if (!context) {

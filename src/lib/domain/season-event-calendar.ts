@@ -172,6 +172,7 @@ export function getActiveSeasonEvents(date: Date): SeasonEventDefinition[] {
 	const month = date.getMonth() + 1; // 1-12
 	const day = date.getDate();
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 	return SEASON_EVENTS.filter((event) => {
 		if (event.startMonth <= event.endMonth) {
 			// Normal range (e.g., 4/1 - 4/30)

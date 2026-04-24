@@ -144,7 +144,7 @@ describe('CognitoAdminClient.createUser', () => {
 		expect(result.userId).toBe('sub-123');
 		expect(sendMock).toHaveBeenCalledTimes(2);
 
-		const createCommand = sendMock.mock.calls[0]![0]!;
+		const createCommand = sendMock.mock.calls[0]?.[0]!;
 		expect(createCommand._kind).toBe('AdminCreateUser');
 		expect(createCommand.input.UserPoolId).toBe(userPoolId);
 		expect(createCommand.input.MessageAction).toBe('SUPPRESS');
@@ -156,7 +156,7 @@ describe('CognitoAdminClient.createUser', () => {
 			]),
 		);
 
-		const setPwCommand = sendMock.mock.calls[1]![0]!;
+		const setPwCommand = sendMock.mock.calls[1]?.[0]!;
 		expect(setPwCommand._kind).toBe('AdminSetUserPassword');
 		expect(setPwCommand.input.Permanent).toBe(true);
 	});
@@ -178,8 +178,8 @@ describe('CognitoAdminClient.createUser', () => {
 		});
 
 		expect(sendMock).toHaveBeenCalledTimes(4);
-		const group1 = sendMock.mock.calls[2]![0]!;
-		const group2 = sendMock.mock.calls[3]![0]!;
+		const group1 = sendMock.mock.calls[2]?.[0]!;
+		const group2 = sendMock.mock.calls[3]?.[0]!;
 		expect(group1._kind).toBe('AdminAddUserToGroup');
 		expect(group1.input.GroupName).toBe('ops');
 		expect(group2.input.GroupName).toBe('admin');
@@ -243,7 +243,7 @@ describe('CognitoAdminClient.listUsersByEmailPrefix', () => {
 		const users = await client.listUsersByEmailPrefix('e2e-', 30);
 
 		expect(users).toHaveLength(2);
-		const cmd = sendMock.mock.calls[0]![0]!;
+		const cmd = sendMock.mock.calls[0]?.[0]!;
 		expect(cmd._kind).toBe('ListUsers');
 		expect(cmd.input.Filter).toBe('email ^= "e2e-"');
 		expect(cmd.input.Limit).toBe(30);

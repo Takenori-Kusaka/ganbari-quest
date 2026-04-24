@@ -27,7 +27,7 @@ export async function getAllEvents(tenantId: string): Promise<SeasonEvent[]> {
 }
 
 /** 現在開催中のイベント一覧 */
-async function getActiveEvents(tenantId: string): Promise<SeasonEvent[]> {
+async function _getActiveEvents(tenantId: string): Promise<SeasonEvent[]> {
 	const today = todayDateJST();
 	return findActiveEvents(today, tenantId);
 }
@@ -58,7 +58,7 @@ export async function joinEvent(childId: number, eventId: number, tenantId: stri
 }
 
 /** イベント進捗更新 */
-async function updateProgress(
+async function _updateProgress(
 	childId: number,
 	eventId: number,
 	progressJson: string,
@@ -87,6 +87,7 @@ export async function claimEventReward(
 }
 
 /** 活動記録時のイベントミッション進捗チェック */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 export async function checkEventMissionProgress(
 	childId: number,
 	tenantId: string,

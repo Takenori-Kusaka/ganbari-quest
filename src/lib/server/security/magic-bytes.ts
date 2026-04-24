@@ -43,6 +43,7 @@ function matchesSignature(data: Uint8Array, sig: MagicSignature): boolean {
  * バイナリデータからファイル形式を推定する
  * @returns 検出された MIME タイプ、または null（不明な形式）
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 export function detectMimeType(
 	data: Uint8Array | Buffer,
 	category: 'image' | 'audio',

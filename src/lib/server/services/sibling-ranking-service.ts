@@ -176,6 +176,7 @@ export async function getMonthlyRanking(tenantId: string): Promise<WeeklyRanking
 }
 
 /** 期間指定のきょうだいランキング（週次・月次共通ロジック） */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 async function getRankingForPeriod(
 	tenantId: string,
 	from: string,

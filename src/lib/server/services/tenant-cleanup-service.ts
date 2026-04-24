@@ -93,6 +93,7 @@ export async function deleteAllChildrenData(tenantId: string): Promise<number> {
  *
  * @returns 削除を試みた操作数（エラーを含む）
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 export async function deleteTenantScopedData(tenantId: string): Promise<number> {
 	let deleted = 0;
 	const r = repos();

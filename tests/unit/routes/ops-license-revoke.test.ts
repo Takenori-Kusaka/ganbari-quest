@@ -160,7 +160,7 @@ describe('#805 /ops/license/[key]/+page.server.ts revoke action', () => {
 		expect(result).toMatchObject({ revoked: true, reason: 'refund' });
 
 		expect(mockRevokeLicenseKey).toHaveBeenCalledTimes(1);
-		const arg = mockRevokeLicenseKey.mock.calls[0]![0]!;
+		const arg = mockRevokeLicenseKey.mock.calls[0]?.[0]!;
 		expect(arg.licenseKey).toBe('GQ-AAAA-BBBB-CCCC-XXX05');
 		expect(arg.reason).toBe('refund');
 		expect(arg.revokedBy).toBe('ops:u-ops-42');
@@ -180,7 +180,7 @@ describe('#805 /ops/license/[key]/+page.server.ts revoke action', () => {
 		});
 		if (!actions.revoke) throw new Error('revoke action missing');
 		await actions.revoke(ev);
-		const arg = mockRevokeLicenseKey.mock.calls[0]![0]!;
+		const arg = mockRevokeLicenseKey.mock.calls[0]?.[0]!;
 		expect(arg.licenseKey).toBe('GQ-LOWER-CASE-KEY-XXX06');
 	});
 });

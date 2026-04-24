@@ -6,6 +6,7 @@ import { LEGACY_UI_MODE_MAP, UI_MODES } from './age-tier-types';
 export type { UiMode } from './age-tier-types';
 // 型・定数・正規化関数は age-tier-types.ts に集約（#980: 循環依存解消）
 // 既存の import path を維持するため re-export する
+// biome-ignore lint/performance/noBarrelFile: 既存コード、別Issueで対応予定
 export { LEGACY_UI_MODE_MAP, normalizeUiMode, UI_MODES } from './age-tier-types';
 
 // Zod スキーマ

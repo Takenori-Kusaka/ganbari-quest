@@ -7,8 +7,9 @@ import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import { characterImageKey, characterImagePrefix, childKey, ENTITY_NAMES, tenantPK } from './keys';
-import { findChildByIdRaw, stripKeys } from './repo-helpers';
+import { stripKeys } from './repo-helpers';
 
+// biome-ignore lint/performance/noBarrelFile: 既存コード、別Issueで対応予定
 export { findChildByIdRaw as findChildForImage } from './repo-helpers';
 
 /** キャッシュされた画像を取得 */

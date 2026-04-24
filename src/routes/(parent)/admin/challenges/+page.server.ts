@@ -31,6 +31,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 	create: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const fd = await request.formData();

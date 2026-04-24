@@ -44,7 +44,7 @@ function extractSemanticTokens() {
 		else if (name.startsWith('--color-text')) categories['Text（文字）'].push({ name, value });
 		else if (name.startsWith('--color-feedback'))
 			categories['Feedback（フィードバック）'].push({ name, value });
-		else categories['その他'].push({ name, value });
+		else categories.その他.push({ name, value });
 	}
 
 	let md = '';
