@@ -55,6 +55,25 @@ services:
     profiles:
       - backup
 
+  # Cron scheduler service (#1375: NUC 統一スケジューラ)
+  # Enable: docker compose --profile scheduler up -d
+  # CRON_SECRET must be set in .env before enabling.
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.scheduler
+    environment:
+      - APP_URL=http://app:3000
+      - TZ=Asia/Tokyo
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      - app
+    restart: unless-stopped
+    profiles:
+      - scheduler
+
   # Optional: Caddy reverse proxy for HTTPS
   # Uncomment and create a Caddyfile to enable
   # caddy:
