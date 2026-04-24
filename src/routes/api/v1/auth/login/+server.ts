@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { OYAKAGI_LABELS } from '$lib/domain/labels';
 import {
 	loginSchema,
 	SESSION_COOKIE_NAME,
@@ -18,19 +19,16 @@ export const POST: RequestHandler = async ({ request, cookies, locals }) => {
 	const body = await request.json();
 	const parsed = loginSchema.safeParse(body);
 	if (!parsed.success) {
-		return validationError(parsed.error.issues[0]?.message ?? 'PINが不正です');
+		return validationError(parsed.error.issues[0]?.message ?? OYAKAGI_LABELS.formatError);
 	}
 
 	const result = await login(parsed.data.pin, tenantId);
 
 	if ('error' in result) {
 		if (result.error === 'LOCKED_OUT') {
-			return apiError('LOCKED_OUT', 'アカウントがロックされています');
+			return apiError('LOCKED_OUT', OYAKAGI_LABELS.lockedError);
 		}
-		if (result.error === 'PIN_NOT_SET') {
-			return apiError('INTERNAL_ERROR', 'PINが設定されていません');
-		}
-		return apiError('INVALID_PIN', 'PINがちがいます');
+		return apiError('INVALID_PIN', OYAKAGI_LABELS.invalidError);
 	}
 
 	cookies.set(SESSION_COOKIE_NAME, result.sessionToken, {

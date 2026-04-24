@@ -1,5 +1,6 @@
 <script lang="ts">
 import { formatChildName } from '$lib/domain/child-display';
+import { OYAKAGI_LABELS } from '$lib/domain/labels';
 
 let { data } = $props();
 
@@ -55,7 +56,7 @@ const childHomeUrl = $derived(firstChild ? `/${firstChild.uiMode}/home` : '/swit
 
 	<!-- PINヒント -->
 	<p class="text-[0.6875rem] text-[var(--color-neutral-400)] mt-2">
-		💡 管理画面の「せってい」からPINコードを設定すると、おやの画面を守れるよ
+		💡 管理画面の「せってい」から{OYAKAGI_LABELS.name}を変更すると、おやの画面を守れるよ。{OYAKAGI_LABELS.defaultValueHint}
 	</p>
 </div>
 

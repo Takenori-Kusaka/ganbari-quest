@@ -14,12 +14,12 @@ export const SESSION_MAX_AGE_SECONDS = 365 * SECONDS_PER_DAY;
 export const SESSION_REFRESH_THRESHOLD_MS = 30 * MS_PER_DAY;
 export const SESSION_COOKIE_NAME = 'sessionToken';
 
-// Zodスキーマ（PIN認証用 — 後方互換）
+// Zodスキーマ（おやカギコード認証用）
 export const pinSchema = z
 	.string()
-	.min(PIN_MIN_LENGTH, `PINは${PIN_MIN_LENGTH}桁以上です`)
-	.max(PIN_MAX_LENGTH, `PINは${PIN_MAX_LENGTH}桁以下です`)
-	.regex(/^\d+$/, 'PINは数字のみです');
+	.min(PIN_MIN_LENGTH, `おやカギコードは${PIN_MIN_LENGTH}桁以上です`)
+	.max(PIN_MAX_LENGTH, `おやカギコードは${PIN_MAX_LENGTH}桁以下です`)
+	.regex(/^\d+$/, 'おやカギコードは数字のみです');
 
 export const loginSchema = z.object({
 	pin: pinSchema,
