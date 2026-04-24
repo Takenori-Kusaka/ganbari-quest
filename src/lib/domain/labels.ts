@@ -2306,3 +2306,76 @@ export const PRICING_PAGE_LABELS = {
 	faqSelfHostA:
 		'はい。全機能を無料でお使いいただけるオープンソース版があります。DockerとNode.jsの基本的な知識が必要です。',
 } as const;
+
+// ============================================================
+// 同意ページ (#1452 Phase B)
+// ============================================================
+
+export const CONSENT_LABELS = {
+	// Page titles
+	titleUpdated: '規約に変更がありました',
+	titleNew: '規約への同意',
+
+	// Section headings
+	headingUpdated: '規約が更新されました',
+	descUpdated: 'サービスの利用を続けるには、更新された規約への同意が必要です。',
+	headingNew: '規約への同意',
+	descNew: 'サービスの利用を開始するには、規約への同意が必要です。',
+
+	// Previous consent info
+	previousConsentPrefix: '前回同意: ',
+	previousConsentArrow: ' → ',
+	previousConsentLatest: '最新: ',
+	previousConsentNone: '未同意',
+
+	// Terms
+	termsSectionTitle: '利用規約',
+	termsVersionPrefix: 'バージョン: ',
+	termsReadLink: '利用規約を確認する ↗',
+	termsCheckLabel: '利用規約に同意します',
+
+	// Privacy
+	privacySectionTitle: 'プライバシーポリシー',
+	privacyVersionPrefix: 'バージョン: ',
+	privacyReadLink: 'プライバシーポリシーを確認する ↗',
+	privacyCheckLabel: 'プライバシーポリシーに同意します',
+
+	// Submit button
+	submitLoading: '同意中...',
+	submitButton: '同意して続ける',
+} as const;
+
+// ============================================================
+// デモ版ベンチマーク管理ページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_STATUS_LABELS = {
+	ctaTitle: 'ベンチマークを自由に設定しませんか？',
+	ctaDesc: '登録すると、年齢別の目安値を自由に設定して成長レポートをカスタマイズできます。',
+	levelTitleLabel: '称号',
+	meanLabel: '平均',
+	sdLabel: 'SD',
+} as const;
+
+// ============================================================
+// Ops AWS費用ページ (#1452 Phase B)
+// ============================================================
+
+export const OPS_COSTS_LABELS = {
+	pageTitle: 'OPS - AWS費用',
+	prevMonthLink: '← 前月',
+	nextMonthLink: '翌月 →',
+	yearMonthDisplay: (year: number, month: number) => `${year}年${month}月`,
+	currentCostLabel: '当月 AWS 費用',
+	prevMonthDiffLabel: '前月比',
+	serviceCountLabel: 'サービス数',
+	serviceBreakdownTitle: 'サービス別費用内訳',
+	noCostData: '費用データがありません（AWS Cost Explorer API が利用不可、またはデータなし）',
+	colService: 'サービス',
+	colCostUsd: '費用 (USD)',
+	colCostJpy: '概算 (JPY)',
+	colRatio: '割合',
+	totalRow: '合計',
+	lastFetchedPrefix: '最終取得: ',
+	cacheNote: '（24時間キャッシュ、API費用: $0.01/リクエスト）',
+} as const;
