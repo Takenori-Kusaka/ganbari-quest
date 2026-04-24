@@ -50,7 +50,7 @@ export async function findChildById(id: number, tenantId: string) {
 }
 
 // Activity Logs
-async function findDailyLog(childId: number, activityId: number, date: string, tenantId: string) {
+async function _findDailyLog(childId: number, activityId: number, date: string, tenantId: string) {
 	return getRepos().activity.findDailyLog(childId, activityId, date, tenantId);
 }
 export async function findStreakLogs(childId: number, activityId: number, tenantId: string) {
@@ -87,7 +87,7 @@ export async function getTodayActivityCountsByChild(
 ) {
 	return getRepos().activity.getTodayActivityCountsByChild(childId, date, tenantId);
 }
-async function findTodayRecordedActivityIds(childId: number, today: string, tenantId: string) {
+async function _findTodayRecordedActivityIds(childId: number, today: string, tenantId: string) {
 	return getRepos().activity.findTodayRecordedActivityIds(childId, today, tenantId);
 }
 
@@ -98,10 +98,10 @@ export async function findDistinctRecordedDates(childId: number, tenantId: strin
 export async function countActiveActivityLogs(childId: number, tenantId: string) {
 	return getRepos().activity.countActiveActivityLogs(childId, tenantId);
 }
-async function getCategoryCountsByDate(childId: number, tenantId: string) {
+async function _getCategoryCountsByDate(childId: number, tenantId: string) {
 	return getRepos().activity.getCategoryCountsByDate(childId, tenantId);
 }
-async function countDistinctCategories(childId: number, tenantId: string) {
+async function _countDistinctCategories(childId: number, tenantId: string) {
 	return getRepos().activity.countDistinctCategories(childId, tenantId);
 }
 export async function findTodayLogsWithCategory(childId: number, date: string, tenantId: string) {
@@ -114,14 +114,14 @@ export async function getComboPointsGranted(
 ) {
 	return getRepos().activity.getComboPointsGranted(childId, descriptionPrefix, tenantId);
 }
-async function countActiveActivityLogsByCategory(
+async function _countActiveActivityLogsByCategory(
 	childId: number,
 	categoryId: number,
 	tenantId: string,
 ) {
 	return getRepos().activity.countActiveActivityLogsByCategory(childId, categoryId, tenantId);
 }
-async function countPointLedgerEntriesByType(childId: number, type: string, tenantId: string) {
+async function _countPointLedgerEntriesByType(childId: number, type: string, tenantId: string) {
 	return getRepos().activity.countPointLedgerEntriesByType(childId, type, tenantId);
 }
 

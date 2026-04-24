@@ -75,6 +75,7 @@ export class CognitoAuthProvider implements AuthProvider {
 	 * DynamoDB メンバーシップから Context を再発行
 	 * メンバーシップがなければ初回ログインとして自動プロビジョニングする
 	 */
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 	private async issueContextFromMembership(
 		event: RequestEvent,
 		identity: Identity,

@@ -11,9 +11,9 @@
 //   docker compose exec app node scripts/migrate-file-paths.cjs /app/data/ganbari-quest.db
 
 const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
+const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 
 // --- Config ---
 const args = process.argv.slice(2);

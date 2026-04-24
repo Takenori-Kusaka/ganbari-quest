@@ -123,7 +123,7 @@ $effect(() => {
 					</div>
 				</div>
 				{#if expandedPack === pack.packId && pack.activities?.length}
-					<div class="mt-3 pt-3 border-t border-[var(--color-border-default)]" onclick={(e) => e.stopPropagation()}>
+					<div class="mt-3 pt-3 border-t border-[var(--color-border-default)]">
 						<div class="grid grid-cols-2 gap-1">
 							{#each pack.activities as act}
 								<div class="flex items-center gap-1 text-xs text-[var(--color-text)] py-0.5">

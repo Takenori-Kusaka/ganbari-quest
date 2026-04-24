@@ -12,6 +12,7 @@ interface Props {
 
 let { eventId, rewardName, rewardIcon, rewardDescription, claimed, onClaimed }: Props = $props();
 
+// svelte-ignore state_referenced_locally
 let showOpening = $state(!claimed);
 let phase = $state<'gift' | 'reveal'>('gift');
 

@@ -79,7 +79,6 @@ describe('consent action (#708)', () => {
 	});
 
 	it('未認証ユーザーは 401 を返す', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: default is defined in actions
 		const result = await actions.default!(
 			createEvent(
 				{ agreedTerms: 'on', agreedPrivacy: 'on' },
@@ -91,7 +90,6 @@ describe('consent action (#708)', () => {
 	});
 
 	it('利用規約未同意で 400 を返す（リンク閲覧なしで submit された想定）', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: default is defined in actions
 		const result = await actions.default!(
 			createEvent({ agreedPrivacy: 'on' }) as unknown as Parameters<
 				NonNullable<typeof actions.default>
@@ -102,7 +100,6 @@ describe('consent action (#708)', () => {
 	});
 
 	it('プライバシーポリシー未同意で 400 を返す', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: default is defined in actions
 		const result = await actions.default!(
 			createEvent({ agreedTerms: 'on' }) as unknown as Parameters<
 				NonNullable<typeof actions.default>
@@ -114,7 +111,6 @@ describe('consent action (#708)', () => {
 
 	it('両方同意 → recordConsent 呼び出し + /admin リダイレクト', async () => {
 		const r = await captureRedirect(() =>
-			// biome-ignore lint/style/noNonNullAssertion: default is defined in actions
 			actions.default!(
 				createEvent({ agreedTerms: 'on', agreedPrivacy: 'on' }) as unknown as Parameters<
 					NonNullable<typeof actions.default>
@@ -134,7 +130,6 @@ describe('consent action (#708)', () => {
 
 	it('recordConsent 失敗時は 500 を返す', async () => {
 		mockRecordConsent.mockRejectedValueOnce(new Error('DynamoDB error'));
-		// biome-ignore lint/style/noNonNullAssertion: default is defined in actions
 		const result = await actions.default!(
 			createEvent({ agreedTerms: 'on', agreedPrivacy: 'on' }) as unknown as Parameters<
 				NonNullable<typeof actions.default>

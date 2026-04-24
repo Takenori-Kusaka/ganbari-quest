@@ -16,18 +16,30 @@ interface Props {
 
 let { activity, categoryDefs, logCount, onsaved, oncancel }: Props = $props();
 
+// svelte-ignore state_referenced_locally
 const parsed = splitIcon(activity.icon);
+// svelte-ignore state_referenced_locally
 let editName = $state(activity.name);
+// svelte-ignore state_referenced_locally
 let editCategoryId = $state(activity.categoryId);
+// svelte-ignore state_referenced_locally
 let editMainIcon = $state(parsed.main);
+// svelte-ignore state_referenced_locally
 let editSubIcon = $state(parsed.sub ?? '');
 const editIcon = $derived(joinIcon(editMainIcon, editSubIcon || null));
+// svelte-ignore state_referenced_locally
 let editPoints = $state(activity.basePoints);
+// svelte-ignore state_referenced_locally
 let editAgeMin = $state(activity.ageMin != null ? String(activity.ageMin) : '');
+// svelte-ignore state_referenced_locally
 let editAgeMax = $state(activity.ageMax != null ? String(activity.ageMax) : '');
+// svelte-ignore state_referenced_locally
 let editDailyLimit = $state<string>(activity.dailyLimit != null ? String(activity.dailyLimit) : '');
+// svelte-ignore state_referenced_locally
 let editNameKana = $state(activity.nameKana ?? '');
+// svelte-ignore state_referenced_locally
 let editNameKanji = $state(activity.nameKanji ?? '');
+// svelte-ignore state_referenced_locally
 let editTriggerHint = $state(activity.triggerHint ?? '');
 let deleteConfirmId = $state<number | null>(null);
 let actionMessage = $state('');

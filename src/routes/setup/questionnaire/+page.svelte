@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
+// svelte-ignore state_referenced_locally
 const firstChild = data.children[0];
 const childAge = firstChild?.age ?? 5;
 

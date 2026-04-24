@@ -105,6 +105,7 @@ let {
 	stripeEnabled = false,
 }: Props = $props();
 
+// svelte-ignore state_referenced_locally
 let welcomeVisible = $state(showPremiumWelcome);
 
 async function handleDismissWelcome() {
