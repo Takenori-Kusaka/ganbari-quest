@@ -59,14 +59,25 @@ test.describe('公開ルートアクセス', () => {
 // PIN 認証 API（ローカルモード専用）
 // ============================================================
 
-test.describe('PIN 認証 API（ローカルモード）', () => {
-	test.skip(isAwsEnv(), 'AWS 環境では PIN 認証 API は存在しない');
+// #1360: おやカギコード（旧 PIN コード）。DEFAULT_PIN='5086'。
+// global-setup が pin_hash=bcrypt('1234') で初期化するため、E2E では bcrypt パスを検証。
+// pin_hash=null 時の DEFAULT_PIN フォールバックは unit tests (auth-service.test.ts) でカバー済み。
+test.describe('おやカギコード認証 API（ローカルモード）', () => {
+	test.skip(isAwsEnv(), 'AWS 環境ではおやカギコード認証 API は存在しない');
 
-	test('ログイン API が 200 を返す（ローカルモードでは常に成功）', async ({ request }) => {
+	test('おやカギコード認証 API が正しいコードで 200 を返す（bcrypt パス）', async ({ request }) => {
+		// global-setup により pin_hash=bcrypt('1234') が初期化済み
 		const res = await request.post('/api/v1/auth/login', {
 			data: { pin: '1234' },
 		});
 		expect(res.status()).toBe(200);
+	});
+
+	test('おやカギコード認証 API が誤ったコードで 401 を返す', async ({ request }) => {
+		const res = await request.post('/api/v1/auth/login', {
+			data: { pin: '0000' },
+		});
+		expect(res.status()).toBe(401);
 	});
 
 	test('ログアウト API が 200 を返す', async ({ request }) => {
