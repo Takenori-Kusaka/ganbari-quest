@@ -16,6 +16,7 @@ import { authorizeCognito } from '../authorization';
 import { getContextMaxAge, signContext, verifyContext } from '../context-token';
 import type { AuthContext, AuthProvider, AuthResult, Identity } from '../types';
 import { verifyIdentityToken } from './cognito-jwt';
+import { refreshCognitoIdToken } from './cognito-oauth';
 
 export class CognitoAuthProvider implements AuthProvider {
 	/**
@@ -24,20 +25,41 @@ export class CognitoAuthProvider implements AuthProvider {
 	 */
 	async resolveIdentity(event: RequestEvent): Promise<Identity | null> {
 		const idToken = event.cookies.get(IDENTITY_COOKIE_NAME);
-		if (!idToken) return null;
 
+		if (idToken) {
+			try {
+				const claims = await verifyIdentityToken(idToken);
+				if (claims) {
+					return {
+						type: 'cognito',
+						userId: claims.sub,
+						email: claims.email,
+						groups: claims['cognito:groups'],
+					};
+				}
+			} catch (e) {
+				logger.warn('[AUTH] Identity token verification failed', {
+					context: { error: e instanceof Error ? e.message : String(e) },
+				});
+			}
+		}
+
+		// ID Token が期限切れ / 存在しない場合、Refresh Token でサイレントリフレッシュ (#1365)
 		try {
-			const claims = await verifyIdentityToken(idToken);
-			if (claims) {
-				return {
-					type: 'cognito',
-					userId: claims.sub,
-					email: claims.email,
-					groups: claims['cognito:groups'],
-				};
+			const refreshed = await refreshCognitoIdToken(event.cookies);
+			if (refreshed) {
+				const claims = await verifyIdentityToken(refreshed.idToken);
+				if (claims) {
+					return {
+						type: 'cognito',
+						userId: claims.sub,
+						email: claims.email,
+						groups: claims['cognito:groups'],
+					};
+				}
 			}
 		} catch (e) {
-			logger.warn('[AUTH] Identity token verification failed', {
+			logger.warn('[AUTH] Silent refresh failed', {
 				context: { error: e instanceof Error ? e.message : String(e) },
 			});
 		}
