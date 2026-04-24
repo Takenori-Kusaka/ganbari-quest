@@ -38,6 +38,7 @@ export async function markFocusModeStart(childId: number, tenantId: string): Pro
  * 2. 難易度優先 — basePoints が低い（=簡単な）活動を優先
  * 3. 日替わり — 日付ベースのハッシュで毎日異なる組み合わせ
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export function selectRecommendations(
 	activities: Activity[],
 	date: string,

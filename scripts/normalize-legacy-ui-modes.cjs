@@ -29,7 +29,7 @@
  */
 
 const Database = require('better-sqlite3');
-const path = require('path');
+const path = require('node:path');
 
 const DB_PATH = process.argv[2] || process.env.DB_PATH || path.join(__dirname, '..', 'ganbari.db');
 console.log(`[normalize-legacy-ui-modes] DB: ${DB_PATH}`);

@@ -7,6 +7,7 @@ import { LocalAuthProvider } from './providers/local';
 import type { AuthMode, AuthProvider } from './types';
 
 // Guard 関数は guards.ts に分離（DB 依存なし）。後方互換のため re-export。
+// biome-ignore lint/performance/noBarrelFile: 後方互換 re-export のため維持、削除は別 Issue で検討
 export { requireChildAccess, requireRole, requireTenantId } from './guards';
 
 let _provider: AuthProvider | null = null;

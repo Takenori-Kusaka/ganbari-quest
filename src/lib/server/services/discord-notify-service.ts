@@ -162,6 +162,7 @@ export async function notifyIncident(
 }
 
 /** お問い合わせ通知 */
+// biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function notifyInquiry(
 	tenantId: string,
 	category: string,

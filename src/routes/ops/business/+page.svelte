@@ -257,7 +257,7 @@ const progressColor = $derived(
 		border-top: 2px solid var(--color-border-default);
 	}
 
-	.bep-warning-card {
+	:global(.bep-warning-card) {
 		background-color: var(--color-surface-error);
 		border-color: var(--color-feedback-error-border);
 	}

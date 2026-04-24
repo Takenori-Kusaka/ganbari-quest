@@ -49,6 +49,7 @@ const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.curren
 const displayConfig = $derived(parseDisplayConfig(data.child?.displayConfig, data.child?.age ?? 4));
 
 // Tutorial hint banner (one-time, localStorage)
+// svelte-ignore state_referenced_locally
 const tutorialHintKey = `child_tutorial_hint_shown_${data.child?.id ?? 0}`;
 let showTutorialHint = $state(false);
 $effect(() => {
@@ -988,9 +989,6 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		margin-right: 4px;
 	}
 
-	details[open] .ranking-arrow {
-		transform: rotate(180deg);
-	}
 
 	/* Baby mode card animations */
 	:global(.baby-card-mission) {

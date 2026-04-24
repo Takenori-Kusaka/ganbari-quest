@@ -69,6 +69,7 @@ function deriveLicenseStatus(tenant: {
  *
  * @param options.dryRun - true なら削除実行せず件数のみ返す
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export async function cleanupExpiredData(
 	options: RetentionCleanupOptions = {},
 ): Promise<RetentionCleanupResult> {
