@@ -16,6 +16,7 @@ test.describe('チュートリアル全ステップ検証', () => {
 		});
 	});
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 	test('デスクトップ: 全ステップのスクリーンショット撮影と検証', async ({ page, browserName }) => {
 		test.skip(browserName !== 'chromium', 'デスクトップはChromiumのみ');
 		test.skip(test.info().project.name === 'mobile', 'デスクトップテストはtabletプロジェクトのみ');
@@ -171,6 +172,7 @@ test.describe('チュートリアル全ステップ検証', () => {
 		expect(stepNum, '少なくとも5ステップ以上あること').toBeGreaterThanOrEqual(5);
 	});
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 	test('モバイル: 全ステップのスクリーンショット撮影と検証', async ({ page, browserName }) => {
 		test.skip(browserName !== 'chromium', 'モバイルはChromiumのみ');
 		test.skip(test.info().project.name !== 'mobile', 'モバイルテストはmobileプロジェクトのみ');

@@ -196,7 +196,7 @@ describe('#802 /ops/license/issue issue action', () => {
 		expect((r as { keys: string[] }).keys).toHaveLength(3);
 
 		expect(mockIssueLicenseKey).toHaveBeenCalledTimes(3);
-		const firstCall = mockIssueLicenseKey.mock.calls[0]![0]!;
+		const firstCall = mockIssueLicenseKey.mock.calls[0]?.[0]!;
 		expect(firstCall.plan).toBe('monthly');
 		expect(firstCall.kind).toBe('campaign');
 		expect(firstCall.issuedBy).toBe('ops:u-ops-7');
@@ -216,7 +216,7 @@ describe('#802 /ops/license/issue issue action', () => {
 		});
 		if (!actions.issue) throw new Error('issue action missing');
 		await actions.issue(ev);
-		expect(mockIssueLicenseKey.mock.calls[0]![0]!.expiresAt).toBeNull();
+		expect(mockIssueLicenseKey.mock.calls[0]?.[0]?.expiresAt).toBeNull();
 	});
 
 	it('expiresAt="default" は undefined (service デフォルト 90 日)', async () => {
@@ -231,7 +231,7 @@ describe('#802 /ops/license/issue issue action', () => {
 		});
 		if (!actions.issue) throw new Error('issue action missing');
 		await actions.issue(ev);
-		expect(mockIssueLicenseKey.mock.calls[0]![0]!.expiresAt).toBeUndefined();
+		expect(mockIssueLicenseKey.mock.calls[0]?.[0]?.expiresAt).toBeUndefined();
 	});
 
 	it('tenantId 明示指定時はそれを使う', async () => {
@@ -246,7 +246,7 @@ describe('#802 /ops/license/issue issue action', () => {
 		});
 		if (!actions.issue) throw new Error('issue action missing');
 		await actions.issue(ev);
-		expect(mockIssueLicenseKey.mock.calls[0]![0]!.tenantId).toBe('campaign:hanami2026');
+		expect(mockIssueLicenseKey.mock.calls[0]?.[0]?.tenantId).toBe('campaign:hanami2026');
 	});
 
 	it('全件発行失敗 → 500', async () => {

@@ -81,7 +81,7 @@ const TENANT_SCOPED_PK_PREFIXES = [
 ];
 
 // These PKs are global and should NOT be migrated
-const GLOBAL_PK_PREFIXES = [
+const _GLOBAL_PK_PREFIXES = [
 	'CATEGORY#',
 	'ACHIEVEMENT#',
 	'TITLE#',
@@ -191,12 +191,13 @@ async function batchWrite(requests: WriteRequest[]): Promise<number> {
 // Migration: add tenant prefix
 // ============================================================
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 async function migrate(items: Record<string, unknown>[], tenantId: string) {
 	const toMigrate: { oldItem: Record<string, unknown>; newItem: Record<string, unknown> }[] = [];
 
 	for (const item of items) {
 		const pk = item.PK as string;
-		const sk = item.SK as string;
+		const _sk = item.SK as string;
 
 		// Skip already migrated or global items
 		if (isAlreadyMigrated(pk) || !isTenantScoped(pk)) {

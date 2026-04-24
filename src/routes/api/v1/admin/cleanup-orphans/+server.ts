@@ -35,6 +35,7 @@ interface CleanupResult {
 	orphanedFiles: string[];
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 async function detectAndCleanOrphans(dryRun: boolean): Promise<CleanupResult> {
 	const repos = getRepos();
 

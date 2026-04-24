@@ -113,7 +113,7 @@ function getDiff() {
 						`+++ b/${path}\n` +
 						`@@ -0,0 +1,${lineCount} @@\n`;
 					const body = lines.map((l) => `+${l}`).join('\n');
-					diff += header + body + '\n';
+					diff += `${header + body}\n`;
 				} catch (e) {
 					console.warn(`[check-new-required-env] could not read untracked ${path}: ${e.message}`);
 				}

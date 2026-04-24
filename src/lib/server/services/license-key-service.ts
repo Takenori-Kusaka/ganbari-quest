@@ -277,7 +277,7 @@ export async function issueLicenseKey(params: {
 export async function validateLicenseKey(
 	key: string,
 	/** #804: 監査ログ用コンテキスト (ip/ua/actor/tenant)。省略時は null で記録。 */
-	context?: {
+	_context?: {
 		actorId?: string | null;
 		tenantId?: string | null;
 		ip?: string | null;
@@ -427,7 +427,7 @@ function computePlanExpiresAt(
 export async function consumeLicenseKey(
 	key: string,
 	consumedByTenantId: string,
-	context?: { ip?: string | null; ua?: string | null },
+	_context?: { ip?: string | null; ua?: string | null },
 ): Promise<ConsumeLicenseKeyResult> {
 	const normalized = key.toUpperCase().trim();
 	const repos = getRepos();

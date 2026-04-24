@@ -228,6 +228,7 @@ function reasonLabel(r: string): string {
 	</div>
 {/if}
 
+<!-- svelte-ignore css_unused_selector -->
 <style>
 	.ops-table {
 		border-collapse: collapse;

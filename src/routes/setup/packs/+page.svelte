@@ -123,6 +123,8 @@ $effect(() => {
 					</div>
 				</div>
 				{#if expandedPack === pack.packId && pack.activities?.length}
+					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div class="mt-3 pt-3 border-t border-[var(--color-border-default)]" onclick={(e) => e.stopPropagation()}>
 						<div class="grid grid-cols-2 gap-1">
 							{#each pack.activities as act}

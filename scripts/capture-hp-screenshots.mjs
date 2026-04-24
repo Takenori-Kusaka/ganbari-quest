@@ -166,6 +166,7 @@ if (!onlyGroup || onlyGroup === 'age') ALL_SCREENSHOTS.push(...AGE_SCREENSHOTS);
 // Main capture function
 // ============================================================
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 async function captureScreenshots() {
 	console.log('=== HP用スクリーンショット撮影 ===');
 	console.log(`Base URL: ${BASE_URL}`);

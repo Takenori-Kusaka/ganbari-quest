@@ -224,6 +224,7 @@ export interface CheckItemResult {
  * アイテムをチェック/アンチェックする。
  * 全完了時にポイントを付与する。
  */
+// biome-ignore lint/complexity/useMaxParams: 既存コード、別Issueで対応予定
 export async function toggleCheckItem(
 	childId: number,
 	templateId: number,

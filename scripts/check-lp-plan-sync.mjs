@@ -213,6 +213,7 @@ function verifyAllPricesPolicy(html, ssot, checkYearlyPrice) {
  *   pricePolicy='all': 全プランの price が HTML に現れる必要（既定）
  *   pricePolicy='minPaid': 最低有料価格（standard の price）のみチェック（#1293: 価格プロミスバンド）
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 function verifyHtmlFile(
 	filePath,
 	ssot,
@@ -285,6 +286,7 @@ function verifyNoBannedTerms(filePath) {
 	return { rel, errors };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 function main() {
 	const ssot = parsePlanFeatures();
 

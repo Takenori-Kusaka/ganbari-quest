@@ -200,6 +200,7 @@ const progressColor = $derived(
 	</div>
 </div>
 
+<!-- svelte-ignore css_unused_selector -->
 <style>
 	.ops-kpi-label {
 		font-size: 0.75rem;

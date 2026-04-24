@@ -49,6 +49,7 @@ const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.curren
 const displayConfig = $derived(parseDisplayConfig(data.child?.displayConfig, data.child?.age ?? 4));
 
 // Tutorial hint banner (one-time, localStorage)
+// svelte-ignore state_referenced_locally
 const tutorialHintKey = `child_tutorial_hint_shown_${data.child?.id ?? 0}`;
 let showTutorialHint = $state(false);
 $effect(() => {
@@ -975,6 +976,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	/>
 {/if}
 
+<!-- svelte-ignore css_unused_selector -->
 <style>
 	.pending-dot {
 		display: inline-block;

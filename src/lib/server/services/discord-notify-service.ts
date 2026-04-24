@@ -162,6 +162,7 @@ export async function notifyIncident(
 }
 
 /** お問い合わせ通知 */
+// biome-ignore lint/complexity/useMaxParams: 既存コード、別Issueで対応予定
 export async function notifyInquiry(
 	tenantId: string,
 	category: string,

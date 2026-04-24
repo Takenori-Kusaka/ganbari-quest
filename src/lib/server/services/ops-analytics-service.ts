@@ -86,6 +86,7 @@ export function monthDiff(from: string, to: string): number {
 // Core computation (pure function — テスト容易)
 // ============================================================
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 export function computeAnalytics(
 	tenants: Tenant[],
 	now?: Date,

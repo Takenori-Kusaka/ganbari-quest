@@ -100,7 +100,35 @@
 			}
 		},
 		{
-			"includes": ["scripts/**/*.cjs", "scripts/**/*.mjs", "scripts/**/*.js"],
+			"includes": ["scripts/**/*.cjs", "scripts/**/*.mjs", "scripts/**/*.js", "scripts/**/*.ts"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["tests/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off",
+						"noNonNullAssertedOptionalChain": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": [
+				"src/lib/server/logger.ts",
+				"src/lib/server/db/client.ts",
+				"src/lib/server/db/seed.ts"
+			],
 			"linter": {
 				"rules": {
 					"suspicious": {

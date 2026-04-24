@@ -23,8 +23,9 @@ import {
 	pointLedgerPrefix,
 	tenantPK,
 } from './keys';
-import { findChildByIdRaw, stripKeys } from './repo-helpers';
+import { stripKeys } from './repo-helpers';
 
+// biome-ignore lint/performance/noBarrelFile: 既存コード、別Issueで対応予定
 export { findChildByIdRaw as findChildForMission } from './repo-helpers';
 
 /** 今日のミッション一覧（活動情報付き） */

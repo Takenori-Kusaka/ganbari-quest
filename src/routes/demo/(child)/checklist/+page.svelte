@@ -19,7 +19,9 @@ const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.curren
 
 // デモではローカル state でチェック ON/OFF を表現する。
 // SSR 時も data.checklists をそのまま初期値に使い、childId 切替時に $effect で再同期する。
+// svelte-ignore state_referenced_locally
 type DemoChecklist = (typeof data.checklists)[number];
+// svelte-ignore state_referenced_locally
 let localChecklists = $state<DemoChecklist[]>(structuredClone(data.checklists));
 
 $effect(() => {

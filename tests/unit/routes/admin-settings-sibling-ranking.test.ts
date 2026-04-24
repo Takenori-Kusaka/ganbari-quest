@@ -112,7 +112,6 @@ describe('POST /admin/settings?/updateSiblingSettings (#782)', () => {
 	});
 
 	it('free プランで ranking を ON にしようとすると 403 + upgradeRequired（PlanLimitError 形式 #787）', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: updateSiblingSettings is defined
 		const result = (await actions.updateSiblingSettings!(
 			createEvent('free', { siblingMode: 'both' }, true),
 		)) as {
@@ -135,7 +134,6 @@ describe('POST /admin/settings?/updateSiblingSettings (#782)', () => {
 	});
 
 	it('standard プランで ranking を ON にしようとすると 403 + upgradeRequired（PlanLimitError 形式 #787）', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: updateSiblingSettings is defined
 		const result = (await actions.updateSiblingSettings!(
 			createEvent('standard', { siblingMode: 'both' }, true),
 		)) as {
@@ -157,7 +155,6 @@ describe('POST /admin/settings?/updateSiblingSettings (#782)', () => {
 	});
 
 	it('family プランなら ranking を ON にできる', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: updateSiblingSettings is defined
 		const result = await actions.updateSiblingSettings!(
 			createEvent('family', { siblingMode: 'both' }, true),
 		);
@@ -167,7 +164,6 @@ describe('POST /admin/settings?/updateSiblingSettings (#782)', () => {
 	});
 
 	it('free プランで ranking OFF のままモードだけ更新する場合は成功する', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: updateSiblingSettings is defined
 		const result = await actions.updateSiblingSettings!(
 			createEvent('free', { siblingMode: 'cooperative' }, false),
 		);
@@ -177,7 +173,6 @@ describe('POST /admin/settings?/updateSiblingSettings (#782)', () => {
 	});
 
 	it('family プランでも ranking OFF を保存できる', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: updateSiblingSettings is defined
 		const result = await actions.updateSiblingSettings!(
 			createEvent('family', { siblingMode: 'competitive' }, false),
 		);
@@ -187,7 +182,6 @@ describe('POST /admin/settings?/updateSiblingSettings (#782)', () => {
 	});
 
 	it('不正な siblingMode は 400 を返す', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: updateSiblingSettings is defined
 		const result = await actions.updateSiblingSettings!(
 			createEvent('family', { siblingMode: 'invalid' }, true),
 		);

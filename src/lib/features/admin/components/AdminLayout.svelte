@@ -271,6 +271,7 @@ function isItemActive(itemHref: string): boolean {
 						<span class="text-[10px] ml-0.5 opacity-50" aria-hidden="true">▾</span>
 					</button>
 					{#if desktopExpandedCategory === category.id}
+						<!-- svelte-ignore a11y_interactive_supports_focus -->
 						<div
 							class="desktop-dropdown"
 							role="menu"

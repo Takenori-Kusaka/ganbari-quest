@@ -197,6 +197,7 @@ function handleClose() {
 	</div>
 </Dialog>
 
+<!-- svelte-ignore css_unused_selector -->
 <style>
 	.sp {
 		text-align: center;

@@ -126,6 +126,7 @@ function* walkFiles(dir) {
 	}
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 function main() {
 	console.log('=== 禁止語チェック ===\n');
 

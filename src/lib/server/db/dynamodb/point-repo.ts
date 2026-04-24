@@ -1,13 +1,7 @@
 // src/lib/server/db/dynamodb/point-repo.ts
 // DynamoDB implementation of IPointRepo
 
-import {
-	BatchWriteCommand,
-	GetCommand,
-	PutCommand,
-	QueryCommand,
-	UpdateCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { InsertPointLedgerInput, PointLedgerEntry } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
@@ -20,8 +14,9 @@ import {
 	pointLedgerPrefix,
 	tenantPK,
 } from './keys';
-import { batchDeleteItems, findChildByIdRaw, stripKeys } from './repo-helpers';
+import { batchDeleteItems, stripKeys } from './repo-helpers';
 
+// biome-ignore lint/performance/noBarrelFile: 既存コード、別Issueで対応予定
 export { findChildByIdRaw as findChildById } from './repo-helpers';
 
 /** ポイント残高を取得 */

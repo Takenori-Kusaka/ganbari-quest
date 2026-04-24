@@ -40,6 +40,7 @@ function calculateAge(birthDate: string): number {
 	return Math.max(0, Math.min(18, age));
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 既存コード、別Issueで対応予定
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const tenantId = requireTenantId(locals);
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;

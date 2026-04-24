@@ -785,7 +785,7 @@ const anyFormBusy = $derived(
 
 		<form method="POST" action="?/updateSiblingSettings" use:enhance class="space-y-4">
 			<div>
-				<label class="block text-sm font-semibold text-[var(--color-text)] mb-2">チャレンジモード</label>
+				<p class="block text-sm font-semibold text-[var(--color-text)] mb-2">チャレンジモード</p>
 				<div class="space-y-2">
 					{#each [
 						{ value: 'both', label: '協力＆競争（両方）', desc: '協力チャレンジと競争チャレンジの両方を利用' },
