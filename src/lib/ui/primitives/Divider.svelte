@@ -29,7 +29,6 @@ const spacingClasses: Record<string, string> = {
 {:else}
 	<hr
 		class="border-[var(--color-border-default)] {spacingClasses[spacing]} {className}"
-		role="separator"
 		{...rest}
 	/>
 {/if}

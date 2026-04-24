@@ -65,6 +65,7 @@ export async function listVoices(
 }
 
 /** ボイスをアップロード */
+// biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function uploadVoice(
 	childId: number,
 	tenantId: string,
@@ -133,7 +134,7 @@ export async function activateVoice(
 }
 
 /** ボイスを非アクティブに（ショップ音に戻す） */
-async function deactivateVoice(childId: number, scene: string, tenantId: string): Promise<void> {
+async function _deactivateVoice(childId: number, scene: string, tenantId: string): Promise<void> {
 	const voices = await getRepos().voice.findByChild(childId, scene, tenantId);
 	for (const v of voices) {
 		if (v.isActive === 1) {

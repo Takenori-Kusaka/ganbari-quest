@@ -117,6 +117,7 @@ export function scaleEnemyStats(baseStats: BattleStats, scaling: number): Battle
  * @param options バトルオプション
  * @returns バトル結果
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export function executeBattle(
 	playerStats: BattleStats,
 	enemyStats: BattleStats,

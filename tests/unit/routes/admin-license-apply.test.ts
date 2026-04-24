@@ -109,7 +109,6 @@ beforeEach(() => {
 describe('POST /admin/license?/applyLicenseKey (#796)', () => {
 	it('owner 以外は 403 エラーを投げる', async () => {
 		await expect(
-			// biome-ignore lint/style/noNonNullAssertion: applyLicenseKey is defined
 			actions.applyLicenseKey!(createEvent('parent', { licenseKey: 'GQ-AAAA-BBBB-CCCC' })),
 		).rejects.toMatchObject({ status: 403 });
 		expect(mockValidateLicenseKey).not.toHaveBeenCalled();
@@ -118,13 +117,11 @@ describe('POST /admin/license?/applyLicenseKey (#796)', () => {
 
 	it('child ロールも 403 エラー', async () => {
 		await expect(
-			// biome-ignore lint/style/noNonNullAssertion: applyLicenseKey is defined
 			actions.applyLicenseKey!(createEvent('child', { licenseKey: 'GQ-AAAA-BBBB-CCCC' })),
 		).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('空の licenseKey は 400 + エラーメッセージ', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: applyLicenseKey is defined
 		const result = await actions.applyLicenseKey!(createEvent('owner', { licenseKey: '' }));
 		expect(result).toMatchObject({ status: 400 });
 		expect(mockValidateLicenseKey).not.toHaveBeenCalled();
@@ -132,7 +129,6 @@ describe('POST /admin/license?/applyLicenseKey (#796)', () => {
 	});
 
 	it('空白のみの licenseKey は 400', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: applyLicenseKey is defined
 		const result = await actions.applyLicenseKey!(createEvent('owner', { licenseKey: '   ' }));
 		expect(result).toMatchObject({ status: 400 });
 	});
@@ -142,7 +138,6 @@ describe('POST /admin/license?/applyLicenseKey (#796)', () => {
 			valid: false,
 			reason: 'ライセンスキーの形式が不正です',
 		});
-		// biome-ignore lint/style/noNonNullAssertion: applyLicenseKey is defined
 		const result = await actions.applyLicenseKey!(createEvent('owner', { licenseKey: 'INVALID' }));
 		expect(result).toMatchObject({ status: 400 });
 		expect(mockConsumeLicenseKey).not.toHaveBeenCalled();
@@ -157,7 +152,6 @@ describe('POST /admin/license?/applyLicenseKey (#796)', () => {
 			ok: false,
 			reason: 'このライセンスキーは既に使用されています',
 		});
-		// biome-ignore lint/style/noNonNullAssertion: applyLicenseKey is defined
 		const result = await actions.applyLicenseKey!(
 			createEvent('owner', { licenseKey: 'GQ-AAAA-BBBB-CCCC' }),
 		);
@@ -175,7 +169,6 @@ describe('POST /admin/license?/applyLicenseKey (#796)', () => {
 			plan: 'monthly',
 			planExpiresAt: '2026-05-11T00:00:00Z',
 		});
-		// biome-ignore lint/style/noNonNullAssertion: applyLicenseKey is defined
 		const result = (await actions.applyLicenseKey!(
 			createEvent('owner', { licenseKey: 'GQ-AAAA-BBBB-CCCC' }),
 		)) as { apply: { success: boolean; plan: string; planExpiresAt: string } };
@@ -198,7 +191,6 @@ describe('POST /admin/license?/applyLicenseKey (#796)', () => {
 			plan: 'lifetime',
 			planExpiresAt: undefined,
 		});
-		// biome-ignore lint/style/noNonNullAssertion: applyLicenseKey is defined
 		const result = (await actions.applyLicenseKey!(
 			createEvent('owner', { licenseKey: 'GQ-AAAA-BBBB-CCCC' }),
 		)) as { apply: { success: boolean; plan: string } };
@@ -212,7 +204,6 @@ describe('POST /admin/license?/applyLicenseKey (#796)', () => {
 			record: { licenseKey: 'GQ-AAAA-BBBB-CCCC', plan: 'monthly', status: 'active' },
 		});
 		mockConsumeLicenseKey.mockRejectedValueOnce(new Error('DB connection lost'));
-		// biome-ignore lint/style/noNonNullAssertion: applyLicenseKey is defined
 		const result = await actions.applyLicenseKey!(
 			createEvent('owner', { licenseKey: 'GQ-AAAA-BBBB-CCCC' }),
 		);
@@ -229,7 +220,6 @@ describe('POST /admin/license?/applyLicenseKey (#796)', () => {
 			plan: 'monthly',
 			planExpiresAt: '2026-05-11T00:00:00Z',
 		});
-		// biome-ignore lint/style/noNonNullAssertion: applyLicenseKey is defined
 		await actions.applyLicenseKey!(createEvent('owner', { licenseKey: '  GQ-AAAA-BBBB-CCCC  ' }));
 		expect(mockValidateLicenseKey).toHaveBeenCalledWith('GQ-AAAA-BBBB-CCCC');
 		expect(mockConsumeLicenseKey).toHaveBeenCalledWith('GQ-AAAA-BBBB-CCCC', 't-test');
