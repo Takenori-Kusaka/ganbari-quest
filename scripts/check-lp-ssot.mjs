@@ -38,7 +38,7 @@ function hasSsotAttribute(line) {
 }
 
 function hasVisibleJpText(line) {
-	const textOnly = line.replace(/<[^>]+>/g, '').trim();
+	const textOnly = line.replace(/<[^<>]*>/g, '').trim();
 	return JP_REGEX.test(textOnly);
 }
 
