@@ -5,7 +5,7 @@
 // Docker: docker exec -w /app ganbari-quest-app-1 node scripts/update-compound-icons.cjs
 
 const Database = require('better-sqlite3');
-const path = require('path');
+const path = require('node:path');
 
 const DB_PATH = process.env.DATABASE_URL
 	? process.env.DATABASE_URL.replace('file:', '')

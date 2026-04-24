@@ -204,6 +204,7 @@ export const actions: Actions = {
 	 * 手動ログイン後の初回リクエストで hooks.server.ts が provisionNewUser を走らせるが、
 	 * その時点でも consent は未記録のままなので /consent 画面で明示的に同意してもらう。
 	 */
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 	confirm: async (event) => {
 		const { request, cookies, getClientAddress } = event;
 		const formData = await request.formData();

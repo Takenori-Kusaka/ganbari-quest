@@ -51,6 +51,7 @@ function getAlertWebhookUrl(): string | undefined {
 	return env.DISCORD_ALERT_WEBHOOK_URL ?? env.DISCORD_WEBHOOK_INCIDENT;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export async function sendDiscordAlert(options: AlertOptions): Promise<void> {
 	const webhookUrl = getAlertWebhookUrl();
 	if (!webhookUrl) return;

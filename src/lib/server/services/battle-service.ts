@@ -190,7 +190,7 @@ export async function executeDailyBattle(
 /**
  * 敵図鑑を取得する。
  */
-async function getEnemyCollection(childId: number, tenantId: string): Promise<CollectionEntry[]> {
+async function _getEnemyCollection(childId: number, tenantId: string): Promise<CollectionEntry[]> {
 	const rows = await findCollection(childId, tenantId);
 	return rows
 		.map((row: EnemyCollectionRow) => {
@@ -208,7 +208,7 @@ async function getEnemyCollection(childId: number, tenantId: string): Promise<Co
 /**
  * バトル履歴を取得する。
  */
-async function getBattleHistory(
+async function _getBattleHistory(
 	childId: number,
 	limit: number,
 	tenantId: string,

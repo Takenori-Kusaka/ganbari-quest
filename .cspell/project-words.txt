@@ -272,3 +272,28 @@ Takenori
 Kusaka
 Kaku
 omote
+
+# ===== ビジネス指標 =====
+ARPU
+arpu
+Arpu
+
+# ===== Web/UI 技術用語 =====
+describedby
+Signups
+signups
+oneclick
+lookback
+
+# ===== ライブラリ名 =====
+splide
+Splide
+
+# ===== コード内略語・複合語 =====
+notif
+TESTIDS
+Metas
+totaltime
+xlabel
+NOPQR
+hanami

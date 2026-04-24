@@ -155,6 +155,7 @@ export async function checkMissionCompletion(
 /**
  * ミッション生成（利用履歴ベースのアルゴリズム）
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 async function generateMissions(childId: number, date: string, tenantId: string): Promise<void> {
 	const child = await findChildForMission(childId, tenantId);
 	if (!child) return;

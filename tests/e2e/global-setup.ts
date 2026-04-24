@@ -8,6 +8,7 @@ import path from 'node:path';
 
 const DB_PATH = path.resolve('data/ganbari-quest.db');
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export default async function globalSetup() {
 	console.log('[E2E Setup] Checking test database...');
 

@@ -19,6 +19,7 @@ interface DeleteRequestBody {
 	newOwnerId?: string;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const context = locals.context;
 	const identity = locals.identity;

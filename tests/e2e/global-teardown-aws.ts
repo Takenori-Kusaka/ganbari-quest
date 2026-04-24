@@ -311,6 +311,7 @@ async function deleteDynamoDbTestData(
 }
 
 /** テナント配下の全データを削除（INVITE#/LICENSE# 含む） */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 async function cleanupTenantData(
 	doc: DocClient,
 	tableName: string,
