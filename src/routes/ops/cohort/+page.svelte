@@ -1,4 +1,5 @@
 <script lang="ts">
+import { OPS_COHORT_LABELS } from '$lib/domain/labels';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -22,7 +23,7 @@ function retentionColorClass(value: number | null): string {
 </script>
 
 <svelte:head>
-	<title>OPS - コホート分析</title>
+	<title>{OPS_COHORT_LABELS.pageTitle}</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
@@ -36,37 +37,37 @@ function retentionColorClass(value: number | null): string {
 			</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">月次解約率</div>
+			<div class="ops-kpi-label">{OPS_COHORT_LABELS.monthlyChurnRateLabel}</div>
 			<div class="text-[1.75rem] font-bold text-[var(--color-text)]">
 				{(analysis.monthlyChurnRate * 100).toFixed(1)}%
 			</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">理論値 LTV</div>
+			<div class="ops-kpi-label">{OPS_COHORT_LABELS.theoreticalLtvLabel}</div>
 			<div class="text-[1.75rem] font-bold text-[var(--color-text)]">
 				&yen;{analysis.theoreticalLtv.toLocaleString()}
 			</div>
-			<div class="text-xs text-[var(--color-text-muted)] mt-1">ARPU / 月次解約率</div>
+			<div class="text-xs text-[var(--color-text-muted)] mt-1">{OPS_COHORT_LABELS.theoreticalLtvNote}</div>
 		</Card>
 	</div>
 
 	<!-- コホート別リテンションカーブ（表形式） -->
 	<Card padding="lg">
 		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">
-			月次コホート別リテンション（過去{data.monthsBack}ヶ月）
+			{OPS_COHORT_LABELS.retentionTableTitle(data.monthsBack)}
 		</h2>
 		{#if cohorts.length === 0}
 			<p class="text-[var(--color-text-tertiary)] text-sm text-center p-8">
-				コホートデータがありません
+				{OPS_COHORT_LABELS.noDataMessage}
 			</p>
 		{:else}
 			<div class="overflow-x-auto">
 				<table class="ops-table">
 					<thead>
 						<tr>
-							<th>コホート</th>
-							<th class="ops-num">テナント数</th>
-							<th class="ops-num">有料</th>
+							<th>{OPS_COHORT_LABELS.colCohort}</th>
+							<th class="ops-num">{OPS_COHORT_LABELS.colTenantCount}</th>
+							<th class="ops-num">{OPS_COHORT_LABELS.colPaid}</th>
 							<th class="ops-num">Day 1</th>
 							<th class="ops-num">Day 7</th>
 							<th class="ops-num">Day 14</th>
@@ -83,7 +84,7 @@ function retentionColorClass(value: number | null): string {
 									{cohort.month}
 									{#if cohort.insufficientSample}
 										<Badge variant="neutral" size="sm">
-											サンプル不足
+											{OPS_COHORT_LABELS.insufficientSampleBadge}
 										</Badge>
 									{/if}
 								</td>
@@ -113,7 +114,7 @@ function retentionColorClass(value: number | null): string {
 	<!-- コホート別 LTV 比較 -->
 	<Card padding="lg">
 		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">
-			コホート別 LTV 比較
+			{OPS_COHORT_LABELS.ltvCompareTitle}
 		</h2>
 		<div class="flex flex-col gap-2">
 			{#each cohorts as cohort}
@@ -131,7 +132,7 @@ function retentionColorClass(value: number | null): string {
 					</div>
 					<span class="text-xs font-mono w-20 text-right shrink-0 text-[var(--color-text-primary)]">
 						{#if cohort.insufficientSample}
-							サンプル不足
+							{OPS_COHORT_LABELS.insufficientSampleBadge}
 						{:else}
 							&yen;{cohort.ltv.toLocaleString()}
 						{/if}
@@ -141,13 +142,13 @@ function retentionColorClass(value: number | null): string {
 		</div>
 		{#if analysis.theoreticalLtv > 0}
 			<div class="mt-4 text-xs text-[var(--color-text-muted)]">
-				理論値 LTV (ARPU/月次解約率): &yen;{analysis.theoreticalLtv.toLocaleString()}
+				{OPS_COHORT_LABELS.theoreticalLtvSummary(analysis.theoreticalLtv)}
 			</div>
 		{/if}
 	</Card>
 
 	<div class="text-xs text-[var(--color-text-muted)] text-right">
-		最終取得: {new Date(analysis.fetchedAt).toLocaleString('ja-JP')}
+		{OPS_COHORT_LABELS.lastFetchedPrefix}{new Date(analysis.fetchedAt).toLocaleString('ja-JP')}
 	</div>
 </div>
 

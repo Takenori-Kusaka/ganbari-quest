@@ -1,21 +1,22 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
+import { OPS_LAYOUT_LABELS } from '$lib/domain/labels';
 
 let { children }: { children: Snippet } = $props();
 </script>
 
 <div class="ops-layout">
 	<header class="ops-header">
-		<h1>がんばりクエスト 運営ダッシュボード</h1>
+		<h1>{OPS_LAYOUT_LABELS.headerTitle}</h1>
 		<nav>
-			<a href="/ops">KPI</a>
-			<a href="/ops/revenue">収益</a>
-			<a href="/ops/business">採算性</a>
-			<a href="/ops/costs">費用</a>
-			<a href="/ops/license">ライセンス</a>
-			<a href="/ops/analytics">分析</a>
-			<a href="/ops/cohort">コホート</a>
-			<a href="/ops/export">エクスポート</a>
+			<a href="/ops">{OPS_LAYOUT_LABELS.navKpi}</a>
+			<a href="/ops/revenue">{OPS_LAYOUT_LABELS.navRevenue}</a>
+			<a href="/ops/business">{OPS_LAYOUT_LABELS.navBusiness}</a>
+			<a href="/ops/costs">{OPS_LAYOUT_LABELS.navCosts}</a>
+			<a href="/ops/license">{OPS_LAYOUT_LABELS.navLicense}</a>
+			<a href="/ops/analytics">{OPS_LAYOUT_LABELS.navAnalytics}</a>
+			<a href="/ops/cohort">{OPS_LAYOUT_LABELS.navCohort}</a>
+			<a href="/ops/export">{OPS_LAYOUT_LABELS.navExport}</a>
 		</nav>
 	</header>
 	<main class="ops-main">

@@ -1,4 +1,5 @@
 <script lang="ts">
+import { APP_LABELS, DEMO_POINTS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
@@ -27,7 +28,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 </script>
 
 <svelte:head>
-	<title>ポイント管理 - がんばりクエスト デモ</title>
+	<title>{PAGE_TITLES.points}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-4">
@@ -59,14 +60,14 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 		<!-- Balance Card (matches production) -->
 		<Card padding="lg">
 			<div class="text-center">
-				<p class="text-xs text-[var(--color-text-tertiary)] mb-1">現在の{unit}残高</p>
+				<p class="text-xs text-[var(--color-text-tertiary)] mb-1">{DEMO_POINTS_LABELS.currentBalanceLabel(unit)}</p>
 				<p class="text-4xl font-bold text-[var(--color-feedback-warning-text)]">{fmtBal(selectedChild.balance)}</p>
 			</div>
 		</Card>
 
 		<!-- Convert Modes (disabled in demo, but shows the UI) -->
 		<Card>
-			<h3 class="text-sm font-bold text-[var(--color-text-primary)] mb-3">ポイント変換</h3>
+			<h3 class="text-sm font-bold text-[var(--color-text-primary)] mb-3">{DEMO_POINTS_LABELS.convertSectionTitle}</h3>
 			<div class="flex gap-2 mb-4">
 				<Button
 					variant="primary"
@@ -74,7 +75,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 					class="flex-1"
 					disabled
 				>
-					かんたん
+					{DEMO_POINTS_LABELS.modeSimple}
 				</Button>
 				<Button
 					variant="ghost"
@@ -82,7 +83,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 					class="flex-1 bg-[var(--color-surface-secondary)] text-[var(--color-text-tertiary)]"
 					disabled
 				>
-					自由入力
+					{DEMO_POINTS_LABELS.modeFreeInput}
 				</Button>
 				<Button
 					variant="ghost"
@@ -90,7 +91,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 					class="flex-1 bg-[var(--color-surface-secondary)] text-[var(--color-text-tertiary)]"
 					disabled
 				>
-					領収書OCR
+					{DEMO_POINTS_LABELS.modeOcr}
 				</Button>
 			</div>
 
@@ -115,7 +116,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 				class="w-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
 				disabled
 			>
-				デモでは変換できません
+				{DEMO_POINTS_LABELS.demoConvertDisabled}
 			</Button>
 		</Card>
 
@@ -123,13 +124,13 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 		<div class="grid grid-cols-2 gap-3">
 			<Card>
 				<div class="text-center">
-					<p class="text-xs text-[var(--color-text-tertiary)] mb-1">今月の変換合計</p>
+					<p class="text-xs text-[var(--color-text-tertiary)] mb-1">{DEMO_POINTS_LABELS.thisMonthConvertLabel}</p>
 					<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">{fmtBal(0)}</p>
 				</div>
 			</Card>
 			<Card>
 				<div class="text-center">
-					<p class="text-xs text-[var(--color-text-tertiary)] mb-1">累計変換合計</p>
+					<p class="text-xs text-[var(--color-text-tertiary)] mb-1">{DEMO_POINTS_LABELS.totalConvertLabel}</p>
 					<p class="text-xl font-bold text-[var(--color-stat-purple)]">{fmtBal(0)}</p>
 				</div>
 			</Card>
@@ -138,17 +139,17 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 
 	<!-- Explanation -->
 	<Card>
-		<h2 class="text-sm font-bold text-[var(--color-text-primary)] mb-2">ポイント変換について</h2>
+		<h2 class="text-sm font-bold text-[var(--color-text-primary)] mb-2">{DEMO_POINTS_LABELS.aboutTitle}</h2>
 		<ul class="text-xs text-[var(--color-text-muted)] space-y-1.5">
-			<li>&#x2022; お子さまが活動で貯めたポイントを、おこづかいに変換できます</li>
-			<li>&#x2022; 変換レートは設定画面で自由にカスタマイズ可能です</li>
-			<li>&#x2022; 3つの変換モード: かんたん / 自由入力 / 領収書OCR</li>
-			<li>&#x2022; 変換履歴も記録されるので、安心して管理できます</li>
+			<li>&#x2022; {DEMO_POINTS_LABELS.aboutNote1}</li>
+			<li>&#x2022; {DEMO_POINTS_LABELS.aboutNote2}</li>
+			<li>&#x2022; {DEMO_POINTS_LABELS.aboutNote3}</li>
+			<li>&#x2022; {DEMO_POINTS_LABELS.aboutNote4}</li>
 		</ul>
 	</Card>
 
 	<DemoCta
-		title="ポイントをおこづかいに変換しませんか？"
-		description="登録すると、ポイント変換やレート設定が自由にできます。"
+		title={DEMO_POINTS_LABELS.ctaTitle}
+		description={DEMO_POINTS_LABELS.ctaDesc}
 	/>
 </div>

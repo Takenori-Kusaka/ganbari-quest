@@ -3,6 +3,7 @@ import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { parseDisplayConfig } from '$lib/domain/display-config';
+import { APP_LABELS, CHILD_HOME_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
@@ -464,7 +465,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 </script>
 
 <svelte:head>
-	<title>ホーム - がんばりクエスト</title>
+	<title>{PAGE_TITLES.childHome}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-sm)] py-1">
@@ -591,7 +592,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 							class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] border-2 border-[var(--color-gold-400)] bg-[var(--color-gold-100)] shadow-[0_0_0_2px_rgba(251,191,36,0.3)] transition-all duration-150 ease-out tap-target"
 							data-testid="activity-card-{activity.id}"
 							data-tutorial={groupIdx === 0 && i === 0 ? 'activity-card' : undefined}
-							aria-label="{activity.displayName}（きろくずみ）"
+							aria-label={CHILD_HOME_LABELS.completedAriaLabel(activity.displayName)}
 						>
 							<span class="absolute inset-0 flex items-center justify-center text-3xl opacity-80 z-1 animate-bounce-in">💮</span>
 							<CompoundIcon icon={activity.icon} size="lg" faded={true} />
@@ -622,17 +623,17 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 								class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] border-2 border-solid bg-white shadow-sm cursor-pointer duration-150 ease-out hover:shadow-md active:scale-95 {pendingActivityId === activity.id ? 'baby-card-pending' : ''} {showMission ? 'baby-card-mission' : ''} {showMainQuest ? 'baby-card-main-quest' : ''}"
 								data-testid="activity-card-{activity.id}"
 								style="border-color: {showMainQuest ? 'var(--color-gold-500, #d97706)' : showMission ? 'gold' : borderColor}"
-								aria-label="{activity.displayName}をきろくする{showMainQuest ? '（メインクエスト×2）' : ''}{showMission ? '（ミッション）' : ''}"
+								aria-label="{CHILD_HOME_LABELS.babyCardRecordAriaLabel(activity.displayName)}{showMainQuest ? CHILD_HOME_LABELS.babyCardRecordMainQuestSuffix : ''}{showMission ? CHILD_HOME_LABELS.babyCardRecordMissionSuffix : ''}"
 							>
 								{#if showMission}
 									<span class="absolute -top-1.5 -left-1.5 z-10 text-sm baby-card__mission-star" aria-hidden="true">⭐</span>
 								{/if}
 								{#if showMainQuest}
-									<span class="baby-main-quest-badge" aria-hidden="true">⚔️ 2ばい!</span>
+									<span class="baby-main-quest-badge" aria-hidden="true">{CHILD_HOME_LABELS.babyCardMainQuestBadge}</span>
 								{/if}
 								{#if pendingActivityId === activity.id}
 									<span class="baby-card__spinner" aria-hidden="true"></span>
-									<span class="text-[10px] font-bold leading-tight text-center line-clamp-2">まってね！</span>
+									<span class="text-[10px] font-bold leading-tight text-center line-clamp-2">{CHILD_HOME_LABELS.babyCardPendingText}</span>
 								{:else}
 									{#if actCount > 0}
 										<span class="absolute -top-1 -right-1 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-brand-600)] text-white text-[10px] font-bold shadow-sm">{actCount}</span>
@@ -694,9 +695,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{#if pinSubmitting}
 					<span class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
 				{:else if pinMenuActivity.isPinned}
-					📌 ピンどめをはずす
+					{CHILD_HOME_LABELS.pinActionUnpin}
 				{:else}
-					📌 ピンどめする
+					{CHILD_HOME_LABELS.pinActionPin}
 				{/if}
 			</Button>
 			<Button
@@ -705,7 +706,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				class="w-full text-[var(--color-text-muted)]"
 				onclick={() => { pinMenuOpen = false; pinMenuActivity = null; }}
 			>
-				とじる
+				{CHILD_HOME_LABELS.pinCloseButton}
 			</Button>
 		</div>
 	{/if}
@@ -718,7 +719,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{#if selectedActivity}
 		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center">
 			<CompoundIcon icon={selectedActivity.icon} size="xl" />
-			<p class="text-lg font-bold">{selectedActivity.displayName ?? selectedActivity.name}を<br />きろくする？</p>
+			<p class="text-lg font-bold">{CHILD_HOME_LABELS.confirmTitleBr(selectedActivity.displayName ?? selectedActivity.name)}<br />{CHILD_HOME_LABELS.confirmTitleBrLine2}</p>
 			<div class="flex gap-[var(--sp-sm)] w-full">
 				<Button
 					variant="ghost"
@@ -728,7 +729,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					disabled={submitting}
 					onclick={handleConfirmClose}
 				>
-					やめる
+					{CHILD_HOME_LABELS.confirmCancelButton}
 				</Button>
 				<form
 					method="POST"
@@ -755,9 +756,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					>
 						{#if submitting}
 							<span class="pending-dot" aria-hidden="true"></span>
-							まってね！
+							{CHILD_HOME_LABELS.confirmSubmitLoading}
 						{:else}
-							きろく！
+							{CHILD_HOME_LABELS.confirmSubmitButton}
 						{/if}
 					</Button>
 				</form>
@@ -772,8 +773,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{#if resultData}
 		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center py-[var(--sp-md)]">
 			{#if cancelledMessage}
-				<span class="text-5xl">↩️</span>
-				<p class="text-lg font-bold">とりけしました</p>
+				<span class="text-5xl">{CHILD_HOME_LABELS.resultCancelledIcon}</span>
+				<p class="text-lg font-bold">{CHILD_HOME_LABELS.resultCancelledTitle}</p>
 				<Button
 					variant="ghost"
 					size="md"
@@ -785,35 +786,35 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 						invalidateAll();
 					}}
 				>
-					とじる
+					{CHILD_HOME_LABELS.resultCancelledClose}
 				</Button>
 			{:else}
 				<div class="relative w-24 h-24 flex items-center justify-center">
 					<CelebrationEffect type={celebEffect} />
 				</div>
 				{#if isFirstRecord}
-					<p class="text-lg font-bold text-[var(--theme-accent)]">🌟 はじめての いっぽ！ 🌟</p>
-					<p class="text-sm font-bold">{resultData.activityName}をきろくしたよ！</p>
+					<p class="text-lg font-bold text-[var(--theme-accent)]">{CHILD_HOME_LABELS.resultFirstRecord}</p>
+					<p class="text-sm font-bold">{CHILD_HOME_LABELS.resultActivityRecorded(resultData.activityName)}</p>
 				{:else}
-					<p class="text-lg font-bold">{resultData.activityName}をきろくしたよ！</p>
+					<p class="text-lg font-bold">{CHILD_HOME_LABELS.resultActivityRecorded(resultData.activityName)}</p>
 				{/if}
 				<div class="animate-point-pop">
 					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.totalPoints)}</p>
 				</div>
 				{#if resultData.streakDays >= 2}
 					<p class="text-sm text-[var(--theme-accent)]">
-						{resultData.streakDays}にちれんぞく！ +{resultData.streakBonus}ボーナス
+						{CHILD_HOME_LABELS.resultStreakBonus(resultData.streakDays, resultData.streakBonus)}
 					</p>
 				{/if}
 				{#if resultData.masteryBonus > 0}
 					<p class="text-sm text-[var(--color-stat-purple)]">
-						📗 なれてきたボーナス +{resultData.masteryBonus} (Lv.{resultData.masteryLevel})
+						{CHILD_HOME_LABELS.resultMasteryBonus(resultData.masteryBonus, resultData.masteryLevel)}
 					</p>
 				{/if}
 				{#if resultData.masteryLeveledUp}
 					<div class="bg-[var(--color-stat-purple-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
 						<p class="text-sm font-bold text-[var(--color-stat-purple)]">
-							🎖️ {resultData.activityName}が Lv.{resultData.masteryLeveledUp.newLevel} になった！
+							{CHILD_HOME_LABELS.resultMasteryLevelUp(resultData.activityName, resultData.masteryLeveledUp.newLevel)}
 						</p>
 					</div>
 				{/if}
@@ -821,12 +822,12 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
 						{#each resultData.comboBonus.categoryCombo as cc}
 							<p class="text-sm font-bold text-[var(--theme-accent)]">
-								{cc.name}コンボ！（{getCategoryById(cc.categoryId)?.name ?? ''}） {fmtPts(cc.bonus)}
+								{CHILD_HOME_LABELS.resultComboCategoryCombo(cc.name, getCategoryById(cc.categoryId)?.name ?? '')} {fmtPts(cc.bonus)}
 							</p>
 						{/each}
 						{#if resultData.comboBonus.crossCategoryCombo}
 							<p class="text-sm font-bold text-[var(--color-point)]">
-								{resultData.comboBonus.crossCategoryCombo.name}！ {fmtPts(resultData.comboBonus.crossCategoryCombo.bonus)}
+								{resultData.comboBonus.crossCategoryCombo.name + CHILD_HOME_LABELS.crossComboBang} {fmtPts(resultData.comboBonus.crossCategoryCombo.bonus)}
 							</p>
 						{/if}
 					</div>
@@ -834,13 +835,13 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{#if missionResult}
 					<div class="bg-[var(--color-feedback-warning-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
 						<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">
-							🎯 ミッションたっせい！
+							{CHILD_HOME_LABELS.resultMissionComplete}
 							{#if missionResult.bonusAwarded > 0}
 								{fmtPts(missionResult.bonusAwarded)}
 							{/if}
 						</p>
 						{#if missionResult.allComplete}
-							<p class="text-xs font-bold text-[var(--color-feedback-warning-text)]">🎉 ぜんぶクリア！</p>
+							<p class="text-xs font-bold text-[var(--color-feedback-warning-text)]">{CHILD_HOME_LABELS.resultMissionAllClear}</p>
 						{/if}
 					</div>
 				{/if}
@@ -849,7 +850,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					{@const catDef = getCategoryById(xpGainData.categoryId)}
 					<div class="mt-1 text-center text-xs text-[var(--color-text-muted)] border-t border-[var(--color-border-light)] pt-2 w-full">
 						<span style:color={catDef?.color ?? 'inherit'}>{xpGainData.categoryName}</span>
-						けいけんち
+						{CHILD_HOME_LABELS.resultXpLabel}
 						<span class="font-bold text-[var(--color-text)]">+0.3</span>
 						{#if xpGainData.levelAfter > xpGainData.levelBefore}
 							<span class="font-bold text-[var(--color-feedback-warning-text)]"> → Lv.{xpGainData.levelAfter} ↑</span>
@@ -857,10 +858,10 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					</div>
 				{/if}
 
-				<p class="text-xs text-[var(--color-text-muted)]">きょう {todayTotalCount + 1}かいめ！</p>
+				<p class="text-xs text-[var(--color-text-muted)]">{CHILD_HOME_LABELS.resultTodayCount(todayTotalCount + 1)}</p>
 				{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
 					<p class="text-xs text-[var(--color-text-muted)]">
-						🎁 あと<strong class="text-[var(--color-point)]">{Math.max(data.specialRewardProgress.remaining - 1, 0)}</strong>かいで とくべつごほうび！
+						{CHILD_HOME_LABELS.resultSpecialRewardRemaining(Math.max(data.specialRewardProgress.remaining - 1, 0))}
 					</p>
 				{/if}
 
@@ -889,7 +890,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 								data-testid="activity-cancel-btn"
 								class="w-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)]"
 							>
-								とりけし ({cancelCountdown}s)
+								{CHILD_HOME_LABELS.resultCancelButton(cancelCountdown)}
 							</Button>
 						</form>
 					{/if}
@@ -900,7 +901,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 						data-testid="activity-confirm-btn"
 						onclick={handleResultClose}
 					>
-						やったね！
+						{CHILD_HOME_LABELS.resultConfirmButton}
 					</Button>
 				</div>
 			{/if}

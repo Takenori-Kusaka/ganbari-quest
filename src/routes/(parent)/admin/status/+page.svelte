@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { APP_LABELS, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/status';
 import { SuccessAlert } from '$lib/ui/components';
@@ -83,7 +84,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 </script>
 
 <svelte:head>
-	<title>ベンチマーク管理 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.statusBenchmark}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -92,7 +93,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 			href="/admin/children"
 			class="text-sm text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] font-bold"
 		>
-			こども管理でステータス編集 →
+			{STATUS_LABELS.childrenEditLink}
 		</a>
 	</div>
 
@@ -100,7 +101,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 	{#if previewChild?.status}
 		<Card>
 			<h3 class="text-lg font-bold text-[var(--color-text)] mb-3">
-				📊 {previewChild.nickname}の成長レポート
+				{STATUS_LABELS.growthReportTitle(previewChild.nickname)}
 			</h3>
 
 			<!-- ベンチマーク比較レーダーチャート (G7) -->
@@ -108,17 +109,17 @@ let levelTitleInputs: Record<number, string> = $state({});
 				<RadarChart
 					categories={previewRadarCategories}
 					comparisonValues={previewChild.benchmarkValues}
-					comparisonLabel="同年齢の平均"
+					comparisonLabel={STATUS_LABELS.comparisonLabel}
 					size={280}
 				/>
 			</div>
 			<p class="text-xs text-[var(--color-text-muted)] text-center mb-4">
-				※ 参考値です。お子さまの個性やペースを大切にしてください
+				{STATUS_LABELS.radarChartNote}
 			</p>
 
 			<!-- 分析サマリー (G8) -->
 			<div class="bg-[var(--color-surface-muted)] rounded-lg p-3 mb-4">
-				<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">📋 分析サマリー</h4>
+				<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">{STATUS_LABELS.analysisSummaryTitle}</h4>
 				<div class="space-y-1">
 					{#each CATEGORY_DEFS as catDef (catDef.id)}
 						{@const stat = previewChild.status?.statuses[catDef.id]}
@@ -138,7 +139,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 			{#if previewChild.monthlyComparison}
 				{@const mc = previewChild.monthlyComparison}
 				<div class="bg-[var(--color-surface-muted)] rounded-lg p-3">
-					<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">📈 先月からの変化</h4>
+					<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">{STATUS_LABELS.monthlyChangeTitle}</h4>
 					<div class="space-y-1">
 						{#each CATEGORY_DEFS as catDef (catDef.id)}
 							{@const change = mc.changes[catDef.id] ?? 0}
@@ -167,18 +168,18 @@ let levelTitleInputs: Record<number, string> = $state({});
 			class="w-full flex items-center justify-between p-4 text-left hover:bg-[var(--color-surface-muted)]"
 			onclick={() => { showLevelTitles = !showLevelTitles; }}
 		>
-			<h3 class="text-lg font-bold text-[var(--color-text)]">🏷️ レベル称号カスタマイズ</h3>
-			<span class="text-[var(--color-text-muted)] text-sm">{showLevelTitles ? '▲ 閉じる' : '▼ 開く'}</span>
+			<h3 class="text-lg font-bold text-[var(--color-text)]">{STATUS_LABELS.levelTitleSectionTitle}</h3>
+			<span class="text-[var(--color-text-muted)] text-sm">{showLevelTitles ? STATUS_LABELS.levelTitleCloseLabel : STATUS_LABELS.levelTitleOpenLabel}</span>
 		</Button>
 
 		{#if showLevelTitles}
 			<div class="px-4 pb-4 space-y-3">
 				<p class="text-xs text-[var(--color-text-muted)]">
-					各レベルの称号を家庭オリジナルに変更できます。空欄にするとデフォルトに戻ります。
+					{STATUS_LABELS.levelTitleDesc}
 				</p>
 
 				{#if levelTitleSuccess}
-					<SuccessAlert message="称号を更新しました" />
+					<SuccessAlert message={STATUS_LABELS.levelTitleSaveSuccess} />
 				{/if}
 
 				{#each data.levelTitles as lt (lt.level)}
@@ -220,7 +221,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 									size="sm"
 									class="bg-[var(--color-stat-purple)] hover:brightness-110 text-xs whitespace-nowrap"
 								>
-									保存
+									{STATUS_LABELS.levelTitleSaveButton}
 								</Button>
 							</form>
 						</div>
@@ -245,9 +246,9 @@ let levelTitleInputs: Record<number, string> = $state({});
 									variant="ghost"
 									size="sm"
 									class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-feedback-error-text)] whitespace-nowrap"
-									title="デフォルトに戻す"
+									title={STATUS_LABELS.levelTitleResetTooltip}
 								>
-									リセット
+									{STATUS_LABELS.levelTitleResetButton}
 								</Button>
 							</form>
 						{/if}
@@ -277,7 +278,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 							size="sm"
 							class="text-sm text-[var(--color-feedback-error-text)] hover:brightness-75"
 						>
-							全ての称号をデフォルトに戻す
+							{STATUS_LABELS.levelTitleResetAllButton}
 						</Button>
 					</form>
 				{/if}
@@ -288,17 +289,17 @@ let levelTitleInputs: Record<number, string> = $state({});
 	<div>
 		<!-- 機能説明 -->
 		<div class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-lg p-3 mb-4 text-sm text-[var(--color-feedback-info-text)]">
-			<p class="font-bold mb-1">ベンチマークとは？</p>
+			<p class="font-bold mb-1">{STATUS_LABELS.benchmarkInfoTitle}</p>
 			<p>
-				子供のステータスを「同じ年齢の目安値」と比べて偏差値を計算するためのデータです。
-				設定すると、子供画面に「みんなよりすごい！」などの比較メッセージが表示されます。
+				{STATUS_LABELS.benchmarkInfoDesc1}
+				{STATUS_LABELS.benchmarkInfoDesc2}
 			</p>
 		</div>
 
 		<!-- プレビュー用の子供選択 -->
 		{#if data.children.length > 0}
 			<div class="flex items-center gap-2 mb-4">
-				<span class="text-xs text-[var(--color-text-muted)]">プレビュー:</span>
+				<span class="text-xs text-[var(--color-text-muted)]">{STATUS_LABELS.previewLabel}</span>
 				<div class="flex gap-1 flex-wrap">
 					{#each data.children as child (child.id)}
 						<Button
@@ -325,25 +326,25 @@ let levelTitleInputs: Record<number, string> = $state({});
 					class="text-xs whitespace-nowrap {benchmarkAge === age ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text)] border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}"
 					onclick={() => { benchmarkAge = age; benchmarkSuccess = false; bmInputMean = {}; bmInputSd = {}; }}
 				>
-					{age}歳
+					{age + '歳'}
 				</Button>
 			{/each}
 		</div>
 
 		<!-- 年齢別参考値ガイド -->
 		<p class="text-xs text-[var(--color-text-muted)] mb-4">
-			{benchmarkAge}歳の目安: 平均 {guideMeanLow}〜{guideMeanHigh} XP、SD {guideSdLow}〜{guideSdHigh}（XPベース）
+			{STATUS_LABELS.benchmarkGuide(benchmarkAge, guideMeanLow, guideMeanHigh, guideSdLow, guideSdHigh)}
 		</p>
 
 		<!-- 未設定警告 -->
 		{#if hasUnsetBenchmarks}
 			<div class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 text-sm text-[var(--color-feedback-warning-text)] mb-4">
-				{benchmarkAge}歳のベンチマークが未設定のカテゴリがあります。設定すると子供画面の比較メッセージが正しく機能します。
+				{STATUS_LABELS.benchmarkUnsetWarning(benchmarkAge)}
 			</div>
 		{/if}
 
 		{#if benchmarkSuccess}
-			<SuccessAlert message="ベンチマークを更新しました" />
+			<SuccessAlert message={STATUS_LABELS.benchmarkSaveSuccess} />
 		{/if}
 
 		<div class="flex flex-col gap-3">
@@ -372,7 +373,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 					<div class="flex items-end gap-3 flex-wrap">
 						<span class="text-lg self-center">{catDef.icon}</span>
 						<span class="font-bold text-[var(--color-text)] w-24 self-center">{catDef.name}</span>
-						<FormField label="平均（目安値）" class="w-24">
+						<FormField label={STATUS_LABELS.meanLabel} class="w-24">
 							{#snippet children()}
 								<input
 									type="number"
@@ -385,7 +386,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 								/>
 							{/snippet}
 						</FormField>
-						<FormField label="SD（ばらつき）" class="w-24">
+						<FormField label={STATUS_LABELS.sdLabel} class="w-24">
 							{#snippet children()}
 								<input
 									type="number"
@@ -404,7 +405,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 							size="sm"
 							class="text-xs"
 						>
-							保存
+							{STATUS_LABELS.benchmarkSaveButton}
 						</Button>
 					</div>
 
@@ -416,7 +417,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 							{@const deviation = calcDeviationScore(childVal, inputMean, inputSd)}
 							{@const label = getComparisonLabel(deviation)}
 							<p class="text-xs text-[var(--color-text-muted)] mt-2 ml-8">
-								{previewChild.nickname}: 偏差値 {deviation}（{label.emoji} {label.text}）
+								{STATUS_LABELS.deviationPreview(previewChild.nickname, deviation, label.emoji, label.text)}
 							</p>
 						{/if}
 					{/if}

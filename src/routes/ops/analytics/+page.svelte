@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getPlanLabel } from '$lib/domain/labels';
+import { getPlanLabel, OPS_ANALYTICS_LABELS } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
@@ -7,38 +7,38 @@ const a = $derived(data.analytics);
 </script>
 
 <svelte:head>
-	<title>OPS - 分析基盤</title>
+	<title>{OPS_ANALYTICS_LABELS.pageTitle}</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
 <div class="flex flex-col gap-8">
 	<div class="text-xs text-[var(--color-text-muted)] text-right">
-		{new Date(a.fetchedAt).toLocaleString('ja-JP')} 時点
+		{OPS_ANALYTICS_LABELS.fetchedAt(new Date(a.fetchedAt).toLocaleString('ja-JP'))}
 	</div>
 
 	<!-- LTV KPI カード -->
 	<section>
-		<h2 class="ops-section-title">LTV 推計</h2>
+		<h2 class="ops-section-title">{OPS_ANALYTICS_LABELS.ltvSectionTitle}</h2>
 		<div class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
 			<Card padding="none" class="p-5 text-center">
-				<div class="ops-kpi-label">推定 LTV</div>
+				<div class="ops-kpi-label">{OPS_ANALYTICS_LABELS.ltvEstimatedLabel}</div>
 				<div class="ops-kpi-value">¥{a.ltv.estimatedLtv.toLocaleString()}</div>
-				<div class="text-xs text-[var(--color-text-muted)] mt-1">= ARPU x 平均継続月</div>
+				<div class="text-xs text-[var(--color-text-muted)] mt-1">{OPS_ANALYTICS_LABELS.ltvEstimatedNote}</div>
 			</Card>
 			<Card padding="none" class="p-5 text-center">
-				<div class="ops-kpi-label">月次 ARPU</div>
+				<div class="ops-kpi-label">{OPS_ANALYTICS_LABELS.ltvArpuLabel}</div>
 				<div class="ops-kpi-value">¥{a.ltv.monthlyArpu.toLocaleString()}</div>
-				<div class="text-xs text-[var(--color-text-muted)] mt-1">有料会員 {a.ltv.activeSubscribers} 名</div>
+				<div class="text-xs text-[var(--color-text-muted)] mt-1">{OPS_ANALYTICS_LABELS.ltvArpuNote(a.ltv.activeSubscribers)}</div>
 			</Card>
 			<Card padding="none" class="p-5 text-center">
-				<div class="ops-kpi-label">平均継続月数</div>
+				<div class="ops-kpi-label">{OPS_ANALYTICS_LABELS.ltvAvgMonthsLabel}</div>
 				<div class="ops-kpi-value">{a.ltv.avgLifetimeMonths}</div>
-				<div class="text-xs text-[var(--color-text-muted)] mt-1">ヶ月</div>
+				<div class="text-xs text-[var(--color-text-muted)] mt-1">{OPS_ANALYTICS_LABELS.ltvAvgMonthsUnit}</div>
 			</Card>
 			<Card padding="none" class="p-5 text-center">
-				<div class="ops-kpi-label">チャーンレート</div>
+				<div class="ops-kpi-label">{OPS_ANALYTICS_LABELS.ltvChurnRateLabel}</div>
 				<div class="ops-kpi-value">{a.ltv.churnRate}%</div>
-				<div class="text-xs text-[var(--color-text-muted)] mt-1">解約 {a.ltv.churned} 件</div>
+				<div class="text-xs text-[var(--color-text-muted)] mt-1">{OPS_ANALYTICS_LABELS.ltvChurnedNote(a.ltv.churned)}</div>
 			</Card>
 		</div>
 	</section>
@@ -47,20 +47,20 @@ const a = $derived(data.analytics);
 	{#if a.planBreakdown.length > 0}
 		<section>
 			<Card padding="lg">
-				<h2 class="ops-section-title m-0 mb-4">プラン別 MRR 内訳</h2>
+				<h2 class="ops-section-title m-0 mb-4">{OPS_ANALYTICS_LABELS.planBreakdownTitle}</h2>
 				<table class="ops-table">
 					<thead>
 						<tr>
-							<th>プラン</th>
-							<th class="ops-num">テナント数</th>
-							<th class="ops-num">MRR</th>
-							<th class="ops-num">割合</th>
+							<th>{OPS_ANALYTICS_LABELS.planColPlan}</th>
+							<th class="ops-num">{OPS_ANALYTICS_LABELS.planColTenants}</th>
+							<th class="ops-num">{OPS_ANALYTICS_LABELS.planColMrr}</th>
+							<th class="ops-num">{OPS_ANALYTICS_LABELS.planColShare}</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each a.planBreakdown as pb}
 							<tr>
-								<td>{pb.plan === 'none' ? '未設定（トライアル等）' : getPlanLabel(pb.plan)}</td>
+								<td>{pb.plan === 'none' ? OPS_ANALYTICS_LABELS.planNone : getPlanLabel(pb.plan)}</td>
 								<td class="ops-num">{pb.count}</td>
 								<td class="ops-num">¥{pb.mrr.toLocaleString()}</td>
 								<td class="ops-num">{pb.percentage}%</td>
@@ -76,12 +76,12 @@ const a = $derived(data.analytics);
 	{#if a.monthlyAcquisitions.length > 0}
 		<section>
 			<Card padding="lg">
-				<h2 class="ops-section-title m-0 mb-4">月次ユーザー獲得数（過去 12 ヶ月）</h2>
+				<h2 class="ops-section-title m-0 mb-4">{OPS_ANALYTICS_LABELS.acquisitionTitle}</h2>
 				<table class="ops-table">
 					<thead>
 						<tr>
-							<th>月</th>
-							<th class="ops-num">新規登録</th>
+							<th>{OPS_ANALYTICS_LABELS.acquisitionColMonth}</th>
+							<th class="ops-num">{OPS_ANALYTICS_LABELS.acquisitionColNew}</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -101,13 +101,13 @@ const a = $derived(data.analytics);
 	{#if a.cohorts.length > 0}
 		<section>
 			<Card padding="lg">
-				<h2 class="ops-section-title m-0 mb-4">コホート残存分析（入会月別）</h2>
+				<h2 class="ops-section-title m-0 mb-4">{OPS_ANALYTICS_LABELS.cohortTitle}</h2>
 				<div class="overflow-x-auto">
 					<table class="ops-table">
 						<thead>
 							<tr>
-								<th>入会月</th>
-								<th class="ops-num">登録数</th>
+								<th>{OPS_ANALYTICS_LABELS.cohortColMonth}</th>
+								<th class="ops-num">{OPS_ANALYTICS_LABELS.cohortColSignups}</th>
 								{#each { length: Math.max(...a.cohorts.map((c) => c.retention.length)) } as _, i}
 									<th class="ops-num">M{i}</th>
 								{/each}
@@ -131,7 +131,7 @@ const a = $derived(data.analytics);
 					</table>
 				</div>
 				<p class="text-xs text-[var(--color-text-muted)] mt-2">
-					M0 = 入会月、M1 = 1ヶ月後の残存数（残存率%）。現時点のステータスベースの簡易推計。
+					{OPS_ANALYTICS_LABELS.cohortNote}
 				</p>
 			</Card>
 		</section>
@@ -139,23 +139,22 @@ const a = $derived(data.analytics);
 
 	<!-- Stripe 状態 -->
 	<Card padding="lg">
-		<h2 class="ops-section-title m-0 mb-4">データソース</h2>
+		<h2 class="ops-section-title m-0 mb-4">{OPS_ANALYTICS_LABELS.dataSourceTitle}</h2>
 		<div class="flex flex-col gap-2 text-sm">
 			<div class="flex gap-2 items-center">
-				<span class="font-medium text-[var(--color-text-secondary)]">Stripe 連携:</span>
+				<span class="font-medium text-[var(--color-text-secondary)]">{OPS_ANALYTICS_LABELS.stripeLabel}</span>
 				<span class={a.stripeEnabled ? 'font-semibold text-[var(--color-success)]' : 'font-semibold text-[var(--color-warning)]'}>
-					{a.stripeEnabled ? '有効' : '無効（ローカルモード）'}
+					{a.stripeEnabled ? OPS_ANALYTICS_LABELS.stripeEnabled : OPS_ANALYTICS_LABELS.stripeDisabled}
 				</span>
 			</div>
 			<div class="flex gap-2 items-center">
-				<span class="font-medium text-[var(--color-text-secondary)]">データパイプライン:</span>
+				<span class="font-medium text-[var(--color-text-secondary)]">{OPS_ANALYTICS_LABELS.pipelineLabel}</span>
 				<span class="text-[var(--color-text-muted)]">
-					DB 直接集計（リアルタイム、追加コストなし）
+					{OPS_ANALYTICS_LABELS.pipelineDesc}
 				</span>
 			</div>
 			<p class="text-xs text-[var(--color-text-muted)] mt-1">
-				コスト試算: DB 直接クエリのため追加 AWS コストは $0。DynamoDB Streams + Athena への移行は
-				ユーザー数 1,000+ で検討（推定 $5-10/月）。
+				{OPS_ANALYTICS_LABELS.costNote}
 			</p>
 		</div>
 	</Card>

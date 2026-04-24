@@ -2,9 +2,11 @@
 // #704: デモ画面のもちものチェック (本番 src/routes/(child)/checklist/+page.svelte に相当)
 // 書き込みは行わず、UI 操作はクライアント側の $state でのみ反映する。
 import {
+	APP_LABELS,
 	CHECKLIST_KIND_ICONS,
 	CHECKLIST_KIND_LABELS,
 	type ChecklistKind,
+	PAGE_TITLES,
 } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode.js';
@@ -85,7 +87,7 @@ function toggleItem(templateId: number, itemId: number) {
 </script>
 
 <svelte:head>
-	<title>もちものチェック (デモ) - がんばりクエスト</title>
+	<title>{PAGE_TITLES.demoChildChecklist}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-sm)] py-[var(--sp-sm)]">

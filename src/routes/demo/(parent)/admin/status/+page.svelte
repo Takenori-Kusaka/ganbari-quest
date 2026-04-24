@@ -1,4 +1,5 @@
 <script lang="ts">
+import { APP_LABELS, DEMO_STATUS_LABELS, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/status';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
@@ -67,7 +68,7 @@ let showLevelTitles = $state(false);
 </script>
 
 <svelte:head>
-	<title>ベンチマーク管理 - がんばりクエスト デモ</title>
+	<title>{PAGE_TITLES.statusBenchmark}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -78,7 +79,7 @@ let showLevelTitles = $state(false);
 			href="/demo/admin/children"
 			class="text-sm text-[var(--color-feedback-info-text)] hover:text-[var(--color-feedback-info-text)] font-bold"
 		>
-			こども管理でステータス編集 →
+			{STATUS_LABELS.childrenEditLink}
 		</a>
 	</div>
 
@@ -86,24 +87,24 @@ let showLevelTitles = $state(false);
 	{#if previewChild?.status}
 		<Card>
 			<h3 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">
-				📊 {previewChild.nickname}の成長レポート
+				{STATUS_LABELS.growthReportTitle(previewChild.nickname)}
 			</h3>
 
 			<div class="flex justify-center mb-4">
 				<RadarChart
 					categories={previewRadarCategories}
 					comparisonValues={previewChild.benchmarkValues}
-					comparisonLabel="同年齢の平均"
+					comparisonLabel={STATUS_LABELS.comparisonLabel}
 					size={280}
 				/>
 			</div>
 			<p class="text-xs text-[var(--color-text-tertiary)] text-center mb-4">
-				※ 参考値です。お子さまの個性やペースを大切にしてください
+				{STATUS_LABELS.radarChartNote}
 			</p>
 
 			<!-- 分析サマリー -->
 			<div class="bg-[var(--color-surface-muted)] rounded-lg p-3 mb-4">
-				<h4 class="text-sm font-bold text-[var(--color-text-secondary)] mb-2">📋 分析サマリー</h4>
+				<h4 class="text-sm font-bold text-[var(--color-text-secondary)] mb-2">{STATUS_LABELS.analysisSummaryTitle}</h4>
 				<div class="space-y-1">
 					{#each CATEGORY_DEFS as catDef (catDef.id)}
 						{@const stat = previewChild.status?.statuses[catDef.id]}
@@ -129,28 +130,28 @@ let showLevelTitles = $state(false);
 			class="w-full flex items-center justify-between p-4 text-left hover:bg-[var(--color-surface-muted)]"
 			onclick={() => { showLevelTitles = !showLevelTitles; }}
 		>
-			<h3 class="text-lg font-bold text-[var(--color-text-primary)]">🏷️ レベル称号カスタマイズ</h3>
-			<span class="text-[var(--color-text-tertiary)] text-sm">{showLevelTitles ? '▲ 閉じる' : '▼ 開く'}</span>
+			<h3 class="text-lg font-bold text-[var(--color-text-primary)]">{STATUS_LABELS.levelTitleSectionTitle}</h3>
+			<span class="text-[var(--color-text-tertiary)] text-sm">{showLevelTitles ? STATUS_LABELS.levelTitleCloseLabel : STATUS_LABELS.levelTitleOpenLabel}</span>
 		</Button>
 
 		{#if showLevelTitles}
 			<div class="px-4 pb-4 space-y-3">
 				<p class="text-xs text-[var(--color-text-muted)]">
-					各レベルの称号を家庭オリジナルに変更できます。空欄にするとデフォルトに戻ります。
+					{STATUS_LABELS.levelTitleDesc}
 				</p>
 
 				{#each data.levelTitles as lt (lt.level)}
 					<div class="flex items-center gap-3 bg-[var(--color-surface-muted)] rounded-lg p-3">
 						<span class="text-sm font-bold text-[var(--color-text-muted)] w-12">Lv.{lt.level}</span>
 						<div class="flex-1 min-w-0 flex items-center gap-2">
-							<FormField label="称号" type="text" maxlength={20} placeholder={lt.defaultTitle} disabled class="flex-1" />
+							<FormField label={DEMO_STATUS_LABELS.levelTitleLabel} type="text" maxlength={20} placeholder={lt.defaultTitle} disabled class="flex-1" />
 							<Button
 								variant="ghost"
 								size="sm"
 								class="bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
 								disabled
 							>
-								保存
+								{STATUS_LABELS.levelTitleSaveButton}
 							</Button>
 						</div>
 					</div>
@@ -162,17 +163,17 @@ let showLevelTitles = $state(false);
 	<div>
 		<!-- 機能説明 -->
 		<div class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-lg p-3 mb-4 text-sm text-[var(--color-feedback-info-text)]">
-			<p class="font-bold mb-1">ベンチマークとは？</p>
+			<p class="font-bold mb-1">{STATUS_LABELS.benchmarkInfoTitle}</p>
 			<p>
-				子供のステータスを「同じ年齢の目安値」と比べて偏差値を計算するためのデータです。
-				設定すると、子供画面に「みんなよりすごい！」などの比較メッセージが表示されます。
+				{STATUS_LABELS.benchmarkInfoDesc1}
+				{STATUS_LABELS.benchmarkInfoDesc2}
 			</p>
 		</div>
 
 		<!-- プレビュー用の子供選択 -->
 		{#if data.children.length > 0}
 			<div class="flex items-center gap-2 mb-4">
-				<span class="text-xs text-[var(--color-text-muted)]">プレビュー:</span>
+				<span class="text-xs text-[var(--color-text-muted)]">{STATUS_LABELS.previewLabel}</span>
 				<div class="flex gap-1 flex-wrap">
 					{#each data.children as child (child.id)}
 						<Button
@@ -202,14 +203,14 @@ let showLevelTitles = $state(false);
 						: 'bg-white text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]'}"
 					onclick={() => { benchmarkAge = age; }}
 				>
-					{age}歳
+					{age + '歳'}
 				</Button>
 			{/each}
 		</div>
 
 		<!-- 年齢別参考値ガイド -->
 		<p class="text-xs text-[var(--color-text-tertiary)] mb-4">
-			{benchmarkAge}歳の目安: 平均 {guideMeanLow}〜{guideMeanHigh} XP、SD {guideSdLow}〜{guideSdHigh}（XPベース）
+			{STATUS_LABELS.benchmarkGuide(benchmarkAge, guideMeanLow, guideMeanHigh, guideSdLow, guideSdHigh)}
 		</p>
 
 		<div class="flex flex-col gap-3">
@@ -222,8 +223,8 @@ let showLevelTitles = $state(false);
 						<span class="text-lg">{catDef.icon}</span>
 						<span class="font-bold text-[var(--color-text-primary)] w-24">{catDef.name}</span>
 						<div class="flex items-center gap-2 flex-1 min-w-0">
-							<FormField label="平均" type="number" value={inputMean} disabled class="w-24" />
-							<FormField label="SD" type="number" value={inputSd} disabled class="w-24" />
+							<FormField label={DEMO_STATUS_LABELS.meanLabel} type="number" value={inputMean} disabled class="w-24" />
+							<FormField label={DEMO_STATUS_LABELS.sdLabel} type="number" value={inputSd} disabled class="w-24" />
 						</div>
 						<Button
 							variant="ghost"
@@ -231,7 +232,7 @@ let showLevelTitles = $state(false);
 							class="bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
 							disabled
 						>
-							保存
+							{STATUS_LABELS.benchmarkSaveButton}
 						</Button>
 					</div>
 
@@ -242,7 +243,7 @@ let showLevelTitles = $state(false);
 							{@const deviation = calcDeviationScore(childVal, inputMean, inputSd)}
 							{@const label = getComparisonLabel(deviation)}
 							<p class="text-xs text-[var(--color-text-tertiary)] mt-2 ml-8">
-								{previewChild.nickname}: 偏差値 {deviation}（{label.emoji} {label.text}）
+								{STATUS_LABELS.deviationPreview(previewChild.nickname, deviation, label.emoji, label.text)}
 							</p>
 						{/if}
 					{/if}
@@ -252,7 +253,7 @@ let showLevelTitles = $state(false);
 	</div>
 
 	<DemoCta
-		title="ベンチマークを自由に設定しませんか？"
-		description="登録すると、年齢別の目安値を自由に設定して成長レポートをカスタマイズできます。"
+		title={DEMO_STATUS_LABELS.ctaTitle}
+		description={DEMO_STATUS_LABELS.ctaDesc}
 	/>
 </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { APP_LABELS, CONSENT_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -26,7 +27,7 @@ const submitBlockReason = $derived.by(() => {
 </script>
 
 <svelte:head>
-	<title>{data.hasExistingConsent ? '規約に変更がありました' : '規約への同意'} - がんばりクエスト</title>
+	<title>{data.hasExistingConsent ? CONSENT_LABELS.titleUpdated : CONSENT_LABELS.titleNew}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <!--
@@ -42,20 +43,20 @@ const submitBlockReason = $derived.by(() => {
 			<div class="text-center mb-6">
 				<Logo variant="symbol" size={48} />
 				{#if data.hasExistingConsent}
-					<h1 class="text-lg font-bold text-[var(--color-text)] mt-2 mb-1" data-testid="consent-heading">規約が更新されました</h1>
+					<h1 class="text-lg font-bold text-[var(--color-text)] mt-2 mb-1" data-testid="consent-heading">{CONSENT_LABELS.headingUpdated}</h1>
 					<p class="text-sm text-[var(--color-text-muted)]">
-						サービスの利用を続けるには、更新された規約への同意が必要です。
+						{CONSENT_LABELS.descUpdated}
 					</p>
 					{#if data.previousTermsVersion || data.previousPrivacyVersion}
 						<p class="text-xs text-[var(--color-text-tertiary)] mt-2">
-							前回同意: {data.previousTermsVersion ?? '未同意'} →
-							最新: {data.currentTermsVersion}
+							{CONSENT_LABELS.previousConsentPrefix}{data.previousTermsVersion ?? CONSENT_LABELS.previousConsentNone}{CONSENT_LABELS.previousConsentArrow}
+							{CONSENT_LABELS.previousConsentLatest}{data.currentTermsVersion}
 						</p>
 					{/if}
 				{:else}
-					<h1 class="text-lg font-bold text-[var(--color-text)] mt-2 mb-1" data-testid="consent-heading">規約への同意</h1>
+					<h1 class="text-lg font-bold text-[var(--color-text)] mt-2 mb-1" data-testid="consent-heading">{CONSENT_LABELS.headingNew}</h1>
 					<p class="text-sm text-[var(--color-text-muted)]">
-						サービスの利用を開始するには、規約への同意が必要です。
+						{CONSENT_LABELS.descNew}
 					</p>
 				{/if}
 			</div>
@@ -78,14 +79,14 @@ const submitBlockReason = $derived.by(() => {
 			>
 				{#if !data.termsAccepted}
 					<div class="p-4 border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
-						<h2 class="text-base font-semibold text-[var(--color-text)] mb-1">利用規約</h2>
-						<p class="text-xs text-[var(--color-text-tertiary)] mb-2">バージョン: {data.currentTermsVersion}</p>
+						<h2 class="text-base font-semibold text-[var(--color-text)] mb-1">{CONSENT_LABELS.termsSectionTitle}</h2>
+						<p class="text-xs text-[var(--color-text-tertiary)] mb-2">{CONSENT_LABELS.termsVersionPrefix}{data.currentTermsVersion}</p>
 						<a
 							href="https://www.ganbari-quest.com/terms.html"
 							target="_blank"
 							rel="noopener"
 							class="text-sm text-[var(--color-text-link)] inline-block mb-3"
-						>利用規約を確認する ↗</a>
+						>{CONSENT_LABELS.termsReadLink}</a>
 						<FormField label="">
 							{#snippet children()}
 								<label class="flex items-start gap-2 cursor-pointer text-sm text-[var(--color-text-primary)]">
@@ -97,7 +98,7 @@ const submitBlockReason = $derived.by(() => {
 										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)]"
 									/>
 									<span>
-										利用規約に同意します
+										{CONSENT_LABELS.termsCheckLabel}
 									</span>
 								</label>
 							{/snippet}
@@ -109,14 +110,14 @@ const submitBlockReason = $derived.by(() => {
 
 				{#if !data.privacyAccepted}
 					<div class="p-4 border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
-						<h2 class="text-base font-semibold text-[var(--color-text)] mb-1">プライバシーポリシー</h2>
-						<p class="text-xs text-[var(--color-text-tertiary)] mb-2">バージョン: {data.currentPrivacyVersion}</p>
+						<h2 class="text-base font-semibold text-[var(--color-text)] mb-1">{CONSENT_LABELS.privacySectionTitle}</h2>
+						<p class="text-xs text-[var(--color-text-tertiary)] mb-2">{CONSENT_LABELS.privacyVersionPrefix}{data.currentPrivacyVersion}</p>
 						<a
 							href="https://www.ganbari-quest.com/privacy.html"
 							target="_blank"
 							rel="noopener"
 							class="text-sm text-[var(--color-text-link)] inline-block mb-3"
-						>プライバシーポリシーを確認する ↗</a>
+						>{CONSENT_LABELS.privacyReadLink}</a>
 						<FormField label="">
 							{#snippet children()}
 								<label class="flex items-start gap-2 cursor-pointer text-sm text-[var(--color-text-primary)]">
@@ -128,7 +129,7 @@ const submitBlockReason = $derived.by(() => {
 										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)]"
 									/>
 									<span>
-										プライバシーポリシーに同意します
+										{CONSENT_LABELS.privacyCheckLabel}
 									</span>
 								</label>
 							{/snippet}
@@ -159,9 +160,9 @@ const submitBlockReason = $derived.by(() => {
 				data-testid="consent-submit"
 			>
 				{#if loading}
-					同意中...
+					{CONSENT_LABELS.submitLoading}
 				{:else}
-					同意して続ける
+					{CONSENT_LABELS.submitButton}
 				{/if}
 			</Button>
 		</div>
@@ -172,12 +173,12 @@ const submitBlockReason = $derived.by(() => {
 	.consent-page {
 		background: var(--gradient-brand);
 	}
-	/* #708: stickyバーをページ背景と明確に区別（不透明 + shadow） */
+	/* #708: sticky bar - opaque + shadow to distinguish from page bg */
 	.consent-sticky-bar {
 		background: var(--color-surface-card);
 		box-shadow: 0 -4px 16px color-mix(in srgb, var(--color-surface-overlay) 24%, transparent);
 	}
-	/* #708: disabled時に視覚的に明確に無効とわかる（opacity + not-allowed） */
+	/* #708: disabled state - visually clear with opacity + not-allowed */
 	.consent-sticky-bar :global(.consent-submit-btn:disabled) {
 		opacity: 0.45;
 		cursor: not-allowed;

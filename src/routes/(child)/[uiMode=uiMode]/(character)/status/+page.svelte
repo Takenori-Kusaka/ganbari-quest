@@ -1,4 +1,5 @@
 <script lang="ts">
+import { APP_LABELS, CHILD_STATUS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { getModeVariant } from '$lib/features/child-home/variants';
@@ -48,14 +49,14 @@ const radarCategories = $derived(
 </script>
 
 <svelte:head>
-	<title>つよさ - がんばりクエスト</title>
+	<title>{PAGE_TITLES.childStatus}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	{#if data.status}
 		<Card variant="elevated" padding="md" class="mb-[var(--sp-md)]" data-tutorial="radar-chart">
 			{#snippet children()}
-			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]" data-testid="growth-chart-heading">せいちょうチャート</h2>
+			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]" data-testid="growth-chart-heading">{CHILD_STATUS_LABELS.growthChartTitle}</h2>
 			<div class="flex justify-center">
 				<RadarChart
 					categories={radarCategories}
@@ -72,19 +73,19 @@ const radarCategories = $derived(
 				{#snippet children()}
 				{#if (changes[growthBestCat.id] ?? 0) > 0}
 					<p class="text-sm font-bold">
-						💬 {growthBestCat.name}が
+						{CHILD_STATUS_LABELS.growthBestCatPrefix}{growthBestCat.name}{CHILD_STATUS_LABELS.growthBestCatSuffix}
 						{#if (changes[growthBestCat.id] ?? 0) > 5}
-							すごくのびたね！
+							{CHILD_STATUS_LABELS.growthHighMessage}
 						{:else}
-							ちょっとずつ せいちょうしてるよ！
+							{CHILD_STATUS_LABELS.growthLowMessage}
 						{/if}
 					</p>
 				{:else}
-					<p class="text-sm font-bold">💬 あんていしてるね！ またがんばろう！</p>
+					<p class="text-sm font-bold">{CHILD_STATUS_LABELS.growthStableMessage}</p>
 				{/if}
 				{#if growthWeakCat.id !== growthBestCat.id}
 					<p class="text-xs text-[var(--color-text-muted)] mt-1">
-						🌟 {growthWeakCat.name}にチャレンジすると のびしろがたくさん！
+						{CHILD_STATUS_LABELS.growthWeakCatPrefix}{growthWeakCat.name}{CHILD_STATUS_LABELS.growthWeakCatSuffix}
 					</p>
 				{/if}
 				{/snippet}
@@ -127,7 +128,7 @@ const radarCategories = $derived(
 	{:else}
 		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-sm)]">⭐</span>
-			<p class="font-bold">ステータスがまだないよ</p>
+			<p class="font-bold">{CHILD_STATUS_LABELS.emptyStatus}</p>
 		</div>
 	{/if}
 </div>

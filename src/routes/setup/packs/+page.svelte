@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { APP_LABELS, PAGE_TITLES, SETUP_PACKS_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -56,12 +57,12 @@ $effect(() => {
 </script>
 
 <svelte:head>
-	<title>活動パック選択 - がんばりクエスト セットアップ</title>
+	<title>{PAGE_TITLES.setupPacks}{APP_LABELS.setupPageTitleSuffix}</title>
 </svelte:head>
 
-<h2 class="text-lg font-bold text-[var(--color-text)] mb-2">かつどうパックをえらぼう</h2>
+<h2 class="text-lg font-bold text-[var(--color-text)] mb-2">{SETUP_PACKS_LABELS.pageTitle}</h2>
 <p class="text-sm text-[var(--color-text-muted)] mb-4">
-	お子さまの年齢にあわせた活動セットを選んでください。あとから追加・変更できます。
+	{SETUP_PACKS_LABELS.pageDesc}
 </p>
 
 <form
@@ -91,7 +92,7 @@ $effect(() => {
 			>
 				{#if recommended}
 					<span class="absolute -top-2 right-3 text-[10px] font-bold text-white bg-[var(--color-warning)] rounded-full px-2 py-0.5">
-						おすすめ
+						{SETUP_PACKS_LABELS.recommendedBadge}
 					</span>
 				{/if}
 				<div class="flex items-start gap-3">
@@ -99,7 +100,7 @@ $effect(() => {
 					<div class="flex-1 min-w-0">
 						<div class="flex items-center gap-2">
 							<span class="text-sm font-bold text-[var(--color-text)]">{pack.packName}</span>
-							<span class="text-xs text-[var(--color-text-muted)]">{pack.activityCount}件</span>
+							<span class="text-xs text-[var(--color-text-muted)]">{pack.activityCount + '件'}</span>
 						</div>
 						<p class="text-xs text-[var(--color-text-muted)] mt-1 line-clamp-2">{pack.description}</p>
 						<div class="flex items-center gap-1 mt-2">
@@ -159,7 +160,7 @@ $effect(() => {
 					<span class="text-white text-[10px] font-bold">&#10003;</span>
 				{/if}
 			</div>
-			<span class="text-sm text-[var(--color-text)]">おすすめパックを自動で追加してすすむ</span>
+			<span class="text-sm text-[var(--color-text)]">{SETUP_PACKS_LABELS.autoAddOption}</span>
 		</div>
 	</Button>
 
@@ -169,18 +170,18 @@ $effect(() => {
 			href="/setup/children"
 			class="flex-1 py-2 text-center text-sm font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-muted-strong)] rounded-lg hover:bg-[var(--color-neutral-200)] transition-colors"
 		>
-			&larr; もどる
+			&larr; {SETUP_PACKS_LABELS.backButton}
 		</a>
 		{#if skipMode}
 			<Button type="submit" formaction="?/skip" variant="primary" size="sm" disabled={submitting} class="flex-1">
-				{submitting ? '処理中...' : 'おすすめで次へ'}
+				{submitting ? SETUP_PACKS_LABELS.processingLabel : SETUP_PACKS_LABELS.skipNextButton}
 			</Button>
 		{:else}
 			<Button type="submit" variant="primary" size="sm" disabled={submitting || selectedPacks.size === 0} class="flex-1">
 				{#if submitting}
-					インポート中...
+					{SETUP_PACKS_LABELS.importingLabel}
 				{:else}
-					{selectedPacks.size}件のパックを追加 &rarr;
+					{SETUP_PACKS_LABELS.addPacksButton(selectedPacks.size)} &rarr;
 				{/if}
 			</Button>
 		{/if}

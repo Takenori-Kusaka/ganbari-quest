@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { getErrorMessage } from '$lib/domain/errors';
+import { APP_LABELS, PAGE_TITLES, REWARDS_LABELS } from '$lib/domain/labels';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
@@ -76,29 +77,29 @@ function acceptAiReward(preview: RewardPreviewData) {
 </script>
 
 <svelte:head>
-	<title>ごほうび - がんばりクエスト</title>
+	<title>{PAGE_TITLES.rewards}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-4" data-tutorial="rewards-section">
 	<div class="flex items-center gap-2">
-		<h2 class="text-lg font-bold">🎁 ごほうび
+		<h2 class="text-lg font-bold">{REWARDS_LABELS.sectionTitle}
 			{#if !data.isPremium}
-				<span class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle">有料限定</span>
+				<span class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle">{REWARDS_LABELS.premiumBadge}</span>
 			{/if}
 		</h2>
 		<PageHelpButton />
 	</div>
 	<!-- Page Description -->
 	<div class="page-description">
-		<p class="page-description__title">🎁 とくべつなごほうび</p>
+		<p class="page-description__title">{REWARDS_LABELS.pageDescTitle}</p>
 		<p class="page-description__text">
-			がんばったこどもへの特別なごほうびを設定・付与します。
-			日常の活動ポイントとは別に、お手伝いや特別な成果に対してボーナスポイントを贈れます。
+			{REWARDS_LABELS.pageDescText1}
+			{REWARDS_LABELS.pageDescText2}
 		</p>
 		<p class="page-description__hint">
-			💌 スタンプやメッセージは
-			<a href="/admin/messages" class="page-description__link">おうえんメッセージ</a>
-			から送れます
+			{REWARDS_LABELS.pageDescHintPrefix}
+			<a href="/admin/messages" class="page-description__link">{REWARDS_LABELS.pageDescHintLink}</a>
+			{REWARDS_LABELS.pageDescHintSuffix}
 		</p>
 	</div>
 
@@ -108,9 +109,9 @@ function acceptAiReward(preview: RewardPreviewData) {
 			<div class="flex items-start gap-3">
 				<span class="text-2xl">✨</span>
 				<div class="flex-1">
-					<p class="font-bold text-[var(--color-premium)]">特別なごほうび設定はスタンダードプラン以上の機能です</p>
+					<p class="font-bold text-[var(--color-premium)]">{REWARDS_LABELS.upgradeBannerTitle}</p>
 					<p class="text-xs text-[var(--color-premium-light)] mt-1">
-						アップグレードすると、お手伝いや特別な成果に対してカスタムのボーナスごほうびを作成・付与できます。
+						{REWARDS_LABELS.upgradeBannerDesc}
 					</p>
 				</div>
 			</div>
@@ -119,14 +120,14 @@ function acceptAiReward(preview: RewardPreviewData) {
 				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
 				data-testid="rewards-upgrade-cta"
 			>
-				プランを確認する
+				{REWARDS_LABELS.upgradeButton}
 			</a>
 		</div>
 	{/if}
 
 	<!-- Child Selector -->
 	<section>
-		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">こどもを選択</h3>
+		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{REWARDS_LABELS.selectChildTitle}</h3>
 		<div class="flex gap-2 flex-wrap">
 			{#each data.children as child}
 				<Button
@@ -153,7 +154,7 @@ function acceptAiReward(preview: RewardPreviewData) {
 
 	<!-- Special Reward Templates -->
 	<section>
-		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">テンプレートを選択</h3>
+		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{REWARDS_LABELS.selectTemplateTitle}</h3>
 		<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
 			{#each data.templates as tmpl}
 				<Button
@@ -179,7 +180,7 @@ function acceptAiReward(preview: RewardPreviewData) {
 			class="text-sm font-bold text-[var(--color-text-link)] cursor-pointer bg-transparent border-none p-0 hover:underline"
 			onclick={() => { showPresets = !showPresets; }}
 		>
-			{showPresets ? '▼' : '▶'} プリセットからテンプレートを追加
+			{REWARDS_LABELS.presetToggle(showPresets)}
 		</button>
 
 		{#if showPresets}
@@ -233,16 +234,16 @@ function acceptAiReward(preview: RewardPreviewData) {
 			}}
 			class="space-y-3"
 		>
-			<h3 class="text-sm font-bold text-[var(--color-text-muted)]">内容を確認して付与</h3>
+			<h3 class="text-sm font-bold text-[var(--color-text-muted)]">{REWARDS_LABELS.confirmGrantTitle}</h3>
 			<input type="hidden" name="childId" value={selectedChildId} />
 
 			<div class="grid grid-cols-2 gap-3">
-				<FormField label="タイトル" type="text" name="title" bind:value={customTitle} disabled={!data.isPremium} required />
-				<FormField label="ポイント" type="number" name="points" bind:value={customPoints} min={1} max={10000} disabled={!data.isPremium} required />
+				<FormField label={REWARDS_LABELS.titleLabel} type="text" name="title" bind:value={customTitle} disabled={!data.isPremium} required />
+				<FormField label={REWARDS_LABELS.pointsLabel} type="number" name="points" bind:value={customPoints} min={1} max={10000} disabled={!data.isPremium} required />
 			</div>
 			<div class="grid grid-cols-2 gap-3">
-				<FormField label="アイコン" type="text" name="icon" bind:value={customIcon} disabled={!data.isPremium} />
-				<FormField label="カテゴリ">
+				<FormField label={REWARDS_LABELS.iconLabel} type="text" name="icon" bind:value={customIcon} disabled={!data.isPremium} />
+				<FormField label={REWARDS_LABELS.categoryLabel}>
 					{#snippet children()}
 						<NativeSelect
 							name="category"
@@ -261,7 +262,7 @@ function acceptAiReward(preview: RewardPreviewData) {
 				disabled={!data.isPremium}
 				class="w-full"
 			>
-				{customIcon} {customTitle || '報酬'} ({customPoints}P) を付与する
+				{REWARDS_LABELS.grantButton(customIcon, customTitle, customPoints)}
 			</Button>
 		</form>
 		{/snippet}
@@ -269,7 +270,7 @@ function acceptAiReward(preview: RewardPreviewData) {
 
 	{#if grantSuccess}
 		<div class="bg-[color-mix(in_srgb,var(--color-action-success)_10%,transparent)] rounded-xl p-4 border border-[color-mix(in_srgb,var(--color-action-success)_30%,transparent)] text-center">
-			<p class="text-[var(--color-action-success)] font-bold">特別報酬を付与しました！</p>
+			<p class="text-[var(--color-action-success)] font-bold">{REWARDS_LABELS.grantSuccess}</p>
 		</div>
 	{/if}
 </div>

@@ -1,6 +1,6 @@
 <script lang="ts">
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
-import { OYAKAGI_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, BILLING_LABELS, OYAKAGI_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -63,7 +63,7 @@ async function openPortal() {
 			),
 		});
 		if (!res.ok) {
-			let message = '請求管理画面を開けませんでした';
+			let message: string = BILLING_LABELS.openPortalError;
 			try {
 				const body = (await res.json()) as { message?: string };
 				const raw = body.message ?? '';
@@ -89,7 +89,7 @@ async function openPortal() {
 			window.location.href = body.url;
 		}
 	} catch (err) {
-		portalError = err instanceof Error ? err.message : '請求管理画面を開けませんでした';
+		portalError = err instanceof Error ? err.message : BILLING_LABELS.openPortalError;
 	} finally {
 		portalLoading = false;
 	}
@@ -98,13 +98,13 @@ async function openPortal() {
 const statusLabel = $derived.by(() => {
 	switch (data.status) {
 		case SUBSCRIPTION_STATUS.ACTIVE:
-			return { text: '有効', icon: '✅' };
+			return { text: BILLING_LABELS.statusActive, icon: '✅' };
 		case SUBSCRIPTION_STATUS.GRACE_PERIOD:
-			return { text: '猶予期間', icon: '⚠️' };
+			return { text: BILLING_LABELS.statusGracePeriod, icon: '⚠️' };
 		case SUBSCRIPTION_STATUS.SUSPENDED:
-			return { text: '停止中', icon: '⏸️' };
+			return { text: BILLING_LABELS.statusSuspended, icon: '⏸️' };
 		case SUBSCRIPTION_STATUS.TERMINATED:
-			return { text: '解約済み', icon: '❌' };
+			return { text: BILLING_LABELS.statusTerminated, icon: '❌' };
 		default:
 			return { text: data.status, icon: '❓' };
 	}
@@ -112,38 +112,38 @@ const statusLabel = $derived.by(() => {
 </script>
 
 <svelte:head>
-	<title>請求書・支払い管理 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.billing}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6">
-	<h1 class="text-lg font-bold text-[var(--color-text-primary)]">請求書・支払い管理</h1>
+	<h1 class="text-lg font-bold text-[var(--color-text-primary)]">{BILLING_LABELS.pageHeading}</h1>
 
 	<!-- サブスクリプション概要 -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h2 class="text-base font-semibold text-[var(--color-text-secondary)] mb-4">サブスクリプション状況</h2>
+		<h2 class="text-base font-semibold text-[var(--color-text-secondary)] mb-4">{BILLING_LABELS.subscriptionOverviewTitle}</h2>
 
 		<div class="billing-info-grid">
 			<div class="billing-info-item">
-				<span class="billing-info-label">ステータス</span>
+				<span class="billing-info-label">{BILLING_LABELS.statusLabel}</span>
 				<span class="billing-info-value">{statusLabel.icon} {statusLabel.text}</span>
 			</div>
 
 			{#if hasSubscription}
 				<div class="billing-info-item">
-					<span class="billing-info-label">Stripe 連携</span>
-					<span class="billing-info-value">✅ 連携済み</span>
+					<span class="billing-info-label">{BILLING_LABELS.stripeConnectionLabel}</span>
+					<span class="billing-info-value">{BILLING_LABELS.stripeConnected}</span>
 				</div>
 			{:else}
 				<div class="billing-info-item">
-					<span class="billing-info-label">Stripe 連携</span>
-					<span class="billing-info-value">未連携</span>
+					<span class="billing-info-label">{BILLING_LABELS.stripeConnectionLabel}</span>
+					<span class="billing-info-value">{BILLING_LABELS.stripeNotConnected}</span>
 				</div>
 			{/if}
 
 			{#if data.planExpiresAt}
 				<div class="billing-info-item">
-					<span class="billing-info-label">有効期限</span>
+					<span class="billing-info-label">{BILLING_LABELS.expiresLabel}</span>
 					<span class="billing-info-value">
 						{new Date(data.planExpiresAt).toLocaleDateString('ja-JP')}
 					</span>
@@ -156,16 +156,16 @@ const statusLabel = $derived.by(() => {
 	<!-- Stripe Customer Portal セクション -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h2 class="text-base font-semibold text-[var(--color-text-secondary)] mb-2">請求書・支払い方法</h2>
+		<h2 class="text-base font-semibold text-[var(--color-text-secondary)] mb-2">{BILLING_LABELS.billingPortalTitle}</h2>
 		<p class="text-sm text-[var(--color-text-muted)] mb-4">
-			Stripe の管理画面で以下の操作ができます:
+			{BILLING_LABELS.billingPortalDesc}
 		</p>
 
 		<ul class="billing-feature-list">
-			<li>過去の請求書の確認・ダウンロード</li>
-			<li>支払い方法（クレジットカード）の変更</li>
-			<li>月額 / 年額プランの切り替え</li>
-			<li>次回請求日の確認</li>
+			<li>{BILLING_LABELS.featureInvoices}</li>
+			<li>{BILLING_LABELS.featurePaymentMethod}</li>
+			<li>{BILLING_LABELS.featurePlanSwitch}</li>
+			<li>{BILLING_LABELS.featureNextBilling}</li>
 		</ul>
 
 		{#if portalError && !showPortalConfirm}
@@ -179,7 +179,7 @@ const statusLabel = $derived.by(() => {
 		{#if !stripeEnabled}
 			<Alert variant="info" class="mb-3">
 				{#snippet children()}
-				決済機能は現在準備中です
+				{BILLING_LABELS.notReadyAlert}
 				{/snippet}
 			</Alert>
 		{:else if canAccessPortal}
@@ -191,22 +191,22 @@ const statusLabel = $derived.by(() => {
 				data-testid="billing-open-portal"
 				onclick={requestPortal}
 			>
-				{portalLoading ? '読み込み中...' : '請求管理画面を開く'}
+				{portalLoading ? BILLING_LABELS.openPortalLoading : BILLING_LABELS.openPortalButton}
 			</Button>
 			<p class="text-xs text-[var(--color-text-tertiary)] text-center mt-2">
-				Stripe の安全な管理画面に移動します
+				{BILLING_LABELS.openPortalNote}
 			</p>
 			<p class="text-xs text-[var(--color-feedback-warning-text)] text-center mt-1">
-				⚠️ {pinConfigured ? '親 PIN' : '確認フレーズ'}の入力が必要です
+				{BILLING_LABELS.openPortalPinRequired(pinConfigured ? BILLING_LABELS.openPortalPinRequiredPin : BILLING_LABELS.openPortalPinRequiredPhrase)}
 			</p>
 		{:else}
 			<Alert variant="info" class="mb-3">
 				{#snippet children()}
 				{#if !hasCustomer}
-					サブスクリプションが未開始のため、請求情報はまだありません。
-					<a href="/admin/license" class="underline text-[var(--color-text-link)]">プランを選択</a>すると利用可能になります。
+					{BILLING_LABELS.noCustomerAlert}
+					<a href="/admin/license" class="underline text-[var(--color-text-link)]">{BILLING_LABELS.noCustomerAlertSelectPlan}</a>{BILLING_LABELS.noCustomerAlertSuffix}
 				{:else}
-					Stripe Customer Portal を利用するには、サブスクリプションが必要です。
+					{BILLING_LABELS.noSubscriptionAlert}
 				{/if}
 				{/snippet}
 			</Alert>
@@ -219,8 +219,8 @@ const statusLabel = $derived.by(() => {
 		<a href="/admin/license" class="billing-nav-link" data-testid="billing-to-license">
 			<span class="billing-nav-link__icon">💎</span>
 			<span class="billing-nav-link__text">
-				<span class="billing-nav-link__title">プラン管理</span>
-				<span class="billing-nav-link__hint">プランの選択・変更・トライアル開始</span>
+				<span class="billing-nav-link__title">{BILLING_LABELS.navLinkTitle}</span>
+				<span class="billing-nav-link__hint">{BILLING_LABELS.navLinkHint}</span>
 			</span>
 			<span class="billing-nav-link__arrow">&rarr;</span>
 		</a>
@@ -232,11 +232,10 @@ const statusLabel = $derived.by(() => {
 	{#snippet children()}
 	<div class="space-y-3 text-sm text-[var(--color-text-primary)]">
 		<p>
-			Stripeの管理画面に移動します。この画面から支払い方法の変更・プラン切り替えが可能です。
+			{BILLING_LABELS.dialogDesc}
 		</p>
 		<p class="text-[var(--color-feedback-warning-text)] font-semibold">
-			⚠️ 誤操作を防ぐため、
-			{pinConfigured ? OYAKAGI_LABELS.inputLabel : '確認フレーズ'}を入力してください。
+			{BILLING_LABELS.dialogPinRequired(pinConfigured ? OYAKAGI_LABELS.inputLabel : BILLING_LABELS.dialogPinOrPhrase)}
 		</p>
 
 		{#if pinConfigured}
@@ -261,7 +260,7 @@ const statusLabel = $derived.by(() => {
 		{:else}
 			<div class="space-y-2">
 				<label for="billing-portal-confirm-phrase" class="block text-sm font-medium text-[var(--color-text-primary)]">
-					確認のため「{CONFIRM_PHRASE}」と入力してください
+					{BILLING_LABELS.dialogConfirmPhraseLabel(CONFIRM_PHRASE)}
 				</label>
 				<input
 					id="billing-portal-confirm-phrase"
@@ -296,7 +295,7 @@ const statusLabel = $derived.by(() => {
 			}}
 			disabled={portalLoading}
 		>
-			キャンセル
+			{BILLING_LABELS.dialogCancelButton}
 		</Button>
 		<Button
 			type="button"
@@ -306,7 +305,7 @@ const statusLabel = $derived.by(() => {
 			disabled={portalLoading}
 			data-testid="billing-portal-confirm-button"
 		>
-			{portalLoading ? '確認中…' : '請求管理画面へ'}
+			{portalLoading ? BILLING_LABELS.dialogConfirmLoading : BILLING_LABELS.dialogConfirmButton}
 		</Button>
 	</div>
 	{/snippet}

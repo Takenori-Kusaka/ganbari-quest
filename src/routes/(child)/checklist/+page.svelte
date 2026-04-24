@@ -2,9 +2,11 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import {
+	APP_LABELS,
 	CHECKLIST_KIND_ICONS,
 	CHECKLIST_KIND_LABELS,
 	type ChecklistKind,
+	PAGE_TITLES,
 } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
@@ -74,7 +76,7 @@ const groupedChecklists = $derived(
 </script>
 
 <svelte:head>
-	<title>もちものチェック - がんばりクエスト</title>
+	<title>{PAGE_TITLES.childChecklist}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-sm)] py-[var(--sp-sm)]">

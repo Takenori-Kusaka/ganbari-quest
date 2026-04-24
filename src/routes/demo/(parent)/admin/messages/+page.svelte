@@ -1,4 +1,5 @@
 <script lang="ts">
+import { APP_LABELS, DEMO_MESSAGES_LABELS, MESSAGES_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -22,7 +23,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 </script>
 
 <svelte:head>
-	<title>おうえんメッセージ - がんばりクエスト デモ</title>
+	<title>{PAGE_TITLES.messages}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -30,21 +31,21 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 
 	<!-- Page Description -->
 	<div class="page-description">
-		<p class="page-description__title">💌 おうえんメッセージ</p>
+		<p class="page-description__title">{MESSAGES_LABELS.pageDescTitle}</p>
 		<p class="page-description__text">
-			スタンプやメッセージでこどもを応援しましょう。
-			こどもの画面にスタンプが届き、親からの気持ちが伝わります。
+			{MESSAGES_LABELS.pageDescText1}
+			{MESSAGES_LABELS.pageDescText2}
 		</p>
 		<p class="page-description__hint">
-			🎁 特別なボーナスポイントの付与は
-			<a href="/demo/admin/rewards" class="page-description__link">ごほうび</a>
-			から行えます
+			{MESSAGES_LABELS.pageDescHintPrefix}
+			<a href="/demo/admin/rewards" class="page-description__link">{MESSAGES_LABELS.pageDescHintLink}</a>
+			{MESSAGES_LABELS.pageDescHintSuffix}
 		</p>
 	</div>
 
 	<!-- Step 1: Select child -->
 	<section>
-		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">1. こどもを選択</h3>
+		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{MESSAGES_LABELS.selectChildTitle}</h3>
 		<div class="flex gap-2 flex-wrap">
 			{#each data.children as child}
 				<Button
@@ -63,7 +64,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 
 	<!-- Step 2: Choose message type -->
 	<section>
-		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">2. おうえんの種類</h3>
+		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{MESSAGES_LABELS.messageTypeTitle}</h3>
 		<div class="flex gap-2 mb-3">
 			<Button
 				variant={messageType === 'stamp' ? 'primary' : 'ghost'}
@@ -73,7 +74,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 					: 'bg-white text-[var(--color-text-secondary)] shadow-sm hover:shadow-md'}
 				onclick={() => (messageType = 'stamp')}
 			>
-				スタンプ
+				{MESSAGES_LABELS.stampButton}
 			</Button>
 			<Button
 				variant={messageType === 'text' ? 'primary' : 'ghost'}
@@ -83,7 +84,7 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 					: 'bg-white text-[var(--color-text-secondary)] shadow-sm hover:shadow-md'}
 				onclick={() => (messageType = 'text')}
 			>
-				ひとことメッセージ
+				{MESSAGES_LABELS.textMessageButton}
 			</Button>
 		</div>
 
@@ -123,14 +124,14 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 			class="w-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
 			disabled
 		>
-			デモではメッセージを送れません
+			{DEMO_MESSAGES_LABELS.sendDisabled}
 		</Button>
 	</Card>
 
 	<!-- Recent messages (demo data) -->
 	{#if selectedChild?.recentMessages && selectedChild.recentMessages.length > 0}
 		<section>
-			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">最近のメッセージ</h3>
+			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{MESSAGES_LABELS.recentMessagesTitle}</h3>
 			<div class="space-y-2">
 				{#each selectedChild.recentMessages as msg}
 					<Card padding="sm">
@@ -152,9 +153,9 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 								</p>
 							</div>
 							{#if msg.shownAt}
-								<span class="text-xs text-[var(--color-feedback-success-text)]">既読</span>
+								<span class="text-xs text-[var(--color-feedback-success-text)]">{MESSAGES_LABELS.msgRead}</span>
 							{:else}
-								<span class="text-xs text-orange-500">未読</span>
+								<span class="text-xs text-orange-500">{MESSAGES_LABELS.msgUnread}</span>
 							{/if}
 						</div>
 					</Card>
@@ -164,8 +165,8 @@ const selectedChild = $derived(data.children.find((c: { id: number }) => c.id ==
 	{/if}
 
 	<DemoCta
-		title="おうえんメッセージで親子のつながりを深めませんか？"
-		description="登録すると、スタンプやメッセージでお子さまを応援できます。"
+		title={DEMO_MESSAGES_LABELS.ctaTitle}
+		description={DEMO_MESSAGES_LABELS.ctaDesc}
 	/>
 </div>
 

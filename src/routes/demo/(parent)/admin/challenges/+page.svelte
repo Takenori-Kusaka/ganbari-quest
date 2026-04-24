@@ -1,4 +1,5 @@
 <script lang="ts">
+import { APP_LABELS, DEMO_CHALLENGES_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
@@ -49,13 +50,13 @@ const categories: Record<number, string> = {
 </script>
 
 <svelte:head>
-	<title>きょうだいチャレンジ（デモ） - がんばりクエスト</title>
+	<title>{PAGE_TITLES.demoAdminChallenges}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <DemoBanner />
 
 <div class="space-y-4">
-	<h2 class="text-lg font-bold">👥 きょうだいチャレンジ</h2>
+	<h2 class="text-lg font-bold">{DEMO_CHALLENGES_LABELS.sectionTitle}</h2>
 
 	{#each data.challenges as challenge (challenge.id)}
 		{@const target = parseJSON<TargetConfig>(challenge.targetConfig, { metric: 'count', baseTarget: 0 })}
@@ -65,16 +66,16 @@ const categories: Record<number, string> = {
 				<h3 class="font-bold text-sm">
 					{challenge.title}
 					{#if challenge.allCompleted}
-						<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">全員クリア！</span>
+						<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">{DEMO_CHALLENGES_LABELS.allClearedBadge}</span>
 					{/if}
 					{#if challenge.status === 'active'}
-						<span class="ml-1 rounded bg-[var(--color-feedback-info-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-info-text)]">開催中</span>
+						<span class="ml-1 rounded bg-[var(--color-feedback-info-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-info-text)]">{DEMO_CHALLENGES_LABELS.activeBadge}</span>
 					{/if}
 				</h3>
 				<p class="text-xs text-[var(--color-text-muted)] mt-0.5">
 					{typeLabel(challenge.challengeType)} · {periodLabel(challenge.periodType)}
-					· {formatDate(challenge.startDate)} 〜 {formatDate(challenge.endDate)}
-					· 目標{target.baseTarget}回 · 報酬{reward.points}P
+					· {formatDate(challenge.startDate)} {DEMO_CHALLENGES_LABELS.dateRangeSeparator} {formatDate(challenge.endDate)}
+					· {DEMO_CHALLENGES_LABELS.targetPrefix}{target.baseTarget + '回'} · {DEMO_CHALLENGES_LABELS.rewardPrefix}{reward.points}P
 					{#if target.categoryId}
 						· {categories[target.categoryId] ?? ''}
 					{/if}

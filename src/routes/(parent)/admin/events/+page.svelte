@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { todayDateJST } from '$lib/domain/date-utils';
+import { APP_LABELS, EVENTS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
@@ -34,12 +35,12 @@ function formatDate(d: string): string {
 </script>
 
 <svelte:head>
-	<title>イベント管理 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.events}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-4">
 	<div class="flex items-center justify-between">
-		<h2 class="text-lg font-bold">🎉 シーズンイベント管理</h2>
+		<h2 class="text-lg font-bold">{EVENTS_LABELS.pageTitle}</h2>
 		<Button
 			variant={creating ? 'ghost' : 'primary'}
 			size="sm"
@@ -53,19 +54,19 @@ function formatDate(d: string): string {
 		<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)]">{form.error}</div>
 	{/if}
 	{#if form?.created}
-		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]">イベントを作成しました</div>
+		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]">{EVENTS_LABELS.createdMessage}</div>
 	{/if}
 	{#if form?.updated}
-		<div class="rounded-lg bg-[var(--color-feedback-info-bg)] p-3 text-sm text-[var(--color-feedback-info-text)]">イベントを更新しました</div>
+		<div class="rounded-lg bg-[var(--color-feedback-info-bg)] p-3 text-sm text-[var(--color-feedback-info-text)]">{EVENTS_LABELS.updatedMessage}</div>
 	{/if}
 	{#if form?.deleted}
-		<div class="rounded-lg bg-[var(--color-surface-muted)] p-3 text-sm text-[var(--color-text-primary)]">イベントを削除しました</div>
+		<div class="rounded-lg bg-[var(--color-surface-muted)] p-3 text-sm text-[var(--color-text-primary)]">{EVENTS_LABELS.deletedMessage}</div>
 	{/if}
 
 	<!-- Create form -->
 	{#if creating}
 		<form method="POST" action="?/create" use:enhance class="rounded-xl border bg-white p-4 space-y-3">
-			<h3 class="font-bold text-sm">新規イベント作成</h3>
+			<h3 class="font-bold text-sm">{EVENTS_LABELS.createFormTitle}</h3>
 			<div class="grid grid-cols-2 gap-3">
 				<FormField label="コード" type="text" name="code" placeholder="spring-2026" required />
 				<FormField label="名前" type="text" name="name" placeholder="しんがっきスタートダッシュ" required />
@@ -93,7 +94,7 @@ function formatDate(d: string): string {
 			</div>
 			<FormField label="報酬設定（JSON）" type="text" name="rewardConfig" placeholder={'{"points":50,"title":"スタートダッシュ達成！"}'} />
 			<Button type="submit" variant="primary" size="sm" class="w-full">
-				作成
+				{EVENTS_LABELS.createButton}
 			</Button>
 		</form>
 	{/if}
@@ -102,8 +103,8 @@ function formatDate(d: string): string {
 	{#if data.events.length === 0}
 		<div class="rounded-xl border bg-white p-8 text-center">
 			<p class="text-2xl">🎪</p>
-			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">イベントはまだありません</p>
-			<p class="text-xs text-[var(--color-text-tertiary)]">上のボタンから作成してください</p>
+			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">{EVENTS_LABELS.noEventsTitle}</p>
+			<p class="text-xs text-[var(--color-text-tertiary)]">{EVENTS_LABELS.noEventsDesc}</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
@@ -117,15 +118,15 @@ function formatDate(d: string): string {
 								<h3 class="font-bold text-sm">
 									{event.name}
 									{#if active}
-										<span class="ml-1 rounded bg-[var(--color-feedback-warning-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-warning-text)]">開催中</span>
+										<span class="ml-1 rounded bg-[var(--color-feedback-warning-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-warning-text)]">{EVENTS_LABELS.activeLabel}</span>
 									{/if}
 									{#if event.isActive === 0}
-										<span class="ml-1 rounded bg-[var(--color-surface-secondary)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">無効</span>
+										<span class="ml-1 rounded bg-[var(--color-surface-secondary)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">{EVENTS_LABELS.inactiveLabel}</span>
 									{/if}
 								</h3>
 								<p class="text-xs text-[var(--color-text-muted)]">
 									<code class="bg-[var(--color-surface-secondary)] px-1 rounded">{event.code}</code>
-									· {formatDate(event.startDate)} 〜 {formatDate(event.endDate)}
+									· {formatDate(event.startDate)} {EVENTS_LABELS.separatorLabel} {formatDate(event.endDate)}
 									· {event.eventType}
 								</p>
 								{#if event.description}
@@ -137,7 +138,7 @@ function formatDate(d: string): string {
 							onsubmit={(e) => { if (!confirm(`「${event.name}」を削除しますか？`)) e.preventDefault(); }}
 						>
 							<input type="hidden" name="id" value={event.id} />
-							<Button type="submit" variant="danger" size="sm">削除</Button>
+							<Button type="submit" variant="danger" size="sm">{EVENTS_LABELS.deleteButton}</Button>
 						</form>
 					</div>
 				</div>

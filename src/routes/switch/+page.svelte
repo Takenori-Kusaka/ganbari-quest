@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { APP_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import { soundService } from '$lib/ui/sound/sound-service';
@@ -10,12 +11,12 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 </script>
 
 <svelte:head>
-	<title>だれがつかう？ - がんばりクエスト</title>
+	<title>{PAGE_TITLES.switchUser}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="portal-page min-h-dvh flex flex-col">
 	{#if data.reason === 'admin_forbidden'}
-		<div class="bg-[var(--color-gold-100)] text-[var(--color-gold-700)] py-3 px-4 text-center text-sm font-semibold border-b border-[var(--color-gold-500)]" role="alert">おやのアカウントでログインしてね</div>
+		<div class="bg-[var(--color-gold-100)] text-[var(--color-gold-700)] py-3 px-4 text-center text-sm font-semibold border-b border-[var(--color-gold-500)]" role="alert">{SWITCH_PAGE_LABELS.adminForbiddenNotice}</div>
 	{/if}
 
 	<header class="pt-10 px-6 pb-6 flex justify-center">
@@ -23,13 +24,13 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 	</header>
 
 	<main class="flex-1 px-4 pb-6 max-w-[480px] mx-auto w-full">
-		<h1 class="text-2xl font-bold text-center text-[var(--color-neutral-900)] mb-6">だれがつかう？</h1>
+		<h1 class="text-2xl font-bold text-center text-[var(--color-neutral-900)] mb-6">{SWITCH_PAGE_LABELS.heading}</h1>
 
 		{#if data.children.length === 0}
 			<div class="flex flex-col items-center py-12 text-[var(--color-neutral-400)]">
 				<span class="text-[2.5rem] mb-2">👤</span>
-				<p class="font-bold m-0">こどもがまだいないよ</p>
-				<p class="text-sm mt-1">おやがかんりがめんからついかしてね</p>
+				<p class="font-bold m-0">{SWITCH_PAGE_LABELS.emptyTitle}</p>
+				<p class="text-sm mt-1">{SWITCH_PAGE_LABELS.emptyDesc}</p>
 			</div>
 		{:else}
 			<div class="flex flex-col gap-3">
@@ -58,7 +59,7 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 							{/if}
 							<div class="flex-1 min-w-0">
 								<p class="text-lg font-bold text-[var(--color-neutral-900)] m-0">{child.nickname}</p>
-								<p class="text-sm text-[var(--color-neutral-400)] mt-0.5">{child.age}さい</p>
+								<p class="text-sm text-[var(--color-neutral-400)] mt-0.5">{child.age + 'さい'}</p>
 							</div>
 							<span class="text-2xl text-[var(--color-neutral-300)] shrink-0" aria-hidden="true">▶</span>
 						</Button>
@@ -70,7 +71,7 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 
 	{#if data.showAdminLink}
 		<footer class="p-4 text-center">
-			<a href={data.adminLink} class="text-[var(--color-text-muted)] text-sm no-underline hover:text-[var(--color-brand-700)]">🔒 おやのかんりがめん</a>
+			<a href={data.adminLink} class="text-[var(--color-text-muted)] text-sm no-underline hover:text-[var(--color-brand-700)]">{SWITCH_PAGE_LABELS.adminLink}</a>
 		</footer>
 	{/if}
 </div>

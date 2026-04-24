@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { SETUP_QUESTIONNAIRE_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -63,10 +64,10 @@ function togglePreset(value: string) {
 </script>
 
 <h2 class="text-lg font-bold text-center mb-1">
-	📋 かんたんアンケート
+	{SETUP_QUESTIONNAIRE_LABELS.pageTitle}
 </h2>
 <p class="text-sm text-[var(--color-text-muted)] text-center mb-4">
-	お子さまに合った設定を自動でご用意します
+	{SETUP_QUESTIONNAIRE_LABELS.pageDesc}
 </p>
 
 <form method="POST" action="?/submit" use:enhance={() => {
@@ -79,7 +80,7 @@ function togglePreset(value: string) {
 	<!-- Q1: 課題 -->
 	<fieldset class="mb-5">
 		<legend class="text-sm font-semibold mb-2">
-			Q1. お子さまの課題は？（いくつでも）
+			{SETUP_QUESTIONNAIRE_LABELS.q1Legend}
 		</legend>
 		<div class="grid gap-2">
 			{#each challengeOptions as option (option.value)}
@@ -103,7 +104,7 @@ function togglePreset(value: string) {
 	<!-- Q2: 活動量 -->
 	<fieldset class="mb-5">
 		<legend class="text-sm font-semibold mb-2">
-			Q2. 1にちに どれくらい きろくする？
+			{SETUP_QUESTIONNAIRE_LABELS.q2Legend}
 		</legend>
 		<div class="grid gap-2">
 			{#each activityLevelOptions as option (option.value)}
@@ -121,7 +122,7 @@ function togglePreset(value: string) {
 					<span class="text-sm font-medium">{option.label}</span>
 					{#if option.value === 'normal'}
 						<span class="ml-auto text-xs px-2 py-0.5 rounded-full bg-[var(--color-brand-100)] text-[var(--color-brand-700)]">
-							おすすめ
+							{SETUP_QUESTIONNAIRE_LABELS.recommendedBadge}
 						</span>
 					{/if}
 				</label>
@@ -132,10 +133,10 @@ function togglePreset(value: string) {
 	<!-- Q3: チェックリスト -->
 	<fieldset class="mb-5">
 		<legend class="text-sm font-semibold mb-2">
-			Q3. チェックリストを自動作成する？
+			{SETUP_QUESTIONNAIRE_LABELS.q3Legend}
 		</legend>
 		<p class="text-xs text-[var(--color-text-muted)] mb-2">
-			えらんだリストが自動で作成されます（あとから変更できます）
+			{SETUP_QUESTIONNAIRE_LABELS.q3Hint}
 		</p>
 		<div class="grid gap-2">
 			{#each availablePresets as preset (preset.value)}
@@ -161,7 +162,7 @@ function togglePreset(value: string) {
 
 	<div class="flex flex-col gap-2 mt-6">
 		<Button type="submit" variant="primary" size="lg" class="w-full" disabled={submitting}>
-			{submitting ? 'せっていちゅう...' : 'この設定ではじめる！'}
+			{submitting ? SETUP_QUESTIONNAIRE_LABELS.submittingLabel : SETUP_QUESTIONNAIRE_LABELS.startButton}
 		</Button>
 	</div>
 </form>
@@ -169,7 +170,7 @@ function togglePreset(value: string) {
 <form method="POST" action="?/skip" use:enhance>
 	<div class="text-center mt-3">
 		<Button type="submit" variant="ghost" size="sm" class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-secondary)]">
-			あとで設定する（スキップ）
+			{SETUP_QUESTIONNAIRE_LABELS.skipButton}
 		</Button>
 	</div>
 </form>

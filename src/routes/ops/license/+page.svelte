@@ -1,11 +1,12 @@
 <script lang="ts">
+import { OPS_LICENSE_PAGE_LABELS } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { form } = $props();
 </script>
 
 <svelte:head>
-	<title>OPS - ライセンスキー管理</title>
+	<title>{OPS_LICENSE_PAGE_LABELS.pageTitle}</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
@@ -14,16 +15,16 @@ let { form } = $props();
 		<a
 			href="/ops/license/issue"
 			class="px-3 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] rounded text-sm font-medium no-underline"
-		>＋ キャンペーンキーを発行</a>
+		>{OPS_LICENSE_PAGE_LABELS.issueButton}</a>
 	</div>
 
 	<Card padding="lg">
 		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-neutral-700)]">
-			ライセンスキー検索
+			{OPS_LICENSE_PAGE_LABELS.searchTitle}
 		</h2>
 		<form method="POST" action="?/search" class="flex gap-2 items-end">
 			<label class="flex flex-col gap-1 flex-1">
-				<span class="text-xs text-[var(--color-text-muted)]">ライセンスキー</span>
+				<span class="text-xs text-[var(--color-text-muted)]">{OPS_LICENSE_PAGE_LABELS.keyInputLabel}</span>
 				<input
 					type="text"
 					name="licenseKey"
@@ -36,7 +37,7 @@ let { form } = $props();
 				type="submit"
 				class="px-4 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] rounded font-medium"
 			>
-				検索
+				{OPS_LICENSE_PAGE_LABELS.searchButton}
 			</button>
 		</form>
 		{#if form?.error}

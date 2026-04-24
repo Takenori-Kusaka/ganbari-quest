@@ -2,6 +2,7 @@
 import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import { APP_LABELS, LOGIN_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -87,7 +88,7 @@ $effect(() => {
 </script>
 
 <svelte:head>
-	<title>ログイン - がんばりクエスト</title>
+	<title>{PAGE_TITLES.login}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="min-h-dvh flex items-center justify-center bg-[var(--gradient-brand)] p-4">
@@ -96,13 +97,13 @@ $effect(() => {
 		<div class="text-center mb-8">
 			<Logo variant="full" size={320} />
 			{#if mfaStep}
-				<p class="text-sm text-[var(--color-text-muted)] mt-2 font-semibold">MFA認証</p>
+				<p class="text-sm text-[var(--color-text-muted)] mt-2 font-semibold">{LOGIN_LABELS.mfaBadge}</p>
 			{/if}
 		</div>
 
 		{#if passwordReset}
 			<div class="mb-4 p-3 bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] border border-[var(--color-feedback-success-border)] rounded-[var(--radius-sm)] text-sm" role="status">
-				パスワードがリセットされました。新しいパスワードでログインしてください。
+				{LOGIN_LABELS.passwordResetSuccess}
 			</div>
 		{/if}
 
@@ -114,7 +115,7 @@ $effect(() => {
 
 		{#if confirmStep}
 			<!-- UNCONFIRMED ユーザー: 確認コード入力 -->
-			<p class="text-sm text-[var(--color-text-muted)] text-center mb-2 font-semibold">メール認証</p>
+			<p class="text-sm text-[var(--color-text-muted)] text-center mb-2 font-semibold">{LOGIN_LABELS.confirmBadge}</p>
 
 			<form
 				method="POST"
@@ -132,11 +133,11 @@ $effect(() => {
 				<input type="hidden" name="password" value={password} />
 
 				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
-					<strong>{email}</strong> に確認コードを送信しました。<br />
-					メールに記載された6桁のコードを入力してください。
+					<strong>{email}</strong>{LOGIN_LABELS.confirmDesc1Suffix}<br />
+					{LOGIN_LABELS.confirmDesc2}
 				</p>
 
-				<FormField label="確認コード" id="confirmCode">
+				<FormField label={LOGIN_LABELS.confirmCodeLabel} id="confirmCode">
 					{#snippet children()}
 						<input
 							id="confirmCode"
@@ -156,16 +157,16 @@ $effect(() => {
 				<Button type="submit" disabled={loading || confirmCode.length < 1} size="md" class="w-full">
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
-						確認中...
+						{LOGIN_LABELS.confirmLoading}
 					{:else}
-						確認する
+						{LOGIN_LABELS.confirmButton}
 					{/if}
 				</Button>
 			</form>
 
 			{#if resendSuccess}
 				<div class="mt-3 p-3 bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] border border-[var(--color-feedback-success-border)] rounded-[var(--radius-sm)] text-sm text-center" role="status">
-					確認コードを再送しました
+					{LOGIN_LABELS.confirmResendSuccess}
 				</div>
 			{/if}
 
@@ -189,11 +190,11 @@ $effect(() => {
 					disabled={resending || resendCooldown > 0}
 				>
 					{#if resending}
-						再送中...
+						{LOGIN_LABELS.confirmResendLoading}
 					{:else if resendCooldown > 0}
-						コードを再送する（{resendCooldown}秒後に再試行可能）
+						{LOGIN_LABELS.confirmResendCooldown(resendCooldown)}
 					{:else}
-						コードを再送する
+						{LOGIN_LABELS.confirmResendButton}
 					{/if}
 				</Button>
 			</form>
@@ -217,10 +218,10 @@ $effect(() => {
 				<input type="hidden" name="email" value={email} />
 
 				<p class="text-sm text-[var(--color-text-muted)] text-center">
-					認証アプリに表示されている6桁のコードを入力してください。
+					{LOGIN_LABELS.mfaDesc}
 				</p>
 
-				<FormField label="認証コード" id="mfaCode">
+				<FormField label={LOGIN_LABELS.mfaCodeLabel} id="mfaCode">
 					{#snippet children()}
 						<input
 							id="mfaCode"
@@ -241,9 +242,9 @@ $effect(() => {
 				<Button type="submit" disabled={loading || mfaCode.length !== 6} size="md" class="w-full">
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
-						認証中...
+						{LOGIN_LABELS.mfaLoading}
 					{:else}
-						認証する
+						{LOGIN_LABELS.mfaButton}
 					{/if}
 				</Button>
 			</form>
@@ -251,7 +252,7 @@ $effect(() => {
 			<!-- Google OAuth ログイン -->
 			{#if !data.devMode}
 				<GoogleSignInButton />
-				<Divider label="または" spacing="sm" />
+				<Divider label={LOGIN_LABELS.dividerLabel} spacing="sm" />
 			{/if}
 
 			<!-- 通常ログインフォーム -->
@@ -274,7 +275,7 @@ $effect(() => {
 					id="email"
 					name="email"
 					bind:value={email}
-					placeholder="example@email.com"
+					placeholder={LOGIN_LABELS.emailPlaceholder}
 					required
 					autocomplete="email"
 				/>
@@ -285,7 +286,7 @@ $effect(() => {
 					id="password"
 					name="password"
 					bind:value={password}
-					placeholder="8文字以上"
+					placeholder={LOGIN_LABELS.passwordPlaceholder}
 					required
 					minlength={8}
 					autocomplete="current-password"
@@ -294,16 +295,16 @@ $effect(() => {
 
 				<div class="-mt-2 text-right">
 					<a href="/auth/forgot-password" class="text-xs text-[var(--color-text-link)] hover:underline">
-						パスワードを忘れた方はこちら
+						{LOGIN_LABELS.forgotPasswordLink}
 					</a>
 				</div>
 
 				<Button type="submit" disabled={loading || !email || !password} size="md" class="w-full">
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
-						ログイン中...
+						{LOGIN_LABELS.loginLoading}
 					{:else}
-						ログイン
+						{LOGIN_LABELS.loginButton}
 					{/if}
 				</Button>
 			</form>
@@ -311,7 +312,7 @@ $effect(() => {
 			{#if !data.devMode}
 				<div class="mt-5 text-center">
 					<a href="/auth/signup" class="text-sm text-[var(--color-text-link)] hover:underline">
-						アカウントをお持ちでない方はこちら
+						{LOGIN_LABELS.signupLink}
 					</a>
 				</div>
 			{/if}
@@ -320,11 +321,11 @@ $effect(() => {
 		{#if data.devMode}
 			<div class="mt-6 pt-4 border-t border-[var(--color-border-default)]">
 				<details>
-					<summary class="text-xs text-[var(--color-text-muted)] cursor-pointer">テスト用アカウント</summary>
+					<summary class="text-xs text-[var(--color-text-muted)] cursor-pointer">{LOGIN_LABELS.devAccountsSummary}</summary>
 					<ul class="mt-2 pl-4 text-xs text-[var(--color-text-muted)] leading-7">
-						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">owner@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Owner2026x</code> (管理者)</li>
-						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">parent@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Parent2026</code> (親)</li>
-						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">child@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Child2026x</code> (子供)</li>
+						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">owner@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Owner2026x</code> {LOGIN_LABELS.devAccountOwnerRole}</li>
+						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">parent@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Parent2026</code> {LOGIN_LABELS.devAccountParentRole}</li>
+						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">child@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Child2026x</code> {LOGIN_LABELS.devAccountChildRole}</li>
 					</ul>
 				</details>
 			</div>

@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { APP_LABELS, PACKS_PAGE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -17,13 +18,13 @@ const categoryLabels: Record<string, string> = {
 </script>
 
 <svelte:head>
-	<title>活動パック - がんばりクエスト</title>
+	<title>{PAGE_TITLES.packs}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="pb-6">
-	<h1 class="text-lg font-bold text-[var(--color-text)] mb-1">活動パック</h1>
+	<h1 class="text-lg font-bold text-[var(--color-text)] mb-1">{PACKS_PAGE_LABELS.pageTitle}</h1>
 	<p class="text-sm text-[var(--color-text-muted)] mb-4">
-		年齢に合わせた活動セットをインポートできます。同じ名前の活動は自動的にスキップされます。
+		{PACKS_PAGE_LABELS.pageDesc}
 	</p>
 
 	<div class="flex flex-col gap-4">
@@ -47,15 +48,15 @@ const categoryLabels: Record<string, string> = {
 						<div class="flex-1 min-w-0">
 							<div class="flex items-center gap-2 flex-wrap">
 								<span class="font-bold text-[var(--color-text)]">{pack.packName}</span>
-								<span class="text-xs text-[var(--color-text-tertiary)]">{pack.targetAgeMin}〜{pack.targetAgeMax}歳</span>
+								<span class="text-xs text-[var(--color-text-tertiary)]">{pack.targetAgeMin + '〜'}{pack.targetAgeMax + '歳'}</span>
 								{#if pack.isRecommended && !pack.isFullyImported}
-									<span class="text-[10px] font-bold text-white bg-[var(--color-stat-amber)] rounded-full px-2 py-0.5">おすすめ</span>
+									<span class="text-[10px] font-bold text-white bg-[var(--color-stat-amber)] rounded-full px-2 py-0.5">{PACKS_PAGE_LABELS.recommendedBadge}</span>
 								{/if}
 								{#if pack.isFullyImported}
-									<span class="text-[10px] font-bold text-[var(--color-feedback-success-text)] bg-[var(--color-feedback-success-bg-strong)] rounded-full px-2 py-0.5">インポート済</span>
+									<span class="text-[10px] font-bold text-[var(--color-feedback-success-text)] bg-[var(--color-feedback-success-bg-strong)] rounded-full px-2 py-0.5">{PACKS_PAGE_LABELS.importedBadge}</span>
 								{:else if pack.importedCount > 0}
 									<span class="text-[10px] font-bold text-[var(--color-feedback-info-text)] bg-[var(--color-feedback-info-bg-strong)] rounded-full px-2 py-0.5">
-										{pack.importedCount}/{pack.activityCount}件 登録済
+										{pack.importedCount}/{pack.activityCount}{PACKS_PAGE_LABELS.partiallyImportedSuffix}
 									</span>
 								{/if}
 							</div>
@@ -65,7 +66,7 @@ const categoryLabels: Record<string, string> = {
 									<span class="text-[10px] px-1.5 py-0.5 bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)] rounded">{tag}</span>
 								{/each}
 								<span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto">
-									{expandedPack === pack.packId ? '▲' : '▼'} {pack.activityCount}件の活動
+									{expandedPack === pack.packId ? '▲' : '▼'} {pack.activityCount}{PACKS_PAGE_LABELS.activityCountSuffix}
 								</span>
 							</div>
 						</div>
@@ -106,9 +107,9 @@ const categoryLabels: Record<string, string> = {
 									class="w-full mt-3"
 								>
 									{#if importing === pack.packId}
-										インポート中...
+										{PACKS_PAGE_LABELS.importingLabel}
 									{:else}
-										{pack.activityCount - pack.importedCount}件の新しい活動をインポート
+										{PACKS_PAGE_LABELS.importButton(pack.activityCount - pack.importedCount)}
 									{/if}
 								</Button>
 							</form>

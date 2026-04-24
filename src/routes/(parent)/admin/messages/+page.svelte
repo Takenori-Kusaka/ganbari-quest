@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { APP_LABELS, MESSAGES_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { MESSAGE_TEXT_MAX_LENGTH } from '$lib/domain/validation/message';
 import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -33,30 +34,30 @@ function selectStamp(code: string) {
 </script>
 
 <svelte:head>
-	<title>おうえんメッセージ - がんばりクエスト</title>
+	<title>{PAGE_TITLES.messages}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6">
 	<!-- Page Description -->
 	<div class="page-description">
 		<div class="flex items-center gap-2">
-			<p class="page-description__title">💌 おうえんメッセージ</p>
+			<p class="page-description__title">{MESSAGES_LABELS.pageDescTitle}</p>
 			<PageHelpButton />
 		</div>
 		<p class="page-description__text">
-			スタンプやメッセージでこどもを応援しましょう。
-			こどもの画面にスタンプが届き、親からの気持ちが伝わります。
+			{MESSAGES_LABELS.pageDescText1}
+			{MESSAGES_LABELS.pageDescText2}
 		</p>
 		<p class="page-description__hint">
-			🎁 特別なボーナスポイントの付与は
-			<a href="/admin/rewards" class="page-description__link">ごほうび</a>
-			から行えます
+			{MESSAGES_LABELS.pageDescHintPrefix}
+			<a href="/admin/rewards" class="page-description__link">{MESSAGES_LABELS.pageDescHintLink}</a>
+			{MESSAGES_LABELS.pageDescHintSuffix}
 		</p>
 	</div>
 
 	<!-- Step 1: Select child -->
 	<section data-tutorial="message-child-select">
-		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">1. こどもを選択</h3>
+		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{MESSAGES_LABELS.selectChildTitle}</h3>
 		<div class="flex gap-2 flex-wrap">
 			{#each data.children as child}
 				<Button
@@ -73,7 +74,7 @@ function selectStamp(code: string) {
 
 	<!-- Step 2: Choose message type -->
 	<section>
-		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">2. おうえんの種類</h3>
+		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{MESSAGES_LABELS.messageTypeTitle}</h3>
 		<div class="flex gap-2 mb-3">
 			<Button
 				variant={messageType === 'stamp' ? 'primary' : 'ghost'}
@@ -81,7 +82,7 @@ function selectStamp(code: string) {
 				class="rounded-xl {messageType === 'stamp' ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text-muted)] shadow-sm hover:shadow-md'}"
 				onclick={() => (messageType = 'stamp')}
 			>
-				スタンプ
+				{MESSAGES_LABELS.stampButton}
 			</Button>
 			{#if canFreeText}
 				<Button
@@ -90,7 +91,7 @@ function selectStamp(code: string) {
 					class="rounded-xl {messageType === 'text' ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text-muted)] shadow-sm hover:shadow-md'}"
 					onclick={() => (messageType = 'text')}
 				>
-					ひとことメッセージ
+					{MESSAGES_LABELS.textMessageButton}
 				</Button>
 			{:else}
 				<Button
@@ -100,13 +101,13 @@ function selectStamp(code: string) {
 					disabled
 					aria-disabled="true"
 					aria-describedby="free-text-message-disabled-reason"
-					title="ファミリープラン限定"
+					title={MESSAGES_LABELS.textMessageDisabledTitle}
 				>
-					ひとことメッセージ
+					{MESSAGES_LABELS.textMessageButton}
 					<span class="text-xs font-bold text-[var(--color-point)]">⭐⭐</span>
 				</Button>
 				<span id="free-text-message-disabled-reason" class="sr-only">
-					ひとことメッセージはファミリープラン限定の機能です。ご利用にはプランのアップグレードが必要です。
+					{MESSAGES_LABELS.textMessageDisabledSrOnly}
 				</span>
 			{/if}
 		</div>
@@ -186,14 +187,14 @@ function selectStamp(code: string) {
 	<!-- Success Message -->
 	{#if sendSuccess}
 		<div class="bg-[color-mix(in_srgb,var(--color-action-success)_10%,transparent)] rounded-xl p-4 border border-[color-mix(in_srgb,var(--color-action-success)_30%,transparent)] text-center animate-bounce-in">
-			<p class="text-[var(--color-action-success)] font-bold">おうえんメッセージを送りました！</p>
+			<p class="text-[var(--color-action-success)] font-bold">{MESSAGES_LABELS.sendSuccess}</p>
 		</div>
 	{/if}
 
 	<!-- Recent messages for selected child -->
 	{#if selectedChild?.recentMessages && selectedChild.recentMessages.length > 0}
 		<section>
-			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">最近のメッセージ</h3>
+			<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{MESSAGES_LABELS.recentMessagesTitle}</h3>
 			<div class="space-y-2">
 				{#each selectedChild.recentMessages as msg}
 					<div class="bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm flex items-center gap-3">
@@ -208,9 +209,9 @@ function selectStamp(code: string) {
 							<p class="text-xs text-[var(--color-text-muted)]">{new Date(msg.sentAt).toLocaleString('ja-JP')}</p>
 						</div>
 						{#if msg.shownAt}
-							<span class="text-xs text-[var(--color-action-success)]">既読</span>
+							<span class="text-xs text-[var(--color-action-success)]">{MESSAGES_LABELS.msgRead}</span>
 						{:else}
-							<span class="text-xs text-[var(--color-warning)]">未読</span>
+							<span class="text-xs text-[var(--color-warning)]">{MESSAGES_LABELS.msgUnread}</span>
 						{/if}
 					</div>
 				{/each}

@@ -1,7 +1,13 @@
 <script lang="ts">
 import '$lib/ui/styles/app.css';
 import { page } from '$app/stores';
-import { PLAN_SHORT_LABELS, type PlanKey } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	DEMO_LAYOUT_LABELS,
+	PAGE_TITLES,
+	PLAN_SHORT_LABELS,
+	type PlanKey,
+} from '$lib/domain/labels';
 import DemoGuideBar from '$lib/features/demo/DemoGuideBar.svelte';
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import { getGuideState } from '$lib/features/demo/demo-guide-state.svelte.js';
@@ -51,7 +57,7 @@ $effect(() => {
 </script>
 
 <svelte:head>
-	<title>デモ体験 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.demo}{APP_LABELS.pageTitleSuffix}</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
@@ -68,14 +74,14 @@ $effect(() => {
 		onclick={() => trackDemoEvent('demo_back_to_lp', { from: $page.url.pathname })}
 	>
 		<span aria-hidden="true">←</span>
-		<span>HPに戻る</span>
+		<span>{DEMO_LAYOUT_LABELS.backToHpLink}</span>
 	</a>
-	<span class="flex-1 text-center truncate">これはデモです。データは保存されません。</span>
+	<span class="flex-1 text-center truncate">{DEMO_LAYOUT_LABELS.demoNotice}</span>
 	<a
 		href="/demo/signup"
 		class="flex-shrink-0 inline-block bg-white text-orange-600 px-3 py-1 rounded-full text-xs font-bold hover:bg-orange-50 transition-colors"
 	>
-		本番で使ってみる
+		{DEMO_LAYOUT_LABELS.tryRealButton}
 	</a>
 </div>
 
@@ -84,7 +90,7 @@ $effect(() => {
 	class="fixed top-10 left-0 right-0 z-40 bg-white/95 border-b border-[var(--color-border-light)] py-1 px-4 flex items-center justify-center gap-2 text-xs shadow-sm"
 	data-testid="demo-plan-switcher"
 >
-	<span class="text-[var(--color-text-muted)]">プラン体験:</span>
+	<span class="text-[var(--color-text-muted)]">{DEMO_LAYOUT_LABELS.planSwitcherLabel}</span>
 	{#each PLAN_KEYS as key (key)}
 		<a
 			href={planSwitchHref(key)}
@@ -127,13 +133,13 @@ $effect(() => {
 		>
 			&times;
 		</Button>
-		<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">お子さまの ぼうけん、はじめよう！</p>
-		<p class="text-xs text-[var(--color-text-muted)] mb-3">7日間無料・いつでもキャンセルOK</p>
+		<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">{DEMO_LAYOUT_LABELS.floatingCtaTitle}</p>
+		<p class="text-xs text-[var(--color-text-muted)] mb-3">{DEMO_LAYOUT_LABELS.floatingCtaDesc}</p>
 		<a
 			href="/demo/signup"
 			class="block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-center text-sm"
 		>
-			無料で はじめる →
+			{DEMO_LAYOUT_LABELS.floatingCtaButton}
 		</a>
 		{/snippet}
 	</Card>

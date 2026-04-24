@@ -1,6 +1,6 @@
 <script lang="ts">
 import { formatChildName } from '$lib/domain/child-display';
-import { OYAKAGI_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SETUP_COMPLETE_LABELS } from '$lib/domain/labels';
 
 let { data } = $props();
 
@@ -10,53 +10,53 @@ const childHomeUrl = $derived(firstChild ? `/${firstChild.uiMode}/home` : '/swit
 </script>
 
 <svelte:head>
-	<title>ぼうけんのはじまり！ - がんばりクエスト</title>
+	<title>{PAGE_TITLES.setupComplete}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="text-center complete-screen">
 	<div class="text-4xl mb-2">⚔️</div>
-	<h2 class="text-xl font-bold text-[var(--color-text)] mb-1">ぼうけんのはじまり！</h2>
+	<h2 class="text-xl font-bold text-[var(--color-text)] mb-1">{SETUP_COMPLETE_LABELS.title}</h2>
 	<p class="text-sm text-[var(--color-text-muted)] mb-4">
-		{formatChildName(firstChild?.nickname, 'possessive')}ぼうけんじゅんびが<br />かんりょうしたよ！
+		{formatChildName(firstChild?.nickname, 'possessive')}{SETUP_COMPLETE_LABELS.descPart1}<br />{SETUP_COMPLETE_LABELS.descPart2}
 	</p>
 
 	<!-- ステータスサマリ -->
 	<div class="flex gap-3 justify-center mb-5">
 		<div class="flex-1 max-w-[120px] bg-[var(--color-brand-50)] border border-[var(--color-brand-200)] rounded-xl py-3 px-2">
 			<div class="text-2xl mb-1">👦</div>
-			<div class="text-xl font-extrabold text-[var(--color-brand-800)]">{data.childCount}人</div>
-			<div class="text-[0.625rem] text-[var(--color-text-muted)]">こども</div>
+			<div class="text-xl font-extrabold text-[var(--color-brand-800)]">{data.childCount + SETUP_COMPLETE_LABELS.childCountUnit}</div>
+			<div class="text-[0.625rem] text-[var(--color-text-muted)]">{SETUP_COMPLETE_LABELS.childCountLabel}</div>
 		</div>
 		{#if data.importedActivities > 0}
 			<div class="flex-1 max-w-[120px] bg-[var(--color-brand-50)] border border-[var(--color-brand-200)] rounded-xl py-3 px-2">
 				<div class="text-2xl mb-1">📋</div>
-				<div class="text-xl font-extrabold text-[var(--color-brand-800)]">{data.importedActivities}こ</div>
-				<div class="text-[0.625rem] text-[var(--color-text-muted)]">かつどう</div>
+				<div class="text-xl font-extrabold text-[var(--color-brand-800)]">{data.importedActivities}{SETUP_COMPLETE_LABELS.activityCountUnit}</div>
+				<div class="text-[0.625rem] text-[var(--color-text-muted)]">{SETUP_COMPLETE_LABELS.activityCountLabel}</div>
 			</div>
 		{/if}
 	</div>
 
 	<!-- 次のミッション -->
 	<div class="bg-[var(--gradient-gold)] border border-[var(--color-gold-400)] rounded-xl py-3 px-4 mb-5">
-		<p class="text-[0.625rem] font-bold text-[var(--color-gold-700)] uppercase tracking-wide m-0 mb-1">つぎのミッション</p>
+		<p class="text-[0.625rem] font-bold text-[var(--color-gold-700)] uppercase tracking-wide m-0 mb-1">{SETUP_COMPLETE_LABELS.nextMissionLabel}</p>
 		<p class="text-sm font-semibold text-[var(--color-gold-700)] m-0">
-			「きょうの がんばりを 3つ きろくしよう！」
+			{SETUP_COMPLETE_LABELS.nextMissionText}
 		</p>
 	</div>
 
 	<!-- CTA ボタン -->
 	<div class="flex flex-col gap-2 mb-4">
 		<a href={childHomeUrl} class="cta-primary">
-			こどもがめんをひらく
+			{SETUP_COMPLETE_LABELS.ctaPrimary}
 		</a>
 		<a href="/admin" class="cta-secondary">
-			おやのせっていをみる
+			{SETUP_COMPLETE_LABELS.ctaSecondary}
 		</a>
 	</div>
 
 	<!-- PINヒント -->
 	<p class="text-[0.6875rem] text-[var(--color-neutral-400)] mt-2">
-		💡 管理画面の「せってい」から{OYAKAGI_LABELS.name}を変更すると、おやの画面を守れるよ。{OYAKAGI_LABELS.defaultValueHint}
+		{SETUP_COMPLETE_LABELS.pinHintPrefix}{OYAKAGI_LABELS.name}{SETUP_COMPLETE_LABELS.pinHintMiddle}{OYAKAGI_LABELS.defaultValueHint}
 	</p>
 </div>
 

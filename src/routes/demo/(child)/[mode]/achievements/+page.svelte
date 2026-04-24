@@ -1,29 +1,31 @@
 <script lang="ts">
+import { APP_LABELS, DEMO_CHILD_ACHIEVEMENTS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+
 let { data } = $props();
 </script>
 
 <svelte:head>
-	<title>チャレンジきろく - がんばりクエスト デモ</title>
+	<title>{PAGE_TITLES.childAchievements}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
 {#if data.challenges.length === 0}
 	<div class="flex flex-col items-center justify-center py-16 text-[var(--color-text-muted)]">
 		<span class="text-5xl mb-4">📋</span>
-		<p class="text-lg font-bold mb-2">まだチャレンジきろくがないよ</p>
-		<p class="text-sm">チャレンジがはじまったら ここにきろくされるよ</p>
+		<p class="text-lg font-bold mb-2">{DEMO_CHILD_ACHIEVEMENTS_LABELS.emptyTitle}</p>
+		<p class="text-sm">{DEMO_CHILD_ACHIEVEMENTS_LABELS.emptyDesc}</p>
 	</div>
 {:else}
 	<div class="px-[var(--sp-md)] space-y-4">
-		<h2 class="text-lg font-bold">🏅 チャレンジきろく</h2>
+		<h2 class="text-lg font-bold">{DEMO_CHILD_ACHIEVEMENTS_LABELS.sectionTitle}</h2>
 
 		{#each data.challenges as challenge (challenge.id)}
 			<div class="rounded-xl border bg-white p-4 {challenge.completed ? 'border-[var(--color-feedback-success-border)]' : 'border-[var(--color-feedback-info-border)]'}">
 				<h3 class="font-bold text-sm">
 					{challenge.title}
 					{#if challenge.completed}
-						<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">クリア！</span>
+						<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">{DEMO_CHILD_ACHIEVEMENTS_LABELS.clearedBadge}</span>
 					{:else}
-						<span class="ml-1 rounded bg-[var(--color-feedback-info-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-info-text)]">ちょうせん中</span>
+						<span class="ml-1 rounded bg-[var(--color-feedback-info-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-info-text)]">{DEMO_CHILD_ACHIEVEMENTS_LABELS.inProgressBadge}</span>
 					{/if}
 				</h3>
 				{#if challenge.description}

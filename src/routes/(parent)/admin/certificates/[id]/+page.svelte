@@ -1,5 +1,6 @@
 <script lang="ts">
 import { formatChildName } from '$lib/domain/child-display';
+import { CERTIFICATE_DETAIL_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import CertificateTemplate from '$lib/features/certificate/CertificateTemplate.svelte';
 import ShareCard from '$lib/features/certificate/ShareCard.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -86,26 +87,26 @@ async function handleShareDownload() {
 </script>
 
 <svelte:head>
-	<title>{data.certificate.title} - がんばり証明書</title>
+	<title>{data.certificate.title} - {CERTIFICATE_DETAIL_LABELS.pageTitle}</title>
 </svelte:head>
 
 <!-- Screen-only controls -->
 <div class="screen-controls">
 	<div class="flex items-center gap-3 mb-4">
-		<a href="/admin/certificates" class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">&larr; 一覧に戻る</a>
+		<a href="/admin/certificates" class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">&larr; {CERTIFICATE_DETAIL_LABELS.backLink}</a>
 	</div>
 
 	<div class="flex items-center justify-between mb-6">
-		<h2 class="text-lg font-bold text-[var(--color-text-primary)]">📜 証明書プレビュー</h2>
+		<h2 class="text-lg font-bold text-[var(--color-text-primary)]">{CERTIFICATE_DETAIL_LABELS.previewTitle}</h2>
 		<div class="flex gap-2">
 			{#if data.isPremium}
 				<Button type="button" variant="primary" size="sm" onclick={handlePrint}>
-					🖨️ 印刷 / PDF保存
+					{CERTIFICATE_DETAIL_LABELS.printButton}
 				</Button>
 			{:else}
 				<div class="flex items-center gap-2">
-					<span class="text-xs text-[var(--color-text-tertiary)]">PDF保存はスタンダードプラン以上</span>
-					<a href="/admin/license" class="text-xs text-[var(--color-feedback-info-text)] hover:underline">アップグレード</a>
+					<span class="text-xs text-[var(--color-text-tertiary)]">{CERTIFICATE_DETAIL_LABELS.pdfUpgradeNote}</span>
+					<a href="/admin/license" class="text-xs text-[var(--color-feedback-info-text)] hover:underline">{CERTIFICATE_DETAIL_LABELS.upgradeLink}</a>
 				</div>
 			{/if}
 		</div>
@@ -124,8 +125,8 @@ async function handleShareDownload() {
 <div class="screen-controls">
 	<Card variant="default" padding="md" class="mt-6">
 		{#snippet children()}
-		<h3 class="text-sm font-bold text-[var(--color-text-primary)] mb-3">🎉 がんばりカード</h3>
-		<p class="text-xs text-[var(--color-text-muted)] mb-3">達成を画像でダウンロードして、LINEやSNSでシェアできます</p>
+		<h3 class="text-sm font-bold text-[var(--color-text-primary)] mb-3">{CERTIFICATE_DETAIL_LABELS.shareCardTitle}</h3>
+		<p class="text-xs text-[var(--color-text-muted)] mb-3">{CERTIFICATE_DETAIL_LABELS.shareCardDesc}</p>
 
 		{#if showShareCard}
 			<div class="mb-4">
@@ -138,15 +139,15 @@ async function handleShareDownload() {
 			</div>
 			<div class="flex gap-2 justify-center">
 				<Button type="button" variant="primary" size="sm" onclick={handleShareDownload}>
-					📥 画像をダウンロード
+					{CERTIFICATE_DETAIL_LABELS.downloadButton}
 				</Button>
 				<Button type="button" variant="outline" size="sm" onclick={() => { showShareCard = false; }}>
-					閉じる
+					{CERTIFICATE_DETAIL_LABELS.closeButton}
 				</Button>
 			</div>
 		{:else}
 			<Button type="button" variant="outline" size="sm" onclick={() => { showShareCard = true; }}>
-				🎉 シェアカードを表示
+				{CERTIFICATE_DETAIL_LABELS.showShareCardButton}
 			</Button>
 		{/if}
 
