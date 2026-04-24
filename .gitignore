@@ -84,3 +84,6 @@ storybook-static/
 # Misc
 *.log
 *.tsbuildinfo
+
+# Logo candidates (deleted from history via git filter-repo in #1443)
+docs/design/logo-candidates/
