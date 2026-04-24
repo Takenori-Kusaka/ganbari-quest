@@ -13,8 +13,8 @@
 
 const Database = require('better-sqlite3');
 const { google } = require('googleapis');
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 
 // Load .env if exists
 const envPath = path.join(__dirname, '..', '.env');

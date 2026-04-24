@@ -56,11 +56,11 @@ function formatBirthday(dateStr: string): string {
 </a>
 
 <style>
-	.child-list-card {
+	:global(.child-list-card) {
 		transition: box-shadow 0.2s, border-color 0.2s;
 		cursor: pointer;
 	}
-	.child-list-card:hover {
+	:global(.child-list-card:hover) {
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 	}
 	:global(.child-list-card--selected) {

@@ -3,8 +3,8 @@
  * seed.ts の全活動に triggerHint を追加する
  * Usage: node scripts/backfill-trigger-hints.cjs
  */
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 // 全180件の活動名 → triggerHint マッピング
 // 方針: ひらがな主体（対象年齢に応じて漢字可）、提案口調、30文字以内
@@ -224,7 +224,7 @@ for (const [name, hint] of Object.entries(HINTS)) {
 		if (match[0].includes('triggerHint')) {
 			continue;
 		}
-		content = content.replace(match[0], match[0] + `\n\t\t\t\ttriggerHint: '${hint}',`);
+		content = content.replace(match[0], `${match[0]}\n\t\t\t\ttriggerHint: '${hint}',`);
 		added++;
 	} else {
 		console.warn(`NOT FOUND: ${name}`);

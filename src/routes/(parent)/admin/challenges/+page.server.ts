@@ -31,6 +31,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 	create: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const fd = await request.formData();

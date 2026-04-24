@@ -35,7 +35,7 @@ export const actions: Actions = {
 		const key = decodeURIComponent(params.key).toUpperCase().trim();
 		const form = await request.formData();
 		const reasonRaw = (form.get('reason') ?? '').toString();
-		const note = (form.get('note') ?? '').toString().trim() || null;
+		const _note = (form.get('note') ?? '').toString().trim() || null;
 
 		if (!VALID_REASONS.includes(reasonRaw as LicenseRevokeReason)) {
 			return fail(400, { error: '失効理由が不正です' });

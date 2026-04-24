@@ -5,6 +5,7 @@
 // 新しい provider/factory 層への移行が完了するまで、re-export で互換性を維持する。
 // 移行完了後はこのファイルを削除可能。
 
+// biome-ignore lint/performance/noBarrelFile: 後方互換 re-export のため維持、削除は別 Issue で検討
 export { isAiAvailable as isBedrockAvailable } from './factory';
 export type { ToolDefinition, ToolUseResult as BedrockToolUseResult } from './provider';
 

@@ -17,6 +17,7 @@ import type { LayoutServerLoad } from './$types';
 
 const TRIAL_WAS_ACTIVE_COOKIE = 'trial_was_active';
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 	const tenantId = requireTenantId(locals);
 	const authMode = getAuthMode();

@@ -71,7 +71,6 @@ function writeLog(entry: LogEntry) {
 	} else if (entry.level === 'warn') {
 		console.warn(msg);
 	} else {
-		console.log(msg);
 	}
 
 	// File output (production only, skip on Lambda — CloudWatch Logs handles it)

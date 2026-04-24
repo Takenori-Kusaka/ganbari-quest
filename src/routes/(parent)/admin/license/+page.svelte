@@ -219,6 +219,7 @@ async function requestPortal() {
 	showPortalConfirm = true;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 async function openPortal() {
 	portalError = null;
 

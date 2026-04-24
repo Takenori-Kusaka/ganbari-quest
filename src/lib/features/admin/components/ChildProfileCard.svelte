@@ -66,6 +66,7 @@ let { child, categoryDefs, pointSettings: ps, onDelete }: Props = $props();
 
 // --- State ---
 let isEditing = $state(false);
+// svelte-ignore state_referenced_locally
 let themeValue = $state(child.theme);
 let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'voice'>('info');
 let statusEditSuccess = $state(false);

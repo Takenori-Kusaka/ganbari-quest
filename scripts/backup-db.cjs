@@ -12,9 +12,9 @@
 //   BACKUP_POST_HOOK="node scripts/hooks/gdrive-upload.cjs" node scripts/backup-db.cjs
 
 const Database = require('better-sqlite3');
-const { execSync } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+const { execSync } = require('node:child_process');
+const path = require('node:path');
+const fs = require('node:fs');
 
 // Load .env if exists
 const envPath = path.join(__dirname, '..', '.env');

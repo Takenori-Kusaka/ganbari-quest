@@ -43,6 +43,7 @@ let {
 	...rest
 }: Props = $props();
 
+// svelte-ignore state_referenced_locally
 const fieldId = id ?? `field-${label.replace(/\s+/g, '-').toLowerCase()}`;
 let passwordVisible = $state(false);
 const effectiveType = $derived(

@@ -13,6 +13,7 @@ const TEST_PASSWORD = process.env.E2E_TEST_PASSWORD || '';
 
 export const STORAGE_STATE_PATH = path.resolve('tests/e2e/.auth/aws-storage-state.json');
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export default async function globalSetup() {
 	if (!TEST_PASSWORD) {
 		console.log('[AWS E2E Setup] E2E_TEST_PASSWORD が未設定。認証テストをスキップします。');

@@ -138,6 +138,7 @@ export function calcStreakBonus(consecutiveDays: number): number {
 }
 
 /** Get today's date in YYYY-MM-DD format (JST) */
+// biome-ignore lint/performance/noBarrelFile: 後方互換 re-export のため維持、削除は別 Issue で検討
 export { todayDateJST as todayDate } from '$lib/domain/date-utils';
 
 /** Cancel window in milliseconds (5 seconds) */

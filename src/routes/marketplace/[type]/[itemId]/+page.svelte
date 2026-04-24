@@ -18,6 +18,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
+// svelte-ignore state_referenced_locally
 const item: MarketplaceItem = data.item;
 
 const isActivityPack = $derived(item.type === 'activity-pack');

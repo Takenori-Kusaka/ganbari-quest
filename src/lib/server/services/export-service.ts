@@ -186,6 +186,7 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 	return exportData;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 async function collectTransactionData(
 	childIds: number[],
 	childExportIdMap: Map<number, string>,

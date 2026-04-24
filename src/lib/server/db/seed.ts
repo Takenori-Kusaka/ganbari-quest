@@ -15,9 +15,8 @@ sqlite.pragma('foreign_keys = ON');
 
 const db = drizzle(sqlite, { schema });
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 function seed() {
-	console.log('Seeding database...');
-
 	// ============================================================
 	// 活動マスタ（174件 — 学習指導要領準拠 + 家事スキル）
 	// ============================================================
@@ -2639,7 +2638,6 @@ function seed() {
 		];
 
 		db.insert(schema.activities).values(activitiesData).run();
-		console.log(`  ✓ activities: ${activitiesData.length} items (学習指導要領準拠 + 家事スキル)`);
 	} else {
 		// 既存DBに家事活動が未追加の場合、追加する
 		const existingNames = new Set(existingActivities.map((a) => a.name));
@@ -2992,9 +2990,7 @@ function seed() {
 		const newActivities = choreActivities.filter((a) => !existingNames.has(a.name));
 		if (newActivities.length > 0) {
 			db.insert(schema.activities).values(newActivities).run();
-			console.log(`  ✓ activities: added ${newActivities.length} new chore activities`);
 		} else {
-			console.log('  - activities: already seeded (including chores)');
 		}
 	}
 
@@ -3090,9 +3086,7 @@ function seed() {
 		}
 	}
 	if (benchmarkInserted > 0) {
-		console.log(`  ✓ market_benchmarks: ${benchmarkInserted} items added`);
 	} else {
-		console.log('  - market_benchmarks: already seeded');
 	}
 
 	// ============================================================
@@ -3124,14 +3118,9 @@ function seed() {
 
 		if (statusesData.length > 0) {
 			db.insert(schema.statuses).values(statusesData).run();
-			console.log(
-				`  ✓ statuses: ${statusesData.length} items (${allChildren.length} children × 5 categories)`,
-			);
 		} else {
-			console.log('  - statuses: skipped (no children yet)');
 		}
 	} else {
-		console.log('  - statuses: already seeded');
 	}
 
 	// ============================================================
@@ -3443,18 +3432,13 @@ function seed() {
 
 	if (existingAchievements.length === 0) {
 		db.insert(schema.achievements).values(achievementsData).run();
-		console.log(`  ✓ achievements: ${achievementsData.length} items (milestone-based)`);
 	} else {
 		// 既存DBに不足している実績を追加（マイグレーション）
 		const existingCodes = new Set(existingAchievements.map((a) => a.code));
 		const missingAchievements = achievementsData.filter((a) => !existingCodes.has(a.code));
 		if (missingAchievements.length > 0) {
 			db.insert(schema.achievements).values(missingAchievements).run();
-			console.log(
-				`  ✓ achievements: added ${missingAchievements.length} new (${missingAchievements.map((a) => a.code).join(', ')})`,
-			);
 		} else {
-			console.log('  - achievements: already seeded');
 		}
 	}
 
@@ -3481,9 +3465,7 @@ function seed() {
 		db.insert(schema.settings)
 			.values({ key: 'reward_templates', value: JSON.stringify(templates) })
 			.run();
-		console.log(`  ✓ reward_templates: ${templates.length} templates`);
 	} else {
-		console.log('  - reward_templates: already seeded');
 	}
 
 	// ============================================================
@@ -3512,9 +3494,7 @@ function seed() {
 		for (const stamp of defaultStamps) {
 			db.insert(schema.stampMasters).values(stamp).run();
 		}
-		console.log(`  ✓ stamp_masters: ${defaultStamps.length} items`);
 	} else {
-		console.log(`  - stamp_masters: already seeded (${existingStamps.length})`);
 	}
 
 	// ============================================================
@@ -3656,9 +3636,7 @@ function seed() {
 		for (const event of eventsData) {
 			db.insert(schema.seasonEvents).values(event).run();
 		}
-		console.log(`  ✓ season_events: ${eventsData.length} items`);
 	} else {
-		console.log(`  - season_events: already seeded (${existingEvents.length})`);
 	}
 
 	// ============================================================
@@ -3741,12 +3719,8 @@ function seed() {
 		for (const act of springActivities) {
 			db.insert(schema.activities).values(act).run();
 		}
-		console.log(`  ✓ seasonal activities (spring): ${springActivities.length} items`);
 	} else {
-		console.log(`  - seasonal activities: already seeded (${seasonalActivitiesExist.length})`);
 	}
-
-	console.log('Seeding complete!');
 }
 
 // Export for programmatic use (e.g. Lambda cold-start init)

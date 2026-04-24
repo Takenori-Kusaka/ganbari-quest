@@ -162,6 +162,7 @@ test.describe('全年齢モード E2E', () => {
 				expect(await links.count()).toBe(4);
 			});
 
+			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 			test('活動を記録できる', async ({ page }) => {
 				test.slow(); // 記録フローは複数ステップ + ダイアログチェーンあり
 				await selectChildByName(page, mode.childName);

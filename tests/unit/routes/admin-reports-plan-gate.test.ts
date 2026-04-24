@@ -123,7 +123,6 @@ describe('GET /admin/reports load — weekly mail plan gate (#735)', () => {
 
 	it('free プランでは canReceiveWeeklyEmail=false を返す', async () => {
 		primeCommonMocks('free');
-		// biome-ignore lint/style/noNonNullAssertion: load is defined
 		const result = (await load!(makeLoadEvent('free'))) as {
 			canReceiveWeeklyEmail: boolean;
 			planTier: PlanTier;
@@ -134,7 +133,6 @@ describe('GET /admin/reports load — weekly mail plan gate (#735)', () => {
 
 	it('standard プランでは canReceiveWeeklyEmail=true を返す', async () => {
 		primeCommonMocks('standard');
-		// biome-ignore lint/style/noNonNullAssertion: load is defined
 		const result = (await load!(makeLoadEvent('standard'))) as {
 			canReceiveWeeklyEmail: boolean;
 			planTier: PlanTier;
@@ -145,7 +143,6 @@ describe('GET /admin/reports load — weekly mail plan gate (#735)', () => {
 
 	it('family プランでは canReceiveWeeklyEmail=true を返す', async () => {
 		primeCommonMocks('family');
-		// biome-ignore lint/style/noNonNullAssertion: load is defined
 		const result = (await load!(makeLoadEvent('family'))) as {
 			canReceiveWeeklyEmail: boolean;
 			planTier: PlanTier;
@@ -163,7 +160,6 @@ describe('POST /admin/reports?/updateSettings — server side plan gate (#735)',
 	it('free プランの POST は 403 + PlanLimitError 形式で拒否し setSetting は呼ばれない (#787)', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
 
-		// biome-ignore lint/style/noNonNullAssertion: action defined
 		const result = (await actions.updateSettings!(
 			makeFormEvent('free', { enabled: 'on', day: 'monday' }),
 		)) as {
@@ -186,7 +182,6 @@ describe('POST /admin/reports?/updateSettings — server side plan gate (#735)',
 	it('standard プランの POST は setSetting を呼ぶ', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('standard');
 
-		// biome-ignore lint/style/noNonNullAssertion: action defined
 		const result = await actions.updateSettings!(
 			makeFormEvent('standard', { enabled: 'on', day: 'friday' }),
 		);
@@ -199,7 +194,6 @@ describe('POST /admin/reports?/updateSettings — server side plan gate (#735)',
 	it('family プランの POST も setSetting を呼ぶ', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('family');
 
-		// biome-ignore lint/style/noNonNullAssertion: action defined
 		const result = await actions.updateSettings!(
 			makeFormEvent('family', { enabled: '', day: 'sunday' }),
 		);
@@ -211,7 +205,6 @@ describe('POST /admin/reports?/updateSettings — server side plan gate (#735)',
 	it('standard プランでも無効な曜日は 400', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('standard');
 
-		// biome-ignore lint/style/noNonNullAssertion: action defined
 		const result = await actions.updateSettings!(
 			makeFormEvent('standard', { enabled: 'on', day: 'invalid-day' }),
 		);

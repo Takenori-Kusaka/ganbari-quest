@@ -59,11 +59,11 @@ const achs = db
 	.all();
 achs.forEach((a) => {
 	console.log(
-		`${a.unlocked_at} | ${a.name}${a.milestone_value ? ' (M=' + a.milestone_value + ')' : ''}`,
+		`${a.unlocked_at} | ${a.name}${a.milestone_value ? ` (M=${a.milestone_value})` : ''}`,
 	);
 });
 console.log(
-	'実績総件数: ' + db.prepare('SELECT COUNT(*) as cnt FROM child_achievements').get().cnt,
+	`実績総件数: ${db.prepare('SELECT COUNT(*) as cnt FROM child_achievements').get().cnt}`,
 );
 
 console.log('\n=== 実績コード別の解除状況 ===');

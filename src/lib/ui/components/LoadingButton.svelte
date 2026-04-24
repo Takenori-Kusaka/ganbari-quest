@@ -62,11 +62,6 @@ let {
 		animation: btn-pulse 1.2s ease-in-out infinite;
 	}
 
-	/* Primary variant — inherits parent styles by default */
-	.loading-button--primary {
-		/* No forced styles — parent page controls appearance */
-	}
-
 	/* Child variant — larger touch target, playful animation */
 	.loading-button--child {
 		font-size: 1.1rem;

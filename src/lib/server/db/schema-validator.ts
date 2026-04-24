@@ -161,6 +161,7 @@ function getActualColumns(db: Database.Database, tableName: string): Map<string,
 }
 
 /** スキーマを検証し、安全なマイグレーションを自動適用する */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export function validateAndMigrate(db: Database.Database): SchemaValidationResult {
 	const result: SchemaValidationResult = {
 		valid: true,
