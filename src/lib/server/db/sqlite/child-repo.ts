@@ -124,6 +124,7 @@ export async function updateChild(
 		age?: number;
 		theme?: string;
 		uiMode?: string;
+		uiModeManuallySet?: number;
 		birthDate?: string | null;
 		displayConfig?: string | null;
 		birthdayBonusMultiplier?: number;

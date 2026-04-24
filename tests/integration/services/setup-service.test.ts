@@ -23,6 +23,7 @@ const SQL_TABLES = `
 		birth_date TEXT,
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'preschool',
+		ui_mode_manually_set INTEGER NOT NULL DEFAULT 0,
 		avatar_url TEXT,
 		active_title_id INTEGER,
 		display_config TEXT,

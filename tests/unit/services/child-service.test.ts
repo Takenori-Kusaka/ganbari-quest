@@ -116,42 +116,53 @@ describe('child-service', () => {
 	});
 
 	describe('editChild', () => {
-		it('updateChild に id, input, tenantId を渡す（age 指定時は uiMode を自動計算）', async () => {
-			// #580: age が変更されたら uiMode も自動再計算される
-			const input = { nickname: 'まさと改', age: 8 };
-			const mockResult = { id: 10, ...input };
+		it('#580/#1382: age 変更時、uiModeManuallySet=0 なら uiMode を自動再計算する', async () => {
+			const existing = { id: 10, uiMode: 'preschool', uiModeManuallySet: 0 };
+			vi.mocked(findChildById).mockResolvedValue(existing as never);
+			const mockResult = { id: 10 };
 			vi.mocked(updateChild).mockResolvedValue(mockResult as never);
 
-			const result = await editChild(10, input, TENANT);
+			await editChild(10, { nickname: 'まさと改', age: 8 }, TENANT);
 
+			expect(findChildById).toHaveBeenCalledWith(10, TENANT);
 			expect(updateChild).toHaveBeenCalledWith(
 				10,
 				{ nickname: 'まさと改', age: 8, uiMode: 'elementary' },
 				TENANT,
 			);
-			expect(result).toEqual(mockResult);
 		});
 
-		it('#580: 呼び出し側が uiMode を明示していればその値を尊重する', async () => {
-			const input = { age: 8, uiMode: 'baby' }; // 年齢 8 だが明示的に baby を指定
-			const mockResult = { id: 10, ...input };
-			vi.mocked(updateChild).mockResolvedValue(mockResult as never);
+		it('#1382: age 変更時、uiModeManuallySet=1 なら uiMode を保持する', async () => {
+			const existing = { id: 10, uiMode: 'baby', uiModeManuallySet: 1 };
+			vi.mocked(findChildById).mockResolvedValue(existing as never);
+			vi.mocked(updateChild).mockResolvedValue({ id: 10 } as never);
 
-			await editChild(10, input, TENANT);
+			await editChild(10, { age: 8 }, TENANT);
 
+			// uiMode は変更されず、baby のまま（uiModeManuallySet=1 なので自動再計算しない）
+			expect(updateChild).toHaveBeenCalledWith(10, { age: 8, uiMode: 'baby' }, TENANT);
+		});
+
+		it('#1382: uiMode を明示指定すると uiModeManuallySet=1 が付与される', async () => {
+			vi.mocked(updateChild).mockResolvedValue({ id: 10 } as never);
+
+			await editChild(10, { age: 8, uiMode: 'baby' }, TENANT);
+
+			// findChildById は呼ばれない（uiMode 明示なのでフラグだけ立てる）
+			expect(findChildById).not.toHaveBeenCalled();
 			expect(updateChild).toHaveBeenCalledWith(
 				10,
-				{ age: 8, uiMode: 'baby' }, // 明示された baby をそのまま使う
+				{ age: 8, uiMode: 'baby', uiModeManuallySet: 1 },
 				TENANT,
 			);
 		});
 
 		it('#580: age 未指定時は uiMode を付与しない', async () => {
-			const input = { nickname: 'まさと改' };
 			vi.mocked(updateChild).mockResolvedValue({ id: 10 } as never);
 
-			await editChild(10, input, TENANT);
+			await editChild(10, { nickname: 'まさと改' }, TENANT);
 
+			expect(findChildById).not.toHaveBeenCalled();
 			expect(updateChild).toHaveBeenCalledWith(10, { nickname: 'まさと改' }, TENANT);
 		});
 	});
