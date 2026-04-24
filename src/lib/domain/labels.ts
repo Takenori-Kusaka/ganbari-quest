@@ -2524,3 +2524,123 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	selectActivityHint: 'がんばりをえらんでね！',
 	skipButton: 'あとでやる（スキップ）',
 } as const;
+
+// ============================================================
+// デモポイント変換ページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_POINTS_LABELS = {
+	currentBalanceLabel: (unit: string) => `現在の${unit}残高`,
+	convertSectionTitle: 'ポイント変換',
+	modeSimple: 'かんたん',
+	modeFreeInput: '自由入力',
+	modeOcr: '領収書OCR',
+	demoConvertDisabled: 'デモでは変換できません',
+	thisMonthConvertLabel: '今月の変換合計',
+	totalConvertLabel: '累計変換合計',
+	aboutTitle: 'ポイント変換について',
+	aboutNote1: 'お子さまが活動で貯めたポイントを、おこづかいに変換できます',
+	aboutNote2: '変換レートは設定画面で自由にカスタマイズ可能です',
+	aboutNote3: '3つの変換モード: かんたん / 自由入力 / 領収書OCR',
+	aboutNote4: '変換履歴も記録されるので、安心して管理できます',
+	ctaTitle: 'ポイントをおこづかいに変換しませんか？',
+	ctaDesc: '登録すると、ポイント変換やレート設定が自由にできます。',
+} as const;
+
+// ============================================================
+// 実績ページ (#1452 Phase B)
+// ============================================================
+
+export const ACHIEVEMENTS_LABELS = {
+	challengeEmptyTitle: 'チャレンジきろくはまだありません',
+	challengeEmptyDesc: 'チャレンジ機能は今後リリース予定です',
+	customSectionTitle: '🏅 カスタム実績',
+	toggleOpen: '閉じる',
+	toggleCreate: '+ 作成',
+	fieldNameLabel: '実績名',
+	fieldNamePlaceholder: 'ピアノ100回マスター',
+	fieldDescLabel: '説明（任意）',
+	fieldDescPlaceholder: 'ピアノの練習を100回がんばった！',
+	fieldIconLabel: 'アイコン',
+	fieldBonusLabel: 'ボーナスPT',
+	fieldCondTypeLabel: '条件タイプ',
+	fieldCondValueLabel: '目標値',
+	createButton: '作成する',
+	noCustomAchievements: 'カスタム実績はまだありません',
+	achievedLabel: '達成済み ✅',
+	deleteButton: '削除',
+	upgradeTitle: 'カスタム実績・称号',
+	upgradeDesc: 'お子さまだけのオリジナル実績を作成できます',
+	upgradeLink: 'スタンダードプラン以上で利用可能 →',
+	noChildrenMessage: '子供が登録されていません',
+} as const;
+
+// ============================================================
+// 活動紹介ページ (#1452 Phase B)
+// ============================================================
+
+export const ACTIVITIES_INTRODUCE_LABELS = {
+	noActivitiesTitle: '表示できる活動がありません',
+	noActivitiesDesc: 'まず活動を追加してください',
+	backButton: 'もどる',
+	progressSuffix: 'の活動',
+	triggerHintGuide: 'つかいかたを みせてあげてね',
+	triggerHintOpen: '「',
+	triggerHintClose: '」',
+	activityDescLabel: '活動の説明',
+	noHintMessage: 'ヒントはまだ設定されていません',
+	noHintEditNote: '活動編集画面で「トリガーヒント」を設定できます',
+	prevButton: '← まえへ',
+	nextButton: 'つぎへ →',
+	finishButton: 'おわる',
+} as const;
+
+// ============================================================
+// デモメッセージページ (#1452 Phase B)
+// ============================================================
+
+export const DEMO_MESSAGES_LABELS = {
+	formLabel: 'メッセージ（30文字以内）',
+	formPlaceholder: 'がんばってるね！だいすき！',
+	sendDisabled: 'デモではメッセージを送れません',
+	ctaTitle: 'おうえんメッセージで親子のつながりを深めませんか？',
+	ctaDesc: '登録すると、スタンプやメッセージでお子さまを応援できます。',
+} as const;
+
+// ============================================================
+// イベント管理ページ (#1452 Phase B)
+// ============================================================
+
+export const EVENTS_LABELS = {
+	pageTitle: '🎉 シーズンイベント管理',
+	createdMessage: 'イベントを作成しました',
+	updatedMessage: 'イベントを更新しました',
+	deletedMessage: 'イベントを削除しました',
+	createFormTitle: '新規イベント作成',
+	createButton: '作成',
+	noEventsTitle: 'イベントはまだありません',
+	noEventsDesc: '上のボタンから作成してください',
+	activeLabel: '開催中',
+	inactiveLabel: '無効',
+	separatorLabel: '〜',
+	deleteButton: '削除',
+} as const;
+
+// ============================================================
+// パスワードリセットページ (#1452 Phase B)
+// ============================================================
+
+export const FORGOT_PASSWORD_LABELS = {
+	pageSubtitle: 'パスワードリセット',
+	step2ConfirmSentPrefix: 'に確認コードを送信しました。',
+	step2ConfirmEnterInstruction: 'メールに記載されたコードと新しいパスワードを入力してください。',
+	step2CodeExpiryPrefix: '確認コードは',
+	step2CodeExpirySuffix: '分間有効です。届かない場合は再送してください',
+	resetingLabel: 'リセット中...',
+	resetButton: 'パスワードをリセット',
+	step1Instruction1: '登録済みのメールアドレスを入力してください。',
+	step1Instruction2: 'パスワードリセット用の確認コードを送信します。',
+	sendingLabel: '送信中...',
+	sendButton: '確認コードを送信',
+	backToLoginLink: 'ログインに戻る',
+} as const;

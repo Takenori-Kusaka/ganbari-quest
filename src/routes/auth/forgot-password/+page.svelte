@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { APP_LABELS, FORGOT_PASSWORD_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { PASSWORD_RESET_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -24,7 +25,7 @@ $effect(() => {
 </script>
 
 <svelte:head>
-	<title>パスワードリセット - がんばりクエスト</title>
+	<title>{PAGE_TITLES.forgotPassword}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="min-h-dvh flex items-center justify-center bg-[var(--gradient-brand)] p-4">
@@ -32,7 +33,7 @@ $effect(() => {
 		{#snippet children()}
 		<div class="text-center mb-8">
 			<Logo variant="full" size={320} />
-			<p class="text-sm text-[var(--color-text-muted)] mt-2 font-semibold">パスワードリセット</p>
+			<p class="text-sm text-[var(--color-text-muted)] mt-2 font-semibold">{FORGOT_PASSWORD_LABELS.pageSubtitle}</p>
 		</div>
 
 		{#if form?.error}
@@ -58,12 +59,12 @@ $effect(() => {
 				<input type="hidden" name="email" value={email} />
 
 				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
-					<strong>{email}</strong> に確認コードを送信しました。<br />
-					メールに記載されたコードと新しいパスワードを入力してください。
+					<strong>{email}</strong> {FORGOT_PASSWORD_LABELS.step2ConfirmSentPrefix}<br />
+					{FORGOT_PASSWORD_LABELS.step2ConfirmEnterInstruction}
 				</p>
 
 				<p class="text-xs text-[var(--color-text-muted)] text-center">
-					確認コードは{PASSWORD_RESET_CODE_EXPIRY_MINUTES}分間有効です。届かない場合は再送してください
+					{FORGOT_PASSWORD_LABELS.step2CodeExpiryPrefix}{PASSWORD_RESET_CODE_EXPIRY_MINUTES}{FORGOT_PASSWORD_LABELS.step2CodeExpirySuffix}
 				</p>
 
 				<FormField label="確認コード" id="code">
@@ -115,9 +116,9 @@ $effect(() => {
 				<Button type="submit" disabled={loading || code.length < 1 || !newPassword || !newPasswordConfirm} size="md" class="w-full">
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
-						リセット中...
+						{FORGOT_PASSWORD_LABELS.resetingLabel}
 					{:else}
-						パスワードをリセット
+						{FORGOT_PASSWORD_LABELS.resetButton}
 					{/if}
 				</Button>
 			</form>
@@ -136,8 +137,8 @@ $effect(() => {
 				class="flex flex-col gap-5"
 			>
 				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
-					登録済みのメールアドレスを入力してください。<br />
-					パスワードリセット用の確認コードを送信します。
+					{FORGOT_PASSWORD_LABELS.step1Instruction1}<br />
+					{FORGOT_PASSWORD_LABELS.step1Instruction2}
 				</p>
 
 				<FormField
@@ -154,9 +155,9 @@ $effect(() => {
 				<Button type="submit" disabled={loading || !email} size="md" class="w-full">
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
-						送信中...
+						{FORGOT_PASSWORD_LABELS.sendingLabel}
 					{:else}
-						確認コードを送信
+						{FORGOT_PASSWORD_LABELS.sendButton}
 					{/if}
 				</Button>
 			</form>
@@ -164,7 +165,7 @@ $effect(() => {
 
 		<div class="mt-5 text-center">
 			<a href="/auth/login" class="text-sm text-[var(--color-text-link)] hover:underline">
-				ログインに戻る
+				{FORGOT_PASSWORD_LABELS.backToLoginLink}
 			</a>
 		</div>
 		{/snippet}
