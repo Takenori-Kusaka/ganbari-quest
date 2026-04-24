@@ -174,7 +174,8 @@
 }
 
 /* Trust badges */
-.trust-badges{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;max-width:900px;margin:0 auto}
+.trust-badges{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:900px;margin:0 auto}
+@media(max-width:640px){.trust-badges{gap:12px}}
 .trust-badge{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;text-align:center}
 .trust-badge .tb-icon{font-size:2rem;margin-bottom:10px;line-height:1}
 .trust-badge h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
