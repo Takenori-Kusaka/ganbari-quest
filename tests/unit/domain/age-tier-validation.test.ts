@@ -3,6 +3,7 @@ import {
 	AGE_TIER_CONFIG,
 	getDefaultUiMode,
 	isValidUiMode,
+	recalcUiMode,
 	UI_MODES,
 	uiModeSchema,
 } from '../../../src/lib/domain/validation/age-tier';
@@ -91,6 +92,33 @@ describe('age-tier validation', () => {
 
 		it.each(['invalid', '', 'PRESCHOOL', 'child', 'adult'])('%s は無効', (mode) => {
 			expect(isValidUiMode(mode)).toBe(false);
+		});
+	});
+
+	describe('recalcUiMode', () => {
+		it('uiModeManuallySet=0 のとき年齢から自動計算する（境界 5→6: preschool→elementary）', () => {
+			const child = { uiMode: 'preschool' as const, uiModeManuallySet: 0 };
+			expect(recalcUiMode(child, 6)).toBe('elementary');
+		});
+
+		it('uiModeManuallySet=0 のとき年齢から自動計算する（境界 12→13: elementary→junior）', () => {
+			const child = { uiMode: 'elementary' as const, uiModeManuallySet: 0 };
+			expect(recalcUiMode(child, 13)).toBe('junior');
+		});
+
+		it('uiModeManuallySet=0 のとき年齢から自動計算する（境界 15→16: junior→senior）', () => {
+			const child = { uiMode: 'junior' as const, uiModeManuallySet: 0 };
+			expect(recalcUiMode(child, 16)).toBe('senior');
+		});
+
+		it('uiModeManuallySet=1 のとき年齢が変わっても既存 uiMode を維持する', () => {
+			const child = { uiMode: 'baby' as const, uiModeManuallySet: 1 };
+			expect(recalcUiMode(child, 8)).toBe('baby');
+		});
+
+		it('uiModeManuallySet=1 のとき、年齢 13 でも junior にならず保護者設定を維持する', () => {
+			const child = { uiMode: 'senior' as const, uiModeManuallySet: 1 };
+			expect(recalcUiMode(child, 6)).toBe('senior');
 		});
 	});
 });

@@ -26,6 +26,7 @@ export const children = sqliteTable('children', {
 	birthDate: text('birth_date'),
 	theme: text('theme').notNull().default('pink'),
 	uiMode: text('ui_mode').notNull().default('preschool'),
+	uiModeManuallySet: integer('ui_mode_manually_set').notNull().default(0),
 	avatarUrl: text('avatar_url'),
 	displayConfig: text('display_config'),
 	userId: text('user_id'),
