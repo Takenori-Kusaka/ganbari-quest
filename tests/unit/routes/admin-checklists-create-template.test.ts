@@ -116,7 +116,6 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 		mockRepoFindTemplatesByChild.mockResolvedValue([]);
 		mockCreateTemplate.mockResolvedValue({ id: 1 });
 
-		// biome-ignore lint/style/noNonNullAssertion: createTemplate is defined
 		const result = await actions.createTemplate!(
 			createEvent({ childId: '1', name: 'あさの準備', icon: '☀️', timeSlot: 'morning' }),
 		);
@@ -137,7 +136,6 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 			{ id: 3, name: 'c' },
 		]);
 
-		// biome-ignore lint/style/noNonNullAssertion: createTemplate is defined
 		const result = (await actions.createTemplate!(
 			createEvent({ childId: '1', name: '4つめ', icon: '📋', timeSlot: 'anytime' }),
 		)) as {
@@ -161,7 +159,6 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 		mockResolveFullPlanTier.mockResolvedValue('standard');
 		mockCreateTemplate.mockResolvedValue({ id: 1 });
 
-		// biome-ignore lint/style/noNonNullAssertion: createTemplate is defined
 		const result = await actions.createTemplate!(
 			createEvent(
 				{ childId: '1', name: 'X', icon: '📋', timeSlot: 'anytime' },
@@ -177,7 +174,6 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 		mockResolveFullPlanTier.mockResolvedValue('family');
 		mockCreateTemplate.mockResolvedValue({ id: 1 });
 
-		// biome-ignore lint/style/noNonNullAssertion: createTemplate is defined
 		const result = await actions.createTemplate!(
 			createEvent(
 				{ childId: '1', name: 'X', icon: '📋', timeSlot: 'anytime' },
@@ -189,7 +185,6 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 	});
 
 	it('childId 未指定 → 400 (バリデーションが上限より先に走る)', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: createTemplate is defined
 		const result = await actions.createTemplate!(
 			createEvent({ childId: '0', name: 'X', icon: '📋', timeSlot: 'anytime' }),
 		);
@@ -200,7 +195,6 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 	});
 
 	it('name 空 → 400', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: createTemplate is defined
 		const result = await actions.createTemplate!(
 			createEvent({ childId: '1', name: '', icon: '📋', timeSlot: 'anytime' }),
 		);
@@ -210,7 +204,6 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 	});
 
 	it('timeSlot 不正 → 400', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: createTemplate is defined
 		const result = await actions.createTemplate!(
 			createEvent({ childId: '1', name: 'X', icon: '📋', timeSlot: 'invalid' }),
 		);

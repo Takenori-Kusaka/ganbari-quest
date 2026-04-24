@@ -235,15 +235,6 @@ function handleClose() {
 		animation: pulse-slot 1s ease-in-out infinite;
 	}
 
-	.sp__slot-stamp {
-		width: 36px;
-		height: 36px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 1.25rem;
-	}
-
 	.sp__slot-img {
 		width: 36px;
 		height: 36px;

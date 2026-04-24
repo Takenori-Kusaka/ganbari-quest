@@ -5,8 +5,8 @@
  * Usage: node scripts/generate-icons.cjs
  */
 const sharp = require('sharp');
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 
 const faviconSvgPath = path.join(__dirname, '..', 'static', 'favicon-master.svg');
 const characterPath = path.join(__dirname, '..', 'static', 'icon-character.png');

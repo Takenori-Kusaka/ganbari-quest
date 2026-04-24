@@ -16,7 +16,7 @@
 //   - カテゴリ・活動マスタが既に投入済み（migrate-sqlite-to-dynamodb.ts で移行済み）
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { BatchWriteCommand, DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { BatchWriteCommand, DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE ?? 'ganbari-quest';
 const REGION = process.env.AWS_REGION ?? 'ap-northeast-1';

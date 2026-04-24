@@ -100,11 +100,24 @@
 			}
 		},
 		{
-			"includes": ["scripts/**/*.cjs", "scripts/**/*.mjs", "scripts/**/*.js"],
+			"includes": ["scripts/**/*.cjs", "scripts/**/*.mjs", "scripts/**/*.js", "scripts/**/*.ts"],
 			"linter": {
 				"rules": {
 					"suspicious": {
 						"noConsole": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["tests/**/*.ts"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
 					}
 				}
 			}

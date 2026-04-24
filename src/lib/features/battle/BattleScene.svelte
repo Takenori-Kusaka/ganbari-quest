@@ -22,7 +22,9 @@ let {
 // バトルアニメーション状態
 let animating = $state(false);
 let currentTurn = $state(0);
+// svelte-ignore state_referenced_locally
 let playerHp = $state(playerStats.hp);
+// svelte-ignore state_referenced_locally
 let enemyHp = $state(scaledEnemyMaxHp);
 let showResult = $state(false);
 let playerShake = $state(false);

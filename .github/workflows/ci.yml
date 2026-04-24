@@ -80,8 +80,8 @@ jobs:
 
       - run: npm ci
 
-      - name: Biome lint
-        run: npx biome check .
+      - name: Biome lint (#1432 — warning=error)
+        run: npx biome check --error-on-warnings .
 
       - name: Parallel implementation sync check (#565)
         run: npm run lint:parallel
@@ -98,8 +98,8 @@ jobs:
       - name: No waitForTimeout in scripts/ check (#1208)
         run: node scripts/check-no-waitfortimeout.mjs
 
-      - name: Spell check (cspell, warn-only) (#979 / ADR-0032 T3→T1)
-        run: npm run cspell || true
+      - name: Spell check (cspell) (#1432 — warning=error)
+        run: npm run cspell
 
       - name: Stylelint (CSS hex check)
         run: npx stylelint "src/**/*.css"
@@ -118,8 +118,8 @@ jobs:
         continue-on-error: true
         run: npx knip
 
-      - name: Svelte check
-        run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json
+      - name: Svelte check (#1432 — warning=error)
+        run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json --threshold warning
 
       - name: Type coverage ratchet check (#978)
         run: npm run type-coverage

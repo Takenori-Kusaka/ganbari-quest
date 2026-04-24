@@ -42,7 +42,7 @@ async function main() {
 
 		// 4. Check header for stamp button
 		const stampBtn = page.locator('[data-testid="header-stamp-btn"]');
-		const headerHtml = await page
+		const _headerHtml = await page
 			.locator('header, [class*="header"], [class*="Header"]')
 			.first()
 			.innerHTML()

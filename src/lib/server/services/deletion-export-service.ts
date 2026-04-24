@@ -85,7 +85,6 @@ export function resolveExportScope(planTier: PlanTier): ExportScope {
 			return 'family';
 		case 'standard':
 			return 'full';
-		case 'free':
 		default:
 			return 'minimal';
 	}

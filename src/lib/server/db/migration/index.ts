@@ -3,6 +3,7 @@
 
 import { createPipeline } from './registry';
 
+// biome-ignore lint/performance/noBarrelFile: 後方互換 re-export のため維持、削除は別 Issue で検討
 export { MigrationPipeline } from './pipeline';
 export { ENTITY_VERSIONS } from './registry';
 export type { MigrationResult, RawRecord, SchemaTransformer } from './types';

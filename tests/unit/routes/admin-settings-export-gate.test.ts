@@ -125,7 +125,6 @@ describe('GET /admin/settings load — export plan gate (#773)', () => {
 
 	it('free プランでは canExport=false, maxCloudExports=0 が返る', async () => {
 		primeMocks('free');
-		// biome-ignore lint/style/noNonNullAssertion: load is defined
 		const result = (await load!(createLoadEvent('free'))) as {
 			canExport: boolean;
 			maxCloudExports: number;
@@ -136,7 +135,6 @@ describe('GET /admin/settings load — export plan gate (#773)', () => {
 
 	it('standard プランでは canExport=true, maxCloudExports=3 が返る', async () => {
 		primeMocks('standard');
-		// biome-ignore lint/style/noNonNullAssertion: load is defined
 		const result = (await load!(createLoadEvent('standard'))) as {
 			canExport: boolean;
 			maxCloudExports: number;
@@ -147,7 +145,6 @@ describe('GET /admin/settings load — export plan gate (#773)', () => {
 
 	it('family プランでは canExport=true, maxCloudExports=10 が返る', async () => {
 		primeMocks('family');
-		// biome-ignore lint/style/noNonNullAssertion: load is defined
 		const result = (await load!(createLoadEvent('family'))) as {
 			canExport: boolean;
 			maxCloudExports: number;
@@ -160,7 +157,6 @@ describe('GET /admin/settings load — export plan gate (#773)', () => {
 		// #773: plan 解決は try/catch の外にあるため、内部データ取得失敗時も UI ゲート情報は確実に返る
 		primeMocks('standard');
 		mockGetDataSummary.mockRejectedValue(new Error('db down'));
-		// biome-ignore lint/style/noNonNullAssertion: load is defined
 		const result = (await load!(createLoadEvent('standard'))) as {
 			canExport: boolean;
 			maxCloudExports: number;

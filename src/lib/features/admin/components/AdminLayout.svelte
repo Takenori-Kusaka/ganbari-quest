@@ -274,6 +274,7 @@ function isItemActive(itemHref: string): boolean {
 						<div
 							class="desktop-dropdown"
 							role="menu"
+							tabindex="-1"
 							onmouseenter={() => handleDesktopCategoryEnter(category.id)}
 							onmouseleave={handleDesktopCategoryLeave}
 						>

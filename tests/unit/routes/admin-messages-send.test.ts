@@ -86,7 +86,6 @@ describe('POST /admin/messages?/send (#772)', () => {
 
 	it('free プランで text メッセージを送ると 403（ファミリー限定、PlanLimitError 形式）', async () => {
 		// #787: エラー形式は PlanLimitError オブジェクト
-		// biome-ignore lint/style/noNonNullAssertion: send is defined
 		const result = await actions.send!(
 			createEvent('free', {
 				childId: '1',
@@ -111,7 +110,6 @@ describe('POST /admin/messages?/send (#772)', () => {
 
 	it('standard プランで text メッセージを送ると 403（ファミリー限定、PlanLimitError 形式）', async () => {
 		// #787: currentTier は standard、requiredTier は family
-		// biome-ignore lint/style/noNonNullAssertion: send is defined
 		const result = await actions.send!(
 			createEvent('standard', {
 				childId: '1',
@@ -134,7 +132,6 @@ describe('POST /admin/messages?/send (#772)', () => {
 	});
 
 	it('family プランなら text メッセージを送信できる', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: send is defined
 		const result = await actions.send!(
 			createEvent('family', {
 				childId: '1',
@@ -155,7 +152,6 @@ describe('POST /admin/messages?/send (#772)', () => {
 	});
 
 	it('free プランでも stamp メッセージは送信できる（ゲートされない）', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: send is defined
 		const result = await actions.send!(
 			createEvent('free', {
 				childId: '1',
@@ -178,7 +174,6 @@ describe('POST /admin/messages?/send (#772)', () => {
 	});
 
 	it('standard プランでも stamp メッセージは送信できる', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: send is defined
 		const result = await actions.send!(
 			createEvent('standard', {
 				childId: '1',
@@ -191,7 +186,6 @@ describe('POST /admin/messages?/send (#772)', () => {
 	});
 
 	it('family プランで空本文の text は 400', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: send is defined
 		const result = await actions.send!(
 			createEvent('family', {
 				childId: '1',
@@ -207,7 +201,6 @@ describe('POST /admin/messages?/send (#772)', () => {
 	});
 
 	it('childId 未指定は 400', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: send is defined
 		const result = await actions.send!(
 			createEvent('family', {
 				messageType: 'text',
@@ -222,7 +215,6 @@ describe('POST /admin/messages?/send (#772)', () => {
 	});
 
 	it('不正な messageType は 400', async () => {
-		// biome-ignore lint/style/noNonNullAssertion: send is defined
 		const result = await actions.send!(
 			createEvent('family', {
 				childId: '1',

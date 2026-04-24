@@ -229,22 +229,6 @@ function reasonLabel(r: string): string {
 {/if}
 
 <style>
-	.ops-table {
-		border-collapse: collapse;
-	}
-	.ops-table th,
-	.ops-table td {
-		padding: 0.5rem 0.75rem;
-		text-align: left;
-		border-bottom: 1px solid var(--color-border-light);
-	}
-	.ops-table th {
-		font-size: 0.7rem;
-		color: var(--color-text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-
 	.status-badge {
 		display: inline-block;
 		padding: 0.25rem 0.75rem;

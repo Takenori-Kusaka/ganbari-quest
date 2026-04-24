@@ -1,4 +1,5 @@
 #!/usr/bin/env npx tsx
+
 // scripts/migrate-s3-paths.ts
 // AWS S3 + DynamoDB: ファイルパスをテナントプレフィックス付きに移行
 //
@@ -20,6 +21,7 @@
 //   - AWS credentials configured
 //   - DynamoDB table and S3 bucket exist
 
+import { randomUUID } from 'node:crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
 	CopyObjectCommand,
@@ -28,7 +30,6 @@ import {
 	S3Client,
 } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { randomUUID } from 'crypto';
 
 // ============================================================
 // Configuration
@@ -127,7 +128,7 @@ function padId(id: number): string {
 	return String(id).padStart(8, '0');
 }
 
-function childKey(childId: number): { PK: string; SK: string } {
+function _childKey(childId: number): { PK: string; SK: string } {
 	return { PK: `T#${TENANT_ID}#CHILD#${padId(childId)}`, SK: 'PROFILE' };
 }
 

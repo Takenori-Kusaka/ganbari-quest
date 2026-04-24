@@ -179,6 +179,7 @@ export async function checkAndIssueLevelCertificates(
 }
 
 /** 月間がんばり証明書を発行（月の活動回数10回以上） */
+// biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function issueMonthlyCertificateIfEligible(
 	childId: number,
 	yearMonth: string,

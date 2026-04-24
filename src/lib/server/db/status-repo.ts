@@ -6,9 +6,10 @@ import type { InsertStatusHistoryInput } from './types';
 export async function findStatuses(childId: number, tenantId: string) {
 	return getRepos().status.findStatuses(childId, tenantId);
 }
-async function findStatus(childId: number, categoryId: number, tenantId: string) {
+async function _findStatus(childId: number, categoryId: number, tenantId: string) {
 	return getRepos().status.findStatus(childId, categoryId, tenantId);
 }
+// biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function upsertStatus(
 	childId: number,
 	categoryId: number,
@@ -44,6 +45,7 @@ export async function findBenchmark(age: number, categoryId: number, tenantId: s
 export async function findAllBenchmarks(tenantId: string) {
 	return getRepos().status.findAllBenchmarks(tenantId);
 }
+// biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function upsertBenchmark(
 	age: number,
 	categoryId: number,
@@ -57,6 +59,6 @@ export async function upsertBenchmark(
 export async function findChildById(id: number, tenantId: string) {
 	return getRepos().status.findChildById(id, tenantId);
 }
-async function findLastActivityDates(childId: number, tenantId: string) {
+async function _findLastActivityDates(childId: number, tenantId: string) {
 	return getRepos().status.findLastActivityDates(childId, tenantId);
 }

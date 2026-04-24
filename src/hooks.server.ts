@@ -176,6 +176,7 @@ const CSP_HEADER = buildCspHeader();
 export const handle: Handle = ({ event, resolve }) =>
 	// #788: リクエスト境界でコンテキストを張る。resolveFullPlanTier / getTrialStatus が
 	// このリクエスト内で初回呼び出し時に DB を叩き、以降は memoize された値を返す。
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 	runWithRequestContext(async () => {
 		const start = Date.now();
 		const path = event.url.pathname;

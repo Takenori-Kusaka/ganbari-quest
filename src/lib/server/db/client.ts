@@ -32,9 +32,7 @@ if ((process.env.DATA_SOURCE ?? 'sqlite') === 'sqlite') {
 	const schemaResult = validateAndMigrate(sqlite);
 
 	if (schemaResult.applied.length > 0) {
-		console.log(`[SCHEMA] ${schemaResult.applied.length} 件の安全なマイグレーションを自動適用:`);
-		for (const m of schemaResult.applied) {
-			console.log(`  + ${m.table}.${m.column}: ${m.sql}`);
+		for (const _m of schemaResult.applied) {
 		}
 	}
 	for (const w of schemaResult.warnings) {
@@ -61,12 +59,10 @@ export type DrizzleDatabase = typeof db;
 export const rawSqlite = sqlite;
 
 // Graceful shutdown: flush WAL and close DB on SIGTERM / SIGINT
-function gracefulShutdown(signal: string) {
-	console.log(`[SHUTDOWN] ${signal} received, flushing WAL and closing DB...`);
+function gracefulShutdown(_signal: string) {
 	try {
 		sqlite.pragma('wal_checkpoint(TRUNCATE)');
 		sqlite.close();
-		console.log('[SHUTDOWN] DB closed cleanly.');
 	} catch (e) {
 		console.error('[SHUTDOWN] Error closing DB:', e);
 	}

@@ -109,6 +109,7 @@ export interface ActivityLogSummary {
 }
 
 /** Record an activity for a child. Enforces daily limit and streak calculation. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export async function recordActivity(
 	childId: number,
 	activityId: number,
@@ -548,7 +549,7 @@ export async function getTodayRecordedActivityCounts(
 }
 
 /** Get today's recorded activity IDs for a child (backward-compatible wrapper). */
-async function getTodayRecordedActivityIds(childId: number, tenantId: string): Promise<number[]> {
+async function _getTodayRecordedActivityIds(childId: number, tenantId: string): Promise<number[]> {
 	return (await getTodayRecordedActivityCounts(childId, tenantId)).map((r) => r.activityId);
 }
 

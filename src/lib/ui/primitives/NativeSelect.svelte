@@ -28,6 +28,7 @@ let {
 	...rest
 }: Props = $props();
 
+// svelte-ignore state_referenced_locally
 const fieldId =
 	id ??
 	`native-select-${(label ?? 'field').replace(/\s+/g, '-').toLowerCase()}-${Math.random().toString(36).slice(2, 8)}`;

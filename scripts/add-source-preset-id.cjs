@@ -10,7 +10,7 @@
 //   デフォルト: ./data/ganbari-quest.db
 
 const Database = require('better-sqlite3');
-const path = require('path');
+const path = require('node:path');
 
 const dbPath = process.argv[2] || path.join(__dirname, '..', 'data', 'ganbari-quest.db');
 console.log(`DB: ${dbPath}`);

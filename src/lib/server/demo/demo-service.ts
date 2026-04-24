@@ -195,6 +195,7 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 // Status page data
 // ============================================================
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export function getDemoStatusData(childId: number): ChildStatus | null {
 	const child = DEMO_CHILDREN.find((c) => c.id === childId);
 	if (!child) return null;
