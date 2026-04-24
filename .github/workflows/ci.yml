@@ -98,6 +98,9 @@ jobs:
       - name: No waitForTimeout in scripts/ check (#1208)
         run: node scripts/check-no-waitfortimeout.mjs
 
+      - name: Hardcoded JP text baseline check (#1452 Phase A)
+        run: node scripts/check-hardcoded-strings.mjs
+
       - name: Spell check (cspell) (#1432 — warning=error)
         run: npm run cspell
 
