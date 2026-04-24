@@ -27,10 +27,7 @@ export const POST: RequestHandler = async ({ request, cookies, locals }) => {
 		if (result.error === 'LOCKED_OUT') {
 			return apiError('LOCKED_OUT', 'アカウントがロックされています');
 		}
-		if (result.error === 'PIN_NOT_SET') {
-			return apiError('INTERNAL_ERROR', 'PINが設定されていません');
-		}
-		return apiError('INVALID_PIN', 'PINがちがいます');
+		return apiError('INVALID_PIN', 'おやカギコードがちがいます');
 	}
 
 	cookies.set(SESSION_COOKIE_NAME, result.sessionToken, {

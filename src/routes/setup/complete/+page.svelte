@@ -53,9 +53,9 @@ const childHomeUrl = $derived(firstChild ? `/${firstChild.uiMode}/home` : '/swit
 		</a>
 	</div>
 
-	<!-- PINヒント -->
+	<!-- おやカギコードヒント -->
 	<p class="text-[0.6875rem] text-[var(--color-neutral-400)] mt-2">
-		💡 管理画面の「せってい」からPINコードを設定すると、おやの画面を守れるよ
+		💡 管理画面の「せってい」からおやカギコードを設定すると、おやの画面を守れるよ（初期値: 5086）
 	</p>
 </div>
 

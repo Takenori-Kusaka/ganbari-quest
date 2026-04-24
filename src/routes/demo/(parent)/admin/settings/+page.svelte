@@ -27,16 +27,16 @@ const decayOptions = [
 
 	<DemoBanner />
 
-	<!-- PIN Settings -->
+	<!-- おやカギコード Settings -->
 	<Card>
 		<div class="space-y-3">
-			<h2 class="text-sm font-bold text-[var(--color-text-primary)]">&#x1F512; PINコード設定</h2>
+			<h2 class="text-sm font-bold text-[var(--color-text-primary)]">&#x1F512; おやカギコード設定</h2>
 			<p class="text-xs text-[var(--color-text-muted)]">
-				管理画面にアクセスするためのPINコードを変更できます。
+				管理画面にアクセスするためのおやカギコードを変更できます。初期値は 5086（がんばり）です。
 			</p>
 			<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-				<FormField label="現在のPIN" type="password" disabled placeholder="****" />
-				<FormField label="新しいPIN" type="password" disabled placeholder="****" />
+				<FormField label="現在のおやカギコード" type="password" disabled placeholder="****" />
+				<FormField label="新しいおやカギコード" type="password" disabled placeholder="****" />
 				<FormField label="確認" type="password" disabled placeholder="****" />
 			</div>
 		</div>

@@ -45,10 +45,6 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 				case 'LOCKED_OUT':
 					error(423, `LOCKED_OUT:${result.lockedUntil}`);
 					break;
-				case 'PIN_NOT_SET':
-					// isPinConfigured と矛盾するが念のため
-					error(401, 'PIN_NOT_SET');
-					break;
 			}
 		}
 	} else {

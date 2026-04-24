@@ -234,7 +234,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				selector: '[data-tutorial="switch-to-child"]',
 				title: 'こども画面へ切替',
 				description:
-					'こどもにタブレットやスマホを渡す時に使います。こども専用のゲーム画面に切り替わり、自分で活動を記録できるようになります。管理画面に戻るにはPINコードが必要です。\n\n💡 こども画面にも「❓」ボタンからアクセスできる操作ガイドがあります。お子さまが自分で使い方を確認できるので安心です。',
+					'こどもにタブレットやスマホを渡す時に使います。こども専用のゲーム画面に切り替わり、自分で活動を記録できるようになります。管理画面に戻るにはおやカギコードが必要です。\n\n💡 こども画面にも「❓」ボタンからアクセスできる操作ガイドがあります。お子さまが自分で使い方を確認できるので安心です。',
 				position: 'bottom',
 				page: '/admin',
 			},
@@ -242,9 +242,9 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				id: 'settings-2',
 				chapterId: 8,
 				selector: '[data-tutorial="pin-settings"]',
-				title: 'PINコード設定',
+				title: 'おやカギコード設定',
 				description:
-					'管理画面へのアクセスを保護するPINコードを変更できます。こどもに勝手にポイントを変えられないよう、定期的に変更するのがおすすめです。',
+					'管理画面へのアクセスを保護するおやカギコードを変更できます。初期値は 5086（がんばり）です。こどもに勝手にポイントを変えられないよう、定期的に変更するのがおすすめです。',
 				position: 'bottom',
 				page: '/admin/settings',
 			},

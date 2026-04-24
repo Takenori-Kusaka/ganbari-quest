@@ -490,3 +490,16 @@ export const IMPORT_LABELS = {
  * - log_constraint: 複合 unique 制約 (activity_logs, login_bonuses, status_history)
  */
 export type ImportSkipReason = 'preset_duplicate' | 'name_duplicate' | 'log_constraint';
+
+// #1360: おやカギコード関連ラベル
+export const OYAKAGI_LABELS = {
+	featureName: 'おやカギコード',
+	featureDescription: '子供が管理画面にアクセスするのを防ぐコードです',
+	defaultHint: '初期値は 5086（がんばり）です',
+	setupTitle: 'おやカギコードを設定する',
+	changeTitle: 'おやカギコードを変更する',
+	currentLabel: '現在のおやカギコード',
+	newLabel: '新しいおやカギコード',
+	confirmLabel: 'おやカギコードを確認入力',
+	loginPrompt: 'おやカギコードを入力してください',
+} as const;
