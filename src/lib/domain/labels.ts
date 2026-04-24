@@ -2826,3 +2826,58 @@ export const SETUP_QUESTIONNAIRE_LABELS = {
 	startButton: 'この設定ではじめる！',
 	skipButton: 'あとで設定する（スキップ）',
 } as const;
+
+export const CHILD_STATUS_LABELS = {
+	growthChartTitle: 'せいちょうチャート',
+	growthBestCatPrefix: '💬 ',
+	growthBestCatSuffix: 'が',
+	growthHighMessage: 'すごくのびたね！',
+	growthLowMessage: 'ちょっとずつ せいちょうしてるよ！',
+	growthStableMessage: '💬 あんていしてるね！ またがんばろう！',
+	growthWeakCatPrefix: '🌟 ',
+	growthWeakCatSuffix: 'にチャレンジすると のびしろがたくさん！',
+	emptyStatus: 'ステータスがまだないよ',
+} as const;
+
+export const AUTH_INVITE_LABELS = {
+	appTitle: 'がんばりクエスト',
+	invalidLinkDesc: '招待した方に新しいリンクを発行してもらってください。',
+	loginPageLink: 'ログインページへ',
+	inviteMessage: '家族グループへの招待が届いています。',
+	roleLabel: '参加ロール:',
+	signupButton: '新規アカウントを作成して参加',
+	loginButton: '既存アカウントでログインして参加',
+} as const;
+
+export const DEMO_ACHIEVEMENTS_LABELS = {
+	pageTitle: '🏅 チャレンジ履歴',
+	pageDesc: '過去に完了したチャレンジの記録です。',
+	allClearedBadge: '全員クリア！',
+	completedBadge: '完了',
+	dateSeparator: '〜',
+	targetPrefix: '· 目標',
+	targetUnit: '回',
+	rewardPrefix: '· 報酬',
+} as const;
+
+export const DEMO_LAYOUT_LABELS = {
+	backToHpLink: 'HPに戻る',
+	demoNotice: 'これはデモです。データは保存されません。',
+	tryRealButton: '本番で使ってみる',
+	planSwitcherLabel: 'プラン体験:',
+	floatingCtaTitle: 'お子さまの ぼうけん、はじめよう！',
+	floatingCtaDesc: '7日間無料・いつでもキャンセルOK',
+	floatingCtaButton: '無料で はじめる →',
+} as const;
+
+export const SETUP_PACKS_LABELS = {
+	pageTitle: 'かつどうパックをえらぼう',
+	pageDesc: 'お子さまの年齢にあわせた活動セットを選んでください。あとから追加・変更できます。',
+	recommendedBadge: 'おすすめ',
+	autoAddOption: 'おすすめパックを自動で追加してすすむ',
+	backButton: 'もどる',
+	importingLabel: 'インポート中...',
+	addPacksButton: (count: number) => `${count}件のパックを追加`,
+	processingLabel: '処理中...',
+	skipNextButton: 'おすすめで次へ',
+} as const;
