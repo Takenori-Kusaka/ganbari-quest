@@ -2,5 +2,7 @@
 	"count": 0,
 	"rule": "local/no-hardcoded-jp-text",
 	"scope": "src/routes/**/*.svelte",
-	"note": "Issue #1452 Phase C: all hardcoded JP strings migrated to labels.ts SSOT (0 violations). Rule escalated from warn to error."
+	"htmlCount": 865,
+	"htmlScope": "site/*.html",
+	"note": "Issue #1452 Phase C: all hardcoded JP strings migrated to labels.ts SSOT (0 violations). Rule escalated from warn to error. Issue #1464 Phase D: HTML check added with baseline of 865 (existing LP content). New HTML content must use data-lp-key attributes. Migrate existing content to reduce htmlCount to 0."
 }

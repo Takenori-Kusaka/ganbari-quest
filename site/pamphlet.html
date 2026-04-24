@@ -442,6 +442,27 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
   padding-left:5mm;
 }
 
+/* -- Back: Retention note (#1344) -- */
+.back-retention{
+  margin:3mm 12mm;
+  padding:3mm 4mm;
+  background:var(--brand-50);
+  border-left:3px solid var(--brand-700);
+  border-radius:8px;
+  flex-shrink:0;
+}
+.back-retention .ret-title{
+  font-size:.68rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:1mm;
+}
+.back-retention .ret-note{
+  font-size:.62rem;
+  color:var(--gray-700);
+  line-height:1.5;
+}
+
 /* -- Back: Footer -- */
 .back-footer{
   margin-top:auto;
@@ -729,6 +750,13 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
         <div class="fq-a">有料プラン購入後にメールでライセンスキーをお届けします。管理画面の「ライセンス」ページでキーを入力するだけで有料機能が有効になります。詳しくは <a href="https://www.ganbari-quest.com/help/license-key">ヘルプページ</a> をご覧ください。</div>
       </div>
     </div>
+  </div>
+
+  <!-- Retention note (#1344 C1-LP-RETENTION) -->
+  <!-- 用語 SSOT: src/lib/domain/labels.ts LP_RETENTION_LABELS -->
+  <div class="back-retention">
+    <p class="ret-title" data-lp-key="retention.sectionTitle">三日坊主にならない設計</p>
+    <p class="ret-note" data-lp-key="retention.pamphletNote">スタンプカードのレア度分散（N/R/SR/UR）は変動比率強化による習慣形成エンジン。射幸心ではなく、三日坊主を防ぐ設計です。</p>
   </div>
 
   <!-- Footer -->
