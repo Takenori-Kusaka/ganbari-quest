@@ -250,6 +250,27 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
+#### 10. 年齢・誕生日 (age / birthDate / uiMode) (#1378)
+
+| 場所 | 内容 |
+|------|------|
+| `child.birthDate` / `child.age` / `child.uiMode` | DB カラム（SSOT 優先度: birthDate > age > uiMode） |
+| `src/lib/domain/validation/age-tier.ts` | `getDefaultUiMode(age)` — uiMode 導出ロジック |
+| `src/lib/server/services/birthday-bonus-service.ts` | `calculateAge()` / `claimBirthdayBonus()` — age 更新 + uiMode 再計算 |
+| `src/routes/(parent)/admin/children/+page.server.ts` | 子供登録・更新フォームの age/birthDate バリデーション |
+| `docs/design/26-ゲーミフィケーション設計書.md §13` | 仕様 SSOT |
+
+**同期メカニズム**:
+- `birthDate` が変化した場合は必ず `calculateAge(birthDate)` で age を再計算し、`getDefaultUiMode(age)` で uiMode も更新する
+- `uiModeManuallySet` フラグが導入された後は、`false` の場合のみ自動更新する（Sub B-4、未実装）
+
+**修正時チェック**:
+- [ ] birthDate / age バリデーション変更 → `children/+page.server.ts` と `birthday-bonus-service.ts` の両方を確認
+- [ ] `getDefaultUiMode` の年齢境界変更 → `age-tier.ts` 1 箇所（副作用: 全 child の uiMode が次回更新時に変化する）
+- [ ] age 自動インクリメント実装 (Sub B-3) → `schedule-registry.ts` に cron 登録 + E2E テスト追加
+
+---
+
 ## 修正時チェックリスト
 
 **すべての修正前に、以下のどれに該当するか確認し、対応するペアを触ること**:
