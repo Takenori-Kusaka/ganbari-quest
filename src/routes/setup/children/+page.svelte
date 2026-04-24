@@ -1,6 +1,11 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { getAgeTierLabel } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	getAgeTierLabel,
+	PAGE_TITLES,
+	SETUP_CHILDREN_LABELS,
+} from '$lib/domain/labels';
 import { AGE_TIER_CONFIG, getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -16,12 +21,12 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 </script>
 
 <svelte:head>
-	<title>子供登録 - がんばりクエスト セットアップ</title>
+	<title>{PAGE_TITLES.setupChildren}{APP_LABELS.setupPageTitleSuffix}</title>
 </svelte:head>
 
-<h2 class="text-lg font-bold text-[var(--color-text)] mb-2">子供を登録しよう</h2>
+<h2 class="text-lg font-bold text-[var(--color-text)] mb-2">{SETUP_CHILDREN_LABELS.pageTitle}</h2>
 <p class="text-sm text-[var(--color-text-muted)] mb-4">
-	がんばりクエストを使う子供を登録してください（1人以上）。
+	{SETUP_CHILDREN_LABELS.pageDesc}
 </p>
 
 {#if form?.error}
@@ -29,13 +34,13 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 {/if}
 
 {#if addSuccess}
-	<SuccessAlert message="子供を登録しました！" />
+	<SuccessAlert message={SETUP_CHILDREN_LABELS.addSuccessMessage} />
 {/if}
 
 <!-- Registered children list -->
 {#if data.children.length > 0}
 	<div class="mb-4">
-		<h3 class="text-sm font-bold text-[var(--color-text-secondary)] mb-2">登録済み（{data.children.length}人）</h3>
+		<h3 class="text-sm font-bold text-[var(--color-text-secondary)] mb-2">{SETUP_CHILDREN_LABELS.registeredTitle(data.children.length)}</h3>
 		<div class="flex flex-col gap-2">
 			{#each data.children as child (child.id)}
 				<div class="flex items-center gap-3 p-3 bg-[var(--color-surface-success)] border border-[var(--color-border-success)] rounded-lg">
@@ -49,7 +54,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 					<div>
 						<p class="font-bold text-sm text-[var(--color-text)]">{child.nickname}</p>
 						<p class="text-xs text-[var(--color-text-muted)]">
-							{child.age}歳 / {getAgeTierLabel(child.uiMode)}モード
+							{child.age + '歳'} / {getAgeTierLabel(child.uiMode)}{SETUP_CHILDREN_LABELS.ageModeSuffix}
 						</p>
 					</div>
 				</div>
@@ -76,7 +81,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 	}}
 	class="flex flex-col gap-3 mb-4 p-4 bg-[var(--color-surface-muted)] rounded-lg border border-[var(--color-border-default)]"
 >
-	<h3 class="text-sm font-bold text-[var(--color-text-secondary)]">子供を追加</h3>
+	<h3 class="text-sm font-bold text-[var(--color-text-secondary)]">{SETUP_CHILDREN_LABELS.addFormTitle}</h3>
 
 	<FormField
 		label="ニックネーム"
@@ -97,34 +102,34 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 	/>
 
 	<div>
-		<label for="theme" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">テーマカラー</label>
+		<label for="theme" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">{SETUP_CHILDREN_LABELS.themeColorLabel}</label>
 		<div class="grid grid-cols-2 gap-2">
 			<label class="theme-option">
 				<input type="radio" name="theme" value="pink" checked class="sr-only peer" />
 				<div class="theme-card theme-card--pink">
 					<span class="text-2xl">👧</span>
-					<span class="text-sm font-medium text-[var(--color-text)]">ピンク</span>
+					<span class="text-sm font-medium text-[var(--color-text)]">{SETUP_CHILDREN_LABELS.themePink}</span>
 				</div>
 			</label>
 			<label class="theme-option">
 				<input type="radio" name="theme" value="blue" class="sr-only peer" />
 				<div class="theme-card theme-card--blue">
 					<span class="text-2xl">👦</span>
-					<span class="text-sm font-medium text-[var(--color-text)]">ブルー</span>
+					<span class="text-sm font-medium text-[var(--color-text)]">{SETUP_CHILDREN_LABELS.themeBlue}</span>
 				</div>
 			</label>
 		</div>
 	</div>
 
 	<Button type="submit" variant="success" size="md" disabled={submitting} class="w-full">
-		{submitting ? '登録中...' : '追加する'}
+		{submitting ? SETUP_CHILDREN_LABELS.submittingLabel : SETUP_CHILDREN_LABELS.addButton}
 	</Button>
 </form>
 
 <!-- Next step button -->
 {#if data.children.length > 0}
 	<form method="POST" action="?/next">
-		<Button type="submit" variant="primary" size="md" class="w-full">次へ</Button>
+		<Button type="submit" variant="primary" size="md" class="w-full">{SETUP_CHILDREN_LABELS.nextButton}</Button>
 	</form>
 {/if}
 
@@ -134,7 +139,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 		href="/"
 		class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)]"
 		data-testid="setup-skip-link"
-	>ホームに戻る</a>
+	>{SETUP_CHILDREN_LABELS.backToHome}</a>
 </div>
 
 <style>

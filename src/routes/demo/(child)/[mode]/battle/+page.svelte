@@ -2,6 +2,7 @@
 import { executeBattle, scaleEnemyStats } from '$lib/domain/battle-engine';
 import { getAgeScaling } from '$lib/domain/battle-stat-calculator';
 import type { BattleResult } from '$lib/domain/battle-types';
+import { APP_LABELS, DEMO_BATTLE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import BattleScene from '$lib/features/battle/BattleScene.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -32,17 +33,17 @@ function handleStartBattle() {
 </script>
 
 <svelte:head>
-	<title>バトル - がんばりクエスト デモ</title>
+	<title>{PAGE_TITLES.demoChildBattle}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
 <div class="battle-page" data-testid="demo-battle-page">
-	<h2 class="page-title">⚔️ きょうの バトル</h2>
+	<h2 class="page-title">{DEMO_BATTLE_LABELS.pageTitle}</h2>
 
 	{#if data.battle}
 		{#if !completed}
 			<div class="start-area">
 				<Button variant="primary" size="lg" onclick={handleStartBattle}>
-					バトル かいし！
+					{DEMO_BATTLE_LABELS.startButton}
 				</Button>
 			</div>
 		{/if}
@@ -58,13 +59,13 @@ function handleStartBattle() {
 		{#if completed && battleResult}
 			<div class="demo-notice">
 				<p class="demo-notice-text">
-					（デモモード：データは保存されません）
+					{DEMO_BATTLE_LABELS.demoNotice}
 				</p>
 				<a
 					href="/demo/signup"
 					class="signup-link"
 				>
-					お子さまの名前で はじめる →
+					{DEMO_BATTLE_LABELS.signupLink}
 				</a>
 				<Button
 					variant="ghost"
@@ -72,13 +73,13 @@ function handleStartBattle() {
 					onclick={() => { battleResult = null; completed = false; }}
 					class="mt-2"
 				>
-					もういちど あそぶ
+					{DEMO_BATTLE_LABELS.replayButton}
 				</Button>
 			</div>
 		{/if}
 	{:else}
 		<div class="no-battle">
-			<p>バトルじょうほうを よみこめませんでした</p>
+			<p>{DEMO_BATTLE_LABELS.loadErrorMessage}</p>
 		</div>
 	{/if}
 </div>

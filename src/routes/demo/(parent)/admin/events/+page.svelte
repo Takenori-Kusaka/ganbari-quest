@@ -1,5 +1,6 @@
 <script lang="ts">
 import { todayDateJST } from '$lib/domain/date-utils';
+import { APP_LABELS, DEMO_EVENTS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 
@@ -30,18 +31,18 @@ function formatDate(d: string): string {
 </script>
 
 <svelte:head>
-	<title>イベント管理（デモ） - がんばりクエスト</title>
+	<title>{PAGE_TITLES.demoAdminEvents}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <DemoBanner />
 
 <div class="space-y-4">
-	<h2 class="text-lg font-bold">🎉 シーズンイベント管理</h2>
+	<h2 class="text-lg font-bold">{DEMO_EVENTS_LABELS.sectionTitle}</h2>
 
 	{#if data.events.length === 0}
 		<div class="rounded-xl border bg-white p-8 text-center">
 			<p class="text-2xl">🎪</p>
-			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">イベントはまだありません</p>
+			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">{DEMO_EVENTS_LABELS.emptyNotice}</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
@@ -56,13 +57,13 @@ function formatDate(d: string): string {
 								{#if active}
 									<span
 										class="ml-1 rounded bg-[var(--color-feedback-warning-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-warning-text)]"
-										>開催中</span
+										>{DEMO_EVENTS_LABELS.activeBadge}</span
 									>
 								{/if}
 							</h3>
 							<p class="text-xs text-[var(--color-text-muted)]">
 								<code class="rounded bg-[var(--color-surface-secondary)] px-1">{event.code}</code>
-								· {formatDate(event.startDate)} 〜 {formatDate(event.endDate)}
+								· {formatDate(event.startDate)} {DEMO_EVENTS_LABELS.dateRangeSeparator} {formatDate(event.endDate)}
 								· {event.eventType}
 							</p>
 							{#if event.description}

@@ -1,4 +1,5 @@
 <script lang="ts">
+import { OPS_COSTS_LABELS } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
@@ -20,26 +21,26 @@ const diffColorClass = $derived(
 </script>
 
 <svelte:head>
-	<title>OPS - AWS費用</title>
+	<title>{OPS_COSTS_LABELS.pageTitle}</title>
 </svelte:head>
 
 <div class="flex flex-col gap-8">
 	<!-- 期間選択 -->
 	<div class="flex justify-center items-center gap-8">
-		<a href="/ops/costs?year={prevY}&month={prevM}" class="text-[var(--color-brand-600)] no-underline text-sm hover:underline">← 前月</a>
-		<span class="text-xl font-bold">{data.year}年{data.month}月</span>
-		<a href="/ops/costs?year={nextY}&month={nextM}" class="text-[var(--color-brand-600)] no-underline text-sm hover:underline">翌月 →</a>
+		<a href="/ops/costs?year={prevY}&month={prevM}" class="text-[var(--color-brand-600)] no-underline text-sm hover:underline">{OPS_COSTS_LABELS.prevMonthLink}</a>
+		<span class="text-xl font-bold">{OPS_COSTS_LABELS.yearMonthDisplay(data.year, data.month)}</span>
+		<a href="/ops/costs?year={nextY}&month={nextM}" class="text-[var(--color-brand-600)] no-underline text-sm hover:underline">{OPS_COSTS_LABELS.nextMonthLink}</a>
 	</div>
 
 	<!-- 費用サマリー -->
 	<div class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">当月 AWS 費用</div>
+			<div class="ops-kpi-label">{OPS_COSTS_LABELS.currentCostLabel}</div>
 			<div class="text-[1.75rem] font-bold text-[var(--color-text)]">${costs.total.toFixed(2)}</div>
 			<div class="text-xs text-[var(--color-text-muted)] mt-1">≒ ¥{Math.round(costs.total * usdToJpy).toLocaleString()}</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">前月比</div>
+			<div class="ops-kpi-label">{OPS_COSTS_LABELS.prevMonthDiffLabel}</div>
 			<div class="text-[1.75rem] font-bold {diffColorClass}">
 				{costDiff >= 0 ? '+' : ''}{costDiff.toFixed(2)}
 			</div>
@@ -48,24 +49,24 @@ const diffColorClass = $derived(
 			</div>
 		</Card>
 		<Card padding="none" class="p-5 text-center">
-			<div class="ops-kpi-label">サービス数</div>
+			<div class="ops-kpi-label">{OPS_COSTS_LABELS.serviceCountLabel}</div>
 			<div class="text-[1.75rem] font-bold text-[var(--color-text)]">{costs.services.length}</div>
 		</Card>
 	</div>
 
 	<!-- サービス別内訳 -->
 	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">サービス別費用内訳</h2>
+		<h2 class="text-base font-semibold m-0 mb-4 text-[var(--color-text-primary)]">{OPS_COSTS_LABELS.serviceBreakdownTitle}</h2>
 		{#if costs.services.length === 0}
-			<p class="text-[var(--color-text-muted)] text-sm text-center p-8">費用データがありません（AWS Cost Explorer API が利用不可、またはデータなし）</p>
+			<p class="text-[var(--color-text-muted)] text-sm text-center p-8">{OPS_COSTS_LABELS.noCostData}</p>
 		{:else}
 			<table class="ops-table">
 				<thead>
 					<tr>
-						<th>サービス</th>
-						<th class="ops-num">費用 (USD)</th>
-						<th class="ops-num">概算 (JPY)</th>
-						<th class="ops-num">割合</th>
+						<th>{OPS_COSTS_LABELS.colService}</th>
+						<th class="ops-num">{OPS_COSTS_LABELS.colCostUsd}</th>
+						<th class="ops-num">{OPS_COSTS_LABELS.colCostJpy}</th>
+						<th class="ops-num">{OPS_COSTS_LABELS.colRatio}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -78,7 +79,7 @@ const diffColorClass = $derived(
 						</tr>
 					{/each}
 					<tr class="total-row">
-						<td>合計</td>
+						<td>{OPS_COSTS_LABELS.totalRow}</td>
 						<td class="ops-num">${costs.total.toFixed(4)}</td>
 						<td class="ops-num">¥{Math.round(costs.total * usdToJpy).toLocaleString()}</td>
 						<td class="ops-num">100%</td>
@@ -89,8 +90,8 @@ const diffColorClass = $derived(
 	</Card>
 
 	<div class="text-xs text-[var(--color-text-muted)] text-right">
-		最終取得: {costs.fetchedAt ? new Date(costs.fetchedAt).toLocaleString('ja-JP') : '-'}
-		（24時間キャッシュ、API費用: $0.01/リクエスト）
+		{OPS_COSTS_LABELS.lastFetchedPrefix}{costs.fetchedAt ? new Date(costs.fetchedAt).toLocaleString('ja-JP') : '-'}
+		{OPS_COSTS_LABELS.cacheNote}
 	</div>
 </div>
 
