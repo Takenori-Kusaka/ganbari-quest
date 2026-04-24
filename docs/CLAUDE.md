@@ -29,7 +29,7 @@
 |------|--------|------|
 | `mobileHeight` | 15000 px | 引き上げ禁止（下げるのは自由） |
 | `desktopHeight` | 8000 px | 同上 |
-| `forbiddenTerms` | 全 0 | 新規の開発者語彙 (`git clone` / `docker compose` / `SaaS版` / `セルフホスト版` / `TLS` / `AES-256` / `AWS`) を追加しない |
+| `forbiddenTerms` | 全 0 | 新規の開発者語彙 (`git clone` / `docker compose` / `SaaS版` / `TLS` / `AES-256` / `AWS`) や射幸性語彙 (`ガチャ` / `抽選` / `コンプリート`) を追加しない |
 | `ctaVariants` | 3 以下 | CTA 文言は `無料で始める` / `デモを見る` + NAV の `ログイン` の 3 種のみ |
 
 閾値を緩める変更は ADR で合意を得てから `scripts/measure-lp-dimensions.mjs` の `THRESHOLDS` を更新する。

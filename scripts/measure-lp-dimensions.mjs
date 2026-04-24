@@ -39,6 +39,9 @@ const TARGET_HTML = args.target || 'index.html';
 // #1212-H / ADR-0041: 「マーケットプレイス」「マケプレ」→「みんなのテンプレート」「テンプレート」へ移行済。再混入を CI 検出
 // #1286: 安心訴求セクションで「OSS / ソースコード / サーバー / 自前運用」を追加禁止（IT 非リテラシ親への伝達性を優先）。
 //   例外: これらを本当に書きたいページ（selfhost.html 等）は TARGET_HTML として scan しないため影響なし
+// #1313: 射幸性語彙を禁止（ADR-0012 Anti-engagement 原則 + ADR-0013 LP truth）。
+//   「ガチャ」「抽選」「コンプリート」は親層が忌避するコンプガチャ連想語彙。
+//   「ランダム」は将来の許容例が出る可能性があるため除外（別途判断）。
 const FORBIDDEN_TERMS = [
 	'git clone',
 	'docker compose',
@@ -53,6 +56,9 @@ const FORBIDDEN_TERMS = [
 	'ソースコード',
 	'サーバー',
 	'自前運用',
+	'ガチャ',
+	'抽選',
+	'コンプリート',
 ];
 
 const THRESHOLDS = {
