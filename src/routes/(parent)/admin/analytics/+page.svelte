@@ -1,4 +1,5 @@
 <script lang="ts">
+import { ANALYTICS_LABELS } from '$lib/domain/labels';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import type { AnalyticsData } from './+page.server';
@@ -38,55 +39,55 @@ function changeColorClass(current: number, prev: number): string {
 </script>
 
 <svelte:head>
-	<title>アナリティクス - 管理画面</title>
+	<title>{ANALYTICS_LABELS.pageTitle}</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
 <div class="flex flex-col gap-6">
-	<h1 class="text-xl font-bold text-[var(--color-text)]">アナリティクス</h1>
+	<h1 class="text-xl font-bold text-[var(--color-text)]">{ANALYTICS_LABELS.pageHeading}</h1>
 
 	{#if !analytics.configured}
 		<Alert variant="info">
-			<p class="font-semibold">Umami が設定されていません</p>
+			<p class="font-semibold">{ANALYTICS_LABELS.umamiNotConfiguredTitle}</p>
 			<p class="text-sm mt-1">
-				アナリティクスを有効にするには、環境変数 <code>PUBLIC_UMAMI_WEBSITE_ID</code> と
-				<code>PUBLIC_UMAMI_HOST</code> を設定してください。
-				API アクセスには <code>UMAMI_API_KEY</code> も必要です。
+				{ANALYTICS_LABELS.umamiConfigVar1Prefix}<code>PUBLIC_UMAMI_WEBSITE_ID</code>{ANALYTICS_LABELS.umamiConfigVar1Suffix}
+				<code>PUBLIC_UMAMI_HOST</code>{ANALYTICS_LABELS.umamiConfigVar2Suffix}
+				{ANALYTICS_LABELS.umamiConfigApiKeyPrefix}<code>UMAMI_API_KEY</code>{ANALYTICS_LABELS.umamiConfigApiKeySuffix}
 			</p>
 		</Alert>
 	{:else if analytics.error}
 		<Alert variant="warning">
-			<p class="font-semibold">データ取得に失敗しました</p>
+			<p class="font-semibold">{ANALYTICS_LABELS.umamiErrorTitle}</p>
 			<p class="text-sm mt-1">{analytics.error}</p>
 		</Alert>
 	{:else if analytics.stats}
 		<!-- 1. 概要カード: pageviews / unique visitors -->
 		<section>
-			<h2 class="section-title">過去 30 日間の概要</h2>
+			<h2 class="section-title">{ANALYTICS_LABELS.overviewTitle}</h2>
 			<div class="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-4">
 				<Card padding="none" class="p-4 text-center">
-					<div class="kpi-label">ページビュー</div>
+					<div class="kpi-label">{ANALYTICS_LABELS.kpiLabelPageViews}</div>
 					<div class="kpi-value">{analytics.stats.pageviews.value.toLocaleString()}</div>
 					<div class="text-xs mt-1 {changeColorClass(analytics.stats.pageviews.value, analytics.stats.pageviews.prev)}">
-						{changeRate(analytics.stats.pageviews.value, analytics.stats.pageviews.prev)} (前期比)
+						{ANALYTICS_LABELS.prevPeriodCompare(changeRate(analytics.stats.pageviews.value, analytics.stats.pageviews.prev))}
 					</div>
 				</Card>
 				<Card padding="none" class="p-4 text-center">
-					<div class="kpi-label">ユニーク訪問者</div>
+					<div class="kpi-label">{ANALYTICS_LABELS.kpiLabelUniqueVisitors}</div>
 					<div class="kpi-value">{analytics.stats.visitors.value.toLocaleString()}</div>
 					<div class="text-xs mt-1 {changeColorClass(analytics.stats.visitors.value, analytics.stats.visitors.prev)}">
-						{changeRate(analytics.stats.visitors.value, analytics.stats.visitors.prev)} (前期比)
+						{ANALYTICS_LABELS.prevPeriodCompare(changeRate(analytics.stats.visitors.value, analytics.stats.visitors.prev))}
 					</div>
 				</Card>
 				<Card padding="none" class="p-4 text-center">
-					<div class="kpi-label">訪問数</div>
+					<div class="kpi-label">{ANALYTICS_LABELS.kpiLabelVisits}</div>
 					<div class="kpi-value">{analytics.stats.visits.value.toLocaleString()}</div>
 					<div class="text-xs mt-1 {changeColorClass(analytics.stats.visits.value, analytics.stats.visits.prev)}">
-						{changeRate(analytics.stats.visits.value, analytics.stats.visits.prev)} (前期比)
+						{ANALYTICS_LABELS.prevPeriodCompare(changeRate(analytics.stats.visits.value, analytics.stats.visits.prev))}
 					</div>
 				</Card>
 				<Card padding="none" class="p-4 text-center">
-					<div class="kpi-label">直帰率</div>
+					<div class="kpi-label">{ANALYTICS_LABELS.kpiLabelBounceRate}</div>
 					<div class="kpi-value">
 						{analytics.stats.visits.value > 0
 							? ((analytics.stats.bounces.value / analytics.stats.visits.value) * 100).toFixed(1)
@@ -100,12 +101,12 @@ function changeColorClass(current: number, prev: number): string {
 		{#if analytics.pages.length > 0}
 			<section>
 				<Card padding="lg">
-					<h2 class="section-title m-0 mb-3">ページ別訪問数 (トップ 10)</h2>
+					<h2 class="section-title m-0 mb-3">{ANALYTICS_LABELS.pagesTitle}</h2>
 					<table class="analytics-table">
 						<thead>
 							<tr>
-								<th>ページ</th>
-								<th class="analytics-num">訪問数</th>
+								<th>{ANALYTICS_LABELS.tableColPage}</th>
+								<th class="analytics-num">{ANALYTICS_LABELS.tableColVisits}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -125,19 +126,19 @@ function changeColorClass(current: number, prev: number): string {
 		{#if analytics.referrers.length > 0}
 			<section>
 				<Card padding="lg">
-					<h2 class="section-title m-0 mb-3">流入元 (リファラ)</h2>
+					<h2 class="section-title m-0 mb-3">{ANALYTICS_LABELS.referrersTitle}</h2>
 					<table class="analytics-table">
 						<thead>
 							<tr>
-								<th>参照元</th>
-								<th class="analytics-num">訪問数</th>
+								<th>{ANALYTICS_LABELS.tableColReferrer}</th>
+								<th class="analytics-num">{ANALYTICS_LABELS.tableColVisits}</th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each analytics.referrers as ref}
 								<tr>
 									<td class="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap">
-										{ref.x || '(直接アクセス)'}
+										{ref.x || ANALYTICS_LABELS.directAccess}
 									</td>
 									<td class="analytics-num">{ref.y.toLocaleString()}</td>
 								</tr>
@@ -152,12 +153,12 @@ function changeColorClass(current: number, prev: number): string {
 		{#if uiModeEvents.length > 0}
 			<section>
 				<Card padding="lg">
-					<h2 class="section-title m-0 mb-3">年齢モード別イベント</h2>
+					<h2 class="section-title m-0 mb-3">{ANALYTICS_LABELS.uiModeEventsTitle}</h2>
 					<table class="analytics-table">
 						<thead>
 							<tr>
-								<th>イベント</th>
-								<th class="analytics-num">件数</th>
+								<th>{ANALYTICS_LABELS.tableColEvent}</th>
+								<th class="analytics-num">{ANALYTICS_LABELS.tableColCount}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -177,12 +178,12 @@ function changeColorClass(current: number, prev: number): string {
 		{#if errorEvents.length > 0}
 			<section>
 				<Card padding="lg">
-					<h2 class="section-title m-0 mb-3">エラーイベント</h2>
+					<h2 class="section-title m-0 mb-3">{ANALYTICS_LABELS.errorEventsTitle}</h2>
 					<table class="analytics-table">
 						<thead>
 							<tr>
-								<th>イベント</th>
-								<th class="analytics-num">件数</th>
+								<th>{ANALYTICS_LABELS.tableColEvent}</th>
+								<th class="analytics-num">{ANALYTICS_LABELS.tableColCount}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -202,12 +203,12 @@ function changeColorClass(current: number, prev: number): string {
 		{#if analytics.events.length > 0}
 			<section>
 				<Card padding="lg">
-					<h2 class="section-title m-0 mb-3">イベント一覧 (トップ 20)</h2>
+					<h2 class="section-title m-0 mb-3">{ANALYTICS_LABELS.allEventsTitle}</h2>
 					<table class="analytics-table">
 						<thead>
 							<tr>
-								<th>イベント名</th>
-								<th class="analytics-num">件数</th>
+								<th>{ANALYTICS_LABELS.tableColEventName}</th>
+								<th class="analytics-num">{ANALYTICS_LABELS.tableColCount}</th>
 							</tr>
 						</thead>
 						<tbody>

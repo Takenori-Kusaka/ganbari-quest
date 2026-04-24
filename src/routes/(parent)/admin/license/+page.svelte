@@ -3,7 +3,7 @@ import { enhance } from '$app/forms';
 import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
-import { OYAKAGI_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, LICENSE_PAGE_LABELS, OYAKAGI_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { getLicenseHighlights } from '$lib/domain/plan-features';
 import DowngradeResourceSelector from '$lib/features/admin/components/DowngradeResourceSelector.svelte';
 import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
@@ -30,7 +30,7 @@ const downgradeRetentionDays = $derived(data.downgradeRetentionDays);
 const churnLostRetentionLabel = $derived(
 	downgradeRetentionDays === null || downgradeRetentionDays === undefined
 		? null
-		: `${downgradeRetentionDays}日以前のデータへのアクセス`,
+		: LICENSE_PAGE_LABELS.churnLostRetentionDays(downgradeRetentionDays),
 );
 
 let checkoutLoading = $state(false);
@@ -72,17 +72,17 @@ const applySuccess = $derived(applyResult?.success === true);
 const planLabel = (plan: string) => {
 	switch (plan) {
 		case LICENSE_PLAN.MONTHLY:
-			return 'スタンダード月額（¥500/月）';
+			return LICENSE_PAGE_LABELS.planLabelMonthly;
 		case LICENSE_PLAN.YEARLY:
-			return 'スタンダード年額（¥5,000/年）';
+			return LICENSE_PAGE_LABELS.planLabelYearly;
 		case LICENSE_PLAN.FAMILY_MONTHLY:
-			return 'ファミリー月額（¥780/月）';
+			return LICENSE_PAGE_LABELS.planLabelFamilyMonthly;
 		case LICENSE_PLAN.FAMILY_YEARLY:
-			return 'ファミリー年額（¥7,800/年）';
+			return LICENSE_PAGE_LABELS.planLabelFamilyYearly;
 		case LICENSE_PLAN.LIFETIME:
-			return '永久ライセンス';
+			return LICENSE_PAGE_LABELS.planLabelLifetime;
 		case 'free':
-			return '無料プラン';
+			return LICENSE_PAGE_LABELS.planLabelFree;
 		default:
 			return plan;
 	}
@@ -92,28 +92,28 @@ const statusLabel = (status: string) => {
 	switch (status) {
 		case SUBSCRIPTION_STATUS.ACTIVE:
 			return {
-				text: '有効',
+				text: LICENSE_PAGE_LABELS.statusActive,
 				color:
 					'bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]',
 				icon: '✅',
 			};
 		case SUBSCRIPTION_STATUS.GRACE_PERIOD:
 			return {
-				text: '猶予期間',
+				text: LICENSE_PAGE_LABELS.statusGracePeriod,
 				color:
 					'bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]',
 				icon: '⚠️',
 			};
 		case SUBSCRIPTION_STATUS.SUSPENDED:
 			return {
-				text: '停止中',
+				text: LICENSE_PAGE_LABELS.statusSuspended,
 				color:
 					'bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]',
 				icon: '⏸️',
 			};
 		case SUBSCRIPTION_STATUS.TERMINATED:
 			return {
-				text: '解約済み',
+				text: LICENSE_PAGE_LABELS.statusTerminated,
 				color: 'bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]',
 				icon: '❌',
 			};
@@ -186,7 +186,7 @@ async function executeDowngradeArchive(selection: {
 		if (!res.ok) {
 			const body = await res.json().catch(() => ({}));
 			downgradeError =
-				(body as { message?: string }).message ?? 'リソースのアーカイブに失敗しました';
+				(body as { message?: string }).message ?? LICENSE_PAGE_LABELS.downgradeArchiveError;
 			return false;
 		}
 		return true;
@@ -237,7 +237,7 @@ async function openPortal() {
 		}
 	} else {
 		if (portalConfirmPhrase !== DOWNGRADE_CONFIRM_PHRASE) {
-			portalError = `「${DOWNGRADE_CONFIRM_PHRASE}」と入力してください`;
+			portalError = LICENSE_PAGE_LABELS.portalConfirmPhraseError(DOWNGRADE_CONFIRM_PHRASE);
 			return;
 		}
 	}
@@ -253,7 +253,7 @@ async function openPortal() {
 		});
 		if (!res.ok) {
 			// サーバーエラーメッセージ (INVALID_PIN / LOCKED_OUT / CONFIRM_PHRASE_REQUIRED)
-			let message = 'プラン変更の確認に失敗しました';
+			let message: string = LICENSE_PAGE_LABELS.portalFetchError;
 			try {
 				const body = (await res.json()) as { message?: string };
 				const raw = body.message ?? '';
@@ -262,7 +262,7 @@ async function openPortal() {
 				} else if (raw.startsWith('LOCKED_OUT')) {
 					message = OYAKAGI_LABELS.lockedError;
 				} else if (raw === 'CONFIRM_PHRASE_REQUIRED') {
-					message = `「${DOWNGRADE_CONFIRM_PHRASE}」と入力してください`;
+					message = LICENSE_PAGE_LABELS.portalConfirmPhraseError(DOWNGRADE_CONFIRM_PHRASE);
 				} else if (raw) {
 					message = raw;
 				}
@@ -279,7 +279,7 @@ async function openPortal() {
 			window.location.href = body.url;
 		}
 	} catch (err) {
-		portalError = err instanceof Error ? err.message : 'プラン変更の確認に失敗しました';
+		portalError = err instanceof Error ? err.message : LICENSE_PAGE_LABELS.portalFetchError;
 	} finally {
 		portalLoading = false;
 	}
@@ -287,23 +287,23 @@ async function openPortal() {
 </script>
 
 <svelte:head>
-	<title>プラン・お支払い - がんばりクエスト</title>
+	<title>{PAGE_TITLES.license}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6">
 	<!-- 現在のプラン -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">現在のプラン</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{LICENSE_PAGE_LABELS.currentPlanTitle}</h3>
 
 		<div class="grid gap-4">
 			<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
-				<span class="text-sm text-[var(--color-text-muted)]">プラン</span>
+				<span class="text-sm text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.currentPlanLabel}</span>
 				<span class="text-sm font-semibold text-[var(--color-text-primary)]">{planLabel(license.plan ?? 'free')}</span>
 			</div>
 
 			<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
-				<span class="text-sm text-[var(--color-text-muted)]">ステータス</span>
+				<span class="text-sm text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.currentPlanStatus}</span>
 				<span class="text-xs font-medium px-2.5 py-1 rounded-full {status.color}">
 					{status.icon} {status.text}
 				</span>
@@ -311,7 +311,7 @@ async function openPortal() {
 
 			{#if license.planExpiresAt}
 				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
-					<span class="text-sm text-[var(--color-text-muted)]">有効期限</span>
+					<span class="text-sm text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.currentPlanExpiry}</span>
 					<span class="text-sm text-[var(--color-text-primary)]">
 						{new Date(license.planExpiresAt).toLocaleDateString('ja-JP')}
 					</span>
@@ -320,7 +320,7 @@ async function openPortal() {
 
 			{#if license.licenseKey}
 				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
-					<span class="text-sm text-[var(--color-text-muted)]">ライセンスキー</span>
+					<span class="text-sm text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.currentPlanLicenseKey}</span>
 					<code class="text-xs bg-[var(--color-surface-muted)] px-2 py-1 rounded font-mono text-[var(--color-text-secondary)]">
 						{license.licenseKey}
 					</code>
@@ -328,12 +328,12 @@ async function openPortal() {
 			{/if}
 
 			<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
-				<span class="text-sm text-[var(--color-text-muted)]">家族名</span>
+				<span class="text-sm text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.currentPlanFamilyName}</span>
 				<span class="text-sm text-[var(--color-text-primary)]">{license.tenantName}</span>
 			</div>
 
 			<div class="flex items-center justify-between py-2">
-				<span class="text-sm text-[var(--color-text-muted)]">登録日</span>
+				<span class="text-sm text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.currentPlanCreatedAt}</span>
 				<span class="text-sm text-[var(--color-text-primary)]">
 					{new Date(license.createdAt).toLocaleDateString('ja-JP')}
 				</span>
@@ -360,16 +360,16 @@ async function openPortal() {
 		<Card variant="default" padding="lg">
 			{#snippet children()}
 			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-2">
-				ライセンスキーを適用
+				{LICENSE_PAGE_LABELS.licenseKeyTitle}
 			</h3>
 			<p class="text-sm text-[var(--color-text-muted)] mb-4">
-				キャンペーン・サポート窓口から受け取ったライセンスキーを入力して、プランを有効化できます。
+				{LICENSE_PAGE_LABELS.licenseKeyDesc}
 			</p>
 
 			{#if applySuccess}
 				<Alert variant="success" class="mb-3">
 					{#snippet children()}
-					ライセンスキーを適用しました。プランが更新されています。
+					{LICENSE_PAGE_LABELS.licenseKeyApplySuccess}
 					{/snippet}
 				</Alert>
 			{/if}
@@ -399,7 +399,7 @@ async function openPortal() {
 				}}
 			>
 				<label for="licenseKey" class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-					ライセンスキー
+					{LICENSE_PAGE_LABELS.licenseKeyInputLabel}
 				</label>
 				<input
 					id="licenseKey"
@@ -422,7 +422,7 @@ async function openPortal() {
 						onclick={() => { showLicenseHelp = !showLicenseHelp; }}
 						data-testid="license-help-toggle"
 					>
-						{showLicenseHelp ? '▼' : '▶'} ライセンスキーについて
+						{showLicenseHelp ? '▼' : '▶'} {LICENSE_PAGE_LABELS.licenseKeyHelpToggle}
 					</button>
 					{#if showLicenseHelp}
 						<div
@@ -430,10 +430,10 @@ async function openPortal() {
 							class="mt-2 p-3 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] border border-[var(--color-border-default)] text-xs text-[var(--color-text-muted)] leading-relaxed space-y-1.5"
 							data-testid="license-help-body"
 						>
-							<p><strong class="text-[var(--color-text-primary)]">一回限りの使用</strong>: 一度有効化すると、他のアカウントでは使用できません。</p>
-							<p><strong class="text-[var(--color-text-primary)]">プラン上書き</strong>: 現在のプランはキーに対応するプランに上書きされます。</p>
-							<p><strong class="text-[var(--color-text-primary)]">紐付け先</strong>: 現在のアカウント（家族）に紐付き、他の家族へ付け替えることはできません。</p>
-							<p><strong class="text-[var(--color-text-primary)]">取り消し不可</strong>: 適用後に取り消すことはできません。</p>
+							<p><strong class="text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.licenseKeyHelpOnce}</strong>: {LICENSE_PAGE_LABELS.licenseKeyHelpOnceDesc}</p>
+							<p><strong class="text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.licenseKeyHelpOverwrite}</strong>: {LICENSE_PAGE_LABELS.licenseKeyHelpOverwriteDesc}</p>
+							<p><strong class="text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.licenseKeyHelpBound}</strong>: {LICENSE_PAGE_LABELS.licenseKeyHelpBoundDesc}</p>
+							<p><strong class="text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.licenseKeyHelpIrreversible}</strong>: {LICENSE_PAGE_LABELS.licenseKeyHelpIrreversibleDesc}</p>
 						</div>
 					{/if}
 				</div>
@@ -450,29 +450,29 @@ async function openPortal() {
 						showApplyConfirm = true;
 					}}
 				>
-					ライセンスキーを適用
+					{LICENSE_PAGE_LABELS.licenseKeyApplyButton}
 				</Button>
 
 			</form>
 
 				<Dialog
 					bind:open={showApplyConfirm}
-					title="ライセンスキーを有効化しますか？"
+					title={LICENSE_PAGE_LABELS.licenseKeyConfirmTitle}
 					testid="license-key-confirm-dialog"
 				>
 					{#snippet children()}
 					<div class="space-y-3 text-sm text-[var(--color-text-primary)]">
 						<p>
-							入力されたライセンスキーを現在のアカウントに適用します。
+							{LICENSE_PAGE_LABELS.licenseKeyConfirmDesc}
 						</p>
 						<ul class="list-disc pl-5 text-[var(--color-text-muted)] space-y-1">
-							<li><strong>一回限り</strong>使用可能です（適用後は他アカウントで使えなくなります）</li>
-							<li>キーに対応する<strong>プラン</strong>が自動で付与され、現在のプランは上書きされます</li>
-							<li>このキーは<strong>「{license.tenantName}」</strong>に紐付けられ、他の家族に付け替えできません</li>
-							<li>適用を<strong>取り消すことはできません</strong></li>
+							<li><strong>{LICENSE_PAGE_LABELS.licenseKeyConfirmOnce}</strong>{LICENSE_PAGE_LABELS.licenseKeyConfirmOnceDesc}</li>
+							<li>{LICENSE_PAGE_LABELS.licenseKeyConfirmPlanPrefix}<strong>{LICENSE_PAGE_LABELS.licenseKeyConfirmPlan}</strong>{LICENSE_PAGE_LABELS.licenseKeyConfirmPlanDesc}</li>
+							<li>{LICENSE_PAGE_LABELS.licenseKeyConfirmBoundPrefix}<strong>{LICENSE_PAGE_LABELS.licenseKeyConfirmBoundSuffix(license.tenantName)}</strong></li>
+							<li>{LICENSE_PAGE_LABELS.licenseKeyConfirmIrreversiblePrefix}<strong>{LICENSE_PAGE_LABELS.licenseKeyConfirmIrreversible}</strong></li>
 						</ul>
 						<div class="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
-							<p class="text-[10px] text-[var(--color-text-tertiary)] mb-0.5">入力されたキー</p>
+							<p class="text-[10px] text-[var(--color-text-tertiary)] mb-0.5">{LICENSE_PAGE_LABELS.licenseKeyEnteredKey}</p>
 							<p class="font-mono text-xs text-[var(--color-text-secondary)] break-all" data-testid="license-key-confirm-display">
 								{licenseKeyInput}
 							</p>
@@ -487,7 +487,7 @@ async function openPortal() {
 								data-testid="license-key-once-checkbox"
 							/>
 							<span class="text-xs text-[var(--color-text-muted)] leading-relaxed">
-								このライセンスキーが<strong class="text-[var(--color-text-primary)]">一回限り使用</strong>であり、他のアカウントでは使えなくなることに同意します
+								{LICENSE_PAGE_LABELS.licenseKeyAgreePrefix}<strong class="text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.licenseKeyAgreeOnce}</strong>{LICENSE_PAGE_LABELS.licenseKeyAgreeOnceDesc}
 							</span>
 						</label>
 					</div>
@@ -499,7 +499,7 @@ async function openPortal() {
 							onclick={() => (showApplyConfirm = false)}
 							disabled={applyLoading}
 						>
-							キャンセル
+							{LICENSE_PAGE_LABELS.licenseKeyCancel}
 						</Button>
 						<Button
 							type="button"
@@ -511,7 +511,7 @@ async function openPortal() {
 								applyFormEl?.requestSubmit();
 							}}
 						>
-							{applyLoading ? '適用中…' : '適用する'}
+							{applyLoading ? LICENSE_PAGE_LABELS.licenseKeyApplyLoading : LICENSE_PAGE_LABELS.licenseKeyApplyConfirm}
 						</Button>
 					</div>
 					{/snippet}
@@ -527,22 +527,22 @@ async function openPortal() {
 			{#if trialStatus.isTrialActive}
 				<div class="text-center">
 					<p class="text-sm font-semibold text-[var(--color-feedback-info-text)] mb-1">
-						スタンダードプラン トライアル中
+						{LICENSE_PAGE_LABELS.trialActiveTitle}
 					</p>
 					<p class="text-2xl font-bold text-[var(--color-feedback-info-text)]">
-						残り {trialStatus.daysRemaining}日
+						{LICENSE_PAGE_LABELS.trialActiveDays(trialStatus.daysRemaining)}
 					</p>
 					<p class="text-xs text-[var(--color-text-tertiary)] mt-1">
-						{trialStatus.trialEndDate} まで
+						{LICENSE_PAGE_LABELS.trialActiveUntil(trialStatus.trialEndDate)}
 					</p>
 				</div>
 			{:else if !trialStatus.trialUsed}
 				<div class="text-center">
 					<p class="text-lg font-bold text-[var(--color-text-primary)] mb-1">
-						7日間 無料でお試し
+						{LICENSE_PAGE_LABELS.trialStartTitle}
 					</p>
 					<p class="text-sm text-[var(--color-text-muted)] mb-4">
-						スタンダードプランの全機能を体験できます
+						{LICENSE_PAGE_LABELS.trialStartDesc}
 					</p>
 					<form method="POST" action="?/startTrial">
 						<Button
@@ -551,16 +551,16 @@ async function openPortal() {
 							size="md"
 							class="w-full"
 						>
-							無料トライアルを開始する
+							{LICENSE_PAGE_LABELS.trialStartButton}
 						</Button>
 					</form>
 					<p class="text-xs text-[var(--color-text-tertiary)] mt-2">
-						クレジットカード不要 — 自動で課金されることはありません
+						{LICENSE_PAGE_LABELS.trialStartNote}
 					</p>
 				</div>
 			{:else}
 				<p class="text-sm text-[var(--color-text-tertiary)] text-center">
-					無料トライアルは使用済みです
+					{LICENSE_PAGE_LABELS.trialUsed}
 				</p>
 			{/if}
 			{/snippet}
@@ -583,26 +583,23 @@ async function openPortal() {
 	<!-- ステータス別メッセージ -->
 	{#if license.status === SUBSCRIPTION_STATUS.GRACE_PERIOD}
 		<section class="bg-[var(--color-feedback-warning-bg)] rounded-xl p-4 border border-[var(--color-feedback-warning-border)]">
-			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">⚠️ 猶予期間中</h3>
+			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">{LICENSE_PAGE_LABELS.gracePeriodTitle}</h3>
 			<p class="text-sm text-[var(--color-feedback-warning-text)]">
-				お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。
-				期間を過ぎるとサービスが停止されます。
+				{LICENSE_PAGE_LABELS.gracePeriodDesc}
 			</p>
 		</section>
 	{:else if license.status === SUBSCRIPTION_STATUS.SUSPENDED}
 		<section class="bg-[var(--color-feedback-warning-bg)] rounded-xl p-4 border border-[var(--color-feedback-warning-border)]">
-			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">⏸️ サービス停止中</h3>
+			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">{LICENSE_PAGE_LABELS.suspendedTitle}</h3>
 			<p class="text-sm text-[var(--color-feedback-warning-text)]">
-				ライセンスが停止されています。データは保持されていますが、
-				新しい活動の記録やポイントの付与はできません。
+				{LICENSE_PAGE_LABELS.suspendedDesc}
 			</p>
 		</section>
 	{:else if license.status === SUBSCRIPTION_STATUS.TERMINATED}
 		<section class="bg-[var(--color-feedback-error-bg)] rounded-xl p-4 border border-[var(--color-feedback-error-border)]">
-			<h3 class="text-sm font-semibold text-[var(--color-feedback-error-text)] mb-1">❌ 解約済み</h3>
+			<h3 class="text-sm font-semibold text-[var(--color-feedback-error-text)] mb-1">{LICENSE_PAGE_LABELS.terminatedTitle}</h3>
 			<p class="text-sm text-[var(--color-feedback-error-text)]">
-				このアカウントは解約されています。データは一定期間保持されますが、
-				その後削除されます。
+				{LICENSE_PAGE_LABELS.terminatedDesc}
 			</p>
 		</section>
 	{/if}
@@ -610,11 +607,11 @@ async function openPortal() {
 	<!-- プラン管理 -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">プラン管理</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{LICENSE_PAGE_LABELS.planManagementTitle}</h3>
 
 		{#if !stripeEnabled}
 			<p class="text-sm text-[var(--color-text-tertiary)] text-center py-4">
-				決済機能は現在準備中です
+				{LICENSE_PAGE_LABELS.planManagementUnavailable}
 			</p>
 		{:else if hasSubscription}
 			<!-- サブスクリプション有り → Stripe Customer Portal で管理 (#771: PIN 再確認ゲート付き) -->
@@ -627,13 +624,13 @@ async function openPortal() {
 					class="w-full"
 					data-testid="open-portal-button"
 				>
-					{portalLoading ? '読み込み中...' : 'プラン変更・支払い管理'}
+					{LICENSE_PAGE_LABELS.portalButton(portalLoading)}
 				</Button>
 				<p class="text-xs text-[var(--color-text-tertiary)] text-center">
-					Stripeの管理画面でプラン変更・支払い方法の更新・解約ができます
+					{LICENSE_PAGE_LABELS.portalNote}
 				</p>
 				<p class="text-xs text-[var(--color-feedback-warning-text)] text-center">
-					⚠️ プラン変更には{pinConfigured ? '親 PIN' : '確認フレーズ'}の入力が必要です
+					{LICENSE_PAGE_LABELS.portalPinNote(pinConfigured)}
 				</p>
 			</div>
 		{:else}
@@ -646,14 +643,14 @@ async function openPortal() {
 						class:active={billingInterval === 'monthly'}
 						onclick={() => (billingInterval = 'monthly')}
 					>
-						月額
+						{LICENSE_PAGE_LABELS.billingMonthly}
 					</button>
 					<button
 						class="interval-btn"
 						class:active={billingInterval === 'yearly'}
 						onclick={() => (billingInterval = 'yearly')}
 					>
-						年額（17% OFF）
+						{LICENSE_PAGE_LABELS.billingYearly}
 					</button>
 				</div>
 
@@ -669,13 +666,13 @@ async function openPortal() {
 				>
 					<div class="flex items-center justify-between mb-2">
 						<div>
-							<p class="font-semibold text-[var(--color-text-primary)]">スタンダード</p>
-							<p class="text-xs text-[var(--color-text-muted)]">子供無制限・活動無制限・1年保持</p>
+							<p class="font-semibold text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.standardPlanName}</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPlanDesc}</p>
 						</div>
 						{#if billingInterval === 'monthly'}
-							<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">¥500<span class="text-sm font-normal text-[var(--color-text-muted)]">/月</span></p>
+							<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">{LICENSE_PAGE_LABELS.standardPriceMonthly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerMonth}</span></p>
 						{:else}
-							<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">¥5,000<span class="text-sm font-normal text-[var(--color-text-muted)]">/年</span></p>
+							<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">{LICENSE_PAGE_LABELS.standardPriceYearly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerYear}</span></p>
 						{/if}
 					</div>
 					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
@@ -696,16 +693,16 @@ async function openPortal() {
 					onclick={() => (selectedTier = 'family')}
 					onkeydown={(e) => e.key === 'Enter' && (selectedTier = 'family')}
 				>
-					<span class="recommend-badge">おすすめ</span>
+					<span class="recommend-badge">{LICENSE_PAGE_LABELS.familyRecommendBadge}</span>
 					<div class="flex items-center justify-between mb-2">
 						<div>
-							<p class="font-semibold text-[var(--color-text-primary)]">ファミリー</p>
-							<p class="text-xs text-[var(--color-text-muted)]">家族みんなで見守る+永久保持</p>
+							<p class="font-semibold text-[var(--color-text-primary)]">{LICENSE_PAGE_LABELS.familyPlanName}</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.familyPlanDesc}</p>
 						</div>
 						{#if billingInterval === 'monthly'}
-							<p class="text-xl font-bold text-[var(--color-stat-purple)]">¥780<span class="text-sm font-normal text-[var(--color-text-muted)]">/月</span></p>
+							<p class="text-xl font-bold text-[var(--color-stat-purple)]">{LICENSE_PAGE_LABELS.familyPriceMonthly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerMonth}</span></p>
 						{:else}
-							<p class="text-xl font-bold text-[var(--color-stat-purple)]">¥7,800<span class="text-sm font-normal text-[var(--color-text-muted)]">/年</span></p>
+							<p class="text-xl font-bold text-[var(--color-stat-purple)]">{LICENSE_PAGE_LABELS.familyPriceYearly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerYear}</span></p>
 						{/if}
 					</div>
 					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
@@ -723,11 +720,11 @@ async function openPortal() {
 					size="md"
 					class="w-full"
 				>
-					{checkoutLoading ? '処理中...' : `${selectedTier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める`}
+					{LICENSE_PAGE_LABELS.checkoutButton(selectedTier, checkoutLoading)}
 				</Button>
 
 				<p class="text-xs text-[var(--color-text-tertiary)] text-center">
-					いつでもキャンセル・プラン変更可能
+					{LICENSE_PAGE_LABELS.checkoutNote}
 				</p>
 			</div>
 		{/if}
@@ -737,10 +734,10 @@ async function openPortal() {
 	<!-- 支払い履歴 -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">支払い履歴</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{LICENSE_PAGE_LABELS.paymentHistoryTitle}</h3>
 		{#if hasSubscription}
 			<p class="text-sm text-[var(--color-text-muted)] text-center py-4">
-				支払い履歴はStripeの管理画面でご確認いただけます
+				{LICENSE_PAGE_LABELS.paymentHistoryPortalNote}
 			</p>
 			<Button
 				onclick={requestPortal}
@@ -749,11 +746,11 @@ async function openPortal() {
 				size="sm"
 				class="w-full"
 			>
-				支払い履歴を確認
+				{LICENSE_PAGE_LABELS.paymentHistoryPortalButton}
 			</Button>
 		{:else}
 			<p class="text-sm text-[var(--color-text-tertiary)] text-center py-4">
-				支払い履歴はまだありません
+				{LICENSE_PAGE_LABELS.paymentHistoryEmpty}
 			</p>
 		{/if}
 		<div class="mt-4 pt-3 border-t border-[var(--color-border-light)]">
@@ -762,7 +759,7 @@ async function openPortal() {
 				class="flex items-center justify-between text-sm text-[var(--color-text-link)] hover:underline"
 				data-testid="license-to-billing"
 			>
-				<span>🧾 請求書・支払い方法の管理</span>
+				<span>{LICENSE_PAGE_LABELS.paymentHistoryBillingLink}</span>
 				<span>&rarr;</span>
 			</a>
 		</div>
@@ -770,15 +767,14 @@ async function openPortal() {
 	</Card>
 
 	<!-- #771: プラン変更 (Stripe Portal) 前の二段階確認ダイアログ -->
-	<Dialog bind:open={showPortalConfirm} title="プラン変更の確認">
+	<Dialog bind:open={showPortalConfirm} title={LICENSE_PAGE_LABELS.portalConfirmTitle}>
 		{#snippet children()}
 		<div class="space-y-3 text-sm text-[var(--color-text-primary)]">
 			<p>
-				Stripeの管理画面に移動します。この画面からプラン変更・解約・ダウングレードが可能です。
+				{LICENSE_PAGE_LABELS.portalConfirmDesc}
 			</p>
 			<p class="text-[var(--color-feedback-warning-text)] font-semibold">
-				⚠️ 誤操作による解約・ダウングレードを防ぐため、
-				{pinConfigured ? OYAKAGI_LABELS.inputLabel : '確認フレーズ'}を入力してください。
+				{LICENSE_PAGE_LABELS.portalConfirmWarning}{pinConfigured ? OYAKAGI_LABELS.inputLabel : LICENSE_PAGE_LABELS.portalConfirmWarningPhrase}{LICENSE_PAGE_LABELS.portalConfirmWarningPin}
 			</p>
 
 			{#if pinConfigured}
@@ -803,7 +799,7 @@ async function openPortal() {
 			{:else}
 				<div class="space-y-2">
 					<label for="portal-confirm-phrase" class="block text-sm font-medium text-[var(--color-text-primary)]">
-						確認のため「{DOWNGRADE_CONFIRM_PHRASE}」と入力してください
+						{LICENSE_PAGE_LABELS.portalConfirmPhraseLabel(DOWNGRADE_CONFIRM_PHRASE)}
 					</label>
 					<input
 						id="portal-confirm-phrase"
@@ -838,7 +834,7 @@ async function openPortal() {
 				}}
 				disabled={portalLoading}
 			>
-				キャンセル
+				{LICENSE_PAGE_LABELS.portalConfirmCancel}
 			</Button>
 			<Button
 				type="button"
@@ -848,7 +844,7 @@ async function openPortal() {
 				disabled={portalLoading}
 				data-testid="portal-confirm-button"
 			>
-				{portalLoading ? '確認中…' : 'プラン変更画面へ'}
+				{portalLoading ? LICENSE_PAGE_LABELS.portalConfirmLoading : LICENSE_PAGE_LABELS.portalConfirmSubmit}
 			</Button>
 		</div>
 		{/snippet}
@@ -911,10 +907,10 @@ async function openPortal() {
 		bind:open={showChurnModal}
 		subscriptionMonths={data.loyaltyInfo.subscriptionMonths}
 		lostItems={[
-			...(data.loyaltyInfo.subscriptionMonths > 0 ? [`月替わり限定アイテム ${data.loyaltyInfo.subscriptionMonths}個`] : []),
-			...(data.loyaltyInfo.memoryTickets > 0 ? [`思い出チケット ${data.loyaltyInfo.memoryTickets}枚`] : []),
-			...(data.loyaltyInfo.loginBonusMultiplier > 1 ? [`ログインボーナス ×${data.loyaltyInfo.loginBonusMultiplier}倍`] : []),
-			...(data.loyaltyInfo.currentTier.titleUnlock ? [`「${data.loyaltyInfo.currentTier.titleUnlock}」称号`] : []),
+			...(data.loyaltyInfo.subscriptionMonths > 0 ? [LICENSE_PAGE_LABELS.churnLostItemMonthly(data.loyaltyInfo.subscriptionMonths)] : []),
+			...(data.loyaltyInfo.memoryTickets > 0 ? [LICENSE_PAGE_LABELS.churnLostItemTickets(data.loyaltyInfo.memoryTickets)] : []),
+			...(data.loyaltyInfo.loginBonusMultiplier > 1 ? [LICENSE_PAGE_LABELS.churnLostItemBonus(data.loyaltyInfo.loginBonusMultiplier)] : []),
+			...(data.loyaltyInfo.currentTier.titleUnlock ? [LICENSE_PAGE_LABELS.churnLostItemTitle(data.loyaltyInfo.currentTier.titleUnlock)] : []),
 			...(churnLostRetentionLabel ? [churnLostRetentionLabel] : []),
 		]}
 		onKeep={() => { showChurnModal = false; }}

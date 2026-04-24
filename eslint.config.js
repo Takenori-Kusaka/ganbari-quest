@@ -53,7 +53,7 @@ export default [
 			'local/no-style-attribute': 'error',
 			'local/no-tailwind-arbitrary-hex': 'error',
 			'local/no-raw-button': 'error',
-			'local/no-hardcoded-jp-text': 'warn',
+			'local/no-hardcoded-jp-text': 'error',
 			'local/max-style-lines': ['error', { max: 50 }],
 			'local/max-svelte-lines': ['warn', { max: 500 }],
 		},

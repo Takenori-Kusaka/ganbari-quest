@@ -187,7 +187,7 @@ const genderKeys: MarketplaceGender[] = ['boy', 'girl', 'neutral'];
 				>
 					<span class="text-xl block">{MARKETPLACE_TYPE_ICONS[t]}</span>
 					<span class="text-xs font-bold block mt-1">{MARKETPLACE_TYPE_LABELS[t]}</span>
-					<span class="text-xs opacity-70">{data.counts[t]}種</span>
+					<span class="text-xs opacity-70">{data.counts[t] + '種'}</span>
 				</a>
 			{/each}
 		</div>

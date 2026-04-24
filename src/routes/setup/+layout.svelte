@@ -1,5 +1,6 @@
 <script lang="ts">
 import { page } from '$app/stores';
+import { SETUP_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -25,7 +26,7 @@ const currentStepIndex = $derived(
 	<div class="w-full max-w-[480px]">
 		<div class="text-center mb-6">
 			<Logo variant="compact" size={200} />
-			<p class="text-sm text-[var(--color-text-muted)] mt-1">初期セットアップ</p>
+			<p class="text-sm text-[var(--color-text-muted)] mt-1">{SETUP_LABELS.layoutTitle}</p>
 		</div>
 
 		<!-- Step indicator -->

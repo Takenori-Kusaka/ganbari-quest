@@ -1,5 +1,6 @@
 <script lang="ts">
 import { splitIcon } from '$lib/domain/icon-utils';
+import { APP_LABELS, PAGE_TITLES, UI_LABELS } from '$lib/domain/labels';
 import ActivitiesHeader from '$lib/features/admin/components/ActivitiesHeader.svelte';
 import ActivityClearAllConfirm from '$lib/features/admin/components/ActivityClearAllConfirm.svelte';
 import ActivityCreateForm from '$lib/features/admin/components/ActivityCreateForm.svelte';
@@ -87,7 +88,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 </script>
 
 <svelte:head>
-	<title>活動管理 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.activities}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-3">
@@ -117,7 +118,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 			class="filter-chip {filterCategoryId === 0 ? '' : 'filter-chip--inactive'}"
 			onclick={() => filterCategoryId = 0}
 		>
-			すべて ({data.activities.filter(a => a.isVisible).length})
+			{UI_LABELS.all} ({data.activities.filter(a => a.isVisible).length})
 		</Button>
 		{#each data.categoryDefs as catDef}
 			{@const count = data.activities.filter(a => a.categoryId === catDef.id && a.isVisible).length}
@@ -178,10 +179,10 @@ function acceptAiPreview(preview: AiPreviewData) {
 		{#if !addMode}
 			<AddActivityModeSelector onselect={(mode) => { addMode = mode; }} />
 		{:else if addMode === 'ai'}
-			<Button variant="ghost" size="sm" onclick={() => { addMode = null; }} class="mb-2">← 戻る</Button>
+			<Button variant="ghost" size="sm" onclick={() => { addMode = null; }} class="mb-2">{UI_LABELS.backWithArrow}</Button>
 			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={data.planTier === 'family'} />
 		{:else if addMode === 'manual'}
-			<Button variant="ghost" size="sm" onclick={() => { addMode = null; }} class="mb-2">← 戻る</Button>
+			<Button variant="ghost" size="sm" onclick={() => { addMode = null; }} class="mb-2">{UI_LABELS.backWithArrow}</Button>
 			<ActivityCreateForm
 				categoryDefs={data.categoryDefs}
 				initialName={prefillName}
@@ -194,7 +195,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 				oncreated={() => { closeAddDialog(); }}
 			/>
 		{:else if addMode === 'import'}
-			<Button variant="ghost" size="sm" onclick={() => { addMode = null; }} class="mb-2">← 戻る</Button>
+			<Button variant="ghost" size="sm" onclick={() => { addMode = null; }} class="mb-2">{UI_LABELS.backWithArrow}</Button>
 			<ActivityImportPanel
 				activityPacks={data.activityPacks}
 				onimported={(msg) => { actionMessage = msg; closeAddDialog(); }}

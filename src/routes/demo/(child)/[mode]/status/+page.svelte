@@ -1,4 +1,5 @@
 <script lang="ts">
+import { APP_LABELS, PAGE_TITLES, UI_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { getComparisonLabel } from '$lib/domain/validation/status';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
@@ -27,7 +28,7 @@ const radarCategories = $derived(
 </script>
 
 <svelte:head>
-	<title>つよさ - がんばりクエスト デモ</title>
+	<title>{PAGE_TITLES.childStatus}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
@@ -35,7 +36,7 @@ const radarCategories = $derived(
 		<!-- Radar chart -->
 		<Card padding="md" class="mb-[var(--sp-md)]">
 			{#snippet children()}
-			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">ステータス</h2>
+			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]">{UI_LABELS.status}</h2>
 			<div class="flex justify-center">
 				<RadarChart categories={radarCategories} size={300} />
 			</div>
@@ -71,7 +72,7 @@ const radarCategories = $derived(
 	{:else}
 		<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-sm)]">⭐</span>
-			<p class="font-bold">ステータスがまだないよ</p>
+			<p class="font-bold">{UI_LABELS.noStatus}</p>
 		</div>
 	{/if}
 </div>

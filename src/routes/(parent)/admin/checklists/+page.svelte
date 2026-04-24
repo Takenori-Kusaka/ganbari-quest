@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import {
+	ADMIN_CHECKLISTS_PAGE_LABELS,
 	APP_LABELS,
 	CHECKLIST_KIND_ICONS,
 	CHECKLIST_KIND_LABELS,
@@ -190,7 +191,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 
 	{#if selectedChild}
 		<!-- #1168: 種別タブ（持ち物 / ルーティン） -->
-		<div class="flex gap-2" role="tablist" aria-label="チェックリスト種別">
+		<div class="flex gap-2" role="tablist" aria-label={ADMIN_CHECKLISTS_PAGE_LABELS.tabAriaLabel}>
 			{#each (['routine', 'item'] as const) as kind}
 				{@const count = selectedChild.templates.filter((t) => (t.kind ?? 'routine') === kind).length}
 				<Button
@@ -231,7 +232,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 				{#snippet children()}
 				<div class="text-center text-[var(--color-text-tertiary)]">
 					<p class="text-3xl mb-2">{CHECKLIST_KIND_ICONS[selectedKind]}</p>
-					<p>{CHECKLIST_KIND_LABELS[selectedKind]}がまだありません</p>
+					<p>{CHECKLIST_KIND_LABELS[selectedKind] + ADMIN_CHECKLISTS_PAGE_LABELS.emptyKindSuffix}</p>
 				</div>
 				{/snippet}
 			</Card>
@@ -247,7 +248,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 						<span class="font-bold text-[var(--color-text-primary)]">{template.name}</span>
 						<span class="text-xs px-2 py-0.5 bg-[var(--color-feedback-info-bg)] text-[var(--color-feedback-info-text)] rounded">{timeSlotLabel(getTimeSlot(template))}</span>
 						{#if !template.isActive}
-							<span class="text-xs px-2 py-0.5 bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] rounded">無効</span>
+							<span class="text-xs px-2 py-0.5 bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] rounded">{ADMIN_CHECKLISTS_PAGE_LABELS.inactiveBadge}</span>
 						{/if}
 					</div>
 					<div class="flex items-center gap-1">
@@ -273,7 +274,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 								class="bg-[var(--color-feedback-error-bg)] hover:bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]"
 								onclick={(e) => { if (!confirm('削除しますか？')) e.preventDefault(); }}
 							>
-								削除
+								{ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}
 							</Button>
 						</form>
 					</div>
@@ -281,7 +282,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 
 				<!-- Time slot selector -->
 				<div class="flex items-center gap-1 px-4 py-2 bg-white border-b border-[var(--color-surface-muted)]">
-					<span class="text-xs text-[var(--color-text-muted)] mr-1">時間帯:</span>
+					<span class="text-xs text-[var(--color-text-muted)] mr-1">{ADMIN_CHECKLISTS_PAGE_LABELS.timeSlotLabel}</span>
 					{#each TIME_SLOT_OPTIONS as opt}
 						<form method="POST" action="?/updateTimeSlot" use:enhance={() => async () => invalidateAll()}>
 							<input type="hidden" name="templateId" value={template.id} />
@@ -315,7 +316,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 									variant="ghost"
 									size="sm"
 									class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-feedback-error-text)] px-1"
-									title="削除"
+									title={ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}
 								>
 									✕
 								</Button>
@@ -332,7 +333,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 						class="w-full py-2 text-sm text-[var(--color-feedback-info-text)] hover:bg-[var(--color-feedback-info-bg)]"
 						onclick={() => openAddItem(template.id)}
 					>
-						+ アイテム追加
+						{ADMIN_CHECKLISTS_PAGE_LABELS.addItemButton}
 					</Button>
 				</div>
 				{/snippet}
@@ -347,9 +348,9 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 						<span class="text-base">📋</span>
 						<span class="text-[var(--color-text-primary)]">
 							{#if atLimit}
-								フリープランの上限 ({checklistMax}個) に達しました
+								{ADMIN_CHECKLISTS_PAGE_LABELS.limitReachedText(checklistMax)}
 							{:else}
-								チェックリスト {currentCount} / {checklistMax}
+								{ADMIN_CHECKLISTS_PAGE_LABELS.limitCountText(currentCount, checklistMax)}
 							{/if}
 						</span>
 					</div>
@@ -357,12 +358,12 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 						href="/pricing"
 						class="text-xs font-bold text-[var(--color-action-primary)] hover:underline"
 					>
-						アップグレード →
+						{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeLink}
 					</a>
 				</div>
 				{#if atLimit}
 					<p class="mt-1 text-xs text-[var(--color-text-secondary)]">
-						スタンダード以上にアップグレードすると無制限に作成できます。
+						{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeDesc}
 					</p>
 				{/if}
 			</div>
@@ -377,7 +378,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 				disabled={atLimit}
 				onclick={openAddTemplate}
 			>
-				+ テンプレート作成
+				{ADMIN_CHECKLISTS_PAGE_LABELS.addTemplateButton}
 			</Button>
 			<Button
 				variant="outline"
@@ -385,10 +386,10 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 				class="flex-1"
 				onclick={openOverride}
 			>
-				📅 ワンオフ追加
+				{ADMIN_CHECKLISTS_PAGE_LABELS.addOverrideButton}
 			</Button>
 			{#if !data.isPremium}
-				<PremiumBadge size="sm" label="スタンダード以上" />
+				<PremiumBadge size="sm" label={ADMIN_CHECKLISTS_PAGE_LABELS.premiumBadgeLabel} />
 			{/if}
 		</div>
 
@@ -397,7 +398,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 			<Card variant="default" padding="none">
 				{#snippet children()}
 				<div class="px-4 py-3 bg-[var(--color-feedback-warning-bg)] border-b border-[var(--color-feedback-warning-bg-strong)]">
-					<span class="font-bold text-[var(--color-text-primary)]">📅 本日のワンオフ</span>
+					<span class="font-bold text-[var(--color-text-primary)]">{ADMIN_CHECKLISTS_PAGE_LABELS.todayOverrideTitle}</span>
 				</div>
 				<div class="divide-y divide-gray-50">
 					{#each selectedChild.overrides as ov (ov.id)}
@@ -411,7 +412,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 							</div>
 							<form method="POST" action="?/removeOverride" use:enhance={() => async () => invalidateAll()}>
 								<input type="hidden" name="overrideId" value={ov.id} />
-								<Button type="submit" variant="ghost" size="sm" class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-feedback-error-text)] px-1" title="削除" aria-label="削除">✕</Button>
+								<Button type="submit" variant="ghost" size="sm" class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-feedback-error-text)] px-1" title={ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton} aria-label={ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}>✕</Button>
 							</form>
 						</div>
 					{/each}
@@ -437,7 +438,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 
 		<!-- #1168: 種別選択（持ち物 / ルーティン） -->
 		<div>
-			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">種別</span>
+			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">{ADMIN_CHECKLISTS_PAGE_LABELS.formKindLabel}</span>
 			<div class="flex gap-2">
 				{#each (['routine', 'item'] as const) as kind}
 					<Button
@@ -457,7 +458,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 		<FormField label="名前" type="text" name="name" bind:value={templateName} placeholder={templateKind === 'item' ? '例: がっこうのもちもの' : '例: あさのルーティン'} required />
 
 		<div>
-			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">アイコン</span>
+			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">{ADMIN_CHECKLISTS_PAGE_LABELS.formIconLabel}</span>
 			<div class="flex gap-1 flex-wrap">
 				{#each ['📋', '🎒', '🏫', '📚'] as ic}
 					<Button
@@ -488,13 +489,13 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 			size="md"
 			class="w-full"
 		>
-			作成
+			{ADMIN_CHECKLISTS_PAGE_LABELS.createButton}
 		</Button>
 	</form>
 </Dialog>
 
 <!-- Add item dialog -->
-<Dialog bind:open={addItemOpen} closable={true} title="アイテム追加">
+<Dialog bind:open={addItemOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.addItemDialogTitle}>
 	<form
 		method="POST"
 		action="?/addItem"
@@ -509,7 +510,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 		<FormField label="名前" type="text" name="name" bind:value={itemName} placeholder="例: ハンカチ" required />
 
 		<div>
-			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">アイコン</span>
+			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">{ADMIN_CHECKLISTS_PAGE_LABELS.formIconLabel}</span>
 			<div class="flex gap-1 flex-wrap">
 				{#each COMMON_ICONS as ic}
 					<Button
@@ -542,13 +543,13 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 			size="md"
 			class="w-full"
 		>
-			追加
+			{ADMIN_CHECKLISTS_PAGE_LABELS.addButton}
 		</Button>
 	</form>
 </Dialog>
 
 <!-- Override dialog -->
-<Dialog bind:open={overrideOpen} closable={true} title="ワンオフ追加/除外">
+<Dialog bind:open={overrideOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.overrideDialogTitle}>
 	<form
 		method="POST"
 		action="?/addOverride"
@@ -578,7 +579,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 		<FormField label="アイテム名" type="text" name="itemName" bind:value={overrideName} placeholder="例: リュック（遠足）" required />
 
 		<div>
-			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">アイコン</span>
+			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">{ADMIN_CHECKLISTS_PAGE_LABELS.formIconLabel}</span>
 			<div class="flex gap-1 flex-wrap">
 				{#each COMMON_ICONS as ic}
 					<Button
@@ -599,7 +600,7 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 			size="md"
 			class="w-full"
 		>
-			追加
+			{ADMIN_CHECKLISTS_PAGE_LABELS.addButton}
 		</Button>
 	</form>
 </Dialog>

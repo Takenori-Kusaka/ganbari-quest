@@ -2,6 +2,7 @@
 import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import { APP_LABELS, PAGE_TITLES, SIGNUP_LABELS } from '$lib/domain/labels';
 import {
 	LICENSE_KEY_LEGACY_FORMAT,
 	LICENSE_KEY_SIGNED_FORMAT,
@@ -64,16 +65,15 @@ const canSubmit = $derived(
 
 // #588: 送信不可理由
 const submitBlockReason = $derived(() => {
-	if (!email) return 'メールアドレスを入力してください';
-	if (!password) return 'パスワードを入力してください';
-	if (!passwordConfirm) return 'パスワード（確認）を入力してください';
-	if (password !== passwordConfirm) return 'パスワードが一致しません';
-	if (!agreedTerms) return '利用規約への同意が必要です';
-	if (!agreedPrivacy) return 'プライバシーポリシーへの同意が必要です';
+	if (!email) return SIGNUP_LABELS.blockEmailRequired;
+	if (!password) return SIGNUP_LABELS.blockPasswordRequired;
+	if (!passwordConfirm) return SIGNUP_LABELS.blockPasswordConfirmRequired;
+	if (password !== passwordConfirm) return SIGNUP_LABELS.blockPasswordMismatch;
+	if (!agreedTerms) return SIGNUP_LABELS.blockTermsRequired;
+	if (!agreedPrivacy) return SIGNUP_LABELS.blockPrivacyRequired;
 	if (showLicenseKey && (!licenseKey || !licenseKeyValid))
-		return 'ライセンスキーを正しく入力してください';
-	if (showLicenseKey && !agreedLicenseOnce)
-		return 'ライセンスキーが一回限り使用であることに同意してください';
+		return SIGNUP_LABELS.blockLicenseKeyInvalid;
+	if (showLicenseKey && !agreedLicenseOnce) return SIGNUP_LABELS.blockLicenseOnceRequired;
 	return '';
 });
 
@@ -133,7 +133,7 @@ $effect(() => {
 </script>
 
 <svelte:head>
-	<title>アカウント登録 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.signup}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="min-h-dvh flex items-center justify-center bg-[var(--gradient-brand)] p-4">
@@ -169,15 +169,15 @@ $effect(() => {
 				<input type="hidden" name="plan" value={planParam ?? ''} />
 
 				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
-					<strong>{email}</strong> に確認コードを送信しました。<br />
-					メールに記載された6桁のコードを入力してください。
+					{SIGNUP_LABELS.confirmEmailSent(email)}<br />
+					{SIGNUP_LABELS.confirmEmailNote}
 				</p>
 
 				<p class="text-xs text-[var(--color-text-muted)] text-center">
-					確認コードは{SIGNUP_CODE_EXPIRY_MINUTES}分以内に入力してください
+					{SIGNUP_LABELS.confirmCodeExpiry(SIGNUP_CODE_EXPIRY_MINUTES)}
 				</p>
 
-				<FormField label="確認コード" id="code">
+				<FormField label={SIGNUP_LABELS.confirmCodeLabel} id="code">
 					{#snippet children()}
 						<input
 							id="code"
@@ -197,16 +197,16 @@ $effect(() => {
 				<Button type="submit" disabled={loading || code.length < 1} size="md" class="w-full">
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
-						確認中...
+						{SIGNUP_LABELS.confirmSubmitLoading}
 					{:else}
-						確認する
+						{SIGNUP_LABELS.confirmSubmitButton}
 					{/if}
 				</Button>
 			</form>
 
 			{#if resendSuccess}
 				<div class="mt-3 p-3 bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] border border-[var(--color-feedback-success-border)] rounded-[var(--radius-sm)] text-sm text-center" role="status">
-					確認コードを再送しました
+					{SIGNUP_LABELS.resendSuccess}
 				</div>
 			{/if}
 
@@ -232,18 +232,18 @@ $effect(() => {
 					disabled={resending || resendCooldown > 0}
 				>
 					{#if resending}
-						再送中...
+						{SIGNUP_LABELS.resendLoading}
 					{:else if resendCooldown > 0}
-						コードを再送する（{resendCooldown}秒後に再試行可能）
+						{SIGNUP_LABELS.resendCooldown(resendCooldown)}
 					{:else}
-						コードを再送する
+						{SIGNUP_LABELS.resendButton}
 					{/if}
 				</Button>
 			</form>
 		{:else}
 			<!-- Google OAuth サインアップ -->
-			<GoogleSignInButton label="Google で登録" href="/auth/oauth/google" />
-			<Divider label="または" spacing="sm" />
+			<GoogleSignInButton label={SIGNUP_LABELS.googleSignupLabel} href="/auth/oauth/google" />
+			<Divider label={SIGNUP_LABELS.dividerOr} spacing="sm" />
 
 			<!-- 登録フォーム -->
 			<form
@@ -264,50 +264,50 @@ $effect(() => {
 				<input type="hidden" name="plan" value={planParam ?? ''} />
 
 				<FormField
-					label="メールアドレス"
+					label={SIGNUP_LABELS.emailLabel}
 					type="email"
 					id="email"
 					name="email"
 					bind:value={email}
-					placeholder="example@email.com"
+					placeholder={SIGNUP_LABELS.emailPlaceholder}
 					required
 					autocomplete="email"
 				/>
 
 				<FormField
-					label="パスワード"
+					label={SIGNUP_LABELS.passwordLabel}
 					type="password"
 					id="password"
 					name="password"
 					bind:value={password}
-					placeholder="8文字以上（大小英字・数字を含む）"
+					placeholder={SIGNUP_LABELS.passwordPlaceholder}
 					required
 					minlength={8}
 					autocomplete="new-password"
 					showToggle
-					hint="8文字以上、大文字・小文字・数字を含む"
+					hint={SIGNUP_LABELS.passwordHint}
 				/>
 
 				<FormField
-					label="パスワード（確認）"
+					label={SIGNUP_LABELS.passwordConfirmLabel}
 					type="password"
 					id="passwordConfirm"
 					name="passwordConfirm"
 					bind:value={passwordConfirm}
-					placeholder="パスワードを再入力"
+					placeholder={SIGNUP_LABELS.passwordConfirmPlaceholder}
 					required
 					minlength={8}
 					autocomplete="new-password"
 					showToggle
-					error={passwordConfirm && password !== passwordConfirm ? 'パスワードが一致しません' : undefined}
-					hint={passwordConfirm && password === passwordConfirm ? 'パスワードが一致しました' : undefined}
+					error={passwordConfirm && password !== passwordConfirm ? SIGNUP_LABELS.passwordMismatchError : undefined}
+					hint={passwordConfirm && password === passwordConfirm ? SIGNUP_LABELS.passwordMatchHint : undefined}
 				/>
 
 				{#if showLicenseKey}
 					<FormField
-						label="ライセンスキー"
+						label={SIGNUP_LABELS.licenseKeyLabel}
 						id="licenseKey"
-						hint="購入済みのライセンスキーを入力してください"
+						hint={SIGNUP_LABELS.licenseKeyHint}
 						error={licenseKeyError}
 					>
 						{#snippet children()}
@@ -335,7 +335,7 @@ $effect(() => {
 							onclick={() => { showLicenseHelp = !showLicenseHelp; }}
 							data-testid="signup-license-help-toggle"
 						>
-							{showLicenseHelp ? '▼' : '▶'} ライセンスキーについて
+							{showLicenseHelp ? '▼' : '▶'} {SIGNUP_LABELS.licenseKeyHelpToggle}
 						</button>
 						{#if showLicenseHelp}
 							<div
@@ -343,16 +343,16 @@ $effect(() => {
 								class="mt-2 p-3 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] border border-[var(--color-border-default)] text-xs text-[var(--color-text-muted)] leading-relaxed space-y-1.5"
 								data-testid="signup-license-help"
 							>
-								<p><strong class="text-[var(--color-text-primary)]">一回限りの使用</strong>: 一度有効化すると、他のアカウントでは使用できません。</p>
-								<p><strong class="text-[var(--color-text-primary)]">プラン自動判定</strong>: キーに応じてスタンダード / ファミリープランが自動で付与されます。</p>
-								<p><strong class="text-[var(--color-text-primary)]">紐付け先</strong>: 現在登録中のアカウント（家族）に紐付きます。後から他の家族に付け替えることはできません。</p>
-								<p><strong class="text-[var(--color-text-primary)]">有効期限</strong>: 発行日から所定の期間で失効します（失効後は使用不可）。</p>
+								<p><strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseKeyHelpOnce}</strong>: {SIGNUP_LABELS.licenseKeyHelpOnceDesc}</p>
+								<p><strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseKeyHelpAutoDetect}</strong>: {SIGNUP_LABELS.licenseKeyHelpAutoDetectDesc}</p>
+								<p><strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseKeyHelpBound}</strong>: {SIGNUP_LABELS.licenseKeyHelpBoundDesc}</p>
+								<p><strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseKeyHelpExpiry}</strong>: {SIGNUP_LABELS.licenseKeyHelpExpiryDesc}</p>
 							</div>
 						{/if}
 					</div>
 
 					<!-- #799: 一回限り使用に同意 -->
-					<FormField label="" error={submitAttempted && !agreedLicenseOnce ? '一回限り使用への同意が必要です' : undefined}>
+					<FormField label="" error={submitAttempted && !agreedLicenseOnce ? SIGNUP_LABELS.licenseKeyOnceAgreeError : undefined}>
 						{#snippet children()}
 							<label class="flex items-start gap-2 cursor-pointer">
 								<input
@@ -362,7 +362,7 @@ $effect(() => {
 									data-testid="signup-license-once-checkbox"
 								/>
 								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-									このライセンスキーが<strong class="text-[var(--color-text-primary)]">一回限り使用</strong>であり、他のアカウントでは使えなくなることに同意します
+									{SIGNUP_LABELS.licenseKeyOnceAgreePrefix}<strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseKeyOnceAgreeStrong}</strong>{SIGNUP_LABELS.licenseKeyOnceAgreeSuffix}
 								</span>
 							</label>
 						{/snippet}
@@ -375,14 +375,14 @@ $effect(() => {
 						class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-link)] underline -mt-3 !p-0"
 						onclick={() => { showLicenseKey = false; licenseKeyRaw = ''; agreedLicenseOnce = false; showLicenseHelp = false; }}
 					>
-						ライセンスキーなしで続ける
+						{SIGNUP_LABELS.licenseKeySkipButton}
 					</Button>
 				{:else}
 					<input type="hidden" name="licenseKey" value="" />
 				{/if}
 
 				<div class="-mt-1">
-					<FormField label="" error={submitAttempted && !agreedTerms ? '利用規約への同意が必要です' : undefined}>
+					<FormField label="" error={submitAttempted && !agreedTerms ? SIGNUP_LABELS.termsAgreeError : undefined}>
 						{#snippet children()}
 							<label class="flex items-start gap-2 cursor-pointer">
 								<input
@@ -392,12 +392,12 @@ $effect(() => {
 									class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
 								/>
 								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-									<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline">利用規約</a>に同意します
+									<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline">{SIGNUP_LABELS.termsAgreeLink}</a>{SIGNUP_LABELS.termsAgreeSuffix}
 								</span>
 							</label>
 						{/snippet}
 					</FormField>
-					<FormField label="" error={submitAttempted && !agreedPrivacy ? 'プライバシーポリシーへの同意が必要です' : undefined}>
+					<FormField label="" error={submitAttempted && !agreedPrivacy ? SIGNUP_LABELS.privacyAgreeError : undefined}>
 						{#snippet children()}
 							<label class="flex items-start gap-2 cursor-pointer">
 								<input
@@ -407,13 +407,13 @@ $effect(() => {
 									class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
 								/>
 								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-									<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline">プライバシーポリシー</a>に同意します
+									<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline">{SIGNUP_LABELS.privacyAgreeLink}</a>{SIGNUP_LABELS.privacyAgreeSuffix}
 								</span>
 							</label>
 						{/snippet}
 					</FormField>
 					<p class="text-xs text-[var(--color-neutral-400)] mt-1 ml-6 leading-snug">
-						※ 本サービスは子供のデータを扱います。保護者として上記に同意してください。
+						{SIGNUP_LABELS.parentalConsentNote}
 					</p>
 				</div>
 
@@ -444,19 +444,19 @@ $effect(() => {
 				>
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
-						登録中...
+						{SIGNUP_LABELS.submitLoading}
 					{:else if showLicenseKey}
-						ライセンスキーで登録
+						{SIGNUP_LABELS.submitWithLicenseKey}
 					{:else if planParam}
-						7日間 無料体験をはじめる
+						{SIGNUP_LABELS.submitWithTrial}
 					{:else}
-						無料ではじめる
+						{SIGNUP_LABELS.submitFree}
 					{/if}
 				</Button>
 
 				{#if planParam}
 					<p class="text-xs text-center text-[var(--color-neutral-400)] -mt-2">
-						セットアップ後に {planParam === 'family' ? 'ファミリー' : 'スタンダード'}プランのトライアルが開始されます
+						{SIGNUP_LABELS.trialPlanNote(planParam === 'family' ? SIGNUP_LABELS.trialPlanFamily : SIGNUP_LABELS.trialPlanStandard)}
 					</p>
 				{/if}
 			</form>
@@ -471,7 +471,7 @@ $effect(() => {
 						class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-link)] underline !p-0"
 						onclick={() => { showLicenseKey = true; }}
 					>
-						ライセンスキーをお持ちの方
+						{SIGNUP_LABELS.licenseKeyLinkButton}
 					</Button>
 				{/if}
 			</div>
@@ -479,18 +479,18 @@ $effect(() => {
 
 		<div class="mt-5 text-center">
 			<a href="/auth/login" class="text-sm text-[var(--color-text-link)] hover:underline">
-				既にアカウントをお持ちの方はこちら
+				{SIGNUP_LABELS.loginLink}
 			</a>
 		</div>
 
 		<!-- #709: 有料プラン契約に関する法的開示（特商法第11条準拠） -->
 		<div class="mt-4 pt-3 border-t border-[var(--color-border-light)] text-center">
 			<p class="text-xs text-[var(--color-text-tertiary)] leading-relaxed">
-				有料プランをご利用の前に
-				<a href="https://www.ganbari-quest.com/tokushoho.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline mx-1">特定商取引法に基づく表記</a>
-				および
-				<a href="https://www.ganbari-quest.com/sla.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline mx-1">SLA</a>
-				をご確認ください
+				{SIGNUP_LABELS.legalNote}
+				<a href="https://www.ganbari-quest.com/tokushoho.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline mx-1">{SIGNUP_LABELS.legalTokushoho}</a>
+				{SIGNUP_LABELS.legalSlaAnd}
+				<a href="https://www.ganbari-quest.com/sla.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline mx-1">{SIGNUP_LABELS.legalSla}</a>
+				{SIGNUP_LABELS.legalNoteEnd}
 			</p>
 		</div>
 		{/snippet}
@@ -500,14 +500,14 @@ $effect(() => {
 <!-- #799: ライセンスキー有効化 確認ダイアログ -->
 <Dialog
 	bind:open={showLicenseConfirmDialog}
-	title="ライセンスキーを有効化しますか？"
+	title={SIGNUP_LABELS.licenseConfirmTitle}
 	size="md"
 	testid="signup-license-confirm-dialog"
 >
 	{#snippet children()}
 		<div class="space-y-4 text-sm">
 			<div class="p-3 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] border border-[var(--color-border-default)]">
-				<p class="text-xs text-[var(--color-text-tertiary)] mb-1">入力されたキー</p>
+				<p class="text-xs text-[var(--color-text-tertiary)] mb-1">{SIGNUP_LABELS.licenseConfirmKeyLabel}</p>
 				<p class="font-mono text-[var(--color-text-primary)] break-all" data-testid="signup-license-confirm-key">
 					{licenseKey}
 				</p>
@@ -516,19 +516,19 @@ $effect(() => {
 			<ul class="space-y-2 text-[var(--color-text-secondary)]">
 				<li class="flex gap-2">
 					<span aria-hidden="true">⚠️</span>
-					<span>このキーは<strong class="text-[var(--color-text-primary)]">一回限り</strong>しか使用できません。有効化後は他のアカウントで再利用できません。</span>
+					<span>{SIGNUP_LABELS.licenseConfirmBoundPrefix}<strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseConfirmOnce}</strong>{SIGNUP_LABELS.licenseConfirmOnceDesc}</span>
 				</li>
 				<li class="flex gap-2">
 					<span aria-hidden="true">📦</span>
-					<span>キーに対応する<strong class="text-[var(--color-text-primary)]">プラン（スタンダード / ファミリー）</strong>が自動で付与されます。</span>
+					<span>{SIGNUP_LABELS.licenseConfirmPlanPrefix}<strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseConfirmPlanStrong}</strong>{SIGNUP_LABELS.licenseConfirmPlanSuffix}</span>
 				</li>
 				<li class="flex gap-2">
 					<span aria-hidden="true">👤</span>
-					<span>このキーは<strong class="text-[var(--color-text-primary)]">「{email || '入力中のアカウント'}」</strong>に紐付けられ、後から他の家族に付け替えることはできません。</span>
+					<span>{SIGNUP_LABELS.licenseConfirmBoundPrefix}<strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseConfirmBoundEmail(email)}</strong>{SIGNUP_LABELS.licenseConfirmBoundSuffix}</span>
 				</li>
 				<li class="flex gap-2">
 					<span aria-hidden="true">⏳</span>
-					<span>キーには<strong class="text-[var(--color-text-primary)]">有効期限</strong>が設定されています。発行から一定期間で失効します。</span>
+					<span>{SIGNUP_LABELS.licenseConfirmBoundPrefix}<strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseConfirmExpiry}</strong>{SIGNUP_LABELS.licenseConfirmExpirySuffix}</span>
 				</li>
 			</ul>
 
@@ -541,7 +541,7 @@ $effect(() => {
 					data-testid="signup-license-confirm-cancel"
 					onclick={() => { showLicenseConfirmDialog = false; }}
 				>
-					キャンセル
+					{SIGNUP_LABELS.licenseConfirmCancel}
 				</Button>
 				<Button
 					type="button"
@@ -554,7 +554,7 @@ $effect(() => {
 						signupFormEl?.requestSubmit();
 					}}
 				>
-					有効化する
+					{SIGNUP_LABELS.licenseConfirmOk}
 				</Button>
 			</div>
 		</div>

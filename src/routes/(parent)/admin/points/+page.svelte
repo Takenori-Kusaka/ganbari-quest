@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { APP_LABELS, PAGE_TITLES, POINTS_LABELS } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -168,20 +169,20 @@ async function handleReceiptFile(event: Event) {
 </script>
 
 <svelte:head>
-	<title>ポイント管理 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.points}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6" data-tutorial="points-section">
 	<div class="flex items-center justify-between mb-1">
 		<div class="flex items-center gap-2">
-			<h2 class="text-lg font-bold">⭐ ポイント</h2>
+			<h2 class="text-lg font-bold">{POINTS_LABELS.pageTitle}</h2>
 			<PageHelpButton />
 		</div>
 		<a
 			href="/admin/settings#point-settings"
 			class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-feedback-info-text)] flex items-center gap-1 transition-colors"
 		>
-			<span>表示: {isCurrencyMode ? ps.currency : 'ポイント（P）'}</span>
+			<span>{POINTS_LABELS.displaySetting(isCurrencyMode, ps.currency)}</span>
 			<span>⚙️</span>
 		</a>
 	</div>
@@ -204,7 +205,7 @@ async function handleReceiptFile(event: Event) {
 					</div>
 					<div class="text-right">
 						<p class="text-lg font-bold text-[var(--color-feedback-warning-text)]">{fmtBal(child.balance.balance)}</p>
-						<p class="text-xs text-[var(--color-text-tertiary)]">変換可能: {fmtBal(child.balance.convertableAmount)}</p>
+						<p class="text-xs text-[var(--color-text-tertiary)]">{POINTS_LABELS.convertableLabel(fmtBal(child.balance.convertableAmount))}</p>
 					</div>
 				</div>
 			{/if}
@@ -231,10 +232,10 @@ async function handleReceiptFile(event: Event) {
 			}}
 			class="space-y-4"
 		>
-			<h3 class="font-bold text-[var(--color-text-primary)]">{selectedChild.nickname}のおこづかいにかえる</h3>
+			<h3 class="font-bold text-[var(--color-text-primary)]">{POINTS_LABELS.convertFormTitle(selectedChild.nickname)}</h3>
 			{#if isCurrencyMode}
 				<p class="text-xs text-[var(--color-feedback-warning-text)] bg-[var(--color-feedback-warning-bg)] px-2 py-1 rounded mt-1">
-					💡 変換した金額を実際にお子さまへお渡しください
+					{POINTS_LABELS.currencyModeHint}
 				</p>
 			{/if}
 			<input type="hidden" name="childId" value={selectedChildId} />
@@ -251,7 +252,7 @@ async function handleReceiptFile(event: Event) {
 						{convertMode === 'preset' ? 'bg-white text-[var(--color-feedback-info-text)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'}"
 					onclick={() => { convertMode = 'preset'; resetReceipt(); }}
 				>
-					かんたん
+					{POINTS_LABELS.tabPreset}
 				</Button>
 				<Button
 					type="button"
@@ -261,7 +262,7 @@ async function handleReceiptFile(event: Event) {
 						{convertMode === 'manual' ? 'bg-white text-[var(--color-feedback-info-text)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'}"
 					onclick={() => { convertMode = 'manual'; resetReceipt(); }}
 				>
-					自由入力
+					{POINTS_LABELS.tabManual}
 				</Button>
 				<Button
 					type="button"
@@ -271,14 +272,14 @@ async function handleReceiptFile(event: Event) {
 						{convertMode === 'receipt' ? 'bg-white text-[var(--color-feedback-info-text)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'}"
 					onclick={() => { convertMode = 'receipt'; manualInput = ''; }}
 				>
-					領収書
+					{POINTS_LABELS.tabReceipt}
 				</Button>
 			</div>
 
 			<!-- Preset Mode -->
 			{#if convertMode === 'preset'}
 				<div>
-					<span class="block text-sm font-bold text-[var(--color-text-muted)] mb-2">変換{unit}数（{fmtBal(500)}単位）</span>
+					<span class="block text-sm font-bold text-[var(--color-text-muted)] mb-2">{POINTS_LABELS.presetLabel(unit, fmtBal(500))}</span>
 					{#if maxConvertable >= 500}
 						<div class="flex gap-2 flex-wrap">
 							{#each [500, 1000, 1500, 2000] as opt}
@@ -296,16 +297,16 @@ async function handleReceiptFile(event: Event) {
 							{/each}
 						</div>
 					{:else}
-						<p class="text-sm text-[var(--color-text-tertiary)]">{fmtBal(500)}以上で変換できます（現在 {fmtBal(currentBalance)}）</p>
+						<p class="text-sm text-[var(--color-text-tertiary)]">{POINTS_LABELS.presetMinAmountNote(fmtBal(500), fmtBal(currentBalance))}</p>
 					{/if}
 				</div>
 
 			<!-- Manual Mode -->
 			{:else if convertMode === 'manual'}
 				<FormField
-					label="変換{unit}数（自由入力）"
-					error={manualInput && manualAmount > currentBalance ? '残高を超えています' : manualInput && manualAmount < 1 ? '1P以上を入力してください' : undefined}
-					hint="{isCurrencyMode ? '' : '1P = 1円 / '}残高: {fmtBal(currentBalance)}"
+					label={POINTS_LABELS.manualLabel(unit)}
+					error={manualInput && manualAmount > currentBalance ? POINTS_LABELS.manualOverBalanceError : manualInput && manualAmount < 1 ? POINTS_LABELS.manualMinError : undefined}
+					hint={isCurrencyMode ? POINTS_LABELS.manualHintCurrency(fmtBal(currentBalance)) : POINTS_LABELS.manualHintPoints(fmtBal(currentBalance))}
 				>
 					{#snippet children()}
 						<div class="flex items-center gap-2">
@@ -315,7 +316,7 @@ async function handleReceiptFile(event: Event) {
 								max={currentBalance}
 								step="1"
 								bind:value={manualInput}
-								placeholder="金額を入力"
+								placeholder={POINTS_LABELS.manualPlaceholder}
 								class="flex-1 px-4 py-3 border-2 rounded-xl text-lg font-bold text-right
 									{manualInput && !manualValid ? 'border-[var(--color-feedback-error-border)] bg-[var(--color-feedback-error-bg)]' : 'border-[var(--color-border)] focus:border-[var(--color-border-focus)]'}
 									outline-none transition-colors"
@@ -331,7 +332,7 @@ async function handleReceiptFile(event: Event) {
 								class="text-xs text-[var(--color-feedback-info-text)] hover:text-[var(--color-feedback-info-text)]"
 								onclick={() => manualInput = String(currentBalance)}
 							>
-								全額変換
+								{POINTS_LABELS.manualMaxButton}
 							</Button>
 						</div>
 					{/snippet}
@@ -340,7 +341,7 @@ async function handleReceiptFile(event: Event) {
 			<!-- Receipt OCR Mode -->
 			{:else}
 				<div class="space-y-3">
-					<span class="block text-sm font-bold text-[var(--color-text-muted)]">領収書を撮影して金額を読み取り</span>
+					<span class="block text-sm font-bold text-[var(--color-text-muted)]">{POINTS_LABELS.receiptLabel}</span>
 
 					<!-- File input (hidden, triggered by button) -->
 					<input
@@ -364,8 +365,8 @@ async function handleReceiptFile(event: Event) {
 							onclick={() => fileInput?.click()}
 						>
 							<span class="text-4xl">📸</span>
-							<span class="text-sm font-bold">領収書を撮影 / 画像を選択</span>
-							<span class="text-xs">JPEG, PNG, WebP（5MB以下）</span>
+							<span class="text-sm font-bold">{POINTS_LABELS.receiptCaptureButtonTitle}</span>
+							<span class="text-xs">{POINTS_LABELS.receiptCaptureButtonNote}</span>
 						</Button>
 					{:else}
 						<!-- Preview + Result -->
@@ -374,7 +375,7 @@ async function handleReceiptFile(event: Event) {
 							<div class="relative">
 								<img
 									src={receiptPreviewUrl}
-									alt="領収書プレビュー"
+									alt={POINTS_LABELS.receiptPreviewAlt}
 									class="w-full max-h-48 object-contain rounded-lg border border-[var(--color-border)]"
 								/>
 								<Button
@@ -383,7 +384,7 @@ async function handleReceiptFile(event: Event) {
 									size="sm"
 									class="absolute top-2 right-2 bg-black/50 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm hover:bg-black/70"
 									onclick={() => { resetReceipt(); }}
-									aria-label="プレビューを閉じる"
+									aria-label={POINTS_LABELS.receiptPreviewClose}
 								>
 									✕
 								</Button>
@@ -393,7 +394,7 @@ async function handleReceiptFile(event: Event) {
 								<!-- Scanning indicator -->
 								<div class="text-center py-4">
 									<div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--color-feedback-info-text)] border-t-transparent"></div>
-									<p class="text-sm text-[var(--color-text-muted)] mt-2">金額を読み取り中...</p>
+									<p class="text-sm text-[var(--color-text-muted)] mt-2">{POINTS_LABELS.receiptScanningText}</p>
 								</div>
 							{:else if receiptError}
 								<!-- Error -->
@@ -406,19 +407,19 @@ async function handleReceiptFile(event: Event) {
 										class="mt-2 text-xs text-[var(--color-feedback-info-text)] hover:text-[var(--color-feedback-info-text)]"
 										onclick={() => { resetReceipt(); fileInput?.click(); }}
 									>
-										再撮影する
+										{POINTS_LABELS.receiptRetakeButton}
 									</Button>
 								</div>
 							{:else if receiptAmount > 0}
 								<!-- OCR Result -->
 								<div class="bg-[var(--color-feedback-info-bg)] rounded-lg p-4 space-y-3">
 									<div class="text-center">
-										<p class="text-xs text-[var(--color-text-muted)]">読み取り結果</p>
+										<p class="text-xs text-[var(--color-text-muted)]">{POINTS_LABELS.receiptResultLabel}</p>
 										<p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">{receiptRawText}</p>
 									</div>
 
 									<!-- Editable amount -->
-									<FormField label="" hint="金額が違う場合は修正できます">
+									<FormField label="" hint={POINTS_LABELS.receiptAmountHint}>
 										{#snippet children()}
 											<div class="flex items-center justify-center gap-2">
 												<input
@@ -432,13 +433,13 @@ async function handleReceiptFile(event: Event) {
 														outline-none transition-colors"
 													inputmode="numeric"
 												/>
-												<span class="text-lg font-bold text-[var(--color-text-muted)]">円</span>
+												<span class="text-lg font-bold text-[var(--color-text-muted)]">{POINTS_LABELS.receiptCurrencyUnit}</span>
 											</div>
 										{/snippet}
 									</FormField>
 
 									{#if receiptAmount > currentBalance}
-										<p class="text-xs text-[var(--color-feedback-error-text)] text-center">残高（{fmtBal(currentBalance)}）を超えています</p>
+										<p class="text-xs text-[var(--color-feedback-error-text)] text-center">{POINTS_LABELS.receiptOverBalance(fmtBal(currentBalance))}</p>
 									{:else}
 										<!-- Confirm button -->
 										{#if !receiptConfirmed}
@@ -449,12 +450,12 @@ async function handleReceiptFile(event: Event) {
 												class="w-full"
 												onclick={() => receiptConfirmed = true}
 											>
-												この金額で変換する
+												{POINTS_LABELS.receiptConfirmButton}
 											</Button>
 										{:else}
 											<div class="text-center">
 												<span class="inline-block bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)] text-xs font-bold px-3 py-1 rounded-full">
-													金額確定済み
+													{POINTS_LABELS.receiptConfirmedLabel}
 												</span>
 											</div>
 										{/if}
@@ -469,7 +470,7 @@ async function handleReceiptFile(event: Event) {
 									class="w-full text-center text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
 									onclick={() => { resetReceipt(); fileInput?.click(); }}
 								>
-									別の領収書を撮影する
+									{POINTS_LABELS.receiptRetakeOtherButton}
 								</Button>
 							{/if}
 						</div>
@@ -482,12 +483,12 @@ async function handleReceiptFile(event: Event) {
 				<div class="bg-[var(--color-feedback-warning-bg)] rounded-lg p-3 text-center space-y-1">
 					<p class="text-sm text-[var(--color-feedback-warning-text)]">
 						<span class="font-bold text-lg">{fmtBal(effectiveAmount)}</span>
-						{#if !isCurrencyMode}→ <span class="font-bold text-lg">{effectiveAmount.toLocaleString()}円</span>分のおこづかい{/if}
+						{#if !isCurrencyMode}→ <span class="font-bold text-lg">{effectiveAmount.toLocaleString()}{POINTS_LABELS.convertPreviewYenUnit}</span>{POINTS_LABELS.convertPreviewSuffix}{/if}
 					</p>
 					<p class="text-xs text-[var(--color-feedback-warning-text)]">
-						残高: {fmtBal(currentBalance)} → {fmtBal(currentBalance - effectiveAmount)}
+						{POINTS_LABELS.convertPreviewBalance(fmtBal(currentBalance), fmtBal(currentBalance - effectiveAmount))}
 						{#if thisMonthTotal > 0}
-							／今月の合計: {fmtBal(thisMonthTotal)} → {fmtBal(thisMonthTotal + effectiveAmount)}
+							{POINTS_LABELS.convertPreviewMonthTotal(fmtBal(thisMonthTotal), fmtBal(thisMonthTotal + effectiveAmount))}
 						{/if}
 					</p>
 				</div>
@@ -499,16 +500,16 @@ async function handleReceiptFile(event: Event) {
 					disabled={submitting}
 				>
 					{#if submitting}
-						変換中...
+						{POINTS_LABELS.convertSubmitLoading}
 					{:else}
-						{fmtBal(effectiveAmount)} を{isCurrencyMode ? '渡す' : '変換する'}
+						{isCurrencyMode ? POINTS_LABELS.convertSubmitCurrency(fmtBal(effectiveAmount)) : POINTS_LABELS.convertSubmitPoints(fmtBal(effectiveAmount))}
 					{/if}
 				</Button>
 			{/if}
 		</form></Card>
 	{:else if selectedChild}
 		<Card padding="lg" class="text-center text-[var(--color-text-tertiary)]">
-			<p>変換可能な{unit}がありません</p>
+			<p>{POINTS_LABELS.noConvertable(unit)}</p>
 		</Card>
 	{/if}
 
@@ -516,23 +517,23 @@ async function handleReceiptFile(event: Event) {
 	{#if convertResult}
 		<div class="bg-[var(--color-feedback-success-bg)] rounded-xl p-4 border border-[var(--color-feedback-success-border)] text-center">
 			<p class="text-[var(--color-feedback-success-text)] font-bold">{convertResult.message}</p>
-			<p class="text-sm text-[var(--color-feedback-success-text)] mt-1">残高: {fmtBal(convertResult.remainingBalance)}</p>
+			<p class="text-sm text-[var(--color-feedback-success-text)] mt-1">{POINTS_LABELS.resultBalance(fmtBal(convertResult.remainingBalance))}</p>
 		</div>
 	{/if}
 
 	<!-- Convert History -->
 	{#if selectedChild && convertHistory.length > 0}
 		<Card padding="lg">
-			<h3 class="font-bold text-[var(--color-text-primary)] mb-4">おこづかい変換りれき</h3>
+			<h3 class="font-bold text-[var(--color-text-primary)] mb-4">{POINTS_LABELS.historyTitle}</h3>
 
 			<!-- Summary -->
 			<div class="grid grid-cols-2 gap-3">
 				<div class="bg-[var(--color-feedback-info-bg)] rounded-lg p-3 text-center">
-					<p class="text-xs text-[var(--color-text-muted)]">今月の合計</p>
+					<p class="text-xs text-[var(--color-text-muted)]">{POINTS_LABELS.historySummaryThisMonth}</p>
 					<p class="text-lg font-bold text-[var(--color-feedback-info-text)]">{fmtBal(thisMonthTotal)}</p>
 				</div>
 				<div class="bg-[var(--color-stat-purple-bg)] rounded-lg p-3 text-center">
-					<p class="text-xs text-[var(--color-text-muted)]">累計</p>
+					<p class="text-xs text-[var(--color-text-muted)]">{POINTS_LABELS.historySummaryAllTime}</p>
 					<p class="text-lg font-bold text-[var(--color-stat-purple)]">{fmtBal(allTimeTotal)}</p>
 				</div>
 			</div>
@@ -547,7 +548,7 @@ async function handleReceiptFile(event: Event) {
 						{historyPeriod === 'this-month' ? 'bg-white text-[var(--color-feedback-info-text)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'}"
 					onclick={() => historyPeriod = 'this-month'}
 				>
-					今月
+					{POINTS_LABELS.historyFilterThisMonth}
 				</Button>
 				<Button
 					type="button"
@@ -557,7 +558,7 @@ async function handleReceiptFile(event: Event) {
 						{historyPeriod === 'last-month' ? 'bg-white text-[var(--color-feedback-info-text)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'}"
 					onclick={() => historyPeriod = 'last-month'}
 				>
-					先月
+					{POINTS_LABELS.historyFilterLastMonth}
 				</Button>
 				<Button
 					type="button"
@@ -567,7 +568,7 @@ async function handleReceiptFile(event: Event) {
 						{historyPeriod === 'all' ? 'bg-white text-[var(--color-feedback-info-text)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'}"
 					onclick={() => historyPeriod = 'all'}
 				>
-					全期間
+					{POINTS_LABELS.historyFilterAll}
 				</Button>
 			</div>
 
@@ -586,7 +587,7 @@ async function handleReceiptFile(event: Event) {
 					{/each}
 				</div>
 			{:else}
-				<p class="text-sm text-[var(--color-text-tertiary)] text-center py-4">この期間の変換履歴はありません</p>
+				<p class="text-sm text-[var(--color-text-tertiary)] text-center py-4">{POINTS_LABELS.historyEmpty}</p>
 			{/if}
 		</Card>
 	{/if}

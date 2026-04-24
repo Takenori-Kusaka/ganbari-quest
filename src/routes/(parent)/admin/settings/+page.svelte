@@ -3,7 +3,14 @@ import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
-import { IMPORT_LABELS, type ImportSkipReason, OYAKAGI_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	IMPORT_LABELS,
+	type ImportSkipReason,
+	OYAKAGI_LABELS,
+	PAGE_TITLES,
+	SETTINGS_LABELS,
+} from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
@@ -559,17 +566,16 @@ const anyFormBusy = $derived(
 </script>
 
 <svelte:head>
-	<title>設定 - がんばりクエスト</title>
+	<title>{PAGE_TITLES.settings}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="space-y-6">
 	<!-- grace_period バナー -->
 	{#if $page.data.tenantStatus === SUBSCRIPTION_STATUS.GRACE_PERIOD}
 		<div class="bg-[var(--color-feedback-error-bg)] border-2 border-[var(--color-feedback-error-border)] rounded-xl p-6">
-			<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-2">解約手続き中です</h3>
+			<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-2">{SETTINGS_LABELS.gracePeriodTitle}</h3>
 			<p class="text-sm text-[var(--color-feedback-error-text)] mb-4">
-				現在、アカウントは解約手続き中で読み取り専用モードです。
-				期限までにキャンセルしないとデータが完全に削除されます。
+				{SETTINGS_LABELS.gracePeriodDesc}
 			</p>
 			{#if cancelError}
 				<ErrorAlert message={cancelError} severity="error" action="retry" />
@@ -581,7 +587,7 @@ const anyFormBusy = $derived(
 				disabled={reactivateSubmitting}
 				onclick={handleReactivate}
 			>
-				{reactivateSubmitting ? 'キャンセル中...' : '解約をキャンセルして通常利用に戻る'}
+				{reactivateSubmitting ? SETTINGS_LABELS.reactivateSubmitting : SETTINGS_LABELS.reactivateAction}
 			</Button>
 		</div>
 	{/if}
@@ -677,13 +683,13 @@ const anyFormBusy = $derived(
 
 	<!-- ステータス減少設定 -->
 	<Card padding="lg">
-		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">📊 ステータス減少設定</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">{SETTINGS_LABELS.decaySectionTitle}</h3>
 		<p class="text-sm text-[var(--color-text-muted)] mb-4">
-			活動をお休みした日のステータス減少の強さを設定できます。どの設定でも最初の2日間は減少しません。
+			{SETTINGS_LABELS.decaySectionDesc}
 		</p>
 
 		{#if decaySuccess}
-			<SuccessAlert message="ステータス減少設定を保存しました" />
+			<SuccessAlert message={SETTINGS_LABELS.decaySaved} />
 		{/if}
 
 		<div class="space-y-3 mb-4">
@@ -712,25 +718,24 @@ const anyFormBusy = $derived(
 			onclick={saveDecayIntensity}
 			disabled={decaySaving}
 		>
-			{decaySaving ? '保存中...' : '設定を保存'}
+			{decaySaving ? SETTINGS_LABELS.decaySaving : SETTINGS_LABELS.decaySaveAction}
 		</Button>
 	</Card>
 
 	<!-- 既定の子供（#576） -->
 	{#if data.children.length >= 2}
 		<Card padding="lg">
-			<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">🏠 既定の子供</h3>
+			<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">{SETTINGS_LABELS.defaultChildSectionTitle}</h3>
 			<p class="text-sm text-[var(--color-text-muted)] mb-4">
-				ホーム画面（/）を開いたときに自動で表示する子供を選べます。<br />
-				これは<strong>この端末ではなく、アカウント全体の既定</strong>です。
-				未設定のときは選択画面が表示されます。
+				{SETTINGS_LABELS.defaultChildDesc}<br />
+				{SETTINGS_LABELS.defaultChildDescNote}<strong>{SETTINGS_LABELS.defaultChildDescNoteStrong}</strong>{SETTINGS_LABELS.defaultChildDescNoteSuffix}
 			</p>
 
 			{#if form?.defaultChildUpdated}
 				<div
 					class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)] mb-4"
 				>
-					既定の子供を更新しました
+					{SETTINGS_LABELS.defaultChildUpdated}
 				</div>
 			{/if}
 			{#if form?.defaultChildError}
@@ -750,7 +755,7 @@ const anyFormBusy = $derived(
 							value="none"
 							checked={data.defaultChildId === null}
 						/>
-						<span class="text-sm font-medium text-[var(--color-text)]">未設定（毎回選択画面を表示）</span>
+						<span class="text-sm font-medium text-[var(--color-text)]">{SETTINGS_LABELS.defaultChildNone}</span>
 					</label>
 					{#each data.children as child (child.id)}
 						<label
@@ -768,17 +773,17 @@ const anyFormBusy = $derived(
 						</label>
 					{/each}
 				</div>
-				<Button type="submit" variant="primary" size="md" class="w-full">既定を保存</Button>
+				<Button type="submit" variant="primary" size="md" class="w-full">{SETTINGS_LABELS.defaultChildSaveAction}</Button>
 			</form>
 		</Card>
 	{/if}
 
 	<!-- きょうだいチャレンジ設定 -->
 	<Card padding="lg">
-		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">👥 きょうだいチャレンジ設定</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">{SETTINGS_LABELS.siblingSectionTitle}</h3>
 
 		{#if form?.siblingSuccess}
-			<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)] mb-4">きょうだい設定を保存しました</div>
+			<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)] mb-4">{SETTINGS_LABELS.siblingSaved}</div>
 		{/if}
 		{#if siblingErrorMessage}
 			<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)] mb-4">{siblingErrorMessage}</div>
@@ -786,7 +791,7 @@ const anyFormBusy = $derived(
 
 		<form method="POST" action="?/updateSiblingSettings" use:enhance class="space-y-4">
 			<div>
-				<label for="sibling-mode-both" class="block text-sm font-semibold text-[var(--color-text)] mb-2">チャレンジモード</label>
+				<label for="sibling-mode-both" class="block text-sm font-semibold text-[var(--color-text)] mb-2">{SETTINGS_LABELS.siblingChallengeMode}</label>
 				<div class="space-y-2">
 					{#each [
 						{ value: 'both', label: '協力＆競争（両方）', desc: '協力チャレンジと競争チャレンジの両方を利用' },
@@ -806,7 +811,7 @@ const anyFormBusy = $derived(
 			{#if data.canSiblingRanking}
 				<label class="flex items-center gap-2">
 					<input type="checkbox" name="siblingRankingEnabled" checked={data.siblingRankingEnabled === 'true'} class="h-4 w-4 rounded border-[var(--color-border-strong)]" />
-					<span class="text-sm text-[var(--color-text)]">きょうだいランキングを表示する</span>
+					<span class="text-sm text-[var(--color-text)]">{SETTINGS_LABELS.siblingRankingLabel}</span>
 				</label>
 			{:else}
 				<div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-muted)] p-3">
@@ -819,37 +824,46 @@ const anyFormBusy = $derived(
 							class="h-4 w-4 rounded border-[var(--color-border-strong)]"
 						/>
 						<span class="text-sm text-[var(--color-text-muted)]">
-							きょうだいランキングを表示する
+							{SETTINGS_LABELS.siblingRankingLabel}
 							<span class="text-xs font-bold text-[var(--color-point)]">⭐⭐</span>
 						</span>
 					</label>
 					<p id="sibling-ranking-disabled-reason" class="mt-2 text-xs text-[var(--color-text-muted)]">
-						きょうだいランキングはファミリープラン限定の機能です。<a href="/pricing" class="underline text-[var(--color-text-link)]">プランのアップグレード</a>で利用できます。
+						{SETTINGS_LABELS.siblingRankingUpsell}<a href="/pricing" class="underline text-[var(--color-text-link)]">{SETTINGS_LABELS.siblingRankingUpsellLink}</a>{SETTINGS_LABELS.siblingRankingUpsellSuffix}
 					</p>
 				</div>
 			{/if}
 			<Button type="submit" variant="primary" size="md" class="w-full">
-				設定を保存
+				{SETTINGS_LABELS.siblingSaveAction}
 			</Button>
 		</form>
 	</Card>
 
 	<!-- 通知設定 -->
 	<Card padding="lg">
-		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">🔔 通知設定</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">{SETTINGS_LABELS.notificationSectionTitle}</h3>
 
 		{#if form?.notificationSuccess}
-			<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)] mb-4">通知設定を保存しました</div>
+			<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)] mb-4">{SETTINGS_LABELS.notificationSaved}</div>
 		{/if}
 		{#if form?.notificationError}
 			<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)] mb-4">{form.notificationError}</div>
 		{/if}
 
 		<!-- ブラウザ通知ステータス -->
-		<div class="mb-4 p-3 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-default)]">
+		<div
+			class="mb-4 p-3 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-default)]"
+			data-notif-unsupported={SETTINGS_LABELS.notificationBrowserLabel}
+			data-notif-blocked="ブロック中（ブラウザ設定で変更）"
+			data-notif-unset="未設定"
+			data-notif-active="有効"
+			data-notif-inactive="無効"
+			data-notif-pending="許可済み（未登録）"
+			data-notif-device-unsupported="この端末は通知に対応していません"
+		>
 			<div class="flex items-center justify-between">
-				<span class="text-sm font-medium text-[var(--color-text)]">ブラウザ通知</span>
-				<span class="text-xs px-2 py-1 rounded-full" id="notification-status">確認中...</span>
+				<span class="text-sm font-medium text-[var(--color-text)]">{SETTINGS_LABELS.notificationBrowserLabel}</span>
+				<span class="text-xs px-2 py-1 rounded-full" id="notification-status">{SETTINGS_LABELS.notificationChecking}</span>
 			</div>
 			<div id="notification-action" class="mt-2 hidden">
 				<Button
@@ -858,7 +872,7 @@ const anyFormBusy = $derived(
 					size="sm"
 					id="notification-subscribe-btn"
 				>
-					通知を有効にする
+					{SETTINGS_LABELS.notificationEnableAction}
 				</Button>
 			</div>
 			<div id="notification-subscribed" class="mt-2 hidden">
@@ -869,7 +883,7 @@ const anyFormBusy = $derived(
 					class="bg-[var(--color-neutral-200)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
 					id="notification-unsubscribe-btn"
 				>
-					通知を無効にする
+					{SETTINGS_LABELS.notificationDisableAction}
 				</Button>
 			</div>
 		</div>
@@ -877,7 +891,7 @@ const anyFormBusy = $derived(
 		<form method="POST" action="?/updateNotificationSettings" use:enhance class="space-y-4">
 			<label class="flex items-center gap-2">
 				<input type="checkbox" name="remindersEnabled" checked={data.notificationSettings.remindersEnabled} class="h-4 w-4 rounded border-[var(--color-border-strong)]" />
-				<span class="text-sm text-[var(--color-text)]">リマインダー通知（毎日の記録を促す）</span>
+				<span class="text-sm text-[var(--color-text)]">{SETTINGS_LABELS.notificationReminderLabel}</span>
 			</label>
 			{#if data.notificationSettings.remindersEnabled}
 				<div class="ml-6">
@@ -891,60 +905,70 @@ const anyFormBusy = $derived(
 			{/if}
 			<label class="flex items-center gap-2">
 				<input type="checkbox" name="streakEnabled" checked={data.notificationSettings.streakEnabled} class="h-4 w-4 rounded border-[var(--color-border-strong)]" />
-				<span class="text-sm text-[var(--color-text)]">ストリーク警告（連続記録が途切れそうな時）</span>
+				<span class="text-sm text-[var(--color-text)]">{SETTINGS_LABELS.notificationStreakLabel}</span>
 			</label>
 			<label class="flex items-center gap-2">
 				<input type="checkbox" name="achievementsEnabled" checked={data.notificationSettings.achievementsEnabled} class="h-4 w-4 rounded border-[var(--color-border-strong)]" />
-				<span class="text-sm text-[var(--color-text)]">達成通知（記録完了・レベルアップ時）</span>
+				<span class="text-sm text-[var(--color-text)]">{SETTINGS_LABELS.notificationAchievementLabel}</span>
 			</label>
 			<div class="border-t border-[var(--color-border-default)] pt-4 mt-4">
 				<FormField label="サイレント時間帯" hint="この時間帯は通知を送信しません">
 					{#snippet children()}
 						<div class="flex items-center gap-2">
 							<input type="time" name="quietStart" value={data.notificationSettings.quietStart} class="text-sm border border-[var(--input-border)] rounded-[var(--input-radius)] bg-[var(--input-bg)] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-opacity-30 focus:border-[var(--input-border-focus)] transition-colors" />
-							<span class="text-sm text-[var(--color-text-muted)]">〜</span>
+							<span class="text-sm text-[var(--color-text-muted)]">{SETTINGS_LABELS.notificationQuietSeparator}</span>
 							<input type="time" name="quietEnd" value={data.notificationSettings.quietEnd} class="text-sm border border-[var(--input-border)] rounded-[var(--input-radius)] bg-[var(--input-bg)] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-opacity-30 focus:border-[var(--input-border-focus)] transition-colors" />
 						</div>
 					{/snippet}
 				</FormField>
 			</div>
 			<Button type="submit" variant="primary" size="md" class="w-full">
-				通知設定を保存
+				{SETTINGS_LABELS.notificationSaveAction}
 			</Button>
 		</form>
 	</Card>
 
 	<script>
 		// Client-side notification status check
+		// Japanese labels are read from data-notif-* attributes to avoid hardcoded strings.
 		(async function() {
 			const statusEl = document.getElementById('notification-status');
 			const actionEl = document.getElementById('notification-action');
 			const subscribedEl = document.getElementById('notification-subscribed');
 			const subscribeBtn = document.getElementById('notification-subscribe-btn');
 			const unsubscribeBtn = document.getElementById('notification-unsubscribe-btn');
+			const notifContainer = statusEl?.closest('[data-notif-active]');
+			const L = {
+				deviceUnsupported: notifContainer?.dataset.notifDeviceUnsupported ?? '',
+				blocked: notifContainer?.dataset.notifBlocked ?? '',
+				unset: notifContainer?.dataset.notifUnset ?? '',
+				active: notifContainer?.dataset.notifActive ?? '',
+				inactive: notifContainer?.dataset.notifInactive ?? '',
+				pending: notifContainer?.dataset.notifPending ?? '',
+			};
 
 			if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-				if (statusEl) { statusEl.textContent = 'この端末は通知に対応していません'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-neutral-200)] text-[var(--color-text)]'; }
+				if (statusEl) { statusEl.textContent = L.deviceUnsupported; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-neutral-200)] text-[var(--color-text)]'; }
 				return;
 			}
 
 			const permission = Notification.permission;
 			if (permission === 'denied') {
-				if (statusEl) { statusEl.textContent = 'ブロック中（ブラウザ設定で変更）'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]'; }
+				if (statusEl) { statusEl.textContent = L.blocked; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]'; }
 				return;
 			}
 
 			if (permission === 'default') {
-				if (statusEl) { statusEl.textContent = '未設定'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]'; }
+				if (statusEl) { statusEl.textContent = L.unset; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]'; }
 				if (actionEl) actionEl.classList.remove('hidden');
 			} else {
 				const reg = await navigator.serviceWorker.ready;
 				const sub = await reg.pushManager.getSubscription();
 				if (sub) {
-					if (statusEl) { statusEl.textContent = '有効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]'; }
+					if (statusEl) { statusEl.textContent = L.active; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]'; }
 					if (subscribedEl) subscribedEl.classList.remove('hidden');
 				} else {
-					if (statusEl) { statusEl.textContent = '許可済み（未登録）'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]'; }
+					if (statusEl) { statusEl.textContent = L.pending; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]'; }
 					if (actionEl) actionEl.classList.remove('hidden');
 				}
 			}
@@ -954,7 +978,7 @@ const anyFormBusy = $derived(
 					const { subscribeToPush } = await import('$lib/features/admin/push-subscription');
 					const sub = await subscribeToPush();
 					if (sub) {
-						if (statusEl) { statusEl.textContent = '有効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]'; }
+						if (statusEl) { statusEl.textContent = L.active; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]'; }
 						if (actionEl) actionEl.classList.add('hidden');
 						if (subscribedEl) subscribedEl.classList.remove('hidden');
 					}
@@ -964,7 +988,7 @@ const anyFormBusy = $derived(
 				unsubscribeBtn.addEventListener('click', async () => {
 					const { unsubscribeFromPush } = await import('$lib/features/admin/push-subscription');
 					await unsubscribeFromPush();
-					if (statusEl) { statusEl.textContent = '無効'; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-neutral-200)] text-[var(--color-text)]'; }
+					if (statusEl) { statusEl.textContent = L.inactive; statusEl.className = 'text-xs px-2 py-1 rounded-full bg-[var(--color-neutral-200)] text-[var(--color-text)]'; }
 					if (subscribedEl) subscribedEl.classList.add('hidden');
 					if (actionEl) actionEl.classList.remove('hidden');
 				});
@@ -974,10 +998,10 @@ const anyFormBusy = $derived(
 
 	<!-- ポイント表示設定 -->
 	<Card padding="lg" id="point-settings">
-		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">💰 ポイント表示設定</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">{SETTINGS_LABELS.pointSectionTitle}</h3>
 
 		{#if pointSuccess}
-			<SuccessAlert message="ポイント表示設定を保存しました" />
+			<SuccessAlert message={SETTINGS_LABELS.pointSaved} />
 		{/if}
 
 		{#if form?.pointError}
@@ -1002,7 +1026,7 @@ const anyFormBusy = $derived(
 			class="flex flex-col gap-4"
 		>
 			<div>
-				<span class="block text-sm font-medium text-[var(--color-text)] mb-2">表示モード</span>
+				<span class="block text-sm font-medium text-[var(--color-text)] mb-2">{SETTINGS_LABELS.pointDisplayMode}</span>
 				<div class="flex gap-3">
 					<label class="flex items-center gap-2 cursor-pointer">
 						<input
@@ -1012,7 +1036,7 @@ const anyFormBusy = $derived(
 							bind:group={pointMode}
 							class="w-4 h-4 text-[var(--color-brand-500)]"
 						/>
-						<span class="text-sm">ポイント（P）</span>
+						<span class="text-sm">{SETTINGS_LABELS.pointModePoint}</span>
 					</label>
 					<label class="flex items-center gap-2 cursor-pointer">
 						<input
@@ -1022,7 +1046,7 @@ const anyFormBusy = $derived(
 							bind:group={pointMode}
 							class="w-4 h-4 text-[var(--color-brand-500)]"
 						/>
-						<span class="text-sm">通貨で表示</span>
+						<span class="text-sm">{SETTINGS_LABELS.pointModeCurrency}</span>
 					</label>
 				</div>
 			</div>
@@ -1055,7 +1079,7 @@ const anyFormBusy = $derived(
 
 			<!-- プレビュー -->
 			<div class="bg-[var(--color-surface-muted)] rounded-lg p-4">
-				<p class="text-sm text-[var(--color-text-muted)] mb-1">プレビュー（{previewPoints}P の場合）</p>
+				<p class="text-sm text-[var(--color-text-muted)] mb-1">{SETTINGS_LABELS.pointPreviewLabel(previewPoints)}</p>
 				<p class="text-2xl font-bold text-[var(--color-point)]">
 					{previewFormatted}
 				</p>
@@ -1068,7 +1092,7 @@ const anyFormBusy = $derived(
 				class="w-full"
 				disabled={pointSubmitting}
 			>
-				{pointSubmitting ? '保存中...' : 'ポイント設定を保存'}
+				{pointSubmitting ? SETTINGS_LABELS.decaySaving : SETTINGS_LABELS.pointSaveAction}
 			</Button>
 		</form>
 	</Card>
@@ -1076,7 +1100,7 @@ const anyFormBusy = $derived(
 	<!-- データ管理 -->
 	<Card padding="lg" data-tutorial="data-management">
 		<div class="flex items-center gap-2 mb-4">
-			<h3 class="text-lg font-bold text-[var(--color-text)]">💾 データ管理</h3>
+			<h3 class="text-lg font-bold text-[var(--color-text)]">{SETTINGS_LABELS.dataSectionTitle}</h3>
 			{#if !data.canExport}
 				<PremiumBadge size="sm" label="スタンダード以上" showLock />
 			{/if}
@@ -1089,15 +1113,15 @@ const anyFormBusy = $derived(
 		<div class="space-y-4">
 			<div data-testid="data-export-section">
 				<p class="text-sm text-[var(--color-text)] mb-3">
-					家族のデータをJSONファイルとしてダウンロードできます。バックアップや別環境への移行に使用できます。
+					{SETTINGS_LABELS.dataExportDesc}
 				</p>
 				<div class="bg-[var(--color-surface-muted)] rounded-lg p-3 mb-3">
-					<p class="text-xs text-[var(--color-text-muted)]">エクスポート対象:</p>
+					<p class="text-xs text-[var(--color-text-muted)]">{SETTINGS_LABELS.dataExportTarget}</p>
 					<ul class="text-xs text-[var(--color-text-muted)] mt-1 space-y-0.5">
-						<li>子供プロフィール・活動記録・ポイント履歴</li>
-						<li>ステータス・実績・称号・ログインボーナス</li>
-						<li>チェックリスト・誕生日振り返り</li>
-						<li>活動マスタ・きせかえアイテム</li>
+						<li>{SETTINGS_LABELS.dataExportItem1}</li>
+						<li>{SETTINGS_LABELS.dataExportItem2}</li>
+						<li>{SETTINGS_LABELS.dataExportItem3}</li>
+						<li>{SETTINGS_LABELS.dataExportItem4}</li>
 					</ul>
 				</div>
 				{#if !data.canExport}
@@ -1107,17 +1131,17 @@ const anyFormBusy = $derived(
 						data-testid="export-upsell"
 					>
 						<p class="text-sm text-[var(--color-text)] mb-2">
-							🔒 データエクスポートは <strong>スタンダードプラン</strong> 以上でご利用いただけます。
+							{SETTINGS_LABELS.dataExportUpsellTitle}<strong>{SETTINGS_LABELS.dataExportUpsellPlan}</strong>{SETTINGS_LABELS.dataExportUpsellSuffix}
 						</p>
 						<p class="text-xs text-[var(--color-text-muted)] mb-3">
-							家族のデータをJSON/ZIP形式でダウンロードして、バックアップや引っ越しに利用できます。
+							{SETTINGS_LABELS.dataExportUpsellDesc}
 						</p>
 						<a
 							href="/pricing"
 							class="inline-block px-4 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] text-sm font-semibold rounded-lg no-underline hover:brightness-110 transition-all"
 							data-testid="export-upsell-cta"
 						>
-							プランを見る
+							{SETTINGS_LABELS.dataExportUpsellCta}
 						</a>
 					</div>
 					<Button
@@ -1128,21 +1152,21 @@ const anyFormBusy = $derived(
 						disabled={true}
 						data-testid="data-export-button"
 					>
-						🔒 データをエクスポート（有料プラン限定）
+						{SETTINGS_LABELS.dataExportLockedButton}
 					</Button>
 				{:else}
 					<label class="flex items-center gap-2 mb-2 text-sm text-[var(--color-text)] cursor-pointer">
 						<input type="checkbox" bind:checked={includeFiles} class="w-4 h-4 text-[var(--color-brand-500)] rounded" />
-						画像・音声ファイルも含める（ZIP形式）
+						{SETTINGS_LABELS.dataExportIncludeFiles}
 					</label>
 					{#if !includeFiles}
 						<div class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-3">
-							<p class="text-xs text-[var(--color-feedback-warning-text)]">画像・音声を含める場合は上のチェックをオンにしてください。ファイルサイズが大きくなる場合があります（最大100MB）。</p>
+							<p class="text-xs text-[var(--color-feedback-warning-text)]">{SETTINGS_LABELS.dataExportIncludeFilesHint}</p>
 						</div>
 					{/if}
 					<label class="flex items-center gap-2 mb-3 text-sm text-[var(--color-text)] cursor-pointer">
 						<input type="checkbox" bind:checked={compactFormat} class="w-4 h-4 text-[var(--color-brand-500)] rounded" />
-						圧縮形式でエクスポート（ファイルサイズを削減）
+						{SETTINGS_LABELS.dataExportCompact}
 					</label>
 					<Button
 						type="button"
@@ -1155,9 +1179,9 @@ const anyFormBusy = $derived(
 					>
 						{#if exportLoading}
 							<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
-							エクスポート中...
+							{SETTINGS_LABELS.dataExporting}
 						{:else}
-							データをエクスポート
+							{SETTINGS_LABELS.dataExportAction}
 						{/if}
 					</Button>
 				{/if}
@@ -1167,7 +1191,7 @@ const anyFormBusy = $derived(
 
 			<!-- インポート -->
 			<div>
-				<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">データのインポート</h4>
+				<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">{SETTINGS_LABELS.dataImportTitle}</h4>
 
 				{#if importError}
 					<ErrorAlert message={importError} severity="warning" action="fix_input" />
@@ -1175,32 +1199,32 @@ const anyFormBusy = $derived(
 
 				{#if importStep === 'select'}
 					<p class="text-sm text-[var(--color-text)] mb-3">
-						エクスポートしたJSONファイルからデータを復元できます。
+						{SETTINGS_LABELS.dataImportDesc}
 					</p>
 					<div class="mb-3">
-						<span class="block text-sm font-medium text-[var(--color-text)] mb-2">インポートモード</span>
+						<span class="block text-sm font-medium text-[var(--color-text)] mb-2">{SETTINGS_LABELS.dataImportMode}</span>
 						<div class="flex gap-3">
 							<label class="flex items-center gap-2 cursor-pointer">
 								<input type="radio" value="replace" bind:group={importMode} class="w-4 h-4 text-[var(--color-warning)]" />
-								<span class="text-sm">置換（既存データを削除してインポート）</span>
+								<span class="text-sm">{SETTINGS_LABELS.dataImportModeReplace}</span>
 							</label>
 							<label class="flex items-center gap-2 cursor-pointer">
 								<input type="radio" value="add" bind:group={importMode} class="w-4 h-4 text-[var(--color-warning)]" />
-								<span class="text-sm">追加（既存データを残して追加）</span>
+								<span class="text-sm">{SETTINGS_LABELS.dataImportModeAdd}</span>
 							</label>
 						</div>
 						{#if importMode === 'replace'}
-							<p class="text-xs text-[var(--color-feedback-error-text)] mt-1">既存の子供・活動ログ・ポイント等のデータをすべて削除してからインポートします。</p>
+							<p class="text-xs text-[var(--color-feedback-error-text)] mt-1">{SETTINGS_LABELS.dataImportModeReplaceWarning}</p>
 						{:else}
-							<p class="text-xs text-[var(--color-text-muted)] mt-1">新しい子供データとして追加されます（既存データは上書きされません）。</p>
+							<p class="text-xs text-[var(--color-text-muted)] mt-1">{SETTINGS_LABELS.dataImportModeAddNote}</p>
 						{/if}
 					</div>
 					<label class="block w-full py-2 bg-[var(--color-warning)] text-white font-bold rounded-lg hover:brightness-110 transition-all text-center cursor-pointer {importLoading ? 'opacity-50 pointer-events-none' : ''}">
 						{#if importLoading}
 							<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
-							読み込み中...
+							{SETTINGS_LABELS.dataImportLoading}
 						{:else}
-							JSONファイルを選択
+							{SETTINGS_LABELS.dataImportSelectFile}
 						{/if}
 						<input
 							type="file"
@@ -1214,19 +1238,19 @@ const anyFormBusy = $derived(
 					<div class="bg-[var(--color-feedback-warning-bg)] rounded-lg p-4 mb-3" data-testid="import-preview-summary">
 						<p class="text-sm font-bold text-[var(--color-feedback-warning-text)] mb-2">{IMPORT_LABELS.previewDialogTitle}</p>
 						<p class="text-xs text-[var(--color-feedback-success-text)] mb-2" data-testid="import-preview-checksum-ok">
-							✓ ファイルの整合性を確認しました
+							{SETTINGS_LABELS.dataImportChecksumOk}
 						</p>
 						<ul class="text-xs text-[var(--color-feedback-warning-text)] space-y-1">
-							<li>子供: {importPreview.children}人</li>
-							<li>活動ログ: {importPreview.activityLogs}件</li>
-							<li>ポイント履歴: {importPreview.pointLedger}件</li>
-							<li>ステータス: {importPreview.statuses}件</li>
-							<li>実績: {importPreview.achievements}件</li>
+							<li>{SETTINGS_LABELS.dataImportPreviewChildren(importPreview.children)}</li>
+							<li>{SETTINGS_LABELS.dataImportPreviewActivityLogs(importPreview.activityLogs)}</li>
+							<li>{SETTINGS_LABELS.dataImportPreviewPointLedger(importPreview.pointLedger)}</li>
+							<li>{SETTINGS_LABELS.dataImportPreviewStatuses(importPreview.statuses)}</li>
+							<li>{SETTINGS_LABELS.dataImportPreviewAchievements(importPreview.achievements)}</li>
 							{#if (importPreview.loginBonuses ?? 0) > 0}
-								<li>ログインボーナス: {importPreview.loginBonuses}件</li>
+								<li>{SETTINGS_LABELS.dataImportPreviewLoginBonuses(importPreview.loginBonuses)}</li>
 							{/if}
 							{#if (importPreview.checklistTemplates ?? 0) > 0}
-								<li>チェックリスト: {importPreview.checklistTemplates}件</li>
+								<li>{SETTINGS_LABELS.dataImportPreviewChecklists(importPreview.checklistTemplates)}</li>
 							{/if}
 						</ul>
 					</div>
@@ -1246,7 +1270,7 @@ const anyFormBusy = $derived(
 								{#if group.items.length > 0}
 									<div class="mt-2" data-testid={group.testid}>
 										<p class="text-xs font-semibold text-[var(--color-text-secondary)]">
-											{group.title} ({group.items.length}件)
+											{group.title} ({group.items.length + '件'})
 										</p>
 										<ul class="text-xs text-[var(--color-text-secondary)] ml-3 mt-1 space-y-0.5">
 											{#each group.items.slice(0, 5) as entry}
@@ -1260,7 +1284,7 @@ const anyFormBusy = $derived(
 												</li>
 											{/each}
 											{#if group.items.length > 5}
-												<li class="text-[var(--color-text-tertiary)]">...他 {group.items.length - 5}件</li>
+												<li class="text-[var(--color-text-tertiary)]">{SETTINGS_LABELS.dataImportMoreItems(group.items.length - 5)}</li>
 											{/if}
 										</ul>
 									</div>
@@ -1271,11 +1295,11 @@ const anyFormBusy = $derived(
 					<div class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-3">
 						{#if importMode === 'replace'}
 							<p class="text-xs text-[var(--color-feedback-error-text)] font-bold">
-								既存データをすべて削除してからインポートします。この操作は取り消せません。
+								{SETTINGS_LABELS.dataImportReplaceConfirm}
 							</p>
 						{:else}
 							<p class="text-xs text-[var(--color-feedback-warning-text)]">
-								インポートすると新しい子供データとして追加されます。この操作は取り消せません。
+								{SETTINGS_LABELS.dataImportAddConfirm}
 							</p>
 						{/if}
 					</div>
@@ -1287,7 +1311,7 @@ const anyFormBusy = $derived(
 							class="flex-1 bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:brightness-95"
 							onclick={resetImport}
 						>
-							キャンセル
+							{SETTINGS_LABELS.dataImportCancel}
 						</Button>
 						<Button
 							type="button"
@@ -1299,44 +1323,44 @@ const anyFormBusy = $derived(
 						>
 							{#if importLoading}
 								<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
-								インポート中...
+								{SETTINGS_LABELS.dataImporting}
 							{:else}
-								インポートを実行
+								{SETTINGS_LABELS.dataImportAction}
 							{/if}
 						</Button>
 					</div>
 				{:else if importStep === 'done' && importResult}
 					<div class="bg-[var(--color-feedback-success-bg)] rounded-lg p-4 mb-3">
-						<p class="text-sm font-bold text-[var(--color-feedback-success-text)] mb-2">インポート完了</p>
+						<p class="text-sm font-bold text-[var(--color-feedback-success-text)] mb-2">{SETTINGS_LABELS.dataImportComplete}</p>
 						<ul class="text-xs text-[var(--color-feedback-success-text)] space-y-1">
-							<li>子供: {importResult.childrenImported}人 作成</li>
+							<li>{SETTINGS_LABELS.dataImportResultChildren(importResult.childrenImported)}</li>
 							{#if importResult.activitiesCreated > 0}
-								<li>活動マスタ: {importResult.activitiesCreated}件 新規作成</li>
+								<li>{SETTINGS_LABELS.dataImportResultActivities(importResult.activitiesCreated)}</li>
 							{/if}
-							<li>活動ログ: {importResult.activityLogsImported}件{importResult.activityLogsSkipped > 0 ? `（${importResult.activityLogsSkipped}件スキップ）` : ''}</li>
-							<li>ポイント: {importResult.pointLedgerImported}件{importResult.pointLedgerSkipped > 0 ? `（${importResult.pointLedgerSkipped}件スキップ）` : ''}</li>
+							<li>{SETTINGS_LABELS.dataImportResultActivityLogs(importResult.activityLogsImported, importResult.activityLogsSkipped)}</li>
+							<li>{SETTINGS_LABELS.dataImportResultPointLedger(importResult.pointLedgerImported, importResult.pointLedgerSkipped)}</li>
 							{#if (importResult.warnings?.length ?? 0) > 0}
 								<li class="text-[var(--color-feedback-warning-text)] mt-2">
-									警告 ({importResult.warnings.length}件):
+									{SETTINGS_LABELS.dataImportWarningsTitle(importResult.warnings.length)}
 									<ul class="ml-3 mt-1">
 										{#each importResult.warnings.slice(0, 5) as warn}
 											<li>{warn}</li>
 										{/each}
 										{#if importResult.warnings.length > 5}
-											<li>...他 {importResult.warnings.length - 5}件</li>
+											<li>{SETTINGS_LABELS.dataImportMoreItems(importResult.warnings.length - 5)}</li>
 										{/if}
 									</ul>
 								</li>
 							{/if}
 							{#if importResult.errors.length > 0}
 								<li class="text-[var(--color-feedback-warning-text)] mt-2">
-									エラー ({importResult.errors.length}件):
+									{SETTINGS_LABELS.dataImportWarningsTitle(importResult.errors.length)}
 									<ul class="ml-3 mt-1">
 										{#each importResult.errors.slice(0, 5) as err}
 											<li>{err}</li>
 										{/each}
 										{#if importResult.errors.length > 5}
-											<li>...他 {importResult.errors.length - 5}件</li>
+											<li>{SETTINGS_LABELS.dataImportMoreItems(importResult.errors.length - 5)}</li>
 										{/if}
 									</ul>
 								</li>
@@ -1350,7 +1374,7 @@ const anyFormBusy = $derived(
 						class="w-full bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:brightness-95"
 						onclick={resetImport}
 					>
-						閉じる
+						{SETTINGS_LABELS.dataImportClose}
 					</Button>
 				{/if}
 			</div>
@@ -1361,7 +1385,7 @@ const anyFormBusy = $derived(
 	{#if $page.data.authMode === 'cognito'}
 		<Card padding="lg" data-testid="cloud-export-card">
 			<div class="flex items-center gap-2 mb-4">
-				<h3 class="text-lg font-bold text-[var(--color-text)]">☁️ クラウド共有</h3>
+				<h3 class="text-lg font-bold text-[var(--color-text)]">{SETTINGS_LABELS.cloudSectionTitle}</h3>
 				{#if data.maxCloudExports === 0}
 					<PremiumBadge size="sm" label="スタンダード以上" showLock />
 				{:else}
@@ -1369,7 +1393,7 @@ const anyFormBusy = $derived(
 						class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] rounded-full"
 						data-testid="cloud-export-slot-counter"
 					>
-						保管枠 {cloudExports.length} / {data.maxCloudExports}
+						{SETTINGS_LABELS.cloudSlotCounter(cloudExports.length, data.maxCloudExports)}
 					</span>
 				{/if}
 			</div>
@@ -1388,17 +1412,17 @@ const anyFormBusy = $derived(
 					data-testid="cloud-export-upsell"
 				>
 					<p class="text-sm text-[var(--color-text)] mb-2">
-						🔒 クラウド共有は <strong>スタンダードプラン</strong> 以上でご利用いただけます。
+						{SETTINGS_LABELS.cloudUpsellTitle}<strong>{SETTINGS_LABELS.cloudUpsellPlan}</strong>{SETTINGS_LABELS.cloudUpsellSuffix}
 					</p>
 					<p class="text-xs text-[var(--color-text-muted)] mb-3">
-						家族のデータをクラウドに保管して、PINコードで別端末や他のアカウントと共有できます（スタンダード: 3枠 / ファミリー: 10枠）。
+						{SETTINGS_LABELS.cloudUpsellDesc}
 					</p>
 					<a
 						href="/pricing"
 						class="inline-block px-4 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] text-sm font-semibold rounded-lg no-underline hover:brightness-110 transition-all"
 						data-testid="cloud-export-upsell-cta"
 					>
-						プランを見る
+						{SETTINGS_LABELS.cloudUpsellCta}
 					</a>
 				</div>
 			{:else}
@@ -1406,24 +1430,24 @@ const anyFormBusy = $derived(
 				<!-- エクスポート作成 -->
 				<div>
 					<p class="text-sm text-[var(--color-text)] mb-3">
-						設定やデータをクラウドに保管してPINコードで他のアカウントと共有できます。
+						{SETTINGS_LABELS.cloudExportDesc}
 					</p>
 					<div class="mb-3">
-						<span class="block text-sm font-medium text-[var(--color-text)] mb-2">エクスポートタイプ</span>
+						<span class="block text-sm font-medium text-[var(--color-text)] mb-2">{SETTINGS_LABELS.cloudExportType}</span>
 						<div class="flex gap-3">
 							<label class="flex items-center gap-2 cursor-pointer">
 								<input type="radio" value="template" bind:group={cloudExportType} class="w-4 h-4 text-[var(--color-brand-500)]" />
-								<span class="text-sm">テンプレート（活動・チェックリスト）</span>
+								<span class="text-sm">{SETTINGS_LABELS.cloudExportTypeTemplate}</span>
 							</label>
 							<label class="flex items-center gap-2 cursor-pointer">
 								<input type="radio" value="full" bind:group={cloudExportType} class="w-4 h-4 text-[var(--color-brand-500)]" />
-								<span class="text-sm">フルバックアップ</span>
+								<span class="text-sm">{SETTINGS_LABELS.cloudExportTypeFull}</span>
 							</label>
 						</div>
 						{#if cloudExportType === 'template'}
-							<p class="text-xs text-[var(--color-text-muted)] mt-1">活動設定やチェックリストのみ共有します（個人データは含みません）。</p>
+							<p class="text-xs text-[var(--color-text-muted)] mt-1">{SETTINGS_LABELS.cloudExportTypeTemplateDesc}</p>
 						{:else}
-							<p class="text-xs text-[var(--color-text-muted)] mt-1">子供データ・活動ログ等すべてのデータを含みます。環境移行用です。</p>
+							<p class="text-xs text-[var(--color-text-muted)] mt-1">{SETTINGS_LABELS.cloudExportTypeFullDesc}</p>
 						{/if}
 					</div>
 					<Button
@@ -1436,9 +1460,9 @@ const anyFormBusy = $derived(
 					>
 						{#if cloudLoading}
 							<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
-							保管中...
+							{SETTINGS_LABELS.cloudSaving}
 						{:else}
-							クラウドに保管
+							{SETTINGS_LABELS.cloudSaveAction}
 						{/if}
 					</Button>
 				</div>
@@ -1447,19 +1471,19 @@ const anyFormBusy = $derived(
 				{#if cloudExports.length > 0}
 					<hr class="my-4 border-[var(--color-border-default)]" />
 					<div>
-						<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">保管済みデータ</h4>
+						<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">{SETTINGS_LABELS.cloudStoredTitle}</h4>
 						<div class="space-y-2">
 							{#each cloudExports as exp}
 								<div class="bg-[var(--color-surface-muted)] rounded-lg p-3 flex items-center justify-between">
 									<div>
 										<p class="text-sm font-mono font-bold text-[var(--color-brand-600)]">{exp.pinCode}</p>
 										<p class="text-xs text-[var(--color-text-muted)]">
-											{exp.exportType === 'template' ? 'テンプレート' : 'フルバックアップ'}
+											{exp.exportType === 'template' ? SETTINGS_LABELS.cloudExportTypeTemplate : SETTINGS_LABELS.cloudExportTypeFull}
 											{#if exp.description}· {exp.description}{/if}
 										</p>
 										<p class="text-xs text-[var(--color-text-muted)]">
-											期限: {new Date(exp.expiresAt).toLocaleDateString('ja-JP')}
-											· DL: {exp.downloadCount}/{exp.maxDownloads}回
+											{SETTINGS_LABELS.cloudStoredExpiry(new Date(exp.expiresAt).toLocaleDateString('ja-JP'))}
+											· {SETTINGS_LABELS.cloudStoredDownloads(exp.downloadCount, exp.maxDownloads)}
 										</p>
 									</div>
 									<Button
@@ -1469,7 +1493,7 @@ const anyFormBusy = $derived(
 										class="text-[var(--color-feedback-error-text)] hover:brightness-75"
 										onclick={() => handleDeleteCloudExport(exp.id)}
 									>
-										削除
+										{SETTINGS_LABELS.cloudStoredDelete}
 									</Button>
 								</div>
 							{/each}
@@ -1480,7 +1504,7 @@ const anyFormBusy = $derived(
 				<!-- PINインポート -->
 				<hr class="my-4 border-[var(--color-border-default)]" />
 				<div>
-					<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">PINコードでインポート</h4>
+					<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">{SETTINGS_LABELS.cloudImportTitle}</h4>
 
 					{#if cloudImportError}
 						<ErrorAlert message={cloudImportError} severity="warning" action="fix_input" />
@@ -1488,13 +1512,13 @@ const anyFormBusy = $derived(
 
 					{#if cloudImportStep === 'input'}
 						<p class="text-sm text-[var(--color-text)] mb-3">
-							共有されたPINコードを入力してデータを取り込みます。
+							{SETTINGS_LABELS.cloudImportDesc}
 						</p>
 						<div class="flex gap-2">
 							<input
 								type="text"
 								bind:value={cloudImportPin}
-								placeholder="PINコード（6桁）"
+								placeholder={SETTINGS_LABELS.cloudImportPinPlaceholder}
 								maxlength="6"
 								class="flex-1 px-3 py-2 border border-[var(--color-border-strong)] rounded-lg text-center font-mono text-lg uppercase tracking-widest"
 							/>
@@ -1506,23 +1530,23 @@ const anyFormBusy = $derived(
 								onclick={handleCloudImportPreview}
 							>
 								{#if cloudImportLoading}
-									確認中...
+									{SETTINGS_LABELS.cloudImportChecking}
 								{:else}
-									確認
+									{SETTINGS_LABELS.cloudImportConfirmAction}
 								{/if}
 							</Button>
 						</div>
 					{:else if cloudImportStep === 'preview' && cloudImportPreview}
 						<div class="bg-[var(--color-feedback-info-bg)] rounded-lg p-4 mb-3">
-							<p class="text-sm font-bold text-[var(--color-feedback-info-text)] mb-2">インポート内容の確認</p>
+							<p class="text-sm font-bold text-[var(--color-feedback-info-text)] mb-2">{SETTINGS_LABELS.cloudImportPreviewTitle}</p>
 							{#if cloudImportPreview.exportType === 'template'}
 								<ul class="text-xs text-[var(--color-feedback-info-text)] space-y-1">
-									{#if cloudImportPreview.activities}<li>活動マスタ: {cloudImportPreview.activities}件</li>{/if}
-									{#if cloudImportPreview.checklistTemplates}<li>チェックリスト: {cloudImportPreview.checklistTemplates}件</li>{/if}
+									{#if cloudImportPreview.activities}<li>{SETTINGS_LABELS.cloudImportPreviewActivities(cloudImportPreview.activities)}</li>{/if}
+									{#if cloudImportPreview.checklistTemplates}<li>{SETTINGS_LABELS.cloudImportPreviewChecklists(cloudImportPreview.checklistTemplates)}</li>{/if}
 								</ul>
-								<p class="text-xs text-[var(--color-text-muted)] mt-2">既存の設定に追加されます（重複はスキップ）。</p>
+								<p class="text-xs text-[var(--color-text-muted)] mt-2">{SETTINGS_LABELS.cloudImportTemplateNote}</p>
 							{:else}
-								<p class="text-xs text-[var(--color-feedback-info-text)]">フルバックアップデータです。追加インポートされます。</p>
+								<p class="text-xs text-[var(--color-feedback-info-text)]">{SETTINGS_LABELS.cloudImportFullNote}</p>
 							{/if}
 						</div>
 						<div class="flex gap-2">
@@ -1533,7 +1557,7 @@ const anyFormBusy = $derived(
 								class="flex-1 bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:brightness-95"
 								onclick={resetCloudImport}
 							>
-								キャンセル
+								{SETTINGS_LABELS.cloudImportCancel}
 							</Button>
 							<Button
 								type="button"
@@ -1544,24 +1568,24 @@ const anyFormBusy = $derived(
 								onclick={handleCloudImportExecute}
 							>
 								{#if cloudImportLoading}
-									インポート中...
+									{SETTINGS_LABELS.cloudImporting}
 								{:else}
-									インポート実行
+									{SETTINGS_LABELS.cloudImportAction}
 								{/if}
 							</Button>
 						</div>
 					{:else if cloudImportStep === 'done' && cloudImportResult}
 						<div class="bg-[var(--color-feedback-success-bg)] rounded-lg p-4 mb-3">
-							<p class="text-sm font-bold text-[var(--color-feedback-success-text)] mb-2">インポート完了</p>
+							<p class="text-sm font-bold text-[var(--color-feedback-success-text)] mb-2">{SETTINGS_LABELS.cloudImportComplete}</p>
 							<ul class="text-xs text-[var(--color-feedback-success-text)] space-y-1">
 								{#if cloudImportResult.activitiesCreated}
-									<li>活動マスタ: {cloudImportResult.activitiesCreated}件 追加</li>
+									<li>{SETTINGS_LABELS.cloudImportResultActivities(cloudImportResult.activitiesCreated)}</li>
 								{/if}
 								{#if cloudImportResult.checklistsCreated}
-									<li>チェックリスト: {cloudImportResult.checklistsCreated}件 追加</li>
+									<li>{SETTINGS_LABELS.cloudImportResultChecklists(cloudImportResult.checklistsCreated)}</li>
 								{/if}
 								{#if cloudImportResult.childrenImported}
-									<li>子供データ: {cloudImportResult.childrenImported}人 追加</li>
+									<li>{SETTINGS_LABELS.cloudImportResultChildren(cloudImportResult.childrenImported)}</li>
 								{/if}
 							</ul>
 						</div>
@@ -1572,7 +1596,7 @@ const anyFormBusy = $derived(
 							class="w-full bg-[var(--color-neutral-300)] text-[var(--color-text)] hover:brightness-95"
 							onclick={resetCloudImport}
 						>
-							閉じる
+							{SETTINGS_LABELS.cloudImportClose}
 						</Button>
 					{/if}
 				</div>
@@ -1583,10 +1607,10 @@ const anyFormBusy = $derived(
 
 	<!-- データクリア -->
 	<Card padding="lg" class="border-2 border-[var(--color-feedback-error-border)]">
-		<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-4">🗑️ データクリア</h3>
+		<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-4">{SETTINGS_LABELS.clearSectionTitle}</h3>
 
 		{#if clearSuccess}
-			<SuccessAlert message="データクリアが完了しました。ページを再読み込みしてください。" />
+			<SuccessAlert message={SETTINGS_LABELS.clearCompleted} />
 		{/if}
 
 		{#if clearError}
@@ -1598,28 +1622,27 @@ const anyFormBusy = $derived(
 		{/if}
 
 		<p class="text-sm text-[var(--color-text)] mb-3">
-			すべての家族データ（子供・活動ログ・ポイント・ステータス等）を一括削除します。
-			活動マスタ・カテゴリなどのシステムデータは保持されます。
+			{SETTINGS_LABELS.clearDesc}
 		</p>
 
 		{#if data.dataSummary}
 			<div class="bg-[var(--color-feedback-error-bg)] rounded-lg p-4 mb-4">
-				<p class="text-sm font-bold text-[var(--color-feedback-error-text)] mb-2">現在のデータ件数</p>
+				<p class="text-sm font-bold text-[var(--color-feedback-error-text)] mb-2">{SETTINGS_LABELS.clearCurrentDataTitle}</p>
 				<ul class="text-xs text-[var(--color-feedback-error-text)] space-y-1 columns-2">
-					<li>子供: {data.dataSummary.children}人</li>
-					<li>活動ログ: {data.dataSummary.activityLogs}件</li>
-					<li>ポイント履歴: {data.dataSummary.pointLedger}件</li>
-					<li>ステータス: {data.dataSummary.statuses}件</li>
-					<li>実績: {data.dataSummary.achievements}件</li>
-					<li>ログインボーナス: {data.dataSummary.loginBonuses}件</li>
-					<li>チェックリスト: {data.dataSummary.checklistTemplates}件</li>
+					<li>{SETTINGS_LABELS.dataImportPreviewChildren(data.dataSummary.children)}</li>
+					<li>{SETTINGS_LABELS.dataImportPreviewActivityLogs(data.dataSummary.activityLogs)}</li>
+					<li>{SETTINGS_LABELS.dataImportPreviewPointLedger(data.dataSummary.pointLedger)}</li>
+					<li>{SETTINGS_LABELS.dataImportPreviewStatuses(data.dataSummary.statuses)}</li>
+					<li>{SETTINGS_LABELS.dataImportPreviewAchievements(data.dataSummary.achievements)}</li>
+					<li>{SETTINGS_LABELS.dataImportPreviewLoginBonuses(data.dataSummary.loginBonuses)}</li>
+					<li>{SETTINGS_LABELS.dataImportPreviewChecklists(data.dataSummary.checklistTemplates)}</li>
 				</ul>
 			</div>
 		{/if}
 
 		<div class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-4">
 			<p class="text-xs text-[var(--color-feedback-error-text)] font-bold">
-				この操作は取り消せません。事前にデータをエクスポートすることをお勧めします。
+				{SETTINGS_LABELS.clearIrreversibleWarning}
 			</p>
 		</div>
 
@@ -1665,7 +1688,7 @@ const anyFormBusy = $derived(
 
 	<!-- フィードバック -->
 	<Card padding="lg" data-tutorial="feedback-section">
-		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">💬 フィードバック・ご意見</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">{SETTINGS_LABELS.feedbackSectionTitle}</h3>
 
 		{#if feedbackSuccess}
 			<SuccessAlert message={feedbackInquiryId
@@ -1713,7 +1736,7 @@ const anyFormBusy = $derived(
 
 			<div>
 				<label for="feedbackText" class="block text-sm font-medium text-[var(--color-text)] mb-1">
-					内容
+					{SETTINGS_LABELS.feedbackContentLabel}
 				</label>
 				<textarea
 					id="feedbackText"
@@ -1722,7 +1745,7 @@ const anyFormBusy = $derived(
 					rows="4"
 					maxlength="1000"
 					required
-					placeholder="ご意見・ご要望をお聞かせください..."
+					placeholder={SETTINGS_LABELS.feedbackContentPlaceholder}
 					class="w-full px-3 py-2 border border-[var(--color-border-strong)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-300)] resize-y"
 				></textarea>
 				<p class="text-xs text-[var(--color-text-muted)] mt-1 text-right">{feedbackText.length}/1000</p>
@@ -1750,30 +1773,30 @@ const anyFormBusy = $derived(
 			</Button>
 		</form>
 		<p class="text-xs text-[var(--color-text-muted)] mt-3 text-center">
-			技術的なご質問・使い方の相談は
-			<a href="mailto:ganbari.quest.support@gmail.com" class="text-[var(--color-brand-500)] hover:underline">メール</a>
-			でも受け付けています
+			{SETTINGS_LABELS.feedbackContactNote}
+			<a href="mailto:ganbari.quest.support@gmail.com" class="text-[var(--color-brand-500)] hover:underline">{SETTINGS_LABELS.feedbackContactLinkLabel}</a>
+			{SETTINGS_LABELS.feedbackContactSuffix}
 		</p>
 	</Card>
 
 	<!-- アプリ情報・リンク -->
 	<Card padding="lg">
-		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">ℹ️ アプリ情報</h3>
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">{SETTINGS_LABELS.appInfoSectionTitle}</h3>
 		<ul class="space-y-3 text-sm">
 			<li>
-				<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-[var(--color-brand-500)] hover:underline">📄 利用規約</a>
+				<a href="https://www.ganbari-quest.com/terms.html" target="_blank" rel="noopener" class="text-[var(--color-brand-500)] hover:underline">{SETTINGS_LABELS.appInfoTermsLink}</a>
 			</li>
 			<li>
-				<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-[var(--color-brand-500)] hover:underline">🔒 プライバシーポリシー</a>
+				<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener" class="text-[var(--color-brand-500)] hover:underline">{SETTINGS_LABELS.appInfoPrivacyLink}</a>
 			</li>
 			<li>
-				<a href="mailto:ganbari.quest.support@gmail.com" class="text-[var(--color-brand-500)] hover:underline">💬 お問い合わせ</a>
+				<a href="mailto:ganbari.quest.support@gmail.com" class="text-[var(--color-brand-500)] hover:underline">{SETTINGS_LABELS.appInfoContactLink}</a>
 			</li>
 			<li>
-				<a href="https://github.com/Takenori-Kusaka/ganbari-quest" target="_blank" rel="noopener noreferrer" class="text-[var(--color-brand-500)] hover:underline">🐙 GitHub</a>
+				<a href="https://github.com/Takenori-Kusaka/ganbari-quest" target="_blank" rel="noopener noreferrer" class="text-[var(--color-brand-500)] hover:underline">{SETTINGS_LABELS.appInfoGithubLink}</a>
 			</li>
 			<li>
-				<span class="text-[var(--color-text-muted)]">バージョン: {APP_VERSION}</span>
+				<span class="text-[var(--color-text-muted)]">{SETTINGS_LABELS.appInfoVersionLabel}{APP_VERSION}</span>
 			</li>
 		</ul>
 	</Card>
@@ -1781,34 +1804,34 @@ const anyFormBusy = $derived(
 	<!-- アカウント削除（cognito モードの全ロール） -->
 	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== SUBSCRIPTION_STATUS.GRACE_PERIOD}
 		<Card padding="lg" class="border-2 border-[var(--color-feedback-error-border)]">
-			<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-2">アカウント削除</h3>
+			<h3 class="text-lg font-bold text-[var(--color-feedback-error-text)] mb-2">{SETTINGS_LABELS.accountDeleteSectionTitle}</h3>
 			{#if $page.data.userRole === 'owner'}
 				<!-- Owner: 家族グループ全体に影響 -->
 				<div class="text-sm text-[var(--color-text-secondary)] space-y-2 mb-4">
-					<p>オーナーとしてアカウントを削除すると、家族グループ全体のデータが影響を受けます。</p>
+					<p>{SETTINGS_LABELS.accountDeleteOwnerDesc}</p>
 					<ul class="list-disc ml-5 text-[var(--color-text-muted)] space-y-1">
-						<li>子供のプロフィール・活動記録・ポイント履歴</li>
-						<li>アバター画像・音声ファイル</li>
-						<li>設定・チェックリスト・キャリアプラン</li>
-						<li>メンバーシップ・招待情報</li>
+						<li>{SETTINGS_LABELS.accountDeleteOwnerItem1}</li>
+						<li>{SETTINGS_LABELS.accountDeleteOwnerItem2}</li>
+						<li>{SETTINGS_LABELS.accountDeleteOwnerItem3}</li>
+						<li>{SETTINGS_LABELS.accountDeleteOwnerItem4}</li>
 					</ul>
 					<p class="text-[var(--color-feedback-error-text)] font-medium">
-						削除後のデータ復旧はできません。事前にデータをエクスポートすることを強くお勧めします。
+						{SETTINGS_LABELS.accountDeleteOwnerWarning}
 					</p>
 				</div>
 			{:else if $page.data.userRole === 'child'}
 				<!-- Child -->
 				<div class="text-sm text-[var(--color-text-secondary)] space-y-2 mb-4">
-					<p>アカウントを削除すると、あなたのログイン情報が削除されます。</p>
-					<p>活動記録やポイントは家族グループに残りますが、このアカウントでのログインはできなくなります。</p>
-					<p class="text-[var(--color-feedback-error-text)] font-medium">削除後の復旧はできません。</p>
+					<p>{SETTINGS_LABELS.accountDeleteChildDesc}</p>
+					<p>{SETTINGS_LABELS.accountDeleteChildDesc2}</p>
+					<p class="text-[var(--color-feedback-error-text)] font-medium">{SETTINGS_LABELS.accountDeleteChildWarning}</p>
 				</div>
 			{:else}
 				<!-- Parent (non-owner) -->
 				<div class="text-sm text-[var(--color-text-secondary)] space-y-2 mb-4">
-					<p>アカウントを削除すると、家族グループから離脱し、ログイン情報が削除されます。</p>
-					<p>家族グループのデータは引き続き保持されます。</p>
-					<p class="text-[var(--color-feedback-error-text)] font-medium">削除後の復旧はできません。</p>
+					<p>{SETTINGS_LABELS.accountDeleteMemberDesc}</p>
+					<p>{SETTINGS_LABELS.accountDeleteMemberDesc2}</p>
+					<p class="text-[var(--color-feedback-error-text)] font-medium">{SETTINGS_LABELS.accountDeleteMemberWarning}</p>
 				</div>
 			{/if}
 
@@ -1819,16 +1842,16 @@ const anyFormBusy = $derived(
 			<!-- 移譲ダイアログ（Owner かつ他メンバーがいる場合） -->
 			{#if showTransferDialog && deletionInfo && !deletionInfo.isOnlyMember}
 				<div class="mt-4 p-4 rounded-lg border-2" style:border-color="var(--color-border-default)" style:background-color="var(--color-surface-card)">
-					<h4 class="font-bold text-[var(--color-text-primary)] mb-3">家族グループに他のメンバーがいます</h4>
+					<h4 class="font-bold text-[var(--color-text-primary)] mb-3">{SETTINGS_LABELS.accountDeleteTransferTitle}</h4>
 					<p class="text-sm text-[var(--color-text-secondary)] mb-4">
-						オーナー権限を別のメンバーに移譲するか、家族グループを全て削除するか選択してください。
+						{SETTINGS_LABELS.accountDeleteTransferDesc}
 					</p>
 
 					<div class="space-y-4">
 						<!-- Option A: Transfer -->
 						<div class="p-3 rounded-lg" style:background-color="var(--color-surface-card)">
 							<p class="text-sm font-medium text-[var(--color-text-primary)] mb-2">
-								オーナー権限を移譲して退会する
+								{SETTINGS_LABELS.accountDeleteTransferOption}
 							</p>
 							<div class="flex items-center gap-2 mb-2">
 								<div class="flex-1">
@@ -1860,10 +1883,10 @@ const anyFormBusy = $derived(
 						<!-- Option B: Full delete -->
 						<div class="p-3 rounded-lg" style:background-color="var(--color-surface-card)">
 							<p class="text-sm font-medium text-[var(--color-feedback-error-text)] mb-2">
-								家族グループを全て削除する
+								{SETTINGS_LABELS.accountDeleteFullOption}
 							</p>
 							<p class="text-xs text-[var(--color-text-muted)] mb-2">
-								全メンバーの所属が解除され、全データが削除されます。
+								{SETTINGS_LABELS.accountDeleteFullOptionDesc}
 							</p>
 							<Button
 								type="button"
@@ -1883,7 +1906,7 @@ const anyFormBusy = $derived(
 							size="sm"
 							onclick={() => { showTransferDialog = false; }}
 						>
-							キャンセル
+							{SETTINGS_LABELS.accountDeleteCancelAction}
 						</Button>
 					</div>
 				</div>
@@ -1920,15 +1943,15 @@ const anyFormBusy = $derived(
 	<!-- ログアウト（cognito モードのみ） -->
 	{#if $page.data.authMode === 'cognito'}
 		<Card padding="lg" class="border border-[var(--color-feedback-error-bg-strong)]">
-			<h3 class="text-lg font-bold text-[var(--color-text)] mb-2">ログアウト</h3>
+			<h3 class="text-lg font-bold text-[var(--color-text)] mb-2">{SETTINGS_LABELS.logoutSectionTitle}</h3>
 			<p class="text-sm text-[var(--color-text-muted)] mb-4">
-				このデバイスからがんばりクエストのアカウントからログアウトします。再度ログインするにはメールアドレスとパスワードが必要です。
+				{SETTINGS_LABELS.logoutDesc}
 			</p>
 			<a
 				href="/auth/signout"
 				class="inline-block px-4 py-2 bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)] text-sm font-medium rounded-lg border border-[var(--color-feedback-error-border)] hover:bg-[var(--color-feedback-error-bg-strong)] transition-colors"
 			>
-				アカウントからログアウト
+				{SETTINGS_LABELS.logoutAction}
 			</a>
 		</Card>
 	{/if}

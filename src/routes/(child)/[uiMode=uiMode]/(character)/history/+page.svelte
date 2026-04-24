@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
+import { APP_LABELS, UI_LABELS } from '$lib/domain/labels';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
@@ -47,7 +48,7 @@ function formatDate(dateStr: string): string {
 </script>
 
 <svelte:head>
-	<title>{t.historyTitle} - がんばりクエスト</title>
+	<title>{t.historyTitle}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
@@ -60,7 +61,7 @@ function formatDate(dateStr: string): string {
 					<span class="font-bold text-lg">{data.summary.totalCount}{t.historyCountUnit}</span>
 				</div>
 				<div class="flex justify-between items-center">
-					<span class="text-sm text-[var(--color-text-muted)]">ポイント</span>
+					<span class="text-sm text-[var(--color-text-muted)]">{UI_LABELS.points}</span>
 					<span class="font-bold text-lg text-[var(--color-point)]">{fmtBal(data.summary.totalPoints)}</span>
 				</div>
 				{#if Object.keys(data.summary.byCategory).length > 0}

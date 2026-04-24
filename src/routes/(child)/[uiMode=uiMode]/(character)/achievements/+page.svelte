@@ -1,4 +1,5 @@
 <script lang="ts">
+import { APP_LABELS, PAGE_TITLES, UI_LABELS } from '$lib/domain/labels';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { getModeVariant } from '$lib/features/child-home/variants';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -11,7 +12,7 @@ const t = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode).text);
 </script>
 
 <svelte:head>
-	<title>チャレンジきろく - がんばりクエスト</title>
+	<title>{PAGE_TITLES.childAchievements}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-sm)] py-[var(--sp-md)]">
@@ -50,12 +51,12 @@ const t = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode).text);
 					<div class="flex items-center justify-between">
 						<div>
 							<p class="text-sm font-bold text-[var(--color-text)]">{challenge.categoryName}</p>
-							<p class="text-xs text-[var(--color-text-muted)]">{challenge.weekStart}〜</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{challenge.weekStart + '〜'}</p>
 						</div>
 						<div class="text-right">
 							<span class="text-sm font-bold">{challenge.currentCount}/{challenge.targetCount}</span>
 							{#if challenge.status === 'completed'}
-								<p class="text-xs font-bold text-[var(--color-success-600)]">クリア！</p>
+								<p class="text-xs font-bold text-[var(--color-success-600)]">{UI_LABELS.clear}</p>
 							{:else if challenge.status === 'expired'}
 								<p class="text-xs text-[var(--color-text-muted)]">{t.achievementsStatusDone}</p>
 							{:else}
