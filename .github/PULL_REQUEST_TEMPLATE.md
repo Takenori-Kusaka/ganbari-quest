@@ -313,6 +313,21 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
   - 「Pre-PMF だから」という言い訳付きで載せていないか？
   - 代替として、使い方・使い心地が伝わるスクリーンショット・デモ動画の方が効果的ではないか？
 
+### LP / 販促文言変更時の実装パス明示（ADR-0013 / #1314）
+
+<!-- LP (`site/**`) / pricing page / `plan-features.ts` / `pricing-strategy.md` / `docs/design/19-*.md` の
+     文言を変更・追加した場合のみ記入。該当しない場合は「N/A」 -->
+
+- [ ] **N/A** — LP / 販促文言を変更していない
+- [ ] または、変更した文言と対応する実装コードパスを以下に列挙した（[ADR-0013](../docs/decisions/0013-lp-truth-from-implementation.md) Committed/Aspirational 区分確認済み）:
+
+| 変更した文言 | 実装コードパス | Committed/Aspirational |
+|------------|---------------|----------------------|
+| 例: 「毎日のおみくじシール」 | `src/lib/server/services/stamp-card-service.ts::stampToday` | Committed |
+
+<!-- Aspirational 機能（未実装）を LP に新規追加・変更することは禁止（ADR-0013）。
+     既存 Aspirational 表記の削除・修正のみ可。 -->
+
 ### その他
 
 - [ ] **用語変更**: 変更した用語が他の画面・コンポーネントにも存在しないか `grep` で全件確認した
