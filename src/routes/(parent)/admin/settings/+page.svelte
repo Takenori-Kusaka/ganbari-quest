@@ -3,7 +3,7 @@ import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
-import { IMPORT_LABELS, OYAKAGI_LABELS, type ImportSkipReason } from '$lib/domain/labels';
+import { IMPORT_LABELS, type ImportSkipReason, OYAKAGI_LABELS } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
