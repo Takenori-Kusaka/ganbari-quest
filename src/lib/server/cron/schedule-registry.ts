@@ -1,0 +1,45 @@
+// src/lib/server/cron/schedule-registry.ts
+// #1375: cron ジョブ定義の SSOT
+//
+// NUC scheduler コンテナ (scripts/scheduler.ts) と AWS EventBridge (#1376) の
+// 両方がここを参照することで、スケジュール定義の二重管理を防ぐ。
+//
+// cronExpression は Asia/Tokyo タイムゾーンで解釈される（コンテナ TZ=Asia/Tokyo）。
+// AWS EventBridge は UTC 固定のため、Sub A-2 (#1376) 実装時に utcExpression も参照すること。
+
+export interface CronJob {
+	/** ジョブ識別名（ログ・監視用） */
+	name: string;
+	/** 呼び出す SvelteKit cron エンドポイントのパス */
+	endpoint: string;
+	/** cron 式（Asia/Tokyo）*/
+	cronExpression: string;
+	/** AWS EventBridge 用 UTC cron 式（"cron(分 時 日 月 ? 年)" 形式）*/
+	utcCronExpression: string;
+	/** 概要説明 */
+	description: string;
+}
+
+export const scheduleRegistry: CronJob[] = [
+	{
+		name: 'license-expire',
+		endpoint: '/api/cron/license-expire',
+		cronExpression: '0 0 * * *', // 毎日 00:00 JST
+		utcCronExpression: 'cron(0 15 * * ? *)', // 毎日 15:00 UTC = 翌日 00:00 JST
+		description: 'ライセンスキー期限切れ自動失効バッチ (#821)',
+	},
+	{
+		name: 'retention-cleanup',
+		endpoint: '/api/cron/retention-cleanup',
+		cronExpression: '0 1 * * *', // 毎日 01:00 JST
+		utcCronExpression: 'cron(0 16 * * ? *)', // 毎日 16:00 UTC = 翌日 01:00 JST
+		description: '保存期間超過データの自動削除バッチ (#717, #729)',
+	},
+	{
+		name: 'trial-notifications',
+		endpoint: '/api/cron/trial-notifications',
+		cronExpression: '0 9 * * *', // 毎日 09:00 JST
+		utcCronExpression: 'cron(0 0 * * ? *)', // 毎日 00:00 UTC = 09:00 JST
+		description: 'トライアル終了通知バッチ (#737)',
+	},
+];

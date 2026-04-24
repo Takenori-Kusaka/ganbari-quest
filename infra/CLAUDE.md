@@ -20,7 +20,7 @@ production に新しい env を追加した場合は以下 **4 経路すべて**
 | `STRIPE_SECRET_KEY` | Stripe 課金 | 未設定可 | 未設定可 | 本番値必須 | （NUC は Stripe 無効） | Stripe Dashboard |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook 検証 | 未設定可 | 未設定可 | 本番値必須 | （NUC は Stripe 無効） | Stripe Dashboard |
 | `GEMINI_API_KEY` | Gemini API (任意) | 未設定可 | 未設定可 | 任意 | 任意 | https://aistudio.google.com/ |
-| `CRON_SECRET` | `/api/cron/retention-cleanup` Bearer（#820 / ADR-0033（archive）） | 未設定可 | 未設定可 | **本番値必須** | （NUC は cron 無効） | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `CRON_SECRET` | `/api/cron/*` 認証トークン（#820 / ADR-0033（archive） / #1375 NUC scheduler） | 未設定可 | 未設定可 | **本番値必須** | **本番値必須**（scheduler コンテナで使用） | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `OPS_SECRET_KEY` | (deprecated) `CRON_SECRET` 後方互換フォールバック（ADR-0033（archive）、PR-D-2 で削除予定） | 未設定可 | 未設定可 | 任意（新規は `CRON_SECRET` 推奨） | （NUC は無効） | 既存値を維持 |
 
 > **重要**: #3 と #4 は **同一値** を使うこと（両環境で署名したライセンスキーが相互に検証できるように）。GitHub Secrets に登録した同一値が、CDK context 経由で Lambda env に注入されると同時に、self-hosted runner 経由で NUC の `.env` にも書き出される。
@@ -114,3 +114,30 @@ ssh <NUC_USER>@<NUC_HOST> "cd <NUC_APP_DIR> && git pull && docker compose build 
 # 4. 動作確認
 ssh <NUC_USER>@<NUC_HOST> "curl -s http://localhost:3000/api/health"
 ```
+
+### NUC Scheduler コンテナ起動手順（#1375 — ADR-0020）
+
+cron ジョブ（license-expire / retention-cleanup / trial-notifications）を NUC で実行するには
+`profiles: scheduler` を有効化して起動する。
+
+```bash
+# 前提: CRON_SECRET が .env に設定されていること
+# （deploy-nuc.yml の Generate .env ステップで自動設定される）
+
+# scheduler コンテナを含めて起動
+docker compose --profile scheduler up -d
+
+# scheduler ログ確認
+docker compose logs -f scheduler
+
+# 手動で特定 cron ジョブをテスト実行（dryRun: true）
+curl -s -X POST http://localhost:3000/api/cron/retention-cleanup \
+  -H "x-cron-secret: <CRON_SECRET>" \
+  -H "Content-Type: application/json" \
+  -d '{"dryRun": true}'
+```
+
+**注意**:
+- `docker compose up -d` のみ（profiles なし）では scheduler は起動しない。`--profile scheduler` が必須
+- Sub A-3 (#1377) の実装前は、`deploy-nuc.yml` への `--profile scheduler` 組込は行わない（手動有効化）
+- scheduler コンテナは `app` コンテナに依存（`depends_on: app`）。app が起動していること確認後に起動すること

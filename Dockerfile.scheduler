@@ -1,0 +1,31 @@
+# Dockerfile.scheduler — NUC cron scheduler コンテナ (#1375)
+#
+# node-cron で schedule-registry.ts の定義に従い /api/cron/* エンドポイントを呼び出す。
+# docker compose --profile scheduler up で opt-in 起動。
+#
+# メモリフットプリント目標: < 100MB（node-cron + tsx のみで常駐する軽量プロセス）
+
+# Stage 1: npm ci（ネイティブモジュールビルドツールを含む）
+FROM node:22-alpine AS deps
+RUN apk add --no-cache python3 make g++
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+# Stage 2: Runtime（最小コピー）
+FROM node:22-alpine AS runtime
+WORKDIR /app
+
+# node_modules 全体をコピー（tsx + node-cron が含まれる）
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./
+
+# scheduler に必要なソースのみコピー（SvelteKit ビルド成果物は不要）
+COPY src/lib/server/cron/ ./src/lib/server/cron/
+COPY scripts/scheduler.ts ./scripts/scheduler.ts
+COPY tsconfig.json ./
+
+ENV TZ=Asia/Tokyo
+ENV NODE_ENV=production
+
+CMD ["node_modules/.bin/tsx", "scripts/scheduler.ts"]
