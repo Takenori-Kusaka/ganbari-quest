@@ -282,7 +282,8 @@ describe('cognito-oauth', () => {
 			await revokeCognitoRefreshToken(cookies as any);
 
 			expect(fetchMock).toHaveBeenCalledOnce();
-			const [url, opts] = fetchMock.mock.calls[0];
+			// biome-ignore lint/suspicious/noExplicitAny: test mock type assertion
+			const [url, opts] = fetchMock.mock.calls[0] as [string, any];
 			expect(url).toContain('/oauth2/revoke');
 			expect(opts.method).toBe('POST');
 		});

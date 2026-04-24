@@ -48,11 +48,7 @@ async function handleLogout(cookies: import('@sveltejs/kit').Cookies): Promise<n
 	redirect(302, '/auth/login');
 }
 
-export const POST: RequestHandler = async ({ cookies }) => {
-	await handleLogout(cookies);
-};
+export const POST: RequestHandler = ({ cookies }) => handleLogout(cookies);
 
 // GET でもログアウト可能にする（リンクからの遷移用）
-export const GET: RequestHandler = async ({ cookies }) => {
-	await handleLogout(cookies);
-};
+export const GET: RequestHandler = ({ cookies }) => handleLogout(cookies);
