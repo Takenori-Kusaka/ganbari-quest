@@ -42,7 +42,7 @@ const filteredActivities = $derived.by(() => {
 function dailyLimitLabel(val: number | null): string {
 	if (val === null) return '1回/日';
 	if (val === 0) return '無制限';
-	return `${val + '回'}/日`;
+	return `${`${val}回`}/日`;
 }
 </script>
 
