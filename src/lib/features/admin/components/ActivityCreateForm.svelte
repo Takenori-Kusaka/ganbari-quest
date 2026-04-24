@@ -35,16 +35,23 @@ let {
 	oncreated,
 }: Props = $props();
 
+// svelte-ignore state_referenced_locally
 let formName = $state(initialName);
+// svelte-ignore state_referenced_locally
 let formCategoryId = $state(initialCategoryId);
+// svelte-ignore state_referenced_locally
 let formMainIcon = $state(initialMainIcon);
+// svelte-ignore state_referenced_locally
 let formSubIcon = $state(initialSubIcon);
 const formIcon = $derived(joinIcon(formMainIcon, formSubIcon || null));
+// svelte-ignore state_referenced_locally
 let formPoints = $state(initialPoints);
 let formAgeMin = $state('');
 let formAgeMax = $state('');
 let formDailyLimit = $state<string>('');
+// svelte-ignore state_referenced_locally
 let formNameKana = $state(initialNameKana);
+// svelte-ignore state_referenced_locally
 let formNameKanji = $state(initialNameKanji);
 let formTriggerHint = $state('');
 

@@ -146,15 +146,15 @@ describe('deletion-export-service', () => {
 			expect(result.format).toBe('ganbari-quest-deletion-export');
 			expect(result.scope).toBe('minimal');
 			expect(result.children).toHaveLength(2);
-			expect(result.children[0]!.nickname).toBe('たろう');
+			expect(result.children[0]?.nickname).toBe('たろう');
 			expect(result.activitySummary).toHaveLength(2);
-			expect(result.activitySummary[0]!.totalPoints).toBe(150);
+			expect(result.activitySummary[0]?.totalPoints).toBe(150);
 			// 子供ごとの活動数が正しくカウントされること
-			expect(result.activitySummary[0]!.totalActivities).toBe(5);
-			expect(result.activitySummary[1]!.totalActivities).toBe(3);
+			expect(result.activitySummary[0]?.totalActivities).toBe(5);
+			expect(result.activitySummary[1]?.totalActivities).toBe(3);
 			// カテゴリ名がSSOTから取得されること
-			expect(result.activitySummary[0]!.categories[0]!.name).toBe('うんどう');
-			expect(result.activitySummary[0]!.categories[1]!.name).toBe('べんきょう');
+			expect(result.activitySummary[0]?.categories[0]?.name).toBe('うんどう');
+			expect(result.activitySummary[0]?.categories[1]?.name).toBe('べんきょう');
 		});
 
 		it('子供がいない場合も空の結果を返す', async () => {
@@ -188,10 +188,10 @@ describe('deletion-export-service', () => {
 			const result = await generateSiblingComparison('tenant-1');
 
 			expect(result.children).toHaveLength(2);
-			expect(result.children[0]!.nickname).toBe('たろう');
-			expect(result.children[0]!.totalPoints).toBe(200);
-			expect(result.children[1]!.nickname).toBe('はなこ');
-			expect(result.children[1]!.totalPoints).toBe(100);
+			expect(result.children[0]?.nickname).toBe('たろう');
+			expect(result.children[0]?.totalPoints).toBe(200);
+			expect(result.children[1]?.nickname).toBe('はなこ');
+			expect(result.children[1]?.totalPoints).toBe(100);
 		});
 	});
 

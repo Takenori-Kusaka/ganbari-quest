@@ -12,8 +12,8 @@
 //   node scripts/gdrive-auth-setup.cjs <CLIENT_ID> <CLIENT_SECRET>
 
 const { google } = require('googleapis');
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 
 // Load .env if exists
 const envPath = path.join(__dirname, '..', '..', '.env');

@@ -50,6 +50,7 @@ function filterUrl(overrides: Partial<Record<string, string | null>>): string {
 const sortSelectItems = Object.entries(MARKETPLACE_FILTER_LABELS.sortOptions).map(
 	([value, label]) => ({ value, label }),
 );
+// svelte-ignore state_referenced_locally
 let sortSelectValue = $state([activeSort]);
 $effect(() => {
 	sortSelectValue = [activeSort];
