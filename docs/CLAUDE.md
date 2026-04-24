@@ -72,6 +72,9 @@
 - [ADR-0016](decisions/0016-japanese-text-wrap.md) — 日本語テキスト折り返し方針（proposed, #1353）
 - [ADR-0017](decisions/0017-cognito-pool-recreation-email-mutable.md) — Cognito User Pool 再作成による email mutable 化（**rejected — deploy failed 2026-04-21**, superseded by ADR-0018）
 - [ADR-0018](decisions/0018-cognito-user-pool-logical-id-replacement.md) — Cognito User Pool 論理 ID 変更による明示的 Replacement（accepted, #1366 再設計, 2026-04-21）
+- [ADR-0019](decisions/0019-cdk-replacement-detection-gate.md) — CDK Replacement Detection Gate（accepted）
+- [ADR-0020](decisions/0020-nuc-scheduler-choice.md) — NUC スケジューラ方式選定（node-cron + 専用コンテナ）（accepted, #1375, 2026-04-24）
+- [ADR-0021](decisions/0021-cognito-pool-migration-user-preservation.md) — Cognito Pool 移行におけるユーザー保全戦略（email natural key + export/import scripts）（accepted, #1399, 2026-04-24）
 
 > **注**: #1307 (B9) / #1298 (B3) / #1346 (labels/i18n) / #1353 (variant/text-wrap) / #1366 (Cognito email) 派生で ADR-0011〜0018 が同時期に提案されている。ADR-0017 は Rejected で 0018 に supersede 済み (active 件数には ADR-0017 は含めない扱い)。10 枠上限ルールの 1-in-1-out は、まとまって merge されるタイミングでまとめて棚卸する（PO 判断）。本 CLAUDE.md の 10-active 表現は一時的に 11+ に膨らむ可能性がある。
 >
