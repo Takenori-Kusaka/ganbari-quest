@@ -163,11 +163,10 @@ export async function claimBirthdayBonus(
 	// uiMode も自動的に再計算する。ポリシー: 常に自動上書き（手動設定は誕生日後に再調整）。
 	const newUiMode = getDefaultUiMode(newAge);
 
-	// 年齢更新 + uiMode 再計算 + 重複防止フラグ設定
+	// uiMode 再計算 + 重複防止フラグ設定（age 更新は age-recalc cron に移譲）
 	await updateChild(
 		childId,
 		{
-			age: newAge,
 			uiMode: newUiMode,
 			lastBirthdayBonusYear: currentYear,
 		},
