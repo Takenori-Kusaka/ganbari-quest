@@ -25,6 +25,10 @@ export interface OpsStackProps extends cdk.StackProps {
 	 * CloudFront 経由だと geoRestriction('JP') で us-east-1 Lambda からは 403 になる。
 	 */
 	functionUrl: lambda.FunctionUrl;
+	/**
+	 * #1376 AC6: cron dispatcher Lambda のエラーを CloudWatch Alarm で通知するため。
+	 */
+	cronDispatcherFn?: lambda.Function;
 	opsEmail?: string;
 	discordWebhookHealth?: string;
 }
@@ -227,6 +231,22 @@ export class OpsStack extends cdk.Stack {
 			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
 		});
 		dynamoConsumedCapacity.addAlarmAction(alarmAction);
+
+		// P0: Cron Dispatcher Lambda Errors (#1376 AC6)
+		// CronDispatcherFn が prop として渡された場合のみアラームを作成する（最小構成）
+		if (props.cronDispatcherFn) {
+			const cronDispatcherErrors = props.cronDispatcherFn
+				.metricErrors({ period: cdk.Duration.minutes(5) })
+				.createAlarm(this, 'CronDispatcherErrors', {
+					alarmName: 'ganbari-quest-cron-dispatcher-errors',
+					alarmDescription: 'Cron Dispatcher Lambda エラー: 5分間に1回以上 (#1376)',
+					threshold: 1,
+					evaluationPeriods: 1,
+					comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				});
+			cronDispatcherErrors.addAlarmAction(alarmAction);
+			cronDispatcherErrors.addOkAction(alarmAction);
+		}
 
 		// ================================================================
 		// 3. CloudWatch Dashboard
