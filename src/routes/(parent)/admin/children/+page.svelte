@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
 import { getErrorMessage } from '$lib/domain/errors';
 import {
 	ADMIN_CHILDREN_PAGE_LABELS,
@@ -32,6 +33,9 @@ const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.r
 let showAddForm = $state(false);
 let themeValue = $state('blue');
 let addBirthDate = $state<string | undefined>(undefined);
+const addAgeFromBirthDate = $derived(
+	addBirthDate ? calculateAgeFromBirthDate(addBirthDate) : undefined,
+);
 </script>
 
 <svelte:head>
@@ -121,6 +125,7 @@ let addBirthDate = $state<string | undefined>(undefined);
 						min="0"
 						max="18"
 						disabled={!!addBirthDate}
+						value={addAgeFromBirthDate}
 						placeholder={addBirthDate ? '' : ADMIN_CHILDREN_PAGE_LABELS.agePlaceholder}
 					/>
 					<Select

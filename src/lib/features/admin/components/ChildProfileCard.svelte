@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
 import { getAgeTierLabel, getThemeOptions } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import {
@@ -70,6 +71,9 @@ let isEditing = $state(false);
 let themeValue = $state(child.theme);
 // svelte-ignore state_referenced_locally
 let editBirthDate = $state<string | undefined>(child.birthDate ?? undefined);
+const editAgeFromBirthDate = $derived(
+	editBirthDate ? calculateAgeFromBirthDate(editBirthDate) : undefined,
+);
 let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'voice'>('info');
 let statusEditSuccess = $state(false);
 let sliderValues: Record<number, number> = $state({});
@@ -316,7 +320,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 									type="number"
 									min="0"
 									max="18"
-									value={child.age}
+									value={editAgeFromBirthDate ?? child.age}
 									readonly={!!editBirthDate}
 									class="profile-edit__input {editBirthDate ? 'profile-edit__input--readonly' : ''}"
 								/>
