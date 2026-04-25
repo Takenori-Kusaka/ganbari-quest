@@ -483,6 +483,9 @@ gh pr edit NNN --body "$(cat pr-body.md)"
 - PR body の AC セクションは `## AC 検証マップ` (ADR-0038) で統一し、4列テーブル形式を使う。チェックボックス形式 `- [x]` は CI が認識しない
 - Windows 環境で `capture.mjs` が `サーバーが 40 秒以内に起動しませんでした` でタイムアウトする場合、dev server が `::1` でリスンしているが `checkPort` が `127.0.0.1` を見ているため。PowerShell で dev server を起動し、Playwright スクリプトを直接実行する回避策を使う
 - スクリーンショットは `docs/screenshots/pr-NNN/` にコミットして `raw.githubusercontent.com` 経由で PR body から参照する
+
+---
+
 ## TA-009 — loginAsPlan() 未移行で storageState 導入後も e2e-cognito-dev が 30m+ timeout
 
 | フィールド | 値 |
