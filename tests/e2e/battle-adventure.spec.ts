@@ -62,8 +62,9 @@ test.describe
 		});
 
 		// API テスト: GET で情報取得（バトルがまだ pending のはず）
+		// child_id=3 = けんたくん（elementary）— UI テストと同じ子供を使用
 		test('バトルAPI: GETで今日のバトル情報を取得できる', async ({ request }) => {
-			const res = await request.get('/api/v1/battle/1');
+			const res = await request.get('/api/v1/battle/3');
 			expect(res.status()).toBe(200);
 
 			const data = await res.json();
@@ -91,18 +92,18 @@ test.describe
 
 		// API テスト: POST でバトル実行
 		test('バトルAPI: POSTでバトルを実行し結果を取得できる', async ({ request }) => {
-			const getRes = await request.get('/api/v1/battle/1');
+			const getRes = await request.get('/api/v1/battle/3');
 			const getData = await getRes.json();
 
 			if (getData.completed) {
 				// 既にバトル済みの場合はPOSTがエラーになることを確認
-				const postRes = await request.post('/api/v1/battle/1');
+				const postRes = await request.post('/api/v1/battle/3');
 				expect(postRes.status()).toBe(400);
 				return;
 			}
 
 			// バトル実行
-			const postRes = await request.post('/api/v1/battle/1');
+			const postRes = await request.post('/api/v1/battle/3');
 			expect(postRes.status()).toBe(200);
 
 			const postData = await postRes.json();
