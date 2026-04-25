@@ -153,3 +153,62 @@ gh workflow run ci.yml --ref <ブランチ名>
 - docs のみ変更の PR で CI 全通過を確認したい場合は `gh workflow run ci.yml --ref <ブランチ名>` で手動実行する
 
 ---
+
+## TA-003 — cognito-dev ビルドで `/sitemap.xml` がプリレンダエラーになる
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-25 |
+| **PR 番号** | #1499 |
+| **ワークフロー** | CI |
+| **ジョブ名** | e2e-cognito-dev |
+| **ステップ名** | Build (cognito-dev mode) |
+| **ステータス** | resolved |
+
+### エラーメッセージ（原文）
+
+```
+302 /sitemap.xml -> /auth/login
+
+Error: The following routes were marked as prerenderable, but were not prerendered because they were not found while crawling your app:
+  - /sitemap.xml
+
+See the `handleUnseenRoutes` option in https://svelte.dev/docs/kit/configuration#prerender for more info.
+```
+
+### 根本原因
+
+`src/routes/sitemap.xml/+server.ts` は `export const prerender = true` が設定されており、
+`svelte.config.js` の `prerender.entries` にも `'/sitemap.xml'` が明示登録されている（#832 で対応済み）。
+
+しかし `AUTH_MODE=cognito COGNITO_DEV_MODE=true` のビルド時に、プリレンダクローラが `/sitemap.xml`
+を取得しようとすると `src/lib/server/auth/authorization.ts` の `isPublicRoute()` が
+`/sitemap.xml` を公開ルートとして認識せず、未認証扱いで `/auth/login` に 302 リダイレクトしてしまう。
+
+`local` モードでは `hooks.server.ts` の 429 行目に `path !== '/sitemap.xml'` の明示除外があるが
+（コメントに #832 と記載）、`cognito` モードの認可チェックには同等の除外が漏れていた。
+
+### 解決手順
+
+`src/lib/server/auth/authorization.ts` の `isPublicRoute()` 関数に `/sitemap.xml` と `/robots.txt`
+を追加:
+
+```typescript
+function isPublicRoute(path: string): boolean {
+  return (
+    path === '/' ||
+    // #832: SEO エンドポイントはプリレンダ対象。未認証でもクローラ・ビルドがアクセスできるよう公開する。
+    path === '/sitemap.xml' ||
+    path === '/robots.txt' ||
+    path.startsWith('/auth') ||
+    // ...
+  );
+}
+```
+
+### 再発防止策
+
+- 新しい公開 SEO ルート（`sitemap.xml`, `robots.txt` 等）を追加する際は、`isPublicRoute()` への追加も忘れずに行う
+- `local` モード向けの除外（`hooks.server.ts`）と `cognito` モード向けの除外（`authorization.ts`）は**両方**更新する必要がある（並行実装ペア）
+
+---
