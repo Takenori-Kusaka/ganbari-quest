@@ -1,0 +1,425 @@
+name: PR テンプレート必須ゲート
+
+# PR テンプレート (.github/PULL_REQUEST_TEMPLATE.md) の必須項目が
+# 適切に記入されているかを 5 つの並列ジョブで検証する。
+# いずれか 1 つでも失敗すると PR がブロックされる（hard-fail）。
+#
+# 対象: Ready for Review 済みの全 PR（Draft / bot PR は除外）
+#
+# ★ テンプレート自動追従:
+#   各ジョブはベースブランチの PULL_REQUEST_TEMPLATE.md を実行時に読み込み、
+#   チェック対象のセクション名・フィールド名を動的に決定する。
+#   テンプレートを変更しても本ファイルの修正は不要。
+#
+# ジョブ一覧（全て並列実行）:
+#   check-section-presence  — 必須セクションが削除されていないか
+#   check-issue-reference   — 関連 Issue 番号が記入されているか
+#   check-change-type       — 変更タイプが 1 つ以上選択されているか
+#   check-customer-value    — 顧客価値・目的の必須フィールドが記入されているか
+#   check-test-results      — テスト実行結果テーブルのプレースホルダーが残っていないか
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  # ============================================================
+  # Job 1: 必須セクション存在確認
+  # PULL_REQUEST_TEMPLATE.md から ## 見出しを動的抽出し、
+  # PR 本文に全て含まれているかを確認する。
+  # ============================================================
+  check-section-presence:
+    name: "必須セクションの存在確認"
+    runs-on: ubuntu-latest
+    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          sparse-checkout: .github/PULL_REQUEST_TEMPLATE.md
+          sparse-checkout-cone-mode: false
+      - name: Verify required sections exist
+        uses: actions/github-script@v9
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            if (labels.some(l => l.includes('dependencies'))) {
+              core.info('依存関係更新 PR のためスキップ');
+              return;
+            }
+
+            // テンプレートから ## 見出しを動的抽出
+            const template = fs.readFileSync('.github/PULL_REQUEST_TEMPLATE.md', 'utf-8');
+            const sections = template.split('\n')
+              .filter(l => /^## /.test(l))
+              .map(l => l.trim());
+
+            const missing = sections.filter(s => !body.includes(s));
+
+            if (missing.length > 0) {
+              core.setFailed(
+                `❌ PR テンプレートの必須セクションが ${missing.length} 件削除されています。\n\n` +
+                `削除されたセクション:\n${missing.map(s => `  • ${s}`).join('\n')}\n\n` +
+                'PR テンプレート (.github/PULL_REQUEST_TEMPLATE.md) のセクション見出し (## ...) を削除しないでください。\n' +
+                '内容が該当しない場合は「N/A」または「該当なし」と記載してください。'
+              );
+            } else {
+              core.info(`✅ 必須セクション ${sections.length} 件 — 全て存在`);
+            }
+
+  # ============================================================
+  # Job 2: 関連 Issue 番号の記入
+  # テンプレートで `closes #` を含むセクション見出しを動的取得し、
+  # そのセクション内に Issue 番号参照があるかを確認する。
+  # ============================================================
+  check-issue-reference:
+    name: "関連 Issue 番号の記入"
+    runs-on: ubuntu-latest
+    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          sparse-checkout: .github/PULL_REQUEST_TEMPLATE.md
+          sparse-checkout-cone-mode: false
+      - name: Verify issue reference
+        uses: actions/github-script@v9
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            if (labels.some(l => l.includes('dependencies'))) {
+              core.info('依存関係更新 PR のためスキップ');
+              return;
+            }
+
+            // テンプレートから 'closes #' を含むセクション見出しを動的取得
+            const template = fs.readFileSync('.github/PULL_REQUEST_TEMPLATE.md', 'utf-8');
+            const templateLines = template.split('\n');
+            let issueSectionHeading = '## 関連 Issue';
+            for (let i = 0; i < templateLines.length; i++) {
+              if (/^## /.test(templateLines[i])) {
+                const lookahead = templateLines.slice(i + 1, i + 15);
+                if (lookahead.some(l => /closes\s+#/.test(l))) {
+                  issueSectionHeading = templateLines[i].trim();
+                  break;
+                }
+              }
+            }
+
+            // テンプレートデフォルトの未入力パターン: `closes #` の後に数字がない
+            if (/^closes\s+#\s*$/im.test(body) || /closes\s+#\s*<!--/im.test(body)) {
+              core.setFailed(
+                `❌ 「${issueSectionHeading}」セクションの \`closes #\` に Issue 番号が記入されていません。\n\n` +
+                '`closes #123` の形式で Issue 番号を記載してください。\n\n' +
+                '関連する Issue がない場合（独立タスク等）は、`closes` 行を削除し代わりに理由を明記してください。\n' +
+                '例:\n```\n## 関連 Issue\nIssue なし（外部ライブラリバージョン更新のため）\n```'
+              );
+              return;
+            }
+
+            const sectionStart = body.indexOf(issueSectionHeading);
+            const sectionEnd = body.indexOf('\n## ', sectionStart + 1);
+            const section = sectionStart !== -1
+              ? body.slice(sectionStart, sectionEnd > sectionStart ? sectionEnd : sectionStart + 500)
+              : body;
+
+            // Issue 番号参照があれば OK
+            const refs = section.match(/#\d+/g);
+            if (refs && refs.length > 0) {
+              core.info(`✅ 関連 Issue: ${refs.join(', ')}`);
+              return;
+            }
+
+            // Issue なし（理由を明記）でも OK:
+            // セクション見出し・closes行・コメント行を除いた実質コンテンツが 10 文字以上あれば理由の記述とみなす
+            const meaningfulLines = section.split('\n')
+              .filter(l => !l.startsWith(issueSectionHeading))
+              .filter(l => !/^closes\s+#\s*$/.test(l.trim()))
+              .filter(l => !/^\s*<!--/.test(l))
+              .filter(l => !/^\s*-->\s*$/.test(l))
+              .filter(l => l.trim().length > 0);
+            const meaningfulText = meaningfulLines.join('').replace(/\s/g, '');
+
+            if (meaningfulText.length >= 10) {
+              core.info('✅ 関連 Issue: Issue 番号なし（理由の記述あり）');
+              return;
+            }
+
+            core.setFailed(
+              `❌ 「${issueSectionHeading}」セクションに Issue 番号の参照がありません。\n\n` +
+              '`closes #123` の形式で関連する Issue 番号を記載してください。\n' +
+              'Issue が存在しない場合は、`closes` 行を削除し理由を明記してください。\n' +
+              '例:\n```\n## 関連 Issue\nIssue なし（外部ライブラリバージョン更新のため）\n```'
+            );
+
+  # ============================================================
+  # Job 3: 変更タイプの選択
+  # テンプレートで複数の `- [ ]` チェックボックスを持つセクション見出しを
+  # 動的取得し、1 つ以上 [x] チェックがされているかを確認する。
+  # ============================================================
+  check-change-type:
+    name: "変更タイプの選択"
+    runs-on: ubuntu-latest
+    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          sparse-checkout: .github/PULL_REQUEST_TEMPLATE.md
+          sparse-checkout-cone-mode: false
+      - name: Verify change type selected
+        uses: actions/github-script@v9
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            if (labels.some(l => l.includes('dependencies'))) {
+              core.info('依存関係更新 PR のためスキップ');
+              return;
+            }
+
+            // テンプレートから複数の - [ ] チェックボックスを持つ最初のセクション見出しを動的取得
+            // 変更タイプセクションの判定: 3 行以上の - [ ] が連続するセクション
+            const template = fs.readFileSync('.github/PULL_REQUEST_TEMPLATE.md', 'utf-8');
+            const templateLines = template.split('\n');
+            let changeTypeSectionHeading = '## 変更タイプ';
+            for (let i = 0; i < templateLines.length; i++) {
+              if (/^## /.test(templateLines[i])) {
+                const lookahead = templateLines.slice(i + 1, i + 20);
+                if (lookahead.filter(l => /^- \[ \]/.test(l)).length >= 3) {
+                  changeTypeSectionHeading = templateLines[i].trim();
+                  break;
+                }
+              }
+            }
+
+            const sectionStart = body.indexOf(changeTypeSectionHeading);
+            if (sectionStart === -1) {
+              core.warning(`「${changeTypeSectionHeading}」セクションが見つかりません（section-presence チェックを確認してください）`);
+              return;
+            }
+
+            const sectionEnd = body.indexOf('\n## ', sectionStart + 1);
+            const section = body.slice(sectionStart, sectionEnd > sectionStart ? sectionEnd : sectionStart + 600);
+
+            const checked = section.match(/- \[[xX]\]/g);
+
+            if (!checked || checked.length === 0) {
+              core.setFailed(
+                `❌ 「${changeTypeSectionHeading}」で何も選択されていません。\n\n` +
+                '該当する変更タイプのチェックボックスを選択してください。\n\n' +
+                '例:\n```markdown\n- [x] feat: 新機能\n```'
+              );
+            } else {
+              const items = (section.match(/- \[[xX]\] (.+)/g) || []).map(i => i.replace(/- \[[xX]\] /, ''));
+              core.info(`✅ 変更タイプ: ${items.join(' / ')}`);
+            }
+
+  # ============================================================
+  # Job 4: 顧客価値・目的の記入
+  # テンプレートの最初のセクションから **bold**: フィールドを動的抽出し、
+  # プレースホルダーのままになっていないかを確認する。
+  # ============================================================
+  check-customer-value:
+    name: "顧客価値・目的の記入"
+    runs-on: ubuntu-latest
+    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          sparse-checkout: .github/PULL_REQUEST_TEMPLATE.md
+          sparse-checkout-cone-mode: false
+      - name: Verify customer value section filled
+        uses: actions/github-script@v9
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            if (labels.some(l => l.includes('dependencies'))) {
+              core.info('依存関係更新 PR のためスキップ');
+              return;
+            }
+
+            // テンプレートの最初の ## セクション（顧客価値セクション）を取得
+            const template = fs.readFileSync('.github/PULL_REQUEST_TEMPLATE.md', 'utf-8');
+            const templateLines = template.split('\n');
+            const secondSectionIdx = templateLines.findIndex((l, i) => i > 0 && /^## /.test(l));
+            const firstSectionLines = templateLines.slice(0, secondSectionIdx > 0 ? secondSectionIdx : 25);
+
+            // パターン A: **フィールド名**: <!-- ... --> （インラインプレースホルダー）
+            const inlineFields = firstSectionLines
+              .map(l => { const m = l.match(/^\*\*([^*]+)\*\*:\s*<!--/); return m ? m[1] : null; })
+              .filter(Boolean);
+
+            // パターン B: **フィールド名**: のみで次の行がコメントブロック（複数行プレースホルダー）
+            const multilineFields = firstSectionLines
+              .map(l => { const m = l.match(/^\*\*([^*]+)\*\*:\s*$/); return m ? m[1] : null; })
+              .filter(Boolean);
+
+            const errors = [];
+
+            for (const field of inlineFields) {
+              const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const m = body.match(new RegExp(`\\*\\*${escaped}\\*\\*:\\s*(.*)`));
+              if (m) {
+                const val = m[1].trim();
+                if (!val || /^<!--.*-->$/.test(val)) {
+                  errors.push(`\`**${field}**\` がプレースホルダーのまま未記入です。`);
+                }
+              }
+            }
+
+            for (const field of multilineFields) {
+              const idx = body.indexOf(`**${field}**:`);
+              if (idx !== -1) {
+                const segment = body.slice(idx, idx + 400).split('\n').slice(1, 8);
+                const hasContent = segment.some(l => {
+                  const t = l.trim();
+                  return t.length > 0 && !t.startsWith('<!--') && !t.startsWith('-->') && !t.startsWith('**') && !/^##/.test(t);
+                });
+                if (!hasContent) {
+                  errors.push(`\`**${field}**\` の内容がプレースホルダーのまま未記入です。`);
+                }
+              }
+            }
+
+            if (errors.length > 0) {
+              core.setFailed(
+                '❌ 「顧客価値・目的」セクションの必須項目が未記入です。\n\n' +
+                errors.map((e, i) => `${i + 1}. ${e}`).join('\n\n') + '\n\n' +
+                '「何を変更したか」ではなく「なぜこの変更がユーザーにとって必要か」を記載してください。'
+              );
+            } else {
+              core.info(`✅ 顧客価値・目的: ${inlineFields.length + multilineFields.length} フィールド — 記入確認`);
+            }
+
+  # ============================================================
+  # Job 5: テスト実行結果の記入（⚠️ 必須）
+  # テンプレートからテスト結果テーブルを含むセクション名を動的取得し、
+  # 各行の結果列がプレースホルダーのまま放置されていないかを確認する。
+  # ============================================================
+  check-test-results:
+    name: "テスト実行結果の記入"
+    runs-on: ubuntu-latest
+    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          sparse-checkout: .github/PULL_REQUEST_TEMPLATE.md
+          sparse-checkout-cone-mode: false
+      - name: Verify test results filled
+        uses: actions/github-script@v9
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            if (labels.some(l => l.includes('dependencies'))) {
+              core.info('依存関係更新 PR のためスキップ');
+              return;
+            }
+
+            if (labels.includes('type:docs')) {
+              core.info('type:docs PR のためテスト結果チェックをスキップ');
+              return;
+            }
+
+            // テンプレートからテスト結果テーブル（| テスト種別 | コマンド | 結果 |）を含むセクション名を動的取得
+            const template = fs.readFileSync('.github/PULL_REQUEST_TEMPLATE.md', 'utf-8');
+            const templateLines = template.split('\n');
+            let testSectionKeyword = 'テスト実行結果';
+            const tableHeaderIdx = templateLines.findIndex(l => /テスト種別.*コマンド.*結果/.test(l));
+            if (tableHeaderIdx !== -1) {
+              for (let i = tableHeaderIdx; i >= 0; i--) {
+                if (/^###?\s/.test(templateLines[i])) {
+                  testSectionKeyword = templateLines[i].replace(/^###?\s+/, '').trim();
+                  break;
+                }
+              }
+            }
+
+            const sectionIdx = body.indexOf(testSectionKeyword);
+            if (sectionIdx === -1) {
+              core.warning(`「${testSectionKeyword}」セクションが見つかりません（section-presence チェックを確認してください）`);
+              return;
+            }
+
+            // 次の ## または ### セクション開始位置でスライス終端を決定（固定値 2000 による後続テーブル誤検知を防ぐ）
+            const afterSection = body.slice(sectionIdx + testSectionKeyword.length + 1);
+            const nextSectionMatch = afterSection.search(/\n##\s/);
+            const sectionEnd = nextSectionMatch !== -1
+              ? sectionIdx + testSectionKeyword.length + 1 + nextSectionMatch
+              : sectionIdx + 2000;
+            const section = body.slice(sectionIdx, sectionEnd);
+
+            const tableRows = section
+              .split('\n')
+              .filter(l => /^\|[^|]+\|[^|]+\|[^|]+\|/.test(l))
+              .filter(l => !/^\|\s*[-:]+\s*\|/.test(l))
+              .filter(l => !/テスト種別\s*\|/.test(l));
+
+            if (tableRows.length === 0) {
+              core.info('テスト実行結果テーブルの行が見つかりません（docs / infra のみの変更の可能性）');
+              return;
+            }
+
+            const placeholderPattern = /<!--[^>]*?(?:PASS|FAIL|例:)[^>]*?-->/i;
+            const placeholderRows = tableRows.filter(r => placeholderPattern.test(r));
+            const emptyResultRows = tableRows.filter(row => {
+              const cells = row.split('|').slice(1, -1).map(c => c.trim());
+              return cells.length >= 3 && cells[2] === '';
+            });
+
+            const violations = [...new Set([...placeholderRows, ...emptyResultRows])];
+
+            if (violations.length > 0) {
+              const examples = violations.slice(0, 3).map(r => `  ${r.slice(0, 100)}`).join('\n');
+              core.setFailed(
+                `❌ 「${testSectionKeyword}」テーブルに ${violations.length} 件の未記入行があります。\n\n` +
+                '各行の「結果」列にテスト結果を記入してください（PASS / FAIL / 実行件数 等）。\n\n' +
+                '記入例:\n' +
+                '| Lint | `npx biome check .` | PASS | |\n' +
+                '| 型チェック | `npx svelte-check` | PASS | |\n' +
+                '| 単体テスト | `npx vitest run` | 245 tests passed | |\n\n' +
+                `未記入行（最大 3 件）:\n${examples}`
+              );
+            } else {
+              core.info(`✅ テスト実行結果: ${tableRows.length} 行すべて記入済み`);
+            }
