@@ -3067,6 +3067,7 @@ export const BABY_HOME_LABELS = {
 	initialPointsSubmit: 'ポイントを追加',
 	initialPointsSuccess: 'ポイントを追加しました',
 	initialPointsCancel: 'キャンセル',
+	initialPointsBackAriaLabel: '戻る',
 	initialPointsMinError: '1以上のポイントを入力してください',
 	initialPointsMaxError: '10000以下のポイントを入力してください',
 } as const;

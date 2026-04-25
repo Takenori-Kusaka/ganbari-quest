@@ -11,6 +11,8 @@ let {
 } = $props();
 
 const ageInfo = $derived.by(() => {
+	if (!child)
+		return { months: 0, weeksUntil3: 36, monthsUntil3: 36, hasDate: false, reached: false };
 	if (child.birthDate) {
 		const birth = new Date(child.birthDate);
 		const now = new Date();
@@ -34,6 +36,7 @@ const ageInfo = $derived.by(() => {
 });
 </script>
 
+{#if child}
 <div
 	class="baby-home px-[var(--sp-md)] py-[var(--sp-sm)] flex flex-col gap-[var(--sp-md)]"
 	data-testid="baby-home-page"
@@ -101,3 +104,4 @@ const ageInfo = $derived.by(() => {
 		</a>
 	</div>
 </div>
+{/if}
