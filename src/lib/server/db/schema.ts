@@ -330,6 +330,32 @@ export const specialRewards = sqliteTable(
 );
 
 // ============================================================
+// reward_redemption_requests - ごほうびショップ交換申請 (#1337)
+// ============================================================
+export const rewardRedemptionRequests = sqliteTable(
+	'reward_redemption_requests',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id, { onDelete: 'cascade' }),
+		rewardId: integer('reward_id')
+			.notNull()
+			.references(() => specialRewards.id),
+		requestedAt: integer('requested_at').notNull(),
+		status: text('status').notNull().default('pending_parent_approval'),
+		parentNote: text('parent_note'),
+		resolvedAt: integer('resolved_at'),
+		resolvedByParentId: integer('resolved_by_parent_id'),
+		shownToChildAt: integer('shown_to_child_at'),
+	},
+	(table) => [
+		index('idx_redemption_requests_child_status').on(table.childId, table.status),
+		index('idx_redemption_requests_reward_status').on(table.rewardId, table.status),
+	],
+);
+
+// ============================================================
 // checklist_templates - チェックリストテンプレート
 // ============================================================
 export const checklistTemplates = sqliteTable('checklist_templates', {

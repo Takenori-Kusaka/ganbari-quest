@@ -73,6 +73,26 @@ export default async function globalSetup() {
 				}
 			}
 
+			// #1335: reward_redemption_requests テーブル追加
+			try {
+				db.exec(`CREATE TABLE IF NOT EXISTS reward_redemption_requests (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+					reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
+					requested_at INTEGER NOT NULL,
+					status TEXT NOT NULL DEFAULT 'pending_parent_approval',
+					parent_note TEXT,
+					resolved_at INTEGER,
+					resolved_by_parent_id INTEGER,
+					shown_to_child_at INTEGER
+				)`);
+				db.exec('CREATE INDEX IF NOT EXISTS idx_redemption_child_status ON reward_redemption_requests(child_id, status)');
+				db.exec('CREATE INDEX IF NOT EXISTS idx_redemption_reward_status ON reward_redemption_requests(reward_id, status)');
+				console.log('[E2E Setup]   Created reward_redemption_requests table.');
+			} catch {
+				// テーブルが既に存在する場合は無視
+			}
+
 			db.close();
 			if (!table) needsSchema = true;
 		} catch {
@@ -812,6 +832,26 @@ export default async function globalSetup() {
 			console.log('[E2E Setup]   Added is_main_quest column to activities.');
 		} catch {
 			// カラムが既に存在する場合は無視
+		}
+
+		// #1335: reward_redemption_requests テーブル追加
+		try {
+			db.exec(`CREATE TABLE IF NOT EXISTS reward_redemption_requests (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+				reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
+				requested_at INTEGER NOT NULL,
+				status TEXT NOT NULL DEFAULT 'pending_parent_approval',
+				parent_note TEXT,
+				resolved_at INTEGER,
+				resolved_by_parent_id INTEGER,
+				shown_to_child_at INTEGER
+			)`);
+			db.exec('CREATE INDEX IF NOT EXISTS idx_redemption_child_status ON reward_redemption_requests(child_id, status)');
+			db.exec('CREATE INDEX IF NOT EXISTS idx_redemption_reward_status ON reward_redemption_requests(reward_id, status)');
+			console.log('[E2E Setup]   Created reward_redemption_requests table.');
+		} catch {
+			// テーブルが既に存在する場合は無視
 		}
 
 		db.close();
