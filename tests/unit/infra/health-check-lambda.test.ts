@@ -16,11 +16,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // already initialized when the factory is first called.
 // ----------------------------------------------------------------
 
+// SSM パラメータ名定数（lambda の default と揃える）
+const WEEKLY_STATS_KEY = '/ganbari-quest/health-check/weekly-stats';
+
 interface SsmStoreState {
-	stored: string | null;
+	params: Record<string, string>;
 	putCalls: Array<{ Name: string; Value: string }>;
 }
-const ssmStore: SsmStoreState = { stored: null, putCalls: [] };
+const ssmStore: SsmStoreState = { params: {}, putCalls: [] };
 
 vi.mock('@aws-sdk/client-ssm', () => {
 	class ParameterNotFound extends Error {
@@ -38,14 +41,16 @@ vi.mock('@aws-sdk/client-ssm', () => {
 	class MockSSMClient {
 		send(cmd: unknown): Promise<unknown> {
 			if (cmd instanceof GetParameterCommand) {
-				if (ssmStore.stored === null) {
+				const name = (cmd as GetParameterCommand).input.Name;
+				const value = ssmStore.params[name];
+				if (value === undefined) {
 					return Promise.reject(new ParameterNotFound());
 				}
-				return Promise.resolve({ Parameter: { Value: ssmStore.stored } });
+				return Promise.resolve({ Parameter: { Value: value } });
 			}
 			if (cmd instanceof PutParameterCommand) {
 				const { Name, Value } = (cmd as PutParameterCommand).input;
-				ssmStore.stored = Value;
+				ssmStore.params[Name] = Value;
 				ssmStore.putCalls.push({ Name, Value });
 				return Promise.resolve({});
 			}
@@ -58,35 +63,6 @@ vi.mock('@aws-sdk/client-ssm', () => {
 // ----------------------------------------------------------------
 // Test harness
 // ----------------------------------------------------------------
-
-// @aws-sdk/client-ssm は Lambda ランタイム組み込み。vitest 環境ではモックで代替。
-// send() は常に {} を返す → getLastNotifiedStatus() は Parameter.Value が undefined のため null を返す（初回扱い）。
-// setLastNotifiedStatus() は PutParameterCommand を送信するが、テストでは no-op。
-vi.mock('@aws-sdk/client-ssm', () => {
-	class ParameterNotFound extends Error {
-		constructor() {
-			super('ParameterNotFound');
-			this.name = 'ParameterNotFound';
-		}
-	}
-	class MockSSMClient {
-		send(_cmd: unknown) {
-			return Promise.resolve({});
-		}
-	}
-	class GetParameterCommand {
-		constructor(public input: unknown) {}
-	}
-	class PutParameterCommand {
-		constructor(public input: unknown) {}
-	}
-	return {
-		SSMClient: MockSSMClient,
-		GetParameterCommand,
-		PutParameterCommand,
-		ParameterNotFound,
-	};
-});
 
 type ProbeBehavior =
 	| { kind: 'ok'; delayMs?: number }
@@ -211,7 +187,7 @@ describe('#1257 health-check Lambda Phase 1', () => {
 		delete process.env.DEGRADED_THRESHOLD_MS;
 		delete process.env.HEALTH_CHECK_RETRY_DELAY_MS;
 		delete process.env.HEALTH_CHECK_ENVIRONMENT;
-		ssmStore.stored = null;
+		ssmStore.params = {};
 		ssmStore.putCalls = [];
 	});
 
@@ -365,7 +341,7 @@ describe('#1257 health-check Lambda Phase 1', () => {
 
 	describe('G4. 週次ハートビート (#1469)', () => {
 		beforeEach(() => {
-			ssmStore.stored = null;
+			ssmStore.params = {};
 			ssmStore.putCalls = [];
 		});
 
@@ -375,17 +351,18 @@ describe('#1257 health-check Lambda Phase 1', () => {
 
 			await handler();
 
-			expect(ssmStore.putCalls).toHaveLength(1);
-			const written = JSON.parse(ssmStore.putCalls[0]!.Value);
-			expect(written.weekStart).toBe(currentWeekStart());
-			expect(written.total).toBe(1);
-			expect(written.normal).toBe(1);
-			expect(written.degraded).toBe(0);
-			expect(written.down).toBe(0);
+			const weeklyPut1 = ssmStore.putCalls.find((c) => c.Name === WEEKLY_STATS_KEY);
+			expect(weeklyPut1).toBeDefined();
+			const written1 = JSON.parse(weeklyPut1!.Value);
+			expect(written1.weekStart).toBe(currentWeekStart());
+			expect(written1.total).toBe(1);
+			expect(written1.normal).toBe(1);
+			expect(written1.degraded).toBe(0);
+			expect(written1.down).toBe(0);
 		});
 
 		it('同じ週の 2 回目実行 → カウンタが累積される', async () => {
-			ssmStore.stored = JSON.stringify({
+			ssmStore.params[WEEKLY_STATS_KEY] = JSON.stringify({
 				weekStart: currentWeekStart(),
 				total: 5,
 				normal: 4,
@@ -401,17 +378,18 @@ describe('#1257 health-check Lambda Phase 1', () => {
 
 			// 同週なのでハートビート通知なし
 			expect(harness.discordPosts).toHaveLength(0);
-			expect(ssmStore.putCalls).toHaveLength(1);
-			const written = JSON.parse(ssmStore.putCalls[0]!.Value);
-			expect(written.weekStart).toBe(currentWeekStart());
-			expect(written.total).toBe(6);
-			expect(written.normal).toBe(5);
-			expect(written.degraded).toBe(1);
+			const weeklyPut2 = ssmStore.putCalls.find((c) => c.Name === WEEKLY_STATS_KEY);
+			expect(weeklyPut2).toBeDefined();
+			const written2 = JSON.parse(weeklyPut2!.Value);
+			expect(written2.weekStart).toBe(currentWeekStart());
+			expect(written2.total).toBe(6);
+			expect(written2.normal).toBe(5);
+			expect(written2.degraded).toBe(1);
 		});
 
 		it('週が変わった → ハートビート Discord 通知 + 新週の統計を書き込む', async () => {
 			const prev = prevWeekStart();
-			ssmStore.stored = JSON.stringify({
+			ssmStore.params[WEEKLY_STATS_KEY] = JSON.stringify({
 				weekStart: prev,
 				total: 168,
 				normal: 165,
@@ -443,15 +421,16 @@ describe('#1257 health-check Lambda Phase 1', () => {
 			expect(abnormalField?.value).toBe('3 回');
 
 			// SSM に新週の統計が書き込まれる
-			expect(ssmStore.putCalls).toHaveLength(1);
-			const written = JSON.parse(ssmStore.putCalls[0]!.Value);
-			expect(written.weekStart).toBe(currentWeekStart());
-			expect(written.total).toBe(1);
+			const weeklyPut3 = ssmStore.putCalls.find((c) => c.Name === WEEKLY_STATS_KEY);
+			expect(weeklyPut3).toBeDefined();
+			const written3 = JSON.parse(weeklyPut3!.Value);
+			expect(written3.weekStart).toBe(currentWeekStart());
+			expect(written3.total).toBe(1);
 		});
 
 		it('週切替 + 障害 → ハートビート 1 件 + 障害通知 1 件 = 合計 2 件', async () => {
 			const prev = prevWeekStart();
-			ssmStore.stored = JSON.stringify({
+			ssmStore.params[WEEKLY_STATS_KEY] = JSON.stringify({
 				weekStart: prev,
 				total: 10,
 				normal: 10,
@@ -487,11 +466,13 @@ describe('#1257 health-check Lambda Phase 1', () => {
 
 			await handler();
 
-			expect(ssmStore.putCalls).toHaveLength(1);
-			const written = JSON.parse(ssmStore.putCalls[0]!.Value);
-			expect(written.total).toBe(1);
-			expect(written.degraded).toBe(1);
-			expect(written.normal).toBe(0);
+			// degraded 時は setLastNotifiedStatus + setWeeklyStats の 2 回書き込み
+			const weeklyPut5 = ssmStore.putCalls.find((c) => c.Name === WEEKLY_STATS_KEY);
+			expect(weeklyPut5).toBeDefined();
+			const written5 = JSON.parse(weeklyPut5!.Value);
+			expect(written5.total).toBe(1);
+			expect(written5.degraded).toBe(1);
+			expect(written5.normal).toBe(0);
 		});
 	});
 });
