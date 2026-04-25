@@ -78,9 +78,15 @@ test.describe('#1497 Stripe Checkout 遷移 — page.route() モック', () => {
 		// ナビゲーションが発生した場合は遷移先 URL を確認
 		if (navigationPromise) {
 			const currentUrl = page.url();
-			// Stripe Checkout か /admin/license 内の遷移かを確認
+			// hostname で明示的に検証（substring チェックは任意ホスト混入リスクがあるため）
+			let parsedHostname: string;
+			try {
+				parsedHostname = new URL(currentUrl).hostname;
+			} catch {
+				parsedHostname = '';
+			}
 			const isStripeOrLicense =
-				currentUrl.includes('checkout.stripe.com') || currentUrl.includes('/admin/license');
+				parsedHostname === 'checkout.stripe.com' || currentUrl.includes('/admin/license');
 			expect(isStripeOrLicense).toBe(true);
 		}
 	});
