@@ -1,13 +1,26 @@
+import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
 import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import type * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as firehose from 'aws-cdk-lib/aws-kinesisfirehose';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import type * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
+
+// SSOT: src/lib/server/cron/schedule-registry.ts
+// CDK tsconfig rootDir は infra/ 固定のため、utcCronExpression + name のみインライン定義する。
+// Lambda (cron-dispatcher/index.ts) は esbuild バンドル経由で schedule-registry.ts を直接 import する。
+const CRON_JOBS = [
+	{ name: 'license-expire', utcCronExpression: 'cron(0 15 * * ? *)' },
+	{ name: 'retention-cleanup', utcCronExpression: 'cron(0 16 * * ? *)' },
+	{ name: 'trial-notifications', utcCronExpression: 'cron(0 0 * * ? *)' },
+] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {
 	table: dynamodb.TableV2;
@@ -182,9 +195,61 @@ export class ComputeStack extends cdk.Stack {
 		// --- Log archiving: CloudWatch Logs → Firehose → S3 (Glacier) ---
 		this.setupLogArchiving(logGroup, props.assetsBucket);
 
+		// --- Cron Dispatcher Lambda + EventBridge Rules (#1376) ---
+		// LWA は HTTP イベントのみ処理できるため、EventBridge を直接 SvelteKit Lambda に
+		// 接続することはできない。このディスパッチャーが EventBridge ペイロードを
+		// HTTP POST に変換して SvelteKit の /api/cron/:job を呼び出す。
+		const cronDispatcherLogGroup = new logs.LogGroup(this, 'CronDispatcherLogGroup', {
+			logGroupName: '/aws/lambda/ganbari-quest-cron-dispatcher',
+			retention: logs.RetentionDays.THREE_DAYS,
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		});
+
+		const cronDispatcherFn = new lambdaNode.NodejsFunction(this, 'CronDispatcherFn', {
+			functionName: 'ganbari-quest-cron-dispatcher',
+			entry: path.join(__dirname, '..', 'lambda', 'cron-dispatcher', 'index.ts'),
+			handler: 'handler',
+			runtime: lambda.Runtime.NODEJS_20_X,
+			architecture: lambda.Architecture.ARM_64,
+			memorySize: 128,
+			timeout: cdk.Duration.minutes(5),
+			logGroup: cronDispatcherLogGroup,
+			environment: {
+				FUNCTION_URL: this.functionUrl.url,
+				...(cronSecret ? { CRON_SECRET: cronSecret } : {}),
+			},
+			bundling: {
+				minify: true,
+				sourceMap: false,
+			},
+		});
+		cronDispatcherFn.node.addDependency(cronDispatcherLogGroup);
+
+		// EventBridge Rules: CRON_JOBS (SSOT: src/lib/server/cron/schedule-registry.ts)
+		for (const job of CRON_JOBS) {
+			// camelCase ID: license-expire → CronRuleLicenseExpire
+			const ruleId = `CronRule${job.name
+				.split('-')
+				.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+				.join('')}`;
+			const rule = new events.Rule(this, ruleId, {
+				ruleName: `ganbari-quest-cron-${job.name}`,
+				description: `Cron job dispatcher for ${job.name} (#1376)`,
+				schedule: events.Schedule.expression(job.utcCronExpression),
+			});
+			rule.addTarget(
+				new eventsTargets.LambdaFunction(cronDispatcherFn, {
+					event: events.RuleTargetInput.fromObject({ cronJob: job.name }),
+				}),
+			);
+		}
+
 		// --- Outputs ---
 		new cdk.CfnOutput(this, 'FunctionUrl', { value: this.functionUrl.url });
 		new cdk.CfnOutput(this, 'FunctionName', { value: this.fn.functionName });
+		new cdk.CfnOutput(this, 'CronDispatcherFunctionName', {
+			value: cronDispatcherFn.functionName,
+		});
 	}
 
 	private setupLogArchiving(logGroup: logs.LogGroup, bucket: s3.Bucket): void {
