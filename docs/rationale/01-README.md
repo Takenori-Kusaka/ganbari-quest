@@ -108,6 +108,7 @@ cp docs/rationale/_template.md docs/rationale/NN-機能名-rationale.md
 | ファイル | 機能 | 作成日 | 関連 Issue |
 |---------|------|--------|-----------|
 | [02-core-loop-rationale.md](02-core-loop-rationale.md) | コアループ L1/L2/L3 モデル + 親子ポイント経済 | 2026-04-25 | #1328, #1334 |
+| [03-stamp-card-audit-2026-04.md](03-stamp-card-audit-2026-04.md) | スタンプカード L2 逸脱調査 (4 項目) | 2026-04-26 | #1339 |
 
 ---
 
