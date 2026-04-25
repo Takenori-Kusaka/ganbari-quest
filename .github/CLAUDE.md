@@ -16,7 +16,7 @@
 
 ### ルール
 
-1. **PR open/synchronize 時に `pr-file-overlap.yml` が自動で overlap を検出** し、警告コメントを PR に投稿する（block しない）
+1. **PR open/synchronize 時に `pr-info.yml` (overlap-check ジョブ) が自動で overlap を検出** し、警告コメントを PR に投稿する（block しない）
 2. overlap 警告が出た PR を **Ready for Review にする前に** 両 PR 作者間で以下を合意すること
    - どちらを先にマージするか
    - 後続 PR はどのタイミングで rebase するか
@@ -46,62 +46,16 @@ PR は **APPROVED レビュー 1 件以上なしではマージ禁止**。GitHub
 
 - Copilot の自動レビュー (`COMMENTED`) は APPROVED にならない → 別途明示的な APPROVE が必要
 - PO 1 人体制のため、Claude Code Quality Manager / 他 AI レビュアの APPROVED を APPROVED として運用
-- 緊急修正 (`priority:critical`) は admin bypass (`RepositoryRole=Admin`) で許容、ただし PR 本文に bypass 理由を必ず記載
-- 500 行超えの PR は `pr-size-check.yml` が自動警告コメントを投稿する (分割・スコープ明記を検討)
+- admin bypass は **2026-04-25 #1481 / ADR-0022 でルールセットにより完全禁止**（bypass_actors: []）。代わりに ganbariquestsupport-lab（QA 専用アカウント）が approve → squash merge の通常フローで運用する
+- 500 行超えの PR は `pr-info.yml` が自動警告コメントを投稿する (分割・スコープ明記を検討)
 
-## admin bypass merge の証跡記録運用（#1201 / ADR-0044（archive））
+## QM Approve 体制（ADR-0022 / #1481）
 
-PO 1 人体制（#964 Postmortem）のため、`required_approving_review_count=1` を admin 権限で
-bypass して merge する運用が実際には発生している。レビュー観点が PR 本体に記録されないまま
-main に入ることを防ぐため、admin bypass merge を行うときは **PR 本文または merge 前コメントに
-Self-Review 証跡セクションを必ず記載する**。
+- QA 専用アカウント `ganbariquestsupport-lab` が `required_approving_review_count=1` を充足する
+- Takenori-Kusaka（Dev）が PR を作成 → ganbariquestsupport-lab（QA）が `gh pr review --approve` で approve → `gh pr merge --squash` でマージ
+- approve body には `docs/sessions/qa-session.md §「QM approve 前の必須実行手順」` の 5 手順（Issue 照合・SS 実視認・SS 欠落検知・CI 確認・承認判断）を必ず踏むこと
 
-### Self-Review 証跡テンプレート
-
-PR 本文または merge 前コメントに以下セクションを含めること。`scripts/check-admin-bypass-evidence.mjs`
-が自動検出する。
-
-```markdown
-## Self-Review 証跡 (admin bypass)
-
-### 確認した観点
-- [ ] Issue AC 全項目突合（Issue #<番号> の Acceptance Criteria に対する達成状況）
-- [ ] UI/UX 禁忌事項（DESIGN.md §9）セルフチェック
-- [ ] 並行実装ペア（`docs/design/parallel-implementations.md`）の同期確認
-- [ ] テスト同梱（unit / E2E / Storybook のうち該当するもの）
-- [ ] 設計書同期（`docs/CLAUDE.md` 更新表）
-- [ ] セキュリティ・プライバシー影響無し（該当する場合は詳細）
-
-### 添付スクリーンショット
-- 主要変更画面の before/after 画像 or 該当なしの理由
-- モバイル / デスクトップ両視点（UI 変更の場合）
-
-### 実機確認ログ
-- `npm run dev:cognito` での手動動作ログ（認証絡む画面の場合）
-- 実行したコマンド・確認した URL・発見した事象
-```
-
-### 検出 & bot 通知
-
-- merge 後 1 時間以内に `scripts/check-admin-bypass-evidence.mjs` が admin bypass PR を走査
-- Self-Review セクションが無い PR には GitHub Actions bot が追記コメントを投稿
-- 月次で `/ops` ダッシュボードに admin bypass merge 件数レポートを掲示（過剰運用検知）
-
-### 免除
-
-- Dependabot / renovate 等の bot 作成 PR
-- `docs/` のみを変更した 50 行未満の typo 修正 PR
-- これらは `scripts/check-admin-bypass-evidence.mjs` が自動スキップする
-
-詳細: [ADR-0044（archive）](../docs/decisions/archive/0044-admin-bypass-evidence.md)
-
-### Ruleset 変更コマンド (管理者のみ)
-```bash
-# required_approving_review_count を 1 に設定
-gh api --method PUT repos/:owner/:repo/rulesets/<ruleset-id> \
-  --input <patch.json>
-```
-詳細: Issue #964, Postmortem #962
+詳細: [ADR-0022](../docs/decisions/0022-admin-bypass-disable-qm-approve.md)
 
 ### コマンド例
 ```bash

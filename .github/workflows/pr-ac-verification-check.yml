@@ -1,7 +1,7 @@
 name: PR AC verification check (ADR-0038)
 
 # #1165 / ADR-0038: PR 本文の「AC 検証マップ」が全行埋まっているかを機械検証する
-# 初期リリース: warn-only (continue-on-error: true)。2 週間の実測後に block 化する。
+# #1481: warn-only 期間終了につき blocking に昇格（2026-04-25）
 
 on:
   pull_request:
@@ -17,7 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     timeout-minutes: 3
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -41,7 +40,7 @@ jobs:
             // 除外条件 2: 明示的 skip コメント
             const skipMatch = body.match(/<!--\s*ac-verification-skip:\s*(.+?)\s*-->/);
             if (skipMatch) {
-              core.warning(`AC verification skipped: ${skipMatch[1]}`);
+              core.info(`AC verification skipped: ${skipMatch[1]}`);
               return;
             }
 
@@ -49,7 +48,7 @@ jobs:
             // ヘッダー行 (`| AC 番号 | AC 内容 ...`) とセパレーター (`|---|---|`) を除く
             const mapHeaderIdx = body.indexOf('AC 検証マップ');
             if (mapHeaderIdx === -1) {
-              core.warning('PR 本文に「AC 検証マップ」セクションが見つかりません (ADR-0038)');
+              core.setFailed('PR 本文に「AC 検証マップ」セクションが見つかりません (ADR-0038)');
               return;
             }
 
@@ -71,16 +70,16 @@ jobs:
             core.info(`AC map rows found: ${rows.length}, empty/placeholder rows: ${emptyRows.length}`);
 
             if (rows.length === 0) {
-              core.warning('AC 検証マップに行が 1 件もありません。Issue の AC ごとに 1 行埋めてください (ADR-0038)');
+              core.setFailed('AC 検証マップに行が 1 件もありません。Issue の AC ごとに 1 行埋めてください (ADR-0038)');
               return;
             }
 
             if (emptyRows.length > 0) {
-              core.warning(
+              core.setFailed(
                 `AC 検証マップに ${emptyRows.length} 件の空欄/プレースホルダ行があります。全行を埋めてください (ADR-0038)`,
               );
               for (const r of emptyRows) {
-                core.warning(`  空行: ${r.slice(0, 120)}`);
+                core.error(`  空行: ${r.slice(0, 120)}`);
               }
               return;
             }

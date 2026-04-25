@@ -75,6 +75,7 @@
 - [ADR-0019](decisions/0019-cdk-replacement-detection-gate.md) — CDK Replacement Detection Gate（accepted）
 - [ADR-0020](decisions/0020-nuc-scheduler-choice.md) — NUC スケジューラ方式選定（node-cron + 専用コンテナ）（accepted, #1375, 2026-04-24）
 - [ADR-0021](decisions/0021-cognito-pool-migration-user-preservation.md) — Cognito Pool 移行におけるユーザー保全戦略（email natural key + export/import scripts）（accepted, #1399, 2026-04-24）
+- [ADR-0022](decisions/0022-admin-bypass-disable-qm-approve.md) — admin bypass 禁止と ganbariquestsupport-lab QM Approve 体制の確立（accepted, #1481, 2026-04-25）
 
 > **注**: #1307 (B9) / #1298 (B3) / #1346 (labels/i18n) / #1353 (variant/text-wrap) / #1366 (Cognito email) 派生で ADR-0011〜0018 が同時期に提案されている。ADR-0017 は Rejected で 0018 に supersede 済み (active 件数には ADR-0017 は含めない扱い)。10 枠上限ルールの 1-in-1-out は、まとまって merge されるタイミングでまとめて棚卸する（PO 判断）。本 CLAUDE.md の 10-active 表現は一時的に 11+ に膨らむ可能性がある。
 >
