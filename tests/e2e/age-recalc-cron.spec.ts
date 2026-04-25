@@ -97,9 +97,7 @@ test.describe('#1381 age-recalc — dryRun POST', () => {
 		expect(typeof body.failures).toBe('number');
 	});
 
-	test('ボディなしで POST しても正常に動作する（dryRun=false として扱う）', async ({
-		request,
-	}) => {
+	test('ボディなしで POST しても正常に動作する（dryRun=false として扱う）', async ({ request }) => {
 		if (!cronSecret && !authSkipped) {
 			const res = await request.post('/api/cron/age-recalc');
 			expect(res.status()).toBe(500);
