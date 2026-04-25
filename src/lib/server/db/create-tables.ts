@@ -57,7 +57,9 @@ export const SQL_CREATE_TABLES = `
 		is_main_quest INTEGER NOT NULL DEFAULT 0,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		is_archived INTEGER NOT NULL DEFAULT 0,
-		archived_reason TEXT
+		archived_reason TEXT,
+		-- #1254 G1: マーケットプレイスプリセット由来の識別子（NULL=プリセット非由来）
+		source_preset_id TEXT
 	);
 
 	CREATE TABLE IF NOT EXISTS activity_logs (
@@ -214,7 +216,9 @@ export const SQL_CREATE_TABLES = `
 		icon TEXT,
 		category TEXT NOT NULL,
 		granted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		shown_at TEXT
+		shown_at TEXT,
+		-- #1254 G1: プリセット由来のごほうびを識別（NULL=プリセット非由来）
+		source_preset_id TEXT
 	);
 	CREATE INDEX IF NOT EXISTS idx_special_rewards_child
 		ON special_rewards(child_id, granted_at);
@@ -231,7 +235,11 @@ export const SQL_CREATE_TABLES = `
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		is_archived INTEGER NOT NULL DEFAULT 0,
-		archived_reason TEXT
+		archived_reason TEXT,
+		-- #1168: 持ち物 ('item') / ルーティン ('routine') 種別
+		kind TEXT NOT NULL DEFAULT 'routine',
+		-- #1254 G1: マーケットプレイスプリセット由来の識別子（NULL=プリセット非由来）
+		source_preset_id TEXT
 	);
 
 	CREATE TABLE IF NOT EXISTS checklist_template_items (

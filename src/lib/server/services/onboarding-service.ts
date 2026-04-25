@@ -101,7 +101,8 @@ export async function getOnboardingProgress(
 	const completedCount = items.filter((i) => i.completed).length;
 	const totalCount = items.length;
 	const allCompleted = items.filter((i) => i.required).every((i) => i.completed);
-	const nextRecommendation = items.find((i) => !i.completed) ?? null;
+	const nextRecommendation =
+		items.find((i) => i.required && !i.completed) ?? items.find((i) => !i.completed) ?? null;
 
 	return {
 		items,
