@@ -10,6 +10,7 @@ import type { UiMode } from '$lib/domain/validation/age-tier';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
 import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
+import BabyHomePage from '$lib/features/child-home/BabyHomePage.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
 import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
 import { getModeVariant } from '$lib/features/child-home/variants';
@@ -468,6 +469,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	<title>{PAGE_TITLES.childHome}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
+{#if data.uiMode === 'baby'}
+<BabyHomePage child={data.child ?? { nickname: '', age: 0 }} balance={data.balance} />
+{:else}
 <div class="px-[var(--sp-sm)] py-1">
 	<!-- Birthday bonus banner -->
 	{#if data.birthdayBonus}
@@ -975,6 +979,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		rewardDescription={data.monthlyPremiumReward.config.description}
 		claimed={data.monthlyPremiumReward.claimed}
 	/>
+{/if}
 {/if}
 
 <style>

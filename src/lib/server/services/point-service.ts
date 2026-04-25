@@ -64,6 +64,33 @@ function convertDescription(amount: number, mode: ConvertMode): string {
 	return base;
 }
 
+/** baby モードの初期ポイント付与（親が設定した積み立てポイント） */
+export async function grantInitialPoints(
+	childId: number,
+	points: number,
+	tenantId: string,
+): Promise<
+	{ success: true; balance: number } | { error: 'NOT_FOUND' } | { error: 'INVALID_AMOUNT' }
+> {
+	if (points <= 0 || points > 10000) return { error: 'INVALID_AMOUNT' };
+
+	const child = await findChildById(childId, tenantId);
+	if (!child) return { error: 'NOT_FOUND' };
+
+	await insertPointEntry(
+		{
+			childId,
+			amount: points,
+			type: 'initial_setup',
+			description: '親による初期ポイント設定',
+		},
+		tenantId,
+	);
+
+	const newBalance = await getBalance(childId, tenantId);
+	return { success: true, balance: newBalance };
+}
+
 /** ポイントをお小遣いに変換 */
 export async function convertPoints(
 	childId: number,
