@@ -35,15 +35,16 @@ export default defineConfig({
 		navigationTimeout: 30_000,
 	},
 	projects: [
-		// #1497: storageState によるログイン高速化
-		// auth.setup.ts で 3 ロール分のセッションをキャッシュしてから本テストを実行
+		// #1497: storageState 基盤（auth.setup.ts）は追加済み。
+		// cognito-dev プロジェクトへの依存付与は storageState 活用完了後に行う（#1500）。
+		// 現在 setup プロジェクト定義のみ残し、cognito-dev との dependencies は外している。
 		{ name: 'setup', testMatch: /auth\.setup\.ts$/ },
 		{
 			name: 'cognito-dev',
-			dependencies: ['setup'],
+			// dependencies: ['setup'], — #1500 で storageState 改修後に有効化
 			use: {
 				...devices['Desktop Chrome'],
-				storageState: 'playwright/.auth/owner.json',
+				// storageState: 'playwright/.auth/owner.json', — #1500 で有効化
 				viewport: { width: 1280, height: 800 },
 			},
 			testIgnore: /auth\.setup\.ts$/,
