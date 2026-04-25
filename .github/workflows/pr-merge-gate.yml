@@ -1,0 +1,64 @@
+name: PR Merge Gate
+
+# #1481: PR チェックリスト未完了 / AC 検証マップ未記入を CI でブロックする
+# Required status checks に `pr-merge-gate / checklist-check` を追加すること（デプロイ後に手動設定）
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  checklist-check:
+    name: PR チェックリスト完了確認
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    timeout-minutes: 3
+    steps:
+      - name: チェックリストの未完了項目を検証
+        uses: actions/github-script@v9
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        with:
+          script: |
+            const body = process.env.PR_BODY || '';
+
+            // 対象セクション: Ready for Review チェックリスト / 完了チェックリスト
+            // "- [ ]" が残っていれば fail
+            // N/A 選択肢を持つ条件付きチェック（他セクション）は対象外とし、必須2セクションのみ対象
+            const targetSections = [
+              '## Ready for Review チェックリスト',
+              '## 完了チェックリスト',
+            ];
+
+            let totalUnchecked = 0;
+
+            for (const section of targetSections) {
+              const idx = body.indexOf(section);
+              if (idx === -1) {
+                core.warning(`セクション「${section.replace('## ', '')}」が PR 本文に見つかりません。PR テンプレートを使用しているか確認してください。`);
+                continue;
+              }
+              const nextSection = body.indexOf('\n## ', idx + 1);
+              const sectionBody = nextSection === -1
+                ? body.slice(idx)
+                : body.slice(idx, nextSection);
+
+              const unchecked = (sectionBody.match(/^\s*- \[ \]/gm) || []).length;
+              if (unchecked > 0) {
+                core.setFailed(
+                  `❌ 「${section.replace('## ', '')}」に未チェック項目が ${unchecked} 件残っています。\n` +
+                  'すべてのチェックボックスを確認してから Ready for Review にしてください。'
+                );
+                totalUnchecked += unchecked;
+              } else {
+                core.info(`✅ ${section.replace('## ', '')}: 全項目チェック済み`);
+              }
+            }
+
+            if (totalUnchecked === 0) {
+              core.info('✅ PR チェックリスト: 全必須項目チェック済み');
+            }

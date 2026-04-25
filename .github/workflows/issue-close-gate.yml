@@ -1,8 +1,8 @@
 name: Issue close gate (ADR-0038)
 
 # #1165 / ADR-0038: Issue クローズ時に AC (`- [ ]`) が未チェックで残っている場合、
-# 自動で reopen + `quality:ac-incomplete` ラベル付与 + PO にメンション。
-# 初期リリース: warn-only (reopen はせず、コメントのみ)。2 週間の実測後に block 化する。
+# 自動で reopen + `quality:ac-incomplete` ラベル付与。
+# #1481: warn-only 期間終了につき reopen block 化（2026-04-25）
 
 on:
   issues:
@@ -47,11 +47,10 @@ jobs:
               return;
             }
 
-            // warn-only: コメントのみで通知 (初期リリース)
-            const message = `⚠️ **ADR-0038: AC 検証未完了の懸念**\n\n` +
+            const message = `❌ **ADR-0038: AC 検証未完了 — Issue を reopen しました**\n\n` +
               `この Issue には未チェックの AC (\`- [ ]\`) が ${uncheckedMatches.length} 件残った状態で close されました。\n\n` +
-              `2 週間の warn-only 運用期間を経て、block モードに昇格する予定です。\n` +
-              `意図的な残存の場合は \`wontfix\` / \`duplicate\` ラベルを付けるか、AC を \`[x]\` に更新してください。`;
+              `全 AC を \`[x]\` にチェックしてから再度 close してください。\n` +
+              `意図的な残存の場合は \`wontfix\` / \`duplicate\` ラベルを付けることで close できます。`;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -60,16 +59,16 @@ jobs:
               body: message,
             });
 
-            // 将来 block 化する時に有効にする:
-            // await github.rest.issues.addLabels({
-            //   owner: context.repo.owner,
-            //   repo: context.repo.repo,
-            //   issue_number: issue.number,
-            //   labels: ['quality:ac-incomplete'],
-            // });
-            // await github.rest.issues.update({
-            //   owner: context.repo.owner,
-            //   repo: context.repo.repo,
-            //   issue_number: issue.number,
-            //   state: 'open',
-            // });
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: ['quality:ac-incomplete'],
+            });
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              state: 'open',
+            });
