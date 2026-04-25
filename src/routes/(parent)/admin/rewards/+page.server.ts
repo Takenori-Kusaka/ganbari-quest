@@ -50,8 +50,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// 申請一覧を取得（pending + 最近30件の承認/却下履歴）
 	const [pendingRequests, historyRequests] = await Promise.all([
 		getRedemptionRequestsForParent(tenantId, { status: 'pending_parent_approval' }),
-		getRedemptionRequestsForParent(tenantId, { limit: 30 }).then((reqs) =>
-			reqs.filter((r) => r.status === 'approved' || r.status === 'rejected'),
+		getRedemptionRequestsForParent(tenantId, { limit: 30 }).then((requests) =>
+			requests.filter((r) => r.status === 'approved' || r.status === 'rejected'),
 		),
 	]);
 
