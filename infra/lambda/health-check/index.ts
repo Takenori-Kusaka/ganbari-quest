@@ -18,10 +18,17 @@
  * - Uses Node.js built-in https module (no dependencies)
  * - Notifies Discord only on failure/degraded (v1: no state tracking)
  * - Timeout: 10s per check, 30s total Lambda timeout
+ * - #1470 Phase 2: SSM Parameter Store で前回通知ステータスを記憶し、復旧時に通知
  */
 
 import * as http from 'node:http';
 import * as https from 'node:https';
+import {
+	GetParameterCommand,
+	ParameterNotFound,
+	PutParameterCommand,
+	SSMClient,
+} from '@aws-sdk/client-ssm';
 
 // ----------------------------------------------------------------
 // Types
@@ -40,6 +47,8 @@ interface OverallStatus {
 	checks: HealthCheckResult[];
 	timestamp: string;
 }
+
+type NotifiedStatus = 'normal' | 'degraded' | 'down';
 
 // ----------------------------------------------------------------
 // Configuration
@@ -65,6 +74,11 @@ const HEALTH_CHECK_LABEL = process.env.HEALTH_CHECK_LABEL ?? 'App Lambda (/api/h
 const HEALTH_CHECK_ENVIRONMENT = process.env.HEALTH_CHECK_ENVIRONMENT ?? 'production';
 // #1257 G3: 二段プローブの間隔 (1 回目 degraded/down → 10s 待ち → 2 回目)
 const RETRY_DELAY_MS = Number.parseInt(process.env.HEALTH_CHECK_RETRY_DELAY_MS ?? '10000', 10);
+// #1470: 前回通知ステータス保持用 SSM パラメータ名
+const SSM_PARAM_NAME =
+	process.env.SSM_LAST_NOTIFIED_STATUS_PARAM ?? '/ganbari-quest/health-check/last-notified-status';
+
+const ssmClient = new SSMClient({});
 
 // ----------------------------------------------------------------
 // Handler
@@ -107,10 +121,19 @@ export async function handler(): Promise<OverallStatus> {
 		timestamp,
 	};
 
-	// 2 回連続で非正常なときだけ Discord 通知 (silent on transient blip)
+	// #1470: 前回通知ステータスを SSM から取得して復旧通知の要否を判定
+	const lastNotifiedStatus = await getLastNotifiedStatus();
+
 	if (overallStatus !== 'normal') {
+		// 2 回連続で非正常なときだけ Discord 通知 (silent on transient blip)
 		await notifyDiscord(result);
+		await setLastNotifiedStatus(overallStatus);
+	} else if (lastNotifiedStatus !== null && lastNotifiedStatus !== 'normal') {
+		// degraded/down → normal 遷移: 復旧通知を送る
+		await notifyDiscordRecovery(result, lastNotifiedStatus);
+		await setLastNotifiedStatus('normal');
 	} else if (retried) {
+		// 一時的な blip から自然回復（SSM に "normal" が入っているか未設定）
 		console.log(
 			JSON.stringify({
 				level: 'info',
@@ -129,6 +152,38 @@ export async function handler(): Promise<OverallStatus> {
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ----------------------------------------------------------------
+// SSM Parameter Store — 前回通知ステータス永続化 (#1470)
+// ----------------------------------------------------------------
+
+async function getLastNotifiedStatus(): Promise<NotifiedStatus | null> {
+	try {
+		const res = await ssmClient.send(new GetParameterCommand({ Name: SSM_PARAM_NAME }));
+		const value = res.Parameter?.Value;
+		if (value === 'normal' || value === 'degraded' || value === 'down') return value;
+		return null;
+	} catch (err) {
+		if (err instanceof ParameterNotFound) return null;
+		console.error('SSM getLastNotifiedStatus error:', err);
+		return null;
+	}
+}
+
+async function setLastNotifiedStatus(status: NotifiedStatus): Promise<void> {
+	try {
+		await ssmClient.send(
+			new PutParameterCommand({
+				Name: SSM_PARAM_NAME,
+				Value: status,
+				Type: 'String',
+				Overwrite: true,
+			}),
+		);
+	} catch (err) {
+		console.error('SSM setLastNotifiedStatus error:', err);
+	}
 }
 
 // ----------------------------------------------------------------
@@ -254,6 +309,61 @@ async function notifyDiscord(result: OverallStatus): Promise<void> {
 		timestamp: result.timestamp,
 	};
 
+	await postDiscordEmbed(embed);
+}
+
+// #1470: degraded/down → normal 復旧通知
+async function notifyDiscordRecovery(
+	result: OverallStatus,
+	previousStatus: NotifiedStatus,
+): Promise<void> {
+	if (!DISCORD_WEBHOOK_URL) {
+		console.log('DISCORD_WEBHOOK_HEALTH not set, skipping recovery notification');
+		return;
+	}
+
+	const check = result.checks[0];
+	const checkDetails = check
+		? `\u{1F7E2} ${HEALTH_CHECK_LABEL} | ${check.responseTimeMs}ms`
+		: `\u{1F7E2} ${HEALTH_CHECK_LABEL}`;
+
+	const embed = {
+		title: '✅ Health Check: recovered',
+		description: checkDetails,
+		color: 0x00cc44,
+		fields: [
+			{
+				name: '環境',
+				value: HEALTH_CHECK_ENVIRONMENT,
+				inline: true,
+			},
+			{
+				name: 'Timestamp',
+				value: result.timestamp,
+				inline: true,
+			},
+			{
+				name: '前回の状態',
+				value: previousStatus,
+				inline: true,
+			},
+		],
+		timestamp: result.timestamp,
+	};
+
+	console.log(
+		JSON.stringify({
+			level: 'info',
+			message: 'sending recovery notification',
+			previousStatus,
+			currentStatus: result.status,
+		}),
+	);
+
+	await postDiscordEmbed(embed);
+}
+
+async function postDiscordEmbed(embed: object): Promise<void> {
 	try {
 		const payload = JSON.stringify({ embeds: [embed] });
 
