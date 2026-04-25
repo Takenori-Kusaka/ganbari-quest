@@ -8,6 +8,35 @@
 import * as http from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// @aws-sdk/client-ssm は Lambda ランタイム組み込み。vitest 環境ではモックで代替。
+// send() は常に {} を返す → getLastNotifiedStatus() は Parameter.Value が undefined のため null を返す（初回扱い）。
+// setLastNotifiedStatus() は PutParameterCommand を送信するが、テストでは no-op。
+vi.mock('@aws-sdk/client-ssm', () => {
+	class ParameterNotFound extends Error {
+		constructor() {
+			super('ParameterNotFound');
+			this.name = 'ParameterNotFound';
+		}
+	}
+	class MockSSMClient {
+		send(_cmd: unknown) {
+			return Promise.resolve({});
+		}
+	}
+	class GetParameterCommand {
+		constructor(public input: unknown) {}
+	}
+	class PutParameterCommand {
+		constructor(public input: unknown) {}
+	}
+	return {
+		SSMClient: MockSSMClient,
+		GetParameterCommand,
+		PutParameterCommand,
+		ParameterNotFound,
+	};
+});
+
 type ProbeBehavior =
 	| { kind: 'ok'; delayMs?: number }
 	| { kind: 'slow'; delayMs: number }

@@ -130,6 +130,7 @@
 		"@aws-sdk/client-dynamodb": "^3.1036.0",
 		"@aws-sdk/client-s3": "^3.1036.0",
 		"@aws-sdk/client-ses": "^3.1036.0",
+		"@aws-sdk/client-ssm": "^3.1037.0",
 		"@aws-sdk/lib-dynamodb": "^3.1036.0",
 		"@google/generative-ai": "^0.24.1",
 		"bcrypt": "^6.0.0",
