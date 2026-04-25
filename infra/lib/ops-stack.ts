@@ -389,6 +389,14 @@ export class OpsStack extends cdk.Stack {
 		// からは常時 403 になる。Function URL (authType: NONE) を直叩きして Lambda/DB の
 		// 生存確認に用途を限定する。CloudFront 層の障害は本 Lambda では検知できない
 		// （別途 CloudWatch Synthetics 等で補完する方針 — 本 Issue のスコープ外）。
+		// #1469: 週次実行統計を保持する SSM パラメータ
+		const weeklyStatsParam = new ssm.StringParameter(this, 'HealthCheckWeeklyStats', {
+			parameterName: '/ganbari-quest/health-check/weekly-stats',
+			stringValue: '{}',
+			description: 'Health check Lambda の週次実行統計（ハートビート通知用）',
+			tier: ssm.ParameterTier.STANDARD,
+		});
+
 		const healthCheckFn = new lambdaNode.NodejsFunction(this, 'HealthCheckFn', {
 			functionName: 'ganbari-quest-health-check',
 			entry: path.join(__dirname, '..', 'lambda', 'health-check', 'index.ts'),
@@ -399,6 +407,7 @@ export class OpsStack extends cdk.Stack {
 			timeout: cdk.Duration.seconds(30),
 			environment: {
 				HEALTH_CHECK_URL: props.functionUrl.url,
+				SSM_WEEKLY_STATS_PARAM: weeklyStatsParam.parameterName,
 				...(discordWebhookHealth ? { DISCORD_WEBHOOK_HEALTH: discordWebhookHealth } : {}),
 			},
 			bundling: {
@@ -416,11 +425,11 @@ export class OpsStack extends cdk.Stack {
 			tier: ssm.ParameterTier.STANDARD,
 		});
 
-		// #1470: SSM GetParameter / PutParameter 権限を付与
+		// #1470 + #1469: SSM GetParameter / PutParameter 権限を付与（2 パラメータ）
 		healthCheckFn.addToRolePolicy(
 			new iam.PolicyStatement({
 				actions: ['ssm:GetParameter', 'ssm:PutParameter'],
-				resources: [lastNotifiedStatusParam.parameterArn],
+				resources: [lastNotifiedStatusParam.parameterArn, weeklyStatsParam.parameterArn],
 			}),
 		);
 

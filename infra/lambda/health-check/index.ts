@@ -19,6 +19,7 @@
  * - Notifies Discord only on failure/degraded (v1: no state tracking)
  * - Timeout: 10s per check, 30s total Lambda timeout
  * - #1470 Phase 2: SSM Parameter Store で前回通知ステータスを記憶し、復旧時に通知
+ * - #1469: SSM Parameter Store で週次実行統計を記憶し、週次ハートビートを Discord 通知
  */
 
 import * as http from 'node:http';
@@ -50,6 +51,16 @@ interface OverallStatus {
 
 type NotifiedStatus = 'normal' | 'degraded' | 'down';
 
+// #1469: 週次統計の永続化型
+interface WeeklyStats {
+	weekStart: string; // YYYY-MM-DD (日曜 UTC = 月曜 09:00 JST 起点)
+	total: number;
+	normal: number;
+	degraded: number;
+	down: number;
+	totalResponseMs: number;
+}
+
 // ----------------------------------------------------------------
 // Configuration
 // ----------------------------------------------------------------
@@ -77,6 +88,9 @@ const RETRY_DELAY_MS = Number.parseInt(process.env.HEALTH_CHECK_RETRY_DELAY_MS ?
 // #1470: 前回通知ステータス保持用 SSM パラメータ名
 const SSM_PARAM_NAME =
 	process.env.SSM_LAST_NOTIFIED_STATUS_PARAM ?? '/ganbari-quest/health-check/last-notified-status';
+// #1469: 週次統計保持用 SSM パラメータ名
+const SSM_WEEKLY_STATS_PARAM =
+	process.env.SSM_WEEKLY_STATS_PARAM ?? '/ganbari-quest/health-check/weekly-stats';
 
 const ssmClient = new SSMClient({});
 
@@ -144,6 +158,9 @@ export async function handler(): Promise<OverallStatus> {
 		);
 	}
 
+	// #1469: 週次統計を更新し、週が変わったらハートビートを送信
+	await updateWeeklyStats(overallStatus, finalCheck.responseTimeMs);
+
 	// Always log result for CloudWatch (生 URL は調査用に残す)
 	console.log(JSON.stringify(result));
 
@@ -171,6 +188,40 @@ async function getLastNotifiedStatus(): Promise<NotifiedStatus | null> {
 	}
 }
 
+// ----------------------------------------------------------------
+// Weekly Stats — SSM (#1469)
+// ----------------------------------------------------------------
+
+// 日曜 00:00 UTC = 月曜 09:00 JST を週の起点とする
+function getSundayWeekStart(date: Date): string {
+	const d = new Date(date);
+	d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // getUTCDay(): 0=Sun
+	d.setUTCHours(0, 0, 0, 0);
+	return d.toISOString().slice(0, 10);
+}
+
+async function getWeeklyStats(): Promise<WeeklyStats | null> {
+	try {
+		const res = await ssmClient.send(new GetParameterCommand({ Name: SSM_WEEKLY_STATS_PARAM }));
+		const value = res.Parameter?.Value;
+		if (!value) return null;
+		const parsed = JSON.parse(value) as Partial<WeeklyStats>;
+		if (typeof parsed.weekStart !== 'string') return null;
+		return {
+			weekStart: parsed.weekStart,
+			total: parsed.total ?? 0,
+			normal: parsed.normal ?? 0,
+			degraded: parsed.degraded ?? 0,
+			down: parsed.down ?? 0,
+			totalResponseMs: parsed.totalResponseMs ?? 0,
+		};
+	} catch (err) {
+		if (err instanceof ParameterNotFound) return null;
+		console.error('SSM getWeeklyStats error:', err);
+		return null;
+	}
+}
+
 async function setLastNotifiedStatus(status: NotifiedStatus): Promise<void> {
 	try {
 		await ssmClient.send(
@@ -183,6 +234,53 @@ async function setLastNotifiedStatus(status: NotifiedStatus): Promise<void> {
 		);
 	} catch (err) {
 		console.error('SSM setLastNotifiedStatus error:', err);
+	}
+}
+
+async function setWeeklyStats(stats: WeeklyStats): Promise<void> {
+	try {
+		await ssmClient.send(
+			new PutParameterCommand({
+				Name: SSM_WEEKLY_STATS_PARAM,
+				Value: JSON.stringify(stats),
+				Type: 'String',
+				Overwrite: true,
+			}),
+		);
+	} catch (err) {
+		console.error('SSM setWeeklyStats error:', err);
+	}
+}
+
+async function updateWeeklyStats(
+	status: OverallStatus['status'],
+	responseTimeMs: number,
+): Promise<void> {
+	const currentWeekStart = getSundayWeekStart(new Date());
+	const prevStats = await getWeeklyStats();
+
+	if (prevStats !== null && prevStats.weekStart !== currentWeekStart) {
+		// 週が切り替わった → 前週のサマリーをハートビートとして送信してからリセット
+		await notifyDiscordHeartbeat(prevStats);
+		const newStats: WeeklyStats = {
+			weekStart: currentWeekStart,
+			total: 1,
+			normal: status === 'normal' ? 1 : 0,
+			degraded: status === 'degraded' ? 1 : 0,
+			down: status === 'down' ? 1 : 0,
+			totalResponseMs: responseTimeMs,
+		};
+		await setWeeklyStats(newStats);
+	} else {
+		const updated: WeeklyStats = {
+			weekStart: currentWeekStart,
+			total: (prevStats?.total ?? 0) + 1,
+			normal: (prevStats?.normal ?? 0) + (status === 'normal' ? 1 : 0),
+			degraded: (prevStats?.degraded ?? 0) + (status === 'degraded' ? 1 : 0),
+			down: (prevStats?.down ?? 0) + (status === 'down' ? 1 : 0),
+			totalResponseMs: (prevStats?.totalResponseMs ?? 0) + responseTimeMs,
+		};
+		await setWeeklyStats(updated);
 	}
 }
 
@@ -357,6 +455,52 @@ async function notifyDiscordRecovery(
 			message: 'sending recovery notification',
 			previousStatus,
 			currentStatus: result.status,
+		}),
+	);
+
+	await postDiscordEmbed(embed);
+}
+
+// #1469: 週次ハートビート通知
+async function notifyDiscordHeartbeat(stats: WeeklyStats): Promise<void> {
+	if (!DISCORD_WEBHOOK_URL) {
+		console.log('DISCORD_WEBHOOK_HEALTH not set, skipping heartbeat notification');
+		return;
+	}
+
+	const avgResponseMs = stats.total > 0 ? Math.round(stats.totalResponseMs / stats.total) : 0;
+	const weekEndDate = new Date(`${stats.weekStart}T00:00:00Z`);
+	weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
+	const weekRange = `${stats.weekStart} 〜 ${weekEndDate.toISOString().slice(0, 10)}`;
+
+	const embed = {
+		title: '\u{1F49A} HealthCheck 週次サマリー',
+		description: '監視が正常に稼働しています。',
+		color: 0x00cc44,
+		fields: [
+			{ name: '期間', value: weekRange, inline: false },
+			{ name: '実行回数', value: `${stats.total} 回`, inline: true },
+			{ name: '正常', value: `${stats.normal} 回`, inline: true },
+			{
+				name: '異常（degraded + down）',
+				value: `${stats.degraded + stats.down} 回`,
+				inline: true,
+			},
+			{ name: '平均応答時間', value: `${avgResponseMs.toLocaleString()}ms`, inline: true },
+			{ name: '環境', value: HEALTH_CHECK_ENVIRONMENT, inline: true },
+		],
+		timestamp: new Date().toISOString(),
+	};
+
+	console.log(
+		JSON.stringify({
+			level: 'info',
+			message: 'sending weekly heartbeat notification',
+			weekStart: stats.weekStart,
+			total: stats.total,
+			normal: stats.normal,
+			degraded: stats.degraded,
+			down: stats.down,
 		}),
 	);
 
