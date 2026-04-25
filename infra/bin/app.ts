@@ -77,6 +77,8 @@ new OpsStack(app, `${appName}Ops`, {
 	// #1214: health-check Lambda が叩くターゲット。CloudFront 経由は geoRestriction('JP')
 	// に阻まれるため、Function URL (authType: NONE) を直接参照する。
 	functionUrl: compute.functionUrl,
+	// #1376 AC6: cron dispatcher Lambda エラーを既存 SNS topic で通知
+	cronDispatcherFn: compute.cronDispatcherFn,
 	opsEmail,
 	discordWebhookHealth,
 });
