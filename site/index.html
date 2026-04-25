@@ -256,6 +256,8 @@
   </div>
 </header>
 
+<!-- LP-LANDMARK:hero start — ファーストビュー。CTA は「無料で始める」「デモを見る」の 2 種のみ (#1293)
+     変更時は docs/design/lp-content-map.md §hero を確認 -->
 <!-- [01] Hero -->
 <section class="hero">
   <h1>「やりなさい」を<br><span>「やりたい！」</span>に変える<br>家族 RPG</h1>
@@ -303,55 +305,38 @@
     <div class="carousel-label" aria-live="polite">子供のホーム画面 — 活動を記録してポイントゲット</div>
   </div>
 </section>
+<!-- LP-LANDMARK:hero end -->
 
-<!-- [02] 年齢スイッチャー -->
-<section class="section bg-white" id="age-switcher">
+<!-- LP-LANDMARK:age-panel start — 年齢差別化軸ポリシー (docs/design/lp-content-map.md) に準拠
+     UI 軸の差別化のみ掲載: kinder=幼児UI(ひらがな/大タップ) / primary-plus=小学生以降(漢字/情報密度)
+     機能差別化が実装された際は該当パネルに「代表機能」バッジを追加すること (#1322) -->
+<section class="section bg-white" id="age-panel">
   <div class="section-inner">
     <h2 class="section-title">お子さまの年齢で、画面とむずかしさが変わります</h2>
-    <p class="section-desc">3 歳から 18 歳まで、4 つのモードが自動で切り替わり。<br>タップで「今のお子さまに合う UI」をご覧ください。</p>
+    <p class="section-desc">3 歳から 18 歳まで、2 つの UI モードが対応。<br>タップで「今のお子さまに合う UI」をご覧ください。</p>
     <p class="section-sub-note" style="text-align:center;font-size:.88rem;color:var(--gray-500);margin-top:-.5rem;margin-bottom:1.5rem">
       0-2 歳のお子様は「準備モード」でご登録いただけます。<a href="faq.html#baby-mode" style="color:var(--brand-700)">詳しくはこちら</a>
     </p>
     <div class="age-switcher">
       <div class="age-tabs" role="tablist">
         <button type="button" class="age-tab active" data-age="kinder" role="tab" aria-selected="true">幼児 (3-5)</button>
-        <button type="button" class="age-tab" data-age="lower" role="tab" aria-selected="false">小学生 (6-12)</button>
-        <button type="button" class="age-tab" data-age="upper" role="tab" aria-selected="false">中学生 (13-15)</button>
-        <button type="button" class="age-tab" data-age="teen" role="tab" aria-selected="false">高校生 (16-18)</button>
+        <button type="button" class="age-tab" data-age="primary-plus" role="tab" aria-selected="false">小学生以上 (6-18)</button>
       </div>
       <div class="age-panel active" data-panel="kinder" role="tabpanel">
         <div class="age-panel-shot"><img src="screenshots/age-kinder.webp" alt="幼児向け画面" data-lightbox></div>
         <div class="age-panel-body">
-          <h3>ひらがな中心・丸みのあるボタン</h3>
-          <span class="age-panel-feature">代表機能: 活動パック（プリセット）</span>
+          <h3>ひらがな中心・丸みのある大きなボタン</h3>
+          <span class="age-panel-feature">幼児 UI: ひらがな / 大タップ / 絵文字演出</span>
           <p class="age-panel-desc">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣がプリセット済み。ログインボーナスで毎日おみくじが 1 回引けて、スタンプカードが週末に 1 枚完成します。</p>
           <p class="age-panel-cta"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
-      <div class="age-panel" data-panel="lower" role="tabpanel">
-        <div class="age-panel-shot"><img src="screenshots/age-lower.webp" alt="小学生向け画面" data-lightbox></div>
+      <div class="age-panel" data-panel="primary-plus" role="tabpanel">
+        <div class="age-panel-shot"><img src="screenshots/age-lower.webp" alt="小学生以上向け画面" data-lightbox></div>
         <div class="age-panel-body">
-          <h3>標準レイアウト・漢字最小限</h3>
-          <span class="age-panel-feature">代表機能: 実績と称号で自走</span>
-          <p class="age-panel-desc">宿題やお手伝い、習い事の記録へ。実績解放と称号アップで「次は何をクリアしよう？」と子供自身が計画を立てるようになります。</p>
-          <p class="age-panel-cta"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
-        </div>
-      </div>
-      <div class="age-panel" data-panel="upper" role="tabpanel">
-        <div class="age-panel-shot"><img src="screenshots/age-upper.webp" alt="中学生向け画面" data-lightbox></div>
-        <div class="age-panel-body">
-          <h3>情報密度を高め、RPG バトル解放</h3>
-          <span class="age-panel-feature">代表機能: RPG バトル・ボス討伐</span>
-          <p class="age-panel-desc">コンボを積み上げて強敵ボスに挑戦。テスト勉強や部活の記録がそのまま冒険の RPG バトルにつながり、ゲーム世代に刺さります。</p>
-          <p class="age-panel-cta"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
-        </div>
-      </div>
-      <div class="age-panel" data-panel="teen" role="tabpanel">
-        <div class="age-panel-shot"><img src="screenshots/age-teen.webp" alt="高校生向け画面" data-lightbox></div>
-        <div class="age-panel-body">
-          <h3>高情報密度・漢字表記・目標管理</h3>
-          <span class="age-panel-feature">代表機能: 長期目標と称号の系譜</span>
-          <p class="age-panel-desc">資格・受験・バイトなど、自分で決めた目標を積み上げる UI。称号の系譜で「自分の歴史」が形に残り、進路選びの自己肯定感を支えます。</p>
+          <h3>漢字 + 情報密度で 15 年継続できる UI</h3>
+          <span class="age-panel-feature">小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット</span>
+          <p class="age-panel-desc">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。実績解放と称号で「次は何をクリアしよう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
           <p class="age-panel-cta"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
@@ -359,9 +344,12 @@
     <p class="age-switcher-prep-note">&#x1F476; 0〜2 歳のお子様は「<strong>準備モード</strong>」でご登録いただけます &#8212; <a href="https://ganbari-quest.com/demo">デモを見る</a></p>
   </div>
 </section>
+<!-- LP-LANDMARK:age-panel end -->
 
+<!-- LP-LANDMARK:core-loop start — コアループ 2 系統 (活動系 / ログインボーナス系) の描画
+     変更時は docs/design/lp-content-map.md §コアループ原則を確認
+     用語 SSOT: src/lib/domain/labels.ts FEATURE_LABELS (activity/points/levelUp/loginBonus/omikuji/stampCard) -->
 <!-- [03] コアループ（2 系統: 活動系 + ログインボーナス系） -->
-<!-- 用語 SSOT: src/lib/domain/labels.ts FEATURE_LABELS (activity/points/levelUp/loginBonus/omikuji/stampCard) -->
 <section class="section bg-gray" id="core-loop">
   <div class="section-inner">
     <h2 class="section-title">2 つの独立サイクルで、毎日の動機を支える</h2>
@@ -427,6 +415,11 @@
   </div>
 </section>
 
+<!-- LP-LANDMARK:core-loop end -->
+
+<!-- LP-LANDMARK:machine-tour start — 5 幕の仕掛け (朝ログイン/活動記録/ポイント/レベルアップ/スタンプ)
+     各幕の追加/削除は docs/design/lp-content-map.md §machine-tour を必ず更新
+     設計上は 5 幕。LP 表示は「5 つの工夫」として平易化 #1288 -->
 <!-- [04] 機構ツアー（設計上は 5 幕。LP 表示は「5 つの工夫」として平易化 #1288） -->
 <section class="section bg-white" id="machine-tour" data-testid="feature-section">
   <div class="section-inner">
@@ -485,6 +478,10 @@
   </div>
 </section>
 
+<!-- LP-LANDMARK:machine-tour end -->
+
+<!-- LP-LANDMARK:soft-features start — 親向け安心機能 (性別プリセット/時間制限/成長記録)
+     変更時は docs/design/lp-content-map.md §soft-features を確認 -->
 <!-- [05] ソフト機能（親の安心） -->
 <section class="section bg-gray" id="soft-features">
   <div class="section-inner">
@@ -510,6 +507,11 @@
   </div>
 </section>
 
+<!-- LP-LANDMARK:soft-features end -->
+
+<!-- LP-LANDMARK:pricing start — 料金プロミスバンド。CTA は「無料で始める」のみ
+     価格帯の変更は docs/design/19-プライシング戦略書.md + lp-content-map.md §pricing を確認
+     3 カード比較は pricing.html へ集約 (#1293) -->
 <!-- [06] 料金プロミスバンド (#1293: freemium × 低価格帯の price disambiguation。3 カード比較は pricing.html へ集約) -->
 <section class="section bg-white" id="pricing">
   <div class="section-inner">
@@ -530,6 +532,8 @@
     </div>
   </div>
 </section>
+
+<!-- LP-LANDMARK:pricing end -->
 
 <!-- [06b] 習慣形成 — 三日坊主防止訴求 (#1344 C1-LP-RETENTION) -->
 <!-- 料金を見た後に継続不安を解消するポジション -->
