@@ -1,5 +1,5 @@
 {
-	"count": 921,
-	"scope": "site/**/*.html",
-	"note": "Issue #1465 Phase A: LP SSOT HTML check baseline. Includes all site HTML (LP, legal docs). New HTML content must use data-lp-key attributes. Migrate existing content to reduce count to 0 (Phase C)."
+	"count": 572,
+	"scope": "site/**/*.html (legal docs excluded: privacy.html, terms.html, tokushoho.html, sla.html)",
+	"note": "Issue #1465 Phase A: LP SSOT HTML check baseline. Legal docs excluded as their content is not suitable for SSOT migration. New HTML content must use data-lp-key attributes. Migrate existing content to reduce count to 0 (Phase C)."
 }
