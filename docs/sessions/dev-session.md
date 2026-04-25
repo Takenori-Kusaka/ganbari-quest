@@ -22,6 +22,7 @@
   [PR Agent]           PRテンプレート通りのbody作成 + Draft PR作成
   [Screenshot Agent]   実アプリ画面の撮影・PR bodyへの添付
   [QA Agent]           差分・SS・AC突合・Ready判断
+  [CI Agent]           CI失敗の検知・分類・KB参照・修正・報告
 ```
 
 ### 各Agentに渡すコンテキスト
@@ -32,6 +33,7 @@
 | **PR Agent** | git diff・Issueリンク・`.github/PULL_REQUEST_TEMPLATE.md` の全文 | 実装の詳細経緯 |
 | **Screenshot Agent** | 変更ファイル一覧・capture.mjsの正しい使い方・「デモ不可・実アプリ必須」の明示 | 実装内容・CI状態 |
 | **QA Agent** | PR diff・SS一覧・Issue AC・PRテンプレートのQMチェック項目 | 実装の詳細経緯 |
+| **CI Agent** | PR番号・失敗したCI run URL（または`gh run list`出力）・失敗ワークフロー名/ジョブ名・「KB未記録なら追記」の明示指示 | 実装内容・設計判断 |
 
 ### メインセッションの責務（これ以外はやらない）
 
@@ -39,6 +41,35 @@
 - 各Agentの成果物（コミット・PR body・SS・CI状態）を確認し、Readyに進んでよいか判断する
 - Agent間の依存（Impl完了 → PR Agent起動、SS撮影完了 → Ready化）を管理する
 - PO との判断が必要な事項（方向転換・スコープ変更）のみ自ら扱う
+
+### CI Agentへの必須指示テンプレート
+
+CI Agent に依頼する際は、以下を **必ずそのまま含める**：
+
+```
+## CI 失敗対応 依頼
+
+### 対象
+- PR 番号: #NNNN
+- ブランチ: <branch-name>
+- 失敗 CI run: <run-id または URL>
+- 失敗ワークフロー/ジョブ: <CI / lp-sync-check 等>
+
+### やること
+1. `gh run view <run-id> --log-failed` でエラーログを取得する
+2. `docs/troubleshoot/github_actions.md` を Read して既知エラーか判定する
+   - 既知: 記録された解決手順をそのまま実行してコミット・プッシュ
+   - 未知: 根本原因を調査 → 修正 → 解決後に KB へ新エントリを追記する
+3. 修正後に `gh run list --branch <branch> --workflow ci.yml --limit 3` で CI pass を確認する
+4. メインセッションに「解決済み / 解決手順 / KB更新有無」を報告して終了する
+
+### 注意事項
+- KB に未記録の新規エラーを解決した場合は **必ず KB に追記すること**（TA-NNN 連番で末尾追加）
+- CI の再トリガーが必要な場合: 空コミット `git commit --allow-empty -m "ci: CI 再トリガー"` または `gh workflow run ci.yml --ref <branch>`
+- `git push` 先はこのブランチ（main に直接 push しない）
+```
+
+---
 
 ### Screenshot Agentへの必須指示テンプレート
 
