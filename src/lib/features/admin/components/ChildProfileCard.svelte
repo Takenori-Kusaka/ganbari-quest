@@ -68,6 +68,8 @@ let { child, categoryDefs, pointSettings: ps, onDelete }: Props = $props();
 let isEditing = $state(false);
 // svelte-ignore state_referenced_locally
 let themeValue = $state(child.theme);
+// svelte-ignore state_referenced_locally
+let editBirthDate = $state<string | undefined>(child.birthDate ?? undefined);
 let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'voice'>('info');
 let statusEditSuccess = $state(false);
 let sliderValues: Record<number, number> = $state({});
@@ -75,6 +77,7 @@ let sliderValues: Record<number, number> = $state({});
 $effect(() => {
 	if (!isEditing) {
 		themeValue = child.theme;
+		editBirthDate = child.birthDate ?? undefined;
 	}
 });
 
@@ -303,9 +306,9 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						<BirthdayInput
 							name="birthDate"
 							id="edit-birthDate-{child.id}"
-							value={child.birthDate ?? undefined}
+							bind:value={editBirthDate}
 						/>
-						<FormField label="年齢{child.birthDate ? '（自動計算）' : ''}">
+						<FormField label="年齢{editBirthDate ? '（自動計算）' : ''}">
 							{#snippet children()}
 								<input
 									id="edit-age-{child.id}"
@@ -314,8 +317,8 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 									min="0"
 									max="18"
 									value={child.age}
-									readonly={!!child.birthDate}
-									class="profile-edit__input {child.birthDate ? 'profile-edit__input--readonly' : ''}"
+									readonly={!!editBirthDate}
+									class="profile-edit__input {editBirthDate ? 'profile-edit__input--readonly' : ''}"
 								/>
 							{/snippet}
 						</FormField>
