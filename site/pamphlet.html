@@ -195,11 +195,17 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
   font-size:.95rem;
   font-weight:700;
   color:var(--gray-900);
-  margin-bottom:5mm;
+  margin-bottom:2mm;
+}
+.ages-prep-note{
+  text-align:center;
+  font-size:.65rem;
+  color:var(--gray-600);
+  margin-bottom:4mm;
 }
 .age-row{
   display:grid;
-  grid-template-columns:repeat(5,1fr);
+  grid-template-columns:repeat(4,1fr);
   gap:3mm;
 }
 .age-item{
@@ -579,13 +585,9 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
 
   <!-- Age Modes -->
   <div class="front-ages">
-    <h2>&#x1F308; 3歳から18歳まで &#8212; 4つのコアモード + 準備モード</h2>
+    <h2>&#x1F308; 3歳から18歳まで &#8212; 4つの年齢モード</h2>
+    <p class="ages-prep-note">&#x1F476; 0〜2歳のお子様は「準備モード」でご登録いただけます</p>
     <div class="age-row">
-      <div class="age-item" data-age-tier="baby">
-        <div class="ai-emoji">&#x1F476;</div>
-        <div class="ai-name" data-label="age-tier-name">準備モード</div>
-        <div class="ai-range" data-label="age-tier-range">0&#x301C;2歳</div>
-      </div>
       <div class="age-item" data-age-tier="preschool">
         <div class="ai-emoji">&#x1F9D2;</div>
         <div class="ai-name" data-label="age-tier-name">幼児モード</div>
