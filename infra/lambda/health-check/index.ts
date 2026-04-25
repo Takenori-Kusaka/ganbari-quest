@@ -76,8 +76,7 @@ const HEALTH_CHECK_ENVIRONMENT = process.env.HEALTH_CHECK_ENVIRONMENT ?? 'produc
 const RETRY_DELAY_MS = Number.parseInt(process.env.HEALTH_CHECK_RETRY_DELAY_MS ?? '10000', 10);
 // #1470: 前回通知ステータス保持用 SSM パラメータ名
 const SSM_PARAM_NAME =
-	process.env.SSM_LAST_NOTIFIED_STATUS_PARAM ??
-	'/ganbari-quest/health-check/last-notified-status';
+	process.env.SSM_LAST_NOTIFIED_STATUS_PARAM ?? '/ganbari-quest/health-check/last-notified-status';
 
 const ssmClient = new SSMClient({});
 
@@ -161,9 +160,7 @@ function sleep(ms: number): Promise<void> {
 
 async function getLastNotifiedStatus(): Promise<NotifiedStatus | null> {
 	try {
-		const res = await ssmClient.send(
-			new GetParameterCommand({ Name: SSM_PARAM_NAME }),
-		);
+		const res = await ssmClient.send(new GetParameterCommand({ Name: SSM_PARAM_NAME }));
 		const value = res.Parameter?.Value;
 		if (value === 'normal' || value === 'degraded' || value === 'down') return value;
 		return null;
