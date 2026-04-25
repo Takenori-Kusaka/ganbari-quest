@@ -1,6 +1,7 @@
 // src/lib/domain/labels.ts
 // 用語辞書 — UI表示ラベルの Single Source of Truth
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
+// #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
