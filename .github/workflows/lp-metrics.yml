@@ -7,10 +7,6 @@ name: LP Metrics (dimensions / forbidden terms / CTA variants)
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - "site/**"
-      - "scripts/measure-lp-dimensions.mjs"
-      - ".github/workflows/lp-metrics.yml"
   push:
     branches:
       - main
@@ -31,24 +27,52 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check if LP-relevant files changed
+        id: lp-changed
+        uses: actions/github-script@v9
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('changed', 'true');
+              return;
+            }
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            const lpPattern = /^site\/|^scripts\/measure-lp-dimensions\.mjs$|^\.github\/workflows\/lp-metrics\.yml$/;
+            const changed = files.some(f => lpPattern.test(f.filename));
+            if (!changed) {
+              core.info('✅ LP関連ファイルの変更なし — LP メトリクス測定をスキップ');
+            }
+            core.setOutput('changed', changed ? 'true' : 'false');
 
       - name: Setup Node.js
+        if: steps.lp-changed.outputs.changed == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
 
       - name: Install dependencies
+        if: steps.lp-changed.outputs.changed == 'true'
         run: npm ci
 
       - name: Install Playwright Chromium
+        if: steps.lp-changed.outputs.changed == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Run LP metrics
+        if: steps.lp-changed.outputs.changed == 'true'
         run: node scripts/measure-lp-dimensions.mjs --site-dir=site --output=lp-metrics.json
 
       - name: Upload lp-metrics.json
-        if: always()
+        if: always() && steps.lp-changed.outputs.changed == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: lp-metrics
