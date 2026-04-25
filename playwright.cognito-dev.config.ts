@@ -18,6 +18,7 @@ export default defineConfig({
 	// #750: trial-banner-display / account-deletion を追加
 	// #755: account-deletion のアカウント削除フロー spec を追加
 	// #1497: upgrade-checkout の Stripe Checkout インターセプト spec を追加
+	// #1500: plan 別 storageState プロジェクトで loginAsPlan() を撤廃
 	testMatch:
 		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|upgrade-checkout)\.spec\.ts$/,
 	fullyParallel: true,
@@ -35,16 +36,81 @@ export default defineConfig({
 		navigationTimeout: 30_000,
 	},
 	projects: [
-		// #1497: storageState 基盤（auth.setup.ts）は追加済み。
-		// cognito-dev プロジェクトへの依存付与は storageState 活用完了後に行う（#1500）。
-		// 現在 setup プロジェクト定義のみ残し、cognito-dev との dependencies は外している。
+		// #1497 / #1500: auth.setup.ts で全 DEV_USERS ロールの storageState を事前保存する。
+		// 後続プロジェクトはそれぞれ dependencies: ['setup'] + storageState で認証済み状態から開始。
 		{ name: 'setup', testMatch: /auth\.setup\.ts$/ },
+
+		// #1500: plan 別プロジェクト（各 spec が loginAsPlan() を呼ぶ代わりに
+		// storageState でセッションを再利用する）
+		//
+		// spec が期待するユーザーと各プロジェクトの対応:
+		//   as-free         → free@example.com    (plan=free)
+		//   as-standard     → standard@example.com (plan=standard)
+		//   as-family       → family@example.com   (plan=family)
+		//   as-trial-expired→ trial-expired@example.com (plan=free, trial 期限切れ)
+		//   as-owner        → owner@example.com    (owner ロール、plan=family)
+		//   as-ops          → ops@example.com      (ops ロール)
+		//
+		// ただし現時点ではどの spec もまだ loginAsPlan() を各テスト内で呼んでいる。
+		// storageState を使うには spec 側でログイン済みを前提とした goto() から始める必要がある。
+		// そのため本プロジェクトは storageState を設定するが、spec 側は段階的に移行する。
+		// loginAsPlan() を呼ぶ spec は storageState を無視して再ログインするため互換性は維持される。
 		{
-			name: 'cognito-dev',
-			// dependencies: ['setup'], — #1500 で storageState 改修後に有効化
+			name: 'as-owner',
+			dependencies: ['setup'],
 			use: {
 				...devices['Desktop Chrome'],
-				// storageState: 'playwright/.auth/owner.json', — #1500 で有効化
+				storageState: 'playwright/.auth/owner.json',
+				viewport: { width: 1280, height: 800 },
+			},
+			testIgnore: /auth\.setup\.ts$/,
+		},
+		{
+			name: 'as-free',
+			dependencies: ['setup'],
+			use: {
+				...devices['Desktop Chrome'],
+				storageState: 'playwright/.auth/free.json',
+				viewport: { width: 1280, height: 800 },
+			},
+			testIgnore: /auth\.setup\.ts$/,
+		},
+		{
+			name: 'as-standard',
+			dependencies: ['setup'],
+			use: {
+				...devices['Desktop Chrome'],
+				storageState: 'playwright/.auth/standard.json',
+				viewport: { width: 1280, height: 800 },
+			},
+			testIgnore: /auth\.setup\.ts$/,
+		},
+		{
+			name: 'as-family',
+			dependencies: ['setup'],
+			use: {
+				...devices['Desktop Chrome'],
+				storageState: 'playwright/.auth/family.json',
+				viewport: { width: 1280, height: 800 },
+			},
+			testIgnore: /auth\.setup\.ts$/,
+		},
+		{
+			name: 'as-trial-expired',
+			dependencies: ['setup'],
+			use: {
+				...devices['Desktop Chrome'],
+				storageState: 'playwright/.auth/trial-expired.json',
+				viewport: { width: 1280, height: 800 },
+			},
+			testIgnore: /auth\.setup\.ts$/,
+		},
+		{
+			name: 'as-ops',
+			dependencies: ['setup'],
+			use: {
+				...devices['Desktop Chrome'],
+				storageState: 'playwright/.auth/ops.json',
 				viewport: { width: 1280, height: 800 },
 			},
 			testIgnore: /auth\.setup\.ts$/,

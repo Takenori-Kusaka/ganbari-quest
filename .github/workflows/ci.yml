@@ -366,8 +366,65 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # e2e-cognito-dev: #1497 で一時除外。storageState 改修後に復活予定 (#1500)
-  # → gh issue create で別 Issue を起票済み
+  # #1500: cognito-dev モード（AUTH_MODE=cognito COGNITO_DEV_MODE=true）での統合テスト。
+  # plan 別 storageState（setup プロジェクト）を使って認証を高速化。
+  # 実行時間が長いため optional（失敗しても ci-gate はブロックしない）。
+  # CI が安定したら ci-gate の needs に追加する予定（#1500 follow-up）。
+  e2e-cognito-dev:
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    permissions:
+      contents: read
+    continue-on-error: true
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache-cognito
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache-cognito.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright deps (cached browsers)
+        if: steps.playwright-cache-cognito.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Build for cognito-dev E2E (preview mode)
+        env:
+          AUTH_MODE: cognito
+          COGNITO_DEV_MODE: "true"
+          AWS_LICENSE_SECRET: e2e-test-secret-do-not-use-in-production
+        run: npm run build
+
+      - name: Run cognito-dev E2E tests
+        env:
+          AUTH_MODE: cognito
+          COGNITO_DEV_MODE: "true"
+          AWS_LICENSE_SECRET: e2e-test-secret-do-not-use-in-production
+          CI: "true"
+        run: npx playwright test --config playwright.cognito-dev.config.ts
+
+      - name: Upload cognito-dev E2E results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-cognito-dev-results
+          path: test-results/
+          retention-days: 7
 
   docker-build:
     runs-on: ubuntu-latest

@@ -1,5 +1,8 @@
 // tests/e2e/upgrade-checkout.spec.ts
 // #1497: Stripe チェックアウト E2E テスト（page.route() インターセプト）
+// #1500: テスト分類 = Integration（page.route() で Stripe を完全モック化しているため）
+//        cognito-dev 認証が必要なため playwright.cognito-dev.config.ts で管理するが、
+//        実 Stripe API は一切呼び出さない。tests/CLAUDE.md §テスト分類 参照。
 //
 // Stripe Checkout API を page.route() でモック化し、
 // /admin/license のアップグレード CTA → Stripe Checkout 遷移の導線を検証する。
