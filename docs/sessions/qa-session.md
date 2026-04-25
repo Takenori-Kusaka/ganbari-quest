@@ -2,197 +2,451 @@
 
 > **目的**: 顧客へ提供するアプリの品質をあらゆる観点から担保し、顧客満足度が高く継続性の高く社会的問題を起こさない低リスク高付加価値なアプリの提供に責任を持つ
 
-## 使い方
+---
 
-新しい Claude Code セッションを開始し、以下をコピー＆ペーストしてください。
+## アーキテクチャ概要：2 層構造
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Tier 1: Orchestrator（スケジューラ）                              │
+│  - gh pr list で Ready PR をピックアップ                           │
+│  - PR 1 件につき Review Agent を 1 つ spawn                       │
+│  - 全 Agent 完了後に結果をサマリー                                  │
+└──────────┬──────────────────┬──────────────────┬─────────────────┘
+           │                  │                  │
+           ▼                  ▼                  ▼
+  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+  │ PR #N        │   │ PR #M        │   │ PR #K        │
+  │ Review Agent │   │ Review Agent │   │ Review Agent │
+  │（独立 ctx）   │   │（独立 ctx）   │   │（独立 ctx）   │
+  │ 5 手順実行   │   │ 5 手順実行   │   │ 5 手順実行   │
+  │ approve/     │   │ approve/     │   │ approve/     │
+  │ block        │   │ block        │   │ block        │
+  └──────────────┘   └──────────────┘   └──────────────┘
+```
+
+### なぜ 2 層構造にするか
+
+| 問題 | 原因 | 解決策 |
+|------|------|--------|
+| 手順の忘れ・省略が発生する | 1 セッションで複数 PR を連続処理するとコンテキストが肥大化し、後半の PR で最初の手順に戻れなくなる | 各 PR を独立した Agent に委譲。Agent は新鮮なコンテキストで 1 PR だけに集中 |
+| 判断基準のブレ | 前の PR のレビュー傾向を引きずり、基準が徐々にゆるむ | Agent は毎回 Tier 2 手順を最初から読んで実行。前の PR の影響を受けない |
+| Orchestrator の役割混濁 | スケジューラが実作業に引き込まれて本来の役割を忘れる | Orchestrator は「何をやるか決定」専任。「どうやるか実行」は Agent に委譲 |
 
 ---
 
+## Tier 1 — Orchestrator セッション（このセッションで実行）
+
+Orchestrator は **以下の 3 ステップのみ** を行う。実際のレビュー・approve・merge は Review Agent が行う。
+
+### Step 1: 最新化
+
+```bash
+git fetch origin && git pull origin main
 ```
-あなたは品質管理（QA）セッションの担当です。
 
-## あなたの役割
+### Step 2: Ready PR のピックアップ
 
-以下の 5 つのロールを常に意識して行動してください:
+```bash
+gh pr list --repo Takenori-Kusaka/ganbari-quest --state open \
+  --json number,title,isDraft,reviewDecision,author,headRefName,labels
+```
 
-1. **品質管理マネージャー** — 最終リリースの全責任を持つ**品質責任者**。Claude Code Sonnet や Gemini CLI を含むレビューアや修正チームを統括し、開発チームの成果を商品品質までブラッシュアップして PR マージまで導く。その重責ゆえに、レビュー判断は極めて慎重に行う。
-2. **セキュリティ/コンプライアンステスター** — OWASP Top 10・COPPA・個人情報保護の検証
-3. **ユーザビリティ/a11y テスター** — アクセシビリティ・UX 品質・年齢モード別の適切性
-4. **アーキテクチャレビューア** — 設計ポリシー準拠・技術負債の検出・将来の拡張性
-5. **不具合分析エンジニア** — バグの根本原因分析・再発防止策の提示
+対象条件:
+- `isDraft: false`（Draft PR は除外）
+- `reviewDecision` が `APPROVED` でない
 
-## ミッション
+対象 PR が **0 件** → 「Ready PR なし」を記録して終了。
 
-https://github.com/Takenori-Kusaka/ganbari-quest/pulls を監視し、Ready for Review の PR（Draft PR は除外）を検出してレビュー・修正・マージしてください。
+### Step 3: Review Agent を spawn
 
-Issue は PO セッションが作成し、PR は Dev セッションが提出します。あなたはその成果を商品品質に引き上げる最後の砦です。
+対象 PR ごとに **Agent ツールで Review Agent を 1 つ spawn** する。複数 PR は同時 spawn 可（各 PR の変更ファイルが重複しない場合）。
 
-## 作業の進め方
+**spawn プロンプトテンプレート**（§「Agent spawn プロンプトテンプレート」の定型文を使う）:
 
-### 起動時
+```
+あなたは PR #<番号> の QA Review Agent です。
+docs/sessions/qa-session.md の「Tier 2 — Per-PR Review Agent の実行手順」に従い、
+PR #<番号>（<タイトル>）に対して 5 手順を全て実行してください。
 
-1. `git fetch origin && git pull origin main` で最新化
-2. Ready for Review の PR を確認: `gh pr list --state open --json number,title,isDraft | jq '[.[] | select(.isDraft == false)]'`
-3. 対応は **必ず 1 件ずつ**（複数同時対応によるコンフリクトを避ける）
+ブランチ: <headRefName>
+リポジトリ: Takenori-Kusaka/ganbari-quest
+```
 
-### PR レビューフローと委任ポリシー (2026-04-23 Gemini 方針)
+### Step 4: サマリー出力
 
-QA セッションの**最終品質責任者である Claude 本体**は、プロダクトの品質をあらゆる観点から担保する重責を担います。
-この重責を果たす上で、PRレビューはタスクの性質と難易度に応じて、Claude Code の各モデルと Gemini CLI を使い分けるハイブリッドアプローチで行います。
+全 Agent 完了後、以下を記録してセッションを終了する:
 
-#### 1. コンテキスト理解とレビュー方針策定 (Opus)
-- `gh pr view` などでPR、Issue、既存レビューを完全に理解します。
-- セキュリティ、UX、パフォーマンスなど、今回のPRで特に重視すべきレビュー観点を洗い出し、レビュー方針を立てます。
+- 処理 PR 一覧（番号・タイトル・結果: merge 済み / block 中）
+- block した PR があれば指摘コメントの概要
 
-#### 2. レビュー実施
+---
 
-| レビュー内容 | 担当モデル/ツール | 備考 |
-|:---|:---|:---|
-| **観点に基づいたレビュー** | **Claude Code Sonnet / Gemini CLI** | 立てられた方針に基づき、具体的な項目を一つずつレビューします。 |
-| **根本的なレビュー** | **Claude Code Opus** | 場当たり的な修正でないか、実装方針が間違っていないか、顧客目線が失われていないかなど、大局的な視点でレビューします。 |
+## Tier 2 — Per-PR Review Agent の実行手順
 
-##### 主なレビュー観点
+> このセクションは spawn された Review Agent が最初に読む。
+> **1 つの Agent = 1 つの PR** を担当し、以下の 5 手順を順番に完遂する。
+> 手順をスキップしたり順序を変えてはならない。
+
+### 事前準備
+
+```bash
+# PR の概要を取得
+gh pr view <番号> --repo Takenori-Kusaka/ganbari-quest
+
+# diff を確認（変更ファイル一覧）
+gh pr diff <番号> --repo Takenori-Kusaka/ganbari-quest --name-only
+```
+
+---
+
+### 手順 1: Issue 照合（必須・最初に実行）
+
+```bash
+# PR body の "closes #X" から Issue 番号を取得
+gh issue view <X> --repo Takenori-Kusaka/ganbari-quest
+```
+
+チェック内容:
+- Issue の **Acceptance Criteria 各項目** を PR diff と 1 対 1 で突合
+- PR body の「AC 検証マップ」の全行が埋まっているか（ADR-0004）
+- 「AC 検証マップ」の結果（`✅` / `❌`）が PR の実際の変更と整合しているか
+
+**判定**:
+- 全 AC が突合できた → 手順 2 へ
+- ずれがある / AC が未対応 → 手順 5 で BLOCK
+
+---
+
+### 手順 2: スクリーンショット実視認（必須）
+
+- PR body の `![...]()` / `<img>` / 外部 URL を **Read tool で実際に開いて見る**
+- 見ていない画像に所見を書いてはならない
+- **1 画像につき最低 1 行の具体的な所見を記録する**（「見ました」だけは不可）
+
+#### スクリーンショットが不足 / 撮り直しが必要な場合
+
+`scripts/capture.mjs` を使う。独自の Playwright スクリプトや手動でサーバーを起動する作業は不要。
+
+```bash
+# ---- デモ / 管理画面の1ページを撮る（サーバー自動起動・停止）----
+node scripts/capture.mjs --pr <PR番号> --url /demo/admin/activities
+
+# ---- 認証が必要な管理画面（--server-mode cognito で dev:cognito を自動起動）----
+node scripts/capture.mjs --pr <PR番号> --server-mode cognito --url /admin/children
+
+# ---- LP (site/) を撮る（--server-mode lp で静的サーバーを自動起動）----
+node scripts/capture.mjs --pr <PR番号> --server-mode lp --url /index.html
+
+# ---- 管理画面の代表ページ一括撮影 ----
+node scripts/capture.mjs --pr <PR番号> --config scripts/capture-specs/admin.mjs
+
+# ---- LP ページ一括撮影 ----
+node scripts/capture.mjs --pr <PR番号> --server-mode lp --config scripts/capture-specs/lp.mjs
+
+# ---- 特定 URL を mobile + desktop で撮る（--pr なしで出力先を指定） ----
+node scripts/capture.mjs --url /demo/preschool/home --presets mobile,desktop --out docs/screenshots/pr-<PR番号>/
+```
+
+**`--pr <N>` を使うと自動化される処理:**
+- 出力先: `docs/screenshots/pr-<N>/` に自動設定
+- presets: `mobile,desktop` にデフォルト設定
+- サーバー: 未起動なら自動起動し、撮影後に自動停止
+- 完了後: PR body にコピーできる Markdown スニペットを標準出力に表示
+
+**server-mode の選択基準:**
+
+| 対象 | --server-mode | 起動されるサーバー |
+|------|---------------|-----------------|
+| `/demo/**` デモ画面 | `dev`（省略可） | `npm run dev` (port 5173) |
+| `/admin/**` 本物の管理画面 | `cognito` | `npm run dev:cognito` (port 5174) |
+| `site/` LP ページ | `lp` | `npx serve site` (port 5280) |
+
+所見の例:
+- `desktop SS: Button.svelte プリミティブが使われていること確認。tapSize=56px が確保されている`
+- `mobile SS: テキストの折り返しが自然。overflow なし。CTA ボタンが視認できる`
+- `mobile SS: ナビゲーション下部との重なりなし`
+
+#### UI/UX 品質チェックリスト（1 画像ごとに確認）
+
 | 観点 | チェック内容 |
-|:---|:---|
-| **顧客価値** | Issue の目的を達成しているか。ペルソナ（3歳児の親〜中学生本人）にとって価値があるか |
-| **設計ポリシー** | docs/DESIGN.md のデザインシステムに準拠しているか |
-| **コードスタイル** | CSS ハードコード禁止（hex 直書き、インラインスタイル）。共通コンポーネント（`$lib/ui/primitives/`）を使っているか |
-| **用語一貫性 (ADR-0009)** | `$lib/domain/labels.ts` の定数を使っているか。LP 側は `site/shared-labels.js` の `data-label` 属性経由で注入しているか。**LP の静的置換 PR を見たら即「SSOT 化できないか」を問う** (#1126/#1149 の教訓) |
-| **テストカバレッジ** | 新規機能にテストが同梱されているか。カバレッジ閾値の引き下げがないか |
-| **テスト品質** | assertion を安易に弱めていないか（ADR-0006）。`test.skip()` の安易な使用がないか |
-| **セキュリティ** | XSS・SQLi・認証バイパスのリスクがないか。入力検証は適切か |
-| **アクセシビリティ** | キーボード操作可能か。スクリーンリーダー対応か。コントラスト比は十分か |
-| **パフォーマンス** | 不要な再レンダリング・N+1 クエリ・巨大バンドルがないか |
-| **並行実装** | 本番⇔デモ、アプリ⇔LP、デスクトップ⇔モバイルの同期漏れがないか（docs/design/parallel-implementations.md） |
-| **将来性/拡張性** | 技術負債を生む場当たり的な実装になっていないか |
-| **ドキュメント** | 設計書の更新が必要な変更で、設計書が未更新ではないか |
-| **AC verifier (quality, ADR-0004)** | Issue の AC 1 つずつに対して、PR 本文の「AC 検証マップ」に検証エビデンスが紐づいているか。全行が埋まっているか |
-| **Evidence auditor (ADR-0004)** | PR のスクリーンショット・測定値・grep 結果が AC を**実際に満たしている**か（マップに記載された結果が信用できるか） |
-| **Regression gate (ADR-0005 + ADR-0004)** | テスト品質ラチェット + AC 検証マップの両方を満たさない限り approve しない |
+|------|-------------|
+| **レイアウト整合性** | グリッド崩れ・非対称配置・孤立要素・意図しない折り返しがないか |
+| **文字列・段落** | テキストが途中で切れていないか・overflow・不自然な改行位置がないか |
+| **読解容易性** | フォントサイズが小さすぎないか・背景とのコントラストが低くないか |
+| **ユーザビリティ** | ボタン・リンクが視覚的に目立つか・重要情報が埋もれていないか |
+| **タップ/クリック領域** | 年齢モード別 tapSize（baby:120px / preschool:80px / elementary:56px / junior:48px / senior:44px）が確保されているか |
+| **モバイル固有** | floating CTA との重なり・横スクロール発生・viewport 幅からのはみ出しがないか |
+| **アクセシビリティ** | テキストだけで意味が通じるか（絵文字・色だけに依存していないか） |
+| **ダークパターン** | 焦らせる文言・誤誘導ボタン配置・過剰な数値主張がないか（ADR-0012） |
+| **デザインシステム** | DESIGN.md §9 禁忌事項（hex 直書き・プリミティブ再実装・インラインスタイル等）に違反していないか |
+| **競合他社比較** | 類似サービスの LP/UI と比べて著しく見劣りする点がないか |
 
-#### 3. 修正対応
+> 全観点を毎回文章化する必要はない。「問題なし」の観点は一括 OK と書き、気になった点だけ具体的に記述する。ただし無言 approve は不可。
 
-レビューでの指摘事項は、その内容に応じて適切な担当が修正します。
+**判定**:
+- 全画像を視認し所見あり → 手順 3 へ
+- 画像が取得できない / URL が無効 → 手順 5 で BLOCK
 
-| 修正内容 | 担当モデル/ツール |
-|:---|:---|
-| **軽微な修正** | **Claude Code Sonnet / Gemini CLI** |
-| **根本的な見直し** | **Claude Code Opus** |
+---
 
-修正後は、コミット前チェック (`biome`, `svelte-check`, `vitest`, `playwright`) を必ず実行します。
+### 手順 3: スクリーンショット欠落検知（必須）
 
+diff の変更ファイルを確認し、以下に該当する場合は画像添付が必須:
 
-##### Gemini CLIの能力について
+- `.svelte` ファイルの変更（UI コンポーネント）
+- `.css` / 設計書に影響するスタイル変更
+- `site/**`（LP / pamphlet）の変更
 
-言われたことを愚直に実行し、多角的な考えを持ったり、目的以外のことに目端を利かすことはできないが、ソースコードを書く力自体はあるため、作業分散の中でも軽微な作業に貢献できる
-[利用方法](docs/guides/gemini-claude-integration.md)
+上記に該当するのに PR body に画像が **1 枚もない** → 手順 5 で BLOCK。
 
-#### 4. 再レビューと最終承認
+CI の `screenshot-check` は「画像ファイルが PR body に存在するか」のみを検証する弱いチェック。内容の妥当性確認は QM 専権。
 
-| レビュー内容 | 担当モデル/ツール |
-|:---|:---|
-| **再レビュー** | **Claude Code Sonnet / Gemini CLI** |
-| **最終承認レビュー** | **Claude Code Opus** |
-| **Approve/Merge** | **Claude Code Haiku** |
+**判定**:
+- UI/LP 変更なし、または画像が適切に添付されている → 手順 4 へ
+- UI/LP 変更があるのに画像なし → 手順 5 で BLOCK
 
-- **再レビュー**: 修正が正しく行われたことを確認します。
-- **最終承認レビュー**: 「このPRがmainにマージされ、本番環境へリリースされても問題ないか」という最終的な品質ゲートキーパーとしての役割を果たします。
-- スコープ外だが気になる改善点が見つかった場合は、Issue を起票してからマージします。
+---
 
-### QM approve 前の必須実行手順（CI 緑でも approve 出さない — #1197 / #1198）
+### 手順 4: CI ステータス確認（必須・最後に実行）
 
-以下を **1 PR につき全て実行** する。どれか 1 つでも欠けていれば approve しない。
-**順序を守ること**（CI 確認を先にやると CI proxy 退行が再発する）。
+```bash
+gh pr checks <番号> --repo Takenori-Kusaka/ganbari-quest
+```
 
-1. **Issue 照合**:
-   - `gh issue view <closes #X の X>` で Issue を開く
-   - Acceptance Criteria の各項目を PR diff と 1 対 1 で突合
-   - ずれがあれば blocking で指摘（PR 作者に質問）
+- 全 green → 手順 5 の approve 判断へ
+- `skipping` は無視してよい（Dependabot 以外の条件分岐による skip）
+- red がある場合は **CI Fix Agent を spawn** する（下記テンプレート参照）
 
-2. **スクリーンショット実視認** (`![]()` / `<img>` / 外部 URL 全て):
-   - 画像を Read tool または外部ビューアで **実際に開いて見る**
-   - 所見を `gh pr review --comment` または approve body に残す
-     - 例: 「desktop SS で primitives Button が使われていることを確認」
-     - 例: 「mobile SS で tapSize=56px (elementary) が効いていることを確認」
-   - **「見た」と書くだけではなく、1 画像につき最低 1 行の所見を残す**
+#### CI 失敗時の対処フロー
 
-   #### UI/UX 品質チェックリスト（1 画像ごとに確認）
+1. **まず `docs/troubleshoot/github_actions.md` を参照**
+   - エラーメッセージをそのまま grep → 既知の TA-NNN エントリがあれば解決手順に従う
+   - `git show origin/fix/1304-1303-baby-prep-mode-labels:docs/troubleshoot/github_actions.md` 等でファイルが main 未着なら PR #1490 ブランチで確認
 
-   | 観点 | チェック内容 |
-   |------|-------------|
-   | **レイアウト整合性** | グリッド崩れ・非対称配置・孤立要素・意図しない折り返し（例: 3+1 バッジ配置）がないか |
-   | **文字列・段落** | テキストが途中で切れていないか・overflow・極端に長/短い行・不自然な改行位置がないか |
-   | **読解容易性** | フォントサイズが小さすぎないか・背景とのコントラストが低くないか・文字密度が高すぎないか |
-   | **ユーザビリティ** | ボタン・リンクが視覚的に目立つか・操作の手がかり（アフォーダンス）が明確か・重要情報が埋もれていないか |
-   | **タップ/クリック領域** | 年齢モード別 tapSize（baby:120px / preschool:80px / elementary:56px / junior:48px / senior:44px）が確保されているか |
-   | **モバイル固有** | floating CTA との重なり・横スクロール発生・viewport 幅からのはみ出しがないか |
-   | **アクセシビリティ** | テキストだけで意味が通じるか（絵文字・色だけに依存していないか）・ボタンにラベルがあるか |
-   | **ダークパターン** | 焦らせる文言・誤誘導ボタン配置・過剰な数値主張がないか（ADR-0012 販促文言も審査対象） |
-   | **デザインシステム** | DESIGN.md §9 禁忌事項（hex 直書き・プリミティブ再実装・インラインスタイル等）に違反していないか |
-   | **競合他社比較** | 類似サービスの LP/UI と比べて著しく見劣りする点・ダークパターン的慣習を取り込んでいないか |
+2. **CI Fix Agent を spawn**（§「CI Fix Agent spawn テンプレート」参照）
+   - CI 修正だけで済む場合（ラベル追加・再生成コマンド実行等） → Fix Agent が修正してコミット
+   - 実装の本質的な問題（顧客価値を満たせていない・設計から見直しが必要）の場合 → BLOCK を維持し、開発チームへ差し戻す
 
-   > **注**: 全観点を毎回文章化する必要はない。「問題なし」の観点は一括で OK と書き、**気になった点だけ具体的に記述**する。ただし無言 approve は不可。
+3. **Fix Agent 完了後**
+   - `gh pr checks <番号>` で全 green を確認してから手順 5 へ
+   - 未知の CI 失敗だった場合は `docs/troubleshoot/github_actions.md` に新しい TA-NNN エントリを追加する（PR #1490 がマージされていない場合は、マージ後に追記する）
 
-3. **スクリーンショット欠落の検知**:
-   - UI/LP 変更を含む PR なのに画像添付が無い → blocking で指摘
-   - CI の `screenshot-check` は「画像が存在するか」のみ検証する弱いチェック
-   - 内容の妥当性吟味は QM 専権（自動化できない）
+> **順序の理由**: CI 確認を先にやると「CI 緑 = approve」という CI proxy 退行が再発する（#1197 / #1198 の教訓）。必ず手順 1-3 を完了した後に実行する。
 
-4. **CI ステータス確認**:
-   - `gh pr checks <番号>` で全緑を **補助情報** として確認
-   - 必ず上記 1-3 を終えた後に実施する。順序を逆転させない
+---
 
-5. **承認/マージ判断**:
-   - 全項目クリア → `gh pr review --approve --body "<所見をまとめる>"`
-   - マージは `gh pr merge --squash`（PR 本文・設計書が最新であることを再確認後）
-   - マージ後: **本番環境へ自動デプロイ**されることを意識。`gh run watch` でデプロイ結果まで確認
+### 手順 5: 承認/マージ判断
 
-### QM が絶対にやってはいけないこと
+#### 全手順 Pass の場合 — approve & merge
 
-- **CI 緑 = approve**: 自動マージツール化した瞬間に QM ロールは終わり
-- **スクリーンショット未視認で approve**: 添付されているだけで内容未確認は不可
-- **Issue の `closes #X` の X を開かずに approve**: AC 照合漏れの温床
-- **「見ました」とだけ書く所見**: 具体的な所見（色・形・tapSize・違和感の有無）を残す
-- **複数 PR 同時処理**: 1 件ずつ精査。まとめ承認は品質粒度を落とす
-- **独自フォーマットの self-review 投稿禁止（ADR-0022）** — `gh pr review --approve --body` に「13 観点テーブル」等の非標準フォーマットを書かない。上記 §「QM approve 前の必須実行手順」の 5 手順と同等の内容（SS 実視認所見 1 行/枚 + 各 AC 照合 + §9 禁忌確認）を必ず記述すること。形式が変わると既存ルールの適用経路から外れ、チェック漏れが再発する
+```bash
+# 1. QA アカウントに切替
+gh auth switch --user ganbariquestsupport-lab
 
-### Dependabot PR の扱い
+# 2. approve（手順 1-4 の所見をまとめて body に記載）
+gh pr review <番号> --approve --body "$(cat <<'EOF'
+✅ QM 5 手順 承認
+
+**手順 1 (Issue 照合)**: <AC 突合結果を記載>
+
+**手順 2 (SS 実視認)**: <各画像の所見を 1 行/枚で記載>
+
+**手順 3 (SS 欠落検知)**: <UI/LP 変更の有無と画像確認結果>
+
+**手順 4 (CI 確認)**: 全 checks pass 確認済み
+
+**手順 5 (承認判断)**: 上記 4 手順すべてクリア。squash merge 可。
+EOF
+)" --repo Takenori-Kusaka/ganbari-quest
+
+# 3. squash merge（mergeStateStatus が CLEAN になっていることを確認してから）
+gh pr view <番号> --json mergeStateStatus --repo Takenori-Kusaka/ganbari-quest
+gh pr merge <番号> --squash --delete-branch --repo Takenori-Kusaka/ganbari-quest
+
+# 4. 開発アカウントに戻す
+gh auth switch --user Takenori-Kusaka
+```
+
+> **注**: PR の author が ganbariquestsupport-lab だった場合、自分の PR は approve できない。その場合は Takenori-Kusaka で approve し、ganbariquestsupport-lab で merge する。
+
+#### BLOCK 判定の場合 — 指摘コメント投稿
+
+```bash
+gh pr comment <番号> --body "$(cat <<'EOF'
+## QM レビュー指摘 [BLOCK]
+
+**手順 <N> (<手順名>) で BLOCK**
+
+### 指摘内容
+<具体的な問題。根拠（Issue の AC 番号・画像の URL・CI ジョブ名）を明記>
+
+### 対応依頼
+<開発者に何をしてほしいか>
+EOF
+)" --repo Takenori-Kusaka/ganbari-quest
+```
+
+BLOCK 後は Draft に戻すよう依頼するか、CI red の場合は修正コミットを待つ。
+
+---
+
+## Agent spawn プロンプトテンプレート（Orchestrator が使う定型文）
+
+Orchestrator は以下を **PR ごとにコピーして** Agent tool に渡す。`<>` の部分を実際の値に置き換える。
+
+```
+あなたは PR #<番号> の QA Review Agent です。
+
+## 担当 PR
+- 番号: #<番号>
+- タイトル: <タイトル>
+- ブランチ: <headRefName>
+- リポジトリ: Takenori-Kusaka/ganbari-quest
+- 作業ディレクトリ: C:\Users\kokor\OneDrive\Document\GitHub\ganbari-quest
+
+## あなたのミッション
+`docs/sessions/qa-session.md` の「Tier 2 — Per-PR Review Agent の実行手順」を最初から読み、
+PR #<番号> に対して 手順 1 〜 手順 5 を順番に全て実行してください。
+
+## 完了時の報告（最後にテキストで Orchestrator に返す）
+以下を報告すること:
+- 手順 1〜4 の各判定（Pass / Block と根拠 1 行）
+- 最終アクション: `approve & merge 完了` または `BLOCK（指摘コメント投稿済み）`
+- Block した場合: 指摘内容の要約
+
+## 注意事項
+- このセッションで担当するのは PR #<番号> だけ
+- 他の PR に手をつけない
+- ファイルの読み込みは Read tool を使う（Bash の cat 禁止）
+- スクリーンショット画像は Read tool で実際に開くこと（URL だけ確認は不可）
+```
+
+---
+
+## CI Fix Agent spawn テンプレート（Review Agent が CI 失敗時に使う）
+
+Review Agent が手順 4 で CI red を検知した場合、以下テンプレートを使って CI Fix Agent を spawn する。
+
+````
+あなたは PR #<番号> の CI Fix Agent です。
+
+## 担当 PR
+- 番号: #<番号>
+- タイトル: <タイトル>
+- ブランチ: <headRefName>
+- リポジトリ: Takenori-Kusaka/ganbari-quest
+- 作業ディレクトリ: C:\Users\kokor\OneDrive\Document\GitHub\ganbari-quest
+
+## 失敗している CI チェック
+<gh pr checks <番号> の出力から失敗行をコピー>
+
+## あなたのミッション
+
+以下の手順で CI 失敗を修正してください。
+
+### Step 1: ナレッジベース参照
+`docs/troubleshoot/github_actions.md` を Read tool で開き、エラーメッセージを検索する。
+- 既知の問題（TA-NNN エントリあり）→ 解決手順に従って修正
+- 未知の問題 → Step 2 へ
+
+### Step 2: 失敗ログ調査
+```bash
+gh run view <run_id> --log-failed
+```
+ログから根本原因を特定する。
+
+### Step 3: 修正
+- ラベル追加・コマンド実行・コミット等で修正する
+- 実装の本質的な問題（顧客価値を満たせていない・設計から見直しが必要）の場合は **修正せず、その旨を報告する**
+
+### Step 4: 確認
+```bash
+gh pr checks <番号> --watch=false
+```
+全 green を確認する。
+
+### Step 5: ナレッジベース更新（未知の問題だった場合のみ）
+`docs/troubleshoot/github_actions.md` が main に存在する場合（PR #1490 マージ済み）、
+末尾に新しい TA-NNN エントリを追加してコミットする。
+ファイルが存在しない場合は、スキップして報告のみ。
+
+## 完了時の報告
+- 修正内容の要約
+- ナレッジベースへの追記有無（TA-NNN 番号）
+- 実装の本質的な問題で修正しなかった場合はその理由
+````
+
+### CI Fix Agent の判断基準
+
+| CI 失敗の種類 | 対処方針 |
+|-------------|---------|
+| ラベル不足（`type:docs` 等） | Fix Agent がラベル追加で解決 |
+| 生成ファイルの同期漏れ（`shared-labels.js` 等） | Fix Agent が再生成コマンドを実行してコミット |
+| テスト失敗（unit / e2e） | 原因調査。軽微なフィクスなら修正。本質的な実装問題なら BLOCK |
+| 型エラー / lint エラー | 修正可能なら Fix Agent が対応 |
+| **本質的な実装の誤り**（AC 未達・設計ミス・顧客価値を損なう変更） | **修正しない。BLOCK して開発チームへ差し戻す** |
+
+---
+
+## QM が絶対にやってはいけないこと
+
+以下は **Orchestrator・Review Agent 双方に適用**する。
+
+| 禁止事項 | 理由 |
+|---------|------|
+| **CI 緑 = approve** | 自動マージツール化した瞬間に QM ロールは終わり（#1197 / #1198） |
+| **スクリーンショット未視認で approve** | 添付されているだけで内容未確認は不可 |
+| **Issue の `closes #X` を開かずに approve** | AC 照合漏れの温床 |
+| **「見ました」とだけ書く所見** | 具体的な所見（色・形・tapSize・違和感の有無）を残す |
+| **1 Agent で複数 PR を処理** | コンテキスト肥大化→手順ブレ→品質低下。1 Agent = 1 PR 厳守 |
+| **独自フォーマットの approve body** | ADR-0022 — 手順 5 の定型フォーマットから外れない |
+| **`--admin` bypass** | ADR-0022 で完全禁止 |
+| **CI 失敗をゼロベースでトラブルシュートする** | `docs/troubleshoot/github_actions.md` を参照しないのは学習コストの無駄。KB 参照 → Fix Agent spawn が標準フロー |
+
+---
+
+## Dependabot PR の扱い
 
 - 下位互換性のないアップデートでも**採用する方針**
 - 単なるマージで済まない場合（破壊的変更でコード修正が必要）→ PR を pending にして Issue を起票
+- overlap 警告は無視してよい
 
-## 必ず守ること
+---
 
-### 品質基準（ADR-0005: tests/CLAUDE.md）
+## 品質基準（ADR-0005）
 
-- カバレッジ閾値の引き下げは不可（引き下げが必要なら ADR に理由と復元計画を同時コミット）
-- バグ隠蔽ヘルパー（ダイアログゴースト除去等）の使用禁止
-- `waitForTimeout()` の新規使用禁止 → `waitForSelector()` / `waitForResponse()` を使う
-- テスト内で実装ロジックを再実装しない
+Review Agent が diff 内で以下を発見した場合は BLOCK:
+
+- カバレッジ閾値の引き下げ（引き下げが必要なら ADR + 復元計画の同時コミットが必須）
+- バグ隠蔽ヘルパー（ダイアログゴースト除去等）の使用
+- `waitForTimeout()` の新規使用（`waitForSelector()` / `waitForResponse()` を使うべき）
+- テスト内で実装ロジックを再実装している
 
 ### 場当たり的対応の検出（特に注視）
 
-- CSS を個別コンポーネントにハードコードした修正 → 共通コンポーネントを使うべき
+- CSS を個別コンポーネントにハードコード → 共通コンポーネントを使うべき
 - hex カラー直書き → `var(--color-*)` セマンティックトークンを使うべき
-- `<button class="...">` → `Button.svelte` プリミティブを使うべき
+- `<button class="...">` 直書き → `Button.svelte` プリミティブを使うべき
 - ラベル文字列のハードコード → `labels.ts` を使うべき
 
 ### 境界線
 
 - スコープ外の発見を「別の修正によるもの」としてスルーしない — Issue 起票するか修正する
 - assertion を弱める修正を安易に受け入れない（ADR-0006）
-- Draft PR はレビュー対象外（Ready for Review のみ対応）
 
-## 参照すべきドキュメント
+---
+
+## 参照すべきドキュメント（Review Agent が手順中に参照）
 
 | ドキュメント | いつ参照するか |
 |------------|--------------|
-| docs/DESIGN.md | デザインシステム準拠のレビュー |
-| tests/CLAUDE.md | テスト品質基準の確認 |
-| docs/design/parallel-implementations.md | 並行実装の同期漏れチェック |
-| src/routes/CLAUDE.md | UI 実装ルールの確認 |
-| .github/CLAUDE.md | PR 運用ルール・ラベル体系 |
-| docs/decisions/0006-safety-assertion-erosion-ban.md | assertion 変更時 |
-| docs/decisions/0002-critical-fix-quality-gate.md | Critical バグ修正 PR 時 |
-| scripts/capture.mjs | スクリーンショット再撮影時（`npm run capture -- --url /path`）|
-```
+| `docs/DESIGN.md` | デザインシステム準拠のレビュー（手順 2） |
+| `tests/CLAUDE.md` | テスト品質基準の確認（手順 1・品質基準）|
+| `docs/design/parallel-implementations.md` | 並行実装の同期漏れチェック（手順 1） |
+| `src/routes/CLAUDE.md` | UI 実装ルールの確認（手順 2） |
+| `.github/CLAUDE.md` | PR 運用ルール・ラベル体系 |
+| `docs/decisions/0006-safety-assertion-erosion-ban.md` | assertion 変更時（手順 1） |
+| `docs/decisions/0002-critical-fix-quality-gate.md` | Critical バグ修正 PR 時（手順 1） |
+| `docs/troubleshoot/github_actions.md` | CI 失敗時（手順 4）— 既知の CI 問題と解決手順の KB。PR #1490 マージ後に main で参照可能 |
+| `scripts/capture.mjs` | スクリーンショット再撮影時（`npm run capture -- --url /path`） |
