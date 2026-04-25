@@ -45,24 +45,69 @@
 Screenshot Agentに依頼する際は、以下を **必ずそのまま含める**：
 
 ```
-## スクリーンショット撮影手順（厳守）
+## スクリーンショット撮影 + UI/UXセルフレビュー手順（厳守）
 
-1. 撮影対象: [変更ファイル一覧から影響画面を列挙]
-2. 使用コマンド（Windows Git Bash必須）:
-   MSYS_NO_PATHCONV=1 node scripts/capture.mjs --url /実際のパス --out tmp/screenshots/pr-XXXX --presets desktop,mobile
+### 前提：dev serverの認証モード
 
-3. 禁止事項:
-   - /demo/* のURLは使用禁止（デモ画面は実アプリではない）
-   - フルURL（http://...）を--urlに渡すことで404になる既知バグがあるため、パス（/admin/children 等）のみ渡す
-   - MSYS_NO_PATHCONV=1 なしに実行すると404になる
+このプロジェクトには2つのdevモードがある:
 
-4. 認証が必要な画面（/admin/*, /ops/*）:
-   PRテンプレート§スクリーンショット記載通り、npm run dev:cognito が必要。
-   これはインタラクティブなブラウザ操作が必要なためAgentでは実行できない。
-   → POに撮影を依頼するか、AUTH_MODE=local の dev server（port 5173）で自動認証される
-     非認証チェック用途として/admin/*をcapture.mjsで撮影することは許容する
+| モード | コマンド | ポート | 認証 | 用途 |
+|--------|---------|--------|------|------|
+| local（AUTH_MODE=local） | npm run dev | 5173 | 自動認証（Cognito不要） | 管理画面・子供画面等の通常UI確認 |
+| cognito-dev | npm run dev:cognito | 5174 | Cognito dev mockでログイン | ログインフォーム・プラン別UI・opsの確認 |
 
-5. 撮影後: 画像を自分で目視し、意図通りの表示（変更が反映されている・デザイン禁忌なし）を確認してから添付
+**今回のスクリーンショットは local モード（port 5173）で撮影する**。
+管理画面（/admin/*）は AUTH_MODE=local で自動認証されるため Cognito ログイン不要。
+cognito-dev が必要なのはログインフォーム自体・plan-gated UI（/ops/*等）を検証する場合のみ。
+
+### 1. 撮影コマンド（Windows Git Bash）
+
+MSYS_NO_PATHCONV=1 node scripts/capture.mjs \
+  --url /admin/children \
+  --out tmp/screenshots/pr-XXXX \
+  --presets desktop,mobile
+
+### 2. コマンドの禁止事項
+
+- /demo/* のURLは使用禁止（デモ画面は実アプリではない）
+- フルURL（http://...）を--urlに渡さない（内部で二重結合になり404になる既知バグ）
+- MSYS_NO_PATHCONV=1 なしで実行しない（パスがWindowsパスに変換されて404になる）
+
+### 3. 撮影後のUI/UXセルフレビュー（Agentが自分で実施）
+
+撮影した各スクリーンショットを Read tool で開き、以下を1項目ずつ確認して結果を報告すること:
+
+**デザインシステム準拠（docs/DESIGN.md §9禁忌事項）**
+- [ ] hex カラー直書きが画面に見えるものがないか（例: #667eea 等のような不自然な色）
+- [ ] 生の<button>等プリミティブ再実装がないか（Button.svelte等を使っているか）
+- [ ] 内部コード（uiMode / child_id 等）がUI文字列として露出していないか
+- [ ] 用語がハードコードされて他画面と不整合がないか
+
+**ユーザビリティ（3-15歳の子供・保護者向け）**
+- [ ] 次に何をすべきか、初見で3秒以内に判断できるレイアウトか
+- [ ] テキストが子供・保護者の語彙に合っているか（難解用語・英語の混入がないか）
+- [ ] ボタン・タップ領域が年齢帯に応じた十分なサイズか（baby:120px / preschool:80px / elementary:56px）
+- [ ] ローディング/エラー/空状態が適切に表示されているか（空欄のままになっていないか）
+
+**アクセシビリティ**
+- [ ] テキストのコントラストが十分か（薄すぎて読みにくい文字がないか）
+- [ ] フォームや入力要素にラベルがついているか（入力欄が何の入力かわかるか）
+
+**変更反映の確認**
+- [ ] 今回のPRで変更した内容が画面に正しく反映されているか（before/afterが明確か）
+
+### 4. 成果物の配置
+
+- スクリーンショットは docs/screenshots/ に配置してコミットする（tmp/ はgitignore対象）
+- PR bodyの「スクリーンショット / ビジュアルデモ」セクションに貼り付け（Before/After表形式）
+- GitHub raw URL形式: https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/[branch]/docs/screenshots/[file]
+
+### 5. レビュー結果の報告形式
+
+各スクリーンショットについて以下を報告する:
+- ファイル名と撮影URL
+- UIチェック項目の結果（OK/要確認/NG）
+- 気になった点があれば具体的に記述
 ```
 
 ---
@@ -203,8 +248,8 @@ gh issue list --state open --label "priority:high" --json number,title,labels \
 3. 並行実装チェック（docs/design/parallel-implementations.md）— 同期すべき箇所を事前に特定
 4. テストを同梱（テストなしの機能 PR は禁止 — tests/CLAUDE.md）
 5. **UI 変更時は「UI/UX デザイナー視点」での目視検証が必須**:
-   - 非認証画面は `npm run dev` で確認
-   - 認証が絡む画面 (login / signup / 管理画面 / ops / プラン別 UI) は `npm run dev:cognito` (#1026) で確認。`npm run dev` は自動認証モードでログインフォームが描画されないため UI 検証に使えない
+   - 管理画面（`/admin/*`）・子供画面（`/[uiMode]/*`）は `npm run dev`（AUTH_MODE=local, port 5173）で確認可能。**Cognito ログイン不要**（自動認証）。capture.mjs での撮影も同様
+   - ログインフォーム・サインアップ・プラン別 UI・`/ops/*` は `npm run dev:cognito` (#1026, port 5174) で確認。DEV_USERS のパスワードでログインする（docs/CLAUDE.md §ローカル Cognito 認証検証環境 参照）
    - 目視で以下の点を **1 つずつ自分で判定**:
      - **色**: `docs/DESIGN.md` §2 セマンティックトークン準拠 (hex 直書き / Tailwind arbitrary hex が画面に紛れ込んでいないか)
      - **形**: `docs/DESIGN.md` §5 プリミティブ使用 (生の `<button class="...">` が描画されていないか)
@@ -425,10 +470,16 @@ node scripts/capture.mjs --help
 - Issue 番号付き使い捨てスクリプト（`capture-XXXX-screenshots.mjs`）は作成禁止 → 汎用 CLI を使う
 - `waitForTimeout` 新規使用禁止 → `waitForStablePage` を使う
 
-**認証画面（`/admin/*`, `/ops/*`）の制約**:
-- `AUTH_MODE=local`（`npm run dev`）では自動認証でアクセスできるが、ログインフォーム自体の検証不可
-- ログイン・サインアップ・プラン別UIの目視検証は `npm run dev:cognito`（port 5174）が必要
-- `npm run dev:cognito` はインタラクティブなブラウザログインが必要 → Agent単独では完結しないためPO確認を依頼する
+**devサーバーモードと認証の整理**:
+
+| 確認したい内容 | 使用するモード | Agent単独で可能か |
+|------------|-------------|---------------|
+| /admin/* /children/* 等の通常UI | `npm run dev`（AUTH_MODE=local, port 5173） | **可能**（自動認証） |
+| ログインフォーム・サインアップ画面 | `npm run dev:cognito`（port 5174） | 不可（インタラクティブログインが必要） |
+| プラン別UI（family/standard/free） | `npm run dev:cognito` + DEV_USERS | 不可 |
+| /ops/* ダッシュボード | `npm run dev:cognito` + ops@example.com | 不可 |
+
+`npm run dev`（AUTH_MODE=local）は Cognito ログイン不要で /admin/* に直接アクセスできる。**管理画面のUI確認にcognito-devは不要**。ログインフロー自体のテストにのみcognito-devが必要。
 
 ## 今回の作業指示
 
