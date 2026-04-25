@@ -56,5 +56,5 @@ export const hasPendingByReward: IRewardRedemptionRepo['hasPendingByReward'] =
 
 export const deleteByTenantId: IRewardRedemptionRepo['deleteByTenantId'] =
 	async (): Promise<void> => {
-		// no-op
+		// DynamoDB reward-redemption-repo は未実装のため書き込みデータなし — no-op
 	};

@@ -3155,6 +3155,9 @@ export const CHILD_SHOP_LABELS = {
 	approvedTitle: (rewardTitle: string) => `${rewardTitle} もらったよ！`,
 	rejectedTitle: (rewardTitle: string) => `${rewardTitle} は ちょっとまってね`,
 	overlayCloseButton: 'とじる',
+	// aria-labels
+	rewardListAriaLabel: 'ごほうびリスト',
+	pointProgressAriaLabel: 'ポイント進捗',
 } as const;
 
 // ============================================================

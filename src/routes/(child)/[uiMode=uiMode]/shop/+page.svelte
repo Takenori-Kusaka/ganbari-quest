@@ -56,7 +56,7 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 			<Alert variant="info" message={CHILD_SHOP_LABELS.emptyMessage} />
 		</div>
 	{:else}
-		<ul class="reward-list" aria-label="ごほうびリスト">
+		<ul class="reward-list" aria-label={CHILD_SHOP_LABELS.rewardListAriaLabel}>
 			{#each data.rewards as reward (reward.id)}
 				{@const canExchange =
 					data.balance >= reward.points && reward.latestRequestStatus !== 'pending_parent_approval'}
@@ -87,7 +87,7 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 
 								<!-- ポイント不足プログレスバー -->
 								{#if data.balance < reward.points && reward.latestRequestStatus !== 'pending_parent_approval'}
-									<div class="progress-wrap" aria-label="ポイント進捗">
+									<div class="progress-wrap" aria-label={CHILD_SHOP_LABELS.pointProgressAriaLabel}>
 										<progress
 											max={reward.points}
 											value={data.balance}
