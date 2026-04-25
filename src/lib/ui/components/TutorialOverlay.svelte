@@ -77,10 +77,8 @@ setupResizeScrollTracking();
 			style:height="{targetRect.height + 20}px"
 		></div>
 
-		<!-- Bubble -->
-		{#key animKey}
-			<TutorialBubble {step} {targetRect} />
-		{/key}
+		<!-- Bubble: {#key} による DOM 削除を廃止し animKey prop 経由でアニメーション再生 (#1468) -->
+		<TutorialBubble {step} {targetRect} {animKey} />
 	</div>
 {/if}
 

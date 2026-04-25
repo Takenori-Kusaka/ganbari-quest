@@ -13,10 +13,26 @@ import type { TutorialStep } from '$lib/ui/tutorial/tutorial-types';
 interface Props {
 	step: TutorialStep;
 	targetRect: DOMRect;
+	animKey: number;
 }
 
-let { step, targetRect }: Props = $props();
+let { step, targetRect, animKey }: Props = $props();
 let showChapterMenu = $state(false);
+let bubbleEl = $state<HTMLDivElement | null>(null);
+
+// {#key animKey} によるDOM再生成を廃止し Web Animations API でアニメーションを再トリガー (#1468)
+$effect(() => {
+	animKey;
+	if (!bubbleEl) return;
+	for (const a of bubbleEl.getAnimations()) a.cancel();
+	bubbleEl.animate(
+		[
+			{ opacity: '0', transform: 'translateY(8px) scale(0.95)' },
+			{ opacity: '1', transform: 'translateY(0) scale(1)' },
+		],
+		{ duration: 300, easing: 'ease-out', fill: 'forwards' },
+	);
+});
 
 const progress = $derived(getProgress());
 const chapterInfo = $derived(getCurrentChapterInfo());
@@ -147,6 +163,7 @@ function handleEnd() {
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	bind:this={bubbleEl}
 	class="tutorial-bubble"
 	style:top={bubbleStyle.top}
 	style:left={bubbleStyle.left}
@@ -236,7 +253,6 @@ function handleEnd() {
 		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
 		padding: 0;
 		overflow: hidden;
-		animation: bubble-appear 0.3s ease-out;
 		pointer-events: auto;
 	}
 
