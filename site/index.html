@@ -118,28 +118,52 @@
   .age-panel-cta{text-align:center}
 }
 
-/* Core loop */
-.core-loop{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:900px;margin:0 auto 28px}
-.core-loop-step{background:#fff;border:2px solid var(--brand-200);border-radius:var(--radius);padding:24px 18px;text-align:center;position:relative}
-.core-loop-step .cls-num{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.12em;margin-bottom:6px}
-.core-loop-step .cls-icon{font-size:2.2rem;margin-bottom:8px;line-height:1}
-.core-loop-step h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
-.core-loop-step p{font-size:.85rem;color:var(--gray-600);line-height:1.6}
-/* #1284: aspect-ratio を維持しつつ画像全体を表示するため max-height 拡張 + object-fit:contain に変更。
-   旧: cover + position:top で縦長 SS の上半分のみ表示されスタンプカード等が見切れていた (#1311) */
-.core-loop-visual{max-width:320px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:540px;background:var(--gray-50)}
+/* Core loop — 3層モデル (#1343) */
+#core-loop{padding:36px 16px}
+#core-loop .section-desc{margin-bottom:24px}
+.core-loop{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:900px;margin:0 auto 16px}
+.core-loop-step{background:#fff;border:2px solid var(--brand-200);border-radius:var(--radius);padding:16px 14px;text-align:center;position:relative}
+.core-loop-step .cls-num{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.12em;margin-bottom:4px}
+.core-loop-step .cls-icon{font-size:1.9rem;margin-bottom:6px;line-height:1}
+.core-loop-step h4{font-size:.93rem;font-weight:700;margin-bottom:5px;color:var(--gray-900)}
+.core-loop-step p{font-size:.82rem;color:var(--gray-600);line-height:1.52}
+/* 3層バッジ・タイトル (#1343) */
+.core-loop-layer{margin-bottom:20px}
+.cll-title{font-size:.98rem;font-weight:700;color:var(--gray-900);margin-bottom:10px;display:flex;align-items:center;gap:7px;max-width:900px;margin-left:auto;margin-right:auto}
+.cll-badge{display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:5px;padding:2px 7px;letter-spacing:.07em;flex-shrink:0}
+.core-loop-layer[data-layer="l1"] .cll-badge{background:var(--brand-500)}
+.core-loop-layer[data-layer="l2"] .cll-badge{background:var(--brand-700)}
+.core-loop-layer[data-layer="l3"] .cll-badge{background:var(--orange-500)}
+/* 親子両視点バナー (#1343) */
+.core-loop-perspectives{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:900px;margin:0 auto 20px}
+.clp-card{border-radius:var(--radius);padding:13px 16px;font-size:.86rem;line-height:1.52}
+.clp-parent{background:var(--brand-50);border:1px solid var(--brand-200)}
+.clp-child{background:var(--gold-100);border:1px solid var(--gold-300)}
+.clp-role{font-size:.74rem;font-weight:700;color:var(--brand-700);margin-bottom:4px;letter-spacing:.06em}
+.clp-child .clp-role{color:var(--gold-600)}
+.clp-card p{margin:0;color:var(--gray-700)}
+/* デスクトップ: 3層を横並びで省スペース (#1343) */
+@media(min-width:1024px){
+  .core-loop-layer-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1080px;margin:0 auto 20px}
+  .core-loop-layer-grid .core-loop-layer{margin-bottom:0}
+  .core-loop-layer-grid .core-loop{grid-template-columns:1fr}
+  .core-loop-layer-grid .cll-title{justify-content:center}
+}
+/* #1284: aspect-ratio を維持しつつ画像全体を表示するため max-height 拡張 + object-fit:contain に変更 */
+.core-loop-visual{max-width:280px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:380px;background:var(--gray-50)}
 .core-loop-visual img{width:100%;height:100%;display:block;object-fit:contain;object-position:center}
-.core-loop-note{max-width:640px;margin:20px auto 0;text-align:center;font-size:.88rem;color:var(--gray-600);line-height:1.7}
+.core-loop-note{max-width:640px;margin:14px auto 0;text-align:center;font-size:.86rem;color:var(--gray-600);line-height:1.65}
 .core-loop-note strong{color:var(--brand-800)}
 @media(max-width:640px){
-  .core-loop{grid-template-columns:1fr;gap:12px}
+  .core-loop{grid-template-columns:1fr;gap:10px}
+  .core-loop-perspectives{grid-template-columns:1fr}
 }
 
 /* #1284: desktop の picture source は 1280x800 の横長画像に切り替わるため
    コンテナの aspect-ratio も横長にする（縦長コンテナに横長画像を contain すると
    画像が小さく見えてしまうため） */
 @media(min-width:1024px){
-  .core-loop-visual{aspect-ratio:1280/800;max-width:720px;max-height:460px}
+  .core-loop-visual{aspect-ratio:1280/800;max-width:560px;max-height:350px}
   .tour-card .tour-shot{aspect-ratio:1280/800;max-height:200px}
 }
 
@@ -346,64 +370,97 @@
 </section>
 <!-- LP-LANDMARK:age-panel end -->
 
-<!-- LP-LANDMARK:core-loop start — コアループ 2 系統 (活動系 / ログインボーナス系) の描画
+<!-- LP-LANDMARK:core-loop start — コアループ 3 層モデル (L1 アクション / L2 メタ習慣 / L3 経済) の描画 (#1343)
      変更時は docs/design/lp-content-map.md §コアループ原則を確認
-     用語 SSOT: src/lib/domain/labels.ts FEATURE_LABELS (activity/points/levelUp/loginBonus/omikuji/stampCard) -->
-<!-- [03] コアループ（2 系統: 活動系 + ログインボーナス系） -->
+     用語 SSOT: src/lib/domain/labels.ts LP_CORELOOP_LABELS / FEATURE_LABELS -->
+<!-- [03] コアループ（3 層モデル: L1 アクション層 / L2 メタ習慣層 / L3 経済層） -->
 <section class="section bg-gray" id="core-loop">
   <div class="section-inner">
-    <h2 class="section-title">2 つの独立サイクルで、毎日の動機を支える</h2>
-    <p class="section-desc">活動を記録してレベルアップする仕組みと、毎日のログインボーナスでおみくじのスタンプカードを集める仕組み。<br>動機の源が違う 2 つのサイクルが独立してまわります。</p>
+    <h2 class="section-title" data-lp-key="coreloop.sectionTitle">3 つの層で、毎日のがんばりが本物の報酬になる</h2>
+    <p class="section-desc" data-lp-key="coreloop.sectionDesc">活動を記録してポイントを貯め、ポイントでごほうびショップの好きなものと交換する。3 層の仕組みが子供の「やりたい」を持続させます。</p>
 
-    <!-- (A) 活動の記録サイクル -->
-    <div class="core-loop-track" data-track="activity">
-      <h3 class="core-loop-track-title"><span class="cls-track-label">(A)</span> 活動 × ポイント × レベルアップ</h3>
+    <!-- 親子両視点バナー -->
+    <div class="core-loop-perspectives">
+      <div class="clp-card clp-parent">
+        <div class="clp-role">&#x1F9D1;&#x200D;&#x1F4BB; 親の視点</div>
+        <p data-lp-key="coreloop.parentPerspectiveDesc">プリセット活動で設定は 2 分。子供の取り組みをポイントで定量把握できます。</p>
+      </div>
+      <div class="clp-card clp-child">
+        <div class="clp-role">&#x1F9D2; 子供の視点</div>
+        <p data-lp-key="coreloop.childPerspectiveDesc">活動を重ねてポイントを貯め、ごほうびショップで欲しいものと交換できます。</p>
+      </div>
+    </div>
+
+    <!-- 3層グリッド: デスクトップで横並び、モバイルで縦積み -->
+    <div class="core-loop-layer-grid">
+
+    <!-- L1 アクション層 -->
+    <div class="core-loop-layer" data-layer="l1">
+      <h3 class="cll-title">
+        <span class="cll-badge">L1</span>
+        <span data-lp-key="coreloop.l1Title">アクション層 — 活動を記録する</span>
+      </h3>
       <div class="core-loop">
         <div class="core-loop-step">
           <div class="cls-num">STEP 1</div>
           <div class="cls-icon">&#x1F4DD;</div>
-          <h4>活動を記録</h4>
-          <p>「はみがきした」「宿題おわった」をタップするだけ。活動ごとにポイントがもらえます。</p>
+          <h4 data-lp-key="coreloop.l1Step1Title">活動を 2 タップで記録</h4>
+          <p data-lp-key="coreloop.l1Step1Desc">「はみがきした」「宿題おわった」をタップするだけ。プリセット活動がそのまま使えるので設定は最小限です。</p>
         </div>
         <div class="core-loop-step">
           <div class="cls-num">STEP 2</div>
           <div class="cls-icon">&#x1F4CA;</div>
-          <h4>ポイントがたまる</h4>
-          <p>記録した活動に応じてポイントが加算。「今日どれだけ頑張ったか」が数字で見えます。</p>
-        </div>
-        <div class="core-loop-step">
-          <div class="cls-num">STEP 3</div>
-          <div class="cls-icon">&#x2B50;</div>
-          <h4>レベルアップ</h4>
-          <p>ポイントの累計でレベルアップ。勇者の肩書きが変わり、長期のがんばりが可視化されます。</p>
+          <h4 data-lp-key="coreloop.l1Step2Title">ポイントが獲得できる</h4>
+          <p data-lp-key="coreloop.l1Step2Desc">記録した活動に応じてポイントが加算。「今日どれだけ頑張ったか」が数字で見えます。</p>
         </div>
       </div>
     </div>
 
-    <!-- (B) ログインボーナス × おみくじ × スタンプカード -->
-    <div class="core-loop-track" data-track="login">
-      <h3 class="core-loop-track-title"><span class="cls-track-label">(B)</span> ログインボーナス × おみくじ × スタンプカード</h3>
+    <!-- L2 メタ習慣層 -->
+    <div class="core-loop-layer" data-layer="l2">
+      <h3 class="cll-title">
+        <span class="cll-badge">L2</span>
+        <span data-lp-key="coreloop.l2Title">メタ習慣層 — ログインで習慣を作る</span>
+      </h3>
       <div class="core-loop">
         <div class="core-loop-step">
           <div class="cls-num">STEP 1</div>
-          <div class="cls-icon">&#x1F305;</div>
-          <h4>ログインボーナスを受け取る</h4>
-          <p>1 日 1 回だけ。ログインすればその日の権利が発生します（日 1 回 cap）。</p>
+          <div class="cls-icon">&#x1F3B4;</div>
+          <h4 data-lp-key="coreloop.l2Step1Title">毎朝ログインしておみくじ</h4>
+          <p data-lp-key="coreloop.l2Step1Desc">1 日 1 回のおみくじスタンプ。スタンプのレア度に応じてボーナスポイントが獲得でき、毎朝アプリを開く習慣につながります（日 1 回 cap で煽らない設計）。</p>
         </div>
         <div class="core-loop-step">
           <div class="cls-num">STEP 2</div>
-          <div class="cls-icon">&#x1F3B4;</div>
-          <h4>おみくじを 1 回引く</h4>
-          <p>大吉が出るとボーナスポイント。同じ日に何度も引くことはできません（射幸性を抑えた設計）。</p>
-        </div>
-        <div class="core-loop-step">
-          <div class="cls-num">STEP 3</div>
           <div class="cls-icon">&#x1F4C7;</div>
-          <h4>スタンプカードに押印</h4>
-          <p>おみくじ結果がスタンプとしてスタンプカードに 1 マス押印。1 週間続くとカードが 1 枚完成します。</p>
+          <h4 data-lp-key="coreloop.l2Step2Title">スタンプカードが完成する</h4>
+          <p data-lp-key="coreloop.l2Step2Desc">1 週間続けるとスタンプカードが 1 枚完成。三日坊主を防ぐ「継続の見える化」です。</p>
         </div>
       </div>
     </div>
+
+    <!-- L3 経済層 -->
+    <div class="core-loop-layer" data-layer="l3">
+      <h3 class="cll-title">
+        <span class="cll-badge">L3</span>
+        <span data-lp-key="coreloop.l3Title">経済層 — ポイントをごほうびに換える</span>
+      </h3>
+      <div class="core-loop">
+        <div class="core-loop-step">
+          <div class="cls-num">STEP 1</div>
+          <div class="cls-icon">&#x1F4B0;</div>
+          <h4 data-lp-key="coreloop.l3Step1Title">ポイントを蓄積する</h4>
+          <p data-lp-key="coreloop.l3Step1Desc">L1 の活動ポイントと L2 のボーナスポイントが積み上がります。ポイントは経済通貨として機能します。</p>
+        </div>
+        <div class="core-loop-step">
+          <div class="cls-num">STEP 2</div>
+          <div class="cls-icon">&#x1F381;</div>
+          <h4 data-lp-key="coreloop.l3Step2Title">ごほうびショップで交換</h4>
+          <p data-lp-key="coreloop.l3Step2Desc">貯めたポイントはごほうびショップが唯一の出口。実物のプレゼント・お小遣い・特権（夜ふかし権など）を親が設定し、子供が自分で選んで交換できます。</p>
+        </div>
+      </div>
+    </div>
+
+    </div><!-- /.core-loop-layer-grid -->
 
     <div class="core-loop-visual">
       <picture>
@@ -411,7 +468,7 @@
         <img src="screenshots/feature-point-level.webp" alt="ポイント・レベル・スタンプカード画面" data-lightbox>
       </picture>
     </div>
-    <p class="core-loop-note"><strong>(A) と (B) は独立した仕組みです。</strong>活動を頑張らなくてもログインすればおみくじが 1 回引けて、ログインし忘れても活動記録のポイントは積み上がります。「引き続ければもっと貰える」誘導はありません（日 1 回 cap）。</p>
+    <p class="core-loop-note" data-lp-key="coreloop.shopNote">ごほうびショップは唯一の出口。ポイントは「欲しいものと交換できる通貨」として機能するので、子供の自律的な目標設定を促します。</p>
   </div>
 </section>
 

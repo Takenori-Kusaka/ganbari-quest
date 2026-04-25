@@ -114,8 +114,9 @@ function parseLabelsTs() {
 	const ageTierShort = parseSimpleBlock(src, 'AGE_TIER_SHORT_LABELS');
 	const planLabels = parseSimpleBlock(src, 'PLAN_LABELS');
 	const lpRetentionLabels = parseBlock(src, 'LP_RETENTION_LABELS');
+	const lpCoreloopLabels = parseBlock(src, 'LP_CORELOOP_LABELS');
 
-	return { ageTierLabels, ageTierShort, planLabels, lpRetentionLabels };
+	return { ageTierLabels, ageTierShort, planLabels, lpRetentionLabels, lpCoreloopLabels };
 }
 
 /**
@@ -149,7 +150,7 @@ function parseAgeTierTs() {
  * LP 用 shared-labels.js コンテンツを生成する
  */
 function generateSharedLabelsJs() {
-	const { ageTierLabels, planLabels, lpRetentionLabels } = parseLabelsTs();
+	const { ageTierLabels, planLabels, lpRetentionLabels, lpCoreloopLabels } = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
 	// 各年齢区分の name / range / formal / ageMin / ageMax を統合
@@ -177,6 +178,7 @@ function generateSharedLabelsJs() {
 	// LP コンテンツ辞書をネストした構造に組み立て
 	const lpLabels = {
 		retention: lpRetentionLabels,
+		coreloop: lpCoreloopLabels,
 	};
 
 	const header = `/**

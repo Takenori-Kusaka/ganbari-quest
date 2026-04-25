@@ -49,6 +49,8 @@ gohoubi
 chibi
 
 # ===== ドメイン用語（英語由来） =====
+coreloop
+CORELOOP
 Unshown
 unshown
 Unblended
