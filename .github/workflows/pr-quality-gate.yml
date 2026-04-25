@@ -87,23 +87,29 @@ jobs:
             // docs/design/ の変更があるか
             const hasDesignDocChanges = files.some(f => f.startsWith('docs/design/'));
 
-            if (hasRouteChanges && !hasDesignDocChanges) {
-              // PR 本文に設計書更新不要の理由が記載されているかを確認
-              const body = context.payload.pull_request.body || '';
-              const hasDesignDocExemption =
-                /##\s*設計書(更新について|[^\n]*不要)/.test(body) ||
-                /設計書の更新は?不要/.test(body) ||
-                /設計書更新.*不要/.test(body);
+            // 変更ファイルが全て「設計書更新不要なパターン」に合致するか判定
+            // (PR 本文テキストによる免除は廃止 — ファイルパターンのみで判定)
+            const allFilesExempt = files.every(f =>
+              /(?:^|\/|\\)CLAUDE\.md$/.test(f) || // **/CLAUDE.md（任意の階層）
+              f.startsWith('scripts/') ||           // scripts/ 配下（CI/CD スクリプト）
+              f.startsWith('docs/') ||              // docs/ 配下（docs 自体が設計書）
+              f.startsWith('infra/') ||             // infra/ 配下（インフラ設定のみ）
+              f.startsWith('.github/') ||           // .github/ 配下（CI 設定等）
+              f.startsWith('site/')                 // LP ファイル（設計書の管轄外）
+            );
+            const hasDesignDocExemption = allFilesExempt;
 
+            if (hasRouteChanges && !hasDesignDocChanges) {
               if (hasDesignDocExemption) {
                 core.info(
-                  '✅ PR 本文に設計書更新不要の理由が記載されています — チェックをスキップします (ADR-0003)'
+                  '✅ 変更ファイルが全て設計書更新不要なパターン（CLAUDE.md / scripts/ / docs/ / infra/ / .github/ / site/）のみです — チェックをスキップします (ADR-0003)'
                 );
               } else {
                 core.setFailed(
                   '❌ src/routes/ に変更がありますが、docs/design/ の更新がありません。\n' +
                   '設計書の同期更新が必要な場合は同一PR内で更新してください（ADR-0003）。\n' +
-                  '設計書の更新が不要と判断した場合は PR 本文の「設計書」セクションに理由を明記してください。'
+                  '設計書の更新が不要なパターン（CLAUDE.md のみ / scripts/ のみ / docs/ のみ等）でも\n' +
+                  'このメッセージが出た場合は、設計書更新が必要な変更を含んでいます。'
                 );
               }
             }
