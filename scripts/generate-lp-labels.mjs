@@ -152,16 +152,19 @@ function generateSharedLabelsJs() {
 	const { ageTierLabels, ageTierShort, planLabels, lpRetentionLabels } = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
+	// LP-specific label overrides (ADR-0011: baby = 準備モード in LP context)
+	const LP_NAME_OVERRIDES = { baby: '準備モード' };
+	const LP_FORMAL_OVERRIDES = { baby: '準備モード（0〜2歳）' };
+
 	// 各年齢区分の name / range / formal / ageMin / ageMax を統合
 	const ageTiers = {};
 	for (const mode of ['baby', 'preschool', 'elementary', 'junior', 'senior']) {
-		const formal = ageTierLabels[mode];
+		const formal = LP_FORMAL_OVERRIDES[mode] ?? ageTierLabels[mode];
 		const range = ageTierShort[mode];
 		const config = ageTierConfig[mode];
-		// name は formal の括弧より前の部分 + 'モード'
 		const baseName = formal.split('（')[0];
 		ageTiers[mode] = {
-			name: `${baseName}モード`,
+			name: LP_NAME_OVERRIDES[mode] ?? `${baseName}モード`,
 			range,
 			formal,
 			ageMin: config.ageMin,
