@@ -212,3 +212,52 @@ function isPublicRoute(path: string): boolean {
 - `local` モード向けの除外（`hooks.server.ts`）と `cognito` モード向けの除外（`authorization.ts`）は**両方**更新する必要がある（並行実装ペア）
 
 ---
+
+## TA-004 — cognito-dev 専用テストが標準 e2e に混入してタイムアウト
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-25 |
+| **PR 番号** | #1499 |
+| **ワークフロー** | CI |
+| **ジョブ名** | e2e-test (shard X) |
+| **ステップ名** | Run E2E tests |
+| **ステータス** | resolved |
+
+### エラーメッセージ（原文）
+
+```
+Error: locator.waitFor: Test timeout of 90000ms exceeded.
+  await page.goto('/auth/login', { waitUntil: 'commit', timeout: 180_000 });
+> await page.getByLabel('メールアドレス').waitFor({ state: 'visible', timeout: 180_000 });
+```
+
+### 根本原因
+
+`playwright.config.ts` の `BASE_TEST_IGNORE` に cognito-dev 専用の `*.spec.ts` を追加し忘れたため、
+標準 e2e テスト (`AUTH_MODE=local`, port 5173) でも当該 spec が実行された。
+`local` モードでは `/auth/login` が 302 redirect されてログインフォームが描画されないため、
+`loginAsPlan()` が 180s 待ちでタイムアウトし CI がハングした。
+
+### 解決手順
+
+`playwright.config.ts` の `BASE_TEST_IGNORE` 配列に対象 spec のパターンを追加:
+
+```typescript
+// #1497: Stripe Checkout インターセプト E2E は cognito-dev モード専用（loginAsPlan を使用）
+'**/upgrade-checkout.spec.ts',
+```
+
+### 再発防止策
+
+**判定ルール**: 以下のいずれかを使う spec はすべて cognito-dev 専用 → `BASE_TEST_IGNORE` 必須:
+
+- `loginAsPlan()` を呼ぶ
+- `auth.setup.ts` / `storageState` を使う
+- `/auth/login` のフォーム入力が必要
+
+新しい cognito-dev 専用 spec を追加する際は、`playwright.config.ts` の `BASE_TEST_IGNORE` への追加を忘れずに行うこと。
+
+**参考**: PR #1499, Issue #1497
+
+---
