@@ -90,13 +90,13 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 	// ============================================================
 	// #1167: 活動パック → マーケットプレイス集約（301）
 	// ============================================================
-	test('/activity-packs/baby-first → /marketplace/activity-pack/baby-first (301)', async ({
+	test('/activity-packs/baby-first → /marketplace?type=activity-pack (301, #1301 削除)', async ({
 		request,
 	}) => {
 		await expectRedirect(
 			request,
 			'/activity-packs/baby-first',
-			'/marketplace/activity-pack/baby-first',
+			'/marketplace?type=activity-pack',
 			301,
 		);
 	});
@@ -114,14 +114,14 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		);
 	});
 
-	// #1212-A: 性別バリアント (baby-boy/girl 等) をマーケットに正式収録 → 個別詳細へ 301
-	test('/activity-packs/baby-boy → /marketplace/activity-pack/baby-boy (301, 性別バリアント正式収録)', async ({
+	// #1301: baby-boy/girl はマーケットから削除 → 一覧へフォールバック
+	test('/activity-packs/baby-boy → /marketplace?type=activity-pack (301, #1301 削除)', async ({
 		request,
 	}) => {
 		await expectRedirect(
 			request,
 			'/activity-packs/baby-boy',
-			'/marketplace/activity-pack/baby-boy',
+			'/marketplace?type=activity-pack',
 			301,
 		);
 	});
