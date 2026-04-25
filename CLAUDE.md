@@ -113,7 +113,7 @@ vitest --coverage（カバレッジ閾値）, playwright（E2E）, ESLint（svel
 1. 回帰テスト（E2E）を同一 PR 内で追加
 2. Issue の Acceptance Criteria を全項目完了（部分実装で closes 禁止）
 3. Issue で提案された対策を全て実装（部分実装は対症療法であり根本解決ではない）
-4. 全 5 年齢モード（baby/kinder/lower/upper/teen）で実機検証 + スクリーンショット
+4. 全 4 年齢コアモード（preschool/elementary/junior/senior）で実機検証 + スクリーンショット（baby 準備モードは成長待機画面の目視確認）
 5. 直近30日に同じファイルを変更した PR がないかチェック（リネーム/リファクタリングとの依存関係確認）
 
 ## 機能実装時の必須チェック

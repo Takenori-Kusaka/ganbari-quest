@@ -149,22 +149,24 @@ function parseAgeTierTs() {
  * LP 用 shared-labels.js コンテンツを生成する
  */
 function generateSharedLabelsJs() {
-	const { ageTierLabels, ageTierShort, planLabels, lpRetentionLabels } = parseLabelsTs();
+	const { ageTierLabels, planLabels, lpRetentionLabels } = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
-	// LP-specific label overrides (ADR-0011: baby = 準備モード in LP context)
-	const LP_NAME_OVERRIDES = { baby: '準備モード' };
-	const LP_FORMAL_OVERRIDES = { baby: '準備モード（0〜2歳）' };
-
 	// 各年齢区分の name / range / formal / ageMin / ageMax を統合
+	// #1304: AGE_TIER_LABELS.baby が「準備モード（0〜2歳）」に更新済みのため LP_FORMAL_OVERRIDES 不要
 	const ageTiers = {};
 	for (const mode of ['baby', 'preschool', 'elementary', 'junior', 'senior']) {
-		const formal = LP_FORMAL_OVERRIDES[mode] ?? ageTierLabels[mode];
-		const range = ageTierShort[mode];
+		const formal = ageTierLabels[mode];
 		const config = ageTierConfig[mode];
+		// name は formal の括弧より前の部分 + 'モード'（既に 'モード' で終わる場合は付けない）
 		const baseName = formal.split('（')[0];
+		const name = baseName.endsWith('モード') ? baseName : `${baseName}モード`;
+		// range は formal の括弧内の年齢範囲（AGE_TIER_SHORT_LABELS が年齢範囲でない場合に備えて formal から取得）
+		const range = formal.includes('（')
+			? formal.split('（')[1].replace('）', '')
+			: `${config.ageMin}〜${config.ageMax}歳`;
 		ageTiers[mode] = {
-			name: LP_NAME_OVERRIDES[mode] ?? `${baseName}モード`,
+			name,
 			range,
 			formal,
 			ageMin: config.ageMin,

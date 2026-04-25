@@ -51,7 +51,7 @@ If a PR introduces new hardcoded colors or raw HTML elements where primitives ex
 
 Changes that affect shared functionality must be applied everywhere. Missing lateral spread is a `[must]` finding:
 
-- **Age modes**: The app has 5 age modes (baby/preschool/elementary/junior/senior). After #664, these are consolidated under `src/routes/(child)/[uiMode=uiMode]/`. If a PR modifies child-facing behavior, verify it works for all 5 modes via the variant system in `src/lib/features/child-home/variants/`.
+- **Age modes**: The app has 4 core modes (preschool/elementary/junior/senior) + 1 preparation mode (baby, for parents of 0-2 year-olds). After #664, these are consolidated under `src/routes/(child)/[uiMode=uiMode]/`. If a PR modifies child-facing behavior, verify it works for all 4 core modes. Baby preparation mode has no gamification (BABY_FEATURES: all false). See ADR-0011.
 - **Demo version**: Changes to production app features (`src/routes/(child)/`, `src/routes/(parent)/`) often need corresponding changes in `src/routes/demo/`.
 - **Landing page**: UI label or feature name changes must be synced to `site/index.html`, `site/pamphlet.html`, and `site/shared-labels.js`.
 - **Navigation**: Navigation changes must cover all 3 nav types: `AdminLayout` (desktop), `AdminMobileNav` (mobile), `BottomNav` (child).
