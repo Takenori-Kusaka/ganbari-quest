@@ -20,6 +20,7 @@
 (function () {
 	'use strict';
 
+	// コアターゲット年齢モード（3〜18歳）
 	const AGE_TIERS = {
 		"baby": {
 			"name": "準備モード",
@@ -58,6 +59,16 @@
 		}
 	};
 
+	// 準備モード（0〜2歳: 親の準備モード = ADR-0011）— コアターゲットとは別扱い
+	const PREP_MODE = {
+		"name": "準備モード",
+		"range": "0〜2歳",
+		"formal": "準備モード（0〜2歳）",
+		"note": "0〜2 歳のお子様は「準備モード」でご登録いただけます",
+		"ageMin": 0,
+		"ageMax": 2
+	};
+
 	const PLAN_LABELS = {
 		"free": "無料プラン",
 		"standard": "スタンダードプラン",
@@ -81,6 +92,7 @@
 	// グローバルへエクスポート
 	window.GANBARI_LABELS = {
 		ageTiers: AGE_TIERS,
+		prepMode: PREP_MODE,
 		plans: PLAN_LABELS,
 		lp: LP_LABELS,
 	};
