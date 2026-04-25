@@ -198,6 +198,9 @@ dependabot
 Copilot
 copilot
 Snyk
+Greenlight
+greenlight
+BusyKid
 
 # ===== テストデータ / ダミー =====
 JKLM
