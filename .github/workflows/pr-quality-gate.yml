@@ -3,36 +3,6 @@ name: PR Quality Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited, ready_for_review]
-    paths:
-      # ビジュアル変更を含むファイル種別のみに絞る（バックエンド .ts / API endpoint は除外）。
-      # 過去の `src/routes/**` 全体マッチは `+page.server.ts` や `api/.../+server.ts` でも
-      # 発火してしまい、backend-only PR で false-positive を出す不具合があった。
-      - "src/routes/**/*.svelte"
-      - "src/routes/**/*.svelte.ts"
-      - "src/routes/**/*.svelte.js"
-      - "src/routes/**/*.css"
-      - "src/routes/**/*.scss"
-      - "src/lib/ui/**/*.svelte"
-      - "src/lib/ui/**/*.svelte.ts"
-      - "src/lib/ui/**/*.svelte.js"
-      - "src/lib/ui/**/*.css"
-      - "src/lib/ui/**/*.scss"
-      - "src/lib/features/**/*.svelte"
-      - "src/lib/features/**/*.svelte.ts"
-      - "src/lib/features/**/*.svelte.js"
-      - "src/lib/features/**/*.css"
-      - "src/lib/features/**/*.scss"
-      - "src/app.css"
-      - "src/app.html"
-      # LP (site/**) — 静的 HTML/CSS/JS/画像のビジュアル変更
-      - "site/**/*.html"
-      - "site/**/*.css"
-      - "site/**/*.js"
-      - "site/**/*.svg"
-      - "site/**/*.png"
-      - "site/**/*.jpg"
-      - "site/**/*.jpeg"
-      - "site/**/*.webp"
 
 permissions:
   contents: read
@@ -48,9 +18,25 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
+            // UI関連ファイルが変更されているか確認
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+
+            const uiFilePattern = /\.(svelte|svelte\.ts|svelte\.js|css|scss)$|^site\//;
+            const hasUiFiles = files.some(f => uiFilePattern.test(f.filename));
+
+            if (!hasUiFiles) {
+              core.info('✅ UI関連ファイルの変更なし — スクリーンショット不要');
+              return;
+            }
+
+            // UI変更あり: PR本文にスクリーンショットがあるか確認
             const body = context.payload.pull_request.body || '';
 
-            // スクリーンショット画像の検出
             // Markdown画像: ![alt](url) / HTML画像: <img ...>
             const hasImage = /!\[.*?\]\(.*?\)|<img\s/i.test(body);
 
@@ -65,7 +51,6 @@ jobs:
                   '',
                   '対象ファイル: src/routes/**, src/lib/ui/**, src/lib/features/**, site/**',
                   '',
-                  'このチェックはUI関連ファイルを変更したPRでのみ実行されます。',
                   'Draft PRではスキップされます。Ready for Review に変更する前に添付してください。',
                 ].join('\n')
               );
@@ -88,9 +73,13 @@ jobs:
             const { execSync } = require('child_process');
 
             // PR の変更ファイル一覧を取得
+            // core.quotepath=false で日本語ファイル名のエスケープを防ぐ
             const base = context.payload.pull_request.base.sha;
             const head = context.payload.pull_request.head.sha;
-            const diffOutput = execSync(`git diff --name-only ${base}...${head}`, { encoding: 'utf8' });
+            const diffOutput = execSync(
+              `git -c core.quotepath=false diff --name-only ${base}...${head}`,
+              { encoding: 'utf8' }
+            );
             const files = diffOutput.trim().split('\n').filter(Boolean);
 
             // src/routes/ の変更があるか
