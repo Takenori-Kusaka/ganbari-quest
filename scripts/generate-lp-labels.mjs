@@ -156,12 +156,16 @@ function generateSharedLabelsJs() {
 	const ageTiers = {};
 	for (const mode of ['baby', 'preschool', 'elementary', 'junior', 'senior']) {
 		const formal = ageTierLabels[mode];
-		const range = ageTierShort[mode];
 		const config = ageTierConfig[mode];
-		// name は formal の括弧より前の部分 + 'モード'
+		// name は formal の括弧より前の部分 + 'モード'（既に 'モード' で終わる場合は付けない）
 		const baseName = formal.split('（')[0];
+		const name = baseName.endsWith('モード') ? baseName : `${baseName}モード`;
+		// range は formal の括弧内の年齢範囲（AGE_TIER_SHORT_LABELS が年齢範囲でない場合に備えて formal から取得）
+		const range = formal.includes('（')
+			? formal.split('（')[1].replace('）', '')
+			: `${config.ageMin}〜${config.ageMax}歳`;
 		ageTiers[mode] = {
-			name: `${baseName}モード`,
+			name,
 			range,
 			formal,
 			ageMin: config.ageMin,
