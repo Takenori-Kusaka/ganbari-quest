@@ -1,21 +1,32 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
-import type { HTMLButtonAttributes } from 'svelte/elements';
+import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'outline' | 'warning';
 type Size = 'sm' | 'md' | 'lg';
 
-interface Props extends HTMLButtonAttributes {
+type ButtonProps = HTMLButtonAttributes & {
+	href?: undefined;
 	variant?: Variant;
 	size?: Size;
 	children: Snippet;
-}
+};
+
+type AnchorProps = HTMLAnchorAttributes & {
+	href: string;
+	variant?: Variant;
+	size?: Size;
+	children: Snippet;
+};
+
+type Props = ButtonProps | AnchorProps;
 
 let {
 	variant = 'primary',
 	size = 'md',
 	children,
 	class: className = '',
+	href,
 	...rest
 }: Props = $props();
 
@@ -36,11 +47,25 @@ const sizeClasses: Record<Size, string> = {
 	md: 'px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12',
 	lg: 'px-8 py-5 text-xl rounded-[var(--radius-lg)] min-h-20 font-bold',
 };
+
+const baseClass = $derived(
+	`tap-target inline-flex items-center justify-center font-bold transition-all ${variantClasses[variant]} ${sizeClasses[size]} ${className}`,
+);
 </script>
 
+{#if href !== undefined}
+<a
+	{href}
+	class={baseClass}
+	{...rest as HTMLAnchorAttributes}
+>
+	{@render children()}
+</a>
+{:else}
 <button
-	class="tap-target inline-flex items-center justify-center font-bold transition-all {variantClasses[variant]} {sizeClasses[size]} {className}"
-	{...rest}
+	class={baseClass}
+	{...rest as HTMLButtonAttributes}
 >
 	{@render children()}
 </button>
+{/if}
