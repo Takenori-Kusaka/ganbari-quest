@@ -91,7 +91,7 @@ const rarity = getArg('rarity', 'N').toUpperCase();
 const outputArg = getArg('output', 'tmp/generated.png');
 const referenceArg = getArg('reference', null);
 const modelKey = getArg('model', 'flash');
-const aspectRatioArg = getArg('aspect-ratio', null);
+const _aspectRatioArg = getArg('aspect-ratio', null);
 const isDryRun = args.includes('--dry-run');
 
 if (!prompt) {
@@ -156,7 +156,10 @@ function loadEnvFile(filePath) {
 		const eqIdx = trimmed.indexOf('=');
 		if (eqIdx === -1) continue;
 		const key = trimmed.slice(0, eqIdx).trim();
-		const value = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+		const value = trimmed
+			.slice(eqIdx + 1)
+			.trim()
+			.replace(/^["']|["']$/g, '');
 		if (!process.env[key]) process.env[key] = value;
 	}
 }
@@ -187,7 +190,12 @@ console.log(`  参照画像  : ${referencePath ?? '(なし)'}\n`);
 /** 参照画像を inline_data として返す */
 function buildReferenceImagePart(imagePath) {
 	const ext = path.extname(imagePath).toLowerCase();
-	const mimeMap = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
+	const mimeMap = {
+		'.png': 'image/png',
+		'.jpg': 'image/jpeg',
+		'.jpeg': 'image/jpeg',
+		'.webp': 'image/webp',
+	};
 	const mimeType = mimeMap[ext] ?? 'image/png';
 	const data = fs.readFileSync(imagePath).toString('base64');
 	return { inlineData: { mimeType, data } };
