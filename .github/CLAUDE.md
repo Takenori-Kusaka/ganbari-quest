@@ -39,6 +39,49 @@
 - Draft PR はマージできない（GitHub ルールセットで保護）
 - Dependabot PR は自動的に non-draft で作成されるため、従来通りレビュー → auto-merge
 
+## PR テンプレート必須ゲート（`.github/workflows/pr-template-gate.yml`）
+
+Ready for Review 済みの全 PR（Draft / bot PR 除外）に対し、以下 5 つのチェックが **並列・hard-fail** で実行される。
+いずれか 1 つでも失敗すると PR がブロックされる（`core.setFailed`、`continue-on-error` なし）。
+
+| ジョブ名 | チェック内容 | スキップ条件 |
+|---------|------------|------------|
+| 必須セクションの存在確認 | テンプレートの 6 セクション見出しが削除されていないか | Dependabot |
+| 関連 Issue 番号の記入 | `closes #` に Issue 番号が記入されているか、`#\d+` 参照があるか | Dependabot |
+| 変更タイプの選択 | 変更タイプで `[x]` が 1 つ以上あるか | Dependabot |
+| 顧客価値・目的の記入 | 対象ユーザー・解決する課題がプレースホルダーのままでないか | Dependabot |
+| テスト実行結果の記入 | `<!-- PASS / FAIL -->` プレースホルダーが残っていないか | Dependabot、type:docs |
+
+**AC 検証マップ**（`pr-ac-verification-check.yml`）も同様に hard-fail 化済み（warn-only から昇格）。
+
+### ⚠️ 管理者作業: Required Status Checks への追加
+
+上記ジョブが PR マージをブロックするには、Branch Ruleset の `required_status_checks` に以下を追加すること:
+
+```bash
+# 5 ジョブ名を Required checks に追加
+gh api repos/:owner/:repo/rulesets/<ruleset-id> \
+  --method PATCH \
+  --input - <<'JSON'
+{
+  "rules": [
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "required_status_checks": [
+          { "context": "PR テンプレート必須ゲート / 必須セクションの存在確認" },
+          { "context": "PR テンプレート必須ゲート / 関連 Issue 番号の記入" },
+          { "context": "PR テンプレート必須ゲート / 変更タイプの選択" },
+          { "context": "PR テンプレート必須ゲート / 顧客価値・目的の記入" },
+          { "context": "PR テンプレート必須ゲート / テスト実行結果の記入" }
+        ]
+      }
+    }
+  ]
+}
+JSON
+```
+
 ## レビュー必須化（#964 / Postmortem #962）
 
 PR は **APPROVED レビュー 1 件以上なしではマージ禁止**。GitHub Branch Ruleset の
