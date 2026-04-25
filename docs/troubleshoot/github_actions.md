@@ -101,4 +101,55 @@ gh run list --branch <ブランチ名> --workflow ci.yml --limit 3
 - コミット前チェックとして `node scripts/generate-lp-labels.mjs --check` を実行する習慣をつける
 - `CLAUDE.md` の「新規 label 追加時」注記（§必ず守ること §デザインシステム）に「`generate-lp-labels.mjs` 自体を変更した場合も再生成必須」と明記済み（#1490 対応）
 
+### 解決確認
+
+- `node scripts/generate-lp-labels.mjs --check` → `✓ site/shared-labels.js は最新です`
+- `workflow_dispatch` CI run `24927283408`（2026-04-25T08:59:26Z）で全 14 ジョブ通過
+- `pull_request` イベントの CI は docs のみ変更のため paths-filter でスキップ（正常動作。TA-002 参照）
+
+---
+
+## TA-002 — docs のみ変更時に pull_request CI がスキップされる（正常動作）
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-25 |
+| **PR 番号** | #1490 |
+| **ワークフロー** | CI |
+| **ジョブ名** | changes（paths-filter） |
+| **ステップ名** | dorny/paths-filter |
+| **ステータス** | resolved（正常動作の確認）|
+
+### エラーメッセージ（原文）
+
+```
+（エラーなし。CI の pull_request run が開始されず、gh pr checks の出力に
+ label ワークフローしか表示されない）
+```
+
+### 根本原因
+
+`ci.yml` の `changes` ジョブは `dorny/paths-filter@v4` で変更ファイルを分類し、
+`app / deps / stories` に該当するファイルが変更されていない場合は `lint-and-test` / `e2e-test` 等の
+重いジョブをスキップする（intentional design）。
+
+`docs/**` は paths-filter の対象外のため、docs のみを変更したコミットを push しても
+`lint-and-test` 以降のジョブは実行されない。`gh pr checks` には `Labeler` ワークフローだけが表示される。
+
+### 解決手順
+
+```bash
+# docs のみ変更の PR でフルCIを強制実行したい場合は workflow_dispatch を使う
+gh workflow run ci.yml --ref <ブランチ名>
+
+# またはアプリコードに実質的な変更がある commit を追加してから push する
+# （空コミットだけでは docs のみ変更と同じ扱いになる）
+```
+
+### 再発防止策
+
+- `gh pr checks` の結果が `label` のみの場合でも、docs のみ変更の PR では**正常**。慌てて空コミットを重ねない
+- アプリコード変更を含む PR（`src/**` / `scripts/**` / `site/**` 等）では必ず `pull_request` CI が走るため、通常の開発では問題にならない
+- docs のみ変更の PR で CI 全通過を確認したい場合は `gh workflow run ci.yml --ref <ブランチ名>` で手動実行する
+
 ---
