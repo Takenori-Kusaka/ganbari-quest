@@ -7,11 +7,13 @@ import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as events_targets from 'aws-cdk-lib/aws-events-targets';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 
 export interface OpsStackProps extends cdk.StackProps {
@@ -405,6 +407,26 @@ export class OpsStack extends cdk.Stack {
 			},
 		});
 		healthCheckFn.node.addDependency(healthCheckLogGroup);
+
+		// #1470: 前回通知ステータス永続化用 SSM パラメータ（初期値 "normal"）
+		const lastNotifiedStatusParam = new ssm.StringParameter(
+			this,
+			'HealthCheckLastNotifiedStatus',
+			{
+				parameterName: '/ganbari-quest/health-check/last-notified-status',
+				stringValue: 'normal',
+				description: 'Health check Lambda が最後に Discord 通知したステータス（復旧通知判定用）',
+				tier: ssm.ParameterTier.STANDARD,
+			},
+		);
+
+		// #1470: SSM GetParameter / PutParameter 権限を付与
+		healthCheckFn.addToRolePolicy(
+			new iam.PolicyStatement({
+				actions: ['ssm:GetParameter', 'ssm:PutParameter'],
+				resources: [lastNotifiedStatusParam.parameterArn],
+			}),
+		);
 
 		// EventBridge Rule: trigger every 1 hour
 		new events.Rule(this, 'HealthCheckSchedule', {
