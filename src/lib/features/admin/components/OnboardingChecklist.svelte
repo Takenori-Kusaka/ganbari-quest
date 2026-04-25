@@ -49,7 +49,7 @@ const progressPct = $derived(
 	{#if optionalItems.length > 0}
 		<details class="optional">
 			<summary class="optional-summary">
-				{ONBOARDING_LABELS.optionalSectionLabel}（{ONBOARDING_LABELS.optionalCountSuffix(optionalItems.length)}）
+				{ONBOARDING_LABELS.optionalSectionHeader(optionalItems.length)}
 			</summary>
 			<ul class="items optional-items">
 				{#each optionalItems as item}
