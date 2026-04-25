@@ -42,12 +42,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if ('error' in result) {
 		switch (result.error) {
 			case 'INSUFFICIENT_POINTS':
-				return json({ error: 'INSUFFICIENT_POINTS', message: 'ポイントが足りません' }, { status: 400 });
-			case 'ALREADY_PENDING':
 				return json(
-					{ error: 'ALREADY_PENDING', message: '既に申請中です' },
-					{ status: 409 },
+					{ error: 'INSUFFICIENT_POINTS', message: 'ポイントが足りません' },
+					{ status: 400 },
 				);
+			case 'ALREADY_PENDING':
+				return json({ error: 'ALREADY_PENDING', message: '既に申請中です' }, { status: 409 });
 			case 'REWARD_NOT_FOUND':
 				return json(
 					{ error: 'REWARD_NOT_FOUND', message: 'ごほうびが見つかりません' },
