@@ -124,6 +124,44 @@ gh issue view <X> --repo Takenori-Kusaka/ganbari-quest
 - 見ていない画像に所見を書いてはならない
 - **1 画像につき最低 1 行の具体的な所見を記録する**（「見ました」だけは不可）
 
+#### スクリーンショットが不足 / 撮り直しが必要な場合
+
+`scripts/capture.mjs` を使う。独自の Playwright スクリプトや手動でサーバーを起動する作業は不要。
+
+```bash
+# ---- デモ / 管理画面の1ページを撮る（サーバー自動起動・停止）----
+node scripts/capture.mjs --pr <PR番号> --url /demo/admin/activities
+
+# ---- 認証が必要な管理画面（--server-mode cognito で dev:cognito を自動起動）----
+node scripts/capture.mjs --pr <PR番号> --server-mode cognito --url /admin/children
+
+# ---- LP (site/) を撮る（--server-mode lp で静的サーバーを自動起動）----
+node scripts/capture.mjs --pr <PR番号> --server-mode lp --url /index.html
+
+# ---- 管理画面の代表ページ一括撮影 ----
+node scripts/capture.mjs --pr <PR番号> --config scripts/capture-specs/admin.mjs
+
+# ---- LP ページ一括撮影 ----
+node scripts/capture.mjs --pr <PR番号> --server-mode lp --config scripts/capture-specs/lp.mjs
+
+# ---- 特定 URL を mobile + desktop で撮る（--pr なしで出力先を指定） ----
+node scripts/capture.mjs --url /demo/preschool/home --presets mobile,desktop --out docs/screenshots/pr-<PR番号>/
+```
+
+**`--pr <N>` を使うと自動化される処理:**
+- 出力先: `docs/screenshots/pr-<N>/` に自動設定
+- presets: `mobile,desktop` にデフォルト設定
+- サーバー: 未起動なら自動起動し、撮影後に自動停止
+- 完了後: PR body にコピーできる Markdown スニペットを標準出力に表示
+
+**server-mode の選択基準:**
+
+| 対象 | --server-mode | 起動されるサーバー |
+|------|---------------|-----------------|
+| `/demo/**` デモ画面 | `dev`（省略可） | `npm run dev` (port 5173) |
+| `/admin/**` 本物の管理画面 | `cognito` | `npm run dev:cognito` (port 5174) |
+| `site/` LP ページ | `lp` | `npx serve site` (port 5280) |
+
 所見の例:
 - `desktop SS: Button.svelte プリミティブが使われていること確認。tapSize=56px が確保されている`
 - `mobile SS: テキストの折り返しが自然。overflow なし。CTA ボタンが視認できる`
