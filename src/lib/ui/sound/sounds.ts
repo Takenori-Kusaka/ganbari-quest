@@ -44,19 +44,9 @@ export interface SoundTierConfig {
 
 export const SOUND_TIER_CONFIG: Record<UiMode, SoundTierConfig> = {
 	baby: {
-		defaultVolume: 0.8,
-		enabledSounds: [
-			'tap',
-			'record-complete',
-			'point-gain',
-			'purchase',
-			'level-up',
-			'error',
-			'special-reward',
-			'omikuji-roll',
-			'omikuji-result',
-			'stamp-press',
-		],
+		// 親の準備モード（ADR-0011）: 子供向けゲーミフィケーション効果音は不要
+		defaultVolume: 0,
+		enabledSounds: [],
 	},
 	preschool: {
 		defaultVolume: 0.6,

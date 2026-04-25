@@ -10,9 +10,6 @@ import type {
 } from '$lib/domain/marketplace-item';
 
 // ── Activity Packs ──────────────────────────────────────────
-import babyBoy from './activity-packs/baby-boy.json';
-import babyFirst from './activity-packs/baby-first.json';
-import babyGirl from './activity-packs/baby-girl.json';
 import elementaryBoy from './activity-packs/elementary-boy.json';
 import elementaryChallenge from './activity-packs/elementary-challenge.json';
 import elementaryGirl from './activity-packs/elementary-girl.json';
@@ -25,7 +22,6 @@ import kinderStarter from './activity-packs/kinder-starter.json';
 import seniorBoy from './activity-packs/senior-boy.json';
 import seniorGirl from './activity-packs/senior-girl.json';
 import seniorHighChallenge from './activity-packs/senior-high-challenge.json';
-import eveningBaby from './checklists/evening-baby.json';
 import eveningElementary from './checklists/evening-elementary.json';
 import eveningJunior from './checklists/evening-junior.json';
 import eveningKinder from './checklists/evening-kinder.json';
@@ -34,12 +30,10 @@ import eveningSenior from './checklists/evening-senior.json';
 import eventFieldTrip from './checklists/event-field-trip.json';
 import eventPool from './checklists/event-pool.json';
 import eventSchoolStart from './checklists/event-school-start.json';
-import morningBaby from './checklists/morning-baby.json';
 import morningElementary from './checklists/morning-elementary.json';
 import morningJunior from './checklists/morning-junior.json';
 import morningKinder from './checklists/morning-kinder.json';
 import morningSenior from './checklists/morning-senior.json';
-import weekendBaby from './checklists/weekend-baby.json';
 import weekendElementary from './checklists/weekend-elementary.json';
 import weekendJunior from './checklists/weekend-junior.json';
 import weekendKinder from './checklists/weekend-kinder.json';
@@ -71,10 +65,7 @@ import weekendSpecial from './rule-presets/weekend-special.json';
 // ── Build item map ──────────────────────────────────────────
 
 const allItems: MarketplaceItem[] = [
-	// Activity packs (15 items: 5 neutral defaults + 10 gender variants)
-	babyFirst,
-	babyBoy,
-	babyGirl,
+	// Activity packs (12 items: 4 neutral defaults + 8 gender variants; baby削除 #1301)
 	kinderStarter,
 	kinderBoy,
 	kinderGirl,
@@ -99,17 +90,14 @@ const allItems: MarketplaceItem[] = [
 	foodRewards,
 	privilegeRewards,
 	// Checklists
-	morningBaby,
 	morningKinder,
 	morningElementary,
 	morningJunior,
 	morningSenior,
-	eveningBaby,
 	eveningKinder,
 	eveningElementary,
 	eveningJunior,
 	eveningSenior,
-	weekendBaby,
 	weekendKinder,
 	weekendElementary,
 	weekendJunior,

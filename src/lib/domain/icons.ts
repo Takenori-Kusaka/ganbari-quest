@@ -33,16 +33,18 @@ export interface ModeLabels {
 	checklist: string;
 }
 
-/** 年齢モード別ラベル定義（#537: 新コード名に対応） */
+/** 年齢モード別ラベル定義（#537: 新コード名に対応）
+ *  baby = 親の準備モード（ADR-0011）: 子供向けゲーミフィケーション語彙ではなく親向けラベル
+ */
 const MODE_LABELS: Record<string, ModeLabels> = {
 	baby: {
-		status: 'つよさ',
+		status: 'せいちょうきろく',
 		switch: 'かぞく',
 		history: 'きろく',
-		achievements: 'チャレンジきろく',
-		titles: 'しょうごう',
+		achievements: 'できたこと',
+		titles: 'せいちょう',
 		recordSummary: 'きょうの きろく',
-		checklist: 'もちものチェック',
+		checklist: 'もちもの',
 	},
 	preschool: {
 		status: 'つよさ',
