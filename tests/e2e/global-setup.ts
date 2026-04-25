@@ -86,8 +86,12 @@ export default async function globalSetup() {
 					resolved_by_parent_id INTEGER,
 					shown_to_child_at INTEGER
 				)`);
-				db.exec('CREATE INDEX IF NOT EXISTS idx_redemption_child_status ON reward_redemption_requests(child_id, status)');
-				db.exec('CREATE INDEX IF NOT EXISTS idx_redemption_reward_status ON reward_redemption_requests(reward_id, status)');
+				db.exec(
+					'CREATE INDEX IF NOT EXISTS idx_redemption_child_status ON reward_redemption_requests(child_id, status)',
+				);
+				db.exec(
+					'CREATE INDEX IF NOT EXISTS idx_redemption_reward_status ON reward_redemption_requests(reward_id, status)',
+				);
 				console.log('[E2E Setup]   Created reward_redemption_requests table.');
 			} catch {
 				// テーブルが既に存在する場合は無視
@@ -847,8 +851,12 @@ export default async function globalSetup() {
 				resolved_by_parent_id INTEGER,
 				shown_to_child_at INTEGER
 			)`);
-			db.exec('CREATE INDEX IF NOT EXISTS idx_redemption_child_status ON reward_redemption_requests(child_id, status)');
-			db.exec('CREATE INDEX IF NOT EXISTS idx_redemption_reward_status ON reward_redemption_requests(reward_id, status)');
+			db.exec(
+				'CREATE INDEX IF NOT EXISTS idx_redemption_child_status ON reward_redemption_requests(child_id, status)',
+			);
+			db.exec(
+				'CREATE INDEX IF NOT EXISTS idx_redemption_reward_status ON reward_redemption_requests(reward_id, status)',
+			);
 			console.log('[E2E Setup]   Created reward_redemption_requests table.');
 		} catch {
 			// テーブルが既に存在する場合は無視

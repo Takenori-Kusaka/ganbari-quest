@@ -30,10 +30,7 @@ export interface IRewardRedemptionRepo {
 		tenantId: string,
 	): Promise<RedemptionRequestRow>;
 
-	findRedemptionRequestsByChild(
-		childId: number,
-		tenantId: string,
-	): Promise<RedemptionRequestRow[]>;
+	findRedemptionRequestsByChild(childId: number, tenantId: string): Promise<RedemptionRequestRow[]>;
 
 	findRedemptionRequestsByTenant(
 		tenantId: string,
