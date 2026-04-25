@@ -86,6 +86,15 @@
 - [adr-inventory-2026-04-19.md](decisions/adr-inventory-2026-04-19.md) — 旧 0001〜0039 の棚卸。0008 / 0009 / 0016 を supersede、active-primary 12 件特定
 - [adr-inventory-2026-04-20.md](decisions/adr-inventory-2026-04-20.md) — 新体系 0001-0010 + archive 25 件の最終棚卸（#1262 sub-7 完了）
 
+
+## 機能別設計経緯 (rationale) ドキュメント
+
+`docs/rationale/` は ADR（全プロダクト横断の哲学）と設計書（結論・仕様）の間にある「**なぜそう決めたか**」を保存する層。複数の代替案を比較検討した経緯・棄却理由・残された懸念など、設計書には収まらない narrative を記録する。ファイル命名: `NN-機能名-rationale.md`（NN は 2 桁連番）。テンプレートは `docs/rationale/_template.md`、運用ルール詳細は `docs/rationale/01-README.md` を参照。
+
+**いつ rationale を書くか**: (1) 複雑な新機能を実装するとき / (2) 既存機能の大きな方向転換時 / (3) 過去議論が再発する兆しが見えたとき。軽微な変更（バグ修正・設定値調整等）には不要。
+
+**ADR / 設計書 / memory との使い分け**: 全プロダクト横断のポリシー = ADR / 機能仕様の結論 = 設計書 / **機能設計の経緯・理由** = rationale / ユーザーローカル作業メモ = memory（チーム共有不可）
+
 ## Issue 起票・チケット運用ルール
 
 Issue の起票運用・テンプレート（Blocked by / Blocks / Related / 工程区分 phase dropdown）・admin bypass 証跡等のルールは [`.github/CLAUDE.md`](../.github/CLAUDE.md) を SSOT とする。特に以下は設計書更新と密接に関わるため押さえておくこと:
