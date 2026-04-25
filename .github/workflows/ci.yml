@@ -366,6 +366,9 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # e2e-cognito-dev: #1497 で一時除外。storageState 改修後に復活予定 (#1500)
+  # → gh issue create で別 Issue を起票済み
+
   docker-build:
     runs-on: ubuntu-latest
     # #923 Phase 1: lint-and-test 依存を外して並列化 (e2e-test と同じ理由)
