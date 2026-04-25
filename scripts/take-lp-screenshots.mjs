@@ -44,7 +44,11 @@ const OUTPUT_DIR = COMPARE_MODE ? STAGING_DIR : PROD_DIR;
 
 const AGE_MODES = [
 	{ mode: 'preschool', filePrefix: 'age-kinder', label: '幼児 (3-5歳)' },
-	{ mode: 'elementary', filePrefix: 'age-lower', label: '小学生以上 (6-18歳) — primary-plus パネル代表' },
+	{
+		mode: 'elementary',
+		filePrefix: 'age-lower',
+		label: '小学生以上 (6-18歳) — primary-plus パネル代表',
+	},
 ];
 
 const VIEWPORTS = {
