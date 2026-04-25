@@ -54,6 +54,8 @@ export interface FeatureFlags {
 	showConfirmDialog: boolean;
 	/** 冒険開始オーバーレイ */
 	showAdventureStart: boolean;
+	/** バトルアドベンチャー表示（elementary以上のみ） */
+	showBattle: boolean;
 }
 
 export interface ModeVariant {
@@ -119,6 +121,20 @@ const BABY_FEATURES: FeatureFlags = {
 	showParentMessages: false,
 	showConfirmDialog: false,
 	showAdventureStart: false,
+	showBattle: false,
+};
+
+const PRESCHOOL_FEATURES: FeatureFlags = {
+	showComparison: true,
+	showTrends: true,
+	showSiblingFeatures: true,
+	showEvents: true,
+	showChecklists: true,
+	showPin: true,
+	showParentMessages: true,
+	showConfirmDialog: true,
+	showAdventureStart: true,
+	showBattle: false,
 };
 
 const FULL_FEATURES: FeatureFlags = {
@@ -131,11 +147,12 @@ const FULL_FEATURES: FeatureFlags = {
 	showParentMessages: true,
 	showConfirmDialog: true,
 	showAdventureStart: true,
+	showBattle: true,
 };
 
 export const MODE_VARIANTS: Record<UiMode, ModeVariant> = {
 	baby: { text: HIRAGANA_TEXT, features: BABY_FEATURES },
-	preschool: { text: HIRAGANA_TEXT, features: FULL_FEATURES },
+	preschool: { text: HIRAGANA_TEXT, features: PRESCHOOL_FEATURES },
 	elementary: { text: KANJI_TEXT, features: FULL_FEATURES },
 	junior: { text: KANJI_TEXT, features: FULL_FEATURES },
 	senior: { text: KANJI_TEXT, features: FULL_FEATURES },

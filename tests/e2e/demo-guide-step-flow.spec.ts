@@ -1,5 +1,5 @@
 // tests/e2e/demo-guide-step-flow.spec.ts
-// #702, #817 — デモガイドの「つぎへ」で全 7 ステップを順番に踏めることを保証する E2E
+// #702, #817, #1323 — デモガイドの「つぎへ」で全 6 ステップを順番に踏めることを保証する E2E
 //
 // 過去 2 度にわたり「ステップが 1→3→5 に飛ぶ」回帰が発生している（#317, #702）。
 // 原因は DemoGuideBar の <a href={nextStep.href}> + onclick={handleAdvance} の組合せで、
@@ -7,7 +7,10 @@
 // 書き換わり、ブラウザがそちらへナビゲートしてしまうこと。
 //
 // 修正版 (#702) では <button> + 明示 goto() に切り替えたため、1 クリック = 1 ステップ
-// 進行が保証される。本 spec は全 7 ステップを順番に確認することで再回帰を防ぐ。
+// 進行が保証される。本 spec は全 6 ステップを順番に確認することで再回帰を防ぐ。
+//
+// #1323: /demo/preschool/battle を廃止し 307 リダイレクト（→ /demo/preschool/home）を
+// 追加したため、バトルステップをデモガイドから削除して 6 ステップ構成に変更。
 
 import { expect, type Page, test } from '@playwright/test';
 
@@ -27,7 +30,7 @@ async function waitForHydration(page: Page): Promise<void> {
 test.describe.configure({ timeout: 120_000 });
 
 test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
-	test('「つぎへ」ボタンで Step 1 → 2 → 3 → 4 → 5 → 6 → 7 を順番に踏める', async ({ page }) => {
+	test('「つぎへ」ボタンで Step 1 → 2 → 3 → 4 → 5 → 6 を順番に踏める', async ({ page }) => {
 		// Step 1: /demo トップから「ガイド付きデモを はじめる」をクリック
 		await page.goto('/demo');
 		// Hydrationが終わるまで待つ。dev mode では最初の /demo コンパイルが
@@ -63,31 +66,26 @@ test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 		await expect(guideBar).toContainText('ステータスを みよう');
 		await expect(page).toHaveURL(/\/demo\/preschool\/status/);
 
-		// Step 3 → Step 4 (matchPath: /demo/preschool/battle)
+		// Step 3 → Step 4 (matchPath: /demo/admin)
+		// #1323: バトルステップ削除により、ステータス → 管理画面へ直接遷移
 		await page.getByTestId('demo-guide-next').click();
 		await expect(stepIndicator).toHaveText('4');
-		await expect(guideBar).toContainText('バトルに ちょうせんしよう');
-		await expect(page).toHaveURL(/\/demo\/preschool\/battle/);
-
-		// Step 4 → Step 5 (matchPath: /demo/admin)
-		await page.getByTestId('demo-guide-next').click();
-		await expect(stepIndicator).toHaveText('5');
 		await expect(guideBar).toContainText('おやの画面をみよう');
 		await expect(page).toHaveURL(/\/demo\/admin/);
 
-		// Step 5 → Step 6 (matchPath: /demo/admin/license) — #817 ライセンスキー体験
+		// Step 4 → Step 5 (matchPath: /demo/admin/license) — #817 ライセンスキー体験
 		await page.getByTestId('demo-guide-next').click();
-		await expect(stepIndicator).toHaveText('6');
+		await expect(stepIndicator).toHaveText('5');
 		await expect(guideBar).toContainText('プラン・お支払いを みよう');
 		await expect(page).toHaveURL(/\/demo\/admin\/license/);
 
-		// Step 6 → Step 7 (matchPath: /demo/signup) — 最終ステップ
+		// Step 5 → Step 6 (matchPath: /demo/signup) — 最終ステップ
 		await page.getByTestId('demo-guide-next').click();
-		await expect(stepIndicator).toHaveText('7');
+		await expect(stepIndicator).toHaveText('6');
 		await expect(guideBar).toContainText('いかがでしたか？');
 		await expect(page).toHaveURL(/\/demo\/signup/);
 
-		// Step 7 (最終): 「プランを見る」「はじめる」CTA が表示される
+		// Step 6 (最終): 「プランを見る」「はじめる」CTA が表示される
 		await expect(page.getByTestId('demo-guide-see-pricing')).toBeVisible();
 		await expect(page.getByTestId('demo-guide-start')).toBeVisible();
 		// 「つぎへ」ボタンは表示されない

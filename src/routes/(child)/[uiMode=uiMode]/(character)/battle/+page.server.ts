@@ -1,10 +1,14 @@
+import { error } from '@sveltejs/kit';
 import { loadBattlePage } from '$lib/features/battle/battle-page-load';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { executeDailyBattle } from '$lib/server/services/battle-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ parent, locals }) => {
+export const load: PageServerLoad = async ({ parent, locals, params }) => {
+	if (params.uiMode === 'baby' || params.uiMode === 'preschool') {
+		error(404, 'このモードではバトルは利用できません');
+	}
 	return loadBattlePage(parent, locals);
 };
 

@@ -1,5 +1,5 @@
 // tests/unit/demo/demo-guide-state.test.ts
-// #702 — デモガイド「つぎへ」でステップが 1→3→5 に飛ぶ回帰テスト
+// #702, #1323 — デモガイド「つぎへ」でステップが 1→3→5 に飛ぶ回帰テスト
 //
 // バグの本質:
 //   handleAdvance() で currentStep を進めた直後に、Svelte 5 の reactive な
@@ -38,8 +38,8 @@ describe('demo-guide-state (#702)', () => {
 	});
 
 	describe('GUIDE_STEPS の整合性', () => {
-		it('7 ステップが定義されている', () => {
-			expect(GUIDE_STEPS).toHaveLength(7);
+		it('6 ステップが定義されている', () => {
+			expect(GUIDE_STEPS).toHaveLength(6);
 		});
 
 		it('Step 1 と Step 2 は同一 matchPath を共有する（活動記録は同じ画面で行う）', () => {
@@ -158,16 +158,18 @@ describe('demo-guide-state (#702)', () => {
 		});
 
 		it('Step 3 → Step 4: 手動 advance 後に Step 4 の pathname で動かない', () => {
+			// #1323: バトルステップ削除により Step 4 は /demo/admin に変更
 			startGuide();
 			advanceStep();
 			advanceStep();
 			advanceStep(); // → Step 4
 			expect(guide.currentStep).toBe(3);
-			checkAutoAdvance('/demo/preschool/battle');
+			checkAutoAdvance('/demo/admin');
 			expect(guide.currentStep).toBe(3); // Step 4 のまま (Step 5 にスキップしない)
 		});
 
-		it('全 7 ステップを正しく順番に踏める', () => {
+		it('全 6 ステップを正しく順番に踏める', () => {
+			// #1323: バトルステップ削除により 6 ステップ構成に変更
 			startGuide();
 			const visited: number[] = [];
 			visited.push(guide.currentStep + 1); // 1
@@ -178,18 +180,15 @@ describe('demo-guide-state (#702)', () => {
 			checkAutoAdvance('/demo/preschool/status'); // step 3 nav
 			visited.push(guide.currentStep + 1); // 3
 			advanceStep();
-			checkAutoAdvance('/demo/preschool/battle'); // step 4 nav
+			checkAutoAdvance('/demo/admin'); // step 4 nav
 			visited.push(guide.currentStep + 1); // 4
 			advanceStep();
-			checkAutoAdvance('/demo/admin'); // step 5 nav
+			checkAutoAdvance('/demo/admin/license'); // step 5 nav
 			visited.push(guide.currentStep + 1); // 5
 			advanceStep();
-			checkAutoAdvance('/demo/admin/license'); // step 6 nav
+			checkAutoAdvance('/demo/signup'); // step 6 nav
 			visited.push(guide.currentStep + 1); // 6
-			advanceStep();
-			checkAutoAdvance('/demo/signup'); // step 7 nav
-			visited.push(guide.currentStep + 1); // 7
-			expect(visited).toEqual([1, 2, 3, 4, 5, 6, 7]);
+			expect(visited).toEqual([1, 2, 3, 4, 5, 6]);
 		});
 	});
 });
