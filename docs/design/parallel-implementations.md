@@ -270,7 +270,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] birthDate / age バリデーション変更 → `children/+page.server.ts` と `birthday-bonus-service.ts` の両方を確認
 - [ ] `getDefaultUiMode` の年齢境界変更 → `age-tier.ts` 1 箇所（副作用: 全 child の uiMode が次回更新時に変化する）
 - [ ] `uiModeManuallySet` ロジック変更 → `age-tier.ts` の `recalcUiMode()` と `child-service.ts` の `editChild()` の両方を確認
-- [ ] age 自動インクリメント実装 (Sub B-3) → `schedule-registry.ts` に cron 登録 + `recalcUiMode()` 使用 + E2E テスト追加
+- [ ] age 自動インクリメント変更 (#1381) → `age-recalc-service.ts` + `schedule-registry.ts` + `+server.ts` の 3 ファイルが協調。uiMode 更新ロジック変更時は `birthday-bonus-service.ts` の担当外ポリシー（§13.9）と照合すること
 
 ---
 

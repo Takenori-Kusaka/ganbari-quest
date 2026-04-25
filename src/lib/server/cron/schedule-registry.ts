@@ -42,4 +42,11 @@ export const scheduleRegistry: CronJob[] = [
 		utcCronExpression: 'cron(0 0 * * ? *)', // 毎日 00:00 UTC = 09:00 JST
 		description: 'トライアル終了通知バッチ (#737)',
 	},
+	{
+		name: 'age-recalc',
+		endpoint: '/api/cron/age-recalc',
+		cronExpression: '0 0 * * *', // 毎日 00:00 JST
+		utcCronExpression: 'cron(0 15 * * ? *)', // 毎日 15:00 UTC = 翌日 00:00 JST
+		description: '子供の年齢自動インクリメント (#1381)',
+	},
 ];
