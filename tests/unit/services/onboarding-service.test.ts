@@ -408,6 +408,67 @@ describe('onboarding-service', () => {
 			expect(result.allCompleted).toBe(true);
 			expect(result.completedCount).toBe(5);
 		});
+
+		it('completedCount / totalCount は任意アイテムも含む全アイテムを対象とする (#1361)', async () => {
+			setupDefaults({
+				children: [{ id: 1 }],
+				activities: [{ id: 10 }],
+				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
+				pinHash: 'hash',
+				childScreenVisited: 'true',
+				templatesByChild: { 1: [{ id: 100 }] },
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			expect(result.totalCount).toBe(6);
+			expect(result.completedCount).toBe(6);
+		});
+
+		it('任意アイテムが全未完でも required アイテムが完了なら allCompleted は true (#1361)', async () => {
+			setupDefaults({
+				children: [{ id: 1 }],
+				activities: [{ id: 10 }],
+				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
+				pinHash: null,
+				childScreenVisited: 'true',
+				templatesByChild: { 1: [{ id: 100 }] },
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			const optionalItems = result.items.filter((i) => !i.required);
+			expect(optionalItems.every((i) => !i.completed)).toBe(true);
+			expect(result.allCompleted).toBe(true);
+		});
+
+		it('nextRecommendation は未完の必須 → 未完の任意の順で優先する (#1361)', async () => {
+			setupDefaults({
+				children: [{ id: 1 }],
+				activities: [],
+				pinHash: null,
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			expect(result.nextRecommendation?.key).toBe('activities');
+			expect(result.nextRecommendation?.required).toBe(true);
+		});
+
+		it('未完の必須アイテムが存在する場合 nextRecommendation は任意より先に必須を指す (#1361)', async () => {
+			setupDefaults({
+				children: [{ id: 1 }],
+				activities: [{ id: 10 }],
+				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
+				pinHash: null,
+				childScreenVisited: null,
+				templatesByChild: {},
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			expect(result.nextRecommendation?.required).toBe(true);
+		});
 	});
 
 	describe('markChildScreenVisited', () => {

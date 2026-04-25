@@ -376,6 +376,9 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `PARENT_LOGIN_LABELS` | const |  |
 | `VIEW_PAGE_LABELS` | const |  |
 | `DEMO_BATTLE_LABELS` | const |  |
+| `CHILD_CHECKLIST_LABELS` | const |  |
+| `DEMO_CHILD_CHECKLIST_LABELS` | const |  |
+| `ADMIN_CHECKLISTS_PAGE_LABELS` | const |  |
 | `DEMO_ACTIVITIES_LABELS` | const |  |
 | `DEMO_CHECKLISTS_LABELS` | const |  |
 | `DEMO_EVENTS_LABELS` | const |  |
@@ -383,6 +386,9 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `OPS_LICENSE_PAGE_LABELS` | const |  |
 | `DEMO_CHALLENGES_LABELS` | const |  |
 | `DEMO_CHILD_ACHIEVEMENTS_LABELS` | const |  |
+| `LP_RETENTION_LABELS` | const |  |
+| `BABY_HOME_LABELS` | const |  |
+| `ONBOARDING_LABELS` | const |  |
 | `formatCount` | function |  |
 | `formatAge` | function |  |
 | `formatAgeRange` | function |  |
