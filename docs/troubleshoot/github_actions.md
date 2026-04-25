@@ -261,3 +261,45 @@ Error: locator.waitFor: Test timeout of 90000ms exceeded.
 **参考**: PR #1499, Issue #1497
 
 ---
+
+## TA-005 — e2e-cognito-dev が timeout-minutes: 20 で cancelled
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-25 |
+| **PR 番号** | #1499 |
+| **ワークフロー** | CI |
+| **ジョブ名** | e2e-cognito-dev |
+| **ステップ名** | （ジョブ全体）|
+| **ステータス** | resolved |
+
+### エラーメッセージ（原文）
+
+```
+The job running on runner GitHub Actions XX has exceeded the maximum execution time of 20 minutes.
+```
+
+### 根本原因
+
+`e2e-cognito-dev` ジョブの `timeout-minutes: 20` 設定に対して、
+npm ci + playwright install + build (cognito mode) + 全 cognito-dev spec 実行が 20 分を超過した。
+CI run 24929009610 で cancelled (20m35s) が確認された。
+
+### 解決手順
+
+`.github/workflows/ci.yml` の `e2e-cognito-dev` ジョブの `timeout-minutes` を 20 → 30 に延長:
+
+```yaml
+  e2e-cognito-dev:
+    ...
+    timeout-minutes: 30
+```
+
+### 再発防止策
+
+- cognito-dev spec が増える場合は、実行時間を計測して `timeout-minutes` を再評価すること
+- spec を追加する際は CI run の実績時間を確認し、余裕を持った timeout 値を設定すること
+
+**参考**: PR #1499, Issue #1497, CI run 24929009610
+
+---
