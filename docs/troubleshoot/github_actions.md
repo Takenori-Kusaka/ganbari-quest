@@ -153,3 +153,153 @@ gh workflow run ci.yml --ref <ブランチ名>
 - docs のみ変更の PR で CI 全通過を確認したい場合は `gh workflow run ci.yml --ref <ブランチ名>` で手動実行する
 
 ---
+
+## TA-003 — cognito-dev ビルドで `/sitemap.xml` がプリレンダエラーになる
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-25 |
+| **PR 番号** | #1499 |
+| **ワークフロー** | CI |
+| **ジョブ名** | e2e-cognito-dev |
+| **ステップ名** | Build (cognito-dev mode) |
+| **ステータス** | resolved |
+
+### エラーメッセージ（原文）
+
+```
+302 /sitemap.xml -> /auth/login
+
+Error: The following routes were marked as prerenderable, but were not prerendered because they were not found while crawling your app:
+  - /sitemap.xml
+
+See the `handleUnseenRoutes` option in https://svelte.dev/docs/kit/configuration#prerender for more info.
+```
+
+### 根本原因
+
+`src/routes/sitemap.xml/+server.ts` は `export const prerender = true` が設定されており、
+`svelte.config.js` の `prerender.entries` にも `'/sitemap.xml'` が明示登録されている（#832 で対応済み）。
+
+しかし `AUTH_MODE=cognito COGNITO_DEV_MODE=true` のビルド時に、プリレンダクローラが `/sitemap.xml`
+を取得しようとすると `src/lib/server/auth/authorization.ts` の `isPublicRoute()` が
+`/sitemap.xml` を公開ルートとして認識せず、未認証扱いで `/auth/login` に 302 リダイレクトしてしまう。
+
+`local` モードでは `hooks.server.ts` の 429 行目に `path !== '/sitemap.xml'` の明示除外があるが
+（コメントに #832 と記載）、`cognito` モードの認可チェックには同等の除外が漏れていた。
+
+### 解決手順
+
+`src/lib/server/auth/authorization.ts` の `isPublicRoute()` 関数に `/sitemap.xml` と `/robots.txt`
+を追加:
+
+```typescript
+function isPublicRoute(path: string): boolean {
+  return (
+    path === '/' ||
+    // #832: SEO エンドポイントはプリレンダ対象。未認証でもクローラ・ビルドがアクセスできるよう公開する。
+    path === '/sitemap.xml' ||
+    path === '/robots.txt' ||
+    path.startsWith('/auth') ||
+    // ...
+  );
+}
+```
+
+### 再発防止策
+
+- 新しい公開 SEO ルート（`sitemap.xml`, `robots.txt` 等）を追加する際は、`isPublicRoute()` への追加も忘れずに行う
+- `local` モード向けの除外（`hooks.server.ts`）と `cognito` モード向けの除外（`authorization.ts`）は**両方**更新する必要がある（並行実装ペア）
+
+---
+
+## TA-004 — cognito-dev 専用テストが標準 e2e に混入してタイムアウト
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-25 |
+| **PR 番号** | #1499 |
+| **ワークフロー** | CI |
+| **ジョブ名** | e2e-test (shard X) |
+| **ステップ名** | Run E2E tests |
+| **ステータス** | resolved |
+
+### エラーメッセージ（原文）
+
+```
+Error: locator.waitFor: Test timeout of 90000ms exceeded.
+  await page.goto('/auth/login', { waitUntil: 'commit', timeout: 180_000 });
+> await page.getByLabel('メールアドレス').waitFor({ state: 'visible', timeout: 180_000 });
+```
+
+### 根本原因
+
+`playwright.config.ts` の `BASE_TEST_IGNORE` に cognito-dev 専用の `*.spec.ts` を追加し忘れたため、
+標準 e2e テスト (`AUTH_MODE=local`, port 5173) でも当該 spec が実行された。
+`local` モードでは `/auth/login` が 302 redirect されてログインフォームが描画されないため、
+`loginAsPlan()` が 180s 待ちでタイムアウトし CI がハングした。
+
+### 解決手順
+
+`playwright.config.ts` の `BASE_TEST_IGNORE` 配列に対象 spec のパターンを追加:
+
+```typescript
+// #1497: Stripe Checkout インターセプト E2E は cognito-dev モード専用（loginAsPlan を使用）
+'**/upgrade-checkout.spec.ts',
+```
+
+### 再発防止策
+
+**判定ルール**: 以下のいずれかを使う spec はすべて cognito-dev 専用 → `BASE_TEST_IGNORE` 必須:
+
+- `loginAsPlan()` を呼ぶ
+- `auth.setup.ts` / `storageState` を使う
+- `/auth/login` のフォーム入力が必要
+
+新しい cognito-dev 専用 spec を追加する際は、`playwright.config.ts` の `BASE_TEST_IGNORE` への追加を忘れずに行うこと。
+
+**参考**: PR #1499, Issue #1497
+
+---
+
+## TA-005 — e2e-cognito-dev が timeout-minutes: 20 で cancelled
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-25 |
+| **PR 番号** | #1499 |
+| **ワークフロー** | CI |
+| **ジョブ名** | e2e-cognito-dev |
+| **ステップ名** | （ジョブ全体）|
+| **ステータス** | resolved |
+
+### エラーメッセージ（原文）
+
+```
+The job running on runner GitHub Actions XX has exceeded the maximum execution time of 20 minutes.
+```
+
+### 根本原因
+
+`e2e-cognito-dev` ジョブの `timeout-minutes: 20` 設定に対して、
+npm ci + playwright install + build (cognito mode) + 全 cognito-dev spec 実行が 20 分を超過した。
+CI run 24929009610 で cancelled (20m35s) が確認された。
+
+### 解決手順
+
+`.github/workflows/ci.yml` の `e2e-cognito-dev` ジョブの `timeout-minutes` を 20 → 30 に延長:
+
+```yaml
+  e2e-cognito-dev:
+    ...
+    timeout-minutes: 30
+```
+
+### 再発防止策
+
+- cognito-dev spec が増える場合は、実行時間を計測して `timeout-minutes` を再評価すること
+- spec を追加する際は CI run の実績時間を確認し、余裕を持った timeout 値を設定すること
+
+**参考**: PR #1499, Issue #1497, CI run 24929009610
+
+---

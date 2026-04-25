@@ -120,6 +120,10 @@ function findMatchingRule(path: string): RouteRule | undefined {
 function isPublicRoute(path: string): boolean {
 	return (
 		path === '/' ||
+		// #832: SEO エンドポイントはプリレンダ対象。未認証でもクローラ・ビルドがアクセスできるよう公開する。
+		// local モードの hooks.server.ts と同様の除外（cognito モードにも適用が必要）。
+		path === '/sitemap.xml' ||
+		path === '/robots.txt' ||
 		path.startsWith('/auth') ||
 		path.startsWith('/pricing') ||
 		path.startsWith('/setup') ||
