@@ -5,7 +5,7 @@
 // バトルは1日1回の制約があるため、テストは直列実行する（UI表示→API実行の順序が重要）
 
 import { expect, test } from '@playwright/test';
-import { selectBabyChild, selectKinderChild } from './helpers';
+import { selectBabyChild, selectElementaryChild, selectKinderChild } from './helpers';
 
 test.describe('#1323: baby/preschool はバトルが 404', () => {
 	test('baby モードのバトルページは 404 を返す', async ({ page }) => {
@@ -26,8 +26,8 @@ test.describe
 		// UI テスト: バトルページの表示確認
 		// mobile/tablet ワーカーが同一DBを共有するため、先にバトル実行済みの場合がある
 		test('バトルページが正しく表示される（敵・ステータス・開始ボタン）', async ({ page }) => {
-			await selectKinderChild(page);
-			await page.goto('/preschool/battle');
+			await selectElementaryChild(page);
+			await page.goto('/elementary/battle');
 
 			// バトルページが表示される
 			const battlePage = page.getByTestId('battle-page');
@@ -142,8 +142,8 @@ test.describe
 
 		// UI テスト: バトル完了後の表示確認
 		test('バトル完了後は「おわったよ」メッセージが表示される', async ({ page }) => {
-			await selectKinderChild(page);
-			await page.goto('/preschool/battle');
+			await selectElementaryChild(page);
+			await page.goto('/elementary/battle');
 
 			// バトルは既に完了済み（前のテストで実行済み）
 			const alreadyDone = page.getByTestId('battle-already-done');
