@@ -3,6 +3,10 @@
 
 import Stripe from 'stripe';
 
+type StripeApiVersion = NonNullable<ConstructorParameters<typeof Stripe>[1]>['apiVersion'];
+
+const STRIPE_API_VERSION = '2026-04-22.dahlia' as StripeApiVersion;
+
 let _client: Stripe | null = null;
 
 /**
@@ -26,7 +30,7 @@ export function getStripeClient(): Stripe {
 	}
 
 	_client = new Stripe(secretKey, {
-		apiVersion: '2026-04-22.dahlia',
+		apiVersion: STRIPE_API_VERSION,
 		typescript: true,
 	});
 
