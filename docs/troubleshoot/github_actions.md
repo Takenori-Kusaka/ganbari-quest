@@ -410,7 +410,80 @@ git diff origin/main -- package-lock.json | grep lightningcss
 
 ---
 
-## TA-008 — loginAsPlan() 未移行で storageState 導入後も e2e-cognito-dev が 30m+ timeout
+## TA-008 — screenshot-check / design-doc-check / Verify AC map の同時失敗パターン
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-26 |
+| **PR 番号** | #1534 |
+| **ワークフロー** | pr-quality-gate |
+| **ジョブ名** | screenshot-check / design-doc-check / Verify AC map in PR body |
+| **ステータス** | resolved |
+
+### エラーメッセージ（原文）
+
+```
+screenshot-check:
+❌ UI変更PRにはスクリーンショットの添付が必須です。
+
+design-doc-check:
+❌ src/routes/ に変更がありますが、docs/design/ の更新がありません。
+設計書の同期更新が必要な場合は同一PR内で更新してください（ADR-0003）。
+
+Verify AC map in PR body:
+PR 本文に「AC 検証マップ」セクションが見つかりません (ADR-0038)
+```
+
+### 根本原因
+
+1. **screenshot-check**: PR body に `![...](...)` または `<img` 形式の画像が一切なかった（「TODO: 撮影予定」のまま Ready for Review になっていた）
+2. **design-doc-check**: `src/routes/` に新規ファイルを追加したが、`docs/design/` を一切変更していなかった
+3. **Verify AC map**: PR body の AC セクションが `## AC 対応状況` というチェックボックス形式だった。CI が検索するキーワードは **「AC 検証マップ」** であり、`## AC 検証マップ` ヘッダー + 4列テーブル形式が必須（ADR-0038）
+
+### 解決手順
+
+```bash
+# 1. design-doc-check — 設計書を更新してコミット
+# docs/design/06-UI設計書.md の該当セクションにページ/機能を追記し
+# 更新履歴テーブルに新バージョン行を追加する
+git add docs/design/06-UI設計書.md
+git commit -m "docs: 設計書に新機能仕様を追記"
+
+# 2. screenshot-check — スクリーンショットを撮影して PR body に追加
+# Playwright で各年齢モードのページを撮影
+# ※ Windows では checkPort が 127.0.0.1 を使うため dev server が ::1 でリスンしていると
+#   capture.mjs が起動失敗することがある。その場合は Playwright を直接使用する:
+node -e "
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addCookies([{ name: 'selectedChildId', value: '1', domain: 'localhost', path: '/' }]);
+  const page = await ctx.newPage();
+  await page.goto('http://localhost:5173/preschool/shop', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: 'docs/screenshots/pr-NNN/shop-preschool-mobile.png' });
+  await browser.close();
+})();
+"
+
+# 3. Verify AC map — PR body の AC セクション見出しを「AC 検証マップ」に変更し
+# チェックボックス形式から 4列テーブル形式に変換する
+# 必須形式:
+# ## AC 検証マップ
+# | AC番号 | AC内容 | 検証手段 | 結果/エビデンス |
+# |--------|--------|---------|----------------|
+# | AC1 | ... | ... | ✅ ... |
+gh pr edit NNN --body "$(cat pr-body.md)"
+```
+
+### 再発防止策
+
+- `src/routes/` を変更する PR では必ず `docs/design/` の対応する設計書を同一 PR で更新する（`docs/CLAUDE.md` の更新ルール表を参照）
+- PR body の AC セクションは `## AC 検証マップ` (ADR-0038) で統一し、4列テーブル形式を使う。チェックボックス形式 `- [x]` は CI が認識しない
+- Windows 環境で `capture.mjs` が `サーバーが 40 秒以内に起動しませんでした` でタイムアウトする場合、dev server が `::1` でリスンしているが `checkPort` が `127.0.0.1` を見ているため。PowerShell で dev server を起動し、Playwright スクリプトを直接実行する回避策を使う
+- スクリーンショットは `docs/screenshots/pr-NNN/` にコミットして `raw.githubusercontent.com` 経由で PR body から参照する
+## TA-009 — loginAsPlan() 未移行で storageState 導入後も e2e-cognito-dev が 30m+ timeout
 
 | フィールド | 値 |
 |-----------|-----|
