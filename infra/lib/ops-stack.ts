@@ -7,11 +7,13 @@ import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as events_targets from 'aws-cdk-lib/aws-events-targets';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 
 export interface OpsStackProps extends cdk.StackProps {
@@ -387,6 +389,14 @@ export class OpsStack extends cdk.Stack {
 		// からは常時 403 になる。Function URL (authType: NONE) を直叩きして Lambda/DB の
 		// 生存確認に用途を限定する。CloudFront 層の障害は本 Lambda では検知できない
 		// （別途 CloudWatch Synthetics 等で補完する方針 — 本 Issue のスコープ外）。
+		// #1469: 週次実行統計を保持する SSM パラメータ
+		const weeklyStatsParam = new ssm.StringParameter(this, 'HealthCheckWeeklyStats', {
+			parameterName: '/ganbari-quest/health-check/weekly-stats',
+			stringValue: '{}',
+			description: 'Health check Lambda の週次実行統計（ハートビート通知用）',
+			tier: ssm.ParameterTier.STANDARD,
+		});
+
 		const healthCheckFn = new lambdaNode.NodejsFunction(this, 'HealthCheckFn', {
 			functionName: 'ganbari-quest-health-check',
 			entry: path.join(__dirname, '..', 'lambda', 'health-check', 'index.ts'),
@@ -397,6 +407,7 @@ export class OpsStack extends cdk.Stack {
 			timeout: cdk.Duration.seconds(30),
 			environment: {
 				HEALTH_CHECK_URL: props.functionUrl.url,
+				SSM_WEEKLY_STATS_PARAM: weeklyStatsParam.parameterName,
 				...(discordWebhookHealth ? { DISCORD_WEBHOOK_HEALTH: discordWebhookHealth } : {}),
 			},
 			bundling: {
@@ -405,6 +416,14 @@ export class OpsStack extends cdk.Stack {
 			},
 		});
 		healthCheckFn.node.addDependency(healthCheckLogGroup);
+
+		// #1469: 週次統計パラメータの読み書き権限を付与
+		healthCheckFn.addToRolePolicy(
+			new iam.PolicyStatement({
+				actions: ['ssm:GetParameter', 'ssm:PutParameter'],
+				resources: [weeklyStatsParam.parameterArn],
+			}),
+		);
 
 		// EventBridge Rule: trigger every 1 hour
 		new events.Rule(this, 'HealthCheckSchedule', {
