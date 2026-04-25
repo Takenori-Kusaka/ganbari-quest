@@ -5,13 +5,30 @@
  *
  * 汎用スクリーンショット / フロースタンプシート生成 CLI。
  *
- * 使用例:
+ * 使用例（基本）:
  *   node scripts/capture.mjs --url /demo/admin --out tmp/screenshots/
  *   node scripts/capture.mjs --url /demo/admin --presets mobile,desktop
+ *   node scripts/capture.mjs --url /admin --storage-state storageState.json
+ *
+ * 使用例（QA レビュー用 — --pr で全部自動化）:
+ *   node scripts/capture.mjs --pr 123 --url /demo/admin/activities
+ *   node scripts/capture.mjs --pr 123 --server-mode cognito --url /admin/children
+ *   node scripts/capture.mjs --pr 123 --server-mode lp --url /index.html
+ *   node scripts/capture.mjs --pr 123 --config scripts/capture-specs/admin.mjs
+ *
+ * --pr を使うと:
+ *   - 出力先が docs/screenshots/pr-<N>/ に自動設定される
+ *   - presets が mobile,desktop にデフォルト設定される
+ *   - サーバーが未起動なら自動起動・撮影後自動停止される
+ *   - 撮影後に PR body 用 Markdown スニペットが標準出力に表示される
+ *
+ * フロースタンプシート:
  *   node scripts/capture.mjs --flow add-activity --url /demo/admin/activities \
  *     --actions scripts/capture-specs/flows/add-activity.mjs --out tmp/screenshots/
  */
 
+import { execSync, spawn } from 'node:child_process';
+import { createConnection } from 'node:net';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -40,6 +57,10 @@ const { values, positionals } = parseArgs({
 		'grid-cols': { type: 'string', default: '2' },
 		'cell-width': { type: 'string', default: '400' },
 		'cell-height': { type: 'string', default: '300' },
+		// --- QA / PR スクリーンショット用オプション ---
+		pr: { type: 'string' }, // PR 番号 → 出力先自動化 + Markdown 生成
+		'start-server': { type: 'boolean' }, // 未起動なら自動起動（--pr 時デフォルト true）
+		'server-mode': { type: 'string', default: 'dev' }, // dev | cognito | lp
 		help: { type: 'boolean', default: false },
 	},
 });
@@ -57,6 +78,12 @@ if (values.help || positionals.includes('--help')) {
   node scripts/capture.mjs --url /demo/admin --presets mobile,desktop
   node scripts/capture.mjs --url /admin --storage-state storageState.json
 
+QA レビュー用（--pr で全自動）:
+  node scripts/capture.mjs --pr 123 --url /demo/admin
+  node scripts/capture.mjs --pr 123 --server-mode cognito --url /admin/children
+  node scripts/capture.mjs --pr 123 --server-mode lp --url /index.html
+  node scripts/capture.mjs --pr 123 --config scripts/capture-specs/admin.mjs
+
 フロースタンプシート（操作スクリプト付き）:
   node scripts/capture.mjs --flow add-activity \\
     --url /demo/admin/activities \\
@@ -64,32 +91,66 @@ if (values.help || positionals.includes('--help')) {
     --out tmp/screenshots/
 
 オプション:
-  --url           撮影対象パス（BASE_URL が自動付与）
-  --out           出力ディレクトリ（デフォルト: tmp/screenshots）
-  --presets       mobile/desktop/tablet のコンマ区切り（デフォルト: desktop）
-  --config        複数 URL 設定ファイルパス
-  --flow          フロー名（フロースタンプシートモード）
-  --actions       フロー操作スクリプト
-  --base-url      サーバー URL（BASE_URL 環境変数でも指定可、デフォルト: http://localhost:5173）
-  --storage-state 認証済みセッションの storageState ファイルパス
-  --full-page     フルページキャプチャ（デフォルト: false）
-  --format        png / webp / jpeg（デフォルト: png）
-  --quality       WebP 品質 0-100（デフォルト: 85）
-  --max-steps     フローの最大ステップ数（デフォルト: 12）
-  --grid-cols     グリッド列数（デフォルト: 2）
-  --cell-width    グリッド 1 セルの幅 px（デフォルト: 400）
-  --cell-height   グリッド 1 セルの高さ px（デフォルト: 300）
-  --help          このヘルプを表示
+  --url             撮影対象パス（BASE_URL が自動付与）
+  --out             出力ディレクトリ（デフォルト: tmp/screenshots）
+  --presets         mobile/desktop/tablet のコンマ区切り（デフォルト: desktop）
+  --config          複数 URL 設定ファイルパス
+  --flow            フロー名（フロースタンプシートモード）
+  --actions         フロー操作スクリプト
+  --base-url        サーバー URL（BASE_URL 環境変数でも指定可、デフォルト: http://localhost:5173）
+  --storage-state   認証済みセッションの storageState ファイルパス
+  --full-page       フルページキャプチャ（デフォルト: false）
+  --format          png / webp / jpeg（デフォルト: png）
+  --quality         WebP 品質 0-100（デフォルト: 85）
+  --max-steps       フローの最大ステップ数（デフォルト: 12）
+  --grid-cols       グリッド列数（デフォルト: 2）
+  --cell-width      グリッド 1 セルの幅 px（デフォルト: 400）
+  --cell-height     グリッド 1 セルの高さ px（デフォルト: 300）
+
+QA / PR 用オプション:
+  --pr <N>          PR 番号。docs/screenshots/pr-N/ に出力 + サーバー自動起動 + Markdown 表示
+  --start-server    サーバーが未起動なら自動起動（--pr 時デフォルト: true）
+  --no-start-server サーバー自動起動を無効化
+  --server-mode     起動するサーバー種別（デフォルト: dev）
+                      dev      → npm run dev (port 5173)  デモ・一般画面用
+                      cognito  → npm run dev:cognito (port 5174)  認証が必要な画面用
+                      lp       → npx serve site (port 5280)  LP (site/) 用
+
+  --help            このヘルプを表示
 `);
 	process.exit(0);
 }
 
 // ============================================================
-// 引数検証・変換
+// 引数解決 — --pr で各フラグのデフォルトを上書き
 // ============================================================
 
-const baseUrl = values['base-url'];
-const outputDir = values.out;
+const prNumber = values.pr ?? null;
+const serverMode = values['server-mode'];
+
+/** ユーザーがフラグを明示的に指定したか判定 */
+function wasProvided(flag) {
+	return process.argv.slice(2).some((a) => a === `--${flag}` || a.startsWith(`--${flag}=`));
+}
+
+// --pr が指定された場合の自動デフォルト
+let outputDir = values.out;
+let presetNames = values.presets.split(',').map((s) => s.trim());
+let baseUrl = values['base-url'];
+
+if (prNumber !== null) {
+	if (!wasProvided('out')) outputDir = `docs/screenshots/pr-${prNumber}`;
+	if (!wasProvided('presets')) presetNames = ['mobile', 'desktop'];
+	if (!wasProvided('base-url') && serverMode === 'cognito') baseUrl = 'http://localhost:5174';
+	if (!wasProvided('base-url') && serverMode === 'lp') baseUrl = 'http://localhost:5280';
+}
+
+// --server-mode だけ指定して --pr なしの場合も base-url を自動解決
+if (prNumber === null) {
+	if (!wasProvided('base-url') && serverMode === 'cognito') baseUrl = 'http://localhost:5174';
+	if (!wasProvided('base-url') && serverMode === 'lp') baseUrl = 'http://localhost:5280';
+}
+
 const format = values.format;
 const fullPage = values['full-page'];
 const quality = Number(values.quality);
@@ -98,7 +159,9 @@ const gridCols = Number(values['grid-cols']);
 const cellWidth = Number(values['cell-width']);
 const cellHeight = Number(values['cell-height']);
 const storageState = values['storage-state'];
-const presetNames = values.presets.split(',').map((s) => s.trim());
+
+// --start-server: --pr 指定時はデフォルト true、それ以外は false
+const shouldAutoStart = values['start-server'] ?? prNumber !== null;
 
 // プリセット検証（早期エラー）
 for (const name of presetNames) {
@@ -111,11 +174,155 @@ for (const name of presetNames) {
 }
 
 // ============================================================
+// サーバー管理ユーティリティ
+// ============================================================
+
+/** ポートが使用中か確認 */
+function checkPort(port) {
+	return new Promise((resolve) => {
+		const client = createConnection({ host: '127.0.0.1', port }, () => {
+			client.destroy();
+			resolve(true);
+		});
+		client.on('error', () => resolve(false));
+		client.setTimeout(1500, () => {
+			client.destroy();
+			resolve(false);
+		});
+	});
+}
+
+/** baseUrl からポート番号を取得 */
+function extractPort(url) {
+	try {
+		const parsed = new URL(url);
+		return Number(parsed.port) || (parsed.protocol === 'https:' ? 443 : 80);
+	} catch {
+		return 5173;
+	}
+}
+
+/** スポーンしたプロセスを停止（クロスプラットフォーム対応） */
+function killProcess(child) {
+	if (!child || child.exitCode !== null) return;
+	try {
+		if (process.platform === 'win32') {
+			spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], {
+				stdio: 'ignore',
+				shell: false,
+				windowsHide: true,
+			});
+		} else {
+			process.kill(-child.pid, 'SIGTERM');
+		}
+	} catch {
+		try {
+			child.kill('SIGTERM');
+		} catch {
+			/* ignore */
+		}
+	}
+}
+
+/**
+ * サーバーを起動し、ポートが応答するまで待つ。
+ * @param {'dev'|'cognito'|'lp'} mode
+ * @param {number} port
+ * @returns {Promise<import('node:child_process').ChildProcess>}
+ */
+async function startServer(mode, port) {
+	let args;
+	const opts = { stdio: 'ignore', windowsHide: true };
+
+	if (mode === 'lp') {
+		// site/ を静的ファイルサーバーで配信
+		args = ['exec', 'serve', 'site', '-l', String(port), '--no-clipboard'];
+		opts.shell = process.platform === 'win32';
+	} else {
+		const script = mode === 'cognito' ? 'dev:cognito' : 'dev';
+		args = ['run', script];
+		opts.shell = process.platform === 'win32';
+	}
+
+	console.log(`[server] 起動中: npm ${args.join(' ')} (port ${port})...`);
+	const child = spawn('npm', args, { ...opts, detached: process.platform !== 'win32' });
+
+	// 最大 40 秒待機（500ms × 80 回）
+	for (let i = 0; i < 80; i++) {
+		await new Promise((r) => setTimeout(r, 500));
+		if (await checkPort(port)) {
+			console.log(`[server] 起動完了 (${((i + 1) * 0.5).toFixed(1)}s)`);
+			return child;
+		}
+	}
+
+	killProcess(child);
+	throw new Error(`サーバーが 40 秒以内に起動しませんでした (port ${port})`);
+}
+
+// ============================================================
+// PR Markdown スニペット生成
+// ============================================================
+
+function getCurrentBranch() {
+	try {
+		return execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+	} catch {
+		return '<branch>';
+	}
+}
+
+/**
+ * @param {string} prNumber
+ * @param {string[]} filePaths - 撮影されたファイルの絶対パス
+ */
+function printPrMarkdown(prNumber, filePaths) {
+	if (filePaths.length === 0) return;
+
+	const branch = getCurrentBranch();
+	const repoBase = `https://github.com/Takenori-Kusaka/ganbari-quest/raw/${branch}`;
+
+	const sep = '='.repeat(60);
+	console.log(`\n${sep}`);
+	console.log(`PR #${prNumber} — PR body 用 Markdown スニペット（コピーして貼り付けてください）`);
+	console.log(sep);
+	console.log('\n## スクリーンショット / ビジュアルデモ\n');
+
+	// ファイルをプリセット別にグループ化して表示
+	const grouped = new Map();
+	for (const fp of filePaths) {
+		const rel = path.relative(process.cwd(), fp).replace(/\\/g, '/');
+		const name = path.basename(fp, path.extname(fp));
+		// preset サフィックス（-mobile / -desktop / -tablet）を検出
+		const presetMatch = name.match(/-(mobile|desktop|tablet)$/);
+		const label = presetMatch
+			? presetMatch[1].charAt(0).toUpperCase() + presetMatch[1].slice(1)
+			: name;
+		const key = presetMatch ? presetMatch[1] : name;
+		grouped.set(key, { label, rel, name });
+	}
+
+	// desktop → mobile の順で表示
+	const order = ['desktop', 'tablet', 'mobile'];
+	const sorted = [
+		...order.map((k) => grouped.get(k)).filter(Boolean),
+		...[...grouped.entries()].filter(([k]) => !order.includes(k)).map(([, v]) => v),
+	];
+
+	for (const { label, rel, name } of sorted) {
+		console.log(`### ${label}`);
+		console.log(`![${name}](${repoBase}/${rel})\n`);
+	}
+
+	console.log(`${sep}\n`);
+}
+
+// ============================================================
 // フロースタンプシートモード
 // ============================================================
 
 async function runFlowMode() {
-	const { flow, actions: actionsPath, url } = values;
+	const { actions: actionsPath, url } = values;
 
 	if (!actionsPath) {
 		console.error('エラー: --flow には --actions が必要です。');
@@ -154,17 +361,15 @@ async function runFlowMode() {
 		cellHeight,
 	});
 
-	// Git Bash (MINGW) は /foo/bar を C:/Program Files/Git/foo/bar に変換するため、
-	// FlowRecorder と同じ正規化を表示用にも適用する
 	const normalizedUrl = `/${url.replace(/^\/+/, '').replace(/^[A-Za-z]:\/.*Git\//, '')}`;
-	console.log(`=== フロースタンプシート生成: ${flow} ===`);
+	console.log(`=== フロースタンプシート生成: ${values.flow} ===`);
 	console.log(`URL: ${baseUrl}${normalizedUrl}`);
 	console.log(`出力: ${outputDir}\n`);
 
 	try {
 		const result = await recorder.record({
 			url: normalizedUrl,
-			flowName: flow,
+			flowName: values.flow,
 			actions: actionsFn,
 			preset: presetNames[0] ?? 'desktop',
 			storageState,
@@ -172,12 +377,14 @@ async function runFlowMode() {
 		console.log(`\n完了: ${result.stepCount} ステップ`);
 		if (result.compositePath) {
 			console.log(`合成 WebP: ${result.compositePath}`);
-			console.log(`Markdown: ${path.join(outputDir, `${flow}-flow.md`)}`);
+			console.log(`Markdown: ${path.join(outputDir, `${values.flow}-flow.md`)}`);
+			return [result.compositePath];
 		}
 	} catch (err) {
 		console.error(`\nエラー: ${err.message}`);
 		process.exit(1);
 	}
+	return [];
 }
 
 // ============================================================
@@ -206,6 +413,7 @@ async function runConfigMode() {
 	const capturer = new ScreenshotCapture({ baseUrl, outputDir, locale: 'ja-JP' });
 	await capturer.setup();
 
+	const capturedFiles = [];
 	let success = 0;
 	let total = 0;
 	for (const page of pages) {
@@ -227,6 +435,7 @@ async function runConfigMode() {
 			});
 			if (result.ok) {
 				console.log(`  -> ${result.filePath} (${(result.size / 1024).toFixed(0)} KB)`);
+				capturedFiles.push(result.filePath);
 				success++;
 			} else {
 				console.error(`  エラー: ${result.error.message}`);
@@ -236,6 +445,7 @@ async function runConfigMode() {
 
 	await capturer.teardown();
 	console.log(`\n完了: ${success}/${total} キャプチャ`);
+	return capturedFiles;
 }
 
 // ============================================================
@@ -253,7 +463,7 @@ async function runUrlMode() {
 	await capturer.setup();
 
 	const baseName = url.replace(/[^a-zA-Z0-9]/g, '-').replace(/^-+|-+$/g, '') || 'screenshot';
-	let success = 0;
+	const capturedFiles = [];
 
 	for (const presetName of presetNames) {
 		const viewport = resolvePreset(presetName);
@@ -270,24 +480,62 @@ async function runUrlMode() {
 		});
 		if (result.ok) {
 			console.log(`  -> ${result.filePath} (${(result.size / 1024).toFixed(0)} KB)`);
-			success++;
+			capturedFiles.push(result.filePath);
 		} else {
 			console.error(`  エラー: ${result.error.message}`);
 		}
 	}
 
 	await capturer.teardown();
-	console.log(`\n完了: ${success}/${presetNames.length} キャプチャ`);
+	console.log(`\n完了: ${capturedFiles.length}/${presetNames.length} キャプチャ`);
+	return capturedFiles;
 }
 
 // ============================================================
 // エントリーポイント
 // ============================================================
 
-if (values.flow) {
-	await runFlowMode();
-} else if (values.config) {
-	await runConfigMode();
-} else {
-	await runUrlMode();
+let serverChild = null;
+
+// サーバー自動起動
+if (shouldAutoStart) {
+	const port = extractPort(baseUrl);
+	const running = await checkPort(port);
+	if (running) {
+		console.log(`[server] port ${port} は既に使用中 — サーバー起動をスキップ`);
+	} else {
+		serverChild = await startServer(serverMode, port);
+	}
+}
+
+// クリーンアップ登録（自動起動したサーバーのみ停止）
+if (serverChild) {
+	process.on('exit', () => killProcess(serverChild));
+	process.on('SIGINT', () => {
+		killProcess(serverChild);
+		process.exit(130);
+	});
+}
+
+try {
+	let capturedFiles = [];
+
+	if (values.flow) {
+		capturedFiles = await runFlowMode();
+	} else if (values.config) {
+		capturedFiles = await runConfigMode();
+	} else {
+		capturedFiles = await runUrlMode();
+	}
+
+	// --pr 指定時: PR body 用 Markdown スニペットを出力
+	if (prNumber !== null && capturedFiles.length > 0) {
+		printPrMarkdown(prNumber, capturedFiles);
+	}
+} finally {
+	// 自動起動したサーバーを確実に停止
+	if (serverChild) {
+		console.log('[server] 停止します...');
+		killProcess(serverChild);
+	}
 }
