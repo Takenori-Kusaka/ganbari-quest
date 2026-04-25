@@ -141,18 +141,34 @@ jobs:
               ? body.slice(sectionStart, sectionEnd > sectionStart ? sectionEnd : sectionStart + 500)
               : body;
 
+            // Issue 番号参照があれば OK
             const refs = section.match(/#\d+/g);
-
-            if (!refs || refs.length === 0) {
-              core.setFailed(
-                `❌ 「${issueSectionHeading}」セクションに Issue 番号の参照がありません。\n\n` +
-                '`closes #123` の形式で関連する Issue 番号を記載してください。\n' +
-                'Issue が存在しない場合は、その理由を明記してください。'
-              );
+            if (refs && refs.length > 0) {
+              core.info(`✅ 関連 Issue: ${refs.join(', ')}`);
               return;
             }
 
-            core.info(`✅ 関連 Issue: ${refs.join(', ')}`);
+            // Issue なし（理由を明記）でも OK:
+            // セクション見出し・closes行・コメント行を除いた実質コンテンツが 10 文字以上あれば理由の記述とみなす
+            const meaningfulLines = section.split('\n')
+              .filter(l => !l.startsWith(issueSectionHeading))
+              .filter(l => !/^closes\s+#\s*$/.test(l.trim()))
+              .filter(l => !/^\s*<!--/.test(l))
+              .filter(l => !/^\s*-->\s*$/.test(l))
+              .filter(l => l.trim().length > 0);
+            const meaningfulText = meaningfulLines.join('').replace(/\s/g, '');
+
+            if (meaningfulText.length >= 10) {
+              core.info('✅ 関連 Issue: Issue 番号なし（理由の記述あり）');
+              return;
+            }
+
+            core.setFailed(
+              `❌ 「${issueSectionHeading}」セクションに Issue 番号の参照がありません。\n\n` +
+              '`closes #123` の形式で関連する Issue 番号を記載してください。\n' +
+              'Issue が存在しない場合は、`closes` 行を削除し理由を明記してください。\n' +
+              '例:\n```\n## 関連 Issue\nIssue なし（外部ライブラリバージョン更新のため）\n```'
+            );
 
   # ============================================================
   # Job 3: 変更タイプの選択
