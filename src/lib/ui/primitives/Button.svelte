@@ -1,25 +1,17 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
-import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
+import type { HTMLButtonAttributes } from 'svelte/elements';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'outline' | 'warning';
 type Size = 'sm' | 'md' | 'lg';
 
-type ButtonProps = HTMLButtonAttributes & {
-	href?: undefined;
+interface Props extends HTMLButtonAttributes {
+	/** リンクとして描画したい場合は href を指定する（<a> タグで描画される） */
+	href?: string;
 	variant?: Variant;
 	size?: Size;
 	children: Snippet;
-};
-
-type AnchorProps = HTMLAnchorAttributes & {
-	href: string;
-	variant?: Variant;
-	size?: Size;
-	children: Snippet;
-};
-
-type Props = ButtonProps | AnchorProps;
+}
 
 let {
 	variant = 'primary',
@@ -57,14 +49,14 @@ const baseClass = $derived(
 <a
 	{href}
 	class={baseClass}
-	{...rest as HTMLAnchorAttributes}
+	{...rest}
 >
 	{@render children()}
 </a>
 {:else}
 <button
 	class={baseClass}
-	{...rest as HTMLButtonAttributes}
+	{...rest}
 >
 	{@render children()}
 </button>
