@@ -62,6 +62,7 @@
 		"generate:marketing-images": "node scripts/generate-marketing-images.mjs",
 		"generate:stamp-images": "node scripts/generate-stamp-images.mjs",
 		"generate:stamps:regenerate-all": "node scripts/regenerate-all-stamps.mjs",
+		"generate:image": "node scripts/generate-image.mjs",
 		"generate:stripe-product-images": "node scripts/generate-stripe-product-images.mjs",
 		"check:no-demo-route-dup": "node scripts/check-no-demo-route-duplication.mjs",
 		"ops:reconcile-stripe": "npx tsx scripts/reconcile-stripe-subscriptions.ts",
