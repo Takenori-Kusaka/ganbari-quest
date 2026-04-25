@@ -26,13 +26,14 @@ $effect(() => {
 
 <div class="px-[var(--sp-md)] py-[var(--sp-sm)] flex flex-col gap-[var(--sp-md)]" data-testid="initial-points-page">
 	<div class="flex items-center gap-2">
-		<a
+		<Button
 			href="/baby/home"
-			class="tap-target inline-flex items-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-3 py-2 text-sm rounded-[var(--radius-sm)]"
+			variant="ghost"
+			size="sm"
 			aria-label={BABY_HOME_LABELS.initialPointsBackAriaLabel}
 		>
 			← {BABY_HOME_LABELS.initialPointsCancel}
-		</a>
+		</Button>
 	</div>
 
 	<Card>
