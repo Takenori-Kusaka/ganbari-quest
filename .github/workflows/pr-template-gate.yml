@@ -381,7 +381,13 @@ jobs:
               return;
             }
 
-            const section = body.slice(sectionIdx, sectionIdx + 2000);
+            // 次の ## または ### セクション開始位置でスライス終端を決定（固定値 2000 による後続テーブル誤検知を防ぐ）
+            const afterSection = body.slice(sectionIdx + testSectionKeyword.length + 1);
+            const nextSectionMatch = afterSection.search(/\n##\s/);
+            const sectionEnd = nextSectionMatch !== -1
+              ? sectionIdx + testSectionKeyword.length + 1 + nextSectionMatch
+              : sectionIdx + 2000;
+            const section = body.slice(sectionIdx, sectionEnd);
 
             const tableRows = section
               .split('\n')
