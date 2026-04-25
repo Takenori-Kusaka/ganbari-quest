@@ -366,6 +366,65 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # #1497: cognito-dev E2E の CI 化
+  # AUTH_MODE=cognito + COGNITO_DEV_MODE=true のビルド + E2E テストを実行する。
+  # 外部依存ゼロ（LocalStack / cognito-local 不要）— 内蔵 DevCognitoAuthProvider のみ使用。
+  e2e-cognito-dev:
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright deps (cached)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Build (cognito-dev mode)
+        env:
+          AUTH_MODE: cognito
+          COGNITO_DEV_MODE: 'true'
+          AWS_LICENSE_SECRET: e2e-cognito-dev-dummy-secret-not-for-production
+          STRIPE_SECRET_KEY: ''
+          STRIPE_WEBHOOK_SECRET: ''
+        run: npm run build
+
+      - name: Run cognito-dev E2E tests
+        env:
+          AUTH_MODE: cognito
+          COGNITO_DEV_MODE: 'true'
+          AWS_LICENSE_SECRET: e2e-cognito-dev-dummy-secret-not-for-production
+        run: npx playwright test --config playwright.cognito-dev.config.ts
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-cognito-dev-report
+          path: playwright-report/
+          retention-days: 7
+
   docker-build:
     runs-on: ubuntu-latest
     # #923 Phase 1: lint-and-test 依存を外して並列化 (e2e-test と同じ理由)
@@ -474,6 +533,7 @@ jobs:
         storybook-test,
         e2e-test,
         e2e-merge-reports,
+        e2e-cognito-dev,
         docker-build,
         site-check,
         new-env-distribution-check,

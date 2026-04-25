@@ -17,8 +17,9 @@ export default defineConfig({
 	// #757: pricing-page-signup のトライアル自動開始 spec を追加
 	// #750: trial-banner-display / account-deletion を追加
 	// #755: account-deletion のアカウント削除フロー spec を追加
+	// #1497: upgrade-checkout の Stripe Checkout インターセプト spec を追加
 	testMatch:
-		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion)\.spec\.ts$/,
+		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|upgrade-checkout)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
@@ -34,12 +35,18 @@ export default defineConfig({
 		navigationTimeout: 30_000,
 	},
 	projects: [
+		// #1497: storageState によるログイン高速化
+		// auth.setup.ts で 3 ロール分のセッションをキャッシュしてから本テストを実行
+		{ name: 'setup', testMatch: /auth\.setup\.ts$/ },
 		{
 			name: 'cognito-dev',
+			dependencies: ['setup'],
 			use: {
 				...devices['Desktop Chrome'],
+				storageState: 'playwright/.auth/owner.json',
 				viewport: { width: 1280, height: 800 },
 			},
+			testIgnore: /auth\.setup\.ts$/,
 		},
 	],
 	webServer: {
