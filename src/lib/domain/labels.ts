@@ -3044,3 +3044,30 @@ export const LP_RETENTION_LABELS = {
 	pamphletNote:
 		'スタンプカードのレア度分散（N/R/SR/UR）は変動比率強化による習慣形成エンジン。射幸心ではなく、三日坊主を防ぐ設計です。',
 } as const;
+
+export const BABY_HOME_LABELS = {
+	pageTitle: '準備モード',
+	parentNote: '保護者の方向けの準備ツールです',
+	waitingTitle: '3歳になるまでもう少し！',
+	waitingDesc: '自分で入力できるようになるまで、楽しみに待っていてね。',
+	ageMonthsLabel: (months: number) => `${months} ヶ月`,
+	ageYearsLabel: (years: number) => `${years} 歳`,
+	countdownLabel: '3歳まであと',
+	countdownMonthsText: (months: number) => `${months} ヶ月`,
+	countdownWeeksText: (weeks: number) => `${weeks} 週間`,
+	countdownReachedText: 'もうすぐ3歳！年齢モードを変更できます',
+	initialPointsTitle: '初期ポイントを設定する',
+	initialPointsDesc: '3歳以降に使えるポイントを今から積み立てられます',
+	initialPointsLinkLabel: '初期ポイントを設定する',
+	currentPoints: (pts: number) => `現在のポイント: ${pts} pt`,
+	goToAdmin: '管理画面へ',
+	initialPointsPageTitle: '初期ポイント設定',
+	initialPointsAmountLabel: 'ポイント数',
+	initialPointsAmountHint: '3歳以降のスタートポイントとして追加されます',
+	initialPointsSubmit: 'ポイントを追加',
+	initialPointsSuccess: 'ポイントを追加しました',
+	initialPointsCancel: 'キャンセル',
+	initialPointsBackAriaLabel: '戻る',
+	initialPointsMinError: '1以上のポイントを入力してください',
+	initialPointsMaxError: '10000以下のポイントを入力してください',
+} as const;
