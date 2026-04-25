@@ -22,9 +22,9 @@
 
 	const AGE_TIERS = {
 		"baby": {
-			"name": "乳幼児モード",
+			"name": "準備モード",
 			"range": "0〜2歳",
-			"formal": "乳幼児（0〜2歳）",
+			"formal": "準備モード（0〜2歳）",
 			"ageMin": 0,
 			"ageMax": 2
 		},

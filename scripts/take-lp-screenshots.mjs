@@ -43,7 +43,6 @@ const TARGET_MODE = args.mode || null;
 const OUTPUT_DIR = COMPARE_MODE ? STAGING_DIR : PROD_DIR;
 
 const AGE_MODES = [
-	{ mode: 'baby', filePrefix: 'age-baby', label: '乳幼児 (0-2歳)' },
 	{ mode: 'preschool', filePrefix: 'age-kinder', label: '幼児 (3-5歳)' },
 	{ mode: 'elementary', filePrefix: 'age-lower', label: '小学生 (6-12歳)' },
 	{ mode: 'junior', filePrefix: 'age-upper', label: '中学生 (13-15歳)' },
