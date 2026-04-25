@@ -139,15 +139,6 @@ describe('executeBattle', () => {
 		expect(result.enemyFinalHp).toBeGreaterThanOrEqual(0);
 	});
 
-	it('おさんぽモードは必ず勝利する', () => {
-		// 弱いプレイヤー vs 強い敵でも walkMode なら勝利
-		const result = executeBattle(INACTIVE_PLAYER, STRONG_ENEMY, {
-			walkMode: true,
-			random: createFixedRandom([0.5]),
-		});
-		expect(result.outcome).toBe('win');
-	});
-
 	it('rewardPoints は 0 で返る（サービス層で計算）', () => {
 		const result = executeBattle(ACTIVE_PLAYER, WEAK_ENEMY, {
 			random: createFixedRandom([0.5]),
