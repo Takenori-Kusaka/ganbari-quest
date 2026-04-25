@@ -21,12 +21,20 @@
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 const baselineFile = join(__dirname, 'lp-ssot-baseline.json');
+
+// 法的文書はコンテンツの性質上 SSOT 化が不要のため除外する (#1465 Phase A)
+const EXCLUDED_LEGAL_FILES = new Set([
+	'site/privacy.html',
+	'site/terms.html',
+	'site/tokushoho.html',
+	'site/sla.html',
+]);
 
 const baseline = JSON.parse(readFileSync(baselineFile, 'utf-8'));
 const { count: baselineCount } = baseline;
@@ -126,7 +134,13 @@ function collectHtmlFiles(dir) {
 }
 
 const siteDir = join(root, 'site');
-const htmlFiles = collectHtmlFiles(siteDir);
+const allHtmlFiles = collectHtmlFiles(siteDir);
+
+// 法的文書を除外
+const htmlFiles = allHtmlFiles.filter((file) => {
+	const rel = relative(root, file).replace(/\\/g, '/');
+	return !EXCLUDED_LEGAL_FILES.has(rel);
+});
 
 let totalCount = 0;
 const violationFiles = [];
