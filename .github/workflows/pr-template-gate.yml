@@ -1,0 +1,341 @@
+name: PR テンプレート必須ゲート
+
+# PR テンプレート (.github/PULL_REQUEST_TEMPLATE.md) の必須項目が
+# 適切に記入されているかを 5 つの並列ジョブで検証する。
+# いずれか 1 つでも失敗すると PR がブロックされる（hard-fail）。
+#
+# 対象: Ready for Review 済みの全 PR（Draft / bot PR は除外）
+#
+# ジョブ一覧（全て並列実行）:
+#   check-section-presence  — 必須セクションが削除されていないか
+#   check-issue-reference   — 関連 Issue 番号が記入されているか
+#   check-change-type       — 変更タイプが 1 つ以上選択されているか
+#   check-customer-value    — 顧客価値・目的の必須フィールドが記入されているか
+#   check-test-results      — テスト実行結果テーブルのプレースホルダーが残っていないか
+#
+# ⚠️ Required status checks 追加（管理者作業）:
+#   以下のジョブ名を Branch Ruleset の required_status_checks に追加すること。
+#   gh api repos/:owner/:repo/rulesets/<id> で更新する。
+#   - "PR テンプレート必須ゲート / 必須セクションの存在確認"
+#   - "PR テンプレート必須ゲート / 関連 Issue 番号の記入"
+#   - "PR テンプレート必須ゲート / 変更タイプの選択"
+#   - "PR テンプレート必須ゲート / 顧客価値・目的の記入"
+#   - "PR テンプレート必須ゲート / テスト実行結果の記入"
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  # ============================================================
+  # Job 1: 必須セクション存在確認
+  # テンプレートのセクション見出しが削除されていないかを確認する。
+  # 他の全チェックの前提となる最低限の構造確認。
+  # ============================================================
+  check-section-presence:
+    name: "必須セクションの存在確認"
+    runs-on: ubuntu-latest
+    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    timeout-minutes: 2
+    steps:
+      - name: Verify required sections exist
+        uses: actions/github-script@v9
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        with:
+          script: |
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            if (labels.some(l => l.includes('dependencies'))) {
+              core.info('依存関係更新 PR のためスキップ');
+              return;
+            }
+
+            const required = [
+              { heading: '## 顧客価値・目的',              label: '顧客価値・目的' },
+              { heading: '## 関連 Issue',                  label: '関連 Issue' },
+              { heading: '## AC 検証マップ',               label: 'AC 検証マップ (ADR-0004)' },
+              { heading: '## 変更タイプ',                  label: '変更タイプ' },
+              { heading: 'テスト実行結果',                  label: 'テスト実行結果 (⚠️ 必須)' },
+              { heading: '## Ready for Review チェックリスト', label: 'Ready for Review チェックリスト' },
+            ];
+
+            const missing = required.filter(s => !body.includes(s.heading));
+
+            if (missing.length > 0) {
+              core.setFailed(
+                `❌ PR テンプレートの必須セクションが ${missing.length} 件削除されています。\n\n` +
+                `削除されたセクション:\n${missing.map(s => `  • ${s.label}`).join('\n')}\n\n` +
+                'PR テンプレート (.github/PULL_REQUEST_TEMPLATE.md) のセクション見出し (## ...) を削除しないでください。\n' +
+                '内容が該当しない場合は「N/A」または「該当なし」と記載してください。'
+              );
+            } else {
+              core.info(`✅ 必須セクション ${required.length} 件 — 全て存在`);
+            }
+
+  # ============================================================
+  # Job 2: 関連 Issue 番号の記入
+  # テンプレートの `closes #` から Issue 番号が記入されているかを確認する。
+  # ============================================================
+  check-issue-reference:
+    name: "関連 Issue 番号の記入"
+    runs-on: ubuntu-latest
+    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    timeout-minutes: 2
+    steps:
+      - name: Verify issue reference
+        uses: actions/github-script@v9
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        with:
+          script: |
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            if (labels.some(l => l.includes('dependencies'))) {
+              core.info('依存関係更新 PR のためスキップ');
+              return;
+            }
+
+            // テンプレートデフォルトの未入力パターン: `closes #` の後に数字がない
+            // 行末 / 空白のみ / コメント開始 の3パターンを検出
+            if (/^closes\s+#\s*$/im.test(body) || /closes\s+#\s*<!--/im.test(body)) {
+              core.setFailed(
+                '❌ 「関連 Issue」セクションの `closes #` に Issue 番号が記入されていません。\n\n' +
+                '`closes #123` の形式で Issue 番号を記載してください。\n\n' +
+                '関連する Issue がない場合（独立タスク等）は、`closes` 行を削除し代わりに理由を明記してください。\n' +
+                '例:\n```\n## 関連 Issue\nIssue なし（外部ライブラリバージョン更新のため）\n```'
+              );
+              return;
+            }
+
+            // 「関連 Issue」セクション内の Issue 番号参照を確認
+            const sectionStart = body.indexOf('## 関連 Issue');
+            const sectionEnd = body.indexOf('\n## ', sectionStart + 1);
+            const section = sectionStart !== -1
+              ? body.slice(sectionStart, sectionEnd > sectionStart ? sectionEnd : sectionStart + 500)
+              : body;
+
+            const refs = section.match(/#\d+/g);
+
+            if (!refs || refs.length === 0) {
+              core.setFailed(
+                '❌ 「関連 Issue」セクションに Issue 番号の参照がありません。\n\n' +
+                '`closes #123` の形式で関連する Issue 番号を記載してください。\n' +
+                'Issue が存在しない場合は、その理由を明記してください。'
+              );
+              return;
+            }
+
+            core.info(`✅ 関連 Issue: ${refs.join(', ')}`);
+
+  # ============================================================
+  # Job 3: 変更タイプの選択
+  # 変更タイプセクションで 1 つ以上 [x] チェックがされているかを確認する。
+  # ============================================================
+  check-change-type:
+    name: "変更タイプの選択"
+    runs-on: ubuntu-latest
+    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    timeout-minutes: 2
+    steps:
+      - name: Verify change type selected
+        uses: actions/github-script@v9
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        with:
+          script: |
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            if (labels.some(l => l.includes('dependencies'))) {
+              core.info('依存関係更新 PR のためスキップ');
+              return;
+            }
+
+            const sectionStart = body.indexOf('## 変更タイプ');
+            if (sectionStart === -1) {
+              // section-presence ジョブが別途検出するため、ここでは warning に留める
+              core.warning('「変更タイプ」セクションが見つかりません（section-presence チェックを確認してください）');
+              return;
+            }
+
+            const sectionEnd = body.indexOf('\n## ', sectionStart + 1);
+            const section = body.slice(sectionStart, sectionEnd > sectionStart ? sectionEnd : sectionStart + 600);
+
+            const checked = section.match(/- \[[xX]\]/g);
+
+            if (!checked || checked.length === 0) {
+              core.setFailed(
+                '❌ 「変更タイプ」で何も選択されていません。\n\n' +
+                '該当する変更タイプのチェックボックスを選択してください。\n\n' +
+                '選択肢: feat / fix / refactor / design / infra / test / docs / marketing\n\n' +
+                '例:\n```markdown\n- [x] feat: 新機能\n```'
+              );
+            } else {
+              const items = (section.match(/- \[[xX]\] (.+)/g) || []).map(i => i.replace(/- \[[xX]\] /, ''));
+              core.info(`✅ 変更タイプ: ${items.join(' / ')}`);
+            }
+
+  # ============================================================
+  # Job 4: 顧客価値・目的の記入
+  # 「対象ユーザー」と「解決する課題」がテンプレートのコメントのまま
+  # 放置されていないかを確認する。
+  # ============================================================
+  check-customer-value:
+    name: "顧客価値・目的の記入"
+    runs-on: ubuntu-latest
+    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    timeout-minutes: 2
+    steps:
+      - name: Verify customer value section filled
+        uses: actions/github-script@v9
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        with:
+          script: |
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            if (labels.some(l => l.includes('dependencies'))) {
+              core.info('依存関係更新 PR のためスキップ');
+              return;
+            }
+
+            const errors = [];
+
+            // **対象ユーザー**: がテンプレートコメントのまま
+            // テンプレートデフォルト: `**対象ユーザー**: <!-- 子供 / 親（管理者） / 運営 / システム全体 -->`
+            const userLine = body.match(/\*\*対象ユーザー\*\*:\s*(.*)/);
+            if (userLine) {
+              const val = userLine[1].trim();
+              if (!val || /^<!--.*-->$/.test(val)) {
+                errors.push(
+                  '`**対象ユーザー**` がコメントのプレースホルダーのまま未記入です。\n' +
+                  '   → 「子供 / 親（管理者） / 運営 / システム全体」から選んで記入してください。'
+                );
+              }
+            }
+
+            // **解決する課題**: の後にコメント以外の内容があるか確認
+            // テンプレートデフォルト: `**解決する課題**:\n<!-- ユーザーが抱えている問題... -->`
+            const problemIdx = body.indexOf('**解決する課題**:');
+            if (problemIdx !== -1) {
+              const segment = body.slice(problemIdx, problemIdx + 500);
+              const lines = segment.split('\n').slice(1, 10);
+              const hasContent = lines.some(l => {
+                const t = l.trim();
+                return (
+                  t.length > 0 &&
+                  !t.startsWith('<!--') &&
+                  !t.startsWith('-->') &&
+                  !t.startsWith('**') &&
+                  !/^##/.test(t)
+                );
+              });
+              if (!hasContent) {
+                errors.push(
+                  '`**解決する課題**` の内容がコメントのプレースホルダーのまま未記入です。\n' +
+                  '   → ユーザーが抱えている問題または実現したい体験を 1-2 文で記入してください。'
+                );
+              }
+            }
+
+            if (errors.length > 0) {
+              core.setFailed(
+                '❌ 「顧客価値・目的」セクションの必須項目が未記入です。\n\n' +
+                errors.map((e, i) => `${i + 1}. ${e}`).join('\n\n') + '\n\n' +
+                '「何を変更したか」ではなく「なぜこの変更がユーザーにとって必要か」を記載してください。'
+              );
+            } else {
+              core.info('✅ 顧客価値・目的: 記入確認');
+            }
+
+  # ============================================================
+  # Job 5: テスト実行結果の記入（⚠️ 必須）
+  # テスト結果テーブルの各行が `<!-- PASS / FAIL -->` プレースホルダーの
+  # まま放置されていないかを確認する。
+  # ============================================================
+  check-test-results:
+    name: "テスト実行結果の記入"
+    runs-on: ubuntu-latest
+    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    timeout-minutes: 2
+    steps:
+      - name: Verify test results filled
+        uses: actions/github-script@v9
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        with:
+          script: |
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            if (labels.some(l => l.includes('dependencies'))) {
+              core.info('依存関係更新 PR のためスキップ');
+              return;
+            }
+
+            // type:docs は通常テスト実行不要のためスキップ
+            if (labels.includes('type:docs')) {
+              core.info('type:docs PR のためテスト結果チェックをスキップ');
+              return;
+            }
+
+            const sectionIdx = body.indexOf('テスト実行結果');
+            if (sectionIdx === -1) {
+              // section-presence が別途検出するため warning に留める
+              core.warning('「テスト実行結果」セクションが見つかりません（section-presence チェックを確認してください）');
+              return;
+            }
+
+            const section = body.slice(sectionIdx, sectionIdx + 2000);
+
+            // テーブル行を抽出（ヘッダー行 / セパレーター行を除く）
+            const tableRows = section
+              .split('\n')
+              .filter(l => /^\|[^|]+\|[^|]+\|[^|]+\|/.test(l))
+              .filter(l => !/^\|\s*[-:]+\s*\|/.test(l))
+              .filter(l => !/テスト種別\s*\|/.test(l));
+
+            if (tableRows.length === 0) {
+              core.info('テスト実行結果テーブルの行が見つかりません（docs / infra のみの変更の可能性）');
+              return;
+            }
+
+            // `<!-- PASS / FAIL -->` や `<!-- 例:` のプレースホルダーが残っている行を検出
+            const placeholderPattern = /<!--[^>]*?(?:PASS|FAIL|例:)[^>]*?-->/i;
+            const placeholderRows = tableRows.filter(r => placeholderPattern.test(r));
+
+            // 結果列（3列目）が空欄の行を検出
+            const emptyResultRows = tableRows.filter(row => {
+              const cells = row.split('|').slice(1, -1).map(c => c.trim());
+              return cells.length >= 3 && cells[2] === '';
+            });
+
+            const violations = [...new Set([...placeholderRows, ...emptyResultRows])];
+
+            if (violations.length > 0) {
+              const examples = violations.slice(0, 3).map(r => `  ${r.slice(0, 100)}`).join('\n');
+              core.setFailed(
+                `❌ 「テスト実行結果」テーブルに ${violations.length} 件の未記入行があります。\n\n` +
+                '各行の「結果」列にテスト結果を記入してください（PASS / FAIL / 実行件数 等）。\n\n' +
+                '記入例:\n' +
+                '| Lint | `npx biome check .` | PASS | |\n' +
+                '| 型チェック | `npx svelte-check` | PASS | |\n' +
+                '| 単体テスト | `npx vitest run` | 245 tests passed | |\n\n' +
+                `未記入行（最大 3 件）:\n${examples}`
+              );
+            } else {
+              core.info(`✅ テスト実行結果: ${tableRows.length} 行すべて記入済み`);
+            }
