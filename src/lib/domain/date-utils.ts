@@ -55,3 +55,23 @@ export function formatJSTDate(dateStr: string): string {
 export function formatJSTDateTime(date: Date): string {
 	return date.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
 }
+
+/**
+ * 誕生日（YYYY-MM-DD）から現在の年齢を計算する（JST基準）。
+ * 0〜18歳にクランプ。
+ */
+export function calculateAgeFromBirthDate(birthDateStr: string): number {
+	const parts = birthDateStr.split('-');
+	const birthYear = Number(parts[0]);
+	const birthMonth = Number(parts[1]);
+	const birthDay = Number(parts[2]);
+	const jstNow = new Date(Date.now() + JST_OFFSET_MS);
+	const todayYear = jstNow.getUTCFullYear();
+	const todayMonth = jstNow.getUTCMonth() + 1;
+	const todayDay = jstNow.getUTCDate();
+	let age = todayYear - birthYear;
+	if (todayMonth < birthMonth || (todayMonth === birthMonth && todayDay < birthDay)) {
+		age--;
+	}
+	return Math.max(0, Math.min(18, age));
+}
