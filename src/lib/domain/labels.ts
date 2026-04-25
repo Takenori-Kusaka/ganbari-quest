@@ -219,7 +219,7 @@ export const NAV_ITEM_LABELS = {
 
 /** 管理画面で保護者に表示する年齢区分ラベル（#537: 日本の学校制度に準拠） */
 export const AGE_TIER_LABELS: Record<UiMode, string> = {
-	baby: '乳幼児（0〜2歳）',
+	baby: '準備モード（0〜2歳）',
 	preschool: '幼児（3〜5歳）',
 	elementary: '小学生（6〜12歳）',
 	junior: '中学生（13〜15歳）',
@@ -228,7 +228,7 @@ export const AGE_TIER_LABELS: Record<UiMode, string> = {
 
 /** 年齢区分の短縮ラベル（一覧表示・コンパクト表示向け） */
 export const AGE_TIER_SHORT_LABELS: Record<UiMode, string> = {
-	baby: '0〜2歳',
+	baby: '準備モード',
 	preschool: '3〜5歳',
 	elementary: '6〜12歳',
 	junior: '13〜15歳',
