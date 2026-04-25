@@ -409,16 +409,12 @@ export class OpsStack extends cdk.Stack {
 		healthCheckFn.node.addDependency(healthCheckLogGroup);
 
 		// #1470: 前回通知ステータス永続化用 SSM パラメータ（初期値 "normal"）
-		const lastNotifiedStatusParam = new ssm.StringParameter(
-			this,
-			'HealthCheckLastNotifiedStatus',
-			{
-				parameterName: '/ganbari-quest/health-check/last-notified-status',
-				stringValue: 'normal',
-				description: 'Health check Lambda が最後に Discord 通知したステータス（復旧通知判定用）',
-				tier: ssm.ParameterTier.STANDARD,
-			},
-		);
+		const lastNotifiedStatusParam = new ssm.StringParameter(this, 'HealthCheckLastNotifiedStatus', {
+			parameterName: '/ganbari-quest/health-check/last-notified-status',
+			stringValue: 'normal',
+			description: 'Health check Lambda が最後に Discord 通知したステータス（復旧通知判定用）',
+			tier: ssm.ParameterTier.STANDARD,
+		});
 
 		// #1470: SSM GetParameter / PutParameter 権限を付与
 		healthCheckFn.addToRolePolicy(
