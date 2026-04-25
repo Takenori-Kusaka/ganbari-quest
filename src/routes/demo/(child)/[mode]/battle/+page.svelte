@@ -15,13 +15,10 @@ function handleStartBattle() {
 	if (!data.battle || !data.child) return;
 
 	const uiMode = data.child.uiMode ?? 'preschool';
-	const isWalkMode = uiMode === 'baby' || uiMode === 'preschool';
 	const scaling = getAgeScaling(uiMode);
 	const scaledEnemyStats = scaleEnemyStats(data.battle.enemy.stats, scaling);
 
-	const result = executeBattle(data.battle.playerStats, scaledEnemyStats, {
-		walkMode: isWalkMode,
-	});
+	const result = executeBattle(data.battle.playerStats, scaledEnemyStats);
 
 	// Assign reward points
 	result.rewardPoints =
