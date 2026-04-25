@@ -472,7 +472,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 {#if data.uiMode === 'baby'}
 <BabyHomePage child={data.child ?? { nickname: '', age: 0 }} balance={data.balance} />
 {:else}
-<div class="px-[var(--sp-sm)] py-1">
+<div class="px-[var(--sp-sm)] py-1" data-testid="{data.uiMode}-home-page">
 	<!-- Birthday bonus banner -->
 	{#if data.birthdayBonus}
 		<BirthdayBanner

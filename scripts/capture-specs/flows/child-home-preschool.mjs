@@ -32,7 +32,6 @@ export default async (page, capture) => {
 
 	// ホーム画面が安定するまで待機
 	await page.waitForURL(/\/preschool\/home$/);
-	// preschool ホームのメインコンテンツが表示されるまで待機
-	await page.locator('main, [class*="px-"]').first().waitFor({ state: 'visible' });
+	await page.locator('[data-testid="preschool-home-page"]').waitFor({ state: 'visible' });
 	await capture('preschool ホーム — 幼児モード');
 };
