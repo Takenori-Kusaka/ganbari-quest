@@ -88,9 +88,22 @@ jobs:
             const hasDesignDocChanges = files.some(f => f.startsWith('docs/design/'));
 
             if (hasRouteChanges && !hasDesignDocChanges) {
-              core.setFailed(
-                '❌ src/routes/ に変更がありますが、docs/design/ の更新がありません。\n' +
-                '設計書の同期更新が必要な場合は同一PR内で更新してください（ADR-0003）。\n' +
-                '設計書の更新が不要と判断した場合は PR 本文の「設計書」セクションに理由を明記してください。'
-              );
+              // PR 本文に設計書更新不要の理由が記載されているかを確認
+              const body = context.payload.pull_request.body || '';
+              const hasDesignDocExemption =
+                /##\s*設計書(更新について|[^\n]*不要)/.test(body) ||
+                /設計書の更新は?不要/.test(body) ||
+                /設計書更新.*不要/.test(body);
+
+              if (hasDesignDocExemption) {
+                core.info(
+                  '✅ PR 本文に設計書更新不要の理由が記載されています — チェックをスキップします (ADR-0003)'
+                );
+              } else {
+                core.setFailed(
+                  '❌ src/routes/ に変更がありますが、docs/design/ の更新がありません。\n' +
+                  '設計書の同期更新が必要な場合は同一PR内で更新してください（ADR-0003）。\n' +
+                  '設計書の更新が不要と判断した場合は PR 本文の「設計書」セクションに理由を明記してください。'
+                );
+              }
             }
