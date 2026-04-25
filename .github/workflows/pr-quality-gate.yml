@@ -1,4 +1,4 @@
-name: UI Change Verification
+name: PR Quality Gate
 
 on:
   pull_request:
@@ -99,8 +99,9 @@ jobs:
             const hasDesignDocChanges = files.some(f => f.startsWith('docs/design/'));
 
             if (hasRouteChanges && !hasDesignDocChanges) {
-              core.warning(
-                '⚠️ src/routes/ に変更がありますが、docs/design/ の更新がありません。' +
-                '設計書の同期更新が必要な場合は同一PR内で更新してください（ADR-0003）。'
+              core.setFailed(
+                '❌ src/routes/ に変更がありますが、docs/design/ の更新がありません。\n' +
+                '設計書の同期更新が必要な場合は同一PR内で更新してください（ADR-0003）。\n' +
+                '設計書の更新が不要と判断した場合は PR 本文の「設計書」セクションに理由を明記してください。'
               );
             }

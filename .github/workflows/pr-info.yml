@@ -1,8 +1,7 @@
-name: PR File Overlap Check
+name: PR Info
 
-# #1200: 同一ファイルを変更する複数 open PR がある場合に警告する。
-# 先行 PR (#1144: 性別タグ追加) を後続 full rewrite PR (#1178) が無意識に消滅させた事故の再発防止。
-# block はせず、マージ順序と rebase 方針を人間に促すのが目的。
+# #1481 Phase 4: pr-size-check.yml + pr-file-overlap.yml を統合
+# 両ジョブとも comment-only（block しない）。マージ順序・サイズの注意喚起が目的。
 
 on:
   pull_request:
@@ -14,12 +13,77 @@ permissions:
   pull-requests: write
 
 jobs:
+  size-check:
+    name: PR サイズ警告
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 差分行数を計算（lockfile・生成物を除外）
+        id: size
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          CHANGED=$(git diff --numstat "$BASE_SHA..$HEAD_SHA" \
+            -- . \
+            ':(exclude)package-lock.json' \
+            ':(exclude)**/*.lock' \
+            ':(exclude)**/*.min.*' \
+            ':(exclude)**/generated/**' \
+            | awk '{ add += $1; del += $2 } END { print add + del }')
+          CHANGED=${CHANGED:-0}
+          FILES=$(git diff --name-only "$BASE_SHA..$HEAD_SHA" \
+            -- . \
+            ':(exclude)package-lock.json' \
+            ':(exclude)**/*.lock' \
+            | wc -l | tr -d ' ')
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+          echo "PR 変更行数: $CHANGED / 変更ファイル数: $FILES"
+
+      - name: サイズ警告コメントを投稿（500行超えの場合）
+        if: steps.size.outputs.changed != '' && fromJSON(steps.size.outputs.changed) > 500
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const changed = Number('${{ steps.size.outputs.changed }}');
+            const files = Number('${{ steps.size.outputs.files }}');
+            const marker = '<!-- pr-size-check -->';
+            const body = [
+              marker,
+              '## ⚠️ PR サイズ警告 (#964 / ADR-0020)',
+              '',
+              `- 変更行数: **${changed}** 行 (閾値 500 行)`,
+              `- 変更ファイル数: **${files}**`,
+              '',
+              'レビュー品質を保つため、以下のいずれかを検討してください:',
+              '- スコープを縮小して分割 PR 化',
+              '- レビュー観点を PR 本文で絞り込む (「ここは生成物」等)',
+              '- やむを得ない場合は理由を PR 本文に明記',
+              '',
+              '参考: Postmortem #962 (APPROVED なしマージによる本番障害)',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner, repo, issue_number: pull_number, per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pull_number, body });
+            }
+
   overlap-check:
+    name: 並行 PR ファイル重複チェック
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - name: Run overlap check
+      - name: 重複チェック実行
         id: overlap
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -32,7 +96,7 @@ jobs:
           OVERLAP_COUNT=$(node -e "const j=require('/tmp/overlap.json'); console.log((j.overlaps || []).length)")
           echo "overlap_count=$OVERLAP_COUNT" >> "$GITHUB_OUTPUT"
 
-      - name: Post overlap warning comment
+      - name: 重複警告コメントを投稿
         if: steps.overlap.outputs.overlap_count != '' && fromJSON(steps.overlap.outputs.overlap_count) > 0
         uses: actions/github-script@v9
         with:
@@ -73,7 +137,7 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number: pull_number, body });
             }
 
-      - name: Remove stale overlap comment when no overlap remains
+      - name: 重複解消時に警告コメントを削除
         if: steps.overlap.outputs.overlap_count == '0'
         uses: actions/github-script@v9
         with:

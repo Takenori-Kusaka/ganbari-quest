@@ -76,6 +76,7 @@ gh pr diff <番号>
 - **テストアサーション弱体化禁止** — toBeTruthy/toBeDefined への置換・waitFor 延長は要警戒
 - **設計書同期なき PR はマージ不可** — 設計書更新がない場合は Request Changes
 - **Copilot COMMENTED は承認扱いにしない** — 明示的な Approve / Request changes のみ有効
+- **独自フォーマットの self-review 投稿禁止（ADR-0022）** — `gh pr review --approve --body` の body に「13 観点テーブル」等の非標準フォーマットを書かない。`docs/sessions/qa-session.md` §「QM approve 前の必須実行手順」と同等の内容（SS 実視認所見 1 行/枚 + 各 AC 照合 + §9 禁忌確認）を記述すること
 
 ## 判断フレームワーク
 
@@ -89,9 +90,16 @@ gh pr diff <番号>
 
 ## 運用ナレッジ
 
-### Admin Bypass の判断基準
+### QM Approve 体制（ganbariquestsupport-lab）— #1481
 
-E2E/unit/docker-build/site-check が全 PASS で lint-and-test のみ失敗、かつ lint 失敗が PR 変更ファイルと無関係な場合 → admin bypass でマージ可。PR body に bypass 理由を必ず記載すること。
+Admin bypass は 2026-04-25 #1481 でルールセットにより**完全に無効化済み**（bypass_actors: []）。
+代わりに ganbariquestsupport-lab アカウント（QA 専用）が approve することで通常マージが可能。
+
+- QA セッションの `gh` アクティブアカウントは ganbariquestsupport-lab
+- `gh pr review <番号> --approve --body "<所見>"` で approve
+- Takenori-Kusaka が PR 作成 → ganbariquestsupport-lab が approve → squash merge の順で実行
+
+⚠️ approve body は `docs/sessions/qa-session.md` §「QM approve 前の必須実行手順」に準拠すること。独自フォーマット禁止（ADR-0022）。
 
 ### 修正 Agent への指示テンプレート
 
