@@ -13,8 +13,17 @@
  */
 
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { FlowRecorder, resolvePreset, ScreenshotCapture } from './lib/screenshot-helpers.mjs';
+
+// Windows (Git Bash / MSYS2) で --url /path が C:/..../path に変換される問題を回避 (#1471)
+// 呼び出し元: --url //admin/children (double-slash) と渡すか MSYS_NO_PATHCONV=1 を設定する。
+// 内部では先頭スラッシュを複数剥がし、常に /path 形式に正規化する。
+function normalizeWebPath(url) {
+	if (!url) return url;
+	return `/${url.replace(/^\/+/, '')}`;
+}
 
 // ============================================================
 // CLI オプション定義
@@ -63,7 +72,7 @@ if (values.help || positionals.includes('--help')) {
     --out tmp/screenshots/
 
 オプション:
-  --url           撮影対象パス（BASE_URL が自動付与）
+  --url           撮影対象パス（BASE_URL が自動付与）。Windows Git Bash では //path 形式か MSYS_NO_PATHCONV=1 を使用
   --out           出力ディレクトリ（デフォルト: tmp/screenshots）
   --presets       mobile/desktop/tablet のコンマ区切り（デフォルト: desktop）
   --config        複数 URL 設定ファイルパス
@@ -128,7 +137,8 @@ async function runFlowMode() {
 	const actionsAbsPath = path.resolve(actionsPath);
 	let actionsModule;
 	try {
-		actionsModule = await import(actionsAbsPath);
+		// Windows では ESM import() に file:// URL が必要 (#1471)
+		actionsModule = await import(pathToFileURL(actionsAbsPath).href);
 	} catch (err) {
 		console.error(`エラー: actions スクリプトを読み込めません: ${actionsAbsPath}`);
 		console.error(err.message);
@@ -152,13 +162,14 @@ async function runFlowMode() {
 		cellHeight,
 	});
 
+	const normalizedUrl = normalizeWebPath(url);
 	console.log(`=== フロースタンプシート生成: ${flow} ===`);
-	console.log(`URL: ${baseUrl}${url}`);
+	console.log(`URL: ${baseUrl}${normalizedUrl}`);
 	console.log(`出力: ${outputDir}\n`);
 
 	try {
 		const result = await recorder.record({
-			url,
+			url: normalizedUrl,
 			flowName: flow,
 			actions: actionsFn,
 			preset: presetNames[0] ?? 'desktop',
@@ -183,7 +194,8 @@ async function runConfigMode() {
 	const configAbsPath = path.resolve(values.config);
 	let configModule;
 	try {
-		configModule = await import(configAbsPath);
+		// Windows では ESM import() に file:// URL が必要 (#1471)
+		configModule = await import(pathToFileURL(configAbsPath).href);
 	} catch (err) {
 		console.error(`エラー: 設定ファイルを読み込めません: ${configAbsPath}`);
 		console.error(err.message);
