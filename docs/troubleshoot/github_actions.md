@@ -409,3 +409,62 @@ git diff origin/main -- package-lock.json | grep lightningcss
 - `lightningcss` のような native addon は OS/libc の種類（glibc vs musl）によってバイナリが異なるため、Alpine ベースのビルドでは `optionalDependencies` が正しく解決されているか確認する
 
 ---
+
+## TA-008 — loginAsPlan() 未移行で storageState 導入後も e2e-cognito-dev が 30m+ timeout
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-26 |
+| **PR 番号** | #1514 |
+| **ワークフロー** | CI |
+| **ジョブ名** | e2e-cognito-dev |
+| **ステップ名** | Run cognito-dev E2E tests |
+| **ステータス** | ongoing |
+
+### エラーメッセージ（原文）
+
+```
+The job has exceeded the maximum execution time of 30m0s
+Running 720 tests using 1 worker
+```
+
+### 根本原因
+
+Issue #1500 では storageState を使って認証を高速化することが AC3 として定義されていた（`loginAsPlan()` の呼び出しが 0 回）。
+しかし PR #1514 では `playwright.cognito-dev.config.ts` に 6 プロジェクトを追加したものの、
+既存 spec 側の `loginAsPlan()` 呼び出し（104 箇所）は「段階的移行」として先送りされた。
+
+storageState を設定しても、spec 内で `loginAsPlan()` を呼べば storageState は無視されて再ログインが発生する。
+結果として 6 プロジェクト × 14 spec = `workers: 1` で 720 tests が直列実行され、
+フルログイン（約 25 秒 × 104 回）で合計 30 分を大幅に超過した。
+
+これは timeout 値の問題ではなく **spec 側の実装未移行（AC3 未達）が根本原因**。
+
+### 解決手順
+
+AC3（`loginAsPlan()` 0 回化）を完了させる必要がある:
+
+```bash
+# loginAsPlan() の使用箇所を確認
+grep -rn "loginAsPlan" tests/e2e/ | grep -v ".json"
+
+# 各 spec を storageState ベースに移行:
+# 1. spec の各 test の冒頭の loginAsPlan(page, 'free') を削除
+# 2. page.goto('/admin') から開始（storageState で既にログイン済み）
+# 3. playwright.cognito-dev.config.ts で対応するプロジェクト（as-free 等）を割り当て
+
+# 移行後の動作確認
+npx playwright test --config playwright.cognito-dev.config.ts
+```
+
+また `upgrade-checkout.spec.ts` の適切な置き場所への移動（AC2）も必要。
+
+### 再発防止策
+
+- storageState プロジェクトを追加しても spec 側が `loginAsPlan()` を呼んでいると意味がない
+- `auth.setup.ts` / storageState プロジェクト追加 PR では、同一 PR 内で spec の `loginAsPlan()` 呼び出しを 0 件にすること（「段階的移行」の先送りは AC 未達と同義）
+- CI 実行で `Running N tests using 1 worker` が表示されたら、N と timeout-minutes の比を確認する（720 tests × 平均 2.5 分/test = 30 分超）
+
+**参考**: PR #1514, Issue #1500, CI run 24933566368
+
+---

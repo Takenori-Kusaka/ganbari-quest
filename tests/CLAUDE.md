@@ -2,6 +2,32 @@
 
 テスト品質の劣化を許容しない。カバレッジ閾値の引き下げ・テスト回避パターンは CI で自動拒否する。
 
+## テスト分類（#1500）
+
+| 分類 | 置き場所 | 特徴 |
+|------|---------|------|
+| **Unit** | `tests/unit/` | モック可、単一関数/モジュール単位 |
+| **Integration** | `tests/unit/` または `tests/integration/` | `page.route()` / HMAC モック / DB in-memory。実サーバー不要 |
+| **E2E** | `tests/e2e/` | モックなし、実アプリ全体（`npm run dev` / `npm run preview` が必要） |
+
+### 配置判断フロー
+
+```
+実サーバーが必要？
+  No  → モック(page.route/fetch mock)だけで完結？
+          Yes → Integration（tests/unit/ または tests/integration/）
+          No  → Unit（tests/unit/）
+  Yes → E2E（tests/e2e/）
+```
+
+### Integration テスト注意事項
+
+- `page.route()` でネットワークをモックする spec は Integration に分類する
+- ただし cognito-dev 設定（`playwright.cognito-dev.config.ts`）で実行する場合、
+  実サーバーが起動するため E2E の設定ファイルに含めることもある（詳細は各 spec ヘッダーコメントを参照）
+- `tests/e2e/upgrade-checkout.spec.ts` は `page.route()` で Stripe を完全モックしており
+  **Integration** 相当だが、cognito-dev 認証が必要なため `playwright.cognito-dev.config.ts` で管理する
+
 ## 禁止事項
 
 - **カバレッジ閾値の引き下げ** — `vite.config.ts` の `thresholds` を下げる PR はマージ不可。引き下げが必要な場合は ADR に理由と復元計画を同時にコミット
