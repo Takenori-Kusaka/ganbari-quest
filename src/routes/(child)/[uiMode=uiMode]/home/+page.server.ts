@@ -86,6 +86,34 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			specialRewardProgress: null,
 		};
 
+	// baby モードは親向け準備ツール — ゲーミフィケーション DB 呼び出しをスキップ (#1300)
+	if (parentData.uiMode === 'baby') {
+		return {
+			activities: [],
+			todayRecorded: [],
+			loginBonusStatus: null,
+			latestReward: null,
+			latestMessage: null,
+			hasChecklists: false,
+			checklistProgress: null,
+			dailyMissions: null,
+			stampCard: null,
+			categoryXp: null,
+			gameLoopHints: null,
+			isFirstTime: false,
+			focusMode: false,
+			recommendedActivityIds: [],
+			birthdayBonus: null,
+			activeEvents: [],
+			activeChallenges: [],
+			siblingRanking: null,
+			unshownCheers: [],
+			familyStreak: null,
+			monthlyPremiumReward: null,
+			specialRewardProgress: null,
+		};
+	}
+
 	// 独立したDB呼び出しを並列実行（LCP改善）
 	const [
 		rawActivities,

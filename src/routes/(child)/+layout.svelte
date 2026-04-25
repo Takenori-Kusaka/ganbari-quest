@@ -23,6 +23,7 @@ let { data, children } = $props();
 
 const theme = $derived(data.child?.theme ?? 'pink');
 const uiMode = $derived(data.uiMode ?? 'preschool');
+const isBaby = $derived(uiMode === 'baby');
 // #0289: モード別ラベルを一元定数から取得
 const modeLabels = $derived(getModeLabels(uiMode));
 const navItems = $derived([
@@ -33,16 +34,17 @@ const navItems = $derived([
 ]);
 
 // サウンドシステム初期化 + オートリロード + チュートリアル設定
+// baby モードは親向け準備ツールのため効果音・チュートリアルを抑制 (#1300)
 onMount(() => {
-	loadSoundSettings();
-	soundService.configure(uiMode as UiMode);
-	const config = SOUND_TIER_CONFIG[uiMode as UiMode];
-	if (config) {
-		soundService.preload(config.enabledSounds);
+	if (!isBaby) {
+		loadSoundSettings();
+		soundService.configure(uiMode as UiMode);
+		const config = SOUND_TIER_CONFIG[uiMode as UiMode];
+		if (config) {
+			soundService.preload(config.enabledSounds);
+		}
+		setChapters(CHILD_TUTORIAL_CHAPTERS);
 	}
-
-	// 子供用チュートリアルチャプターに切り替え
-	setChapters(CHILD_TUTORIAL_CHAPTERS);
 
 	// 1分間隔で自動リロード（親の変更を反映）
 	const autoReloadTimer = setInterval(() => {
@@ -54,7 +56,7 @@ onMount(() => {
 
 	return () => {
 		clearInterval(autoReloadTimer);
-		resetChapters();
+		if (!isBaby) resetChapters();
 	};
 });
 
@@ -82,8 +84,10 @@ function handleStartChildTutorial() {
 		{/if}
 	</main>
 
-	<BottomNav items={navItems} />
-	<TutorialOverlay />
+	{#if !isBaby}
+		<BottomNav items={navItems} />
+		<TutorialOverlay />
+	{/if}
 </div>
 
 <!-- Stamp card dialog (opened from header) -->

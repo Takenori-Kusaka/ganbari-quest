@@ -24,23 +24,23 @@ test.describe('#0029: Baby モード', () => {
 		await expect(page.getByText('はなこちゃん')).toBeVisible();
 	});
 
-	test('活動ボタンが表示される', async ({ page }) => {
+	test('準備モード UI が表示される（活動カードなし）', async ({ page }) => {
 		await selectBabyChild(page);
 		await dismissOverlays(page);
 
-		// Baby モードは data-testid="activity-card-*" の活動カードを持つ
+		// Baby モードは準備モード UI（activity-card なし、baby-home-page あり）
+		await expect(page.locator('[data-testid="baby-home-page"]')).toBeVisible();
 		const cards = page.locator('[data-testid^="activity-card-"]');
-		const count = await cards.count();
-		expect(count).toBeGreaterThan(0);
+		await expect(cards).toHaveCount(0);
 	});
 
-	test('ボトムナビゲーションが表示される', async ({ page }) => {
+	test('ボトムナビゲーションが表示されない', async ({ page }) => {
 		await selectBabyChild(page);
 		await dismissOverlays(page);
 
+		// Baby 準備モードはボトムナビなし
 		const nav = page.locator('[data-testid="bottom-nav"]');
-		await expect(nav).toBeVisible();
-		await expect(nav.getByTestId('nav-home')).toBeVisible();
+		await expect(nav).not.toBeVisible();
 	});
 });
 
@@ -311,15 +311,14 @@ test.describe('#0082: レーダーチャート', () => {
 		await expect(page.getByText('べんきょう').first()).toBeVisible();
 	});
 
-	test('Baby ステータス画面にもレーダーチャートが表示される', async ({ page }) => {
+	test('Baby ステータス画面は /baby/home にリダイレクトされる', async ({ page }) => {
+		// Baby は準備モードのためキャラクタールートが全て /baby/home にリダイレクト
 		await selectBabyChild(page);
 		await dismissOverlays(page);
 
 		await page.goto('/baby/status');
-		await expect(page).toHaveURL(/\/baby\/status/);
-
-		const svg = page.locator('svg[aria-label="ステータスレーダーチャート"]');
-		await expect(svg).toBeVisible();
+		await expect(page).toHaveURL(/\/baby\/home/);
+		await expect(page.locator('[data-testid="baby-home-page"]')).toBeVisible();
 	});
 });
 
