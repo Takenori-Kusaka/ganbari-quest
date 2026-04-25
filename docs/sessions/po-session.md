@@ -80,6 +80,7 @@ Acceptance Criteria は「テスト通過」「設計書更新」で終わらせ
 
    この宣言が完成してから初めて「根本原因・解決アーキテクチャ・実装フェーズ・AC」に進む。
 
+
 2. **根本原因の特定** — 症状ではなく原因を記載（ADR-0003: docs/decisions/0003-issue-quality-standard.md）
 3. **Pre-PMF バイアスチェック** — エンジニアリング偏重になっていないか確認（ADR-0010: docs/decisions/0010-pre-pmf-scope-judgment.md）
 4. **マーケ/Growth 視点** — サインアップ 20名/月（V2MOM Q2）への貢献度は？

@@ -27,6 +27,8 @@ const BASE_TEST_IGNORE = [
 	'**/trial-banner-display.spec.ts',
 	// #755: アカウント削除 E2E は cognito-dev モード専用（loginAsPlan が Cognito ログインフォームに依存）
 	'**/account-deletion.spec.ts',
+	// #1497: Stripe Checkout インターセプト E2E は cognito-dev モード専用（loginAsPlan を使用）
+	'**/upgrade-checkout.spec.ts',
 	'**/production-smoke.spec.ts',
 	// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
 	// CI（Linux）ではスキップし、ローカル開発でのUI崩壊検知にのみ使用する
