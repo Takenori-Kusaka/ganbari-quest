@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
+import { ADMIN_CHILDREN_PAGE_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -159,14 +160,16 @@ export const actions: Actions = {
 			return fail(400, { error: '未来の日付は設定できません' });
 		}
 
-		// 誕生日から年齢を自動計算、なければ手動入力
+		// 誕生日から年齢を自動計算、なければ手動入力 (#1380: 両方空はエラー)
 		let age: number;
 		if (birthDate) {
 			age = calculateAge(birthDate);
+		} else if (!ageStr) {
+			return fail(400, { error: ADMIN_CHILDREN_PAGE_LABELS.birthdayOrAgeRequired });
 		} else {
 			age = Number(ageStr);
 			if (Number.isNaN(age) || age < 0 || age > 18) {
-				return fail(400, { error: '年齢は0〜18で入力してください' });
+				return fail(400, { error: ADMIN_CHILDREN_PAGE_LABELS.ageRange });
 			}
 		}
 
