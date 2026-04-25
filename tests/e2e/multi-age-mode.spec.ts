@@ -186,6 +186,31 @@ test.describe('全年齢モード E2E', () => {
 				}
 			});
 
+			test('初期ポイント設定ページへ遷移できる (baby のみ)', async ({ page }) => {
+				if (!mode.isBabyMode) {
+					test.skip();
+					return;
+				}
+				// /switch → /baby/home ナビゲーション (#1300: 初回遷移で hydration エラーが出た経緯のリグレッション)
+				await selectChildByName(page, mode.childName);
+				await expect(page).toHaveURL(mode.urlPattern);
+				await expect(page.locator('[data-testid="baby-home-page"]')).toBeVisible();
+
+				// 初期ポイント設定カードへのリンクが表示される
+				const link = page.locator('[data-testid="initial-points-link"]');
+				await expect(link).toBeVisible();
+
+				// クリックで /baby/home/initial-points に遷移する
+				await link.click();
+				await expect(page).toHaveURL(/\/baby\/home\/initial-points/);
+				await expect(page.locator('[data-testid="initial-points-page"]')).toBeVisible();
+
+				// 戻るリンクで /baby/home に戻れる
+				await page.locator('a[href="/baby/home"]').click();
+				await expect(page).toHaveURL(mode.urlPattern);
+				await expect(page.locator('[data-testid="baby-home-page"]')).toBeVisible();
+			});
+
 			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 			test('活動を記録できる', async ({ page }) => {
 				test.slow(); // 記録フローは複数ステップ + ダイアログチェーンあり
