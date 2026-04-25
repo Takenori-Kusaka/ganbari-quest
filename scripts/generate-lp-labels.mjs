@@ -149,7 +149,7 @@ function parseAgeTierTs() {
  * LP 用 shared-labels.js コンテンツを生成する
  */
 function generateSharedLabelsJs() {
-	const { ageTierLabels, ageTierShort, planLabels, lpRetentionLabels } = parseLabelsTs();
+	const { ageTierLabels, planLabels, lpRetentionLabels } = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
 	// 各年齢区分の name / range / formal / ageMin / ageMax を統合
