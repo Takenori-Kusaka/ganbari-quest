@@ -76,6 +76,15 @@
 | PUT | /api/v1/special-rewards/templates | 報酬テンプレート更新 | owner/parent |
 | POST | /api/v1/special-rewards/suggest | ごほうびサジェスト（AI推定） | owner/parent |
 
+### ごほうびショップ 交換申請（#1337）
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| POST | /api/v1/reward-redemption-requests | 交換申請作成（子供） | 全ロール（child 含む） |
+| GET | /api/v1/reward-redemption-requests | 申請一覧取得（親用管理画面） | owner/parent |
+| PATCH | /api/v1/reward-redemption-requests/:id | 申請承認/却下（親） | owner/parent |
+| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（日次 cron） | cron 認証 |
+
 ### チェックリスト
 
 | メソッド | パス | 概要 | 認証 |
@@ -1680,6 +1689,163 @@ Push 通知の購読解除。
 
 ---
 
+### 3.26 ごほうびショップ 交換申請 API (#1337)
+
+> 設計詳細: `docs/design/06-UI設計書.md §15`  
+> DB テーブル: `reward_redemption_requests` — `docs/design/08-データベース設計書.md §3`
+
+#### POST /api/v1/reward-redemption-requests
+
+子供が交換申請を作成する。
+
+**認証:** 全ロール（child ロール含む）  
+**プラン制限:** なし（全プランで利用可能）
+
+**リクエストボディ:**
+```json
+{
+  "rewardId": 42,
+  "childId": 7
+}
+```
+
+**処理:**
+1. `reward_id` の `special_rewards` が `child_id` に紐付くか検証
+2. `child.points >= special_rewards.requiredPoints` を確認（不足時は `400 INSUFFICIENT_POINTS`）
+3. 同一 `(child_id, reward_id)` で `status = 'pending_parent_approval'` が存在しないか確認（重複時は `409 ALREADY_PENDING`）
+4. `reward_redemption_requests` レコードを作成（`status: 'pending_parent_approval'`, `requested_at: now()`）
+5. ポイントはこの時点では減算しない
+
+**レスポンス (201):**
+```json
+{
+  "id": 101,
+  "rewardId": 42,
+  "childId": 7,
+  "status": "pending_parent_approval",
+  "requestedAt": 1714000000
+}
+```
+
+**エラー:**
+| コード | HTTP | 説明 |
+|--------|------|------|
+| `INSUFFICIENT_POINTS` | 400 | ポイント不足 |
+| `ALREADY_PENDING` | 409 | 同一報酬の申請が既に pending |
+| `REWARD_NOT_FOUND` | 404 | 報酬が存在しない / 子供に属さない |
+
+---
+
+#### GET /api/v1/reward-redemption-requests
+
+親が申請一覧を取得する。
+
+**認証:** owner / parent  
+**クエリパラメータ:**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| `childId` | number | 任意 | 特定の子供に絞り込み |
+| `status` | string | 任意 | `pending_parent_approval` / `approved` / `rejected` / `expired` |
+| `limit` | number | 任意 | 最大件数（デフォルト 50） |
+
+**レスポンス (200):**
+```json
+{
+  "requests": [
+    {
+      "id": 101,
+      "childId": 7,
+      "childName": "はなこ",
+      "rewardId": 42,
+      "rewardTitle": "ゲーム30分",
+      "rewardIcon": "🎮",
+      "rewardPoints": 200,
+      "status": "pending_parent_approval",
+      "requestedAt": 1714000000,
+      "resolvedAt": null,
+      "parentNote": null
+    }
+  ]
+}
+```
+
+---
+
+#### PATCH /api/v1/reward-redemption-requests/:id
+
+親が申請を承認または却下する。
+
+**認証:** owner / parent
+
+**リクエストボディ（承認）:**
+```json
+{
+  "action": "approve"
+}
+```
+
+**リクエストボディ（却下）:**
+```json
+{
+  "action": "reject",
+  "parentNote": "もう少しがんばってみよう"
+}
+```
+
+**処理（承認時）:**
+1. `status = 'pending_parent_approval'` であることを確認（他は `400 INVALID_STATUS`）
+2. `child.points >= special_rewards.requiredPoints` を再確認（ポイント残高レースコンディション対策）
+3. `point_ledger` に `type: 'reward_redemption'`、`amount: -requiredPoints` を記録
+4. `status → approved`、`resolved_at = now()`、`resolved_by_parent_id = 操作者 ID` に更新
+5. `shown_to_child_at = NULL`（次回子供アクセス時に通知表示させる）
+
+**処理（却下時）:**
+1. `status = 'pending_parent_approval'` であることを確認
+2. `status → rejected`、`parent_note`、`resolved_at = now()` に更新
+3. ポイント減算なし
+
+**レスポンス (200):**
+```json
+{
+  "id": 101,
+  "status": "approved",
+  "resolvedAt": 1714001234
+}
+```
+
+**エラー:**
+| コード | HTTP | 説明 |
+|--------|------|------|
+| `INVALID_STATUS` | 400 | 既に解決済み（approved / rejected / expired）の申請 |
+| `INSUFFICIENT_POINTS` | 400 | 承認時のポイント残高不足（承認後に保護者がポイントを消費した場合等） |
+| `REQUEST_NOT_FOUND` | 404 | 申請が存在しない / テナント外 |
+
+---
+
+#### POST /api/cron/expire-redemptions
+
+30 日以上 `pending_parent_approval` の申請を `expired` に一括更新する日次 cron。
+
+**認証:** `verifyCronAuth`（`07-API設計書.md §5` の cron 認証パターン）
+
+**処理:**
+1. `status = 'pending_parent_approval'` かつ `requested_at < NOW() - 2592000`（30 日）のレコードを取得
+2. `status → expired` に一括更新
+3. 更新件数をログ出力
+
+**レスポンス (200):**
+```json
+{
+  "expiredCount": 3
+}
+```
+
+> ポイントは元々減算されていないため、期限切れ時の補償処理は不要。  
+> 子供への `expired` 通知はしない（静かな失効）。
+
+---
+
 ### 3.X ライセンスキー API (#808)
 
 > **SSOT**: [license-key-lifecycle.md §4](./license-key-lifecycle.md#4-api-エンドポイント一覧) を参照。本セクションは要約。
@@ -1983,3 +2149,4 @@ if (authError) return authError;
 | 2026-04-13 | 2.16 | #813 ライセンスキー validate/consume API レート制限仕様追加。§3.X にレート制限表（IP: 10 req/min, email: 20 req/hour）、§4 に `LICENSE_RATE_LIMITED` (429) エラーコード追加 |
 | 2026-04-17 | 2.17 | #1093 cron エンドポイント認証パターン（`verifyCronAuth`）を §5 に追加。実装コード・呼び出しパターン・環境別挙動・使用エンドポイント一覧を文書化。ADR-0033 への相互参照 |
 | 2026-04-18 | 2.18 | #1111 POST /api/v1/admin/invites にプラン別メンバー上限チェック (`maxFamilyMembers`) と `MEMBER_LIMIT_REACHED` エラー仕様を追記 |
+| 2026-04-26 | 2.19 | #1337 §3.26 ごほうびショップ交換申請 API 追加（POST /api/v1/reward-redemption-requests, GET /api/v1/reward-redemption-requests, PATCH /api/v1/reward-redemption-requests/:id, POST /api/cron/expire-redemptions）。エラーコード・ポイント減算タイミング・承認/却下フロー仕様を定義 |
