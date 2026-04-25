@@ -31,6 +31,7 @@ export interface ComputeStackProps extends cdk.StackProps {
 export class ComputeStack extends cdk.Stack {
 	public readonly fn: lambda.Function;
 	public readonly functionUrl: lambda.FunctionUrl;
+	public readonly cronDispatcherFn: lambda.Function;
 
 	constructor(scope: Construct, id: string, props: ComputeStackProps) {
 		super(scope, id, props);
@@ -205,7 +206,7 @@ export class ComputeStack extends cdk.Stack {
 			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
 
-		const cronDispatcherFn = new lambdaNode.NodejsFunction(this, 'CronDispatcherFn', {
+		this.cronDispatcherFn = new lambdaNode.NodejsFunction(this, 'CronDispatcherFn', {
 			functionName: 'ganbari-quest-cron-dispatcher',
 			entry: path.join(__dirname, '..', 'lambda', 'cron-dispatcher', 'index.ts'),
 			handler: 'handler',
@@ -223,7 +224,7 @@ export class ComputeStack extends cdk.Stack {
 				sourceMap: false,
 			},
 		});
-		cronDispatcherFn.node.addDependency(cronDispatcherLogGroup);
+		this.cronDispatcherFn.node.addDependency(cronDispatcherLogGroup);
 
 		// EventBridge Rules: CRON_JOBS (SSOT: src/lib/server/cron/schedule-registry.ts)
 		for (const job of CRON_JOBS) {
@@ -238,7 +239,7 @@ export class ComputeStack extends cdk.Stack {
 				schedule: events.Schedule.expression(job.utcCronExpression),
 			});
 			rule.addTarget(
-				new eventsTargets.LambdaFunction(cronDispatcherFn, {
+				new eventsTargets.LambdaFunction(this.cronDispatcherFn, {
 					event: events.RuleTargetInput.fromObject({ cronJob: job.name }),
 				}),
 			);
@@ -248,7 +249,7 @@ export class ComputeStack extends cdk.Stack {
 		new cdk.CfnOutput(this, 'FunctionUrl', { value: this.functionUrl.url });
 		new cdk.CfnOutput(this, 'FunctionName', { value: this.fn.functionName });
 		new cdk.CfnOutput(this, 'CronDispatcherFunctionName', {
-			value: cronDispatcherFn.functionName,
+			value: this.cronDispatcherFn.functionName,
 		});
 	}
 
