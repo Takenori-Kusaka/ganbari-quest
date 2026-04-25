@@ -37,15 +37,16 @@ describe('legacy-url-map', () => {
 		});
 
 		it('活動パック → マーケットプレイス redirect は 16 エントリすべて 301', () => {
-			// #1167: 5 neutral 詳細 (baby-first/kinder-starter/elementary-challenge/junior-high/senior-high)
-			// #1212: otetsudai-master 廃止 + 10 性別バリアント詳細 + 一覧ページ
+			// #1167: 4 neutral 詳細 (kinder-starter/elementary-challenge/junior-high/senior-high)
+			// #1212: otetsudai-master 廃止 + 10 性別バリアント詳細
+			// #1301: baby-first/baby-boy/baby-girl → マーケット一覧フォールバック
 			const activityPackDetails = LEGACY_URL_MAP.filter((e) =>
 				e.from.startsWith('/activity-packs/'),
 			);
 			expect(activityPackDetails).toHaveLength(16);
 			for (const entry of activityPackDetails) {
 				expect(entry.status).toBe(301);
-				expect(['#1167', '#1212']).toContain(entry.issue);
+				expect(['#1167', '#1212', '#1301']).toContain(entry.issue);
 			}
 		});
 
@@ -138,9 +139,10 @@ describe('legacy-url-map', () => {
 			['/demo/kinder', '/demo/preschool'],
 			['/demo/kinder/home', '/demo/preschool/home'],
 			// #1167 / #1212: 活動パック → マーケットプレイス 301
-			['/activity-packs/baby-first', '/marketplace/activity-pack/baby-first'],
-			['/activity-packs/baby-boy', '/marketplace/activity-pack/baby-boy'],
-			['/activity-packs/baby-girl', '/marketplace/activity-pack/baby-girl'],
+			// #1301: baby 系は削除されマーケット一覧へフォールバック
+			['/activity-packs/baby-first', '/marketplace?type=activity-pack'],
+			['/activity-packs/baby-boy', '/marketplace?type=activity-pack'],
+			['/activity-packs/baby-girl', '/marketplace?type=activity-pack'],
 			['/activity-packs/kinder-starter', '/marketplace/activity-pack/kinder-starter'],
 			['/activity-packs/kinder-boy', '/marketplace/activity-pack/kinder-boy'],
 			['/activity-packs/kinder-girl', '/marketplace/activity-pack/kinder-girl'],
