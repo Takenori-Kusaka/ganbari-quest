@@ -87,15 +87,14 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 	// #1167: 活動パック詳細 → マーケットプレイス詳細に集約
 	// /activity-packs/[packId] は /marketplace/activity-pack/[itemId] の二重実装だった。
 	// 購入前プレビューはマーケットプレイス詳細で行う設計に変更したため、
-	// マーケットに同名 item が存在する 6 パックは 301 で恒久移動させる。
-	// 性別バリアント (baby-boy/girl 等 11 pack) はマーケット未収録のため redirect しない。
-	// 性別バリアントを含む完全統合は #1169 で扱う。
+	// マーケットに同名 item が存在する 4 パックは 301 で恒久移動させる。
+	// baby 系 3 パックは #1301 でマーケットから削除。 → マーケット一覧にフォールバック。
 	{
 		from: '/activity-packs/baby-first',
-		to: '/marketplace/activity-pack/baby-first',
-		deletedAt: '2026-04-18',
-		issue: '#1167',
-		reason: '活動パック詳細をマーケットプレイス詳細に集約（購入前プレビュー強化）',
+		to: '/marketplace?type=activity-pack',
+		deletedAt: '2026-04-25',
+		issue: '#1301',
+		reason: 'baby-first は ADR-0011 に伴いマーケットから削除。一覧へフォールバック',
 		status: 301,
 	},
 	{
@@ -142,18 +141,18 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 	},
 	{
 		from: '/activity-packs/baby-boy',
-		to: '/marketplace/activity-pack/baby-boy',
-		deletedAt: '2026-04-20',
-		issue: '#1212',
-		reason: '性別バリアント正式収録',
+		to: '/marketplace?type=activity-pack',
+		deletedAt: '2026-04-25',
+		issue: '#1301',
+		reason: 'baby-boy は ADR-0011 に伴いマーケットから削除。一覧へフォールバック',
 		status: 301,
 	},
 	{
 		from: '/activity-packs/baby-girl',
-		to: '/marketplace/activity-pack/baby-girl',
-		deletedAt: '2026-04-20',
-		issue: '#1212',
-		reason: '性別バリアント正式収録',
+		to: '/marketplace?type=activity-pack',
+		deletedAt: '2026-04-25',
+		issue: '#1301',
+		reason: 'baby-girl は ADR-0011 に伴いマーケットから削除。一覧へフォールバック',
 		status: 301,
 	},
 	{

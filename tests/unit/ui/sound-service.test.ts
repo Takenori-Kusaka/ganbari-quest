@@ -46,24 +46,26 @@ describe('SOUND_TIER_CONFIG', () => {
 		const modes = ['baby', 'preschool', 'elementary', 'junior', 'senior'] as const;
 		for (const mode of modes) {
 			expect(SOUND_TIER_CONFIG[mode]).toBeDefined();
-			expect(SOUND_TIER_CONFIG[mode].defaultVolume).toBeGreaterThan(0);
+			expect(SOUND_TIER_CONFIG[mode].defaultVolume).toBeGreaterThanOrEqual(0);
 			expect(SOUND_TIER_CONFIG[mode].defaultVolume).toBeLessThanOrEqual(1);
 			expect(Array.isArray(SOUND_TIER_CONFIG[mode].enabledSounds)).toBe(true);
 		}
 	});
 
-	it('baby が最大音量', () => {
-		expect(SOUND_TIER_CONFIG.baby.defaultVolume).toBe(0.8);
+	it('baby は音量 0・サウンドなし（ADR-0011: 親の準備モード）', () => {
+		expect(SOUND_TIER_CONFIG.baby.defaultVolume).toBe(0);
+		expect(SOUND_TIER_CONFIG.baby.enabledSounds).toHaveLength(0);
+	});
+
+	it('preschool が子供モードの最大音量', () => {
+		expect(SOUND_TIER_CONFIG.preschool.defaultVolume).toBe(0.6);
 	});
 
 	it('senior が最小音量', () => {
 		expect(SOUND_TIER_CONFIG.senior.defaultVolume).toBe(0.2);
 	});
 
-	it('年齢が上がるほど音量が下がる', () => {
-		expect(SOUND_TIER_CONFIG.baby.defaultVolume).toBeGreaterThan(
-			SOUND_TIER_CONFIG.preschool.defaultVolume,
-		);
+	it('年齢が上がるほど音量が下がる（preschool〜senior）', () => {
 		expect(SOUND_TIER_CONFIG.preschool.defaultVolume).toBeGreaterThan(
 			SOUND_TIER_CONFIG.elementary.defaultVolume,
 		);
@@ -75,8 +77,8 @@ describe('SOUND_TIER_CONFIG', () => {
 		);
 	});
 
-	it('baby は全サウンドが有効', () => {
-		expect(SOUND_TIER_CONFIG.baby.enabledSounds).toHaveLength(SOUND_IDS.length);
+	it('preschool は最多サウンドが有効', () => {
+		expect(SOUND_TIER_CONFIG.preschool.enabledSounds.length).toBe(SOUND_IDS.length - 1);
 	});
 
 	it('senior は最小限のサウンドのみ有効', () => {
@@ -84,10 +86,7 @@ describe('SOUND_TIER_CONFIG', () => {
 		expect(SOUND_TIER_CONFIG.senior.enabledSounds).toContain('special-reward');
 	});
 
-	it('年齢が上がるほど有効サウンド数が減る', () => {
-		expect(SOUND_TIER_CONFIG.baby.enabledSounds.length).toBeGreaterThanOrEqual(
-			SOUND_TIER_CONFIG.preschool.enabledSounds.length,
-		);
+	it('年齢が上がるほど有効サウンド数が減る（preschool〜senior）', () => {
 		expect(SOUND_TIER_CONFIG.preschool.enabledSounds.length).toBeGreaterThanOrEqual(
 			SOUND_TIER_CONFIG.elementary.enabledSounds.length,
 		);
@@ -246,14 +245,16 @@ describe('SoundService', () => {
 		const service = await createService();
 
 		service.configure('baby');
-		expect(service.getVolume()).toBe(0.8);
+		// ADR-0011: baby = 親の準備モード。子供向けゲーミフィケーション効果音は不要
+		expect(service.getVolume()).toBe(0);
 		const babySounds = service.getEnabledSounds();
 
 		service.configure('senior');
 		expect(service.getVolume()).toBe(0.2);
 		const seniorSounds = service.getEnabledSounds();
 
-		expect(babySounds.length).toBeGreaterThan(seniorSounds.length);
+		// baby (0 sounds) < senior (1 sound)
+		expect(babySounds.length).toBeLessThan(seniorSounds.length);
 	});
 
 	it('destroy で AudioContext をクローズする', async () => {

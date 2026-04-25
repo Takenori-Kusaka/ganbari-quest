@@ -10,16 +10,13 @@ import type { ActivityPackPayload } from '$lib/domain/marketplace-item';
 
 const activityPackMetas = getMarketplaceIndex().filter((m) => m.type === 'activity-pack');
 
-describe('#1212-A: 活動パック 15 件構成ドリフト検出', () => {
-	it('正確に 15 件の activity-pack が存在する', () => {
-		expect(activityPackMetas).toHaveLength(15);
+describe('#1212-A: 活動パック 12 件構成ドリフト検出 (#1301: baby 3 件削除)', () => {
+	it('正確に 12 件の activity-pack が存在する', () => {
+		expect(activityPackMetas).toHaveLength(12);
 	});
 
-	it('5 年齢 × neutral (5) + 性別バリアント (10) の ID 集合と一致する', () => {
+	it('4 年齢 × neutral (4) + 性別バリアント (8) の ID 集合と一致する', () => {
 		const expected = new Set([
-			'baby-first',
-			'baby-boy',
-			'baby-girl',
 			'kinder-starter',
 			'kinder-boy',
 			'kinder-girl',
@@ -107,8 +104,6 @@ describe('#1212-A: elementary 性別バリアント非対称是正', () => {
 
 describe('#1212-A: 性別バリアントのメタ整合性', () => {
 	const genderVariants = [
-		{ id: 'baby-boy', gender: 'boy' as const },
-		{ id: 'baby-girl', gender: 'girl' as const },
 		{ id: 'kinder-boy', gender: 'boy' as const },
 		{ id: 'kinder-girl', gender: 'girl' as const },
 		{ id: 'elementary-boy', gender: 'boy' as const },
@@ -127,7 +122,6 @@ describe('#1212-A: 性別バリアントのメタ整合性', () => {
 	});
 
 	it.each([
-		'baby-first',
 		'kinder-starter',
 		'elementary-challenge',
 		'junior-high-challenge',

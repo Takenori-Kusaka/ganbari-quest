@@ -9,8 +9,8 @@ import { CATEGORY_CODES, GRADE_LEVELS } from '$lib/domain/validation/activity';
 const activityPackMetas = getMarketplaceIndex().filter((m) => m.type === 'activity-pack');
 
 describe('活動パックインデックス (marketplace SSOT)', () => {
-	it('活動パックが 15 件登録されている (5 年齢 × neutral + 10 性別バリアント)', () => {
-		expect(activityPackMetas).toHaveLength(15);
+	it('活動パックが 12 件登録されている (4 年齢 × neutral + 8 性別バリアント、#1301 baby 3 件削除)', () => {
+		expect(activityPackMetas).toHaveLength(12);
 	});
 
 	it('itemCount がパック内の実際の活動数と一致する', () => {
@@ -25,9 +25,6 @@ describe('活動パックインデックス (marketplace SSOT)', () => {
 });
 
 const PACK_IDS = [
-	'baby-first',
-	'baby-boy',
-	'baby-girl',
 	'kinder-starter',
 	'kinder-boy',
 	'kinder-girl',
