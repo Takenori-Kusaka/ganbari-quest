@@ -1,7 +1,8 @@
 name: PR AC verification check (ADR-0038)
 
 # #1165 / ADR-0038: PR 本文の「AC 検証マップ」が全行埋まっているかを機械検証する
-# #1481: warn-only 期間終了につき blocking に昇格（2026-04-25）
+# 初期リリース: warn-only (continue-on-error: true)。
+# → hard-fail に昇格済み（pr-template-gate.yml 導入に合わせて統一）。
 
 on:
   pull_request:
@@ -40,7 +41,7 @@ jobs:
             // 除外条件 2: 明示的 skip コメント
             const skipMatch = body.match(/<!--\s*ac-verification-skip:\s*(.+?)\s*-->/);
             if (skipMatch) {
-              core.info(`AC verification skipped: ${skipMatch[1]}`);
+              core.warning(`AC verification skipped: ${skipMatch[1]}`);
               return;
             }
 
@@ -48,7 +49,7 @@ jobs:
             // ヘッダー行 (`| AC 番号 | AC 内容 ...`) とセパレーター (`|---|---|`) を除く
             const mapHeaderIdx = body.indexOf('AC 検証マップ');
             if (mapHeaderIdx === -1) {
-              core.setFailed('PR 本文に「AC 検証マップ」セクションが見つかりません (ADR-0038)');
+              core.setFailed('❌ PR 本文に「AC 検証マップ」セクションが見つかりません (ADR-0038)\nPR テンプレートのセクションが削除されています。');
               return;
             }
 
@@ -70,17 +71,22 @@ jobs:
             core.info(`AC map rows found: ${rows.length}, empty/placeholder rows: ${emptyRows.length}`);
 
             if (rows.length === 0) {
-              core.setFailed('AC 検証マップに行が 1 件もありません。Issue の AC ごとに 1 行埋めてください (ADR-0038)');
+              core.setFailed(
+                '❌ AC 検証マップに行が 1 件もありません (ADR-0038)\n\n' +
+                'Issue の Acceptance Criteria 1 行ごとに 1 行を埋めてください。\n' +
+                '例:\n| AC1 | ログイン後にダッシュボードが表示される | `npx playwright test auth.spec.ts` | PASS |'
+              );
               return;
             }
 
             if (emptyRows.length > 0) {
+              const details = emptyRows.map(r => `  ${r.slice(0, 120)}`).join('\n');
               core.setFailed(
-                `AC 検証マップに ${emptyRows.length} 件の空欄/プレースホルダ行があります。全行を埋めてください (ADR-0038)`,
+                `❌ AC 検証マップに ${emptyRows.length} 件の空欄/プレースホルダ行があります (ADR-0038)\n\n` +
+                '「AC 内容」「検証手段」「結果 / エビデンス」の全列を埋めてください。\n' +
+                '目視確認のみは不可。機械検証可能なコマンド / ファイルパス / スクリーンショット番号で記入してください。\n\n' +
+                `空欄行:\n${details}`
               );
-              for (const r of emptyRows) {
-                core.error(`  空行: ${r.slice(0, 120)}`);
-              }
               return;
             }
 
