@@ -303,3 +303,109 @@ CI run 24929009610 で cancelled (20m35s) が確認された。
 **参考**: PR #1499, Issue #1497, CI run 24929009610
 
 ---
+
+## TA-006 — PR ブランチで noUncheckedIndexedAccess に違反した配列添字アクセス
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-25 |
+| **PR 番号** | #1505 |
+| **ワークフロー** | CI |
+| **ジョブ名** | lint-and-test |
+| **ステップ名** | Svelte check (#1432 — warning=error) |
+| **ステータス** | ongoing |
+
+### エラーメッセージ（原文）
+
+```
+tests/unit/infra/health-check-lambda.test.ts:350:31
+Error: Object is possibly 'undefined'. 
+			const written = JSON.parse(ssmStore.putCalls[0].Value);
+```
+
+4 箇所（行 350, 376, 418, 462）で同様のエラーが発生。
+
+### 根本原因
+
+テストファイルで `ssmStore.putCalls[0].Value` を直接使用しており、TypeScript strict の
+`noUncheckedIndexedAccess` オプションが有効なため、添字アクセスの戻り値が `T | undefined`
+となり `.Value` への直接アクセスが型エラーになる。
+
+ローカルには修正コミット（`putCalls[0]!` 非 null アサーション追加）が存在したが、
+リモートの PR ブランチに push されていなかった。
+
+### 解決手順
+
+```typescript
+// Before (NG)
+const written = JSON.parse(ssmStore.putCalls[0].Value);
+
+// After (OK — 非 null アサーション)
+const written = JSON.parse(ssmStore.putCalls[0]!.Value);
+
+// After (推奨 — find() パターン)
+const put = ssmStore.putCalls.find(c => c.Name === WEEKLY_STATS_KEY);
+expect(put).toBeDefined();
+const written = JSON.parse(put!.Value);
+```
+
+修正後、ブランチを push して CI を再実行する。
+
+### 再発防止策
+
+- テストコードでも `noUncheckedIndexedAccess` は有効。配列の添字アクセスには `!` アサーションか `find()` パターンを使う
+- `expect(array).toHaveLength(N)` の直後でも TS は型ガードを認識しないため `!` が必要
+
+---
+
+## TA-007 — docker-build で lightningcss.linux-x64-musl.node が見つからない
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-25 |
+| **PR 番号** | #1505 |
+| **ワークフロー** | CI |
+| **ジョブ名** | docker-build |
+| **ステップ名** | Build Docker image (NUC) |
+| **ステータス** | ongoing |
+
+### エラーメッセージ（原文）
+
+```
+Error: Cannot find module '../lightningcss.linux-x64-musl.node'
+Require stack:
+- /app/node_modules/lightningcss/node/index.js
+```
+
+### 根本原因
+
+Docker ビルド（Alpine/musl ベース）で `lightningcss` のネイティブバイナリ
+（`lightningcss.linux-x64-musl.node`）が見つからないエラー。
+PR ブランチで `package-lock.json` が更新された（`@aws-sdk/client-ssm` 追加）際に、
+musl ターゲット向けバイナリが `optionalDependencies` に正しく含まれていない可能性がある。
+
+同一ブランチの以前の CI run（24923677509, 2026-04-25T05:32:24Z）は成功しており、
+main ブランチ（24931922154, 2026-04-25T13:24:56Z）では docker-build が成功している。
+このため、PRブランチのコード変更または package-lock.json の状態が原因と考えられる。
+
+### 解決手順
+
+```bash
+# 1. package-lock.json を最新状態に再生成
+npm install  # または npm ci で lockfile との整合性確認
+
+# 2. lightningcss の optional deps が正しく含まれているか確認
+cat node_modules/lightningcss/package.json | grep -A 20 optionalDependencies
+
+# 3. main ブランチの package-lock.json と比較して差分を確認
+git diff origin/main -- package-lock.json | grep lightningcss
+```
+
+または、rebase で main の最新を取り込むことで解消する可能性がある。
+
+### 再発防止策
+
+- `package-lock.json` を変更する PR では、Docker ビルドが通るまで CI で確認する
+- `lightningcss` のような native addon は OS/libc の種類（glibc vs musl）によってバイナリが異なるため、Alpine ベースのビルドでは `optionalDependencies` が正しく解決されているか確認する
+
+---
