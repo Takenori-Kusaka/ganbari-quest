@@ -13,6 +13,7 @@
  */
 
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { FlowRecorder, resolvePreset, ScreenshotCapture } from './lib/screenshot-helpers.mjs';
 
@@ -126,9 +127,10 @@ async function runFlowMode() {
 	}
 
 	const actionsAbsPath = path.resolve(actionsPath);
+	const actionsFileUrl = pathToFileURL(actionsAbsPath).href;
 	let actionsModule;
 	try {
-		actionsModule = await import(actionsAbsPath);
+		actionsModule = await import(actionsFileUrl);
 	} catch (err) {
 		console.error(`エラー: actions スクリプトを読み込めません: ${actionsAbsPath}`);
 		console.error(err.message);
@@ -152,13 +154,16 @@ async function runFlowMode() {
 		cellHeight,
 	});
 
+	// Git Bash (MINGW) は /foo/bar を C:/Program Files/Git/foo/bar に変換するため、
+	// FlowRecorder と同じ正規化を表示用にも適用する
+	const normalizedUrl = `/${url.replace(/^\/+/, '').replace(/^[A-Za-z]:\/.*Git\//, '')}`;
 	console.log(`=== フロースタンプシート生成: ${flow} ===`);
-	console.log(`URL: ${baseUrl}${url}`);
+	console.log(`URL: ${baseUrl}${normalizedUrl}`);
 	console.log(`出力: ${outputDir}\n`);
 
 	try {
 		const result = await recorder.record({
-			url,
+			url: normalizedUrl,
 			flowName: flow,
 			actions: actionsFn,
 			preset: presetNames[0] ?? 'desktop',
