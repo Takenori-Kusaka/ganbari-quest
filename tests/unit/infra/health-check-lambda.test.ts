@@ -376,7 +376,7 @@ describe('#1257 health-check Lambda Phase 1', () => {
 			await handler();
 
 			expect(ssmStore.putCalls).toHaveLength(1);
-			const written = JSON.parse(ssmStore.putCalls[0].Value);
+			const written = JSON.parse(ssmStore.putCalls[0]!.Value);
 			expect(written.weekStart).toBe(currentWeekStart());
 			expect(written.total).toBe(1);
 			expect(written.normal).toBe(1);
@@ -402,7 +402,7 @@ describe('#1257 health-check Lambda Phase 1', () => {
 			// 同週なのでハートビート通知なし
 			expect(harness.discordPosts).toHaveLength(0);
 			expect(ssmStore.putCalls).toHaveLength(1);
-			const written = JSON.parse(ssmStore.putCalls[0].Value);
+			const written = JSON.parse(ssmStore.putCalls[0]!.Value);
 			expect(written.weekStart).toBe(currentWeekStart());
 			expect(written.total).toBe(6);
 			expect(written.normal).toBe(5);
@@ -444,7 +444,7 @@ describe('#1257 health-check Lambda Phase 1', () => {
 
 			// SSM に新週の統計が書き込まれる
 			expect(ssmStore.putCalls).toHaveLength(1);
-			const written = JSON.parse(ssmStore.putCalls[0].Value);
+			const written = JSON.parse(ssmStore.putCalls[0]!.Value);
 			expect(written.weekStart).toBe(currentWeekStart());
 			expect(written.total).toBe(1);
 		});
@@ -488,7 +488,7 @@ describe('#1257 health-check Lambda Phase 1', () => {
 			await handler();
 
 			expect(ssmStore.putCalls).toHaveLength(1);
-			const written = JSON.parse(ssmStore.putCalls[0].Value);
+			const written = JSON.parse(ssmStore.putCalls[0]!.Value);
 			expect(written.total).toBe(1);
 			expect(written.degraded).toBe(1);
 			expect(written.normal).toBe(0);
