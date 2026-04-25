@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
-import type { HTMLButtonAttributes } from 'svelte/elements';
+import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'outline' | 'warning';
 type Size = 'sm' | 'md' | 'lg';
@@ -49,7 +49,7 @@ const baseClass = $derived(
 <a
 	{href}
 	class={baseClass}
-	{...rest}
+	{...(rest as HTMLAnchorAttributes)}
 >
 	{@render children()}
 </a>
