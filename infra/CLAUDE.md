@@ -141,3 +141,33 @@ curl -s -X POST http://localhost:3000/api/cron/retention-cleanup \
 - `docker compose up -d` のみ（profiles なし）では scheduler は起動しない。`--profile scheduler` が必須
 - Sub A-3 (#1377) の実装前は、`deploy-nuc.yml` への `--profile scheduler` 組込は行わない（手動有効化）
 - scheduler コンテナは `app` コンテナに依存（`depends_on: app`）。app が起動していること確認後に起動すること
+
+## EventBridge Cron Rules (#1376)
+
+3 つの定期実行ジョブは EventBridge → `ganbari-quest-cron-dispatcher` Lambda 経由で実行される。
+アーキテクチャ: `EventBridge Rule → CronDispatcherFn → HTTP POST → SvelteKit /api/cron/:job`
+
+Lambda Web Adapter (LWA) は HTTP イベントのみ処理するため、ディスパッチャー Lambda が
+EventBridge ペイロードを HTTP 呼び出しに変換する設計。
+
+スケジュール SSOT: `src/lib/server/cron/schedule-registry.ts`
+CDK 実装: `infra/lib/compute-stack.ts` (CRON_JOBS インライン定義はそこの SSOT 参照)
+Lambda 実装: `infra/lambda/cron-dispatcher/index.ts`
+
+```bash
+# ルール一覧確認
+aws events list-rules --name-prefix ganbari-quest-cron --region ap-northeast-1
+
+# ディスパッチャー Lambda ログ確認
+aws logs tail /aws/lambda/ganbari-quest-cron-dispatcher --region ap-northeast-1 --follow
+
+# 手動テスト（本番: dryRun なし）
+aws lambda invoke \
+  --function-name ganbari-quest-cron-dispatcher \
+  --payload '{"cronJob":"license-expire"}' \
+  --region ap-northeast-1 \
+  response.json && cat response.json
+```
+
+**注意**: `cdk deploy` は PO が実行する（GitHub Actions `deploy.yml` または手動 `cdk deploy --all`）。
+`CRON_SECRET` は既存の GitHub Secret として登録済み。新規設定は不要。

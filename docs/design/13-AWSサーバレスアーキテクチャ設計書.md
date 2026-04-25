@@ -86,7 +86,7 @@
 
 ### 3.3 ComputeStack
 
-**Lambda:**
+**Lambda (SvelteKitFn):**
 - ランタイム: Docker (Node.js 22 + Lambda Web Adapter)
 - メモリ: 512MB
 - タイムアウト: 30秒
@@ -104,13 +104,35 @@
 - 未タグイメージ: 1日で自動削除
 - GitHub ActionsからCI/CDでpush
 
+**Lambda (CronDispatcherFn) (#1376):**
+- 関数名: `ganbari-quest-cron-dispatcher`
+- ランタイム: NodejsFunction (Node.js 20, esbuild バンドル)
+- メモリ: 128MB
+- タイムアウト: 5分
+- アーキテクチャ: ARM64 (Graviton2)
+- 役割: EventBridge ペイロードを HTTP POST に変換して SvelteKit `/api/cron/:job` を呼び出す
+  - LWA は HTTP イベントのみ処理するため、EventBridge → Lambda Web Adapter の直接接続は不可
+- 環境変数: `FUNCTION_URL` (SvelteKitFn の Function URL), `CRON_SECRET`
+- 実装: `infra/lambda/cron-dispatcher/index.ts`
+
+**EventBridge Rules (#1376):**
+
+| ルール名 | スケジュール (UTC) | JST 換算 | 対応ジョブ |
+|---------|-----------------|---------|----------|
+| `ganbari-quest-cron-license-expire` | `cron(0 15 * * ? *)` | 00:00 | license-expire |
+| `ganbari-quest-cron-retention-cleanup` | `cron(0 16 * * ? *)` | 01:00 | retention-cleanup |
+| `ganbari-quest-cron-trial-notifications` | `cron(0 0 * * ? *)` | 09:00 | trial-notifications |
+
+- スケジュール SSOT: `src/lib/server/cron/schedule-registry.ts`
+- ターゲット: `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`)
+
 ### 3.4 OpsStack（監視・コスト防衛）
 
 **SNS 通知基盤:**
 - トピック名: `ganbari-quest-ops-alerts`
 - サブスクリプション: メール（`-c opsEmail=xxx` で指定）
 
-**CloudWatch Alarms（9/10 無料枠使用）:**
+**CloudWatch Alarms（10/10 無料枠使用）:**
 
 | # | アラーム名 | メトリクス | 閾値 | 優先度 |
 |---|----------|-----------|------|--------|
@@ -123,6 +145,7 @@
 | 7 | Lambda-URL-5xx | Url5xxCount | ≥ 5回/5分 | P0 |
 | 8 | Lambda-URL-4xx-Spike | Url4xxCount | ≥ 50回/5分 | P1 |
 | 9 | CloudFront-5xx | 5xxErrorRate | ≥ 5% | P0 |
+| 10 | **CronDispatcherErrors** (#1376) | CronDispatcherFn Errors | ≥ 1回/5分 | P0 |
 
 **CloudWatch Dashboard:** `ganbari-quest-ops`
 - Lambda: Invocations/Errors, Duration p50/p99, Throttles/Concurrent
@@ -369,3 +392,4 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 2026-03-27 | デプロイパイプライン改善（タグトリガー・ヘルスチェック強化・ロールバック・Release/通知・Dependabot） |
 | 2026-03-27 | GitHub Pages LP デプロイワークフロー追加 |
 | 2026-04-12 | #721 AI推論基盤（AWS Bedrock）セクション追加。モデル選定理由・使用箇所・環境変数を記載 |
+| 2026-04-25 | #1376 §3.3 に CronDispatcherFn Lambda・EventBridge Rules 3件を追記。§3.4 に CronDispatcherErrors CloudWatch Alarm (P0, SNS 通知付き) を追記 |
