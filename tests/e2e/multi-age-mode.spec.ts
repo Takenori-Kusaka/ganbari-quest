@@ -22,30 +22,35 @@ const AGE_MODES = [
 		childName: 'はなこちゃん',
 		urlPattern: /\/baby\/home/,
 		usesConfirmDialog: false,
+		isBabyMode: true,
 	},
 	{
 		name: 'preschool',
 		childName: 'たろうくん',
 		urlPattern: /\/preschool\/home/,
 		usesConfirmDialog: true,
+		isBabyMode: false,
 	},
 	{
 		name: 'elementary',
 		childName: 'けんたくん',
 		urlPattern: /\/elementary\/home/,
 		usesConfirmDialog: true,
+		isBabyMode: false,
 	},
 	{
 		name: 'junior',
 		childName: 'ゆうこちゃん',
 		urlPattern: /\/junior\/home/,
 		usesConfirmDialog: true,
+		isBabyMode: false,
 	},
 	{
 		name: 'senior',
 		childName: 'まさとくん',
 		urlPattern: /\/senior\/home/,
 		usesConfirmDialog: true,
+		isBabyMode: false,
 	},
 ] as const;
 
@@ -136,9 +141,23 @@ test.describe('全年齢モード E2E', () => {
 				await expect(page).toHaveURL(mode.urlPattern);
 				// ニックネームがヘッダーに表示される
 				await expect(page.locator('header').getByText(mode.childName)).toBeVisible();
+
+				if (mode.isBabyMode) {
+					// baby: 準備モード UI が表示される
+					await expect(page.locator('[data-testid="baby-home-page"]')).toBeVisible();
+				}
 			});
 
 			test('活動カードが表示される', async ({ page }) => {
+				if (mode.isBabyMode) {
+					// baby: 活動カードは表示されない（準備モード）
+					await selectChildByName(page, mode.childName);
+					await dismissOverlays(page);
+					const activityCards = page.locator('[data-testid^="activity-card-"]');
+					await expect(activityCards).toHaveCount(0);
+					return;
+				}
+
 				await selectChildByName(page, mode.childName);
 				await dismissOverlays(page);
 
@@ -151,20 +170,30 @@ test.describe('全年齢モード E2E', () => {
 				expect(count).toBeGreaterThan(0);
 			});
 
-			test('ボトムナビゲーションが表示される', async ({ page }) => {
+			test('ボトムナビゲーションの表示', async ({ page }) => {
 				await selectChildByName(page, mode.childName);
 				await dismissOverlays(page);
 
 				const nav = page.locator('[data-testid="bottom-nav"]');
-				await expect(nav).toBeVisible();
-				// ナビリンクが4つ表示される（ホーム、チェックリスト、つよさ、かぞく）
-				const links = nav.locator('a');
-				expect(await links.count()).toBe(4);
+				if (mode.isBabyMode) {
+					// baby: BottomNav は表示されない
+					await expect(nav).not.toBeVisible();
+				} else {
+					await expect(nav).toBeVisible();
+					// ナビリンクが4つ表示される（ホーム、チェックリスト、つよさ、かぞく）
+					const links = nav.locator('a');
+					expect(await links.count()).toBe(4);
+				}
 			});
 
 			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 			test('活動を記録できる', async ({ page }) => {
 				test.slow(); // 記録フローは複数ステップ + ダイアログチェーンあり
+				if (mode.isBabyMode) {
+					// baby: 親向け準備モードのため活動記録機能なし (#1300)
+					test.skip();
+					return;
+				}
 				await selectChildByName(page, mode.childName);
 				await dismissOverlays(page);
 
