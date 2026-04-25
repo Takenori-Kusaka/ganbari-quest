@@ -2,11 +2,21 @@
 
 import type { RewardCategory } from '$lib/domain/validation/special-reward';
 
+/**
+ * ごほうびショップ陳列 3 系統（#1336）
+ * - physical: お菓子・文房具・おもちゃ等の現物報酬
+ * - money: お小遣い変換（経済リテラシー教育への橋渡し）
+ * - privilege: 夜更かし・ゲーム時間・メニューリクエスト等の特権（BusyKid/Greenlight 差別化の核）
+ */
+export type ShopCategory = 'physical' | 'money' | 'privilege';
+
 export interface PresetReward {
 	title: string;
 	points: number;
 	icon: string;
 	category: RewardCategory;
+	/** ごほうびショップ陳列 3 系統（#1336） */
+	shopCategory: ShopCategory;
 	tags: readonly string[];
 }
 
@@ -26,6 +36,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 50,
 				icon: '⭐',
 				category: 'other',
+				shopCategory: 'physical',
 				tags: ['baby', 'kinder'],
 			},
 			{
@@ -33,6 +44,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 100,
 				icon: '🍬',
 				category: 'other',
+				shopCategory: 'physical',
 				tags: ['baby', 'kinder', 'lower'],
 			},
 			{
@@ -40,6 +52,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 200,
 				icon: '✏️',
 				category: 'other',
+				shopCategory: 'physical',
 				tags: ['kinder', 'lower', 'upper'],
 			},
 			{
@@ -47,6 +60,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 300,
 				icon: '📚',
 				category: 'academic',
+				shopCategory: 'physical',
 				tags: ['lower', 'upper', 'teen'],
 			},
 			{
@@ -54,6 +68,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 500,
 				icon: '🧸',
 				category: 'other',
+				shopCategory: 'physical',
 				tags: ['baby', 'kinder', 'lower'],
 			},
 			{
@@ -61,6 +76,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 300,
 				icon: '📖',
 				category: 'other',
+				shopCategory: 'physical',
 				tags: ['lower', 'upper', 'teen'],
 			},
 		],
@@ -74,6 +90,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 500,
 				icon: '🚗',
 				category: 'social',
+				shopCategory: 'privilege',
 				tags: ['baby', 'kinder', 'lower', 'upper'],
 			},
 			{
@@ -81,6 +98,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 500,
 				icon: '🍽️',
 				category: 'social',
+				shopCategory: 'privilege',
 				tags: ['kinder', 'lower', 'upper', 'teen'],
 			},
 			{
@@ -88,6 +106,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 500,
 				icon: '🎬',
 				category: 'social',
+				shopCategory: 'privilege',
 				tags: ['lower', 'upper', 'teen'],
 			},
 			{
@@ -95,6 +114,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 200,
 				icon: '🎮',
 				category: 'other',
+				shopCategory: 'privilege',
 				tags: ['lower', 'upper', 'teen'],
 			},
 			{
@@ -102,6 +122,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 200,
 				icon: '📺',
 				category: 'other',
+				shopCategory: 'privilege',
 				tags: ['lower', 'upper', 'teen'],
 			},
 			{
@@ -109,6 +130,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 300,
 				icon: '👫',
 				category: 'social',
+				shopCategory: 'privilege',
 				tags: ['upper', 'teen'],
 			},
 		],
@@ -122,6 +144,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 200,
 				icon: '🪙',
 				category: 'other',
+				shopCategory: 'money',
 				tags: ['kinder', 'lower'],
 			},
 			{
@@ -129,6 +152,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 500,
 				icon: '💴',
 				category: 'other',
+				shopCategory: 'money',
 				tags: ['lower', 'upper'],
 			},
 			{
@@ -136,6 +160,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 1000,
 				icon: '💵',
 				category: 'other',
+				shopCategory: 'money',
 				tags: ['upper', 'teen'],
 			},
 		],
@@ -149,6 +174,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 300,
 				icon: '🌙',
 				category: 'life',
+				shopCategory: 'privilege',
 				tags: ['lower', 'upper'],
 			},
 			{
@@ -156,6 +182,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 200,
 				icon: '😴',
 				category: 'life',
+				shopCategory: 'privilege',
 				tags: ['lower', 'upper', 'teen'],
 			},
 			{
@@ -163,6 +190,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 300,
 				icon: '🎲',
 				category: 'social',
+				shopCategory: 'privilege',
 				tags: ['kinder', 'lower', 'upper'],
 			},
 			{
@@ -170,6 +198,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 1000,
 				icon: '✈️',
 				category: 'other',
+				shopCategory: 'money',
 				tags: ['lower', 'upper', 'teen'],
 			},
 			{
@@ -177,6 +206,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 200,
 				icon: '🍕',
 				category: 'life',
+				shopCategory: 'privilege',
 				tags: ['kinder', 'lower', 'upper', 'teen'],
 			},
 			{
@@ -184,6 +214,7 @@ export const PRESET_REWARD_GROUPS: readonly PresetRewardGroup[] = [
 				points: 150,
 				icon: '🐕',
 				category: 'life',
+				shopCategory: 'privilege',
 				tags: ['baby', 'kinder', 'lower'],
 			},
 		],
