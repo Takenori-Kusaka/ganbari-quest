@@ -156,11 +156,7 @@ export async function executeDailyBattle(
 	const scaling = getAgeScaling(uiMode);
 	const scaledEnemyStats = scaleEnemyStats(enemy.stats, scaling);
 
-	const isWalkMode = uiMode === 'baby' || uiMode === 'preschool';
-
-	const battleResult = executeBattle(playerStats, scaledEnemyStats, {
-		walkMode: isWalkMode,
-	});
+	const battleResult = executeBattle(playerStats, scaledEnemyStats);
 
 	// 報酬計算
 	const rewardPoints = battleResult.outcome === 'win' ? enemy.dropPoints : enemy.consolationPoints;

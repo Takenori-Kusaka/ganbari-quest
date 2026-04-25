@@ -1,11 +1,23 @@
 // tests/e2e/battle-adventure.spec.ts
-// #605 バトルアドベンチャー E2E テスト
+// #605 バトルアドベンチャー E2E テスト / #1323 baby・preschool 404 確認
 // バトルページの表示・API実行・結果検証
 //
 // バトルは1日1回の制約があるため、テストは直列実行する（UI表示→API実行の順序が重要）
 
 import { expect, test } from '@playwright/test';
 import { selectKinderChild } from './helpers';
+
+test.describe('#1323: baby/preschool はバトルが 404', () => {
+	test('baby モードのバトルページは 404 を返す', async ({ page }) => {
+		const res = await page.goto('/baby/battle');
+		expect(res?.status()).toBe(404);
+	});
+
+	test('preschool モードのバトルページは 404 を返す', async ({ page }) => {
+		const res = await page.goto('/preschool/battle');
+		expect(res?.status()).toBe(404);
+	});
+});
 
 test.describe
 	.serial('#605: バトルアドベンチャー', () => {

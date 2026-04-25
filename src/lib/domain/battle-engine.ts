@@ -8,7 +8,7 @@
  * - 活動を 1 つでもやれば勝率 70% 以上
  * - 活動 0 の日は確実に負ける（BASE_STATS のみ）
  * - 3〜5 ターンで決着
- * - baby/preschool は「おさんぽモード」（必ず勝利）
+ * - 対象: elementary/junior/senior（baby/preschool はルート層で 404）
  */
 
 import type {
@@ -29,8 +29,6 @@ interface BattleConfig {
 	criticalMultiplier: number;
 	/** ダメージの乱数幅（±この値の割合） */
 	damageVariance: number;
-	/** おさんぽモード（必ず勝利） */
-	walkMode: boolean;
 }
 
 const DEFAULT_CONFIG: BattleConfig = {
@@ -38,7 +36,6 @@ const DEFAULT_CONFIG: BattleConfig = {
 	criticalRate: 0.1,
 	criticalMultiplier: 1.5,
 	damageVariance: 0.15,
-	walkMode: false,
 };
 
 /**
@@ -83,20 +80,6 @@ function calculateRecovery(rec: number): number {
 }
 
 /**
- * おさんぽモード用の弱体化ステータスを生成。
- * 敵の ATK を大幅に下げ、HP も低くして必ず勝てるようにする。
- */
-function applyWalkModeScaling(enemyStats: BattleStats): BattleStats {
-	return {
-		hp: Math.max(1, Math.floor(enemyStats.hp * 0.2)),
-		atk: 1,
-		def: 1,
-		spd: 1,
-		rec: 0,
-	};
-}
-
-/**
  * 年齢スケーリングを敵ステータスに適用する。
  */
 export function scaleEnemyStats(baseStats: BattleStats, scaling: number): BattleStats {
@@ -122,7 +105,6 @@ export function executeBattle(
 	playerStats: BattleStats,
 	enemyStats: BattleStats,
 	options: {
-		walkMode?: boolean;
 		random?: () => number;
 		maxTurns?: number;
 	} = {},
@@ -130,12 +112,10 @@ export function executeBattle(
 	const random = options.random ?? Math.random;
 	const config: BattleConfig = {
 		...DEFAULT_CONFIG,
-		walkMode: options.walkMode ?? false,
 		maxTurns: options.maxTurns ?? DEFAULT_CONFIG.maxTurns,
 	};
 
-	// おさんぽモードでは敵を大幅弱体化
-	const effectiveEnemyStats = config.walkMode ? applyWalkModeScaling(enemyStats) : enemyStats;
+	const effectiveEnemyStats = enemyStats;
 
 	let playerHp = playerStats.hp;
 	let enemyHp = effectiveEnemyStats.hp;
@@ -210,11 +190,6 @@ export function executeBattle(
 		const playerHpRatio = playerHp / playerStats.hp;
 		const enemyHpRatio = enemyHp / effectiveEnemyStats.hp;
 		outcome = playerHpRatio >= enemyHpRatio ? 'win' : 'lose';
-	}
-
-	// おさんぽモードは常に勝利
-	if (config.walkMode) {
-		outcome = 'win';
 	}
 
 	return {
