@@ -3071,3 +3071,15 @@ export const BABY_HOME_LABELS = {
 	initialPointsMinError: '1以上のポイントを入力してください',
 	initialPointsMaxError: '10000以下のポイントを入力してください',
 } as const;
+
+// ============================================================
+// オンボーディングチェックリスト (#1361)
+// ============================================================
+
+export const ONBOARDING_LABELS = {
+	title: 'はじめてのセットアップ',
+	optionalSectionLabel: 'さらに便利にする設定',
+	optionalCountSuffix: (n: number) => `任意・${n} 項目`,
+	optionalSectionHeader: (n: number) => `さらに便利にする設定（任意・${n} 項目）`,
+	allRequiredCompleted: '✅ はじめてのセットアップ完了!',
+} as const;
