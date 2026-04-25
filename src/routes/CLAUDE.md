@@ -118,6 +118,14 @@ npm run storybook   # port 6006 で起動
 ```bash
 npm run dev         # port 5173 で起動（既に使用中なら 5175 等になる）
 npm run capture:child   # baby ホームのフロースクリーンショット
+
+# preschool モードを確認したい場合
+node scripts/capture.mjs \
+  --flow child-home-preschool \
+  --url /switch \
+  --actions scripts/capture-specs/flows/child-home-preschool.mjs \
+  --presets mobile \
+  --out tmp/screenshots/
 ```
 
 注意: デモ Cookie (`gq_demo=1`) が残っていると isDemo=true になり子供一覧が空になる。
