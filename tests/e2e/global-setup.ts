@@ -862,6 +862,66 @@ export default async function globalSetup() {
 			// テーブルが既に存在する場合は無視
 		}
 
+		// #1335: ショップ E2E テスト用シードデータ
+		// たろうくん(preschool)向けに special_rewards を2件挿入:
+		//   - 交換可能なごほうび (50pt): ポイント残高 (100pt) >= コスト
+		//   - 交換不可なごほうび (200pt): ポイント残高 (100pt) < コスト
+		// 冪等性: title + child_id の組合せで既存チェックし、なければ挿入
+		const kinderChildForShop = db
+			.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
+			.get('たろうくん') as { id: number } | undefined;
+		if (kinderChildForShop) {
+			const cId = kinderChildForShop.id;
+
+			// ポイント残高をちょうど100ptに調整
+			// 他テストの活動記録等でポイントが積み上がるため、差分で帳尻を合わせる
+			db.prepare("DELETE FROM point_ledger WHERE child_id = ? AND type = 'shop_test_seed'").run(
+				cId,
+			);
+			const currentBalance = db
+				.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM point_ledger WHERE child_id = ?')
+				.get(cId) as { total: number };
+			const balanceAdjustment = 100 - currentBalance.total;
+			db.prepare(
+				"INSERT INTO point_ledger (child_id, amount, type, description) VALUES (?, ?, 'shop_test_seed', 'E2Eテスト用残高調整')",
+			).run(cId, balanceAdjustment);
+			console.log(
+				`[E2E Setup]   Adjusted たろうくん balance to 100pt (was ${currentBalance.total}pt, adjustment: ${balanceAdjustment}).`,
+			);
+
+			// 交換可能なごほうびを挿入（50pt）
+			const existingAffordable = db
+				.prepare(
+					"SELECT id FROM special_rewards WHERE child_id = ? AND title = 'E2Eテスト用ごほうび（交換可）' LIMIT 1",
+				)
+				.get(cId);
+			if (!existingAffordable) {
+				db.prepare(
+					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（交換可）', 50, '🎁', 'shop_e2e', CURRENT_TIMESTAMP)",
+				).run(cId);
+				console.log('[E2E Setup]   Created affordable shop reward for たろうくん.');
+			}
+
+			// 交換不可なごほうびを挿入（200pt）
+			const existingExpensive = db
+				.prepare(
+					"SELECT id FROM special_rewards WHERE child_id = ? AND title = 'E2Eテスト用ごほうび（交換不可）' LIMIT 1",
+				)
+				.get(cId);
+			if (!existingExpensive) {
+				db.prepare(
+					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（交換不可）', 200, '💎', 'shop_e2e', CURRENT_TIMESTAMP)",
+				).run(cId);
+				console.log('[E2E Setup]   Created expensive shop reward for たろうくん.');
+			}
+
+			// 既存の pending 申請をクリーンアップ（テスト安定化）
+			db.prepare(
+				"DELETE FROM reward_redemption_requests WHERE child_id = ? AND status = 'pending_parent_approval'",
+			).run(cId);
+			console.log('[E2E Setup]   Cleaned pending redemption requests for たろうくん (shop E2E).');
+		}
+
 		db.close();
 	} catch (e) {
 		console.log('[E2E Setup]   Test data setup error:', e);
