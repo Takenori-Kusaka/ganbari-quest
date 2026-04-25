@@ -8,7 +8,11 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { GoogleGenAI } from '@google/genai';
+import { BRAND_STYLE_BLOCK, NEGATIVE_PROMPTS } from './lib/brand-style-guide.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const API_KEY = process.env.GEMINI_API_KEY;
 if (!API_KEY) {
@@ -18,17 +22,27 @@ if (!API_KEY) {
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
-const LOGO_PATH = path.resolve('site/icon-character.png');
+
+// 参照画像: brand/master-character-sheet.png → fallback: site/icon-character.png
+const MASTER_SHEET = path.resolve(
+	__dirname,
+	'..',
+	'static/assets/brand/master-character-sheet.png',
+);
+const LOGO_PATH = fs.existsSync(MASTER_SHEET)
+	? MASTER_SHEET
+	: path.resolve(__dirname, '..', 'site/icon-character.png');
 
 // Ensure output directories exist
-const MARKETING_DIR = path.resolve('static/assets/marketing');
-const SITE_DIR = path.resolve('site');
+const MARKETING_DIR = path.resolve(__dirname, '..', 'static/assets/marketing');
+const SITE_DIR = path.resolve(__dirname, '..', 'site');
 fs.mkdirSync(MARKETING_DIR, { recursive: true });
 
 // Load reference character image
 const logoBase64 = fs.readFileSync(LOGO_PATH).toString('base64');
 
-const COMMON_STYLE = `
+// brand-style-guide.js の BRAND_STYLE_BLOCK をベースに marketing 向け追加指示を付加
+const COMMON_STYLE = `${BRAND_STYLE_BLOCK}
 STYLE REQUIREMENTS (CRITICAL):
 - Use the same art style as the reference character (cute anime/chibi style with golden helmet, blue cape, magic wand with star)
 - The character from the reference image MUST be the main element — a cute child adventurer
@@ -39,7 +53,7 @@ STYLE REQUIREMENTS (CRITICAL):
 - NOT transparent background — use soft gradient backgrounds
 - The overall feeling should be warm, inviting, and adventurous
 - Bright, cheerful color palette
-`;
+${NEGATIVE_PROMPTS}`;
 
 const IMAGES = [
 	{
