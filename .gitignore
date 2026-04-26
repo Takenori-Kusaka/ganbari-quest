@@ -73,7 +73,8 @@ tmp/
 screenshots/
 # LP screenshots are generated at GitHub Pages deploy time (#1157)
 site/screenshots/
-!docs/screenshots/
+# docs/screenshots/ は git 追跡しない（PR 証跡は GitHub CDN にアップロード）
+docs/screenshots/
 
 # Reports (jscpd, type-coverage, security scan, etc.)
 reports/
