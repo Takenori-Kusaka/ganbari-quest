@@ -12,18 +12,11 @@ const TICK_INTERVAL_MS = 1000;
 test.describe('#1292 自動スリープ', () => {
 	test('15分連続アクティブで /switch にリダイレクトされる', async ({ page }) => {
 		// headless Chromium では document.hidden が常に true になり sleepTimer がスキップされる。
-		// --disable-renderer-backgrounding フラグで headless でも document.hidden = false にする。
-		// さらに addInitScript() + page.evaluate() の二段構えで確実性を高める。
+		// +layout.svelte の sleepTimer は window.__playwrightVisible が truthy の場合
+		// document.hidden ガードを迂回する（テスト専用フラグ）。
+		// addInitScript でフルナビゲーション時（/switch）に確実に設定する。
 		await page.addInitScript(() => {
-			// hidden と visibilityState を両方上書き（Chromium headless 対策）
-			Object.defineProperty(document, 'hidden', {
-				configurable: true,
-				get: () => false,
-			});
-			Object.defineProperty(document, 'visibilityState', {
-				configurable: true,
-				get: () => 'visible',
-			});
+			(window as Window & { __playwrightVisible?: boolean }).__playwrightVisible = true;
 		});
 
 		// page.clock で Date.now() と setInterval を制御
@@ -34,24 +27,6 @@ test.describe('#1292 自動スリープ', () => {
 
 		// preschool/home にいることを確認
 		await expect(page).toHaveURL(/\/preschool\/home/);
-
-		// SPA ナビゲーション後に確実に document.hidden = false に再適用する
-		await page.evaluate(() => {
-			Object.defineProperty(document, 'hidden', {
-				configurable: true,
-				get: () => false,
-			});
-			Object.defineProperty(document, 'visibilityState', {
-				configurable: true,
-				get: () => 'visible',
-			});
-		});
-
-		// document.hidden が false になっていることを事前確認（デバッグ用アサーション）
-		// この assertion が通れば sleepTimer が正常に動作するはず
-		await expect
-			.poll(async () => page.evaluate(() => document.hidden), { timeout: 1000 })
-			.toBe(false);
 
 		// 最初のアクティビティ（lastActive を設定）
 		await page.dispatchEvent('body', 'pointerdown');
