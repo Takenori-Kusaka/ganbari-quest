@@ -1,4 +1,4 @@
-// /admin/rewards — 特別報酬の付与（#336, #501, #581 プリセット追加, #728 プランゲート, #787 PlanLimitError 統一）
+// /admin/rewards — 特別報酬の付与（#336, #501, #581 プリセット追加, #728 プランゲート, #787 PlanLimitError 統一, #1337 申請タブ追加）
 
 import { fail } from '@sveltejs/kit';
 import { PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
@@ -11,6 +11,11 @@ import {
 	type PlanTier,
 	resolveFullPlanTier,
 } from '$lib/server/services/plan-limit-service';
+import {
+	approveRedemption,
+	getRedemptionRequestsForParent,
+	rejectRedemption,
+} from '$lib/server/services/reward-redemption-service';
 import {
 	getChildSpecialRewards,
 	getRewardTemplates,
@@ -42,12 +47,22 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
+	// 申請一覧を取得（pending + 最近30件の承認/却下履歴）
+	const [pendingRequests, historyRequests] = await Promise.all([
+		getRedemptionRequestsForParent(tenantId, { status: 'pending_parent_approval' }),
+		getRedemptionRequestsForParent(tenantId, { limit: 30 }).then((requests) =>
+			requests.filter((r) => r.status === 'approved' || r.status === 'rejected'),
+		),
+	]);
+
 	return {
 		children: childrenWithRewards,
 		templates,
 		presetGroups: PRESET_REWARD_GROUPS,
 		isPremium,
 		planTier: tier,
+		pendingRequests,
+		historyRequests,
 	};
 };
 
@@ -123,5 +138,47 @@ export const actions: Actions = {
 		await saveRewardTemplates([...existing, newTemplate], tenantId);
 
 		return { presetAdded: true };
+	},
+
+	approveRedemption: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const requestId = Number(formData.get('requestId'));
+		if (!requestId) return fail(400, { redemptionError: '申請IDが不正です' });
+
+		// parentId は approveRedemption の resolved_by_parent_id に記録するだけの追跡用
+		// AuthContext に userId が無いため 0 をフォールバックとして使用
+		const parentId = 0;
+
+		const result = await approveRedemption(requestId, parentId, tenantId);
+		if ('error' in result) {
+			const msgs: Record<string, string> = {
+				INVALID_STATUS: '既に処理済みの申請です',
+				INSUFFICIENT_POINTS: 'ポイントが不足しています',
+				REQUEST_NOT_FOUND: '申請が見つかりません',
+			};
+			return fail(400, { redemptionError: msgs[result.error] ?? 'エラーが発生しました' });
+		}
+
+		return { redemptionApproved: true };
+	},
+
+	rejectRedemption: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const requestId = Number(formData.get('requestId'));
+		const parentNote = String(formData.get('parentNote') ?? '').trim() || null;
+		if (!requestId) return fail(400, { redemptionError: '申請IDが不正です' });
+
+		const result = await rejectRedemption(requestId, parentNote, tenantId);
+		if ('error' in result) {
+			const msgs: Record<string, string> = {
+				INVALID_STATUS: '既に処理済みの申請です',
+				REQUEST_NOT_FOUND: '申請が見つかりません',
+			};
+			return fail(400, { redemptionError: msgs[result.error] ?? 'エラーが発生しました' });
+		}
+
+		return { redemptionRejected: true };
 	},
 };

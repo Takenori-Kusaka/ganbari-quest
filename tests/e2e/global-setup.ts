@@ -73,6 +73,30 @@ export default async function globalSetup() {
 				}
 			}
 
+			// #1335: reward_redemption_requests テーブル追加
+			try {
+				db.exec(`CREATE TABLE IF NOT EXISTS reward_redemption_requests (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+					reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
+					requested_at INTEGER NOT NULL,
+					status TEXT NOT NULL DEFAULT 'pending_parent_approval',
+					parent_note TEXT,
+					resolved_at INTEGER,
+					resolved_by_parent_id INTEGER,
+					shown_to_child_at INTEGER
+				)`);
+				db.exec(
+					'CREATE INDEX IF NOT EXISTS idx_redemption_child_status ON reward_redemption_requests(child_id, status)',
+				);
+				db.exec(
+					'CREATE INDEX IF NOT EXISTS idx_redemption_reward_status ON reward_redemption_requests(reward_id, status)',
+				);
+				console.log('[E2E Setup]   Created reward_redemption_requests table.');
+			} catch {
+				// テーブルが既に存在する場合は無視
+			}
+
 			db.close();
 			if (!table) needsSchema = true;
 		} catch {
@@ -812,6 +836,106 @@ export default async function globalSetup() {
 			console.log('[E2E Setup]   Added is_main_quest column to activities.');
 		} catch {
 			// カラムが既に存在する場合は無視
+		}
+
+		// #1335: reward_redemption_requests テーブル追加
+		try {
+			db.exec(`CREATE TABLE IF NOT EXISTS reward_redemption_requests (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+				reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
+				requested_at INTEGER NOT NULL,
+				status TEXT NOT NULL DEFAULT 'pending_parent_approval',
+				parent_note TEXT,
+				resolved_at INTEGER,
+				resolved_by_parent_id INTEGER,
+				shown_to_child_at INTEGER
+			)`);
+			db.exec(
+				'CREATE INDEX IF NOT EXISTS idx_redemption_child_status ON reward_redemption_requests(child_id, status)',
+			);
+			db.exec(
+				'CREATE INDEX IF NOT EXISTS idx_redemption_reward_status ON reward_redemption_requests(reward_id, status)',
+			);
+			console.log('[E2E Setup]   Created reward_redemption_requests table.');
+		} catch {
+			// テーブルが既に存在する場合は無視
+		}
+
+		// #1335: ショップ E2E テスト用シードデータ
+		// たろうくん(preschool)向けに special_rewards を2件挿入:
+		//   - 交換可能なごほうび (50pt): ポイント残高 (100pt) >= コスト
+		//   - 交換不可なごほうび (99999pt): 並行ワーカーによる加点汚染でも閾値に届かない
+		// 冪等性: title + child_id の組合せで既存チェックし、なければ挿入
+		const kinderChildForShop = db
+			.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
+			.get('たろうくん') as { id: number } | undefined;
+		if (kinderChildForShop) {
+			const cId = kinderChildForShop.id;
+
+			// ポイント残高をちょうど100ptに調整
+			// 他テストの活動記録等でポイントが積み上がるため、差分で帳尻を合わせる
+			db.prepare("DELETE FROM point_ledger WHERE child_id = ? AND type = 'shop_test_seed'").run(
+				cId,
+			);
+			const currentBalance = db
+				.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM point_ledger WHERE child_id = ?')
+				.get(cId) as { total: number };
+			const balanceAdjustment = 100 - currentBalance.total;
+			db.prepare(
+				"INSERT INTO point_ledger (child_id, amount, type, description) VALUES (?, ?, 'shop_test_seed', 'E2Eテスト用残高調整')",
+			).run(cId, balanceAdjustment);
+			console.log(
+				`[E2E Setup]   Adjusted たろうくん balance to 100pt (was ${currentBalance.total}pt, adjustment: ${balanceAdjustment}).`,
+			);
+
+			// 交換可能なごほうびを挿入（50pt） — 交換フローテスト用
+			const existingAffordable = db
+				.prepare(
+					"SELECT id FROM special_rewards WHERE child_id = ? AND title = 'E2Eテスト用ごほうび（交換可）' LIMIT 1",
+				)
+				.get(cId);
+			if (!existingAffordable) {
+				db.prepare(
+					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（交換可）', 50, '🎁', 'shop_e2e', CURRENT_TIMESTAMP)",
+				).run(cId);
+				console.log('[E2E Setup]   Created affordable shop reward for たろうくん.');
+			}
+
+			// キャンセル確認テスト用に別の交換可能ごほうびを挿入（50pt）
+			// 交換フローテストで1つ目が申請済みになっても独立して enabled 状態を保つ
+			const existingCancel = db
+				.prepare(
+					"SELECT id FROM special_rewards WHERE child_id = ? AND title = 'E2Eテスト用ごほうび（キャンセル確認用）' LIMIT 1",
+				)
+				.get(cId);
+			if (!existingCancel) {
+				db.prepare(
+					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（キャンセル確認用）', 50, '🔔', 'shop_e2e', CURRENT_TIMESTAMP)",
+				).run(cId);
+				console.log('[E2E Setup]   Created cancel-test shop reward for たろうくん.');
+			}
+
+			// 交換不可なごほうびを挿入（99999pt）
+			// 並行ワーカーによる point_ledger 汚染でも絶対に交換ボタンが enabled にならないよう
+			// 現実的に到達不能なコストを設定する（race condition 防止）
+			const existingExpensive = db
+				.prepare(
+					"SELECT id FROM special_rewards WHERE child_id = ? AND title = 'E2Eテスト用ごほうび（交換不可）' LIMIT 1",
+				)
+				.get(cId);
+			if (!existingExpensive) {
+				db.prepare(
+					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（交換不可）', 99999, '💎', 'shop_e2e', CURRENT_TIMESTAMP)",
+				).run(cId);
+				console.log('[E2E Setup]   Created expensive shop reward for たろうくん.');
+			}
+
+			// 既存の pending 申請をクリーンアップ（テスト安定化）
+			db.prepare(
+				"DELETE FROM reward_redemption_requests WHERE child_id = ? AND status = 'pending_parent_approval'",
+			).run(cId);
+			console.log('[E2E Setup]   Cleaned pending redemption requests for たろうくん (shop E2E).');
 		}
 
 		db.close();
