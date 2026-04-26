@@ -28,6 +28,12 @@ test.describe('#1292 自動スリープ', () => {
 		// preschool/home にいることを確認
 		await expect(page).toHaveURL(/\/preschool\/home/);
 
+		// onMount 内の sleepTimer 登録完了を待つ（SSR hydration + onMount 実行完了の保証）
+		// +layout.svelte の onMount が setInterval を登録した直後に __sleepTimerReady = true をセットする
+		await page.waitForFunction(
+			() => (window as Window & { __sleepTimerReady?: boolean }).__sleepTimerReady === true,
+		);
+
 		// 最初のアクティビティ（lastActive を設定）
 		await page.dispatchEvent('body', 'pointerdown');
 
