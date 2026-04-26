@@ -11,6 +11,18 @@ const TICK_INTERVAL_MS = 1000;
 
 test.describe('#1292 自動スリープ', () => {
 	test('15分連続アクティブで /switch にリダイレクトされる', async ({ page }) => {
+		// headless Chromium では document.hidden が常に true になり sleepTimer がスキップされる。
+		// Document.prototype.hidden を addInitScript() でプロトタイプレベルから上書きすることで
+		// Chrome の native getter を確実に置き換える。
+		// addInitScript() はナビゲーション前に実行されるため、page.clock.install() より先に登録する。
+		// SPA ナビゲーション後もプロトタイプ上書きは保持されるため selectKinderChild 後も有効。
+		await page.addInitScript(() => {
+			Object.defineProperty(Document.prototype, 'hidden', {
+				configurable: true,
+				get: () => false,
+			});
+		});
+
 		// page.clock で Date.now() と setInterval を制御
 		// （selectKinderChild の前にインストールし、onMount の setInterval も偽クロック管理下に置く）
 		await page.clock.install();
@@ -19,17 +31,6 @@ test.describe('#1292 自動スリープ', () => {
 
 		// preschool/home にいることを確認
 		await expect(page).toHaveURL(/\/preschool\/home/);
-
-		// headless Chromium では document.hidden が常に true になり sleepTimer がスキップされる。
-		// page.evaluate() でページ遷移完了後に document インスタンスの hidden プロパティを
-		// 直接オーバーライドする（bringToFront() は headless モードでは document.hidden を変更しない）。
-		// addInitScript() は full navigation 時のみ有効で SPA 遷移後には適用されないため不適。
-		await page.evaluate(() => {
-			Object.defineProperty(document, 'hidden', {
-				configurable: true,
-				get: () => false,
-			});
-		});
 
 		// 最初のアクティビティ（lastActive を設定）
 		await page.dispatchEvent('body', 'pointerdown');
