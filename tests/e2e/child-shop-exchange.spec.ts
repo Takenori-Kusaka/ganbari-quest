@@ -3,13 +3,13 @@
 //
 // テスト前提:
 //   - global-setup.ts でたろうくん(preschool)に以下のシードデータが投入済み:
-//     - ポイント残高: 100pt（beforeAll で再調整するため parallel workers の汚染を防ぐ）
+//     - ポイント残高: 100pt（beforeEach で再調整するため parallel workers の汚染を防ぐ）
 //     - 交換可能なごほうび（交換可）: 50pt — 交換フローテスト専用
 //     - 交換可能なごほうび（キャンセル確認用）: 50pt — キャンセルテスト専用（独立）
 //     - 交換不可なごほうび: 200pt（残高 < コスト）
 //
 // 注意: workers: 2 の並列実行環境で他のテスト（features.spec.ts 等）がポイントを積み上げるため、
-//   beforeAll で必ず残高を 100pt に再調整してから各テストを実行する
+//   beforeEach で必ず残高を 100pt に再調整してから各テストを実行する（beforeAll では不十分）
 
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -19,7 +19,7 @@ import { dismissOverlays, selectKinderChild } from './helpers';
 // ポイント残高リセットヘルパー（DB 直接操作）
 // ============================================================
 // workers: 2 の並列実行環境では他テストが point_ledger を汚染するため、
-// テスト直前に残高を 100pt に強制リセットする
+// 各テスト実行前に残高を 100pt に強制リセットする（beforeAll では不十分）
 async function resetKinderChildBalance(): Promise<void> {
 	const DB_PATH = path.resolve('data/ganbari-quest.db');
 	const { default: Database } = await import('better-sqlite3');
@@ -52,8 +52,8 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('#1335: ごほうびショップ 交換フロー', () => {
 	// workers: 2 の並列実行で他テストが point_ledger を汚染するため、
-	// テスト実行前に残高を 100pt に強制リセットする
-	test.beforeAll(async () => {
+	// 各テスト実行前に残高を 100pt に強制リセットする（beforeAll では不十分）
+	test.beforeEach(async () => {
 		await resetKinderChildBalance();
 	});
 
