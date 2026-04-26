@@ -97,6 +97,8 @@ test.describe('#1497 Stripe Checkout 遷移 — page.route() モック', () => {
 // ============================================================
 
 test.describe('#1497 /api/stripe/checkout API インターセプト', () => {
+	test.use({ storageState: 'playwright/.auth/free.json' });
+
 	test('page.route() で /api/stripe/checkout をモックすると mock URL が返る', async ({ page }) => {
 		const mockCheckoutUrl = 'https://checkout.stripe.com/mock-test-session-abc123';
 
@@ -108,6 +110,10 @@ test.describe('#1497 /api/stripe/checkout API インターセプト', () => {
 				body: JSON.stringify({ url: mockCheckoutUrl }),
 			});
 		});
+
+		// fetch の相対 URL 解決に必要なベース URL を確立する
+		// （about:blank のままでは fetch('/api/...') が TypeError になるため）
+		await page.goto('/', { waitUntil: 'commit', timeout: 30_000 });
 
 		// fetch でモックエンドポイントを呼び出す
 		const result = await page.evaluate(async (_url) => {
