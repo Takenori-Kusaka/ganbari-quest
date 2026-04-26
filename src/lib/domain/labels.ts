@@ -3210,3 +3210,15 @@ export const STAMP_PRESS_N_MESSAGES = {
 	/** 高校生 (16-18歳) — フラットに、自律・継続を称える */
 	senior: ['Good job!', '継続は力なり！', 'ナイスキープ！', '着実に積み上げてる！', '自分を誇れ！'],
 } as const;
+
+// ============================================================
+// 本日の使用時間 (#1292: 自動スリープ + 使用時間可視化)
+// AdminHome の使用時間セクションで利用
+// ============================================================
+
+export const USAGE_TIME_LABELS = {
+	todayUsage: '本日の使用時間',
+	todayUsageOf: (childName: string) => `${childName}の本日使用時間`,
+	minutesUsed: (min: number) => `${min}分使用`,
+	minutesOf15: (min: number) => `${min}分 / 15分`,
+} as const;

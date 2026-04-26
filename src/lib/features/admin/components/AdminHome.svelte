@@ -1,6 +1,6 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
-import { TUTORIAL_LABELS } from '$lib/domain/labels';
+import { TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
@@ -351,18 +351,18 @@ function childLink(child: ChildSummary): string {
 	<!-- #1292: 本日の使用時間 -->
 	{#if !isDemo && todayUsage.length > 0}
 		<section data-testid="today-usage-section">
-			<h2 class="text-lg font-bold text-[var(--color-text)]" aria-label="本日の使用時間">⏱️ 本日の使用時間</h2>
+			<h2 class="text-lg font-bold text-[var(--color-text)]" aria-label={USAGE_TIME_LABELS.todayUsage}>⏱️ {USAGE_TIME_LABELS.todayUsage}</h2>
 			<div class="usage-grid mt-3">
 				{#each todayUsage as usage}
-					<Card variant="elevated" class="p-3" role="group" aria-label="{usage.childName}の本日使用時間">
+					<Card variant="elevated" class="p-3" role="group" aria-label={USAGE_TIME_LABELS.todayUsageOf(usage.childName)}>
 						<p class="usage-card__name">{usage.childName}</p>
-						<div class="usage-bar-wrap" role="progressbar" aria-valuenow={usage.durationMin} aria-valuemin={0} aria-valuemax={15} aria-label="{usage.durationMin}分使用">
+						<div class="usage-bar-wrap" role="progressbar" aria-valuenow={usage.durationMin} aria-valuemin={0} aria-valuemax={15} aria-label={USAGE_TIME_LABELS.minutesUsed(usage.durationMin)}>
 							<div
 								class="usage-bar"
 								style:width="{Math.min(100, (usage.durationMin / 15) * 100)}%"
 							></div>
 						</div>
-						<p class="usage-card__time">{usage.durationMin}分 / 15分</p>
+						<p class="usage-card__time">{USAGE_TIME_LABELS.minutesOf15(usage.durationMin)}</p>
 					</Card>
 				{/each}
 			</div>
