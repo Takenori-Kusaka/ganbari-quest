@@ -47,6 +47,12 @@ test.describe('#1292 自動スリープ', () => {
 			});
 		});
 
+		// document.hidden が false になっていることを事前確認（デバッグ用アサーション）
+		// この assertion が通れば sleepTimer が正常に動作するはず
+		await expect
+			.poll(async () => page.evaluate(() => document.hidden), { timeout: 1000 })
+			.toBe(false);
+
 		// 最初のアクティビティ（lastActive を設定）
 		await page.dispatchEvent('body', 'pointerdown');
 
