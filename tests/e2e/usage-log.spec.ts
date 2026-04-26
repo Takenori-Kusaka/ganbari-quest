@@ -25,12 +25,20 @@ test.describe('#1292 使用時間ログ', () => {
 	});
 
 	test('管理画面ダッシュボードに使用時間セクションが表示される', async ({ page }) => {
+		// onMount の fire-and-forget fetch を待つため事前登録
+		const usageRecordedPromise = page
+			.waitForResponse(
+				(resp) => resp.url().includes('/api/v1/usage') && resp.request().method() === 'POST',
+				{ timeout: 5000 },
+			)
+			.catch(() => null);
+
 		// 子供ページを訪問してセッションを記録
 		await selectKinderChild(page);
 		await page.waitForURL(/\/preschool\/home/);
 
-		// セッションが記録されるまで少し待機
-		await page.waitForTimeout(1000);
+		// セッション記録 API のレスポンス完了を待つ（fire-and-forget のため null も許容）
+		await usageRecordedPromise;
 
 		// 管理画面に遷移
 		await page.goto('/admin');
