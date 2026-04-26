@@ -21,6 +21,14 @@ test.describe('#1292 自動スリープ', () => {
 
 		// CI headless 環境では document.hidden が true になる場合があるため前面に出す
 		await page.bringToFront();
+		// headless Chrome では bringToFront() 後も document.hidden が true のままになることがある。
+		// スリープタイマーの `if (document.hidden) return;` ガードをテストで迂回するため強制上書き。
+		await page.evaluate(() => {
+			Object.defineProperty(document, 'hidden', {
+				get: () => false,
+				configurable: true,
+			});
+		});
 
 		// アクティブ状態を模擬（pointerdown イベントを送信し続ける）
 		// setInterval(1000ms) が ACTIVE_MS 累積するには 15分*60 = 900 回分の tick が必要
