@@ -18,12 +18,13 @@
 //    ローカル E2E では beforeEach で settings 行を削除して初回表示状態を再現し、
 //    afterEach で `'true'` に戻すことで他 spec への副作用を防ぐ。
 //
+// #1535: loginAsPlan() を storageState ベースに移行（describe ブロック分割）
+//
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts premium-welcome
 
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import Database from 'better-sqlite3';
-import { loginAsPlan, warmupAdminPages } from './plan-login-helpers';
 
 const DB_PATH = path.resolve('data/ganbari-quest.db');
 
@@ -47,24 +48,19 @@ function markWelcomeDismissed(): void {
 	}
 }
 
-test.beforeAll(async ({ browser }) => {
-	test.setTimeout(360_000);
-	await warmupAdminPages(browser, ['/admin']);
-});
-
 test.afterEach(() => {
 	// 他 spec の /admin 訪問にモーダルがかぶらないよう必ず dismissed 状態に戻す
 	markWelcomeDismissed();
 });
 
-test.describe('#778 PremiumWelcome モーダル', () => {
+test.describe('#778 PremiumWelcome モーダル — standard', () => {
+	test.use({ storageState: 'playwright/.auth/standard.json' });
+
 	test.beforeEach(() => {
-		test.slow(); // Vite dev のコールドコンパイルでタイムアウトを 3x 延長
 		resetWelcomeFlag();
 	});
 
 	test('standard プラン初回 /admin で歓迎モーダルが表示される', async ({ page }) => {
-		await loginAsPlan(page, 'standard');
 		await page.goto('/admin');
 		const dialog = page.getByRole('dialog', { name: /スタンダード.*ようこそ/ });
 		await expect(dialog).toBeVisible();
@@ -75,18 +71,7 @@ test.describe('#778 PremiumWelcome モーダル', () => {
 		await expect(dialog.getByText('特別なごほうび設定')).toBeVisible();
 	});
 
-	test('family プラン初回 /admin で歓迎モーダルが表示される', async ({ page }) => {
-		await loginAsPlan(page, 'family');
-		await page.goto('/admin');
-		const dialog = page.getByRole('dialog', { name: /ファミリー.*ようこそ/ });
-		await expect(dialog).toBeVisible();
-		// family 固有の項目（PREMIUM_UNLOCKED_FEATURES.family より）
-		await expect(dialog.getByText('きょうだいランキング')).toBeVisible();
-		await expect(dialog.getByText('ひとことメッセージ（自由テキスト）')).toBeVisible();
-	});
-
 	test('「さっそく始める」で閉じた後はリロードしても表示されない', async ({ page }) => {
-		await loginAsPlan(page, 'standard');
 		await page.goto('/admin');
 		const dialog = page.getByRole('dialog', { name: /スタンダード.*ようこそ/ });
 		await expect(dialog).toBeVisible();
@@ -96,9 +81,33 @@ test.describe('#778 PremiumWelcome モーダル', () => {
 		await page.reload();
 		await expect(page.getByRole('dialog', { name: /ようこそ/ })).toHaveCount(0);
 	});
+});
+
+test.describe('#778 PremiumWelcome モーダル — family', () => {
+	test.use({ storageState: 'playwright/.auth/family.json' });
+
+	test.beforeEach(() => {
+		resetWelcomeFlag();
+	});
+
+	test('family プラン初回 /admin で歓迎モーダルが表示される', async ({ page }) => {
+		await page.goto('/admin');
+		const dialog = page.getByRole('dialog', { name: /ファミリー.*ようこそ/ });
+		await expect(dialog).toBeVisible();
+		// family 固有の項目（PREMIUM_UNLOCKED_FEATURES.family より）
+		await expect(dialog.getByText('きょうだいランキング')).toBeVisible();
+		await expect(dialog.getByText('ひとことメッセージ（自由テキスト）')).toBeVisible();
+	});
+});
+
+test.describe('#778 PremiumWelcome モーダル — free（表示なし確認）', () => {
+	test.use({ storageState: 'playwright/.auth/free.json' });
+
+	test.beforeEach(() => {
+		resetWelcomeFlag();
+	});
 
 	test('free プランでは歓迎モーダルは出ない（プラン条件ガード）', async ({ page }) => {
-		await loginAsPlan(page, 'free');
 		await page.goto('/admin');
 		// AdminHome の {#if welcomeVisible && (planTier === 'standard' || 'family')} ガード
 		await expect(page.getByRole('dialog', { name: /ようこそ/ })).toHaveCount(0);

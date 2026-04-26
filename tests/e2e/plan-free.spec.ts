@@ -11,33 +11,18 @@
 //  - plan-standard / plan-family の negative assertion とミラー関係になり、
 //    プラン境界の回帰検知を双方向で担保する
 //
+// #1535: loginAsPlan() を storageState ベースに移行
+//
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts plan-free
 
 import { expect, test } from '@playwright/test';
-import { loginAsPlan, warmupAdminPages } from './plan-login-helpers';
 
-test.beforeAll(async ({ browser }) => {
-	test.setTimeout(360_000);
-	await warmupAdminPages(browser, [
-		'/admin',
-		'/admin/license',
-		'/admin/reports',
-		'/admin/settings',
-		'/admin/messages',
-		'/admin/rewards',
-		'/admin/activities',
-	]);
-});
+test.use({ storageState: 'playwright/.auth/free.json' });
 
 test.describe('#751 free プラン — 機能ゲート', () => {
-	test.beforeEach(() => {
-		test.slow(); // Vite dev のコールドコンパイルでタイムアウトを 3x 延長
-	});
-
 	test('/admin/license の PlanStatusCard が free を示し、アップグレード CTA が見える', async ({
 		page,
 	}) => {
-		await loginAsPlan(page, 'free');
 		await page.goto('/admin/license');
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible();
@@ -49,7 +34,6 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 	});
 
 	test('/admin ホームに無料プラン用 PlanStatusCard が表示される', async ({ page }) => {
-		await loginAsPlan(page, 'free');
 		await page.goto('/admin');
 		// free のときは PlanStatusCard が data-plan-tier="free" で表示される
 		const card = page.getByTestId('plan-status-card');
@@ -60,14 +44,12 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 	});
 
 	test('/admin/reports — weekly-report-upsell バナーが表示される', async ({ page }) => {
-		await loginAsPlan(page, 'free');
 		await page.goto('/admin/reports');
 		// #735: 無料プラン向け upsell はタブの外に出し、ページ到達時点で常に表示される
 		await expect(page.getByTestId('weekly-report-upsell')).toBeVisible();
 	});
 
 	test('/admin/settings — エクスポートはアップセル表示で disabled', async ({ page }) => {
-		await loginAsPlan(page, 'free');
 		await page.goto('/admin/settings');
 		// free 用アップセルカードが見える
 		await expect(page.getByTestId('export-upsell')).toBeVisible();
@@ -80,7 +62,6 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 	test('/admin/activities — AiSuggestPanel が plan-locked + アップセル CTA を出す', async ({
 		page,
 	}) => {
-		await loginAsPlan(page, 'free');
 		await page.goto('/admin/activities');
 		// Svelte ハイドレーション完了を待つ（FAB の onclick ハンドラ束縛を保証）。
 		// FAB の確実な可視化で ready 状態を検知する（auto-retry assertion）。
@@ -104,7 +85,6 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 	test('/admin/rewards — アップグレードバナーが表示される', async ({ page }) => {
 		// plan-gated-features.spec.ts でも検証済みだが、
 		// free プランの正面検証パッケージとしてここでも押さえる
-		await loginAsPlan(page, 'free');
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('rewards-upgrade-banner')).toBeVisible();
 		await expect(page.getByTestId('rewards-upgrade-cta')).toBeVisible();
@@ -113,7 +93,6 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 	test('/admin/messages — ひとことメッセージは disabled（family 限定機能）', async ({ page }) => {
 		// plan-gated-features.spec.ts と意図的に重複させ、free 単体でも完結する
 		// 機能疎通スイートにする
-		await loginAsPlan(page, 'free');
 		await page.goto('/admin/messages');
 		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
 		await expect(textBtn).toBeVisible();
