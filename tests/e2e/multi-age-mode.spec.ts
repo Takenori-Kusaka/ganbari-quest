@@ -180,9 +180,9 @@ test.describe('全年齢モード E2E', () => {
 					await expect(nav).not.toBeVisible();
 				} else {
 					await expect(nav).toBeVisible();
-					// ナビリンクが4つ表示される（ホーム、チェックリスト、つよさ、かぞく）
+					// ナビリンクが5つ表示される（ホーム、チェックリスト、ごほうびショップ、つよさ、かぞく）
 					const links = nav.locator('a');
-					expect(await links.count()).toBe(4);
+					expect(await links.count()).toBe(5);
 				}
 			});
 

@@ -223,6 +223,23 @@ export const SQL_CREATE_TABLES = `
 	CREATE INDEX IF NOT EXISTS idx_special_rewards_child
 		ON special_rewards(child_id, granted_at);
 
+	-- #1337: ごほうびショップ交換申請
+	CREATE TABLE IF NOT EXISTS reward_redemption_requests (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
+		requested_at INTEGER NOT NULL,
+		status TEXT NOT NULL DEFAULT 'pending_parent_approval',
+		parent_note TEXT,
+		resolved_at INTEGER,
+		resolved_by_parent_id INTEGER,
+		shown_to_child_at INTEGER
+	);
+	CREATE INDEX IF NOT EXISTS idx_redemption_child_status
+		ON reward_redemption_requests(child_id, status);
+	CREATE INDEX IF NOT EXISTS idx_redemption_reward_status
+		ON reward_redemption_requests(reward_id, status);
+
 	CREATE TABLE IF NOT EXISTS checklist_templates (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),

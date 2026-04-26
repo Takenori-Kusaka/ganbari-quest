@@ -20,6 +20,7 @@ import * as dynamoMessageRepo from './dynamodb/message-repo';
 import * as dynamoPointRepo from './dynamodb/point-repo';
 import * as dynamoPushSubscriptionRepo from './dynamodb/push-subscription-repo';
 import * as dynamoReportDailySummaryRepo from './dynamodb/report-daily-summary-repo';
+import * as dynamoRewardRedemptionRepo from './dynamodb/reward-redemption-repo';
 import * as dynamoSeasonEventRepo from './dynamodb/season-event-repo';
 import * as dynamoSettingsRepo from './dynamodb/settings-repo';
 import * as dynamoSiblingChallengeRepo from './dynamodb/sibling-challenge-repo';
@@ -51,6 +52,7 @@ import type { IMessageRepo } from './interfaces/message-repo.interface';
 import type { IPointRepo } from './interfaces/point-repo.interface';
 import type { IPushSubscriptionRepo } from './interfaces/push-subscription-repo.interface';
 import type { IReportDailySummaryRepo } from './interfaces/report-daily-summary-repo.interface';
+import type { IRewardRedemptionRepo } from './interfaces/reward-redemption-repo.interface';
 import type { ISeasonEventRepo } from './interfaces/season-event-repo.interface';
 import type { ISettingsRepo } from './interfaces/settings-repo.interface';
 import type { ISiblingChallengeRepo } from './interfaces/sibling-challenge-repo.interface';
@@ -82,6 +84,7 @@ import * as sqliteMessageRepo from './sqlite/message-repo';
 import * as sqlitePointRepo from './sqlite/point-repo';
 import * as sqlitePushSubscriptionRepo from './sqlite/push-subscription-repo';
 import * as sqliteReportDailySummaryRepo from './sqlite/report-daily-summary-repo';
+import * as sqliteRewardRedemptionRepo from './sqlite/reward-redemption-repo';
 import * as sqliteSeasonEventRepo from './sqlite/season-event-repo';
 import * as sqliteSettingsRepo from './sqlite/settings-repo';
 import * as sqliteSiblingChallengeRepo from './sqlite/sibling-challenge-repo';
@@ -119,6 +122,7 @@ export interface Repositories {
 	siblingChallenge: ISiblingChallengeRepo;
 	siblingCheer: ISiblingCheerRepo;
 	settings: ISettingsRepo;
+	rewardRedemption: IRewardRedemptionRepo;
 	specialReward: ISpecialRewardRepo;
 	stampCard: IStampCardRepo;
 	status: IStatusRepo;
@@ -160,6 +164,7 @@ export function getRepos(): Repositories {
 			siblingChallenge: dynamoSiblingChallengeRepo,
 			siblingCheer: dynamoSiblingCheerRepo,
 			settings: dynamoSettingsRepo,
+			rewardRedemption: dynamoRewardRedemptionRepo,
 			specialReward: dynamoSpecialRewardRepo,
 			stampCard: dynamoStampCardRepo,
 			status: dynamoStatusRepo,
@@ -197,6 +202,7 @@ export function getRepos(): Repositories {
 		siblingChallenge: sqliteSiblingChallengeRepo,
 		siblingCheer: sqliteSiblingCheerRepo,
 		settings: sqliteSettingsRepo,
+		rewardRedemption: sqliteRewardRedemptionRepo,
 		specialReward: sqliteSpecialRewardRepo,
 		stampCard: sqliteStampCardRepo,
 		status: sqliteStatusRepo,

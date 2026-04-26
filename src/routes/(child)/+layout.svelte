@@ -9,6 +9,7 @@ import {
 	ICON_STATUS,
 	ICON_SWITCH,
 } from '$lib/domain/icons';
+import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
@@ -29,6 +30,7 @@ const modeLabels = $derived(getModeLabels(uiMode));
 const navItems = $derived([
 	{ href: `/${uiMode}/home`, icon: ICON_HOME, label: 'ホーム' },
 	{ href: '/checklist', icon: ICON_CHECKLIST, label: modeLabels.checklist },
+	{ href: `/${uiMode}/shop`, icon: CHILD_SHOP_LABELS.navIcon, label: CHILD_SHOP_LABELS.navLabel },
 	{ href: `/${uiMode}/status`, icon: ICON_STATUS, label: modeLabels.status },
 	{ href: '/switch', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
