@@ -12,6 +12,7 @@ import {
 } from '$lib/domain/icons';
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import type { UiMode } from '$lib/domain/validation/age-tier';
+import { startAutoSleep } from '$lib/features/auto-sleep';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 import StampCard from '$lib/ui/components/StampCard.svelte';
@@ -92,54 +93,27 @@ onMount(() => {
 				// セッション記録失敗は無視（非クリティカル）
 			});
 
-		let lastActive = Date.now();
-		let accumulated = 0;
-
-		function onActivity() {
-			lastActive = Date.now();
-		}
-
-		window.addEventListener('pointerdown', onActivity, { passive: true });
-		window.addEventListener('keydown', onActivity, { passive: true });
-
-		// E2E テスト: sleepTimer が登録されたことをテストが確認できるようにするフラグ
-		(window as Window & { __sleepTimerReady?: boolean }).__sleepTimerReady = true;
-
-		const sleepTimer = setInterval(() => {
-			// バックグラウンド時はスキップ（E2E テストは window.__playwrightVisible で迂回）
-			if (
-				document.hidden &&
-				!(window as Window & { __playwrightVisible?: boolean }).__playwrightVisible
-			)
-				return;
-			const now = Date.now();
-			const isBattlePath = page.url.pathname.includes('/battle');
-			const threshold = AUTO_SLEEP_ACTIVE_MS + (isBattlePath ? AUTO_SLEEP_BATTLE_GRACE_MS : 0);
-
-			if (now - lastActive < AUTO_SLEEP_INACTIVE_RESET_MS) {
-				accumulated += 1000;
-				if (accumulated >= threshold) {
-					accumulated = 0;
-					// セッション終了を記録してからリダイレクト
-					if (usageSessionId !== null) {
-						const sid = usageSessionId;
-						fetch('/api/v1/usage', {
-							method: 'PATCH',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ id: sid }),
-						}).catch(() => {});
-					}
-					goto('/switch');
+		const stopTimer = startAutoSleep({
+			activeMs: AUTO_SLEEP_ACTIVE_MS,
+			inactiveResetMs: AUTO_SLEEP_INACTIVE_RESET_MS,
+			battleGraceMs: AUTO_SLEEP_BATTLE_GRACE_MS,
+			onSleep: () => {
+				// セッション終了を記録してからリダイレクト
+				if (usageSessionId !== null) {
+					const sid = usageSessionId;
+					fetch('/api/v1/usage', {
+						method: 'PATCH',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ id: sid }),
+					}).catch(() => {});
 				}
-			} else {
-				accumulated = 0;
-			}
-		}, 1000);
+				goto('/switch');
+			},
+			getPathname: () => page.url.pathname,
+		});
 
 		cleanupSleep = () => {
-			clearInterval(sleepTimer);
-			window.removeEventListener('pointerdown', onActivity);
-			window.removeEventListener('keydown', onActivity);
+			stopTimer();
 
 			// セッション終了を記録（コンポーネント破棄時）
 			if (usageSessionId !== null) {
