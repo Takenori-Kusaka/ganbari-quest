@@ -29,7 +29,7 @@ import { expect, test } from '@playwright/test';
 import { warmupAdminPages } from './plan-login-helpers';
 
 test.beforeAll(async ({ browser }) => {
-	test.setTimeout(360_000);
+	test.setTimeout(60_000);
 	await warmupAdminPages(browser, ['/admin/settings']);
 });
 
