@@ -19,4 +19,5 @@ let { data } = $props();
 	planStats={data.planStats}
 	trialStatus={data.trialStatus}
 	stripeEnabled={data.stripeEnabled}
+	todayUsage={data.todayUsage}
 />

@@ -1043,3 +1043,24 @@ export const enemyCollection = sqliteTable(
 		index('idx_enemy_collection_child').on(table.childId),
 	],
 );
+
+// ============================================================
+// usage_logs - 子供使用時間ログ (#1292)
+// ============================================================
+export const usageLogs = sqliteTable(
+	'usage_logs',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		startedAt: text('started_at').notNull(), // ISO8601 UTC
+		endedAt: text('ended_at'), // NULL = 進行中
+		durationSec: integer('duration_sec'), // ended_at設定時に計算
+	},
+	(table) => [
+		index('idx_usage_logs_child_date').on(table.childId, table.startedAt),
+		index('idx_usage_logs_tenant').on(table.tenantId, table.startedAt),
+	],
+);
