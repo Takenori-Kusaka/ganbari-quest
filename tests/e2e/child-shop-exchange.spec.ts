@@ -39,6 +39,16 @@ async function resetKinderChildBalance(): Promise<void> {
 		db.prepare(
 			"INSERT INTO point_ledger (child_id, amount, type, description) VALUES (?, ?, 'shop_test_seed', 'E2Eテスト用残高再調整')",
 		).run(cId, adjustment);
+
+		// pending 申請をクリーンアップ（交換フローテストが申請を作成した後のリトライ・次テスト安定化）
+		// latestRequestStatus が 'pending_parent_approval' だと交換ボタンが非表示になるため
+		try {
+			db.prepare(
+				"DELETE FROM reward_redemption_requests WHERE child_id = ? AND status = 'pending_parent_approval'",
+			).run(cId);
+		} catch {
+			// reward_redemption_requests テーブルが存在しない場合は無視
+		}
 	} finally {
 		db.close();
 	}
