@@ -41,75 +41,14 @@ export default defineConfig({
 		// 後続プロジェクトはそれぞれ dependencies: ['setup'] + storageState で認証済み状態から開始。
 		{ name: 'setup', testMatch: /auth\.setup\.ts$/ },
 
-		// #1500: plan 別プロジェクト（各 spec が loginAsPlan() を呼ぶ代わりに
-		// storageState でセッションを再利用する）
-		//
-		// spec が期待するユーザーと各プロジェクトの対応:
-		//   as-free         → free@example.com    (plan=free)
-		//   as-standard     → standard@example.com (plan=standard)
-		//   as-family       → family@example.com   (plan=family)
-		//   as-trial-expired→ trial-expired@example.com (plan=free, trial 期限切れ)
-		//   as-owner        → owner@example.com    (owner ロール、plan=family)
-		//   as-ops          → ops@example.com      (ops ロール)
-		//
-		// #1535: 全対象 spec の loginAsPlan() を storageState ベースに移行完了。
-		// 各 spec は test.use({ storageState: '...' }) で認証済みセッションを再利用する。
+		// #1535: 6プロジェクト → chromium 1プロジェクトに集約してタイムアウト解消。
+		// 各 spec が test.use({ storageState: '...' }) で describe/spec レベルのstorageStateを指定するため、
+		// プロジェクトレベルの storageState は不要。全 spec を1回だけ実行する。
 		{
-			name: 'as-owner',
+			name: 'chromium',
 			dependencies: ['setup'],
 			use: {
 				...devices['Desktop Chrome'],
-				storageState: 'playwright/.auth/owner.json',
-				viewport: { width: 1280, height: 800 },
-			},
-			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
-		},
-		{
-			name: 'as-free',
-			dependencies: ['setup'],
-			use: {
-				...devices['Desktop Chrome'],
-				storageState: 'playwright/.auth/free.json',
-				viewport: { width: 1280, height: 800 },
-			},
-			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
-		},
-		{
-			name: 'as-standard',
-			dependencies: ['setup'],
-			use: {
-				...devices['Desktop Chrome'],
-				storageState: 'playwright/.auth/standard.json',
-				viewport: { width: 1280, height: 800 },
-			},
-			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
-		},
-		{
-			name: 'as-family',
-			dependencies: ['setup'],
-			use: {
-				...devices['Desktop Chrome'],
-				storageState: 'playwright/.auth/family.json',
-				viewport: { width: 1280, height: 800 },
-			},
-			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
-		},
-		{
-			name: 'as-trial-expired',
-			dependencies: ['setup'],
-			use: {
-				...devices['Desktop Chrome'],
-				storageState: 'playwright/.auth/trial-expired.json',
-				viewport: { width: 1280, height: 800 },
-			},
-			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
-		},
-		{
-			name: 'as-ops',
-			dependencies: ['setup'],
-			use: {
-				...devices['Desktop Chrome'],
-				storageState: 'playwright/.auth/ops.json',
 				viewport: { width: 1280, height: 800 },
 			},
 			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
