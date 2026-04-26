@@ -28,6 +28,7 @@ jobs:
       site: ${{ steps.filter.outputs.site }}
       stories: ${{ steps.filter.outputs.stories }}
       cognito: ${{ steps.filter.outputs.cognito }}
+      docker: ${{ steps.filter.outputs.docker }}
     steps:
       - uses: actions/checkout@v6
 
@@ -95,6 +96,16 @@ jobs:
               - 'playwright.cognito-dev.config.ts'
               # CI 設定自体の変更
               - '.github/workflows/ci.yml'
+            # #1551: docker-build は src/ / Dockerfile / config の変更時のみ実行。
+            # tests/ / docs/ / scripts/ 等のビルド結果に影響しない変更ではスキップ。
+            docker:
+              - 'src/**'
+              - 'static/**'
+              - 'svelte.config.js'
+              - 'vite.config.ts'
+              - 'tsconfig.json'
+              - 'Dockerfile*'
+              - '.dockerignore'
 
   lint-and-test:
     needs: changes
@@ -467,8 +478,9 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     # #923 Phase 1: lint-and-test 依存を外して並列化 (e2e-test と同じ理由)
+    # #1551: docker フィルターで絞り込み。tests/ / docs/ のみ変更時はスキップ。
     needs: [changes]
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    if: needs.changes.outputs.docker == 'true' || needs.changes.outputs.deps == 'true'
     permissions:
       contents: read
     steps:
