@@ -19,6 +19,9 @@ test.describe('#1292 自動スリープ', () => {
 		// preschool/home にいることを確認
 		await expect(page).toHaveURL(/\/preschool\/home/);
 
+		// CI headless 環境では document.hidden が true になる場合があるため前面に出す
+		await page.bringToFront();
+
 		// アクティブ状態を模擬（pointerdown イベントを送信し続ける）
 		// setInterval(1000ms) が ACTIVE_MS 累積するには 15分*60 = 900 回分の tick が必要
 		// 実際には各 tick で "now - lastActive < INACTIVE_RESET_MS" を満たす必要がある
@@ -53,6 +56,7 @@ test.describe('#1292 自動スリープ', () => {
 
 		await selectKinderChild(page);
 		await expect(page).toHaveURL(/\/preschool\/home/);
+		await page.bringToFront();
 
 		// アクティビティを送信
 		await page.dispatchEvent('body', 'pointerdown');
@@ -81,6 +85,7 @@ test.describe('#1292 自動スリープ', () => {
 		await expect(babyButton).toBeVisible();
 		await babyButton.click();
 		await page.waitForURL(/\/baby\/home/);
+		await page.bringToFront();
 
 		// アクティビティを送信
 		await page.dispatchEvent('body', 'pointerdown');
