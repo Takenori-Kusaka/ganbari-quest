@@ -63,6 +63,12 @@ export default defineConfig({
 		extraHTTPHeaders: {
 			Origin: 'http://localhost:5173',
 		},
+		// #1292: headless Chromium では document.hidden が true になり自動スリープ E2E が失敗する。
+		// --disable-renderer-backgrounding でバックグラウンドタブ throttling を無効化し
+		// document.hidden を false に保つ。全テストへの副作用は軽微（背景タブの優先度制御のみ）。
+		launchOptions: {
+			args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'],
+		},
 	},
 	projects: [
 		{

@@ -12,6 +12,7 @@ import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
 import { getMemoryTicketStatus } from '$lib/server/services/seasonal-content-service';
 import { getChildStatus } from '$lib/server/services/status-service';
+import { getTodayUsageSummary } from '$lib/server/services/usage-log-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -134,6 +135,17 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		retentionDays: planLimits.historyRetentionDays,
 	};
 
+	// #1292: 本日の子供ごとの使用時間サマリー
+	let todayUsage: { childId: number; childName: string; durationMin: number }[] = [];
+	try {
+		todayUsage = await getTodayUsageSummary(
+			tenantId,
+			children.map((c) => ({ id: c.id, nickname: c.nickname })),
+		);
+	} catch (e) {
+		logger.warn('[admin] 使用時間取得フォールバック', { context: { error: String(e) } });
+	}
+
 	return {
 		children: childrenWithStatus,
 		onboarding,
@@ -143,6 +155,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		seasonalInfo,
 		planStats,
 		stripeEnabled: isStripeEnabled(),
+		todayUsage,
 	};
 };
 
