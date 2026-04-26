@@ -27,6 +27,7 @@ jobs:
       deps: ${{ steps.filter.outputs.deps }}
       site: ${{ steps.filter.outputs.site }}
       stories: ${{ steps.filter.outputs.stories }}
+      cognito: ${{ steps.filter.outputs.cognito }}
     steps:
       - uses: actions/checkout@v6
 
@@ -59,6 +60,41 @@ jobs:
             stories:
               - 'src/**/*.stories.*'
               - '.storybook/**'
+            # #1543: 認証・課金・プラン関連ファイルのみ e2e-cognito-dev を起動する
+            cognito:
+              # 認証コア
+              - 'src/lib/server/auth/**'
+              # Stripe クライアント・設定
+              - 'src/lib/server/stripe/**'
+              # サービス層: Stripe・ライセンス・プラン
+              - 'src/lib/server/services/stripe-service.ts'
+              - 'src/lib/server/services/stripe-metrics-service.ts'
+              - 'src/lib/server/services/license-service.ts'
+              - 'src/lib/server/services/license-key-service.ts'
+              - 'src/lib/server/services/plan-limit-service.ts'
+              # プランデバッグ・定数
+              - 'src/lib/server/debug-plan.ts'
+              - 'src/lib/domain/constants/license-plan.ts'
+              - 'src/lib/domain/constants/subscription-status.ts'
+              - 'src/lib/domain/constants/auth-license-status.ts'
+              - 'src/lib/domain/constants/license-key-status.ts'
+              # 認証・ライセンス UI ルート
+              - 'src/routes/auth/**'
+              - 'src/routes/api/stripe/**'
+              - 'src/routes/(parent)/admin/license/**'
+              # cognito-dev spec ファイル群
+              - 'tests/e2e/cognito-auth.spec.ts'
+              - 'tests/e2e/plan-*.spec.ts'
+              - 'tests/e2e/upgrade-*.spec.ts'
+              - 'tests/e2e/trial-*.spec.ts'
+              - 'tests/e2e/ops-license*.spec.ts'
+              - 'tests/e2e/premium-welcome.spec.ts'
+              - 'tests/e2e/pricing-*.spec.ts'
+              - 'tests/e2e/account-deletion.spec.ts'
+              - 'tests/e2e/auth.setup.ts'
+              - 'playwright.cognito-dev.config.ts'
+              # CI 設定自体の変更
+              - '.github/workflows/ci.yml'
 
   lint-and-test:
     needs: changes
@@ -370,10 +406,12 @@ jobs:
   # plan 別 storageState（setup プロジェクト）を使って認証を高速化。
   # 実行時間が長いため optional（失敗しても ci-gate はブロックしない）。
   # CI が安定したら ci-gate の needs に追加する予定（#1500 follow-up）。
+  # #1543: cognito フィルターに一致する変更（認証・課金・プラン関連）か、deps 変更時のみ実行。
+  # スタンプ・活動・UI のみの変更では起動しない。
   e2e-cognito-dev:
     runs-on: ubuntu-latest
     needs: [changes]
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    if: needs.changes.outputs.cognito == 'true' || needs.changes.outputs.deps == 'true'
     permissions:
       contents: read
     continue-on-error: true
