@@ -769,6 +769,20 @@ export const SQL_TABLES = `
 	CREATE UNIQUE INDEX idx_enemy_collection_child_enemy ON enemy_collection(child_id, enemy_id);
 	CREATE INDEX idx_enemy_collection_child ON enemy_collection(child_id);
 
+	-- ============================================================
+	-- usage_logs (#1292)
+	-- ============================================================
+	CREATE TABLE usage_logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		started_at TEXT NOT NULL,
+		ended_at TEXT,
+		duration_sec INTEGER
+	);
+	CREATE INDEX idx_usage_logs_child_date ON usage_logs(child_id, started_at);
+	CREATE INDEX idx_usage_logs_tenant ON usage_logs(tenant_id, started_at);
+
 `;
 
 // ============================================================
@@ -776,6 +790,7 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'usage_logs',
 	'enemy_collection',
 	'daily_battles',
 	'trial_history',
