@@ -544,3 +544,62 @@ npx playwright test --config playwright.cognito-dev.config.ts
 **参考**: PR #1514, Issue #1500, CI run 24933566368
 
 ---
+
+## TA-010 — workers: 2 並列実行による point_ledger 汚染でショップ disabled テストが失敗
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-26 |
+| **PR 番号** | #1534 |
+| **ワークフロー** | CI |
+| **ジョブ名** | e2e-test (shard 1/3) |
+| **ステップ名** | Run E2E tests (shard 1/3) |
+| **ステータス** | resolved |
+
+### エラーメッセージ（原文）
+
+```
+Error: expect(locator).toBeDisabled() failed
+
+Locator:  locator('[data-testid^="reward-card-"]').filter({ hasText: 'E2Eテスト用ごほうび（交換不可）' }).locator('button[data-testid^="exchange-btn-"]')
+Expected: disabled
+Received: enabled
+Timeout:  5000ms
+```
+
+### 根本原因
+
+`child-shop-exchange.spec.ts` の「ポイント不足のごほうびは交換ボタンが disabled」テストは
+たろうくんのポイント残高が 200pt 未満（100pt）であることを前提にしていた。
+
+しかし `workers: 2` の並列実行環境では、`features.spec.ts` 等の別テストが
+`selectKinderChild()` → 活動記録 → `point_ledger` への書き込み を行うため、
+ショップテストが実行される頃にはたろうくんの残高が 390P / 465P に積み上がっていた。
+
+`global-setup.ts` の残高調整は setup 実行時点では正しく 100pt にするが、
+**並列ワーカー内の他テストが後からポイントを追加するため**、実行順序によって失敗する。
+
+### 解決手順
+
+`child-shop-exchange.spec.ts` に `test.beforeAll` を追加し、テスト実行直前に
+better-sqlite3 で `point_ledger` を直接操作して残高を 100pt に再調整する:
+
+```typescript
+test.beforeAll(async () => {
+  // DB 直接操作で点数を 100pt にリセット（global-setup.ts と同じパターン）
+  const DB_PATH = path.resolve('data/ganbari-quest.db');
+  const { default: Database } = await import('better-sqlite3');
+  const db = new Database(DB_PATH);
+  // shop_test_seed エントリを削除 → 現在残高を計算 → 差分エントリを挿入
+  ...
+});
+```
+
+### 再発防止策
+
+- `point_ledger` を直接操作するテスト（`selectKinderChild()` → 活動記録系）と
+  残高に依存するテストが同一ワーカーで並列実行されると汚染が発生する
+- 残高の絶対値に依存するテストは必ず `beforeAll` で DB 状態を確認・リセットすること
+- `global-setup.ts` の `shop_test_seed` 調整だけでは workers 並列実行には対応できない
+
+**参考**: PR #1534, Issue #1335, CI run 24945001950
