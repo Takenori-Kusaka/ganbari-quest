@@ -1,6 +1,7 @@
 <script lang="ts">
 import { page } from '$app/state';
 import { ICON_HOME, ICON_STATUS, ICON_SWITCH } from '$lib/domain/icons';
+import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import { playSound } from '$lib/ui/sound/play-sound';
 
 interface NavItem {
@@ -16,6 +17,7 @@ interface Props {
 
 const defaultItems: NavItem[] = [
 	{ href: '/home', icon: ICON_HOME, label: 'ホーム' },
+	{ href: '/shop', icon: CHILD_SHOP_LABELS.navIcon, label: CHILD_SHOP_LABELS.navLabel },
 	{ href: '/status', icon: ICON_STATUS, label: 'つよさ' },
 	{ href: '/switch', icon: ICON_SWITCH, label: 'かぞく' },
 ];

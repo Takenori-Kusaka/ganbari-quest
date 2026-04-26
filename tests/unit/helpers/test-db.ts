@@ -285,6 +285,23 @@ export const SQL_TABLES = `
 	CREATE INDEX idx_special_rewards_child ON special_rewards(child_id, granted_at);
 
 	-- ============================================================
+	-- reward_redemption_requests (#1335)
+	-- ============================================================
+	CREATE TABLE reward_redemption_requests (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
+		requested_at INTEGER NOT NULL,
+		status TEXT NOT NULL DEFAULT 'pending_parent_approval',
+		parent_note TEXT,
+		resolved_at INTEGER,
+		resolved_by_parent_id INTEGER,
+		shown_to_child_at INTEGER
+	);
+	CREATE INDEX idx_redemption_child_status ON reward_redemption_requests(child_id, status);
+	CREATE INDEX idx_redemption_reward_status ON reward_redemption_requests(reward_id, status);
+
+	-- ============================================================
 	-- daily_missions
 	-- ============================================================
 	CREATE TABLE daily_missions (
@@ -787,6 +804,7 @@ const ALL_TABLES = [
 	'child_custom_voices',
 	'parent_messages',
 	'daily_missions',
+	'reward_redemption_requests',
 	'special_rewards',
 	'child_achievements',
 	'achievements',

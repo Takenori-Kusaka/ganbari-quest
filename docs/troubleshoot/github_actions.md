@@ -410,7 +410,83 @@ git diff origin/main -- package-lock.json | grep lightningcss
 
 ---
 
-## TA-008 — loginAsPlan() 未移行で storageState 導入後も e2e-cognito-dev が 30m+ timeout
+## TA-008 — screenshot-check / design-doc-check / Verify AC map の同時失敗パターン
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-26 |
+| **PR 番号** | #1534 |
+| **ワークフロー** | pr-quality-gate |
+| **ジョブ名** | screenshot-check / design-doc-check / Verify AC map in PR body |
+| **ステータス** | resolved |
+
+### エラーメッセージ（原文）
+
+```
+screenshot-check:
+❌ UI変更PRにはスクリーンショットの添付が必須です。
+
+design-doc-check:
+❌ src/routes/ に変更がありますが、docs/design/ の更新がありません。
+設計書の同期更新が必要な場合は同一PR内で更新してください（ADR-0003）。
+
+Verify AC map in PR body:
+PR 本文に「AC 検証マップ」セクションが見つかりません (ADR-0038)
+```
+
+### 根本原因
+
+1. **screenshot-check**: PR body に `![...](...)` または `<img` 形式の画像が一切なかった（「TODO: 撮影予定」のまま Ready for Review になっていた）
+2. **design-doc-check**: `src/routes/` に新規ファイルを追加したが、`docs/design/` を一切変更していなかった
+3. **Verify AC map**: PR body の AC セクションが `## AC 対応状況` というチェックボックス形式だった。CI が検索するキーワードは **「AC 検証マップ」** であり、`## AC 検証マップ` ヘッダー + 4列テーブル形式が必須（ADR-0038）
+
+### 解決手順
+
+```bash
+# 1. design-doc-check — 設計書を更新してコミット
+# docs/design/06-UI設計書.md の該当セクションにページ/機能を追記し
+# 更新履歴テーブルに新バージョン行を追加する
+git add docs/design/06-UI設計書.md
+git commit -m "docs: 設計書に新機能仕様を追記"
+
+# 2. screenshot-check — スクリーンショットを撮影して PR body に追加
+# Playwright で各年齢モードのページを撮影
+# ※ Windows では checkPort が 127.0.0.1 を使うため dev server が ::1 でリスンしていると
+#   capture.mjs が起動失敗することがある。その場合は Playwright を直接使用する:
+node -e "
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addCookies([{ name: 'selectedChildId', value: '1', domain: 'localhost', path: '/' }]);
+  const page = await ctx.newPage();
+  await page.goto('http://localhost:5173/preschool/shop', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: 'docs/screenshots/pr-NNN/shop-preschool-mobile.png' });
+  await browser.close();
+})();
+"
+
+# 3. Verify AC map — PR body の AC セクション見出しを「AC 検証マップ」に変更し
+# チェックボックス形式から 4列テーブル形式に変換する
+# 必須形式:
+# ## AC 検証マップ
+# | AC番号 | AC内容 | 検証手段 | 結果/エビデンス |
+# |--------|--------|---------|----------------|
+# | AC1 | ... | ... | ✅ ... |
+gh pr edit NNN --body "$(cat pr-body.md)"
+```
+
+### 再発防止策
+
+- `src/routes/` を変更する PR では必ず `docs/design/` の対応する設計書を同一 PR で更新する（`docs/CLAUDE.md` の更新ルール表を参照）
+- PR body の AC セクションは `## AC 検証マップ` (ADR-0038) で統一し、4列テーブル形式を使う。チェックボックス形式 `- [x]` は CI が認識しない
+- Windows 環境で `capture.mjs` が `サーバーが 40 秒以内に起動しませんでした` でタイムアウトする場合、dev server が `::1` でリスンしているが `checkPort` が `127.0.0.1` を見ているため。PowerShell で dev server を起動し、Playwright スクリプトを直接実行する回避策を使う
+- スクリーンショットは `docs/screenshots/pr-NNN/` にコミットして `raw.githubusercontent.com` 経由で PR body から参照する
+
+---
+
+## TA-009 — loginAsPlan() 未移行で storageState 導入後も e2e-cognito-dev が 30m+ timeout
 
 | フィールド | 値 |
 |-----------|-----|
@@ -468,3 +544,62 @@ npx playwright test --config playwright.cognito-dev.config.ts
 **参考**: PR #1514, Issue #1500, CI run 24933566368
 
 ---
+
+## TA-010 — workers: 2 並列実行による point_ledger 汚染でショップ disabled テストが失敗
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-26 |
+| **PR 番号** | #1534 |
+| **ワークフロー** | CI |
+| **ジョブ名** | e2e-test (shard 1/3) |
+| **ステップ名** | Run E2E tests (shard 1/3) |
+| **ステータス** | resolved |
+
+### エラーメッセージ（原文）
+
+```
+Error: expect(locator).toBeDisabled() failed
+
+Locator:  locator('[data-testid^="reward-card-"]').filter({ hasText: 'E2Eテスト用ごほうび（交換不可）' }).locator('button[data-testid^="exchange-btn-"]')
+Expected: disabled
+Received: enabled
+Timeout:  5000ms
+```
+
+### 根本原因
+
+`child-shop-exchange.spec.ts` の「ポイント不足のごほうびは交換ボタンが disabled」テストは
+たろうくんのポイント残高が 200pt 未満（100pt）であることを前提にしていた。
+
+しかし `workers: 2` の並列実行環境では、`features.spec.ts` 等の別テストが
+`selectKinderChild()` → 活動記録 → `point_ledger` への書き込み を行うため、
+ショップテストが実行される頃にはたろうくんの残高が 390P / 465P に積み上がっていた。
+
+`global-setup.ts` の残高調整は setup 実行時点では正しく 100pt にするが、
+**並列ワーカー内の他テストが後からポイントを追加するため**、実行順序によって失敗する。
+
+### 解決手順
+
+`child-shop-exchange.spec.ts` に `test.beforeAll` を追加し、テスト実行直前に
+better-sqlite3 で `point_ledger` を直接操作して残高を 100pt に再調整する:
+
+```typescript
+test.beforeAll(async () => {
+  // DB 直接操作で点数を 100pt にリセット（global-setup.ts と同じパターン）
+  const DB_PATH = path.resolve('data/ganbari-quest.db');
+  const { default: Database } = await import('better-sqlite3');
+  const db = new Database(DB_PATH);
+  // shop_test_seed エントリを削除 → 現在残高を計算 → 差分エントリを挿入
+  ...
+});
+```
+
+### 再発防止策
+
+- `point_ledger` を直接操作するテスト（`selectKinderChild()` → 活動記録系）と
+  残高に依存するテストが同一ワーカーで並列実行されると汚染が発生する
+- 残高の絶対値に依存するテストは必ず `beforeAll` で DB 状態を確認・リセットすること
+- `global-setup.ts` の `shop_test_seed` 調整だけでは workers 並列実行には対応できない
+
+**参考**: PR #1534, Issue #1335, CI run 24945001950
