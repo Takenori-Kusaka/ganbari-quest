@@ -42,13 +42,14 @@ test.describe('#1292 自動スリープ', () => {
 			await page.clock.fastForward(INACTIVE_RESET_MS / 2);
 		}
 
-		// SvelteKit は内部で requestAnimationFrame を使う場合がある。
-		// Playwright の clock は RAF も偽装するため、ループ後に追加の fastForward で
-		// 保留中の RAF コールバックを確実に発火させる。
+		// SvelteKit の goto('/switch') は内部で setTimeout/Promise を使ってナビゲーションを
+		// キューに積む。偽クロック下では fastForward で保留 tick を発火させてから
+		// resume() でリアルタイムに戻し、SvelteKit ルーターの非同期処理を完了させる。
 		await page.clock.fastForward(1000);
+		await page.clock.resume();
 
-		// /switch に遷移することを確認（タイムアウトは余裕を持って設定）
-		await expect(page).toHaveURL('/switch', { timeout: 5000 });
+		// /switch に遷移することを確認（resume 後はリアルタイムで待機）
+		await expect(page).toHaveURL('/switch', { timeout: 10000 });
 	});
 
 	test('非アクティブ1分でタイマーがリセットされる（リダイレクトが遅延する）', async ({ page }) => {
