@@ -10,29 +10,16 @@
 //  - family 限定機能（ひとことメッセージ等）が enabled で操作可能なこと
 //  - PlanStatusCard が family を示すこと
 //
+// #1535: loginAsPlan() を storageState ベースに移行
+//
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts plan-family
 
 import { expect, test } from '@playwright/test';
-import { loginAsPlan, warmupAdminPages } from './plan-login-helpers';
 
-test.beforeAll(async ({ browser }) => {
-	test.setTimeout(360_000);
-	await warmupAdminPages(browser, [
-		'/admin',
-		'/admin/license',
-		'/admin/reports',
-		'/admin/settings',
-		'/admin/messages',
-	]);
-});
+test.use({ storageState: 'playwright/.auth/family.json' });
 
 test.describe('#779 family プラン — 全機能解放確認', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
-
 	test('/admin/license の PlanStatusCard が family を示す', async ({ page }) => {
-		await loginAsPlan(page, 'family');
 		await page.goto('/admin/license');
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible();
@@ -44,7 +31,6 @@ test.describe('#779 family プラン — 全機能解放確認', () => {
 	});
 
 	test('/admin にホームを開いても free 用アップグレード CTA が出ない', async ({ page }) => {
-		await loginAsPlan(page, 'family');
 		await page.goto('/admin');
 		// family のときは PlanStatusCard が data-plan-tier="family" で表示される
 		const card = page.getByTestId('plan-status-card');
@@ -55,13 +41,11 @@ test.describe('#779 family プラン — 全機能解放確認', () => {
 	});
 
 	test('/admin/reports — weekly-report-upsell バナーが出ない', async ({ page }) => {
-		await loginAsPlan(page, 'family');
 		await page.goto('/admin/reports');
 		await expect(page.getByTestId('weekly-report-upsell')).toHaveCount(0);
 	});
 
 	test('/admin/settings — エクスポートボタンが有効化されている', async ({ page }) => {
-		await loginAsPlan(page, 'family');
 		await page.goto('/admin/settings');
 		await expect(page.getByTestId('data-export-section')).toBeVisible();
 		await expect(page.getByTestId('export-upsell')).toHaveCount(0);
@@ -71,7 +55,6 @@ test.describe('#779 family プラン — 全機能解放確認', () => {
 	});
 
 	test('/admin/messages — ひとことメッセージは family 限定機能として有効', async ({ page }) => {
-		await loginAsPlan(page, 'family');
 		await page.goto('/admin/messages');
 		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
 		await expect(textBtn).toBeVisible();

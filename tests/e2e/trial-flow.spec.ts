@@ -6,25 +6,23 @@
 // - dev-tenant-trial-expired: トライアル期限切れ済みの free ユーザー
 //   （global-setup.ts で trial_history に過去日レコードをシード）
 //
+// #1535: loginAsPlan() を storageState ベースに移行（describe ブロック分割）
+//        beforeAll warmup は削除（storageState + dev サーバーなら不要）
+//        DB クリーンアップロジックは保持（テスト間副作用防止のため必要）
+//
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts trial-flow
 
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { loginAsPlan, warmupAdminPages } from './plan-login-helpers';
 
-test.beforeAll(async ({ browser }) => {
-	test.setTimeout(360_000);
-	await warmupAdminPages(browser, ['/admin', '/admin/license']);
-});
-
-test.describe('#752 トライアルフロー', () => {
+// ============================================================
+// free ユーザーのトライアルフロー（開始 → active → license 確認）
+// serial モードで順番に実行（テスト3はテスト2の副作用に依存）
+// ============================================================
+test.describe('#752 トライアルフロー — free ユーザー', () => {
+	test.use({ storageState: 'playwright/.auth/free.json' });
 	// MUST: テスト 3 はテスト 2 でトライアルが開始された状態に依存するため serial 実行必須
-	// fullyParallel: true（playwright.cognito-dev.config.ts）との矛盾を解消
 	test.describe.configure({ mode: 'serial' });
-
-	test.beforeEach(() => {
-		test.slow(); // Vite dev のコールドコンパイルでタイムアウトを 3x 延長
-	});
 
 	// テスト 2 で dev-tenant-free のトライアルを開始するため、
 	// テスト終了後にクリーンアップして plan-free.spec.ts への副作用を防ぐ
@@ -50,8 +48,7 @@ test.describe('#752 トライアルフロー', () => {
 	// 1. 未使用 free ユーザーにトライアル開始導線が表示
 	// ========================================================
 	test('free ユーザーに TrialBanner の「開始」状態が表示される', async ({ page }) => {
-		await loginAsPlan(page, 'free');
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
 		const banner = page.getByTestId('trial-banner-not-started');
 		await expect(banner).toBeVisible({ timeout: 30_000 });
@@ -65,8 +62,7 @@ test.describe('#752 トライアルフロー', () => {
 	// 2. 「7日間無料で試す」ボタンでトライアル開始 → active 状態
 	// ========================================================
 	test('トライアル開始ボタンクリック → active バナーに切り替わる', async ({ page }) => {
-		await loginAsPlan(page, 'free');
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
 		// 「開始」バナーが表示されるまで待機
 		await page
@@ -93,20 +89,25 @@ test.describe('#752 トライアルフロー', () => {
 		// トライアル中は resolvePlanTier() が planTier='standard' に昇格させるため、
 		// license ページの `{#if planTier === 'free'}` トライアルセクションは表示されない。
 		// 代わりに PlanStatusCard の trial-badge（isTrialActive で描画）で検証する。
-		await loginAsPlan(page, 'free');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		const trialBadge = page.getByTestId('plan-status-trial-badge');
 		await expect(trialBadge).toBeVisible({ timeout: 30_000 });
 		await expect(trialBadge).toContainText(/残り.*日/);
 	});
+});
+
+// ============================================================
+// trial-expired ユーザーの確認
+// ============================================================
+test.describe('#752 トライアルフロー — trial-expired ユーザー', () => {
+	test.use({ storageState: 'playwright/.auth/trial-expired.json' });
 
 	// ========================================================
 	// 4. トライアル期限切れユーザー — expired バナー表示
 	// ========================================================
 	test('トライアル期限切れユーザーに expired バナーが表示される', async ({ page }) => {
-		await loginAsPlan(page, 'trial-expired');
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
 		const expiredBanner = page.getByTestId('trial-banner-expired');
 		await expect(expiredBanner).toBeVisible({ timeout: 30_000 });
@@ -120,8 +121,7 @@ test.describe('#752 トライアルフロー', () => {
 	// 5. 期限切れユーザー — 再トライアル開始ボタンが存在しない
 	// ========================================================
 	test('トライアル使用済みユーザーには「開始」ボタンが表示されない', async ({ page }) => {
-		await loginAsPlan(page, 'trial-expired');
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
 		// expired バナーが表示されるまで待つ
 		await page.getByTestId('trial-banner-expired').waitFor({ state: 'visible', timeout: 30_000 });
@@ -133,8 +133,7 @@ test.describe('#752 トライアルフロー', () => {
 	// 6. 期限切れ後に /admin/license でトライアル終了状態が表示される
 	// ========================================================
 	test('期限切れ後の /admin/license でトライアル終了が反映される', async ({ page }) => {
-		await loginAsPlan(page, 'trial-expired');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		// license ページの PlanStatusCard が free を示す
 		const card = page.getByTestId('plan-status-card');

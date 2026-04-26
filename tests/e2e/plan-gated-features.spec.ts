@@ -7,6 +7,8 @@
 // DevCognitoAuthProvider のプラン別ダミーユーザー（free/standard/family）で
 // ログイン → 実際のプランゲート UI を検証する。
 //
+// #1535: loginAsPlan() を storageState ベースに移行（describe ブロック分割）
+//
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts plan-gated-features
 //
 // 対応ゲート:
@@ -14,38 +16,33 @@
 //  - /admin/messages: ひとことメッセージボタン（free/standard は disabled、family は enabled）
 
 import { expect, test } from '@playwright/test';
-import { loginAsPlan as loginAs, warmupAdminPages } from './plan-login-helpers';
-
-// Vite dev のコールドコンパイルで /auth/login と /admin 配下の初回ビルドが
-// 数分かかることがあるため、テスト前に warmup でプリコンパイルを走らせる。
-test.beforeAll(async ({ browser }) => {
-	test.setTimeout(360_000);
-	await warmupAdminPages(browser, ['/admin/rewards', '/admin/messages']);
-});
 
 // ============================================================
 // /admin/rewards — #728 カスタムごほうびプランゲート
 // ============================================================
-test.describe('#776 /admin/rewards プランゲート', () => {
-	test.beforeEach(() => {
-		test.slow(); // Vite dev のコールドコンパイルでタイムアウトを 3x 延長
-	});
+test.describe('#776 /admin/rewards プランゲート — free', () => {
+	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free プランではアップグレードバナーが表示される', async ({ page }) => {
-		await loginAs(page, 'free');
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('rewards-upgrade-banner')).toBeVisible();
 		await expect(page.getByTestId('rewards-upgrade-cta')).toBeVisible();
 	});
+});
+
+test.describe('#776 /admin/rewards プランゲート — standard', () => {
+	test.use({ storageState: 'playwright/.auth/standard.json' });
 
 	test('standard プランではアップグレードバナーが表示されない', async ({ page }) => {
-		await loginAs(page, 'standard');
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
 	});
+});
+
+test.describe('#776 /admin/rewards プランゲート — family', () => {
+	test.use({ storageState: 'playwright/.auth/family.json' });
 
 	test('family プランではアップグレードバナーが表示されない', async ({ page }) => {
-		await loginAs(page, 'family');
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
 	});
@@ -54,31 +51,34 @@ test.describe('#776 /admin/rewards プランゲート', () => {
 // ============================================================
 // /admin/messages — #0270 自由テキストメッセージプランゲート
 // ============================================================
-test.describe('#776 /admin/messages プランゲート', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
+test.describe('#776 /admin/messages プランゲート — free', () => {
+	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free プランではひとことメッセージボタンが disabled', async ({ page }) => {
-		await loginAs(page, 'free');
 		await page.goto('/admin/messages');
 		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
 		await expect(textBtn).toBeVisible();
 		await expect(textBtn).toBeDisabled();
 	});
+});
+
+test.describe('#776 /admin/messages プランゲート — standard', () => {
+	test.use({ storageState: 'playwright/.auth/standard.json' });
 
 	test('standard プランでもひとことメッセージボタンは disabled（family 限定）', async ({
 		page,
 	}) => {
-		await loginAs(page, 'standard');
 		await page.goto('/admin/messages');
 		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
 		await expect(textBtn).toBeVisible();
 		await expect(textBtn).toBeDisabled();
 	});
+});
+
+test.describe('#776 /admin/messages プランゲート — family', () => {
+	test.use({ storageState: 'playwright/.auth/family.json' });
 
 	test('family プランではひとことメッセージボタンが有効', async ({ page }) => {
-		await loginAs(page, 'family');
 		await page.goto('/admin/messages');
 		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
 		await expect(textBtn).toBeVisible();
