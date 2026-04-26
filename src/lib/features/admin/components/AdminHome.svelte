@@ -86,6 +86,8 @@ interface Props {
 	planStats?: PlanStats | null;
 	trialStatus?: TrialStatusProp | null;
 	stripeEnabled?: boolean;
+	/** #1292: 本日の子供ごとの使用時間サマリー */
+	todayUsage?: { childId: number; childName: string; durationMin: number }[];
 }
 
 let {
@@ -103,6 +105,7 @@ let {
 	planStats = null,
 	trialStatus = null,
 	stripeEnabled = false,
+	todayUsage = [],
 }: Props = $props();
 
 // svelte-ignore state_referenced_locally
@@ -345,6 +348,27 @@ function childLink(child: ChildSummary): string {
 		</section>
 	{/if}
 
+	<!-- #1292: 本日の使用時間 -->
+	{#if !isDemo && todayUsage.length > 0}
+		<section data-testid="today-usage-section">
+			<h2 class="text-lg font-bold text-[var(--color-text)]" aria-label="本日の使用時間">⏱️ 本日の使用時間</h2>
+			<div class="usage-grid mt-3">
+				{#each todayUsage as usage}
+					<Card variant="elevated" class="p-3" role="group" aria-label="{usage.childName}の本日使用時間">
+						<p class="usage-card__name">{usage.childName}</p>
+						<div class="usage-bar-wrap" role="progressbar" aria-valuenow={usage.durationMin} aria-valuemin={0} aria-valuemax={15} aria-label="{usage.durationMin}分使用">
+							<div
+								class="usage-bar"
+								style:width="{Math.min(100, (usage.durationMin / 15) * 100)}%"
+							></div>
+						</div>
+						<p class="usage-card__time">{usage.durationMin}分 / 15分</p>
+					</Card>
+				{/each}
+			</div>
+		</section>
+	{/if}
+
 	<!-- Children Overview -->
 	<section data-tutorial="children-overview">
 		<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">こども一覧</h2>
@@ -520,6 +544,44 @@ function childLink(child: ChildSummary): string {
 	}
 
 	.tutorial-full-guide-hint {
+		font-size: 0.7rem;
+		color: var(--color-text-tertiary);
+	}
+
+	/* #1292: 本日の使用時間 */
+	.usage-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		gap: 0.75rem;
+	}
+
+	.usage-card__name {
+		font-size: 0.8rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+		margin-bottom: 0.4rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.usage-bar-wrap {
+		height: 6px;
+		background: var(--color-surface-muted);
+		border-radius: 9999px;
+		overflow: hidden;
+		margin-bottom: 0.35rem;
+	}
+
+	.usage-bar {
+		height: 100%;
+		background: var(--color-action-primary);
+		border-radius: 9999px;
+		transition: width 0.4s ease;
+		min-width: 4px;
+	}
+
+	.usage-card__time {
 		font-size: 0.7rem;
 		color: var(--color-text-tertiary);
 	}
