@@ -63,7 +63,7 @@ export default defineConfig({
 				storageState: 'playwright/.auth/owner.json',
 				viewport: { width: 1280, height: 800 },
 			},
-			testIgnore: /auth\.setup\.ts$/,
+			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
 		},
 		{
 			name: 'as-free',
@@ -73,7 +73,7 @@ export default defineConfig({
 				storageState: 'playwright/.auth/free.json',
 				viewport: { width: 1280, height: 800 },
 			},
-			testIgnore: /auth\.setup\.ts$/,
+			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
 		},
 		{
 			name: 'as-standard',
@@ -83,7 +83,7 @@ export default defineConfig({
 				storageState: 'playwright/.auth/standard.json',
 				viewport: { width: 1280, height: 800 },
 			},
-			testIgnore: /auth\.setup\.ts$/,
+			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
 		},
 		{
 			name: 'as-family',
@@ -93,7 +93,7 @@ export default defineConfig({
 				storageState: 'playwright/.auth/family.json',
 				viewport: { width: 1280, height: 800 },
 			},
-			testIgnore: /auth\.setup\.ts$/,
+			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
 		},
 		{
 			name: 'as-trial-expired',
@@ -103,7 +103,7 @@ export default defineConfig({
 				storageState: 'playwright/.auth/trial-expired.json',
 				viewport: { width: 1280, height: 800 },
 			},
-			testIgnore: /auth\.setup\.ts$/,
+			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
 		},
 		{
 			name: 'as-ops',
@@ -113,7 +113,19 @@ export default defineConfig({
 				storageState: 'playwright/.auth/ops.json',
 				viewport: { width: 1280, height: 800 },
 			},
-			testIgnore: /auth\.setup\.ts$/,
+			testIgnore: [/auth\.setup\.ts$/, /account-deletion\.spec\.ts$/],
+		},
+		// #1559: account-deletion は専用プロジェクトで1回のみ実行（6重実行防止）
+		// as-* プロジェクト全てで testIgnore に追加し、このプロジェクトのみで実行する。
+		// storageState はテスト内の test.use() で describe ごとに指定済み。
+		{
+			name: 'account-deletion',
+			dependencies: ['setup'],
+			use: {
+				...devices['Desktop Chrome'],
+				viewport: { width: 1280, height: 800 },
+			},
+			testMatch: /account-deletion\.spec\.ts$/,
 		},
 	],
 	webServer: {
