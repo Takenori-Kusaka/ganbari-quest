@@ -889,7 +889,7 @@ export default async function globalSetup() {
 				`[E2E Setup]   Adjusted たろうくん balance to 100pt (was ${currentBalance.total}pt, adjustment: ${balanceAdjustment}).`,
 			);
 
-			// 交換可能なごほうびを挿入（50pt）
+			// 交換可能なごほうびを挿入（50pt） — 交換フローテスト用
 			const existingAffordable = db
 				.prepare(
 					"SELECT id FROM special_rewards WHERE child_id = ? AND title = 'E2Eテスト用ごほうび（交換可）' LIMIT 1",
@@ -900,6 +900,20 @@ export default async function globalSetup() {
 					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（交換可）', 50, '🎁', 'shop_e2e', CURRENT_TIMESTAMP)",
 				).run(cId);
 				console.log('[E2E Setup]   Created affordable shop reward for たろうくん.');
+			}
+
+			// キャンセル確認テスト用に別の交換可能ごほうびを挿入（50pt）
+			// 交換フローテストで1つ目が申請済みになっても独立して enabled 状態を保つ
+			const existingCancel = db
+				.prepare(
+					"SELECT id FROM special_rewards WHERE child_id = ? AND title = 'E2Eテスト用ごほうび（キャンセル確認用）' LIMIT 1",
+				)
+				.get(cId);
+			if (!existingCancel) {
+				db.prepare(
+					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（キャンセル確認用）', 50, '🔔', 'shop_e2e', CURRENT_TIMESTAMP)",
+				).run(cId);
+				console.log('[E2E Setup]   Created cancel-test shop reward for たろうくん.');
 			}
 
 			// 交換不可なごほうびを挿入（200pt）

@@ -4,7 +4,8 @@
 // テスト前提:
 //   - global-setup.ts でたろうくん(preschool)に以下のシードデータが投入済み:
 //     - ポイント残高: 100pt
-//     - 交換可能なごほうび: 50pt（残高 >= コスト）
+//     - 交換可能なごほうび（交換可）: 50pt — 交換フローテスト専用
+//     - 交換可能なごほうび（キャンセル確認用）: 50pt — キャンセルテスト専用（独立）
 //     - 交換不可なごほうび: 200pt（残高 < コスト）
 
 import { expect, test } from '@playwright/test';
@@ -103,21 +104,14 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 
 		await expect(page.getByTestId('shop-page')).toBeVisible();
 
-		// 交換ボタンを持つカードを探す（不足でないもの）
-		// 前のテストで申請済みの場合はボタンが非表示になっているため、
-		// ページ上に表示されているenabled状態の交換ボタンを探す
-		const exchangeBtn = page
-			.locator('button[data-testid^="exchange-btn-"]:not([disabled])')
-			.first();
+		// キャンセル確認用ごほうびを直接ターゲット（交換フローテストとは独立したシードデータ）
+		const cancelTestCard = page.locator('[data-testid^="reward-card-"]').filter({
+			hasText: 'E2Eテスト用ごほうび（キャンセル確認用）',
+		});
+		await expect(cancelTestCard).toBeVisible();
 
-		const hasBtnVisible = await exchangeBtn.isVisible().catch(() => false);
-		if (!hasBtnVisible) {
-			// 交換可能なボタンがなければこのテストはスキップ相当
-			// （前のテストで申請済み & 他に交換可能なごほうびがない場合）
-			test.skip();
-			return;
-		}
-
+		const exchangeBtn = cancelTestCard.locator('button[data-testid^="exchange-btn-"]');
+		await expect(exchangeBtn).toBeEnabled();
 		await exchangeBtn.click();
 
 		// 確認ダイアログが表示される
