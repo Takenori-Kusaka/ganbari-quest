@@ -97,6 +97,7 @@ test.describe('#1497 Stripe Checkout 遷移 — page.route() モック', () => {
 // ============================================================
 
 test.describe('#1497 /api/stripe/checkout API インターセプト', () => {
+	// ベース URL 確立のために認証済みセッションが必要
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('page.route() で /api/stripe/checkout をモックすると mock URL が返る', async ({ page }) => {
