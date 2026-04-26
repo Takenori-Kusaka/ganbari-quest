@@ -102,6 +102,9 @@ onMount(() => {
 		window.addEventListener('pointerdown', onActivity, { passive: true });
 		window.addEventListener('keydown', onActivity, { passive: true });
 
+		// E2E テスト: sleepTimer が登録されたことをテストが確認できるようにするフラグ
+		(window as Window & { __sleepTimerReady?: boolean }).__sleepTimerReady = true;
+
 		const sleepTimer = setInterval(() => {
 			// バックグラウンド時はスキップ（E2E テストは window.__playwrightVisible で迂回）
 			if (
