@@ -17,7 +17,7 @@
  *   node scripts/capture.mjs --pr 123 --config scripts/capture-specs/admin.mjs
  *
  * --pr を使うと:
- *   - 出力先が docs/screenshots/pr-<N>/ に自動設定される
+ *   - 出力先が tmp/screenshots/pr-<N>/ に自動設定される
  *   - presets が mobile,desktop にデフォルト設定される
  *   - サーバーが未起動なら自動起動・撮影後自動停止される
  *   - 撮影後に PR body 用 Markdown スニペットが標準出力に表示される
@@ -108,7 +108,7 @@ QA レビュー用（--pr で全自動）:
   --cell-height     グリッド 1 セルの高さ px（デフォルト: 300）
 
 QA / PR 用オプション:
-  --pr <N>          PR 番号。docs/screenshots/pr-N/ に出力 + サーバー自動起動 + Markdown 表示
+  --pr <N>          PR 番号。tmp/screenshots/pr-N/ に出力 + サーバー自動起動 + Markdown 表示
   --start-server    サーバーが未起動なら自動起動（--pr 時デフォルト: true）
   --no-start-server サーバー自動起動を無効化
   --server-mode     起動するサーバー種別（デフォルト: dev）
@@ -139,10 +139,13 @@ let presetNames = values.presets.split(',').map((s) => s.trim());
 let baseUrl = values['base-url'];
 
 if (prNumber !== null) {
-	if (!wasProvided('out')) outputDir = `docs/screenshots/pr-${prNumber}`;
+	if (!wasProvided('out')) outputDir = `tmp/screenshots/pr-${prNumber}`;
 	if (!wasProvided('presets')) presetNames = ['mobile', 'desktop'];
 	if (!wasProvided('base-url') && serverMode === 'cognito') baseUrl = 'http://localhost:5174';
 	if (!wasProvided('base-url') && serverMode === 'lp') baseUrl = 'http://localhost:5280';
+	console.log(
+		'[capture] 生成した画像は GitHub PR コメント / PR 本文にドラッグ＆ドロップして CDN URL を使用してください',
+	);
 }
 
 // --server-mode だけ指定して --pr なしの場合も base-url を自動解決
