@@ -103,12 +103,7 @@ onMount(() => {
 		window.addEventListener('keydown', onActivity, { passive: true });
 
 		const sleepTimer = setInterval(() => {
-			// バックグラウンド時はスキップ（ヘッドレス E2E テストは window.__playwrightVisible で迂回）
-			if (
-				document.hidden &&
-				!(window as Window & { __playwrightVisible?: boolean }).__playwrightVisible
-			)
-				return;
+			if (document.hidden) return; // バックグラウンド時はスキップ
 			const now = Date.now();
 			const isBattlePath = page.url.pathname.includes('/battle');
 			const threshold = AUTO_SLEEP_ACTIVE_MS + (isBattlePath ? AUTO_SLEEP_BATTLE_GRACE_MS : 0);

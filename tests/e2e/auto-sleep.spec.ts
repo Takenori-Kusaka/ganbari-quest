@@ -12,14 +12,22 @@ const TICK_INTERVAL_MS = 1000;
 test.describe('#1292 自動スリープ', () => {
 	test('15分連続アクティブで /switch にリダイレクトされる', async ({ page }) => {
 		// headless Chrome では document.hidden が常に true になる。
-		// +layout.svelte の sleepTimer は window.__playwrightVisible が truthy の場合
-		// document.hidden ガードを迂回する（テスト専用フラグ）。
-		// addInitScript で登録し、page.goto('/switch') のフルナビゲーション時に確実に発火させる。
+		// addInitScript で Document.prototype.hidden をオーバーライドし、
+		// sleepTimer の `if (document.hidden) return;` ガードを迂回する。
+		// Document.prototype への定義はインスタンスプロパティの上書きよりも確実。
 		await page.addInitScript(() => {
-			(window as Window & { __playwrightVisible?: boolean }).__playwrightVisible = true;
+			Object.defineProperty(Document.prototype, 'hidden', {
+				get: () => false,
+				configurable: true,
+			});
+			Object.defineProperty(Document.prototype, 'visibilityState', {
+				get: () => 'visible',
+				configurable: true,
+			});
 		});
 
-		// page.clock で Date.now() を制御
+		// page.clock で Date.now() と setInterval を制御
+		// （selectKinderChild の前にインストールし、onMount の setInterval も偽クロック管理下に置く）
 		await page.clock.install();
 
 		await selectKinderChild(page);
