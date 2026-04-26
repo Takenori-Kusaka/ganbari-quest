@@ -19,12 +19,17 @@
 // 実行:
 //   npx playwright test --config playwright.cognito-dev.config.ts account-deletion
 //   (ローカルモードではアカウント削除 API が Cognito 依存のため一部テスト制限あり)
+//
+// #1500: storageState ベースに移行。loginAsPlan() 廃止。
+//   - setup プロジェクト (auth.setup.ts) が事前に playwright/.auth/<role>.json を生成する
+//   - 各 describe ブロックは test.use({ storageState }) で認証済みセッションを再利用
+//   - test.slow() 廃止 / page.goto() タイムアウトを 30s に短縮
 
 import { expect, test } from '@playwright/test';
-import { loginAsPlan, warmupAdminPages } from './plan-login-helpers';
+import { warmupAdminPages } from './plan-login-helpers';
 
 test.beforeAll(async ({ browser }) => {
-	test.setTimeout(360_000);
+	test.setTimeout(60_000);
 	await warmupAdminPages(browser, ['/admin/settings']);
 });
 
@@ -155,16 +160,14 @@ test.describe('#755 Stripe 連動 — サブスクキャンセル (mock)', () =>
 // 5. UI: /admin/settings のアカウント削除セクション（cognito-dev モード）
 // ============================================================
 
-test.describe('#755 アカウント削除 — UI（cognito-dev モード）', () => {
-	test.beforeEach(() => {
-		test.slow(); // Vite dev のコールドコンパイルでタイムアウトを 3x 延長
-	});
+test.describe('#755 アカウント削除 — UI（cognito-dev モード）family', () => {
+	// #1500: storageState で認証済みセッションを再利用（loginAsPlan() 廃止）
+	test.use({ storageState: 'playwright/.auth/family.json' });
 
 	test('owner ログインで /admin/settings にアカウント削除セクションが表示される', async ({
 		page,
 	}) => {
-		await loginAsPlan(page, 'family');
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
 
 		// cognito モードではアカウント削除セクションが表示される
 		const deleteSection = page.getByText('アカウント削除');
@@ -188,8 +191,7 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）', ()
 	});
 
 	test('owner ログインで削除ボタンは確認テキスト未入力で無効', async ({ page }) => {
-		await loginAsPlan(page, 'family');
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
 
 		const deleteSection = page.getByText('アカウント削除');
 		const deleteSectionCount = await deleteSection.count();
@@ -209,10 +211,14 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）', ()
 		await expect(deleteButton).toBeVisible({ timeout: 5_000 });
 		await expect(deleteButton).toBeDisabled();
 	});
+});
+
+test.describe('#755 アカウント削除 — UI（cognito-dev モード）free', () => {
+	// #1500: storageState で認証済みセッションを再利用（loginAsPlan() 廃止）
+	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free プランの owner でもアカウント削除セクションが表示される', async ({ page }) => {
-		await loginAsPlan(page, 'free');
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
 
 		const deleteSection = page.getByText('アカウント削除');
 		const deleteSectionCount = await deleteSection.count();
@@ -235,15 +241,13 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）', ()
 // ============================================================
 
 test.describe('#755 権限移譲ダイアログ — UI', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
+	// #1500: storageState で認証済みセッションを再利用（loginAsPlan() 廃止）
+	test.use({ storageState: 'playwright/.auth/family.json' });
 
 	test('owner が削除を試行すると他メンバーがいる場合は移譲ダイアログが表示される', async ({
 		page,
 	}) => {
-		await loginAsPlan(page, 'family');
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
 
 		// 前提条件: アカウント削除セクションが表示されること
 		const deleteSection = page.getByText('アカウント削除');
@@ -296,32 +300,38 @@ test.describe('#755 権限移譲ダイアログ — UI', () => {
 // 7. プラン別サインアップ → プラン確認（cognito-dev モード）
 // ============================================================
 
-test.describe('#755 プラン別サインアップ → プラン確認', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
+test.describe('#755 プラン別サインアップ → プラン確認 — free', () => {
+	// #1500: storageState で認証済みセッションを再利用（loginAsPlan() 廃止）
+	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free ユーザーでログイン → plan=free 確認', async ({ page }) => {
-		await loginAsPlan(page, 'free');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
 		await expect(card).toHaveAttribute('data-plan-tier', 'free');
 	});
+});
+
+test.describe('#755 プラン別サインアップ → プラン確認 — standard', () => {
+	// #1500: storageState で認証済みセッションを再利用（loginAsPlan() 廃止）
+	test.use({ storageState: 'playwright/.auth/standard.json' });
 
 	test('standard ユーザーでログイン → plan=standard 確認', async ({ page }) => {
-		await loginAsPlan(page, 'standard');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
 		await expect(card).toHaveAttribute('data-plan-tier', 'standard');
 	});
+});
+
+test.describe('#755 プラン別サインアップ → プラン確認 — family', () => {
+	// #1500: storageState で認証済みセッションを再利用（loginAsPlan() 廃止）
+	test.use({ storageState: 'playwright/.auth/family.json' });
 
 	test('family ユーザーでログイン → plan=family 確認', async ({ page }) => {
-		await loginAsPlan(page, 'family');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
