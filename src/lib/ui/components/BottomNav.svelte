@@ -1,7 +1,7 @@
 <script lang="ts">
 import { page } from '$app/state';
 import { ICON_HOME, ICON_STATUS, ICON_SWITCH } from '$lib/domain/icons';
-import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
+import { CHILD_SHOP_LABELS, UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { playSound } from '$lib/ui/sound/play-sound';
 
 interface NavItem {
@@ -16,10 +16,10 @@ interface Props {
 }
 
 const defaultItems: NavItem[] = [
-	{ href: '/home', icon: ICON_HOME, label: 'ホーム' },
+	{ href: '/home', icon: ICON_HOME, label: UI_COMPONENTS_LABELS.bottomNavHome },
 	{ href: '/shop', icon: CHILD_SHOP_LABELS.navIcon, label: CHILD_SHOP_LABELS.navLabel },
-	{ href: '/status', icon: ICON_STATUS, label: 'つよさ' },
-	{ href: '/switch', icon: ICON_SWITCH, label: 'かぞく' },
+	{ href: '/status', icon: ICON_STATUS, label: UI_COMPONENTS_LABELS.bottomNavStrength },
+	{ href: '/switch', icon: ICON_SWITCH, label: UI_COMPONENTS_LABELS.bottomNavFamily },
 ];
 
 let { items = defaultItems, iconOnly = false }: Props = $props();
@@ -33,7 +33,7 @@ function isActive(href: string): boolean {
 	class="fixed bottom-0 left-0 right-0 z-30 flex items-stretch justify-around
 		bg-[var(--theme-nav)] border-t border-black/10 safe-area-bottom"
 	data-testid="bottom-nav"
-	aria-label="メインナビゲーション"
+	aria-label={UI_COMPONENTS_LABELS.bottomNavAriaLabel}
 >
 	{#each items as item (item.href)}
 		<a

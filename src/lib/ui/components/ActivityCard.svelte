@@ -1,5 +1,6 @@
 <script lang="ts">
 import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import CompoundIcon from './CompoundIcon.svelte';
@@ -83,7 +84,7 @@ function handleClick(e: Event) {
 		return;
 	}
 	if (frozen) {
-		showToast('おうちのひとに おねがいしてね', undefined, 'info');
+		showToast(UI_COMPONENTS_LABELS.activityCardFrozenToast, undefined, 'info');
 		return;
 	}
 	onclick?.();
@@ -101,7 +102,7 @@ function handleClick(e: Event) {
 	style:border-color={completed ? undefined : (showMainQuest ? 'var(--color-gold-500, #d97706)' : showMission ? 'gold' : (frozen ? 'var(--color-neutral-300)' : borderColor))}
 	disabled={completed}
 	data-testid={activityId != null ? `activity-card-${activityId}` : undefined}
-	aria-label="{name}{completed ? '（きろくずみ）' : ''}{showMainQuest ? '（メインクエスト×2）' : ''}{showMission ? '（ミッション）' : ''}{isPinned ? '（ピンどめ）' : ''}{frozen ? '（ロックちゅう）' : ''}"
+	aria-label="{name}{completed ? UI_COMPONENTS_LABELS.activityCardCompleted : ''}{showMainQuest ? UI_COMPONENTS_LABELS.activityCardMainQuest : ''}{showMission ? UI_COMPONENTS_LABELS.activityCardMission : ''}{isPinned ? UI_COMPONENTS_LABELS.activityCardPinned : ''}{frozen ? UI_COMPONENTS_LABELS.activityCardFrozen : ''}"
 	onclick={handleClick}
 	onpointerdown={handlePointerDown}
 	onpointerup={handlePointerUp}
@@ -123,13 +124,13 @@ function handleClick(e: Event) {
 			<span class="text-3xl opacity-80 animate-bounce-in">💮</span>
 		</div>
 	{:else if count > 0}
-		<div class="absolute -top-1 -right-1 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] font-bold shadow-sm" aria-label="{count}かいきろくずみ">
+		<div class="absolute -top-1 -right-1 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] font-bold shadow-sm" aria-label={UI_COMPONENTS_LABELS.activityCardCountAriaLabel(count)}>
 			{count}
 		</div>
 	{/if}
 
 	{#if showMainQuest}
-		<span class="main-quest-badge" aria-hidden="true">⚔️ 2ばい!</span>
+		<span class="main-quest-badge" aria-hidden="true">{UI_COMPONENTS_LABELS.activityCardMainQuestBadge}</span>
 	{/if}
 
 	{#if eventBadge && !completed}
@@ -151,7 +152,7 @@ function handleClick(e: Event) {
 	{/if}
 
 	{#if streakDays >= 2}
-		<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 flex" aria-label="{streakDays}にちれんぞく">
+		<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 flex" aria-label={UI_COMPONENTS_LABELS.activityCardStreakAriaLabel(streakDays)}>
 			{#each Array(Math.min(streakDays, 5)) as _, i}
 				<span class="text-xs animate-flame" aria-hidden="true">🔥</span>
 			{/each}
