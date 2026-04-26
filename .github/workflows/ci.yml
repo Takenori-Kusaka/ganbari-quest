@@ -421,17 +421,15 @@ jobs:
 
   # #1500: cognito-dev モード（AUTH_MODE=cognito COGNITO_DEV_MODE=true）での統合テスト。
   # plan 別 storageState（setup プロジェクト）を使って認証を高速化。
-  # 実行時間が長いため optional（失敗しても ci-gate はブロックしない）。
-  # CI が安定したら ci-gate の needs に追加する予定（#1500 follow-up）。
   # #1543: cognito フィルターに一致する変更（認証・課金・プラン関連）か、deps 変更時のみ実行。
   # スタンプ・活動・UI のみの変更では起動しない。
+  # #1549-C6: ci-gate の needs に組み込み済み。skip 時は ci-gate がブロックしない。
   e2e-cognito-dev:
     runs-on: ubuntu-latest
     needs: [changes]
     if: needs.changes.outputs.cognito == 'true' || needs.changes.outputs.deps == 'true'
     permissions:
       contents: read
-    continue-on-error: true
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
@@ -598,6 +596,7 @@ jobs:
         storybook-test,
         e2e-test,
         e2e-merge-reports,
+        e2e-cognito-dev,
         docker-build,
         site-check,
         new-env-distribution-check,
