@@ -73,9 +73,9 @@ test.describe('UC-01: Kinder ホーム画面', () => {
 	test('ボトムナビゲーションが表示される', async ({ page }) => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
 		await expect(nav).toBeVisible();
-		// ナビリンクが4つ表示される（ホーム、チェックリスト、つよさ、かぞく）
+		// ナビリンクが5つ表示される（ホーム、チェックリスト、ごほうびショップ、つよさ、かぞく）
 		const links = nav.locator('a');
-		expect(await links.count()).toBe(4);
+		expect(await links.count()).toBe(5);
 	});
 
 	test('カテゴリヘッダーと活動カードが両方表示される', async ({ page }) => {

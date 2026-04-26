@@ -3131,6 +3131,57 @@ export const LP_CORELOOP_LABELS = {
 } as const;
 
 // ============================================================
+// ごほうびショップ 子供側 UI (#1337)
+// ============================================================
+
+export const CHILD_SHOP_LABELS = {
+	pageTitle: 'ごほうびショップ',
+	navLabel: 'ショップ',
+	navIcon: '🎁',
+	pointBalanceLabel: 'いまのポイント',
+	pointUnit: 'ポイント',
+	exchangeButton: 'こうかんする',
+	exchangeConfirmTitle: (rewardTitle: string, points: number) =>
+		`${rewardTitle} と こうかんする？（${points} ポイント）`,
+	exchangeConfirmYes: 'はい',
+	exchangeConfirmCancel: 'やめる',
+	insufficientPointsHint: (remaining: number) => `あと ${remaining} ポイント`,
+	emptyMessage: 'ごほうびがまだありません',
+	// 申請中バッジ
+	statusPending: 'うけとりまち',
+	statusApproved: 'こうかん済み',
+	statusRejected: 'まってね',
+	// 通知 overlay
+	approvedTitle: (rewardTitle: string) => `${rewardTitle} もらったよ！`,
+	rejectedTitle: (rewardTitle: string) => `${rewardTitle} は ちょっとまってね`,
+	overlayCloseButton: 'とじる',
+	// aria-labels
+	rewardListAriaLabel: 'ごほうびリスト',
+	pointProgressAriaLabel: 'ポイント進捗',
+} as const;
+
+// ============================================================
+// ごほうびショップ 親管理画面 申請タブ (#1337)
+// ============================================================
+
+export const ADMIN_SHOP_REQUEST_LABELS = {
+	tabLabel: '申請',
+	tabLabelRequests: 'ごほうび申請',
+	emptyPendingMessage: '申請はありません',
+	approveButton: '承認して渡した',
+	rejectButton: '却下する',
+	rejectNoteLabel: '却下理由（任意・最大100文字）',
+	rejectConfirmButton: '確定',
+	rejectCancelButton: 'キャンセル',
+	requestedAtLabel: '申請日時',
+	childNameLabel: '子供',
+	rewardPointsUnit: 'ポイント',
+	statusApproved: '承認済み',
+	statusRejected: '却下済み',
+	historyTabLabel: '履歴',
+} as const;
+
+// ============================================================
 // スタンプカード N レアリティ ポジティブメッセージ (#1536)
 // StampPressOverlay で N レアリティのスタンプ取得時に表示
 // ============================================================

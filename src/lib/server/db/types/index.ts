@@ -196,6 +196,25 @@ export interface SpecialReward {
 	sourcePresetId?: string | null;
 }
 
+/** ごほうびショップ交換申請 (#1337) */
+export interface RewardRedemptionRequest {
+	id: number;
+	childId: number;
+	rewardId: number;
+	requestedAt: number;
+	status: 'pending_parent_approval' | 'approved' | 'rejected' | 'expired';
+	parentNote: string | null;
+	resolvedAt: number | null;
+	resolvedByParentId: number | null;
+	shownToChildAt: number | null;
+}
+
+export interface InsertRedemptionRequestInput {
+	childId: number;
+	rewardId: number;
+	requestedAt: number;
+}
+
 export interface ChecklistTemplate {
 	id: number;
 	childId: number;

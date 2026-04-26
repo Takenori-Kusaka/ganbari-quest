@@ -27,6 +27,8 @@ jobs:
       deps: ${{ steps.filter.outputs.deps }}
       site: ${{ steps.filter.outputs.site }}
       stories: ${{ steps.filter.outputs.stories }}
+      cognito: ${{ steps.filter.outputs.cognito }}
+      docker: ${{ steps.filter.outputs.docker }}
     steps:
       - uses: actions/checkout@v6
 
@@ -59,6 +61,56 @@ jobs:
             stories:
               - 'src/**/*.stories.*'
               - '.storybook/**'
+              # #1557 (C4): stories ファイルが存在する UI コンポーネントディレクトリ
+              # src/lib/server/** や src/routes/**/*.server.ts はストーリー非依存のため除外
+              - 'src/lib/ui/**'
+              - 'src/lib/features/**'
+              - 'src/stories/**'
+            # #1543: 認証・課金・プラン関連ファイルのみ e2e-cognito-dev を起動する
+            cognito:
+              # 認証コア
+              - 'src/lib/server/auth/**'
+              # Stripe クライアント・設定
+              - 'src/lib/server/stripe/**'
+              # サービス層: Stripe・ライセンス・プラン
+              - 'src/lib/server/services/stripe-service.ts'
+              - 'src/lib/server/services/stripe-metrics-service.ts'
+              - 'src/lib/server/services/license-service.ts'
+              - 'src/lib/server/services/license-key-service.ts'
+              - 'src/lib/server/services/plan-limit-service.ts'
+              # プランデバッグ・定数
+              - 'src/lib/server/debug-plan.ts'
+              - 'src/lib/domain/constants/license-plan.ts'
+              - 'src/lib/domain/constants/subscription-status.ts'
+              - 'src/lib/domain/constants/auth-license-status.ts'
+              - 'src/lib/domain/constants/license-key-status.ts'
+              # 認証・ライセンス UI ルート
+              - 'src/routes/auth/**'
+              - 'src/routes/api/stripe/**'
+              - 'src/routes/(parent)/admin/license/**'
+              # cognito-dev spec ファイル群
+              - 'tests/e2e/cognito-auth.spec.ts'
+              - 'tests/e2e/plan-*.spec.ts'
+              - 'tests/e2e/upgrade-*.spec.ts'
+              - 'tests/e2e/trial-*.spec.ts'
+              - 'tests/e2e/ops-license*.spec.ts'
+              - 'tests/e2e/premium-welcome.spec.ts'
+              - 'tests/e2e/pricing-*.spec.ts'
+              - 'tests/e2e/account-deletion.spec.ts'
+              - 'tests/e2e/auth.setup.ts'
+              - 'playwright.cognito-dev.config.ts'
+              # CI 設定自体の変更
+              - '.github/workflows/ci.yml'
+            # #1551: docker-build は src/ / Dockerfile / config の変更時のみ実行。
+            # tests/ / docs/ / scripts/ 等のビルド結果に影響しない変更ではスキップ。
+            docker:
+              - 'src/**'
+              - 'static/**'
+              - 'svelte.config.js'
+              - 'vite.config.ts'
+              - 'tsconfig.json'
+              - 'Dockerfile*'
+              - '.dockerignore'
 
   lint-and-test:
     needs: changes
@@ -229,10 +281,11 @@ jobs:
 
   # #1168: Storybook browser test を CI 必須化（従来はローカルのみ flaky 運用で品質ゲート外だった）。
   # playwright/chromium をインストールして npm run test:storybook を実行する。
-  # stories / primitives / components / .storybook のいずれか変更時に走る。
+  # #1557 (C4): stories フィルター精緻化。src/lib/ui/** / src/lib/features/** / .storybook 変更時のみ実行。
+  # src/lib/server/** や src/routes/**/*.server.ts のみ変更の場合は skip される。
   storybook-test:
     needs: changes
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'
+    if: needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -370,10 +423,12 @@ jobs:
   # plan 別 storageState（setup プロジェクト）を使って認証を高速化。
   # 実行時間が長いため optional（失敗しても ci-gate はブロックしない）。
   # CI が安定したら ci-gate の needs に追加する予定（#1500 follow-up）。
+  # #1543: cognito フィルターに一致する変更（認証・課金・プラン関連）か、deps 変更時のみ実行。
+  # スタンプ・活動・UI のみの変更では起動しない。
   e2e-cognito-dev:
     runs-on: ubuntu-latest
     needs: [changes]
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    if: needs.changes.outputs.cognito == 'true' || needs.changes.outputs.deps == 'true'
     permissions:
       contents: read
     continue-on-error: true
@@ -429,8 +484,9 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     # #923 Phase 1: lint-and-test 依存を外して並列化 (e2e-test と同じ理由)
+    # #1551: docker フィルターで絞り込み。tests/ / docs/ のみ変更時はスキップ。
     needs: [changes]
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    if: needs.changes.outputs.docker == 'true' || needs.changes.outputs.deps == 'true'
     permissions:
       contents: read
     steps:
@@ -442,6 +498,14 @@ jobs:
       - name: Build Lambda Docker image (AWS)
         run: docker build -f Dockerfile.lambda -t ganbari-quest-lambda:test .
 
+  # #1545-C3 調査結果: app トリガーは除去不可
+  # check-forbidden-terms.mjs の SEARCH_ROOTS に 'src' が含まれるため、
+  # src/ 変更時にも禁止語（旧プラン名・旧年齢用語等）の混入を検知する必要がある。
+  # check-site-html.mjs は site/ のみを検証するが、
+  # check-forbidden-terms.mjs が src/ 全体をスキャン対象とするため
+  # `app == 'true'` トリガーを維持する。
+  # 将来最適化案: check-forbidden-terms.mjs の SEARCH_ROOTS から 'src' を除外し
+  # src の禁止語チェックを biome/ESLint に移管すれば site-only トリガーに絞れる。
   site-check:
     runs-on: ubuntu-latest
     needs: changes
