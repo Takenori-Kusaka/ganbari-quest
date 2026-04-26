@@ -20,10 +20,16 @@ test.describe('#1292 自動スリープ', () => {
 		// preschool/home にいることを確認
 		await expect(page).toHaveURL(/\/preschool\/home/);
 
-		// headless Chrome では document.hidden が常に true になり sleepTimer がスキップされる。
-		// bringToFront() でページをフォアグラウンドに持ってきて document.hidden = false にする。
-		// これは他のテスト（非アクティブリセット・babyモード）でも有効なパターン。
-		await page.bringToFront();
+		// headless Chromium では document.hidden が常に true になり sleepTimer がスキップされる。
+		// page.evaluate() でページ遷移完了後に document インスタンスの hidden プロパティを
+		// 直接オーバーライドする（bringToFront() は headless モードでは document.hidden を変更しない）。
+		// addInitScript() は full navigation 時のみ有効で SPA 遷移後には適用されないため不適。
+		await page.evaluate(() => {
+			Object.defineProperty(document, 'hidden', {
+				configurable: true,
+				get: () => false,
+			});
+		});
 
 		// 最初のアクティビティ（lastActive を設定）
 		await page.dispatchEvent('body', 'pointerdown');
