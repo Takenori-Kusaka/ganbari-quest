@@ -60,6 +60,11 @@ jobs:
             stories:
               - 'src/**/*.stories.*'
               - '.storybook/**'
+              # #1557 (C4): stories ファイルが存在する UI コンポーネントディレクトリ
+              # src/lib/server/** や src/routes/**/*.server.ts はストーリー非依存のため除外
+              - 'src/lib/ui/**'
+              - 'src/lib/features/**'
+              - 'src/stories/**'
             # #1543: 認証・課金・プラン関連ファイルのみ e2e-cognito-dev を起動する
             cognito:
               # 認証コア
@@ -265,10 +270,11 @@ jobs:
 
   # #1168: Storybook browser test を CI 必須化（従来はローカルのみ flaky 運用で品質ゲート外だった）。
   # playwright/chromium をインストールして npm run test:storybook を実行する。
-  # stories / primitives / components / .storybook のいずれか変更時に走る。
+  # #1557 (C4): stories フィルター精緻化。src/lib/ui/** / src/lib/features/** / .storybook 変更時のみ実行。
+  # src/lib/server/** や src/routes/**/*.server.ts のみ変更の場合は skip される。
   storybook-test:
     needs: changes
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'
+    if: needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
