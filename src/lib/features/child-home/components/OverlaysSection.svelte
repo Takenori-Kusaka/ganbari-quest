@@ -1,4 +1,5 @@
 <script lang="ts">
+import { normalizeUiMode } from '$lib/domain/validation/age-tier-types';
 import BirthdayModal from '$lib/features/birthday/BirthdayModal.svelte';
 import type { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
 import LevelUpOverlay from '$lib/ui/components/LevelUpOverlay.svelte';
@@ -120,6 +121,7 @@ let birthdayModalOpen = $derived(fsm.current === 'birthday');
 		cardTotalSlots={stampPressData.cardTotalSlots}
 		cardEntries={stampPressData.cardEntries}
 		weeklyRedeem={stampPressData.weeklyRedeem}
+		uiMode={normalizeUiMode(uiMode)}
 		onClose={onStampPressClose}
 	/>
 {/if}

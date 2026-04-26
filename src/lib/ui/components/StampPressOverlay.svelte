@@ -1,5 +1,7 @@
 <script lang="ts">
+import { STAMP_PRESS_N_MESSAGES } from '$lib/domain/labels';
 import { getStampImagePathSafe } from '$lib/domain/stamp-image';
+import type { UiMode } from '$lib/domain/validation/age-tier-types';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -29,6 +31,8 @@ interface Props {
 		totalSlots: number;
 		completeBonus: number;
 	} | null;
+	/** Age mode for tone-appropriate positive messages (#1536) */
+	uiMode?: UiMode;
 	onClose?: () => void;
 }
 
@@ -44,11 +48,15 @@ let {
 	cardTotalSlots,
 	cardEntries,
 	weeklyRedeem,
+	uiMode = 'elementary',
 	onClose,
 }: Props = $props();
 
 type Phase = 'card' | 'press' | 'points' | 'weekly';
 let phase = $state<Phase>('card');
+
+/** Positive message shown for N rarity stamps (#1536). Rotated each time overlay opens. */
+let positiveMessage = $state('');
 
 const rarityConfig: Record<string, { glow: string; particles: string[]; tier: number }> = {
 	N: { glow: 'none', particles: [], tier: 0 },
@@ -67,6 +75,12 @@ $effect(() => {
 	if (open) {
 		phase = 'card';
 		soundService.play('stamp-press');
+
+		// Pick a random positive message for N rarity on each open (#1536)
+		if (stampRarity === 'N') {
+			const messages = STAMP_PRESS_N_MESSAGES[uiMode] ?? STAMP_PRESS_N_MESSAGES.elementary;
+			positiveMessage = messages[Math.floor(Math.random() * messages.length)] ?? messages[0] ?? '';
+		}
 
 		const t1 = setTimeout(() => {
 			phase = 'press';
@@ -146,6 +160,9 @@ function handleClose() {
 			{#if phase === 'points'}
 				<div class="sp__points-section">
 					<p class="sp__points-value">+{instantPoints}pt</p>
+					{#if stampRarity === 'N' && positiveMessage}
+						<p class="sp__positive-message">{positiveMessage}</p>
+					{/if}
 					{#if consecutiveDays >= 2}
 						<p class="sp__streak">{consecutiveDays}にちれんぞく！
 							{#if multiplier > 1}
@@ -315,6 +332,15 @@ function handleClose() {
 
 	.sp__points-value--big {
 		font-size: 2rem;
+	}
+
+	/* N rarity positive message (#1536) */
+	.sp__positive-message {
+		font-size: 0.9375rem;
+		font-weight: 700;
+		color: var(--color-feedback-success-text);
+		margin: 0;
+		animation: fade-in 0.3s ease-out;
 	}
 
 	.sp__streak {
