@@ -9,35 +9,23 @@
 //  - POST /api/stripe/checkout は Stripe が無効な環境では 503 を返す
 //  - アップグレード成功後の動作は PremiumWelcome spec (#778) で検証済み
 //
+// #1535: loginAsPlan() を storageState ベースに移行（describe ブロック分割）
+//        beforeAll warmup は削除（storageState + dev サーバーなら不要）
+//
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts upgrade-flow
 
 import { expect, test } from '@playwright/test';
-import { loginAsPlan, warmupAdminPages } from './plan-login-helpers';
-
-test.beforeAll(async ({ browser }) => {
-	test.setTimeout(360_000);
-	await warmupAdminPages(browser, [
-		'/admin',
-		'/admin/license',
-		'/admin/rewards',
-		'/admin/activities',
-		'/pricing',
-	]);
-});
 
 // ============================================================
-// 1. PlanStatusCard からのアップグレード CTA
+// 1. PlanStatusCard からのアップグレード CTA（free）
 // ============================================================
-test.describe('#753 PlanStatusCard → /admin/license', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
+test.describe('#753 PlanStatusCard → /admin/license — free', () => {
+	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free プランの PlanStatusCard に「スタンダードにアップグレード」CTA がある', async ({
 		page,
 	}) => {
-		await loginAsPlan(page, 'free');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
@@ -49,8 +37,7 @@ test.describe('#753 PlanStatusCard → /admin/license', () => {
 	});
 
 	test('free プランの PlanStatusCard に「ファミリーへ」CTA がある', async ({ page }) => {
-		await loginAsPlan(page, 'free');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		const familyCta = page.getByTestId('plan-status-family-cta');
 		const count = await familyCta.count();
@@ -64,12 +51,18 @@ test.describe('#753 PlanStatusCard → /admin/license', () => {
 		await expect(familyCta).toBeVisible({ timeout: 10_000 });
 		await expect(familyCta).toContainText(/ファミリー/);
 	});
+});
+
+// ============================================================
+// 1. PlanStatusCard からのアップグレード CTA（standard）
+// ============================================================
+test.describe('#753 PlanStatusCard → /admin/license — standard', () => {
+	test.use({ storageState: 'playwright/.auth/standard.json' });
 
 	test('standard プランの PlanStatusCard にファミリーアップグレード CTA がある', async ({
 		page,
 	}) => {
-		await loginAsPlan(page, 'standard');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
@@ -81,10 +74,16 @@ test.describe('#753 PlanStatusCard → /admin/license', () => {
 		const portalOrPreparing = portalBtn.or(preparingText);
 		await expect(portalOrPreparing).toBeVisible({ timeout: 10_000 });
 	});
+});
+
+// ============================================================
+// 1. PlanStatusCard からのアップグレード CTA（family）
+// ============================================================
+test.describe('#753 PlanStatusCard → /admin/license — family', () => {
+	test.use({ storageState: 'playwright/.auth/family.json' });
 
 	test('family プランの PlanStatusCard にアップグレード CTA は表示されない', async ({ page }) => {
-		await loginAsPlan(page, 'family');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
@@ -99,18 +98,15 @@ test.describe('#753 PlanStatusCard → /admin/license', () => {
 });
 
 // ============================================================
-// 2. /admin/rewards からの disabled CTA → /admin/license
+// 2. /admin/rewards からの disabled CTA → /admin/license（free）
 // ============================================================
 test.describe('#753 /admin/rewards → アップグレード導線', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
+	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free プランで rewards-upgrade-banner が表示され、CTA が /admin/license へリンクする', async ({
 		page,
 	}) => {
-		await loginAsPlan(page, 'free');
-		await page.goto('/admin/rewards', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/rewards', { waitUntil: 'commit', timeout: 30_000 });
 
 		const banner = page.getByTestId('rewards-upgrade-banner');
 		await expect(banner).toBeVisible({ timeout: 30_000 });
@@ -125,16 +121,13 @@ test.describe('#753 /admin/rewards → アップグレード導線', () => {
 });
 
 // ============================================================
-// 3. /admin/activities の AiSuggestPanel disabled CTA → /admin/license
+// 3. /admin/activities の AiSuggestPanel disabled CTA → /admin/license（free）
 // ============================================================
 test.describe('#753 /admin/activities AI → アップグレード導線', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
+	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free プランで AI パネルの upgrade-cta が /admin/license へリンクする', async ({ page }) => {
-		await loginAsPlan(page, 'free');
-		await page.goto('/admin/activities', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/activities', { waitUntil: 'commit', timeout: 30_000 });
 
 		// FAB から追加ダイアログを開き AI モードを選択
 		await page.waitForLoadState('domcontentloaded');
@@ -158,16 +151,13 @@ test.describe('#753 /admin/activities AI → アップグレード導線', () =>
 });
 
 // ============================================================
-// 4. /pricing からのサインアップ → /admin/license 導線
+// 4. /pricing からのサインアップ → /admin/license 導線（free）
 // ============================================================
 test.describe('#753 /pricing → アップグレード導線', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
+	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('/pricing ページにプランカードと CTA が表示される', async ({ page }) => {
-		await loginAsPlan(page, 'free');
-		await page.goto('/pricing', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/pricing', { waitUntil: 'commit', timeout: 30_000 });
 
 		await expect(page.getByTestId('pricing-heading')).toBeVisible({ timeout: 30_000 });
 
@@ -185,6 +175,7 @@ test.describe('#753 /pricing → アップグレード導線', () => {
 
 // ============================================================
 // 5. /admin/license でプラン選択 → Stripe Checkout 遷移 (mock)
+//    （認証不要な API テスト）
 // ============================================================
 test.describe('#753 Stripe Checkout 遷移 — API', () => {
 	test('POST /api/stripe/checkout に有効なプランで 503 が返る（Stripe 未設定環境）', async ({
@@ -213,16 +204,13 @@ test.describe('#753 Stripe Checkout 遷移 — API', () => {
 });
 
 // ============================================================
-// 6. /admin/license のプラン選択 UI
+// 6. /admin/license のプラン選択 UI（free）
 // ============================================================
-test.describe('#753 /admin/license プラン選択 UI', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
+test.describe('#753 /admin/license プラン選択 UI — free', () => {
+	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free プランで /admin/license にプラン選択カードが表示される', async ({ page }) => {
-		await loginAsPlan(page, 'free');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		// Stripe が無効な環境では「決済機能は現在準備中です」が出る。
 		// Stripe 有効環境ではプラン選択カードが表示される。
@@ -249,12 +237,18 @@ test.describe('#753 /admin/license プラン選択 UI', () => {
 		await expect(page.getByText('月額')).toBeVisible();
 		await expect(page.getByText(/年額/)).toBeVisible();
 	});
+});
+
+// ============================================================
+// 6. /admin/license のプラン選択 UI（standard）
+// ============================================================
+test.describe('#753 /admin/license プラン選択 UI — standard', () => {
+	test.use({ storageState: 'playwright/.auth/standard.json' });
 
 	test('standard プランでは Stripe Portal ボタンが表示される（サブスク有りの場合）', async ({
 		page,
 	}) => {
-		await loginAsPlan(page, 'standard');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		// standard はサブスクリプション有りなので Portal ボタンが出る、
 		// または dev 環境では Stripe 未設定で「決済機能は現在準備中です」が出る
@@ -266,53 +260,53 @@ test.describe('#753 /admin/license プラン選択 UI', () => {
 });
 
 // ============================================================
-// 7. アップグレード成功後の PremiumWelcome モーダル表示
+// 7. アップグレード成功後の PremiumWelcome モーダル表示（standard / family）
 // ============================================================
-test.describe('#753 PremiumWelcome モーダル — 表示確認', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
+test.describe('#753 PremiumWelcome モーダル — standard', () => {
+	test.use({ storageState: 'playwright/.auth/standard.json' });
 
 	test('standard プランで /admin に歓迎モーダルの条件がある', async ({ page }) => {
 		// PremiumWelcome の詳細テストは premium-welcome.spec.ts に委譲。
 		// ここではアップグレード導線の一部として、standard/family ログイン後に
 		// /admin にアクセスできることを確認する。
-		await loginAsPlan(page, 'standard');
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
 		// /admin に到達していることを確認
 		await expect(page).toHaveURL(/\/admin/);
 	});
+});
+
+test.describe('#753 PremiumWelcome モーダル — family', () => {
+	test.use({ storageState: 'playwright/.auth/family.json' });
 
 	test('family プランで /admin に到達できる', async ({ page }) => {
-		await loginAsPlan(page, 'family');
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
 		await expect(page).toHaveURL(/\/admin/);
 	});
 });
 
 // ============================================================
-// 8. アップグレード成功後の機能即時有効化
+// 8. アップグレード成功後の機能即時有効化（standard / family）
 // ============================================================
-test.describe('#753 アップグレード後の機能有効化', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
+test.describe('#753 アップグレード後の機能有効化 — standard', () => {
+	test.use({ storageState: 'playwright/.auth/standard.json' });
 
 	test('standard プランでカスタムごほうびが有効（rewards-upgrade-banner 非表示）', async ({
 		page,
 	}) => {
-		await loginAsPlan(page, 'standard');
-		await page.goto('/admin/rewards', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/rewards', { waitUntil: 'commit', timeout: 30_000 });
 
 		// standard では rewards-upgrade-banner は非表示
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
 	});
+});
+
+test.describe('#753 アップグレード後の機能有効化 — family', () => {
+	test.use({ storageState: 'playwright/.auth/family.json' });
 
 	test('family プランでひとことメッセージが有効', async ({ page }) => {
-		await loginAsPlan(page, 'family');
-		await page.goto('/admin/messages', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/messages', { waitUntil: 'commit', timeout: 30_000 });
 
 		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
 		await expect(textBtn).toBeVisible({ timeout: 30_000 });
