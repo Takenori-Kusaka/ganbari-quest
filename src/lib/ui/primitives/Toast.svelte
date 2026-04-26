@@ -23,6 +23,8 @@ export function showToast(
 </script>
 
 <script lang="ts">
+	import { UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
+
 	function dismiss(id: number) {
 		toasts = toasts.filter((t) => t.id !== id);
 	}
@@ -46,7 +48,7 @@ export function showToast(
 				</div>
 				<button
 					class="tap-target w-8 h-8 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5"
-					aria-label="とじる"
+					aria-label={UI_PRIMITIVES_LABELS.closeAriaLabel}
 					onclick={() => dismiss(toast.id)}
 				>
 					✕

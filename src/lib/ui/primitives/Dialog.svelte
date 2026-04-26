@@ -2,6 +2,7 @@
 import { Dialog as ArkDialog } from '@ark-ui/svelte/dialog';
 import { Portal } from '@ark-ui/svelte/portal';
 import type { Snippet } from 'svelte';
+import { UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
 
 interface Props {
 	open: boolean;
@@ -61,7 +62,7 @@ function handleOpenChange(details: { open: boolean }) {
 				{#if closable}
 					<ArkDialog.CloseTrigger
 						class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5"
-						aria-label="とじる"
+						aria-label={UI_PRIMITIVES_LABELS.closeAriaLabel}
 					>
 						✕
 					</ArkDialog.CloseTrigger>

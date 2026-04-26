@@ -1,6 +1,7 @@
 <script lang="ts">
 import { Portal } from '@ark-ui/svelte/portal';
 import { Select as ArkSelect, createListCollection } from '@ark-ui/svelte/select';
+import { UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
 
 interface SelectItem {
 	value: string;
@@ -22,7 +23,7 @@ let {
 	label,
 	items,
 	value = $bindable([]),
-	placeholder = '選択してください',
+	placeholder = UI_PRIMITIVES_LABELS.selectPlaceholder,
 	error,
 	disabled = false,
 	onValueChange,

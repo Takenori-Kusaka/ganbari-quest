@@ -1,6 +1,6 @@
 {
-	"count": 500,
+	"count": 498,
 	"rule": "local/no-hardcoded-jp-text",
 	"scope": "src/**/*.svelte (stories included)",
-	"note": "Issue #1452 Phase C: src/routes 0 violations. Issue #1465 Phase A: scope expanded to src/**/*.svelte including stories — baseline 500. New code must not add violations. Migrate existing to reduce count to 0 (Phase B)."
+	"note": "Issue #1452 Phase C: src/routes 0 violations. Issue #1465 Phase A: scope expanded to src/**/*.svelte including stories — baseline 500. Issue #1465 Phase B (primitives): migrated src/lib/ui/primitives/ hardcoded strings to labels.ts — baseline 498. New code must not add violations. Migrate existing to reduce count to 0 (Phase B)."
 }

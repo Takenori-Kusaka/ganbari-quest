@@ -1,5 +1,6 @@
 <script lang="ts">
 import { untrack } from 'svelte';
+import { UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
 import FormField from './FormField.svelte';
 import NativeSelect from './NativeSelect.svelte';
 
@@ -14,7 +15,7 @@ interface Props {
 }
 
 let {
-	label = 'おたんじょうび',
+	label = UI_PRIMITIVES_LABELS.birthdayInputLabel,
 	value = $bindable(),
 	name,
 	id,
@@ -25,11 +26,14 @@ let {
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 19 }, (_, i) => currentYear - i);
-const yearOptions = years.map((y) => ({ value: String(y), label: `${y}年` }));
+const yearOptions = years.map((y) => ({
+	value: String(y),
+	label: `${y}${UI_PRIMITIVES_LABELS.yearUnit}`,
+}));
 
 const monthOptions = Array.from({ length: 12 }, (_, i) => ({
 	value: String(i + 1),
-	label: `${i + 1}月`,
+	label: `${i + 1}${UI_PRIMITIVES_LABELS.monthUnit}`,
 }));
 
 let yearStr = $state('');
@@ -75,7 +79,7 @@ const daysInMonth = $derived.by(() => {
 const dayOptions = $derived.by(() => {
 	return Array.from({ length: daysInMonth }, (_, i) => ({
 		value: String(i + 1),
-		label: `${i + 1}日`,
+		label: `${i + 1}${UI_PRIMITIVES_LABELS.dayUnit}`,
 	}));
 });
 
@@ -91,25 +95,25 @@ $effect(() => {
 	{#snippet children({ id: fieldId, 'aria-describedby': describedby })}
 		<div class="birthday-input" aria-describedby={describedby}>
 			<NativeSelect
-				aria-label="生まれた年"
+				aria-label={UI_PRIMITIVES_LABELS.birthYearAriaLabel}
 				bind:value={yearStr}
 				options={yearOptions}
-				placeholder="----年"
+				placeholder={UI_PRIMITIVES_LABELS.birthYearPlaceholder}
 				required={required}
 			/>
 			<NativeSelect
-				aria-label="生まれた月"
+				aria-label={UI_PRIMITIVES_LABELS.birthMonthAriaLabel}
 				bind:value={monthStr}
 				options={monthOptions}
-				placeholder="--月"
+				placeholder={UI_PRIMITIVES_LABELS.birthMonthPlaceholder}
 				disabled={!yearStr}
 				required={required}
 			/>
 			<NativeSelect
-				aria-label="生まれた日"
+				aria-label={UI_PRIMITIVES_LABELS.birthDayAriaLabel}
 				bind:value={dayStr}
 				options={dayOptions}
-				placeholder="--日"
+				placeholder={UI_PRIMITIVES_LABELS.birthDayPlaceholder}
 				disabled={!monthStr}
 				required={required}
 			/>

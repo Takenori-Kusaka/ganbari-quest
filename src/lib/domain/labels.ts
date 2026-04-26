@@ -3182,6 +3182,34 @@ export const ADMIN_SHOP_REQUEST_LABELS = {
 } as const;
 
 // ============================================================
+// UI プリミティブ コンポーネントラベル (#1465 Phase B)
+// src/lib/ui/primitives/ 配下のハードコード文字列を集約
+// ============================================================
+
+export const UI_PRIMITIVES_LABELS = {
+	// BirthdayInput
+	birthdayInputLabel: 'おたんじょうび',
+	yearUnit: '年',
+	monthUnit: '月',
+	dayUnit: '日',
+	birthYearAriaLabel: '生まれた年',
+	birthMonthAriaLabel: '生まれた月',
+	birthDayAriaLabel: '生まれた日',
+	birthYearPlaceholder: '----年',
+	birthMonthPlaceholder: '--月',
+	birthDayPlaceholder: '--日',
+	// Dialog / Toast（子供向け UI のため「とじる」表記）
+	closeAriaLabel: 'とじる',
+	// FormField（パスワードトグル）
+	passwordHide: 'パスワードを非表示',
+	passwordShow: 'パスワードを表示',
+	// PinInput（スクリーンリーダー向け）
+	pinCodeLabel: 'PINコード',
+	// Select
+	selectPlaceholder: '選択してください',
+} as const;
+
+// ============================================================
 // スタンプカード N レアリティ ポジティブメッセージ (#1536)
 // StampPressOverlay で N レアリティのスタンプ取得時に表示
 // ============================================================

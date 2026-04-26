@@ -1,5 +1,6 @@
 <script lang="ts">
 import { PinInput as ArkPinInput } from '@ark-ui/svelte/pin-input';
+import { UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
 
 interface Props {
 	length?: number;
@@ -20,7 +21,7 @@ function handleValueComplete(details: { value: string[]; valueAsString: string }
 	type="numeric"
 	class="flex gap-[var(--sp-sm)] justify-center"
 >
-	<ArkPinInput.Label class="sr-only">PINコード</ArkPinInput.Label>
+	<ArkPinInput.Label class="sr-only">{UI_PRIMITIVES_LABELS.pinCodeLabel}</ArkPinInput.Label>
 	{#each Array(length) as _, i}
 		<ArkPinInput.Input
 			index={i}
