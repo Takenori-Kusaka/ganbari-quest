@@ -3,12 +3,22 @@ name: "CodeQL"
 on:
   push:
     branches: [main]
-    paths: ['src/**', 'static/**', '**/*.js', '**/*.ts']
+    # #1553: プロダクションコード変更時のみ実行（tests/ scripts/ docs/ site/ 変更は不要）
+    paths:
+      - 'src/**'
+      - 'static/**'
+      - 'package.json'
+      - 'package-lock.json'
   pull_request:
     branches: [main]
     # #1218: ready_for_review は除外（Draft でも走るため再実行は無駄）。
     types: [opened, synchronize, reopened]
-    paths: ['src/**', 'static/**', '**/*.js', '**/*.ts']
+    # #1553: プロダクションコード変更時のみ実行（tests/ scripts/ docs/ site/ 変更は不要）
+    paths:
+      - 'src/**'
+      - 'static/**'
+      - 'package.json'
+      - 'package-lock.json'
   schedule:
     - cron: "0 6 * * 1" # Every Monday at 6:00 UTC
 
