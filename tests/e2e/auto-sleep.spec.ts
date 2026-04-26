@@ -9,15 +9,6 @@ const ACTIVE_MS = 15 * 60 * 1000;
 const INACTIVE_RESET_MS = 60 * 1000;
 const TICK_INTERVAL_MS = 1000;
 
-// headless Chromium では document.hidden が常に true になるため、
-// バックグラウンドタブの throttling を無効化する Chrome フラグを使用する。
-// これにより sleepTimer の setInterval コールバックが document.hidden チェックを超えて動作する。
-test.use({
-	launchOptions: {
-		args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling'],
-	},
-});
-
 test.describe('#1292 自動スリープ', () => {
 	test('15分連続アクティブで /switch にリダイレクトされる', async ({ page }) => {
 		// headless Chromium では document.hidden が常に true になり sleepTimer がスキップされる。
