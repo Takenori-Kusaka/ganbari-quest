@@ -88,37 +88,31 @@ const planLabel = $derived.by(() => {
 
 const navCategories: NavCategory[] = $derived([
 	{
-		id: 'monitor',
-		label: NAV_CATEGORIES.monitor.label,
-		icon: NAV_CATEGORIES.monitor.icon,
-		items: [
-			{ href: `${basePath}/reports`, label: NAV_ITEM_LABELS.reports, icon: '📊' },
-			{ href: `${basePath}/growth-book`, label: NAV_ITEM_LABELS.growthBook, icon: '📚' },
-			{ href: `${basePath}/achievements`, label: NAV_ITEM_LABELS.achievements, icon: '🏅' },
-			{ href: `${basePath}/analytics`, label: NAV_ITEM_LABELS.analytics, icon: '📈' },
-		],
-	},
-	{
-		id: 'encourage',
-		label: NAV_CATEGORIES.encourage.label,
-		icon: NAV_CATEGORIES.encourage.icon,
-		items: [
-			{ href: `${basePath}/points`, label: NAV_ITEM_LABELS.points, icon: '⭐' },
-			{ href: `${basePath}/messages`, label: NAV_ITEM_LABELS.messages, icon: '💌' },
-			{ href: `${basePath}/rewards`, label: NAV_ITEM_LABELS.rewards, icon: '🎁' },
-		],
-	},
-	{
-		id: 'customize',
-		label: NAV_CATEGORIES.customize.label,
-		icon: NAV_CATEGORIES.customize.icon,
+		id: 'activity',
+		label: NAV_CATEGORIES.activity.label,
+		icon: NAV_CATEGORIES.activity.icon,
 		items: [
 			{ href: `${basePath}/activities`, label: NAV_ITEM_LABELS.activities, icon: '📋' },
 			{ href: `${basePath}/checklists`, label: NAV_ITEM_LABELS.checklists, icon: '✅' },
 			{ href: `${basePath}/events`, label: NAV_ITEM_LABELS.events, icon: '🎉' },
 			{ href: `${basePath}/challenges`, label: NAV_ITEM_LABELS.challenges, icon: '👥' },
-			// #1170: マケプレをグローバルナビ昇格（customize の一員として導線短縮）
+			// #1170: マケプレをグローバルナビ昇格（activity の一員として導線短縮）
 			{ href: '/marketplace', label: NAV_ITEM_LABELS.marketplace, icon: '🛍️' },
+			{ href: `${basePath}/children`, label: NAV_ITEM_LABELS.children, icon: '👧' },
+		],
+	},
+	{
+		id: 'record',
+		label: NAV_CATEGORIES.record.label,
+		icon: NAV_CATEGORIES.record.icon,
+		items: [
+			{ href: `${basePath}/reports`, label: NAV_ITEM_LABELS.reports, icon: '📊' },
+			{ href: `${basePath}/growth-book`, label: NAV_ITEM_LABELS.growthBook, icon: '📚' },
+			{ href: `${basePath}/achievements`, label: NAV_ITEM_LABELS.achievements, icon: '🏅' },
+			{ href: `${basePath}/analytics`, label: NAV_ITEM_LABELS.analytics, icon: '📈' },
+			{ href: `${basePath}/points`, label: NAV_ITEM_LABELS.points, icon: '⭐' },
+			{ href: `${basePath}/messages`, label: NAV_ITEM_LABELS.messages, icon: '💌' },
+			{ href: `${basePath}/rewards`, label: NAV_ITEM_LABELS.rewards, icon: '🎁' },
 		],
 	},
 	{
@@ -126,7 +120,6 @@ const navCategories: NavCategory[] = $derived([
 		label: NAV_CATEGORIES.settings.label,
 		icon: NAV_CATEGORIES.settings.icon,
 		items: [
-			{ href: `${basePath}/children`, label: NAV_ITEM_LABELS.children, icon: '👧' },
 			{ href: `${basePath}/settings`, label: NAV_ITEM_LABELS.settings, icon: '⚙️' },
 			{ href: `${basePath}/license`, label: NAV_ITEM_LABELS.license, icon: '💎' },
 			{ href: `${basePath}/billing`, label: NAV_ITEM_LABELS.billing, icon: '🧾' },
@@ -138,6 +131,8 @@ const navCategories: NavCategory[] = $derived([
 // Current active category based on URL
 const activeCategoryId = $derived.by(() => {
 	const path = $page.url.pathname;
+	// ホームページ（/admin または /demo/admin 等 basePath と完全一致）は 'home' として判定
+	if (path === basePath || path === `${basePath}/`) return 'home';
 	for (const cat of navCategories) {
 		for (const item of cat.items) {
 			if (path.startsWith(item.href)) return cat.id;
@@ -192,9 +187,8 @@ function isItemActive(itemHref: string): boolean {
 		<div class="max-w-4xl mx-auto flex items-center justify-between">
 			<div class="flex items-center gap-2">
 				<a href={basePath} class="flex items-center">
-					<Logo variant="compact" size={120} />
+					<Logo variant="compact" size={140} />
 				</a>
-				<span class="header-badge header-badge--admin">保護者用</span>
 				{#if isDemo}
 					<span class="header-badge header-badge--demo">デモ</span>
 				{/if}
@@ -248,9 +242,17 @@ function isItemActive(itemHref: string): boolean {
 		</div>
 	</header>
 
-	<!-- Desktop Navigation (>=768px) — 4カテゴリ + ドロップダウン -->
+	<!-- Desktop Navigation (>=768px) — ホーム + 3カテゴリ + ドロップダウン -->
 	<nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2" aria-label="管理メニュー" data-tutorial="nav-desktop">
 		<div class="max-w-4xl mx-auto flex gap-1">
+			<!-- ホームリンク（dropdown なし） -->
+			<a
+				href={basePath}
+				class="nav-item {activeCategoryId === 'home' ? 'nav-item--active' : ''}"
+			>
+				<span aria-hidden="true">🏠</span>
+				{NAV_ITEM_LABELS.home}
+			</a>
 			{#each navCategories as category}
 				{@const isActive = activeCategoryId === category.id}
 				<div
@@ -345,6 +347,15 @@ function isItemActive(itemHref: string): boolean {
 
 		<!-- Category buttons -->
 		<div class="flex justify-around items-center h-16">
+			<!-- ホームボタン（dropdown なし） -->
+			<a
+				href={basePath}
+				class="mobile-nav-item {activeCategoryId === 'home' ? 'mobile-nav-item--active' : ''}"
+				onclick={() => (mobileExpandedCategory = null)}
+			>
+				<span class="text-xl" aria-hidden="true">🏠</span>
+				<span class="text-[10px] font-medium leading-none">{NAV_ITEM_LABELS.home}</span>
+			</a>
 			{#each navCategories as category}
 				{@const isActive = activeCategoryId === category.id}
 				<button

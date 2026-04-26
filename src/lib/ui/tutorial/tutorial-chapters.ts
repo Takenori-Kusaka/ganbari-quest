@@ -14,7 +14,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				chapterId: 1,
 				selector: '[data-tutorial="nav-desktop"], [data-tutorial="nav-primary"]',
 				title: 'ナビゲーション',
-				description: `メニューは「${NAV_CATEGORIES.monitor.label}」「${NAV_CATEGORIES.encourage.label}」「${NAV_CATEGORIES.customize.label}」「${NAV_CATEGORIES.settings.label}」の4つのカテゴリに分かれています。それぞれのカテゴリを開くと、詳しいメニューが表示されます。`,
+				description: `メニューはホーム・「${NAV_CATEGORIES.activity.label}」「${NAV_CATEGORIES.record.label}」「${NAV_CATEGORIES.settings.label}」の4つに分かれています。それぞれのカテゴリを開くと、詳しいメニューが表示されます。`,
 				position: 'top',
 				page: '/admin',
 			},
@@ -153,7 +153,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	},
 	{
 		id: 5,
-		title: `${NAV_CATEGORIES.monitor.label}（${NAV_ITEM_LABELS.reports}）`,
+		title: `${NAV_CATEGORIES.record.label}（${NAV_ITEM_LABELS.reports}）`,
 		icon: '📊',
 		steps: [
 			{
@@ -180,7 +180,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	},
 	{
 		id: 6,
-		title: `${NAV_CATEGORIES.encourage.label}（${NAV_ITEM_LABELS.messages}）`,
+		title: `${NAV_CATEGORIES.record.label}（${NAV_ITEM_LABELS.messages}）`,
 		icon: '💬',
 		steps: [
 			{
@@ -207,7 +207,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	},
 	{
 		id: 7,
-		title: `${NAV_CATEGORIES.customize.label}（データ管理）`,
+		title: `${NAV_CATEGORIES.settings.label}（データ管理）`,
 		icon: '🎮',
 		steps: [
 			{

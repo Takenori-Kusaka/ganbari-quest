@@ -389,6 +389,11 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `LP_RETENTION_LABELS` | const |  |
 | `BABY_HOME_LABELS` | const |  |
 | `ONBOARDING_LABELS` | const |  |
+| `LP_CORELOOP_LABELS` | const |  |
+| `CHILD_SHOP_LABELS` | const |  |
+| `ADMIN_SHOP_REQUEST_LABELS` | const |  |
+| `STAMP_PRESS_N_MESSAGES` | const |  |
+| `USAGE_TIME_LABELS` | const |  |
 | `formatCount` | function |  |
 | `formatAge` | function |  |
 | `formatAgeRange` | function |  |
