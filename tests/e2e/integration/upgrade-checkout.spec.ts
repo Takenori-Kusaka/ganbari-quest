@@ -1,8 +1,9 @@
-// tests/e2e/upgrade-checkout.spec.ts
+// tests/e2e/integration/upgrade-checkout.spec.ts
 // #1497: Stripe チェックアウト E2E テスト（page.route() インターセプト）
 // #1500: テスト分類 = Integration（page.route() で Stripe を完全モック化しているため）
 //        cognito-dev 認証が必要なため playwright.cognito-dev.config.ts で管理するが、
 //        実 Stripe API は一切呼び出さない。tests/CLAUDE.md §テスト分類 参照。
+// #1535: tests/e2e/integration/ に移動 + storageState ベースに移行
 //
 // Stripe Checkout API を page.route() でモック化し、
 // /admin/license のアップグレード CTA → Stripe Checkout 遷移の導線を検証する。
@@ -10,16 +11,13 @@
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts upgrade-checkout
 
 import { expect, test } from '@playwright/test';
-import { loginAsPlan } from './plan-login-helpers';
 
 // ============================================================
 // Stripe Checkout API モック
 // ============================================================
 
 test.describe('#1497 Stripe Checkout 遷移 — page.route() モック', () => {
-	test.beforeEach(() => {
-		test.slow();
-	});
+	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free プランで /api/stripe/checkout をモックすると checkout.stripe.com へ遷移する', async ({
 		page,
@@ -33,8 +31,7 @@ test.describe('#1497 Stripe Checkout 遷移 — page.route() モック', () => {
 			});
 		});
 
-		await loginAsPlan(page, 'free');
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 180_000 });
+		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		// Stripe が有効な場合のみプラン選択カードが表示される
 		// 無効な環境では「決済機能は現在準備中です」が表示されるためスキップ

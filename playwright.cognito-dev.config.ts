@@ -19,8 +19,9 @@ export default defineConfig({
 	// #755: account-deletion のアカウント削除フロー spec を追加
 	// #1497: upgrade-checkout の Stripe Checkout インターセプト spec を追加
 	// #1500: plan 別 storageState プロジェクトで loginAsPlan() を撤廃
+	// #1535: upgrade-checkout を tests/e2e/integration/ に移動
 	testMatch:
-		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|upgrade-checkout)\.spec\.ts$/,
+		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|integration\/upgrade-checkout)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
@@ -51,10 +52,8 @@ export default defineConfig({
 		//   as-owner        → owner@example.com    (owner ロール、plan=family)
 		//   as-ops          → ops@example.com      (ops ロール)
 		//
-		// ただし現時点ではどの spec もまだ loginAsPlan() を各テスト内で呼んでいる。
-		// storageState を使うには spec 側でログイン済みを前提とした goto() から始める必要がある。
-		// そのため本プロジェクトは storageState を設定するが、spec 側は段階的に移行する。
-		// loginAsPlan() を呼ぶ spec は storageState を無視して再ログインするため互換性は維持される。
+		// #1535: 全対象 spec の loginAsPlan() を storageState ベースに移行完了。
+		// 各 spec は test.use({ storageState: '...' }) で認証済みセッションを再利用する。
 		{
 			name: 'as-owner',
 			dependencies: ['setup'],
