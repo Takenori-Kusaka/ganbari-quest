@@ -6,10 +6,7 @@
 //     - ポイント残高: 100pt（beforeEach で再調整するため parallel workers の汚染を防ぐ）
 //     - 交換可能なごほうび（交換可）: 50pt — 交換フローテスト専用
 //     - 交換可能なごほうび（キャンセル確認用）: 50pt — キャンセルテスト専用（独立）
-//     - 交換不可なごほうび: 200pt（残高 < コスト）
-//
-// 注意: workers: 2 の並列実行環境で他のテスト（features.spec.ts 等）がポイントを積み上げるため、
-//   beforeEach で必ず残高を 100pt に再調整してから各テストを実行する（beforeAll では不十分）
+//     - 交換不可なごほうび: 99999pt（並行ワーカーがどれだけポイントを積んでも届かない閾値）
 
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -87,7 +84,7 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 
 		await expect(page.getByTestId('shop-page')).toBeVisible();
 
-		// 200pt のごほうびカードを探す（E2Eテスト用ごほうび（交換不可））
+		// 99999pt のごほうびカードを探す（E2Eテスト用ごほうび（交換不可））
 		const expensiveCard = page.locator('[data-testid^="reward-card-"]').filter({
 			hasText: 'E2Eテスト用ごほうび（交換不可）',
 		});

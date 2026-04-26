@@ -865,7 +865,7 @@ export default async function globalSetup() {
 		// #1335: ショップ E2E テスト用シードデータ
 		// たろうくん(preschool)向けに special_rewards を2件挿入:
 		//   - 交換可能なごほうび (50pt): ポイント残高 (100pt) >= コスト
-		//   - 交換不可なごほうび (200pt): ポイント残高 (100pt) < コスト
+		//   - 交換不可なごほうび (99999pt): 並行ワーカーによる加点汚染でも閾値に届かない
 		// 冪等性: title + child_id の組合せで既存チェックし、なければ挿入
 		const kinderChildForShop = db
 			.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
@@ -916,7 +916,9 @@ export default async function globalSetup() {
 				console.log('[E2E Setup]   Created cancel-test shop reward for たろうくん.');
 			}
 
-			// 交換不可なごほうびを挿入（200pt）
+			// 交換不可なごほうびを挿入（99999pt）
+			// 並行ワーカーによる point_ledger 汚染でも絶対に交換ボタンが enabled にならないよう
+			// 現実的に到達不能なコストを設定する（race condition 防止）
 			const existingExpensive = db
 				.prepare(
 					"SELECT id FROM special_rewards WHERE child_id = ? AND title = 'E2Eテスト用ごほうび（交換不可）' LIMIT 1",
@@ -924,7 +926,7 @@ export default async function globalSetup() {
 				.get(cId);
 			if (!existingExpensive) {
 				db.prepare(
-					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（交換不可）', 200, '💎', 'shop_e2e', CURRENT_TIMESTAMP)",
+					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（交換不可）', 99999, '💎', 'shop_e2e', CURRENT_TIMESTAMP)",
 				).run(cId);
 				console.log('[E2E Setup]   Created expensive shop reward for たろうくん.');
 			}
