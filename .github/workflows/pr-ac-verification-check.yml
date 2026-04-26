@@ -90,4 +90,34 @@ jobs:
               return;
             }
 
+            // #1539: AC マップの 4 列目（結果/エビデンス列）に未完了表記が含まれる場合 FAIL
+            // 禁止語: TODO / 予定 / 追加予定 / 別途 / follow-up / 後で
+            const todoPattern = /todo|予定|追加予定|別途|follow[\s-]?up|後で/i;
+            const todoRows = rows
+              .map((row, idx) => {
+                const cells = row.split('|').slice(1, -1).map(c => c.trim());
+                // 4 列目（インデックス 3）が結果/エビデンス列
+                const evidenceCell = cells[3] ?? '';
+                if (todoPattern.test(evidenceCell)) {
+                  // AC 番号は 1 列目（インデックス 0）
+                  const acId = cells[0] || `行 ${idx + 1}`;
+                  return { acId, evidenceCell, row };
+                }
+                return null;
+              })
+              .filter(Boolean);
+
+            if (todoRows.length > 0) {
+              const details = todoRows.map(
+                item => `  ${item.acId}: 「${item.evidenceCell.slice(0, 80)}」`
+              ).join('\n');
+              core.setFailed(
+                `❌ AC 検証マップの「結果/エビデンス」列に未完了表記が ${todoRows.length} 件あります (#1539)\n\n` +
+                '「TODO」「予定」「追加予定」「別途」「follow-up」「後で」は未完了を示します。\n' +
+                '全 AC を実際に検証した上で、具体的なエビデンス（PASS / スクリーンショット番号 / コマンド結果）を記入してください。\n\n' +
+                `未完了行:\n${details}`
+              );
+              return;
+            }
+
             core.info('AC 検証マップ: 全行 埋まっています ✓');
