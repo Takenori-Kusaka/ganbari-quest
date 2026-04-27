@@ -1,14 +1,12 @@
 // src/routes/(parent)/admin/analytics/+page.server.ts
-// #988: Umami analytics panel — delegates to umami-service.
+// #1591 (ADR-0023 I2): umami / Sentry プロバイダ削除に伴い、本ページは
+// 「Coming soon」表示に縮退する。DynamoDB ベースの可視化（activation funnel /
+// 解約理由 / Sean Ellis 等）は follow-up Issue で実装する。
 
 import { requireTenantId } from '$lib/server/auth/factory';
-import { fetchUmamiData } from '$lib/server/services/umami-service';
 import type { PageServerLoad } from './$types';
-
-export type { AnalyticsData } from '$lib/server/services/umami-service';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	requireTenantId(locals);
-	const analytics = await fetchUmamiData();
-	return { analytics };
+	return {};
 };

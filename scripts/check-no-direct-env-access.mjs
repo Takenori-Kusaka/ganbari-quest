@@ -42,8 +42,6 @@ const GRANDFATHER = new Set(
 		// --- process.env 直接参照 (ADR-0040 P1 採択時点) ---
 		'src/hooks.server.ts',
 		'src/lib/analytics/providers/dynamo.ts',
-		'src/lib/analytics/providers/sentry.ts',
-		'src/lib/analytics/providers/umami.ts',
 		'src/lib/server/ai/bedrock-claude-provider.ts',
 		'src/lib/server/ai/factory.ts',
 		'src/lib/server/ai/gemini-provider.ts',
@@ -68,7 +66,6 @@ const GRANDFATHER = new Set(
 		'src/lib/server/services/license-key-service.ts',
 		'src/lib/server/services/notification-service.ts',
 		'src/lib/server/services/stripe-metrics-service.ts',
-		'src/lib/server/services/umami-service.ts',
 		'src/lib/server/stripe/client.ts',
 		'src/lib/server/stripe/config.ts',
 		'src/routes/api/cron/license-expire/+server.ts',
