@@ -398,6 +398,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `USAGE_TIME_LABELS` | const |  |
 | `UI_COMPONENTS_LABELS` | const |  |
 | `FEATURES_LABELS` | const |  |
+| `STORYBOOK_LABELS` | const |  |
 | `formatCount` | function |  |
 | `formatAge` | function |  |
 | `formatAgeRange` | function |  |

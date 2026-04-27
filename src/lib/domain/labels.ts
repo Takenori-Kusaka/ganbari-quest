@@ -2527,6 +2527,7 @@ export const OPS_COSTS_LABELS = {
 export const REWARDS_LABELS = {
 	sectionTitle: '🎁 ごほうび',
 	premiumBadge: '有料限定',
+	rewardsListTab: 'ごほうび一覧',
 	pageDescTitle: '🎁 とくべつなごほうび',
 	pageDescText1: 'がんばったこどもへの特別なごほうびを設定・付与します。',
 	pageDescText2:
@@ -3705,6 +3706,8 @@ export const FEATURES_LABELS = {
 		churnNote: '※ 解約しても基本データは残ります。再開すれば継続月数も引き継がれます。',
 		churnKeepBtn: 'やっぱり続ける',
 		churnCancelBtn: '解約手続きへ',
+		// ChurnPreventionModal — bullet marker
+		bullet: '・',
 		// LoyaltyBadge
 		badgeTitle: 'サポーターバッジ',
 		badgeSub: (months: number) => `サポーター継続: ${months}ヶ月目`,
@@ -3962,5 +3965,306 @@ export const FEATURES_LABELS = {
 	childListCard: {
 		meta: (age: number, tierLabel: string, themeLabel: string) =>
 			`${age}歳 / ${tierLabel} / ${themeLabel}`,
+	},
+
+	// ---- features/admin/components/ChildProfileCard (#1465 Phase B Priority 4) ----
+	childProfileCard: {
+		// Detail tabs
+		tabInfo: '📋 基本情報',
+		tabStatus: '📊 ステータス',
+		tabLogs: '📝 活動記録',
+		tabAchievements: '🏆 実績',
+		tabVoice: '📢 ボイス',
+		// Avatar / generation
+		errGenerateFailed: '生成に失敗しました',
+		errNetwork: 'ネットワークエラーが発生しました',
+		errFileTooLarge: (sizeMB: string) =>
+			`ファイルサイズが大きすぎます（${sizeMB}MB）。5MB以下の画像を選択してください`,
+		errServer: 'サーバーエラーが発生しました。5MB以下のJPEG/PNG/WebPを選択してください',
+		errUploadFailed: 'アップロードに失敗しました',
+		// Edit mode
+		editingBadge: '編集中',
+		profilePhotoSection: 'プロフィール写真',
+		uploadBtn: '📷 写真を変更',
+		generatingText: '生成中...',
+		aiGenerateBtn: '✨ AI生成',
+		uploadSuccessText: '写真をアップロードしました',
+		generateSuccessText: 'アバターを生成しました',
+		basicInfoSection: '基本情報',
+		nicknameLabel: 'ニックネーム',
+		ageLabel: '年齢',
+		ageLabelAuto: '年齢（自動計算）',
+		themeColorLabel: 'テーマカラー',
+		birthdayBonusSection: '🎂 おたんじょうびボーナス',
+		birthdayBonusNote: '※ ボーナス倍率の変更は別途保存されます',
+		saveBtn: '💾 保存',
+		cancelBtn: 'キャンセル',
+		multiplierLabel: '倍率',
+		applyBtn: '適用',
+		bonusPreview: (age: number, multiplier: number) =>
+			`→ ${age}歳 × 100pt × ${multiplier}倍 = ${Math.round(age * 100 * multiplier)}pt`,
+		confirmDeleteText: 'この子供を本当に削除しますか？',
+		confirmDeleteBtn: '本当に削除',
+		cancelDeleteBtn: 'やめる',
+		deleteBtn: '🗑 この子供を削除',
+		// View mode
+		profileMeta: (age: number, tierLabel: string) => `${age}歳 / ${tierLabel}`,
+		editBtn: '✏️ 編集',
+		// Info grid
+		infoCardAge: '年齢',
+		infoCardAgeValue: (age: number) => `${age}歳`,
+		infoCardUiMode: 'UIモード',
+		infoCardBalanceLabel: (unitLabel: string) => `${unitLabel}残高`,
+		infoCardLogCount: '累計記録数',
+		// Status tab
+		statusUpdatedText: 'ステータスを更新しました',
+		statusEmptyText: 'ステータスデータがありません',
+		statusSaveBtn: '保存',
+		// Logs tab
+		logsEmptyText: '活動記録がありません',
+		// Achievements tab
+		achievementsEmptyText: '実績がありません',
+		// Voice tab
+		voiceHint: '録音または音声ファイルを登録すると、活動完了時にお子さんに再生されます。',
+		voiceRecorderTitle: '🎤 録音する',
+		voiceRecordingIndicator: (sec: number) => `● 録音中 ${sec}秒 / 10秒`,
+		voiceStopBtn: '■ 停止',
+		voiceClearBtn: '取消',
+		voiceStartBtn: '● 録音開始（最大10秒）',
+		voiceUploadTitle: '📁 ファイルからアップロード',
+		voiceLabelLabel: 'ラベル',
+		voiceLabelPlaceholder: 'ラベル（例: お母さんの声）',
+		voiceUploadingText: 'アップロード中...',
+		voiceSaveBtn: '💾 保存',
+		voiceRecordedNote: '✅ 録音データを使用します',
+		voiceListTitle: (count: number) => `登録済み（${count}件）`,
+		voiceActivateBtn: '有効化',
+		voiceDeleteBtn: '削除',
+		voiceEmptyText: 'ボイスが登録されていません。録音またはファイルアップロードで追加できます。',
+		voiceNote: '※ 有効なボイスが設定されている場合、ショップの効果音よりも優先されます。',
+	},
+
+	// ---- features/admin/components/DowngradeResourceSelector (#1465 Phase B Priority 4) ----
+	downgradeResourceSelector: {
+		dialogTitle: 'ダウングレードの確認',
+		targetPlanText: (planLabel: string) => `${planLabel}へのダウングレード`,
+		noExcessText:
+			'現在のリソース数はダウングレード先の上限以内です。そのままプラン変更に進めます。',
+		retentionWarning: (currentDays: number | null, targetDays: number | null) =>
+			`データ保持期間が${currentDays === null ? '無制限' : `${currentDays}日`}から${targetDays === null ? '無制限' : `${targetDays}日`}に短縮されます。${targetDays === null ? '' : `${targetDays}日以前のデータは閲覧できなくなります。`}`,
+		excessHeading: (planLabel: string) => `現在のリソースが${planLabel}の上限を超えています`,
+		excessDesc:
+			'ダウングレード先の上限に合わせて、アーカイブするリソースを選択してください。アーカイブされたデータはアップグレード時に復元できます。',
+		childrenSectionTitle: (current: number, max: number | null) =>
+			`子供（${current}人 → 上限 ${max ?? '無制限'}人）`,
+		childrenSectionDesc: (excess: number, selected: number) =>
+			`${excess}人分をアーカイブしてください（選択: ${selected}/${excess}）`,
+		archivedLabel: 'アーカイブ',
+		keepLabel: '残す',
+		childrenRemainingText: (remaining: number) => `あと${remaining}人分を選択してください`,
+		activitiesSectionTitle: (current: number, max: number | null) =>
+			`活動（${current}個 → 上限 ${max ?? '無制限'}個）`,
+		activitiesSectionDesc: (excess: number, selected: number) =>
+			`${excess}個分をアーカイブしてください（選択: ${selected}/${excess}）`,
+		activitiesRemainingText: (remaining: number) => `あと${remaining}個分を選択してください`,
+		checklistSectionTitle: (maxPerChild: number | null) =>
+			`チェックリストテンプレート（1子あたり上限 ${maxPerChild ?? '無制限'}個）`,
+		checklistChildExcessDesc: (childName: string, excess: number, archivedCount: number) =>
+			`${childName}: ${excess}個分をアーカイブ（選択: ${archivedCount}/${excess}）`,
+		archiveRestoreNote:
+			'アーカイブされたデータは削除されません。再度アップグレードすることで完全に復元できます。',
+		cancelBtn: 'キャンセル',
+		archivingText: 'アーカイブ中…',
+		archiveAndProceedBtn: 'アーカイブしてプラン変更へ進む',
+		processingText: '処理中…',
+		proceedBtn: 'プラン変更へ進む',
+		loadingText: '読み込み中...',
+	},
+
+	// ---- features/admin/components/AdminHome (#1465 Phase B Priority 4) ----
+	adminHome: {
+		eventDateRange: (startDate: string, endDate: string) => `${startDate} 〜 ${endDate}`,
+		pageTitle: '管理画面 - がんばりクエスト',
+		pageTitleDemo: '管理画面 - がんばりクエスト デモ',
+		dashboardHeading: '管理ダッシュボード',
+		dashboardHeadingDemo: '管理ダッシュボード（デモ）',
+		setupCompleteText: 'すべてのセットアップが完了しました！',
+		dismissBtn: '非表示にする',
+		// Legacy tutorial banner
+		firstTimeTitle: '初めてご利用ですか？',
+		firstTimeDesc: 'チュートリアルで使い方を確認しましょう（約3分）',
+		startBtn: '開始',
+		laterBtn: 'あとで',
+		// Free plan quick link
+		freePlanName: '無料プラン',
+		freePlanHint: 'もっと便利に使いませんか？',
+		upgradeAction: '⭐ アップグレード →',
+		// Seasonal
+		seasonalTitle: '🌸 季節コンテンツ',
+		memoryTicketLabel: '🎫 思い出チケット',
+		memoryTicketCount: (count: number) => `${count}枚`,
+		memoryTicketProgress: (totalMonths: number, nextMonths: number) =>
+			`継続${totalMonths}ヶ月 — 次のチケットまで${nextMonths}ヶ月`,
+		// Summary cards
+		childrenCountAriaLabel: '登録こども数',
+		totalPointsAriaLabel: '全ポイント合計',
+		childrenCountLabel: 'こどもの数',
+		totalPointsLabel: (unit: string) => `合計${unit}`,
+		// Monthly summary
+		monthLabel: (year: string, month: string) => `${year}年${month}月`,
+		monthlySummaryHeading: (monthLabel: string) => `📊 ${monthLabel}のがんばり`,
+		seeReportLink: '詳しく見る →',
+		activityCountLabel: '活動回数',
+		activityCountUnit: '回',
+		levelLabel: 'レベル',
+		achievementsLabel: '実績',
+		achievementsUnit: '獲得',
+		activityCountAriaLabel: (childName: string) => `${childName}の活動回数`,
+		levelAriaLabel: (childName: string) => `${childName}のレベル`,
+		achievementsAriaLabel: (childName: string) => `${childName}の実績`,
+		// Children list
+		childrenListHeading: 'こども一覧',
+		noChildrenText: 'まだこどもが登録されていません',
+		// Demo CTA
+		demoCtaQuestion: 'いかがでしたか？',
+		demoCtaDesc: 'お子さまの「がんばり」を冒険に変えませんか？',
+		demoCtaBtn: '無料で はじめる →',
+	},
+
+	// ---- features/admin/components/ActivityCreateForm (#1465 Phase B Priority 4) ----
+	activityCreateForm: {
+		ageRangeSeparator: '〜',
+		heading: '活動を追加',
+		nameLabel: '活動名',
+		namePlaceholder: '例: おさんぽ、ピアノれんしゅう',
+		categoryLabel: 'カテゴリ',
+		mainIconLabel: 'メインアイコン',
+		directInputLabel: '直接入力:',
+		subIconLabel: 'サブアイコン（任意）',
+		subIconNoneBtn: 'なし',
+		previewLabel: 'プレビュー:',
+		pointsLabel: 'ポイント',
+		ageRangeLabel: '対象年齢（省略可）',
+		ageMinAriaLabel: '最小年齢',
+		ageMaxAriaLabel: '最大年齢',
+		ageUnit: '歳',
+		dailyLimitLabel: '1日の回数制限',
+		dailyLimitHint: '「無制限」なら何回でも記録できます',
+		nameKanaLabel: 'ひらがな表記（省略可）',
+		nameKanaPlaceholder: '例: おかたづけした',
+		nameKanaHint: '6歳未満の子供に表示する名前',
+		nameKanjiLabel: '漢字表記（省略可）',
+		nameKanjiPlaceholder: '例: お片付けをした',
+		nameKanjiHint: '6歳以上の子供に表示する名前',
+		triggerHintLabel: 'トリガーヒント（省略可）',
+		triggerHintPlaceholder: '例: はみがきが終わったら押してね',
+		triggerHintHint: 'カードに小さく表示される声かけ文（30文字以内）',
+		defaultActivityName: '活動',
+		submitBtn: (icon: string, name: string) => `${icon} ${name} を追加する`,
+	},
+
+	// ---- features/admin/components/ActivityEditForm (#1465 Phase B Priority 4) ----
+	activityEditForm: {
+		nameLabel: '名前',
+		iconLabel: 'アイコン',
+		subIconPlaceholder: 'サブ',
+		subIconNoneBtn: 'なし',
+		categoryLabel: 'カテゴリ',
+		pointsLabel: 'ポイント',
+		ageMinLabel: '対象年齢（下限）',
+		ageMaxLabel: '対象年齢（上限）',
+		agePlaceholder: 'なし',
+		dailyLimitLabel: '1日の回数制限',
+		nameKanaLabel: 'ひらがな表記',
+		nameKanaPlaceholder: '省略可',
+		nameKanjiLabel: '漢字表記',
+		nameKanjiPlaceholder: '省略可',
+		triggerHintLabel: '子供へのヒント（いつ押すか）',
+		triggerHintPlaceholder: 'はみがきが終わったら押してね',
+		triggerHintNote: 'カードの下に小さく表示されます（30文字まで）',
+		saveBtn: '保存',
+		deleteBtn: '削除',
+		hasLogsHeading: (logCount: number) => `この活動には ${logCount} 件の記録があります`,
+		hasLogsDesc:
+			'記録を保護するため、完全削除ではなく「非表示」にします。非表示の活動は子供の画面に表示されなくなりますが、過去の記録はそのまま残ります。',
+		confirmDeleteHeading: '本当に削除しますか？',
+		confirmDeleteDesc: 'この活動は完全に削除されます。この操作は取り消せません。',
+		hideBtn: '非表示にする',
+		hardDeleteBtn: '削除する',
+		cancelBtn: 'キャンセル',
+		hiddenMessage: '記録があるため非表示にしました',
+	},
+
+	// ---- features/usage/WeeklyUsageChart (#1465 Phase B Priority 4) ----
+	weeklyUsageChart: {
+		barAriaLabel: (
+			childName: string,
+			dayOfWeek: string | undefined,
+			min: number,
+			minutesUnit: string,
+		) => `${childName} ${dayOfWeek ?? ''}曜日 ${min}${minutesUnit}`,
+		dayOfWeekLabel: (dayOfWeek: string | undefined) => `${dayOfWeek ?? ''}`,
+		unitLabelWrapped: (minutesUnit: string) => `（${minutesUnit}）`,
+	},
+} as const;
+
+// ============================================================
+// Storybook ラベル (#1465 Phase B Priority 4)
+// src/lib/ui/{primitives,components}/*.stories.svelte のデモ文字列を集約。
+// 開発時のみ表示されるサンプル文字列。
+// ============================================================
+
+export const STORYBOOK_LABELS = {
+	// Badge stories
+	badge: {
+		success: '完了',
+		warning: '注意',
+		danger: 'エラー',
+		info: '情報',
+		neutral: 'ニュートラル',
+		accent: 'アクセント',
+		small: '小',
+		medium: '中',
+	},
+
+	// Button stories
+	button: {
+		primary: 'ボタン',
+		secondary: 'セカンダリ',
+		danger: '削除する',
+		ghost: 'キャンセル',
+		success: '追加する',
+		outline: 'もどる',
+		small: '小さいボタン',
+		large: '大きいボタン',
+		disabled: '無効',
+	},
+
+	// Card stories
+	card: {
+		default: 'カードの内容です',
+		elevated: '影付きカード',
+		outlined: '枠線付きカード',
+	},
+
+	// LoadingButton stories
+	loadingButton: {
+		save: '保存する',
+		saving: '保存中...',
+		childAction: 'がんばった!',
+		childActionLoading: 'おくり中...',
+		send: '送信する',
+		sending: '送信中...',
+	},
+
+	// Toast stories
+	toast: {
+		successTitle: '保存しました！',
+		successDesc: 'プランを変更しました',
+		errorTitle: 'エラー',
+		errorDesc: '通信に失敗しました',
+		infoTitle: 'お知らせ',
+		infoDesc: '新機能が追加されました',
+		copyTitle: 'コピーしました',
 	},
 } as const;

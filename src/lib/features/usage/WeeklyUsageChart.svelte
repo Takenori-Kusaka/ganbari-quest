@@ -2,7 +2,7 @@
 <!-- #1576: 親ダッシュボード 週次使用時間 bar chart -->
 <!-- OSS 選定: Pure SVG 実装（0KB 追加）。週次7日×子供N人の単純な棒グラフに Chart.js/D3.js は過剰 -->
 <script lang="ts">
-import { USAGE_TIME_LABELS } from '$lib/domain/labels';
+import { FEATURES_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
 
 interface DailySummary {
 	date: string; // YYYY-MM-DD
@@ -159,7 +159,7 @@ const yTicks = $derived([0, Math.round(computedMax() / 2), computedMax()]);
 						rx="2"
 						opacity={barH > 0 ? 1 : 0.15}
 						role="img"
-						aria-label="{child.childName} {USAGE_TIME_LABELS.dayOfWeek(date)}曜日 {min}{USAGE_TIME_LABELS.minutesUnit}"
+						aria-label={FEATURES_LABELS.weeklyUsageChart.barAriaLabel(child.childName, USAGE_TIME_LABELS.dayOfWeek(date), min, USAGE_TIME_LABELS.minutesUnit)}
 					/>
 				{/each}
 
@@ -173,8 +173,8 @@ const yTicks = $derived([0, Math.round(computedMax() / 2), computedMax()]);
 			{/each}
 		</svg>
 
-		<!-- 縦軸単位テキスト（アクセシビリティ用可視ラベル） -->
-		<p class="weekly-chart__unit-label" aria-hidden="true">（{USAGE_TIME_LABELS.minutesUnit}）</p>
+		<!-- Y axis unit label (visible for accessibility) -->
+		<p class="weekly-chart__unit-label" aria-hidden="true">{FEATURES_LABELS.weeklyUsageChart.unitLabelWrapped(USAGE_TIME_LABELS.minutesUnit)}</p>
 	{/if}
 </div>
 

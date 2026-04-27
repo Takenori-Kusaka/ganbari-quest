@@ -1,7 +1,10 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import Button from './Button.svelte';
 import Toast, { showToast } from './Toast.svelte';
+
+const L = STORYBOOK_LABELS.toast;
 
 const { Story } = defineMeta({
 	title: 'Primitives/Toast',
@@ -12,8 +15,8 @@ const { Story } = defineMeta({
 
 <Story name="Success" asChild>
   <div class="flex flex-col gap-2">
-    <Button variant="primary" onclick={() => showToast('保存しました！', 'プランを変更しました', 'success')}>
-      Success toast を表示
+    <Button variant="primary" onclick={() => showToast(L.successTitle, L.successDesc, 'success')}>
+      Success toast
     </Button>
     <Toast />
   </div>
@@ -21,8 +24,8 @@ const { Story } = defineMeta({
 
 <Story name="Error" asChild>
   <div class="flex flex-col gap-2">
-    <Button variant="danger" onclick={() => showToast('エラー', '通信に失敗しました', 'error')}>
-      Error toast を表示
+    <Button variant="danger" onclick={() => showToast(L.errorTitle, L.errorDesc, 'error')}>
+      Error toast
     </Button>
     <Toast />
   </div>
@@ -30,8 +33,8 @@ const { Story } = defineMeta({
 
 <Story name="Info" asChild>
   <div class="flex flex-col gap-2">
-    <Button variant="secondary" onclick={() => showToast('お知らせ', '新機能が追加されました', 'info')}>
-      Info toast を表示
+    <Button variant="secondary" onclick={() => showToast(L.infoTitle, L.infoDesc, 'info')}>
+      Info toast
     </Button>
     <Toast />
   </div>
@@ -39,8 +42,8 @@ const { Story } = defineMeta({
 
 <Story name="TitleOnly" asChild>
   <div class="flex flex-col gap-2">
-    <Button variant="ghost" onclick={() => showToast('コピーしました')}>
-      タイトルのみ toast
+    <Button variant="ghost" onclick={() => showToast(L.copyTitle)}>
+      Title only toast
     </Button>
     <Toast />
   </div>

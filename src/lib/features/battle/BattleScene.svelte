@@ -245,7 +245,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		padding: 1rem;
 		position: relative;
 	}
-	/* 改善 C: クリティカルフラッシュ */
+	/* Improvement C: critical flash */
 	.battle-scene::after {
 		content: '';
 		position: absolute;
@@ -281,7 +281,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		color: var(--color-text-tertiary);
 		flex-shrink: 0;
 	}
-	/* 改善 A: ダメージフロート用ラッパー */
+	/* Improvement A: damage float wrapper */
 	.sprite-wrap {
 		position: relative;
 		display: inline-block;
@@ -300,7 +300,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	.sprite.shake {
 		animation: shake 0.3s ease-in-out;
 	}
-	/* 改善 C: defeated に transition を追加（既存 opacity+filter に加えて translateY） */
+	/* Improvement C: add transition to defeated state (translateY in addition to opacity+filter) */
 	.sprite.defeated {
 		opacity: 0.3;
 		filter: grayscale(1);
@@ -313,7 +313,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		color: var(--color-text-primary);
 	}
 
-	/* 改善 A: ダメージフロート */
+	/* Improvement A: damage float */
 	.damage-float {
 		position: absolute;
 		top: 0;
@@ -420,13 +420,13 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		from { opacity: 0; transform: scale(0.9); }
 		to { opacity: 1; transform: scale(1); }
 	}
-	/* 改善 A: ダメージフロートアニメーション */
+	/* Improvement A: damage float animation */
 	@keyframes damageFloat {
 		0%   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 		30%  { transform: translateX(-50%) translateY(-20px) scale(1.3); }
 		100% { opacity: 0; transform: translateX(-50%) translateY(-40px) scale(0.8); }
 	}
-	/* 改善 C: クリティカルフラッシュアニメーション */
+	/* Improvement C: critical flash animation */
 	@keyframes flash {
 		0%   { opacity: 0.25; }
 		50%  { opacity: 0.15; }

@@ -1,6 +1,6 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
-import { TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
+import { FEATURES_LABELS, TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import WeeklyUsageChart from '$lib/features/usage/WeeklyUsageChart.svelte';
@@ -17,6 +17,8 @@ import NotificationPermissionBanner from './NotificationPermissionBanner.svelte'
 import OnboardingChecklist from './OnboardingChecklist.svelte';
 import PlanStatusCard from './PlanStatusCard.svelte';
 import PremiumWelcome from './PremiumWelcome.svelte';
+
+const L = FEATURES_LABELS.adminHome;
 
 interface ChildSummary {
 	id: number;
@@ -189,7 +191,7 @@ function childLink(child: ChildSummary): string {
 </script>
 
 <svelte:head>
-	<title>管理画面 - がんばりクエスト{isDemo ? ' デモ' : ''}</title>
+	<title>{isDemo ? L.pageTitleDemo : L.pageTitle}</title>
 </svelte:head>
 
 {#if welcomeVisible && (planTier === 'standard' || planTier === 'family')}
@@ -198,7 +200,7 @@ function childLink(child: ChildSummary): string {
 
 <div class="space-y-6">
 	<!-- Page heading (visually compact, semantically correct) -->
-	<h1 class="dashboard-heading">管理ダッシュボード{isDemo ? '（デモ）' : ''}</h1>
+	<h1 class="dashboard-heading">{isDemo ? L.dashboardHeadingDemo : L.dashboardHeading}</h1>
 
 	<!-- Onboarding Checklist (replaces tutorial banner for new users) -->
 	{#if showOnboarding && onboarding}
@@ -206,9 +208,9 @@ function childLink(child: ChildSummary): string {
 	{:else if onboardingComplete && onboarding}
 		<div class="onboarding-complete-card" data-testid="onboarding-complete">
 			<span class="text-2xl">🎉</span>
-			<p class="font-bold text-[var(--color-feedback-success-text)]">すべてのセットアップが完了しました！</p>
+			<p class="font-bold text-[var(--color-feedback-success-text)]">{L.setupCompleteText}</p>
 			<form method="POST" action="?/dismissOnboarding">
-				<button type="submit" class="dismiss-complete-btn">非表示にする</button>
+				<button type="submit" class="dismiss-complete-btn">{L.dismissBtn}</button>
 			</form>
 		</div>
 	{:else if !isDemo && !tutorialStarted && !onboarding}
@@ -217,15 +219,15 @@ function childLink(child: ChildSummary): string {
 			<div class="flex items-center gap-3">
 				<span class="text-2xl">📖</span>
 				<div class="flex-1">
-					<p class="font-bold text-[var(--color-text)]">初めてご利用ですか？</p>
-					<p class="text-sm text-[var(--color-text-muted)]">チュートリアルで使い方を確認しましょう（約3分）</p>
+					<p class="font-bold text-[var(--color-text)]">{L.firstTimeTitle}</p>
+					<p class="text-sm text-[var(--color-text-muted)]">{L.firstTimeDesc}</p>
 				</div>
 				<div class="flex gap-2">
 					<Button variant="primary" size="sm" onclick={handleStartTutorial}>
-						開始
+						{L.startBtn}
 					</Button>
 					<Button variant="ghost" size="sm" onclick={handleDismissBanner}>
-						あとで
+						{L.laterBtn}
 					</Button>
 				</div>
 			</div>
@@ -267,24 +269,24 @@ function childLink(child: ChildSummary): string {
 	{:else if !isDemo && planTier === 'free'}
 		<a href="{basePath}/license" class="plan-quick-link plan-quick-link--free">
 			<span class="plan-quick-link__info">
-				<span class="plan-quick-link__name">無料プラン</span>
-				<span class="plan-quick-link__hint">もっと便利に使いませんか？</span>
+				<span class="plan-quick-link__name">{L.freePlanName}</span>
+				<span class="plan-quick-link__hint">{L.freePlanHint}</span>
 			</span>
-			<span class="plan-quick-link__action">⭐ アップグレード →</span>
+			<span class="plan-quick-link__action">{L.upgradeAction}</span>
 		</a>
 	{/if}
 
 	<!-- Seasonal Content Info -->
 	{#if !isDemo && seasonalInfo && seasonalInfo.activeEvents.length > 0}
 		<section class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm">
-			<h2 class="text-sm font-bold text-[var(--color-text)] mb-3">🌸 季節コンテンツ</h2>
+			<h2 class="text-sm font-bold text-[var(--color-text)] mb-3">{L.seasonalTitle}</h2>
 			<div class="space-y-2">
 				{#each seasonalInfo.activeEvents as event}
 					<div class="flex items-center gap-2 text-sm">
 						<span>{event.bannerIcon}</span>
 						<span class="font-medium text-[var(--color-text)]">{event.name}</span>
 						<span class="text-xs text-[var(--color-text-muted)] ml-auto">
-							{event.startDate} 〜 {event.endDate}
+							{L.eventDateRange(event.startDate, event.endDate)}
 						</span>
 					</div>
 				{/each}
@@ -292,13 +294,13 @@ function childLink(child: ChildSummary): string {
 			{#if seasonalInfo.memoryTicket && (planTier === 'standard' || planTier === 'family')}
 				<div class="mt-3 pt-3 border-t border-[var(--color-border-default)]">
 					<div class="flex items-center justify-between text-sm">
-						<span class="text-[var(--color-text)]">🎫 思い出チケット</span>
+						<span class="text-[var(--color-text)]">{L.memoryTicketLabel}</span>
 						<span class="font-bold text-[var(--color-premium)]">
-							{seasonalInfo.memoryTicket.ticketsAvailable}枚
+							{L.memoryTicketCount(seasonalInfo.memoryTicket.ticketsAvailable)}
 						</span>
 					</div>
 					<p class="text-xs text-[var(--color-text-muted)] mt-1">
-						継続{seasonalInfo.memoryTicket.totalMonths}ヶ月 — 次のチケットまで{seasonalInfo.memoryTicket.nextTicketAt}ヶ月
+						{L.memoryTicketProgress(seasonalInfo.memoryTicket.totalMonths, seasonalInfo.memoryTicket.nextTicketAt)}
 					</p>
 				</div>
 			{/if}
@@ -307,25 +309,25 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Summary Cards -->
 	<div class="grid grid-cols-2 gap-3" data-tutorial="summary-cards">
-		<Card variant="elevated" class="text-center" role="group" aria-label="登録こども数">
+		<Card variant="elevated" class="text-center" role="group" aria-label={L.childrenCountAriaLabel}>
 			<p class="text-2xl font-bold text-[var(--color-action-primary)]">{children.length}</p>
-			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">こどもの数</p>
+			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{L.childrenCountLabel}</p>
 		</Card>
-		<Card variant="elevated" class="text-center" role="group" aria-label="全ポイント合計">
+		<Card variant="elevated" class="text-center" role="group" aria-label={L.totalPointsAriaLabel}>
 			<p class="text-2xl font-bold text-[var(--color-gold-500)]">
 				{fmtBal(children.reduce((sum, c) => sum + c.balance, 0))}
 			</p>
-			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">合計{unit}</p>
+			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{L.totalPointsLabel(unit)}</p>
 		</Card>
 	</div>
 
 	<!-- Monthly Summary -->
 	{#if currentMonth && children.length > 0}
-		{@const monthLabel = currentMonth.replace(/^(\d{4})-0?(\d{1,2})$/, '$1年$2月')}
+		{@const monthLabel = currentMonth.replace(/^(\d{4})-0?(\d{1,2})$/, (_, y, m) => L.monthLabel(y, m))}
 		<section>
 			<div class="flex items-center justify-between mb-3">
-				<h2 class="text-lg font-bold text-[var(--color-text)]" data-tutorial="monthly-summary">📊 {monthLabel}のがんばり</h2>
-				<a href="{basePath}/reports" class="text-xs text-[var(--color-brand-500)] hover:underline">詳しく見る →</a>
+				<h2 class="text-lg font-bold text-[var(--color-text)]" data-tutorial="monthly-summary">{L.monthlySummaryHeading(monthLabel)}</h2>
+				<a href="{basePath}/reports" class="text-xs text-[var(--color-brand-500)] hover:underline">{L.seeReportLink}</a>
 			</div>
 			<div class="grid gap-3">
 				{#each children as child}
@@ -334,19 +336,19 @@ function childLink(child: ChildSummary): string {
 						<div class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm">
 							<p class="text-sm font-bold text-[var(--color-text)] mb-2">{child.nickname}</p>
 							<div class="flex gap-3">
-								<div class="monthly-stat monthly-stat--blue" role="group" aria-label="{child.nickname}の活動回数">
-									<p class="monthly-stat__heading">活動回数</p>
+								<div class="monthly-stat monthly-stat--blue" role="group" aria-label={L.activityCountAriaLabel(child.nickname)}>
+									<p class="monthly-stat__heading">{L.activityCountLabel}</p>
 									<p class="monthly-stat__value">{summary.totalActivities}</p>
-									<p class="monthly-stat__unit">回</p>
+									<p class="monthly-stat__unit">{L.activityCountUnit}</p>
 								</div>
-								<div class="monthly-stat monthly-stat--purple" role="group" aria-label="{child.nickname}のレベル">
-									<p class="monthly-stat__heading">レベル</p>
+								<div class="monthly-stat monthly-stat--purple" role="group" aria-label={L.levelAriaLabel(child.nickname)}>
+									<p class="monthly-stat__heading">{L.levelLabel}</p>
 									<p class="monthly-stat__value">{summary.currentLevel}</p>
 								</div>
-								<div class="monthly-stat monthly-stat--amber" role="group" aria-label="{child.nickname}の実績">
-									<p class="monthly-stat__heading">実績</p>
+								<div class="monthly-stat monthly-stat--amber" role="group" aria-label={L.achievementsAriaLabel(child.nickname)}>
+									<p class="monthly-stat__heading">{L.achievementsLabel}</p>
 									<p class="monthly-stat__value">{summary.newAchievements}</p>
-									<p class="monthly-stat__unit">獲得</p>
+									<p class="monthly-stat__unit">{L.achievementsUnit}</p>
 								</div>
 							</div>
 						</div>
@@ -389,10 +391,10 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Children Overview -->
 	<section data-tutorial="children-overview">
-		<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">こども一覧</h2>
+		<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">{L.childrenListHeading}</h2>
 		{#if children.length === 0}
 			<Card class="p-8 text-center text-[var(--color-text-tertiary)]">
-				<p>まだこどもが登録されていません</p>
+				<p>{L.noChildrenText}</p>
 			</Card>
 		{:else}
 			<div class="grid gap-3">
@@ -414,12 +416,16 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Demo CTA (demo only) -->
 	{#if isDemo}
-		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] border border-[var(--color-feedback-warning-border)] rounded-xl p-4 text-center">			<p class="text-sm font-bold text-[var(--color-text)] mb-1">いかがでしたか？</p>			<p class="text-xs text-[var(--color-text-muted)] mb-3">
-				お子さまの「がんばり」を冒険に変えませんか？
+		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] border border-[var(--color-feedback-warning-border)] rounded-xl p-4 text-center">
+			<p class="text-sm font-bold text-[var(--color-text)] mb-1">{L.demoCtaQuestion}</p>
+			<p class="text-xs text-[var(--color-text-muted)] mb-3">
+				{L.demoCtaDesc}
 			</p>
 			<a
 				href="/demo/signup"
-				class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"			>				無料で はじめる →
+				class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"
+			>
+				{L.demoCtaBtn}
 			</a>
 		</div>
 	{/if}
@@ -535,7 +541,7 @@ function childLink(child: ChildSummary): string {
 		white-space: nowrap;
 	}
 
-	/* #961 QA: 全チュートリアル導線カード */
+	/* #961 QA: full tutorial guide entry card */
 	.tutorial-full-guide-card {
 		display: flex;
 		align-items: center;
@@ -566,7 +572,7 @@ function childLink(child: ChildSummary): string {
 		color: var(--color-text-tertiary);
 	}
 
-	/* #1292: 本日の使用時間 */
+	/* #1292: today's usage time */
 	.usage-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
