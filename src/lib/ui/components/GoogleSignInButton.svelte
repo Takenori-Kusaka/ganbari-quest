@@ -7,6 +7,7 @@
  * - フォント: Roboto 500 (medium)
  * - 最小サイズ・パディング・角丸はガイドライン準拠
  */
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
 interface Props {
 	/** ボタンテキスト（デフォルト: "Google でログイン"） */
@@ -18,7 +19,7 @@ interface Props {
 }
 
 let {
-	label = 'Google でログイン',
+	label = UI_COMPONENTS_LABELS.googleSignInLabel,
 	href = '/auth/oauth/google',
 	class: className = '',
 }: Props = $props();

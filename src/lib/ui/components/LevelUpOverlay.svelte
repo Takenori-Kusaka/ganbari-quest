@@ -1,4 +1,5 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -37,18 +38,7 @@ const LEVEL_ICONS: Record<number, string> = {
 	10: '🌈',
 };
 
-const LEVEL_MESSAGES: Record<number, string> = {
-	1: 'ぼうけんがはじまるよ！',
-	2: 'がんばってるね！',
-	3: 'つよくなってきたよ！',
-	4: 'すごいぞ！どんどんいこう！',
-	5: 'もうたいしたものだ！',
-	6: 'きみはもうベテランだ！',
-	7: 'そらもとべそうだね！',
-	8: 'すばらしい！マスターめざそう！',
-	9: 'ほぼさいきょう！あとすこし！',
-	10: 'かみさまレベルだ！おめでとう！',
-};
+const LEVEL_MESSAGES = UI_COMPONENTS_LABELS.levelUpMessages;
 
 $effect(() => {
 	if (open && levelUp) {
@@ -90,7 +80,7 @@ function handleClose() {
 				<span class="sparkle s6">✦</span>
 			</div>
 
-			<p class="levelup-label">{levelUp.categoryName ? `${levelUp.categoryName} ` : ''}レベルアップ！</p>
+			<p class="levelup-label">{UI_COMPONENTS_LABELS.levelUpLabel(levelUp.categoryName)}</p>
 
 			<div class="levelup-icon-wrapper">
 				<span class="levelup-icon">{LEVEL_ICONS[levelUp.newLevel] ?? '⭐'}</span>
@@ -102,9 +92,9 @@ function handleClose() {
 
 			{#if showTitle}
 				<p class="levelup-title animate-bounce-in">{levelUp.newTitle}</p>
-				<p class="levelup-message">{LEVEL_MESSAGES[levelUp.newLevel] ?? 'すごい！がんばったね！'}</p>
+				<p class="levelup-message">{LEVEL_MESSAGES[levelUp.newLevel] ?? UI_COMPONENTS_LABELS.levelUpDefaultMessage}</p>
 				{#if levelUp.spGranted && levelUp.spGranted > 0}
-					<p class="levelup-sp animate-bounce-in">+{levelUp.spGranted} SP ゲット！</p>
+					<p class="levelup-sp animate-bounce-in">{UI_COMPONENTS_LABELS.levelUpSpLabel(levelUp.spGranted)}</p>
 				{/if}
 			{/if}
 
@@ -112,7 +102,7 @@ function handleClose() {
 				class="tap-target levelup-btn"
 				onclick={handleClose}
 			>
-				やったー！
+				{UI_COMPONENTS_LABELS.levelUpConfirmBtn}
 			</button>
 		</div>
 	{/if}

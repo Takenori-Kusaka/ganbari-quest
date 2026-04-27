@@ -1,4 +1,5 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
 
@@ -26,7 +27,7 @@ function handleClose() {
 
 <Dialog bind:open closable={false} title="">
 	<div class="flex flex-col items-center gap-[var(--sp-md)] text-center py-[var(--sp-md)]">
-		<p class="text-lg font-bold text-[var(--theme-accent)]">🎁 とくべつごほうび！</p>
+		<p class="text-lg font-bold text-[var(--theme-accent)]">{UI_COMPONENTS_LABELS.specialRewardTitle}</p>
 
 		<div
 			class="w-32 h-32 rounded-[var(--radius-lg)] border-4 border-yellow-400
@@ -39,14 +40,14 @@ function handleClose() {
 		<p class="text-xl font-bold">{title}</p>
 
 		<div class="animate-point-pop">
-			<p class="text-2xl font-bold text-[var(--color-point)]">+{points} ポイント！</p>
+			<p class="text-2xl font-bold text-[var(--color-point)]">{UI_COMPONENTS_LABELS.specialRewardPoints(points)}</p>
 		</div>
 
 		<button
 			class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg mt-[var(--sp-sm)]"
 			onclick={handleClose}
 		>
-			やったー！
+			{UI_COMPONENTS_LABELS.specialRewardConfirmBtn}
 		</button>
 	</div>
 </Dialog>

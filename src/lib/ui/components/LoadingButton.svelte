@@ -1,5 +1,6 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
 interface Props {
 	loading?: boolean;
@@ -33,7 +34,7 @@ let {
 >
 	{#if loading}
 		<span class="loading-button__spinner" aria-hidden="true"></span>
-		<span class="loading-button__text">{loadingText ?? '処理中...'}</span>
+		<span class="loading-button__text">{loadingText ?? UI_COMPONENTS_LABELS.loadingButtonDefault}</span>
 	{:else}
 		{@render children()}
 	{/if}

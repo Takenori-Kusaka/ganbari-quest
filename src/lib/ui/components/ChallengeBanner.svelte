@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
 interface ChallengeProgress {
 	childId: number;
@@ -58,7 +59,7 @@ const typeIcon = (t: string) => (t === 'cooperative' ? '🤝' : '⚔️');
 					<span class="challenge-banner__name">
 						{challenge.title}
 						{#if challenge.allCompleted}
-							<span class="challenge-banner__badge challenge-banner__badge--complete">クリア！</span>
+							<span class="challenge-banner__badge challenge-banner__badge--complete">{UI_COMPONENTS_LABELS.challengeBannerClear}</span>
 						{/if}
 					</span>
 					{#if challenge.description}
@@ -74,7 +75,7 @@ const typeIcon = (t: string) => (t === 'cooperative' ? '🤝' : '⚔️');
 										class="challenge-banner__sibling-name"
 										class:challenge-banner__sibling-name--me={prog.childId === childId}
 									>
-										{prog.childId === childId ? 'じぶん' : getSiblingName(prog.childId)}
+										{prog.childId === childId ? UI_COMPONENTS_LABELS.challengeBannerMe : getSiblingName(prog.childId)}
 									</span>
 									<div class="challenge-banner__progress-bar">
 										<div
@@ -98,19 +99,19 @@ const typeIcon = (t: string) => (t === 'cooperative' ? '🤝' : '⚔️');
 						<form method="POST" action="?/claimChallengeReward" use:enhance>
 							<input type="hidden" name="challengeId" value={challenge.id} />
 							<button type="submit" class="challenge-banner__claim-btn">
-								🎁 うけとる
+								{UI_COMPONENTS_LABELS.challengeBannerReceive}
 							</button>
 						</form>
 					{:else if myProgress?.rewardClaimed === 1}
-						<span class="challenge-banner__claimed">✅ うけとりずみ</span>
+						<span class="challenge-banner__claimed">{UI_COMPONENTS_LABELS.challengeBannerReceived}</span>
 					{:else}
 						{#if remainingDays(challenge.endDate) <= 3}
 							<span class="challenge-banner__countdown challenge-banner__countdown--urgent">
-								あと{remainingDays(challenge.endDate)}にち！
+								{UI_COMPONENTS_LABELS.challengeBannerCountdownUrgent(remainingDays(challenge.endDate))}
 							</span>
 						{:else}
 							<span class="challenge-banner__countdown">
-								あと{remainingDays(challenge.endDate)}にち
+								{UI_COMPONENTS_LABELS.challengeBannerCountdown(remainingDays(challenge.endDate))}
 							</span>
 						{/if}
 					{/if}

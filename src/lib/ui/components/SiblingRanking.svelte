@@ -1,4 +1,6 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+
 interface RankingData {
 	childId: number;
 	childName: string;
@@ -21,10 +23,10 @@ let { rankings, childId }: Props = $props();
 			{#each rankings as entry, i}
 				{#if i > 0}<span class="sibling-summary__sep"> / </span>{/if}
 				<span class:sibling-summary__me={entry.childId === childId}>
-					{entry.childId === childId ? 'じぶん' : entry.childName}　{entry.totalCount}かい
+					{entry.childId === childId ? UI_COMPONENTS_LABELS.siblingRankingMe : entry.childName}　{UI_COMPONENTS_LABELS.siblingRankingCount(entry.totalCount)}
 				</span>
 			{/each}
-			<span class="sibling-summary__period">（こんしゅう）</span>
+			<span class="sibling-summary__period">{UI_COMPONENTS_LABELS.siblingRankingPeriod}</span>
 		</span>
 	</div>
 {/if}

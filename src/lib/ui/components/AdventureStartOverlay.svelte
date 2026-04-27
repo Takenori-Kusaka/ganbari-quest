@@ -1,4 +1,5 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -63,13 +64,13 @@ function handleClose() {
 			<!-- Greeting -->
 			<div class="adventure__greeting animate-fade-in">
 				<div class="adventure__avatar">🧒</div>
-				<p class="adventure__text">やあ！ {childName}！</p>
+				<p class="adventure__text">{UI_COMPONENTS_LABELS.adventureGreeting(childName)}</p>
 			</div>
 		{:else if phase === 2}
 			<!-- Adventure message -->
 			<div class="adventure__message animate-fade-in">
-				<p class="adventure__big-text">きょうから いっしょに</p>
-				<p class="adventure__big-text adventure__big-text--accent">ぼうけんだよ！</p>
+				<p class="adventure__big-text">{UI_COMPONENTS_LABELS.adventureBigText1}</p>
+				<p class="adventure__big-text adventure__big-text--accent">{UI_COMPONENTS_LABELS.adventureBigText2}</p>
 				<div class="adventure__sparkles">
 					{#each Array(5) as _, i}
 						<span class="adventure__star" style:--si={i}>⭐</span>
@@ -79,8 +80,8 @@ function handleClose() {
 		{:else if phase === 3}
 			<!-- Category icons appear one by one -->
 			<div class="adventure__categories animate-fade-in">
-				<p class="adventure__sub-text">いろんなことを がんばると</p>
-				<p class="adventure__sub-text">つよくなれるよ！</p>
+				<p class="adventure__sub-text">{UI_COMPONENTS_LABELS.adventureSubText1}</p>
+				<p class="adventure__sub-text">{UI_COMPONENTS_LABELS.adventureSubText2}</p>
 				<div class="adventure__cat-grid">
 					{#each categories as cat, i (cat.id)}
 						<div
@@ -104,11 +105,11 @@ function handleClose() {
 						{/each}
 					{/each}
 				</div>
-				<img src="/icon-character.png" alt="ぼうけんキャラクター" class="adventure__character" />
-				<p class="adventure__ready-text">🌟 さあ、はじめよう！ 🌟</p>
-				<p class="adventure__ready-sub">したのカードをタップしてみてね</p>
+				<img src="/icon-character.png" alt={UI_COMPONENTS_LABELS.adventureCharacterAlt} class="adventure__character" />
+				<p class="adventure__ready-text">{UI_COMPONENTS_LABELS.adventureReadyText}</p>
+				<p class="adventure__ready-sub">{UI_COMPONENTS_LABELS.adventureReadySub}</p>
 				<button class="adventure__start-btn tap-target" onclick={handleClose}>
-					ぼうけんスタート！
+					{UI_COMPONENTS_LABELS.adventureStartBtn}
 				</button>
 			</div>
 		{/if}

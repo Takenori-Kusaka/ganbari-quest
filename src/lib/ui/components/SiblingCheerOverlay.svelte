@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
 interface CheerData {
 	id: number;
@@ -22,13 +23,13 @@ const cheerIds = $derived(cheers.map((c) => c.id).join(','));
 	<div class="cheer-overlay" data-testid="cheer-overlay">
 		<div class="cheer-overlay__backdrop" onclick={onDismiss} role="presentation"></div>
 		<div class="cheer-overlay__card">
-			<p class="cheer-overlay__title">💌 おうえんがとどいたよ！</p>
+			<p class="cheer-overlay__title">{UI_COMPONENTS_LABELS.siblingCheerTitle}</p>
 			<div class="cheer-overlay__list">
 				{#each cheers as cheer}
 					<div class="cheer-overlay__item">
 						<span class="cheer-overlay__emoji">{cheer.stampEmoji}</span>
 						<div>
-							<span class="cheer-overlay__from">{cheer.fromName}から</span>
+							<span class="cheer-overlay__from">{UI_COMPONENTS_LABELS.siblingCheerFrom(cheer.fromName)}</span>
 							<span class="cheer-overlay__label">{cheer.stampLabel}</span>
 						</div>
 					</div>
@@ -41,7 +42,7 @@ const cheerIds = $derived(cheers.map((c) => c.id).join(','));
 				};
 			}}>
 				<input type="hidden" name="cheerIds" value={cheerIds} />
-				<button type="submit" class="cheer-overlay__btn">ありがとう！</button>
+				<button type="submit" class="cheer-overlay__btn">{UI_COMPONENTS_LABELS.siblingCheerConfirmBtn}</button>
 			</form>
 		</div>
 	</div>

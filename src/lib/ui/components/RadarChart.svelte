@@ -1,6 +1,7 @@
 <script lang="ts">
 import { cubicOut } from 'svelte/easing';
 import { tweened } from 'svelte/motion';
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
 interface CategoryData {
 	categoryId: number;
@@ -128,7 +129,7 @@ function gridPolygon(pct: number): string {
 	style:max-width="{viewBoxSize}px"
 	overflow="visible"
 	role="img"
-	aria-label="ステータスレーダーチャート"
+	aria-label={UI_COMPONENTS_LABELS.radarChartAriaLabel}
 >
 	<!-- Grid lines -->
 	{#each LEVELS as level}
@@ -217,9 +218,9 @@ function gridPolygon(pct: number): string {
 	{#if compNormalized}
 		<g transform="translate({center - 60}, {size / 2 + maxRadius + 20})">
 			<line x1="0" y1="0" x2="16" y2="0" stroke="var(--theme-primary, #ff69b4)" stroke-width="2" />
-			<text x="20" y="4" class="radar-legend" fill="var(--color-text)">いま</text>
+			<text x="20" y="4" class="radar-legend" fill="var(--color-text)">{UI_COMPONENTS_LABELS.radarChartNow}</text>
 			<line x1="56" y1="0" x2="72" y2="0" stroke="var(--color-text-muted, #999)" stroke-width="1.5" stroke-dasharray="4,3" />
-			<text x="76" y="4" class="radar-legend" fill="var(--color-text-muted)">{comparisonLabel ?? 'せんげつ'}</text>
+			<text x="76" y="4" class="radar-legend" fill="var(--color-text-muted)">{comparisonLabel ?? UI_COMPONENTS_LABELS.radarChartDefaultComparisonLabel}</text>
 		</g>
 	{/if}
 </svg>

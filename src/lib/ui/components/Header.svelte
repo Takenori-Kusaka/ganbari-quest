@@ -1,4 +1,5 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS, formatPointValue } from '$lib/domain/point-display';
 import AvatarDisplay from '$lib/ui/components/AvatarDisplay.svelte';
@@ -45,7 +46,7 @@ const balanceDisplay = $derived(
 			size="sm"
 		/>
 		<div class="flex flex-col">
-			<span class="font-bold text-lg leading-tight">{nickname}{#if isPremium}<span class="premium-star" title="スタンダード以上">⭐</span>{/if}</span>
+			<span class="font-bold text-lg leading-tight">{nickname}{#if isPremium}<span class="premium-star" title={UI_COMPONENTS_LABELS.headerPremiumTitle}>⭐</span>{/if}</span>
 		</div>
 	</div>
 	<div class="flex items-center gap-2">
@@ -56,7 +57,7 @@ const balanceDisplay = $derived(
 				data-testid="header-help-btn"
 				data-tutorial="tutorial-restart"
 				onclick={() => onHelpClick?.()}
-				aria-label="つかいかたガイド"
+				aria-label={UI_COMPONENTS_LABELS.headerHelpAriaLabel}
 			>
 				<span class="text-sm font-bold">❓</span>
 			</button>
@@ -68,7 +69,7 @@ const balanceDisplay = $derived(
 				data-testid="header-stamp-btn"
 				data-tutorial="stamp-progress"
 				onclick={() => onStampClick?.()}
-				aria-label="スタンプカードを見る"
+				aria-label={UI_COMPONENTS_LABELS.headerStampAriaLabel}
 			>
 				<span class="text-sm" aria-hidden="true">💮</span>
 				<span class="text-xs font-bold">{stampProgress.filled}/{stampProgress.total}</span>

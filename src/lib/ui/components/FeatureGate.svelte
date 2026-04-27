@@ -1,5 +1,6 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import PremiumBadge from './PremiumBadge.svelte';
 
 type PlanTier = 'free' | 'standard' | 'family';
@@ -45,7 +46,7 @@ const requiredLabel = $derived(TIER_LABELS[requiredTier]);
 	{@render locked()}
 {:else if display === 'inline' && buttonLabel}
 	<span class="feature-gate-inline">
-		<button type="button" class="feature-gate-btn" disabled title="{requiredLabel}プラン以上で利用可能">
+		<button type="button" class="feature-gate-btn" disabled title={UI_COMPONENTS_LABELS.featureGateLockTitle(requiredLabel)}>
 			<span class="feature-gate-btn__icon">🔒</span>
 			<span class="feature-gate-btn__label">{buttonLabel}</span>
 		</button>
@@ -55,8 +56,8 @@ const requiredLabel = $derived(TIER_LABELS[requiredTier]);
 	<div class="feature-gate-section">
 		<div class="feature-gate-overlay">
 			<span class="feature-gate-lock">🔒</span>
-			<p class="feature-gate-text">{requiredLabel}プラン以上で利用可能</p>
-			<PremiumBadge size="md" label="アップグレード" />
+			<p class="feature-gate-text">{UI_COMPONENTS_LABELS.featureGateLockText(requiredLabel)}</p>
+			<PremiumBadge size="md" label={UI_COMPONENTS_LABELS.featureGateUpgrade} />
 		</div>
 		<div class="feature-gate-content" aria-hidden="true">
 			{@render children()}

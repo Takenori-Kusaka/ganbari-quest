@@ -1,5 +1,6 @@
 <script lang="ts">
 import { page } from '$app/stores';
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { markTutorialStarted, startTutorialForPage } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 async function handleClick() {
@@ -12,8 +13,8 @@ async function handleClick() {
 	type="button"
 	class="page-help-btn"
 	onclick={handleClick}
-	title="このページの使い方"
-	aria-label="このページの使い方ガイドを開く"
+	title={UI_COMPONENTS_LABELS.pageHelpButtonTitle}
+	aria-label={UI_COMPONENTS_LABELS.pageHelpButtonAriaLabel}
 >
 	?
 </button>

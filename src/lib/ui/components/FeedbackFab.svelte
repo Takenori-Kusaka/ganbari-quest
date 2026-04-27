@@ -1,6 +1,8 @@
 <script lang="ts">
 // #839: フィードバック FAB（Floating Action Button）
 // admin / demo/admin レイアウト共通コンポーネント
+
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import IconButton from '$lib/ui/primitives/IconButton.svelte';
 
 interface Props {
@@ -14,7 +16,7 @@ let { onclick }: Props = $props();
 	<IconButton
 		variant="primary"
 		size="lg"
-		label="ご意見・不具合報告"
+		label={UI_COMPONENTS_LABELS.feedbackFabLabel}
 		class="!rounded-full shadow-lg !p-3"
 		{onclick}
 		data-testid="feedback-fab"
