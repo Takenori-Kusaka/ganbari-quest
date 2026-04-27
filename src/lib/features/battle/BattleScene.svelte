@@ -30,12 +30,45 @@ let showResult = $state(false);
 let playerShake = $state(false);
 let enemyShake = $state(false);
 
+// ダメージフロート
+let playerDamageFloat = $state<{ value: number; critical: boolean; key: number } | null>(null);
+let enemyDamageFloat = $state<{ value: number; critical: boolean; key: number } | null>(null);
+let floatCounter = $state(0);
+
+// クリティカルフラッシュ
+let criticalFlash = $state(false);
+
 // バトル結果が来たらアニメーション開始
 $effect(() => {
 	if (battleResult && !animating && !showResult) {
 		runAnimation();
 	}
 });
+
+async function showDamageFloat(
+	target: 'player' | 'enemy',
+	damage: number,
+	critical: boolean,
+): Promise<void> {
+	const key = ++floatCounter;
+	if (target === 'enemy') {
+		enemyDamageFloat = { value: damage, critical, key };
+	} else {
+		playerDamageFloat = { value: damage, critical, key };
+	}
+	if (critical) {
+		criticalFlash = true;
+		await sleep(300);
+		criticalFlash = false;
+	}
+	// フロートは 600ms で自然消滅（CSS animation）
+	await sleep(620);
+	if (target === 'enemy' && enemyDamageFloat?.key === key) {
+		enemyDamageFloat = null;
+	} else if (target === 'player' && playerDamageFloat?.key === key) {
+		playerDamageFloat = null;
+	}
+}
 
 async function runAnimation() {
 	if (!battleResult) return;
@@ -52,8 +85,10 @@ async function runAnimation() {
 		currentTurn = turn.turn;
 
 		if (turn.firstAttacker === 'player') {
-			// プレイヤー攻撃
+			// プレイヤー攻撃（shake + フロートを並行）
 			enemyShake = true;
+			// ダメージフロートとshakeを並行実行（総時間を増やさない）
+			void showDamageFloat('enemy', turn.playerAction.damage, turn.playerAction.critical);
 			await sleep(300);
 			enemyHp = turn.enemyHpAfter;
 			enemyShake = false;
@@ -62,6 +97,7 @@ async function runAnimation() {
 			// 敵反撃
 			if (turn.enemyAction.damage > 0) {
 				playerShake = true;
+				void showDamageFloat('player', turn.enemyAction.damage, turn.enemyAction.critical);
 				await sleep(300);
 				playerHp = turn.playerHpAfter;
 				playerShake = false;
@@ -70,6 +106,7 @@ async function runAnimation() {
 		} else {
 			// 敵先攻
 			playerShake = true;
+			void showDamageFloat('player', turn.enemyAction.damage, turn.enemyAction.critical);
 			await sleep(300);
 			playerHp = turn.playerHpAfter;
 			playerShake = false;
@@ -78,6 +115,7 @@ async function runAnimation() {
 			// プレイヤー反撃
 			if (turn.playerAction.damage > 0) {
 				enemyShake = true;
+				void showDamageFloat('enemy', turn.playerAction.damage, turn.playerAction.critical);
 				await sleep(300);
 				enemyHp = turn.enemyHpAfter;
 				enemyShake = false;
@@ -98,7 +136,7 @@ function sleep(ms: number): Promise<void> {
 const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, number][]);
 </script>
 
-<div class="battle-scene" data-testid="battle-scene">
+<div class="battle-scene" class:critical-flash={criticalFlash} data-testid="battle-scene">
 	<!-- バトルフィールド -->
 	<div class="battle-field" data-testid="battle-field">
 		<!-- 敵サイド -->
@@ -109,8 +147,19 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 				label={enemy.name}
 				variant="enemy"
 			/>
-			<div class="sprite" class:shake={enemyShake} class:defeated={enemyHp <= 0}>
-				<img class="sprite-img" src={enemy.image} alt={enemy.name} />
+			<div class="sprite-wrap">
+				<div class="sprite" class:shake={enemyShake} class:defeated={enemyHp <= 0}>
+					<img class="sprite-img" src={enemy.image} alt={enemy.name} />
+				</div>
+				{#if enemyDamageFloat}
+					<span
+						class="damage-float"
+						class:critical={enemyDamageFloat.critical}
+						aria-hidden="true"
+					>
+						{enemyDamageFloat.critical ? '💥' : ''}{enemyDamageFloat.value}
+					</span>
+				{/if}
 			</div>
 			<div class="combatant-name" data-testid="enemy-name">{enemy.name}</div>
 		</div>
@@ -126,8 +175,19 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 				label="きみ"
 				variant="player"
 			/>
-			<div class="sprite" class:shake={playerShake} class:defeated={playerHp <= 0}>
-				<img class="sprite-img" src="/assets/battle/characters/hero-default.png" alt="きみ" />
+			<div class="sprite-wrap">
+				<div class="sprite" class:shake={playerShake} class:defeated={playerHp <= 0}>
+					<img class="sprite-img" src="/assets/battle/characters/hero-default.png" alt="きみ" />
+				</div>
+				{#if playerDamageFloat}
+					<span
+						class="damage-float"
+						class:critical={playerDamageFloat.critical}
+						aria-hidden="true"
+					>
+						{playerDamageFloat.critical ? '💥' : ''}{playerDamageFloat.value}
+					</span>
+				{/if}
 			</div>
 			<div class="combatant-name">きみ</div>
 		</div>
@@ -182,7 +242,22 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		max-width: 480px;
 		margin: 0 auto;
 		padding: 1rem;
+		position: relative;
 	}
+	/* 改善 C: クリティカルフラッシュ */
+	.battle-scene::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: var(--color-action-danger);
+		opacity: 0;
+		pointer-events: none;
+		border-radius: 16px;
+	}
+	.battle-scene.critical-flash::after {
+		animation: flash 0.3s ease-out forwards;
+	}
+
 	.battle-field {
 		display: flex;
 		align-items: center;
@@ -205,6 +280,11 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		color: var(--color-text-tertiary);
 		flex-shrink: 0;
 	}
+	/* 改善 A: ダメージフロート用ラッパー */
+	.sprite-wrap {
+		position: relative;
+		display: inline-block;
+	}
 	.sprite {
 		margin: 0.5rem 0;
 		transition: all 0.3s ease;
@@ -219,16 +299,36 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	.sprite.shake {
 		animation: shake 0.3s ease-in-out;
 	}
+	/* 改善 C: defeated に transition を追加（既存 opacity+filter に加えて translateY） */
 	.sprite.defeated {
 		opacity: 0.3;
 		filter: grayscale(1);
 		transform: translateY(8px);
-		transition: all 0.5s ease;
+		transition: opacity 0.5s ease, filter 0.5s ease, transform 0.5s ease;
 	}
 	.combatant-name {
 		font-size: 0.85rem;
 		font-weight: 600;
 		color: var(--color-text-primary);
+	}
+
+	/* 改善 A: ダメージフロート */
+	.damage-float {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		font-size: 1.1rem;
+		font-weight: 900;
+		color: var(--color-text-warm);
+		pointer-events: none;
+		white-space: nowrap;
+		animation: damageFloat 0.6s ease-out forwards;
+		text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+	}
+	.damage-float.critical {
+		color: var(--color-action-danger);
+		font-size: 1.4rem;
 	}
 
 	.stats-panel {
@@ -318,5 +418,17 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	@keyframes fadeIn {
 		from { opacity: 0; transform: scale(0.9); }
 		to { opacity: 1; transform: scale(1); }
+	}
+	/* 改善 A: ダメージフロートアニメーション */
+	@keyframes damageFloat {
+		0%   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+		30%  { transform: translateX(-50%) translateY(-20px) scale(1.3); }
+		100% { opacity: 0; transform: translateX(-50%) translateY(-40px) scale(0.8); }
+	}
+	/* 改善 C: クリティカルフラッシュアニメーション */
+	@keyframes flash {
+		0%   { opacity: 0.25; }
+		50%  { opacity: 0.15; }
+		100% { opacity: 0; }
 	}
 </style>
