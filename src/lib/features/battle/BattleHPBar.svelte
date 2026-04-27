@@ -12,13 +12,6 @@ let {
 } = $props();
 
 const pct = $derived(Math.max(0, Math.min(100, (current / max) * 100)));
-const barColor = $derived(
-	pct > 50
-		? 'var(--color-status-success)'
-		: pct > 20
-			? 'var(--color-status-warning)'
-			: 'var(--color-status-error)',
-);
 </script>
 
 <div class="hp-bar" class:enemy={variant === 'enemy'}>
@@ -29,8 +22,10 @@ const barColor = $derived(
 	<div class="hp-track">
 		<div
 			class="hp-fill"
+			class:bar-high={pct > 50}
+			class:bar-mid={pct > 20 && pct <= 50}
+			class:bar-low={pct <= 20}
 			style:width="{pct}%"
-			style:background-color={barColor}
 		></div>
 	</div>
 </div>
@@ -63,5 +58,14 @@ const barColor = $derived(
 		height: 100%;
 		border-radius: 5px;
 		transition: width 0.6s ease-out;
+	}
+	.bar-high {
+		background-color: var(--color-action-success);
+	}
+	.bar-mid {
+		background-color: var(--color-action-trial-upgrade);
+	}
+	.bar-low {
+		background-color: var(--color-action-danger);
 	}
 </style>
