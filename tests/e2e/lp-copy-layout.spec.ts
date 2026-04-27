@@ -1,8 +1,10 @@
 // tests/e2e/lp-copy-layout.spec.ts
 // #1164: LP マイクロコピーのレイアウト品質を E2E で担保
-//   - feature-gender-preset / feature-routine-checklist / feature-belongings-checklist
+//   - feature-monthly-report / feature-routine-checklist / feature-belongings-checklist
 //     の各段落が text-align 左寄せ (left|start) で、1 行 40 文字以下 × 最大 3 行以内に収まる
 //   - feature-section 内に feature-belongings-checklist 要素が存在する (持ち物 CL 独立)
+// Note: feature-gender-preset は #1287/#1573 のLP改訂（soft-features 4カード拡張）で
+//       feature-monthly-report に置き換えられたためテスト対象を更新（2026-04-27）
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -66,7 +68,7 @@ test.afterAll(async () => {
 });
 
 const PARAGRAPH_TESTIDS = [
-	'feature-gender-preset',
+	'feature-monthly-report',
 	'feature-routine-checklist',
 	'feature-belongings-checklist',
 ] as const;
