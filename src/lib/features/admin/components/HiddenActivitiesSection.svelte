@@ -67,7 +67,7 @@ let showHidden = $state(false);
 											type="submit"
 											class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-error-bg,#fef2f2)] text-[var(--color-action-danger)] hover:opacity-80 transition-colors"
 										>
-											{FEATURES_LABELS.hiddenActivities.permaDeleteBtn}
+											{FEATURES_LABELS.hiddenActivities.permanentDeleteBtn}
 										</button>
 									</form>
 								{/if}

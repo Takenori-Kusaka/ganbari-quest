@@ -3824,7 +3824,7 @@ export const FEATURES_LABELS = {
 		openIcon: '▼ 開く',
 		recordCount: (count: number) => `/ 記録 ${count}件`,
 		restoreBtn: '復活',
-		permaDeleteBtn: '完全削除',
+		permanentDeleteBtn: '完全削除',
 	},
 
 	// ---- features/admin/components/TrialEndedDialog ----
