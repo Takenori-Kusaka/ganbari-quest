@@ -180,6 +180,8 @@
 
 /* Soft features */
 .soft-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
+#soft-features .soft-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+#soft-features.section{padding-bottom:40px}
 .soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px}
 .soft-card .soft-icon{font-size:2rem;margin-bottom:10px}
 .soft-card h3{font-size:1.1rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
@@ -537,28 +539,33 @@
 
 <!-- LP-LANDMARK:machine-tour end -->
 
-<!-- LP-LANDMARK:soft-features start — 親向け安心機能 (性別プリセット/時間制限/成長記録)
+<!-- LP-LANDMARK:soft-features start — 親向け安心機能 (成長記録/時間管理/おうえんメッセージ/設定自由度)
      変更時は docs/design/lp-content-map.md §soft-features を確認 -->
 <!-- [05] ソフト機能（親の安心） -->
 <section class="section bg-gray" id="soft-features">
   <div class="section-inner">
     <h2 class="section-title">遊びだけで終わらせない、親のための機能</h2>
-    <p class="section-desc">ゲーミフィケーションの裏で、親がちゃんと伴走できる設計。<br>「遊ばせっぱなし」「設定が大変そう」の不安を取り除く 3 つの機能です。</p>
+    <p class="section-desc">ゲーミフィケーションの裏で、親がちゃんと伴走できる設計。「遊ばせっぱなし」「設定が大変そう」の不安を取り除く 4 つの機能です。</p>
     <div class="soft-grid">
-      <div class="soft-card" data-testid="feature-gender-preset">
-        <div class="soft-icon">&#x1F381;</div>
-        <h3>みんなのテンプレート（すぐ始められる）</h3>
-        <p>年齢別のやることリスト・ごほうび・持ち物テンプレートを収録。<br>初日から使える 50+ パックで、<br>乳幼児から高校生まで網羅。</p>
+      <div class="soft-card" data-testid="feature-monthly-report">
+        <div class="soft-icon">&#x1F4CA;</div>
+        <h3>成長の記録（月次レポート）</h3>
+        <p>月次レポートで活動・ポイント推移をひと目で把握。子供の成長を記録として残せます。</p>
+      </div>
+      <div class="soft-card" data-testid="feature-auto-sleep">
+        <div class="soft-icon">&#x1F4A4;</div>
+        <h3>時間管理（使いすぎ防止）</h3>
+        <p>設定時間が経過すると画面が自動スリープ。スクリーンタイムの心配なく使わせられます。</p>
       </div>
       <div class="soft-card">
         <div class="soft-icon">&#x1F4AC;</div>
         <h3>おうえんメッセージ</h3>
-        <p>親から子への自由テキスト。「よくがんばったね」の一言が子供のホーム画面に届き、ゲーム以上の動機になります。Family プランで家族全員から送れます。</p>
+        <p>「よくがんばったね」の一言が子供のホーム画面に届きます。Family プランで家族全員から送れます。</p>
       </div>
-      <div class="soft-card">
-        <div class="soft-icon">&#x23F1;&#xFE0F;</div>
-        <h3>親の作業は 1 日 5 分、設定は最初の 1 回だけ</h3>
-        <p>テンプレートで初日からすぐ使えます。あとはお子さまが自分で記録し、親は確認するだけ。毎日ゼロから設定し直す必要はありません。</p>
+      <div class="soft-card" data-testid="feature-customization">
+        <div class="soft-icon">&#x2699;&#xFE0F;</div>
+        <h3>設定の自由度</h3>
+        <p>活動の種類・ポイント配分・ごほうびは自由にカスタマイズ。お子さまに合わせて調整できます。</p>
       </div>
     </div>
   </div>
