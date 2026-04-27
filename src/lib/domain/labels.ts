@@ -3390,6 +3390,55 @@ export const DEMO_CHILD_ACHIEVEMENTS_LABELS = {
 // LP コンテンツ (#1344 C1-LP-RETENTION)
 // ============================================================
 
+// ============================================================
+// LP 共通ナビ / フッター / 共通CTA (#1465 Phase C)
+// SSOT: site/*.html の <header> / <footer> 共通部分
+// ============================================================
+
+export const LP_NAV_LABELS = {
+	hamburgerAriaLabel: 'メニュー',
+	logoAlt: 'がんばりクエスト',
+	home: 'ホーム',
+	marketplace: 'テンプレートを探す',
+	pricing: '料金プラン',
+	faq: 'よくあるご質問',
+	selfhost: '仕組みを公開（開発者向け）',
+	signup: '無料で始める',
+	login: 'ログイン',
+	// リスト系（ハンバーガー展開時の追加項目）
+	features: 'できること',
+	howto: '使い方',
+	values: '想い',
+	mediakit: 'メディアキット',
+} as const;
+
+export const LP_FOOTER_LABELS = {
+	brandName: 'がんばりクエスト',
+	brandTagline: 'お子さまの「がんばり」を冒険に変える<br>家庭向けWebアプリ',
+	linksHeading: 'リンク',
+	pricingLink: '料金プラン',
+	faqLink: 'よくあるご質問',
+	selfhostLink: '仕組みを公開（開発者向け）',
+	githubLink: 'GitHub',
+	contactLink: 'お問い合わせ',
+	sponsorLink: 'Sponsor',
+	legalHeading: '法的情報',
+	termsLink: '利用規約',
+	privacyLink: 'プライバシーポリシー',
+	slaLink: 'SLA',
+	tokushohoLink: '特定商取引法に基づく表記',
+	copyright: '© 2026 がんばりクエスト. All rights reserved.',
+} as const;
+
+export const LP_COMMON_LABELS = {
+	ctaSignup: '無料で始める',
+	ctaDemo: 'デモを見る',
+	ctaPricing: '料金プラン',
+	ctaContact: 'お問い合わせ',
+	contactHint: 'メールでお気軽にお問い合わせください',
+	contactEmail: 'ganbari.quest.support@gmail.com',
+} as const;
+
 export const LP_RETENTION_LABELS = {
 	sectionTitle: '三日坊主にならない設計',
 	sectionDesc:

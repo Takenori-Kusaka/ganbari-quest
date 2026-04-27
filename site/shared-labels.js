@@ -100,6 +100,46 @@
 			"l3Step2Desc": "貯めたポイントはごほうびショップが唯一の出口。実物のプレゼント・お小遣い・特権（夜ふかし権など）を親が設定し、子供が自分で選んで交換できます。",
 			"shopNote": "ごほうびショップは唯一の出口。ポイントは「欲しいものと交換できる通貨」として機能するので、子供の自律的な目標設定を促します。",
 			"pamphletNote": "L1 活動記録→ポイント / L2 おみくじスタンプ（習慣形成）/ L3 ごほうびショップ（唯一の出口）の 3 層構造で、毎日のがんばりが本物の報酬になります。"
+		},
+		"nav": {
+			"hamburgerAriaLabel": "メニュー",
+			"logoAlt": "がんばりクエスト",
+			"home": "ホーム",
+			"marketplace": "テンプレートを探す",
+			"pricing": "料金プラン",
+			"faq": "よくあるご質問",
+			"selfhost": "仕組みを公開（開発者向け）",
+			"signup": "無料で始める",
+			"login": "ログイン",
+			"features": "できること",
+			"howto": "使い方",
+			"values": "想い",
+			"mediakit": "メディアキット"
+		},
+		"footer": {
+			"brandName": "がんばりクエスト",
+			"brandTagline": "お子さまの「がんばり」を冒険に変える<br>家庭向けWebアプリ",
+			"linksHeading": "リンク",
+			"pricingLink": "料金プラン",
+			"faqLink": "よくあるご質問",
+			"selfhostLink": "仕組みを公開（開発者向け）",
+			"githubLink": "GitHub",
+			"contactLink": "お問い合わせ",
+			"sponsorLink": "Sponsor",
+			"legalHeading": "法的情報",
+			"termsLink": "利用規約",
+			"privacyLink": "プライバシーポリシー",
+			"slaLink": "SLA",
+			"tokushohoLink": "特定商取引法に基づく表記",
+			"copyright": "© 2026 がんばりクエスト. All rights reserved."
+		},
+		"common": {
+			"ctaSignup": "無料で始める",
+			"ctaDemo": "デモを見る",
+			"ctaPricing": "料金プラン",
+			"ctaContact": "お問い合わせ",
+			"contactHint": "メールでお気軽にお問い合わせください",
+			"contactEmail": "ganbari.quest.support@gmail.com"
 		}
 	};
 

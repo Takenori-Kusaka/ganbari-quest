@@ -115,8 +115,21 @@ function parseLabelsTs() {
 	const planLabels = parseSimpleBlock(src, 'PLAN_LABELS');
 	const lpRetentionLabels = parseBlock(src, 'LP_RETENTION_LABELS');
 	const lpCoreloopLabels = parseBlock(src, 'LP_CORELOOP_LABELS');
+	// #1465 Phase C: LP 共通ナビ・フッター・CTA
+	const lpNavLabels = parseBlock(src, 'LP_NAV_LABELS');
+	const lpFooterLabels = parseBlock(src, 'LP_FOOTER_LABELS');
+	const lpCommonLabels = parseBlock(src, 'LP_COMMON_LABELS');
 
-	return { ageTierLabels, ageTierShort, planLabels, lpRetentionLabels, lpCoreloopLabels };
+	return {
+		ageTierLabels,
+		ageTierShort,
+		planLabels,
+		lpRetentionLabels,
+		lpCoreloopLabels,
+		lpNavLabels,
+		lpFooterLabels,
+		lpCommonLabels,
+	};
 }
 
 /**
@@ -150,7 +163,15 @@ function parseAgeTierTs() {
  * LP 用 shared-labels.js コンテンツを生成する
  */
 function generateSharedLabelsJs() {
-	const { ageTierLabels, planLabels, lpRetentionLabels, lpCoreloopLabels } = parseLabelsTs();
+	const {
+		ageTierLabels,
+		planLabels,
+		lpRetentionLabels,
+		lpCoreloopLabels,
+		lpNavLabels,
+		lpFooterLabels,
+		lpCommonLabels,
+	} = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
 	// 各年齢区分の name / range / formal / ageMin / ageMax を統合
@@ -179,6 +200,9 @@ function generateSharedLabelsJs() {
 	const lpLabels = {
 		retention: lpRetentionLabels,
 		coreloop: lpCoreloopLabels,
+		nav: lpNavLabels,
+		footer: lpFooterLabels,
+		common: lpCommonLabels,
 	};
 
 	const header = `/**
