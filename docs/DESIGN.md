@@ -313,6 +313,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `MARKETPLACE_LABELS` | const |  |
 | `MARKETPLACE_FILTER_LABELS` | const |  |
 | `TUTORIAL_LABELS` | const |  |
+| `TUTORIAL_CHAPTER_LABELS` | const |  |
 | `DEMO_LABELS` | const |  |
 | `OYAKAGI_LABELS` | const |  |
 | `IMPORT_LABELS` | const |  |
