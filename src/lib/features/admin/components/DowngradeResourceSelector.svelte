@@ -1,6 +1,10 @@
 <script lang="ts">
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
-import { getAgeTierLabel, getPlanLabel } from '$lib/domain/labels';
+import {
+	getAgeTierLabel,
+	getPlanLabel,
+	DOWNGRADE_RESOURCE_SELECTOR_LABELS as L,
+} from '$lib/domain/labels';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -107,7 +111,7 @@ function handleConfirm() {
 
 <Dialog
 	bind:open
-	title="ダウングレードの確認"
+	title={L.dialogTitle}
 	testid="downgrade-resource-selector"
 >
 	{#snippet children()}
@@ -116,11 +120,11 @@ function handleConfirm() {
 			<!-- ターゲットプラン表示 -->
 			<div class="rounded-lg bg-[var(--color-surface-muted)] p-3">
 				<p class="text-[var(--color-text-secondary)] font-medium">
-					{getPlanLabel(preview.targetTier)}へのダウングレード
+					{getPlanLabel(preview.targetTier)}{L.targetTierSuffix}
 				</p>
 				{#if !preview.hasExcess && !preview.retentionChange.willLoseHistory}
 					<p class="text-[var(--color-text-muted)] mt-1">
-						現在のリソース数はダウングレード先の上限以内です。そのままプラン変更に進めます。
+						{L.noExcessNote}
 					</p>
 				{/if}
 			</div>
@@ -130,7 +134,7 @@ function handleConfirm() {
 				<Alert variant="warning">
 					{#snippet children()}
 					<p>
-						データ保持期間が{preview.retentionChange.currentDays === null ? '無制限' : `${preview.retentionChange.currentDays}日`}から{preview.retentionChange.targetDays}日に短縮されます。{preview.retentionChange.targetDays}日以前のデータは閲覧できなくなります。
+						{L.retentionWarningPrefix}{preview.retentionChange.currentDays === null ? L.retentionUnlimited : `${preview.retentionChange.currentDays}${L.retentionDaysSuffix}`}{L.retentionFromTo}{preview.retentionChange.targetDays}{L.retentionTargetSuffix}{preview.retentionChange.targetDays}{L.retentionDataLossSuffix}
 					</p>
 					{/snippet}
 				</Alert>
@@ -141,10 +145,10 @@ function handleConfirm() {
 				<Alert variant="warning">
 					{#snippet children()}
 					<p class="font-semibold">
-						現在のリソースが{getPlanLabel(preview.targetTier)}の上限を超えています
+						{L.excessTitlePrefix}{getPlanLabel(preview.targetTier)}{L.excessTitleSuffix}
 					</p>
 					<p class="mt-1">
-						ダウングレード先の上限に合わせて、アーカイブするリソースを選択してください。アーカイブされたデータはアップグレード時に復元できます。
+						{L.excessGuide}
 					</p>
 					{/snippet}
 				</Alert>
@@ -154,10 +158,10 @@ function handleConfirm() {
 					<Card variant="default" padding="md">
 						{#snippet children()}
 						<h4 class="font-semibold text-[var(--color-text-primary)] mb-2">
-							子供（{preview.children.current.length}人 → 上限 {preview.children.max}人）
+							{L.childrenSectionTitle(preview.children.current.length, preview.children.max)}
 						</h4>
 						<p class="text-xs text-[var(--color-text-muted)] mb-3">
-							{preview.children.excess}人分をアーカイブしてください（選択: {archiveChildIds.size}/{preview.children.excess}）
+							{L.childrenSectionGuide(preview.children.excess, archiveChildIds.size)}
 						</p>
 						<div class="space-y-2" data-testid="downgrade-child-list">
 							{#each preview.children.current as child (child.id)}
@@ -176,16 +180,16 @@ function handleConfirm() {
 										<span class="text-xs text-[var(--color-text-muted)] ml-1">({getAgeTierLabel(child.uiMode)})</span>
 									</div>
 									{#if archiveChildIds.has(child.id)}
-										<span class="ml-auto text-xs text-[var(--color-feedback-error-text)]">アーカイブ</span>
+										<span class="ml-auto text-xs text-[var(--color-feedback-error-text)]">{L.archiveLabel}</span>
 									{:else}
-										<span class="ml-auto text-xs text-[var(--color-text-tertiary)]">残す</span>
+										<span class="ml-auto text-xs text-[var(--color-text-tertiary)]">{L.keepLabel}</span>
 									{/if}
 								</label>
 							{/each}
 						</div>
 						{#if !childSelectionValid()}
 							<p class="text-xs text-[var(--color-feedback-error-text)] mt-2">
-								あと{preview.children.excess - archiveChildIds.size}人分を選択してください
+								{L.childRemainingHint(preview.children.excess - archiveChildIds.size)}
 							</p>
 						{/if}
 						{/snippet}
@@ -197,10 +201,10 @@ function handleConfirm() {
 					<Card variant="default" padding="md">
 						{#snippet children()}
 						<h4 class="font-semibold text-[var(--color-text-primary)] mb-2">
-							活動（{preview.activities.current.length}個 → 上限 {preview.activities.max}個）
+							{L.activitiesSectionTitle(preview.activities.current.length, preview.activities.max)}
 						</h4>
 						<p class="text-xs text-[var(--color-text-muted)] mb-3">
-							{preview.activities.excess}個分をアーカイブしてください（選択: {archiveActivityIds.size}/{preview.activities.excess}）
+							{L.activitiesSectionGuide(preview.activities.excess, archiveActivityIds.size)}
 						</p>
 						<div class="space-y-2" data-testid="downgrade-activity-list">
 							{#each preview.activities.current as activity (activity.id)}
@@ -217,16 +221,16 @@ function handleConfirm() {
 									<span class="text-base">{activity.icon}</span>
 									<span class="font-medium text-[var(--color-text-primary)]">{activity.name}</span>
 									{#if archiveActivityIds.has(activity.id)}
-										<span class="ml-auto text-xs text-[var(--color-feedback-error-text)]">アーカイブ</span>
+										<span class="ml-auto text-xs text-[var(--color-feedback-error-text)]">{L.archiveLabel}</span>
 									{:else}
-										<span class="ml-auto text-xs text-[var(--color-text-tertiary)]">残す</span>
+										<span class="ml-auto text-xs text-[var(--color-text-tertiary)]">{L.keepLabel}</span>
 									{/if}
 								</label>
 							{/each}
 						</div>
 						{#if !activitySelectionValid()}
 							<p class="text-xs text-[var(--color-feedback-error-text)] mt-2">
-								あと{preview.activities.excess - archiveActivityIds.size}個分を選択してください
+								{L.activityRemainingHint(preview.activities.excess - archiveActivityIds.size)}
 							</p>
 						{/if}
 						{/snippet}
@@ -238,14 +242,14 @@ function handleConfirm() {
 					<Card variant="default" padding="md">
 						{#snippet children()}
 						<h4 class="font-semibold text-[var(--color-text-primary)] mb-2">
-							チェックリストテンプレート（1子あたり上限 {preview.checklistTemplates.maxPerChild}個）
+							{L.checklistsSectionTitle(preview.checklistTemplates.maxPerChild)}
 						</h4>
 						{#each preview.checklistTemplates.excessByChild as childExcess (childExcess.childId)}
 							{@const childTemplates = preview.checklistTemplates.current.filter(t => t.childId === childExcess.childId)}
 							{@const archivedCount = [...archiveChecklistIds].filter(id => childTemplates.some(t => t.id === id)).length}
 							<div class="mb-3">
 								<p class="text-xs text-[var(--color-text-muted)] mb-2">
-									{childExcess.childName}: {childExcess.excess}個分をアーカイブ（選択: {archivedCount}/{childExcess.excess}）
+									{L.checklistsChildGuide(childExcess.childName, childExcess.excess, archivedCount)}
 								</p>
 								<div class="space-y-2" data-testid="downgrade-checklist-list-{childExcess.childId}">
 									{#each childTemplates as template (template.id)}
@@ -260,9 +264,9 @@ function handleConfirm() {
 											/>
 											<span class="font-medium text-[var(--color-text-primary)]">{template.name}</span>
 											{#if archiveChecklistIds.has(template.id)}
-												<span class="ml-auto text-xs text-[var(--color-feedback-error-text)]">アーカイブ</span>
+												<span class="ml-auto text-xs text-[var(--color-feedback-error-text)]">{L.archiveLabel}</span>
 											{:else}
-												<span class="ml-auto text-xs text-[var(--color-text-tertiary)]">残す</span>
+												<span class="ml-auto text-xs text-[var(--color-text-tertiary)]">{L.keepLabel}</span>
 											{/if}
 										</label>
 									{/each}
@@ -278,7 +282,7 @@ function handleConfirm() {
 					<Alert variant="warning">
 						{#snippet children()}
 						<p>
-							データ保持期間が{preview.retentionChange.currentDays === null ? '無制限' : `${preview.retentionChange.currentDays}日`}から{preview.retentionChange.targetDays}日に短縮されます。{preview.retentionChange.targetDays}日以前のデータは閲覧できなくなります。
+							{L.retentionWarningPrefix}{preview.retentionChange.currentDays === null ? L.retentionUnlimited : `${preview.retentionChange.currentDays}${L.retentionDaysSuffix}`}{L.retentionFromTo}{preview.retentionChange.targetDays}{L.retentionTargetSuffix}{preview.retentionChange.targetDays}{L.retentionDataLossSuffix}
 						</p>
 						{/snippet}
 					</Alert>
@@ -288,7 +292,7 @@ function handleConfirm() {
 				<Alert variant="info">
 					{#snippet children()}
 					<p>
-						アーカイブされたデータは削除されません。再度アップグレードすることで完全に復元できます。
+						{L.restoreNote}
 					</p>
 					{/snippet}
 				</Alert>
@@ -312,7 +316,7 @@ function handleConfirm() {
 				disabled={loading}
 				onclick={onCancel}
 			>
-				キャンセル
+				{L.cancelButton}
 			</Button>
 			{#if preview.hasExcess}
 				<Button
@@ -323,7 +327,7 @@ function handleConfirm() {
 					data-testid="downgrade-confirm-button"
 					onclick={handleConfirm}
 				>
-					{loading ? 'アーカイブ中…' : 'アーカイブしてプラン変更へ進む'}
+					{loading ? L.archivingLabel : L.archiveAndProceedButton}
 				</Button>
 			{:else}
 				<Button
@@ -334,13 +338,13 @@ function handleConfirm() {
 					data-testid="downgrade-confirm-button"
 					onclick={handleConfirm}
 				>
-					{loading ? '処理中…' : 'プラン変更へ進む'}
+					{loading ? L.processingLabel : L.proceedButton}
 				</Button>
 			{/if}
 		</div>
 	{:else}
 		<div class="flex items-center justify-center py-8">
-			<p class="text-sm text-[var(--color-text-muted)]">読み込み中...</p>
+			<p class="text-sm text-[var(--color-text-muted)]">{L.loadingLabel}</p>
 		</div>
 	{/if}
 	{/snippet}
