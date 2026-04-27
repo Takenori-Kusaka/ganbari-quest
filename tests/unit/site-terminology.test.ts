@@ -1,16 +1,18 @@
 // tests/unit/site-terminology.test.ts
-// #1164: LP で「持ち物チェックリスト」「ルーティンチェックリスト」「やることリスト」の
-//        3 語が出現し、**同じ段落内で複数の語を混在させない** ことを保証。
+// #1164: LP で「持ち物チェックリスト」「ルーティンチェックリスト」の
+//        2 語が出現し、**同じ段落内で複数の語を混在させない** ことを保証。
 //
 // ADR-0037 (labels.ts SSOT) + #1168 (CL 種別分離) と同期。
 // 乱雑な混在が再発した #162 系問題の再発防止。
+// Note: 「やることリスト」は #1287/#1573 のLP改訂（soft-features 4カード拡張）で
+//       LP から削除されたため、存在チェックの対象から除外（2026-04-27）。
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 
-const TERMS = ['持ち物チェックリスト', 'ルーティンチェックリスト', 'やることリスト'] as const;
+const TERMS = ['持ち物チェックリスト', 'ルーティンチェックリスト'] as const;
 
 function loadHtml(relPath: string): string {
 	return readFileSync(resolve(relPath), 'utf8');

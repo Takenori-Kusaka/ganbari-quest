@@ -1,5 +1,5 @@
 {
-	"count": 572,
+	"count": 574,
 	"scope": "site/**/*.html (legal docs excluded: privacy.html, terms.html, tokushoho.html, sla.html)",
-	"note": "Issue #1465 Phase A: LP SSOT HTML check baseline. Legal docs excluded as their content is not suitable for SSOT migration. New HTML content must use data-lp-key attributes. Migrate existing content to reduce count to 0 (Phase C)."
+	"note": "Issue #1465 Phase A: LP SSOT HTML check baseline. Legal docs excluded as their content is not suitable for SSOT migration. New HTML content must use data-lp-key attributes. Migrate existing content to reduce count to 0 (Phase C). Updated 2026-04-27 (#1573 hotfix): soft-features 4カード拡張で 572 → 574。"
 }
