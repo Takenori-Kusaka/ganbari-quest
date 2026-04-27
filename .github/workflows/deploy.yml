@@ -121,6 +121,8 @@ jobs:
           npx cdk diff GanbariQuestStorage \
             -c domainName=${{ env.DOMAIN_NAME }} \
             -c certificateArn=${{ env.CERTIFICATE_ARN }} \
+            -c cronSecret=${{ secrets.CRON_SECRET }} \
+            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       - name: CDK Deploy Storage
@@ -129,6 +131,8 @@ jobs:
           npx cdk deploy GanbariQuestStorage --require-approval never
           -c domainName=${{ env.DOMAIN_NAME }}
           -c certificateArn=${{ env.CERTIFICATE_ARN }}
+          -c cronSecret=${{ secrets.CRON_SECRET }}
+          -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
 
       # Phase 2: Build and push Docker image to ECR (ARM64 native on Graviton runner)
       - name: Login to Amazon ECR
