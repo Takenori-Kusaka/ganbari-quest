@@ -206,6 +206,22 @@ export class ComputeStack extends cdk.Stack {
 			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
 
+		// #1586: cron-dispatcher は CRON_SECRET / OPS_SECRET_KEY のいずれか最低 1 本が
+		// 注入されていないと、Lambda 起動時に「FUNCTION_URL or CRON_SECRET not set」で throw し
+		// 全ジョブ (license-expire / retention-cleanup / trial-notifications) が fail する。
+		// silent skip ではなく CDK synth 時点で deploy をブロックする (ADR-0006 Safety Assertion Erosion Ban)。
+		// 修復経緯: PR#1509 で dispatcher を新設した際、メイン Lambda (L148-149) と異なり
+		// OPS_SECRET_KEY fallback の注入が抜け落ち、かつ CRON_SECRET が GitHub Secret 未登録だったため
+		// 2 日間 silent fail し続けた (#1586)。
+		if (!cronSecret && !legacyOpsSecretKey) {
+			throw new Error(
+				'[ComputeStack] cron-dispatcher requires cronSecret or opsSecretKey CDK context. ' +
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax
+					'Pass `-c cronSecret=${{ secrets.CRON_SECRET }}` or `-c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}` ' +
+					'in deploy.yml. Confirm `OPS_SECRET_KEY` (or `CRON_SECRET`) is registered via `gh secret list` (#1586).',
+			);
+		}
+
 		this.cronDispatcherFn = new lambdaNode.NodejsFunction(this, 'CronDispatcherFn', {
 			functionName: 'ganbari-quest-cron-dispatcher',
 			entry: path.join(__dirname, '..', 'lambda', 'cron-dispatcher', 'index.ts'),
@@ -217,7 +233,11 @@ export class ComputeStack extends cdk.Stack {
 			logGroup: cronDispatcherLogGroup,
 			environment: {
 				FUNCTION_URL: this.functionUrl.url,
+				// #1586: メイン Lambda (L148-149) と整合させ CRON_SECRET と OPS_SECRET_KEY の両方を注入。
+				// dispatcher 側 (cron-dispatcher/index.ts) は `CRON_SECRET ?? OPS_SECRET_KEY` の順で
+				// fallback 参照する。L79-81 の後方互換設計に従う。
 				...(cronSecret ? { CRON_SECRET: cronSecret } : {}),
+				...(legacyOpsSecretKey ? { OPS_SECRET_KEY: legacyOpsSecretKey } : {}),
 			},
 			bundling: {
 				minify: true,

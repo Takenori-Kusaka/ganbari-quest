@@ -112,7 +112,10 @@
 - アーキテクチャ: ARM64 (Graviton2)
 - 役割: EventBridge ペイロードを HTTP POST に変換して SvelteKit `/api/cron/:job` を呼び出す
   - LWA は HTTP イベントのみ処理するため、EventBridge → Lambda Web Adapter の直接接続は不可
-- 環境変数: `FUNCTION_URL` (SvelteKitFn の Function URL), `CRON_SECRET`
+- 環境変数: `FUNCTION_URL` (SvelteKitFn の Function URL), `CRON_SECRET` または `OPS_SECRET_KEY` (#1586)
+  - dispatcher 側は `CRON_SECRET ?? OPS_SECRET_KEY` の順で fallback 参照する
+  - CDK は両方 inject、最低 1 本必須 (compute-stack.ts L218-235 で synth-time に throw)
+  - `dryRun: true` payload で env 注入確認のみ実行可 (副作用なし、smoke test 用)
 - 実装: `infra/lambda/cron-dispatcher/index.ts`
 
 **EventBridge Rules (#1376):**
@@ -393,3 +396,4 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 2026-03-27 | GitHub Pages LP デプロイワークフロー追加 |
 | 2026-04-12 | #721 AI推論基盤（AWS Bedrock）セクション追加。モデル選定理由・使用箇所・環境変数を記載 |
 | 2026-04-25 | #1376 §3.3 に CronDispatcherFn Lambda・EventBridge Rules 3件を追記。§3.4 に CronDispatcherErrors CloudWatch Alarm (P0, SNS 通知付き) を追記 |
+| 2026-04-27 | #1586 §3.3 に cron-dispatcher の CRON_SECRET / OPS_SECRET_KEY fallback と dryRun mode を追記。CDK synth 時の必須 secret throw + deploy.yml の Validate required secrets / Cron dispatcher smoke test step も合わせて整備 |
