@@ -1,4 +1,4 @@
-# ADR-0023: インフラ PR 必須要件 — ENV silent skip 禁止 + secrets validation + post-deploy smoke test + alarm
+# ADR-0024: インフラ PR 必須要件 — ENV silent skip 禁止 + secrets validation + post-deploy smoke test + alarm
 
 - **Status**: accepted
 - **Date**: 2026-04-27
