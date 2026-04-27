@@ -106,13 +106,12 @@ const envSchema = z.object({
 	BEDROCK_REGION: z.string().optional(),
 	BEDROCK_DISABLED: booleanStringSchema,
 
-	// ----- Analytics -----
+	// ----- Analytics (#1591 / ADR-0023 I2) -----
+	// AWS 内完結 (DynamoDB) のみ。umami / Sentry は #1591 で削除済み。
+	// 外部 SaaS analytics を再導入する場合は ADR-0023 §3.4 ホワイトリストの更新と
+	// ADR-0010 過剰防衛禁止の照らし合わせを先に行うこと。
 	ANALYTICS_ENABLED: booleanStringSchema,
 	ANALYTICS_TABLE_NAME: z.string().optional(),
-	UMAMI_API_KEY: z.string().optional(),
-	PUBLIC_UMAMI_WEBSITE_ID: z.string().optional(),
-	PUBLIC_UMAMI_HOST: z.string().url().optional(),
-	PUBLIC_SENTRY_DSN: z.string().optional(),
 
 	// ----- Context Token -----
 	CONTEXT_TOKEN_SECRET: z.string().optional(),

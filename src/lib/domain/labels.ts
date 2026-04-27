@@ -1525,44 +1525,15 @@ export const ANALYTICS_LABELS = {
 	pageTitle: 'アナリティクス - 管理画面',
 	pageHeading: 'アナリティクス',
 
-	// Umami not configured alert
-	umamiNotConfiguredTitle: 'Umami が設定されていません',
-	umamiConfigVar1Prefix: 'アナリティクスを有効にするには、環境変数 ',
-	umamiConfigVar1Suffix: ' と',
-	umamiConfigVar2Suffix: ' を設定してください。',
-	umamiConfigApiKeyPrefix: 'API アクセスには ',
-	umamiConfigApiKeySuffix: ' も必要です。',
-	umamiErrorTitle: 'データ取得に失敗しました',
+	// #1591 (ADR-0023 I2) — DynamoDB analytics ベースの可視化は follow-up Issue で実装。
+	comingSoonTitle: 'アナリティクス画面は準備中です',
+	comingSoonDescription:
+		'本画面は DynamoDB に蓄積された業務イベント (signup / 初回ログイン / 解約理由) を可視化する形に再構築中です。実装完了までしばらくお待ちください。',
 
-	// Overview section
-	overviewTitle: '過去 30 日間の概要',
-	kpiLabelPageViews: 'ページビュー',
-	kpiLabelUniqueVisitors: 'ユニーク訪問者',
-	kpiLabelVisits: '訪問数',
-	kpiLabelBounceRate: '直帰率',
-	prevPeriodCompare: (rate: string) => `${rate} (前期比)`,
-
-	// Pages table
-	pagesTitle: 'ページ別訪問数 (トップ 10)',
-	tableColPage: 'ページ',
-	tableColVisits: '訪問数',
-
-	// Referrers table
-	referrersTitle: '流入元 (リファラ)',
-	tableColReferrer: '参照元',
-	directAccess: '(直接アクセス)',
-
-	// UI mode events table
-	uiModeEventsTitle: '年齢モード別イベント',
-	tableColEvent: 'イベント',
-	tableColCount: '件数',
-
-	// Error events table
-	errorEventsTitle: 'エラーイベント',
-
-	// All events table
-	allEventsTitle: 'イベント一覧 (トップ 20)',
-	tableColEventName: 'イベント名',
+	plannedSectionTitle: '実装予定の指標',
+	plannedItemActivationFunnel: 'アクティベーションファネル (signup → 初回ログイン → 7日継続)',
+	plannedItemRetention: 'リテンションコホート (週次・月次)',
+	plannedItemSeanEllis: 'Sean Ellis スコア / 解約理由分布',
 } as const;
 
 export const BILLING_LABELS = {
