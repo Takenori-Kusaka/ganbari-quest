@@ -1679,13 +1679,13 @@ Push 通知の購読解除。
 **レスポンス:**
 ```json
 {
-  "providers": {
-    "sentry": { "enabled": true },
-    "umami": { "enabled": false },
-    "dynamodb": { "enabled": true }
-  }
+  "providers": ["dynamo"],
+  "dynamoEnabled": true
 }
 ```
+
+> #1591 (ADR-0023 I2): umami / Sentry プロバイダは削除済み。AWS 内完結 (DynamoDB) のみ。
+> 詳細は `docs/design/13-AWSサーバレスアーキテクチャ設計書.md §7.2` を参照。
 
 ---
 
@@ -2150,3 +2150,4 @@ if (authError) return authError;
 | 2026-04-17 | 2.17 | #1093 cron エンドポイント認証パターン（`verifyCronAuth`）を §5 に追加。実装コード・呼び出しパターン・環境別挙動・使用エンドポイント一覧を文書化。ADR-0033 への相互参照 |
 | 2026-04-18 | 2.18 | #1111 POST /api/v1/admin/invites にプラン別メンバー上限チェック (`maxFamilyMembers`) と `MEMBER_LIMIT_REACHED` エラー仕様を追記 |
 | 2026-04-26 | 2.19 | #1337 §3.26 ごほうびショップ交換申請 API 追加（POST /api/v1/reward-redemption-requests, GET /api/v1/reward-redemption-requests, PATCH /api/v1/reward-redemption-requests/:id, POST /api/cron/expire-redemptions）。エラーコード・ポイント減算タイミング・承認/却下フロー仕様を定義 |
+| 2026-04-27 | 2.20 | #1591 §3.25 GET /api/v1/analytics/status のレスポンスを `providers: []` + `dynamoEnabled` 形式に更新。umami / Sentry プロバイダ削除に伴う ADR-0023 I2 対応。詳細は `docs/design/13-AWSサーバレスアーキテクチャ設計書.md §7.2` を参照 |

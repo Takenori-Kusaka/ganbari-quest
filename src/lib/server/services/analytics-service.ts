@@ -91,13 +91,14 @@ export function trackActivationFirstRewardSeen(
 
 /**
  * Get analytics system status (for admin/ops dashboard).
+ *
+ * #1591 (ADR-0023 I2): umami / Sentry プロバイダ削除に伴い、umamiConfig は返さない。
+ * AWS 内完結 (DynamoDB のみ) のため active provider 名のみを返す。
  */
 export function getAnalyticsStatus(): {
 	providers: string[];
-	umamiConfig: { websiteId: string; hostUrl: string } | null;
 } {
 	return {
 		providers: analytics.getActiveProviders(),
-		umamiConfig: analytics.getUmamiConfig(),
 	};
 }

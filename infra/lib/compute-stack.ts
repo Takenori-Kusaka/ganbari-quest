@@ -129,6 +129,12 @@ export class ComputeStack extends cdk.Stack {
 				ORIGIN: 'https://ganbari-quest.com',
 				BODY_SIZE_LIMIT: '10485760',
 				AUTH_MODE: 'cognito',
+				// #1591 (ADR-0023 I2): DynamoDB analytics provider を本番有効化。
+				// メインテーブルに ANALYTICS#<date> パーティションを同居させる
+				// (single-table design)。TTL 90 日でレコードは自動削除される (provider 側)。
+				// umami / Sentry は #1591 で削除済み。analytics 系の env はこれだけで完結。
+				ANALYTICS_ENABLED: 'true',
+				ANALYTICS_TABLE_NAME: props.table.tableName!,
 				COGNITO_USER_POOL_ID: cognitoUserPoolId,
 				COGNITO_CLIENT_ID: cognitoClientId,
 				COGNITO_DOMAIN: cognitoDomain,

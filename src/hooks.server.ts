@@ -122,48 +122,22 @@ function resolveEvaluationContextForRequest(mode: RuntimeMode) {
 analytics.init();
 
 /**
- * Build dynamic CSP header based on active analytics providers.
- * Base CSP is extended with provider-specific domains only when enabled.
+ * Build CSP header.
+ *
+ * #1591 (ADR-0023 I2): umami / Sentry プロバイダ削除に伴い、provider 固有ドメインの
+ * 追加は不要になった。analytics は AWS 内完結 (DynamoDB) のため connectSrc / scriptSrc
+ * に外部ホストを足す必要がない — 'self' で完結する。これにより CSP は静的に決まり、
+ * 「外部送信ゼロ」が CSP レイヤでも構造的に保証される。
  */
 function buildCspHeader(): string {
-	const connectSrc = ["'self'"];
-	const scriptSrc = ["'self'", "'unsafe-inline'"];
-
-	// Sentry CDN and ingest domains
-	if (analytics.isProviderActive('sentry')) {
-		const sentryDsn = process.env.PUBLIC_SENTRY_DSN;
-		if (sentryDsn) {
-			try {
-				const url = new URL(sentryDsn);
-				const sentryDomain = url.hostname;
-				connectSrc.push(`https://${sentryDomain}`);
-				scriptSrc.push('https://browser.sentry-cdn.com');
-			} catch {
-				// Invalid DSN — skip
-			}
-		}
-	}
-
-	// Umami tracking domain
-	const umamiConfig = analytics.getUmamiConfig();
-	if (umamiConfig) {
-		try {
-			const url = new URL(umamiConfig.hostUrl);
-			connectSrc.push(url.origin);
-			scriptSrc.push(url.origin);
-		} catch {
-			// Invalid URL — skip
-		}
-	}
-
 	return [
 		`default-src 'self'`,
-		`script-src ${scriptSrc.join(' ')}`,
+		`script-src 'self' 'unsafe-inline'`,
 		`style-src 'self' 'unsafe-inline'`,
 		`img-src 'self' data: blob:`,
 		`media-src 'self' blob:`,
 		`font-src 'self'`,
-		`connect-src ${connectSrc.join(' ')}`,
+		`connect-src 'self'`,
 		`object-src 'none'`,
 		`base-uri 'self'`,
 		`frame-ancestors 'none'`,

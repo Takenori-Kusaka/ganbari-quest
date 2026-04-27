@@ -58,8 +58,8 @@ vi.mock('$app/environment', () => ({ building: false }));
 vi.mock('$lib/analytics', () => ({
 	analytics: {
 		init: vi.fn(),
+		// #1591 (ADR-0023 I2): umami / Sentry 削除に伴い getUmamiConfig は不在
 		isProviderActive: vi.fn(() => false),
-		getUmamiConfig: vi.fn(() => null),
 		identify: vi.fn(),
 		trackPageView: vi.fn(),
 		trackEvent: vi.fn(),

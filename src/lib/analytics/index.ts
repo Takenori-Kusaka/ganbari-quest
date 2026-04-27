@@ -2,12 +2,17 @@
 // Unified analytics interface — delegates to all active providers.
 // Providers are opt-in via environment variables. Missing config = disabled.
 // All operations are fire-and-forget; failures never break the app.
+//
+// #1591 (ADR-0023 I2): umami / sentry providers were removed in favour of an
+// AWS-internal DynamoDB-only pipeline. The 3rd-party providers had been
+// silently disabled in production (env vars never distributed) and the legacy
+// code was a confusion source ("we ship analytics code that does nothing").
+// Single provider keeps the "external send = zero" guarantee structural:
+// the only allow-listed analytics destination is our own DynamoDB table.
 
 import { logger } from '$lib/server/logger';
 import { DynamoAnalyticsProvider } from './providers/dynamo';
 import { NoopProvider } from './providers/noop';
-import { SentryProvider } from './providers/sentry';
-import { UmamiProvider } from './providers/umami';
 import type { AnalyticsProvider, EventProperties } from './types';
 
 export type { AnalyticsProvider, BusinessEventName, EventProperties } from './types';
@@ -28,11 +33,7 @@ class AnalyticsManager {
 		if (this.initialized) return;
 		this.initialized = true;
 
-		const candidates: AnalyticsProvider[] = [
-			new SentryProvider(),
-			new UmamiProvider(),
-			new DynamoAnalyticsProvider(),
-		];
+		const candidates: AnalyticsProvider[] = [new DynamoAnalyticsProvider()];
 
 		for (const provider of candidates) {
 			try {
@@ -134,22 +135,12 @@ class AnalyticsManager {
 	 * Check if a specific provider is active.
 	 *
 	 * If the provider exposes an `isActive()` method, its result is used
-	 * (this lets providers with async init — e.g. Sentry loading its SDK
-	 * lazily — report accurately and keep CSP headers tight).
+	 * (this lets providers with async init report accurately).
 	 */
 	isProviderActive(name: string): boolean {
 		const provider = this.providers.find((p) => p.name === name);
 		if (!provider) return false;
 		return provider.isActive ? provider.isActive() : true;
-	}
-
-	/**
-	 * Get Umami config for client-side script injection.
-	 * Returns null if Umami is not enabled.
-	 */
-	getUmamiConfig(): { websiteId: string; hostUrl: string } | null {
-		const umami = this.providers.find((p) => p.name === 'umami') as UmamiProvider | undefined;
-		return umami?.getConfig() ?? null;
 	}
 
 	/**

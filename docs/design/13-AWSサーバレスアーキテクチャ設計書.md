@@ -325,6 +325,48 @@ Dockerfile.lambda        # Lambda Web Adapter用
 └── release.yml          # リリースノートカテゴリ設定
 ```
 
+## 7.2 アナリティクス基盤（DynamoDB 一本化, #1591 / ADR-0023 I2）
+
+### 採用方針
+
+**外部 SaaS analytics は採用しない**。子供データ究極ミニマリズム原則 (ADR-0023 §4.4 / A-Q1(C)) に従い、業務イベントは AWS 内完結 (DynamoDB 単一テーブル) に閉じる。
+
+| 項目 | 内容 |
+|------|------|
+| 採用 provider | DynamoDB のみ (`src/lib/analytics/providers/dynamo.ts`) |
+| 削除済 provider | umami / Sentry (#1591 で `src/lib/analytics/providers/` から物理削除) |
+| 外部送信 | ゼロ (CSP `connect-src 'self'` で構造的に保証) |
+| イベント保持期間 | 90 日 (DynamoDB TTL 自動削除) |
+
+### Key 設計
+
+| 項目 | 値 |
+|------|----|
+| PK | `ANALYTICS#<YYYY-MM-DD>` |
+| SK | `<ISO timestamp>#<random>` |
+| GSI2PK | `ANALYTICS#EVENT#<eventName>` (イベント別時系列) |
+| GSI2SK | `<YYYY-MM-DD>#<tenantId>` (日付 → テナントで絞込) |
+| TTL | 取込時刻 + 90 日 (epoch seconds) |
+
+メインテーブル (`ganbari-quest`) に同居させる single-table design。専用テーブルは作らない (ADR-0010 過剰防衛禁止)。
+
+### 環境変数
+
+| 変数 | 設定値 | 説明 |
+|------|--------|------|
+| `ANALYTICS_ENABLED` | `'true'` (本番固定) | DynamoDB provider の有効化トグル。CDK が Lambda env にハードコード注入 (#1591) |
+| `ANALYTICS_TABLE_NAME` | `props.table.tableName` | 書込先テーブル名。メイン DynamoDB を流用 |
+
+### CSP との整合
+
+`hooks.server.ts` `buildCspHeader()` は外部送信先を一切ホワイトリストしない (`connect-src 'self'` 固定)。新たな外部 SaaS analytics を導入する場合は、本セクションと ADR-0023 §3.4 ホワイトリストの両方を更新する PR を先に通すこと (ADR-0006 安全弁削除禁止)。
+
+### 可視化 (`/admin/analytics`)
+
+`/admin/analytics` ページは #1591 時点では **Coming soon** 縮退。DynamoDB に蓄積されたイベントから activation funnel / retention cohort / Sean Ellis スコアを描画する実装は follow-up Issue で行う。
+
+---
+
 ## 7.1 AI推論基盤（AWS Bedrock）(#721)
 
 ### モデル選定
@@ -397,3 +439,4 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 2026-04-12 | #721 AI推論基盤（AWS Bedrock）セクション追加。モデル選定理由・使用箇所・環境変数を記載 |
 | 2026-04-25 | #1376 §3.3 に CronDispatcherFn Lambda・EventBridge Rules 3件を追記。§3.4 に CronDispatcherErrors CloudWatch Alarm (P0, SNS 通知付き) を追記 |
 | 2026-04-27 | #1586 §3.3 に cron-dispatcher の CRON_SECRET / OPS_SECRET_KEY fallback と dryRun mode を追記。CDK synth 時の必須 secret throw + deploy.yml の Validate required secrets / Cron dispatcher smoke test step も合わせて整備 |
+| 2026-04-27 | #1591 §7.2 アナリティクス基盤を新設。DynamoDB 一本化 (umami / Sentry 削除)、CSP 単純化、Lambda env (ANALYTICS_ENABLED / ANALYTICS_TABLE_NAME) のハードコード注入を追記 |

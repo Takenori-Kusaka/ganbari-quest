@@ -30,8 +30,11 @@ export type EventProperties = Record<string, string | number | boolean | null | 
 
 /**
  * Analytics provider interface.
- * Each provider (Sentry, Umami, DynamoDB, noop) implements this.
+ * Each provider (DynamoDB, noop) implements this.
  * All methods are fire-and-forget; failures must never break the app.
+ *
+ * #1591 (ADR-0023 I2): umami / Sentry プロバイダは削除済み。AWS 内完結のため
+ * 新たな外部 SaaS provider を追加する場合は ADR-0023 §3.4 ホワイトリストの更新が先。
  */
 export interface AnalyticsProvider {
 	/** Provider name for logging/debugging */
