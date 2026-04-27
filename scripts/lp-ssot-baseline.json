@@ -1,5 +1,5 @@
 {
-	"count": 574,
+	"count": 495,
 	"scope": "site/**/*.html (legal docs excluded: privacy.html, terms.html, tokushoho.html, sla.html)",
-	"note": "Issue #1465 Phase A: LP SSOT HTML check baseline. Legal docs excluded as their content is not suitable for SSOT migration. New HTML content must use data-lp-key attributes. Migrate existing content to reduce count to 0 (Phase C). Updated 2026-04-27 (#1573 hotfix): soft-features 4カード拡張で 572 → 574。"
+	"note": "Issue #1465 Phase A: LP SSOT HTML check baseline. Legal docs excluded as their content is not suitable for SSOT migration. New HTML content must use data-lp-key attributes. Issue #1465 Phase C: 共通ナビ・フッター・CTA を data-lp-key SSOT 化（site/index.html / pricing.html / faq.html / selfhost.html / help/license-key.html）— baseline 574 → 495 (79 件削減). Pre-PMF では妥当な水準（pamphlet.html は印刷用PDFの独自構造のためスコープ外、ヒーロー/詳細セクションは続 PR で漸進削減）. Updated 2026-04-27 (#1573 hotfix): soft-features 4カード拡張で 572 → 574。"
 }

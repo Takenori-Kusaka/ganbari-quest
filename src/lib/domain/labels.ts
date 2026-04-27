@@ -2892,6 +2892,241 @@ export const ADMIN_CHILDREN_LABELS = {
 	voiceTabEmpty: 'おうえんボイスは登録後にご利用いただけます',
 } as const;
 
+/**
+ * ActivityCreateForm / ActivityEditForm 用共有ラベル (#1465 Phase D)
+ */
+export const ACTIVITY_FORM_LABELS = {
+	createTitle: '活動を追加',
+	nameLabel: '活動名',
+	namePlaceholder: '例: おさんぽ、ピアノれんしゅう',
+	categoryLabel: 'カテゴリ',
+	mainIconLabel: 'メインアイコン',
+	directInputLabel: '直接入力:',
+	subIconLabel: 'サブアイコン（任意）',
+	subIconNoneOption: 'なし',
+	previewLabel: 'プレビュー:',
+	pointsLabel: 'ポイント',
+	ageRangeLabel: '対象年齢（省略可）',
+	ageMinAria: '最小年齢',
+	ageMaxAria: '最大年齢',
+	ageRangeSeparator: '〜',
+	ageUnit: '歳',
+	dailyLimitLabel: '1日の回数制限',
+	dailyLimitHint: '「無制限」なら何回でも記録できます',
+	nameKanaLabel: 'ひらがな表記（省略可）',
+	nameKanaPlaceholder: '例: おかたづけした',
+	nameKanaHint: '6歳未満の子供に表示する名前',
+	nameKanjiLabel: '漢字表記（省略可）',
+	nameKanjiPlaceholder: '例: お片付けをした',
+	nameKanjiHint: '6歳以上の子供に表示する名前',
+	triggerHintLabel: 'トリガーヒント（省略可）',
+	triggerHintPlaceholder: '例: はみがきが終わったら押してね',
+	triggerHintHint: 'カードに小さく表示される声かけ文（30文字以内）',
+	createSubmitDefault: '活動',
+	createSubmitSuffix: ' を追加する',
+	// Edit-specific
+	editNameLabel: '名前',
+	editIconLabel: 'アイコン',
+	editIconJoiner: '+',
+	editIconSubPlaceholder: 'サブ',
+	editPointsLabel: 'ポイント',
+	editAgeMinLabel: '対象年齢（下限）',
+	editAgeMaxLabel: '対象年齢（上限）',
+	editAgePlaceholderNone: 'なし',
+	editNameKanaLabel: 'ひらがな表記',
+	editNameKanjiLabel: '漢字表記',
+	editKanaPlaceholderOptional: '省略可',
+	editTriggerHintLabel: '子供へのヒント（いつ押すか）',
+	editTriggerHintPlaceholder: 'はみがきが終わったら押してね',
+	editTriggerHintNote: 'カードの下に小さく表示されます（30文字まで）',
+	editSaveButton: '保存',
+	editDeleteButton: '削除',
+	deleteHasLogsTitle: (count: number) => `この活動には ${count} 件の記録があります`,
+	deleteHasLogsExplain:
+		'記録を保護するため、完全削除ではなく「非表示」にします。非表示の活動は子供の画面に表示されなくなりますが、過去の記録はそのまま残ります。',
+	deleteNoLogsConfirm: '本当に削除しますか？',
+	deleteNoLogsExplain: 'この活動は完全に削除されます。この操作は取り消せません。',
+	deleteHideButton: '非表示にする',
+	deleteFullButton: '削除する',
+	deleteCancelButton: 'キャンセル',
+	deleteAutoHidMessage: '記録があるため非表示にしました',
+} as const;
+
+/**
+ * AdminHome ダッシュボード用ラベル (#1465 Phase D)
+ */
+export const ADMIN_HOME_LABELS = {
+	pageTitle: '管理画面 - がんばりクエスト',
+	pageTitleDemoSuffix: ' デモ',
+	heading: '管理ダッシュボード',
+	headingDemoSuffix: '（デモ）',
+	onboardingCompleteText: 'すべてのセットアップが完了しました！',
+	onboardingDismissButton: '非表示にする',
+	tutorialBannerTitle: '初めてご利用ですか？',
+	tutorialBannerHint: 'チュートリアルで使い方を確認しましょう（約3分）',
+	tutorialStartButton: '開始',
+	tutorialLaterButton: 'あとで',
+	freePlanQuickName: '無料プラン',
+	freePlanQuickHint: 'もっと便利に使いませんか？',
+	freePlanQuickAction: '⭐ アップグレード →',
+	seasonalSectionTitle: '🌸 季節コンテンツ',
+	memoryTicketLabel: '🎫 思い出チケット',
+	memoryTicketCountSuffix: '枚',
+	memoryTicketProgress: (months: number, nextMonth: number) =>
+		`継続${months}ヶ月 — 次のチケットまで${nextMonth}ヶ月`,
+	summaryChildrenAria: '登録こども数',
+	summaryChildrenLabel: 'こどもの数',
+	summaryPointsAria: '全ポイント合計',
+	summaryPointsTotalPrefix: '合計',
+	monthLabel: (year: string, month: string) => `${year}年${month}月`,
+	monthlyHeadingPrefix: '📊 ',
+	monthlyHeadingSuffix: 'のがんばり',
+	monthlyDetailsLink: '詳しく見る →',
+	monthlyChildActivitiesAria: (name: string) => `${name}の活動回数`,
+	monthlyChildLevelAria: (name: string) => `${name}のレベル`,
+	monthlyChildAchievementsAria: (name: string) => `${name}の実績`,
+	monthlyActivitiesHeading: '活動回数',
+	monthlyActivitiesUnit: '回',
+	monthlyLevelHeading: 'レベル',
+	monthlyAchievementsHeading: '実績',
+	monthlyAchievementsUnit: '獲得',
+	todayUsageHeading: '⏱️ ',
+	weeklyUsageHeading: '📈 ',
+	childrenSectionTitle: 'こども一覧',
+	childrenEmpty: 'まだこどもが登録されていません',
+	demoCtaTitle: 'いかがでしたか？',
+	demoCtaHint: 'お子さまの「がんばり」を冒険に変えませんか？',
+	demoCtaButton: '無料で はじめる →',
+} as const;
+
+/**
+ * DowngradeResourceSelector ダイアログ用ラベル (#1465 Phase D)
+ */
+export const DOWNGRADE_RESOURCE_SELECTOR_LABELS = {
+	dialogTitle: 'ダウングレードの確認',
+	targetTierSuffix: 'へのダウングレード',
+	noExcessNote: '現在のリソース数はダウングレード先の上限以内です。そのままプラン変更に進めます。',
+	retentionWarningPrefix: 'データ保持期間が',
+	retentionUnlimited: '無制限',
+	retentionDaysSuffix: '日',
+	retentionFromTo: 'から',
+	retentionTargetSuffix: '日に短縮されます。',
+	retentionDataLossSuffix: '日以前のデータは閲覧できなくなります。',
+	excessTitlePrefix: '現在のリソースが',
+	excessTitleSuffix: 'の上限を超えています',
+	excessGuide:
+		'ダウングレード先の上限に合わせて、アーカイブするリソースを選択してください。アーカイブされたデータはアップグレード時に復元できます。',
+	childrenSectionTitle: (current: number, max: number | null) =>
+		`子供（${current}人 → 上限 ${max ?? '無制限'}人）`,
+	childrenSectionGuide: (excess: number, archived: number) =>
+		`${excess}人分をアーカイブしてください（選択: ${archived}/${excess}）`,
+	archiveLabel: 'アーカイブ',
+	keepLabel: '残す',
+	childRemainingHint: (remaining: number) => `あと${remaining}人分を選択してください`,
+	activitiesSectionTitle: (current: number, max: number | null) =>
+		`活動（${current}個 → 上限 ${max ?? '無制限'}個）`,
+	activitiesSectionGuide: (excess: number, archived: number) =>
+		`${excess}個分をアーカイブしてください（選択: ${archived}/${excess}）`,
+	activityRemainingHint: (remaining: number) => `あと${remaining}個分を選択してください`,
+	checklistsSectionTitle: (max: number | null) =>
+		`チェックリストテンプレート（1子あたり上限 ${max ?? '無制限'}個）`,
+	checklistsChildGuide: (childName: string, excess: number, archived: number) =>
+		`${childName}: ${excess}個分をアーカイブ（選択: ${archived}/${excess}）`,
+	restoreNote:
+		'アーカイブされたデータは削除されません。再度アップグレードすることで完全に復元できます。',
+	cancelButton: 'キャンセル',
+	archivingLabel: 'アーカイブ中…',
+	archiveAndProceedButton: 'アーカイブしてプラン変更へ進む',
+	processingLabel: '処理中…',
+	proceedButton: 'プラン変更へ進む',
+	loadingLabel: '読み込み中...',
+} as const;
+
+/**
+ * ChildProfileCard / ChildProfileCard 編集モード用ラベル (#1465 Phase D)
+ */
+export const CHILD_PROFILE_CARD_LABELS = {
+	// Edit mode
+	editingBadge: '編集中',
+	avatarSectionTitle: 'プロフィール写真',
+	avatarUploadButton: '📷 写真を変更',
+	avatarGenerating: '生成中...',
+	avatarGenerateButton: '✨ AI生成',
+	avatarGenerateFailed: '生成に失敗しました',
+	avatarNetworkError: 'ネットワークエラーが発生しました',
+	avatarFileSizeError: (sizeMB: string) =>
+		`ファイルサイズが大きすぎます（${sizeMB}MB）。5MB以下の画像を選択してください`,
+	avatarServerError: 'サーバーエラーが発生しました。5MB以下のJPEG/PNG/WebPを選択してください',
+	avatarUploadFailed: 'アップロードに失敗しました',
+	avatarUploadSuccess: '写真をアップロードしました',
+	avatarGenerateSuccess: 'アバターを生成しました',
+	basicInfoTitle: '基本情報',
+	nicknameLabel: 'ニックネーム',
+	ageLabel: '年齢',
+	ageAutoCalcSuffix: '（自動計算）',
+	themeColorLabel: 'テーマカラー',
+	birthdayBonusTitle: '🎂 おたんじょうびボーナス',
+	birthdayBonusNote: '※ ボーナス倍率の変更は別途保存されます',
+	saveButton: '💾 保存',
+	cancelButton: 'キャンセル',
+	multiplierLabel: '倍率',
+	multiplierApplyButton: '適用',
+	bonusFormulaPreview: (age: number, multiplier: number) =>
+		`→ ${age}歳 × 100pt × ${multiplier}倍 = ${Math.round(age * 100 * multiplier)}pt`,
+	deleteConfirmText: 'この子供を本当に削除しますか？',
+	deleteConfirmButton: '本当に削除',
+	deleteCancelButton: 'やめる',
+	deleteOpenButton: '🗑 この子供を削除',
+	editButton: '✏️ 編集',
+	// Tabs
+	tabInfo: '📋 基本情報',
+	tabStatus: '📊 ステータス',
+	tabLogs: '📝 活動記録',
+	tabAchievements: '🏆 実績',
+	tabVoice: '📢 ボイス',
+	// Info tab
+	infoAgeUnit: '歳',
+	infoAgeLabel: '年齢',
+	infoUiModeLabel: 'UIモード',
+	infoBalanceSuffix: '残高',
+	infoLogCountLabel: '累計記録数',
+	// Status tab
+	statusUpdateSuccess: 'ステータスを更新しました',
+	statusEmpty: 'ステータスデータがありません',
+	statusXpUnit: 'XP',
+	statusLevelPrefix: '(Lv.',
+	statusLevelSuffix: ')',
+	statusSaveButton: '保存',
+	// Logs tab
+	logsEmpty: '活動記録がありません',
+	// Achievements tab
+	achievementsEmpty: '実績がありません',
+	// Voice tab
+	voiceHint: '録音または音声ファイルを登録すると、活動完了時にお子さんに再生されます。',
+	voiceRecorderTitle: '🎤 録音する',
+	voiceRecordingPrefix: '● 録音中 ',
+	voiceRecordingSuffix: '秒 / 10秒',
+	voiceStopButton: '■ 停止',
+	voiceCancelRecording: '取消',
+	voiceStartButton: '● 録音開始（最大10秒）',
+	voiceUploadTitle: '📁 ファイルからアップロード',
+	voiceLabelLabel: 'ラベル',
+	voiceLabelPlaceholder: 'ラベル（例: お母さんの声）',
+	voiceUploading: 'アップロード中...',
+	voiceSaveButton: '💾 保存',
+	voiceUseRecordingNote: '✅ 録音データを使用します',
+	voiceListTitle: (count: number) => `登録済み（${count}件）`,
+	voiceActiveIndicator: '●',
+	voiceInactiveIndicator: '○',
+	voiceActivateButton: '有効化',
+	voiceDeleteButton: '削除',
+	voiceEmpty: 'ボイスが登録されていません。録音またはファイルアップロードで追加できます。',
+	voicePriorityNote: '※ 有効なボイスが設定されている場合、ショップの効果音よりも優先されます。',
+	// Header
+	headerAgeTierSeparator: '歳 / ',
+	headerBirthdayPrefix: '🎂 ',
+} as const;
+
 export const DEMO_REPORTS_LABELS = {
 	pageTitle: '📊 週間レポート',
 	reportTitleSuffix: '週間レポート',
@@ -3154,6 +3389,51 @@ export const DEMO_CHILD_ACHIEVEMENTS_LABELS = {
 // ============================================================
 // LP コンテンツ (#1344 C1-LP-RETENTION)
 // ============================================================
+
+// ============================================================
+// LP 共通ナビ / フッター / 共通CTA (#1465 Phase C)
+// SSOT: site/*.html の <header> / <footer> 共通部分
+// ============================================================
+
+export const LP_NAV_LABELS = {
+	hamburgerAriaLabel: 'メニュー',
+	logoAlt: 'がんばりクエスト',
+	home: 'ホーム',
+	marketplace: 'テンプレートを探す',
+	pricing: '料金プラン',
+	faq: 'よくあるご質問',
+	selfhost: '仕組みを公開（開発者向け）',
+	signup: '無料で始める',
+	login: 'ログイン',
+	features: 'できること',
+} as const;
+
+export const LP_FOOTER_LABELS = {
+	brandName: 'がんばりクエスト',
+	brandTagline: 'お子さまの「がんばり」を冒険に変える<br>家庭向けWebアプリ',
+	linksHeading: 'リンク',
+	pricingLink: '料金プラン',
+	faqLink: 'よくあるご質問',
+	selfhostLink: '仕組みを公開（開発者向け）',
+	githubLink: 'GitHub',
+	contactLink: 'お問い合わせ',
+	sponsorLink: 'Sponsor',
+	legalHeading: '法的情報',
+	termsLink: '利用規約',
+	privacyLink: 'プライバシーポリシー',
+	slaLink: 'SLA',
+	tokushohoLink: '特定商取引法に基づく表記',
+	copyright: '© 2026 がんばりクエスト. All rights reserved.',
+} as const;
+
+export const LP_COMMON_LABELS = {
+	ctaSignup: '無料で始める',
+	ctaDemo: 'デモを見る',
+	ctaPricing: '料金プラン',
+	ctaContact: 'お問い合わせ',
+	contactHint: 'メールでお気軽にお問い合わせください',
+	contactEmail: 'ganbari.quest.support@gmail.com',
+} as const;
 
 export const LP_RETENTION_LABELS = {
 	sectionTitle: '三日坊主にならない設計',
