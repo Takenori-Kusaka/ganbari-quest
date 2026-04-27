@@ -1,5 +1,6 @@
 <script lang="ts">
 import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -41,23 +42,27 @@ let {
 	basePath = '/admin',
 }: Props = $props();
 
-const FREE_LABEL = { name: '無料プラン', icon: '' };
+const FREE_LABEL = { name: FEATURES_LABELS.planStatusCard.freePlan, icon: '' };
 const planLabels: Record<string, { name: string; icon: string }> = {
 	free: FREE_LABEL,
-	standard: { name: 'スタンダード プラン', icon: '⭐' },
-	family: { name: 'ファミリー プラン', icon: '⭐⭐' },
+	standard: { name: FEATURES_LABELS.planStatusCard.standardPlan, icon: '⭐' },
+	family: { name: FEATURES_LABELS.planStatusCard.familyPlan, icon: '⭐⭐' },
 };
 
 const label: { name: string; icon: string } = $derived(planLabels[planTier] ?? FREE_LABEL);
-const retentionLabel = $derived(retentionDays === null ? '無制限' : `${retentionDays}日間`);
+const retentionLabel = $derived(
+	retentionDays === null
+		? FEATURES_LABELS.planStatusCard.unlimited
+		: FEATURES_LABELS.planStatusCard.retentionDays(retentionDays),
+);
 
 // #730: free + トライアル中 のケース
 const isOnTrial = $derived(trialStatus?.isTrialActive === true);
 const trialDaysRemaining = $derived(trialStatus?.daysRemaining ?? 0);
 const trialTierLabel = $derived(
 	trialStatus?.trialTier
-		? (planLabels[trialStatus.trialTier]?.name ?? 'スタンダード プラン')
-		: 'スタンダード プラン',
+		? (planLabels[trialStatus.trialTier]?.name ?? FEATURES_LABELS.planStatusCard.standardPlan)
+		: FEATURES_LABELS.planStatusCard.standardPlan,
 );
 </script>
 
@@ -68,33 +73,33 @@ const trialTierLabel = $derived(
 			{label.name}
 			{#if isOnTrial}
 				<span class="plan-status__trial-badge" data-testid="plan-status-trial-badge">
-					トライアル中（残り{trialDaysRemaining}日）
+					{FEATURES_LABELS.planStatusCard.trialBadge(trialDaysRemaining)}
 				</span>
 			{/if}
 		</h3>
 
 		<div class="plan-status__stats">
 			<div class="plan-status__stat">
-				<span class="plan-status__stat-label">カスタム活動</span>
+				<span class="plan-status__stat-label">{FEATURES_LABELS.planStatusCard.statCustomActivity}</span>
 				<span class="plan-status__stat-value">
-					{activityCount} / {activityMax === null ? '無制限' : activityMax}
+					{activityCount} / {activityMax === null ? FEATURES_LABELS.planStatusCard.unlimited : activityMax}
 				</span>
 			</div>
 			<div class="plan-status__stat">
-				<span class="plan-status__stat-label">こども</span>
+				<span class="plan-status__stat-label">{FEATURES_LABELS.planStatusCard.statChildren}</span>
 				<span class="plan-status__stat-value">
-					{childCount} / {childMax === null ? '無制限' : childMax}
+					{childCount} / {childMax === null ? FEATURES_LABELS.planStatusCard.unlimited : childMax}
 				</span>
 			</div>
 			<div class="plan-status__stat">
-				<span class="plan-status__stat-label">データ保持</span>
+				<span class="plan-status__stat-label">{FEATURES_LABELS.planStatusCard.statRetention}</span>
 				<span class="plan-status__stat-value">{retentionLabel}</span>
 			</div>
 		</div>
 
 		{#if isOnTrial}
 			<p class="plan-status__trial-note" data-testid="plan-status-trial-note">
-				{trialTierLabel}の全機能を体験中です。トライアル終了後もこのまま使うには本契約が必要です。
+				{FEATURES_LABELS.planStatusCard.trialNote(trialTierLabel)}
 			</p>
 			{#if onUpgrade}
 				<Button
@@ -105,7 +110,7 @@ const trialTierLabel = $derived(
 					data-testid="plan-status-trial-cta"
 					onclick={() => onUpgrade?.(LICENSE_PLAN.MONTHLY)}
 				>
-					{upgradeLoading ? '処理中...' : '本契約する'}
+					{upgradeLoading ? FEATURES_LABELS.planStatusCard.processingText : FEATURES_LABELS.planStatusCard.makeContractBtn}
 				</Button>
 			{:else}
 				<a
@@ -113,7 +118,7 @@ const trialTierLabel = $derived(
 					class="plan-status__cta plan-status__cta--upgrade"
 					data-testid="plan-status-trial-cta"
 				>
-					本契約する
+					{FEATURES_LABELS.planStatusCard.makeContractBtn}
 				</a>
 			{/if}
 		{:else if planTier === 'free'}
@@ -126,7 +131,7 @@ const trialTierLabel = $derived(
 					data-testid="plan-status-free-cta"
 					onclick={() => onUpgrade?.(LICENSE_PLAN.MONTHLY)}
 				>
-					{upgradeLoading ? '処理中...' : '⭐ スタンダードにアップグレード'}
+					{upgradeLoading ? FEATURES_LABELS.planStatusCard.processingText : FEATURES_LABELS.planStatusCard.upgradeBtn}
 				</Button>
 			{:else}
 				<a
@@ -134,12 +139,12 @@ const trialTierLabel = $derived(
 					class="plan-status__cta plan-status__cta--upgrade"
 					data-testid="plan-status-free-cta"
 				>
-					⭐ スタンダードにアップグレード
+					{FEATURES_LABELS.planStatusCard.upgradeBtn}
 				</a>
 			{/if}
 		{:else if planTier === 'standard'}
 			<div class="plan-status__actions">
-				<a href="{basePath}/license" class="plan-status__cta plan-status__cta--detail">プランの詳細</a>
+				<a href="{basePath}/license" class="plan-status__cta plan-status__cta--detail">{FEATURES_LABELS.planStatusCard.planDetailLink}</a>
 				{#if onUpgrade}
 					<Button
 						variant="primary"
@@ -149,10 +154,10 @@ const trialTierLabel = $derived(
 						data-testid="plan-status-family-cta"
 						onclick={() => onUpgrade?.(LICENSE_PLAN.FAMILY_MONTHLY)}
 					>
-						{upgradeLoading ? '処理中...' : '⭐⭐ ファミリーへ'}
+						{upgradeLoading ? FEATURES_LABELS.planStatusCard.processingText : FEATURES_LABELS.planStatusCard.familyUpgradeBtn}
 					</Button>
 				{:else}
-					<a href="{basePath}/license" class="plan-status__cta plan-status__cta--family">⭐⭐ ファミリーへ</a>
+					<a href="{basePath}/license" class="plan-status__cta plan-status__cta--family">{FEATURES_LABELS.planStatusCard.familyUpgradeBtn}</a>
 				{/if}
 			</div>
 		{/if}

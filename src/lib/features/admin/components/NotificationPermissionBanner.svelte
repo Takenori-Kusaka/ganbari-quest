@@ -1,4 +1,5 @@
 <script lang="ts">
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import {
 	getNotificationPermission,
 	isPushSupported,
@@ -9,6 +10,8 @@ let dismissed = $state(false);
 let subscribed = $state(false);
 let supported = $state(false);
 let permission = $state<NotificationPermission>('default');
+
+const L = FEATURES_LABELS.notificationBanner;
 
 $effect(() => {
 	supported = isPushSupported();
@@ -31,21 +34,21 @@ async function handleSubscribe() {
 	<div class="notification-banner" data-testid="notification-permission-banner">
 		<div class="notification-banner__icon">🔔</div>
 		<div class="notification-banner__content">
-			<p class="notification-banner__title">通知でもっと便利に</p>
+			<p class="notification-banner__title">{L.title}</p>
 			<p class="notification-banner__desc">
-				毎日のリマインダーで お子さまの がんばりを サポートしましょう
+				{L.desc}
 			</p>
 		</div>
 		<div class="notification-banner__actions">
 			<button type="button" class="notification-banner__cta" onclick={handleSubscribe}>
-				通知を受け取る
+				{L.ctaBtn}
 			</button>
 			<button
 				type="button"
 				class="notification-banner__dismiss"
 				onclick={() => (dismissed = true)}
 			>
-				あとで
+				{L.dismissBtn}
 			</button>
 		</div>
 	</div>

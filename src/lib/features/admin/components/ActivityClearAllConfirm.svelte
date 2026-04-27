@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 interface Props {
@@ -10,10 +11,12 @@ interface Props {
 }
 
 let { loading = $bindable(), onsubmit, onresult, oncancel }: Props = $props();
+
+const L = FEATURES_LABELS.activityClearAllConfirm;
 </script>
 
 <div class="clear-confirm">
-	<span class="clear-confirm__text">本当に全削除しますか？</span>
+	<span class="clear-confirm__text">{L.text}</span>
 	<form
 		method="POST"
 		action="?/clearAll"
@@ -24,7 +27,7 @@ let { loading = $bindable(), onsubmit, onresult, oncancel }: Props = $props();
 				loading = false;
 				if (result.type === 'success' && result.data && 'clearResult' in result.data) {
 					const d = result.data as Record<string, unknown>;
-					onresult(`🗑 ${d.deleted}件削除、${d.hidden}件非表示にしました`);
+					onresult(L.resultMessage(Number(d.deleted), Number(d.hidden)));
 				}
 				await update({ reset: false });
 			};
@@ -32,10 +35,10 @@ let { loading = $bindable(), onsubmit, onresult, oncancel }: Props = $props();
 		class="clear-confirm__actions"
 	>
 		<Button type="submit" disabled={loading} variant="danger" size="sm">
-			{loading ? '処理中...' : '実行'}
+			{loading ? L.processingText : L.executeBtn}
 		</Button>
 		<Button type="button" variant="ghost" size="sm" onclick={oncancel}>
-			やめる
+			{L.cancelBtn}
 		</Button>
 	</form>
 </div>

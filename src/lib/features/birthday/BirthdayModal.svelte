@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -22,24 +23,25 @@ let claimed = $state(false);
 let claimedPoints = $state(0);
 
 function getMessageText(): { main: string; sub: string; button: string } {
+	const vocativeName = formatChildName(nickname, 'vocative');
 	if (uiMode === 'baby' || uiMode === 'preschool') {
 		return {
-			main: `${formatChildName(nickname, 'vocative')}${newAge}さい\nおめでとう！`,
-			sub: 'これからも いっぱい がんばろうね！',
-			button: 'やったー！',
+			main: FEATURES_LABELS.birthday.modalMainBaby(vocativeName, newAge),
+			sub: FEATURES_LABELS.birthday.modalSubBaby,
+			button: FEATURES_LABELS.birthday.modalConfirmYounger,
 		};
 	}
 	if (uiMode === 'elementary') {
 		return {
-			main: `${formatChildName(nickname, 'vocative')}${newAge}さい\nおめでとう！`,
-			sub: 'これからもたくさんチャレンジしよう！',
-			button: 'やったー！',
+			main: FEATURES_LABELS.birthday.modalMainBaby(vocativeName, newAge),
+			sub: FEATURES_LABELS.birthday.modalSubElementary,
+			button: FEATURES_LABELS.birthday.modalConfirmYounger,
 		};
 	}
 	return {
-		main: `${formatChildName(nickname, 'vocative')}${newAge}歳\nおめでとう！`,
-		sub: 'これからもチャレンジを続けよう！',
-		button: 'ありがとう！',
+		main: FEATURES_LABELS.birthday.modalMainOlder(vocativeName, newAge),
+		sub: FEATURES_LABELS.birthday.modalSubOlder,
+		button: FEATURES_LABELS.birthday.modalConfirmOlder,
 	};
 }
 
@@ -56,8 +58,8 @@ const msg = $derived(getMessageText());
 			<p class="birthday-modal__emoji">🎉🎂🎊</p>
 			<p class="birthday-modal__main">{msg.main}</p>
 			<div class="birthday-modal__reward">
-				<span class="birthday-modal__reward-label">🎁 おたんじょうびボーナス</span>
-				<span class="birthday-modal__reward-points animate-point-pop">⭐ {claimedPoints} ポイント！</span>
+				<span class="birthday-modal__reward-label">{FEATURES_LABELS.birthday.modalRewardLabel}</span>
+				<span class="birthday-modal__reward-points animate-point-pop">{FEATURES_LABELS.birthday.modalRewardPoints(claimedPoints)}</span>
 			</div>
 			<p class="birthday-modal__sub">{msg.sub}</p>
 			<button
@@ -75,13 +77,13 @@ const msg = $derived(getMessageText());
 		{:else}
 			<!-- Before claiming -->
 			<p class="birthday-modal__emoji">🎂🎉🎊</p>
-			<p class="birthday-modal__main">おたんじょうび おめでとう！</p>
+			<p class="birthday-modal__main">{FEATURES_LABELS.birthday.modalMainPreClaimed}</p>
 			<p class="birthday-modal__age-text">
-				{formatChildName(nickname, 'vocative')}{newAge}さい になったね！
+				{FEATURES_LABELS.birthday.modalAgeText(formatChildName(nickname, 'vocative'), newAge)}
 			</p>
 			<div class="birthday-modal__reward">
-				<span class="birthday-modal__reward-label">🎁 おたんじょうびボーナス</span>
-				<span class="birthday-modal__reward-points">⭐ {totalPoints} ポイント！</span>
+				<span class="birthday-modal__reward-label">{FEATURES_LABELS.birthday.modalRewardLabel}</span>
+				<span class="birthday-modal__reward-points">{FEATURES_LABELS.birthday.modalRewardPoints(totalPoints)}</span>
 			</div>
 			<p class="birthday-modal__sub">{msg.sub}</p>
 			<form
@@ -106,7 +108,7 @@ const msg = $derived(getMessageText());
 					data-testid="birthday-claim-btn"
 					disabled={claiming}
 				>
-					{claiming ? 'もらっています...' : '🎉 うけとる！'}
+					{claiming ? FEATURES_LABELS.birthday.modalClaiming : FEATURES_LABELS.birthday.modalClaimBtn}
 				</button>
 			</form>
 		{/if}

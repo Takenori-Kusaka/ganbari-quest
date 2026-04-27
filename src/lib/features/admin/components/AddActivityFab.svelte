@@ -1,4 +1,6 @@
 <script lang="ts">
+import { FEATURES_LABELS } from '$lib/domain/labels';
+
 interface Props {
 	enabled: boolean;
 	onclick: () => void;
@@ -14,7 +16,7 @@ let { enabled, onclick }: Props = $props();
 		data-tutorial="add-activity-btn"
 		data-testid="add-activity-fab"
 		{onclick}
-		aria-label="活動を追加"
+		aria-label={FEATURES_LABELS.addActivityFab.addAriaLabel}
 	>
 		<span class="fab__icon">+</span>
 	</button>
@@ -22,7 +24,7 @@ let { enabled, onclick }: Props = $props();
 	<button
 		type="button"
 		class="fab fab--disabled"
-		aria-label="追加上限"
+		aria-label={FEATURES_LABELS.addActivityFab.limitAriaLabel}
 		aria-disabled="true"
 		disabled
 	>

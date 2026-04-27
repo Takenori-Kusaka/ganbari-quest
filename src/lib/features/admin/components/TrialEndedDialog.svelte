@@ -1,4 +1,5 @@
 <script lang="ts">
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
@@ -8,6 +9,8 @@ interface Props {
 }
 
 let { open = $bindable(), onDismiss }: Props = $props();
+
+const L = FEATURES_LABELS.trialEndedDialog;
 </script>
 
 <Dialog
@@ -15,7 +18,7 @@ let { open = $bindable(), onDismiss }: Props = $props();
 	onOpenChange={(d) => {
 		if (!d.open) onDismiss();
 	}}
-	title="無料体験が終了しました"
+	title={L.title}
 	testid="trial-ended-dialog"
 	size="sm"
 >
@@ -23,13 +26,13 @@ let { open = $bindable(), onDismiss }: Props = $props();
 		<div class="trial-ended-icon" aria-hidden="true">📦</div>
 
 		<p class="trial-ended-message">
-			無料体験期間が終了しました。<br />
-			フリープランの範囲内で引き続きご利用いただけます。
+			{L.messageLine1}<br />
+			{L.messageLine2}
 		</p>
 
 		<ul class="trial-ended-notes">
-			<li>オリジナル活動やチェックリストの超過分は一時的に非表示になります</li>
-			<li>データは削除されません — アップグレードで復活します</li>
+			<li>{L.note1}</li>
+			<li>{L.note2}</li>
 		</ul>
 
 		<div class="trial-ended-actions">
@@ -40,10 +43,10 @@ let { open = $bindable(), onDismiss }: Props = $props();
 				onclick={() => { window.location.href = '/admin/license'; }}
 				data-testid="trial-ended-upgrade-cta"
 			>
-				⭐ プランを見る
+				{L.ctaBtn}
 			</Button>
 			<Button variant="ghost" onclick={onDismiss} data-testid="trial-ended-dismiss">
-				あとで
+				{L.dismissBtn}
 			</Button>
 		</div>
 	</div>

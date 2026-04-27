@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import {
 	type CategoryDef,
 	getActivityDisplayNameForAdult,
@@ -32,11 +33,12 @@ let {
 }: Props = $props();
 
 const category = $derived(getCategoryById(activity.categoryId));
+const L = FEATURES_LABELS.activityListItem;
 
 function dailyLimitLabel(val: number | null): string {
-	if (val === null) return '1回/日';
-	if (val === 0) return '無制限';
-	return `${val}回/日`;
+	if (val === null) return L.dailyLimitDefault;
+	if (val === 0) return L.dailyLimitUnlimited;
+	return L.dailyLimitN(val);
 }
 </script>
 
@@ -48,7 +50,7 @@ function dailyLimitLabel(val: number | null): string {
 				<p class="text-sm font-bold truncate" style:color="var(--color-text)">{getActivityDisplayNameForAdult(activity)}</p>
 				<span class="activity-points">{activity.basePoints}P</span>
 				{#if activity.isMainQuest}
-					<span class="main-quest-badge">⚔️ メインクエスト ×2</span>
+					<span class="main-quest-badge">{L.mainQuestBadge}</span>
 				{/if}
 			</div>
 			<div class="activity-meta">
@@ -61,7 +63,7 @@ function dailyLimitLabel(val: number | null): string {
 					<span class="meta-item">{dailyLimitLabel(activity.dailyLimit)}</span>
 				{/if}
 				{#if activity.ageMin != null || activity.ageMax != null}
-					<span class="meta-item">{activity.ageMin ?? 0}-{activity.ageMax ?? 18}歳</span>
+					<span class="meta-item">{L.ageRange(activity.ageMin ?? 0, activity.ageMax ?? 18)}</span>
 				{/if}
 			</div>
 		</div>
@@ -71,7 +73,7 @@ function dailyLimitLabel(val: number | null): string {
 				class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-neutral-100)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)] transition-colors"
 				onclick={() => isEditing ? oncanceledit() : onedit()}
 			>
-				{isEditing ? '閉じる' : '編集'}
+				{isEditing ? L.closeBtn : L.editBtn}
 			</button>
 			<form method="POST" action="?/toggleVisibility" use:enhance>
 				<input type="hidden" name="id" value={activity.id} />
@@ -81,7 +83,7 @@ function dailyLimitLabel(val: number | null): string {
 					class="px-2 py-1 rounded text-xs font-bold transition-colors
 						{activity.isVisible ? 'bg-[var(--color-rarity-common-bg)] text-[var(--color-action-success)] hover:opacity-80' : 'bg-[var(--color-neutral-100)] text-[var(--color-text-disabled)] hover:bg-[var(--color-neutral-200)]'}"
 				>
-					{activity.isVisible ? '表示' : '非表示'}
+					{activity.isVisible ? L.visibleBtn : L.hiddenBtn}
 				</button>
 			</form>
 			{#if activity.isVisible}
@@ -95,7 +97,7 @@ function dailyLimitLabel(val: number | null): string {
 							{activity.isMainQuest ? 'bg-[var(--color-surface-warning)] text-[var(--color-warning-text)] hover:opacity-80' : 'bg-[var(--color-neutral-100)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)]'}
 							disabled:opacity-40 disabled:cursor-not-allowed"
 					>
-						{activity.isMainQuest ? '⚔️解除' : '⚔️設定'}
+						{activity.isMainQuest ? L.mainQuestDisable : L.mainQuestEnable}
 					</button>
 				</form>
 			{/if}

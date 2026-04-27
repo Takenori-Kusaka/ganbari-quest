@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 
 interface Props {
 	challengeTitle: string;
@@ -41,7 +42,7 @@ const confetti = Array.from({ length: 30 }, (_, i) => ({
 
 	<div class="celebration__card">
 		<div class="celebration__emoji">🎉</div>
-		<h2 class="celebration__title">みんなクリア！</h2>
+		<h2 class="celebration__title">{FEATURES_LABELS.challenge.celebrationTitle}</h2>
 		<p class="celebration__challenge">{challengeTitle}</p>
 
 		<div class="celebration__siblings">
@@ -62,12 +63,12 @@ const confetti = Array.from({ length: 30 }, (_, i) => ({
 			}}>
 				<input type="hidden" name="challengeId" value={challengeId} />
 				<button type="submit" class="celebration__claim-btn">
-					🎁 ほうしゅうをうけとる！
+					{FEATURES_LABELS.challenge.celebrationClaimBtn}
 				</button>
 			</form>
 		{:else}
 			<button type="button" class="celebration__close-btn" onclick={onDismiss}>
-				とじる
+				{FEATURES_LABELS.challenge.celebrationCloseBtn}
 			</button>
 		{/if}
 	</div>

@@ -1,6 +1,6 @@
 {
-	"count": 450,
+	"count": 226,
 	"rule": "local/no-hardcoded-jp-text",
 	"scope": "src/**/*.svelte (stories included)",
-	"note": "Issue #1452 Phase C: src/routes 0 violations. Issue #1465 Phase A: scope expanded to src/**/*.svelte including stories — baseline 500. Issue #1465 Phase B (primitives): migrated src/lib/ui/primitives/ hardcoded strings to labels.ts — baseline 498. Issue #1465 Phase B (components): migrated src/lib/ui/components/ hardcoded strings to labels.ts — baseline 450. New code must not add violations. Migrate existing to reduce count to 0 (Phase B)."
+	"note": "Issue #1452 Phase C: src/routes 0 violations. Issue #1465 Phase A: scope expanded to src/**/*.svelte including stories — baseline 500. Issue #1465 Phase B (primitives): migrated src/lib/ui/primitives/ hardcoded strings to labels.ts — baseline 498. Issue #1465 Phase B (components): migrated src/lib/ui/components/ hardcoded strings to labels.ts — baseline 450. Issue #1465 Phase B Priority 3 (features): migrated trunk of src/lib/features/ hardcoded strings to labels.ts (battle, birthday, certificate, character, challenge, child, demo, loyalty, admin small/medium components) — baseline 226 (CI Linux ESLint enumerates 3 more files than local Windows; difference is style-block JP comments, no functional impact). Remaining: ChildProfileCard / DowngradeResourceSelector / AdminHome / ActivityCreateForm / ActivityEditForm を別 PR で対応予定。New code must not add violations. Migrate existing to reduce count to 0 (Phase B)."
 }

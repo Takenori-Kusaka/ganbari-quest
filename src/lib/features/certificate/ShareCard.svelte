@@ -1,4 +1,6 @@
 <script lang="ts">
+import { FEATURES_LABELS } from '$lib/domain/labels';
+
 // HTML-based shareable achievement card
 // Renders as a visually appealing card that can be screenshot/downloaded
 interface ShareCardData {
@@ -35,7 +37,7 @@ let { card }: Props = $props();
 			</div>
 		{/if}
 
-		<p class="share-card-branding">がんばりクエスト</p>
+		<p class="share-card-branding">{FEATURES_LABELS.certificate.branding}</p>
 	</div>
 </div>
 

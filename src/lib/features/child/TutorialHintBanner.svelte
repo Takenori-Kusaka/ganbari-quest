@@ -1,4 +1,6 @@
 <script lang="ts">
+import { FEATURES_LABELS } from '$lib/domain/labels';
+
 /** 初回記録完了後のワンタイム通知バナー: ❓ガイドの存在を知らせる */
 
 interface Props {
@@ -14,14 +16,14 @@ let { visible, onDismiss }: Props = $props();
 	<div class="tutorial-hint" data-testid="tutorial-hint-banner">
 		<span class="text-xl">💡</span>
 		<div class="flex-1">
-			<p class="font-bold text-sm">つかいかた ガイド あるよ！</p>
-			<p class="text-xs opacity-80">いつでも ❓ ボタンで みれるよ</p>
+			<p class="font-bold text-sm">{FEATURES_LABELS.child.hintTitle}</p>
+			<p class="text-xs opacity-80">{FEATURES_LABELS.child.hintSub}</p>
 		</div>
 		<button
 			type="button"
 			class="dismiss-btn"
 			onclick={onDismiss}
-			aria-label="閉じる"
+			aria-label={FEATURES_LABELS.child.hintCloseAriaLabel}
 		>✕</button>
 	</div>
 {/if}

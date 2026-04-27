@@ -1,4 +1,6 @@
 <script lang="ts">
+import { FEATURES_LABELS } from '$lib/domain/labels';
+
 interface Tier {
 	name: string;
 	months: number;
@@ -44,8 +46,8 @@ const progressPct = $derived(
 		<div class="flex items-center gap-2">
 			<span class="text-xl">🎖️</span>
 			<div>
-				<h3 class="font-bold text-sm">サポーターバッジ</h3>
-				<p class="text-xs text-[var(--color-text-muted)]">サポーター継続: {subscriptionMonths}ヶ月目</p>
+				<h3 class="font-bold text-sm">{FEATURES_LABELS.loyalty.badgeTitle}</h3>
+				<p class="text-xs text-[var(--color-text-muted)]">{FEATURES_LABELS.loyalty.badgeSub(subscriptionMonths)}</p>
 			</div>
 		</div>
 
@@ -58,7 +60,7 @@ const progressPct = $derived(
 						: 'bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] border border-[var(--color-border-default)]'}"
 				>
 					<span>{tier.unlocked ? (tierIcons[tier.months] ?? '🎖️') : '🔒'}</span>
-					{tier.months}ヶ月
+					{FEATURES_LABELS.loyalty.badgeMonths(tier.months)}
 				</div>
 			{/each}
 		</div>
@@ -67,7 +69,7 @@ const progressPct = $derived(
 		{#if nextTierMonths && nextTierRemaining}
 			<div>
 				<p class="text-xs text-[var(--color-text-muted)]">
-					次のバッジまで: あと{nextTierRemaining}ヶ月
+					{FEATURES_LABELS.loyalty.badgeNextLabel(nextTierRemaining)}
 				</p>
 				<div class="mt-1 h-2 rounded-full bg-[var(--color-surface-muted-strong)] overflow-hidden">
 					<div
@@ -80,7 +82,7 @@ const progressPct = $derived(
 				</p>
 			</div>
 		{:else}
-			<p class="text-xs text-[var(--color-feedback-warning-text)] font-bold">🏆 全ティア到達！</p>
+			<p class="text-xs text-[var(--color-feedback-warning-text)] font-bold">{FEATURES_LABELS.loyalty.badgeAllReached}</p>
 		{/if}
 
 		<!-- Stats -->
@@ -88,13 +90,13 @@ const progressPct = $derived(
 			{#if memoryTickets > 0}
 				<div class="flex items-center gap-1">
 					<span>🎫</span>
-					<span class="font-bold">思い出チケット: {memoryTickets}枚</span>
+					<span class="font-bold">{FEATURES_LABELS.loyalty.badgeMemoryTickets(memoryTickets)}</span>
 				</div>
 			{/if}
 			{#if loginBonusMultiplier > 1}
 				<div class="flex items-center gap-1">
 					<span>⭐</span>
-					<span class="font-bold">ログインボーナス ×{loginBonusMultiplier}</span>
+					<span class="font-bold">{FEATURES_LABELS.loyalty.badgeLoginBonus(loginBonusMultiplier)}</span>
 				</div>
 			{/if}
 		</div>
