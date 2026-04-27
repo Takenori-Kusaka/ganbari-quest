@@ -3,8 +3,8 @@
 //   - feature-monthly-report / feature-routine-checklist / feature-belongings-checklist
 //     の各段落が text-align 左寄せ (left|start) で、1 行 40 文字以下 × 最大 3 行以内に収まる
 //   - feature-section 内に feature-belongings-checklist 要素が存在する (持ち物 CL 独立)
-// Note: feature-gender-preset は #1287/#1573 のLP改訂（soft-features 4カード拡張）で
-//       feature-monthly-report に置き換えられたためテスト対象を更新（2026-04-27）
+// #1287/#1573: feature-gender-preset カードは PR #1573 (soft-features 4カード拡張) で削除。
+//   代替として feature-monthly-report を PARAGRAPH_TESTIDS に追加
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -68,7 +68,7 @@ test.afterAll(async () => {
 });
 
 const PARAGRAPH_TESTIDS = [
-	'feature-monthly-report',
+	'feature-monthly-report', // PR #1573 (#1287 soft-features 4カード拡張) で追加
 	'feature-routine-checklist',
 	'feature-belongings-checklist',
 ] as const;
