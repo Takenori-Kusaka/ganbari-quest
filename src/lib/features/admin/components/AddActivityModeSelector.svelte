@@ -1,4 +1,6 @@
 <script lang="ts">
+import { FEATURES_LABELS } from '$lib/domain/labels';
+
 type AddMode = 'ai' | 'manual' | 'import';
 
 interface Props {
@@ -6,23 +8,25 @@ interface Props {
 }
 
 let { onselect }: Props = $props();
+
+const L = FEATURES_LABELS.addActivityModeSelector;
 </script>
 
 <div class="add-mode-grid">
 	<button type="button" class="add-mode-card" onclick={() => onselect('ai')}>
 		<span class="add-mode-card__icon">✨</span>
-		<span class="add-mode-card__label">AIで追加</span>
-		<span class="add-mode-card__desc">AIが活動を提案します</span>
+		<span class="add-mode-card__label">{L.aiLabel}</span>
+		<span class="add-mode-card__desc">{L.aiDesc}</span>
 	</button>
 	<button type="button" class="add-mode-card" onclick={() => onselect('manual')}>
 		<span class="add-mode-card__icon">✏️</span>
-		<span class="add-mode-card__label">手動で追加</span>
-		<span class="add-mode-card__desc">名前やポイントを設定</span>
+		<span class="add-mode-card__label">{L.manualLabel}</span>
+		<span class="add-mode-card__desc">{L.manualDesc}</span>
 	</button>
 	<button type="button" class="add-mode-card" onclick={() => onselect('import')}>
 		<span class="add-mode-card__icon">📥</span>
-		<span class="add-mode-card__label">パックから追加</span>
-		<span class="add-mode-card__desc">おすすめセットを一括追加</span>
+		<span class="add-mode-card__label">{L.importLabel}</span>
+		<span class="add-mode-card__desc">{L.importDesc}</span>
 	</button>
 </div>
 

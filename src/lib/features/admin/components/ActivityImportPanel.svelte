@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import type { ActivityPackInfo } from './activity-types';
 
 interface Props {
@@ -16,12 +17,12 @@ let fileImportLoading = $state(false);
 
 <div class="bg-[var(--color-rarity-common-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-border-success)]">
 	<div class="flex items-center justify-between">
-		<h3 class="font-bold text-[var(--color-action-success)]">📥 活動パックからインポート</h3>
-		<a href="/admin/packs" class="text-xs text-[var(--color-action-success)] hover:opacity-80 underline">すべてのパック →</a>
+		<h3 class="font-bold text-[var(--color-action-success)]">{FEATURES_LABELS.activityImportPanel.heading}</h3>
+		<a href="/admin/packs" class="text-xs text-[var(--color-action-success)] hover:opacity-80 underline">{FEATURES_LABELS.activityImportPanel.seeAllPacks}</a>
 	</div>
-	<p class="text-xs text-[var(--color-action-success)]">おすすめの活動セットを一括追加できます（重複はスキップ）</p>
+	<p class="text-xs text-[var(--color-action-success)]">{FEATURES_LABELS.activityImportPanel.desc}</p>
 	{#if activityPacks.length === 0}
-		<p class="text-sm text-[var(--color-text-muted)]">利用可能なパックがありません</p>
+		<p class="text-sm text-[var(--color-text-muted)]">{FEATURES_LABELS.activityImportPanel.emptyText}</p>
 	{:else}
 		<div class="grid grid-cols-1 gap-2">
 			{#each activityPacks as pack}
@@ -34,7 +35,7 @@ let fileImportLoading = $state(false);
 							importLoading = false;
 							if (result.type === 'success' && result.data && 'importResult' in result.data) {
 								const d = result.data as Record<string, unknown>;
-								onimported(`📦 「${d.packName}」: ${d.imported}件追加、${d.skipped}件スキップ`);
+								onimported(FEATURES_LABELS.activityImportPanel.packResult(String(d.packName), Number(d.imported), Number(d.skipped)));
 								onclose();
 							}
 							await update({ reset: false });
@@ -50,10 +51,10 @@ let fileImportLoading = $state(false);
 						<span class="text-2xl">{pack.icon}</span>
 						<div class="flex-1 min-w-0">
 							<p class="font-bold text-sm text-[var(--color-text)]">{pack.packName}</p>
-							<p class="text-xs text-[var(--color-text-muted)]">{pack.activityCount}件 ・ {pack.targetAgeMin}〜{pack.targetAgeMax}歳</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{FEATURES_LABELS.activityImportPanel.packMeta(pack.activityCount, pack.targetAgeMin, pack.targetAgeMax)}</p>
 						</div>
 						<span class="text-xs font-bold text-[var(--color-action-success)] shrink-0">
-							{importLoading ? '処理中...' : '追加'}
+							{importLoading ? FEATURES_LABELS.activityImportPanel.processingText : FEATURES_LABELS.activityImportPanel.addBtn}
 						</span>
 					</button>
 				</form>
@@ -63,8 +64,8 @@ let fileImportLoading = $state(false);
 
 	<!-- ファイルからインポート -->
 	<div class="border-t border-[var(--color-border-success)] pt-3 mt-3">
-		<h4 class="font-bold text-[var(--color-action-success)] text-sm mb-2">📁 ファイルからインポート</h4>
-		<p class="text-xs text-[var(--color-action-success)] mb-2">JSON または CSV ファイルから活動を一括追加（重複はスキップ）</p>
+		<h4 class="font-bold text-[var(--color-action-success)] text-sm mb-2">{FEATURES_LABELS.activityImportPanel.fileImportHeading}</h4>
+		<p class="text-xs text-[var(--color-action-success)] mb-2">{FEATURES_LABELS.activityImportPanel.fileImportDesc}</p>
 		<form
 			method="POST"
 			action="?/importFile"
@@ -75,7 +76,7 @@ let fileImportLoading = $state(false);
 					fileImportLoading = false;
 					if (result.type === 'success' && result.data && 'importResult' in result.data) {
 						const d = result.data as Record<string, unknown>;
-						onimported(`📁 「${d.packName}」: ${d.imported}件追加、${d.skipped}件スキップ`);
+						onimported(FEATURES_LABELS.activityImportPanel.fileResult(String(d.packName), Number(d.imported), Number(d.skipped)));
 						onclose();
 					}
 					await update({ reset: false });
@@ -85,7 +86,7 @@ let fileImportLoading = $state(false);
 			<div class="flex gap-2 items-center">
 				<input type="file" name="file" accept=".json,.csv" class="flex-1 text-sm file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-[var(--color-rarity-common-bg)] file:text-[var(--color-action-success)] file:font-bold file:text-xs" required />
 				<button type="submit" disabled={fileImportLoading} class="px-4 py-2 bg-[var(--color-action-success)] text-[var(--color-text-inverse)] rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-50">
-					{fileImportLoading ? '処理中...' : 'インポート'}
+					{fileImportLoading ? FEATURES_LABELS.activityImportPanel.processingText : FEATURES_LABELS.activityImportPanel.fileImportBtn}
 				</button>
 			</div>
 		</form>

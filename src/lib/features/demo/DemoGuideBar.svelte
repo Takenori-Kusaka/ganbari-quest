@@ -2,6 +2,7 @@
 import { untrack } from 'svelte';
 import { goto } from '$app/navigation';
 import { page } from '$app/stores';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import { trackDemoEvent } from './demo-analytics.js';
 import {
 	advanceStep,
@@ -88,7 +89,7 @@ function handleDismiss() {
 						type="button"
 						class="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] flex items-center justify-center text-sm hover:bg-[var(--color-surface-secondary)] transition-colors"
 						onclick={handleBack}
-						aria-label="もどる"
+						aria-label={FEATURES_LABELS.demo.guideBackAriaLabel}
 						data-testid="demo-guide-back"
 					>
 						&#8249;
@@ -116,19 +117,19 @@ function handleDismiss() {
 							data-testid="demo-guide-see-pricing"
 							onclick={() => trackDemoEvent('demo_guide_see_pricing', { step: guide.currentStep + 1 })}
 						>
-							プランを見る
+							{FEATURES_LABELS.demo.guideSeePricing}
 						</a>
 						<a
 							href="/demo/signup"
 							class="px-3 py-1.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white text-xs font-bold rounded-lg"
 							data-testid="demo-guide-start"
 						>
-							はじめる
+							{FEATURES_LABELS.demo.guideStartBtn}
 						</a>
 					{:else if guide.step?.requiresAction}
 						<!-- Action-required step: show hint instead of navigation button -->
 						<span class="px-2 py-1 text-xs text-[var(--color-feedback-info-text)] font-medium">
-							<span aria-hidden="true">👆</span> やってみよう
+							<span aria-hidden="true">👆</span> {FEATURES_LABELS.demo.guideActionHint}
 						</span>
 					{:else if guide.currentStep + 1 < GUIDE_STEPS.length}
 						<!-- #702: <a href> ではなく button + handleAdvance(goto 内蔵) で進行する -->
@@ -138,12 +139,12 @@ function handleDismiss() {
 							onclick={handleAdvance}
 							data-testid="demo-guide-next"
 						>
-							つぎへ
+							{FEATURES_LABELS.demo.guideNextBtn}
 						</button>
 					{/if}
 					<button
 						type="button"
-						class="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-lg leading-none"						onclick={handleDismiss}						aria-label="ガイドを閉じる"
+						class="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-lg leading-none"						onclick={handleDismiss}						aria-label={FEATURES_LABELS.demo.guideDismissAriaLabel}
 					>
 						&times;
 					</button>

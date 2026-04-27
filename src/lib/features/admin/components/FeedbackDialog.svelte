@@ -1,5 +1,6 @@
 <script lang="ts">
 import { page } from '$app/stores';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
@@ -21,11 +22,13 @@ let success = $state(false);
 let screenshot = $state('');
 let screenshotName = $state('');
 
+const L = FEATURES_LABELS.feedbackDialog;
+
 const CATEGORY_ITEMS = [
-	{ value: 'opinion', label: 'ご意見' },
-	{ value: 'bug', label: '不具合報告' },
-	{ value: 'feature', label: '機能要望' },
-	{ value: 'other', label: 'その他' },
+	{ value: 'opinion', label: L.categoryOpinion },
+	{ value: 'bug', label: L.categoryBug },
+	{ value: 'feature', label: L.categoryFeature },
+	{ value: 'other', label: L.categoryOther },
 ];
 
 const MAX_TEXT_LENGTH = 1000;
@@ -60,14 +63,14 @@ function handleScreenshotChange(event: Event) {
 
 	// ファイルサイズ検証
 	if (file.size > MAX_SCREENSHOT_BYTES) {
-		error = 'スクリーンショットは2MB以内にしてください';
+		error = L.errorScreenshotSize;
 		input.value = '';
 		return;
 	}
 
 	// 画像ファイルのみ許可
 	if (!file.type.startsWith('image/')) {
-		error = '画像ファイルを選択してください';
+		error = L.errorScreenshotType;
 		input.value = '';
 		return;
 	}
@@ -79,7 +82,7 @@ function handleScreenshotChange(event: Event) {
 		error = '';
 	};
 	reader.onerror = () => {
-		error = 'ファイルの読み込みに失敗しました';
+		error = L.errorReadFile;
 	};
 	reader.readAsDataURL(file);
 }
@@ -116,25 +119,25 @@ async function handleSubmit() {
 			success = true;
 		} else {
 			const json = await res.json();
-			error = json.message ?? '送信に失敗しました';
+			error = json.message ?? L.errorSend;
 		}
 	} catch {
-		error = 'ネットワークエラーが発生しました';
+		error = L.errorNetwork;
 	} finally {
 		sending = false;
 	}
 }
 </script>
 
-<Dialog bind:open title="ご意見・不具合報告" testid="feedback-dialog" size="md" onOpenChange={(d) => { if (!d.open) handleClose(); }}>
+<Dialog bind:open title={L.title} testid="feedback-dialog" size="md" onOpenChange={(d) => { if (!d.open) handleClose(); }}>
 	{#if success}
 		<div class="space-y-4" data-testid="feedback-success">
 			<Alert variant="success">
-				送信しました。ご意見ありがとうございます！
+				{L.successText}
 			</Alert>
 			<div class="flex justify-end">
 				<Button variant="primary" size="sm" onclick={() => { reset(); open = false; }}>
-					閉じる
+					{L.closeBtn}
 				</Button>
 			</div>
 		</div>
@@ -146,25 +149,25 @@ async function handleSubmit() {
 		>
 			{#if isDemo}
 				<Alert variant="info">
-					デモ版のため、実際には送信されません
+					{L.demoNote}
 				</Alert>
 			{/if}
 
 			<Select
-				label="種別"
+				label={L.categoryLabel}
 				items={CATEGORY_ITEMS}
 				bind:value={category}
-				placeholder="選択してください"
+				placeholder={L.categoryPlaceholder}
 			/>
 
 			<div class="flex flex-col gap-1">
 				<label for="feedback-text" class="text-sm font-medium text-[var(--color-text)]">
-					内容
+					{L.contentLabel}
 				</label>
 				<textarea
 					id="feedback-text"
 					bind:value={text}
-					placeholder="お気づきの点やご要望をお聞かせください"
+					placeholder={L.contentPlaceholder}
 					rows={5}
 					class="w-full px-3 py-2 border rounded-lg text-sm resize-y
 						border-[var(--color-border-default)]
@@ -180,13 +183,13 @@ async function handleSubmit() {
 			<!-- スクリーンショット添付（任意） -->
 			<div class="flex flex-col gap-1">
 				<span class="text-sm font-medium text-[var(--color-text)]">
-					スクリーンショット（任意）
+					{L.screenshotLabel}
 				</span>
 				{#if screenshot}
 					<div class="flex items-center gap-2 p-2 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-default)]" data-testid="feedback-screenshot-preview">
 						<img
 							src={screenshot}
-							alt="添付スクリーンショット"
+							alt={L.screenshotImageAlt}
 							class="max-h-20 rounded object-contain"
 						/>
 						<span class="text-xs text-[var(--color-text-secondary)] truncate flex-1">
@@ -198,7 +201,7 @@ async function handleSubmit() {
 							onclick={removeScreenshot}
 							data-testid="feedback-screenshot-remove"
 						>
-							削除
+							{L.screenshotRemoveBtn}
 						</Button>
 					</div>
 				{:else}
@@ -206,7 +209,7 @@ async function handleSubmit() {
 						border-[var(--color-border-default)] hover:border-[var(--color-border-strong)]
 						text-sm text-[var(--color-text-secondary)]">
 						<span>📷</span>
-						<span>画像を選択（最大 2MB）</span>
+						<span>{L.screenshotPickerLabel}</span>
 						<input
 							type="file"
 							accept="image/*"
@@ -224,7 +227,7 @@ async function handleSubmit() {
 
 			<div class="flex gap-2 justify-end">
 				<Button variant="ghost" size="sm" onclick={() => { open = false; }} disabled={sending}>
-					キャンセル
+					{L.cancelBtn}
 				</Button>
 				<Button
 					type="submit"
@@ -234,9 +237,9 @@ async function handleSubmit() {
 					data-testid="feedback-submit"
 				>
 					{#if sending}
-						送信中...
+						{L.submittingText}
 					{:else}
-						送信する
+						{L.submitBtn}
 					{/if}
 				</Button>
 			</div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-import { PLAN_SHORT_LABELS } from '$lib/domain/labels';
+import { FEATURES_LABELS, PLAN_SHORT_LABELS } from '$lib/domain/labels';
 import { getUnlockedFeatures } from '$lib/domain/plan-features';
 
 interface Props {
@@ -17,7 +17,7 @@ const planIcon = $derived(isFamily ? '⭐⭐' : '⭐');
 const features = $derived(getUnlockedFeatures(planTier));
 </script>
 
-<div class="welcome-overlay" role="dialog" aria-modal="true" aria-label="{planLabel}へようこそ">
+<div class="welcome-overlay" role="dialog" aria-modal="true" aria-label={FEATURES_LABELS.premiumWelcome.dialogAriaLabel(planLabel)}>
 	<div class="welcome-card welcome-card--{planTier}">
 		<!-- Confetti particles -->
 		<div class="confetti" aria-hidden="true">
@@ -30,11 +30,11 @@ const features = $derived(getUnlockedFeatures(planTier));
 			<span class="welcome-emoji">🎉</span>
 
 			<h2 class="welcome-title">
-				がんばりクエスト {planIcon} {planLabel} へ<br />ようこそ！
+				{FEATURES_LABELS.premiumWelcome.titleLine1(planIcon, planLabel)}<br />{FEATURES_LABELS.premiumWelcome.titleLine2}
 			</h2>
 
 			<div class="welcome-divider">
-				<span>解放された機能</span>
+				<span>{FEATURES_LABELS.premiumWelcome.dividerLabel}</span>
 			</div>
 
 			<ul class="welcome-features">
@@ -46,12 +46,10 @@ const features = $derived(getUnlockedFeatures(planTier));
 				{/each}
 			</ul>
 
-			<p class="welcome-message">
-				お子さまの「がんばり」を<br />もっと楽しく応援しましょう！
-			</p>
+			<p class="welcome-message" style="white-space: pre-line">{FEATURES_LABELS.premiumWelcome.message}</p>
 
 			<button type="button" class="welcome-cta" onclick={onDismiss}>
-				さっそく始める →
+				{FEATURES_LABELS.premiumWelcome.ctaBtn}
 			</button>
 		</div>
 	</div>

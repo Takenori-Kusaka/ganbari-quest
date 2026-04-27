@@ -1,5 +1,6 @@
 <script lang="ts">
 import { formatChildName } from '$lib/domain/child-display';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 
 interface Props {
 	nickname: string;
@@ -20,13 +21,13 @@ let { nickname, newAge, totalPoints, onclick }: Props = $props();
 	<span class="birthday-banner__icon">🎂</span>
 	<div class="birthday-banner__content">
 		<p class="birthday-banner__title">
-			おたんじょうびボーナスがとどいているよ！
+			{FEATURES_LABELS.birthday.bannerTitle}
 		</p>
 		<p class="birthday-banner__sub">
-			{formatChildName(nickname, 'vocative')}{newAge}さいおめでとう！ タップしてうけとろう
+			{FEATURES_LABELS.birthday.bannerSub(formatChildName(nickname, 'vocative'), newAge)}
 		</p>
 	</div>
-	<span class="birthday-banner__points">⭐{totalPoints}pt</span>
+	<span class="birthday-banner__points">{FEATURES_LABELS.birthday.bannerPoints(totalPoints)}</span>
 </button>
 
 <style>

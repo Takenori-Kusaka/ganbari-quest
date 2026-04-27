@@ -1,5 +1,6 @@
 <script lang="ts">
 import { splitIcon } from '$lib/domain/icon-utils';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
@@ -18,10 +19,13 @@ let aiLoading = $state(false);
 let aiError = $state('');
 let aiPreview = $state<AiPreviewData | null>(null);
 
+const COMMON = FEATURES_LABELS.aiSuggestCommon;
+const L = FEATURES_LABELS.aiSuggestActivity;
+
 async function suggestFromAI() {
 	if (!aiInput.trim()) return;
 	if (!isFamily) {
-		aiError = 'AI 活動提案はファミリープランでご利用いただけます';
+		aiError = COMMON.familyOnlyError(L.kind);
 		return;
 	}
 	aiLoading = true;
@@ -37,10 +41,10 @@ async function suggestFromAI() {
 		if (res.ok) {
 			aiPreview = json;
 		} else {
-			aiError = json.error?.message ?? '推定に失敗しました';
+			aiError = json.error?.message ?? COMMON.errorEstimate;
 		}
 	} catch {
-		aiError = 'ネットワークエラーが発生しました';
+		aiError = COMMON.errorNetwork;
 	} finally {
 		aiLoading = false;
 	}
@@ -59,16 +63,16 @@ function acceptPreview() {
 	data-plan-locked={!isFamily}
 >
 	<h3 class="font-bold text-[var(--color-premium)]">
-		✨ やりたいことを教えてください
+		{L.title}
 		{#if !isFamily}
 			<span
 				class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle"
 				data-testid="ai-suggest-locked-badge"
-			>ファミリー限定</span>
+			>{COMMON.familyOnlyBadge}</span>
 		{/if}
 	</h3>
 	<p class="text-xs text-[var(--color-premium-light)]">
-		やりたい活動を自由に入力すると、カテゴリ・ポイント・アイコンを自動で提案します
+		{L.description}
 	</p>
 	{#if !isFamily}
 		<div
@@ -76,14 +80,14 @@ function acceptPreview() {
 			data-testid="ai-suggest-upgrade-card"
 		>
 			<p class="text-[var(--color-text-primary)]">
-				AI 活動提案はファミリープランで解放されます。
+				{COMMON.familyOnlyDescription(L.kind)}
 			</p>
 			<a
 				href="/admin/license"
 				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold hover:opacity-90 transition-colors"
 				data-testid="ai-suggest-upgrade-cta"
 			>
-				ファミリープランにアップグレード
+				{COMMON.familyUpgradeBtn}
 			</a>
 		</div>
 	{/if}
@@ -91,7 +95,7 @@ function acceptPreview() {
 		<input
 			type="text"
 			bind:value={aiInput}
-			placeholder="例: ピアノの練習をした、公園で走った、折り紙を作った"
+			placeholder={L.placeholder}
 			class="flex-1 px-3 py-2 border rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
 			disabled={!isFamily}
 			onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); suggestFromAI(); } }}
@@ -105,15 +109,15 @@ function acceptPreview() {
 		>
 			{#if aiLoading}
 				<span class="ai-spinner" aria-hidden="true"></span>
-				考え中...
+				{COMMON.thinkingLabel}
 			{:else}
-				提案する
+				{COMMON.suggestBtn}
 			{/if}
 		</Button>
 	</div>
 	{#if aiLoading}
 		<ProgressMessage
-			messages={['AIに聞いています...', 'もうちょっと待ってね...', 'あとすこし...']}
+			messages={[COMMON.progressBaseAi, COMMON.progressBaseWait, COMMON.progressBaseFinal]}
 			intervalMs={3000}
 		/>
 	{/if}
@@ -124,7 +128,7 @@ function acceptPreview() {
 	{#if aiPreview}
 		<div class="bg-[var(--color-surface-card)] rounded-lg p-3 space-y-2 border border-[var(--color-border-premium)]">
 			{#if aiPreview.source === 'fallback'}
-				<p class="text-xs text-[var(--color-warning)] bg-[var(--color-gold-100)] px-2 py-1 rounded">AIが利用できなかったため、入力内容から推定しました</p>
+				<p class="text-xs text-[var(--color-warning)] bg-[var(--color-gold-100)] px-2 py-1 rounded">{COMMON.fallbackNote}</p>
 			{/if}
 			<div class="flex items-center gap-3">
 				<CompoundIcon icon={aiPreview.icon} size="lg" />
@@ -135,9 +139,9 @@ function acceptPreview() {
 					</p>
 					{#if aiPreview.nameKana || aiPreview.nameKanji}
 						<p class="text-xs text-[var(--color-text-disabled)] mt-0.5">
-							{#if aiPreview.nameKana}ひらがな: {aiPreview.nameKana}{/if}
+							{#if aiPreview.nameKana}{L.previewKana(aiPreview.nameKana)}{/if}
 							{#if aiPreview.nameKana && aiPreview.nameKanji} / {/if}
-							{#if aiPreview.nameKanji}漢字: {aiPreview.nameKanji}{/if}
+							{#if aiPreview.nameKanji}{L.previewKanji(aiPreview.nameKanji)}{/if}
 						</p>
 					{/if}
 				</div>
@@ -150,7 +154,7 @@ function acceptPreview() {
 					class="flex-1"
 					onclick={acceptPreview}
 				>
-					この内容で追加フォームを開く
+					{L.acceptBtn}
 				</Button>
 				<Button
 					type="button"
@@ -159,7 +163,7 @@ function acceptPreview() {
 					class="bg-[var(--color-surface-muted-strong)] hover:bg-[var(--color-surface-tertiary)]"
 					onclick={() => aiPreview = null}
 				>
-					やり直す
+					{COMMON.retryBtn}
 				</Button>
 			</div>
 		</div>

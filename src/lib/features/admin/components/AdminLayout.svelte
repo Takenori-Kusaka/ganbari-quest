@@ -1,7 +1,7 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import { navigating, page } from '$app/stores';
-import { NAV_CATEGORIES, NAV_ITEM_LABELS, PLAN_LABELS } from '$lib/domain/labels';
+import { FEATURES_LABELS, NAV_CATEGORIES, NAV_ITEM_LABELS, PLAN_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
 import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
@@ -190,7 +190,7 @@ function isItemActive(itemHref: string): boolean {
 					<Logo variant="compact" size={140} />
 				</a>
 				{#if isDemo}
-					<span class="header-badge header-badge--demo">デモ</span>
+					<span class="header-badge header-badge--demo">{FEATURES_LABELS.adminLayout.demoBadge}</span>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
@@ -200,7 +200,7 @@ function isItemActive(itemHref: string): boolean {
 						class="upgrade-btn"
 						data-tutorial="upgrade-btn"
 					>
-						アップグレード
+						{FEATURES_LABELS.adminLayout.upgradeBtn}
 					</a>
 				{:else if !isDemo && isPremium}
 					<span class="plan-badge plan-badge--{planTier}">{planLabel}</span>
@@ -209,7 +209,7 @@ function isItemActive(itemHref: string): boolean {
 					<button
 						onclick={handleStartPageGuide}
 						class="page-guide-btn"
-						title="このページの使い方"
+						title={FEATURES_LABELS.adminLayout.pageGuideTitle}
 						data-tutorial="page-guide-btn"
 						type="button"
 					>
@@ -223,7 +223,7 @@ function isItemActive(itemHref: string): boolean {
 						variant="ghost"
 						size="sm"
 						onclick={handleStartTutorial}
-						title="チュートリアルを開始"
+						title={FEATURES_LABELS.adminLayout.tutorialRestartTitle}
 						data-tutorial="tutorial-restart"
 						class="header-tutorial-btn"
 					>
@@ -236,14 +236,14 @@ function isItemActive(itemHref: string): boolean {
 					data-tutorial="switch-to-child"
 				>
 					<span aria-hidden="true">&larr;</span>
-					{isDemo ? 'デモトップ' : '子供画面へ'}
+					{isDemo ? FEATURES_LABELS.adminLayout.demoTopLink : FEATURES_LABELS.adminLayout.switchToChild}
 				</a>
 			</div>
 		</div>
 	</header>
 
 	<!-- Desktop Navigation (>=768px) — ホーム + 3カテゴリ + ドロップダウン -->
-	<nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2" aria-label="管理メニュー" data-tutorial="nav-desktop">
+	<nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2" aria-label={FEATURES_LABELS.adminLayout.desktopNavAriaLabel} data-tutorial="nav-desktop">
 		<div class="max-w-4xl mx-auto flex gap-1">
 			<!-- ホームリンク（dropdown なし） -->
 			<a
@@ -315,7 +315,7 @@ function isItemActive(itemHref: string): boolean {
 	</main>
 
 	<!-- Mobile Bottom Navigation (<768px) — 4カテゴリ -->
-	<nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom" aria-label="メインナビゲーション" data-tutorial="nav-primary">
+	<nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom" aria-label={FEATURES_LABELS.adminLayout.mobileNavAriaLabel} data-tutorial="nav-primary">
 		<!-- Expanded submenu panel -->
 		{#if mobileExpandedCategory}
 			{@const expandedCat = navCategories.find((c) => c.id === mobileExpandedCategory)}
@@ -325,7 +325,7 @@ function isItemActive(itemHref: string): boolean {
 					type="button"
 					class="fixed inset-0 z-[-1]"
 					onclick={() => (mobileExpandedCategory = null)}
-					aria-label="メニューを閉じる"
+					aria-label={FEATURES_LABELS.adminLayout.mobileMenuCloseAriaLabel}
 				></button>
 				<div class="mobile-submenu">
 					<div class="mobile-submenu-label">{expandedCat.label}</div>

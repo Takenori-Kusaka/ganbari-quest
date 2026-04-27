@@ -1,4 +1,5 @@
 <script lang="ts">
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 interface Props {
@@ -8,16 +9,18 @@ interface Props {
 }
 
 let { hasFilter, canAdd, onAdd }: Props = $props();
+
+const L = FEATURES_LABELS.activityEmptyState;
 </script>
 
 <div class="empty-state">
 	<p class="empty-state__icon">📋</p>
 	<p class="empty-state__text">
-		{hasFilter ? 'この条件に一致する活動はありません' : '活動がまだ登録されていません'}
+		{hasFilter ? L.filteredText : L.noActivities}
 	</p>
 	{#if canAdd}
 		<Button variant="primary" size="sm" onclick={onAdd}>
-			+ 活動を追加する
+			{L.addBtn}
 		</Button>
 	{/if}
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 
 interface Props {
@@ -7,11 +8,13 @@ interface Props {
 }
 
 let { onClearAll, clearConfirmOpen }: Props = $props();
+
+const L = FEATURES_LABELS.activitiesHeader;
 </script>
 
 <div class="activities-header">
 	<div class="flex items-center gap-2">
-		<h2 class="activities-title">📋 活動管理</h2>
+		<h2 class="activities-title">{L.title}</h2>
 		<PageHelpButton />
 	</div>
 	<div class="activities-toolbar">
@@ -19,11 +22,11 @@ let { onClearAll, clearConfirmOpen }: Props = $props();
 			href="/api/v1/activities/export"
 			class="toolbar-btn"
 			download="activities-export.json"
-			aria-label="エクスポート"
+			aria-label={L.exportAriaLabel}
 		>
 			📤
 		</a>
-		<a href="/admin/activities/introduce" class="toolbar-btn" aria-label="活動の紹介">
+		<a href="/admin/activities/introduce" class="toolbar-btn" aria-label={L.introduceAriaLabel}>
 			📖
 		</a>
 		{#if !clearConfirmOpen}
@@ -31,7 +34,7 @@ let { onClearAll, clearConfirmOpen }: Props = $props();
 				type="button"
 				class="toolbar-btn toolbar-btn--danger"
 				onclick={onClearAll}
-				aria-label="全クリア"
+				aria-label={L.clearAllAriaLabel}
 			>
 				🗑
 			</button>

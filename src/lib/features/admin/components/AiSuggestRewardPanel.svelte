@@ -1,4 +1,5 @@
 <script lang="ts">
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -22,10 +23,13 @@ let aiLoading = $state(false);
 let aiError = $state('');
 let aiPreview = $state<RewardPreviewData | null>(null);
 
+const COMMON = FEATURES_LABELS.aiSuggestCommon;
+const L = FEATURES_LABELS.aiSuggestReward;
+
 async function suggestFromAI() {
 	if (!aiInput.trim()) return;
 	if (!isFamily) {
-		aiError = 'AI ごほうび提案はファミリープランでご利用いただけます';
+		aiError = COMMON.familyOnlyError(L.kind);
 		return;
 	}
 	aiLoading = true;
@@ -41,10 +45,10 @@ async function suggestFromAI() {
 		if (res.ok) {
 			aiPreview = json;
 		} else {
-			aiError = json.error?.message ?? '推定に失敗しました';
+			aiError = json.error?.message ?? COMMON.errorEstimate;
 		}
 	} catch {
-		aiError = 'ネットワークエラーが発生しました';
+		aiError = COMMON.errorNetwork;
 	} finally {
 		aiLoading = false;
 	}
@@ -63,16 +67,16 @@ function acceptPreview() {
 	data-plan-locked={!isFamily}
 >
 	<h3 class="font-bold text-[var(--color-premium)]">
-		✨ どんなごほうびがいい？
+		{L.title}
 		{#if !isFamily}
 			<span
 				class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle"
 				data-testid="ai-suggest-reward-locked-badge"
-			>ファミリー限定</span>
+			>{COMMON.familyOnlyBadge}</span>
 		{/if}
 	</h3>
 	<p class="text-xs text-[var(--color-premium-light)]">
-		ごほうびの内容を自由に入力すると、カテゴリ・ポイント・アイコンを自動で提案します
+		{L.description}
 	</p>
 	{#if !isFamily}
 		<div
@@ -80,14 +84,14 @@ function acceptPreview() {
 			data-testid="ai-suggest-reward-upgrade-card"
 		>
 			<p class="text-[var(--color-text-primary)]">
-				AI ごほうび提案はファミリープランで解放されます。
+				{COMMON.familyOnlyDescription(L.kind)}
 			</p>
 			<a
 				href="/pricing"
 				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold hover:opacity-90 transition-colors"
 				data-testid="ai-suggest-reward-upgrade-cta"
 			>
-				ファミリープランにアップグレード
+				{COMMON.familyUpgradeBtn}
 			</a>
 		</div>
 	{/if}
@@ -95,7 +99,7 @@ function acceptPreview() {
 		<input
 			type="text"
 			bind:value={aiInput}
-			placeholder="例: おもちゃ、外食、ゲーム時間+30分、おこづかい500円"
+			placeholder={L.placeholder}
 			class="flex-1 px-3 py-2 border rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
 			disabled={!isFamily}
 			onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); suggestFromAI(); } }}
@@ -109,15 +113,15 @@ function acceptPreview() {
 		>
 			{#if aiLoading}
 				<span class="ai-spinner" aria-hidden="true"></span>
-				考え中...
+				{COMMON.thinkingLabel}
 			{:else}
-				提案する
+				{COMMON.suggestBtn}
 			{/if}
 		</Button>
 	</div>
 	{#if aiLoading}
 		<ProgressMessage
-			messages={['AIに聞いています...', 'もうちょっと待ってね...', 'あとすこし...']}
+			messages={[COMMON.progressBaseAi, COMMON.progressBaseWait, COMMON.progressBaseFinal]}
 			intervalMs={3000}
 		/>
 	{/if}
@@ -128,7 +132,7 @@ function acceptPreview() {
 	{#if aiPreview}
 		<div class="bg-[var(--color-surface-card)] rounded-lg p-3 space-y-2 border border-[var(--color-border-premium)]">
 			{#if aiPreview.source === 'fallback'}
-				<p class="text-xs text-[var(--color-feedback-warning-text)] bg-[var(--color-feedback-warning-bg)] px-2 py-1 rounded">AIが利用できなかったため、入力内容から推定しました</p>
+				<p class="text-xs text-[var(--color-feedback-warning-text)] bg-[var(--color-feedback-warning-bg)] px-2 py-1 rounded">{COMMON.fallbackNote}</p>
 			{/if}
 			<div class="flex items-center gap-3">
 				<span class="text-3xl">{aiPreview.icon}</span>
@@ -147,7 +151,7 @@ function acceptPreview() {
 					class="flex-1"
 					onclick={acceptPreview}
 				>
-					この内容で入力する
+					{L.acceptBtn}
 				</Button>
 				<Button
 					type="button"
@@ -156,7 +160,7 @@ function acceptPreview() {
 					class="bg-[var(--color-surface-muted-strong)] hover:bg-[var(--color-surface-tertiary)]"
 					onclick={() => aiPreview = null}
 				>
-					やり直す
+					{COMMON.retryBtn}
 				</Button>
 			</div>
 		</div>

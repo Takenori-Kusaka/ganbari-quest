@@ -1,4 +1,6 @@
 <script lang="ts">
+import { FEATURES_LABELS } from '$lib/domain/labels';
+
 // Print-friendly certificate template for browser Print-to-PDF
 interface CertificateData {
 	id: number;
@@ -33,7 +35,7 @@ const formattedDate = $derived(
 			<div class="cert-ornament-top">✦ ✦ ✦</div>
 
 			<!-- Title -->
-			<h1 class="cert-title">がんばり証明書</h1>
+			<h1 class="cert-title">{FEATURES_LABELS.certificate.title}</h1>
 
 			<!-- Icon -->
 			<div class="cert-icon">{certificate.icon}</div>
@@ -42,7 +44,7 @@ const formattedDate = $derived(
 			<p class="cert-child-name">{certificate.childName}</p>
 
 			<!-- Certificate title -->
-			<h2 class="cert-achievement">「{certificate.title}」</h2>
+			<h2 class="cert-achievement">{FEATURES_LABELS.certificate.quote(certificate.title)}</h2>
 
 			<!-- Description -->
 			<p class="cert-description">{certificate.description}</p>
@@ -62,7 +64,7 @@ const formattedDate = $derived(
 			<!-- Date & Signature -->
 			<div class="cert-footer">
 				<p class="cert-date">{formattedDate}</p>
-				<p class="cert-issuer">がんばりクエスト</p>
+				<p class="cert-issuer">{FEATURES_LABELS.certificate.issuer}</p>
 				<div class="cert-seal">🎖️</div>
 			</div>
 
@@ -72,7 +74,7 @@ const formattedDate = $derived(
 	</div>
 
 	{#if watermark}
-		<div class="cert-watermark-text">SAMPLE</div>
+		<div class="cert-watermark-text">{FEATURES_LABELS.certificate.watermarkText}</div>
 	{/if}
 </div>
 
