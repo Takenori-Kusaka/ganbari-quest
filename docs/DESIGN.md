@@ -363,6 +363,10 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `DEMO_ADMIN_HOME_LABELS` | const |  |
 | `SETUP_CHILDREN_LABELS` | const |  |
 | `ADMIN_CHILDREN_LABELS` | const |  |
+| `ACTIVITY_FORM_LABELS` | const |  |
+| `ADMIN_HOME_LABELS` | const |  |
+| `DOWNGRADE_RESOURCE_SELECTOR_LABELS` | const |  |
+| `CHILD_PROFILE_CARD_LABELS` | const |  |
 | `DEMO_REPORTS_LABELS` | const |  |
 | `ADMIN_CHILDREN_PAGE_LABELS` | const |  |
 | `CERTIFICATES_PAGE_LABELS` | const |  |
@@ -387,6 +391,9 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `OPS_LICENSE_PAGE_LABELS` | const |  |
 | `DEMO_CHALLENGES_LABELS` | const |  |
 | `DEMO_CHILD_ACHIEVEMENTS_LABELS` | const |  |
+| `LP_NAV_LABELS` | const |  |
+| `LP_FOOTER_LABELS` | const |  |
+| `LP_COMMON_LABELS` | const |  |
 | `LP_RETENTION_LABELS` | const |  |
 | `BABY_HOME_LABELS` | const |  |
 | `ONBOARDING_LABELS` | const |  |

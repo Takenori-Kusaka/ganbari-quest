@@ -36,11 +36,11 @@ body{line-height:1.8;background:var(--gray-50)}
     </a>
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
     <nav id="main-nav" class="header-nav">
-      <a href="../index.html" onclick="this.parentElement.classList.remove('open')">ホーム</a>
-      <a href="../index.html#features" onclick="this.parentElement.classList.remove('open')">できること</a>
-      <a href="../pricing.html" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
-      <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモ体験</a>
-      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
+      <a href="../index.html" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="../index.html#features" data-lp-key="nav.features" onclick="this.parentElement.classList.remove('open')">できること</a>
+      <a href="../pricing.html" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="https://ganbari-quest.com/demo" class="btn btn-demo" data-lp-key="common.ctaDemo">デモ体験</a>
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-lp-key="common.ctaSignup">無料ではじめる</a>
     </nav>
   </div>
 </header>
@@ -162,12 +162,12 @@ body{line-height:1.8;background:var(--gray-50)}
 </main>
 
 <footer class="footer-simple">
-  <p>&copy; 2026 がんばりクエスト</p>
+  <p data-lp-key="footer.copyright">&copy; 2026 がんばりクエスト</p>
   <div class="footer-links-inline">
-    <a href="../terms.html">利用規約</a>
-    <a href="../privacy.html">プライバシーポリシー</a>
-    <a href="../tokushoho.html">特定商取引法</a>
-    <a href="../pricing.html">料金プラン</a>
+    <a href="../terms.html" data-lp-key="footer.termsLink">利用規約</a>
+    <a href="../privacy.html" data-lp-key="footer.privacyLink">プライバシーポリシー</a>
+    <a href="../tokushoho.html" data-lp-key="footer.tokushohoLink">特定商取引法</a>
+    <a href="../pricing.html" data-lp-key="footer.pricingLink">料金プラン</a>
   </div>
 </footer>
 

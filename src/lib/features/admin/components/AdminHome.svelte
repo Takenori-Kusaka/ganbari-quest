@@ -1,6 +1,6 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
-import { TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
+import { ADMIN_HOME_LABELS, TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import WeeklyUsageChart from '$lib/features/usage/WeeklyUsageChart.svelte';
@@ -189,7 +189,7 @@ function childLink(child: ChildSummary): string {
 </script>
 
 <svelte:head>
-	<title>管理画面 - がんばりクエスト{isDemo ? ' デモ' : ''}</title>
+	<title>{ADMIN_HOME_LABELS.pageTitle}{isDemo ? ADMIN_HOME_LABELS.pageTitleDemoSuffix : ''}</title>
 </svelte:head>
 
 {#if welcomeVisible && (planTier === 'standard' || planTier === 'family')}
@@ -198,7 +198,7 @@ function childLink(child: ChildSummary): string {
 
 <div class="space-y-6">
 	<!-- Page heading (visually compact, semantically correct) -->
-	<h1 class="dashboard-heading">管理ダッシュボード{isDemo ? '（デモ）' : ''}</h1>
+	<h1 class="dashboard-heading">{ADMIN_HOME_LABELS.heading}{isDemo ? ADMIN_HOME_LABELS.headingDemoSuffix : ''}</h1>
 
 	<!-- Onboarding Checklist (replaces tutorial banner for new users) -->
 	{#if showOnboarding && onboarding}
@@ -206,9 +206,9 @@ function childLink(child: ChildSummary): string {
 	{:else if onboardingComplete && onboarding}
 		<div class="onboarding-complete-card" data-testid="onboarding-complete">
 			<span class="text-2xl">🎉</span>
-			<p class="font-bold text-[var(--color-feedback-success-text)]">すべてのセットアップが完了しました！</p>
+			<p class="font-bold text-[var(--color-feedback-success-text)]">{ADMIN_HOME_LABELS.onboardingCompleteText}</p>
 			<form method="POST" action="?/dismissOnboarding">
-				<button type="submit" class="dismiss-complete-btn">非表示にする</button>
+				<button type="submit" class="dismiss-complete-btn">{ADMIN_HOME_LABELS.onboardingDismissButton}</button>
 			</form>
 		</div>
 	{:else if !isDemo && !tutorialStarted && !onboarding}
@@ -217,15 +217,15 @@ function childLink(child: ChildSummary): string {
 			<div class="flex items-center gap-3">
 				<span class="text-2xl">📖</span>
 				<div class="flex-1">
-					<p class="font-bold text-[var(--color-text)]">初めてご利用ですか？</p>
-					<p class="text-sm text-[var(--color-text-muted)]">チュートリアルで使い方を確認しましょう（約3分）</p>
+					<p class="font-bold text-[var(--color-text)]">{ADMIN_HOME_LABELS.tutorialBannerTitle}</p>
+					<p class="text-sm text-[var(--color-text-muted)]">{ADMIN_HOME_LABELS.tutorialBannerHint}</p>
 				</div>
 				<div class="flex gap-2">
 					<Button variant="primary" size="sm" onclick={handleStartTutorial}>
-						開始
+						{ADMIN_HOME_LABELS.tutorialStartButton}
 					</Button>
 					<Button variant="ghost" size="sm" onclick={handleDismissBanner}>
-						あとで
+						{ADMIN_HOME_LABELS.tutorialLaterButton}
 					</Button>
 				</div>
 			</div>
@@ -267,17 +267,17 @@ function childLink(child: ChildSummary): string {
 	{:else if !isDemo && planTier === 'free'}
 		<a href="{basePath}/license" class="plan-quick-link plan-quick-link--free">
 			<span class="plan-quick-link__info">
-				<span class="plan-quick-link__name">無料プラン</span>
-				<span class="plan-quick-link__hint">もっと便利に使いませんか？</span>
+				<span class="plan-quick-link__name">{ADMIN_HOME_LABELS.freePlanQuickName}</span>
+				<span class="plan-quick-link__hint">{ADMIN_HOME_LABELS.freePlanQuickHint}</span>
 			</span>
-			<span class="plan-quick-link__action">⭐ アップグレード →</span>
+			<span class="plan-quick-link__action">{ADMIN_HOME_LABELS.freePlanQuickAction}</span>
 		</a>
 	{/if}
 
 	<!-- Seasonal Content Info -->
 	{#if !isDemo && seasonalInfo && seasonalInfo.activeEvents.length > 0}
 		<section class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm">
-			<h2 class="text-sm font-bold text-[var(--color-text)] mb-3">🌸 季節コンテンツ</h2>
+			<h2 class="text-sm font-bold text-[var(--color-text)] mb-3">{ADMIN_HOME_LABELS.seasonalSectionTitle}</h2>
 			<div class="space-y-2">
 				{#each seasonalInfo.activeEvents as event}
 					<div class="flex items-center gap-2 text-sm">
@@ -292,13 +292,13 @@ function childLink(child: ChildSummary): string {
 			{#if seasonalInfo.memoryTicket && (planTier === 'standard' || planTier === 'family')}
 				<div class="mt-3 pt-3 border-t border-[var(--color-border-default)]">
 					<div class="flex items-center justify-between text-sm">
-						<span class="text-[var(--color-text)]">🎫 思い出チケット</span>
+						<span class="text-[var(--color-text)]">{ADMIN_HOME_LABELS.memoryTicketLabel}</span>
 						<span class="font-bold text-[var(--color-premium)]">
-							{seasonalInfo.memoryTicket.ticketsAvailable}枚
+							{seasonalInfo.memoryTicket.ticketsAvailable}{ADMIN_HOME_LABELS.memoryTicketCountSuffix}
 						</span>
 					</div>
 					<p class="text-xs text-[var(--color-text-muted)] mt-1">
-						継続{seasonalInfo.memoryTicket.totalMonths}ヶ月 — 次のチケットまで{seasonalInfo.memoryTicket.nextTicketAt}ヶ月
+						{ADMIN_HOME_LABELS.memoryTicketProgress(seasonalInfo.memoryTicket.totalMonths, seasonalInfo.memoryTicket.nextTicketAt)}
 					</p>
 				</div>
 			{/if}
@@ -307,25 +307,26 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Summary Cards -->
 	<div class="grid grid-cols-2 gap-3" data-tutorial="summary-cards">
-		<Card variant="elevated" class="text-center" role="group" aria-label="登録こども数">
+		<Card variant="elevated" class="text-center" role="group" aria-label={ADMIN_HOME_LABELS.summaryChildrenAria}>
 			<p class="text-2xl font-bold text-[var(--color-action-primary)]">{children.length}</p>
-			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">こどもの数</p>
+			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{ADMIN_HOME_LABELS.summaryChildrenLabel}</p>
 		</Card>
-		<Card variant="elevated" class="text-center" role="group" aria-label="全ポイント合計">
+		<Card variant="elevated" class="text-center" role="group" aria-label={ADMIN_HOME_LABELS.summaryPointsAria}>
 			<p class="text-2xl font-bold text-[var(--color-gold-500)]">
 				{fmtBal(children.reduce((sum, c) => sum + c.balance, 0))}
 			</p>
-			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">合計{unit}</p>
+			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{ADMIN_HOME_LABELS.summaryPointsTotalPrefix}{unit}</p>
 		</Card>
 	</div>
 
 	<!-- Monthly Summary -->
 	{#if currentMonth && children.length > 0}
-		{@const monthLabel = currentMonth.replace(/^(\d{4})-0?(\d{1,2})$/, '$1年$2月')}
+		{@const monthMatch = currentMonth.match(/^(\d{4})-0?(\d{1,2})$/)}
+		{@const monthLabel = monthMatch && monthMatch[1] && monthMatch[2] ? ADMIN_HOME_LABELS.monthLabel(monthMatch[1], monthMatch[2]) : currentMonth}
 		<section>
 			<div class="flex items-center justify-between mb-3">
-				<h2 class="text-lg font-bold text-[var(--color-text)]" data-tutorial="monthly-summary">📊 {monthLabel}のがんばり</h2>
-				<a href="{basePath}/reports" class="text-xs text-[var(--color-brand-500)] hover:underline">詳しく見る →</a>
+				<h2 class="text-lg font-bold text-[var(--color-text)]" data-tutorial="monthly-summary">{ADMIN_HOME_LABELS.monthlyHeadingPrefix}{monthLabel}{ADMIN_HOME_LABELS.monthlyHeadingSuffix}</h2>
+				<a href="{basePath}/reports" class="text-xs text-[var(--color-brand-500)] hover:underline">{ADMIN_HOME_LABELS.monthlyDetailsLink}</a>
 			</div>
 			<div class="grid gap-3">
 				{#each children as child}
@@ -334,19 +335,19 @@ function childLink(child: ChildSummary): string {
 						<div class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm">
 							<p class="text-sm font-bold text-[var(--color-text)] mb-2">{child.nickname}</p>
 							<div class="flex gap-3">
-								<div class="monthly-stat monthly-stat--blue" role="group" aria-label="{child.nickname}の活動回数">
-									<p class="monthly-stat__heading">活動回数</p>
+								<div class="monthly-stat monthly-stat--blue" role="group" aria-label={ADMIN_HOME_LABELS.monthlyChildActivitiesAria(child.nickname)}>
+									<p class="monthly-stat__heading">{ADMIN_HOME_LABELS.monthlyActivitiesHeading}</p>
 									<p class="monthly-stat__value">{summary.totalActivities}</p>
-									<p class="monthly-stat__unit">回</p>
+									<p class="monthly-stat__unit">{ADMIN_HOME_LABELS.monthlyActivitiesUnit}</p>
 								</div>
-								<div class="monthly-stat monthly-stat--purple" role="group" aria-label="{child.nickname}のレベル">
-									<p class="monthly-stat__heading">レベル</p>
+								<div class="monthly-stat monthly-stat--purple" role="group" aria-label={ADMIN_HOME_LABELS.monthlyChildLevelAria(child.nickname)}>
+									<p class="monthly-stat__heading">{ADMIN_HOME_LABELS.monthlyLevelHeading}</p>
 									<p class="monthly-stat__value">{summary.currentLevel}</p>
 								</div>
-								<div class="monthly-stat monthly-stat--amber" role="group" aria-label="{child.nickname}の実績">
-									<p class="monthly-stat__heading">実績</p>
+								<div class="monthly-stat monthly-stat--amber" role="group" aria-label={ADMIN_HOME_LABELS.monthlyChildAchievementsAria(child.nickname)}>
+									<p class="monthly-stat__heading">{ADMIN_HOME_LABELS.monthlyAchievementsHeading}</p>
 									<p class="monthly-stat__value">{summary.newAchievements}</p>
-									<p class="monthly-stat__unit">獲得</p>
+									<p class="monthly-stat__unit">{ADMIN_HOME_LABELS.monthlyAchievementsUnit}</p>
 								</div>
 							</div>
 						</div>
@@ -359,7 +360,7 @@ function childLink(child: ChildSummary): string {
 	<!-- #1292: 本日の使用時間 -->
 	{#if !isDemo && todayUsage.length > 0}
 		<section data-testid="today-usage-section">
-			<h2 class="text-lg font-bold text-[var(--color-text)]" aria-label={USAGE_TIME_LABELS.todayUsage}>⏱️ {USAGE_TIME_LABELS.todayUsage}</h2>
+			<h2 class="text-lg font-bold text-[var(--color-text)]" aria-label={USAGE_TIME_LABELS.todayUsage}>{ADMIN_HOME_LABELS.todayUsageHeading}{USAGE_TIME_LABELS.todayUsage}</h2>
 			<div class="usage-grid mt-3">
 				{#each todayUsage as usage}
 					<Card variant="elevated" class="p-3" role="group" aria-label={USAGE_TIME_LABELS.todayUsageOf(usage.childName)}>
@@ -380,7 +381,7 @@ function childLink(child: ChildSummary): string {
 	<!-- #1576: 今週の使用時間 bar chart -->
 	{#if !isDemo && weeklyUsage.length > 0}
 		<section data-testid="weekly-usage-section">
-			<h2 class="text-lg font-bold text-[var(--color-text)] mb-3">📈 {USAGE_TIME_LABELS.weeklyUsage}</h2>
+			<h2 class="text-lg font-bold text-[var(--color-text)] mb-3">{ADMIN_HOME_LABELS.weeklyUsageHeading}{USAGE_TIME_LABELS.weeklyUsage}</h2>
 			<Card variant="elevated" class="p-4">
 				<WeeklyUsageChart data={weeklyUsage} />
 			</Card>
@@ -389,10 +390,10 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Children Overview -->
 	<section data-tutorial="children-overview">
-		<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">こども一覧</h2>
+		<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">{ADMIN_HOME_LABELS.childrenSectionTitle}</h2>
 		{#if children.length === 0}
 			<Card class="p-8 text-center text-[var(--color-text-tertiary)]">
-				<p>まだこどもが登録されていません</p>
+				<p>{ADMIN_HOME_LABELS.childrenEmpty}</p>
 			</Card>
 		{:else}
 			<div class="grid gap-3">
@@ -414,12 +415,12 @@ function childLink(child: ChildSummary): string {
 
 	<!-- Demo CTA (demo only) -->
 	{#if isDemo}
-		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] border border-[var(--color-feedback-warning-border)] rounded-xl p-4 text-center">			<p class="text-sm font-bold text-[var(--color-text)] mb-1">いかがでしたか？</p>			<p class="text-xs text-[var(--color-text-muted)] mb-3">
-				お子さまの「がんばり」を冒険に変えませんか？
+		<div class="bg-gradient-to-r from-[var(--color-feedback-warning-bg)] to-[var(--color-orange-50)] border border-[var(--color-feedback-warning-border)] rounded-xl p-4 text-center">			<p class="text-sm font-bold text-[var(--color-text)] mb-1">{ADMIN_HOME_LABELS.demoCtaTitle}</p>			<p class="text-xs text-[var(--color-text-muted)] mb-3">
+				{ADMIN_HOME_LABELS.demoCtaHint}
 			</p>
 			<a
 				href="/demo/signup"
-				class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"			>				無料で はじめる →
+				class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"			>				{ADMIN_HOME_LABELS.demoCtaButton}
 			</a>
 		</div>
 	{/if}

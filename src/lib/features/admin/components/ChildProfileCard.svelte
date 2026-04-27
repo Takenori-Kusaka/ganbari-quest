@@ -2,7 +2,7 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
-import { getAgeTierLabel, getThemeOptions } from '$lib/domain/labels';
+import { CHILD_PROFILE_CARD_LABELS, getAgeTierLabel, getThemeOptions } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import {
 	formatPointValue,
@@ -108,11 +108,11 @@ const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.r
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
 const detailTabs = [
-	{ id: 'info', label: '📋 基本情報' },
-	{ id: 'status', label: '📊 ステータス' },
-	{ id: 'logs', label: '📝 活動記録' },
-	{ id: 'achievements', label: '🏆 実績' },
-	{ id: 'voice', label: '📢 ボイス' },
+	{ id: 'info', label: CHILD_PROFILE_CARD_LABELS.tabInfo },
+	{ id: 'status', label: CHILD_PROFILE_CARD_LABELS.tabStatus },
+	{ id: 'logs', label: CHILD_PROFILE_CARD_LABELS.tabLogs },
+	{ id: 'achievements', label: CHILD_PROFILE_CARD_LABELS.tabAchievements },
+	{ id: 'voice', label: CHILD_PROFILE_CARD_LABELS.tabVoice },
 ] as const;
 
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
@@ -130,10 +130,12 @@ async function generateAvatar() {
 		if (res.ok) {
 			generateResult = { filePath: json.filePath };
 		} else {
-			generateResult = { error: json.error?.message ?? '生成に失敗しました' };
+			generateResult = {
+				error: json.error?.message ?? CHILD_PROFILE_CARD_LABELS.avatarGenerateFailed,
+			};
 		}
 	} catch {
-		generateResult = { error: 'ネットワークエラーが発生しました' };
+		generateResult = { error: CHILD_PROFILE_CARD_LABELS.avatarNetworkError };
 	} finally {
 		generating = false;
 	}
@@ -145,7 +147,7 @@ async function uploadAvatar(file: File) {
 	if (file.size > MAX_UPLOAD_SIZE) {
 		const sizeMB = (file.size / 1024 / 1024).toFixed(1);
 		uploadResult = {
-			error: `ファイルサイズが大きすぎます（${sizeMB}MB）。5MB以下の画像を選択してください`,
+			error: CHILD_PROFILE_CARD_LABELS.avatarFileSizeError(sizeMB),
 		};
 		uploading = false;
 		return;
@@ -162,14 +164,14 @@ async function uploadAvatar(file: File) {
 			uploadResult = { avatarUrl: json.avatarUrl };
 		} else if (res.status === 500) {
 			uploadResult = {
-				error: 'サーバーエラーが発生しました。5MB以下のJPEG/PNG/WebPを選択してください',
+				error: CHILD_PROFILE_CARD_LABELS.avatarServerError,
 			};
 		} else {
 			const json = await res.json().catch(() => null);
-			uploadResult = { error: json?.message ?? 'アップロードに失敗しました' };
+			uploadResult = { error: json?.message ?? CHILD_PROFILE_CARD_LABELS.avatarUploadFailed };
 		}
 	} catch {
-		uploadResult = { error: 'ネットワークエラーが発生しました' };
+		uploadResult = { error: CHILD_PROFILE_CARD_LABELS.avatarNetworkError };
 	} finally {
 		uploading = false;
 	}
@@ -235,12 +237,12 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 		<!-- ======== EDIT MODE ======== -->
 		<div class="profile-edit">
 			<div class="profile-edit__header">
-				<span class="profile-edit__badge">編集中</span>
+				<span class="profile-edit__badge">{CHILD_PROFILE_CARD_LABELS.editingBadge}</span>
 			</div>
 
 			<!-- Avatar section -->
 			<div class="profile-edit__section">
-				<h4 class="profile-edit__section-title">プロフィール写真</h4>
+				<h4 class="profile-edit__section-title">{CHILD_PROFILE_CARD_LABELS.avatarSectionTitle}</h4>
 				<div class="profile-edit__avatar-row">
 					<div class="profile-edit__avatar">
 						{#if avatarSrc}
@@ -251,7 +253,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 					</div>
 					<div class="profile-edit__avatar-actions">
 						<label class="profile-edit__upload-btn {uploading ? 'profile-edit__upload-btn--disabled' : ''}">
-							📷 写真を変更
+							{CHILD_PROFILE_CARD_LABELS.avatarUploadButton}
 							<input
 								type="file"
 								accept="image/jpeg,image/png,image/webp"
@@ -267,7 +269,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 							disabled={generating}
 							onclick={generateAvatar}
 						>
-							{generating ? '生成中...' : '✨ AI生成'}
+							{generating ? CHILD_PROFILE_CARD_LABELS.avatarGenerating : CHILD_PROFILE_CARD_LABELS.avatarGenerateButton}
 						</Button>
 					</div>
 				</div>
@@ -275,10 +277,10 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 					<p class="profile-edit__error">{uploadResult?.error ?? generateResult?.error}</p>
 				{/if}
 				{#if uploadResult?.avatarUrl}
-					<p class="profile-edit__success">写真をアップロードしました</p>
+					<p class="profile-edit__success">{CHILD_PROFILE_CARD_LABELS.avatarUploadSuccess}</p>
 				{/if}
 				{#if generateResult?.filePath}
-					<p class="profile-edit__success">アバターを生成しました</p>
+					<p class="profile-edit__success">{CHILD_PROFILE_CARD_LABELS.avatarGenerateSuccess}</p>
 				{/if}
 			</div>
 
@@ -297,11 +299,11 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 				class="profile-edit__form"
 			>
 				<div class="profile-edit__section">
-					<h4 class="profile-edit__section-title">基本情報</h4>
+					<h4 class="profile-edit__section-title">{CHILD_PROFILE_CARD_LABELS.basicInfoTitle}</h4>
 					<input type="hidden" name="childId" value={child.id} />
 					<div class="profile-edit__grid">
 						<FormField
-							label="ニックネーム"
+							label={CHILD_PROFILE_CARD_LABELS.nicknameLabel}
 							type="text"
 							id="edit-nickname-{child.id}"
 							name="nickname"
@@ -312,7 +314,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 							id="edit-birthDate-{child.id}"
 							bind:value={editBirthDate}
 						/>
-						<FormField label="年齢{editBirthDate ? '（自動計算）' : ''}">
+						<FormField label={`${CHILD_PROFILE_CARD_LABELS.ageLabel}${editBirthDate ? CHILD_PROFILE_CARD_LABELS.ageAutoCalcSuffix : ''}`}>
 							{#snippet children()}
 								<input
 									id="edit-age-{child.id}"
@@ -327,7 +329,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 							{/snippet}
 						</FormField>
 						<Select
-							label="テーマカラー"
+							label={CHILD_PROFILE_CARD_LABELS.themeColorLabel}
 							items={getThemeOptions().map((opt) => ({
 								value: opt.value,
 								label: `${opt.emoji} ${opt.label}`
@@ -342,15 +344,15 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 				<!-- Birthday bonus (within edit mode) -->
 				{#if child.birthDate}
 					<div class="profile-edit__section profile-edit__birthday-bonus">
-						<h4 class="profile-edit__section-title">🎂 おたんじょうびボーナス</h4>
+						<h4 class="profile-edit__section-title">{CHILD_PROFILE_CARD_LABELS.birthdayBonusTitle}</h4>
 						<p class="profile-edit__birthday-note">
-							※ ボーナス倍率の変更は別途保存されます
+							{CHILD_PROFILE_CARD_LABELS.birthdayBonusNote}
 						</p>
 					</div>
 				{/if}
 
 				<div class="profile-edit__actions">
-					<Button type="submit" variant="primary" size="sm">💾 保存</Button>
+					<Button type="submit" variant="primary" size="sm">{CHILD_PROFILE_CARD_LABELS.saveButton}</Button>
 					<Button
 						type="button"
 						variant="ghost"
@@ -358,7 +360,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						class="bg-[var(--color-neutral-200)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
 						onclick={() => { isEditing = false; }}
 					>
-						キャンセル
+						{CHILD_PROFILE_CARD_LABELS.cancelButton}
 					</Button>
 				</div>
 			</form>
@@ -381,14 +383,14 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 							<NativeSelect
 								id="edit-multiplier-{child.id}"
 								name="multiplier"
-								label="倍率"
+								label={CHILD_PROFILE_CARD_LABELS.multiplierLabel}
 								value={child.birthdayBonusMultiplier ?? 1.0}
 								options={[0.5, 1.0, 1.5, 2.0, 2.5, 3.0].map((val) => ({ value: val, label: `×${val}` }))}
 							/>
 						</div>
-						<Button type="submit" variant="primary" size="sm" class="bg-[var(--color-warning)] hover:opacity-90">適用</Button>
+						<Button type="submit" variant="primary" size="sm" class="bg-[var(--color-warning)] hover:opacity-90">{CHILD_PROFILE_CARD_LABELS.multiplierApplyButton}</Button>
 						<span class="profile-edit__bonus-preview">
-							→ {child.age}歳 × 100pt × {child.birthdayBonusMultiplier ?? 1.0}倍 = {Math.round(child.age * 100 * (child.birthdayBonusMultiplier ?? 1.0))}pt
+							{CHILD_PROFILE_CARD_LABELS.bonusFormulaPreview(child.age, child.birthdayBonusMultiplier ?? 1.0)}
 						</span>
 					</div>
 				</form>
@@ -397,7 +399,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 			<!-- Delete section -->
 			<div class="profile-edit__danger-zone">
 				{#if confirmDelete}
-					<p class="profile-edit__danger-text">この子供を本当に削除しますか？</p>
+					<p class="profile-edit__danger-text">{CHILD_PROFILE_CARD_LABELS.deleteConfirmText}</p>
 					<div class="profile-edit__danger-actions">
 						<form
 							method="POST"
@@ -411,7 +413,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 							}}
 						>
 							<input type="hidden" name="childId" value={child.id} />
-							<Button type="submit" variant="danger" size="sm">本当に削除</Button>
+							<Button type="submit" variant="danger" size="sm">{CHILD_PROFILE_CARD_LABELS.deleteConfirmButton}</Button>
 						</form>
 						<Button
 							variant="ghost"
@@ -419,7 +421,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 							class="bg-[var(--color-neutral-200)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
 							onclick={() => { confirmDelete = false; }}
 						>
-							やめる
+							{CHILD_PROFILE_CARD_LABELS.deleteCancelButton}
 						</Button>
 					</div>
 				{:else}
@@ -429,7 +431,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						class="bg-[var(--color-feedback-error-bg,#fef2f2)] text-[var(--color-action-danger)] hover:opacity-80"
 						onclick={() => { confirmDelete = true; }}
 					>
-						🗑 この子供を削除
+						{CHILD_PROFILE_CARD_LABELS.deleteOpenButton}
 					</Button>
 				{/if}
 			</div>
@@ -447,9 +449,9 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 			</div>
 			<div class="profile-header__info">
 				<h3 class="profile-header__name">{child.nickname}</h3>
-				<p class="profile-header__meta">{child.age}歳 / {getAgeTierLabel(child.uiMode)}</p>
+				<p class="profile-header__meta">{child.age}{CHILD_PROFILE_CARD_LABELS.headerAgeTierSeparator}{getAgeTierLabel(child.uiMode)}</p>
 				{#if child.birthDate}
-					<p class="profile-header__birthday">🎂 {child.birthDate}</p>
+					<p class="profile-header__birthday">{CHILD_PROFILE_CARD_LABELS.headerBirthdayPrefix}{child.birthDate}</p>
 				{/if}
 			</div>
 			<Button
@@ -458,7 +460,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 				class="bg-[var(--color-brand-100)] text-[var(--color-action-primary)] hover:opacity-80"
 				onclick={() => { isEditing = true; detailTab = 'info'; }}
 			>
-				✏️ 編集
+				{CHILD_PROFILE_CARD_LABELS.editButton}
 			</Button>
 		</div>
 
@@ -480,26 +482,26 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 			{#if detailTab === 'info'}
 				<div class="info-grid">
 					<div class="info-card info-card--blue">
-						<p class="info-card__value">{child.age}歳</p>
-						<p class="info-card__label">年齢</p>
+						<p class="info-card__value">{child.age}{CHILD_PROFILE_CARD_LABELS.infoAgeUnit}</p>
+						<p class="info-card__label">{CHILD_PROFILE_CARD_LABELS.infoAgeLabel}</p>
 					</div>
 					<div class="info-card info-card--purple">
 						<p class="info-card__value">{getAgeTierLabel(child.uiMode)}</p>
-						<p class="info-card__label">UIモード</p>
+						<p class="info-card__label">{CHILD_PROFILE_CARD_LABELS.infoUiModeLabel}</p>
 					</div>
 					<div class="info-card info-card--amber">
 						<p class="info-card__value">{fmtBal(child.balance?.balance ?? 0)}</p>
-						<p class="info-card__label">{getUnitLabel(ps.mode, ps.currency)}残高</p>
+						<p class="info-card__label">{getUnitLabel(ps.mode, ps.currency)}{CHILD_PROFILE_CARD_LABELS.infoBalanceSuffix}</p>
 					</div>
 					<div class="info-card info-card--green">
 						<p class="info-card__value">{child.logSummary?.totalCount ?? 0}</p>
-						<p class="info-card__label">累計記録数</p>
+						<p class="info-card__label">{CHILD_PROFILE_CARD_LABELS.infoLogCountLabel}</p>
 					</div>
 				</div>
 
 			{:else if detailTab === 'status'}
 				{#if statusEditSuccess}
-					<div class="status-success">ステータスを更新しました</div>
+					<div class="status-success">{CHILD_PROFILE_CARD_LABELS.statusUpdateSuccess}</div>
 				{/if}
 				{#if child.status?.statuses && categoryDefs}
 					<div class="status-list">
@@ -547,8 +549,8 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 										/>
 										<div class="status-item__footer">
 											<div>
-												<span class="status-item__xp">{currentVal} XP</span>
-												<span class="status-item__level">(Lv.{stat.level})</span>
+												<span class="status-item__xp">{currentVal} {CHILD_PROFILE_CARD_LABELS.statusXpUnit}</span>
+												<span class="status-item__level">{CHILD_PROFILE_CARD_LABELS.statusLevelPrefix}{stat.level}{CHILD_PROFILE_CARD_LABELS.statusLevelSuffix}</span>
 												{#if hasChanged}
 													<span class="status-item__diff {diff > 0 ? 'status-item__diff--positive' : 'status-item__diff--negative'}">
 														{diff > 0 ? '+' : ''}{diff}
@@ -561,7 +563,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 												size="sm"
 												disabled={!hasChanged}
 												class={hasChanged ? '' : 'bg-[var(--color-neutral-200)] text-[var(--color-text-disabled)] cursor-not-allowed'}
-											>保存</Button>
+											>{CHILD_PROFILE_CARD_LABELS.statusSaveButton}</Button>
 										</div>
 									</form>
 								</div>
@@ -569,7 +571,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						{/each}
 					</div>
 				{:else}
-					<p class="profile-empty">ステータスデータがありません</p>
+					<p class="profile-empty">{CHILD_PROFILE_CARD_LABELS.statusEmpty}</p>
 				{/if}
 
 			{:else if detailTab === 'logs'}
@@ -585,7 +587,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						{/each}
 					</div>
 				{:else}
-					<p class="profile-empty">活動記録がありません</p>
+					<p class="profile-empty">{CHILD_PROFILE_CARD_LABELS.logsEmpty}</p>
 				{/if}
 
 			{:else if detailTab === 'achievements'}
@@ -599,31 +601,31 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						{/each}
 					</div>
 				{:else}
-					<p class="profile-empty">実績がありません</p>
+					<p class="profile-empty">{CHILD_PROFILE_CARD_LABELS.achievementsEmpty}</p>
 				{/if}
 
 			{:else if detailTab === 'voice'}
 				<div class="voice-section">
 					<p class="voice-section__hint">
-						録音または音声ファイルを登録すると、活動完了時にお子さんに再生されます。
+						{CHILD_PROFILE_CARD_LABELS.voiceHint}
 					</p>
 
 					<!-- Recording -->
 					<div class="voice-recorder">
-						<h4 class="voice-recorder__title">🎤 録音する</h4>
+						<h4 class="voice-recorder__title">{CHILD_PROFILE_CARD_LABELS.voiceRecorderTitle}</h4>
 						{#if voiceRecording}
 							<div class="voice-recorder__active">
-								<span class="voice-recorder__indicator">● 録音中 {recordDuration}秒 / 10秒</span>
-								<Button type="button" variant="danger" size="sm" onclick={stopRecording}>■ 停止</Button>
+								<span class="voice-recorder__indicator">{CHILD_PROFILE_CARD_LABELS.voiceRecordingPrefix}{recordDuration}{CHILD_PROFILE_CARD_LABELS.voiceRecordingSuffix}</span>
+								<Button type="button" variant="danger" size="sm" onclick={stopRecording}>{CHILD_PROFILE_CARD_LABELS.voiceStopButton}</Button>
 							</div>
 						{:else if recordedUrl}
 							<div class="voice-recorder__preview">
 								<audio src={recordedUrl} controls class="voice-recorder__audio"></audio>
-								<Button type="button" variant="ghost" size="sm" onclick={clearRecording} class="text-[var(--color-text-disabled)] hover:text-[var(--color-action-danger)]">取消</Button>
+								<Button type="button" variant="ghost" size="sm" onclick={clearRecording} class="text-[var(--color-text-disabled)] hover:text-[var(--color-action-danger)]">{CHILD_PROFILE_CARD_LABELS.voiceCancelRecording}</Button>
 							</div>
 						{:else}
 							<Button type="button" variant="danger" size="sm" onclick={startRecording}>
-								● 録音開始（最大10秒）
+								{CHILD_PROFILE_CARD_LABELS.voiceStartButton}
 							</Button>
 						{/if}
 					</div>
@@ -651,14 +653,14 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 						}}
 						class="voice-upload"
 					>
-						<h4 class="voice-upload__title">📁 ファイルからアップロード</h4>
+						<h4 class="voice-upload__title">{CHILD_PROFILE_CARD_LABELS.voiceUploadTitle}</h4>
 						<input type="hidden" name="childId" value={child.id} />
 						<FormField
-							label="ラベル"
+							label={CHILD_PROFILE_CARD_LABELS.voiceLabelLabel}
 							type="text"
 							name="label"
 							bind:value={voiceLabel}
-							placeholder="ラベル（例: お母さんの声）"
+							placeholder={CHILD_PROFILE_CARD_LABELS.voiceLabelPlaceholder}
 							maxlength={30}
 							required
 						/>
@@ -670,7 +672,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 								class="voice-upload__file-input"
 							/>
 						{:else}
-							<p class="voice-upload__recording-note">✅ 録音データを使用します</p>
+							<p class="voice-upload__recording-note">{CHILD_PROFILE_CARD_LABELS.voiceUseRecordingNote}</p>
 						{/if}
 						<Button
 							type="submit"
@@ -679,42 +681,42 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 							class="bg-[var(--color-premium)] hover:opacity-90"
 							disabled={voiceUploading || !voiceLabel}
 						>
-							{voiceUploading ? 'アップロード中...' : '💾 保存'}
+							{voiceUploading ? CHILD_PROFILE_CARD_LABELS.voiceUploading : CHILD_PROFILE_CARD_LABELS.voiceSaveButton}
 						</Button>
 					</form>
 
 					<!-- Registered voices -->
 					{#if child.voices && child.voices.length > 0}
 						<div class="voice-list">
-							<h4 class="voice-list__title">登録済み（{child.voices.length}件）</h4>
+							<h4 class="voice-list__title">{CHILD_PROFILE_CARD_LABELS.voiceListTitle(child.voices.length)}</h4>
 							{#each child.voices as voice}
 								<div class="voice-item {voice.isActive ? 'voice-item--active' : ''}">
 									<span class="voice-item__label">
-										{voice.isActive ? '●' : '○'} {voice.label}
+										{voice.isActive ? CHILD_PROFILE_CARD_LABELS.voiceActiveIndicator : CHILD_PROFILE_CARD_LABELS.voiceInactiveIndicator} {voice.label}
 									</span>
 									<audio src={voice.publicUrl} controls class="voice-item__audio"></audio>
 									{#if !voice.isActive}
 										<form method="POST" action="?/activateVoice" use:enhance>
 											<input type="hidden" name="voiceId" value={voice.id} />
 											<input type="hidden" name="childId" value={child.id} />
-											<Button type="submit" variant="ghost" size="sm" class="bg-[var(--color-premium-bg)] text-[var(--color-premium)] hover:opacity-80">有効化</Button>
+											<Button type="submit" variant="ghost" size="sm" class="bg-[var(--color-premium-bg)] text-[var(--color-premium)] hover:opacity-80">{CHILD_PROFILE_CARD_LABELS.voiceActivateButton}</Button>
 										</form>
 									{/if}
 									<form method="POST" action="?/deleteVoice" use:enhance>
 										<input type="hidden" name="voiceId" value={voice.id} />
-										<Button type="submit" variant="ghost" size="sm" class="text-[var(--color-action-danger)] hover:opacity-80">削除</Button>
+										<Button type="submit" variant="ghost" size="sm" class="text-[var(--color-action-danger)] hover:opacity-80">{CHILD_PROFILE_CARD_LABELS.voiceDeleteButton}</Button>
 									</form>
 								</div>
 							{/each}
 						</div>
 					{:else}
 						<p class="profile-empty">
-							ボイスが登録されていません。録音またはファイルアップロードで追加できます。
+							{CHILD_PROFILE_CARD_LABELS.voiceEmpty}
 						</p>
 					{/if}
 
 					<p class="voice-section__note">
-						※ 有効なボイスが設定されている場合、ショップの効果音よりも優先されます。
+						{CHILD_PROFILE_CARD_LABELS.voicePriorityNote}
 					</p>
 				</div>
 			{/if}

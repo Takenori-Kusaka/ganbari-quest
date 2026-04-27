@@ -78,11 +78,11 @@
     </a>
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
     <nav id="main-nav" class="header-nav">
-      <a href="index.html" onclick="this.parentElement.classList.remove('open')">ホーム</a>
-      <a href="index.html#features" onclick="this.parentElement.classList.remove('open')">できること</a>
-      <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
-      <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモ体験</a>
-      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
+      <a href="index.html" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="index.html#features" data-lp-key="nav.features" onclick="this.parentElement.classList.remove('open')">できること</a>
+      <a href="pricing.html" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="https://ganbari-quest.com/demo" class="btn btn-demo" data-lp-key="common.ctaDemo">デモ体験</a>
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-lp-key="common.ctaSignup">無料ではじめる</a>
     </nav>
   </div>
 </header>
@@ -407,28 +407,28 @@
 <footer class="footer">
   <div class="footer-inner">
     <div class="footer-brand">
-      <h3>がんばりクエスト</h3>
-      <p>お子さまの「がんばり」を冒険に変える<br>家庭向けWebアプリ</p>
+      <h3 data-lp-key="footer.brandName">がんばりクエスト</h3>
+      <p data-lp-key="footer.brandTagline">お子さまの「がんばり」を冒険に変える<br>家庭向けWebアプリ</p>
     </div>
     <div class="footer-links">
-      <h4>リンク</h4>
-      <a href="index.html">ホーム</a>
-      <a href="pricing.html">料金プラン</a>
-      <a href="faq.html">よくあるご質問</a>
-      <a href="selfhost.html">ソースコード公開 (OSS)</a>
-      <a href="https://github.com/Takenori-Kusaka/ganbari-quest">GitHub</a>
-      <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="FAQ footer">お問い合わせ</a>
+      <h4 data-lp-key="footer.linksHeading">リンク</h4>
+      <a href="index.html" data-lp-key="nav.home">ホーム</a>
+      <a href="pricing.html" data-lp-key="footer.pricingLink">料金プラン</a>
+      <a href="faq.html" data-lp-key="footer.faqLink">よくあるご質問</a>
+      <a href="selfhost.html" data-lp-key="footer.selfhostLink">ソースコード公開 (OSS)</a>
+      <a href="https://github.com/Takenori-Kusaka/ganbari-quest" data-lp-key="footer.githubLink">GitHub</a>
+      <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="FAQ footer" data-lp-key="footer.contactLink">お問い合わせ</a>
     </div>
     <div class="footer-links">
-      <h4>法的情報</h4>
-      <a href="terms.html">利用規約</a>
-      <a href="privacy.html">プライバシーポリシー</a>
-      <a href="sla.html">SLA</a>
-      <a href="tokushoho.html">特定商取引法に基づく表記</a>
+      <h4 data-lp-key="footer.legalHeading">法的情報</h4>
+      <a href="terms.html" data-lp-key="footer.termsLink">利用規約</a>
+      <a href="privacy.html" data-lp-key="footer.privacyLink">プライバシーポリシー</a>
+      <a href="sla.html" data-lp-key="footer.slaLink">SLA</a>
+      <a href="tokushoho.html" data-lp-key="footer.tokushohoLink">特定商取引法に基づく表記</a>
     </div>
   </div>
   <div class="footer-copy">
-    <p>&copy; 2026 がんばりクエスト. All rights reserved.</p>
+    <p data-lp-key="footer.copyright">&copy; 2026 がんばりクエスト. All rights reserved.</p>
   </div>
 </footer>
 
