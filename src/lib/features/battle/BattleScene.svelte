@@ -374,7 +374,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	.result-banner.win {
 		background: linear-gradient(
 			135deg,
-			var(--color-status-success) 0%,
+			var(--color-action-success) 0%,
 			var(--color-brand-400) 100%
 		);
 		color: white;
