@@ -74,6 +74,34 @@ jobs:
           fi
           echo "Deploying version: $VERSION"
 
+      # #1586: 本番デプロイに必須の GitHub Secrets が登録されているかを deploy 前に検証する。
+      # - OPS_SECRET_KEY: cron-dispatcher の Bearer 認証 fallback (CRON_SECRET 未登録時)
+      # - AWS_OIDC_IAMROLE_ARN: AWS 認証
+      # - AWS_LICENSE_SECRET: ライセンスキー HMAC 署名 (cold start 必須)
+      # - STRIPE_SECRET_KEY: Stripe 課金
+      # 欠落するとサイレントに secret 注入が抜けて本番で fail するため、CI 段階で hard-fail させる。
+      - name: Validate required secrets
+        env:
+          OPS_SECRET_KEY: ${{ secrets.OPS_SECRET_KEY }}
+          AWS_OIDC_IAMROLE_ARN: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
+          AWS_LICENSE_SECRET: ${{ secrets.AWS_LICENSE_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          missing=0
+          for s in OPS_SECRET_KEY AWS_OIDC_IAMROLE_ARN AWS_LICENSE_SECRET STRIPE_SECRET_KEY; do
+            val=$(eval echo "\$$s")
+            if [ -z "$val" ]; then
+              echo "::error::Required GitHub Secret '$s' is missing. Register via 'gh secret set $s --body <value>'"
+              missing=$((missing + 1))
+            else
+              echo "::notice::Required secret '$s' is set"
+            fi
+          done
+          if [ $missing -gt 0 ]; then
+            echo "::error::$missing required secret(s) missing — aborting deploy (#1586)"
+            exit 1
+          fi
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v6
         with:
@@ -229,6 +257,31 @@ jobs:
           aws lambda wait function-updated \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
+
+      # #1586: cron-dispatcher Lambda の env 注入が正しいか dryRun で検証する。
+      # Issue #1586 では PR#1509 マージ後 2 日間 dispatcher が CRON_SECRET 未注入のまま
+      # silent fail していた (post-deploy smoke test 不在のため気付かず)。再発防止策。
+      # dryRun: true で env 検証のみ実行し、ジョブ副作用は起こさない。
+      - name: Cron dispatcher smoke test
+        run: |
+          aws lambda invoke \
+            --function-name ganbari-quest-cron-dispatcher \
+            --payload '{"cronJob":"license-expire","dryRun":true}' \
+            --cli-binary-format raw-in-base64-out \
+            --region $AWS_REGION \
+            cron-dispatcher-response.json
+          echo "=== cron-dispatcher response ==="
+          cat cron-dispatcher-response.json
+          echo ""
+          if ! grep -q '"statusCode":200' cron-dispatcher-response.json; then
+            echo "::error::cron-dispatcher smoke test failed — env injection broken (#1586)"
+            exit 1
+          fi
+          if ! grep -q '"dryRun":true' cron-dispatcher-response.json; then
+            echo "::error::cron-dispatcher smoke test did not run in dryRun mode (#1586)"
+            exit 1
+          fi
+          echo "::notice::cron-dispatcher smoke test passed"
 
       # Phase 5: Post-deployment health check (with retry)
       # Lambda Function URL 直接で確認（DNS 障害時もデプロイ判定可能）

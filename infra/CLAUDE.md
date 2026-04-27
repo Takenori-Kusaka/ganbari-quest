@@ -20,8 +20,8 @@ production に新しい env を追加した場合は以下 **4 経路すべて**
 | `STRIPE_SECRET_KEY` | Stripe 課金 | 未設定可 | 未設定可 | 本番値必須 | （NUC は Stripe 無効） | Stripe Dashboard |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook 検証 | 未設定可 | 未設定可 | 本番値必須 | （NUC は Stripe 無効） | Stripe Dashboard |
 | `GEMINI_API_KEY` | Gemini API (任意) | 未設定可 | 未設定可 | 任意 | 任意 | https://aistudio.google.com/ |
-| `CRON_SECRET` | `/api/cron/*` 認証トークン（#820 / ADR-0033（archive） / #1375 NUC scheduler） | 未設定可 | 未設定可 | **本番値必須** | **本番値必須**（scheduler コンテナで使用） | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `OPS_SECRET_KEY` | (deprecated) `CRON_SECRET` 後方互換フォールバック（ADR-0033（archive）、PR-D-2 で削除予定） | 未設定可 | 未設定可 | 任意（新規は `CRON_SECRET` 推奨） | （NUC は無効） | 既存値を維持 |
+| `CRON_SECRET` | `/api/cron/*` 認証トークン（#820 / ADR-0033（archive） / #1375 NUC scheduler） | 未設定可 | 未設定可 | OPS_SECRET_KEY と排他で必須 | **本番値必須**（scheduler コンテナで使用） | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `OPS_SECRET_KEY` | `CRON_SECRET` 後方互換フォールバック（ADR-0033（archive）、PR-D-2 で削除予定）。**#1586: cron-dispatcher Lambda が `CRON_SECRET ?? OPS_SECRET_KEY` で参照するため、`CRON_SECRET` 未登録なら必須** | 未設定可 | 未設定可 | CRON_SECRET と排他で必須 | （NUC は無効） | 既存値を維持 |
 
 > **重要**: #3 と #4 は **同一値** を使うこと（両環境で署名したライセンスキーが相互に検証できるように）。GitHub Secrets に登録した同一値が、CDK context 経由で Lambda env に注入されると同時に、self-hosted runner 経由で NUC の `.env` にも書き出される。
 
@@ -156,18 +156,48 @@ Lambda 実装: `infra/lambda/cron-dispatcher/index.ts`
 
 ```bash
 # ルール一覧確認
-aws events list-rules --name-prefix ganbari-quest-cron --region ap-northeast-1
+aws events list-rules --name-prefix ganbari-quest-cron --region us-east-1
 
 # ディスパッチャー Lambda ログ確認
-aws logs tail /aws/lambda/ganbari-quest-cron-dispatcher --region ap-northeast-1 --follow
+aws logs tail /aws/lambda/ganbari-quest-cron-dispatcher --region us-east-1 --follow
 
-# 手動テスト（本番: dryRun なし）
+# 手動テスト（本番: dryRun なし — 実ジョブ実行）
 aws lambda invoke \
   --function-name ganbari-quest-cron-dispatcher \
   --payload '{"cronJob":"license-expire"}' \
-  --region ap-northeast-1 \
+  --cli-binary-format raw-in-base64-out \
+  --region us-east-1 \
   response.json && cat response.json
+
+# 手動テスト（dryRun mode — env 注入確認のみ、副作用なし、#1586）
+aws lambda invoke \
+  --function-name ganbari-quest-cron-dispatcher \
+  --payload '{"cronJob":"license-expire","dryRun":true}' \
+  --cli-binary-format raw-in-base64-out \
+  --region us-east-1 \
+  response.json && cat response.json
+# 期待結果: {"statusCode":200,"jobName":"license-expire","dryRun":true}
 ```
 
+### Secret 注入 (#1586 修復後)
+
+cron-dispatcher Lambda は **CRON_SECRET** または **OPS_SECRET_KEY** のいずれか最低 1 本が
+必要。CDK (compute-stack.ts) が env 両方を注入し、Lambda 側 (cron-dispatcher/index.ts) は
+`CRON_SECRET ?? OPS_SECRET_KEY` の順で fallback する。
+
+- **現状の本番 GitHub Secrets**: `OPS_SECRET_KEY` のみ登録 (`CRON_SECRET` は未登録)
+- どちらも未登録の場合、CDK synth が `[ComputeStack] cron-dispatcher requires cronSecret or opsSecretKey context` で throw し deploy をブロックする (silent fail 防止 — ADR-0006)
+- 将来的に `CRON_SECRET` を分離する場合は `gh secret set CRON_SECRET --body "$(node -e 'console.log(require(\"crypto\").randomBytes(32).toString(\"hex\"))')"` で登録
+
+### Post-deploy smoke test (#1586)
+
+`deploy.yml` の `Cron dispatcher smoke test` step が deploy 後に dryRun invoke を実行し、
+env 注入の正常性を検証する。`{"statusCode":200,"dryRun":true}` を返さないと deploy 失敗扱い。
+
+### CloudWatch Alarm
+
+`ganbari-quest-cron-dispatcher-errors` (`infra/lib/ops-stack.ts` L237-249) が
+dispatcher Lambda の Errors metric を監視する。5 分間に 1 回以上のエラーで既存 SNS
+topic `ganbari-quest-ops-alerts` に通知。
+
 **注意**: `cdk deploy` は PO が実行する（GitHub Actions `deploy.yml` または手動 `cdk deploy --all`）。
-`CRON_SECRET` は既存の GitHub Secret として登録済み。新規設定は不要。
