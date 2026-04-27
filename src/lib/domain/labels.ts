@@ -178,10 +178,9 @@ export const SETUP_LABELS = {
 // ============================================================
 
 export const NAV_CATEGORIES = {
-	monitor: { label: '記録・分析', icon: '📊' },
-	encourage: { label: '応援・報酬', icon: '💬' },
-	customize: { label: '活動設定', icon: '🎮' },
-	settings: { label: 'アカウント', icon: '⚙️' },
+	activity: { label: '活動', icon: '🎮' },
+	record: { label: '記録', icon: '📊' },
+	settings: { label: '設定', icon: '⚙️' },
 } as const;
 
 export type NavCategoryId = keyof typeof NAV_CATEGORIES;
@@ -191,6 +190,8 @@ export type NavCategoryId = keyof typeof NAV_CATEGORIES;
 // ============================================================
 
 export const NAV_ITEM_LABELS = {
+	// #1396: 管理画面ホームタブ（直接遷移・dropdown なし）
+	home: 'ホーム',
 	reports: 'レポート',
 	growthBook: 'グロースブック',
 	achievements: 'チャレンジ履歴',

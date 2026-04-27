@@ -128,12 +128,18 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 | `src/lib/features/admin/components/AdminLayout.svelte` | 管理画面の Desktop ドロップダウン + **Mobile ボトムナビ（同居）** |
 | `src/lib/ui/components/BottomNav.svelte` | 子供画面の BottomNav（ホーム / つよさ / かぞく） |
 
-> **実態**: `AdminMobileNav.svelte` は**存在しない**（2026-04-19 時点）。
+> **実態**: `AdminMobileNav.svelte` は**存在しない**。
 > 管理画面のモバイルナビは `AdminLayout.svelte` の同一ファイル内に Desktop ドロップダウンと並列で定義されており、
 > `md:hidden` / `md:block` の Tailwind responsive クラスで表示切替している
 > （`navCategories` は `$derived` で 1 回だけ構築し両方で共有）。
 > 以前の計画では `AdminMobileNav.svelte` の分離を想定していたが、
 > ナビ項目の多重化を避けるため単一ファイルで統合する現行設計を採用している。
+>
+> **#1396 時点の tab 構成（ホーム + 3 カテゴリ = 4 tab）**:
+> - ホーム（🏠、直接 `basePath` へ遷移、dropdown なし）
+> - 活動（🎮）: 活動管理 / チェックリスト / イベント / チャレンジ / マケプレ / こども
+> - 記録（📊）: レポート / グロースブック / チャレンジ履歴 / アナリティクス / ポイント / おうえん / ごほうび
+> - 設定（⚙️）: 設定 / プラン / 請求管理 / メンバー
 
 **BottomNav との棲み分け**:
 - `BottomNav.svelte` は**子供画面専用**（ホーム / つよさ / かぞく）で、管理画面のナビではない
