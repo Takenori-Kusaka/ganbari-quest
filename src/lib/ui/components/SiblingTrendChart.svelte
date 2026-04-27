@@ -1,4 +1,6 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+
 interface WeekData {
 	weekLabel: string;
 	children: { childId: number; childName: string; count: number }[];
@@ -59,8 +61,8 @@ const yTicks = $derived.by(() => {
 
 {#if weeks.length > 0 && childNames.length > 1}
 	<div class="trend-chart">
-		<svg viewBox="0 0 {width} {height}" {width} {height} class="trend-svg" role="img" aria-label="きょうだい週次トレンドグラフ">
-			<title>きょうだい週次トレンドグラフ</title>
+		<svg viewBox="0 0 {width} {height}" {width} {height} class="trend-svg" role="img" aria-label={UI_COMPONENTS_LABELS.siblingTrendChartAriaLabel}>
+			<title>{UI_COMPONENTS_LABELS.siblingTrendChartTitle}</title>
 			<!-- Y axis grid -->
 			{#each yTicks as tick}
 				<line

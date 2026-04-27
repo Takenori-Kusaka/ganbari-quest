@@ -1,4 +1,5 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { getStampImagePathSafe } from '$lib/domain/stamp-image';
 
 interface StampEntry {
@@ -46,8 +47,8 @@ function isTodaySlot(slotIndex: number): boolean {
 <div class="stamp-card" data-testid="stamp-card">
 	<!-- Card header with decorative border -->
 	<div class="stamp-card__header">
-		<span class="stamp-card__title">スタンプカード</span>
-		<span class="stamp-card__period">{formatDateShort(weekStart)}〜{formatDateShort(weekEnd)}</span>
+		<span class="stamp-card__title">{UI_COMPONENTS_LABELS.stampCardTitle}</span>
+		<span class="stamp-card__period">{UI_COMPONENTS_LABELS.stampCardPeriod(formatDateShort(weekStart), formatDateShort(weekEnd))}</span>
 	</div>
 
 	<!-- Stamp area: 3 top + 2 bottom staggered -->
@@ -103,16 +104,16 @@ function isTodaySlot(slotIndex: number): boolean {
 
 	<!-- Status message -->
 	{#if status === 'redeemed' && redeemedPoints != null}
-		<p class="stamp-card__done">✅ {redeemedPoints}pt もらったよ！</p>
+		<p class="stamp-card__done">{UI_COMPONENTS_LABELS.stampCardRedeemed(redeemedPoints)}</p>
 	{:else if filledSlots >= totalSlots && status === 'collecting'}
 		<div class="stamp-card__complete" data-testid="stamp-complete">
-			<p class="stamp-card__complete-text">🎊 コンプリート！</p>
-			<p class="stamp-card__complete-sub">週明けにボーナスポイントがもらえるよ！</p>
+			<p class="stamp-card__complete-text">{UI_COMPONENTS_LABELS.stampCardComplete}</p>
+			<p class="stamp-card__complete-sub">{UI_COMPONENTS_LABELS.stampCardCompleteSub}</p>
 		</div>
 	{:else if !canStampToday && status === 'collecting'}
-		<p class="stamp-card__done">✅ きょうはもうおしたよ！</p>
+		<p class="stamp-card__done">{UI_COMPONENTS_LABELS.stampCardStampedToday}</p>
 	{:else if canStampToday}
-		<p class="stamp-card__hint">✨ あと{totalSlots - filledSlots}回でコンプリート！</p>
+		<p class="stamp-card__hint">{UI_COMPONENTS_LABELS.stampCardRemaining(totalSlots - filledSlots)}</p>
 	{/if}
 </div>
 

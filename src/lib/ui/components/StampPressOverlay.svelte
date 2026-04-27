@@ -1,5 +1,5 @@
 <script lang="ts">
-import { STAMP_PRESS_N_MESSAGES } from '$lib/domain/labels';
+import { STAMP_PRESS_N_MESSAGES, UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { getStampImagePathSafe } from '$lib/domain/stamp-image';
 import type { UiMode } from '$lib/domain/validation/age-tier-types';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
@@ -115,7 +115,7 @@ function handleClose() {
 	<div class="sp" data-testid="stamp-press-overlay">
 		{#if phase === 'card' || phase === 'press' || phase === 'points'}
 			<!-- Stamp card mini display -->
-			<p class="sp__week-label">今週 {cardFilledSlots}回目！</p>
+			<p class="sp__week-label">{UI_COMPONENTS_LABELS.stampPressWeekLabel(cardFilledSlots)}</p>
 
 			<div class="sp__card-slots">
 				{#each Array(cardTotalSlots) as _, i}
@@ -164,7 +164,7 @@ function handleClose() {
 						<p class="sp__positive-message">{positiveMessage}</p>
 					{/if}
 					{#if consecutiveDays >= 2}
-						<p class="sp__streak">{consecutiveDays}にちれんぞく！
+						<p class="sp__streak">{UI_COMPONENTS_LABELS.stampPressStreakLabel(consecutiveDays)}
 							{#if multiplier > 1}
 								<span class="sp__streak-bonus">×{multiplier}</span>
 							{/if}
@@ -173,15 +173,15 @@ function handleClose() {
 
 					{#if isComplete}
 						<div class="sp__complete">
-							<p class="sp__complete-text">コンプリート！</p>
-							<p class="sp__complete-sub">週末にボーナスポイント！</p>
+							<p class="sp__complete-text">{UI_COMPONENTS_LABELS.stampPressComplete}</p>
+							<p class="sp__complete-sub">{UI_COMPONENTS_LABELS.stampPressCompleteSub}</p>
 						</div>
 					{:else}
-						<p class="sp__remaining">あと{remaining}回でコンプリート！</p>
+						<p class="sp__remaining">{UI_COMPONENTS_LABELS.stampPressRemaining(remaining)}</p>
 					{/if}
 
 					<button class="sp__close tap-target" data-testid="login-bonus-confirm" onclick={handleClose}>
-						{weeklyRedeem ? 'つぎへ' : 'やったね！'}
+						{weeklyRedeem ? UI_COMPONENTS_LABELS.stampPressNextBtn : UI_COMPONENTS_LABELS.stampPressConfirmBtn}
 					</button>
 				</div>
 			{/if}
@@ -189,25 +189,25 @@ function handleClose() {
 		{:else if phase === 'weekly'}
 			<!-- Weekly redeem ceremony -->
 			<div class="sp__weekly">
-				<p class="sp__weekly-title">先週のがんばり</p>
+				<p class="sp__weekly-title">{UI_COMPONENTS_LABELS.stampPressWeeklyTitle}</p>
 				<div class="sp__weekly-card">
-					<p class="sp__weekly-count">{weeklyRedeem?.filledSlots}/{weeklyRedeem?.totalSlots} おしたよ！</p>
+					<p class="sp__weekly-count">{UI_COMPONENTS_LABELS.stampPressWeeklyCount(weeklyRedeem?.filledSlots ?? 0, weeklyRedeem?.totalSlots ?? 0)}</p>
 					{#if weeklyRedeem && weeklyRedeem.filledSlots >= (weeklyRedeem.totalSlots)}
-						<p class="sp__weekly-complete">コンプリート！</p>
+						<p class="sp__weekly-complete">{UI_COMPONENTS_LABELS.stampPressWeeklyComplete}</p>
 					{/if}
 				</div>
 
 				<div class="sp__weekly-points">
 					<p class="sp__points-value sp__points-value--big">+{weeklyRedeem?.points ?? 0}pt</p>
 					{#if weeklyRedeem?.completeBonus}
-						<p class="sp__weekly-bonus">コンプリートボーナス +{weeklyRedeem.completeBonus}pt</p>
+						<p class="sp__weekly-bonus">{UI_COMPONENTS_LABELS.stampPressWeeklyBonus(weeklyRedeem.completeBonus)}</p>
 					{/if}
 				</div>
 
-				<p class="sp__weekly-message">今週もがんばろう！</p>
+				<p class="sp__weekly-message">{UI_COMPONENTS_LABELS.stampPressWeeklyMessage}</p>
 
 				<button class="sp__close tap-target" data-testid="weekly-redeem-confirm" onclick={handleClose}>
-					やったね！
+					{UI_COMPONENTS_LABELS.stampPressConfirmBtn}
 				</button>
 			</div>
 		{/if}

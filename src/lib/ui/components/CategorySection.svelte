@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
 
 interface CategoryXpInfo {
@@ -126,7 +127,7 @@ function toggleExpand() {
 				class="w-full py-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
 				onclick={() => (expanded = !expanded)}
 			>
-				{expanded ? '▲ たたむ' : `▼ もっとみる（のこり ${itemCount - itemsPerCategory}こ）`}
+				{expanded ? UI_COMPONENTS_LABELS.categorySectionCollapse : UI_COMPONENTS_LABELS.categorySectionExpand(itemCount - itemsPerCategory)}
 			</button>
 		{/if}
 	{/if}

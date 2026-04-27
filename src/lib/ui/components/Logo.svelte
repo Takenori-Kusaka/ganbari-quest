@@ -1,4 +1,6 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+
 type LogoVariant = 'symbol' | 'full' | 'compact';
 type PlanLabel = 'free' | 'standard' | 'family';
 
@@ -36,15 +38,15 @@ const dims = $derived.by(() => {
 <span class="logo-wrapper {className}">
 	<img
 		src={src[variant]}
-		alt="がんばりクエスト"
+		alt={UI_COMPONENTS_LABELS.logoAlt}
 		width={dims.width}
 		height={dims.height}
 		class="logo"
 	/>
 	{#if planTier === 'standard'}
-		<span class="plan-label plan-label--standard">⭐ スタンダード</span>
+		<span class="plan-label plan-label--standard">{UI_COMPONENTS_LABELS.logoPlanStandard}</span>
 	{:else if planTier === 'family'}
-		<span class="plan-label plan-label--family">⭐⭐ ファミリー</span>
+		<span class="plan-label plan-label--family">{UI_COMPONENTS_LABELS.logoPlanFamily}</span>
 	{/if}
 </span>
 

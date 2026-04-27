@@ -1,4 +1,6 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+
 type Severity = 'info' | 'warning' | 'error';
 type Action = 'retry' | 'fix_input' | 'contact_admin' | 'none';
 
@@ -26,9 +28,9 @@ const iconMap: Record<Severity, string> = {
 };
 
 const actionText: Record<Exclude<Action, 'none'>, string> = {
-	retry: 'しばらくしてからもう一度お試しください。',
-	fix_input: '入力内容をご確認ください。',
-	contact_admin: '管理者にお問い合わせください。',
+	retry: UI_COMPONENTS_LABELS.errorAlertRetry,
+	fix_input: UI_COMPONENTS_LABELS.errorAlertFixInput,
+	contact_admin: UI_COMPONENTS_LABELS.errorAlertContactAdmin,
 };
 </script>
 
@@ -47,7 +49,7 @@ const actionText: Record<Exclude<Action, 'none'>, string> = {
 				onclick={onretry}
 				class="flex-shrink-0 px-3 py-1 text-xs font-bold rounded-md bg-white border border-current opacity-80 hover:opacity-100 transition-opacity"
 			>
-				もう一度試す
+				{UI_COMPONENTS_LABELS.errorAlertRetryBtn}
 			</button>
 		{/if}
 	</div>

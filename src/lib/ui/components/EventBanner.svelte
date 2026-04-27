@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
 interface EventData {
 	id: number;
@@ -52,12 +53,12 @@ function getMissionProgress(event: EventData): { current: number; target: number
 				</div>
 				<div class="event-banner__meta">
 					{#if event.progress?.status === 'reward_claimed'}
-						<span class="event-banner__claimed">✅ うけとりずみ</span>
+						<span class="event-banner__claimed">{UI_COMPONENTS_LABELS.eventBannerReceived}</span>
 					{:else if event.progress?.status === 'completed' && event.rewardConfig}
 						<form method="POST" action="?/claimEventReward" use:enhance>
 							<input type="hidden" name="eventId" value={event.id} />
 							<button type="submit" class="event-banner__claim-btn">
-								🎁 うけとる
+								{UI_COMPONENTS_LABELS.eventBannerReceive}
 							</button>
 						</form>
 					{:else}
