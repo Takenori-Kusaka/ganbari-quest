@@ -20,4 +20,5 @@ let { data } = $props();
 	trialStatus={data.trialStatus}
 	stripeEnabled={data.stripeEnabled}
 	todayUsage={data.todayUsage}
+	weeklyUsage={data.weeklyUsage}
 />
