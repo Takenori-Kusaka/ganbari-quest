@@ -1,4 +1,6 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+
 interface Props {
 	/** バッジのサイズ */
 	size?: 'sm' | 'md';
@@ -19,7 +21,7 @@ let showModal = $state(false);
 	<button
 		type="button"
 		class="premium-badge premium-badge--{size}"
-		title="スタンダードプラン以上で利用可能"
+		title={UI_COMPONENTS_LABELS.premiumBadgeTitle}
 		onclick={() => (showModal = true)}
 	>
 		<span class="premium-badge__icon">{icon}</span>
@@ -30,7 +32,7 @@ let showModal = $state(false);
 {:else}
 	<span
 		class="premium-badge premium-badge--{size}"
-		title="スタンダードプラン以上で利用可能"
+		title={UI_COMPONENTS_LABELS.premiumBadgeTitle}
 	>
 		<span class="premium-badge__icon">{icon}</span>
 		{#if label}

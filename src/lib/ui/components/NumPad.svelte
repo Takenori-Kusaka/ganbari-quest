@@ -1,4 +1,5 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { playSound } from '$lib/ui/sound/play-sound';
 
 interface Props {
@@ -32,7 +33,7 @@ function handleKey(key: string) {
 <div
 	class="numpad-grid mx-auto"
 	role="group"
-	aria-label="すうじパッド"
+	aria-label={UI_COMPONENTS_LABELS.numPadAriaLabel}
 >
 	{#each keys as row}
 		{#each row as key}
@@ -47,7 +48,7 @@ function handleKey(key: string) {
 							: 'numpad-btn--digit'}
 					{disabled ? 'opacity-50 pointer-events-none' : ''}"
 				{disabled}
-				aria-label={key === '←' ? 'けす' : key === 'OK' ? 'けってい' : key}
+				aria-label={key === '←' ? UI_COMPONENTS_LABELS.numPadDeleteAriaLabel : key === 'OK' ? UI_COMPONENTS_LABELS.numPadOkAriaLabel : key}
 				onclick={() => handleKey(key)}
 			>
 				{key}

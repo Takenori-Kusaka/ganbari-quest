@@ -1,4 +1,5 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import {
 	endTutorial,
 	getChapters,
@@ -149,11 +150,9 @@ const ageTier = $derived.by(() => {
 	return document.querySelector('[data-age-tier]')?.getAttribute('data-age-tier') ?? '';
 });
 const isYoungTier = $derived(['baby', 'preschool'].includes(ageTier));
-const labelEnd = $derived(isYoungTier ? 'おわり' : '終了');
-const labelPrev = $derived(isYoungTier ? 'もどる' : '戻る');
-const labelNext = $derived(
-	isYoungTier ? (isLast ? 'おしまい！' : 'つぎへ') : isLast ? '完了！' : '次へ',
-);
+const labelEnd = $derived(UI_COMPONENTS_LABELS.tutorialBubbleEnd(isYoungTier));
+const labelPrev = $derived(UI_COMPONENTS_LABELS.tutorialBubblePrev(isYoungTier));
+const labelNext = $derived(UI_COMPONENTS_LABELS.tutorialBubbleNext(isYoungTier, isLast));
 
 function handleEnd() {
 	endTutorial();

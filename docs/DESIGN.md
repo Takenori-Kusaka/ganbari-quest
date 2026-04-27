@@ -396,6 +396,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `UI_PRIMITIVES_LABELS` | const |  |
 | `STAMP_PRESS_N_MESSAGES` | const |  |
 | `USAGE_TIME_LABELS` | const |  |
+| `UI_COMPONENTS_LABELS` | const |  |
 | `formatCount` | function |  |
 | `formatAge` | function |  |
 | `formatAgeRange` | function |  |

@@ -1,4 +1,5 @@
 <script lang="ts">
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import {
 	endPageGuide,
 	getCurrentGuideInfo,
@@ -153,21 +154,21 @@ const bubbleStyle = $derived.by(() => {
 						class:active={activeTab === 'what'}
 						onclick={() => (activeTab = 'what')}
 					>
-						なにができる？
+						{UI_COMPONENTS_LABELS.pageGuideTabWhat}
 					</button>
 					<button
 						class="guide-tab"
 						class:active={activeTab === 'how'}
 						onclick={() => (activeTab = 'how')}
 					>
-						やりかた
+						{UI_COMPONENTS_LABELS.pageGuideTabHow}
 					</button>
 					<button
 						class="guide-tab"
 						class:active={activeTab === 'goal'}
 						onclick={() => (activeTab = 'goal')}
 					>
-						つかうと？
+						{UI_COMPONENTS_LABELS.pageGuideTabGoal}
 					</button>
 				</div>
 
@@ -183,7 +184,7 @@ const bubbleStyle = $derived.by(() => {
 
 					{#if step.tips && step.tips.length > 0}
 						<div class="guide-tips">
-							<span class="guide-tips-label">💡 ポイント</span>
+							<span class="guide-tips-label">{UI_COMPONENTS_LABELS.pageGuideTipsLabel}</span>
 							{#each step.tips as tip}
 								<p class="guide-tip">{tip}</p>
 							{/each}
@@ -210,16 +211,16 @@ const bubbleStyle = $derived.by(() => {
 				<!-- Navigation -->
 				<div class="guide-nav">
 					<button class="guide-nav-btn guide-nav-end" onclick={endPageGuide}>
-						とじる
+						{UI_COMPONENTS_LABELS.pageGuideCloseBtn}
 					</button>
 					<div class="guide-nav-right">
 						{#if !isFirst}
 							<button class="guide-nav-btn guide-nav-prev" onclick={prevGuideStep}>
-								もどる
+								{UI_COMPONENTS_LABELS.pageGuideBackBtn}
 							</button>
 						{/if}
 						<button class="guide-nav-btn guide-nav-next" onclick={nextGuideStep}>
-							{isLast ? 'かんりょう！' : 'つぎへ'}
+							{UI_COMPONENTS_LABELS.pageGuideNextBtn(isLast)}
 						</button>
 					</div>
 				</div>

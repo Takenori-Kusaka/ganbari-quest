@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
 interface Props {
 	eventId: number;
@@ -22,15 +23,15 @@ function handleOpen() {
 </script>
 
 {#if showOpening}
-	<div class="reward-overlay" role="dialog" aria-modal="true" aria-label="月替わりプレゼント">
+	<div class="reward-overlay" role="dialog" aria-modal="true" aria-label={UI_COMPONENTS_LABELS.monthlyRewardAriaLabel}>
 		<div class="reward-card">
 			{#if phase === 'gift'}
 				<!-- Gift box phase -->
 				<div class="reward-gift">
 					<span class="reward-gift__box" aria-hidden="true">📦</span>
-					<p class="reward-gift__text">今月のプレゼントがとどいたよ！</p>
+					<p class="reward-gift__text">{UI_COMPONENTS_LABELS.monthlyRewardArrived}</p>
 					<button type="button" class="reward-gift__open-btn" onclick={handleOpen}>
-						あける！
+						{UI_COMPONENTS_LABELS.monthlyRewardOpenBtn}
 					</button>
 				</div>
 			{:else}
@@ -43,7 +44,7 @@ function handleOpen() {
 					</div>
 
 					<span class="reward-reveal__icon">{rewardIcon}</span>
-					<h3 class="reward-reveal__name">「{rewardName}」をゲット！</h3>
+					<h3 class="reward-reveal__name">{UI_COMPONENTS_LABELS.monthlyRewardGotLabel(rewardName)}</h3>
 					<p class="reward-reveal__desc">{rewardDescription}</p>
 
 					<form method="POST" action="?/claimMonthlyReward" use:enhance={() => {
@@ -55,7 +56,7 @@ function handleOpen() {
 					}}>
 						<input type="hidden" name="eventId" value={eventId} />
 						<button type="submit" class="reward-reveal__btn">
-							やったね！ 🎉
+							{UI_COMPONENTS_LABELS.monthlyRewardConfirmBtn}
 						</button>
 					</form>
 				</div>

@@ -3377,3 +3377,200 @@ export const USAGE_TIME_LABELS = {
 	minutesUsed: (min: number) => `${min}分使用`,
 	minutesOf15: (min: number) => `${min}分 / 15分`,
 } as const;
+
+// ============================================================
+// UI コンポーネント ラベル (#1465 Phase B)
+// src/lib/ui/components/ 配下のハードコード文字列を集約
+// ============================================================
+
+export const UI_COMPONENTS_LABELS = {
+	// ---- ActivityCard ----
+	activityCardFrozenToast: 'おうちのひとに おねがいしてね',
+	activityCardCompleted: '（きろくずみ）',
+	activityCardMainQuest: '（メインクエスト×2）',
+	activityCardMission: '（ミッション）',
+	activityCardPinned: '（ピンどめ）',
+	activityCardFrozen: '（ロックちゅう）',
+	activityCardCountAriaLabel: (count: number) => `${count}かいきろくずみ`,
+	activityCardMainQuestBadge: '⚔️ 2ばい!',
+	activityCardStreakAriaLabel: (days: number) => `${days}にちれんぞく`,
+
+	// ---- ActivityEmptyState ----
+	activityEmptyTitle: 'ぼうけんの じゅんびちゅう...',
+	activityEmptyDesc: 'おうちの人が かつどうを よういしているよ！',
+	activityEmptyWait: 'もうすこし まってね ⏳',
+	activityEmptyCanDo: '── できること ──',
+	activityEmptyStatusLink: (statusLabel: string) => `${statusLabel}をみる`,
+
+	// ---- AdventureStartOverlay ----
+	adventureGreeting: (name: string) => `やあ！ ${name}！`,
+	adventureBigText1: 'きょうから いっしょに',
+	adventureBigText2: 'ぼうけんだよ！',
+	adventureSubText1: 'いろんなことを がんばると',
+	adventureSubText2: 'つよくなれるよ！',
+	adventureCharacterAlt: 'ぼうけんキャラクター',
+	adventureReadyText: '🌟 さあ、はじめよう！ 🌟',
+	adventureReadySub: 'したのカードをタップしてみてね',
+	adventureStartBtn: 'ぼうけんスタート！',
+
+	// ---- BottomNav ----
+	bottomNavHome: 'ホーム',
+	bottomNavStrength: 'つよさ',
+	bottomNavFamily: 'かぞく',
+	bottomNavAriaLabel: 'メインナビゲーション',
+
+	// ---- CategorySection ----
+	categorySectionCollapse: '▲ たたむ',
+	categorySectionExpand: (remaining: number) => `▼ もっとみる（のこり ${remaining}こ）`,
+
+	// ---- ChallengeBanner ----
+	challengeBannerClear: 'クリア！',
+	challengeBannerMe: 'じぶん',
+	challengeBannerReceive: '🎁 うけとる',
+	challengeBannerReceived: '✅ うけとりずみ',
+	challengeBannerCountdownUrgent: (days: number) => `あと${days}にち！`,
+	challengeBannerCountdown: (days: number) => `あと${days}にち`,
+
+	// ---- ErrorAlert ----
+	errorAlertRetry: 'しばらくしてからもう一度お試しください。',
+	errorAlertFixInput: '入力内容をご確認ください。',
+	errorAlertContactAdmin: '管理者にお問い合わせください。',
+	errorAlertRetryBtn: 'もう一度試す',
+
+	// ---- EventBanner ----
+	eventBannerReceived: '✅ うけとりずみ',
+	eventBannerReceive: '🎁 うけとる',
+
+	// ---- FeatureGate ----
+	featureGateFree: '無料',
+	featureGateStandard: 'スタンダード',
+	featureGateFamily: 'ファミリー',
+	featureGateLockTitle: (plan: string) => `${plan}プラン以上で利用可能`,
+	featureGateLockText: (plan: string) => `${plan}プラン以上で利用可能`,
+	featureGateUpgrade: 'アップグレード',
+
+	// ---- FeedbackFab ----
+	feedbackFabLabel: 'ご意見・不具合報告',
+
+	// ---- GoogleSignInButton ----
+	googleSignInLabel: 'Google でログイン',
+
+	// ---- Header ----
+	headerPremiumTitle: 'スタンダード以上',
+	headerHelpAriaLabel: 'つかいかたガイド',
+	headerStampAriaLabel: 'スタンプカードを見る',
+
+	// ---- LevelUpOverlay ----
+	levelUpMessages: {
+		1: 'ぼうけんがはじまるよ！',
+		2: 'がんばってるね！',
+		3: 'つよくなってきたよ！',
+		4: 'すごいぞ！どんどんいこう！',
+		5: 'もうたいしたものだ！',
+		6: 'きみはもうベテランだ！',
+		7: 'そらもとべそうだね！',
+		8: 'すばらしい！マスターめざそう！',
+		9: 'ほぼさいきょう！あとすこし！',
+		10: 'かみさまレベルだ！おめでとう！',
+	} as Record<number, string>,
+	levelUpLabel: (categoryName: string | undefined) =>
+		`${categoryName ? `${categoryName} ` : ''}レベルアップ！`,
+	levelUpDefaultMessage: 'すごい！がんばったね！',
+	levelUpSpLabel: (sp: number) => `+${sp} SP ゲット！`,
+	levelUpConfirmBtn: 'やったー！',
+
+	// ---- LoadingButton ----
+	loadingButtonDefault: '処理中...',
+
+	// ---- Logo ----
+	logoAlt: 'がんばりクエスト',
+	logoPlanStandard: '⭐ スタンダード',
+	logoPlanFamily: '⭐⭐ ファミリー',
+
+	// ---- MonthlyRewardDialog ----
+	monthlyRewardAriaLabel: '月替わりプレゼント',
+	monthlyRewardArrived: '今月のプレゼントがとどいたよ！',
+	monthlyRewardOpenBtn: 'あける！',
+	monthlyRewardGotLabel: (name: string) => `「${name}」をゲット！`,
+	monthlyRewardConfirmBtn: 'やったね！ 🎉',
+
+	// ---- NumPad ----
+	numPadAriaLabel: 'すうじパッド',
+	numPadDeleteAriaLabel: 'けす',
+	numPadOkAriaLabel: 'けってい',
+
+	// ---- PageGuideOverlay ----
+	pageGuideTabWhat: 'なにができる？',
+	pageGuideTabHow: 'やりかた',
+	pageGuideTabGoal: 'つかうと？',
+	pageGuideTipsLabel: '💡 ポイント',
+	pageGuideCloseBtn: 'とじる',
+	pageGuideBackBtn: 'もどる',
+	pageGuideNextBtn: (isLast: boolean) => (isLast ? 'かんりょう！' : 'つぎへ'),
+
+	// ---- PageHelpButton ----
+	pageHelpButtonTitle: 'このページの使い方',
+	pageHelpButtonAriaLabel: 'このページの使い方ガイドを開く',
+
+	// ---- ParentMessageOverlay ----
+	parentMessageTitle: '💌 おうえんメッセージ！',
+	parentMessageFrom: 'パパ・ママからのメッセージだよ',
+	parentMessageBody: (body: string) => `「${body}」`,
+	parentMessageConfirmBtn: 'うれしい！',
+
+	// ---- PremiumBadge ----
+	premiumBadgeTitle: 'スタンダードプラン以上で利用可能',
+
+	// ---- RadarChart ----
+	radarChartAriaLabel: 'ステータスレーダーチャート',
+	radarChartNow: 'いま',
+	radarChartDefaultComparisonLabel: 'せんげつ',
+
+	// ---- SiblingCheerOverlay ----
+	siblingCheerTitle: '💌 おうえんがとどいたよ！',
+	siblingCheerFrom: (name: string) => `${name}から`,
+	siblingCheerConfirmBtn: 'ありがとう！',
+
+	// ---- SiblingRanking ----
+	siblingRankingMe: 'じぶん',
+	siblingRankingCount: (count: number) => `${count}かい`,
+	siblingRankingPeriod: '（こんしゅう）',
+
+	// ---- SiblingTrendChart ----
+	siblingTrendChartAriaLabel: 'きょうだい週次トレンドグラフ',
+	siblingTrendChartTitle: 'きょうだい週次トレンドグラフ',
+
+	// ---- SpecialRewardOverlay ----
+	specialRewardTitle: '🎁 とくべつごほうび！',
+	specialRewardPoints: (points: number) => `+${points} ポイント！`,
+	specialRewardConfirmBtn: 'やったー！',
+
+	// ---- StampCard ----
+	stampCardTitle: 'スタンプカード',
+	stampCardPeriod: (start: string, end: string) => `${start}〜${end}`,
+	stampCardRedeemed: (points: number) => `✅ ${points}pt もらったよ！`,
+	stampCardComplete: '🎊 コンプリート！',
+	stampCardCompleteSub: '週明けにボーナスポイントがもらえるよ！',
+	stampCardStampedToday: '✅ きょうはもうおしたよ！',
+	stampCardRemaining: (remaining: number) => `✨ あと${remaining}回でコンプリート！`,
+
+	// ---- StampPressOverlay ----
+	stampPressWeekLabel: (count: number) => `今週 ${count}回目！`,
+	stampPressStreakLabel: (days: number) => `${days}にちれんぞく！`,
+	stampPressComplete: 'コンプリート！',
+	stampPressCompleteSub: '週末にボーナスポイント！',
+	stampPressRemaining: (remaining: number) => `あと${remaining}回でコンプリート！`,
+	stampPressNextBtn: 'つぎへ',
+	stampPressConfirmBtn: 'やったね！',
+	stampPressWeeklyTitle: '先週のがんばり',
+	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} おしたよ！`,
+	stampPressWeeklyComplete: 'コンプリート！',
+	stampPressWeeklyBonus: (bonus: number) => `コンプリートボーナス +${bonus}pt`,
+	stampPressWeeklyMessage: '今週もがんばろう！',
+
+	// ---- TutorialBubble ----
+	tutorialBubbleEnd: (isYoung: boolean) => (isYoung ? 'おわり' : '終了'),
+	tutorialBubblePrev: (isYoung: boolean) => (isYoung ? 'もどる' : '戻る'),
+	tutorialBubbleNext: (isYoung: boolean, isLast: boolean) =>
+		isYoung ? (isLast ? 'おしまい！' : 'つぎへ') : isLast ? '完了！' : '次へ',
+} as const;

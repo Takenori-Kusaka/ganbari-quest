@@ -1,5 +1,6 @@
 <script lang="ts">
 import { getModeLabels, ICON_STATUS } from '$lib/domain/icons';
+import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
 interface Props {
 	uiMode: string;
@@ -11,16 +12,16 @@ const labels = $derived(getModeLabels(uiMode));
 
 <div class="empty-state" data-testid="activity-empty-state">
 	<span class="empty-icon">🗺️</span>
-	<p class="empty-title">ぼうけんの じゅんびちゅう...</p>
-	<p class="empty-desc">おうちの人が かつどうを よういしているよ！</p>
-	<p class="empty-wait">もうすこし まってね ⏳</p>
+	<p class="empty-title">{UI_COMPONENTS_LABELS.activityEmptyTitle}</p>
+	<p class="empty-desc">{UI_COMPONENTS_LABELS.activityEmptyDesc}</p>
+	<p class="empty-wait">{UI_COMPONENTS_LABELS.activityEmptyWait}</p>
 
 	<div class="empty-actions">
-		<p class="empty-actions-title">── できること ──</p>
+		<p class="empty-actions-title">{UI_COMPONENTS_LABELS.activityEmptyCanDo}</p>
 		<div class="empty-links">
 			<a href="/{uiMode}/status" class="empty-link">
 				<span>{ICON_STATUS}</span>
-				<span>{labels.status}をみる</span>
+				<span>{UI_COMPONENTS_LABELS.activityEmptyStatusLink(labels.status)}</span>
 			</a>
 		</div>
 	</div>
