@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import { invalidateAll } from '$app/navigation';
+import { goto, invalidateAll } from '$app/navigation';
+import { page } from '$app/state';
 import { navigating } from '$app/stores';
 import {
 	getModeLabels,
@@ -11,6 +12,7 @@ import {
 } from '$lib/domain/icons';
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import type { UiMode } from '$lib/domain/validation/age-tier';
+import { startAutoSleep } from '$lib/features/auto-sleep';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 import StampCard from '$lib/ui/components/StampCard.svelte';
@@ -35,6 +37,14 @@ const navItems = $derived([
 	{ href: '/switch', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
 
+// #1292 自動スリープ設定
+// 15 分連続アクティブで /switch にリダイレクト
+// 非アクティブ 1 分でタイマーリセット
+// バトル中は +2 分の grace period
+const AUTO_SLEEP_ACTIVE_MS = 15 * 60 * 1000;
+const AUTO_SLEEP_INACTIVE_RESET_MS = 60 * 1000;
+const AUTO_SLEEP_BATTLE_GRACE_MS = 2 * 60 * 1000;
+
 // サウンドシステム初期化 + オートリロード + チュートリアル設定
 // baby モードは親向け準備ツールのため効果音・チュートリアルを抑制 (#1300)
 onMount(() => {
@@ -56,9 +66,71 @@ onMount(() => {
 		invalidateAll();
 	}, 60_000);
 
+	// #1292 自動スリープ + 使用時間記録（baby モード除外）
+	let cleanupSleep: (() => void) | undefined;
+	if (!isBaby && data.child) {
+		const childId = data.child.id;
+		let usageSessionId: number | null = null;
+
+		// セッション開始を記録（fire-and-forget）
+		fetch('/api/v1/usage', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ childId }),
+		})
+			.then((res) => res.json())
+			.then((json: unknown) => {
+				if (
+					json &&
+					typeof json === 'object' &&
+					'id' in json &&
+					typeof (json as { id: unknown }).id === 'number'
+				) {
+					usageSessionId = (json as { id: number }).id;
+				}
+			})
+			.catch(() => {
+				// セッション記録失敗は無視（非クリティカル）
+			});
+
+		const stopTimer = startAutoSleep({
+			activeMs: AUTO_SLEEP_ACTIVE_MS,
+			inactiveResetMs: AUTO_SLEEP_INACTIVE_RESET_MS,
+			battleGraceMs: AUTO_SLEEP_BATTLE_GRACE_MS,
+			onSleep: () => {
+				// セッション終了を記録してからリダイレクト
+				if (usageSessionId !== null) {
+					const sid = usageSessionId;
+					fetch('/api/v1/usage', {
+						method: 'PATCH',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ id: sid }),
+					}).catch(() => {});
+				}
+				goto('/switch');
+			},
+			getPathname: () => page.url.pathname,
+		});
+
+		cleanupSleep = () => {
+			stopTimer();
+
+			// セッション終了を記録（コンポーネント破棄時）
+			if (usageSessionId !== null) {
+				const sid = usageSessionId;
+				fetch('/api/v1/usage', {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ id: sid }),
+				}).catch(() => {});
+			}
+		};
+	}
+
 	return () => {
 		clearInterval(autoReloadTimer);
 		if (!isBaby) resetChapters();
+		cleanupSleep?.();
 	};
 });
 

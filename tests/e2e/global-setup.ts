@@ -572,6 +572,19 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_daily_battles_child
 				ON daily_battles(child_id);
 
+			CREATE TABLE IF NOT EXISTS usage_logs (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				tenant_id TEXT NOT NULL,
+				child_id INTEGER NOT NULL REFERENCES children(id),
+				started_at TEXT NOT NULL,
+				ended_at TEXT,
+				duration_sec INTEGER
+			);
+			CREATE INDEX IF NOT EXISTS idx_usage_logs_child_date
+				ON usage_logs(child_id, started_at);
+			CREATE INDEX IF NOT EXISTS idx_usage_logs_tenant
+				ON usage_logs(tenant_id, started_at);
+
 			CREATE TABLE IF NOT EXISTS enemy_collection (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				child_id INTEGER NOT NULL REFERENCES children(id),
