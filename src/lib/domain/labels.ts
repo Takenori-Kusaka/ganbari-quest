@@ -3376,6 +3376,18 @@ export const USAGE_TIME_LABELS = {
 	todayUsageOf: (childName: string) => `${childName}の本日使用時間`,
 	minutesUsed: (min: number) => `${min}分使用`,
 	minutesOf15: (min: number) => `${min}分 / 15分`,
+	// Phase 2: 週次 bar chart (#1576)
+	weeklyUsage: '今週の使用時間',
+	weeklyUsageOf: (childName: string) => `${childName}の今週使用時間`,
+	noData: 'まだデータがありません',
+	minutesUnit: '分',
+	dayOfWeek: (date: string) => {
+		const days = ['日', '月', '火', '水', '木', '金', '土'] as const;
+		const d = new Date(date);
+		// date は YYYY-MM-DD (UTC) で渡されるため、JST に補正
+		const jstDay = new Date(d.getTime() + 9 * 60 * 60 * 1000).getDay();
+		return days[jstDay];
+	},
 } as const;
 
 // ============================================================

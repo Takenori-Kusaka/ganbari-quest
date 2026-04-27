@@ -12,7 +12,10 @@ import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
 import { getMemoryTicketStatus } from '$lib/server/services/seasonal-content-service';
 import { getChildStatus } from '$lib/server/services/status-service';
-import { getTodayUsageSummary } from '$lib/server/services/usage-log-service';
+import {
+	getTodayUsageSummary,
+	getWeeklyUsageSummary,
+} from '$lib/server/services/usage-log-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -146,6 +149,24 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		logger.warn('[admin] 使用時間取得フォールバック', { context: { error: String(e) } });
 	}
 
+	// #1576: 週次使用時間サマリー（子供ごとの日別使用時間）
+	let weeklyUsage: {
+		childId: number;
+		childName: string;
+		dailySummary: { date: string; durationMin: number }[];
+	}[] = [];
+	try {
+		const weeklyResults = await Promise.all(
+			children.map(async (child) => {
+				const dailySummary = await getWeeklyUsageSummary(tenantId, child.id);
+				return { childId: child.id, childName: child.nickname, dailySummary };
+			}),
+		);
+		weeklyUsage = weeklyResults;
+	} catch (e) {
+		logger.warn('[admin] 週次使用時間取得フォールバック', { context: { error: String(e) } });
+	}
+
 	return {
 		children: childrenWithStatus,
 		onboarding,
@@ -156,6 +177,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		planStats,
 		stripeEnabled: isStripeEnabled(),
 		todayUsage,
+		weeklyUsage,
 	};
 };
 

@@ -3,6 +3,7 @@ import { invalidateAll } from '$app/navigation';
 import { TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
+import WeeklyUsageChart from '$lib/features/usage/WeeklyUsageChart.svelte';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -88,6 +89,12 @@ interface Props {
 	stripeEnabled?: boolean;
 	/** #1292: 本日の子供ごとの使用時間サマリー */
 	todayUsage?: { childId: number; childName: string; durationMin: number }[];
+	/** #1576: 週次使用時間サマリー（子供ごとの日別使用時間） */
+	weeklyUsage?: {
+		childId: number;
+		childName: string;
+		dailySummary: { date: string; durationMin: number }[];
+	}[];
 }
 
 let {
@@ -106,6 +113,7 @@ let {
 	trialStatus = null,
 	stripeEnabled = false,
 	todayUsage = [],
+	weeklyUsage = [],
 }: Props = $props();
 
 // svelte-ignore state_referenced_locally
@@ -366,6 +374,16 @@ function childLink(child: ChildSummary): string {
 					</Card>
 				{/each}
 			</div>
+		</section>
+	{/if}
+
+	<!-- #1576: 今週の使用時間 bar chart -->
+	{#if !isDemo && weeklyUsage.length > 0}
+		<section data-testid="weekly-usage-section">
+			<h2 class="text-lg font-bold text-[var(--color-text)] mb-3">📈 {USAGE_TIME_LABELS.weeklyUsage}</h2>
+			<Card variant="elevated" class="p-4">
+				<WeeklyUsageChart data={weeklyUsage} />
+			</Card>
 		</section>
 	{/if}
 
