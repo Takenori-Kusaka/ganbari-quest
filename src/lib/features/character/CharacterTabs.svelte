@@ -1,6 +1,7 @@
 <script lang="ts">
 import { page } from '$app/stores';
 import { getModeLabels, ICON_ACHIEVEMENTS, ICON_HISTORY, ICON_STATUS } from '$lib/domain/icons';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 
 interface Props {
 	uiMode: string;
@@ -19,30 +20,32 @@ interface TabDef {
 	path: string;
 }
 
+const TAB_LABELS = FEATURES_LABELS.character;
+
 const tabsByMode: Record<string, TabDef[]> = {
 	baby: [
-		{ label: 'つよさ', icon: ICON_STATUS, path: 'status' },
-		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		{ label: TAB_LABELS.tabStatusYoung, icon: ICON_STATUS, path: 'status' },
+		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'achievements' },
 	],
 	preschool: [
-		{ label: 'つよさ', icon: ICON_STATUS, path: 'status' },
-		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
-		{ label: 'きろく', icon: ICON_HISTORY, path: 'history' },
+		{ label: TAB_LABELS.tabStatusYoung, icon: ICON_STATUS, path: 'status' },
+		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		{ label: TAB_LABELS.tabHistoryYoung, icon: ICON_HISTORY, path: 'history' },
 	],
 	elementary: [
-		{ label: 'つよさ', icon: ICON_STATUS, path: 'status' },
-		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
-		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
+		{ label: TAB_LABELS.tabStatusYoung, icon: ICON_STATUS, path: 'status' },
+		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		{ label: TAB_LABELS.tabHistoryOlder, icon: ICON_HISTORY, path: 'history' },
 	],
 	junior: [
-		{ label: 'ステータス', icon: '📊', path: 'status' },
-		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
-		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
+		{ label: TAB_LABELS.tabStatusOlder, icon: '📊', path: 'status' },
+		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		{ label: TAB_LABELS.tabHistoryOlder, icon: ICON_HISTORY, path: 'history' },
 	],
 	senior: [
-		{ label: 'ステータス', icon: '📊', path: 'status' },
-		{ label: 'チャレンジ', icon: ICON_ACHIEVEMENTS, path: 'achievements' },
-		{ label: '記録', icon: ICON_HISTORY, path: 'history' },
+		{ label: TAB_LABELS.tabStatusOlder, icon: '📊', path: 'status' },
+		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		{ label: TAB_LABELS.tabHistoryOlder, icon: ICON_HISTORY, path: 'history' },
 	],
 };
 

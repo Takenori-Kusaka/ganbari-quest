@@ -1,5 +1,5 @@
 <script lang="ts">
-import { ONBOARDING_LABELS } from '$lib/domain/labels';
+import { FEATURES_LABELS, ONBOARDING_LABELS } from '$lib/domain/labels';
 import type { OnboardingItem, OnboardingProgress } from '$lib/server/services/onboarding-service';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -25,10 +25,10 @@ const progressPct = $derived(
 		<span class="title">{ONBOARDING_LABELS.title}</span>
 	</div>
 
-	<div class="progress-bar-wrap" role="progressbar" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} aria-label="セットアップ進捗 {progressPct}%">
+	<div class="progress-bar-wrap" role="progressbar" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} aria-label={FEATURES_LABELS.onboardingChecklist.progressAriaLabel(progressPct)}>
 		<div class="progress-bar" style:width="{progressPct}%"></div>
 	</div>
-	<p class="progress-text">{onboarding.completedCount}/{onboarding.totalCount} 完了 ({progressPct}%)</p>
+	<p class="progress-text">{onboarding.completedCount}/{onboarding.totalCount} {ONBOARDING_LABELS.completedSuffix} ({progressPct}%)</p>
 
 	{#if onboarding.allCompleted}
 		<p class="all-done">{ONBOARDING_LABELS.allRequiredCompleted}</p>
@@ -68,7 +68,7 @@ const progressPct = $derived(
 	{#if onboarding.nextRecommendation}
 		<div class="next-rec">
 			<span>→</span>
-			<span>次のおすすめ:</span>
+			<span>{ONBOARDING_LABELS.nextRecLabel}</span>
 			<a href={onboarding.nextRecommendation.href} class="rec-link">
 				{onboarding.nextRecommendation.label}
 			</a>
@@ -77,7 +77,7 @@ const progressPct = $derived(
 
 	{#if onboarding.allCompleted}
 		<form method="POST" action="?/dismissOnboarding" class="dismiss">
-			<Button type="submit" variant="ghost" size="sm">非表示にする</Button>
+			<Button type="submit" variant="ghost" size="sm">{ONBOARDING_LABELS.dismissBtn}</Button>
 		</form>
 	{/if}
 </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
 import type { BattleResult, BattleStats, Enemy } from '$lib/domain/battle-types';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import BattleScene from './BattleScene.svelte';
 
 let {
@@ -24,7 +25,7 @@ let {
 </script>
 
 <div class="battle-page" data-testid="battle-page">
-	<h2 class="page-title">⚔️ きょうの バトル</h2>
+	<h2 class="page-title">{FEATURES_LABELS.battle.pageTitle}</h2>
 
 	{#if data.battle}
 		<BattleScene
@@ -36,14 +37,14 @@ let {
 		/>
 	{:else}
 		<div class="no-battle">
-			<p>バトルじょうほうを よみこめませんでした</p>
+			<p>{FEATURES_LABELS.battle.loadError}</p>
 		</div>
 	{/if}
 
 	{#if loading}
 		<div class="loading-overlay">
 			<span class="loading-spinner">⚔️</span>
-			<p>バトルちゅう...</p>
+			<p>{FEATURES_LABELS.battle.loadingText}</p>
 		</div>
 	{/if}
 </div>

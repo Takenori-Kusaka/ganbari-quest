@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import { getActivityDisplayNameForAdult, getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import type { ActivityItem } from './activity-types';
@@ -21,8 +22,8 @@ let showHidden = $state(false);
 			class="w-full flex items-center justify-between px-4 py-3 bg-[var(--color-neutral-100)] rounded-lg text-sm font-bold text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)] transition-colors"
 			onclick={() => showHidden = !showHidden}
 		>
-			<span>非表示の活動 ({activities.length}件)</span>
-			<span class="text-xs">{showHidden ? '▲ 閉じる' : '▼ 開く'}</span>
+			<span>{FEATURES_LABELS.hiddenActivities.toggleLabel(activities.length)}</span>
+			<span class="text-xs">{showHidden ? FEATURES_LABELS.hiddenActivities.closeIcon : FEATURES_LABELS.hiddenActivities.openIcon}</span>
 		</button>
 		{#if showHidden}
 			<div class="mt-2 space-y-1">
@@ -38,7 +39,7 @@ let showHidden = $state(false);
 								<p class="text-xs text-[var(--color-text-disabled)]">
 									{getCategoryById(activity.categoryId)?.name ?? ''} / {activity.basePoints}P
 									{#if logCount > 0}
-										/ 記録 {logCount}件
+										{FEATURES_LABELS.hiddenActivities.recordCount(logCount)}
 									{/if}
 								</p>
 							</div>
@@ -50,7 +51,7 @@ let showHidden = $state(false);
 										type="submit"
 										class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-brand-100)] text-[var(--color-action-primary)] hover:opacity-80 transition-colors"
 									>
-										復活
+										{FEATURES_LABELS.hiddenActivities.restoreBtn}
 									</button>
 								</form>
 								{#if logCount === 0}
@@ -66,7 +67,7 @@ let showHidden = $state(false);
 											type="submit"
 											class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-error-bg,#fef2f2)] text-[var(--color-action-danger)] hover:opacity-80 transition-colors"
 										>
-											完全削除
+											{FEATURES_LABELS.hiddenActivities.permaDeleteBtn}
 										</button>
 									</form>
 								{/if}

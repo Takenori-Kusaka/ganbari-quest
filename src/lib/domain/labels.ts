@@ -3209,6 +3209,9 @@ export const ONBOARDING_LABELS = {
 	optionalCountSuffix: (n: number) => `任意・${n} 項目`,
 	optionalSectionHeader: (n: number) => `さらに便利にする設定（任意・${n} 項目）`,
 	allRequiredCompleted: '✅ はじめてのセットアップ完了!',
+	completedSuffix: '完了',
+	nextRecLabel: '次のおすすめ:',
+	dismissBtn: '非表示にする',
 } as const;
 
 // ============================================================
@@ -3573,4 +3576,379 @@ export const UI_COMPONENTS_LABELS = {
 	tutorialBubblePrev: (isYoung: boolean) => (isYoung ? 'もどる' : '戻る'),
 	tutorialBubbleNext: (isYoung: boolean, isLast: boolean) =>
 		isYoung ? (isLast ? 'おしまい！' : 'つぎへ') : isLast ? '完了！' : '次へ',
+} as const;
+
+// ============================================================
+// features ラベル (#1465 Phase B Priority 3)
+// src/lib/features/ 配下のハードコード文字列を集約。
+// 機能カテゴリ別にネスト構造で管理する。
+// ============================================================
+
+export const FEATURES_LABELS = {
+	// ---- features/battle/ ----
+	battle: {
+		// BattlePage
+		pageTitle: '⚔️ きょうの バトル',
+		loadError: 'バトルじょうほうを よみこめませんでした',
+		loadingText: 'バトルちゅう...',
+		// BattleScene
+		playerName: 'きみ',
+		playerSpriteAlt: 'きみ',
+		statsTitle: 'きみのステータス',
+		startBtn: '⚔️ バトル かいし！',
+		alreadyDone: 'きょうの バトルは おわったよ！',
+		resultWin: '🎉 かった！',
+		resultLose: '😢 まけちゃった…',
+		rewardWin: (points: number) => `+${points}ポイント`,
+		rewardLose: (points: number) => `+${points}ポイント（なぐさめ）`,
+		encourageLose: 'つぎは かてるよ！ がんばろう！',
+		// BattleLog
+		logEnemy: 'てき',
+		logPlayer: 'きみ',
+		logDefeated: (who: string) => `${who}は たおれた…`,
+		logCriticalPrefix: 'かいしんの いちげき！ ',
+		logAttack: (who: string, damage: number, critical: boolean) =>
+			`${critical ? 'かいしんの いちげき！ ' : ''}${who}の こうげき！ ${damage} ダメージ`,
+		logTurnLabel: (turn: number) => `ターン${turn}`,
+	},
+
+	// ---- features/birthday/ ----
+	birthday: {
+		// BirthdayBanner
+		bannerTitle: 'おたんじょうびボーナスがとどいているよ！',
+		bannerSub: (name: string, age: number) => `${name}${age}さいおめでとう！ タップしてうけとろう`,
+		bannerPoints: (totalPoints: number) => `⭐${totalPoints}pt`,
+		// BirthdayModal
+		modalMainPreClaimed: 'おたんじょうび おめでとう！',
+		modalAgeText: (name: string, age: number) => `${name}${age}さい になったね！`,
+		modalRewardLabel: '🎁 おたんじょうびボーナス',
+		modalRewardPoints: (points: number) => `⭐ ${points} ポイント！`,
+		modalClaiming: 'もらっています...',
+		modalClaimBtn: '🎉 うけとる！',
+		modalConfirmYounger: 'やったー！',
+		modalConfirmOlder: 'ありがとう！',
+		modalSubBaby: 'これからも いっぱい がんばろうね！',
+		modalSubElementary: 'これからもたくさんチャレンジしよう！',
+		modalSubOlder: 'これからもチャレンジを続けよう！',
+		modalMainBaby: (name: string, age: number) => `${name}${age}さい\nおめでとう！`,
+		modalMainOlder: (name: string, age: number) => `${name}${age}歳\nおめでとう！`,
+	},
+
+	// ---- features/certificate/ ----
+	certificate: {
+		// CertificateTemplate
+		title: 'がんばり証明書',
+		quote: (title: string) => `「${title}」`,
+		issuer: 'がんばりクエスト',
+		watermarkText: 'SAMPLE',
+		// ShareCard
+		branding: 'がんばりクエスト',
+	},
+
+	// ---- features/character/ ----
+	character: {
+		// CharacterTabs — 短縮タブラベル
+		tabStatusYoung: 'つよさ',
+		tabStatusOlder: 'ステータス',
+		tabChallenge: 'チャレンジ',
+		tabHistoryYoung: 'きろく',
+		tabHistoryOlder: '記録',
+	},
+
+	// ---- features/challenge/ ----
+	challenge: {
+		// SiblingCelebration
+		celebrationTitle: 'みんなクリア！',
+		celebrationClaimBtn: '🎁 ほうしゅうをうけとる！',
+		celebrationCloseBtn: 'とじる',
+	},
+
+	// ---- features/child/ ----
+	child: {
+		// TutorialHintBanner
+		hintTitle: 'つかいかた ガイド あるよ！',
+		hintSub: 'いつでも ❓ ボタンで みれるよ',
+		hintCloseAriaLabel: '閉じる',
+	},
+
+	// ---- features/demo/ ----
+	demo: {
+		// DemoGuideBar
+		guideBackAriaLabel: 'もどる',
+		guideSeePricing: 'プランを見る',
+		guideStartBtn: 'はじめる',
+		guideActionHint: 'やってみよう',
+		guideNextBtn: 'つぎへ',
+		guideDismissAriaLabel: 'ガイドを閉じる',
+	},
+
+	// ---- features/loyalty/ ----
+	loyalty: {
+		// ChurnPreventionModal
+		churnTitle: '解約する前に...',
+		churnContinuingMonths: (months: number) => `あなたは ${months}ヶ月 継続中です`,
+		churnLostHeading: '解約すると失われるもの:',
+		churnInsightCount: (name: string, count: number) =>
+			`💡 ${name}は 今月 ${count}回 がんばりました`,
+		churnNote: '※ 解約しても基本データは残ります。再開すれば継続月数も引き継がれます。',
+		churnKeepBtn: 'やっぱり続ける',
+		churnCancelBtn: '解約手続きへ',
+		// LoyaltyBadge
+		badgeTitle: 'サポーターバッジ',
+		badgeSub: (months: number) => `サポーター継続: ${months}ヶ月目`,
+		badgeMonths: (months: number) => `${months}ヶ月`,
+		badgeNextLabel: (remaining: number) => `次のバッジまで: あと${remaining}ヶ月`,
+		badgeAllReached: '🏆 全ティア到達！',
+		badgeMemoryTickets: (count: number) => `思い出チケット: ${count}枚`,
+		badgeLoginBonus: (multiplier: number) => `ログインボーナス ×${multiplier}`,
+	},
+
+	// ---- features/admin/components/ AI suggest 共通 ----
+	aiSuggestCommon: {
+		familyOnlyBadge: 'ファミリー限定',
+		familyOnlyError: (kind: string) => `${kind}はファミリープランでご利用いただけます`,
+		familyOnlyDescription: (kind: string) => `${kind}はファミリープランで解放されます。`,
+		familyUpgradeBtn: 'ファミリープランにアップグレード',
+		thinkingLabel: '考え中...',
+		suggestBtn: '提案する',
+		retryBtn: 'やり直す',
+		fallbackNote: 'AIが利用できなかったため、入力内容から推定しました',
+		errorEstimate: '推定に失敗しました',
+		errorNetwork: 'ネットワークエラーが発生しました',
+		progressBaseAi: 'AIに聞いています...',
+		progressBaseWait: 'もうちょっと待ってね...',
+		progressBaseFinal: 'あとすこし...',
+		progressChecklistThinking: 'もちものを考え中...',
+	},
+
+	// ---- features/admin/components/AiSuggestPanel ----
+	aiSuggestActivity: {
+		title: '✨ やりたいことを教えてください',
+		kind: 'AI 活動提案',
+		description: 'やりたい活動を自由に入力すると、カテゴリ・ポイント・アイコンを自動で提案します',
+		placeholder: '例: ピアノの練習をした、公園で走った、折り紙を作った',
+		acceptBtn: 'この内容で追加フォームを開く',
+		previewKana: (kana: string) => `ひらがな: ${kana}`,
+		previewKanji: (kanji: string) => `漢字: ${kanji}`,
+	},
+
+	// ---- features/admin/components/AiSuggestChecklistPanel ----
+	aiSuggestChecklist: {
+		title: '✨ どんなもちものが必要？',
+		kind: 'AI チェックリスト提案',
+		description: 'シーンや学年を入力すると、持ち物リストを自動で提案します',
+		placeholder: '例: 小学3年生の月曜日の持ち物、えんそく、プール',
+		acceptBtn: 'この内容でテンプレートを作成',
+		itemCount: (count: number) => `(${count}個)`,
+		freqDaily: 'まいにち',
+		dirBring: '持参',
+		dirReturn: '持帰',
+		dirBoth: '往復',
+	},
+
+	// ---- features/admin/components/AiSuggestRewardPanel ----
+	aiSuggestReward: {
+		title: '✨ どんなごほうびがいい？',
+		kind: 'AI ごほうび提案',
+		description: 'ごほうびの内容を自由に入力すると、カテゴリ・ポイント・アイコンを自動で提案します',
+		placeholder: '例: おもちゃ、外食、ゲーム時間+30分、おこづかい500円',
+		acceptBtn: 'この内容で入力する',
+	},
+
+	// ---- features/admin/components/FeedbackDialog ----
+	feedbackDialog: {
+		title: 'ご意見・不具合報告',
+		successText: '送信しました。ご意見ありがとうございます！',
+		closeBtn: '閉じる',
+		demoNote: 'デモ版のため、実際には送信されません',
+		categoryLabel: '種別',
+		categoryOpinion: 'ご意見',
+		categoryBug: '不具合報告',
+		categoryFeature: '機能要望',
+		categoryOther: 'その他',
+		categoryPlaceholder: '選択してください',
+		contentLabel: '内容',
+		contentPlaceholder: 'お気づきの点やご要望をお聞かせください',
+		screenshotLabel: 'スクリーンショット（任意）',
+		screenshotImageAlt: '添付スクリーンショット',
+		screenshotRemoveBtn: '削除',
+		screenshotPickerLabel: '画像を選択（最大 2MB）',
+		cancelBtn: 'キャンセル',
+		submitBtn: '送信する',
+		submittingText: '送信中...',
+		errorScreenshotSize: 'スクリーンショットは2MB以内にしてください',
+		errorScreenshotType: '画像ファイルを選択してください',
+		errorReadFile: 'ファイルの読み込みに失敗しました',
+		errorSend: '送信に失敗しました',
+		errorNetwork: 'ネットワークエラーが発生しました',
+	},
+
+	// ---- features/admin/components/PremiumWelcome ----
+	premiumWelcome: {
+		dialogAriaLabel: (planLabel: string) => `${planLabel}へようこそ`,
+		titleLine1: (planIcon: string, planLabel: string) =>
+			`がんばりクエスト ${planIcon} ${planLabel} へ`,
+		titleLine2: 'ようこそ！',
+		dividerLabel: '解放された機能',
+		message: 'お子さまの「がんばり」を\nもっと楽しく応援しましょう！',
+		ctaBtn: 'さっそく始める →',
+	},
+
+	// ---- features/admin/components/AdminLayout ----
+	adminLayout: {
+		demoBadge: 'デモ',
+		upgradeBtn: 'アップグレード',
+		pageGuideTitle: 'このページの使い方',
+		tutorialRestartTitle: 'チュートリアルを開始',
+		demoTopLink: 'デモトップ',
+		switchToChild: '子供画面へ',
+		desktopNavAriaLabel: '管理メニュー',
+		mobileNavAriaLabel: 'メインナビゲーション',
+		mobileMenuCloseAriaLabel: 'メニューを閉じる',
+	},
+
+	// ---- features/admin/components/AddActivityModeSelector ----
+	addActivityModeSelector: {
+		aiLabel: 'AIで追加',
+		aiDesc: 'AIが活動を提案します',
+		manualLabel: '手動で追加',
+		manualDesc: '名前やポイントを設定',
+		importLabel: 'パックから追加',
+		importDesc: 'おすすめセットを一括追加',
+	},
+
+	// ---- features/admin/components/HiddenActivitiesSection ----
+	hiddenActivities: {
+		toggleLabel: (count: number) => `非表示の活動 (${count}件)`,
+		closeIcon: '▲ 閉じる',
+		openIcon: '▼ 開く',
+		recordCount: (count: number) => `/ 記録 ${count}件`,
+		restoreBtn: '復活',
+		permaDeleteBtn: '完全削除',
+	},
+
+	// ---- features/admin/components/TrialEndedDialog ----
+	trialEndedDialog: {
+		title: '無料体験が終了しました',
+		message: '無料体験期間が終了しました。\nフリープランの範囲内で引き続きご利用いただけます。',
+		messageLine1: '無料体験期間が終了しました。',
+		messageLine2: 'フリープランの範囲内で引き続きご利用いただけます。',
+		note1: 'オリジナル活動やチェックリストの超過分は一時的に非表示になります',
+		note2: 'データは削除されません — アップグレードで復活します',
+		ctaBtn: '⭐ プランを見る',
+		dismissBtn: 'あとで',
+	},
+
+	// ---- features/admin/components/ActivitiesHeader ----
+	activitiesHeader: {
+		title: '📋 活動管理',
+		exportAriaLabel: 'エクスポート',
+		introduceAriaLabel: '活動の紹介',
+		clearAllAriaLabel: '全クリア',
+	},
+
+	// ---- features/admin/components/NotificationPermissionBanner ----
+	notificationBanner: {
+		title: '通知でもっと便利に',
+		desc: '毎日のリマインダーで お子さまの がんばりを サポートしましょう',
+		ctaBtn: '通知を受け取る',
+		dismissBtn: 'あとで',
+	},
+
+	// ---- features/admin/components/OnboardingChecklist ----
+	onboardingChecklist: {
+		progressAriaLabel: (pct: number) => `セットアップ進捗 ${pct}%`,
+		nextRecLabel: '次のおすすめ:',
+		dismissBtn: '非表示にする',
+	},
+
+	// ---- features/admin/components/PlanStatusCard ----
+	planStatusCard: {
+		freePlan: '無料プラン',
+		standardPlan: 'スタンダード プラン',
+		familyPlan: 'ファミリー プラン',
+		unlimited: '無制限',
+		retentionDays: (days: number) => `${days}日間`,
+		trialBadge: (days: number) => `トライアル中（残り${days}日）`,
+		statCustomActivity: 'カスタム活動',
+		statChildren: 'こども',
+		statRetention: 'データ保持',
+		trialNote: (tierLabel: string) =>
+			`${tierLabel}の全機能を体験中です。トライアル終了後もこのまま使うには本契約が必要です。`,
+		processingText: '処理中...',
+		makeContractBtn: '本契約する',
+		upgradeBtn: '⭐ スタンダードにアップグレード',
+		planDetailLink: 'プランの詳細',
+		familyUpgradeBtn: '⭐⭐ ファミリーへ',
+	},
+
+	// ---- features/admin/components/ActivityImportPanel ----
+	activityImportPanel: {
+		heading: '📥 活動パックからインポート',
+		seeAllPacks: 'すべてのパック →',
+		desc: 'おすすめの活動セットを一括追加できます（重複はスキップ）',
+		emptyText: '利用可能なパックがありません',
+		processingText: '処理中...',
+		addBtn: '追加',
+		fileImportHeading: '📁 ファイルからインポート',
+		fileImportDesc: 'JSON または CSV ファイルから活動を一括追加（重複はスキップ）',
+		fileImportBtn: 'インポート',
+		packResult: (packName: string, imported: number, skipped: number) =>
+			`📦 「${packName}」: ${imported}件追加、${skipped}件スキップ`,
+		fileResult: (packName: string, imported: number, skipped: number) =>
+			`📁 「${packName}」: ${imported}件追加、${skipped}件スキップ`,
+		packMeta: (count: number, ageMin: number, ageMax: number) =>
+			`${count}件 ・ ${ageMin}〜${ageMax}歳`,
+	},
+
+	// ---- features/admin/components/ActivityLimitBanner ----
+	activityLimitBanner: {
+		title: (current: number, max: number | null) =>
+			`登録上限に達しています（${current}/${max ?? '無制限'}）`,
+		linkLabel: 'プランをアップグレード →',
+	},
+
+	// ---- features/admin/components/ActivityClearAllConfirm ----
+	activityClearAllConfirm: {
+		text: '本当に全削除しますか？',
+		processingText: '処理中...',
+		executeBtn: '実行',
+		cancelBtn: 'やめる',
+		resultMessage: (deleted: number, hidden: number) =>
+			`🗑 ${deleted}件削除、${hidden}件非表示にしました`,
+	},
+
+	// ---- features/admin/components/ActivityListItem ----
+	activityListItem: {
+		mainQuestBadge: '⚔️ メインクエスト ×2',
+		closeBtn: '閉じる',
+		editBtn: '編集',
+		visibleBtn: '表示',
+		hiddenBtn: '非表示',
+		mainQuestEnable: '⚔️設定',
+		mainQuestDisable: '⚔️解除',
+		dailyLimitDefault: '1回/日',
+		dailyLimitUnlimited: '無制限',
+		dailyLimitN: (n: number) => `${n}回/日`,
+		ageRange: (min: number, max: number) => `${min}-${max}歳`,
+	},
+
+	// ---- features/admin/components/AddActivityFab ----
+	addActivityFab: {
+		addAriaLabel: '活動を追加',
+		limitAriaLabel: '追加上限',
+	},
+
+	// ---- features/admin/components/ActivityEmptyState ----
+	activityEmptyState: {
+		filteredText: 'この条件に一致する活動はありません',
+		noActivities: '活動がまだ登録されていません',
+		addBtn: '+ 活動を追加する',
+	},
+
+	// ---- features/admin/components/ChildListCard ----
+	childListCard: {
+		meta: (age: number, tierLabel: string, themeLabel: string) =>
+			`${age}歳 / ${tierLabel} / ${themeLabel}`,
+	},
 } as const;

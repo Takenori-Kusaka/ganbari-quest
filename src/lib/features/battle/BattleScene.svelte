@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { BattleResult, BattleStats, Enemy } from '$lib/domain/battle-types';
 import { STAT_LABELS } from '$lib/domain/battle-types';
+import { FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import BattleHPBar from './BattleHPBar.svelte';
 import BattleLog from './BattleLog.svelte';
@@ -172,12 +173,12 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 			<BattleHPBar
 				current={playerHp}
 				max={playerStats.hp}
-				label="きみ"
+				label={FEATURES_LABELS.battle.playerName}
 				variant="player"
 			/>
 			<div class="sprite-wrap">
 				<div class="sprite" class:shake={playerShake} class:defeated={playerHp <= 0}>
-					<img class="sprite-img" src="/assets/battle/characters/hero-default.png" alt="きみ" />
+					<img class="sprite-img" src="/assets/battle/characters/hero-default.png" alt={FEATURES_LABELS.battle.playerSpriteAlt} />
 				</div>
 				{#if playerDamageFloat}
 					<span
@@ -189,14 +190,14 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 					</span>
 				{/if}
 			</div>
-			<div class="combatant-name">きみ</div>
+			<div class="combatant-name">{FEATURES_LABELS.battle.playerName}</div>
 		</div>
 	</div>
 
 	<!-- ステータス表示 -->
 	{#if !battleResult && !completed}
 		<div class="stats-panel" data-testid="stats-panel">
-			<h3 class="stats-title">きみのステータス</h3>
+			<h3 class="stats-title">{FEATURES_LABELS.battle.statsTitle}</h3>
 			<div class="stats-grid">
 				{#each statEntries as [stat, value]}
 					<div class="stat-item">
@@ -217,12 +218,12 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	{#if showResult && battleResult}
 		<div class="result-banner" class:win={battleResult.outcome === 'win'} class:lose={battleResult.outcome === 'lose'} data-testid="battle-result">
 			{#if battleResult.outcome === 'win'}
-				<div class="result-text" data-testid="result-text">🎉 かった！</div>
-				<div class="reward-text" data-testid="reward-text">+{battleResult.rewardPoints}ポイント</div>
+				<div class="result-text" data-testid="result-text">{FEATURES_LABELS.battle.resultWin}</div>
+				<div class="reward-text" data-testid="reward-text">{FEATURES_LABELS.battle.rewardWin(battleResult.rewardPoints)}</div>
 			{:else}
-				<div class="result-text" data-testid="result-text">😢 まけちゃった…</div>
-				<div class="reward-text" data-testid="reward-text">+{battleResult.rewardPoints}ポイント（なぐさめ）</div>
-				<div class="encourage-text">つぎは かてるよ！ がんばろう！</div>
+				<div class="result-text" data-testid="result-text">{FEATURES_LABELS.battle.resultLose}</div>
+				<div class="reward-text" data-testid="reward-text">{FEATURES_LABELS.battle.rewardLose(battleResult.rewardPoints)}</div>
+				<div class="encourage-text">{FEATURES_LABELS.battle.encourageLose}</div>
 			{/if}
 		</div>
 	{/if}
@@ -230,10 +231,10 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	<!-- アクションボタン -->
 	{#if !battleResult && !completed}
 		<Button type="submit" size="lg" disabled={animating} class="w-full" data-testid="battle-start-button">
-			⚔️ バトル かいし！
+			{FEATURES_LABELS.battle.startBtn}
 		</Button>
 	{:else if completed && !battleResult}
-		<div class="already-done" data-testid="battle-already-done">きょうの バトルは おわったよ！</div>
+		<div class="already-done" data-testid="battle-already-done">{FEATURES_LABELS.battle.alreadyDone}</div>
 	{/if}
 </div>
 
