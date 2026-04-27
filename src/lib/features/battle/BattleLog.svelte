@@ -41,14 +41,14 @@ function actionText(action: BattleTurnLog['playerAction'], isPlayer: boolean): s
 		max-height: 160px;
 		overflow-y: auto;
 		padding: 0.5rem;
-		background: var(--color-surface-sunken);
+		background: var(--color-surface-muted);
 		border-radius: 8px;
 		font-size: 0.8rem;
 	}
 	.turn-entry {
 		margin-bottom: 0.5rem;
 		padding-bottom: 0.5rem;
-		border-bottom: 1px solid var(--color-border-subtle);
+		border-bottom: 1px solid var(--color-border-light);
 	}
 	.turn-entry:last-child {
 		border-bottom: none;
@@ -70,7 +70,7 @@ function actionText(action: BattleTurnLog['playerAction'], isPlayer: boolean): s
 		color: var(--color-action-primary);
 	}
 	.log-line.enemy {
-		color: var(--color-status-error);
+		color: var(--color-action-danger);
 	}
 	@keyframes fadeIn {
 		from { opacity: 0; transform: translateY(-4px); }
