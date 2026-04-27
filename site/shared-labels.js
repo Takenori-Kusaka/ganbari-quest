@@ -111,10 +111,7 @@
 			"selfhost": "仕組みを公開（開発者向け）",
 			"signup": "無料で始める",
 			"login": "ログイン",
-			"features": "できること",
-			"howto": "使い方",
-			"values": "想い",
-			"mediakit": "メディアキット"
+			"features": "できること"
 		},
 		"footer": {
 			"brandName": "がんばりクエスト",
