@@ -28,6 +28,7 @@
  */
 
 import { execSync, spawn } from 'node:child_process';
+import fs from 'node:fs';
 import { createConnection } from 'node:net';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -275,15 +276,114 @@ function getCurrentBranch() {
 	}
 }
 
+// ============================================================
+// screenshots orphan branch 管理
+// ============================================================
+
+/**
+ * origin に screenshots ブランチが存在しない場合は orphan ブランチを作成して push する。
+ */
+function ensureScreenshotsBranch() {
+	try {
+		const result = execSync('git ls-remote origin screenshots', { encoding: 'utf8' }).trim();
+		if (!result) {
+			// 存在しない場合は一時ディレクトリで orphan ブランチを作成して push
+			const tmpDir = path.join(process.cwd(), 'tmp', 'screenshots-orphan-init');
+			try {
+				execSync(`git init "${tmpDir}"`, { stdio: 'pipe' });
+				execSync('git checkout --orphan screenshots', { cwd: tmpDir, stdio: 'pipe' });
+				execSync('git commit --allow-empty -m "init: screenshots orphan branch"', {
+					cwd: tmpDir,
+					stdio: 'pipe',
+				});
+				execSync('git remote add origin https://github.com/Takenori-Kusaka/ganbari-quest.git', {
+					cwd: tmpDir,
+					stdio: 'pipe',
+				});
+				execSync('git push origin screenshots', { cwd: tmpDir, stdio: 'pipe' });
+				console.log('[screenshots] orphan branch を origin に作成しました');
+			} finally {
+				try {
+					fs.rmSync(tmpDir, { recursive: true, force: true });
+				} catch {
+					/* ignore */
+				}
+			}
+		} else {
+			console.log('[screenshots] origin に screenshots ブランチが存在します');
+		}
+	} catch (e) {
+		console.warn('[screenshots] branch 確認/作成に失敗:', e.message);
+	}
+}
+
+/**
+ * 撮影した画像を screenshots ブランチの pr-<N>/ ディレクトリに push する。
+ * @param {string} prNum - PR 番号
+ * @param {string[]} filePaths - 撮影されたファイルの絶対パス
+ * @returns {boolean} push が成功した場合 true
+ */
+function pushToScreenshotsBranch(prNum, filePaths) {
+	if (filePaths.length === 0) return false;
+
+	const worktreePath = path.join(process.cwd(), 'tmp', 'screenshots-push-worktree');
+
+	try {
+		// 既存の worktree を削除（残っている場合）
+		try {
+			execSync(`git worktree remove "${worktreePath}" --force`, { stdio: 'pipe' });
+		} catch {
+			/* ignore */
+		}
+
+		// screenshots ブランチを worktree としてチェックアウト
+		execSync(`git worktree add "${worktreePath}" screenshots`, { stdio: 'pipe' });
+
+		// pr-<N>/ ディレクトリを作成してファイルをコピー
+		const destDir = path.join(worktreePath, `pr-${prNum}`);
+		fs.mkdirSync(destDir, { recursive: true });
+		for (const fp of filePaths) {
+			const dest = path.join(destDir, path.basename(fp));
+			fs.copyFileSync(fp, dest);
+		}
+
+		// コミットして push
+		execSync('git add .', { cwd: worktreePath, stdio: 'pipe' });
+		const dateStr = new Date().toISOString().slice(0, 10);
+		execSync(`git commit -m "screenshots: PR #${prNum} (${dateStr})"`, {
+			cwd: worktreePath,
+			stdio: 'pipe',
+		});
+		execSync('git push origin screenshots', { cwd: worktreePath, stdio: 'pipe' });
+
+		console.log(`[screenshots] PR #${prNum} の画像を screenshots ブランチに push しました`);
+		return true;
+	} catch (e) {
+		console.warn('[screenshots] push に失敗:', e.message);
+		return false;
+	} finally {
+		try {
+			execSync(`git worktree remove "${worktreePath}" --force`, { stdio: 'pipe' });
+		} catch {
+			/* ignore */
+		}
+	}
+}
+
 /**
  * @param {string} prNumber
  * @param {string[]} filePaths - 撮影されたファイルの絶対パス
+ * @param {boolean} pushedToScreenshots - screenshots ブランチへの push が成功したか
  */
-function printPrMarkdown(prNumber, filePaths) {
+function printPrMarkdown(prNumber, filePaths, pushedToScreenshots) {
 	if (filePaths.length === 0) return;
 
+	const screenshotsBase = `https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/screenshots/pr-${prNumber}`;
 	const branch = getCurrentBranch();
-	const repoBase = `https://github.com/Takenori-Kusaka/ganbari-quest/raw/${branch}`;
+	const fallbackBase = `https://github.com/Takenori-Kusaka/ganbari-quest/raw/${branch}`;
+
+	// push が成功した場合は raw.githubusercontent.com URL を使用、失敗時はフォールバック
+	const repoBase = pushedToScreenshots ? screenshotsBase : fallbackBase;
 
 	const sep = '='.repeat(60);
 	console.log(`\n${sep}`);
@@ -294,15 +394,18 @@ function printPrMarkdown(prNumber, filePaths) {
 	// ファイルをプリセット別にグループ化して表示
 	const grouped = new Map();
 	for (const fp of filePaths) {
-		const rel = path.relative(process.cwd(), fp).replace(/\\/g, '/');
 		const name = path.basename(fp, path.extname(fp));
+		// push 成功時はファイル名のみ、失敗時は相対パス
+		const urlPath = pushedToScreenshots
+			? path.basename(fp)
+			: path.relative(process.cwd(), fp).replace(/\\/g, '/');
 		// preset サフィックス（-mobile / -desktop / -tablet）を検出
 		const presetMatch = name.match(/-(mobile|desktop|tablet)$/);
 		const label = presetMatch
 			? presetMatch[1].charAt(0).toUpperCase() + presetMatch[1].slice(1)
 			: name;
 		const key = presetMatch ? presetMatch[1] : name;
-		grouped.set(key, { label, rel, name });
+		grouped.set(key, { label, urlPath, name });
 	}
 
 	// desktop → mobile の順で表示
@@ -312,9 +415,9 @@ function printPrMarkdown(prNumber, filePaths) {
 		...[...grouped.entries()].filter(([k]) => !order.includes(k)).map(([, v]) => v),
 	];
 
-	for (const { label, rel, name } of sorted) {
+	for (const { label, urlPath, name } of sorted) {
 		console.log(`### ${label}`);
-		console.log(`![${name}](${repoBase}/${rel})\n`);
+		console.log(`![${name}](${repoBase}/${urlPath})\n`);
 	}
 
 	console.log(`${sep}\n`);
@@ -531,9 +634,11 @@ try {
 		capturedFiles = await runUrlMode();
 	}
 
-	// --pr 指定時: PR body 用 Markdown スニペットを出力
+	// --pr 指定時: screenshots ブランチに push してから PR body 用 Markdown スニペットを出力
 	if (prNumber !== null && capturedFiles.length > 0) {
-		printPrMarkdown(prNumber, capturedFiles);
+		ensureScreenshotsBranch();
+		const pushed = pushToScreenshotsBranch(prNumber, capturedFiles);
+		printPrMarkdown(prNumber, capturedFiles, pushed);
 	}
 } finally {
 	// 自動起動したサーバーを確実に停止
