@@ -39,6 +39,7 @@ let loading = $state(false);
 let resending = $state(false);
 let agreedTerms = $state(false);
 let agreedPrivacy = $state(false);
+let agreedCrossBorder = $state(false);
 let showLicenseKey = $state(false);
 
 // #799 ライセンスキー使用時の追加ガード
@@ -52,6 +53,7 @@ let submitAttempted = $state(false);
 
 // #588: 送信可能かの判定
 // #799: showLicenseKey 時は「一回限り使用に同意」も必須
+// #1638: 個人情報保護法 §28 — 米国（AWS バージニア北部リージョン）への域外移転同意も必須
 const canSubmit = $derived(
 	!loading &&
 		!!email &&
@@ -60,6 +62,7 @@ const canSubmit = $derived(
 		password === passwordConfirm &&
 		agreedTerms &&
 		agreedPrivacy &&
+		agreedCrossBorder &&
 		(!showLicenseKey || (!!licenseKey && licenseKeyValid && agreedLicenseOnce)),
 );
 
@@ -71,6 +74,7 @@ const submitBlockReason = $derived(() => {
 	if (password !== passwordConfirm) return SIGNUP_LABELS.blockPasswordMismatch;
 	if (!agreedTerms) return SIGNUP_LABELS.blockTermsRequired;
 	if (!agreedPrivacy) return SIGNUP_LABELS.blockPrivacyRequired;
+	if (!agreedCrossBorder) return SIGNUP_LABELS.blockCrossBorderRequired;
 	if (showLicenseKey && (!licenseKey || !licenseKeyValid))
 		return SIGNUP_LABELS.blockLicenseKeyInvalid;
 	if (showLicenseKey && !agreedLicenseOnce) return SIGNUP_LABELS.blockLicenseOnceRequired;
@@ -408,6 +412,23 @@ $effect(() => {
 								/>
 								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
 									<a href="https://www.ganbari-quest.com/privacy.html" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline">{SIGNUP_LABELS.privacyAgreeLink}</a>{SIGNUP_LABELS.privacyAgreeSuffix}
+								</span>
+							</label>
+						{/snippet}
+					</FormField>
+					<!-- #1638: 個人情報保護法 §28 — 外国にある第三者（米国 AWS）への提供に対する本人同意 -->
+					<FormField label="" error={submitAttempted && !agreedCrossBorder ? SIGNUP_LABELS.crossBorderAgreeError : undefined}>
+						{#snippet children()}
+							<label class="flex items-start gap-2 cursor-pointer">
+								<input
+									type="checkbox"
+									name="agreedCrossBorder"
+									bind:checked={agreedCrossBorder}
+									class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
+									data-testid="signup-cross-border-checkbox"
+								/>
+								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
+									{SIGNUP_LABELS.crossBorderAgreePrefix}<a href="https://www.ganbari-quest.com/privacy.html#cross-border-transfer" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline">{SIGNUP_LABELS.crossBorderAgreeLink}</a>{SIGNUP_LABELS.crossBorderAgreeSuffix}
 								</span>
 							</label>
 						{/snippet}

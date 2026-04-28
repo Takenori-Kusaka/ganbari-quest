@@ -15,8 +15,8 @@ const mockGetAuthMode = vi.fn().mockReturnValue('cognito');
 vi.mock('$lib/server/services/consent-service', () => ({
 	checkConsent: mockCheckConsent,
 	recordConsent: mockRecordConsent,
-	CURRENT_TERMS_VERSION: '2026-04-09',
-	CURRENT_PRIVACY_VERSION: '2026-04-09',
+	CURRENT_TERMS_VERSION: '2026-04-28',
+	CURRENT_PRIVACY_VERSION: '2026-04-28',
 }));
 
 vi.mock('$lib/server/auth/factory', () => ({

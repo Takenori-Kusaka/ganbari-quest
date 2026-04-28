@@ -43,7 +43,7 @@ body{line-height:1.8;background:var(--gray-50)}
 <main class="main">
 <article class="doc">
   <h1>プライバシーポリシー</h1>
-  <p class="meta">最終更新日: 2026年4月9日</p>
+  <p class="meta">最終更新日: 2026年4月28日</p>
 
   <p class="intro">
     個人開発者である日下武紀（以下「運営者」）は、Webアプリケーション「がんばりクエスト」（以下「本サービス」）における利用者の個人情報の取扱いについて、個人情報の保護に関する法律（以下「個人情報保護法」）その他関連法令に基づき、以下のとおりプライバシーポリシー（以下「本ポリシー」）を定めます。本サービスは家庭内でお子さまが利用することを想定しており、お子さまの個人情報の保護には特に配慮しています。
@@ -108,6 +108,8 @@ body{line-height:1.8;background:var(--gray-50)}
           <li><strong>Google LLC</strong> &#8212; OAuth認証（Googleアカウントによるログイン）。認証時にメールアドレスおよび表示名を取得します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li>
           <li><strong>Stripe, Inc.</strong> &#8212; 決済処理（クレジットカード情報の安全な取扱い）。決済情報はStripeのサーバー（米国）で処理されます。<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li>
           <li><strong>Discord Inc.</strong> &#8212; 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li>
+          <li><strong>Amazon Web Services (AWS Bedrock)</strong> &#8212; 生成 AI（活動アイコン生成・テキスト補助）。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li>
+          <li><strong>Google LLC (Gemini API)</strong> &#8212; 生成 AI（画像生成）。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li>
         </ul>
       </li>
     </ol>
@@ -162,26 +164,66 @@ body{line-height:1.8;background:var(--gray-50)}
     <p>ブラウザの設定によりCookieを無効にすることができますが、本サービスの一部機能が利用できなくなる場合があります。</p>
   </section>
 
-  <section>
-    <h2>第8条（データの国外移転）</h2>
-    <p>本サービスのデータは原則として米国（AWSバージニア北部リージョン: us-east-1）に保存されます。ただし、以下のサービスの利用に伴い、個人情報の一部が日本国外で処理される場合があります。</p>
-    <ul>
-      <li><strong>Stripe, Inc.</strong> &#8212; 決済情報は米国のサーバーで処理されます。Stripeは PCI DSS Level 1 認証を取得しています。</li>
-      <li><strong>Google LLC</strong> &#8212; OAuth認証時の認証情報はGoogleのグローバルインフラで処理されます。</li>
-    </ul>
-    <p>これらのサービスは、個人情報保護法第28条に基づき、個人情報の保護に関して日本と同等の水準にあると認められる体制を整備しています。</p>
+  <section id="external-transmission">
+    <h2>第8条（外部送信規律 公表）</h2>
+    <p>運営者は、電気通信事業法第27条の12（外部送信規律）に基づき、利用者の端末から外部の第三者に送信される情報について、以下のとおり公表します。</p>
+    <ol>
+      <li><strong>送信される情報</strong>: ページ URL、リファラ、訪問時刻、画面解像度、ブラウザ言語、ユーザーエージェント等の通信ヘッダ情報</li>
+      <li><strong>送信先</strong>:
+        <ul>
+          <li>Amazon Web Services, Inc.（自社アカウント内 DynamoDB / Lambda / Cognito）</li>
+          <li>Stripe, Inc.（課金処理）</li>
+          <li>Amazon Web Services (AWS Bedrock)（生成 AI）</li>
+          <li>Google LLC (Gemini API)（生成 AI）</li>
+        </ul>
+      </li>
+      <li><strong>利用目的</strong>: ウェブサイトの機能提供および改善 / 課金処理 / コンテンツ生成（活動アイコン・テキスト補助等）</li>
+      <li><strong>個人を識別する情報</strong>: 上記の外部送信に際して、運営者は利用者本人を直接識別する情報（氏名・住所・電話番号等）を取得しません。利用者識別子は家族内一意 ID のみであり、外部第三者には送信しません。</li>
+      <li><strong>利用者の選択肢</strong>: 利用者は、ブラウザの設定により Cookie をブロックすることで、一部の外部送信を停止することができます。ただし、本サービスの一部機能が利用できなくなる場合があります。</li>
+    </ol>
   </section>
 
-  <section>
-    <h2>第9条（本ポリシーの変更）</h2>
+  <section id="under-age">
+    <h2>第9条（未成年者の取扱い）</h2>
+    <p>本サービスは、お子さま（未成年者）が利用することを前提として設計されており、未成年者の保護のために以下の特別な措置を講じています。</p>
     <ol>
-      <li>運営者は、法令の改正、社会情勢の変化、またはサービス内容の変更に伴い、本ポリシーを変更することがあります。</li>
-      <li>重要な変更を行う場合は、本サービス上での通知またはメールにより、変更内容と施行日をお知らせします。</li>
+      <li><strong>全年齢で親同意フレームワーク運用</strong>: 年齢を問わず、すべてのお子さまの本サービス利用について、保護者（法定代理人）が本利用規約・本ポリシーに同意した上でアカウントを作成・管理します。お子さま本人がアカウントを作成することはできません。</li>
+      <li><strong>利用者識別子は家族内一意 ID のみ</strong>: お子さまを識別する情報は、家族グループ内でのみ一意に割り振られる ID であり、学校名・氏名・住所・電話番号等の本人を特定する情報は取得しません。</li>
+      <li><strong>利用者本人への直接接触の禁止</strong>: 運営者から、お子さま本人に対するアンケート・通知・メールマガジン等の直接的な接触は一切行いません。本サービスに関する連絡は、すべて保護者宛に行います。</li>
+      <li><strong>利用者データの域外送信ゼロ</strong>: お子さまの活動記録・プロフィール等のデータは、運営者が管理する自社 AWS アカウント内 DynamoDB のみで処理し、外部第三者（生成 AI 等を含む）への送信は行いません。</li>
+      <li><strong>親による削除請求の優先処理</strong>: 保護者からのお子さまデータ削除請求は、本ポリシー第5条・第6条の手続きに従って優先的に処理します。</li>
+    </ol>
+  </section>
+
+  <section id="cross-border-transfer">
+    <h2>第10条（外国にある第三者への提供）</h2>
+    <p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p>
+    <ol>
+      <li><strong>移転先国</strong>: 米国（AWS バージニア北部リージョン: us-east-1）</li>
+      <li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li>
+      <li><strong>法的根拠</strong>: AWS との間で締結された Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) に基づき、個人情報の保護に関して日本と同等の水準にあると認められる体制を整備しています。</li>
+      <li><strong>移転される情報の範囲</strong>: 利用者識別子（家族内一意 ID）、活動記録、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）</li>
+      <li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスのサインアップ時に、「個人データの米国（AWS バージニア北部リージョン）への移転に同意します」のチェックボックスにより、利用者から明示的に同意を取得します。同意されない場合、本サービスをご利用いただくことができません。</li>
+      <li><strong>その他の外国にある第三者</strong>:
+        <ul>
+          <li><strong>Stripe, Inc.</strong>（米国） &#8212; 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li>
+          <li><strong>Google LLC</strong>（米国） &#8212; OAuth 認証および Gemini API（生成 AI）。</li>
+        </ul>
+      </li>
     </ol>
   </section>
 
   <section>
-    <h2>第10条（個人情報保護管理者）</h2>
+    <h2>第11条（本ポリシーの変更）</h2>
+    <ol>
+      <li>運営者は、法令の改正、社会情勢の変化、またはサービス内容の変更に伴い、本ポリシーを変更することがあります。</li>
+      <li>重要な変更を行う場合は、本サービス上での通知またはメールにより、変更内容と施行日をお知らせします。</li>
+      <li>本ポリシーの重要な変更後に本サービスを継続して利用される場合、利用者には変更後のポリシーに対する再同意を求める場合があります。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>第12条（個人情報保護管理者）</h2>
     <div class="contact">
       <p><strong>個人情報保護管理者</strong></p>
       <p>氏名: 日下武紀</p>
@@ -190,7 +232,7 @@ body{line-height:1.8;background:var(--gray-50)}
   </section>
 
   <section>
-    <h2>第11条（お問い合わせ）</h2>
+    <h2>第13条（お問い合わせ）</h2>
     <p>個人情報の取扱いに関するお問い合わせは、以下までご連絡ください。開示等の請求に対しては、ご本人確認のうえ、合理的な期間内に対応いたします。</p>
     <div class="contact">
       <p>がんばりクエスト運営者 日下武紀</p>
@@ -201,7 +243,7 @@ body{line-height:1.8;background:var(--gray-50)}
   <div class="effective">
     <p>以上</p>
     <p>制定日: 2026年3月27日</p>
-    <p>最終改定日: 2026年4月9日</p>
+    <p>最終改定日: 2026年4月28日</p>
   </div>
 </article>
 </main>
