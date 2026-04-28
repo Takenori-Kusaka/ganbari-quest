@@ -133,8 +133,9 @@ baby/preschool では 404、elementary+ で通常動作。詳細は #1323 (B4+5-
 | 06 | 料金プロミスバンド | 1 バンドで価格プロミス提示 (詳細は /pricing) | 600 | 400 |
 | 07 | 安心訴求 | 広告なし/家族限定/セルフホスト可 | 800 | 500 |
 | 08 | FAQ | Top 5 のみ (残りは /help or /pricing) | 1200 | 700 |
+| 08b | founder 直接相談 (#1594) | Pre-PMF 期 founder と直接対話する入口 | 600 | 400 |
 | 09 | 最終 CTA | 「7 日間、家族で試す」 | 700 | 500 |
-| | **合計** | | **~12100** | **~7200** |
+| | **合計** | | **~12700** | **~7600** |
 
 > 旧 [06] 社会的証明 (Pre-PMF 4 点セット) は **#1282 で削除** した。β / 0-18 / 36+ / OSS の 4 数値は「自己言及的メタデータ」であり顧客にとっての社会的証明として成立せず、「使われていないサービス」という否定的シグナルを逆に強調していたため。PMF 到達後に「利用家族数 / 星評価 / 累計達成数 / 受賞」の 4 点セットを §4.3 の顧客価値 gate を通したうえで再投入する（§4.2 の旧 [06] 仕様をアーカイブとして残す）。
 
@@ -258,6 +259,25 @@ FAQ 専用ページ (`/faq`) のカテゴリ構成:
 - `pricing.html` の料金 FAQ（9 問）は **決済直前の障壁除去** という役割で温存（faq.html とは独立）
 - `pricing.html` フッターと `index.html` フッターに `faq.html` への導線を追加
 - Playwright smoke: `tests/e2e/lp-faq-page.spec.ts` で 5 カテゴリ描画 / Q&A 20 件以上 / details 展開 / 導線存在を保証
+
+#### [08b] founder 直接相談 (#1594 ADR-0023 I8)
+
+- **目的**: Pre-PMF 期に founder（個人開発者）が初期 ~10 親契約まで全員と直接対話する動線を提供
+- **コンセプト**: "do things that don't scale" を LP に明示し、個人開発の強みとして訴求
+- **配置**: FAQ セクションの直後 / 最終 CTA の直前。FAQ で疑問が解消し切れなかった保護者を受け止める導線として機能する
+- **構造**:
+  - H2: 「👋 開発者に直接相談（無料）」(`data-lp-key="founderInquiry.sectionHeading"`)
+  - サブ: 個人開発のため founder 本人が直接返信する旨 + 商業的売り込みではない旨
+  - 3 箇条のユースケース: 導入前相談 / 使い方の質問 / 解約検討前の相談
+  - CTA 2 つ: `直接相談する（無料）` (form 経由 → `/inquiry/founder`) + `メールで送る` (mailto: fallback)
+- **訴求文言**: ラベルは `LP_FOUNDER_INQUIRY_LABELS`（labels.ts）→ `shared-labels.js` 経由で `data-lp-key` で注入
+- **実装フロー**:
+  1. ユーザーが `/inquiry/founder` の form に name / email / 子供年齢（任意）/ message を入力
+  2. SvelteKit form action または `POST /api/v1/inquiry/founder` が Discord webhook (`inquiry` チャネル) に通知
+  3. founder が Discord で確認し、メールで直接返信（SES 等の二重保管は YAGNI）
+- **Anti-engagement 整合 (ADR-0012)**: 子供 UI には CTA を設置せず、保護者経路 (LP / admin/settings) のみに限定
+- **CTA variants 制限 (3 以下)**: `/auth/signup` `/auth/login` `/demo` をカウント対象とする measure-lp-dimensions.mjs の枠は使わず、新規 `/inquiry/founder` `mailto:` は除外されるため枠を侵食しない
+- **メトリクス**: 月間相談数（Discord メッセージ件数を手動カウント / Pre-PMF 段階では DynamoDB 集計テーブルは追加しない）
 
 #### [09] 最終 CTA
 

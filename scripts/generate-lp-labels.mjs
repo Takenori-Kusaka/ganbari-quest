@@ -126,6 +126,8 @@ function parseLabelsTs() {
 	const lpGrowthRoadmapLabels = parseBlock(src, 'LP_GROWTH_ROADMAP_LABELS');
 	// Phase 5 R44 (#1650): pricing.html SSOT 同期
 	const lpPricingLabels = parseBlock(src, 'LP_PRICING_LABELS');
+	// #1594 ADR-0023 I8: LP の founder 直接相談 CTA セクション
+	const lpFounderInquiryLabels = parseBlock(src, 'LP_FOUNDER_INQUIRY_LABELS');
 
 	return {
 		ageTierLabels,
@@ -140,6 +142,7 @@ function parseLabelsTs() {
 		lpVersusLabels,
 		lpGrowthRoadmapLabels,
 		lpPricingLabels,
+		lpFounderInquiryLabels,
 	};
 }
 
@@ -186,6 +189,7 @@ function generateSharedLabelsJs() {
 		lpVersusLabels,
 		lpGrowthRoadmapLabels,
 		lpPricingLabels,
+		lpFounderInquiryLabels,
 	} = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
@@ -222,6 +226,7 @@ function generateSharedLabelsJs() {
 		versus: lpVersusLabels,
 		growthRoadmap: lpGrowthRoadmapLabels,
 		pricing: lpPricingLabels,
+		founderInquiry: lpFounderInquiryLabels,
 	};
 
 	const header = `/**

@@ -3704,6 +3704,76 @@ export const LP_PRICING_LABELS = {
 	ctaBottomSecondary: 'デモで体験する',
 } as const;
 
+/**
+ * #1594 ADR-0023 I8: LP の「開発者に直接相談」セクション専用ラベル。
+ * generate-lp-labels.mjs が parseBlock で抽出して shared-labels.js に export する。
+ * `data-lp-key="founderInquiry.<key>"` で site/index.html から参照される。
+ *
+ * NOTE: アプリ側 (admin / /inquiry/founder) は FOUNDER_INQUIRY_LABELS を使用する。
+ * 本定数は LP 用の最小サブセット (#1465 SSOT 化原則 + LP shared-labels.js 自動生成制約)。
+ */
+export const LP_FOUNDER_INQUIRY_LABELS = {
+	sectionHeading: '👋 開発者に直接相談（無料）',
+	sectionLead:
+		'個人開発のため、Pre-PMF 期は開発者本人が一人ひとりの相談に直接お返事します。商業的な売り込みではなく、「ご家庭に本当に合うかどうか」を一緒に判断します。',
+	bullet1: '導入前のご相談（向き / 不向きを率直にお伝えします）',
+	bullet2: '使い方が分からない・困っている',
+	bullet3: '解約を検討中（その前に一度お話しさせてください）',
+	ctaButton: '直接相談する（無料）',
+	mailtoFallback: 'メールで送る',
+} as const;
+
+/**
+ * #1594 ADR-0023 I8: founder 1:1 ヒアリング動線
+ * LP / admin に「開発者に直接相談」CTA を提供する。Pre-PMF "do things that don't scale"
+ * 実践として、初期 ~10 親契約まで全員と直接対話する。
+ */
+export const FOUNDER_INQUIRY_LABELS = {
+	// LP / admin 共通の CTA セクション
+	ctaSectionHeading: '👋 開発者に直接相談（無料）',
+	ctaSectionLead:
+		'個人開発のため、Pre-PMF 期は開発者本人が一人ひとりの相談に直接お返事します。商業的な売り込みではなく、「ご家庭に本当に合うかどうか」を一緒に判断します。',
+	ctaSectionBullet1: '導入前のご相談（向き / 不向きを率直にお伝えします）',
+	ctaSectionBullet2: '使い方が分からない・困っている',
+	ctaSectionBullet3: '解約を検討中（その前に一度お話しさせてください）',
+	ctaButton: '直接相談する（無料）',
+	mailtoFallbackLabel: 'メールで送る',
+	// /inquiry/founder ページ
+	pageTitle: '開発者に直接相談',
+	pageHeading: '👋 開発者に直接相談',
+	pageLead:
+		'個人開発のため、Pre-PMF 期はリード開発者本人が一人ひとりに直接お返事します。お気軽にご相談ください。',
+	pageNote:
+		'※ お返事は通常 2〜3 日以内にメールでお送りします。なるべく早くお返事しますが、個人運営のため遅れる場合がございます。',
+	formNameLabel: 'お名前（ニックネーム可）',
+	formNamePlaceholder: '例: 山田 太郎',
+	formEmailLabel: 'メールアドレス',
+	formEmailPlaceholder: '例: parent@example.com',
+	formChildAgeLabel: 'お子さまの年齢（任意）',
+	formChildAgePlaceholder: '例: 7 歳、3 歳と 6 歳など',
+	formMessageLabel: 'ご相談内容',
+	formMessagePlaceholder:
+		'例:\n・ 6 歳の子に使わせたいが、ひらがなで操作できますか？\n・ 兄弟 2 人で使いたい、料金プランの選び方を教えてください\n・ 解約を考えていますが、データはどうなりますか？',
+	formSubmitButton: '送信する',
+	formSubmittingText: '送信中...',
+	formCancelButton: 'キャンセル',
+	successHeading: '受け付けました',
+	successText:
+		'ご相談を受け付けました。リード開発者から 2〜3 日以内にメールでお返事します。お待ちください。',
+	successCloseButton: '閉じる',
+	mailtoSectionHeading: 'メールで直接送る場合',
+	mailtoSectionDesc:
+		'フォームをお使いいただけない場合は、こちらのメールアドレス宛にお送りください。',
+	errorRequiredFields: 'お名前・メールアドレス・ご相談内容は必須です',
+	errorInvalidEmail: 'メールアドレスの形式が正しくありません',
+	errorMessageTooLong: (max: number) => `ご相談内容は ${max} 文字以内にしてください`,
+	errorRateLimit: (sec: number) => `送信間隔が短すぎます。${sec} 秒後に再送してください`,
+	errorSendFailed: '送信に失敗しました。時間をおいて再度お試しください',
+	// admin sidebar / footer link
+	adminFooterLink: '👋 開発者に直接相談',
+	adminFooterHint: '個人開発者にメッセージを送る（無料）',
+} as const;
+
 export const LP_RETENTION_LABELS = {
 	sectionTitle: '三日坊主にならない設計',
 	sectionDesc:

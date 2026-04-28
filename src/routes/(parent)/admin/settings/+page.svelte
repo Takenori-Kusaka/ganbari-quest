@@ -5,6 +5,7 @@ import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
 import {
 	APP_LABELS,
+	FOUNDER_INQUIRY_LABELS,
 	IMPORT_LABELS,
 	type ImportSkipReason,
 	OYAKAGI_LABELS,
@@ -1684,6 +1685,22 @@ const anyFormBusy = $derived(
 				</Button>
 			</div>
 		</form>
+	</Card>
+
+	<!-- #1594 ADR-0023 I8: founder 1:1 ヒアリング動線 -->
+	<Card padding="lg" data-testid="admin-founder-inquiry-cta">
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-3">{FOUNDER_INQUIRY_LABELS.ctaSectionHeading}</h3>
+		<p class="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-3">
+			{FOUNDER_INQUIRY_LABELS.ctaSectionLead}
+		</p>
+		<ul class="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-4 list-disc pl-5 space-y-1">
+			<li>{FOUNDER_INQUIRY_LABELS.ctaSectionBullet1}</li>
+			<li>{FOUNDER_INQUIRY_LABELS.ctaSectionBullet2}</li>
+			<li>{FOUNDER_INQUIRY_LABELS.ctaSectionBullet3}</li>
+		</ul>
+		<Button href="/inquiry/founder" variant="primary" size="md" data-testid="admin-founder-inquiry-link">
+			{FOUNDER_INQUIRY_LABELS.ctaButton}
+		</Button>
 	</Card>
 
 	<!-- フィードバック -->
