@@ -242,3 +242,106 @@ export async function findExpiredSoftDeletedTenants(): Promise<
 export function getGracePeriodDays(planTier: PlanTier): number {
 	return DELETION_GRACE_PERIOD_DAYS[planTier];
 }
+
+// ============================================================
+// Physical deletion (cron)
+// ============================================================
+
+/**
+ * #1648 R43: グレースピリオド期限切れテナントを物理削除する cron 処理。
+ *
+ * 呼び出し元: /api/cron/grace-period-deletion (#1376 EventBridge スケジュール経由)
+ *
+ * 処理フロー:
+ *   1. findExpiredSoftDeletedTenants() で期限切れテナント一覧を取得
+ *   2. 各テナントの owner を特定
+ *   3. account-deletion-service.deleteOwnerOnlyAccount を呼び出して物理削除
+ *      （他メンバーがいる場合は deleteOwnerFullDelete に切替）
+ *
+ * 注: Stripe サブスクリプションは soft-delete に至る経路（admin/account/delete）で
+ * すでにキャンセル済みの想定。account-deletion-service.fullTenantDeletion は
+ * 念のため再度 cancelSubscription を呼ぶが、idempotent な実装のため二重呼び出しは安全。
+ *
+ * dryRun=true の場合は対象一覧のみ返し、削除は実行しない。
+ *
+ * 個人情報保護法 22 条「不要となった個人データの遅滞なく消去する努力義務」遵守 +
+ * DB 肥大化リスク解消が目的（ADR-0010 過剰防衛禁止に該当しない最小実装）。
+ */
+export async function purgeExpiredSoftDeletedTenants(opts?: {
+	dryRun?: boolean;
+}): Promise<{
+	tenantsProcessed: number;
+	tenantsDeleted: number;
+	tenantsFailed: number;
+	dryRun: boolean;
+	expired: Array<{ tenantId: string; planTier: PlanTier; physicalDeletionDate: string }>;
+	errors: Array<{ tenantId: string; error: string }>;
+}> {
+	const dryRun = opts?.dryRun ?? false;
+	const expired = await findExpiredSoftDeletedTenants();
+
+	if (dryRun || expired.length === 0) {
+		logger.info('[grace-period] purge dry-run or no expired tenants', {
+			context: { dryRun, count: expired.length },
+		});
+		return {
+			tenantsProcessed: expired.length,
+			tenantsDeleted: 0,
+			tenantsFailed: 0,
+			dryRun,
+			expired,
+			errors: [],
+		};
+	}
+
+	// dynamic import を使用してサイクル依存を避ける（grace-period → account-deletion → 互いに参照しない）
+	const { deleteOwnerOnlyAccount, deleteOwnerFullDelete } = await import(
+		'./account-deletion-service'
+	);
+	const repos = getRepos();
+	const errors: Array<{ tenantId: string; error: string }> = [];
+	let deleted = 0;
+
+	for (const item of expired) {
+		try {
+			const members = await repos.auth.findTenantMembers(item.tenantId);
+			const owner = members.find((m) => m.role === 'owner');
+			if (!owner) {
+				logger.warn('[grace-period] no owner found for tenant', {
+					context: { tenantId: item.tenantId },
+				});
+				errors.push({ tenantId: item.tenantId, error: 'no owner found' });
+				continue;
+			}
+			const otherMembers = members.filter((m) => m.userId !== owner.userId);
+			if (otherMembers.length === 0) {
+				await deleteOwnerOnlyAccount(item.tenantId, owner.userId);
+			} else {
+				await deleteOwnerFullDelete(item.tenantId, owner.userId);
+			}
+			deleted++;
+			logger.info('[grace-period] tenant physically deleted', {
+				context: {
+					tenantId: item.tenantId,
+					planTier: item.planTier,
+					physicalDeletionDate: item.physicalDeletionDate,
+				},
+			});
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			errors.push({ tenantId: item.tenantId, error: msg });
+			logger.error('[grace-period] tenant deletion failed', {
+				context: { tenantId: item.tenantId, error: msg },
+			});
+		}
+	}
+
+	return {
+		tenantsProcessed: expired.length,
+		tenantsDeleted: deleted,
+		tenantsFailed: errors.length,
+		dryRun: false,
+		expired,
+		errors,
+	};
+}

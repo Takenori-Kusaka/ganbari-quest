@@ -66,6 +66,7 @@ import {
 	findExpiredSoftDeletedTenants,
 	getGracePeriodDays,
 	getGracePeriodStatus,
+	purgeExpiredSoftDeletedTenants,
 	restoreSoftDeletedTenant,
 	softDeleteTenant,
 } from '$lib/server/services/grace-period-service';
@@ -271,6 +272,44 @@ describe('grace-period-service', () => {
 			const result = await findExpiredSoftDeletedTenants();
 
 			expect(result).toHaveLength(0);
+		});
+	});
+
+	// ============================================================
+	// purgeExpiredSoftDeletedTenants (#1648 R43)
+	// ============================================================
+
+	describe('purgeExpiredSoftDeletedTenants', () => {
+		it('dryRun=true は対象一覧のみ返し物理削除しない', async () => {
+			const pastDate = new Date();
+			pastDate.setDate(pastDate.getDate() - 5);
+			mockListAllTenants.mockResolvedValue([{ tenantId: 'tenant-expired' }]);
+			mockGetSettings.mockResolvedValueOnce({
+				soft_deleted_at: new Date(Date.now() - 35 * 86400000).toISOString(),
+				deletion_grace_plan_tier: 'family',
+				physical_deletion_date: pastDate.toISOString(),
+			});
+
+			const result = await purgeExpiredSoftDeletedTenants({ dryRun: true });
+
+			expect(result.dryRun).toBe(true);
+			expect(result.tenantsProcessed).toBe(1);
+			expect(result.tenantsDeleted).toBe(0);
+			expect(result.tenantsFailed).toBe(0);
+			expect(result.expired).toHaveLength(1);
+			expect(result.expired[0]?.tenantId).toBe('tenant-expired');
+			expect(result.expired[0]?.planTier).toBe('family');
+		});
+
+		it('期限切れテナントが 0 件なら 0 件処理を返す', async () => {
+			mockListAllTenants.mockResolvedValue([]);
+
+			const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+			expect(result.tenantsProcessed).toBe(0);
+			expect(result.tenantsDeleted).toBe(0);
+			expect(result.expired).toHaveLength(0);
+			expect(result.errors).toHaveLength(0);
 		});
 	});
 });
