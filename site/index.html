@@ -81,11 +81,11 @@
 }
 </script>
 <style>
-/* Hero */
+/* Hero (#1617 R13: max-width 拡張 + text-wrap balance + auto-phrase) */
 .hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:64px 16px 48px;text-align:center}
-.hero h1{font-size:2.4rem;font-weight:800;color:var(--gray-900);margin-bottom:16px;line-height:1.3}
+.hero h1{font-size:2.4rem;font-weight:800;color:var(--gray-900);margin-bottom:16px;line-height:1.3;max-width:1200px;margin-left:auto;margin-right:auto;text-wrap:balance;word-break:auto-phrase}
 .hero h1 span{color:var(--brand-700)}
-.hero-sub{font-size:1.05rem;color:var(--gray-600);margin-bottom:28px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.7}
+.hero-sub{font-size:1.05rem;color:var(--gray-600);margin-bottom:28px;max-width:720px;margin-left:auto;margin-right:auto;line-height:1.7;text-wrap:balance;word-break:auto-phrase}
 .hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
 .hero-note{font-size:.85rem;color:var(--gray-500);margin-bottom:24px}
 
@@ -142,12 +142,26 @@
 .clp-role{font-size:.74rem;font-weight:700;color:var(--brand-700);margin-bottom:4px;letter-spacing:.06em}
 .clp-child .clp-role{color:var(--gold-600)}
 .clp-card p{margin:0;color:var(--gray-700)}
-/* デスクトップ: 3層を横並びで省スペース (#1343) */
+/* デスクトップ: 3 つの仕組みを横並びで省スペース (#1343) */
 @media(min-width:1024px){
   .core-loop-layer-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1080px;margin:0 auto 20px}
   .core-loop-layer-grid .core-loop-layer{margin-bottom:0}
   .core-loop-layer-grid .core-loop{grid-template-columns:1fr}
   .core-loop-layer-grid .cll-title{justify-content:center}
+}
+
+/* PC 2 カラムレイアウト (#1619 R15: text 8 / aside 4 で screenshot を sticky 配置)
+   仕組みグリッドは 3 カラム維持（縦積みすると高さが伸びすぎるため） */
+.core-loop-2col{display:block}
+.core-loop-aside{display:none}
+@media(min-width:1024px){
+  .core-loop-section-inner{max-width:1280px}
+  .core-loop-2col{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px;align-items:start}
+  .core-loop-aside{display:block;position:sticky;top:24px}
+  .core-loop-aside .core-loop-visual{max-width:260px;aspect-ratio:390/844;max-height:420px}
+  .core-loop-aside .core-loop-note{margin:10px 0 0;text-align:left;font-size:.78rem;line-height:1.5}
+  /* 2 カラム時の screenshot は縦長に戻す（モバイル UI を訴求するため） */
+  .core-loop-2col .core-loop-aside .core-loop-visual picture source[media*="1024"]{display:none}
 }
 /* #1284: aspect-ratio を維持しつつ画像全体を表示するため max-height 拡張 + object-fit:contain に変更 */
 .core-loop-visual{max-width:280px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:380px;background:var(--gray-50)}
@@ -167,16 +181,26 @@
   .tour-card .tour-shot{aspect-ratio:1280/800;max-height:200px}
 }
 
-/* Machine tour (4-act) */
-.machine-tour{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:1080px;margin:0 auto}
-.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;display:flex;flex-direction:column}
+/* Machine tour (5-act, #1618 R14: PC 整然配置 + 画像有無の高さ揃え) */
+.machine-tour{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:1280px;margin:0 auto}
+.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;display:flex;flex-direction:column;min-height:380px}
 .tour-card .tour-phase{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.1em;margin-bottom:6px}
 .tour-card .tour-emoji{font-size:2rem;margin-bottom:8px;line-height:1}
 .tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px;flex:1}
 /* #1284: tour-shot も同様に全画面表示へ修正。称号/コンボ画面などの主要要素が見えるように */
+/* #1618 R14: 画像有無で高さがバラバラだった問題を修正。.tour-shot の min-height で揃える */
 .tour-card .tour-shot{border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:360px;margin-top:auto;background:var(--gray-50)}
 .tour-card .tour-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
+/* 画像なし tour-card の plate (#1618 R14): 画像 tour-shot 同等の余白で高さを揃える */
+.tour-card .tour-shot-placeholder{margin-top:auto;min-height:160px;display:flex;align-items:center;justify-content:center;color:var(--gray-300);font-size:2.5rem;background:var(--gray-50);border-radius:8px;border:1px dashed var(--gray-200)}
+@media(min-width:1024px){
+  /* PC 整然配置: 5 カードを 5 列固定にすることで「4+1 半端」を回避 */
+  .machine-tour{grid-template-columns:repeat(5,1fr);gap:16px}
+  .tour-card{min-height:460px}
+  .tour-card .tour-shot{max-height:200px}
+  .tour-card .tour-shot-placeholder{min-height:180px}
+}
 
 /* Soft features */
 .soft-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
@@ -201,9 +225,57 @@
 	.pp-dot{display:none}
 }
 
-/* Trust badges */
+/* 年齢別成長ロードマップ (#1613 R9: 卒業を最終地点として位置付ける)
+   StoryBrand 7 要素 Success — 4 ステージ + 卒業 (自律) */
+#growth-roadmap{padding:24px 16px}
+.growth-roadmap{max-width:1080px;margin:0 auto}
+.gr-track{display:flex;flex-direction:column;gap:8px;position:relative}
+.gr-stage{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:center;background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:12px 14px}
+.gr-age{font-size:.7rem;font-weight:700;color:var(--brand-700);background:var(--brand-50);border-radius:6px;padding:6px 4px;text-align:center;line-height:1.3}
+.gr-age strong{display:block;font-size:1.05rem;color:var(--brand-700)}
+.gr-body h3{font-size:.92rem;font-weight:700;margin-bottom:2px;color:var(--gray-900);line-height:1.4}
+.gr-body p{font-size:.8rem;color:var(--gray-600);line-height:1.55;margin:0}
+.gr-stage[data-stage="graduate"]{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);border-color:var(--brand-300)}
+.gr-stage[data-stage="graduate"] .gr-age{background:#fff;color:var(--brand-800)}
+.gr-stage[data-stage="graduate"] .gr-age strong{color:var(--brand-800)}
+@media(min-width:1024px){
+  .gr-track{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  .gr-stage{grid-template-columns:1fr;text-align:center;padding:14px 10px}
+  .gr-age{padding:4px}
+  .gr-body h3{font-size:.86rem}
+  .gr-body p{font-size:.74rem;line-height:1.5}
+}
+
+/* アナログ vs デジタル比較 (#1614 R10: シール帳 vs アプリ訴求)
+   モバイル/PC ともに 1 行 = analog → digital 横並びにして縦の伸びを抑える */
+#versus{padding:20px 16px}
+.versus-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:8px}
+.versus-row{display:grid;grid-template-columns:1fr 22px 1.4fr;gap:8px;align-items:stretch}
+.versus-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;justify-content:center}
+.versus-card.vc-analog{background:var(--gray-50);border-color:var(--gray-300)}
+.versus-card.vc-digital{background:linear-gradient(135deg,var(--brand-50) 0%,#fef9e7 100%);border-color:var(--brand-200)}
+.versus-card .vc-tag{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:4px;margin-bottom:3px;align-self:flex-start}
+.versus-card.vc-analog .vc-tag{background:var(--gray-200);color:var(--gray-700)}
+.versus-card.vc-digital .vc-tag{background:var(--brand-700);color:#fff}
+.versus-card h3{font-size:.85rem;font-weight:700;margin-bottom:2px;color:var(--gray-900);line-height:1.4}
+.versus-card p{font-size:.74rem;color:var(--gray-700);line-height:1.5;margin:0}
+.versus-arrow{display:flex;align-items:center;justify-content:center;font-size:.95rem;color:var(--brand-700)}
+@media(max-width:640px){
+  .versus-row{grid-template-columns:1fr 18px 1.3fr;gap:6px}
+  .versus-card{padding:8px 10px}
+  .versus-card h3{font-size:.78rem}
+  .versus-card p{font-size:.7rem}
+}
+
+/* Trust badges (#1620 R16: PC 4 列化、モバイル 2×2 維持) */
 .trust-badges{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:900px;margin:0 auto}
 @media(max-width:640px){.trust-badges{gap:12px}}
+@media(min-width:1024px){
+  .trust-badges{grid-template-columns:repeat(4,1fr);max-width:1200px;gap:18px}
+  .trust-badge{padding:20px 16px}
+  .trust-badge h3{font-size:.95rem}
+  .trust-badge p{font-size:.8rem}
+}
 .trust-badge{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;text-align:center}
 .trust-badge .tb-icon{font-size:2rem;margin-bottom:10px;line-height:1}
 .trust-badge h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
@@ -284,13 +356,11 @@
 
 <!-- LP-LANDMARK:hero start — ファーストビュー。CTA は「無料で始める」「デモを見る」の 2 種のみ (#1293)
      変更時は docs/design/lp-content-map.md §hero を確認 -->
-<!-- [01] Hero -->
+<!-- [01] Hero (#1617 R13: <br> 削除 + balance で自然な折り返し) -->
 <section class="hero">
-  <h1>「やりなさい」を<br><span>「やりたい！」</span>に変える<br>家族 RPG</h1>
+  <h1>「やりなさい」を <span>「やりたい！」</span> に変える家族 RPG</h1>
   <p class="hero-sub">
-    3〜18 歳の毎日の習慣を、<br>
-    ポイント・シール・称号で冒険に変える。<br>
-    声をかけなくても、自分から動きだす家族時間へ。
+    3〜18 歳の毎日の習慣を、ポイント・シール・称号で冒険に変える。声をかけなくても、自分から動きだす家族時間へ。
   </p>
   <div class="hero-cta">
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">無料で始める</a>
@@ -333,6 +403,68 @@
 </section>
 <!-- LP-LANDMARK:hero end -->
 
+<!-- LP-LANDMARK:versus start — シール帳・ホワイトボードでもいいんじゃない？に対する優位訴求 (#1614 R10)
+     親 P1 が「30 秒で離脱判断」する直前に「アナログでは届かない 5 つの差」を比較表で提示
+     ヒーロー直下〜2 スクロール目 (#1597 で確定した設計位置) -->
+<!-- [02] アナログ vs デジタル — シール帳・ホワイトボードと何が違うのか -->
+<section class="section bg-white" id="versus">
+  <div class="section-inner">
+    <h2 class="section-title" data-lp-key="versus.sectionTitle">シール帳・ホワイトボードでも、いいんじゃない？</h2>
+    <p class="section-desc" data-lp-key="versus.sectionDesc">わかります。私たちもまずは紙で試しました。<br>でも「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、デジタルだから届く差があります。</p>
+    <div class="versus-grid">
+      <div class="versus-row">
+        <div class="versus-card vc-analog">
+          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+          <h3 data-lp-key="versus.row1AnalogTitle">集計が手作業で計算ミスが起きがち</h3>
+        </div>
+        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-card vc-digital">
+          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+          <h3 data-lp-key="versus.row1DigitalTitle">自動集計でいつでもポイントが見える</h3>
+          <p data-lp-key="versus.row1DigitalDesc">子供が「あと 50 ポイントで欲しいごほうび」と自分で計画できます。</p>
+        </div>
+      </div>
+      <div class="versus-row">
+        <div class="versus-card vc-analog">
+          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+          <h3 data-lp-key="versus.row2AnalogTitle">年齢が変わるたびに冊子を買い替え</h3>
+        </div>
+        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-card vc-digital">
+          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+          <h3 data-lp-key="versus.row2DigitalTitle">3 歳から 18 歳まで同じアプリで継続</h3>
+          <p data-lp-key="versus.row2DigitalDesc">15 年分の成長履歴がひとつにまとまります。</p>
+        </div>
+      </div>
+      <div class="versus-row">
+        <div class="versus-card vc-analog">
+          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+          <h3 data-lp-key="versus.row3AnalogTitle">続けることが目的になりがち</h3>
+        </div>
+        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-card vc-digital">
+          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+          <h3 data-lp-key="versus.row3DigitalTitle">子供が自律したらアプリは不要</h3>
+          <p data-lp-key="versus.row3DigitalDesc">「使わなくなる」が成功のゴール。卒業を最終地点として設計しています。</p>
+        </div>
+      </div>
+      <div class="versus-row">
+        <div class="versus-card vc-analog">
+          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+          <h3 data-lp-key="versus.row4AnalogTitle">家を離れると続けられない</h3>
+        </div>
+        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-card vc-digital">
+          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+          <h3 data-lp-key="versus.row4DigitalTitle">旅行先・祖父母宅でも続けられる</h3>
+          <p data-lp-key="versus.row4DigitalDesc">スマホ・タブレットで開けば連続記録が途切れません。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- LP-LANDMARK:versus end -->
+
 <!-- LP-LANDMARK:age-panel start — 年齢差別化軸ポリシー (docs/design/lp-content-map.md) に準拠
      UI 軸の差別化のみ掲載: kinder=幼児UI(ひらがな/大タップ) / primary-plus=小学生以降(漢字/情報密度)
      機能差別化が実装された際は該当パネルに「代表機能」バッジを追加すること (#1322) -->
@@ -372,14 +504,19 @@
 </section>
 <!-- LP-LANDMARK:age-panel end -->
 
-<!-- LP-LANDMARK:core-loop start — コアループ 3 層モデル (L1 アクション / L2 メタ習慣 / L3 経済) の描画 (#1343)
+<!-- LP-LANDMARK:core-loop start — コアループ 3 つの仕組み（毎日の活動 / 習慣カード / ごほうび交換）の描画 (#1343, #1615 R11 顧客語彙化)
      変更時は docs/design/lp-content-map.md §コアループ原則を確認
-     用語 SSOT: src/lib/domain/labels.ts LP_CORELOOP_LABELS / FEATURE_LABELS -->
-<!-- [03] コアループ（3 層モデル: L1 アクション層 / L2 メタ習慣層 / L3 経済層） -->
+     用語 SSOT: src/lib/domain/labels.ts LP_CORELOOP_LABELS / FEATURE_LABELS
+     旧 L1/L2/L3 表記 → 「活動 / 習慣 / ごほうび」へ顧客語彙化 (#1615) -->
+<!-- [03] コアループ（3 つの仕組み: 毎日の活動 / 習慣カード / ごほうび交換） -->
 <section class="section bg-gray" id="core-loop">
-  <div class="section-inner">
-    <h2 class="section-title" data-lp-key="coreloop.sectionTitle">3 つの層で、毎日のがんばりが本物の報酬になる</h2>
-    <p class="section-desc" data-lp-key="coreloop.sectionDesc">活動を記録してポイントを貯め、ポイントでごほうびショップの好きなものと交換する。3 層の仕組みが子供の「やりたい」を持続させます。</p>
+  <div class="section-inner core-loop-section-inner">
+    <h2 class="section-title" data-lp-key="coreloop.sectionTitle">3 つの仕組みで、毎日のがんばりが本物の報酬になる</h2>
+    <p class="section-desc" data-lp-key="coreloop.sectionDesc">活動を記録してポイントを貯め、ポイントでごほうびショップの好きなものと交換する。3 つの仕組みが子供の「やりたい」を持続させます。</p>
+
+    <!-- R15: PC 2 カラムレイアウトラッパー (text + visual を横並び) -->
+    <div class="core-loop-2col">
+      <div class="core-loop-text">
 
     <!-- 親子両視点バナー -->
     <div class="core-loop-perspectives">
@@ -393,14 +530,14 @@
       </div>
     </div>
 
-    <!-- 3層グリッド: デスクトップで横並び、モバイルで縦積み -->
+    <!-- 3 つの仕組みグリッド: PC 2 カラム時は縦積み -->
     <div class="core-loop-layer-grid">
 
-    <!-- L1 アクション層 -->
+    <!-- 仕組み 1: 毎日の活動 -->
     <div class="core-loop-layer" data-layer="l1">
       <h3 class="cll-title">
-        <span class="cll-badge">L1</span>
-        <span data-lp-key="coreloop.l1Title">アクション層 — 活動を記録する</span>
+        <span class="cll-badge" data-lp-key="coreloop.l1Badge">活動</span>
+        <span data-lp-key="coreloop.l1Title">毎日の活動 — がんばりを記録する</span>
       </h3>
       <div class="core-loop">
         <div class="core-loop-step">
@@ -418,18 +555,18 @@
       </div>
     </div>
 
-    <!-- L2 メタ習慣層 -->
+    <!-- 仕組み 2: 習慣カード -->
     <div class="core-loop-layer" data-layer="l2">
       <h3 class="cll-title">
-        <span class="cll-badge">L2</span>
-        <span data-lp-key="coreloop.l2Title">メタ習慣層 — ログインで習慣を作る</span>
+        <span class="cll-badge" data-lp-key="coreloop.l2Badge">習慣</span>
+        <span data-lp-key="coreloop.l2Title">習慣カード — 毎日の楽しみで続ける</span>
       </h3>
       <div class="core-loop">
         <div class="core-loop-step">
           <div class="cls-num">STEP 1</div>
           <div class="cls-icon">&#x1F3B4;</div>
           <h4 data-lp-key="coreloop.l2Step1Title">毎朝ログインしておみくじ</h4>
-          <p data-lp-key="coreloop.l2Step1Desc">1 日 1 回のおみくじスタンプ。スタンプのレア度に応じてボーナスポイントが獲得でき、毎朝アプリを開く習慣につながります（日 1 回 cap で煽らない設計）。</p>
+          <p data-lp-key="coreloop.l2Step1Desc">1 日 1 回までのおみくじスタンプ。スタンプのレア度に応じてボーナスポイントが獲得でき、毎朝アプリを開く習慣につながります（1 日 1 回までで煽らない設計）。</p>
         </div>
         <div class="core-loop-step">
           <div class="cls-num">STEP 2</div>
@@ -440,18 +577,18 @@
       </div>
     </div>
 
-    <!-- L3 経済層 -->
+    <!-- 仕組み 3: ごほうび交換 -->
     <div class="core-loop-layer" data-layer="l3">
       <h3 class="cll-title">
-        <span class="cll-badge">L3</span>
-        <span data-lp-key="coreloop.l3Title">経済層 — ポイントをごほうびに換える</span>
+        <span class="cll-badge" data-lp-key="coreloop.l3Badge">ごほうび</span>
+        <span data-lp-key="coreloop.l3Title">ごほうび交換 — ポイントを欲しいものに換える</span>
       </h3>
       <div class="core-loop">
         <div class="core-loop-step">
           <div class="cls-num">STEP 1</div>
           <div class="cls-icon">&#x1F4B0;</div>
           <h4 data-lp-key="coreloop.l3Step1Title">ポイントを蓄積する</h4>
-          <p data-lp-key="coreloop.l3Step1Desc">L1 の活動ポイントと L2 のボーナスポイントが積み上がります。ポイントは経済通貨として機能します。</p>
+          <p data-lp-key="coreloop.l3Step1Desc">毎日の活動ポイントと習慣カードのボーナスポイントが積み上がります。ポイントは家庭内の通貨として機能します。</p>
         </div>
         <div class="core-loop-step">
           <div class="cls-num">STEP 2</div>
@@ -464,13 +601,20 @@
 
     </div><!-- /.core-loop-layer-grid -->
 
-    <div class="core-loop-visual">
-      <picture>
-        <source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp">
-        <img src="screenshots/feature-point-level.webp" alt="ポイント・レベル・スタンプカード画面" data-lightbox>
-      </picture>
-    </div>
-    <p class="core-loop-note" data-lp-key="coreloop.shopNote">ごほうびショップは唯一の出口。ポイントは「欲しいものと交換できる通貨」として機能するので、子供の自律的な目標設定を促します。</p>
+      </div><!-- /.core-loop-text -->
+
+      <!-- R15: PC 2 カラム右側 — screenshot を sticky 配置 -->
+      <aside class="core-loop-aside">
+        <div class="core-loop-visual">
+          <picture>
+            <source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-point-level.webp" alt="ポイント・レベル・スタンプカード画面" data-lightbox>
+          </picture>
+        </div>
+        <p class="core-loop-note" data-lp-key="coreloop.shopNote">ごほうびショップは唯一の出口。ポイントは「欲しいものと交換できる通貨」として機能するので、子供の自律的な目標設定を促します。</p>
+      </aside>
+
+    </div><!-- /.core-loop-2col -->
   </div>
 </section>
 
@@ -490,6 +634,7 @@
         <div class="tour-emoji">&#x1F3B4;</div>
         <h3>おみくじ</h3>
         <p>ログインするだけで 1 日 1 回の運試し。「大吉」が出るとボーナスポイントが獲得でき、毎朝アプリを開く習慣がつきます。</p>
+        <div class="tour-shot-placeholder" aria-hidden="true">&#x1F3B4;</div>
       </div>
       <div class="tour-card">
         <div class="tour-phase">&#9313; 長期の達成感</div>
@@ -532,6 +677,7 @@
         <div class="tour-emoji">&#x2694;&#xFE0F;</div>
         <h3>RPG バトル</h3>
         <p>コンボで貯めたエネルギーでボスに挑戦。小学生から全年齢で使える、毎日の努力を可視化する冒険の締めくくりです。</p>
+        <div class="tour-shot-placeholder" aria-hidden="true">&#x2694;&#xFE0F;</div>
       </div>
     </div>
   </div>
@@ -572,6 +718,57 @@
 </section>
 
 <!-- LP-LANDMARK:soft-features end -->
+
+<!-- LP-LANDMARK:growth-roadmap start — 年齢別成長ロードマップ（最終地点として「卒業」を自然に位置付ける）(#1613 R9)
+     StoryBrand 7 要素「Success（成功した未来像）」と整合
+     PO 判断: 「卒業セクション」は単独設置せず、年齢別成長物語の最終地点として描く -->
+<!-- [05b] 年齢別成長ロードマップ — お子さまの 15 年と、その先 -->
+<section class="section bg-gray" id="growth-roadmap">
+  <div class="section-inner">
+    <h2 class="section-title" data-lp-key="growthRoadmap.sectionTitle">3 歳から 18 歳まで、そして「卒業」へ</h2>
+    <p class="section-desc" data-lp-key="growthRoadmap.sectionDesc">お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。</p>
+    <div class="growth-roadmap">
+      <div class="gr-track">
+        <div class="gr-stage" data-stage="preschool">
+          <div class="gr-age"><span data-lp-key="growthRoadmap.preschoolAge">幼児</span><strong data-lp-key="growthRoadmap.preschoolRange">3-5</strong><span data-lp-key="growthRoadmap.preschoolUnit">歳</span></div>
+          <div class="gr-body">
+            <h3 data-lp-key="growthRoadmap.preschoolTitle">はみがき・おかたづけを自分で</h3>
+            <p data-lp-key="growthRoadmap.preschoolDesc">大きなボタンとひらがな UI で「自分で押した！」の達成感を毎日体験。</p>
+          </div>
+        </div>
+        <div class="gr-stage" data-stage="elementary">
+          <div class="gr-age"><span data-lp-key="growthRoadmap.elementaryAge">小学生</span><strong data-lp-key="growthRoadmap.elementaryRange">6-12</strong><span data-lp-key="growthRoadmap.elementaryUnit">歳</span></div>
+          <div class="gr-body">
+            <h3 data-lp-key="growthRoadmap.elementaryTitle">宿題・お手伝いを自分から</h3>
+            <p data-lp-key="growthRoadmap.elementaryDesc">漢字 UI に切替、称号で「次は何を達成しよう？」と自分で目標を立てる力が育ちます。</p>
+          </div>
+        </div>
+        <div class="gr-stage" data-stage="junior">
+          <div class="gr-age"><span data-lp-key="growthRoadmap.juniorAge">中学生</span><strong data-lp-key="growthRoadmap.juniorRange">13-15</strong><span data-lp-key="growthRoadmap.juniorUnit">歳</span></div>
+          <div class="gr-body">
+            <h3 data-lp-key="growthRoadmap.juniorTitle">習い事・部活と勉強の両立</h3>
+            <p data-lp-key="growthRoadmap.juniorDesc">月次レポートで「自分のペース」を客観視し、自律的なリズム調整が可能に。</p>
+          </div>
+        </div>
+        <div class="gr-stage" data-stage="senior">
+          <div class="gr-age"><span data-lp-key="growthRoadmap.seniorAge">高校生</span><strong data-lp-key="growthRoadmap.seniorRange">16-18</strong><span data-lp-key="growthRoadmap.seniorUnit">歳</span></div>
+          <div class="gr-body">
+            <h3 data-lp-key="growthRoadmap.seniorTitle">受験・将来設計を自分の手で</h3>
+            <p data-lp-key="growthRoadmap.seniorDesc">15 年分の活動ログが「自分はこれだけやってきた」という自信に。</p>
+          </div>
+        </div>
+        <div class="gr-stage" data-stage="graduate">
+          <div class="gr-age"><span data-lp-key="growthRoadmap.graduateLabel">そして</span><strong data-lp-key="growthRoadmap.graduateAccent">卒業</strong></div>
+          <div class="gr-body">
+            <h3 data-lp-key="growthRoadmap.graduateTitle">アプリが必要なくなる日へ</h3>
+            <p data-lp-key="growthRoadmap.graduateDesc">「使わなくなる」ことが私たちの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- LP-LANDMARK:growth-roadmap end -->
 
 <!-- LP-LANDMARK:pricing start — 料金プロミスバンド。CTA は「無料で始める」のみ
      価格帯の変更は docs/design/19-プライシング戦略書.md + lp-content-map.md §pricing を確認
@@ -615,12 +812,12 @@
       </div>
       <div class="soft-card">
         <div class="soft-icon">&#x1F504;</div>
-        <h3 data-lp-key="retention.card2Title">習慣化が目的のメタ層</h3>
-        <p data-lp-key="retention.card2Desc">ログイン → おみくじ → スタンプカード、というサイクルは活動記録 (L1) とは独立した L2 習慣エンジン。射幸心ではなく「毎朝アプリを開くこと」を習慣にする設計です。</p>
+        <h3 data-lp-key="retention.card2Title">習慣を育てるおみくじスタンプ</h3>
+        <p data-lp-key="retention.card2Desc">毎朝のログイン → おみくじ → スタンプカードは、活動の記録とは別の「毎日アプリを開く習慣」を育てるための仕組みです。射幸心を煽るのではなく「ちょっとした楽しみ」で継続を支えます。</p>
       </div>
       <div class="soft-card">
         <div class="soft-icon">&#x23F0;</div>
-        <h3 data-lp-key="retention.card3Title">1 日 1 回 cap — 煽らない設計</h3>
+        <h3 data-lp-key="retention.card3Title">1 日 1 回まで — 煽らない設計</h3>
         <p data-lp-key="retention.card3Desc">「もっと引きたい」の誘導はありません。1 日 1 回という制限が、逆に「明日もやろう」という継続を生みます。</p>
       </div>
     </div>
