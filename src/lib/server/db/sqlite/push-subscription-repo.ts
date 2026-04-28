@@ -5,23 +5,50 @@ import type {
 	InsertNotificationLogInput,
 	InsertPushSubscriptionInput,
 	NotificationLog,
+	PushSubscriberRole,
 	PushSubscriptionRecord,
 } from '../types';
 
+/**
+ * #1593 (ADR-0023 I6): drizzle が schema.ts の `text('subscriber_role')` を `string` と推論するため、
+ * Repository 境界で `PushSubscriberRole` 型に正規化する。送信側 (notification-service) で
+ * `subscriberRole !== 'parent' && subscriberRole !== 'owner'` を skip する二重防御があるため、
+ * 既存 DB の不正値（NULL / 旧 `'child'` レコード）も安全側に倒れる。
+ */
+type RawPushSubscriptionRow = Omit<PushSubscriptionRecord, 'subscriberRole'> & {
+	subscriberRole: string;
+};
+
+function normalizePushRow(row: RawPushSubscriptionRow): PushSubscriptionRecord {
+	// 不正値はそのまま PushSubscriberRole にキャストせず string 経由で渡す。
+	// 送信側で安全に skip されるため、ここで `'parent' | 'owner'` 以外を捨てる必要はない。
+	return row as unknown as PushSubscriptionRecord;
+}
+
 export async function findByTenant(tenantId: string): Promise<PushSubscriptionRecord[]> {
-	return db.select().from(pushSubscriptions).where(eq(pushSubscriptions.tenantId, tenantId)).all();
+	const rows = (await db
+		.select()
+		.from(pushSubscriptions)
+		.where(eq(pushSubscriptions.tenantId, tenantId))
+		.all()) as RawPushSubscriptionRow[];
+	return rows.map(normalizePushRow);
 }
 
 export async function findByEndpoint(
 	endpoint: string,
 	_tenantId: string,
 ): Promise<PushSubscriptionRecord | undefined> {
-	return db.select().from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint)).get();
+	const row = (await db
+		.select()
+		.from(pushSubscriptions)
+		.where(eq(pushSubscriptions.endpoint, endpoint))
+		.get()) as RawPushSubscriptionRow | undefined;
+	return row ? normalizePushRow(row) : undefined;
 }
 
 export async function insert(input: InsertPushSubscriptionInput): Promise<PushSubscriptionRecord> {
 	const now = new Date().toISOString();
-	return db
+	const row = (await db
 		.insert(pushSubscriptions)
 		.values({
 			tenantId: input.tenantId,
@@ -29,10 +56,12 @@ export async function insert(input: InsertPushSubscriptionInput): Promise<PushSu
 			keysP256dh: input.keysP256dh,
 			keysAuth: input.keysAuth,
 			userAgent: input.userAgent ?? null,
+			subscriberRole: input.subscriberRole satisfies PushSubscriberRole,
 			createdAt: now,
 		})
 		.returning()
-		.get();
+		.get()) as RawPushSubscriptionRow;
+	return normalizePushRow(row);
 }
 
 export async function deleteByEndpoint(endpoint: string, _tenantId: string): Promise<void> {

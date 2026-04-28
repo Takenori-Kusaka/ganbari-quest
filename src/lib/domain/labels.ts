@@ -4345,3 +4345,17 @@ export const LEGAL_LABELS = {
 	dpa: 'Data Processing Addendum (DPA)',
 	signupCrossBorderConsent: 'サービス提供に必要な範囲でのデータ保存・処理に同意します',
 } as const;
+
+// ============================================================
+// Push Notification 関連 (#1593 ADR-0023 I6)
+// 子端末への push 通知は構造的禁止 (Anti-engagement ADR-0012 + COPPA 改正)
+// ============================================================
+export const PUSH_NOTIFICATION_LABELS = {
+	/** child role が subscribe を試みた際の API エラーメッセージ */
+	childSubscribeForbidden:
+		'お子さま用アカウントでは通知を受け取れません。保護者アカウントで設定してください。',
+	/** 監査ログ用: child 端末への通知送信を skip した際のメッセージ */
+	childSendSkipped: 'child role の subscription への push 送信をスキップしました',
+	/** 既存レコードに不正な role が混入していた場合の警告 */
+	unknownRoleSkipped: '不明な subscriber_role の subscription への送信をスキップしました',
+} as const;
