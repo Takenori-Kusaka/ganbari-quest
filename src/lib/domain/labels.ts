@@ -3583,7 +3583,8 @@ export const LP_PRICING_LABELS = {
 	planFreePrice: '¥0',
 	planFreePriceSub: 'ずっと無料 ・ クレカ登録不要',
 	planFreePersona: 'こんなご家族におすすめ: まずはお子さま 1〜2 人で試したいご家族へ',
-	planFreeDesc: 'ポイント・レベルアップ・おみくじ・スタンプカードなど、お子さまの冒険体験はすべて無料。',
+	planFreeDesc:
+		'ポイント・レベルアップ・おみくじ・スタンプカードなど、お子さまの冒険体験はすべて無料。',
 	planFreeCta: '無料ではじめる',
 	planFreeBadge: '永久無料',
 
@@ -3603,8 +3604,7 @@ export const LP_PRICING_LABELS = {
 	planFamilyPrice: '¥780',
 	planFamilyUnit: '/月（税込）',
 	planFamilyYearly: '年額 ¥7,800（税込・2ヶ月分お得）',
-	planFamilyPersona:
-		'こんなご家族におすすめ: 祖父母・離れた家族と一緒に応援したいご家族へ',
+	planFamilyPersona: 'こんなご家族におすすめ: 祖父母・離れた家族と一緒に応援したいご家族へ',
 	planFamilyDesc: '家族みんなで見守る。きょうだいの比較やレポートで成長を応援できます。',
 	planFamilyCta: '7日間 無料体験',
 
@@ -3644,8 +3644,7 @@ export const LP_PRICING_LABELS = {
 		'無料体験中に作成したオリジナル活動・ごほうび・もちものチェックリスト・シール・レベル・お子さま登録',
 	trialDataReassureLine1Suffix: 'は、無料プランに移行した後もそのまま保持されます。',
 	trialDataReassureLine2Strong: '活動履歴・ポイント獲得履歴・ログインボーナス履歴',
-	trialDataReassureLine2Suffix:
-		'は無料プランの保持期間（90 日）を超えたものから順次削除されます。',
+	trialDataReassureLine2Suffix: 'は無料プランの保持期間（90 日）を超えたものから順次削除されます。',
 	trialDataReassureLine3:
 		'有料プランにアップグレードすれば、より長期間（スタンダード: 1 年 / ファミリー: 無制限）の履歴をご利用いただけます。',
 

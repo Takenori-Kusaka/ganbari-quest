@@ -267,9 +267,7 @@ export function getGracePeriodDays(planTier: PlanTier): number {
  * 個人情報保護法 22 条「不要となった個人データの遅滞なく消去する努力義務」遵守 +
  * DB 肥大化リスク解消が目的（ADR-0010 過剰防衛禁止に該当しない最小実装）。
  */
-export async function purgeExpiredSoftDeletedTenants(opts?: {
-	dryRun?: boolean;
-}): Promise<{
+export async function purgeExpiredSoftDeletedTenants(opts?: { dryRun?: boolean }): Promise<{
 	tenantsProcessed: number;
 	tenantsDeleted: number;
 	tenantsFailed: number;
