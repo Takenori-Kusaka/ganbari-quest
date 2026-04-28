@@ -744,6 +744,10 @@ export const siblingCheers = sqliteTable(
 // ============================================================
 // push_subscriptions - プッシュ通知購読
 // ============================================================
+// #1593 (ADR-0023 I6) — subscriber_role: 'parent' | 'owner' のみ許容（child は subscribe 拒否）。
+// COPPA 改正 (2025/01 最終化、2026/04 対応期限) + ADR-0012 Anti-engagement の二重リスク対策として、
+// 子端末への push 通知は構造的に禁止する。送信側でも二重防御で skip。
+// 既存レコード backfill 用のため default は 'parent' (ADR-0031 NULL 混在防止)。
 export const pushSubscriptions = sqliteTable(
 	'push_subscriptions',
 	{
@@ -753,6 +757,7 @@ export const pushSubscriptions = sqliteTable(
 		keysP256dh: text('keys_p256dh').notNull(),
 		keysAuth: text('keys_auth').notNull(),
 		userAgent: text('user_agent'),
+		subscriberRole: text('subscriber_role').notNull().default('parent'),
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
 	(table) => [index('idx_push_subs_tenant').on(table.tenantId)],

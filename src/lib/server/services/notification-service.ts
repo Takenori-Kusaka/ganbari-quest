@@ -175,8 +175,29 @@ export async function sendPushNotification(
 	webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
 
 	// テナントの全購読を取得
-	const subscriptions = await findByTenant(tenantId);
+	const allSubscriptions = await findByTenant(tenantId);
+	if (allSubscriptions.length === 0) {
+		return { sent: 0, failed: 0 };
+	}
+
+	// #1593 (ADR-0023 I6): 二重防御 — child / 不明 role の subscription への送信を構造的に禁止。
+	// subscribe API でも拒否しているが、過去レコード混入や将来 bug に備え送信側でもガード。
+	const subscriptions = allSubscriptions.filter((sub) => {
+		if (sub.subscriberRole === 'parent' || sub.subscriberRole === 'owner') {
+			return true;
+		}
+		logger.warn('[notification] 非 parent/owner role の subscription への送信をスキップ', {
+			context: {
+				tenantId,
+				endpoint: sub.endpoint,
+				subscriberRole: sub.subscriberRole,
+				notificationType,
+			},
+		});
+		return false;
+	});
 	if (subscriptions.length === 0) {
+		// 全 subscription が child role 等で skip された場合
 		return { sent: 0, failed: 0 };
 	}
 

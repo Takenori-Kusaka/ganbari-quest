@@ -524,6 +524,8 @@ export const SQL_CREATE_TABLES = `
 	CREATE INDEX IF NOT EXISTS idx_sibling_cheers_to_shown
 		ON sibling_cheers(to_child_id, shown_at);
 
+	-- #1593 (ADR-0023 I6) subscriber_role: 'parent' | 'owner' のみ許容、'child' は subscribe 拒否。
+	-- 既存行 backfill 用の default 'parent' (ADR-0031 NULL 混在防止)。
 	CREATE TABLE IF NOT EXISTS push_subscriptions (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		tenant_id TEXT NOT NULL,
@@ -531,6 +533,7 @@ export const SQL_CREATE_TABLES = `
 		keys_p256dh TEXT NOT NULL,
 		keys_auth TEXT NOT NULL,
 		user_agent TEXT,
+		subscriber_role TEXT NOT NULL DEFAULT 'parent',
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX IF NOT EXISTS idx_push_subs_tenant

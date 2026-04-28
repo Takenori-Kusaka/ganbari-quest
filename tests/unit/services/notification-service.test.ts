@@ -209,6 +209,7 @@ describe('notification-service', () => {
 					keysP256dh: 'p1',
 					keysAuth: 'a1',
 					userAgent: null,
+					subscriberRole: 'parent',
 					createdAt: '',
 				},
 				{
@@ -218,6 +219,7 @@ describe('notification-service', () => {
 					keysP256dh: 'p2',
 					keysAuth: 'a2',
 					userAgent: null,
+					subscriberRole: 'owner',
 					createdAt: '',
 				},
 			]);
@@ -240,6 +242,7 @@ describe('notification-service', () => {
 					keysP256dh: 'p1',
 					keysAuth: 'a1',
 					userAgent: null,
+					subscriberRole: 'parent',
 					createdAt: '',
 				},
 			]);
@@ -249,6 +252,107 @@ describe('notification-service', () => {
 			expect(result.sent).toBe(0);
 			expect(result.failed).toBe(1);
 			expect(mockDeleteByEndpoint).toHaveBeenCalledWith('https://stale', 'T1');
+		});
+
+		// ============================================================
+		// #1593 (ADR-0023 I6): Anti-engagement / COPPA 構造的防御
+		// ============================================================
+
+		it('#1593 child role の subscription への送信を二重防御で skip', async () => {
+			setDaytimeJST();
+			mockCountTodayLogs.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([
+				{
+					id: 1,
+					tenantId: 'T1',
+					endpoint: 'https://parent-device',
+					keysP256dh: 'p1',
+					keysAuth: 'a1',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+				{
+					id: 2,
+					tenantId: 'T1',
+					endpoint: 'https://child-device',
+					keysP256dh: 'p2',
+					keysAuth: 'a2',
+					userAgent: null,
+					// NOTE: 型上は parent | owner だが、過去レコードや bug 経由で混入した
+					// 想定で `as never` キャストして child を注入 (二重防御の検証目的)。
+					subscriberRole: 'child' as never,
+					createdAt: '',
+				},
+			]);
+			mockSendNotification.mockResolvedValue({} as never);
+
+			const result = await sendPushNotification('T1', 'test', 'Title', 'Body');
+			// 親端末のみ送信、子端末は skip
+			expect(result.sent).toBe(1);
+			expect(result.failed).toBe(0);
+			expect(mockSendNotification).toHaveBeenCalledTimes(1);
+			// child 端末の endpoint には絶対に送られない
+			const calledEndpoints = mockSendNotification.mock.calls.map(
+				(call) => (call[0] as { endpoint: string }).endpoint,
+			);
+			expect(calledEndpoints).toContain('https://parent-device');
+			expect(calledEndpoints).not.toContain('https://child-device');
+		});
+
+		it('#1593 不明な subscriber_role の subscription への送信を skip', async () => {
+			setDaytimeJST();
+			mockCountTodayLogs.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([
+				{
+					id: 1,
+					tenantId: 'T1',
+					endpoint: 'https://unknown-role-device',
+					keysP256dh: 'p1',
+					keysAuth: 'a1',
+					userAgent: null,
+					subscriberRole: 'guest' as never, // 想定外 role
+					createdAt: '',
+				},
+			]);
+			mockSendNotification.mockResolvedValue({} as never);
+
+			const result = await sendPushNotification('T1', 'test', 'Title', 'Body');
+			// 全 subscription が想定外 role → 0 件送信
+			expect(result.sent).toBe(0);
+			expect(result.failed).toBe(0);
+			expect(mockSendNotification).not.toHaveBeenCalled();
+		});
+
+		it('#1593 全 subscription が child role の場合 0 件で完結', async () => {
+			setDaytimeJST();
+			mockCountTodayLogs.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([
+				{
+					id: 1,
+					tenantId: 'T1',
+					endpoint: 'https://child1',
+					keysP256dh: 'p1',
+					keysAuth: 'a1',
+					userAgent: null,
+					subscriberRole: 'child' as never,
+					createdAt: '',
+				},
+				{
+					id: 2,
+					tenantId: 'T1',
+					endpoint: 'https://child2',
+					keysP256dh: 'p2',
+					keysAuth: 'a2',
+					userAgent: null,
+					subscriberRole: 'child' as never,
+					createdAt: '',
+				},
+			]);
+
+			const result = await sendPushNotification('T1', 'test', 'Title', 'Body');
+			expect(result).toEqual({ sent: 0, failed: 0 });
+			expect(mockSendNotification).not.toHaveBeenCalled();
 		});
 
 		it('VAPID未設定時はスキップ', async () => {

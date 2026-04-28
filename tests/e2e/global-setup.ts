@@ -471,6 +471,7 @@ export default async function globalSetup() {
 		`);
 
 		// push_subscriptions + notification_logs テーブル（#0218 プッシュ通知基盤）
+		// #1593 (ADR-0023 I6) subscriber_role: 'parent' | 'owner' 限定 (child は subscribe 拒否)
 		db.exec(`
 			CREATE TABLE IF NOT EXISTS push_subscriptions (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -479,6 +480,7 @@ export default async function globalSetup() {
 				keys_p256dh TEXT NOT NULL,
 				keys_auth TEXT NOT NULL,
 				user_agent TEXT,
+				subscriber_role TEXT NOT NULL DEFAULT 'parent',
 				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 			);
 			CREATE INDEX IF NOT EXISTS idx_push_subs_tenant ON push_subscriptions(tenant_id);

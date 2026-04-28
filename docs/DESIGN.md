@@ -406,6 +406,8 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `USAGE_TIME_LABELS` | const |  |
 | `UI_COMPONENTS_LABELS` | const |  |
 | `FEATURES_LABELS` | const |  |
+| `LEGAL_LABELS` | const |  |
+| `PUSH_NOTIFICATION_LABELS` | const |  |
 | `formatCount` | function |  |
 | `formatAge` | function |  |
 | `formatAgeRange` | function |  |

@@ -792,6 +792,15 @@ export interface InsertSiblingCheerInput {
 // Push Subscriptions (プッシュ通知購読)
 // ============================================================
 
+/**
+ * Push 通知購読者ロール (#1593 ADR-0023 I6)
+ *
+ * `'child'` は subscribe 自体を拒否する設計のため型に含めない。
+ * 既存レコード backfill 用 default は `'parent'`（schema.ts 参照）。
+ * COPPA 改正 + ADR-0012 Anti-engagement 二重リスク対策。
+ */
+export type PushSubscriberRole = 'parent' | 'owner';
+
 export interface PushSubscriptionRecord {
 	id: number;
 	tenantId: string;
@@ -799,6 +808,7 @@ export interface PushSubscriptionRecord {
 	keysP256dh: string;
 	keysAuth: string;
 	userAgent: string | null;
+	subscriberRole: PushSubscriberRole;
 	createdAt: string;
 }
 
@@ -808,6 +818,7 @@ export interface InsertPushSubscriptionInput {
 	keysP256dh: string;
 	keysAuth: string;
 	userAgent?: string | null;
+	subscriberRole: PushSubscriberRole;
 }
 
 // ============================================================
