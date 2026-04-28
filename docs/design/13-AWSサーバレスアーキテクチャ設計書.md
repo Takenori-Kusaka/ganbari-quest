@@ -125,9 +125,11 @@
 | `ganbari-quest-cron-license-expire` | `cron(0 15 * * ? *)` | 00:00 | license-expire |
 | `ganbari-quest-cron-retention-cleanup` | `cron(0 16 * * ? *)` | 01:00 | retention-cleanup |
 | `ganbari-quest-cron-trial-notifications` | `cron(0 0 * * ? *)` | 09:00 | trial-notifications |
+| `ganbari-quest-cron-lifecycle-emails` (#1601) | `cron(30 0 * * ? *)` | 09:30 | lifecycle-emails (期限切れ前リマインド + 休眠復帰メール) |
 
 - スケジュール SSOT: `src/lib/server/cron/schedule-registry.ts`
 - ターゲット: `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`)
+- `lifecycle-emails` (#1601, ADR-0023 §5 I11): 親オーナー宛のみ送信。年 6 回マーケティングメール上限を遵守。List-Unsubscribe ヘッダ + 配信停止リンク必須。Anti-engagement 整合 (中立トーン)。
 
 ### 3.4 OpsStack（監視・コスト防衛）
 

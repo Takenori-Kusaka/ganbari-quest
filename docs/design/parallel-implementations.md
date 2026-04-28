@@ -298,6 +298,29 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] 同意チェックボックス追加 → `signup/+page.svelte` の `canSubmit` / `submitBlockReason` に反映 + E2E テスト追加
 - [ ] 設計書 14 の §8.5 / §8.6 / §8.7 と整合維持（電気通信事業法 §27の12 / 個情法 §28 / 未成年者取扱い）
 
+#### 12. メール通知系 (trial / lifecycle / weekly-report) (#1601)
+
+| 場所 | 内容 | 規律 |
+|------|------|------|
+| `src/lib/server/services/trial-notification-service.ts` | トライアル終了 3 日前 / 1 日前 / 当日通知 | システム通知扱い（年 6 回マーケ枠の対象外） |
+| `src/lib/server/services/lifecycle-email-service.ts` (#1601) | 期限切れ前リマインド (30/7/1日前) + 休眠復帰 (90日) | マーケ扱い（年 6 回上限内、List-Unsubscribe必須、親宛のみ） |
+| `src/lib/server/services/report-service.ts` | 週次活動レポート | 親宛のみ。opt-in (#1601 では枠外) |
+| `src/lib/server/services/email-service.ts` | SES 送信コア + テンプレート | `sendEmail({ listUnsubscribeUrl })` 指定で SendRawEmailCommand を使い List-Unsubscribe ヘッダを付与 (RFC 8058) |
+| `src/lib/server/services/marketing-email-counter.ts` (#1601) | 年間 6 回上限カウンタ (settings KV) | ADR-0023 §3.3 準拠 |
+| `src/lib/server/services/unsubscribe-token.ts` (#1601) | HMAC ベース配信停止トークン | OPS_SECRET_KEY 流用 (Pre-PMF シンプル化、ADR-0010) |
+| `src/routes/unsubscribe/[token]/` (#1601) | 配信停止確認画面 + one-click 解除 | RFC 8058 List-Unsubscribe-Post 対応 |
+
+**規律 (ADR-0023 + ADR-0012 整合)**:
+- 親オーナー (role='owner') の email 以外には絶対に送らない（子供への送信禁止）
+- 「マーケ扱い」のメールを追加するときは必ず `marketing-email-counter` を経由して年 6 回上限を遵守
+- 「マーケ扱い」のメールには必ず `listUnsubscribeUrl` を渡す（List-Unsubscribe ヘッダ + body 末尾の解除リンク）
+- Anti-engagement (ADR-0012) 整合: 「今すぐアップグレード」「失効します」等の煽り NG。中立トーンを貫く
+
+**修正時チェック**:
+- [ ] 新メール種別の追加時は `LIFECYCLE_EMAIL_LABELS` (labels.ts) に文言を追加し、SSOT を保つ
+- [ ] cron job 追加時は `schedule-registry.ts` + `infra/lambda/cron-dispatcher/index.ts` (KNOWN_ENDPOINTS) + `infra/lib/compute-stack.ts` (CRON_JOBS) の 3 箇所同期
+- [ ] `Tenant.lastActiveAt` 関連の変更時は `entities.ts` + `auth-repo.interface.ts` + DynamoDB / SQLite 両 repo + `last-active-touch.ts` を同期
+
 ---
 
 ## 修正時チェックリスト

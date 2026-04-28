@@ -30,6 +30,7 @@ const KNOWN_ENDPOINTS: Record<string, string> = {
 	'license-expire': '/api/cron/license-expire',
 	'retention-cleanup': '/api/cron/retention-cleanup',
 	'trial-notifications': '/api/cron/trial-notifications',
+	'lifecycle-emails': '/api/cron/lifecycle-emails',
 };
 
 interface CronEvent {

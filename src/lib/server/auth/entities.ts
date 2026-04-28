@@ -36,6 +36,13 @@ export interface Tenant {
 	// #742: Soft delete state (softDeletedAt / deletionGracePlanTier) is stored
 	// in settings table (not Tenant entity) to avoid schema migration on DynamoDB.
 	// See grace-period-service.ts for details.
+	/**
+	 * #1601 (ADR-0023 §5 I11): 最終活動時刻 (ISO string)。
+	 * `hooks.server.ts` が認証成功時に 1 日 1 回のガード付きで更新する。
+	 * 90 日以上経過したテナントを「休眠」と判定し、休眠復帰メールの送信対象とする。
+	 * 既存テナントでは undefined のことがあり、その場合は createdAt を fallback とする。
+	 */
+	lastActiveAt?: string;
 	createdAt: string;
 	updatedAt: string;
 }

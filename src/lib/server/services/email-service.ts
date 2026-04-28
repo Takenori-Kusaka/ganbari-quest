@@ -2,10 +2,11 @@
 // SES ベースのメール送信サービス
 // ローカルモード (AUTH_MODE=local) ではログ出力のみ
 
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
-import { getLicensePlanLabel } from '$lib/domain/labels';
+import { getLicensePlanLabel, LIFECYCLE_EMAIL_LABELS } from '$lib/domain/labels';
 import { logger } from '$lib/server/logger';
+import { generateUnsubscribeToken, type UnsubscribeKind } from './unsubscribe-token';
 
 // ============================================================
 // 型定義
@@ -16,6 +17,12 @@ export interface SendEmailParams {
 	subject: string;
 	htmlBody: string;
 	textBody?: string;
+	/**
+	 * #1601: 特定電子メール法 + RFC 8058 (List-Unsubscribe One-Click) 対応。
+	 * 指定すると List-Unsubscribe / List-Unsubscribe-Post ヘッダを付与した
+	 * SendRawEmailCommand で送信する（SendEmailCommand はカスタムヘッダ非対応のため）。
+	 */
+	listUnsubscribeUrl?: string;
 }
 
 // ============================================================
@@ -47,36 +54,163 @@ function isLocalMode(): boolean {
 // ============================================================
 
 export async function sendEmail(params: SendEmailParams): Promise<boolean> {
-	const { to, subject, htmlBody, textBody } = params;
+	const { to, subject, htmlBody, textBody, listUnsubscribeUrl } = params;
 
 	if (isLocalMode()) {
+		// #1601: ローカル開発時は tmp/emails/ に HTML を書き出して目視確認できるようにする。
+		await writeLocalEmailPreview({ to, subject, htmlBody, listUnsubscribeUrl });
 		logger.info('[email] ローカルモード: メール送信スキップ', {
-			context: { to, subject },
+			context: { to, subject, hasListUnsubscribe: Boolean(listUnsubscribeUrl) },
 		});
 		return true;
 	}
 
 	try {
 		const client = getSesClient();
-		const command = new SendEmailCommand({
-			Source: `がんばりクエスト <${getSenderEmail()}>`,
-			Destination: { ToAddresses: [to] },
-			Message: {
-				Subject: { Data: subject, Charset: 'UTF-8' },
-				Body: {
-					Html: { Data: htmlBody, Charset: 'UTF-8' },
-					...(textBody ? { Text: { Data: textBody, Charset: 'UTF-8' } } : {}),
-				},
-			},
-			ConfigurationSetName: getConfigSetName(),
-		});
 
-		await client.send(command);
-		logger.info('[email] メール送信成功', { context: { to, subject } });
+		if (listUnsubscribeUrl) {
+			// SendEmailCommand は List-Unsubscribe 等のカスタムヘッダ非対応のため、
+			// Raw MIME を組み立てて SendRawEmailCommand で送信する (RFC 8058)。
+			const rawMessage = buildRawMimeMessage({
+				from: `がんばりクエスト <${getSenderEmail()}>`,
+				to,
+				subject,
+				htmlBody,
+				textBody,
+				listUnsubscribeUrl,
+			});
+			await client.send(
+				new SendRawEmailCommand({
+					RawMessage: { Data: rawMessage },
+					ConfigurationSetName: getConfigSetName(),
+				}),
+			);
+		} else {
+			await client.send(
+				new SendEmailCommand({
+					Source: `がんばりクエスト <${getSenderEmail()}>`,
+					Destination: { ToAddresses: [to] },
+					Message: {
+						Subject: { Data: subject, Charset: 'UTF-8' },
+						Body: {
+							Html: { Data: htmlBody, Charset: 'UTF-8' },
+							...(textBody ? { Text: { Data: textBody, Charset: 'UTF-8' } } : {}),
+						},
+					},
+					ConfigurationSetName: getConfigSetName(),
+				}),
+			);
+		}
+
+		logger.info('[email] メール送信成功', {
+			context: { to, subject, hasListUnsubscribe: Boolean(listUnsubscribeUrl) },
+		});
 		return true;
 	} catch (err) {
 		logger.error('[email] メール送信失敗', { error: String(err), context: { to, subject } });
 		return false;
+	}
+}
+
+// ============================================================
+// Raw MIME ビルダ (#1601 List-Unsubscribe ヘッダ対応)
+// ============================================================
+
+interface RawMimeParams {
+	from: string;
+	to: string;
+	subject: string;
+	htmlBody: string;
+	textBody?: string;
+	listUnsubscribeUrl: string;
+}
+
+/**
+ * RFC 5322 + RFC 8058 準拠の最小 MIME メッセージを組み立てる。
+ *
+ * - Subject は RFC 2047 (=?UTF-8?B?...?=) で base64 エンコード
+ * - List-Unsubscribe ヘッダは <https://...> 形式 (RFC 2369)
+ * - List-Unsubscribe-Post: List-Unsubscribe=One-Click (RFC 8058)
+ */
+function buildRawMimeMessage(params: RawMimeParams): Uint8Array {
+	const { from, to, subject, htmlBody, textBody, listUnsubscribeUrl } = params;
+	const boundary = `gq-bnd-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+	const subjectEncoded = `=?UTF-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`;
+
+	const headers = [
+		`From: ${from}`,
+		`To: ${to}`,
+		`Subject: ${subjectEncoded}`,
+		'MIME-Version: 1.0',
+		`List-Unsubscribe: <${listUnsubscribeUrl}>`,
+		'List-Unsubscribe-Post: List-Unsubscribe=One-Click',
+		`Content-Type: multipart/alternative; boundary="${boundary}"`,
+	];
+
+	const parts: string[] = [];
+	if (textBody) {
+		parts.push(
+			[
+				`--${boundary}`,
+				'Content-Type: text/plain; charset="UTF-8"',
+				'Content-Transfer-Encoding: base64',
+				'',
+				Buffer.from(textBody, 'utf-8').toString('base64'),
+			].join('\r\n'),
+		);
+	}
+	parts.push(
+		[
+			`--${boundary}`,
+			'Content-Type: text/html; charset="UTF-8"',
+			'Content-Transfer-Encoding: base64',
+			'',
+			Buffer.from(htmlBody, 'utf-8').toString('base64'),
+		].join('\r\n'),
+	);
+	parts.push(`--${boundary}--`);
+
+	const body = parts.join('\r\n');
+	const message = `${headers.join('\r\n')}\r\n\r\n${body}\r\n`;
+	return Buffer.from(message, 'utf-8');
+}
+
+// ============================================================
+// ローカル開発用プレビュー (#1601)
+// ============================================================
+
+/**
+ * AUTH_MODE=local では実 SES を呼ばない代わりに `tmp/emails/<timestamp>.html`
+ * へ HTML を書き出し、ブラウザで目視確認できるようにする。
+ *
+ * `tmp/` は `.gitignore` 配下なのでコミットされない。fs アクセスに失敗しても
+ * 静かに無視する（テスト環境では tmp ディレクトリが無いケースもある）。
+ */
+async function writeLocalEmailPreview(params: {
+	to: string;
+	subject: string;
+	htmlBody: string;
+	listUnsubscribeUrl?: string;
+}): Promise<void> {
+	if (process.env.NODE_ENV === 'test') return;
+	if (process.env.SKIP_LOCAL_EMAIL_PREVIEW === 'true') return;
+	try {
+		const fs = await import('node:fs/promises');
+		const path = await import('node:path');
+		const dir = path.join(process.cwd(), 'tmp', 'emails');
+		await fs.mkdir(dir, { recursive: true });
+		const safeSubject = params.subject
+			.replace(/[\\/:*?"<>|]/g, '_')
+			.replace(/\s+/g, '_')
+			.slice(0, 60);
+		const filename = `${Date.now()}-${safeSubject || 'email'}.html`;
+		const headerNote = params.listUnsubscribeUrl
+			? `<!-- List-Unsubscribe: ${params.listUnsubscribeUrl} -->\n<!-- To: ${params.to} -->\n`
+			: `<!-- To: ${params.to} -->\n`;
+		await fs.writeFile(path.join(dir, filename), headerNote + params.htmlBody, 'utf-8');
+	} catch {
+		// preview 失敗はサイレント (logger を通すと重複出力になるため)
 	}
 }
 
@@ -372,5 +506,188 @@ export async function sendWeeklyReportEmail(
       </p>
     `),
 		textBody: `${report.childName}の今週のがんばり（${report.dateRange}）\n\n${report.categories.map((c) => `${c.name}: ${c.count}回`).join('\n')}\n\n🔥 連続記録: ${report.streak}日\n⭐ ポイント: +${report.pointsEarned}pt（累計: ${report.totalPoints}pt）`,
+	});
+}
+
+// ============================================================
+// ライフサイクルメール (#1601 / ADR-0023 §3.2 §3.3 §5 I11)
+// ============================================================
+
+/**
+ * 期限切れ前リマインドメール / 休眠復帰メール用の Public URL ビルダ。
+ * 環境変数 `APP_BASE_URL` 優先、未設定時は本番 URL にフォールバック。
+ */
+function getAppBaseUrl(): string {
+	return env.APP_BASE_URL ?? 'https://ganbari-quest.com';
+}
+
+function buildUnsubscribeUrl(tenantId: string, kind: UnsubscribeKind): string {
+	const token = generateUnsubscribeToken({ tenantId, kind });
+	return `${getAppBaseUrl()}/unsubscribe/${token}`;
+}
+
+/**
+ * lifecycle 系メールの共通レイアウト。
+ *
+ * `wrapTemplate` (purple ヘッダ) や `wrapTrialEmailTemplate` (orange ヘッダ) と
+ * 区別するため、Anti-engagement 整合の落ち着いたグレー基調にする。
+ */
+function wrapLifecycleTemplate(content: string, unsubscribeUrl: string): string {
+	const labels = LIFECYCLE_EMAIL_LABELS;
+	return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: #f5f5f5; color: #2d2d2d; }
+  .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
+  .header { background: #4a5568; padding: 20px 24px; }
+  .header h1 { color: #ffffff; font-size: 18px; margin: 0; font-weight: 600; }
+  .content { padding: 32px 24px; line-height: 1.7; }
+  .content h2 { color: #2d3748; font-size: 18px; margin-top: 0; }
+  .content p { margin: 12px 0; }
+  .meta { background: #f7fafc; border-left: 4px solid #cbd5e0; padding: 12px 16px; margin: 16px 0; font-size: 14px; }
+  .meta div { margin: 4px 0; }
+  .button { display: inline-block; padding: 10px 20px; background: #4a5568; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; }
+  .footer { padding: 16px 24px; background: #f9fafb; text-align: center; font-size: 12px; color: #718096; border-top: 1px solid #e5e7eb; }
+  .footer a { color: #718096; text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>がんばりクエスト</h1>
+  </div>
+  <div class="content">
+    ${content}
+  </div>
+  <div class="footer">
+    <p>${labels.footerNote}</p>
+    <p><a href="${unsubscribeUrl}">${labels.unsubscribeFooter}</a></p>
+    <p>${labels.footerCopyright}</p>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+export interface RenewalReminderParams {
+	email: string;
+	tenantId: string;
+	ownerName: string;
+	planLabel: string;
+	expiresAt: string;
+	daysRemaining: number;
+}
+
+/**
+ * 期限切れ前リマインドメール (一般プラン残り 30/7/1 日)。
+ *
+ * Anti-engagement 整合: 「今すぐ」「失効します」「お得な」等の煽り表現を含めない。
+ * 「ご確認ください」「ご希望の場合は」の中立トーン。
+ */
+export async function sendLicenseRenewalReminderEmail(
+	params: RenewalReminderParams,
+): Promise<boolean> {
+	const labels = LIFECYCLE_EMAIL_LABELS;
+	const { email, tenantId, ownerName, planLabel, expiresAt, daysRemaining } = params;
+	const unsubscribeUrl = buildUnsubscribeUrl(tenantId, 'marketing');
+	const subject = labels.renewalSubject(daysRemaining);
+	const ctaUrl = `${getAppBaseUrl()}/admin/license`;
+
+	const htmlContent = `
+      <h2>${labels.renewalHeading}</h2>
+      <p>${labels.renewalGreeting(ownerName)}</p>
+      <p>${labels.renewalIntro}</p>
+      <div class="meta">
+        <div>${labels.renewalPlanLine(planLabel)}</div>
+        <div>${labels.renewalDateLine(expiresAt, daysRemaining)}</div>
+      </div>
+      <p>${labels.renewalContinue}</p>
+      <p>${labels.renewalGraduate}</p>
+      <p style="text-align: center; margin: 24px 0;">
+        <a href="${ctaUrl}" class="button">${labels.renewalCtaLabel}</a>
+      </p>
+    `;
+
+	const textBody = [
+		labels.renewalGreeting(ownerName),
+		'',
+		labels.renewalIntro,
+		'',
+		labels.renewalPlanLine(planLabel),
+		labels.renewalDateLine(expiresAt, daysRemaining),
+		'',
+		labels.renewalContinue,
+		labels.renewalGraduate,
+		'',
+		`${labels.renewalCtaLabel}: ${ctaUrl}`,
+		'',
+		`${labels.unsubscribeFooter}: ${unsubscribeUrl}`,
+	].join('\n');
+
+	return sendEmail({
+		to: email,
+		subject,
+		htmlBody: wrapLifecycleTemplate(htmlContent, unsubscribeUrl),
+		textBody,
+		listUnsubscribeUrl: unsubscribeUrl,
+	});
+}
+
+export interface DormantReactivationParams {
+	email: string;
+	tenantId: string;
+	ownerName: string;
+	daysSinceLastActive: number;
+}
+
+/**
+ * 休眠復帰メール (90 日以上ログインなし、1 ユーザーにつき 1 回限り)。
+ *
+ * Anti-engagement 整合: 卒業 = ポジティブとしてフレーミング、戻ることを強要しない。
+ */
+export async function sendDormantReactivationEmail(
+	params: DormantReactivationParams,
+): Promise<boolean> {
+	const labels = LIFECYCLE_EMAIL_LABELS;
+	const { email, tenantId, ownerName, daysSinceLastActive } = params;
+	const unsubscribeUrl = buildUnsubscribeUrl(tenantId, 'marketing');
+	const ctaUrl = `${getAppBaseUrl()}/auth/login`;
+
+	const htmlContent = `
+      <h2>${labels.dormantHeading}</h2>
+      <p>${labels.dormantGreeting(ownerName)}</p>
+      <p>${labels.dormantIntro}</p>
+      <p>${labels.dormantSinceLastActive(daysSinceLastActive)}</p>
+      <p>${labels.dormantGraduationNote}</p>
+      <p>${labels.dormantReturnNote}</p>
+      <p>${labels.dormantPasswordNote}</p>
+      <p style="text-align: center; margin: 24px 0;">
+        <a href="${ctaUrl}" class="button">${labels.dormantCtaLabel}</a>
+      </p>
+    `;
+
+	const textBody = [
+		labels.dormantGreeting(ownerName),
+		'',
+		labels.dormantIntro,
+		labels.dormantSinceLastActive(daysSinceLastActive),
+		labels.dormantGraduationNote,
+		labels.dormantReturnNote,
+		labels.dormantPasswordNote,
+		'',
+		`${labels.dormantCtaLabel}: ${ctaUrl}`,
+		'',
+		`${labels.unsubscribeFooter}: ${unsubscribeUrl}`,
+	].join('\n');
+
+	return sendEmail({
+		to: email,
+		subject: labels.dormantSubject,
+		htmlBody: wrapLifecycleTemplate(htmlContent, unsubscribeUrl),
+		textBody,
+		listUnsubscribeUrl: unsubscribeUrl,
 	});
 }
