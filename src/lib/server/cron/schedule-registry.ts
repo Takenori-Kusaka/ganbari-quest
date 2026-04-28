@@ -49,4 +49,11 @@ export const scheduleRegistry: CronJob[] = [
 		utcCronExpression: 'cron(0 15 * * ? *)', // 毎日 15:00 UTC = 翌日 00:00 JST
 		description: '子供の年齢自動インクリメント (#1381)',
 	},
+	{
+		name: 'lifecycle-emails',
+		endpoint: '/api/cron/lifecycle-emails',
+		cronExpression: '30 9 * * *', // 毎日 09:30 JST
+		utcCronExpression: 'cron(30 0 * * ? *)', // 毎日 00:30 UTC = 09:30 JST
+		description: '期限切れ前リマインド + 休眠復帰メール (#1601, ADR-0023 I11)',
+	},
 ];

@@ -313,3 +313,7 @@ Oyakagi
 DPIA
 antipatterns
 antipattern
+
+# ===== ライフサイクルメール (#1601) =====
+# healthcheck = cron-dispatcher の動作確認エンドポイント識別子
+healthcheck

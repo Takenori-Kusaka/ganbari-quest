@@ -277,6 +277,37 @@ export const updateTenantOwner: IAuthRepo['updateTenantOwner'] = async (tenantId
 	);
 };
 
+/**
+ * #1601 (ADR-0023 §5 I11): lastActiveAt を atomic に更新する。
+ * hooks.server.ts が認証ごとに呼びうるホットパスのため、Get→Put ではなく
+ * UpdateCommand で 1 件の RW で済ませる。存在しないテナントには書かない。
+ */
+export const updateTenantLastActiveAt: IAuthRepo['updateTenantLastActiveAt'] = async (
+	tenantId,
+	lastActiveAt,
+) => {
+	try {
+		await doc().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: tenantKey(tenantId),
+				UpdateExpression: 'SET lastActiveAt = :lastActiveAt, updatedAt = :updatedAt',
+				ConditionExpression: 'attribute_exists(PK)',
+				ExpressionAttributeValues: {
+					':lastActiveAt': lastActiveAt,
+					':updatedAt': lastActiveAt,
+				},
+			}),
+		);
+	} catch (err) {
+		// ConditionalCheckFailedException = テナントが存在しない（demo / 削除済み）。
+		// hooks の呼び出しはベストエフォートで黙って許容する。
+		const name = (err as { name?: string }).name;
+		if (name === 'ConditionalCheckFailedException') return;
+		throw err;
+	}
+};
+
 export const deleteTenant: IAuthRepo['deleteTenant'] = async (tenantId) => {
 	// Read tenant first to get Stripe customer ID
 	const tenant = await findTenantById(tenantId);
@@ -523,6 +554,9 @@ function itemToTenant(item: Record<string, unknown>): Tenant {
 		stripeSubscriptionId: item.stripeSubscriptionId as string | undefined,
 		planExpiresAt: item.planExpiresAt as string | undefined,
 		trialUsedAt: item.trialUsedAt as string | undefined,
+		// #1601: 既存テナント (lastActiveAt 未保存) は undefined を返し、
+		// 呼び出し側で createdAt にフォールバックする。
+		lastActiveAt: item.lastActiveAt as string | undefined,
 		createdAt: item.createdAt as string,
 		updatedAt: item.updatedAt as string,
 	};

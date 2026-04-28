@@ -55,6 +55,14 @@ export interface IAuthRepo {
 		},
 	): Promise<void>;
 	updateTenantOwner(tenantId: string, newOwnerId: string): Promise<void>;
+	/**
+	 * #1601 (ADR-0023 §5 I11): テナントの最終活動時刻 (lastActiveAt) を更新する。
+	 *
+	 * `hooks.server.ts` が認証成功ごとに呼ぶ可能性があるため、呼び出し側で
+	 * 1 日 1 回のガード（前回値が当日と同じならスキップ）を行うこと。
+	 * 本メソッド自体は冪等で副作用は ISO 文字列の上書きのみ。
+	 */
+	updateTenantLastActiveAt(tenantId: string, lastActiveAt: string): Promise<void>;
 	deleteTenant(tenantId: string): Promise<void>;
 
 	// --- Membership ---

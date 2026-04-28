@@ -31,6 +31,7 @@ import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate
 import { trackServerError } from '$lib/server/services/analytics-service';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
+import { touchTenantLastActive } from '$lib/server/services/last-active-touch';
 import { assertLicenseKeyConfigured } from '$lib/server/services/license-key-service';
 import { isSetupRequired } from '$lib/server/services/setup-service';
 
@@ -381,6 +382,13 @@ export const handle: Handle = ({ event, resolve }) =>
 		event.locals.identity = identity;
 		event.locals.context = context;
 
+		// #1601 (ADR-0023 §5 I11): 認証成功時に Tenant.lastActiveAt を touch する。
+		// 1 日 1 回のガードは touchTenantLastActive 内の in-memory cache で吸収。
+		// 失敗しても主処理は止めない (await はするがエラーは内部で握りつぶす)。
+		if (identity && context?.tenantId) {
+			await touchTenantLastActive(context.tenantId);
+		}
+
 		// ADR-0040 P3 (#1215): 認証解決完了後の EvaluationContext を注入。
 		// P3 スコープでは mode のみ真面目に投影し、user / plan / licenseKey の詳細投影は
 		// P4 で capability 判定が必要になった時点で追加する（resolvePlanTier の I/O を
@@ -401,7 +409,10 @@ export const handle: Handle = ({ event, resolve }) =>
 				// プリレンダも hooks.server を通るため、除外しないと /setup へ 302 され
 				// sitemap.xml がビルド時に生成できずビルド失敗する。
 				path !== '/sitemap.xml' &&
-				path !== '/robots.txt'
+				path !== '/robots.txt' &&
+				// #1601: 配信停止リンクは未認証 + セットアップ前でもアクセス可能にする
+				// （特定電子メール法準拠: クリックしたら確実に解除できる必要がある）。
+				!path.startsWith('/unsubscribe/')
 			) {
 				if (await isSetupRequired(tenantId)) {
 					redirect(302, '/setup');

@@ -20,6 +20,8 @@ const CRON_JOBS = [
 	{ name: 'license-expire', utcCronExpression: 'cron(0 15 * * ? *)' },
 	{ name: 'retention-cleanup', utcCronExpression: 'cron(0 16 * * ? *)' },
 	{ name: 'trial-notifications', utcCronExpression: 'cron(0 0 * * ? *)' },
+	// #1601 (ADR-0023 §5 I11): 期限切れ前リマインド + 休眠復帰メール
+	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
 ] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {

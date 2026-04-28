@@ -58,6 +58,9 @@ export const updateTenantStripe: IAuthRepo['updateTenantStripe'] = async () => {
 export const updateTenantOwner: IAuthRepo['updateTenantOwner'] = async () => {
 	throw new Error(NOT_SUPPORTED);
 };
+export const updateTenantLastActiveAt: IAuthRepo['updateTenantLastActiveAt'] = async () => {
+	// no-op in local mode (#1601: lastActiveAt は cognito モードでのみ追跡)
+};
 export const deleteTenant: IAuthRepo['deleteTenant'] = async () => {
 	throw new Error(NOT_SUPPORTED);
 };
