@@ -458,6 +458,60 @@ export const TRIAL_LABELS = {
 } as const;
 
 // ============================================================
+// ライフサイクルメール用ラベル（#1601 / ADR-0023 §3.2 §3.3 §5 I11）
+//
+// 期限切れ前リマインド (renewal) + 休眠復帰 (dormant) + 配信停止 (unsubscribe) の
+// メール文言 SSOT。Anti-engagement 原則（ADR-0012）に従い、煽り表現
+// （「今すぐアップグレード」「失効します」等）を含めない中立的トーンとする。
+//
+// 親宛のみ送信されるため、敬語ベース（「ご利用ありがとうございます」「ご確認ください」）。
+// ============================================================
+
+export const LIFECYCLE_EMAIL_LABELS = {
+	// ---- 期限切れ前リマインド（renewal-reminder） ----
+	renewalSubject: (daysRemaining: number) => `次回更新予定日のお知らせ（残り${daysRemaining}日）`,
+	renewalHeading: '次回更新予定日のお知らせ',
+	renewalGreeting: (ownerName: string) => `${ownerName} 様`,
+	renewalIntro: 'いつも がんばりクエスト をご利用いただきありがとうございます。',
+	renewalPlanLine: (planLabel: string) => `ご契約プラン: ${planLabel}`,
+	renewalDateLine: (expiresAt: string, daysRemaining: number) =>
+		`次回更新予定日: ${expiresAt}（残り ${daysRemaining} 日）`,
+	renewalContinue: 'サービスを継続される場合は、お支払い情報をご確認ください。',
+	renewalGraduate: '卒業（解約）をご希望の場合は、管理画面から手続きできます。',
+	renewalCtaLabel: 'プラン管理画面を開く',
+
+	// ---- 休眠復帰（dormant-reactivation） ----
+	dormantSubject: 'お元気でいらっしゃいますか',
+	dormantHeading: 'お元気でいらっしゃいますか',
+	dormantGreeting: (ownerName: string) => `${ownerName} 様`,
+	dormantIntro: 'がんばりクエスト の運営です。',
+	dormantSinceLastActive: (days: number) => `最後にログインされてから ${days} 日が経過しました。`,
+	dormantGraduationNote: 'お子さまが卒業されたなら、何よりの成果です。',
+	dormantReturnNote: 'もし戻りたい場合は、いつでもログインできます。',
+	dormantPasswordNote: 'お忘れの場合は、パスワードリセットも可能です。',
+	dormantCtaLabel: 'ログイン画面を開く',
+
+	// ---- 配信停止 (unsubscribe) ----
+	unsubscribeFooter: '配信停止',
+	unsubscribePageTitle: 'メール配信停止',
+	unsubscribeHeading: 'メール配信を停止しました',
+	unsubscribeIntro:
+		'今後、期限切れ前リマインド・休眠復帰メールはお送りしません。トランザクションメール（解約受付など）は引き続き送信されます。',
+	unsubscribeAlreadyTitle: 'メール配信停止について',
+	unsubscribeAlreadyIntro:
+		'このリンクはメール配信停止用のリンクです。下のボタンを押すと、ご登録メールアドレスへのマーケティングメール配信が停止されます。',
+	unsubscribeConfirmCta: '配信を停止する',
+	unsubscribeReturnCta: 'トップに戻る',
+	unsubscribeInvalidTitle: '無効なリンクです',
+	unsubscribeInvalidIntro:
+		'このリンクは無効か、すでに使用済みです。メール本文に記載されたリンクを再度ご確認ください。',
+
+	// ---- フッター ----
+	footerNote: 'このメールは「がんばりクエスト」から自動送信されています。',
+	footerCopyright: '© 2026 がんばりクエスト',
+} as const;
+
+// ============================================================
 // PremiumModal 用ラベル（#1166 labels.ts SSOT 化）
 // ============================================================
 
