@@ -367,6 +367,20 @@ Dockerfile.lambda        # Lambda Web Adapter用
 
 `/admin/analytics` ページは #1591 時点では **Coming soon** 縮退。DynamoDB に蓄積されたイベントから activation funnel / retention cohort / Sean Ellis スコアを描画する実装は follow-up Issue で行う。
 
+### 運営内部分析 (`/ops/analytics`, #1602 ADR-0023 I13)
+
+`/ops/analytics` は **DynamoDB のメインテーブル**から直接ライブ集計する。`ANALYTICS#` パーティションは使わない（運営内部の集計対象は tenant 状態と settings のスナップショットであり、event log ではないため）。
+
+| 集計項目 | 集計元 | 取得方法 | 計算量 |
+|---------|--------|---------|--------|
+| LTV / 月次獲得 / コホート / プラン別 MRR | tenant 一覧 | `auth.listAllTenants()`（全 tenant scan） | O(N tenants) |
+| **setup チャレンジ選択分布**（#1602） | 全テナントの `T#<tenantId>#SETTING` パーティション | `settings.getSetting('questionnaire_challenges', tenantId)` を tenant ごと | O(N tenants), 各 1 GetItem |
+
+**Pre-PMF YAGNI 判断**:
+- テナント数 ≦ 数百を想定 → tenant ごと N+1 GetItem で許容
+- テナント数 1,000+ で settings の事前集計テーブル / DynamoDB Streams 集計に移行を検討
+- 現時点では cron バッチ非採用（ライブ集計のみ）。ops 開く都度クエリだが、ops アクセス頻度は週数回未満なので DynamoDB RCU への影響は無視できる
+
 ---
 
 ## 7.1 AI推論基盤（AWS Bedrock）(#721)

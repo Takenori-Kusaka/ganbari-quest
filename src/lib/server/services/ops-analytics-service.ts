@@ -1,5 +1,6 @@
 // src/lib/server/services/ops-analytics-service.ts
 // #822: OPS 分析サービス — LTV / コホート / MRR 内訳
+// #1602 (ADR-0023 I13): setup challenges 選択分布を追加
 //
 // +page.server.ts からビジネスロジックを抽出（アーキテクチャ規約準拠）。
 
@@ -9,6 +10,27 @@ import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { isStripeEnabled } from '$lib/server/stripe/client';
+
+// ============================================================
+// #1602: Setup challenges preset distribution
+// ============================================================
+
+/**
+ * #1592 (ADR-0023 I4) で簡素化された setup challenges 3 軸プリセット。
+ * Issue #1602 (ADR-0023 I13) では、これら 3 軸の選択分布を ops 分析画面で可視化する。
+ *
+ * 旧キー (morning / homework / exercise / picky / balanced) も後方互換のため設定値に
+ * 残っている可能性があるため、`PRESET_DISTRIBUTION_KEYS` には含めず、`other` バケットに集約する。
+ */
+export const PRESET_DISTRIBUTION_KEYS = ['homework-daily', 'chores', 'beyond-games'] as const;
+export type PresetDistributionKey = (typeof PRESET_DISTRIBUTION_KEYS)[number];
+
+export const PRESET_OTHER_KEY = 'other' as const;
+export const PRESET_NONE_KEY = 'none' as const;
+export type PresetBucketKey =
+	| PresetDistributionKey
+	| typeof PRESET_OTHER_KEY
+	| typeof PRESET_NONE_KEY;
 
 // ============================================================
 // Types
@@ -42,11 +64,39 @@ export interface PlanBreakdownWithRevenue {
 	percentage: number;
 }
 
+/**
+ * #1602: setup challenges プリセット選択分布の 1 行分。
+ *
+ * - `key` は `PresetBucketKey` で、`homework-daily` / `chores` / `beyond-games` /
+ *   `other`（旧キーや未知の値）/ `none`（未回答 = setup スキップ or 未到達）のいずれか。
+ * - `count` は同一テナントが複数選択した場合 1 軸ごとに +1 される（重複可）。
+ *   `none` のみ「テナント数」と一致する（マルチカウントしない）。
+ * - `percentage` は **回答テナント数（none を除く）** に対する割合。
+ *   none 行のみ全テナント数に対する割合を持つ（解釈上意味が異なるため）。
+ */
+export interface PresetDistributionRow {
+	key: PresetBucketKey;
+	count: number;
+	percentage: number;
+}
+
+export interface PresetDistribution {
+	rows: PresetDistributionRow[];
+	/** 回答済みテナント数（challenges を 1 つ以上選択したテナント） */
+	answeredTenants: number;
+	/** 未回答テナント数（setup 未到達 or skip） */
+	unansweredTenants: number;
+	/** 全テナント数 */
+	totalTenants: number;
+}
+
 export interface OpsAnalyticsData {
 	monthlyAcquisitions: MonthlyAcquisition[];
 	cohorts: CohortRow[];
 	ltv: LtvEstimate;
 	planBreakdown: PlanBreakdownWithRevenue[];
+	/** #1602 (ADR-0023 I13): setup challenges プリセット選択分布 */
+	presetDistribution: PresetDistribution;
 	stripeEnabled: boolean;
 	fetchedAt: string;
 }
@@ -90,7 +140,9 @@ export function monthDiff(from: string, to: string): number {
 export function computeAnalytics(
 	tenants: Tenant[],
 	now?: Date,
-): Omit<OpsAnalyticsData, 'stripeEnabled' | 'fetchedAt'> {
+): Omit<OpsAnalyticsData, 'stripeEnabled' | 'fetchedAt' | 'presetDistribution'> {
+	// `presetDistribution` は settings 取得が必要なため computeAnalytics スコープ外。
+	// `getAnalyticsData` で別途集計し合成する (#1602)。
 	const currentDate = now ?? new Date();
 	const currentMonth = getMonthKey(currentDate);
 
@@ -217,8 +269,85 @@ export function computeAnalytics(
 }
 
 // ============================================================
+// #1602: Preset distribution computation (pure function — テスト容易)
+// ============================================================
+
+/**
+ * 各テナントの `questionnaire_challenges` 設定値（CSV 文字列）の配列から、
+ * 3 軸プリセットの選択分布を集計する。
+ *
+ * 入力例:
+ *   ['homework-daily,chores', 'beyond-games', '', 'homework,balanced']
+ * 出力 rows:
+ *   homework-daily: 1, chores: 1, beyond-games: 1, other: 1（'homework,balanced' = 旧キー）, none: 1
+ *
+ * - 同一テナントが複数選択 → 各軸 +1（マルチカウント）
+ * - 旧キー (#1592 廃止予定) は `other` に集約
+ * - 空文字 / undefined は `none`（未回答）にカウント
+ * - 集計対象は引数で渡された配列の長さ = totalTenants として扱う
+ */
+export function computePresetDistribution(
+	challengesPerTenant: ReadonlyArray<string | undefined>,
+): PresetDistribution {
+	const counts: Record<PresetBucketKey, number> = {
+		'homework-daily': 0,
+		chores: 0,
+		'beyond-games': 0,
+		[PRESET_OTHER_KEY]: 0,
+		[PRESET_NONE_KEY]: 0,
+	};
+	const knownKeys = new Set<string>(PRESET_DISTRIBUTION_KEYS);
+	let answeredTenants = 0;
+
+	for (const raw of challengesPerTenant) {
+		const challenges = (raw ?? '')
+			.split(',')
+			.map((s) => s.trim())
+			.filter((s) => s.length > 0);
+		if (challenges.length === 0) {
+			counts[PRESET_NONE_KEY] += 1;
+			continue;
+		}
+		answeredTenants += 1;
+		for (const c of challenges) {
+			if (knownKeys.has(c)) {
+				counts[c as PresetDistributionKey] += 1;
+			} else {
+				counts[PRESET_OTHER_KEY] += 1;
+			}
+		}
+	}
+
+	const totalTenants = challengesPerTenant.length;
+	const unansweredTenants = totalTenants - answeredTenants;
+
+	const rows: PresetDistributionRow[] = (
+		[...PRESET_DISTRIBUTION_KEYS, PRESET_OTHER_KEY, PRESET_NONE_KEY] as readonly PresetBucketKey[]
+	).map((key) => {
+		const count = counts[key];
+		// 'none' の割合は全テナント基準、それ以外は回答テナント基準（ADR-0023 I13）
+		const denom = key === PRESET_NONE_KEY ? totalTenants : answeredTenants;
+		const percentage = denom > 0 ? Math.round((count / denom) * 1000) / 10 : 0;
+		return { key, count, percentage };
+	});
+
+	return { rows, answeredTenants, unansweredTenants, totalTenants };
+}
+
+// ============================================================
 // Public API
 // ============================================================
+
+export function emptyPresetDistribution(): PresetDistribution {
+	return {
+		rows: (
+			[...PRESET_DISTRIBUTION_KEYS, PRESET_OTHER_KEY, PRESET_NONE_KEY] as readonly PresetBucketKey[]
+		).map((key) => ({ key, count: 0, percentage: 0 })),
+		answeredTenants: 0,
+		unansweredTenants: 0,
+		totalTenants: 0,
+	};
+}
 
 export function emptyAnalytics(): OpsAnalyticsData {
 	return {
@@ -233,9 +362,34 @@ export function emptyAnalytics(): OpsAnalyticsData {
 			churnRate: 0,
 		},
 		planBreakdown: [],
+		presetDistribution: emptyPresetDistribution(),
 		stripeEnabled: false,
 		fetchedAt: new Date().toISOString(),
 	};
+}
+
+/**
+ * #1602: 全テナントの `questionnaire_challenges` 設定値を取得する。
+ *
+ * Pre-PMF YAGNI: テナント数 ≦ 数百を想定しライブ集計（cron バッチ非採用）。
+ * テナントごとに settings repo を呼ぶ N+1 になるが、テナント数が多くなる前に
+ * DynamoDB Streams + 集計テーブル方式へ移行する（同 DAG 上で議論された通り）。
+ */
+async function fetchChallengesPerTenant(tenants: Tenant[]): Promise<string[]> {
+	const repos = getRepos();
+	const challengesPerTenant: string[] = [];
+	for (const t of tenants) {
+		try {
+			const value = await repos.settings.getSetting('questionnaire_challenges', t.tenantId);
+			challengesPerTenant.push(value ?? '');
+		} catch (e) {
+			logger.warn('[OPS/analytics] Failed to read questionnaire_challenges', {
+				context: { tenantId: t.tenantId, error: e instanceof Error ? e.message : String(e) },
+			});
+			challengesPerTenant.push('');
+		}
+	}
+	return challengesPerTenant;
 }
 
 export async function getAnalyticsData(): Promise<OpsAnalyticsData> {
@@ -251,9 +405,12 @@ export async function getAnalyticsData(): Promise<OpsAnalyticsData> {
 	}
 
 	const result = computeAnalytics(tenants);
+	const challengesPerTenant = await fetchChallengesPerTenant(tenants);
+	const presetDistribution = computePresetDistribution(challengesPerTenant);
 
 	return {
 		...result,
+		presetDistribution,
 		stripeEnabled: isStripeEnabled(),
 		fetchedAt: new Date().toISOString(),
 	};

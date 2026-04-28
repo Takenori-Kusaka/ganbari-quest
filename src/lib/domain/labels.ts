@@ -2271,6 +2271,38 @@ export const OPS_ANALYTICS_LABELS = {
 } as const;
 
 // ============================================================
+// ops/analytics — setup プリセット選択分布 (#1602, ADR-0023 I13)
+// ============================================================
+
+/**
+ * #1602: setup challenges (3 軸プリセット) 選択分布セクションのラベル。
+ * 内部運営（PO / 運営）が四半期見直し時にプリセット改良の判断に使う。
+ */
+export const OPS_PRESET_DISTRIBUTION_LABELS = {
+	sectionTitle: 'setup チャレンジ選択分布',
+	sectionDesc:
+		'#1592 で 3 軸に簡素化した setup challenges のうち、各プリセットがどの程度選ばれているかの分布。偏りがあれば残り 2 軸の改良余地を示すサイン。',
+	colKey: 'プリセット',
+	colCount: '選択数',
+	colShare: '割合',
+	colBar: '分布',
+	totalsLabel: (answered: number, total: number) => `回答 ${answered} 名 / 全テナント ${total} 名`,
+	emptyMessage:
+		'回答テナントがまだいません。setup を完了したテナントが増えるとここに表示されます。',
+
+	// Bucket labels
+	bucketHomeworkDaily: '宿題ルーティン (homework-daily)',
+	bucketChores: '家事のお手伝い (chores)',
+	bucketBeyondGames: 'ゲーム以外のチャレンジ (beyond-games)',
+	bucketOther: 'その他（旧キー後方互換）',
+	bucketNone: '未回答（setup 未到達 / skip）',
+
+	// Note for ratio interpretation
+	ratioNote:
+		'割合は「回答テナント数」ベース（複数選択あり、合計 100% を超える）。「未回答」のみ全テナント数ベース。',
+} as const;
+
+// ============================================================
 // デモ版設定ページ (#1452 Phase B)
 // ============================================================
 
