@@ -182,3 +182,79 @@ if (totalCount < baselineCount) {
 }
 
 console.log('OK: LP SSOT counts are within baseline.');
+
+// ============================================================
+// LEGAL_LABELS coverage チェック (#1638 / #1590)
+// ----------------------------------------------------------
+// labels.ts の LEGAL_LABELS で定義された法律用語が
+// site/privacy.html / site/terms.html に出現することを検証する。
+// 文言ドリフト（規約 / プラポリで違う表現が混在）を防ぐため。
+// ============================================================
+
+const labelsFile = join(root, 'src/lib/domain/labels.ts');
+const labelsSrc = readFileSync(labelsFile, 'utf-8');
+
+// 簡易パーサ: `export const LEGAL_LABELS = { ... } as const;` の中の
+// `key: 'value',` を抽出する（ネスト・関数値は対象外。LEGAL_LABELS は
+// プレーンな文字列 key:value のみで構成する規約）
+function extractLegalLabels(src) {
+	const startMarker = 'export const LEGAL_LABELS = {';
+	const startIdx = src.indexOf(startMarker);
+	if (startIdx === -1) return null;
+	const bodyStart = startIdx + startMarker.length;
+	const endMarker = '} as const;';
+	const endIdx = src.indexOf(endMarker, bodyStart);
+	if (endIdx === -1) return null;
+	const body = src.slice(bodyStart, endIdx);
+	const result = {};
+	for (const rawLine of body.split('\n')) {
+		const line = rawLine.trim();
+		if (!line || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) continue;
+		const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*'([^']*)'/);
+		if (m) {
+			result[m[1]] = m[2];
+		}
+	}
+	return result;
+}
+
+const legalLabels = extractLegalLabels(labelsSrc);
+if (!legalLabels) {
+	console.error(
+		'\nERROR [LEGAL-LABELS]: Failed to parse LEGAL_LABELS from src/lib/domain/labels.ts',
+	);
+	process.exit(1);
+}
+
+const legalDocs = [
+	{ path: 'site/privacy.html', src: readFileSync(join(root, 'site/privacy.html'), 'utf-8') },
+	{ path: 'site/terms.html', src: readFileSync(join(root, 'site/terms.html'), 'utf-8') },
+];
+
+// 各 LEGAL_LABELS の値が、少なくともどちらかの文書に部分一致すること
+const missing = [];
+for (const [key, value] of Object.entries(legalLabels)) {
+	const found = legalDocs.some((doc) => doc.src.includes(value));
+	if (!found) {
+		missing.push({ key, value });
+	}
+}
+
+console.log(
+	`\n[LEGAL-LABELS] Coverage check: ${Object.keys(legalLabels).length} keys, ${missing.length} missing in legal docs`,
+);
+
+if (missing.length > 0) {
+	console.error(
+		'\nERROR [LEGAL-LABELS]: The following keys are not present in any legal document:',
+	);
+	for (const { key, value } of missing) {
+		console.error(`  ${key} = '${value}'`);
+	}
+	console.error(
+		'\nUpdate site/privacy.html or site/terms.html to include the value, or remove the key from LEGAL_LABELS in src/lib/domain/labels.ts.',
+	);
+	process.exit(1);
+}
+
+console.log('OK: All LEGAL_LABELS keys present in privacy.html or terms.html.');

@@ -278,6 +278,26 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] `uiModeManuallySet` ロジック変更 → `age-tier.ts` の `recalcUiMode()` と `child-service.ts` の `editChild()` の両方を確認
 - [ ] age 自動インクリメント変更 (#1381) → `age-recalc-service.ts` + `schedule-registry.ts` + `+server.ts` の 3 ファイルが協調。uiMode 更新ロジック変更時は `birthday-bonus-service.ts` の担当外ポリシー（§13.9）と照合すること
 
+#### 11. 法的文書 (privacy / terms) — LP-truth 例外 (#1638 / #1590)
+
+| 場所 | 内容 |
+|------|------|
+| `site/privacy.html` | プライバシーポリシー（外部送信規律 / 未成年者取扱い / 域外移転等を含む） |
+| `site/terms.html` | 利用規約（卒業概念 / 未成年者の利用等を含む） |
+| `src/lib/domain/labels.ts` `LEGAL_LABELS` | 法律用語のキー語彙（`scripts/check-lp-ssot.mjs` で privacy / terms との一致を CI 検証） |
+| `src/lib/server/services/consent-service.ts` `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` | 規約改訂日。本ファイルで上書きすると次回ログイン時に再同意フローへ自動誘導 |
+| `src/routes/auth/signup/+page.svelte` | 同意チェックボックス（agreedTerms / agreedPrivacy / agreedCrossBorder の 3 つすべて必須） |
+| `src/routes/legal/privacy/+page.server.ts` | 既存の `301` redirect 維持（LP-truth ADR-0013 整合 — アプリ側プラポリは LP の真実を SSOT として参照する） |
+| `docs/design/14-セキュリティ設計書.md §8.5 / §8.6 / §8.7` | 設計書側の根拠 |
+
+**例外的扱いの理由**: ADR-0013（LP-truth）で「LP は実装を SSOT として参照する」とした原則の例外として、法的文書は性質上 SSOT 化が不要で `site/privacy.html` / `site/terms.html` を直接編集する。`scripts/check-lp-ssot.mjs` の `EXCLUDED_LEGAL_FILES` で日本語ハードコード違反検出から除外している。代わりに `LEGAL_LABELS` のキー用語が両文書に出現することで文言ドリフトを CI 検出する。
+
+**修正時チェック**:
+- [ ] privacy.html / terms.html を変更 → `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新（同意済みユーザーへの再同意フロー誘導）
+- [ ] 法律用語を新規追加 → `LEGAL_LABELS` に追加し、`scripts/check-lp-ssot.mjs` の coverage 検証を通すこと
+- [ ] 同意チェックボックス追加 → `signup/+page.svelte` の `canSubmit` / `submitBlockReason` に反映 + E2E テスト追加
+- [ ] 設計書 14 の §8.5 / §8.6 / §8.7 と整合維持（電気通信事業法 §27の12 / 個情法 §28 / 未成年者取扱い）
+
 ---
 
 ## 修正時チェックリスト
@@ -292,6 +312,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
 - [ ] **チュートリアル** → 本番 (`tutorial-chapters.ts`) + デモ (`demo-guide-state.svelte.ts`)
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
+- [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを `node scripts/check-lp-ssot.mjs` で確認
 - [ ] **認証が絡む画面** (#1026) → `npm run dev:cognito` で **自分の目で** ログイン/サインアップ/ops 経路を通り、`docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / プリミティブ再実装) に違反がないか確認。`npm run dev` の自動認証モードだけで済ませない (ログインフォームが描画されないため UI 検証が抜ける)
 - [ ] **年齢帯 variant ラベル** (ADR-0015) → `labels.ts` の tier-aware key（例: `encourage.complete`）を更新した場合、`child-home/variants/index.ts` + `tutorial-chapters.ts` + tips / dialog コンポーネント側の独自分岐が残っていないか grep。`if (uiMode === 'baby')` 散在（A1 アンチパターン）を検出したら `getLabel(key, ctx)` 経由に寄せる
 - [ ] **日本語折り返し** (ADR-0016) → 見出し / Dialog タイトル / チュートリアルステップ追加時は、`app.css` の `text-wrap: balance; word-break: auto-phrase;` が効くセレクタ配下か確認。長文段落 / 古いブラウザ対応が必要な箇所は `use:budoux` action を個別適用。LP 側 (`site/*.html`) は `<budoux-ja>` CDN Web Component で wrap

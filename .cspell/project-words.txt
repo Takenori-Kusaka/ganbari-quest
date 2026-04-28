@@ -307,3 +307,9 @@ hanami
 oyakagi
 OYAKAGI
 Oyakagi
+
+# ===== 法令・データ保護 (#1638 / #1590) =====
+# DPIA = Data Protection Impact Assessment（個情法 §28 域外移転 / GDPR §35）
+DPIA
+antipatterns
+antipattern

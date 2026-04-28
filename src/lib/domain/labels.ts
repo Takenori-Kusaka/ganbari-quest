@@ -1478,6 +1478,16 @@ export const SIGNUP_LABELS = {
 	privacyAgreeLink: 'プライバシーポリシー',
 	privacyAgreeSuffix: 'に同意します',
 	privacyAgreeError: 'プライバシーポリシーへの同意が必要です',
+	// #1638: 個人情報保護法 §28 — 外国にある第三者（米国 AWS バージニア北部リージョン）への提供同意
+	// 個人開発配慮版（DPIA §5 の実態を transparent に明示）
+	crossBorderNotice:
+		'本サービスは AWS（米国バージニア北部）/ Stripe / Google の各データセンターを利用し、お預かりするデータをサービス提供のためだけに保存・処理します。',
+	crossBorderNoNoUse: '広告利用・第三者への販売・機械学習への流用はありません。',
+	crossBorderAgreePrefix:
+		'上記を理解し、サービス提供に必要な範囲でのデータ保存・処理に同意します（',
+	crossBorderAgreeLink: '詳細',
+	crossBorderAgreeSuffix: '）',
+	crossBorderAgreeError: 'サービス提供に必要なデータ保存・処理への同意が必要です',
 	parentalConsentNote: '※ 本サービスは子供のデータを扱います。保護者として上記に同意してください。',
 	submitLoading: '登録中...',
 	submitWithLicenseKey: 'ライセンスキーで登録',
@@ -1517,6 +1527,7 @@ export const SIGNUP_LABELS = {
 	blockPasswordMismatch: 'パスワードが一致しません',
 	blockTermsRequired: '利用規約への同意が必要です',
 	blockPrivacyRequired: 'プライバシーポリシーへの同意が必要です',
+	blockCrossBorderRequired: '米国への個人データ移転への同意が必要です',
 	blockLicenseKeyInvalid: 'ライセンスキーを正しく入力してください',
 	blockLicenseOnceRequired: 'ライセンスキーが一回限り使用であることに同意してください',
 } as const;
@@ -4214,4 +4225,28 @@ export const FEATURES_LABELS = {
 		meta: (age: number, tierLabel: string, themeLabel: string) =>
 			`${age}歳 / ${tierLabel} / ${themeLabel}`,
 	},
+} as const;
+
+/**
+ * 法的文書 SSOT (#1638 / #1590)
+ *
+ * site/privacy.html / site/terms.html / signup フォームで横断的に使う
+ * 法律用語のキー語彙。文言ドリフト防止のため、CI (`scripts/check-lp-ssot.mjs`)
+ * で各 value が site/privacy.html / site/terms.html に出現することを検証する。
+ *
+ * 注: site/*.html は SEO meta 等の例外を含むため、キー用語の存在確認のみで
+ * data-label 等の SSOT 注入は要求しない（ADR-0009 例外）。
+ */
+export const LEGAL_LABELS = {
+	graduation: '卒業',
+	graduationDef: 'ポジティブな解約',
+	externalTransmission: '外部送信規律',
+	externalTransmissionLaw: '電気通信事業法第27条の12',
+	familyUniqueId: '家族内一意 ID',
+	underAge: '未成年者',
+	crossBorderTransfer: '外国にある第三者への提供',
+	crossBorderLaw: '個人情報保護法第28条',
+	scc: '標準契約条項 (Standard Contractual Clauses, SCC)',
+	dpa: 'Data Processing Addendum (DPA)',
+	signupCrossBorderConsent: 'サービス提供に必要な範囲でのデータ保存・処理に同意します',
 } as const;
