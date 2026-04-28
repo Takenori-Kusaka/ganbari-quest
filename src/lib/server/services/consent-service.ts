@@ -6,8 +6,8 @@ import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 
 /** 規約バージョン（改訂日ベース） */
-export const CURRENT_TERMS_VERSION = '2026-04-09';
-export const CURRENT_PRIVACY_VERSION = '2026-04-09';
+export const CURRENT_TERMS_VERSION = '2026-04-28';
+export const CURRENT_PRIVACY_VERSION = '2026-04-28';
 
 export interface ConsentCheck {
 	termsAccepted: boolean;
