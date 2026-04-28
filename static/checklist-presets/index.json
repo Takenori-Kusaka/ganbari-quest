@@ -48,6 +48,18 @@
 			"itemCount": 4,
 			"pointsPerItem": 3,
 			"completionBonus": 8
+		},
+		{
+			"presetId": "beyond-games",
+			"name": "ゲームいがいのチャレンジ",
+			"icon": "🎨",
+			"description": "ゲーム以外のことに興味を持つきっかけリスト（読書・外遊び・工作・音楽）",
+			"targetAgeMin": 3,
+			"targetAgeMax": 18,
+			"tags": ["読書", "外遊び", "工作", "ゲーム以外"],
+			"itemCount": 4,
+			"pointsPerItem": 3,
+			"completionBonus": 8
 		}
 	]
 }

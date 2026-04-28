@@ -8,29 +8,75 @@ let { data } = $props();
 const firstChild = data.children[0];
 const childAge = firstChild?.age ?? 5;
 
-// 課題の選択肢
+// #1592 (ADR-0023 I4): 6→3 簡素化
+// 親 P1（共働き、時間がない）が「使い始めたいけど何ができるかわからない」を解消するため、
+// challenges を 3 軸に絞り、各軸にデフォルトプリセットを紐付ける。
 const challengeOptions = [
-	{ value: 'morning', label: 'あさの じゅんびが おそい', icon: '⏰' },
-	{ value: 'homework', label: 'しゅくだいを じぶんから やらない', icon: '📝' },
-	{ value: 'chores', label: 'おてつだいを しない', icon: '🧹' },
-	{ value: 'exercise', label: 'そとで あそばない・うんどうぶそく', icon: '🏃' },
-	{ value: 'picky', label: 'すききらいが おおい', icon: '🍽️' },
-	{ value: 'balanced', label: 'とくに こまっていない（バランスよく）', icon: '✨' },
+	{
+		value: 'homework-daily',
+		label: SETUP_QUESTIONNAIRE_LABELS.challengeHomeworkDaily,
+		icon: '📝',
+	},
+	{ value: 'chores', label: SETUP_QUESTIONNAIRE_LABELS.challengeChores, icon: '🧹' },
+	{
+		value: 'beyond-games',
+		label: SETUP_QUESTIONNAIRE_LABELS.challengeBeyondGames,
+		icon: '🎨',
+	},
 ];
 
 // 活動量の選択肢
 const activityLevelOptions = [
-	{ value: 'few', label: 'すこしずつ（3〜5こ）', description: 'はじめてでも むりなく' },
-	{ value: 'normal', label: 'ふつう（5〜10こ）', description: 'おすすめ' },
-	{ value: 'many', label: 'たくさん（10こ いじょう）', description: 'いろいろ きろくしたい' },
+	{
+		value: 'few',
+		label: SETUP_QUESTIONNAIRE_LABELS.activityLevelFewLabel,
+		description: SETUP_QUESTIONNAIRE_LABELS.activityLevelFewDesc,
+	},
+	{
+		value: 'normal',
+		label: SETUP_QUESTIONNAIRE_LABELS.activityLevelNormalLabel,
+		description: SETUP_QUESTIONNAIRE_LABELS.activityLevelNormalDesc,
+	},
+	{
+		value: 'many',
+		label: SETUP_QUESTIONNAIRE_LABELS.activityLevelManyLabel,
+		description: SETUP_QUESTIONNAIRE_LABELS.activityLevelManyDesc,
+	},
 ];
 
 // チェックリストプリセット
+// #1592: beyond-games (ゲーム以外のチャレンジ：読書/外遊び/工作/音楽) を追加
 const presetOptions = [
-	{ value: 'morning-routine', label: 'あさのしたく', icon: '☀️', ageMin: 0 },
-	{ value: 'evening-routine', label: 'よるのじゅんび', icon: '🌙', ageMin: 0 },
-	{ value: 'after-school', label: 'がっこうからかえったら', icon: '🎒', ageMin: 6 },
-	{ value: 'weekend-chores', label: 'しゅうまつのおてつだい', icon: '🧹', ageMin: 4 },
+	{
+		value: 'morning-routine',
+		label: SETUP_QUESTIONNAIRE_LABELS.presetMorningRoutine,
+		icon: '☀️',
+		ageMin: 0,
+	},
+	{
+		value: 'evening-routine',
+		label: SETUP_QUESTIONNAIRE_LABELS.presetEveningRoutine,
+		icon: '🌙',
+		ageMin: 0,
+	},
+	{
+		value: 'after-school',
+		label: SETUP_QUESTIONNAIRE_LABELS.presetAfterSchool,
+		icon: '🎒',
+		ageMin: 6,
+	},
+	{
+		value: 'weekend-chores',
+		label: SETUP_QUESTIONNAIRE_LABELS.presetWeekendChores,
+		icon: '🧹',
+		ageMin: 4,
+	},
+	{
+		value: 'beyond-games',
+		label: SETUP_QUESTIONNAIRE_LABELS.presetBeyondGames,
+		icon: '🎨',
+		ageMin: 3,
+	},
 ];
 
 // 年齢で表示するプリセットをフィルタ
@@ -42,11 +88,7 @@ let selectedPresets = $state<string[]>(availablePresets.map((p) => p.value));
 let submitting = $state(false);
 
 function toggleChallenge(value: string) {
-	if (value === 'balanced') {
-		selectedChallenges = selectedChallenges.includes('balanced') ? [] : ['balanced'];
-		return;
-	}
-	selectedChallenges = selectedChallenges.filter((c) => c !== 'balanced');
+	// #1592: 旧 'balanced' 排他制御を撤去（新 3 軸はすべて加算的に選択可能）
 	if (selectedChallenges.includes(value)) {
 		selectedChallenges = selectedChallenges.filter((c) => c !== value);
 	} else {
