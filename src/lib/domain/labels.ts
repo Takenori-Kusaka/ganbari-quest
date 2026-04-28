@@ -4722,3 +4722,61 @@ export const PUSH_NOTIFICATION_LABELS = {
 	/** 既存レコードに不正な role が混入していた場合の警告 */
 	unknownRoleSkipped: '不明な subscriber_role の subscription への送信をスキップしました',
 } as const;
+
+// ============================================================
+// 初月価値プレビュー体験 (#1600 ADR-0023 I9)
+// マイルストーン演出 + 30 日後親レポートプレビュー
+// Anti-engagement (ADR-0012) 準拠: 過剰な祝福禁止、3 秒以内に閉じれる UI
+// ============================================================
+export const MILESTONE_LABELS = {
+	/** 子供 UI に表示する小さなマイルストーンバナータイトル */
+	bannerTitle: 'マイルストーン',
+	bannerCloseLabel: '閉じる',
+	first_record: {
+		title: 'はじめての記録',
+		description: '最初のがんばりを記録できました',
+	},
+	records_5: {
+		title: '5 かい きろく',
+		description: '5 回の活動を記録できました',
+	},
+	records_10: {
+		title: '10 かい きろく',
+		description: '10 回の活動を記録できました',
+	},
+	streak_7: {
+		title: '1 しゅうかん つづいた',
+		description: '7 日連続で記録できました',
+	},
+	streak_14: {
+		title: '2 しゅうかん つづいた',
+		description: '14 日連続で記録できました',
+	},
+	streak_30: {
+		title: '1 かげつ つづいた',
+		description: '30 日連続で記録できました',
+	},
+} as const;
+
+export const VALUE_PREVIEW_LABELS = {
+	/** dashboard セクションタイトル */
+	sectionTitleFirstMonth: 'はじめての 30 日',
+	sectionTitle30DayPreview: '1 か月の歩み',
+	sectionHintFirstMonth: (daysSince: number) =>
+		`登録から ${daysSince} 日目です。あと ${Math.max(0, 30 - daysSince)} 日で 1 か月の節目になります`,
+	sectionHint30DayPreview: '1 か月のお子さまのがんばりをまとめました',
+	totalActivitiesLabel: '記録した活動',
+	totalActivitiesUnit: '回',
+	currentStreakLabel: '現在の連続記録',
+	currentStreakUnit: '日',
+	longestStreakLabel: '最長連続記録',
+	totalPointsLabel: 'ためたポイント',
+	totalPointsUnit: 'pt',
+	achievedMilestonesHeading: '達成したマイルストーン',
+	noMilestonesYet: 'まだマイルストーン未達成です。最初の記録から始めましょう',
+	categoryBreakdownHeading: 'カテゴリ別の活動回数',
+	noCategoryData: 'まだ記録がありません',
+	emptyState: 'まだお子さまの活動記録がありません',
+	previewBannerHint: '続けて記録するほど、このグラフが充実していきます',
+	categoryCountAria: (categoryName: string, count: number): string => `${categoryName} ${count} 回`,
+} as const;
