@@ -1,9 +1,30 @@
 <script lang="ts">
-import { getPlanLabel, OPS_ANALYTICS_LABELS } from '$lib/domain/labels';
+import {
+	getPlanLabel,
+	OPS_ANALYTICS_LABELS,
+	OPS_PRESET_DISTRIBUTION_LABELS,
+} from '$lib/domain/labels';
+import type { PresetBucketKey } from '$lib/server/services/ops-analytics-service';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
 const a = $derived(data.analytics);
+
+// #1602 (ADR-0023 I13): bucket key → ラベル
+const PRESET_BUCKET_LABELS: Record<PresetBucketKey, string> = {
+	'homework-daily': OPS_PRESET_DISTRIBUTION_LABELS.bucketHomeworkDaily,
+	chores: OPS_PRESET_DISTRIBUTION_LABELS.bucketChores,
+	'beyond-games': OPS_PRESET_DISTRIBUTION_LABELS.bucketBeyondGames,
+	other: OPS_PRESET_DISTRIBUTION_LABELS.bucketOther,
+	none: OPS_PRESET_DISTRIBUTION_LABELS.bucketNone,
+};
+
+// 棒グラフ幅: 各行の count を最大値で正規化（複数選択で % が 100 超え得るため、
+// 視覚バーは max(maxCount, 1) を 100% として相対化する）
+const presetMaxCount = $derived(Math.max(1, ...a.presetDistribution.rows.map((r) => r.count)));
+function barWidthPct(count: number): number {
+	return Math.round((count / presetMaxCount) * 100);
+}
 </script>
 
 <svelte:head>
@@ -71,6 +92,63 @@ const a = $derived(data.analytics);
 			</Card>
 		</section>
 	{/if}
+
+	<!-- #1602 (ADR-0023 I13): setup プリセット選択分布 -->
+	<section data-testid="ops-preset-distribution">
+		<Card padding="lg">
+			<h2 class="ops-section-title m-0 mb-1">
+				{OPS_PRESET_DISTRIBUTION_LABELS.sectionTitle}
+			</h2>
+			<p class="text-xs text-[var(--color-text-muted)] mb-3">
+				{OPS_PRESET_DISTRIBUTION_LABELS.sectionDesc}
+			</p>
+			<p class="text-xs text-[var(--color-text-secondary)] mb-3">
+				{OPS_PRESET_DISTRIBUTION_LABELS.totalsLabel(
+					a.presetDistribution.answeredTenants,
+					a.presetDistribution.totalTenants,
+				)}
+			</p>
+
+			{#if a.presetDistribution.totalTenants === 0}
+				<p class="text-sm text-[var(--color-text-muted)]">
+					{OPS_PRESET_DISTRIBUTION_LABELS.emptyMessage}
+				</p>
+			{:else}
+				<table class="ops-table">
+					<thead>
+						<tr>
+							<th>{OPS_PRESET_DISTRIBUTION_LABELS.colKey}</th>
+							<th class="ops-num">{OPS_PRESET_DISTRIBUTION_LABELS.colCount}</th>
+							<th class="ops-num">{OPS_PRESET_DISTRIBUTION_LABELS.colShare}</th>
+							<th class="preset-bar-cell">{OPS_PRESET_DISTRIBUTION_LABELS.colBar}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each a.presetDistribution.rows as row (row.key)}
+							<tr data-bucket={row.key}>
+								<td>{PRESET_BUCKET_LABELS[row.key]}</td>
+								<td class="ops-num">{row.count}</td>
+								<td class="ops-num">{row.percentage}%</td>
+								<td class="preset-bar-cell">
+									<div class="preset-bar-track" aria-hidden="true">
+										<div
+											class="preset-bar-fill"
+											class:preset-bar-fill--other={row.key === 'other'}
+											class:preset-bar-fill--none={row.key === 'none'}
+											style:width={`${barWidthPct(row.count)}%`}
+										></div>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+				<p class="text-xs text-[var(--color-text-muted)] mt-2">
+					{OPS_PRESET_DISTRIBUTION_LABELS.ratioNote}
+				</p>
+			{/if}
+		</Card>
+	</section>
 
 	<!-- 月次獲得推移 -->
 	{#if a.monthlyAcquisitions.length > 0}
@@ -205,5 +283,33 @@ const a = $derived(data.analytics);
 	.ops-num {
 		text-align: right;
 		font-variant-numeric: tabular-nums;
+	}
+
+	/* #1602: preset distribution bar chart */
+	.preset-bar-cell {
+		width: 30%;
+		min-width: 120px;
+	}
+
+	.preset-bar-track {
+		width: 100%;
+		height: 0.5rem;
+		background: var(--color-surface-muted);
+		border-radius: var(--radius-sm, 4px);
+		overflow: hidden;
+	}
+
+	.preset-bar-fill {
+		height: 100%;
+		background: var(--color-action-primary);
+		transition: width 0.3s ease-out;
+	}
+
+	.preset-bar-fill--other {
+		background: var(--color-text-muted);
+	}
+
+	.preset-bar-fill--none {
+		background: var(--color-border-strong);
 	}
 </style>

@@ -1,12 +1,16 @@
 // tests/unit/services/ops-analytics-service.test.ts
 // OPS 分析サービスのユニットテスト (#822)
+// #1602 (ADR-0023 I13): preset distribution テスト追加
 
 import { describe, expect, it } from 'vitest';
 import type { Tenant } from '../../../src/lib/server/auth/entities';
 import {
 	computeAnalytics,
+	computePresetDistribution,
+	emptyPresetDistribution,
 	getMonthKey,
 	monthDiff,
+	PRESET_DISTRIBUTION_KEYS,
 } from '../../../src/lib/server/services/ops-analytics-service';
 
 // --- Helper: Tenant factory ---
@@ -251,5 +255,166 @@ describe('computeAnalytics', () => {
 
 		const march = result.monthlyAcquisitions.find((ma) => ma.month === '2026-03');
 		expect(march?.total).toBe(1);
+	});
+});
+
+// =============================================================
+// #1602 (ADR-0023 I13): computePresetDistribution
+// =============================================================
+
+describe('computePresetDistribution', () => {
+	it('入力 0 件の場合、全 bucket count = 0 / totalTenants = 0', () => {
+		const result = computePresetDistribution([]);
+
+		expect(result.totalTenants).toBe(0);
+		expect(result.answeredTenants).toBe(0);
+		expect(result.unansweredTenants).toBe(0);
+		expect(result.rows).toHaveLength(5);
+		for (const row of result.rows) {
+			expect(row.count).toBe(0);
+			expect(row.percentage).toBe(0);
+		}
+	});
+
+	it('emptyPresetDistribution と同じ形のオブジェクトを返す', () => {
+		const empty = emptyPresetDistribution();
+		expect(empty.totalTenants).toBe(0);
+		expect(empty.rows.map((r) => r.key)).toEqual([
+			'homework-daily',
+			'chores',
+			'beyond-games',
+			'other',
+			'none',
+		]);
+	});
+
+	it('3 軸プリセット (homework-daily / chores / beyond-games) を正しく集計する', () => {
+		const result = computePresetDistribution([
+			'homework-daily',
+			'chores',
+			'beyond-games',
+			'homework-daily,chores',
+		]);
+
+		expect(result.totalTenants).toBe(4);
+		expect(result.answeredTenants).toBe(4);
+		expect(result.unansweredTenants).toBe(0);
+
+		const findRow = (key: string) => result.rows.find((r) => r.key === key);
+		expect(findRow('homework-daily')?.count).toBe(2);
+		expect(findRow('chores')?.count).toBe(2);
+		expect(findRow('beyond-games')?.count).toBe(1);
+		expect(findRow('other')?.count).toBe(0);
+		expect(findRow('none')?.count).toBe(0);
+	});
+
+	it('複数選択でマルチカウントされる（同一テナントが 2 軸選んだ場合 +2）', () => {
+		// 1 テナントで homework-daily + chores 両方選択
+		const result = computePresetDistribution(['homework-daily,chores']);
+
+		expect(result.answeredTenants).toBe(1);
+		const findRow = (key: string) => result.rows.find((r) => r.key === key);
+		expect(findRow('homework-daily')?.count).toBe(1);
+		expect(findRow('chores')?.count).toBe(1);
+		// 割合は回答テナント数ベースなので 100%
+		expect(findRow('homework-daily')?.percentage).toBe(100);
+		expect(findRow('chores')?.percentage).toBe(100);
+	});
+
+	it('空文字 / undefined は none バケットに集計され、unansweredTenants が増える', () => {
+		const result = computePresetDistribution([
+			'homework-daily',
+			'',
+			undefined,
+			'   ', // 空白のみ
+		]);
+
+		expect(result.totalTenants).toBe(4);
+		expect(result.answeredTenants).toBe(1);
+		expect(result.unansweredTenants).toBe(3);
+
+		const findRow = (key: string) => result.rows.find((r) => r.key === key);
+		expect(findRow('none')?.count).toBe(3);
+		// none の percentage は全テナント数ベース → 75%
+		expect(findRow('none')?.percentage).toBe(75);
+	});
+
+	it('旧キー（morning / homework / balanced 等）は other バケットに集約される', () => {
+		// #1592 で廃止された旧 key (morning / homework / exercise / picky / balanced)
+		const result = computePresetDistribution([
+			'morning',
+			'homework',
+			'balanced',
+			'unknown-future-key',
+		]);
+
+		expect(result.answeredTenants).toBe(4);
+
+		const findRow = (key: string) => result.rows.find((r) => r.key === key);
+		// morning + homework + balanced + unknown = 4
+		expect(findRow('other')?.count).toBe(4);
+		// 新 3 軸はすべて 0
+		for (const k of PRESET_DISTRIBUTION_KEYS) {
+			expect(findRow(k)?.count).toBe(0);
+		}
+	});
+
+	it('割合は回答テナント数ベース（複数選択により 100% を超え得る）', () => {
+		// 2 テナントとも 3 軸全てを選択 → 各軸 2/2 = 100%
+		const result = computePresetDistribution([
+			'homework-daily,chores,beyond-games',
+			'homework-daily,chores,beyond-games',
+		]);
+
+		expect(result.answeredTenants).toBe(2);
+		const findRow = (key: string) => result.rows.find((r) => r.key === key);
+		expect(findRow('homework-daily')?.percentage).toBe(100);
+		expect(findRow('chores')?.percentage).toBe(100);
+		expect(findRow('beyond-games')?.percentage).toBe(100);
+		// 合計 300% を超えるが、これはマルチカウントによる仕様
+		const totalPct =
+			(findRow('homework-daily')?.percentage ?? 0) +
+			(findRow('chores')?.percentage ?? 0) +
+			(findRow('beyond-games')?.percentage ?? 0);
+		expect(totalPct).toBe(300);
+	});
+
+	it('rows の順序は homework-daily → chores → beyond-games → other → none で固定', () => {
+		const result = computePresetDistribution(['homework-daily', '']);
+
+		expect(result.rows.map((r) => r.key)).toEqual([
+			'homework-daily',
+			'chores',
+			'beyond-games',
+			'other',
+			'none',
+		]);
+	});
+
+	it('混在ケース（旧キー + 新キー + 未回答）の集計', () => {
+		const result = computePresetDistribution([
+			'homework-daily', // 新
+			'chores,beyond-games', // 新（複数）
+			'morning,balanced', // 旧（複数）→ other +2
+			'', // 未回答
+			'beyond-games,unknown', // 新 + unknown → beyond-games +1, other +1
+		]);
+
+		expect(result.totalTenants).toBe(5);
+		expect(result.answeredTenants).toBe(4);
+		expect(result.unansweredTenants).toBe(1);
+
+		const findRow = (key: string) => result.rows.find((r) => r.key === key);
+		expect(findRow('homework-daily')?.count).toBe(1);
+		expect(findRow('chores')?.count).toBe(1);
+		expect(findRow('beyond-games')?.count).toBe(2);
+		expect(findRow('other')?.count).toBe(3); // morning + balanced + unknown
+		expect(findRow('none')?.count).toBe(1);
+
+		// 割合確認 (回答 = 4 ベース)
+		expect(findRow('homework-daily')?.percentage).toBe(25);
+		expect(findRow('beyond-games')?.percentage).toBe(50);
+		// none のみ全テナント基準 (5)
+		expect(findRow('none')?.percentage).toBe(20);
 	});
 });
