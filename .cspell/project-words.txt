@@ -317,3 +317,7 @@ antipattern
 # ===== ライフサイクルメール (#1601) =====
 # healthcheck = cron-dispatcher の動作確認エンドポイント識別子
 healthcheck
+
+# ===== 解約フロー (#1596) =====
+# maxlength = HTML <textarea> 属性 (Playwright toHaveAttribute で検証)
+maxlength
