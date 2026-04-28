@@ -1,8 +1,15 @@
 <script lang="ts">
-import { APP_LABELS, DEMO_SETTINGS_LABELS, OYAKAGI_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	DEMO_SETTINGS_LABELS,
+	FOUNDER_INQUIRY_LABELS,
+	OYAKAGI_LABELS,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import { CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
@@ -118,6 +125,19 @@ const decayOptions = [
 					<p class="text-xs font-bold text-[var(--color-text-tertiary)]">{DEMO_SETTINGS_LABELS.dataReset}</p>
 				</div>
 			</div>
+		</div>
+	</Card>
+
+	<!-- #1594 ADR-0023 I8: founder 直接相談 (デモでも本番と同等表示) -->
+	<Card>
+		<div class="space-y-3" data-testid="demo-admin-founder-inquiry-cta">
+			<h2 class="text-sm font-bold text-[var(--color-text-primary)]">{FOUNDER_INQUIRY_LABELS.ctaSectionHeading}</h2>
+			<p class="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+				{FOUNDER_INQUIRY_LABELS.ctaSectionLead}
+			</p>
+			<Button href="/inquiry/founder" variant="primary" size="sm" data-testid="demo-admin-founder-inquiry-link">
+				{FOUNDER_INQUIRY_LABELS.ctaButton}
+			</Button>
 		</div>
 	</Card>
 

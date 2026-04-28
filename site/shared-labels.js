@@ -302,6 +302,16 @@
 			"ctaBottomDesc": "まずは無料ではじめて、お子さまの反応を見てみませんか？",
 			"ctaBottomPrimary": "無料ではじめる",
 			"ctaBottomSecondary": "デモで体験する"
+		},
+		"founderInquiry": {
+			"sectionHeading": "👋 開発者に直接相談（無料）",
+			"sectionLead": "個人開発のため、Pre-PMF 期は開発者本人が一人ひとりの相談に直接お返事します。商業的な売り込みではなく、「ご家庭に本当に合うかどうか」を一緒に判断します。",
+			"bullet1": "導入前のご相談（向き / 不向きを率直にお伝えします）",
+			"bullet2": "使い方が分からない・困っている",
+			"bullet3": "解約を検討中（その前に一度お話しさせてください）",
+			"ctaButton": "直接相談する（無料）",
+			"ctaSeparator": "／",
+			"mailtoFallback": "メールで送る"
 		}
 	};
 
