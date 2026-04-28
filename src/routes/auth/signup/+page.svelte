@@ -417,6 +417,13 @@ $effect(() => {
 						{/snippet}
 					</FormField>
 					<!-- #1638: 個人情報保護法 §28 — 外国にある第三者（米国 AWS）への提供に対する本人同意 -->
+					<!-- 個人開発配慮版: 元の法律調文言は「データを勝手に第三者に売られる / 広告に使われる / 機械学習に流用される」という不安を強く想起させるため、DPIA §5 の実態（広告/トラッキング非使用、第三者提供なし、子供データは Gemini にマスク済み）を transparent に明示する -->
+					<p class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
+						{SIGNUP_LABELS.crossBorderNotice}
+					</p>
+					<p class="text-[0.8rem] text-[var(--color-text)] font-bold leading-relaxed">
+						{SIGNUP_LABELS.crossBorderNoNoUse}
+					</p>
 					<FormField label="" error={submitAttempted && !agreedCrossBorder ? SIGNUP_LABELS.crossBorderAgreeError : undefined}>
 						{#snippet children()}
 							<label class="flex items-start gap-2 cursor-pointer">

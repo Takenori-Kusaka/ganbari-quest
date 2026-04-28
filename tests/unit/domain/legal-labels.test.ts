@@ -44,17 +44,38 @@ describe('#1638 #1590: LEGAL_LABELS', () => {
 		expect(LEGAL_LABELS.dpa).toContain('DPA');
 	});
 
-	it('signup チェックボックスの域外移転同意文言が定義されている', () => {
-		expect(LEGAL_LABELS.signupCrossBorderConsent).toContain('米国');
-		expect(LEGAL_LABELS.signupCrossBorderConsent).toContain('AWS');
-		expect(LEGAL_LABELS.signupCrossBorderConsent).toContain('バージニア北部');
+	it('signup チェックボックスの域外移転同意文言が定義されている（個人開発配慮版: サービス提供のためという目的を明示）', () => {
+		// 個人開発配慮版（DPIA §5）: チェックボックス文言は「サービス提供に必要な範囲」を主語とする。
+		// 移転先国（米国 / AWS / バージニア北部）の情報は SIGNUP_LABELS.crossBorderNotice に移動済み。
+		expect(LEGAL_LABELS.signupCrossBorderConsent).toContain('サービス提供');
+		expect(LEGAL_LABELS.signupCrossBorderConsent).toContain('同意します');
 	});
 });
 
 describe('#1638: SIGNUP_LABELS cross-border consent 拡張', () => {
-	it('crossBorderAgreePrefix が定義されている', () => {
-		expect(SIGNUP_LABELS.crossBorderAgreePrefix).toContain('米国');
-		expect(SIGNUP_LABELS.crossBorderAgreePrefix).toContain('AWS');
+	it('crossBorderNotice に移転先国（米国 AWS バージニア北部 / Stripe / Google）が明記されている', () => {
+		// 個人開発配慮版（DPIA §5）: 移転先国は notice 段落に明示し、checkbox 文言からは外した。
+		expect(SIGNUP_LABELS.crossBorderNotice).toContain('米国');
+		expect(SIGNUP_LABELS.crossBorderNotice).toContain('AWS');
+		expect(SIGNUP_LABELS.crossBorderNotice).toContain('バージニア北部');
+		expect(SIGNUP_LABELS.crossBorderNotice).toContain('Stripe');
+		expect(SIGNUP_LABELS.crossBorderNotice).toContain('Google');
+		expect(SIGNUP_LABELS.crossBorderNotice).toContain('サービス提供');
+	});
+
+	it('crossBorderNoNoUse に「広告利用なし / 第三者販売なし / 機械学習流用なし」が明記されている', () => {
+		// 個人開発配慮版（DPIA §5）: 安心要素を独立段落で太字強調する。
+		expect(SIGNUP_LABELS.crossBorderNoNoUse).toContain('広告利用');
+		expect(SIGNUP_LABELS.crossBorderNoNoUse).toContain('第三者');
+		expect(SIGNUP_LABELS.crossBorderNoNoUse).toContain('機械学習');
+		expect(SIGNUP_LABELS.crossBorderNoNoUse).toContain('ありません');
+	});
+
+	it('crossBorderAgreePrefix がサービス提供目的を主語とした同意文言になっている', () => {
+		// 個人開発配慮版: prefix は「上記を理解し...同意します」。
+		// 移転先国の固有名詞は crossBorderNotice 側に集約済み。
+		expect(SIGNUP_LABELS.crossBorderAgreePrefix).toContain('サービス提供');
+		expect(SIGNUP_LABELS.crossBorderAgreePrefix).toContain('同意します');
 	});
 
 	it('crossBorderAgreeLink / crossBorderAgreeSuffix が定義されている', () => {

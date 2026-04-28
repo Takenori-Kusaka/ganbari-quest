@@ -1479,10 +1479,15 @@ export const SIGNUP_LABELS = {
 	privacyAgreeSuffix: 'に同意します',
 	privacyAgreeError: 'プライバシーポリシーへの同意が必要です',
 	// #1638: 個人情報保護法 §28 — 外国にある第三者（米国 AWS バージニア北部リージョン）への提供同意
-	crossBorderAgreePrefix: '個人データの米国（AWS バージニア北部リージョン）への移転に同意します（',
+	// 個人開発配慮版（DPIA §5 の実態を transparent に明示）
+	crossBorderNotice:
+		'本サービスは AWS（米国バージニア北部）/ Stripe / Google の各データセンターを利用し、お預かりするデータをサービス提供のためだけに保存・処理します。',
+	crossBorderNoNoUse: '広告利用・第三者への販売・機械学習への流用はありません。',
+	crossBorderAgreePrefix:
+		'上記を理解し、サービス提供に必要な範囲でのデータ保存・処理に同意します（',
 	crossBorderAgreeLink: '詳細',
 	crossBorderAgreeSuffix: '）',
-	crossBorderAgreeError: '米国への個人データ移転への同意が必要です',
+	crossBorderAgreeError: 'サービス提供に必要なデータ保存・処理への同意が必要です',
 	parentalConsentNote: '※ 本サービスは子供のデータを扱います。保護者として上記に同意してください。',
 	submitLoading: '登録中...',
 	submitWithLicenseKey: 'ライセンスキーで登録',
@@ -4243,5 +4248,5 @@ export const LEGAL_LABELS = {
 	crossBorderLaw: '個人情報保護法第28条',
 	scc: '標準契約条項 (Standard Contractual Clauses, SCC)',
 	dpa: 'Data Processing Addendum (DPA)',
-	signupCrossBorderConsent: '個人データの米国（AWS バージニア北部リージョン）への移転に同意します',
+	signupCrossBorderConsent: 'サービス提供に必要な範囲でのデータ保存・処理に同意します',
 } as const;
