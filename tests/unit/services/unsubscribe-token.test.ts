@@ -2,6 +2,7 @@
 // #1601: 配信停止トークン (HMAC) のユニットテスト
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { resetEnvForTesting } from '../../../src/lib/runtime/env';
 import {
 	generateUnsubscribeToken,
 	verifyUnsubscribeToken,
@@ -13,6 +14,7 @@ const ORIGINAL_AUTH = process.env.AUTH_MODE;
 beforeEach(() => {
 	process.env.OPS_SECRET_KEY = 'test-secret-key-32bytes-aaaaaaaaaa';
 	process.env.AUTH_MODE = 'cognito';
+	resetEnvForTesting();
 });
 
 afterEach(() => {
@@ -20,6 +22,7 @@ afterEach(() => {
 	else process.env.OPS_SECRET_KEY = ORIGINAL_OPS;
 	if (ORIGINAL_AUTH === undefined) delete process.env.AUTH_MODE;
 	else process.env.AUTH_MODE = ORIGINAL_AUTH;
+	resetEnvForTesting();
 });
 
 describe('#1601 unsubscribe-token — generate', () => {
@@ -66,6 +69,7 @@ describe('#1601 unsubscribe-token — verify', () => {
 	it('別シークレットで作られたトークンは検証失敗', () => {
 		const token = generateUnsubscribeToken({ tenantId: 't-abc', kind: 'marketing' });
 		process.env.OPS_SECRET_KEY = 'different-secret-key-32bytes-bbbbb';
+		resetEnvForTesting();
 		expect(verifyUnsubscribeToken(token)).toBeNull();
 	});
 
@@ -97,6 +101,7 @@ describe('#1601 unsubscribe-token — local fallback', () => {
 	it('AUTH_MODE=local かつ secret 未設定でもトークン生成 / 検証できる', () => {
 		delete process.env.OPS_SECRET_KEY;
 		process.env.AUTH_MODE = 'local';
+		resetEnvForTesting();
 		const token = generateUnsubscribeToken({ tenantId: 't-1', kind: 'marketing' });
 		const payload = verifyUnsubscribeToken(token);
 		expect(payload).toEqual({ tenantId: 't-1', kind: 'marketing' });
@@ -106,6 +111,7 @@ describe('#1601 unsubscribe-token — local fallback', () => {
 		delete process.env.OPS_SECRET_KEY;
 		delete process.env.CRON_SECRET;
 		process.env.AUTH_MODE = 'cognito';
+		resetEnvForTesting();
 		expect(() => generateUnsubscribeToken({ tenantId: 't-1', kind: 'marketing' })).toThrow(
 			/required in non-local environments/,
 		);

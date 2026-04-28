@@ -15,14 +15,17 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+import { getEnv } from '$lib/runtime/env';
+
 // ============================================================
 // 内部ヘルパ
 // ============================================================
 
 function getSigningSecret(): string {
-	const secret = process.env.OPS_SECRET_KEY ?? process.env.CRON_SECRET;
+	const env = getEnv();
+	const secret = env.OPS_SECRET_KEY ?? env.CRON_SECRET;
 	if (secret && secret.length > 0) return secret;
-	if ((process.env.AUTH_MODE ?? 'local') === 'local') {
+	if (env.AUTH_MODE === 'local') {
 		// ローカル開発時のみの dev fallback。production では compute-stack.ts が
 		// `cronSecret || opsSecretKey` を保証するため到達しない。
 		return 'local-dev-unsubscribe-secret';
