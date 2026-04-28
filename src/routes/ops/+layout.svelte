@@ -16,6 +16,7 @@ let { children }: { children: Snippet } = $props();
 			<a href="/ops/license">{OPS_LAYOUT_LABELS.navLicense}</a>
 			<a href="/ops/analytics">{OPS_LAYOUT_LABELS.navAnalytics}</a>
 			<a href="/ops/cohort">{OPS_LAYOUT_LABELS.navCohort}</a>
+			<a href="/ops/pmf-survey">{OPS_LAYOUT_LABELS.navPmfSurvey}</a>
 			<a href="/ops/export">{OPS_LAYOUT_LABELS.navExport}</a>
 		</nav>
 	</header>

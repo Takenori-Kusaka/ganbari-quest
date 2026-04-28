@@ -22,6 +22,8 @@ const CRON_JOBS = [
 	{ name: 'trial-notifications', utcCronExpression: 'cron(0 0 * * ? *)' },
 	// #1601 (ADR-0023 §5 I11): 期限切れ前リマインド + 休眠復帰メール
 	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
+	// #1598 (ADR-0023 §5 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
+	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
 ] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {

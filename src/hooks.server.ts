@@ -415,7 +415,10 @@ export const handle: Handle = ({ event, resolve }) =>
 				!path.startsWith('/unsubscribe/') &&
 				// #1594 ADR-0023 I8: founder 直接相談動線は公開ページ（未認証 / セットアップ前でもアクセス可）
 				!path.startsWith('/inquiry/founder') &&
-				!path.startsWith('/api/v1/inquiry/founder')
+				!path.startsWith('/api/v1/inquiry/founder') &&
+				// #1598 ADR-0023 I7: PMF 判定アンケート (Sean Ellis Test) は HMAC トークン認証で
+				// メールリンクから直接アクセスする。セットアップ前でもアクセス可能にする。
+				!path.startsWith('/survey/')
 			) {
 				if (await isSetupRequired(tenantId)) {
 					redirect(302, '/setup');
