@@ -3720,6 +3720,7 @@ export const LP_FOUNDER_INQUIRY_LABELS = {
 	bullet2: '使い方が分からない・困っている',
 	bullet3: '解約を検討中（その前に一度お話しさせてください）',
 	ctaButton: '直接相談する（無料）',
+	ctaSeparator: '／',
 	mailtoFallback: 'メールで送る',
 } as const;
 

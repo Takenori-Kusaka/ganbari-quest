@@ -68,12 +68,11 @@ test.describe('#1594 founder 直接相談 (/inquiry/founder)', () => {
 	});
 
 	test('admin/settings に founder CTA が表示される', async ({ page }) => {
-		const res = await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
-		// 認証が必要な環境で 302 等の場合はスキップ（ローカル AUTH_MODE=local では通る想定）
-		if (!res || res.status() >= 400) {
-			test.skip();
-			return;
-		}
+		// E2E は AUTH_MODE=local 前提。`admin-settings-export-gate.spec.ts` 等と同じ想定で
+		// 直接アクセスし、認証は通る前提で進める（ローカルでは plan-limit-service の
+		// 早期 return で family プラン相当となり 200 OK で返る）。
+		test.slow(); // Vite dev コールドコンパイル
+		await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
 
 		// PremiumWelcome dialog が出ることがあるので閉じる
 		const welcomeBtn = page.getByRole('button', { name: /さっそく始める/ });
