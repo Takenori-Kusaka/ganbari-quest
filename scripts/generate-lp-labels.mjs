@@ -124,6 +124,8 @@ function parseLabelsTs() {
 	// Phase 4 R9/R10 (#1613/#1614): 年齢別成長ロードマップ + アナログ vs デジタル
 	const lpVersusLabels = parseBlock(src, 'LP_VERSUS_LABELS');
 	const lpGrowthRoadmapLabels = parseBlock(src, 'LP_GROWTH_ROADMAP_LABELS');
+	// Phase 5 R44 (#1650): pricing.html SSOT 同期
+	const lpPricingLabels = parseBlock(src, 'LP_PRICING_LABELS');
 
 	return {
 		ageTierLabels,
@@ -137,6 +139,7 @@ function parseLabelsTs() {
 		lpLegalDisclaimerLabels,
 		lpVersusLabels,
 		lpGrowthRoadmapLabels,
+		lpPricingLabels,
 	};
 }
 
@@ -182,6 +185,7 @@ function generateSharedLabelsJs() {
 		lpLegalDisclaimerLabels,
 		lpVersusLabels,
 		lpGrowthRoadmapLabels,
+		lpPricingLabels,
 	} = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
@@ -217,6 +221,7 @@ function generateSharedLabelsJs() {
 		legalDisclaimer: lpLegalDisclaimerLabels,
 		versus: lpVersusLabels,
 		growthRoadmap: lpGrowthRoadmapLabels,
+		pricing: lpPricingLabels,
 	};
 
 	const header = `/**

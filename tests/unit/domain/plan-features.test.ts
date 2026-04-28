@@ -20,18 +20,21 @@ import {
 
 describe('plan-features.ts SSOT', () => {
 	describe('PRICING_PAGE_FEATURES', () => {
-		it('free プランは 7 項目', () => {
-			expect(PRICING_PAGE_FEATURES.free).toHaveLength(7);
+		it('free プランは 8 項目（#1654 R48 メールサポート補完後）', () => {
+			// #1654 R48: footer / tokushoho.html / sla.html がメールサポート全プラン提示済 → SSOT 補完で 7→8
+			expect(PRICING_PAGE_FEATURES.free).toHaveLength(8);
 		});
 
-		it('standard プランは 8 項目（#722 AI提案をfamilyに移動後）', () => {
+		it('standard プランは 9 項目（#1655 R49 家族メンバー招待補完後）', () => {
 			// #722: AI による活動提案を family 限定に変更したため 9→8 項目
-			expect(PRICING_PAGE_FEATURES.standard).toHaveLength(8);
+			// #1655 R49: 家族メンバー招待 4 人まで補完で 8→9 項目
+			expect(PRICING_PAGE_FEATURES.standard).toHaveLength(9);
 		});
 
-		it('family プランは 7 項目（#722 AI自動提案を追加）', () => {
+		it('family プランは 8 項目（#1655 R49 家族メンバー招待無制限を明示）', () => {
 			// #722: AI 自動提案をファミリー限定機能として追加
-			expect(PRICING_PAGE_FEATURES.family).toHaveLength(7);
+			// #1655 R49: 家族メンバー招待: 無制限を明示で 7→8 項目
+			expect(PRICING_PAGE_FEATURES.family).toHaveLength(8);
 		});
 
 		it('free には「90日間の履歴保持」が含まれる', () => {
@@ -179,10 +182,13 @@ describe('plan-features.ts SSOT', () => {
 			}
 		});
 
-		it('サポート表記がメールサポートに統一されていること (#1109)', () => {
+		it('サポート表記がメールサポートに統一されていること (#1109 / #1654 R48 で free も補完)', () => {
+			const freeFeatures = PRICING_PAGE_FEATURES.free;
 			const standardFeatures = PRICING_PAGE_FEATURES.standard;
 			const familyFeatures = PRICING_PAGE_FEATURES.family;
 
+			// #1654 R48: free も「メールサポート（標準）」で参加。文言は付帯ありだが label に「メールサポート」を含む
+			expect(freeFeatures.some((f) => f.includes('メールサポート'))).toBe(true);
 			expect(standardFeatures).toContain('メールサポート');
 			expect(familyFeatures).toContain('メールサポート');
 		});

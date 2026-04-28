@@ -364,7 +364,9 @@ export const FEATURE_LABELS = {
 	plan: 'プラン',
 	members: 'メンバー',
 	dataExport: 'データエクスポート',
-	aiActivitySuggest: 'AI による活動提案',
+	// #1660 R53: 実装は activities / special-rewards / checklists の 3 endpoint で family-only gate 完備のため
+	// 内部 SSOT も外部訴求 (pricing.html / plan-features.ts) と並列に「活動・ごほうび・チェックリスト」を明示
+	aiActivitySuggest: 'AI による活動・ごほうび・チェックリスト提案',
 } as const;
 
 // ============================================================
@@ -2458,9 +2460,11 @@ export const PRICING_PAGE_LABELS = {
 		'はい。プリセットの活動とチェックリストで基本的な機能はお使いいただけます。お子さまの冒険体験は無料でも一切制限ありません。',
 	faqCancelTrialQ: '無料体験中にキャンセルできますか？',
 	faqCancelTrialA: 'はい。無料体験期間中にキャンセルすれば一切課金されません。',
-	faqCancelQ: '解約するとどうなりますか？',
+	faqCancelQ: '解約したらデータはすぐに削除されますか？',
+	// #1647 R42 + #1643 R38: 実装 grace-period-service.ts の {standard:7, family:30} に合わせる
+	// アプリ内 /pricing と LP /site/pricing.html の両方で同一回答を返す SSOT
 	faqCancelA:
-		'お支払い済みの期間が終了するまで引き続きご利用いただけます。その後フリープランに自動移行し、データは保持されます。',
+		'プランによって猶予期間が異なります。スタンダードプラン: 解約申請から 7 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。ファミリープラン: 解約申請から 30 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。猶予期間中はログインしてエクスポート可能です。',
 	faqBillingDateQ: '課金日はいつですか？',
 	faqBillingDateA: 'お申し込み日を起算日として毎月（または毎年）自動更新されます。',
 	faqPaymentQ: '支払い方法は？',
@@ -3509,11 +3513,13 @@ export const LP_COMMON_LABELS = {
 // 景表法 第 5 条 + 消費者庁 打消し表示ガイドライン準拠
 // data-lp-key で site/index.html / site/faq.html に注入
 export const LP_LEGAL_DISCLAIMER_LABELS = {
+	// #1643 R38 整合: 実装 grace-period-service.ts の {standard: 7, family: 30} に合わせプラン別表記
+	// LP メトリクス desktopHeight ratchet 維持のため可読性確保しつつ簡潔に
 	cancelDisclaimer:
-		'※「いつでも解約 OK」について: 解約申請後 30 日間は読み取り専用（閲覧・エクスポート可能）となり、その後すべてのデータが完全に削除されます。日割り返金はありません。',
+		'※解約後はプラン別の読み取り専用猶予期間（スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。日割り返金はありません。',
 	cancelDisclaimerLinks: 'FAQ / 特定商取引法に基づく表記',
 	cancelDisclaimerCta:
-		'※「いつでもキャンセル可能」について: 解約申請後 30 日間は読み取り専用となり、その後すべてのデータが完全に削除されます。',
+		'※解約後はプラン別の猶予期間（スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。',
 	cancelDisclaimerCtaLink: 'FAQ',
 	liabilityTitle: 'サービス利用に関する重要なご案内',
 	liabilityBody:
@@ -3527,6 +3533,175 @@ export const LP_LEGAL_DISCLAIMER_LABELS = {
 	faqLiabilityNote:
 		'※ 消費者契約法その他の強行法規が適用される場合は、その範囲で当該規定が優先されます。重要事項のため、ご契約前に 利用規約 第 12 条 全文をご確認のうえ、ご納得いただいた方のみご利用ください。',
 	faqLiabilityQuestion: 'サービスの不具合等で損害が発生した場合、賠償の上限はありますか？',
+} as const;
+
+// ============================================================
+// LP /site/pricing.html SSOT (#1650 R44 / Phase 5 pricing 仕上げ)
+//
+// data-lp-key で site/pricing.html に注入。labels.ts SSOT への同期と、
+// 「（税込）」「クラウド保管枠」「7 日間無料体験」等の整合点を一箇所で管理する。
+//
+// 命名規則: pricing.<area>.<key>
+//   - hero / planFree / planStandard / planFamily / comparison / trial / cta / faq
+//
+// 関連 Issue:
+//   - #1641 R36 trial 体験データ保持表記の修正
+//   - #1642 R37 trial 体験範囲表記の経路汎用化
+//   - #1643 R38 解約後 grace period プラン別表記
+//   - #1644 R39 「自動バックアップ」→「クラウド保管枠（手動エクスポート）」
+//   - #1645 R40 「税込」明記
+//   - #1646 R41 CTA 直下打消し表示
+//   - #1647 R42 アプリ /pricing FAQ と整合
+//   - #1650 R44 SSOT 同期 + 括弧書き濫用一掃
+//   - #1651 R45 ペルソナ別 Job 訴求
+//   - #1652 R46 Hero 価格 anchor + 7 日体験
+//   - #1653 R47 「卒業」概念 FAQ
+//   - #1660 R53 FEATURE_LABELS.aiActivitySuggest
+// ============================================================
+
+export const LP_PRICING_LABELS = {
+	pageTitle: '料金プラン - がんばりクエスト',
+	metaDescription:
+		'がんばりクエストの料金プラン。基本無料で始められます。スタンダード月額500円（税込）、ファミリー月額780円（税込）。すべての有料プランに7日間の無料体験付き。',
+	ogTitle: '料金プラン - がんばりクエスト',
+	ogDescription:
+		'基本無料で始められます。お子さまのポイント・レベルアップ・ログインボーナス（おみくじ + スタンプカード）などの冒険体験は無料プランでも一切制限ありません。',
+
+	// Hero (#1652 R46)
+	heroTitle: '料金プラン',
+	heroLead1: 'お子さまの成長を冒険に変える。',
+	heroLeadHighlight: '基本無料',
+	heroLead2: 'で今日から始められます。',
+	heroSubtext: '有料プランはすべて',
+	heroSubtextStrong: '7日間の無料体験',
+	heroSubtextSuffix: '付き（クレジットカード登録不要）',
+	heroPriceBand: '基本無料 ・ 月 ¥500（税込）から ・ 7 日間無料体験 ・ いつでも解約 OK',
+	heroCtaPrimary: '7 日間無料で試す',
+	heroCtaSecondary: 'プランを比較する',
+
+	// Plan card: Free (#1651 R45 + #1644 R39 + #1645 R40)
+	planFreeName: 'フリー',
+	planFreePrice: '¥0',
+	planFreePriceSub: 'ずっと無料 ・ クレカ登録不要',
+	planFreePersona: 'こんなご家族におすすめ: まずはお子さま 1〜2 人で試したいご家族へ',
+	planFreeDesc:
+		'ポイント・レベルアップ・おみくじ・スタンプカードなど、お子さまの冒険体験はすべて無料。',
+	planFreeCta: '無料ではじめる',
+	planFreeBadge: '永久無料',
+
+	// Plan card: Standard (#1645 R40 + #1651 R45)
+	planStandardBadge: 'おすすめ',
+	planStandardName: 'スタンダード',
+	planStandardPrice: '¥500',
+	planStandardUnit: '/月（税込）',
+	planStandardYearly: '年額 ¥5,000（税込・2ヶ月分お得）',
+	planStandardPersona:
+		'こんなご家族におすすめ: お子さま 3 人以上 / 我が家ルールをカスタマイズしたいご家族へ',
+	planStandardDesc: 'カスタマイズ自由自在。お子さまにぴったりの環境を作れます。',
+	planStandardCta: '7日間 無料体験',
+
+	// Plan card: Family (#1645 R40 + #1651 R45)
+	planFamilyName: 'ファミリー',
+	planFamilyPrice: '¥780',
+	planFamilyUnit: '/月（税込）',
+	planFamilyYearly: '年額 ¥7,800（税込・2ヶ月分お得）',
+	planFamilyPersona: 'こんなご家族におすすめ: 祖父母・離れた家族と一緒に応援したいご家族へ',
+	planFamilyDesc: '家族みんなで見守る。きょうだいの比較やレポートで成長を応援できます。',
+	planFamilyCta: '7日間 無料体験',
+
+	// CTA disclaimer (#1646 R41)
+	ctaDisclaimerBadges: '✅ クレジットカード登録不要 ✅ 自動課金なし ✅ いつでも解約 OK',
+	ctaDisclaimerNote: '※ 7 日間無料体験は初回お申込み時のみ。価格はすべて税込表示です。',
+
+	// Plan note (below cards) — #1650 R44 (括弧書き一掃)
+	allPlansNote:
+		'💡 お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・コンボなど）は',
+	allPlansNoteStrong: '全プラン共通',
+	allPlansNoteSuffix: 'で制限なし',
+
+	// Comparison table (#1650 R44 + #1657 R50)
+	comparisonTitle: '機能比較表',
+	comparisonSubtitle: '冒険の仕組みは全プラン共通で制限なく楽しめます',
+
+	// Trial section (#1641 R36 + #1642 R37)
+	trialHeading: '7日間の無料体験',
+	// #1642 R37: 経路汎用化（standard / family どちらの trial も同文言で説明）
+	trialSubheading: '7 日間の無料体験では、選択したプランの全機能を制限なくお試しいただけます',
+	trialStep1Title: 'いつでも好きなタイミングで開始',
+	trialStep1Desc:
+		'アカウント登録後、管理画面からワンタップで無料体験を開始できます。クレジットカードの登録は不要です。',
+	trialStep2Title: '7日間、選択したプランの全機能が使い放題',
+	// #1642 R37: 経路依存（?plan=standard / ?plan=family / admin/license 手動）すべてに対応
+	trialStep2Desc:
+		'スタンダード/ファミリーいずれもプランの全機能（カスタム活動・レポート・データエクスポート・AI 自動提案・きょうだいランキング・離れた家族応援メッセージなど）を制限なくお試しいただけます。',
+	trialStep3Title: '終了後は自動で無料プランに戻ります',
+	trialStep3Desc:
+		'無料体験期間が終わると、自動的に無料プランへ移行します。自動課金は一切ありません。',
+	trialStepHighlight: '無料体験中にいつでもプラン選択可能',
+	trialStepHighlightDesc:
+		'気に入ったら無料体験中にそのままプランを選択できます。もちろん、何もしなければ自動で無料プランに戻ります。',
+	// #1641 R36: 実装 retention-cleanup-service.ts に整合した「並列構造」
+	trialDataReassureLine1Strong:
+		'無料体験中に作成したオリジナル活動・ごほうび・もちものチェックリスト・シール・レベル・お子さま登録',
+	trialDataReassureLine1Suffix: 'は、無料プランに移行した後もそのまま保持されます。',
+	trialDataReassureLine2Strong: '活動履歴・ポイント獲得履歴・ログインボーナス履歴',
+	trialDataReassureLine2Suffix: 'は無料プランの保持期間（90 日）を超えたものから順次削除されます。',
+	trialDataReassureLine3:
+		'有料プランにアップグレードすれば、より長期間（スタンダード: 1 年 / ファミリー: 無制限）の履歴をご利用いただけます。',
+
+	// Family pattern section
+	familyPatternsTitle: '家族での使い方',
+	familyPatternsSubtitle: 'ご家庭の環境に合わせて、2つのスタイルからお選びいただけます',
+	familyPatternSharedTag: '全プラン対応',
+	familyPatternSharedTitle: '親アカウント共用型',
+	familyPatternSharedDesc:
+		'親が1つのアカウントを作成し、同じ端末でお子さまと画面を切り替えて使います。設定も操作もシンプルで、すぐに始められます。無料プランを含む全プランで利用できます。',
+	familyPatternInviteTag: 'スタンダード以上',
+	familyPatternInviteTitle: '個別アカウント＋招待リンク型',
+	familyPatternInviteDesc:
+		'家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。スタンダードは4人まで、ファミリープランは無制限で招待できます。',
+
+	// FAQ (#1647 R42 — labels.ts PRICING_PAGE_LABELS と整合 / #1643 R38 / #1653 R47)
+	faqTitle: 'よくある質問',
+	faqFreeQ: '無料プランでも十分使えますか？',
+	faqFreeA:
+		'はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のログインボーナス）は無料プランでも一切制限ありません。',
+	faqAfterTrialQ: '無料体験後はどうなりますか？',
+	// #1641 R36 整合: 並列構造で「保持」と「90 日で削除」を両方明記
+	faqAfterTrialA:
+		'7日間の無料体験終了後は無料プランに移行します。有料プランをご希望の場合は、管理画面からアップグレードしてください。クレジットカードの事前登録は不要です。無料体験中に作成したオリジナル活動・ごほうび・チェックリスト・シール・レベルは保持されますが、活動履歴・ポイント獲得履歴・ログインボーナス履歴は無料プランの保持期間（90 日）を超えたものから順次削除されます。',
+	// #1643 R38 + #1647 R42: プラン別猶予期間（実装 grace-period-service.ts 準拠）
+	faqCancelQ: '解約したらデータはすぐに削除されますか？',
+	faqCancelA:
+		'プランによって猶予期間が異なります。スタンダードプランは解約申請から 7 日間、ファミリープランは解約申請から 30 日間の読み取り専用猶予期間が設けられ、その後すべてのデータが完全に削除されます（復旧不可）。猶予期間中はログインしてエクスポートが可能です。',
+	faqBillingDateQ: 'お支払い日はいつですか？',
+	faqBillingDateA:
+		'お申し込み日を起算日として、月額プランは毎月、年額プランは毎年自動更新されます。例えば4月15日にお申し込みの場合、次回のお支払い日は5月15日（月額）または翌年4月15日（年額）です。',
+	faqYearlyCancelQ: '年額プランを途中解約した場合は？',
+	faqYearlyCancelA:
+		'年額プランを途中解約しても、お支払い済みの残り期間は引き続きご利用いただけます。日割りでの返金は行っておりません。',
+	faqPaymentQ: '支払い方法は？',
+	faqPaymentA:
+		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
+	faqPlanChangeQ: 'プランの変更はできますか？',
+	faqPlanChangeA:
+		'はい。スタンダード↔ファミリー、月額↔年額の切り替えが可能です。管理画面の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。',
+	faqAdsQ: '子供の画面に広告は出ますか？',
+	faqAdsA:
+		'いいえ。無料プランでも広告は一切表示しません。お子さまが安心して使える環境を最優先にしています。',
+	faqMultiDeviceQ: '家族で複数端末から使えますか？',
+	faqMultiDeviceA:
+		'はい。スタンダード以上のプランで、家族メンバーを招待して複数端末からアクセスできます。スタンダードプランは4人まで、ファミリープランは無制限に招待可能です。無料プランでも1つの端末でお子さまを切り替えて使えます。',
+	// #1653 R47: 「卒業」概念訴求（FAQ 文脈・機能訴求は禁止）
+	faqGraduationQ: 'ずっと使い続ける必要がありますか？',
+	faqGraduationA:
+		'いいえ、お子さまが自立して習慣化できたら「卒業」していただいて構いません。がんばりクエストは「子供の自立」を最終ゴールとして設計されており、ずっと依存して使い続けることを想定していません。卒業の目安は小学校高学年〜中学生頃です。',
+
+	// CTA bottom
+	ctaBottomTitle: 'お子さまの冒険を始めよう',
+	ctaBottomDesc: 'まずは無料ではじめて、お子さまの反応を見てみませんか？',
+	ctaBottomPrimary: '無料ではじめる',
+	ctaBottomSecondary: 'デモで体験する',
 } as const;
 
 export const LP_RETENTION_LABELS = {
