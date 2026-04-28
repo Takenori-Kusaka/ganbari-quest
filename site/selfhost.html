@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>セルフホスト版ガイド - がんばりクエスト</title>
+<title data-lp-key="selfhost.text1">セルフホスト版ガイド - がんばりクエスト</title>
 <meta name="description" content="がんばりクエストのセルフホスト版（OSS）のセットアップガイド。Docker で自宅サーバーや NAS に簡単にインストールできます。">
 <meta property="og:title" content="セルフホスト版ガイド - がんばりクエスト">
 <meta property="og:description" content="がんばりクエストを自宅サーバーや NAS で動かす方法。Docker で簡単セットアップ。">
@@ -50,9 +50,9 @@ body{line-height:1.8;background:var(--gray-50)}
 <header class="header">
   <div class="header-inner">
     <a href="index.html" class="logo">
-      <img src="logo-compact.png" alt="がんばりクエスト" height="44">
+      <<span data-lp-key="selfhost.text55">img src="logo-compact.png" alt="がんばりクエスト" height="44"</span>>
     </a>
-    <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">&#9776;</button>
+    <<span data-lp-key="selfhost.text56">button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)"</span>>&#9776;</button>
     <nav id="main-nav" class="header-nav">
       <a href="index.html" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
       <a href="index.html#features" data-lp-key="nav.features" onclick="this.parentElement.classList.remove('open')">できること</a>
@@ -66,32 +66,32 @@ body{line-height:1.8;background:var(--gray-50)}
 
 <!-- Hero -->
 <section class="selfhost-hero">
-  <h1>&#x1F4E6; セルフホスト版ガイド</h1>
-  <p>がんばりクエストはオープンソース。自宅サーバーや NAS で動かせば、データは完全にご自身の管理下に置けます。</p>
+  <h1 data-lp-key="selfhost.text2">&#x1F4E6; セルフホスト版ガイド</h1>
+  <p data-lp-key="selfhost.text3">がんばりクエストはオープンソース。自宅サーバーや NAS で動かせば、データは完全にご自身の管理下に置けます。</p>
   <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-    <a href="https://github.com/Takenori-Kusaka/ganbari-quest" class="btn btn-primary">&#x1F4BB; GitHub リポジトリ</a>
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-outline">SaaS版を使う</a>
+    <a href="https://github.com/Takenori-Kusaka/ganbari-quest" class="btn btn-primary" data-lp-key="selfhost.text4">&#x1F4BB; GitHub リポジトリ</a>
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-outline" data-lp-key="selfhost.text5">SaaS版を使う</a>
   </div>
 </section>
 
 <!-- Quick Start -->
 <section class="section bg-white">
   <div class="section-inner">
-    <h2 class="section-title">&#x1F680; クイックスタート</h2>
-    <p class="section-desc">Docker がインストールされていれば、3つのコマンドで起動できます。</p>
+    <h2 class="section-title" data-lp-key="selfhost.text6">&#x1F680; クイックスタート</h2>
+    <p class="section-desc" data-lp-key="selfhost.text7">Docker がインストールされていれば、3つのコマンドで起動できます。</p>
     <div class="setup-code">
       git clone https://github.com/Takenori-Kusaka/ganbari-quest.git<br>
       cd ganbari-quest<br>
       docker compose up -d
     </div>
-    <p style="font-size:.9rem;color:var(--gray-500)">起動後、ブラウザで <code>http://localhost:3000</code> にアクセスしてください。</p>
+    <p style="font-size:.9rem;color:var(--gray-500)"><span data-lp-key="selfhost.text8">起動後、ブラウザで </span><code>http://localhost:3000</code><span data-lp-key="selfhost.text9"> にアクセスしてください。</span></p>
   </div>
 </section>
 
 <!-- Requirements -->
 <section class="section bg-gray">
   <div class="section-inner">
-    <h2 class="section-title">&#x1F4CB; 動作要件</h2>
+    <h2 class="section-title" data-lp-key="selfhost.text10">&#x1F4CB; 動作要件</h2>
     <div class="req-grid">
       <div class="req-card">
         <div class="req-icon">&#x1F433;</div>
@@ -100,17 +100,17 @@ body{line-height:1.8;background:var(--gray-50)}
       </div>
       <div class="req-card">
         <div class="req-icon">&#x1F4BB;</div>
-        <h3>サーバー</h3>
-        <p>RAM 512MB 以上<br>ストレージ 1GB 以上</p>
+        <h3 data-lp-key="selfhost.text11">サーバー</h3>
+        <p><span data-lp-key="selfhost.text12">RAM 512MB 以上</span><br><span data-lp-key="selfhost.text13">ストレージ 1GB 以上</span></p>
       </div>
       <div class="req-card">
         <div class="req-icon">&#x1F310;</div>
-        <h3>ネットワーク</h3>
-        <p>LAN 内アクセス<br>外部公開は任意</p>
+        <h3 data-lp-key="selfhost.text14">ネットワーク</h3>
+        <p><span data-lp-key="selfhost.text15">LAN 内アクセス</span><br><span data-lp-key="selfhost.text16">外部公開は任意</span></p>
       </div>
     </div>
     <div class="note-box">
-      &#x1F4A1; <strong>おすすめ環境</strong>: Raspberry Pi 4、Synology NAS、Intel NUC など、常時稼働の小型デバイスで快適に動作します。
+      &#x1F4A1; <strong data-lp-key="selfhost.text17">おすすめ環境</strong>: Raspberry Pi 4、Synology NAS、Intel NUC など、常時稼働の小型デバイスで快適に動作します。
     </div>
   </div>
 </section>
@@ -118,13 +118,13 @@ body{line-height:1.8;background:var(--gray-50)}
 <!-- Why selfhost -->
 <section class="section bg-white">
   <div class="section-inner">
-    <h2 class="section-title">&#x2705; セルフホスト版のメリット</h2>
+    <h2 class="section-title" data-lp-key="selfhost.text18">&#x2705; セルフホスト版のメリット</h2>
     <ul class="feature-list">
-      <li><span>&#x1F512;</span> データは完全にご自身の管理下。外部サーバーにデータを送信しません。</li>
-      <li><span>&#x1F4B0;</span> 完全無料。月額料金なし、機能制限なし。</li>
-      <li><span>&#x1F527;</span> カスタマイズ自由。ソースコードを自由に改変できます。</li>
-      <li><span>&#x1F310;</span> オフライン利用可能。インターネット接続なしでも LAN 内で動作します。</li>
-      <li><span>&#x1F4E6;</span> オープンソース（MIT License）。商用利用も可能です。</li>
+      <li><span>&#x1F512;</span><span data-lp-key="selfhost.text19"> データは完全にご自身の管理下。外部サーバーにデータを送信しません。</span></li>
+      <li><span>&#x1F4B0;</span><span data-lp-key="selfhost.text20"> 完全無料。月額料金なし、機能制限なし。</span></li>
+      <li><span>&#x1F527;</span><span data-lp-key="selfhost.text21"> カスタマイズ自由。ソースコードを自由に改変できます。</span></li>
+      <li><span>&#x1F310;</span><span data-lp-key="selfhost.text22"> オフライン利用可能。インターネット接続なしでも LAN 内で動作します。</span></li>
+      <li><span>&#x1F4E6;</span><span data-lp-key="selfhost.text23"> オープンソース（MIT License）。商用利用も可能です。</span></li>
     </ul>
   </div>
 </section>
@@ -132,50 +132,50 @@ body{line-height:1.8;background:var(--gray-50)}
 <!-- SaaS vs Selfhost comparison -->
 <section class="section bg-gray">
   <div class="section-inner">
-    <h2 class="section-title">&#x1F4CA; SaaS版との比較</h2>
+    <h2 class="section-title" data-lp-key="selfhost.text24">&#x1F4CA; SaaS版との比較</h2>
     <table class="comparison-table">
       <thead>
         <tr>
-          <th>項目</th>
-          <th>SaaS版</th>
-          <th>セルフホスト版</th>
+          <th data-lp-key="selfhost.text25">項目</th>
+          <th data-lp-key="selfhost.text26">SaaS版</th>
+          <th data-lp-key="selfhost.text27">セルフホスト版</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>セットアップ</td>
-          <td>&#x2705; アカウント登録だけ</td>
-          <td>Docker のインストールが必要</td>
+          <td data-lp-key="selfhost.text28">セットアップ</td>
+          <td data-lp-key="selfhost.text29">&#x2705; アカウント登録だけ</td>
+          <td data-lp-key="selfhost.text30">Docker のインストールが必要</td>
         </tr>
         <tr>
-          <td>料金</td>
-          <td>基本無料 / 有料プランあり</td>
-          <td>&#x2705; 完全無料</td>
+          <td data-lp-key="selfhost.text31">料金</td>
+          <td data-lp-key="selfhost.text32">基本無料 / 有料プランあり</td>
+          <td data-lp-key="selfhost.text33">&#x2705; 完全無料</td>
         </tr>
         <tr>
-          <td>データ管理</td>
-          <td>AWS 上に暗号化保存</td>
-          <td>&#x2705; 自分のサーバーに保存</td>
+          <td data-lp-key="selfhost.text34">データ管理</td>
+          <td data-lp-key="selfhost.text35">AWS 上に暗号化保存</td>
+          <td data-lp-key="selfhost.text36">&#x2705; 自分のサーバーに保存</td>
         </tr>
         <tr>
-          <td>メンテナンス</td>
-          <td>&#x2705; 運営者が対応</td>
-          <td>自分で更新・バックアップ</td>
+          <td data-lp-key="selfhost.text37">メンテナンス</td>
+          <td data-lp-key="selfhost.text38">&#x2705; 運営者が対応</td>
+          <td data-lp-key="selfhost.text39">自分で更新・バックアップ</td>
         </tr>
         <tr>
-          <td>外出先からのアクセス</td>
-          <td>&#x2705; どこからでも</td>
-          <td>VPN や外部公開の設定が必要</td>
+          <td data-lp-key="selfhost.text40">外出先からのアクセス</td>
+          <td data-lp-key="selfhost.text41">&#x2705; どこからでも</td>
+          <td data-lp-key="selfhost.text42">VPN や外部公開の設定が必要</td>
         </tr>
         <tr>
-          <td>AI 機能</td>
-          <td>&#x2705; ファミリープランで利用可</td>
-          <td>API キーの自前設定が必要</td>
+          <td data-lp-key="selfhost.text43">AI 機能</td>
+          <td data-lp-key="selfhost.text44">&#x2705; ファミリープランで利用可</td>
+          <td data-lp-key="selfhost.text45">API キーの自前設定が必要</td>
         </tr>
       </tbody>
     </table>
     <div class="note-box">
-      &#x1F4A1; <strong>迷ったら SaaS版がおすすめ</strong>: 技術的な知識がなくても、アカウント登録だけですぐに始められます。基本機能は無料です。
+      &#x1F4A1; <strong data-lp-key="selfhost.text46">迷ったら SaaS版がおすすめ</strong>: 技術的な知識がなくても、アカウント登録だけですぐに始められます。基本機能は無料です。
     </div>
   </div>
 </section>
@@ -183,22 +183,22 @@ body{line-height:1.8;background:var(--gray-50)}
 <!-- Contributing -->
 <section class="section bg-white">
   <div class="section-inner">
-    <h2 class="section-title">&#x1F91D; コントリビュート</h2>
-    <p class="section-desc">がんばりクエストはオープンソースで開発中。バグ報告、機能リクエスト、プルリクエスト、どんな貢献も歓迎します。</p>
+    <h2 class="section-title" data-lp-key="selfhost.text47">&#x1F91D; コントリビュート</h2>
+    <p class="section-desc" data-lp-key="selfhost.text48">がんばりクエストはオープンソースで開発中。バグ報告、機能リクエスト、プルリクエスト、どんな貢献も歓迎します。</p>
     <ul class="feature-list">
-      <li><span>&#x1F41B;</span> <a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">Issue</a> でバグ報告・機能リクエスト</li>
-      <li><span>&#x1F4AC;</span> <a href="mailto:ganbari.quest.support@gmail.com">メール</a>で開発者に直接フィードバック</li>
-      <li><span>&#x2764;&#xFE0F;</span> <a href="https://github.com/sponsors/Takenori-Kusaka">GitHub Sponsors</a> で開発を支援</li>
+      <li><span>&#x1F41B;</span> <a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">Issue</a><span data-lp-key="selfhost.text49"> でバグ報告・機能リクエスト</span></li>
+      <li><span>&#x1F4AC;</span> <a href="mailto:ganbari.quest.support@gmail.com" data-lp-key="selfhost.text50">メール</a>で開発者に直接フィードバック</li>
+      <li><span>&#x2764;&#xFE0F;</span> <a href="https://github.com/sponsors/Takenori-Kusaka">GitHub Sponsors</a><span data-lp-key="selfhost.text51"> で開発を支援</span></li>
     </ul>
   </div>
 </section>
 
 <!-- CTA -->
 <section class="cta-bottom">
-  <h2>まずは試してみませんか？</h2>
-  <p>SaaS版ならアカウント登録だけですぐに始められます。セルフホスト版は GitHub からどうぞ。</p>
+  <h2 data-lp-key="selfhost.text52">まずは試してみませんか？</h2>
+  <p data-lp-key="selfhost.text53">SaaS版ならアカウント登録だけですぐに始められます。セルフホスト版は GitHub からどうぞ。</p>
   <div class="cta-buttons">
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">SaaS版を無料ではじめる</a>
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg" data-lp-key="selfhost.text54">SaaS版を無料ではじめる</a>
     <a href="https://github.com/Takenori-Kusaka/ganbari-quest" class="btn btn-outline btn-lg">&#x1F4BB; GitHub</a>
   </div>
 </section>

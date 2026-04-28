@@ -130,7 +130,7 @@ function acceptAiReward(preview: RewardPreviewData) {
 			onclick={() => activeTab = 'rewards'}
 			data-testid="tab-rewards"
 		>
-			ごほうび一覧
+			{REWARDS_LABELS.tabRewards}
 		</button>
 		<button
 			type="button"

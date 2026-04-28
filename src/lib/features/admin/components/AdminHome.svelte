@@ -1,6 +1,11 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
-import { ADMIN_HOME_LABELS, TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
+import {
+	ADMIN_HOME_LABELS,
+	formatDateRange,
+	TUTORIAL_LABELS,
+	USAGE_TIME_LABELS,
+} from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import WeeklyUsageChart from '$lib/features/usage/WeeklyUsageChart.svelte';
@@ -284,7 +289,7 @@ function childLink(child: ChildSummary): string {
 						<span>{event.bannerIcon}</span>
 						<span class="font-medium text-[var(--color-text)]">{event.name}</span>
 						<span class="text-xs text-[var(--color-text-muted)] ml-auto">
-							{event.startDate} 〜 {event.endDate}
+							{formatDateRange(event.startDate, event.endDate)}
 						</span>
 					</div>
 				{/each}
