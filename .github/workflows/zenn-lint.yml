@@ -1,0 +1,23 @@
+name: Zenn Lint
+
+on:
+  push:
+    paths:
+      - 'docs/zenn/**'
+  pull_request:
+    paths:
+      - 'docs/zenn/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: Run textlint
+        run: npx textlint "docs/zenn/**/*.md"
+        continue-on-error: true

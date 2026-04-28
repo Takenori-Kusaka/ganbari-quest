@@ -1,0 +1,223 @@
+version: 1
+rules:
+  # --- 1. アーキテクチャ・設計用語の統一 ---
+  - expected: デュアルアーキテクチャ
+    pattern: デュアルバックエンド
+    message: 本書ではインフラ全体を指す「デュアルアーキテクチャ」に統一してください。
+
+  - expected: 必要十分なアーキテクチャ
+    pattern: 
+      - 適正規模アーキテクチャ
+      - 適正規模なフロントエンド
+    message: 読者に直感的に伝わりやすい「必要十分なアーキテクチャ」に統一してください。
+
+  - expected: 1人開発者
+    pattern: 個人開発者
+    message: 企業内での孤軍奮闘も含めるため「1人開発者」という表記を優先してください。（文脈上「個人開発」が適切な場合は無視して構いません）
+
+  # --- 2. 炎上リスク・思想矛盾ワードの排除（事業部NGワード） ---
+  - expected: 将来実装予定として先行して訴求し（実装コストは後払いにする）
+    pattern: 実装したように見せかけ
+    message: 【重要】ユーザーを騙すような表現は炎上リスクがあるため使用禁止です。
+
+  - expected: 将来の不確実な拡張性のための作り込みを排した（YAGNI）
+    pattern: 
+      - 将来の拡張性も考慮された
+      - 将来の拡張性も考慮
+    message: ADR-0010（過剰防衛禁止）の精神と矛盾するため、YAGNIを強調する表現にしてください。
+
+  - expected: AI・人間を問わず生み出されたコード
+    pattern: 
+      - 生成AIが書いたコードに対する品質担保
+      - 生成AIが書いたコードに対する
+    message: 品質のラチェット（ADR-0005）はAI登場以前からの原則です。AI起因に矮小化しないでください。
+
+  # --- 3. プロダクト名・固有名詞の表記揺れ防止 ---
+  - expected: がんばりクエスト
+    pattern: 
+      - 頑張りクエスト
+      - ガンバリクエスト
+  - expected: Svelte 5 Runes
+    pattern: 
+      - Svelte5 Runes
+      - Svelte 5 runes
+
+  # --- 4. 誇張表現の排除 ---
+  - expected: 大きな
+    pattern: 圧倒的
+    message: 誇張表現は避けてください。客観的な事実に留めるか、「大きな」「顕著な」等に修正してください。
+  - expected: 深刻な
+    pattern: 致命的
+    message: 誇張表現は避けてください。「深刻な」「重要な」等に修正してください。
+  - expected: 最終的な
+    pattern: 究極の
+    message: 誇張表現は避けてください。「最終的な」「最善の」等に修正してください。
+  - expected: 最も強力な
+    pattern: 最強の
+    message: 誇張表現は避けてください。
+  - expected: 優れた
+    pattern: 神
+    message: 誇張表現は避けてください。
+  - expected: 高速な
+    pattern: 爆速
+    message: 誇張表現は避けてください。
+  - expected: 驚くべき
+    pattern: 驚異的
+    message: 誇張表現は避けてください。
+  - expected: 非常に驚くべき
+    pattern: 衝撃の
+    message: 誇張表現は避けてください。
+  - expected: とても驚くべき
+    pattern: 驚愕の
+    message: 誇張表現は避けてください。
+  - expected: 非常に驚くべき
+    pattern: 信じられない
+    message: 誇張表現は避けてください。
+
+  # --- 5. 絶対的表現の排除 ---
+  - expected: 概ね
+    pattern: 完全に
+    message: 絶対的表現は避けてください。
+  - expected: 強い推奨として
+    pattern: 絶対に
+    message: 絶対的表現は避けてください。
+  - expected: 常に
+    pattern: 必ず
+    message: 絶対的表現は避けてください。
+  - expected: 全てのケースで
+    pattern: 100%
+    message: 絶対的表現は避けてください。
+
+  # --- 6. 簡易訴求の排除 ---
+  - expected: 初学者でも
+    pattern: 誰でも
+    message: 簡易訴求は避けてください。
+  - expected: 短時間で
+    pattern: 一瞬で
+    message: 簡易訴求は避けてください。
+  - expected: 短時間で
+    pattern: 瞬時に
+    message: 簡易訴求は避けてください。
+  - expected: 手軽に
+    pattern: サクッと
+    message: 簡易訴求は避けてください。
+  - expected: のみで
+    pattern: だけで
+    message: 簡易訴求は避けてください。
+  - expected: わずか
+    pattern: たった
+    message: 簡易訴求は避けてください。
+
+  # --- 7. 憶測表現の排除 ---
+  - expected: おそらく
+    pattern: たぶん
+    message: 憶測表現は避けてください。
+  - expected: と推測される
+    pattern: おそらく
+    message: 憶測表現は避けてください。
+  - expected: と考えられる
+    pattern: きっと
+    message: 憶測表現は避けてください。
+  - expected: と考えられる
+    pattern: と思う
+    message: 憶測表現は避けてください。
+  - expected: と考えられる
+    pattern: だろう
+    message: 憶測表現は避けてください。
+  - expected: 理由なく
+    pattern: なんとなく
+    message: 憶測表現は避けてください。
+  - expected: とされる
+    pattern: らしい
+    message: 憶測表現は避けてください。
+
+  # --- 8. 未検証訴求の排除 ---
+  - expected: 初の
+    pattern: 業界初
+    message: 未検証訴求は避けてください。
+  - expected: 初の
+    pattern: 世界初
+    message: 未検証訴求は避けてください。
+  - expected: 珍しい
+    pattern: 前代未聞
+    message: 未検証訴求は避けてください。
+  - expected: 独自ノウハウの
+    pattern: 秘伝の
+    message: 未検証訴求は避けてください。
+  - expected: あまり知られていない
+    pattern: 知られざる
+    message: 未検証訴求は避けてください。
+
+  # --- 追加の語彙 ---
+  - expected: 有用な
+    pattern: 奇跡の
+    message: 誇張・未検証訴求は避けてください。
+  - expected: 早急に
+    pattern: 秒で
+    message: 簡易訴求は避けてください。
+  - expected: 即座に
+    pattern: 今すぐ
+    message: 煽り表現は避けてください。
+  - expected: 大きな
+    pattern: とんでもない
+    message: 誇張表現は避けてください。
+  - expected: 非常識な
+    pattern: ありえない
+    message: 誇張表現は避けてください。
+  - expected: 大幅な
+    pattern: 異次元の
+    message: 誇張表現は避けてください。
+  - expected: 例外的な
+    pattern: 桁違いの
+    message: 誇張表現は避けてください。
+  - expected: 特別な
+    pattern: 魔法の
+    message: 未検証訴求は避けてください。
+  - expected: 非常に強力な
+    pattern: 無敵の
+    message: 誇張表現は避けてください。
+  - expected: 極めて
+    pattern: 超絶
+    message: 誇張表現は避けてください。
+  - expected: 劇的に
+    pattern: 爆発的に
+    message: 誇張表現は避けてください。
+  - expected: 非常に簡単
+    pattern: 楽勝
+    message: 簡易訴求は避けてください。
+  - expected: 高い効果
+    pattern: やばい
+    message: 誇張表現は避けてください。
+  - expected: 最高の
+    pattern: 史上最高の
+    message: 未検証訴求は避けてください。
+  - expected: 誰もが驚く
+    pattern: 全米が泣いた
+    message: 誇張表現は避けてください。
+  - expected: 根本的な
+    pattern: 革命的
+    message: 誇張表現は避けてください。
+  - expected: 絶対的
+    pattern: 無双
+    message: 誇張表現は避けてください。
+  - expected: 高速
+    pattern: 音速
+    message: 誇張表現は避けてください。
+  - expected: 光速
+    pattern: 光速
+    message: 誇張表現は避けてください。
+  - expected: 大多数の
+    pattern: 99%の
+    message: 絶対的表現は避けてください。
+  - expected: 例外なく
+    pattern: 100%確実に
+    message: 絶対的表現は避けてください。
+  - expected: 極めて
+    pattern: 異常な
+    message: 誇張表現は避けてください。
+  - expected: 驚くべき
+    pattern: 驚異の
+    message: 誇張表現は避けてください。
+  - expected: 高速で
+    pattern: マッハで
+    message: 誇張表現は避けてください。
