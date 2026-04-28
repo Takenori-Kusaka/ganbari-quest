@@ -119,6 +119,8 @@ function parseLabelsTs() {
 	const lpNavLabels = parseBlock(src, 'LP_NAV_LABELS');
 	const lpFooterLabels = parseBlock(src, 'LP_FOOTER_LABELS');
 	const lpCommonLabels = parseBlock(src, 'LP_COMMON_LABELS');
+	// Phase 2 R5/R6 (#1609/#1610): 法務系打消し表示
+	const lpLegalDisclaimerLabels = parseBlock(src, 'LP_LEGAL_DISCLAIMER_LABELS');
 
 	return {
 		ageTierLabels,
@@ -129,6 +131,7 @@ function parseLabelsTs() {
 		lpNavLabels,
 		lpFooterLabels,
 		lpCommonLabels,
+		lpLegalDisclaimerLabels,
 	};
 }
 
@@ -171,6 +174,7 @@ function generateSharedLabelsJs() {
 		lpNavLabels,
 		lpFooterLabels,
 		lpCommonLabels,
+		lpLegalDisclaimerLabels,
 	} = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
@@ -203,6 +207,7 @@ function generateSharedLabelsJs() {
 		nav: lpNavLabels,
 		footer: lpFooterLabels,
 		common: lpCommonLabels,
+		legalDisclaimer: lpLegalDisclaimerLabels,
 	};
 
 	const header = `/**

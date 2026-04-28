@@ -394,6 +394,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `LP_NAV_LABELS` | const |  |
 | `LP_FOOTER_LABELS` | const |  |
 | `LP_COMMON_LABELS` | const |  |
+| `LP_LEGAL_DISCLAIMER_LABELS` | const |  |
 | `LP_RETENTION_LABELS` | const |  |
 | `BABY_HOME_LABELS` | const |  |
 | `ONBOARDING_LABELS` | const |  |

@@ -3434,6 +3434,30 @@ export const LP_COMMON_LABELS = {
 	contactEmail: 'ganbari.quest.support@gmail.com',
 } as const;
 
+// LP 法務系打消し表示 (#1609 R5 / #1610 R6)
+// 景表法 第 5 条 + 消費者庁 打消し表示ガイドライン準拠
+// data-lp-key で site/index.html / site/faq.html に注入
+export const LP_LEGAL_DISCLAIMER_LABELS = {
+	cancelDisclaimer:
+		'※「いつでも解約 OK」について: 解約申請後 30 日間は読み取り専用（閲覧・エクスポート可能）となり、その後すべてのデータが完全に削除されます。日割り返金はありません。',
+	cancelDisclaimerLinks: 'FAQ / 特定商取引法に基づく表記',
+	cancelDisclaimerCta:
+		'※「いつでもキャンセル可能」について: 解約申請後 30 日間は読み取り専用となり、その後すべてのデータが完全に削除されます。',
+	cancelDisclaimerCtaLink: 'FAQ',
+	liabilityTitle: 'サービス利用に関する重要なご案内',
+	liabilityBody:
+		'万一の障害・不具合等による損害賠償は、有料プランは「直近 3 ヶ月の支払額」を上限、無料プランは 0 円とさせていただいております（消費者契約法等の強行法規に基づく権利は対象外）。',
+	liabilityLinks: '利用規約 第 12 条 / FAQ「賠償について」',
+	faqLiabilityIntro:
+		'本サービスは個人開発者が運営する小規模サービスであり、利用規約 第 12 条（免責事項）に基づき、賠償額には上限を設けております。',
+	faqLiabilityPaid:
+		'有料プランをご利用の方: 損害発生月を含む直近 3 ヶ月間に実際にお支払いいただいた利用料の総額を上限とします',
+	faqLiabilityFree: '無料プランをご利用の方: 賠償額の上限は 0 円とさせていただきます',
+	faqLiabilityNote:
+		'※ 消費者契約法その他の強行法規が適用される場合は、その範囲で当該規定が優先されます。重要事項のため、ご契約前に 利用規約 第 12 条 全文をご確認のうえ、ご納得いただいた方のみご利用ください。',
+	faqLiabilityQuestion: 'サービスの不具合等で損害が発生した場合、賠償の上限はありますか？',
+} as const;
+
 export const LP_RETENTION_LABELS = {
 	sectionTitle: '三日坊主にならない設計',
 	sectionDesc:
