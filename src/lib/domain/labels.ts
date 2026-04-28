@@ -3179,11 +3179,28 @@ export const OPS_LAYOUT_LABELS = {
 export const SETUP_QUESTIONNAIRE_LABELS = {
 	pageTitle: '📋 かんたんアンケート',
 	pageDesc: 'お子さまに合った設定を自動でご用意します',
+	// #1592 (ADR-0023 I4): 6→3 簡素化 — 親が「使い始めたいけど何ができるかわからない」を解消
 	q1Legend: 'Q1. お子さまの課題は？（いくつでも）',
+	// 新 3 軸の選択肢ラベル
+	challengeHomeworkDaily: '毎日宿題をやらせたい',
+	challengeChores: '家事をやらせたい',
+	challengeBeyondGames: 'ゲーム以外のことに興味を惹かせたい',
 	q2Legend: 'Q2. 1にちに どれくらい きろくする？',
+	activityLevelFewLabel: 'すこしずつ（3〜5こ）',
+	activityLevelFewDesc: 'はじめてでも むりなく',
+	activityLevelNormalLabel: 'ふつう（5〜10こ）',
+	activityLevelNormalDesc: 'おすすめ',
+	activityLevelManyLabel: 'たくさん（10こ いじょう）',
+	activityLevelManyDesc: 'いろいろ きろくしたい',
 	recommendedBadge: 'おすすめ',
 	q3Legend: 'Q3. チェックリストを自動作成する？',
 	q3Hint: 'えらんだリストが自動で作成されます（あとから変更できます）',
+	// プリセットラベル（チェックリスト一覧用）
+	presetMorningRoutine: 'あさのしたく',
+	presetEveningRoutine: 'よるのじゅんび',
+	presetAfterSchool: 'がっこうからかえったら',
+	presetWeekendChores: 'しゅうまつのおてつだい',
+	presetBeyondGames: 'ゲームいがいのチャレンジ',
 	submittingLabel: 'せっていちゅう...',
 	startButton: 'この設定ではじめる！',
 	skipButton: 'あとで設定する（スキップ）',

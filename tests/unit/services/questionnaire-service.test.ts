@@ -41,37 +41,66 @@ describe('questionnaire-service', () => {
 	// getRecommendedCategories
 	// ========================================
 	describe('getRecommendedCategories', () => {
-		it('morning → seikatsu を返す', () => {
-			const result = getRecommendedCategories(['morning']);
-			expect(result).toEqual(['seikatsu']);
+		// 新 3 軸（#1592 ADR-0023 I4）
+		describe('新 3 軸 (#1592)', () => {
+			it('homework-daily → benkyou を返す', () => {
+				const result = getRecommendedCategories(['homework-daily']);
+				expect(result).toEqual(['benkyou']);
+			});
+
+			it('chores → seikatsu を返す', () => {
+				const result = getRecommendedCategories(['chores']);
+				expect(result).toEqual(['seikatsu']);
+			});
+
+			it('beyond-games → souzou + undou + kouryuu を返す', () => {
+				const result = getRecommendedCategories(['beyond-games']);
+				expect(result).toContain('souzou');
+				expect(result).toContain('undou');
+				expect(result).toContain('kouryuu');
+				expect(result).toHaveLength(3);
+			});
+
+			it('3 軸全選択 → 5 カテゴリ（重複除去）を返す', () => {
+				const result = getRecommendedCategories(['homework-daily', 'chores', 'beyond-games']);
+				expect(result).toContain('benkyou');
+				expect(result).toContain('seikatsu');
+				expect(result).toContain('souzou');
+				expect(result).toContain('undou');
+				expect(result).toContain('kouryuu');
+				expect(result).toHaveLength(5);
+			});
 		});
 
-		it('homework → benkyou を返す', () => {
-			const result = getRecommendedCategories(['homework']);
-			expect(result).toEqual(['benkyou']);
-		});
+		// 旧キー（後方互換 / 廃止予定）
+		describe('旧キー後方互換', () => {
+			it('morning → seikatsu を返す', () => {
+				const result = getRecommendedCategories(['morning']);
+				expect(result).toEqual(['seikatsu']);
+			});
 
-		it('chores → seikatsu を返す', () => {
-			const result = getRecommendedCategories(['chores']);
-			expect(result).toEqual(['seikatsu']);
-		});
+			it('homework → benkyou を返す', () => {
+				const result = getRecommendedCategories(['homework']);
+				expect(result).toEqual(['benkyou']);
+			});
 
-		it('exercise → undou を返す', () => {
-			const result = getRecommendedCategories(['exercise']);
-			expect(result).toEqual(['undou']);
-		});
+			it('exercise → undou を返す', () => {
+				const result = getRecommendedCategories(['exercise']);
+				expect(result).toEqual(['undou']);
+			});
 
-		it('picky → seikatsu を返す', () => {
-			const result = getRecommendedCategories(['picky']);
-			expect(result).toEqual(['seikatsu']);
-		});
+			it('picky → seikatsu を返す', () => {
+				const result = getRecommendedCategories(['picky']);
+				expect(result).toEqual(['seikatsu']);
+			});
 
-		it('balanced → 全5カテゴリを返す', () => {
-			const result = getRecommendedCategories(['balanced']);
-			expect(result).toHaveLength(5);
-			for (const cat of ALL_CATEGORIES) {
-				expect(result).toContain(cat);
-			}
+			it('balanced → 全5カテゴリを返す', () => {
+				const result = getRecommendedCategories(['balanced']);
+				expect(result).toHaveLength(5);
+				for (const cat of ALL_CATEGORIES) {
+					expect(result).toContain(cat);
+				}
+			});
 		});
 
 		it('複数課題の組み合わせ → 重複なしで和集合を返す', () => {
@@ -105,45 +134,75 @@ describe('questionnaire-service', () => {
 	// getRecommendedPresets
 	// ========================================
 	describe('getRecommendedPresets', () => {
-		it('morning → morning-routine + evening-routine を含む', () => {
-			const result = getRecommendedPresets(['morning']);
-			expect(result).toContain('morning-routine');
-			expect(result).toContain('evening-routine');
+		// 新 3 軸（#1592 ADR-0023 I4）
+		describe('新 3 軸 (#1592)', () => {
+			it('homework-daily → after-school + morning-routine + evening-routine', () => {
+				const result = getRecommendedPresets(['homework-daily']);
+				expect(result).toContain('after-school');
+				expect(result).toContain('morning-routine');
+				expect(result).toContain('evening-routine');
+			});
+
+			it('chores → weekend-chores + morning-routine + evening-routine', () => {
+				const result = getRecommendedPresets(['chores']);
+				expect(result).toContain('weekend-chores');
+				expect(result).toContain('morning-routine');
+				expect(result).toContain('evening-routine');
+			});
+
+			it('beyond-games → beyond-games + morning-routine + evening-routine', () => {
+				const result = getRecommendedPresets(['beyond-games']);
+				expect(result).toContain('beyond-games');
+				expect(result).toContain('morning-routine');
+				expect(result).toContain('evening-routine');
+			});
+
+			it('3 軸全選択 → 全プリセット（重複除去）', () => {
+				const result = getRecommendedPresets(['homework-daily', 'chores', 'beyond-games']);
+				expect(result).toContain('after-school');
+				expect(result).toContain('weekend-chores');
+				expect(result).toContain('beyond-games');
+				expect(result).toContain('morning-routine');
+				expect(result).toContain('evening-routine');
+				expect(result).toHaveLength(5);
+			});
 		});
 
-		it('homework → after-school + morning-routine + evening-routine を含む', () => {
-			const result = getRecommendedPresets(['homework']);
-			expect(result).toContain('after-school');
-			expect(result).toContain('morning-routine');
-			expect(result).toContain('evening-routine');
-		});
+		// 旧キー後方互換
+		describe('旧キー後方互換', () => {
+			it('morning → morning-routine + evening-routine を含む', () => {
+				const result = getRecommendedPresets(['morning']);
+				expect(result).toContain('morning-routine');
+				expect(result).toContain('evening-routine');
+			});
 
-		it('chores → weekend-chores + morning-routine + evening-routine を含む', () => {
-			const result = getRecommendedPresets(['chores']);
-			expect(result).toContain('weekend-chores');
-			expect(result).toContain('morning-routine');
-			expect(result).toContain('evening-routine');
-		});
+			it('homework → after-school + morning-routine + evening-routine を含む', () => {
+				const result = getRecommendedPresets(['homework']);
+				expect(result).toContain('after-school');
+				expect(result).toContain('morning-routine');
+				expect(result).toContain('evening-routine');
+			});
 
-		it('exercise → morning-routine + evening-routine のみ（追加プリセットなし）', () => {
-			const result = getRecommendedPresets(['exercise']);
-			expect(result).toEqual(expect.arrayContaining(['morning-routine', 'evening-routine']));
-			expect(result).toHaveLength(2);
+			it('exercise → morning-routine + evening-routine のみ（追加プリセットなし）', () => {
+				const result = getRecommendedPresets(['exercise']);
+				expect(result).toEqual(expect.arrayContaining(['morning-routine', 'evening-routine']));
+				expect(result).toHaveLength(2);
+			});
+
+			it('balanced → morning-routine + evening-routine（重複なし）', () => {
+				const result = getRecommendedPresets(['balanced']);
+				expect(result).toContain('morning-routine');
+				expect(result).toContain('evening-routine');
+				// balanced の CHALLENGE_CHECKLIST_MAP は ['morning-routine', 'evening-routine'] なので
+				// 追加の always-include と重複除去されて 2 件
+				expect(result).toHaveLength(2);
+			});
 		});
 
 		it('空配列 → 最低限 morning-routine + evening-routine を返す', () => {
 			const result = getRecommendedPresets([]);
 			expect(result).toContain('morning-routine');
 			expect(result).toContain('evening-routine');
-			expect(result).toHaveLength(2);
-		});
-
-		it('balanced → morning-routine + evening-routine（重複なし）', () => {
-			const result = getRecommendedPresets(['balanced']);
-			expect(result).toContain('morning-routine');
-			expect(result).toContain('evening-routine');
-			// balanced の CHALLENGE_CHECKLIST_MAP は ['morning-routine', 'evening-routine'] なので
-			// 追加の always-include と重複除去されて 2 件
 			expect(result).toHaveLength(2);
 		});
 	});

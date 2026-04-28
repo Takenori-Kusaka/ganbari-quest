@@ -28,21 +28,42 @@ interface ChecklistPreset {
 	items: PresetItem[];
 }
 
-/** 課題ごとのおすすめカテゴリ重み付け */
+/**
+ * 課題ごとのおすすめカテゴリ重み付け
+ *
+ * #1592 (ADR-0023 I4): setup challenges を 6→3 に簡素化。
+ * 旧キー (morning/homework/exercise/picky/balanced) は後方互換のため保持し、過去にアンケート回答を
+ * 保存済みのテナントが再度クエリしても壊れないようにする。新規 setup フローからは投稿されない。
+ */
 const CHALLENGE_CATEGORY_WEIGHTS: Record<string, string[]> = {
+	// 新 3 軸（#1592）
+	'homework-daily': ['benkyou'],
+	chores: ['seikatsu'],
+	'beyond-games': ['souzou', 'undou', 'kouryuu'],
+	// 旧キー（後方互換 / 廃止予定）
 	morning: ['seikatsu'],
 	homework: ['benkyou'],
-	chores: ['seikatsu'],
 	exercise: ['undou'],
 	picky: ['seikatsu'],
 	balanced: ['undou', 'benkyou', 'seikatsu', 'souzou', 'kouryuu'],
 };
 
-/** 課題ごとのおすすめチェックリスト */
+/**
+ * 課題ごとのおすすめチェックリスト
+ *
+ * #1592 (ADR-0023 I4): 新 3 軸 → 対応プリセット
+ * - homework-daily → after-school（がっこうからかえったら：宿題ルーティン）
+ * - chores → weekend-chores（しゅうまつのおてつだい）
+ * - beyond-games → beyond-games（ゲーム以外のチャレンジ：読書/外遊び/工作/音楽）
+ */
 const CHALLENGE_CHECKLIST_MAP: Record<string, string[]> = {
+	// 新 3 軸（#1592）
+	'homework-daily': ['after-school'],
+	chores: ['weekend-chores'],
+	'beyond-games': ['beyond-games'],
+	// 旧キー（後方互換 / 廃止予定）
 	morning: ['morning-routine'],
 	homework: ['after-school'],
-	chores: ['weekend-chores'],
 	exercise: [],
 	picky: [],
 	balanced: ['morning-routine', 'evening-routine'],

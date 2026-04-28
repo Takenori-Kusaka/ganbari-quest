@@ -1,0 +1,14 @@
+{
+	"formatVersion": "1.0",
+	"presetId": "beyond-games",
+	"name": "ゲームいがいのチャレンジ",
+	"icon": "🎨",
+	"pointsPerItem": 3,
+	"completionBonus": 8,
+	"items": [
+		{ "name": "ほんをよむ", "icon": "📖", "sortOrder": 1 },
+		{ "name": "そとであそぶ", "icon": "⚽", "sortOrder": 2 },
+		{ "name": "おえかき・こうさく", "icon": "🎨", "sortOrder": 3 },
+		{ "name": "おんがくをきく・うたう", "icon": "🎵", "sortOrder": 4 }
+	]
+}
