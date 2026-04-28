@@ -2116,6 +2116,7 @@ if (authError) return authError;
 |------|---------|------|
 | `/api/cron/retention-cleanup` | POST / GET | 保持期間超過データの物理削除（ADR-0028） |
 | `/api/cron/trial-notifications` | POST | トライアル通知の日次送信 |
+| `/api/cron/grace-period-deletion` | POST / GET | グレースピリオド期限切れテナントの物理削除バッチ（#1648 R43, grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service deleteOwnerOnlyAccount/deleteOwnerFullDelete 経由）。プラン別猶予期間（standard:7 / family:30 日）後に soft-delete されたテナントを物理削除し、個人情報保護法 22 条遵守 + DB 肥大化リスクを解消する。EventBridge 02:00 JST 実行 |
 | `/api/v1/admin/tenant-cleanup` | POST | テナントクリーンアップ |
 | `/api/v1/admin/cleanup-orphans` | POST | 孤立データクリーンアップ |
 | `/api/v1/admin/migration` | GET / POST | マイグレーション統計取得・実行 |
@@ -2151,3 +2152,4 @@ if (authError) return authError;
 | 2026-04-18 | 2.18 | #1111 POST /api/v1/admin/invites にプラン別メンバー上限チェック (`maxFamilyMembers`) と `MEMBER_LIMIT_REACHED` エラー仕様を追記 |
 | 2026-04-26 | 2.19 | #1337 §3.26 ごほうびショップ交換申請 API 追加（POST /api/v1/reward-redemption-requests, GET /api/v1/reward-redemption-requests, PATCH /api/v1/reward-redemption-requests/:id, POST /api/cron/expire-redemptions）。エラーコード・ポイント減算タイミング・承認/却下フロー仕様を定義 |
 | 2026-04-27 | 2.20 | #1591 §3.25 GET /api/v1/analytics/status のレスポンスを `providers: []` + `dynamoEnabled` 形式に更新。umami / Sentry プロバイダ削除に伴う ADR-0023 I2 対応。詳細は `docs/design/13-AWSサーバレスアーキテクチャ設計書.md §7.2` を参照 |
+| 2026-04-28 | 2.21 | #1648 R43 §5 cron 使用エンドポイント一覧に `/api/cron/grace-period-deletion` を追加。grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service の物理削除フロー。EventBridge 02:00 JST 実行。プラン別猶予期間 (standard:7 / family:30) 後の物理削除を担保 |

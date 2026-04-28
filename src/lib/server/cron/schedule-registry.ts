@@ -56,4 +56,12 @@ export const scheduleRegistry: CronJob[] = [
 		utcCronExpression: 'cron(30 0 * * ? *)', // 毎日 00:30 UTC = 09:30 JST
 		description: '期限切れ前リマインド + 休眠復帰メール (#1601, ADR-0023 I11)',
 	},
+	{
+		name: 'grace-period-deletion',
+		endpoint: '/api/cron/grace-period-deletion',
+		cronExpression: '0 2 * * *', // 毎日 02:00 JST
+		utcCronExpression: 'cron(0 17 * * ? *)', // 毎日 17:00 UTC = 翌日 02:00 JST
+		description:
+			'グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, grace-period-service.ts)',
+	},
 ];

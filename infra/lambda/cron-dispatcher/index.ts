@@ -31,6 +31,8 @@ const KNOWN_ENDPOINTS: Record<string, string> = {
 	'retention-cleanup': '/api/cron/retention-cleanup',
 	'trial-notifications': '/api/cron/trial-notifications',
 	'lifecycle-emails': '/api/cron/lifecycle-emails',
+	// #1648 R43: grace-period-service.ts findExpiredSoftDeletedTenants() を呼び出す物理削除バッチ
+	'grace-period-deletion': '/api/cron/grace-period-deletion',
 };
 
 interface CronEvent {

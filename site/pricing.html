@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>料金プラン - がんばりクエスト</title>
-<meta name="description" content="がんばりクエストの料金プラン。基本無料で始められます。スタンダード月額500円、ファミリー月額780円。すべてのプランに7日間の無料体験付き。">
+<title data-lp-key="pricing.pageTitle">料金プラン - がんばりクエスト</title>
+<meta name="description" content="がんばりクエストの料金プラン。基本無料で始められます。スタンダード月額500円（税込）、ファミリー月額780円（税込）。すべての有料プランに7日間の無料体験付き。">
 <meta property="og:title" content="料金プラン - がんばりクエスト">
 <meta property="og:description" content="基本無料で始められます。お子さまのポイント・レベルアップ・ログインボーナス（おみくじ + スタンプカード）などの冒険体験は無料プランでも一切制限ありません。">
 <meta property="og:type" content="website">
@@ -15,11 +15,18 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="stylesheet" href="shared.css">
 <style>
-/* Hero */
+/* Hero (#1652 R46: 価格 anchor band + Hero CTA) */
 .pricing-hero{background:linear-gradient(135deg,var(--brand-100) 0%,var(--brand-50) 50%,var(--brand-200) 100%);padding:80px 16px 60px;text-align:center}
 .pricing-hero h1{font-size:2.2rem;font-weight:800;color:var(--gray-900);margin-bottom:12px}
 .pricing-hero p{font-size:1.05rem;color:var(--gray-500);max-width:600px;margin:0 auto 8px}
 .pricing-hero .highlight{color:var(--brand-700);font-weight:700}
+.hero-price-band{display:inline-block;margin:18px auto 8px;padding:10px 20px;background:#fff;border:2px solid var(--brand-300);border-radius:2rem;font-size:.95rem;font-weight:600;color:var(--brand-700)}
+.hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+.hero-cta .btn{padding:12px 28px;font-size:.95rem;font-weight:600;border-radius:2rem;text-decoration:none;display:inline-block;transition:all .2s}
+.hero-cta .btn-primary{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff;border:0}
+.hero-cta .btn-primary:hover{box-shadow:0 4px 16px rgba(56,120,184,.3);transform:translateY(-1px)}
+.hero-cta .btn-secondary{background:#fff;color:var(--brand-700);border:2px solid var(--brand-300)}
+.hero-cta .btn-secondary:hover{background:var(--brand-50)}
 
 /* Plan Grid */
 .plans-section{padding:48px 16px 64px}
@@ -28,18 +35,26 @@
 .plan-card{background:#fff;border:2px solid var(--gray-300);border-radius:var(--radius);padding:32px 24px;display:flex;flex-direction:column;position:relative}
 .plan-card.recommended{border-color:var(--brand-600);box-shadow:0 4px 20px rgba(56,120,184,.15)}
 .plan-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--brand-600);color:#fff;font-size:.75rem;font-weight:700;padding:4px 16px;border-radius:2rem;white-space:nowrap}
+/* #1657 R50 B-2: Free カードに「永久無料」バッジ */
+.plan-badge-free{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--green-500);color:#fff;font-size:.75rem;font-weight:700;padding:4px 16px;border-radius:2rem;white-space:nowrap}
 .plan-name{font-size:1.1rem;font-weight:700;color:var(--gray-900);margin-bottom:8px}
 .plan-price{font-size:2.2rem;font-weight:800;color:var(--gray-900)}
 .plan-price .unit{font-size:.9rem;font-weight:400;color:var(--gray-500)}
-.plan-price-sub{font-size:.82rem;color:var(--gray-500);margin-bottom:16px;min-height:20px}
+.plan-price-sub{font-size:.82rem;color:var(--gray-500);margin-bottom:8px;min-height:20px}
+/* #1651 R45: ペルソナ別 Job 訴求 */
+.plan-persona{font-size:.78rem;color:var(--brand-700);background:var(--brand-50);border:1px solid var(--brand-200);border-radius:8px;padding:8px 10px;margin-bottom:14px;line-height:1.5;font-weight:500}
 .plan-desc{font-size:.85rem;color:var(--gray-500);margin-bottom:20px;line-height:1.6}
-.plan-cta{display:block;text-align:center;padding:12px 24px;border-radius:2rem;font-size:.95rem;font-weight:600;transition:all .2s;text-decoration:none;margin-bottom:24px}
+.plan-cta{display:block;text-align:center;padding:12px 24px;border-radius:2rem;font-size:.95rem;font-weight:600;transition:all .2s;text-decoration:none;margin-bottom:12px}
 .plan-cta-free{background:var(--gray-100);color:var(--gray-700)}
 .plan-cta-free:hover{background:var(--gray-200);text-decoration:none}
 .plan-cta-standard{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff}
 .plan-cta-standard:hover{box-shadow:0 4px 16px rgba(56,120,184,.3);text-decoration:none;transform:translateY(-1px)}
 .plan-cta-family{background:linear-gradient(135deg,var(--brand-600),var(--brand-800));color:#fff}
 .plan-cta-family:hover{box-shadow:0 4px 16px rgba(56,120,184,.3);text-decoration:none;transform:translateY(-1px)}
+/* #1646 R41: CTA 直下打消し表示 */
+.cta-disclaimer{font-size:.72rem;color:var(--gray-700);background:var(--green-50,#f0fdf4);border:1px solid var(--green-200,#bbf7d0);border-radius:8px;padding:8px 10px;margin-bottom:18px;line-height:1.6;text-align:center}
+.cta-disclaimer .badges{font-weight:600;color:var(--green-700,#15803d);display:block;margin-bottom:2px}
+.cta-disclaimer small{display:block;font-size:.7rem;color:var(--gray-500)}
 .plan-features{list-style:none;padding:0;flex:1}
 .plan-features li{font-size:.85rem;color:var(--gray-700);padding:6px 0 6px 24px;position:relative;line-height:1.5}
 .plan-features li::before{content:'\2713';position:absolute;left:0;color:var(--green-500);font-weight:700}
@@ -47,17 +62,21 @@
 .plan-features li.disabled::before{content:'\2014';color:var(--gray-300)}
 .plan-divider{border-top:1px solid var(--gray-200);margin:12px 0;padding:0}
 
-/* Comparison Table */
+/* Comparison Table (#1657 R50 B-1: tbody 列強調 / #1659 R52: モバイル可読性) */
 .comparison-section{padding:0 16px 64px}
 .comparison-inner{max-width:960px;margin:0 auto}
 .comparison-title{font-size:1.5rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:32px}
+.comparison-table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .comparison-table{width:100%;border-collapse:collapse;font-size:.85rem}
 .comparison-table thead th{background:var(--gray-50);border-bottom:2px solid var(--gray-300);padding:12px 8px;text-align:center;font-weight:700;color:var(--gray-900)}
 .comparison-table thead th:first-child{text-align:left}
 .comparison-table thead th.highlight-col{background:var(--brand-100);color:var(--brand-700)}
 .comparison-table tbody td{border-bottom:1px solid var(--gray-200);padding:10px 8px;text-align:center;color:var(--gray-700)}
 .comparison-table tbody td:first-child{text-align:left;font-weight:500}
+/* #1657 R50 B-1: Standard 列を tbody まで強調継続 */
+.comparison-table tbody td:nth-child(3){background:var(--brand-50)}
 .comparison-table .cat-row td{background:var(--gray-50);font-weight:700;font-size:.8rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em}
+.comparison-table .cat-row td:nth-child(3){background:var(--gray-50)}
 .check{color:var(--green-500);font-weight:700}
 .dash{color:var(--gray-300)}
 
@@ -76,8 +95,10 @@
 .trial-step-icon.brand{background:var(--brand-200);color:var(--brand-800)}
 .trial-step strong{color:var(--gray-900)}
 .trial-step-note{margin-bottom:28px;background:var(--brand-50);border:1px solid var(--brand-200);border-radius:8px;padding:12px 16px}
-.trial-reassure{background:#fff;border-radius:8px;padding:16px 20px;display:flex;align-items:center;gap:12px;font-size:.88rem;color:var(--gray-700);line-height:1.6;border:1px solid var(--gray-200)}
+.trial-reassure{background:#fff;border-radius:8px;padding:16px 20px;display:flex;align-items:flex-start;gap:12px;font-size:.88rem;color:var(--gray-700);line-height:1.7;border:1px solid var(--gray-200)}
 .trial-reassure-icon{font-size:1.5rem;flex-shrink:0}
+.trial-reassure-text p{margin:0 0 8px}
+.trial-reassure-text p:last-child{margin:0}
 @media(max-width:768px){
   .trial-box{padding:28px 20px}
   .trial-heading{font-size:1.2rem}
@@ -114,12 +135,23 @@
 .cta-bottom p{color:var(--gray-500);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto}
 .cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 
+/* #1658 R51: タブレット中間 1024px breakpoint (案 A: 2 列 + Family を下段中央) */
+@media(max-width:1024px) and (min-width:769px){
+  .plan-grid{grid-template-columns:repeat(2,1fr);gap:20px}
+  .plan-grid > .plan-card:nth-child(3){grid-column:1 / -1;max-width:50%;margin:0 auto}
+  .comparison-table{font-size:.82rem}
+  .pricing-hero h1{font-size:2rem}
+}
+
 @media(max-width:768px){
   .pricing-hero h1{font-size:1.6rem}
   .plan-grid{grid-template-columns:1fr;max-width:400px;margin-left:auto;margin-right:auto}
   .plan-card.recommended{order:-1}
-  .comparison-table{font-size:.75rem}
-  .comparison-table thead th,.comparison-table tbody td{padding:8px 4px}
+  /* #1659 R52: モバイル比較表は横スクロール + WCAG 推奨 14px */
+  .comparison-table{font-size:.875rem;min-width:600px}
+  .comparison-table thead th,.comparison-table tbody td{padding:10px 6px}
+  .hero-price-band{font-size:.85rem;padding:8px 14px}
+  .hero-cta .btn{width:100%;max-width:280px}
 }
 </style>
 </head>
@@ -143,25 +175,42 @@
   </div>
 </header>
 
-<!-- Hero -->
+<!-- Hero (#1652 R46) -->
 <section class="pricing-hero">
-  <h1>料金プラン</h1>
-  <p>お子さまの成長を冒険に変える。<br><span class="highlight">基本無料</span>で今日から始められます。</p>
-  <p style="font-size:.9rem;color:var(--gray-500)">有料プランはすべて<strong>7日間の無料体験</strong>付き</p>
+  <h1 data-lp-key="pricing.heroTitle">料金プラン</h1>
+  <p>
+    <span data-lp-key="pricing.heroLead1">お子さまの成長を冒険に変える。</span><br>
+    <span class="highlight" data-lp-key="pricing.heroLeadHighlight">基本無料</span><span data-lp-key="pricing.heroLead2">で今日から始められます。</span>
+  </p>
+  <p style="font-size:.9rem;color:var(--gray-500)">
+    <span data-lp-key="pricing.heroSubtext">有料プランはすべて</span><strong data-lp-key="pricing.heroSubtextStrong">7日間の無料体験</strong><span data-lp-key="pricing.heroSubtextSuffix">付き（クレジットカード登録不要）</span>
+  </p>
+  <div class="hero-price-band" data-lp-key="pricing.heroPriceBand">基本無料 ・ 月 ¥500（税込）から ・ 7 日間無料体験 ・ いつでも解約 OK</div>
+  <div class="hero-cta">
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-lp-key="pricing.heroCtaPrimary">7 日間無料で試す</a>
+    <a href="#plans" class="btn btn-secondary" data-lp-key="pricing.heroCtaSecondary">プランを比較する</a>
+  </div>
 </section>
 
 <!-- Plan Cards -->
-<section class="plans-section">
+<section class="plans-section" id="plans">
   <div class="plans-inner">
     <div class="plan-grid">
 
-      <!-- Free -->
+      <!-- Free (#1657 R50 B-2: 永久無料バッジ + #1651 R45 ペルソナ + #1645 R40 税込) -->
       <div class="plan-card">
-        <div class="plan-name">フリー</div>
-        <div class="plan-price">&#165;0</div>
-        <div class="plan-price-sub">&nbsp;</div>
-        <div class="plan-desc">ポイント・レベルアップ・シールくじなど、お子さまの冒険体験はすべて無料。</div>
-        <a href="https://ganbari-quest.com/auth/signup" class="plan-cta plan-cta-free">無料ではじめる</a>
+        <span class="plan-badge-free" data-lp-key="pricing.planFreeBadge">永久無料</span>
+        <div class="plan-name" data-lp-key="pricing.planFreeName">フリー</div>
+        <div class="plan-price" data-lp-key="pricing.planFreePrice">&#165;0</div>
+        <div class="plan-price-sub" data-lp-key="pricing.planFreePriceSub">ずっと無料 ・ クレカ登録不要</div>
+        <div class="plan-persona" data-lp-key="pricing.planFreePersona">こんなご家族におすすめ: まずはお子さま 1〜2 人で試したいご家族へ</div>
+        <div class="plan-desc" data-lp-key="pricing.planFreeDesc">ポイント・レベルアップ・おみくじ・スタンプカードなど、お子さまの冒険体験はすべて無料。</div>
+        <a href="https://ganbari-quest.com/auth/signup" class="plan-cta plan-cta-free" data-lp-key="pricing.planFreeCta">無料ではじめる</a>
+        <!-- #1646 R41: CTA 直下打消し表示 -->
+        <div class="cta-disclaimer">
+          <span class="badges" data-lp-key="pricing.ctaDisclaimerBadges">✅ クレジットカード登録不要 ✅ 自動課金なし ✅ いつでも解約 OK</span>
+          <small data-lp-key="pricing.ctaDisclaimerNote">※ 7 日間無料体験は初回お申込み時のみ。価格はすべて税込表示です。</small>
+        </div>
         <ul class="plan-features">
           <li>お子さまの登録：2人まで</li>
           <li>プリセット活動の利用</li>
@@ -170,44 +219,55 @@
           <li>ログインボーナス・コンボ</li>
           <li>チェックリスト（持ち物／朝夜の習慣 合計3個/子まで）</li>
           <li>90日間の履歴保持</li>
+          <li>メールサポート（標準）</li>
         </ul>
       </div>
 
-      <!-- Standard -->
+      <!-- Standard (#1644 R39 + #1645 R40 + #1651 R45 + #1655 R49) -->
       <div class="plan-card recommended">
-        <span class="plan-badge">おすすめ</span>
-        <div class="plan-name">スタンダード</div>
-        <div class="plan-price">&#165;500 <span class="unit">/月</span></div>
-        <div class="plan-price-sub">年額 &#165;5,000（2ヶ月分お得）</div>
-        <div class="plan-desc">カスタマイズ自由自在。お子さまにぴったりの環境を作れます。</div>
-        <a href="https://ganbari-quest.com/auth/signup?plan=standard" class="plan-cta plan-cta-standard">7日間 無料体験</a>
+        <span class="plan-badge" data-lp-key="pricing.planStandardBadge">おすすめ</span>
+        <div class="plan-name" data-lp-key="pricing.planStandardName">スタンダード</div>
+        <div class="plan-price"><span data-lp-key="pricing.planStandardPrice">&#165;500</span> <span class="unit" data-lp-key="pricing.planStandardUnit">/月（税込）</span></div>
+        <div class="plan-price-sub" data-lp-key="pricing.planStandardYearly">年額 &#165;5,000（税込・2ヶ月分お得）</div>
+        <div class="plan-persona" data-lp-key="pricing.planStandardPersona">こんなご家族におすすめ: お子さま 3 人以上 / 我が家ルールをカスタマイズしたいご家族へ</div>
+        <div class="plan-desc" data-lp-key="pricing.planStandardDesc">カスタマイズ自由自在。お子さまにぴったりの環境を作れます。</div>
+        <a href="https://ganbari-quest.com/auth/signup?plan=standard" class="plan-cta plan-cta-standard" data-lp-key="pricing.planStandardCta">7日間 無料体験</a>
+        <div class="cta-disclaimer">
+          <span class="badges" data-lp-key="pricing.ctaDisclaimerBadges">✅ クレジットカード登録不要 ✅ 自動課金なし ✅ いつでも解約 OK</span>
+          <small data-lp-key="pricing.ctaDisclaimerNote">※ 7 日間無料体験は初回お申込み時のみ。価格はすべて税込表示です。</small>
+        </div>
         <ul class="plan-features">
           <li>お子さまの登録人数：無制限</li>
           <li>オリジナル活動の作成：無制限</li>
           <li>チェックリスト自由作成（無制限）</li>
           <li>家族メンバー招待：4人まで</li>
           <li>特別なごほうび設定（即時付与）</li>
-          <li>データの自動バックアップ（3回分）</li>
+          <li>クラウド保管枠（同時保管 3 個・手動エクスポート）</li>
           <li>データのダウンロード</li>
           <li>1年間の履歴保持</li>
           <li>メールサポート</li>
         </ul>
       </div>
 
-      <!-- Family -->
+      <!-- Family (#1644 R39 + #1645 R40 + #1651 R45) -->
       <div class="plan-card">
-        <div class="plan-name">ファミリー</div>
-        <div class="plan-price">&#165;780 <span class="unit">/月</span></div>
-        <div class="plan-price-sub">年額 &#165;7,800（2ヶ月分お得）</div>
-        <div class="plan-desc">家族みんなで見守る。きょうだいの比較やレポートで成長を応援できます。</div>
-        <a href="https://ganbari-quest.com/auth/signup?plan=family" class="plan-cta plan-cta-family">7日間 無料体験</a>
+        <div class="plan-name" data-lp-key="pricing.planFamilyName">ファミリー</div>
+        <div class="plan-price"><span data-lp-key="pricing.planFamilyPrice">&#165;780</span> <span class="unit" data-lp-key="pricing.planFamilyUnit">/月（税込）</span></div>
+        <div class="plan-price-sub" data-lp-key="pricing.planFamilyYearly">年額 &#165;7,800（税込・2ヶ月分お得）</div>
+        <div class="plan-persona" data-lp-key="pricing.planFamilyPersona">こんなご家族におすすめ: 祖父母・離れた家族と一緒に応援したいご家族へ</div>
+        <div class="plan-desc" data-lp-key="pricing.planFamilyDesc">家族みんなで見守る。きょうだいの比較やレポートで成長を応援できます。</div>
+        <a href="https://ganbari-quest.com/auth/signup?plan=family" class="plan-cta plan-cta-family" data-lp-key="pricing.planFamilyCta">7日間 無料体験</a>
+        <div class="cta-disclaimer">
+          <span class="badges" data-lp-key="pricing.ctaDisclaimerBadges">✅ クレジットカード登録不要 ✅ 自動課金なし ✅ いつでも解約 OK</span>
+          <small data-lp-key="pricing.ctaDisclaimerNote">※ 7 日間無料体験は初回お申込み時のみ。価格はすべて税込表示です。</small>
+        </div>
         <ul class="plan-features">
           <li>スタンダードの全機能</li>
           <li>家族メンバー招待：無制限</li>
           <li>✨ AI 自動提案（活動・ごほうび・チェックリスト）</li>
           <li>きょうだいランキング</li>
           <li>ひとことメッセージ（自由テキスト）</li>
-          <li>データの自動バックアップ（10回分）</li>
+          <li>クラウド保管枠（同時保管 10 個・手動エクスポート）</li>
           <li>無制限の履歴保持</li>
           <li>メールサポート</li>
         </ul>
@@ -215,9 +275,9 @@
 
     </div>
 
-    <!-- Note -->
+    <!-- Note (#1650 R44 括弧書き軽減: 本文中で簡潔に説明) -->
     <p style="text-align:center;font-size:.85rem;color:var(--gray-500);margin-bottom:48px">
-      &#x1F4A1; お子さまが楽しめる冒険の仕組み（レベル・シールくじ・毎日のごほうび・コンボなど）は<strong>全プラン共通</strong>で制限なし
+      <span data-lp-key="pricing.allPlansNote">💡 お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・コンボなど）は</span><strong data-lp-key="pricing.allPlansNoteStrong">全プラン共通</strong><span data-lp-key="pricing.allPlansNoteSuffix">で制限なし</span>
     </p>
   </div>
 </section>
@@ -225,9 +285,9 @@
 <!-- Comparison Table -->
 <section class="comparison-section">
   <div class="comparison-inner">
-    <h2 class="comparison-title">機能比較表</h2>
-    <p style="text-align:center;font-size:.85rem;color:var(--gray-500);margin-bottom:24px">冒険の仕組み（レベルアップ・シールくじ・コンボなど）は全プラン共通で制限なく楽しめます</p>
-    <div style="overflow-x:auto">
+    <h2 class="comparison-title" data-lp-key="pricing.comparisonTitle">機能比較表</h2>
+    <p style="text-align:center;font-size:.85rem;color:var(--gray-500);margin-bottom:24px" data-lp-key="pricing.comparisonSubtitle">冒険の仕組みは全プラン共通で制限なく楽しめます</p>
+    <div class="comparison-table-wrapper">
     <table class="comparison-table">
       <thead>
         <tr>
@@ -258,8 +318,8 @@
         <tr><td>ひとことメッセージ（自由テキスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
 
         <tr class="cat-row"><td colspan="4">データ管理</td></tr>
-        <tr><td>データのダウンロード</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td>データの自動バックアップ</td><td class="dash">&#8212;</td><td>3回分</td><td>10回分</td></tr>
+        <tr><td>データのダウンロード（手動エクスポート）</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>クラウド保管枠（手動エクスポート同時保管数）</td><td class="dash">&#8212;</td><td>3 個</td><td>10 個</td></tr>
 
         <tr class="cat-row"><td colspan="4">サポート</td></tr>
         <tr><td>メールサポート</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
@@ -269,33 +329,37 @@
   </div>
 </section>
 
-<!-- Trial Info -->
+<!-- Trial Info (#1641 R36 + #1642 R37: 経路汎用化 + 並列構造) -->
 <section class="trial-section">
   <div class="trial-inner">
     <div class="trial-box">
-      <h2 class="trial-heading">7日間の無料体験</h2>
-      <p class="trial-subheading">スタンダードプラン相当の全機能を、安心してお試しいただけます</p>
+      <h2 class="trial-heading" data-lp-key="pricing.trialHeading">7日間の無料体験</h2>
+      <p class="trial-subheading" data-lp-key="pricing.trialSubheading">7 日間の無料体験では、選択したプランの全機能を制限なくお試しいただけます</p>
       <ol class="trial-steps">
         <li class="trial-step">
           <span class="trial-step-icon blue">1</span>
-          <div><strong>いつでも好きなタイミングで開始</strong><br>アカウント登録後、管理画面からワンタップで無料体験を開始できます。クレジットカードの登録は不要です。</div>
+          <div><strong data-lp-key="pricing.trialStep1Title">いつでも好きなタイミングで開始</strong><br><span data-lp-key="pricing.trialStep1Desc">アカウント登録後、管理画面からワンタップで無料体験を開始できます。クレジットカードの登録は不要です。</span></div>
         </li>
         <li class="trial-step">
           <span class="trial-step-icon brand">2</span>
-          <div><strong>7日間、全機能が使い放題</strong><br>スタンダードプランの全機能（カスタム活動・レポート・データエクスポートなど）を制限なくお試しいただけます。</div>
+          <div><strong data-lp-key="pricing.trialStep2Title">7日間、選択したプランの全機能が使い放題</strong><br><span data-lp-key="pricing.trialStep2Desc">スタンダード/ファミリーいずれもプランの全機能（カスタム活動・レポート・データエクスポート・AI 自動提案・きょうだいランキング・離れた家族応援メッセージなど）を制限なくお試しいただけます。</span></div>
         </li>
         <li class="trial-step">
           <span class="trial-step-icon green">3</span>
-          <div><strong>終了後は自動で無料プランに戻ります</strong><br>無料体験期間が終わると、自動的に無料プランへ移行します。<strong>自動課金は一切ありません。</strong></div>
+          <div><strong data-lp-key="pricing.trialStep3Title">終了後は自動で無料プランに戻ります</strong><br><span data-lp-key="pricing.trialStep3Desc">無料体験期間が終わると、自動的に無料プランへ移行します。自動課金は一切ありません。</span></div>
         </li>
       </ol>
       <p class="trial-step trial-step-note">
         <span class="trial-step-icon gold">&#9733;</span>
-        <span><strong>無料体験中にいつでもプラン選択可能</strong><br>気に入ったら無料体験中にそのままプランを選択できます。もちろん、何もしなければ自動で無料プランに戻ります。</span>
+        <span><strong data-lp-key="pricing.trialStepHighlight">無料体験中にいつでもプラン選択可能</strong><br><span data-lp-key="pricing.trialStepHighlightDesc">気に入ったら無料体験中にそのままプランを選択できます。もちろん、何もしなければ自動で無料プランに戻ります。</span></span>
       </p>
       <div class="trial-reassure">
         <span class="trial-reassure-icon">&#128274;</span>
-        <div>無料体験中に作成したデータ（活動履歴・シール・レベルなど）は、無料プランに移行した後もそのまま保持されます。有料プランにアップグレードすれば、すべてのデータを引き続きご利用いただけます。</div>
+        <div class="trial-reassure-text">
+          <p><strong data-lp-key="pricing.trialDataReassureLine1Strong">無料体験中に作成したオリジナル活動・ごほうび・もちものチェックリスト・シール・レベル・お子さま登録</strong><span data-lp-key="pricing.trialDataReassureLine1Suffix">は、無料プランに移行した後もそのまま保持されます。</span></p>
+          <p>ただし<strong data-lp-key="pricing.trialDataReassureLine2Strong">活動履歴・ポイント獲得履歴・ログインボーナス履歴</strong><span data-lp-key="pricing.trialDataReassureLine2Suffix">は無料プランの保持期間（90 日）を超えたものから順次削除されます。</span></p>
+          <p data-lp-key="pricing.trialDataReassureLine3">有料プランにアップグレードすれば、より長期間（スタンダード: 1 年 / ファミリー: 無制限）の履歴をご利用いただけます。</p>
+        </div>
       </div>
     </div>
   </div>
@@ -304,84 +368,90 @@
 <!-- Family Usage Patterns -->
 <section class="family-patterns">
   <div class="family-patterns-inner">
-    <h2 class="family-patterns-title">家族での使い方</h2>
-    <p class="family-patterns-subtitle">ご家庭の環境に合わせて、2つのスタイルからお選びいただけます</p>
+    <h2 class="family-patterns-title" data-lp-key="pricing.familyPatternsTitle">家族での使い方</h2>
+    <p class="family-patterns-subtitle" data-lp-key="pricing.familyPatternsSubtitle">ご家庭の環境に合わせて、2つのスタイルからお選びいただけます</p>
     <div class="pattern-grid">
       <div class="pattern-card">
-        <span class="pattern-tag">全プラン対応</span>
+        <span class="pattern-tag" data-lp-key="pricing.familyPatternSharedTag">全プラン対応</span>
         <img src="assets/family-pattern-shared.jpg" alt="親アカウント共用型の図解：親が1つのアカウントで管理し、同じ端末でお子さまと画面を切り替えて使う" width="800" height="450" loading="lazy">
-        <h3>親アカウント共用型</h3>
-        <p>親が1つのアカウントを作成し、同じ端末でお子さまと画面を切り替えて使います。設定も操作もシンプルで、すぐに始められます。無料プランを含む全プランで利用できます。</p>
+        <h3 data-lp-key="pricing.familyPatternSharedTitle">親アカウント共用型</h3>
+        <p data-lp-key="pricing.familyPatternSharedDesc">親が1つのアカウントを作成し、同じ端末でお子さまと画面を切り替えて使います。設定も操作もシンプルで、すぐに始められます。無料プランを含む全プランで利用できます。</p>
       </div>
       <div class="pattern-card">
-        <span class="pattern-tag">スタンダード以上</span>
+        <span class="pattern-tag" data-lp-key="pricing.familyPatternInviteTag">スタンダード以上</span>
         <img src="assets/family-pattern-invite.jpg" alt="個別アカウント＋招待リンク型の図解：家族それぞれが自分のアカウントで参加し、家族メンバーが離れた場所から見守れる" width="800" height="450" loading="lazy">
-        <h3>個別アカウント＋招待リンク型</h3>
-        <p>家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。スタンダードは4人まで、ファミリープランは無制限で招待できます。</p>
+        <h3 data-lp-key="pricing.familyPatternInviteTitle">個別アカウント＋招待リンク型</h3>
+        <p data-lp-key="pricing.familyPatternInviteDesc">家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。スタンダードは4人まで、ファミリープランは無制限で招待できます。</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- FAQ -->
+<!-- FAQ (#1647 R42 + #1643 R38 + #1653 R47) -->
 <section class="faq-section">
   <div class="faq-inner">
-    <h2 class="faq-title">よくある質問</h2>
+    <h2 class="faq-title" data-lp-key="pricing.faqTitle">よくある質問</h2>
 
     <details class="faq-item">
-      <summary>無料プランでも十分使えますか？</summary>
-      <div class="faq-answer">はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、シールくじ、毎日のごほうび）は無料プランでも一切制限ありません。</div>
+      <summary data-lp-key="pricing.faqFreeQ">無料プランでも十分使えますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqFreeA">はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のログインボーナス）は無料プランでも一切制限ありません。</div>
     </details>
 
     <details class="faq-item">
-      <summary>無料体験後はどうなりますか？</summary>
-      <div class="faq-answer">7日間の無料体験終了後は無料プランに移行します。有料プランをご希望の場合は、管理画面からアップグレードしてください。クレジットカードの事前登録は不要です。無料体験中に作成したデータは保持されます（アップグレードで再利用可能）。</div>
+      <summary data-lp-key="pricing.faqAfterTrialQ">無料体験後はどうなりますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqAfterTrialA">7日間の無料体験終了後は無料プランに移行します。有料プランをご希望の場合は、管理画面からアップグレードしてください。クレジットカードの事前登録は不要です。無料体験中に作成したオリジナル活動・ごほうび・チェックリスト・シール・レベルは保持されますが、活動履歴・ポイント獲得履歴・ログインボーナス履歴は無料プランの保持期間（90 日）を超えたものから順次削除されます。</div>
     </details>
 
     <details class="faq-item">
-      <summary>解約するとどうなりますか？</summary>
-      <div class="faq-answer">管理画面の「プラン・お支払い」からいつでも解約できます。解約を申請すると、その時点で30日間の猶予期間（読み取り専用）に入り、データの閲覧・エクスポートが可能になります。猶予期間中は新規作成・編集はできません。猶予期間終了後、すべてのデータが完全に削除されます（復旧はできません）。データのバックアップが必要な場合は、猶予期間中に管理画面からエクスポートしてください。</div>
+      <summary data-lp-key="pricing.faqCancelQ">解約したらデータはすぐに削除されますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqCancelA">プランによって猶予期間が異なります。スタンダードプランは解約申請から 7 日間、ファミリープランは解約申請から 30 日間の読み取り専用猶予期間が設けられ、その後すべてのデータが完全に削除されます（復旧不可）。猶予期間中はログインしてエクスポートが可能です。</div>
     </details>
 
     <details class="faq-item">
-      <summary>お支払い日はいつですか？</summary>
-      <div class="faq-answer">お申し込み日を起算日として、月額プランは毎月、年額プランは毎年自動更新されます。例えば4月15日にお申し込みの場合、次回のお支払い日は5月15日（月額）または翌年4月15日（年額）です。</div>
+      <summary data-lp-key="pricing.faqBillingDateQ">お支払い日はいつですか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqBillingDateA">お申し込み日を起算日として、月額プランは毎月、年額プランは毎年自動更新されます。例えば4月15日にお申し込みの場合、次回のお支払い日は5月15日（月額）または翌年4月15日（年額）です。</div>
     </details>
 
     <details class="faq-item">
-      <summary>年額プランを途中解約した場合は？</summary>
-      <div class="faq-answer">年額プランを途中解約しても、お支払い済みの残り期間は引き続きご利用いただけます。日割りでの返金は行っておりません。</div>
+      <summary data-lp-key="pricing.faqYearlyCancelQ">年額プランを途中解約した場合は？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqYearlyCancelA">年額プランを途中解約しても、お支払い済みの残り期間は引き続きご利用いただけます。日割りでの返金は行っておりません。</div>
     </details>
 
     <details class="faq-item">
-      <summary>支払い方法は？</summary>
-      <div class="faq-answer">クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。</div>
+      <summary data-lp-key="pricing.faqPaymentQ">支払い方法は？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqPaymentA">クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。</div>
     </details>
 
     <details class="faq-item">
-      <summary>プランの変更はできますか？</summary>
-      <div class="faq-answer">はい。スタンダード↔ファミリー、月額↔年額の切り替えが可能です。管理画面の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。</div>
+      <summary data-lp-key="pricing.faqPlanChangeQ">プランの変更はできますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqPlanChangeA">はい。スタンダード↔ファミリー、月額↔年額の切り替えが可能です。管理画面の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。</div>
     </details>
 
     <details class="faq-item">
-      <summary>子供の画面に広告は出ますか？</summary>
-      <div class="faq-answer">いいえ。無料プランでも広告は一切表示しません。お子さまが安心して使える環境を最優先にしています。</div>
+      <summary data-lp-key="pricing.faqAdsQ">子供の画面に広告は出ますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqAdsA">いいえ。無料プランでも広告は一切表示しません。お子さまが安心して使える環境を最優先にしています。</div>
     </details>
 
     <details class="faq-item">
-      <summary>家族で複数端末から使えますか？</summary>
-      <div class="faq-answer">はい。スタンダード以上のプランで、家族メンバーを招待して複数端末からアクセスできます。スタンダードプランは4人まで、ファミリープランは無制限に招待可能です。無料プランでも1つの端末でお子さまを切り替えて使えます。</div>
+      <summary data-lp-key="pricing.faqMultiDeviceQ">家族で複数端末から使えますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqMultiDeviceA">はい。スタンダード以上のプランで、家族メンバーを招待して複数端末からアクセスできます。スタンダードプランは4人まで、ファミリープランは無制限に招待可能です。無料プランでも1つの端末でお子さまを切り替えて使えます。</div>
+    </details>
+
+    <!-- #1653 R47: 「卒業」概念 FAQ（機能訴求 NG・FAQ で価値観を言及） -->
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqGraduationQ">ずっと使い続ける必要がありますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqGraduationA">いいえ、お子さまが自立して習慣化できたら「卒業」していただいて構いません。がんばりクエストは「子供の自立」を最終ゴールとして設計されており、ずっと依存して使い続けることを想定していません。卒業の目安は小学校高学年〜中学生頃です。</div>
     </details>
   </div>
 </section>
 
 <!-- CTA -->
 <section class="cta-bottom">
-  <h2>お子さまの冒険を始めよう</h2>
-  <p>まずは無料ではじめて、お子さまの反応を見てみませんか？</p>
+  <h2 data-lp-key="pricing.ctaBottomTitle">お子さまの冒険を始めよう</h2>
+  <p data-lp-key="pricing.ctaBottomDesc">まずは無料ではじめて、お子さまの反応を見てみませんか？</p>
   <div class="cta-buttons">
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg">無料ではじめる</a>
-    <a href="https://ganbari-quest.com/demo" class="btn btn-outline btn-lg">デモで体験する</a>
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg" data-lp-key="pricing.ctaBottomPrimary">無料ではじめる</a>
+    <a href="https://ganbari-quest.com/demo" class="btn btn-outline btn-lg" data-lp-key="pricing.ctaBottomSecondary">デモで体験する</a>
   </div>
 </section>
 
