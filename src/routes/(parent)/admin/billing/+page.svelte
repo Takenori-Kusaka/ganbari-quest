@@ -224,6 +224,15 @@ const statusLabel = $derived.by(() => {
 			</span>
 			<span class="billing-nav-link__arrow">&rarr;</span>
 		</a>
+		<!-- #1596: 解約フロー入口（理由ヒアリング必須・全プラン強制） -->
+		<a href="/admin/billing/cancel" class="billing-nav-link" data-testid="billing-to-cancel">
+			<span class="billing-nav-link__icon">📝</span>
+			<span class="billing-nav-link__text">
+				<span class="billing-nav-link__title">{BILLING_LABELS.cancelLinkTitle}</span>
+				<span class="billing-nav-link__hint">{BILLING_LABELS.cancelLinkHint}</span>
+			</span>
+			<span class="billing-nav-link__arrow">&rarr;</span>
+		</a>
 	</div>
 </div>
 

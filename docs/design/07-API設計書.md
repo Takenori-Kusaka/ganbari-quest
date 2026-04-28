@@ -180,6 +180,28 @@
 | POST | /api/stripe/portal | Stripe カスタマーポータル作成 | owner/parent |
 | POST | /api/stripe/webhook | Stripe Webhook 受信 | 不要（Stripe署名検証） |
 
+### 解約フロー（#1596 / ADR-0023 §3.8 / I3）
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| GET  | /admin/billing/cancel | 解約理由ヒアリングフォーム表示 | owner/parent |
+| POST | /admin/billing/cancel | 解約理由送信（form action）→ Stripe Portal リダイレクト or thanks | owner/parent |
+| GET  | /admin/billing/cancel/thanks | 送信完了画面 | owner/parent |
+
+**form action body (form-data):**
+- `category` (必須): `'graduation'` \| `'churn'` \| `'pause'`
+- `freeText` (任意, 0〜1000 文字)
+
+**処理:**
+1. `cancellation-service.submitCancellationReason()` を呼び出して DB 永続化
+2. Discord churn channel へ `notifyCancellationWithReason()` で通知（カテゴリ + 自由記述含む）
+3. 課金プランかつ `stripeCustomerId` 存在 → Stripe Customer Portal セッションを作成して 303 リダイレクト
+4. 無料プラン or Portal 不可 → `/admin/billing/cancel/thanks` に 303 リダイレクト
+
+**バリデーション:**
+- `category` が 3 分類いずれでもない → 400 + `INVALID_CATEGORY`
+- `freeText` が 1000 文字超 → 400 + `FREE_TEXT_TOO_LONG`
+
 ### バトルアドベンチャー
 
 | メソッド | パス | 概要 | 認証 |
