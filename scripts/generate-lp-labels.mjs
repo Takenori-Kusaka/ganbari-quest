@@ -121,6 +121,9 @@ function parseLabelsTs() {
 	const lpCommonLabels = parseBlock(src, 'LP_COMMON_LABELS');
 	// Phase 2 R5/R6 (#1609/#1610): 法務系打消し表示
 	const lpLegalDisclaimerLabels = parseBlock(src, 'LP_LEGAL_DISCLAIMER_LABELS');
+	// Phase 4 R9/R10 (#1613/#1614): 年齢別成長ロードマップ + アナログ vs デジタル
+	const lpVersusLabels = parseBlock(src, 'LP_VERSUS_LABELS');
+	const lpGrowthRoadmapLabels = parseBlock(src, 'LP_GROWTH_ROADMAP_LABELS');
 
 	return {
 		ageTierLabels,
@@ -132,6 +135,8 @@ function parseLabelsTs() {
 		lpFooterLabels,
 		lpCommonLabels,
 		lpLegalDisclaimerLabels,
+		lpVersusLabels,
+		lpGrowthRoadmapLabels,
 	};
 }
 
@@ -175,6 +180,8 @@ function generateSharedLabelsJs() {
 		lpFooterLabels,
 		lpCommonLabels,
 		lpLegalDisclaimerLabels,
+		lpVersusLabels,
+		lpGrowthRoadmapLabels,
 	} = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
@@ -208,6 +215,8 @@ function generateSharedLabelsJs() {
 		footer: lpFooterLabels,
 		common: lpCommonLabels,
 		legalDisclaimer: lpLegalDisclaimerLabels,
+		versus: lpVersusLabels,
+		growthRoadmap: lpGrowthRoadmapLabels,
 	};
 
 	const header = `/**
