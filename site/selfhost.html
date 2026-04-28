@@ -54,12 +54,11 @@ body{line-height:1.8;background:var(--gray-50)}
     </a>
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">&#9776;</button>
     <nav id="main-nav" class="header-nav">
-      <a href="index.html" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
-      <a href="index.html#features" data-lp-key="nav.features" onclick="this.parentElement.classList.remove('open')">できること</a>
-      <a href="pricing.html" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
-      <a href="https://ganbari-quest.com/demo" class="btn btn-demo" data-lp-key="common.ctaDemo">デモ体験</a>
-      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-testid="lp-nav-signup" data-lp-key="common.ctaSignup">無料ではじめる</a>
-      <a href="https://ganbari-quest.com/auth/login" class="nav-login" data-testid="lp-nav-login" data-lp-key="nav.login">ログイン</a>
+      <a href="index.html" class="nav-text" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="pricing.html" class="nav-text" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="faq.html" class="nav-text" data-lp-key="nav.faq" onclick="this.parentElement.classList.remove('open')">よくあるご質問</a>
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary nav-signup" data-testid="lp-nav-signup" data-lp-key="common.ctaSignup" onclick="this.parentElement.classList.remove('open')">無料で始める</a>
+      <a href="https://ganbari-quest.com/auth/login" class="nav-login" data-testid="lp-nav-login" data-lp-key="nav.login" onclick="this.parentElement.classList.remove('open')">ログイン</a>
     </nav>
   </div>
 </header>
@@ -214,6 +213,8 @@ body{line-height:1.8;background:var(--gray-50)}
       <h4 data-lp-key="footer.linksHeading">リンク</h4>
       <a href="index.html" data-lp-key="nav.home">ホーム</a>
       <a href="pricing.html" data-lp-key="footer.pricingLink">料金プラン</a>
+      <a href="faq.html" data-lp-key="footer.faqLink">よくあるご質問</a>
+      <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="selfhost footer" data-lp-key="footer.contactLink">お問い合わせ</a>
       <a href="https://github.com/Takenori-Kusaka/ganbari-quest" data-lp-key="footer.githubLink">GitHub</a>
       <a href="https://github.com/sponsors/Takenori-Kusaka" data-lp-key="footer.sponsorLink">Sponsor</a>
     </div>

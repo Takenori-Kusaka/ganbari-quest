@@ -2483,7 +2483,7 @@ export const PRICING_PAGE_LABELS = {
 	subtitleTrialDays: '7日間の無料体験',
 	subtitle2: '付き',
 	featureNote:
-		'お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・コンボなど）は',
+		'お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・連続達成ボーナスなど）は',
 	featureNoteStrong: '全プラン共通',
 	featureNoteSuffix: 'で制限なし',
 	faqTitle: 'よくある質問',
@@ -3515,6 +3515,35 @@ export const LP_FOOTER_LABELS = {
 	copyright: '© 2026 がんばりクエスト. All rights reserved.',
 } as const;
 
+// LP Hero 価格 anchor バンド (#1625 R21)
+// site/index.html hero 直下に配置する 1 行価格プロミスバンド
+export const LP_HERO_PRICE_BAND_LABELS = {
+	itemFree: '基本無料',
+	itemPriceLabel: '月',
+	itemPriceValue: '¥500〜',
+	itemTrial: '7 日間無料',
+	itemCancel: 'いつでも解約',
+} as const;
+
+// LP CTA 直下の不安解消 3 バッジ (#1626 R22)
+// site/index.html / pricing.html / faq.html の CTA 直下に配置
+export const LP_CTA_TRUST_BADGES_LABELS = {
+	noCreditCard: 'クレジットカード登録不要',
+	noAds: '広告なし',
+	cancelAnytime: 'いつでも解約 OK',
+} as const;
+
+// LP Hero 仕様起点の数字バッジ (#1628 R24)
+// PMF 後送り testimonial の代替として仕様値を訴求
+export const LP_HERO_SPEC_BADGES_LABELS = {
+	ageRange: '3〜18 歳',
+	ageRangeSuffix: '対応',
+	presetCount: '50+',
+	presetSuffix: 'プリセット活動',
+	setupTime: '約 5 分',
+	setupSuffix: 'で初期設定',
+} as const;
+
 // LP CTA / 価格 / 期間表記 SSOT (#1616 R12)
 // PM 優先 J 節裁定 2: 「無料で始める」（漢字統一）
 // site/ 配下では本定数を data-lp-key で参照し、表記揺れを排除する
@@ -3645,9 +3674,9 @@ export const LP_PRICING_LABELS = {
 	ctaDisclaimerBadges: '✅ クレジットカード登録不要 ✅ 自動課金なし ✅ いつでも解約 OK',
 	ctaDisclaimerNote: '※ 7 日間無料体験は初回お申込み時のみ。価格はすべて税込表示です。',
 
-	// Plan note (below cards) — #1650 R44 (括弧書き一掃)
+	// Plan note (below cards) — #1650 R44 (括弧書き一掃) / #1629 R25 (「コンボ」→「連続達成ボーナス」へ)
 	allPlansNote:
-		'💡 お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・コンボなど）は',
+		'💡 お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・連続達成ボーナスなど）は',
 	allPlansNoteStrong: '全プラン共通',
 	allPlansNoteSuffix: 'で制限なし',
 
@@ -3807,21 +3836,24 @@ export const FOUNDER_INQUIRY_LABELS = {
 	adminFooterHint: '個人開発者にメッセージを送る（無料）',
 } as const;
 
+// #1621 R17: [06b] retention セクションは [03] L2 (習慣カード) へ統合され、独立セクションは廃止。
+//   pamphlet.html / 旧 retention セクション参照のため定数自体は保持（短文のみ）。
+// #1629 R25: ADR-0012 Anti-engagement 原則と整合する語彙へ刷新（「変動比率強化」「射幸心」を撤去）。
 export const LP_RETENTION_LABELS = {
 	sectionTitle: '三日坊主にならない設計',
 	sectionDesc:
-		'「有料アプリって三日坊主になりがち…」という不安に先回りで答えます。スタンプカードのレア度分散は行動心理学の「変動比率強化」— 最も強固な習慣形成メカニズムです。',
+		'「有料アプリって三日坊主になりがち…」という不安に先回りで答えます。スタンプカードのレア度分散と「1 日 1 回まで」の煽らない設計が、毎日の継続を支えます。',
 	card1Title: '飽きを防ぐレア度分散',
 	card1Desc:
-		'普通のスタンプ (N) から超レアスタンプ (UR) まで 4 段階。毎回違うスタンプが押される「変動比率強化」が、子供の「明日もやろう」を支えます。',
+		'普通のスタンプ (N) から超レアスタンプ (UR) まで 4 段階。毎回違うスタンプが押されることで、子供の「明日もやろう」を支えます。',
 	card2Title: '習慣を育てるおみくじスタンプ',
 	card2Desc:
-		'毎朝のログイン → おみくじ → スタンプカードは、活動の記録とは別の「毎日アプリを開く習慣」を育てるための仕組みです。射幸心を煽るのではなく「ちょっとした楽しみ」で継続を支えます。',
+		'毎朝のログイン → おみくじ → スタンプカードは、活動の記録とは別の「毎日アプリを開く習慣」を育てるための仕組みです。「ちょっとした楽しみ」で継続を支えます。',
 	card3Title: '1 日 1 回まで — 煽らない設計',
 	card3Desc:
 		'「もっと引きたい」の誘導はありません。1 日 1 回という制限が、逆に「明日もやろう」という継続を生みます。',
 	pamphletNote:
-		'スタンプカードのレア度分散（N/R/SR/UR）は変動比率強化による習慣形成エンジン。射幸心ではなく、三日坊主を防ぐ設計です。',
+		'スタンプカードのレア度分散（N/R/SR/UR）が「明日もやろう」を支える習慣形成のエンジン。1 日 1 回までで煽らない設計のため、三日坊主を防ぎます。',
 } as const;
 
 export const BABY_HOME_LABELS = {
@@ -3875,7 +3907,7 @@ export const ONBOARDING_LABELS = {
 export const LP_VERSUS_LABELS = {
 	sectionTitle: 'シール帳・ホワイトボードでも、いいんじゃない？',
 	sectionDesc:
-		'わかります。私たちもまずは紙で試しました。<br>でも「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、デジタルだから届く差があります。',
+		'わかります。私たちもまずは紙で試しました。でも「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、デジタルだから届く差があります。',
 	tagAnalog: 'シール帳・紙',
 	tagDigital: 'がんばりクエスト',
 	row1AnalogTitle: '集計が手作業で計算ミスが起きがち',
@@ -3935,10 +3967,12 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 // SSOT: site/index.html [03] セクション用ラベル
 // ============================================================
 
+// #1624 R20: StoryBrand 7 要素のうち Internal Problem / Philosophical / Avoiding Failure
+//   を sectionDesc に補完。「毎日同じことを言う疲れ」「子供の自律を信じる」「シール帳で挫折しないため」
 export const LP_CORELOOP_LABELS = {
 	sectionTitle: '3 つの仕組みで、毎日のがんばりが本物の報酬になる',
 	sectionDesc:
-		'活動を記録してポイントを貯め、ポイントでごほうびショップの好きなものと交換する。3 つの仕組みが子供の「やりたい」を持続させます。',
+		'毎日「歯みがいた？」「宿題は？」と繰り返し声をかけるのは、親も子も疲れます。子供は本来、自分で動きたい力を持っています。シール帳で 3 日でやめてしまった経験のある方こそ、活動 → 習慣 → ごほうびの 3 つの仕組みでお試しください。',
 	// 親視点サブタイトル
 	parentPerspectiveTitle: '親の視点',
 	parentPerspectiveDesc:

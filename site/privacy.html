@@ -31,11 +31,11 @@ body{line-height:1.8;background:var(--gray-50)}
     </a>
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
     <nav id="main-nav" class="header-nav">
-      <a href="index.html" onclick="this.parentElement.classList.remove('open')">ホーム</a>
-      <a href="index.html#features" onclick="this.parentElement.classList.remove('open')">できること</a>
-      <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
-      <a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモ体験</a>
-      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料ではじめる</a>
+      <a href="index.html" class="nav-text" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="pricing.html" class="nav-text" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="faq.html" class="nav-text" data-lp-key="nav.faq" onclick="this.parentElement.classList.remove('open')">よくあるご質問</a>
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary nav-signup" data-lp-key="common.ctaSignup" onclick="this.parentElement.classList.remove('open')">無料で始める</a>
+      <a href="https://ganbari-quest.com/auth/login" class="nav-login" data-lp-key="nav.login" onclick="this.parentElement.classList.remove('open')">ログイン</a>
     </nav>
   </div>
 </header>
@@ -104,12 +104,12 @@ body{line-height:1.8;background:var(--gray-50)}
       </li>
       <li>運営者は、サービス提供のために以下の外部サービスを利用しています。各サービスは、それぞれのプライバシーポリシーに基づきデータを取り扱います。
         <ul>
-          <li><strong>Amazon Web Services (AWS)</strong> &#8212; サーバーインフラ（Lambda, DynamoDB）、認証基盤（Cognito）、メール送信（SES）。データは原則としてバージニア北部リージョン（us-east-1）に保存されます。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li>
-          <li><strong>Google LLC</strong> &#8212; OAuth認証（Googleアカウントによるログイン）。認証時にメールアドレスおよび表示名を取得します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li>
-          <li><strong>Stripe, Inc.</strong> &#8212; 決済処理（クレジットカード情報の安全な取扱い）。決済情報はStripeのサーバー（米国）で処理されます。<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li>
-          <li><strong>Discord Inc.</strong> &#8212; 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li>
-          <li><strong>Amazon Web Services (AWS Bedrock)</strong> &#8212; 生成 AI（活動アイコン生成・テキスト補助）。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li>
-          <li><strong>Google LLC (Gemini API)</strong> &#8212; 生成 AI（画像生成）。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li>
+          <li><strong>Amazon Web Services (AWS)</strong> — サーバーインフラ（Lambda, DynamoDB）、認証基盤（Cognito）、メール送信（SES）。データは原則としてバージニア北部リージョン（us-east-1）に保存されます。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li>
+          <li><strong>Google LLC</strong> — OAuth認証（Googleアカウントによるログイン）。認証時にメールアドレスおよび表示名を取得します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li>
+          <li><strong>Stripe, Inc.</strong> — 決済処理（クレジットカード情報の安全な取扱い）。決済情報はStripeのサーバー（米国）で処理されます。<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li>
+          <li><strong>Discord Inc.</strong> — 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li>
+          <li><strong>Amazon Web Services (AWS Bedrock)</strong> — 生成 AI（活動アイコン生成・テキスト補助）。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li>
+          <li><strong>Google LLC (Gemini API)</strong> — 生成 AI（画像生成）。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li>
         </ul>
       </li>
     </ol>
@@ -130,10 +130,10 @@ body{line-height:1.8;background:var(--gray-50)}
     <h2>第5条（利用者の権利）</h2>
     <p>利用者は、自己の個人情報について、以下の権利を有します。</p>
     <ol>
-      <li><strong>開示請求</strong> &#8212; 運営者が保有する自己の個人情報の開示を請求できます。</li>
-      <li><strong>訂正請求</strong> &#8212; 個人情報の内容が事実でない場合、訂正を請求できます。</li>
-      <li><strong>削除請求</strong> &#8212; 個人情報の削除を請求できます。</li>
-      <li><strong>利用停止請求</strong> &#8212; 個人情報の利用停止を請求できます。</li>
+      <li><strong>開示請求</strong> — 運営者が保有する自己の個人情報の開示を請求できます。</li>
+      <li><strong>訂正請求</strong> — 個人情報の内容が事実でない場合、訂正を請求できます。</li>
+      <li><strong>削除請求</strong> — 個人情報の削除を請求できます。</li>
+      <li><strong>利用停止請求</strong> — 個人情報の利用停止を請求できます。</li>
     </ol>
     <p>上記の請求は、本サービスの設定画面から行うか、下記のお問い合わせ先までご連絡ください。</p>
   </section>
@@ -151,15 +151,15 @@ body{line-height:1.8;background:var(--gray-50)}
     <h2>第7条（Cookieの使用）</h2>
     <p>本サービスは、認証状態の維持のためにCookieを使用します。使用するCookieは機能に必須のもののみであり、広告目的のトラッキングCookieは使用しません。</p>
     <ul>
-      <li><strong>認証Cookie</strong> &#8212; ログイン状態の維持（セッション終了時またはTTL経過時に削除）</li>
-      <li><strong>コンテキストCookie</strong> &#8212; 利用者のロール・テナント情報（セッション中のみ）</li>
-      <li><strong>セキュリティCookie</strong> &#8212; 認証フロー中のみ使用されるCookie（フロー完了後に自動削除）
+      <li><strong>認証Cookie</strong> — ログイン状態の維持（セッション終了時またはTTL経過時に削除）</li>
+      <li><strong>コンテキストCookie</strong> — 利用者のロール・テナント情報（セッション中のみ）</li>
+      <li><strong>セキュリティCookie</strong> — 認証フロー中のみ使用されるCookie（フロー完了後に自動削除）
         <ul>
-          <li><code>oauth_state</code> &#8212; OAuth認証時のCSRF防止トークン</li>
-          <li><code>oauth_nonce</code> &#8212; OAuth認証時のリプレイ攻撃防止トークン</li>
+          <li><code>oauth_state</code> — OAuth認証時のCSRF防止トークン</li>
+          <li><code>oauth_nonce</code> — OAuth認証時のリプレイ攻撃防止トークン</li>
         </ul>
       </li>
-      <li><strong>招待Cookie</strong> &#8212; 招待リンク経由のアクセス時に招待コードを一時保持（招待受理後に削除）</li>
+      <li><strong>招待Cookie</strong> — 招待リンク経由のアクセス時に招待コードを一時保持（招待受理後に削除）</li>
     </ul>
     <p>ブラウザの設定によりCookieを無効にすることができますが、本サービスの一部機能が利用できなくなる場合があります。</p>
   </section>
@@ -214,8 +214,8 @@ body{line-height:1.8;background:var(--gray-50)}
       <li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスのサインアップ時に、「サービス提供に必要な範囲でのデータ保存・処理に同意します」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。同意されない場合、本サービスをご利用いただくことができません。</li>
       <li><strong>その他の外国にある第三者</strong>:
         <ul>
-          <li><strong>Stripe, Inc.</strong>（米国） &#8212; 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li>
-          <li><strong>Google LLC</strong>（米国） &#8212; OAuth 認証および Gemini API（生成 AI）。</li>
+          <li><strong>Stripe, Inc.</strong>（米国） — 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li>
+          <li><strong>Google LLC</strong>（米国） — OAuth 認証および Gemini API（生成 AI）。</li>
         </ul>
       </li>
     </ol>
