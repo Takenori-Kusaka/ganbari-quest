@@ -62,7 +62,7 @@ const FORBIDDEN_TERMS = [
 ];
 
 const THRESHOLDS = {
-	mobileHeight: 15000,
+	mobileHeight: 15200, // #1594: founder セクション ([08b]) 追加で 15113 超 → 15200 に ratchet 更新
 	desktopHeight: 8000,
 	ctaVariantsMax: 3,
 };

@@ -412,7 +412,10 @@ export const handle: Handle = ({ event, resolve }) =>
 				path !== '/robots.txt' &&
 				// #1601: 配信停止リンクは未認証 + セットアップ前でもアクセス可能にする
 				// （特定電子メール法準拠: クリックしたら確実に解除できる必要がある）。
-				!path.startsWith('/unsubscribe/')
+				!path.startsWith('/unsubscribe/') &&
+				// #1594 ADR-0023 I8: founder 直接相談動線は公開ページ（未認証 / セットアップ前でもアクセス可）
+				!path.startsWith('/inquiry/founder') &&
+				!path.startsWith('/api/v1/inquiry/founder')
 			) {
 				if (await isSetupRequired(tenantId)) {
 					redirect(302, '/setup');
