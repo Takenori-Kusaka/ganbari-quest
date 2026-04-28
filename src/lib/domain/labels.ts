@@ -3514,11 +3514,12 @@ export const LP_COMMON_LABELS = {
 // data-lp-key で site/index.html / site/faq.html に注入
 export const LP_LEGAL_DISCLAIMER_LABELS = {
 	// #1643 R38 整合: 実装 grace-period-service.ts の {standard: 7, family: 30} に合わせプラン別表記
+	// LP メトリクス desktopHeight ratchet 維持のため可読性確保しつつ簡潔に
 	cancelDisclaimer:
-		'※「いつでも解約 OK」について: 解約申請後はプランに応じた読み取り専用の猶予期間（スタンダードプラン 7 日 / ファミリープラン 30 日）が設けられ、猶予期間中は閲覧・エクスポートが可能です。猶予期間経過後にすべてのデータが完全に削除されます。日割り返金はありません。',
+		'※解約後はプラン別の読み取り専用猶予期間（スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。日割り返金はありません。',
 	cancelDisclaimerLinks: 'FAQ / 特定商取引法に基づく表記',
 	cancelDisclaimerCta:
-		'※「いつでもキャンセル可能」について: 解約申請後はプランに応じた猶予期間（スタンダードプラン 7 日 / ファミリープラン 30 日）後にすべてのデータが完全に削除されます。',
+		'※解約後はプラン別の猶予期間（スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。',
 	cancelDisclaimerCtaLink: 'FAQ',
 	liabilityTitle: 'サービス利用に関する重要なご案内',
 	liabilityBody:
