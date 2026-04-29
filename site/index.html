@@ -293,10 +293,13 @@
 .versus-card h3{font-size:.85rem;font-weight:700;margin-bottom:2px;color:var(--gray-900);line-height:1.4}
 .versus-card p{font-size:.74rem;color:var(--gray-700);line-height:1.5;margin:0}
 .versus-arrow{display:flex;align-items:center;justify-content:center;font-size:.95rem;color:var(--brand-700)}
+/* 各優位点アイコン (#1597 ADR-0023 I5 — 装飾的アクセント / asset-catalog.md 準拠) */
+.versus-card .vc-icon{display:inline-block;font-size:1.05rem;margin-right:4px;line-height:1;vertical-align:-2px}
 @media(max-width:640px){
   .versus-row{grid-template-columns:1fr 18px 1.3fr;gap:6px}
   .versus-card{padding:8px 10px}
   .versus-card h3{font-size:.78rem}
+  .versus-card .vc-icon{font-size:.95rem}
   .versus-card p{font-size:.7rem}
 }
 
@@ -481,7 +484,7 @@
         <div class="versus-arrow" aria-hidden="true">→</div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
-          <h3 data-lp-key="versus.row1DigitalTitle">自動集計でいつでもポイントが見える</h3>
+          <h3><span class="vc-icon" aria-hidden="true" data-lp-key="versus.row1Icon">&#x1F4CA;</span><span data-lp-key="versus.row1DigitalTitle">自動集計でいつでもポイントが見える</span></h3>
           <p data-lp-key="versus.row1DigitalDesc">子供が「あと 50 ポイントで欲しいごほうび」と自分で計画できます。</p>
         </div>
       </div>
@@ -493,7 +496,7 @@
         <div class="versus-arrow" aria-hidden="true">→</div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
-          <h3 data-lp-key="versus.row2DigitalTitle">3 歳から 18 歳まで同じアプリで継続</h3>
+          <h3><span class="vc-icon" aria-hidden="true" data-lp-key="versus.row2Icon">&#x1F331;</span><span data-lp-key="versus.row2DigitalTitle">3 歳から 18 歳まで同じアプリで継続</span></h3>
           <p data-lp-key="versus.row2DigitalDesc">15 年分の成長履歴がひとつにまとまります。</p>
         </div>
       </div>
@@ -505,7 +508,7 @@
         <div class="versus-arrow" aria-hidden="true">→</div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
-          <h3 data-lp-key="versus.row3DigitalTitle">子供が自律したらアプリは不要</h3>
+          <h3><span class="vc-icon" aria-hidden="true" data-lp-key="versus.row3Icon">&#x1F393;</span><span data-lp-key="versus.row3DigitalTitle">子供が自律したらアプリは不要</span></h3>
           <p data-lp-key="versus.row3DigitalDesc">「使わなくなる」が成功のゴール。卒業を最終地点として設計しています。</p>
         </div>
       </div>
@@ -517,7 +520,7 @@
         <div class="versus-arrow" aria-hidden="true">→</div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
-          <h3 data-lp-key="versus.row4DigitalTitle">旅行先・祖父母宅でも続けられる</h3>
+          <h3><span class="vc-icon" aria-hidden="true" data-lp-key="versus.row4Icon">&#x1F4CD;</span><span data-lp-key="versus.row4DigitalTitle">旅行先・祖父母宅でも続けられる</span></h3>
           <p data-lp-key="versus.row4DigitalDesc">スマホ・タブレットで開けば連続記録が途切れません。</p>
         </div>
       </div>
