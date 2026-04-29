@@ -12,6 +12,7 @@
 	"scripts": {
 		"dev": "vite dev",
 		"dev:cognito": "cross-env AUTH_MODE=cognito COGNITO_DEV_MODE=true vite dev --port 5174 --strictPort",
+		"dev:cognito-signup": "cross-env AUTH_MODE=cognito vite dev --port 5174 --strictPort",
 		"version:generate": "tsx scripts/generate-version.ts",
 		"build": "vite build",
 		"preview": "vite preview",

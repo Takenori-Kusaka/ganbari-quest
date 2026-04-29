@@ -165,6 +165,9 @@ npm run dev:cognito
 # → AUTH_MODE=cognito COGNITO_DEV_MODE=true vite dev --port 5174 --strictPort
 # → http://localhost:5174 で Cognito モック認証が有効
 # → 既に 5174 が使用中だと即 fail する（--strictPort: #1168 で 5175 fallback の 500 回避）
+
+# signup ページは AUTH_MODE=cognito 単独起動が必要（COGNITO_DEV_MODE=true だと /auth/login にリダイレクトされるため）
+npm run dev:cognito-signup
 ```
 
 ### DEV_USERS 一覧
