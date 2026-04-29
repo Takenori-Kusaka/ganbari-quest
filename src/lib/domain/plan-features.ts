@@ -34,7 +34,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		'プリセット活動の利用',
 		'オリジナル活動の作成：3個まで',
 		'レベル・ポイント・おみくじ・スタンプカード',
-		'ログインボーナス・コンボ',
+		'ログインボーナス・連続達成ボーナス',
 		'チェックリスト（持ち物／朝夜の習慣 合計3個/子まで）',
 		'90日間の履歴保持',
 		// #1654 R48: footer / tokushoho.html / sla.html がサポートメールを全プラン提示しているため SSOT 補完

@@ -5,73 +5,18 @@
 // 1. /marketplace は認証不要のパブリックルート (ADR-0036) として 200 で開ける
 // 2. 管理画面 (/admin) の「活動」カテゴリ submenu に nav-marketplace が含まれる (#1396 で customize→activity に変更)
 //    (Desktop: hover で dropdown を開く / Mobile 375x667: category button tap で submenu を開く)
-// 3. LP (site/index.html, site/pricing.html) の header-nav に lp-nav-marketplace が含まれる
+//
+// 履歴:
+//   - LP (site/index.html, site/pricing.html) の header-nav に lp-nav-marketplace が含まれる検証は、
+//     #1636 R32 「NAV 構成の全ページ統一 (home/pricing/faq/login/signup)」で marketplace を意図的に
+//     LP NAV から外したため削除済み（PR #1673, Phase 4 LP 仕上げ）。
+//     LP→マケプレ動線は本文セクション・パンフ経由に移行。再検証が必要なら別 Issue で扱う。
 //
 // 注意:
 //   - ローカル E2E は AUTH_MODE=local のため /admin へのアクセスは素通し (cognito mock 不要)
-//   - LP は静的 HTML のため、lp-copy-layout.spec.ts と同じ node:http 静的サーバパターンで検証
 //   - Mobile viewport では `tests/e2e/helpers.ts` 流の testid ベースのセレクタを使用
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { createServer, type Server } from 'node:http';
-import { extname, join, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-
-const SITE_DIR = resolve('site');
-
-const MIME: Record<string, string> = {
-	'.html': 'text/html; charset=utf-8',
-	'.css': 'text/css; charset=utf-8',
-	'.js': 'application/javascript; charset=utf-8',
-	'.png': 'image/png',
-	'.webp': 'image/webp',
-	'.jpg': 'image/jpeg',
-	'.jpeg': 'image/jpeg',
-	'.svg': 'image/svg+xml',
-	'.ico': 'image/x-icon',
-	'.woff': 'font/woff',
-	'.woff2': 'font/woff2',
-};
-
-let lpServer: Server;
-let lpBaseUrl: string;
-
-test.beforeAll(async () => {
-	await new Promise<void>((resolvePromise, rejectPromise) => {
-		lpServer = createServer((req, res) => {
-			let urlPath = decodeURIComponent((req.url || '/').split('?')[0] ?? '/');
-			if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
-			const filePath = join(SITE_DIR, urlPath);
-			if (!filePath.startsWith(SITE_DIR)) {
-				res.writeHead(403);
-				res.end();
-				return;
-			}
-			if (!existsSync(filePath) || !statSync(filePath).isFile()) {
-				res.writeHead(404);
-				res.end('Not Found');
-				return;
-			}
-			const mime = MIME[extname(filePath).toLowerCase()] || 'application/octet-stream';
-			res.writeHead(200, { 'Content-Type': mime });
-			res.end(readFileSync(filePath));
-		});
-		lpServer.on('error', rejectPromise);
-		lpServer.listen(0, '127.0.0.1', () => {
-			const addr = lpServer.address();
-			if (!addr || typeof addr === 'string') {
-				rejectPromise(new Error('Failed to bind LP static server'));
-				return;
-			}
-			lpBaseUrl = `http://127.0.0.1:${addr.port}`;
-			resolvePromise();
-		});
-	});
-});
-
-test.afterAll(async () => {
-	await new Promise<void>((resolvePromise) => lpServer.close(() => resolvePromise()));
-});
 
 test.describe('#1170 マケプレ グローバルナビ導線', () => {
 	// ============================================================
@@ -144,36 +89,9 @@ test.describe('#1170 マケプレ グローバルナビ導線', () => {
 	});
 
 	// ============================================================
-	// 4. LP /index.html header-nav: lp-nav-marketplace が absolute URL を指す
-	// site/shared.css: @media (max-width: 768px) で `.header-nav { display: none }` かつ
-	// `.hamburger` を表示。mobile では hamburger を開いてから visibility 検証する。
+	// 4-5. LP /index.html, /pricing.html: lp-nav-marketplace の visibility 検証は
+	// #1636 R32「NAV 構成の全ページ統一 (home/pricing/faq)」で marketplace を
+	// LP NAV から外したため削除済み（PR #1673, Phase 4 LP 仕上げ）。
+	// LP→マケプレ動線は本文セクション・パンフ経由に移行。
 	// ============================================================
-	test('LP /index.html: lp-nav-marketplace が visible で /marketplace に遷移する', async ({
-		page,
-		viewport,
-	}) => {
-		await page.goto(`${lpBaseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
-		if (viewport && viewport.width <= 768) {
-			await page.locator('button.hamburger').click();
-		}
-		const link = page.getByTestId('lp-nav-marketplace');
-		await expect(link).toBeVisible();
-		await expect(link).toHaveAttribute('href', 'https://ganbari-quest.com/marketplace');
-	});
-
-	// ============================================================
-	// 5. LP /pricing.html header-nav: lp-nav-marketplace が absolute URL を指す
-	// ============================================================
-	test('LP /pricing.html: lp-nav-marketplace が visible で /marketplace に遷移する', async ({
-		page,
-		viewport,
-	}) => {
-		await page.goto(`${lpBaseUrl}/pricing.html`, { waitUntil: 'domcontentloaded' });
-		if (viewport && viewport.width <= 768) {
-			await page.locator('button.hamburger').click();
-		}
-		const link = page.getByTestId('lp-nav-marketplace');
-		await expect(link).toBeVisible();
-		await expect(link).toHaveAttribute('href', 'https://ganbari-quest.com/marketplace');
-	});
 });
