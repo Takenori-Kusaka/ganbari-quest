@@ -1915,6 +1915,100 @@ export function getCancellationCategoryLabel(category: CancellationCategory): st
 	}
 }
 
+// ============================================================
+// GRADUATION_LABELS - 卒業フロー (#1603 / ADR-0023 §3.8 / §5 I10)
+// 解約フローで「卒業」を選んだ親向けの専用ページ。
+// Anti-engagement 原則 (ADR-0012): ポジティブだが煽らない。引き止め CTA 禁止。
+// ============================================================
+
+export const GRADUATION_LABELS = {
+	pageHeading: '卒業おめでとうございます',
+	pageDesc:
+		'お子さまの自律をともに見守れたこと、心より嬉しく思います。残ポイントの活用例と、もしよければ事例として共有していただけるかをお伺いします。',
+
+	// 残ポイントセクション
+	pointsSectionTitle: '残ポイント',
+	pointsSectionHint: '卒業時点での合計ポイントです',
+	pointsUnit: 'pt',
+	pointsZero: 'ポイント残高はありません',
+
+	// 還元提案セクション
+	rewardSuggestionTitle: 'お子さまへのポイント還元アイデア',
+	rewardSuggestionHint:
+		'子どもががんばって貯めたポイントを、ご家庭で意味のある形に変えていただくための参考例です。',
+	rewardCashLabel: '現金換算の目安',
+	rewardCashDesc: (yenAmount: number) =>
+		`100 pt = 100 円換算 (目安) で、約 ${yenAmount.toLocaleString('ja-JP')} 円相当`,
+	rewardItemsLabel: '物品の例',
+	rewardItemsDesc: 'お小遣い帳・図書カード・本人の欲しがっていたグッズ・文房具 など',
+	rewardExperienceLabel: '体験の例',
+	rewardExperienceDesc: '家族での外食・遊園地・映画・お子さま主役の小旅行 など',
+	rewardNoteLabel: '注意',
+	rewardNote:
+		'金額換算はあくまで参考です。ご家庭の方針に合わせて、お子さまが「がんばってよかった」と感じられる形で還元してあげてください。',
+
+	// 利用期間表示
+	usagePeriodLabel: 'ご利用期間',
+	usagePeriodDays: (days: number) => `${days} 日間 ご利用いただきました`,
+
+	// 事例公開承諾セクション
+	consentSectionTitle: '事例として共有していただけますか？（任意）',
+	consentSectionHint:
+		'公開させていただく場合は、お子さまの実名は使いません。下記のニックネームで掲載させていただきます。',
+	consentCheckboxLabel: '卒業事例として、当サービスで紹介させていただいてもよい',
+	nicknameLabel: '公開時のニックネーム',
+	nicknameRequired: '必須',
+	nicknamePlaceholder: '例: たろうくん家',
+	nicknameHint: '実名禁止。お子さまや家族が特定されない範囲でご記入ください（最大 30 文字）',
+	nicknameMaxLength: 30,
+	messageLabel: '卒業のひとことメッセージ（任意・公開可）',
+	messagePlaceholder:
+		'もしよろしければ、卒業のお気持ちをひとことお寄せください（公開時に他のご家庭の参考になります、最大 500 文字）',
+	messageMaxLength: 500,
+	messageHint: (current: number, max: number) => `${current} / ${max} 文字`,
+
+	// Submit
+	submitButton: '卒業を完了する',
+	submitConsentButton: '事例として共有して卒業を完了する',
+	submitLoading: '送信中…',
+	skipButton: '事例共有はせず卒業のみ完了する',
+
+	// Errors
+	errorNicknameRequired: '公開時のニックネームをご入力ください',
+	errorNicknameTooLong: 'ニックネームは 30 文字以内でご入力ください',
+	errorMessageTooLong: 'メッセージは 500 文字以内でご入力ください',
+	errorSubmitFailed: '送信に失敗しました。時間をおいて再度お試しください',
+
+	// Success (after consent recorded)
+	successHeading: '卒業を見届けました',
+	successDesc:
+		'長い間ありがとうございました。お子さまのこれからの自律した日々が、ますます充実することを願っています。',
+	successConsentThanks:
+		'事例公開のご快諾ありがとうございました。サービス改善・他のご家庭への参考に活用させていただきます。',
+	successProceedButton: '解約手続きへ進む',
+	successProceedFreeButton: '管理画面に戻る',
+} as const satisfies Record<string, unknown>;
+
+/** ops dashboard 卒業統計セクション (#1603) */
+export const OPS_GRADUATION_LABELS = {
+	sectionTitle: '卒業フロー集計（#1603）',
+	sectionHint: '直近 90 日の卒業者数 / 卒業率 / 平均利用期間 / 公開可能な事例',
+	colMetric: '指標',
+	colValue: '値',
+	metricTotalGraduations: '卒業者数',
+	metricConsentedCount: '事例公開承諾数',
+	metricAvgUsagePeriod: '平均利用期間（日）',
+	metricGraduationRate: '卒業率（卒業 / 全解約）',
+	metricTotalCancellations: '直近 90 日の全解約数',
+	noData: '直近 90 日の卒業データはありません',
+	publicSamplesTitle: '公開可能な卒業事例',
+	publicSampleEmpty: '公開承諾された卒業事例はまだありません',
+	publicSampleNickname: (nickname: string) => `${nickname} さん`,
+	publicSampleUsagePeriod: (days: number) => `ご利用期間: ${days} 日`,
+	publicSamplePoints: (pt: number) => `残ポイント: ${pt} pt`,
+	graduationRateLabel: (rate: number) => `${(rate * 100).toFixed(1)}%`,
+} as const satisfies Record<string, unknown>;
+
 /** ops dashboard 解約理由集計セクション */
 export const OPS_CANCELLATION_LABELS = {
 	sectionTitle: '解約理由集計（#1596）',

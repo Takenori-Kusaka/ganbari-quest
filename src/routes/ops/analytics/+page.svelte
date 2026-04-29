@@ -5,6 +5,7 @@ import {
 	getPlanLabel,
 	OPS_ANALYTICS_LABELS,
 	OPS_CANCELLATION_LABELS,
+	OPS_GRADUATION_LABELS,
 	OPS_PRESET_DISTRIBUTION_LABELS,
 } from '$lib/domain/labels';
 import type { PresetBucketKey } from '$lib/server/services/ops-analytics-service';
@@ -268,6 +269,76 @@ function barWidthPct(count: number): number {
 								<span>{OPS_CANCELLATION_LABELS.freeTextCategory(getCancellationCategoryLabel(sample.category as CancellationCategory))}</span>
 							</div>
 							<p class="ops-freetext-body">{sample.freeText}</p>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</Card>
+	</section>
+
+	<!-- 卒業フロー集計 (#1603 / ADR-0023 §3.8 / §5 I10) -->
+	<section data-testid="ops-graduation-section">
+		<Card padding="lg">
+			<h2 class="ops-section-title m-0 mb-1">{OPS_GRADUATION_LABELS.sectionTitle}</h2>
+			<p class="text-xs text-[var(--color-text-muted)] mb-4">
+				{OPS_GRADUATION_LABELS.sectionHint}
+			</p>
+
+			{#if a.graduation.totalGraduations === 0}
+				<p class="text-sm text-[var(--color-text-muted)]" data-testid="ops-graduation-empty">
+					{OPS_GRADUATION_LABELS.noData}
+				</p>
+			{:else}
+				<table class="ops-table" data-testid="ops-graduation-metrics">
+					<thead>
+						<tr>
+							<th>{OPS_GRADUATION_LABELS.colMetric}</th>
+							<th class="ops-num">{OPS_GRADUATION_LABELS.colValue}</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>{OPS_GRADUATION_LABELS.metricTotalGraduations}</td>
+							<td class="ops-num" data-testid="ops-graduation-total">{a.graduation.totalGraduations}</td>
+						</tr>
+						<tr>
+							<td>{OPS_GRADUATION_LABELS.metricConsentedCount}</td>
+							<td class="ops-num" data-testid="ops-graduation-consented">{a.graduation.consentedCount}</td>
+						</tr>
+						<tr>
+							<td>{OPS_GRADUATION_LABELS.metricAvgUsagePeriod}</td>
+							<td class="ops-num" data-testid="ops-graduation-usage-avg">{a.graduation.avgUsagePeriodDays}</td>
+						</tr>
+						<tr>
+							<td>{OPS_GRADUATION_LABELS.metricGraduationRate}</td>
+							<td class="ops-num" data-testid="ops-graduation-rate">{OPS_GRADUATION_LABELS.graduationRateLabel(a.graduation.graduationRate)}</td>
+						</tr>
+						<tr>
+							<td>{OPS_GRADUATION_LABELS.metricTotalCancellations}</td>
+							<td class="ops-num">{a.graduation.totalCancellations}</td>
+						</tr>
+					</tbody>
+				</table>
+			{/if}
+
+			<!-- 公開可能な卒業事例 -->
+			<h3 class="ops-section-title m-0 mt-6 mb-2 text-sm">
+				{OPS_GRADUATION_LABELS.publicSamplesTitle}
+			</h3>
+			{#if a.graduation.publicSamples.length === 0}
+				<p class="text-sm text-[var(--color-text-muted)]" data-testid="ops-graduation-samples-empty">
+					{OPS_GRADUATION_LABELS.publicSampleEmpty}
+				</p>
+			{:else}
+				<ul class="ops-freetext-list" data-testid="ops-graduation-samples-list">
+					{#each a.graduation.publicSamples as sample (sample.id)}
+						<li class="ops-freetext-item">
+							<div class="ops-freetext-meta">
+								<span>{OPS_GRADUATION_LABELS.publicSampleNickname(sample.nickname)}</span>
+								<span>{OPS_GRADUATION_LABELS.publicSampleUsagePeriod(sample.usagePeriodDays)}</span>
+								<span>{OPS_GRADUATION_LABELS.publicSamplePoints(sample.userPoints)}</span>
+							</div>
+							<p class="ops-freetext-body">{sample.message}</p>
 						</li>
 					{/each}
 				</ul>

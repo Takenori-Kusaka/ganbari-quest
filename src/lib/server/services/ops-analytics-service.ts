@@ -108,6 +108,22 @@ export interface OpsAnalyticsData {
 			createdAt: string;
 		}>;
 	};
+	/** 卒業統計 (#1603 / ADR-0023 §3.8 / §5 I10) — 直近 90 日 */
+	graduation: {
+		totalGraduations: number;
+		consentedCount: number;
+		avgUsagePeriodDays: number;
+		totalCancellations: number;
+		graduationRate: number;
+		publicSamples: Array<{
+			id: number;
+			nickname: string;
+			userPoints: number;
+			usagePeriodDays: number;
+			message: string;
+			consentedAt: string;
+		}>;
+	};
 	stripeEnabled: boolean;
 	fetchedAt: string;
 }
@@ -153,7 +169,7 @@ export function computeAnalytics(
 	now?: Date,
 ): Omit<
 	OpsAnalyticsData,
-	'stripeEnabled' | 'fetchedAt' | 'presetDistribution' | 'cancellationReasons'
+	'stripeEnabled' | 'fetchedAt' | 'presetDistribution' | 'cancellationReasons' | 'graduation'
 > {
 	// `presetDistribution` は settings 取得が必要なため computeAnalytics スコープ外。
 	// `getAnalyticsData` で別途集計し合成する (#1602)。
@@ -383,6 +399,14 @@ export function emptyAnalytics(): OpsAnalyticsData {
 			breakdown: [],
 			freeTextSamples: [],
 		},
+		graduation: {
+			totalGraduations: 0,
+			consentedCount: 0,
+			avgUsagePeriodDays: 0,
+			totalCancellations: 0,
+			graduationRate: 0,
+			publicSamples: [],
+		},
 		stripeEnabled: false,
 		fetchedAt: new Date().toISOString(),
 	};
@@ -461,10 +485,42 @@ export async function getAnalyticsData(): Promise<OpsAnalyticsData> {
 		});
 	}
 
+	// #1603: 卒業統計（直近 90 日）— graduation-service.getGraduationStats と同じロジックを
+	// 直接呼ばずに repos から組み立てる（循環 import 回避）
+	let graduation: OpsAnalyticsData['graduation'] = {
+		totalGraduations: 0,
+		consentedCount: 0,
+		avgUsagePeriodDays: 0,
+		totalCancellations: cancellationReasons.total,
+		graduationRate: 0,
+		publicSamples: [],
+	};
+	try {
+		const stats = await repos.graduationConsent.aggregateRecent(90);
+		const totalCancellations = cancellationReasons.total;
+		const graduationRate =
+			totalCancellations > 0
+				? Math.round((stats.totalGraduations / totalCancellations) * 1000) / 1000
+				: 0;
+		graduation = {
+			totalGraduations: stats.totalGraduations,
+			consentedCount: stats.consentedCount,
+			avgUsagePeriodDays: stats.avgUsagePeriodDays,
+			totalCancellations,
+			graduationRate,
+			publicSamples: stats.publicSamples,
+		};
+	} catch (e) {
+		logger.warn('[OPS/analytics] Failed to load graduation stats', {
+			context: { error: e instanceof Error ? e.message : String(e) },
+		});
+	}
+
 	return {
 		...result,
 		presetDistribution,
 		cancellationReasons,
+		graduation,
 		stripeEnabled: isStripeEnabled(),
 		fetchedAt: new Date().toISOString(),
 	};

@@ -174,6 +174,92 @@ DynamoDB: PK=`CANCEL_REASON`, SK=`<isoTs>#<uuid>` (single global partition、低
 
 ---
 
+### 3.0.6 卒業フロー（#1603 / ADR-0023 §3.8 / §5 I10）
+
+#### §1. 設計背景
+
+PO の「『卒業』をプロダクト哲学（ADR-0023 §3.8）として実装で示し、ポジティブ KPI として PR 数値化したい」方針 + 親の「子供が自律したから卒業したい、残ポイントを子供に何らかの形で還元したい」需要を、解約フロー（#1596）で「卒業」が選ばれた場合の専用ページで実現する。Q-α 回答（卒業 = ポジティブな解約）。
+
+「離反」「中断」と違い、卒業は祝福すべき完了状態。3 分類のうち 1 つだけ動線が異なる（ポイント還元提案 + 祝福ビジュアル + 任意の事例公開承諾）のはこの非対称性に基づく。
+
+#### §2. 設計原則
+
+1. **ポジティブだが煽らない (ADR-0012)** — 「もう一度始めましょう」「もっと使えば〜」等の引き止め CTA を出さない。卒業を素直に祝うだけ。
+2. **公開時の実名禁止** — 親が任意指定するニックネームのみ。お子さまの特定不可性を最優先。
+3. **承諾なしでも KPI に含む** — 「卒業者数 / 平均利用期間 / 卒業率」は consented=false でもカウント。事例公開承諾は別管理。
+4. **DynamoDB GSI 不採用 (Pre-PMF / ADR-0010)** — 単一パーティション + Scan + 属性フィルタで Tenant 単位検索。書込み < 50/月想定で過剰防衛しない。
+
+#### §3. 仕様
+
+##### 動線
+
+```
+[/admin/billing/cancel]
+  └─ POST /admin/billing/cancel
+       │
+       ├─ category='graduation' を選択した場合
+       │     ├─ submitCancellationReason() で解約理由保存（共通フロー）
+       │     └─ redirect 303 → /admin/billing/cancel/graduation     ← ★ 専用ページ
+       │
+       └─ category='churn' / 'pause' を選択した場合
+             └─ 既存フローのまま (Stripe Portal or thanks)
+```
+
+##### `/admin/billing/cancel/graduation` 専用ページ
+
+- 残ポイント表示（全子供の getBalance() 合計）
+- 還元提案テキスト（現金換算想定額 + 物品例 + 体験例）
+- 祝福ビジュアル（既存 `static/assets/stamps/daikichi.png`「大吉」を再利用）
+- 任意の事例公開承諾フォーム
+  - チェックボックス（公開承諾）
+  - ニックネーム（公開時実名禁止、最大 30 文字、承諾時のみ必須）
+  - 卒業メッセージ（公開可、最大 500 文字、任意）
+- 承諾済 / 未承諾どちらでも recordGraduationConsent() で記録
+
+##### graduation-service
+
+- `recordGraduationConsent(input)`: 卒業セッション完了 + 任意の事例公開承諾保存
+- `getGraduationStats(days=90)`: ops dashboard 用統計取得
+- `calculateUsagePeriodDays(tenantCreatedAt)`: 利用日数計算（テナント作成日 → 現在）
+
+##### ops dashboard (`/ops/analytics`)
+
+直近 90 日:
+- 卒業者数 / 事例公開承諾数 / 平均利用期間（日）
+- 卒業率（卒業 / 全解約）— ADR-0023 ポジティブ KPI
+- 公開承諾された卒業事例（最新 20 件、ニックネーム + 利用期間 + ポイント + メッセージ）
+
+詳細: `OpsAnalyticsData.graduation` (`src/lib/server/services/ops-analytics-service.ts`)
+
+##### DB スキーマ
+
+```sql
+CREATE TABLE graduation_consent (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id TEXT NOT NULL,
+    nickname TEXT NOT NULL,                  -- 公開時の表示名（実名禁止）
+    consented INTEGER NOT NULL DEFAULT 0,    -- 公開承諾フラグ (0/1)
+    user_points INTEGER NOT NULL DEFAULT 0,  -- 卒業時の残ポイント合計
+    usage_period_days INTEGER NOT NULL DEFAULT 0,  -- 利用日数
+    message TEXT,                            -- 任意の卒業メッセージ（最大 500 文字）
+    consented_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_graduation_consent_tenant ON graduation_consent(tenant_id);
+CREATE INDEX idx_graduation_consent_consented_date
+    ON graduation_consent(consented, consented_at);
+CREATE INDEX idx_graduation_consent_date ON graduation_consent(consented_at);
+```
+
+DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition、低頻度書込み < 50/月想定、#1596 同パターン)
+
+##### プライバシーポリシー
+
+`site/privacy.html` 第6条の2（卒業フローと事例公開承諾）に保管期間 + 公開時の実名禁止 + 承諾撤回フローを記載。
+
+詳細: `docs/design/08-データベース設計書.md` §「graduation_consent」
+
+---
+
 ### 3.1 PIN 確認ゲート (#771)
 
 子供が親端末で誤操作するのを防ぐため、Portal 遷移前に二段階確認を必須化。

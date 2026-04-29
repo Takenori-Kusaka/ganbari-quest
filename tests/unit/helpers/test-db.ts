@@ -800,6 +800,22 @@ export const SQL_TABLES = `
 		ON cancellation_reasons(category, created_at);
 	CREATE INDEX idx_cancellation_reasons_date ON cancellation_reasons(created_at);
 
+	-- #1603 ADR-0023 §3.8 / §5 I10: 卒業フロー (graduation consent)
+	CREATE TABLE graduation_consent (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		nickname TEXT NOT NULL,
+		consented INTEGER NOT NULL DEFAULT 0,
+		user_points INTEGER NOT NULL DEFAULT 0,
+		usage_period_days INTEGER NOT NULL DEFAULT 0,
+		message TEXT,
+		consented_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_graduation_consent_tenant ON graduation_consent(tenant_id);
+	CREATE INDEX idx_graduation_consent_consented_date
+		ON graduation_consent(consented, consented_at);
+	CREATE INDEX idx_graduation_consent_date ON graduation_consent(consented_at);
+
 `;
 
 // ============================================================
@@ -807,6 +823,7 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'graduation_consent',
 	'cancellation_reasons',
 	'usage_logs',
 	'enemy_collection',

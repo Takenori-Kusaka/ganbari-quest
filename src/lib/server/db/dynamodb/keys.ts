@@ -482,6 +482,24 @@ export function cancellationReasonKey(createdAt: string, id: string): DynamoKey 
 
 export const CANCELLATION_REASON_PK = 'CANCEL_REASON';
 
+/**
+ * Graduation consent (#1603 / ADR-0023 §3.8 / §5 I10): PK=GRADUATION_CONSENT, SK=<isoTs>#<id>
+ *
+ * Global single-partition (低頻度書込み < 50/月想定 — 卒業はそもそもポジティブで稀)。
+ * createdAt 順にソートされ、時間範囲クエリに最適。テナント単位のクエリ (削除時のみ) は
+ * Scan + 属性フィルタで対応 (Pre-PMF, ADR-0010 — GSI 追加は過剰防衛)。
+ *
+ * #1596 cancellationReasonKey と同じパターン (兄弟テーブル)。
+ */
+export function graduationConsentKey(consentedAt: string, id: string): DynamoKey {
+	return {
+		PK: GRADUATION_CONSENT_PK,
+		SK: `${consentedAt}#${id}`,
+	};
+}
+
+export const GRADUATION_CONSENT_PK = 'GRADUATION_CONSENT';
+
 /** ID counter: PK=COUNTER, SK=<entity> */
 export function counterKey(entity: string, tenantId: string): DynamoKey {
 	return {

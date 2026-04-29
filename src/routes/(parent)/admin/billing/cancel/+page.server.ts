@@ -5,7 +5,11 @@
 // 自由記述を保存し、PO の解約原因可視化と検証に供する。
 
 import { fail, redirect } from '@sveltejs/kit';
-import { CANCELLATION_CATEGORIES, CANCELLATION_LABELS } from '$lib/domain/labels';
+import {
+	CANCELLATION_CATEGORIES,
+	CANCELLATION_CATEGORY,
+	CANCELLATION_LABELS,
+} from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { submitCancellationReason } from '$lib/server/services/cancellation-service';
 import { getLicenseInfo } from '$lib/server/services/license-service';
@@ -66,6 +70,12 @@ export const actions: Actions = {
 				category,
 				freeText: freeTextRaw,
 			});
+		}
+
+		// #1603 ADR-0023 §5 I10: 「卒業」選択時は専用ページへ
+		// ポイント還元提案 + 祝福演出 + 事例公開承諾を表示してから解約完了へ進む。
+		if (category === CANCELLATION_CATEGORY.GRADUATION) {
+			throw redirect(303, '/admin/billing/cancel/graduation');
 		}
 
 		// 課金プランかつ Stripe Customer がある場合 → Customer Portal にリダイレクト
