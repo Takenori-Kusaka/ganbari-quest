@@ -132,6 +132,9 @@
 - スケジュール SSOT: `src/lib/server/cron/schedule-registry.ts`
 - ターゲット: `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`)
 - `lifecycle-emails` (#1601, ADR-0023 §5 I11): 親オーナー宛のみ送信。年 6 回マーケティングメール上限を遵守。List-Unsubscribe ヘッダ + 配信停止リンク必須。Anti-engagement 整合 (中立トーン)。
+- **検証手順 / runbook**: [`docs/runbooks/cron-3-endpoints-verification.md`](../runbooks/cron-3-endpoints-verification.md) (#1377 Sub A-3)
+- **認証ヘッダ**: dispatcher は `Authorization: Bearer <CRON_SECRET>` を送信。endpoint 側は `verifyCronAuth` (`src/lib/server/auth/cron-auth.ts`) で `Authorization: Bearer` と `x-cron-secret` の両ヘッダを受理する (#1377 で統一、NUC scheduler / AWS dispatcher 双方互換)
+- **Sub A-3 検証層** (#1377): `tests/unit/cron/schedule-consistency.test.ts` が registry / CDK / dispatcher の三者整合性を CI で 0 tolerance で検出する。`scripts/check-cron-observability.mjs` (`npm run check:cron-observability`) が logger / Alarm 定義の存在を静的検査する
 
 ### 3.4 OpsStack（監視・コスト防衛）
 
