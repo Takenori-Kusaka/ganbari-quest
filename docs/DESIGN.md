@@ -330,6 +330,8 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `CANCELLATION_CATEGORY` | const |  |
 | `CANCELLATION_CATEGORIES` | const |  |
 | `CANCELLATION_LABELS` | const |  |
+| `GRADUATION_LABELS` | const |  |
+| `OPS_GRADUATION_LABELS` | const |  |
 | `OPS_CANCELLATION_LABELS` | const |  |
 | `OPS_LICENSE_ISSUE_LABELS` | const |  |
 | `OPS_REVENUE_LABELS` | const |  |

@@ -14,6 +14,7 @@ import * as dynamoChildRepo from './dynamodb/child-repo';
 import * as dynamoCloudExportRepo from './dynamodb/cloud-export-repo';
 import * as dynamoDailyMissionRepo from './dynamodb/daily-mission-repo';
 import * as dynamoEvaluationRepo from './dynamodb/evaluation-repo';
+import * as dynamoGraduationConsentRepo from './dynamodb/graduation-consent-repo';
 import * as dynamoImageRepo from './dynamodb/image-repo';
 import * as dynamoInquiryRepo from './dynamodb/inquiry-repo';
 import * as dynamoLoginBonusRepo from './dynamodb/login-bonus-repo';
@@ -47,6 +48,7 @@ import type { IChildRepo } from './interfaces/child-repo.interface';
 import type { ICloudExportRepo } from './interfaces/cloud-export-repo.interface';
 import type { IDailyMissionRepo } from './interfaces/daily-mission-repo.interface';
 import type { IEvaluationRepo } from './interfaces/evaluation-repo.interface';
+import type { IGraduationConsentRepo } from './interfaces/graduation-consent-repo.interface';
 import type { IImageRepo } from './interfaces/image-repo.interface';
 import type { IInquiryRepo } from './interfaces/inquiry-repo.interface';
 import type { ILoginBonusRepo } from './interfaces/login-bonus-repo.interface';
@@ -80,6 +82,7 @@ import * as sqliteChildRepo from './sqlite/child-repo';
 import * as sqliteCloudExportRepo from './sqlite/cloud-export-repo';
 import * as sqliteDailyMissionRepo from './sqlite/daily-mission-repo';
 import * as sqliteEvaluationRepo from './sqlite/evaluation-repo';
+import * as sqliteGraduationConsentRepo from './sqlite/graduation-consent-repo';
 import * as sqliteImageRepo from './sqlite/image-repo';
 import * as sqliteInquiryRepo from './sqlite/inquiry-repo';
 import * as sqliteLoginBonusRepo from './sqlite/login-bonus-repo';
@@ -115,6 +118,7 @@ export interface Repositories {
 	cloudExport: ICloudExportRepo;
 	dailyMission: IDailyMissionRepo;
 	evaluation: IEvaluationRepo;
+	graduationConsent: IGraduationConsentRepo;
 	image: IImageRepo;
 	inquiry: IInquiryRepo;
 	loginBonus: ILoginBonusRepo;
@@ -158,6 +162,7 @@ export function getRepos(): Repositories {
 			cloudExport: dynamoCloudExportRepo,
 			dailyMission: dynamoDailyMissionRepo,
 			evaluation: dynamoEvaluationRepo,
+			graduationConsent: dynamoGraduationConsentRepo,
 			image: dynamoImageRepo,
 			inquiry: dynamoInquiryRepo,
 			loginBonus: dynamoLoginBonusRepo,
@@ -197,6 +202,7 @@ export function getRepos(): Repositories {
 		cloudExport: sqliteCloudExportRepo,
 		dailyMission: sqliteDailyMissionRepo,
 		evaluation: sqliteEvaluationRepo,
+		graduationConsent: sqliteGraduationConsentRepo,
 		image: sqliteImageRepo,
 		inquiry: sqliteInquiryRepo,
 		loginBonus: sqliteLoginBonusRepo,
