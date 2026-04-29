@@ -1715,16 +1715,67 @@ export const SIGNUP_LABELS = {
 export const ANALYTICS_LABELS = {
 	pageTitle: 'アナリティクス - 管理画面',
 	pageHeading: 'アナリティクス',
+	pageDescription:
+		'DynamoDB に蓄積された業務イベントから 4 つの主要指標を可視化します（Pre-PMF Bucket A 範囲）。',
 
-	// #1591 (ADR-0023 I2) — DynamoDB analytics ベースの可視化は follow-up Issue で実装。
-	comingSoonTitle: 'アナリティクス画面は準備中です',
-	comingSoonDescription:
-		'本画面は DynamoDB に蓄積された業務イベント (signup / 初回ログイン / 解約理由) を可視化する形に再構築中です。実装完了までしばらくお待ちください。',
+	// #1639 (#1591 follow-up): DynamoDB ベース 4 種可視化のラベル
 
-	plannedSectionTitle: '実装予定の指標',
-	plannedItemActivationFunnel: 'アクティベーションファネル (signup → 初回ログイン → 7日継続)',
-	plannedItemRetention: 'リテンションコホート (週次・月次)',
-	plannedItemSeanEllis: 'Sean Ellis スコア / 解約理由分布',
+	// 共通
+	periodLabel: '期間',
+	period7d: '直近 7 日',
+	period30d: '直近 30 日',
+	period90d: '直近 90 日',
+	periodWeekly: '週次',
+	periodMonthly: '月次',
+	noDataLabel: 'データがありません',
+	fetchErrorLabel: '取得に失敗しました',
+	fetchedAtLabel: '取得時刻',
+	totalLabel: '合計',
+	countSuffix: '件',
+	tenantSuffix: 'テナント',
+
+	// AC1: Activation funnel
+	activationFunnelHeading: 'アクティベーションファネル',
+	activationFunnelDesc:
+		'signup → 初回子供登録 → 初回活動完了 → 初回報酬演出のテナント単位ユニーク件数。各ステップ間の遷移率を表示します。',
+	activationFunnelStepLabels: {
+		activation_signup_completed: 'signup 完了',
+		activation_first_child_added: '初回子供登録',
+		activation_first_activity_completed: '初回活動完了',
+		activation_first_reward_seen: '初回報酬演出',
+	},
+	activationFunnelConversionLabel: '前ステップからの遷移率',
+	activationFunnelStepHeading: 'ステップ',
+	activationFunnelTenantHeading: 'テナント数',
+
+	// AC2: Retention cohort
+	retentionCohortHeading: 'リテンションコホート',
+	retentionCohortDesc:
+		'サインアップ月別のテナント残存率（Day 1 / 7 / 14 / 30 / 60 / 90 時点）。サンプルが少ない月はサンプル不足として表示されます。',
+	retentionCohortHeading_cohort: 'コホート',
+	retentionCohortHeading_size: 'サイズ',
+	retentionCohortInsufficientSample: 'サンプル不足',
+	retentionCohortDayHeading: (day: number) => `D${day}`,
+	retentionCohortNotYet: '—',
+
+	// AC3: Sean Ellis score
+	seanEllisHeading: 'Sean Ellis スコア (PMF 指標)',
+	seanEllisDesc:
+		'「サービスが使えなくなったらどう感じる？」アンケートで「とても残念」と答えた割合（N/A 除外）。40% 超で PMF 達成判定。',
+	seanEllisRoundLabel: 'round',
+	seanEllisScoreLabel: 'スコア',
+	seanEllisAchieved: 'PMF 達成',
+	seanEllisNotAchieved: '未達成',
+	seanEllisTotalResponses: '回答数',
+	seanEllisOpsLink: 'ops/pmf-survey で詳細を見る',
+
+	// AC4: Cancellation reasons
+	cancellationReasonsHeading: '解約理由分布',
+	cancellationReasonsDesc:
+		'解約フローで取得した理由カテゴリの内訳。卒業 / 離反 / 中断の 3 分類で表示します。',
+	cancellationCategoryHeading: 'カテゴリ',
+	cancellationCountHeading: '件数',
+	cancellationPercentageHeading: '比率',
 } as const;
 
 export const BILLING_LABELS = {
