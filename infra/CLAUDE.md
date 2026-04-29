@@ -1,5 +1,44 @@
 # infra/ — デプロイ手順
 
+## AWS リソース別 region 一覧（SSOT — #1606 / #1649）
+
+本プロジェクトの本番 AWS リソースは **すべて `us-east-1` (米国バージニア北部)** に配置されている。
+過去のドキュメント（設計書 25・runbook 等）に `ap-northeast-1` の記述が残っていたが、これは
+誤記であり、実態は CDK ソースコード (`infra/bin/app.ts` L13-16) で `region: 'us-east-1'` 固定。
+すべての stack (`Storage` / `Auth` / `Compute` / `Network` / `Ops` / `Ses`) が同一 env で deploy される。
+
+| リソース | 種別 | region | 実装箇所 / 確認コマンド |
+|---------|------|--------|---------------------|
+| Lambda (アプリ本体) | `ganbari-quest-app` | `us-east-1` | `infra/lib/compute-stack.ts` / `.github/workflows/deploy.yml` L31 `AWS_REGION: us-east-1` |
+| Lambda (cron-dispatcher) | `ganbari-quest-cron-dispatcher` | `us-east-1` | `infra/lib/compute-stack.ts` L233 (CronDispatcherFn) |
+| Lambda (Cognito custom message) | `ganbari-quest-cognito-custom-message` | `us-east-1` | `infra/lib/auth-stack.ts` L101 |
+| Lambda (SES receive) | `ganbari-quest-ses-*` | `us-east-1` | `infra/lib/ses-stack.ts` |
+| ECR Repository | `ganbari-quest` | `us-east-1` | `infra/lib/storage-stack.ts` L87 (`ecr.Repository(this, 'AppRepo')`) |
+| DynamoDB Table | `ganbari-quest` | `us-east-1` | `infra/lib/storage-stack.ts` |
+| S3 Bucket (assets) | `ganbari-quest-assets-*` | `us-east-1` | `infra/lib/storage-stack.ts` |
+| Cognito User Pool | `ganbari-quest-users-v2` | `us-east-1` | `infra/lib/auth-stack.ts` L43 (UserPoolV2) |
+| Cognito Domain | `auth.ganbari-quest.com` | `us-east-1` | `infra/lib/auth-stack.ts` L128-132（ACM cert は us-east-1 必須） |
+| EventBridge Rules (cron) | `ganbari-quest-cron-*` | `us-east-1` | `infra/lib/compute-stack.ts` L264 |
+| CloudWatch Log Groups | `/aws/lambda/ganbari-quest-*` | `us-east-1` | 全 Lambda が同一 region のため自動的に us-east-1 |
+| CloudFront Distribution | (Edge グローバル) | グローバル / `us-east-1` 制御 | `infra/lib/network-stack.ts`。geoRestriction('JP') 設定あり |
+| Route 53 | `ganbari-quest.com` | グローバル | `infra/lib/network-stack.ts` |
+| ACM Certificate (auth) | `auth.ganbari-quest.com` | `us-east-1` | Cognito custom domain は us-east-1 ACM が必須 (`auth-stack.ts` L128) |
+| SES (送信 / 受信) | `noreply@ganbari-quest.com` | `us-east-1` | `auth-stack.ts` L54 `sesRegion: 'us-east-1'`, `ses-stack.ts` L82 `inbound-smtp.us-east-1.amazonaws.com` |
+| SSM Parameters | `/ganbari-quest/*` | `us-east-1` | 各 stack から SSM 参照（同一 region） |
+| Secrets Manager (license) | `/ganbari-quest/license/secret` | `us-east-1` | `docs/operations/license-key-secrets.md` |
+
+### legitimate な ap-northeast-1 言及（変更不要）
+
+以下は実態と無関係な「テスト fixture / 架空例」のため `ap-northeast-1` 記述は維持する:
+
+- `tests/unit/e2e-helpers/cognito-admin-client.test.ts` — production guard のテストで使用する架空 Pool ID 例
+- `tests/unit/e2e-helpers.test.ts` — execute-api host 検証の URL 例
+
+新たに region 名を文書に書く場合は本表を SSOT として `us-east-1` を使用すること。
+関連 Issue: #1606（LP / 文書間整合）/ #1649（ECR / EventBridge / Cognito 第二次棚卸 — 本表で解消）。
+
+---
+
 ## production 環境変数チェックリスト（#911, #806）
 
 production に新しい env を追加した場合は以下 **4 経路すべて** に配布すること。

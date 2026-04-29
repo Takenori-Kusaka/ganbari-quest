@@ -259,7 +259,7 @@ aws ssm put-parameter \
   --name "/ganbari-quest/prod/FEEDBACK_DISCORD_WEBHOOK_URL" \
   --value "https://discord.com/api/webhooks/XXXXX/YYYYY" \
   --type "SecureString" \
-  --region ap-northeast-1
+  --region us-east-1
 ```
 
 NUC サーバー（ローカル）の場合は `C:\Docker\ganbari-quest\.env` に追記:
