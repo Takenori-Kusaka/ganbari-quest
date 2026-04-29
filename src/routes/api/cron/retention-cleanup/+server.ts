@@ -33,8 +33,22 @@ export const POST: RequestHandler = async ({ request }) => {
 		// ボディなしでも可
 	}
 
+	logger.info('[retention-cleanup] endpoint started', {
+		service: 'retention-cleanup',
+		context: { dryRun },
+	});
+
 	try {
 		const result = await cleanupExpiredData({ dryRun });
+		logger.info('[retention-cleanup] endpoint completed', {
+			service: 'retention-cleanup',
+			context: {
+				dryRun,
+				tenantsProcessed: result.tenantsProcessed,
+				childrenProcessed: result.childrenProcessed,
+				activityLogsDeleted: result.activityLogsDeleted,
+			},
+		});
 		return json({
 			ok: true,
 			dryRun,

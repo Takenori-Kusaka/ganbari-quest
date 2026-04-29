@@ -21,6 +21,10 @@ export const POST: RequestHandler = async ({ request }) => {
 	const authError = verifyCronAuth(request);
 	if (authError) return authError;
 
+	logger.info('[trial-notifications] endpoint started', {
+		service: 'trial-notifications',
+	});
+
 	try {
 		const body = (await request.json().catch(() => ({}))) as {
 			tenantIds?: string[];
@@ -37,7 +41,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const result = await processTrialNotifications(tenantIds);
 
-		logger.info('[trial-notifications] cron completed', {
+		logger.info('[trial-notifications] endpoint completed', {
+			service: 'trial-notifications',
 			context: { ...result, totalTenants: tenantIds.length },
 		});
 

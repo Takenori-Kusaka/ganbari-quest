@@ -2,42 +2,32 @@
 // #821: 期限切れライセンスキー自動失効バッチのクロンエンドポイント
 //
 // EventBridge (Scheduled Rule, 日次 JST 00:00) または手動実行から呼ばれる。
-// 認証は CRON_SECRET の Bearer token で行う (ADR-0033、retention-cleanup と同じパターン)。
-// 移行期間中は後方互換で OPS_SECRET_KEY も許可する。
+// 認証は verifyCronAuth (`$lib/server/auth/cron-auth.ts`) を使用。
+// `Authorization: Bearer <CRON_SECRET>` と `x-cron-secret: <CRON_SECRET>` の
+// 両ヘッダを受け入れる (#1377 Sub A-3 で統一)。
+// 移行期間中は後方互換で OPS_SECRET_KEY も許可する (ADR-0033 archive)。
 //
 // 使い方:
 //   POST /api/cron/license-expire
-//   Authorization: Bearer <CRON_SECRET>
+//   Authorization: Bearer <CRON_SECRET>     # AWS cron-dispatcher
+//   または
+//   x-cron-secret: <CRON_SECRET>            # NUC scheduler / 既存テスト
 //   Body (任意): { "dryRun": true }
 //
 // レスポンス:
 //   200 { ok: true, scanned, revoked, failures, dryRun }
 //   401 Unauthorized
-//   404 Not Found (CRON_SECRET / OPS_SECRET_KEY のいずれも未設定時)
-//   500 Internal Error
+//   500 Internal Error / CRON_SECRET 未設定 (本番)
 
-import { error, json } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
+import { verifyCronAuth } from '$lib/server/auth/cron-auth';
 import { logger } from '$lib/server/logger';
 import { expireLicenseKeys } from '$lib/server/services/license-key-service';
 import type { RequestHandler } from './$types';
 
-function checkAuth(request: Request): void {
-	const cronSecret = process.env.CRON_SECRET;
-	const legacySecret = process.env.OPS_SECRET_KEY;
-	const accepted = [cronSecret, legacySecret].filter((v): v is string => !!v);
-	if (accepted.length === 0) {
-		error(404, 'Not Found');
-	}
-
-	const authHeader = request.headers.get('Authorization');
-	const authorized = accepted.some((s) => authHeader === `Bearer ${s}`);
-	if (!authorized) {
-		error(401, 'Unauthorized');
-	}
-}
-
 export const POST: RequestHandler = async ({ request }) => {
-	checkAuth(request);
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 
 	let dryRun = false;
 	try {
@@ -49,6 +39,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	try {
 		const result = await expireLicenseKeys({ dryRun });
+		logger.info('[license-expire] endpoint completed', {
+			service: 'license-expire',
+			context: { scanned: result.scanned, revoked: result.revoked, dryRun },
+		});
 		return json({ ok: true, ...result });
 	} catch (e) {
 		logger.error('[license-expire] endpoint failed', {
@@ -63,7 +57,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 // GET も許容（ヘルスチェック用、dry-run 実行）
 export const GET: RequestHandler = async ({ request }) => {
-	checkAuth(request);
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
 	try {
 		const result = await expireLicenseKeys({ dryRun: true });
 		return json({ ok: true, ...result });
