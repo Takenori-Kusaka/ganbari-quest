@@ -126,6 +126,8 @@ gh issue view <X> --repo Takenori-Kusaka/ganbari-quest
 
 #### スクリーンショットが不足 / 撮り直しが必要な場合
 
+> **頻発する問題は KB を参照**: `docs/troubleshoot/screenshot_capture.md` (SC-NNN 連番) に既知の罠 (`MSYS_NO_PATHCONV` 不在 / フル URL 二重結合 / `/demo/*` 不可 / DB seed redirect / port 衝突 等) の解決手順を集約。Re-capture 依頼前に同 KB を grep で参照し、再現エラーが該当する場合は既存手順を踏襲する。
+
 `scripts/capture.mjs` を使う。独自の Playwright スクリプトや手動でサーバーを起動する作業は不要。
 
 ```bash
