@@ -1,0 +1,18 @@
+{
+	"rules": {
+		"preset-ja-technical-writing": {
+			"sentence-length": { "max": 100 },
+			"max-ten": { "max": 3 },
+			"no-mix-dearu-desumasu": true,
+			"ja-no-weak-phrase": true,
+			"ja-no-redundant-expression": true,
+			"ja-no-abusage": true,
+			"ja-no-successive-word": false
+		},
+		"preset-jtf-style": true,
+		"preset-ja-spacing": {
+			"ja-space-between-half-and-full-width": { "space": "always" }
+		},
+		"prh": { "rulePaths": ["./prh.yml"] }
+	}
+}
